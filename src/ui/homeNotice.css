@@ -1,0 +1,17 @@
+#home-notice {
+  position: fixed;
+  left: 50%;
+  top: 30%;
+  transform: translateX(-50%);
+  font-size: 44px;
+  font-weight: bold;
+  color: #fff;
+  -webkit-text-stroke: 6px #3a2a66;
+  paint-order: stroke fill;
+  text-shadow: 0 3px 0 #3a2a66;
+  pointer-events: none;
+  z-index: 7;
+}
+#home-notice[hidden] {
+  display: none;
+}

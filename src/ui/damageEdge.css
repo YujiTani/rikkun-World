@@ -1,0 +1,8 @@
+/* ふちだけ（中央は透明）。opacity は JS で 0〜0.25 */
+#damage-edge {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: inset 0 0 140px 50px #ff7a9a;
+  z-index: 4;
+}

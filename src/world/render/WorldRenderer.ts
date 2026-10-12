@@ -99,6 +99,11 @@ export class WorldRenderer {
     return n;
   }
 
+  /** 絵の材料（昼夜の明るさを渡すために登録する用） */
+  materials(): MeshBasicMaterial[] {
+    return [this.opaqueMaterial, this.waterMaterial];
+  }
+
   /** メッシュの数（描画回数の目安） */
   meshCount(): number {
     let n = 0;

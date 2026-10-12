@@ -678,8 +678,6 @@ test.describe('M2 持ち物', () => {
 });
 
 test.describe('M2 AC30(d) rarity', () => {
-  // 既知の不具合（台帳 M2 周=1 test 参照）: settings.set は Record の値に数か null しか許さず、rarity（文字）を書けない。直ったら test.fail を外す
-  test.fail();
   test('AC30(d): settings.set(rarity) で dirt を superRare にすると いつも 1', async ({ page }) => {
     await open(page);
     const r = await page.evaluate(() => {

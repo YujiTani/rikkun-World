@@ -597,3 +597,48 @@ describe('ドロップ数（めずらしさ）', () => {
     expect(ev).toMatchObject({ gotItem: false, count: 0 });
   });
 });
+
+describe('空振り', () => {
+  it('何もねらっていない所で押した瞬間に1回、押しっぱなしは0.5秒ごと', () => {
+    const r = new Rig();
+    expect(r.dig.target()).toBeNull();
+    expect(r.dig.whiffCount()).toBe(0);
+    r.press('primary');
+    r.step(1);
+    expect(r.dig.whiffCount()).toBe(1);
+    r.step(29);
+    expect(r.dig.whiffCount()).toBe(1);
+    r.step(1);
+    expect(r.dig.whiffCount()).toBe(2);
+    r.release('primary');
+    r.step(1);
+    r.press('primary');
+    r.step(1);
+    expect(r.dig.whiffCount()).toBe(3);
+  });
+  it('右クリックも押した瞬間に1回（押しっぱなしでは増えない）', () => {
+    const r = new Rig();
+    r.press('secondary');
+    r.step(1);
+    expect(r.dig.whiffCount()).toBe(1);
+    r.step(60);
+    expect(r.dig.whiffCount()).toBe(1);
+  });
+  it('ブロックをねらっているときは空振りにしない', () => {
+    const r = new Rig();
+    r.player.pitchDeg = -80;
+    r.step(1);
+    expect(r.dig.target()).not.toBeNull();
+    r.press('primary');
+    r.press('secondary');
+    r.step(40);
+    expect(r.dig.whiffCount()).toBe(0);
+  });
+  it('ロックなしでは振らない', () => {
+    const r = new Rig();
+    r.enabled = false;
+    r.press('primary');
+    r.step(5);
+    expect(r.dig.whiffCount()).toBe(0);
+  });
+});

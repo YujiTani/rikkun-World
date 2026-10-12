@@ -16,7 +16,7 @@
 #notice-name {
   position: fixed;
   left: 50%;
-  bottom: calc(max(64px, 5.2vw) + 40px);
+  bottom: calc(max(64px, 5.2vw) + 130px);
   transform: translateX(-50%);
   font-size: 28px;
   font-weight: bold;

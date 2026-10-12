@@ -4,6 +4,7 @@ import { ArrayVoxelWorld } from '../world/VoxelWorld';
 import { generateIsland } from '../world/gen/generateIsland';
 import {
   SaveManager,
+  type SaveBags,
   isBodyPlaceable,
   parseSaveOptions,
   saveKey,
@@ -30,7 +31,7 @@ class MemoryStore implements KeyValueStore {
 const SEED = 12345;
 
 /** 1 回のページ表示に当たるもの（世界・持ち物・プレイヤー・保存係）を作る */
-function session(store: KeyValueStore | null, ticks = { n: 0 }) {
+function session(store: KeyValueStore | null, ticks = { n: 0 }, bags?: SaveBags) {
   const world = new ArrayVoxelWorld();
   const island = generateIsland(SEED, world);
   const baseline = snapshotWorld(world);
@@ -77,6 +78,7 @@ function session(store: KeyValueStore | null, ticks = { n: 0 }) {
     store,
     tick: () => ticks.n,
     settings: { saveIntervalTicks: 600 },
+    bags,
   });
   return { world, island, save, state, inventory, ticks, isThird: () => third, setThird: (t: boolean) => (third = t) };
 }
@@ -270,5 +272,44 @@ describe('住所の設定', () => {
   it('reset だけを消す', () => {
     expect(stripResetParam('http://localhost:5173/?seed=3&reset=1')).toBe('/?seed=3');
     expect(stripResetParam('http://localhost:5173/?reset=1')).toBe('/');
+  });
+});
+
+describe('SaveManager: おとしもの ぶくろ（M3 §2.10）', () => {
+  function fakeBags(initial: Array<{ ticksLeft: number } & Record<string, unknown>>) {
+    const b = {
+      list: initial,
+      serialize: () => b.list.map((x) => ({ ...x })),
+      deserialize: (d: unknown) => {
+        b.list = (d as typeof initial) ?? [];
+      },
+    };
+    return b;
+  }
+
+  it('保存して開き直すと ふくろが戻る', () => {
+    const store = new MemoryStore();
+    const bag = { x: 6.5, y: 9, z: 6.5, item: 'dirt', count: 3, ticksLeft: 30000 };
+    const a = session(store, { n: 0 }, fakeBags([bag]));
+    a.save.now();
+    const fb = fakeBags([]);
+    const b = session(store, { n: 0 }, fb);
+    expect(b.save.load()).toBe(true);
+    expect(fb.list).toEqual([bag]);
+  });
+
+  it('のこりステップだけが変わっても「変わった」とは数えない', () => {
+    const store = new MemoryStore();
+    const fb = fakeBags([{ x: 1, y: 2, z: 3, item: 'dirt', count: 1, ticksLeft: 100 }]);
+    const ticks = { n: 0 };
+    const a = session(store, ticks, fb);
+    a.save.now();
+    const first = store.data.get(saveKey(SEED));
+    fb.list[0]!.ticksLeft = 50;
+    a.save.saveIfChanged();
+    expect(store.data.get(saveKey(SEED))).toBe(first);
+    fb.list = [];
+    a.save.saveIfChanged();
+    expect(store.data.get(saveKey(SEED))).not.toBe(first);
   });
 });

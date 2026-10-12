@@ -1,4 +1,5 @@
 import type { ItemId } from '../contracts';
+import { isMaterialItem, materialPixels } from './itemArt';
 import { BLOCK_TILES, TILE_SIZE, getTilePixels, type Rgba, type TileName } from '../world/blocks/textures';
 
 /** 16x16 のドット絵（コードで描く）。pixels[y * 16 + x]、y = 0 が上 */
@@ -9,9 +10,47 @@ const RED: Rgba = [0xe5, 0x39, 0x35, 255];
 
 /** アイテムの絵 = ブロックの横の面の 16x16 */
 export function itemIconPixels(item: ItemId): Pixels {
-  const tiles = BLOCK_TILES[item];
+  if (item === 'yokai_orb') return orbPixels();
+  if (isMaterialItem(item)) return materialPixels(item);
+  const tiles = item in BLOCK_TILES ? BLOCK_TILES[item as keyof typeof BLOCK_TILES] : undefined;
   const name: TileName = tiles ? tiles[2] : 'stone';
   return getTilePixels(name).slice();
+}
+
+const ORB: Record<string, Rgba> = {
+  '.': [0, 0, 0, 0],
+  O: [0x6b, 0x3f, 0xa8, 255], // ふち（こいむらさき）
+  P: [0x9c, 0x6a, 0xde, 255], // むらさき #9C6ADE
+  W: [255, 255, 255, 255], // つや
+  K: [0x11, 0x11, 0x11, 255], // 目
+  M: [0x5a, 0x2d, 0x91, 255], // くち
+};
+
+/** ようかいだま: むらさきの丸・左上に白いつや・黒い点の目 2 こ（にこにこ） */
+const ORB_ROWS = [
+  '................',
+  '.....OOOOOO.....',
+  '...OOPPPPPPOO...',
+  '..OPWWPPPPPPPO..',
+  '..OPWPPPPPPPPO..',
+  '.OPPPPPPPPPPPPO.',
+  '.OPPPPPPPPPPPPO.',
+  '.OPPPKKPPKKPPPO.',
+  '.OPPPKKPPKKPPPO.',
+  '.OPPPPPPPPPPPPO.',
+  '.OPPPMPPPPMPPPO.',
+  '..OPPPMMMMPPPO..',
+  '..OOPPPPPPPPOO..',
+  '...OOOPPPPOOO...',
+  '.....OOOOOO.....',
+  '................',
+];
+
+/** ようかいだま の 16x16（アイテムの絵） */
+export function orbPixels(): Pixels {
+  const p: Pixels = [];
+  for (const row of ORB_ROWS) for (const ch of row) p.push(ORB[ch] ?? CLEAR);
+  return p;
 }
 
 function blank(): Pixels {
