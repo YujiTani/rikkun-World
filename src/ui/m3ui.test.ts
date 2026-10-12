@@ -144,3 +144,18 @@ describe('材料のアイテムの絵', () => {
     expect(seen.size).toBe(6);
   });
 });
+
+import { createTimeSettings } from '../time/config';
+import { clockBodyPose } from './clockModel';
+
+describe('時計の絵の動き', () => {
+  it('東（右）からのぼり、昼にてっぺん、西（左）へ。夜はおつきさま', () => {
+    const s = createTimeSettings();
+    expect(clockBodyPose(0, s).x).toBeCloseTo(1);
+    expect(clockBodyPose(29700, s).y).toBeCloseTo(1, 1);
+    expect(clockBodyPose(59000, s).x).toBeLessThan(-0.9);
+    expect(clockBodyPose(59000, s).body).toBe('sun');
+    expect(clockBodyPose(65000, s).body).toBe('moon');
+    expect(clockBodyPose(65000, s).x).not.toBeCloseTo(clockBodyPose(80000, s).x);
+  });
+});

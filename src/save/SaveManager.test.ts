@@ -31,7 +31,7 @@ class MemoryStore implements KeyValueStore {
 const SEED = 12345;
 
 /** 1 回のページ表示に当たるもの（世界・持ち物・プレイヤー・保存係）を作る */
-function session(store: KeyValueStore | null, ticks = { n: 0 }, bags?: SaveBags) {
+function session(store: KeyValueStore | null, ticks = { n: 0 }, bags?: SaveBags, clock?: { t: number; d: number }) {
   const world = new ArrayVoxelWorld();
   const island = generateIsland(SEED, world);
   const baseline = snapshotWorld(world);
@@ -79,6 +79,12 @@ function session(store: KeyValueStore | null, ticks = { n: 0 }, bags?: SaveBags)
     tick: () => ticks.n,
     settings: { saveIntervalTicks: 600 },
     bags,
+    clock: clock && {
+      dayTick: () => clock.t,
+      day: () => clock.d,
+      set: (n: number) => void (clock.t = n),
+      setDay: (n: number) => void (clock.d = n),
+    },
   });
   return { world, island, save, state, inventory, ticks, isThird: () => third, setThird: (t: boolean) => (third = t) };
 }
@@ -311,5 +317,40 @@ describe('SaveManager: おとしもの ぶくろ（M3 §2.10）', () => {
     fb.list = [];
     a.save.saveIfChanged();
     expect(store.data.get(saveKey(SEED))).not.toBe(first);
+  });
+});
+
+describe('SaveManager 時刻', () => {
+  it('時刻と何日目が続きから始まる', () => {
+    const store = new MemoryStore();
+    session(store, undefined, undefined, { t: 5000, d: 3 }).save.now();
+    const c = { t: 1, d: 1 };
+    expect(session(store, undefined, undefined, c).save.load()).toBe(true);
+    expect(c).toEqual({ t: 5000, d: 3 });
+  });
+
+  it('古い保存（時刻なし）は昼の始まり', () => {
+    const store = new MemoryStore();
+    session(store).save.now();
+    const c = { t: 9, d: 9 };
+    expect(session(store, undefined, undefined, c).save.load()).toBe(true);
+    expect(c).toEqual({ t: 0, d: 0 });
+  });
+
+  it('時刻だけの変化では書かず、ページをかくすときは書く', () => {
+    const store = new MemoryStore();
+    const c = { t: 100, d: 0 };
+    const a = session(store, undefined, undefined, c);
+    a.save.now();
+    const before = [...store.data.values()][0];
+    c.t = 900;
+    a.save.saveIfChanged();
+    expect([...store.data.values()][0]).toBe(before);
+    const handlers: Array<() => void> = [];
+    const win = { addEventListener: (_: string, f: () => void) => handlers.push(f), removeEventListener: () => {} };
+    const doc = { hidden: false, addEventListener: () => {}, removeEventListener: () => {} };
+    a.save.bindPageEvents(win as unknown as Window, doc as unknown as Document);
+    handlers[0]();
+    expect([...store.data.values()][0]).toContain('"dayTick":900');
   });
 });

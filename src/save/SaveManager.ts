@@ -37,6 +37,14 @@ export interface SaveExtra {
   deserialize(data: unknown): void;
 }
 
+/** 1 日の時刻の出し入れ（TimeOfDayImpl が合う） */
+export interface SaveClock {
+  dayTick(): number;
+  day(): number;
+  set(dayTick: number): void;
+  setDay(day: number): void;
+}
+
 export interface SaveDeps {
   world: SaveWorld;
   seed: number;
@@ -56,6 +64,8 @@ export interface SaveDeps {
   furnaces?: SaveExtra;
   /** M4: 着ている防具 */
   armor?: SaveExtra;
+  /** 時刻と何日目。なければ保存しない */
+  clock?: SaveClock;
 }
 
 export interface SaveInfo {
@@ -108,6 +118,7 @@ const round = (n: number) => Math.round(n * 1000) / 1000;
 export class SaveManager {
   private lastBody: string | null = null;
   private lastCheckTick = 0;
+  private lastTimeKey = '';
   private infoState: SaveInfo;
 
   constructor(private readonly d: SaveDeps) {
@@ -168,7 +179,9 @@ export class SaveManager {
       } catch {
         this.d.armor?.deserialize(null);
       }
+      this.restoreTime(data.time);
       this.lastBody = this.makeBody().body;
+      this.lastTimeKey = this.timeKey();
       this.infoState.changedBlocks = blocks.length / 2;
       return true;
     } catch {
@@ -211,7 +224,7 @@ export class SaveManager {
 
   /** ページを閉じる・かくれるときに保存する。戻り値で解除 */
   bindPageEvents(win: Window, doc: Document): () => void {
-    const onHide = () => this.saveIfChanged();
+    const onHide = () => this.write(false, true);
     const onVisibility = () => {
       if (doc.hidden) onHide();
     };
@@ -221,6 +234,27 @@ export class SaveManager {
       win.removeEventListener('pagehide', onHide);
       doc.removeEventListener('visibilitychange', onVisibility);
     };
+  }
+
+  private timeKey(): string {
+    const c = this.d.clock;
+    return c ? `${c.day()}:${c.dayTick()}` : '';
+  }
+
+  /** 古い保存（time なし）や こわれた値は 昼の始まり */
+  private restoreTime(raw: unknown): void {
+    const c = this.d.clock;
+    if (!c) return;
+    const t = raw as { day?: unknown; dayTick?: unknown } | null | undefined;
+    const day = Number(t?.day);
+    const tick = Number(t?.dayTick);
+    if (t && Number.isInteger(day) && day >= 0 && Number.isFinite(tick) && tick >= 0) {
+      c.setDay(day);
+      c.set(tick);
+    } else {
+      c.setDay(0);
+      c.set(0);
+    }
   }
 
   private restorePlayer(raw: unknown): void {
@@ -274,16 +308,20 @@ export class SaveManager {
     return { body: make(bagsKey), full: make(bagsFull), changed: blocks.length / 2 };
   }
 
-  private write(force: boolean): void {
+  private write(force: boolean, flushTime = false): void {
     const store = this.d.store;
     if (!store) return;
     const t0 = performance.now();
     this.lastCheckTick = this.d.tick(); // 「前の保存から 600 ステップ」の数え始め
     try {
       const { body, full, changed } = this.makeBody();
-      if (!force && body === this.lastBody) return;
+      const timeKey = this.timeKey();
+      if (!force && body === this.lastBody && !(flushTime && timeKey !== this.lastTimeKey)) return;
       const tick = this.d.tick();
-      const text = `${full.slice(0, -1)},"tick":${tick}}`;
+      const c = this.d.clock;
+      const timeText = c ? `,"time":{"day":${c.day()},"dayTick":${c.dayTick()}}` : '';
+      const text = `${full.slice(0, -1)}${timeText},"tick":${tick}}`;
+      this.lastTimeKey = timeKey;
       store.setItem(saveKey(this.d.seed), text);
       this.lastBody = body;
       this.infoState = {
