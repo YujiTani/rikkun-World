@@ -1,0 +1,54 @@
+import { describe, expect, it } from 'vitest';
+import { itemRarity } from '../drops/rarity';
+import { ITEM_TYPES } from '../inventory/items';
+import { contrastRatio, parseCssColor } from './theme/colorMath';
+import { PALETTE_HEX } from './theme/palette';
+import { CATEGORY_ITEMS, ITEM_CATEGORIES, categoryVar, itemCategory, rarityIndex } from './itemCategory';
+import { GEM_SHAPES, gemPixels, gemShape } from './gemArt';
+
+const rgb = (h: string) => parseCssColor(`rgb(${parseInt(h.slice(1, 3), 16)}, ${parseInt(h.slice(3, 5), 16)}, ${parseInt(h.slice(5, 7), 16)})`)!;
+
+describe('マスの カテゴリー（§3.5 (7)）', () => {
+  it('12 カテゴリーで 40 こ（ようかいだま 込み）。同じ id が 2 つの カテゴリーに無い', () => {
+    expect(ITEM_CATEGORIES.length).toBe(12);
+    const all = ITEM_CATEGORIES.flatMap((c) => CATEGORY_ITEMS[c]);
+    expect(all.length).toBe(40);
+    expect(new Set(all).size).toBe(40);
+  });
+  it('今ある全アイテムが 表にある（たんす は D が足す）。表に無いものは そざい', () => {
+    for (const t of ITEM_TYPES) expect(CATEGORY_ITEMS[itemCategory(t.id)], t.id).toContain(t.id);
+    expect(itemCategory('zzz')).toBe('material');
+    expect(itemCategory('katana')).toBe('weapon');
+    expect(itemCategory('tansu')).toBe('home');
+  });
+  it('色は 変数 --rk-cat-* にあり、白との明るさの比が 4.5 以上', () => {
+    const white = rgb('#ffffff');
+    for (const c of ITEM_CATEGORIES) {
+      const hex = PALETTE_HEX[categoryVar(c)];
+      expect(hex, c).toBeTruthy();
+      expect(contrastRatio(white, rgb(hex)), c).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+  it('めずらしさ → 0〜3', () => {
+    expect(rarityIndex(itemRarity('dirt'))).toBe(0);
+    expect(rarityIndex(itemRarity('crystal'))).toBe(3);
+  });
+});
+
+describe('宝石の印', () => {
+  it('4 つの形は ぜんぶちがい、16×16 の中に収まる（ふちが切れない）', () => {
+    const seen = new Set<string>();
+    for (let r = 0; r < 4; r++) {
+      const px = gemPixels(r);
+      expect(px.length).toBe(256);
+      expect(gemShape(r)).toBe(GEM_SHAPES[r]);
+      const solid = px.filter((p) => p[3] > 0);
+      expect(solid.length).toBeGreaterThan(40);
+      for (let i = 0; i < 16; i++) {
+        for (const [x, y] of [[i, 0], [i, 15], [0, i], [15, i]]) expect(px[y * 16 + x][3] === 0 || px[y * 16 + x][0] === 0x10, `${r}:${x},${y}`).toBe(true);
+      }
+      seen.add(px.map((p) => p[3] > 0 && p[0] === 0x10 ? 'o' : p[3] > 0 ? 'f' : '.').join(''));
+    }
+    expect(seen.size).toBe(4);
+  });
+});

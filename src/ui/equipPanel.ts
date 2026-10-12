@@ -11,7 +11,7 @@ export interface ArmorUi extends ArmorSystem {
   click?(slot: ArmorSlot): void;
 }
 
-/** そうびのマス 4 つ（あたま・からだ・うで・あし）。人形の形のわくで、ホットバーの左に出す（M4 §2.7） */
+/** そうびのマス 4 つ（あたま・からだ・うで・あし）。持ち物の上に 横 1 列で出す（M6 §3.6 (2)。M4 の人形のわくから 変えた） */
 export class EquipPanel {
   readonly el: HTMLDivElement;
   private readonly cells: Record<ArmorSlot, SlotEls>;
@@ -38,7 +38,17 @@ export class EquipPanel {
       return c;
     };
     this.cells = { head: mk('head', 'あたま'), body: mk('body', 'からだ'), arms: mk('arms', 'うで'), legs: mk('legs', 'あし') };
-    doll.append(this.cells.head.root, this.cells.arms.root, this.cells.body.root, this.cells.legs.root);
+    // 左から あたま・からだ・うで・あし。マスの下に 小さな 部位の印（文字 16px）
+    const labels: Record<ArmorSlot, string> = { head: 'あたま', body: 'からだ', arms: 'うで', legs: 'あし' };
+    for (const slot of ['head', 'body', 'arms', 'legs'] as ArmorSlot[]) {
+      const cell = document.createElement('div');
+      cell.className = 'equip-cell';
+      const mark = document.createElement('div');
+      mark.className = 'equip-label';
+      mark.textContent = labels[slot];
+      cell.append(this.cells[slot].root, mark);
+      doll.append(cell);
+    }
     this.el.append(doll);
     this.update();
   }

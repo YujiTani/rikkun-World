@@ -78,6 +78,8 @@ export const GUIDE_TABS: Record<GuideTabId, { label: string; icon: string; capti
       'かなづち が でたら つくれる',
       'かまど に みぎクリック で やく',
       'ねんりょう は せきたん・あぶら・き',
+      'Q で すてる',
+      'たんす に しまう',
     ],
   },
 };

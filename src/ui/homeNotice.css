@@ -1,14 +1,18 @@
+/* スタートに もどったよ: 表示の大きさのチップ（点滅なし） */
 #home-notice {
   position: fixed;
   left: 50%;
   top: 30%;
   transform: translateX(-50%);
-  font-size: 44px;
-  font-weight: bold;
-  color: #fff;
-  -webkit-text-stroke: 6px #3a2a66;
-  paint-order: stroke fill;
-  text-shadow: 0 3px 0 #3a2a66;
+  padding: var(--rk-sp-2) var(--rk-sp-5);
+  font-size: var(--rk-fs-title);
+  font-weight: 800;
+  line-height: var(--rk-lh);
+  white-space: nowrap;
+  color: var(--rk-text);
+  background: var(--rk-hud-bg);
+  border-left: var(--rk-bw-sel) solid var(--rk-info);
+  border-radius: var(--rk-r-pill);
   pointer-events: none;
   z-index: 7;
 }

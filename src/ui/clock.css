@@ -1,19 +1,26 @@
+/* C 時計: 右上（はしから 24px）。まるい文字盤＋ `3 にちめ`（本文） */
 #clock {
   position: fixed;
-  top: 16px;
-  right: 16px;
-  width: 48px;
-  height: 48px;
-  box-sizing: border-box;
-  border-radius: 50%;
-  border: 4px solid #fff;
-  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.5);
+  top: var(--rk-sp-5);
+  right: var(--rk-sp-5);
+  display: flex;
+  align-items: center;
+  gap: var(--rk-sp-2);
+  padding: var(--rk-sp-2) var(--rk-sp-3);
+  background: var(--rk-hud-bg);
+  border-radius: var(--rk-r-m);
   pointer-events: none;
   z-index: 5;
 }
-
-#clock {
+#clock .clock-dial {
+  position: relative;
+  flex: none;
+  width: var(--rk-sp-7);
+  height: var(--rk-sp-7);
+  box-sizing: border-box;
   overflow: hidden;
+  border-radius: 50%;
+  border: var(--rk-bw-sel) solid var(--rk-text);
 }
 #clock .clock-body {
   position: absolute;
@@ -23,5 +30,20 @@
   height: 14px;
   margin: -7px 0 0 -7px;
   border-radius: 50%;
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.6);
+  box-shadow: 0 0 0 2px rgb(255 255 255 / 60%);
+}
+#clock .clock-day {
+  font-size: var(--rk-fs-body);
+  font-weight: 500;
+  line-height: var(--rk-lh);
+  font-variant-numeric: tabular-nums;
+  color: var(--rk-text);
+  text-shadow:
+    2px 0 0 var(--rk-bg-900),
+    -2px 0 0 var(--rk-bg-900),
+    0 2px 0 var(--rk-bg-900),
+    0 -2px 0 var(--rk-bg-900);
+}
+#clock .clock-day[hidden] {
+  display: none;
 }

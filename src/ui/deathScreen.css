@@ -1,10 +1,11 @@
+/* やられた画面: 白くなる（M3 のまま 1 回だけ）＋ 真ん中のカード。赤い色は 文字の下線だけ（こわくない） */
 #death-screen {
   position: fixed;
   inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, var(--white, 0));
+  background: rgb(255 255 255 / var(--white, 0));
   pointer-events: none;
   z-index: 8;
 }
@@ -16,16 +17,30 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
+  gap: var(--rk-sp-4);
+  min-width: calc(480 / 12.8 * 1vw);
+  padding: var(--rk-sp-6) var(--rk-sp-6) var(--rk-sp-5);
+  background: var(--rk-bg-800);
+  border: var(--rk-bw) solid var(--rk-line);
+  border-radius: var(--rk-r-l);
+  box-shadow: var(--rk-shadow-2);
+  color: var(--rk-text);
 }
 .death-face {
-  width: 128px;
-  height: 128px;
+  width: calc(128 / 12.8 * 1vw);
+  height: calc(128 / 12.8 * 1vw);
   image-rendering: pixelated;
 }
 .death-text {
-  font-size: 48px;
-  font-weight: bold;
-  color: #3a2a66;
-  text-shadow: 0 2px 0 #fff, 0 0 8px #fff;
+  font-size: var(--rk-fs-display);
+  font-weight: 800;
+  line-height: var(--rk-lh);
+  color: var(--rk-text);
+  text-decoration: underline;
+  text-decoration-color: var(--rk-ng);
+  text-decoration-thickness: var(--rk-bw-sel);
+  text-underline-offset: var(--rk-sp-1);
+}
+.death-bar {
+  align-self: stretch;
 }

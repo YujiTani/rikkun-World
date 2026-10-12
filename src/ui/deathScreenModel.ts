@@ -9,6 +9,8 @@ export const DEATH_VIEW = {
   fadeOutSeconds: 0.5,
   /** `スタートに もどったよ` を出す秒 */
   homeNoticeSeconds: 2,
+  /** やられてから 復活するまで（秒。のこり時間のバー用。戦闘の respawnDelayTicks 120 と同じ） */
+  deadSeconds: 2,
 } as const;
 
 export const DEATH_TEXT = 'やられちゃった…';
@@ -52,6 +54,11 @@ export class DeathScreenModel {
     if (this.mode === 'off') return 0;
     if (this.mode === 'dead') return V.maxWhite * Math.min(1, this.t / V.fadeInSeconds);
     return this.fadeFrom * Math.max(0, 1 - this.t / V.fadeOutSeconds);
+  }
+  /** やられてから 復活までの 進み 0〜1（のこり時間のバー） */
+  progress(): number {
+    if (this.mode !== 'dead') return 0;
+    return Math.min(1, this.t / DEATH_VIEW.deadSeconds);
   }
   /** `やられちゃった…` を出すか */
   showText(): boolean {

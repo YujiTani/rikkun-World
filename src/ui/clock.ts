@@ -7,6 +7,11 @@ import './clock.css';
 export class Clock {
   readonly el: HTMLDivElement;
   readonly body: HTMLDivElement;
+  /** まるい文字盤（空の色の円）。`#clock` は C「時計」のかたまり全体 */
+  readonly dial: HTMLDivElement;
+  /** `3 にちめ`（日の数がわかるとき） */
+  readonly dayEl: HTMLSpanElement;
+  private shownDay = -1;
   private shown: DayPhase | null = null;
   private shownBody = '';
   private shownPos = '';
@@ -15,9 +20,15 @@ export class Clock {
     this.el = document.createElement('div');
     this.el.id = 'clock';
     this.el.setAttribute('aria-hidden', 'true');
+    this.dial = document.createElement('div');
+    this.dial.className = 'clock-dial';
     this.body = document.createElement('div');
     this.body.className = 'clock-body';
-    this.el.append(this.body);
+    this.dial.append(this.body);
+    this.dayEl = document.createElement('span');
+    this.dayEl.className = 'clock-day';
+    this.dayEl.hidden = true;
+    this.el.append(this.dial, this.dayEl);
     parent.append(this.el);
   }
 
@@ -25,11 +36,16 @@ export class Clock {
     if (phase === this.shown) return;
     this.shown = phase;
     this.el.dataset.phase = phase;
-    this.el.style.background = CLOCK_SKY[phase];
+    this.dial.style.background = CLOCK_SKY[phase];
   }
 
-  /** 1 日の時刻に合わせて絵を動かす（毎ステップ呼んでよい。かわったときだけ DOM を書く） */
-  setTime(dayTick: number, settings: TimeSettings): void {
+  /** 1 日の時刻に合わせて絵を動かす。day は `N にちめ` の N（1 から。つなぎ込みが time.day()+1 を渡す）（毎ステップ呼んでよい。かわったときだけ DOM を書く） */
+  setTime(dayTick: number, settings: TimeSettings, day?: number): void {
+    if (day !== undefined && day !== this.shownDay) {
+      this.shownDay = day;
+      this.dayEl.textContent = `${day} にちめ`;
+      this.dayEl.hidden = false;
+    }
     const p = clockBodyPose(dayTick, settings);
     if (p.body !== this.shownBody) {
       this.shownBody = p.body;
