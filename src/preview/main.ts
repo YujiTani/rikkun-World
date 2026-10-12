@@ -1,10 +1,13 @@
 import * as THREE from 'three';
-import { FIXED_DT, PreviewController, SKY_COLOR } from './controller';
+import { FIXED_DT, PreviewController, SKY_COLOR, STAIR_X } from './controller';
+import { Chochin } from '../yokai';
 import type { PreviewMotion } from './controller';
 import type { PreviewHook } from './hook';
 
 const FOV = 38;
-const TARGET = new THREE.Vector3(-1.5, 1.2, 0);
+const TARGET = new THREE.Vector3(-2, 1.2, 0);
+/** 0 = ふだん、1 = 攻撃のとき（前 8 ブロックまで入るように引く） */
+let pull = 0;
 
 const container = document.getElementById('game')!;
 const labelsEl = document.getElementById('labels')!;
@@ -46,10 +49,11 @@ function resize(): void {
   renderer.setSize(w, h);
   camera.aspect = w / h;
   // 左はし（人形）から右はし（ろくろくび）まで入る距離。画面の下はボタンがかかるので少し引く
-  const halfW = 8.6;
+  const halfW = 9.2;
   const dist = Math.max(halfW / (Math.tan((FOV * Math.PI) / 360) * camera.aspect), 12);
-  camera.position.set(TARGET.x, TARGET.y + dist * 0.2, TARGET.z + dist);
-  camera.lookAt(TARGET.x, TARGET.y - 0.9, TARGET.z);
+  const d = dist * (1 + 0.55 * pull);
+  camera.position.set(TARGET.x, TARGET.y + dist * 0.2 + 3.5 * pull, TARGET.z + d);
+  camera.lookAt(TARGET.x, TARGET.y - 0.9 + 0.5 * pull, TARGET.z + 2 * pull);
   camera.updateProjectionMatrix();
 }
 window.addEventListener('resize', resize);
@@ -140,6 +144,11 @@ function frame(now: number): void {
       acc -= FIXED_DT;
     }
   }
+  const want = ctl.attackView ? 1 : 0;
+  if (Math.abs(want - pull) > 1e-3) {
+    pull += (want - pull) * Math.min(1, dt * 4);
+    resize();
+  }
   placeLabels();
   renderer.render(scene, camera);
 }
@@ -163,7 +172,20 @@ const hook: PreviewHook = {
       scale: y.scale,
       blinking: y.blinking,
       x: ctl.anchors[i + 1]!.position.x,
+      face: y.faceState,
+      attackPhase: y.attackPhase(),
+      hitCount: y.hitCount,
+      lastHitBox: y.lastHitBox,
+      hitVisible: ctl.hitVisible(i),
+      info: y.info(),
+      fireballs:
+        y instanceof Chochin
+          ? y.fireballs.filter((f) => f.alive).map((f) => ({ x: f.position.x, y: f.position.y, z: f.position.z, traveled: f.traveled }))
+          : [],
     })),
+  karakasaX: () => ctl.karakasaX(),
+  stairX: () => STAIR_X,
+  attackView: () => ctl.attackView,
   doll: () => {
     const b = new THREE.Box3().setFromObject(ctl.doll.group);
     return {

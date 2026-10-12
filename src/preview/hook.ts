@@ -1,3 +1,4 @@
+import type { AttackPhase, HitBox } from '../yokai';
 import type { PreviewController, PreviewMotion } from './controller';
 
 export interface PreviewYokaiInfo {
@@ -17,6 +18,15 @@ export interface PreviewYokaiInfo {
   blinking: boolean;
   /** 台の上の x */
   x: number;
+  face: 'open' | 'closed' | 'scary';
+  attackPhase: AttackPhase | null;
+  hitCount: number;
+  lastHitBox: HitBox | null;
+  /** 当たり判定の赤い線が出ているか */
+  hitVisible: boolean;
+  /** 妖怪ごとの、いまの姿の数字（ぬりかべの leanDeg、ろくろくびの headDist など） */
+  info: Record<string, number>;
+  fireballs: { x: number; y: number; z: number; traveled: number }[];
 }
 
 export interface PreviewLabels {
@@ -29,6 +39,9 @@ export interface PreviewLabels {
 export interface PreviewHook {
   ready: boolean;
   yokai: () => PreviewYokaiInfo[];
+  karakasaX: () => number;
+  stairX: () => number;
+  attackView: () => boolean;
   doll: () => { width: number; height: number; silhouette: boolean; visible: boolean };
   silhouette: () => boolean;
   rotating: () => boolean;

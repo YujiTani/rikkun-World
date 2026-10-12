@@ -5,6 +5,10 @@ import { Nurikabe } from './models/nurikabe';
 import { Rokurokubi } from './models/rokurokubi';
 
 export * from './common';
+export * from './stats';
+export { COURSE, courseState } from './models/karakasa';
+export type { CourseState } from './models/karakasa';
+export { FIREBALL_BOX, FIREBALL_RANGE, FIREBALL_SPEED, Fireball } from './models/chochin';
 export { Chochin, Karakasa, Nurikabe, Rokurokubi };
 
 /** 見本ページでの並び順 */

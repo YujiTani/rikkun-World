@@ -2,6 +2,11 @@ import * as THREE from 'three';
 
 export const DEG = Math.PI / 180;
 
+/** 時間のくらべで、浮動小数点のずれをゆるす */
+export const EPS = 1e-6;
+/** 当たり判定の箱（'当たり' の段階）が続く長さ（秒）。 M3 本番の「当たり」の窓 */
+export const HIT_WINDOW_SECONDS = 0.1;
+
 /** 動きの種類 */
 export type YokaiMotion = 'wait' | 'move' | 'attack' | 'hit' | 'die';
 
@@ -120,11 +125,42 @@ export interface YokaiSize {
   minY: number;
 }
 
+/** 当たり判定の箱。妖怪の root から見た位置（中心）と大きさ。向き（yaw）はかけていない */
+export interface HitBox {
+  cx: number;
+  cy: number;
+  cz: number;
+  w: number;
+  h: number;
+  d: number;
+}
+
+export interface YokaiHitEvent {
+  yokai: YokaiBase;
+  box: HitBox;
+}
+
+/** 攻撃の段階: cue = 合図（当たるまで）、hit = 当たり（当たってから 0.1 秒）、recover = すき */
+export type AttackPhaseName = 'cue' | 'hit' | 'recover';
+export interface AttackPhase {
+  phase: AttackPhaseName;
+  /** 攻撃を始めてからの秒 */
+  t: number;
+  /** 当たり判定が出る秒 */
+  hitAt: number;
+  /** 攻撃の合計の長さ（秒） */
+  duration: number;
+  /** 当たり判定がもう出たか */
+  fired: boolean;
+}
+
 export interface YokaiPoseInput {
   /** ずっと進む時計（秒） */
   time: number;
   /** 「うごく」中か */
   moving: boolean;
+  /** 「うごく」を始めてからの秒 */
+  moveT: number;
   /** 攻撃の経過秒（攻撃中でなければ -1） */
   attackT: number;
   /** たおれの進み具合 0〜1（0.4 秒かけて）。たおれていなければ -1 */
@@ -133,17 +169,28 @@ export interface YokaiPoseInput {
 
 /**
  * 妖怪のモデルの土台。箱をグループで組み、動きは absolute に pose() で毎回決める。
- * 共通の「たたかれた」「ポンと消える」「まばたき」「かげ」はここで受け持つ。
+ * 共通の「たたかれた」「ポンと消える」「まばたき」「かげ」「攻撃の段階」はここで受け持つ。
+ * たたかれた（白く光る・下がる）は上に重なるだけで、攻撃は止まらない。
  */
 export abstract class YokaiBase {
   abstract readonly id: string;
   abstract readonly displayName: string;
   /** 攻撃の長さ（秒） */
   abstract readonly attackSeconds: number;
-  /** たたかれたとき後ろへ下がるか（ぬりかべは下がらずゆれるだけ） */
-  protected knockback = true;
+  /** 攻撃を始めてから当たり判定が出るまで（秒） */
+  abstract readonly hitAt: number;
   /** M3 本番で使う移動の速さ（ブロック/秒）。見本ページでは使わない */
   abstract readonly moveSpeed: number;
+  /** たたかれたとき後ろへ下がるか（ぬりかべは下がらず、ゆれるだけ） */
+  protected knockback = true;
+
+  /** ねらう所（プレイヤーの足もと）。root から見た位置。攻撃を始める前に決める */
+  readonly aim = new THREE.Vector3(0, 0, -2.5);
+  /** 攻撃の当たりが出た瞬間に呼ばれる */
+  onHit: ((e: YokaiHitEvent) => void) | null = null;
+  /** 当たりが出た回数と、いちばん新しい箱 */
+  hitCount = 0;
+  lastHitBox: HitBox | null = null;
 
   /** 外から置く場所・向きはここ */
   readonly root = new THREE.Group();
@@ -161,12 +208,18 @@ export abstract class YokaiBase {
   private faceMats: THREE.MeshBasicMaterial[] = [];
   private faceOpen: THREE.Texture[] = [];
   private faceClosed: THREE.Texture[] = [];
+  private faceScary: (THREE.Texture | null)[] = [];
+  private scaryOn = false;
   private blinkClosed = false;
   private blinkClock = 0;
 
-  private _motion: YokaiMotion = 'wait';
   private baseMotion: 'wait' | 'move' = 'wait';
-  private motionT = 0;
+  private dying = false;
+  private dieT = 0;
+  private hitT = -1;
+  private attackT = -1;
+  private hitFired = false;
+  private moveT = 0;
   private clock = 0;
   private _scale = 1;
   private _size: YokaiSize = { width: 0, height: 0, depth: 0, minY: 0 };
@@ -192,7 +245,7 @@ export abstract class YokaiBase {
       minY: round(b.min.y),
     };
     this.puffGroup.position.y = (b.max.y + b.min.y) / 2;
-    this.pose({ time: 0, moving: false, attackT: -1, dieP: -1 });
+    this.pose({ time: 0, moving: false, moveT: 0, attackT: -1, dieP: -1 });
   }
 
   // ---- 部品づくり（サブクラスから使う） ----
@@ -213,7 +266,7 @@ export abstract class YokaiBase {
     return mesh;
   }
 
-  /** 顔の板（おく 0.02）。開いた目と閉じた目のドット絵を受け取る */
+  /** 顔の板（おく 0.02）。開いた目と閉じた目（と、あれば怖い顔）のドット絵を受け取る */
   protected addFace(
     parent: THREE.Object3D,
     size: number,
@@ -221,11 +274,13 @@ export abstract class YokaiBase {
     open: THREE.Texture,
     closed: THREE.Texture,
     opaque = false,
+    scary: THREE.Texture | null = null,
   ): THREE.Mesh {
     const mat = new THREE.MeshBasicMaterial({ map: open, transparent: !opaque, alphaTest: opaque ? 0 : 0.5 });
     this.faceMats.push(mat);
     this.faceOpen.push(open);
     this.faceClosed.push(closed);
+    this.faceScary.push(scary);
     return this.addBox(parent, size, size, 0.02, pos, mat, 0xffffff);
   }
 
@@ -249,12 +304,29 @@ export abstract class YokaiBase {
 
   /** サブクラスが毎回、ぜんぶの動く値を決める */
   protected abstract pose(p: YokaiPoseInput): void;
-  /** たおれ方（0〜0.4 秒の間、p=0〜1）。rig の外側の動きはここで */
+  /** たおれ方（0〜0.4 秒の間、p=0〜1）。pose のあとに呼ばれる */
   protected abstract poseDie(p: number): void;
+  /** 当たり判定の箱（root から見た位置）。当たりの瞬間に使う */
+  protected abstract attackHitBox(): HitBox;
+  /** 攻撃を始めたとき（ねらう所を決めるなど） */
+  protected onAttackStart(): void {}
+  /** 当たりが出た瞬間の追加の効果（火の玉を出す、けむりなど） */
+  protected onAttackHit(_box: HitBox): void {}
+  /** 外から見たい、いまの姿の数字（デバッグ・テスト用） */
+  info(): Record<string, number> {
+    return {};
+  }
 
   // ---- 外から見えるもの ----
   get motion(): YokaiMotion {
-    return this._motion;
+    if (this.dying) return 'die';
+    if (this.attackT >= 0) return 'attack';
+    if (this.hitT >= 0) return 'hit';
+    return this.baseMotion;
+  }
+  /** 「うごく」中か（攻撃・たおれ中は false） */
+  get moving(): boolean {
+    return !this.dying && this.baseMotion === 'move' && this.attackT < 0;
   }
   get size(): YokaiSize {
     return this._size;
@@ -264,13 +336,18 @@ export abstract class YokaiBase {
     return this._scale;
   }
   get dead(): boolean {
-    return this._motion === 'die' && this.motionT >= DIE_TOTAL_SECONDS;
+    return this.dying && this.dieT >= DIE_TOTAL_SECONDS - EPS;
   }
   get silhouette(): boolean {
     return this.silhouetteOn;
   }
   get blinking(): boolean {
     return this.blinkClosed;
+  }
+  /** いまの顔 */
+  get faceState(): 'open' | 'closed' | 'scary' {
+    if (this.scaryOn && this.faceScary.some((t) => t)) return 'scary';
+    return this.blinkClosed ? 'closed' : 'open';
   }
   /** 今見えている箱の色（重複なし、#rrggbb） */
   displayColors(): string[] {
@@ -292,6 +369,14 @@ export abstract class YokaiBase {
     return hex(this.currentColor(this.parts[0]!));
   }
 
+  /** 攻撃の段階（攻撃中でなければ null）。M3 本番はこれを見て「合図・当たり・すき」を知る */
+  attackPhase(): AttackPhase | null {
+    if (this.attackT < 0) return null;
+    const t = this.attackT;
+    const phase: AttackPhaseName = !this.hitFired ? 'cue' : t < this.hitAt + HIT_WINDOW_SECONDS - EPS ? 'hit' : 'recover';
+    return { phase, t, hitAt: this.hitAt, duration: this.attackSeconds, fired: this.hitFired };
+  }
+
   setSilhouette(on: boolean): void {
     this.silhouetteOn = on;
     this.refreshMaterials();
@@ -299,72 +384,96 @@ export abstract class YokaiBase {
 
   setMotion(m: 'wait' | 'move'): void {
     this.revive();
+    this.cancelAttack();
+    if (m === 'move' && this.baseMotion !== 'move') this.moveT = 0;
     this.baseMotion = m;
-    this._motion = m;
   }
   attack(): void {
-    if (this._motion === 'die') return;
-    this._motion = 'attack';
-    this.motionT = 0;
+    if (this.dying || this.attackT >= 0) return;
+    this.attackT = 0;
+    this.hitFired = false;
+    this.onAttackStart();
   }
+  /** たたかれた。攻撃中でも攻撃は止まらない（白く光るだけ） */
   hit(): void {
-    if (this._motion === 'die') return;
-    this._motion = 'hit';
-    this.motionT = 0;
+    if (this.dying) return;
+    this.hitT = 0;
   }
   die(): void {
-    if (this._motion === 'die') return;
-    this._motion = 'die';
-    this.motionT = 0;
+    if (this.dying) return;
+    this.dying = true;
+    this.dieT = 0;
+    this.attackT = -1;
+    this.hitT = -1;
+  }
+  private cancelAttack(): void {
+    this.attackT = -1;
+    this.hitFired = false;
   }
   /** たおれからもどす */
   revive(): void {
-    if (this._motion !== 'die') return;
-    this._motion = this.baseMotion;
-    this.motionT = 0;
+    if (!this.dying) return;
+    this.dying = false;
+    this.dieT = 0;
     this.resetDieState();
-    this.pose({ time: this.clock, moving: this.baseMotion === 'move', attackT: -1, dieP: -1 });
+    this.pose({ time: this.clock, moving: this.baseMotion === 'move', moveT: this.moveT, attackT: -1, dieP: -1 });
   }
 
   /** 1 コマ進める（秒） */
   update(dt: number): void {
     this.clock += dt;
-    this.motionT += dt;
     this.updateBlink(dt);
 
-    const m = this._motion;
-    if (m === 'attack' && this.motionT >= this.attackSeconds) {
-      this._motion = this.baseMotion;
-      this.motionT = 0;
-    } else if (m === 'hit' && this.motionT >= HIT_SECONDS) {
-      this._motion = this.baseMotion;
-      this.motionT = 0;
+    if (this.dying) {
+      this.dieT += dt;
+    } else {
+      if (this.baseMotion === 'move') this.moveT += dt;
+      if (this.hitT >= 0) {
+        this.hitT += dt;
+        if (this.hitT >= HIT_SECONDS - EPS) this.hitT = -1;
+      }
+      if (this.attackT >= 0) {
+        this.attackT += dt;
+        if (!this.hitFired && this.attackT >= this.hitAt - EPS) {
+          this.hitFired = true;
+          const box = this.attackHitBox();
+          this.hitCount++;
+          this.lastHitBox = box;
+          this.onAttackHit(box);
+          this.onHit?.({ yokai: this, box });
+        }
+        if (this.attackT >= this.attackSeconds - EPS) this.cancelAttack();
+      }
     }
-    const cur = this._motion;
-    const t = this.motionT;
 
-    const flash = cur === 'hit' && t < HIT_FLASH_SECONDS;
+    const flash = this.hitT >= 0 && this.hitT < HIT_FLASH_SECONDS - EPS;
     if (flash !== this.flashOn) {
       this.flashOn = flash;
       this.refreshMaterials();
     }
 
-    // たたかれた: 後ろへ下がって、上が後ろへかたむいて戻る
-    let hitK = 0;
-    if (cur === 'hit') hitK = Math.sin((Math.PI * t) / HIT_SECONDS);
+    // たたかれた: 後ろへ下がって、上が後ろへかたむいて戻る（ぬりかべはゆれるだけ）
+    const t = this.hitT;
+    const hitK = t >= 0 ? Math.sin((Math.PI * t) / HIT_SECONDS) : 0;
     this.rig.position.z = this.knockback ? HIT_BACK_BLOCKS * hitK : 0;
     this.rig.rotation.x = (this.knockback ? HIT_TILT_DEG : 0) * DEG * hitK;
-    this.rig.rotation.z = this.knockback ? 0 : 0.05 * Math.sin((Math.PI * 6 * t) / HIT_SECONDS) * hitK;
+    this.rig.rotation.z = !this.knockback && t >= 0 ? 8 * DEG * Math.sin((Math.PI * 4 * t) / HIT_SECONDS) : 0;
 
     let dieP = -1;
-    if (cur === 'die') {
-      dieP = Math.min(1, t / DIE_FALL_SECONDS);
-      this.updateDieEffects(t);
+    if (this.dying) {
+      dieP = Math.min(1, this.dieT / DIE_FALL_SECONDS);
+      this.updateDieEffects(this.dieT);
     } else {
       this.resetDieState();
     }
-    this.pose({ time: this.clock, moving: cur === 'move', attackT: cur === 'attack' ? t : -1, dieP });
-    if (cur === 'die') this.poseDie(dieP);
+    this.pose({
+      time: this.clock,
+      moving: !this.dying && this.baseMotion === 'move',
+      moveT: this.moveT,
+      attackT: this.attackT,
+      dieP,
+    });
+    if (this.dying) this.poseDie(dieP);
   }
 
   private resetDieState(): void {
@@ -376,15 +485,15 @@ export abstract class YokaiBase {
 
   private updateDieEffects(t: number): void {
     let s = 1;
-    if (t >= DIE_SHRINK_END_SECONDS) s = 0;
+    if (t >= DIE_SHRINK_END_SECONDS - EPS) s = 0;
     else if (t > DIE_FALL_SECONDS) s = 1 - (t - DIE_FALL_SECONDS) / (DIE_SHRINK_END_SECONDS - DIE_FALL_SECONDS);
     this._scale = s;
     this.rig.scale.setScalar(Math.max(s, 1e-4));
     this.rig.visible = s > 0;
     const pt = t - DIE_SHRINK_END_SECONDS;
-    if (pt >= 0 && pt < PUFF_SECONDS) {
+    if (pt >= -EPS && pt < PUFF_SECONDS) {
       this.puffGroup.visible = true;
-      const k = pt / PUFF_SECONDS;
+      const k = Math.max(0, pt) / PUFF_SECONDS;
       this.puffMat.opacity = 1 - k;
       const dist = PUFF_SPREAD * (1 - (1 - k) * (1 - k));
       for (let i = 0; i < PUFF_COUNT; i++) {
@@ -399,6 +508,13 @@ export abstract class YokaiBase {
     }
   }
 
+  /** 怖い顔にする（あれば）。ろくろくびの攻撃で使う */
+  protected setScary(on: boolean): void {
+    if (on === this.scaryOn) return;
+    this.scaryOn = on;
+    this.applyFace();
+  }
+
   private updateBlink(dt: number): void {
     this.blinkClock += dt;
     if (this.blinkClock >= BLINK_PERIOD_SECONDS + BLINK_SECONDS - 1e-9) this.blinkClock -= BLINK_PERIOD_SECONDS + BLINK_SECONDS;
@@ -406,9 +522,14 @@ export abstract class YokaiBase {
     const closed = this.blinkClock >= BLINK_PERIOD_SECONDS - 1e-9;
     if (closed !== this.blinkClosed) {
       this.blinkClosed = closed;
-      for (let i = 0; i < this.faceMats.length; i++) {
-        this.faceMats[i]!.map = closed ? this.faceClosed[i]! : this.faceOpen[i]!;
-      }
+      this.applyFace();
+    }
+  }
+
+  private applyFace(): void {
+    for (let i = 0; i < this.faceMats.length; i++) {
+      const sc = this.scaryOn ? this.faceScary[i] : null;
+      this.faceMats[i]!.map = sc ?? (this.blinkClosed ? this.faceClosed[i]! : this.faceOpen[i]!);
     }
   }
 
@@ -430,6 +551,56 @@ export abstract class YokaiBase {
       m.dispose();
     }
     for (const t of [...this.faceOpen, ...this.faceClosed]) t.dispose();
+    for (const t of this.faceScary) t?.dispose();
+  }
+}
+
+/** 白いけむりの立方体が外へ広がって消える（ぬりかべの どすーん で使う） */
+export class Smoke {
+  readonly group = new THREE.Group();
+  private readonly mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 1 });
+  private readonly cubes: THREE.Mesh[] = [];
+  private t = -1;
+  constructor(
+    private readonly count: number,
+    size: number,
+    private readonly spread: number,
+    private readonly seconds: number,
+  ) {
+    for (let i = 0; i < count; i++) {
+      const m = new THREE.Mesh(boxGeo(size, size, size), this.mat);
+      this.cubes.push(m);
+      this.group.add(m);
+    }
+    this.group.visible = false;
+  }
+  start(x: number, y: number, z: number): void {
+    this.group.position.set(x, y, z);
+    this.t = 0;
+    this.group.visible = true;
+    this.apply();
+  }
+  get active(): boolean {
+    return this.t >= 0;
+  }
+  update(dt: number): void {
+    if (this.t < 0) return;
+    this.t += dt;
+    if (this.t >= this.seconds) {
+      this.t = -1;
+      this.group.visible = false;
+      return;
+    }
+    this.apply();
+  }
+  private apply(): void {
+    const k = this.t / this.seconds;
+    this.mat.opacity = 1 - k;
+    const dist = this.spread * (1 - (1 - k) * (1 - k));
+    for (let i = 0; i < this.count; i++) {
+      const a = (i / this.count) * Math.PI * 2;
+      this.cubes[i]!.position.set(Math.cos(a) * dist, 0.1 + 0.4 * k, Math.sin(a) * dist);
+    }
   }
 }
 
