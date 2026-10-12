@@ -39,6 +39,14 @@ describe('一人称の手足と持ったブロック（AC27）', () => {
     expect(d.parts).toEqual({ head: false, body: false, arms: true, legs: true });
     expect(d.visible).toBe(false);
   });
+  it('一人称は ひじから先・ひざから先だけ。三人称は全部', () => {
+    const t = setup();
+    const up = (rig: CameraRig) => (rig.doll as unknown as { upperParts: THREE.Mesh[] }).upperParts;
+    expect(up(t.rig).length).toBeGreaterThan(0);
+    expect(up(t.rig).every((m) => !m.visible)).toBe(true);
+    t.rig.doll.setMode('third');
+    expect(up(t.rig).every((m) => m.visible)).toBe(true);
+  });
   it('持ったブロックは画面の右下', () => {
     for (const aspect of [16 / 9, 1, 4 / 3]) {
       const t = setup(0, aspect);

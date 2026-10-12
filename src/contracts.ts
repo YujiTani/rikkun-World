@@ -226,6 +226,8 @@ export interface DigSystem {
   drainEvents(): DigEvent[];
   /** テストの窓口用。読んでも空にならない、まだ読まれていない出来事 */
   peekEvents(): DigEvent[];
+  /** 何もねらっていない場所で振った（空振り）回数の合計。見た目と音用 */
+  whiffCount?(): number;
 }
 
 /** 画面の状態。担当 D が作る */

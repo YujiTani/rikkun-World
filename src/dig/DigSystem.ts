@@ -21,6 +21,9 @@ import { lookDirection, raycastBlocks } from './raycast';
 /** 出来事の列が読まれずにたまりすぎないように */
 const MAX_QUEUE = 256;
 
+/** 空振りを押しっぱなしで振りなおす間かく（歩数。M3 のパンチと同じ 0.5 秒） */
+const WHIFF_REPEAT_TICKS = 30;
+
 const HOTBAR_ACTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => `hotbar${n}` as Action);
 const A_NEXT = 'hotbarNext' as Action;
 const A_PREV = 'hotbarPrev' as Action;
@@ -56,6 +59,12 @@ export class DigSystemImpl implements DigSystem {
   private punching = false;
   /** secondary を押しつづけている歩数（押していなければ 0） */
   private secondaryTicks = 0;
+
+  /** 空振りの合計回数 */
+  private whiffs = 0;
+  /** primary を押しつづけている歩数（空振り用。押していなければ -1） */
+  private whiffHold = -1;
+  private prevSecondary = false;
 
   private drainQueue: DigEvent[] = [];
   private hookQueue: DigEvent[] = [];
@@ -99,6 +108,10 @@ export class DigSystemImpl implements DigSystem {
       ready: this.ready,
       blockedReason: this.blockedReason,
     };
+  }
+
+  whiffCount(): number {
+    return this.whiffs;
   }
 
   drainEvents(): DigEvent[] {
@@ -149,10 +162,25 @@ export class DigSystemImpl implements DigSystem {
     this.punching = this.gate
       ? this.gate.primaryStep(primary, { x: p.position.x, y: p.position.y + this.eyeHeight(), z: p.position.z }, d, this.tgt?.distance ?? null)
       : false;
+    this.updateWhiff(primary, secondary);
     this.updateDig(primary);
     this.prevPrimary = primary;
+    this.prevSecondary = secondary;
     this.updatePlace(secondary);
     this.tickCount++;
+  }
+
+  /** 何もねらっていない（ブロックも妖怪もない）ときのクリックで腕を振る。押した瞬間と、押しっぱなしの 0.5 秒ごと */
+  private updateWhiff(primary: boolean, secondary: boolean): void {
+    if (!primary) this.whiffHold = -1;
+    else if (!this.punching && !this.tgt) {
+      if (this.whiffHold < 0 || this.whiffHold >= WHIFF_REPEAT_TICKS) {
+        this.whiffs++;
+        this.whiffHold = 0;
+      }
+      this.whiffHold++;
+    } else this.whiffHold = this.whiffHold < 0 ? 0 : this.whiffHold + 1;
+    if (secondary && !this.tgt && (!this.prevSecondary || this.actions.wasPressed('secondary'))) this.whiffs++;
   }
 
   private updateDig(primary: boolean): void {

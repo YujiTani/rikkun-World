@@ -60,6 +60,8 @@ export class BlockDoll {
   legAngle = 0;
   private mode: DollMode = 'hidden';
   private readonly bodyMesh: THREE.Mesh;
+  /** うでのひじから上・あしのひざから上（一人称では隠す） */
+  private readonly upperParts: THREE.Mesh[] = [];
   private readonly heldMesh = new THREE.Mesh(UNIT_BOX);
   /** ようかいだま を持つときの形（heldMesh のかわりに出す） */
   private readonly orbMesh = new THREE.Mesh(ORB_GEOMETRY, ORB_MATERIAL);
@@ -89,11 +91,17 @@ export class BlockDoll {
       [this.legR, lw / 2],
     ] as const) {
       g.position.set(x, lh, 0);
-      const pants = box(lw, lh - DOLL_SIZES.shoeHeight, ld, mat(C.pants));
-      pants.position.y = -(lh - DOLL_SIZES.shoeHeight) / 2;
+      // ひざ（まん中）から上は一人称で隠す
+      const pantsH = lh - DOLL_SIZES.shoeHeight;
+      const kneeY = -lh / 2;
+      const thigh = box(lw, lh / 2, ld, mat(C.pants));
+      thigh.position.y = -lh / 4;
+      this.upperParts.push(thigh);
+      const pants = box(lw, pantsH - lh / 2, ld, mat(C.pants));
+      pants.position.y = kneeY - (pantsH - lh / 2) / 2;
       const shoe = box(lw, DOLL_SIZES.shoeHeight, ld, mat(C.shoes));
       shoe.position.y = -lh + DOLL_SIZES.shoeHeight / 2;
-      g.add(pants, shoe);
+      g.add(thigh, pants, shoe);
       this.group.add(g);
     }
 
@@ -112,9 +120,13 @@ export class BlockDoll {
       const sleeveH = ah * DOLL_SIZES.sleeveRatio;
       const sleeve = box(aw, sleeveH, ad, mat(C.shirt));
       sleeve.position.y = -sleeveH / 2;
-      const hand = box(aw, ah - sleeveH, ad, mat(C.skin));
-      hand.position.y = -sleeveH - (ah - sleeveH) / 2;
-      g.add(sleeve, hand);
+      // ひじ（まん中）から上は一人称で隠す
+      const upperSkin = box(aw, ah / 2 - sleeveH, ad, mat(C.skin));
+      upperSkin.position.y = -sleeveH - (ah / 2 - sleeveH) / 2;
+      this.upperParts.push(sleeve, upperSkin);
+      const hand = box(aw, ah / 2, ad, mat(C.skin));
+      hand.position.y = -ah / 2 - ah / 4;
+      g.add(sleeve, upperSkin, hand);
       this.group.add(g);
     }
 
@@ -184,6 +196,7 @@ export class BlockDoll {
     this.group.visible = this.mode !== 'hidden';
     this.head.visible = this.mode === 'third';
     this.bodyMesh.visible = this.mode === 'third';
+    for (const m of this.upperParts) m.visible = this.mode === 'third';
   }
   /** どの部分が見えるか */
   get parts(): { head: boolean; body: boolean; arms: boolean; legs: boolean } {
