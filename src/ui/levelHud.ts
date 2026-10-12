@@ -6,6 +6,21 @@ const SPARKLES = 14;
 export const LEVEL_UP_SECONDS = 2.4;
 
 /**
+ * A「じぶん」のかたまり（§3.6 (1)）: レベル・バー・ハート・防具を 1 まいにまとめる入れもの。
+ * ホットバーの左はしにそろえて、すぐ上に出す。LevelHud と Hearts が同じものを使う（先に作ったほうが作る）。
+ */
+export function selfCluster(parent: HTMLElement): HTMLDivElement {
+  let el = parent.querySelector<HTMLDivElement>(':scope > #hud-self');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'hud-self';
+    el.className = 'hud-cluster';
+    parent.append(el);
+  }
+  return el;
+}
+
+/**
  * レベルと経験値のバー（ハートのすぐ上）と、レベルアップの演出。
  * DOM: `#levelbar`（`data-level`・`data-xp`・`data-next`）、`#levelup`（出ているあいだ `hidden` でない）
  */
@@ -13,6 +28,8 @@ export class LevelHud {
   readonly barEl: HTMLDivElement;
   readonly upEl: HTMLDivElement;
   private readonly labelEl: HTMLSpanElement;
+  private readonly wordEl: HTMLSpanElement;
+  private readonly badgeEl: HTMLSpanElement;
   private readonly numEl: HTMLSpanElement;
   private readonly fillEl: HTMLDivElement;
   private left = 0;
@@ -24,6 +41,11 @@ export class LevelHud {
     this.barEl.setAttribute('aria-hidden', 'true');
     this.labelEl = document.createElement('span');
     this.labelEl.className = 'lv-label';
+    this.wordEl = document.createElement('span');
+    this.wordEl.className = 'lv-word';
+    this.badgeEl = document.createElement('span');
+    this.badgeEl.className = 'lv-badge';
+    this.labelEl.append(this.wordEl, this.badgeEl);
     const track = document.createElement('div');
     track.className = 'lv-track';
     this.fillEl = document.createElement('div');
@@ -51,7 +73,8 @@ export class LevelHud {
       s.style.setProperty('--sd', `${(i % 5) * 0.12}s`);
       this.upEl.append(s);
     }
-    parent.append(this.barEl, this.upEl);
+    selfCluster(parent).append(this.barEl);
+    parent.append(this.upEl);
     this.update({ level: 1, xp: 0, next: 5 });
   }
 
@@ -59,7 +82,8 @@ export class LevelHud {
     const key = `${st.level}/${st.xp}/${st.next}`;
     if (key === this.shownKey) return;
     this.shownKey = key;
-    this.labelEl.textContent = `レベル ${st.level}`;
+    this.wordEl.textContent = 'レベル ';
+    this.badgeEl.textContent = String(st.level);
     this.numEl.textContent = `${st.xp} / ${st.next}`;
     this.fillEl.style.width = `${Math.min(100, (st.xp / st.next) * 100)}%`;
     this.barEl.dataset.level = String(st.level);

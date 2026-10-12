@@ -65,6 +65,8 @@ export class InventoryScreen {
   readonly storageSlot: HTMLDivElement;
   readonly pageSlot: HTMLDivElement;
   private readonly bodyEl: HTMLDivElement;
+  private readonly frame: HTMLDivElement;
+  private readonly onResize: () => void;
   private sideNow: InventorySide = 'craft';
   private tabNow: InventoryTab = 'items';
   private outside: InventoryOutsideHandlers | null = null;
@@ -174,7 +176,11 @@ export class InventoryScreen {
     main.append(grid);
     this.tabsEl = document.createElement('div');
     this.tabsEl.className = 'inv-tabs';
-    this.panel.append(this.tabsEl, head, main);
+    this.panel.append(main);
+    // 大きな 1 まいのパネル（わく）: 上に タブ（A が入れる）と とじる、中に 持ち物・つくる・せつめい
+    this.frame = document.createElement('div');
+    this.frame.className = 'inv-frame';
+    head.prepend(this.tabsEl);
     const body = document.createElement('div');
     body.className = 'inv-body';
     this.craftSlot = side;
@@ -186,7 +192,8 @@ export class InventoryScreen {
     this.pageSlot = document.createElement('div');
     this.pageSlot.className = 'inv-page';
     this.pageSlot.hidden = true;
-    this.el.append(body, this.pageSlot);
+    this.frame.append(head, body, this.pageSlot);
+    this.el.append(this.frame);
 
     this.cursorEl = document.createElement('div');
     this.cursorEl.className = 'inv-cursor';
@@ -212,6 +219,20 @@ export class InventoryScreen {
       h?.(e, this.isInsidePanels(e.clientX, e.clientY));
     };
     for (const t of ['mousedown', 'mousemove', 'mouseup'] as const) window.addEventListener(t, this.onPointer);
+    this.onResize = () => this.fit();
+    window.addEventListener('resize', this.onResize);
+  }
+
+  /** 小さい画面では パネルぜんたいを 同じ比で ちぢめる（はしから 24px あける。大きい画面は CSS の clamp で大きくなる） */
+  private fit(): void {
+    const f = this.frame;
+    f.style.transform = '';
+    const w = f.offsetWidth;
+    const h = f.offsetHeight;
+    if (w === 0 || h === 0) return;
+    const m = parseFloat(getComputedStyle(this.el).getPropertyValue('--rk-sp-5')) || 24;
+    const k = Math.min(1, (window.innerWidth - 2 * m) / w, (window.innerHeight - 2 * m) / h);
+    f.style.transform = k < 1 ? `scale(${k})` : '';
   }
 
   /** 右の場所を入れかえる（つくる・やく ⇄ たんす）。見た目は style.display だけで切る */
@@ -262,6 +283,7 @@ export class InventoryScreen {
       this.open = open;
       this.el.hidden = !open;
       this.dirty = true;
+      if (open) this.fit();
       if (!open) this.tooltip?.hover(null);
     }
     if (open && this.dirty) this.render();
@@ -316,6 +338,7 @@ export class InventoryScreen {
     this.craftPanel?.dispose();
     this.tooltip?.dispose();
     window.removeEventListener('mousemove', this.onMove);
+    window.removeEventListener('resize', this.onResize);
     for (const t of ['mousedown', 'mousemove', 'mouseup'] as const) window.removeEventListener(t, this.onPointer);
     this.el.remove();
   }

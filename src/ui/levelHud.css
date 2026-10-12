@@ -1,35 +1,73 @@
-/* レベルと経験値のバー: ハートのすぐ上（ハートと左をそろえる） */
-#levelbar {
+/*
+ * A「じぶん」のかたまり（§3.6 (1)）: ホットバーの左はしにそろえ、すぐ上（すき間 16px）。
+ * 1 行目 レベル（バッジ）＋経験値のバー＋数、2 行目 ハート 10 こ＋防具。
+ */
+.hud-cluster,
+#hud-self {
   position: fixed;
-  left: calc(50% - (9 * var(--cell, max(64px, 5.2vw)) + 48px) / 2);
-  bottom: calc(var(--cell, max(64px, 5.2vw)) * 1.12 + 22px + max(28px, 2.2vw) + 8px);
+  left: calc(50% - var(--hb-w) / 2);
+  bottom: var(--hud-above-hotbar);
   display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 3px 10px;
-  border-radius: 12px;
-  background: rgba(30, 20, 60, 0.55);
-  color: #fff;
-  font-size: max(16px, 1.3vw);
-  font-weight: bold;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--rk-sp-2);
+  padding: var(--rk-sp-2) var(--rk-sp-3);
+  background: var(--rk-hud-bg);
+  border-radius: var(--rk-r-m);
   pointer-events: none;
   z-index: 5;
 }
+#levelbar {
+  order: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--rk-sp-2);
+  color: var(--rk-text);
+  font-size: var(--rk-fs-small);
+  font-weight: 800;
+  line-height: var(--rk-lh);
+  font-variant-numeric: tabular-nums;
+}
+#levelbar .lv-label {
+  display: flex;
+  align-items: center;
+  gap: var(--rk-sp-2);
+}
+#levelbar .lv-word {
+  font-size: var(--rk-fs-small);
+  color: var(--rk-text);
+}
+/* レベルの数: タイトル 32px、まるいバッジ */
+#levelbar .lv-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--rk-sp-7);
+  padding: 0 var(--rk-sp-2);
+  font-size: var(--rk-fs-title);
+  font-weight: 800;
+  line-height: var(--rk-lh);
+  color: var(--rk-ink);
+  background: var(--rk-accent-grad);
+  border-radius: var(--rk-r-pill);
+}
 #levelbar .lv-track {
-  width: max(120px, 11vw);
-  height: max(12px, 1vw);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.25);
+  width: calc(240 / 12.8 * 1vw);
+  height: var(--rk-sp-4);
+  border-radius: var(--rk-r-pill);
+  background: var(--rk-line);
   overflow: hidden;
 }
 #levelbar .lv-fill {
   height: 100%;
-  background: linear-gradient(90deg, #7be0ff, #b69cff);
-  transition: width 0.4s ease-out;
+  background: var(--rk-xp-grad);
+  border-radius: var(--rk-r-pill);
+  transition: width var(--rk-dur) var(--rk-ease);
 }
 #levelbar .lv-num {
-  font-size: max(13px, 1vw);
-  opacity: 0.9;
+  font-size: var(--rk-fs-small);
+  font-weight: 500;
+  color: var(--rk-text);
 }
 
 /* レベルアップの演出: ふわっと出て、ゆっくり消える（点滅しない） */
@@ -49,17 +87,21 @@
   position: absolute;
   transform: translate(-50%, -50%);
   white-space: nowrap;
-  font-size: max(40px, 4vw);
-  font-weight: bold;
-  color: #fff7b0;
-  text-shadow: 0 0 6px #ff9d2e, 0 3px 0 #c76a00, 0 0 18px #ffd54f;
+  font-size: var(--rk-fs-display);
+  font-weight: 800;
+  color: var(--rk-accent);
+  text-shadow:
+    2px 0 0 var(--rk-bg-900),
+    -2px 0 0 var(--rk-bg-900),
+    0 2px 0 var(--rk-bg-900),
+    0 -2px 0 var(--rk-bg-900);
   animation: lu-rise 2.4s ease-out both;
 }
 #levelup .lu-star {
   position: absolute;
-  color: #ffe45e;
-  font-size: max(22px, 2vw);
-  text-shadow: 0 0 8px #fff3a0;
+  color: var(--rk-accent);
+  font-size: var(--rk-fs-head);
+  text-shadow: none;
   opacity: 0;
   animation: lu-star 2s ease-out var(--sd, 0s) both;
 }

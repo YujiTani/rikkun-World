@@ -1,5 +1,6 @@
 import { DEATH_TEXT, DeathScreenModel, lanternFacePixels } from './deathScreenModel';
 import { drawPixels } from './itemIcon';
+import { createBar, setBar, type BarParts } from './theme';
 import './deathScreen.css';
 
 /** やられた画面（白くなる・かお・文字）。start() / end() と、毎ステップ update(dt) */
@@ -8,6 +9,7 @@ export class DeathScreen {
   readonly el: HTMLDivElement;
   private readonly content: HTMLDivElement;
   private readonly text: HTMLDivElement;
+  private readonly bar: BarParts;
 
   constructor(parent: HTMLElement) {
     this.el = document.createElement('div');
@@ -22,7 +24,9 @@ export class DeathScreen {
     this.text = document.createElement('div');
     this.text.className = 'death-text';
     this.text.textContent = DEATH_TEXT;
-    this.content.append(face, this.text);
+    this.bar = createBar('xp', 0);
+    this.bar.root.classList.add('death-bar');
+    this.content.append(face, this.text, this.bar.root);
     this.el.append(this.content);
     parent.append(this.el);
   }
@@ -47,6 +51,7 @@ export class DeathScreen {
     this.el.style.setProperty('--white', String(w));
     this.el.dataset.white = w.toFixed(3);
     this.content.hidden = !m.showText();
+    setBar(this.bar, 1 - m.progress());
     this.content.style.opacity = String(Math.min(1, w / 0.6));
   }
 }

@@ -1,11 +1,12 @@
-/* 拾ったときの ログ: 左はし、たての真ん中より少し下。ホットバーに重ならない（M4 §2.12） */
+/* D 拾ったログ: 左はし（24px）、たて 56% から。チップを下から上へ（M4 §2.12 / M6 §3.6） */
 #pickup-log {
   position: fixed;
-  left: 12px;
+  left: var(--rk-sp-5);
   top: 56%;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  align-items: flex-start;
+  gap: var(--rk-sp-2);
   max-height: 34vh;
   justify-content: flex-end;
   pointer-events: none;
@@ -14,19 +15,25 @@
 .pickup-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 4px 12px 4px 6px;
-  background: rgba(0, 0, 0, 0.55);
-  border-radius: 8px;
+  gap: var(--rk-sp-2);
+  padding: var(--rk-sp-1) var(--rk-sp-4) var(--rk-sp-1) var(--rk-sp-2);
+  background: var(--rk-hud-bg);
+  border-radius: var(--rk-r-pill);
   transform-origin: left center;
 }
 .pickup-row img {
-  width: 32px;
-  height: 32px;
+  width: var(--rk-icon-chip);
+  height: var(--rk-icon-chip);
   image-rendering: pixelated;
 }
 .pickup-text {
-  font-size: 24px;
-  font-weight: bold;
-  text-shadow: 0 2px 0 #000;
+  font-size: var(--rk-fs-body);
+  font-weight: 500;
+  line-height: var(--rk-lh);
+  font-variant-numeric: tabular-nums;
+  text-shadow:
+    2px 0 0 var(--rk-bg-900),
+    -2px 0 0 var(--rk-bg-900),
+    0 2px 0 var(--rk-bg-900),
+    0 -2px 0 var(--rk-bg-900);
 }
