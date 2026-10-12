@@ -3,7 +3,7 @@ import type { DigSystem, ItemId, Vec3 } from '../contracts';
 import { ComboTracker } from './combo';
 import { FX_SETTINGS, type FxSettings } from './config';
 import { BlockPuffs, BreakParticles, CrackOverlay, TargetOutline } from './objects3d';
-import type { SoundFx } from './sound';
+import type { SoundFx, Tone } from './sound';
 
 export interface DigFxDeps {
   scene: THREE.Scene;
@@ -19,6 +19,9 @@ export interface DigFxDeps {
   onPickup?: (item: ItemId, count: number) => void;
   settings?: FxSettings;
 }
+
+/** 空振りの小さな「ひゅっ」（控えめ） */
+const WHIFF_SOUND: readonly Tone[] = [{ type: 'triangle', f0: 700, f1: 380, delay: 0, dur: 0.07, gain: 0.1 }];
 
 const same = (a: Vec3 | null, b: Vec3 | null) => !!a && !!b && a.x === b.x && a.y === b.y && a.z === b.z;
 
@@ -43,6 +46,7 @@ export class DigFx {
   private wobbleLeft = 0;
   private rng = 777;
   private lastDigging = false;
+  private lastWhiffs = 0;
   private readyT = 0;
   private wasReady = false;
 
@@ -71,6 +75,13 @@ export class DigFx {
     const { dig, sound, doll, notice } = this.d;
     const c = this.cfg;
     this.combo.update(dt);
+
+    const whiffs = dig.whiffCount?.() ?? this.lastWhiffs;
+    if (whiffs !== this.lastWhiffs) {
+      this.lastWhiffs = whiffs;
+      doll.swing();
+      sound.playTones(WHIFF_SOUND);
+    }
 
     const target = dig.target();
     const st = dig.state();
