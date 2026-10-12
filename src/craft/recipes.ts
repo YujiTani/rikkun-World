@@ -28,7 +28,7 @@ export const CRAFT_RECIPES: readonly Recipe[] = [
   r('ya', 4, [['log', 1], ['stone', 1], ['paper', 1]], true),
   r('kabuto', 1, [['iron_ingot', 2], ['cloth', 1]], true),
   r('yoroi', 1, [['iron_ingot', 3], ['string', 2], ['cloth', 2]], true),
-  r('torch', 4, [['log', 1], ['oil', 1]], false),
+  r('torch', 4, [['log', 1], ['oil', 1]], true),
   r('lantern', 1, [['paper', 2], ['log', 1], ['oil', 1]], false),
   r('kite', 1, [['paper', 3], ['string', 2], ['log', 1]], false),
   r('futon', 1, [['cloth', 3], ['string', 1]], false),

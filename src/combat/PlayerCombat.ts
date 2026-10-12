@@ -1,6 +1,7 @@
 import type {
   CombatEvent,
   Inventory,
+  ItemId,
   ItemStack,
   PlayerCombat,
   PlayerState,
@@ -21,6 +22,19 @@ import {
 } from './config';
 
 const MAX_QUEUE = 256;
+
+/** 防具の窓口（M4。`ArmorSystemImpl` が合う） */
+export interface CombatArmorPort {
+  /** 妖怪の攻撃を受けた。true ならダメージ 0 */
+  absorbHit(): boolean;
+  equipped(slot: 'head' | 'body'): ItemId | null;
+  /** そうびのマスを空にして中身を返す */
+  take(slot: 'head' | 'body'): ItemId | null;
+  resetHits(): void;
+}
+
+/** `playerHit` に `blocked`（防具でふせいだ）を足した形。contracts の型より広い */
+export type PlayerHitEvent = Extract<CombatEvent, { type: 'playerHit' }> & { blocked?: boolean };
 
 /** 落ちたアイテム 1 つ（マス 1 つ分。slots は 1 つだけ） */
 export type DropBag = DropView;
@@ -60,6 +74,10 @@ export interface CombatDeps {
   rng?: Rng;
   /** 落ちたアイテムの置き場（妖怪のドロップと共通）。なければ自分で作る */
   drops?: DropField;
+  /** M4: 防具（ふせぐ・やられたとき落とす） */
+  armor?: CombatArmorPort;
+  /** M4: 拾って入った（自分で作る DropField 用。拾ったログ） */
+  onPickup?: (item: ItemId, count: number) => void;
 }
 
 export interface CombatHookState {
@@ -124,6 +142,7 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
         ticks: this.config.dropBagTicks,
         pickupRadius: this.config.pickupRadius,
         requestSave: d.requestSave,
+        onPickup: d.onPickup,
       });
   }
 
@@ -284,11 +303,19 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
   private hurt(amount: number, by: YokaiKind | null, from: Vec3 | null): boolean {
     if (this.isDead || this.invincible > 0 || !(amount > 0)) return false;
     const cfg = this.config;
-    this.hpNow = Math.max(0, this.hpNow - amount);
+    // 防具でふせぐ（M4 §2.7）: 妖怪の攻撃だけ。ふせいだ回も むてき・押されるは ふつうどおり
+    const blocked = this.d.armor?.absorbHit() ?? false;
+    if (!blocked) {
+      this.hpNow = Math.max(0, this.hpNow - amount);
+      this.sinceDamage = 0;
+      this.lastDamageTick = this.tickCount;
+    }
     this.invincible = cfg.hurtInvincibleTicks;
-    this.sinceDamage = 0;
-    this.lastDamageTick = this.tickCount;
-    if (by !== null) this.emit({ type: 'playerHit', tick: this.tickCount, by, amount });
+    if (by !== null) {
+      const ev: PlayerHitEvent = { type: 'playerHit', tick: this.tickCount, by, amount: blocked ? 0 : amount };
+      if (blocked) ev.blocked = true;
+      this.emit(ev);
+    }
     if (from) {
       const st = this.d.player.get();
       let dx = st.position.x - from.x;
@@ -346,6 +373,17 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
       }
     }
     for (const i of dropped) inv.setSlot(i, null);
+    // そうびのマスも 1 マスずつ同じ確率で（M4 §2.7）
+    const armor = this.d.armor;
+    if (armor) {
+      for (const slot of ['head', 'body'] as const) {
+        const it = armor.equipped(slot);
+        if (it && this.rng() < this.config.dropChance) {
+          armor.take(slot);
+          stacks.push({ item: it, count: 1 });
+        }
+      }
+    }
     // マスごとに 1 つの「落ちたアイテム」にして、まわりにばらまく
     this.drops.scatter(this.deathPos, stacks, { kind: 'death' });
     this.emit({ type: 'death', tick: this.tickCount, dropped });
@@ -362,6 +400,7 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
     });
     this.isDead = false;
     this.deadTicks = 0;
+    this.d.armor?.resetHits();
     this.hpNow = this.config.playerMaxHp;
     this.invincible = this.config.respawnInvincibleTicks;
     this.sinceDamage = 0;

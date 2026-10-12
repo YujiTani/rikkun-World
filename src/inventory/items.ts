@@ -40,6 +40,7 @@ const M4_BLOCKS: readonly ItemType[] = [
   { id: 'furnace', name: 'かまど', maxStack: BLOCK_MAX_STACK, placeBlock: 'furnace' },
   { id: 'kawara', name: 'かわら', maxStack: BLOCK_MAX_STACK, placeBlock: 'kawara' },
   { id: 'brick', name: 'レンガ', maxStack: BLOCK_MAX_STACK, placeBlock: 'brick' },
+  { id: 'torch', name: 'たいまつ', maxStack: BLOCK_MAX_STACK, placeBlock: 'torch' },
 ];
 
 /** M4: 道具・武器・防具・作れるだけのもの 19 種（置けない） */
@@ -56,7 +57,6 @@ const M4_ITEMS: readonly ItemType[] = [
   { id: 'ya', name: 'や', maxStack: BLOCK_MAX_STACK, placeBlock: null },
   { id: 'kabuto', name: 'かぶと', maxStack: 1, placeBlock: null },
   { id: 'yoroi', name: 'よろい', maxStack: 1, placeBlock: null },
-  { id: 'torch', name: 'たいまつ', maxStack: BLOCK_MAX_STACK, placeBlock: null },
   { id: 'lantern', name: 'ちょうちん', maxStack: BLOCK_MAX_STACK, placeBlock: null },
   { id: 'kite', name: 'たこ', maxStack: 1, placeBlock: null },
   { id: 'futon', name: 'ふとん', maxStack: 1, placeBlock: null },

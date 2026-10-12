@@ -86,6 +86,8 @@ export interface DropFieldDeps {
   requestSave?: () => void;
   /** 近づいたのに 1 つも入らなかった（もちものがいっぱい）。ステップごとに呼ばれうる */
   onFull?: () => void;
+  /** 拾って持ち物に入った（入った数）。拾ったログ用（M4） */
+  onPickup?: (item: ItemStack['item'], count: number) => void;
 }
 
 const DT = 1 / 60;
@@ -168,6 +170,7 @@ export class DropField {
       if (Math.hypot(p.x - b.x, p.z - b.z) <= this.radius && Math.abs(p.y - b.y) <= DROP.pickupHeight) {
         const left = this.d.inventory.add(b.item.item, b.item.count);
         if (left !== b.item.count) {
+          this.d.onPickup?.(b.item.item, b.item.count - left);
           b.item = { item: b.item.item, count: left };
           picked.push(b.id);
           changed = true;

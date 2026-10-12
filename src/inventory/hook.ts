@@ -1,7 +1,12 @@
 import type { Inventory, ItemId, ItemStack, ScreenState } from '../contracts';
 
 /** `window.__rikkun.inventory.*`（M2 §6.1）。返す入れ物がそのまま `inventory` になる */
-export function createInventoryHook(inv: Inventory, screen: Pick<ScreenState, 'inventoryOpen'>) {
+export function createInventoryHook<E extends object = object>(
+  inv: Inventory,
+  screen: Pick<ScreenState, 'inventoryOpen'>,
+  /** M4: pickup / pickupLog など（`createPickupHook(craft)`）。そのまま足される */
+  extras?: E,
+) {
   const copy = (s: ItemStack | null) => (s ? { item: s.item, count: s.count } : null);
   return {
     get: () => ({
@@ -20,5 +25,6 @@ export function createInventoryHook(inv: Inventory, screen: Pick<ScreenState, 'i
       if (screen.inventoryOpen()) inv.click(i);
     },
     itemTypes: () => inv.itemTypes(),
+    ...(extras ?? ({} as E)),
   };
 }
