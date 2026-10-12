@@ -22,6 +22,8 @@ export class WorldLight implements LightField {
   private readonly oldBlock: Uint8Array;
   /** 最後の update() で計算し直したマスの数（計測・テスト用） */
   lastRecomputeCells = 0;
+  /** 最初の全部の光の計算にかかったミリ秒（M5 AC14。世界を作る時間と合わせて 2,500 以下） */
+  readonly initMs: number;
 
   constructor(
     private readonly world: ArrayVoxelWorld,
@@ -35,8 +37,10 @@ export class WorldLight implements LightField {
     this.block = new Uint8Array(n);
     this.oldSky = new Uint8Array(n);
     this.oldBlock = new Uint8Array(n);
+    const t0 = performance.now();
     this.world.takeChangeBox();
     this.recompute(0, 0, 0, this.sx - 1, this.sy - 1, this.sz - 1, false);
+    this.initMs = performance.now() - t0;
   }
 
   private idx(x: number, y: number, z: number): number {

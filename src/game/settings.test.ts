@@ -17,7 +17,7 @@ describe('settings', () => {
     expect(Object.keys(hook.all()).sort()).toEqual(
       [
         'accelTime', 'autoJump', 'eyeHeight', 'fov', 'gravity', 'jumpHeight',
-        'maxFallSpeed', 'mouseSensitivity', 'thirdPersonDistance', 'thirdPersonHeight', 'walkSpeed',
+        'maxFallSpeed', 'mouseSensitivity', 'thirdPersonDistance', 'thirdPersonHeight', 'walkSpeed', 'waterJumpMul', 'waterSpeedMul',
       ].sort(),
     );
   });

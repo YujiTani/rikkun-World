@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type {
+  BlockId,
   Inventory,
   ItemId,
   LightField,
@@ -23,6 +24,7 @@ import { Nurikabe } from '../models/nurikabe';
 import { Rokurokubi } from '../models/rokurokubi';
 import type { YokaiBase } from '../common';
 import { YOKAI_STATS } from '../stats';
+import { fallDamage } from '../../combat/config';
 import { createRng, type Rng } from '../../world/gen/random';
 import { applyDollBrightness } from './brightness';
 import { AI_CONST, ATTACK_DAMAGE, KIND_AI, YOKAI_DROPS, createYokaiConfig, type YokaiConfig } from './config';
@@ -78,6 +80,8 @@ export interface YokaiManagerOptions {
   lightMin?: number;
   /** プレイヤーが妖怪をたおした（経験値用） */
   onDefeat?: (kind: YokaiKind) => void;
+  /** ブロックがこわれた・石になった（くだけるつぶ・音用。1 回の出来事ぶんをまとめて渡す） */
+  onBlocks?: (cells: { x: number; y: number; z: number; from: BlockId; to: BlockId }[], why: 'crush' | 'stone') => void;
 }
 
 export interface SpawnOptions {
@@ -123,6 +127,13 @@ interface Ent {
   marksLeft: number;
   appearScale: number;
   remove: boolean;
+  /** 落ち始めた高さ（落ちていなければ NaN） */
+  fallFrom: number;
+  /** からかさ: ゆらゆら落ちている最中か、その経過ステップ */
+  floating: boolean;
+  swayStep: number;
+  /** ぬりかべ: みず でかたまった度合い 0〜1 */
+  stone: number;
 }
 
 interface LiveFireball {
@@ -241,6 +252,10 @@ export class YokaiManager implements YokaiWorld {
     for (const e of this.ents) {
       this.syncTransform(e);
       for (const b of this.boxesOf(e, this.boxList)) {
+        // 攻撃を受ける判定だけ、左右・上下に広げる（ぶつかり・置けないの箱は広げない）
+        b.hx += AI_CONST.hitPad;
+        b.hy += AI_CONST.hitPad;
+        b.hz += AI_CONST.hitPad;
         const d = rayObb(origin.x, origin.y, origin.z, dir.x, dir.y, dir.z, b, e.x, e.y, e.z, e.yaw);
         if (d >= 0 && d <= maxDistance && (best === null || d < best.distance)) {
           best = { id: e.id, kind: e.kind, distance: d };
@@ -343,6 +358,7 @@ export class YokaiManager implements YokaiWorld {
 
     this.spawnTick();
     this.leaveTick();
+    this.farTick();
 
     for (const e of this.ents) this.stepEntity(e, dt);
     this.separate();
@@ -457,6 +473,10 @@ export class YokaiManager implements YokaiWorld {
       marksLeft: 0,
       appearScale: appear ? 0 : 1,
       remove: false,
+      fallFrom: NaN,
+      floating: false,
+      swayStep: 0,
+      stone: 0,
     };
     model.onHit = (ev) => this.onModelHit(e, ev.box);
     model.root.scale.setScalar(Math.max(e.appearScale, 1e-4));
@@ -517,13 +537,16 @@ export class YokaiManager implements YokaiWorld {
       floors.length = 0;
       const ix = Math.floor(x);
       const iz = Math.floor(z);
+      let waterColumn = false;
       for (let y = this.world.size.y - 2; y >= 0; y--) {
+        if (this.world.getBlock(ix, y, iz) === 'water') waterColumn = true;
         if (!this.world.isSolid(ix, y, iz) || this.world.isSolid(ix, y + 1, iz)) continue;
         const b = this.world.getBlock(ix, y, iz);
         if (b === 'leaves' || b === 'water') continue;
         floors.push(y + 1);
       }
-      if (floors.length === 0) continue;
+      // M5: みず の列（うみ・かわ・いずみ・いけ）には出ない
+      if (waterColumn || floors.length === 0) continue;
       const top = floors[Math.floor(this.rng() * floors.length)]!;
       const T = groundSupport(this.world, x, z, top, ai);
       if (Number.isNaN(T)) continue;
@@ -531,10 +554,23 @@ export class YokaiManager implements YokaiWorld {
       const light = this.opts.light;
       if (light) {
         if (!light.isDarkForSpawn(x, T, z)) continue;
+        // M3 AC3: ゆうがたの終わりごろで空の光が弱まっても、外（空の下）には出ない。出るのは屋根の下か、よる
+        if (!night && !isRoofed(this.world, x, T, z, ai.height)) continue;
       } else if (!isRoofed(this.world, x, T, z, ai.height) && !night) continue;
       const e = this.create(kind, x, T, z, this.rng() * Math.PI * 2, true);
       this.emit({ type: 'spawn', tick: this.tick(), id: e.id, kind, position: { x, y: T, z } });
       return;
+    }
+  }
+
+  /** M5: プレイヤーから水平 64 より遠い妖怪は、そのステップで静かに消える（落とし物なし） */
+  private farTick(): void {
+    const lim = AI_CONST.farRemoveDist;
+    for (const e of this.ents) {
+      if (e.remove) continue;
+      const dx = e.x - this.px;
+      const dz = e.z - this.pz;
+      if (dx * dx + dz * dz > lim * lim) e.remove = true;
     }
   }
 
@@ -564,12 +600,13 @@ export class YokaiManager implements YokaiWorld {
 
   // ---------------------------------------------------------------- たおす
 
-  private defeat(e: Ent): void {
+  /** byPlayer が false（落下など）なら、ドロップも経験値もなし */
+  private defeat(e: Ent, byPlayer = true): void {
     e.state = 'dying';
     e.model.die();
-    this.opts.onDefeat?.(e.kind);
+    if (byPlayer) this.opts.onDefeat?.(e.kind);
     let total = 0;
-    for (const row of YOKAI_DROPS[e.kind]) {
+    for (const row of byPlayer ? YOKAI_DROPS[e.kind] : []) {
       if (this.rng() >= row.chance) continue;
       const count = 1 + Math.floor(this.rng() * row.max);
       const left = this.drops
@@ -626,6 +663,7 @@ export class YokaiManager implements YokaiWorld {
     } else if (e.ai) {
       this.think(e, dt);
     }
+    if (e.kind === 'nurikabe' && this.stoneTick(e)) return;
     this.applyKnock(e);
     this.settle(e, dt);
     if (e.y < AI_CONST.voidY) {
@@ -659,7 +697,7 @@ export class YokaiManager implements YokaiWorld {
     const dist = Math.hypot(dx, dz);
     const dy = this.py - e.y;
     const targetable = !this.combat.dead();
-    const speed = YOKAI_STATS[e.kind].speed;
+    const speed = this.speedOf(e);
     let moved = 0;
 
     const notice = (): boolean =>
@@ -767,16 +805,16 @@ export class YokaiManager implements YokaiWorld {
     }
     e.lastSeenX = this.px;
     e.lastSeenZ = this.pz;
-    const speed = YOKAI_STATS[e.kind].speed;
+    const speed = this.speedOf(e);
     const ux = dist > 1e-6 ? (this.px - e.x) / dist : 0;
     const uz = dist > 1e-6 ? (this.pz - e.z) / dist : -1;
-    const canAttack = e.cool <= 0 && e.age >= AI_CONST.noAttackTicks;
+    const canAttack = e.cool <= 0 && e.age >= AI_CONST.noAttackTicks && e.stone < AI_CONST.stoneNoAttack;
     let moved = 0;
     let hold = 0;
     switch (e.kind) {
       case 'karakasa': {
         hold = 1.5;
-        if (canAttack && dist <= YOKAI_STATS.karakasa.reach && Math.abs(dy) <= 2.5) {
+        if (canAttack && dist <= YOKAI_STATS.karakasa.reach + AI_CONST.attackPad && Math.abs(dy) <= 2.5 + AI_CONST.attackPadY) {
           this.turn(e, yawToward(ux, uz), 1);
           this.startAttack(e);
           return 0;
@@ -808,7 +846,7 @@ export class YokaiManager implements YokaiWorld {
         // 前 3・はば 2.6 の中にいるときだけ
         toLocalXZ(this.px - e.x, this.pz - e.z, e.yaw, tmp);
         const fwd = -tmp.z;
-        if (canAttack && fwd > 0 && fwd <= YOKAI_STATS.nurikabe.reach && Math.abs(tmp.x) <= 1.3 && Math.abs(dy) <= 2.5) {
+        if (canAttack && fwd > 0 && fwd <= YOKAI_STATS.nurikabe.reach && Math.abs(tmp.x) <= 1.3 + AI_CONST.attackPad && Math.abs(dy) <= 2.5 + AI_CONST.attackPadY) {
           this.startAttack(e);
           return 0;
         }
@@ -931,7 +969,20 @@ export class YokaiManager implements YokaiWorld {
       e.z = z;
       return true;
     }
-    const t = groundSupport(this.world, x, z, e.y, ai);
+    const allowWater = !YOKAI_STATS[e.kind].avoidsWater;
+    let t = groundSupport(this.world, x, z, e.y, ai, AI_CONST.maxDrop, allowWater);
+    if (Number.isNaN(t) && (e.state === 'chase' || e.state === 'search') && this.py < e.y - AI_CONST.maxDrop) {
+      // プレイヤーが下にいるときは、深い段差も歩いて降りる。みず の上・落ちて倒れる深さ・足場なしは降りない
+      t = groundSupport(this.world, x, z, e.y, ai, AI_CONST.chaseMaxDrop, allowWater);
+      if (
+        !Number.isNaN(t) &&
+        e.kind !== 'karakasa' && // からかさ は ゆらゆら落ちて ダメージなし
+        this.world.getBlock(Math.floor(x), Math.floor(t), Math.floor(z)) !== 'water' &&
+        fallDamage(e.y - t, this.config.safeFallHeight, this.config.fallDamagePerBlock) >= e.hp
+      ) {
+        t = NaN;
+      }
+    }
     if (Number.isNaN(t)) return false;
     e.x = x;
     e.z = z;
@@ -965,13 +1016,147 @@ export class YokaiManager implements YokaiWorld {
     if (t > e.y + 1e-6) {
       e.y = Math.min(t, e.y + AI_CONST.riseRate * dt);
       e.vy = 0;
+      e.fallFrom = NaN;
     } else if (e.y > t + 1e-6) {
-      e.vy = Math.min(25, e.vy + 25 * dt);
+      if (Number.isNaN(e.fallFrom)) {
+        e.fallFrom = e.y;
+        e.floating = e.kind === 'karakasa' && e.y - t >= AI_CONST.floatMinDrop - 1e-6;
+        e.swayStep = 0;
+      }
+      if (e.floating) this.sway(e, dt);
+      e.vy = Math.min(e.floating ? AI_CONST.floatFallSpeed : 25, e.vy + 25 * dt);
       e.y = Math.max(t, e.y - e.vy * dt);
-      if (e.y <= t) e.vy = 0;
+      if (e.y <= t) {
+        e.vy = 0;
+        this.land(e, t);
+      }
     } else {
       e.vy = 0;
+      if (!Number.isNaN(e.fallFrom)) this.land(e, t);
     }
+  }
+
+  /** からかさ: 落ち葉のように 横にゆれてかたむく。ゆれた先が かべ・みず なら ずれない */
+  private sway(e: Ent, dt: number): void {
+    const w = (Math.PI * 2) / AI_CONST.floatSwayPeriod;
+    const t0 = e.swayStep * dt;
+    e.swayStep++;
+    const t1 = e.swayStep * dt;
+    e.model.fallTilt = AI_CONST.floatTiltDeg * DEG * Math.cos(w * t1);
+    const d = AI_CONST.floatSwayAmp * (Math.sin(w * t1) - Math.sin(w * t0));
+    const nx = e.x + Math.cos(e.yaw) * d;
+    const nz = e.z + Math.sin(e.yaw) * d;
+    const ai = KIND_AI[e.kind];
+    const r = ai.radius;
+    if (nx < r + AI_CONST.edgeMargin || nz < r + AI_CONST.edgeMargin) return;
+    if (nx > this.world.size.x - r - AI_CONST.edgeMargin || nz > this.world.size.z - r - AI_CONST.edgeMargin) return;
+    if (!this.boxFreeAt(nx - r, e.y + 0.05, nz - r, nx + r, e.y + ai.height, nz + r)) return;
+    const g = settleGround(this.world, nx, nz, e.y, ai);
+    if (!Number.isFinite(g) || this.world.getBlock(Math.floor(nx), Math.floor(g), Math.floor(nz)) === 'water') return;
+    e.x = nx;
+    e.z = nz;
+  }
+
+  /** ぬりかべ: みず の中でかたまる（足もとが みず のマス）。石になったら true */
+  private stoneTick(e: Ent): boolean {
+    const inWater = this.world.getBlock(Math.floor(e.x), Math.floor(e.y + 1e-6), Math.floor(e.z)) === 'water';
+    const before = e.stone;
+    e.stone = Math.max(0, Math.min(1, e.stone + (inWater ? 1 : -1) / AI_CONST.stoneTicks));
+    if (e.stone !== before) {
+      e.model.stoneness = e.stone;
+      applyDollBrightness(e.model, e.kind, e.bright);
+    }
+    if (e.stone < 1 - 1e-9) return false;
+    // 石になった: 体が重なる 空気・みず のマスだけ石に。経験値・ドロップは ふつうに出す
+    const changed: { x: number; y: number; z: number; from: BlockId; to: BlockId }[] = [];
+    const lo = Math.floor(e.y + 1e-6);
+    const body: OBox = { cx: 0, cy: 1.5, cz: 0, hx: 1.3, hy: 1.5, hz: 0.4 };
+    this.forCells(e, body, lo, lo + 2, (x, y, z) => {
+      const b = this.world.getBlock(x, y, z);
+      if (b === 'air' || b === 'water') {
+        if (this.world.setBlock(x, y, z, 'stone')) changed.push({ x, y, z, from: b, to: 'stone' });
+      }
+    });
+    const y0 = e.y;
+    e.y += 3.2; // ドロップは石の上に出す
+    this.defeat(e);
+    e.y = y0;
+    e.remove = true;
+    if (changed.length > 0) this.opts.onBlocks?.(changed, 'stone');
+    return true;
+  }
+
+  /** 向きのついた箱 b（足もとから見た位置）が重なるマスを、y の下から上まで順に fn へ渡す */
+  private forCells(e: Ent, b: OBox, yLo: number, yHi: number, fn: (x: number, y: number, z: number) => void): void {
+    const bb = obbBounds(b, e.x, e.y, e.z, e.yaw, tmpBox);
+    const c = Math.abs(Math.cos(e.yaw));
+    const s = Math.abs(Math.sin(e.yaw));
+    const x0 = Math.floor(bb.minX + 1e-6);
+    const x1 = Math.floor(bb.maxX - 1e-6);
+    const z0 = Math.floor(bb.minZ + 1e-6);
+    const z1 = Math.floor(bb.maxZ - 1e-6);
+    const m = 0.5 * (c + s) - 1e-6;
+    for (let y = yLo; y <= yHi; y++) {
+      for (let x = x0; x <= x1; x++) {
+        for (let z = z0; z <= z1; z++) {
+          toLocalXZ(x + 0.5 - e.x, z + 0.5 - e.z, e.yaw, tmp);
+          if (Math.abs(tmp.x - b.cx) < b.hx + m && Math.abs(tmp.z - b.cz) < b.hz + m) fn(x, y, z);
+        }
+      }
+    }
+  }
+
+  /** ぬりかべ の たおれこみ: たおれた体が重なるマスと その真下 1 段をこわす（start_torch・みず・いちばん下の段は除く。落とし物なし） */
+  private crush(e: Ent): void {
+    const lying: OBox = { cx: 0, cy: 0.4, cz: -1.9, hx: 1.3, hy: 0.4, hz: 1.5 };
+    const lo = Math.floor(e.y + 1e-6);
+    const hi = Math.floor(e.y + 0.8 - 1e-6);
+    const changed: { x: number; y: number; z: number; from: BlockId; to: BlockId }[] = [];
+    this.forCells(e, lying, lo - 1, hi, (x, y, z) => {
+      if (y <= 0) return;
+      const b = this.world.getBlock(x, y, z);
+      if (b === 'air' || b === 'outside' || b === 'water' || b === 'start_torch') return;
+      if (this.world.setBlock(x, y, z, 'air')) changed.push({ x, y, z, from: b, to: 'air' });
+    });
+    if (changed.length > 0) this.opts.onBlocks?.(changed, 'crush');
+  }
+
+  /** 体（足もと か 腰）が みず のマスにあるか */
+  private inWater(e: Ent): boolean {
+    const ix = Math.floor(e.x);
+    const iz = Math.floor(e.z);
+    return this.world.getBlock(ix, Math.floor(e.y + 1e-6), iz) === 'water' || this.world.getBlock(ix, Math.floor(e.y + 0.9), iz) === 'water';
+  }
+
+  /** 歩く速さ（みず の中は ×waterSpeedMul） */
+  private speedOf(e: Ent): number {
+    let s = YOKAI_STATS[e.kind].speed;
+    if (!KIND_AI[e.kind].flies && this.inWater(e)) s *= this.config.waterSpeedMul;
+    if (e.stone > 0) s *= 1 - (1 - AI_CONST.stoneSlowMin) * e.stone;
+    return s;
+  }
+
+  /** 地面に着いた。落ちた高さに応じて落下ダメージ（みず に着いたら 0）。倒れてもドロップ・経験値なし */
+  private land(e: Ent, ground: number): void {
+    const from = e.fallFrom;
+    e.fallFrom = NaN;
+    if (e.floating || e.kind === 'karakasa') {
+      e.floating = false;
+      e.model.fallTilt = 0;
+      return;
+    }
+    if (Number.isNaN(from) || !Number.isFinite(ground)) return;
+    if (this.world.getBlock(Math.floor(e.x), Math.floor(ground), Math.floor(e.z)) === 'water') return;
+    const dmg = fallDamage(from - ground, this.config.safeFallHeight, this.config.fallDamagePerBlock);
+    if (dmg <= 0) return;
+    e.hp = Math.max(0, e.hp - dmg);
+    this.showMarks(e);
+    if (e.hp <= 0) {
+      this.defeat(e, false);
+      return;
+    }
+    e.model.hit();
+    this.emit({ type: 'hurt', tick: this.tick(), id: e.id, kind: e.kind, position: { x: e.x, y: e.y, z: e.z } });
   }
 
   private applyKnock(e: Ent): void {
@@ -1031,21 +1216,21 @@ export class YokaiManager implements YokaiWorld {
       if (e.state === 'dying' || e.state === 'leaving' || e.state === 'appear' || e.state === 'attack') continue; // 攻撃中は攻撃のダメージだけ
       for (const b of this.boxesOf(e, this.boxList)) {
         if (aabbOverlap(obbBounds(b, e.x, e.y, e.z, e.yaw, tmpBox2), pb) && this.localOverlap(e, b)) {
-          if (this.combat.damage(dmg, e.kind, { x: e.x, y: e.y, z: e.z })) return;
+          if (this.combat.damage(e.kind === 'nurikabe' ? dmg * AI_CONST.nurikabeContactMul : dmg, e.kind, { x: e.x, y: e.y, z: e.z })) return;
           break;
         }
       }
     }
   }
 
-  private playerBox(out: Aabb): Aabb {
-    const h = AI_CONST.playerWidth / 2;
+  private playerBox(out: Aabb, padXZ = 0, padY = 0): Aabb {
+    const h = AI_CONST.playerWidth / 2 + padXZ;
     out.minX = this.px - h;
     out.maxX = this.px + h;
     out.minZ = this.pz - h;
     out.maxZ = this.pz + h;
-    out.minY = this.py;
-    out.maxY = this.py + AI_CONST.playerHeight;
+    out.minY = this.py - padY;
+    out.maxY = this.py + AI_CONST.playerHeight + padY;
     return out;
   }
 
@@ -1058,23 +1243,28 @@ export class YokaiManager implements YokaiWorld {
       this.emit({ type: 'fireball', tick: this.tick(), id: e.id, position: wpos });
       return;
     }
+    if (e.kind === 'nurikabe') this.crush(e);
     // 箱をワールドでの外わくにして、プレイヤーの体の箱と重なるか
     const ob: OBox = { cx: box.cx, cy: box.cy, cz: box.cz, hx: box.w / 2, hy: box.h / 2, hz: box.d / 2 };
-    const hit = aabbOverlap(obbBounds(ob, e.x, e.y, e.z, e.yaw, tmpBox), this.playerBox(tmpBox2)) && this.localOverlap(e, ob);
+    const padXZ = AI_CONST.attackPad;
+    const padY = AI_CONST.attackPadY;
+    const hit =
+      aabbOverlap(obbBounds(ob, e.x, e.y, e.z, e.yaw, tmpBox), this.playerBox(tmpBox2, padXZ, padY)) &&
+      this.localOverlap(e, ob, padXZ, padY);
     this.emit({ type: 'attackHit', tick: this.tick(), id: e.id, kind: e.kind, hitPlayer: hit, position: wpos });
     if (hit) this.combat.damage(ATTACK_DAMAGE[e.kind], e.kind, { x: e.x, y: e.y, z: e.z });
   }
 
   /** 妖怪の向きで見た箱と、プレイヤーの箱の重なり（向きのついた箱のきちんとした判定） */
-  private localOverlap(e: Ent, b: OBox): boolean {
+  private localOverlap(e: Ent, b: OBox, padXZ = 0, padY = 0): boolean {
     toLocalXZ(this.px - e.x, this.pz - e.z, e.yaw, tmp);
     const c = Math.abs(Math.cos(e.yaw));
     const s = Math.abs(Math.sin(e.yaw));
-    const hp = (AI_CONST.playerWidth / 2) * (c + s);
+    const hp = (AI_CONST.playerWidth / 2 + padXZ) * (c + s);
     const ly = this.py + AI_CONST.playerHeight / 2 - e.y;
     return (
       Math.abs(tmp.x - b.cx) < b.hx + hp &&
-      Math.abs(ly - b.cy) < b.hy + AI_CONST.playerHeight / 2 &&
+      Math.abs(ly - b.cy) < b.hy + AI_CONST.playerHeight / 2 + padY &&
       Math.abs(tmp.z - b.cz) < b.hz + hp
     );
   }
@@ -1128,7 +1318,7 @@ export class YokaiManager implements YokaiWorld {
         if (aabbOverlap(tmpBox2, pb)) {
           hitPlayer = true;
           end = true;
-          this.combat.damage(ATTACK_DAMAGE[kind], kind, { x: p.x, y: p.y, z: p.z });
+          this.combat.damage(ATTACK_DAMAGE[kind], kind, { x: p.x, y: p.y, z: p.z }, 'ball');
         }
       }
       if (end) {
