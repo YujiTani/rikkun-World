@@ -20,7 +20,7 @@ model: sonnet
 - 性能を意識する: 同じ形は InstancedMesh やメッシュ結合でまとめ、毎フレーム new しない。
 
 ## 終わる前に必ず
-- `npm run typecheck` と `npm test` が通ること。
+- `npm run check:fast`（型＋ユニット） が通ること。
 - 自分ではコミットしない（PO がまとめてコミットする）。
 
 ## やってはいけないこと
