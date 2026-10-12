@@ -55,6 +55,19 @@ export interface DigM4Deps {
   onPickup?: (item: ItemId, count: number) => void;
   /** 支えをなくした たいまつ を地面に落とす（なければ 持ち物へ直接入れる） */
   scatterItem?: (pos: Vec3, item: ItemId, count: number) => void;
+  /** M6: たんす（`StorageSystem` が合う） */
+  storage?: DigStoragePort;
+}
+
+/** DigSystem が使う たんす の窓口（M6 §2.9） */
+export interface DigStoragePort {
+  isTansu(x: number, y: number, z: number): boolean;
+  /** 開く。もちもの画面は、開いていなければ 開く（screenOpens: true なら 画面は別の所で開くので 触らない） */
+  open(x: number, y: number, z: number, opts?: { screenOpens?: boolean }): boolean;
+  /** 置いた（向きを記録する） */
+  placed(x: number, y: number, z: number, yawDeg: number): void;
+  /** こわした（中身をばらまく） */
+  broken(x: number, y: number, z: number): number;
 }
 
 const NO_DIG_EVENTS: DigEvent[] = [];
@@ -310,13 +323,17 @@ export class DigSystemImpl implements DigSystem {
     const { x, y, z } = t.block;
     const craft = this.m4.craft;
     const wasFurnace = craft?.isFurnace(x, y, z) ?? false;
+    const wasTansu = t.id === 'tansu';
     this.world.setBlock(x, y, z, 'air');
+    if (wasTansu) this.m4.storage?.broken(x, y, z);
     this.dropUnsupportedTorches(x, y, z);
     const fixed = craft?.fixedDrop(t.id) ?? null;
     const max = Math.max(1, this.config.dropMax[this.config.rarity[t.id] ?? 'common'] ?? 1);
     const n = fixed !== null ? fixed : randInt(this.rng, 1, max);
     const got = n - this.inventory.add(t.id, n);
     if (got > 0) this.m4.onPickup?.(t.id, got);
+    // たんす は入らなければ 落とし物にする（なくさない。M6）
+    if (wasTansu && got < n) this.m4.scatterItem?.({ x: x + 0.5, y, z: z + 0.5 }, t.id, n - got);
     if (wasFurnace) craft!.furnaceBroken(x, y, z);
     this.emit({ type: 'break', tick: this.tickCount, block: { x, y, z }, id: t.id, gotItem: got > 0, count: got });
     this.clearMem();
@@ -350,9 +367,28 @@ export class DigSystemImpl implements DigSystem {
     const due = this.secondaryTicks % every === 0;
     this.secondaryTicks++;
     // かまど > 防具 > 置く（かまど・防具は押した瞬間だけ）
-    if (first && this.tryFurnace()) return;
+    if (first && (this.tryStorage() || this.tryFurnace())) return;
     if (first && this.tryArmor()) return;
     if (due) this.tryPlace();
+  }
+
+  private tryStorage(): boolean {
+    const st = this.m4.storage;
+    const t = this.tgt;
+    if (!st || !t || !st.isTansu(t.block.x, t.block.y, t.block.z)) return false;
+    st.open(t.block.x, t.block.y, t.block.z);
+    return true;
+  }
+
+  /**
+   * たんす をねらって `toggleInventory`（E）: たんす の形で開く（M6 §2.9 (2)）。
+   * ScreenController より先に呼ぶこと（画面は ScreenController が開くので、ここでは触らない）。ねらっていなければ false
+   */
+  tryOpenAimedStorage(): boolean {
+    const st = this.m4.storage;
+    const t = this.tgt;
+    if (!st || !t || !this.lock.playInputEnabled() || !st.isTansu(t.block.x, t.block.y, t.block.z)) return false;
+    return st.open(t.block.x, t.block.y, t.block.z, { screenOpens: true });
   }
 
   private tryFurnace(): boolean {
@@ -385,6 +421,7 @@ export class DigSystemImpl implements DigSystem {
     if (this.gate?.placeBlocked(x, y, z)) return; // 妖怪の箱の所には置けない
     if (!this.world.setBlock(x, y, z, block)) return;
     this.inventory.consumeHeld();
+    if (block === 'tansu') this.m4.storage?.placed(x, y, z, this.player().yawDeg);
     this.m4.tools?.pushSwing('place');
     this.emit({ type: 'place', tick: this.tickCount, block: { x, y, z }, id: block });
   }
