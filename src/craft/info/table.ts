@@ -10,6 +10,14 @@ import type { YokaiKind } from '../../contracts';
 /** ボタンの絵の種類: `1-9` = ホットバーで えらぶ、`left` = ひだりクリック、`leftHold` = ひだりを おしつづける、`right` = みぎクリック、`E` = もちもの画面 */
 export type ButtonKey = '1-9' | 'left' | 'leftHold' | 'right' | 'E';
 
+/** ぼうぐ が ふせぐ ダメージの種類（`CraftConfig.armorValue` の種類。かぶと=玉、よろい・こて=ふつう、すねあて=落下） */
+export const ARMOR_KIND: Readonly<Record<string, 'normal' | 'ball' | 'fall'>> = {
+  kabuto: 'ball',
+  yoroi: 'normal',
+  kote: 'normal',
+  suneate: 'fall',
+};
+
 export type StatKind = 'pickaxe' | 'blade' | 'bow' | 'arrow' | 'armor' | 'tansu';
 
 export interface InfoRow {
@@ -109,10 +117,10 @@ export const ITEM_INFO: Readonly<Record<string, InfoRow>> = {
     stats: 'bow',
   },
   ya: { use: 'ゆみ で とばす', how: 'もちもの に いれて おく だけ。ゆみ が つかう', buttons: [], stats: 'arrow' },
-  kabuto: { use: 'ようかい の こうげき を へらす（あたま）', how: WEAR_HOW, buttons: ['1-9', 'right'], stats: 'armor' },
+  kabuto: { use: 'ようかい の ひのたま を へらす（あたま）', how: WEAR_HOW, buttons: ['1-9', 'right'], stats: 'armor' },
   yoroi: { use: 'ようかい の こうげき を へらす（からだ）', how: WEAR_HOW, buttons: ['1-9', 'right'], stats: 'armor' },
   kote: { use: 'ようかい の こうげき を へらす（うで）', how: WEAR_HOW, buttons: ['1-9', 'right'], stats: 'armor' },
-  suneate: { use: 'ようかい の こうげき を へらす（あし）', how: WEAR_HOW, buttons: ['1-9', 'right'], stats: 'armor' },
+  suneate: { use: 'たかい ところ から おちた いたみ を へらす（あし）', how: WEAR_HOW, buttons: ['1-9', 'right'], stats: 'armor' },
 
   // ---- 働きが あとのもの（6）
   lantern: later('おいて あかるく できるように なるよ（もうすぐ）'),

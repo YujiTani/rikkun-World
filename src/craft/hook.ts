@@ -41,3 +41,20 @@ export function createPickupHook(craft: CraftSystemImpl) {
     pickupLog: () => craft.pickupLog().map((l) => ({ item: l.item, count: l.count, ticksLeft: l.ticksLeft })),
   };
 }
+
+/** `window.__rikkun.craft` の M6 の足す分（A）: `hover`・`tileClick`・`detailPress`・`info`（M6 §6.1）。`craft.ui()` は `panel.ui()` が新しい項目も返す */
+export function createCraftPanelHook(
+  panel: {
+    hover(id: string | null): void;
+    tileClick(id: string): { action: 'select' | 'make'; ok: boolean; reason: string | null };
+    detailPress(): { ok: boolean; reason: string | null };
+    info(): { info(item: ItemId): unknown };
+  },
+) {
+  return {
+    hover: (id: string | null) => panel.hover(id),
+    tileClick: (id: string) => panel.tileClick(id),
+    detailPress: () => panel.detailPress(),
+    info: (item: ItemId) => panel.info().info(item),
+  };
+}
