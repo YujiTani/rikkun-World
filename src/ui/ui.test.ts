@@ -60,3 +60,15 @@ describe('絵', () => {
     }
   });
 });
+
+import { signalText, FULL_TEXT } from './noticeModel';
+describe('いっぱいの合図は文字', () => {
+  it('full は文字、needTool と noArrow は絵', () => {
+    expect(signalText('full')).toBe(FULL_TEXT);
+    expect(signalText('needTool')).toBeNull();
+    expect(signalText('noArrow')).toBeNull();
+  });
+  it('ひらがなだけ（漢字なし）', () => {
+    expect(/[一-鿿]/.test(FULL_TEXT)).toBe(false);
+  });
+});
