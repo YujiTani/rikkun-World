@@ -122,8 +122,18 @@ export type HookNamespace = Record<string, (...args: never[]) => unknown>;
 // ================================================================ M2（掘る・置く・持ち物）
 // 担当の割り振り: docs/tickets/M2-dev-split.md。仕様: docs/design/M2-dig-inventory.md
 
-/** アイテムだけのもの（置けない）。M3 で ようかいだま を足した。M4 で道具を足す */
-export type ItemOnlyId = 'yokai_orb';
+/**
+ * アイテムだけのもの（置けない）。M3 で妖怪のドロップを足した（オーナー決定）。M4 で道具を足す。
+ * yokai_orb は M3 第 1 版の名残り（使わなくなったが、型を壊さないため残す）
+ */
+export type ItemOnlyId =
+  | 'yokai_orb'
+  | 'paper' // かみ
+  | 'oil' // あぶら
+  | 'string' // いと
+  | 'cloth' // ぬの
+  | 'clay' // ねんど
+  | 'crystal'; // すいしょう（レア度の低い宝石）
 
 /** アイテムの種類。ブロックとアイテムだけのもの */
 export type ItemId = BlockId | ItemOnlyId;

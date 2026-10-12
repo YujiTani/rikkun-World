@@ -1,0 +1,481 @@
+import { describe, expect, it } from 'vitest';
+import type {
+  BlockId,
+  LockStatus,
+  PlayerState,
+  Vec3,
+  VoxelWorld,
+  YokaiEvent,
+  YokaiRayHit,
+  YokaiWorld,
+} from '../contracts';
+import { DigSystemImpl } from '../dig/DigSystem';
+import { ActionState } from '../input/actions';
+import { InventoryImpl } from '../inventory/Inventory';
+import { createRng } from '../world/gen/random';
+import { createCombatHook } from './hook';
+import { PlayerCombatImpl } from './PlayerCombat';
+
+class FakeWorld implements VoxelWorld {
+  readonly size = { x: 64, y: 32, z: 64 };
+  blocks = new Map<string, BlockId>();
+  getBlock(x: number, y: number, z: number): BlockId | 'outside' {
+    if (x < 0 || y < 0 || z < 0 || x >= 64 || y >= 32 || z >= 64) return 'outside';
+    return this.blocks.get(`${x},${y},${z}`) ?? 'air';
+  }
+  setBlock(x: number, y: number, z: number, id: BlockId): boolean {
+    if (this.getBlock(x, y, z) === 'outside') return false;
+    this.blocks.set(`${x},${y},${z}`, id);
+    return true;
+  }
+  isSolid(x: number, y: number, z: number): boolean {
+    const b = this.getBlock(x, y, z);
+    return b !== 'outside' && b !== 'air' && b !== 'water';
+  }
+}
+
+/** 東を向いた線に当たる、箱ひとつだけの仮の妖怪 */
+class FakeYokai implements YokaiWorld {
+  box: { id: number; x0: number; x1: number } | null = null;
+  damaged: Array<{ id: number; amount: number; from: Vec3 }> = [];
+  list = () => [];
+  raycast(origin: Vec3, dir: Vec3, maxDistance: number): YokaiRayHit | null {
+    if (!this.box || dir.x <= 0.5) return null;
+    const d = (this.box.x0 - origin.x) / dir.x;
+    return d >= 0 && d <= maxDistance ? { id: this.box.id, kind: 'karakasa', distance: d } : null;
+  }
+  damage(id: number, amount: number, from: Vec3) {
+    this.damaged.push({ id, amount, from });
+  }
+  occupies(x: number, _y: number, _z: number) {
+    return !!this.box && x >= Math.floor(this.box.x0) && x < this.box.x1;
+  }
+  drainEvents(): YokaiEvent[] {
+    return [];
+  }
+}
+
+function rig(opts: { rng?: () => number } = {}) {
+  const world = new FakeWorld();
+  for (let x = 0; x <= 12; x++) for (let z = 0; z <= 12; z++) world.setBlock(x, 8, z, 'stone');
+  const player: PlayerState = {
+    position: { x: 2.5, y: 9, z: 6.5 },
+    velocity: { x: 0, y: 0, z: 0 },
+    yawDeg: 90,
+    pitchDeg: 0,
+    onGround: true,
+    inWater: false,
+    moving: false,
+  };
+  const inv = new InventoryImpl();
+  const yokai = new FakeYokai();
+  let saves = 0;
+  let closed = 0;
+  const combat = new PlayerCombatImpl({
+    world,
+    player: {
+      get: () => player,
+      set: (v) => {
+        if (v.position) Object.assign(player.position, v.position);
+        if (v.velocity) Object.assign(player.velocity, v.velocity);
+        if (v.yawDeg !== undefined) player.yawDeg = v.yawDeg;
+        if (v.pitchDeg !== undefined) player.pitchDeg = v.pitchDeg;
+      },
+    },
+    inventory: inv,
+    yokai: () => yokai,
+    spawn: () => ({ x: 1.5, y: 9, z: 1.5, yawDeg: 0, pitchDeg: 0 }),
+    closeInventory: () => closed++,
+    requestSave: () => saves++,
+    rng: opts.rng ?? createRng(7),
+  });
+  const step = (n = 1) => {
+    for (let i = 0; i < n; i++) combat.update();
+  };
+  return { world, player, inv, yokai, combat, step, saves: () => saves, closed: () => closed };
+}
+
+const EYE: Vec3 = { x: 2.5, y: 10.62, z: 6.5 };
+const EAST: Vec3 = { x: 1, y: 0, z: 0 };
+
+describe('体力・ダメージ・むてき・回復', () => {
+  it('ダメージで体力がへり、30 ステップは むてき', () => {
+    const r = rig();
+    expect(r.combat.damage(1, 'karakasa', { x: 0, y: 9, z: 6.5 })).toBe(true);
+    expect(r.combat.hp()).toBe(19);
+    expect(r.combat.damage(1, 'karakasa', { x: 0, y: 9, z: 6.5 })).toBe(false);
+    r.step(29);
+    expect(r.combat.damage(1, 'karakasa', { x: 0, y: 9, z: 6.5 })).toBe(false);
+    r.step(1);
+    expect(r.combat.damage(1, 'karakasa', { x: 0, y: 9, z: 6.5 })).toBe(true);
+    expect(r.combat.hp()).toBe(18);
+  });
+
+  it('遠い向きへ水平に 1.0 押される', () => {
+    const r = rig();
+    r.combat.damage(1, 'karakasa', { x: 1.5, y: 9, z: 6.5 });
+    r.step(12);
+    expect(r.player.position.x).toBeCloseTo(3.5, 2);
+    expect(r.player.position.z).toBeCloseTo(6.5, 2);
+  });
+
+  it('かべがあれば押されない', () => {
+    const r = rig();
+    r.world.setBlock(3, 9, 6, 'stone');
+    r.combat.damage(1, 'karakasa', { x: 1.5, y: 9, z: 6.5 });
+    r.step(12);
+    expect(r.player.position.x).toBeLessThan(2.71);
+  });
+
+  it('自然回復: 840・1080 ステップ目に 1 ずつ。ダメージで待ち直し', () => {
+    const r = rig();
+    r.combat.debugDamage(5);
+    r.step(599);
+    expect(r.combat.hp()).toBe(15);
+    r.step(1);
+    expect(r.combat.hp()).toBe(15);
+    r.step(239);
+    expect(r.combat.hp()).toBe(15);
+    r.step(1);
+    expect(r.combat.hp()).toBe(16);
+    r.step(240);
+    expect(r.combat.hp()).toBe(17);
+    r.step(100);
+    r.combat.debugDamage(1);
+    r.step(839);
+    expect(r.combat.hp()).toBe(16);
+    r.step(1);
+    expect(r.combat.hp()).toBe(17);
+  });
+
+  it('20 になったら増えない', () => {
+    const r = rig();
+    r.combat.debugDamage(1);
+    r.step(840 + 240 * 3);
+    expect(r.combat.hp()).toBe(20);
+  });
+
+  it('debugDamage は押さず playerHit も出さない', () => {
+    const r = rig();
+    r.combat.debugDamage(2);
+    r.step(12);
+    expect(r.player.position.x).toBe(2.5);
+    expect(r.combat.drainEvents()).toEqual([]);
+  });
+
+  it('playerHit が出る', () => {
+    const r = rig();
+    r.combat.damage(2, 'nurikabe', { x: 0, y: 9, z: 6.5 });
+    expect(r.combat.drainEvents()).toEqual([{ type: 'playerHit', tick: 0, by: 'nurikabe', amount: 2 }]);
+    expect(r.combat.drainEvents()).toEqual([]);
+  });
+});
+
+describe('パンチ', () => {
+  it('始めて 30 ステップ目に当たる', () => {
+    const r = rig();
+    r.yokai.box = { id: 1, x0: 3.75, x1: 5.25 };
+    expect(r.combat.primaryStep(true, EYE, EAST, null)).toBe(true);
+    expect(r.combat.hookState().punchTick).toBe(1);
+    for (let i = 2; i <= 29; i++) {
+      expect(r.combat.primaryStep(false, EYE, EAST, null)).toBe(true);
+    }
+    expect(r.yokai.damaged).toHaveLength(0);
+    r.combat.primaryStep(false, EYE, EAST, null); // 30 ステップ目
+    expect(r.yokai.damaged).toEqual([{ id: 1, amount: 1, from: { x: 2.5, y: 9, z: 6.5 } }]);
+    const ev = r.combat.takeHookEvents().map((e) => e.type);
+    expect(ev).toEqual(['punchStart', 'punchHit']);
+    expect(r.combat.hookState().punching).toBe(false);
+  });
+
+  it('押しっぱなしだと 30 ステップごと', () => {
+    const r = rig();
+    r.yokai.box = { id: 1, x0: 3.75, x1: 5.25 };
+    for (let i = 0; i < 120; i++) r.combat.primaryStep(true, EYE, EAST, null);
+    expect(r.yokai.damaged).toHaveLength(4);
+  });
+
+  it('3.0 より遠い妖怪は無視（パンチにならない）', () => {
+    const r = rig();
+    r.yokai.box = { id: 1, x0: 5.6, x1: 6.5 }; // 目から 3.1
+    expect(r.combat.primaryStep(true, EYE, EAST, null)).toBe(false);
+    expect(r.combat.primaryStep(true, EYE, EAST, 4.0)).toBe(false);
+    expect(r.combat.takeHookEvents()).toEqual([]);
+  });
+
+  it('2.9 なら当たる', () => {
+    const r = rig();
+    r.yokai.box = { id: 1, x0: 5.4, x1: 6.5 };
+    for (let i = 0; i < 30; i++) r.combat.primaryStep(i === 0, EYE, EAST, null);
+    expect(r.yokai.damaged).toHaveLength(1);
+  });
+
+  it('妖怪がブロックより奥なら パンチにならない（ほる）', () => {
+    const r = rig();
+    r.yokai.box = { id: 1, x0: 5.0, x1: 6.0 }; // 2.5
+    expect(r.combat.primaryStep(true, EYE, EAST, 1.0)).toBe(false);
+    expect(r.combat.hookState().punching).toBe(false);
+  });
+
+  it('妖怪がいなければ パンチにならない', () => {
+    const r = rig();
+    expect(r.combat.primaryStep(true, EYE, EAST, null)).toBe(false);
+  });
+
+  it('とちゅうで妖怪が外れたら からぶり', () => {
+    const r = rig();
+    r.yokai.box = { id: 1, x0: 3.75, x1: 5.25 };
+    r.combat.primaryStep(true, EYE, EAST, null);
+    r.yokai.box = null;
+    for (let i = 2; i <= 30; i++) r.combat.primaryStep(false, EYE, EAST, null);
+    expect(r.combat.takeHookEvents().map((e) => e.type)).toEqual(['punchStart', 'punchMiss']);
+  });
+});
+
+describe('DigSystem の入口', () => {
+  function digRig() {
+    const r = rig();
+    const actions = new ActionState();
+    const lock: LockStatus = {
+      locked: () => true,
+      overlayVisible: () => false,
+      realtimeAllowed: () => true,
+      playInputEnabled: () => true,
+    };
+    const dig = new DigSystemImpl(r.world, () => r.player, actions, lock, r.inv, () => 1.62, undefined, () => 0, r.combat);
+    const step = (n = 1) => {
+      for (let i = 0; i < n; i++) {
+        dig.update();
+        r.combat.update();
+        actions.endFrame();
+      }
+    };
+    return { ...r, actions, dig, step };
+  }
+
+  it('前 1.5 に ブロック・その先に妖怪 → ほる', () => {
+    const r = digRig();
+    r.world.setBlock(4, 9, 6, 'dirt');
+    r.world.setBlock(4, 10, 6, 'dirt');
+    r.yokai.box = { id: 1, x0: 5.5, x1: 6.5 };
+    r.actions.press('primary');
+    r.step(5);
+    expect(r.dig.state().active).toBe(true);
+    expect(r.combat.hookState().punching).toBe(false);
+  });
+
+  it('前 1.5 に妖怪・その先に ブロック → パンチで、ほらない', () => {
+    const r = digRig();
+    r.world.setBlock(6, 10, 6, 'dirt');
+    r.yokai.box = { id: 1, x0: 4.0, x1: 5.0 };
+    r.actions.press('primary');
+    r.step(60);
+    expect(r.dig.state().progress).toBe(0);
+    expect(r.yokai.damaged).toHaveLength(2);
+  });
+
+  it('ほっている途中で妖怪が入ってくると、次のステップでパンチ', () => {
+    const r = digRig();
+    r.world.setBlock(5, 10, 6, 'dirt');
+    r.actions.press('primary');
+    r.step(15);
+    expect(r.dig.state().active).toBe(true);
+    r.yokai.box = { id: 1, x0: 4.0, x1: 5.0 };
+    r.step(1);
+    expect(r.combat.hookState().punching).toBe(true);
+    expect(r.dig.state().active).toBe(false);
+  });
+
+  it('妖怪の箱の所にはブロックを置けない', () => {
+    const r = digRig();
+    r.inv.setSlot(0, { item: 'dirt', count: 5 });
+    r.player.pitchDeg = -90;
+    r.yokai.box = { id: 1, x0: 2.0, x1: 3.0 };
+    r.actions.press('secondary');
+    r.step(1);
+    expect(r.inv.count('dirt')).toBe(5);
+  });
+
+  it('やられているあいだは ほらない', () => {
+    const r = digRig();
+    r.world.setBlock(4, 10, 6, 'dirt');
+    r.combat.setHp(0);
+    r.actions.press('primary');
+    r.step(10);
+    expect(r.dig.state().active).toBe(false);
+  });
+});
+
+describe('やられた・落とす・ふくろ・復活', () => {
+  function full(r: ReturnType<typeof rig>) {
+    for (let i = 0; i < 36; i++) r.inv.setSlot(i, { item: 'dirt', count: 1 });
+  }
+
+  it('やられた: death イベントと dead、もちもの画面を閉じる', () => {
+    const r = rig();
+    r.player.position.x = 6.5;
+    r.combat.setHp(0);
+    expect(r.combat.dead()).toBe(true);
+    expect(r.combat.takeHookEvents().map((e) => e.type)).toEqual(['death']);
+    expect(r.closed()).toBe(1);
+    expect(r.saves()).toBe(1);
+  });
+
+  it('120 ステップのあいだ動けず、120 ステップ目に復活して 180 ステップ むてき', () => {
+    const r = rig();
+    r.player.position.x = 6.5;
+    r.combat.debugDamage(20);
+    r.step(118);
+    r.player.position.x = 9; // 動かそうとしても
+    r.combat.update(); // 119 ステップ目
+    expect(r.player.position.x).toBeCloseTo(6.5, 5);
+    expect(r.combat.dead()).toBe(true);
+    r.combat.update(); // 120 ステップ目
+    expect(r.combat.dead()).toBe(false);
+    expect(r.player.position).toMatchObject({ x: 1.5, y: 9, z: 1.5 });
+    expect(r.player.yawDeg).toBe(0); // 仮のスタート地点の向きが 0
+    expect(r.combat.hp()).toBe(20);
+    expect(r.combat.invincibleTicks()).toBe(180);
+    r.step(179);
+    expect(r.combat.debugDamage(5)).toBe(false);
+    r.step(1);
+    expect(r.combat.debugDamage(5)).toBe(true);
+    expect(r.combat.hp()).toBe(15);
+  });
+
+  it('えらんでいるマスは落とさない・落ちた分はふくろに入る', () => {
+    const r = rig();
+    full(r);
+    r.inv.select(3);
+    r.combat.setHp(0);
+    expect(r.inv.slots()[3]).not.toBeNull();
+    const bags = r.combat.bags();
+    expect(bags).toHaveLength(1);
+    const remain = r.inv.slots().filter((s) => s).length;
+    expect(remain + bags[0]!.slots.length).toBe(36);
+    const ev = r.combat.takeHookEvents()[0]!;
+    expect(ev.type === 'death' && ev.dropped.includes(3)).toBe(false);
+    expect(bags[0]!.position).toEqual({ x: 2.5, y: 9, z: 6.5 });
+  });
+
+  it('10 回で 350 のうち 125〜225 落ち、同じシードで同じ結果', () => {
+    const run = () => {
+      const r = rig({ rng: createRng(99) });
+      let dropped = 0;
+      for (let k = 0; k < 10; k++) {
+        full(r);
+        r.inv.select(3);
+        r.combat.setHp(0);
+        const ev = r.combat.takeHookEvents().find((e) => e.type === 'death')!;
+        if (ev.type === 'death') {
+          dropped += ev.dropped.length;
+          expect(ev.dropped).not.toContain(3);
+        }
+        r.step(120);
+      }
+      return dropped;
+    };
+    const a = run();
+    expect(a).toBeGreaterThanOrEqual(125);
+    expect(a).toBeLessThanOrEqual(225);
+    expect(run()).toBe(a);
+  });
+
+  it('1 マスも落ちなければ ふくろは出ない', () => {
+    const r = rig({ rng: () => 0.99 });
+    full(r);
+    r.combat.setHp(0);
+    expect(r.combat.bags()).toHaveLength(0);
+  });
+
+  it('空中でやられたら真下の地面の上、水の中なら水面の上', () => {
+    const r = rig({ rng: () => 0 });
+    r.inv.setSlot(5, { item: 'dirt', count: 3 });
+    r.player.position.y = 14.3;
+    r.combat.setHp(0);
+    expect(r.combat.bags()[0]!.position.y).toBe(9);
+
+    const w = rig({ rng: () => 0 });
+    for (let y = 9; y <= 10; y++) w.world.setBlock(2, y, 6, 'water');
+    w.inv.setSlot(5, { item: 'dirt', count: 3 });
+    w.player.position.y = 9;
+    w.combat.setHp(0);
+    expect(w.combat.bags()[0]!.position.y).toBe(11);
+  });
+
+  it('拾う: 1.6 では拾わず、1.4 で中身が入って消える。やられた画面では拾わない', () => {
+    const r = rig({ rng: () => 0 });
+    r.inv.setSlot(5, { item: 'dirt', count: 3 });
+    r.player.position.x = 6.5;
+    r.combat.setHp(0);
+    r.step(120);
+    expect(r.combat.bags()).toHaveLength(1);
+    expect(r.inv.count('dirt')).toBe(0);
+    r.player.position.z = 6.5;
+    r.player.position.x = 6.5 - 1.6;
+    r.step(1);
+    expect(r.combat.bags()).toHaveLength(1);
+    r.player.position.x = 6.5 - 1.4;
+    r.step(1);
+    expect(r.inv.count('dirt')).toBe(3);
+    expect(r.combat.bags()).toHaveLength(0);
+    expect(r.combat.takeHookEvents().map((e) => e.type)).toContain('pickup');
+  });
+
+  it('いっぱいなら入る分だけ入り、残りは ふくろに残る', () => {
+    const r = rig({ rng: () => 0 });
+    r.inv.setSlot(5, { item: 'stone', count: 10 });
+    r.inv.setSlot(0, { item: 'dirt', count: 1 });
+    r.combat.setHp(0);
+    r.step(120);
+    for (let i = 0; i < 36; i++) r.inv.setSlot(i, { item: 'dirt', count: 64 });
+    r.player.position.x = 6.5;
+    r.step(1);
+    expect(r.combat.bags()).toHaveLength(1);
+  });
+
+  it('36,000 ステップで消える（35,999 では残る）', () => {
+    const r = rig({ rng: () => 0 });
+    r.inv.setSlot(5, { item: 'dirt', count: 3 });
+    r.player.position.x = 9.5;
+    r.combat.setHp(0);
+    r.step(120);
+    r.player.position.x = 1.5;
+    r.step(36000 - 120 - 1);
+    expect(r.combat.bags()).toHaveLength(1);
+    expect(r.combat.bags()[0]!.ticksLeft).toBe(1);
+    r.step(1);
+    expect(r.combat.bags()).toHaveLength(0);
+  });
+
+  it('ふくろの保存と読みこみ', () => {
+    const r = rig({ rng: () => 0 });
+    r.inv.setSlot(5, { item: 'dirt', count: 3 });
+    r.inv.setSlot(6, { item: 'yokai_orb', count: 2 });
+    r.player.position.x = 9.5;
+    r.combat.setHp(0);
+    r.step(150);
+    const data = JSON.parse(JSON.stringify(r.combat.serializeBags()));
+    const r2 = rig();
+    r2.combat.deserializeBags(data);
+    expect(r2.combat.bags()).toHaveLength(1);
+    expect(r2.combat.bags()[0]!.slots).toEqual([
+      { item: 'dirt', count: 3 },
+      { item: 'yokai_orb', count: 2 },
+    ]);
+    expect(r2.combat.bags()[0]!.ticksLeft).toBe(36000 - 150);
+    r2.combat.deserializeBags([{ x: 1, y: 2, z: 3, slots: [{ item: 'nope', count: 1 }], ticksLeft: 5 }, 'x', null]);
+    expect(r2.combat.bags()).toHaveLength(0);
+  });
+
+  it('窓口の中身', () => {
+    const r = rig();
+    const h = createCombatHook(r.combat);
+    h.setHp(13);
+    expect(h.get()).toMatchObject({ hp: 13, maxHp: 20, dead: false });
+    h.damage(20);
+    expect(h.get().dead).toBe(true);
+    expect(h.events().map((e) => e.type)).toEqual(['death']);
+    expect(h.events()).toEqual([]);
+  });
+});
