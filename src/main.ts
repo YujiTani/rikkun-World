@@ -113,6 +113,7 @@ const seed = readSeed();
 const island = generateIsland(seed, world);
 const baseline = snapshotWorld(world);
 const renderer = new WorldRenderer(world);
+renderer.setViewer(island.spawn().x, island.spawn().z);
 renderer.attach(game.scene);
 const lighting = new Lighting();
 const sceneBefore = new Set(game.scene.children);
@@ -447,7 +448,7 @@ game.onUpdate((dt) => {
   hotbar.update();
   inventoryScreen.update();
   notice.update(dt);
-  renderer.update();
+  renderer.update({ x: game.camera.position.x, z: game.camera.position.z });
   save.update(game.tick + 1);
 });
 game.onUpdate((dt) => overlay.update(dt));
@@ -472,6 +473,7 @@ const lockHook = createLockHook(lock);
 const combatHook = createCombatHook(combat);
 installTestHook(game, overlay, {
   world: createWorldHook(world, renderer, island),
+  render: { chunks: () => renderer.chunkStats() },
   player: { ...createPlayerHook(controller), doll: cameraHook.doll } as unknown as TestHookGroups['player'],
   ...createDigHook(dig),
   inventory: createInventoryHook(inventory, screen, { ...createPickupHook(craft), ...craftUiHook.inventory }),

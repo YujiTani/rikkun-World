@@ -24,6 +24,8 @@ export interface WorldHook {
   /** M4 光: そのマスの光（空の光・ブロックの光・時刻をふくんだ明るさ 0〜15・見た目の明るさ 0〜1）と、空の光の弱まり（昼 0〜夜 11） */
   lightAt(x: number, y: number, z: number): { sky: number; block: number; level: number; brightness: number };
   skyDarkness(): number;
+  /** M5: 最初の明るさの計算にかかったミリ秒 */
+  lightInitMs(): number;
 }
 
 export function createWorldHook(world: ArrayVoxelWorld, renderer: WorldRenderer, island: IslandInfo): WorldHook {
@@ -49,5 +51,6 @@ export function createWorldHook(world: ArrayVoxelWorld, renderer: WorldRenderer,
       brightness: renderer.light.brightness(x, y, z),
     }),
     skyDarkness: () => skyDarkness.value,
+    lightInitMs: () => renderer.light.initMs,
   };
 }
