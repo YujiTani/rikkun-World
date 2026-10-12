@@ -33,6 +33,8 @@ export class Game {
   private lastTime = 0;
   private rafId = 0;
   private readonly updaters: Array<(dt: number) => void> = [];
+  private readonly idleUpdaters: Array<(dt: number) => void> = [];
+  private realtimeGate: () => boolean = () => true;
 
   constructor(private readonly container: HTMLElement) {
     this.renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
@@ -41,7 +43,6 @@ export class Game {
     container.appendChild(this.renderer.domElement);
 
     this.camera = new THREE.PerspectiveCamera(70, container.clientWidth / container.clientHeight, 0.1, 500);
-    this.scene.background = new THREE.Color(0x87ceeb);
 
     window.addEventListener('resize', this.onResize);
   }
@@ -49,6 +50,19 @@ export class Game {
   /** 毎ステップ呼ばれる処理を登録する */
   onUpdate(fn: (dt: number) => void): void {
     this.updaters.push(fn);
+  }
+
+  /**
+   * 実時間のゲームループを進めてよいか（M1-02 §2.4）。false の間は更新しない（描画は続ける）。
+   * step() にはかかわらない。
+   */
+  setRealtimeGate(fn: () => boolean): void {
+    this.realtimeGate = fn;
+  }
+
+  /** 実時間のループが止まっている間も毎コマ呼ばれる処理（F3 の性能表示など） */
+  onIdle(fn: (dt: number) => void): void {
+    this.idleUpdaters.push(fn);
   }
 
   start(): void {
@@ -85,6 +99,15 @@ export class Game {
     const elapsed = now - this.lastTime;
     this.lastTime = now;
     if (this.paused) return;
+
+    if (!this.realtimeGate()) {
+      // ロックなし: 時間は止める。描画と F3 だけ続ける
+      this.accumulator = 0;
+      for (const fn of this.idleUpdaters) fn(Math.min(elapsed / 1000, 0.1));
+      this.input.endFrame();
+      this.render();
+      return;
+    }
 
     const start = performance.now();
     this.accumulator = Math.min(this.accumulator + elapsed / 1000, FIXED_DT * MAX_STEPS_PER_FRAME);

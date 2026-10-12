@@ -1,9 +1,21 @@
 import type { Game, RenderStats } from '../game/Game';
+import type { createCameraHook } from '../camera/hook';
+import type { createSettingsHook } from '../game/settings';
+import type { createInputHook, createLockHook } from '../input';
+import type { WorldHook } from '../world/hook';
 import type { PerfOverlay } from './perfOverlay';
+
+type CameraHook = ReturnType<typeof createCameraHook>;
+type PlayerHook = {
+  get(): unknown;
+  set(v: { position?: object; velocity?: object; yaw?: number; pitch?: number }): void;
+  doll: CameraHook['doll'];
+};
 
 /**
  * 自動テスト（テストチーム・性能チーム）からゲームを操作するための窓口。
  * window.__rikkun でアクセスする。遊ぶ人には見えない。
+ * 名前の一覧と決まりは docs/design/M1-02-movement.md §6.1。
  */
 export interface TestHook {
   ready: boolean;
@@ -13,6 +25,12 @@ export interface TestHook {
   step(count?: number): void;
   renderStats(): RenderStats;
   perfOverlayVisible(): boolean;
+  world: WorldHook;
+  player: PlayerHook;
+  camera: CameraHook['camera'];
+  input: ReturnType<typeof createInputHook>;
+  lock: ReturnType<typeof createLockHook>;
+  settings: ReturnType<typeof createSettingsHook>;
 }
 
 declare global {
@@ -21,7 +39,9 @@ declare global {
   }
 }
 
-export function installTestHook(game: Game, overlay: PerfOverlay): void {
+export type TestHookGroups = Pick<TestHook, 'world' | 'player' | 'camera' | 'input' | 'lock' | 'settings'>;
+
+export function installTestHook(game: Game, overlay: PerfOverlay, groups: TestHookGroups): void {
   window.__rikkun = {
     ready: true,
     tick: () => game.tick,
@@ -34,5 +54,6 @@ export function installTestHook(game: Game, overlay: PerfOverlay): void {
     step: (count = 1) => game.step(count),
     renderStats: () => game.getRenderStats(),
     perfOverlayVisible: () => overlay.visible,
+    ...groups,
   };
 }

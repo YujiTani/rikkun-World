@@ -12,6 +12,8 @@ test('ゲーム画面が出て、エラーが出ない', async ({ page }) => {
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
   await page.reload();
   await page.waitForFunction(() => window.__rikkun?.ready === true);
+  // 起動直後は案内画面で時間が止まる（M1-02 §2.4）。ロックされた状態にしてから進むのを待つ
+  await page.evaluate(() => window.__rikkun!.lock.simulate(true));
 
   await expect(page.locator('#game canvas')).toBeVisible();
   await expect(page.locator('#title')).toContainText('りっくんワールド');
