@@ -172,6 +172,7 @@ export class CraftPanel {
   private tabs_: CraftTab[] = ['craft'];
   private open = false;
   private dirty = true;
+  private heldSeen = false;
   private craftViews: CardView[] = [];
   private bakeViews: CardView[] = [];
   private selected_: Record<CraftTab, string | null> = { craft: null, bake: null };
@@ -370,8 +371,11 @@ export class CraftPanel {
       this.dirty = true;
     }
     // やく画面は棒がのびるので、毎ステップ見る
+    // それ以外は、変わったとき（dirty・カーソルに持った/はなした）だけ作る
+    const held = this.d.cursorHeld?.() ?? false;
     if (this.dirty || this.tab_ === 'bake') this.sync();
-    else this.paintDetail();
+    else if (held !== this.heldSeen) this.paintDetail();
+    this.heldSeen = held;
   }
 
   /** 開いたとき・タブが変わったとき: えらんでいるマスが無ければ つくれる いちばん前（無ければ 1 つ目） */

@@ -287,6 +287,8 @@ export class CelebrateUi {
   }
 
   dispose(): void {
+    window.removeEventListener('keydown', this.guard, true);
+    window.removeEventListener('keyup', this.guard, true);
     this.fx.dispose();
     this.bannerView.dispose();
     this.modalView.parts.scrim.remove();

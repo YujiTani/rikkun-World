@@ -63,7 +63,6 @@ export class AchievementsPage {
   private readonly tip = createTooltip();
   private builtVersion = -1;
   private builtCategory = '';
-  private lastTab = '';
 
   constructor(
     private readonly sys: AchievementSystem,
@@ -112,18 +111,24 @@ export class AchievementsPage {
   /** 毎フレーム: タブの出入りと 取った実績の変化を 画面に映す */
   update(): void {
     const open = this.host.isOpen();
+    // 出入りの検出（見た にする）は軽いので毎フレーム。重い ui() は見えていて変わったときだけ
+    this.model.sync(open);
+    const visible = open && this.model.tab() === 'achievements';
+    this.host.pageSlot.hidden = !visible;
+    if (!visible) {
+      this.builtVersion = -1; // 見えるようになったら作り直す
+      return;
+    }
+    const key = `${this.model.category()}`;
+    const ver = this.sys.version();
+    if (ver === this.builtVersion && key === this.builtCategory) return;
     const ui = this.model.ui(open);
-    const key = `${ui.category}`;
-    this.host.pageSlot.hidden = !(open && ui.tab === 'achievements');
-    if (this.lastTab !== ui.tab) this.lastTab = ui.tab;
+    this.builtVersion = ver;
+    this.builtCategory = key;
     for (const c of ui.categories) {
       const t = this.catTabs.get(c.id);
       if (t) setTabState(t, { selected: c.id === ui.category, dot: c.dot });
     }
-    const ver = this.sys.version();
-    if (ver === this.builtVersion && key === this.builtCategory) return;
-    this.builtVersion = ver;
-    this.builtCategory = key;
     this.title.textContent = `じっせき ${ui.unlocked} / ${ui.total}`;
     setBar(this.bar, ui.unlocked / ui.total);
     this.renderRows(ui);

@@ -201,6 +201,7 @@ export class StorageSystem {
     const before = r.slots[i];
     const res = clickRule(before, curBefore);
     if (!res) return false;
+    if (!curBefore) this.liftedFrom = null; // 空のカーソルからは、古い目印は使わない
     const liftedBefore = this.liftedFrom;
     r.slots[i] = res.slot;
     inv.setCursor(res.cur);
@@ -326,6 +327,8 @@ export class StorageSystem {
   // ------------------------------------------------------------ 毎ステップ・出来事
 
   update(): void {
+    // カーソルが空なら持ち上げ元の目印は古い（置いた・すてた）。消す
+    if (this.liftedFrom && !this.d.inventory.cursor()) this.liftedFrom = null;
     const o = this.opened;
     if (o) {
       const p = this.d.player();

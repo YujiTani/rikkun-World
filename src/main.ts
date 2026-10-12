@@ -19,7 +19,7 @@ import { PickupLogModel } from './ui/pickupLogModel';
 import { itemRarity } from './drops/rarity';
 import { itemType } from './inventory/items';
 import { createGuideHook } from './ui/playOverlay';
-import { createM6Settings, type AchievementId, type CombatEvent, type DefeatWith, type DigEvent, type ItemId, type StorageEvent, type SwingAnim, type YokaiKind } from './contracts';
+import { createM6Settings, type AchievementId, type CombatEvent, type DefeatWith, type DigEvent, type ItemId, type SwingAnim, type YokaiKind } from './contracts';
 import { ACHIEVEMENT_DEFS, AchievementSystem, AchievementsPageModel, createAchievementsHook, type StepContext } from './achievements';
 import { CelebrateUi } from './ui/celebrate';
 import { AchievementsPage, achievementArtUrl } from './ui/achievementsPage';
@@ -275,7 +275,8 @@ const storage = new StorageSystem({
   tick: () => game.tick,
   requestSave: () => requestSave(),
   onSound: (name) => playStorage(fxSound, name),
-  onFull: () => notice.showSignal('full'),
+  // たんす の いっぱい は 実績（いっぱいにした）に数えない（もちものだけ）
+  onFull: () => showSignalRaw('full'),
 });
 const dropper = new ItemDropper({
   inventory,
@@ -643,6 +644,7 @@ function updateAchievements(): void {
 game.onUpdate((dt) => {
   // おめでとう画面のあいだ: 世界・妖怪・時刻・プレイヤーは進まない（画面の時間だけ進む。§2.6 (3)）
   if (screen.mode() === 'celebrate') {
+    crosshair.setVisible(false);
     celebrate.step();
     updateAchievements();
     inventoryScreen.update();
@@ -683,8 +685,11 @@ game.onUpdate((dt) => {
     digBuf = digBuf === NO_DIG ? digEvents : digBuf.concat(digEvents);
     achievements.feedDig(digEvents);
   }
-  const storageEvents: StorageEvent[] = [...storage.drainEvents(), ...dropper.drainEvents()];
-  if (storageEvents.length > 0) achievements.feedStorage(storageEvents);
+  const storageA = storage.drainEvents();
+  const storageB = dropper.drainEvents();
+  if (storageA.length > 0 || storageB.length > 0) {
+    achievements.feedStorage(storageB.length === 0 ? storageA : storageA.length === 0 ? storageB : storageA.concat(storageB));
+  }
   const swings = tools.drainSwings();
   if (swings.length > 0) {
     const held = inventory.held()?.item ?? null;

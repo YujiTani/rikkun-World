@@ -46,6 +46,7 @@ export class DragOut {
   private dragging: DragTarget | null = null;
   private hovered: DragTarget | null = null;
   private swallow = false;
+  private watch: MutationObserver | null = null;
   private readonly onOver = (e: MouseEvent) => {
     this.hovered = targetOf(e.target);
   };
@@ -83,11 +84,20 @@ export class DragOut {
       up: (e, inside) => this.up(e, inside),
     });
     window.addEventListener('mouseover', this.onOver);
+    // 画面を閉じた（hidden になった）ら合っていたマスを忘れる
+    if (typeof MutationObserver !== 'undefined') {
+      this.watch = new MutationObserver(() => {
+        if (host.el.hidden) this.hovered = null;
+      });
+      this.watch.observe(host.el, { attributes: true, attributeFilter: ['hidden'] });
+    }
     window.addEventListener('click', this.onClickCapture, true);
   }
 
   /** マウスが合っているマス（Q・Shift＋Q の元） */
   hoverTarget(): DragTarget | null {
+    // 画面が閉じているあいだは、前に合っていたマスを返さない（見えないマスをすてない）
+    if (this.host.el.hidden) this.hovered = null;
     return this.hovered;
   }
 
@@ -152,6 +162,7 @@ export class DragOut {
 
   dispose(): void {
     this.host.setOutsideHandlers(null);
+    this.watch?.disconnect();
     window.removeEventListener('mouseover', this.onOver);
     window.removeEventListener('click', this.onClickCapture, true);
     this.overlay.remove();
