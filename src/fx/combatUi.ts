@@ -1,5 +1,6 @@
 import type { DayPhase } from '../contracts';
 import { Clock } from '../ui/clock';
+import type { ClockPhases } from '../ui/clockModel';
 import { DamageEdge } from '../ui/damageEdge';
 import { DeathScreen } from '../ui/deathScreen';
 import { Hearts } from '../ui/hearts';
@@ -14,12 +15,12 @@ export interface CombatUi {
 }
 
 /** M3 の画面の部品（ハート・やられた画面・おうちに もどったよ・ふちのピンク・時計）を #hud に作る */
-export function createCombatUi(hud: HTMLElement): CombatUi {
+export function createCombatUi(hud: HTMLElement, clockPhases?: ClockPhases): CombatUi {
   return {
     edge: new DamageEdge(hud),
     hearts: new Hearts(hud),
     deathScreen: new DeathScreen(hud),
     homeNotice: new HomeNotice(hud),
-    clock: new Clock(hud),
+    clock: new Clock(hud, clockPhases),
   };
 }

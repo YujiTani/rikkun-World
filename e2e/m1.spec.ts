@@ -14,6 +14,7 @@ const ASSETS = 'docs/test-reports/assets';
 async function open(page: Page, seed: number | null = null) {
   await page.goto(seed === null ? '/' : `/?seed=${seed}`);
   await page.waitForFunction(() => window.__rikkun?.ready === true);
+  await page.evaluate(() => window.__rikkun!.achievements.mute(true));
 }
 
 test.describe('M1-01 世界（つないだ後）', () => {
@@ -29,7 +30,7 @@ test.describe('M1-01 世界（つないだ後）', () => {
     });
     expect(r.size).toEqual({ x: WORLD_SIZE.x, y: WORLD_SIZE.y, z: WORLD_SIZE.z });
     expect(r.out).toEqual(['outside', 'outside', 'outside']);
-    expect(r.types.length).toBe(16); // M4: かまど・かわら・レンガ・たいまつ・こわれない たいまつ を足した
+    expect(r.types.length).toBe(17); // M4: かまど・かわら・レンガ・たいまつ・こわれない たいまつ、M6: たんす を足した
     const by = Object.fromEntries(r.types.map((t) => [t.id, t]));
     expect(by.bedrock.breakable).toBe(false);
     expect(by.water.breakable).toBe(false);

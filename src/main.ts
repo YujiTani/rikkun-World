@@ -34,6 +34,7 @@ import { createItemInfo, type InfoNumbers } from './craft/info';
 import { createCraftPanelHook } from './craft/hook';
 import { mountInventoryTabs } from './ui/craftPanel.tabs';
 import { noticeCluster } from './ui/craftHint';
+import { CLOCK_PHASES, type ClockPhases } from './ui/clockModel';
 import { markUrl } from './ui/medalArt';
 import { itemIconUrl } from './ui/itemIcon';
 import { DropField } from './drops';
@@ -375,7 +376,9 @@ notice.showSignal = (kind) => {
   showSignalRaw(kind);
 };
 hudSignal.full = () => notice.showSignal('full');
-const combatUi = createCombatUi(hud);
+// 時計の ひる の分け方（settings の clockPhases）
+const clockPhases: ClockPhases = { ...CLOCK_PHASES };
+const combatUi = createCombatUi(hud, clockPhases);
 const levelHud = new LevelHud(hud);
 const hotbar = new Hotbar(hud, inventory, notice);
 const nameOf = (item: ItemId): string => itemType(item)?.name ?? item;
@@ -610,6 +613,7 @@ let yokaiSample: StepContext['yokai'] = [];
 const regions = island.regions();
 const armorNow: (ItemId | null)[] = [null, null, null, null];
 /** 実績に今の状態を渡す（画面ステップ: あそぶ 1・もちもの 1÷timeScale・止まっているとき 0） */
+let achMuted = false;
 function updateAchievements(): void {
   const st = controller.state;
   const mode = screen.mode();
@@ -632,7 +636,7 @@ function updateAchievements(): void {
   armorNow[3] = armor.equipped('legs');
   ctx.armor = armorNow;
   ctx.regions = regions;
-  achievements.update(ctx);
+  if (!achMuted) achievements.update(ctx);
   celebrate.setPending(achievements.pendingCount());
 }
 
@@ -758,6 +762,10 @@ const achievementsHook = {
   modal: () => celebrate.modalInfo(),
   close: () => celebrate.close(),
   sounds: () => celebrate.drainAchievementSounds(),
+  /** テスト用: true のあいだ 実績の画面（おめでとう画面）を出さない（古いテストが世界を止められないように） */
+  mute: (on: boolean) => {
+    achMuted = on;
+  },
 };
 const guideHook = createGuideHook(playOverlay);
 const lockHook = createLockHook(lock);
@@ -807,6 +815,7 @@ installTestHook(game, overlay, {
       settingsViewOf(craftUi, ['bakeTicks', 'pickupLogTicks', 'pickupLogMax']),
       screenSettings,
       m6,
+      { clockPhases },
       FX_SETTINGS,
       sharedSettingsView('knockback', [combat.config, yokaiM.config]),
       sharedSettingsView('yokaiLeaveTicks', [timeSettings, yokaiM.config]),

@@ -16,6 +16,7 @@ test.describe.configure({ timeout: 180_000 });
 async function open(page: Page, query = '?nosave=1') {
   await page.goto('/' + query);
   await page.waitForFunction(() => window.__rikkun?.ready === true);
+  await page.evaluate(() => window.__rikkun!.achievements.mute(true));
   await page.evaluate(() => {
     const h = (window as any).__rikkun;
     const T: any = {
@@ -987,6 +988,7 @@ test.describe('M3 やられたとき・落とし物', () => {
     });
     await page.goto('/');
     await page.waitForFunction(() => window.__rikkun?.ready === true);
+    await page.evaluate(() => window.__rikkun!.achievements.mute(true));
     const after = await page.evaluate(() => {
       const h = (window as any).__rikkun;
       h.pause();

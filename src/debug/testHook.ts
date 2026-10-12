@@ -61,7 +61,7 @@ export interface TestHook {
   level: ReturnType<typeof createLevelHook>;
   yokai: ReturnType<typeof createYokaiHook>['yokai'];
   /** M6 §6.1: 実績・おめでとう画面 */
-  achievements: ReturnType<typeof createAchievementsHook> & { modal(): unknown; close(): unknown; sounds(): string[] };
+  achievements: ReturnType<typeof createAchievementsHook> & { modal(): unknown; close(): unknown; sounds(): string[]; mute(on: boolean): void };
   /** M6 §6.1: たんす */
   storage: ReturnType<typeof createStorageHook>;
 }

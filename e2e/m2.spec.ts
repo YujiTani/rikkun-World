@@ -12,6 +12,7 @@ const ASSETS = 'docs/test-reports/assets';
 async function open(page: Page, query = '') {
   await page.goto('/' + query);
   await page.waitForFunction(() => window.__rikkun?.ready === true);
+  await page.evaluate(() => window.__rikkun!.achievements.mute(true));
   await installHelpers(page);
 }
 
@@ -923,8 +924,8 @@ test.describe('M2 見た目', () => {
     expect(info.filter((s) => s.sel === 'true').length).toBe(1);
     expect(info[0].count).toBe('12');
     expect(info[1].count).toBe('');
-    expect(info[0].border).toMatch(/255,\s*213,\s*79/);
-    expect(info[2].border).not.toMatch(/255,\s*213,\s*79/);
+    expect(info[0].border).toMatch(/255,\s*200,\s*61/);
+    expect(info[2].border).not.toMatch(/255,\s*200,\s*61/);
     // もちもの画面を開いて文字を確認
     await page.keyboard.press('KeyE');
     await page.waitForFunction(() => (window as any).__rikkun.inventory.get().open === true);
@@ -956,6 +957,7 @@ test.describe('M2 自動セーブ', () => {
     expect(before.info.enabled).toBe(true);
     await page.reload();
     await page.waitForFunction(() => window.__rikkun?.ready === true);
+    await page.evaluate(() => window.__rikkun!.achievements.mute(true));
     const after = await page.evaluate(() => {
       const h = (window as any).__rikkun;
       return { hash: h.world.hash(), p: h.player.get(), inv: h.inventory.get(), lock: h.lock.get() };
@@ -974,13 +976,16 @@ test.describe('M2 自動セーブ', () => {
     // ?seed=2 で開いても、ふだんの島の保存は消えない
     await page.goto('/?seed=2');
     await page.waitForFunction(() => window.__rikkun?.ready === true);
+    await page.evaluate(() => window.__rikkun!.achievements.mute(true));
     await page.goto('/');
     await page.waitForFunction(() => window.__rikkun?.ready === true);
+    await page.evaluate(() => window.__rikkun!.achievements.mute(true));
     expect(await page.evaluate(() => (window as any).__rikkun.world.hash())).toBe(before.hash);
 
     // ?reset=1
     await page.goto('/?reset=1');
     await page.waitForFunction(() => window.__rikkun?.ready === true);
+    await page.evaluate(() => window.__rikkun!.achievements.mute(true));
     const reset = await page.evaluate(() => {
       const h = (window as any).__rikkun;
       return { hash: h.world.hash(), inv: h.inventory.get().slots.filter((s: any) => s), p: h.player.get().position, spawn: h.world.spawn(), url: location.href };
@@ -993,6 +998,7 @@ test.describe('M2 自動セーブ', () => {
     // 最初の島と同じ（nosave で作った島と比べる）
     await page.goto('/?nosave=1&seed=' + (await page.evaluate(() => (window as any).__rikkun.world.seed())));
     await page.waitForFunction(() => window.__rikkun?.ready === true);
+    await page.evaluate(() => window.__rikkun!.achievements.mute(true));
     expect(await page.evaluate(() => (window as any).__rikkun.world.hash())).toBe(reset.hash);
   });
 
@@ -1020,6 +1026,7 @@ test.describe('M2 自動セーブ', () => {
     // 前のページは閉じるとき(pagehide)に保存するので、先に移ってから消す
     await page.goto('/?nosave=1');
     await page.waitForFunction(() => window.__rikkun?.ready === true);
+    await page.evaluate(() => window.__rikkun!.achievements.mute(true));
     const keys = await page.evaluate(() => {
       localStorage.clear();
       const h = (window as any).__rikkun;
