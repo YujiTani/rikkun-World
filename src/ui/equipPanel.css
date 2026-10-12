@@ -1,20 +1,22 @@
-/* そうびのマス: 人形の形のわく（あたま・からだ・うで・あし） */
+/* そうびのマス 4 つ: 持ち物の上に 横 1 列（左はしをそろえる）。マスの下に 部位の印 */
 .equip-panel {
   display: flex;
   align-items: flex-end;
-  margin-right: 14px;
 }
 .equip-doll {
-  /* 上から あたま・からだ・うで・あし（よこに広げず、1 列で 1280px の画面に収める） */
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: var(--rk-sp-2);
+}
+.equip-cell {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 6px 8px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 3px dashed #8a8a8a;
-  border-radius: 14px;
 }
-.equip-slot[data-slot='head'] {
-  border-radius: 50%;
+.equip-label {
+  font-size: var(--rk-fs-small);
+  font-weight: 500;
+  line-height: var(--rk-lh);
+  color: var(--rk-text-sub);
 }

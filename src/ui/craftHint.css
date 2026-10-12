@@ -1,14 +1,24 @@
-/* つくれる マーク: ホットバーの右はしの外（かなづち 48px 以上） */
-#craft-hint {
+/* B おしらせ のかたまり: ホットバーの右はしにそろえる。中身が見えないときは出さない */
+#hud-notice {
   position: fixed;
-  left: calc(50% + (9 * var(--cell, max(64px, 5.2vw)) + 48px) / 2 + 16px);
-  bottom: 18px;
-  width: 56px;
-  height: 56px;
+  left: auto;
+  right: calc(50% - var(--hb-w) / 2);
+  bottom: var(--hud-above-hotbar);
+  flex-direction: row;
+  align-items: center;
+  z-index: 5;
+}
+#hud-notice:not(:has(> :not([hidden]))) {
+  display: none;
+}
+/* つくれる マーク（かなづち 48px 以上） */
+#craft-hint {
+  flex: none;
+  width: var(--rk-sp-7);
+  height: var(--rk-sp-7);
   image-rendering: pixelated;
   transform: translateY(calc(var(--hop, 0) * -14px));
   pointer-events: none;
-  z-index: 5;
 }
 #craft-hint[hidden] {
   display: none;

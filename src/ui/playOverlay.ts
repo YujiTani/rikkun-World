@@ -49,6 +49,8 @@ function tabArts(): Record<GuideTabId, string[]> {
       ICON('hammer'),
       `${RIGHT}${ICON('furnace')}${EMOJI('🔥')}`,
       `${ICON('coal_ore')}${ICON('oil')}${ICON('log')}`,
+      `<div class="po-keys">${KEY('Q')}</div>${ICON('dirt')}`,
+      `${ICON('tansu')}`,
     ],
   };
 }

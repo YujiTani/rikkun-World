@@ -21,6 +21,22 @@ export interface InventoryM4 {
   ui?: CraftUiSettings;
 }
 
+/** もちもの画面の 上のタブ（M6 §2.7）。じっせき のとき パネルぜんたいが じっせき ページになる */
+export type InventoryTab = 'items' | 'achievements';
+
+/** 右の場所に出すもの（M6）: つくる・やく か、たんす（§2.9） */
+export type InventorySide = 'craft' | 'storage';
+
+/**
+ * パネルの外の マウスの口（M6 §2.8。D の ドラッグでの すてる が使う）。
+ * inside = マウスが パネル（持ち物・右の場所・じっせき ページ）の中か。
+ */
+export interface InventoryOutsideHandlers {
+  down?(e: MouseEvent, inside: boolean): void;
+  move?(e: MouseEvent, inside: boolean): void;
+  up?(e: MouseEvent, inside: boolean): void;
+}
+
 /** もちもの画面のマスの並び: 上の 3 段 = マス 9〜35、少しあけて下の 1 段 = マス 0〜8 */
 export function inventoryLayout(): { bag: number[][]; hotbar: number[] } {
   const bag: number[][] = [];
@@ -37,6 +53,26 @@ export class InventoryScreen {
   readonly el: HTMLDivElement;
   readonly panel: HTMLDivElement;
   readonly closeButton: HTMLButtonElement;
+  /**
+   * M6 の差しこみ口（中身は 担当が入れる。空のあいだは 何も見えない）:
+   * - tabsEl: 上のタブ（もちもの／じっせき。A が入れる。場所は S2 が決める）
+   * - craftSlot: 右の「つくる・やく」の場所（今の M4 の CraftPanel。A）
+   * - storageSlot: 右の「たんす」の場所（D。ふだんは かくれている）
+   * - pageSlot: じっせき ページ（C。ふだんは かくれている）
+   */
+  readonly tabsEl: HTMLDivElement;
+  readonly craftSlot: HTMLDivElement;
+  readonly storageSlot: HTMLDivElement;
+  readonly pageSlot: HTMLDivElement;
+  private readonly bodyEl: HTMLDivElement;
+  private readonly frame: HTMLDivElement;
+  private readonly onResize: () => void;
+  private sideNow: InventorySide = 'craft';
+  private tabNow: InventoryTab = 'items';
+  private fitSize = '';
+  private pageSize: { w: number; h: number } | null = null;
+  private outside: InventoryOutsideHandlers | null = null;
+  private readonly onPointer: (e: MouseEvent) => void;
   private readonly cells: SlotEls[] = [];
   private readonly cursorEl: HTMLDivElement;
   private readonly cursorIcon: HTMLImageElement;
@@ -140,11 +176,26 @@ export class InventoryScreen {
       main.append(this.equip.el);
     }
     main.append(grid);
-    this.panel.append(head, main);
+    this.tabsEl = document.createElement('div');
+    this.tabsEl.className = 'inv-tabs';
+    this.panel.append(main);
+    // 大きな 1 まいのパネル（わく）: 上に タブ（A が入れる）と とじる、中に 持ち物・つくる・せつめい
+    this.frame = document.createElement('div');
+    this.frame.className = 'inv-frame';
+    head.prepend(this.tabsEl);
     const body = document.createElement('div');
     body.className = 'inv-body';
-    body.append(this.panel, side);
-    this.el.append(body);
+    this.craftSlot = side;
+    this.storageSlot = document.createElement('div');
+    this.storageSlot.className = 'inv-storage';
+    this.storageSlot.hidden = true;
+    body.append(this.panel, side, this.storageSlot);
+    this.bodyEl = body;
+    this.pageSlot = document.createElement('div');
+    this.pageSlot.className = 'inv-page';
+    this.pageSlot.hidden = true;
+    this.frame.append(head, body, this.pageSlot);
+    this.el.append(this.frame);
 
     this.cursorEl = document.createElement('div');
     this.cursorEl.className = 'inv-cursor';
@@ -164,6 +215,77 @@ export class InventoryScreen {
       this.placeCursor();
     };
     window.addEventListener('mousemove', this.onMove);
+    this.onPointer = (e) => {
+      if (!this.open || !this.outside) return;
+      const h = e.type === 'mousedown' ? this.outside.down : e.type === 'mouseup' ? this.outside.up : this.outside.move;
+      h?.(e, this.isInsidePanels(e.clientX, e.clientY));
+    };
+    for (const t of ['mousedown', 'mousemove', 'mouseup'] as const) window.addEventListener(t, this.onPointer);
+    this.onResize = () => this.fit();
+    window.addEventListener('resize', this.onResize);
+  }
+
+  /** 小さい画面では パネルぜんたいを 同じ比で ちぢめる（はしから 24px あける。大きい画面は CSS の clamp で大きくなる） */
+  private fit(): void {
+    const f = this.frame;
+    const w = f.offsetWidth;
+    const h = f.offsetHeight;
+    this.fitSize = `${w}x${h}`;
+    if (w === 0 || h === 0) {
+      f.style.transform = '';
+      return;
+    }
+    const m = parseFloat(getComputedStyle(this.el).getPropertyValue('--rk-sp-5')) || 24;
+    const k = Math.min(1, (window.innerWidth - 2 * m) / w, (window.innerHeight - 2 * m) / h);
+    f.style.transform = k < 1 ? `scale(${k})` : '';
+  }
+
+  /** 右の場所を入れかえる（つくる・やく ⇄ たんす）。見た目は style.display だけで切る */
+  setSide(side: InventorySide): void {
+    this.sideNow = side;
+    this.craftSlot.style.display = side === 'craft' ? '' : 'none';
+    this.storageSlot.hidden = side !== 'storage';
+  }
+
+  side(): InventorySide {
+    return this.sideNow;
+  }
+
+  /** 上のタブを切りかえる。じっせき のときは パネルぜんたいを pageSlot に入れかえる */
+  setTab(tab: InventoryTab): void {
+    // じっせき ページは もちもの のときの 中身と同じ大きさにする（はかってから かくす）
+    if (tab === 'achievements' && this.tabNow === 'items') {
+      const w = this.bodyEl.offsetWidth;
+      const h = this.bodyEl.offsetHeight;
+      if (w > 0 && h > 0) this.pageSize = { w, h };
+    }
+    if (tab === 'achievements' && this.pageSize) {
+      this.pageSlot.style.width = `${this.pageSize.w}px`;
+      this.pageSlot.style.height = `${this.pageSize.h}px`;
+    }
+    this.tabNow = tab;
+    this.bodyEl.style.display = tab === 'items' ? '' : 'none';
+    this.pageSlot.hidden = tab === 'items';
+  }
+
+  tab(): InventoryTab {
+    return this.tabNow;
+  }
+
+  /** パネルの外のマウスの口（なしにするときは null） */
+  setOutsideHandlers(h: InventoryOutsideHandlers | null): void {
+    this.outside = h;
+  }
+
+  /** その画面の位置が パネル（持ち物・右の場所・じっせき ページ）の中か */
+  isInsidePanels(x: number, y: number): boolean {
+    const els: HTMLElement[] = [this.panel, this.craftSlot, this.storageSlot, this.pageSlot];
+    for (const el of els) {
+      if (el.hidden || el.style.display === 'none') continue;
+      const r = el.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0 && x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return true;
+    }
+    return false;
   }
 
   isOpen(): boolean {
@@ -176,8 +298,17 @@ export class InventoryScreen {
       this.open = open;
       this.el.hidden = !open;
       this.dirty = true;
+      if (open) {
+        this.fit();
+        if (this.tabNow === 'items') {
+          const w = this.bodyEl.offsetWidth;
+          const h = this.bodyEl.offsetHeight;
+          if (w > 0 && h > 0) this.pageSize = { w, h };
+        }
+      }
       if (!open) this.tooltip?.hover(null);
     }
+    if (open && `${this.frame.offsetWidth}x${this.frame.offsetHeight}` !== this.fitSize) this.fit(); // せつめい などで 大きさが変わったら ちぢめなおす
     if (open && this.dirty) this.render();
     this.craftPanel?.update();
     if (open) {
@@ -230,6 +361,8 @@ export class InventoryScreen {
     this.craftPanel?.dispose();
     this.tooltip?.dispose();
     window.removeEventListener('mousemove', this.onMove);
+    window.removeEventListener('resize', this.onResize);
+    for (const t of ['mousedown', 'mousemove', 'mouseup'] as const) window.removeEventListener(t, this.onPointer);
     this.el.remove();
   }
 }

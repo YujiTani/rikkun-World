@@ -376,6 +376,10 @@ export class BlockDoll {
   swing(): void {
     this.animator.startArm('place');
   }
+  /** ものを すてる（M6）。右うでを前へ 1 回ふる */
+  throwArm(): void {
+    this.animator.startArm('throw');
+  }
   /** パンチ。右うでを大きく前へ 1 回振る */
   punch(): void {
     this.animator.startArm('punch');

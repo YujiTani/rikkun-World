@@ -41,6 +41,8 @@ const M4_BLOCKS: readonly ItemType[] = [
   { id: 'kawara', name: 'かわら', maxStack: BLOCK_MAX_STACK, placeBlock: 'kawara' },
   { id: 'brick', name: 'レンガ', maxStack: BLOCK_MAX_STACK, placeBlock: 'brick' },
   { id: 'torch', name: 'たいまつ', maxStack: BLOCK_MAX_STACK, placeBlock: 'torch' },
+  // M6
+  { id: 'tansu', name: 'たんす', maxStack: BLOCK_MAX_STACK, placeBlock: 'tansu' },
 ];
 
 /** M4: 道具・武器・防具・作れるだけのもの 19 種（置けない） */

@@ -156,4 +156,39 @@ describe('DropField', () => {
     expect(full).toBeGreaterThan(0);
     expect(f.size()).toBe(1);
   });
+
+  it('M6: throwItem は向いている方へ 1.5〜3 マス先に落ち、60 ステップは拾わない', () => {
+    const r = rig();
+    r.player.x = 10.5;
+    r.player.y = 9;
+    r.player.z = 10.5;
+    r.f.throwItem({ item: 'dirt', count: 5 }, 0, 1.62); // yaw 0 = 北（-z）
+    const v0 = r.f.list()[0]!;
+    expect(v0.thrown).toBe(true);
+    expect(v0.pickupDelay).toBe(60);
+    for (let i = 0; i < 59; i++) r.f.update(true);
+    expect(r.inv.count('dirt')).toBe(0);
+    const v = r.f.list()[0]!;
+    expect(v.position.x).toBeCloseTo(10.5, 1);
+    const dz = 10.5 - v.position.z;
+    expect(dz).toBeGreaterThan(0.5);
+    expect(dz).toBeLessThan(3);
+    r.player.z = v.position.z; // その上に動く
+    for (let i = 0; i < 3; i++) r.f.update(true);
+    expect(r.inv.count('dirt')).toBe(5);
+  });
+
+  it('M6: 出る所がブロックの中なら 足もとに出す', () => {
+    const r = rig();
+    r.player.x = 10.5;
+    r.player.y = 9;
+    r.player.z = 10.5;
+    for (let y = 9; y < 12; y++) r.world.setBlock(10, y, 10, 'stone'); // 前（北）にならべる
+    r.world.setBlock(10, 9, 10, 'air');
+    r.world.setBlock(10, 10, 9, 'stone');
+    r.world.setBlock(10, 10, 10, 'stone');
+    r.f.throwItem({ item: 'dirt', count: 1 }, 0, 1.62);
+    const p = r.f.list()[0]!.position;
+    expect(Math.hypot(p.x - 10.5, p.z - 10.5)).toBeLessThan(0.5);
+  });
 });

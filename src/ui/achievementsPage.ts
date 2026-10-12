@@ -1,0 +1,187 @@
+import type { AchievementDef, ItemId } from '../contracts';
+import { ACHIEVEMENT_DEFS, CATEGORY_LABEL, CATEGORY_ORDER } from '../achievements/defs';
+import type { AchievementSystem } from '../achievements/AchievementSystem';
+import type { AchievementsPageModel } from '../achievements/pageModel';
+import { anyIconUrl } from './itemIcon';
+import { createBar, createChip, createMedal, createTab, createTooltip, setBar, setTabState } from './theme';
+import './achievementsPage.css';
+
+/** もちもの画面の側の口（InventoryScreen が合う） */
+export interface AchievementsPageHost {
+  pageSlot: HTMLElement;
+  setTab(t: 'items' | 'achievements'): void;
+  isOpen(): boolean;
+}
+
+const CATEGORY_ICON: Record<string, ItemId | 'clock'> = {
+  break: 'iron_pickaxe',
+  place: 'brick',
+  craft: 'furnace',
+  collect: 'paper',
+  fight: 'katana',
+  level: 'crystal',
+  adventure: 'clock',
+  places: 'lantern',
+};
+
+/** メダルの中の絵になる アイテム（なければ 絵なし） */
+function artOf(d: AchievementDef): ItemId | null {
+  const s = d.stat;
+  const m = /^(?:break|place|craft|bake|obtain|wear):([a-z_]+)$/.exec(s);
+  if (m && m[1] !== 'pickaxes' && m[1] !== 'weapons' && m[1] !== 'armors' && m[1] !== 'everything') return m[1] as ItemId;
+  const w = /^defeatWith:([a-z_]+)$/.exec(s);
+  if (w) return (w[1] === 'hand' ? null : w[1] === 'pickaxe' ? 'iron_pickaxe' : w[1]) as ItemId | null;
+  if (s === 'craftItems:ya') return 'ya';
+  if (s === 'craft:pickaxes') return 'iron_pickaxe';
+  if (s === 'craft:weapons') return 'katana';
+  if (s === 'craft:armors') return 'yoroi';
+  if (s === 'craft:everything') return 'furnace';
+  if (s === 'wearAll') return 'kabuto';
+  if (s === 'arrowShot' || s === 'arrowHit') return 'ya';
+  if (s === 'bagBack') return 'cloth';
+  return null;
+}
+
+function mark(def: AchievementDef): string | undefined {
+  const a = artOf(def);
+  return a ? anyIconUrl(a) : undefined;
+}
+
+/** その実績の メダルの中の絵（アイテムの絵。なければ undefined）。おめでとう画面も同じものを使う */
+export function achievementArtUrl(def: AchievementDef): string | undefined {
+  return mark(def);
+}
+
+/** じっせき ページ（M6 §2.7）。S1 の部品だけで作る。毎フレーム `update()` を呼ぶ */
+export class AchievementsPage {
+  readonly el: HTMLDivElement;
+  private readonly title: HTMLDivElement;
+  private readonly bar: ReturnType<typeof createBar>;
+  private readonly cats: HTMLElement;
+  private readonly list: HTMLDivElement;
+  private readonly catTabs = new Map<string, HTMLButtonElement>();
+  private readonly tip = createTooltip();
+  private builtVersion = -1;
+  private builtCategory = '';
+
+  constructor(
+    private readonly sys: AchievementSystem,
+    private readonly model: AchievementsPageModel,
+    private readonly host: AchievementsPageHost,
+  ) {
+    this.el = document.createElement('div');
+    this.el.className = 'rk-root rk-panel ach-page';
+    const head = document.createElement('div');
+    head.className = 'ach-head';
+    this.title = document.createElement('div');
+    this.title.className = 'ach-title';
+    this.bar = createBar('xp', 0);
+    head.append(this.title, this.bar.root);
+    const body = document.createElement('div');
+    body.className = 'ach-body';
+    this.cats = document.createElement('div');
+    this.cats.className = 'ach-cats';
+    this.list = document.createElement('div');
+    this.list.className = 'ach-list';
+    for (const id of CATEGORY_ORDER) {
+      const t = createTab({
+        text: CATEGORY_LABEL[id],
+        onClick: () => {
+          this.model.setCategory(id);
+          this.update();
+        },
+      });
+      const icon = CATEGORY_ICON[id];
+      const img = document.createElement('img');
+      img.className = 'rk-art ach-cat-icon';
+      img.alt = '';
+      img.src = anyIconUrl(icon);
+      t.prepend(img);
+      this.catTabs.set(id, t);
+      this.cats.append(t);
+    }
+    body.append(this.cats, this.list);
+    this.el.append(head, body);
+    this.tip.root.classList.add('ach-tip');
+    this.tip.root.hidden = true;
+    this.el.append(this.tip.root);
+    host.pageSlot.append(this.el);
+  }
+
+  /** 毎フレーム: タブの出入りと 取った実績の変化を 画面に映す */
+  update(): void {
+    const open = this.host.isOpen();
+    // 出入りの検出（見た にする）は軽いので毎フレーム。重い ui() は見えていて変わったときだけ
+    this.model.sync(open);
+    const visible = open && this.model.tab() === 'achievements';
+    this.host.pageSlot.hidden = !visible;
+    if (!visible) {
+      this.builtVersion = -1; // 見えるようになったら作り直す
+      return;
+    }
+    const key = `${this.model.category()}`;
+    const ver = this.sys.version();
+    if (ver === this.builtVersion && key === this.builtCategory) return;
+    const ui = this.model.ui(open);
+    this.builtVersion = ver;
+    this.builtCategory = key;
+    for (const c of ui.categories) {
+      const t = this.catTabs.get(c.id);
+      if (t) setTabState(t, { selected: c.id === ui.category, dot: c.dot });
+    }
+    this.title.textContent = `じっせき ${ui.unlocked} / ${ui.total}`;
+    setBar(this.bar, ui.unlocked / ui.total);
+    this.renderRows(ui);
+  }
+
+  private renderRows(ui: ReturnType<AchievementsPageModel['ui']>): void {
+    this.list.replaceChildren();
+    const byId = new Map(ACHIEVEMENT_DEFS.map((d) => [d.id, d]));
+    for (const r of ui.rows) {
+      const def = byId.get(r.id)!;
+      const row = document.createElement('div');
+      row.className = 'rk-card ach-row';
+      row.dataset.id = r.id;
+      row.dataset.unlocked = String(r.unlocked);
+      const medal = r.unlocked ? createMedal(def.medal, 48, mark(def)) : createMedal('locked', 48);
+      const text = document.createElement('div');
+      text.className = 'ach-row__text';
+      const name = document.createElement('div');
+      name.className = 'ach-row__name';
+      name.textContent = r.unlocked ? def.name : '？？？';
+      text.append(name);
+      if (r.unlocked) {
+        const day = document.createElement('div');
+        day.className = 'ach-row__day';
+        day.textContent = `${(this.sys.dayOf(r.id) ?? 0) + 1} にちめ`;
+        text.append(day);
+      }
+      row.append(medal, text);
+      if (r.isNew) {
+        const chip = createChip({ text: 'あたらしい', tone: 'info' });
+        chip.classList.add('ach-new');
+        row.append(chip);
+      }
+      row.addEventListener('mouseenter', () => this.showTip(row, def, r.unlocked));
+      row.addEventListener('mouseleave', () => {
+        this.tip.root.hidden = true;
+      });
+      this.list.append(row);
+    }
+  }
+
+  private showTip(row: HTMLElement, def: AchievementDef, unlocked: boolean): void {
+    const t = this.tip;
+    t.name.replaceChildren(unlocked ? createMedal(def.medal, 96, mark(def)) : createMedal('locked', 96), document.createTextNode(unlocked ? def.name : '？？？'));
+    t.desc.textContent = '';
+    t.root.hidden = false;
+    const host = this.el.getBoundingClientRect();
+    const r = row.getBoundingClientRect();
+    t.root.style.left = `${Math.max(0, r.left - host.left)}px`;
+    t.root.style.top = `${Math.max(0, r.bottom - host.top)}px`;
+  }
+
+  dispose(): void {
+    this.el.remove();
+  }
+}

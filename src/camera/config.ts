@@ -89,6 +89,8 @@ export const ARM_ANIM_DEFS = {
   cheer: { ticks: 20, priority: 3 },
   pickup: { ticks: 20, priority: 3 },
   equip: { ticks: 15, priority: 3 },
+  // M6: ものを すてる（右うでを前へ 12 ステップ）
+  throw: { ticks: 12, priority: 3 },
 } as const;
 
 /** からだの層の優先（時間で終わるものの長さは BODY_ANIM_TICKS） */

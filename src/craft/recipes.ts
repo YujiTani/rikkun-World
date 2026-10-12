@@ -14,7 +14,7 @@ const r = (
   station,
 });
 
-/** つくる 20 こ（M4 §4.1。カードの順） */
+/** つくる 21 こ（M4 §4.1。カードの順） */
 export const CRAFT_RECIPES: readonly Recipe[] = [
   r('wood_pickaxe', 1, [['log', 3]], true),
   r('stone_pickaxe', 1, [['stone', 3], ['log', 2]], true),
@@ -36,6 +36,8 @@ export const CRAFT_RECIPES: readonly Recipe[] = [
   r('futon', 1, [['cloth', 3], ['string', 1]], false),
   r('omamori', 1, [['crystal', 1], ['cloth', 1], ['string', 1]], false),
   r('waraji', 1, [['grass', 3], ['string', 1]], false),
+  // M6: たんす（き 8・てつの かたまり 2）
+  r('tansu', 1, [['log', 8], ['iron_ingot', 2]], true),
 ];
 
 /** やく 4 こ（M4 §4.2。かまど で。ねんりょう 1 こ・60 ステップ） */

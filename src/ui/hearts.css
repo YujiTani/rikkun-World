@@ -1,18 +1,17 @@
-/* ハート: 1280px で 28px 以上。ホットバーの左はしにそろえて、すぐ上に */
+/* ハート: 1280px で 28px。A じぶん の 2 行目（左はしは かたまりの左はしにそろう）。防具の絵は右 */
 #hearts {
-  --heart: max(28px, 2.2vw);
-  position: fixed;
-  left: calc(50% - (9 * var(--cell, max(64px, 5.2vw)) + 48px) / 2);
-  bottom: calc(var(--cell, max(64px, 5.2vw)) * 1.12 + 22px);
+  --heart: clamp(23.8px, 2.1875vw, 42px);
+  order: 2;
   display: flex;
+  align-items: center;
   gap: 2px;
   transform: translateX(calc(var(--shake, 0) * var(--heart)));
   pointer-events: none;
-  z-index: 5;
 }
 
 .heart {
   position: relative;
+  flex: none;
   width: var(--heart);
   height: var(--heart);
   transform: translateY(calc(var(--hop, 0) * var(--heart))) scale(var(--pop, 1));
@@ -25,10 +24,10 @@
   image-rendering: pixelated;
 }
 
-/* むてき: ハートのふちが金色 */
+/* むてき: ハートのふちが アクセント色 */
 #hearts[data-invincible='true'] .heart-img {
-  filter: drop-shadow(2px 0 0 #ffd54f) drop-shadow(-2px 0 0 #ffd54f) drop-shadow(0 2px 0 #ffd54f)
-    drop-shadow(0 -2px 0 #ffd54f);
+  filter: drop-shadow(2px 0 0 var(--rk-accent)) drop-shadow(-2px 0 0 var(--rk-accent))
+    drop-shadow(0 2px 0 var(--rk-accent)) drop-shadow(0 -2px 0 var(--rk-accent));
 }
 
 /* はじける赤い小さな四角 */
@@ -38,24 +37,25 @@
   top: 40%;
   width: 20%;
   height: 20%;
-  background: #e53935;
+  background: var(--rk-heart);
   transform: translate(calc(var(--bx, 0) * var(--heart)), calc(var(--by, 0) * var(--heart)));
 }
 .heart-bit[hidden] {
   display: none;
 }
 
-/* ハートの左の防具の絵（32px 以上）。ハートの行のすぐ左に */
+/* ハートの右の防具の絵（ハートから 16px あける） */
 .hearts-armor {
-  position: absolute;
-  right: 100%;
-  bottom: 0;
+  order: 99;
   display: flex;
   gap: 2px;
-  margin-right: 6px;
+  margin-left: var(--rk-sp-4);
+}
+.hearts-armor:empty {
+  display: none;
 }
 .hearts-armor img {
-  width: max(32px, var(--heart));
-  height: max(32px, var(--heart));
+  width: var(--heart);
+  height: var(--heart);
   image-rendering: pixelated;
 }

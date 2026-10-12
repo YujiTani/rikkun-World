@@ -16,6 +16,7 @@ test.describe.configure({ timeout: 180_000 });
 async function open(page: Page, query = '?nosave=1') {
   await page.goto('/' + query);
   await page.waitForFunction(() => window.__rikkun?.ready === true);
+  await page.evaluate(() => window.__rikkun!.achievements.mute(true));
   await page.evaluate(() => {
     const h = (window as any).__rikkun;
     const T: any = {
@@ -345,7 +346,7 @@ test.describe('M3 妖怪の攻撃とダメージ', () => {
     karakasa: { x: 5.5, hit: 30, hp: 18 },
     chochin: { x: 8.5, hit: 30, hp: 18 },
     rokurokubi: { x: 7.5, hit: 30, hp: 18 },
-    nurikabe: { x: 5.0, hit: 90, hp: 16 },
+    nurikabe: { x: 5.0, hit: 90, hp: 4 }  // #8: ぬりかべ の たおれこみ 16,
   };
   for (const [kind, view] of Object.keys(SCENES).flatMap((k) => [[k, ''], [k, '-third']] as const)) {
     test(`AC15${view}: ${kind} の攻撃（合図・当たる 1 ステップ・ダメージ・おし返し・30 ステップのむてき）とスクショ`, async ({ page }) => {
@@ -517,16 +518,17 @@ test.describe('M3 プレイヤーの攻撃（パンチ）', () => {
       return { x: T.one(id).position.x, hp: T.one(id).hp };
     });
     expect(r3.x).toBeCloseTo(4.5, 2);
-    expect(r3.hp).toBe(11); // ぬりかべ 体力 12
+    expect(r3.hp).toBe(47); // ぬりかべ 体力 48（#8）
   });
 
   test('AC17: 押しっぱなしで 30・60・90・120 ステップ目に当たり 4 回でたおれる。ドロップ表で入る', async ({ page }) => {
+    test.setTimeout(240_000);
     await open(page);
     const r = await page.evaluate(() => {
       const T = (window as any).T;
       const h = (window as any).__rikkun;
       const out: any = {};
-      const kinds: Record<string, number> = { karakasa: 4, chochin: 2, rokurokubi: 4, nurikabe: 12 };
+      const kinds: Record<string, number> = { karakasa: 4, chochin: 2, rokurokubi: 4, nurikabe: 48 };
       for (const kind of Object.keys(kinds)) {
         T.base();
         h.world.fill(0, 8, 0, 20, 8, 12, 'stone');
@@ -540,7 +542,7 @@ test.describe('M3 プレイヤーの攻撃（パンチ）', () => {
         let removeAt = -1;
         let dropEv: any[] = [];
         let size36: number | null = null;
-        for (let i = 1; i <= 520; i++) {
+        for (let i = 1; i <= 1700; i++) {
           h.step(1);
           for (const e of h.combat.events()) if (e.type === 'punchHit') hits.push(i);
           for (const e of h.yokai.events()) {
@@ -555,7 +557,7 @@ test.describe('M3 プレイヤーの攻撃（パンチ）', () => {
           if (removeAt > 0) break;
         }
         h.input.release('primary');
-        out[kind] = { hits: hits.slice(0, 13), defeatAt, removeAt, dropEv, size36, need: kinds[kind] };
+        out[kind] = { hits: hits.slice(0, 50), defeatAt, removeAt, dropEv, size36, need: kinds[kind] };
       }
       return out;
     });
@@ -570,7 +572,7 @@ test.describe('M3 プレイヤーの攻撃（パンチ）', () => {
     }
   });
 
-  test('AC18: とどく距離（2.9 で当たる・3.1 は からぶり）と、妖怪のうしろのブロックはほれない', async ({ page }) => {
+  test('AC18: とどく距離（3.4 で当たる・3.9 は からぶり。#8 で 3.0→3.5）と、妖怪のうしろのブロックはほれない', async ({ page }) => {
     await open(page);
     const r = await page.evaluate(() => {
       const T = (window as any).T;
@@ -588,8 +590,8 @@ test.describe('M3 プレイヤーの攻撃（パンチ）', () => {
         const evs = h.combat.events().map((e: any) => e.type);
         return { evs, hp: T.one(id).hp };
       };
-      out.near = run(2.9);
-      out.far = run(3.1);
+      out.near = run(3.4);
+      out.far = run(3.9);
       return out;
     });
     expect(r.near.evs).toContain('punchHit');
@@ -599,7 +601,7 @@ test.describe('M3 プレイヤーの攻撃（パンチ）', () => {
     // 仕様 AC18 は 3.1 で punchMiss（からぶり）。実装は「とどかない妖怪は無視」で何も出さない（NG・軽微。下の test.fail と同じ原因）
   });
 
-  test('AC18(b): 3.1 の妖怪のうしろ 4.0 の dirt は、妖怪がじゃまをしてほれない（既知の NG: 実装はほれてしまう）', async ({ page }) => {
+  test('AC18(b): 3.9 の妖怪のうしろ 4.0 の dirt は、妖怪がじゃまをしてほれない（既知の NG: 実装はほれてしまう）', async ({ page }) => {
     test.fail();
     await open(page);
     const r = await page.evaluate(() => {
@@ -608,7 +610,7 @@ test.describe('M3 プレイヤーの攻撃（パンチ）', () => {
       const out: any = {};
       // 3.1 の妖怪のうしろ 4.0 の dirt
       T.base();
-      const x = 2.5 + 3.1 + 0.75;
+      const x = 2.5 + 3.9 + 0.75;
       h.yokai.spawn('karakasa', x, 9, 6.5, { ai: false, yawDeg: 270 });
       h.world.setBlock(6, 10, 6, 'dirt'); // 目の高さの線 (y=10.62) ではなく足の高さ
       h.world.setBlock(6, 9, 6, 'dirt');
@@ -987,6 +989,7 @@ test.describe('M3 やられたとき・落とし物', () => {
     });
     await page.goto('/');
     await page.waitForFunction(() => window.__rikkun?.ready === true);
+    await page.evaluate(() => window.__rikkun!.achievements.mute(true));
     const after = await page.evaluate(() => {
       const h = (window as any).__rikkun;
       h.pause();

@@ -1,15 +1,16 @@
-/* マスの ツールチップ: こい茶色の背景、ふちは めずらしさの色（M4 §2.13） */
+/* マスの ツールチップ: カードの形、ふち 3px = めずらしさの色（JS が borderColor を入れる）、影 2（M6 §3.5 (6)） */
 #tooltip {
   position: fixed;
   left: 0;
   top: 0;
   box-sizing: border-box;
-  min-width: 180px;
-  padding: 8px 12px 10px;
-  background: #3b2614;
-  border: 4px solid #fff;
-  border-radius: 10px;
-  color: #fff;
+  min-width: calc(180 / 12.8 * 1vw);
+  padding: var(--rk-sp-3) var(--rk-sp-4);
+  background: var(--rk-bg-800);
+  border: var(--rk-bw-rarity) solid var(--rk-rarity-0);
+  border-radius: var(--rk-r-m);
+  box-shadow: var(--rk-shadow-2);
+  color: var(--rk-text);
   pointer-events: none;
   z-index: 14;
 }
@@ -19,30 +20,33 @@
 .tip-head {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--rk-sp-2);
 }
 .tip-head-icon {
-  width: 32px;
-  height: 32px;
+  width: var(--rk-icon-chip);
+  height: var(--rk-icon-chip);
   image-rendering: pixelated;
 }
 .tip-name {
-  font-size: 24px;
-  font-weight: bold;
+  font-size: var(--rk-fs-head);
+  font-weight: 700;
+  line-height: var(--rk-lh);
 }
 .tip-stars {
-  font-size: 18px;
-  margin: 2px 0 4px;
+  font-size: var(--rk-fs-small);
+  line-height: var(--rk-lh);
+  margin: var(--rk-sp-1) 0;
 }
 .tip-line {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 18px;
-  line-height: 1.5;
+  gap: var(--rk-sp-2);
+  font-size: var(--rk-fs-body);
+  font-weight: 500;
+  line-height: var(--rk-lh);
 }
 .tip-line img {
-  width: 20px;
-  height: 20px;
+  width: var(--rk-sp-5);
+  height: var(--rk-sp-5);
   image-rendering: pixelated;
 }

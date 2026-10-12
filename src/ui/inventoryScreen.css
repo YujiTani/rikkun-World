@@ -1,23 +1,38 @@
+/*
+ * もちもの画面（M6 §3.6 (2)）。うしろは --rk-scrim、真ん中に 大きな パネル 1 まい（1280px で 1224 × 568）。
+ * 上: タブ（A）とじる。中: 左 持ち物（そうび 1 列・もちもの 9×3・ホットバー 9）、右 つくる／たんす。
+ */
 #inventory-screen {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.35);
+  background: var(--rk-scrim);
   pointer-events: auto;
   z-index: 8;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding-bottom: calc(var(--cell, 64px) + 40px);
   box-sizing: border-box;
-  color: #fff;
+  color: var(--rk-text);
 }
 #inventory-screen[hidden] {
   display: none;
 }
 
+.inv-frame {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rk-sp-4);
+  padding: var(--rk-sp-5);
+  background: color-mix(in srgb, var(--rk-bg-900) 96%, transparent);
+  border-radius: var(--rk-r-l);
+  box-shadow: var(--rk-shadow-2);
+  transform-origin: center;
+  animation: rk-enter var(--rk-dur) var(--rk-ease) 1;
+}
+
 .inv-body {
   display: flex;
-  gap: 24px;
+  gap: var(--rk-sp-5);
   align-items: flex-start;
 }
 /* 右側は M4 の「つくる」「やく」の場所 */
@@ -26,67 +41,99 @@
 }
 .inv-main {
   display: flex;
-  align-items: flex-end;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--rk-sp-4);
 }
 
+/* 左（持ち物）と右の間に うすい区切り線 */
 .inv-panel {
-  background: rgba(40, 40, 48, 0.92);
-  border: 4px solid #aaa;
-  border-radius: 12px;
-  padding: 16px 20px 20px;
+  padding-right: var(--rk-sp-5);
+  border-right: var(--rk-bw) solid var(--rk-line);
 }
 
 .inv-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 12px;
-  gap: 40px;
+  gap: var(--rk-sp-4);
+}
+.inv-tabs {
+  display: flex;
+  gap: var(--rk-sp-2);
+}
+.inv-tabs:empty {
+  display: none;
+}
+/* タブが入ったら 見出し文字は出さない（A がタブを入れるまでの 見出し） */
+.inv-tabs:not(:empty) ~ .inv-title {
+  display: none;
 }
 .inv-title {
-  font-size: 36px;
-  font-weight: bold;
+  flex: 1;
+  font-size: var(--rk-fs-title);
+  font-weight: 800;
+  line-height: var(--rk-lh);
+}
+.inv-tabs:not(:empty) {
+  flex: 1;
 }
 .inv-close {
   display: flex;
   align-items: center;
-  gap: 10px;
-  min-height: 64px;
-  padding: 0 24px;
-  font-size: 28px;
-  font-weight: bold;
+  gap: var(--rk-sp-2);
+  min-height: var(--rk-h-tab-guide);
+  padding: var(--rk-sp-2) var(--rk-sp-5);
   font-family: inherit;
-  color: #fff;
-  background: #e53935;
-  border: 4px solid #fff;
-  border-radius: 12px;
+  font-size: var(--rk-fs-head);
+  font-weight: 700;
+  line-height: var(--rk-lh);
+  color: var(--rk-ink);
+  background: var(--rk-accent-grad);
+  border: var(--rk-bw) solid var(--rk-accent);
+  border-radius: var(--rk-r-m);
+  box-shadow: var(--rk-shadow-1);
   cursor: pointer;
+  transition:
+    transform var(--rk-dur-fast) var(--rk-ease),
+    box-shadow var(--rk-dur-fast) var(--rk-ease),
+    filter var(--rk-dur-fast) var(--rk-ease);
+}
+.inv-close:hover {
+  filter: brightness(1.12);
+}
+.inv-close:active {
+  transform: translateY(2px);
+  box-shadow: var(--rk-shadow-1-pressed);
 }
 .inv-close-x {
-  font-size: 32px;
+  font-size: var(--rk-fs-head);
 }
 
 .inv-grid {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--rk-sp-2);
 }
 .inv-row {
   display: flex;
-  gap: 6px;
+  gap: var(--rk-sp-2);
 }
+/* もちもの 3 段とホットバーの間 16px（行のすき間 8px ＋ 8px） */
 .inv-gap {
-  height: 18px;
+  height: 0;
 }
 .inv-slot {
   pointer-events: auto;
   cursor: pointer;
+  transition: filter var(--rk-dur-fast) var(--rk-ease);
 }
 .inv-slot:hover {
-  border-color: #ddd;
+  filter: brightness(1.15);
 }
-.inv-grid .slot[data-selected='true'] {
-  border-color: #ffd54f;
+
+.inv-page {
+  min-height: 0;
 }
 
 .inv-cursor {

@@ -1,6 +1,7 @@
 import type { ItemId } from '../contracts';
 import { drawPixels, itemIconUrl } from './itemIcon';
 import { HEART_CONFIG, HeartsModel, heartPixels, type HeartState } from './heartsModel';
+import { selfCluster } from './levelHud';
 import './hearts.css';
 
 const urls = new Map<HeartState, string>();
@@ -46,7 +47,6 @@ export class Hearts {
     this.el.setAttribute('aria-hidden', 'true');
     this.armorEl = document.createElement('div');
     this.armorEl.className = 'hearts-armor';
-    this.el.append(this.armorEl);
     for (let i = 0; i < this.model.count; i++) {
       const cell = document.createElement('div');
       cell.className = 'heart';
@@ -68,7 +68,9 @@ export class Hearts {
       this.bits.push(bits);
       this.shown.push(null);
     }
-    parent.append(this.el);
+    // 防具の絵はハートの右（A じぶん の 2 行目）
+    this.el.append(this.armorEl);
+    selfCluster(parent).append(this.el);
     this.update(0, this.model.hp, false);
   }
 

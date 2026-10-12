@@ -11,6 +11,8 @@ import type { createArmorHook, createCraftHook, createFurnaceHook } from '../cra
 import type { createCraftUiHook } from '../ui/craftUi';
 import type { createToolHook } from '../tools';
 import type { createLevelHook } from '../level';
+import type { createAchievementsHook } from '../achievements';
+import type { createStorageHook } from '../storage/hook';
 import type { createYokaiHook } from '../yokai';
 import type { WorldHook } from '../world/hook';
 import type { ChunkStats } from '../world/render/WorldRenderer';
@@ -58,6 +60,10 @@ export interface TestHook {
   /** M4 追加: 経験値とレベル */
   level: ReturnType<typeof createLevelHook>;
   yokai: ReturnType<typeof createYokaiHook>['yokai'];
+  /** M6 §6.1: 実績・おめでとう画面 */
+  achievements: ReturnType<typeof createAchievementsHook> & { modal(): unknown; close(): unknown; sounds(): string[]; mute(on: boolean): void };
+  /** M6 §6.1: たんす */
+  storage: ReturnType<typeof createStorageHook>;
 }
 
 declare global {
@@ -66,7 +72,7 @@ declare global {
   }
 }
 
-export type TestHookGroups = Pick<TestHook, 'world' | 'render' | 'player' | 'camera' | 'input' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'level'>;
+export type TestHookGroups = Pick<TestHook, 'world' | 'render' | 'player' | 'camera' | 'input' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'level' | 'achievements' | 'storage'>;
 
 export function installTestHook(game: Game, overlay: PerfOverlay, groups: TestHookGroups): void {
   window.__rikkun = {

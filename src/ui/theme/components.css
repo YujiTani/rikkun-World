@@ -1,0 +1,497 @@
+/*
+ * 部品（M6 S1。仕様 §3.5 (6)）。class は rk- で始まる。今の画面（hotbar.css など）の class とは ぶつからない。
+ * 数は tokens.css の変数だけを使う。
+ */
+
+.rk-root,
+.rk-root * {
+  box-sizing: border-box;
+}
+
+/* ---- 文字の段階 ---- */
+.rk-fs-display {
+  font-size: var(--rk-fs-display);
+  font-weight: 800;
+  line-height: var(--rk-lh);
+}
+.rk-fs-title {
+  font-size: var(--rk-fs-title);
+  font-weight: 800;
+  line-height: var(--rk-lh);
+}
+.rk-fs-head {
+  font-size: var(--rk-fs-head);
+  font-weight: 700;
+  line-height: var(--rk-lh);
+}
+.rk-fs-body {
+  font-size: var(--rk-fs-body);
+  font-weight: 500;
+  line-height: var(--rk-lh);
+}
+.rk-fs-small {
+  font-size: var(--rk-fs-small);
+  font-weight: 500;
+  line-height: var(--rk-lh);
+  color: var(--rk-text-sub);
+}
+.rk-num {
+  font-variant-numeric: tabular-nums;
+}
+.rk-sub {
+  color: var(--rk-text-sub);
+}
+.rk-root rt,
+.rk-panel rt,
+.rk-card rt {
+  font-size: var(--rk-fs-rt);
+}
+/* HUD の字: こいふち 2px */
+.rk-hud-text {
+  color: var(--rk-text);
+  text-shadow:
+    2px 0 0 var(--rk-bg-900),
+    -2px 0 0 var(--rk-bg-900),
+    0 2px 0 var(--rk-bg-900),
+    0 -2px 0 var(--rk-bg-900);
+}
+/* ドット絵は 整数倍で くっきり。色しらべの 対象外 */
+.rk-art {
+  image-rendering: pixelated;
+}
+
+/* ---- パネル ---- */
+.rk-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rk-sp-4);
+  padding: var(--rk-sp-5);
+  background: color-mix(in srgb, var(--rk-bg-900) 96%, transparent);
+  border-radius: var(--rk-r-l);
+  box-shadow: var(--rk-shadow-2);
+  color: var(--rk-text);
+  font-size: var(--rk-fs-body);
+  line-height: var(--rk-lh);
+}
+.rk-panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--rk-sp-4);
+}
+.rk-panel__title {
+  margin: 0;
+  font-size: var(--rk-fs-title);
+  font-weight: 800;
+}
+
+/* ---- カード ---- */
+.rk-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rk-sp-2);
+  padding: var(--rk-sp-4);
+  background: var(--rk-bg-800);
+  border: var(--rk-bw) solid var(--rk-line);
+  border-radius: var(--rk-r-m);
+  color: var(--rk-text);
+  font-size: var(--rk-fs-body);
+  font-weight: 500;
+  line-height: var(--rk-lh);
+}
+
+/* ---- マス ---- */
+.rk-slot {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--rk-slot-inv);
+  height: var(--rk-slot-inv);
+  padding: 0;
+  background: var(--rk-bg-700);
+  border: var(--rk-bw) solid var(--rk-line);
+  border-radius: var(--rk-r-s);
+  color: var(--rk-text);
+}
+.rk-slot--hotbar {
+  width: var(--rk-slot-hotbar);
+  height: var(--rk-slot-hotbar);
+}
+.rk-slot--tansu {
+  width: var(--rk-slot-tansu);
+  height: var(--rk-slot-tansu);
+}
+.rk-slot.has-rarity {
+  border: var(--rk-bw-rarity) solid var(--rk-rarity);
+}
+.rk-slot.is-selected {
+  border: var(--rk-bw-sel) solid var(--rk-accent);
+  box-shadow: var(--rk-glow);
+}
+.rk-slot__art {
+  width: 75%;
+  height: 75%;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+.rk-slot__count {
+  position: absolute;
+  right: var(--rk-sp-1);
+  bottom: 0;
+  font-size: var(--rk-fs-small);
+  font-weight: 800;
+  line-height: var(--rk-lh);
+  font-variant-numeric: tabular-nums;
+  color: var(--rk-text);
+  text-shadow:
+    2px 0 0 var(--rk-bg-900),
+    -2px 0 0 var(--rk-bg-900),
+    0 2px 0 var(--rk-bg-900),
+    0 -2px 0 var(--rk-bg-900);
+}
+.rk-slot--empty {
+  border-style: solid;
+}
+
+/* ---- ボタン ---- */
+.rk-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--rk-sp-2);
+  min-height: var(--rk-h-btn);
+  padding: var(--rk-sp-2) var(--rk-sp-5);
+  margin: 0;
+  font-family: inherit;
+  font-size: var(--rk-fs-head);
+  font-weight: 700;
+  line-height: var(--rk-lh);
+  color: var(--rk-text);
+  background: var(--rk-bg-700);
+  border: var(--rk-bw) solid var(--rk-line);
+  border-radius: var(--rk-r-m);
+  box-shadow: var(--rk-shadow-1);
+  cursor: pointer;
+  pointer-events: auto;
+  transition:
+    transform var(--rk-dur-fast) var(--rk-ease),
+    box-shadow var(--rk-dur-fast) var(--rk-ease),
+    filter var(--rk-dur-fast) var(--rk-ease);
+}
+.rk-btn:hover {
+  filter: brightness(1.12);
+}
+.rk-btn:active,
+.rk-btn.is-pressed {
+  transform: translateY(2px);
+  box-shadow: var(--rk-shadow-1-pressed);
+}
+.rk-btn--primary {
+  color: var(--rk-ink);
+  background: var(--rk-accent-grad);
+  border-color: var(--rk-accent);
+}
+/* 押せない: 不透明度は下げない（字の コントラストを たもつ） */
+.rk-btn:disabled,
+.rk-btn.is-disabled {
+  color: var(--rk-text-sub);
+  background: var(--rk-bg-700);
+  border: var(--rk-bw) dashed var(--rk-line);
+  box-shadow: none;
+  cursor: default;
+  filter: none;
+  transform: none;
+  animation: none;
+}
+
+/* ---- 光の波（押せるものの光。1 回 1.6 秒） ---- */
+.rk-pulse {
+  animation: rk-wave var(--rk-dur-wave) ease-in-out infinite alternate;
+}
+@keyframes rk-wave {
+  from {
+    box-shadow: var(--rk-glow-weak);
+  }
+  to {
+    box-shadow: var(--rk-glow);
+  }
+}
+
+/* ---- ぷるん（ふえた・できた・取った） ---- */
+.rk-pop {
+  animation: rk-pop var(--rk-dur-pop) var(--rk-ease-pop) 1;
+}
+@keyframes rk-pop {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.15);
+  }
+  70% {
+    transform: scale(0.97);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* ---- 開く・閉じる（下から 8px ＋ 不透明度。1 回だけ） ---- */
+.rk-enter {
+  animation: rk-enter var(--rk-dur) var(--rk-ease) 1;
+}
+@keyframes rk-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ---- タブ ---- */
+.rk-tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--rk-sp-2);
+  min-height: var(--rk-h-btn);
+  padding: var(--rk-sp-2) var(--rk-sp-4);
+  margin: 0;
+  font-family: inherit;
+  font-size: var(--rk-fs-head);
+  font-weight: 700;
+  line-height: var(--rk-lh);
+  color: var(--rk-text);
+  background: var(--rk-bg-700);
+  border: var(--rk-bw) solid var(--rk-line);
+  border-radius: var(--rk-r-m);
+  box-shadow: var(--rk-shadow-1);
+  cursor: pointer;
+  pointer-events: auto;
+  transition:
+    transform var(--rk-dur-fast) var(--rk-ease),
+    box-shadow var(--rk-dur-fast) var(--rk-ease),
+    filter var(--rk-dur-fast) var(--rk-ease);
+}
+.rk-tab:hover {
+  filter: brightness(1.12);
+}
+.rk-tab:active {
+  transform: translateY(2px);
+  box-shadow: var(--rk-shadow-1-pressed);
+}
+.rk-tab--guide {
+  min-height: var(--rk-h-tab-guide);
+}
+.rk-tab.is-selected,
+.rk-tab[aria-selected='true'] {
+  color: var(--rk-accent);
+  box-shadow: inset 0 calc(-1 * var(--rk-bw-sel)) 0 var(--rk-accent);
+}
+/* あたらしい: 右上の赤い点 */
+.rk-tab__dot {
+  position: absolute;
+  top: var(--rk-sp-1);
+  right: var(--rk-sp-1);
+  width: var(--rk-sp-3);
+  height: var(--rk-sp-3);
+  background: var(--rk-ng);
+  border-radius: var(--rk-r-pill);
+}
+
+/* ---- バー ---- */
+.rk-bar {
+  position: relative;
+  height: var(--rk-sp-4);
+  overflow: hidden;
+  background: var(--rk-line);
+  border-radius: var(--rk-r-pill);
+}
+.rk-bar__fill {
+  width: calc(var(--rk-bar-value, 0) * 100%);
+  height: 100%;
+  background: var(--rk-xp-grad);
+  border-radius: var(--rk-r-pill);
+  transition: width var(--rk-dur) var(--rk-ease);
+}
+.rk-bar--bake .rk-bar__fill {
+  background: var(--rk-accent);
+}
+
+/* ---- メーター（小さな四角を ならべる） ---- */
+.rk-meter {
+  display: inline-flex;
+  gap: var(--rk-sp-1);
+}
+.rk-meter__cell {
+  width: var(--rk-sp-4);
+  height: var(--rk-sp-4);
+  background: transparent;
+  border: var(--rk-bw) solid var(--rk-line);
+  border-radius: var(--rk-r-s);
+}
+.rk-meter__cell.is-on {
+  background: var(--rk-accent);
+  border-color: var(--rk-accent);
+}
+
+/* ---- チップ（合図・ログの行） ---- */
+.rk-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--rk-sp-2);
+  padding: var(--rk-sp-1) var(--rk-sp-4) var(--rk-sp-1) var(--rk-sp-2);
+  color: var(--rk-text);
+  background: var(--rk-hud-bg);
+  border-radius: var(--rk-r-pill);
+  font-size: var(--rk-fs-body);
+  font-weight: 500;
+  line-height: var(--rk-lh);
+  font-variant-numeric: tabular-nums;
+}
+.rk-chip__art {
+  width: var(--rk-icon-chip);
+  height: var(--rk-icon-chip);
+  image-rendering: pixelated;
+  flex: none;
+}
+.rk-chip--ng {
+  border-left: var(--rk-bw-sel) solid var(--rk-ng);
+}
+.rk-chip--info {
+  border-left: var(--rk-bw-sel) solid var(--rk-info);
+}
+/* 「もちもの が いっぱい！」など 見出しの大きさの合図 */
+.rk-chip--head {
+  font-size: var(--rk-fs-head);
+  font-weight: 800;
+}
+
+/* ---- ツールチップ ---- */
+.rk-tooltip {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rk-sp-1);
+  padding: var(--rk-sp-4);
+  color: var(--rk-text);
+  background: var(--rk-bg-800);
+  border: var(--rk-bw-rarity) solid var(--rk-rarity);
+  border-radius: var(--rk-r-m);
+  box-shadow: var(--rk-shadow-2);
+  font-size: var(--rk-fs-body);
+  font-weight: 500;
+  line-height: var(--rk-lh);
+  pointer-events: none;
+}
+.rk-tooltip__desc {
+  font-size: var(--rk-fs-small);
+  color: var(--rk-text-sub);
+}
+
+/* ---- バッジ ---- */
+.rk-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--rk-sp-5);
+  padding: 0 var(--rk-sp-2);
+  color: var(--rk-ink);
+  background: var(--rk-ng);
+  border-radius: var(--rk-r-pill);
+  font-size: var(--rk-fs-small);
+  font-weight: 800;
+  line-height: var(--rk-lh);
+  font-variant-numeric: tabular-nums;
+}
+.rk-badge--accent {
+  background: var(--rk-accent);
+}
+
+/* ---- モーダル ---- */
+.rk-scrim {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--rk-scrim);
+}
+.rk-modal {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--rk-sp-4);
+  min-width: calc(640 / 12.8 * 1vw);
+  min-height: calc(440 / 12.8 * 1vw);
+  padding: var(--rk-sp-6) var(--rk-sp-5) var(--rk-sp-5);
+  overflow: hidden;
+  color: var(--rk-text);
+  background: var(--rk-bg-800);
+  border: var(--rk-bw) solid var(--rk-line);
+  border-radius: var(--rk-r-l);
+  box-shadow: var(--rk-shadow-2);
+}
+.rk-modal__band {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: var(--rk-sp-2);
+  background: var(--rk-accent-grad);
+}
+
+/* ---- メダル（わく。中の絵は 作る係が入れる） ---- */
+.rk-medal {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--rk-medal-size, 48px);
+  height: var(--rk-medal-size, 48px);
+  flex: none;
+  background: var(--rk-medal-bronze);
+  border: var(--rk-bw-sel) solid var(--rk-bg-900);
+  border-radius: var(--rk-r-pill);
+  color: var(--rk-ink);
+}
+.rk-medal[data-tier='silver'] {
+  background: var(--rk-medal-silver);
+}
+.rk-medal[data-tier='gold'] {
+  background: var(--rk-medal-gold);
+}
+.rk-medal[data-tier='rainbow'] {
+  background: var(--rk-medal-rainbow);
+}
+.rk-medal[data-tier='locked'] {
+  background: var(--rk-line);
+  color: var(--rk-text-sub);
+  font-size: calc(var(--rk-medal-size, 48px) * 0.5);
+  font-weight: 800;
+}
+.rk-medal__art {
+  width: 60%;
+  height: 60%;
+  image-rendering: pixelated;
+}
+
+/* ---- 和のアクセント: 青海波（右はしに うすく） ---- */
+.rk-seigaiha {
+  background-image:
+    radial-gradient(circle at 50% 100%, transparent 36%, color-mix(in srgb, var(--rk-shu) 12%, transparent) 38%, transparent 42%),
+    radial-gradient(circle at 50% 100%, transparent 56%, color-mix(in srgb, var(--rk-shu) 12%, transparent) 58%, transparent 62%);
+  background-size: var(--rk-sp-6) var(--rk-sp-5);
+}
+
+/* ---- 点滅のきまり: 画面を動かしたくない人 ---- */
+@media (prefers-reduced-motion: reduce) {
+  .rk-pulse {
+    animation: none;
+  }
+}

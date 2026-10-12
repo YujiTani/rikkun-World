@@ -1,0 +1,64 @@
+/* たんす画面（M6 §2.9 (4)）。色・大きさは S1 の変数だけを使う */
+.tansu-panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--rk-sp-4);
+  padding: var(--rk-sp-5);
+  background: color-mix(in srgb, var(--rk-bg-900) 96%, transparent);
+  border-radius: var(--rk-r-l);
+  box-shadow: var(--rk-shadow-2);
+  color: var(--rk-text);
+  font-size: var(--rk-fs-body);
+  line-height: var(--rk-lh);
+}
+/* いちばん上の 桐色の帯（上の余白の中に置く。高さは足さない）と、両はしの黒い金具の点 */
+.tansu-band {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--rk-sp-2);
+  background: var(--rk-kiri);
+  border-radius: var(--rk-r-l) var(--rk-r-l) 0 0;
+  pointer-events: none;
+}
+.tansu-kana {
+  position: absolute;
+  top: var(--rk-sp-1);
+  width: var(--rk-sp-1);
+  height: var(--rk-sp-1);
+  background: var(--rk-kurogane);
+}
+.tansu-kana[data-pos='l1'] { left: var(--rk-sp-3); }
+.tansu-kana[data-pos='l2'] { left: var(--rk-sp-5); }
+.tansu-kana[data-pos='r1'] { right: var(--rk-sp-3); }
+.tansu-kana[data-pos='r2'] { right: var(--rk-sp-5); }
+.tansu-head {
+  display: flex;
+  align-items: center;
+  gap: var(--rk-sp-3);
+}
+.tansu-icon {
+  width: var(--rk-icon-chip);
+  height: var(--rk-icon-chip);
+  image-rendering: pixelated;
+}
+.tansu-title {
+  flex: 1;
+  margin: 0;
+  font-size: var(--rk-fs-title);
+  font-weight: 800;
+}
+.tansu-grid {
+  display: grid;
+  grid-template-columns: repeat(9, var(--rk-slot-tansu));
+  gap: var(--rk-sp-1);
+  padding: var(--rk-sp-1);
+  border: var(--rk-sp-1) solid var(--rk-kiri);
+  border-radius: var(--rk-r-s);
+  width: max-content;
+}
+.tansu-grid .rk-slot {
+  cursor: pointer;
+}

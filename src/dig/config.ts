@@ -38,6 +38,8 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     start_torch: null, // こわれない
     kawara: 4,
     brick: 6,
+    // M6
+    tansu: 5,
   } satisfies Record<BlockId, number | null>,
   harvestLevel: {
     air: 0,
@@ -57,6 +59,7 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     start_torch: 0,
     kawara: 0,
     brick: 0,
+    tansu: 0,
   },
   handPower: 1.0,
   handLevel: 0,
@@ -84,6 +87,7 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     start_torch: 'common',
     kawara: 'uncommon',
     brick: 'uncommon',
+    tansu: 'uncommon',
   } satisfies Record<BlockId, Rarity>,
   dropMax: { common: 4, uncommon: 3, rare: 2, superRare: 1 },
 };

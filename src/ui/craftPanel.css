@@ -1,267 +1,487 @@
-/* もちもの画面の右がわ「つくる」「やく」（M4 §3） */
+/*
+ * もちもの画面の右がわ「つくる」「やく」（M6 §2.1）。色・大きさは S1 の変数だけを使う。
+ * 左: 絵だけのマスの一覧。右: 決まった場所の せつめい パネル（320px 分）。
+ */
 .craft-panel {
+  --cp-detail-w: calc(var(--rk-slot-inv) * 320 / 56);
   box-sizing: border-box;
-  width: 372px;
-  max-height: calc(100vh - var(--cell, 64px) - 70px);
-  overflow-y: auto;
-  padding: 12px;
-  border: 4px solid #6b4a2a;
-  border-radius: 12px;
-  /* うすい木目の茶色 */
-  background: repeating-linear-gradient(90deg, #8a6a44 0, #8a6a44 14px, #94724a 14px, #94724a 18px, #86663f 18px, #86663f 30px);
-  color: #fff;
+  display: flex;
+  align-items: stretch;
+  gap: var(--rk-sp-4);
+  padding: var(--rk-sp-4);
+  background: color-mix(in srgb, var(--rk-bg-900) 96%, transparent);
+  border-radius: var(--rk-r-l);
+  color: var(--rk-text);
   pointer-events: auto;
 }
-.craft-panel[hidden] {
-  display: none;
+.craft-panel[hidden],
+.craft-panel [hidden] {
+  display: none !important;
 }
 
+.cp-left {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rk-sp-3);
+}
 .craft-tabs {
   display: flex;
-  gap: 10px;
-  margin-bottom: 10px;
+  gap: var(--rk-sp-2);
 }
-.craft-tabs[hidden] {
-  display: none;
-}
-.craft-tab {
+.craft-tabs .rk-tab {
   flex: 1;
-  min-height: 56px;
-  font: inherit;
-  font-size: 28px;
-  font-weight: bold;
-  color: #fff;
-  background: #5a3e22;
-  border: 4px solid #3a2814;
-  border-radius: 10px;
-  cursor: pointer;
-}
-.craft-tab[hidden] {
-  display: none;
-}
-.craft-tab[data-selected='true'] {
-  background: #7a5530;
-  border-color: #ffd54f;
 }
 
-.craft-grid {
+/* ---- マス（絵だけ） ---- */
+.cp-grid {
   display: grid;
-  grid-template-columns: repeat(4, 80px);
-  gap: 6px;
-  justify-content: center;
+  grid-template-columns: repeat(4, var(--rk-slot-inv));
+  gap: var(--rk-sp-2);
+  justify-content: start;
 }
-.craft-grid[hidden],
-.bake-box[hidden] {
-  display: none;
-}
-
-.card {
-  position: relative;
-  box-sizing: border-box;
-  min-height: 88px;
-  padding: 3px 1px 2px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  background: rgba(40, 24, 8, 0.55);
-  border: 3px solid #4a3418;
-  border-radius: 8px;
+.cp-tile {
   cursor: pointer;
 }
-/* つくれない: 絵が灰色・不透明度 50% */
-.card .card-icon {
-  width: 36px;
-  height: 36px;
-  image-rendering: pixelated;
+.cp-tile .rk-slot__art {
+  width: 86%;
+  height: 86%;
+}
+/* 色分け: 背景 = カテゴリーの色、ふち = めずらしさの色（つくれる のときは アクセントのわくが勝つ） */
+.cp-tile[data-cat='soil'] {
+  background: var(--rk-cat-soil);
+}
+.cp-tile[data-cat='stone'] {
+  background: var(--rk-cat-stone);
+}
+.cp-tile[data-cat='plant'] {
+  background: var(--rk-cat-plant);
+}
+.cp-tile[data-cat='ore'] {
+  background: var(--rk-cat-ore);
+}
+.cp-tile[data-cat='build'] {
+  background: var(--rk-cat-build);
+}
+.cp-tile[data-cat='material'] {
+  background: var(--rk-cat-material);
+}
+.cp-tile[data-cat='metal'] {
+  background: var(--rk-cat-metal);
+}
+.cp-tile[data-cat='tool'] {
+  background: var(--rk-cat-tool);
+}
+.cp-tile[data-cat='weapon'] {
+  background: var(--rk-cat-weapon);
+}
+.cp-tile[data-cat='armor'] {
+  background: var(--rk-cat-armor);
+}
+.cp-tile[data-cat='light'] {
+  background: var(--rk-cat-light);
+}
+.cp-tile[data-cat='home'] {
+  background: var(--rk-cat-home);
+}
+.cp-tile[data-rarity='0'] {
+  border: var(--rk-bw-rarity) solid var(--rk-rarity-0);
+}
+.cp-tile[data-rarity='1'] {
+  border: var(--rk-bw-rarity) solid var(--rk-rarity-1);
+}
+.cp-tile[data-rarity='2'] {
+  border: var(--rk-bw-rarity) solid var(--rk-rarity-2);
+}
+.cp-tile[data-rarity='3'] {
+  border: var(--rk-bw-rarity) solid var(--rk-rarity-3);
+}
+/* 足りない: 色分けを うすくして 下地に */
+.cp-tile[data-dim='true'] {
+  background: var(--rk-bg-700);
+}
+/* 足りない: 灰色（白黒）で 不透明度 35% */
+.cp-tile[data-dim='true'] .rk-slot__art {
   filter: grayscale(1);
-  opacity: 0.5;
+  opacity: 0.35;
 }
-.card[data-glow='true'] .card-icon {
-  filter: none;
-  opacity: 1;
+/* つくれる: アクセントの太いわく＋光（1.5 秒に 1 回 強く・弱く）＋ふわっと上下（2 秒に 1 回） */
+.cp-tile[data-glow='true'] {
+  border: var(--rk-bw-sel) solid var(--rk-accent);
+  animation:
+    cp-glow var(--glow-seconds, 1.5s) ease-in-out infinite alternate,
+    cp-float 2s ease-in-out infinite;
 }
-/* つくれる: 黄色の太いわく＋やさしい光（1.5 秒に 1 回 強く・弱く。点滅しない） */
-.card[data-glow='true'] {
-  border: 4px solid #ffd54f;
-  padding: 3px 1px 2px;
-  animation: card-glow var(--glow-seconds, 1.5s) ease-in-out infinite;
+@keyframes cp-glow {
+  from {
+    box-shadow: var(--rk-glow-weak);
+  }
+  to {
+    box-shadow: var(--rk-glow);
+  }
 }
-@keyframes card-glow {
+@keyframes cp-float {
   0%,
   100% {
-    box-shadow: 0 0 6px 1px rgba(255, 213, 79, 0.45);
+    transform: translateY(0);
   }
   50% {
-    box-shadow: 0 0 16px 5px rgba(255, 213, 79, 0.85);
+    transform: translateY(-2px);
   }
 }
-.card-count {
+/* えらんでいる: 内がわに 白いふち 4px */
+.cp-tile[data-selected='true'] {
+  outline: var(--rk-bw-sel) solid var(--rk-text);
+  outline-offset: calc(-1 * var(--rk-bw-sel));
+}
+.cp-tile .rk-slot__count {
+  font-size: var(--rk-fs-small);
+}
+.cp-made,
+.cp-later,
+.cp-mark,
+.cp-queue {
   position: absolute;
-  right: 6px;
-  top: 26px;
-  font-size: 15px;
-  font-weight: bold;
-  -webkit-text-stroke: 3px #000;
-  paint-order: stroke fill;
   pointer-events: none;
 }
-.card-count:empty,
-.card-queue:empty {
+.cp-made {
+  left: var(--rk-sp-1);
+  bottom: 0;
+  font-size: var(--rk-fs-rt);
+  font-weight: 800;
+  color: var(--rk-ok);
+  text-shadow: 0 0 2px var(--rk-bg-900);
+}
+.cp-tile:not([data-made='true']) .cp-made,
+.cp-tile:not([data-later='true']) .cp-later,
+.cp-tile:not([data-selected='true']) .cp-mark {
   display: none;
 }
-.card-queue {
-  position: absolute;
-  right: 4px;
-  top: 2px;
-  padding: 0 4px;
-  font-size: 14px;
-  font-weight: bold;
-  background: rgba(0, 0, 0, 0.6);
-  border-radius: 6px;
-}
-.card-mats {
-  display: flex;
-  flex-wrap: nowrap;
-  justify-content: center;
-  gap: 1px 2px;
-}
-.mat {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1px;
-  padding: 1px;
-  border-radius: 4px;
-}
-/* 足りない材料は絵のうしろもうすい赤 */
-.mat[data-red='true'] {
-  background: rgba(229, 57, 53, 0.3);
-}
-.mat-icon {
-  width: 18px;
-  height: 18px;
+.cp-later {
+  right: var(--rk-sp-1);
+  top: var(--rk-sp-1);
+  width: var(--rk-sp-4);
+  height: var(--rk-sp-4);
+  background-size: contain;
   image-rendering: pixelated;
 }
-.mat-dots {
-  display: flex;
-  gap: 2px;
+.cp-tile[data-selected='true'][data-later='true'] .cp-later {
+  right: calc(var(--rk-sp-4) + var(--rk-sp-1));
 }
-.dot {
-  box-sizing: border-box;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #fff;
-  border: 2px solid #e53935;
+.cp-mark {
+  right: var(--rk-sp-1);
+  top: 0;
+  font-size: var(--rk-fs-rt);
+  color: var(--rk-text);
+  text-shadow: 0 0 2px var(--rk-bg-900);
 }
-.dot[data-on='true'] {
-  background: #43a047;
-  border-color: #1b5e20;
+.cp-queue {
+  right: var(--rk-sp-1);
+  top: var(--rk-sp-1);
+  padding: 0 var(--rk-sp-1);
+  font-size: var(--rk-fs-rt);
+  font-weight: 800;
+  background: var(--rk-hud-bg);
+  border-radius: var(--rk-r-s);
 }
-.card-name {
-  font-size: 12px;
-  font-weight: bold;
-  text-align: center;
-  line-height: 1.1;
-  text-shadow: 0 1px 0 #000;
-}
-.card-bar {
-  position: absolute;
-  left: 4px;
-  right: 4px;
-  bottom: -9px;
-  height: 8px;
-  background: rgba(0, 0, 0, 0.6);
-  border-radius: 4px;
-  overflow: hidden;
-}
-.card-bar[hidden] {
+.cp-queue:empty {
   display: none;
 }
-.card-bar-fill {
-  height: 100%;
-  width: 0;
-  background: #ff9a2e;
+.cp-bar {
+  position: absolute;
+  left: var(--rk-sp-1);
+  right: var(--rk-sp-1);
+  bottom: calc(-1 * var(--rk-sp-3));
+}
+/* ゆびの印: 16×16 を 2 倍。ぽよん と はねる（明るさは変えない） */
+.cp-finger {
+  position: absolute;
+  left: 50%;
+  top: calc(-1 * var(--rk-sp-5));
+  width: var(--rk-icon-chip);
+  height: var(--rk-icon-chip);
+  margin-left: calc(var(--rk-icon-chip) / -2);
+  background-size: contain;
+  image-rendering: pixelated;
+  pointer-events: none;
+  animation: cp-hop 1.5s ease-in-out infinite;
+}
+@keyframes cp-hop {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  80% {
+    transform: translateY(var(--rk-sp-1)) scale(1.1);
+  }
 }
 
+/* ---- やく（かまど とねんりょう） ---- */
 .bake-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 18px;
+  gap: var(--rk-sp-3);
+  margin-bottom: var(--rk-sp-4);
 }
 .bake-furnace {
-  width: 96px;
-  height: 96px;
+  width: calc(var(--rk-slot-inv) * 1.5);
+  height: calc(var(--rk-slot-inv) * 1.5);
   image-rendering: pixelated;
-  border: 3px solid #4a3418;
-  border-radius: 8px;
+  border: var(--rk-bw) solid var(--rk-line);
+  border-radius: var(--rk-r-s);
 }
 .bake-furnace[data-burning='true'] {
-  animation: furnace-flicker 0.7s ease-in-out infinite;
+  animation: furnace-flicker var(--rk-dur-wave) ease-in-out infinite alternate;
 }
 @keyframes furnace-flicker {
-  0%,
-  100% {
+  from {
     filter: brightness(1);
   }
-  50% {
+  to {
     filter: brightness(1.18);
   }
 }
 .bake-fuel {
   display: flex;
-  gap: 8px;
+  gap: var(--rk-sp-2);
 }
 .fuel {
   position: relative;
   box-sizing: border-box;
-  width: 64px;
-  height: 64px;
+  width: var(--rk-slot-inv);
+  height: var(--rk-slot-inv);
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.4);
-  border: 4px solid #4a3418;
-  border-radius: 8px;
+  background: var(--rk-bg-700);
+  border: var(--rk-bw) solid var(--rk-line);
+  border-radius: var(--rk-r-s);
 }
 .fuel[data-next='true'] {
-  border-color: #ffd54f;
+  border: var(--rk-bw-sel) solid var(--rk-accent);
 }
 .fuel[data-red='true'] {
-  border-color: #e53935;
-  background: rgba(229, 57, 53, 0.3);
+  border-color: var(--rk-ng);
 }
 .fuel-icon {
-  width: 40px;
-  height: 40px;
+  width: var(--rk-icon-chip);
+  height: var(--rk-icon-chip);
   image-rendering: pixelated;
 }
 .fuel-count {
   position: absolute;
-  right: 3px;
+  right: var(--rk-sp-1);
   bottom: 0;
-  font-size: 20px;
-  font-weight: bold;
-  -webkit-text-stroke: 3px #000;
-  paint-order: stroke fill;
+  font-size: var(--rk-fs-small);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 2px var(--rk-bg-900);
 }
-.bake-grid {
+
+/* ---- せつめい パネル ---- */
+.cp-detail {
+  box-sizing: border-box;
+  width: var(--cp-detail-w);
+  flex: none;
+  gap: var(--rk-sp-3);
+  padding: var(--rk-sp-4);
+  border: var(--rk-bw-rarity) solid var(--rk-rarity, var(--rk-line));
+}
+.cp-head {
+  display: flex;
+  align-items: center;
+  gap: var(--rk-sp-3);
+}
+.cp-head-art {
+  width: var(--rk-slot-inv);
+  height: var(--rk-slot-inv);
+  image-rendering: pixelated;
+  flex: none;
+}
+.cp-name {
+  font-weight: 800;
+  color: var(--rk-rarity, var(--rk-text));
+  text-shadow: 0 0 var(--rk-sp-1) var(--rk-bg-900);
+}
+.cp-rarity {
+  display: flex;
+  align-items: center;
+  gap: var(--rk-sp-2);
+  font-size: var(--rk-fs-body);
+  color: var(--rk-rarity, var(--rk-text));
+}
+.cp-scroll {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--rk-sp-3);
+  overflow-y: auto;
+}
+.cp-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--rk-sp-2);
+}
+.cp-mark-ico {
+  width: var(--rk-sp-5);
+  height: var(--rk-sp-5);
+  flex: none;
+  image-rendering: pixelated;
+}
+.cp-hand {
+  transform: rotate(-90deg);
+}
+.cp-text {
+  font-size: var(--rk-fs-body);
+  line-height: var(--rk-lh);
+}
+.cp-btns {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--rk-sp-1);
+  margin-right: var(--rk-sp-2);
+  vertical-align: middle;
+}
+.cp-mouse {
+  width: var(--rk-sp-6);
+  height: var(--rk-sp-6);
+  image-rendering: pixelated;
+}
+.cp-key {
+  display: inline-block;
+  padding: 0 var(--rk-sp-2);
+  color: var(--rk-ink);
+  background: var(--rk-text-sub);
+  border-radius: var(--rk-r-s);
+  font-size: var(--rk-fs-small);
+  font-weight: 800;
+}
+.cp-dots {
+  font-weight: 800;
+}
+.cp-stats {
   display: grid;
-  grid-template-columns: repeat(4, 80px);
-  gap: 6px;
-  justify-content: center;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--rk-sp-2) var(--rk-sp-3);
+}
+.cp-stat {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--rk-sp-1) var(--rk-sp-2);
+  font-size: var(--rk-fs-body);
+}
+.cp-stat-label {
+  flex-basis: 100%;
+}
+.cp-stat-num {
+  font-weight: 800;
+  color: var(--rk-accent);
+}
+.cp-compare {
+  font-size: var(--rk-fs-small);
+}
+.cp-meter .rk-meter__cell {
+  width: var(--rk-sp-3);
+  height: var(--rk-sp-3);
+}
+.cp-mats,
+.cp-fuelrow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rk-sp-2);
+}
+.cp-mat {
+  font-weight: 800;
+  background: var(--rk-bg-700);
+}
+.cp-mat[data-ok='false'] .cp-have {
+  color: var(--rk-ng);
+}
+.cp-dot {
+  box-sizing: border-box;
+  width: var(--rk-sp-3);
+  height: var(--rk-sp-3);
+  border-radius: var(--rk-r-pill);
+  background: var(--rk-ok);
+}
+.cp-dot[data-ok='false'] {
+  background: var(--rk-text);
+  border: var(--rk-bw) solid var(--rk-ng);
+}
+.cp-fuelchip {
+  background: var(--rk-bg-700);
+  font-weight: 800;
+}
+.cp-fuelchip[data-next='true'] {
+  outline: var(--rk-bw-sel) solid var(--rk-accent);
+}
+.cp-count {
+  font-size: var(--rk-fs-body);
+  font-weight: 800;
+}
+.cp-more {
+  align-self: center;
+  margin: 0;
+  padding: 0 var(--rk-sp-3);
+  font-family: inherit;
+  font-size: var(--rk-fs-small);
+  color: var(--rk-text-sub);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  animation: cp-nudge 1.5s ease-in-out infinite;
+}
+@keyframes cp-nudge {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(2px);
+  }
+}
+.cp-hint {
+  text-align: center;
+  font-size: var(--rk-fs-small);
+}
+.cp-press {
+  width: 100%;
 }
 
 .craft-fly {
   position: fixed;
   left: 0;
   top: 0;
-  width: 32px;
-  height: 32px;
+  width: var(--rk-icon-chip);
+  height: var(--rk-icon-chip);
   image-rendering: pixelated;
   pointer-events: none;
   z-index: 13;
+}
+
+/* ツールチップの「なにに つかう」は 1 行目まで（見た目の色・字は S1 の rk-tooltip__desc） */
+.tip-desc {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+  overflow: hidden;
+  max-width: calc(var(--rk-slot-inv) * 5);
+}
+.tip-desc[hidden] {
+  display: none;
+}
+
+/* 材料が 1 つも無いとき（その5） */
+.cp-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(var(--rk-slot-inv) * 3);
+  font-size: var(--rk-fs-body);
+  color: var(--rk-text-sub);
+  text-align: center;
 }

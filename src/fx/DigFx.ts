@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { DigSystem, ItemId, Vec3 } from '../contracts';
+import type { DigEvent, DigSystem, ItemId, Vec3 } from '../contracts';
 import { ComboTracker } from './combo';
 import { FX_SETTINGS, type FxSettings } from './config';
 import { BlockPuffs, BreakParticles, CrackOverlay, TargetOutline } from './objects3d';
@@ -18,6 +18,8 @@ export interface DigFxDeps {
   /** アイテムが入った（ホットバーの「ぽよん」や飛ぶ絵） */
   onPickup?: (item: ItemId, count: number) => void;
   settings?: FxSettings;
+  /** 出来事を main が 1 回だけ drain して配るとき、その列を渡す（なければ dig.drainEvents()） */
+  events?: () => DigEvent[];
 }
 
 /** 空振りの小さな「ひゅっ」（控えめ） */
@@ -95,7 +97,7 @@ export class DigFx {
 
     // 出来事
     let stageSoundPlayed = false;
-    for (const ev of dig.drainEvents()) {
+    for (const ev of this.d.events ? this.d.events() : dig.drainEvents()) {
       if (ev.type === 'break') {
         const hadItem = ev.gotItem;
         this.puffs.start(ev.block, ev.id, 1, c.puffScale, c.puffSeconds, () =>

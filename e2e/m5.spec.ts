@@ -11,6 +11,7 @@ test.describe.configure({ timeout: 180_000 });
 async function open(page: Page, query = '?nosave=1') {
   await page.goto('/' + query);
   await page.waitForFunction(() => window.__rikkun?.ready === true);
+  await page.evaluate(() => window.__rikkun!.achievements.mute(true));
 }
 
 test.describe('M5 広い世界', () => {
@@ -78,19 +79,19 @@ test.describe('M5 広い世界', () => {
       // たいまつ の前（西がわ）に立って、たいまつ をねらって 300 ステップほる
       h.player.set({ position: { x: 64.5, y: H0 + 1, z: 63.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: 0 });
       h.step(2);
-      const tgt = h.target();
-      h.input.press('dig');
+      const tgt = h.target.get();
+      h.input.press('primary');
       h.step(300);
-      h.input.release('dig');
+      h.input.release('primary');
       const after = h.world.getBlock(66, H0 + 1, 63);
-      h.time.set(0);
+      h.time.set(59400);
       h.step(3);
       const levels: number[] = [];
       let min = 99;
       for (let dx = -4; dx <= 4; dx++)
         for (let dz = -4; dz <= 4; dz++) {
           const x = 66 + dx, z = 63 + dz;
-          if (h.world.groundHeight(x, z) !== H0) continue;
+          if (Math.abs(dx) + Math.abs(dz) > 4 || h.world.groundHeight(x, z) !== H0) continue;
           const l = h.world.lightAt(x, H0 + 1, z);
           levels.push(l.level);
           min = Math.min(min, l.level);
@@ -225,6 +226,7 @@ test.describe('M5 広い世界', () => {
     // 実際の保存を 1 回作って形を見る
     await page.goto('/?reset=1');
     await page.waitForFunction(() => window.__rikkun?.ready === true);
+    await page.evaluate(() => window.__rikkun!.achievements.mute(true));
     const base = await page.evaluate((k) => {
       const h = (window as any).__rikkun;
       h.pause();
@@ -253,6 +255,7 @@ test.describe('M5 広い世界', () => {
       await page.evaluate(([k, t]) => localStorage.setItem(k, t), [key, text]);
       await page.goto('/');
       await page.waitForFunction(() => window.__rikkun?.ready === true);
+      await page.evaluate(() => window.__rikkun!.achievements.mute(true));
       const r = await page.evaluate(() => {
         const h = (window as any).__rikkun;
         h.pause();
@@ -282,6 +285,7 @@ test.describe('M5 広い世界', () => {
   test('AC21: ひらち (100,8,60) とやま (64,25,28) の変更を保存して読み直すと同じ', async ({ page }) => {
     await page.goto('/?reset=1');
     await page.waitForFunction(() => window.__rikkun?.ready === true);
+    await page.evaluate(() => window.__rikkun!.achievements.mute(true));
     const a = await page.evaluate(() => {
       const h = (window as any).__rikkun;
       h.pause();
@@ -295,6 +299,7 @@ test.describe('M5 広い世界', () => {
     });
     await page.goto('/');
     await page.waitForFunction(() => window.__rikkun?.ready === true);
+    await page.evaluate(() => window.__rikkun!.achievements.mute(true));
     const b = await page.evaluate(() => {
       const h = (window as any).__rikkun;
       return { hash: h.world.hash(), a: h.world.getBlock(100, 8, 60), b: h.world.getBlock(64, 25, 28), c: h.world.getBlock(65, 30, 28) };

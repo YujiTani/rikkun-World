@@ -30,6 +30,7 @@ export class Tooltip {
   private readonly nameEl: HTMLDivElement;
   private readonly starsEl: HTMLDivElement;
   private readonly body: HTMLDivElement;
+  private readonly descEl: HTMLDivElement;
   private readonly headIcon: HTMLImageElement;
 
   constructor(parent: HTMLElement, private readonly o: TooltipOptions) {
@@ -46,9 +47,11 @@ export class Tooltip {
     this.head.append(this.headIcon, this.nameEl);
     this.starsEl = document.createElement('div');
     this.starsEl.className = 'tip-stars';
+    this.descEl = document.createElement('div');
+    this.descEl.className = 'tip-desc rk-tooltip__desc';
     this.body = document.createElement('div');
     this.body.className = 'tip-lines';
-    this.el.append(this.head, this.starsEl, this.body);
+    this.el.append(this.head, this.starsEl, this.descEl, this.body);
     parent.append(this.el);
     this.onMove = (e) => {
       this.mx = e.clientX;
@@ -82,7 +85,7 @@ export class Tooltip {
       }
       return;
     }
-    const key = `${t.item}|${t.lines.join('/')}`;
+    const key = `${t.item}|${t.desc}|${t.lines.join('/')}`;
     if (key !== this.shownKey) {
       this.shownKey = key;
       const col = rarityCss(t.rarity);
@@ -92,6 +95,8 @@ export class Tooltip {
       this.nameEl.style.color = col;
       this.starsEl.textContent = starText(t.stars);
       this.starsEl.style.color = col;
+      this.descEl.textContent = t.desc;
+      this.descEl.hidden = t.desc === '';
       this.body.replaceChildren();
       t.lines.forEach((text, i) => {
         const row = document.createElement('div');
