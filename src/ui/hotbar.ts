@@ -1,19 +1,27 @@
 import type { Inventory, ItemStack } from '../contracts';
 import { FX_SETTINGS, type FxSettings } from '../fx/config';
 import { HOTBAR_SIZE, gainedSlots, hotbarCells, snapshotSlots } from './hotbarModel';
+import { itemRarity } from '../drops/rarity';
+import { gemShape, gemUrl } from './gemArt';
 import { itemIconUrl } from './itemIcon';
+import { itemCategory, rarityIndex } from './itemCategory';
 import './hotbar.css';
 
 export interface SlotEls {
   root: HTMLDivElement;
   icon: HTMLImageElement;
   count: HTMLSpanElement;
+  /** 宝石の印（アイテムが入っているときだけ root の中にある） */
+  gem: HTMLImageElement;
 }
 
-/** マス 1 つ分の DOM（ホットバーともちもの画面で同じ形） */
-export function createSlotEl(keyLabel?: string): SlotEls {
+/**
+ * マス 1 つ分の DOM（ホットバー・もちもの画面・そうび・たんす で同じ形。§3.5 (7)）。
+ * size: 'tansu' は 48px のマス（たんす の画面）。ホットバーの大きさは `#hotbar .slot` が決める。
+ */
+export function createSlotEl(keyLabel?: string, size?: 'inv' | 'tansu'): SlotEls {
   const root = document.createElement('div');
-  root.className = 'slot';
+  root.className = size === 'tansu' ? 'slot slot--tansu' : 'slot';
   const icon = document.createElement('img');
   icon.className = 'slot-icon';
   icon.alt = '';
@@ -26,11 +34,18 @@ export function createSlotEl(keyLabel?: string): SlotEls {
     key.textContent = keyLabel;
     root.append(key);
   }
+  const gem = document.createElement('img');
+  gem.className = 'slot-gem';
+  gem.alt = '';
   root.append(icon, count);
-  return { root, icon, count };
+  return { root, icon, count, gem };
 }
 
-/** マスの中身を絵と数に反映する（数は 2 こ以上のときだけ） */
+/**
+ * マスの中身を絵と数に反映する（数は 2 こ以上のときだけ）。
+ * 入っているときは 背景 = カテゴリーの色（data-cat）、ふち = めずらしさの色（data-rarity）、右上に宝石の印。
+ * からっぽ は下地のまま・宝石の印なし。
+ */
 export function paintSlot(els: SlotEls, stack: ItemStack | null): void {
   if (stack) {
     const url = itemIconUrl(stack.item);
@@ -38,17 +53,27 @@ export function paintSlot(els: SlotEls, stack: ItemStack | null): void {
     els.icon.hidden = false;
     els.root.dataset.item = stack.item;
     els.count.textContent = stack.count >= 2 ? String(stack.count) : '';
+    const r = rarityIndex(itemRarity(stack.item));
+    els.root.dataset.cat = itemCategory(stack.item);
+    els.root.dataset.rarity = String(r);
+    const gu = gemUrl(r);
+    if (els.gem.getAttribute('src') !== gu) els.gem.src = gu;
+    els.gem.dataset.gem = gemShape(r);
+    if (els.gem.parentElement !== els.root) els.root.append(els.gem);
   } else {
     els.icon.hidden = true;
     delete els.root.dataset.item;
+    delete els.root.dataset.cat;
+    delete els.root.dataset.rarity;
     els.count.textContent = '';
+    els.gem.remove();
   }
 }
 
 /** ぽよん（Web Animations。使えない環境では何もしない） */
 export function popElement(el: HTMLElement, cfg: FxSettings = FX_SETTINGS): void {
   if (typeof el.animate !== 'function') return;
-  const base = el.dataset.selected === 'true' ? 1.12 : 1;
+  const base = 1;
   const big = base * cfg.slotPopScale;
   el.animate(
     [
