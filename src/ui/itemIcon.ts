@@ -9,7 +9,8 @@ const RED: Rgba = [0xe5, 0x39, 0x35, 255];
 
 /** アイテムの絵 = ブロックの横の面の 16x16 */
 export function itemIconPixels(item: ItemId): Pixels {
-  const tiles = BLOCK_TILES[item];
+  // M3: アイテムだけのもの（ようかいだま）の絵は担当 AD が足す。それまでは石の絵
+  const tiles = item in BLOCK_TILES ? BLOCK_TILES[item as keyof typeof BLOCK_TILES] : undefined;
   const name: TileName = tiles ? tiles[2] : 'stone';
   return getTilePixels(name).slice();
 }

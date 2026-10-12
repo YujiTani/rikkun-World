@@ -122,8 +122,11 @@ export type HookNamespace = Record<string, (...args: never[]) => unknown>;
 // ================================================================ M2（掘る・置く・持ち物）
 // 担当の割り振り: docs/tickets/M2-dev-split.md。仕様: docs/design/M2-dig-inventory.md
 
-/** アイテムの種類。M2 ではブロックと同じ。M4 で道具を足す */
-export type ItemId = BlockId;
+/** アイテムだけのもの（置けない）。M3 で ようかいだま を足した。M4 で道具を足す */
+export type ItemOnlyId = 'yokai_orb';
+
+/** アイテムの種類。ブロックとアイテムだけのもの */
+export type ItemId = BlockId | ItemOnlyId;
 
 export interface ItemStack {
   item: ItemId;
@@ -246,4 +249,109 @@ export type Rarity = 'common' | 'uncommon' | 'rare' | 'superRare';
 export interface ScreenSettings {
   inventoryTimeScale: number;
   saveIntervalTicks: number;
+}
+
+// ================================================================ M3（戦い）
+// 担当の割り振り: docs/tickets/M3-dev-split.md。仕様: docs/design/M3-combat.md, docs/design/M3-yokai-candidates.md
+
+export type DayPhase = 'day' | 'dusk' | 'night' | 'dawn';
+
+/** 1 日の時刻。担当 AD が `src/time/` で実装する */
+export interface TimeOfDay {
+  /** 1 日の中のステップ（0〜32399） */
+  dayTick(): number;
+  /** 何日目（0 から） */
+  day(): number;
+  phase(): DayPhase;
+  /** '#rrggbb' */
+  skyColor(): string;
+  /** ブロックの明るさ */
+  brightness(): number;
+  /** 妖怪・人形の明るさ */
+  dollBrightness(): number;
+  set(dayTick: number): void;
+  /** 1 ステップ進める（ゲームの更新から呼ぶ） */
+  update(): void;
+  /** 時間帯が変わったら呼ばれる。戻り値で解除 */
+  onPhaseChange(fn: (phase: DayPhase) => void): () => void;
+}
+
+export type YokaiKind = 'karakasa' | 'chochin' | 'nurikabe' | 'rokurokubi';
+
+export type YokaiState =
+  | 'appear'
+  | 'idle'
+  | 'wander'
+  | 'chase'
+  | 'retreat'
+  | 'attack'
+  | 'search'
+  | 'dying'
+  | 'leaving';
+
+export interface YokaiInfo {
+  id: number;
+  kind: YokaiKind;
+  /** 足もとの中央 */
+  position: Vec3;
+  yawDeg: number;
+  hp: number;
+  maxHp: number;
+  state: YokaiState;
+  /** 攻撃の何ステップ目か（攻撃していなければ 0） */
+  attackTick: number;
+  scale: number;
+}
+
+export type YokaiEvent =
+  | { type: 'spawn'; tick: number; id: number; kind: YokaiKind; position: Vec3 }
+  | { type: 'attackStart'; tick: number; id: number; kind: YokaiKind }
+  | { type: 'attackHit'; tick: number; id: number; kind: YokaiKind; hitPlayer: boolean; position: Vec3 }
+  | { type: 'fireball'; tick: number; id: number; position: Vec3 }
+  | { type: 'fireballEnd'; tick: number; position: Vec3; hitPlayer: boolean }
+  | { type: 'hurt'; tick: number; id: number; kind: YokaiKind; position: Vec3 }
+  | { type: 'defeat'; tick: number; id: number; kind: YokaiKind; position: Vec3; reward: number }
+  | { type: 'leave'; tick: number; id: number; kind: YokaiKind; position: Vec3 };
+
+export interface YokaiRayHit {
+  id: number;
+  kind: YokaiKind;
+  /** 線の始まりから当たりの箱の面まで */
+  distance: number;
+}
+
+/** 妖怪たち。担当 B が `src/yokai/`（モデルは既存）と `src/yokai/ai/` で実装する */
+export interface YokaiWorld {
+  list(): YokaiInfo[];
+  /** 線に当たるいちばん近い妖怪（パンチ用）。maxDistance より遠ければ null */
+  raycast(origin: Vec3, dir: Vec3, maxDistance: number): YokaiRayHit | null;
+  /** パンチが当たった。from はたたいた人の足もと（押される向き） */
+  damage(id: number, amount: number, from: Vec3): void;
+  /** そのマスに妖怪の当たりの箱が重なっているか（ブロックを置けない） */
+  occupies(x: number, y: number, z: number): boolean;
+  /** 画面と音用（呼ぶと空になる）。テストの窓口用の列は別に持つ */
+  drainEvents(): YokaiEvent[];
+}
+
+export type CombatEvent =
+  | { type: 'punchStart'; tick: number }
+  | { type: 'punchHit'; tick: number; yokaiId: number }
+  | { type: 'punchMiss'; tick: number }
+  | { type: 'playerHit'; tick: number; by: YokaiKind; amount: number }
+  | { type: 'regen'; tick: number; hp: number }
+  | { type: 'death'; tick: number; dropped: number[] }
+  | { type: 'respawn'; tick: number }
+  | { type: 'pickup'; tick: number; bagId: number };
+
+/** プレイヤーの体力と戦い。担当 C が `src/combat/` で実装する */
+export interface PlayerCombat {
+  hp(): number;
+  maxHp(): number;
+  dead(): boolean;
+  /** むてきのこりステップ */
+  invincibleTicks(): number;
+  /** 妖怪の攻撃が当たった。むてきなどで受けなかったら false */
+  damage(amount: number, by: YokaiKind, from: Vec3): boolean;
+  /** 画面と音用（呼ぶと空になる）。テストの窓口用の列は別に持つ */
+  drainEvents(): CombatEvent[];
 }

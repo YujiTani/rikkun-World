@@ -1,5 +1,7 @@
 import * as THREE from 'three';
-import type { ItemId } from '../contracts';
+import type { BlockId, ItemId } from '../contracts';
+
+const isBlockId = (item: ItemId): item is BlockId => item !== 'yokai_orb';
 import { UNIT_BOX, getBlockMaterials } from '../fx/blockMaterials';
 import {
   ACTION_SWING_DEG,
@@ -157,7 +159,8 @@ export class BlockDoll {
     if (item === null) {
       this.heldMesh.visible = false;
     } else {
-      this.heldMesh.material = getBlockMaterials(item);
+      // M3: アイテムだけのもの（ようかいだま）の持ち方は担当 AD が足す。それまでは石で表示
+      this.heldMesh.material = getBlockMaterials(isBlockId(item) ? item : 'stone');
       this.heldMesh.visible = true;
     }
   }

@@ -1,4 +1,4 @@
-import type { ItemId, ItemType } from '../contracts';
+import type { BlockId, ItemType } from '../contracts';
 import { BLOCK_TYPES } from '../world/blocks/blockTypes';
 
 export const INVENTORY_SIZE = 36;
@@ -6,7 +6,7 @@ export const HOTBAR_SIZE = 9;
 export const BLOCK_MAX_STACK = 64;
 
 /** 置けるブロック 8 種（M2 §4.2） */
-const PLACEABLE: readonly ItemId[] = [
+const PLACEABLE: readonly BlockId[] = [
   'grass',
   'dirt',
   'stone',
@@ -17,7 +17,7 @@ const PLACEABLE: readonly ItemId[] = [
   'iron_ore',
 ];
 
-export const ITEM_TYPES: readonly ItemType[] = PLACEABLE.map((id) => ({
+export const ITEM_TYPES: readonly ItemType[] = PLACEABLE.map((id): ItemType => ({
   id,
   name: BLOCK_TYPES.find((b) => b.id === id)!.name,
   maxStack: BLOCK_MAX_STACK,
