@@ -161,7 +161,7 @@ const TGT: TargetInfo = {
 describe('DigFx', () => {
   it('こわれる: ぷくっ → はじける四角、ゆれ、音、アイテムが入った', () => {
     const t = setup();
-    t.dig.events.push({ type: 'break', tick: 1, block: B, id: 'dirt', gotItem: true });
+    t.dig.events.push({ type: 'break', tick: 1, block: B, id: 'dirt', gotItem: true, count: 1 });
     t.fx.update(DT);
     expect(t.names).toContain('break');
     expect(t.names).toContain('pickup');
@@ -177,7 +177,7 @@ describe('DigFx', () => {
   });
   it('fxShake を切ると画面がゆれない', () => {
     const t = setup({ fxShake: 0 });
-    t.dig.events.push({ type: 'break', tick: 1, block: B, id: 'dirt', gotItem: true });
+    t.dig.events.push({ type: 'break', tick: 1, block: B, id: 'dirt', gotItem: true, count: 1 });
     for (let i = 0; i < 10; i++) t.fx.update(DT);
     expect(t.shakes.every(([y, p]) => y === 0 && p === 0)).toBe(true);
   });
@@ -191,14 +191,14 @@ describe('DigFx', () => {
       return r;
     };
     for (let k = 0; k < 3; k++) {
-      t.dig.events.push({ type: 'break', tick: k, block: B, id: 'dirt', gotItem: true });
+      t.dig.events.push({ type: 'break', tick: k, block: B, id: 'dirt', gotItem: true, count: 1 });
       t.fx.update(DT);
     }
     expect(sem).toEqual([0, 1, 2]);
   });
   it('いっぱい: 合図と赤い枠が 0.5 秒', () => {
     const t = setup();
-    t.dig.events.push({ type: 'break', tick: 1, block: B, id: 'dirt', gotItem: false });
+    t.dig.events.push({ type: 'break', tick: 1, block: B, id: 'dirt', gotItem: false, count: 0 });
     t.fx.update(DT);
     expect(t.signals).toEqual(['full']);
     expect(t.fx.outline.isRed).toBe(true);

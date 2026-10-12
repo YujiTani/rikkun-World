@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { BlockId, LockStatus, PlayerState, VoxelWorld } from '../contracts';
 import { ActionState, type Action } from '../input/actions';
 import { InventoryImpl } from '../inventory/Inventory';
+import { createRng } from '../world/gen/random';
 import { createDigConfig } from './config';
 import { DigSystemImpl } from './DigSystem';
 
@@ -47,7 +48,10 @@ class Rig {
     realtimeAllowed: () => this.enabled,
     playInputEnabled: () => this.enabled,
   };
-  dig = new DigSystemImpl(this.world, () => this.player, this.actions, this.lock, this.inv, () => 1.62);
+  /** ふだんは 0 を返す（ドロップは 1 こ）。ランダムを見るテストは rngValue を変える */
+  rngValue = 0;
+  rng = () => this.rngValue;
+  dig = new DigSystemImpl(this.world, () => this.player, this.actions, this.lock, this.inv, () => 1.62, createDigConfig(), this.rng);
   constructor() {
     this.world.fill(0, 8, 0, 12, 8, 12, 'stone');
     this.dig.update(); // ねらいを決める
@@ -461,5 +465,97 @@ describe('設定', () => {
     const a = createDigConfig();
     a.hardness.dirt = 99;
     expect(createDigConfig().hardness.dirt).toBe(0.5);
+  });
+});
+
+describe('ドロップ数（めずらしさ）', () => {
+  const cases: Array<[BlockId, number]> = [
+    ['dirt', 4],
+    ['log', 3],
+    ['iron_ore', 2],
+  ];
+  for (const [id, max] of cases) {
+    it(`${id} は 1〜${max} こ（乱数の両はし）`, () => {
+      for (const [v, want] of [
+        [0, 1],
+        [0.999999, max],
+      ] as const) {
+        const r = new Rig();
+        r.rngValue = v;
+        r.dig.config.handPower = 1000; // すぐこわれるように
+        r.dig.config.handLevel = 1;
+        r.set(4, 10, 6, id);
+        r.press('primary');
+        r.step(2);
+        r.repress();
+        const ev = r.dig.drainEvents().find((e) => e.type === 'break');
+        expect(ev).toMatchObject({ gotItem: true, count: want });
+        expect(r.inv.count(id)).toBe(want);
+      }
+    });
+  }
+  it('superRare は最大 1', () => {
+    const r = new Rig();
+    r.rngValue = 0.999999;
+    r.dig.config.rarity.dirt = 'superRare';
+    r.set(4, 10, 6, 'dirt');
+    r.press('primary');
+    r.step(30);
+    r.repress();
+    expect(r.inv.count('dirt')).toBe(1);
+  });
+  it('同じシードなら同じ数になる', () => {
+    const run = () => {
+      const seq: number[] = [];
+      const rng = createRng(7);
+      const r = new Rig();
+      r.rng = rng;
+      const d = new DigSystemImpl(r.world, () => r.player, r.actions, r.lock, r.inv, () => 1.62, createDigConfig(), rng);
+      for (let i = 0; i < 5; i++) {
+        r.world.setBlock(4, 10, 6, 'dirt');
+        d.update();
+        r.actions.endFrame();
+        r.press('primary');
+        for (let k = 0; k < 31; k++) {
+          d.update();
+          r.actions.endFrame();
+        }
+        r.release('primary');
+        r.press('primary');
+        d.update();
+        r.actions.endFrame();
+        r.release('primary');
+        for (let k = 0; k < 10; k++) {
+          d.update();
+          r.actions.endFrame();
+        }
+        const b = d.drainEvents().find((e) => e.type === 'break');
+        seq.push(b && b.type === 'break' ? b.count : -1);
+      }
+      return seq;
+    };
+    const a = run();
+    expect(a.every((n) => n >= 1 && n <= 4)).toBe(true);
+    expect(run()).toEqual(a);
+  });
+  it('入りきらない分は捨てる（一部だけ入る・1 こも入らない）', () => {
+    const r = new Rig();
+    r.rngValue = 0.999999; // 4 こ
+    for (let i = 0; i < 36; i++) r.inv.setSlot(i, { item: 'stone', count: 64 });
+    r.inv.setSlot(20, { item: 'dirt', count: 62 });
+    r.set(4, 10, 6, 'dirt');
+    r.press('primary');
+    r.step(30);
+    r.repress();
+    let ev = r.dig.drainEvents().find((e) => e.type === 'break');
+    expect(ev).toMatchObject({ gotItem: true, count: 2 });
+    r.release('primary');
+    r.step(10);
+    r.set(4, 10, 6, 'dirt');
+    r.press('primary');
+    r.step(30);
+    r.repress();
+    ev = r.dig.drainEvents().find((e) => e.type === 'break');
+    expect(ev).toMatchObject({ gotItem: false, count: 0 });
   });
 });
