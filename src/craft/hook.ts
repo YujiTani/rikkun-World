@@ -27,7 +27,7 @@ export function createFurnaceHook(craft: CraftSystemImpl, screen: { inventoryOpe
 export function createArmorHook(armor: ArmorSystemImpl, screen: { inventoryOpen(): boolean }) {
   return {
     get: () => armor.snapshot(),
-    set: (head: ItemId | null, body: ItemId | null) => armor.set(head, body),
+    set: (head: ItemId | null, body: ItemId | null, arms: ItemId | null = null, legs: ItemId | null = null) => armor.set(head, body, arms, legs),
     click: (slot: ArmorSlot) => {
       if (screen.inventoryOpen()) armor.click(slot);
     },

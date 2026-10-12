@@ -11,6 +11,8 @@ export interface CombatConfig {
   punchDamage: number;
   /** 押す距離（プレイヤー）。10 ステップでかけて動く */
   knockback: number;
+  /** 押されるとき、少し上にはねる初速（ブロック/秒） */
+  knockbackUp: number;
   /** 体力（ハート 10 こ = 20） */
   playerMaxHp: number;
   /** ダメージのあとの むてき */
@@ -41,7 +43,8 @@ export const COMBAT_DEFAULTS: Readonly<CombatConfig> = {
   punchTicks: 30,
   punchReach: 3.0,
   punchDamage: 1,
-  knockback: 1.0,
+  knockback: 1.8,
+  knockbackUp: 4.5,
   playerMaxHp: 20,
   hurtInvincibleTicks: 30,
   regenDelayTicks: 600,

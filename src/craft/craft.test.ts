@@ -63,10 +63,10 @@ describe('アイテムの種類表（AC1）', () => {
 });
 
 describe('つくる（AC1〜AC4）', () => {
-  it('list は 18 こ、持ち物が空なら全部 craftable false', () => {
+  it('list は 20 こ、持ち物が空なら全部 craftable false', () => {
     const { craft } = rig();
     const l = craft.list();
-    expect(l).toHaveLength(18);
+    expect(l).toHaveLength(20);
     expect(l.every((c) => !c.craftable && c.missing.length === c.inputs.length)).toBe(true);
     expect(l[0].id).toBe('wood_pickaxe');
     expect(craft.bakeList().map((b) => b.id)).toEqual(['iron_ingot', 'kawara', 'brick', 'haniwa']);
@@ -310,7 +310,7 @@ describe('拾ったログ（AC27）', () => {
 describe('防具（AC17〜AC19）', () => {
   function armorRig() {
     const inv = new InventoryImpl();
-    const armor = new ArmorSystemImpl(inv, { armorValue: { kabuto: 1, yoroi: 2 } });
+    const armor = new ArmorSystemImpl(inv, { armorValue: { kabuto: 1, yoroi: 2, kote: 1, suneate: 1 } });
     return { inv, armor };
   }
 
@@ -358,13 +358,45 @@ describe('防具（AC17〜AC19）', () => {
     armor.deserialize({ head: 'yoroi', body: 'zzz' });
     expect(armor.snapshot().hudIcons).toEqual([]);
   });
+
+  it('4 部位: こて は うで・すねあて は あし。カットは ぜんぶで 5。古い保存（2 部位）も開ける', () => {
+    const { inv, armor } = armorRig();
+    expect(armor.slotFor('kote')).toBe('arms');
+    expect(armor.slotFor('suneate')).toBe('legs');
+    armor.set('kabuto', 'yoroi', 'kote', 'suneate');
+    expect(armor.cut()).toBe(5);
+    expect(armor.snapshot().hudIcons).toEqual(['kabuto', 'yoroi', 'kote', 'suneate']);
+    armor.set('kote', null, 'suneate', 'kote'); // 合わない部位には入らない
+    expect(armor.snapshot().hudIcons).toEqual([]);
+    inv.setSlot(0, { item: 'kote', count: 1 });
+    inv.select(0);
+    expect(armor.tryEquip('kote')).toBe(true);
+    expect(armor.equipped('arms')).toBe('kote');
+    inv.setSlot(1, { item: 'suneate', count: 1 });
+    inv.select(1);
+    expect(armor.tryEquip('suneate')).toBe(true);
+    expect(armor.equipped('legs')).toBe('suneate');
+    const saved = JSON.parse(JSON.stringify(armor.serialize()));
+    armor.set(null, null);
+    armor.deserialize(saved);
+    expect(armor.snapshot()).toMatchObject({ arms: 'kote', legs: 'suneate', value: 2 });
+    armor.deserialize({ head: 'kabuto', body: 'yoroi' }); // 古い保存
+    expect(armor.snapshot()).toMatchObject({ head: 'kabuto', body: 'yoroi', arms: null, legs: null });
+  });
+
+  it('レシピ: こて = てつ1・ぬの1、すねあて = てつ2・いと1', () => {
+    const { craft } = rig();
+    const l = craft.list();
+    expect(l.find((c) => c.id === 'kote')?.inputs).toEqual([{ item: 'iron_ingot', count: 1 }, { item: 'cloth', count: 1 }]);
+    expect(l.find((c) => c.id === 'suneate')?.inputs).toEqual([{ item: 'iron_ingot', count: 2 }, { item: 'string', count: 1 }]);
+  });
 });
 
 describe('PlayerCombat と防具（AC18・AC19）', () => {
   function combatRig(rngValue = 0) {
     const world = new W();
     const inv = new InventoryImpl();
-    const armor = new ArmorSystemImpl(inv, { armorValue: { kabuto: 1, yoroi: 2 } });
+    const armor = new ArmorSystemImpl(inv, { armorValue: { kabuto: 1, yoroi: 2, kote: 1, suneate: 1 } });
     const player = { position: { x: 2.5, y: 9, z: 6.5 }, velocity: { x: 0, y: 0, z: 0 }, yawDeg: 0, pitchDeg: 0, onGround: true, inWater: false, moving: false };
     const config = createCombatConfig();
     const drops = new DropField({ world: world as never, inventory: inv, player: () => player.position });
@@ -419,11 +451,11 @@ describe('PlayerCombat と防具（AC18・AC19）', () => {
 
   it('やられたら そうびも 落ちる（dropChance 1）。0 なら着たまま。復活で k は 0', () => {
     const r = combatRig(0);
-    r.armor.set('kabuto', 'yoroi');
+    r.armor.set('kabuto', 'yoroi', 'kote', 'suneate');
     r.combat.setHp(0);
-    expect(r.armor.snapshot()).toMatchObject({ head: null, body: null });
+    expect(r.armor.snapshot()).toMatchObject({ head: null, body: null, arms: null, legs: null });
     const items = r.combat.bags().map((b) => b.slots[0].item).sort();
-    expect(items).toEqual(['kabuto', 'yoroi']);
+    expect(items).toEqual(['kabuto', 'kote', 'suneate', 'yoroi']);
     r.step(130);
     expect(r.combat.dead()).toBe(false);
     expect(r.armor.hitCount()).toBe(0);

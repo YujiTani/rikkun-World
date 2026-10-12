@@ -406,8 +406,41 @@ describe('ドロップ表', () => {
     const m2 = new YokaiManager({ world: s.world, time: s.time, getPlayer: () => s.player, combat: s.combat, inventory: full, seed: 3 });
     m2.config.yokaiAutoSpawn = false;
     const id = m2.spawn('nurikabe', 5.5, 9, 6.5, { ai: false });
-    for (let i = 0; i < 6; i++) m2.damage(id, 1, { x: 0, y: 9, z: 0 });
+    for (let i = 0; i < 12; i++) m2.damage(id, 1, { x: 0, y: 9, z: 0 });
     const d = m2.drainEvents().find((e) => e.type === 'defeat');
     expect(d && d.type === 'defeat' ? d.reward : -1).toBe(0);
+  });
+});
+
+describe('ろくろくびの首・妖怪の体にふれる（M4 追加）', () => {
+  it('間の壁を越えて、首を曲げて かみつく。道が無ければ かみつかない', () => {
+    const { m, step, player, combat, world } = setup();
+    player.position = { x: 8.5, y: 9, z: 6.5 };
+    for (let y = 9; y <= 10; y++) for (let z = 3; z <= 10; z++) world.setBlock(6, y, z, 'stone');
+    const id = m.spawn('rokurokubi', 3.5, 9, 6.5, { yawDeg: 90 });
+    for (let i = 0; i < 90; i++) step();
+    const ev = m.takeHookEvents();
+    expect(ev.some((e) => e.type === 'attackStart' && e.id === id)).toBe(true);
+    expect(combat.hits.some((h) => h.by === 'rokurokubi' && h.amount === 2)).toBe(true);
+    // 道が無い（天井まで壁）なら かみつかない
+    const t = setup();
+    t.player.position = { x: 8.5, y: 9, z: 6.5 };
+    for (let y = 9; y <= 30; y++) for (let z = 0; z <= 40; z++) t.world.setBlock(6, y, z, 'stone');
+    t.m.spawn('rokurokubi', 3.5, 9, 6.5, { yawDeg: 90 });
+    for (let i = 0; i < 200; i++) t.step();
+    expect(t.m.takeHookEvents().some((e) => e.type === 'attackStart')).toBe(false);
+  });
+
+  it('体の箱にふれたら ハート半分（体力 1）。攻撃中は攻撃のダメージだけ', () => {
+    const { m, step, player, combat } = setup();
+    m.spawn('karakasa', 2.5, 9, 6.5, { ai: false });
+    step(2);
+    expect(combat.hits.length).toBeGreaterThan(0);
+    expect(combat.hits[0]).toMatchObject({ amount: 1, by: 'karakasa' });
+    m.config.contactDamage = 0;
+    const n = combat.hits.length;
+    step(5);
+    expect(combat.hits.length).toBe(n);
+    expect(player.position.x).toBe(2.5);
   });
 });

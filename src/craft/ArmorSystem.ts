@@ -1,5 +1,5 @@
 import type { ArmorSlot, ArmorSystem, Inventory, ItemId, ItemStack } from '../contracts';
-import { ARMOR_SLOT_OF, type CraftConfig } from './config';
+import { ARMOR_SLOTS, ARMOR_SLOT_OF, type CraftConfig } from './config';
 
 /** 防具が使う持ち物（カーソルを直接かえられるもの。InventoryImpl が合う） */
 export type ArmorInventory = Inventory & { setCursor(stack: ItemStack | null): void };
@@ -7,17 +7,19 @@ export type ArmorInventory = Inventory & { setCursor(stack: ItemStack | null): v
 export interface ArmorSnapshot {
   head: ItemId | null;
   body: ItemId | null;
+  arms: ItemId | null;
+  legs: ItemId | null;
   value: number;
   hitCount: number;
   hudIcons: ItemId[];
 }
 
-/** かぶと・よろい（M4 §2.7）。そうびのマス 2 つ・着る・ふせぐ */
+/** かぶと・よろい・こて・すねあて（M4 §2.7）。そうびのマス 4 つ・着る・ふせぐ */
 export class ArmorSystemImpl implements ArmorSystem {
-  private head: ItemId | null = null;
-  private body: ItemId | null = null;
+  private worn: Record<ArmorSlot, ItemId | null> = { head: null, body: null, arms: null, legs: null };
   private hits = 0;
   private listeners: Array<() => void> = [];
+  private snap: ArmorSnapshot | null = null;
 
   constructor(
     private readonly inventory: ArmorInventory,
@@ -25,7 +27,7 @@ export class ArmorSystemImpl implements ArmorSystem {
   ) {}
 
   equipped(slot: ArmorSlot): ItemId | null {
-    return slot === 'head' ? this.head : this.body;
+    return this.worn[slot];
   }
 
   /** そのアイテムが入るそうびのマス（入らないなら null） */
@@ -72,10 +74,15 @@ export class ArmorSystemImpl implements ArmorSystem {
     }
   }
 
-  /** ふせぐ力 a（かぶと 1・よろい 2。両方 3） */
+  /** ふせぐ力 a（かぶと 1・よろい 2・こて 1・すねあて 1。ぜんぶで 5） */
   value(): number {
     const v = this.config.armorValue;
-    return (this.head ? (v[this.head] ?? 0) : 0) + (this.body ? (v[this.body] ?? 0) : 0);
+    let sum = 0;
+    for (const slot of ARMOR_SLOTS) {
+      const it = this.worn[slot];
+      if (it) sum += v[it] ?? 0;
+    }
+    return sum;
   }
 
   /**
@@ -97,9 +104,12 @@ export class ArmorSystemImpl implements ArmorSystem {
   }
 
   /** そうびを変える（準備用。持ち物は変えない。k は 0 にもどる） */
-  set(head: ItemId | null, body: ItemId | null): void {
-    this.head = head && this.slotFor(head) === 'head' ? head : null;
-    this.body = body && this.slotFor(body) === 'body' ? body : null;
+  set(head: ItemId | null, body: ItemId | null, arms: ItemId | null = null, legs: ItemId | null = null): void {
+    const want: Record<ArmorSlot, ItemId | null> = { head, body, arms, legs };
+    for (const slot of ARMOR_SLOTS) {
+      const it = want[slot];
+      this.worn[slot] = it && this.slotFor(it) === slot ? it : null;
+    }
     this.hits = 0;
     this.notify();
   }
@@ -112,22 +122,29 @@ export class ArmorSystemImpl implements ArmorSystem {
   }
 
   snapshot(): ArmorSnapshot {
+    // 毎ステップ呼ばれる。変わったときだけ作る
+    const s = this.snap;
+    if (s && s.value === this.value() && s.hitCount === this.hits && ARMOR_SLOTS.every((k) => s[k] === this.worn[k])) return s;
     const hudIcons: ItemId[] = [];
-    if (this.head) hudIcons.push(this.head);
-    if (this.body) hudIcons.push(this.body);
-    return { head: this.head, body: this.body, value: this.value(), hitCount: this.hits, hudIcons };
+    for (const slot of ARMOR_SLOTS) {
+      const it = this.worn[slot];
+      if (it) hudIcons.push(it);
+    }
+    this.snap = { head: this.worn.head, body: this.worn.body, arms: this.worn.arms, legs: this.worn.legs, value: this.value(), hitCount: this.hits, hudIcons };
+    return this.snap;
   }
 
   serialize(): unknown {
-    return { head: this.head, body: this.body };
+    return { head: this.worn.head, body: this.worn.body, arms: this.worn.arms, legs: this.worn.legs };
   }
 
+  /** 古い保存（あたま・からだ の 2 部位）もそのまま開ける */
   deserialize(data: unknown): void {
-    const d = data as { head?: unknown; body?: unknown } | null;
-    const ok = (v: unknown, slot: ArmorSlot): ItemId | null =>
-      typeof v === 'string' && ARMOR_SLOT_OF[v] === slot ? (v as ItemId) : null;
-    this.head = ok(d?.head, 'head');
-    this.body = ok(d?.body, 'body');
+    const d = (data ?? {}) as Record<string, unknown>;
+    for (const slot of ARMOR_SLOTS) {
+      const v = d[slot];
+      this.worn[slot] = typeof v === 'string' && ARMOR_SLOT_OF[v] === slot ? (v as ItemId) : null;
+    }
     this.hits = 0;
     this.notify();
   }
@@ -140,8 +157,7 @@ export class ArmorSystemImpl implements ArmorSystem {
   }
 
   private put(slot: ArmorSlot, item: ItemId | null): void {
-    if (slot === 'head') this.head = item;
-    else this.body = item;
+    this.worn[slot] = item;
     this.notify();
   }
 

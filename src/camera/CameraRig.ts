@@ -90,7 +90,7 @@ export class CameraRig {
   /** 着ている防具を返す関数（ArmorSystem.equipped）。変わったら人形に着せて「カシャ」 */
   setArmorProvider(fn: (slot: ArmorSlot) => ItemId | null): void {
     this.armorProvider = fn;
-    this.doll.setArmor(fn('head'), fn('body'));
+    this.doll.setArmor(fn('head'), fn('body'), fn('arms'), fn('legs'));
   }
   /** つくれた・焼けた出来事を人形に伝える（呼ぶ側が drain した出来事をそのまま渡す） */
   onCraftEvent(e: CraftEvent): void {
@@ -125,11 +125,17 @@ export class CameraRig {
     if (!this.armorProvider) return;
     const head = this.armorProvider('head');
     const body = this.armorProvider('body');
+    const arms = this.armorProvider('arms');
+    const legs = this.armorProvider('legs');
     const prevH = this.doll.armorWorn('head');
     const prevB = this.doll.armorWorn('body');
-    if (head === prevH && body === prevB) return;
-    this.doll.setArmor(head, body);
-    if ((head !== null && head !== prevH) || (body !== null && body !== prevB)) this.doll.play('equip');
+    const prevA = this.doll.armorWorn('arms');
+    const prevL = this.doll.armorWorn('legs');
+    if (head === prevH && body === prevB && arms === prevA && legs === prevL) return;
+    this.doll.setArmor(head, body, arms, legs);
+    if ((head !== null && head !== prevH) || (body !== null && body !== prevB) || (arms !== null && arms !== prevA) || (legs !== null && legs !== prevL)) {
+      this.doll.play('equip');
+    }
   }
 
   getView(): ViewMode {

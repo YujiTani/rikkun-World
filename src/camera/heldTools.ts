@@ -94,6 +94,16 @@ export const HELD_MODELS: Partial<Record<ItemId, Part[]>> = {
     { size: [0.06, 0.12, 0.26], pos: [0, 0, -0.12], color: RED },
     { size: [0.28, 0.04, 0.06], pos: [0, 0, -0.26], color: GOLD },
   ],
+  kote: [
+    { size: [0.14, 0.14, 0.2], pos: [0, 0, -0.14], color: DARK },
+    { size: [0.16, 0.03, 0.22], pos: [0, 0, -0.14], color: RED },
+    { size: [0.16, 0.03, 0.04], pos: [0, 0, -0.24], color: GOLD },
+  ],
+  suneate: [
+    { size: [0.12, 0.12, 0.26], pos: [0, 0, -0.14], color: DARK },
+    { size: [0.14, 0.03, 0.28], pos: [0, 0, -0.14], color: RED },
+    { size: [0.14, 0.03, 0.04], pos: [0, 0, -0.26], color: GOLD },
+  ],
   torch: [
     stick(0.38, 0.06, WOOD, -0.1),
     { size: [0.1, 0.1, 0.1], pos: [0, 0, -0.34], color: 0xff9a1f },

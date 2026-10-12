@@ -189,7 +189,7 @@ export class InventoryScreen {
   /** ツールチップ用: 合わせた場所にあるアイテム */
   private resolveHover(t: HoverTarget): ItemId | null {
     if (typeof t === 'number') return this.inv.slots()[t]?.item ?? null;
-    if (t === 'head' || t === 'body') return this.m4?.armor.equipped(t) ?? null;
+    if (t === 'head' || t === 'body' || t === 'arms' || t === 'legs') return this.m4?.armor.equipped(t) ?? null;
     const [kind, a, b] = t.split(':');
     if (kind === 'card') return this.m4?.craft.recipes().find((r) => r.id === a)?.output.item ?? null;
     if (kind === 'material') return (b as ItemId) || null;

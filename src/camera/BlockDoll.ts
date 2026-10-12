@@ -18,7 +18,7 @@ import {
   HELD_BLOCK_SIZE,
 } from './config';
 import { DollAnimator, newBodyPose, type ArmAnim, type BodyAnim } from './dollAnim';
-import { buildKabuto, buildYoroiBody, buildYoroiShoulder } from './dollArmor';
+import { buildKabuto, buildKote, buildSuneate, buildYoroiBody, buildYoroiShoulder } from './dollArmor';
 import { buildHeldModel, hasHeldModel, isLeftHanded } from './heldTools';
 
 const DEG = Math.PI / 180;
@@ -61,6 +61,10 @@ export class BlockDoll {
   private heldModel: THREE.Group | null = null;
   private armorHead: ItemId | null = null;
   private armorBody: ItemId | null = null;
+  private armorArms: ItemId | null = null;
+  private armorLegs: ItemId | null = null;
+  private readonly koteMeshes: THREE.Group[] = [];
+  private readonly suneateMeshes: THREE.Group[] = [];
   private kabutoMesh: THREE.Group | null = null;
   private yoroiMesh: THREE.Group | null = null;
   private readonly shoulders: THREE.Group[] = [];
@@ -282,8 +286,8 @@ export class BlockDoll {
     return (this.orbMesh.visible ? this.orbMesh : this.materialMesh.visible ? this.materialMesh : this.heldMesh).getWorldPosition(out);
   }
 
-  /** 防具を着せる（null = 着ていない）。かぶと・よろい以外のアイテムは見た目なし */
-  setArmor(headItem: ItemId | null, bodyItem: ItemId | null): void {
+  /** 防具を着せる（null = 着ていない）。かぶと・よろい・こて・すねあて以外のアイテムは見た目なし */
+  setArmor(headItem: ItemId | null, bodyItem: ItemId | null, armsItem: ItemId | null = null, legsItem: ItemId | null = null): void {
     if (headItem !== this.armorHead) {
       this.armorHead = headItem;
       if (this.kabutoMesh) this.kabutoMesh.visible = headItem === 'kabuto';
@@ -314,10 +318,34 @@ export class BlockDoll {
       }
       for (const sh of this.shoulders) sh.visible = on;
     }
+    if (armsItem !== this.armorArms) {
+      this.armorArms = armsItem;
+      const on = armsItem === 'kote';
+      if (this.koteMeshes.length === 0 && on) {
+        for (const arm of [this.armL, this.armR]) {
+          const k = buildKote();
+          arm.add(k);
+          this.koteMeshes.push(k);
+        }
+      }
+      for (const k of this.koteMeshes) k.visible = on;
+    }
+    if (legsItem !== this.armorLegs) {
+      this.armorLegs = legsItem;
+      const on = legsItem === 'suneate';
+      if (this.suneateMeshes.length === 0 && on) {
+        for (const leg of [this.legL, this.legR]) {
+          const k = buildSuneate();
+          leg.add(k);
+          this.suneateMeshes.push(k);
+        }
+      }
+      for (const k of this.suneateMeshes) k.visible = on;
+    }
     this.applyMode();
   }
   armorWorn(slot: ArmorSlot): ItemId | null {
-    return slot === 'head' ? this.armorHead : this.armorBody;
+    return slot === 'head' ? this.armorHead : slot === 'body' ? this.armorBody : slot === 'arms' ? this.armorArms : this.armorLegs;
   }
 
   // ---- 動き（docs/design/M4-craft.md §2.9）

@@ -64,6 +64,8 @@ export interface SaveDeps {
   furnaces?: SaveExtra;
   /** M4: 着ている防具 */
   armor?: SaveExtra;
+  /** M4 追加: 経験値とレベル */
+  level?: SaveExtra;
   /** 時刻と何日目。なければ保存しない */
   clock?: SaveClock;
 }
@@ -187,6 +189,11 @@ export class SaveManager {
         this.d.armor?.deserialize(data.armor);
       } catch {
         this.d.armor?.deserialize(null);
+      }
+      try {
+        this.d.level?.deserialize(data.level);
+      } catch {
+        this.d.level?.deserialize(null);
       }
       this.restoreTime(data.time);
       this.lastBody = this.makeBody().body;
@@ -314,6 +321,7 @@ export class SaveManager {
       bags,
       furnaces: this.d.furnaces?.serialize() ?? [],
       armor: this.d.armor?.serialize() ?? null,
+      level: this.d.level?.serialize() ?? null,
     });
     return { body: make(bagsKey), full: make(bagsFull), changed: blocks.length / 2 };
   }

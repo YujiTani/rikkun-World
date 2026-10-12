@@ -174,7 +174,7 @@ export class WorldLight implements LightField {
         for (let z = z0; z <= z1; z++) {
           for (let x = x0; x <= x1; x++) {
             const i = this.idx(x, y, z);
-            if (sky[i] !== this.oldSky[i] || block[i] !== this.oldBlock[i]) world.markDirty(x, z);
+            if (sky[i] !== this.oldSky[i] || block[i] !== this.oldBlock[i]) world.markDirty(x, z, 2); // 面の角の光は 2 マス先まで読む
           }
         }
       }

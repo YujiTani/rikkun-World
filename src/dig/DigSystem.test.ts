@@ -642,3 +642,30 @@ describe('空振り', () => {
     expect(r.dig.whiffCount()).toBe(0);
   });
 });
+
+describe('たいまつの支え（M4 追加）', () => {
+  it('支えのブロックをこわすと、浮いた たいまつ は消えて アイテムで持ち物へ入る', () => {
+    const r = new Rig();
+    r.set(4, 10, 6, 'dirt'); // ねらう ブロック（支え）
+    r.world.setBlock(4, 11, 6, 'torch'); // 上に たいまつ
+    r.press('primary');
+    r.step(30);
+    r.repress();
+    expect(r.world.getBlock(4, 10, 6)).toBe('air');
+    expect(r.world.getBlock(4, 11, 6)).toBe('air');
+    expect(r.inv.count('torch')).toBe(1);
+  });
+  it('ほかに支えがあれば たいまつ はそのまま。start_torch は対象外', () => {
+    const r = new Rig();
+    r.set(4, 10, 6, 'dirt');
+    r.world.setBlock(5, 11, 6, 'stone'); // 横の支え
+    r.world.setBlock(4, 11, 6, 'torch');
+    r.world.setBlock(3, 10, 7, 'start_torch');
+    r.press('primary');
+    r.step(30);
+    r.repress();
+    expect(r.world.getBlock(4, 11, 6)).toBe('torch');
+    expect(r.world.getBlock(3, 10, 7)).toBe('start_torch');
+    expect(r.inv.count('torch')).toBe(0);
+  });
+});

@@ -111,11 +111,11 @@ describe('体力・ダメージ・むてき・回復', () => {
     expect(r.combat.hp()).toBe(18);
   });
 
-  it('遠い向きへ水平に 1.0 押される', () => {
+  it('遠い向きへ水平に 1.8 押される（少し上にもはねる）', () => {
     const r = rig();
     r.combat.damage(1, 'karakasa', { x: 1.5, y: 9, z: 6.5 });
     r.step(12);
-    expect(r.player.position.x).toBeCloseTo(3.5, 2);
+    expect(r.player.position.x).toBeCloseTo(4.3, 2);
     expect(r.player.position.z).toBeCloseTo(6.5, 2);
   });
 
@@ -564,5 +564,20 @@ describe('やられた・落とす・ふくろ・復活', () => {
     expect(h.get().dead).toBe(true);
     expect(h.events().map((e) => e.type)).toEqual(['playerHit', 'death']);
     expect(h.events()).toEqual([]);
+  });
+});
+
+describe('レベルアップの回復・ノックバック（追加）', () => {
+  it('healFull: ハートが ぜんぶ回復する', () => {
+    const r = rig();
+    r.combat.setHp(5);
+    r.combat.healFull();
+    expect(r.combat.hp()).toBe(r.combat.maxHp());
+  });
+  it('ダメージで少し上にもはねる（初速）', () => {
+    const r = rig();
+    r.player.velocity.y = 0;
+    r.combat.damage(1, 'karakasa', { x: 1.5, y: 9, z: 6.5 });
+    expect(r.player.velocity.y).toBeGreaterThan(0);
   });
 });

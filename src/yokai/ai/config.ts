@@ -22,6 +22,8 @@ export interface YokaiConfig {
   yokaiLeaveTicks: number;
   /** 押す距離（妖怪・プレイヤーとも。パンチの C と同じ名前） */
   knockback: number;
+  /** 妖怪の体にふれたときのダメージ（体力。1 = ハート半分。0 でなし） */
+  contactDamage: number;
 }
 
 export type DropRow = { item: ItemId; chance: number; max: number };
@@ -63,6 +65,7 @@ export function createYokaiConfig(): YokaiConfig {
     yokaiWander: true,
     yokaiLeaveTicks: 600,
     knockback: 1.0,
+    contactDamage: 1,
   };
 }
 

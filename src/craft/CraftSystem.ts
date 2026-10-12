@@ -82,6 +82,17 @@ function simulateRemove(slots: Slot[], item: ItemId, count: number): void {
 const keyOf = (x: number, y: number, z: number) => `${x},${y},${z}`;
 
 /** つくる・やく（M4 §2.2・§2.3）。かまど の じゅんばん・ねんりょう・焼く時間・入らないとき・こわしたとき・保存 */
+/** かまど の火・けむり用の 1 こ分（`FurnaceFxEntry` と同じ形） */
+export interface FurnaceFxEntryLike {
+  x: number;
+  y: number;
+  z: number;
+  burning: boolean;
+  waiting: string | null;
+}
+
+const NO_CRAFT_EVENTS: CraftEvent[] = [];
+
 export class CraftSystemImpl implements CraftSystem {
   readonly config: CraftConfig;
   private readonly log: PickupLog;
@@ -272,6 +283,42 @@ export class CraftSystemImpl implements CraftSystem {
     };
   }
 
+  /** 毎ステップ呼べる: 今の持ち物で「つくる」のレシピが 1 つでも作れるか（配列を作らない） */
+  canCraftAny(): boolean {
+    const inv = this.d.inventory;
+    for (const r of ALL_RECIPES) {
+      if (r.station !== 'craft') continue;
+      let ok = true;
+      for (const inp of r.inputs) {
+        if (inv.count(inp.item) < inp.count) {
+          ok = false;
+          break;
+        }
+      }
+      if (ok) return true;
+    }
+    return false;
+  }
+
+  private readonly fxEntries: FurnaceFxEntryLike[] = [];
+
+  /** 毎ステップ呼べる: かまど の火・けむり用の一覧（同じ入れ物を使いまわす。変わるのは かまど の数が変わったときだけ作る） */
+  furnaceFxEntries(): readonly FurnaceFxEntryLike[] {
+    const out = this.fxEntries;
+    let n = 0;
+    this.furnaces.forEach((e) => {
+      const o = (out[n] ??= { x: 0, y: 0, z: 0, burning: false, waiting: null });
+      o.x = e.pos.x;
+      o.y = e.pos.y;
+      o.z = e.pos.z;
+      o.burning = e.state.queue.length > 0;
+      o.waiting = e.state.done[0]?.item ?? null;
+      n++;
+    });
+    out.length = n;
+    return out;
+  }
+
   /** 画面用: 焼いている かまど の位置の一覧 */
   furnacePositions(): Vec3[] {
     return [...this.furnaces.values()].map((e) => ({ ...e.pos }));
@@ -386,6 +433,7 @@ export class CraftSystemImpl implements CraftSystem {
   // ---------------------------------------------------------- 出来事
 
   drainEvents(): CraftEvent[] {
+    if (this.drainQueue.length === 0) return NO_CRAFT_EVENTS; // 空のときは毎ステップ new しない
     const out = this.drainQueue;
     this.drainQueue = [];
     return out;

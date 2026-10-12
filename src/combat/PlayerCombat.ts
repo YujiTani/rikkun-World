@@ -1,4 +1,5 @@
 import type {
+  ArmorSlot,
   CombatEvent,
   Inventory,
   ItemId,
@@ -27,9 +28,9 @@ const MAX_QUEUE = 256;
 export interface CombatArmorPort {
   /** 妖怪の攻撃を受けた。カットする量（体力の単位）を返す */
   cut(): number;
-  equipped(slot: 'head' | 'body'): ItemId | null;
+  equipped(slot: ArmorSlot): ItemId | null;
   /** そうびのマスを空にして中身を返す */
-  take(slot: 'head' | 'body'): ItemId | null;
+  take(slot: ArmorSlot): ItemId | null;
   resetHits(): void;
 }
 
@@ -204,6 +205,13 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
     };
   }
 
+  /** ハートを全部回復する（レベルアップ）。やられているあいだは何もしない */
+  healFull(): void {
+    if (this.isDead) return;
+    this.hpNow = this.config.playerMaxHp;
+    this.emit({ type: 'regen', tick: this.tickCount, hp: this.hpNow });
+  }
+
   /** 体力を n にする（0 ならそのステップでやられる） */
   setHp(n: number): void {
     if (this.isDead) return;
@@ -350,6 +358,7 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
         dz /= len;
       }
       this.kbTicks = KNOCKBACK_TICKS;
+      if (cfg.knockbackUp > 0 && st.velocity.y < cfg.knockbackUp) this.d.player.set({ velocity: { x: st.velocity.x, y: cfg.knockbackUp, z: st.velocity.z } });
       this.kbX = (dx * cfg.knockback) / KNOCKBACK_TICKS;
       this.kbZ = (dz * cfg.knockback) / KNOCKBACK_TICKS;
     }
@@ -395,7 +404,7 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
     // そうびのマスも 1 マスずつ同じ確率で（M4 §2.7）
     const armor = this.d.armor;
     if (armor) {
-      for (const slot of ['head', 'body'] as const) {
+      for (const slot of ['head', 'body', 'arms', 'legs'] as const) {
         const it = armor.equipped(slot);
         if (it && this.rng() < this.config.dropChance) {
           armor.take(slot);

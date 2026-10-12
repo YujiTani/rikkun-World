@@ -38,6 +38,7 @@ import {
   type Aabb,
   type OBox,
 } from './geometry';
+import { findNeckRoute, type P3 } from './neckRoute';
 import { Marks, disposeMarkMaterials } from './marks';
 import { flySurface, groundSupport, isRoofed, settleGround } from './terrain';
 
@@ -75,6 +76,8 @@ export interface YokaiManagerOptions {
   };
   /** 足もとの光の下限（人形の明るさ） */
   lightMin?: number;
+  /** プレイヤーが妖怪をたおした（経験値用） */
+  onDefeat?: (kind: YokaiKind) => void;
 }
 
 export interface SpawnOptions {
@@ -343,6 +346,7 @@ export class YokaiManager implements YokaiWorld {
 
     for (const e of this.ents) this.stepEntity(e, dt);
     this.separate();
+    this.contactTick();
     this.fireballTick(dt);
     this.burst.update(dt);
 
@@ -563,6 +567,7 @@ export class YokaiManager implements YokaiWorld {
   private defeat(e: Ent): void {
     e.state = 'dying';
     e.model.die();
+    this.opts.onDefeat?.(e.kind);
     let total = 0;
     for (const row of YOKAI_DROPS[e.kind]) {
       if (this.rng() >= row.chance) continue;
@@ -821,7 +826,7 @@ export class YokaiManager implements YokaiWorld {
           return moved;
         }
         e.state = 'chase';
-        if (canAttack && dist <= YOKAI_STATS.rokurokubi.reach && Math.abs(dy) <= 3) {
+        if (canAttack && dist <= YOKAI_STATS.rokurokubi.reach && Math.abs(dy) <= 3 && this.planNeck(e)) {
           this.turn(e, yawToward(ux, uz), 1);
           this.startAttack(e);
           return 0;
@@ -856,12 +861,41 @@ export class YokaiManager implements YokaiWorld {
   private startAttack(e: Ent): void {
     // ねらう所（プレイヤーの足もと）を、妖怪から見た位置で渡す
     this.setAim(e);
+    if (e.kind === 'rokurokubi') this.sendNeckRoute(e);
     this.setMotion(e, 'wait');
     e.state = 'attack';
     e.attackSteps = 0;
     this.syncTransform(e);
     e.model.attack();
     this.emit({ type: 'attackStart', tick: this.tick(), id: e.id, kind: e.kind });
+  }
+
+  private readonly neckFrom: P3 = { x: 0, y: 0, z: 0 };
+  private readonly neckTo: P3 = { x: 0, y: 0, z: 0 };
+  private neckCorners: P3[] = [];
+
+  /** ろくろくびの首が とどく道すじがあるか（あれば neckCorners に入れる）。まっすぐ通れなくても、2 回までの曲がりで行ければ OK */
+  private planNeck(e: Ent): boolean {
+    this.neckFrom.x = e.x;
+    this.neckFrom.y = e.y + 1.0;
+    this.neckFrom.z = e.z;
+    this.neckTo.x = this.px;
+    this.neckTo.y = this.py + 1.3;
+    this.neckTo.z = this.pz;
+    const r = findNeckRoute((x, y, z) => this.world.isSolid(x, y, z), this.neckFrom, this.neckTo, YOKAI_STATS.rokurokubi.reach);
+    if (!r) return false;
+    this.neckCorners = r;
+    return true;
+  }
+
+  /** 曲がり角を、妖怪の向きで見た位置にして model へ渡す */
+  private sendNeckRoute(e: Ent): void {
+    const local: P3[] = [];
+    for (const c of this.neckCorners) {
+      toLocalXZ(c.x - e.x, c.z - e.z, e.yaw, tmp);
+      local.push({ x: tmp.x, y: c.y - e.y, z: tmp.z });
+    }
+    (e.model as Rokurokubi).setNeckRoute(local);
   }
 
   private setAim(e: Ent): void {
@@ -987,6 +1021,22 @@ export class YokaiManager implements YokaiWorld {
   }
 
   // ---------------------------------------------------------------- 攻撃の当たり
+
+  /** 妖怪の体（当たりの箱）にふれたら ダメージ。むてきのあいだは combat 側で はじかれる */
+  private contactTick(): void {
+    const dmg = this.config.contactDamage;
+    if (!(dmg > 0) || this.combat.dead()) return;
+    const pb = this.playerBox(tmpBox);
+    for (const e of this.ents) {
+      if (e.state === 'dying' || e.state === 'leaving' || e.state === 'appear' || e.state === 'attack') continue; // 攻撃中は攻撃のダメージだけ
+      for (const b of this.boxesOf(e, this.boxList)) {
+        if (aabbOverlap(obbBounds(b, e.x, e.y, e.z, e.yaw, tmpBox2), pb) && this.localOverlap(e, b)) {
+          if (this.combat.damage(dmg, e.kind, { x: e.x, y: e.y, z: e.z })) return;
+          break;
+        }
+      }
+    }
+  }
 
   private playerBox(out: Aabb): Aabb {
     const h = AI_CONST.playerWidth / 2;
