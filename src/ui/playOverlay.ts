@@ -1,5 +1,6 @@
 import { GUIDE_TABS, GUIDE_TAB_IDS, INPUT_CONFIG, type GuideTabId } from '../input/config';
 import type { LockController } from '../input/lockController';
+import { fillMouseSrc, mouseHtml } from './craftPanel.art';
 import { anyIconUrl } from './itemIcon';
 import { escapeHtml } from './text';
 import './playOverlay.css';
@@ -14,8 +15,8 @@ function helpItem(art: string, caption: string): string {
   return `<div class="po-help-item"><div class="po-art">${art}</div><div class="po-caption">${escapeHtml(caption)}</div></div>`;
 }
 
-const LEFT = EMOJI('🖱⬅');
-const RIGHT = EMOJI('🖱➡');
+const LEFT = () => `<div class="po-emoji po-mouse-big">${mouseHtml('left')}</div>`;
+const RIGHT = () => `<div class="po-emoji po-mouse-big">${mouseHtml('right')}</div>`;
 
 /** タブごとの絵（captions と同じ順） */
 function tabArts(): Record<GuideTabId, string[]> {
@@ -30,24 +31,24 @@ function tabArts(): Record<GuideTabId, string[]> {
       `<div class="po-keys">${KEY('V')}</div>${EMOJI('👀')}`,
     ],
     dig: [
-      `${LEFT}${EMOJI('⛏')}`,
-      `${LEFT}${EMOJI('💥')}`,
-      `${RIGHT}${EMOJI('🧱')}`,
+      `${LEFT()}${EMOJI('⛏')}`,
+      `${LEFT()}${EMOJI('💥')}`,
+      `${RIGHT()}${EMOJI('🧱')}`,
       `<div class="po-keys">${KEY('1')}${KEY('〜')}${KEY('9')}</div>${EMOJI('🖱↕')}`,
       `<div class="po-keys">${KEY('E')}</div>${EMOJI('🎒')}`,
     ],
     fight: [
-      `${LEFT}${ICON('katana')}`,
+      `${LEFT()}${ICON('katana')}`,
       `${ICON('naginata')}${EMOJI('↔')}`,
       `${ICON('yumi')}${ICON('ya')}`,
-      `${ICON('kabuto')}${ICON('yoroi')}${ICON('kote')}${ICON('suneate')}${RIGHT}`,
+      `${ICON('kabuto')}${ICON('yoroi')}${ICON('kote')}${ICON('suneate')}${RIGHT()}`,
       `${EMOJI('🏠')}${EMOJI('🌙')}`,
     ],
     craft: [
       `<div class="po-keys">${KEY('E')}</div><div class="po-glow-card">${ICON('katana')}</div>`,
       `<div class="po-glow-card">${ICON('bokuto')}</div>${EMOJI('👆')}`,
       ICON('hammer'),
-      `${RIGHT}${ICON('furnace')}${EMOJI('🔥')}`,
+      `${RIGHT()}${ICON('furnace')}${EMOJI('🔥')}`,
       `${ICON('coal_ore')}${ICON('oil')}${ICON('log')}`,
       `<div class="po-keys">${KEY('Q')}</div>${ICON('dirt')}`,
       `${ICON('tansu')}`,
@@ -68,7 +69,7 @@ export function buildOverlayHtml(text: string, tab: GuideTabId = 'move'): string
   }).join('');
   return (
     `<div class="po-panel">` +
-    `<button type="button" class="po-button"><span class="po-mouse" aria-hidden="true">🖱</span><span class="po-text">${escapeHtml(text)}</span></button>` +
+    `<button type="button" class="po-button"><span class="po-mouse" aria-hidden="true">${mouseHtml('left')}</span><span class="po-text">${escapeHtml(text)}</span></button>` +
     `<div class="po-tabs">${tabs}</div>` +
     `<div class="po-pages">${pages}</div>` +
     `</div>`
@@ -106,6 +107,7 @@ export class PlayOverlay {
     this.el.style.setProperty('--po-cap-font', `${INPUT_CONFIG.captionFontPx}px`);
     this.el.innerHTML = buildOverlayHtml(lock.overlayText(), this.tab_);
     this.textEl = this.el.querySelector('.po-text') as HTMLElement;
+    fillMouseSrc(this.el);
     for (const img of this.el.querySelectorAll<HTMLImageElement>('img[data-icon]')) {
       img.src = anyIconUrl(img.dataset.icon as never);
     }

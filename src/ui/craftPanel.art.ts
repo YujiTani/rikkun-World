@@ -108,3 +108,21 @@ function urlOf(key: string, pixels: () => Pixels): string {
 export const fingerUrl = () => urlOf('finger', fingerPixels);
 export const questionUrl = () => urlOf('question', questionPixels);
 export const mouseUrl = (which: 'left' | 'right') => urlOf(`mouse-${which}`, () => mousePixels(which));
+
+/** マウスの絵 ＋ ボタンの文字（ひだり = L・みぎ = R。白い太字）。押す方のボタンは 黄色のまま */
+export function mouseHtml(which: 'left' | 'right'): string {
+  const L = which === 'left' ? 'L' : 'R';
+  return `<span class="rk-mouse" data-btn="${L}" aria-hidden="true"><img class="rk-art" alt="" data-mouse="${which}"${typeof document === 'undefined' ? '' : ` src="${mouseUrl(which)}"`}><b class="rk-mouse__letter">${L}</b></span>`;
+}
+
+/** HTML 文字列で入れたあと、絵の src を入れる（案内画面など） */
+export function fillMouseSrc(root: ParentNode): void {
+  for (const img of root.querySelectorAll<HTMLImageElement>('img[data-mouse]')) img.src = mouseUrl(img.dataset.mouse as 'left' | 'right');
+}
+
+/** 同じものを DOM で */
+export function mouseEl(which: 'left' | 'right'): HTMLElement {
+  const t = document.createElement('template');
+  t.innerHTML = mouseHtml(which);
+  return t.content.firstElementChild as HTMLElement;
+}

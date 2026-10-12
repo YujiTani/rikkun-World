@@ -1,7 +1,7 @@
 import type { ItemId } from '../contracts';
 import type { ButtonKey } from '../craft/info';
 import type { DetailView } from './craftModel';
-import { mouseUrl, questionUrl, fingerUrl } from './craftPanel.art';
+import { mouseEl, questionUrl, fingerUrl } from './craftPanel.art';
 import { createChip, createMeter, createButton, setButtonKind, setRarity, type Rarity4 } from './theme';
 import { starText } from './tooltipModel';
 
@@ -99,9 +99,9 @@ function buttonPicture(key: ButtonKey, into: HTMLElement): void {
     k.textContent = text;
   };
   const mouse = (which: 'left' | 'right') => {
-    const i = el('img', 'cp-mouse rk-art', into);
-    i.alt = '';
-    i.src = mouseUrl(which);
+    const m = mouseEl(which);
+    m.classList.add('cp-mouse');
+    into.append(m);
   };
   if (key === 'E') cap('E');
   else if (key === '1-9') cap('1〜9');

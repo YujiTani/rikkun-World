@@ -198,3 +198,9 @@
     animation: none;
   }
 }
+.po-mouse-big {
+  --rk-mouse-size: var(--rk-fs-display);
+}
+.po-mouse {
+  --rk-mouse-size: 1.6em;
+}

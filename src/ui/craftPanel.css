@@ -359,6 +359,7 @@
   vertical-align: middle;
 }
 .cp-mouse {
+  --rk-mouse-size: var(--rk-sp-6);
   width: var(--rk-sp-6);
   height: var(--rk-sp-6);
   image-rendering: pixelated;

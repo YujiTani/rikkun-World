@@ -281,3 +281,18 @@ test('やく: せつめい パネルの チップで き を えらぶ', async (
   expect(await page.evaluate(() => (window.__rikkun as any).craft.fuel())).toBe('log');
   await expect(chip).toHaveAttribute('data-next', 'true');
 });
+
+// ---- マウスの絵に L / R ----
+test('マウスの絵には L / R の文字がある（もちもの画面の下・せつめい）', async ({ page }) => {
+  await open(page);
+  const hint = page.locator('.inv-hints .rk-mouse__letter');
+  expect(await hint.count()).toBeGreaterThan(0);
+  await expect(hint.first()).toHaveText('L');
+  await page.evaluate(() => {
+    const hk = window.__rikkun as any;
+    hk.craft.hover(hk.craft.ui().tiles[0].id);
+    hk.step(3);
+  });
+  const detail = await page.locator('.cp-detail .rk-mouse').evaluateAll((els) => els.map((e) => e.textContent));
+  for (const t of detail) expect(['L', 'R']).toContain(t);
+});

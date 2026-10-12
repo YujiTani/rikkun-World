@@ -5,6 +5,7 @@ import { EquipPanel, type ArmorUi } from './equipPanel';
 import { createSlotEl, paintSlot, type SlotEls } from './hotbar';
 import { itemIconUrl } from './itemIcon';
 import { Tooltip, type HoverTarget } from './tooltip';
+import { mouseHtml } from './craftPanel.art';
 import { createChip } from './theme';
 import './inventoryScreen.css';
 
@@ -257,8 +258,8 @@ export class InventoryScreen {
     const rows: [string, string][] = [
       [K('Q'), '1こ すてる'],
       [`${K('Shift')}＋${K('Q')}`, 'ぜんぶ すてる'],
-      ['わくの そとへ ひっぱる', 'すてる'],
-      [`${K('Shift')}＋クリック`, tansu ? 'たんす へ うつす' : 'いっきに うつす'],
+      [`${mouseHtml('left')}わくの そとへ ひっぱる`, 'すてる'],
+      [`${K('Shift')}＋${mouseHtml('left')}クリック`, tansu ? 'たんす へ うつす' : 'いっきに うつす'],
       [K('E'), 'とじる'],
     ];
     this.hintsEl.replaceChildren(
