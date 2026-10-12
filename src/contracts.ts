@@ -198,7 +198,8 @@ export interface DigState {
 }
 
 export type DigEvent =
-  | { type: 'break'; tick: number; block: Vec3; id: BlockId; gotItem: boolean }
+  /** count: 手に入った数（ドロップ数はランダム。入りきらなかった分はふくまない） */
+  | { type: 'break'; tick: number; block: Vec3; id: BlockId; gotItem: boolean; count: number }
   | { type: 'place'; tick: number; block: Vec3; id: BlockId }
   /** ひびが MAX になった（あとひと押しでこわれる。オーナー決定 B） */
   | { type: 'ready'; tick: number; block: Vec3; id: BlockId }
@@ -237,6 +238,9 @@ export interface DigSettings {
   digCooldown: number;
   placeRepeatTicks: number;
 }
+
+/** ブロックのめずらしさ（ドロップ数の最大を決める。オーナー決定） */
+export type Rarity = 'common' | 'uncommon' | 'rare' | 'superRare';
 
 /** 担当 D の設定 */
 export interface ScreenSettings {
