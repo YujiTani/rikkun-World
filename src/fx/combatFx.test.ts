@@ -43,21 +43,34 @@ describe('計算', () => {
 });
 
 describe('BagVisuals', () => {
-  it('ふくろの数に合わせて出したり消したり。光の柱は 10 ブロック', () => {
+  const it1 = (id: number, x: number, count = 1, item: 'dirt' | 'stone' = 'dirt') => ({
+    id,
+    position: { x, y: 9, z: 2 },
+    slots: [{ item, count }],
+    ticksLeft: 100,
+  });
+  it('アイテムの数に合わせて出したり消したり。光の柱は かたまりに 1 本で 10 ブロック', () => {
     const scene = new THREE.Scene();
     const v = new BagVisuals(scene);
-    v.update(1 / 60, [{ id: 1, position: { x: 1, y: 9, z: 2 }, ticksLeft: 100 }]);
+    v.update(1 / 60, [it1(1, 1)]);
     expect(v.count()).toBe(1);
-    v.update(1 / 60, [
-      { id: 1, position: { x: 1, y: 9, z: 2 }, ticksLeft: 99 },
-      { id: 2, position: { x: 5, y: 9, z: 2 }, ticksLeft: 99 },
-    ]);
+    v.update(1 / 60, [it1(1, 1), it1(2, 2, 5, 'stone')]);
     expect(v.count()).toBe(2);
+    expect(v.pillarCount()).toBe(1);
+    v.update(1 / 60, [it1(1, 1), it1(2, 40)]);
+    expect(v.pillarCount()).toBe(2);
     const box = new THREE.Box3().setFromObject(v.group);
     expect(box.max.y - 9).toBeGreaterThanOrEqual(10);
     v.update(1 / 60, []);
     expect(v.count()).toBe(0);
-    expect(v.group.children).toHaveLength(0);
+    expect(v.pillarCount()).toBe(0);
+  });
+  it('数が 2 こ以上なら板をかさねる', () => {
+    const v = new BagVisuals(new THREE.Scene());
+    v.update(1 / 60, [it1(1, 1, 1), it1(2, 1, 3)]);
+    const [a, b] = v.group.children.filter((c) => c.children.length > 0 && c.children[0]!.children.length > 0);
+    expect(a!.children[0]!.children).toHaveLength(1);
+    expect(b!.children[0]!.children).toHaveLength(2);
   });
 });
 
