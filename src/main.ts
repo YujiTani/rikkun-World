@@ -89,7 +89,7 @@ for (const child of game.scene.children) if (!sceneBefore.has(child)) lighting.r
 for (const m of renderer.materials()) lighting.register(m, 'block');
 const time = new TimeOfDayImpl();
 const timeSettings = time.settings;
-const sky = new Sky({ scene: game.scene, time, timeSettings, lighting });
+const sky = new Sky({ scene: game.scene, time, timeSettings, lighting, light: renderer.light, focus: () => controller.state.position });
 
 // 入力・スタート画面
 mountHud(hud);

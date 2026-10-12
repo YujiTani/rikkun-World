@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import type { TimeOfDay } from '../contracts';
 import type { TimeSettings } from '../time/config';
+import { darkenFromBrightness, lightBrightness, skyDarkness, LIGHT_CONFIG } from '../world/light';
+import type { WorldLight } from '../world/light/WorldLight';
 import { SKY_VIEW } from './config';
 import type { Lighting } from './lighting';
 import { skyDirection, sunMoonPose } from './sunMoon';
@@ -10,6 +12,10 @@ export interface SkyDeps {
   time: TimeOfDay & { skyColorValue?(): number };
   timeSettings: TimeSettings;
   lighting: Lighting;
+  /** 光の仕組み。あれば、人形の明るさを足もとの光で決める（無ければ時刻だけで決める） */
+  light?: WorldLight;
+  /** 人形の足もと（light と一緒に渡す） */
+  focus?: () => { x: number; y: number; z: number };
 }
 
 /**
@@ -46,7 +52,18 @@ export class Sky {
     this.bg.setHex(color);
     (scene.background as THREE.Color).copy(this.bg);
     if (scene.fog) scene.fog.color.copy(this.bg);
-    lighting.setLevels(time.brightness(), time.dollBrightness());
+    // 空の光を弱める段数（ブロックの材料の uniform と LightField.level が読む。メッシュは作り直さない）
+    const darken = darkenFromBrightness(time.brightness(), timeSettings.nightBrightness);
+    skyDarkness.value = darken;
+    // ブロック以外の景色（海など）は、空の下の明るさ。人形は足もとの光
+    const outdoor = lightBrightness(LIGHT_CONFIG.maxLevel - darken);
+    let doll = time.dollBrightness();
+    const { light, focus } = this.d;
+    if (light && focus) {
+      const p = focus();
+      doll = Math.max(LIGHT_CONFIG.dollMin, light.brightness(p.x, p.y + 0.5, p.z));
+    }
+    lighting.setLevels(outdoor, doll);
 
     const pose = sunMoonPose(time.dayTick(), timeSettings);
     this.place(this.sun, pose.sun, camera);

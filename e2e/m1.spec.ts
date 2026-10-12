@@ -28,7 +28,7 @@ test.describe('M1-01 世界（つないだ後）', () => {
     });
     expect(r.size).toEqual({ x: 64, y: 32, z: 64 });
     expect(r.out).toEqual(['outside', 'outside', 'outside']);
-    expect(r.types.length).toBe(11);
+    expect(r.types.length).toBe(13); // M4 光: たいまつ・こわれない たいまつ を足した
     const by = Object.fromEntries(r.types.map((t) => [t.id, t]));
     expect(by.bedrock.breakable).toBe(false);
     expect(by.water.breakable).toBe(false);
@@ -71,7 +71,7 @@ test.describe('M1-01 世界（つないだ後）', () => {
             if (h.world.groundHeight(x, z) !== g) flat = false;
             for (let y = g + 1; y <= g + 3; y++) {
               const b = h.world.getBlock(x, y, z);
-              if (b !== 'air') flat = false;
+              if (b !== 'air' && b !== 'start_torch') flat = false; // M4: こわれない たいまつ はあってよい
             }
           }
         // テスト地形の場所

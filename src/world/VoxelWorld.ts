@@ -12,6 +12,8 @@ export class ArrayVoxelWorld implements VoxelWorld {
   readonly chunksZ: number;
   private readonly data: Uint8Array;
   private readonly dirty = new Set<number>();
+  /** 光の計算し直し用: 前回の takeChangeBox() からあとに変わったマスをふくむ箱（無ければ null） */
+  private changeBox: { x0: number; y0: number; z0: number; x1: number; y1: number; z1: number } | null = null;
 
   constructor(size: { x: number; y: number; z: number } = WORLD_SIZE) {
     this.size = { ...size };
@@ -57,6 +59,7 @@ export class ArrayVoxelWorld implements VoxelWorld {
     if (this.data[i] === b) return true;
     this.data[i] = b;
     this.markDirty(x, z);
+    this.noteChange(x, y, z, x, y, z);
     return true;
   }
 
@@ -89,7 +92,29 @@ export class ArrayVoxelWorld implements VoxelWorld {
         }
       }
     }
+    if (changed > 0) this.noteChange(xa, ya, za, xb, yb, zb);
     return changed;
+  }
+
+  private noteChange(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number): void {
+    const b = this.changeBox;
+    if (!b) {
+      this.changeBox = { x0, y0, z0, x1, y1, z1 };
+      return;
+    }
+    if (x0 < b.x0) b.x0 = x0;
+    if (y0 < b.y0) b.y0 = y0;
+    if (z0 < b.z0) b.z0 = z0;
+    if (x1 > b.x1) b.x1 = x1;
+    if (y1 > b.y1) b.y1 = y1;
+    if (z1 > b.z1) b.z1 = z1;
+  }
+
+  /** 変わったマスをふくむ箱を渡して、覚えているのを空にする（光の計算し直し用） */
+  takeChangeBox(): { x0: number; y0: number; z0: number; x1: number; y1: number; z1: number } | null {
+    const b = this.changeBox;
+    this.changeBox = null;
+    return b;
   }
 
   /** 種類ごとの個数（0 個の種類もふくむ） */
@@ -122,7 +147,7 @@ export class ArrayVoxelWorld implements VoxelWorld {
   }
 
   /** (x, z) の列が変わった。チャンクの端なら、となりのチャンクの面も変わる */
-  private markDirty(x: number, z: number): void {
+  markDirty(x: number, z: number): void {
     const cx = Math.floor(x / CHUNK_SIZE);
     const cz = Math.floor(z / CHUNK_SIZE);
     this.dirty.add(this.chunkIndex(cx, cz));
