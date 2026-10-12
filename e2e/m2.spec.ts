@@ -1046,8 +1046,8 @@ test.describe('M2 性能（記録）', () => {
       const ms: number[] = [];
       const pts: [number, number][] = [];
       for (let i = 0; pts.length < 20 && i < 400; i++) {
-        const x = 16 + ((i * 7) % 32);
-        const z = 16 + ((i * 11) % 32);
+        const x = 48 + ((i * 7) % 32);
+        const z = 48 + ((i * 11) % 32);
         pts.push([x, z]);
       }
       let n = 0;
@@ -1057,7 +1057,7 @@ test.describe('M2 性能（記録）', () => {
         if (g < 8) continue;
         let top = g;
         // 一番上のブロック（log でない）
-        while (top < 31 && h.world.getBlock(x, top + 1, z) !== 'air') top++;
+        while (top < 47 && h.world.getBlock(x, top + 1, z) !== 'air') top++;
         const id = h.world.getBlock(x, top, z);
         if (id === 'log' || id === 'water' || id === 'bedrock' || id === 'iron_ore') continue;
         h.inventory.clear();
