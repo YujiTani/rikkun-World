@@ -138,6 +138,12 @@ export class InventoryImpl implements Inventory {
   cursor(): ItemStack | null {
     return this.cur;
   }
+  /** カーソルのものを直接かえる（そうびのマスとのやりとり用。M4） */
+  setCursor(stack: ItemStack | null): void {
+    this.cur = stack && stack.count > 0 ? { item: stack.item, count: stack.count } : null;
+    this.lifted = -1;
+    this.notify();
+  }
   returnCursor(): void {
     if (!this.cur) return;
     const cur = this.cur;

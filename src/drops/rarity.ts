@@ -14,6 +14,26 @@ const ITEM_ONLY_RARITY: Record<string, Rarity> = {
   oil: 'uncommon',
   clay: 'uncommon',
   crystal: 'superRare',
+  // M4（docs/design/M4-craft.md §4.4）。かまど・かわら・レンガは ほる設定（DIG_DEFAULTS.rarity）にある
+  wood_pickaxe: 'common',
+  stone_pickaxe: 'common',
+  iron_pickaxe: 'rare',
+  iron_ingot: 'rare',
+  bokuto: 'common',
+  katana: 'rare',
+  naginata: 'rare',
+  crystal_katana: 'superRare',
+  yumi: 'uncommon',
+  ya: 'common',
+  kabuto: 'rare',
+  yoroi: 'rare',
+  torch: 'common',
+  lantern: 'uncommon',
+  kite: 'uncommon',
+  futon: 'uncommon',
+  omamori: 'superRare',
+  waraji: 'common',
+  haniwa: 'uncommon',
 };
 
 export const RARITY_ORDER: readonly Rarity[] = ['common', 'uncommon', 'rare', 'superRare'];
