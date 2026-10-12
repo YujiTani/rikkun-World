@@ -153,7 +153,7 @@ export class InventoryImpl implements Inventory {
     } else if (slot.item === cur.item) {
       const max = itemType(slot.item)!.maxStack;
       const n = Math.min(max - slot.count, cur.count);
-      if (n === 0) return;
+      if (n <= 0) return;
       this.arr[index] = { item: slot.item, count: slot.count + n };
       this.cur = cur.count - n > 0 ? { item: cur.item, count: cur.count - n } : null;
       if (!this.cur) this.lifted = -1;

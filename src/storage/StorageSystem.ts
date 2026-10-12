@@ -58,7 +58,7 @@ export function clickRule(slot: TansuSlot, cur: ItemStack | null): { slot: Tansu
   if (slot.item === cur.item) {
     const max = itemType(slot.item)!.maxStack;
     const n = Math.min(max - slot.count, cur.count);
-    if (n === 0) return null;
+    if (n <= 0) return null;
     return {
       slot: { item: slot.item, count: slot.count + n },
       cur: cur.count - n > 0 ? { item: cur.item, count: cur.count - n } : null,
