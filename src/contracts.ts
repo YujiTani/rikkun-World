@@ -82,6 +82,8 @@ export interface IslandInfo {
   /** 呼んだ時点の world で計算した戻る場所（M1-01 4-7） */
   spawn(): SpawnPoint;
   testArea(): TestArea;
+  /** M5: 地形の場所 */
+  regions(): WorldRegions;
 }
 
 /** 空の world に島を書きこむ */

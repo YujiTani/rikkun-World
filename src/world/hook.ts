@@ -1,4 +1,4 @@
-import type { BlockId, BlockType, IslandInfo, SpawnPoint, TestArea } from '../contracts';
+import type { BlockId, BlockType, IslandInfo, SpawnPoint, TestArea, WorldRegions } from '../contracts';
 import { BLOCK_TYPES } from './blocks/blockTypes';
 import { skyDarkness } from './light/skyDarkness';
 import type { WorldRenderer, RebuildStats } from './render/WorldRenderer';
@@ -16,6 +16,8 @@ export interface WorldHook {
   hash(): string;
   spawn(): SpawnPoint;
   testArea(): TestArea;
+  /** M5: 地形の場所 */
+  regions(): WorldRegions;
   genTimeMs(): number;
   blockTypes(): BlockType[];
   rebuildStats(): RebuildStats;
@@ -36,6 +38,7 @@ export function createWorldHook(world: ArrayVoxelWorld, renderer: WorldRenderer,
     hash: () => world.hash(),
     spawn: () => island.spawn(),
     testArea: () => island.testArea(),
+    regions: () => island.regions(),
     genTimeMs: () => island.genTimeMs,
     blockTypes: () => BLOCK_TYPES.map((t) => ({ ...t })),
     rebuildStats: () => renderer.rebuildStats(),
