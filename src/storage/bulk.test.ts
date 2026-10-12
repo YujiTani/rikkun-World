@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { BlockId, ItemStack, VoxelWorld } from '../contracts';
+import type { BlockId, VoxelWorld } from '../contracts';
 import { InventoryImpl } from '../inventory/Inventory';
 import { StorageSystem } from './StorageSystem';
 

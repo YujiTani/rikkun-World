@@ -387,3 +387,59 @@ test('たんす: とじる は 1 こ・ぜんぶ しまう・えらんで しま
   expect(counts.log).toBe(3); // ホットバーは うごかない
   await expect(page.locator('.inv-hints')).toContainText('えらぶ');
 });
+
+// ---- 防具を ダブルクリックで きる・ぬぐ ----
+test('防具のマスを ダブルクリックで きる・そうびのマスを ダブルクリックで ぬぐ', async ({ page }) => {
+  await open(page);
+  await page.evaluate(() => {
+    const hk = window.__rikkun as any;
+    hk.inventory.clear();
+    hk.inventory.setSlot(10, { item: 'kabuto', count: 1 });
+    hk.step(3);
+  });
+  await page.locator('.inv-slot[data-index="10"]').dblclick();
+  await page.evaluate(() => (window.__rikkun as any).step(3));
+  expect(await page.evaluate(() => (window.__rikkun as any).armor.get().head)).toBe('kabuto');
+  expect(await page.evaluate(() => (window.__rikkun as any).inventory.count('kabuto'))).toBe(0);
+  await page.evaluate(() => {
+    const hk = window.__rikkun as any;
+    for (let i = 0; i < 6; i++) {
+      hk.step(20);
+      hk.achievements.close(); // 着たごほうびの おめでとう画面を とじる
+    }
+  });
+  await page.waitForTimeout(500);
+  await page.locator('.equip-slot[data-slot="head"]').dblclick({ force: true });
+  await page.evaluate(() => (window.__rikkun as any).step(3));
+  expect(await page.evaluate(() => (window.__rikkun as any).armor.get().head)).toBe(null);
+  expect(await page.evaluate(() => (window.__rikkun as any).inventory.count('kabuto'))).toBe(1);
+});
+
+// ---- 案内画面のカードが はみ出さない ----
+for (const [w, h] of SIZES) {
+  test(`案内画面のカードが 収まる ${w}x${h}`, async ({ page }) => {
+    await page.setViewportSize({ width: w, height: h });
+    await page.goto('/?nosave=1');
+    await page.waitForFunction(() => window.__rikkun?.ready === true);
+    await page.evaluate(() => (window.__rikkun as any).step(2));
+    await expect(page.locator('.po-panel')).toBeVisible();
+    for (const tab of ['move', 'dig', 'fight', 'craft']) {
+      await page.locator(`.po-tab[data-tab="${tab}"]`).click();
+      await page.waitForTimeout(100);
+      const bad = await page.evaluate(() => {
+        const out: string[] = [];
+        for (const item of document.querySelectorAll<HTMLElement>('.po-help:not([hidden]) .po-help-item')) {
+          const r = item.getBoundingClientRect();
+          for (const ch of item.querySelectorAll<HTMLElement>('.po-art > *, .po-art')) {
+            const c = ch.getBoundingClientRect();
+            if (c.right > r.right + 1 || c.left < r.left - 1 || c.bottom > r.bottom + 1) out.push(ch.className);
+          }
+          if (r.right > window.innerWidth + 1 || r.bottom > window.innerHeight + 1) out.push('card-out');
+        }
+        return out;
+      });
+      expect(bad, tab).toEqual([]);
+      if (tab === 'fight' && (w === 960 || w === 1920)) await page.screenshot({ path: `${OUT}/fix-m6-scroll-guide-fight-${w}.png` });
+    }
+  });
+}

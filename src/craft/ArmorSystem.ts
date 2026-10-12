@@ -53,6 +53,32 @@ export class ArmorSystemImpl implements ArmorSystem {
     return true;
   }
 
+  /** もちもの画面で 防具のマス i を ダブルクリック: その部位に着る（前に着ていた物は そのマスへ） */
+  equipFromSlot(i: number): boolean {
+    const s = this.inventory.slots()[i];
+    if (!s) return false;
+    const slot = this.slotFor(s.item);
+    if (!slot) return false;
+    const prev = this.equipped(slot);
+    this.put(slot, s.item);
+    if (s.count > 1) {
+      this.inventory.setSlot(i, { item: s.item, count: s.count - 1 });
+      if (prev) this.inventory.add(prev, 1);
+    } else {
+      this.inventory.setSlot(i, prev ? { item: prev, count: 1 } : null);
+    }
+    return true;
+  }
+
+  /** そうびのマスを ダブルクリック: はずして もちものへ（いっぱいなら そのまま） */
+  unequipToBag(slot: ArmorSlot): boolean {
+    const eq = this.equipped(slot);
+    if (!eq) return false;
+    if (this.inventory.add(eq, 1) > 0) return false;
+    this.put(slot, null);
+    return true;
+  }
+
   /** もちもの画面でそうびのマスをクリック（M2 §2.5 のクリックと同じやり方） */
   click(slot: ArmorSlot): void {
     const cur = this.inventory.cursor();

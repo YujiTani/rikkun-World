@@ -9,6 +9,8 @@ import './equipPanel.css';
  */
 export interface ArmorUi extends ArmorSystem {
   click?(slot: ArmorSlot): void;
+  unequipToBag?(slot: ArmorSlot): boolean;
+  equipFromSlot?(i: number): boolean;
 }
 
 /** そうびのマス 4 つ（あたま・からだ・うで・あし）。持ち物の上に 横 1 列で出す（M6 §3.6 (2)。M4 の人形のわくから 変えた） */
@@ -32,6 +34,10 @@ export class EquipPanel {
       c.root.addEventListener('click', (e) => {
         e.stopPropagation();
         this.click(slot);
+      });
+      c.root.addEventListener('dblclick', (e) => {
+        e.stopPropagation();
+        this.armor.unequipToBag?.(slot);
       });
       c.root.addEventListener('mouseenter', () => this.hover?.(slot));
       c.root.addEventListener('mouseleave', () => this.hover?.(null));

@@ -69,6 +69,7 @@ export class InventoryImpl implements Inventory {
   }
   add(item: ItemId, count: number): number {
     const n = Math.floor(count);
+    if (!(n > 0)) return 0; // 0 以下は なにもしない（「入った数 = n − 返り値」が マイナスにならないように）
     const left = addInto(this.arr, item, n);
     if (left !== n) this.notify();
     return left;

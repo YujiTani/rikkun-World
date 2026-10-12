@@ -41,7 +41,7 @@ function tabArts(): Record<GuideTabId, string[]> {
       `${LEFT()}${ICON('katana')}`,
       `${ICON('naginata')}${EMOJI('↔')}`,
       `${ICON('yumi')}${ICON('ya')}`,
-      `${ICON('kabuto')}${ICON('yoroi')}${ICON('kote')}${ICON('suneate')}${RIGHT()}`,
+      `<div class="po-armor">${ICON('kabuto')}${ICON('yoroi')}${ICON('kote')}${ICON('suneate')}</div>${LEFT()}`,
       `${EMOJI('🏠')}${EMOJI('🌙')}`,
     ],
     craft: [

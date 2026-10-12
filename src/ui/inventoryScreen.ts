@@ -150,6 +150,10 @@ export class InventoryScreen {
           }
           this.inv.click(i);
         });
+        c.root.addEventListener('dblclick', (e) => {
+          e.stopPropagation();
+          if (this.m4?.armor.equipFromSlot?.(i)) this.dirty = true;
+        });
         c.root.addEventListener('mouseenter', () => this.tooltip?.hover(i));
         c.root.addEventListener('mouseleave', () => this.tooltip?.hover(null));
         this.cells[i] = c;
@@ -276,6 +280,7 @@ export class InventoryScreen {
       [`${mouseHtml('left')}わくの そとへ ひっぱる`, 'すてる'],
       ...(tansu ? ([[`${K('Ctrl')}（${K('⌘')}）＋${mouseHtml('left')}クリック`, 'えらぶ（✓）']] as [string, string][]) : []),
       [`${K('Shift')}＋${mouseHtml('left')}クリック`, tansu ? 'たんす へ うつす' : 'いっきに うつす'],
+      [`${mouseHtml('left')}${mouseHtml('left')}ダブルクリック`, 'ぼうぐ を きる・ぬぐ'],
       [K('E'), 'とじる'],
     ];
     this.hintsEl.replaceChildren(
