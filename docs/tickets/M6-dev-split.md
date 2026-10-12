@@ -9,9 +9,17 @@
 3. **つなぎ込み**（1 人）。防具の役わり分け・落下ダメージ（FIX-fall-reach）が main に入っていれば、説明の表と U テストに反映。
 
 ## 申し送り
-（各担当の返答をここに書く）
+**S1（8fe7c09）** 全員が使う土台:
+- CSS 変数 `src/ui/theme/tokens.css`（`--rk-*`、カテゴリー `--rk-cat-*`、めずらしさ `--rk-rarity-0..3`）、部品 class `src/ui/theme/components.css`（`rk-panel/card/slot/btn/tab/bar/meter/chip/tooltip/badge/modal/medal`）、作る関数 `src/ui/theme/index.ts`（`createSlot`・`paintSlot`・`createButton` ほか）。色・大きさの数をじかに書かない。
+- DOM しらべ `e2e/helpers/uiRules.ts`（`snapshotUi` と `check*`）。部品見本 `/src/ui/theme/parts.html`。
+- 型 `src/contracts.ts` の M6 節: `AchievementId`・`AchievementShow`・`AchievementModalPort`（B）・`CelebrateBusyPort`（B）・`AchievementShowSource`（C）・`CraftMadeEvent`（A→B,C）・`StorageEvent`（D→C）・`M6Settings`/`M6_SETTING_DEFAULTS`。
+- 止める画面: `ScreenMode` に `'celebrate'`、`ScreenController` の `openModal/closeModal/modalOpen/lockDenied/relock`。
+- もちもの画面の口（`src/ui/inventoryScreen.ts`）: `tabsEl`・`craftSlot`・`storageSlot`・`pageSlot`、`setSide('craft'|'storage')`、`setTab('items'|'achievements')`、`setOutsideHandlers({down,move,up})`、`isInsidePanels(x,y)`。
+- 申し送り（B・つなぎ込み）: `lockDenied()` の間は案内画面でなく札「クリック で つづける」→ クリックで `relock()`。
+- `hardness.tansu`・`fixedDrop.tansu` は D が足す。`--rk-ng` の面の上の文字は `--rk-ink`。
 
 ## 経過
 | 日付 | 内容 |
 |---|---|
 | 2026-10-12 | オーナー確認① 合格。S1 開始 |
+| 2026-10-12 | S1 完了（8fe7c09）。A・B・C・S2・D を並列で開始 |
