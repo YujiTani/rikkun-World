@@ -31,3 +31,12 @@
 - testHook: `craft.fx()`→`fxInfo()`、`craft.sounds()`→`drainCraftSounds()`、`achievements.sounds()`→`drainAchievementSounds()`、`achievements.modal()`→`modalInfo()`、`achievements.close()`→`close()`。
 - `handleCraftEvents` に `celebrate: true`（音の二重を防ぐ）。メダルの印は S2 の「B おしらせ」を badgeParent に。`#hud` の pointer-events でおめでとう画面のボタンが押せるか実機で確認。
 - コンボは B が画面ステップで数える（A の `CraftMadeEvent.combo` は使わない）。AC11 と §2.4 のぽよんは山形 1.0→1.08→1.0 で両立。
+
+### C（m6-c, 88c946d）
+- `src/achievements/`（`AchievementSystem`・defs 180 こ・pageModel・hook）、`src/ui/achievementsPage.*`。
+- 出来事は 1 か所で drain して `feedDig`・`feedCraft`・`feedCombat`・`feedStorage` にも同じ列を渡す。`feedDefeat({kind,tick,with,hp})`（最後の一撃の武器と、たおした瞬間の体力は渡す側が出す）、`feedArrow('shot'|'hit')`、`feedFull()`、`feedPhase(phase)`（time の onPhaseChange）。毎ステップ `update(ctx: StepContext)`（screenSteps: あそぶ 1・もちもの 4・案内/おめでとう 0）。
+- `attach(B.modal, B.busy)`、`onUnlock(fn)` で B の印の音。`save` に SaveExtra として登録、ロード直後に `syncSilently({level, armor})`。設定は `createM6Settings()` を settings に出し `() => settings` を渡す。
+- `createAchievementsHook(sys, pageModel, {inventoryOpen, onTab})` に B の modal・close・sounds を足して `__rikkun.achievements`。毎フレーム `AchievementsPage.update()`。
+- 支えを失って落ちた たいまつ は break に数えない。
+- **つなぎ込みで直す**: `InventoryScreen.tabsEl` が panel の中にあり、じっせき タブで panel ごと隠れて戻れない → tabsEl を body の外へ（inventoryScreen.ts の口）。
+- 「〇 にちめ」は day+1 表示。
