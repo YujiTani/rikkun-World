@@ -1,6 +1,12 @@
 import { FX_SETTINGS, type FxSettings } from '../fx/config';
 import type { SignalKind } from './itemIcon';
 
+/** 「いっぱい」は絵ではなく文字で出す */
+export const FULL_TEXT = 'もちものが いっぱい！';
+export function signalText(kind: SignalKind): string | null {
+  return kind === 'full' ? FULL_TEXT : null;
+}
+
 /** 合図のアイコンとブロックの名前を「何秒出すか」だけ持つ（DOM なしでテストできる） */
 export class NoticeModel {
   signal: { kind: SignalKind; left: number } | null = null;

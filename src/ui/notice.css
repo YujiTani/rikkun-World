@@ -10,6 +10,7 @@
   filter: drop-shadow(0 2px 0 rgba(0, 0, 0, 0.6));
 }
 #notice-signal[hidden],
+#notice-signal-text[hidden],
 #notice-name[hidden] {
   display: none;
 }
@@ -21,6 +22,22 @@
   font-size: 28px;
   font-weight: bold;
   color: #fff;
+  text-shadow: 0 2px 0 #000, 0 0 6px #000;
+  pointer-events: none;
+  z-index: 6;
+}
+#notice-signal-text {
+  position: fixed;
+  left: 50%;
+  top: calc(50% + 28px);
+  transform: translateX(-50%);
+  padding: 6px 16px;
+  font-size: 28px;
+  font-weight: bold;
+  white-space: nowrap;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 10px;
   text-shadow: 0 2px 0 #000, 0 0 6px #000;
   pointer-events: none;
   z-index: 6;
