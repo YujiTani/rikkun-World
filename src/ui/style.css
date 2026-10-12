@@ -1,0 +1,51 @@
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+  font-family: 'Hiragino Maru Gothic ProN', 'Hiragino Sans', sans-serif;
+  user-select: none;
+}
+
+#game {
+  position: fixed;
+  inset: 0;
+}
+
+#hud {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  color: #fff;
+  text-shadow: 0 2px 0 #000;
+}
+
+#title {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 40px;
+  font-weight: bold;
+}
+
+#title small {
+  font-size: 24px;
+  margin-left: 12px;
+}
+
+rt {
+  font-size: 0.5em;
+}
+
+#perf-overlay {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  padding: 6px 8px;
+  background: rgba(0, 0, 0, 0.6);
+  font: 14px/1.4 ui-monospace, Menlo, monospace;
+  white-space: pre;
+  text-shadow: none;
+}

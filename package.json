@@ -1,0 +1,27 @@
+{
+  "name": "rikkun-world",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "perf": "playwright test --config playwright.perf.config.ts",
+    "check": "npm run typecheck && npm run test && npm run test:e2e"
+  },
+  "dependencies": {
+    "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.1",
+    "@types/node": "^22.20.5",
+    "@types/three": "^0.186.0",
+    "typescript": "5.9",
+    "vite": "^8.3.4",
+    "vitest": "^5.0.3"
+  }
+}
