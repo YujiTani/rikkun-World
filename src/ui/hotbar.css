@@ -1,0 +1,94 @@
+:root {
+  --cell: max(64px, 5.2vw);
+}
+
+#hotbar {
+  position: fixed;
+  left: 50%;
+  bottom: 12px;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  align-items: flex-end;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.slot {
+  position: relative;
+  box-sizing: border-box;
+  width: var(--cell);
+  height: var(--cell);
+  background: rgba(0, 0, 0, 0.4);
+  border: 3px solid #8a8a8a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.slot-icon {
+  width: 75%;
+  height: 75%;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+.slot-icon[hidden] {
+  display: none;
+}
+
+.slot-key {
+  position: absolute;
+  left: 3px;
+  top: 0;
+  font-size: 13px;
+  color: #fff;
+  text-shadow: 0 1px 0 #000;
+  font-weight: bold;
+  pointer-events: none;
+}
+
+.slot-count {
+  position: absolute;
+  right: 3px;
+  bottom: 0;
+  font-size: 22px;
+  font-weight: bold;
+  color: #fff;
+  -webkit-text-stroke: 3px #000;
+  paint-order: stroke fill;
+  text-shadow: 0 2px 0 #000;
+  pointer-events: none;
+}
+.slot-count:empty {
+  display: none;
+}
+
+#hotbar .slot[data-selected='true'] {
+  border: 6px solid #ffd54f;
+  transform: scale(1.12);
+  transform-origin: bottom center;
+}
+
+.fly-item {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 48px;
+  height: 48px;
+  image-rendering: pixelated;
+  pointer-events: none;
+  z-index: 9;
+}
+
+.plus-one {
+  position: fixed;
+  left: 0;
+  top: 0;
+  font-size: 26px;
+  font-weight: bold;
+  color: #fff;
+  -webkit-text-stroke: 4px #000;
+  paint-order: stroke fill;
+  pointer-events: none;
+  z-index: 9;
+}

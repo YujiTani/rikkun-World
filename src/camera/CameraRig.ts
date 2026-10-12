@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { PlayerState, VoxelWorld } from '../contracts';
+import type { ItemId, PlayerState, VoxelWorld } from '../contracts';
 import type { ActionState } from '../input/actions';
 import { BlockDoll } from './BlockDoll';
 import {
@@ -44,8 +44,40 @@ export class CameraRig {
     this.config = { ...DEFAULT_CAMERA_CONFIG, ...config };
     this.camera.rotation.order = 'YXZ';
     scene.add(this.doll.group);
-    this.doll.visible = false;
+    this.doll.setMode('hidden');
     this.apply(0);
+  }
+
+  private shakeYaw = 0;
+  private shakePitch = 0;
+  /** 画面のごく弱いゆれ（ラジアン。演出用。0 で元に戻る）。次の更新から効く */
+  setShake(yaw: number, pitch: number): void {
+    this.shakeYaw = yaw;
+    this.shakePitch = pitch;
+  }
+
+  private heldProvider: (() => ItemId | null) | null = null;
+  private readonly tmpHeld = new THREE.Vector3();
+
+  /** 右手に持つアイテムを返す関数（持ち物の held()）。毎ステップ読む */
+  setHeldProvider(fn: () => ItemId | null): void {
+    this.heldProvider = fn;
+  }
+
+  /** 今、右手に持っているアイテム */
+  heldItemNow(): ItemId | null {
+    if (this.heldProvider) this.doll.setHeld(this.heldProvider());
+    return this.doll.heldItem;
+  }
+
+  /** 持ったブロックの中心の画面上の位置（左上 0・右下 1。画面の外なら範囲外）。持っていなければ null */
+  heldScreen(): { x: number; y: number } | null {
+    if (this.heldProvider) this.doll.setHeld(this.heldProvider());
+    const p = this.doll.heldWorldPosition(this.tmpHeld);
+    if (!p) return null;
+    this.camera.updateMatrixWorld(true);
+    p.project(this.camera);
+    return { x: (p.x + 1) / 2, y: (1 - p.y) / 2 };
   }
 
   getView(): ViewMode {
@@ -117,7 +149,7 @@ export class CameraRig {
       this.camera.lookAt(OVERVIEW_TARGET.x, OVERVIEW_TARGET.y, OVERVIEW_TARGET.z);
       this.camPos.copy(this.camera.position);
     } else {
-      this.camera.rotation.set(pitch, -yaw, 0);
+      this.camera.rotation.set(pitch + this.shakePitch, -yaw + this.shakeYaw, 0);
       if (this.view === 'first') {
         this.camPos.copy(this.eye);
       } else {
@@ -127,7 +159,10 @@ export class CameraRig {
     }
     this.distToEye = this.camPos.distanceTo(this.eye);
 
-    this.doll.visible = !this.overviewOn && this.view === 'third' && this.distToEye >= DOLL_HIDE_DISTANCE;
+    if (this.heldProvider) this.doll.setHeld(this.heldProvider());
+    if (this.overviewOn) this.doll.setMode('hidden');
+    else if (this.view === 'first') this.doll.setMode('first');
+    else this.doll.setMode(this.distToEye >= DOLL_HIDE_DISTANCE ? 'third' : 'hidden');
     this.doll.update(dt, s.position, s.yawDeg, s.pitchDeg, s.moving && s.onGround);
   }
 
