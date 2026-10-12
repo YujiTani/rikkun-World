@@ -19,7 +19,23 @@ import { PickupLogModel } from './ui/pickupLogModel';
 import { itemRarity } from './drops/rarity';
 import { itemType } from './inventory/items';
 import { createGuideHook } from './ui/playOverlay';
-import type { CombatEvent, ItemId, SwingAnim } from './contracts';
+import { createM6Settings, type AchievementId, type CombatEvent, type DefeatWith, type DigEvent, type ItemId, type StorageEvent, type SwingAnim, type YokaiKind } from './contracts';
+import { ACHIEVEMENT_DEFS, AchievementSystem, AchievementsPageModel, createAchievementsHook, type StepContext } from './achievements';
+import { CelebrateUi } from './ui/celebrate';
+import { AchievementsPage, achievementArtUrl } from './ui/achievementsPage';
+import { StorageSystem } from './storage/StorageSystem';
+import { createStorageHook, createInventoryM6Extras } from './storage/hook';
+import { ItemDropper, DropController } from './storage/ItemDropper';
+import { StorageScreen } from './ui/storageScreen';
+import { DragOut } from './ui/dragOut';
+import { playStorage } from './fx/storageSounds';
+import { CraftMadeTracker } from './ui/craftModel';
+import { createItemInfo, type InfoNumbers } from './craft/info';
+import { createCraftPanelHook } from './craft/hook';
+import { mountInventoryTabs } from './ui/craftPanel.tabs';
+import { noticeCluster } from './ui/craftHint';
+import { markUrl } from './ui/medalArt';
+import { itemIconUrl } from './ui/itemIcon';
 import { DropField } from './drops';
 import { Lighting, Sky } from './sky';
 import { TimeOfDayImpl, createTimeHook } from './time';
@@ -147,7 +163,16 @@ crosshair.setVisible(rig.crosshairVisible());
 // 持ち物・画面の状態・ほる／おく
 const inventory = new InventoryImpl();
 const screenSettings = createScreenSettings();
+// M6 の設定（実績・演出・すてる・たんす）。settings から変えたら すぐ効く
+const m6 = createM6Settings();
+// E でたんす: ScreenController より先に押しを聞く（画面は ScreenController が開く）
+let tryOpenTansu: () => boolean = () => false;
+let modalIsOpen: () => boolean = () => false;
+game.input.onPress((action) => {
+  if (action === 'toggleInventory' && !modalIsOpen()) tryOpenTansu();
+});
 const screen = new ScreenController(lock, inventory, game.input, screenSettings, pointerLock);
+modalIsOpen = () => screen.modalOpen() || screen.inventoryOpen();
 // 保存の要求は、あとで作る SaveManager へ（循環をさけるため関数でつなぐ）
 let requestSave: () => void = () => {};
 const hudSignal: { full: () => void } = { full: () => {} };
@@ -164,13 +189,31 @@ for (const n of ['bakeTicks', 'pickupLogTicks', 'pickupLogMax'] as const) {
 // 「いっぱい」の合図は 2 秒は出しなおさない（近くにいるあいだ毎ステップ呼ばれるため）
 const FULL_SIGNAL_GAP_TICKS = 120;
 let lastFullSignal = -FULL_SIGNAL_GAP_TICKS;
+// 落とし物の設定: 戦いの設定（消えるまで・拾う距離）と M6 の すてる設定をひとつに見せる
+const dropLive = {
+  get dropBagTicks() {
+    return combatCfg.dropBagTicks;
+  },
+  get pickupRadius() {
+    return combatCfg.pickupRadius;
+  },
+  get dropPickupDelay() {
+    return m6.dropPickupDelay;
+  },
+  get dropThrowSpeed() {
+    return m6.dropThrowSpeed;
+  },
+  get dropThrowUp() {
+    return m6.dropThrowUp;
+  },
+};
 let onDropPicked: (item: ItemId, count: number) => void = () => {};
 const drops = new DropField({
   world,
   inventory,
   player: () => controller.state.position,
   rng: createRng(seed ^ 0x5eed),
-  live: combatCfg,
+  live: dropLive,
   requestSave: () => requestSave(),
   onFull: () => {
     if (game.tick - lastFullSignal < FULL_SIGNAL_GAP_TICKS) return;
@@ -180,6 +223,7 @@ const drops = new DropField({
   onPickup: (item, count) => onDropPicked(item, count),
 });
 let yokaiManager: YokaiManager | null = null;
+let onDefeatAch: (kind: YokaiKind) => void = () => {};
 // 経験値とレベル（妖怪をたおすと入る。レベルアップでハート全回復）
 const level = new LevelSystem({
   tick: () => game.tick,
@@ -215,6 +259,43 @@ const combat = new PlayerCombatImpl({
   requestSave: () => requestSave(),
   drops,
 });
+// たんす（M6 §2.9）と すてる（§2.8）
+const storage = new StorageSystem({
+  world,
+  inventory,
+  player: () => controller.state.position,
+  scatter: (p, stacks) => {
+    drops.scatter(p, stacks);
+  },
+  inventoryOpen: () => screen.inventoryOpen(),
+  openScreen: () => screen.toggle(),
+  closeScreen: () => screen.toggle(),
+  live: m6,
+  tick: () => game.tick,
+  requestSave: () => requestSave(),
+  onSound: (name) => playStorage(fxSound, name),
+  onFull: () => notice.showSignal('full'),
+});
+const dropper = new ItemDropper({
+  inventory,
+  storage,
+  armor,
+  throwItem: (st) => drops.throwItem(st, controller.state.yawDeg, controller.settings.eyeHeight),
+  tick: () => game.tick,
+  onThrown: () => {
+    playStorage(fxSound, 'throw');
+    const sw = { anim: 'throw' as SwingAnim, tick: game.tick };
+    swingBuf = swingBuf === NO_SWINGS ? [sw] : swingBuf.concat(sw);
+  },
+});
+let dragOut: DragOut | null = null;
+const dropController = new DropController({
+  actions: game.input,
+  dropper,
+  playEnabled: () => lock.playInputEnabled() && !screen.inventoryOpen(),
+  inventoryOpen: () => screen.inventoryOpen(),
+  hover: () => dragOut?.hoverTarget() ?? null,
+});
 const dig = new DigSystemImpl(
   world,
   () => controller.state,
@@ -238,6 +319,7 @@ const dig = new DigSystemImpl(
       fixedDrop: (id) => craft.fixedDrop(id),
     },
     armor,
+    storage,
     onPickup: (item, count) => craft.notifyPickup(item, count),
     scatterItem: (pos, item, count) => {
       drops.scatter(pos, [{ item, count }], { kind: 'yokai' });
@@ -254,7 +336,10 @@ yokaiManager = new YokaiManager({
   tick: () => game.tick + 1,
   seed,
   light: renderer.light,
-  onDefeat: (kind) => level.onDefeat(kind),
+  onDefeat: (kind) => {
+    level.onDefeat(kind);
+    onDefeatAch(kind);
+  },
   // ぬりかべ: たおれこみでこわす・みず で石になる（くだけるつぶと音。fx はあとで作るので関数で包む）
   onBlocks: (cells, why) => {
     for (const c of cells) fx.particles.burst({ x: c.x, y: c.y, z: c.z }, why === 'stone' ? c.to : c.from, FX_SETTINGS);
@@ -282,6 +367,13 @@ arrowVisuals.addTo(game.scene);
 
 // 画面の見た目と音
 const notice = new Notice(hud);
+// 「もちもの が いっぱい」の合図は 実績（いっぱいにした）にも数える
+let onFullSignal: () => void = () => {};
+const showSignalRaw = notice.showSignal.bind(notice);
+notice.showSignal = (kind) => {
+  if (kind === 'full') onFullSignal();
+  showSignalRaw(kind);
+};
 hudSignal.full = () => notice.showSignal('full');
 const combatUi = createCombatUi(hud);
 const levelHud = new LevelHud(hud);
@@ -313,6 +405,11 @@ const fx = new DigFx({
   view: rig,
   notice,
   onPickup: (item, count) => hotbar.pickup(item, count),
+  events: () => {
+    const r = digBuf;
+    digBuf = NO_DIG;
+    return r;
+  },
 });
 const combatFx = new CombatFx({
   scene: game.scene,
@@ -341,6 +438,99 @@ const combatFx = new CombatFx({
   clock: combatUi.clock,
   onPickup: (item, count) => hotbar.pickup(item, count),
 });
+
+// ---- M6: 実績・演出・たんす画面・説明 ----
+const RARITY_INDEX = { common: 0, uncommon: 1, rare: 2, superRare: 3 } as const;
+const rarity4 = (item: ItemId) => RARITY_INDEX[itemRarity(item)];
+const achievements = new AchievementSystem(() => m6);
+onFullSignal = () => achievements.feedFull();
+const pageModel = new AchievementsPageModel(achievements);
+const achievementsPage = new AchievementsPage(achievements, pageModel, inventoryScreen);
+const defById = new Map(ACHIEVEMENT_DEFS.map((d) => [d.id, d]));
+const craftPanel = inventoryScreen.craftPanel!;
+const celebrate = new CelebrateUi({
+  hud,
+  badgeParent: noticeCluster(hud),
+  sound: fxSound,
+  screen,
+  settings: () => m6,
+  tileEl: (id) => craftPanel.tileElFor(id),
+  itemName: nameOf,
+  itemRarity: rarity4,
+  itemIconUrl,
+  achievement: (id: AchievementId) => {
+    const d = defById.get(id)!;
+    return { name: d.name, tier: d.medal, artUrl: achievementArtUrl(d) ?? markUrl('medal') };
+  },
+  levelUpShowing: () => levelHud.celebrating(),
+});
+achievements.attach(celebrate.modal, celebrate.busy);
+// 設定を変えたらすぐ効くよう、毎回 m6 を読む
+const madeTracker = new CraftMadeTracker({
+  get comboTicks() {
+    return m6.craftComboTicks;
+  },
+  get comboMax() {
+    return m6.craftComboMax;
+  },
+  isFirstMade: (kind, recipe) => achievements.isFirstMade(kind, recipe),
+});
+madeTracker.onMade((e) => celebrate.made(e));
+const infoNumbers = (): InfoNumbers => ({
+  toolPower: toolConfig.toolPower,
+  toolLevel: toolConfig.toolLevel,
+  weaponDamage: toolConfig.weaponDamage,
+  weaponReach: toolConfig.weaponReach,
+  weaponTicks: toolConfig.weaponTicks,
+  arrowDamage: toolConfig.arrowDamage,
+  arrowRange: toolConfig.arrowRange,
+  armorValue: craftConfig.armorValue,
+  punchDamage: combatCfg.punchDamage,
+  punchReach: combatCfg.punchReach,
+  punchTicks: combatCfg.punchTicks,
+  handPower: digCfg.handPower,
+  handLevel: digCfg.handLevel,
+  harvestLevel: (item) => (digCfg.harvestLevel as Record<string, number>)[item] ?? 0,
+  tansuSlots: m6.tansuSlots,
+});
+craftPanel.configure({
+  info: createItemInfo({ recipes: () => craft.recipes(), nameOf, numbers: infoNumbers }),
+  cursorHeld: () => inventory.cursor() !== null,
+  isMade: (kind, id) => !achievements.isFirstMade(kind, id),
+  onSelect: () => playCraft(fxSound, 'tab'),
+  onFull: () => notice.showSignal('full'),
+});
+const inventoryTabs = mountInventoryTabs(inventoryScreen, {
+  dot: () => pageModel.ui(screen.inventoryOpen()).tabDot,
+  onSwitch: (tab) => {
+    pageModel.setTab(tab);
+    pageModel.sync(screen.inventoryOpen());
+    playCraft(fxSound, 'tab');
+  },
+});
+const storageScreen = new StorageScreen(inventoryScreen, storage, m6.tansuSlots);
+dragOut = new DragOut(inventoryScreen, {
+  inventory,
+  dropper,
+  storage,
+  armor,
+  shiftMove: (i) => {
+    if (storage.ui().open) storage.shiftClick('inv', i);
+    else inventory.shiftMove(i);
+  },
+});
+tryOpenTansu = () => dig.tryOpenAimedStorage();
+// 出来事の入れ物（毎ステップ 1 回だけ drain して、画面・音・実績に配る）
+const NO_DIG: DigEvent[] = [];
+let digBuf: DigEvent[] = NO_DIG;
+time.onPhaseChange((p) => achievements.feedPhase(p));
+const defeatWith = (): DefeatWith => {
+  const h = inventory.held()?.item;
+  if (h === 'bokuto' || h === 'katana' || h === 'naginata' || h === 'crystal_katana' || h === 'yumi') return h;
+  if (h === 'wood_pickaxe' || h === 'stone_pickaxe' || h === 'iron_pickaxe') return 'pickaxe';
+  return 'hand';
+};
+onDefeatAch = (kind) => achievements.feedDefeat({ kind, tick: game.tick, with: defeatWith(), hp: combat.hp() });
 
 // 自動セーブ（?nosave=1 は保存しない、?reset=1 は消してから始める）
 const saveOptions = parseSaveOptions(location.search);
@@ -372,6 +562,9 @@ const save = new SaveManager({
   furnaces: { serialize: () => craft.serializeFurnaces(), deserialize: (d) => craft.deserializeFurnaces(d) },
   armor: { serialize: () => armor.serialize(), deserialize: (d) => armor.deserialize(d) },
   level: { serialize: () => level.serialize(), deserialize: (d) => level.deserialize(d) },
+  // たんすは ブロックの復元のあとに（SaveManager が その順で呼ぶ）
+  storage: { serialize: () => storage.serialize(), deserialize: (d) => storage.deserialize(d) },
+  achievements: { serialize: () => achievements.serialize(), deserialize: (d) => achievements.deserialize(d) },
 });
 requestSave = () => save.saveIfChanged();
 if (saveOptions.reset) {
@@ -380,6 +573,8 @@ if (saveOptions.reset) {
 } else {
   save.load();
 }
+achievements.syncSilently({ level: level.get().level, armor: [armor.equipped('head'), armor.equipped('body'), armor.equipped('arms'), armor.equipped('legs')] });
+celebrate.setPending(achievements.pendingCount());
 lock.onChange((locked) => {
   if (!locked) save.saveIfChanged();
 });
@@ -396,7 +591,61 @@ function updateFurnaceFx(dt: number): void {
 }
 
 // 毎ステップの順: プレイヤー → カメラ → 世界の作り直し →（Game が）入力の「押した」を消す
+const ctx: StepContext = {
+  tick: 0,
+  day: 0,
+  mode: 'play',
+  screenSteps: 1,
+  position: { x: 0, y: 0, z: 0 },
+  velocityY: 0,
+  onGround: true,
+  inWater: false,
+  dead: false,
+  yokai: [],
+  level: 1,
+  armor: [null, null, null, null],
+  regions: null,
+};
+let yokaiSample: StepContext['yokai'] = [];
+const regions = island.regions();
+const armorNow: (ItemId | null)[] = [null, null, null, null];
+/** 実績に今の状態を渡す（画面ステップ: あそぶ 1・もちもの 1÷timeScale・止まっているとき 0） */
+function updateAchievements(): void {
+  const st = controller.state;
+  const mode = screen.mode();
+  const ts = screen.timeScale();
+  ctx.tick = game.tick;
+  ctx.day = time.day();
+  ctx.mode = mode;
+  ctx.screenSteps = mode === 'play' ? 1 : mode === 'inventory' && ts > 0 ? 1 / ts : 0;
+  ctx.position = st.position;
+  ctx.velocityY = st.velocity.y;
+  ctx.onGround = st.onGround;
+  ctx.inWater = st.inWater;
+  ctx.dead = combat.dead();
+  if (game.tick % 10 === 0) yokaiSample = yokaiM.list();
+  ctx.yokai = yokaiSample;
+  ctx.level = level.get().level;
+  armorNow[0] = armor.equipped('head');
+  armorNow[1] = armor.equipped('body');
+  armorNow[2] = armor.equipped('arms');
+  armorNow[3] = armor.equipped('legs');
+  ctx.armor = armorNow;
+  ctx.regions = regions;
+  achievements.update(ctx);
+  celebrate.setPending(achievements.pendingCount());
+}
+
 game.onUpdate((dt) => {
+  // おめでとう画面のあいだ: 世界・妖怪・時刻・プレイヤーは進まない（画面の時間だけ進む。§2.6 (3)）
+  if (screen.mode() === 'celebrate') {
+    celebrate.step();
+    updateAchievements();
+    inventoryScreen.update();
+    storageScreen.update();
+    achievementsPage.update();
+    return;
+  }
   time.update();
   // 空の光の弱まりを先に今の時刻にそろえる（妖怪の出現の「暗い所」がこれを読む。Sky は あとで画面ぶんを更新）
   skyDarkness.value = darkenFromBrightness(time.brightness(), timeSettings.nightBrightness);
@@ -409,12 +658,29 @@ game.onUpdate((dt) => {
   dig.update();
   combat.update();
   craft.update();
-  // 出来事を 1 回だけ取り出して配る
+  storage.update();
+  dropController.update();
+  // 出来事を 1 回だけ取り出して配る（実績へは、記録する前に「はじめて」を決めてから）
+  const modeNow = screen.mode();
+  if (modeNow === 'play') madeTracker.advance(1);
+  else if (modeNow === 'inventory' && screen.timeScale() > 0) madeTracker.advance(1 / screen.timeScale());
   const craftEvents = craft.drainEvents();
   if (craftEvents.length > 0) {
-    handleCraftEvents(craftEvents, { sound: fxSound, pickupLog });
-    for (const e of craftEvents) rig.onCraftEvent(e);
+    handleCraftEvents(craftEvents, { sound: fxSound, pickupLog, celebrate: true });
+    for (const e of craftEvents) {
+      madeTracker.handle(e);
+      if (e.type === 'craftFail') celebrate.failed();
+      rig.onCraftEvent(e);
+    }
+    achievements.feedCraft(craftEvents);
   }
+  const digEvents = dig.drainEvents();
+  if (digEvents.length > 0) {
+    digBuf = digBuf === NO_DIG ? digEvents : digBuf.concat(digEvents);
+    achievements.feedDig(digEvents);
+  }
+  const storageEvents: StorageEvent[] = [...storage.drainEvents(), ...dropper.drainEvents()];
+  if (storageEvents.length > 0) achievements.feedStorage(storageEvents);
   const swings = tools.drainSwings();
   if (swings.length > 0) {
     const held = inventory.held()?.item ?? null;
@@ -423,13 +689,17 @@ game.onUpdate((dt) => {
   }
   for (const e of tools.drainArrowEvents()) {
     if (e.type === 'noArrow') notice.showSignal('noArrow');
-    else if (e.type === 'arrowHit') playCombat(fxSound, 'hit');
+    else if (e.type === 'arrowHit') {
+      playCombat(fxSound, 'hit');
+      achievements.feedArrow('hit');
+    } else if (e.type === 'arrowShot') achievements.feedArrow('shot');
   }
   const combatEvents = combat.drainEvents();
   if (combatEvents.length > 0) {
     for (const e of combatEvents) rig.onCombatEvent(e);
     handleGuardEvents(combatEvents, fxSound);
     combatBuf = combatEvents;
+    achievements.feedCombat(combatEvents);
   }
   arrowVisuals.sync(tools.arrows());
   combatUi.hearts.setArmor(armor.snapshot().hudIcons);
@@ -447,11 +717,16 @@ game.onUpdate((dt) => {
   updateFurnaceFx(dt);
   rig.update(dt);
   sky.update(game.camera);
-  combatUi.clock.setTime(time.dayTick(), timeSettings);
+  combatUi.clock.setTime(time.dayTick(), timeSettings, time.day() + 1);
   viewActions.endFrame();
   crosshair.setVisible(rig.crosshairVisible() && screen.mode() === 'play');
   hotbar.update();
   inventoryScreen.update();
+  storageScreen.update();
+  achievementsPage.update();
+  if (screen.inventoryOpen()) inventoryTabs.update();
+  updateAchievements();
+  celebrate.step();
   notice.update(dt);
   renderer.update({ x: game.camera.position.x, z: game.camera.position.z });
   save.update(game.tick + 1);
@@ -459,7 +734,8 @@ game.onUpdate((dt) => {
 game.onUpdate((dt) => overlay.update(dt));
 // ロックがないあいだは時間を止める。F3 だけは効く（M1-02 §2.4）
 game.setRealtimeGate(() => lock.realtimeAllowed());
-game.setTimeScale(() => screen.timeScale());
+// おめでとう画面の中の時間は 実時間で進める（世界は上で止めてある）
+game.setTimeScale(() => (screen.mode() === 'celebrate' ? 1 : screen.timeScale()));
 game.onIdle((dt) => overlay.update(dt));
 
 const cameraHook = createCameraHook(rig);
@@ -473,6 +749,16 @@ const craftUiHook = createCraftUiHook({
   tooltip: inventoryScreen.tooltip!,
   armorClick: (slot) => armor.click(slot),
 });
+const storageHook = createStorageHook(storage, screen);
+const achievementsHook = {
+  ...createAchievementsHook(achievements, pageModel, {
+    inventoryOpen: () => screen.inventoryOpen(),
+    onTab: (tab) => inventoryScreen.setTab(tab),
+  }),
+  modal: () => celebrate.modalInfo(),
+  close: () => celebrate.close(),
+  sounds: () => celebrate.drainAchievementSounds(),
+};
 const guideHook = createGuideHook(playOverlay);
 const lockHook = createLockHook(lock);
 const combatHook = createCombatHook(combat);
@@ -481,7 +767,11 @@ installTestHook(game, overlay, {
   render: { chunks: () => renderer.chunkStats() },
   player: { ...createPlayerHook(controller), doll: cameraHook.doll } as unknown as TestHookGroups['player'],
   ...createDigHook(dig),
-  inventory: createInventoryHook(inventory, screen, { ...createPickupHook(craft), ...craftUiHook.inventory }),
+  inventory: createInventoryHook(inventory, screen, {
+    ...createPickupHook(craft),
+    ...craftUiHook.inventory,
+    ...createInventoryM6Extras({ inventory, storage, dropper, screen }),
+  }),
   save: createSaveHook(save),
   time: createTimeHook(time),
   combat: {
@@ -489,7 +779,15 @@ installTestHook(game, overlay, {
     arrows: toolHook.arrows,
     events: () => [...combatHook.events(), ...toolHook.arrowEvents()],
   } as unknown as TestHookGroups['combat'],
-  craft: { ...craftHook, ...craftUiHook.craft },
+  craft: {
+    ...craftHook,
+    ...craftUiHook.craft,
+    ...createCraftPanelHook(craftPanel),
+    fx: () => celebrate.fxInfo(),
+    sounds: () => celebrate.drainCraftSounds(),
+  } as unknown as TestHookGroups['craft'],
+  achievements: achievementsHook as unknown as TestHookGroups['achievements'],
+  storage: storageHook as unknown as TestHookGroups['storage'],
   furnace: createFurnaceHook(craft, screen),
   armor: createArmorHook(armor, screen),
   level: createLevelHook(level),
@@ -508,6 +806,7 @@ installTestHook(game, overlay, {
       settingsViewOf(toolConfig),
       settingsViewOf(craftUi, ['bakeTicks', 'pickupLogTicks', 'pickupLogMax']),
       screenSettings,
+      m6,
       FX_SETTINGS,
       sharedSettingsView('knockback', [combat.config, yokaiM.config]),
       sharedSettingsView('yokaiLeaveTicks', [timeSettings, yokaiM.config]),

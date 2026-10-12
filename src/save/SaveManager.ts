@@ -66,6 +66,10 @@ export interface SaveDeps {
   armor?: SaveExtra;
   /** M4 追加: 経験値とレベル */
   level?: SaveExtra;
+  /** M6: 実績の記録・取ったもの・見せていない列 */
+  achievements?: SaveExtra;
+  /** M6: たんすの中身（ブロックの復元のあとに戻す） */
+  storage?: SaveExtra;
   /** 時刻と何日目。なければ保存しない */
   clock?: SaveClock;
 }
@@ -197,6 +201,16 @@ export class SaveManager {
       } catch {
         this.d.level?.deserialize(null);
       }
+      try {
+        this.d.storage?.deserialize(data.storage);
+      } catch {
+        this.d.storage?.deserialize(null);
+      }
+      try {
+        this.d.achievements?.deserialize(data.achievements);
+      } catch {
+        this.d.achievements?.deserialize(null);
+      }
       this.restoreTime(data.time);
       this.lastBody = this.makeBody().body;
       this.lastTimeKey = this.timeKey();
@@ -325,6 +339,8 @@ export class SaveManager {
       furnaces: this.d.furnaces?.serialize() ?? [],
       armor: this.d.armor?.serialize() ?? null,
       level: this.d.level?.serialize() ?? null,
+      storage: this.d.storage?.serialize() ?? null,
+      achievements: this.d.achievements?.serialize() ?? null,
     });
     return { body: make(bagsKey), full: make(bagsFull), changed: blocks.length / 2 };
   }

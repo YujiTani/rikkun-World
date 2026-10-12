@@ -47,6 +47,11 @@ function mark(def: AchievementDef): string | undefined {
   return a ? anyIconUrl(a) : undefined;
 }
 
+/** その実績の メダルの中の絵（アイテムの絵。なければ undefined）。おめでとう画面も同じものを使う */
+export function achievementArtUrl(def: AchievementDef): string | undefined {
+  return mark(def);
+}
+
 /** じっせき ページ（M6 §2.7）。S1 の部品だけで作る。毎フレーム `update()` を呼ぶ */
 export class AchievementsPage {
   readonly el: HTMLDivElement;

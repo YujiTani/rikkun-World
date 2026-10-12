@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { ItemId, Recipe } from '../../contracts';
+import type { ItemId } from '../../contracts';
 import { YOKAI_DROPS } from '../../yokai/ai/config';
 import { findUnrubiedKanji } from '../../ui/text';
 import { itemType } from '../../inventory/items';
@@ -8,17 +8,7 @@ import { ALL_RECIPES } from '../recipes';
 import { createItemInfo, defaultInfoNumbers, descOf, type InfoNumbers } from './build';
 import { ITEM_INFO } from './table';
 
-const TANSU: Recipe = {
-  id: 'tansu',
-  output: { item: 'tansu' as ItemId, count: 1 },
-  inputs: [
-    { item: 'log', count: 8 },
-    { item: 'iron_ingot', count: 2 },
-  ],
-  works: true,
-  station: 'craft',
-};
-const RECIPES = [...ALL_RECIPES.filter((r) => r.station === 'craft'), TANSU, ...ALL_RECIPES.filter((r) => r.station === 'furnace')];
+const RECIPES = [...ALL_RECIPES.filter((r) => r.station === 'craft'), ...ALL_RECIPES.filter((r) => r.station === 'furnace')];
 const nameOf = (i: ItemId) => ((i as string) === 'tansu' ? 'たんす' : (itemType(i)?.name ?? i));
 
 function make(patch: Partial<InfoNumbers> = {}) {
