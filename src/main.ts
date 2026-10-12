@@ -43,6 +43,8 @@ import { TimeOfDayImpl, createTimeHook } from './time';
 import { YokaiManager, createYokaiHook } from './yokai';
 import { LevelSystem, createLevelHook } from './level';
 import { LevelHud } from './ui/levelHud';
+import { ActionHint } from './ui/actionHint';
+import { actionHintLines } from './ui/actionHintModel';
 import { createRng } from './world/gen/random';
 import { FX_SETTINGS } from './fx/config';
 import { SoundFx } from './fx/sound';
@@ -320,7 +322,7 @@ const dig = new DigSystemImpl(
       furnaceBroken: (x, y, z) => craft.furnaceBroken(x, y, z),
       fixedDrop: (id) => craft.fixedDrop(id),
     },
-    armor,
+    armor: { tryEquip: (item) => armor.tryEquip(item), canEquip: (item) => armor.slotFor(item) !== null },
     storage,
     onPickup: (item, count) => craft.notifyPickup(item, count),
     scatterItem: (pos, item, count) => {
@@ -382,6 +384,10 @@ const clockPhases: ClockPhases = { ...CLOCK_PHASES };
 const combatUi = createCombatUi(hud, clockPhases);
 const levelHud = new LevelHud(hud);
 const hotbar = new Hotbar(hud, inventory, notice);
+// ねらっている所の ヒント（設定 actionHint で消せる）
+const hintSettings = { actionHint: true };
+const actionHint = new ActionHint(hud);
+const hintVisible = (): boolean => hintSettings.actionHint && screen.mode() === 'play' && !screen.inventoryOpen() && rig.crosshairVisible();
 const nameOf = (item: ItemId): string => itemType(item)?.name ?? item;
 const inventoryScreen = new InventoryScreen(hud, inventory, screen, () => screen.toggle(), {
   craft,
@@ -729,6 +735,7 @@ game.onUpdate((dt) => {
   combatUi.clock.setTime(time.dayTick(), timeSettings, time.day() + 1);
   viewActions.endFrame();
   crosshair.setVisible(rig.crosshairVisible() && screen.mode() === 'play');
+  actionHint.update(hintVisible() ? actionHintLines(dig.previewRightClick(), dig.previewLeftClick(), nameOf) : {});
   hotbar.update();
   inventoryScreen.update();
   storageScreen.update();
@@ -772,6 +779,7 @@ const achievementsHook = {
     achMuted = on;
   },
 };
+const hudHook = { actionHint: () => actionHint.current() };
 const guideHook = createGuideHook(playOverlay);
 const lockHook = createLockHook(lock);
 const combatHook = createCombatHook(combat);
@@ -780,6 +788,7 @@ installTestHook(game, overlay, {
   render: { chunks: () => renderer.chunkStats() },
   player: { ...createPlayerHook(controller), doll: cameraHook.doll } as unknown as TestHookGroups['player'],
   ...createDigHook(dig),
+  hud: hudHook,
   inventory: createInventoryHook(inventory, screen, {
     ...createPickupHook(craft),
     ...craftUiHook.inventory,
@@ -820,6 +829,7 @@ installTestHook(game, overlay, {
       settingsViewOf(craftUi, ['bakeTicks', 'pickupLogTicks', 'pickupLogMax']),
       screenSettings,
       m6,
+      hintSettings,
       { clockPhases },
       FX_SETTINGS,
       sharedSettingsView('knockback', [combat.config, yokaiM.config]),

@@ -62,6 +62,8 @@ export interface TestHook {
   yokai: ReturnType<typeof createYokaiHook>['yokai'];
   /** M6 §6.1: 実績・おめでとう画面 */
   achievements: ReturnType<typeof createAchievementsHook> & { modal(): unknown; close(): unknown; sounds(): string[]; mute(on: boolean): void };
+  /** FIX-action-hint: 照準の下に出している文 */
+  hud: { actionHint(): { right?: string; left?: string } };
   /** M6 §6.1: たんす */
   storage: ReturnType<typeof createStorageHook>;
 }
@@ -72,7 +74,7 @@ declare global {
   }
 }
 
-export type TestHookGroups = Pick<TestHook, 'world' | 'render' | 'player' | 'camera' | 'input' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'level' | 'achievements' | 'storage'>;
+export type TestHookGroups = Pick<TestHook, 'world' | 'render' | 'player' | 'camera' | 'input' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'level' | 'achievements' | 'storage' | 'hud'>;
 
 export function installTestHook(game: Game, overlay: PerfOverlay, groups: TestHookGroups): void {
   window.__rikkun = {

@@ -1,0 +1,22 @@
+/* 照準の すぐ下。合図の文（#notice-signal-text、1 秒だけ）は これの上に重なる */
+#action-hint {
+  position: fixed;
+  left: 50%;
+  top: calc(50% + var(--rk-sp-5));
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--rk-sp-1);
+  pointer-events: none;
+  z-index: 4;
+  white-space: nowrap;
+}
+#action-hint[hidden],
+#action-hint .rk-chip[hidden] {
+  display: none;
+}
+#action-hint .action-hint__left {
+  opacity: 0.6;
+  font-size: calc(var(--rk-fs-body) * 0.85);
+}
