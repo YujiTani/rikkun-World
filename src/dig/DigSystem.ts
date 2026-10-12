@@ -138,8 +138,9 @@ export class DigSystemImpl implements DigSystem {
       cfg.reach,
     );
 
-    const primary = enabled && this.actions.isHeld('primary');
-    const secondary = enabled && this.actions.isHeld('secondary');
+    // 同じステップのうちに押してはなす短いタップも拾う（wasPressed）
+    const primary = enabled && (this.actions.isHeld('primary') || this.actions.wasPressed('primary'));
+    const secondary = enabled && (this.actions.isHeld('secondary') || this.actions.wasPressed('secondary'));
     this.updateDig(primary);
     this.prevPrimary = primary;
     this.updatePlace(secondary);

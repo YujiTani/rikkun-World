@@ -374,6 +374,31 @@ describe('MAX（あとひと押し）', () => {
   });
 });
 
+describe('短いタップ（同じステップで押してはなす）', () => {
+  it('MAX のとどめが入る', () => {
+    const r = new Rig();
+    r.set(4, 10, 6, 'dirt');
+    r.press('primary');
+    r.step(30);
+    r.release('primary');
+    r.step(5);
+    r.press('primary');
+    r.release('primary');
+    r.step(1);
+    expect(r.world.getBlock(4, 10, 6)).toBe('air');
+  });
+  it('置ける', () => {
+    const r = new Rig();
+    r.set(6, 10, 6, 'stone');
+    r.inv.setSlot(0, { item: 'dirt', count: 5 });
+    r.press('secondary');
+    r.release('secondary');
+    r.step(1);
+    expect(r.world.getBlock(5, 10, 6)).toBe('dirt');
+    expect(r.inv.slots()[0]!.count).toBe(4);
+  });
+});
+
 describe('おく', () => {
   it('AC11: 押しっぱなしで 0.5 秒ごと', () => {
     const r = new Rig();
