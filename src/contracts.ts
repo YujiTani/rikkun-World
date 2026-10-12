@@ -190,14 +190,18 @@ export interface DigState {
   block: Vec3 | null;
   /** 0〜1 */
   progress: number;
-  /** 0〜5 */
+  /** 0〜3（3 = MAX。あとひと押しでこわれる） */
   crackStage: number;
+  /** ひびが MAX で、ひと押しを待っている */
+  ready: boolean;
   blockedReason: DigBlockedReason | null;
 }
 
 export type DigEvent =
   | { type: 'break'; tick: number; block: Vec3; id: BlockId; gotItem: boolean }
   | { type: 'place'; tick: number; block: Vec3; id: BlockId }
+  /** ひびが MAX になった（あとひと押しでこわれる。オーナー決定 B） */
+  | { type: 'ready'; tick: number; block: Vec3; id: BlockId }
   | { type: 'blocked'; tick: number; block: Vec3; id: BlockId; reason: DigBlockedReason };
 
 /** ねらう・ほる・おく。担当 AB が `src/dig/` で実装する */
