@@ -1,6 +1,6 @@
 import type { FxSettings } from '../fx/config';
 import { drawPixels, signalIconPixels, type SignalKind } from './itemIcon';
-import { NoticeModel } from './noticeModel';
+import { NoticeModel, signalText } from './noticeModel';
 import './notice.css';
 
 /**
@@ -10,6 +10,7 @@ import './notice.css';
 export class Notice {
   readonly model: NoticeModel;
   readonly signalEl: HTMLCanvasElement;
+  readonly textEl: HTMLDivElement;
   readonly nameEl: HTMLDivElement;
   private shownKind: SignalKind | null = null;
   private shownName = '';
@@ -20,10 +21,13 @@ export class Notice {
     this.signalEl.id = 'notice-signal';
     this.signalEl.setAttribute('aria-hidden', 'true');
     this.signalEl.hidden = true;
+    this.textEl = document.createElement('div');
+    this.textEl.id = 'notice-signal-text';
+    this.textEl.hidden = true;
     this.nameEl = document.createElement('div');
     this.nameEl.id = 'notice-name';
     this.nameEl.hidden = true;
-    parent.append(this.signalEl, this.nameEl);
+    parent.append(this.signalEl, this.textEl, this.nameEl);
   }
 
   showSignal(kind: SignalKind): void {
@@ -42,8 +46,13 @@ export class Notice {
 
   private sync(): void {
     const sig = this.model.signal;
-    this.signalEl.hidden = !sig;
-    if (sig && sig.kind !== this.shownKind) {
+    const text = sig ? signalText(sig.kind) : null;
+    this.signalEl.hidden = !sig || text !== null;
+    this.textEl.hidden = text === null;
+    if (sig && text !== null) {
+      this.textEl.textContent = text;
+      this.textEl.dataset.kind = sig.kind;
+    } else if (sig && sig.kind !== this.shownKind) {
       drawPixels(this.signalEl, signalIconPixels(sig.kind));
       this.signalEl.dataset.kind = sig.kind;
       this.shownKind = sig.kind;
