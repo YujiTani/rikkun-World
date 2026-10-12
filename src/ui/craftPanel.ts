@@ -1,8 +1,22 @@
 import type { CraftSystem, Inventory, ItemId, Recipe, Vec3 } from '../contracts';
+import { createDefaultItemInfo, type ItemInfoSource } from '../craft/info';
 import { CRAFT_UI_SETTINGS, type CraftUiSettings } from '../fx/craftConfig';
 import { FURNACE_MOUTH } from '../world/blocks/textures';
-import { buildCards, nextFuel, type CardView, type MaterialView } from './craftModel';
-import { drawPixels, itemIconPixels, itemIconUrl } from './itemIcon';
+import {
+  buildCards,
+  buildDetail,
+  buildTiles,
+  nextFuel,
+  visibleCards,
+  pickSelection,
+  type CardView,
+  type DetailView,
+  type TileView,
+} from './craftModel';
+import { fingerUrl } from './craftPanel.art';
+import { renderDetail, createDetailEls, type DetailEls } from './craftPanel.detail';
+import { drawPixels, extraIconUrl, itemIconPixels, itemIconUrl } from './itemIcon';
+import { createBar, createSlot, createTab, setBar, setTabState } from './theme';
 import './craftPanel.css';
 
 /** 開いている かまど の中（A の `furnace.get` と同じ形） */
@@ -20,6 +34,13 @@ export interface FurnaceView {
 
 export type CraftTab = 'craft' | 'bake';
 
+export interface Rect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export interface CraftUiState {
   panelVisible: boolean;
   tab: CraftTab;
@@ -27,9 +48,18 @@ export interface CraftUiState {
   cards: { id: string; glowing: boolean; redItems: ItemId[] }[];
   bakeCards: { id: string; glowing: boolean; redItems: ItemId[]; queued: number }[];
   hintVisible: boolean;
+  /** M6: 今のタブの マス */
+  tiles: TileView[];
+  /** M6: えらんでいるマス */
+  selected: string | null;
+  /** M6: せつめい パネルの中身（出ていなければ null） */
+  detail: DetailView | null;
+  detailRect: Rect | null;
+  tileRects: Record<string, Rect>;
 }
 
 export type CraftClickResult = { ok: boolean; reason: string | null };
+export type TileClickResult = { action: 'select' | 'make'; ok: boolean; reason: string | null };
 
 export interface CraftPanelDeps {
   craft: CraftSystem;
@@ -45,21 +75,25 @@ export interface CraftPanelDeps {
   /** 「もちもの が いっぱい」の合図 */
   onFull?(): void;
   cfg?: CraftUiSettings;
+  /** M6: 説明のデータ（無ければ初期値の数で作る。つなぎ込みが設定とつなぐ） */
+  info?: ItemInfoSource;
+  /** M6: カーソルに何か持っているか（持っているあいだは パネルの中身を替えない） */
+  cursorHeld?(): boolean;
+  /** M6: そのレシピを つくった・やいた ことがあるか（実績の記録） */
+  isMade?(kind: 'craft' | 'bake', recipe: string): boolean;
+  /** M6: マスを えらんだ（音「ポン」） */
+  onSelect?(id: string): void;
 }
 
-interface CardEls {
+interface TileEls {
   root: HTMLDivElement;
-  icon: HTMLImageElement;
+  art: HTMLImageElement;
   count: HTMLSpanElement;
-  mats: HTMLDivElement;
-  matEls: { chip: HTMLDivElement; icon: HTMLImageElement; dots: HTMLSpanElement[] }[];
-  name: HTMLDivElement;
   queue: HTMLSpanElement;
-  bar: HTMLDivElement;
-  barFill: HTMLDivElement;
+  barFill: ReturnType<typeof createBar>;
+  recipe: Recipe;
 }
 
-const DOT_SHOW_MAX = 8;
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, parent?: HTMLElement): HTMLElementTagNameMap[K] {
   const e = document.createElement(tag);
@@ -83,15 +117,6 @@ function shake(e: HTMLElement): void {
   );
 }
 
-/** ぽよん */
-function poyon(e: HTMLElement): void {
-  if (typeof e.animate !== 'function') return;
-  e.animate(
-    [{ transform: 'scale(1)' }, { transform: 'scale(1.16)', offset: 0.4 }, { transform: 'scale(0.96)', offset: 0.75 }, { transform: 'scale(1)' }],
-    { duration: 260, easing: 'ease-out' },
-  );
-}
-
 /** 画面の 2 点のあいだを絵が飛ぶ */
 function fly(icon: string, from: DOMRect, to: DOMRect, ms: number, parent: HTMLElement, shrink = 0.5): void {
   if (typeof parent.animate !== 'function') return;
@@ -108,9 +133,17 @@ function fly(icon: string, from: DOMRect, to: DOMRect, ms: number, parent: HTMLE
   a.onfinish = () => img.remove();
 }
 
+export const EMPTY_TEXT = 'ざいりょう を あつめよう！';
+
+const rectOf = (e: Element): Rect => {
+  const r = e.getBoundingClientRect();
+  return { x: r.left, y: r.top, width: r.width, height: r.height };
+};
+
 /**
- * もちもの画面の右がわ「つくる」「やく」（M4 §2.2・§2.3・§3）。
- * 18 まい（つくる）と 4 まい（やく）のカードを 1 度だけ作り、持ち物が変わったときに色・まるを直す。
+ * もちもの画面の右がわ「つくる」「やく」（M4 §2.2・§2.3、M6 §2.1）。
+ * 左に 絵だけのマスの一覧（1 回目の クリックで えらぶ・同じマスを もう 1 回で つくる）、
+ * 右に 決まった場所の せつめい パネル（合わせたマス／えらんでいるマスの中身。つくる ボタンは いつも えらんでいるマスのもの）。
  * 毎ステップ update() を呼ぶ。
  */
 export class CraftPanel {
@@ -123,22 +156,32 @@ export class CraftPanel {
   private readonly fuelRow: HTMLDivElement;
   private readonly fuelEls: { box: HTMLDivElement; count: HTMLSpanElement; item: ItemId }[] = [];
   private readonly furnaceCanvas: HTMLCanvasElement;
+  private readonly emptyMsg: HTMLDivElement;
+  private readonly detailEls: DetailEls;
+  private readonly finger: HTMLSpanElement;
   private readonly craftRecipes: Recipe[];
   private readonly bakeRecipes: Recipe[];
-  private readonly craftEls = new Map<string, CardEls>();
-  private readonly bakeEls = new Map<string, CardEls>();
+  private readonly tileEls = new Map<string, TileEls>();
   private readonly cfg: CraftUiSettings;
+  private d: CraftPanelDeps;
+  private info_: ItemInfoSource;
   private tab_: CraftTab = 'craft';
   private tabs_: CraftTab[] = ['craft'];
   private open = false;
   private dirty = true;
   private craftViews: CardView[] = [];
   private bakeViews: CardView[] = [];
+  private selected_: Record<CraftTab, string | null> = { craft: null, bake: null };
+  private hovered_: string | null = null;
+  private readonly madeLocal = new Set<string>();
+  private detailKey = '';
   private readonly off: () => void;
 
-  constructor(parent: HTMLElement, private readonly d: CraftPanelDeps) {
-    this.cfg = d.cfg ?? CRAFT_UI_SETTINGS;
-    const all = d.craft.recipes();
+  constructor(parent: HTMLElement, deps: CraftPanelDeps) {
+    this.d = deps;
+    this.cfg = deps.cfg ?? CRAFT_UI_SETTINGS;
+    this.info_ = deps.info ?? createDefaultItemInfo((i) => deps.nameOf(i));
+    const all = deps.craft.recipes();
     this.craftRecipes = all.filter((r) => r.station === 'craft');
     this.bakeRecipes = all.filter((r) => r.station === 'furnace');
 
@@ -146,24 +189,22 @@ export class CraftPanel {
     this.el.hidden = true;
     this.el.style.setProperty('--glow-seconds', `${this.cfg.glowSeconds}s`);
 
-    this.tabBar = el('div', 'craft-tabs', this.el);
+    const left = el('div', 'cp-left', this.el);
+    this.tabBar = el('div', 'craft-tabs', left);
     const mk = (tab: CraftTab, label: string) => {
-      const b = el('button', 'craft-tab', this.tabBar);
-      b.type = 'button';
+      const b = createTab({ text: label, onClick: () => this.setTab(tab) });
+      b.classList.add('craft-tab');
       b.dataset.tab = tab;
-      b.textContent = label;
-      b.addEventListener('click', (e) => {
-        e.stopPropagation();
-        this.setTab(tab);
-      });
+      b.addEventListener('click', (e) => e.stopPropagation());
+      this.tabBar.append(b);
       return b;
     };
     this.tabButtons = { craft: mk('craft', 'つくる'), bake: mk('bake', 'やく') };
 
-    this.craftGrid = el('div', 'craft-grid', this.el);
-    for (const r of this.craftRecipes) this.craftGrid.append(this.makeCard(r, this.craftEls));
+    this.craftGrid = el('div', 'cp-grid craft-grid', left);
+    for (const r of this.craftRecipes) this.craftGrid.append(this.makeTile(r));
 
-    this.bakeBox = el('div', 'bake-box', this.el);
+    this.bakeBox = el('div', 'bake-box', left);
     const top = el('div', 'bake-top', this.bakeBox);
     this.furnaceCanvas = el('canvas', 'bake-furnace', top);
     drawPixels(this.furnaceCanvas, itemIconPixels('furnace'));
@@ -175,52 +216,64 @@ export class CraftPanel {
       img.alt = '';
       const count = el('span', 'fuel-count', box);
       box.dataset.item = f;
-      box.addEventListener('mouseenter', () => d.hover?.(`fuel:${f}`));
-      box.addEventListener('mouseleave', () => d.hover?.(null));
+      box.addEventListener('mouseenter', () => deps.hover?.(`fuel:${f}`));
+      box.addEventListener('mouseleave', () => deps.hover?.(null));
       this.fuelEls.push({ box, count, item: f as ItemId });
     }
-    this.bakeGrid = el('div', 'bake-grid', this.bakeBox);
-    for (const r of this.bakeRecipes) this.bakeGrid.append(this.makeCard(r, this.bakeEls));
+    this.bakeGrid = el('div', 'cp-grid bake-grid', this.bakeBox);
+    this.emptyMsg = el('div', 'cp-empty', left);
+    this.emptyMsg.textContent = EMPTY_TEXT;
+    this.emptyMsg.hidden = true;
+    for (const r of this.bakeRecipes) this.bakeGrid.append(this.makeTile(r));
+
+    this.detailEls = createDetailEls(this.el, {
+      onPress: () => void this.detailPress(),
+      onEnter: () => this.hover(null),
+    });
+
+    // ゆびの印（つくれる えらんでいるマスにだけ付ける。ひとつを使いまわす）
+    this.finger = el('span', 'cp-finger');
+    this.finger.style.backgroundImage = `url(${fingerUrl()})`;
 
     parent.append(this.el);
-    this.off = d.inv.onChange(() => (this.dirty = true));
+    this.off = deps.inv.onChange(() => (this.dirty = true));
   }
 
-  private makeCard(r: Recipe, into: Map<string, CardEls>): HTMLDivElement {
-    const root = el('div', 'card');
+  /** つなぎ込みが 設定とつないだ説明のデータや、カーソル・記録の口を渡す */
+  configure(p: Partial<Pick<CraftPanelDeps, 'info' | 'cursorHeld' | 'isMade' | 'onSelect' | 'onFull' | 'slotElFor'>>): void {
+    if (p.info) this.info_ = p.info;
+    this.d = { ...this.d, ...p, info: this.info_ };
+    this.dirty = true;
+  }
+
+  info(): ItemInfoSource {
+    return this.info_;
+  }
+
+  private makeTile(r: Recipe): HTMLDivElement {
+    const slot = createSlot({ art: itemIconUrl(r.output.item) });
+    const root = slot.root;
+    root.classList.add('cp-tile');
     root.dataset.id = r.id;
+    root.dataset.station = r.station;
     root.dataset.works = String(r.works);
-    const icon = el('img', 'card-icon', root);
-    icon.alt = '';
-    icon.src = itemIconUrl(r.output.item);
-    const count = el('span', 'card-count', root);
-    const queue = el('span', 'card-queue', root);
-    const mats = el('div', 'card-mats', root);
-    const matEls: CardEls['matEls'] = [];
-    for (const inp of r.inputs) {
-      const chip = el('div', 'mat', mats);
-      const mi = el('img', 'mat-icon', chip);
-      mi.alt = '';
-      mi.src = itemIconUrl(inp.item);
-      const dotsBox = el('div', 'mat-dots', chip);
-      const dots: HTMLSpanElement[] = [];
-      for (let k = 0; k < Math.min(inp.count, DOT_SHOW_MAX); k++) dots.push(el('span', 'dot', dotsBox));
-      chip.dataset.item = inp.item;
-      chip.addEventListener('mouseenter', () => this.d.hover?.(`material:${r.id}:${inp.item}`));
-      chip.addEventListener('mouseleave', () => this.d.hover?.(null));
-      matEls.push({ chip, icon: mi, dots });
-    }
-    const name = el('div', 'card-name', root);
-    name.textContent = this.d.nameOf(r.output.item);
-    const bar = el('div', 'card-bar', root);
-    const barFill = el('div', 'card-bar-fill', bar);
-    icon.addEventListener('mouseenter', () => this.d.hover?.(`card:${r.id}`));
-    icon.addEventListener('mouseleave', () => this.d.hover?.(null));
+    const made = el('span', 'cp-made', root);
+    made.textContent = '✓';
+    el('span', 'cp-later', root).style.backgroundImage = `url(${extraIconUrl('clock')})`;
+    const mark = el('span', 'cp-mark', root);
+    mark.textContent = '▼';
+    const queue = el('span', 'card-queue cp-queue', root);
+    const barFill = createBar('bake', 0);
+    barFill.root.classList.add('cp-bar');
+    barFill.root.hidden = true;
+    root.append(barFill.root);
+    root.addEventListener('mouseenter', () => this.hover(r.id));
+    root.addEventListener('mouseleave', () => this.hover(null));
     root.addEventListener('click', (e) => {
       e.stopPropagation();
-      this.click(r.id);
+      this.tileClick(r.id);
     });
-    into.set(r.id, { root, icon, count, mats, matEls, name, queue, bar, barFill });
+    this.tileEls.set(r.id, { root, art: slot.art, count: slot.count, queue, barFill, recipe: r });
     return root;
   }
 
@@ -236,6 +289,7 @@ export class CraftPanel {
   setTab(tab: CraftTab): void {
     if (!this.tabs_.includes(tab) || tab === this.tab_) return;
     this.tab_ = tab;
+    this.hovered_ = null;
     this.dirty = true;
     this.sync();
   }
@@ -250,13 +304,45 @@ export class CraftPanel {
     return this.d.furnaces.get(p.x, p.y, p.z);
   }
 
+  private bakeQueued(st: FurnaceState | null): Record<string, number> {
+    const queued: Record<string, number> = {};
+    for (const q of st?.queue ?? []) queued[q] = (queued[q] ?? 0) + 1;
+    return queued;
+  }
+
+  private views(): { craft: CardView[]; bake: CardView[] } {
+    const st = this.furnaceState();
+    return {
+      craft: buildCards(this.craftRecipes, this.d.craft, this.d.inv),
+      bake: buildCards(this.bakeRecipes, this.d.craft, this.d.inv, { bake: true, queued: this.bakeQueued(st), cfg: this.cfg }),
+    };
+  }
+
+  private currentTab(): CraftTab {
+    return this.tab_ === 'bake' && this.furnacePos() ? 'bake' : 'craft';
+  }
+
+  private stationOf(id: string): CraftTab | null {
+    if (this.craftRecipes.some((r) => r.id === id)) return 'craft';
+    if (this.bakeRecipes.some((r) => r.id === id)) return 'bake';
+    return null;
+  }
+
+  private made(kind: 'craft' | 'bake', id: string): boolean {
+    return this.madeLocal.has(`${kind}:${id}`) || (this.d.isMade?.(kind, id) ?? false);
+  }
+
   /** 毎ステップ */
   update(): void {
     const open = this.d.isOpen();
     if (open !== this.open) {
       this.open = open;
       this.el.hidden = !open;
-      if (open) this.tab_ = this.furnacePos() ? 'bake' : 'craft';
+      if (open) {
+        this.tab_ = this.furnacePos() ? 'bake' : 'craft';
+        this.hovered_ = null;
+        this.ensureSelection();
+      } else this.hovered_ = null;
       this.dirty = true;
     }
     if (!open) return;
@@ -272,44 +358,69 @@ export class CraftPanel {
     }
     // やく画面は棒がのびるので、毎ステップ見る
     if (this.dirty || this.tab_ === 'bake') this.sync();
+    else this.paintDetail();
   }
 
-  /** カードの色・まるを今の持ち物に合わせる */
-  private sync(): void {
-    this.dirty = false;
-    this.craftViews = buildCards(this.craftRecipes, this.d.craft, this.d.inv);
-    const st = this.furnaceState();
-    const queued: Record<string, number> = {};
-    for (const q of st?.queue ?? []) queued[q] = (queued[q] ?? 0) + 1;
-    this.bakeViews = buildCards(this.bakeRecipes, this.d.craft, this.d.inv, { bake: true, queued, cfg: this.cfg });
-    this.tabBar.hidden = this.tabs_.length < 2;
-    this.tabButtons.bake.hidden = !this.tabs_.includes('bake');
-    for (const t of ['craft', 'bake'] as CraftTab[]) this.tabButtons[t].dataset.selected = String(t === this.tab_);
-    this.craftGrid.hidden = this.tab_ !== 'craft';
-    this.bakeBox.hidden = this.tab_ !== 'bake';
-    if (this.tab_ === 'craft') for (const v of this.craftViews) this.paint(this.craftEls.get(v.id)!, v, null);
-    else {
-      for (const v of this.bakeViews) {
-        const progress = st?.current && st.current.id === v.id ? st.current.progress : null;
-        this.paint(this.bakeEls.get(v.id)!, v, progress);
-      }
-      this.paintFuel(st);
+  /** 開いたとき・タブが変わったとき: えらんでいるマスが無ければ つくれる いちばん前（無ければ 1 つ目） */
+  private ensureSelection(): void {
+    const v = this.views();
+    for (const t of ['craft', 'bake'] as CraftTab[]) {
+      this.selected_[t] = pickSelection(visibleCards(t === 'craft' ? v.craft : v.bake), this.selected_[t]);
     }
   }
 
-  private paint(c: CardEls, v: CardView, progress: number | null): void {
-    c.root.dataset.glow = String(v.glowing);
-    c.count.textContent = v.countLabel;
-    v.materials.forEach((m: MaterialView, i) => {
-      const me = c.matEls[i];
-      me.chip.dataset.red = String(m.red);
-      me.dots.forEach((dot, k) => {
-        dot.dataset.on = String(m.dots[k] === true);
-      });
+  private sync(): void {
+    this.dirty = false;
+    const v = this.views();
+    this.craftViews = v.craft;
+    this.bakeViews = v.bake;
+    const st = this.furnaceState();
+    this.tabBar.hidden = this.tabs_.length < 2;
+    this.tabButtons.bake.hidden = !this.tabs_.includes('bake');
+    for (const t of ['craft', 'bake'] as CraftTab[]) setTabState(this.tabButtons[t], { selected: t === this.tab_, dot: false });
+    this.craftGrid.hidden = this.tab_ !== 'craft';
+    this.bakeBox.hidden = this.tab_ !== 'bake';
+    if (this.tab_ === 'craft') this.paintTiles(this.craftViews, 'craft', null);
+    else {
+      this.paintTiles(this.bakeViews, 'bake', st);
+      this.paintFuel(st);
+    }
+    this.paintDetail();
+  }
+
+  private paintTiles(views: CardView[], tab: CraftTab, st: FurnaceState | null): void {
+    const vis = visibleCards(views);
+    const sel = pickSelection(vis, this.selected_[tab]);
+    this.selected_[tab] = sel;
+    const tiles = buildTiles(vis, sel, (id) => this.made(tab, id));
+    const shown = new Set(tiles.map((t) => t.id));
+    const grid = tab === 'craft' ? this.craftGrid : this.bakeGrid;
+    for (const c of views) this.tileEls.get(c.id)!.root.hidden = !shown.has(c.id);
+    // 作れる → 足りない の順に ならべる（同じ順なら DOM は動かさない）
+    tiles.forEach((t, i) => {
+      const r = this.tileEls.get(t.id)!.root;
+      if (grid.children[i] !== r) grid.insertBefore(r, grid.children[i] ?? null);
     });
-    c.queue.textContent = v.queued > 0 ? `あと ${v.queued}` : '';
-    c.bar.hidden = progress === null;
-    if (progress !== null) c.barFill.style.width = `${Math.round(Math.max(0, Math.min(1, progress)) * 100)}%`;
+    this.emptyMsg.hidden = tiles.length > 0;
+    let fingerOn: HTMLElement | null = null;
+    for (const t of tiles) {
+      const e = this.tileEls.get(t.id)!;
+      const r = e.root;
+      r.dataset.glow = String(t.glowing);
+      r.dataset.dim = String(t.dim);
+      r.dataset.made = String(t.made);
+      r.dataset.later = String(t.later);
+      r.dataset.selected = String(t.selected);
+      e.count.textContent = t.count >= 2 ? `×${t.count}` : '';
+      e.queue.textContent = t.queued > 0 ? `あと ${t.queued}` : '';
+      const progress = st?.current && st.current.id === t.id ? st.current.progress : null;
+      e.barFill.root.hidden = progress === null;
+      if (progress !== null) setBar(e.barFill, progress);
+      if (t.selected && t.glowing) fingerOn = r;
+    }
+    if (fingerOn) {
+      if (this.finger.parentElement !== fingerOn) fingerOn.append(this.finger);
+    } else this.finger.remove();
   }
 
   private paintFuel(st: FurnaceState | null): void {
@@ -336,38 +447,111 @@ export class CraftPanel {
     }
   }
 
+  // ---- せつめい パネル
+
+  /** 今の せつめい パネルの中身（出ていなければ null） */
+  detail(): DetailView | null {
+    if (!this.d.isOpen()) return null;
+    const tab = this.currentTab();
+    const views = visibleCards(this.views()[tab]);
+    const sel = views.find((c) => c.id === pickSelection(views, this.selected_[tab]));
+    if (!sel) return null;
+    const hov = this.hovered_ && !this.d.cursorHeld?.() ? views.find((c) => c.id === this.hovered_) : undefined;
+    const shown = hov ?? sel;
+    const countOf = (i: ItemId) => this.d.inv.count(i);
+    const fuelCounts: Record<string, number> = {};
+    for (const f of this.cfg.fuelOrder) fuelCounts[f] = countOf(f as ItemId);
+    return buildDetail({
+      shown,
+      selected: sel,
+      info: this.info_.info(shown.output.item),
+      bake: tab === 'bake',
+      fuelCounts: tab === 'bake' ? fuelCounts : null,
+      fuelNext: nextFuel(countOf, this.cfg),
+    });
+  }
+
+  private paintDetail(): void {
+    const d = this.detail();
+    const key = d ? JSON.stringify(d) : '';
+    if (key === this.detailKey) return;
+    this.detailKey = key;
+    renderDetail(this.detailEls, d, (i) => itemIconUrl(i));
+  }
+
+  /** マスにマウスを合わせた／外した（パネルの中は null と同じ）。同じステップで中身が替わる */
+  hover(id: string | null): void {
+    this.hovered_ = id && this.stationOf(id) ? id : null;
+    if (this.d.isOpen()) this.paintDetail();
+  }
+
   // ---- 押す
 
-  /** つくる のカードを押したのと同じ。閉じていれば `{ok:false, reason:'closed'}` */
+  /** マスを 1 回 クリックしたのと同じ（えらんでいなければ えらぶ、えらんでいれば つくる／やく） */
+  tileClick(id: string): TileClickResult {
+    const station = this.stationOf(id);
+    if (!this.d.isOpen()) return { action: 'select', ok: false, reason: 'closed' };
+    if (!station) return { action: 'select', ok: false, reason: 'unknown' };
+    if (!visibleCards(this.views()[station]).some((c) => c.id === id)) return { action: 'select', ok: false, reason: 'hidden' };
+    if (this.selected_[station] !== id) {
+      this.selected_[station] = id;
+      this.d.onSelect?.(id);
+      this.dirty = true;
+      this.sync();
+      return { action: 'select', ok: true, reason: null };
+    }
+    const r = this.click(id);
+    return { action: 'make', ok: r.ok, reason: r.reason };
+  }
+
+  /** せつめい パネルの つくる（やく）ボタン = えらんでいるマスを つくる */
+  detailPress(): CraftClickResult {
+    if (!this.d.isOpen()) return { ok: false, reason: 'closed' };
+    const tab = this.currentTab();
+    const id = pickSelection(visibleCards(this.views()[tab]), this.selected_[tab]);
+    if (!id) return { ok: false, reason: 'unknown' };
+    return this.click(id);
+  }
+
+  /** つくる のカードを押したのと同じ（すぐ つくる。えらぶ も そのマスに替わる）。閉じていれば `{ok:false, reason:'closed'}` */
   click(id: string): CraftClickResult {
     if (!this.d.isOpen()) return { ok: false, reason: 'closed' };
-    const isBake = this.bakeRecipes.some((r) => r.id === id);
-    const cardEls = (isBake ? this.bakeEls : this.craftEls).get(id);
+    const station = this.stationOf(id);
+    const isBake = station === 'bake';
+    const tile = this.tileEls.get(id);
+    if (station) this.selected_[station] = id;
     const r = this.d.craft.make(id);
+    this.dirty = true;
     if (r.ok) {
-      this.dirty = true;
-      if (cardEls) {
-        poyon(cardEls.root);
-        if (!isBake) this.flyEffects(id, cardEls);
-      }
-    } else if (cardEls) {
+      this.madeLocal.add(`${isBake ? 'bake' : 'craft'}:${id}`);
+      if (tile && !isBake) this.flyEffects(id, tile);
+    } else if (tile) {
       if (r.reason === 'full') this.d.onFull?.();
       else if (r.reason === 'noFuel') for (const f of this.fuelEls) shake(f.box);
-      else for (const m of cardEls.matEls) if (m.chip.dataset.red === 'true') shake(m.chip);
-      if (r.reason === 'missing' && cardEls.matEls.every((m) => m.chip.dataset.red !== 'true')) shake(cardEls.root);
+      else shake(tile.root);
+      shake(this.detailEls.button);
     }
+    if (this.open) this.sync();
     return { ok: r.ok, reason: r.reason };
   }
 
-  /** 材料がカードにすいこまれ、できたものが入ったマスへ飛ぶ（0.4 秒） */
-  private flyEffects(id: string, c: CardEls): void {
+  /** できたものが入ったマスへ飛ぶ（0.4 秒） */
+  private flyEffects(id: string, t: TileEls): void {
     const recipe = this.craftRecipes.find((r) => r.id === id);
     if (!recipe) return;
-    const cardRect = c.icon.getBoundingClientRect();
     const slot = this.d.slotElFor?.(recipe.output.item);
     const root = this.el.parentElement ?? this.el;
-    for (const m of c.matEls) fly(m.icon.src, m.icon.getBoundingClientRect(), cardRect, 220, root, 0.3);
-    if (slot) fly(c.icon.src, cardRect, slot.getBoundingClientRect(), 400, root, 0.6);
+    if (slot) fly(t.art.src, t.root.getBoundingClientRect(), slot.getBoundingClientRect(), 400, root, 0.6);
+  }
+
+  /** そのレシピの マスの DOM（B の演出の出どころ） */
+  tileElFor(recipe: string): HTMLElement | null {
+    return this.tileEls.get(recipe)?.root ?? null;
+  }
+
+  /** せつめい パネルの つくる ボタンの DOM（B の「できた！」ハンコの場所） */
+  buttonEl(): HTMLButtonElement {
+    return this.detailEls.button;
   }
 
   // ---- 窓口用
@@ -375,18 +559,25 @@ export class CraftPanel {
   /** `craft.ui()` の中身（つくれる マーク以外） */
   ui(): Omit<CraftUiState, 'hintVisible'> {
     const open = this.d.isOpen();
-    // 画面の更新を待たずに今の持ち物で作る
-    const craftViews = buildCards(this.craftRecipes, this.d.craft, this.d.inv);
+    const v = this.views();
     const st = this.furnaceState();
-    const queued: Record<string, number> = {};
-    for (const q of st?.queue ?? []) queued[q] = (queued[q] ?? 0) + 1;
-    const bakeViews = buildCards(this.bakeRecipes, this.d.craft, this.d.inv, { bake: true, queued, cfg: this.cfg });
+    void st;
+    const tab = open ? this.currentTab() : this.tab_;
+    const views = visibleCards(tab === 'bake' ? v.bake : v.craft);
+    const sel = pickSelection(views, this.selected_[tab]);
+    const tileRects: Record<string, Rect> = {};
+    if (open) for (const c of views) tileRects[c.id] = rectOf(this.tileEls.get(c.id)!.root);
     return {
       panelVisible: open,
-      tab: open && this.tab_ === 'bake' && this.furnacePos() ? 'bake' : open ? this.tab_ : 'craft',
+      tab,
       tabs: open ? (this.furnacePos() ? ['craft', 'bake'] : ['craft']) : this.tabs_,
-      cards: craftViews.map((v) => ({ id: v.id, glowing: v.glowing, redItems: v.redItems })),
-      bakeCards: bakeViews.map((v) => ({ id: v.id, glowing: v.glowing, redItems: v.redItems, queued: v.queued })),
+      cards: v.craft.map((c) => ({ id: c.id, glowing: c.glowing, redItems: c.redItems })),
+      bakeCards: v.bake.map((c) => ({ id: c.id, glowing: c.glowing, redItems: c.redItems, queued: c.queued })),
+      tiles: buildTiles(views, sel, (id) => this.made(tab, id)),
+      selected: sel,
+      detail: this.detail(),
+      detailRect: open ? rectOf(this.detailEls.root) : null,
+      tileRects,
     };
   }
 
@@ -400,3 +591,4 @@ export class CraftPanel {
     this.el.remove();
   }
 }
+

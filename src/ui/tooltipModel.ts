@@ -1,6 +1,7 @@
 import type { ItemId, Rarity, Recipe } from '../contracts';
 import { CRAFT_UI_SETTINGS, TOOL_NUMBERS, type CraftUiSettings, type ToolNumbers } from '../fx/craftConfig';
 import { RARITY_COLOR } from '../drops/rarity';
+import { ITEM_INFO } from '../craft/info/table';
 
 /** ツールチップの行につく小さな絵。アイテムの id か、かなづち・時計 */
 export type TooltipIcon = ItemId | 'hammer' | 'clock';
@@ -13,6 +14,8 @@ export interface TooltipData {
   lines: string[];
   /** lines と同じ数の絵 */
   icons: TooltipIcon[];
+  /** M6: 名前の下の「なにに つかう」の文（説明の表と同じ。見せるのは 1 行目まで） */
+  desc: string;
 }
 
 export interface TooltipDeps {
@@ -74,7 +77,7 @@ export function buildTooltip(item: ItemId, d: TooltipDeps): TooltipData {
   }
   if (recipes.some((r) => r.output.item === item && !r.works)) add('もうすぐ つかえる', 'clock');
   const rarity = d.rarityOf(item);
-  return { item, name: d.nameOf(item), rarity, stars: STARS[rarity], lines, icons };
+  return { item, name: d.nameOf(item), rarity, stars: STARS[rarity], lines, icons, desc: ITEM_INFO[item]?.use ?? '' };
 }
 
 /** ★ を数だけ並べた文字 */
