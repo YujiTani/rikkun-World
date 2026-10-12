@@ -160,6 +160,7 @@ class Rig {
         fixedDrop: (id) => (id === 'furnace' || id === 'kawara' || id === 'brick' ? 1 : null),
       },
       armor: {
+        canEquip: (item) => item === 'kabuto' || item === 'yoroi',
         tryEquip: (item) => {
           if (item !== 'kabuto' && item !== 'yoroi') return false;
           this.equipped.push(item);

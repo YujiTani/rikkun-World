@@ -8,6 +8,8 @@ import type { SoundFx, Tone } from './sound';
 export interface DigFxDeps {
   scene: THREE.Scene;
   dig: DigSystem;
+  /** true のあいだ ブロックの枠を出さない（妖怪をねらっているとき） */
+  hideBlockFocus?: () => boolean;
   sound: SoundFx;
   /** 人形（右うでを振る） */
   doll: { swing(): void; setDigging(on: boolean): void };
@@ -89,7 +91,7 @@ export class DigFx {
     const st = dig.state();
 
     // ねらいの枠
-    this.outline.show(this.enabled && target ? target.block : null);
+    this.outline.show(this.enabled && target && !this.d.hideBlockFocus?.() ? target.block : null);
     if (this.redLeft > 0) {
       this.redLeft -= dt;
       if (this.redLeft <= 0) this.outline.setRed(false);
