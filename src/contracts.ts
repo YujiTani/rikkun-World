@@ -82,6 +82,8 @@ export interface IslandInfo {
   /** 呼んだ時点の world で計算した戻る場所（M1-01 4-7） */
   spawn(): SpawnPoint;
   testArea(): TestArea;
+  /** M5: 地形の場所 */
+  regions(): WorldRegions;
 }
 
 /** 空の world に島を書きこむ */
@@ -380,6 +382,7 @@ export type CombatEvent =
   | { type: 'punchHit'; tick: number; yokaiId: number }
   | { type: 'punchMiss'; tick: number }
   | { type: 'playerHit'; tick: number; by: YokaiKind; amount: number; /** 防具でカットした（カキン） */ blocked?: boolean }
+  | { type: 'fallHurt'; tick: number; amount: number }
   | { type: 'regen'; tick: number; hp: number }
   | { type: 'death'; tick: number; dropped: number[] }
   | { type: 'respawn'; tick: number }
@@ -393,7 +396,7 @@ export interface PlayerCombat {
   /** むてきのこりステップ */
   invincibleTicks(): number;
   /** 妖怪の攻撃が当たった。むてきなどで受けなかったら false */
-  damage(amount: number, by: YokaiKind, from: Vec3): boolean;
+  damage(amount: number, by: YokaiKind, from: Vec3, kind?: DamageKind): boolean;
   /** 画面と音用（呼ぶと空になる）。テストの窓口用の列は別に持つ */
   drainEvents(): CombatEvent[];
 }
@@ -439,6 +442,9 @@ export interface CraftSystem {
   drainEvents(): CraftEvent[];
 }
 
+/** ダメージの種類: normal（かみつき・ふみつけ・たいあたり・たおれこみ・首）・ball（玉）・fall（落下） */
+export type DamageKind = 'normal' | 'ball' | 'fall';
+
 /** そうびの部位: あたま（かぶと）・からだ（よろい）・うで（こて）・あし（すねあて） */
 export type ArmorSlot = 'head' | 'body' | 'arms' | 'legs';
 
@@ -448,7 +454,7 @@ export interface ArmorSystem {
   /** 着られるアイテムなら着る（手に持っているものを着る・入れかえ）。着たら true */
   tryEquip(item: ItemId): boolean;
   /** 妖怪の攻撃を受けた。カットする量（体力の単位。ハート半分 = 1）を返す。受けるダメージ = max(1, 元 − カット) */
-  cut(): number;
+  cut(kind?: DamageKind): number;
 }
 
 export type ToolKind = 'hand' | 'pickaxe' | 'blade' | 'bow' | 'other';

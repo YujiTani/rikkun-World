@@ -95,8 +95,8 @@ describe('パンチの窓口（raycast / damage / occupies）', () => {
     const id = m.spawn('karakasa', 4.5, 9, 6.5, { ai: false });
     const hit = m.raycast({ x: 2.5, y: 10.62, z: 6.5 }, { x: 1, y: 0, z: 0 }, 3);
     expect(hit?.id).toBe(id);
-    expect(hit!.distance).toBeCloseTo(1.25, 5);
-    expect(m.raycast({ x: 2.5, y: 10.62, z: 6.5 }, { x: 1, y: 0, z: 0 }, 1)).toBeNull();
+    expect(hit!.distance).toBeCloseTo(0.95, 5); // 当たり箱 +0.3
+    expect(m.raycast({ x: 2.5, y: 10.62, z: 6.5 }, { x: 1, y: 0, z: 0 }, 0.9)).toBeNull();
     const from = { x: 2.5, y: 9, z: 6.5 };
     m.damage(id, 1, from);
     expect(m.list()[0]!.hp).toBe(3);
@@ -193,8 +193,12 @@ describe('AI（距離だけで動く）', () => {
     for (let x = 6; x <= 12; x++) for (let z = 0; z <= 12; z++) c.world.setBlock(x, 9, z, 'stone');
     c.player.position = { x: 9.5, y: 10, z: 6.5 };
     c.m.spawn('nurikabe', 3.5, 9, 6.5);
-    c.step(600);
-    expect(c.m.list()[0]!.position.y).toBeCloseTo(10, 2);
+    let maxY = 0;
+    for (let i = 0; i < 600; i++) {
+      c.step();
+      maxY = Math.max(maxY, c.m.list()[0]!.position.y); // たおれこみで足場がこわれることがあるので、のぼった高さを見る
+    }
+    expect(maxY).toBeCloseTo(10, 2);
   });
   it('水には入らない（からかさ）。ちょうちんは水の上を行く', () => {
     function sea(kind: YokaiKind) {
@@ -307,7 +311,7 @@ describe('AI（距離だけで動く）', () => {
       if (hit > 0) break;
     }
     expect(hit - start).toBe(89);
-    expect(n.combat.hits[0]!.amount).toBe(4);
+    expect(n.combat.hits[0]!.amount).toBe(16); // 4 の 4 倍
   });
   it('ちょうちん: 火の玉が出て、とどくとダメージ 1 で消える', () => {
     const { m, step, player, combat } = setup();
@@ -406,7 +410,7 @@ describe('ドロップ表', () => {
     const m2 = new YokaiManager({ world: s.world, time: s.time, getPlayer: () => s.player, combat: s.combat, inventory: full, seed: 3 });
     m2.config.yokaiAutoSpawn = false;
     const id = m2.spawn('nurikabe', 5.5, 9, 6.5, { ai: false });
-    for (let i = 0; i < 12; i++) m2.damage(id, 1, { x: 0, y: 9, z: 0 });
+    for (let i = 0; i < 48; i++) m2.damage(id, 1, { x: 0, y: 9, z: 0 });
     const d = m2.drainEvents().find((e) => e.type === 'defeat');
     expect(d && d.type === 'defeat' ? d.reward : -1).toBe(0);
   });
@@ -442,5 +446,228 @@ describe('ろくろくびの首・妖怪の体にふれる（M4 追加）', () =
     step(5);
     expect(combat.hits.length).toBe(n);
     expect(player.position.x).toBe(2.5);
+  });
+});
+
+describe('M5: 出る所と遠くの妖怪（AC18）', () => {
+  function bigSetup(water: boolean) {
+    const world = new ArrayVoxelWorld({ x: 128, y: 48, z: 128 });
+    for (let x = 0; x < 128; x++)
+      for (let z = 0; z < 128; z++) {
+        world.setBlock(x, 8, z, 'stone');
+        if (water) world.setBlock(x, 9, z, 'water');
+      }
+    const time = makeTime('night');
+    const player = { position: { x: 64.5, y: 9, z: 64.5 } };
+    const m = new YokaiManager({ world, time, getPlayer: () => player, combat: makeCombat(), inventory: makeInv(), seed: 7 });
+    m.config.yokaiWander = false;
+    return { m, player };
+  }
+  it('夜、ひらちでは出て、水平 12 以上はなれている', () => {
+    const { m, player } = bigSetup(false);
+    for (let i = 0; i < 3000; i++) m.update(1 / 60);
+    const list = m.list();
+    expect(list.length).toBeGreaterThan(0);
+    for (const y of list) {
+      const d = Math.hypot(y.position.x - player.position.x, y.position.z - player.position.z);
+      expect(d).toBeGreaterThanOrEqual(11.9);
+    }
+  });
+  it('みず の列には出ない', () => {
+    const { m } = bigSetup(true);
+    for (let i = 0; i < 3000; i++) m.update(1 / 60);
+    expect(m.list()).toHaveLength(0);
+  });
+  it('水平 64 より遠い妖怪は、次のステップで静かに消える（落とし物なし）', () => {
+    const { m, player } = bigSetup(false);
+    m.config.yokaiAutoSpawn = false;
+    const near = m.spawn('karakasa', player.position.x + 60, 9, player.position.z, { ai: false });
+    const far = m.spawn('karakasa', player.position.x + 65, 9, player.position.z, { ai: false });
+    m.drainEvents();
+    m.update(1 / 60);
+    const ids = m.list().map((y) => y.id);
+    expect(ids).toContain(near);
+    expect(ids).not.toContain(far);
+    expect(m.drainEvents().filter((e) => e.type === 'defeat')).toHaveLength(0);
+  });
+});
+
+describe('FIX-fall-reach: おりる・落下ダメージ・当たり判定', () => {
+  it('5 マスの段差の上から、下のプレイヤーへ歩いて降りてくる', () => {
+    const s = setup();
+    for (let x = 9; x <= 14; x++) for (let z = 0; z <= 12; z++) for (let y = 9; y <= 13; y++) s.world.setBlock(x, y, z, 'stone');
+    s.player.position = { x: 2.5, y: 9, z: 6.5 };
+    s.m.spawn('rokurokubi', 10.5, 14, 6.5);
+    let minY = 99;
+    for (let i = 0; i < 900; i++) {
+      s.step();
+      minY = Math.min(minY, s.m.list()[0]?.position.y ?? 99);
+    }
+    expect(minY).toBeCloseTo(9, 2);
+    expect(s.m.list()[0]!.hp).toBe(2); // 5 マス落ちて 2
+  });
+  it('おりると倒れる深さ・みず の上へは降りない（ちょうちん以外の歩く妖怪）', () => {
+    const s = setup();
+    for (let x = 9; x <= 14; x++) for (let z = 0; z <= 12; z++) for (let y = 9; y <= 20; y++) s.world.setBlock(x, y, z, 'stone');
+    s.player.position = { x: 2.5, y: 9, z: 6.5 };
+    s.m.spawn('rokurokubi', 10.5, 21, 6.5); // 12 マス = ダメージ 9 > 体力 4
+    s.step(900);
+    expect(s.m.list()[0]!.position.y).toBeCloseTo(21, 2);
+  });
+  it('落下ダメージ: 3 マスで 0・5 マスで 2・みず で 0', () => {
+    const fall = (y: number, water = false) => {
+      const s = setup();
+      if (water) for (let yy = 9; yy <= 12; yy++) s.world.setBlock(5, yy, 5, 'water');
+      s.m.spawn('rokurokubi', 5.5, y, 5.5, { ai: false });
+      s.step(120);
+      return s.m.list()[0]!.hp;
+    };
+    expect(fall(12)).toBe(4);
+    expect(fall(14)).toBe(2);
+    expect(fall(18, true)).toBe(4);
+  });
+  it('落下で倒れたらドロップ・経験値なし（defeat は出る）', () => {
+    const s = setup();
+    let xp = 0;
+    const m = new YokaiManager({ world: s.world, time: s.time, getPlayer: () => s.player, combat: s.combat, inventory: s.inv, seed: 3, onDefeat: () => xp++ });
+    m.config.yokaiAutoSpawn = false;
+    m.spawn('rokurokubi', 5.5, 20, 5.5, { ai: false });
+    for (let i = 0; i < 120; i++) m.update(1 / 60);
+    expect(m.drainEvents().filter((e) => e.type === 'defeat')).toHaveLength(1);
+    expect(xp).toBe(0);
+    expect(s.inv.added).toHaveLength(0);
+  });
+  it('からかさ: ゆらゆら（2 マス/秒 以下・横にゆれる）落ちて、ダメージなし', () => {
+    const s = setup();
+    const id = s.m.spawn('karakasa', 20.5, 20, 20.5, { ai: false });
+    expect(id).toBeGreaterThan(0);
+    let prev = s.m.list()[0]!.position;
+    let maxDrop = 0;
+    let minX = 99;
+    let maxX = -99;
+    for (let i = 0; i < 400 && s.m.list()[0]!.position.y > 9.001; i++) {
+      s.step();
+      const p = s.m.list()[0]!.position;
+      maxDrop = Math.max(maxDrop, prev.y - p.y);
+      minX = Math.min(minX, p.x);
+      maxX = Math.max(maxX, p.x);
+      prev = p;
+    }
+    expect(maxDrop).toBeLessThanOrEqual(2 / 60 + 1e-6);
+    expect(maxX - minX).toBeGreaterThan(0.8);
+    s.step(20);
+    expect(s.m.list()[0]!.hp).toBe(4);
+    expect(s.m.list()[0]!.position.y).toBeCloseTo(9, 2);
+  });
+  it('みず: ろくろくびは中まで追いかける・からかさは入らない。中では速さ ×0.5', () => {
+    const pond = (kind: YokaiKind, water: boolean) => {
+      const s = setup();
+      if (water) for (let x = 0; x <= 30; x++) for (let z = 0; z <= 12; z++) for (let y = 9; y <= 10; y++) s.world.setBlock(x, y, z, 'water');
+      s.player.position = { x: 17.5, y: 9, z: 6.5 };
+      s.m.spawn(kind, 6.5, 9, 6.5);
+      s.step(90);
+      return s.m.list()[0]!.position.x - 6.5;
+    };
+    const dry = pond('rokurokubi', false);
+    const wet = pond('rokurokubi', true);
+    expect(dry).toBeGreaterThan(1.2);
+    expect(wet / dry).toBeGreaterThan(0.4);
+    expect(wet / dry).toBeLessThan(0.65);
+    expect(pond('karakasa', true)).toBeLessThan(0.1);
+  });
+  it('攻撃を受ける判定: 当たり箱が 0.3 大きい（前は外れた位置で当たる）', () => {
+    const s = setup();
+    const id = s.m.spawn('karakasa', 4.5, 9, 6.5, { ai: false });
+    // 箱の横は ±0.75。0.9 はなれた線も当たる、1.1 は外れる
+    expect(s.m.raycast({ x: 2.5, y: 10.6, z: 7.4 }, { x: 1, y: 0, z: 0 }, 4)?.id).toBe(id);
+    expect(s.m.raycast({ x: 2.5, y: 10.6, z: 7.6 }, { x: 1, y: 0, z: 0 }, 4)).toBeNull();
+    // 上: 箱の上は 1.8。2.0 の高さも当たる
+    expect(s.m.raycast({ x: 2.5, y: 10.95, z: 6.5 }, { x: 1, y: 0, z: 0 }, 4)?.id).toBe(id);
+  });
+  it('置く・ぶつかりの箱は広げない', () => {
+    const s = setup();
+    s.m.spawn('karakasa', 4.5, 9, 6.5, { ai: false });
+    expect(s.m.occupies(5, 9, 6)).toBe(true); // 箱は x 3.75〜5.25
+    expect(s.m.occupies(5, 9, 8)).toBe(false);
+    expect(s.m.occupies(6, 9, 6)).toBe(false);
+  });
+});
+
+describe('FIX-fall-reach: ぬりかべ', () => {
+  it('体力 48・のけぞらない（ノックバック 0）', () => {
+    const s = setup();
+    const id = s.m.spawn('nurikabe', 10.5, 9, 10.5, { ai: false });
+    expect(s.m.list()[0]!.maxHp).toBe(48);
+    for (let i = 0; i < 47; i++) s.m.damage(id, 1, { x: 10.5, y: 9, z: 6.5 });
+    s.step(30);
+    expect(s.m.list()[0]!.position.z).toBeCloseTo(10.5, 3);
+    expect(s.m.list()[0]!.state).not.toBe('dying');
+    s.m.damage(id, 1, { x: 10.5, y: 9, z: 6.5 });
+    expect(s.m.list()[0]!.state).toBe('dying');
+  });
+  it('たおれこみで前のブロック（木・石・つち）とした 1 段がこわれる。start_torch・みず・y=0 はこわれない', () => {
+    const s = setup();
+    const broken: Array<{ x: number; y: number; z: number }> = [];
+    const m = new YokaiManager({
+      world: s.world, time: s.time, getPlayer: () => s.player, combat: s.combat, inventory: s.inv, seed: 1,
+      onBlocks: (cells) => broken.push(...cells),
+    });
+    m.config.yokaiAutoSpawn = false;
+    m.config.yokaiWander = false;
+    s.world.setBlock(10, 9, 9, 'log');
+    s.world.setBlock(11, 9, 8, 'stone');
+    s.world.setBlock(10, 9, 8, 'dirt');
+    s.world.setBlock(9, 9, 9, 'start_torch');
+    s.world.setBlock(11, 9, 9, 'water');
+    s.world.setBlock(10, 0, 9, 'stone');
+    s.player.position = { x: 10.5, y: 9, z: 8.5 };
+    m.spawn('nurikabe', 10.5, 9, 10.5, { yawDeg: 0 });
+    for (let i = 0; i < 200; i++) m.update(1 / 60);
+    expect(s.world.getBlock(10, 9, 9)).toBe('air');
+    expect(s.world.getBlock(11, 9, 8)).toBe('air');
+    expect(s.world.getBlock(10, 9, 8)).toBe('air');
+    expect(s.world.getBlock(10, 8, 9)).toBe('air'); // 真下 1 段
+    expect(s.world.getBlock(9, 9, 9)).toBe('start_torch');
+    expect(s.world.getBlock(11, 9, 9)).toBe('water');
+    expect(s.world.getBlock(10, 0, 9)).toBe('stone');
+    expect(broken.length).toBeGreaterThan(4);
+    expect(s.inv.added).toHaveLength(0); // 落とし物にならない
+  });
+  function pondRig() {
+    const s = setup();
+    let xp = 0;
+    for (let x = 6; x <= 14; x++) for (let z = 8; z <= 13; z++) for (let y = 9; y <= 12; y++) s.world.setBlock(x, y, z, 'water');
+    const m = new YokaiManager({
+      world: s.world, time: s.time, getPlayer: () => s.player, combat: s.combat, inventory: s.inv, seed: 1,
+      onDefeat: () => xp++,
+    });
+    m.config.yokaiAutoSpawn = false;
+    return { s, m, xp: () => xp };
+  }
+  it('みず の中で 180 ステップ → 石ブロックになり、経験値も出る。水以外は上書きしない', () => {
+    const { s, m, xp } = pondRig();
+    s.world.setBlock(9, 10, 10, 'dirt');
+    m.spawn('nurikabe', 10.5, 9, 10.5, { ai: false });
+    for (let i = 0; i < 179; i++) m.update(1 / 60);
+    expect(m.list()).toHaveLength(1);
+    expect(m.list()[0]!.state).not.toBe('dying');
+    m.update(1 / 60);
+    expect(m.list()).toHaveLength(0);
+    expect(xp()).toBe(1);
+    expect(s.world.getBlock(10, 9, 10)).toBe('stone');
+    expect(s.world.getBlock(11, 11, 10)).toBe('stone');
+    expect(s.world.getBlock(9, 10, 10)).toBe('dirt');
+    expect(s.world.getBlock(10, 12, 10)).toBe('water');
+    expect(s.world.getBlock(10, 9, 12)).toBe('water');
+  });
+  it('途中で みず から出るともどる', () => {
+    const { s, m } = pondRig();
+    m.spawn('nurikabe', 10.5, 9, 10.5, { ai: false });
+    for (let i = 0; i < 90; i++) m.update(1 / 60);
+    for (let y = 9; y <= 12; y++) s.world.setBlock(10, y, 10, 'air');
+    for (let y = 9; y <= 12; y++) for (const x of [9, 11]) s.world.setBlock(x, y, 10, 'air');
+    for (let i = 0; i < 300; i++) m.update(1 / 60);
+    expect(m.list()).toHaveLength(1);
+    expect(s.world.getBlock(10, 9, 10)).toBe('air');
   });
 });

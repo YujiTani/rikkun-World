@@ -113,6 +113,7 @@ const seed = readSeed();
 const island = generateIsland(seed, world);
 const baseline = snapshotWorld(world);
 const renderer = new WorldRenderer(world);
+renderer.setViewer(island.spawn().x, island.spawn().z);
 renderer.attach(game.scene);
 const lighting = new Lighting();
 const sceneBefore = new Set(game.scene.children);
@@ -254,6 +255,11 @@ yokaiManager = new YokaiManager({
   seed,
   light: renderer.light,
   onDefeat: (kind) => level.onDefeat(kind),
+  // ぬりかべ: たおれこみでこわす・みず で石になる（くだけるつぶと音。fx はあとで作るので関数で包む）
+  onBlocks: (cells, why) => {
+    for (const c of cells) fx.particles.burst({ x: c.x, y: c.y, z: c.z }, why === 'stone' ? c.to : c.from, FX_SETTINGS);
+    fxSound.play('break');
+  },
 });
 game.scene.add(yokaiManager.group);
 const yokaiM = yokaiManager;
@@ -447,7 +453,7 @@ game.onUpdate((dt) => {
   hotbar.update();
   inventoryScreen.update();
   notice.update(dt);
-  renderer.update();
+  renderer.update({ x: game.camera.position.x, z: game.camera.position.z });
   save.update(game.tick + 1);
 });
 game.onUpdate((dt) => overlay.update(dt));
@@ -472,6 +478,7 @@ const lockHook = createLockHook(lock);
 const combatHook = createCombatHook(combat);
 installTestHook(game, overlay, {
   world: createWorldHook(world, renderer, island),
+  render: { chunks: () => renderer.chunkStats() },
   player: { ...createPlayerHook(controller), doll: cameraHook.doll } as unknown as TestHookGroups['player'],
   ...createDigHook(dig),
   inventory: createInventoryHook(inventory, screen, { ...createPickupHook(craft), ...craftUiHook.inventory }),
@@ -504,6 +511,9 @@ installTestHook(game, overlay, {
       FX_SETTINGS,
       sharedSettingsView('knockback', [combat.config, yokaiM.config]),
       sharedSettingsView('yokaiLeaveTicks', [timeSettings, yokaiM.config]),
+      sharedSettingsView('safeFallHeight', [combat.config, yokaiM.config]),
+      sharedSettingsView('fallDamagePerBlock', [combat.config, yokaiM.config]),
+      sharedSettingsView('waterSpeedMul', [controller.settings, yokaiM.config]),
       combat.config,
       yokaiM.config,
       timeSettings,

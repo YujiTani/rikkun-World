@@ -6,22 +6,22 @@ import { YOKAI_STATS } from '../stats';
 const FACE = [
   '................',
   '................',
-  '................',
-  '................',
-  '....KK....KK....',
-  '....KK....KK....',
-  '....KK....KK....',
+  '..KKK......KKK..',
+  '....KKK..KKK....',
+  '...WWWW..WWWW...',
+  '...WKKW..WKKW...',
+  '...WWWW..WWWW...',
   '................',
   '..PP........PP..',
-  '................',
-  '....K......K....',
-  '.....KKKKKK.....',
-  '................',
+  '...KKKKKKKKKK...',
+  '...KWKWKWKWKK...',
+  '...KWKWKWKWKK...',
+  '...KKKKKKKKKK...',
   '................',
   '................',
   '................',
 ];
-const FACE_CLOSED = makeBlinkRows(FACE, [4, 5, 6], 5, '.', 'K');
+const FACE_CLOSED = makeBlinkRows(FACE, [4, 5, 6], 5, '.', 'WK');
 
 const PATTERN = [
   'SSSSSSSSSSSSSSSS',

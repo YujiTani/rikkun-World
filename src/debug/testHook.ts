@@ -13,6 +13,7 @@ import type { createToolHook } from '../tools';
 import type { createLevelHook } from '../level';
 import type { createYokaiHook } from '../yokai';
 import type { WorldHook } from '../world/hook';
+import type { ChunkStats } from '../world/render/WorldRenderer';
 import type { PerfOverlay } from './perfOverlay';
 
 type CameraHook = ReturnType<typeof createCameraHook>;
@@ -36,6 +37,8 @@ export interface TestHook {
   renderStats(): RenderStats;
   perfOverlayVisible(): boolean;
   world: WorldHook;
+  /** M5: 距離で描くチャンクの数 */
+  render: { chunks(): ChunkStats };
   player: PlayerHook;
   camera: CameraHook['camera'];
   input: ReturnType<typeof createInputHook>;
@@ -63,7 +66,7 @@ declare global {
   }
 }
 
-export type TestHookGroups = Pick<TestHook, 'world' | 'player' | 'camera' | 'input' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'level'>;
+export type TestHookGroups = Pick<TestHook, 'world' | 'render' | 'player' | 'camera' | 'input' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'level'>;
 
 export function installTestHook(game: Game, overlay: PerfOverlay, groups: TestHookGroups): void {
   window.__rikkun = {

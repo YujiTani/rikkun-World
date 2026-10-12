@@ -32,7 +32,56 @@ function rig() {
 }
 
 describe('DropField', () => {
-  it('妖怪のドロップは小さく散って止まり、kind が yokai', () => {
+  it('同じ所から 6 こ出すと 着地点が ぜんぶちがい、となりと 0.5 マス以上はなれる・かべの中に入らない', () => {
+    const r = rig();
+    for (let x = 6; x <= 14; x++) for (let z = 6; z <= 14; z++) if (x === 6 || x === 14 || z === 6 || z === 14) for (let y = 9; y < 12; y++) r.world.setBlock(x, y, z, 'stone');
+    const stacks = Array.from({ length: 6 }, (_, i) => ({ item: i % 2 ? ('dirt' as const) : ('stone' as const), count: 1 }));
+    r.f.scatter({ x: 10.5, y: 9, z: 10.5 }, stacks);
+    for (let i = 0; i < 240; i++) r.f.update(false);
+    const l = r.f.list();
+    expect(l).toHaveLength(6);
+    const pts = l.map((d) => d.position);
+    for (let i = 0; i < 6; i++) {
+      expect(r.world.isSolid(Math.floor(pts[i]!.x), Math.floor(pts[i]!.y + 0.3), Math.floor(pts[i]!.z))).toBe(false);
+      expect(l[i]!.resting).toBe(true);
+      for (let j = i + 1; j < 6; j++) expect(Math.hypot(pts[i]!.x - pts[j]!.x, pts[i]!.z - pts[j]!.z)).toBeGreaterThan(0.5);
+    }
+  });
+
+  it('ぴょんと はねる（1〜2 回）・出てから 0.3 秒は拾わない・とんでいるあいだは resting=false', () => {
+    const r = rig();
+    r.player.x = 10.5;
+    r.player.y = 9;
+    r.player.z = 10.5;
+    r.f.scatter({ x: 10.5, y: 9, z: 10.5 }, [{ item: 'dirt', count: 1 }]);
+    for (let i = 0; i < DROP.pickupDelay - 1; i++) {
+      r.f.update(true);
+      expect(r.inv.count('dirt')).toBe(0);
+    }
+    expect(r.f.list()[0]!.resting).toBe(false);
+    // 着地のあとに 上向きの速さが もう一度出る = はねた
+    let ups = 0;
+    let prevY = 0;
+    let wasDown = false;
+    const r2 = rig();
+    r2.f.scatter({ x: 10.5, y: 9, z: 10.5 }, [{ item: 'dirt', count: 1 }]);
+    for (let i = 0; i < 200; i++) {
+      r2.f.update(false);
+      const y = r2.f.list()[0]!.position.y;
+      if (y < prevY) wasDown = true;
+      else if (y > prevY + 1e-6 && wasDown) {
+        ups++;
+        wasDown = false;
+      }
+      prevY = y;
+    }
+    expect(ups).toBeGreaterThanOrEqual(1);
+    expect(ups).toBeLessThanOrEqual(2);
+    for (let i = 0; i < 30; i++) r.f.update(true);
+    expect(r.inv.count('dirt')).toBe(1);
+  });
+
+  it('妖怪のドロップも散って止まる（kind yokai）', () => {
     const r = rig();
     const n = r.f.scatter({ x: 10.5, y: 9, z: 10.5 }, [{ item: 'dirt', count: 2 }, { item: 'stone', count: 1 }], { kind: 'yokai' });
     expect(n).toBe(3);
@@ -41,7 +90,7 @@ describe('DropField', () => {
     expect(l).toHaveLength(2);
     for (const d of l) {
       expect(d.position.y).toBe(9);
-      expect(Math.hypot(d.position.x - 10.5, d.position.z - 10.5)).toBeLessThanOrEqual(1.8);
+      expect(Math.hypot(d.position.x - 10.5, d.position.z - 10.5)).toBeLessThanOrEqual(6);
     }
   });
 
