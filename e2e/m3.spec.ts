@@ -457,8 +457,8 @@ test.describe('M3 妖怪の攻撃とダメージ', () => {
       expect(r3.hpNow).toBe(sc.hp);
       // 同じ攻撃で 2 回へらない（playerHit は 1 回だけ）
       expect(r3.cev.filter((e: any) => e.type === 'playerHit').length).toBe(1);
-      expect(r3.moved).toBeGreaterThan(0.9);
-      expect(r3.moved).toBeLessThan(1.1);
+      expect(r3.moved).toBeGreaterThan(1.7); // ノックバック 1.8
+      expect(r3.moved).toBeLessThan(1.9);
     });
   }
 });
@@ -515,7 +515,7 @@ test.describe('M3 プレイヤーの攻撃（パンチ）', () => {
       return { x: T.one(id).position.x, hp: T.one(id).hp };
     });
     expect(r3.x).toBeCloseTo(4.5, 2);
-    expect(r3.hp).toBe(5);
+    expect(r3.hp).toBe(11); // ぬりかべ 体力 12
   });
 
   test('AC17: 押しっぱなしで 30・60・90・120 ステップ目に当たり 4 回でたおれる。ドロップ表で入る', async ({ page }) => {
@@ -524,7 +524,7 @@ test.describe('M3 プレイヤーの攻撃（パンチ）', () => {
       const T = (window as any).T;
       const h = (window as any).__rikkun;
       const out: any = {};
-      const kinds: Record<string, number> = { karakasa: 4, chochin: 2, rokurokubi: 4, nurikabe: 6 };
+      const kinds: Record<string, number> = { karakasa: 4, chochin: 2, rokurokubi: 4, nurikabe: 12 };
       for (const kind of Object.keys(kinds)) {
         T.base();
         h.world.fill(0, 8, 0, 20, 8, 12, 'stone');
@@ -538,7 +538,7 @@ test.describe('M3 プレイヤーの攻撃（パンチ）', () => {
         let removeAt = -1;
         let dropEv: any[] = [];
         let size36: number | null = null;
-        for (let i = 1; i <= 400; i++) {
+        for (let i = 1; i <= 520; i++) {
           h.step(1);
           for (const e of h.combat.events()) if (e.type === 'punchHit') hits.push(i);
           for (const e of h.yokai.events()) {
@@ -553,7 +553,7 @@ test.describe('M3 プレイヤーの攻撃（パンチ）', () => {
           if (removeAt > 0) break;
         }
         h.input.release('primary');
-        out[kind] = { hits: hits.slice(0, 7), defeatAt, removeAt, dropEv, size36, need: kinds[kind] };
+        out[kind] = { hits: hits.slice(0, 13), defeatAt, removeAt, dropEv, size36, need: kinds[kind] };
       }
       return out;
     });

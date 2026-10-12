@@ -224,6 +224,15 @@ describe('持つ道具・防具の見た目', () => {
     t.rig.doll.setArmor(null, null);
     expect(t.rig.doll.armorWorn('body')).toBeNull();
   });
+  it('こて（うで）・すねあて（あし）も着られる', () => {
+    const t = setup();
+    t.rig.doll.setArmor('kabuto', 'yoroi', 'kote', 'suneate');
+    expect(t.rig.doll.armorWorn('arms')).toBe('kote');
+    expect(t.rig.doll.armorWorn('legs')).toBe('suneate');
+    expect(t.hook.doll().armor).toEqual({ head: 'kabuto', body: 'yoroi', arms: 'kote', legs: 'suneate' });
+    t.rig.doll.setArmor('kabuto', 'yoroi', null, null);
+    expect(t.rig.doll.armorWorn('arms')).toBeNull();
+  });
 });
 
 describe('飛ぶ や の見た目', () => {

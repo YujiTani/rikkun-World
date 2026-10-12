@@ -19,6 +19,6 @@ export interface YokaiStats {
 export const YOKAI_STATS = {
   karakasa: { hp: 4, damageHearts: 1, hitSeconds: 0.5, attackSeconds: 1.2, reach: 2.5, speed: 1.5, cooldownSeconds: 2.0 },
   chochin: { hp: 2, damageHearts: 1, hitSeconds: 0.5, attackSeconds: 0.8, reach: 8, speed: 1.0, cooldownSeconds: 3.0 },
-  nurikabe: { hp: 6, damageHearts: 2, hitSeconds: 1.5, attackSeconds: 4.0, reach: 3, speed: 0.5, cooldownSeconds: 2.0 },
-  rokurokubi: { hp: 4, damageHearts: 1, hitSeconds: 0.5, attackSeconds: 1.6, reach: 6, speed: 1.0, cooldownSeconds: 2.5 },
+  nurikabe: { hp: 12, damageHearts: 2, hitSeconds: 1.5, attackSeconds: 4.0, reach: 3, speed: 0.5, cooldownSeconds: 2.0 },
+  rokurokubi: { hp: 4, damageHearts: 1, hitSeconds: 0.5, attackSeconds: 1.6, reach: 8, speed: 1.0, cooldownSeconds: 2.5 },
 } as const satisfies Record<string, YokaiStats>;

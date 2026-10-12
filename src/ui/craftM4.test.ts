@@ -49,9 +49,9 @@ function fakeCraft(counts: Record<string, number>) {
   };
 }
 
-describe('M4 のアイテムの絵（22 こ。ブロック 3 つは ブロックの絵）', () => {
-  it('19 こすべて 16x16 で、ふちがあり、ぜんぶちがう絵', () => {
-    expect(M4_ITEMS).toHaveLength(19);
+describe('M4 のアイテムの絵（24 こ。ブロック 3 つは ブロックの絵）', () => {
+  it('21 こすべて 16x16 で、ふちがあり、ぜんぶちがう絵', () => {
+    expect(M4_ITEMS).toHaveLength(21);
     const seen = new Set<string>();
     for (const it of M4_ITEMS) {
       const p = m4ItemPixels(it);
@@ -60,7 +60,7 @@ describe('M4 のアイテムの絵（22 こ。ブロック 3 つは ブロック
       expect(itemIconPixels(it)).toEqual(p);
       seen.add(JSON.stringify(p));
     }
-    expect(seen.size).toBe(19);
+    expect(seen.size).toBe(21);
     expect(hammerPixels()).toHaveLength(256);
     expect(clockPixels()).toHaveLength(256);
   });

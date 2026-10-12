@@ -56,6 +56,7 @@ const NECK_BASE_Y = 1.0;
 const NECK_REST = NODES * NODE_LEN;
 /** あたまの中心は あたま の原点の 0.25 上 */
 const HEAD_CENTER = 0.25;
+const BENT_NODES = 16;
 const HEAD_TARGET_Y = 1.3; // プレイヤーの足もと +1.3
 
 /** ろくろくび（首をのばして かみつく）。設計書 7 章 */
@@ -75,6 +76,18 @@ export class Rokurokubi extends YokaiBase {
   /** 攻撃を始めた時点のねらい（あたまの中心がめざす所、root から見た位置） */
   private readonly target = new THREE.Vector3();
   private readonly tmp = new THREE.Vector3();
+  private readonly tmp2 = new THREE.Vector3();
+  /** 首の曲がり角（root から見た位置。まっすぐなら空） */
+  private route: THREE.Vector3[] = [];
+  private readonly bentBoxes: THREE.Mesh[] = [];
+  /** 曲がった首の節（つけ根から あたまの根もとまで BENT_NODES + 1 こ） */
+  private readonly bentPts: THREE.Vector3[] = [];
+  private bentOn = false;
+  private readonly poly: THREE.Vector3[] = [];
+  private readonly polyStart = new THREE.Vector3();
+  private readonly polyEnd = new THREE.Vector3();
+  private readonly upVec = new THREE.Vector3(0, 1, 0);
+  private polyLen = 0;
 
   constructor() {
     super();
@@ -114,7 +127,107 @@ export class Rokurokubi extends YokaiBase {
     this.addBox(this.head, 0.25, 0.2, 0.25, [0, 0.6, 0.05], dark, k);
     const pin = this.addBox(this.head, 0.4, 0.04, 0.04, [0, 0.62, 0.05], this.mat(0xff7a9a), 0xff7a9a);
     pin.rotation.z = 20 * DEG;
+    for (let i = 0; i <= BENT_NODES; i++) this.bentPts.push(new THREE.Vector3(0, NECK_BASE_Y, 0));
+    for (let i = 0; i < BENT_NODES; i++) {
+      const m = this.addBox(this.body, 0.14, 1, 0.14, [0, NECK_BASE_Y, 0], this.mat(SKIN), SKIN);
+      m.visible = false;
+      this.bentBoxes.push(m);
+    }
     this.finish();
+  }
+
+  /** 首の曲がり角を渡す（root から見た位置。[] ならまっすぐ）。attack() の前に呼ぶ */
+  setNeckRoute(corners: ReadonlyArray<{ x: number; y: number; z: number }>): void {
+    this.route.length = 0;
+    for (const c of corners) this.route.push(new THREE.Vector3(c.x, c.y, c.z));
+  }
+
+  /** 曲がった首の節の位置（root から見た位置）。テスト用。曲がっていないときは空 */
+  neckNodes(): THREE.Vector3[] {
+    return this.bentOn ? this.bentPts.map((p) => p.clone()) : [];
+  }
+
+  /** 首が曲がって のびているか */
+  neckBent(): boolean {
+    return this.bentOn;
+  }
+
+  private setBent(on: boolean): void {
+    if (on === this.bentOn) return;
+    this.bentOn = on;
+    this.nodes[0]!.visible = !on;
+    for (const b of this.bentBoxes) b.visible = on;
+    if (on) {
+      this.body.add(this.head);
+      this.head.rotation.set(0, 0, 0);
+    } else {
+      this.nodes[NODES - 1]!.add(this.head);
+      this.head.position.set(0, NODE_LEN, 0);
+    }
+  }
+
+  private pointAt(s: number, out: THREE.Vector3): THREE.Vector3 {
+    let left = Math.max(0, Math.min(this.polyLen, s));
+    for (let i = 0; i + 1 < this.poly.length; i++) {
+      const a = this.poly[i]!;
+      const b = this.poly[i + 1]!;
+      const l = a.distanceTo(b);
+      if (left <= l || i + 2 === this.poly.length) return out.copy(a).lerp(b, l > 1e-9 ? Math.min(1, left / l) : 0);
+      left -= l;
+    }
+    return out.copy(this.poly[0]!);
+  }
+
+  private poseBent(t: number): void {
+    const target = this.target;
+    this.poly.length = 0;
+    this.polyStart.set(0, NECK_BASE_Y, 0);
+    this.poly.push(this.polyStart);
+    for (const c of this.route) this.poly.push(c);
+    this.polyEnd.set(target.x, target.y - HEAD_CENTER, target.z);
+    this.poly.push(this.polyEnd);
+    this.polyLen = 0;
+    for (let i = 0; i + 1 < this.poly.length; i++) this.polyLen += this.poly[i]!.distanceTo(this.poly[i + 1]!);
+    let phi: number;
+    let k: number;
+    if (t < 0.3) {
+      phi = (20 * DEG * t) / 0.3;
+      k = 0;
+    } else if (t < 0.5) {
+      phi = 20 * DEG;
+      k = (t - 0.3) / 0.2;
+    } else if (t < 1.0) {
+      phi = 20 * DEG;
+      k = 1;
+    } else {
+      const r = Math.min(1, (t - 1.0) / 0.6);
+      phi = 20 * DEG * (1 - r);
+      k = 1 - r;
+    }
+    this.setBent(true);
+    const q = this.tmp;
+    for (let i = 0; i <= BENT_NODES; i++) {
+      const a = (NECK_REST * i) / BENT_NODES;
+      this.pointAt((this.polyLen * i) / BENT_NODES, q);
+      const rx = 0;
+      const ry = NECK_BASE_Y + a * Math.cos(phi);
+      const rz = a * Math.sin(phi);
+      this.bentPts[i]!.set(rx + (q.x - rx) * k, ry + (q.y - ry) * k, rz + (q.z - rz) * k);
+    }
+    const up = this.upVec;
+    const d = this.tmp2;
+    for (let i = 0; i < BENT_NODES; i++) {
+      const a = this.bentPts[i]!;
+      const b = this.bentPts[i + 1]!;
+      d.copy(b).sub(a);
+      const len = d.length();
+      const box = this.bentBoxes[i]!;
+      box.position.copy(a).addScaledVector(d, 0.5);
+      box.scale.y = Math.max(len + 0.03, 1e-4);
+      if (len > 1e-6) box.quaternion.setFromUnitVectors(up, d.multiplyScalar(1 / len));
+    }
+    this.head.position.copy(this.bentPts[BENT_NODES]!);
+    this.head.rotation.set(0, 0, 0);
   }
 
   protected onAttackStart(): void {
@@ -184,6 +297,7 @@ export class Rokurokubi extends YokaiBase {
       this.sleeveL.rotation.x = s;
       this.sleeveR.rotation.x = -s;
     }
+    if (p.attackT < 0 || this.route.length === 0) this.setBent(false);
     if (p.attackT < 0) {
       this.setScary(false);
       this.setNeckVec(0, NECK_REST, 0);
@@ -196,6 +310,10 @@ export class Rokurokubi extends YokaiBase {
     const t = p.attackT;
     // 怖い顔は 0〜1.0 秒（1.0〜1.1 で ふだんの顔にもどす）
     this.setScary(t < 1.05);
+    if (this.route.length > 0) {
+      this.poseBent(t);
+      return;
+    }
     const yaw = Math.atan2(-this.target.x, -this.target.z);
     // あたまの根もとの、つけ根からの位置: 前 s・上 dy
     const hx = Math.hypot(this.target.x, this.target.z);
@@ -225,6 +343,7 @@ export class Rokurokubi extends YokaiBase {
   }
 
   protected poseDie(p: number): void {
+    this.setBent(false);
     // 首がちぢんで あたまが からだにのる
     const sy = 1 - 0.9 * p;
     for (let i = 0; i < NODES; i++) {

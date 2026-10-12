@@ -24,6 +24,8 @@ import { DropField } from './drops';
 import { Lighting, Sky } from './sky';
 import { TimeOfDayImpl, createTimeHook } from './time';
 import { YokaiManager, createYokaiHook } from './yokai';
+import { LevelSystem, createLevelHook } from './level';
+import { LevelHud } from './ui/levelHud';
 import { createRng } from './world/gen/random';
 import { FX_SETTINGS } from './fx/config';
 import { SoundFx } from './fx/sound';
@@ -177,6 +179,12 @@ const drops = new DropField({
   onPickup: (item, count) => onDropPicked(item, count),
 });
 let yokaiManager: YokaiManager | null = null;
+// 経験値とレベル（妖怪をたおすと入る。レベルアップでハート全回復）
+const level = new LevelSystem({
+  tick: () => game.tick,
+  requestSave: () => requestSave(),
+  onLevelUp: () => combat.healFull(),
+});
 const armor = new ArmorSystemImpl(inventory, craftConfig);
 const craft = new CraftSystemImpl({ world, inventory, drops, requestSave: () => requestSave(), config: craftConfig });
 const tools = new ToolSystemImpl({
@@ -230,6 +238,9 @@ const dig = new DigSystemImpl(
     },
     armor,
     onPickup: (item, count) => craft.notifyPickup(item, count),
+    scatterItem: (pos, item, count) => {
+      drops.scatter(pos, [{ item, count }], { kind: 'yokai' });
+    },
   },
 );
 yokaiManager = new YokaiManager({
@@ -242,6 +253,7 @@ yokaiManager = new YokaiManager({
   tick: () => game.tick + 1,
   seed,
   light: renderer.light,
+  onDefeat: (kind) => level.onDefeat(kind),
 });
 game.scene.add(yokaiManager.group);
 const yokaiM = yokaiManager;
@@ -266,6 +278,7 @@ arrowVisuals.addTo(game.scene);
 const notice = new Notice(hud);
 hudSignal.full = () => notice.showSignal('full');
 const combatUi = createCombatUi(hud);
+const levelHud = new LevelHud(hud);
 const hotbar = new Hotbar(hud, inventory, notice);
 const nameOf = (item: ItemId): string => itemType(item)?.name ?? item;
 const inventoryScreen = new InventoryScreen(hud, inventory, screen, () => screen.toggle(), {
@@ -282,7 +295,6 @@ const inventoryScreen = new InventoryScreen(hud, inventory, screen, () => screen
 const pickupLog = new PickupLog(hud, { nameOf, rarityOf: itemRarity }, new PickupLogModel(craftUi));
 const craftHud = new CraftUiHud({ hud, craft, inv: inventory, nameOf, rarityOf: itemRarity }, pickupLog);
 const furnaceFx = new FurnaceFx(game.scene, fxSound, craftUi);
-const furnaceEntries: FurnaceFxEntry[] = [];
 onDropPicked = (item, count) => {
   craft.notifyPickup(item, count);
   hotbar.pickup(item, count);
@@ -353,6 +365,7 @@ const save = new SaveManager({
   clock: time,
   furnaces: { serialize: () => craft.serializeFurnaces(), deserialize: (d) => craft.deserializeFurnaces(d) },
   armor: { serialize: () => armor.serialize(), deserialize: (d) => armor.deserialize(d) },
+  level: { serialize: () => level.serialize(), deserialize: (d) => level.deserialize(d) },
 });
 requestSave = () => save.saveIfChanged();
 if (saveOptions.reset) {
@@ -373,12 +386,7 @@ save.bindPageEvents(window, document);
 const overlay = new PerfOverlay(hud, game);
 
 function updateFurnaceFx(dt: number): void {
-  furnaceEntries.length = 0;
-  for (const p of craft.furnacePositions()) {
-    const v = craft.furnaceAt(p.x, p.y, p.z);
-    if (v) furnaceEntries.push({ x: p.x, y: p.y, z: p.z, burning: v.burning, waiting: v.done[0]?.item ?? null });
-  }
-  furnaceFx.update(dt, furnaceEntries, controller.state.position);
+  furnaceFx.update(dt, craft.furnaceFxEntries() as readonly FurnaceFxEntry[], controller.state.position);
 }
 
 // 毎ステップの順: プレイヤー → カメラ → 世界の作り直し →（Game が）入力の「押した」を消す
@@ -396,9 +404,10 @@ game.onUpdate((dt) => {
   combat.update();
   craft.update();
   // 出来事を 1 回だけ取り出して配る
-  for (const e of craft.drainEvents()) {
-    handleCraftEvents([e], { sound: fxSound, pickupLog });
-    rig.onCraftEvent(e);
+  const craftEvents = craft.drainEvents();
+  if (craftEvents.length > 0) {
+    handleCraftEvents(craftEvents, { sound: fxSound, pickupLog });
+    for (const e of craftEvents) rig.onCraftEvent(e);
   }
   const swings = tools.drainSwings();
   if (swings.length > 0) {
@@ -421,6 +430,14 @@ game.onUpdate((dt) => {
   craftHud.update(dt);
   fx.update(dt);
   combatFx.update(dt);
+  for (const e of level.drainEvents()) {
+    if (e.type === 'levelUp') {
+      levelHud.celebrate();
+      fxSound.play('levelUp');
+    }
+  }
+  levelHud.update(level.get());
+  levelHud.tick(dt);
   updateFurnaceFx(dt);
   rig.update(dt);
   sky.update(game.camera);
@@ -468,6 +485,7 @@ installTestHook(game, overlay, {
   craft: { ...craftHook, ...craftUiHook.craft },
   furnace: createFurnaceHook(craft, screen),
   armor: createArmorHook(armor, screen),
+  level: createLevelHook(level),
   tool: toolHook.tool,
   ...createYokaiHook(yokaiM),
   camera: cameraHook.camera,

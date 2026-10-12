@@ -146,17 +146,21 @@ export class ArrayVoxelWorld implements VoxelWorld {
     for (let i = 0; i < this.chunksX * this.chunksZ; i++) this.dirty.add(i);
   }
 
-  /** (x, z) の列が変わった。チャンクの端なら、となりのチャンクの面も変わる */
-  markDirty(x: number, z: number): void {
+  /**
+   * (x, z) の列が変わった。チャンクの端なら、となりのチャンクの面も変わる。
+   * reach: ふちから何マスまで となりに伝えるか（ブロックの変化は 1。光は面の角が 2 マス先まで読むので 2）
+   */
+  markDirty(x: number, z: number, reach = 1): void {
     const cx = Math.floor(x / CHUNK_SIZE);
     const cz = Math.floor(z / CHUNK_SIZE);
     this.dirty.add(this.chunkIndex(cx, cz));
     const lx = x - cx * CHUNK_SIZE;
     const lz = z - cz * CHUNK_SIZE;
-    if (lx === 0 && cx > 0) this.dirty.add(this.chunkIndex(cx - 1, cz));
-    if (lx === CHUNK_SIZE - 1 && cx < this.chunksX - 1) this.dirty.add(this.chunkIndex(cx + 1, cz));
-    if (lz === 0 && cz > 0) this.dirty.add(this.chunkIndex(cx, cz - 1));
-    if (lz === CHUNK_SIZE - 1 && cz < this.chunksZ - 1) this.dirty.add(this.chunkIndex(cx, cz + 1));
+    const dx = lx < reach && cx > 0 ? -1 : lx >= CHUNK_SIZE - reach && cx < this.chunksX - 1 ? 1 : 0;
+    const dz = lz < reach && cz > 0 ? -1 : lz >= CHUNK_SIZE - reach && cz < this.chunksZ - 1 ? 1 : 0;
+    if (dx !== 0) this.dirty.add(this.chunkIndex(cx + dx, cz));
+    if (dz !== 0) this.dirty.add(this.chunkIndex(cx, cz + dz));
+    if (dx !== 0 && dz !== 0 && reach > 1) this.dirty.add(this.chunkIndex(cx + dx, cz + dz));
   }
 
   /** 変わったチャンクの番号を渡して、覚えているのを空にする */

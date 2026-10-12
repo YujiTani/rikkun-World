@@ -1,7 +1,7 @@
 import type { ItemId } from '../contracts';
 import type { Rgba } from '../world/blocks/textures';
 
-/** M4 の新しいアイテム 19 こ（ブロックの かまど・かわら・レンガ は ブロックの絵を使う）の和風ドット絵 16x16 */
+/** M4 の新しいアイテム 21 こ（ブロックの かまど・かわら・レンガ は ブロックの絵を使う）の和風ドット絵 16x16 */
 export const M4_ITEMS = [
   'wood_pickaxe',
   'stone_pickaxe',
@@ -15,6 +15,8 @@ export const M4_ITEMS = [
   'ya',
   'kabuto',
   'yoroi',
+  'kote',
+  'suneate',
   'torch',
   'lantern',
   'kite',
@@ -298,6 +300,45 @@ const YOROI = [
   '................',
   '................',
 ];
+const ARMOR_PAL = { K: 0x2b2b2b, S: 0x4a4f5c, L: 0x8a92a6, R: 0xc0392b, Y: 0xe0b020 };
+/** こて（うでを守る。ひもと金のかざり） */
+const KOTE = [
+  '................',
+  '.....KKKKKK.....',
+  '....KLLSSSSK....',
+  '...KLSSSSSSSK...',
+  '...KRRRRRRRRK...',
+  '...KSSYSSYSSK...',
+  '...KSLSSSSLSK...',
+  '...KSSSSSSSSK...',
+  '...KRRRRRRRRK...',
+  '...KSSYSSYSSK...',
+  '...KSLSSSSLSK...',
+  '....KSSSSSSK....',
+  '....KRRRRRRK....',
+  '.....KKKKKK.....',
+  '................',
+  '................',
+];
+/** すねあて（あしを守る。細長くて、ひもが 2 本） */
+const SUNEATE = [
+  '................',
+  '.....KKKKKK.....',
+  '....KRRRRRRK....',
+  '....KSLLSSSK....',
+  '....KSLSSSSK....',
+  '....KSLSSYSK....',
+  '....KRRRRRRK....',
+  '....KSLSSSSK....',
+  '....KSLSSSSK....',
+  '....KSLSSYSK....',
+  '....KRRRRRRK....',
+  '....KSLSSSSK....',
+  '...KSSSSSSSSK...',
+  '...KKKKKKKKKK...',
+  '................',
+  '................',
+];
 const IRON_INGOT = [
   '................',
   '................',
@@ -503,6 +544,10 @@ export function m4ItemPixels(item: M4ItemId): Rgba[] {
       return fromRows(KABUTO, PAL_COMMON);
     case 'yoroi':
       return fromRows(YOROI, { ...PAL_COMMON, B: 0xc0392b, D: 0x8a2a20 });
+    case 'kote':
+      return fromRows(KOTE, ARMOR_PAL);
+    case 'suneate':
+      return fromRows(SUNEATE, ARMOR_PAL);
     case 'torch':
       return fromRows(TORCH, { K: 0x3a2410, O: 0xff8a1d, Y: 0xffe066, B: 0x8a5a2e, D: 0x5a3a1a });
     case 'lantern':

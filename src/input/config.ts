@@ -65,7 +65,7 @@ export const GUIDE_TABS: Record<GuideTabId, { label: string; icon: string; capti
       'ひだりクリック で たたく',
       'なぎなた は とおくまで とどく',
       'ゆみ は や を とばす',
-      'かぶと・よろい を もって みぎクリック で きる',
+      'かぶと・よろい・こて・すねあて を もって みぎクリック で きる',
       'よる は おうち に にげよう',
     ],
   },

@@ -73,23 +73,23 @@ test('AC4: こうげきから当たりまで 30 ステップ（ぬりかべ 90�
   expect(await page.evaluate(() => window.__preview!.attackView())).toBe(true);
 });
 
-test('AC5: 火の玉は 1 秒に 3.0 ブロック、8 ブロックで消える', async ({ page }) => {
+test('AC5: 火の玉は 1 秒に 5.0 ブロック、8 ブロックで消える', async ({ page }) => {
   await page.getByRole('button', { name: 'こうげき' }).click();
   await page.evaluate(() => window.__preview!.step(31));
   const f0 = (await page.evaluate(() => window.__preview!.yokai()))[1]!.fireballs[0]!;
   await page.evaluate(() => window.__preview!.step(60));
   const f1 = (await page.evaluate(() => window.__preview!.yokai()))[1]!.fireballs[0]!;
-  expect(Math.abs(Math.hypot(f1.x - f0.x, f1.y - f0.y, f1.z - f0.z) - 3)).toBeLessThanOrEqual(0.1);
+  expect(Math.abs(Math.hypot(f1.x - f0.x, f1.y - f0.y, f1.z - f0.z) - 5)).toBeLessThanOrEqual(0.1);
   await page.evaluate(() => window.__preview!.step(120));
   expect((await page.evaluate(() => window.__preview!.yokai()))[1]!.fireballs).toEqual([]);
 });
 
-test('AC6: ろくろくびの首は 6 ブロックのび、怖い顔は 1.0 秒まで', async ({ page }) => {
+test('AC6: ろくろくびの首は 8 ブロックのび、怖い顔は 1.0 秒まで', async ({ page }) => {
   const rk = async () => (await page.evaluate(() => window.__preview!.yokai()))[3]!;
   await page.getByRole('button', { name: 'こうげき' }).click();
   await page.evaluate(() => window.__preview!.step(31));
   const r = await rk();
-  expect(Math.abs(r.info.headDist! - 6)).toBeLessThanOrEqual(0.1);
+  expect(Math.abs(r.info.headDist! - 8)).toBeLessThanOrEqual(0.1);
   expect(r.info.bodyZ).toBe(0);
   expect(r.face).toBe('scary');
   await page.evaluate(() => window.__preview!.step(30));

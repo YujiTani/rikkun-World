@@ -57,3 +57,30 @@ export function buildYoroiShoulder(): THREE.Group {
   g.add(box(aw + 0.11, 0.03, ad + 0.11, RED, 0, -0.16, 0));
   return g;
 }
+
+/** こて（うでグループの中。ひじから下の うで〈手〉をおおう） */
+export function buildKote(): THREE.Group {
+  const [aw, ah, ad] = DOLL_SIZES.arm;
+  const g = new THREE.Group();
+  const h = ah / 2 - 0.04;
+  const y = -ah / 2 - h / 2;
+  g.add(box(aw + 0.06, h, ad + 0.06, DARK, 0, y, 0));
+  g.add(box(aw + 0.08, 0.04, ad + 0.08, RED, 0, -ah / 2 - 0.03, 0));
+  g.add(box(aw + 0.08, 0.04, ad + 0.08, GOLD, 0, -ah + 0.1, 0));
+  g.add(box(0.08, h * 0.7, 0.03, DARK2, 0, y, -(ad / 2 + 0.035)));
+  return g;
+}
+
+/** すねあて（あしグループの中。ひざから下、くつの上） */
+export function buildSuneate(): THREE.Group {
+  const [lw, lh, ld] = DOLL_SIZES.leg;
+  const g = new THREE.Group();
+  const top = -lh / 2;
+  const h = lh / 2 - DOLL_SIZES.shoeHeight;
+  const y = top - h / 2;
+  g.add(box(lw + 0.06, h, ld + 0.06, DARK, 0, y, 0));
+  g.add(box(lw + 0.08, 0.04, ld + 0.08, RED, 0, top - 0.04, 0));
+  g.add(box(lw + 0.08, 0.04, ld + 0.08, GOLD, 0, top - h + 0.05, 0));
+  g.add(box(0.08, h * 0.75, 0.03, DARK2, 0, y, -(ld / 2 + 0.035)));
+  return g;
+}

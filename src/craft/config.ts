@@ -1,4 +1,4 @@
-import type { BlockId, ItemId } from '../contracts';
+import type { ArmorSlot, BlockId, ItemId } from '../contracts';
 
 /**
  * つくる・やく・防具・拾ったログの数値（M4 §4.5）。ここ 1 か所にまとめる。
@@ -26,7 +26,7 @@ export const CRAFT_DEFAULTS: Readonly<CraftConfig> = {
   bakeQueueMax: 8,
   fuelOrder: ['coal_ore', 'oil', 'log'],
   fixedDrop: { furnace: 1, kawara: 1, brick: 1 },
-  armorValue: { kabuto: 1, yoroi: 2 },
+  armorValue: { kabuto: 1, yoroi: 2, kote: 1, suneate: 1 },
   pickupLogTicks: 180,
   pickupLogMax: 5,
 };
@@ -41,4 +41,7 @@ export function createCraftConfig(): CraftConfig {
 }
 
 /** そうびのマスに入れられるアイテム */
-export const ARMOR_SLOT_OF: Readonly<Record<string, 'head' | 'body'>> = { kabuto: 'head', yoroi: 'body' };
+export const ARMOR_SLOT_OF: Readonly<Record<string, ArmorSlot>> = { kabuto: 'head', yoroi: 'body', kote: 'arms', suneate: 'legs' };
+
+/** そうびの部位の順（画面・保存・落とす順） */
+export const ARMOR_SLOTS: readonly ArmorSlot[] = ['head', 'body', 'arms', 'legs'];

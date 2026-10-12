@@ -28,11 +28,11 @@ const BODY = 0xffb347;
 const BODY_BRIGHT = 0xfff2a0;
 const HANDLE_Y = 1.2;
 
-export const FIREBALL_SPEED = 3.0;
+export const FIREBALL_SPEED = 5.0;
 export const FIREBALL_RANGE = 8;
 export const FIREBALL_BOX = 0.5;
 
-/** 火の玉（世界に置く）。設計書 5 章。速さ 3.0 ブロック/秒、8 ブロックで消える、当たり判定は 0.5 角 */
+/** 火の玉（世界に置く）。設計書 5 章。速さ 5.0 ブロック/秒、8 ブロックで消える、当たり判定は 0.5 角 */
 export class Fireball {
   readonly group = new THREE.Group();
   private readonly core: THREE.Mesh;
