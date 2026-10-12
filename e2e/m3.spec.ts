@@ -353,12 +353,16 @@ test.describe('M3 妖怪の攻撃とダメージ', () => {
           T.base();
           h.world.fill(0, 8, 0, 20, 8, 12, 'stone');
           T.place(2.5, 9, 6.5, 90, 0);
-          const id = h.yokai.spawn(kind, sc.x, 9, 6.5, { yawDeg: 270 });
           if (view) {
             h.input.press('toggleView');
             h.step(1);
             h.input.release('toggleView');
+            // 横から見えるように、妖怪（東）が右ななめ前に見える向きにする
+            h.player.set({ position: { x: 2.5, y: 9, z: 6.5 }, yaw: 40, pitch: 8 });
+            h.step(1);
           }
+          h.step(5);
+          const id = h.yokai.spawn(kind, sc.x, 9, 6.5, { yawDeg: 270 });
           h.yokai.events();
           const out: any = { shots: [], events: [] };
           let startTick = -1;
@@ -434,6 +438,8 @@ test.describe('M3 妖怪の攻撃とダメージ', () => {
               out.cev = out.cev.concat(h.combat.events());
             }
             out.fireballHitAfter = h.combat.get().hp;
+            h.step(15);
+            out.cev = out.cev.concat(h.combat.events());
           }
           const P1 = h.player.get().position;
           out.moved = Math.hypot(P1.x - P0.x, P1.z - P0.z);
@@ -444,7 +450,16 @@ test.describe('M3 妖怪の攻撃とダメージ', () => {
       );
       await page.screenshot({ path: `${ASSETS}/M3-attack-${kind}${view}-c-after.png` });
       console.log(kind, JSON.stringify({ shots: r.shots, startTick: r.startTick, r2: r2.events.map((e: any) => e.type + '@' + e.k), r3events: r3.events.map((e: any) => e.type + '@' + e.k), hp: r3.hp, moved: r3.moved, cev: r3.cev.map((e: any) => e.type + ':' + (e.amount ?? '')) }));
+      // 当たり判定は 30 ステップ目（ぬりかべ 90）。その 1 つ前までは attackHit が出ない
+      expect(r2.events.filter((e: any) => e.type === 'attackHit')).toEqual([]);
+      expect(r3.events.find((e: any) => e.type === 'attackHit')?.k).toBe(0);
+      if (kind === 'chochin') expect(r3.events.find((e: any) => e.type === 'fireball')?.k).toBe(0);
+      else expect(r3.hp[0]).toBe(sc.hp);
       expect(r3.hpNow).toBe(sc.hp);
+      // 同じ攻撃で 2 回へらない（playerHit は 1 回だけ）
+      expect(r3.cev.filter((e: any) => e.type === 'playerHit').length).toBe(1);
+      expect(r3.moved).toBeGreaterThan(0.9);
+      expect(r3.moved).toBeLessThan(1.1);
     });
   }
 });
