@@ -3,7 +3,7 @@ import type { CraftEvent, ItemId, Recipe } from '../contracts';
 import { createItemInfo, defaultInfoNumbers } from '../craft/info';
 import { ALL_RECIPES } from '../craft/recipes';
 import { itemType } from '../inventory/items';
-import { buildCards, buildDetail, buildTiles, buttonState, CraftMadeTracker, pickSelection } from './craftModel';
+import { buildCards, buildDetail, buildTiles, buttonState, visibleCards, CraftMadeTracker, pickSelection } from './craftModel';
 
 const nameOf = (i: ItemId) => itemType(i)?.name ?? i;
 const info = createItemInfo({ recipes: () => ALL_RECIPES, nameOf, numbers: defaultInfoNumbers });
@@ -126,5 +126,24 @@ describe('つくった出来事とコンボ（AC14）', () => {
     expect(t.handle(craftEv(1))!.first).toBe(false);
     expect(t.handle({ type: 'pickup', tick: 1, item: 'log', count: 1 })).toBeNull();
     expect(seen).toHaveLength(2);
+  });
+});
+
+describe('一覧に出すのは 材料が 1 種類でもあるレシピだけ（AC56）', () => {
+  it('空なら 0 こ。材料を 1 つ拾うと出る。作れる → 足りない の順', () => {
+    const e = world({});
+    expect(visibleCards(buildCards(craftRecipes, e.craft, e.inv))).toEqual([]);
+    const w = world({ log: 1 });
+    const v = visibleCards(buildCards(craftRecipes, w.craft, w.inv));
+    expect(v.length).toBeGreaterThan(0);
+    expect(v.every((c) => c.materials.some((m) => m.have > 0))).toBe(true);
+    expect(v.some((c) => c.id === 'katana')).toBe(true); // き だけでも katana は出る
+    expect(v.some((c) => c.id === 'furnace')).toBe(false); // いし が無い
+    const w2 = world({ log: 2, stone: 3 });
+    const ids = visibleCards(buildCards(craftRecipes, w2.craft, w2.inv));
+    const firstDim = ids.findIndex((c) => !c.glowing);
+    expect(firstDim).toBeGreaterThan(0);
+    expect(ids.slice(firstDim).every((c) => !c.glowing)).toBe(true);
+    expect(ids[0].id).toBe('wood_pickaxe');
   });
 });

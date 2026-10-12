@@ -7,6 +7,7 @@ import {
   buildDetail,
   buildTiles,
   nextFuel,
+  visibleCards,
   pickSelection,
   type CardView,
   type DetailView,
@@ -132,6 +133,8 @@ function fly(icon: string, from: DOMRect, to: DOMRect, ms: number, parent: HTMLE
   a.onfinish = () => img.remove();
 }
 
+export const EMPTY_TEXT = 'ざいりょう を あつめよう！';
+
 const rectOf = (e: Element): Rect => {
   const r = e.getBoundingClientRect();
   return { x: r.left, y: r.top, width: r.width, height: r.height };
@@ -153,6 +156,7 @@ export class CraftPanel {
   private readonly fuelRow: HTMLDivElement;
   private readonly fuelEls: { box: HTMLDivElement; count: HTMLSpanElement; item: ItemId }[] = [];
   private readonly furnaceCanvas: HTMLCanvasElement;
+  private readonly emptyMsg: HTMLDivElement;
   private readonly detailEls: DetailEls;
   private readonly finger: HTMLSpanElement;
   private readonly craftRecipes: Recipe[];
@@ -217,6 +221,9 @@ export class CraftPanel {
       this.fuelEls.push({ box, count, item: f as ItemId });
     }
     this.bakeGrid = el('div', 'cp-grid bake-grid', this.bakeBox);
+    this.emptyMsg = el('div', 'cp-empty', left);
+    this.emptyMsg.textContent = EMPTY_TEXT;
+    this.emptyMsg.hidden = true;
     for (const r of this.bakeRecipes) this.bakeGrid.append(this.makeTile(r));
 
     this.detailEls = createDetailEls(this.el, {
@@ -358,7 +365,7 @@ export class CraftPanel {
   private ensureSelection(): void {
     const v = this.views();
     for (const t of ['craft', 'bake'] as CraftTab[]) {
-      this.selected_[t] = pickSelection(t === 'craft' ? v.craft : v.bake, this.selected_[t]);
+      this.selected_[t] = pickSelection(visibleCards(t === 'craft' ? v.craft : v.bake), this.selected_[t]);
     }
   }
 
@@ -382,9 +389,19 @@ export class CraftPanel {
   }
 
   private paintTiles(views: CardView[], tab: CraftTab, st: FurnaceState | null): void {
-    const sel = this.selected_[tab] ?? pickSelection(views, null);
+    const vis = visibleCards(views);
+    const sel = pickSelection(vis, this.selected_[tab]);
     this.selected_[tab] = sel;
-    const tiles = buildTiles(views, sel, (id) => this.made(tab, id));
+    const tiles = buildTiles(vis, sel, (id) => this.made(tab, id));
+    const shown = new Set(tiles.map((t) => t.id));
+    const grid = tab === 'craft' ? this.craftGrid : this.bakeGrid;
+    for (const c of views) this.tileEls.get(c.id)!.root.hidden = !shown.has(c.id);
+    // 作れる → 足りない の順に ならべる（同じ順なら DOM は動かさない）
+    tiles.forEach((t, i) => {
+      const r = this.tileEls.get(t.id)!.root;
+      if (grid.children[i] !== r) grid.insertBefore(r, grid.children[i] ?? null);
+    });
+    this.emptyMsg.hidden = tiles.length > 0;
     let fingerOn: HTMLElement | null = null;
     for (const t of tiles) {
       const e = this.tileEls.get(t.id)!;
@@ -436,9 +453,8 @@ export class CraftPanel {
   detail(): DetailView | null {
     if (!this.d.isOpen()) return null;
     const tab = this.currentTab();
-    const views = this.views()[tab];
-    const selId = this.selected_[tab] ?? pickSelection(views, null);
-    const sel = views.find((c) => c.id === selId);
+    const views = visibleCards(this.views()[tab]);
+    const sel = views.find((c) => c.id === pickSelection(views, this.selected_[tab]));
     if (!sel) return null;
     const hov = this.hovered_ && !this.d.cursorHeld?.() ? views.find((c) => c.id === this.hovered_) : undefined;
     const shown = hov ?? sel;
@@ -476,6 +492,7 @@ export class CraftPanel {
     const station = this.stationOf(id);
     if (!this.d.isOpen()) return { action: 'select', ok: false, reason: 'closed' };
     if (!station) return { action: 'select', ok: false, reason: 'unknown' };
+    if (!visibleCards(this.views()[station]).some((c) => c.id === id)) return { action: 'select', ok: false, reason: 'hidden' };
     if (this.selected_[station] !== id) {
       this.selected_[station] = id;
       this.d.onSelect?.(id);
@@ -490,7 +507,8 @@ export class CraftPanel {
   /** せつめい パネルの つくる（やく）ボタン = えらんでいるマスを つくる */
   detailPress(): CraftClickResult {
     if (!this.d.isOpen()) return { ok: false, reason: 'closed' };
-    const id = this.selected_[this.currentTab()];
+    const tab = this.currentTab();
+    const id = pickSelection(visibleCards(this.views()[tab]), this.selected_[tab]);
     if (!id) return { ok: false, reason: 'unknown' };
     return this.click(id);
   }
@@ -545,8 +563,8 @@ export class CraftPanel {
     const st = this.furnaceState();
     void st;
     const tab = open ? this.currentTab() : this.tab_;
-    const views = tab === 'bake' ? v.bake : v.craft;
-    const sel = this.selected_[tab] ?? pickSelection(views, null);
+    const views = visibleCards(tab === 'bake' ? v.bake : v.craft);
+    const sel = pickSelection(views, this.selected_[tab]);
     const tileRects: Record<string, Rect> = {};
     if (open) for (const c of views) tileRects[c.id] = rectOf(this.tileEls.get(c.id)!.root);
     return {

@@ -151,6 +151,15 @@ export function buildTiles(cards: readonly CardView[], selected: string | null, 
   }));
 }
 
+/**
+ * 一覧に出すレシピ（オーナー要望 その5。AC56）: 今の持ち物に 材料が 1 種類でも あるものだけ。
+ * ならびは 作れる（光る）→ 足りない。その中は レシピ順のまま。
+ */
+export function visibleCards(cards: readonly CardView[]): CardView[] {
+  const has = cards.filter((c) => c.materials.some((m) => m.have > 0));
+  return [...has.filter((c) => c.glowing), ...has.filter((c) => !c.glowing)];
+}
+
 /** 開いたときに えらぶマス: 前に えらんでいたマス → つくれる いちばん前 → 1 つ目 */
 export function pickSelection(cards: readonly CardView[], previous: string | null): string | null {
   if (previous && cards.some((c) => c.id === previous)) return previous;

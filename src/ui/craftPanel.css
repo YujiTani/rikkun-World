@@ -421,3 +421,14 @@
 .tip-desc[hidden] {
   display: none;
 }
+
+/* 材料が 1 つも無いとき（その5） */
+.cp-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(var(--rk-slot-inv) * 3);
+  font-size: var(--rk-fs-body);
+  color: var(--rk-text-sub);
+  text-align: center;
+}
