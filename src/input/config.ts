@@ -30,4 +30,14 @@ export const WHEEL_CONFIG = {
 } as const;
 
 /** 操作の絵の説明（ひらがな・カタカナのみ） */
-export const HELP_CAPTIONS = ['あるく', 'ジャンプ', 'むきを かえる', 'みかた を かえる'] as const;
+export const HELP_CAPTIONS = [
+  'あるく',
+  'ジャンプ',
+  'むきを かえる',
+  'みかた を かえる',
+  'ほる（おしつづける）',
+  'ひびが MAX なら もういちど クリック',
+  'おく',
+  'もちものを えらぶ',
+  'もちもの',
+] as const;
