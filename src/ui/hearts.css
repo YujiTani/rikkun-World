@@ -1,0 +1,46 @@
+/* ハート: 1280px で 28px 以上。ホットバーの左はしにそろえて、すぐ上に */
+#hearts {
+  --heart: max(28px, 2.2vw);
+  position: fixed;
+  left: calc(50% - (9 * var(--cell, max(64px, 5.2vw)) + 48px) / 2);
+  bottom: calc(var(--cell, max(64px, 5.2vw)) * 1.12 + 22px);
+  display: flex;
+  gap: 2px;
+  transform: translateX(calc(var(--shake, 0) * var(--heart)));
+  pointer-events: none;
+  z-index: 5;
+}
+
+.heart {
+  position: relative;
+  width: var(--heart);
+  height: var(--heart);
+  transform: translateY(calc(var(--hop, 0) * var(--heart))) scale(var(--pop, 1));
+}
+
+.heart-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+}
+
+/* むてき: ハートのふちが金色 */
+#hearts[data-invincible='true'] .heart-img {
+  filter: drop-shadow(2px 0 0 #ffd54f) drop-shadow(-2px 0 0 #ffd54f) drop-shadow(0 2px 0 #ffd54f)
+    drop-shadow(0 -2px 0 #ffd54f);
+}
+
+/* はじける赤い小さな四角 */
+.heart-bit {
+  position: absolute;
+  left: 40%;
+  top: 40%;
+  width: 20%;
+  height: 20%;
+  background: #e53935;
+  transform: translate(calc(var(--bx, 0) * var(--heart)), calc(var(--by, 0) * var(--heart)));
+}
+.heart-bit[hidden] {
+  display: none;
+}

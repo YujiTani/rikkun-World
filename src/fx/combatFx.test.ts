@@ -1,0 +1,240 @@
+import * as THREE from 'three';
+import { describe, expect, it } from 'vitest';
+import type { CombatEvent, DayPhase, YokaiEvent } from '../contracts';
+import { BlockDoll } from '../camera/BlockDoll';
+import { BagVisuals } from './bagVisuals';
+import { CombatFx, type CombatFxDeps } from './combatFx';
+import { COMBAT_FX, bagPose, edgeOpacity, invincibleAlpha } from './combatFxModel';
+import { COMBAT_SOUNDS } from './combatSounds';
+import { FX_SETTINGS } from './config';
+
+describe('計算', () => {
+  it('ふちのピンクは 0.25 まで・0.4 秒で消える・1 回だけ', () => {
+    expect(edgeOpacity(0)).toBe(0);
+    expect(edgeOpacity(0.2)).toBeCloseTo(0.25);
+    expect(edgeOpacity(0.4)).toBe(0);
+    let peak = 0;
+    for (let t = 0; t < 0.4; t += 1 / 60) peak = Math.max(peak, edgeOpacity(t));
+    expect(peak).toBeLessThanOrEqual(0.25);
+  });
+  it('むてきの点滅は 0.5 秒ごと（1 秒に 2 回の切りかえ）', () => {
+    expect(invincibleAlpha(0)).toBe(1);
+    expect(invincibleAlpha(59)).toBe(COMBAT_FX.invincibleThinAlpha);
+    expect(invincibleAlpha(30)).toBe(COMBAT_FX.invincibleThinAlpha);
+    expect(invincibleAlpha(29)).toBe(1);
+  });
+  it('ふくろは 2 秒で上下 0.1・4 秒で 1 回転・のこり 30 秒から光が強弱', () => {
+    expect(bagPose(0.5, 36000).y).toBeCloseTo(COMBAT_FX.bag.lift + 0.1);
+    expect(bagPose(4, 36000).spin).toBeCloseTo(Math.PI * 2);
+    expect(bagPose(0.25, 36000).glow).toBe(1);
+    expect(bagPose(0.25, 1800).glow).toBeCloseTo(1);
+    expect(bagPose(0.75, 1800).glow).toBeLessThan(0.4 + 0.3);
+  });
+  it('音は M3 の 11 こ。すべて短く小さい', () => {
+    const names = Object.keys(COMBAT_SOUNDS);
+    expect(names).toHaveLength(11);
+    for (const tones of Object.values(COMBAT_SOUNDS)) {
+      for (const t of tones) {
+        expect(t.gain).toBeLessThanOrEqual(0.7);
+        expect(t.delay + t.dur).toBeLessThan(1.1);
+      }
+    }
+  });
+});
+
+describe('BagVisuals', () => {
+  it('ふくろの数に合わせて出したり消したり。光の柱は 10 ブロック', () => {
+    const scene = new THREE.Scene();
+    const v = new BagVisuals(scene);
+    v.update(1 / 60, [{ id: 1, position: { x: 1, y: 9, z: 2 }, ticksLeft: 100 }]);
+    expect(v.count()).toBe(1);
+    v.update(1 / 60, [
+      { id: 1, position: { x: 1, y: 9, z: 2 }, ticksLeft: 99 },
+      { id: 2, position: { x: 5, y: 9, z: 2 }, ticksLeft: 99 },
+    ]);
+    expect(v.count()).toBe(2);
+    const box = new THREE.Box3().setFromObject(v.group);
+    expect(box.max.y - 9).toBeGreaterThanOrEqual(10);
+    v.update(1 / 60, []);
+    expect(v.count()).toBe(0);
+    expect(v.group.children).toHaveLength(0);
+  });
+});
+
+describe('人形（たおれる・うすい・パンチ・ようかいだま）', () => {
+  it('ようかいだま を持つと玉を出し、ブロックの形は出さない', () => {
+    const d = new BlockDoll();
+    d.setMode('third');
+    d.setHeld('yokai_orb');
+    const p = new THREE.Vector3();
+    expect(d.heldWorldPosition(p)).not.toBeNull();
+    d.setHeld('dirt');
+    expect(d.heldItem).toBe('dirt');
+    d.setHeld(null);
+    expect(d.heldWorldPosition(p)).toBeNull();
+    d.dispose();
+  });
+  it('たおれる・うすくする・パンチ', () => {
+    const d = new BlockDoll();
+    d.setMode('third');
+    d.update(1 / 60, { x: 0, y: 9, z: 0 }, 0, 0, false);
+    expect(d.group.rotation.z).toBe(0);
+    d.setFallen(1);
+    d.update(1 / 60, { x: 0, y: 9, z: 0 }, 0, 0, false);
+    expect(d.group.rotation.z).toBeCloseTo(Math.PI / 2);
+    expect(d.group.position.y).toBeGreaterThan(9);
+    d.setFallen(0);
+    d.setAlpha(0.4);
+    expect(d.opacity).toBe(0.4);
+    d.setAlpha(1);
+    d.punch();
+    d.update(0.125, { x: 0, y: 9, z: 0 }, 0, 0, false);
+    expect(Math.abs(d.armAngle)).toBeLessThan(1); // うで角度は歩きの値。パンチは別に曲げる
+    d.dispose();
+  });
+});
+
+describe('CombatFx（出来事 → 音・画面）', () => {
+  function setup() {
+    const calls: string[] = [];
+    const tones: number[] = [];
+    let combatEvents: CombatEvent[] = [];
+    let yokaiEvents: YokaiEvent[] = [];
+    let dead = false;
+    let inv = 0;
+    let phaseFn: (p: DayPhase) => void = () => {};
+    const shakes: Array<[number, number]> = [];
+    const deps: CombatFxDeps = {
+      scene: new THREE.Scene(),
+      sound: {
+        play: (n) => void calls.push('play:' + n),
+        playTones: (t) => void tones.push(t[0].f0),
+      },
+      combat: {
+        hp: () => 20,
+        maxHp: () => 20,
+        dead: () => dead,
+        invincibleTicks: () => inv,
+        drainEvents: () => {
+          const e = combatEvents;
+          combatEvents = [];
+          return e;
+        },
+      },
+      yokai: {
+        drainEvents: () => {
+          const e = yokaiEvents;
+          yokaiEvents = [];
+          return e;
+        },
+      },
+      time: {
+        phase: () => 'day',
+        onPhaseChange: (fn) => {
+          phaseFn = fn;
+          return () => {};
+        },
+      },
+      bags: () => [],
+      doll: {
+        punch: () => void calls.push('punch'),
+        setAlpha: (a) => void calls.push('alpha:' + a),
+        setFallen: (k) => void calls.push('fallen:' + k.toFixed(2)),
+      },
+      view: { setShake: (y, p) => void shakes.push([y, p]) },
+      hearts: { update: (_dt, hp, i) => void calls.push(`hearts:${hp}:${i}`) },
+      deathScreen: { start: () => void calls.push('death'), end: () => void calls.push('respawnScreen'), update: () => {} },
+      homeNotice: { show: () => void calls.push('home'), update: () => {} },
+      edge: { flash: () => void calls.push('edge'), update: () => {} },
+      clock: { set: (p) => void calls.push('clock:' + p) },
+      onPickup: (item, n) => void calls.push(`pickup:${item}:${n}`),
+      settings: { ...FX_SETTINGS },
+    };
+    const fx = new CombatFx(deps);
+    return {
+      fx,
+      calls,
+      tones,
+      shakes,
+      push: (...e: CombatEvent[]) => (combatEvents = e),
+      pushY: (...e: YokaiEvent[]) => (yokaiEvents = e),
+      setDead: (v: boolean) => (dead = v),
+      setInv: (v: number) => (inv = v),
+      phase: (p: DayPhase) => phaseFn(p),
+    };
+  }
+
+  it('パンチ → うでを振る・音。当たる・からぶり', () => {
+    const s = setup();
+    s.push({ type: 'punchStart', tick: 1 }, { type: 'punchHit', tick: 30, yokaiId: 1 }, { type: 'punchMiss', tick: 60 });
+    s.fx.update(1 / 60);
+    expect(s.calls).toContain('punch');
+    expect(s.tones).toHaveLength(3);
+  });
+  it('ダメージ → ふちのピンク・音・ごく弱いゆれ 0.1 秒', () => {
+    const s = setup();
+    s.push({ type: 'playerHit', tick: 1, by: 'karakasa', amount: 1 });
+    s.fx.update(1 / 60);
+    expect(s.calls).toContain('edge');
+    expect(s.tones).toHaveLength(1);
+    expect(s.shakes.length).toBeGreaterThan(0);
+    const n = s.shakes.length;
+    for (let i = 0; i < 10; i++) s.fx.update(1 / 60);
+    const afterEnd = s.shakes.length;
+    for (let i = 0; i < 10; i++) s.fx.update(1 / 60);
+    expect(s.shakes.length).toBe(afterEnd); // 終わったら上書きしない
+    expect(afterEnd).toBeGreaterThanOrEqual(n);
+  });
+  it('fxShake を切ればゆれない', () => {
+    const s = setup();
+    (s.fx as unknown as { cfg: { fxShake: number } }).cfg.fxShake = 0;
+    s.push({ type: 'playerHit', tick: 1, by: 'karakasa', amount: 1 });
+    s.fx.update(1 / 60);
+    s.fx.update(1 / 60);
+    expect(s.shakes.every(([y, p]) => y === 0 && p === 0)).toBe(true);
+  });
+  it('やられた → 白い画面と人形がたおれる。復活 → おうちに もどったよ', () => {
+    const s = setup();
+    s.push({ type: 'death', tick: 1, dropped: [] });
+    s.setDead(true);
+    s.fx.update(1 / 60);
+    expect(s.calls).toContain('death');
+    for (let i = 0; i < 30; i++) s.fx.update(1 / 60);
+    expect(s.calls).toContain('fallen:1.00');
+    s.setDead(false);
+    s.push({ type: 'respawn', tick: 121 });
+    s.setInv(180);
+    s.fx.update(1 / 60);
+    expect(s.calls).toEqual(expect.arrayContaining(['respawnScreen', 'home']));
+  });
+  it('むてき中のハートと人形', () => {
+    const s = setup();
+    s.setInv(100);
+    s.fx.update(1 / 60);
+    expect(s.calls).toContain('hearts:20:true');
+    expect(s.calls).toContain('alpha:0.4');
+    s.setInv(0);
+    s.fx.update(1 / 60);
+    expect(s.calls).toContain('hearts:20:false');
+    expect(s.calls.filter((c) => c === 'alpha:1')).toHaveLength(1);
+  });
+  it('妖怪を たおした → ポン＋ピッ・ようかいだまが飛ぶ。帰るときは何もしない', () => {
+    const s = setup();
+    s.pushY(
+      { type: 'defeat', tick: 5, id: 1, kind: 'nurikabe', position: { x: 0, y: 0, z: 0 }, reward: 2 },
+      { type: 'leave', tick: 5, id: 2, kind: 'karakasa', position: { x: 0, y: 0, z: 0 } },
+      { type: 'spawn', tick: 5, id: 3, kind: 'chochin', position: { x: 0, y: 0, z: 0 } },
+    );
+    s.fx.update(1 / 60);
+    expect(s.calls).toContain('pickup:yokai_orb:2');
+    expect(s.tones).toHaveLength(3); // ポン・ピッ・出現
+  });
+  it('時間帯が変わる → 時計・ゆうがたは鐘、あさは小鳥', () => {
+    const s = setup();
+    expect(s.calls).toContain('clock:day');
+    s.phase('dusk');
+    s.phase('dawn');
+    expect(s.calls).toEqual(expect.arrayContaining(['clock:dusk', 'clock:dawn']));
+    expect(s.tones).toEqual([COMBAT_SOUNDS.bell[0].f0, COMBAT_SOUNDS.birds[0].f0]);
+  });
+});

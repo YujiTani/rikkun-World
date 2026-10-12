@@ -28,7 +28,7 @@ export interface AudioLike {
   };
 }
 
-interface Tone {
+export interface Tone {
   type: 'sine' | 'triangle' | 'square';
   /** はじめの高さ（Hz）→ おわりの高さ */
   f0: number;
@@ -109,6 +109,11 @@ export class SoundFx {
   }
 
   play(name: SoundName, semitones = 0): void {
+    this.playTones(SOUNDS[name] as readonly Tone[], semitones);
+  }
+
+  /** 音の部品の並びをそのまま鳴らす（M3 の音など。`combatSounds.ts`） */
+  playTones(tones: readonly Tone[], semitones = 0): void {
     const vol = this.settings.fxVolume;
     if (!(vol > 0)) return;
     const ctx = this.context();
@@ -116,7 +121,7 @@ export class SoundFx {
     if (ctx.state === 'suspended') void ctx.resume?.();
     const ratio = Math.pow(2, semitones / 12);
     const now = ctx.currentTime;
-    for (const t of SOUNDS[name] as readonly Tone[]) {
+    for (const t of tones) {
       const start = now + t.delay;
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();

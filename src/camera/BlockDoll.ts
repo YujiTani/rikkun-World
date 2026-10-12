@@ -20,6 +20,18 @@ import {
 
 const DEG = Math.PI / 180;
 
+/** パンチのうでの振り（度）。ふつうの振り（置いたとき）より大きく前へ */
+const PUNCH_SWING_DEG = 75;
+/** たおれたとき（やられた）横になる角度と、からだが地面にしずまないよう上げる高さ */
+const FALLEN_ROLL_DEG = 90;
+const FALLEN_LIFT = 0.25;
+
+/** ようかいだまを手に持つ形（むらさきの玉・つや・目）。形と材料は使いまわす */
+const ORB_GEOMETRY = new THREE.SphereGeometry(0.5, 10, 8);
+const ORB_MATERIAL = new THREE.MeshBasicMaterial({ color: 0x9c6ade });
+const ORB_SHINE_MATERIAL = new THREE.MeshBasicMaterial({ color: 0xffffff });
+const ORB_EYE_MATERIAL = new THREE.MeshBasicMaterial({ color: 0x111111 });
+
 function mat(color: number): THREE.MeshBasicMaterial {
   return new THREE.MeshBasicMaterial({ color });
 }
@@ -48,6 +60,12 @@ export class BlockDoll {
   private mode: DollMode = 'hidden';
   private readonly bodyMesh: THREE.Mesh;
   private readonly heldMesh = new THREE.Mesh(UNIT_BOX);
+  /** ようかいだま を持つときの形（heldMesh のかわりに出す） */
+  private readonly orbMesh = new THREE.Mesh(ORB_GEOMETRY, ORB_MATERIAL);
+  private actionDegMax = ACTION_SWING_DEG;
+  /** 0 = 立っている、1 = 横にたおれた */
+  private fallen = 0;
+  private alpha = 1;
   private held: ItemId | null = null;
   /** 右うでを振っている経過秒。負 = 振っていない */
   private actionT = -1;
@@ -121,6 +139,21 @@ export class BlockDoll {
     this.heldMesh.position.set(0, -ah - HELD_BLOCK_SIZE * 0.2, 0);
     this.heldMesh.visible = false;
     this.armR.add(this.heldMesh);
+    this.orbMesh.scale.setScalar(HELD_BLOCK_SIZE * 1.3);
+    this.orbMesh.position.copy(this.heldMesh.position);
+    this.orbMesh.visible = false;
+    const shine = new THREE.Mesh(UNIT_BOX, ORB_SHINE_MATERIAL);
+    shine.scale.setScalar(0.18);
+    shine.position.set(-0.22, 0.25, -0.3);
+    this.orbMesh.add(shine);
+    for (const x of [-0.17, 0.17]) {
+      const eye = new THREE.Mesh(UNIT_BOX, ORB_EYE_MATERIAL);
+      eye.scale.set(0.12, 0.12, 0.05);
+      eye.position.set(x, -0.02, -0.48);
+      this.orbMesh.add(eye);
+    }
+    this.armR.add(this.orbMesh);
+    this.rotationOrder();
     this.applyMode();
   }
 
@@ -156,12 +189,15 @@ export class BlockDoll {
   setHeld(item: ItemId | null): void {
     if (item === this.held) return;
     this.held = item;
-    if (item === null) {
-      this.heldMesh.visible = false;
-    } else {
-      // M3: アイテムだけのもの（ようかいだま）の持ち方は担当 AD が足す。それまでは石で表示
-      this.heldMesh.material = getBlockMaterials(isBlockId(item) ? item : 'stone');
+    this.heldMesh.visible = false;
+    this.orbMesh.visible = false;
+    if (item === null) return;
+    if (isBlockId(item)) {
+      this.heldMesh.material = getBlockMaterials(item);
       this.heldMesh.visible = true;
+    } else {
+      // アイテムだけのもの（ようかいだま）はむらさきの玉
+      this.orbMesh.visible = true;
     }
   }
   get heldItem(): ItemId | null {
@@ -171,12 +207,43 @@ export class BlockDoll {
   heldWorldPosition(out: THREE.Vector3): THREE.Vector3 | null {
     if (this.held === null || this.mode === 'hidden') return null;
     this.group.updateMatrixWorld(true);
-    return this.heldMesh.getWorldPosition(out);
+    return (this.orbMesh.visible ? this.orbMesh : this.heldMesh).getWorldPosition(out);
   }
 
   /** 右うでを 1 回振る（置いたとき） */
   swing(): void {
+    this.actionDegMax = ACTION_SWING_DEG;
     this.actionT = 0;
+  }
+  /** パンチ。右うでを大きく前へ 1 回振る */
+  punch(): void {
+    this.actionDegMax = PUNCH_SWING_DEG;
+    this.actionT = 0;
+  }
+  /** やられたとき 0 → 1 で横にたおれる（三人称で見える）。0 でもどる */
+  setFallen(k: number): void {
+    this.fallen = Math.max(0, Math.min(1, k));
+  }
+  /** うすくする（むてきの点滅用。1 = ふつう）。人形の材料だけを変える */
+  setAlpha(a: number): void {
+    const v = Math.max(0.05, Math.min(1, a));
+    if (v === this.alpha) return;
+    this.alpha = v;
+    this.group.traverse((o) => {
+      if (!(o instanceof THREE.Mesh) || o === this.heldMesh || o === this.orbMesh) return;
+      if (o.material === ORB_MATERIAL || o.material === ORB_SHINE_MATERIAL || o.material === ORB_EYE_MATERIAL) return;
+      for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
+        m.transparent = v < 1;
+        m.opacity = v;
+        m.needsUpdate = true;
+      }
+    });
+  }
+  get opacity(): number {
+    return this.alpha;
+  }
+  get fallenAmount(): number {
+    return this.fallen;
   }
   /** ほっているあいだ、0.25 秒に 1 回振る */
   setDigging(on: boolean): void {
@@ -192,8 +259,9 @@ export class BlockDoll {
     pitchDeg: number,
     walking: boolean,
   ): void {
-    this.group.position.set(pos.x, pos.y, pos.z);
+    this.group.position.set(pos.x, pos.y + FALLEN_LIFT * this.fallen, pos.z);
     this.group.rotation.y = -yawDeg * DEG;
+    this.group.rotation.z = this.fallen * FALLEN_ROLL_DEG * DEG;
     const p = Math.max(-DOLL_HEAD_PITCH_MAX_DEG, Math.min(DOLL_HEAD_PITCH_MAX_DEG, pitchDeg));
     this.head.rotation.x = p * DEG;
 
@@ -210,7 +278,7 @@ export class BlockDoll {
     this.legAngle = -swing;
     this.updateAction(dt);
     const actionDeg =
-      this.actionT >= 0 ? ACTION_SWING_DEG * Math.sin((Math.PI * this.actionT) / ACTION_SWING_SECONDS) : 0;
+      this.actionT >= 0 ? this.actionDegMax * Math.sin((Math.PI * this.actionT) / ACTION_SWING_SECONDS) : 0;
     if (this.mode === 'first') {
       // 一人称: 右うでは前に出して、向き（pitch）にそのままついていく（見え方に合わせた形）
       const raise = this.held !== null ? HELD_ARM_RAISE_FIRST_DEG : HELD_ARM_RAISE_FIRST_DEG * 0.6;
@@ -224,6 +292,11 @@ export class BlockDoll {
     this.legL.rotation.x = swing * DEG;
   }
 
+  /** 先に向き（y）、そのあと自分のよこ向き（z）の順にまわす */
+  private rotationOrder(): void {
+    this.group.rotation.order = 'YXZ';
+  }
+
   private updateAction(dt: number): void {
     if (this.digging) {
       this.digTimer += dt;
@@ -234,13 +307,17 @@ export class BlockDoll {
     }
     if (this.actionT >= 0) {
       this.actionT += dt;
-      if (this.actionT >= ACTION_SWING_SECONDS) this.actionT = -1;
+      if (this.actionT >= ACTION_SWING_SECONDS) {
+        this.actionT = -1;
+        this.actionDegMax = ACTION_SWING_DEG;
+      }
     }
   }
 
   dispose(): void {
     // 持ったブロックの材料・形は使いまわしなので dispose しない
     this.heldMesh.removeFromParent();
+    this.orbMesh.removeFromParent();
     this.group.traverse((o) => {
       if (o instanceof THREE.Mesh) {
         o.geometry.dispose();
