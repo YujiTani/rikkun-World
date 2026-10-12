@@ -118,7 +118,7 @@
   order: 2;
   box-sizing: border-box;
   width: 100%;
-  height: calc(300 / 12.8 * 1vw);
+  height: calc(360 / 12.8 * 1vw);
   display: flex;
   justify-content: center;
 }
