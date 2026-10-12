@@ -48,3 +48,4 @@
 - つくった出来事: `new CraftMadeTracker({comboTicks, comboMax, isFirstMade})`、`craft.drainEvents()` の各イベントを `handle(ev)`（C が記録する前に）→ `onMade` で B の `made`。止まっていない時だけ `advance(1/timeScale)`。
 - B 向け: `craftPanel.tileElFor(recipeId)`、`buttonEl()`。ツールチップ: `inventory.tooltip()` に `desc` を足す（craftUi.ts）。
 - 仕様の読みかえ: なぎなた とどく 5.0・素手 3.5（main の値）。U1〜U14 の世界を動かす分は E2E で（テスト係）。DOM の寸法（AC53・AC55・AC32）はつなぎ込み後に確かめる。
+- A 追加（157e248）: 作る一覧は `visibleCards`（持っている材料のあるレシピだけ）。`craft.ui().tiles` は表示中だけ（AC1 読みかえ）、`cards` は全件。えらびが消えたら作れる先頭に選び直す。E2E では先に材料を入れてから tileClick。
