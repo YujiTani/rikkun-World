@@ -72,3 +72,42 @@ test('ねらう物でヒントの文がかわる', async ({ page }) => {
   });
   expect(await hint()).toEqual({});
 });
+
+test('妖怪をねらうと 黄色いふちどり と たたく が出て、外すと消える', async ({ page }) => {
+  await page.goto('/?nosave=1');
+  await page.waitForFunction(() => window.__rikkun?.ready === true);
+  const r = await page.evaluate(() => {
+    const h = window.__rikkun! as any;
+    h.pause();
+    h.lock.simulate(true);
+    h.inventory.clear();
+    h.inventory.add('katana', 1);
+    h.inventory.select(0);
+    h.world.fill?.(0, 9, 0, 12, 20, 12, 'air');
+    h.yokai.clear();
+    h.player.set({ position: { x: 2.5, y: 9, z: 6.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: 0 });
+    const id = h.yokai.spawn('karakasa', 5.5, 9, 6.5);
+    h.step(1);
+    const out: any = { id };
+    // 当たる高さをさがす（まっすぐ→少し下）
+    for (const pitch of [0, -5, -10, -15]) {
+      h.player.set({ pitch });
+      h.step(1);
+      if (h.hud.yokaiFocus() === id) break;
+    }
+    out.focus = h.hud.yokaiFocus();
+    out.hint = h.hud.actionHint();
+    return out;
+  });
+  expect(r.focus).toBe(r.id);
+  expect(r.hint.left.word).toBe('たたく');
+  await page.screenshot({ path: 'docs/screenshots/fix-action-hint-yokai.png' });
+  const after = await page.evaluate(() => {
+    const h = window.__rikkun! as any;
+    h.player.set({ yaw: 270 });
+    h.step(2);
+    return { focus: h.hud.yokaiFocus(), hint: h.hud.actionHint() };
+  });
+  expect(after.focus).toBeNull();
+  expect(after.hint.left?.word).not.toBe('たたく');
+});

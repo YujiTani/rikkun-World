@@ -44,6 +44,7 @@ import { YokaiManager, createYokaiHook } from './yokai';
 import { LevelSystem, createLevelHook } from './level';
 import { LevelHud } from './ui/levelHud';
 import { ActionHint } from './ui/actionHint';
+import { YokaiFocus } from './fx/yokaiFocus';
 import { actionHintLines } from './ui/actionHintModel';
 import { createRng } from './world/gen/random';
 import { FX_SETTINGS } from './fx/config';
@@ -387,6 +388,7 @@ const hotbar = new Hotbar(hud, inventory, notice);
 // ねらっている所の ヒント（設定 actionHint で消せる）
 const hintSettings = { actionHint: true };
 const actionHint = new ActionHint(hud);
+const yokaiFocus = new YokaiFocus(game.scene, (id, box) => yokaiManager.boundsOf(id, box));
 const hintVisible = (): boolean => hintSettings.actionHint && screen.mode() === 'play' && !screen.inventoryOpen() && rig.crosshairVisible();
 const nameOf = (item: ItemId): string => itemType(item)?.name ?? item;
 const inventoryScreen = new InventoryScreen(hud, inventory, screen, () => screen.toggle(), {
@@ -410,6 +412,7 @@ onDropPicked = (item, count) => {
 const fx = new DigFx({
   scene: game.scene,
   dig,
+  hideBlockFocus: () => dig.aimedYokaiId() !== null,
   sound: fxSound,
   doll: rig.doll,
   view: rig,
@@ -735,6 +738,7 @@ game.onUpdate((dt) => {
   combatUi.clock.setTime(time.dayTick(), timeSettings, time.day() + 1);
   viewActions.endFrame();
   crosshair.setVisible(rig.crosshairVisible() && screen.mode() === 'play');
+  yokaiFocus.update(hintVisible() ? dig.aimedYokaiId() : null);
   actionHint.update(hintVisible() ? actionHintLines(dig.previewRightClick(), dig.previewLeftClick(), { held: tools.current().item, heldIsPickaxe: tools.current().kind === 'pickaxe', heldIsBlade: tools.current().kind === 'blade' }) : {});
   hotbar.update();
   inventoryScreen.update();
@@ -779,7 +783,7 @@ const achievementsHook = {
     achMuted = on;
   },
 };
-const hudHook = { actionHint: () => actionHint.current() };
+const hudHook = { actionHint: () => actionHint.current(), yokaiFocus: () => yokaiFocus.current() };
 const guideHook = createGuideHook(playOverlay);
 const lockHook = createLockHook(lock);
 const combatHook = createCombatHook(combat);

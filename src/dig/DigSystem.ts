@@ -409,13 +409,17 @@ export class DigSystemImpl implements DigSystem {
     const tool = this.m4.tools?.current();
     if (tool?.kind === 'bow') return 'shoot';
     const t = this.tgt;
-    if (this.gate?.aimsYokai) {
-      const p = this.player();
-      const eye = { x: p.position.x, y: p.position.y + this.eyeHeight(), z: p.position.z };
-      if (this.gate.aimsYokai(eye, lookDirection(p.yawDeg, p.pitchDeg, this.dir), t?.distance ?? null)) return 'hit';
-    }
+    if (this.aimedYokaiId() !== null) return 'hit';
     if (!t) return null;
     return 'steps' in digSteps(this.config, t.id, tool?.level) ? 'dig' : null;
+  }
+
+  /** ねらっている（手前の・とどく距離内の）妖怪の id。たたく ヒントとふちどりが同じ判定を使う。遊べない間は null */
+  aimedYokaiId(): number | null {
+    if (!this.gate?.aimedYokai || !this.lock.playInputEnabled() || this.gate.blocksInput()) return null;
+    const p = this.player();
+    const eye = { x: p.position.x, y: p.position.y + this.eyeHeight(), z: p.position.z };
+    return this.gate.aimedYokai(eye, lookDirection(p.yawDeg, p.pitchDeg, this.dir), this.tgt?.distance ?? null);
   }
 
   /** 置く場所とブロック（置けないなら null）。tryPlace とヒントが同じ判定を使う */
