@@ -35,6 +35,9 @@ export class Game {
   private readonly updaters: Array<(dt: number) => void> = [];
   private readonly idleUpdaters: Array<(dt: number) => void> = [];
   private realtimeGate: () => boolean = () => true;
+  /** 止まっている間の絵がもう描いてあるか（変化がないコマは描き直さない） */
+  private idleDrawn = false;
+  private timeScale: () => number = () => 1;
 
   constructor(private readonly container: HTMLElement) {
     this.renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
@@ -60,6 +63,11 @@ export class Game {
     this.realtimeGate = fn;
   }
 
+  /** 実時間の進む速さの倍率（もちもの画面で 0.25 など）。step() には関係しない */
+  setTimeScale(fn: () => number): void {
+    this.timeScale = fn;
+  }
+
   /** 実時間のループが止まっている間も毎コマ呼ばれる処理（F3 の性能表示など） */
   onIdle(fn: (dt: number) => void): void {
     this.idleUpdaters.push(fn);
@@ -77,6 +85,7 @@ export class Game {
 
   /** 決まった回数だけ更新して描画する（テスト用） */
   step(count = 1): void {
+    this.idleDrawn = false;
     for (let i = 0; i < count; i++) this.update();
     this.render();
   }
@@ -105,12 +114,16 @@ export class Game {
       this.accumulator = 0;
       for (const fn of this.idleUpdaters) fn(Math.min(elapsed / 1000, 0.1));
       this.input.endFrame();
-      this.render();
+      if (!this.idleDrawn) {
+        this.render();
+        this.idleDrawn = true;
+      }
       return;
     }
+    this.idleDrawn = false;
 
     const start = performance.now();
-    this.accumulator = Math.min(this.accumulator + elapsed / 1000, FIXED_DT * MAX_STEPS_PER_FRAME);
+    this.accumulator = Math.min(this.accumulator + (elapsed / 1000) * this.timeScale(), FIXED_DT * MAX_STEPS_PER_FRAME);
     while (this.accumulator >= FIXED_DT) {
       this.update();
       this.accumulator -= FIXED_DT;
@@ -134,5 +147,6 @@ export class Game {
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(w, h);
+    this.idleDrawn = false;
   };
 }

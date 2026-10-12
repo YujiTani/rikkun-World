@@ -61,8 +61,12 @@ export class LockController implements LockStatus {
     this.afterChange(before);
   }
 
-  onChange(fn: (locked: boolean) => void): void {
+  /** 状態が変わったら呼ばれる。戻り値で解除 */
+  onChange(fn: (locked: boolean) => void): () => void {
     this.listeners.push(fn);
+    return () => {
+      this.listeners = this.listeners.filter((f) => f !== fn);
+    };
   }
 
   locked(): boolean {
@@ -98,6 +102,8 @@ export class LockController implements LockStatus {
 export class MouseLook implements LookSource {
   private dx = 0;
   private dy = 0;
+  /** consume の戻り値（毎回 new しない。呼んだ側はすぐ使うこと） */
+  private readonly out = { dx: 0, dy: 0 };
 
   constructor(private readonly lock: LockStatus) {}
 
@@ -117,10 +123,13 @@ export class MouseLook implements LookSource {
   consume(): { dx: number; dy: number } {
     if (!this.lock.playInputEnabled()) {
       this.reset();
-      return { dx: 0, dy: 0 };
+      this.out.dx = 0;
+      this.out.dy = 0;
+      return this.out;
     }
-    const r = { dx: this.dx, dy: this.dy };
+    this.out.dx = this.dx;
+    this.out.dy = this.dy;
     this.reset();
-    return r;
+    return this.out;
   }
 }

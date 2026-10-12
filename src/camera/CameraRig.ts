@@ -112,6 +112,12 @@ export class CameraRig {
       this.fogStashed = false;
     }
     this.current = -1;
+    // 見下ろしは霧がなく遠くまで見えるので、海のふちが切れないよう far を伸ばす
+    const far = on ? 1500 : 500;
+    if (this.camera.far !== far) {
+      this.camera.far = far;
+      this.camera.updateProjectionMatrix();
+    }
     this.apply(0);
   }
 

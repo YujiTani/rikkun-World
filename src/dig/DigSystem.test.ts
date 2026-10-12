@@ -318,13 +318,34 @@ describe('MAX（あとひと押し）', () => {
     const ev = r.dig.drainEvents();
     expect(ev.filter((e) => e.type === 'break')).toHaveLength(1);
   });
+  it('はなして 30 ステップ後に押してもこわれる', () => {
+    const r = new Rig();
+    r.set(4, 10, 6, 'dirt');
+    r.press('primary');
+    r.step(30);
+    r.release('primary');
+    r.step(30);
+    expect(r.dig.state().ready).toBe(true);
+    r.press('primary');
+    r.step(1);
+    expect(r.world.getBlock(4, 10, 6)).toBe('air');
+  });
+  it('はなして 61 ステップ後には ready が消えている', () => {
+    const r = new Rig();
+    r.set(4, 10, 6, 'dirt');
+    r.press('primary');
+    r.step(30);
+    r.release('primary');
+    r.step(61);
+    expect(r.dig.state().ready).toBe(false);
+  });
   it('はなして減ると ready が消え、段階も戻る', () => {
     const r = new Rig();
     r.set(4, 10, 6, 'dirt');
     r.press('primary');
     r.step(30);
     r.release('primary');
-    r.step(1);
+    r.step(61);
     const s = r.dig.state();
     expect(s.ready).toBe(false);
     expect(s.crackStage).toBe(3);

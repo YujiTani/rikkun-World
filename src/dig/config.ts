@@ -1,4 +1,4 @@
-import type { BlockId, DigSettings } from '../contracts';
+import type { BlockId, DigSettings, Rarity } from '../contracts';
 
 /**
  * ほる・おくの数値（M2 §4.1・§4.3）。ここ 1 か所にまとめる。
@@ -12,6 +12,12 @@ export interface DigConfig extends DigSettings {
   digDecayRate: number;
   /** ひびの段階の数（3）。段階 = 1 + floor(段階の数 × ほった量 ÷ ほる時間) */
   crackStages: number;
+  /** ブロックごとのめずらしさ。ブロックを足すときは hardness と同じく必ず決める */
+  rarity: Record<BlockId, Rarity>;
+  /** めずらしさごとの、こわしたとき手に入る数の最大（1〜最大の一様ランダム） */
+  dropMax: Record<Rarity, number>;
+  /** ひびが MAX のとき、primary をはなしても ready が減らずに残る歩数（60 = 1 秒） */
+  readyHoldTicks: number;
 }
 
 export const DIG_DEFAULTS: Readonly<DigConfig> = {
@@ -50,6 +56,21 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
   placeRepeatTicks: 30,
   digDecayRate: 1.0,
   crackStages: 3,
+  readyHoldTicks: 60,
+  rarity: {
+    air: 'common',
+    water: 'common',
+    bedrock: 'common',
+    leaves: 'common',
+    grass: 'common',
+    dirt: 'common',
+    sand: 'common',
+    stone: 'common',
+    log: 'uncommon',
+    coal_ore: 'uncommon',
+    iron_ore: 'rare',
+  } satisfies Record<BlockId, Rarity>,
+  dropMax: { common: 4, uncommon: 3, rare: 2, superRare: 1 },
 };
 
 export function createDigConfig(): DigConfig {
@@ -57,6 +78,8 @@ export function createDigConfig(): DigConfig {
     ...DIG_DEFAULTS,
     hardness: { ...DIG_DEFAULTS.hardness },
     harvestLevel: { ...DIG_DEFAULTS.harvestLevel },
+    rarity: { ...DIG_DEFAULTS.rarity },
+    dropMax: { ...DIG_DEFAULTS.dropMax },
   };
 }
 

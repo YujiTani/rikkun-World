@@ -28,7 +28,7 @@ export function bindPointerLock(
   const onVisibility = () => {
     if (doc.hidden) onBlur();
   };
-  lock.onChange(() => {
+  const offLock = lock.onChange(() => {
     actions.releaseAll();
     look.reset();
   });
@@ -56,6 +56,7 @@ export function bindPointerLock(
       if (doc.pointerLockElement) doc.exitPointerLock();
     },
     dispose() {
+      offLock();
       doc.removeEventListener('pointerlockchange', onLockChange);
       doc.removeEventListener('pointerlockerror', onLockError);
       doc.removeEventListener('mousemove', onMove);

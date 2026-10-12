@@ -16,7 +16,7 @@ export interface DigFxDeps {
   /** 合図のアイコン */
   notice: { showSignal(kind: 'needTool' | 'full'): void };
   /** アイテムが入った（ホットバーの「ぽよん」や飛ぶ絵） */
-  onPickup?: (item: ItemId) => void;
+  onPickup?: (item: ItemId, count: number) => void;
   settings?: FxSettings;
 }
 
@@ -92,8 +92,9 @@ export class DigFx {
         );
         sound.play('break');
         if (hadItem) {
-          sound.play('pickup', this.combo.hit(ev.id));
-          this.d.onPickup?.(ev.id);
+          // 数が多いほど少し高く（控えめに 0.5 半音ずつ）
+          sound.play('pickup', this.combo.hit(ev.id) + (ev.count - 1) * 0.5);
+          this.d.onPickup?.(ev.id, ev.count);
         } else {
           notice.showSignal('full');
           this.flashRed();

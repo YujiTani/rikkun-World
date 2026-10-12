@@ -125,18 +125,18 @@ export class Hotbar {
   }
 
   /** アイテムが 1 こ入った（この変化は、まだ描きなおす前に呼ぶ） */
-  pickup(item: string): void {
+  pickup(item: string, count = 1): void {
     const gained = gainedSlots(this.snapshot, this.inv.slots()).filter(
       (i) => this.inv.slots()[i]?.item === item,
     );
     for (const i of gained) {
       const root = this.cells[i].root;
       popElement(root, this.cfg);
-      this.flyIn(item, root);
+      this.flyIn(item, root, count);
     }
   }
 
-  private flyIn(item: string, target: HTMLElement): void {
+  private flyIn(item: string, target: HTMLElement, count: number): void {
     if (typeof target.animate !== 'function') return;
     const r = target.getBoundingClientRect();
     const tx = r.left + r.width / 2;
@@ -158,7 +158,7 @@ export class Hotbar {
     a.onfinish = () => img.remove();
     const plus = document.createElement('div');
     plus.className = 'plus-one';
-    plus.textContent = '+1';
+    plus.textContent = `+${count}`;
     this.el.parentElement?.append(plus);
     const b = plus.animate(
       [

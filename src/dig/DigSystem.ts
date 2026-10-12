@@ -14,6 +14,7 @@ import type {
 import type { Action, ActionState } from '../input/actions';
 import { itemType } from '../inventory/items';
 import { BODY_H, BODY_W, createDigConfig, type DigConfig } from './config';
+import { createRng, randInt, type Rng } from '../world/gen/random';
 import { lookDirection, raycastBlocks } from './raycast';
 
 /** 出来事の列が読まれずにたまりすぎないように */
@@ -49,6 +50,8 @@ export class DigSystemImpl implements DigSystem {
   private ready = false;
   private blockedReason: DigBlockedReason | null = null;
   private cooldown = 0;
+  /** MAX のままはなしている歩数 */
+  private releasedTicks = 0;
   private prevPrimary = false;
   /** secondary を押しつづけている歩数（押していなければ 0） */
   private secondaryTicks = 0;
@@ -65,6 +68,8 @@ export class DigSystemImpl implements DigSystem {
     private readonly inventory: Inventory,
     private readonly eyeHeight: () => number,
     readonly config: DigConfig = createDigConfig(),
+    /** ドロップ数の乱数（シード付き。テストで再現できる） */
+    private readonly rng: Rng = createRng(20240601),
   ) {}
 
   target(): TargetInfo | null {
@@ -172,6 +177,7 @@ export class DigSystemImpl implements DigSystem {
         this.ready = false;
       }
       this.active = true;
+      this.releasedTicks = 0;
       if (this.ready) {
         // MAX で止まっている: 押し直した瞬間だけこわれる（押しっぱなしでは待つ）
         if (this.justPressed()) this.breakBlock(t);
@@ -191,6 +197,11 @@ export class DigSystemImpl implements DigSystem {
   /** はなしている間、ほった量が少しずつもどる（digDecayRate） */
   private decay(): void {
     if (!this.memBlock) return;
+    // MAX のときだけ、はなしてから readyHoldTicks は減らずに ready を保つ（クリックし直す指の間）
+    if (this.ready && this.releasedTicks < this.config.readyHoldTicks) {
+      this.releasedTicks++;
+      return;
+    }
     this.mem -= this.config.digDecayRate;
     this.ready = false;
     if (this.mem <= 1e-9) this.clearMem();
@@ -206,13 +217,16 @@ export class DigSystemImpl implements DigSystem {
     this.memId = null;
     this.mem = 0;
     this.ready = false;
+    this.releasedTicks = 0;
   }
 
   private breakBlock(t: TargetInfo): void {
     const { x, y, z } = t.block;
     this.world.setBlock(x, y, z, 'air');
-    const left = this.inventory.add(t.id, 1);
-    this.emit({ type: 'break', tick: this.tickCount, block: { x, y, z }, id: t.id, gotItem: left === 0 });
+    const max = Math.max(1, this.config.dropMax[this.config.rarity[t.id] ?? 'common'] ?? 1);
+    const n = randInt(this.rng, 1, max);
+    const got = n - this.inventory.add(t.id, n);
+    this.emit({ type: 'break', tick: this.tickCount, block: { x, y, z }, id: t.id, gotItem: got > 0, count: got });
     this.clearMem();
     this.active = false;
     this.cooldown = this.config.digCooldown;
