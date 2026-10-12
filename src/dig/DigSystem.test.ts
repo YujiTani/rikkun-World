@@ -65,6 +65,12 @@ class Rig {
   release(a: string) {
     this.actions.release(a as Action);
   }
+  /** MAX で止まっているところを、押し直して 1 ステップでこわす */
+  repress() {
+    this.release('primary');
+    this.press('primary');
+    this.step(1);
+  }
   set(x: number, y: number, z: number, id: BlockId) {
     this.world.setBlock(x, y, z, id);
     this.step(1);
@@ -115,7 +121,10 @@ describe('ほる', () => {
     r.step(29);
     expect(r.world.getBlock(4, 10, 6)).toBe('dirt');
     expect(r.dig.state().progress).toBeCloseTo(29 / 30, 2);
+    expect(r.dig.state().ready).toBe(false);
     r.step(1);
+    expect(r.world.getBlock(4, 10, 6)).toBe('dirt');
+    r.repress();
     expect(r.world.getBlock(4, 10, 6)).toBe('air');
     expect(r.inv.slots()[0]).toEqual({ item: 'dirt', count: 1 });
   });
@@ -135,6 +144,9 @@ describe('ほる', () => {
       r.step(n - 1);
       expect(r.world.getBlock(4, 10, 6)).toBe(id);
       r.step(1);
+      expect(r.dig.state().ready).toBe(true);
+      expect(r.world.getBlock(4, 10, 6)).toBe(id);
+      r.repress();
       expect(r.world.getBlock(4, 10, 6)).toBe('air');
       expect(r.inv.count(id)).toBe(1);
     }
@@ -143,8 +155,10 @@ describe('ほる', () => {
     r.set(4, 10, 6, 'dirt');
     r.press('primary');
     r.step(14);
-    expect(r.world.getBlock(4, 10, 6)).toBe('dirt');
+    expect(r.dig.state().ready).toBe(false);
     r.step(1);
+    expect(r.dig.state().ready).toBe(true);
+    r.repress();
     expect(r.world.getBlock(4, 10, 6)).toBe('air');
   });
   it('AC6: てつ・そこいし', () => {
@@ -181,6 +195,7 @@ describe('ほる', () => {
     r.step(19);
     expect(r.world.getBlock(4, 10, 6)).toBe('dirt');
     r.step(1);
+    r.repress();
     expect(r.world.getBlock(4, 10, 6)).toBe('air');
   });
   it('はなし続けると 0 になる', () => {
@@ -240,10 +255,14 @@ describe('ほる', () => {
     r.set(5, 10, 6, 'dirt');
     r.press('primary');
     r.step(30);
+    r.repress();
     expect(r.world.getBlock(4, 10, 6)).toBe('air');
-    r.step(35);
+    r.step(6);
+    r.release('primary');
+    r.press('primary');
+    r.step(30);
     expect(r.world.getBlock(5, 10, 6)).toBe('dirt');
-    r.step(1);
+    r.repress();
     expect(r.world.getBlock(5, 10, 6)).toBe('air');
     expect(r.inv.count('dirt')).toBe(2);
   });
@@ -261,11 +280,59 @@ describe('ほる', () => {
     r.set(4, 10, 6, 'dirt');
     r.press('primary');
     r.step(30);
+    r.repress();
     expect(r.world.getBlock(4, 10, 6)).toBe('air');
     expect(r.inv.count('dirt')).toBe(0);
     const ev = r.dig.drainEvents();
-    expect(ev).toHaveLength(1);
-    expect(ev[0]).toMatchObject({ type: 'break', id: 'dirt', gotItem: false });
+    expect(ev.map((e) => e.type)).toEqual(['ready', 'break']);
+    expect(ev[1]).toMatchObject({ type: 'break', id: 'dirt', gotItem: false });
+  });
+});
+
+describe('MAX（あとひと押し）', () => {
+  it('MAX で止まり、押しっぱなしではこわれず、ready を 1 回だけ出す', () => {
+    const r = new Rig();
+    r.set(4, 10, 6, 'dirt');
+    r.press('primary');
+    r.step(30);
+    let s = r.dig.state();
+    expect(s.ready).toBe(true);
+    expect(s.crackStage).toBe(3);
+    expect(s.progress).toBe(1);
+    r.step(200);
+    expect(r.world.getBlock(4, 10, 6)).toBe('dirt');
+    s = r.dig.state();
+    expect(s.ready).toBe(true);
+    expect(s.progress).toBe(1);
+    expect(r.dig.drainEvents().filter((e) => e.type === 'ready')).toHaveLength(1);
+  });
+  it('押し直すとこわれる', () => {
+    const r = new Rig();
+    r.set(4, 10, 6, 'dirt');
+    r.press('primary');
+    r.step(30);
+    r.repress();
+    expect(r.world.getBlock(4, 10, 6)).toBe('air');
+    expect(r.inv.count('dirt')).toBe(1);
+    expect(r.dig.state().ready).toBe(false);
+    const ev = r.dig.drainEvents();
+    expect(ev.filter((e) => e.type === 'break')).toHaveLength(1);
+  });
+  it('はなして減ると ready が消え、段階も戻る', () => {
+    const r = new Rig();
+    r.set(4, 10, 6, 'dirt');
+    r.press('primary');
+    r.step(30);
+    r.release('primary');
+    r.step(1);
+    const s = r.dig.state();
+    expect(s.ready).toBe(false);
+    expect(s.crackStage).toBe(3);
+    r.step(15);
+    expect(r.dig.state().crackStage).toBe(2);
+    r.press('primary');
+    r.step(1);
+    expect(r.world.getBlock(4, 10, 6)).toBe('dirt'); // 押し直しでも MAX でなければこわれない
   });
 });
 

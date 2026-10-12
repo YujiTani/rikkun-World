@@ -45,6 +45,8 @@ export class DigSystemImpl implements DigSystem {
   /** ほった量（ステップ。小数あり） */
   private mem = 0;
   private active = false;
+  /** ひびが MAX で、ひと押しを待っている */
+  private ready = false;
   private blockedReason: DigBlockedReason | null = null;
   private cooldown = 0;
   private prevPrimary = false;
@@ -78,7 +80,7 @@ export class DigSystemImpl implements DigSystem {
         const n = r.steps;
         progress = Math.min(1, this.mem / n);
         const cs = this.config.crackStages;
-        crack = Math.min(cs, 1 + Math.floor((cs * this.mem) / n));
+        crack = this.ready ? cs : Math.min(cs, 1 + Math.floor((cs * this.mem) / n));
       }
     }
     return {
@@ -86,6 +88,7 @@ export class DigSystemImpl implements DigSystem {
       block: this.memBlock && this.mem > 0 ? { ...this.memBlock } : null,
       progress,
       crackStage: crack,
+      ready: this.ready,
       blockedReason: this.blockedReason,
     };
   }
@@ -155,7 +158,7 @@ export class DigSystemImpl implements DigSystem {
       const r = digSteps(cfg, t.id);
       if ('blocked' in r) {
         this.blockedReason = r.blocked;
-        if (!this.prevPrimary) {
+        if (this.justPressed()) {
           this.emit({ type: 'blocked', tick: this.tickCount, block: { ...t.block }, id: t.id, reason: r.blocked });
         }
         this.decay();
@@ -166,10 +169,20 @@ export class DigSystemImpl implements DigSystem {
         this.memBlock = { ...t.block };
         this.memId = t.id;
         this.mem = 0;
+        this.ready = false;
+      }
+      this.active = true;
+      if (this.ready) {
+        // MAX で止まっている: 押し直した瞬間だけこわれる（押しっぱなしでは待つ）
+        if (this.justPressed()) this.breakBlock(t);
+        return;
       }
       this.mem++;
-      this.active = true;
-      if (this.mem >= r.steps) this.breakBlock(t);
+      if (this.mem >= r.steps) {
+        this.mem = r.steps;
+        this.ready = true;
+        this.emit({ type: 'ready', tick: this.tickCount, block: { ...t.block }, id: t.id });
+      }
       return;
     }
     this.decay();
@@ -179,13 +192,20 @@ export class DigSystemImpl implements DigSystem {
   private decay(): void {
     if (!this.memBlock) return;
     this.mem -= this.config.digDecayRate;
+    this.ready = false;
     if (this.mem <= 1e-9) this.clearMem();
+  }
+
+  /** primary を押した瞬間か（同じステップのうちに はなして押し直したときも含む） */
+  private justPressed(): boolean {
+    return !this.prevPrimary || this.actions.wasPressed('primary');
   }
 
   private clearMem(): void {
     this.memBlock = null;
     this.memId = null;
     this.mem = 0;
+    this.ready = false;
   }
 
   private breakBlock(t: TargetInfo): void {
