@@ -45,6 +45,10 @@ export interface DropView {
   batch: number;
   /** その回でいちばんめずらしいアイテムのめずらしさ（柱の色） */
   rarity: Rarity;
+  /** プレイヤーがすてたもの（M6） */
+  thrown: boolean;
+  /** 拾えるようになるまでの のこりステップ（0 なら拾える。M6） */
+  pickupDelay: number;
 }
 
 export type DropSave = {
@@ -71,6 +75,9 @@ interface Entity {
   ticksLeft: number;
   batch: number;
   rarity: Rarity;
+  /** すてたもの（M6）。pickupDelay が 0 になるまで拾わない */
+  thrown: boolean;
+  pickupDelay: number;
 }
 
 export interface DropFieldDeps {
@@ -83,7 +90,14 @@ export interface DropFieldDeps {
   ticks?: number;
   pickupRadius?: number;
   /** あれば「消えるまで」と「拾える距離」を毎回ここから読む（settings で変えたら すぐ効く） */
-  live?: { dropBagTicks: number; pickupRadius: number };
+  live?: {
+    dropBagTicks: number;
+    pickupRadius: number;
+    /** M6: すてたものを拾わない時間・投げる速さ（横・上、ブロック/秒） */
+    dropPickupDelay?: number;
+    dropThrowSpeed?: number;
+    dropThrowUp?: number;
+  };
   /** 拾った・消えたとき 保存してほしい */
   requestSave?: () => void;
   /** 近づいたのに 1 つも入らなかった（もちものがいっぱい）。ステップごとに呼ばれうる */
@@ -133,11 +147,52 @@ export class DropField {
         ticksLeft: this.d.live?.dropBagTicks ?? this.life,
         batch,
         rarity,
+        thrown: false,
+        pickupDelay: 0,
       });
       total += st.count;
       if (this.items.length > DROP.maxItems) this.items.shift();
     }
     return total;
+  }
+
+  /**
+   * プレイヤーが 1 つ すてる（M6 §2.8）。目の高さから 0.3 下、向いている方へ 横・上へ とび出す。
+   * 出る所がブロックの中なら 足もとに出す。dropPickupDelay ステップは拾わない。
+   */
+  throwItem(stack: ItemStack, yawDeg: number, eyeHeight: number): void {
+    if (stack.count < 1) return;
+    const p = this.d.player();
+    const yaw = (yawDeg * Math.PI) / 180;
+    const dx = Math.sin(yaw);
+    const dz = -Math.cos(yaw);
+    let x = p.x + dx * 0.3;
+    let y = p.y + eyeHeight - 0.3;
+    let z = p.z + dz * 0.3;
+    if (this.d.world.isSolid(Math.floor(x), Math.floor(y), Math.floor(z))) {
+      x = p.x;
+      y = p.y + 0.1;
+      z = p.z;
+    }
+    const speed = this.d.live?.dropThrowSpeed ?? 4;
+    this.items.push({
+      id: this.nextId++,
+      x,
+      y,
+      z,
+      vx: dx * speed,
+      vy: this.d.live?.dropThrowUp ?? 2,
+      vz: dz * speed,
+      resting: false,
+      item: { item: stack.item, count: stack.count },
+      ticksLeft: this.d.live?.dropBagTicks ?? this.life,
+      batch: this.nextBatch++,
+      rarity: itemRarity(stack.item),
+      thrown: true,
+      pickupDelay: this.d.live?.dropPickupDelay ?? 60,
+    });
+    if (this.items.length > DROP.maxItems) this.items.shift();
+    this.d.requestSave?.();
   }
 
   private views: DropView[] = [];
@@ -163,6 +218,8 @@ export class DropField {
           ticksLeft: 0,
           batch: b.batch,
           rarity: b.rarity,
+          thrown: b.thrown,
+          pickupDelay: b.pickupDelay,
         };
         next.push(v);
         map.set(b.id, v);
@@ -182,6 +239,8 @@ export class DropField {
       v.ticksLeft = b.ticksLeft;
       v.batch = b.batch;
       v.rarity = b.rarity;
+      v.thrown = b.thrown;
+      v.pickupDelay = b.pickupDelay;
     }
     return this.views;
   }
@@ -204,7 +263,8 @@ export class DropField {
         continue;
       }
       this.step(b);
-      if (!canPickup) continue;
+      if (b.pickupDelay > 0) b.pickupDelay--;
+      if (!canPickup || b.pickupDelay > 0) continue;
       if (Math.hypot(p.x - b.x, p.z - b.z) <= radius && Math.abs(p.y - b.y) <= DROP.pickupHeight) {
         const left = this.d.inventory.add(b.item.item, b.item.count);
         if (left !== b.item.count) {
@@ -331,6 +391,8 @@ export class DropField {
           ticksLeft: Math.min(Math.floor(t), this.life),
           batch,
           rarity,
+          thrown: false,
+          pickupDelay: 0,
         });
       }
     }

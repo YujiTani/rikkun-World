@@ -25,7 +25,7 @@ export const CRAFT_DEFAULTS: Readonly<CraftConfig> = {
   bakeTicks: 60,
   bakeQueueMax: 8,
   fuelOrder: ['coal_ore', 'oil', 'log'],
-  fixedDrop: { furnace: 1, kawara: 1, brick: 1 },
+  fixedDrop: { furnace: 1, kawara: 1, brick: 1, tansu: 1 },
   armorValue: { kabuto: 1, yoroi: 2, kote: 1, suneate: 1 },
   pickupLogTicks: 180,
   pickupLogMax: 5,

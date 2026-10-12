@@ -29,6 +29,8 @@ export const ACTIONS = [
   'hotbarPrev', // となりのマスへ（ホイール 上）
   'toggleInventory', // もちもの画面を ひらく・とじる（E）
   'closeMenu', // もちもの画面を とじる（Esc）
+  'drop', // 手に持っているものを 1 こ すてる（Q。M6）
+  'dropStack', // そのマスの ぜんぶ をすてる（Shift＋Q。M6）
 ] as const;
 
 export type Action = (typeof ACTIONS)[number];
@@ -57,7 +59,25 @@ export const DEFAULT_KEY_BINDINGS: Readonly<Record<string, Action>> = {
   Digit9: 'hotbar9',
   KeyE: 'toggleInventory',
   Escape: 'closeMenu',
+  KeyQ: 'drop',
 };
+
+/**
+ * 修飾キーつきの割り当て（M6）。キーは 'Shift+' ＋ KeyboardEvent.code。
+ * 書いてあるキーだけが Shift つきで別の Action になる。ほかのキーは Shift を見ない（今までどおり）。
+ */
+export const MODIFIER_KEY_BINDINGS: Readonly<Record<string, Action>> = {
+  'Shift+KeyQ': 'dropStack',
+};
+
+/** キーの押され方（code と Shift）から Action を決める。Shift＋Q は dropStack だけ（drop は出さない） */
+export function actionForKey(code: string, shift: boolean): Action | undefined {
+  if (shift) {
+    const m = MODIFIER_KEY_BINDINGS[`Shift+${code}`];
+    if (m) return m;
+  }
+  return DEFAULT_KEY_BINDINGS[code];
+}
 
 /** MouseEvent.button → Action */
 export const DEFAULT_MOUSE_BINDINGS: Readonly<Record<number, Action>> = {
@@ -118,18 +138,20 @@ export class ActionState {
 
 /** キーボードとマウスを ActionState につなぐ。戻り値で解除できる。 */
 export function bindKeyboardAndMouse(target: Window, state: ActionState, wheel?: WheelAccumulator): () => void {
-  const downKeys = new Set<string>();
+  // 押しているキー → 押したときに決めた Action（Shift を先にはなしても、同じ Action をはなす）
+  const downKeys = new Map<string, Action>();
   const onKeyDown = (e: KeyboardEvent) => {
-    const action = DEFAULT_KEY_BINDINGS[e.code];
+    const action = actionForKey(e.code, e.shiftKey);
     if (!action) return;
     e.preventDefault();
     if (downKeys.has(e.code)) return; // キーリピートは無視
-    downKeys.add(e.code);
+    downKeys.set(e.code, action);
     state.press(action);
   };
   const onKeyUp = (e: KeyboardEvent) => {
-    const action = DEFAULT_KEY_BINDINGS[e.code];
-    if (!action || !downKeys.delete(e.code)) return;
+    const action = downKeys.get(e.code);
+    if (!action) return;
+    downKeys.delete(e.code);
     state.release(action);
   };
   const onMouseDown = (e: MouseEvent) => {
