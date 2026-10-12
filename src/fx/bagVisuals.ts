@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import type { ItemId, Rarity, Vec3 } from '../contracts';
 import { itemIconPixels } from '../ui/itemIcon';
-import { RARITY_COLOR } from '../drops/rarity';
+import { RARITY_COLOR, RARITY_ORDER } from '../drops/rarity';
+import { SPARKLE, SparkleLayer, pillarOpacity, rainbowHue } from './dropSparkle';
 import { COMBAT_FX, bagPose } from './combatFxModel';
 
 /** 落ちたアイテム 1 つ（`combat.bags()` の 1 件。slots は 1 つ） */
@@ -14,6 +15,8 @@ export interface BagLike {
   batch?: number;
   /** 柱の色（その回でいちばんめずらしいもの）。なければ common */
   rarity?: Rarity;
+  /** 止まっている（なければ止まっている扱い）。とんでいるあいだは くるくる回る */
+  resting?: boolean;
 }
 
 const B = COMBAT_FX.bag;
@@ -56,6 +59,9 @@ interface Visual {
   spinner: THREE.Group;
   item: ItemId;
   layers: number;
+  wasResting: boolean;
+  restT: number;
+  rarity: Rarity;
 }
 
 function pillarMaterial(color: number): THREE.MeshBasicMaterial {
@@ -69,12 +75,15 @@ const PILLAR_MATS = {
   rare: pillarMaterial(RARITY_COLOR.rare),
   superRare: pillarMaterial(RARITY_COLOR.superRare),
 } as const;
-const SPARK_GEO = new THREE.BoxGeometry(0.12, 0.12, 0.12);
-const SPARKS = 6;
+const RING_GEO = new THREE.RingGeometry(0.34, 0.44, 32).rotateX(-Math.PI / 2);
+const RING_MAX = 400;
+const RING_GROW_SECONDS = 0.5;
+/** 柱の根もとの太さ（PILLAR_GEO のはば）。めずらしさごとに scale で太くする */
+const PILLAR_BASE_W = B.pillarSize[0];
+const SPIN_FLYING = Math.PI * 2; // とんでいるあいだ 1 回転/秒
 
 interface Pillar {
   mesh: THREE.Mesh;
-  sparks: THREE.Group;
 }
 
 /**
@@ -92,10 +101,41 @@ export class BagVisuals {
   private readonly ck: number[] = [];
   private readonly cr: Rarity[] = [];
   private time = 0;
+  private readonly sparkle = new SparkleLayer();
+  private readonly rings: Record<Rarity, THREE.InstancedMesh>;
+  private readonly ringMats: Record<Rarity, THREE.MeshBasicMaterial>;
+  private readonly ringN: Record<Rarity, number> = { common: 0, uncommon: 0, rare: 0, superRare: 0 };
+  private readonly mtx = new THREE.Matrix4();
 
-  constructor(scene: THREE.Scene) {
+  /** onLand: 1 回の update で 着地があれば、いちばんめずらしいもの 1 つだけ呼ぶ（音用） */
+  constructor(
+    scene: THREE.Scene,
+    private readonly onLand?: (r: Rarity) => void,
+  ) {
     this.group.name = 'bags';
     scene.add(this.group);
+    this.sparkle.addTo(this.group);
+    const rings = {} as Record<Rarity, THREE.InstancedMesh>;
+    const mats = {} as Record<Rarity, THREE.MeshBasicMaterial>;
+    for (const r of RARITY_ORDER) {
+      const m = new THREE.MeshBasicMaterial({ color: RARITY_COLOR[r], transparent: true, opacity: 0.45, depthWrite: false, side: THREE.DoubleSide });
+      m.userData.noDim = true;
+      const im = new THREE.InstancedMesh(RING_GEO, m, RING_MAX);
+      im.count = 0;
+      im.frustumCulled = false;
+      im.renderOrder = 2;
+      im.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      this.group.add(im);
+      rings[r] = im;
+      mats[r] = m;
+    }
+    this.rings = rings;
+    this.ringMats = mats;
+  }
+
+  /** いま出ている光の輪の数 */
+  ringCount(): number {
+    return RARITY_ORDER.reduce((n, r) => n + this.rings[r].count, 0);
   }
 
   /** いま出ている落ちたアイテムの数 */
@@ -114,6 +154,9 @@ export class BagVisuals {
     this.time += dt;
     const seen = new Set<number>();
     let clusters = 0;
+    let landed = -1;
+    this.sparkle.begin(dt);
+    for (const r of RARITY_ORDER) this.ringN[r] = 0;
     for (const bag of bags) {
       const slot = bag.slots[0];
       if (!slot) continue;
@@ -127,9 +170,33 @@ export class BagVisuals {
       const layers = Math.min(B.stackMax, slot.count >= 2 ? 2 + (slot.count >= 16 ? 1 : 0) : 1);
       if (layers !== v.layers) this.setLayers(v, layers);
       const pose = bagPose(this.time, bag.ticksLeft);
+      const resting = bag.resting ?? true;
+      const rar = bag.rarity ?? 'common';
       v.root.position.set(bag.position.x, bag.position.y, bag.position.z);
-      v.spinner.position.y = pose.y;
-      v.spinner.rotation.y = pose.spin + bag.id * 0.7; // アイテムごとに向きをずらす
+      v.rarity = rar;
+      if (resting) {
+        // 着地: 地面から うかんで ゆっくり回る・ふわふわ
+        v.spinner.position.y = pose.y;
+        v.spinner.rotation.y = pose.spin + bag.id * 0.7; // アイテムごとに向きをずらす
+        v.restT += dt;
+        if (!v.wasResting) {
+          this.sparkle.flash(bag.position.x, bag.position.y, bag.position.z, rar);
+          landed = Math.max(landed, RARITY_ORDER.indexOf(rar));
+        }
+        // 地面の光の輪（ひろがって とまる）
+        const n = this.ringN[rar];
+        if (n < RING_MAX) {
+          const sc = 0.4 + 0.6 * Math.min(1, v.restT / RING_GROW_SECONDS);
+          this.mtx.makeScale(sc, 1, sc).setPosition(bag.position.x, bag.position.y + 0.03, bag.position.z);
+          this.rings[rar].setMatrixAt(n, this.mtx);
+          this.ringN[rar] = n + 1;
+        }
+      } else {
+        v.restT = 0;
+        v.spinner.position.y = B.lift;
+        v.spinner.rotation.y = this.time * SPIN_FLYING + bag.id * 0.7; // とんでいるあいだ くるっと回る
+      }
+      v.wasResting = resting;
 
       // 光の柱: 1 回のばらまき（batch）に 1 本
       const key = bag.batch ?? -bag.id;
@@ -151,45 +218,47 @@ export class BagVisuals {
       this.group.remove(v.root);
       this.visuals.delete(id);
     }
+    for (const r of RARITY_ORDER) {
+      this.rings[r].count = this.ringN[r];
+      this.rings[r].instanceMatrix.needsUpdate = true;
+    }
     for (let k = 0; k < Math.max(clusters, this.pillars.length); k++) {
       if (k >= clusters) {
         this.pillars[k]!.mesh.visible = false;
-        this.pillars[k]!.sparks.visible = false;
         continue;
       }
       let p = this.pillars[k];
       if (!p) {
         const mesh = new THREE.Mesh(PILLAR_GEO, PILLAR_MATS.common);
         mesh.renderOrder = 3;
-        const sparks = new THREE.Group();
-        for (let i = 0; i < SPARKS; i++) sparks.add(new THREE.Mesh(SPARK_GEO, PILLAR_MATS.superRare));
-        p = { mesh, sparks };
+        p = { mesh };
         this.pillars[k] = p;
-        this.group.add(mesh, sparks);
+        this.group.add(mesh);
       }
       const x = this.cx[k]! / this.cn[k]!;
       const z = this.cz[k]! / this.cn[k]!;
       const rar = this.cr[k]!;
+      const w = SPARKLE[rar].width / PILLAR_BASE_W;
       p.mesh.visible = true;
       p.mesh.material = PILLAR_MATS[rar];
+      p.mesh.scale.set(w, 1, w);
       p.mesh.position.set(x, this.cy[k]! + B.pillarSize[1] / 2, z);
-      // むらさき（superRare）だけ、ゆっくり回るきらきらの粒
-      p.sparks.visible = rar === 'superRare';
-      if (p.sparks.visible) {
-        p.sparks.position.set(x, this.cy[k]!, z);
-        for (let i = 0; i < SPARKS; i++) {
-          const a = this.time * 0.8 + (i * Math.PI * 2) / SPARKS;
-          p.sparks.children[i]!.position.set(Math.cos(a) * 0.5, 0.3 + ((i * 1.7 + this.time * 0.6) % 4), Math.sin(a) * 0.5);
-        }
-      }
+      this.sparkle.addPillar(x, this.cy[k]!, z, rar, this.time, (this.ck[k]! * 0.37) % 1);
     }
+    // 柱の濃さ（めずらしい: ゆっくりゆれる）・とても めずらしい: にじ色がゆっくり流れる
+    for (const r of RARITY_ORDER) PILLAR_MATS[r].opacity = pillarOpacity(r, this.time);
+    PILLAR_MATS.superRare.color.setHSL(rainbowHue(this.time), 0.7, 0.7);
+    this.ringMats.superRare.color.setHSL(rainbowHue(this.time, 0.3), 0.7, 0.7);
+    this.sparkle.addFlashes();
+    this.sparkle.end();
+    if (landed >= 0) this.onLand?.(RARITY_ORDER[landed]!);
   }
 
   private create(item: ItemId): Visual {
     const root = new THREE.Group();
     const spinner = new THREE.Group();
     root.add(spinner);
-    const v: Visual = { root, spinner, item, layers: 0 };
+    const v: Visual = { root, spinner, item, layers: 0, wasResting: true, restT: 1, rarity: 'common' };
     this.setLayers(v, 1);
     return v;
   }
@@ -207,8 +276,13 @@ export class BagVisuals {
 
   dispose(): void {
     this.update(0, []);
-    for (const p of this.pillars) this.group.remove(p.mesh, p.sparks);
+    for (const p of this.pillars) this.group.remove(p.mesh);
     this.pillars.length = 0;
+    this.sparkle.dispose();
+    for (const r of RARITY_ORDER) {
+      this.rings[r].dispose();
+      this.ringMats[r].dispose();
+    }
     this.group.removeFromParent();
   }
 }

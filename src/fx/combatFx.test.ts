@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { CombatEvent, DayPhase, YokaiEvent } from '../contracts';
 import { BlockDoll } from '../camera/BlockDoll';
 import { BagVisuals } from './bagVisuals';
+import { sparkleCount } from './dropSparkle';
 import { CombatFx, type CombatFxDeps } from './combatFx';
 import { COMBAT_FX, bagPose, edgeOpacity, invincibleAlpha } from './combatFxModel';
 import { COMBAT_SOUNDS } from './combatSounds';
@@ -30,15 +31,15 @@ describe('計算', () => {
     expect(flashes).toBeLessThan(3);
   });
   it('ふくろは 2 秒で上下 0.1・4 秒で 1 回転・のこり 30 秒から光が強弱', () => {
-    expect(bagPose(0.5, 36000).y).toBeCloseTo(COMBAT_FX.bag.lift + 0.1);
+    expect(bagPose(0.375, 36000).y).toBeCloseTo(COMBAT_FX.bag.lift + 0.08);
     expect(bagPose(4, 36000).spin).toBeCloseTo(Math.PI * 2);
     expect(bagPose(0.25, 36000).glow).toBe(1);
     expect(bagPose(0.25, 1800).glow).toBeCloseTo(1);
     expect(bagPose(0.75, 1800).glow).toBeLessThan(0.4 + 0.3);
   });
-  it('音は M3 の 11 こ。すべて短く小さい', () => {
+  it('音は M3 の 11 こ + 落とし物の着地 4 こ。すべて短く小さい', () => {
     const names = Object.keys(COMBAT_SOUNDS);
-    expect(names).toHaveLength(11);
+    expect(names).toHaveLength(15);
     for (const tones of Object.values(COMBAT_SOUNDS)) {
       for (const t of tones) {
         expect(t.gain).toBeLessThanOrEqual(0.7);
@@ -73,18 +74,47 @@ describe('BagVisuals', () => {
     expect(v.count()).toBe(0);
     expect(v.pillarCount()).toBe(0);
   });
-  it('柱の色はめずらしさ・むらさきだけきらきら', () => {
+  it('柱の太さ・色はめずらしさごと。むらさきは星形のつぶとにじ色', () => {
     const v = new BagVisuals(new THREE.Scene());
     v.update(1 / 60, [it1(1, 1, 1, 'dirt', 1, 'rare'), it1(2, 2, 1, 'dirt', 1, 'rare')]);
     expect(v.pillarCount()).toBe(1);
     const pillar = () => v.group.children.find((c) => (c as THREE.Mesh).geometry?.type === 'BoxGeometry' && (c as THREE.Mesh).visible && ((c as THREE.Mesh).geometry as THREE.BoxGeometry).parameters.height === 10) as THREE.Mesh;
+    const pts = () => v.group.children.filter((c) => c.type === 'Points') as THREE.Points[];
+    const drawn = (i: number) => pts()[i]!.geometry.drawRange.count;
     const col = (pillar().material as THREE.MeshBasicMaterial).color.getHex();
+    const wRare = pillar().scale.x;
+    expect(drawn(0)).toBe(sparkleCount('rare'));
+    expect(drawn(1)).toBe(0);
     v.update(1 / 60, [it1(1, 1, 1, 'dirt', 1, 'superRare')]);
     expect((pillar().material as THREE.MeshBasicMaterial).color.getHex()).not.toBe(col);
-    const sparks = v.group.children.filter((c) => c.type === 'Group' && c.children.length === 6);
-    expect(sparks.some((g) => g.visible)).toBe(true);
+    expect(pillar().scale.x).toBeGreaterThan(wRare);
+    expect(drawn(1)).toBe(sparkleCount('superRare'));
+    const h0 = (pillar().material as THREE.MeshBasicMaterial).color.getHex();
+    for (let i = 0; i < 120; i++) v.update(1 / 60, [it1(1, 1, 1, 'dirt', 1, 'superRare')]);
+    expect((pillar().material as THREE.MeshBasicMaterial).color.getHex()).not.toBe(h0);
     v.update(1 / 60, [it1(1, 1, 1, 'dirt', 1, 'common')]);
-    expect(sparks.some((g) => g.visible)).toBe(false);
+    expect(drawn(1)).toBe(0);
+    expect(drawn(0)).toBe(sparkleCount('common'));
+  });
+  it('着地: 光の輪が出て、音は 1 フレームに いちばんめずらしい 1 つだけ', () => {
+    const calls: string[] = [];
+    const v = new BagVisuals(new THREE.Scene(), (r) => calls.push(r));
+    const air = (id: number, r: 'common' | 'rare') => ({ ...it1(id, id, 1, 'dirt', 1, r), resting: false });
+    v.update(1 / 60, [air(1, 'common'), air(2, 'rare')]);
+    expect(v.ringCount()).toBe(0);
+    expect(calls).toEqual([]);
+    v.update(1 / 60, [it1(1, 1), it1(2, 2, 1, 'dirt', 1, 'rare')]);
+    expect(calls).toEqual(['rare']);
+    expect(v.ringCount()).toBe(2);
+    v.update(1 / 60, [it1(1, 1), it1(2, 2, 1, 'dirt', 1, 'rare')]);
+    expect(calls).toHaveLength(1);
+  });
+  it('50 こ落ちても 描画物は ふえない（柱以外 +6 まで）', () => {
+    const v = new BagVisuals(new THREE.Scene());
+    const bags = Array.from({ length: 50 }, (_, i) => it1(i + 1, i * 0.5, 1, 'dirt', 1, 'superRare'));
+    v.update(1 / 60, bags);
+    const drawCalls = v.group.children.filter((c) => c.type === 'Points' || c.type === 'InstancedMesh').length;
+    expect(drawCalls).toBeLessThanOrEqual(6);
   });
   it('数が 2 こ以上なら板をかさねる', () => {
     const v = new BagVisuals(new THREE.Scene());
