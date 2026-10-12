@@ -1,0 +1,245 @@
+/* おめでとう画面・横断幕・つぶ・メダルの印（M6 B）。色・大きさは S1 の変数から */
+.cel-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 40;
+}
+.cel-spark {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: var(--rk-sp-2);
+  height: var(--rk-sp-2);
+  background: var(--rk-accent);
+  will-change: transform, opacity;
+}
+.cel-spark[hidden],
+.cel-ring[hidden],
+.cel-confetti[hidden] {
+  display: none;
+}
+.cel-spark.is-gold {
+  background: var(--rk-accent-2);
+}
+.cel-ring {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: var(--rk-slot-inv);
+  height: var(--rk-slot-inv);
+  border: var(--rk-bw-sel) solid var(--rk-rarity, var(--rk-accent));
+  border-radius: var(--rk-r-pill);
+}
+.cel-combo {
+  position: fixed;
+  left: 0;
+  top: 0;
+  font-size: var(--rk-fs-head);
+  font-weight: 800;
+  color: var(--rk-accent);
+  font-variant-numeric: tabular-nums;
+  text-shadow: 2px 0 0 var(--rk-bg-900), -2px 0 0 var(--rk-bg-900), 0 2px 0 var(--rk-bg-900), 0 -2px 0 var(--rk-bg-900);
+}
+.cel-combo[hidden] {
+  display: none;
+}
+
+/* ---- 横断幕 ---- */
+.cel-banner-wrap {
+  position: fixed;
+  left: 50%;
+  top: 22%;
+  width: calc(720 / 12.8 * 1vw);
+  height: calc(140 / 12.8 * 1vw);
+  margin-left: calc(-360 / 12.8 * 1vw);
+  margin-top: calc(-70 / 12.8 * 1vw);
+}
+.cel-banner-wrap[hidden] {
+  display: none;
+}
+.cel-halo {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: calc(520 / 12.8 * 1vw);
+  height: calc(520 / 12.8 * 1vw);
+  margin: calc(-260 / 12.8 * 1vw) 0 0 calc(-260 / 12.8 * 1vw);
+  border-radius: var(--rk-r-pill);
+  background: repeating-conic-gradient(color-mix(in srgb, var(--rk-rarity, var(--rk-accent)) 40%, transparent) 0 11.25deg, transparent 11.25deg 22.5deg);
+  -webkit-mask-image: radial-gradient(circle, transparent 20%, #000 21%, transparent 70%);
+  mask-image: radial-gradient(circle, transparent 20%, #000 21%, transparent 70%);
+}
+.cel-banner {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--rk-sp-5);
+  padding: 0 var(--rk-sp-6);
+  overflow: hidden;
+  color: var(--rk-ink);
+  background: linear-gradient(90deg, var(--rk-accent), var(--rk-accent-2));
+  border: var(--rk-bw-sel) solid var(--rk-text);
+  border-radius: var(--rk-r-l);
+  box-shadow: var(--rk-shadow-2);
+}
+.cel-banner__sea {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 30%;
+  opacity: 0.12;
+}
+.cel-banner__disc {
+  position: relative;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(112 / 12.8 * 1vw);
+  height: calc(112 / 12.8 * 1vw);
+  background: var(--rk-rarity, var(--rk-rarity-0));
+  border: var(--rk-bw-sel) solid var(--rk-bg-900);
+  border-radius: var(--rk-r-pill);
+}
+.cel-banner__icon {
+  width: calc(96 / 12.8 * 1vw);
+  height: calc(96 / 12.8 * 1vw);
+}
+.cel-banner__text {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+.cel-banner__head {
+  font-size: var(--rk-fs-head);
+  font-weight: 800;
+}
+.cel-banner__name {
+  font-size: var(--rk-fs-display);
+  font-weight: 800;
+  line-height: 1.1;
+}
+.cel-banner__shine {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 12%;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 70%), transparent);
+  transform: skewX(-20deg);
+}
+.cel-banner__shine[hidden] {
+  display: none;
+}
+.cel-star {
+  position: absolute;
+  width: var(--rk-sp-5);
+  height: var(--rk-sp-5);
+  background: var(--rk-accent);
+  clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+}
+.cel-confetti {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: var(--rk-sp-2);
+  height: var(--rk-sp-3);
+}
+
+/* ---- おめでとう画面 ---- */
+.cel-scrim {
+  pointer-events: auto;
+  z-index: 60;
+}
+.cel-scrim[hidden] {
+  display: none;
+}
+.cel-modal {
+  min-width: calc(640 / 12.8 * 1vw);
+  min-height: calc(440 / 12.8 * 1vw);
+  padding-top: var(--rk-sp-6);
+}
+.cel-title {
+  font-size: var(--rk-fs-display);
+  font-weight: 800;
+  color: var(--rk-accent);
+  text-shadow: 2px 0 0 var(--rk-bg-900), -2px 0 0 var(--rk-bg-900), 0 2px 0 var(--rk-bg-900), 0 -2px 0 var(--rk-bg-900);
+}
+.cel-main {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(224 / 12.8 * 1vw);
+  height: calc(144 / 12.8 * 1vw);
+}
+.cel-main .rk-medal {
+  position: relative;
+}
+.cel-main .cel-star {
+  position: absolute;
+}
+.cel-main-name {
+  font-size: var(--rk-fs-title);
+  font-weight: 800;
+}
+.cel-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rk-sp-2);
+  align-self: stretch;
+  padding: 0 var(--rk-sp-6);
+}
+.cel-row {
+  display: flex;
+  align-items: center;
+  gap: var(--rk-sp-3);
+  font-size: var(--rk-fs-body);
+}
+.cel-more {
+  font-size: var(--rk-fs-body);
+  color: var(--rk-text-sub);
+}
+.cel-close-wrap {
+  position: relative;
+  padding: var(--rk-sp-1);
+  border-radius: var(--rk-r-m);
+  background: conic-gradient(var(--rk-accent) calc(var(--p, 0) * 360deg), var(--rk-line) 0);
+}
+.cel-close {
+  width: calc(240 / 12.8 * 1vw);
+  min-height: calc(72 / 12.8 * 1vw);
+  font-size: var(--rk-fs-head);
+}
+
+/* ---- メダルの印 ---- */
+.cel-badge {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--rk-sp-1);
+  pointer-events: none;
+}
+.cel-badge[hidden] {
+  display: none;
+}
+.cel-badge img {
+  width: var(--rk-icon-chip);
+  height: var(--rk-icon-chip);
+}
+
+/* ---- ロックかけ直しの札 ---- */
+.cel-lock-tag {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 70;
+  pointer-events: auto;
+}
+.cel-lock-tag[hidden] {
+  display: none;
+}
