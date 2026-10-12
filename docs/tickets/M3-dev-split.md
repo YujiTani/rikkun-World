@@ -22,7 +22,24 @@
 ## つなぎ込み（AD・B・C の後。担当: `src/main.ts`, `src/game/**`, `src/debug/**`, `src/ui/hud.ts`, `src/ui/style.css`, `index.html`）
 - 申し送りはこのファイルに PO がまとめる。ついでに直す: `settings.set('rarity', ...)` が文字列を受け付けない、M2 コードレビュー軽微 2〜4（`docs/loop-ledger/M2.md`）。
 
+### つなぎ込みへの申し送り（PO がまとめた。B の分はあとで足す）
+**C（戦い）**
+- 循環をさけるため `PlayerCombatImpl` を先に作り、`yokai: () => yokaiWorld` で後から返す: `new PlayerCombatImpl({ world, player: {get: () => controller.state, set: controller.set}, inventory, yokai, spawn: () => island.spawn(), closeInventory: <D の閉じる>, requestSave: () => save.saveIfChanged() })`
+- `new DigSystemImpl(..., createDigConfig(), 既定の rng, combat)`（最後の引数がパンチの入口）
+- 毎ステップ: `controller.update` → `dig.update`（中で primaryStep）→ `combat.update()`
+- `SaveManager` に `bags: { serialize: () => combat.serializeBags(), deserialize: d => combat.deserializeBags(d) }`。combat は `save.load()` より前に作る
+- `settings` に `combat.config`。時間が止まっているあいだは `combat.update()` を呼ばない
+**AD（時間と空・画面と音）**
+- 毎ステップ: `time.update()`、`sky.update(game.camera)`、`combatFx.update(dt)` は DigFx の `fx.update` の直後・`rig.update` の前
+- `new Sky({scene, time, timeSettings: time.settings, lighting})`。`CombatFx` に `bags: () => combat.bags()`, `doll: rig.doll`, `view: rig`, `onPickup: (i, n) => hotbar.pickup(i, n)`。`createCombatUi(hud)`
+- 明るさの登録: `WorldRenderer` に材料の取得口（例 `materials()`）を足して `lighting.register(m, 'block')`、`buildScenery` の海・海の底も `'block'`、人形は `lighting.registerTree(rig.doll.group, 'doll')`。色を後から変えるときは `lighting.setBase`
+- `settings` に `createTimeSettings()` の入れ物
+- CSS: `#notice-name` の bottom を 90px ほど上げてハートと重ならないように。`#clock` と F3 の表示が重なるなら調整
+- 「もちもの が いっぱい」の合図は `notice.showSignal('full')` を、妖怪のドロップが入らなかったときに呼ぶ
+
 ## 経過
 | 日付 | 内容 |
 |---|---|
+| 2026-10-12 | オーナー決定を途中で反映: 昼 5 分・夜 2.5 分、出現は暗い所にランダム（おうちなし）、AI は距離だけ、パンチは手前のものが受ける、ドロップ表（新アイテム 6 種） |
+| 2026-10-12 | C・AD 完了・取りこみ（ユニット 374 件） |
 | 2026-10-12 | 3 担当（AD・B・C）で開始。`ItemId` に `yokai_orb` を足すための型の最小修正を PO が先に入れた（inventory/items.ts, ui/itemIcon.ts, camera/BlockDoll.ts） |
