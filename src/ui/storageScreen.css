@@ -62,3 +62,13 @@
 .tansu-grid .rk-slot {
   cursor: pointer;
 }
+
+.tansu-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rk-sp-2);
+  margin-left: auto;
+}
+.tansu-act[hidden] {
+  display: none;
+}

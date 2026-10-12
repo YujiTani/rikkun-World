@@ -236,7 +236,7 @@ test('もちもの画面の下に操作が出る（たんす は文がかわる�
   await expect(hints).toBeVisible();
   await expect(hints).toContainText('1こ すてる');
   await expect(hints).toContainText('ぜんぶ すてる');
-  await expect(hints).toContainText('わくの そとへ ひっぱる');
+  await expect(hints).toContainText('の そとへ ひっぱる');
   await expect(hints).toContainText('いっきに うつす');
   await expect(hints).toContainText('とじる');
   expect(await inView(page, '.inv-hints')).toBe(true);
@@ -296,3 +296,150 @@ test('マウスの絵には L / R の文字がある（もちもの画面の下�
   const detail = await page.locator('.cp-detail .rk-mouse').evaluateAll((els) => els.map((e) => e.textContent));
   for (const t of detail) expect(['L', 'R']).toContain(t);
 });
+
+// ---- 1〜9 キー: 実キーで ホットバーをえらぶ（遊び中も もちもの画面を開いているときも）----
+test('実キー Digit1〜9 で ホットバーが かわる（遊び中・もちもの画面）', async ({ page }) => {
+  await page.goto('/?nosave=1');
+  await page.waitForFunction(() => window.__rikkun?.ready === true);
+  await page.evaluate(() => (window.__rikkun as any).lock.simulate(true));
+  await page.waitForTimeout(300);
+  const sel = () => page.evaluate(() => (window.__rikkun as any).inventory.get().selected as number);
+  for (let n = 1; n <= 9; n++) {
+    await page.keyboard.press(`Digit${n}`);
+    await expect.poll(sel, { message: `play ${n}`, timeout: 3000 }).toBe(n - 1);
+  }
+  await page.keyboard.press('Digit1');
+  await expect.poll(sel).toBe(0);
+  await page.keyboard.press('KeyE');
+  await expect(page.locator('#inventory-screen')).toBeVisible();
+  await page.waitForTimeout(500);
+  for (let n = 9; n >= 1; n--) {
+    await page.keyboard.press(`Digit${n}`);
+    await expect.poll(sel, { message: `inventory ${n}`, timeout: 3000 }).toBe(n - 1);
+  }
+});
+
+// ---- 開いた瞬間に カクッとしない ----
+for (const [w, h] of [[960, 540], [1280, 720]] as const) {
+  test(`開いた直後と あとで パネルの大きさが同じ ${w}x${h}`, async ({ page }) => {
+    await page.setViewportSize({ width: w, height: h });
+    await page.goto('/?nosave=1');
+    await page.waitForFunction(() => window.__rikkun?.ready === true);
+    await page.evaluate(() => {
+      const hk = window.__rikkun as any;
+      hk.pause();
+      hk.lock.simulate(true);
+      hk.step(2);
+      hk.input.press('toggleInventory');
+      hk.input.release('toggleInventory');
+      hk.step(1);
+    });
+    const size = () => page.evaluate(() => {
+      const r = document.querySelector('.inv-frame')!.getBoundingClientRect();
+      return [Math.round(r.width), Math.round(r.height)];
+    });
+    const first = await size();
+    await page.evaluate(() => (window.__rikkun as any).step(10));
+    await page.waitForTimeout(600);
+    expect(await size()).toEqual(first);
+  });
+}
+
+// ---- たんす ----
+test('たんす: とじる は 1 こ・ぜんぶ しまう・えらんで しまう', async ({ page }) => {
+  await open(page);
+  await page.evaluate(() => {
+    const hk = window.__rikkun as any;
+    hk.input.press('toggleInventory');
+    hk.input.release('toggleInventory');
+    hk.step(2);
+    hk.world.setBlock(60, 20, 60, 'tansu');
+    hk.player.set?.({ position: { x: 60.5, y: 20, z: 62.5 } });
+    hk.inventory.clear();
+    hk.inventory.setSlot(9, { item: 'dirt', count: 5 });
+    hk.inventory.setSlot(10, { item: 'stone', count: 7 });
+    hk.inventory.setSlot(0, { item: 'log', count: 3 });
+    hk.storage.open(60, 20, 60);
+    hk.step(3);
+  });
+  await page.waitForTimeout(600);
+  await expect(page.locator('.tansu-panel')).toBeVisible();
+  await expect(page.locator('#tansu-close')).toHaveCount(0);
+  await expect(page.locator('#inventory-close')).toBeVisible();
+  await expect(page.locator('#tansu-store-all')).toBeVisible();
+  // ✓
+  const slot = page.locator('.inv-slot[data-index="10"]');
+  const stepN = () => page.evaluate(() => (window.__rikkun as any).step(3));
+  await slot.click({ modifiers: ['Control'] });
+  await stepN();
+  await expect(slot).toHaveAttribute('data-marked', 'true');
+  await expect(page.locator('#tansu-store-marked')).toBeVisible();
+  await slot.click({ modifiers: ['Control'] });
+  await stepN();
+  await expect(page.locator('#tansu-store-marked')).toBeHidden();
+  await page.locator('#tansu-store-all').click();
+  await stepN();
+  const counts = await page.evaluate(() => {
+    const hk = window.__rikkun as any;
+    return { dirt: hk.inventory.count('dirt'), log: hk.inventory.count('log') };
+  });
+  expect(counts.dirt).toBe(0);
+  expect(counts.log).toBe(3); // ホットバーは うごかない
+  await expect(page.locator('.inv-hints')).toContainText('えらぶ');
+});
+
+// ---- 防具を ダブルクリックで きる・ぬぐ ----
+test('防具のマスを ダブルクリックで きる・そうびのマスを ダブルクリックで ぬぐ', async ({ page }) => {
+  await open(page);
+  await page.evaluate(() => {
+    const hk = window.__rikkun as any;
+    hk.inventory.clear();
+    hk.inventory.setSlot(10, { item: 'kabuto', count: 1 });
+    hk.step(3);
+  });
+  await page.locator('.inv-slot[data-index="10"]').dblclick();
+  await page.evaluate(() => (window.__rikkun as any).step(3));
+  expect(await page.evaluate(() => (window.__rikkun as any).armor.get().head)).toBe('kabuto');
+  expect(await page.evaluate(() => (window.__rikkun as any).inventory.count('kabuto'))).toBe(0);
+  await page.evaluate(() => {
+    const hk = window.__rikkun as any;
+    for (let i = 0; i < 6; i++) {
+      hk.step(20);
+      hk.achievements.close(); // 着たごほうびの おめでとう画面を とじる
+    }
+  });
+  await page.waitForTimeout(500);
+  await page.locator('.equip-slot[data-slot="head"]').dblclick({ force: true });
+  await page.evaluate(() => (window.__rikkun as any).step(3));
+  expect(await page.evaluate(() => (window.__rikkun as any).armor.get().head)).toBe(null);
+  expect(await page.evaluate(() => (window.__rikkun as any).inventory.count('kabuto'))).toBe(1);
+});
+
+// ---- 案内画面のカードが はみ出さない ----
+for (const [w, h] of SIZES) {
+  test(`案内画面のカードが 収まる ${w}x${h}`, async ({ page }) => {
+    await page.setViewportSize({ width: w, height: h });
+    await page.goto('/?nosave=1');
+    await page.waitForFunction(() => window.__rikkun?.ready === true);
+    await page.evaluate(() => (window.__rikkun as any).step(2));
+    await expect(page.locator('.po-panel')).toBeVisible();
+    for (const tab of ['move', 'dig', 'fight', 'craft']) {
+      await page.locator(`.po-tab[data-tab="${tab}"]`).click();
+      await page.waitForTimeout(100);
+      const bad = await page.evaluate(() => {
+        const out: string[] = [];
+        for (const item of document.querySelectorAll<HTMLElement>('.po-help:not([hidden]) .po-help-item')) {
+          const r = item.getBoundingClientRect();
+          for (const ch of item.querySelectorAll<HTMLElement>('.po-art > *, .po-art')) {
+            const c = ch.getBoundingClientRect();
+            if (c.right > r.right + 1 || c.left < r.left - 1 || c.bottom > r.bottom + 1) out.push(ch.className);
+          }
+          if (r.right > window.innerWidth + 1 || r.bottom > window.innerHeight + 1) out.push('card-out');
+        }
+        return out;
+      });
+      expect(bad, tab).toEqual([]);
+      if (tab === 'fight' && (w === 960 || w === 1920)) await page.screenshot({ path: `${OUT}/fix-m6-scroll-guide-fight-${w}.png` });
+    }
+  });
+}
