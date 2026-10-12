@@ -10,6 +10,8 @@ export interface DigConfig extends DigSettings {
    * （オーナー決定。digResumeTicks のかわり）
    */
   digDecayRate: number;
+  /** ひびの段階の数（3）。段階 = 1 + floor(段階の数 × ほった量 ÷ ほる時間) */
+  crackStages: number;
 }
 
 export const DIG_DEFAULTS: Readonly<DigConfig> = {
@@ -47,6 +49,7 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
   digCooldown: 6,
   placeRepeatTicks: 30,
   digDecayRate: 1.0,
+  crackStages: 3,
 };
 
 export function createDigConfig(): DigConfig {

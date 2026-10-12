@@ -77,7 +77,8 @@ export class DigSystemImpl implements DigSystem {
       if ('steps' in r) {
         const n = r.steps;
         progress = Math.min(1, this.mem / n);
-        crack = Math.min(5, 1 + Math.floor((5 * this.mem) / n));
+        const cs = this.config.crackStages;
+        crack = Math.min(cs, 1 + Math.floor((cs * this.mem) / n));
       }
     }
     return {

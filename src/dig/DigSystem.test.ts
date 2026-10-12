@@ -175,7 +175,7 @@ describe('ほる', () => {
     expect(r.dig.state().active).toBe(false);
     r.step(9);
     expect(r.dig.state().progress).toBeCloseTo(10 / 30, 2);
-    expect(r.dig.state().crackStage).toBe(1 + Math.floor(50 / 30));
+    expect(r.dig.state().crackStage).toBe(2);
     // 残り 10 から押し直し: 20 ステップ目にこわれる
     r.press('primary');
     r.step(19);
@@ -228,7 +228,7 @@ describe('ほる', () => {
     const r = new Rig();
     r.set(4, 10, 6, 'dirt');
     r.press('primary');
-    const at: Record<number, number> = { 5: 1, 6: 2, 12: 3, 18: 4, 24: 5, 29: 5 };
+    const at: Record<number, number> = { 1: 1, 9: 1, 10: 2, 19: 2, 20: 3, 29: 3 };
     for (let i = 1; i <= 29; i++) {
       r.step(1);
       if (at[i] !== undefined) expect(r.dig.state().crackStage).toBe(at[i]);
