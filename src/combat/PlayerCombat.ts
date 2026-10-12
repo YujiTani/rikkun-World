@@ -17,7 +17,6 @@ import {
   BODY_HALF,
   BODY_HEIGHT,
   KNOCKBACK_TICKS,
-  PUNCH_SEE_REACH,
   createCombatConfig,
   type CombatConfig,
 } from './config';
@@ -216,8 +215,8 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
       return true;
     }
     if (!primary) return false;
-    // 線が ブロックより先に妖怪にふれるなら パンチ（遠くても からぶりのパンチ）
-    const maxD = blockDistance === null ? PUNCH_SEE_REACH : Math.min(blockDistance, PUNCH_SEE_REACH);
+    // とどく距離内で いちばん手前が妖怪ならパンチ（遠い妖怪は無視。ブロックはふつうにほれる）
+    const maxD = blockDistance === null ? cfg.punchReach : Math.min(blockDistance, cfg.punchReach);
     const hit = this.d.yokai().raycast(eye, dir, maxD);
     if (!hit || (blockDistance !== null && hit.distance >= blockDistance)) return false;
     this.punchTickNow = 1;
@@ -378,8 +377,8 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
     this.d.player.set({
       position: { x: s.x, y: s.y, z: s.z },
       velocity: { x: 0, y: 0, z: 0 },
-      yawDeg: 0,
-      pitchDeg: 0,
+      yawDeg: s.yawDeg,
+      pitchDeg: s.pitchDeg,
     });
     this.isDead = false;
     this.deadTicks = 0;

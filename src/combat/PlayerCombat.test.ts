@@ -195,12 +195,12 @@ describe('パンチ', () => {
     expect(r.yokai.damaged).toHaveLength(4);
   });
 
-  it('3.0 より遠いと からぶり', () => {
+  it('3.0 より遠い妖怪は無視（パンチにならない）', () => {
     const r = rig();
     r.yokai.box = { id: 1, x0: 5.6, x1: 6.5 }; // 目から 3.1
-    for (let i = 0; i < 30; i++) r.combat.primaryStep(i === 0, EYE, EAST, null);
-    expect(r.yokai.damaged).toHaveLength(0);
-    expect(r.combat.takeHookEvents().map((e) => e.type)).toEqual(['punchStart', 'punchMiss']);
+    expect(r.combat.primaryStep(true, EYE, EAST, null)).toBe(false);
+    expect(r.combat.primaryStep(true, EYE, EAST, 4.0)).toBe(false);
+    expect(r.combat.takeHookEvents()).toEqual([]);
   });
 
   it('2.9 なら当たる', () => {
@@ -333,7 +333,7 @@ describe('やられた・落とす・ふくろ・復活', () => {
     r.combat.update(); // 120 ステップ目
     expect(r.combat.dead()).toBe(false);
     expect(r.player.position).toMatchObject({ x: 1.5, y: 9, z: 1.5 });
-    expect(r.player.yawDeg).toBe(0);
+    expect(r.player.yawDeg).toBe(0); // 仮のスタート地点の向きが 0
     expect(r.combat.hp()).toBe(20);
     expect(r.combat.invincibleTicks()).toBe(180);
     r.step(179);

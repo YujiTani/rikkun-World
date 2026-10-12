@@ -34,8 +34,6 @@ export interface CombatConfig {
 /** 内部の決まり（仕様書の表にある数。設定の名前は付けない） */
 export const KNOCKBACK_TICKS = 10;
 export const BAG_PICKUP_HEIGHT = 2;
-/** 線が妖怪にふれるか調べる最大の距離（ほる距離と同じ 5.0）。3.0 より遠ければ からぶり */
-export const PUNCH_SEE_REACH = 5;
 /** 体の箱（M1-02 §4.1） */
 export const BODY_HALF = 0.3;
 export const BODY_HEIGHT = 1.8;
