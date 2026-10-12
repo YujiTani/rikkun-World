@@ -9,7 +9,7 @@
 ## AB 持ち物＋ねらう・ほる・おく（仕様 §2.1〜2.5 の持ち物・ほる・おく部分, §4.1〜4.3, §5, AC1〜AC18, AC21, AC26）
 - 担当: `src/inventory/**`, `src/dig/**`
 - `src/inventory/`: `Inventory` の実装、アイテムの種類の表、§2.5 のクリック、`createInventoryHook(inv, screen)` → `inventory.*`（`open` は ScreenState から）。
-- `src/dig/`: `DigSystem` の実装（目からの線、かたさ×60÷強さ、続きから・休み・ひび、置く判定、0.5 秒くり返し、いっぱいでも掘れる）、`src/dig/config.ts` に `DigSettings` の値（ブロックのかたさ・要るレベルはここ。`src/world/blocks` は変えない）。`primary`/`secondary`/ホットバー Action（`hotbar1`〜`9`, `hotbarNext`, `hotbarPrev`）を読むのは AB。`lock.playInputEnabled()` が false なら無視。`createDigHook(dig)` → `target.get`, `dig.get`, `dig.events`。
+- `src/dig/`: `DigSystem` の実装（目からの線、かたさ×60÷強さ、続きから・休み・ひび、置く判定、0.5 秒くり返し、いっぱいでも掘れる）、`src/dig/config.ts` に `DigSettings` の値（ブロックのかたさ・要るレベルはここ。`src/world/blocks` は変えない）。`primary`/`secondary`/ホットバー Action（`hotbar1`〜`9`, `hotbarNext`, `hotbarPrev`）を読むのは AB。`lock.playInputEnabled()` が false なら無視。`createDigHook(dig)` → `target.get`, `dig.get`, `dig.events`。**出来事は読み手ごとに別の列**: 画面（C）が毎ステップ `drainEvents()` で読んでも、テストの `dig.events()` の分は消えないようにする（フック用の列を中に持つ。`peekEvents` の中身は AB が決めてよい）。
 - コンストラクタで `VoxelWorld`, `() => PlayerState`, `ActionState`, `LockStatus`, `Inventory`, 目の高さを返す関数 を受け取る。
 
 ## C 見た目と音（仕様 §3, §2.6, AC22, AC23, AC27）
