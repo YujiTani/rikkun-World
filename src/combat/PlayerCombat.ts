@@ -38,6 +38,13 @@ export interface PunchGate {
   placeBlocked(x: number, y: number, z: number): boolean;
 }
 
+/** 持っている武器のパンチの値（M4。`ToolSystemImpl` が合う。なければ config の値） */
+export interface PunchTool {
+  punchParams(): { damage: number; reach: number; ticks: number };
+  /** パンチを始めた（人形の振り用） */
+  onPunchStart(): void;
+}
+
 export interface CombatPlayerPort {
   get(): PlayerState;
   set(v: { position?: Vec3; velocity?: Vec3; yawDeg?: number; pitchDeg?: number }): void;
@@ -51,6 +58,8 @@ export interface CombatDeps {
   yokai: () => YokaiWorld;
   /** スタート地点（そのとき計算し直す） */
   spawn: () => SpawnPoint;
+  /** 持っている武器の強さ・距離・当たるまで（M4） */
+  tool?: PunchTool;
   /** もちもの画面が開いていれば閉じる */
   closeInventory?: () => void;
   /** やられたとき・ふくろを拾ったとき・ふくろが消えたとき 保存してほしい */
@@ -104,6 +113,10 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
   private kbZ = 0;
 
   private punchTickNow = 0;
+  /** いまのパンチを始めたときの値（途中で持ちかえても そのまま） */
+  private pDamage = 1;
+  private pReach = 3;
+  private pTicks = 30;
 
   readonly drops: DropField;
 
@@ -209,7 +222,7 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
     const cfg = this.config;
     if (this.punchTickNow > 0) {
       this.punchTickNow++;
-      if (this.punchTickNow >= cfg.punchTicks) {
+      if (this.punchTickNow >= this.pTicks) {
         this.punchTickNow = 0;
         this.resolvePunch(eye, dir, blockDistance);
       }
@@ -217,12 +230,18 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
     }
     if (!primary) return false;
     // とどく距離内で いちばん手前が妖怪ならパンチ（遠い妖怪は無視。ブロックはふつうにほれる）
-    const maxD = blockDistance === null ? cfg.punchReach : Math.min(blockDistance, cfg.punchReach);
+    const tp = this.d.tool?.punchParams();
+    const reach = tp ? tp.reach : cfg.punchReach;
+    const maxD = blockDistance === null ? reach : Math.min(blockDistance, reach);
     const hit = this.d.yokai().raycast(eye, dir, maxD);
     if (!hit || (blockDistance !== null && hit.distance >= blockDistance)) return false;
+    this.pDamage = tp ? tp.damage : cfg.punchDamage;
+    this.pReach = reach;
+    this.pTicks = tp ? tp.ticks : cfg.punchTicks;
     this.punchTickNow = 1;
     this.emit({ type: 'punchStart', tick: this.tickCount });
-    if (cfg.punchTicks <= 1) {
+    this.d.tool?.onPunchStart();
+    if (this.pTicks <= 1) {
       this.punchTickNow = 0;
       this.resolvePunch(eye, dir, blockDistance);
     }
@@ -230,13 +249,12 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
   }
 
   private resolvePunch(eye: Vec3, dir: Vec3, blockDistance: number | null): void {
-    const cfg = this.config;
-    const maxD = blockDistance === null ? cfg.punchReach : Math.min(blockDistance, cfg.punchReach);
+    const maxD = blockDistance === null ? this.pReach : Math.min(blockDistance, this.pReach);
     const yw = this.d.yokai();
     const hit = yw.raycast(eye, dir, maxD);
-    if (hit && hit.distance <= cfg.punchReach && (blockDistance === null || hit.distance < blockDistance)) {
+    if (hit && hit.distance <= this.pReach && (blockDistance === null || hit.distance < blockDistance)) {
       this.emit({ type: 'punchHit', tick: this.tickCount, yokaiId: hit.id });
-      yw.damage(hit.id, cfg.punchDamage, { ...this.d.player.get().position });
+      yw.damage(hit.id, this.pDamage, { ...this.d.player.get().position });
     } else {
       this.emit({ type: 'punchMiss', tick: this.tickCount });
     }
