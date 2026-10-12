@@ -34,7 +34,21 @@ export type BlockId =
   | 'torch' // たいまつ（置ける。光る。固くない）
   | 'start_torch' // スタート地点の こわれない たいまつ
   // M6
-  | 'tansu'; // たんす（和だんす。54 マスの入れもの）
+  | 'tansu' // たんす（和だんす。54 マスの入れもの）
+  // M7（農業。うしろに足す。作物の段階は id に入れない: 作物は 4 しゅるい、段階は FarmSystem が持つ）
+  | 'farmland' // はたけ（かわいた）
+  | 'farmland_wet' // はたけ（しめった）
+  | 'crop_onion'
+  | 'crop_tomato'
+  | 'crop_pumpkin'
+  | 'crop_eggplant'
+  | 'wild_onion' // やせいの やさい
+  | 'wild_tomato'
+  | 'wild_pumpkin'
+  | 'wild_eggplant'
+  | 'kakashi' // かかし（下）
+  | 'kakashi_head' // かかし（上）
+  | 'saku'; // こわれた さく
 
 export interface BlockType {
   id: BlockId;
@@ -53,6 +67,11 @@ export interface VoxelWorld {
   setBlock(x: number, y: number, z: number, id: BlockId): boolean;
   /** 固いブロックなら true。範囲外は false（世界の端は T3 が面で止める） */
   isSolid(x: number, y: number, z: number): boolean;
+  /**
+   * M7: ブロックの id は同じまま、見た目だけ作り直させる（作物の段階が変わったとき）。光の計算し直しは起こさない。
+   * 範囲外は何もしない。持たない VoxelWorld（テスト用の仮のもの）では呼ばない（`world.touch?.()`）
+   */
+  touch?(x: number, y: number, z: number): void;
 }
 
 // ---------------------------------------------------------------- 島生成（T1）
@@ -166,7 +185,17 @@ export type ItemOnlyId =
   | 'futon'
   | 'omamori'
   | 'waraji'
-  | 'haniwa';
+  | 'haniwa'
+  // M7（うしろに足す）
+  | 'seed_onion'
+  | 'seed_tomato'
+  | 'seed_pumpkin'
+  | 'seed_eggplant'
+  | 'onion'
+  | 'tomato'
+  | 'pumpkin'
+  | 'eggplant'
+  | 'kuwa';
 
 /** アイテムの種類。ブロックとアイテムだけのもの */
 export type ItemId = BlockId | ItemOnlyId;
@@ -399,6 +428,8 @@ export interface PlayerCombat {
   invincibleTicks(): number;
   /** 妖怪の攻撃が当たった。むてきなどで受けなかったら false */
   damage(amount: number, by: YokaiKind, from: Vec3, kind?: DamageKind): boolean;
+  /** M7: 体力を もどす（ハート半分 = 1）。最大をこえない。やられている間は 0。実際に もどった量を返す */
+  heal(amount: number): number;
   /** 画面と音用（呼ぶと空になる）。テストの窓口用の列は別に持つ */
   drainEvents(): CombatEvent[];
 }
@@ -566,7 +597,17 @@ export type AchievementId = string;
 export type MedalTier = 'bronze' | 'silver' | 'gold' | 'rainbow';
 
 /** 実績の分類（§2.7）: こわす・おく・つくる・あつめる・たたかう・レベル・ぼうけん・ばしょ */
-export type AchievementCategory = 'break' | 'place' | 'craft' | 'collect' | 'fight' | 'level' | 'adventure' | 'places';
+export type AchievementCategory =
+  | 'break'
+  | 'place'
+  | 'craft'
+  | 'collect'
+  | 'fight'
+  | 'level'
+  | 'adventure'
+  | 'places'
+  // M7: 9 こ目「そだてる」
+  | 'farm';
 
 export type DefeatWith = 'hand' | 'pickaxe' | 'bokuto' | 'katana' | 'naginata' | 'crystal_katana' | 'yumi';
 
@@ -583,6 +624,14 @@ export type StatKey =
   | `visit:${string}`
   | `drop:${string}`
   | `store:${string}`
+  // M7 農業（`visit:oldfarm` は上の `visit:` の形）
+  | 'till'
+  | `plant:${string}` // `plant:<kind>`・`plant:*`
+  | `harvest:${string}` // `harvest:<kind>`・`harvest:*`
+  | 'harvestWet'
+  | `eat:${string}` // `eat:<item>`・`eat:*`
+  | `wild:${string}` // `wild:<kind>`・`wild:*`
+  | `seedFrom:${string}` // `seedFrom:grass`・`seedFrom:yokai`・`seedFrom:oldfarm`
   | 'craftItems:ya'
   | 'pickup:*'
   | 'bagBack'
@@ -731,4 +780,338 @@ export const M6_SETTING_DEFAULTS: Readonly<M6Settings> = {
 /** 設定の入れ物を作る（つなぎ込みが `createSettingsHook` の extras に渡す。毎回 新しいコピー） */
 export function createM6Settings(): M6Settings {
   return { ...M6_SETTING_DEFAULTS };
+}
+
+// ================================================================ M7（農業 フェーズ 1）
+// 担当の割り振り: docs/tickets/M7-dev-split.md。仕様: docs/design/M7-farm.md
+
+/** 作物の しゅるい。ブロックの id は しゅるいごと（`crop_<kind>`・`wild_<kind>`）。段階は id に入れない */
+export type CropKind = 'onion' | 'tomato' | 'pumpkin' | 'eggplant';
+export const CROP_KINDS: readonly CropKind[] = ['onion', 'tomato', 'pumpkin', 'eggplant'];
+/** 0 = め・1 = は・2 = みが すこし・3 = みのった */
+export type CropStage = 0 | 1 | 2 | 3;
+
+export const CROP_BLOCK: Readonly<Record<CropKind, BlockId>> = {
+  onion: 'crop_onion',
+  tomato: 'crop_tomato',
+  pumpkin: 'crop_pumpkin',
+  eggplant: 'crop_eggplant',
+};
+export const WILD_BLOCK: Readonly<Record<CropKind, BlockId>> = {
+  onion: 'wild_onion',
+  tomato: 'wild_tomato',
+  pumpkin: 'wild_pumpkin',
+  eggplant: 'wild_eggplant',
+};
+export const SEED_ITEM: Readonly<Record<CropKind, ItemId>> = {
+  onion: 'seed_onion',
+  tomato: 'seed_tomato',
+  pumpkin: 'seed_pumpkin',
+  eggplant: 'seed_eggplant',
+};
+/** やさいの アイテム id は しゅるいの名前そのまま（`onion` ほか） */
+export const VEG_ITEM: Readonly<Record<CropKind, ItemId>> = {
+  onion: 'onion',
+  tomato: 'tomato',
+  pumpkin: 'pumpkin',
+  eggplant: 'eggplant',
+};
+
+/** ブロック id から 作物の しゅるいを引く（作物・やせいの やさい 以外は null） */
+export function cropKindOfBlock(id: BlockId | 'outside'): { kind: CropKind; wild: boolean } | null {
+  switch (id) {
+    case 'crop_onion': return { kind: 'onion', wild: false };
+    case 'crop_tomato': return { kind: 'tomato', wild: false };
+    case 'crop_pumpkin': return { kind: 'pumpkin', wild: false };
+    case 'crop_eggplant': return { kind: 'eggplant', wild: false };
+    case 'wild_onion': return { kind: 'onion', wild: true };
+    case 'wild_tomato': return { kind: 'tomato', wild: true };
+    case 'wild_pumpkin': return { kind: 'pumpkin', wild: true };
+    case 'wild_eggplant': return { kind: 'eggplant', wild: true };
+    default: return null;
+  }
+}
+/** アイテム id から たね／やさい の しゅるいを引く */
+export function seedKindOfItem(id: ItemId): CropKind | null {
+  switch (id) {
+    case 'seed_onion': return 'onion';
+    case 'seed_tomato': return 'tomato';
+    case 'seed_pumpkin': return 'pumpkin';
+    case 'seed_eggplant': return 'eggplant';
+    default: return null;
+  }
+}
+export function vegKindOfItem(id: ItemId): CropKind | null {
+  return id === 'onion' || id === 'tomato' || id === 'pumpkin' || id === 'eggplant' ? id : null;
+}
+
+/** 作物 1 つ（`farm.crop` の答え。座標は 作物のマス = はたけ の 1 つ上） */
+export interface FarmCropInfo {
+  kind: CropKind;
+  stage: CropStage;
+  /** 同じだんに いる 明るい ステップ */
+  stageTicks: number;
+  /** 下の はたけ が しめっているか */
+  wet: boolean;
+  /** 今 明るさ 9 以上（`farmMinLight`）か */
+  lit: boolean;
+  ripe: boolean;
+}
+
+export type FarmHintKind = 'till' | 'full';
+export type SeedSource = 'grass' | 'yokai' | 'oldfarm';
+
+/** 農業の出来事。`tick` と 場所つき。画面（D）・音・実績・テストの窓口が読む */
+export type FarmEvent =
+  | { type: 'till'; tick: number; x: number; y: number; z: number }
+  /** すで の 1・2 回目（count = 何回目） */
+  | { type: 'tillPress'; tick: number; x: number; y: number; z: number; count: number }
+  | { type: 'plant'; tick: number; x: number; y: number; z: number; kind: CropKind }
+  | { type: 'stage'; tick: number; x: number; y: number; z: number; kind: CropKind; from: CropStage; to: CropStage }
+  | { type: 'harvest'; tick: number; x: number; y: number; z: number; kind: CropKind; veg: number; seeds: number; wet: boolean }
+  | { type: 'wild'; tick: number; x: number; y: number; z: number; kind: CropKind; seeds: number }
+  | { type: 'notRipe'; tick: number; x: number; y: number; z: number; kind: CropKind }
+  | { type: 'wet'; tick: number; x: number; y: number; z: number; wet: boolean }
+  | { type: 'eat'; tick: number; x: number; y: number; z: number; item: ItemId; heal: number }
+  | { type: 'seedFound'; tick: number; x: number; y: number; z: number; from: SeedSource; item: ItemId }
+  /** 合図（D が チップを出す）。C が `noteHint` で伝える */
+  | { type: 'hint'; tick: number; x: number; y: number; z: number; hint: FarmHintKind }
+  /** かかし から 横 4 以内に 入った（`visit:oldfarm`。はじめて だけでなく 入るたび。数えるのは D の実績） */
+  | { type: 'visitOldFarm'; tick: number; x: number; y: number; z: number };
+
+/** しゅうかく の 結果 */
+export type FarmHarvestResult =
+  | { ok: false; reason: 'notRipe' | 'none' }
+  | {
+      ok: true;
+      kind: CropKind;
+      wild: boolean;
+      wet: boolean;
+      /** 入れるもの（やさい と たね。順は やさい・たね）。持ち物に入らない分は C が `scatterItem` で出す */
+      items: ItemStack[];
+    };
+
+/** ねらった作物・はたけ の しるし（HUD。`farm.hud()` と同じ形） */
+export interface FarmAim {
+  /** 0〜4（段階 s なら s+1。はたけ だけなら 0） */
+  dots: number;
+  ripe: boolean;
+  wet: boolean;
+  /** 暗くて そだたない（明るさ 8 以下 で まだ みのっていない作物） */
+  dark: boolean;
+}
+
+/** 農業の毎ステップに渡すもの */
+export interface FarmStepContext {
+  /** かかし への 近づきの 判定用 */
+  playerPos: Vec3;
+}
+
+/**
+ * 農業のしくみ。担当 A が `src/farm/` で実装する（`createFarmSystem(deps)`）。
+ * ブロックの置きかえ（たがやす・まく・しゅうかく・しめり）は A が `world.setBlock` で行う。
+ * 持ち物・体力に触るのは C（A は 持ち物を持たない）。座標は 特にことわりがなければ「作物のマス」。
+ */
+export interface FarmSystem {
+  /** 作物のマスなら 情報、ちがえば null（やせいの やさい は stage 3・ripe で返す） */
+  crop(x: number, y: number, z: number): FarmCropInfo | null;
+  crops(): Array<{ x: number; y: number; z: number } & FarmCropInfo>;
+  /** はたけ のマスなら `{wet}`（座標は はたけ のマス） */
+  soil(x: number, y: number, z: number): { wet: boolean } | null;
+  /** 設定（live）。C が 「すで 3 回」の数を読むのに使う */
+  settings(): Readonly<M7Settings>;
+
+  // ---- DigSystem（C）から呼ぶ。座標は ねらった ブロック（`dig.target().block`）
+  /** くさ・つち（上が くうき）を はたけ（`farmland`。みず が近ければ `farmland_wet`）にする。できたら true。出来事 till */
+  till(x: number, y: number, z: number): boolean;
+  /** すで の 1・2 回目。出来事 tillPress だけ出す */
+  noteTillPress(x: number, y: number, z: number, count: number): void;
+  /** はたけ（座標は はたけ のマス）の 上が くうき なら 上のマスに 作物 stage 0。できたら true。出来事 plant。たねを へらすのは C */
+  plant(x: number, y: number, z: number, kind: CropKind): boolean;
+  /**
+   * 作物・やせいの やさい の しゅうかく（座標は 作物のマス）。みのっていなければ `notRipe`（出来事 notRipe）。
+   * みのっていれば 作物を くうき にして（はたけ は のこす）、入るもの（乱数は 農業の シード付き）を返し、出来事 harvest / wild
+   */
+  harvest(x: number, y: number, z: number): FarmHarvestResult;
+  /**
+   * ブロックを こわした あと（`setBlock(…, 'air')` の あと）に C が呼ぶ。はたけ なら 上の作物を かたづけて、
+   * 返す物（みのっていれば しゅうかく と同じ。みのっていなければ たね 1 こ）を 返す。
+   * くさ の上の やせいの やさい も 同じ（とったのと同じもの）。つち 1 こ は C が M2 のとおり。ほかは []
+   */
+  onBlockBroken(x: number, y: number, z: number, id: BlockId): ItemStack[];
+  /** くさ を こわした列 (x, z) で 1/8 の くじ。当たれば たね 1 こ（場所で 出やすい たね。出来事 seedFound grass）、はずれは null */
+  grassSeed(x: number, z: number): ItemId | null;
+  /** その列で くさ を こわしたとき 出やすい たね（`regions()` から。なければ null = 4 しゅるい同じ）。テスト用 */
+  grassSeedKind(x: number, z: number): CropKind | null;
+  /** やさい を たべたときに もどる体力（やさい でなければ 0）。`eatHeal` の設定 */
+  eatHeal(item: ItemId): number;
+  /** たべた（出来事 eat。実績用）。体力の変更・持ち物を へらすのは C */
+  noteEat(item: ItemId, heal: number, at: Vec3): void;
+  /** 合図を 出す（出来事 hint）。同じ合図の 出し直しは D が 受け持つ */
+  noteHint(hint: FarmHintKind, at: Vec3): void;
+  /** 妖怪の おとしもの・ふるい たんす で たねが 持ち物に入った（出来事 seedFound。つなぎ込みが呼ぶ） */
+  noteSeedFound(from: SeedSource, item: ItemId, at: Vec3): void;
+
+  // ---- 毎ステップ・保存・テスト
+  /** 1 ステップ。そだつ・しめり・かかし への 近づき。止まっている間は 呼ばない（もちもの画面は 4 ステップに 1 回） */
+  update(ctx: FarmStepContext): void;
+  /** ねらった作物・はたけ の しるし（HUD 用）。何でもなければ null */
+  aim(x: number, y: number, z: number): FarmAim | null;
+  /** 今の設定で 0 → 3 に かかる 明るい ステップの 平均 T */
+  growTicks(kind: CropKind, wet: boolean): number;
+  /** 画面と音用（呼ぶと空になる） */
+  drainEvents(): FarmEvent[];
+  /** テストの窓口用（読んでも空に ならない） */
+  peekEvents(): FarmEvent[];
+  /** 「M7 の 置きもの を 置いた」印 */
+  placedM7(): boolean;
+  serialize(): unknown;
+  deserialize(data: unknown): void;
+}
+
+/** A を作るときに わたすもの */
+export interface FarmDeps {
+  world: VoxelWorld;
+  light: LightField;
+  /** 世界のシード（農業の乱数と 置きもの の もと） */
+  seed: number;
+  /** 1 にち の ステップ数（`dayTicks + duskTicks + nightTicks + dawnTicks`。今 91,800） */
+  dayLength(): number;
+  /** 設定の 入れ物（`settings.set` で変えたら すぐ効くよう、同じ オブジェクトを 読む） */
+  settings: M7Settings;
+  /** 今のステップ（出来事の tick 用） */
+  tick(): number;
+  /** ふるい はたけ の たんす の中身を 入れる（`StorageSystem.set` を つなぐ） */
+  fillTansu(pos: Vec3, items: ItemStack[]): void;
+  /** 置きもの の 計算（E の `computeFarmPlacement`）。A が 前の保存に あとから置くとき使う */
+  placement: FarmPlacementFn;
+}
+
+/** DigSystem（C）が 農業を 呼ぶ口（`FarmSystem` の 一部）。`DigM4Deps.farm` に入れる */
+export type DigFarmPort = Pick<
+  FarmSystem,
+  | 'crop'
+  | 'soil'
+  | 'settings'
+  | 'till'
+  | 'noteTillPress'
+  | 'plant'
+  | 'harvest'
+  | 'onBlockBroken'
+  | 'grassSeed'
+  | 'eatHeal'
+  | 'noteEat'
+  | 'noteHint'
+>;
+
+/** 体力を 聞く・もどす口（`PlayerCombat` の 一部）。`DigM4Deps.vitals` に入れる */
+export type DigVitalsPort = Pick<PlayerCombat, 'hp' | 'maxHp' | 'heal'>;
+
+// ---------------------------------------------------------------- 置きもの（E → A, 新しい世界）
+
+export interface FarmPlacedBlock {
+  x: number;
+  y: number;
+  z: number;
+  id: BlockId;
+}
+
+/** 置きもの の 差分（§4.5 (0)。島を作った直後の 地形 と シード だけ で 決まる） */
+export interface FarmPlacement {
+  /** やせいの やさい（`id` は `wild_<kind>`。下の くさ の列は もとのまま） */
+  wild: Array<{ x: number; y: number; z: number; kind: CropKind }>;
+  /** ふるい はたけ の あと（置かないときは null） */
+  oldFarm: {
+    /** 置く マス ぜんぶ（地面を そろえる 分・はたけ 12・さく・かかし 2 段・たんす を ふくむ。順は 下から上） */
+    blocks: FarmPlacedBlock[];
+    tansu: Vec3;
+    /** たんす の 中身（たまねぎ 2・トマト 3・なす 2・かぼちゃ 1） */
+    tansuItems: ItemStack[];
+    /** かかし（下）の マス */
+    kakashi: Vec3;
+    /** 8×8 の わく（x0〜x1, z0〜z1 を ふくむ）と、しらべる 高さ（h₀−1〜h₀+6）。前の保存で「変えていない」を しらべる範囲 */
+    box: { x0: number; z0: number; x1: number; z1: number; y0: number; y1: number };
+    /** §4.5 (3) の ゆるめた 段（0 = ゆるめていない） */
+    tier: 0 | 1 | 2;
+  } | null;
+}
+
+/**
+ * 置きもの の 場所を 計算する（E が `src/world/gen/` で実装する。純粋: 世界は 変えない）。
+ * `pristine` を わたすと その 島（作った直後の 世界と `IslandInfo`）を 使う。なければ 同じ シードで 島を 作り直して 使う。
+ */
+export type FarmPlacementFn = (seed: number, pristine?: { world: VoxelWorld; info: IslandInfo }) => FarmPlacement;
+
+/** 新しい世界に 置く（E）。島を作った直後に 1 回。たんす の 中身は 置かない（A が `fillTansu` で入れる） */
+export type ApplyFarmPlacement = (world: VoxelWorld, placement: FarmPlacement) => void;
+
+// ---------------------------------------------------------------- 見た目（B → A, D）
+
+/** 作物の 今の 段階を 聞く口（A の `FarmSystem` が 合う）。B の 描画が 読む */
+export interface CropStageSource {
+  /** 作物・やせいの やさい のマスなら 段階（やせいの やさい は 3）。ちがえば null */
+  stageAt(x: number, y: number, z: number): CropStage | null;
+}
+
+/** 絵と 描く明るさ（B が `src/world/blocks/`・`render/` で作る。A の `farm.texture`・`farm.look` が そのまま 返す） */
+export interface FarmVisual {
+  /** 16×16（行ごとに 左から）。`'#rrggbb'`、すきとおる所は null。name は §6.1 の `farm.texture` */
+  texture(name: string): Array<string | null>;
+  /** 作物のマスの 描いている 絵の名前と 明るさ（作物でなければ null） */
+  look(x: number, y: number, z: number): { tile: string; brightness: number } | null;
+}
+
+// ---------------------------------------------------------------- 設定（§4.3・§4.4・§4.5）
+
+export interface M7Settings {
+  /** にち（1 にち = dayLength ステップ）。0 → 3 に かかる 明るい ステップの 平均 */
+  farmGrowDays: { dry: Record<CropKind, number>; wet: Record<CropKind, number> };
+  farmMinLight: number;
+  farmMaxWaitFactor: number;
+  farmWetRange: number;
+  farmWetRecheckTicks: number;
+  farmHandTillPresses: number;
+  farmHandTillResetTicks: number;
+  farmYield: Record<CropKind, [number, number]>;
+  farmSeedYield: [number, number];
+  farmGrassSeedChance: number;
+  farmGrassSeedWeight: number;
+  eatHeal: Record<CropKind, number>;
+  farmRipeMinBrightness: number;
+}
+
+export const M7_SETTING_DEFAULTS: Readonly<M7Settings> = {
+  farmGrowDays: {
+    dry: { onion: 1.25, tomato: 0.75, pumpkin: 2, eggplant: 1.25 },
+    wet: { onion: 0.85, tomato: 0.5, pumpkin: 1.3, eggplant: 0.85 },
+  },
+  farmMinLight: 9,
+  farmMaxWaitFactor: 3,
+  farmWetRange: 4,
+  farmWetRecheckTicks: 60,
+  farmHandTillPresses: 3,
+  farmHandTillResetTicks: 120,
+  farmYield: { onion: [1, 2], tomato: [1, 2], pumpkin: [1, 1], eggplant: [1, 2] },
+  farmSeedYield: [1, 2],
+  farmGrassSeedChance: 0.125,
+  farmGrassSeedWeight: 4,
+  eatHeal: { onion: 2, tomato: 2, pumpkin: 4, eggplant: 2 },
+  farmRipeMinBrightness: 0.7,
+};
+
+/** 設定の入れ物を作る（毎回 ふかい コピー。つなぎ込みが `createSettingsHook` の extras に渡す） */
+export function createM7Settings(): M7Settings {
+  const d = M7_SETTING_DEFAULTS;
+  return {
+    ...d,
+    farmGrowDays: { dry: { ...d.farmGrowDays.dry }, wet: { ...d.farmGrowDays.wet } },
+    farmYield: {
+      onion: [...d.farmYield.onion],
+      tomato: [...d.farmYield.tomato],
+      pumpkin: [...d.farmYield.pumpkin],
+      eggplant: [...d.farmYield.eggplant],
+    },
+    farmSeedYield: [...d.farmSeedYield],
+    eatHeal: { ...d.eatHeal },
+  };
 }

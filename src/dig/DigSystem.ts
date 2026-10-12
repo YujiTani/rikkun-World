@@ -15,6 +15,8 @@ import type {
   TargetInfo,
   VoxelWorld,
   Vec3,
+  DigFarmPort,
+  DigVitalsPort,
 } from '../contracts';
 import type { Action, ActionState } from '../input/actions';
 import { itemType } from '../inventory/items';
@@ -57,6 +59,10 @@ export interface DigM4Deps {
   scatterItem?: (pos: Vec3, item: ItemId, count: number) => void;
   /** M6: たんす（`StorageSystem` が合う） */
   storage?: DigStoragePort;
+  /** M7: 農業（`FarmSystem` が合う。なければ M6 のとおり） */
+  farm?: DigFarmPort;
+  /** M7: 体力を聞く・もどす（`PlayerCombat` が合う） */
+  vitals?: DigVitalsPort;
 }
 
 /** DigSystem が使う たんす の窓口（M6 §2.9） */

@@ -22,6 +22,20 @@ export const BLOCK_TYPES: readonly BlockType[] = [
   { id: 'start_torch', name: 'こわれない たいまつ', solid: false, breakable: false },
   // M6
   { id: 'tansu', name: 'たんす', solid: true, breakable: true },
+  // M7（番号は後ろに足す。作物の段階は id に入れない）
+  { id: 'farmland', name: 'はたけ', solid: true, breakable: true },
+  { id: 'farmland_wet', name: 'はたけ', solid: true, breakable: true },
+  { id: 'crop_onion', name: 'たまねぎ', solid: false, breakable: false },
+  { id: 'crop_tomato', name: 'トマト', solid: false, breakable: false },
+  { id: 'crop_pumpkin', name: 'かぼちゃ', solid: false, breakable: false },
+  { id: 'crop_eggplant', name: 'なす', solid: false, breakable: false },
+  { id: 'wild_onion', name: 'やせいの たまねぎ', solid: false, breakable: false },
+  { id: 'wild_tomato', name: 'やせいの トマト', solid: false, breakable: false },
+  { id: 'wild_pumpkin', name: 'やせいの かぼちゃ', solid: false, breakable: false },
+  { id: 'wild_eggplant', name: 'やせいの なす', solid: false, breakable: false },
+  { id: 'kakashi', name: 'かかし', solid: false, breakable: false },
+  { id: 'kakashi_head', name: 'かかし', solid: false, breakable: false },
+  { id: 'saku', name: 'さく', solid: false, breakable: true },
 ];
 
 export const BLOCK_INDEX: Readonly<Record<BlockId, number>> = Object.fromEntries(

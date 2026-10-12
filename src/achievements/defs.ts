@@ -16,6 +16,8 @@ export const CATEGORY_LABEL: Readonly<Record<AchievementCategory, string>> = {
   level: 'レベル',
   adventure: 'ぼうけん',
   places: 'ばしょ',
+  // M7（仮。D が仕様 §4.7 の順で CATEGORY_ORDER にも足す）
+  farm: 'そだてる',
 };
 
 /** つくる 21（M4 の 20 ＋ たんす）。`craft.everything` の対象 */

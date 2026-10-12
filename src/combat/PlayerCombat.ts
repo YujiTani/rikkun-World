@@ -185,6 +185,14 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
     return this.hurt(amount, by, from, false, kind);
   }
 
+  /** M7: 体力を もどす（食べもの）。最大をこえない。やられている間は 0。実際に もどった量を返す */
+  heal(amount: number): number {
+    if (this.isDead || !(amount > 0)) return 0;
+    const before = this.hpNow;
+    this.hpNow = Math.min(this.config.playerMaxHp, this.hpNow + amount);
+    return this.hpNow - before;
+  }
+
   drainEvents(): CombatEvent[] {
     const out = this.drainQueue;
     this.drainQueue = [];
