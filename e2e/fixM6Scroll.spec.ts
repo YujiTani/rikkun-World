@@ -318,3 +318,29 @@ test('実キー Digit1〜9 で ホットバーが かわる（遊び中・もち
     await expect.poll(sel, { message: `inventory ${n}`, timeout: 3000 }).toBe(n - 1);
   }
 });
+
+// ---- 開いた瞬間に カクッとしない ----
+for (const [w, h] of [[960, 540], [1280, 720]] as const) {
+  test(`開いた直後と あとで パネルの大きさが同じ ${w}x${h}`, async ({ page }) => {
+    await page.setViewportSize({ width: w, height: h });
+    await page.goto('/?nosave=1');
+    await page.waitForFunction(() => window.__rikkun?.ready === true);
+    await page.evaluate(() => {
+      const hk = window.__rikkun as any;
+      hk.pause();
+      hk.lock.simulate(true);
+      hk.step(2);
+      hk.input.press('toggleInventory');
+      hk.input.release('toggleInventory');
+      hk.step(1);
+    });
+    const size = () => page.evaluate(() => {
+      const r = document.querySelector('.inv-frame')!.getBoundingClientRect();
+      return [Math.round(r.width), Math.round(r.height)];
+    });
+    const first = await size();
+    await page.evaluate(() => (window.__rikkun as any).step(10));
+    await page.waitForTimeout(600);
+    expect(await size()).toEqual(first);
+  });
+}

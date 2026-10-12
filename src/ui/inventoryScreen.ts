@@ -334,6 +334,9 @@ export class InventoryScreen {
       this.el.hidden = !open;
       this.dirty = true;
       if (open) {
+        // 見せる前に 中身を作ってから 縮める（開いた 1 コマ目から正しい大きさ）
+        this.render();
+        this.craftPanel?.update();
         this.fit();
         if (this.tabNow === 'items') {
           const w = this.bodyEl.offsetWidth;

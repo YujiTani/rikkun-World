@@ -27,7 +27,16 @@
   border-radius: var(--rk-r-l);
   box-shadow: var(--rk-shadow-2);
   transform-origin: center;
-  animation: rk-enter var(--rk-dur) var(--rk-ease) 1;
+  /* 大きさは動かさない（縮める transform を アニメーションが上書きして カクッとなるため）。ふわっとは 透明度だけ */
+  animation: inv-fade var(--rk-dur) var(--rk-ease) 1;
+}
+@keyframes inv-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .inv-body {
