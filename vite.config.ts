@@ -8,8 +8,8 @@ export default defineConfig({
     // 本体と、妖怪の見本ページ（preview.html）の両方を出す
     rollupOptions: {
       input: {
-        main: resolve(__dirname, 'index.html'),
-        preview: resolve(__dirname, 'preview.html'),
+        main: resolve(import.meta.dirname, 'index.html'),
+        preview: resolve(import.meta.dirname, 'preview.html'),
       },
     },
   },
