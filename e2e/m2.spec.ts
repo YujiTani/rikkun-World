@@ -470,15 +470,15 @@ test.describe('M2 おく', () => {
       T.tap('secondary');
       const a12 = { t: t12?.place, same: h.world.hash() === hash12, n: h.inventory.get().slots[0].count };
       // AC13
-      h.world.fill(0, 31, 0, 12, 31, 12, 'stone');
-      h.player.set({ position: { x: 2.5, y: 32, z: 6.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: -45 });
+      h.world.fill(0, 47, 0, 12, 47, 12, 'stone');
+      h.player.set({ position: { x: 2.5, y: 48, z: 6.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: -45 });
       h.step(1);
       const y = h.player.get().position.y;
       const t13 = h.target.get();
       const hash13 = h.world.hash();
       T.tap('secondary');
       const a13 = { y, block: t13?.block, place: t13?.place, same: h.world.hash() === hash13, n: h.inventory.get().slots[0].count };
-      h.world.fill(0, 31, 0, 12, 31, 12, 'air');
+      h.world.fill(0, 47, 0, 12, 47, 12, 'air');
       // AC14
       h.world.fill(0, 8, 0, 12, 8, 12, 'water');
       h.player.set({ position: { x: 2.5, y: 7, z: 6.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: -45 });
@@ -489,9 +489,9 @@ test.describe('M2 おく', () => {
     expect(r.a12.t).toEqual({ x: 2, y: 9, z: 6 });
     expect(r.a12.same).toBe(true);
     expect(r.a12.n).toBe(5);
-    expect(r.a13.y).toBeCloseTo(32, 1);
-    expect(r.a13.block).toEqual({ x: 4, y: 31, z: 6 });
-    expect(r.a13.place).toEqual({ x: 4, y: 32, z: 6 });
+    expect(r.a13.y).toBeCloseTo(48, 1);
+    expect(r.a13.block).toEqual({ x: 4, y: 47, z: 6 });
+    expect(r.a13.place).toEqual({ x: 4, y: 48, z: 6 });
     expect(r.a13.same).toBe(true);
     expect(r.a13.n).toBe(5);
     expect(r.b).toBe('dirt');
@@ -1046,8 +1046,8 @@ test.describe('M2 性能（記録）', () => {
       const ms: number[] = [];
       const pts: [number, number][] = [];
       for (let i = 0; pts.length < 20 && i < 400; i++) {
-        const x = 16 + ((i * 7) % 32);
-        const z = 16 + ((i * 11) % 32);
+        const x = 48 + ((i * 7) % 32);
+        const z = 48 + ((i * 11) % 32);
         pts.push([x, z]);
       }
       let n = 0;
@@ -1057,7 +1057,7 @@ test.describe('M2 性能（記録）', () => {
         if (g < 8) continue;
         let top = g;
         // 一番上のブロック（log でない）
-        while (top < 31 && h.world.getBlock(x, top + 1, z) !== 'air') top++;
+        while (top < 47 && h.world.getBlock(x, top + 1, z) !== 'air') top++;
         const id = h.world.getBlock(x, top, z);
         if (id === 'log' || id === 'water' || id === 'bedrock' || id === 'iron_ore') continue;
         h.inventory.clear();

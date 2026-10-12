@@ -173,6 +173,8 @@ export const AI_CONST = {
   maxMarks: 8,
   /** 場所をさがす回数 */
   spawnTries: 20,
+  /** M5: これより水平に遠い妖怪は静かに消える */
+  farRemoveDist: 64,
 } as const;
 
 /** 攻撃のダメージ（体力の数。ハート半分 = 1。オーナー決定で M3 の 2 倍） */

@@ -358,6 +358,7 @@ export class YokaiManager implements YokaiWorld {
 
     this.spawnTick();
     this.leaveTick();
+    this.farTick();
 
     for (const e of this.ents) this.stepEntity(e, dt);
     this.separate();
@@ -536,13 +537,16 @@ export class YokaiManager implements YokaiWorld {
       floors.length = 0;
       const ix = Math.floor(x);
       const iz = Math.floor(z);
+      let waterColumn = false;
       for (let y = this.world.size.y - 2; y >= 0; y--) {
+        if (this.world.getBlock(ix, y, iz) === 'water') waterColumn = true;
         if (!this.world.isSolid(ix, y, iz) || this.world.isSolid(ix, y + 1, iz)) continue;
         const b = this.world.getBlock(ix, y, iz);
         if (b === 'leaves' || b === 'water') continue;
         floors.push(y + 1);
       }
-      if (floors.length === 0) continue;
+      // M5: みず の列（うみ・かわ・いずみ・いけ）には出ない
+      if (waterColumn || floors.length === 0) continue;
       const top = floors[Math.floor(this.rng() * floors.length)]!;
       const T = groundSupport(this.world, x, z, top, ai);
       if (Number.isNaN(T)) continue;
@@ -550,10 +554,23 @@ export class YokaiManager implements YokaiWorld {
       const light = this.opts.light;
       if (light) {
         if (!light.isDarkForSpawn(x, T, z)) continue;
+        // M3 AC3: ゆうがたの終わりごろで空の光が弱まっても、外（空の下）には出ない。出るのは屋根の下か、よる
+        if (!night && !isRoofed(this.world, x, T, z, ai.height)) continue;
       } else if (!isRoofed(this.world, x, T, z, ai.height) && !night) continue;
       const e = this.create(kind, x, T, z, this.rng() * Math.PI * 2, true);
       this.emit({ type: 'spawn', tick: this.tick(), id: e.id, kind, position: { x, y: T, z } });
       return;
+    }
+  }
+
+  /** M5: プレイヤーから水平 64 より遠い妖怪は、そのステップで静かに消える（落とし物なし） */
+  private farTick(): void {
+    const lim = AI_CONST.farRemoveDist;
+    for (const e of this.ents) {
+      if (e.remove) continue;
+      const dx = e.x - this.px;
+      const dz = e.z - this.pz;
+      if (dx * dx + dz * dz > lim * lim) e.remove = true;
     }
   }
 

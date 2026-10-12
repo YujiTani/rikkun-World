@@ -449,6 +449,49 @@ describe('ろくろくびの首・妖怪の体にふれる（M4 追加）', () =
   });
 });
 
+describe('M5: 出る所と遠くの妖怪（AC18）', () => {
+  function bigSetup(water: boolean) {
+    const world = new ArrayVoxelWorld({ x: 128, y: 48, z: 128 });
+    for (let x = 0; x < 128; x++)
+      for (let z = 0; z < 128; z++) {
+        world.setBlock(x, 8, z, 'stone');
+        if (water) world.setBlock(x, 9, z, 'water');
+      }
+    const time = makeTime('night');
+    const player = { position: { x: 64.5, y: 9, z: 64.5 } };
+    const m = new YokaiManager({ world, time, getPlayer: () => player, combat: makeCombat(), inventory: makeInv(), seed: 7 });
+    m.config.yokaiWander = false;
+    return { m, player };
+  }
+  it('夜、ひらちでは出て、水平 12 以上はなれている', () => {
+    const { m, player } = bigSetup(false);
+    for (let i = 0; i < 3000; i++) m.update(1 / 60);
+    const list = m.list();
+    expect(list.length).toBeGreaterThan(0);
+    for (const y of list) {
+      const d = Math.hypot(y.position.x - player.position.x, y.position.z - player.position.z);
+      expect(d).toBeGreaterThanOrEqual(11.9);
+    }
+  });
+  it('みず の列には出ない', () => {
+    const { m } = bigSetup(true);
+    for (let i = 0; i < 3000; i++) m.update(1 / 60);
+    expect(m.list()).toHaveLength(0);
+  });
+  it('水平 64 より遠い妖怪は、次のステップで静かに消える（落とし物なし）', () => {
+    const { m, player } = bigSetup(false);
+    m.config.yokaiAutoSpawn = false;
+    const near = m.spawn('karakasa', player.position.x + 60, 9, player.position.z, { ai: false });
+    const far = m.spawn('karakasa', player.position.x + 65, 9, player.position.z, { ai: false });
+    m.drainEvents();
+    m.update(1 / 60);
+    const ids = m.list().map((y) => y.id);
+    expect(ids).toContain(near);
+    expect(ids).not.toContain(far);
+    expect(m.drainEvents().filter((e) => e.type === 'defeat')).toHaveLength(0);
+  });
+});
+
 describe('FIX-fall-reach: おりる・落下ダメージ・当たり判定', () => {
   it('5 マスの段差の上から、下のプレイヤーへ歩いて降りてくる', () => {
     const s = setup();
