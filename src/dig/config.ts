@@ -34,6 +34,8 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     iron_ore: 15,
     // M4（§4.4）
     furnace: 6,
+    torch: 0.05, // ほぼすぐこわれる
+    start_torch: null, // こわれない
     kawara: 4,
     brick: 6,
   } satisfies Record<BlockId, number | null>,
@@ -51,6 +53,8 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     iron_ore: 1,
     // M4（§4.4）
     furnace: 0,
+    torch: 0,
+    start_torch: 0,
     kawara: 0,
     brick: 0,
   },
@@ -76,6 +80,8 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     iron_ore: 'rare',
     // M4（docs/design/M4-craft.md §4.4）
     furnace: 'uncommon',
+    torch: 'common',
+    start_torch: 'common',
     kawara: 'uncommon',
     brick: 'uncommon',
   } satisfies Record<BlockId, Rarity>,

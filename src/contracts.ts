@@ -29,7 +29,10 @@ export type BlockId =
   // M4
   | 'furnace' // かまど
   | 'kawara' // かわら
-  | 'brick'; // レンガ
+  | 'brick' // レンガ
+  // M4 光（オーナー決定: マイクラと同じ明るさの仕組み）
+  | 'torch' // たいまつ（置ける。光る。固くない）
+  | 'start_torch'; // スタート地点の こわれない たいまつ
 
 export interface BlockType {
   id: BlockId;
@@ -468,4 +471,16 @@ export interface ToolSystem {
   current(): ToolInfo;
   /** うでの動きを始めたとき（人形の動き用。呼ぶと空） */
   drainSwings(): { anim: SwingAnim; tick: number }[];
+}
+
+// ---------------------------------------------------------------- M4 光（担当 L）
+
+/** 明るさ 0〜15（マイクラと同じ）。担当 L が `src/world/light/` で実装する */
+export interface LightField {
+  /** そのマスの空の光（0〜15。昼の空の下は 15） */
+  skyLight(x: number, y: number, z: number): number;
+  /** そのマスのブロックの光（たいまつなど。0〜15） */
+  blockLight(x: number, y: number, z: number): number;
+  /** 今の時刻をふくめた明るさ（0〜15）。妖怪の出現や人形の明るさに使う */
+  level(x: number, y: number, z: number): number;
 }
