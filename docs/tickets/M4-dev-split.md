@@ -47,6 +47,11 @@
 - B の `onPickup` は `craft.notifyPickup`、かまど を閉じるとき `craft.closeFurnace()`
 - `combat.damage` の窓口を妖怪つき（例 `hurt(n, 'karakasa', null)`）にして `playerHit.blocked` を見られるように。`contracts.ts` の `CombatEvent` の playerHit に `blocked?: boolean` を足す（つなぎ込みで PO の代わりに足してよい）
 - かまどの保存は `BLOCK_TYPES` に新ブロック（C1 が足す）が入ってから動く
+**C2（人形の動き）**
+- `rig.setSwingSource(() => tools.drainSwings())`、`rig.setArmorProvider(slot => armor.equipped(slot))`
+- 出来事は 1 か所で drain して配る: `craft.drainEvents()` → `rig.onCraftEvent(e)`（ほかに ログ・音へも）、`combat.drainEvents()` → `rig.onCombatEvent(e)`（ほかに CombatFx へも）。**drain は 1 回だけ**にして、受け手に配る形にする
+- `const av = new ArrowVisuals(); av.addTo(scene);` 毎ステップ `av.sync(combat.arrows())`
+- `player.doll()` は `createCameraHook(rig).doll()` に armAnim/bodyAnim/animTick/armor/arc が入っている
 
 ## 経過
 | 日付 | 内容 |
