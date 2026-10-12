@@ -109,16 +109,16 @@ describe.each(SEEDS)('世界生成 seed=%i', (seed) => {
         const hh = h(x, z);
         if (hh >= 7) {
           land++;
-          expect(d(x, z)).toBeLessThanOrEqual(58);
+          expect(d(x, z)).toBeLessThanOrEqual(62);
         }
-        if (d(x, z) >= 60) {
+        if (d(x, z) >= 62) {
           expect(hh).toBe(6);
           expect(w.getBlock(x, 7, z)).toBe('water');
         }
       }
     }
-    expect(land).toBeGreaterThanOrEqual(8000);
-    expect(land).toBeLessThanOrEqual(10500);
+    expect(land).toBeGreaterThanOrEqual(10800);
+    expect(land).toBeLessThanOrEqual(12000);
   });
 
   it('AC4: 段差 1 以下・みず は y=7 だけ・みず の列は うみ か かわ・いずみ・いけ', () => {
@@ -138,8 +138,8 @@ describe.each(SEEDS)('世界生成 seed=%i', (seed) => {
         if (waterY >= 0) {
           expect(waterY).toBe(7);
           expect(hh).toBe(6);
-          // うみ は d ≥ 52 の外（岸の最小）
-          expect(d(x, z) >= 52 || isFresh(x, z, R)).toBe(true);
+          // うみ は d ≥ 60 の外（岸の最小）
+          expect(d(x, z) >= 60 || isFresh(x, z, R)).toBe(true);
         }
         // 陸の列に みず は無い（かわ・いずみ・いけ・うみ 以外）
         if (hh === 6) expect(waterY).toBe(7);
@@ -285,7 +285,7 @@ describe.each(SEEDS)('世界生成 seed=%i', (seed) => {
     let reachedSea = false;
     while (stack.length) {
       const [x, z] = stack.pop()!;
-      if (d(x, z) >= 60) reachedSea = true;
+      if (d(x, z) >= 62) reachedSea = true;
       for (const [a, b] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
         const nx = x + a;
         const nz = z + b;
@@ -299,7 +299,7 @@ describe.each(SEEDS)('世界生成 seed=%i', (seed) => {
     expect(R.river).toHaveLength(2);
     for (const r of R.river) {
       expect(Math.min(r.x1 - r.x0 + 1, r.z1 - r.z0 + 1)).toBe(3);
-      for (let z = r.z0; z <= r.z1; z++) for (let x = r.x0; x <= r.x1; x++) if (d(x, z) < 60) expect(h(x, z)).toBe(6);
+      for (let z = r.z0; z <= r.z1; z++) for (let x = r.x0; x <= r.x1; x++) if (d(x, z) < 62) expect(h(x, z)).toBe(6);
     }
     for (let z = 0; z < SZ; z++) {
       for (let x = 0; x < SX; x++) {
@@ -437,7 +437,7 @@ describe.each(SEEDS)('世界生成 seed=%i', (seed) => {
             for (let dx = -3; dx <= 3; dx++) {
               const xx = x + dx;
               const zz = z + dz;
-              if (xx >= 0 && zz >= 0 && xx < SX && zz < SZ && d(xx, zz) >= 52 && h(xx, zz) === 6) {
+              if (xx >= 0 && zz >= 0 && xx < SX && zz < SZ && d(xx, zz) >= 60 && h(xx, zz) === 6) {
                 near = true;
                 break;
               }

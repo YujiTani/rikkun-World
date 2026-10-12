@@ -20,18 +20,18 @@ export const GEN_CONFIG = {
   coast: {
     /** z < northZ の列は北側の岸 */
     northZ: 40,
-    northMean: [56.8, 57.2] as readonly [number, number],
+    northMean: [60.8, 61.2] as readonly [number, number],
     northWobble: [0.6, 0.4] as readonly number[],
-    northMin: 56,
-    northMax: 58,
-    otherMean: [54, 55.5] as readonly [number, number],
-    otherWobble: [0.9, 0.6, 0.4] as readonly number[],
-    otherMin: 52,
-    otherMax: 57,
+    northMin: 60,
+    northMax: 62,
+    otherMean: [60.6, 61.2] as readonly [number, number],
+    otherWobble: [0.5, 0.3, 0.2] as readonly number[],
+    otherMin: 60,
+    otherMax: 62,
     /** ひらち・もり の方向は岸を遠くする（角度の範囲 度, 最小の岸） */
     farSectors: [
-      { fromDeg: -22, toDeg: 24, min: 55.5 },
-      { fromDeg: 150, toDeg: 210, min: 55.5 },
+      { fromDeg: -22, toDeg: 24, min: 61 },
+      { fromDeg: 150, toDeg: 210, min: 61 },
     ] as readonly { fromDeg: number; toDeg: number; min: number }[],
   },
 
@@ -92,8 +92,8 @@ export const GEN_CONFIG = {
 
   /** 木（4-2 の最後の文・M1-01 §4-5） */
   trees: {
-    totalMin: 85,
-    totalMax: 105,
+    totalMin: 100,
+    totalMax: 125,
     nearDistance: 12,
     nearMin: 3,
     /** みき同士の間かく（x・z どちらかがこの値以上）。もり の中どうしは forestSpacing */
@@ -115,8 +115,8 @@ export const GEN_CONFIG = {
 
   /** 鉱石（4-4） */
   ores: {
-    coal: { minY: 1, maxY: 14, clusterMin: 2, clusterMax: 5, wantAtLeast: 420 },
-    iron: { minY: 1, maxY: 5, clusterMin: 2, clusterMax: 3, wantAtLeast: 150 },
+    coal: { minY: 1, maxY: 14, clusterMin: 2, clusterMax: 5, wantAtLeast: 500 },
+    iron: { minY: 1, maxY: 5, clusterMin: 2, clusterMax: 3, wantAtLeast: 180 },
     maxClusters: 8000,
     /** やま の中 */
     mountainCoalWant: 170,
