@@ -1,4 +1,4 @@
-import type { ArmorSlot, BlockId, ItemId } from '../contracts';
+import type { ArmorSlot, BlockId, DamageKind, ItemId } from '../contracts';
 
 /**
  * つくる・やく・防具・拾ったログの数値（M4 §4.5）。ここ 1 か所にまとめる。
@@ -13,8 +13,8 @@ export interface CraftConfig {
   fuelOrder: ItemId[];
   /** こわすと必ず決まった数になるブロック（書かないブロックは M2 のランダム） */
   fixedDrop: Partial<Record<BlockId, number>>;
-  /** 防具のふせぐ力 */
-  armorValue: Partial<Record<ItemId, number>>;
+  /** 防具のへらす量（ダメージの種類ごと。受けるダメージ − へらす量。normal / ball は最低 1、fall は 0 まで） */
+  armorValue: Partial<Record<ItemId, Record<DamageKind, number>>>;
   /** 拾ったログが消えるまで */
   pickupLogTicks: number;
   /** 拾ったログの行の上限 */
@@ -26,7 +26,12 @@ export const CRAFT_DEFAULTS: Readonly<CraftConfig> = {
   bakeQueueMax: 8,
   fuelOrder: ['coal_ore', 'oil', 'log'],
   fixedDrop: { furnace: 1, kawara: 1, brick: 1 },
-  armorValue: { kabuto: 1, yoroi: 2, kote: 1, suneate: 1 },
+  armorValue: {
+    kabuto: { normal: 0, ball: 2, fall: 0 },
+    yoroi: { normal: 2, ball: 0, fall: 0 },
+    kote: { normal: 1, ball: 0, fall: 0 },
+    suneate: { normal: 0, ball: 0, fall: 2 },
+  },
   pickupLogTicks: 180,
   pickupLogMax: 5,
 };
@@ -36,7 +41,7 @@ export function createCraftConfig(): CraftConfig {
     ...CRAFT_DEFAULTS,
     fuelOrder: [...CRAFT_DEFAULTS.fuelOrder],
     fixedDrop: { ...CRAFT_DEFAULTS.fixedDrop },
-    armorValue: { ...CRAFT_DEFAULTS.armorValue },
+    armorValue: Object.fromEntries(Object.entries(CRAFT_DEFAULTS.armorValue).map(([k, v]) => [k, { ...v! }])),
   };
 }
 

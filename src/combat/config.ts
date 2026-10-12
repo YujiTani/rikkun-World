@@ -31,6 +31,16 @@ export interface CombatConfig {
   dropBagTicks: number;
   /** 拾える水平の距離（高さの差は BAG_PICKUP_HEIGHT） */
   pickupRadius: number;
+  /** この高さ（マス）までの落下はダメージなし */
+  safeFallHeight: number;
+  /** 安全な高さを超えた 1 マスごとのダメージ（体力。1 = ハート半分） */
+  fallDamagePerBlock: number;
+}
+
+/** 落下ダメージ（プレイヤー・妖怪で共通）。h = 落ち始めの y − 着地の y（マス） */
+export function fallDamage(h: number, safeFallHeight: number, perBlock: number): number {
+  const over = Math.floor(h + 1e-6) - safeFallHeight;
+  return over > 0 ? over * perBlock : 0;
 }
 
 /** 内部の決まり（仕様書の表にある数。設定の名前は付けない） */
@@ -41,7 +51,7 @@ export const BODY_HEIGHT = 1.8;
 
 export const COMBAT_DEFAULTS: Readonly<CombatConfig> = {
   punchTicks: 30,
-  punchReach: 3.0,
+  punchReach: 3.5,
   punchDamage: 1,
   knockback: 1.8,
   knockbackUp: 4.5,
@@ -54,6 +64,8 @@ export const COMBAT_DEFAULTS: Readonly<CombatConfig> = {
   respawnInvincibleTicks: 180,
   dropBagTicks: 36000,
   pickupRadius: 1.5,
+  safeFallHeight: 3,
+  fallDamagePerBlock: 1,
 };
 
 export function createCombatConfig(): CombatConfig {
