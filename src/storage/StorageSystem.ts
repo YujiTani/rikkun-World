@@ -166,6 +166,7 @@ export class StorageSystem {
   }
 
   private markClosed(): void {
+    this.markSet.clear();
     this.opened = null;
     this.lookOpenNow = false;
     this.d.onSound?.('drawerClose');
@@ -254,6 +255,101 @@ export class StorageSystem {
     r.slots[i] = left > 0 ? { item: s.item, count: left } : null;
     this.afterChange(r);
     return { moved, reason: null };
+  }
+
+  // ------------------------------------------------------------ いっきに しまう・とりだす（FIX-tansu）
+
+  private readonly markSet = new Set<number>();
+
+  /** 持ち物のマス i のぜんぶを たんす へ。入らない分は のこる。しまった数を返す */
+  private storeSlot(r: TansuRecord, i: number): number {
+    const inv = this.d.inventory;
+    const s = inv.slots()[i];
+    if (!s) return 0;
+    const left = addInto(r.slots, s.item, s.count);
+    const moved = s.count - left;
+    if (moved <= 0) return 0;
+    inv.setSlot(i, left > 0 ? { item: s.item, count: left } : null);
+    this.pushStore(s.item, moved);
+    return moved;
+  }
+
+  private storeWhere(pred: (i: number, item: ItemId) => boolean): { moved: number; reason: ShiftReason | 'nothing' } {
+    const r = this.opened;
+    if (!r) return { moved: 0, reason: 'closed' };
+    let moved = 0;
+    let tried = 0;
+    for (let i = 0; i < this.d.inventory.slots().length; i++) {
+      const s = this.d.inventory.slots()[i];
+      if (!s || !pred(i, s.item)) continue;
+      tried++;
+      moved += this.storeSlot(r, i);
+    }
+    if (moved > 0) this.afterChange(r);
+    else if (tried > 0) {
+      this.d.onFull?.('tansu');
+      return { moved: 0, reason: 'full' };
+    }
+    return { moved, reason: moved > 0 || tried === 0 ? null : 'full' };
+  }
+
+  /** ぜんぶ しまう: もちもの の上 3 だん（9〜35）。ホットバー と そうび は うごかさない */
+  storeAll(): { moved: number; reason: ShiftReason } {
+    return this.storeWhere((i) => i >= 9) as { moved: number; reason: ShiftReason };
+  }
+
+  /** おなじ もの を しまう: たんす に もう ある アイテム と おなじ ものだけ（ホットバー以外） */
+  storeSame(): { moved: number; reason: ShiftReason } {
+    const r = this.opened;
+    const have = new Set<ItemId>();
+    for (const t of r?.slots ?? []) if (t) have.add(t.item);
+    return this.storeWhere((i, item) => i >= 9 && have.has(item)) as { moved: number; reason: ShiftReason };
+  }
+
+  /** ぜんぶ とりだす: たんす の中身を もちもの へ（入る分だけ） */
+  takeAll(): { moved: number; reason: ShiftReason } {
+    const r = this.opened;
+    if (!r) return { moved: 0, reason: 'closed' };
+    const inv = this.d.inventory;
+    let moved = 0;
+    let tried = 0;
+    for (let i = 0; i < r.slots.length; i++) {
+      const s = r.slots[i];
+      if (!s) continue;
+      tried++;
+      const left = inv.add(s.item, s.count);
+      moved += s.count - left;
+      r.slots[i] = left > 0 ? { item: s.item, count: left } : null;
+    }
+    if (moved > 0) this.afterChange(r);
+    else if (tried > 0) {
+      this.d.onFull?.('inv');
+      return { moved: 0, reason: 'full' };
+    }
+    return { moved, reason: null };
+  }
+
+  /** Ctrl（⌘）クリックの ✓。つけたら true・はずしたら false。たんす が開いていて 中身のあるマスだけ */
+  mark(i: number): boolean {
+    if (!this.opened || !Number.isInteger(i) || i < 0 || i >= this.d.inventory.slots().length) return false;
+    if (this.markSet.has(i)) {
+      this.markSet.delete(i);
+      return false;
+    }
+    if (!this.d.inventory.slots()[i]) return false;
+    this.markSet.add(i);
+    return true;
+  }
+
+  marks(): number[] {
+    return [...this.markSet].sort((a, b) => a - b);
+  }
+
+  /** えらんだ もの を しまう。✓ は消える */
+  storeMarked(): { moved: number; reason: ShiftReason } {
+    const ids = new Set(this.markSet);
+    this.markSet.clear();
+    return this.storeWhere((i) => ids.has(i)) as { moved: number; reason: ShiftReason };
   }
 
   /** そのマスから 1 こ（all ならぜんぶ）取り出す（すてる用）。開いていなければ null */

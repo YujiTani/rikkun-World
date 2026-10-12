@@ -344,3 +344,46 @@ for (const [w, h] of [[960, 540], [1280, 720]] as const) {
     expect(await size()).toEqual(first);
   });
 }
+
+// ---- たんす ----
+test('たんす: とじる は 1 こ・ぜんぶ しまう・えらんで しまう', async ({ page }) => {
+  await open(page);
+  await page.evaluate(() => {
+    const hk = window.__rikkun as any;
+    hk.input.press('toggleInventory');
+    hk.input.release('toggleInventory');
+    hk.step(2);
+    hk.world.setBlock(60, 20, 60, 'tansu');
+    hk.player.set?.({ position: { x: 60.5, y: 20, z: 62.5 } });
+    hk.inventory.clear();
+    hk.inventory.setSlot(9, { item: 'dirt', count: 5 });
+    hk.inventory.setSlot(10, { item: 'stone', count: 7 });
+    hk.inventory.setSlot(0, { item: 'log', count: 3 });
+    hk.storage.open(60, 20, 60);
+    hk.step(3);
+  });
+  await page.waitForTimeout(600);
+  await expect(page.locator('.tansu-panel')).toBeVisible();
+  await expect(page.locator('#tansu-close')).toHaveCount(0);
+  await expect(page.locator('#inventory-close')).toBeVisible();
+  await expect(page.locator('#tansu-store-all')).toBeVisible();
+  // ✓
+  const slot = page.locator('.inv-slot[data-index="10"]');
+  const stepN = () => page.evaluate(() => (window.__rikkun as any).step(3));
+  await slot.click({ modifiers: ['Control'] });
+  await stepN();
+  await expect(slot).toHaveAttribute('data-marked', 'true');
+  await expect(page.locator('#tansu-store-marked')).toBeVisible();
+  await slot.click({ modifiers: ['Control'] });
+  await stepN();
+  await expect(page.locator('#tansu-store-marked')).toBeHidden();
+  await page.locator('#tansu-store-all').click();
+  await stepN();
+  const counts = await page.evaluate(() => {
+    const hk = window.__rikkun as any;
+    return { dirt: hk.inventory.count('dirt'), log: hk.inventory.count('log') };
+  });
+  expect(counts.dirt).toBe(0);
+  expect(counts.log).toBe(3); // ホットバーは うごかない
+  await expect(page.locator('.inv-hints')).toContainText('えらぶ');
+});

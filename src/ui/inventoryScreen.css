@@ -190,3 +190,19 @@
 .inv-hint-sep {
   margin: 0 var(--rk-sp-1);
 }
+
+/* えらんで しまう の ✓ */
+.inv-slot[data-marked='true']::after {
+  content: '✓';
+  position: absolute;
+  right: var(--rk-sp-1);
+  top: 0;
+  font-size: var(--rk-fs-head);
+  font-weight: 900;
+  color: var(--rk-ok);
+  text-shadow: 0 0 2px var(--rk-bg-900);
+}
+.inv-slot[data-marked='true'] {
+  outline: var(--rk-bw-sel) solid var(--rk-ok);
+  outline-offset: calc(-1 * var(--rk-bw-sel));
+}
