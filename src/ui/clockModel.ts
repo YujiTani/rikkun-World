@@ -49,3 +49,35 @@ export function clockBodyPose(dayTick: number, s: TimeSettings): { body: ClockBo
   const angle = p.sun.visible ? p.sun.angle : p.moon.angle;
   return { body, x: Math.cos(angle), y: Math.sin(angle) };
 }
+
+// ---------------------------------------------------------------- 時間帯の絵 6 つ（M6-clock）
+
+export type ClockScene = 'sunrise' | 'morning' | 'noon' | 'afternoon' | 'sunset' | 'night';
+
+export const CLOCK_SCENES: readonly ClockScene[] = ['sunrise', 'morning', 'noon', 'afternoon', 'sunset', 'night'];
+
+/** 時計に出すことば（ひらがな） */
+export const CLOCK_WORDS: Record<ClockScene, string> = {
+  sunrise: 'ひので',
+  morning: 'あさ',
+  noon: 'おひる',
+  afternoon: 'ゆうやけ',
+  sunset: 'ひのいり',
+  night: 'よる',
+};
+
+/** ひる を 3 つに分ける割合（0〜1。あさ → おひる → ゆうやけ の境目）。設定 `clockPhases` */
+export const CLOCK_PHASES = { morningEnd: 0.4, noonEnd: 0.7 } as const;
+export type ClockPhases = { morningEnd: number; noonEnd: number };
+
+/** 1 日の中のステップ → 6 つの絵のどれか。1 日 = ひる → ゆうがた → よる → 夜明け の順 */
+export function clockScene(dayTick: number, s: TimeSettings, cfg: ClockPhases = CLOCK_PHASES): ClockScene {
+  const t = dayTick;
+  if (t < s.dayTicks) {
+    const f = t / s.dayTicks;
+    return f < cfg.morningEnd ? 'morning' : f < cfg.noonEnd ? 'noon' : 'afternoon';
+  }
+  if (t < s.dayTicks + s.duskTicks) return 'sunset';
+  if (t < s.dayTicks + s.duskTicks + s.nightTicks) return 'night';
+  return 'sunrise';
+}
