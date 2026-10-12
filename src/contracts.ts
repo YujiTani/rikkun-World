@@ -260,7 +260,8 @@ export interface DigSystem {
 }
 
 /** 画面の状態。担当 D が作る */
-export type ScreenMode = 'play' | 'inventory' | 'guide';
+/** M6: 'celebrate' = おめでとう画面（ゲームの時間を止めて、案内画面は出さない。`ModalScreenState`） */
+export type ScreenMode = 'play' | 'inventory' | 'guide' | 'celebrate';
 
 export interface ScreenState {
   mode(): ScreenMode;
@@ -522,4 +523,200 @@ export interface WorldRegions {
   river: RegionRect[];
   meadow: RegionCircle;
   pond: RegionCircle;
+}
+
+// ================================================================ M6（作る画面・実績・UI 作り直し）
+// 担当の割り振り: docs/tickets/M6-dev-split.md。仕様: docs/design/M6-ui-achievements.md
+
+/** 時間を止める画面（おめでとう画面）の状態。`ScreenController` が持つ。B（開く・閉じる）とつなぎ込みが使う（M6 §2.6 (3)） */
+export interface ModalScreenState {
+  /** おめでとう画面が出ているか（mode() === 'celebrate'） */
+  modalOpen(): boolean;
+  /**
+   * 出す: ゲームの時間を止める（timeScale 0）・ポインターロックを外す・案内画面は出さない・押していたキーとボタンをはなす。
+   * もちもの画面が開いていたら おぼえておく。すでに出ていれば何もしない。
+   */
+  openModal(): void;
+  /**
+   * 閉じる: おぼえていた もちもの画面があれば そこにもどる（ロックはかけない）。なければ ロックをかけ直して時間を動かす
+   * （本物のブラウザでロックがことわられたら 案内画面でなく `lockDenied` を true にする。小さな札 `クリック で つづける` 用）。
+   */
+  closeModal(): void;
+  /** 閉じたあと ロックをかけ直せなかった（札を出す。クリックで `relock()`） */
+  lockDenied(): boolean;
+  /** 札のクリックで ロックをかけ直す */
+  relock(): void;
+}
+
+/** 実績の id: `<シリーズ>.<段階の数>`（例 `break.dirt.10`。§4.2） */
+export type AchievementId = string;
+
+export type MedalTier = 'bronze' | 'silver' | 'gold' | 'rainbow';
+
+/** 実績の分類（§2.7）: こわす・おく・つくる・あつめる・たたかう・レベル・ぼうけん・ばしょ */
+export type AchievementCategory = 'break' | 'place' | 'craft' | 'collect' | 'fight' | 'level' | 'adventure' | 'places';
+
+export type DefeatWith = 'hand' | 'pickaxe' | 'bokuto' | 'katana' | 'naginata' | 'crystal_katana' | 'yumi';
+
+/** 記録のキー（§2.5。`achievements.stats()` のキーと同じ） */
+export type StatKey =
+  | `break:${string}`
+  | `place:${string}`
+  | `craft:${string}`
+  | `bake:${string}`
+  | `obtain:${string}`
+  | `defeat:${string}`
+  | `defeatWith:${DefeatWith}`
+  | `wear:${string}`
+  | `visit:${string}`
+  | `drop:${string}`
+  | `store:${string}`
+  | 'craftItems:ya'
+  | 'pickup:*'
+  | 'bagBack'
+  | 'defeatLow'
+  | 'chain'
+  | 'guard'
+  | 'wearAll'
+  | 'death'
+  | 'level'
+  | 'playTicks'
+  | 'night'
+  | 'morning'
+  | 'walk'
+  | 'jump'
+  | 'arrowShot'
+  | 'arrowHit'
+  | 'full'
+  | 'storeFull';
+
+/** 実績 1 つ（表の 1 行。§4.2） */
+export interface AchievementDef {
+  id: AchievementId;
+  series: string;
+  category: AchievementCategory;
+  /** 記録のキーと目標 */
+  stat: StatKey;
+  goal: number;
+  /** 何番目の段階か（1 から） */
+  tier: number;
+  medal: MedalTier;
+  /** ちいさい実績か（§2.6 (1)） */
+  small: boolean;
+  /** 名前（ひらがな・カタカナ。漢字は使わない） */
+  name: string;
+}
+
+/** C → B: 今 出す おめでとう画面の 1 枚（§2.6 (3)） */
+export interface AchievementShow {
+  /** 見せる実績の id（取った順） */
+  ids: AchievementId[];
+  /** 主役（いちばん高いメダル。同じなら先に取った） */
+  mainId: AchievementId;
+  /** 5 行をこえた分の数（`ほか 3 こ`） */
+  more: number;
+}
+
+/** B が持つ おめでとう画面の口（C が使う） */
+export interface AchievementModalPort {
+  /** 出す（`ModalScreenState.openModal()` も呼ぶ）。すでに出ていれば false */
+  open(show: AchievementShow): boolean;
+  isOpen(): boolean;
+  /** とじる が押されて 閉じたとき（見せた id の列）。C が「見せた」にして 待ち時間を数えはじめる */
+  onClosed(fn: (shown: AchievementId[]) => void): void;
+}
+
+/** B → C: しずか判定に使う「演出が出ているか」 */
+export interface CelebrateBusyPort {
+  bannerShowing(): boolean;
+  levelUpShowing(): boolean;
+}
+
+/** C が持つ: 取ったばかり（まだ見せていない）の列から 今の 1 枚を作る */
+export interface AchievementShowSource {
+  /** 出すきまり（§2.6 (2)）を すべて満たしたら その 1 枚。まだなら null */
+  nextShow(): AchievementShow | null;
+  /** まだ見せていない数（メダルの印の数） */
+  pendingCount(): number;
+  /** その レシピを はじめて 作った・焼いた か（記録を 足す前に聞く。横断幕を出すか決める） */
+  isFirstMade(kind: 'craft' | 'bake', recipe: string): boolean;
+}
+
+/** A → B: 作った・焼いた（演出と横断幕の出来事。`CraftEvent` の craft / bakeDone から A が作る） */
+export interface CraftMadeEvent {
+  kind: 'craft' | 'bake';
+  tick: number;
+  recipe: string;
+  item: ItemId;
+  count: number;
+  /** はじめて（横断幕を出す）か */
+  first: boolean;
+  /** コンボ（1 から。§2.4 (1) の 5） */
+  combo: number;
+}
+export type CraftMadeListener = (e: CraftMadeEvent) => void;
+
+/** D → C: すてた・しまった の出来事（記録 `drop:*`・`store:*`・`storeFull`） */
+export type StorageEvent =
+  | { type: 'drop'; tick: number; item: ItemId; count: number }
+  | { type: 'store'; tick: number; item: ItemId; count: number }
+  | { type: 'storeFull'; tick: number };
+
+/** §4.1 の設定（`settings.get/set` の名前そのまま。1 秒 = 60 ステップ）。初期値は `M6_SETTING_DEFAULTS` */
+export interface M6Settings {
+  craftComboTicks: number;
+  craftComboMax: number;
+  bannerTicks: number;
+  bannerInTicks: number;
+  bannerOutTicks: number;
+  achieveSmallBatch: number;
+  achieveSmallMaxWait: number;
+  achieveCooldown: number;
+  achieveCooldownEarly: number;
+  achieveEarlyTicks: number;
+  achieveCalmHurtTicks: number;
+  achieveCalmYokaiDist: number;
+  achieveCalmMaxWait: number;
+  achieveCloseDelay: number;
+  achieveModalRows: number;
+  achieveLowHp: number;
+  achieveChainTicks: number;
+  achieveChainCount: number;
+  dropPickupDelay: number;
+  dropThrowSpeed: number;
+  dropThrowUp: number;
+  tansuSlots: number;
+  tansuCloseDist: number;
+}
+
+/** `hardness.tansu`・`fixedDrop.tansu`（5・1 こ）は D が M2・M4 の設定に足す */
+export const M6_SETTING_DEFAULTS: Readonly<M6Settings> = {
+  craftComboTicks: 120,
+  craftComboMax: 8,
+  bannerTicks: 180,
+  bannerInTicks: 36,
+  bannerOutTicks: 30,
+  achieveSmallBatch: 5,
+  achieveSmallMaxWait: 18000,
+  achieveCooldown: 1800,
+  achieveCooldownEarly: 5400,
+  achieveEarlyTicks: 18000,
+  achieveCalmHurtTicks: 120,
+  achieveCalmYokaiDist: 8,
+  achieveCalmMaxWait: 1800,
+  achieveCloseDelay: 60,
+  achieveModalRows: 5,
+  achieveLowHp: 3,
+  achieveChainTicks: 600,
+  achieveChainCount: 3,
+  dropPickupDelay: 60,
+  dropThrowSpeed: 4,
+  dropThrowUp: 2,
+  tansuSlots: 54,
+  tansuCloseDist: 6,
+};
+
+/** 設定の入れ物を作る（つなぎ込みが `createSettingsHook` の extras に渡す。毎回 新しいコピー） */
+export function createM6Settings(): M6Settings {
+  return { ...M6_SETTING_DEFAULTS };
 }

@@ -131,3 +131,68 @@ describe('ScreenController（本物のロック）', () => {
     expect(lock.overlayVisible()).toBe(true);
   });
 });
+
+describe('おめでとう画面の止まる状態（M6）', () => {
+  it('出すと 時間 0・ロックが外れる・案内は出ない。キーは無視。閉じるとロックをかけ直す', () => {
+    const { screen, actions, lock, log } = setup();
+    lock.simulate(true);
+    screen.openModal();
+    expect(screen.modalOpen()).toBe(true);
+    expect(screen.mode()).toBe('celebrate');
+    expect(screen.timeScale()).toBe(0);
+    expect(lock.locked()).toBe(false);
+    expect(lock.overlayVisible()).toBe(false);
+    expect(lock.playInputEnabled()).toBe(false);
+    tap(actions, 'toggleInventory');
+    tap(actions, 'closeMenu');
+    expect(screen.inventoryOpen()).toBe(false);
+    expect(screen.mode()).toBe('celebrate');
+    screen.toggle();
+    screen.closeToGuide();
+    expect(screen.mode()).toBe('celebrate');
+    expect(log).toContain('release');
+    screen.closeModal();
+    expect(screen.modalOpen()).toBe(false);
+    expect(screen.mode()).toBe('play');
+    expect(screen.timeScale()).toBe(1);
+    expect(lock.locked()).toBe(true);
+  });
+
+  it('もちもの画面が開いていたら 閉じたあと もちもの画面にもどる（ロックはかけない）', () => {
+    const { screen, actions, lock } = setup();
+    lock.simulate(true);
+    tap(actions, 'toggleInventory');
+    expect(screen.mode()).toBe('inventory');
+    screen.openModal();
+    expect(screen.mode()).toBe('celebrate');
+    expect(screen.timeScale()).toBe(0);
+    screen.closeModal();
+    expect(screen.mode()).toBe('inventory');
+    expect(screen.inventoryOpen()).toBe(true);
+    expect(screen.timeScale()).toBe(0.25);
+    expect(lock.locked()).toBe(false);
+    expect(lock.overlayVisible()).toBe(false);
+  });
+
+  it('本物のロックがことわられたら lockDenied（札用）。relock でかけ直す', () => {
+    const lock = new LockController();
+    const actions = new ActionState();
+    const log: string[] = [];
+    const platform = {
+      request: () => log.push('request'),
+      release: () => lock.setReal(false),
+    };
+    const screen = new ScreenController(lock, { returnCursor: () => undefined }, actions, createScreenSettings(), platform);
+    lock.setReal(true);
+    screen.openModal();
+    screen.closeModal();
+    expect(log).toContain('request');
+    expect(screen.lockDenied()).toBe(false); // 返事待ちのあいだは 札を出さない
+    lock.endRelock(); // ことわられた
+    expect(screen.lockDenied()).toBe(true);
+    screen.relock();
+    lock.setReal(true);
+    expect(screen.lockDenied()).toBe(false);
+    expect(screen.mode()).toBe('play');
+  });
+});

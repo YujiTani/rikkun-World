@@ -21,6 +21,22 @@ export interface InventoryM4 {
   ui?: CraftUiSettings;
 }
 
+/** もちもの画面の 上のタブ（M6 §2.7）。じっせき のとき パネルぜんたいが じっせき ページになる */
+export type InventoryTab = 'items' | 'achievements';
+
+/** 右の場所に出すもの（M6）: つくる・やく か、たんす（§2.9） */
+export type InventorySide = 'craft' | 'storage';
+
+/**
+ * パネルの外の マウスの口（M6 §2.8。D の ドラッグでの すてる が使う）。
+ * inside = マウスが パネル（持ち物・右の場所・じっせき ページ）の中か。
+ */
+export interface InventoryOutsideHandlers {
+  down?(e: MouseEvent, inside: boolean): void;
+  move?(e: MouseEvent, inside: boolean): void;
+  up?(e: MouseEvent, inside: boolean): void;
+}
+
 /** もちもの画面のマスの並び: 上の 3 段 = マス 9〜35、少しあけて下の 1 段 = マス 0〜8 */
 export function inventoryLayout(): { bag: number[][]; hotbar: number[] } {
   const bag: number[][] = [];
@@ -37,6 +53,22 @@ export class InventoryScreen {
   readonly el: HTMLDivElement;
   readonly panel: HTMLDivElement;
   readonly closeButton: HTMLButtonElement;
+  /**
+   * M6 の差しこみ口（中身は 担当が入れる。空のあいだは 何も見えない）:
+   * - tabsEl: 上のタブ（もちもの／じっせき。A が入れる。場所は S2 が決める）
+   * - craftSlot: 右の「つくる・やく」の場所（今の M4 の CraftPanel。A）
+   * - storageSlot: 右の「たんす」の場所（D。ふだんは かくれている）
+   * - pageSlot: じっせき ページ（C。ふだんは かくれている）
+   */
+  readonly tabsEl: HTMLDivElement;
+  readonly craftSlot: HTMLDivElement;
+  readonly storageSlot: HTMLDivElement;
+  readonly pageSlot: HTMLDivElement;
+  private readonly bodyEl: HTMLDivElement;
+  private sideNow: InventorySide = 'craft';
+  private tabNow: InventoryTab = 'items';
+  private outside: InventoryOutsideHandlers | null = null;
+  private readonly onPointer: (e: MouseEvent) => void;
   private readonly cells: SlotEls[] = [];
   private readonly cursorEl: HTMLDivElement;
   private readonly cursorIcon: HTMLImageElement;
@@ -140,11 +172,21 @@ export class InventoryScreen {
       main.append(this.equip.el);
     }
     main.append(grid);
-    this.panel.append(head, main);
+    this.tabsEl = document.createElement('div');
+    this.tabsEl.className = 'inv-tabs';
+    this.panel.append(this.tabsEl, head, main);
     const body = document.createElement('div');
     body.className = 'inv-body';
-    body.append(this.panel, side);
-    this.el.append(body);
+    this.craftSlot = side;
+    this.storageSlot = document.createElement('div');
+    this.storageSlot.className = 'inv-storage';
+    this.storageSlot.hidden = true;
+    body.append(this.panel, side, this.storageSlot);
+    this.bodyEl = body;
+    this.pageSlot = document.createElement('div');
+    this.pageSlot.className = 'inv-page';
+    this.pageSlot.hidden = true;
+    this.el.append(body, this.pageSlot);
 
     this.cursorEl = document.createElement('div');
     this.cursorEl.className = 'inv-cursor';
@@ -164,6 +206,50 @@ export class InventoryScreen {
       this.placeCursor();
     };
     window.addEventListener('mousemove', this.onMove);
+    this.onPointer = (e) => {
+      if (!this.open || !this.outside) return;
+      const h = e.type === 'mousedown' ? this.outside.down : e.type === 'mouseup' ? this.outside.up : this.outside.move;
+      h?.(e, this.isInsidePanels(e.clientX, e.clientY));
+    };
+    for (const t of ['mousedown', 'mousemove', 'mouseup'] as const) window.addEventListener(t, this.onPointer);
+  }
+
+  /** 右の場所を入れかえる（つくる・やく ⇄ たんす）。見た目は style.display だけで切る */
+  setSide(side: InventorySide): void {
+    this.sideNow = side;
+    this.craftSlot.style.display = side === 'craft' ? '' : 'none';
+    this.storageSlot.hidden = side !== 'storage';
+  }
+
+  side(): InventorySide {
+    return this.sideNow;
+  }
+
+  /** 上のタブを切りかえる。じっせき のときは パネルぜんたいを pageSlot に入れかえる */
+  setTab(tab: InventoryTab): void {
+    this.tabNow = tab;
+    this.bodyEl.style.display = tab === 'items' ? '' : 'none';
+    this.pageSlot.hidden = tab === 'items';
+  }
+
+  tab(): InventoryTab {
+    return this.tabNow;
+  }
+
+  /** パネルの外のマウスの口（なしにするときは null） */
+  setOutsideHandlers(h: InventoryOutsideHandlers | null): void {
+    this.outside = h;
+  }
+
+  /** その画面の位置が パネル（持ち物・右の場所・じっせき ページ）の中か */
+  isInsidePanels(x: number, y: number): boolean {
+    const els: HTMLElement[] = [this.panel, this.craftSlot, this.storageSlot, this.pageSlot];
+    for (const el of els) {
+      if (el.hidden || el.style.display === 'none') continue;
+      const r = el.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0 && x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return true;
+    }
+    return false;
   }
 
   isOpen(): boolean {
@@ -230,6 +316,7 @@ export class InventoryScreen {
     this.craftPanel?.dispose();
     this.tooltip?.dispose();
     window.removeEventListener('mousemove', this.onMove);
+    for (const t of ['mousedown', 'mousemove', 'mouseup'] as const) window.removeEventListener(t, this.onPointer);
     this.el.remove();
   }
 }

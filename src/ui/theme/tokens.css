@@ -1,0 +1,107 @@
+/*
+ * りっくんワールド UI の土台（M6 S1。仕様 docs/design/M6-ui-achievements.md §3.5）
+ * 色・大きさ・余白・角・影・動きは、ここの変数だけを使う。ほかのファイルに数を じかに書かない。
+ * 数は画面はば 1280px のときの値。ほかの幅では clamp() で 0.85〜1.5 倍（文字は 16px より小さくしない）。
+ */
+:root {
+  /* (2) 色 */
+  --rk-bg-900: #10141f;
+  --rk-bg-800: #1a2132;
+  --rk-bg-700: #252f47;
+  --rk-line: #3a4766;
+  --rk-hud-bg: rgb(16 20 31 / 72%);
+  --rk-scrim: rgb(0 0 0 / 50%);
+  --rk-text: #ffffff;
+  --rk-text-sub: #aeb8d0;
+  --rk-ink: #141414;
+  --rk-accent: #ffc83d;
+  --rk-accent-2: #ff8a1f;
+  --rk-ok: #3ddc84;
+  --rk-ng: #ff5a5f;
+  --rk-info: #4fc3f7;
+  --rk-heart: #ff3d6e;
+  --rk-xp: #9bf26b;
+  --rk-xp-2: #28c76f;
+  --rk-shu: #e8453c;
+  --rk-kiri: #d2b07e;
+  --rk-kurogane: #1f1f24;
+  /* めずらしさ（ふつう・すこし・めずらしい・とても） */
+  --rk-rarity-0: #ffffff;
+  --rk-rarity-1: #8fe08f;
+  --rk-rarity-2: #7fb8ff;
+  --rk-rarity-3: #c79bff;
+  /* マスのカテゴリー色（§3.5 (7)。使うのは S2 の 割りあて表） */
+  --rk-cat-soil: #6e4b2a;
+  --rk-cat-stone: #505a68;
+  --rk-cat-plant: #2e6b35;
+  --rk-cat-ore: #7a6220;
+  --rk-cat-build: #8a3b2a;
+  --rk-cat-material: #6b3f7a;
+  --rk-cat-metal: #1e6e78;
+  --rk-cat-tool: #2a5c99;
+  --rk-cat-weapon: #9a2e4a;
+  --rk-cat-armor: #46489e;
+  --rk-cat-light: #a3561a;
+  --rk-cat-home: #2e7a5e;
+  /* メダル（どう・ぎん・きん・にじ） */
+  --rk-medal-bronze: #cd7f32;
+  --rk-medal-silver: #c0c0c0;
+  --rk-medal-gold: #ffd54f;
+  --rk-medal-rainbow: linear-gradient(135deg, #ff5a5f, #ffc83d, #3ddc84, #4fc3f7, #c79bff);
+  --rk-accent-grad: linear-gradient(180deg, var(--rk-accent), var(--rk-accent-2));
+  --rk-xp-grad: linear-gradient(90deg, var(--rk-xp), var(--rk-xp-2));
+  --rk-rarity: var(--rk-rarity-0);
+
+  /* (3) 文字（表示・タイトル・見出し・本文・小） */
+  --rk-fs-display: clamp(40.8px, 3.75vw, 72px);
+  --rk-fs-title: clamp(27.2px, 2.5vw, 48px);
+  --rk-fs-head: clamp(20.4px, 1.875vw, 36px);
+  --rk-fs-body: clamp(17px, 1.5625vw, 30px);
+  --rk-fs-small: clamp(16px, 1.25vw, 24px);
+  --rk-fs-rt: 12px;
+  --rk-lh: 1.4;
+
+  /* (4) 余白の段階 */
+  --rk-sp-1: clamp(calc(4 * 0.85px), calc(4 / 12.8 * 1vw), calc(4 * 1.5px));
+  --rk-sp-2: clamp(calc(8 * 0.85px), calc(8 / 12.8 * 1vw), calc(8 * 1.5px));
+  --rk-sp-3: clamp(calc(12 * 0.85px), calc(12 / 12.8 * 1vw), calc(12 * 1.5px));
+  --rk-sp-4: clamp(calc(16 * 0.85px), calc(16 / 12.8 * 1vw), calc(16 * 1.5px));
+  --rk-sp-5: clamp(calc(24 * 0.85px), calc(24 / 12.8 * 1vw), calc(24 * 1.5px));
+  --rk-sp-6: clamp(calc(32 * 0.85px), calc(32 / 12.8 * 1vw), calc(32 * 1.5px));
+  --rk-sp-7: clamp(calc(48 * 0.85px), calc(48 / 12.8 * 1vw), calc(48 * 1.5px));
+
+  /* 角の丸さ（形なので画面の大きさで変えない）: 小・中・大・まる */
+  --rk-r-s: 8px;
+  --rk-r-m: 14px;
+  --rk-r-l: 24px;
+  --rk-r-pill: 999px;
+
+  /* ふち */
+  --rk-bw: 2px;
+  --rk-bw-sel: 4px;
+  --rk-bw-rarity: 3px;
+
+  /* 影 */
+  --rk-shadow-1: 0 4px 0 var(--rk-bg-900);
+  --rk-shadow-1-pressed: 0 2px 0 var(--rk-bg-900);
+  --rk-shadow-2: 0 8px 24px rgb(0 0 0 / 40%);
+  --rk-glow: 0 0 16px rgb(255 200 61 / 60%);
+  --rk-glow-weak: 0 0 4px rgb(255 200 61 / 30%);
+
+  /* 押せるものの大きさ */
+  --rk-h-btn: clamp(calc(56 * 0.85px), calc(56 / 12.8 * 1vw), calc(56 * 1.5px));
+  --rk-h-tab-guide: clamp(calc(64 * 0.85px), calc(64 / 12.8 * 1vw), calc(64 * 1.5px));
+  --rk-slot-hotbar: clamp(calc(64 * 0.85px), calc(64 / 12.8 * 1vw), calc(64 * 1.5px));
+  --rk-slot-inv: clamp(calc(56 * 0.85px), calc(56 / 12.8 * 1vw), calc(56 * 1.5px));
+  --rk-slot-tansu: clamp(calc(48 * 0.85px), calc(48 / 12.8 * 1vw), calc(48 * 1.5px));
+  --rk-icon-chip: clamp(calc(32 * 0.85px), calc(32 / 12.8 * 1vw), calc(32 * 1.5px));
+
+  /* (5) 動き */
+  --rk-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --rk-ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --rk-dur-fast: 120ms;
+  --rk-dur: 200ms;
+  --rk-dur-pop: 350ms;
+  --rk-dur-slow: 600ms;
+  --rk-dur-wave: 1600ms;
+}
