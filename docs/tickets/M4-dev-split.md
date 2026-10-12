@@ -39,6 +39,14 @@
 - 窓口: `createToolHook(tool)` → `{ tool: { get }, arrows, arrowEvents }`。`combat.arrows` に `arrows`、`combat.events()` に `arrowEvents()` を足す。画面・音は `tool.drainArrowEvents()`、人形は `tool.drainSwings()`
 - `settings` に `tool.config`
 - `tryEquip` が成功したら手の 1 こを減らすのは A 側
+**A（つくる・やく・防具）**
+- `ArmorSystemImpl(inv, config)`、`CraftSystemImpl({world, inventory, drops, requestSave, config})`、毎ステップ `craft.update()`（持ち物の更新のあと）
+- `PlayerCombatImpl` に `armor` と `onPickup: (i, n) => craft.notifyPickup(i, n)`。共有の DropField にも `onPickup` を渡す（妖怪のドロップもログに出る）
+- `SaveManager` に `furnaces: {serialize: craft.serializeFurnaces, deserialize: craft.deserializeFurnaces}` と `armor`
+- 窓口: `createCraftHook`・`createFurnaceHook`・`createArmorHook`・`createPickupHook`（`createInventoryHook(inv, screen, extras)` の extras に）
+- B の `onPickup` は `craft.notifyPickup`、かまど を閉じるとき `craft.closeFurnace()`
+- `combat.damage` の窓口を妖怪つき（例 `hurt(n, 'karakasa', null)`）にして `playerHit.blocked` を見られるように。`contracts.ts` の `CombatEvent` の playerHit に `blocked?: boolean` を足す（つなぎ込みで PO の代わりに足してよい）
+- かまどの保存は `BLOCK_TYPES` に新ブロック（C1 が足す）が入ってから動く
 
 ## 経過
 | 日付 | 内容 |
