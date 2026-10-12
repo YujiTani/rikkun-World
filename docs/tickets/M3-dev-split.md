@@ -37,6 +37,14 @@
 - CSS: `#notice-name` の bottom を 90px ほど上げてハートと重ならないように。`#clock` と F3 の表示が重なるなら調整
 - **昼夜の長さを変える（オーナー決定・最新）**: ひる 15 分（54,000）・ゆうがた 1 分 30 秒（5,400）・よる 7 分 30 秒（27,000、ひるの半分）・あさ 1 分 30 秒（5,400）、1 日 25 分 30 秒（91,800 ステップ）。`src/time/config.ts` の値と、その値を決め打ちしているテスト（`src/time/time.test.ts` など）を直す
 - 「もちもの が いっぱい」の合図は `notice.showSignal('full')` を、妖怪のドロップが入らなかったときに呼ぶ
+**B（妖怪）**
+- `new YokaiManager({ world, time, getPlayer, combat, inventory, tick: () => game.tick + 1, seed, config })`、`scene.add(m.group)`、毎ステップ `m.update()`（プレイヤー更新のあと、`dig.update` のまえ）。`createYokaiHook(m)` → `yokai.*`。`m.config` を `settings` に
+- C の `PlayerCombatImpl` の `yokai: () => m`
+- `settings` の名前の重なり: `knockback` が B と C の両方にある。1 つにまとめ、値を両方に渡す
+- 「もちもの が いっぱい」: B のテスト窓口の `drop` イベント（`added < count`）か、`defeat` で入りきらなかったときに `notice.showSignal('full')`
+- 妖怪の暗さは B が `time.dollBrightness()` で自分でかける（AD の lighting に二重登録しない）
+- **PO の判断**: 出現の「屋根の下」の判定で **はっぱ は屋根に数えない**（木の下は明るい。ひるに木の下から妖怪が出ないように）。`src/yokai/ai/terrain.ts` の屋根の判定を直す（このつなぎ込みで許可）
+- ちょうちんの止まり位置 4.3 は B の判断で OK
 
 ## 経過
 | 日付 | 内容 |
