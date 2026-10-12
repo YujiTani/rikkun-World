@@ -535,6 +535,8 @@ export class YokaiManager implements YokaiWorld {
       const light = this.opts.light;
       if (light) {
         if (!light.isDarkForSpawn(x, T, z)) continue;
+        // M3 AC3: ゆうがたの終わりごろで空の光が弱まっても、外（空の下）には出ない。出るのは屋根の下か、よる
+        if (!night && !isRoofed(this.world, x, T, z, ai.height)) continue;
       } else if (!isRoofed(this.world, x, T, z, ai.height) && !night) continue;
       const e = this.create(kind, x, T, z, this.rng() * Math.PI * 2, true);
       this.emit({ type: 'spawn', tick: this.tick(), id: e.id, kind, position: { x, y: T, z } });
