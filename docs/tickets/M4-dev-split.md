@@ -28,6 +28,10 @@
 - たいまつ を置ける・こわせる処理は A（アイテムの `placeBlock: 'torch'`、レシピの works を true に）と B（置く処理）の担当。`start_torch` はかたさ null（こわれない）を PO が入れた。
 - `src/contracts.ts` の `LightField` を実装する。`BlockId` に `torch`・`start_torch` を PO が足した。
 
+## オーナー決定（A の実装のあと）: 防具は「決まった回を 0」ではなく **受けるダメージをカット**
+- 受けるダメージ = max(ハート半分（体力 1）, 元のダメージ − 防具の値)。防具の値は設定（例 かぶと 1・よろい 2・両方 3。体力の単位＝ハート半分）。ふせいだときの「カキン」は、カットが 1 以上のとき鳴らす
+- `src/craft/ArmorSystem.ts` の `absorbHit()` を「カットする量を返す」形に変え、`src/combat/PlayerCombat.ts` の入口 1 か所を直す（つなぎ込みで、またはつなぎ込みの前の小さな修正で）。`contracts.ts` の `ArmorSystem` も PO の代わりに直してよい
+
 ## つなぎ込み（全員の後。担当: `src/main.ts`, `src/game/**`, `src/debug/**`, `index.html`）
 - ついでに直す: `docs/tickets/M4.md` の「ついでに直す軽微なこと」
 
