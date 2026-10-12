@@ -128,9 +128,10 @@ export class PlayerController {
     }
 
     // 水平の速さ: 目標へ一定の割合で近づける（先に速さを変えてから位置を動かす）
-    const tx = wx * cfg.walkSpeed;
-    const tz = wz * cfg.walkSpeed;
-    const maxDelta = (cfg.walkSpeed / Math.max(cfg.accelTime, 1e-6)) * dt;
+    const walkSpeed = st.inWater ? cfg.walkSpeed * cfg.waterSpeedMul : cfg.walkSpeed;
+    const tx = wx * walkSpeed;
+    const tz = wz * walkSpeed;
+    const maxDelta = (walkSpeed / Math.max(cfg.accelTime, 1e-6)) * dt;
     const ex = tx - st.velocity.x;
     const ez = tz - st.velocity.z;
     const elen = Math.hypot(ex, ez);
@@ -149,7 +150,7 @@ export class PlayerController {
     p[2] = st.position.z;
     let vy = st.velocity.y;
     if (st.onGround && (jumpHeld || (wlen > 0 && cfg.autoJump && this.shouldAutoJump(wx, wz)))) {
-      vy = Math.sqrt(2 * cfg.gravity * cfg.jumpHeight);
+      vy = Math.sqrt(2 * cfg.gravity * cfg.jumpHeight * (st.inWater ? cfg.waterJumpMul : 1));
     }
 
     // 上下: はじめと終わりの速さの平均で動かす（§4.5）

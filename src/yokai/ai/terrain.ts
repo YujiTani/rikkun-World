@@ -9,12 +9,20 @@ import { boxFree, groundTop, surfaceTop } from './geometry';
  * - 水の上はだめ
  * - 体の入る分のくうきがあること
  */
-export function groundSupport(world: VoxelWorld, x: number, z: number, y: number, ai: KindAi): number {
+export function groundSupport(
+  world: VoxelWorld,
+  x: number,
+  z: number,
+  y: number,
+  ai: KindAi,
+  maxDrop: number = AI_CONST.maxDrop,
+  allowWater = false,
+): number {
   const r = ai.radius;
   if (x < r + AI_CONST.edgeMargin || z < r + AI_CONST.edgeMargin) return NaN;
   if (x > world.size.x - r - AI_CONST.edgeMargin || z > world.size.z - r - AI_CONST.edgeMargin) return NaN;
   const startY = Math.floor(y + ai.stepUp + 1e-6) - 1;
-  const cells = ai.stepUp + AI_CONST.maxDrop + 1;
+  const cells = ai.stepUp + maxDrop + 1;
   let top = -Infinity;
   for (let i = 0; i < 5; i++) {
     const sx = i === 0 ? x : x + (i & 1 ? r : -r) * 0.999;
@@ -23,7 +31,7 @@ export function groundSupport(world: VoxelWorld, x: number, z: number, y: number
     const iz = Math.floor(sz);
     const g = groundTop(world, ix, iz, startY, cells);
     if (g === null) return NaN;
-    if (world.getBlock(ix, g, iz) === 'water') return NaN;
+    if (!allowWater && world.getBlock(ix, g, iz) === 'water') return NaN;
     if (g > top) top = g;
   }
   if (!boxFree(world, x - r, top + 0.05, z - r, x + r, top + ai.height, z + r)) return NaN;

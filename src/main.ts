@@ -254,6 +254,11 @@ yokaiManager = new YokaiManager({
   seed,
   light: renderer.light,
   onDefeat: (kind) => level.onDefeat(kind),
+  // ぬりかべ: たおれこみでこわす・みず で石になる（くだけるつぶと音。fx はあとで作るので関数で包む）
+  onBlocks: (cells, why) => {
+    for (const c of cells) fx.particles.burst({ x: c.x, y: c.y, z: c.z }, why === 'stone' ? c.to : c.from, FX_SETTINGS);
+    fxSound.play('break');
+  },
 });
 game.scene.add(yokaiManager.group);
 const yokaiM = yokaiManager;
@@ -504,6 +509,9 @@ installTestHook(game, overlay, {
       FX_SETTINGS,
       sharedSettingsView('knockback', [combat.config, yokaiM.config]),
       sharedSettingsView('yokaiLeaveTicks', [timeSettings, yokaiM.config]),
+      sharedSettingsView('safeFallHeight', [combat.config, yokaiM.config]),
+      sharedSettingsView('fallDamagePerBlock', [combat.config, yokaiM.config]),
+      sharedSettingsView('waterSpeedMul', [controller.settings, yokaiM.config]),
       combat.config,
       yokaiM.config,
       timeSettings,
