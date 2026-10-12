@@ -1,5 +1,6 @@
-import type { Inventory, ItemStack, Vec3, VoxelWorld } from '../contracts';
+import type { Inventory, ItemStack, Rarity, Vec3, VoxelWorld } from '../contracts';
 import { itemType } from '../inventory/items';
+import { RARITY_ORDER, itemRarity, topRarity } from './rarity';
 import { createRng, type Rng } from '../world/gen/random';
 
 /** 落ちたアイテムの数値。やられた落とし物も 妖怪のドロップも同じ部品を使う */
@@ -15,10 +16,11 @@ export const DROP = {
   maxItems: 400,
 } as const;
 
+/** ばらまき方（やられた = 大きく、妖怪 = 小さく） */
 export type DropKind = 'death' | 'yokai';
 
 export interface ScatterOptions {
-  /** 光の柱の色わけ（やられた = 白、妖怪 = 金色）。ふつうは 'death' */
+  /** ばらまき方の型。ふつうは 'death' */
   kind?: DropKind;
   /** 水平の速さの最小〜最大（ブロック/秒） */
   speedMin?: number;
@@ -39,7 +41,10 @@ export interface DropView {
   position: Vec3;
   slots: ItemStack[];
   ticksLeft: number;
-  kind: DropKind;
+  /** 同じ回にばらまいたものは同じ batch（光の柱は batch ごとに 1 本） */
+  batch: number;
+  /** その回でいちばんめずらしいアイテムのめずらしさ（柱の色） */
+  rarity: Rarity;
 }
 
 export interface DropSave {
@@ -49,7 +54,8 @@ export interface DropSave {
   item: string;
   count: number;
   ticksLeft: number;
-  kind: DropKind;
+  batch: number;
+  rarity: Rarity;
 }
 
 interface Entity {
@@ -63,7 +69,8 @@ interface Entity {
   resting: boolean;
   item: ItemStack;
   ticksLeft: number;
-  kind: DropKind;
+  batch: number;
+  rarity: Rarity;
 }
 
 export interface DropFieldDeps {
@@ -88,6 +95,7 @@ export class DropField {
   private readonly radius: number;
   private items: Entity[] = [];
   private nextId = 1;
+  private nextBatch = 1;
 
   constructor(private readonly d: DropFieldDeps) {
     this.rng = d.rng ?? createRng(4242);
@@ -100,6 +108,8 @@ export class DropField {
     const kind = opts.kind ?? 'death';
     const o = { ...KIND_SCATTER[kind], ...opts };
     let total = 0;
+    const batch = this.nextBatch++;
+    const rarity = topRarity(stacks.filter((x) => x.count >= 1).map((x) => x.item));
     for (const st of stacks) {
       if (st.count < 1) continue;
       const ang = this.rng() * Math.PI * 2;
@@ -115,7 +125,8 @@ export class DropField {
         resting: false,
         item: { item: st.item, count: st.count },
         ticksLeft: this.life,
-        kind,
+        batch,
+        rarity,
       });
       total += st.count;
       if (this.items.length > DROP.maxItems) this.items.shift();
@@ -129,7 +140,8 @@ export class DropField {
       position: { x: b.x, y: b.y, z: b.z },
       slots: [{ item: b.item.item, count: b.item.count }],
       ticksLeft: b.ticksLeft,
-      kind: b.kind,
+      batch: b.batch,
+      rarity: b.rarity,
     }));
   }
 
@@ -239,13 +251,15 @@ export class DropField {
       item: b.item.item,
       count: b.item.count,
       ticksLeft: b.ticksLeft,
-      kind: b.kind,
+      batch: b.batch,
+      rarity: b.rarity,
     }));
   }
 
   /** 読みこみ用。おかしい分・古い形（ふくろ）は捨てる（こわれた保存でも遊べる） */
   deserialize(data: unknown): void {
     const out: Entity[] = [];
+    let maxBatch = 0;
     if (Array.isArray(data)) {
       for (const raw of data.slice(0, DROP.maxItems)) {
         const r = raw as Record<string, unknown> | null;
@@ -258,6 +272,9 @@ export class DropField {
         const ty = itemType(r.item);
         const c = r.count;
         if (!ty || typeof c !== 'number' || !Number.isInteger(c) || c < 1 || c > ty.maxStack) continue;
+        const batch = Number.isInteger(r.batch) && (r.batch as number) > 0 ? (r.batch as number) : this.nextBatch++;
+        maxBatch = Math.max(maxBatch, batch);
+        const rarity: Rarity = RARITY_ORDER.includes(r.rarity as Rarity) ? (r.rarity as Rarity) : itemRarity(ty.id);
         out.push({
           id: this.nextId++,
           x,
@@ -269,10 +286,12 @@ export class DropField {
           resting: false,
           item: { item: ty.id, count: c },
           ticksLeft: Math.min(Math.floor(t), this.life),
-          kind: r.kind === 'yokai' ? 'yokai' : 'death',
+          batch,
+          rarity,
         });
       }
     }
     this.items = out;
+    this.nextBatch = Math.max(this.nextBatch, maxBatch + 1);
   }
 }

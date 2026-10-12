@@ -43,8 +43,10 @@ describe('計算', () => {
 });
 
 describe('BagVisuals', () => {
-  const it1 = (id: number, x: number, count = 1, item: 'dirt' | 'stone' = 'dirt') => ({
+  const it1 = (id: number, x: number, count = 1, item: 'dirt' | 'stone' = 'dirt', batch = 1, rarity: 'common' | 'rare' | 'superRare' = 'common') => ({
     id,
+    batch,
+    rarity,
     position: { x, y: 9, z: 2 },
     slots: [{ item, count }],
     ticksLeft: 100,
@@ -57,13 +59,26 @@ describe('BagVisuals', () => {
     v.update(1 / 60, [it1(1, 1), it1(2, 2, 5, 'stone')]);
     expect(v.count()).toBe(2);
     expect(v.pillarCount()).toBe(1);
-    v.update(1 / 60, [it1(1, 1), it1(2, 40)]);
+    v.update(1 / 60, [it1(1, 1), it1(2, 40, 1, 'dirt', 2)]);
     expect(v.pillarCount()).toBe(2);
     const box = new THREE.Box3().setFromObject(v.group);
     expect(box.max.y - 9).toBeGreaterThanOrEqual(10);
     v.update(1 / 60, []);
     expect(v.count()).toBe(0);
     expect(v.pillarCount()).toBe(0);
+  });
+  it('柱の色はめずらしさ・むらさきだけきらきら', () => {
+    const v = new BagVisuals(new THREE.Scene());
+    v.update(1 / 60, [it1(1, 1, 1, 'dirt', 1, 'rare'), it1(2, 2, 1, 'dirt', 1, 'rare')]);
+    expect(v.pillarCount()).toBe(1);
+    const pillar = () => v.group.children.find((c) => (c as THREE.Mesh).geometry?.type === 'BoxGeometry' && (c as THREE.Mesh).visible && ((c as THREE.Mesh).geometry as THREE.BoxGeometry).parameters.height === 10) as THREE.Mesh;
+    const col = (pillar().material as THREE.MeshBasicMaterial).color.getHex();
+    v.update(1 / 60, [it1(1, 1, 1, 'dirt', 1, 'superRare')]);
+    expect((pillar().material as THREE.MeshBasicMaterial).color.getHex()).not.toBe(col);
+    const sparks = v.group.children.filter((c) => c.type === 'Group' && c.children.length === 6);
+    expect(sparks.some((g) => g.visible)).toBe(true);
+    v.update(1 / 60, [it1(1, 1, 1, 'dirt', 1, 'common')]);
+    expect(sparks.some((g) => g.visible)).toBe(false);
   });
   it('数が 2 こ以上なら板をかさねる', () => {
     const v = new BagVisuals(new THREE.Scene());

@@ -40,10 +40,24 @@ describe('DropField', () => {
     const l = r.f.list();
     expect(l).toHaveLength(2);
     for (const d of l) {
-      expect(d.kind).toBe('yokai');
       expect(d.position.y).toBe(9);
       expect(Math.hypot(d.position.x - 10.5, d.position.z - 10.5)).toBeLessThanOrEqual(1.8);
     }
+  });
+
+  it('1 回のばらまきは同じ batch・柱の色はいちばんめずらしいもの', () => {
+    const r = rig();
+    r.f.scatter({ x: 10.5, y: 9, z: 10.5 }, [{ item: 'dirt', count: 2 }, { item: 'iron_ore', count: 1 }]);
+    r.f.scatter({ x: 20.5, y: 9, z: 10.5 }, [{ item: 'dirt', count: 2 }]);
+    const l = r.f.list();
+    expect(l[0]!.batch).toBe(l[1]!.batch);
+    expect(l[2]!.batch).not.toBe(l[0]!.batch);
+    expect(l[0]!.rarity).toBe('rare');
+    expect(l[1]!.rarity).toBe('rare');
+    expect(l[2]!.rarity).toBe('common');
+    const g = rig();
+    g.f.deserialize(JSON.parse(JSON.stringify(r.f.serialize())));
+    expect(g.f.list().map((d) => [d.batch, d.rarity])).toEqual(l.map((d) => [d.batch, d.rarity]));
   });
 
   it('拾う・足もとが消えたら落ちる・10 分で消える・保存', () => {

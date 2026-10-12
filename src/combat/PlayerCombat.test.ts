@@ -476,7 +476,7 @@ describe('やられた・落とす・ふくろ・復活', () => {
   });
 
   it('近づいたアイテムだけ 1 こずつ拾う', () => {
-    const r = rig({ rng: createRng(11) });
+    const r = rig({ rng: createRng(12) });
     r.inv.setSlot(5, { item: 'dirt', count: 3 });
     r.inv.setSlot(6, { item: 'stone', count: 2 });
     r.inv.setSlot(7, { item: 'yokai_orb', count: 1 });

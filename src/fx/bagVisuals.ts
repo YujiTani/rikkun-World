@@ -1,6 +1,7 @@
 import * as THREE from 'three';
-import type { ItemId, Vec3 } from '../contracts';
+import type { ItemId, Rarity, Vec3 } from '../contracts';
 import { itemIconPixels } from '../ui/itemIcon';
+import { RARITY_COLOR } from '../drops/rarity';
 import { COMBAT_FX, bagPose } from './combatFxModel';
 
 /** 落ちたアイテム 1 つ（`combat.bags()` の 1 件。slots は 1 つ） */
@@ -9,8 +10,10 @@ export interface BagLike {
   position: Vec3;
   slots: ReadonlyArray<{ item: ItemId; count: number }>;
   ticksLeft: number;
-  /** 光の柱の色（やられた = 白、妖怪 = 金色）。なければ やられた */
-  kind?: 'death' | 'yokai';
+  /** 同じ回にばらまいたもの（光の柱は 1 回に 1 本）。なければ 1 つずつ */
+  batch?: number;
+  /** 柱の色（その回でいちばんめずらしいもの）。なければ common */
+  rarity?: Rarity;
 }
 
 const B = COMBAT_FX.bag;
@@ -60,7 +63,19 @@ function pillarMaterial(color: number): THREE.MeshBasicMaterial {
   m.userData.noDim = true; // 光るものは暗くしない
   return m;
 }
-const PILLAR_MATS = { death: pillarMaterial(0xffffff), yokai: pillarMaterial(B.glowColor) };
+const PILLAR_MATS = {
+  common: pillarMaterial(RARITY_COLOR.common),
+  uncommon: pillarMaterial(RARITY_COLOR.uncommon),
+  rare: pillarMaterial(RARITY_COLOR.rare),
+  superRare: pillarMaterial(RARITY_COLOR.superRare),
+} as const;
+const SPARK_GEO = new THREE.BoxGeometry(0.12, 0.12, 0.12);
+const SPARKS = 6;
+
+interface Pillar {
+  mesh: THREE.Mesh;
+  sparks: THREE.Group;
+}
 
 /**
  * 落ちたアイテムの見た目: アイテムの絵の小さな板が、ゆっくり回りながらふわふわ。
@@ -69,12 +84,13 @@ const PILLAR_MATS = { death: pillarMaterial(0xffffff), yokai: pillarMaterial(B.g
 export class BagVisuals {
   readonly group = new THREE.Group();
   private readonly visuals = new Map<number, Visual>();
-  private readonly pillars: THREE.Mesh[] = [];
+  private readonly pillars: Pillar[] = [];
   private readonly cx: number[] = [];
   private readonly cy: number[] = [];
   private readonly cz: number[] = [];
   private readonly cn: number[] = [];
-  private readonly ck: Array<'death' | 'yokai'> = [];
+  private readonly ck: number[] = [];
+  private readonly cr: Rarity[] = [];
   private time = 0;
 
   constructor(scene: THREE.Scene) {
@@ -90,7 +106,7 @@ export class BagVisuals {
   /** いま出ている光の柱の数 */
   pillarCount(): number {
     let n = 0;
-    for (const p of this.pillars) if (p.visible) n++;
+    for (const p of this.pillars) if (p.mesh.visible) n++;
     return n;
   }
 
@@ -115,16 +131,14 @@ export class BagVisuals {
       v.spinner.position.y = pose.y;
       v.spinner.rotation.y = pose.spin + bag.id * 0.7; // アイテムごとに向きをずらす
 
-      // 光の柱: 近くのもの同士で 1 本（さいしょに見つけたかたまりに入れる）
-      const kind = bag.kind ?? 'death';
+      // 光の柱: 1 回のばらまき（batch）に 1 本
+      const key = bag.batch ?? -bag.id;
       let k = 0;
-      for (; k < clusters; k++) {
-        if (this.ck[k] === kind &&
-          Math.hypot(this.cx[k]! / this.cn[k]! - bag.position.x, this.cz[k]! / this.cn[k]! - bag.position.z) <= B.clusterRadius) break;
-      }
+      for (; k < clusters; k++) if (this.ck[k] === key) break;
       if (k === clusters) {
         this.cx[k] = this.cy[k] = this.cz[k] = this.cn[k] = 0;
-        this.ck[k] = kind;
+        this.ck[k] = key;
+        this.cr[k] = bag.rarity ?? 'common';
         clusters++;
       }
       this.cx[k]! += bag.position.x;
@@ -139,19 +153,35 @@ export class BagVisuals {
     }
     for (let k = 0; k < Math.max(clusters, this.pillars.length); k++) {
       if (k >= clusters) {
-        this.pillars[k]!.visible = false;
+        this.pillars[k]!.mesh.visible = false;
+        this.pillars[k]!.sparks.visible = false;
         continue;
       }
       let p = this.pillars[k];
       if (!p) {
-        p = new THREE.Mesh(PILLAR_GEO, PILLAR_MATS.death);
-        p.renderOrder = 3;
+        const mesh = new THREE.Mesh(PILLAR_GEO, PILLAR_MATS.common);
+        mesh.renderOrder = 3;
+        const sparks = new THREE.Group();
+        for (let i = 0; i < SPARKS; i++) sparks.add(new THREE.Mesh(SPARK_GEO, PILLAR_MATS.superRare));
+        p = { mesh, sparks };
         this.pillars[k] = p;
-        this.group.add(p);
+        this.group.add(mesh, sparks);
       }
-      p.visible = true;
-      p.material = PILLAR_MATS[this.ck[k]!];
-      p.position.set(this.cx[k]! / this.cn[k]!, this.cy[k]! + B.pillarSize[1] / 2, this.cz[k]! / this.cn[k]!);
+      const x = this.cx[k]! / this.cn[k]!;
+      const z = this.cz[k]! / this.cn[k]!;
+      const rar = this.cr[k]!;
+      p.mesh.visible = true;
+      p.mesh.material = PILLAR_MATS[rar];
+      p.mesh.position.set(x, this.cy[k]! + B.pillarSize[1] / 2, z);
+      // むらさき（superRare）だけ、ゆっくり回るきらきらの粒
+      p.sparks.visible = rar === 'superRare';
+      if (p.sparks.visible) {
+        p.sparks.position.set(x, this.cy[k]!, z);
+        for (let i = 0; i < SPARKS; i++) {
+          const a = this.time * 0.8 + (i * Math.PI * 2) / SPARKS;
+          p.sparks.children[i]!.position.set(Math.cos(a) * 0.5, 0.3 + ((i * 1.7 + this.time * 0.6) % 4), Math.sin(a) * 0.5);
+        }
+      }
     }
   }
 
@@ -177,7 +207,7 @@ export class BagVisuals {
 
   dispose(): void {
     this.update(0, []);
-    for (const p of this.pillars) this.group.remove(p);
+    for (const p of this.pillars) this.group.remove(p.mesh, p.sparks);
     this.pillars.length = 0;
     this.group.removeFromParent();
   }
