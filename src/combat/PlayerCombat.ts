@@ -1,6 +1,7 @@
 import type {
   ArmorSlot,
   CombatEvent,
+  DamageKind,
   Inventory,
   ItemId,
   ItemStack,
@@ -18,6 +19,7 @@ import {
   BODY_HALF,
   BODY_HEIGHT,
   KNOCKBACK_TICKS,
+  fallDamage,
   createCombatConfig,
   type CombatConfig,
 } from './config';
@@ -27,7 +29,7 @@ const MAX_QUEUE = 256;
 /** 防具の窓口（M4。`ArmorSystemImpl` が合う） */
 export interface CombatArmorPort {
   /** 妖怪の攻撃を受けた。カットする量（体力の単位）を返す */
-  cut(): number;
+  cut(kind?: DamageKind): number;
   equipped(slot: ArmorSlot): ItemId | null;
   /** そうびのマスを空にして中身を返す */
   take(slot: ArmorSlot): ItemId | null;
@@ -130,6 +132,10 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
   private kbTicks = 0;
   private kbX = 0;
   private kbZ = 0;
+  /** 落ちているあいだの いちばん高かった y（地面・水にいるあいだは今の y） */
+  private fallPeak = 0;
+  private fallPrevY = 0;
+  private lastFallDamage = 0;
 
   private punchTickNow = 0;
   /** いまのパンチを始めたときの値（途中で持ちかえても そのまま） */
@@ -175,8 +181,8 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
     return this.invincible;
   }
 
-  damage(amount: number, by: YokaiKind, from: Vec3): boolean {
-    return this.hurt(amount, by, from);
+  damage(amount: number, by: YokaiKind, from: Vec3, kind: DamageKind = 'normal'): boolean {
+    return this.hurt(amount, by, from, false, kind);
   }
 
   drainEvents(): CombatEvent[] {
@@ -295,6 +301,8 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
     if (this.invincible > 0) this.invincible--;
 
     if (this.isDead) {
+      this.fallPeak = this.d.player.get().position.y;
+      this.fallPrevY = this.fallPeak;
       this.deadTicks++;
       if (this.deadTicks >= cfg.respawnDelayTicks) {
         this.respawn();
@@ -308,6 +316,7 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
         this.kbTicks--;
         this.shove(this.kbX, this.kbZ);
       }
+      this.fallTick();
       // 自然回復
       this.sinceDamage++;
       if (
@@ -324,16 +333,52 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
     this.tickCount++;
   }
 
+  // ---------------------------------------------------------- 落下ダメージ
+
+  /** 最後に受けた落下ダメージ（テスト用） */
+  lastFall(): number {
+    return this.lastFallDamage;
+  }
+
+  /** 落ちた高さを見て、地面に着いたらダメージ。みず・ジャンプの着地は 0。ノックバックなし・防具でも減らない */
+  private fallTick(): void {
+    const st = this.d.player.get();
+    const y = st.position.y;
+    // 1 ステップで大きく動いたら置き直し（復活・テレポート）。落ちる速さは 1 ステップ 0.5 まで
+    if (Math.abs(y - this.fallPrevY) > 1.5) this.fallPeak = y;
+    this.fallPrevY = y;
+    if (st.inWater) {
+      this.fallPeak = y;
+      return;
+    }
+    if (!st.onGround) {
+      if (y > this.fallPeak) this.fallPeak = y;
+      return;
+    }
+    const h = this.fallPeak - y;
+    this.fallPeak = y;
+    const dmg = fallDamage(h, this.config.safeFallHeight, this.config.fallDamagePerBlock);
+    if (dmg > 0) {
+      const before = this.hpNow;
+      if (this.hurt(dmg, null, null, true, 'fall')) {
+        this.lastFallDamage = before - this.hpNow;
+        this.emit({ type: 'fallHurt', tick: this.tickCount, amount: before - this.hpNow });
+      }
+    }
+  }
+
   // ---------------------------------------------------------- ダメージ・やられる・復活
 
-  private hurt(amount: number, by: YokaiKind | null, from: Vec3 | null): boolean {
-    if (this.isDead || this.invincible > 0 || !(amount > 0)) return false;
+  private hurt(amount: number, by: YokaiKind | null, from: Vec3 | null, ignoreInvincible = false, kind: DamageKind = 'normal'): boolean {
+    if (this.isDead || (this.invincible > 0 && !ignoreInvincible) || !(amount > 0)) return false;
     const cfg = this.config;
     // 防具でふせぐ（M4 §2.7）: 妖怪の攻撃だけ。ふせいだ回も むてき・押されるは ふつうどおり
     // 受けるダメージ = max(体力 1〈ハート半分〉, 元 − カット)。カットが 1 以上ならカキン（blocked）
-    const cutBy = by !== null ? (this.d.armor?.cut() ?? 0) : 0;
+    const cutBy = by !== null || kind === 'fall' ? (this.d.armor?.cut(kind) ?? 0) : 0;
     const blocked = cutBy >= 1;
-    const taken = blocked ? Math.max(1, amount - cutBy) : amount;
+    // normal / ball は へらしても最低 1。fall は 0 まで へる（0 ならダメージなし）
+    const taken = blocked ? Math.max(kind === 'fall' ? 0 : 1, amount - cutBy) : amount;
+    if (!(taken > 0)) return false;
     this.hpNow = Math.max(0, this.hpNow - taken);
     this.sinceDamage = 0;
     this.lastDamageTick = this.tickCount;

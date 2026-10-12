@@ -29,9 +29,9 @@ export const COMBAT_FX = {
     pillarSize: [0.12, 10, 0.12],
     pillarOpacity: 0.3,
     /** 地面からの高さ（ふくろの中心） */
-    lift: 0.35,
-    bobAmount: 0.1,
-    bobSeconds: 2,
+    lift: 0.3,
+    bobAmount: 0.08,
+    bobSeconds: 1.5,
     spinSeconds: 4,
     /** のこりがこのステップ以下になると光がゆっくり強弱する（30 秒）・周期（秒） */
     blinkTicks: 1800,

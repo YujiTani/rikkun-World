@@ -44,7 +44,9 @@ export class CombatFx {
 
   constructor(private readonly d: CombatFxDeps) {
     this.cfg = d.settings ?? FX_SETTINGS;
-    this.bags = new BagVisuals(d.scene);
+    this.bags = new BagVisuals(d.scene, (r) =>
+      playCombat(d.sound, r === 'superRare' ? 'dropSuperRare' : r === 'rare' ? 'dropRare' : r === 'uncommon' ? 'dropUncommon' : 'dropCommon'),
+    );
     d.clock?.set(d.time.phase());
     this.offPhase = d.time.onPhaseChange((p) => {
       d.clock?.set(p);
@@ -78,6 +80,10 @@ export class CombatFx {
           playCombat(sound, 'hurt');
           d.edge.flash();
           this.shakeLeft = this.cfg.fxShake ? COMBAT_FX.hurtShakeSeconds : 0;
+          break;
+        case 'fallHurt':
+          playCombat(sound, 'hurt');
+          d.edge.flash();
           break;
         case 'death':
           d.deathScreen.start();

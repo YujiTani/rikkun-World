@@ -80,7 +80,7 @@ export interface SaveInfo {
 
 export const SAVE_VERSION = 1;
 /** 島の作り方の版。島生成（src/world/gen）で地形が変わったら上げる（差分の番号が別の場所に当たらないように、版がちがう保存は使わない） */
-export const SAVE_GEN = 1;
+export const SAVE_GEN = 2;
 export const SAVE_KEY_PREFIX = 'rikkun-world-save-v1-';
 export const saveKey = (seed: number): string => `${SAVE_KEY_PREFIX}${seed}`;
 
@@ -143,11 +143,13 @@ export class SaveManager {
       if (raw === null) return false;
       const data = JSON.parse(raw) as Record<string, unknown>;
       if (!data || data.version !== SAVE_VERSION || data.seed !== this.d.seed) return false;
-      // gen が無い古い保存はそのまま開ける
-      if (data.gen !== undefined && data.gen !== SAVE_GEN) return false;
+      // M5: gen が 2 でない（gen が無いものもふくむ）、size がちがう保存は使わない
+      if (data.gen !== SAVE_GEN) return false;
+      const { x: sx, y: sy, z: sz } = this.d.world.size;
+      const sz0 = data.size;
+      if (!Array.isArray(sz0) || sz0.length !== 3 || sz0[0] !== sx || sz0[1] !== sy || sz0[2] !== sz) return false;
       const blocks = data.blocks;
       if (!Array.isArray(blocks) || blocks.length % 2 !== 0) return false;
-      const { x: sx, y: sy, z: sz } = this.d.world.size;
       const total = sx * sy * sz;
       // 先に全部しらべる（途中でこわれていたら何も変えない）
       for (let k = 0; k < blocks.length; k += 2) {
@@ -307,6 +309,7 @@ export class SaveManager {
     const make = (bags: unknown) => JSON.stringify({
       version: SAVE_VERSION,
       gen: SAVE_GEN,
+      size: [world.size.x, world.size.y, world.size.z],
       seed: this.d.seed,
       blocks,
       inventory: this.d.inventory.serialize(),

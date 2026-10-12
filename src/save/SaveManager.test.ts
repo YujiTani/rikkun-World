@@ -212,6 +212,34 @@ describe('SaveManager', () => {
     }
   });
 
+  it('gen=1・gen なし・size ちがいの保存は使わず、そのあとの保存は gen=2・size つき（AC20）', () => {
+    const key = saveKey(SEED);
+    const a = session(new MemoryStore());
+    a.world.setBlock(4, 10, 6, 'log');
+    a.save.now();
+    const good = JSON.parse((a.save as unknown as { d: { store: MemoryStore } }).d.store.getItem(key)!) as Record<string, unknown>;
+    expect(good.gen).toBe(2);
+    expect(good.size).toEqual([a.world.size.x, a.world.size.y, a.world.size.z]);
+    const variants: Array<Record<string, unknown>> = [
+      { ...good, gen: 1 },
+      { ...good, gen: undefined },
+      { ...good, size: [a.world.size.x, a.world.size.y, a.world.size.z + 1] },
+      { ...good, size: undefined },
+    ];
+    for (const v of variants) {
+      const store = new MemoryStore();
+      store.data.set(key, JSON.stringify(v));
+      const s = session(store);
+      const fresh = s.world.hash();
+      expect(s.save.load()).toBe(false);
+      expect(s.world.hash()).toBe(fresh);
+      s.save.now();
+      const after = JSON.parse(store.getItem(key)!) as Record<string, unknown>;
+      expect(after.gen).toBe(2);
+      expect(after.size).toEqual([s.world.size.x, s.world.size.y, s.world.size.z]);
+    }
+  });
+
   it('保存できなくても（容量いっぱい）止まらず、保存済みの印は進まない', () => {
     const store = new MemoryStore();
     const s = session(store);
@@ -352,5 +380,35 @@ describe('SaveManager 時刻', () => {
     a.save.bindPageEvents(win as unknown as Window, doc as unknown as Document);
     handlers[0]();
     expect([...store.data.values()][0]).toContain('"dayTick":900');
+  });
+});
+
+describe('SaveManager: 広い世界（M5 AC21）', () => {
+  it('ひらち (100,8,60) とやま (64,25,28) で 500 個変えて、保存して読み直すと同じ。20ms 以下・30,000 文字以下', () => {
+    const store = new MemoryStore();
+    const a = session(store);
+    let n = 0;
+    for (let i = 0; i < 500; i++) {
+      const base = i % 2 === 0 ? { x: 100, y: 8, z: 60 } : { x: 64, y: 25, z: 28 };
+      const x = base.x + (Math.floor(i / 2) % 10);
+      const y = base.y + (Math.floor(i / 20) % 5);
+      const z = base.z + (Math.floor(i / 100) % 5);
+      if (a.world.setBlock(x, y, z, i % 4 === 0 ? 'log' : 'sand')) n++;
+    }
+    expect(n).toBeGreaterThan(0);
+    const times: number[] = [];
+    for (let k = 0; k < 5; k++) {
+      const t0 = performance.now();
+      a.save.now();
+      times.push(performance.now() - t0);
+    }
+    times.sort((p, q) => p - q);
+    expect(times[2]).toBeLessThanOrEqual(20);
+    const saved = [...store.data.values()][0];
+    expect(saved.length).toBeLessThanOrEqual(30000);
+    const hash = a.world.hash();
+    const b = session(store);
+    expect(b.save.load()).toBe(true);
+    expect(b.world.hash()).toBe(hash);
   });
 });

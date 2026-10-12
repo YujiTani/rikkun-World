@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { BlockId, ItemStack, Vec3 } from '../contracts';
 import { PlayerCombatImpl } from '../combat/PlayerCombat';
 import { createCombatConfig } from '../combat/config';
+import { CRAFT_DEFAULTS } from './config';
 import { DropField } from '../drops';
 import { InventoryImpl } from '../inventory/Inventory';
 import { ITEM_TYPES } from '../inventory/items';
@@ -310,7 +311,7 @@ describe('拾ったログ（AC27）', () => {
 describe('防具（AC17〜AC19）', () => {
   function armorRig() {
     const inv = new InventoryImpl();
-    const armor = new ArmorSystemImpl(inv, { armorValue: { kabuto: 1, yoroi: 2, kote: 1, suneate: 1 } });
+    const armor = new ArmorSystemImpl(inv, { armorValue: CRAFT_DEFAULTS.armorValue });
     return { inv, armor };
   }
 
@@ -337,20 +338,31 @@ describe('防具（AC17〜AC19）', () => {
     expect(armor.equipped('head')).toBeNull();
   });
 
-  it('カットする量: かぶと 1・よろい 2・両方 3・なし 0', () => {
-    const cutOf = (h: 'kabuto' | null, b: 'yoroi' | null) => {
+  it('カットする量: 防具 4 つ × 種類 3 つの表（かぶと=玉 2・よろい=ふつう 2・こて=ふつう 1・すねあて=落下 2）', () => {
+    const cutOf = (slot: 0 | 1 | 2 | 3, kind: 'normal' | 'ball' | 'fall') => {
       const { armor } = armorRig();
-      armor.set(h, b);
-      return armor.cut();
+      const w: Array<'kabuto' | 'yoroi' | 'kote' | 'suneate' | null> = [null, null, null, null];
+      w[slot] = (['kabuto', 'yoroi', 'kote', 'suneate'] as const)[slot];
+      armor.set(w[0] as 'kabuto' | null, w[1] as 'yoroi' | null, w[2] as 'kote' | null, w[3] as 'suneate' | null);
+      return armor.cut(kind);
     };
-    expect([cutOf('kabuto', null), cutOf(null, 'yoroi'), cutOf('kabuto', 'yoroi'), cutOf(null, null)]).toEqual([1, 2, 3, 0]);
+    const kinds = ['normal', 'ball', 'fall'] as const;
+    const table = ([0, 1, 2, 3] as const).map((i) => kinds.map((k) => cutOf(i, k)));
+    expect(table).toEqual([
+      [0, 2, 0],
+      [2, 0, 0],
+      [1, 0, 0],
+      [0, 0, 2],
+    ]);
+    const { armor } = armorRig();
+    expect(armor.cut('normal')).toBe(0);
   });
 
   it('hudIcons・take・保存', () => {
     const { armor } = armorRig();
     expect(armor.snapshot().hudIcons).toEqual([]);
     armor.set('kabuto', 'yoroi');
-    expect(armor.snapshot()).toMatchObject({ value: 3, hudIcons: ['kabuto', 'yoroi'] });
+    expect(armor.snapshot()).toMatchObject({ value: 4, hudIcons: ['kabuto', 'yoroi'] });
     const saved = JSON.parse(JSON.stringify(armor.serialize()));
     armor.set(null, null);
     armor.deserialize(saved);
@@ -359,12 +371,12 @@ describe('防具（AC17〜AC19）', () => {
     expect(armor.snapshot().hudIcons).toEqual([]);
   });
 
-  it('4 部位: こて は うで・すねあて は あし。カットは ぜんぶで 5。古い保存（2 部位）も開ける', () => {
+  it('4 部位: こて は うで・すねあて は あし。カットは種類ごと。古い保存（2 部位）も開ける', () => {
     const { inv, armor } = armorRig();
     expect(armor.slotFor('kote')).toBe('arms');
     expect(armor.slotFor('suneate')).toBe('legs');
     armor.set('kabuto', 'yoroi', 'kote', 'suneate');
-    expect(armor.cut()).toBe(5);
+    expect([armor.cut('normal'), armor.cut('ball'), armor.cut('fall')]).toEqual([3, 2, 2]);
     expect(armor.snapshot().hudIcons).toEqual(['kabuto', 'yoroi', 'kote', 'suneate']);
     armor.set('kote', null, 'suneate', 'kote'); // 合わない部位には入らない
     expect(armor.snapshot().hudIcons).toEqual([]);
@@ -379,7 +391,7 @@ describe('防具（AC17〜AC19）', () => {
     const saved = JSON.parse(JSON.stringify(armor.serialize()));
     armor.set(null, null);
     armor.deserialize(saved);
-    expect(armor.snapshot()).toMatchObject({ arms: 'kote', legs: 'suneate', value: 2 });
+    expect(armor.snapshot()).toMatchObject({ arms: 'kote', legs: 'suneate', value: 3 });
     armor.deserialize({ head: 'kabuto', body: 'yoroi' }); // 古い保存
     expect(armor.snapshot()).toMatchObject({ head: 'kabuto', body: 'yoroi', arms: null, legs: null });
   });
@@ -396,7 +408,7 @@ describe('PlayerCombat と防具（AC18・AC19）', () => {
   function combatRig(rngValue = 0) {
     const world = new W();
     const inv = new InventoryImpl();
-    const armor = new ArmorSystemImpl(inv, { armorValue: { kabuto: 1, yoroi: 2, kote: 1, suneate: 1 } });
+    const armor = new ArmorSystemImpl(inv, { armorValue: CRAFT_DEFAULTS.armorValue });
     const player = { position: { x: 2.5, y: 9, z: 6.5 }, velocity: { x: 0, y: 0, z: 0 }, yawDeg: 0, pitchDeg: 0, onGround: true, inWater: false, moving: false };
     const config = createCombatConfig();
     const drops = new DropField({ world: world as never, inventory: inv, player: () => player.position });

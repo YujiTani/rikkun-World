@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { WORLD_CENTER, WORLD_SIZE } from '../src/contracts';
 import { findUnrubiedKanji } from '../src/ui/text';
 
 /**
@@ -22,11 +23,11 @@ test.describe('M1-01 世界（つないだ後）', () => {
       const w = window.__rikkun!.world;
       return {
         size: w.size(),
-        out: [w.getBlock(-1, 10, 10), w.getBlock(64, 10, 10), w.getBlock(10, 32, 10)],
+        out: [w.getBlock(-1, 10, 10), w.getBlock(128, 10, 10), w.getBlock(10, 48, 10)],
         types: w.blockTypes(),
       };
     });
-    expect(r.size).toEqual({ x: 64, y: 32, z: 64 });
+    expect(r.size).toEqual({ x: WORLD_SIZE.x, y: WORLD_SIZE.y, z: WORLD_SIZE.z });
     expect(r.out).toEqual(['outside', 'outside', 'outside']);
     expect(r.types.length).toBe(16); // M4: かまど・かわら・レンガ・たいまつ・こわれない たいまつ を足した
     const by = Object.fromEntries(r.types.map((t) => [t.id, t]));
@@ -62,11 +63,13 @@ test.describe('M1-01 世界（つないだ後）', () => {
         h.player.set({ position: { x: spawn.x, y: spawn.y, z: spawn.z }, yaw: 0, pitch: 0, velocity: { x: 0, y: 0, z: 0 } });
         h.step(2);
         const stats = h.renderStats();
-        const g = h.world.groundHeight(32, 32);
+        const cx = Math.floor(spawn.x);
+        const cz = Math.floor(spawn.z);
+        const g = h.world.groundHeight(cx, cz);
         // 5x5 が草で同じ高さ、上 3 段は固くない
         let flat = true;
-        for (let x = 30; x <= 34; x++)
-          for (let z = 30; z <= 34; z++) {
+        for (let x = cx - 2; x <= cx + 2; x++)
+          for (let z = cz - 2; z <= cz + 2; z++) {
             if (h.world.getBlock(x, g, z) !== 'grass') flat = false;
             if (h.world.groundHeight(x, z) !== g) flat = false;
             for (let y = g + 1; y <= g + 3; y++) {
@@ -79,13 +82,13 @@ test.describe('M1-01 世界（つないだ後）', () => {
         for (let x = 0; x <= 12; x++)
           for (let z = 0; z <= 12; z++) {
             if (h.world.groundHeight(x, z) !== 6 || h.world.getBlock(x, 7, z) !== 'water') testAreaOk = false;
-            for (let y = 8; y <= 31; y++) if (h.world.getBlock(x, y, z) !== 'air') testAreaOk = false;
+            for (let y = 8; y <= 47; y++) if (h.world.getBlock(x, y, z) !== 'air') testAreaOk = false;
           }
         return { spawn, p0, p1, tick0, tick1, stats, g, flat, testAreaOk, gen: h.world.genTimeMs() };
       });
       // AC10
-      expect(r.spawn.x).toBeCloseTo(32.5, 3);
-      expect(r.spawn.z).toBeCloseTo(32.5, 3);
+      expect(r.spawn.x).toBeCloseTo(WORLD_CENTER.x + 0.5, 3);
+      expect(r.spawn.z).toBeCloseTo(WORLD_CENTER.z + 0.5, 3);
       expect(r.spawn.y).toBeCloseTo(r.g + 1, 3);
       expect(r.g).toBeGreaterThanOrEqual(10);
       expect(r.g).toBeLessThanOrEqual(12);
@@ -102,7 +105,7 @@ test.describe('M1-01 世界（つないだ後）', () => {
       expect(Math.abs(r.p1.position.y - r.spawn.y)).toBeLessThan(0.05);
       expect(r.p1.onGround).toBe(true);
       // AC17 / AC18
-      expect(r.gen).toBeLessThanOrEqual(1000);
+      expect(r.gen).toBeLessThanOrEqual(2500); // M5: 世界が広くなった（仕様 §4-7）
       expect(r.stats.drawCalls).toBeLessThanOrEqual(100);
       expect(r.stats.triangles).toBeLessThanOrEqual(300_000);
       // AC20
@@ -114,10 +117,10 @@ test.describe('M1-01 世界（つないだ後）', () => {
     test.setTimeout(90_000);
     await open(page);
     const cases = [
-      { name: '西', x: 2.5, z: 32.5, yaw: 270, axis: 'x', want: 0.3 },
-      { name: '東', x: 61.5, z: 32.5, yaw: 90, axis: 'x', want: 63.7 },
-      { name: '北', x: 32.5, z: 2.5, yaw: 0, axis: 'z', want: 0.3 },
-      { name: '南', x: 32.5, z: 61.5, yaw: 180, axis: 'z', want: 63.7 },
+      { name: '西', x: 2.5, z: WORLD_CENTER.z + 0.5, yaw: 270, axis: 'x', want: 0.3 },
+      { name: '東', x: WORLD_SIZE.x - 2.5, z: WORLD_CENTER.z + 0.5, yaw: 90, axis: 'x', want: WORLD_SIZE.x - 0.3 },
+      { name: '北', x: WORLD_CENTER.x + 0.5, z: 2.5, yaw: 0, axis: 'z', want: 0.3 },
+      { name: '南', x: WORLD_CENTER.x + 0.5, z: WORLD_SIZE.z - 2.5, yaw: 180, axis: 'z', want: WORLD_SIZE.z - 0.3 },
     ];
     await page.evaluate(() => {
       window.__rikkun!.pause();
@@ -144,7 +147,7 @@ test.describe('M1-01 世界（つないだ後）', () => {
         return { min, max, end: h.player.get().position };
       }, c);
       expect(r.min, c.name).toBeGreaterThanOrEqual(0.29);
-      expect(r.max, c.name).toBeLessThanOrEqual(63.71);
+      expect(r.max, c.name).toBeLessThanOrEqual(WORLD_SIZE.x - 0.29);
       expect((r.end as any)[c.axis], c.name).toBeCloseTo(c.want, 1);
     }
   });
@@ -154,12 +157,15 @@ test.describe('M1-01 世界（つないだ後）', () => {
     const r = await page.evaluate(() => {
       const h = window.__rikkun! as any;
       h.pause();
-      const set = () => h.player.set({ position: { x: 32.5, y: -11, z: 32.5 }, velocity: { x: 1, y: -5, z: 0 }, yaw: 90, pitch: 30 });
+      const sp0 = h.world.spawn();
+      const cx = Math.floor(sp0.x);
+      const cz = Math.floor(sp0.z);
+      const set = () => h.player.set({ position: { x: cx + 0.5, y: -11, z: cz + 0.5 }, velocity: { x: 1, y: -5, z: 0 }, yaw: 90, pitch: 30 });
       set();
       h.step(1);
       const a = { p: h.player.get(), s: h.world.spawn() };
-      const g = h.world.groundHeight(32, 32);
-      h.world.setBlock(32, g + 1, 32, 'stone');
+      const g = h.world.groundHeight(cx, cz);
+      h.world.setBlock(cx, g + 1, cz, 'stone');
       set();
       h.step(1);
       const b = { p: h.player.get(), s: h.world.spawn(), g };
@@ -179,18 +185,23 @@ test.describe('M1-01 世界（つないだ後）', () => {
     expect(r.b.p.position.y).toBeCloseTo(r.b.g + 2, 1);
   });
 
-  test('AC14: 海の底に立つ → 南へ歩いて浜に上がる', async ({ page }) => {
+  test('AC14: 海の底に立つ → 中心へ向かって歩いて浜に上がる', async ({ page }) => {
     await open(page);
     const r = await page.evaluate(() => {
       const h = window.__rikkun! as any;
       h.pause();
-      h.player.set({ position: { x: 32.5, y: 7, z: 4.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 180, pitch: 0 });
+      // M5: 北西のすみ（うみ）から、世界の中心（スタート）の向きへ歩く
+      const sp = h.world.spawn();
+      const sx = 6.5;
+      const sz = 6.5;
+      const yaw = (Math.atan2(sp.x - sx, -(sp.z - sz)) * 180) / Math.PI;
+      h.player.set({ position: { x: sx, y: 7, z: sz }, velocity: { x: 0, y: 0, z: 0 }, yaw, pitch: 0 });
       h.step(120);
       const y0 = h.player.get().position.y;
       h.lock.simulate(true);
       h.input.press('moveForward');
       let up = false;
-      for (let i = 0; i < 300; i++) {
+      for (let i = 0; i < 3000 && !up; i++) {
         h.step(1);
         const p = h.player.get();
         if (p.position.y >= 8 && p.onGround) up = true;
@@ -209,12 +220,15 @@ test.describe('M1-01 世界（つないだ後）', () => {
       h.pause();
       h.step(1);
       const t0 = h.renderStats().triangles;
-      const g = h.world.groundHeight(32, 32);
+      const sp = h.world.spawn();
+      const cx = Math.floor(sp.x);
+      const cz = Math.floor(sp.z);
+      const g = h.world.groundHeight(cx, cz);
       const hash0 = h.world.hash();
-      const outRes = [h.world.setBlock(-1, 5, 5, 'stone'), h.world.setBlock(5, 32, 5, 'stone'), h.world.setBlock(64, 5, 5, 'stone')];
+      const outRes = [h.world.setBlock(-1, 5, 5, 'stone'), h.world.setBlock(5, 48, 5, 'stone'), h.world.setBlock(128, 5, 5, 'stone')];
       const hashSame = h.world.hash() === hash0;
-      h.world.setBlock(32, g, 32, 'air');
-      const got = h.world.getBlock(32, g, 32);
+      h.world.setBlock(cx, g, cz, 'air');
+      const got = h.world.getBlock(cx, g, cz);
       h.step(1);
       const t1 = h.renderStats().triangles;
       return { t0, t1, got, outRes, hashSame };
@@ -234,7 +248,8 @@ test.describe('M1-01 世界（つないだ後）', () => {
       // d <= 18 の陸の列から、決まった 20 か所（座標一覧はここで固定）
       const cols: [number, number][] = [];
       const offs = [[0, 0], [3, 0], [-3, 0], [0, 3], [0, -3], [6, 2], [-6, 2], [2, 6], [2, -6], [9, 4], [-9, 4], [4, 9], [4, -9], [12, 0], [-12, 0], [0, 12], [0, -12], [8, 8], [-8, 8], [8, -8]];
-      for (const [dx, dz] of offs) cols.push([32 + dx, 32 + dz]);
+      const sp = h.world.spawn();
+      for (const [dx, dz] of offs) cols.push([Math.floor(sp.x) + dx, Math.floor(sp.z) + dz]);
       const ms: number[] = [];
       for (const [x, z] of cols) {
         const g = h.world.groundHeight(x, z);
