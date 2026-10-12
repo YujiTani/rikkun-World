@@ -54,7 +54,7 @@ export function isRoofed(world: VoxelWorld, x: number, y: number, z: number, hei
   const iz = Math.floor(z);
   const from = Math.floor(y + height);
   for (let yy = from; yy < world.size.y; yy++) {
-    if (world.isSolid(ix, yy, iz)) return true;
+    if (world.isSolid(ix, yy, iz) && world.getBlock(ix, yy, iz) !== 'leaves') return true;
   }
   return false;
 }

@@ -55,7 +55,7 @@ describe('Sky', () => {
     lighting.register(mat, 'block');
     const sky = new Sky({ scene, time, timeSettings: time.settings, lighting });
     const cam = new THREE.PerspectiveCamera();
-    time.set(20000);
+    time.set(60000);
     sky.update(cam);
     expect((scene.background as THREE.Color).getHex()).toBe(0x1b2350);
     expect(scene.fog!.color.getHex()).toBe(0x1b2350);
@@ -70,9 +70,9 @@ describe('Sky', () => {
   it('おひさま は東から西へ。おつきさま は よる', () => {
     const s = new TimeOfDayImpl().settings;
     expect(sunMoonPose(0, s).sun.angle).toBe(0);
-    expect(sunMoonPose(9900, s).sun.angle).toBeCloseTo(Math.PI / 2, 1);
-    expect(sunMoonPose(19800, s).sun.visible).toBe(false);
-    expect(sunMoonPose(19800, s).moon.visible).toBe(true);
-    expect(sunMoonPose(30599, s).moon.angle).toBeLessThanOrEqual(Math.PI);
+    expect(sunMoonPose(29700, s).sun.angle).toBeCloseTo(Math.PI / 2, 1);
+    expect(sunMoonPose(60000, s).sun.visible).toBe(false);
+    expect(sunMoonPose(60000, s).moon.visible).toBe(true);
+    expect(sunMoonPose(91799, s).moon.angle).toBeLessThanOrEqual(Math.PI);
   });
 });

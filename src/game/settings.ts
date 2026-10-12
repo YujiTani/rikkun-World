@@ -2,12 +2,12 @@ import type { PlayerSettings } from '../player/config';
 import type { CameraConfig } from '../camera/config';
 
 export type SettingName = string;
-export type SettingValue = number | boolean | Record<string, number | null>;
+export type SettingValue = number | boolean | Record<string, number | string | null>;
 
 /** 設定の入れ物（プレイヤー・ほる・画面・演出など）。名前は全体で重ならないこと */
 type Bag = object;
 
-const isRecord = (v: unknown): v is Record<string, number | null> => typeof v === 'object' && v !== null;
+const isRecord = (v: unknown): v is Record<string, number | string | null> => typeof v === 'object' && v !== null;
 
 /**
  * `settings.get/set/all`（M1-02 §4.1, M2 §6.1）。プレイヤー・カメラ・ほる・画面・演出の数値を同じ名前で読み書きする。
@@ -34,7 +34,9 @@ export function createSettingsHook(player: PlayerSettings, camera: CameraConfig,
         for (const k of Object.keys(value)) {
           if (!(k in cur)) throw new Error(`設定 ${name} に ${k} はない`);
           const x = value[k];
-          if (x !== null && !Number.isFinite(x)) throw new Error(`設定 ${name}.${k} は有限の数か null`);
+          if (typeof cur[k] === 'string') {
+            if (typeof x !== 'string') throw new Error(`設定 ${name}.${k} は文字`);
+          } else if (x !== null && !(typeof x === 'number' && Number.isFinite(x))) throw new Error(`設定 ${name}.${k} は有限の数か null`);
         }
         Object.assign(cur, value);
         return;

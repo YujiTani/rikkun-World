@@ -47,7 +47,7 @@ export interface DropView {
   rarity: Rarity;
 }
 
-export interface DropSave {
+export type DropSave = {
   x: number;
   y: number;
   z: number;
@@ -56,7 +56,7 @@ export interface DropSave {
   ticksLeft: number;
   batch: number;
   rarity: Rarity;
-}
+};
 
 interface Entity {
   id: number;
@@ -84,6 +84,8 @@ export interface DropFieldDeps {
   pickupRadius?: number;
   /** 拾った・消えたとき 保存してほしい */
   requestSave?: () => void;
+  /** 近づいたのに 1 つも入らなかった（もちものがいっぱい）。ステップごとに呼ばれうる */
+  onFull?: () => void;
 }
 
 const DT = 1 / 60;
@@ -169,7 +171,7 @@ export class DropField {
           b.item = { item: b.item.item, count: left };
           picked.push(b.id);
           changed = true;
-        }
+        } else this.d.onFull?.();
       }
     }
     const before = this.items.length;

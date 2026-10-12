@@ -92,4 +92,18 @@ describe('DropField', () => {
     r.f.update(true);
     expect(r.f.size()).toBe(0);
   });
+
+  it('もちものがいっぱいで 1 つも入らないとき onFull を呼ぶ', () => {
+    const world = new W();
+    for (let x = 0; x < 30; x++) for (let z = 0; z < 30; z++) world.setBlock(x, 8, z, 'stone');
+    const inv = new InventoryImpl();
+    while (inv.add('dirt', 64) === 0);
+    let full = 0;
+    const player: Vec3 = { x: 10.5, y: 9, z: 10.5 };
+    const f = new DropField({ world, inventory: inv, player: () => player, rng: createRng(3), onFull: () => full++ });
+    f.scatter({ x: 10.5, y: 9, z: 10.5 }, [{ item: 'dirt', count: 1 }], { kind: 'yokai' });
+    for (let i = 0; i < 60; i++) f.update(true);
+    expect(full).toBeGreaterThan(0);
+    expect(f.size()).toBe(1);
+  });
 });

@@ -268,7 +268,7 @@ export type DayPhase = 'day' | 'dusk' | 'night' | 'dawn';
 
 /** 1 日の時刻。担当 AD が `src/time/` で実装する */
 export interface TimeOfDay {
-  /** 1 日の中のステップ（0〜32399） */
+  /** 1 日の中のステップ（0 から 1 日の長さ−1。長さは設定 dayTicks＋duskTicks＋nightTicks＋dawnTicks） */
   dayTick(): number;
   /** 何日目（0 から） */
   day(): number;

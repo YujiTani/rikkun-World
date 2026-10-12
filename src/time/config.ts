@@ -1,6 +1,6 @@
 /** 昼と夜の数値（M3 §4.1）。`settings.*` に同じ名前で出す（つなぎ込み担当） */
 export interface TimeSettings {
-  /** ひる・ゆうがた・よる・あさ の長さ（ステップ。合計 30,600 = 8 分 30 秒） */
+  /** ひる・ゆうがた・よる・あさ の長さ（ステップ。合計 91,800 = 25 分 30 秒） */
   dayTicks: number;
   duskTicks: number;
   nightTicks: number;
@@ -14,10 +14,10 @@ export interface TimeSettings {
 
 export function createTimeSettings(): TimeSettings {
   return {
-    dayTicks: 18000,
-    duskTicks: 1800,
-    nightTicks: 9000,
-    dawnTicks: 1800,
+    dayTicks: 54000,
+    duskTicks: 5400,
+    nightTicks: 27000,
+    dawnTicks: 5400,
     nightBrightness: 0.45,
     nightDollBrightness: 0.75,
     yokaiLeaveTicks: 600,
