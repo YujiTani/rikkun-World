@@ -227,6 +227,7 @@ const save = new SaveManager({
   tick: () => game.tick,
   settings: screenSettings,
   bags: { serialize: () => combat.serializeBags(), deserialize: (d) => combat.deserializeBags(d) },
+  clock: time,
 });
 requestSave = () => save.saveIfChanged();
 if (saveOptions.reset) {
