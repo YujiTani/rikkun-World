@@ -31,6 +31,15 @@
 ## つなぎ込み（全員の後。担当: `src/main.ts`, `src/game/**`, `src/debug/**`, `index.html`）
 - ついでに直す: `docs/tickets/M4.md` の「ついでに直す軽微なこと」
 
+### つなぎ込みへの申し送り（PO がまとめる）
+**B（道具・武器）**
+- `new ToolSystemImpl({ inventory, world, player, yokai: () => yokaiManager, base: { dig: digCfg, combat: combatCfg } })`。`step()` は DigSystem の中から呼ばれる
+- `DigSystemImpl` の最後の引数に `{ tools, craft, armor, onPickup }`（`onPickup(item, count)` は A の拾った出来事＝ログへ）
+- `PlayerCombatImpl` に `tool: toolSystem`。A も `PlayerCombat.ts` を直すので、つなぎ込みでぶつかりを確認（B は `primaryStep`・`resolvePunch` の周りだけ）
+- 窓口: `createToolHook(tool)` → `{ tool: { get }, arrows, arrowEvents }`。`combat.arrows` に `arrows`、`combat.events()` に `arrowEvents()` を足す。画面・音は `tool.drainArrowEvents()`、人形は `tool.drainSwings()`
+- `settings` に `tool.config`
+- `tryEquip` が成功したら手の 1 こを減らすのは A 側
+
 ## 経過
 | 日付 | 内容 |
 |---|---|
