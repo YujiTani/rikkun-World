@@ -144,6 +144,6 @@ describe('一覧に出すのは 材料が 1 種類でもあるレシピだけ（
     const firstDim = ids.findIndex((c) => !c.glowing);
     expect(firstDim).toBeGreaterThan(0);
     expect(ids.slice(firstDim).every((c) => !c.glowing)).toBe(true);
-    expect(ids[0].id).toBe('wood_pickaxe');
+    expect(ids[0].id).toBe('stone_pickaxe');
   });
 });
