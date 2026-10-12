@@ -20,6 +20,11 @@
 - 保存の gen を 2 に、size を保存に足す。古い保存は捨てる。妖怪は みず の列に出ない、水平 64 より遠い妖怪は静かに消える
 
 ## つなぎ込み（全員の後。`src/main.ts`, `src/debug/**`）
+### 申し送り
+**B（描画・光・性能）**
+- 毎ステップ `renderer.update({ x: game.camera.position.x, z: game.camera.position.z })`。最初は `renderer.attach` の前に `renderer.setViewer(x, z)`
+- testHook に `render: { chunks: () => renderer.chunkStats() }`、world hook に `lightInitMs: () => renderer.light.initMs`（`e2e-perf/m5.perf.ts` が読む）
+- 計測（クラウド）: 今の島の生成 20〜32ms・明るさ 19〜30ms。128×48×128 の仮の地面の明るさ 154〜198ms
 
 ## 経過
 | 日付 | 内容 |
