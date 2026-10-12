@@ -9,4 +9,9 @@ export const RENDER_CONFIG = {
   brightnessBottom: 0.6,
   /** 水の不透明度の描画順（他より後に描く） */
   waterRenderOrder: 1,
+  /**
+   * これより遠い（チャンクのいちばん近い点まで）チャンクは、かんたんメッシュ（LOD）で描く。
+   * かすみ（fogNear 40）の中で切りかえて目立たなくする。CHUNK_DRAW_DISTANCE より小さいこと。
+   */
+  lodDistance: 48,
 } as const;
