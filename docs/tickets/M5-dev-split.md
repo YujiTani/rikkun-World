@@ -21,6 +21,10 @@
 
 ## つなぎ込み（全員の後。`src/main.ts`, `src/debug/**`）
 ### 申し送り
+**A（地形）**
+- `src/debug/testHook.ts` の `world` の型に `regions()` を足す（`createWorldHook` は返している）
+- 生成は試験で 1,500ms 以内。AC14（明るさ込み 2,500ms）を実測する
+- AC4 の「うみ」は試験で d≥52 とみなした（テスト係が確かめる）
 **B（描画・光・性能）**
 - 毎ステップ `renderer.update({ x: game.camera.position.x, z: game.camera.position.z })`。最初は `renderer.attach` の前に `renderer.setViewer(x, z)`
 - testHook に `render: { chunks: () => renderer.chunkStats() }`、world hook に `lightInitMs: () => renderer.light.initMs`（`e2e-perf/m5.perf.ts` が読む）
@@ -35,3 +39,4 @@
 | 日付 | 内容 |
 |---|---|
 | 2026-10-12 | 3 担当（A・B・C）で開始 |
+| 2026-10-12 | A・B・C と LOD をまとめた（ユニット 793 件 合格）。つなぎ込みへ |
