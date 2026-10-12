@@ -58,9 +58,9 @@ export function playSwing(sound: Pick<SoundFx, 'playTones'>, anim: SwingAnim, he
   for (const n of swingSounds(anim, held)) playCraft(sound, n);
 }
 
-/** 戦いの出来事から鳴らす M4 の音: ふせいだ「カキン！」（ダメージ 0 のとき） */
+/** 戦いの出来事から鳴らす M4 の音: ふせいだ「カキン！」（防具でカットしたとき） */
 export function handleGuardEvents(events: readonly CombatEvent[], sound: Pick<SoundFx, 'playTones'>): void {
-  for (const e of events) if (e.type === 'playerHit' && e.amount === 0) playCraft(sound, 'guard');
+  for (const e of events) if (e.type === 'playerHit' && e.blocked === true) playCraft(sound, 'guard');
 }
 
 export interface CraftUiDeps {

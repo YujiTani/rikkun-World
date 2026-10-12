@@ -12,13 +12,6 @@ export interface ArmorSnapshot {
   hudIcons: ItemId[];
 }
 
-/** a（ふせぐ力）ごとの「k を 4 で わったあまり」で ダメージ 0 になる回（M4 §2.7） */
-const BLOCK_REMAINDERS: Readonly<Record<number, readonly number[]>> = {
-  1: [0],
-  2: [0, 2],
-  3: [0, 1, 2],
-};
-
 /** かぶと・よろい（M4 §2.7）。そうびのマス 2 つ・着る・ふせぐ */
 export class ArmorSystemImpl implements ArmorSystem {
   private head: ItemId | null = null;
@@ -85,13 +78,13 @@ export class ArmorSystemImpl implements ArmorSystem {
     return (this.head ? (v[this.head] ?? 0) : 0) + (this.body ? (v[this.body] ?? 0) : 0);
   }
 
-  /** 妖怪の攻撃を受けた（むてきで受けなかった回は呼ばない）。true ならダメージ 0 */
-  absorbHit(): boolean {
-    const a = Math.min(3, this.value());
-    const k = this.hits;
+  /**
+   * 妖怪の攻撃を受けた（むてきで受けなかった回は呼ばない）。カットする量（体力の単位）を返す。
+   * 受けるダメージは max(1, 元のダメージ − カット) で、PlayerCombat が計算する（オーナー決定）
+   */
+  cut(): number {
     this.hits++;
-    if (a <= 0) return false;
-    return (BLOCK_REMAINDERS[a] ?? []).includes(k % 4);
+    return this.value();
   }
 
   hitCount(): number {

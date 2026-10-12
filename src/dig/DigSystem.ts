@@ -55,6 +55,8 @@ export interface DigM4Deps {
   onPickup?: (item: ItemId, count: number) => void;
 }
 
+const NO_DIG_EVENTS: DigEvent[] = [];
+
 /** ほる時間（ステップ。すでの強さで数える）。かたさ × 60 ÷ 強さ、切り上げ。ほれないなら理由 */
 export function digSteps(
   cfg: DigConfig,
@@ -145,6 +147,8 @@ export class DigSystemImpl implements DigSystem {
   }
 
   drainEvents(): DigEvent[] {
+    // 毎ステップ呼ばれる。何も無いときは同じ空配列を返す（ごみを作らない）
+    if (this.drainQueue.length === 0) return NO_DIG_EVENTS;
     const out = this.drainQueue;
     this.drainQueue = [];
     return out;

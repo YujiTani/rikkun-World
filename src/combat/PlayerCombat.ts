@@ -25,8 +25,8 @@ const MAX_QUEUE = 256;
 
 /** 防具の窓口（M4。`ArmorSystemImpl` が合う） */
 export interface CombatArmorPort {
-  /** 妖怪の攻撃を受けた。true ならダメージ 0 */
-  absorbHit(): boolean;
+  /** 妖怪の攻撃を受けた。カットする量（体力の単位）を返す */
+  cut(): number;
   equipped(slot: 'head' | 'body'): ItemId | null;
   /** そうびのマスを空にして中身を返す */
   take(slot: 'head' | 'body'): ItemId | null;
@@ -214,9 +214,9 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
     if (v <= 0) this.die();
   }
 
-  /** n のダメージを受けたのと同じ（むてき・回復の待ちも同じ。押されはしない・playerHit は出さない） */
-  debugDamage(n: number): boolean {
-    return this.hurt(n, null, null);
+  /** n のダメージを受けたのと同じ（むてき・回復の待ちも同じ。押されはしない）。by を渡すと その妖怪の攻撃として防具を通り、playerHit も出る */
+  debugDamage(n: number, by: YokaiKind | null = null): boolean {
+    return this.hurt(n, by, null);
   }
 
   bags(): DropBag[] {
@@ -322,15 +322,16 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
     if (this.isDead || this.invincible > 0 || !(amount > 0)) return false;
     const cfg = this.config;
     // 防具でふせぐ（M4 §2.7）: 妖怪の攻撃だけ。ふせいだ回も むてき・押されるは ふつうどおり
-    const blocked = this.d.armor?.absorbHit() ?? false;
-    if (!blocked) {
-      this.hpNow = Math.max(0, this.hpNow - amount);
-      this.sinceDamage = 0;
-      this.lastDamageTick = this.tickCount;
-    }
+    // 受けるダメージ = max(体力 1〈ハート半分〉, 元 − カット)。カットが 1 以上ならカキン（blocked）
+    const cutBy = by !== null ? (this.d.armor?.cut() ?? 0) : 0;
+    const blocked = cutBy >= 1;
+    const taken = blocked ? Math.max(1, amount - cutBy) : amount;
+    this.hpNow = Math.max(0, this.hpNow - taken);
+    this.sinceDamage = 0;
+    this.lastDamageTick = this.tickCount;
     this.invincible = cfg.hurtInvincibleTicks;
     if (by !== null) {
-      const ev: PlayerHitEvent = { type: 'playerHit', tick: this.tickCount, by, amount: blocked ? 0 : amount };
+      const ev: PlayerHitEvent = { type: 'playerHit', tick: this.tickCount, by, amount: taken };
       if (blocked) ev.blocked = true;
       this.emit(ev);
     }

@@ -66,6 +66,7 @@ describe('DropField', () => {
     for (let i = 0; i < 120; i++) r.f.update(true);
     const saved = JSON.parse(JSON.stringify(r.f.serialize()));
     const p = r.f.list()[0]!.position;
+    const p0 = { ...p };
     // 足もとのブロックを消すと落ちる
     r.world.setBlock(Math.floor(p.x), 8, Math.floor(p.z), 'air');
     for (let i = 0; i < 60; i++) r.f.update(true);
@@ -76,9 +77,9 @@ describe('DropField', () => {
     expect(g.f.size()).toBe(1);
     expect(g.f.list()[0]!.ticksLeft).toBe(DROP.ticks - 120);
     // 拾う
-    g.player.x = p.x;
-    g.player.z = p.z;
-    g.player.y = p.y;
+    g.player.x = p0.x;
+    g.player.z = p0.z;
+    g.player.y = p0.y;
     expect(g.f.update(true)).toHaveLength(1);
     expect(g.inv.count('dirt')).toBe(2);
     expect(g.f.size()).toBe(0);

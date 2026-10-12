@@ -290,7 +290,7 @@ describe('AI（距離だけで動く）', () => {
     }
     expect(hit - start).toBe(29);
     expect(k.combat.hits).toHaveLength(1);
-    expect(k.combat.hits[0]!.amount).toBe(1);
+    expect(k.combat.hits[0]!.amount).toBe(2);
     expect(k.combat.hits[0]!.by).toBe('karakasa');
 
     const n = setup();
@@ -307,7 +307,7 @@ describe('AI（距離だけで動く）', () => {
       if (hit > 0) break;
     }
     expect(hit - start).toBe(89);
-    expect(n.combat.hits[0]!.amount).toBe(2);
+    expect(n.combat.hits[0]!.amount).toBe(4);
   });
   it('ちょうちん: 火の玉が出て、とどくとダメージ 1 で消える', () => {
     const { m, step, player, combat } = setup();
@@ -320,7 +320,7 @@ describe('AI（距離だけで動く）', () => {
     }
     expect(fired).toBe(true);
     expect(combat.hits).toHaveLength(1);
-    expect(combat.hits[0]!.amount).toBe(1);
+    expect(combat.hits[0]!.amount).toBe(2);
     step(2);
     expect(m.fireballCount()).toBe(0);
   });

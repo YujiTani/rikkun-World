@@ -337,16 +337,13 @@ describe('防具（AC17〜AC19）', () => {
     expect(armor.equipped('head')).toBeNull();
   });
 
-  const run = (head: 'kabuto' | null, body: 'yoroi' | null) => {
-    const { armor } = armorRig();
-    armor.set(head, body);
-    return [0, 1, 2, 3, 4, 5, 6, 7].map(() => armor.absorbHit());
-  };
-  it('ふせぐ回: かぶと 4 回に 1・よろい 2 回に 1・両方 4 回に 3', () => {
-    expect(run('kabuto', null)).toEqual([true, false, false, false, true, false, false, false]);
-    expect(run(null, 'yoroi')).toEqual([true, false, true, false, true, false, true, false]);
-    expect(run('kabuto', 'yoroi')).toEqual([true, true, true, false, true, true, true, false]);
-    expect(run(null, null).some((x) => x)).toBe(false);
+  it('カットする量: かぶと 1・よろい 2・両方 3・なし 0', () => {
+    const cutOf = (h: 'kabuto' | null, b: 'yoroi' | null) => {
+      const { armor } = armorRig();
+      armor.set(h, b);
+      return armor.cut();
+    };
+    expect([cutOf('kabuto', null), cutOf(null, 'yoroi'), cutOf('kabuto', 'yoroi'), cutOf(null, null)]).toEqual([1, 2, 3, 0]);
   });
 
   it('hudIcons・take・保存', () => {
@@ -388,19 +385,28 @@ describe('PlayerCombat と防具（AC18・AC19）', () => {
     return { combat, armor, inv, step, drops };
   }
 
-  it('よろい: 20・19・19・18。ふせいだ回も むてき', () => {
+  it('よろい: ハート1(体力2)の攻撃は 1 に。ぬりかべ(4)は 2。ふせいだ回も むてき', () => {
     const r = combatRig();
     r.armor.set(null, 'yoroi');
-    const hp: number[] = [];
-    for (let i = 0; i < 4; i++) {
-      r.combat.damage(1, 'karakasa', { x: 0, y: 9, z: 6.5 });
-      if (i === 0) expect(r.combat.invincibleTicks()).toBe(30);
-      hp.push(r.combat.hp());
-      r.step(31);
-    }
-    expect(hp).toEqual([20, 19, 19, 18]);
+    r.combat.damage(2, 'karakasa', { x: 0, y: 9, z: 6.5 });
+    expect(r.combat.invincibleTicks()).toBe(30);
+    expect(r.combat.hp()).toBe(19);
+    r.step(31);
+    r.combat.damage(4, 'nurikabe', { x: 0, y: 9, z: 6.5 });
+    expect(r.combat.hp()).toBe(17);
     const ev = r.combat.drainEvents().filter((e) => e.type === 'playerHit') as Array<{ amount: number; blocked?: boolean }>;
-    expect(ev.map((e) => [e.amount, e.blocked === true])).toEqual([[0, true], [1, false], [0, true], [1, false]]);
+    expect(ev.map((e) => [e.amount, e.blocked === true])).toEqual([[1, true], [2, true]]);
+  });
+
+  it('両方着ても 最低ハート半分(体力 1)。防具なしはそのまま', () => {
+    const r = combatRig();
+    r.armor.set('kabuto', 'yoroi');
+    r.combat.damage(2, 'karakasa', { x: 0, y: 9, z: 6.5 });
+    expect(r.combat.hp()).toBe(19);
+    r.step(31);
+    r.armor.set(null, null);
+    r.combat.damage(2, 'karakasa', { x: 0, y: 9, z: 6.5 });
+    expect(r.combat.hp()).toBe(17);
   });
 
   it('むてきで受けなかった回は k に数えない', () => {

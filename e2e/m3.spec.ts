@@ -340,10 +340,10 @@ test.describe('M3 妖怪の AI（距離だけ）', () => {
 
 test.describe('M3 妖怪の攻撃とダメージ', () => {
   const SCENES: Record<string, { x: number; hit: number; hp: number }> = {
-    karakasa: { x: 5.5, hit: 30, hp: 19 },
-    chochin: { x: 8.5, hit: 30, hp: 19 },
-    rokurokubi: { x: 7.5, hit: 30, hp: 19 },
-    nurikabe: { x: 5.0, hit: 90, hp: 18 },
+    karakasa: { x: 5.5, hit: 30, hp: 18 },
+    chochin: { x: 8.5, hit: 30, hp: 18 },
+    rokurokubi: { x: 7.5, hit: 30, hp: 18 },
+    nurikabe: { x: 5.0, hit: 90, hp: 16 },
   };
   for (const [kind, view] of Object.keys(SCENES).flatMap((k) => [[k, ''], [k, '-third']] as const)) {
     test(`AC15${view}: ${kind} の攻撃（合図・当たる 1 ステップ・ダメージ・おし返し・30 ステップのむてき）とスクショ`, async ({ page }) => {

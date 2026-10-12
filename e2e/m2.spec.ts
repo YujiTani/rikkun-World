@@ -723,7 +723,7 @@ test.describe('M2 もちもの画面', () => {
     expect(openedIn).toBeLessThan(800);
     expect(st.lock.locked).toBe(false);
     expect(st.lock.overlayVisible).toBe(false);
-    await expect(page.locator('#inventory-screen .inv-slot')).toHaveCount(36);
+    await expect(page.locator('#inventory-screen .inv-panel .inv-slot:not(.equip-slot)')).toHaveCount(36);
     await page.evaluate(() => {
       const h = (window as any).__rikkun;
       h.input.press('moveForward');
@@ -1017,10 +1017,11 @@ test.describe('M2 自動セーブ', () => {
     expect(r.t2).not.toBe(r.t0);
     expect(r.t3).toBe(r.t2);
 
-    await page.evaluate(() => localStorage.clear());
+    // 前のページは閉じるとき(pagehide)に保存するので、先に移ってから消す
     await page.goto('/?nosave=1');
     await page.waitForFunction(() => window.__rikkun?.ready === true);
     const keys = await page.evaluate(() => {
+      localStorage.clear();
       const h = (window as any).__rikkun;
       h.pause();
       h.world.setBlock(4, 10, 6, 'dirt');

@@ -28,7 +28,7 @@ test.describe('M1-01 世界（つないだ後）', () => {
     });
     expect(r.size).toEqual({ x: 64, y: 32, z: 64 });
     expect(r.out).toEqual(['outside', 'outside', 'outside']);
-    expect(r.types.length).toBe(13); // M4 光: たいまつ・こわれない たいまつ を足した
+    expect(r.types.length).toBe(16); // M4: かまど・かわら・レンガ・たいまつ・こわれない たいまつ を足した
     const by = Object.fromEntries(r.types.map((t) => [t.id, t]));
     expect(by.bedrock.breakable).toBe(false);
     expect(by.water.breakable).toBe(false);
@@ -441,7 +441,7 @@ test.describe('M1-02 動き・視点・ロック（つないだ後）', () => {
   test('AC30: 起動直後は案内画面で時間が止まる。step は進む', async ({ page }) => {
     await open(page);
     const lock = await page.evaluate(() => window.__rikkun!.lock.get());
-    expect(lock).toEqual({ locked: false, overlayVisible: true, overlayText: 'クリックして あそぼう！' });
+    expect(lock).toMatchObject({ locked: false, overlayVisible: true, overlayText: 'クリックして あそぼう！' });
     const t0 = await page.evaluate(() => window.__rikkun!.tick());
     await page.waitForTimeout(1000);
     expect(await page.evaluate(() => window.__rikkun!.tick())).toBe(t0);

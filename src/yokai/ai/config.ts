@@ -139,10 +139,10 @@ export const AI_CONST = {
   spawnTries: 20,
 } as const;
 
-/** 攻撃のダメージ（体力の数。ハート半分 = 1。仕様 §2.7） */
+/** 攻撃のダメージ（体力の数。ハート半分 = 1。オーナー決定で M3 の 2 倍） */
 export const ATTACK_DAMAGE: Record<YokaiKind, number> = {
-  karakasa: 1,
-  chochin: 1,
-  rokurokubi: 1,
-  nurikabe: 2,
+  karakasa: 2,
+  chochin: 2,
+  rokurokubi: 2,
+  nurikabe: 4,
 };

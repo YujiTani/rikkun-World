@@ -246,7 +246,7 @@ describe('CombatFx（出来事 → 音・画面）', () => {
     expect(s.calls).toContain('hearts:20:false');
     expect(s.calls.filter((c) => c === 'alpha:1')).toHaveLength(1);
   });
-  it('妖怪を たおした → ポン＋ピッ・ようかいだまが飛ぶ。帰るときは何もしない', () => {
+  it('妖怪を たおした → ポン（ドロップは地面に落ちるので ようかいだまは飛ばさない）。帰るときは何もしない', () => {
     const s = setup();
     s.pushY(
       { type: 'defeat', tick: 5, id: 1, kind: 'nurikabe', position: { x: 0, y: 0, z: 0 }, reward: 2 },
@@ -254,8 +254,8 @@ describe('CombatFx（出来事 → 音・画面）', () => {
       { type: 'spawn', tick: 5, id: 3, kind: 'chochin', position: { x: 0, y: 0, z: 0 } },
     );
     s.fx.update(1 / 60);
-    expect(s.calls).toContain('pickup:yokai_orb:2');
-    expect(s.tones).toHaveLength(3); // ポン・ピッ・出現
+    expect(s.calls.some((c) => c.startsWith('pickup:'))).toBe(false);
+    expect(s.tones).toHaveLength(2); // ポン・出現
   });
   it('時間帯が変わる → 時計・ゆうがたは鐘、あさは小鳥', () => {
     const s = setup();

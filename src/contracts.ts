@@ -376,7 +376,7 @@ export type CombatEvent =
   | { type: 'punchStart'; tick: number }
   | { type: 'punchHit'; tick: number; yokaiId: number }
   | { type: 'punchMiss'; tick: number }
-  | { type: 'playerHit'; tick: number; by: YokaiKind; amount: number }
+  | { type: 'playerHit'; tick: number; by: YokaiKind; amount: number; /** 防具でカットした（カキン） */ blocked?: boolean }
   | { type: 'regen'; tick: number; hp: number }
   | { type: 'death'; tick: number; dropped: number[] }
   | { type: 'respawn'; tick: number }
@@ -443,8 +443,8 @@ export interface ArmorSystem {
   equipped(slot: ArmorSlot): ItemId | null;
   /** 着られるアイテムなら着る（手に持っているものを着る・入れかえ）。着たら true */
   tryEquip(item: ItemId): boolean;
-  /** 妖怪の攻撃を受けた。true ならダメージ 0（カキン） */
-  absorbHit(): boolean;
+  /** 妖怪の攻撃を受けた。カットする量（体力の単位。ハート半分 = 1）を返す。受けるダメージ = max(1, 元 − カット) */
+  cut(): number;
 }
 
 export type ToolKind = 'hand' | 'pickaxe' | 'blade' | 'bow' | 'other';
