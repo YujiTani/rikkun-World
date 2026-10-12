@@ -1,0 +1,92 @@
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #bfe0ff;
+  font-family: 'Hiragino Maru Gothic ProN', 'Hiragino Sans', sans-serif;
+  user-select: none;
+}
+#game {
+  position: fixed;
+  inset: 0;
+}
+#labels {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+.label {
+  position: absolute;
+  transform: translate(-50%, 0);
+  white-space: nowrap;
+  color: #2b3a4a;
+  font-weight: bold;
+  font-size: 22px;
+  text-shadow: 0 0 4px #fff, 0 0 4px #fff;
+}
+.label.num {
+  font-size: 56px;
+  color: #111;
+  transform: translate(-50%, -10%);
+}
+.label[hidden] {
+  display: none;
+}
+#controls {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 12px 12px 16px;
+  background: rgba(255, 255, 255, 0.55);
+}
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 14px 28px;
+}
+.group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+button {
+  min-width: 88px;
+  min-height: 64px;
+  padding: 0 18px;
+  font: inherit;
+  font-size: 26px;
+  font-weight: bold;
+  color: #fff;
+  border: 4px solid rgba(0, 0, 0, 0.35);
+  border-radius: 12px;
+  cursor: pointer;
+}
+button:active {
+  transform: translateY(2px);
+}
+button[aria-pressed='true'] {
+  outline: 6px solid #ffd23f;
+  outline-offset: 1px;
+}
+.b-color {
+  background: #e0503a;
+}
+.b-shadow {
+  background: #333;
+}
+.b-motion {
+  background: #2f9e6b;
+}
+.b-round {
+  border-radius: 32px;
+}
+.b-view {
+  background: #3f6fd6;
+}
+.b-tab {
+  border-radius: 12px 12px 4px 4px;
+  background: #8a55d6;
+}
