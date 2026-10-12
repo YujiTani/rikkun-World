@@ -40,3 +40,11 @@
 - 支えを失って落ちた たいまつ は break に数えない。
 - **つなぎ込みで直す**: `InventoryScreen.tabsEl` が panel の中にあり、じっせき タブで panel ごと隠れて戻れない → tabsEl を body の外へ（inventoryScreen.ts の口）。
 - 「〇 にちめ」は day+1 表示。
+
+### A（m6-a, 1524cd3。この後「その5 持っている材料だけ」を追加中）
+- 窓口: `craft: {...craftHook, ...craftUiHook.craft, ...createCraftPanelHook(inventoryScreen.craftPanel!)}`。
+- `craftPanel.configure({ info, cursorHeld: ()=>inv.cursor()!==null, isMade, onSelect, onFull })`。`info = createItemInfo({recipes, nameOf, numbers})`、numbers は設定の生の値を読む関数（weaponReach・weaponTicks・armorValue も）。`isMade = !C.isFirstMade`。
+- タブ: `mountInventoryTabs(inventoryScreen, { dot: ()=>C のあたらしい, onSwitch })`、毎ステップ `.update()`。
+- つくった出来事: `new CraftMadeTracker({comboTicks, comboMax, isFirstMade})`、`craft.drainEvents()` の各イベントを `handle(ev)`（C が記録する前に）→ `onMade` で B の `made`。止まっていない時だけ `advance(1/timeScale)`。
+- B 向け: `craftPanel.tileElFor(recipeId)`、`buttonEl()`。ツールチップ: `inventory.tooltip()` に `desc` を足す（craftUi.ts）。
+- 仕様の読みかえ: なぎなた とどく 5.0・素手 3.5（main の値）。U1〜U14 の世界を動かす分は E2E で（テスト係）。DOM の寸法（AC53・AC55・AC32）はつなぎ込み後に確かめる。
