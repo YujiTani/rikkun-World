@@ -338,7 +338,7 @@ describe('世界の端', () => {
 });
 
 describe('水の中', () => {
-  it('AC18: 水の中は歩く速さ×0.5・ジャンプの高さ×0.6', () => {
+  it('AC18: 水の中は歩く速さ×0.5・ジャンプの高さ×0.85', () => {
     const r = new Rig();
     r.player.set({ position: { x: 2.5, y: 7, z: 6.5 }, yawDeg: 90 });
     r.step(60);
@@ -364,10 +364,10 @@ describe('水の中', () => {
       maxY = Math.max(maxY, j.s.position.y);
       if (j.s.onGround) landed = i;
     }
-    expect(maxY - 7).toBeGreaterThan(0.72);
-    expect(maxY - 7).toBeLessThan(0.78);
-    expect(landed).toBeGreaterThanOrEqual(26);
-    expect(landed).toBeLessThanOrEqual(31);
+    expect(maxY - 7).toBeGreaterThan(1.03);
+    expect(maxY - 7).toBeLessThan(1.09);
+    expect(landed).toBeGreaterThanOrEqual(30);
+    expect(landed).toBeLessThanOrEqual(35);
   });
 
   it('AC19: 浜の段（オート／手動）', () => {
@@ -375,8 +375,7 @@ describe('水の中', () => {
       const r = new Rig();
       r.world.fill(8, 7, 0, 12, 7, 12, 'sand');
       r.player.settings.autoJump = auto;
-      r.player.settings.waterJumpMul = 1; // 段の判定だけを見る（水の中のジャンプ ×0.6 では 1 段は登れない）
-      r.player.set({ position: { x: 6.5, y: 7, z: 6.5 }, yawDeg: 90 });
+      r.player.set({ position: { x: 7.0, y: 7, z: 6.5 }, yawDeg: 90 }); // 水の中は歩きが半分なので、浜のすぐ手前から
       r.step(2);
       r.press('moveForward');
       if (!auto) {

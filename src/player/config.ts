@@ -34,7 +34,7 @@ export const PLAYER_DEFAULTS: Readonly<PlayerSettings> = {
   thirdPersonDistance: 4.0,
   thirdPersonHeight: 0.5,
   waterSpeedMul: 0.5,
-  waterJumpMul: 0.6,
+  waterJumpMul: 0.85,
 };
 
 export function createPlayerSettings(): PlayerSettings {
