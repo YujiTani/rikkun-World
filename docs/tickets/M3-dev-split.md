@@ -35,6 +35,7 @@
 - 明るさの登録: `WorldRenderer` に材料の取得口（例 `materials()`）を足して `lighting.register(m, 'block')`、`buildScenery` の海・海の底も `'block'`、人形は `lighting.registerTree(rig.doll.group, 'doll')`。色を後から変えるときは `lighting.setBase`
 - `settings` に `createTimeSettings()` の入れ物
 - CSS: `#notice-name` の bottom を 90px ほど上げてハートと重ならないように。`#clock` と F3 の表示が重なるなら調整
+- **昼夜の長さを変える（オーナー決定・最新）**: ひる 15 分（54,000）・ゆうがた 1 分 30 秒（5,400）・よる 7 分 30 秒（27,000、ひるの半分）・あさ 1 分 30 秒（5,400）、1 日 25 分 30 秒（91,800 ステップ）。`src/time/config.ts` の値と、その値を決め打ちしているテスト（`src/time/time.test.ts` など）を直す
 - 「もちもの が いっぱい」の合図は `notice.showSignal('full')` を、妖怪のドロップが入らなかったときに呼ぶ
 
 ## 経過
