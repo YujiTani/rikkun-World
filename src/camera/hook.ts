@@ -15,6 +15,14 @@ export function createCameraHook(rig: CameraRig) {
       heldScreen: rig.heldScreen(),
       armAngle: rig.doll.armAngle,
       legAngle: rig.doll.legAngle,
+      /** うでの層の今の動き（何もなければ 'none'）・からだの層の動き・うでの層の何ステップ目か（§2.9） */
+      armAnim: rig.doll.armAnim,
+      bodyAnim: rig.doll.bodyAnim,
+      animTick: rig.doll.animTick,
+      /** 着ている防具の見た目 */
+      armor: { head: rig.doll.armorWorn('head'), body: rig.doll.armorWorn('body') },
+      /** 切ったあとの白い弧 */
+      arc: rig.doll.arcShown,
     }),
   };
 }
