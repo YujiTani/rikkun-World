@@ -38,6 +38,13 @@
 - `e2e/m1.spec.ts:31` の `types.length` を新しいブロック数に直す
 - `fx/craftConfig.ts` の既定値を `settings` につなぐ
 
+**L（光）**
+- `new Sky({..., light: renderer.light, focus: () => controller.state.position })`（main.ts に L が 1 行入れ済み）
+- 妖怪の出現条件を光に: `YokaiManager` の `if (!roofed && !night) continue;` を `if (!light.isDarkForSpawn(x, T, z)) continue;` に（`renderer.light` を渡す）。`isRoofed` は朝に帰る判定で残す
+- 妖怪・落とし物の明るさを足もとの光に: `time.dollBrightness()` の代わりに `light.brightness(x,y,z)`（下限 0.3）
+- DigSystem が固くない `torch` を選べる・こわせるように（ねらいの線が torch に当たる）。`start_torch` はこわれない
+- テスト窓口 `world.lightAt(x,y,z)`、`world.skyDarkness()`。ブロック数は 16（`e2e/m1.spec.ts` の types.length も）
+
 ## オーナー決定（A の実装のあと）: 防具は「決まった回を 0」ではなく **受けるダメージをカット**
 - 受けるダメージ = max(ハート半分（体力 1）, 元のダメージ − 防具の値)。防具の値は設定（例 かぶと 1・よろい 2・両方 3。体力の単位＝ハート半分）。ふせいだときの「カキン」は、カットが 1 以上のとき鳴らす
 - **妖怪の攻撃を全部 2 倍**（オーナー決定 A）: からかさ・ちょうちん・ろくろくび＝ハート 1（体力 2）、ぬりかべ＝ハート 2（体力 4）。`src/yokai/stats.ts` の `damageHearts` を直す
