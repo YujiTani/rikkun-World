@@ -5,6 +5,21 @@ import { DigFx } from './fx/DigFx';
 import { CombatFx } from './fx/combatFx';
 import { createCombatUi } from './fx/combatUi';
 import { PlayerCombatImpl, createCombatConfig, createCombatHook } from './combat';
+import { ArmorSystemImpl, CraftSystemImpl, createArmorHook, createCraftConfig, createCraftHook, createFurnaceHook, createPickupHook } from './craft';
+import { ToolSystemImpl, createToolConfig, createToolHook } from './tools';
+import { ArrowVisuals } from './fx/arrowVisuals';
+import { FurnaceFx } from './fx/furnaceFx';
+import type { FurnaceFxEntry } from './fx/furnaceFxModel';
+import { playCombat } from './fx/combatSounds';
+import { CRAFT_UI_SETTINGS, type CraftUiSettings } from './fx/craftConfig';
+import { playCraft } from './fx/craftSounds';
+import { CraftUiHud, createCraftUiHook, handleCraftEvents, handleGuardEvents, playSwing } from './ui/craftUi';
+import { PickupLog } from './ui/pickupLog';
+import { PickupLogModel } from './ui/pickupLogModel';
+import { itemRarity } from './drops/rarity';
+import { itemType } from './inventory/items';
+import { createGuideHook } from './ui/playOverlay';
+import type { CombatEvent, ItemId, SwingAnim } from './contracts';
 import { DropField } from './drops';
 import { Lighting, Sky } from './sky';
 import { TimeOfDayImpl, createTimeHook } from './time';
@@ -36,6 +51,7 @@ import { GEN_CONFIG } from './world/gen/config';
 import { generateIsland } from './world/gen/generateIsland';
 import { createWorldHook } from './world/hook';
 import { WorldRenderer } from './world/render/WorldRenderer';
+import { darkenFromBrightness, skyDarkness } from './world/light';
 
 const container = document.getElementById('game')!;
 const hud = document.getElementById('hud')!;
@@ -58,6 +74,20 @@ function sharedSettingsView(name: string, targets: object[]): object {
       for (const t of targets) (t as Record<string, number>)[name] = v;
     },
   });
+  return view;
+}
+
+/** 設定の入れ物のうち、配列（fuelOrder）と除く名前を外した見え方（そのまま読み書きできる） */
+function settingsViewOf(obj: object, exclude: readonly string[] = []): object {
+  const view = {};
+  for (const n of Object.keys(obj)) {
+    if (n === 'fuelOrder' || exclude.includes(n)) continue;
+    Object.defineProperty(view, n, {
+      enumerable: true,
+      get: () => (obj as Record<string, unknown>)[n],
+      set: (v) => ((obj as Record<string, unknown>)[n] = v),
+    });
+  }
   return view;
 }
 
@@ -89,7 +119,7 @@ for (const child of game.scene.children) if (!sceneBefore.has(child)) lighting.r
 for (const m of renderer.materials()) lighting.register(m, 'block');
 const time = new TimeOfDayImpl();
 const timeSettings = time.settings;
-const sky = new Sky({ scene: game.scene, time, timeSettings, lighting });
+const sky = new Sky({ scene: game.scene, time, timeSettings, lighting, light: renderer.light, focus: () => controller.state.position });
 
 // 入力・スタート画面
 mountHud(hud);
@@ -98,7 +128,8 @@ const wheel = new WheelAccumulator(game.input, () => lock.playInputEnabled());
 bindKeyboardAndMouse(window, game.input, wheel);
 const look = new MouseLook(lock);
 const pointerLock = bindPointerLock(document, window, game.renderer.domElement, lock, look, game.input);
-new PlayOverlay(hud, lock, () => pointerLock.request());
+const fxSound = new SoundFx();
+const playOverlay = new PlayOverlay(hud, lock, () => pointerLock.request(), () => playCraft(fxSound, 'tab'));
 
 // プレイヤーとカメラ
 const controller = new PlayerController(world, game.input, look, lock, () => island.spawn());
@@ -117,18 +148,50 @@ const screen = new ScreenController(lock, inventory, game.input, screenSettings,
 // 保存の要求は、あとで作る SaveManager へ（循環をさけるため関数でつなぐ）
 let requestSave: () => void = () => {};
 const hudSignal: { full: () => void } = { full: () => {} };
+// 設定は 1 つずつ作って、settings から変えたら すぐ効くようにみんなで共有する
+const combatCfg = createCombatConfig();
+const digCfg = createDigConfig();
+const craftConfig = createCraftConfig();
+const toolConfig = createToolConfig();
+// 画面の数値。焼く時間・ログの数は つくる側の設定と同じものを見る
+const craftUi: CraftUiSettings = { ...CRAFT_UI_SETTINGS, fuelOrder: craftConfig.fuelOrder };
+for (const n of ['bakeTicks', 'pickupLogTicks', 'pickupLogMax'] as const) {
+  Object.defineProperty(craftUi, n, { enumerable: true, get: () => craftConfig[n], set: (v: number) => (craftConfig[n] = v) });
+}
+// 「いっぱい」の合図は 2 秒は出しなおさない（近くにいるあいだ毎ステップ呼ばれるため）
+const FULL_SIGNAL_GAP_TICKS = 120;
+let lastFullSignal = -FULL_SIGNAL_GAP_TICKS;
+let onDropPicked: (item: ItemId, count: number) => void = () => {};
 const drops = new DropField({
   world,
   inventory,
   player: () => controller.state.position,
   rng: createRng(seed ^ 0x5eed),
-  ticks: createCombatConfig().dropBagTicks,
-  pickupRadius: createCombatConfig().pickupRadius,
+  live: combatCfg,
   requestSave: () => requestSave(),
-  onFull: () => hudSignal.full(),
+  onFull: () => {
+    if (game.tick - lastFullSignal < FULL_SIGNAL_GAP_TICKS) return;
+    lastFullSignal = game.tick;
+    hudSignal.full();
+  },
+  onPickup: (item, count) => onDropPicked(item, count),
 });
 let yokaiManager: YokaiManager | null = null;
+const armor = new ArmorSystemImpl(inventory, craftConfig);
+const craft = new CraftSystemImpl({ world, inventory, drops, requestSave: () => requestSave(), config: craftConfig });
+const tools = new ToolSystemImpl({
+  inventory,
+  world,
+  player: () => controller.state,
+  yokai: () => yokaiManager,
+  base: { dig: digCfg, combat: combatCfg },
+  config: toolConfig,
+});
 const combat = new PlayerCombatImpl({
+  config: combatCfg,
+  tool: tools,
+  armor,
+  onPickup: (item, count) => craft.notifyPickup(item, count),
   world,
   player: {
     get: () => controller.state,
@@ -150,9 +213,24 @@ const dig = new DigSystemImpl(
   lock,
   inventory,
   () => controller.settings.eyeHeight,
-  createDigConfig(),
+  digCfg,
   createRng(20240601),
   combat,
+  {
+    tools,
+    craft: {
+      isFurnace: (x, y, z) => craft.isFurnace(x, y, z),
+      // かまど を右クリック: 中を開いて、もちもの画面（やく）を出す
+      openFurnace: (x, y, z) => {
+        craft.openFurnace(x, y, z);
+        if (!screen.inventoryOpen()) screen.toggle();
+      },
+      furnaceBroken: (x, y, z) => craft.furnaceBroken(x, y, z),
+      fixedDrop: (id) => craft.fixedDrop(id),
+    },
+    armor,
+    onPickup: (item, count) => craft.notifyPickup(item, count),
+  },
 );
 yokaiManager = new YokaiManager({
   world,
@@ -163,18 +241,52 @@ yokaiManager = new YokaiManager({
   drops,
   tick: () => game.tick + 1,
   seed,
+  light: renderer.light,
 });
 game.scene.add(yokaiManager.group);
 const yokaiM = yokaiManager;
 rig.setHeldProvider(() => inventory.held()?.item ?? null);
+
+// 出来事は 1 か所で 1 回だけ drain して、受け手（画面・音・人形）に配る。
+// 受け手がその場で読む列は、この入れ物から渡す（読んだら空にする）
+const NO_COMBAT: CombatEvent[] = [];
+let combatBuf: CombatEvent[] = NO_COMBAT;
+const NO_SWINGS: { anim: SwingAnim; tick: number }[] = [];
+let swingBuf = NO_SWINGS;
+rig.setSwingSource(() => {
+  const r = swingBuf;
+  swingBuf = NO_SWINGS;
+  return r;
+});
+rig.setArmorProvider((slot) => armor.equipped(slot));
+const arrowVisuals = new ArrowVisuals();
+arrowVisuals.addTo(game.scene);
 
 // 画面の見た目と音
 const notice = new Notice(hud);
 hudSignal.full = () => notice.showSignal('full');
 const combatUi = createCombatUi(hud);
 const hotbar = new Hotbar(hud, inventory, notice);
-const inventoryScreen = new InventoryScreen(hud, inventory, screen, () => screen.toggle());
-const fxSound = new SoundFx();
+const nameOf = (item: ItemId): string => itemType(item)?.name ?? item;
+const inventoryScreen = new InventoryScreen(hud, inventory, screen, () => screen.toggle(), {
+  craft,
+  armor,
+  furnaces: { get: (x, y, z) => craft.furnaceAt(x, y, z) },
+  nameOf,
+  rarityOf: itemRarity,
+  placeable: (item) => itemType(item)?.placeBlock != null,
+  onFull: () => notice.showSignal('full'),
+  tools: toolConfig,
+  ui: craftUi,
+});
+const pickupLog = new PickupLog(hud, { nameOf, rarityOf: itemRarity }, new PickupLogModel(craftUi));
+const craftHud = new CraftUiHud({ hud, craft, inv: inventory, nameOf, rarityOf: itemRarity }, pickupLog);
+const furnaceFx = new FurnaceFx(game.scene, fxSound, craftUi);
+const furnaceEntries: FurnaceFxEntry[] = [];
+onDropPicked = (item, count) => {
+  craft.notifyPickup(item, count);
+  hotbar.pickup(item, count);
+};
 const fx = new DigFx({
   scene: game.scene,
   dig,
@@ -187,7 +299,18 @@ const fx = new DigFx({
 const combatFx = new CombatFx({
   scene: game.scene,
   sound: fxSound,
-  combat,
+  // 出来事は上の入れ物から（combat.drainEvents は main が 1 回だけ呼ぶ）
+  combat: {
+    hp: () => combat.hp(),
+    maxHp: () => combat.maxHp(),
+    dead: () => combat.dead(),
+    invincibleTicks: () => combat.invincibleTicks(),
+    drainEvents: () => {
+      const r = combatBuf;
+      combatBuf = NO_COMBAT;
+      return r;
+    },
+  },
   yokai: yokaiM,
   time,
   bags: () => combat.bags(),
@@ -228,6 +351,8 @@ const save = new SaveManager({
   settings: screenSettings,
   bags: { serialize: () => combat.serializeBags(), deserialize: (d) => combat.deserializeBags(d) },
   clock: time,
+  furnaces: { serialize: () => craft.serializeFurnaces(), deserialize: (d) => craft.deserializeFurnaces(d) },
+  armor: { serialize: () => armor.serialize(), deserialize: (d) => armor.deserialize(d) },
 });
 requestSave = () => save.saveIfChanged();
 if (saveOptions.reset) {
@@ -239,14 +364,28 @@ if (saveOptions.reset) {
 lock.onChange((locked) => {
   if (!locked) save.saveIfChanged();
 });
-screen.onClose(() => save.saveIfChanged());
+screen.onClose(() => {
+  craft.closeFurnace();
+  save.saveIfChanged();
+});
 save.bindPageEvents(window, document);
 
 const overlay = new PerfOverlay(hud, game);
 
+function updateFurnaceFx(dt: number): void {
+  furnaceEntries.length = 0;
+  for (const p of craft.furnacePositions()) {
+    const v = craft.furnaceAt(p.x, p.y, p.z);
+    if (v) furnaceEntries.push({ x: p.x, y: p.y, z: p.z, burning: v.burning, waiting: v.done[0]?.item ?? null });
+  }
+  furnaceFx.update(dt, furnaceEntries, controller.state.position);
+}
+
 // 毎ステップの順: プレイヤー → カメラ → 世界の作り直し →（Game が）入力の「押した」を消す
 game.onUpdate((dt) => {
   time.update();
+  // 空の光の弱まりを先に今の時刻にそろえる（妖怪の出現の「暗い所」がこれを読む。Sky は あとで画面ぶんを更新）
+  skyDarkness.value = darkenFromBrightness(time.brightness(), timeSettings.nightBrightness);
   controller.update(dt);
   if (lock.playInputEnabled() && game.input.wasPressed('toggleView')) {
     viewActions.press('toggleView');
@@ -255,8 +394,34 @@ game.onUpdate((dt) => {
   yokaiM.update();
   dig.update();
   combat.update();
+  craft.update();
+  // 出来事を 1 回だけ取り出して配る
+  for (const e of craft.drainEvents()) {
+    handleCraftEvents([e], { sound: fxSound, pickupLog });
+    rig.onCraftEvent(e);
+  }
+  const swings = tools.drainSwings();
+  if (swings.length > 0) {
+    const held = inventory.held()?.item ?? null;
+    for (const sw of swings) playSwing(fxSound, sw.anim, held);
+    swingBuf = swingBuf === NO_SWINGS ? swings : swingBuf.concat(swings);
+  }
+  for (const e of tools.drainArrowEvents()) {
+    if (e.type === 'noArrow') notice.showSignal('noArrow');
+    else if (e.type === 'arrowHit') playCombat(fxSound, 'hit');
+  }
+  const combatEvents = combat.drainEvents();
+  if (combatEvents.length > 0) {
+    for (const e of combatEvents) rig.onCombatEvent(e);
+    handleGuardEvents(combatEvents, fxSound);
+    combatBuf = combatEvents;
+  }
+  arrowVisuals.sync(tools.arrows());
+  combatUi.hearts.setArmor(armor.snapshot().hudIcons);
+  craftHud.update(dt);
   fx.update(dt);
   combatFx.update(dt);
+  updateFurnaceFx(dt);
   rig.update(dt);
   sky.update(game.camera);
   combatUi.clock.setTime(time.dayTick(), timeSettings);
@@ -275,20 +440,48 @@ game.setTimeScale(() => screen.timeScale());
 game.onIdle((dt) => overlay.update(dt));
 
 const cameraHook = createCameraHook(rig);
+const toolHook = createToolHook(tools);
+const craftHook = createCraftHook(craft, screen);
+const craftUiHook = createCraftUiHook({
+  panel: inventoryScreen.craftPanel!,
+  craft,
+  inv: inventory,
+  pickupLog,
+  tooltip: inventoryScreen.tooltip!,
+  armorClick: (slot) => armor.click(slot),
+});
+const guideHook = createGuideHook(playOverlay);
+const lockHook = createLockHook(lock);
+const combatHook = createCombatHook(combat);
 installTestHook(game, overlay, {
   world: createWorldHook(world, renderer, island),
   player: { ...createPlayerHook(controller), doll: cameraHook.doll } as unknown as TestHookGroups['player'],
   ...createDigHook(dig),
-  inventory: createInventoryHook(inventory, screen),
+  inventory: createInventoryHook(inventory, screen, { ...createPickupHook(craft), ...craftUiHook.inventory }),
   save: createSaveHook(save),
   time: createTimeHook(time),
-  combat: createCombatHook(combat),
+  combat: {
+    ...combatHook,
+    arrows: toolHook.arrows,
+    events: () => [...combatHook.events(), ...toolHook.arrowEvents()],
+  } as unknown as TestHookGroups['combat'],
+  craft: { ...craftHook, ...craftUiHook.craft },
+  furnace: createFurnaceHook(craft, screen),
+  armor: createArmorHook(armor, screen),
+  tool: toolHook.tool,
   ...createYokaiHook(yokaiM),
   camera: cameraHook.camera,
-  lock: createLockHook(lock),
+  lock: {
+    ...lockHook,
+    tab: guideHook.tab,
+    get: () => ({ ...lockHook.get(), ...guideHook.state() }),
+  },
   input: createInputHook(game.input, look, wheel),
   settings: createSettingsHook(controller.settings, rig.config, [
       digSettingsView(dig.config),
+      settingsViewOf(craftConfig),
+      settingsViewOf(toolConfig),
+      settingsViewOf(craftUi, ['bakeTicks', 'pickupLogTicks', 'pickupLogMax']),
       screenSettings,
       FX_SETTINGS,
       sharedSettingsView('knockback', [combat.config, yokaiM.config]),

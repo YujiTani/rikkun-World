@@ -35,7 +35,7 @@ function terrainTop(world: VoxelWorld, x: number, z: number): number {
   for (let y = world.size.y - 1; y >= 0; y--) {
     const id = world.getBlock(x, y, z);
     if (id === 'outside') return -1;
-    if (id !== 'air' && id !== 'water' && id !== 'log' && id !== 'leaves') return y;
+    if (id !== 'air' && id !== 'water' && id !== 'log' && id !== 'leaves' && id !== 'torch' && id !== 'start_torch') return y;
   }
   return -1;
 }
@@ -162,6 +162,7 @@ export const generateIsland: GenerateIsland = (seed: number, world: VoxelWorld):
   placeVisibleCoal(world, rng, hm, isMountain, sx, sz, h0);
   placeOres(world, rng, sx, sy, sz);
   placeTrees(world, rng, hm, sx, sz);
+  placeStartTorch(world);
 
   const genTimeMs = performance.now() - t0;
   const spawnCfg = C.spawn;
@@ -190,6 +191,18 @@ export const generateIsland: GenerateIsland = (seed: number, world: VoxelWorld):
     },
   };
 };
+
+/** スタートのすぐ横（平らな所の中）に、こわれない たいまつ を置く */
+function placeStartTorch(world: VoxelWorld): void {
+  const x = C.spawn.x + C.startTorch.dx;
+  const z = C.spawn.z + C.startTorch.dz;
+  for (let y = world.size.y - 2; y >= 0; y--) {
+    if (world.isSolid(x, y, z)) {
+      world.setBlock(x, y + 1, z, 'start_torch');
+      return;
+    }
+  }
+}
 
 // ------------------------------------------------------------------ 見えるせきたん（岩山の表面）
 

@@ -17,7 +17,13 @@ export type TileName =
   | 'coal_ore'
   | 'iron_ore'
   | 'water'
-  | 'bedrock';
+  | 'bedrock'
+  | 'furnace_top'
+  | 'furnace_side'
+  | 'kawara'
+  | 'brick'
+  | 'torch'
+  | 'start_torch';
 
 export const TILE_NAMES: readonly TileName[] = [
   'grass_top',
@@ -32,6 +38,12 @@ export const TILE_NAMES: readonly TileName[] = [
   'iron_ore',
   'water',
   'bedrock',
+  'furnace_top',
+  'furnace_side',
+  'kawara',
+  'brick',
+  'torch',
+  'start_torch',
 ];
 export const ATLAS_ROWS = Math.ceil(TILE_NAMES.length / ATLAS_COLS);
 export const ATLAS_WIDTH = ATLAS_COLS * TILE_SIZE;
@@ -87,6 +99,85 @@ function blobs(tile: Tile, color: string, seed: number, n: number): Tile {
   return tile;
 }
 
+function fillRect(t: Tile, x0: number, y0: number, w: number, h: number, c: Rgba): void {
+  for (let y = y0; y < y0 + h; y++) {
+    for (let x = x0; x < x0 + w; x++) t[y * TILE_SIZE + x] = c;
+  }
+}
+
+/** かまど の「口」の四角（横の面）。火の絵もこの四角に重ねる */
+export const FURNACE_MOUTH = { x: 4, y: 8, w: 8, h: 6 } as const;
+
+/** かまど（上）: いしの灰色。まん中にえんとつの黒い穴 */
+function furnaceTop(): Tile {
+  const t = speckle('#8E8E8E', ['#757575', '#A5A5A5'], 33);
+  fillRect(t, 5, 5, 6, 6, hex('#3A3A3A'));
+  fillRect(t, 6, 6, 4, 4, hex('#1A1A1A'));
+  return t;
+}
+
+/** かまど（横）: いしの灰色の箱に、黒い口（燃えていないとき口の中は暗い） */
+function furnaceSide(): Tile {
+  const t = speckle('#8E8E8E', ['#757575', '#A5A5A5'], 34, 30);
+  const { x, y, w, h } = FURNACE_MOUTH;
+  fillRect(t, x - 1, y - 1, w + 2, h + 2, hex('#5A5A5A'));
+  fillRect(t, x, y, w, h, hex('#151515'));
+  fillRect(t, x + 1, y + h - 2, w - 2, 2, hex('#2A2020'));
+  fillRect(t, 0, 0, TILE_SIZE, 1, hex('#A5A5A5'));
+  return t;
+}
+
+/** かわら: こい灰青に、明るい灰色のなみの線 3 本 */
+function kawaraTile(): Tile {
+  const t = solid(hex('#4A5560'));
+  const line = hex('#B4BCC4');
+  for (const base of [3, 8, 13]) {
+    for (let x = 0; x < TILE_SIZE; x++) {
+      const y = base + (Math.floor(x / 2) % 2 === 0 ? 0 : 1);
+      t[y * TILE_SIZE + x] = line;
+    }
+  }
+  return t;
+}
+
+/** たいまつのタイル: 細い棒（はば 2 ドット、x=7〜8）。上の 3 ドット（y=4〜6）が炎、下が棒。まわりは見えない所 */
+export const TORCH_PX: { x0: number; x1: number; y0: number; y1: number; flameRows: number } = { x0: 7, x1: 9, y0: 4, y1: 16, flameRows: 3 };
+
+function paintTorch(special: boolean): Tile {
+  const t = solid(hex('#000000', 0));
+  const stick = special ? '#6b4a2a' : '#8a5a2e';
+  for (let y = TORCH_PX.y0; y < TORCH_PX.y1; y++) {
+    for (let x = TORCH_PX.x0; x < TORCH_PX.x1; x++) {
+      let c: string;
+      if (y === TORCH_PX.y0) c = special ? '#ffffff' : '#fff3a0';
+      else if (y < TORCH_PX.y0 + TORCH_PX.flameRows) c = special ? '#ffd23f' : '#ff9d2e';
+      else c = stick;
+      // こわれない たいまつ: 赤いひもを 2 か所まく
+      if (special && (y === 9 || y === 10 || y === 14)) c = '#d92b2b';
+      t[y * TILE_SIZE + x] = hex(c);
+    }
+  }
+  return t;
+}
+
+/** レンガ: 赤茶に、うすい灰色の目地 */
+function brickTile(): Tile {
+  const t = solid(hex('#B5523B'));
+  const mortar = hex('#C9C9C9');
+  const dark = hex('#9A4430');
+  for (let row = 0; row < 4; row++) {
+    const y0 = row * 4;
+    for (let x = 0; x < TILE_SIZE; x++) t[(y0 + 3) * TILE_SIZE + x] = mortar;
+    const off = row % 2 === 0 ? 0 : 4;
+    for (let x = off; x < TILE_SIZE; x += 8) {
+      for (let y = y0; y < y0 + 3; y++) t[y * TILE_SIZE + x] = mortar;
+    }
+    t[(y0 + 1) * TILE_SIZE + ((off + 3) % TILE_SIZE)] = dark;
+    t[(y0 + 1) * TILE_SIZE + ((off + 6) % TILE_SIZE)] = dark;
+  }
+  return t;
+}
+
 function paintTile(name: TileName): Tile {
   switch (name) {
     case 'grass_top':
@@ -135,6 +226,18 @@ function paintTile(name: TileName): Tile {
       return solid(hex('#3A7BD5', Math.round(WATER_ALPHA * 255)));
     case 'bedrock':
       return speckle('#3A3A3A', ['#555555'], 88, 50);
+    case 'furnace_top':
+      return furnaceTop();
+    case 'furnace_side':
+      return furnaceSide();
+    case 'kawara':
+      return kawaraTile();
+    case 'brick':
+      return brickTile();
+    case 'torch':
+      return paintTorch(false);
+    case 'start_torch':
+      return paintTorch(true);
   }
 }
 
@@ -155,6 +258,11 @@ export const BLOCK_TILES: Readonly<Partial<Record<BlockId, readonly [TileName, T
   iron_ore: ['iron_ore', 'iron_ore', 'iron_ore'],
   water: ['water', 'water', 'water'],
   bedrock: ['bedrock', 'bedrock', 'bedrock'],
+  furnace: ['furnace_top', 'furnace_top', 'furnace_side'],
+  kawara: ['kawara', 'kawara', 'kawara'],
+  brick: ['brick', 'brick', 'brick'],
+  torch: ['torch', 'torch', 'torch'],
+  start_torch: ['start_torch', 'start_torch', 'start_torch'],
 };
 
 /** タイルの UV の四角 [u0, v0, u1, v1]（v は下から。となりのタイルがにじまないよう少し内側） */
@@ -168,6 +276,20 @@ export function tileUv(name: TileName): [number, number, number, number] {
     (row * TILE_SIZE + e) / ATLAS_HEIGHT,
     ((col + 1) * TILE_SIZE - e) / ATLAS_WIDTH,
     ((row + 1) * TILE_SIZE - e) / ATLAS_HEIGHT,
+  ];
+}
+
+/** タイルの一部（ドットの範囲 [px0, px1) × [py0, py1)、py は絵の上から）の UV [u0, v0, u1, v1] */
+export function tileSubUv(name: TileName, px0: number, py0: number, px1: number, py1: number): [number, number, number, number] {
+  const i = TILE_NAMES.indexOf(name);
+  const col = i % ATLAS_COLS;
+  const row = Math.floor(i / ATLAS_COLS);
+  const e = 0.01;
+  return [
+    (col * TILE_SIZE + px0 + e) / ATLAS_WIDTH,
+    (row * TILE_SIZE + (TILE_SIZE - py1) + e) / ATLAS_HEIGHT,
+    (col * TILE_SIZE + px1 - e) / ATLAS_WIDTH,
+    (row * TILE_SIZE + (TILE_SIZE - py0) - e) / ATLAS_HEIGHT,
   ];
 }
 

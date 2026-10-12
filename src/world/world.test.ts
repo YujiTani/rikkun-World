@@ -10,10 +10,12 @@ import { ArrayVoxelWorld } from './VoxelWorld';
 
 const ALL_IDS: BlockId[] = [
   'air', 'grass', 'dirt', 'stone', 'sand', 'log', 'leaves', 'coal_ore', 'iron_ore', 'water', 'bedrock',
+  'furnace', 'kawara', 'brick',
+  'torch', 'start_torch',
 ];
 
 describe('ブロックの定義 (AC16)', () => {
-  it('11 種そろっている', () => {
+  it('14 種そろっている（M4 で かまど・かわら・レンガ を後ろに足した）', () => {
     expect(BLOCK_TYPES.map((t) => t.id)).toEqual(ALL_IDS);
     expect(BLOCK_TYPES.every((t) => t.name.length > 0)).toBe(true);
   });
@@ -227,7 +229,7 @@ describe('createWorldHook', () => {
     expect(h.spawn().y).toBe(11);
     expect(h.testArea().y0).toBe(8);
     expect(h.genTimeMs()).toBe(12);
-    expect(h.blockTypes()).toHaveLength(11);
+    expect(h.blockTypes()).toHaveLength(16);
     r.update();
     expect(h.rebuildStats().count).toBeGreaterThan(0);
   });

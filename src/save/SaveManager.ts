@@ -31,6 +31,12 @@ export interface SaveBags {
   deserialize(data: unknown): void;
 }
 
+/** M4: かまど・そうびの出し入れ */
+export interface SaveExtra {
+  serialize(): unknown;
+  deserialize(data: unknown): void;
+}
+
 /** 1 日の時刻の出し入れ（TimeOfDayImpl が合う） */
 export interface SaveClock {
   dayTick(): number;
@@ -54,6 +60,10 @@ export interface SaveDeps {
   settings: Pick<ScreenSettings, 'saveIntervalTicks'>;
   /** M3: おとしもの ぶくろ。なければ保存しない */
   bags?: SaveBags;
+  /** M4: かまど の じゅんばん・焼いている途中・待っている焼けたもの */
+  furnaces?: SaveExtra;
+  /** M4: 着ている防具 */
+  armor?: SaveExtra;
   /** 時刻と何日目。なければ保存しない */
   clock?: SaveClock;
 }
@@ -67,6 +77,8 @@ export interface SaveInfo {
 }
 
 export const SAVE_VERSION = 1;
+/** 島の作り方の版。島生成（src/world/gen）で地形が変わったら上げる（差分の番号が別の場所に当たらないように、版がちがう保存は使わない） */
+export const SAVE_GEN = 1;
 export const SAVE_KEY_PREFIX = 'rikkun-world-save-v1-';
 export const saveKey = (seed: number): string => `${SAVE_KEY_PREFIX}${seed}`;
 
@@ -129,6 +141,8 @@ export class SaveManager {
       if (raw === null) return false;
       const data = JSON.parse(raw) as Record<string, unknown>;
       if (!data || data.version !== SAVE_VERSION || data.seed !== this.d.seed) return false;
+      // gen が無い古い保存はそのまま開ける
+      if (data.gen !== undefined && data.gen !== SAVE_GEN) return false;
       const blocks = data.blocks;
       if (!Array.isArray(blocks) || blocks.length % 2 !== 0) return false;
       const { x: sx, y: sy, z: sz } = this.d.world.size;
@@ -152,11 +166,27 @@ export class SaveManager {
       } catch {
         this.d.inventory.clear();
       }
-      this.restorePlayer(data.player);
+      try {
+        this.restorePlayer(data.player);
+      } catch {
+        const sp = this.d.spawn();
+        this.d.player.set({ position: { x: sp.x, y: sp.y, z: sp.z }, velocity: { x: 0, y: 0, z: 0 }, yawDeg: sp.yawDeg, pitchDeg: sp.pitchDeg });
+      }
       try {
         this.d.bags?.deserialize(data.bags);
       } catch {
         this.d.bags?.deserialize([]);
+      }
+      // M4: 古い保存（かまど・そうびが無い）もそのまま開ける
+      try {
+        this.d.furnaces?.deserialize(data.furnaces);
+      } catch {
+        this.d.furnaces?.deserialize([]);
+      }
+      try {
+        this.d.armor?.deserialize(data.armor);
+      } catch {
+        this.d.armor?.deserialize(null);
       }
       this.restoreTime(data.time);
       this.lastBody = this.makeBody().body;
@@ -269,6 +299,7 @@ export class SaveManager {
     const bagsKey = bagsFull.map((b) => ({ ...b, ticksLeft: 0 }));
     const make = (bags: unknown) => JSON.stringify({
       version: SAVE_VERSION,
+      gen: SAVE_GEN,
       seed: this.d.seed,
       blocks,
       inventory: this.d.inventory.serialize(),
@@ -281,6 +312,8 @@ export class SaveManager {
         third: this.d.player.isThirdPerson(),
       },
       bags,
+      furnaces: this.d.furnaces?.serialize() ?? [],
+      armor: this.d.armor?.serialize() ?? null,
     });
     return { body: make(bagsKey), full: make(bagsFull), changed: blocks.length / 2 };
   }

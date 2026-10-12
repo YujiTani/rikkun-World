@@ -5,7 +5,7 @@ const chromiumArgs = ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', 
 
 export default defineConfig({
   testDir: './e2e',
-  timeout: 30_000,
+  timeout: 60_000, // 重いテストが同じ CPU で並ぶと 30 秒をこえることがある
   fullyParallel: true,
   reporter: [['list']],
   use: {

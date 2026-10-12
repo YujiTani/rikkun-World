@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { ItemId, PlayerState, VoxelWorld } from '../contracts';
+import type { ArmorSlot, CombatEvent, CraftEvent, ItemId, PlayerState, SwingAnim, VoxelWorld } from '../contracts';
 import type { ActionState } from '../input/actions';
 import { BlockDoll } from './BlockDoll';
 import {
@@ -80,6 +80,58 @@ export class CameraRig {
     return { x: (p.x + 1) / 2, y: (1 - p.y) / 2 };
   }
 
+  private swingSource: (() => { anim: SwingAnim; tick: number }[]) | null = null;
+  private armorProvider: ((slot: ArmorSlot) => ItemId | null) | null = null;
+
+  /** うでの動きの合図を返す関数（ToolSystem.drainSwings）。毎ステップ呼ぶ */
+  setSwingSource(fn: () => { anim: SwingAnim; tick: number }[]): void {
+    this.swingSource = fn;
+  }
+  /** 着ている防具を返す関数（ArmorSystem.equipped）。変わったら人形に着せて「カシャ」 */
+  setArmorProvider(fn: (slot: ArmorSlot) => ItemId | null): void {
+    this.armorProvider = fn;
+    this.doll.setArmor(fn('head'), fn('body'));
+  }
+  /** つくれた・焼けた出来事を人形に伝える（呼ぶ側が drain した出来事をそのまま渡す） */
+  onCraftEvent(e: CraftEvent): void {
+    if (e.type === 'craft') this.doll.play('banzai');
+    else if (e.type === 'bakeDone') this.doll.play('cheer');
+  }
+  /** ダメージ（ふせがなかったとき）・おとしもの ぶくろ を拾った出来事を人形に伝える */
+  onCombatEvent(e: CombatEvent): void {
+    if (e.type === 'playerHit') {
+      if (e.amount > 0 && (e as { blocked?: boolean }).blocked !== true) this.doll.hurt();
+    } else if (e.type === 'pickup') this.doll.play('pickup');
+  }
+
+  private pumpSwings(): void {
+    if (!this.swingSource) return;
+    for (const sw of this.swingSource()) {
+      switch (sw.anim) {
+        case 'whiff':
+          this.doll.play('punch');
+          break;
+        case 'dig':
+          // ほるのは setDigging がくりかえす。すでに dig なら つくりなおさない
+          if (this.doll.armAnim !== 'dig') this.doll.play('dig');
+          break;
+        default:
+          this.doll.play(sw.anim);
+      }
+    }
+  }
+
+  private pumpArmor(): void {
+    if (!this.armorProvider) return;
+    const head = this.armorProvider('head');
+    const body = this.armorProvider('body');
+    const prevH = this.doll.armorWorn('head');
+    const prevB = this.doll.armorWorn('body');
+    if (head === prevH && body === prevB) return;
+    this.doll.setArmor(head, body);
+    if ((head !== null && head !== prevH) || (body !== null && body !== prevB)) this.doll.play('equip');
+  }
+
   getView(): ViewMode {
     return this.view;
   }
@@ -123,6 +175,8 @@ export class CameraRig {
 
   update(dt: number): void {
     if (this.actions.wasPressed('toggleView')) this.toggleView();
+    this.pumpSwings();
+    this.pumpArmor();
     this.apply(dt);
   }
 
@@ -169,7 +223,7 @@ export class CameraRig {
     if (this.overviewOn) this.doll.setMode('hidden');
     else if (this.view === 'first') this.doll.setMode('first');
     else this.doll.setMode(this.distToEye >= DOLL_HIDE_DISTANCE ? 'third' : 'hidden');
-    this.doll.update(dt, s.position, s.yawDeg, s.pitchDeg, s.moving && s.onGround);
+    this.doll.update(dt, s.position, s.yawDeg, s.pitchDeg, s.moving && s.onGround, s.onGround);
   }
 
   private placeThird(dt: number): void {

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type {
   Inventory,
   ItemId,
+  LightField,
   PlayerCombat,
   PlayerState,
   TimeOfDay,
@@ -67,6 +68,13 @@ export interface YokaiManagerOptions {
   tick?: () => number;
   seed?: number;
   config?: YokaiConfig;
+  /** 光（M4）。あれば 出現は「暗い所」、明るさは足もとの光。なければ 時刻だけで決める */
+  light?: Pick<LightField, 'level'> & {
+    isDarkForSpawn(x: number, y: number, z: number): boolean;
+    brightness(x: number, y: number, z: number): number;
+  };
+  /** 足もとの光の下限（人形の明るさ） */
+  lightMin?: number;
 }
 
 export interface SpawnOptions {
@@ -98,6 +106,8 @@ interface Ent {
   wanderYaw: number;
   bestDist: number;
   lastProgress: number;
+  /** いま かけている明るさ（光があるとき。変わったときだけ色を塗りなおす） */
+  bright: number;
   searchSteps: number;
   lastSeenX: number;
   lastSeenZ: number;
@@ -153,7 +163,10 @@ export class YokaiManager implements YokaiWorld {
   private py = 0;
   private pz = 0;
 
+  private readonly opts: YokaiManagerOptions;
+
   constructor(opts: YokaiManagerOptions) {
+    this.opts = opts;
     this.world = opts.world;
     this.time = opts.time;
     this.getPlayer = opts.getPlayer;
@@ -334,11 +347,23 @@ export class YokaiManager implements YokaiWorld {
     this.burst.update(dt);
 
     // 暗さ（暗くしないものは brightness.ts が除く）
-    const b = this.time.dollBrightness();
-    if (b !== 1 || this.lastBrightness !== 1) {
-      for (const e of this.ents) applyDollBrightness(e.model, e.kind, b);
+    const light = this.opts.light;
+    if (light) {
+      const min = this.opts.lightMin ?? 0.3;
+      for (const e of this.ents) {
+        const bb = Math.max(min, light.brightness(e.x, e.y + 0.5, e.z));
+        if (bb !== e.bright) {
+          e.bright = bb;
+          applyDollBrightness(e.model, e.kind, bb);
+        }
+      }
+    } else {
+      const b = this.time.dollBrightness();
+      if (b !== 1 || this.lastBrightness !== 1) {
+        for (const e of this.ents) applyDollBrightness(e.model, e.kind, b);
+      }
+      this.lastBrightness = b;
     }
-    this.lastBrightness = b;
 
     for (const e of this.ents) {
       if (e.marks?.shown) {
@@ -406,6 +431,7 @@ export class YokaiManager implements YokaiWorld {
       maxHp: hp,
       state: appear ? 'appear' : 'idle',
       ai: true,
+      bright: 1,
       age: 0,
       cool: 0,
       attackSteps: 0,
@@ -498,8 +524,10 @@ export class YokaiManager implements YokaiWorld {
       const T = groundSupport(this.world, x, z, top, ai);
       if (Number.isNaN(T)) continue;
       // 光の少ない場所だけ: 屋根の下、またはよる
-      const roofed = isRoofed(this.world, x, T, z, ai.height);
-      if (!roofed && !night) continue;
+      const light = this.opts.light;
+      if (light) {
+        if (!light.isDarkForSpawn(x, T, z)) continue;
+      } else if (!isRoofed(this.world, x, T, z, ai.height) && !night) continue;
       const e = this.create(kind, x, T, z, this.rng() * Math.PI * 2, true);
       this.emit({ type: 'spawn', tick: this.tick(), id: e.id, kind, position: { x, y: T, z } });
       return;

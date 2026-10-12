@@ -4,7 +4,7 @@ import { generateIsland } from './generateIsland';
 
 /** 仮の VoxelWorld（T2 の ArrayVoxelWorld が出来るまでの、配列だけのもの） */
 const IDS: BlockId[] = [
-  'air', 'grass', 'dirt', 'stone', 'sand', 'log', 'leaves', 'coal_ore', 'iron_ore', 'water', 'bedrock',
+  'air', 'grass', 'dirt', 'stone', 'sand', 'log', 'leaves', 'coal_ore', 'iron_ore', 'water', 'bedrock', 'torch', 'start_torch',
 ];
 const SOLID = new Set<BlockId>(['grass', 'dirt', 'stone', 'sand', 'log', 'leaves', 'coal_ore', 'iron_ore', 'bedrock']);
 

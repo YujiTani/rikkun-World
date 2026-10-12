@@ -1,12 +1,17 @@
 import type {
+  ArmorSystem,
   BlockId,
+  CraftSystem,
   DigBlockedReason,
   DigEvent,
   DigState,
   DigSystem,
   Inventory,
   LockStatus,
+  ItemId,
   PlayerState,
+  SwingAnim,
+  ToolInfo,
   TargetInfo,
   VoxelWorld,
   Vec3,
@@ -24,18 +29,43 @@ const MAX_QUEUE = 256;
 /** 空振りを押しっぱなしで振りなおす間かく（歩数。M3 のパンチと同じ 0.5 秒） */
 const WHIFF_REPEAT_TICKS = 30;
 
+/** ほっているあいだ、腕を振りなおす間かく（人形用） */
+const DIG_SWING_REPEAT = 20;
+
 const HOTBAR_ACTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => `hotbar${n}` as Action);
 const A_NEXT = 'hotbarNext' as Action;
 const A_PREV = 'hotbarPrev' as Action;
 
-/** ほる時間（ステップ）。かたさ × 60 ÷ 強さ、切り上げ。ほれないなら null と理由 */
+/** DigSystem が使う道具・武器の窓口（M4。`ToolSystemImpl` が合う） */
+export interface DigToolPort {
+  current(): ToolInfo;
+  /** 毎ステップ。ゆみの引きと、飛んでいる や を進める */
+  step(primary: boolean, eye: Vec3, dir: Vec3): void;
+  pushSwing(anim: SwingAnim): void;
+  /** 何もない所を振った（武器なら武器の振り） */
+  swingWhiff(): void;
+}
+
+/** M4 の つなぎ目（どれもなくてよい。なければ M2 のとおり） */
+export interface DigM4Deps {
+  tools?: DigToolPort;
+  craft?: Pick<CraftSystem, 'isFurnace' | 'openFurnace' | 'furnaceBroken' | 'fixedDrop'>;
+  armor?: Pick<ArmorSystem, 'tryEquip'>;
+  /** ほって持ち物に入った（拾ったログ用。A の窓口につなぐ） */
+  onPickup?: (item: ItemId, count: number) => void;
+}
+
+const NO_DIG_EVENTS: DigEvent[] = [];
+
+/** ほる時間（ステップ。すでの強さで数える）。かたさ × 60 ÷ 強さ、切り上げ。ほれないなら理由 */
 export function digSteps(
   cfg: DigConfig,
   id: BlockId,
+  level: number = cfg.handLevel,
 ): { steps: number } | { blocked: DigBlockedReason } {
   const h = cfg.hardness[id];
   if (h === null || h === undefined) return { blocked: 'unbreakable' };
-  if ((cfg.harvestLevel[id] ?? 0) > cfg.handLevel) return { blocked: 'needTool' };
+  if ((cfg.harvestLevel[id] ?? 0) > level) return { blocked: 'needTool' };
   return { steps: Math.max(1, Math.ceil((h * 60) / cfg.handPower - 1e-9)) };
 }
 
@@ -65,6 +95,7 @@ export class DigSystemImpl implements DigSystem {
   /** primary を押しつづけている歩数（空振り用。押していなければ -1） */
   private whiffHold = -1;
   private prevSecondary = false;
+  private digSwingTimer = 0;
 
   private drainQueue: DigEvent[] = [];
   private hookQueue: DigEvent[] = [];
@@ -82,6 +113,7 @@ export class DigSystemImpl implements DigSystem {
     private readonly rng: Rng = createRng(20240601),
     /** 戦い（M3）。線上で妖怪がブロックより手前ならパンチにする。なければ M2 のとおり */
     private readonly gate: PunchGate | null = null,
+    private readonly m4: DigM4Deps = {},
   ) {}
 
   target(): TargetInfo | null {
@@ -92,7 +124,7 @@ export class DigSystemImpl implements DigSystem {
     let progress = 0;
     let crack = 0;
     if (this.memBlock && this.mem > 0) {
-      const r = digSteps(this.config, this.memId!);
+      const r = digSteps(this.config, this.memId!, this.m4.tools?.current().level);
       if ('steps' in r) {
         const n = r.steps;
         progress = Math.min(1, this.mem / n);
@@ -115,6 +147,8 @@ export class DigSystemImpl implements DigSystem {
   }
 
   drainEvents(): DigEvent[] {
+    // 毎ステップ呼ばれる。何も無いときは同じ空配列を返す（ごみを作らない）
+    if (this.drainQueue.length === 0) return NO_DIG_EVENTS;
     const out = this.drainQueue;
     this.drainQueue = [];
     return out;
@@ -157,11 +191,15 @@ export class DigSystemImpl implements DigSystem {
     );
 
     // 同じステップのうちに押してはなす短いタップも拾う（wasPressed）
-    const primary = enabled && (this.actions.isHeld('primary') || this.actions.wasPressed('primary'));
+    const primaryRaw = enabled && (this.actions.isHeld('primary') || this.actions.wasPressed('primary'));
     const secondary = enabled && (this.actions.isHeld('secondary') || this.actions.wasPressed('secondary'));
-    this.punching = this.gate
-      ? this.gate.primaryStep(primary, { x: p.position.x, y: p.position.y + this.eyeHeight(), z: p.position.z }, d, this.tgt?.distance ?? null)
-      : false;
+    const tools = this.m4.tools;
+    const eye = { x: p.position.x, y: p.position.y + this.eyeHeight(), z: p.position.z };
+    const bow = tools?.current().kind === 'bow';
+    // ゆみ を持っているあいだは ほる・たたく をしない（や は tools が飛ばす）
+    const primary = primaryRaw && !bow;
+    tools?.step(primaryRaw, eye, d);
+    this.punching = this.gate ? this.gate.primaryStep(primary, eye, d, this.tgt?.distance ?? null) : false;
     this.updateWhiff(primary, secondary);
     this.updateDig(primary);
     this.prevPrimary = primary;
@@ -174,13 +212,18 @@ export class DigSystemImpl implements DigSystem {
   private updateWhiff(primary: boolean, secondary: boolean): void {
     if (!primary) this.whiffHold = -1;
     else if (!this.punching && !this.tgt) {
-      if (this.whiffHold < 0 || this.whiffHold >= WHIFF_REPEAT_TICKS) {
+      const every = this.m4.tools?.current().ticks ?? WHIFF_REPEAT_TICKS;
+      if (this.whiffHold < 0 || this.whiffHold >= every) {
         this.whiffs++;
+        this.m4.tools?.swingWhiff();
         this.whiffHold = 0;
       }
       this.whiffHold++;
     } else this.whiffHold = this.whiffHold < 0 ? 0 : this.whiffHold + 1;
-    if (secondary && !this.tgt && (!this.prevSecondary || this.actions.wasPressed('secondary'))) this.whiffs++;
+    if (secondary && !this.tgt && (!this.prevSecondary || this.actions.wasPressed('secondary'))) {
+      this.whiffs++;
+      this.m4.tools?.pushSwing('whiff');
+    }
   }
 
   private updateDig(primary: boolean): void {
@@ -199,7 +242,8 @@ export class DigSystemImpl implements DigSystem {
 
     const t = this.tgt;
     if (primary && t) {
-      const r = digSteps(cfg, t.id);
+      const tool = this.m4.tools?.current();
+      const r = digSteps(cfg, t.id, tool?.level);
       if ('blocked' in r) {
         this.blockedReason = r.blocked;
         if (this.justPressed()) {
@@ -216,13 +260,18 @@ export class DigSystemImpl implements DigSystem {
         this.ready = false;
       }
       this.active = true;
+      if (this.justPressed() || ++this.digSwingTimer >= DIG_SWING_REPEAT) {
+        this.digSwingTimer = 0;
+        this.m4.tools?.pushSwing('dig');
+      }
       if (this.ready) {
         // MAX で止まっている: 押し直した瞬間だけこわれる（押しっぱなしでは待つ）
         if (this.justPressed()) this.breakBlock(t);
         return;
       }
-      this.mem++;
-      if (this.mem >= r.steps) {
+      // 強さ ÷ すでの強さ だけ進む（すでの何ステップ分で数える。持ちかえてもそのまま続く）
+      this.mem += tool ? tool.power / cfg.handPower : 1;
+      if (this.mem >= r.steps - 1e-9) {
         this.mem = r.steps;
         this.ready = true;
         this.emit({ type: 'ready', tick: this.tickCount, block: { ...t.block }, id: t.id });
@@ -237,7 +286,8 @@ export class DigSystemImpl implements DigSystem {
     if (!this.memBlock) return;
     // MAX になったら減らない（こわれるか、別のブロックをほり始めるまで MAX のまま）
     if (this.ready) return;
-    this.mem -= this.config.digDecayRate;
+    const tool = this.m4.tools?.current();
+    this.mem -= this.config.digDecayRate * (tool ? tool.power / this.config.handPower : 1);
     this.ready = false;
     if (this.mem <= 1e-9) this.clearMem();
   }
@@ -256,10 +306,15 @@ export class DigSystemImpl implements DigSystem {
 
   private breakBlock(t: TargetInfo): void {
     const { x, y, z } = t.block;
+    const craft = this.m4.craft;
+    const wasFurnace = craft?.isFurnace(x, y, z) ?? false;
     this.world.setBlock(x, y, z, 'air');
+    const fixed = craft?.fixedDrop(t.id) ?? null;
     const max = Math.max(1, this.config.dropMax[this.config.rarity[t.id] ?? 'common'] ?? 1);
-    const n = randInt(this.rng, 1, max);
+    const n = fixed !== null ? fixed : randInt(this.rng, 1, max);
     const got = n - this.inventory.add(t.id, n);
+    if (got > 0) this.m4.onPickup?.(t.id, got);
+    if (wasFurnace) craft!.furnaceBroken(x, y, z);
     this.emit({ type: 'break', tick: this.tickCount, block: { x, y, z }, id: t.id, gotItem: got > 0, count: got });
     this.clearMem();
     this.active = false;
@@ -272,9 +327,27 @@ export class DigSystemImpl implements DigSystem {
       return;
     }
     const every = this.config.placeRepeatTicks;
+    const first = this.secondaryTicks === 0;
     const due = this.secondaryTicks % every === 0;
     this.secondaryTicks++;
+    // かまど > 防具 > 置く（かまど・防具は押した瞬間だけ）
+    if (first && this.tryFurnace()) return;
+    if (first && this.tryArmor()) return;
     if (due) this.tryPlace();
+  }
+
+  private tryFurnace(): boolean {
+    const craft = this.m4.craft;
+    const t = this.tgt;
+    if (!craft || !t || !craft.isFurnace(t.block.x, t.block.y, t.block.z)) return false;
+    craft.openFurnace(t.block.x, t.block.y, t.block.z);
+    return true;
+  }
+
+  private tryArmor(): boolean {
+    const held = this.inventory.held();
+    if (!held || !this.m4.armor) return false;
+    return this.m4.armor.tryEquip(held.item);
   }
 
   private tryPlace(): void {
@@ -286,11 +359,22 @@ export class DigSystemImpl implements DigSystem {
     const { x, y, z } = t.place;
     const cur = this.world.getBlock(x, y, z);
     if (cur !== 'air' && cur !== 'water') return; // 世界の外・ほかのブロック
-    if (this.overlapsBody(x, y, z)) return;
+    if (block === 'torch') {
+      // たいまつ: 固くない（体と重なっても置ける）。下か横に固いブロックが要る
+      if (!this.torchSupported(x, y, z)) return;
+    } else if (this.overlapsBody(x, y, z)) return;
     if (this.gate?.placeBlocked(x, y, z)) return; // 妖怪の箱の所には置けない
     if (!this.world.setBlock(x, y, z, block)) return;
     this.inventory.consumeHeld();
+    this.m4.tools?.pushSwing('place');
     this.emit({ type: 'place', tick: this.tickCount, block: { x, y, z }, id: block });
+  }
+
+  private torchSupported(x: number, y: number, z: number): boolean {
+    const w = this.world;
+    return (
+      w.isSolid(x, y - 1, z) || w.isSolid(x - 1, y, z) || w.isSolid(x + 1, y, z) || w.isSolid(x, y, z - 1) || w.isSolid(x, y, z + 1)
+    );
   }
 
   private overlapsBody(bx: number, by: number, bz: number): boolean {

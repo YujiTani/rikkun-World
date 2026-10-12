@@ -20,9 +20,13 @@
   gap: 24px;
   align-items: flex-start;
 }
-/* 右側は M4 の「つくる」場所 */
-.inv-side {
+/* 右側は M4 の「つくる」「やく」の場所 */
+.inv-side:empty {
   width: 0;
+}
+.inv-main {
+  display: flex;
+  align-items: flex-end;
 }
 
 .inv-panel {

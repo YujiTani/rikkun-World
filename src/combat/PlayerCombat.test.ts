@@ -562,7 +562,7 @@ describe('やられた・落とす・ふくろ・復活', () => {
     expect(h.get()).toMatchObject({ hp: 13, maxHp: 20, dead: false });
     h.damage(20);
     expect(h.get().dead).toBe(true);
-    expect(h.events().map((e) => e.type)).toEqual(['death']);
+    expect(h.events().map((e) => e.type)).toEqual(['playerHit', 'death']);
     expect(h.events()).toEqual([]);
   });
 });

@@ -7,6 +7,9 @@ import type { createInventoryHook } from '../inventory';
 import type { createSaveHook } from '../save';
 import type { createTimeHook } from '../time';
 import type { createCombatHook } from '../combat';
+import type { createArmorHook, createCraftHook, createFurnaceHook } from '../craft';
+import type { createCraftUiHook } from '../ui/craftUi';
+import type { createToolHook } from '../tools';
 import type { createYokaiHook } from '../yokai';
 import type { WorldHook } from '../world/hook';
 import type { PerfOverlay } from './perfOverlay';
@@ -35,14 +38,19 @@ export interface TestHook {
   player: PlayerHook;
   camera: CameraHook['camera'];
   input: ReturnType<typeof createInputHook>;
-  lock: ReturnType<typeof createLockHook>;
+  lock: ReturnType<typeof createLockHook> & { tab(name: string): void };
   settings: ReturnType<typeof createSettingsHook>;
   target: ReturnType<typeof createDigHook>['target'];
   dig: ReturnType<typeof createDigHook>['dig'];
   inventory: ReturnType<typeof createInventoryHook>;
   save: ReturnType<typeof createSaveHook>;
   time: ReturnType<typeof createTimeHook>;
-  combat: ReturnType<typeof createCombatHook>;
+  combat: ReturnType<typeof createCombatHook> & { arrows(): unknown[] };
+  /** M4 §6.1 */
+  craft: Omit<ReturnType<typeof createCraftHook>, 'click'> & ReturnType<typeof createCraftUiHook>['craft'];
+  furnace: ReturnType<typeof createFurnaceHook>;
+  armor: ReturnType<typeof createArmorHook>;
+  tool: ReturnType<typeof createToolHook>['tool'];
   yokai: ReturnType<typeof createYokaiHook>['yokai'];
 }
 
@@ -52,7 +60,7 @@ declare global {
   }
 }
 
-export type TestHookGroups = Pick<TestHook, 'world' | 'player' | 'camera' | 'input' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'combat' | 'yokai'>;
+export type TestHookGroups = Pick<TestHook, 'world' | 'player' | 'camera' | 'input' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool'>;
 
 export function installTestHook(game: Game, overlay: PerfOverlay, groups: TestHookGroups): void {
   window.__rikkun = {

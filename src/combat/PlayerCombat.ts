@@ -1,6 +1,7 @@
 import type {
   CombatEvent,
   Inventory,
+  ItemId,
   ItemStack,
   PlayerCombat,
   PlayerState,
@@ -22,6 +23,19 @@ import {
 
 const MAX_QUEUE = 256;
 
+/** 防具の窓口（M4。`ArmorSystemImpl` が合う） */
+export interface CombatArmorPort {
+  /** 妖怪の攻撃を受けた。カットする量（体力の単位）を返す */
+  cut(): number;
+  equipped(slot: 'head' | 'body'): ItemId | null;
+  /** そうびのマスを空にして中身を返す */
+  take(slot: 'head' | 'body'): ItemId | null;
+  resetHits(): void;
+}
+
+/** `playerHit` に `blocked`（防具でふせいだ）を足した形。contracts の型より広い */
+export type PlayerHitEvent = Extract<CombatEvent, { type: 'playerHit' }> & { blocked?: boolean };
+
 /** 落ちたアイテム 1 つ（マス 1 つ分。slots は 1 つだけ） */
 export type DropBag = DropView;
 
@@ -38,6 +52,13 @@ export interface PunchGate {
   placeBlocked(x: number, y: number, z: number): boolean;
 }
 
+/** 持っている武器のパンチの値（M4。`ToolSystemImpl` が合う。なければ config の値） */
+export interface PunchTool {
+  punchParams(): { damage: number; reach: number; ticks: number };
+  /** パンチを始めた（人形の振り用） */
+  onPunchStart(): void;
+}
+
 export interface CombatPlayerPort {
   get(): PlayerState;
   set(v: { position?: Vec3; velocity?: Vec3; yawDeg?: number; pitchDeg?: number }): void;
@@ -51,6 +72,8 @@ export interface CombatDeps {
   yokai: () => YokaiWorld;
   /** スタート地点（そのとき計算し直す） */
   spawn: () => SpawnPoint;
+  /** 持っている武器の強さ・距離・当たるまで（M4） */
+  tool?: PunchTool;
   /** もちもの画面が開いていれば閉じる */
   closeInventory?: () => void;
   /** やられたとき・ふくろを拾ったとき・ふくろが消えたとき 保存してほしい */
@@ -60,6 +83,10 @@ export interface CombatDeps {
   rng?: Rng;
   /** 落ちたアイテムの置き場（妖怪のドロップと共通）。なければ自分で作る */
   drops?: DropField;
+  /** M4: 防具（ふせぐ・やられたとき落とす） */
+  armor?: CombatArmorPort;
+  /** M4: 拾って入った（自分で作る DropField 用。拾ったログ） */
+  onPickup?: (item: ItemId, count: number) => void;
 }
 
 export interface CombatHookState {
@@ -104,6 +131,10 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
   private kbZ = 0;
 
   private punchTickNow = 0;
+  /** いまのパンチを始めたときの値（途中で持ちかえても そのまま） */
+  private pDamage = 1;
+  private pReach = 3;
+  private pTicks = 30;
 
   readonly drops: DropField;
 
@@ -124,6 +155,7 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
         ticks: this.config.dropBagTicks,
         pickupRadius: this.config.pickupRadius,
         requestSave: d.requestSave,
+        onPickup: d.onPickup,
       });
   }
 
@@ -182,9 +214,9 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
     if (v <= 0) this.die();
   }
 
-  /** n のダメージを受けたのと同じ（むてき・回復の待ちも同じ。押されはしない・playerHit は出さない） */
-  debugDamage(n: number): boolean {
-    return this.hurt(n, null, null);
+  /** n のダメージを受けたのと同じ（むてき・回復の待ちも同じ。押されはしない）。by を渡すと その妖怪の攻撃として防具を通り、playerHit も出る */
+  debugDamage(n: number, by: YokaiKind | null = null): boolean {
+    return this.hurt(n, by, null);
   }
 
   bags(): DropBag[] {
@@ -209,7 +241,7 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
     const cfg = this.config;
     if (this.punchTickNow > 0) {
       this.punchTickNow++;
-      if (this.punchTickNow >= cfg.punchTicks) {
+      if (this.punchTickNow >= this.pTicks) {
         this.punchTickNow = 0;
         this.resolvePunch(eye, dir, blockDistance);
       }
@@ -217,12 +249,18 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
     }
     if (!primary) return false;
     // とどく距離内で いちばん手前が妖怪ならパンチ（遠い妖怪は無視。ブロックはふつうにほれる）
-    const maxD = blockDistance === null ? cfg.punchReach : Math.min(blockDistance, cfg.punchReach);
+    const tp = this.d.tool?.punchParams();
+    const reach = tp ? tp.reach : cfg.punchReach;
+    const maxD = blockDistance === null ? reach : Math.min(blockDistance, reach);
     const hit = this.d.yokai().raycast(eye, dir, maxD);
     if (!hit || (blockDistance !== null && hit.distance >= blockDistance)) return false;
+    this.pDamage = tp ? tp.damage : cfg.punchDamage;
+    this.pReach = reach;
+    this.pTicks = tp ? tp.ticks : cfg.punchTicks;
     this.punchTickNow = 1;
     this.emit({ type: 'punchStart', tick: this.tickCount });
-    if (cfg.punchTicks <= 1) {
+    this.d.tool?.onPunchStart();
+    if (this.pTicks <= 1) {
       this.punchTickNow = 0;
       this.resolvePunch(eye, dir, blockDistance);
     }
@@ -230,13 +268,12 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
   }
 
   private resolvePunch(eye: Vec3, dir: Vec3, blockDistance: number | null): void {
-    const cfg = this.config;
-    const maxD = blockDistance === null ? cfg.punchReach : Math.min(blockDistance, cfg.punchReach);
+    const maxD = blockDistance === null ? this.pReach : Math.min(blockDistance, this.pReach);
     const yw = this.d.yokai();
     const hit = yw.raycast(eye, dir, maxD);
-    if (hit && hit.distance <= cfg.punchReach && (blockDistance === null || hit.distance < blockDistance)) {
+    if (hit && hit.distance <= this.pReach && (blockDistance === null || hit.distance < blockDistance)) {
       this.emit({ type: 'punchHit', tick: this.tickCount, yokaiId: hit.id });
-      yw.damage(hit.id, cfg.punchDamage, { ...this.d.player.get().position });
+      yw.damage(hit.id, this.pDamage, { ...this.d.player.get().position });
     } else {
       this.emit({ type: 'punchMiss', tick: this.tickCount });
     }
@@ -284,11 +321,20 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
   private hurt(amount: number, by: YokaiKind | null, from: Vec3 | null): boolean {
     if (this.isDead || this.invincible > 0 || !(amount > 0)) return false;
     const cfg = this.config;
-    this.hpNow = Math.max(0, this.hpNow - amount);
-    this.invincible = cfg.hurtInvincibleTicks;
+    // 防具でふせぐ（M4 §2.7）: 妖怪の攻撃だけ。ふせいだ回も むてき・押されるは ふつうどおり
+    // 受けるダメージ = max(体力 1〈ハート半分〉, 元 − カット)。カットが 1 以上ならカキン（blocked）
+    const cutBy = by !== null ? (this.d.armor?.cut() ?? 0) : 0;
+    const blocked = cutBy >= 1;
+    const taken = blocked ? Math.max(1, amount - cutBy) : amount;
+    this.hpNow = Math.max(0, this.hpNow - taken);
     this.sinceDamage = 0;
     this.lastDamageTick = this.tickCount;
-    if (by !== null) this.emit({ type: 'playerHit', tick: this.tickCount, by, amount });
+    this.invincible = cfg.hurtInvincibleTicks;
+    if (by !== null) {
+      const ev: PlayerHitEvent = { type: 'playerHit', tick: this.tickCount, by, amount: taken };
+      if (blocked) ev.blocked = true;
+      this.emit(ev);
+    }
     if (from) {
       const st = this.d.player.get();
       let dx = st.position.x - from.x;
@@ -346,6 +392,17 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
       }
     }
     for (const i of dropped) inv.setSlot(i, null);
+    // そうびのマスも 1 マスずつ同じ確率で（M4 §2.7）
+    const armor = this.d.armor;
+    if (armor) {
+      for (const slot of ['head', 'body'] as const) {
+        const it = armor.equipped(slot);
+        if (it && this.rng() < this.config.dropChance) {
+          armor.take(slot);
+          stacks.push({ item: it, count: 1 });
+        }
+      }
+    }
     // マスごとに 1 つの「落ちたアイテム」にして、まわりにばらまく
     this.drops.scatter(this.deathPos, stacks, { kind: 'death' });
     this.emit({ type: 'death', tick: this.tickCount, dropped });
@@ -362,6 +419,7 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
     });
     this.isDead = false;
     this.deadTicks = 0;
+    this.d.armor?.resetHits();
     this.hpNow = this.config.playerMaxHp;
     this.invincible = this.config.respawnInvincibleTicks;
     this.sinceDamage = 0;

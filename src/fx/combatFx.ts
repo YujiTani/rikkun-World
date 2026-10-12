@@ -101,10 +101,6 @@ export class CombatFx {
         playCombat(sound, 'spawn');
       } else if (ev.type === 'defeat') {
         playCombat(sound, 'defeat');
-        if (ev.reward > 0) {
-          playCombat(sound, 'orb');
-          d.onPickup?.('yokai_orb', ev.reward);
-        }
       }
     }
 

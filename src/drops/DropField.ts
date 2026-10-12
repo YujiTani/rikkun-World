@@ -82,10 +82,14 @@ export interface DropFieldDeps {
   rng?: Rng;
   ticks?: number;
   pickupRadius?: number;
+  /** あれば「消えるまで」と「拾える距離」を毎回ここから読む（settings で変えたら すぐ効く） */
+  live?: { dropBagTicks: number; pickupRadius: number };
   /** 拾った・消えたとき 保存してほしい */
   requestSave?: () => void;
   /** 近づいたのに 1 つも入らなかった（もちものがいっぱい）。ステップごとに呼ばれうる */
   onFull?: () => void;
+  /** 拾って持ち物に入った（入った数）。拾ったログ用（M4） */
+  onPickup?: (item: ItemStack['item'], count: number) => void;
 }
 
 const DT = 1 / 60;
@@ -126,7 +130,7 @@ export class DropField {
         vz: Math.sin(ang) * sp,
         resting: false,
         item: { item: st.item, count: st.count },
-        ticksLeft: this.life,
+        ticksLeft: this.d.live?.dropBagTicks ?? this.life,
         batch,
         rarity,
       });
@@ -136,15 +140,50 @@ export class DropField {
     return total;
   }
 
+  private views: DropView[] = [];
+  private viewById = new Map<number, DropView>();
+  private static readonly EMPTY: DropView[] = [];
+
+  /**
+   * 外から見える一覧。毎フレーム呼ばれるので、入れ物は使いまわす（0 件なら同じ空配列、
+   * 数が変わったときだけ並べ直し、あとは中の値を書きかえる）。呼んだ側は保存せずその場で読むこと
+   */
   list(): DropView[] {
-    return this.items.map((b) => ({
-      id: b.id,
-      position: { x: b.x, y: b.y, z: b.z },
-      slots: [{ item: b.item.item, count: b.item.count }],
-      ticksLeft: b.ticksLeft,
-      batch: b.batch,
-      rarity: b.rarity,
-    }));
+    if (this.items.length === 0) return DropField.EMPTY;
+    let same = this.views.length === this.items.length;
+    for (let i = 0; same && i < this.items.length; i++) if (this.views[i]!.id !== this.items[i]!.id) same = false;
+    if (!same) {
+      const next: DropView[] = [];
+      const map = new Map<number, DropView>();
+      for (const b of this.items) {
+        const v = this.viewById.get(b.id) ?? {
+          id: b.id,
+          position: { x: 0, y: 0, z: 0 },
+          slots: [{ item: b.item.item, count: b.item.count }],
+          ticksLeft: 0,
+          batch: b.batch,
+          rarity: b.rarity,
+        };
+        next.push(v);
+        map.set(b.id, v);
+      }
+      this.views = next;
+      this.viewById = map;
+    }
+    for (let i = 0; i < this.items.length; i++) {
+      const b = this.items[i]!;
+      const v = this.views[i]!;
+      v.position.x = b.x;
+      v.position.y = b.y;
+      v.position.z = b.z;
+      const sl = v.slots[0]!;
+      sl.item = b.item.item;
+      sl.count = b.item.count;
+      v.ticksLeft = b.ticksLeft;
+      v.batch = b.batch;
+      v.rarity = b.rarity;
+    }
+    return this.views;
   }
 
   size(): number {
@@ -156,6 +195,7 @@ export class DropField {
     const picked: number[] = [];
     if (this.items.length === 0) return picked;
     const p = this.d.player();
+    const radius = this.d.live?.pickupRadius ?? this.radius;
     let changed = false;
     for (const b of this.items) {
       b.ticksLeft--;
@@ -165,9 +205,10 @@ export class DropField {
       }
       this.step(b);
       if (!canPickup) continue;
-      if (Math.hypot(p.x - b.x, p.z - b.z) <= this.radius && Math.abs(p.y - b.y) <= DROP.pickupHeight) {
+      if (Math.hypot(p.x - b.x, p.z - b.z) <= radius && Math.abs(p.y - b.y) <= DROP.pickupHeight) {
         const left = this.d.inventory.add(b.item.item, b.item.count);
         if (left !== b.item.count) {
+          this.d.onPickup?.(b.item.item, b.item.count - left);
           b.item = { item: b.item.item, count: left };
           picked.push(b.id);
           changed = true;

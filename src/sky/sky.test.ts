@@ -1,3 +1,4 @@
+import { lightBrightness } from '../world/light';
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import { TimeOfDayImpl } from '../time/TimeOfDay';
@@ -68,7 +69,8 @@ describe('Sky', () => {
     sky.update(cam);
     expect((scene.background as THREE.Color).getHex()).toBe(0x1b2350);
     expect(scene.fog!.color.getHex()).toBe(0x1b2350);
-    expect(mat.color.r).toBeCloseTo(levelToLinear(0.45));
+    // L の光（空の下の明るさ）を、#4 の見た目どおりの変換（levelToLinear）でかける
+    expect(mat.color.r).toBeCloseTo(levelToLinear(lightBrightness(4)));
     expect(sky.moon.visible).toBe(true);
     expect(sky.sun.visible).toBe(false);
     time.set(0);
