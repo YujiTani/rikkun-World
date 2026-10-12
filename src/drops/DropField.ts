@@ -14,6 +14,16 @@ export const DROP = {
   /** 水の中で水面へうかぶ速さ（ブロック/秒） */
   floatSpeed: 3,
   maxItems: 400,
+  /** ぴょんと散らばる: 横の速さ(マス/秒) 最小・最大 */
+  scatterSpeed: [2, 3.5],
+  /** 上向きの速さ(マス/秒) 最小・最大 */
+  popUpSpeed: [5, 6.5],
+  /** はね返り（上下 0.4 倍・横 0.6 倍）と はねる回数の上限（PSO ふう: 高い弧で 1 回だけ小さく） */
+  bounce: { vertical: 0.4, horizontal: 0.6, maxCount: 1, minImpact: 1.5 },
+  /** 出てから拾えるまで（ステップ。0.3 秒） */
+  pickupDelay: 18,
+  /** 向きのゆらぎ（360°/こ数 のうち 何割まで） */
+  angleJitter: 0.35,
 } as const;
 
 /** ばらまき方（やられた = 大きく、妖怪 = 小さく） */
@@ -22,18 +32,13 @@ export type DropKind = 'death' | 'yokai';
 export interface ScatterOptions {
   /** ばらまき方の型。ふつうは 'death' */
   kind?: DropKind;
-  /** 水平の速さの最小〜最大（ブロック/秒） */
+  /** 水平の速さの最小〜最大（ブロック/秒）。なければ DROP.scatterSpeed */
   speedMin?: number;
   speedMax?: number;
-  /** 上向きの速さの最小〜最大 */
+  /** 上向きの速さの最小〜最大。なければ DROP.popUpSpeed */
   upMin?: number;
   upMax?: number;
 }
-
-const KIND_SCATTER: Record<DropKind, Required<Omit<ScatterOptions, 'kind'>>> = {
-  death: { speedMin: 1.5, speedMax: 3.5, upMin: 4, upMax: 6 },
-  yokai: { speedMin: 0.8, speedMax: 1.8, upMin: 3, upMax: 4.5 },
-};
 
 /** 外から見える 1 つ（`combat.bags()` の 1 件。slots は 1 つだけ） */
 export interface DropView {
@@ -45,6 +50,8 @@ export interface DropView {
   batch: number;
   /** その回でいちばんめずらしいアイテムのめずらしさ（柱の色） */
   rarity: Rarity;
+  /** じっと止まっている（とんでいるあいだは false → アイコンがくるっと回る） */
+  resting: boolean;
 }
 
 export type DropSave = {
@@ -71,6 +78,9 @@ interface Entity {
   ticksLeft: number;
   batch: number;
   rarity: Rarity;
+  /** 出てからのステップ数 */
+  age: number;
+  bounces: number;
 }
 
 export interface DropFieldDeps {
@@ -111,14 +121,24 @@ export class DropField {
 
   /** stacks（1 つ = 1 アイテム）を position からまわりにばらまく。ばらまいた数（こ数の合計）を返す */
   scatter(position: Vec3, stacks: readonly ItemStack[], opts: ScatterOptions = {}): number {
-    const kind = opts.kind ?? 'death';
-    const o = { ...KIND_SCATTER[kind], ...opts };
+    const o = {
+      speedMin: opts.speedMin ?? DROP.scatterSpeed[0],
+      speedMax: opts.speedMax ?? DROP.scatterSpeed[1],
+      upMin: opts.upMin ?? DROP.popUpSpeed[0],
+      upMax: opts.upMax ?? DROP.popUpSpeed[1],
+    };
     let total = 0;
+    const n = stacks.filter((x) => x.count >= 1).length;
+    const base = this.rng() * Math.PI * 2;
+    const slice = (Math.PI * 2) / Math.max(1, n);
+    let idx = 0;
     const batch = this.nextBatch++;
     const rarity = topRarity(stacks.filter((x) => x.count >= 1).map((x) => x.item));
     for (const st of stacks) {
       if (st.count < 1) continue;
-      const ang = this.rng() * Math.PI * 2;
+      // 向きを 360°/こ数 で分けて、ゆらぎを足す（となりと重ならない）
+      const ang = base + idx * slice + (this.rng() - 0.5) * slice * DROP.angleJitter;
+      idx++;
       const sp = o.speedMin + this.rng() * (o.speedMax - o.speedMin);
       this.items.push({
         id: this.nextId++,
@@ -133,6 +153,8 @@ export class DropField {
         ticksLeft: this.d.live?.dropBagTicks ?? this.life,
         batch,
         rarity,
+        age: 0,
+        bounces: 0,
       });
       total += st.count;
       if (this.items.length > DROP.maxItems) this.items.shift();
@@ -163,6 +185,7 @@ export class DropField {
           ticksLeft: 0,
           batch: b.batch,
           rarity: b.rarity,
+          resting: b.resting,
         };
         next.push(v);
         map.set(b.id, v);
@@ -182,6 +205,7 @@ export class DropField {
       v.ticksLeft = b.ticksLeft;
       v.batch = b.batch;
       v.rarity = b.rarity;
+      v.resting = b.resting;
     }
     return this.views;
   }
@@ -203,8 +227,9 @@ export class DropField {
         changed = true;
         continue;
       }
+      b.age++;
       this.step(b);
-      if (!canPickup) continue;
+      if (!canPickup || b.age < DROP.pickupDelay) continue;
       if (Math.hypot(p.x - b.x, p.z - b.z) <= radius && Math.abs(p.y - b.y) <= DROP.pickupHeight) {
         const left = this.d.inventory.add(b.item.item, b.item.count);
         if (left !== b.item.count) {
@@ -260,17 +285,27 @@ export class DropField {
     const cz = Math.floor(b.z);
     if (b.vy <= 0 && w.isSolid(cx, Math.floor(ny), cz)) {
       b.y = Math.floor(ny) + 1;
-      b.vx = b.vy = b.vz = 0;
-      b.resting = true;
+      this.land(b);
     } else if (b.vy > 0 && w.isSolid(cx, Math.floor(ny + 0.3), cz)) {
       b.vy = 0; // 天井
     } else {
       b.y = Math.max(0, ny);
-      if (b.y <= 0) {
-        b.vx = b.vy = b.vz = 0;
-        b.resting = true;
-      }
+      if (b.y <= 0) this.land(b);
     }
+  }
+
+  /** 地面についた: 勢いがあれば ぴょんと はねる（最大 2 回）。なければ止まる */
+  private land(b: Entity): void {
+    const k = DROP.bounce;
+    if (-b.vy > k.minImpact && b.bounces < k.maxCount) {
+      b.bounces++;
+      b.vy = -b.vy * k.vertical;
+      b.vx *= k.horizontal;
+      b.vz *= k.horizontal;
+      return;
+    }
+    b.vx = b.vy = b.vz = 0;
+    b.resting = true;
   }
 
   /** 横に動く。固いブロックにぶつかったらその向きは止める */
@@ -327,6 +362,8 @@ export class DropField {
           vy: 0,
           vz: 0,
           resting: false,
+          age: DROP.pickupDelay,
+          bounces: DROP.bounce.maxCount,
           item: { item: ty.id, count: c },
           ticksLeft: Math.min(Math.floor(t), this.life),
           batch,

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { YokaiBase } from '../common';
 
+const STONE_GRAY = new THREE.Color(0x8c8c8c);
 const CHOCHIN_BODY = [0xffb347, 0xfff2a0];
 
 /**
@@ -22,6 +23,7 @@ export function applyDollBrightness(model: YokaiBase, kindId: string, brightness
       }
       if (ud.skip) continue;
       mat.color.setHex(ud.base);
+      if (model.stoneness > 0) mat.color.lerp(STONE_GRAY, model.stoneness);
       if (brightness !== 1) mat.color.multiplyScalar(brightness);
     }
   });

@@ -1,4 +1,4 @@
-import type { BlockId, BlockType, IslandInfo, SpawnPoint, TestArea } from '../contracts';
+import type { BlockId, BlockType, IslandInfo, SpawnPoint, TestArea, WorldRegions } from '../contracts';
 import { BLOCK_TYPES } from './blocks/blockTypes';
 import { skyDarkness } from './light/skyDarkness';
 import type { WorldRenderer, RebuildStats } from './render/WorldRenderer';
@@ -16,12 +16,16 @@ export interface WorldHook {
   hash(): string;
   spawn(): SpawnPoint;
   testArea(): TestArea;
+  /** M5: 地形の場所 */
+  regions(): WorldRegions;
   genTimeMs(): number;
   blockTypes(): BlockType[];
   rebuildStats(): RebuildStats;
   /** M4 光: そのマスの光（空の光・ブロックの光・時刻をふくんだ明るさ 0〜15・見た目の明るさ 0〜1）と、空の光の弱まり（昼 0〜夜 11） */
   lightAt(x: number, y: number, z: number): { sky: number; block: number; level: number; brightness: number };
   skyDarkness(): number;
+  /** M5: 最初の明るさの計算にかかったミリ秒 */
+  lightInitMs(): number;
 }
 
 export function createWorldHook(world: ArrayVoxelWorld, renderer: WorldRenderer, island: IslandInfo): WorldHook {
@@ -36,6 +40,7 @@ export function createWorldHook(world: ArrayVoxelWorld, renderer: WorldRenderer,
     hash: () => world.hash(),
     spawn: () => island.spawn(),
     testArea: () => island.testArea(),
+    regions: () => island.regions(),
     genTimeMs: () => island.genTimeMs,
     blockTypes: () => BLOCK_TYPES.map((t) => ({ ...t })),
     rebuildStats: () => renderer.rebuildStats(),
@@ -46,5 +51,6 @@ export function createWorldHook(world: ArrayVoxelWorld, renderer: WorldRenderer,
       brightness: renderer.light.brightness(x, y, z),
     }),
     skyDarkness: () => skyDarkness.value,
+    lightInitMs: () => renderer.light.initMs,
   };
 }

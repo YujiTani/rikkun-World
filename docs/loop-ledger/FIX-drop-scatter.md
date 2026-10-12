@@ -1,0 +1,4 @@
+- dev / code-reviewer / 1周目: 合格。check:fast 緑（578 tests）。重大 0 件。
+- 【軽微】src/drops/DropField.test.ts: 行末の空白 → 修正済み。
+- 【軽微】src/drops/DropField.ts: ScatterOptions.kind が使われなくなった（妖怪と やられたで同じ散らし方）。票どおりなので許容、後で型から外してよい。
+- 【軽微】票の「はねる 1〜2 回」に対し bounce.maxCount=1（PSO 追記の「1 回」に合わせた）。テストは 1〜2 を許容しており整合。

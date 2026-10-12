@@ -14,6 +14,9 @@ const ALL_IDS: BlockId[] = [
   'torch', 'start_torch',
 ];
 
+/** この試験は M1 の 64×32×64 の世界で書かれている */
+const OLD_SIZE = { x: 64, y: 32, z: 64 };
+
 describe('ブロックの定義 (AC16)', () => {
   it('14 種そろっている（M4 で かまど・かわら・レンガ を後ろに足した）', () => {
     expect(BLOCK_TYPES.map((t) => t.id)).toEqual(ALL_IDS);
@@ -50,7 +53,7 @@ describe('ドット絵', () => {
 
 describe('ArrayVoxelWorld', () => {
   it('大きさ・範囲外・get/set', () => {
-    const w = new ArrayVoxelWorld();
+    const w = new ArrayVoxelWorld(OLD_SIZE);
     expect(w.size).toEqual({ x: 64, y: 32, z: 64 });
     expect(w.getBlock(10, 10, 10)).toBe('air');
     expect(w.getBlock(-1, 10, 10)).toBe('outside');
@@ -64,7 +67,7 @@ describe('ArrayVoxelWorld', () => {
     expect(w.isSolid(11, 10, 10)).toBe(false);
   });
   it('範囲外・知らない id の setBlock は false で hash が変わらない', () => {
-    const w = new ArrayVoxelWorld();
+    const w = new ArrayVoxelWorld(OLD_SIZE);
     const h = w.hash();
     expect(w.setBlock(-1, 0, 0, 'stone')).toBe(false);
     expect(w.setBlock(0, 32, 0, 'stone')).toBe(false);
@@ -73,7 +76,7 @@ describe('ArrayVoxelWorld', () => {
     expect(w.hash()).toBe(h);
   });
   it('fill は箱の中を変え、変えた数を返す。範囲外は変えない', () => {
-    const w = new ArrayVoxelWorld();
+    const w = new ArrayVoxelWorld(OLD_SIZE);
     expect(w.fill(2, 2, 2, 0, 0, 0, 'dirt')).toBe(27);
     expect(w.getBlock(1, 1, 1)).toBe('dirt');
     expect(w.fill(-3, 0, 0, 1, 0, 0, 'stone')).toBe(2);
@@ -82,8 +85,8 @@ describe('ArrayVoxelWorld', () => {
     expect(w.fill(62, 31, 62, 70, 40, 70, 'sand')).toBe(2 * 1 * 2);
   });
   it('countBlocks と hash', () => {
-    const a = new ArrayVoxelWorld();
-    const b = new ArrayVoxelWorld();
+    const a = new ArrayVoxelWorld(OLD_SIZE);
+    const b = new ArrayVoxelWorld(OLD_SIZE);
     a.fill(0, 0, 0, 63, 0, 63, 'bedrock');
     b.fill(0, 0, 0, 63, 0, 63, 'bedrock');
     expect(a.countBlocks().bedrock).toBe(4096);
@@ -93,7 +96,7 @@ describe('ArrayVoxelWorld', () => {
     expect(a.hash()).not.toBe(b.hash());
   });
   it('markDirty(reach 2): 光は面の角が 2 マス先まで読むので、ふちから 2 マスはとなりも作り直す', () => {
-    const w = new ArrayVoxelWorld();
+    const w = new ArrayVoxelWorld(OLD_SIZE);
     w.takeDirtyChunks();
     w.markDirty(17, 5); // 次のチャンクの 1 列目
     expect(w.takeDirtyChunks().sort()).toEqual([1]);
@@ -103,7 +106,7 @@ describe('ArrayVoxelWorld', () => {
     expect(w.takeDirtyChunks().sort((p, q) => p - q)).toEqual([0, 1, 4, 5]);
   });
   it('変わったチャンクを覚える。チャンクの端はとなりも', () => {
-    const w = new ArrayVoxelWorld();
+    const w = new ArrayVoxelWorld(OLD_SIZE);
     expect(w.takeDirtyChunks()).toHaveLength(16);
     expect(w.takeDirtyChunks()).toHaveLength(0);
     w.setBlock(5, 5, 5, 'stone');
@@ -119,7 +122,7 @@ describe('ArrayVoxelWorld', () => {
 
 describe('メッシュ（見えない面を描かない）', () => {
   it('1 個だけなら 6 面、くっつけると内側の面が消える', () => {
-    const w = new ArrayVoxelWorld();
+    const w = new ArrayVoxelWorld(OLD_SIZE);
     w.setBlock(5, 5, 5, 'stone');
     expect(meshChunk(w, 0, 0).opaque.faceCount).toBe(6);
     w.setBlock(6, 5, 5, 'dirt');
@@ -129,12 +132,12 @@ describe('メッシュ（見えない面を描かない）', () => {
     expect(m.faceCount).toBe(10 + 3 * 16); // 箱の x/y/z の 0 側は外向きで描かない → 上・+x・+z の 3 方向 x 16
   });
   it('世界の外へ向く面は描かない', () => {
-    const w = new ArrayVoxelWorld();
+    const w = new ArrayVoxelWorld(OLD_SIZE);
     w.setBlock(0, 0, 0, 'bedrock');
     expect(meshChunk(w, 0, 0).opaque.faceCount).toBe(3);
   });
   it('面の頂点・index・色の数が合い、明るさは上 1.0・横 0.8・下 0.6', () => {
-    const w = new ArrayVoxelWorld();
+    const w = new ArrayVoxelWorld(OLD_SIZE);
     w.setBlock(5, 5, 5, 'grass');
     const m = meshChunk(w, 0, 0).opaque;
     expect(m.positions).toHaveLength(6 * 4 * 3);
@@ -144,7 +147,7 @@ describe('メッシュ（見えない面を描かない）', () => {
     expect([...shades].sort()).toEqual([0.6, 0.8, 1]);
   });
   it('水は別メッシュ。海の水は上の面だけ', () => {
-    const w = new ArrayVoxelWorld();
+    const w = new ArrayVoxelWorld(OLD_SIZE);
     w.fill(0, 0, 0, 63, 6, 63, 'sand');
     w.fill(0, 7, 0, 63, 7, 63, 'water');
     const m = meshChunk(w, 0, 0);
@@ -153,7 +156,7 @@ describe('メッシュ（見えない面を描かない）', () => {
     expect(m.opaque.faceCount).toBe(16 * 16);
   });
   it('チャンクのさかいでも面をまちがって消さない', () => {
-    const w = new ArrayVoxelWorld();
+    const w = new ArrayVoxelWorld(OLD_SIZE);
     w.setBlock(15, 5, 5, 'stone');
     w.setBlock(16, 5, 5, 'stone');
     expect(meshChunk(w, 0, 0).opaque.faceCount).toBe(5);
@@ -163,7 +166,7 @@ describe('メッシュ（見えない面を描かない）', () => {
 
 describe('WorldRenderer', () => {
   function setup() {
-    const w = new ArrayVoxelWorld();
+    const w = new ArrayVoxelWorld(OLD_SIZE);
     w.fill(0, 0, 0, 63, 0, 63, 'bedrock');
     w.fill(0, 1, 0, 63, 6, 63, 'stone');
     const r = new WorldRenderer(w);
@@ -216,7 +219,7 @@ describe('WorldRenderer', () => {
 
 describe('createWorldHook', () => {
   it('world.* が使える', () => {
-    const w = new ArrayVoxelWorld();
+    const w = new ArrayVoxelWorld(OLD_SIZE);
     const r = new WorldRenderer(w);
     r.attach(new Scene());
     const island: IslandInfo = {
@@ -225,6 +228,7 @@ describe('createWorldHook', () => {
       groundHeight: () => 10,
       spawn: () => ({ x: 32.5, y: 11, z: 32.5, yawDeg: 0, pitchDeg: 0 }),
       testArea: () => ({ x0: 0, x1: 12, z0: 0, z1: 12, y0: 8, y1: 31 }),
+      regions: () => { throw new Error("not used"); },
     };
     const h = createWorldHook(w, r, island);
     expect(h.seed()).toBe(7);

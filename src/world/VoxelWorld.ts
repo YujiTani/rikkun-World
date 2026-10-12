@@ -1,7 +1,7 @@
-import type { BlockId, VoxelWorld } from '../contracts';
+import { WORLD_SIZE, type BlockId, type VoxelWorld } from '../contracts';
 import { BLOCK_TYPES, blockIdFromIndex, blockIndexOf, isSolidIndex } from './blocks/blockTypes';
 
-export const WORLD_SIZE = { x: 64, y: 32, z: 64 } as const;
+export { WORLD_SIZE };
 /** チャンクの横の大きさ（高さは世界ぜんぶ） */
 export const CHUNK_SIZE = 16;
 

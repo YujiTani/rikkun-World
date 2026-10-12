@@ -114,7 +114,8 @@ test.describe('M3 昼と夜', () => {
       h.pause();
       h.lock.simulate(true);
       h.settings.set('yokaiAutoSpawn', false);
-      h.player.set({ position: { x: 32.5, y: 40, z: 32.5 }, yaw: 90, pitch: 12 });
+      const sp = h.world.spawn();
+      h.player.set({ position: { x: sp.x, y: 40, z: sp.z }, yaw: 90, pitch: 12 });
       h.step(2);
     });
     const marks: [string, number][] = [
@@ -151,7 +152,8 @@ test.describe('M3 出現と帰る', () => {
       h.pause();
       h.lock.simulate(true);
       h.settings.set('yokaiAutoSpawn', true);
-      h.player.set({ position: { x: 32.5, y: 40, z: 32.5 }, yaw: 0, pitch: 0 });
+      const sp = h.world.spawn();
+      h.player.set({ position: { x: sp.x, y: 40, z: sp.z }, yaw: 0, pitch: 0 });
       h.time.set(0);
       const bad: any[] = [];
       let spawns = 0;
@@ -166,7 +168,7 @@ test.describe('M3 出現と帰る', () => {
           spawns++;
           // 屋根（はっぱ以外の固いブロック）が上にあるか
           let roofed = false;
-          for (let y = Math.floor(e.position.y + 1.7); y < 64; y++) {
+          for (let y = Math.floor(e.position.y + 1.7); y < 48; y++) {
             const id = h.world.getBlock(Math.floor(e.position.x), y, Math.floor(e.position.z));
             if (id && id !== 'air' && id !== 'water' && id !== 'leaves') roofed = true;
           }
@@ -193,16 +195,16 @@ test.describe('M3 出現と帰る', () => {
         h.settings.set('yokaiAutoSpawn', true);
         h.settings.set('yokaiWander', true);
         h.time.set(59400);
-        h.player.set({ position: { x: 32.5, y: 40, z: 32.5 }, yaw: 0, pitch: 0 });
+        h.player.set({ position: { x: sp.x, y: 40, z: sp.z }, yaw: 0, pitch: 0 });
         h.step(1);
-        const P = { x: 32.5, z: 32.5 };
+        const P = { x: sp.x, z: sp.z };
         const spawns: any[] = [];
         let maxN = 0;
         let maxNuri = 0;
         let fiveAt = -1;
         for (let i = 0; i < 3000; i += 10) {
           h.combat.setHp(20);
-          h.player.set({ position: { x: 32.5, y: h.player.get().position.y, z: 32.5 }, velocity: { x: 0, y: 0, z: 0 } });
+          h.player.set({ position: { x: sp.x, y: h.player.get().position.y, z: sp.z }, velocity: { x: 0, y: 0, z: 0 } });
           h.step(10);
           const list = h.yokai.list();
           maxN = Math.max(maxN, list.length);
@@ -222,7 +224,7 @@ test.describe('M3 出現と帰る', () => {
     expect(a.fiveAt).toBeGreaterThan(0);
     expect(a.fiveAt).toBeLessThanOrEqual(1500);
     for (const e of a.spawns) {
-      const d = Math.hypot(e.position.x - 32.5, e.position.z - 32.5);
+      const d = Math.hypot(e.position.x - a.P.x, e.position.z - a.P.z);
       expect(d, `spawn ${e.kind} @${e.position.x.toFixed(1)},${e.position.z.toFixed(1)}`).toBeGreaterThanOrEqual(11.5);
       expect(d).toBeLessThanOrEqual(28.5);
     }
