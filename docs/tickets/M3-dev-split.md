@@ -45,6 +45,10 @@
 - 妖怪の暗さは B が `time.dollBrightness()` で自分でかける（AD の lighting に二重登録しない）
 - **PO の判断**: 出現の「屋根の下」の判定で **はっぱ は屋根に数えない**（木の下は明るい。ひるに木の下から妖怪が出ないように）。`src/yokai/ai/terrain.ts` の屋根の判定を直す（このつなぎ込みで許可）
 - ちょうちんの止まり位置 4.3 は B の判断で OK
+**ばらまく落とし物（DropField、オーナー決定）**
+- `const drops = new DropField({ world, inventory, player: () => controller.state.position, rng: createRng(seed ^ 0x5eed), requestSave, ticks: combat の dropBagTicks, pickupRadius: combat の pickupRadius })` を 1 つ作り、`new PlayerCombatImpl({ ..., drops })` と `new YokaiManager({ ..., drops })` の両方に渡す。`drops.update` は combat が呼ぶので main では呼ばない
+- 保存・見た目・`combat.bags()` は今のまま動く
+- 「もちもの が いっぱい」の合図は、落ちたアイテムに近づいたのに入らなかったとき（拾えなかったとき）に出す
 
 ## 経過
 | 日付 | 内容 |
