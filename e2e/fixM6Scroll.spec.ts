@@ -296,3 +296,25 @@ test('マウスの絵には L / R の文字がある（もちもの画面の下�
   const detail = await page.locator('.cp-detail .rk-mouse').evaluateAll((els) => els.map((e) => e.textContent));
   for (const t of detail) expect(['L', 'R']).toContain(t);
 });
+
+// ---- 1〜9 キー: 実キーで ホットバーをえらぶ（遊び中も もちもの画面を開いているときも）----
+test('実キー Digit1〜9 で ホットバーが かわる（遊び中・もちもの画面）', async ({ page }) => {
+  await page.goto('/?nosave=1');
+  await page.waitForFunction(() => window.__rikkun?.ready === true);
+  await page.evaluate(() => (window.__rikkun as any).lock.simulate(true));
+  await page.waitForTimeout(300);
+  const sel = () => page.evaluate(() => (window.__rikkun as any).inventory.get().selected as number);
+  for (let n = 1; n <= 9; n++) {
+    await page.keyboard.press(`Digit${n}`);
+    await expect.poll(sel, { message: `play ${n}`, timeout: 3000 }).toBe(n - 1);
+  }
+  await page.keyboard.press('Digit1');
+  await expect.poll(sel).toBe(0);
+  await page.keyboard.press('KeyE');
+  await expect(page.locator('#inventory-screen')).toBeVisible();
+  await page.waitForTimeout(500);
+  for (let n = 9; n >= 1; n--) {
+    await page.keyboard.press(`Digit${n}`);
+    await expect.poll(sel, { message: `inventory ${n}`, timeout: 3000 }).toBe(n - 1);
+  }
+});
