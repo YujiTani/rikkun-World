@@ -60,3 +60,15 @@
 - testHook: `storage: createStorageHook(...)`、inventory に `createInventoryM6Extras(...)`。StorageEvent は `storage.drainEvents()` と `dropper.drainEvents()` から C へ。
 - settings: dropPickupDelay・dropThrowSpeed・dropThrowUp・tansuSlots・tansuCloseDist・hardness.tansu。
 - 未: 向きの描き分けなし（4 面とも前、facing は記録）、世界のブロックの開いた絵は切りかえない、たんすのマスのツールチップなし、アイテム絵は itemIcon.ts で専用絵にする（つなぎ込み）、たんす画面の縦並び（上たんす・下もちもの）は inventoryScreen 側で。
+
+### S2（m6-s2, 03e0750）
+- マス: `createSlotEl(keyLabel?, size?: 'inv'|'tansu')`・`paintSlot`（カテゴリー色 `data-cat`、めずらしさ `data-rarity`、宝石 `img.slot-gem[data-gem]`）。たんす画面もこれを使う。表は `src/ui/itemCategory.ts`。
+- HUD: A じぶん `selfCluster(hud)`（levelHud.ts）、B おしらせ `noticeCluster(hud)`（craftHint.ts、メダルの印をここへ append）、時計、拾ったログ。
+- 時計の「N にちめ」: main.ts の `combatUi.clock.setTime(time.dayTick(), timeSettings, time.day()+1)`。
+- `e2e/m2.spec.ts` AC22 の選んだマスの色 `255,213,79` → 新アクセント `255,200,61` に直す。
+- E2E の既知の失敗（UI 以外）: m3 AC15〜18（ぬりかべ体力 48 等、#8 の数値変更）、m5 AC6/AC19（`h.target` が testHook にない）→ つなぎ込みで直す。
+- やられた画面の白くなる動きは M3 AC のため残した。時計の空の色は絵の中の色（AC31 の対象外）。
+
+## つなぎ込みメモ（PO）
+- 5 ブランチは claude/m6-ui にマージ済み（衝突なし）。型 OK、ユニット 913 件中 1 件失敗: `src/craft/info/info.test.ts` U4・U14（たんす のレシピが入ったことでの数のずれ）。
+- 作る画面のマスはまだ旧デザイン（A の craftPanel を S1/S2 の部品に合わせる）。
