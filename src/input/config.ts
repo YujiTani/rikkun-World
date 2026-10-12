@@ -17,5 +17,17 @@ export const INPUT_CONFIG = {
   pulseSeconds: 1.5,
 } as const;
 
+/** マウスホイール（M2 §2.1） */
+export const WHEEL_CONFIG = {
+  /** この量（deltaY）ごとに 1 マス動く */
+  pixelsPerSlot: 50,
+  /** 行単位のホイールは 1 行 = 1 マス */
+  linePixels: 50,
+  /** ページ単位のホイールは 1 ページ = 3 マス */
+  pagePixels: 150,
+  /** ロックのかけ直しの返事を待つ長さ（ミリ秒）。来なければ案内画面を出す */
+  relockTimeoutMs: 1500,
+} as const;
+
 /** 操作の絵の説明（ひらがな・カタカナのみ） */
 export const HELP_CAPTIONS = ['あるく', 'ジャンプ', 'むきを かえる', 'みかた を かえる'] as const;

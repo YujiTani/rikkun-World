@@ -7,7 +7,7 @@ import { Game } from './game/Game';
 import { buildScenery } from './game/scenery';
 import { createSettingsHook } from './game/settings';
 import { ActionState, bindKeyboardAndMouse } from './input/actions';
-import { LockController, MouseLook, bindPointerLock, createInputHook, createLockHook } from './input';
+import { LockController, MouseLook, WheelAccumulator, bindPointerLock, createInputHook, createLockHook } from './input';
 import { createPlayerHook } from './player/hook';
 import { PlayerController } from './player/PlayerController';
 import { mountHud } from './ui/hud';
@@ -39,8 +39,9 @@ buildScenery(game.scene, world.size);
 
 // 入力・スタート画面
 mountHud(hud);
-bindKeyboardAndMouse(window, game.input);
 const lock = new LockController();
+const wheel = new WheelAccumulator(game.input, () => lock.playInputEnabled());
+bindKeyboardAndMouse(window, game.input, wheel);
 const look = new MouseLook(lock);
 const pointerLock = bindPointerLock(document, window, game.renderer.domElement, lock, look, game.input);
 new PlayOverlay(hud, lock, () => pointerLock.request());
@@ -79,7 +80,7 @@ installTestHook(game, overlay, {
   player: { ...createPlayerHook(controller), doll: cameraHook.doll } as unknown as TestHookGroups['player'],
   camera: cameraHook.camera,
   lock: createLockHook(lock),
-  input: createInputHook(game.input, look),
+  input: createInputHook(game.input, look, wheel),
   settings: createSettingsHook(controller.settings, rig.config),
 });
 game.start();

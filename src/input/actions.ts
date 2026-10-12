@@ -4,6 +4,8 @@
  * ゲームの「行動（Action）」に変換する。ゲーム側は Action だけを見る。
  */
 
+import type { WheelAccumulator } from './wheel';
+
 export const ACTIONS = [
   'moveForward',
   'moveBack',
@@ -14,6 +16,19 @@ export const ACTIONS = [
   'secondary', // 置く・食べる
   'toggleView', // 一人称 / 三人称
   'toggleDebug', // 性能表示
+  'hotbar1', // ホットバーのマスをえらぶ（数字キー 1〜9）
+  'hotbar2',
+  'hotbar3',
+  'hotbar4',
+  'hotbar5',
+  'hotbar6',
+  'hotbar7',
+  'hotbar8',
+  'hotbar9',
+  'hotbarNext', // となりのマスへ（ホイール 下）
+  'hotbarPrev', // となりのマスへ（ホイール 上）
+  'toggleInventory', // もちもの画面を ひらく・とじる（E）
+  'closeMenu', // もちもの画面を とじる（Esc）
 ] as const;
 
 export type Action = (typeof ACTIONS)[number];
@@ -31,6 +46,17 @@ export const DEFAULT_KEY_BINDINGS: Readonly<Record<string, Action>> = {
   Space: 'jump',
   KeyV: 'toggleView',
   F3: 'toggleDebug',
+  Digit1: 'hotbar1',
+  Digit2: 'hotbar2',
+  Digit3: 'hotbar3',
+  Digit4: 'hotbar4',
+  Digit5: 'hotbar5',
+  Digit6: 'hotbar6',
+  Digit7: 'hotbar7',
+  Digit8: 'hotbar8',
+  Digit9: 'hotbar9',
+  KeyE: 'toggleInventory',
+  Escape: 'closeMenu',
 };
 
 /** MouseEvent.button → Action */
@@ -46,11 +72,21 @@ export const DEFAULT_MOUSE_BINDINGS: Readonly<Record<number, Action>> = {
 export class ActionState {
   private held = new Map<Action, number>();
   private pressedThisFrame = new Set<Action>();
+  private pressListeners: Array<(action: Action) => void> = [];
+
+  /**
+   * 押された瞬間に呼ばれる（ゲームの時間が止まっていても届く）。
+   * もちもの画面の開け閉めのように、時間が止まっていても効かせたい Action 用。
+   */
+  onPress(fn: (action: Action) => void): void {
+    this.pressListeners.push(fn);
+  }
 
   press(action: Action): void {
     const count = this.held.get(action) ?? 0;
     if (count === 0) this.pressedThisFrame.add(action);
     this.held.set(action, count + 1);
+    if (count === 0) for (const fn of this.pressListeners) fn(action);
   }
 
   release(action: Action): void {
@@ -81,7 +117,7 @@ export class ActionState {
 }
 
 /** キーボードとマウスを ActionState につなぐ。戻り値で解除できる。 */
-export function bindKeyboardAndMouse(target: Window, state: ActionState): () => void {
+export function bindKeyboardAndMouse(target: Window, state: ActionState, wheel?: WheelAccumulator): () => void {
   const downKeys = new Set<string>();
   const onKeyDown = (e: KeyboardEvent) => {
     const action = DEFAULT_KEY_BINDINGS[e.code];
@@ -104,6 +140,11 @@ export function bindKeyboardAndMouse(target: Window, state: ActionState): () => 
     const action = DEFAULT_MOUSE_BINDINGS[e.button];
     if (action) state.release(action);
   };
+  const onWheel = (e: WheelEvent) => {
+    if (!wheel) return;
+    e.preventDefault();
+    wheel.pushEvent(e.deltaY, e.deltaMode);
+  };
   const onContextMenu = (e: Event) => e.preventDefault();
   const onBlur = () => {
     downKeys.clear();
@@ -114,6 +155,7 @@ export function bindKeyboardAndMouse(target: Window, state: ActionState): () => 
   target.addEventListener('keyup', onKeyUp);
   target.addEventListener('mousedown', onMouseDown);
   target.addEventListener('mouseup', onMouseUp);
+  target.addEventListener('wheel', onWheel, { passive: false });
   target.addEventListener('contextmenu', onContextMenu);
   target.addEventListener('blur', onBlur);
   return () => {
@@ -121,6 +163,7 @@ export function bindKeyboardAndMouse(target: Window, state: ActionState): () => 
     target.removeEventListener('keyup', onKeyUp);
     target.removeEventListener('mousedown', onMouseDown);
     target.removeEventListener('mouseup', onMouseUp);
+    target.removeEventListener('wheel', onWheel);
     target.removeEventListener('contextmenu', onContextMenu);
     target.removeEventListener('blur', onBlur);
   };
