@@ -45,7 +45,7 @@ describe('かげ（AC3）', () => {
       y.setSilhouette(true);
       expect(y.meshColors().every((c) => c === 0)).toBe(true);
       y.root.children[0]!.traverse((o) => {
-        if (!(o instanceof THREE.Mesh)) return;
+        if (!(o instanceof THREE.Mesh) || o.userData.focusHull) return; // ふちどりの複製は黄色
         for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
           expect((m as THREE.MeshBasicMaterial).color.getHex()).toBe(0);
         }

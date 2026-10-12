@@ -388,7 +388,7 @@ const hotbar = new Hotbar(hud, inventory, notice);
 // ねらっている所の ヒント（設定 actionHint で消せる）
 const hintSettings = { actionHint: true };
 const actionHint = new ActionHint(hud);
-const yokaiFocus = new YokaiFocus(game.scene, (id, box) => yokaiManager.boundsOf(id, box));
+const yokaiFocus = new YokaiFocus((id) => yokaiManager.modelOf(id), () => game.camera.position);
 const hintVisible = (): boolean => hintSettings.actionHint && screen.mode() === 'play' && !screen.inventoryOpen() && rig.crosshairVisible();
 const nameOf = (item: ItemId): string => itemType(item)?.name ?? item;
 const inventoryScreen = new InventoryScreen(hud, inventory, screen, () => screen.toggle(), {
@@ -783,7 +783,7 @@ const achievementsHook = {
     achMuted = on;
   },
 };
-const hudHook = { actionHint: () => actionHint.current(), yokaiFocus: () => yokaiFocus.current() };
+const hudHook = { actionHint: () => actionHint.current(), yokaiFocus: () => yokaiFocus.current(), yokaiFocusHulls: () => yokaiFocus.hullCount() };
 const guideHook = createGuideHook(playOverlay);
 const lockHook = createLockHook(lock);
 const combatHook = createCombatHook(combat);

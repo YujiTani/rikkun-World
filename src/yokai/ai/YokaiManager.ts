@@ -195,12 +195,9 @@ export class YokaiManager implements YokaiWorld {
 
   // ---------------------------------------------------------------- YokaiWorld
 
-  /** その妖怪の見た目の外わく（ふちどり用。いなければ false） */
-  boundsOf(id: number, out: THREE.Box3): boolean {
-    const e = this.ents.find((q) => q.id === id);
-    if (!e) return false;
-    out.setFromObject(e.model.root);
-    return !out.isEmpty();
+  /** その妖怪の見た目（ふちどり用。いなければ null） */
+  modelOf(id: number): YokaiBase | null {
+    return this.ents.find((q) => q.id === id)?.model ?? null;
   }
 
   list(): YokaiInfo[] {
