@@ -33,16 +33,7 @@ export interface CombatConfig {
 
 /** 内部の決まり（仕様書の表にある数。設定の名前は付けない） */
 export const KNOCKBACK_TICKS = 10;
-export const BAG_PICKUP_HEIGHT = 2;
 /** 体の箱（M1-02 §4.1） */
-/** ばらまき: 水平の速さ（ブロック/秒）の最小〜最大・上向きの速さ・重力 */
-export const SCATTER_SPEED_MIN = 1.5;
-export const SCATTER_SPEED_MAX = 3.5;
-export const SCATTER_UP_MIN = 4;
-export const SCATTER_UP_MAX = 6;
-export const ITEM_GRAVITY = 20;
-/** 水の中で水面へうかぶ速さ（ブロック/秒） */
-export const ITEM_FLOAT_SPEED = 3;
 export const BODY_HALF = 0.3;
 export const BODY_HEIGHT = 1.8;
 

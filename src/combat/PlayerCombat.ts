@@ -10,47 +10,20 @@ import type {
   YokaiKind,
   YokaiWorld,
 } from '../contracts';
-import { itemType } from '../inventory/items';
+import { DropField, type DropView } from '../drops';
 import { createRng, type Rng } from '../world/gen/random';
 import {
-  BAG_PICKUP_HEIGHT,
   BODY_HALF,
   BODY_HEIGHT,
-  ITEM_FLOAT_SPEED,
-  ITEM_GRAVITY,
-  SCATTER_SPEED_MAX,
-  SCATTER_SPEED_MIN,
-  SCATTER_UP_MAX,
-  SCATTER_UP_MIN,
   KNOCKBACK_TICKS,
   createCombatConfig,
   type CombatConfig,
 } from './config';
 
 const MAX_QUEUE = 256;
-const MAX_BAGS = 400;
-const DT = 1 / 60;
 
 /** 落ちたアイテム 1 つ（マス 1 つ分。slots は 1 つだけ） */
-export interface DropBag {
-  id: number;
-  position: Vec3;
-  slots: ItemStack[];
-  ticksLeft: number;
-}
-
-interface DropItem {
-  id: number;
-  x: number;
-  y: number;
-  z: number;
-  vx: number;
-  vy: number;
-  vz: number;
-  resting: boolean;
-  item: ItemStack;
-  ticksLeft: number;
-}
+export type DropBag = DropView;
 
 /** `DigSystem` が `primary` の入口で呼ぶ窓口（M3 §2.6） */
 export interface PunchGate {
@@ -85,6 +58,8 @@ export interface CombatDeps {
   config?: CombatConfig;
   /** 落とすマスをきめる乱数（シード付き） */
   rng?: Rng;
+  /** 落ちたアイテムの置き場（妖怪のドロップと共通）。なければ自分で作る */
+  drops?: DropField;
 }
 
 export interface CombatHookState {
@@ -130,8 +105,7 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
 
   private punchTickNow = 0;
 
-  private bagList: DropItem[] = [];
-  private nextBagId = 1;
+  readonly drops: DropField;
 
   private drainQueue: CombatEvent[] = [];
   private hookQueue: CombatEvent[] = [];
@@ -140,6 +114,17 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
     this.config = d.config ?? createCombatConfig();
     this.rng = d.rng ?? createRng(31337);
     this.hpNow = this.config.playerMaxHp;
+    this.drops =
+      d.drops ??
+      new DropField({
+        world: d.world,
+        inventory: d.inventory,
+        player: () => d.player.get().position,
+        rng: this.rng,
+        ticks: this.config.dropBagTicks,
+        pickupRadius: this.config.pickupRadius,
+        requestSave: d.requestSave,
+      });
   }
 
   // ---------------------------------------------------------- PlayerCombat
@@ -203,12 +188,7 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
   }
 
   bags(): DropBag[] {
-    return this.bagList.map((b) => ({
-      id: b.id,
-      position: { x: b.x, y: b.y, z: b.z },
-      slots: [{ item: b.item.item, count: b.item.count }],
-      ticksLeft: b.ticksLeft,
-    }));
+    return this.drops.list();
   }
 
   // ---------------------------------------------------------- パンチ（DigSystem から）
@@ -295,7 +275,7 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
       }
     }
 
-    this.updateBags();
+    for (const id of this.drops.update(!this.isDead)) this.emit({ type: 'pickup', tick: this.tickCount, bagId: id });
     this.tickCount++;
   }
 
@@ -367,23 +347,7 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
     }
     for (const i of dropped) inv.setSlot(i, null);
     // マスごとに 1 つの「落ちたアイテム」にして、まわりにばらまく
-    for (const st of stacks) {
-      const ang = this.rng() * Math.PI * 2;
-      const sp = SCATTER_SPEED_MIN + this.rng() * (SCATTER_SPEED_MAX - SCATTER_SPEED_MIN);
-      this.bagList.push({
-        id: this.nextBagId++,
-        x: this.deathPos.x,
-        y: this.deathPos.y + 0.5,
-        z: this.deathPos.z,
-        vx: Math.cos(ang) * sp,
-        vy: SCATTER_UP_MIN + this.rng() * (SCATTER_UP_MAX - SCATTER_UP_MIN),
-        vz: Math.sin(ang) * sp,
-        resting: false,
-        item: st,
-        ticksLeft: this.config.dropBagTicks,
-      });
-      if (this.bagList.length > MAX_BAGS) this.bagList.shift();
-    }
+    this.drops.scatter(this.deathPos, stacks, { kind: 'death' });
     this.emit({ type: 'death', tick: this.tickCount, dropped });
     this.d.requestSave?.();
   }
@@ -404,145 +368,14 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
     this.emit({ type: 'respawn', tick: this.tickCount });
   }
 
-  // ---------------------------------------------------------- 落ちたアイテム
-
-  /** 水面の高さ（x,z の水の柱の、いちばん上の水の上の面） */
-  private waterSurface(x: number, y: number, z: number): number {
-    const w = this.d.world;
-    let yy = y;
-    while (yy < w.size.y && w.getBlock(x, yy, z) === 'water') yy++;
-    return yy;
-  }
-
-  private stepItem(b: DropItem): void {
-    const w = this.d.world;
-    const fx = Math.floor(b.x);
-    const fz = Math.floor(b.z);
-    if (b.resting) {
-      // 足もとが消えたら また落ちる（水にうかんでいるものは水がなくなったら）
-      const below = w.getBlock(fx, Math.floor(b.y - 1e-3), fz);
-      const supported = w.isSolid(fx, Math.floor(b.y - 1e-3), fz) || below === 'outside';
-      const floating = below === 'water';
-      if (supported || floating) return;
-      b.resting = false;
-    }
-    const inWater = w.getBlock(fx, Math.floor(b.y), fz) === 'water';
-    if (inWater) {
-      // 水面までうかんで止まる
-      const top = this.waterSurface(fx, Math.floor(b.y), fz);
-      b.vx *= 0.9;
-      b.vz *= 0.9;
-      b.vy = 0;
-      b.y = Math.min(top, b.y + ITEM_FLOAT_SPEED * DT);
-      this.moveXZ(b, DT);
-      if (b.y >= top) {
-        b.y = top;
-        b.vx = b.vz = 0;
-        b.resting = true;
-      }
-      return;
-    }
-    b.vy -= ITEM_GRAVITY * DT;
-    this.moveXZ(b, DT);
-    const ny = b.y + b.vy * DT;
-    const cx = Math.floor(b.x);
-    const cz = Math.floor(b.z);
-    if (b.vy <= 0 && w.isSolid(cx, Math.floor(ny), cz)) {
-      b.y = Math.floor(ny) + 1;
-      b.vx = b.vy = b.vz = 0;
-      b.resting = true;
-    } else if (b.vy > 0 && w.isSolid(cx, Math.floor(ny + 0.3), cz)) {
-      b.vy = 0; // 天井
-    } else {
-      b.y = Math.max(0, ny);
-      if (b.y <= 0) {
-        b.vx = b.vy = b.vz = 0;
-        b.resting = true;
-      }
-    }
-  }
-
-  /** 横に動く。固いブロックにぶつかったらその向きは止める */
-  private moveXZ(b: DropItem, dt: number): void {
-    const w = this.d.world;
-    const nx = b.x + b.vx * dt;
-    const nz = b.z + b.vz * dt;
-    const fy = Math.floor(b.y + 0.2);
-    if (w.isSolid(Math.floor(nx), fy, Math.floor(b.z))) b.vx = 0;
-    else b.x = nx;
-    if (w.isSolid(Math.floor(b.x), fy, Math.floor(nz))) b.vz = 0;
-    else b.z = nz;
-  }
-
-  private updateBags(): void {
-    if (this.bagList.length === 0) return;
-    const p = this.d.player.get().position;
-    const r = this.config.pickupRadius;
-    let changed = false;
-    for (const b of this.bagList) {
-      b.ticksLeft--;
-      if (b.ticksLeft <= 0) {
-        changed = true;
-        continue;
-      }
-      this.stepItem(b);
-      if (this.isDead) continue;
-      if (Math.hypot(p.x - b.x, p.z - b.z) <= r && Math.abs(p.y - b.y) <= BAG_PICKUP_HEIGHT) {
-        const left = this.d.inventory.add(b.item.item, b.item.count);
-        if (left !== b.item.count) {
-          b.item = { item: b.item.item, count: left };
-          this.emit({ type: 'pickup', tick: this.tickCount, bagId: b.id });
-          changed = true;
-        }
-      }
-    }
-    const before = this.bagList.length;
-    this.bagList = this.bagList.filter((b) => b.ticksLeft > 0 && b.item.count > 0);
-    if (changed || this.bagList.length !== before) this.d.requestSave?.();
-  }
-
   /** 保存用（M3 §2.10）。アイテムごと */
-  serializeBags(): Array<{ x: number; y: number; z: number; item: string; count: number; ticksLeft: number }> {
-    return this.bagList.map((b) => ({
-      x: b.x,
-      y: b.y,
-      z: b.z,
-      item: b.item.item,
-      count: b.item.count,
-      ticksLeft: b.ticksLeft,
-    }));
+  serializeBags() {
+    return this.drops.serialize();
   }
 
-  /** 読みこみ用。おかしい分・古い形（ふくろ）は捨てる（こわれた保存でも遊べる） */
+  /** 読みこみ用。おかしい分・古い形は捨てる */
   deserializeBags(data: unknown): void {
-    const out: DropItem[] = [];
-    if (Array.isArray(data)) {
-      for (const raw of data.slice(0, MAX_BAGS)) {
-        const r = raw as Record<string, unknown> | null;
-        if (!r || typeof r.item !== 'string') continue;
-        const x = Number(r.x);
-        const y = Number(r.y);
-        const z = Number(r.z);
-        const t = Number(r.ticksLeft);
-        if (![x, y, z, t].every(Number.isFinite) || t < 1) continue;
-        const ty = itemType(r.item);
-        const c = r.count;
-        if (!ty || typeof c !== 'number' || !Number.isInteger(c) || c < 1 || c > ty.maxStack) continue;
-        out.push({
-          id: this.nextBagId++,
-          x,
-          y,
-          z,
-          vx: 0,
-          vy: 0,
-          vz: 0,
-          resting: false,
-          item: { item: ty.id, count: c },
-          ticksLeft: Math.min(Math.floor(t), this.config.dropBagTicks),
-        });
-      }
-    }
-    this.bagList = out;
+    this.drops.deserialize(data);
   }
 
   private emit(e: CombatEvent): void {

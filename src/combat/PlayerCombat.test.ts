@@ -343,19 +343,69 @@ describe('やられた・落とす・ふくろ・復活', () => {
     expect(r.combat.hp()).toBe(15);
   });
 
-  it('えらんでいるマスは落とさない・落ちた分はふくろに入る', () => {
+  /** 落ちたアイテムをぜんぶ止まるまで進める */
+  function settle(r: ReturnType<typeof rig>) {
+    r.player.position.x = 60;
+    r.player.position.z = 60;
+    r.step(180);
+  }
+
+  it('えらんでいるマスは落とさない・落ちた分は 1 マス 1 アイテムになる', () => {
     const r = rig();
     full(r);
     r.inv.select(3);
     r.combat.setHp(0);
     expect(r.inv.slots()[3]).not.toBeNull();
     const bags = r.combat.bags();
-    expect(bags).toHaveLength(1);
     const remain = r.inv.slots().filter((s) => s).length;
-    expect(remain + bags[0]!.slots.length).toBe(36);
+    expect(bags.length).toBeGreaterThan(0);
+    expect(remain + bags.length).toBe(36);
+    for (const b of bags) expect(b.slots).toHaveLength(1);
     const ev = r.combat.takeHookEvents()[0]!;
     expect(ev.type === 'death' && ev.dropped.includes(3)).toBe(false);
-    expect(bags[0]!.position).toEqual({ x: 2.5, y: 9, z: 6.5 });
+    expect(ev.type === 'death' && ev.dropped.length).toBe(bags.length);
+    expect(new Set(bags.map((b) => b.id)).size).toBe(bags.length);
+  });
+
+  it('ばらまく: やられた場所のまわりにちらばり、地面に止まる（同じシードで同じ場所）', () => {
+    const run = () => {
+      const r = rig({ rng: createRng(5) });
+      full(r);
+      r.combat.setHp(0);
+      settle(r);
+      return r.combat.bags().map((b) => b.position);
+    };
+    const a = run();
+    expect(a.length).toBeGreaterThan(10);
+    let far = 0;
+    for (const p of a) {
+      const d = Math.hypot(p.x - 2.5, p.z - 6.5);
+      expect(d).toBeLessThanOrEqual(4);
+      expect(p.y).toBe(9); // 石の地面（y=8）の上
+      if (d > 0.5) far++;
+    }
+    expect(far).toBeGreaterThan(a.length / 2);
+    // 向きがかたよらない
+    expect(a.some((p) => p.x > 2.5)).toBe(true);
+    expect(a.some((p) => p.x < 2.5)).toBe(true);
+    expect(a.some((p) => p.z > 6.5)).toBe(true);
+    expect(a.some((p) => p.z < 6.5)).toBe(true);
+    expect(run()).toEqual(a);
+  });
+
+  it('止まったら動かない・空中ではまず落ちる', () => {
+    const r = rig({ rng: () => 0.3 });
+    r.inv.setSlot(5, { item: 'dirt', count: 3 });
+    r.player.position.y = 14.3;
+    r.player.position.x = 60;
+    r.player.position.z = 60;
+    r.combat.setHp(0);
+    const start = r.combat.bags()[0]!.position;
+    expect(start.y).toBeGreaterThan(14);
+    r.step(200);
+    const p1 = r.combat.bags()[0]!.position;
+    r.step(30);
+    expect(r.combat.bags()[0]!.position).toEqual(p1);
   });
 
   it('10 回で 350 のうち 125〜225 落ち、同じシードで同じ結果', () => {
@@ -381,25 +431,20 @@ describe('やられた・落とす・ふくろ・復活', () => {
     expect(run()).toBe(a);
   });
 
-  it('1 マスも落ちなければ ふくろは出ない', () => {
+  it('1 マスも落ちなければ アイテムは出ない', () => {
     const r = rig({ rng: () => 0.99 });
     full(r);
     r.combat.setHp(0);
     expect(r.combat.bags()).toHaveLength(0);
   });
 
-  it('空中でやられたら真下の地面の上、水の中なら水面の上', () => {
-    const r = rig({ rng: () => 0 });
-    r.inv.setSlot(5, { item: 'dirt', count: 3 });
-    r.player.position.y = 14.3;
-    r.combat.setHp(0);
-    expect(r.combat.bags()[0]!.position.y).toBe(9);
-
+  it('水の中でやられたら 水面にうかぶ', () => {
     const w = rig({ rng: () => 0 });
-    for (let y = 9; y <= 10; y++) w.world.setBlock(2, y, 6, 'water');
+    for (let x = 0; x <= 12; x++) for (let z = 0; z <= 12; z++) for (let y = 9; y <= 10; y++) w.world.setBlock(x, y, z, 'water');
     w.inv.setSlot(5, { item: 'dirt', count: 3 });
-    w.player.position.y = 9;
     w.combat.setHp(0);
+    w.player.position.x = 60;
+    w.step(200);
     expect(w.combat.bags()[0]!.position.y).toBe(11);
   });
 
@@ -411,27 +456,63 @@ describe('やられた・落とす・ふくろ・復活', () => {
     r.step(120);
     expect(r.combat.bags()).toHaveLength(1);
     expect(r.inv.count('dirt')).toBe(0);
-    r.player.position.z = 6.5;
-    r.player.position.x = 6.5 - 1.6;
+    const at = r.combat.bags()[0]!.position;
+    r.player.position.y = at.y;
+    r.player.position.z = at.z;
+    r.player.position.x = at.x - 1.6;
     r.step(1);
     expect(r.combat.bags()).toHaveLength(1);
-    r.player.position.x = 6.5 - 1.4;
+    r.player.position.y = at.y + 2.5; // 高さの差が大きいと拾わない
+    r.player.position.x = at.x - 1.0;
+    r.step(1);
+    expect(r.combat.bags()).toHaveLength(1);
+    r.player.position.y = at.y;
+    r.player.position.x = at.x - 1.4;
     r.step(1);
     expect(r.inv.count('dirt')).toBe(3);
     expect(r.combat.bags()).toHaveLength(0);
-    expect(r.combat.takeHookEvents().map((e) => e.type)).toContain('pickup');
+    const ev = r.combat.takeHookEvents().filter((e) => e.type === 'pickup');
+    expect(ev).toHaveLength(1);
   });
 
-  it('いっぱいなら入る分だけ入り、残りは ふくろに残る', () => {
+  it('近づいたアイテムだけ 1 こずつ拾う', () => {
+    const r = rig({ rng: createRng(11) });
+    r.inv.setSlot(5, { item: 'dirt', count: 3 });
+    r.inv.setSlot(6, { item: 'stone', count: 2 });
+    r.inv.setSlot(7, { item: 'yokai_orb', count: 1 });
+    r.combat.setHp(0);
+    r.step(120);
+    settle(r);
+    const bags = r.combat.bags();
+    expect(bags.length).toBeGreaterThan(0);
+    const first = bags[0]!;
+    // ほかのアイテムから 1.5 より遠い場所に立つ
+    r.player.position.x = first.position.x;
+    r.player.position.z = first.position.z;
+    r.player.position.y = first.position.y;
+    const near = bags.filter((b) => Math.hypot(b.position.x - first.position.x, b.position.z - first.position.z) <= 1.5);
+    r.step(1);
+    expect(r.combat.bags()).toHaveLength(bags.length - near.length);
+    const ev = r.combat.takeHookEvents().filter((e) => e.type === 'pickup');
+    expect(ev).toHaveLength(near.length);
+  });
+
+  it('いっぱいなら入る分だけ入り、残りは そのアイテムに残る', () => {
     const r = rig({ rng: () => 0 });
     r.inv.setSlot(5, { item: 'stone', count: 10 });
     r.inv.setSlot(0, { item: 'dirt', count: 1 });
     r.combat.setHp(0);
     r.step(120);
     for (let i = 0; i < 36; i++) r.inv.setSlot(i, { item: 'dirt', count: 64 });
-    r.player.position.x = 6.5;
+    r.inv.setSlot(7, { item: 'stone', count: 60 });
+    const at = r.combat.bags()[0]!.position;
+    r.player.position.x = at.x;
+    r.player.position.z = at.z;
+    r.player.position.y = at.y;
     r.step(1);
-    expect(r.combat.bags()).toHaveLength(1);
+    const left = r.combat.bags();
+    expect(left).toHaveLength(1);
+    expect(left[0]!.slots[0]).toEqual({ item: 'stone', count: 6 });
   });
 
   it('36,000 ステップで消える（35,999 では残る）', () => {
@@ -440,7 +521,7 @@ describe('やられた・落とす・ふくろ・復活', () => {
     r.player.position.x = 9.5;
     r.combat.setHp(0);
     r.step(120);
-    r.player.position.x = 1.5;
+    r.player.position.x = 40;
     r.step(36000 - 120 - 1);
     expect(r.combat.bags()).toHaveLength(1);
     expect(r.combat.bags()[0]!.ticksLeft).toBe(1);
@@ -448,23 +529,29 @@ describe('やられた・落とす・ふくろ・復活', () => {
     expect(r.combat.bags()).toHaveLength(0);
   });
 
-  it('ふくろの保存と読みこみ', () => {
+  it('アイテムの保存と読みこみ（古い形は無視する）', () => {
     const r = rig({ rng: () => 0 });
     r.inv.setSlot(5, { item: 'dirt', count: 3 });
     r.inv.setSlot(6, { item: 'yokai_orb', count: 2 });
-    r.player.position.x = 9.5;
+    r.player.position.x = 40;
     r.combat.setHp(0);
     r.step(150);
     const data = JSON.parse(JSON.stringify(r.combat.serializeBags()));
+    expect(data).toHaveLength(2);
     const r2 = rig();
     r2.combat.deserializeBags(data);
-    expect(r2.combat.bags()).toHaveLength(1);
-    expect(r2.combat.bags()[0]!.slots).toEqual([
+    const got = r2.combat.bags();
+    expect(got.map((b) => b.slots[0])).toEqual([
       { item: 'dirt', count: 3 },
       { item: 'yokai_orb', count: 2 },
     ]);
-    expect(r2.combat.bags()[0]!.ticksLeft).toBe(36000 - 150);
-    r2.combat.deserializeBags([{ x: 1, y: 2, z: 3, slots: [{ item: 'nope', count: 1 }], ticksLeft: 5 }, 'x', null]);
+    expect(got[0]!.ticksLeft).toBe(36000 - 150);
+    r2.combat.deserializeBags([
+      { x: 1, y: 2, z: 3, slots: [{ item: 'dirt', count: 1 }], ticksLeft: 5 }, // 古い形
+      { x: 1, y: 2, z: 3, item: 'nope', count: 1, ticksLeft: 5 },
+      'x',
+      null,
+    ]);
     expect(r2.combat.bags()).toHaveLength(0);
   });
 

@@ -289,7 +289,7 @@ describe('SaveManager: おとしもの ぶくろ（M3 §2.10）', () => {
 
   it('保存して開き直すと ふくろが戻る', () => {
     const store = new MemoryStore();
-    const bag = { x: 6.5, y: 9, z: 6.5, slots: [{ item: 'dirt', count: 3 }], ticksLeft: 30000 };
+    const bag = { x: 6.5, y: 9, z: 6.5, item: 'dirt', count: 3, ticksLeft: 30000 };
     const a = session(store, { n: 0 }, fakeBags([bag]));
     a.save.now();
     const fb = fakeBags([]);
@@ -300,7 +300,7 @@ describe('SaveManager: おとしもの ぶくろ（M3 §2.10）', () => {
 
   it('のこりステップだけが変わっても「変わった」とは数えない', () => {
     const store = new MemoryStore();
-    const fb = fakeBags([{ x: 1, y: 2, z: 3, slots: [], ticksLeft: 100 }]);
+    const fb = fakeBags([{ x: 1, y: 2, z: 3, item: 'dirt', count: 1, ticksLeft: 100 }]);
     const ticks = { n: 0 };
     const a = session(store, ticks, fb);
     a.save.now();

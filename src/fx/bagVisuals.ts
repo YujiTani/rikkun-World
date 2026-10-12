@@ -9,6 +9,8 @@ export interface BagLike {
   position: Vec3;
   slots: ReadonlyArray<{ item: ItemId; count: number }>;
   ticksLeft: number;
+  /** 光の柱の色（やられた = 白、妖怪 = 金色）。なければ やられた */
+  kind?: 'death' | 'yokai';
 }
 
 const B = COMBAT_FX.bag;
@@ -53,11 +55,12 @@ interface Visual {
   layers: number;
 }
 
-const PILLAR_MAT = (() => {
-  const m = new THREE.MeshBasicMaterial({ color: B.glowColor, transparent: true, opacity: B.pillarOpacity, depthWrite: false });
+function pillarMaterial(color: number): THREE.MeshBasicMaterial {
+  const m = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: B.pillarOpacity, depthWrite: false });
   m.userData.noDim = true; // 光るものは暗くしない
   return m;
-})();
+}
+const PILLAR_MATS = { death: pillarMaterial(0xffffff), yokai: pillarMaterial(B.glowColor) };
 
 /**
  * 落ちたアイテムの見た目: アイテムの絵の小さな板が、ゆっくり回りながらふわふわ。
@@ -71,6 +74,7 @@ export class BagVisuals {
   private readonly cy: number[] = [];
   private readonly cz: number[] = [];
   private readonly cn: number[] = [];
+  private readonly ck: Array<'death' | 'yokai'> = [];
   private time = 0;
 
   constructor(scene: THREE.Scene) {
@@ -112,12 +116,15 @@ export class BagVisuals {
       v.spinner.rotation.y = pose.spin + bag.id * 0.7; // アイテムごとに向きをずらす
 
       // 光の柱: 近くのもの同士で 1 本（さいしょに見つけたかたまりに入れる）
+      const kind = bag.kind ?? 'death';
       let k = 0;
       for (; k < clusters; k++) {
-        if (Math.hypot(this.cx[k]! / this.cn[k]! - bag.position.x, this.cz[k]! / this.cn[k]! - bag.position.z) <= B.clusterRadius) break;
+        if (this.ck[k] === kind &&
+          Math.hypot(this.cx[k]! / this.cn[k]! - bag.position.x, this.cz[k]! / this.cn[k]! - bag.position.z) <= B.clusterRadius) break;
       }
       if (k === clusters) {
         this.cx[k] = this.cy[k] = this.cz[k] = this.cn[k] = 0;
+        this.ck[k] = kind;
         clusters++;
       }
       this.cx[k]! += bag.position.x;
@@ -137,12 +144,13 @@ export class BagVisuals {
       }
       let p = this.pillars[k];
       if (!p) {
-        p = new THREE.Mesh(PILLAR_GEO, PILLAR_MAT);
+        p = new THREE.Mesh(PILLAR_GEO, PILLAR_MATS.death);
         p.renderOrder = 3;
         this.pillars[k] = p;
         this.group.add(p);
       }
       p.visible = true;
+      p.material = PILLAR_MATS[this.ck[k]!];
       p.position.set(this.cx[k]! / this.cn[k]!, this.cy[k]! + B.pillarSize[1] / 2, this.cz[k]! / this.cn[k]!);
     }
   }

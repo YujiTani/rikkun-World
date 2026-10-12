@@ -5,6 +5,7 @@ import type {
   PlayerCombat,
   PlayerState,
   TimeOfDay,
+  ItemStack,
   Vec3,
   VoxelWorld,
   YokaiEvent,
@@ -58,6 +59,10 @@ export interface YokaiManagerOptions {
   getPlayer: () => PlayerLike;
   combat: PlayerCombat;
   inventory: Inventory;
+  /** あれば ドロップを地面にばらまく（なければ そのまま持ち物に入れる）。`DropField` がそのまま使える */
+  drops?: {
+    scatter(position: Vec3, stacks: ItemStack[], opts?: { kind?: 'death' | 'yokai' }): number;
+  };
   /** 出来事に付ける「ゲームの何ステップ目か」。なければ update を呼んだ回数 */
   tick?: () => number;
   seed?: number;
@@ -128,6 +133,7 @@ export class YokaiManager implements YokaiWorld {
   private readonly getPlayer: () => PlayerLike;
   private readonly combat: PlayerCombat;
   private readonly inventory: Inventory;
+  private readonly drops: YokaiManagerOptions['drops'];
   private readonly tickFn: (() => number) | null;
   private readonly rng: Rng;
   private readonly burst = new BurstFx();
@@ -153,6 +159,7 @@ export class YokaiManager implements YokaiWorld {
     this.getPlayer = opts.getPlayer;
     this.combat = opts.combat;
     this.inventory = opts.inventory;
+    this.drops = opts.drops;
     this.tickFn = opts.tick ?? null;
     this.config = opts.config ?? createYokaiConfig();
     this.rng = createRng((opts.seed ?? 20240612) ^ 0x7a11);
@@ -532,7 +539,9 @@ export class YokaiManager implements YokaiWorld {
     for (const row of YOKAI_DROPS[e.kind]) {
       if (this.rng() >= row.chance) continue;
       const count = 1 + Math.floor(this.rng() * row.max);
-      const left = this.inventory.add(row.item, count);
+      const left = this.drops
+        ? count - this.drops.scatter({ x: e.x, y: e.y, z: e.z }, [{ item: row.item, count }], { kind: 'yokai' })
+        : this.inventory.add(row.item, count);
       const added = count - left;
       total += added;
       this.emit({ type: 'drop', tick: this.tick(), id: e.id, kind: e.kind, item: row.item, count, added }, true);
