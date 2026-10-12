@@ -16,6 +16,9 @@ import {
 import { fingerUrl } from './craftPanel.art';
 import { renderDetail, createDetailEls, type DetailEls } from './craftPanel.detail';
 import { drawPixels, extraIconUrl, itemIconPixels, itemIconUrl } from './itemIcon';
+import { itemRarity } from '../drops/rarity';
+import { gemShape, gemUrl } from './gemArt';
+import { itemCategory, rarityIndex } from './itemCategory';
 import { createBar, createSlot, createTab, setBar, setTabState } from './theme';
 import './craftPanel.css';
 
@@ -253,6 +256,16 @@ export class CraftPanel {
   private makeTile(r: Recipe): HTMLDivElement {
     const slot = createSlot({ art: itemIconUrl(r.output.item) });
     const root = slot.root;
+    // 色分け（§3.5 (7)）: 背景 = カテゴリーの色、ふち = めずらしさ、右上に 宝石の印
+    const rar = rarityIndex(itemRarity(r.output.item));
+    root.dataset.cat = itemCategory(r.output.item);
+    root.dataset.rarity = String(rar);
+    const gem = document.createElement('img');
+    gem.className = 'slot-gem';
+    gem.alt = '';
+    gem.src = gemUrl(rar);
+    gem.dataset.gem = gemShape(rar);
+    root.append(gem);
     root.classList.add('cp-tile');
     root.dataset.id = r.id;
     root.dataset.station = r.station;

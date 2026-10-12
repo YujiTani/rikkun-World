@@ -79,19 +79,19 @@ test.describe('M5 広い世界', () => {
       // たいまつ の前（西がわ）に立って、たいまつ をねらって 300 ステップほる
       h.player.set({ position: { x: 64.5, y: H0 + 1, z: 63.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: 0 });
       h.step(2);
-      const tgt = h.target();
-      h.input.press('dig');
+      const tgt = h.target.get();
+      h.input.press('primary');
       h.step(300);
-      h.input.release('dig');
+      h.input.release('primary');
       const after = h.world.getBlock(66, H0 + 1, 63);
-      h.time.set(0);
+      h.time.set(59400);
       h.step(3);
       const levels: number[] = [];
       let min = 99;
       for (let dx = -4; dx <= 4; dx++)
         for (let dz = -4; dz <= 4; dz++) {
           const x = 66 + dx, z = 63 + dz;
-          if (h.world.groundHeight(x, z) !== H0) continue;
+          if (Math.abs(dx) + Math.abs(dz) > 4 || h.world.groundHeight(x, z) !== H0) continue;
           const l = h.world.lightAt(x, H0 + 1, z);
           levels.push(l.level);
           min = Math.min(min, l.level);

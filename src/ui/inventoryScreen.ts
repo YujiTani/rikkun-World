@@ -69,6 +69,8 @@ export class InventoryScreen {
   private readonly onResize: () => void;
   private sideNow: InventorySide = 'craft';
   private tabNow: InventoryTab = 'items';
+  private fitSize = '';
+  private pageSize: { w: number; h: number } | null = null;
   private outside: InventoryOutsideHandlers | null = null;
   private readonly onPointer: (e: MouseEvent) => void;
   private readonly cells: SlotEls[] = [];
@@ -226,10 +228,13 @@ export class InventoryScreen {
   /** 小さい画面では パネルぜんたいを 同じ比で ちぢめる（はしから 24px あける。大きい画面は CSS の clamp で大きくなる） */
   private fit(): void {
     const f = this.frame;
-    f.style.transform = '';
     const w = f.offsetWidth;
     const h = f.offsetHeight;
-    if (w === 0 || h === 0) return;
+    this.fitSize = `${w}x${h}`;
+    if (w === 0 || h === 0) {
+      f.style.transform = '';
+      return;
+    }
     const m = parseFloat(getComputedStyle(this.el).getPropertyValue('--rk-sp-5')) || 24;
     const k = Math.min(1, (window.innerWidth - 2 * m) / w, (window.innerHeight - 2 * m) / h);
     f.style.transform = k < 1 ? `scale(${k})` : '';
@@ -248,6 +253,16 @@ export class InventoryScreen {
 
   /** 上のタブを切りかえる。じっせき のときは パネルぜんたいを pageSlot に入れかえる */
   setTab(tab: InventoryTab): void {
+    // じっせき ページは もちもの のときの 中身と同じ大きさにする（はかってから かくす）
+    if (tab === 'achievements' && this.tabNow === 'items') {
+      const w = this.bodyEl.offsetWidth;
+      const h = this.bodyEl.offsetHeight;
+      if (w > 0 && h > 0) this.pageSize = { w, h };
+    }
+    if (tab === 'achievements' && this.pageSize) {
+      this.pageSlot.style.width = `${this.pageSize.w}px`;
+      this.pageSlot.style.height = `${this.pageSize.h}px`;
+    }
     this.tabNow = tab;
     this.bodyEl.style.display = tab === 'items' ? '' : 'none';
     this.pageSlot.hidden = tab === 'items';
@@ -283,9 +298,17 @@ export class InventoryScreen {
       this.open = open;
       this.el.hidden = !open;
       this.dirty = true;
-      if (open) this.fit();
+      if (open) {
+        this.fit();
+        if (this.tabNow === 'items') {
+          const w = this.bodyEl.offsetWidth;
+          const h = this.bodyEl.offsetHeight;
+          if (w > 0 && h > 0) this.pageSize = { w, h };
+        }
+      }
       if (!open) this.tooltip?.hover(null);
     }
+    if (open && `${this.frame.offsetWidth}x${this.frame.offsetHeight}` !== this.fitSize) this.fit(); // せつめい などで 大きさが変わったら ちぢめなおす
     if (open && this.dirty) this.render();
     this.craftPanel?.update();
     if (open) {

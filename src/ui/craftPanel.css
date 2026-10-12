@@ -46,6 +46,59 @@
   width: 86%;
   height: 86%;
 }
+/* 色分け: 背景 = カテゴリーの色、ふち = めずらしさの色（つくれる のときは アクセントのわくが勝つ） */
+.cp-tile[data-cat='soil'] {
+  background: var(--rk-cat-soil);
+}
+.cp-tile[data-cat='stone'] {
+  background: var(--rk-cat-stone);
+}
+.cp-tile[data-cat='plant'] {
+  background: var(--rk-cat-plant);
+}
+.cp-tile[data-cat='ore'] {
+  background: var(--rk-cat-ore);
+}
+.cp-tile[data-cat='build'] {
+  background: var(--rk-cat-build);
+}
+.cp-tile[data-cat='material'] {
+  background: var(--rk-cat-material);
+}
+.cp-tile[data-cat='metal'] {
+  background: var(--rk-cat-metal);
+}
+.cp-tile[data-cat='tool'] {
+  background: var(--rk-cat-tool);
+}
+.cp-tile[data-cat='weapon'] {
+  background: var(--rk-cat-weapon);
+}
+.cp-tile[data-cat='armor'] {
+  background: var(--rk-cat-armor);
+}
+.cp-tile[data-cat='light'] {
+  background: var(--rk-cat-light);
+}
+.cp-tile[data-cat='home'] {
+  background: var(--rk-cat-home);
+}
+.cp-tile[data-rarity='0'] {
+  border: var(--rk-bw-rarity) solid var(--rk-rarity-0);
+}
+.cp-tile[data-rarity='1'] {
+  border: var(--rk-bw-rarity) solid var(--rk-rarity-1);
+}
+.cp-tile[data-rarity='2'] {
+  border: var(--rk-bw-rarity) solid var(--rk-rarity-2);
+}
+.cp-tile[data-rarity='3'] {
+  border: var(--rk-bw-rarity) solid var(--rk-rarity-3);
+}
+/* 足りない: 色分けを うすくして 下地に */
+.cp-tile[data-dim='true'] {
+  background: var(--rk-bg-700);
+}
 /* 足りない: 灰色（白黒）で 不透明度 35% */
 .cp-tile[data-dim='true'] .rk-slot__art {
   filter: grayscale(1);
