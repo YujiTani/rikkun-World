@@ -28,6 +28,7 @@ export class Game {
   tick = 0;
   /** true のとき自動では進まない（テスト用。step() で進める） */
   paused = false;
+  private renderDirty = false;
 
   private accumulator = 0;
   private lastTime = 0;
@@ -87,10 +88,20 @@ export class Game {
   step(count = 1): void {
     this.idleDrawn = false;
     for (let i = 0; i < count; i++) this.update();
+    // 描画はまとめる: step を何千回も呼ぶテストで毎回描かない。
+    // 次のコマ（一時停止中でも）か getRenderStats() で、たまっていれば 1 回だけ描く
+    this.renderDirty = true;
+  }
+
+  /** step() で描かずにためた分があれば、いま 1 回描く */
+  flushRender(): void {
+    if (!this.renderDirty) return;
+    this.renderDirty = false;
     this.render();
   }
 
   getRenderStats(): RenderStats {
+    this.flushRender();
     const info = this.renderer.info;
     return {
       fps: this.frameStats.fps,
@@ -107,7 +118,10 @@ export class Game {
     this.rafId = requestAnimationFrame(this.frame);
     const elapsed = now - this.lastTime;
     this.lastTime = now;
-    if (this.paused) return;
+    if (this.paused) {
+      this.flushRender();
+      return;
+    }
 
     if (!this.realtimeGate()) {
       // ロックなし: 時間は止める。描画と F3 だけ続ける
@@ -139,6 +153,7 @@ export class Game {
   }
 
   private render(): void {
+    this.renderDirty = false;
     this.renderer.render(this.scene, this.camera);
   }
 
