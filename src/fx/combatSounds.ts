@@ -51,6 +51,28 @@ export const COMBAT_SOUNDS = {
     { type: 'sine', f0: 2600, f1: 3200, delay: 0.4, dur: 0.07, gain: 0.2 },
     { type: 'sine', f0: 2800, f1: 3400, delay: 0.52, dur: 0.07, gain: 0.2 },
   ],
+  /** 落とし物の着地「ポン」（ふつう） */
+  dropCommon: [{ type: 'sine', f0: 520, f1: 380, delay: 0, dur: 0.1, gain: 0.35 }],
+  /** すこし めずらしい「ポロン」 */
+  dropUncommon: [
+    { type: 'sine', f0: 660, f1: 640, delay: 0, dur: 0.1, gain: 0.35 },
+    { type: 'sine', f0: 880, f1: 870, delay: 0.07, dur: 0.14, gain: 0.3 },
+  ],
+  /** めずらしい「キラリン」 */
+  dropRare: [
+    { type: 'sine', f0: 1175, f1: 1200, delay: 0, dur: 0.08, gain: 0.3 },
+    { type: 'sine', f0: 1568, f1: 1590, delay: 0.07, dur: 0.1, gain: 0.3 },
+    { type: 'sine', f0: 2093, f1: 2100, delay: 0.14, dur: 0.2, gain: 0.25 },
+  ],
+  /** とても めずらしい「シャララーン」（のぼる音を たくさん） */
+  dropSuperRare: [
+    { type: 'sine', f0: 784, f1: 800, delay: 0, dur: 0.12, gain: 0.28 },
+    { type: 'sine', f0: 988, f1: 1000, delay: 0.07, dur: 0.12, gain: 0.28 },
+    { type: 'sine', f0: 1175, f1: 1190, delay: 0.14, dur: 0.12, gain: 0.28 },
+    { type: 'sine', f0: 1568, f1: 1580, delay: 0.21, dur: 0.14, gain: 0.26 },
+    { type: 'sine', f0: 1976, f1: 1990, delay: 0.28, dur: 0.16, gain: 0.24 },
+    { type: 'triangle', f0: 2637, f1: 2650, delay: 0.35, dur: 0.5, gain: 0.2 },
+  ],
 } as const satisfies Record<string, readonly Tone[]>;
 
 export type CombatSoundName = keyof typeof COMBAT_SOUNDS;
