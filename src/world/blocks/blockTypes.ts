@@ -1,6 +1,6 @@
 import type { BlockId, BlockType } from '../../contracts';
 
-/** M1-01 4-2 のブロック 11 種。配列の順番が内部の番号（air = 0） */
+/** M1-01 4-2 のブロック 11 種 + M4 の 3 種。配列の順番が内部の番号（air = 0） */
 export const BLOCK_TYPES: readonly BlockType[] = [
   { id: 'air', name: 'くうき', solid: false, breakable: false },
   { id: 'grass', name: 'くさ', solid: true, breakable: true },
@@ -13,6 +13,10 @@ export const BLOCK_TYPES: readonly BlockType[] = [
   { id: 'iron_ore', name: 'てつ', solid: true, breakable: true },
   { id: 'water', name: 'みず', solid: false, breakable: false },
   { id: 'bedrock', name: 'そこいし', solid: true, breakable: false },
+  // M4（番号は後ろに足す。保存データの番号を変えないため）
+  { id: 'furnace', name: 'かまど', solid: true, breakable: true },
+  { id: 'kawara', name: 'かわら', solid: true, breakable: true },
+  { id: 'brick', name: 'レンガ', solid: true, breakable: true },
 ];
 
 export const BLOCK_INDEX: Readonly<Record<BlockId, number>> = Object.fromEntries(

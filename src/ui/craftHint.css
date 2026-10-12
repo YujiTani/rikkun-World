@@ -1,0 +1,15 @@
+/* つくれる マーク: ホットバーの右はしの外（かなづち 48px 以上） */
+#craft-hint {
+  position: fixed;
+  left: calc(50% + (9 * var(--cell, max(64px, 5.2vw)) + 48px) / 2 + 16px);
+  bottom: 18px;
+  width: 56px;
+  height: 56px;
+  image-rendering: pixelated;
+  transform: translateY(calc(var(--hop, 0) * -14px));
+  pointer-events: none;
+  z-index: 5;
+}
+#craft-hint[hidden] {
+  display: none;
+}

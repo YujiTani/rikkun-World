@@ -51,11 +51,70 @@
     transform: scale(1.06);
   }
 }
+.po-tabs {
+  display: flex;
+  gap: 12px;
+}
+.po-tab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  box-sizing: border-box;
+  min-height: 64px;
+  min-width: 190px;
+  padding: 0 20px;
+  font: inherit;
+  font-size: 26px;
+  font-weight: bold;
+  color: #fff;
+  background: rgba(40, 40, 48, 0.9);
+  border: 4px solid #777;
+  border-radius: 14px;
+  cursor: pointer;
+}
+.po-tab::before {
+  content: attr(data-icon);
+  font-size: 1.3em;
+}
+.po-tab[data-selected='true'] {
+  border: 6px solid #ffd54f;
+  background: rgba(70, 60, 20, 0.95);
+}
+/* ページの高さは決まっていて、「あそぼう」ボタンが動かない */
+.po-pages {
+  box-sizing: border-box;
+  width: 100%;
+  height: 340px;
+  display: flex;
+  justify-content: center;
+}
 .po-help {
   display: grid;
   grid-template-columns: repeat(3, 300px);
   gap: 20px 24px;
   align-items: start;
+  align-content: start;
+}
+.po-help[hidden] {
+  display: none;
+}
+.po-icon {
+  width: 48px;
+  height: 48px;
+  image-rendering: pixelated;
+}
+.po-glow-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 60px;
+  height: 60px;
+  box-sizing: border-box;
+  border: 4px solid #ffd54f;
+  border-radius: 8px;
+  background: rgba(40, 24, 8, 0.6);
+  box-shadow: 0 0 12px 3px rgba(255, 213, 79, 0.7);
 }
 .po-help-item {
   display: flex;
