@@ -49,3 +49,14 @@
 - B 向け: `craftPanel.tileElFor(recipeId)`、`buttonEl()`。ツールチップ: `inventory.tooltip()` に `desc` を足す（craftUi.ts）。
 - 仕様の読みかえ: なぎなた とどく 5.0・素手 3.5（main の値）。U1〜U14 の世界を動かす分は E2E で（テスト係）。DOM の寸法（AC53・AC55・AC32）はつなぎ込み後に確かめる。
 - A 追加（157e248）: 作る一覧は `visibleCards`（持っている材料のあるレシピだけ）。`craft.ui().tiles` は表示中だけ（AC1 読みかえ）、`cards` は全件。えらびが消えたら作れる先頭に選び直す。E2E では先に材料を入れてから tileClick。
+
+### D（m6-d, 9a78596）
+- 毎ステップ `storage.update()`・`dropController.update()`（hover に `dragOut.hoverTarget()`）。`StorageScreen.update()` 毎フレーム。
+- `new DropField` の live に `dropPickupDelay`・`dropThrowSpeed`・`dropThrowUp`。dropper の throwItem = `(s)=>drops.throwItem(s, yawDeg, eyeHeight)`、onThrown → 音「ポイッ」と swing 'throw'。
+- `StorageSystem` deps: scatter=`(p,s)=>drops.scatter(p,s)`、open/closeScreen=`screen.toggle`、onSound=drawerOpen/drawerClose。`DigSystem` の `m4.storage` に渡す。
+- E でたんす: ScreenController を作る前に `onPress('toggleInventory')` を登録し、`!screen.inventoryOpen()` のとき `dig.tryOpenAimedStorage()`。
+- 保存: `storage.serialize/deserialize` はブロック復元の**あと**に登録。
+- `new StorageScreen(inventoryScreen, storage)`、`new DragOut(inventoryScreen, {...})`（shiftMove: たんすが開いていれば `storage.shiftClick('inv', i)`、閉じていれば `inventory.shiftMove(i)`）。
+- testHook: `storage: createStorageHook(...)`、inventory に `createInventoryM6Extras(...)`。StorageEvent は `storage.drainEvents()` と `dropper.drainEvents()` から C へ。
+- settings: dropPickupDelay・dropThrowSpeed・dropThrowUp・tansuSlots・tansuCloseDist・hardness.tansu。
+- 未: 向きの描き分けなし（4 面とも前、facing は記録）、世界のブロックの開いた絵は切りかえない、たんすのマスのツールチップなし、アイテム絵は itemIcon.ts で専用絵にする（つなぎ込み）、たんす画面の縦並び（上たんす・下もちもの）は inventoryScreen 側で。
