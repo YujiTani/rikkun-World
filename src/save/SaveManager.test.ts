@@ -212,6 +212,34 @@ describe('SaveManager', () => {
     }
   });
 
+  it('gen=1・gen なし・size ちがいの保存は使わず、そのあとの保存は gen=2・size つき（AC20）', () => {
+    const key = saveKey(SEED);
+    const a = session(new MemoryStore());
+    a.world.setBlock(4, 10, 6, 'log');
+    a.save.now();
+    const good = JSON.parse((a.save as unknown as { d: { store: MemoryStore } }).d.store.getItem(key)!) as Record<string, unknown>;
+    expect(good.gen).toBe(2);
+    expect(good.size).toEqual([a.world.size.x, a.world.size.y, a.world.size.z]);
+    const variants: Array<Record<string, unknown>> = [
+      { ...good, gen: 1 },
+      { ...good, gen: undefined },
+      { ...good, size: [a.world.size.x, a.world.size.y, a.world.size.z + 1] },
+      { ...good, size: undefined },
+    ];
+    for (const v of variants) {
+      const store = new MemoryStore();
+      store.data.set(key, JSON.stringify(v));
+      const s = session(store);
+      const fresh = s.world.hash();
+      expect(s.save.load()).toBe(false);
+      expect(s.world.hash()).toBe(fresh);
+      s.save.now();
+      const after = JSON.parse(store.getItem(key)!) as Record<string, unknown>;
+      expect(after.gen).toBe(2);
+      expect(after.size).toEqual([s.world.size.x, s.world.size.y, s.world.size.z]);
+    }
+  });
+
   it('保存できなくても（容量いっぱい）止まらず、保存済みの印は進まない', () => {
     const store = new MemoryStore();
     const s = session(store);
