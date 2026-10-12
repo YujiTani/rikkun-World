@@ -119,7 +119,7 @@ function statNum(v: number | string): string {
 }
 
 /** 中身を入れる（d が null なら かくす）。iconOf はアイテムの絵の URL */
-export function renderDetail(e: DetailEls, d: DetailView | null, iconOf: (item: ItemId) => string): void {
+export function renderDetail(e: DetailEls, d: DetailView | null, iconOf: (item: ItemId) => string, onFuel?: (item: ItemId) => void): void {
   e.root.hidden = d === null;
   if (!d) return;
   setRarity(e.root, RARITY_INDEX[d.rarity] as Rarity4);
@@ -171,9 +171,17 @@ export function renderDetail(e: DetailEls, d: DetailView | null, iconOf: (item: 
   e.fuel.hidden = d.fuel === null;
   if (d.fuel) {
     for (const [item, n] of Object.entries(d.fuel.counts)) {
+      if (n <= 0) continue; // 持っていない物は出さない
       const chip = createChip({ art: iconOf(item as ItemId), text: String(n) });
       chip.classList.add('cp-fuelchip');
       chip.dataset.next = String(d.fuel.next === item);
+      chip.dataset.item = item;
+      chip.style.cursor = 'pointer';
+      chip.style.pointerEvents = 'auto';
+      chip.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        onFuel?.(item as ItemId);
+      });
       e.fuel.append(chip);
     }
   }

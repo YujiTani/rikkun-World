@@ -245,3 +245,39 @@ test('もちもの画面の下に操作が出る（たんす は文がかわる�
   await page.locator('.inv-tabs [data-tab=items]').click();
   await expect(hints).toBeVisible();
 });
+
+// ---- ねんりょう を えらぶ ----
+test('やく: せつめい パネルの チップで き を えらぶ', async ({ page }) => {
+  await open(page);
+  await page.evaluate(() => {
+    const hk = window.__rikkun as any;
+    hk.input.press('toggleInventory');
+    hk.input.release('toggleInventory');
+    hk.world.setBlock(60, 20, 60, 'furnace');
+    hk.craft.openFurnace(60, 20, 60);
+    hk.input.press('toggleInventory');
+    hk.input.release('toggleInventory');
+    hk.step(3);
+    hk.inventory.clear();
+    hk.inventory.add('coal_ore', 2);
+    hk.inventory.add('log', 2);
+    hk.inventory.add('iron_ore', 3);
+    hk.step(2);
+  });
+  expect(await page.evaluate(() => (window.__rikkun as any).craft.fuel())).toBe('coal_ore');
+  await page.evaluate(() => (window.__rikkun as any).craft.setFuel('log'));
+  expect(await page.evaluate(() => (window.__rikkun as any).craft.fuel())).toBe('log');
+  await page.evaluate(() => (window.__rikkun as any).craft.setFuel('coal_ore'));
+  // やく タブの せつめい パネルで クリック
+  await page.locator('.craft-tabs .rk-tab').nth(1).click();
+  await page.evaluate(() => {
+    const hk = window.__rikkun as any;
+    hk.craft.hover(hk.craft.ui().tiles[0].id);
+    hk.step(3);
+  });
+  const chip = page.locator('.cp-fuelchip[data-item=log]');
+  await expect(chip).toBeVisible();
+  await chip.click();
+  expect(await page.evaluate(() => (window.__rikkun as any).craft.fuel())).toBe('log');
+  await expect(chip).toHaveAttribute('data-next', 'true');
+});

@@ -285,7 +285,7 @@
   box-sizing: border-box;
   /* 大きさは中身で変わらない: 左の列の高さに合わせ、自分の中身は高さに数えない */
   contain: size;
-  min-height: 0;
+  min-height: calc(var(--rk-slot-inv) * 7.5); /* やく タブ（左が低い）でも 同じ大きさ */
   overflow: hidden;
   width: var(--cp-detail-w);
   flex: none;
@@ -494,4 +494,12 @@
   font-size: var(--rk-fs-body);
   color: var(--rk-text-sub);
   text-align: center;
+}
+
+/* ねんりょう の行: クリックで えらぶ（えらんだ物は アクセントのわく） */
+.cp-fuelchip {
+  cursor: pointer;
+}
+.bake-fuel .fuel {
+  cursor: pointer;
 }

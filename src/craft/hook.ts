@@ -9,6 +9,9 @@ export function createCraftHook(craft: CraftSystemImpl, screen: { inventoryOpen(
     make: (id: string) => craft.make(id),
     click: (id: string) => (screen.inventoryOpen() ? craft.make(id) : { ok: false, reason: 'closed' as const }),
     events: () => craft.takeCraftHookEvents(),
+    fuel: () => craft.fuel(),
+    setFuel: (id: string) => craft.setFuel(id as ItemId),
+    openFurnace: (x: number, y: number, z: number) => craft.openFurnace(x, y, z),
   };
 }
 
