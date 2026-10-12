@@ -164,6 +164,24 @@ export class CraftSystemImpl implements CraftSystem {
 
   /** 次に使う ねんりょう（なければ null） */
   nextFuel(): ItemId | null {
+    return this.fuel();
+  }
+
+  private chosenFuel: ItemId | null = null;
+
+  /** えらんでいる ねんりょう。0 こ（か 未選択）なら 自動の順の先頭。保存はしない */
+  fuel(): ItemId | null {
+    if (this.chosenFuel !== null && this.d.inventory.count(this.chosenFuel) > 0) return this.chosenFuel;
+    return this.autoFuel();
+  }
+
+  setFuel(id: ItemId): boolean {
+    if (!this.config.fuelOrder.includes(id)) return false;
+    this.chosenFuel = id;
+    return true;
+  }
+
+  private autoFuel(): ItemId | null {
     for (const f of this.config.fuelOrder) if (this.d.inventory.count(f) > 0) return f;
     return null;
   }

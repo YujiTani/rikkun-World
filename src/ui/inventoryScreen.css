@@ -157,3 +157,27 @@
   right: 0;
   bottom: 0;
 }
+
+/* 画面の下: ここでできる操作（シンプルな ひらがな。キーは キーの形） */
+.inv-hints {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rk-sp-2) var(--rk-sp-3);
+}
+.inv-hints[hidden] {
+  display: none;
+}
+.inv-hint .rk-chip__text {
+  font-size: var(--rk-fs-small);
+}
+.inv-key {
+  display: inline-block;
+  padding: 0 var(--rk-sp-2);
+  color: var(--rk-ink);
+  background: var(--rk-text-sub);
+  border-radius: var(--rk-r-s);
+  font-weight: 800;
+}
+.inv-hint-sep {
+  margin: 0 var(--rk-sp-1);
+}

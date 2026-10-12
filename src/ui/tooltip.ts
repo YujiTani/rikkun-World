@@ -3,6 +3,21 @@ import { anyIconUrl, itemIconUrl } from './itemIcon';
 import { buildTooltip, rarityCss, starText, type TooltipData, type TooltipDeps } from './tooltipModel';
 import './tooltip.css';
 
+/**
+ * カーソルの右下に出す。右にはみ出すなら左へ、下にはみ出すならカーソルの上へ。
+ * それでも入らなければ 画面の中に押し込む（はしから 4px）。
+ */
+export function placeNear(mx: number, my: number, w: number, h: number, vw: number, vh: number): { x: number; y: number } {
+  const m = 4;
+  let x = mx + 18;
+  let y = my + 18;
+  if (x + w > vw - m) x = mx - w - 12;
+  if (y + h > vh - m) y = my - h - 12;
+  x = Math.min(Math.max(m, x), Math.max(m, vw - w - m));
+  y = Math.min(Math.max(m, y), Math.max(m, vh - h - m));
+  return { x, y };
+}
+
 /** 合わせた場所: マス番号 0〜35・'head'・'body'・'card:<レシピ id>'・'material:<レシピ id>:<item>'・'fuel:<item>' */
 export type HoverTarget = number | string;
 
@@ -26,6 +41,7 @@ export class Tooltip {
   private mx = 0;
   private my = 0;
   private readonly onMove: (e: MouseEvent) => void;
+  private readonly onWheel: (e: WheelEvent) => void;
   private readonly head: HTMLDivElement;
   private readonly nameEl: HTMLDivElement;
   private readonly starsEl: HTMLDivElement;
@@ -59,6 +75,12 @@ export class Tooltip {
       this.place();
     };
     window.addEventListener('mousemove', this.onMove);
+    // ツールチップは マウスを通さないので、長いときは ホイールで中を動かす
+    this.onWheel = (e) => {
+      if (this.el.hidden || this.el.scrollHeight <= this.el.clientHeight) return;
+      this.el.scrollTop += e.deltaY;
+    };
+    window.addEventListener('wheel', this.onWheel, { passive: true });
   }
 
   /** マウスを合わせた（null で外れた） */
@@ -118,15 +140,15 @@ export class Tooltip {
     if (this.el.hidden) return;
     const w = this.el.offsetWidth;
     const h = this.el.offsetHeight;
-    let x = this.mx + 18;
-    let y = this.my + 18;
-    if (x + w > window.innerWidth - 4) x = Math.max(4, this.mx - w - 12);
-    if (y + h > window.innerHeight - 4) y = Math.max(4, window.innerHeight - h - 4);
+    const p = placeNear(this.mx, this.my, w, h, window.innerWidth, window.innerHeight);
+    const x = p.x;
+    const y = p.y;
     this.el.style.transform = `translate(${x}px, ${y}px)`;
   }
 
   dispose(): void {
     window.removeEventListener('mousemove', this.onMove);
+    window.removeEventListener('wheel', this.onWheel);
     this.el.remove();
   }
 }

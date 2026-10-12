@@ -175,10 +175,23 @@ export class AchievementsPage {
     t.name.replaceChildren(unlocked ? createMedal(def.medal, 96, mark(def)) : createMedal('locked', 96), document.createTextNode(unlocked ? def.name : '？？？'));
     t.desc.textContent = '';
     t.root.hidden = false;
+    // パネルは 小さい画面で縮めてあるので、画面の座標 → パネルの中の座標 に直す
     const host = this.el.getBoundingClientRect();
+    const k = host.width / (this.el.offsetWidth || 1) || 1;
     const r = row.getBoundingClientRect();
-    t.root.style.left = `${Math.max(0, r.left - host.left)}px`;
-    t.root.style.top = `${Math.max(0, r.bottom - host.top)}px`;
+    const tw = t.root.getBoundingClientRect().width;
+    const th = t.root.getBoundingClientRect().height;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const m = 4;
+    let x = r.left;
+    let y = r.bottom;
+    if (y + th > vh - m) y = r.top - th; // 下に入らない → 上に出す
+    if (x + tw > vw - m) x = r.right - tw; // 右に入らない → 左へ
+    x = Math.min(Math.max(m, x), Math.max(m, vw - tw - m));
+    y = Math.min(Math.max(m, y), Math.max(m, vh - th - m));
+    t.root.style.left = `${(x - host.left) / k}px`;
+    t.root.style.top = `${(y - host.top) / k}px`;
   }
 
   dispose(): void {

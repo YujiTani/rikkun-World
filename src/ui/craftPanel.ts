@@ -221,6 +221,7 @@ export class CraftPanel {
       const count = el('span', 'fuel-count', box);
       box.dataset.item = f;
       box.addEventListener('mouseenter', () => deps.hover?.(`fuel:${f}`));
+      box.addEventListener('click', () => this.chooseFuel(f as ItemId));
       box.addEventListener('mouseleave', () => deps.hover?.(null));
       this.fuelEls.push({ box, count, item: f as ItemId });
     }
@@ -440,9 +441,21 @@ export class CraftPanel {
     } else this.finger.remove();
   }
 
+  /** 今つかう ねんりょう（えらんだ物。0 こなら 自動の順） */
+  private currentFuel(): ItemId | null {
+    return this.d.craft.fuel?.() ?? nextFuel((i) => this.d.inv.count(i), this.cfg);
+  }
+
+  private chooseFuel(id: ItemId): void {
+    if (this.d.inv.count(id) <= 0) return;
+    this.d.craft.setFuel?.(id);
+    this.paintFuel(this.furnaceState());
+    this.paintDetail();
+  }
+
   private paintFuel(st: FurnaceState | null): void {
     const countOf = (i: ItemId) => this.d.inv.count(i);
-    const next = nextFuel(countOf, this.cfg);
+    const next = this.currentFuel();
     for (const f of this.fuelEls) {
       const n = countOf(f.item);
       f.count.textContent = String(n);
@@ -484,7 +497,7 @@ export class CraftPanel {
       info: this.info_.info(shown.output.item),
       bake: tab === 'bake',
       fuelCounts: tab === 'bake' ? fuelCounts : null,
-      fuelNext: nextFuel(countOf, this.cfg),
+      fuelNext: this.currentFuel(),
     });
   }
 
@@ -493,7 +506,7 @@ export class CraftPanel {
     const key = d ? JSON.stringify(d) : '';
     if (key === this.detailKey) return;
     this.detailKey = key;
-    renderDetail(this.detailEls, d, (i) => itemIconUrl(i));
+    renderDetail(this.detailEls, d, (i) => itemIconUrl(i), (i) => this.chooseFuel(i));
   }
 
   /** マスにマウスを合わせた／外した（パネルの中は null と同じ）。同じステップで中身が替わる */

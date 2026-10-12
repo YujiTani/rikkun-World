@@ -33,6 +33,13 @@
   flex-direction: column;
   gap: var(--rk-sp-2);
   width: 25%;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--rk-line) transparent;
+}
+.ach-cats > * {
+  flex: none;
 }
 .ach-cat-icon {
   width: var(--rk-icon-chip);
@@ -47,6 +54,8 @@
   gap: var(--rk-sp-2);
   overflow-y: auto;
   min-height: 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--rk-line) transparent;
 }
 .ach-row {
   position: relative;

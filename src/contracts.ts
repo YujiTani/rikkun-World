@@ -430,6 +430,10 @@ export interface CraftSystem {
   /** 今の持ち物で作れるか・足りないもの */
   status(recipeId: string): { craftable: boolean; missing: ItemStack[] };
   make(recipeId: string): { ok: boolean; reason: null | 'missing' | 'full' | 'unknown' | 'noFuel' | 'queueFull' };
+  /** いま えらんでいる ねんりょう（0 こなら 自動の順の次。なければ null） */
+  fuel?(): ItemId | null;
+  /** ねんりょう を えらぶ（せきたん・あぶら・き のどれか。持っていなくてもよい） */
+  setFuel?(id: ItemId): boolean;
   /** かまど のブロックか */
   isFurnace(x: number, y: number, z: number): boolean;
   /** かまど を開く（画面は担当 C） */
