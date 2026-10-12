@@ -9,6 +9,8 @@ import './storageScreen.css';
 export interface StorageHost {
   storageSlot: HTMLElement;
   setSide(side: 'craft' | 'storage'): void;
+  setMarker?(m: { active(): boolean; toggle(i: number): void; has(i: number): boolean } | null): void;
+  refresh?(): void;
 }
 
 const hexRgba = (c: string): [number, number, number, number] => {
@@ -25,6 +27,8 @@ export class StorageScreen {
   readonly el: HTMLDivElement;
   private readonly cells: SlotParts[] = [];
   private shown = false;
+  private markedBtn!: HTMLButtonElement;
+  private markKey = '';
 
   constructor(
     private readonly host: StorageHost,
@@ -49,9 +53,29 @@ export class StorageScreen {
     const title = document.createElement('h2');
     title.className = 'tansu-title';
     title.textContent = 'たんす';
-    const close = createButton({ text: 'とじる', kind: 'primary', onClick: () => this.storage.close() });
-    close.id = 'tansu-close';
-    head.append(icon, title, close);
+    // とじる は もちもの画面の右上の 1 こだけ。ここには しまう・とりだす ボタン
+    const bar = document.createElement('div');
+    bar.className = 'tansu-actions';
+    const btn = (text: string, id: string, fn: () => void) => {
+      const b = createButton({ text, kind: 'normal', onClick: () => { fn(); this.host.refresh?.(); } });
+      b.id = id;
+      b.classList.add('tansu-act');
+      return b;
+    };
+    this.markedBtn = btn('えらんだ もの を しまう', 'tansu-store-marked', () => this.storage.storeMarked());
+    this.markedBtn.hidden = true;
+    bar.append(
+      btn('ぜんぶ しまう', 'tansu-store-all', () => this.storage.storeAll()),
+      btn('おなじ もの を しまう', 'tansu-store-same', () => this.storage.storeSame()),
+      btn('ぜんぶ とりだす', 'tansu-take-all', () => this.storage.takeAll()),
+      this.markedBtn,
+    );
+    head.append(icon, title, bar);
+    host.setMarker?.({
+      active: () => this.storage.ui().open,
+      toggle: (i) => this.storage.mark(i),
+      has: (i) => this.storage.marks().includes(i),
+    });
 
     const grid = document.createElement('div');
     grid.className = 'tansu-grid';
@@ -76,6 +100,13 @@ export class StorageScreen {
       this.shown = open;
       this.host.setSide(open ? 'storage' : 'craft');
     }
+    const mk = this.storage.marks();
+    const mkKey = mk.join(',');
+    if (mkKey !== this.markKey) {
+      this.markKey = mkKey;
+      this.host.refresh?.();
+    }
+    this.markedBtn.hidden = mk.length === 0;
     const slots = this.storage.openSlots();
     if (!open || !slots) return;
     for (let i = 0; i < this.cells.length; i++) {

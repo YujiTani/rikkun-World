@@ -12,6 +12,12 @@ export function createStorageHook(storage: StorageSystem, screen: { inventoryOpe
     set: (x: number, y: number, z: number, i: number, stack: ItemStack | null) => storage.set(x, y, z, i, stack),
     click: (i: number) => storage.click(i),
     shiftClick: (from: 'tansu' | 'inv', i: number) => storage.shiftClick(from, i),
+    storeAll: () => storage.storeAll(),
+    storeSame: () => storage.storeSame(),
+    takeAll: () => storage.takeAll(),
+    mark: (i: number) => storage.mark(i),
+    marks: () => storage.marks(),
+    storeMarked: () => storage.storeMarked(),
     close: () => {
       if (storage.ui().open) storage.close();
       else if (screen.inventoryOpen()) screen.toggle();

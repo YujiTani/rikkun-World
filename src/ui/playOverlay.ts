@@ -12,7 +12,7 @@ const ICON = (id: string) => `<img class="po-icon" data-icon="${id}" alt="">`;
 
 /** 操作の絵（絵が主役。字は ひらがな・カタカナ のみ） */
 function helpItem(art: string, caption: string): string {
-  return `<div class="po-help-item"><div class="po-art">${art}</div><div class="po-caption">${escapeHtml(caption)}</div></div>`;
+  return `<div class="po-help-item"><div class="po-art">${art}</div><div class="po-caption">${caption}</div></div>`;
 }
 
 const LEFT = () => `<div class="po-emoji po-mouse-big">${mouseHtml('left')}</div>`;
@@ -41,7 +41,7 @@ function tabArts(): Record<GuideTabId, string[]> {
       `${LEFT()}${ICON('katana')}`,
       `${ICON('naginata')}${EMOJI('↔')}`,
       `${ICON('yumi')}${ICON('ya')}`,
-      `${ICON('kabuto')}${ICON('yoroi')}${ICON('kote')}${ICON('suneate')}${RIGHT()}`,
+      `<div class="po-armor">${ICON('kabuto')}${ICON('yoroi')}${ICON('kote')}${ICON('suneate')}</div>${LEFT()}`,
       `${EMOJI('🏠')}${EMOJI('🌙')}`,
     ],
     craft: [
