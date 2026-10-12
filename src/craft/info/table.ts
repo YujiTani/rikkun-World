@@ -1,0 +1,144 @@
+import type { YokaiKind } from '../../contracts';
+
+/**
+ * 全アイテムの説明の表（M6 §2.2）。文はここ 1 か所だけに書く。
+ * 画面（せつめい パネル）・ツールチップ・`craft.info()` は、この表と設定から作った同じデータを読む。
+ * 字はすべて ひらがな・カタカナ・数字（漢字は使わない）。
+ * 「どこで」「つかいみち」「つよさ」の数は、ここには書かない（レシピ・ドロップ表・設定から `build.ts` が作る）。
+ */
+
+/** ボタンの絵の種類: `1-9` = ホットバーで えらぶ、`left` = ひだりクリック、`leftHold` = ひだりを おしつづける、`right` = みぎクリック、`E` = もちもの画面 */
+export type ButtonKey = '1-9' | 'left' | 'leftHold' | 'right' | 'E';
+
+export type StatKind = 'pickaxe' | 'blade' | 'bow' | 'arrow' | 'armor' | 'tansu';
+
+export interface InfoRow {
+  /** なにに つかう */
+  use: string;
+  /** どう つかう */
+  how: string;
+  buttons: ButtonKey[];
+  /** 働きがあとのもの（時計の絵＋この文。`use` と同じ） */
+  later?: string;
+  /** ほって手に入るブロック（「〇〇 を ほる」） */
+  dig?: boolean;
+  /** つよさ の出し方 */
+  stats?: StatKind;
+}
+
+const PLACE = 'てに もって みぎクリック で おく';
+const PLACE_BTN: ButtonKey[] = ['1-9', 'right'];
+const CRAFT_E = 'E の つくる で つかう';
+const PICK_HOW = 'えらんで、ブロック に むけて ひだりクリック を おしつづける';
+const BLADE_HOW = 'えらんで、ようかい に むけて ひだりクリック';
+const WEAR_HOW = 'てに もって みぎクリック で きる。E の そうび の マス に いれても よい';
+const LATER_HOW = 'いまは もてる だけ';
+
+const later = (row: string): InfoRow => ({ use: row, how: LATER_HOW, buttons: [], later: row });
+
+export const ITEM_INFO: Readonly<Record<string, InfoRow>> = {
+  // ---- ブロック（13）
+  grass: { use: 'ブロック として おける。わらじ の ざいりょう', how: PLACE, buttons: PLACE_BTN, dig: true },
+  dirt: { use: 'ブロック として おける', how: PLACE, buttons: PLACE_BTN, dig: true },
+  stone: { use: 'おける。つるはし・かまど・や の ざいりょう', how: PLACE, buttons: PLACE_BTN, dig: true },
+  sand: { use: 'おける', how: PLACE, buttons: PLACE_BTN, dig: true },
+  log: {
+    use: 'おける。いろんな もの の ざいりょう。かまど の ねんりょう にも なる',
+    how: `${PLACE}。ねんりょう は かまど が かってに つかう`,
+    buttons: PLACE_BTN,
+    dig: true,
+  },
+  leaves: { use: 'おける', how: PLACE, buttons: PLACE_BTN, dig: true },
+  coal_ore: {
+    use: 'かまど の ねんりょう（いちばん さきに つかう）。おける',
+    how: 'かまど で やく と かってに つかう。おくのは てに もって みぎクリック',
+    buttons: PLACE_BTN,
+    dig: true,
+  },
+  iron_ore: {
+    use: 'かまど で やくと てつの かたまり に なる。おける',
+    how: 'かまど に みぎクリック して やく',
+    buttons: ['right'],
+    dig: true,
+  },
+  furnace: {
+    use: 'おいて、てつ や ねんど を やく',
+    how: 'おいて、かまど に むけて みぎクリック（E でも）',
+    buttons: PLACE_BTN,
+  },
+  kawara: { use: 'ブロック として おける（やね に ぴったり）', how: PLACE, buttons: PLACE_BTN },
+  brick: { use: 'ブロック として おける（かべ に ぴったり）', how: PLACE, buttons: PLACE_BTN },
+  torch: {
+    use: 'おくと まわり が あかるく なる。あかるい ところ には ようかい が でない',
+    how: PLACE,
+    buttons: PLACE_BTN,
+  },
+  tansu: {
+    use: 'おいて、もちもの を たくさん（54 こ の マス）しまえる',
+    how: 'おいて、たんす に むけて みぎクリック で ひらく（E でも）。シフト を おしながら クリック で いっきに うつす',
+    buttons: PLACE_BTN,
+    stats: 'tansu',
+  },
+
+  // ---- ざいりょう（7）
+  paper: { use: 'や・ちょうちん・たこ の ざいりょう', how: CRAFT_E, buttons: ['E'] },
+  oil: { use: 'たいまつ・ちょうちん の ざいりょう。かまど の ねんりょう にも なる', how: `${CRAFT_E}。ねんりょう は かってに つかう`, buttons: ['E'] },
+  string: { use: 'ゆみ・よろい・すねあて・たこ・ふとん・おまもり・わらじ の ざいりょう', how: CRAFT_E, buttons: ['E'] },
+  cloth: { use: 'かぶと・よろい・こて・ふとん・おまもり の ざいりょう', how: CRAFT_E, buttons: ['E'] },
+  clay: { use: 'かまど で やくと かわら・レンガ・はにわ に なる', how: 'かまど に みぎクリック して やく', buttons: ['right'] },
+  crystal: { use: 'きらきらの かたな・おまもり の ざいりょう。とても めずらしい', how: CRAFT_E, buttons: ['E'] },
+  iron_ingot: { use: 'てつの つるはし・ぶき・ぼうぐ・たんす の ざいりょう', how: CRAFT_E, buttons: ['E'] },
+
+  // ---- どうぐ・ぶき・ぼうぐ（13）
+  wood_pickaxe: { use: 'ブロック を はやく ほれる', how: PICK_HOW, buttons: ['1-9', 'leftHold'], stats: 'pickaxe' },
+  stone_pickaxe: { use: 'もっと はやく ほれる。てつ も ほれる', how: PICK_HOW, buttons: ['1-9', 'leftHold'], stats: 'pickaxe' },
+  iron_pickaxe: { use: 'いちばん はやく ほれる。てつ も ほれる', how: PICK_HOW, buttons: ['1-9', 'leftHold'], stats: 'pickaxe' },
+  bokuto: { use: 'ようかい を たたく', how: BLADE_HOW, buttons: ['1-9', 'left'], stats: 'blade' },
+  katana: { use: 'ようかい を つよく たたく', how: BLADE_HOW, buttons: ['1-9', 'left'], stats: 'blade' },
+  naginata: {
+    use: 'とおく まで とどく。つく と はらう を かわりばんこ',
+    how: `${BLADE_HOW}（おしつづけると つづけて ふる）`,
+    buttons: ['1-9', 'left'],
+    stats: 'blade',
+  },
+  crystal_katana: { use: 'いちばん つよい かたな', how: BLADE_HOW, buttons: ['1-9', 'left'], stats: 'blade' },
+  yumi: {
+    use: 'や を とばして とおく の ようかい を たおす。や が いる',
+    how: 'えらんで ひだりクリック。おしつづけると つづけて とぶ',
+    buttons: ['1-9', 'left'],
+    stats: 'bow',
+  },
+  ya: { use: 'ゆみ で とばす', how: 'もちもの に いれて おく だけ。ゆみ が つかう', buttons: [], stats: 'arrow' },
+  kabuto: { use: 'ようかい の こうげき を へらす（あたま）', how: WEAR_HOW, buttons: ['1-9', 'right'], stats: 'armor' },
+  yoroi: { use: 'ようかい の こうげき を へらす（からだ）', how: WEAR_HOW, buttons: ['1-9', 'right'], stats: 'armor' },
+  kote: { use: 'ようかい の こうげき を へらす（うで）', how: WEAR_HOW, buttons: ['1-9', 'right'], stats: 'armor' },
+  suneate: { use: 'ようかい の こうげき を へらす（あし）', how: WEAR_HOW, buttons: ['1-9', 'right'], stats: 'armor' },
+
+  // ---- 働きが あとのもの（6）
+  lantern: later('おいて あかるく できるように なるよ（もうすぐ）'),
+  kite: later('そら に あげて あそべるように なるよ（もうすぐ）'),
+  futon: later('よる に ねると あさ に なるように なるよ（もうすぐ）'),
+  omamori: later('もっていると やられても もちもの を おとさなく なるよ（もうすぐ）'),
+  waraji: later('はくと すこし はやく あるけるように なるよ（もうすぐ）'),
+  haniwa: later('おいて かざれるように なるよ（もうすぐ）'),
+
+  // ---- ようかいだま（§5。いまは 手に入らない。古い保存用）
+  yokai_orb: { use: 'いまは つかえない よ', how: '', buttons: [] },
+};
+
+/** 「どこで」の ようかいだま だけの文（§5） */
+export const ORB_SOURCE = 'むかし の ようかい が おとした';
+
+/** 妖怪の名前（ドロップ表の「〇〇 が おとす」） */
+export const YOKAI_NAME: Readonly<Record<YokaiKind, string>> = {
+  karakasa: 'からかさ',
+  chochin: 'ちょうちん',
+  nurikabe: 'ぬりかべ',
+  rokurokubi: 'ろくろくび',
+};
+
+/** めずらしさの ことば（めずらしさ 4 段） */
+export const RARITY_WORD: readonly string[] = ['ふつう', 'すこし めずらしい', 'めずらしい', 'とても めずらしい'];
+
+/** 四角のメーターの最大の数（§2.2） */
+export const STAT_MAX = { dig: 6, damage: 6, guard: 5 } as const;
