@@ -53,6 +53,8 @@ export interface DigM4Deps {
   armor?: Pick<ArmorSystem, 'tryEquip'>;
   /** ほって持ち物に入った（拾ったログ用。A の窓口につなぐ） */
   onPickup?: (item: ItemId, count: number) => void;
+  /** 支えをなくした たいまつ を地面に落とす（なければ 持ち物へ直接入れる） */
+  scatterItem?: (pos: Vec3, item: ItemId, count: number) => void;
 }
 
 const NO_DIG_EVENTS: DigEvent[] = [];
@@ -309,6 +311,7 @@ export class DigSystemImpl implements DigSystem {
     const craft = this.m4.craft;
     const wasFurnace = craft?.isFurnace(x, y, z) ?? false;
     this.world.setBlock(x, y, z, 'air');
+    this.dropUnsupportedTorches(x, y, z);
     const fixed = craft?.fixedDrop(t.id) ?? null;
     const max = Math.max(1, this.config.dropMax[this.config.rarity[t.id] ?? 'common'] ?? 1);
     const n = fixed !== null ? fixed : randInt(this.rng, 1, max);
@@ -319,6 +322,22 @@ export class DigSystemImpl implements DigSystem {
     this.clearMem();
     this.active = false;
     this.cooldown = this.config.digCooldown;
+  }
+
+  /** (x, y, z) をこわした。下や横の支えをなくした たいまつ は落ちて アイテム になる（start_torch は こわれない） */
+  private dropUnsupportedTorches(x: number, y: number, z: number): void {
+    for (const [dx, dy, dz] of TORCH_NEIGHBORS) {
+      const tx = x + dx;
+      const ty = y + dy;
+      const tz = z + dz;
+      if (this.world.getBlock(tx, ty, tz) !== 'torch' || this.torchSupported(tx, ty, tz)) continue;
+      this.world.setBlock(tx, ty, tz, 'air');
+      if (this.m4.scatterItem) this.m4.scatterItem({ x: tx + 0.5, y: ty, z: tz + 0.5 }, 'torch', 1);
+      else {
+        const left = this.inventory.add('torch', 1);
+        if (left === 0) this.m4.onPickup?.('torch', 1);
+      }
+    }
   }
 
   private updatePlace(secondary: boolean): void {
@@ -397,6 +416,14 @@ export class DigSystemImpl implements DigSystem {
     if (this.hookQueue.length > MAX_QUEUE) this.hookQueue.shift();
   }
 }
+
+const TORCH_NEIGHBORS: ReadonlyArray<readonly [number, number, number]> = [
+  [0, 1, 0],
+  [1, 0, 0],
+  [-1, 0, 0],
+  [0, 0, 1],
+  [0, 0, -1],
+];
 
 function sameBlock(a: Vec3, b: Vec3): boolean {
   return a.x === b.x && a.y === b.y && a.z === b.z;

@@ -59,7 +59,7 @@ export function buildTooltip(item: ItemId, d: TooltipDeps): TooltipData {
     add(`たたく つよさ ${tools.arrowDamage}`, 'ya');
   }
   if (item === 'ya') add('ゆみ で とばす', 'yumi');
-  if (item === 'kabuto' || item === 'yoroi') add('カキン と ふせぐ', item);
+  if (item === 'kabuto' || item === 'yoroi' || item === 'kote' || item === 'suneate') add('カキン と ふせぐ', item);
   if (d.placeable(item)) add('おける', item);
   if (item === 'furnace') add('みぎクリック で やく', 'furnace');
   if (ui.fuelOrder.includes(item)) add('ねんりょう に なる', 'furnace');

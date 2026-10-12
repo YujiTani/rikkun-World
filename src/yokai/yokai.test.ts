@@ -220,21 +220,21 @@ describe('攻撃（AC4〜AC7）', () => {
     expect(y.lastHitBox!.cz).toBeCloseTo(-2.5, 5);
     expect(y.info().bodyY).toBeLessThan(0.01);
   });
-  it('AC5: 火の玉は 1 秒に 3.0 ブロック進み、8 ブロックで消える', () => {
+  it('AC5: 火の玉は 1 秒に 5.0 ブロック進み、8 ブロックで消える', () => {
     const y = new Chochin();
     stepsToHit(y);
     expect(y.fireballs.length).toBe(1);
     const f = y.fireballs[0]!;
     const p0 = f.position.clone();
     run(y, 1);
-    expect(Math.abs(f.position.distanceTo(p0) - 3.0)).toBeLessThanOrEqual(0.1);
-    run(y, 1.6);
+    expect(Math.abs(f.position.distanceTo(p0) - 5.0)).toBeLessThanOrEqual(0.1);
+    run(y, 0.5);
     expect(f.alive).toBe(true);
     run(y, 0.15);
     expect(f.alive).toBe(false);
     expect(f.traveled).toBeGreaterThanOrEqual(8 - 1e-3);
   });
-  it('AC6: ろくろくびのあたまは 6 ブロック先、からだは動かない、怖い顔は 0〜1.0 秒', () => {
+  it('AC6: ろくろくびのあたまは 8 ブロック先、からだは動かない、怖い顔は 0〜1.0 秒', () => {
     const y = new Rokurokubi();
     const c = y.headCenter(new THREE.Vector3());
     expect(c.z).toBeCloseTo(0, 5);
@@ -246,17 +246,17 @@ describe('攻撃（AC4〜AC7）', () => {
       faces.push(y.faceState);
       maxDist = Math.max(maxDist, y.info().headDist);
     }
-    expect(Math.abs(maxDist - 6.0)).toBeLessThanOrEqual(0.1);
+    expect(Math.abs(maxDist - 8.0)).toBeLessThanOrEqual(0.1);
     expect(y.info().bodyZ).toBe(0);
     expect(faces[0]).toBe('scary');
     expect(faces[59]).toBe('scary'); // 1.0 秒
     expect(faces[65]).not.toBe('scary'); // 1.1 秒
     expect(y.faceState).not.toBe('scary');
-    // 0.5 秒のあたま: 水平 6.0、高さは足もと +1.3
+    // 0.5 秒のあたま: 水平 8.0、高さは足もと +1.3
     const y2 = new Rokurokubi();
     stepsToHit(y2);
     const h = y2.headCenter(new THREE.Vector3());
-    expect(Math.abs(Math.hypot(h.x, h.z) - 6)).toBeLessThanOrEqual(0.1);
+    expect(Math.abs(Math.hypot(h.x, h.z) - 8)).toBeLessThanOrEqual(0.1);
     expect(h.y).toBeCloseTo(1.3, 1);
   });
   it('AC7: ぬりかべは当たりのあと 2.5 秒（150 ステップ）で元の立ち姿', () => {

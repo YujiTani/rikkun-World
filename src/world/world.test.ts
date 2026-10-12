@@ -92,6 +92,16 @@ describe('ArrayVoxelWorld', () => {
     b.setBlock(5, 5, 5, 'sand');
     expect(a.hash()).not.toBe(b.hash());
   });
+  it('markDirty(reach 2): 光は面の角が 2 マス先まで読むので、ふちから 2 マスはとなりも作り直す', () => {
+    const w = new ArrayVoxelWorld();
+    w.takeDirtyChunks();
+    w.markDirty(17, 5); // 次のチャンクの 1 列目
+    expect(w.takeDirtyChunks().sort()).toEqual([1]);
+    w.markDirty(17, 5, 2);
+    expect(w.takeDirtyChunks().sort((p, q) => p - q)).toEqual([0, 1]);
+    w.markDirty(17, 17, 2); // かど: ななめも
+    expect(w.takeDirtyChunks().sort((p, q) => p - q)).toEqual([0, 1, 4, 5]);
+  });
   it('変わったチャンクを覚える。チャンクの端はとなりも', () => {
     const w = new ArrayVoxelWorld();
     expect(w.takeDirtyChunks()).toHaveLength(16);

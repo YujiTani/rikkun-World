@@ -27,6 +27,8 @@ const ITEM_ONLY_RARITY: Record<string, Rarity> = {
   ya: 'common',
   kabuto: 'rare',
   yoroi: 'rare',
+  kote: 'rare',
+  suneate: 'rare',
   torch: 'common',
   lantern: 'uncommon',
   kite: 'uncommon',

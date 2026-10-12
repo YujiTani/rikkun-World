@@ -86,7 +86,8 @@ export function anyCraftable(cards: readonly CardView[]): boolean {
 }
 
 /** 今の持ち物で つくる のレシピが 1 つでも作れるか（つくれる マーク・`hintVisible`） */
-export function anyCraftNow(craft: Pick<CraftSystem, 'recipes' | 'status'>, _inv?: unknown): boolean {
+export function anyCraftNow(craft: Pick<CraftSystem, 'recipes' | 'status'> & { canCraftAny?(): boolean }, _inv?: unknown): boolean {
+  if (craft.canCraftAny) return craft.canCraftAny(); // 配列を作らない速い道（毎ステップ呼ばれる）
   for (const r of craft.recipes()) if (r.station === 'craft' && craft.status(r.id).craftable) return true;
   return false;
 }

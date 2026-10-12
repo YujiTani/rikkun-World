@@ -6,9 +6,9 @@ export const COMBAT_FX = {
   edgeSeconds: 0.4,
   /** ダメージのときの画面のゆれ（秒）。強さは FX_SETTINGS.shakeStrength の半分 */
   hurtShakeSeconds: 0.1,
-  /** むてき中の人形: 0.5 秒ごとにうすい ⇔ ふつう */
-  invincibleBlinkTicks: 30,
-  invincibleThinAlpha: 0.4,
+  /** むてき中の人形: 16 ステップ（約 0.27 秒）ごとにうすい ⇔ ふつう（1 秒に 2 回弱。3 回未満のゆっくりした点滅。人形だけ） */
+  invincibleBlinkTicks: 16,
+  invincibleThinAlpha: 0.25,
   /** やられて横にたおれるまで（秒） */
   fallSeconds: 0.3,
   /** おとしもの ぶくろ */
@@ -26,7 +26,7 @@ export const COMBAT_FX = {
     /** 光の柱をまとめる（水平の）はば */
     clusterRadius: 6,
     glowOpacity: 0.35,
-    pillarSize: [0.3, 10, 0.3],
+    pillarSize: [0.12, 10, 0.12],
     pillarOpacity: 0.3,
     /** 地面からの高さ（ふくろの中心） */
     lift: 0.35,
@@ -50,7 +50,8 @@ export function edgeOpacity(t: number): number {
 export function invincibleAlpha(invincibleTicks: number): number {
   const C = COMBAT_FX;
   if (invincibleTicks <= 0) return 1;
-  return Math.floor(invincibleTicks / C.invincibleBlinkTicks) % 2 === 0 ? 1 : C.invincibleThinAlpha;
+  // むてきの はじまり（のこり最大）はうすい所から始まる
+  return Math.floor((invincibleTicks - 1) / C.invincibleBlinkTicks) % 2 === 1 ? C.invincibleThinAlpha : 1;
 }
 
 export interface BagPose {

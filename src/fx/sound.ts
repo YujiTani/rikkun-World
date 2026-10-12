@@ -68,6 +68,14 @@ const SOUNDS = {
     { type: 'sine', f0: 880, f1: 1040, delay: 0.05, dur: 0.1, gain: 0.5 },
     { type: 'sine', f0: 1320, f1: 1560, delay: 0.11, dur: 0.16, gain: 0.4 },
   ],
+  /** レベルアップ: ファンファーレ（ドミソドー と のぼる、やさしい音） */
+  levelUp: [
+    { type: 'triangle', f0: 523, f1: 523, delay: 0, dur: 0.14, gain: 0.5 },
+    { type: 'triangle', f0: 659, f1: 659, delay: 0.14, dur: 0.14, gain: 0.5 },
+    { type: 'triangle', f0: 784, f1: 784, delay: 0.28, dur: 0.14, gain: 0.5 },
+    { type: 'triangle', f0: 1047, f1: 1047, delay: 0.42, dur: 0.4, gain: 0.55 },
+    { type: 'sine', f0: 2093, f1: 2093, delay: 0.42, dur: 0.5, gain: 0.2 },
+  ],
 } as const satisfies Record<string, readonly Tone[]>;
 
 export type SoundName = keyof typeof SOUNDS;

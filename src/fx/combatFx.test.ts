@@ -17,11 +17,17 @@ describe('計算', () => {
     for (let t = 0; t < 0.4; t += 1 / 60) peak = Math.max(peak, edgeOpacity(t));
     expect(peak).toBeLessThanOrEqual(0.25);
   });
-  it('むてきの点滅は 0.5 秒ごと（1 秒に 2 回の切りかえ）', () => {
+  it('むてきの点滅: ハートをうけた直後からうすく、1 秒に 3 回未満の切りかえ', () => {
+    const thin = COMBAT_FX.invincibleThinAlpha;
     expect(invincibleAlpha(0)).toBe(1);
-    expect(invincibleAlpha(59)).toBe(COMBAT_FX.invincibleThinAlpha);
-    expect(invincibleAlpha(30)).toBe(COMBAT_FX.invincibleThinAlpha);
-    expect(invincibleAlpha(29)).toBe(1);
+    expect(invincibleAlpha(30)).toBe(thin);
+    let changes = 0;
+    for (let left = 30; left > 1; left--) if (invincibleAlpha(left) !== invincibleAlpha(left - 1)) changes++;
+    expect(changes).toBeGreaterThanOrEqual(1); // 0.5 秒のあいだに、うすい → ふつうに戻る
+    // 60 ステップ（1 秒）のあいだの「うすい→ふつう」の回数は 3 回未満
+    let flashes = 0;
+    for (let left = 180; left > 120; left--) if (invincibleAlpha(left) === thin && invincibleAlpha(left - 1) === 1) flashes++;
+    expect(flashes).toBeLessThan(3);
   });
   it('ふくろは 2 秒で上下 0.1・4 秒で 1 回転・のこり 30 秒から光が強弱', () => {
     expect(bagPose(0.5, 36000).y).toBeCloseTo(COMBAT_FX.bag.lift + 0.1);
@@ -237,10 +243,10 @@ describe('CombatFx（出来事 → 音・画面）', () => {
   });
   it('むてき中のハートと人形', () => {
     const s = setup();
-    s.setInv(100);
+    s.setInv(120);
     s.fx.update(1 / 60);
     expect(s.calls).toContain('hearts:20:true');
-    expect(s.calls).toContain('alpha:0.4');
+    expect(s.calls).toContain('alpha:0.25');
     s.setInv(0);
     s.fx.update(1 / 60);
     expect(s.calls).toContain('hearts:20:false');

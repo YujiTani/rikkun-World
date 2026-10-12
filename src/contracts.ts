@@ -154,6 +154,8 @@ export type ItemOnlyId =
   | 'ya'
   | 'kabuto'
   | 'yoroi'
+  | 'kote' // こて（籠手）
+  | 'suneate' // すねあて（脛当て）
   | 'torch'
   | 'lantern'
   | 'kite'
@@ -436,7 +438,8 @@ export interface CraftSystem {
   drainEvents(): CraftEvent[];
 }
 
-export type ArmorSlot = 'head' | 'body';
+/** そうびの部位: あたま（かぶと）・からだ（よろい）・うで（こて）・あし（すねあて） */
+export type ArmorSlot = 'head' | 'body' | 'arms' | 'legs';
 
 /** 防具。担当 A が `src/craft/`（または `src/armor/`）で実装する */
 export interface ArmorSystem {

@@ -14,7 +14,7 @@ const r = (
   station,
 });
 
-/** つくる 18 こ（M4 §4.1。カードの順） */
+/** つくる 20 こ（M4 §4.1。カードの順） */
 export const CRAFT_RECIPES: readonly Recipe[] = [
   r('wood_pickaxe', 1, [['log', 3]], true),
   r('stone_pickaxe', 1, [['stone', 3], ['log', 2]], true),
@@ -28,6 +28,8 @@ export const CRAFT_RECIPES: readonly Recipe[] = [
   r('ya', 4, [['log', 1], ['stone', 1], ['paper', 1]], true),
   r('kabuto', 1, [['iron_ingot', 2], ['cloth', 1]], true),
   r('yoroi', 1, [['iron_ingot', 3], ['string', 2], ['cloth', 2]], true),
+  r('kote', 1, [['iron_ingot', 1], ['cloth', 1]], true),
+  r('suneate', 1, [['iron_ingot', 2], ['string', 1]], true),
   r('torch', 4, [['log', 1], ['oil', 1]], true),
   r('lantern', 1, [['paper', 2], ['log', 1], ['oil', 1]], false),
   r('kite', 1, [['paper', 3], ['string', 2], ['log', 1]], false),

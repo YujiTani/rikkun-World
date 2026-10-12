@@ -20,7 +20,7 @@ export function createCameraHook(rig: CameraRig) {
       bodyAnim: rig.doll.bodyAnim,
       animTick: rig.doll.animTick,
       /** 着ている防具の見た目 */
-      armor: { head: rig.doll.armorWorn('head'), body: rig.doll.armorWorn('body') },
+      armor: { head: rig.doll.armorWorn('head'), body: rig.doll.armorWorn('body'), arms: rig.doll.armorWorn('arms'), legs: rig.doll.armorWorn('legs') },
       /** 切ったあとの白い弧 */
       arc: rig.doll.arcShown,
     }),
