@@ -19,11 +19,17 @@ export const COMBAT_FX = {
     bodySize: 0.5,
     ropeSize: [0.3, 0.1, 0.3],
     glowSize: 0.7,
+    /** 落ちたアイテムの板の大きさ・かさねる間かく・かさねる数の上限 */
+    iconSize: 0.45,
+    stackGap: 0.06,
+    stackMax: 3,
+    /** 光の柱をまとめる（水平の）はば */
+    clusterRadius: 6,
     glowOpacity: 0.35,
     pillarSize: [0.3, 10, 0.3],
     pillarOpacity: 0.3,
     /** 地面からの高さ（ふくろの中心） */
-    lift: 0.45,
+    lift: 0.35,
     bobAmount: 0.1,
     bobSeconds: 2,
     spinSeconds: 4,

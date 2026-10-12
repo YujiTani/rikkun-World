@@ -25,7 +25,7 @@ export interface CombatConfig {
   respawnDelayTicks: number;
   /** 復活のあとの むてき */
   respawnInvincibleTicks: number;
-  /** ふくろが消えるまで */
+  /** 落ちたアイテムが消えるまで */
   dropBagTicks: number;
   /** 拾える水平の距離（高さの差は BAG_PICKUP_HEIGHT） */
   pickupRadius: number;
@@ -35,6 +35,14 @@ export interface CombatConfig {
 export const KNOCKBACK_TICKS = 10;
 export const BAG_PICKUP_HEIGHT = 2;
 /** 体の箱（M1-02 §4.1） */
+/** ばらまき: 水平の速さ（ブロック/秒）の最小〜最大・上向きの速さ・重力 */
+export const SCATTER_SPEED_MIN = 1.5;
+export const SCATTER_SPEED_MAX = 3.5;
+export const SCATTER_UP_MIN = 4;
+export const SCATTER_UP_MAX = 6;
+export const ITEM_GRAVITY = 20;
+/** 水の中で水面へうかぶ速さ（ブロック/秒） */
+export const ITEM_FLOAT_SPEED = 3;
 export const BODY_HALF = 0.3;
 export const BODY_HEIGHT = 1.8;
 
