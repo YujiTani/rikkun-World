@@ -236,7 +236,7 @@ test('もちもの画面の下に操作が出る（たんす は文がかわる�
   await expect(hints).toBeVisible();
   await expect(hints).toContainText('1こ すてる');
   await expect(hints).toContainText('ぜんぶ すてる');
-  await expect(hints).toContainText('わくの そとへ ひっぱる');
+  await expect(hints).toContainText('の そとへ ひっぱる');
   await expect(hints).toContainText('いっきに うつす');
   await expect(hints).toContainText('とじる');
   expect(await inView(page, '.inv-hints')).toBe(true);

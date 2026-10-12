@@ -222,3 +222,23 @@
 .po-help-item .po-mouse-big {
   --rk-mouse-size: var(--rk-fs-title);
 }
+
+/* 文が主役: ことばを上に大きく、絵は小さく下に */
+.po-caption {
+  order: -1;
+  font-size: var(--rk-fs-body);
+  font-weight: 700;
+}
+.po-art {
+  min-height: 0;
+}
+.po-art .po-emoji {
+  font-size: var(--rk-fs-head);
+}
+.po-art .po-icon {
+  width: var(--rk-icon-chip);
+  height: var(--rk-icon-chip);
+}
+.po-help-item .po-mouse-big {
+  --rk-mouse-size: var(--rk-fs-head);
+}

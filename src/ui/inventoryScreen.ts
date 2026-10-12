@@ -6,6 +6,7 @@ import { createSlotEl, paintSlot, type SlotEls } from './hotbar';
 import { itemIconUrl } from './itemIcon';
 import { Tooltip, type HoverTarget } from './tooltip';
 import { mouseHtml } from './craftPanel.art';
+import { ruby } from './text';
 import { createChip } from './theme';
 import './inventoryScreen.css';
 
@@ -277,10 +278,10 @@ export class InventoryScreen {
     const rows: [string, string][] = [
       [K('Q'), '1こ すてる'],
       [`${K('Shift')}＋${K('Q')}`, 'ぜんぶ すてる'],
-      [`${mouseHtml('left')}わくの そとへ ひっぱる`, 'すてる'],
+      [`${mouseHtml('left')}${ruby('枠', 'わく')}の そとへ ひっぱる`, 'すてる'],
       ...(tansu ? ([[`${K('Ctrl')}（${K('⌘')}）＋${mouseHtml('left')}クリック`, 'えらぶ（✓）']] as [string, string][]) : []),
       [`${K('Shift')}＋${mouseHtml('left')}クリック`, tansu ? 'たんす へ うつす' : 'いっきに うつす'],
-      [`${mouseHtml('left')}${mouseHtml('left')}ダブルクリック`, 'ぼうぐ を きる・ぬぐ'],
+      [`${mouseHtml('left')}ダブルクリック`, `${ruby('防具', 'ぼうぐ')}を ${ruby('着', 'き')}る・ぬぐ`],
       [K('E'), 'とじる'],
     ];
     this.hintsEl.replaceChildren(
