@@ -1,0 +1,274 @@
+import { describe, expect, it } from 'vitest';
+import type { Inventory, PlayerState, SpawnPoint } from '../contracts';
+import { ArrayVoxelWorld } from '../world/VoxelWorld';
+import { generateIsland } from '../world/gen/generateIsland';
+import {
+  SaveManager,
+  isBodyPlaceable,
+  parseSaveOptions,
+  saveKey,
+  snapshotWorld,
+  stripResetParam,
+  type KeyValueStore,
+} from './SaveManager';
+
+class MemoryStore implements KeyValueStore {
+  data = new Map<string, string>();
+  fail = false;
+  getItem(k: string) {
+    return this.data.get(k) ?? null;
+  }
+  setItem(k: string, v: string) {
+    if (this.fail) throw new Error('quota');
+    this.data.set(k, v);
+  }
+  removeItem(k: string) {
+    this.data.delete(k);
+  }
+}
+
+const SEED = 12345;
+
+/** 1 回のページ表示に当たるもの（世界・持ち物・プレイヤー・保存係）を作る */
+function session(store: KeyValueStore | null, ticks = { n: 0 }) {
+  const world = new ArrayVoxelWorld();
+  const island = generateIsland(SEED, world);
+  const baseline = snapshotWorld(world);
+  let slots: unknown = { slots: [], selected: 0 };
+  const inventory = {
+    serialize: () => slots,
+    deserialize: (d: unknown) => {
+      slots = d;
+    },
+    clear: () => {
+      slots = { slots: [], selected: 0 };
+    },
+  } as unknown as Inventory;
+  const spawn: SpawnPoint = island.spawn();
+  const state: PlayerState = {
+    position: { x: spawn.x, y: spawn.y, z: spawn.z },
+    velocity: { x: 0, y: 0, z: 0 },
+    yawDeg: spawn.yawDeg,
+    pitchDeg: spawn.pitchDeg,
+    onGround: true,
+    inWater: false,
+    moving: false,
+  };
+  let third = false;
+  const save = new SaveManager({
+    world,
+    seed: SEED,
+    baseline,
+    inventory,
+    player: {
+      get: () => state,
+      set: (v) => {
+        Object.assign(state.position, v.position);
+        Object.assign(state.velocity, v.velocity);
+        state.yawDeg = v.yawDeg;
+        state.pitchDeg = v.pitchDeg;
+      },
+      isThirdPerson: () => third,
+      setThirdPerson: (t) => {
+        third = t;
+      },
+    },
+    spawn: () => island.spawn(),
+    store,
+    tick: () => ticks.n,
+    settings: { saveIntervalTicks: 600 },
+  });
+  return { world, island, save, state, inventory, ticks, isThird: () => third, setThird: (t: boolean) => (third = t) };
+}
+
+describe('SaveManager', () => {
+  it('保存して開き直すと、世界・持ち物・位置・向きが同じに戻る（AC28）', () => {
+    const store = new MemoryStore();
+    const a = session(store);
+    a.world.setBlock(4, 10, 6, 'log');
+    a.world.setBlock(0, 20, 0, 'sand');
+    a.inventory.deserialize({ slots: [null, { item: 'sand', count: 9 }], selected: 4 });
+    a.state.position.x = 6.5;
+    a.state.position.y = 30;
+    a.state.position.z = 6.5;
+    a.state.yawDeg = 180;
+    a.state.pitchDeg = -20;
+    a.setThird(true);
+    a.save.now();
+    const hash = a.world.hash();
+
+    const b = session(store);
+    expect(b.world.hash()).not.toBe(hash);
+    expect(b.save.load()).toBe(true);
+    expect(b.world.hash()).toBe(hash);
+    expect(b.inventory.serialize()).toEqual({ slots: [null, { item: 'sand', count: 9 }], selected: 4 });
+    expect(b.state.position).toEqual({ x: 6.5, y: 30, z: 6.5 });
+    expect(b.state.yawDeg).toBe(180);
+    expect(b.state.pitchDeg).toBe(-20);
+    expect(b.isThird()).toBe(true);
+  });
+
+  it('島のままなら差分は 0 こ。変えたマスだけが入る', () => {
+    const store = new MemoryStore();
+    const a = session(store);
+    a.save.now();
+    expect(a.save.info().changedBlocks).toBe(0);
+    a.world.setBlock(1, 25, 1, 'stone');
+    a.save.now();
+    expect(a.save.info().changedBlocks).toBe(1);
+    expect(a.save.info().bytes).toBeGreaterThan(0);
+  });
+
+  it('保存の入れ物はシードごと。名前が決まりどおり', () => {
+    const store = new MemoryStore();
+    session(store).save.now();
+    expect([...store.data.keys()]).toEqual(['rikkun-world-save-v1-12345']);
+    expect(saveKey(7)).toBe('rikkun-world-save-v1-7');
+  });
+
+  it('自動: 600 ステップごと、変わっていれば保存（AC29 a・b）', () => {
+    const store = new MemoryStore();
+    const s = session(store);
+    s.ticks.n = 100;
+    s.save.now();
+    expect(s.save.info().lastSavedTick).toBe(100);
+    s.world.setBlock(2, 25, 2, 'dirt');
+    for (let t = 101; t < 700; t++) {
+      s.ticks.n = t;
+      s.save.update(t);
+    }
+    expect(s.save.info().lastSavedTick).toBe(100);
+    s.ticks.n = 700;
+    s.save.update(700);
+    expect(s.save.info().lastSavedTick).toBe(700);
+    // 何も変えずに 600 ステップ
+    for (let t = 701; t <= 1300; t++) {
+      s.ticks.n = t;
+      s.save.update(t);
+    }
+    expect(s.save.info().lastSavedTick).toBe(700);
+  });
+
+  it('ロックが外れたときなど: 変わっていなければ書かない、変わっていれば書く', () => {
+    const store = new MemoryStore();
+    const s = session(store);
+    s.save.now();
+    s.ticks.n = 50;
+    s.save.saveIfChanged();
+    expect(s.save.info().lastSavedTick).toBe(0);
+    s.state.yawDeg = 90;
+    s.save.saveIfChanged();
+    expect(s.save.info().lastSavedTick).toBe(50);
+  });
+
+  it('?nosave: 読みも書きもしない', () => {
+    const s = session(null);
+    s.world.setBlock(2, 25, 2, 'dirt');
+    s.save.now();
+    s.save.update(5000);
+    expect(s.save.info().enabled).toBe(false);
+    expect(s.save.info().lastSavedTick).toBeNull();
+    expect(s.save.load()).toBe(false);
+  });
+
+  it('clear で消え、開き直すと最初から（?reset=1）', () => {
+    const store = new MemoryStore();
+    const a = session(store);
+    const fresh = a.world.hash();
+    a.world.setBlock(2, 25, 2, 'dirt');
+    a.save.now();
+    a.save.clear();
+    expect(store.data.size).toBe(0);
+    const b = session(store);
+    expect(b.save.load()).toBe(false);
+    expect(b.world.hash()).toBe(fresh);
+  });
+
+  it('こわれた保存・版や島がちがう保存は使わない', () => {
+    const store = new MemoryStore();
+    const key = saveKey(SEED);
+    for (const bad of [
+      'not json',
+      '{"version":99,"seed":12345,"blocks":[]}',
+      `{"version":1,"seed":1,"blocks":[]}`,
+      '{"version":1,"seed":12345,"blocks":[1]}',
+      '{"version":1,"seed":12345,"blocks":[999999999,1]}',
+      '{"version":1,"seed":12345,"blocks":[5,99]}',
+      'null',
+    ]) {
+      store.data.set(key, bad);
+      const s = session(store);
+      const fresh = s.world.hash();
+      expect(s.save.load()).toBe(false);
+      expect(s.world.hash()).toBe(fresh);
+    }
+  });
+
+  it('保存できなくても（容量いっぱい）止まらず、保存済みの印は進まない', () => {
+    const store = new MemoryStore();
+    const s = session(store);
+    store.fail = true;
+    s.ticks.n = 10;
+    expect(() => s.save.now()).not.toThrow();
+    expect(s.save.info().lastSavedTick).toBeNull();
+  });
+
+  it('もどした位置が ブロックと重なる・世界の外 なら スタート地点', () => {
+    for (const bad of [{ x: 6.5, y: 5, z: 6.5 }, { x: -3, y: 30, z: 6 }, { x: 6.5, y: -2, z: 6.5 }, { x: NaN, y: 30, z: 6 }]) {
+      const store = new MemoryStore();
+      const a = session(store);
+      a.state.position.x = bad.x;
+      a.state.position.y = bad.y;
+      a.state.position.z = bad.z;
+      a.state.yawDeg = 33;
+      a.save.now();
+      const b = session(store);
+      const sp = b.island.spawn();
+      b.save.load();
+      expect(b.state.position).toEqual({ x: sp.x, y: sp.y, z: sp.z });
+      expect(b.state.yawDeg).toBe(sp.yawDeg);
+    }
+  });
+
+  it('変わったマス 2,000 この保存が 10 ミリ秒以下の目安（記録）', () => {
+    const store = new MemoryStore();
+    const s = session(store);
+    let n = 0;
+    for (let x = 0; x < 64 && n < 2000; x++)
+      for (let z = 0; z < 64 && n < 2000; z++) {
+        s.world.setBlock(x, 28, z, 'stone');
+        n++;
+      }
+    s.save.now();
+    s.save.now();
+    expect(s.save.info().changedBlocks).toBeGreaterThanOrEqual(2000);
+    // 目安。CI の機械でぶれるので広めに見る
+    expect(s.save.info().lastMs).toBeLessThan(50);
+  });
+});
+
+describe('isBodyPlaceable', () => {
+  it('ふれているだけは OK、めりこむと NG、世界の上にはみ出すのは OK', () => {
+    const w = new ArrayVoxelWorld();
+    w.fill(0, 8, 0, 12, 8, 12, 'stone');
+    expect(isBodyPlaceable(w, { x: 2.5, y: 9, z: 6.5 })).toBe(true);
+    expect(isBodyPlaceable(w, { x: 2.5, y: 8.5, z: 6.5 })).toBe(false);
+    expect(isBodyPlaceable(w, { x: 0.3, y: 9, z: 6.5 })).toBe(true);
+    expect(isBodyPlaceable(w, { x: 0.2, y: 9, z: 6.5 })).toBe(false);
+    expect(isBodyPlaceable(w, { x: 2.5, y: 32, z: 6.5 })).toBe(true);
+  });
+});
+
+describe('住所の設定', () => {
+  it('?reset=1 と ?nosave=1 を読む', () => {
+    expect(parseSaveOptions('')).toEqual({ reset: false, nosave: false });
+    expect(parseSaveOptions('?reset=1')).toEqual({ reset: true, nosave: false });
+    expect(parseSaveOptions('?seed=3&nosave=1')).toEqual({ reset: false, nosave: true });
+    expect(parseSaveOptions('?reset=0')).toEqual({ reset: false, nosave: false });
+  });
+
+  it('reset だけを消す', () => {
+    expect(stripResetParam('http://localhost:5173/?seed=3&reset=1')).toBe('/?seed=3');
+    expect(stripResetParam('http://localhost:5173/?reset=1')).toBe('/');
+  });
+});

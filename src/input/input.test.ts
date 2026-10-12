@@ -3,6 +3,7 @@ import { ActionState } from './actions';
 import { INPUT_CONFIG } from './config';
 import { createInputHook, createLockHook } from './hook';
 import { LockController, MouseLook } from './lockController';
+import { WheelAccumulator } from './wheel';
 import { buildOverlayHtml } from '../ui/playOverlay';
 import { findUnrubiedKanji } from '../ui/text';
 
@@ -15,7 +16,8 @@ function setup() {
     actions.releaseAll();
     look.reset();
   });
-  return { lock, look, actions, lockHook: createLockHook(lock), inputHook: createInputHook(actions, look) };
+  const wheel = new WheelAccumulator(actions, () => lock.playInputEnabled());
+  return { lock, look, actions, lockHook: createLockHook(lock), inputHook: createInputHook(actions, look, wheel) };
 }
 
 describe('LockController', () => {
