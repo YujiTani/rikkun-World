@@ -7,6 +7,7 @@ export default defineConfig({
   testDir: './e2e',
   timeout: 60_000, // 重いテストが同じ CPU で並ぶと 30 秒をこえることがある
   fullyParallel: true,
+  workers: 3, // CPU 4 コア。多いと SwiftShader 同士が取りあって、かえって遅くなる
   reporter: [['list']],
   use: {
     baseURL: 'http://localhost:5173',

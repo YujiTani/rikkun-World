@@ -168,6 +168,21 @@ describe('かまど・やく（AC5〜AC9）', () => {
     expect(inv.count('brick')).toBe(2);
   });
 
+  it('ねんりょうを えらぶと その物が へる。0 こになったら 自動の順の次', () => {
+    const { craft, inv } = rig();
+    inv.add('coal_ore', 2);
+    inv.add('log', 1);
+    inv.add('iron_ore', 3);
+    expect(craft.fuel()).toBe('coal_ore');
+    expect(craft.setFuel('log')).toBe(true);
+    expect(craft.setFuel('dirt')).toBe(false);
+    craft.bake('iron_ingot', 3, 5, 3);
+    expect([inv.count('coal_ore'), inv.count('log')]).toEqual([2, 0]);
+    expect(craft.fuel()).toBe('coal_ore');
+    craft.bake('iron_ingot', 3, 5, 3);
+    expect(inv.count('coal_ore')).toBe(1);
+  });
+
   it('ねんりょうは せきたん → あぶら → き。60・120・180 ステップ目に入る', () => {
     const { craft, inv, step } = rig();
     inv.add('coal_ore', 1);
