@@ -25,7 +25,11 @@ export type BlockId =
   | 'coal_ore'
   | 'iron_ore'
   | 'water'
-  | 'bedrock';
+  | 'bedrock'
+  // M4
+  | 'furnace' // かまど
+  | 'kawara' // かわら
+  | 'brick'; // レンガ
 
 export interface BlockType {
   id: BlockId;
@@ -133,7 +137,27 @@ export type ItemOnlyId =
   | 'string' // いと
   | 'cloth' // ぬの
   | 'clay' // ねんど
-  | 'crystal'; // すいしょう（レア度の低い宝石）
+  | 'crystal' // すいしょう（レア度の低い宝石）
+  // M4（docs/design/M4-craft.md §4.4）
+  | 'wood_pickaxe'
+  | 'stone_pickaxe'
+  | 'iron_pickaxe'
+  | 'iron_ingot'
+  | 'bokuto'
+  | 'katana'
+  | 'naginata'
+  | 'crystal_katana'
+  | 'yumi'
+  | 'ya'
+  | 'kabuto'
+  | 'yoroi'
+  | 'torch'
+  | 'lantern'
+  | 'kite'
+  | 'futon'
+  | 'omamori'
+  | 'waraji'
+  | 'haniwa';
 
 /** アイテムの種類。ブロックとアイテムだけのもの */
 export type ItemId = BlockId | ItemOnlyId;
@@ -366,4 +390,82 @@ export interface PlayerCombat {
   damage(amount: number, by: YokaiKind, from: Vec3): boolean;
   /** 画面と音用（呼ぶと空になる）。テストの窓口用の列は別に持つ */
   drainEvents(): CombatEvent[];
+}
+
+// ================================================================ M4（作る・やく・道具・武器・防具）
+// 担当の割り振り: docs/tickets/M4-dev-split.md。仕様: docs/design/M4-craft.md
+
+export interface Recipe {
+  id: string;
+  output: ItemStack;
+  inputs: ItemStack[];
+  /** M4 で働きまで作るか（false は作れるだけ） */
+  works: boolean;
+  /** つくる（どこでも）か、やく（かまど）か */
+  station: 'craft' | 'furnace';
+}
+
+export type CraftEvent =
+  | { type: 'craft'; tick: number; recipe: string; item: ItemId; count: number }
+  | { type: 'craftFail'; tick: number; recipe: string; reason: 'missing' | 'full' | 'unknown' }
+  | { type: 'bakeStart'; tick: number; recipe: string; fuel: ItemId; position: Vec3 }
+  | { type: 'bakeDone'; tick: number; recipe: string; item: ItemId; count: number; position: Vec3 }
+  /** 拾った・焼けて入った（ログ用。つくったもの・テスト用の add は出さない） */
+  | { type: 'pickup'; tick: number; item: ItemId; count: number };
+
+/** つくる・やく。担当 A が `src/craft/` で実装する */
+export interface CraftSystem {
+  recipes(): Recipe[];
+  /** 今の持ち物で作れるか・足りないもの */
+  status(recipeId: string): { craftable: boolean; missing: ItemStack[] };
+  make(recipeId: string): { ok: boolean; reason: null | 'missing' | 'full' | 'unknown' | 'noFuel' | 'queueFull' };
+  /** かまど のブロックか */
+  isFurnace(x: number, y: number, z: number): boolean;
+  /** かまど を開く（画面は担当 C） */
+  openFurnace(x: number, y: number, z: number): void;
+  /** 開いている かまど（なければ null） */
+  openedFurnace(): Vec3 | null;
+  /** かまど をこわした（中身を返す） */
+  furnaceBroken(x: number, y: number, z: number): void;
+  /** こわしたときの数が決まっているブロック（なければ null で M2 のランダム） */
+  fixedDrop(id: BlockId): number | null;
+  /** 画面と音用（呼ぶと空）。テスト用の列は別に持つ */
+  drainEvents(): CraftEvent[];
+}
+
+export type ArmorSlot = 'head' | 'body';
+
+/** 防具。担当 A が `src/craft/`（または `src/armor/`）で実装する */
+export interface ArmorSystem {
+  equipped(slot: ArmorSlot): ItemId | null;
+  /** 着られるアイテムなら着る（手に持っているものを着る・入れかえ）。着たら true */
+  tryEquip(item: ItemId): boolean;
+  /** 妖怪の攻撃を受けた。true ならダメージ 0（カキン） */
+  absorbHit(): boolean;
+}
+
+export type ToolKind = 'hand' | 'pickaxe' | 'blade' | 'bow' | 'other';
+
+export interface ToolInfo {
+  item: ItemId | null;
+  kind: ToolKind;
+  /** ほる強さ */
+  power: number;
+  /** ほれるレベル */
+  level: number;
+  /** たたく強さ */
+  damage: number;
+  /** とどく距離 */
+  reach: number;
+  /** 当たるまでのステップ */
+  ticks: number;
+}
+
+export type SwingAnim = 'slash' | 'thrust' | 'sweep' | 'draw' | 'release' | 'punch' | 'dig' | 'place' | 'whiff';
+
+/** 手に持っているものの働き。担当 B が `src/tools/` で実装する */
+export interface ToolSystem {
+  current(): ToolInfo;
+  /** うでの動きを始めたとき（人形の動き用。呼ぶと空） */
+  drainSwings(): { anim: SwingAnim; tick: number }[];
 }

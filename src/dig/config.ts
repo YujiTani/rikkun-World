@@ -32,6 +32,10 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     stone: 6,
     coal_ore: 10,
     iron_ore: 15,
+    // M4（§4.4）
+    furnace: 6,
+    kawara: 4,
+    brick: 6,
   } satisfies Record<BlockId, number | null>,
   harvestLevel: {
     air: 0,
@@ -45,6 +49,10 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     stone: 0,
     coal_ore: 0,
     iron_ore: 1,
+    // M4（§4.4）
+    furnace: 0,
+    kawara: 0,
+    brick: 0,
   },
   handPower: 1.0,
   handLevel: 0,
@@ -66,6 +74,10 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     log: 'uncommon',
     coal_ore: 'uncommon',
     iron_ore: 'rare',
+    // M4（docs/design/M4-craft.md §4.4）
+    furnace: 'uncommon',
+    kawara: 'uncommon',
+    brick: 'uncommon',
   } satisfies Record<BlockId, Rarity>,
   dropMax: { common: 4, uncommon: 3, rare: 2, superRare: 1 },
 };
