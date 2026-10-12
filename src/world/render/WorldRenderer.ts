@@ -12,8 +12,9 @@ import { LIGHT_CONFIG as LC } from '../light/config';
 import { skyDarkness } from '../light/skyDarkness';
 import { WorldLight } from '../light/WorldLight';
 import { createAtlasTexture } from '../blocks/textures';
-import type { ArrayVoxelWorld } from '../VoxelWorld';
-import { RENDER_CONFIG } from './config';
+import { CHUNK_SIZE, type ArrayVoxelWorld } from '../VoxelWorld';
+import { CHUNK_DRAW_DISTANCE, RENDER_CONFIG } from './config';
+import { isChunkInRange } from './visibility';
 import { meshChunk, type MeshData } from './meshChunk';
 
 export interface RebuildStats {
@@ -21,6 +22,20 @@ export interface RebuildStats {
   lastMs: number;
   /** 作り直したチャンクの数（最初の全部の分はふくまない） */
   count: number;
+}
+
+/** render.chunks() の答え（M5 AC15） */
+export interface ChunkStats {
+  /** チャンクの数（8×8 = 64） */
+  total: number;
+  /** 距離が 88 以下で、いま描いている（メッシュがあって見える）チャンクの数 */
+  drawn: number;
+  /** 距離が 88 以下のチャンクの数（空のチャンクもふくむ。ふつうは drawn と同じ） */
+  inRange: number;
+  /** 描く距離（88） */
+  maxDistance: number;
+  /** 描いているチャンクの番号（cx + cz * 横の数） */
+  drawnIndices: number[];
 }
 
 interface ChunkMeshes {
@@ -100,6 +115,9 @@ export class WorldRenderer {
   private readonly opaqueMaterial: MeshBasicMaterial;
   private readonly waterMaterial: MeshBasicMaterial;
   private attached = false;
+  /** 距離で描く／描かない。viewer を渡す前は全部描く */
+  private viewer: { x: number; z: number } | null = null;
+  private readonly inRange: boolean[];
   private stats: RebuildStats = { lastMs: 0, count: 0 };
   /** 光（置く・こわすと近くだけ計算し直す）。Sky・妖怪の出現・テストが読む */
   readonly light: WorldLight;
@@ -119,6 +137,50 @@ export class WorldRenderer {
     applyLightShader(this.opaqueMaterial);
     applyLightShader(this.waterMaterial);
     this.chunks = Array.from({ length: world.chunksX * world.chunksZ }, () => ({ opaque: null, water: null }));
+    this.inRange = this.chunks.map(() => true);
+  }
+
+  /**
+   * カメラの水平の位置を伝える。88 より遠いチャンクは描かない（mesh.visible を切りかえるだけ）。
+   * 位置が変わったときだけ計算し直す。毎コマ呼んでよい。
+   */
+  setViewer(x: number, z: number): void {
+    const v = this.viewer;
+    if (v && v.x === x && v.z === z) return;
+    if (v) {
+      v.x = x;
+      v.z = z;
+    } else {
+      this.viewer = { x, z };
+    }
+    const { chunksX } = this.world;
+    for (let i = 0; i < this.chunks.length; i++) {
+      const on = isChunkInRange(i % chunksX, Math.floor(i / chunksX), x, z, CHUNK_SIZE);
+      if (on === this.inRange[i]) continue;
+      this.inRange[i] = on;
+      const c = this.chunks[i];
+      if (c.opaque) c.opaque.visible = on;
+      if (c.water) c.water.visible = on;
+    }
+  }
+
+  /** window.__rikkun.render.chunks() 用 */
+  chunkStats(): ChunkStats {
+    const drawnIndices: number[] = [];
+    let inRange = 0;
+    for (let i = 0; i < this.chunks.length; i++) {
+      if (!this.inRange[i]) continue;
+      inRange++;
+      const c = this.chunks[i];
+      if (c.opaque || c.water) drawnIndices.push(i);
+    }
+    return {
+      total: this.chunks.length,
+      drawn: drawnIndices.length,
+      inRange,
+      maxDistance: CHUNK_DRAW_DISTANCE,
+      drawnIndices,
+    };
   }
 
   /** scene に入れて、全チャンクを作る */
@@ -131,10 +193,11 @@ export class WorldRenderer {
   }
 
   /** 変わったチャンクだけ作り直す。毎コマ呼んでよい（変化が無ければすぐ終わる） */
-  update(): void {
+  update(viewer?: { x: number; z: number }): void {
+    if (viewer) this.setViewer(viewer.x, viewer.z);
+    const t0 = performance.now(); // 光の計算し直しもふくめて計る（M5 AC17）
     this.light.update();
     if (!this.attached || !this.world.hasDirtyChunks()) return;
-    const t0 = performance.now();
     const dirty = this.world.takeDirtyChunks();
     for (const i of dirty) this.rebuildChunk(i);
     this.stats = { lastMs: performance.now() - t0, count: this.stats.count + dirty.length };
@@ -147,7 +210,9 @@ export class WorldRenderer {
   /** 今の三角形の数（テスト・計測用） */
   triangleCount(): number {
     let n = 0;
-    for (const c of this.chunks) {
+    for (let i = 0; i < this.chunks.length; i++) {
+      if (!this.inRange[i]) continue; // 描いていないチャンクはかぞえない
+      const c = this.chunks[i];
       for (const m of [c.opaque, c.water]) {
         const idx = m?.geometry.getIndex();
         if (idx) n += idx.count / 3;
@@ -164,7 +229,11 @@ export class WorldRenderer {
   /** メッシュの数（描画回数の目安） */
   meshCount(): number {
     let n = 0;
-    for (const c of this.chunks) n += (c.opaque ? 1 : 0) + (c.water ? 1 : 0);
+    for (let i = 0; i < this.chunks.length; i++) {
+      if (!this.inRange[i]) continue;
+      const c = this.chunks[i];
+      n += (c.opaque ? 1 : 0) + (c.water ? 1 : 0);
+    }
     return n;
   }
 
@@ -184,11 +253,12 @@ export class WorldRenderer {
     const cz = Math.floor(index / this.world.chunksX);
     const data = meshChunk(this.world, cx, cz, this.light);
     const slot = this.chunks[index];
-    slot.opaque = this.replace(slot.opaque, data.opaque, this.opaqueMaterial, 0);
-    slot.water = this.replace(slot.water, data.water, this.waterMaterial, RENDER_CONFIG.waterRenderOrder);
+    const on = this.inRange[index];
+    slot.opaque = this.replace(slot.opaque, data.opaque, this.opaqueMaterial, 0, on);
+    slot.water = this.replace(slot.water, data.water, this.waterMaterial, RENDER_CONFIG.waterRenderOrder, on);
   }
 
-  private replace(old: Mesh | null, data: MeshData, material: MeshBasicMaterial, order: number): Mesh | null {
+  private replace(old: Mesh | null, data: MeshData, material: MeshBasicMaterial, order: number, visible: boolean): Mesh | null {
     if (old) {
       this.group.remove(old);
       old.geometry.dispose();
@@ -196,6 +266,7 @@ export class WorldRenderer {
     if (data.faceCount === 0) return null;
     const mesh = new Mesh(toGeometry(data), material);
     mesh.renderOrder = order;
+    mesh.visible = visible;
     mesh.matrixAutoUpdate = false;
     mesh.updateMatrix();
     this.group.add(mesh);

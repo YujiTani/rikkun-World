@@ -4,12 +4,12 @@ import { SCENERY_CONFIG } from './config';
 import { buildScenery } from './scenery';
 
 describe('buildScenery', () => {
-  it('空の色・かすみ（40〜90）・世界の外の海を作る', () => {
+  it('空の色・かすみ（40〜80）・世界の外の海を作る', () => {
     const scene = new THREE.Scene();
     const ocean = buildScenery(scene, { x: 64, z: 64 });
     expect((scene.background as THREE.Color).getHex()).toBe(0x8fd3ff);
     const fog = scene.fog as THREE.Fog;
-    expect([fog.near, fog.far, fog.color.getHex()]).toEqual([40, 90, 0x8fd3ff]);
+    expect([fog.near, fog.far, fog.color.getHex()]).toEqual([40, 80, 0x8fd3ff]);
     expect(scene.children).toContain(ocean);
   });
 
