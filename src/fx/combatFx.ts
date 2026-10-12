@@ -44,7 +44,9 @@ export class CombatFx {
 
   constructor(private readonly d: CombatFxDeps) {
     this.cfg = d.settings ?? FX_SETTINGS;
-    this.bags = new BagVisuals(d.scene);
+    this.bags = new BagVisuals(d.scene, (r) =>
+      playCombat(d.sound, r === 'superRare' ? 'dropSuperRare' : r === 'rare' ? 'dropRare' : r === 'uncommon' ? 'dropUncommon' : 'dropCommon'),
+    );
     d.clock?.set(d.time.phase());
     this.offPhase = d.time.onPhaseChange((p) => {
       d.clock?.set(p);
