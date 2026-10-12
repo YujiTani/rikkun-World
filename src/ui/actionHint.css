@@ -1,22 +1,59 @@
-/* 照準の すぐ下。合図の文（#notice-signal-text、1 秒だけ）は これの上に重なる */
+/* 照準の すぐ下。左クリック（左）と 右クリック（右）を横にならべる。合図の文（1 秒だけ）は これの上に重なる */
 #action-hint {
   position: fixed;
   left: 50%;
   top: calc(50% + var(--rk-sp-5));
   transform: translateX(-50%);
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--rk-sp-1);
+  gap: var(--rk-sp-3);
+  align-items: stretch;
   pointer-events: none;
   z-index: 4;
   white-space: nowrap;
 }
 #action-hint[hidden],
-#action-hint .rk-chip[hidden] {
+#action-hint .action-hint__cell[hidden] {
   display: none;
 }
-#action-hint .action-hint__left {
-  opacity: 0.6;
-  font-size: calc(var(--rk-fs-body) * 0.85);
+.action-hint__cell {
+  display: flex;
+  align-items: center;
+  gap: var(--rk-sp-1);
+  padding: var(--rk-sp-1) var(--rk-sp-3) var(--rk-sp-1) var(--rk-sp-2);
+  background: var(--rk-hud-bg);
+  border-radius: var(--rk-r-pill);
+  opacity: 0.8;
+}
+.action-hint__art {
+  width: var(--rk-icon-chip);
+  height: var(--rk-icon-chip);
+  image-rendering: pixelated;
+}
+.action-hint__word {
+  color: var(--rk-text);
+  font-size: var(--rk-fs-small, 16px);
+  font-weight: 700;
+}
+/* マウスの絵: 左右のボタンのうち 使うほうだけ光る */
+.action-hint__mouse {
+  position: relative;
+  display: inline-flex;
+  width: 20px;
+  height: 28px;
+  border: 2px solid var(--rk-text);
+  border-radius: 10px 10px 12px 12px;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+.action-hint__btn {
+  flex: 1;
+  height: 12px;
+  background: transparent;
+}
+.action-hint__btn--l {
+  border-right: 1px solid var(--rk-text);
+}
+.action-hint__mouse--left .action-hint__btn--l,
+.action-hint__mouse--right .action-hint__btn--r {
+  background: var(--rk-accent, #ffd23f);
 }

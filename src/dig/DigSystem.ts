@@ -403,12 +403,17 @@ export class DigSystemImpl implements DigSystem {
     });
   }
 
-  /** 今、左クリックしたら ほる（または や を うつ）か。出すヒントの薄い行用（たたく は 妖怪の位置を見ないので出さない） */
+  /** 今、左クリックしたら 何をするか（たたく・ほる・や を うつ）。出すヒントの薄い行用（妖怪が手前なら 'hit'） */
   previewLeftClick(): LeftClickKind | null {
     if (!this.lock.playInputEnabled() || this.gate?.blocksInput()) return null;
     const tool = this.m4.tools?.current();
     if (tool?.kind === 'bow') return 'shoot';
     const t = this.tgt;
+    if (this.gate?.aimsYokai) {
+      const p = this.player();
+      const eye = { x: p.position.x, y: p.position.y + this.eyeHeight(), z: p.position.z };
+      if (this.gate.aimsYokai(eye, lookDirection(p.yawDeg, p.pitchDeg, this.dir), t?.distance ?? null)) return 'hit';
+    }
     if (!t) return null;
     return 'steps' in digSteps(this.config, t.id, tool?.level) ? 'dig' : null;
   }

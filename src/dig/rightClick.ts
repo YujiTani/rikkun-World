@@ -14,7 +14,7 @@ export interface RightClickPreview {
 }
 
 /** 左クリックで起きること（ヒント用） */
-export type LeftClickKind = 'dig' | 'shoot';
+export type LeftClickKind = 'dig' | 'shoot' | 'hit';
 
 /** 判定に要るものだけ（DigSystem が毎回つくる。ブロックや持ち物は変えない） */
 export interface RightClickCtx {

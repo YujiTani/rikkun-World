@@ -2,9 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { BlockId, ItemId, LockStatus, PlayerState } from '../contracts';
 import { ActionState } from '../input/actions';
 import { InventoryImpl } from '../inventory/Inventory';
-import { itemType } from '../inventory/items';
-import { findUnrubiedKanji } from '../ui/text';
-import { actionHintHtml, actionHintLines } from '../ui/actionHintModel';
+import { actionHintLines } from '../ui/actionHintModel';
 import { createDigConfig } from './config';
 import { DigSystemImpl } from './DigSystem';
 
@@ -91,27 +89,35 @@ describe('previewRightClick と 実際の右クリックが同じ', () => {
         });
 });
 
-describe('出る文', () => {
-  const nameOf = (i: ItemId) => itemType(i)?.name ?? i;
+describe('出る絵と語', () => {
   const lines = (held: ItemId | null, target: BlockId | null) => {
     const r = rig(held, target);
-    return actionHintLines(r.dig.previewRightClick(), r.dig.previewLeftClick(), nameOf);
+    return actionHintLines(r.dig.previewRightClick(), r.dig.previewLeftClick(), {
+      held,
+      heldIsPickaxe: held === 'wood_pickaxe',
+      heldIsBlade: held === 'katana',
+    });
   };
-  it('たんす・かまど・防具・置く・なし', () => {
-    expect(lines('dirt', 'tansu').right).toBe('右クリック: たんす を ひらく');
-    expect(lines('dirt', 'furnace').right).toBe('右クリック: かまど を ひらく');
-    expect(lines('kabuto', null).right).toBe('右クリック: かぶと を きる');
-    expect(lines('dirt', 'stone').right).toBe('右クリック: つち を おく');
+  it('右: たんす・かまど・防具・置く・なし', () => {
+    expect(lines('dirt', 'tansu').right).toEqual({ icon: 'tansu', word: 'ひらく' });
+    expect(lines('dirt', 'furnace').right).toEqual({ icon: 'furnace', word: 'ひらく' });
+    expect(lines('kabuto', null).right).toEqual({ icon: 'kabuto', word: 'きる' });
+    expect(lines('dirt', 'stone').right).toEqual({ icon: 'dirt', word: 'おく' });
     expect(lines('katana', 'stone').right).toBeUndefined();
     expect(lines('dirt', null).right).toBeUndefined();
   });
-  it('左クリック', () => {
-    expect(lines('katana', 'stone').left).toBe('左クリック: ほる');
+  it('左: ほる・うつ・なし', () => {
+    expect(lines('wood_pickaxe', 'stone').left).toEqual({ icon: 'wood_pickaxe', word: 'ほる' });
+    expect(lines(null, 'stone').left).toEqual({ icon: 'wood_pickaxe', word: 'ほる' });
     expect(lines(null, 'bedrock').left).toBeUndefined();
     expect(lines(null, null).left).toBeUndefined();
   });
-  it('漢字には ふりがな', () => {
-    expect(findUnrubiedKanji(actionHintHtml('右クリック: つち を おく'))).toEqual([]);
-    expect(findUnrubiedKanji(actionHintHtml('左クリック: ほる'))).toEqual([]);
+  it('左: 妖怪が手前なら たたく', () => {
+    const r = rig('katana', 'stone');
+    const gate = { blocksInput: () => false, primaryStep: () => false, placeBlocked: () => false, aimsYokai: () => true };
+    const d = new DigSystemImpl(r.world as never, () => ({ position: { x: 2.5, y: 9, z: 6.5 }, velocity: { x: 0, y: 0, z: 0 }, yawDeg: 90, pitchDeg: 0, onGround: true, inWater: false, moving: false }), new ActionState(), { locked: () => true, overlayVisible: () => false, realtimeAllowed: () => true, playInputEnabled: () => true }, r.inv, () => 1.62, createDigConfig(), () => 0, gate);
+    d.update();
+    expect(d.previewLeftClick()).toBe('hit');
+    expect(actionHintLines(null, 'hit', { held: 'katana', heldIsPickaxe: false, heldIsBlade: true }).left).toEqual({ icon: 'katana', word: 'たたく' });
   });
 });

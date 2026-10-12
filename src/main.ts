@@ -735,7 +735,7 @@ game.onUpdate((dt) => {
   combatUi.clock.setTime(time.dayTick(), timeSettings, time.day() + 1);
   viewActions.endFrame();
   crosshair.setVisible(rig.crosshairVisible() && screen.mode() === 'play');
-  actionHint.update(hintVisible() ? actionHintLines(dig.previewRightClick(), dig.previewLeftClick(), nameOf) : {});
+  actionHint.update(hintVisible() ? actionHintLines(dig.previewRightClick(), dig.previewLeftClick(), { held: tools.current().item, heldIsPickaxe: tools.current().kind === 'pickaxe', heldIsBlade: tools.current().kind === 'blade' }) : {});
   hotbar.update();
   inventoryScreen.update();
   storageScreen.update();

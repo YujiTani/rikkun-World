@@ -40,23 +40,23 @@ test('ねらう物でヒントの文がかわる', async ({ page }) => {
   // つち を持って ブロックをねらう
   await select('dirt');
   await put('stone');
-  expect(await hint()).toEqual({ right: '右クリック: つち を おく', left: '左クリック: ほる' });
+  expect(await hint()).toEqual({ right: { icon: 'dirt', word: 'おく' }, left: { icon: 'wood_pickaxe', word: 'ほる' } });
 
   // たんす・かまど
   await put('tansu');
-  expect((await hint()).right).toBe('右クリック: たんす を ひらく');
+  expect((await hint()).right).toEqual({ icon: 'tansu', word: 'ひらく' });
   await put('furnace');
-  expect((await hint()).right).toBe('右クリック: かまど を ひらく');
+  expect((await hint()).right).toEqual({ icon: 'furnace', word: 'ひらく' });
   await page.screenshot({ path: 'docs/screenshots/fix-action-hint.png' });
 
   // 防具
   await put('stone');
   await select('kabuto');
-  expect((await hint()).right).toBe('右クリック: かぶと を きる');
+  expect((await hint()).right).toEqual({ icon: 'kabuto', word: 'きる' });
 
   // 刀でブロック: 置けないので 左だけ
   await select('katana');
-  expect(await hint()).toEqual({ left: '左クリック: ほる' });
+  expect(await hint()).toEqual({ left: { icon: 'wood_pickaxe', word: 'ほる' } });
 
   // 設定で消せる
   await select('dirt');

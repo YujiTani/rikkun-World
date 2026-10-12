@@ -62,8 +62,8 @@ export interface TestHook {
   yokai: ReturnType<typeof createYokaiHook>['yokai'];
   /** M6 §6.1: 実績・おめでとう画面 */
   achievements: ReturnType<typeof createAchievementsHook> & { modal(): unknown; close(): unknown; sounds(): string[]; mute(on: boolean): void };
-  /** FIX-action-hint: 照準の下に出している文 */
-  hud: { actionHint(): { right?: string; left?: string } };
+  /** FIX-action-hint: 照準の下に出している 絵（アイテム名）と 1 語 */
+  hud: { actionHint(): { right?: { icon: string; word: string }; left?: { icon: string; word: string } } };
   /** M6 §6.1: たんす */
   storage: ReturnType<typeof createStorageHook>;
 }
