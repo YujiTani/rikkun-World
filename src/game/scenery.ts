@@ -22,19 +22,29 @@ export function buildScenery(scene: THREE.Scene, worldSize: { x: number; z: numb
     [x0 - e, z0, x0, z1], // 西
     [x1, z0, x1 + e, z1], // 東
   ];
-  const pos: number[] = [];
-  const idx: number[] = [];
-  rects.forEach(([ax, az, bx, bz], i) => {
-    pos.push(ax, y, az, bx, y, az, bx, y, bz, ax, y, bz);
-    const o = i * 4;
-    // 上から見て表になる向き（法線 +Y）
-    idx.push(o, o + 3, o + 2, o, o + 2, o + 1);
-  });
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  geometry.setIndex(idx);
-  const mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ color: C.ocean.color, side: THREE.DoubleSide }));
+  const build = (height: number): THREE.BufferGeometry => {
+    const pos: number[] = [];
+    const idx: number[] = [];
+    rects.forEach(([ax, az, bx, bz], i) => {
+      pos.push(ax, height, az, bx, height, az, bx, height, bz, ax, height, bz);
+      const o = i * 4;
+      // 上から見て表になる向き（法線 +Y）
+      idx.push(o, o + 3, o + 2, o, o + 2, o + 1);
+    });
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    geometry.setIndex(idx);
+    return geometry;
+  };
+  const material = new THREE.MeshBasicMaterial({ color: C.ocean.color, side: THREE.DoubleSide });
+  const mesh = new THREE.Mesh(build(y), material);
   mesh.name = 'ocean';
   scene.add(mesh);
+  // 世界のふちの下: 水ごしに世界の外の下を見ると空が見えて細い線になるので、海の底（世界の底の高さ）をしく
+  // 色は、水（#3A7BD5 の 60%）ごしに見たとき海の色（ocean.color）になるすなの色
+  const floorMaterial = new THREE.MeshBasicMaterial({ color: 0xdfd7a0, side: THREE.DoubleSide });
+  const floor = new THREE.Mesh(build(0), floorMaterial);
+  floor.name = 'oceanFloor';
+  scene.add(floor);
   return mesh;
 }

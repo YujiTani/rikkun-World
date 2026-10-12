@@ -50,8 +50,6 @@ export class DigSystemImpl implements DigSystem {
   private ready = false;
   private blockedReason: DigBlockedReason | null = null;
   private cooldown = 0;
-  /** MAX のままはなしている歩数 */
-  private releasedTicks = 0;
   private prevPrimary = false;
   /** secondary を押しつづけている歩数（押していなければ 0） */
   private secondaryTicks = 0;
@@ -177,7 +175,6 @@ export class DigSystemImpl implements DigSystem {
         this.ready = false;
       }
       this.active = true;
-      this.releasedTicks = 0;
       if (this.ready) {
         // MAX で止まっている: 押し直した瞬間だけこわれる（押しっぱなしでは待つ）
         if (this.justPressed()) this.breakBlock(t);
@@ -197,11 +194,8 @@ export class DigSystemImpl implements DigSystem {
   /** はなしている間、ほった量が少しずつもどる（digDecayRate） */
   private decay(): void {
     if (!this.memBlock) return;
-    // MAX のときだけ、はなしてから readyHoldTicks は減らずに ready を保つ（クリックし直す指の間）
-    if (this.ready && this.releasedTicks < this.config.readyHoldTicks) {
-      this.releasedTicks++;
-      return;
-    }
+    // MAX になったら減らない（こわれるか、別のブロックをほり始めるまで MAX のまま）
+    if (this.ready) return;
     this.mem -= this.config.digDecayRate;
     this.ready = false;
     if (this.mem <= 1e-9) this.clearMem();
@@ -217,7 +211,6 @@ export class DigSystemImpl implements DigSystem {
     this.memId = null;
     this.mem = 0;
     this.ready = false;
-    this.releasedTicks = 0;
   }
 
   private breakBlock(t: TargetInfo): void {

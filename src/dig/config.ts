@@ -16,8 +16,6 @@ export interface DigConfig extends DigSettings {
   rarity: Record<BlockId, Rarity>;
   /** めずらしさごとの、こわしたとき手に入る数の最大（1〜最大の一様ランダム） */
   dropMax: Record<Rarity, number>;
-  /** ひびが MAX のとき、primary をはなしても ready が減らずに残る歩数（60 = 1 秒） */
-  readyHoldTicks: number;
 }
 
 export const DIG_DEFAULTS: Readonly<DigConfig> = {
@@ -56,7 +54,6 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
   placeRepeatTicks: 30,
   digDecayRate: 1.0,
   crackStages: 3,
-  readyHoldTicks: 60,
   rarity: {
     air: 'common',
     water: 'common',

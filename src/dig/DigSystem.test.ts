@@ -322,42 +322,55 @@ describe('MAX（あとひと押し）', () => {
     const ev = r.dig.drainEvents();
     expect(ev.filter((e) => e.type === 'break')).toHaveLength(1);
   });
-  it('はなして 30 ステップ後に押してもこわれる', () => {
+  it('MAX ではなしたまま 600 ステップたっても ready のまま、押せばこわれる', () => {
     const r = new Rig();
     r.set(4, 10, 6, 'dirt');
     r.press('primary');
     r.step(30);
     r.release('primary');
-    r.step(30);
+    r.step(600);
     expect(r.dig.state().ready).toBe(true);
     r.press('primary');
     r.step(1);
     expect(r.world.getBlock(4, 10, 6)).toBe('air');
   });
-  it('はなして 61 ステップ後には ready が消えている', () => {
+  it('ねらいが外れても MAX のまま', () => {
     const r = new Rig();
     r.set(4, 10, 6, 'dirt');
     r.press('primary');
     r.step(30);
     r.release('primary');
-    r.step(61);
-    expect(r.dig.state().ready).toBe(false);
+    r.player.pitchDeg = -80;
+    r.step(300);
+    expect(r.dig.state().ready).toBe(true);
   });
-  it('はなして減ると ready が消え、段階も戻る', () => {
+  it('別のブロックをほり始めると MAX は捨てられる', () => {
     const r = new Rig();
     r.set(4, 10, 6, 'dirt');
     r.press('primary');
     r.step(30);
     r.release('primary');
-    r.step(61);
-    const s = r.dig.state();
-    expect(s.ready).toBe(false);
-    expect(s.crackStage).toBe(3);
-    r.step(15);
-    expect(r.dig.state().crackStage).toBe(2);
+    r.step(5);
+    r.world.setBlock(3, 10, 6, 'stone'); // 手前の別のブロック
+    r.player.position.x = 0.5;
+    r.player.yawDeg = 90;
+    r.set(1, 10, 6, 'dirt');
     r.press('primary');
     r.step(1);
-    expect(r.world.getBlock(4, 10, 6)).toBe('dirt'); // 押し直しでも MAX でなければこわれない
+    const s = r.dig.state();
+    expect(s.ready).toBe(false);
+    expect(s.block).toEqual({ x: 1, y: 10, z: 6 });
+  });
+  it('MAX でないときは、はなすと少しずつ減る', () => {
+    const r = new Rig();
+    r.set(4, 10, 6, 'dirt');
+    r.press('primary');
+    r.step(20);
+    r.release('primary');
+    r.step(5);
+    expect(r.dig.state().crackStage).toBe(2);
+    r.step(20);
+    expect(r.dig.state().block).toBeNull();
   });
 });
 

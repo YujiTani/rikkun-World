@@ -2,6 +2,9 @@ import type { Game, RenderStats } from '../game/Game';
 import type { createCameraHook } from '../camera/hook';
 import type { createSettingsHook } from '../game/settings';
 import type { createInputHook, createLockHook } from '../input';
+import type { createDigHook } from '../dig';
+import type { createInventoryHook } from '../inventory';
+import type { createSaveHook } from '../save';
 import type { WorldHook } from '../world/hook';
 import type { PerfOverlay } from './perfOverlay';
 
@@ -31,6 +34,10 @@ export interface TestHook {
   input: ReturnType<typeof createInputHook>;
   lock: ReturnType<typeof createLockHook>;
   settings: ReturnType<typeof createSettingsHook>;
+  target: ReturnType<typeof createDigHook>['target'];
+  dig: ReturnType<typeof createDigHook>['dig'];
+  inventory: ReturnType<typeof createInventoryHook>;
+  save: ReturnType<typeof createSaveHook>;
 }
 
 declare global {
@@ -39,7 +46,7 @@ declare global {
   }
 }
 
-export type TestHookGroups = Pick<TestHook, 'world' | 'player' | 'camera' | 'input' | 'lock' | 'settings'>;
+export type TestHookGroups = Pick<TestHook, 'world' | 'player' | 'camera' | 'input' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save'>;
 
 export function installTestHook(game: Game, overlay: PerfOverlay, groups: TestHookGroups): void {
   window.__rikkun = {
