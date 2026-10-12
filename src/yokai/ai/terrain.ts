@@ -1,4 +1,5 @@
 import type { VoxelWorld } from '../../contracts';
+import type { WorldLight } from '../../world/light/WorldLight';
 import { AI_CONST, type KindAi } from './config';
 import { boxFree, groundTop, surfaceTop } from './geometry';
 
@@ -57,4 +58,13 @@ export function isRoofed(world: VoxelWorld, x: number, y: number, z: number, hei
     if (world.isSolid(ix, yy, iz) && world.getBlock(ix, yy, iz) !== 'leaves') return true;
   }
   return false;
+}
+
+/**
+ * 妖怪が出てよい「暗い所」か（M4 光。マイクラと同じ: 光が 7 以下）。
+ * 空の光（いまの時刻で弱めたあと）が 7 以下で、たいまつの明かり（8 マス以内）が届いていない所。
+ * 昼の屋根の下・ほら穴・夜の外は true、昼の外や たいまつの近くは false。
+ */
+export function isDarkSpot(light: WorldLight, x: number, y: number, z: number): boolean {
+  return light.isDarkForSpawn(x, y, z);
 }

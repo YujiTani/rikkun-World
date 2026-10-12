@@ -1,0 +1,129 @@
+import { describe, expect, it } from 'vitest';
+import { meshChunk } from '../render/meshChunk';
+import { ArrayVoxelWorld } from '../VoxelWorld';
+import { LIGHT_CONFIG as C } from './config';
+import { blockLightBrightness, darkenFromBrightness, isDarkForSpawn, lightBrightness } from './curve';
+import { SkyDarkness } from './skyDarkness';
+import { WorldLight } from './WorldLight';
+
+/** 平らな床（y=0 いわ、y=1〜 くうき）の小さな世界 */
+function flat(): { w: ArrayVoxelWorld; l: WorldLight; d: SkyDarkness } {
+  const w = new ArrayVoxelWorld({ x: 48, y: 16, z: 48 });
+  w.fill(0, 0, 0, 47, 0, 47, 'stone');
+  const d = new SkyDarkness();
+  return { w, l: new WorldLight(w, d), d };
+}
+
+describe('空の光', () => {
+  it('空の下は 15、はっぱは 1 弱める', () => {
+    const { w, l } = flat();
+    expect(l.skyLight(5, 3, 5)).toBe(15);
+    w.setBlock(20, 5, 20, 'leaves');
+    l.update();
+    expect(l.skyLight(20, 4, 20)).toBe(14);
+    expect(l.skyLight(20, 5, 20)).toBe(14);
+  });
+  it('屋根の下へ横から 1 マスごとに 1 弱まって入る', () => {
+    const { w, l } = flat();
+    w.fill(10, 5, 0, 40, 5, 47, 'stone');
+    l.update();
+    expect(l.skyLight(9, 3, 20)).toBe(15);
+    expect(l.skyLight(10, 3, 20)).toBe(14);
+    expect(l.skyLight(12, 3, 20)).toBe(12);
+    expect(l.skyLight(25, 3, 20)).toBe(0);
+  });
+  it('夜は level が下がる', () => {
+    const { l, d } = flat();
+    expect(l.level(5, 3, 5)).toBe(15);
+    d.value = 11;
+    expect(l.level(5, 3, 5)).toBe(4);
+  });
+});
+
+describe('たいまつの光', () => {
+  it('14 から 1 マスごとに 1 弱まる。かべでさえぎられる', () => {
+    const { w, l } = flat();
+    w.setBlock(24, 1, 24, 'torch');
+    l.update();
+    expect(l.blockLight(24, 1, 24)).toBe(14);
+    expect(l.blockLight(28, 1, 24)).toBe(10);
+    expect(l.blockLight(24, 1, 33)).toBe(5);
+    w.fill(26, 1, 20, 26, 6, 28, 'stone');
+    l.update();
+    expect(l.blockLight(27, 1, 24)).toBeLessThan(10);
+    expect(l.blockLight(27, 1, 24)).toBeGreaterThan(0); // 回りこむ
+  });
+  it('こわすと もとにもどる。計算し直しは近くだけ', () => {
+    const { w, l } = flat();
+    w.setBlock(24, 1, 24, 'start_torch');
+    l.update();
+    w.setBlock(24, 1, 24, 'air');
+    l.update();
+    expect(l.blockLight(24, 1, 24)).toBe(0);
+    expect(l.blockLight(26, 1, 24)).toBe(0);
+    expect(l.lastRecomputeCells).toBeLessThan(48 * 16 * 48);
+  });
+  it('光が変わったチャンクに作り直しを伝える', () => {
+    const { w, l } = flat();
+    w.setBlock(24, 1, 24, 'torch');
+    w.takeDirtyChunks();
+    l.update();
+    expect(w.takeDirtyChunks().length).toBeGreaterThan(0);
+  });
+});
+
+describe('3 だんかい（強い・少し・なし）', () => {
+  const lvl = (n: number) => C.torchLevel - n; // 距離 n マスの光
+  it('4 マスまで強い、5〜8 マスは少し、9 マスからなし', () => {
+    expect(blockLightBrightness(lvl(4))).toBe(C.torchBrightBrightness);
+    expect(blockLightBrightness(lvl(5))).toBe(C.torchDimBrightness);
+    expect(blockLightBrightness(lvl(8))).toBe(C.torchDimBrightness);
+    expect(blockLightBrightness(lvl(9))).toBe(0);
+    expect(blockLightBrightness(0)).toBe(0);
+  });
+  it('たいまつから実際に数えた境目', () => {
+    const { w, l } = flat();
+    w.setBlock(24, 1, 24, 'torch');
+    l.update();
+    const at = (n: number) => blockLightBrightness(l.blockLight(24 + n, 1, 24));
+    expect(at(4)).toBe(C.torchBrightBrightness);
+    expect(at(5)).toBe(C.torchDimBrightness);
+    expect(at(8)).toBe(C.torchDimBrightness);
+    expect(at(9)).toBe(0);
+  });
+  it('妖怪が出ない所: 夜でも たいまつ 8 マス以内。9 マスからは出る', () => {
+    const { w, l, d } = flat();
+    w.setBlock(14, 1, 24, 'torch');
+    l.update();
+    d.value = 11;
+    expect(l.isDarkForSpawn(14 + 8, 1, 24)).toBe(false);
+    expect(l.isDarkForSpawn(14 + 9, 1, 24)).toBe(true);
+    d.value = 0;
+    expect(l.isDarkForSpawn(14 + 20, 1, 24)).toBe(false); // 昼の外
+    expect(isDarkForSpawn(15, 0, 0)).toBe(false);
+  });
+});
+
+describe('明るさの曲線', () => {
+  it('0 でも真っ黒でなく、15 で 1', () => {
+    expect(lightBrightness(0)).toBeGreaterThan(0);
+    expect(lightBrightness(0)).toBeLessThan(0.1);
+    expect(lightBrightness(15)).toBeCloseTo(1);
+    expect(lightBrightness(8)).toBeLessThan(lightBrightness(12));
+  });
+  it('時刻の明るさから弱める段数', () => {
+    expect(darkenFromBrightness(1, 0.45)).toBe(0);
+    expect(darkenFromBrightness(0.45, 0.45)).toBe(C.nightDarken);
+  });
+});
+
+describe('メッシュ', () => {
+  it('たいまつは細い箱で描かれ、頂点に光が入る', () => {
+    const { w, l } = flat();
+    w.setBlock(5, 1, 5, 'torch');
+    l.update();
+    const m = meshChunk(w, 0, 0, l);
+    expect(m.opaque.lights.length / 2).toBe(m.opaque.positions.length / 3);
+    expect(m.opaque.lights.length).toBeGreaterThan(0);
+  });
+});

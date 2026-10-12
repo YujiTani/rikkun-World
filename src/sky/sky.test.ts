@@ -1,3 +1,4 @@
+import { lightBrightness } from '../world/light';
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import { TimeOfDayImpl } from '../time/TimeOfDay';
@@ -59,7 +60,7 @@ describe('Sky', () => {
     sky.update(cam);
     expect((scene.background as THREE.Color).getHex()).toBe(0x1b2350);
     expect(scene.fog!.color.getHex()).toBe(0x1b2350);
-    expect(mat.color.r).toBeCloseTo(0.45);
+    expect(mat.color.r).toBeCloseTo(lightBrightness(4));
     expect(sky.moon.visible).toBe(true);
     expect(sky.sun.visible).toBe(false);
     time.set(0);

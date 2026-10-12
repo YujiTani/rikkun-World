@@ -11,6 +11,7 @@ import { ArrayVoxelWorld } from './VoxelWorld';
 const ALL_IDS: BlockId[] = [
   'air', 'grass', 'dirt', 'stone', 'sand', 'log', 'leaves', 'coal_ore', 'iron_ore', 'water', 'bedrock',
   'furnace', 'kawara', 'brick',
+  'torch', 'start_torch',
 ];
 
 describe('ブロックの定義 (AC16)', () => {
@@ -228,7 +229,7 @@ describe('createWorldHook', () => {
     expect(h.spawn().y).toBe(11);
     expect(h.testArea().y0).toBe(8);
     expect(h.genTimeMs()).toBe(12);
-    expect(h.blockTypes()).toHaveLength(14);
+    expect(h.blockTypes()).toHaveLength(16);
     r.update();
     expect(h.rebuildStats().count).toBeGreaterThan(0);
   });

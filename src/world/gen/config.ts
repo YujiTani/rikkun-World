@@ -82,6 +82,9 @@ export const GEN_CONFIG = {
   /** 戻る場所（4-7） */
   spawn: { x: 32, z: 32, yawDeg: 0, pitchDeg: 0 },
 
+  /** スタート地点のすぐ横の、こわれない たいまつ（スタートの x・z からの ずれ。高さは地面の上） */
+  startTorch: { dx: 2, dz: -1 },
+
   /** テストに使ってよい場所（4-11） */
   testArea: { x0: 0, x1: 12, z0: 0, z1: 12, y0: 8, y1: 31 },
 };

@@ -21,7 +21,9 @@ export type TileName =
   | 'furnace_top'
   | 'furnace_side'
   | 'kawara'
-  | 'brick';
+  | 'brick'
+  | 'torch'
+  | 'start_torch';
 
 export const TILE_NAMES: readonly TileName[] = [
   'grass_top',
@@ -40,6 +42,8 @@ export const TILE_NAMES: readonly TileName[] = [
   'furnace_side',
   'kawara',
   'brick',
+  'torch',
+  'start_torch',
 ];
 export const ATLAS_ROWS = Math.ceil(TILE_NAMES.length / ATLAS_COLS);
 export const ATLAS_WIDTH = ATLAS_COLS * TILE_SIZE;
@@ -136,6 +140,26 @@ function kawaraTile(): Tile {
   return t;
 }
 
+/** たいまつのタイル: 細い棒（はば 2 ドット、x=7〜8）。上の 3 ドット（y=4〜6）が炎、下が棒。まわりは見えない所 */
+export const TORCH_PX: { x0: number; x1: number; y0: number; y1: number; flameRows: number } = { x0: 7, x1: 9, y0: 4, y1: 16, flameRows: 3 };
+
+function paintTorch(special: boolean): Tile {
+  const t = solid(hex('#000000', 0));
+  const stick = special ? '#6b4a2a' : '#8a5a2e';
+  for (let y = TORCH_PX.y0; y < TORCH_PX.y1; y++) {
+    for (let x = TORCH_PX.x0; x < TORCH_PX.x1; x++) {
+      let c: string;
+      if (y === TORCH_PX.y0) c = special ? '#ffffff' : '#fff3a0';
+      else if (y < TORCH_PX.y0 + TORCH_PX.flameRows) c = special ? '#ffd23f' : '#ff9d2e';
+      else c = stick;
+      // こわれない たいまつ: 赤いひもを 2 か所まく
+      if (special && (y === 9 || y === 10 || y === 14)) c = '#d92b2b';
+      t[y * TILE_SIZE + x] = hex(c);
+    }
+  }
+  return t;
+}
+
 /** レンガ: 赤茶に、うすい灰色の目地 */
 function brickTile(): Tile {
   const t = solid(hex('#B5523B'));
@@ -210,6 +234,10 @@ function paintTile(name: TileName): Tile {
       return kawaraTile();
     case 'brick':
       return brickTile();
+    case 'torch':
+      return paintTorch(false);
+    case 'start_torch':
+      return paintTorch(true);
   }
 }
 
@@ -233,6 +261,8 @@ export const BLOCK_TILES: Readonly<Partial<Record<BlockId, readonly [TileName, T
   furnace: ['furnace_top', 'furnace_top', 'furnace_side'],
   kawara: ['kawara', 'kawara', 'kawara'],
   brick: ['brick', 'brick', 'brick'],
+  torch: ['torch', 'torch', 'torch'],
+  start_torch: ['start_torch', 'start_torch', 'start_torch'],
 };
 
 /** タイルの UV の四角 [u0, v0, u1, v1]（v は下から。となりのタイルがにじまないよう少し内側） */
@@ -246,6 +276,20 @@ export function tileUv(name: TileName): [number, number, number, number] {
     (row * TILE_SIZE + e) / ATLAS_HEIGHT,
     ((col + 1) * TILE_SIZE - e) / ATLAS_WIDTH,
     ((row + 1) * TILE_SIZE - e) / ATLAS_HEIGHT,
+  ];
+}
+
+/** タイルの一部（ドットの範囲 [px0, px1) × [py0, py1)、py は絵の上から）の UV [u0, v0, u1, v1] */
+export function tileSubUv(name: TileName, px0: number, py0: number, px1: number, py1: number): [number, number, number, number] {
+  const i = TILE_NAMES.indexOf(name);
+  const col = i % ATLAS_COLS;
+  const row = Math.floor(i / ATLAS_COLS);
+  const e = 0.01;
+  return [
+    (col * TILE_SIZE + px0 + e) / ATLAS_WIDTH,
+    (row * TILE_SIZE + (TILE_SIZE - py1) + e) / ATLAS_HEIGHT,
+    (col * TILE_SIZE + px1 - e) / ATLAS_WIDTH,
+    (row * TILE_SIZE + (TILE_SIZE - py0) - e) / ATLAS_HEIGHT,
   ];
 }
 

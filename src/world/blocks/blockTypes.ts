@@ -17,6 +17,9 @@ export const BLOCK_TYPES: readonly BlockType[] = [
   { id: 'furnace', name: 'かまど', solid: true, breakable: true },
   { id: 'kawara', name: 'かわら', solid: true, breakable: true },
   { id: 'brick', name: 'レンガ', solid: true, breakable: true },
+  // M4 光
+  { id: 'torch', name: 'たいまつ', solid: false, breakable: true },
+  { id: 'start_torch', name: 'こわれない たいまつ', solid: false, breakable: false },
 ];
 
 export const BLOCK_INDEX: Readonly<Record<BlockId, number>> = Object.fromEntries(
@@ -25,6 +28,13 @@ export const BLOCK_INDEX: Readonly<Record<BlockId, number>> = Object.fromEntries
 
 export const AIR = BLOCK_INDEX.air;
 export const WATER = BLOCK_INDEX.water;
+export const TORCH = BLOCK_INDEX.torch;
+export const START_TORCH = BLOCK_INDEX.start_torch;
+
+/** たいまつの なかまか（細い棒＋炎の形で描く。光る） */
+export function isTorchIndex(index: number): boolean {
+  return index === TORCH || index === START_TORCH;
+}
 
 export function blockIdFromIndex(index: number): BlockId {
   return BLOCK_TYPES[index].id;
@@ -38,7 +48,7 @@ export function blockIndexOf(id: string): number {
 
 /** 色のついた不透明ブロックか（面を描く・隠す判定に使う）。水・空気はちがう */
 export function isOpaqueIndex(index: number): boolean {
-  return index !== AIR && index !== WATER;
+  return index !== AIR && index !== WATER && !isTorchIndex(index);
 }
 
 /** 固いブロックか（番号で） */
