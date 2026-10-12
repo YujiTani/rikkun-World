@@ -28,6 +28,16 @@
 - たいまつ を置ける・こわせる処理は A（アイテムの `placeBlock: 'torch'`、レシピの works を true に）と B（置く処理）の担当。`start_torch` はかたさ null（こわれない）を PO が入れた。
 - `src/contracts.ts` の `LightField` を実装する。`BlockId` に `torch`・`start_torch` を PO が足した。
 
+**C1（画面と音）**
+- `ArmorSystem` に `click(slot)`（そうびのマスのクリック。M2 §2.5 と同じ）を足す（つなぎ込みで）。`FurnaceView.get(x,y,z)` は A の `furnace.get` をそのまま渡す
+- `new FurnaceFx(scene, sound)`、毎フレーム `update(dt, entries, playerPos)`（entries は置いたかまどの一覧 `{x,y,z,burning,waiting}`）
+- 出来事は 1 回だけ drain して配る: `craft.drainEvents()` → `handleCraftEvents(events, {sound, pickupLog})` と C2 と テスト用の列。`tools.drainSwings()` → C1 の `playSwing` と C2 の両方
+- `InventoryScreen` の 5 番目に `{craft, armor, furnaces, nameOf, rarityOf: itemRarity, placeable, onFull: () => notice.showSignal('full')}`。B の や が無い合図は `notice.showSignal('noArrow')`
+- 毎ステップ `hearts.setArmor(armor.get().hudIcons)`、`CraftUiHud` を動かす
+- 窓口: `createCraftUiHook(...)`、案内画面の `createGuideHook`。`playOverlay` の第 4 引数 `onTab` に `playCraft(sound, 'tab')`
+- `e2e/m1.spec.ts:31` の `types.length` を新しいブロック数に直す
+- `fx/craftConfig.ts` の既定値を `settings` につなぐ
+
 ## オーナー決定（A の実装のあと）: 防具は「決まった回を 0」ではなく **受けるダメージをカット**
 - 受けるダメージ = max(ハート半分（体力 1）, 元のダメージ − 防具の値)。防具の値は設定（例 かぶと 1・よろい 2・両方 3。体力の単位＝ハート半分）。ふせいだときの「カキン」は、カットが 1 以上のとき鳴らす
 - **妖怪の攻撃を全部 2 倍**（オーナー決定 A）: からかさ・ちょうちん・ろくろくび＝ハート 1（体力 2）、ぬりかべ＝ハート 2（体力 4）。`src/yokai/stats.ts` の `damageHearts` を直す
