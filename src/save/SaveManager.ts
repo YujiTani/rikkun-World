@@ -31,6 +31,12 @@ export interface SaveBags {
   deserialize(data: unknown): void;
 }
 
+/** M4: かまど・そうびの出し入れ */
+export interface SaveExtra {
+  serialize(): unknown;
+  deserialize(data: unknown): void;
+}
+
 export interface SaveDeps {
   world: SaveWorld;
   seed: number;
@@ -46,6 +52,10 @@ export interface SaveDeps {
   settings: Pick<ScreenSettings, 'saveIntervalTicks'>;
   /** M3: おとしもの ぶくろ。なければ保存しない */
   bags?: SaveBags;
+  /** M4: かまど の じゅんばん・焼いている途中・待っている焼けたもの */
+  furnaces?: SaveExtra;
+  /** M4: 着ている防具 */
+  armor?: SaveExtra;
 }
 
 export interface SaveInfo {
@@ -147,6 +157,17 @@ export class SaveManager {
       } catch {
         this.d.bags?.deserialize([]);
       }
+      // M4: 古い保存（かまど・そうびが無い）もそのまま開ける
+      try {
+        this.d.furnaces?.deserialize(data.furnaces);
+      } catch {
+        this.d.furnaces?.deserialize([]);
+      }
+      try {
+        this.d.armor?.deserialize(data.armor);
+      } catch {
+        this.d.armor?.deserialize(null);
+      }
       this.lastBody = this.makeBody().body;
       this.infoState.changedBlocks = blocks.length / 2;
       return true;
@@ -247,6 +268,8 @@ export class SaveManager {
         third: this.d.player.isThirdPerson(),
       },
       bags,
+      furnaces: this.d.furnaces?.serialize() ?? [],
+      armor: this.d.armor?.serialize() ?? null,
     });
     return { body: make(bagsKey), full: make(bagsFull), changed: blocks.length / 2 };
   }
