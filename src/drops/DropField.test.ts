@@ -73,7 +73,7 @@ describe('DropField', () => {
         ups++;
         wasDown = false;
       }
-      prevY = y; 
+      prevY = y;
     }
     expect(ups).toBeGreaterThanOrEqual(1);
     expect(ups).toBeLessThanOrEqual(2);
