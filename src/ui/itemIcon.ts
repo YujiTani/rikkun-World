@@ -1,5 +1,6 @@
 import type { ItemId } from '../contracts';
 import { isMaterialItem, materialPixels } from './itemArt';
+import { clockPixels, hammerPixels, isM4Item, m4ItemPixels } from './itemArtM4';
 import { BLOCK_TILES, TILE_SIZE, getTilePixels, type Rgba, type TileName } from '../world/blocks/textures';
 
 /** 16x16 のドット絵（コードで描く）。pixels[y * 16 + x]、y = 0 が上 */
@@ -12,6 +13,7 @@ const RED: Rgba = [0xe5, 0x39, 0x35, 255];
 export function itemIconPixels(item: ItemId): Pixels {
   if (item === 'yokai_orb') return orbPixels();
   if (isMaterialItem(item)) return materialPixels(item);
+  if (isM4Item(item)) return m4ItemPixels(item);
   const tiles = item in BLOCK_TILES ? BLOCK_TILES[item as keyof typeof BLOCK_TILES] : undefined;
   const name: TileName = tiles ? tiles[2] : 'stone';
   return getTilePixels(name).slice();
@@ -78,24 +80,6 @@ function redCross(p: Pixels): void {
   line(p, 14, 9, 9, 14, RED);
 }
 
-/** ツルハシ */
-function pickaxe(): Pixels {
-  const p = blank();
-  const wood: Rgba = [0x8a, 0x5a, 0x2e, 255];
-  const head: Rgba = [0xb0, 0xb0, 0xb8, 255];
-  const dark: Rgba = [0x70, 0x70, 0x78, 255];
-  line(p, 3, 13, 11, 5, wood);
-  line(p, 4, 13, 12, 5, wood);
-  // あたま（弓なり）
-  line(p, 3, 4, 7, 2, head);
-  line(p, 7, 2, 12, 2, head);
-  line(p, 12, 2, 14, 6, head);
-  line(p, 3, 5, 7, 3, dark);
-  line(p, 7, 3, 11, 3, dark);
-  line(p, 11, 3, 13, 6, dark);
-  return p;
-}
-
 /** ふくろ */
 function bag(): Pixels {
   const p = blank();
@@ -116,11 +100,11 @@ function bag(): Pixels {
   return p;
 }
 
-export type SignalKind = 'needTool' | 'full';
+export type SignalKind = 'needTool' | 'full' | 'noArrow';
 
-/** 合図のアイコン: ツルハシ＋赤い ✕ / ふくろ＋赤い ✕ */
+/** 合図のアイコン: いしの つるはし＋赤い ✕ / ふくろ＋赤い ✕ / や＋赤い ✕（M4 で つるはし と や を足した） */
 export function signalIconPixels(kind: SignalKind): Pixels {
-  const p = kind === 'needTool' ? pickaxe() : bag();
+  const p = kind === 'needTool' ? m4ItemPixels('stone_pickaxe') : kind === 'noArrow' ? m4ItemPixels('ya') : bag();
   // ✕ の下に白っぽい下地を引いて見やすくする
   redCross(p);
   return p;
@@ -155,4 +139,23 @@ export function itemIconUrl(item: ItemId): string {
     iconCache.set(item, url);
   }
   return url;
+}
+
+const extraCache = new Map<string, string>();
+
+/** アイテムでない小さな絵（かなづち・時計）を data URL にして使いまわす */
+export function extraIconUrl(kind: 'hammer' | 'clock'): string {
+  let url = extraCache.get(kind);
+  if (!url) {
+    const c = document.createElement('canvas');
+    drawPixels(c, kind === 'hammer' ? hammerPixels() : clockPixels());
+    url = c.toDataURL();
+    extraCache.set(kind, url);
+  }
+  return url;
+}
+
+/** アイテムの id か 'hammer' / 'clock' の絵の URL */
+export function anyIconUrl(icon: ItemId | 'hammer' | 'clock'): string {
+  return icon === 'hammer' || icon === 'clock' ? extraIconUrl(icon) : itemIconUrl(icon);
 }

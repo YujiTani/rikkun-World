@@ -44,3 +44,18 @@
 .heart-bit[hidden] {
   display: none;
 }
+
+/* ハートの左の防具の絵（32px 以上）。ハートの行のすぐ左に */
+.hearts-armor {
+  position: absolute;
+  right: 100%;
+  bottom: 0;
+  display: flex;
+  gap: 2px;
+  margin-right: 6px;
+}
+.hearts-armor img {
+  width: max(32px, var(--heart));
+  height: max(32px, var(--heart));
+  image-rendering: pixelated;
+}

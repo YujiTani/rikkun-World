@@ -1,4 +1,5 @@
-import { drawPixels } from './itemIcon';
+import type { ItemId } from '../contracts';
+import { drawPixels, itemIconUrl } from './itemIcon';
 import { HEART_CONFIG, HeartsModel, heartPixels, type HeartState } from './heartsModel';
 import './hearts.css';
 
@@ -35,11 +36,17 @@ export class Hearts {
   private readonly imgs: HTMLImageElement[] = [];
   private readonly bits: HTMLSpanElement[][] = [];
   private shown: Array<HeartState | null> = [];
+  /** ハートの左の防具の絵（M4 §3）。DOM: `.hearts-armor` の中に `img[data-item]` */
+  readonly armorEl: HTMLDivElement;
+  private armorKey = '';
 
   constructor(parent: HTMLElement) {
     this.el = document.createElement('div');
     this.el.id = 'hearts';
     this.el.setAttribute('aria-hidden', 'true');
+    this.armorEl = document.createElement('div');
+    this.armorEl.className = 'hearts-armor';
+    this.el.append(this.armorEl);
     for (let i = 0; i < this.model.count; i++) {
       const cell = document.createElement('div');
       cell.className = 'heart';
@@ -63,6 +70,21 @@ export class Hearts {
     }
     parent.append(this.el);
     this.update(0, this.model.hp, false);
+  }
+
+  /** 着ている防具の絵を出す（`armor.get().hudIcons` と同じ。何も着ていなければ空） */
+  setArmor(icons: readonly ItemId[]): void {
+    const key = icons.join(',');
+    if (key === this.armorKey) return;
+    this.armorKey = key;
+    this.armorEl.replaceChildren();
+    for (const it of icons) {
+      const img = document.createElement('img');
+      img.alt = '';
+      img.src = itemIconUrl(it);
+      img.dataset.item = it;
+      this.armorEl.append(img);
+    }
   }
 
   update(dt: number, hp: number, invincible: boolean): void {

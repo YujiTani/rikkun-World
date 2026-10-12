@@ -41,3 +41,50 @@ export const HELP_CAPTIONS = [
   'もちものを えらぶ',
   'もちもの',
 ] as const;
+
+/** 案内画面（Esc）のあそびかたのタブ（M4 §2.11）。字はひらがな・カタカナのみ */
+export type GuideTabId = 'move' | 'dig' | 'fight' | 'craft';
+
+export const GUIDE_TAB_IDS: readonly GuideTabId[] = ['move', 'dig', 'fight', 'craft'];
+
+export const GUIDE_TABS: Record<GuideTabId, { label: string; icon: string; captions: readonly string[] }> = {
+  move: {
+    label: 'うごく',
+    icon: '🏃',
+    captions: [HELP_CAPTIONS[0], HELP_CAPTIONS[1], HELP_CAPTIONS[2], HELP_CAPTIONS[3]],
+  },
+  dig: {
+    label: 'ほる・おく',
+    icon: '⛏',
+    captions: [HELP_CAPTIONS[4], HELP_CAPTIONS[5], HELP_CAPTIONS[6], HELP_CAPTIONS[7], HELP_CAPTIONS[8]],
+  },
+  fight: {
+    label: 'たたかう',
+    icon: '⚔',
+    captions: [
+      'ひだりクリック で たたく',
+      'なぎなた は とおくまで とどく',
+      'ゆみ は や を とばす',
+      'かぶと・よろい を もって みぎクリック で きる',
+      'よる は おうち に にげよう',
+    ],
+  },
+  craft: {
+    label: 'つくる・やく',
+    icon: '🔨',
+    captions: [
+      'E で つくる',
+      'ひかっている のを おす',
+      'かなづち が でたら つくれる',
+      'かまど に みぎクリック で やく',
+      'ねんりょう は せきたん・あぶら・き',
+    ],
+  },
+};
+
+/** 案内画面のタブの大きさ（1280px のとき 高さ 64px 以上・文字 24px 以上） */
+export const GUIDE_TAB_STYLE = {
+  heightPx: 64,
+  fontPx: 26,
+  selectedColor: '#FFD54F',
+} as const;
