@@ -79,6 +79,10 @@ export class CombatFx {
           d.edge.flash();
           this.shakeLeft = this.cfg.fxShake ? COMBAT_FX.hurtShakeSeconds : 0;
           break;
+        case 'fallHurt':
+          playCombat(sound, 'hurt');
+          d.edge.flash();
+          break;
         case 'death':
           d.deathScreen.start();
           playCombat(sound, 'faint');

@@ -307,7 +307,7 @@ test.describe('M5 広い世界', () => {
   });
 });
 
-async function shot(page: Page, name: string, spot: { x: number; z: number; y?: number; yaw: number; pitch?: number }, groundOffset = 1.6) {
+async function shot(page: Page, name: string, spot: { x: number; z: number; y?: number; yaw: number; pitch?: number }) {
   await page.evaluate((s) => {
     const h = (window as any).__rikkun;
     const gy = h.world.groundHeight(Math.floor(s.x), Math.floor(s.z));

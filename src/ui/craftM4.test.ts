@@ -204,7 +204,7 @@ describe('ツールチップ（AC28）', () => {
   it('ゆみ・や・かぶと・かまど・きらきらの かたな', () => {
     expect(buildTooltip('yumi', deps).lines).toEqual(['や を とばす', 'たたく つよさ 2']);
     expect(buildTooltip('ya', deps).lines).toEqual(['ゆみ で とばす']);
-    expect(buildTooltip('kabuto', deps).lines).toEqual(['カキン と ふせぐ']);
+    expect(buildTooltip('kabuto', deps).lines).toEqual(['たま から まもる']);
     expect(buildTooltip('kabuto', deps).stars).toBe(3);
     expect(buildTooltip('furnace', deps).lines).toEqual(['おける', 'みぎクリック で やく']);
     const k = buildTooltip('crystal_katana', deps);

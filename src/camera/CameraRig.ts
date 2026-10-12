@@ -101,7 +101,8 @@ export class CameraRig {
   onCombatEvent(e: CombatEvent): void {
     if (e.type === 'playerHit') {
       if (e.amount > 0 && (e as { blocked?: boolean }).blocked !== true) this.doll.hurt();
-    } else if (e.type === 'pickup') this.doll.play('pickup');
+    } else if (e.type === 'fallHurt') this.doll.hurt();
+    else if (e.type === 'pickup') this.doll.play('pickup');
   }
 
   private pumpSwings(): void {

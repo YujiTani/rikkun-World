@@ -212,11 +212,11 @@ function target(r: Rig, id: BlockId) {
 describe('tool.get', () => {
   it('持っているもので変わる', () => {
     const r = new Rig();
-    expect({ ...r.tools.current() }).toEqual({ item: null, kind: 'hand', power: 1, level: 0, damage: 1, reach: 3, ticks: 30 });
+    expect({ ...r.tools.current() }).toEqual({ item: null, kind: 'hand', power: 1, level: 0, damage: 1, reach: 3.5, ticks: 30 });
     r.hold('stone_pickaxe');
     expect(r.tools.current()).toMatchObject({ kind: 'pickaxe', power: 4, level: 1, damage: 1 });
     r.hold('naginata');
-    expect(r.tools.current()).toMatchObject({ kind: 'blade', damage: 3, reach: 4.5, ticks: 40, power: 1 });
+    expect(r.tools.current()).toMatchObject({ kind: 'blade', damage: 3, reach: 5, ticks: 40, power: 1 });
     r.hold('yumi');
     expect(r.tools.current()).toMatchObject({ kind: 'bow', damage: 2 });
     r.hold('kite');
@@ -339,16 +339,16 @@ describe('武器', () => {
     r.step(1);
     expect(r.yokai.hp).toBe(1);
   });
-  it('なぎなた: 4.6 は とどかない・かたな は 3.1 でとどかない', () => {
+  it('なぎなた: 5.1 は とどかない・かたな は 3.6 でとどかない', () => {
     const r = new Rig();
     r.hold('naginata');
-    r.yokai.dist = 4.6;
+    r.yokai.dist = 5.1;
     r.press('primary');
     r.step(50);
     expect(r.yokai.hp).toBe(4);
     const k = new Rig();
     k.hold('katana');
-    k.yokai.dist = 3.1;
+    k.yokai.dist = 3.6;
     k.press('primary');
     k.step(40);
     expect(k.yokai.hp).toBe(4);

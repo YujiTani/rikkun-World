@@ -24,6 +24,12 @@ export interface YokaiConfig {
   knockback: number;
   /** 妖怪の体にふれたときのダメージ（体力。1 = ハート半分。0 でなし） */
   contactDamage: number;
+  /** この高さ（マス）までの落下はダメージなし（プレイヤーと同じ） */
+  safeFallHeight: number;
+  /** 安全な高さを超えた 1 マスごとのダメージ（体力） */
+  fallDamagePerBlock: number;
+  /** みず の中の歩く速さ（プレイヤーと同じ名前・同じ値） */
+  waterSpeedMul: number;
 }
 
 export type DropRow = { item: ItemId; chance: number; max: number };
@@ -66,6 +72,9 @@ export function createYokaiConfig(): YokaiConfig {
     yokaiLeaveTicks: 600,
     knockback: 1.0,
     contactDamage: 1,
+    safeFallHeight: 3,
+    fallDamagePerBlock: 1,
+    waterSpeedMul: 0.5,
   };
 }
 
@@ -113,8 +122,32 @@ export const AI_CONST = {
   sightDy: 6,
   /** 暗い所の判定: この高さまで上を見て固いブロックがあれば「ふさがっている」 */
   skyCheckHeight: 40,
-  /** 4 ブロックより深い所へはおりない */
-  maxDrop: 4,
+  /** うろうろ・出現では、これより深い所へはおりない（落ちてもダメージのない高さ） */
+  maxDrop: 3,
+  /** プレイヤーをおいかけているときは、これより深くてもおりる（落下ダメージで倒れる深さは除く） */
+  chaseMaxDrop: 64,
+  /** 攻撃の当たり: プレイヤーの体の箱を、横にこれだけ広げて調べる（片側。届く距離も +この分） */
+  attackPad: 0.4,
+  /** プレイヤーの攻撃を受ける判定: 妖怪の当たり箱を、各方向にこれだけ広げる（片側） */
+  hitPad: 0.3,
+  /** からかさ: この高さ以上の段差からは ゆらゆら落ちる */
+  floatMinDrop: 2,
+  /** からかさ: ゆらゆら落ちる最大の速さ（ブロック/秒） */
+  floatFallSpeed: 2,
+  /** からかさ: 横のゆれ幅（±ブロック）と 1 往復の長さ（秒）、かたむき（±度） */
+  floatSwayAmp: 0.8,
+  floatSwayPeriod: 1.2,
+  floatTiltDeg: 25,
+  /** ぬりかべ: みず に入っていて石になるまで（ステップ）。出ると同じ速さでもどる */
+  stoneTicks: 180,
+  /** ぬりかべ: かたまり 1 での速さ（かたまり 0 が ×1） */
+  stoneSlowMin: 0.2,
+  /** ぬりかべ: かたまりがこの値以上だと 攻撃しない */
+  stoneNoAttack: 0.5,
+  /** ぬりかべ: 体当たり（ふれる）ダメージの倍率 */
+  nurikabeContactMul: 4,
+  /** 攻撃の当たり: 上下に広げる（片側） */
+  attackPadY: 0.2,
   /** うろうろはふつうの半分の速さ */
   wanderSpeedRate: 0.5,
   wanderWalk: [120, 300] as readonly [number, number],
@@ -134,8 +167,8 @@ export const AI_CONST = {
   playerEye: 1.62,
   playerWidth: 0.6,
   playerHeight: 1.8,
-  /** 火の玉の当たりの箱 */
-  fireballBox: 0.5,
+  /** 火の玉の当たりの箱（前は 0.5） */
+  fireballBox: 0.9,
   /** 頭の上の まる の最大数 */
   maxMarks: 8,
   /** 場所をさがす回数 */
@@ -149,5 +182,5 @@ export const ATTACK_DAMAGE: Record<YokaiKind, number> = {
   karakasa: 2,
   chochin: 2,
   rokurokubi: 2,
-  nurikabe: 4,
+  nurikabe: 16,
 };
