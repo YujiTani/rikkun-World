@@ -27,3 +27,9 @@ export function createYokai(id: YokaiId): YokaiBase {
       return new Rokurokubi();
   }
 }
+
+export { YokaiManager } from './ai/YokaiManager';
+export type { HookYokaiEvent, SpawnOptions, YokaiManagerOptions } from './ai/YokaiManager';
+export { createYokaiConfig, YOKAI_DROPS, KIND_AI, AI_CONST } from './ai/config';
+export type { YokaiConfig, DropRow } from './ai/config';
+export { createYokaiHook } from './hook';
