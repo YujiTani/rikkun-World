@@ -10,6 +10,9 @@ export function createCameraHook(rig: CameraRig) {
     /** `player.doll` に入れる関数 */
     doll: () => ({
       visible: rig.doll.visible,
+      parts: rig.doll.parts,
+      heldItem: rig.heldItemNow(),
+      heldScreen: rig.heldScreen(),
       armAngle: rig.doll.armAngle,
       legAngle: rig.doll.legAngle,
     }),

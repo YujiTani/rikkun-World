@@ -58,3 +58,15 @@ export const DOLL_SIZES = {
   shoeHeight: 0.1,
   sleeveRatio: 1 / 3,
 } as const;
+
+/** 一人称で右うでを前に出す角度（度。前に水平 = 90）。向き（pitch）にそのままついていく */
+export const HELD_ARM_RAISE_FIRST_DEG = 80;
+/** 三人称でブロックを持つときの右うでの上げ角 */
+export const HELD_ARM_RAISE_THIRD_DEG = 50;
+/** 持ったブロックの大きさ（M2 §2.6） */
+export const HELD_BLOCK_SIZE = 0.25;
+/** ほる・置くときに右うでを振る角度と 1 回の長さ（秒） */
+export const ACTION_SWING_DEG = 40;
+export const ACTION_SWING_SECONDS = 0.25;
+/** ほっているあいだ、うでを振りなおす間隔（0.25 秒に 1 回） */
+export const DIG_SWING_PERIOD_SECONDS = 0.25;
