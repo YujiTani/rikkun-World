@@ -29,6 +29,16 @@
 - ついでに直す: タイトルの「準備中」、M1 レビュー軽微 D1〜D5（`docs/loop-ledger/M1-02.md`）、世界の端の水の細い線。担当外ファイルだが、この 1 回だけ PO が許可。
 - 終わる前に `npm run check`、スクショで確かめる。本体で作業し、コミットは PO。
 
+### つなぎ込みへの申し送り（PO がまとめた）
+- **作る順**: 島生成 → `snapshotWorld(world)`（D）→ `InventoryImpl` → `ScreenController`（D）→ `DigSystemImpl(world, () => player.state, game.input, lock, inventory, () => 目の高さ)`（AB）→ `rig.setHeldProvider(() => inventory.held()?.item ?? null)` → `Notice(#hud)` / `Hotbar(#hud, inv, notice)` / `InventoryScreen(#hud, inv, screen, onClose = D の「とじる」)` → `DigFx({scene, dig, sound: new SoundFx(), doll: rig.doll, view: rig, notice, onPickup: item => hotbar.pickup(item)})`（C）→ `SaveManager`（D）→ `save.load()` → `game.start()`。
+- **毎ステップの順**: プレイヤー → `dig.update()` → `fx.update(dt)` → `rig.update(dt)` → `hotbar.update()` → `inventoryScreen.update()` → `notice.update(dt)` → `renderer.update()` → `save.update(game.tick + 1)` → （Game が `endFrame()`）。
+- **時間**: `setRealtimeGate(() => lock.realtimeAllowed())` のまま、`screen.timeScale()` で実時間のステップ数を調整（もちもの 0.25）。`step()` は常に 1 倍。
+- **セーブのきっかけ**: `lock.onChange` で locked が false → `save.saveIfChanged()`、`screen.onClose(() => save.saveIfChanged())`、`save.bindPageEvents(window, document)`。`?reset=1` は `save.clear()` して load せず `history.replaceState(null, '', stripResetParam(location.href))`。`?nosave=1` は store null（`parseSaveOptions`）。`SavePlayer` は `PlayerController.state/set` と `rig.getView()`/`toggleView()` から作る。`LockPlatform` は `{request, release}`（pointerLock）。
+- **window.__rikkun**: `target`・`dig`（`createDigHook(dig)`、`DigSystemImpl` 型を渡す）、`inventory`（`createInventoryHook(inv, screen)`）、`save`（`createSaveHook`）、`input`（`createInputHook(actions, look, wheel)`）、`player.doll`（C が parts/heldItem/heldScreen を足した）。
+- **settings**: `dig.config`（reach, hardness, harvestLevel, handPower, handLevel, digCooldown, placeRepeatTicks, digDecayRate, crackStages。`digResumeTicks` は出さない）、`createScreenSettings()`（inventoryTimeScale, saveIntervalTicks）、`FX_SETTINGS`（fxShake, fxVolume ほか）を足す。hardness・harvestLevel は Record なので get/set でそのまま扱えるように（型チェックを Record に対応）。
+- **DOM の目印**（テスト用、変えない）: `#hotbar .slot` ×9（`data-selected`、`.slot-count`）、`#inventory-screen .inv-slot` ×36、`#inventory-close`、`#notice-signal`（`data-kind`）、`#notice-name`。
+
 ## 経過
 | 日付 | 内容 |
 |---|---|
+| 2026-10-12 | AB・C・D 完了・取りこみ（ユニット 256 件）。開発中のオーナー決定: ひびは時間で戻る・3 段階・とどめのひと押し（B）・ドパゲー風の演出 |
