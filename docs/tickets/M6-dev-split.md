@@ -24,3 +24,10 @@
 | 2026-10-12 | オーナー確認① 合格。S1 開始 |
 | 2026-10-12 | S1 完了（8fe7c09）。A・B・C・S2・D を並列で開始 |
 | 2026-10-12 | オーナー指示で M6 を保留。A・B・C・S2・D を途中で止めた（各 worktree /home/user/m6-* に途中の作業が残る。再開時は続きから） |
+
+### B（m6-b, f131b77）
+- 窓口 `new CelebrateUi(deps)`（`src/ui/celebrate/`）。deps: hud・badgeParent?・sound・screen・settings・tileEl(recipe)・itemName・itemRarity・itemIconUrl・achievement(id)・levelUpShowing。
+- main で毎ステップ `celebrate.step()`、A の「つくった」→ `celebrate.made(e)`（`e.first` は C の `isFirstMade`）、ぷぷ → `failed()`。C へは `.modal`・`.busy`、C から `setPending(n)`。
+- testHook: `craft.fx()`→`fxInfo()`、`craft.sounds()`→`drainCraftSounds()`、`achievements.sounds()`→`drainAchievementSounds()`、`achievements.modal()`→`modalInfo()`、`achievements.close()`→`close()`。
+- `handleCraftEvents` に `celebrate: true`（音の二重を防ぐ）。メダルの印は S2 の「B おしらせ」を badgeParent に。`#hud` の pointer-events でおめでとう画面のボタンが押せるか実機で確認。
+- コンボは B が画面ステップで数える（A の `CraftMadeEvent.combo` は使わない）。AC11 と §2.4 のぽよんは山形 1.0→1.08→1.0 で両立。
