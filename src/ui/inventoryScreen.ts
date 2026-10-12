@@ -5,6 +5,7 @@ import { EquipPanel, type ArmorUi } from './equipPanel';
 import { createSlotEl, paintSlot, type SlotEls } from './hotbar';
 import { itemIconUrl } from './itemIcon';
 import { Tooltip, type HoverTarget } from './tooltip';
+import { createChip } from './theme';
 import './inventoryScreen.css';
 
 /** M4: つくる/やく の場所・そうびのマス・ツールチップのために要るもの（無ければ M3 までの形） */
@@ -69,6 +70,8 @@ export class InventoryScreen {
   private readonly onResize: () => void;
   private sideNow: InventorySide = 'craft';
   private tabNow: InventoryTab = 'items';
+  private hintsEl!: HTMLDivElement;
+  private hintsKey = '';
   private fitSize = '';
   private pageSize: { w: number; h: number } | null = null;
   private outside: InventoryOutsideHandlers | null = null;
@@ -194,7 +197,10 @@ export class InventoryScreen {
     this.pageSlot = document.createElement('div');
     this.pageSlot.className = 'inv-page';
     this.pageSlot.hidden = true;
-    this.frame.append(head, body, this.pageSlot);
+    this.hintsEl = document.createElement('div');
+    this.hintsEl.className = 'inv-hints';
+    this.frame.append(head, body, this.pageSlot, this.hintsEl);
+    this.paintHints();
     this.el.append(this.frame);
 
     this.cursorEl = document.createElement('div');
@@ -240,9 +246,36 @@ export class InventoryScreen {
     f.style.transform = k < 1 ? `scale(${k})` : '';
   }
 
+  /** 画面の下に「ここでできる操作」を出す（じっせき タブでは出さない。たんす のときは 文をかえる） */
+  private paintHints(): void {
+    const tansu = this.sideNow === 'storage';
+    const key = `${this.tabNow}|${tansu}`;
+    if (key === this.hintsKey) return;
+    this.hintsKey = key;
+    this.hintsEl.hidden = this.tabNow !== 'items';
+    const K = (k: string) => `<span class="inv-key">${k}</span>`;
+    const rows: [string, string][] = [
+      [K('Q'), '1こ すてる'],
+      [`${K('Shift')}＋${K('Q')}`, 'ぜんぶ すてる'],
+      ['わくの そとへ ひっぱる', 'すてる'],
+      [`${K('Shift')}＋クリック`, tansu ? 'たんす へ うつす' : 'いっきに うつす'],
+      [K('E'), 'とじる'],
+    ];
+    this.hintsEl.replaceChildren(
+      ...rows.map(([a, b]) => {
+        const c = createChip({ text: '' });
+        c.classList.add('inv-hint');
+        const t = c.querySelector('.rk-chip__text')!;
+        t.innerHTML = `${a}<span class="inv-hint-sep">:</span> ${b}`;
+        return c;
+      }),
+    );
+  }
+
   /** 右の場所を入れかえる（つくる・やく ⇄ たんす）。見た目は style.display だけで切る */
   setSide(side: InventorySide): void {
     this.sideNow = side;
+    this.paintHints();
     this.craftSlot.style.display = side === 'craft' ? '' : 'none';
     this.storageSlot.hidden = side !== 'storage';
   }
@@ -264,6 +297,7 @@ export class InventoryScreen {
       this.pageSlot.style.height = `${this.pageSize.h}px`;
     }
     this.tabNow = tab;
+    this.paintHints();
     this.bodyEl.style.display = tab === 'items' ? '' : 'none';
     this.pageSlot.hidden = tab === 'items';
   }

@@ -183,10 +183,10 @@ export class CelebrateUi {
     this.achSound('modal');
     if (MAIN_TIER_GOLD.has(main.tier)) this.achSound('modalSparkle');
     window.addEventListener('keydown', this.guard, true);
-    window.addEventListener('keyup', this.guard, true);
     return true;
   }
 
+  // keyup は止めない: 止めると 画面が出ている間に はなしたキーが「おしたまま」になり、あとで効かなくなる（D が動かない原因）
   private blockKey(e: Event): void {
     e.preventDefault();
     e.stopImmediatePropagation();
@@ -196,7 +196,6 @@ export class CelebrateUi {
     if (!shown) return false;
     this.modalView.hide();
     window.removeEventListener('keydown', this.guard, true);
-    window.removeEventListener('keyup', this.guard, true);
     this.achSound('close');
     this.d.screen.closeModal();
     for (const f of this.closedFns) f(shown);
@@ -288,7 +287,6 @@ export class CelebrateUi {
 
   dispose(): void {
     window.removeEventListener('keydown', this.guard, true);
-    window.removeEventListener('keyup', this.guard, true);
     this.fx.dispose();
     this.bannerView.dispose();
     this.modalView.parts.scrim.remove();
