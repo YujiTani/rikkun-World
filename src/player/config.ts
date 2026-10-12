@@ -16,6 +16,9 @@ export interface PlayerSettings {
   mouseSensitivity: number;
   thirdPersonDistance: number;
   thirdPersonHeight: number;
+  /** みず の中の歩く速さ・ジャンプの高さの倍率 */
+  waterSpeedMul: number;
+  waterJumpMul: number;
 }
 
 export const PLAYER_DEFAULTS: Readonly<PlayerSettings> = {
@@ -30,6 +33,8 @@ export const PLAYER_DEFAULTS: Readonly<PlayerSettings> = {
   mouseSensitivity: 0.12,
   thirdPersonDistance: 4.0,
   thirdPersonHeight: 0.5,
+  waterSpeedMul: 0.5,
+  waterJumpMul: 0.85,
 };
 
 export function createPlayerSettings(): PlayerSettings {

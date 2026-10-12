@@ -33,7 +33,7 @@ export const TOOL_DEFAULTS: Readonly<ToolConfig> = {
   toolPower: { wood_pickaxe: 2, stone_pickaxe: 4, iron_pickaxe: 6 },
   toolLevel: { wood_pickaxe: 0, stone_pickaxe: 1, iron_pickaxe: 2 },
   weaponDamage: { bokuto: 2, katana: 4, naginata: 3, crystal_katana: 6 },
-  weaponReach: { naginata: 4.5 },
+  weaponReach: { naginata: 5.0 },
   weaponTicks: { naginata: 40 },
   naginataComboReset: 60,
   bowDrawTicks: 10,

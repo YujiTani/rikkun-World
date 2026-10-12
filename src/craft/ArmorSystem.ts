@@ -1,4 +1,4 @@
-import type { ArmorSlot, ArmorSystem, Inventory, ItemId, ItemStack } from '../contracts';
+import type { ArmorSlot, ArmorSystem, DamageKind, Inventory, ItemId, ItemStack } from '../contracts';
 import { ARMOR_SLOTS, ARMOR_SLOT_OF, type CraftConfig } from './config';
 
 /** 防具が使う持ち物（カーソルを直接かえられるもの。InventoryImpl が合う） */
@@ -74,24 +74,36 @@ export class ArmorSystemImpl implements ArmorSystem {
     }
   }
 
-  /** ふせぐ力 a（かぶと 1・よろい 2・こて 1・すねあて 1。ぜんぶで 5） */
+  /** 種類 kind のダメージをへらす量（着ている防具の合計） */
+  valueOf(kind: DamageKind): number {
+    const v = this.config.armorValue;
+    let sum = 0;
+    for (const slot of ARMOR_SLOTS) {
+      const it = this.worn[slot];
+      if (it) sum += v[it]?.[kind] ?? 0;
+    }
+    return sum;
+  }
+
+  /** 着ている防具の強さの目安（それぞれの いちばん大きい値の合計。HUD・テスト用） */
   value(): number {
     const v = this.config.armorValue;
     let sum = 0;
     for (const slot of ARMOR_SLOTS) {
       const it = this.worn[slot];
-      if (it) sum += v[it] ?? 0;
+      const t = it ? v[it] : undefined;
+      if (t) sum += Math.max(t.normal, t.ball, t.fall);
     }
     return sum;
   }
 
   /**
    * 妖怪の攻撃を受けた（むてきで受けなかった回は呼ばない）。カットする量（体力の単位）を返す。
-   * 受けるダメージは max(1, 元のダメージ − カット) で、PlayerCombat が計算する（オーナー決定）
+   * 受けるダメージは max(1, 元のダメージ − カット)（落下は max(0, …)）で、PlayerCombat が計算する（オーナー決定）
    */
-  cut(): number {
+  cut(kind: DamageKind = 'normal'): number {
     this.hits++;
-    return this.value();
+    return this.valueOf(kind);
   }
 
   hitCount(): number {

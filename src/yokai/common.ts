@@ -196,6 +196,10 @@ export abstract class YokaiBase {
   readonly root = new THREE.Group();
   /** たたかれた・たおれの動きがかかる所（足もとが原点） */
   protected readonly rig = new THREE.Group();
+  /** 落ちているときの かたむき（ラジアン。からかさのゆらゆら用。たたかれたゆれに足される） */
+  fallTilt = 0;
+  /** みず で石になっていく度合い 0〜1（色を石の灰色へ近づける。applyDollBrightness が読む） */
+  stoneness = 0;
   private readonly puffGroup = new THREE.Group();
   private readonly puffMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 1 });
   private readonly puffs: THREE.Mesh[] = [];
@@ -457,7 +461,7 @@ export abstract class YokaiBase {
     const hitK = t >= 0 ? Math.sin((Math.PI * t) / HIT_SECONDS) : 0;
     this.rig.position.z = this.knockback ? HIT_BACK_BLOCKS * hitK : 0;
     this.rig.rotation.x = (this.knockback ? HIT_TILT_DEG : 0) * DEG * hitK;
-    this.rig.rotation.z = !this.knockback && t >= 0 ? 8 * DEG * Math.sin((Math.PI * 4 * t) / HIT_SECONDS) : 0;
+    this.rig.rotation.z = (!this.knockback && t >= 0 ? 8 * DEG * Math.sin((Math.PI * 4 * t) / HIT_SECONDS) : 0) + this.fallTilt;
 
     let dieP = -1;
     if (this.dying) {
