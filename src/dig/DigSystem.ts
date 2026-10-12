@@ -15,6 +15,7 @@ import type { Action, ActionState } from '../input/actions';
 import { itemType } from '../inventory/items';
 import { BODY_H, BODY_W, createDigConfig, type DigConfig } from './config';
 import { createRng, randInt, type Rng } from '../world/gen/random';
+import type { PunchGate } from '../combat/PlayerCombat';
 import { lookDirection, raycastBlocks } from './raycast';
 
 /** 出来事の列が読まれずにたまりすぎないように */
@@ -51,6 +52,8 @@ export class DigSystemImpl implements DigSystem {
   private blockedReason: DigBlockedReason | null = null;
   private cooldown = 0;
   private prevPrimary = false;
+  /** このステップはパンチ（ほらない） */
+  private punching = false;
   /** secondary を押しつづけている歩数（押していなければ 0） */
   private secondaryTicks = 0;
 
@@ -68,6 +71,8 @@ export class DigSystemImpl implements DigSystem {
     readonly config: DigConfig = createDigConfig(),
     /** ドロップ数の乱数（シード付き。テストで再現できる） */
     private readonly rng: Rng = createRng(20240601),
+    /** 戦い（M3）。線上で妖怪がブロックより手前ならパンチにする。なければ M2 のとおり */
+    private readonly gate: PunchGate | null = null,
   ) {}
 
   target(): TargetInfo | null {
@@ -115,7 +120,7 @@ export class DigSystemImpl implements DigSystem {
 
   update(): void {
     const cfg = this.config;
-    const enabled = this.lock.playInputEnabled();
+    const enabled = this.lock.playInputEnabled() && !this.gate?.blocksInput();
 
     // ホットバー
     if (enabled) {
@@ -141,6 +146,9 @@ export class DigSystemImpl implements DigSystem {
     // 同じステップのうちに押してはなす短いタップも拾う（wasPressed）
     const primary = enabled && (this.actions.isHeld('primary') || this.actions.wasPressed('primary'));
     const secondary = enabled && (this.actions.isHeld('secondary') || this.actions.wasPressed('secondary'));
+    this.punching = this.gate
+      ? this.gate.primaryStep(primary, { x: p.position.x, y: p.position.y + this.eyeHeight(), z: p.position.z }, d, this.tgt?.distance ?? null)
+      : false;
     this.updateDig(primary);
     this.prevPrimary = primary;
     this.updatePlace(secondary);
@@ -152,6 +160,10 @@ export class DigSystemImpl implements DigSystem {
     this.active = false;
     this.blockedReason = null;
 
+    if (this.punching) {
+      this.decay();
+      return;
+    }
     if (this.cooldown > 0) {
       this.cooldown--;
       return;
@@ -247,6 +259,7 @@ export class DigSystemImpl implements DigSystem {
     const cur = this.world.getBlock(x, y, z);
     if (cur !== 'air' && cur !== 'water') return; // 世界の外・ほかのブロック
     if (this.overlapsBody(x, y, z)) return;
+    if (this.gate?.placeBlocked(x, y, z)) return; // 妖怪の箱の所には置けない
     if (!this.world.setBlock(x, y, z, block)) return;
     this.inventory.consumeHeld();
     this.emit({ type: 'place', tick: this.tickCount, block: { x, y, z }, id: block });

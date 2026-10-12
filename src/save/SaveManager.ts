@@ -25,6 +25,12 @@ export interface SavePlayer {
   setThirdPerson(third: boolean): void;
 }
 
+/** おとしもの ぶくろの出し入れ（M3 §2.10）。ticksLeft 以外が変わったときだけ「変わった」と数える */
+export interface SaveBags {
+  serialize(): Array<{ ticksLeft: number } & Record<string, unknown>>;
+  deserialize(data: unknown): void;
+}
+
 export interface SaveDeps {
   world: SaveWorld;
   seed: number;
@@ -38,6 +44,8 @@ export interface SaveDeps {
   /** 今までに更新した回数 */
   tick: () => number;
   settings: Pick<ScreenSettings, 'saveIntervalTicks'>;
+  /** M3: おとしもの ぶくろ。なければ保存しない */
+  bags?: SaveBags;
 }
 
 export interface SaveInfo {
@@ -134,6 +142,11 @@ export class SaveManager {
         this.d.inventory.clear();
       }
       this.restorePlayer(data.player);
+      try {
+        this.d.bags?.deserialize(data.bags);
+      } catch {
+        this.d.bags?.deserialize([]);
+      }
       this.lastBody = this.makeBody().body;
       this.infoState.changedBlocks = blocks.length / 2;
       return true;
@@ -205,7 +218,7 @@ export class SaveManager {
   }
 
   /** 島とちがうマス・持ち物・プレイヤー（tick なし）を文字にする */
-  private makeBody(): { body: string; changed: number } {
+  private makeBody(): { body: string; full: string; changed: number } {
     const { world, baseline } = this.d;
     const { x: sx, y: sy, z: sz } = world.size;
     const blocks: number[] = [];
@@ -217,7 +230,10 @@ export class SaveManager {
           if (v !== baseline[i]) blocks.push(i, v);
         }
     const st = this.d.player.get();
-    const body = JSON.stringify({
+    const bagsFull = this.d.bags?.serialize() ?? [];
+    // 比べるときは のこりステップを入れない（毎ステップ変わるため）
+    const bagsKey = bagsFull.map((b) => ({ ...b, ticksLeft: 0 }));
+    const make = (bags: unknown) => JSON.stringify({
       version: SAVE_VERSION,
       seed: this.d.seed,
       blocks,
@@ -230,8 +246,9 @@ export class SaveManager {
         pitch: round(st.pitchDeg),
         third: this.d.player.isThirdPerson(),
       },
+      bags,
     });
-    return { body, changed: blocks.length / 2 };
+    return { body: make(bagsKey), full: make(bagsFull), changed: blocks.length / 2 };
   }
 
   private write(force: boolean): void {
@@ -240,10 +257,10 @@ export class SaveManager {
     const t0 = performance.now();
     this.lastCheckTick = this.d.tick(); // 「前の保存から 600 ステップ」の数え始め
     try {
-      const { body, changed } = this.makeBody();
+      const { body, full, changed } = this.makeBody();
       if (!force && body === this.lastBody) return;
       const tick = this.d.tick();
-      const text = `${body.slice(0, -1)},"tick":${tick}}`;
+      const text = `${full.slice(0, -1)},"tick":${tick}}`;
       store.setItem(saveKey(this.d.seed), text);
       this.lastBody = body;
       this.infoState = {
