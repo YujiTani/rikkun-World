@@ -83,7 +83,8 @@
 | E2E テスト | `npm run test:e2e` |
 | 性能の記録 | `npm run perf` → `perf-results/latest.json` |
 | 速いチェック（型＋ユニット、約 7 秒） | `npm run check:fast` |
-| 全部（E2E 込み、約 70 秒） | `npm run check` |
+| 速い E2E（smoke・いまのマイルストーン、約 25 秒） | `npm run test:e2e:fast` |
+| 全部（E2E 込み、約 3 分） | `npm run check` |
 
 ## コードのきまり
 
