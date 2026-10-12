@@ -403,9 +403,9 @@ describe('SaveManager: 広い世界（M5 AC21）', () => {
       times.push(performance.now() - t0);
     }
     times.sort((p, q) => p - q);
-    expect(times[2]).toBeLessThanOrEqual(100);
+    expect(times[2]).toBeLessThanOrEqual(20);
     const saved = [...store.data.values()][0];
-    expect(saved.length).toBeLessThanOrEqual(60000);
+    expect(saved.length).toBeLessThanOrEqual(30000);
     const hash = a.world.hash();
     const b = session(store);
     expect(b.save.load()).toBe(true);
