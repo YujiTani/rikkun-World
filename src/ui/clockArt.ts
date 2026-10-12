@@ -3,29 +3,29 @@ import type { ClockScene } from './clockModel';
 import { drawPixels } from './itemIcon';
 
 /** 時計の絵（16×16 のドット絵。コードで描く）。空の色・太陽・月・地平線 */
-const SKY: Record<ClockScene, { top: string; bottom: string }> = {
-  sunrise: { top: '#FF9EB5', bottom: '#FFC48A' },
+const SKY: Record<ClockScene, { top: string; bottom: string; mid?: string }> = {
+  sunrise: { top: '#FFF08A', bottom: '#FFD3E0' },
   morning: { top: '#6FC3FF', bottom: '#B5E3FF' },
   noon: { top: '#2D7FE0', bottom: '#5CA8F0' },
   afternoon: { top: '#FF9A4D', bottom: '#FFC878' },
-  sunset: { top: '#7A4FB0', bottom: '#E8708A' },
+  sunset: { top: '#4A2268', bottom: '#FF7A1F', mid: '#D8322F' },
   night: { top: '#0F1640', bottom: '#27306B' },
 };
 const GROUND: Record<ClockScene, string | null> = {
-  sunrise: '#3A2A4A',
+  sunrise: '#6FCF5A',
   morning: null,
   noon: null,
   afternoon: null,
-  sunset: '#241838',
+  sunset: '#1A1020',
   night: null,
 };
 /** 太陽の中心 (x, y) と半径 */
 const SUN: Partial<Record<ClockScene, [number, number, number]>> = {
-  sunrise: [8, 11, 4],
+  sunrise: [8, 10.7, 4],
   morning: [11, 4, 3],
   noon: [8, 5, 4.4],
   afternoon: [4.5, 6, 3.4],
-  sunset: [8, 12, 4.2],
+  sunset: [8, 13.3, 4],
 };
 
 const rgb = (h: string): Rgba => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16), 255];
@@ -42,7 +42,12 @@ export function clockScenePixels(scene: ClockScene): Rgba[] {
   const SUNE = rgb('#FF9D1F');
   for (let y = 0; y < 16; y++) {
     for (let x = 0; x < 16; x++) {
-      let c = mix(rgb(sky.top), rgb(sky.bottom), y / 15);
+      const f = y / 15;
+      let c = sky.mid
+        ? f < 0.5
+          ? mix(rgb(sky.top), rgb(sky.mid), f * 2)
+          : mix(rgb(sky.mid), rgb(sky.bottom), (f - 0.5) * 2)
+        : mix(rgb(sky.top), rgb(sky.bottom), f);
       if (sun) {
         const d = Math.hypot(x + 0.5 - sun[0], y + 0.5 - sun[1]);
         if (d <= sun[2]) c = d > sun[2] - 1 ? SUNE : SUNC;
@@ -57,8 +62,39 @@ export function clockScenePixels(scene: ClockScene): Rgba[] {
       px.push(c);
     }
   }
+  if (scene === 'sunrise') {
+    // 放射状の光の線 4 本（上向きの矢印の じゃまにならない 角度）
+    const cx = 8;
+    const cy = 10.7;
+    for (const deg of [15, 45, 135, 165]) {
+      for (let r = 5.5; r <= 7.6; r += 0.5) {
+        const x = Math.floor(cx + Math.cos((deg * Math.PI) / 180) * r);
+        const y = Math.floor(cy - Math.sin((deg * Math.PI) / 180) * r);
+        if (x >= 0 && x < 16 && y >= 0 && y < horizon) px[y * 16 + x] = rgb('#FF9D1F');
+      }
+    }
+    drawArrow(px, 1, true);
+  }
+  if (scene === 'sunset') drawArrow(px, 3, false);
   // 日の出・日没: 地平線より下の太陽は うめた地面でかくれる（半分だけ見える）
   return px;
+}
+
+/** 白い矢印（上向き = のぼる、下向き = しずむ）。まわりに こい 1 ドットのふち。x = 8 の真ん中、5 行 */
+function drawArrow(px: Rgba[], top: number, up: boolean): void {
+  const rows = up ? [[8], [7, 8, 9], [6, 7, 8, 9, 10], [8], [8], [8]] : [[8], [8], [8], [6, 7, 8, 9, 10], [7, 8, 9], [8]];
+  const cells: [number, number][] = [];
+  rows.forEach((xs, i) => xs.forEach((x) => cells.push([x, top + i])));
+  const has = (x: number, y: number) => cells.some(([a, b]) => a === x && b === y);
+  const ink = rgb('#2A1A40');
+  for (const [x, y] of cells) {
+    for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+      const nx = x + dx;
+      const ny = y + dy;
+      if (!has(nx, ny) && nx >= 0 && nx < 16 && ny >= 0 && ny < 16) px[ny * 16 + nx] = ink;
+    }
+  }
+  for (const [x, y] of cells) px[y * 16 + x] = rgb('#FFFFFF');
 }
 
 const cache = new Map<ClockScene, string>();

@@ -22,4 +22,11 @@ describe('時計の絵 6 つ（M6-clock）', () => {
     expect(CLOCK_SCENES.map((c) => CLOCK_WORDS[c])).toEqual(['ひので', 'あさ', 'おひる', 'ゆうやけ', 'ひのいり', 'よる']);
     expect(new Set(CLOCK_SCENES.map((c) => JSON.stringify(clockScenePixels(c)))).size).toBe(6);
   });
+  it('ひので は明るく、ひのいり は暗い（平均の明るさがはっきりちがう）', () => {
+    const mean = (c: Parameters<typeof clockScenePixels>[0]) => {
+      const px = clockScenePixels(c);
+      return px.reduce((a, p) => a + 0.2126 * p[0] + 0.7152 * p[1] + 0.0722 * p[2], 0) / px.length;
+    };
+    expect(mean('sunrise')).toBeGreaterThan(mean('sunset') + 60);
+  });
 });
