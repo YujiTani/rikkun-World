@@ -1,4 +1,5 @@
 import type { ItemId } from '../contracts';
+import { isMaterialItem, materialPixels } from './itemArt';
 import { BLOCK_TILES, TILE_SIZE, getTilePixels, type Rgba, type TileName } from '../world/blocks/textures';
 
 /** 16x16 のドット絵（コードで描く）。pixels[y * 16 + x]、y = 0 が上 */
@@ -10,6 +11,7 @@ const RED: Rgba = [0xe5, 0x39, 0x35, 255];
 /** アイテムの絵 = ブロックの横の面の 16x16 */
 export function itemIconPixels(item: ItemId): Pixels {
   if (item === 'yokai_orb') return orbPixels();
+  if (isMaterialItem(item)) return materialPixels(item);
   const tiles = item in BLOCK_TILES ? BLOCK_TILES[item as keyof typeof BLOCK_TILES] : undefined;
   const name: TileName = tiles ? tiles[2] : 'stone';
   return getTilePixels(name).slice();

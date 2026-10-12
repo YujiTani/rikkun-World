@@ -73,6 +73,6 @@ describe('Sky', () => {
     expect(sunMoonPose(9900, s).sun.angle).toBeCloseTo(Math.PI / 2, 1);
     expect(sunMoonPose(19800, s).sun.visible).toBe(false);
     expect(sunMoonPose(19800, s).moon.visible).toBe(true);
-    expect(sunMoonPose(32399, s).moon.angle).toBeLessThanOrEqual(Math.PI);
+    expect(sunMoonPose(30599, s).moon.angle).toBeLessThanOrEqual(Math.PI);
   });
 });

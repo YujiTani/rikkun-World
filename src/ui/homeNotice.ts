@@ -1,7 +1,7 @@
 import { DEATH_VIEW, HOME_TEXT } from './deathScreenModel';
 import './homeNotice.css';
 
-/** `おうちに もどったよ` を 2 秒出す文字（復活のあと）。show() と、毎ステップ update(dt) */
+/** `スタートに もどったよ` を 2 秒出す文字（復活のあと）。show() と、毎ステップ update(dt) */
 export class HomeNotice {
   readonly el: HTMLDivElement;
   /** のこりの秒（0 = 出していない） */

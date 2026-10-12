@@ -47,8 +47,9 @@ export class Lighting {
       const m = (o as Partial<{ material: Material | Material[] }>).material;
       if (!m) return;
       for (const x of Array.isArray(m) ? m : [m]) {
-        if (!this.entries.has(x)) n++;
+        const before = this.entries.size;
         this.register(x, group);
+        n += this.entries.size - before;
       }
     });
     return n;

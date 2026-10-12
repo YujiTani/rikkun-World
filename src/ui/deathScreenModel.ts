@@ -7,12 +7,12 @@ export const DEATH_VIEW = {
   maxWhite: 0.6,
   /** 復活したとき白が消えるまで（秒） */
   fadeOutSeconds: 0.5,
-  /** `おうちに もどったよ` を出す秒 */
+  /** `スタートに もどったよ` を出す秒 */
   homeNoticeSeconds: 2,
 } as const;
 
 export const DEATH_TEXT = 'やられちゃった…';
-export const HOME_TEXT = 'おうちに もどったよ';
+export const HOME_TEXT = 'スタートに もどったよ';
 
 type Mode = 'off' | 'dead' | 'fadeOut';
 

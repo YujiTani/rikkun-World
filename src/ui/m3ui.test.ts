@@ -3,6 +3,7 @@ import { clockBackground, clockFace } from './clockModel';
 import { DEATH_TEXT, DeathScreenModel, HOME_TEXT, lanternFacePixels } from './deathScreenModel';
 import { HEART_CONFIG, HeartsModel, heartPixels, heartStates } from './heartsModel';
 import { itemIconPixels, orbPixels } from './itemIcon';
+import { MATERIAL_ITEMS, materialPixels } from './itemArt';
 import { findUnrubiedKanji } from './text';
 
 describe('ハート（AC20）', () => {
@@ -22,7 +23,7 @@ describe('ハート（AC20）', () => {
   });
   it('ドット絵は 16x16。半分は左半分だけ赤、からは灰色', () => {
     for (const st of ['full', 'half', 'empty'] as const) expect(heartPixels(st)).toHaveLength(256);
-    const red = (px: number[]) => px[0] === 0xe5 && px[1] === 0x39 && px[2] === 0x35;
+    const red = (px: readonly number[]) => px[0] === 0xe5 && px[1] === 0x39 && px[2] === 0x35;
     const half = heartPixels('half');
     // 4 行目（y = 5）の左と右
     expect(red(half[5 * 16 + 3])).toBe(true);
@@ -126,5 +127,20 @@ describe('ようかいだま の絵（§3.6）', () => {
     expect(has(255, 255, 255)).toBe(true);
     expect(has(0x11, 0x11, 0x11)).toBe(true);
     expect(p[0][3]).toBe(0);
+  });
+});
+
+describe('材料のアイテムの絵', () => {
+  it('6 つとも 16x16 で、ふちがあり、石の仮の絵ではない', () => {
+    expect(MATERIAL_ITEMS).toEqual(['paper', 'oil', 'string', 'cloth', 'clay', 'crystal']);
+    const seen = new Set<string>();
+    for (const it of MATERIAL_ITEMS) {
+      const p = materialPixels(it);
+      expect(p).toHaveLength(256);
+      expect(p.filter((c) => c[3] === 255).length).toBeGreaterThan(40);
+      expect(itemIconPixels(it)).toEqual(p);
+      seen.add(JSON.stringify(p));
+    }
+    expect(seen.size).toBe(6);
   });
 });

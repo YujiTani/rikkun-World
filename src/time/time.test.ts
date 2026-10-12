@@ -20,9 +20,9 @@ describe('昼と夜（AC1）', () => {
     expect(t.phase()).toBe('dusk');
     t.set(19800);
     expect(t.phase()).toBe('night');
-    t.set(30600);
+    t.set(28800);
     expect(t.phase()).toBe('dawn');
-    t.set(32399);
+    t.set(30599);
     steps(t, 1);
     expect(t.dayTick()).toBe(0);
     expect(t.day()).toBe(1);
@@ -30,7 +30,7 @@ describe('昼と夜（AC1）', () => {
   });
   it('set は day を変えない・はみ出しは 1 日にまるめる', () => {
     const t = new TimeOfDayImpl();
-    t.set(32400 + 5);
+    t.set(30600 + 5);
     expect(t.dayTick()).toBe(5);
     expect(t.day()).toBe(0);
   });
@@ -41,7 +41,7 @@ describe('昼と夜（AC1）', () => {
     steps(t, 18000);
     t.set(19800);
     t.set(19900);
-    t.set(30600);
+    t.set(28800);
     expect(seen).toEqual(['dusk', 'night', 'dawn']);
     off();
     t.set(0);
@@ -71,7 +71,7 @@ describe('空と明るさ（AC2）', () => {
     const t = new TimeOfDayImpl();
     let prev = t.brightness();
     let prevDoll = t.dollBrightness();
-    for (let i = 0; i < 32400; i++) {
+    for (let i = 0; i < 30600; i++) {
       t.update();
       expect(Math.abs(t.brightness() - prev)).toBeLessThanOrEqual(0.01);
       expect(Math.abs(t.dollBrightness() - prevDoll)).toBeLessThanOrEqual(0.01);
@@ -81,11 +81,11 @@ describe('空と明るさ（AC2）', () => {
   });
   it('あさ は よる から ひる へ戻る', () => {
     const t = new TimeOfDayImpl();
-    t.set(30600);
+    t.set(28800);
     expect(t.brightness()).toBeCloseTo(0.45);
-    t.set(30600 + 900);
+    t.set(28800 + 900);
     expect(t.skyColor()).toBe('#FFC48A');
-    t.set(32399);
+    t.set(30599);
     expect(t.brightness()).toBeGreaterThan(0.99);
   });
 });

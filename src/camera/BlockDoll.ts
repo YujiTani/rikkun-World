@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import type { BlockId, ItemId } from '../contracts';
 
-const isBlockId = (item: ItemId): item is BlockId => item !== 'yokai_orb';
+const isBlockId = (item: ItemId): item is BlockId => item !== 'yokai_orb' && !isMaterialItem(item);
+import { HELD_MATERIAL, isMaterialItem } from '../ui/itemArt';
 import { UNIT_BOX, getBlockMaterials } from '../fx/blockMaterials';
 import {
   ACTION_SWING_DEG,
@@ -62,6 +63,9 @@ export class BlockDoll {
   private readonly heldMesh = new THREE.Mesh(UNIT_BOX);
   /** ようかいだま を持つときの形（heldMesh のかわりに出す） */
   private readonly orbMesh = new THREE.Mesh(ORB_GEOMETRY, ORB_MATERIAL);
+  /** 材料（かみ・あぶら など）を持つときの小さな板・かたまり */
+  private readonly materialMesh = new THREE.Mesh(UNIT_BOX);
+  private readonly materialMats = new Map<number, THREE.MeshBasicMaterial>();
   private actionDegMax = ACTION_SWING_DEG;
   /** 0 = 立っている、1 = 横にたおれた */
   private fallen = 0;
@@ -153,6 +157,9 @@ export class BlockDoll {
       this.orbMesh.add(eye);
     }
     this.armR.add(this.orbMesh);
+    this.materialMesh.position.copy(this.heldMesh.position);
+    this.materialMesh.visible = false;
+    this.armR.add(this.materialMesh);
     this.rotationOrder();
     this.applyMode();
   }
@@ -191,8 +198,19 @@ export class BlockDoll {
     this.held = item;
     this.heldMesh.visible = false;
     this.orbMesh.visible = false;
+    this.materialMesh.visible = false;
     if (item === null) return;
-    if (isBlockId(item)) {
+    if (isMaterialItem(item)) {
+      const h = HELD_MATERIAL[item];
+      let m = this.materialMats.get(h.color);
+      if (!m) {
+        m = new THREE.MeshBasicMaterial({ color: h.color });
+        this.materialMats.set(h.color, m);
+      }
+      this.materialMesh.material = m;
+      this.materialMesh.scale.set(h.size[0], h.size[1], h.size[2]);
+      this.materialMesh.visible = true;
+    } else if (isBlockId(item)) {
       this.heldMesh.material = getBlockMaterials(item);
       this.heldMesh.visible = true;
     } else {
@@ -207,7 +225,7 @@ export class BlockDoll {
   heldWorldPosition(out: THREE.Vector3): THREE.Vector3 | null {
     if (this.held === null || this.mode === 'hidden') return null;
     this.group.updateMatrixWorld(true);
-    return (this.orbMesh.visible ? this.orbMesh : this.heldMesh).getWorldPosition(out);
+    return (this.orbMesh.visible ? this.orbMesh : this.materialMesh.visible ? this.materialMesh : this.heldMesh).getWorldPosition(out);
   }
 
   /** 右うでを 1 回振る（置いたとき） */
@@ -230,7 +248,7 @@ export class BlockDoll {
     if (v === this.alpha) return;
     this.alpha = v;
     this.group.traverse((o) => {
-      if (!(o instanceof THREE.Mesh) || o === this.heldMesh || o === this.orbMesh) return;
+      if (!(o instanceof THREE.Mesh) || o === this.heldMesh || o === this.orbMesh || o === this.materialMesh) return;
       if (o.material === ORB_MATERIAL || o.material === ORB_SHINE_MATERIAL || o.material === ORB_EYE_MATERIAL) return;
       for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
         m.transparent = v < 1;
@@ -318,6 +336,8 @@ export class BlockDoll {
     // 持ったブロックの材料・形は使いまわしなので dispose しない
     this.heldMesh.removeFromParent();
     this.orbMesh.removeFromParent();
+    this.materialMesh.removeFromParent();
+    for (const m of this.materialMats.values()) m.dispose();
     this.group.traverse((o) => {
       if (o instanceof THREE.Mesh) {
         o.geometry.dispose();
