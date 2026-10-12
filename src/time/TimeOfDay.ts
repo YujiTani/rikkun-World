@@ -42,6 +42,11 @@ export class TimeOfDayImpl implements TimeOfDay {
     this.notify();
   }
 
+  /** 何日目かをすぐ変える（読みこみ用） */
+  setDay(day: number): void {
+    this.dayNo = Math.max(0, Math.floor(day));
+  }
+
   update(): void {
     this.tick++;
     if (this.tick >= dayLength(this.settings)) {

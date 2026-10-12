@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import { TimeOfDayImpl } from '../time/TimeOfDay';
-import { Lighting } from './lighting';
+import { Lighting, levelToLinear } from './lighting';
 import { Sky } from './Sky';
-import { sunMoonPose } from './sunMoon';
+import { skyDirection, sunMoonPose } from './sunMoon';
 
 describe('Lighting', () => {
   it('登録した材料だけを「もとの色 × 明るさ」にする。もどせる', () => {
@@ -14,8 +14,8 @@ describe('Lighting', () => {
     l.register(a, 'block');
     l.register(b, 'doll');
     l.setLevels(0.5, 0.75);
-    expect(a.color.r).toBeCloseTo(0.5);
-    expect(b.color.r).toBeCloseTo(0.75);
+    expect(a.color.r).toBeCloseTo(levelToLinear(0.5));
+    expect(b.color.r).toBeCloseTo(levelToLinear(0.75));
     expect(c.color.g).toBe(1);
     l.setLevels(1, 1);
     expect(a.color.getHex()).toBe(0xff8000);
@@ -31,7 +31,7 @@ describe('Lighting', () => {
     l.registerTree(root, 'doll');
     expect(l.size()).toBe(1);
     l.setLevels(0.45, 0.5);
-    expect(m.color.r).toBeCloseTo(0.5);
+    expect(m.color.r).toBeCloseTo(levelToLinear(0.5));
     expect(lit.color.r).toBe(1);
   });
   it('setBase は明るさをかけた色を入れる', () => {
@@ -40,7 +40,16 @@ describe('Lighting', () => {
     l.register(m, 'doll');
     l.setLevels(1, 0.5);
     l.setBase(m, 0xffffff);
-    expect(m.color.r).toBeCloseTo(0.5);
+    expect(m.color.r).toBeCloseTo(levelToLinear(0.5));
+  });
+  it('見た目（sRGB）が level 倍になる。夜は昼よりはっきり暗い', () => {
+    const l = new Lighting();
+    const m = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    l.register(m, 'block');
+    l.setLevels(0.45, 1);
+    const out = m.color.clone().convertLinearToSRGB();
+    expect(out.r).toBeCloseTo(0.45, 2);
+    expect(m.color.r).toBeLessThan(0.2);
   });
 });
 
@@ -59,7 +68,7 @@ describe('Sky', () => {
     sky.update(cam);
     expect((scene.background as THREE.Color).getHex()).toBe(0x1b2350);
     expect(scene.fog!.color.getHex()).toBe(0x1b2350);
-    expect(mat.color.r).toBeCloseTo(0.45);
+    expect(mat.color.r).toBeCloseTo(levelToLinear(0.45));
     expect(sky.moon.visible).toBe(true);
     expect(sky.sun.visible).toBe(false);
     time.set(0);
@@ -74,5 +83,29 @@ describe('Sky', () => {
     expect(sunMoonPose(60000, s).sun.visible).toBe(false);
     expect(sunMoonPose(60000, s).moon.visible).toBe(true);
     expect(sunMoonPose(91799, s).moon.angle).toBeLessThanOrEqual(Math.PI);
+  });
+  it('おひさまの向きは時刻で変わる（東 +X からのぼり、昼に真上、西 -X へ）', () => {
+    const s = new TimeOfDayImpl().settings;
+    const at = (t: number) => skyDirection(sunMoonPose(t, s).sun.angle, 0.25, { x: 0, y: 0, z: 0 });
+    expect(at(100).x).toBeGreaterThan(0.5);
+    expect(at(29700).y).toBeGreaterThan(0.9);
+    expect(at(59000).x).toBeLessThan(-0.5);
+    expect(at(100).x).not.toBeCloseTo(at(29700).x);
+  });
+  it('Sky.update で、おひさまがカメラについていき、時刻で場所が変わる', () => {
+    const scene = new THREE.Scene();
+    const time = new TimeOfDayImpl();
+    const sky = new Sky({ scene, time, timeSettings: time.settings, lighting: new Lighting() });
+    const cam = new THREE.PerspectiveCamera();
+    time.set(100);
+    sky.update(cam);
+    const a = sky.sun.position.clone();
+    time.set(40000);
+    cam.position.set(10, 5, 10);
+    sky.update(cam);
+    const b = sky.sun.position.clone().sub(cam.position);
+    expect(a.x).toBeGreaterThan(100);
+    expect(b.x).toBeLessThan(0);
+    expect(b.length()).toBeCloseTo(a.length(), 3);
   });
 });

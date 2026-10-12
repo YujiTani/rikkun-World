@@ -227,6 +227,7 @@ const save = new SaveManager({
   tick: () => game.tick,
   settings: screenSettings,
   bags: { serialize: () => combat.serializeBags(), deserialize: (d) => combat.deserializeBags(d) },
+  clock: time,
 });
 requestSave = () => save.saveIfChanged();
 if (saveOptions.reset) {
@@ -258,6 +259,7 @@ game.onUpdate((dt) => {
   combatFx.update(dt);
   rig.update(dt);
   sky.update(game.camera);
+  combatUi.clock.setTime(time.dayTick(), timeSettings);
   viewActions.endFrame();
   crosshair.setVisible(rig.crosshairVisible() && screen.mode() === 'play');
   hotbar.update();

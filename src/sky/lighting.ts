@@ -11,6 +11,16 @@ interface Entry {
 
 type Colored = Material & { color: Color };
 
+/**
+ * 「見た目の明るさ」(0..1) を、three.js の色（リニア）にかける数にする。
+ * 色は画面に出るとき sRGB に直されるので、そのままかけると 0.45 でも見た目は 0.7 ほどで、夜に見えない。
+ * 見た目がちょうど level 倍になるように sRGB→リニアの変換をかける。
+ */
+export function levelToLinear(level: number): number {
+  const v = Math.min(1, Math.max(0, level));
+  return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+}
+
 const hasColor = (m: Material): m is Colored => (m as Partial<Colored>).color instanceof Color;
 
 /**
@@ -90,6 +100,6 @@ export class Lighting {
 
   private applyOne(m: Material, e: Entry): void {
     if (!hasColor(m)) return;
-    m.color.copy(e.base).multiplyScalar(this.level(e.group));
+    m.color.copy(e.base).multiplyScalar(levelToLinear(this.level(e.group)));
   }
 }
