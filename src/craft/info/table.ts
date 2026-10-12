@@ -39,7 +39,7 @@ const PLACE_BTN: ButtonKey[] = ['1-9', 'right'];
 const CRAFT_E = 'E の つくる で つかう';
 const PICK_HOW = 'えらんで、ブロック に むけて ひだりクリック を おしつづける';
 const BLADE_HOW = 'えらんで、ようかい に むけて ひだりクリック';
-const WEAR_HOW = 'てに もって みぎクリック で きる。E の そうび の マス に いれても よい';
+const WEAR_HOW = 'ダブルクリック か、てに もって みぎクリック で きる。E の そうび の マス に いれても よい';
 const LATER_HOW = 'いまは もてる だけ';
 
 const later = (row: string): InfoRow => ({ use: row, how: LATER_HOW, buttons: [], later: row });

@@ -189,8 +189,11 @@ export class DigSystemImpl implements DigSystem {
     const enabled = this.lock.playInputEnabled() && !this.gate?.blocksInput();
 
     // ホットバー
-    if (enabled) {
+    // もちもの画面を開いているときも 1〜9 でえらべる（遊びの入力は止まっていても、画面は見えている）
+    if (!this.lock.overlayVisible() && !this.gate?.blocksInput()) {
       for (let i = 0; i < 9; i++) if (this.actions.wasPressed(HOTBAR_ACTIONS[i])) this.inventory.select(i);
+    }
+    if (enabled) {
       if (this.actions.wasPressed(A_NEXT)) this.inventory.selectNext(1);
       if (this.actions.wasPressed(A_PREV)) this.inventory.selectNext(-1);
     }

@@ -29,20 +29,25 @@ export const WHEEL_CONFIG = {
   relockTimeoutMs: 1500,
 } as const;
 
-/** 操作の絵の説明（ひらがな・カタカナのみ） */
+import { ruby } from '../ui/text';
+
+const LEFT_CLICK = `${ruby('左', 'ひだり')}クリック`;
+const RIGHT_CLICK = `${ruby('右', 'みぎ')}クリック`;
+
+/** 操作の説明（短い文。漢字は ruby() でふりがな付き。HTML） */
 export const HELP_CAPTIONS = [
-  'あるく',
-  'ジャンプ',
-  'むきを かえる',
-  'みかた を かえる',
-  'ほる（おしつづける）',
-  'ひびが MAX で もういちど',
-  'おく',
-  'もちものを えらぶ',
-  'もちもの',
+  'W A S D で あるく',
+  'スペース で ジャンプ',
+  'マウスを うごかして むきを かえる',
+  'V で みかた を かえる',
+  `${LEFT_CLICK} を おしつづけて ほる`,
+  'ひびが MAX で もういちど おす',
+  `${RIGHT_CLICK} で おく`,
+  '1〜9 か ホイール で もちものを えらぶ',
+  'E で もちもの をひらく',
 ] as const;
 
-/** 案内画面（Esc）のあそびかたのタブ（M4 §2.11）。字はひらがな・カタカナのみ */
+/** 案内画面（Esc）のあそびかたのタブ（M4 §2.11）。字はひらがな・カタカナと、ふりがな付きの漢字 */
 export type GuideTabId = 'move' | 'dig' | 'fight' | 'craft';
 
 export const GUIDE_TAB_IDS: readonly GuideTabId[] = ['move', 'dig', 'fight', 'craft'];
@@ -62,10 +67,10 @@ export const GUIDE_TABS: Record<GuideTabId, { label: string; icon: string; capti
     label: 'たたかう',
     icon: '⚔',
     captions: [
-      'ひだりクリック で たたく',
+      `${LEFT_CLICK} で たたく`,
       'なぎなた は とおくまで とどく',
       'ゆみ は や を とばす',
-      'かぶと・よろい・こて・すねあて を もって みぎクリック で きる',
+      `${ruby('防具', 'ぼうぐ')}は ダブルクリック で ${ruby('着', 'き')}る・ぬぐ`,
       'よる は おうち に にげよう',
     ],
   },
@@ -76,9 +81,9 @@ export const GUIDE_TABS: Record<GuideTabId, { label: string; icon: string; capti
       'E で つくる',
       'ひかっている のを おす',
       'かなづち が でたら つくれる',
-      'かまど に みぎクリック で やく',
+      `かまど に ${RIGHT_CLICK} で やく`,
       'ねんりょう は せきたん・あぶら・き',
-      'Q で すてる',
+      'Q で 1こ すてる',
       'たんす に しまう',
     ],
   },

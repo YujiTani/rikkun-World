@@ -47,7 +47,7 @@ export function createSlotEl(keyLabel?: string, size?: 'inv' | 'tansu'): SlotEls
  * からっぽ は下地のまま・宝石の印なし。
  */
 export function paintSlot(els: SlotEls, stack: ItemStack | null): void {
-  if (stack) {
+  if (stack && stack.count > 0) {
     const url = itemIconUrl(stack.item);
     if (els.icon.getAttribute('src') !== url) els.icon.src = url;
     els.icon.hidden = false;
@@ -162,6 +162,7 @@ export class Hotbar {
   }
 
   private flyIn(item: string, target: HTMLElement, count: number): void {
+    if (!(count > 0)) return; // 数が 0 以下の「+N」は出さない
     if (typeof target.animate !== 'function') return;
     const r = target.getBoundingClientRect();
     const tx = r.left + r.width / 2;
