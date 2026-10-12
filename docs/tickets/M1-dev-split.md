@@ -52,8 +52,22 @@
 - `src/input/hook.ts`: `createLockHook` → `lock.*`、`createInputHook` → `input.*`。
 - 状態の変化・simulate 優先・releaseAll・ロックなしで look 0・各判定・ふりがな漏れをユニットテスト（DOM が要る所は関数を分ける）。
 
+### T6 つなぎ込み（T1〜T5 の後。担当: `src/main.ts`, `src/game/**`, `src/debug/**`, `src/ui/hud.ts`, `src/ui/style.css`, `index.html`）
+各担当からの申し送り（PO がまとめた）:
+- 作る順: `ArrayVoxelWorld` → `generateIsland(seed, world)`（seed は URL `?seed=`、なければ `GEN_CONFIG.defaultSeed`）→ `WorldRenderer(world).attach(scene)` → `LockController` / `MouseLook` / `bindPointerLock(document, window, 要素, lock, look, game.input)` / `PlayOverlay(hud, lock, () => pl.request())` → `PlayerController(world, game.input, look, lock, () => island.spawn())` → `CameraRig(game.camera, scene, world, () => controller.state, game.input)` → `createCrosshair`。
+- 毎ステップの順: プレイヤー更新 → カメラ更新 → `renderer.update()` → `actions.endFrame()`（Game が最後に呼ぶ）。
+- 実時間ループは `lock.realtimeAllowed()` が false なら進めない（`pause()` も併用）。`step()` は常に進む（M1-02 §2.4）。F3 はいつでも効く。
+- ロックなしのときは V（toggleView）も無視する（T5 の指摘。CameraRig を変えずに、つなぎ側で無視する方法を考える。必要なら PO に相談）。
+- ＋の印は `rig.crosshairVisible()` で出し入れ。
+- `window.__rikkun`: 既存の口 ＋ `world: createWorldHook(world, renderer, island)`、`player: {...createPlayerHook(controller), doll: cameraHook.doll}`、`camera: cameraHook.camera`、`lock: createLockHook(lock)`、`input: createInputHook(game.input, look)`、`settings: get/set/all`（`controller.settings` と `rig.config` を読み書き。名前は M1-02 §4.1）。
+- 空の色・フォグ・世界の外に続く見た目だけの海（M1-01 4-9 と AC22）を作る。仮の景色 `src/game/placeholderScene.ts` は消す。`renderStats()` は今のまま。
+- 既存の `e2e/smoke.spec.ts` は「起動直後は時間停止」で落ちる。M1-02 §6.3 のとおり `lock.simulate(true)` を足す形に直してよい（この 1 か所だけ e2e の編集を許可）。
+- 終わる前に `npm run check`（型・ユニット・E2E）を通し、Playwright でスクショを撮って自分の目で確かめる（スクショはリポジトリに残さない）。この作業は worktree ではなく本体で行い、コミットは PO がする。
+
 ## 経過
 | 日付 | 内容 |
 |---|---|
 | 2026-10-12 | 5 担当に分けて並列で開始 |
 | 2026-10-12 | 予算のためモデルを Sonnet に切り替えて再開（Opus で起動した分は書き始める前に停止） |
+| 2026-10-12 | T1〜T5 完了・取りこみ（ユニットテスト 156 件）。全員が担当ファイルだけを編集していた。T6 開始 |
+| メモ | T1 指摘: M1-01 4-11 の「y=5〜6 すな、y=1〜5 いし」は y=5 が重複。実装は 4-3 に合わせた（すな 5・6、いし 1〜4）。仕様書の軽微な修正として次のデザイン作業のついでに直す |
