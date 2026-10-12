@@ -11,7 +11,7 @@ import { ArrayVoxelWorld } from './VoxelWorld';
 const ALL_IDS: BlockId[] = [
   'air', 'grass', 'dirt', 'stone', 'sand', 'log', 'leaves', 'coal_ore', 'iron_ore', 'water', 'bedrock',
   'furnace', 'kawara', 'brick',
-  'torch', 'start_torch',
+  'torch', 'start_torch', 'tansu',
 ];
 
 /** この試験は M1 の 64×32×64 の世界で書かれている */
@@ -243,7 +243,7 @@ describe('createWorldHook', () => {
     expect(h.spawn().y).toBe(11);
     expect(h.testArea().y0).toBe(8);
     expect(h.genTimeMs()).toBe(12);
-    expect(h.blockTypes()).toHaveLength(16);
+    expect(h.blockTypes()).toHaveLength(17);
     r.update();
     expect(h.rebuildStats().count).toBeGreaterThan(0);
   });

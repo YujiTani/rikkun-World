@@ -1,0 +1,25 @@
+/* ドラッグで すてる（M6 §2.8 (2)）。パネルの外ぜんたいを うすい赤にする */
+.rk-dragout {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background: color-mix(in srgb, var(--rk-ng) 15%, transparent);
+  opacity: 0;
+  transition: opacity var(--rk-dur) var(--rk-ease);
+  pointer-events: none;
+}
+.rk-dragout.is-on {
+  opacity: 1;
+}
+.rk-dragout__chip {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 5;
+  pointer-events: none;
+  font-size: var(--rk-fs-body);
+  font-weight: 800;
+}
+.rk-dragout__chip[hidden] {
+  display: none;
+}

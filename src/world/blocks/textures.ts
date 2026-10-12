@@ -1,5 +1,6 @@
 import { DataTexture, NearestFilter, RGBAFormat, SRGBColorSpace, UnsignedByteType } from 'three';
 import type { BlockId } from '../../contracts';
+import { tansuPixels } from '../../storage/tansuArt';
 
 /** 16x16 ドット絵をコードで描く（M1-01 4-2 の色）。 */
 export const TILE_SIZE = 16;
@@ -23,7 +24,9 @@ export type TileName =
   | 'kawara'
   | 'brick'
   | 'torch'
-  | 'start_torch';
+  | 'start_torch'
+  | 'tansu_front'
+  | 'tansu_top';
 
 export const TILE_NAMES: readonly TileName[] = [
   'grass_top',
@@ -44,6 +47,8 @@ export const TILE_NAMES: readonly TileName[] = [
   'brick',
   'torch',
   'start_torch',
+  'tansu_front',
+  'tansu_top',
 ];
 export const ATLAS_ROWS = Math.ceil(TILE_NAMES.length / ATLAS_COLS);
 export const ATLAS_WIDTH = ATLAS_COLS * TILE_SIZE;
@@ -238,6 +243,10 @@ function paintTile(name: TileName): Tile {
       return paintTorch(false);
     case 'start_torch':
       return paintTorch(true);
+    case 'tansu_front':
+      return tansuPixels('front').map((c) => hex(c));
+    case 'tansu_top':
+      return tansuPixels('top').map((c) => hex(c));
   }
 }
 
@@ -263,6 +272,8 @@ export const BLOCK_TILES: Readonly<Partial<Record<BlockId, readonly [TileName, T
   brick: ['brick', 'brick', 'brick'],
   torch: ['torch', 'torch', 'torch'],
   start_torch: ['start_torch', 'start_torch', 'start_torch'],
+  // M6: 世界に向きのしかけは作らない（PO 決定）ので 4 面とも 前の面。向きは storage に記録する
+  tansu: ['tansu_top', 'tansu_top', 'tansu_front'],
 };
 
 /** タイルの UV の四角 [u0, v0, u1, v1]（v は下から。となりのタイルがにじまないよう少し内側） */

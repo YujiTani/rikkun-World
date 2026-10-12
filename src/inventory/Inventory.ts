@@ -3,12 +3,12 @@ import { HOTBAR_SIZE, INVENTORY_SIZE, ITEM_TYPES, itemType } from './items';
 
 type Slot = ItemStack | null;
 
-/** 配列に §4.2 の入れ方で入れる。入らなかった数を返す */
-function addInto(slots: Slot[], item: ItemId, count: number): number {
+/** 配列に §4.2 の入れ方で入れる（from〜to 未満のマスだけ）。入らなかった数を返す */
+export function addInto(slots: Slot[], item: ItemId, count: number, from = 0, to = slots.length): number {
   const max = itemType(item)?.maxStack;
   if (!max || count <= 0) return Math.max(0, count);
   let left = count;
-  for (let i = 0; i < slots.length && left > 0; i++) {
+  for (let i = from; i < to && left > 0; i++) {
     const s = slots[i];
     if (s && s.item === item && s.count < max) {
       const n = Math.min(max - s.count, left);
@@ -16,7 +16,7 @@ function addInto(slots: Slot[], item: ItemId, count: number): number {
       left -= n;
     }
   }
-  for (let i = 0; i < slots.length && left > 0; i++) {
+  for (let i = from; i < to && left > 0; i++) {
     if (!slots[i]) {
       const n = Math.min(max, left);
       slots[i] = { item, count: n };
@@ -109,6 +109,34 @@ export class InventoryImpl implements Inventory {
     return true;
   }
 
+  /**
+   * シフトクリック（M6 §2.9 (3)）: ホットバー（0〜8）⇄ ふくろ（9〜35）のあいだで、そのマスのぜんぶを うつす。
+   * 入りきらない分は 元のマスにのこる。うつした数を返す
+   */
+  shiftMove(index: number): number {
+    if (!Number.isInteger(index) || index < 0 || index >= this.size) return 0;
+    const s = this.arr[index];
+    if (!s) return 0;
+    const [from, to] = index < HOTBAR_SIZE ? [HOTBAR_SIZE, this.size] : [0, HOTBAR_SIZE];
+    this.arr[index] = null;
+    const left = addInto(this.arr, s.item, s.count, from, to);
+    if (left > 0) this.arr[index] = { item: s.item, count: left };
+    const moved = s.count - left;
+    if (moved > 0) this.notify();
+    return moved;
+  }
+
+  /** そのマスから count こ（all ならぜんぶ）取り出す（すてる用）。取り出したものを返す。空なら null */
+  takeFromSlot(index: number, all: boolean): ItemStack | null {
+    if (!Number.isInteger(index) || index < 0 || index >= this.size) return null;
+    const s = this.arr[index];
+    if (!s) return null;
+    const n = all ? s.count : 1;
+    this.arr[index] = n >= s.count ? null : { item: s.item, count: s.count - n };
+    this.notify();
+    return { item: s.item, count: n };
+  }
+
   click(index: number): void {
     if (!Number.isInteger(index) || index < 0 || index >= this.size) return;
     const slot = this.arr[index];
@@ -144,9 +172,24 @@ export class InventoryImpl implements Inventory {
     this.lifted = -1;
     this.notify();
   }
+  /**
+   * カーソルのものを返すとき、持ち上げたマスが 持ち物の外（たんす）なら そこへ返す口（M6）。
+   * true を返したら 返しおわったことにする
+   */
+  setReturnHandler(fn: ((stack: ItemStack) => boolean) | null): void {
+    this.returnHandler = fn;
+  }
+  private returnHandler: ((stack: ItemStack) => boolean) | null = null;
+
   returnCursor(): void {
     if (!this.cur) return;
     const cur = this.cur;
+    if (this.returnHandler?.(cur)) {
+      this.cur = null;
+      this.lifted = -1;
+      this.notify();
+      return;
+    }
     let left: number;
     if (this.lifted >= 0 && !this.arr[this.lifted]) {
       this.arr[this.lifted] = cur;

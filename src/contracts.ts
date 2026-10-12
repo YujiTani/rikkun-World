@@ -32,7 +32,9 @@ export type BlockId =
   | 'brick' // レンガ
   // M4 光（オーナー決定: マイクラと同じ明るさの仕組み）
   | 'torch' // たいまつ（置ける。光る。固くない）
-  | 'start_torch'; // スタート地点の こわれない たいまつ
+  | 'start_torch' // スタート地点の こわれない たいまつ
+  // M6
+  | 'tansu'; // たんす（和だんす。54 マスの入れもの）
 
 export interface BlockType {
   id: BlockId;
@@ -474,7 +476,7 @@ export interface ToolInfo {
   ticks: number;
 }
 
-export type SwingAnim = 'slash' | 'thrust' | 'sweep' | 'draw' | 'release' | 'punch' | 'dig' | 'place' | 'whiff';
+export type SwingAnim = 'slash' | 'thrust' | 'sweep' | 'draw' | 'release' | 'punch' | 'dig' | 'place' | 'whiff' | 'throw';
 
 /** 手に持っているものの働き。担当 B が `src/tools/` で実装する */
 export interface ToolSystem {

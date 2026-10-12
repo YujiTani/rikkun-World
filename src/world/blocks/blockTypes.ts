@@ -20,6 +20,8 @@ export const BLOCK_TYPES: readonly BlockType[] = [
   // M4 光
   { id: 'torch', name: 'たいまつ', solid: false, breakable: true },
   { id: 'start_torch', name: 'こわれない たいまつ', solid: false, breakable: false },
+  // M6
+  { id: 'tansu', name: 'たんす', solid: true, breakable: true },
 ];
 
 export const BLOCK_INDEX: Readonly<Record<BlockId, number>> = Object.fromEntries(

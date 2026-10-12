@@ -75,6 +75,10 @@ export function armPoseAt(anim: ArmAnim, tick: number, out: ArmPose): ArmPose {
     case 'punch':
       out.addR = 75 * Math.sin((Math.PI * tick) / len);
       return out;
+    case 'throw':
+      // 右うでを前へ ふる
+      out.addR = 60 * Math.sin((Math.PI * tick) / len);
+      return out;
     case 'dig':
     case 'place':
       out.addR = 40 * Math.sin((Math.PI * tick) / len);

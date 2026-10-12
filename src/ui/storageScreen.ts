@@ -1,0 +1,95 @@
+import { RARITY_ORDER, itemRarity } from '../drops/rarity';
+import type { StorageSystem } from '../storage/StorageSystem';
+import { tansuPixels } from '../storage/tansuArt';
+import { createButton, createSlot, paintSlot, type Rarity4, type SlotParts } from './theme';
+import { drawPixels, itemIconUrl } from './itemIcon';
+import './storageScreen.css';
+
+/** もちもの画面の右の場所（storageSlot）を切りかえる口（InventoryScreen が合う） */
+export interface StorageHost {
+  storageSlot: HTMLElement;
+  setSide(side: 'craft' | 'storage'): void;
+}
+
+const hexRgba = (c: string): [number, number, number, number] => {
+  const n = parseInt(c.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255, 255];
+};
+
+/**
+ * たんす画面: 見出し（桐色の帯＋金具の点＋たんすの絵＋とじる）と 9×6 のマス。
+ * マスのクリック = `storage.click(i)`、シフトクリック = `storage.shiftClick('tansu', i)`。
+ * 毎ステップ（または毎フレーム）update() を呼ぶ。開いたとき host.setSide('storage')、閉じたとき 'craft' にもどす
+ */
+export class StorageScreen {
+  readonly el: HTMLDivElement;
+  private readonly cells: SlotParts[] = [];
+  private shown = false;
+
+  constructor(
+    private readonly host: StorageHost,
+    private readonly storage: StorageSystem,
+    slots = 54,
+  ) {
+    this.el = document.createElement('div');
+    this.el.className = 'tansu-panel';
+    const band = document.createElement('div');
+    band.className = 'tansu-band';
+    for (const pos of ['l1', 'l2', 'r1', 'r2']) {
+      const k = document.createElement('span');
+      k.className = 'tansu-kana';
+      k.dataset.pos = pos;
+      band.append(k);
+    }
+    const head = document.createElement('div');
+    head.className = 'tansu-head';
+    const icon = document.createElement('canvas');
+    icon.className = 'tansu-icon';
+    drawPixels(icon, tansuPixels('icon').map(hexRgba));
+    const title = document.createElement('h2');
+    title.className = 'tansu-title';
+    title.textContent = 'たんす';
+    const close = createButton({ text: 'とじる', kind: 'primary', onClick: () => this.storage.close() });
+    close.id = 'tansu-close';
+    head.append(icon, title, close);
+
+    const grid = document.createElement('div');
+    grid.className = 'tansu-grid';
+    for (let i = 0; i < slots; i++) {
+      const c = createSlot({ size: 'tansu' });
+      c.root.dataset.tansu = String(i);
+      c.root.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (e.shiftKey) this.storage.shiftClick('tansu', i);
+        else this.storage.click(i);
+      });
+      this.cells.push(c);
+      grid.append(c.root);
+    }
+    this.el.append(band, head, grid);
+    host.storageSlot.append(this.el);
+  }
+
+  update(): void {
+    const open = this.storage.ui().open;
+    if (open !== this.shown) {
+      this.shown = open;
+      this.host.setSide(open ? 'storage' : 'craft');
+    }
+    const slots = this.storage.openSlots();
+    if (!open || !slots) return;
+    for (let i = 0; i < this.cells.length; i++) {
+      const s = slots[i] ?? null;
+      paintSlot(
+        this.cells[i],
+        s
+          ? { size: 'tansu', art: itemIconUrl(s.item), count: s.count, rarity: RARITY_ORDER.indexOf(itemRarity(s.item)) as Rarity4 }
+          : { size: 'tansu' },
+      );
+    }
+  }
+
+  dispose(): void {
+    this.el.remove();
+  }
+}
