@@ -24,6 +24,11 @@
 **B（描画・光・性能）**
 - 毎ステップ `renderer.update({ x: game.camera.position.x, z: game.camera.position.z })`。最初は `renderer.attach` の前に `renderer.setViewer(x, z)`
 - testHook に `render: { chunks: () => renderer.chunkStats() }`、world hook に `lightInitMs: () => renderer.light.initMs`（`e2e-perf/m5.perf.ts` が読む）
+**C（保存・妖怪・テスト）**
+- `isDarkForSpawn` が `world.size.y`（48）まで見ているか確認（`src/world/light`）
+- `e2e/m1.spec.ts` AC10 の `drawCalls<=100`・`triangles<=300000` は広い世界で足りなければ M5 の値（200・600,000）に
+- A の地形のあと `SaveManager.test.ts`・`ai.test.ts` を回し直す。AC21（500 ブロックの保存 20ms 以下・30,000 文字以下）の計測テストを足す
+- m3 の「ひる は屋根の下だけ」は判定を直したので、つなぎ込み後に本当に通るか見る
 - 計測（クラウド）: 今の島の生成 20〜32ms・明るさ 19〜30ms。128×48×128 の仮の地面の明るさ 154〜198ms
 
 ## 経過
