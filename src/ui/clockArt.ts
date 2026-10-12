@@ -63,7 +63,7 @@ export function clockScenePixels(scene: ClockScene): Rgba[] {
     }
   }
   if (scene === 'sunrise') {
-    // 放射状の光の線 4 本（上向きの矢印の じゃまにならない 角度）
+    // 放射状の光の線 4 本
     const cx = 8;
     const cy = 10.7;
     for (const deg of [15, 45, 135, 165]) {
@@ -73,28 +73,9 @@ export function clockScenePixels(scene: ClockScene): Rgba[] {
         if (x >= 0 && x < 16 && y >= 0 && y < horizon) px[y * 16 + x] = rgb('#FF9D1F');
       }
     }
-    drawArrow(px, 1, true);
   }
-  if (scene === 'sunset') drawArrow(px, 3, false);
   // 日の出・日没: 地平線より下の太陽は うめた地面でかくれる（半分だけ見える）
   return px;
-}
-
-/** 白い矢印（上向き = のぼる、下向き = しずむ）。まわりに こい 1 ドットのふち。x = 8 の真ん中、5 行 */
-function drawArrow(px: Rgba[], top: number, up: boolean): void {
-  const rows = up ? [[8], [7, 8, 9], [6, 7, 8, 9, 10], [8], [8], [8]] : [[8], [8], [8], [6, 7, 8, 9, 10], [7, 8, 9], [8]];
-  const cells: [number, number][] = [];
-  rows.forEach((xs, i) => xs.forEach((x) => cells.push([x, top + i])));
-  const has = (x: number, y: number) => cells.some(([a, b]) => a === x && b === y);
-  const ink = rgb('#2A1A40');
-  for (const [x, y] of cells) {
-    for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
-      const nx = x + dx;
-      const ny = y + dy;
-      if (!has(nx, ny) && nx >= 0 && nx < 16 && ny >= 0 && ny < 16) px[ny * 16 + nx] = ink;
-    }
-  }
-  for (const [x, y] of cells) px[y * 16 + x] = rgb('#FFFFFF');
 }
 
 const cache = new Map<ClockScene, string>();
