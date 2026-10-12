@@ -487,3 +487,39 @@ export interface LightField {
   /** 今の時刻をふくめた明るさ（0〜15）。妖怪の出現や人形の明るさに使う */
   level(x: number, y: number, z: number): number;
 }
+
+// ================================================================ M5（広い世界）
+// 担当の割り振り: docs/tickets/M5-dev-split.md。仕様: docs/design/M5-world.md
+
+/** 世界の大きさ（M5 で 64×32×64 から変更） */
+export const WORLD_SIZE = { x: 128, y: 48, z: 128 } as const;
+/** 世界の中心・スタート地点の列 */
+export const WORLD_CENTER = { x: 64, z: 64 } as const;
+
+export interface RegionCircle {
+  cx: number;
+  cz: number;
+  r: number;
+}
+
+export interface RegionRect {
+  x0: number;
+  z0: number;
+  x1: number;
+  z1: number;
+}
+
+/** 地形の場所（担当 A が作る。`world.regions()` と、妖怪・農業・畜産が使う） */
+export interface WorldRegions {
+  center: { x: number; z: number };
+  startH0: number;
+  mountain: RegionCircle & { peak: { x: number; z: number; h: number } };
+  rock: RegionCircle;
+  forest: RegionCircle;
+  flat: RegionRect;
+  spring: RegionCircle;
+  /** かわ の長方形の並び（いずみ側から順に） */
+  river: RegionRect[];
+  meadow: RegionCircle;
+  pond: RegionCircle;
+}
