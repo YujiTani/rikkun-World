@@ -14,11 +14,13 @@ export interface YokaiStats {
   speed: number;
   /** 次の攻撃まで（秒） */
   cooldownSeconds: number;
+  /** みず が苦手（入らない・落ちる先が みず なら降りない）。false は みず の中まで追いかける */
+  avoidsWater: boolean;
 }
 
 export const YOKAI_STATS = {
-  karakasa: { hp: 4, damageHearts: 1, hitSeconds: 0.5, attackSeconds: 1.2, reach: 2.5, speed: 1.5, cooldownSeconds: 2.0 },
-  chochin: { hp: 2, damageHearts: 1, hitSeconds: 0.5, attackSeconds: 0.8, reach: 8, speed: 1.0, cooldownSeconds: 3.0 },
-  nurikabe: { hp: 12, damageHearts: 2, hitSeconds: 1.5, attackSeconds: 4.0, reach: 3, speed: 0.5, cooldownSeconds: 2.0 },
-  rokurokubi: { hp: 4, damageHearts: 1, hitSeconds: 0.5, attackSeconds: 1.6, reach: 8, speed: 1.0, cooldownSeconds: 2.5 },
+  karakasa: { hp: 4, damageHearts: 1, hitSeconds: 0.5, attackSeconds: 1.2, reach: 2.5, speed: 1.5, cooldownSeconds: 2.0, avoidsWater: true },
+  chochin: { hp: 2, damageHearts: 1, hitSeconds: 0.5, attackSeconds: 0.8, reach: 8, speed: 1.0, cooldownSeconds: 3.0, avoidsWater: true },
+  nurikabe: { hp: 48, damageHearts: 2, hitSeconds: 1.5, attackSeconds: 4.0, reach: 3, speed: 0.5, cooldownSeconds: 2.0, avoidsWater: false },
+  rokurokubi: { hp: 4, damageHearts: 1, hitSeconds: 0.5, attackSeconds: 1.6, reach: 8, speed: 1.0, cooldownSeconds: 2.5, avoidsWater: false },
 } as const satisfies Record<string, YokaiStats>;

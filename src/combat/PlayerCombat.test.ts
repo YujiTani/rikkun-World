@@ -195,9 +195,9 @@ describe('パンチ', () => {
     expect(r.yokai.damaged).toHaveLength(4);
   });
 
-  it('3.0 より遠い妖怪は無視（パンチにならない）', () => {
+  it('3.5 より遠い妖怪は無視（パンチにならない）', () => {
     const r = rig();
-    r.yokai.box = { id: 1, x0: 5.6, x1: 6.5 }; // 目から 3.1
+    r.yokai.box = { id: 1, x0: 6.1, x1: 7.0 }; // 目から 3.6
     expect(r.combat.primaryStep(true, EYE, EAST, null)).toBe(false);
     expect(r.combat.primaryStep(true, EYE, EAST, 4.0)).toBe(false);
     expect(r.combat.takeHookEvents()).toEqual([]);
