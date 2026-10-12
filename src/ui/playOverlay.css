@@ -53,8 +53,8 @@
 }
 .po-help {
   display: grid;
-  grid-template-columns: repeat(5, minmax(140px, 1fr));
-  gap: 16px 32px;
+  grid-template-columns: repeat(3, 300px);
+  gap: 20px 24px;
   align-items: start;
 }
 .po-help-item {
