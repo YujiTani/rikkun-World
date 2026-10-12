@@ -11,11 +11,17 @@ import type { Tooltip } from './tooltip';
 /** CraftEvent を音と拾ったログにする（つなぎ込みが `craft.drainEvents()` の結果をここへ渡す） */
 export function handleCraftEvents(
   events: readonly CraftEvent[],
-  d: { sound: Pick<SoundFx, 'playTones'>; pickupLog?: Pick<PickupLog, 'push'> },
+  d: {
+    sound: Pick<SoundFx, 'playTones'>;
+    pickupLog?: Pick<PickupLog, 'push'>;
+    /** M6: 「つくった」の音は 演出（CelebrateUi.made）が鳴らす。true なら ここでは鳴らさない */
+    celebrate?: boolean;
+  },
 ): void {
   for (const e of events) {
     switch (e.type) {
       case 'craft': {
+        if (d.celebrate) break;
         // トントン ぽん！ のあとに ばんざい の明るい音
         const banzai = CRAFT_SOUNDS.banzai.map((t): Tone => ({ ...t, delay: t.delay + 0.38, gain: t.gain * 0.7 }));
         d.sound.playTones([...(CRAFT_SOUNDS.craft as readonly Tone[]), ...banzai]);
