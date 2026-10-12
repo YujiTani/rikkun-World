@@ -258,6 +258,7 @@ game.onUpdate((dt) => {
   combatFx.update(dt);
   rig.update(dt);
   sky.update(game.camera);
+  combatUi.clock.setTime(time.dayTick(), timeSettings);
   viewActions.endFrame();
   crosshair.setVisible(rig.crosshairVisible() && screen.mode() === 'play');
   hotbar.update();

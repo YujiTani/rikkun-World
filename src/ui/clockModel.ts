@@ -1,4 +1,6 @@
 import type { DayPhase } from '../contracts';
+import type { TimeSettings } from '../time/config';
+import { sunMoonPose } from '../sky/sunMoon';
 
 export type ClockBody = 'sun' | 'moon';
 
@@ -27,4 +29,23 @@ export function clockBackground(phase: DayPhase): string {
   const l = CLOCK_COLORS[f.left];
   const r = CLOCK_COLORS[f.right];
   return l === r ? l : `linear-gradient(90deg, ${l} 50%, ${r} 50%)`;
+}
+
+/** 円の中の空の色（ふちの内がわ） */
+export const CLOCK_SKY: Record<DayPhase, string> = {
+  day: '#8FD3FF',
+  dusk: '#FF9E6B',
+  night: '#1B2350',
+  dawn: '#FFC48A',
+};
+
+/**
+ * 時計の絵の位置。東（右）からのぼり、てっぺんを通って西（左）へしずむ。
+ * x, y は -1..1（円の中心が 0、y は上が +）。body は今出ている方（ひる・ゆうがた = おひさま、よる・あさ = おつきさま）。
+ */
+export function clockBodyPose(dayTick: number, s: TimeSettings): { body: ClockBody; x: number; y: number } {
+  const p = sunMoonPose(dayTick, s);
+  const body: ClockBody = p.sun.visible ? 'sun' : 'moon';
+  const angle = p.sun.visible ? p.sun.angle : p.moon.angle;
+  return { body, x: Math.cos(angle), y: Math.sin(angle) };
 }
