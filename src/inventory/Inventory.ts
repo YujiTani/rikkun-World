@@ -1,10 +1,12 @@
-import type { Inventory, ItemId, ItemStack, ItemType } from '../contracts';
+import type { Durability, Inventory, ItemId, ItemStack, ItemType, W2Settings, WearEvent, WearResult } from '../contracts';
+import { W2_SETTING_DEFAULTS } from '../contracts';
+import { copyStack, isLow, maxDurability, readWear } from '../tools/durability';
 import { HOTBAR_SIZE, INVENTORY_SIZE, ITEM_TYPES, itemType } from './items';
 
 type Slot = ItemStack | null;
 
 /** 配列に §4.2 の入れ方で入れる（from〜to 未満のマスだけ）。入らなかった数を返す */
-export function addInto(slots: Slot[], item: ItemId, count: number, from = 0, to = slots.length): number {
+export function addInto(slots: Slot[], item: ItemId, count: number, from = 0, to = slots.length, wear = 0): number {
   const max = itemType(item)?.maxStack;
   if (!max || count <= 0) return Math.max(0, count);
   let left = count;
@@ -19,14 +21,24 @@ export function addInto(slots: Slot[], item: ItemId, count: number, from = 0, to
   for (let i = from; i < to && left > 0; i++) {
     if (!slots[i]) {
       const n = Math.min(max, left);
-      slots[i] = { item, count: n };
+      slots[i] = wear > 0 && n === 1 ? { item, count: n, wear } : { item, count: n };
       left -= n;
     }
   }
   return left;
 }
 
+/** たいきゅうの 設定と 時計（WEAPON-2）。省くと 初期値・0 */
+export interface InventoryWearOptions {
+  settings?: () => Pick<W2Settings, 'toolDurability' | 'wearLowRatio'>;
+  tick?: () => number;
+}
+
 export class InventoryImpl implements Inventory {
+  constructor(private readonly wearOpts: InventoryWearOptions = {}) {}
+  private wearEvents: WearEvent[] = [];
+  /** テストの 窓口用（drain しても 残る。多すぎたら 古い方を すてる） */
+  private wearLog: WearEvent[] = [];
   readonly size = INVENTORY_SIZE;
   private readonly arr: Slot[] = new Array<Slot>(INVENTORY_SIZE).fill(null);
   private sel = 0;
@@ -49,6 +61,67 @@ export class InventoryImpl implements Inventory {
   selectNext(dir: 1 | -1): void {
     this.select((this.sel + dir + HOTBAR_SIZE) % HOTBAR_SIZE);
   }
+  // ---- WEAPON-2: たいきゅう（§4.6）
+  private wearSettings(): Pick<W2Settings, 'toolDurability' | 'wearLowRatio'> {
+    return this.wearOpts.settings?.() ?? W2_SETTING_DEFAULTS;
+  }
+  private maxOf(item: ItemId): number | null {
+    return maxDurability(item, this.wearSettings().toolDurability);
+  }
+  wearHeld(n: number): WearResult | null {
+    return this.wearSlot(this.sel, n);
+  }
+  wearSlot(slot: number, n: number): WearResult | null {
+    if (!Number.isInteger(slot) || slot < 0 || slot >= this.size) return null;
+    const s = this.arr[slot];
+    const max = s ? this.maxOf(s.item) : null;
+    if (!s || max === null) return null;
+    const ratio = this.wearSettings().wearLowRatio;
+    const before = Math.max(1, max - (s.wear ?? 0));
+    const worn = Math.min(Math.max(0, Math.floor(n)), before);
+    const left = before - worn;
+    if (worn === 0) return { max, left, worn: 0, broke: false, low: false };
+    const broke = left <= 0;
+    const low = !broke && !isLow(before, max, ratio) && isLow(left, max, ratio);
+    if (broke) {
+      this.arr[slot] = null;
+      this.pushWear({ type: 'toolBreak', tick: this.wearOpts.tick?.() ?? 0, item: s.item, slot });
+    } else {
+      this.arr[slot] = { item: s.item, count: s.count, wear: max - left };
+      if (low) this.pushWear({ type: 'wearLow', tick: this.wearOpts.tick?.() ?? 0, item: s.item, slot });
+    }
+    this.notify();
+    return { max, left, worn, broke, low };
+  }
+  durability(slot: number): Durability | null {
+    const s = Number.isInteger(slot) ? this.arr[slot] : null;
+    const max = s ? this.maxOf(s.item) : null;
+    if (!s || max === null) return null;
+    return { max, left: Math.max(1, max - (s.wear ?? 0)) };
+  }
+  /** 準備用（テストの窓口 `inventory.setDurability`）。left は 1〜max に そろえる */
+  setDurability(slot: number, left: number): void {
+    const s = Number.isInteger(slot) ? this.arr[slot] : null;
+    const max = s ? this.maxOf(s.item) : null;
+    if (!s || max === null || !Number.isFinite(left)) return;
+    const l = Math.min(max, Math.max(1, Math.floor(left)));
+    this.arr[slot] = l >= max ? { item: s.item, count: s.count } : { item: s.item, count: s.count, wear: max - l };
+    this.notify();
+  }
+  private pushWear(ev: WearEvent): void {
+    this.wearEvents.push(ev);
+    this.wearLog.push(ev);
+    if (this.wearLog.length > 256) this.wearLog.shift();
+  }
+  drainWearEvents(): WearEvent[] {
+    if (this.wearEvents.length === 0) return [];
+    const out = this.wearEvents;
+    this.wearEvents = [];
+    return out;
+  }
+  peekWearEvents(): WearEvent[] {
+    return this.wearLog.slice();
+  }
   setSlot(index: number, stack: ItemStack | null): void {
     if (!Number.isInteger(index) || index < 0 || index >= this.size) throw new Error(`マス番号がおかしい: ${index}`);
     if (!stack || !(stack.count > 0)) {
@@ -56,7 +129,9 @@ export class InventoryImpl implements Inventory {
     } else {
       const t = itemType(stack.item);
       if (!t) throw new Error(`知らないアイテム: ${stack.item}`);
-      this.arr[index] = { item: t.id, count: Math.min(Math.floor(stack.count), t.maxStack) };
+      const w = readWear(stack.wear, this.maxOf(t.id));
+      const count = Math.min(Math.floor(stack.count), t.maxStack);
+      this.arr[index] = w > 0 ? { item: t.id, count, wear: w } : { item: t.id, count };
     }
     this.notify();
   }
@@ -120,8 +195,8 @@ export class InventoryImpl implements Inventory {
     if (!s) return 0;
     const [from, to] = index < HOTBAR_SIZE ? [HOTBAR_SIZE, this.size] : [0, HOTBAR_SIZE];
     this.arr[index] = null;
-    const left = addInto(this.arr, s.item, s.count, from, to);
-    if (left > 0) this.arr[index] = { item: s.item, count: left };
+    const left = addInto(this.arr, s.item, s.count, from, to, s.wear ?? 0);
+    if (left > 0) this.arr[index] = s.wear ? { item: s.item, count: left, wear: s.wear } : { item: s.item, count: left };
     const moved = s.count - left;
     if (moved > 0) this.notify();
     return moved;
@@ -135,7 +210,7 @@ export class InventoryImpl implements Inventory {
     const n = all ? s.count : 1;
     this.arr[index] = n >= s.count ? null : { item: s.item, count: s.count - n };
     this.notify();
-    return { item: s.item, count: n };
+    return s.wear ? { item: s.item, count: n, wear: s.wear } : { item: s.item, count: n };
   }
 
   click(index: number): void {
@@ -169,7 +244,7 @@ export class InventoryImpl implements Inventory {
   }
   /** カーソルのものを直接かえる（そうびのマスとのやりとり用。M4） */
   setCursor(stack: ItemStack | null): void {
-    this.cur = stack && stack.count > 0 ? { item: stack.item, count: stack.count } : null;
+    this.cur = stack && stack.count > 0 ? copyStack(stack) : null;
     this.lifted = -1;
     this.notify();
   }
@@ -196,9 +271,9 @@ export class InventoryImpl implements Inventory {
       this.arr[this.lifted] = cur;
       left = 0;
     } else {
-      left = addInto(this.arr, cur.item, cur.count);
+      left = addInto(this.arr, cur.item, cur.count, 0, this.size, cur.wear ?? 0);
     }
-    this.cur = left > 0 ? { item: cur.item, count: left } : null;
+    this.cur = left > 0 ? { ...cur, count: left } : null;
     this.lifted = -1;
     this.notify();
   }
@@ -208,10 +283,10 @@ export class InventoryImpl implements Inventory {
 
   /** カーソルのものは「持ち上げたマス」に戻したものとして書き出す（M2 §4.4） */
   serialize(): unknown {
-    const copy = this.arr.map((s) => (s ? { ...s } : null));
+    const copy = this.arr.map((s) => (s ? copyStack(s) : null));
     if (this.cur) {
-      if (this.lifted >= 0 && !copy[this.lifted]) copy[this.lifted] = { ...this.cur };
-      else addInto(copy, this.cur.item, this.cur.count);
+      if (this.lifted >= 0 && !copy[this.lifted]) copy[this.lifted] = copyStack(this.cur);
+      else addInto(copy, this.cur.item, this.cur.count, 0, copy.length, this.cur.wear ?? 0);
     }
     return { slots: copy, selected: this.sel };
   }
@@ -220,12 +295,13 @@ export class InventoryImpl implements Inventory {
     if (!d || !Array.isArray(d.slots) || d.slots.length !== this.size) throw new Error('持ち物の保存がおかしい');
     const next: Slot[] = d.slots.map((raw: unknown) => {
       if (raw === null) return null;
-      const r = raw as { item?: unknown; count?: unknown };
+      const r = raw as { item?: unknown; count?: unknown; wear?: unknown };
       const t = typeof r?.item === 'string' ? itemType(r.item) : undefined;
       if (!t || typeof r.count !== 'number' || !Number.isInteger(r.count) || r.count < 1 || r.count > t.maxStack) {
         throw new Error('持ち物のマスがおかしい');
       }
-      return { item: t.id, count: r.count };
+      const w = readWear(r.wear, this.maxOf(t.id));
+      return w > 0 ? { item: t.id, count: r.count, wear: w } : { item: t.id, count: r.count };
     });
     const sel = d.selected;
     if (typeof sel !== 'number' || !Number.isInteger(sel) || sel < 0 || sel >= HOTBAR_SIZE) {

@@ -3,6 +3,7 @@ import type { LockController } from '../input/lockController';
 import { fillMouseSrc, mouseHtml } from './craftPanel.art';
 import { anyIconUrl } from './itemIcon';
 import { escapeHtml } from './text';
+import { FIGHT_CAPTIONS_W2 } from './weapon2Guide';
 import './playOverlay.css';
 
 const KEY = (k: string) => `<span class="po-key">${escapeHtml(k)}</span>`;
@@ -39,9 +40,12 @@ function tabArts(): Record<GuideTabId, string[]> {
     ],
     fight: [
       `${LEFT()}${ICON('katana')}`,
+      `<div class="po-keys">${KEY('R')}</div>${ICON('katana')}`,
+      `${EMOJI('➡')}${EMOJI('⬆')}${EMOJI('↗')}`,
       `${ICON('naginata')}${EMOJI('↔')}`,
-      `${ICON('yumi')}${ICON('ya')}`,
+      `${ICON('yumi')}${ICON('ya')}${EMOJI('➡')}`,
       `<div class="po-armor">${ICON('kabuto')}${ICON('yoroi')}${ICON('kote')}${ICON('suneate')}</div>${LEFT()}`,
+      `${ICON('wood_pickaxe')}${EMOJI('📉')}`,
       `${EMOJI('🏠')}${EMOJI('🌙')}`,
     ],
     craft: [
@@ -73,7 +77,9 @@ export function buildOverlayHtml(text: string, tab: GuideTabId = 'move'): string
       `<button type="button" class="po-tab" data-tab="${id}" data-icon="${GUIDE_TABS[id].icon}" data-selected="${id === tab}">${escapeHtml(GUIDE_TABS[id].label)}</button>`,
   ).join('');
   const pages = GUIDE_TAB_IDS.map((id) => {
-    const items = GUIDE_TABS[id].captions.map((c, i) => helpItem(arts[id][i], c)).join('');
+    // WEAPON-2: たたかう タブは 新しい 文（入力の 設定の 古い 文は 使わない）
+    const captions = id === 'fight' ? FIGHT_CAPTIONS_W2 : GUIDE_TABS[id].captions;
+    const items = captions.map((c, i) => helpItem(arts[id][i], c)).join('');
     return `<div class="po-help" data-page="${id}"${id === tab ? '' : ' hidden'}>${items}</div>`;
   }).join('');
   return (

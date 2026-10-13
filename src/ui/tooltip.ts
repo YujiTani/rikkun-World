@@ -1,4 +1,4 @@
-import type { ItemId } from '../contracts';
+import type { ItemId, ItemStack } from '../contracts';
 import { anyIconUrl, itemIconUrl } from './itemIcon';
 import { buildTooltip, rarityCss, starText, type TooltipData, type TooltipDeps } from './tooltipModel';
 import './tooltip.css';
@@ -24,6 +24,8 @@ export type HoverTarget = number | string;
 export interface TooltipOptions extends TooltipDeps {
   /** 場所にあるアイテム（空なら null） */
   resolve(target: HoverTarget): ItemId | null;
+  /** WEAPON-2: へった 量つきの 中身（あれば たいきゅうの 行に 使う） */
+  resolveStack?(target: HoverTarget): ItemStack | null;
   /** もちもの画面が開いているか */
   isOpen(): boolean;
   /** カーソルに何か持っているか */
@@ -94,7 +96,7 @@ export class Tooltip {
     if (this.target === null || !this.o.isOpen() || this.o.cursorHeld()) return null;
     const item = this.o.resolve(this.target);
     if (!item) return null;
-    return buildTooltip(item, this.o);
+    return buildTooltip(item, this.o, this.o.resolveStack?.(this.target));
   }
 
   /** 毎ステップ（持ち物が変わったときも札を直す） */

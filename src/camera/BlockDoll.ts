@@ -19,7 +19,19 @@ import {
 } from './config';
 import { DollAnimator, newBodyPose, type ArmAnim, type BodyAnim } from './dollAnim';
 import { buildKabuto, buildKote, buildSuneate, buildYoroiBody, buildYoroiShoulder } from './dollArmor';
-import { buildHeldModel, hasHeldModel, isLeftHanded } from './heldTools';
+import { buildHeldModel, createBendableBow, hasHeldModel, isLeftHanded, type BendableBow } from './heldTools';
+import {
+  BOW_ARROW_TIP_FULL,
+  BOW_LEFT_HAND,
+  bladePoseAt,
+  bowActive,
+  bowDollAt,
+  bowHandAt,
+  newBladePose,
+  type BladePose,
+  type BowDollPose,
+} from './weaponPose';
+import type { BladeState, BowPose } from '../contracts';
 
 const DEG = Math.PI / 180;
 
@@ -45,6 +57,13 @@ function box(w: number, h: number, d: number, m: THREE.Material | THREE.Material
 const STAR_MATERIAL = new THREE.MeshBasicMaterial({ color: 0xffe066 });
 const STAR_GEOMETRY = new THREE.BoxGeometry(1, 1, 1);
 
+const LOCKING_ANIMS: readonly ArmAnim[] = ['banzai', 'cheer', 'pickup', 'equip', 'throw'];
+const ZERO = new THREE.Vector3();
+const UP = new THREE.Vector3(0, 1, 0);
+const AX_X = new THREE.Vector3(1, 0, 0);
+const AX_Y = new THREE.Vector3(0, 1, 0);
+const AX_Z = new THREE.Vector3(0, 0, 1);
+const HAND_TMP = { x: 0, y: 0 };
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 
 export type DollMode = 'hidden' | 'first' | 'third';
@@ -94,6 +113,28 @@ export class BlockDoll {
   private fallen = 0;
   private alpha = 1;
   private held: ItemId | null = null;
+  private readonly shins: THREE.Group[] = [];
+  // ---- WEAPON-2（刀・弓の形）
+  private weaponBlade: BladeState | null = null;
+  private weaponBow: BowPose | null = null;
+  private readonly bladeTmp: BladePose = newBladePose();
+  private readonly bowTmp: BowDollPose = { rx: 0, rz: 0, lx: 0, lz: 0, twist: 0 };
+  private bowModel: BendableBow | null = null;
+  /** 一人称で道具を置く「カメラの座標」の入れ物（行列は毎回 camera から作る） */
+  private readonly fpRoot = new THREE.Group();
+  private readonly fpHandL = new THREE.Mesh(UNIT_BOX, mat(DOLL_COLORS.skin));
+  private readonly fpHandR = new THREE.Mesh(UNIT_BOX, mat(DOLL_COLORS.skin));
+  private readonly fpArrow = new THREE.Mesh(UNIT_BOX, mat(0xc9a066));
+  private fpAnchored = false;
+  private modelRest = new THREE.Vector3();
+  private bowTwitch = 0;
+  private lastBowStage = 0;
+  /** 今の人形の形（テスト用。刀・弓のときは表の値、ほかは今のうでの角度） */
+  readonly dollPose = { rx: 0, rz: 0, lx: 0, lz: 0, swordPitch: 0, twist: 0, legFront: { right: 0, left: 0 }, knee: 0 };
+  private readonly tmpV = new THREE.Vector3();
+  private readonly tmpV2 = new THREE.Vector3();
+  private readonly tmpM = new THREE.Matrix4();
+  private readonly tmpInv = new THREE.Matrix4();
 
   constructor() {
     const C = DOLL_COLORS;
@@ -116,11 +157,16 @@ export class BlockDoll {
       const thigh = box(lw, lh / 2, ld, mat(C.pants));
       thigh.position.y = -lh / 4;
       this.upperParts.push(thigh);
+      // ひざから下は shin に入れる（刀のかまえでひざを曲げる）
+      const shin = new THREE.Group();
+      shin.position.y = kneeY;
       const pants = box(lw, pantsH - lh / 2, ld, mat(C.pants));
-      pants.position.y = kneeY - (pantsH - lh / 2) / 2;
+      pants.position.y = -(pantsH - lh / 2) / 2;
       const shoe = box(lw, DOLL_SIZES.shoeHeight, ld, mat(C.shoes));
-      shoe.position.y = -lh + DOLL_SIZES.shoeHeight / 2;
-      g.add(thigh, pants, shoe);
+      shoe.position.y = -lh / 2 + DOLL_SIZES.shoeHeight / 2;
+      shin.add(pants, shoe);
+      this.shins.push(shin);
+      g.add(thigh, shin);
       this.group.add(g);
     }
 
@@ -201,6 +247,16 @@ export class BlockDoll {
     this.materialMesh.position.copy(this.heldMesh.position);
     this.materialMesh.visible = false;
     this.armR.add(this.materialMesh);
+    this.fpRoot.matrixAutoUpdate = false;
+    this.fpRoot.visible = false;
+    for (const m of [this.fpHandL, this.fpHandR, this.fpArrow]) {
+      m.userData.shared = true;
+      m.visible = false;
+      this.fpRoot.add(m);
+    }
+    this.fpHandL.scale.setScalar(0.1);
+    this.fpHandR.scale.setScalar(0.1);
+    this.group.add(this.fpRoot);
     this.rotationOrder();
     this.applyMode();
   }
@@ -237,6 +293,7 @@ export class BlockDoll {
   /** 右手に持つアイテム（null = 何も持たない）。ゆみ だけ左手 */
   setHeld(item: ItemId | null): void {
     if (item === this.held) return;
+    this.releaseFp();
     this.held = item;
     this.heldMesh.visible = false;
     this.orbMesh.visible = false;
@@ -247,7 +304,10 @@ export class BlockDoll {
     if (hasHeldModel(item)) {
       let m = this.heldModels.get(item);
       if (!m) {
-        m = buildHeldModel(item)!;
+        if (item === 'yumi') {
+          this.bowModel = createBendableBow();
+          m = this.bowModel.group;
+        } else m = buildHeldModel(item)!;
         m.position.copy(this.heldMesh.position);
         m.position.y += 0.04;
         this.heldModels.set(item, m);
@@ -428,6 +488,9 @@ export class BlockDoll {
     this.animator.advance(dt, { moving: walking, onGround });
     const arm = this.animator.currentArmPose();
     const body = this.animator.bodyPose(this.bodyPoseTmp);
+    const free = !LOCKING_ANIMS.includes(this.animator.armAnim);
+    const bladeOn = free && this.weaponBlade !== null && this.weaponBlade.item !== null;
+    const bowOn = !bladeOn && free && this.weaponBow !== null && this.held === 'yumi' && bowActive(this.weaponBow);
     const third = this.mode !== 'first';
     const lh = DOLL_SIZES.leg[1];
 
@@ -486,7 +549,165 @@ export class BlockDoll {
     this.legR.rotation.x = (-swing + body.legBend) * DEG;
     this.legL.rotation.x = (swing - body.legBend) * DEG;
 
+    this.applyWeapon(dt, third, bladeOn, bowOn, arm.hop);
     this.updateFx();
+  }
+
+  /** 刀・弓の今の形をわたす（WeaponVisualSource。null = 使わない）。次の update から効く */
+  setWeapon(blade: BladeState | null, bow: BowPose | null): void {
+    this.weaponBlade = blade;
+    this.weaponBow = bow;
+  }
+
+  private fpMode: 'none' | 'blade' | 'bow' = 'none';
+
+  /** 刀・弓の形を、いまの手足に重ねる */
+  private applyWeapon(dt: number, third: boolean, bladeOn: boolean, bowOn: boolean, hop: number): void {
+    const P = this.dollPose;
+    const b = this.bladeTmp;
+    const lh = DOLL_SIZES.leg[1];
+    const first = this.mode === 'first';
+    this.fpMode = first ? (bladeOn ? 'blade' : bowOn ? 'bow' : 'none') : 'none';
+    this.armR.visible = this.armL.visible = this.fpMode === 'none';
+    for (const sh of this.shins) sh.rotation.x = 0;
+    if (this.heldModel && !this.fpAnchored) this.heldModel.rotation.x = 0;
+
+    if (bladeOn) {
+      const r = bladePoseAt(this.weaponBlade!, b)!;
+      P.rx = r.rx; P.lx = r.lx; P.rz = r.rz; P.lz = r.lz;
+      P.swordPitch = r.swordPitch; P.twist = r.twist;
+      P.legFront.right = r.legFront.right; P.legFront.left = r.legFront.left; P.knee = r.knee;
+      if (third) {
+        this.armR.rotation.x = r.rx * DEG;
+        this.armL.rotation.x = r.lx * DEG;
+        this.armR.rotation.z = r.rz * DEG;
+        this.armL.rotation.z = -r.lz * DEG;
+        this.upper.rotation.y = r.twist * DEG;
+        this.upper.rotation.x += -r.lean * DEG;
+        this.upper.position.y -= r.sink;
+        if (this.heldModel) this.heldModel.rotation.x = (r.swordPitch - r.rx) * DEG;
+      }
+      this.legR.rotation.x += r.legFront.right * DEG;
+      this.legL.rotation.x += r.legFront.left * DEG;
+      for (const sh of this.shins) sh.rotation.x = -r.knee * DEG;
+      return;
+    }
+    if (bowOn) {
+      const w = this.weaponBow!;
+      const r = bowDollAt(w, this.bowTmp);
+      if (w.stage > this.lastBowStage) this.bowTwitch = 2;
+      P.rx = r.rx; P.lx = r.lx; P.rz = r.rz; P.lz = r.lz; P.twist = r.twist;
+      P.swordPitch = 0; P.knee = 0; P.legFront.right = 0; P.legFront.left = 0;
+      if (third) {
+        this.armR.rotation.x = r.rx * DEG;
+        this.armL.rotation.x = r.lx * DEG;
+        this.armR.rotation.z = r.rz * DEG;
+        this.armL.rotation.z = 0;
+        this.upper.rotation.y = r.twist * DEG;
+      }
+    } else {
+      P.rx = this.armR.rotation.x / DEG; P.lx = this.armL.rotation.x / DEG;
+      P.rz = this.armR.rotation.z / DEG; P.lz = -this.armL.rotation.z / DEG;
+      P.swordPitch = 0; P.twist = this.upper.rotation.y / DEG; P.knee = 0;
+      P.legFront.right = 0; P.legFront.left = 0;
+    }
+    this.lastBowStage = this.weaponBow ? this.weaponBow.stage : 0;
+    // 弓のしなり（三人称。一人称は placeFirstPerson）
+    if (this.bowModel && this.held === 'yumi') {
+      const w = this.weaponBow;
+      if (this.bowTwitch > 0) this.bowTwitch = Math.max(0, this.bowTwitch - dt * 60);
+      const bend = w ? w.bendDeg + (this.bowTwitch > 0 ? 2 : 0) : 0;
+      this.bowBend = bend;
+      if (!first) this.bowModel.setShape(bend, (w ? w.pull : 0) * 0.4);
+    }
+    void hop; void lh;
+  }
+
+  private bowBend = 0;
+
+  private releaseFp(): void {
+    if (!this.fpAnchored) return;
+    this.fpAnchored = false;
+    const m = this.heldModel;
+    if (m) {
+      m.position.copy(this.modelRest);
+      m.scale.setScalar(1);
+      m.quaternion.identity();
+      (isLeftHanded(this.held!) ? this.armL : this.armR).add(m);
+    }
+    this.fpRoot.visible = false;
+    this.fpHandL.visible = this.fpHandR.visible = this.fpArrow.visible = false;
+  }
+
+  /** 一人称: 刀・弓を「カメラの座標」に置く（画面の位置が表のとおりになる）。camera の位置を決めたあとに呼ぶ */
+  placeFirstPerson(camera: THREE.PerspectiveCamera): void {
+    if (this.fpMode === 'none' || !this.heldModel) {
+      this.releaseFp();
+      return;
+    }
+    this.group.updateMatrixWorld(true);
+    camera.updateMatrixWorld(true);
+    this.tmpInv.copy(this.group.matrixWorld).invert();
+    this.fpRoot.matrix.multiplyMatrices(this.tmpInv, camera.matrixWorld);
+    this.fpRoot.matrixWorldNeedsUpdate = true;
+    this.fpRoot.visible = true;
+    const m = this.heldModel;
+    if (!this.fpAnchored) {
+      this.fpAnchored = true;
+      this.modelRest.copy(m.position);
+      this.fpRoot.add(m);
+      m.rotation.set(0, 0, 0);
+    }
+    const th = Math.tan((camera.fov * DEG) / 2);
+    const asp = camera.aspect;
+    const cx = (sx: number, d: number) => (2 * sx - 1) * th * asp * d;
+    const cy = (sy: number, d: number) => (1 - 2 * sy) * th * d;
+    if (this.fpMode === 'blade') {
+      const r = this.bladeTmp;
+      const H = this.tmpV.set(cx(r.hand.x, 0.6), cy(r.hand.y, 0.6), -0.6);
+      const T = this.tmpV2.set(cx(r.tip.x, 1.1), cy(r.tip.y, 1.1), -1.1);
+      T.sub(H);
+      const len = T.length();
+      T.multiplyScalar(1 / (len || 1));
+      const s = Math.max(0.5, Math.min(2.5, len / 0.76));
+      m.position.copy(H);
+      m.scale.setScalar(s);
+      this.tmpM.lookAt(ZERO, T, UP);
+      m.quaternion.setFromRotationMatrix(this.tmpM);
+      this.fpHandR.position.copy(H).addScaledVector(T, 0.04 * s);
+      this.fpHandL.position.copy(H).addScaledVector(T, -0.12 * s);
+      this.fpHandL.visible = this.fpHandR.visible = true;
+      this.fpArrow.visible = false;
+      return;
+    }
+    // 弓: 左手の画面の位置に、たてに持つ。つるは画面の右へ引く
+    const w = this.weaponBow!;
+    const hand = bowHandAt(w, HAND_TMP);
+    const gx = cx(BOW_LEFT_HAND.x, 1);
+    const gy = cy(BOW_LEFT_HAND.y, 1);
+    m.position.set(gx, gy, -1);
+    m.scale.setScalar(1);
+    this.tmpM.makeBasis(AX_Z, AX_X, AX_Y);
+    m.quaternion.setFromRotationMatrix(this.tmpM);
+    const nock = cx(hand.x, 1) - gx;
+    this.bowModel?.setShape(this.bowBend, nock);
+    this.fpHandL.position.set(gx, gy, -1);
+    this.fpHandR.position.set(gx + nock, gy, -1);
+    this.fpHandL.visible = this.fpHandR.visible = true;
+    // や（先が照準のすぐ下）
+    const u = Math.max(0, Math.min(1, w.pull));
+    const tx = 0.44 + (BOW_ARROW_TIP_FULL.x - 0.44) * u;
+    const ty = 0.64 + (BOW_ARROW_TIP_FULL.y - 0.64) * u;
+    const N = this.tmpV.set(gx + nock, gy, -1);
+    const T = this.tmpV2.set(cx(tx, 3), cy(ty, 3), -3);
+    T.sub(N);
+    const len = T.length();
+    this.fpArrow.visible = w.pull > 0.001;
+    this.fpArrow.position.copy(N).addScaledVector(T, 0.5);
+    this.fpArrow.scale.set(0.015, 0.015, len);
+    T.multiplyScalar(1 / (len || 1));
+    this.tmpM.lookAt(ZERO, T, UP);
+    this.fpArrow.quaternion.setFromRotationMatrix(this.tmpM);
   }
 
   /** 白い弧と、やられたときの星 */

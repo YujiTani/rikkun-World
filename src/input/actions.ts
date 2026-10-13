@@ -31,6 +31,7 @@ export const ACTIONS = [
   'closeMenu', // もちもの画面を とじる（Esc）
   'drop', // 手に持っているものを 1 こ すてる（Q。M6）
   'dropStack', // そのマスの ぜんぶ をすてる（Shift＋Q。M6）
+  'stanceNext', // 刀の かまえを かえる（R。WEAPON-2）
 ] as const;
 
 export type Action = (typeof ACTIONS)[number];
@@ -60,6 +61,7 @@ export const DEFAULT_KEY_BINDINGS: Readonly<Record<string, Action>> = {
   KeyE: 'toggleInventory',
   Escape: 'closeMenu',
   KeyQ: 'drop',
+  KeyR: 'stanceNext',
 };
 
 /**

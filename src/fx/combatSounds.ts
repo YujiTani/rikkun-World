@@ -1,4 +1,5 @@
 import type { SoundFx, Tone } from './sound';
+import { logSound } from './soundLog';
 
 /**
  * M3 の音（M3 §3.7）。コードで作る短い音。大きい音・こわい音は使わない。
@@ -79,4 +80,5 @@ export type CombatSoundName = keyof typeof COMBAT_SOUNDS;
 
 export function playCombat(sound: Pick<SoundFx, 'playTones'>, name: CombatSoundName, semitones = 0): void {
   sound.playTones(COMBAT_SOUNDS[name] as readonly Tone[], semitones);
+  logSound(name);
 }

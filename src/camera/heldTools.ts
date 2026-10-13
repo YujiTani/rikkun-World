@@ -223,3 +223,71 @@ export function buildHeldModel(item: ItemId): THREE.Group | null {
   }
   return g;
 }
+
+// ---------------------------------------------------------------- WEAPON-2 しなる弓
+
+export interface BendableBow {
+  group: THREE.Group;
+  /** bendDeg = 弓のまがり（度）、nock = つるをひく長さ（弓のなかの長さ。後ろが正） */
+  setShape(bendDeg: number, nock: number): void;
+}
+
+const BOW_WOOD = 0x7a5230;
+const BOW_STRING = 0xffffff;
+const BOW_PIVOT_B = { y: -0.1, z: 0.3 } as const;
+const BOW_TIP_REL = { y: 0.06, z: 0.18 } as const;
+
+const rot = (a: number, y: number, z: number): [number, number] => [y * Math.cos(a) - z * Math.sin(a), y * Math.sin(a) + z * Math.cos(a)];
+
+/** 左手で持つ弓。まん中（にぎり）が原点、のびる向きは Z、ふくらみは -Y、つるは +Y 側 */
+export function createBendableBow(): BendableBow {
+  const g = new THREE.Group();
+  const mk = (w: number, h: number, d: number, color: number, parent: THREE.Object3D, x: number, y: number, z: number) => {
+    const m = new THREE.Mesh(sharedGeometry(w, h, d), sharedMaterial(color));
+    m.position.set(x, y, z);
+    m.userData.shared = true;
+    parent.add(m);
+    return m;
+  };
+  // children[0] = にぎり（heldWorldPosition が読む）
+  mk(0.05, 0.05, 0.16, DARK, g, 0, -0.15, 0);
+  const halves: { a: THREE.Group; b: THREE.Group; s: number }[] = [];
+  for (const s of [-1, 1]) {
+    const a = new THREE.Group();
+    mk(0.04, 0.04, 0.22, BOW_WOOD, a, 0, -0.12, 0.19 * s);
+    const b = new THREE.Group();
+    b.position.set(0, BOW_PIVOT_B.y, BOW_PIVOT_B.z * s);
+    mk(0.04, 0.04, 0.2, BOW_WOOD, b, 0, -0.04 - BOW_PIVOT_B.y, 0.38 * s - BOW_PIVOT_B.z * s);
+    a.add(b);
+    g.add(a);
+    halves.push({ a, b, s });
+  }
+  const strings = [0, 1].map(() => {
+    const m = new THREE.Mesh(sharedGeometry(0.012, 0.012, 1), sharedMaterial(BOW_STRING));
+    m.userData.shared = true;
+    g.add(m);
+    return m;
+  });
+  const setShape = (bendDeg: number, nock: number): void => {
+    const th = (bendDeg / 2) * (Math.PI / 180);
+    for (let i = 0; i < 2; i++) {
+      const { a, b, s } = halves[i]!;
+      // z<0 側は +、z>0 側は - に回すと、はしが +Y（つる側）へたおれる
+      a.rotation.x = -s * th;
+      b.rotation.x = -s * th;
+      const [py, pz] = rot(-s * th, BOW_PIVOT_B.y, BOW_PIVOT_B.z * s);
+      const [ty, tz] = rot(-2 * s * th, BOW_TIP_REL.y, BOW_TIP_REL.z * s);
+      const tipY = py + ty;
+      const tipZ = pz + tz;
+      const dy = nock - tipY;
+      const dz = 0 - tipZ;
+      const len = Math.hypot(dy, dz);
+      const m = strings[i]!;
+      m.scale.z = Math.max(len, 1e-4);
+      m.position.set(0, (tipY + nock) / 2, tipZ / 2);
+      m.rotation.x = Math.atan2(-dy, dz);
+    }
+  };
+  setShape(0, 0);
+  return { group: g, setShape };
+}
