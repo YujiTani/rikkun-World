@@ -1,5 +1,5 @@
 import type { DamageKind, ItemId, Rarity, Recipe, YokaiKind } from '../../contracts';
-import { M6_SETTING_DEFAULTS } from '../../contracts';
+import { M6_SETTING_DEFAULTS, M7_SETTING_DEFAULTS, seedKindOfItem, vegKindOfItem, type CropKind } from '../../contracts';
 import { DIG_DEFAULTS } from '../../dig/config';
 import { itemRarity } from '../../drops/rarity';
 import { createCombatConfig } from '../../combat/config';
@@ -52,6 +52,8 @@ export interface InfoNumbers {
   handLevel: number;
   harvestLevel(item: string): number;
   tansuSlots: number;
+  /** M7: かわいた はたけ で 0 → 3 に かかる にち（なければ 初期値） */
+  farmGrowDays?: Readonly<Record<CropKind, number>>;
 }
 
 export interface InfoDeps {
@@ -122,6 +124,9 @@ export function createItemInfo(d: InfoDeps): ItemInfoSource {
       }
       parts.push(`${d.nameOf(item)} を ほる${note}`);
     }
+    // M7: たね・やさい の 手に入れかた（くさ・やせい・ふるい はたけ・妖怪）
+    if (seedKindOfItem(item) !== null) parts.push('くさ を こわす・やせいの やさい・ふるい はたけ の たんす');
+    if (vegKindOfItem(item) !== null) parts.push('はたけ で しゅうかく・やせいの やさい');
     const ys = sourceYokai(item);
     if (ys.length > 0) parts.push(`${ys.map((k) => YOKAI_NAME[k]).join('・')} が おとす`);
     for (const r of d.recipes()) {
@@ -137,6 +142,12 @@ export function createItemInfo(d: InfoDeps): ItemInfoSource {
   };
 
   const statRows = (item: ItemId, n: InfoNumbers): StatRow[] => {
+    const seed = seedKindOfItem(item);
+    if (seed !== null) {
+      // そだつ はやさ（トマト 3・たまねぎ／なす 2・かぼちゃ 1。最大 3）
+      const days = (n.farmGrowDays ?? M7_SETTING_DEFAULTS.farmGrowDays.dry)[seed];
+      return [{ key: 'grow', label: 'そだつ はやさ', value: days <= 0.9 ? 3 : days <= 1.5 ? 2 : 1, max: 3 }];
+    }
     const kind = ITEM_INFO[item]?.stats;
     if (!kind) return [];
     switch (kind) {

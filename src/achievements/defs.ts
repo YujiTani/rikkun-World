@@ -1,11 +1,11 @@
-import type { AchievementCategory, AchievementDef, MedalTier, StatKey } from '../contracts';
+import { CROP_KINDS, type AchievementCategory, type AchievementDef, type CropKind, type MedalTier, type StatKey } from '../contracts';
 
 /**
  * 実績の表 180 こ（M6 §4.2）。表の順に並べる。名前はひらがな・カタカナだけ（漢字なし）。
  * id は `<シリーズ>.<段階の数>`（例 `break.dirt.10`）。
  */
 
-export const CATEGORY_ORDER: readonly AchievementCategory[] = ['break', 'place', 'craft', 'collect', 'fight', 'level', 'adventure', 'places'];
+export const CATEGORY_ORDER: readonly AchievementCategory[] = ['break', 'place', 'craft', 'collect', 'fight', 'level', 'adventure', 'places', 'farm'];
 
 export const CATEGORY_LABEL: Readonly<Record<AchievementCategory, string>> = {
   break: 'こわす',
@@ -16,9 +16,11 @@ export const CATEGORY_LABEL: Readonly<Record<AchievementCategory, string>> = {
   level: 'レベル',
   adventure: 'ぼうけん',
   places: 'ばしょ',
+  // M7（§4.7 の 9 こ目）
+  farm: 'そだてる',
 };
 
-/** つくる 21（M4 の 20 ＋ たんす）。`craft.everything` の対象 */
+/** つくる 22（M4 の 20 ＋ たんす ＋ くわ）。`craft.everything` の対象 */
 export const CRAFT_RECIPE_NAMES: ReadonlyArray<readonly [string, string]> = [
   ['wood_pickaxe', 'きの つるはし'],
   ['stone_pickaxe', 'いしの つるはし'],
@@ -41,6 +43,7 @@ export const CRAFT_RECIPE_NAMES: ReadonlyArray<readonly [string, string]> = [
   ['omamori', 'おまもり'],
   ['waraji', 'わらじ'],
   ['tansu', 'たんす'],
+  ['kuwa', 'くわ'],
 ];
 
 export const BAKE_RECIPE_NAMES: ReadonlyArray<readonly [string, string]> = [
@@ -54,6 +57,9 @@ export const PICKAXE_RECIPES = ['wood_pickaxe', 'stone_pickaxe', 'iron_pickaxe']
 export const WEAPON_RECIPES = ['bokuto', 'katana', 'naginata', 'crystal_katana', 'yumi'] as const;
 export const ARMOR_RECIPES = ['kabuto', 'yoroi', 'kote', 'suneate'] as const;
 export const ARMOR_ITEMS = ARMOR_RECIPES;
+/** やさい 4 しゅるいの 名前（実績の文） */
+export const CROP_NAME: Readonly<Record<CropKind, string>> = { onion: 'たまねぎ', tomato: 'トマト', pumpkin: 'かぼちゃ', eggplant: 'なす' };
+
 export const VISIT_PLACES = ['mountain', 'forest', 'meadow', 'flat', 'spring', 'pond', 'river', 'sea', 'peak'] as const;
 
 const BLOCK_NAME: Readonly<Record<string, string>> = {
@@ -333,6 +339,60 @@ function build(): AchievementDef[] {
   add({ series: 'visit.sea', category: 'places', stat: 'visit:sea', tiers: [t(1)], name: () => 'はじめて うみ に はいった！' });
   add({ series: 'visit.peak', category: 'places', stat: 'visit:peak', tiers: [t(1)], name: () => 'やま の てっぺん に のぼった！' });
   add({ series: 'visit.all', category: 'places', stat: 'visit:all', tiers: [t(VISIT_PLACES.length)], name: () => 'ぜんぶ の ばしょ に いった！' });
+
+  // K. そだてる（M7 §4.7）
+  add({
+    series: 'farm.till',
+    category: 'farm',
+    stat: 'till',
+    tiers: [t(1, true), t(10, true), t(100)],
+    name: firstOrN('はじめて はたけ を たがやした！', (g) => `はたけ を ${g} こ たがやした！`),
+  });
+  add({
+    series: 'farm.plant',
+    category: 'farm',
+    stat: 'plant:*',
+    tiers: [t(1, true), t(10), t(100)],
+    name: firstOrN('はじめて たね を まいた！', (g) => `たね を ${g} こ まいた！`),
+  });
+  add({
+    series: 'farm.harvest',
+    category: 'farm',
+    stat: 'harvest:*',
+    tiers: [t(1), t(10), t(100)],
+    name: firstOrN('はじめて しゅうかく した！', (g) => `${g} かい しゅうかく した！`),
+  });
+  for (const k of CROP_KINDS) {
+    add({
+      series: `harvest.${k}`,
+      category: 'farm',
+      stat: `harvest:${k}`,
+      tiers: [t(1, true)],
+      name: () => `はじめて ${CROP_NAME[k]} を しゅうかく した！`,
+    });
+  }
+  add({ series: 'harvest.kinds', category: 'farm', stat: 'harvest:kinds', tiers: [t(CROP_KINDS.length)], name: () => 'やさい を ぜんぶ そだてた！' });
+  add({ series: 'farm.wet', category: 'farm', stat: 'harvestWet', tiers: [t(1, true)], name: () => 'みず の そば で そだてた！' });
+  add({
+    series: 'eat.all',
+    category: 'farm',
+    stat: 'eat:*',
+    tiers: [t(1, true), t(10), t(100)],
+    name: firstOrN('はじめて やさい を たべた！', (g) => `${g} かい たべた！`),
+  });
+  add({ series: 'find.oldfarm', category: 'farm', stat: 'visit:oldfarm', tiers: [t(1)], name: () => 'ふるい はたけ を みつけた！' });
+  add({ series: 'find.oldfarmSeed', category: 'farm', stat: 'seedFrom:oldfarm', tiers: [t(1)], name: () => 'ふるい たんす で たね を みつけた！' });
+  add({
+    series: 'find.wild',
+    category: 'farm',
+    stat: 'wild:*',
+    tiers: [t(1), t(10)],
+    name: firstOrN('はじめて やせいの やさい を みつけた！', (g) => `やせいの やさい を ${g} こ みつけた！`),
+  });
+  add({ series: 'find.wildKinds', category: 'farm', stat: 'wild:kinds', tiers: [t(CROP_KINDS.length)], name: () => 'やせいの やさい を 4 しゅるい みつけた！' });
+  add({ series: 'find.grass', category: 'farm', stat: 'seedFrom:grass', tiers: [t(1, true)], name: () => 'くさ から たね が でた！' });
+  add({ series: 'find.yokai', category: 'farm', stat: 'seedFrom:yokai', tiers: [t(1)], name: () => 'ようかい が たね を おとした！' });
+  add({ series: 'find.all', category: 'farm', stat: 'seedFrom:all', tiers: [t(4)], name: () => 'たね の ありか を ぜんぶ みつけた！' });
 
   const out: AchievementDef[] = [];
   for (const s of specs) {

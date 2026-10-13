@@ -17,9 +17,9 @@ function make(patch: Partial<InfoNumbers> = {}) {
 
 describe('説明の表（M6 §2.2）', () => {
   const src = make();
-  it('ようかいだま をのぞく 39 こ。文はすべて ひらがな・カタカナ（漢字なし）', () => {
+  it('ようかいだま をのぞく 48 こ。文はすべて ひらがな・カタカナ（漢字なし）', () => {
     const ids = Object.keys(ITEM_INFO).filter((i) => i !== 'yokai_orb');
-    expect(ids).toHaveLength(39);
+    expect(ids).toHaveLength(48);
     for (const id of ids) {
       const i = src.info(id as ItemId);
       expect(findUnrubiedKanji(`${i.use}${i.how}${i.source}${i.stats.map((s) => s.label + s.value).join('')}`), id).toEqual([]);

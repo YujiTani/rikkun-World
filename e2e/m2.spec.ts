@@ -849,8 +849,9 @@ test.describe('M2 もちもの画面', () => {
     await page.keyboard.press('KeyE');
     await page.waitForFunction(() => (window as any).__rikkun.inventory.get().open === true, null, { timeout: 300 });
     await expect(page.locator('#inventory-close')).toBeVisible();
-    const box = await page.locator('#inventory-close').boundingBox();
-    expect(box!.height).toBeGreaterThanOrEqual(64);
+    // 画面が小さいと パネルぜんたいが 同じ比で ちぢむ（fit）。ちぢむ前の 大きさ（CSS の高さ）で 64px 以上を確かめる
+    const h = await page.locator('#inventory-close').evaluate((el) => (el as HTMLElement).offsetHeight);
+    expect(h).toBeGreaterThanOrEqual(64);
     await page.locator('#inventory-close').click();
     const r = await page.evaluate(() => ({
       open: (window as any).__rikkun.inventory.get().open,

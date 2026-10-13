@@ -174,8 +174,13 @@ export class BreakParticles {
 
   /** ブロック 1 こぶんをはじけさせる */
   burst(block: Vec3, id: BlockId, cfg: FxSettings): void {
-    this.color.setHex(blockColor(id));
-    for (let k = 0; k < cfg.particleCount; k++) {
+    this.burstHex(block, blockColor(id), cfg, cfg.particleCount);
+  }
+
+  /** 色（0xRRGGBB）と 数を 決めて はじけさせる（M7: しゅうかく の つぶ・たがやす つち の つぶ） */
+  burstHex(block: Vec3, hex: number, cfg: FxSettings, count: number): void {
+    this.color.setHex(hex);
+    for (let k = 0; k < count; k++) {
       const i = this.next;
       this.next = (this.next + 1) % CAPACITY;
       this.px[i] = block.x + 0.2 + this.rand() * 0.6;

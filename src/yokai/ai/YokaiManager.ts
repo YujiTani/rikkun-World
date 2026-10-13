@@ -195,6 +195,11 @@ export class YokaiManager implements YokaiWorld {
 
   // ---------------------------------------------------------------- YokaiWorld
 
+  /** その妖怪の見た目（ふちどり用。いなければ null） */
+  modelOf(id: number): YokaiBase | null {
+    return this.ents.find((q) => q.id === id)?.model ?? null;
+  }
+
   list(): YokaiInfo[] {
     return this.ents.map((e) => this.infoOf(e));
   }

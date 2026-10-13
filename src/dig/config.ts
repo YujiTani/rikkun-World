@@ -1,4 +1,4 @@
-import type { BlockId, DigSettings, Rarity } from '../contracts';
+import type { BlockId, DigSettings, ItemId, Rarity } from '../contracts';
 
 /**
  * ほる・おくの数値（M2 §4.1・§4.3）。ここ 1 か所にまとめる。
@@ -40,6 +40,20 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     brick: 6,
     // M6
     tansu: 5,
+    // M7（仮。C が §4.1 のとおりに直す: 作物・やせいの やさい は ほれない〈しゅうかく〉、かかし は こわれない）
+    farmland: 0.5,
+    farmland_wet: 0.5,
+    crop_onion: null,
+    crop_tomato: null,
+    crop_pumpkin: null,
+    crop_eggplant: null,
+    wild_onion: null,
+    wild_tomato: null,
+    wild_pumpkin: null,
+    wild_eggplant: null,
+    kakashi: null,
+    kakashi_head: null,
+    saku: 1,
   } satisfies Record<BlockId, number | null>,
   harvestLevel: {
     air: 0,
@@ -60,6 +74,19 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     kawara: 0,
     brick: 0,
     tansu: 0,
+    farmland: 0,
+    farmland_wet: 0,
+    crop_onion: 0,
+    crop_tomato: 0,
+    crop_pumpkin: 0,
+    crop_eggplant: 0,
+    wild_onion: 0,
+    wild_tomato: 0,
+    wild_pumpkin: 0,
+    wild_eggplant: 0,
+    kakashi: 0,
+    kakashi_head: 0,
+    saku: 0,
   },
   handPower: 1.0,
   handLevel: 0,
@@ -88,6 +115,20 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     kawara: 'uncommon',
     brick: 'uncommon',
     tansu: 'uncommon',
+    // M7（仮。C が決める）
+    farmland: 'common',
+    farmland_wet: 'common',
+    crop_onion: 'common',
+    crop_tomato: 'common',
+    crop_pumpkin: 'common',
+    crop_eggplant: 'common',
+    wild_onion: 'common',
+    wild_tomato: 'common',
+    wild_pumpkin: 'common',
+    wild_eggplant: 'common',
+    kakashi: 'common',
+    kakashi_head: 'common',
+    saku: 'common',
   } satisfies Record<BlockId, Rarity>,
   dropMax: { common: 4, uncommon: 3, rare: 2, superRare: 1 },
 };
@@ -101,6 +142,13 @@ export function createDigConfig(): DigConfig {
     dropMax: { ...DIG_DEFAULTS.dropMax },
   };
 }
+
+/** M7: こわすと 決まった もの 1 こ（はたけ = つち、さく = き） */
+export const FARM_BREAK_DROP: Readonly<Partial<Record<BlockId, { item: ItemId; count: number }>>> = {
+  farmland: { item: 'dirt', count: 1 },
+  farmland_wet: { item: 'dirt', count: 1 },
+  saku: { item: 'log', count: 1 },
+};
 
 /** 体の箱（M1-02 §4.1）。置く判定に使う */
 export const BODY_W = 0.6;

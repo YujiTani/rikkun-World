@@ -63,6 +63,11 @@ export class ArrayVoxelWorld implements VoxelWorld {
     return true;
   }
 
+  /** M7: id は変えずに、そのマスのチャンクだけ 見た目を作り直させる（作物の段階）。光は 計算し直さない */
+  touch(x: number, y: number, z: number): void {
+    if (this.inRange(x, y, z)) this.markDirty(x, z);
+  }
+
   isSolid(x: number, y: number, z: number): boolean {
     const i = this.getIndex(x, y, z);
     return i >= 0 && isSolidIndex(i);

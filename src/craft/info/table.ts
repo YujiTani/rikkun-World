@@ -39,10 +39,17 @@ const PLACE_BTN: ButtonKey[] = ['1-9', 'right'];
 const CRAFT_E = 'E の つくる で つかう';
 const PICK_HOW = 'えらんで、ブロック に むけて ひだりクリック を おしつづける';
 const BLADE_HOW = 'えらんで、ようかい に むけて ひだりクリック';
-const WEAR_HOW = 'てに もって みぎクリック で きる。E の そうび の マス に いれても よい';
+const WEAR_HOW = 'ダブルクリック か、てに もって みぎクリック で きる。E の そうび の マス に いれても よい';
 const LATER_HOW = 'いまは もてる だけ';
 
 const later = (row: string): InfoRow => ({ use: row, how: LATER_HOW, buttons: [], later: row });
+
+const SEED_ROW: InfoRow = { use: 'はたけ に まくと やさい が そだつ', how: 'もって はたけ に みぎクリック', buttons: ['1-9', 'right'] };
+const VEG_ROW = (hearts: number): InfoRow => ({
+  use: `たべると ハート が ${hearts} こ もどる`,
+  how: 'もって みぎクリック',
+  buttons: ['1-9', 'right'],
+});
 
 export const ITEM_INFO: Readonly<Record<string, InfoRow>> = {
   // ---- ブロック（13）
@@ -129,6 +136,17 @@ export const ITEM_INFO: Readonly<Record<string, InfoRow>> = {
   omamori: later('もっていると やられても もちもの を おとさなく なるよ（もうすぐ）'),
   waraji: later('はくと すこし はやく あるけるように なるよ（もうすぐ）'),
   haniwa: later('おいて かざれるように なるよ（もうすぐ）'),
+
+  // ---- M7 農業（9）
+  seed_onion: SEED_ROW,
+  seed_tomato: SEED_ROW,
+  seed_pumpkin: SEED_ROW,
+  seed_eggplant: SEED_ROW,
+  onion: VEG_ROW(1),
+  tomato: VEG_ROW(1),
+  eggplant: VEG_ROW(1),
+  pumpkin: VEG_ROW(2),
+  kuwa: { use: 'くさ や つち を はたけ に する', how: 'もって くさ・つち に みぎクリック', buttons: ['1-9', 'right'] },
 
   // ---- ようかいだま（§5。いまは 手に入らない。古い保存用）
   yokai_orb: { use: 'いまは つかえない よ', how: '', buttons: [] },

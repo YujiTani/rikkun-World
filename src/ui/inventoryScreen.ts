@@ -6,6 +6,7 @@ import { createSlotEl, paintSlot, type SlotEls } from './hotbar';
 import { itemIconUrl } from './itemIcon';
 import { Tooltip, type HoverTarget } from './tooltip';
 import { mouseHtml } from './craftPanel.art';
+import { ruby } from './text';
 import { createChip } from './theme';
 import './inventoryScreen.css';
 
@@ -73,6 +74,15 @@ export class InventoryScreen {
   private tabNow: InventoryTab = 'items';
   private hintsEl!: HTMLDivElement;
   private hintsKey = '';
+  private marker: { active(): boolean; toggle(i: number): void; has(i: number): boolean } | null = null;
+  /** たんす の ✓ えらびの口（StorageScreen がつなぐ） */
+  setMarker(m: { active(): boolean; toggle(i: number): void; has(i: number): boolean } | null): void {
+    this.marker = m;
+  }
+  /** ✓ が かわったので 描きなおす */
+  refresh(): void {
+    this.dirty = true;
+  }
   private fitSize = '';
   private pageSize: { w: number; h: number } | null = null;
   private outside: InventoryOutsideHandlers | null = null;
@@ -133,7 +143,17 @@ export class InventoryScreen {
         c.root.dataset.index = String(i);
         c.root.addEventListener('click', (e) => {
           e.stopPropagation();
+          // Ctrl（Mac は ⌘）クリック: たんす に しまう ものを えらぶ（✓）
+          if ((e.ctrlKey || e.metaKey) && this.marker?.active()) {
+            this.marker.toggle(i);
+            this.dirty = true;
+            return;
+          }
           this.inv.click(i);
+        });
+        c.root.addEventListener('dblclick', (e) => {
+          e.stopPropagation();
+          if (this.m4?.armor.equipFromSlot?.(i)) this.dirty = true;
         });
         c.root.addEventListener('mouseenter', () => this.tooltip?.hover(i));
         c.root.addEventListener('mouseleave', () => this.tooltip?.hover(null));
@@ -258,8 +278,10 @@ export class InventoryScreen {
     const rows: [string, string][] = [
       [K('Q'), '1こ すてる'],
       [`${K('Shift')}＋${K('Q')}`, 'ぜんぶ すてる'],
-      [`${mouseHtml('left')}わくの そとへ ひっぱる`, 'すてる'],
+      [`${mouseHtml('left')}${ruby('枠', 'わく')}の そとへ ひっぱる`, 'すてる'],
+      ...(tansu ? ([[`${K('Ctrl')}（${K('⌘')}）＋${mouseHtml('left')}クリック`, 'えらぶ（✓）']] as [string, string][]) : []),
       [`${K('Shift')}＋${mouseHtml('left')}クリック`, tansu ? 'たんす へ うつす' : 'いっきに うつす'],
+      [`${mouseHtml('left')}ダブルクリック`, `${ruby('防具', 'ぼうぐ')}を ${ruby('着', 'き')}る・ぬぐ`],
       [K('E'), 'とじる'],
     ];
     this.hintsEl.replaceChildren(
@@ -334,6 +356,9 @@ export class InventoryScreen {
       this.el.hidden = !open;
       this.dirty = true;
       if (open) {
+        // 見せる前に 中身を作ってから 縮める（開いた 1 コマ目から正しい大きさ）
+        this.render();
+        this.craftPanel?.update();
         this.fit();
         if (this.tabNow === 'items') {
           const w = this.bodyEl.offsetWidth;
@@ -377,6 +402,7 @@ export class InventoryScreen {
     for (let i = 0; i < this.cells.length; i++) {
       paintSlot(this.cells[i], slots[i] ?? null);
       this.cells[i].root.dataset.selected = String(i === sel);
+      this.cells[i].root.dataset.marked = String(!!this.marker?.active() && this.marker.has(i));
     }
     const cur = this.inv.cursor();
     this.cursorEl.hidden = !cur;

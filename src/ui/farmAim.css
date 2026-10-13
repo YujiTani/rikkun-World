@@ -1,0 +1,51 @@
+/* ねらった作物の しるし: 照準の すぐ上。まる 4 つ（直径 12px・間 4px） */
+#farm-aim {
+  position: fixed;
+  left: 50%;
+  bottom: calc(50% + var(--rk-sp-5));
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: var(--rk-sp-2);
+  padding: var(--rk-sp-1) var(--rk-sp-3);
+  color: var(--rk-text);
+  background: var(--rk-hud-bg);
+  border-radius: var(--rk-r-pill);
+  font-size: var(--rk-fs-body);
+  line-height: var(--rk-lh);
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 4;
+}
+#farm-aim[hidden],
+#farm-aim [hidden] {
+  display: none;
+}
+.farm-aim__dots {
+  display: inline-flex;
+  gap: 4px;
+}
+.farm-aim__dot {
+  box-sizing: border-box;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid var(--rk-line);
+  background: transparent;
+}
+.farm-aim__dot[data-state='ok'] {
+  background: var(--rk-ok);
+  border-color: var(--rk-ok);
+}
+.farm-aim__dot[data-state='gold'] {
+  background: var(--rk-accent);
+  border-color: var(--rk-accent);
+}
+#farm-aim[data-dim='true'] .farm-aim__dots {
+  opacity: 0.4;
+}
+.farm-aim__art {
+  width: 16px;
+  height: 16px;
+  image-rendering: pixelated;
+}

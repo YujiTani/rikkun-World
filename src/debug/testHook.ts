@@ -14,6 +14,7 @@ import type { createLevelHook } from '../level';
 import type { createAchievementsHook } from '../achievements';
 import type { createStorageHook } from '../storage/hook';
 import type { createYokaiHook } from '../yokai';
+import type { createFarmHook } from '../farm';
 import type { WorldHook } from '../world/hook';
 import type { ChunkStats } from '../world/render/WorldRenderer';
 import type { PerfOverlay } from './perfOverlay';
@@ -62,8 +63,12 @@ export interface TestHook {
   yokai: ReturnType<typeof createYokaiHook>['yokai'];
   /** M6 §6.1: 実績・おめでとう画面 */
   achievements: ReturnType<typeof createAchievementsHook> & { modal(): unknown; close(): unknown; sounds(): string[]; mute(on: boolean): void };
+  /** FIX-action-hint: 照準の下に出している 絵（アイテム名）と 1 語 */
+  hud: { /** ふちどりを付けている妖怪の id（なければ null） */ yokaiFocus(): number | null; /** ふちどりの複製の数 */ yokaiFocusHulls(): number; actionHint(): { right?: { icon: string; word: string }; left?: { icon: string; word: string } } };
   /** M6 §6.1: たんす */
   storage: ReturnType<typeof createStorageHook>;
+  /** M7 §6.1: 農業 */
+  farm: ReturnType<typeof createFarmHook>;
 }
 
 declare global {
@@ -72,7 +77,7 @@ declare global {
   }
 }
 
-export type TestHookGroups = Pick<TestHook, 'world' | 'render' | 'player' | 'camera' | 'input' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'level' | 'achievements' | 'storage'>;
+export type TestHookGroups = Pick<TestHook, 'world' | 'render' | 'player' | 'camera' | 'input' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm'>;
 
 export function installTestHook(game: Game, overlay: PerfOverlay, groups: TestHookGroups): void {
   window.__rikkun = {

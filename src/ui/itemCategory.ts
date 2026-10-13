@@ -17,7 +17,8 @@ export type ItemCategory =
   | 'weapon'
   | 'armor'
   | 'light'
-  | 'home';
+  | 'home'
+  | 'food';
 
 export const ITEM_CATEGORIES: readonly ItemCategory[] = [
   'soil',
@@ -32,22 +33,24 @@ export const ITEM_CATEGORIES: readonly ItemCategory[] = [
   'armor',
   'light',
   'home',
+  'food',
 ];
 
 /** カテゴリーごとの アイテム（§3.5 (7) の表 そのまま） */
 export const CATEGORY_ITEMS: Readonly<Record<ItemCategory, readonly string[]>> = {
   soil: ['dirt', 'sand'],
   stone: ['stone'],
-  plant: ['grass', 'log', 'leaves'],
+  plant: ['grass', 'log', 'leaves', 'seed_onion', 'seed_tomato', 'seed_pumpkin', 'seed_eggplant'],
   ore: ['coal_ore', 'iron_ore'],
   build: ['kawara', 'brick'],
   material: ['paper', 'string', 'cloth', 'oil', 'clay', 'yokai_orb'],
   metal: ['iron_ingot', 'crystal'],
-  tool: ['wood_pickaxe', 'stone_pickaxe', 'iron_pickaxe'],
+  tool: ['wood_pickaxe', 'stone_pickaxe', 'iron_pickaxe', 'kuwa'],
   weapon: ['bokuto', 'katana', 'naginata', 'crystal_katana', 'yumi', 'ya'],
   armor: ['kabuto', 'yoroi', 'kote', 'suneate'],
   light: ['torch', 'lantern'],
   home: ['furnace', 'tansu', 'futon', 'haniwa', 'kite', 'waraji', 'omamori'],
+  food: ['onion', 'tomato', 'pumpkin', 'eggplant'],
 };
 
 const BY_ITEM = new Map<string, ItemCategory>();

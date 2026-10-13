@@ -10,6 +10,7 @@ import type {
   DayPhase,
   DefeatWith,
   DigEvent,
+  FarmEvent,
   ItemId,
   M6Settings,
   ScreenMode,
@@ -18,6 +19,7 @@ import type {
   WorldRegions,
   YokaiKind,
 } from '../contracts';
+import { CROP_KINDS } from '../contracts';
 import {
   ACHIEVEMENT_DEFS,
   ARMOR_ITEMS,
@@ -322,6 +324,55 @@ export class AchievementSystem implements AchievementShowSource {
         else this.bump('storeFull', 1);
       }
     });
+  }
+
+  /** 農業の出来事（M7 §4.7）。つなぎ込みが `farm.drainEvents()` の列を わたす */
+  feedFarm(events: readonly FarmEvent[]): void {
+    if (events.length === 0) return;
+    this.run(() => {
+      for (const e of events) {
+        switch (e.type) {
+          case 'till':
+            this.bump('till', 1);
+            break;
+          case 'plant':
+            this.bump(`plant:${e.kind}`, 1);
+            this.bump('plant:*', 1);
+            break;
+          case 'harvest':
+            this.bump(`harvest:${e.kind}`, 1);
+            this.bump('harvest:*', 1);
+            if (e.wet) this.bump('harvestWet', 1);
+            this.setMax('harvest:kinds', CROP_KINDS.filter((k) => this.stat(`harvest:${k}`) > 0).length);
+            break;
+          case 'wild':
+            this.bump(`wild:${e.kind}`, 1);
+            this.bump('wild:*', 1);
+            this.setMax('wild:kinds', CROP_KINDS.filter((k) => this.stat(`wild:${k}`) > 0).length);
+            this.derivedFind();
+            break;
+          case 'eat':
+            this.bump(`eat:${e.item}`, 1);
+            this.bump('eat:*', 1);
+            break;
+          case 'seedFound':
+            this.bump(`seedFrom:${e.from}`, 1);
+            this.derivedFind();
+            break;
+          case 'visitOldFarm':
+            this.bump('visit:oldfarm', 1);
+            break;
+          default:
+            break;
+        }
+      }
+    });
+  }
+
+  /** たね の ありか 4 つ（ふるい たんす・やせい・くさ・ようかい） */
+  private derivedFind(): void {
+    const n = [this.stat('seedFrom:oldfarm'), this.stat('wild:*'), this.stat('seedFrom:grass'), this.stat('seedFrom:yokai')].filter((v) => v > 0).length;
+    this.setMax('seedFrom:all', n);
   }
 
   feedArrow(kind: 'shot' | 'hit'): void {

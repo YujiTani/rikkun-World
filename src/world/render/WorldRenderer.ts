@@ -8,6 +8,8 @@ import {
   type Scene,
   type Texture,
 } from 'three';
+import type { CropStageSource } from '../../contracts';
+import { ripeMinBrightness, setRipeMinBrightness } from './cropLight';
 import { LIGHT_CONFIG as LC } from '../light/config';
 import { skyDarkness } from '../light/skyDarkness';
 import { WorldLight } from '../light/WorldLight';
@@ -73,12 +75,14 @@ function applyLightShader(material: MeshBasicMaterial, cacheKey = 'rikkun-world-
   material.userData.noDim = true; // sky/Lighting では暗くしない（ここで明るさを決める）
   material.onBeforeCompile = (shader) => {
     shader.uniforms.uDarken = skyDarkness.uniform;
+    shader.uniforms.uRipeMin = ripeMinBrightness;
     shader.vertexShader = shader.vertexShader
       .replace(
         '#include <common>',
         `#include <common>
 attribute vec2 aLight;
 uniform float uDarken;
+uniform float uRipeMin;
 float skyCurve(float lv) {
   float t = clamp(lv, 0.0, 15.0) / 15.0;
   return ${f(LC.minBrightness)} + ${f(1 - LC.minBrightness)} * (t / (4.0 - 3.0 * t));
@@ -96,13 +100,14 @@ float blockTier(float lv) {
         '#include <color_vertex>',
         `#include <color_vertex>
 {
+  float ripe = step(1.5, aLight.y);
   float s = max(aLight.x * 15.0 - uDarken, 0.0);
-  float bl = aLight.y * 15.0;
+  float bl = (aLight.y - ripe * 2.0) * 15.0;
   float sb = skyCurve(s);
   float bb = blockTier(bl);
   float w = clamp((bb - sb) * 3.0, 0.0, 1.0) * ${f(LC.warmTintStrength)};
   vec3 tint = mix(vec3(1.0), vec3(${f(LC.warmTint[0])}, ${f(LC.warmTint[1])}, ${f(LC.warmTint[2])}), w);
-  vColor.rgb *= max(sb, bb) * tint;
+  vColor.rgb *= max(max(sb, bb), ripe * uRipeMin) * tint;
 }`,
       );
   };
@@ -132,6 +137,7 @@ export class WorldRenderer {
   private readonly lodMode: boolean[];
   /** LOD のメッシュが古い（地形が変わった／まだ作っていない）。LOD で描くときに作る（1 チャンク 0.3ms ほど） */
   private readonly lodStale: boolean[];
+  private crops: CropStageSource | undefined;
   private stats: RebuildStats = { lastMs: 0, count: 0 };
   /** 光（置く・こわすと近くだけ計算し直す）。Sky・妖怪の出現・テストが読む */
   readonly light: WorldLight;
@@ -140,7 +146,8 @@ export class WorldRenderer {
     this.light = new WorldLight(world);
     this.group.name = 'world';
     this.atlas = createAtlasTexture();
-    this.opaqueMaterial = new MeshBasicMaterial({ map: this.atlas, vertexColors: true });
+    // alphaTest: 作物などの十字の板の すきとおる所を切りぬく
+    this.opaqueMaterial = new MeshBasicMaterial({ map: this.atlas, vertexColors: true, alphaTest: 0.5 });
     this.waterMaterial = new MeshBasicMaterial({
       map: this.atlas,
       vertexColors: true,
@@ -199,6 +206,21 @@ export class WorldRenderer {
       if (c.lodOpaque) c.lodOpaque.visible = on && lod;
       if (c.lodWater) c.lodWater.visible = on && lod;
     }
+  }
+
+  /**
+   * 作物の段階を聞く先を決める（A の FarmSystem）。決めたら 全チャンクを作り直す（1 回だけ）。
+   * 段階が変わったときは A が `world.touch` するので、そのチャンクだけ作り直される。
+   */
+  setCropStageSource(src: CropStageSource | undefined): void {
+    this.crops = src;
+    if (!this.attached) return;
+    for (let i = 0; i < this.chunks.length; i++) this.rebuildChunk(i);
+  }
+
+  /** みのった作物の明るさの下限（設定 `farmRipeMinBrightness`）。設定を変えたら呼ぶ */
+  setRipeMinBrightness(v: number): void {
+    setRipeMinBrightness(v);
   }
 
   /** window.__rikkun.render.chunks() 用 */
@@ -296,7 +318,7 @@ export class WorldRenderer {
   private rebuildChunk(index: number): void {
     const cx = index % this.world.chunksX;
     const cz = Math.floor(index / this.world.chunksX);
-    const data = meshChunk(this.world, cx, cz, this.light);
+    const data = meshChunk(this.world, cx, cz, this.light, this.crops);
     const slot = this.chunks[index];
     const on = this.inRange[index];
     const lod = this.lodMode[index];

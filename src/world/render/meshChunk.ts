@@ -1,5 +1,7 @@
-import { AIR, BLOCK_TYPES, WATER, isOpaqueIndex, isTorchIndex } from '../blocks/blockTypes';
+import { AIR, BLOCK_TYPES, WATER, isCrossIndex, isOpaqueIndex, isTorchIndex, isWildIndex } from '../blocks/blockTypes';
 import { BLOCK_TILES, TORCH_PX, tileSubUv, tileUv, type TileName } from '../blocks/textures';
+import type { CropStageSource } from '../../contracts';
+import { cropKindOfBlock } from '../../contracts';
 import { OPACITY } from '../light/opacity';
 import type { WorldLight } from '../light/WorldLight';
 import { CHUNK_SIZE, type ArrayVoxelWorld } from '../VoxelWorld';
@@ -185,7 +187,49 @@ function pushTorch(mesh: MeshData, x: number, y: number, z: number, tile: TileNa
   }
 }
 
-export function meshChunk(world: ArrayVoxelWorld, cx: number, cz: number, light?: WorldLight): ChunkMeshData {
+/** みのった作物の印: ブロックの光の値に足す（シェーダーが 1.5 以上を見て、明るさの下限をかける） */
+export const RIPE_FLAG = 2;
+
+/** 十字の板に使う絵の名前（作物は段階で、ほかは id そのまま） */
+export function crossTileName(b: number, stage: number): TileName {
+  const id = BLOCK_TYPES[b].id;
+  const k = cropKindOfBlock(id);
+  if (k && !k.wild) return `crop_${k.kind}_${stage}` as TileName;
+  return id as TileName;
+}
+
+// 十字の板: 2 まいの対角の板。それぞれ表と裏を描く（4 面）
+const CROSS_QUADS: [number, number][][] = [
+  [[0, 0], [1, 1]],
+  [[1, 0], [0, 1]],
+];
+
+function pushCross(mesh: MeshData, x: number, y: number, z: number, tile: TileName, sky: number, blk: number): void {
+  const uv = tileUv(tile);
+  for (const [a, b] of CROSS_QUADS) {
+    for (let side = 0; side < 2; side++) {
+      const base = mesh.positions.length / 3;
+      // 左下 → 右下 → 右上 → 左上（裏は左右を入れかえる）
+      const p0 = side === 0 ? a : b;
+      const p1 = side === 0 ? b : a;
+      const corners: [number[], number][] = [
+        [p0, 0], [p1, 0], [p1, 1], [p0, 1],
+      ];
+      for (let i = 0; i < 4; i++) {
+        const [pt, vy] = corners[i];
+        mesh.positions.push(x + pt[0], y + vy, z + pt[1]);
+        const c = CORNER_UV[i];
+        mesh.uvs.push(c[0] === 0 ? uv[0] : uv[2], c[1] === 0 ? uv[1] : uv[3]);
+        mesh.colors.push(1, 1, 1);
+        mesh.lights.push(sky, blk);
+      }
+      mesh.indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
+      mesh.faceCount++;
+    }
+  }
+}
+
+export function meshChunk(world: ArrayVoxelWorld, cx: number, cz: number, light?: WorldLight, crops?: CropStageSource): ChunkMeshData {
   const opaque = emptyMesh();
   const water = emptyMesh();
   const x0 = cx * CHUNK_SIZE;
@@ -199,6 +243,16 @@ export function meshChunk(world: ArrayVoxelWorld, cx: number, cz: number, light?
         if (b === AIR) continue;
         if (isTorchIndex(b)) {
           pushTorch(opaque, x, y, z, BLOCK_TYPES[b].id as TileName, light ? light.skyAt(x, y, z) / LIGHT_MAX : 1);
+          continue;
+        }
+        if (isCrossIndex(b)) {
+          const stage = crops?.stageAt(x, y, z) ?? 3;
+          const ripe = isWildIndex(b) || (cropKindOfBlock(BLOCK_TYPES[b].id) !== null && stage === 3);
+          pushCross(
+            opaque, x, y, z, crossTileName(b, stage),
+            light ? light.skyAt(x, y, z) / LIGHT_MAX : 1,
+            (light ? light.blockAt(x, y, z) / LIGHT_MAX : 0) + (ripe ? RIPE_FLAG : 0),
+          );
           continue;
         }
         const uv = TILE_UV[b];

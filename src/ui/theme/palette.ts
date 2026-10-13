@@ -53,6 +53,7 @@ export const PALETTE_HEX: Readonly<Record<string, string>> = {
   '--rk-cat-armor': '#46489e',
   '--rk-cat-light': '#a3561a',
   '--rk-cat-home': '#2e7a5e',
+  '--rk-cat-food': '#8e3d73',
   '--rk-medal-bronze': '#cd7f32',
   '--rk-medal-silver': '#c0c0c0',
   '--rk-medal-gold': '#ffd54f',

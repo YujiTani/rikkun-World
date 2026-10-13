@@ -51,6 +51,10 @@ export interface PunchGate {
    * blockDistance: 線がブロックにふれる距離（なければ null）
    */
   primaryStep(primary: boolean, eye: Vec3, dir: Vec3, blockDistance: number | null): boolean;
+  /** 左クリックしたら 妖怪をたたくか（とどく距離内で いちばん手前が妖怪。ヒント用。primaryStep と同じ判定） */
+  aimsYokai?(eye: Vec3, dir: Vec3, blockDistance: number | null): boolean;
+  /** 同じ判定で、ねらっている妖怪の id（いなければ null。ふちどり用） */
+  aimedYokai?(eye: Vec3, dir: Vec3, blockDistance: number | null): number | null;
   /** そのマスに妖怪の当たりの箱があるか（ブロックを置けない） */
   placeBlocked(x: number, y: number, z: number): boolean;
 }
@@ -185,6 +189,14 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
     return this.hurt(amount, by, from, false, kind);
   }
 
+  /** M7: 体力を もどす（食べもの）。最大をこえない。やられている間は 0。実際に もどった量を返す */
+  heal(amount: number): number {
+    if (this.isDead || !(amount > 0)) return 0;
+    const before = this.hpNow;
+    this.hpNow = Math.min(this.config.playerMaxHp, this.hpNow + amount);
+    return this.hpNow - before;
+  }
+
   drainEvents(): CombatEvent[] {
     const out = this.drainQueue;
     this.drainQueue = [];
@@ -245,6 +257,19 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
 
   placeBlocked(x: number, y: number, z: number): boolean {
     return this.d.yokai().occupies(x, y, z);
+  }
+
+  aimsYokai(eye: Vec3, dir: Vec3, blockDistance: number | null): boolean {
+    return this.aimedYokai(eye, dir, blockDistance) !== null;
+  }
+
+  aimedYokai(eye: Vec3, dir: Vec3, blockDistance: number | null): number | null {
+    if (this.isDead) return null;
+    const tp = this.d.tool?.punchParams();
+    const reach = tp ? tp.reach : this.config.punchReach;
+    const maxD = blockDistance === null ? reach : Math.min(blockDistance, reach);
+    const hit = this.d.yokai().raycast(eye, dir, maxD);
+    return hit && (blockDistance === null || hit.distance < blockDistance) ? hit.id : null;
   }
 
   primaryStep(primary: boolean, eye: Vec3, dir: Vec3, blockDistance: number | null): boolean {

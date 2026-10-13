@@ -15,13 +15,17 @@ import type {
   TargetInfo,
   VoxelWorld,
   Vec3,
+  DigFarmPort,
+  DigVitalsPort,
 } from '../contracts';
 import type { Action, ActionState } from '../input/actions';
+import { cropKindOfBlock, seedKindOfItem, vegKindOfItem } from '../contracts';
 import { itemType } from '../inventory/items';
-import { BODY_H, BODY_W, createDigConfig, type DigConfig } from './config';
+import { BODY_H, BODY_W, FARM_BREAK_DROP, createDigConfig, type DigConfig } from './config';
 import { createRng, randInt, type Rng } from '../world/gen/random';
 import type { PunchGate } from '../combat/PlayerCombat';
 import { lookDirection, raycastBlocks } from './raycast';
+import { previewRightClick, type LeftClickKind, type RightClickPreview } from './rightClick';
 
 /** 出来事の列が読まれずにたまりすぎないように */
 const MAX_QUEUE = 256;
@@ -50,13 +54,20 @@ export interface DigToolPort {
 export interface DigM4Deps {
   tools?: DigToolPort;
   craft?: Pick<CraftSystem, 'isFurnace' | 'openFurnace' | 'furnaceBroken' | 'fixedDrop'>;
-  armor?: Pick<ArmorSystem, 'tryEquip'>;
+  armor?: Pick<ArmorSystem, 'tryEquip'> & {
+    /** 着られるアイテムか（右クリックのヒントと実行が同じ判定を使う） */
+    canEquip(item: ItemId): boolean;
+  };
   /** ほって持ち物に入った（拾ったログ用。A の窓口につなぐ） */
   onPickup?: (item: ItemId, count: number) => void;
   /** 支えをなくした たいまつ を地面に落とす（なければ 持ち物へ直接入れる） */
   scatterItem?: (pos: Vec3, item: ItemId, count: number) => void;
   /** M6: たんす（`StorageSystem` が合う） */
   storage?: DigStoragePort;
+  /** M7: 農業（`FarmSystem` が合う。なければ M6 のとおり） */
+  farm?: DigFarmPort;
+  /** M7: 体力を聞く・もどす（`PlayerCombat` が合う） */
+  vitals?: DigVitalsPort;
 }
 
 /** DigSystem が使う たんす の窓口（M6 §2.9） */
@@ -111,6 +122,13 @@ export class DigSystemImpl implements DigSystem {
   private whiffHold = -1;
   private prevSecondary = false;
   private digSwingTimer = 0;
+
+  /** すで の たがやし: 数えている ブロック・回数・前の 1 回の ステップ */
+  private tillBlock: Vec3 | null = null;
+  private tillCount = 0;
+  private tillLast = -Infinity;
+  /** まだ の作物を ゆらした ブロック（押しつづけで くりかえさない） */
+  private unripeBlock: Vec3 | null = null;
 
   private drainQueue: DigEvent[] = [];
   private hookQueue: DigEvent[] = [];
@@ -185,8 +203,11 @@ export class DigSystemImpl implements DigSystem {
     const enabled = this.lock.playInputEnabled() && !this.gate?.blocksInput();
 
     // ホットバー
-    if (enabled) {
+    // もちもの画面を開いているときも 1〜9 でえらべる（遊びの入力は止まっていても、画面は見えている）
+    if (!this.lock.overlayVisible() && !this.gate?.blocksInput()) {
       for (let i = 0; i < 9; i++) if (this.actions.wasPressed(HOTBAR_ACTIONS[i])) this.inventory.select(i);
+    }
+    if (enabled) {
       if (this.actions.wasPressed(A_NEXT)) this.inventory.selectNext(1);
       if (this.actions.wasPressed(A_PREV)) this.inventory.selectNext(-1);
     }
@@ -256,6 +277,8 @@ export class DigSystemImpl implements DigSystem {
     }
 
     const t = this.tgt;
+    if (!primary) this.unripeBlock = null;
+    if (primary && t && this.tryHarvest(t)) return;
     if (primary && t) {
       const tool = this.m4.tools?.current();
       const r = digSteps(cfg, t.id, tool?.level);
@@ -327,14 +350,25 @@ export class DigSystemImpl implements DigSystem {
     this.world.setBlock(x, y, z, 'air');
     if (wasTansu) this.m4.storage?.broken(x, y, z);
     this.dropUnsupportedTorches(x, y, z);
-    const fixed = craft?.fixedDrop(t.id) ?? null;
+    const farmDrop = FARM_BREAK_DROP[t.id] ?? null;
+    const fixed = farmDrop ? farmDrop.count : (craft?.fixedDrop(t.id) ?? null);
+    const dropItem: ItemId = farmDrop ? farmDrop.item : t.id;
     const max = Math.max(1, this.config.dropMax[this.config.rarity[t.id] ?? 'common'] ?? 1);
     const n = fixed !== null ? fixed : randInt(this.rng, 1, max);
-    const got = n - this.inventory.add(t.id, n);
-    if (got > 0) this.m4.onPickup?.(t.id, got);
+    const got = n - this.inventory.add(dropItem, n);
+    if (got > 0) this.m4.onPickup?.(dropItem, got);
     // たんす は入らなければ 落とし物にする（なくさない。M6）
     if (wasTansu && got < n) this.m4.scatterItem?.({ x: x + 0.5, y, z: z + 0.5 }, t.id, n - got);
     if (wasFurnace) craft!.furnaceBroken(x, y, z);
+    // M7: はたけ の 上の作物・くさ の 上の やせいの やさい、くさ から たね
+    const farm = this.m4.farm;
+    if (farm) {
+      this.giveStacks(farm.onBlockBroken(x, y, z, t.id), x, y, z);
+      if (t.id === 'grass') {
+        const seed = farm.grassSeed(x, z);
+        if (seed) this.giveStacks([{ item: seed, count: 1 }], x, y, z);
+      }
+    }
     this.emit({ type: 'break', tick: this.tickCount, block: { x, y, z }, id: t.id, gotItem: got > 0, count: got });
     this.clearMem();
     this.active = false;
@@ -357,27 +391,205 @@ export class DigSystemImpl implements DigSystem {
     }
   }
 
+  /** 持ち物へ入れる。入らない分は 落とし物（なければ 捨てる） */
+  private giveStacks(stacks: ReadonlyArray<{ item: ItemId; count: number }>, x: number, y: number, z: number): void {
+    for (const s of stacks) {
+      if (s.count <= 0) continue;
+      const left = this.inventory.add(s.item, s.count);
+      const got = s.count - left;
+      if (got > 0) this.m4.onPickup?.(s.item, got);
+      if (left > 0) this.m4.scatterItem?.({ x: x + 0.5, y, z: z + 0.5 }, s.item, left);
+    }
+  }
+
+  /** ひだりクリックで 作物・やせいの やさい を しゅうかく（§2.5）。作物をねらっていれば true（ほらない） */
+  private tryHarvest(t: TargetInfo): boolean {
+    const farm = this.m4.farm;
+    if (!farm || !cropKindOfBlock(t.id)) return false;
+    const { x, y, z } = t.block;
+    const ripe = farm.crop(x, y, z)?.ripe ?? false;
+    if (!ripe) {
+      const same = this.unripeBlock && sameBlock(this.unripeBlock, t.block);
+      if (!same || this.justPressed()) {
+        this.unripeBlock = { ...t.block };
+        farm.harvest(x, y, z); // 出来事 notRipe
+      }
+      this.decay();
+      return true;
+    }
+    const r = farm.harvest(x, y, z);
+    if (r.ok) {
+      this.giveStacks(r.items, x, y, z);
+      this.m4.tools?.pushSwing('dig');
+      this.clearMem();
+      this.cooldown = this.config.digCooldown;
+    }
+    return true;
+  }
+
   private updatePlace(secondary: boolean): void {
     if (!secondary) {
       this.secondaryTicks = 0;
       return;
     }
+    if (this.actions.wasPressed('secondary')) this.secondaryTicks = 0; // はなして すぐ押しなおした分も 新しい 1 回
     const every = this.config.placeRepeatTicks;
     const first = this.secondaryTicks === 0;
     const due = this.secondaryTicks % every === 0;
     this.secondaryTicks++;
-    // かまど > 防具 > 置く（かまど・防具は押した瞬間だけ）
-    if (first && (this.tryStorage() || this.tryFurnace())) return;
-    if (first && this.tryArmor()) return;
-    if (due) this.tryPlace();
+    // たんす > かまど > 防具 > 置く（たんす・かまど・防具は押した瞬間だけ）。ヒントと同じ previewRightClick で決める
+    const pv = this.previewRightClick();
+    if (!pv) {
+      if (!first) return;
+      return;
+    }
+    if (pv.kind === 'place') {
+      if (due) this.tryPlace();
+      return;
+    }
+    const t = this.tgt;
+    if (pv.kind === 'till') {
+      if (due && t) this.doTill(t);
+      return;
+    }
+    if (pv.kind === 'plant') {
+      if (due && t) this.doPlant(t, pv.item);
+      return;
+    }
+    if (!first) return;
+    if (pv.kind === 'storage' && t) this.m4.storage?.open(t.block.x, t.block.y, t.block.z);
+    else if (pv.kind === 'furnace' && t) this.m4.craft?.openFurnace(t.block.x, t.block.y, t.block.z);
+    else if (pv.kind === 'armor' && pv.item) this.m4.armor?.tryEquip(pv.item);
+    else if (pv.kind === 'seedHint' && t) this.m4.farm?.noteHint('till', center(t.block));
+    else if (pv.kind === 'eat' && pv.item) this.doEat(pv.item);
   }
 
-  private tryStorage(): boolean {
+  private doTill(t: TargetInfo): void {
+    const farm = this.m4.farm!;
+    const { x, y, z } = t.block;
+    const need = this.inventory.held() ? 1 : Math.max(1, farm.settings().farmHandTillPresses);
+    if (!this.tillBlock || !sameBlock(this.tillBlock, t.block) || this.tickCount - this.tillLast >= farm.settings().farmHandTillResetTicks) {
+      this.tillBlock = { ...t.block };
+      this.tillCount = 0;
+    }
+    this.tillLast = this.tickCount;
+    this.tillCount++;
+    this.m4.tools?.pushSwing('dig');
+    if (this.tillCount >= need) {
+      farm.till(x, y, z);
+      this.tillBlock = null;
+      this.tillCount = 0;
+    } else farm.noteTillPress(x, y, z, this.tillCount);
+  }
+
+  private doPlant(t: TargetInfo, item: ItemId | null): void {
+    const kind = item ? seedKindOfItem(item) : null;
+    if (!kind || !this.m4.farm) return;
+    if (this.m4.farm.plant(t.block.x, t.block.y, t.block.z, kind)) {
+      this.inventory.consumeHeld();
+      this.m4.tools?.pushSwing('place');
+    }
+  }
+
+  private doEat(item: ItemId): void {
+    const farm = this.m4.farm;
+    const v = this.m4.vitals;
+    if (!farm || !v) return;
+    const p = this.player().position;
+    const at = { x: p.x, y: p.y + 1, z: p.z };
+    if (v.hp() >= v.maxHp()) {
+      farm.noteHint('full', at);
+      return;
+    }
+    const got = v.heal(farm.eatHeal(item));
+    this.inventory.consumeHeld();
+    this.m4.tools?.pushSwing('place');
+    farm.noteEat(item, got, at);
+  }
+
+  /**
+   * 今、右クリックしたら何が起きるか（何も起きないなら null）。実行（updatePlace）と同じ判定。
+   * 遊べない間（画面が開いている・やられている）は null。
+   */
+  previewRightClick(): RightClickPreview | null {
+    if (!this.lock.playInputEnabled() || this.gate?.blocksInput()) return null;
     const st = this.m4.storage;
+    const craft = this.m4.craft;
+    const armor = this.m4.armor;
+    return previewRightClick({
+      target: this.tgt,
+      held: this.inventory.held()?.item ?? null,
+      isTansu: (x, y, z) => st?.isTansu(x, y, z) ?? false,
+      isFurnace: (x, y, z) => craft?.isFurnace(x, y, z) ?? false,
+      canEquip: (item) => armor?.canEquip(item) ?? false,
+      canPlace: () => this.placeSpot() !== null,
+      canTill: () => this.tillSpot(),
+      canPlant: () => this.plantSpot(),
+      isSeedHintSpot: () => this.seedHintSpot(),
+      isVeg: (item) => !!this.m4.farm && !!this.m4.vitals && vegKindOfItem(item) !== null,
+    });
+  }
+
+  /** くわ か すで で、上が くうき の くさ・つち を ねらっている */
+  private tillSpot(): boolean {
     const t = this.tgt;
-    if (!st || !t || !st.isTansu(t.block.x, t.block.y, t.block.z)) return false;
-    st.open(t.block.x, t.block.y, t.block.z);
-    return true;
+    if (!t || !this.m4.farm || (t.id !== 'grass' && t.id !== 'dirt')) return false;
+    const h = this.inventory.held()?.item ?? null;
+    if (h !== null && h !== 'kuwa') return false;
+    return this.world.getBlock(t.block.x, t.block.y + 1, t.block.z) === 'air';
+  }
+
+  /** たね を持って、上が くうき の はたけ を ねらっている */
+  private plantSpot(): boolean {
+    const t = this.tgt;
+    const h = this.inventory.held()?.item;
+    if (!t || !h || !this.m4.farm || seedKindOfItem(h) === null) return false;
+    if (t.id !== 'farmland' && t.id !== 'farmland_wet') return false;
+    return this.world.getBlock(t.block.x, t.block.y + 1, t.block.z) === 'air';
+  }
+
+  private seedHintSpot(): boolean {
+    const t = this.tgt;
+    const h = this.inventory.held()?.item;
+    return !!t && !!h && !!this.m4.farm && seedKindOfItem(h) !== null && (t.id === 'grass' || t.id === 'dirt');
+  }
+
+  /** 今、左クリックしたら 何をするか（たたく・ほる・や を うつ）。出すヒントの薄い行用（妖怪が手前なら 'hit'） */
+  previewLeftClick(): LeftClickKind | null {
+    if (!this.lock.playInputEnabled() || this.gate?.blocksInput()) return null;
+    const tool = this.m4.tools?.current();
+    if (tool?.kind === 'bow') return 'shoot';
+    const t = this.tgt;
+    if (this.aimedYokaiId() !== null) return 'hit';
+    if (!t) return null;
+    if (this.m4.farm && cropKindOfBlock(t.id)) return 'harvest';
+    return 'steps' in digSteps(this.config, t.id, tool?.level) ? 'dig' : null;
+  }
+
+  /** ねらっている（手前の・とどく距離内の）妖怪の id。たたく ヒントとふちどりが同じ判定を使う。遊べない間は null */
+  aimedYokaiId(): number | null {
+    if (!this.gate?.aimedYokai || !this.lock.playInputEnabled() || this.gate.blocksInput()) return null;
+    const p = this.player();
+    const eye = { x: p.position.x, y: p.position.y + this.eyeHeight(), z: p.position.z };
+    return this.gate.aimedYokai(eye, lookDirection(p.yawDeg, p.pitchDeg, this.dir), this.tgt?.distance ?? null);
+  }
+
+  /** 置く場所とブロック（置けないなら null）。tryPlace とヒントが同じ判定を使う */
+  private placeSpot(): { x: number; y: number; z: number; block: BlockId } | null {
+    const t = this.tgt;
+    const held = this.inventory.held();
+    if (!t || !held) return null;
+    const block = itemType(held.item)?.placeBlock;
+    if (!block) return null;
+    const { x, y, z } = t.place;
+    const cur = this.world.getBlock(x, y, z);
+    if (cur !== 'air' && cur !== 'water') return null; // 世界の外・ほかのブロック
+    if (block === 'torch') {
+      // たいまつ: 固くない（体と重なっても置ける）。下か横に固いブロックが要る
+      if (!this.torchSupported(x, y, z)) return null;
+    } else if (this.overlapsBody(x, y, z)) return null;
+    if (this.gate?.placeBlocked(x, y, z)) return null; // 妖怪の箱の所には置けない
+    return { x, y, z, block };
   }
 
   /**
@@ -391,34 +603,10 @@ export class DigSystemImpl implements DigSystem {
     return st.open(t.block.x, t.block.y, t.block.z, { screenOpens: true });
   }
 
-  private tryFurnace(): boolean {
-    const craft = this.m4.craft;
-    const t = this.tgt;
-    if (!craft || !t || !craft.isFurnace(t.block.x, t.block.y, t.block.z)) return false;
-    craft.openFurnace(t.block.x, t.block.y, t.block.z);
-    return true;
-  }
-
-  private tryArmor(): boolean {
-    const held = this.inventory.held();
-    if (!held || !this.m4.armor) return false;
-    return this.m4.armor.tryEquip(held.item);
-  }
-
   private tryPlace(): void {
-    const t = this.tgt;
-    const held = this.inventory.held();
-    if (!t || !held) return;
-    const block = itemType(held.item)?.placeBlock;
-    if (!block) return;
-    const { x, y, z } = t.place;
-    const cur = this.world.getBlock(x, y, z);
-    if (cur !== 'air' && cur !== 'water') return; // 世界の外・ほかのブロック
-    if (block === 'torch') {
-      // たいまつ: 固くない（体と重なっても置ける）。下か横に固いブロックが要る
-      if (!this.torchSupported(x, y, z)) return;
-    } else if (this.overlapsBody(x, y, z)) return;
-    if (this.gate?.placeBlocked(x, y, z)) return; // 妖怪の箱の所には置けない
+    const spot = this.placeSpot();
+    if (!spot) return;
+    const { x, y, z, block } = spot;
     if (!this.world.setBlock(x, y, z, block)) return;
     this.inventory.consumeHeld();
     if (block === 'tansu') this.m4.storage?.placed(x, y, z, this.player().yawDeg);
@@ -461,6 +649,10 @@ const TORCH_NEIGHBORS: ReadonlyArray<readonly [number, number, number]> = [
   [0, 0, 1],
   [0, 0, -1],
 ];
+
+function center(b: Vec3): Vec3 {
+  return { x: b.x + 0.5, y: b.y + 0.5, z: b.z + 0.5 };
+}
 
 function sameBlock(a: Vec3, b: Vec3): boolean {
   return a.x === b.x && a.y === b.y && a.z === b.z;

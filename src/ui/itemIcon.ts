@@ -1,6 +1,7 @@
 import type { ItemId } from '../contracts';
 import { isMaterialItem, materialPixels } from './itemArt';
 import { clockPixels, hammerPixels, isM4Item, m4ItemPixels } from './itemArtM4';
+import { farmExtraPixels, isM7Item, m7ItemPixels, type FarmExtraIcon } from './itemArtM7';
 import { tansuPixels } from '../storage/tansuArt';
 import { BLOCK_TILES, TILE_SIZE, getTilePixels, type Rgba, type TileName } from '../world/blocks/textures';
 
@@ -16,8 +17,10 @@ export function itemIconPixels(item: ItemId): Pixels {
   if ((item as string) === 'tansu') return tansuPixels('icon').map(hexToRgba);
   if (isMaterialItem(item)) return materialPixels(item);
   if (isM4Item(item)) return m4ItemPixels(item);
+  if (isM7Item(item)) return m7ItemPixels(item);
   const tiles = item in BLOCK_TILES ? BLOCK_TILES[item as keyof typeof BLOCK_TILES] : undefined;
-  const name: TileName = tiles ? tiles[2] : 'stone';
+  // はたけ は 上の面（すじの もよう）を 絵にする
+  const name: TileName = tiles ? tiles[item === 'farmland' || item === 'farmland_wet' ? 0 : 2] : 'stone';
   return getTilePixels(name).slice();
 }
 
@@ -151,11 +154,11 @@ export function itemIconUrl(item: ItemId): string {
 const extraCache = new Map<string, string>();
 
 /** アイテムでない小さな絵（かなづち・時計）を data URL にして使いまわす */
-export function extraIconUrl(kind: 'hammer' | 'clock'): string {
+export function extraIconUrl(kind: 'hammer' | 'clock' | FarmExtraIcon): string {
   let url = extraCache.get(kind);
   if (!url) {
     const c = document.createElement('canvas');
-    drawPixels(c, kind === 'hammer' ? hammerPixels() : clockPixels());
+    drawPixels(c, kind === 'hammer' ? hammerPixels() : kind === 'clock' ? clockPixels() : farmExtraPixels(kind));
     url = c.toDataURL();
     extraCache.set(kind, url);
   }
@@ -163,6 +166,6 @@ export function extraIconUrl(kind: 'hammer' | 'clock'): string {
 }
 
 /** アイテムの id か 'hammer' / 'clock' の絵の URL */
-export function anyIconUrl(icon: ItemId | 'hammer' | 'clock'): string {
-  return icon === 'hammer' || icon === 'clock' ? extraIconUrl(icon) : itemIconUrl(icon);
+export function anyIconUrl(icon: ItemId | 'hammer' | 'clock' | FarmExtraIcon): string {
+  return icon === 'hammer' || icon === 'clock' || icon === 'droplet' || icon === 'moon' ? extraIconUrl(icon) : itemIconUrl(icon);
 }

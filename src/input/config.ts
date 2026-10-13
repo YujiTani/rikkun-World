@@ -29,23 +29,28 @@ export const WHEEL_CONFIG = {
   relockTimeoutMs: 1500,
 } as const;
 
-/** 操作の絵の説明（ひらがな・カタカナのみ） */
+import { ruby } from '../ui/text';
+
+const LEFT_CLICK = `${ruby('左', 'ひだり')}クリック`;
+const RIGHT_CLICK = `${ruby('右', 'みぎ')}クリック`;
+
+/** 操作の説明（短い文。漢字は ruby() でふりがな付き。HTML） */
 export const HELP_CAPTIONS = [
-  'あるく',
-  'ジャンプ',
-  'むきを かえる',
-  'みかた を かえる',
-  'ほる（おしつづける）',
-  'ひびが MAX で もういちど',
-  'おく',
-  'もちものを えらぶ',
-  'もちもの',
+  'W A S D で あるく',
+  'スペース で ジャンプ',
+  'マウスを うごかして むきを かえる',
+  'V で みかた を かえる',
+  `${LEFT_CLICK} を おしつづけて ほる`,
+  'ひびが MAX で もういちど おす',
+  `${RIGHT_CLICK} で おく`,
+  '1〜9 か ホイール で もちものを えらぶ',
+  'E で もちもの をひらく',
 ] as const;
 
-/** 案内画面（Esc）のあそびかたのタブ（M4 §2.11）。字はひらがな・カタカナのみ */
-export type GuideTabId = 'move' | 'dig' | 'fight' | 'craft';
+/** 案内画面（Esc）のあそびかたのタブ（M4 §2.11）。字はひらがな・カタカナと、ふりがな付きの漢字 */
+export type GuideTabId = 'move' | 'dig' | 'fight' | 'craft' | 'grow';
 
-export const GUIDE_TAB_IDS: readonly GuideTabId[] = ['move', 'dig', 'fight', 'craft'];
+export const GUIDE_TAB_IDS: readonly GuideTabId[] = ['move', 'dig', 'fight', 'craft', 'grow'];
 
 export const GUIDE_TABS: Record<GuideTabId, { label: string; icon: string; captions: readonly string[] }> = {
   move: {
@@ -62,10 +67,10 @@ export const GUIDE_TABS: Record<GuideTabId, { label: string; icon: string; capti
     label: 'たたかう',
     icon: '⚔',
     captions: [
-      'ひだりクリック で たたく',
+      `${LEFT_CLICK} で たたく`,
       'なぎなた は とおくまで とどく',
       'ゆみ は や を とばす',
-      'かぶと・よろい・こて・すねあて を もって みぎクリック で きる',
+      `${ruby('防具', 'ぼうぐ')}は ダブルクリック で ${ruby('着', 'き')}る・ぬぐ`,
       'よる は おうち に にげよう',
     ],
   },
@@ -76,10 +81,24 @@ export const GUIDE_TABS: Record<GuideTabId, { label: string; icon: string; capti
       'E で つくる',
       'ひかっている のを おす',
       'かなづち が でたら つくれる',
-      'かまど に みぎクリック で やく',
+      `かまど に ${RIGHT_CLICK} で やく`,
       'ねんりょう は せきたん・あぶら・き',
-      'Q で すてる',
+      'Q で 1こ すてる',
       'たんす に しまう',
+    ],
+  },
+  // M7: 5 つ目のタブ「そだてる」（仕様 §3.7）。文が主役。漢字は ふりがな付き
+  grow: {
+    label: 'そだてる',
+    icon: '🌱',
+    captions: [
+      `くわ を もって ${ruby('草', 'くさ')}か ${ruby('土', 'つち')}を ${RIGHT_CLICK} すると ${ruby('畑', 'はたけ')}に なる。${ruby('素手', 'すで')}なら 3 ${ruby('回', 'かい')} ${RIGHT_CLICK}`,
+      `たね を もって ${ruby('畑', 'はたけ')}を ${RIGHT_CLICK} すると たね を まける`,
+      `${ruby('水', 'みず')}の そば の ${ruby('畑', 'はたけ')}は ${ruby('色', 'いろ')}が こく なって はやく ${ruby('育', 'そだ')}つ`,
+      `みのったら ${LEFT_CLICK} で とれる。まだ の ときは とれないよ`,
+      `やさい を もって ${RIGHT_CLICK} で たべる と ハート が もどる`,
+      `たね は さがそう: かかし の ある ふるい ${ruby('畑', 'はたけ')}、やせいの やさい、${ruby('草', 'くさ')}を こわす、${ruby('妖怪', 'ようかい')}の おとしもの`,
+      `${ruby('明', 'あか')}るい ところ で ${ruby('育', 'そだ')}つ。${ruby('夜', 'よる')}は たいまつ の そば なら ${ruby('育', 'そだ')}つ`,
     ],
   },
 };

@@ -69,6 +69,7 @@ export class InventoryImpl implements Inventory {
   }
   add(item: ItemId, count: number): number {
     const n = Math.floor(count);
+    if (!(n > 0)) return 0; // 0 以下は なにもしない（「入った数 = n − 返り値」が マイナスにならないように）
     const left = addInto(this.arr, item, n);
     if (left !== n) this.notify();
     return left;
@@ -153,7 +154,7 @@ export class InventoryImpl implements Inventory {
     } else if (slot.item === cur.item) {
       const max = itemType(slot.item)!.maxStack;
       const n = Math.min(max - slot.count, cur.count);
-      if (n === 0) return;
+      if (n <= 0) return;
       this.arr[index] = { item: slot.item, count: slot.count + n };
       this.cur = cur.count - n > 0 ? { item: cur.item, count: cur.count - n } : null;
       if (!this.cur) this.lifted = -1;
