@@ -1,12 +1,12 @@
 import type { Durability, Inventory, ItemId, ItemStack, ItemType, W2Settings, WearEvent, WearResult } from '../contracts';
 import { W2_SETTING_DEFAULTS } from '../contracts';
-import { copyStack, isLow, maxDurability, readWear } from '../tools/durability';
+import { copyStack, isLow, maxDurability, readWater, readWear } from '../tools/durability';
 import { HOTBAR_SIZE, INVENTORY_SIZE, ITEM_TYPES, itemType } from './items';
 
 type Slot = ItemStack | null;
 
 /** 配列に §4.2 の入れ方で入れる（from〜to 未満のマスだけ）。入らなかった数を返す */
-export function addInto(slots: Slot[], item: ItemId, count: number, from = 0, to = slots.length, wear = 0): number {
+export function addInto(slots: Slot[], item: ItemId, count: number, from = 0, to = slots.length, wear = 0, water = 0): number {
   const max = itemType(item)?.maxStack;
   if (!max || count <= 0) return Math.max(0, count);
   let left = count;
@@ -21,7 +21,7 @@ export function addInto(slots: Slot[], item: ItemId, count: number, from = 0, to
   for (let i = from; i < to && left > 0; i++) {
     if (!slots[i]) {
       const n = Math.min(max, left);
-      slots[i] = wear > 0 && n === 1 ? { item, count: n, wear } : { item, count: n };
+      slots[i] = n === 1 ? copyStack({ item, count: n, wear, water }) : { item, count: n };
       left -= n;
     }
   }
@@ -131,7 +131,7 @@ export class InventoryImpl implements Inventory {
       if (!t) throw new Error(`知らないアイテム: ${stack.item}`);
       const w = readWear(stack.wear, this.maxOf(t.id));
       const count = Math.min(Math.floor(stack.count), t.maxStack);
-      this.arr[index] = w > 0 ? { item: t.id, count, wear: w } : { item: t.id, count };
+      this.arr[index] = copyStack({ item: t.id, count, wear: w, water: readWater(stack.water, t.id) });
     }
     this.notify();
   }
@@ -195,8 +195,8 @@ export class InventoryImpl implements Inventory {
     if (!s) return 0;
     const [from, to] = index < HOTBAR_SIZE ? [HOTBAR_SIZE, this.size] : [0, HOTBAR_SIZE];
     this.arr[index] = null;
-    const left = addInto(this.arr, s.item, s.count, from, to, s.wear ?? 0);
-    if (left > 0) this.arr[index] = s.wear ? { item: s.item, count: left, wear: s.wear } : { item: s.item, count: left };
+    const left = addInto(this.arr, s.item, s.count, from, to, s.wear ?? 0, s.water ?? 0);
+    if (left > 0) this.arr[index] = copyStack({ ...s, count: left });
     const moved = s.count - left;
     if (moved > 0) this.notify();
     return moved;
@@ -210,7 +210,7 @@ export class InventoryImpl implements Inventory {
     const n = all ? s.count : 1;
     this.arr[index] = n >= s.count ? null : { item: s.item, count: s.count - n };
     this.notify();
-    return s.wear ? { item: s.item, count: n, wear: s.wear } : { item: s.item, count: n };
+    return copyStack({ ...s, count: n });
   }
 
   click(index: number): void {
@@ -271,7 +271,7 @@ export class InventoryImpl implements Inventory {
       this.arr[this.lifted] = cur;
       left = 0;
     } else {
-      left = addInto(this.arr, cur.item, cur.count, 0, this.size, cur.wear ?? 0);
+      left = addInto(this.arr, cur.item, cur.count, 0, this.size, cur.wear ?? 0, cur.water ?? 0);
     }
     this.cur = left > 0 ? { ...cur, count: left } : null;
     this.lifted = -1;
@@ -286,7 +286,7 @@ export class InventoryImpl implements Inventory {
     const copy = this.arr.map((s) => (s ? copyStack(s) : null));
     if (this.cur) {
       if (this.lifted >= 0 && !copy[this.lifted]) copy[this.lifted] = copyStack(this.cur);
-      else addInto(copy, this.cur.item, this.cur.count, 0, copy.length, this.cur.wear ?? 0);
+      else addInto(copy, this.cur.item, this.cur.count, 0, copy.length, this.cur.wear ?? 0, this.cur.water ?? 0);
     }
     return { slots: copy, selected: this.sel };
   }
@@ -295,13 +295,13 @@ export class InventoryImpl implements Inventory {
     if (!d || !Array.isArray(d.slots) || d.slots.length !== this.size) throw new Error('持ち物の保存がおかしい');
     const next: Slot[] = d.slots.map((raw: unknown) => {
       if (raw === null) return null;
-      const r = raw as { item?: unknown; count?: unknown; wear?: unknown };
+      const r = raw as { item?: unknown; count?: unknown; wear?: unknown; water?: unknown };
       const t = typeof r?.item === 'string' ? itemType(r.item) : undefined;
       if (!t || typeof r.count !== 'number' || !Number.isInteger(r.count) || r.count < 1 || r.count > t.maxStack) {
         throw new Error('持ち物のマスがおかしい');
       }
       const w = readWear(r.wear, this.maxOf(t.id));
-      return w > 0 ? { item: t.id, count: r.count, wear: w } : { item: t.id, count: r.count };
+      return copyStack({ item: t.id, count: r.count, wear: w, water: readWater(r.water, t.id) });
     });
     const sel = d.selected;
     if (typeof sel !== 'number' || !Number.isInteger(sel) || sel < 0 || sel >= HOTBAR_SIZE) {

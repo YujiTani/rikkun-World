@@ -2,6 +2,7 @@ import { RARITY_ORDER, itemRarity } from '../drops/rarity';
 import type { StorageSystem } from '../storage/StorageSystem';
 import { tansuPixels } from '../storage/tansuArt';
 import { paintWear } from './wearGauge';
+import { paintWater } from './waterGauge';
 import { createButton, createSlot, paintSlot, type Rarity4, type SlotParts } from './theme';
 import { drawPixels, itemIconUrl } from './itemIcon';
 import './storageScreen.css';
@@ -119,6 +120,7 @@ export class StorageScreen {
           : { size: 'tansu' },
       );
       paintWear(this.cells[i].root, s);
+      paintWater(this.cells[i].root, s);
     }
   }
 

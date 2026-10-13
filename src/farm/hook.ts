@@ -1,4 +1,5 @@
-import type { BlockId, CropKind, CropStage, FarmPlacement, FarmVisual, ItemStack, Vec3 } from '../contracts';
+import type { BlockId, CropKind, CropStage, FarmPlacement, FarmVisual, ItemStack, Vec3, WateringCanId } from '../contracts';
+import { canCapacity, readWater } from '../tools/durability';
 import type { KeyValueStore } from '../save/SaveManager';
 import type { FarmSystemImpl } from './FarmSystem';
 import { writeLegacySave } from './legacy';
@@ -19,7 +20,19 @@ export interface FarmHookDeps {
   world: { size: { x: number; y: number; z: number }; getBlock(x: number, y: number, z: number): BlockId | 'outside' };
   /** 置きもの の 計算（`farm.placement(seed)`）。なければ `deps.placement` と 同じものを つなぐ */
   placement: (seed: number) => FarmPlacement;
+  /** M7-2: 持ち物（`farm.setCanWater`）。なければ false を 返す */
+  inventory?: {
+    slots(): ReadonlyArray<ItemStack | null>;
+    setSlot(index: number, stack: ItemStack | null): void;
+  };
+  /** M7-2: いま の プレイヤー の 見ている 向き（水平 ベクトル）。`farm.pour` の `dir` が 無い とき 使う */
+  facing?: () => { dx: number; dz: number };
+  /** M7-2: 今 出ている つぶ と 出た 数（B・C の fx が 持つ。`farm.fx()` / `farm.fxReset()`） */
+  fx?: () => unknown;
+  fxReset?: () => void;
 }
+
+const DIRS: Record<string, { dx: number; dz: number }> = { '+x': { dx: 1, dz: 0 }, '-x': { dx: -1, dz: 0 }, '+z': { dx: 0, dz: 1 }, '-z': { dx: 0, dz: -1 } };
 
 /** `window.__rikkun.farm.*`（仕様 §6.1）。つなぎ込みが testHook に `farm:` として足す */
 export function createFarmHook(d: FarmHookDeps) {
@@ -37,7 +50,8 @@ export function createFarmHook(d: FarmHookDeps) {
   return {
     crop: (x: number, y: number, z: number) => farm.crop(x, y, z),
     crops: () => farm.crops(),
-    simulateGrowth: (kind: CropKind, wet: boolean, n: number, seed: number) => farm.simulateGrowth(kind, wet, n, seed),
+    simulateGrowth: (kind: CropKind, wet: boolean, n: number, seed: number, happy?: boolean) =>
+      farm.simulateGrowth(kind, wet, n, seed, happy === true),
     wild: () =>
       scan((id) => id.startsWith('wild_')).map((b) => ({ x: b.x, y: b.y, z: b.z, kind: b.id.slice(5) as CropKind })),
     oldFarm: () => {
@@ -92,5 +106,25 @@ export function createFarmHook(d: FarmHookDeps) {
       const a = d.aimed();
       return a ? farm.aim(a.x, a.y, a.z) : null;
     },
+    // ---- M7-2
+    /** 入力 なし で はたけ (x,y,z) を ねらって まいた のと 同じ こと（持ち物 は 変えない）。`tiles` を 返す */
+    pour: (x: number, y: number, z: number, item: WateringCanId, dir?: '+x' | '-x' | '+z' | '-z') => {
+      const f = (dir && DIRS[dir]) || d.facing?.() || DIRS['+x']!;
+      return farm.pourAt({ x, y, z }, item, f.dx, f.dz);
+    },
+    /** 入力 なし で なでる */
+    pet: (x: number, y: number, z: number) => farm.petCrop(x, y, z),
+    /** 持ち物 の その マス の じょうろ の `water` を n に（じょうろ でなければ false） */
+    setCanWater: (slot: number, n: number) => {
+      const inv = d.inventory;
+      const s = inv?.slots()[slot];
+      if (!inv || !s || canCapacity(s.item) === null) return false;
+      const w = readWater(n, s.item);
+      inv.setSlot(slot, w > 0 ? { item: s.item, count: s.count, water: w } : { item: s.item, count: s.count });
+      return true;
+    },
+    sprinklers: () => farm.sprinklers(),
+    fx: () => d.fx?.() ?? { particles: [], counts: { star: 0, heart: 0, spray: 0, splash: 0 } },
+    fxReset: () => d.fxReset?.(),
   };
 }

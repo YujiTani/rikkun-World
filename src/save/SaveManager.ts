@@ -344,12 +344,13 @@ export class SaveManager {
     const bagsFull = this.d.bags?.serialize() ?? [];
     // 比べるときは のこりステップを入れない（毎ステップ変わるため）
     const bagsKey = bagsFull.map((b) => ({ ...b, ticksLeft: 0 }));
-    // 作物の ticks も 毎ステップ変わるので 比べるときは 0 にする
+    // 作物の ticks・じょうろ の のこり・ごきげん の のこり も 毎ステップ変わるので 比べるときは 0 にする
     const farmFull = this.d.farm?.serialize() ?? null;
     const farmKey = (() => {
-      const f = farmFull as { crops?: unknown } | null;
+      const f = farmFull as { crops?: unknown; watered?: unknown; happy?: unknown } | null;
       if (!f || !Array.isArray(f.crops)) return farmFull;
-      return { ...f, crops: f.crops.map((v, k) => (k % 5 === 4 ? 0 : v)) };
+      const zeroLast = (a: unknown, n: number) => (Array.isArray(a) ? a.map((v, k) => (k % n === n - 1 ? 0 : v)) : a);
+      return { ...f, crops: zeroLast(f.crops, 5), watered: zeroLast(f.watered, 4), happy: zeroLast(f.happy, 4) };
     })();
     const make = (bags: unknown, farmData: unknown) => JSON.stringify({
       version: SAVE_VERSION,
