@@ -30,6 +30,10 @@ export function createFurnaceHook(craft: CraftSystemImpl, screen: { inventoryOpe
 export function createArmorHook(armor: ArmorSystemImpl, screen: { inventoryOpen(): boolean }) {
   return {
     get: () => armor.snapshot(),
+    /** WEAPON-2 §6.1: 着ている 防具の たいきゅう `{ max, left } | null`・準備用 */
+    durability: (slot: ArmorSlot) => armor.durability(slot),
+    setDurability: (slot: ArmorSlot, left: number) => armor.setDurability(slot, left),
+    events: () => armor.peekWearEvents(),
     set: (head: ItemId | null, body: ItemId | null, arms: ItemId | null = null, legs: ItemId | null = null) => armor.set(head, body, arms, legs),
     click: (slot: ArmorSlot) => {
       if (screen.inventoryOpen()) armor.click(slot);
