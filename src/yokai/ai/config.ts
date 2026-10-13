@@ -41,6 +41,8 @@ export const YOKAI_DROPS: Record<YokaiKind, readonly DropRow[]> = {
     { item: 'log', chance: 0.4, max: 3 },
     { item: 'oil', chance: 0.15, max: 2 },
     { item: 'iron_ore', chance: 0.05, max: 1 },
+    { item: 'seed_tomato', chance: 0.05, max: 1 },
+    { item: 'seed_pumpkin', chance: 0.05, max: 1 },
   ],
   chochin: [
     { item: 'paper', chance: 0.7, max: 4 },
@@ -55,6 +57,8 @@ export const YOKAI_DROPS: Record<YokaiKind, readonly DropRow[]> = {
   rokurokubi: [
     { item: 'cloth', chance: 0.7, max: 4 },
     { item: 'crystal', chance: 0.05, max: 1 },
+    { item: 'seed_onion', chance: 0.05, max: 1 },
+    { item: 'seed_eggplant', chance: 0.05, max: 1 },
   ],
 };
 

@@ -39,6 +39,18 @@ export function actionHintLines(right: RightClickPreview | null, left: LeftClick
       case 'armor':
         out.right = { icon: right.item!, word: 'きる' };
         break;
+      case 'till':
+        out.right = { icon: 'kuwa', word: 'たがやす' };
+        break;
+      case 'plant':
+        out.right = { icon: right.item!, word: 'まく' };
+        break;
+      case 'seedHint':
+        out.right = { icon: 'kuwa', word: 'たがやそう' };
+        break;
+      case 'eat':
+        out.right = { icon: right.item!, word: 'たべる' };
+        break;
       case 'place':
         out.right = { icon: right.item!, word: 'おく' };
         break;
@@ -46,6 +58,7 @@ export function actionHintLines(right: RightClickPreview | null, left: LeftClick
   }
   if (left === 'dig') out.left = { icon: c.held && c.heldIsPickaxe ? c.held : 'wood_pickaxe', word: 'ほる' };
   else if (left === 'hit') out.left = { icon: c.held && c.heldIsBlade ? c.held : 'bokuto', word: 'たたく' };
+  else if (left === 'harvest') out.left = { icon: 'tomato', word: 'とる' };
   else if (left === 'shoot') out.left = { icon: 'yumi', word: 'うつ' };
   return out;
 }

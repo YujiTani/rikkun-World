@@ -1,4 +1,4 @@
-import type { BlockId, DigSettings, Rarity } from '../contracts';
+import type { BlockId, DigSettings, ItemId, Rarity } from '../contracts';
 
 /**
  * ほる・おくの数値（M2 §4.1・§4.3）。ここ 1 か所にまとめる。
@@ -142,6 +142,13 @@ export function createDigConfig(): DigConfig {
     dropMax: { ...DIG_DEFAULTS.dropMax },
   };
 }
+
+/** M7: こわすと 決まった もの 1 こ（はたけ = つち、さく = き） */
+export const FARM_BREAK_DROP: Readonly<Partial<Record<BlockId, { item: ItemId; count: number }>>> = {
+  farmland: { item: 'dirt', count: 1 },
+  farmland_wet: { item: 'dirt', count: 1 },
+  saku: { item: 'log', count: 1 },
+};
 
 /** 体の箱（M1-02 §4.1）。置く判定に使う */
 export const BODY_W = 0.6;
