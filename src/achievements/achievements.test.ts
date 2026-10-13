@@ -55,12 +55,12 @@ const attach = (sys: AchievementSystem) => {
 };
 
 describe('実績の表', () => {
-  it('211 こ・id かぶりなし・小 73（M6 の 180・61 ＋ M7 の 27・11 ＋ WEAPON-2 の 4・1）', () => {
-    expect(ACHIEVEMENT_DEFS.length).toBe(211);
-    expect(new Set(ACHIEVEMENT_DEFS.map((d) => d.id)).size).toBe(211);
-    expect(ACHIEVEMENT_DEFS.filter((d) => d.small).length).toBe(73);
-    expect(ACHIEVEMENT_DEFS.filter((d) => d.category === 'farm').length).toBe(26);
-    expect(ACHIEVEMENT_DEFS.filter((d) => d.category === 'farm' && d.small).length).toBe(10);
+  it('222 こ・id かぶりなし・小 78（M6 の 180・61 ＋ M7 の 27・11 ＋ WEAPON-2 の 4・1 ＋ M7-2 の 11・5）', () => {
+    expect(ACHIEVEMENT_DEFS.length).toBe(222);
+    expect(new Set(ACHIEVEMENT_DEFS.map((d) => d.id)).size).toBe(222);
+    expect(ACHIEVEMENT_DEFS.filter((d) => d.small).length).toBe(78);
+    expect(ACHIEVEMENT_DEFS.filter((d) => d.category === 'farm').length).toBe(34);
+    expect(ACHIEVEMENT_DEFS.filter((d) => d.category === 'farm' && d.small).length).toBe(12);
   });
   it('メダルと名前', () => {
     const med = (id: string) => ACHIEVEMENT_DEFS.find((d) => d.id === id)?.medal;
@@ -320,7 +320,7 @@ describe('じっせき ページの きまり', () => {
     p.setTab('achievements');
     let ui = p.ui(true);
     expect(ui.categories.length).toBe(9);
-    expect(ui.total).toBe(211);
+    expect(ui.total).toBe(222);
     expect(ui.tabDot).toBe(true);
     expect(ui.rows.some((r) => r.isNew)).toBe(true);
     expect(ui.rows.filter((r) => !r.shown).length).toBeGreaterThan(0);

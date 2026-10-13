@@ -65,6 +65,9 @@ function tabArts(): Record<GuideTabId, string[]> {
       `${ICON('onion')}${ICON('tomato')}${RIGHT()}${EMOJI('❤')}`,
       `${ICON('seed_onion')}${ICON('seed_pumpkin')}${ICON('seed_eggplant')}`,
       `${EMOJI('☀')}${ICON('torch')}`,
+      `${ICON('watering_can')}${EMOJI('💧')}${ICON('farmland_wet')}`,
+      `${ICON('sprinkler')}${EMOJI('💦')}${ICON('farmland_wet')}`,
+      `${ICON('tomato')}${RIGHT()}${EMOJI('❤')}`,
     ],
   };
 }

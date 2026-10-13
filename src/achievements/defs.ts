@@ -20,7 +20,7 @@ export const CATEGORY_LABEL: Readonly<Record<AchievementCategory, string>> = {
   farm: 'そだてる',
 };
 
-/** つくる 22（M4 の 20 ＋ たんす ＋ くわ）。`craft.everything` の対象 */
+/** つくる 25（M4 の 20 ＋ たんす ＋ くわ ＋ M7-2 の じょうろ 2・スプリンクラー）。`craft.everything` の対象 */
 export const CRAFT_RECIPE_NAMES: ReadonlyArray<readonly [string, string]> = [
   ['wood_pickaxe', 'きの つるはし'],
   ['stone_pickaxe', 'いしの つるはし'],
@@ -44,6 +44,9 @@ export const CRAFT_RECIPE_NAMES: ReadonlyArray<readonly [string, string]> = [
   ['waraji', 'わらじ'],
   ['tansu', 'たんす'],
   ['kuwa', 'くわ'],
+  ['watering_can', 'じょうろ'],
+  ['long_watering_can', 'ながい じょうろ'],
+  ['sprinkler', 'スプリンクラー'],
 ];
 
 export const BAKE_RECIPE_NAMES: ReadonlyArray<readonly [string, string]> = [
@@ -403,6 +406,23 @@ function build(): AchievementDef[] {
   add({ series: 'find.grass', category: 'farm', stat: 'seedFrom:grass', tiers: [t(1, true)], name: () => 'くさ から たね が でた！' });
   add({ series: 'find.yokai', category: 'farm', stat: 'seedFrom:yokai', tiers: [t(1)], name: () => 'ようかい が たね を おとした！' });
   add({ series: 'find.all', category: 'farm', stat: 'seedFrom:all', tiers: [t(4)], name: () => 'たね の ありか を ぜんぶ みつけた！' });
+  // M7-2（§4.7）。M7 の 行 の うしろ に この 順
+  add({
+    series: 'farm.water',
+    category: 'farm',
+    stat: 'water:*',
+    tiers: [t(1, true), t(10), t(100)],
+    name: firstOrN('はじめて みずやり した！', (g) => `${g} かい みずやり した！`),
+  });
+  add({ series: 'farm.sprinkler', category: 'farm', stat: 'place:sprinkler', tiers: [t(1)], name: () => 'はじめて スプリンクラー を おいた！' });
+  add({
+    series: 'farm.pet',
+    category: 'farm',
+    stat: 'pet:*',
+    tiers: [t(1, true), t(10), t(100)],
+    name: firstOrN('はじめて やさい を なでた！', (g) => `やさい を ${g} かい なでた！`),
+  });
+  add({ series: 'farm.petHarvest', category: 'farm', stat: 'harvestPet', tiers: [t(1)], name: () => 'ごきげん の やさい を しゅうかく した！' });
 
   const out: AchievementDef[] = [];
   for (const s of specs) {

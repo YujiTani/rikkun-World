@@ -1,5 +1,8 @@
 import type { FarmAim } from '../contracts';
 
+/** もうすぐ かわく とき の しずく の 不透明度（M7-2 §3.5） */
+export const WET_SOON_OPACITY = 0.45;
+
 /** くらい ときの 文（M7 §3.4） */
 export const DARK_TEXT = 'くらい と そだたない よ';
 
@@ -11,6 +14,10 @@ export interface FarmAimView {
   /** くらい とき まる を うすく（不透明度 40%） */
   dim: boolean;
   droplet: boolean;
+  /** M7-2: しずく を うすく（不透明度 45%）=「もうすぐ かわく」 */
+  dropletFaint: boolean;
+  /** M7-2: ごきげん の 作物（しずく の 右 に ハート） */
+  heart: boolean;
   moon: boolean;
   darkText: string | null;
   /** はたけ を ねらった（作物なし。まる 0） */
@@ -30,6 +37,8 @@ export function farmAimView(aim: FarmAim | null): FarmAimView | null {
     dots,
     dim: dark,
     droplet: aim.wet,
+    dropletFaint: aim.wet && !!aim.wetSoon,
+    heart: !!aim.happy,
     moon: dark,
     darkText: dark ? DARK_TEXT : null,
     soilOnly: aim.dots === 0 && !aim.ripe,
