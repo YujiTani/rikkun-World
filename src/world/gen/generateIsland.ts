@@ -30,12 +30,17 @@ export function firstBlockOnRay(
   return { id: 'air', x: Math.floor(qx), y: Math.floor(qy), z: Math.floor(qz) };
 }
 
+/** M7 の 固くない ブロック（やせいの やさい・作物・かかし・さく）は 「一番上」に 数えない */
+function isSoftM7(id: BlockId): boolean {
+  return id.startsWith('wild_') || id.startsWith('crop_') || id === 'kakashi' || id === 'kakashi_head' || id === 'saku';
+}
+
 /** 一番上の「地形」ブロック（き・はっぱ・みず・くうきを除く）の y。なければ -1 */
 function terrainTop(world: VoxelWorld, x: number, z: number): number {
   for (let y = world.size.y - 1; y >= 0; y--) {
     const id = world.getBlock(x, y, z);
     if (id === 'outside') return -1;
-    if (id !== 'air' && id !== 'water' && id !== 'log' && id !== 'leaves' && id !== 'torch' && id !== 'start_torch') return y;
+    if (id !== 'air' && id !== 'water' && id !== 'log' && id !== 'leaves' && id !== 'torch' && id !== 'start_torch' && !isSoftM7(id)) return y;
   }
   return -1;
 }
