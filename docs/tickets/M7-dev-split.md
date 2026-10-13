@@ -82,3 +82,10 @@
 - `createFarmHook({ farm, visual, aimed: () => dig.target().block ?? null, give, store, seed, world, placement })` を `__rikkun.farm` に。
 - `update` は止まっている間は呼ばない。もちもの画面は 4 ステップに 1 回。
 - `farm.events()` は直近 500 件のログ（drain しても消えない。PO 了承）。
+### E（m7-e）
+- 新しい世界: 島 → `computeFarmPlacement(seed, {world, info})` → `applyFarmPlacement` → `fillTansu(placement.oldFarm.tansuItems)` → 印。A の placement に `computeFarmPlacement` をそのまま渡す。
+- `box.y0` は h₀−3（地層の差分のため）。A・つなぎ込みは `box.y0` を使う。
+- PO 決定（E の仕様の問題）:
+  1. ふるい はたけ は **全シードで必ず置く**（種の入手先なので）。段 0〜2 で見つからないときの 最後の段 3 を足す: 8×8（+まわり 1 列）に入る **木を差分として取りのぞいて** 置いてよい（木は島の生成物なので、前の保存の「変えていない」判定にも矛盾しない）。それでもだめなら 距離 7〜16・北から 60° まで広げる。7 と 9 も置けることをテストで固定。
+  2. 岩山の範囲の読みかえ（8×8 のてっぺんが ぜんぶ くさ）で よい。
+  3. h₀−3 を dirt にする差分と box.y0 = h₀−3 で よい。
