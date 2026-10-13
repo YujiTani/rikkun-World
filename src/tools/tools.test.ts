@@ -219,7 +219,7 @@ describe('tool.get', () => {
     r.hold('naginata');
     expect(r.tools.current()).toMatchObject({ kind: 'blade', damage: 3, reach: 5, ticks: 40, power: 1 });
     r.hold('yumi');
-    expect(r.tools.current()).toMatchObject({ kind: 'bow', damage: 2 });
+    expect(r.tools.current()).toMatchObject({ kind: 'bow', damage: 3, reach: 39 });
     r.hold('kite');
     expect(r.tools.current().kind).toBe('other');
   });
@@ -409,84 +409,68 @@ describe('武器', () => {
   });
 });
 
-describe('ゆみ と や', () => {
-  it('10 ステップ目に飛ぶ・や 3→2。ゆみでは ほらない', () => {
+describe('ゆみ と や（WEAPON-2。くわしくは bow/bow.test.ts）', () => {
+  function bowRig() {
     const r = new Rig();
     r.inv.setSlot(0, { item: 'yumi', count: 1 });
     r.inv.setSlot(1, { item: 'ya', count: 3 });
     r.inv.select(0);
     r.world.setBlock(4, 10, 6, 'dirt');
     r.yokai.dist = 100;
+    return r;
+  }
+  it('おして はなすと 段 1 で 飛ぶ・や 3→2。ゆみでは ほらない', () => {
+    const r = bowRig();
     r.step(1);
     r.press('primary');
-    r.step(9);
+    r.step(10);
     expect(r.inv.count('ya')).toBe(3);
+    r.release('primary');
     r.step(1);
     expect(r.inv.count('ya')).toBe(2);
-    expect(r.tools.takeHookEvents().map((e) => e.type)).toEqual(['arrowShot']);
+    expect(r.tools.takeHookEvents().map((e) => e.type)).toEqual(['drawStart', 'stage', 'arrowShot']);
     expect(r.dig.state().progress).toBe(0);
     expect(r.tools.drainSwings().map((s) => s.anim)).toEqual(['draw', 'release']);
+    expect(r.tools.bow().arrows()).toHaveLength(1);
   });
-  it('妖怪 10.0 に 29〜31 ステップ目で当たり 4→2', () => {
-    const r = new Rig();
-    r.inv.setSlot(0, { item: 'yumi', count: 1 });
-    r.inv.setSlot(1, { item: 'ya', count: 3 });
-    r.inv.select(0);
-    r.yokai.dist = 10;
+  it('おしっぱなしでは 飛ばない（はなした ときに 飛ぶ）', () => {
+    const r = bowRig();
     r.press('primary');
-    r.step(1);
+    r.step(100);
+    expect(r.inv.count('ya')).toBe(3);
+    expect(r.tools.bow().state()).toMatchObject({ drawing: true, stage: 3 });
+  });
+  it('妖怪 10.0 に 段 3 で 当たり 4→1。arrowHit', () => {
+    const r = bowRig();
+    r.yokai.dist = 10;
+    r.world.setBlock(4, 10, 6, 'air');
+    r.press('primary');
+    r.step(40);
     r.release('primary');
-    let hitStep = -1;
-    for (let i = 2; i <= 40; i++) {
-      r.step(1);
-      if (r.tools.takeHookEvents().some((e) => e.type === 'arrowHit')) {
-        hitStep = i;
-        break;
-      }
-    }
-    expect(hitStep).toBeGreaterThanOrEqual(29);
-    expect(hitStep).toBeLessThanOrEqual(31);
-    expect(r.yokai.hp).toBe(2);
+    r.step(60);
+    expect(r.yokai.hp).toBe(1);
     expect(r.tools.arrows()).toEqual([]);
   });
-  it('押しっぱなし 120: 10・40・70 で飛び、91 で noArrow。24 で消える', () => {
-    const r = new Rig();
-    r.world.setBlock(63, 10, 6, 'air');
-    r.inv.setSlot(0, { item: 'yumi', count: 1 });
-    r.inv.setSlot(1, { item: 'ya', count: 3 });
-    r.inv.select(0);
-    r.yokai.dist = 1000;
-    r.player.position = { x: 2.5, y: 9, z: 6.5 };
+  it('ブロックに ささる。ブロックは そのまま', () => {
+    const r = bowRig();
+    r.world.setBlock(5, 10, 6, 'stone');
     r.press('primary');
-    const shots: number[] = [];
-    const none: number[] = [];
-    const ends: number[] = [];
-    for (let i = 1; i <= 200; i++) {
-      r.step(1);
-      for (const e of r.tools.takeHookEvents()) {
-        if (e.type === 'arrowShot') shots.push(i);
-        if (e.type === 'noArrow') none.push(i);
-        if (e.type === 'arrowEnd') {
-          ends.push(i);
-          expect(e.traveled).toBeCloseTo(24, 1);
-        }
-      }
-    }
-    expect(shots).toEqual([10, 40, 70]);
-    expect(none.slice(0, 2)).toEqual([91, 121]);
-    expect(ends).toEqual([57, 87, 117]); // 飛んでから 48 ステップ以内
+    r.step(25);
+    r.release('primary');
+    r.step(30);
+    expect(r.tools.bow().stuck()).toHaveLength(1);
+    expect(r.world.getBlock(5, 10, 6)).toBe('stone');
   });
-  it('ブロックに当たると arrowEnd、ブロックはそのまま', () => {
-    const r = new Rig();
-    r.inv.setSlot(0, { item: 'yumi', count: 1 });
-    r.inv.setSlot(1, { item: 'ya', count: 1 });
-    r.inv.select(0);
-    r.yokai.dist = 1000;
-    r.world.setBlock(5, 10, 6, 'stone'); // 目 2.5 から面まで 2.5... 目の高さ 10.62 は y=10 のブロック内
+  it('持ちかえる と ひくのを やめる', () => {
+    const r = bowRig();
+    r.inv.setSlot(2, { item: 'stone', count: 1 });
     r.press('primary');
     r.step(30);
-    const ev = r.tools.takeHookEvents();
-    expect(ev.some((e) => e.type === 'arrowEnd' && e.reason === 'block')).toBe(true);
-    expect(r.world.getBlock(5, 10, 6)).toBe('stone');
+    r.inv.select(2);
+    r.step(1);
+    expect(r.tools.bow().state().drawing).toBe(false);
+    r.release('primary');
+    r.step(1);
+    expect(r.inv.count('ya')).toBe(3);
   });
 });
