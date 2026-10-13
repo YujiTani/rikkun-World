@@ -1,7 +1,8 @@
-import { seedKindOfItem, vegKindOfItem, type ItemId, type Rarity, type Recipe } from '../contracts';
+import { seedKindOfItem, vegKindOfItem, type ItemId, type ItemStack, type Rarity, type Recipe } from '../contracts';
 import { CRAFT_UI_SETTINGS, TOOL_NUMBERS, type CraftUiSettings, type ToolNumbers } from '../fx/craftConfig';
 import { RARITY_COLOR } from '../drops/rarity';
 import { ITEM_INFO } from '../craft/info/table';
+import { wearView } from './wearGauge';
 
 /** ツールチップの行につく小さな絵。アイテムの id か、かなづち・時計 */
 export type TooltipIcon = ItemId | 'hammer' | 'clock';
@@ -40,7 +41,7 @@ const PICKAXES = ['wood_pickaxe', 'stone_pickaxe', 'iron_pickaxe'];
 const BLADES = ['bokuto', 'katana', 'naginata', 'crystal_katana'];
 
 /** ツールチップの中身（M4 §2.13 の表の順。当てはまるものだけ） */
-export function buildTooltip(item: ItemId, d: TooltipDeps): TooltipData {
+export function buildTooltip(item: ItemId, d: TooltipDeps, stack?: ItemStack | null): TooltipData {
   const tools = d.tools ?? TOOL_NUMBERS;
   const ui = d.ui ?? CRAFT_UI_SETTINGS;
   const lines: string[] = [];
@@ -68,6 +69,9 @@ export function buildTooltip(item: ItemId, d: TooltipDeps): TooltipData {
   if (item === 'kuwa') add('はたけ を つくる', item);
   if (seedKindOfItem(item) !== null) add('はたけ に まく', item);
   if (vegKindOfItem(item) !== null) add('たべると ハート が もどる', item);
+  // WEAPON-2 §4.6 (8): たいきゅうで へる 道具は 「たいきゅう のこり / 新品」（へった 量が 分からない ときは 新品）
+  const wv = wearView(stack && stack.item === item ? stack : { item, count: 1 });
+  if (wv) add(`たいきゅう ${wv.left} / ${wv.max}`, item);
   if (d.placeable(item)) add('おける', item);
   if (item === 'furnace') add('みぎクリック で やく', 'furnace');
   if (ui.fuelOrder.includes(item)) add('ねんりょう に なる', 'furnace');

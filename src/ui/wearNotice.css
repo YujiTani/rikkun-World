@@ -1,0 +1,23 @@
+/* もうすぐ こわれるよ（チップ）: 画面の 上の方 まん中。点滅なし */
+#wear-hint {
+  position: fixed;
+  left: 50%;
+  top: 18%;
+  transform: translateX(-50%);
+  pointer-events: none;
+  z-index: 7;
+}
+#wear-hint[hidden] {
+  display: none;
+}
+/* こわれた ログ: 左はし、拾ったログの すこし 上 */
+#wear-log {
+  position: fixed;
+  left: var(--rk-sp-5);
+  top: 44%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--rk-sp-2);
+  pointer-events: none;
+  z-index: 5;
+}

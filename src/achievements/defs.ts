@@ -323,6 +323,16 @@ function build(): AchievementDef[] {
   add({ series: 'jump', category: 'adventure', stat: 'jump', tiers: [t(100), t(1000)], name: (g) => `${g} かい ジャンプ した！` });
   add({ series: 'full', category: 'adventure', stat: 'full', tiers: [t(1)], name: () => 'もちもの が いっぱい に なった！' });
   add({ series: 'drop.first', category: 'adventure', stat: 'drop:*', tiers: [t(1, true)], name: () => 'はじめて アイテム を すてた！' });
+  // WEAPON-2（§4.6 (9)）: 道具が こわれた・へった たいきゅうの 合計・防具が こわれた（「つかいきった」と 前向きに）
+  add({
+    series: 'tool.broken',
+    category: 'adventure',
+    stat: 'toolBroken',
+    tiers: [t(1, true), t(10)],
+    name: firstOrN('はじめて どうぐ を つかいきった！', (g) => `どうぐ を ${g} こ つかいきった！`),
+  });
+  add({ series: 'tool.wearAll', category: 'adventure', stat: 'wearTotal', tiers: [t(1000)], name: (g) => `どうぐ を ${g} かい つかった！` });
+  add({ series: 'armor.broken', category: 'adventure', stat: 'armorBroken', tiers: [t(1)], name: () => 'ぼうぐ が みを まもって くれた！' });
 
   // J. ばしょ
   for (const [id, name] of [
