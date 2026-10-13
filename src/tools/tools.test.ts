@@ -443,6 +443,7 @@ describe('ゆみ と や（WEAPON-2。くわしくは bow/bow.test.ts）', () =>
   it('妖怪 10.0 に 段 3 で 当たり 4→1。arrowHit', () => {
     const r = bowRig();
     r.yokai.dist = 10;
+    r.world.setBlock(4, 10, 6, 'air');
     r.press('primary');
     r.step(40);
     r.release('primary');
