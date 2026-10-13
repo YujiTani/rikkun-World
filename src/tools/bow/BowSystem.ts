@@ -163,7 +163,7 @@ export function createBowSystem(deps: BowDepsX): BowSystem {
         rayDir.x = mx / L;
         rayDir.y = my / L;
         rayDir.z = mz / L;
-        const blk = raycastBlocks(deps.world, p.x, p.y, p.z, rayDir.x, rayDir.y, rayDir.z, L);
+        const blk = raycastBlocks(deps.world, p.x, p.y, p.z, rayDir.x, rayDir.y, rayDir.z, L, true);
         origin.x = p.x;
         origin.y = p.y;
         origin.z = p.z;

@@ -135,6 +135,8 @@ export class DigSystemImpl implements DigSystem {
   /** すで の たがやし: 数えている ブロック・回数・前の 1 回の ステップ */
   private tillBlock: Vec3 | null = null;
   private tillCount = 0;
+  /** 押した瞬間に 素手だったか（たねを使い切ったあと 押しっぱなしで 素手たがやしを はじめない） */
+  private pressStartedEmpty = false;
   private tillLast = -Infinity;
   /** まだ の作物を ゆらした ブロック（押しつづけで くりかえさない） */
   private unripeBlock: Vec3 | null = null;
@@ -485,6 +487,7 @@ export class DigSystemImpl implements DigSystem {
     const every = this.config.placeRepeatTicks;
     const first = this.secondaryTicks === 0;
     const due = this.secondaryTicks % every === 0;
+    if (first) this.pressStartedEmpty = this.inventory.held() === null;
     this.secondaryTicks++;
     // たんす > かまど > 防具 > 置く（たんす・かまど・防具は押した瞬間だけ）。ヒントと同じ previewRightClick で決める
     const pv = this.previewRightClick();
@@ -498,7 +501,7 @@ export class DigSystemImpl implements DigSystem {
     }
     const t = this.tgt;
     if (pv.kind === 'till') {
-      if (due && t) this.doTill(t);
+      if (due && t && (first || this.inventory.held() !== null || this.pressStartedEmpty)) this.doTill(t);
       return;
     }
     if (pv.kind === 'plant') {

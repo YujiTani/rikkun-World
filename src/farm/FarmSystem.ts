@@ -437,7 +437,8 @@ export function createFarmSystem(deps: FarmDepsM7): FarmSystemImpl {
     deserialize(data) {
       crops.clear();
       const d = data as { placed?: unknown; rng?: unknown; kakashi?: unknown; crops?: unknown } | null | undefined;
-      placed = d?.placed === true;
+      // 印なし（前の保存・null）は まだ置いていない。farm の中身があって こわれているときは 置いたまま
+      placed = d !== null && d !== undefined && typeof d === 'object' ? d.placed !== false : false;
       kakashiPos = null;
       nearKakashi = false;
       if (d && typeof d.rng === 'number') rng.set(d.rng);

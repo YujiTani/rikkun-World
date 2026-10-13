@@ -227,6 +227,13 @@ describe('保存（AC20・AC21）', () => {
     b.step(1000);
     expect(b.farm.crops().map((c) => [c.stage, c.stageTicks])).toEqual(a.farm.crops().map((c) => [c.stage, c.stageTicks]));
   });
+  it('farm の保存がこわれていても 新しい保存なら 置いた印は のこる。前の保存（なし）は まだ', () => {
+    const a = make();
+    a.farm.deserialize({});
+    expect(a.farm.placedM7()).toBe(true);
+    a.farm.deserialize(null);
+    expect(a.farm.placedM7()).toBe(false);
+  });
   it('作物 480 こ の 大きさ', () => {
     const a = make();
     for (let i = 0; i < 480; i++) {

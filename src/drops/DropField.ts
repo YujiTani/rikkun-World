@@ -71,6 +71,8 @@ export type DropSave = {
   rarity: Rarity;
   /** WEAPON-2: へった たいきゅう（なし = 新品） */
   wear?: number;
+  /** 妖怪の おとしもの */
+  yokai?: boolean;
 };
 
 interface Entity {
@@ -93,6 +95,8 @@ interface Entity {
   thrown: boolean;
   /** 出てから これだけたつと拾える（age がこの数に なるまで拾わない） */
   pickupAt: number;
+  /** 妖怪の おとしもの（実績の「ようかいからたね」用。あふれ・すてたものは false） */
+  yokai: boolean;
 }
 
 export interface DropFieldDeps {
@@ -118,7 +122,7 @@ export interface DropFieldDeps {
   /** 近づいたのに 1 つも入らなかった（もちものがいっぱい）。ステップごとに呼ばれうる */
   onFull?: () => void;
   /** 拾って持ち物に入った（入った数）。拾ったログ用（M4） */
-  onPickup?: (item: ItemStack['item'], count: number) => void;
+  onPickup?: (item: ItemStack['item'], count: number, fromYokai: boolean) => void;
 }
 
 const DT = 1 / 60;
@@ -176,6 +180,7 @@ export class DropField {
         bounces: 0,
         thrown: false,
         pickupAt: DROP.pickupDelay,
+        yokai: opts.kind === 'yokai',
       });
       total += st.count;
       if (this.items.length > DROP.maxItems) this.items.shift();
@@ -218,6 +223,7 @@ export class DropField {
       age: 0,
       bounces: 0,
       thrown: true,
+        yokai: false,
       pickupAt: this.d.live?.dropPickupDelay ?? 60,
     });
     if (this.items.length > DROP.maxItems) this.items.shift();
@@ -299,7 +305,7 @@ export class DropField {
       if (Math.hypot(p.x - b.x, p.z - b.z) <= radius && Math.abs(p.y - b.y) <= DROP.pickupHeight) {
         const left = addStack(this.d.inventory, b.item);
         if (left !== b.item.count) {
-          this.d.onPickup?.(b.item.item, b.item.count - left);
+          this.d.onPickup?.(b.item.item, b.item.count - left, b.yokai);
           b.item = { ...b.item, count: left };
           picked.push(b.id);
           changed = true;
@@ -397,6 +403,7 @@ export class DropField {
       ticksLeft: b.ticksLeft,
       batch: b.batch,
       rarity: b.rarity,
+      ...(b.yokai ? { yokai: true } : {}),
       ...(b.item.wear && b.item.wear > 0 ? { wear: b.item.wear } : {}),
     }));
   }
@@ -437,6 +444,7 @@ export class DropField {
           rarity,
           thrown: false,
           pickupAt: 0,
+          yokai: r.yokai === true,
         });
       }
     }
