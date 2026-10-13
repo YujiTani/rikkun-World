@@ -62,9 +62,25 @@ export function blockIndexOf(id: string): number {
   return i === undefined ? -1 : i;
 }
 
-/** 色のついた不透明ブロックか（面を描く・隠す判定に使う）。水・空気はちがう */
+const CROSS_IDS: ReadonlySet<string> = new Set([
+  'crop_onion', 'crop_tomato', 'crop_pumpkin', 'crop_eggplant',
+  'wild_onion', 'wild_tomato', 'wild_pumpkin', 'wild_eggplant',
+  'kakashi', 'kakashi_head', 'saku',
+]);
+const CROSS = BLOCK_TYPES.map((t) => CROSS_IDS.has(t.id));
+/** 十字の板で描くブロックか（作物・やせいの やさい・かかし・さく）。固くない・光を通す・まわりの面を隠さない */
+export function isCrossIndex(index: number): boolean {
+  return CROSS[index] === true;
+}
+/** みのった作物・やせいの やさい（少し光る。明るさの下限） */
+const WILD_IDS: ReadonlySet<string> = new Set(['wild_onion', 'wild_tomato', 'wild_pumpkin', 'wild_eggplant']);
+export function isWildIndex(index: number): boolean {
+  return WILD_IDS.has(BLOCK_TYPES[index]?.id);
+}
+
+/** 色のついた不透明ブロックか（面を描く・隠す判定に使う）。水・空気・十字の板はちがう */
 export function isOpaqueIndex(index: number): boolean {
-  return index !== AIR && index !== WATER && !isTorchIndex(index);
+  return index !== AIR && index !== WATER && !isTorchIndex(index) && !isCrossIndex(index);
 }
 
 /** 固いブロックか（番号で） */
