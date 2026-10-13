@@ -12,6 +12,8 @@ export function createYokaiHook(m: YokaiManager) {
       events: () => m.takeHookEvents(),
       /** 飛んでいる火の玉の数 */
       fireballs: (): number => m.fireballCount(),
+      /** 体力を 決める（準備用。最大を こえて も よい） */
+      setHp: (id: number, hp: number): boolean => m.setHp(id, hp),
       /** 線にふれる妖怪（テスト用） */
       raycast: (origin: Vec3, dir: Vec3, max: number) => m.raycast(origin, dir, max),
     },
