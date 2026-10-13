@@ -244,7 +244,7 @@ const dropLive = {
     return m6.dropThrowUp;
   },
 };
-let onDropPicked: (item: ItemId, count: number) => void = () => {};
+let onDropPicked: (item: ItemId, count: number, fromYokai: boolean) => void = () => {};
 const drops = new DropField({
   world,
   inventory,
@@ -257,7 +257,7 @@ const drops = new DropField({
     lastFullSignal = game.tick;
     hudSignal.full();
   },
-  onPickup: (item, count) => onDropPicked(item, count),
+  onPickup: (item, count, fromYokai) => onDropPicked(item, count, fromYokai),
 });
 let yokaiManager: YokaiManager | null = null;
 // 実績は あとで作る（たいきゅうの へった量を わたす先）
@@ -349,6 +349,8 @@ const dropController = new DropController({
   hover: () => dragOut?.hoverTarget() ?? null,
 });
 // 農業（M7）。作物の段階を描画へ、出来事は 毎ステップ 1 回だけ drain して配る
+// ふるい たんす の場所（置いたとき・保存を読んだあとに 1 回だけ決める）
+let oldTansu: { x: number; y: number; z: number } | null = null;
 const farm = createFarmSystem({
   world,
   light: renderer.light,
@@ -357,6 +359,7 @@ const farm = createFarmSystem({
   settings: m7,
   tick: () => game.tick,
   fillTansu: (pos, items) => {
+    oldTansu = { x: pos.x, y: pos.y, z: pos.z };
     items.forEach((st, i) => storage.set(pos.x, pos.y, pos.z, i, st));
   },
   placement: computeFarmPlacement,
@@ -389,7 +392,7 @@ const dig = new DigSystemImpl(
     storage,
     onPickup: (item, count) => craft.notifyPickup(item, count),
     scatterItem: (pos, item, count) => {
-      drops.scatter(pos, [{ item, count }], { kind: 'yokai' });
+      drops.scatter(pos, [{ item, count }]);
     },
     farm,
     vitals: combat,
@@ -476,9 +479,9 @@ const inventoryScreen = new InventoryScreen(hud, inventory, screen, () => screen
 const pickupLog = new PickupLog(hud, { nameOf, rarityOf: itemRarity }, new PickupLogModel(craftUi));
 const craftHud = new CraftUiHud({ hud, craft, inv: inventory, nameOf, rarityOf: itemRarity }, pickupLog);
 const furnaceFx = new FurnaceFx(game.scene, fxSound, craftUi);
-onDropPicked = (item, count) => {
+onDropPicked = (item, count, fromYokai) => {
   // からかさ・ろくろくび の おとしもの から たね を拾った
-  if (CROP_KINDS.some((k) => SEED_ITEM[k] === item)) farm.noteSeedFound('yokai', item, controller.state.position);
+  if (fromYokai && CROP_KINDS.some((k) => SEED_ITEM[k] === item)) farm.noteSeedFound('yokai', item, controller.state.position);
   craft.notifyPickup(item, count);
   hotbar.pickup(item, count);
 };
@@ -531,7 +534,13 @@ const weaponFx = new WeaponFx({
   scene: game.scene,
   sound: fxSound,
   blade,
-  bow: tools.bow(),
+  bow: {
+    drainEvents: () => {
+      const r = arrowBuf;
+      arrowBuf = NO_ARROW;
+      return r;
+    },
+  },
   inventory,
   armor,
   bladeHud,
@@ -628,6 +637,9 @@ dragOut = new DragOut(inventoryScreen, {
 });
 tryOpenTansu = () => dig.tryOpenAimedStorage();
 // 出来事の入れ物（毎ステップ 1 回だけ drain して、画面・音・実績に配る）
+// ゆみの出来事は main が 1 回だけ drain して、weaponFx にも配る
+const NO_ARROW: ReturnType<typeof tools.drainArrowEvents> = [];
+let arrowBuf: ReturnType<typeof tools.drainArrowEvents> = NO_ARROW;
 const NO_DIG: DigEvent[] = [];
 let digBuf: DigEvent[] = NO_DIG;
 time.onPhaseChange((p) => achievements.feedPhase(p));
@@ -690,6 +702,8 @@ if (!loadedSave) {
   farm.noteNewWorldPlaced(placement);
   requestSave();
 }
+// 保存を読んだ世界では たんす の場所が わからないので、ここで 1 回だけ 計算する（あそびの途中では 計算しない）
+if (loadedSave && oldTansu === null && farm.kakashi()) oldTansu = computeFarmPlacement(seed).oldFarm?.tansu ?? null;
 // 農業の見た目（作物の絵・光）
 const farmVisual = createFarmVisual({
   world,
@@ -706,13 +720,11 @@ const farmVisual = createFarmVisual({
 });
 // ふるい たんす から たね を持ち物へ うつしたか（たんす を開いているあいだ、たねの数がふえたら）
 let seedsInInv = 0;
-let oldTansu: { x: number; y: number; z: number } | null | undefined;
 const seedCount = (): number => CROP_KINDS.reduce((n, k) => n + inventory.count(SEED_ITEM[k]), 0);
 function trackOldFarmSeeds(): void {
   const ui = storage.ui();
   const n = seedCount();
   if (ui.open && ui.position && n > seedsInInv) {
-    if (oldTansu === undefined) oldTansu = computeFarmPlacement(seed).oldFarm?.tansu ?? null;
     const p = ui.position;
     if (oldTansu && oldTansu.x === p.x && oldTansu.y === p.y && oldTansu.z === p.z) {
       for (const k of CROP_KINDS) farm.noteSeedFound('oldfarm', SEED_ITEM[k], p);
@@ -854,7 +866,9 @@ game.onUpdate((dt) => {
     for (const sw of swings) playSwing(fxSound, sw.anim, held);
     swingBuf = swingBuf === NO_SWINGS ? swings : swingBuf.concat(swings);
   }
-  for (const e of tools.drainArrowEvents()) {
+  const arrowEvents = tools.drainArrowEvents();
+  if (arrowEvents.length > 0) arrowBuf = arrowEvents;
+  for (const e of arrowEvents) {
     if (e.type === 'noArrow') notice.showSignal('noArrow');
     else if (e.type === 'arrowHit') {
       playCombat(fxSound, 'hit');
@@ -981,7 +995,7 @@ installTestHook(game, overlay, {
     give: (items) => {
       for (const st of items) {
         const left = inventory.add(st.item, st.count);
-        if (left > 0) drops.scatter(controller.state.position, [{ item: st.item, count: left }], { kind: 'yokai' });
+        if (left > 0) drops.scatter(controller.state.position, [{ item: st.item, count: left }]);
       }
     },
     store,

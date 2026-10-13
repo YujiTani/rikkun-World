@@ -19,7 +19,7 @@ function targetable(id: BlockId | 'outside'): id is BlockId {
 
 /**
  * 目から向きへ線をのばし、reach 以内で最初の「air・water 以外」のブロックを返す（M2 §2.2）。
- * 世界の外のマスは通りぬける。
+ * 世界の外のマスは通りぬける。solidOnly なら 固いブロックだけ（作物・かかし・さく・たいまつ は通りぬける。弓・刀の さえぎり用）。
  */
 export function raycastBlocks(
   world: VoxelWorld,
@@ -30,13 +30,14 @@ export function raycastBlocks(
   dy: number,
   dz: number,
   reach: number,
+  solidOnly = false,
 ): TargetInfo | null {
   let x = Math.floor(ox);
   let y = Math.floor(oy);
   let z = Math.floor(oz);
 
   const start = world.getBlock(x, y, z);
-  if (targetable(start)) {
+  if (targetable(start) && (!solidOnly || world.isSolid(x, y, z))) {
     // 目がブロックの中: 向きの強い軸の反対側を面とする
     const ax = Math.abs(dx);
     const ay = Math.abs(dy);
@@ -87,7 +88,7 @@ export function raycastBlocks(
     }
     if (t > reach) return null;
     const id = world.getBlock(x, y, z);
-    if (targetable(id)) {
+    if (targetable(id) && (!solidOnly || world.isSolid(x, y, z))) {
       return {
         block: { x, y, z },
         id,

@@ -222,7 +222,8 @@ export class SaveManager {
       try {
         this.d.farm?.deserialize(data.farm);
       } catch {
-        this.d.farm?.deserialize(null);
+        // 新しい保存（farm のキーがある）でこわれたときは 置いた印を 残す。前の保存（キーなし）は null
+        this.d.farm?.deserialize(data.farm === undefined || data.farm === null ? null : {});
       }
       if (this.d.farm?.placeLegacy) {
         const changedSet = new Set<number>();
@@ -343,7 +344,14 @@ export class SaveManager {
     const bagsFull = this.d.bags?.serialize() ?? [];
     // 比べるときは のこりステップを入れない（毎ステップ変わるため）
     const bagsKey = bagsFull.map((b) => ({ ...b, ticksLeft: 0 }));
-    const make = (bags: unknown) => JSON.stringify({
+    // 作物の ticks も 毎ステップ変わるので 比べるときは 0 にする
+    const farmFull = this.d.farm?.serialize() ?? null;
+    const farmKey = (() => {
+      const f = farmFull as { crops?: unknown } | null;
+      if (!f || !Array.isArray(f.crops)) return farmFull;
+      return { ...f, crops: f.crops.map((v, k) => (k % 5 === 4 ? 0 : v)) };
+    })();
+    const make = (bags: unknown, farmData: unknown) => JSON.stringify({
       version: SAVE_VERSION,
       gen: SAVE_GEN,
       size: [world.size.x, world.size.y, world.size.z],
@@ -364,9 +372,9 @@ export class SaveManager {
       level: this.d.level?.serialize() ?? null,
       storage: this.d.storage?.serialize() ?? null,
       achievements: this.d.achievements?.serialize() ?? null,
-      farm: this.d.farm?.serialize() ?? null,
+      farm: farmData,
     });
-    return { body: make(bagsKey), full: make(bagsFull), changed: blocks.length / 2 };
+    return { body: make(bagsKey, farmKey), full: make(bagsFull, farmFull), changed: blocks.length / 2 };
   }
 
   private write(force: boolean, flushTime = false): void {

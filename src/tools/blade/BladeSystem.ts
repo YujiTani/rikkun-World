@@ -168,7 +168,7 @@ export function createBladeSystem(deps: BladeDeps): BladeSystem {
     const dz = cz - ctx.eye.z;
     const len = Math.hypot(dx, dy, dz);
     if (len < 1e-6) return false;
-    return raycastBlocks(deps.world, ctx.eye.x, ctx.eye.y, ctx.eye.z, dx / len, dy / len, dz / len, len) !== null;
+    return raycastBlocks(deps.world, ctx.eye.x, ctx.eye.y, ctx.eye.z, dx / len, dy / len, dz / len, len, true) !== null;
   }
 
   /** 扇形の 柱に 当たるか（箱は 円柱で 近づける） */
