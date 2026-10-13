@@ -348,7 +348,7 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
     if (it === 'wood_pickaxe' || it === 'stone_pickaxe' || it === 'iron_pickaxe') n = w.pickaxe.hit;
     else if (it === 'naginata') n = w.blade.hit;
     else if (it === 'kuwa') n = w.kuwa.hit;
-    if (n > 0) this.d.inventory.wearHeld(n);
+    if (n > 0) this.d.inventory.wearHeld?.(n);
   }
 
   // ---------------------------------------------------------- 毎ステップ
