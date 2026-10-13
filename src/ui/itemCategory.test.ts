@@ -9,11 +9,11 @@ import { GEM_SHAPES, gemPixels, gemShape } from './gemArt';
 const rgb = (h: string) => parseCssColor(`rgb(${parseInt(h.slice(1, 3), 16)}, ${parseInt(h.slice(3, 5), 16)}, ${parseInt(h.slice(5, 7), 16)})`)!;
 
 describe('マスの カテゴリー（§3.5 (7)）', () => {
-  it('13 カテゴリーで 49 こ（ようかいだま 込み）。同じ id が 2 つの カテゴリーに無い', () => {
+  it('13 カテゴリーで 52 こ（ようかいだま 込み）。同じ id が 2 つの カテゴリーに無い', () => {
     expect(ITEM_CATEGORIES.length).toBe(13);
     const all = ITEM_CATEGORIES.flatMap((c) => CATEGORY_ITEMS[c]);
-    expect(all.length).toBe(49);
-    expect(new Set(all).size).toBe(49);
+    expect(all.length).toBe(52);
+    expect(new Set(all).size).toBe(52);
   });
   it('今ある全アイテムが 表にある（たんす は D が足す）。表に無いものは そざい', () => {
     for (const t of ITEM_TYPES) expect(CATEGORY_ITEMS[itemCategory(t.id)], t.id).toContain(t.id);

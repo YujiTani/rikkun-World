@@ -17,9 +17,9 @@ function make(patch: Partial<InfoNumbers> = {}) {
 
 describe('説明の表（M6 §2.2）', () => {
   const src = make();
-  it('ようかいだま をのぞく 48 こ。文はすべて ひらがな・カタカナ（漢字なし）', () => {
+  it('ようかいだま をのぞく 51 こ。文はすべて ひらがな・カタカナ（漢字なし）', () => {
     const ids = Object.keys(ITEM_INFO).filter((i) => i !== 'yokai_orb');
-    expect(ids).toHaveLength(48);
+    expect(ids).toHaveLength(51);
     for (const id of ids) {
       const i = src.info(id as ItemId);
       expect(findUnrubiedKanji(`${i.use}${i.how}${i.source}${i.stats.map((s) => s.label + s.value).join('')}`), id).toEqual([]);
@@ -44,7 +44,7 @@ describe('説明の表（M6 §2.2）', () => {
     }
   });
   it('U4・U14: usedIn は材料にするレシピ（たんす をふくむ 9 こ）', () => {
-    expect(src.info('iron_ingot').usedIn).toEqual(['iron_pickaxe', 'katana', 'naginata', 'crystal_katana', 'kabuto', 'yoroi', 'kote', 'suneate', 'tansu']);
+    expect(src.info('iron_ingot').usedIn).toEqual(['iron_pickaxe', 'katana', 'naginata', 'crystal_katana', 'kabuto', 'yoroi', 'kote', 'suneate', 'tansu', 'watering_can', 'long_watering_can', 'sprinkler']);
     for (const id of src.items()) {
       const used = src.info(id as ItemId).usedIn;
       for (const r of RECIPES) expect(used.includes(r.id) === r.inputs.some((i) => i.item === id), `${id}/${r.id}`).toBe(true);

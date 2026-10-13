@@ -82,7 +82,21 @@ const M7_ITEMS: readonly ItemType[] = [
   { id: 'kuwa', name: 'くわ', maxStack: 1, placeBlock: null },
 ];
 
-export const ITEM_TYPES: readonly ItemType[] = [...PLACEABLE_TYPES, ...ITEM_ONLY, ...M4_BLOCKS, ...M4_ITEMS, ...M7_ITEMS];
+/** M7-2: じょうろ 2 しゅるい（置けない・上限 1）と スプリンクラー（ブロック・64） */
+const M72_ITEMS: readonly ItemType[] = [
+  { id: 'watering_can', name: 'じょうろ', maxStack: 1, placeBlock: null },
+  { id: 'long_watering_can', name: 'ながい じょうろ', maxStack: 1, placeBlock: null },
+  { id: 'sprinkler', name: 'スプリンクラー', maxStack: BLOCK_MAX_STACK, placeBlock: 'sprinkler' },
+];
+
+export const ITEM_TYPES: readonly ItemType[] = [
+  ...PLACEABLE_TYPES,
+  ...ITEM_ONLY,
+  ...M4_BLOCKS,
+  ...M4_ITEMS,
+  ...M7_ITEMS,
+  ...M72_ITEMS,
+];
 
 const BY_ID = new Map<string, ItemType>(ITEM_TYPES.map((t) => [t.id, t]));
 

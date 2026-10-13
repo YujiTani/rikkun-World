@@ -58,6 +58,8 @@ export interface InfoNumbers {
   tansuSlots: number;
   /** M7: かわいた はたけ で 0 → 3 に かかる にち（なければ 初期値） */
   farmGrowDays?: Readonly<Record<CropKind, number>>;
+  /** M7-2: じょうろ の 入る 回数（なければ 初期値） */
+  farmCanCapacity?: Readonly<Record<string, number>>;
   /** WEAPON-2: 新品の たいきゅう（設定 `toolDurability`。なければ 初期値） */
   toolDurability?: Partial<Record<ItemId, number>>;
 }
@@ -209,6 +211,8 @@ export function createItemInfo(d: InfoDeps): ItemInfoSource {
         const k = ARMOR_KIND[item] ?? 'normal';
         return [{ key: 'guard', label: 'まもる つよさ', value: n.armorValue[item]?.[k] ?? 0, max: STAT_MAX.guard }, ...durRow(item, n)];
       }
+      case 'can':
+        return [{ key: 'capacity', label: 'まける かず', value: ((n.farmCanCapacity ?? M7_SETTING_DEFAULTS.farmCanCapacity) as Readonly<Record<string, number>>)[item] ?? 0 }];
       case 'tansu':
         return [{ key: 'slots', label: 'しまえる マス', value: n.tansuSlots }];
     }

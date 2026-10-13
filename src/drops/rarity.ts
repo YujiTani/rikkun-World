@@ -46,6 +46,10 @@ const ITEM_ONLY_RARITY: Record<string, Rarity> = {
   pumpkin: 'common',
   eggplant: 'common',
   kuwa: 'common',
+  // M7-2（スプリンクラー は ほる設定 DIG_DEFAULTS.rarity にある）
+  watering_can: 'common',
+  long_watering_can: 'uncommon',
+  sprinkler: 'uncommon',
 };
 
 export const RARITY_ORDER: readonly Rarity[] = ['common', 'uncommon', 'rare', 'superRare'];
