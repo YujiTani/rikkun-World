@@ -1,0 +1,95 @@
+import type { CropKind, FarmEvent, FarmHintKind, Vec3 } from '../contracts';
+import { FX_SETTINGS, type FxSettings } from './config';
+import { playFarm, type FarmSoundName } from './farmSounds';
+import type { SoundFx } from './sound';
+
+/** やさいの つぶの色 */
+export const VEG_COLOR: Readonly<Record<CropKind, number>> = {
+  onion: 0xf5f0dc,
+  tomato: 0xe53935,
+  pumpkin: 0xf57c00,
+  eggplant: 0x6a1b9a,
+};
+/** たがやす つちの つぶ */
+export const SOIL_COLOR = 0x6e4520;
+
+export interface FarmFxDeps {
+  sound: Pick<SoundFx, 'playTones'>;
+  /** はじける つぶ（`BreakParticles.burstHex` が合う）。なければ つぶなし */
+  particles?: { burstHex(block: Vec3, hex: number, cfg: FxSettings, count: number): void };
+  /** 合図のチップ（`FarmHint.show` が合う） */
+  hint?: { show(kind: FarmHintKind): void };
+  /** 実績（`AchievementSystem.feedFarm` が合う） */
+  achievements?: { feedFarm(events: readonly FarmEvent[]): void };
+  settings?: FxSettings;
+}
+
+/**
+ * 農業の出来事（`farm.drainEvents()`）から 音・つぶ・合図・実績を 起こす（M7 §3.3・§3.6・§4.7）。
+ * つなぎ込みは 毎ステップ `farmFx.feed(farm.drainEvents())` を呼ぶ。段階が変わった `stage` は 音なし。
+ */
+export class FarmFx {
+  /** 鳴らした音の名前（テスト用。長くなりすぎない） */
+  readonly played: FarmSoundName[] = [];
+  private readonly cfg: FxSettings;
+
+  constructor(private readonly d: FarmFxDeps) {
+    this.cfg = d.settings ?? FX_SETTINGS;
+  }
+
+  feed(events: readonly FarmEvent[]): void {
+    if (events.length === 0) return;
+    for (const e of events) this.one(e);
+    this.d.achievements?.feedFarm(events);
+  }
+
+  private snd(name: FarmSoundName): void {
+    playFarm(this.d.sound, name);
+    this.played.push(name);
+    if (this.played.length > 64) this.played.shift();
+  }
+
+  private burst(e: { x: number; y: number; z: number }, hex: number, n: number): void {
+    this.d.particles?.burstHex({ x: e.x, y: e.y, z: e.z }, hex, this.cfg, n);
+  }
+
+  private one(e: FarmEvent): void {
+    switch (e.type) {
+      case 'till':
+        this.snd('till');
+        this.burst(e, SOIL_COLOR, 8);
+        break;
+      case 'tillPress':
+        this.snd('tillPress');
+        // 1・2 回目も 小さな つちの つぶ（3 回押す ことに 気づけるように）
+        this.burst(e, SOIL_COLOR, 3);
+        break;
+      case 'plant':
+        this.snd('plant');
+        break;
+      case 'harvest':
+        this.snd('harvest');
+        this.burst(e, VEG_COLOR[e.kind], 10);
+        break;
+      case 'wild':
+        this.snd('wild');
+        this.burst(e, VEG_COLOR[e.kind], 14);
+        break;
+      case 'notRipe':
+        this.snd('notRipe');
+        break;
+      case 'eat':
+        this.snd('eat');
+        break;
+      case 'seedFound':
+        this.snd('seedFound');
+        break;
+      case 'hint':
+        this.d.hint?.show(e.hint);
+        break;
+      default:
+        // stage・wet・visitOldFarm は 音なし
+        break;
+    }
+  }
+}

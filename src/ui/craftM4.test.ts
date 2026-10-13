@@ -260,20 +260,20 @@ describe('拾ったときの ログ（AC27）', () => {
 });
 
 describe('案内画面のタブ（AC22）', () => {
-  it('タブは 4 つで、中身の数が 4・5・5・7（M6: Q で すてる・たんす に しまう を足した）', () => {
-    expect(GUIDE_TAB_IDS).toEqual(['move', 'dig', 'fight', 'craft']);
-    expect(GUIDE_TAB_IDS.map((id) => GUIDE_TABS[id].label)).toEqual(['うごく', 'ほる・おく', 'たたかう', 'つくる・やく']);
-    expect(GUIDE_TAB_IDS.map((id) => GUIDE_TABS[id].captions.length)).toEqual([4, 5, 5, 7]);
+  it('タブは 5 つで、中身の数が 4・5・5・7・7（M6: Q で すてる・たんす に しまう、M7: そだてる）', () => {
+    expect(GUIDE_TAB_IDS).toEqual(['move', 'dig', 'fight', 'craft', 'grow']);
+    expect(GUIDE_TAB_IDS.map((id) => GUIDE_TABS[id].label)).toEqual(['うごく', 'ほる・おく', 'たたかう', 'つくる・やく', 'そだてる']);
+    expect(GUIDE_TAB_IDS.map((id) => GUIDE_TABS[id].captions.length)).toEqual([4, 5, 5, 7, 7]);
     expect(GUIDE_TAB_STYLE.heightPx).toBeGreaterThanOrEqual(64);
     expect(GUIDE_TAB_STYLE.fontPx).toBeGreaterThanOrEqual(24);
     expect(GUIDE_TAB_STYLE.selectedColor).toBe('#FFD54F');
   });
-  it('HTML: 4 ページぜんぶに漢字がなく、はじめは うごく のページだけ見える。ボタンはページの外', () => {
+  it('HTML: 5 ページぜんぶに漢字がなく、はじめは うごく のページだけ見える。ボタンはページの外', () => {
     const html = buildOverlayHtml('クリックして あそぼう！');
     expect(findUnrubiedKanji(html)).toEqual([]);
-    expect((html.match(/class="po-tab"/g) ?? []).length).toBe(4);
-    expect((html.match(/class="po-help"/g) ?? []).length).toBe(4);
-    expect((html.match(/data-page="\w+" hidden/g) ?? []).length).toBe(3);
+    expect((html.match(/class="po-tab"/g) ?? []).length).toBe(5);
+    expect((html.match(/class="po-help"/g) ?? []).length).toBe(5);
+    expect((html.match(/data-page="\w+" hidden/g) ?? []).length).toBe(4);
     expect(html.indexOf('po-button')).toBeLessThan(html.indexOf('po-pages'));
     expect(html).toContain('あるく');
     for (const id of GUIDE_TAB_IDS) {

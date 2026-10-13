@@ -41,6 +41,21 @@
 .ach-cats > * {
   flex: none;
 }
+/* 分類が 9 こ（M7）: 2 列にならべて 1280×720 でも はみ出さない（高さ 48px 以上・字 20px 以上） */
+.ach-cats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-content: start;
+  width: 34%;
+  gap: var(--rk-sp-2);
+}
+.ach-cats .rk-tab {
+  box-sizing: border-box;
+  min-height: clamp(48px, calc(48 / 12.8 * 1vw), 72px);
+  padding: var(--rk-sp-1) var(--rk-sp-2);
+  gap: var(--rk-sp-1);
+  font-size: var(--rk-fs-body);
+}
 .ach-cat-icon {
   width: var(--rk-icon-chip);
   height: var(--rk-icon-chip);

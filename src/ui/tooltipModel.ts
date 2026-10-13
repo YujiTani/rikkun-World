@@ -1,4 +1,4 @@
-import type { ItemId, Rarity, Recipe } from '../contracts';
+import { seedKindOfItem, vegKindOfItem, type ItemId, type Rarity, type Recipe } from '../contracts';
 import { CRAFT_UI_SETTINGS, TOOL_NUMBERS, type CraftUiSettings, type ToolNumbers } from '../fx/craftConfig';
 import { RARITY_COLOR } from '../drops/rarity';
 import { ITEM_INFO } from '../craft/info/table';
@@ -65,6 +65,9 @@ export function buildTooltip(item: ItemId, d: TooltipDeps): TooltipData {
   if (item === 'kabuto') add('たま から まもる', item);
   if (item === 'yoroi' || item === 'kote') add('こうげき から まもる', item);
   if (item === 'suneate') add('おちても いたくない', item);
+  if (item === 'kuwa') add('はたけ を つくる', item);
+  if (seedKindOfItem(item) !== null) add('はたけ に まく', item);
+  if (vegKindOfItem(item) !== null) add('たべると ハート が もどる', item);
   if (d.placeable(item)) add('おける', item);
   if (item === 'furnace') add('みぎクリック で やく', 'furnace');
   if (ui.fuelOrder.includes(item)) add('ねんりょう に なる', 'furnace');
