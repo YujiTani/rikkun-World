@@ -85,3 +85,7 @@
 - `Inventory.add` は wear を運べない。wear つきは `addStack(inv, stack)`（src/tools/durability.ts）。main.ts の scatter（910 行付近）が `{item,count}` を作り直しているので wear を保つよう直す。
 - testHook の型に inventory.durability/setDurability/itemClass/events と armor.durability/setDurability/events。
 - 担当表の外: PlayerCombat の die()（ふくろの wear）、StorageSystem（たんすの wear）を F が直した。
+### B（w2-b）
+- 弓は `ToolSystemImpl.step` が今までどおり `bow.update` を呼ぶ（別に呼ぶと二重）。`onShot` は中で `inventory.wearHeld` に接続済み（二重にしない。上書きは `ToolDeps.onBowShot`）。`ToolDeps.settings` に同じ W2Settings を渡す。
+- `createToolHook` の `bow: {state, events, arrows, stuck}` を testHook に。`ArrowEvent` は `BowEvent` の別名、`arrowEnd` の traveled/reason/id は無くなった（E2E・main.ts の確認）。
+- `config.ts` の `arrowDamage`・`arrowRange` は @deprecated で残してある（D の build.ts と main.ts:529 を直したら消す）。
