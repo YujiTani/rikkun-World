@@ -24,6 +24,7 @@ import { BODY_H, BODY_W, createDigConfig, type DigConfig } from './config';
 import { createRng, randInt, type Rng } from '../world/gen/random';
 import type { PunchGate } from '../combat/PlayerCombat';
 import { lookDirection, raycastBlocks } from './raycast';
+import { previewRightClick, type LeftClickKind, type RightClickPreview } from './rightClick';
 
 /** 出来事の列が読まれずにたまりすぎないように */
 const MAX_QUEUE = 256;
@@ -52,7 +53,10 @@ export interface DigToolPort {
 export interface DigM4Deps {
   tools?: DigToolPort;
   craft?: Pick<CraftSystem, 'isFurnace' | 'openFurnace' | 'furnaceBroken' | 'fixedDrop'>;
-  armor?: Pick<ArmorSystem, 'tryEquip'>;
+  armor?: Pick<ArmorSystem, 'tryEquip'> & {
+    /** 着られるアイテムか（右クリックのヒントと実行が同じ判定を使う） */
+    canEquip(item: ItemId): boolean;
+  };
   /** ほって持ち物に入った（拾ったログ用。A の窓口につなぐ） */
   onPickup?: (item: ItemId, count: number) => void;
   /** 支えをなくした たいまつ を地面に落とす（なければ 持ち物へ直接入れる） */
@@ -375,18 +379,74 @@ export class DigSystemImpl implements DigSystem {
     const first = this.secondaryTicks === 0;
     const due = this.secondaryTicks % every === 0;
     this.secondaryTicks++;
-    // かまど > 防具 > 置く（かまど・防具は押した瞬間だけ）
-    if (first && (this.tryStorage() || this.tryFurnace())) return;
-    if (first && this.tryArmor()) return;
-    if (due) this.tryPlace();
+    // たんす > かまど > 防具 > 置く（たんす・かまど・防具は押した瞬間だけ）。ヒントと同じ previewRightClick で決める
+    const pv = this.previewRightClick();
+    if (!pv) return;
+    if (pv.kind === 'place') {
+      if (due) this.tryPlace();
+      return;
+    }
+    if (!first) return;
+    const t = this.tgt;
+    if (pv.kind === 'storage' && t) this.m4.storage?.open(t.block.x, t.block.y, t.block.z);
+    else if (pv.kind === 'furnace' && t) this.m4.craft?.openFurnace(t.block.x, t.block.y, t.block.z);
+    else if (pv.kind === 'armor' && pv.item) this.m4.armor?.tryEquip(pv.item);
   }
 
-  private tryStorage(): boolean {
+  /**
+   * 今、右クリックしたら何が起きるか（何も起きないなら null）。実行（updatePlace）と同じ判定。
+   * 遊べない間（画面が開いている・やられている）は null。
+   */
+  previewRightClick(): RightClickPreview | null {
+    if (!this.lock.playInputEnabled() || this.gate?.blocksInput()) return null;
     const st = this.m4.storage;
+    const craft = this.m4.craft;
+    const armor = this.m4.armor;
+    return previewRightClick({
+      target: this.tgt,
+      held: this.inventory.held()?.item ?? null,
+      isTansu: (x, y, z) => st?.isTansu(x, y, z) ?? false,
+      isFurnace: (x, y, z) => craft?.isFurnace(x, y, z) ?? false,
+      canEquip: (item) => armor?.canEquip(item) ?? false,
+      canPlace: () => this.placeSpot() !== null,
+    });
+  }
+
+  /** 今、左クリックしたら 何をするか（たたく・ほる・や を うつ）。出すヒントの薄い行用（妖怪が手前なら 'hit'） */
+  previewLeftClick(): LeftClickKind | null {
+    if (!this.lock.playInputEnabled() || this.gate?.blocksInput()) return null;
+    const tool = this.m4.tools?.current();
+    if (tool?.kind === 'bow') return 'shoot';
     const t = this.tgt;
-    if (!st || !t || !st.isTansu(t.block.x, t.block.y, t.block.z)) return false;
-    st.open(t.block.x, t.block.y, t.block.z);
-    return true;
+    if (this.aimedYokaiId() !== null) return 'hit';
+    if (!t) return null;
+    return 'steps' in digSteps(this.config, t.id, tool?.level) ? 'dig' : null;
+  }
+
+  /** ねらっている（手前の・とどく距離内の）妖怪の id。たたく ヒントとふちどりが同じ判定を使う。遊べない間は null */
+  aimedYokaiId(): number | null {
+    if (!this.gate?.aimedYokai || !this.lock.playInputEnabled() || this.gate.blocksInput()) return null;
+    const p = this.player();
+    const eye = { x: p.position.x, y: p.position.y + this.eyeHeight(), z: p.position.z };
+    return this.gate.aimedYokai(eye, lookDirection(p.yawDeg, p.pitchDeg, this.dir), this.tgt?.distance ?? null);
+  }
+
+  /** 置く場所とブロック（置けないなら null）。tryPlace とヒントが同じ判定を使う */
+  private placeSpot(): { x: number; y: number; z: number; block: BlockId } | null {
+    const t = this.tgt;
+    const held = this.inventory.held();
+    if (!t || !held) return null;
+    const block = itemType(held.item)?.placeBlock;
+    if (!block) return null;
+    const { x, y, z } = t.place;
+    const cur = this.world.getBlock(x, y, z);
+    if (cur !== 'air' && cur !== 'water') return null; // 世界の外・ほかのブロック
+    if (block === 'torch') {
+      // たいまつ: 固くない（体と重なっても置ける）。下か横に固いブロックが要る
+      if (!this.torchSupported(x, y, z)) return null;
+    } else if (this.overlapsBody(x, y, z)) return null;
+    if (this.gate?.placeBlocked(x, y, z)) return null; // 妖怪の箱の所には置けない
+    return { x, y, z, block };
   }
 
   /**
@@ -400,34 +460,10 @@ export class DigSystemImpl implements DigSystem {
     return st.open(t.block.x, t.block.y, t.block.z, { screenOpens: true });
   }
 
-  private tryFurnace(): boolean {
-    const craft = this.m4.craft;
-    const t = this.tgt;
-    if (!craft || !t || !craft.isFurnace(t.block.x, t.block.y, t.block.z)) return false;
-    craft.openFurnace(t.block.x, t.block.y, t.block.z);
-    return true;
-  }
-
-  private tryArmor(): boolean {
-    const held = this.inventory.held();
-    if (!held || !this.m4.armor) return false;
-    return this.m4.armor.tryEquip(held.item);
-  }
-
   private tryPlace(): void {
-    const t = this.tgt;
-    const held = this.inventory.held();
-    if (!t || !held) return;
-    const block = itemType(held.item)?.placeBlock;
-    if (!block) return;
-    const { x, y, z } = t.place;
-    const cur = this.world.getBlock(x, y, z);
-    if (cur !== 'air' && cur !== 'water') return; // 世界の外・ほかのブロック
-    if (block === 'torch') {
-      // たいまつ: 固くない（体と重なっても置ける）。下か横に固いブロックが要る
-      if (!this.torchSupported(x, y, z)) return;
-    } else if (this.overlapsBody(x, y, z)) return;
-    if (this.gate?.placeBlocked(x, y, z)) return; // 妖怪の箱の所には置けない
+    const spot = this.placeSpot();
+    if (!spot) return;
+    const { x, y, z, block } = spot;
     if (!this.world.setBlock(x, y, z, block)) return;
     this.inventory.consumeHeld();
     if (block === 'tansu') this.m4.storage?.placed(x, y, z, this.player().yawDeg);

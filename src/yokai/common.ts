@@ -92,6 +92,15 @@ export function makeBlinkRows(
 }
 
 /** 箱の形は大きさごとに使いまわす */
+/** ねらわれたときの ふちどり: 黄色（--rk-accent に近い）・裏面だけ・ライトなし・点滅なし */
+const FOCUS_MAT = new THREE.MeshBasicMaterial({ color: 0xffd23f, side: THREE.BackSide, fog: false });
+const FOCUS_TMP = new THREE.Vector3();
+const FOCUS_MIN_DIM = 0.05;
+/** ふちの太さ（ブロック何こ分）: 距離 × 0.010 を、細すぎ・太すぎにならない範囲に */
+const FOCUS_PER_DIST = 0.01;
+const FOCUS_MIN_W = 0.035;
+const FOCUS_MAX_W = 0.14;
+
 const geoCache = new Map<string, THREE.BoxGeometry>();
 export function boxGeo(w: number, h: number, d: number): THREE.BoxGeometry {
   const key = `${w}|${h}|${d}`;
@@ -206,6 +215,8 @@ export abstract class YokaiBase {
 
   private readonly parts: Part[] = [];
   private readonly flatMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+  private readonly focusHulls: { hull: THREE.Mesh; src: THREE.Mesh; w: number; h: number; d: number }[] = [];
+  private _focused = false;
   private silhouetteOn = false;
   private flashOn = false;
 
@@ -238,8 +249,52 @@ export abstract class YokaiBase {
     }
   }
 
+  // ---- ねらわれたときの黄色いふちどり（反転ハル。モデルの一部。ふだんは隠れている） ----
+  /** 各箱の子として作る。子なので 首・手足・傘の動きにそのまま付いてくる。新しい妖怪にも finish() で自動で付く */
+  private buildFocusHulls(): void {
+    for (const p of this.parts) {
+      const g = p.mesh.geometry as THREE.BoxGeometry;
+      const q = g.parameters;
+      // 顔の板のような うすい箱には付けない（ふくらませると 大きくなりすぎる）
+      if (!q || Math.min(q.width, q.height, q.depth) < FOCUS_MIN_DIM) continue;
+      const hull = new THREE.Mesh(g, FOCUS_MAT);
+      hull.visible = false;
+      hull.userData.focusHull = true;
+      p.mesh.add(hull);
+      this.focusHulls.push({ hull, src: p.mesh, w: q.width, h: q.height, d: q.depth });
+    }
+  }
+
+  /** ふちどりを出す・隠す */
+  setFocus(on: boolean): void {
+    if (on === this._focused) return;
+    this._focused = on;
+    for (const e of this.focusHulls) e.hull.visible = on;
+  }
+
+  focused(): boolean {
+    return this._focused;
+  }
+
+  /** ふちどりの複製の数（描画回数の増え分。ねらわれている間だけ） */
+  focusHullCount(): number {
+    return this.focusHulls.length;
+  }
+
+  /** ねらわれている間、毎ステップ: 見る人からの距離 dist に合わせて ふちの太さを決める（画面での太さが ほぼ一定） */
+  updateFocus(dist: number): void {
+    if (!this._focused) return;
+    const wd = Math.min(FOCUS_MAX_W, Math.max(FOCUS_MIN_W, dist * FOCUS_PER_DIST));
+    for (const e of this.focusHulls) {
+      e.src.getWorldScale(FOCUS_TMP);
+      const k = (2 * wd) / Math.max(1e-4, (FOCUS_TMP.x + FOCUS_TMP.y + FOCUS_TMP.z) / 3);
+      e.hull.scale.set(1 + k / e.w, 1 + k / e.h, 1 + k / e.d);
+    }
+  }
+
   /** サブクラスのコンストラクタの最後で呼ぶ */
   protected finish(): void {
+    this.buildFocusHulls();
     this.root.updateMatrixWorld(true);
     const b = new THREE.Box3().setFromObject(this.rig);
     this._size = {

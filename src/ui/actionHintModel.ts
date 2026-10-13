@@ -1,0 +1,51 @@
+import type { ItemId } from '../contracts';
+import type { LeftClickKind, RightClickPreview } from '../dig/rightClick';
+
+/** ヒント 1 つ: どのボタンで・どの絵で・どの 1 語か */
+export interface ActionHintItem {
+  /** すること の絵にする アイテム */
+  icon: ItemId;
+  /** ひらがなの 1 語 */
+  word: string;
+}
+
+export interface ActionHintLines {
+  right?: ActionHintItem;
+  left?: ActionHintItem;
+}
+
+export interface ActionHintCtx {
+  held: ItemId | null;
+  /** 持っているものが ツルハシ か（ほる の絵に使う） */
+  heldIsPickaxe: boolean;
+  /** 持っているものが 武器 か（たたく の絵に使う） */
+  heldIsBlade: boolean;
+}
+
+/**
+ * 照準の下に出す 絵と 1 語。新しい動きを足すときは、ここに kind の絵と語を 1 行足す
+ * （たがやす = くわ、まく = たね、たべる = やさい、しゅうかく = かご など）。
+ */
+export function actionHintLines(right: RightClickPreview | null, left: LeftClickKind | null, c: ActionHintCtx): ActionHintLines {
+  const out: ActionHintLines = {};
+  if (right) {
+    switch (right.kind) {
+      case 'storage':
+        out.right = { icon: 'tansu', word: 'ひらく' };
+        break;
+      case 'furnace':
+        out.right = { icon: 'furnace', word: 'ひらく' };
+        break;
+      case 'armor':
+        out.right = { icon: right.item!, word: 'きる' };
+        break;
+      case 'place':
+        out.right = { icon: right.item!, word: 'おく' };
+        break;
+    }
+  }
+  if (left === 'dig') out.left = { icon: c.held && c.heldIsPickaxe ? c.held : 'wood_pickaxe', word: 'ほる' };
+  else if (left === 'hit') out.left = { icon: c.held && c.heldIsBlade ? c.held : 'bokuto', word: 'たたく' };
+  else if (left === 'shoot') out.left = { icon: 'yumi', word: 'うつ' };
+  return out;
+}
