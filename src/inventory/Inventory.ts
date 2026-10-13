@@ -1,4 +1,4 @@
-import type { Inventory, ItemId, ItemStack, ItemType } from '../contracts';
+import type { Durability, Inventory, ItemId, ItemStack, ItemType, WearEvent, WearResult } from '../contracts';
 import { HOTBAR_SIZE, INVENTORY_SIZE, ITEM_TYPES, itemType } from './items';
 
 type Slot = ItemStack | null;
@@ -48,6 +48,22 @@ export class InventoryImpl implements Inventory {
   }
   selectNext(dir: 1 | -1): void {
     this.select((this.sel + dir + HOTBAR_SIZE) % HOTBAR_SIZE);
+  }
+  // ---- WEAPON-2 の 仮のもの（担当 F が 本物に 直す: たいきゅう・こわれる・出来事・保存）
+  wearHeld(_n: number): WearResult | null {
+    return null;
+  }
+  wearSlot(_slot: number, _n: number): WearResult | null {
+    return null;
+  }
+  durability(_slot: number): Durability | null {
+    return null;
+  }
+  drainWearEvents(): WearEvent[] {
+    return [];
+  }
+  peekWearEvents(): WearEvent[] {
+    return [];
   }
   setSlot(index: number, stack: ItemStack | null): void {
     if (!Number.isInteger(index) || index < 0 || index >= this.size) throw new Error(`マス番号がおかしい: ${index}`);

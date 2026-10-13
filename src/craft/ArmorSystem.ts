@@ -1,4 +1,4 @@
-import type { ArmorSlot, ArmorSystem, DamageKind, Inventory, ItemId, ItemStack } from '../contracts';
+import type { ArmorSlot, ArmorSystem, DamageKind, Durability, Inventory, ItemId, ItemStack, WearEvent } from '../contracts';
 import { ARMOR_SLOTS, ARMOR_SLOT_OF, type CraftConfig } from './config';
 
 /** 防具が使う持ち物（カーソルを直接かえられるもの。InventoryImpl が合う） */
@@ -12,6 +12,8 @@ export interface ArmorSnapshot {
   value: number;
   hitCount: number;
   hudIcons: ItemId[];
+  /** WEAPON-2: 部位ごとの へった 量（0 か なし = 新品）。前の保存には 無い = 新品。担当 F が 持ち運ぶ */
+  wear?: Partial<Record<ArmorSlot, number>>;
 }
 
 /** かぶと・よろい・こて・すねあて（M4 §2.7）。そうびのマス 4 つ・着る・ふせぐ */
@@ -127,9 +129,25 @@ export class ArmorSystemImpl implements ArmorSystem {
    * 妖怪の攻撃を受けた（むてきで受けなかった回は呼ばない）。カットする量（体力の単位）を返す。
    * 受けるダメージは max(1, 元のダメージ − カット)（落下は max(0, …)）で、PlayerCombat が計算する（オーナー決定）
    */
-  cut(kind: DamageKind = 'normal'): number {
+  cut(kind: DamageKind = 'normal', _amount?: number): number {
+    // WEAPON-2: _amount を 受けて、カットを 返した あとに ふせいだ 防具を へらす（担当 F。今は へらさない仮のもの）
     this.hits++;
     return this.valueOf(kind);
+  }
+
+  // ---- WEAPON-2 の 仮のもの（担当 F が 本物に 直す: へった 量つきで 持つ）
+  equippedStack(slot: ArmorSlot): ItemStack | null {
+    const it = this.worn[slot];
+    return it ? { item: it, count: 1 } : null;
+  }
+  durability(_slot: ArmorSlot): Durability | null {
+    return null;
+  }
+  drainWearEvents(): WearEvent[] {
+    return [];
+  }
+  peekWearEvents(): WearEvent[] {
+    return [];
   }
 
   hitCount(): number {

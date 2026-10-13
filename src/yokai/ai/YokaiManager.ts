@@ -12,6 +12,7 @@ import type {
   VoxelWorld,
   YokaiEvent,
   YokaiInfo,
+  YokaiKnock,
   YokaiKind,
   YokaiRayHit,
   YokaiState,
@@ -270,7 +271,8 @@ export class YokaiManager implements YokaiWorld {
     return best;
   }
 
-  damage(id: number, amount: number, from: Vec3): void {
+  // knock（WEAPON-2）: 押す 距離・上への 初速。担当 E が 本物に 直す（今は 無視する 仮のもの）
+  damage(id: number, amount: number, from: Vec3, _knock?: YokaiKnock): void {
     const e = this.ents.find((q) => q.id === id);
     if (!e || e.state === 'dying' || e.state === 'leaving' || e.remove) return;
     e.hp = Math.max(0, e.hp - amount);

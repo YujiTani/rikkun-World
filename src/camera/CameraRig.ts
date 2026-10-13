@@ -116,6 +116,13 @@ export class CameraRig {
           // ほるのは setDigging がくりかえす。すでに dig なら つくりなおさない
           if (this.doll.armAnim !== 'dig') this.doll.play('dig');
           break;
+        // WEAPON-2 の 仮のもの（担当 C が 刀の 絵に 直す）
+        case 'kesa':
+        case 'kiriage':
+          this.doll.play('slash');
+          break;
+        case 'stance':
+          break;
         default:
           this.doll.play(sw.anim);
       }
