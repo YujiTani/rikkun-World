@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import type { ItemId, PlayerState } from '../contracts';
 import { ActionState } from '../input/actions';
+import { BlockDoll } from './BlockDoll';
 import { CameraRig } from './CameraRig';
 import { createCameraHook } from './hook';
 
@@ -86,5 +87,35 @@ describe('一人称の手足と持ったブロック（AC27）', () => {
     expect(armR(t.rig).rotation.x).toBeLessThan(before);
     for (let i = 0; i < 20; i++) t.rig.update(1 / 60);
     expect(armR(t.rig).rotation.x).toBeCloseTo(before, 5);
+  });
+});
+
+describe('WEAPON-2 刀と弓の人形', () => {
+  it('刀を持つと両うでが中段の形になり、一人称では剣先が画面の位置に置かれる', async () => {
+    const THREE = await import('three');
+    const doll = new BlockDoll();
+    doll.setHeld('katana');
+    doll.setMode('third');
+    doll.setWeapon({ item: 'katana', stance: 'chudan', tech: null, phase: 'idle', frame: 0, buffered: null, switchFrom: null }, { stage: 0, pull: 0, bendDeg: 0 });
+    doll.update(1 / 60, { x: 0, y: 0, z: 0 }, 0, 0, false, true);
+    expect(doll.dollPose.rx).toBe(50);
+    doll.setMode('first');
+    const cam = new THREE.PerspectiveCamera(75, 16 / 9);
+    doll.update(1 / 60, { x: 0, y: 0, z: 0 }, 0, 0, false, true);
+    doll.placeFirstPerson(cam);
+    expect(doll.heldWorldPosition(new THREE.Vector3())).not.toBeNull();
+    doll.setMode('third');
+    doll.update(1 / 60, { x: 0, y: 0, z: 0 }, 0, 0, false, true);
+    doll.placeFirstPerson(cam);
+    doll.dispose();
+  });
+  it('弓をひくとしなる', () => {
+    const doll = new BlockDoll();
+    doll.setHeld('yumi');
+    doll.setMode('third');
+    doll.setWeapon(null, { stage: 3, pull: 1, bendDeg: 32 });
+    doll.update(1 / 60, { x: 0, y: 0, z: 0 }, 0, 0, false, true);
+    expect(doll.dollPose.rz).toBe(35);
+    doll.dispose();
   });
 });
