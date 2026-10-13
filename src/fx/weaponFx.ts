@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { ArmorSystem, BladeEvent, BladeShapeInfo, BladeSystem, BowEvent, BowSystem, Inventory, ItemId, Vec3, WearEvent } from '../contracts';
+import { W2_SETTING_DEFAULTS, type W2Settings, type BladeTrailStyle, type ArmorSystem, BladeEvent, BladeShapeInfo, BladeSystem, BowEvent, BowSystem, Inventory, ItemId, Vec3, WearEvent } from '../contracts';
 import type { BladeHud } from '../ui/bladeHud';
 import type { WearNotice } from '../ui/wearNotice';
 import { playCombat } from './combatSounds';
@@ -21,6 +21,8 @@ export interface WeaponFxDeps {
   handPos(): Vec3;
   /** ゆれる 画面（ゲームの canvas）。なければ ゆらさない */
   shakeEl?: HTMLElement;
+  /** 武器ごとの きせき（なければ 初期値） */
+  settings?: () => Pick<W2Settings, 'bladeTrail'>;
   /** たいきゅうの 出来事を 実績へ */
   onWear?: (events: readonly WearEvent[]) => void;
   /** こわれた（人形が 手を 見る 動きなど） */
@@ -31,6 +33,7 @@ export interface WeaponFxDeps {
 }
 
 const POOL = 64;
+const WEAPON_TRAIL_FALLBACK: BladeTrailStyle = { color: WEAPON_FX.trailColor, width: 0.05, style: 'plain' };
 
 /**
  * 刀・弓・たいきゅうの 演出と 音（WEAPON-2 §3.3〜§3.6）。1 ステップに 1 回 `step()`、描画の 前に `update(dt)`。
@@ -47,6 +50,7 @@ export class WeaponFx {
   private readonly bandInner: THREE.Group;
   private bandHalf = -1;
   private trailSince = 999;
+  private trailStyle: BladeTrailStyle = WEAPON_TRAIL_FALLBACK;
   private rng = 777;
   private shakeLeft = 0;
   private shakeFrame = 0;
@@ -194,7 +198,15 @@ export class WeaponFx {
     if (st.phase === 'active') {
       const shape = this.d.blade.shape();
       if (shape && this.trailSince !== -1) {
+        const tr = (this.d.settings?.() ?? W2_SETTING_DEFAULTS).bladeTrail[st.item ?? 'katana'] ?? WEAPON_TRAIL_FALLBACK;
+        this.lineMat.color.setHex(tr.color);
+        this.bandMat.color.setHex(tr.color);
+        this.trailStyle = tr;
         this.setTrailShape(shape, st.tech === 'kiriage' ? 1 : -1);
+        if (tr.style === 'star') {
+          const at = shape.kind === 'capsule' ? shape.to : shape.center;
+          this.burst(at, 3, tr.color, WEAPON_FX.starSeconds, 0.1, false);
+        }
         this.trailSince = -1;
       } else if (shape) {
         this.trailSince = -1;
@@ -216,7 +228,7 @@ export class WeaponFx {
       this.v.set(b.x - a.x, b.y - a.y, b.z - a.z);
       const len = Math.max(0.01, this.v.length());
       this.line.position.set((a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2);
-      this.line.scale.set(0.05, 0.05, len);
+      this.line.scale.set(this.trailStyle.width, this.trailStyle.width, len);
       this.q.setFromUnitVectors(this.sc.set(0, 0, 1), this.v.normalize());
       this.line.quaternion.copy(this.q);
       this.line.visible = true;
@@ -233,7 +245,7 @@ export class WeaponFx {
     this.bandInner.position.set(shape.center.x, shape.center.y + (shape.yMin + shape.yMax) / 2, shape.center.z);
     this.bandInner.rotation.set(0, Math.atan2(shape.forward.x, shape.forward.z), 0);
     this.band.scale.set(r, 1, r);
-    this.band.rotation.set(0, 0, dir * 0.6);
+    this.band.rotation.set(0, 0, dir * (this.trailStyle.style === 'long' ? 1.0 : 0.6));
     this.band.rotation.order = 'ZXY';
     this.bandInner.visible = true;
     this.line.visible = false;

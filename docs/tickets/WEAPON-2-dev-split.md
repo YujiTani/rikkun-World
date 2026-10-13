@@ -107,3 +107,7 @@
 5. `combat.sounds()` は `fx/soundLog.ts` の peek/drainSounds。
 6. `GUIDE_TABS.fight` を `FIGHT_CAPTIONS_W2` に差しかえてよい。
 - 契約の不足: `StuckArrowInfo` に向き（dir）が無い（今は id から斜め下）。つなぎ込みで dir を足してよい。
+
+## PO 決定（オーナーの追加。つなぎ込みで実施）
+- 刀の きせきは 武器ごとの ステータス: `W2Settings.bladeTrail[item] = { color, width, style }`（ぼくとう=茶・細い、かたな=白、きらきらの かたな=水色＋星、なぎなた=長い弧）。`WeaponFx` が読む。説明の表（`craft/info/table.ts`）に「きせき は …」を 1 行足した。なぎなたは まだ パンチのままで きせきは 描かれない（値だけ用意）。
+- 刀を 持っているときの ひだりクリックの ヒント・案内の ことばは「ほる」「わざ」ではなく「きる」にそろえた（`actionHintModel.ts`・`weapon2Guide.ts`）。

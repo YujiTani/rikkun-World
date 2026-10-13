@@ -7,7 +7,7 @@ const LEFT_CLICK = `${ruby('左', 'ひだり')}クリック`;
  * 絵は `playOverlay.ts` の `tabArts().fight`（同じ順・同じ数）。
  */
 export const FIGHT_CAPTIONS_W2: readonly string[] = [
-  `${LEFT_CLICK} で たたく`,
+  `${LEFT_CLICK} で きる`,
   'R で かまえ を かえる',
   `${ruby('中段', 'ちゅうだん')}は ${ruby('突', 'つ')}き、${ruby('上段', 'じょうだん')}は ${ruby('大', 'おお')}げさ${ruby('斬', 'ぎ')}り、${ruby('下段', 'げだん')}は ${ruby('切', 'き')}り${ruby('上', 'あ')}げ`,
   'なぎなた は とおくまで とどく',

@@ -109,8 +109,7 @@ export class ArrowVisuals {
       const b = this.buf[i];
       b.id = a.id;
       b.position = a.position;
-      const ang = a.id * 2.399963;
-      b.dir = stuckDir(ang);
+      b.dir = a.dir;
     }
     this.sync(this.slice(n));
   }
@@ -137,16 +136,4 @@ export class ArrowVisuals {
     (this.mesh.material as THREE.Material).dispose();
     this.mesh.dispose();
   }
-}
-
-const STUCK_DIRS = new Map<number, Vec3>();
-function stuckDir(ang: number): Vec3 {
-  const key = Math.round(ang * 1000);
-  let d = STUCK_DIRS.get(key);
-  if (!d) {
-    d = { x: Math.sin(ang) * 0.5, y: -0.7, z: Math.cos(ang) * 0.5 };
-    if (STUCK_DIRS.size > 512) STUCK_DIRS.clear();
-    STUCK_DIRS.set(key, d);
-  }
-  return d;
 }

@@ -7,6 +7,12 @@ import { createCombatUi } from './fx/combatUi';
 import { PlayerCombatImpl, createCombatConfig, createCombatHook } from './combat';
 import { ArmorSystemImpl, CraftSystemImpl, createArmorHook, createCraftConfig, createCraftHook, createFurnaceHook, createPickupHook } from './craft';
 import { ToolSystemImpl, createToolConfig, createToolHook } from './tools';
+import { createBladeSystem } from './tools/blade/BladeSystem';
+import { createBladeHook } from './tools/blade/hook';
+import { WeaponFx } from './fx/weaponFx';
+import { BladeHud } from './ui/bladeHud';
+import { WearNotice } from './ui/wearNotice';
+import { setWearSettings } from './ui/wearGauge';
 import { ArrowVisuals } from './fx/arrowVisuals';
 import { FurnaceFx } from './fx/furnaceFx';
 import type { FurnaceFxEntry } from './fx/furnaceFxModel';
@@ -19,7 +25,7 @@ import { PickupLogModel } from './ui/pickupLogModel';
 import { itemRarity } from './drops/rarity';
 import { itemType } from './inventory/items';
 import { createGuideHook } from './ui/playOverlay';
-import { createM6Settings, createM7Settings, SEED_ITEM, VEG_ITEM, CROP_KINDS, cropKindOfBlock, type FarmPlacement, type AchievementId, type CombatEvent, type DefeatWith, type DigEvent, type ItemId, type SwingAnim, type YokaiKind } from './contracts';
+import { createM6Settings, createM7Settings, createW2Settings, SEED_ITEM, VEG_ITEM, CROP_KINDS, cropKindOfBlock, type FarmPlacement, type AchievementId, type CombatEvent, type DefeatWith, type DigEvent, type ItemId, type SwingAnim, type YokaiKind } from './contracts';
 import { ACHIEVEMENT_DEFS, AchievementSystem, AchievementsPageModel, createAchievementsHook, type StepContext } from './achievements';
 import { CelebrateUi } from './ui/celebrate';
 import { AchievementsPage, achievementArtUrl } from './ui/achievementsPage';
@@ -172,7 +178,25 @@ const crosshair = createCrosshair(hud);
 crosshair.setVisible(rig.crosshairVisible());
 
 // 持ち物・画面の状態・ほる／おく
-const inventory = new InventoryImpl();
+// WEAPON-2 の設定（刀・弓・たいきゅう。settings から変えたら すぐ効く）
+const w2 = createW2Settings();
+setWearSettings(() => w2);
+const inventory = new InventoryImpl({ settings: () => w2, tick: () => game.tick });
+{
+  // たいきゅうが 実際に へった量を 実績（wearTotal）へ
+  const wh = inventory.wearHeld.bind(inventory);
+  inventory.wearHeld = (n) => {
+    const r = wh(n);
+    if (r) achievementsRef.feedWorn(r.worn);
+    return r;
+  };
+  const ws = inventory.wearSlot.bind(inventory);
+  inventory.wearSlot = (slot, n) => {
+    const r = ws(slot, n);
+    if (r) achievementsRef.feedWorn(r.worn);
+    return r;
+  };
+}
 const screenSettings = createScreenSettings();
 // M6 の設定（実績・演出・すてる・たんす）。settings から変えたら すぐ効く
 const m6 = createM6Settings();
@@ -236,6 +260,8 @@ const drops = new DropField({
   onPickup: (item, count) => onDropPicked(item, count),
 });
 let yokaiManager: YokaiManager | null = null;
+// 実績は あとで作る（たいきゅうの へった量を わたす先）
+let achievementsRef: { feedWorn(n: number): void } = { feedWorn: () => {} };
 let onDefeatAch: (kind: YokaiKind) => void = () => {};
 // 経験値とレベル（妖怪をたおすと入る。レベルアップでハート全回復）
 const level = new LevelSystem({
@@ -243,7 +269,7 @@ const level = new LevelSystem({
   requestSave: () => requestSave(),
   onLevelUp: () => combat.healFull(),
 });
-const armor = new ArmorSystemImpl(inventory, craftConfig);
+const armor = new ArmorSystemImpl(inventory, craftConfig, { settings: () => w2, tick: () => game.tick });
 const craft = new CraftSystemImpl({ world, inventory, drops, requestSave: () => requestSave(), config: craftConfig });
 const tools = new ToolSystemImpl({
   inventory,
@@ -252,6 +278,18 @@ const tools = new ToolSystemImpl({
   yokai: () => yokaiManager,
   base: { dig: digCfg, combat: combatCfg },
   config: toolConfig,
+  settings: w2,
+});
+const blade = createBladeSystem({
+  world,
+  yokai: () => yokaiManager!,
+  settings: w2,
+  weaponDamage: (item) => toolConfig.weaponDamage[item] ?? 1,
+  onHit: () => {
+    inventory.wearHeld(w2.toolWear.blade.hit);
+  },
+  lunge: (dx, dz) => controller.lunge(dx, dz),
+  tick: () => game.tick,
 });
 const combat = new PlayerCombatImpl({
   config: combatCfg,
@@ -355,6 +393,8 @@ const dig = new DigSystemImpl(
     },
     farm,
     vitals: combat,
+    blade,
+    w2,
   },
 );
 yokaiManager = new YokaiManager({
@@ -380,6 +420,7 @@ yokaiManager = new YokaiManager({
 game.scene.add(yokaiManager.group);
 const yokaiM = yokaiManager;
 rig.setHeldProvider(() => inventory.held()?.item ?? null);
+rig.setWeaponSource({ blade: () => blade.state(), bowPose: () => tools.bow().pose() });
 
 // 出来事は 1 か所で 1 回だけ drain して、受け手（画面・音・人形）に配る。
 // 受け手がその場で読む列は、この入れ物から渡す（読んだら空にする）
@@ -395,6 +436,8 @@ rig.setSwingSource(() => {
 rig.setArmorProvider((slot) => armor.equipped(slot));
 const arrowVisuals = new ArrowVisuals();
 arrowVisuals.addTo(game.scene);
+const stuckVisuals = new ArrowVisuals();
+stuckVisuals.addTo(game.scene);
 
 // 画面の見た目と音
 const notice = new Notice(hud);
@@ -407,6 +450,8 @@ notice.showSignal = (kind) => {
 };
 hudSignal.full = () => notice.showSignal('full');
 // 時計の ひる の分け方（settings の clockPhases）
+const bladeHud = new BladeHud(hud, () => w2);
+const wearNotice = new WearNotice(hud);
 const clockPhases: ClockPhases = { ...CLOCK_PHASES };
 const combatUi = createCombatUi(hud, clockPhases);
 const levelHud = new LevelHud(hud);
@@ -482,10 +527,28 @@ const combatFx = new CombatFx({
   onPickup: (item, count) => hotbar.pickup(item, count),
 });
 
+const weaponFx = new WeaponFx({
+  scene: game.scene,
+  sound: fxSound,
+  blade,
+  bow: tools.bow(),
+  inventory,
+  armor,
+  bladeHud,
+  notice: wearNotice,
+  nameOf,
+  handPos: () => ({ x: controller.state.position.x, y: controller.state.position.y + 1, z: controller.state.position.z }),
+  settings: () => w2,
+  shakeEl: game.renderer.domElement,
+  onWear: (e) => achievements.feedWear(e),
+  onArrowPickup: () => hotbar.pickup('ya', 1),
+});
+
 // ---- M6: 実績・演出・たんす画面・説明 ----
 const RARITY_INDEX = { common: 0, uncommon: 1, rare: 2, superRare: 3 } as const;
 const rarity4 = (item: ItemId) => RARITY_INDEX[itemRarity(item)];
 const achievements = new AchievementSystem(() => m6);
+achievementsRef = achievements;
 const farmFx = new FarmFx({ sound: fxSound, particles: fx.particles, hint: farmHint, achievements });
 onFullSignal = () => achievements.feedFull();
 const pageModel = new AchievementsPageModel(achievements);
@@ -733,6 +796,13 @@ game.onUpdate((dt) => {
     return;
   }
   time.update();
+  // WEAPON-2: 刀・弓の 動きの 制限（歩く倍率・ジャンプ止め）を プレイヤーへ
+  {
+    const bm = blade.motion();
+    const wm = tools.bow().motion();
+    controller.motion.speedMul = bm.speedMul * wm.speedMul;
+    controller.motion.jumpLocked = bm.jumpLocked || wm.jumpLocked;
+  }
   // 空の光の弱まりを先に今の時刻にそろえる（妖怪の出現の「暗い所」がこれを読む。Sky は あとで画面ぶんを更新）
   skyDarkness.value = darkenFromBrightness(time.brightness(), timeSettings.nightBrightness);
   controller.update(dt);
@@ -798,11 +868,15 @@ game.onUpdate((dt) => {
     combatBuf = combatEvents;
     achievements.feedCombat(combatEvents);
   }
-  arrowVisuals.sync(tools.arrows());
+  arrowVisuals.syncFlying(tools.bow().arrows());
+  stuckVisuals.syncStuck(tools.bow().stuck());
+  wearNotice.step();
+  weaponFx.step();
   combatUi.hearts.setArmor(armor.snapshot().hudIcons);
   craftHud.update(dt);
   fx.update(dt);
   combatFx.update(dt);
+  weaponFx.update(dt);
   for (const e of level.drainEvents()) {
     if (e.type === 'levelUp') {
       levelHud.celebrate();
@@ -919,7 +993,9 @@ installTestHook(game, overlay, {
   armor: createArmorHook(armor, screen),
   level: createLevelHook(level),
   tool: toolHook.tool,
+  bow: toolHook.bow,
   ...createYokaiHook(yokaiM),
+  ...createBladeHook(blade),
   camera: cameraHook.camera,
   lock: {
     ...lockHook,
@@ -935,6 +1011,7 @@ installTestHook(game, overlay, {
       screenSettings,
       m6,
       m7,
+      w2,
       hintSettings,
       { clockPhases },
       FX_SETTINGS,

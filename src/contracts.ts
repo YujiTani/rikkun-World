@@ -1339,6 +1339,8 @@ export interface ArrowInfo {
 export interface StuckArrowInfo {
   id: number;
   position: Vec3;
+  /** ささった ときの 飛んでいた 向き（長さ 1） */
+  dir: Vec3;
   age: number;
 }
 
@@ -1454,6 +1456,15 @@ export interface W2Settings {
   };
   /** のこり わずか（のこり ÷ 新品 が これ 以下。切り上げで 数える） */
   wearLowRatio: number;
+  /** 刀を ふった ときの きせき（武器ごとの 個性。オーナー決定）。style: plain=ふつう・star=星が まじる・long=長い 弧 */
+  bladeTrail: Partial<Record<ItemId, BladeTrailStyle>>;
+}
+
+export interface BladeTrailStyle {
+  color: number;
+  /** 線の 太さ（ブロック） */
+  width: number;
+  style: 'plain' | 'star' | 'long';
 }
 
 export const W2_SETTING_DEFAULTS: Readonly<W2Settings> = {
@@ -1509,6 +1520,12 @@ export const W2_SETTING_DEFAULTS: Readonly<W2Settings> = {
     armorDiv: 4,
   },
   wearLowRatio: 0.1,
+  bladeTrail: {
+    bokuto: { color: 0x9c6b3a, width: 0.03, style: 'plain' },
+    katana: { color: 0xffffff, width: 0.05, style: 'plain' },
+    crystal_katana: { color: 0x7fdcff, width: 0.07, style: 'star' },
+    naginata: { color: 0xcfe8ff, width: 0.05, style: 'long' },
+  },
 };
 
 /** 設定の 入れ物を作る（毎回 ふかい コピー。つなぎ込みが `createSettingsHook` の extras に渡す） */
@@ -1553,5 +1570,6 @@ export function createW2Settings(): W2Settings {
       armorDiv: d.toolWear.armorDiv,
     },
     wearLowRatio: d.wearLowRatio,
+    bladeTrail: Object.fromEntries(Object.entries(d.bladeTrail).map(([k, v]) => [k, { ...v }])) as W2Settings['bladeTrail'],
   };
 }

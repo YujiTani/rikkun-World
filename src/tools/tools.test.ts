@@ -358,7 +358,8 @@ describe('武器', () => {
     k2.yokai.dist = 2.9;
     k2.press('primary');
     k2.step(30);
-    expect(k2.yokai.hp).toBe(0);
+    // 刀は 今のパンチを 使わない（わざは blade/blade.test.ts の AC2〜AC8）
+    expect(k2.yokai.hp).toBe(4);
   });
   it('なぎなた: 手前に妖怪 3.5・先に ブロック 4.2 → たたく（ほらない）', () => {
     const r = new Rig();
@@ -393,13 +394,14 @@ describe('武器', () => {
     r.step(1);
     expect(r.tools.drainSwings().map((x) => x.anim)).toEqual(['slash']);
   });
-  it('たおす回数: ぼくとう 2・つるはし 4', () => {
+  it('たおす回数: 刀は パンチしない・つるはし 4', () => {
     const r = new Rig();
     r.hold('bokuto');
     r.yokai.dist = 2;
     r.press('primary');
     r.step(60);
-    expect(r.yokai.hp).toBe(0);
+    // ぼくとうも わざで たたく（blade/blade.test.ts の AC3・AC4）。ここでは パンチしない
+    expect(r.yokai.hp).toBe(4);
     const p = new Rig();
     p.hold('wood_pickaxe');
     p.yokai.dist = 2;

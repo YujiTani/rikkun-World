@@ -17,7 +17,7 @@ export function createToolHook(tool: ToolSystemImpl) {
       events: () => tool.bow().peekEvents().map((e) => ({ ...e })),
       arrows: () =>
         tool.bow().arrows().map((a) => ({ id: a.id, position: v3(a.position), velocity: v3(a.velocity), age: a.age })),
-      stuck: () => tool.bow().stuck().map((a) => ({ id: a.id, position: v3(a.position), age: a.age })),
+      stuck: () => tool.bow().stuck().map((a) => ({ id: a.id, position: v3(a.position), age: a.age, dir: v3(a.dir) })),
     },
     arrows: () => tool.arrows(),
     /** 前に呼んでから起きた や の出来事（呼ぶと空） */

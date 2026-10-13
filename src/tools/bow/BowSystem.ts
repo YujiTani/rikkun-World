@@ -177,7 +177,7 @@ export function createBowSystem(deps: BowDepsX): BowSystem {
           alive = false;
         } else if (blk) {
           const hit = { x: p.x + rayDir.x * blk.distance, y: p.y + rayDir.y * blk.distance, z: p.z + rayDir.z * blk.distance };
-          stuck.push({ id: a.id, position: hit, age: 0 });
+          stuck.push({ id: a.id, position: hit, dir: { x: rayDir.x, y: rayDir.y, z: rayDir.z }, age: 0 });
           while (stuck.length > s.arrowStuckMax) stuck.shift();
           emit({ type: 'arrowStick', tick: deps.tick(), position: { ...hit } });
           alive = false;
