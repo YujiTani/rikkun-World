@@ -95,3 +95,7 @@
 - 刀がこわれた同じステップで null にしたいときは `wearHeld` のあと `update({item:null})` を呼び直す。ほる分の `wearHeld(blade.block)` は DigSystem 側（つなぎ込み）。
 - 突きの `deps.lunge(dx,dz)` はつなぎ込みが実装（かべで止める）。
 - `tools.test.ts` の古い M4 テスト 2 件（かたな・ぼくとうのパンチ前提）は、つなぎ込みが §6.2 のとおり AC2〜AC8 に置きかえる。
+### C（w2-c, 9cb5f8c）
+- `cameraRig.setWeaponSource({ blade: () => blade.state(), bowPose: () => bow.pose() })`。
+- かまえ変えは 8F の定数（設定 stanceSwitchTicks は読まない）。
+- 見た目の気づき（次の直しの候補）: 三人称の刀の左手が刀に届かない、弓の三人称でひじを引かない（表の値どおり）。
