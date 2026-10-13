@@ -152,12 +152,12 @@ describe('フレーム表（AC2）', () => {
     expect(r.blade.state().tech).toBeNull();
     expectPhases(s, 4, 2, 8);
   });
-  it('大げさ斬り 14/3/24', () => {
+  it('大げさ斬り 28/6/48', () => {
     const r = rig();
     r.blade.setStance('jodan');
-    expectPhases(r.phases(42, { techPressed: true }), 14, 3, 24);
+    expectPhases(r.phases(83, { techPressed: true }), 28, 6, 48);
   });
-  it('切り上げ 5/3/10。設定を かえると かわる', () => {
+  it('切り上げ 15/5/33。設定を かえると かわる', () => {
     const r = rig();
     r.blade.setStance('gedan');
     r.settings.bladeTech.kiriage = { startup: 2, active: 1, recovery: 3 };
@@ -181,12 +181,12 @@ describe('当たる F・ダメージ（AC3・AC4）', () => {
     expect(r.yokai.calls).toHaveLength(1);
     expect(r.hits).toEqual([{ tech: 'thrust', count: 1 }]);
   });
-  it('大げさ斬り F15 に 8、切り上げ F6 に 3', () => {
+  it('大げさ斬り F29 に 8、切り上げ F16 に 3', () => {
     const r = rig();
     r.blade.setStance('jodan');
     r.yokai.add('karakasa', ...(Object.values(r.front(2)) as [number, number, number]));
     r.step({ techPressed: true });
-    r.steps(13);
+    r.steps(27);
     expect(r.yokai.calls).toHaveLength(0);
     r.step();
     expect(r.yokai.calls[0]).toMatchObject({ amount: 8, knock: { dist: 2.5, up: 2 } });
@@ -194,7 +194,7 @@ describe('当たる F・ダメージ（AC3・AC4）', () => {
     k.blade.setStance('gedan');
     k.yokai.add('karakasa', ...(Object.values(k.front(2)) as [number, number, number]));
     k.step({ techPressed: true });
-    k.steps(4);
+    k.steps(14);
     expect(k.yokai.calls).toHaveLength(0);
     k.step();
     expect(k.yokai.calls[0]).toMatchObject({ amount: 3, knock: { dist: 1.0, up: 7 } });
@@ -207,7 +207,7 @@ describe('当たる F・ダメージ（AC3・AC4）', () => {
         r.blade.setStance(st);
         r.yokai.add('nurikabe', ...(Object.values(r.front(2)) as [number, number, number]));
         r.step({ techPressed: true });
-        r.steps(17);
+        r.steps(33);
         expect(r.yokai.calls[0].amount).toBe(exp[it][i]);
       });
     }
@@ -263,7 +263,7 @@ describe('大げさ斬り・切り上げの 形（AC6・AC7）', () => {
     r.blade.setStance(stance);
     setup(r);
     r.step({ techPressed: true });
-    r.steps(17);
+    r.steps(33);
     return r;
   };
   it('0°・60° は 当たり、120° と 4.5 は 当たらない', () => {
@@ -311,26 +311,26 @@ describe('かべごし（AC8）', () => {
     b.update(c({}));
     b.setStance('jodan');
     b.update(c({ techPressed: true }));
-    for (let i = 0; i < 17; i++) { t++; b.update(c({})); }
+    for (let i = 0; i < 33; i++) { t++; b.update(c({})); }
     expect(yokai.calls).toHaveLength(0);
     expect(b.peekEvents().some((e) => e.type === 'techMiss')).toBe(true);
     world.setBlock(16, 10, 15, 'air');
-    for (let i = 0; i < 30; i++) b.update(c({}));
+    for (let i = 0; i < 50; i++) b.update(c({}));
     b.update(c({ techPressed: true }));
-    for (let i = 0; i < 17; i++) b.update(c({}));
+    for (let i = 0; i < 33; i++) b.update(c({}));
     expect(yokai.calls).toHaveLength(1);
   });
 });
 
 describe('動き（AC10）', () => {
-  it('大げさ斬り F18〜41 は 動けず ジャンプ できない、F42 から 動ける', () => {
+  it('大げさ斬り F35〜82 は 動けず ジャンプ できない、F83 から 動ける', () => {
     const r = rig();
     r.blade.setStance('jodan');
     r.step({ techPressed: true });
-    for (let f = 2; f <= 41; f++) {
+    for (let f = 2; f <= 82; f++) {
       r.step();
       const m = r.blade.motion();
-      if (f <= 17) expect(m).toEqual({ speedMul: 0.3, jumpLocked: false });
+      if (f <= 34) expect(m).toEqual({ speedMul: 0.3, jumpLocked: false });
       else expect(m).toEqual({ speedMul: 0, jumpLocked: true });
     }
     r.step();
@@ -362,30 +362,30 @@ describe('先行入力・おしつづけ（AC11）', () => {
     }
     return starts;
   };
-  it('F35 に 押す → F42 に 次が 始まる。F32 は 出ない', () => {
+  it('F76 に 押す → F83 に 次が 始まる。F73 は 出ない', () => {
     const r = rig();
     r.blade.setStance('jodan');
-    expect(startsAt(r, 45, (f) => ({ techPressed: f === 35 }))).toEqual([42]);
+    expect(startsAt(r, 90, (f) => ({ techPressed: f === 76 }))).toEqual([83]);
     const q = rig();
     q.blade.setStance('jodan');
-    expect(startsAt(q, 45, (f) => ({ techPressed: f === 32 }))).toEqual([]);
+    expect(startsAt(q, 90, (f) => ({ techPressed: f === 73 }))).toEqual([]);
   });
-  it('F35 に R → F42 に かまえが かわる。R のあと primary は あとの方', () => {
+  it('F76 に R → F83 に かまえが かわる。R のあと primary は あとの方', () => {
     const r = rig();
     r.blade.setStance('jodan');
     r.step({ techPressed: true });
-    r.steps(33);
-    r.step({ stancePressed: true }); // F35
+    r.steps(74);
+    r.step({ stancePressed: true }); // F76
     r.steps(6);
-    r.step(); // F42
+    r.step(); // F83
     expect(r.blade.state()).toMatchObject({ stance: 'gedan', phase: 'switch', frame: 1 });
     const q = rig();
     q.blade.setStance('jodan');
     q.step({ techPressed: true });
-    q.steps(33);
+    q.steps(74);
     q.step({ stancePressed: true });
     q.step();
-    q.step({ techPressed: true }); // F37
+    q.step({ techPressed: true }); // F78
     expect(q.blade.state().buffered).toBe('tech');
     q.steps(4);
     q.step();

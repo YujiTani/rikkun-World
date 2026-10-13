@@ -1470,8 +1470,8 @@ export interface BladeTrailStyle {
 export const W2_SETTING_DEFAULTS: Readonly<W2Settings> = {
   bladeTech: {
     thrust: { startup: 4, active: 2, recovery: 8 },
-    kesa: { startup: 14, active: 3, recovery: 24 },
-    kiriage: { startup: 5, active: 3, recovery: 10 },
+    kesa: { startup: 28, active: 6, recovery: 48 },
+    kiriage: { startup: 15, active: 5, recovery: 33 },
   },
   stanceSwitchTicks: 8,
   bladeBufferTicks: 8,

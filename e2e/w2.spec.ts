@@ -90,7 +90,7 @@ test.describe('WEAPON-2 刀', () => {
         h.input.press('primary');
         h.step(1);
         h.input.release('primary');
-        h.step(60);
+        h.step(90);
         const ev = h.blade.events().filter((e: any) => e.type === 'techHit');
         out.hits[st] = ev.length - n0;
         out.dur.push(h.inventory.durability(0).left);
@@ -148,7 +148,7 @@ test.describe('WEAPON-2 刀', () => {
       h.input.press('primary');
       h.step(1);
       h.input.release('primary');
-      h.step(18);
+      h.step(40);
       h.input.press('moveForward');
       h.input.press('jump');
       const p0 = h.player.get().position.x;

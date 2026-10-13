@@ -61,7 +61,7 @@ const GEDAN: K = { rx: 25, rz: -8, sp: -30, tw: 0, lean: 10, sink: 0, legR: 15, 
 export const STANCE_K: Readonly<Record<BladeStance, Readonly<K>>> = { chudan: CHUDAN, jodan: JODAN, gedan: GEDAN };
 
 /** わざの長さ（F。§4.2） */
-export const TECH_FRAMES: Readonly<Record<BladeTech, number>> = { thrust: 14, kesa: 36, kiriage: 18 };
+export const TECH_FRAMES: Readonly<Record<BladeTech, number>> = { thrust: 14, kesa: 72, kiriage: 53 };
 /** かまえ変えの長さ（F。設定 stanceSwitchTicks の初期値） */
 export const SWITCH_FRAMES = 8;
 
@@ -109,14 +109,16 @@ function techK(tech: BladeTech, f: number, out: K): K {
       if (f <= 6) return mix(T1, T2, ease((f - 4) / 1.5), out);
       return mix(T2, CHUDAN, ease((f - 6) / 8), out);
     case 'kesa':
-      if (f <= 9) return mix(JODAN, K1, f / 9, out);
-      if (f <= 12) return mix(K1, K2, (f - 9.7) / 2.3, out);
-      if (f <= 28) return mix(K2, K2, 0, out);
-      return mix(K2, JODAN, ease((f - 28) / 8), out);
+      // 大げさ斬り: 28 / 6 / 48 F。ふりかぶり 0〜18、ふりおろし 19.4〜24（あたり 29〜34 の すこし前）、もどり 56〜72
+      if (f <= 18) return mix(JODAN, K1, f / 18, out);
+      if (f <= 24) return mix(K1, K2, (f - 19.4) / 4.6, out);
+      if (f <= 56) return mix(K2, K2, 0, out);
+      return mix(K2, JODAN, ease((f - 56) / 16), out);
     case 'kiriage':
-      if (f <= 5) return mix(GEDAN, G1, f / 5, out);
-      if (f <= 8) return mix(G1, G2, (f - 6) / 2, out);
-      return mix(G2, GEDAN, ease((f - 8) / 10), out);
+      // 切り上げ: 15 / 5 / 33 F。ふりかぶり 0〜15、ふりあげ 16〜20（あたり）、もどり 20〜53
+      if (f <= 15) return mix(GEDAN, G1, f / 15, out);
+      if (f <= 20) return mix(G1, G2, (f - 16) / 4, out);
+      return mix(G2, GEDAN, ease((f - 20) / 33), out);
   }
 }
 
