@@ -10,9 +10,12 @@ import type {
   SpawnPoint,
   Vec3,
   VoxelWorld,
+  W2Settings,
   YokaiKind,
   YokaiWorld,
 } from '../contracts';
+import { createW2Settings } from '../contracts';
+import { isBladeItem } from '../tools/blade';
 import { DropField, type DropView } from '../drops';
 import { createRng, type Rng } from '../world/gen/random';
 import {
@@ -92,6 +95,8 @@ export interface CombatDeps {
   drops?: DropField;
   /** M4: 防具（ふせぐ・やられたとき落とす） */
   armor?: CombatArmorPort;
+  /** WEAPON-2: 設定の入れ物（刀の 照準の 距離・たいきゅうの へりかた）。なければ 初期値 */
+  settings?: W2Settings;
   /** M4: 拾って入った（自分で作る DropField 用。拾ったログ） */
   onPickup?: (item: ItemId, count: number) => void;
 }
@@ -146,6 +151,9 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
   private pDamage = 1;
   private pReach = 3;
   private pTicks = 30;
+  /** いまのパンチを始めたときに 持っていた もの（たいきゅうを へらす 先の 見分け用） */
+  private pItem: ItemId | null = null;
+  private readonly w2: W2Settings;
 
   readonly drops: DropField;
 
@@ -155,6 +163,7 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
   constructor(private readonly d: CombatDeps) {
     this.config = d.config ?? createCombatConfig();
     this.rng = d.rng ?? createRng(31337);
+    this.w2 = d.settings ?? createW2Settings();
     this.hpNow = this.config.playerMaxHp;
     this.drops =
       d.drops ??
@@ -266,7 +275,8 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
   aimedYokai(eye: Vec3, dir: Vec3, blockDistance: number | null): number | null {
     if (this.isDead) return null;
     const tp = this.d.tool?.punchParams();
-    const reach = tp ? tp.reach : this.config.punchReach;
+    // 刀は わざの ふりわけ用に 照準の 線 4.5（WEAPON-2 §2.1 の 6）
+    const reach = this.holdingBlade() ? this.w2.bladeAimReach : tp ? tp.reach : this.config.punchReach;
     const maxD = blockDistance === null ? reach : Math.min(blockDistance, reach);
     const hit = this.d.yokai().raycast(eye, dir, maxD);
     return hit && (blockDistance === null || hit.distance < blockDistance) ? hit.id : null;
@@ -278,6 +288,11 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
       return false;
     }
     const cfg = this.config;
+    // 刀を 持っているときは 今の パンチを 使わない（わざは BladeSystem。ふりわけは つなぎ込み）
+    if (this.holdingBlade()) {
+      this.punchTickNow = 0;
+      return false;
+    }
     if (this.punchTickNow > 0) {
       this.punchTickNow++;
       if (this.punchTickNow >= this.pTicks) {
@@ -296,6 +311,7 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
     this.pDamage = tp ? tp.damage : cfg.punchDamage;
     this.pReach = reach;
     this.pTicks = tp ? tp.ticks : cfg.punchTicks;
+    this.pItem = this.d.inventory.held()?.item ?? null;
     this.punchTickNow = 1;
     this.emit({ type: 'punchStart', tick: this.tickCount });
     this.d.tool?.onPunchStart();
@@ -313,9 +329,26 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
     if (hit && hit.distance <= this.pReach && (blockDistance === null || hit.distance < blockDistance)) {
       this.emit({ type: 'punchHit', tick: this.tickCount, yokaiId: hit.id });
       yw.damage(hit.id, this.pDamage, { ...this.d.player.get().position });
+      this.wearForPunch();
     } else {
       this.emit({ type: 'punchMiss', tick: this.tickCount });
     }
+  }
+
+  private holdingBlade(): boolean {
+    return isBladeItem(this.d.inventory.held()?.item);
+  }
+
+  /** パンチが 当たった: 先に 効かせた あとで、持っている 道具の たいきゅうを へらす（WEAPON-2 §4.6 (3)） */
+  private wearForPunch(): void {
+    const it = this.pItem;
+    if (!it || this.d.inventory.held()?.item !== it) return;
+    const w = this.w2.toolWear;
+    let n = 0;
+    if (it === 'wood_pickaxe' || it === 'stone_pickaxe' || it === 'iron_pickaxe') n = w.pickaxe.hit;
+    else if (it === 'naginata') n = w.blade.hit;
+    else if (it === 'kuwa') n = w.kuwa.hit;
+    if (n > 0) this.d.inventory.wearHeld(n);
   }
 
   // ---------------------------------------------------------- 毎ステップ
