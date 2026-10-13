@@ -1,4 +1,4 @@
-import type { CraftSystem, Inventory, ItemId, Rarity, ScreenState } from '../contracts';
+import type { CraftSystem, Inventory, ItemId, ItemStack, Rarity, ScreenState } from '../contracts';
 import type { CraftUiSettings, ToolNumbers } from '../fx/craftConfig';
 import { CraftPanel, type FurnaceView } from './craftPanel';
 import { EquipPanel, type ArmorUi } from './equipPanel';
@@ -8,6 +8,7 @@ import { Tooltip, type HoverTarget } from './tooltip';
 import { mouseHtml } from './craftPanel.art';
 import { ruby } from './text';
 import { createChip } from './theme';
+import { wearSignature } from './wearGauge';
 import './inventoryScreen.css';
 
 /** M4: つくる/やく の場所・そうびのマス・ツールチップのために要るもの（無ければ M3 までの形） */
@@ -92,6 +93,7 @@ export class InventoryScreen {
   private readonly cursorIcon: HTMLImageElement;
   private readonly cursorCount: HTMLSpanElement;
   private dirty = true;
+  private wearSig = 0;
   private open = false;
   private mouseX = 0;
   private mouseY = 0;
@@ -184,6 +186,7 @@ export class InventoryScreen {
         isOpen: () => this.open,
         cursorHeld: () => this.inv.cursor() !== null,
         resolve: (t) => this.resolveHover(t),
+        resolveStack: (t) => this.resolveHoverStack(t),
       });
       this.equip = new EquipPanel(m4.armor, hover);
       this.craftPanel = new CraftPanel(side, {
@@ -369,6 +372,13 @@ export class InventoryScreen {
       if (!open) this.tooltip?.hover(null);
     }
     if (open && `${this.frame.offsetWidth}x${this.frame.offsetHeight}` !== this.fitSize) this.fit(); // せつめい などで 大きさが変わったら ちぢめなおす
+    if (open) {
+      const sig = wearSignature(this.inv.slots());
+      if (sig !== this.wearSig) {
+        this.wearSig = sig;
+        this.dirty = true;
+      }
+    }
     if (open && this.dirty) this.render();
     this.craftPanel?.update();
     if (open) {
@@ -385,6 +395,13 @@ export class InventoryScreen {
     if (kind === 'card') return this.m4?.craft.recipes().find((r) => r.id === a)?.output.item ?? null;
     if (kind === 'material') return (b as ItemId) || null;
     if (kind === 'fuel') return (a as ItemId) || null;
+    return null;
+  }
+
+  /** ツールチップ用（WEAPON-2）: へった 量つきの 中身。持ち物の マスと そうびの マスだけ */
+  private resolveHoverStack(t: HoverTarget): ItemStack | null {
+    if (typeof t === 'number') return this.inv.slots()[t] ?? null;
+    if (t === 'head' || t === 'body' || t === 'arms' || t === 'legs') return this.m4?.armor.equippedStack?.(t) ?? null;
     return null;
   }
 

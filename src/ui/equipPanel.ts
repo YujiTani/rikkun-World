@@ -71,7 +71,9 @@ export class EquipPanel {
   update(): void {
     for (const slot of ['head', 'body', 'arms', 'legs'] as ArmorSlot[]) {
       const item = this.armor.equipped(slot);
-      paintSlot(this.cells[slot], item ? { item, count: 1 } : null);
+      // WEAPON-2: へった 量つきで 持つ（なければ 品名だけ = 新品）。ゲージは 新品でも 出す
+      const stack = item ? (this.armor.equippedStack?.(slot) ?? { item, count: 1 }) : null;
+      paintSlot(this.cells[slot], stack, item ? (this.armor.durability?.(slot) ?? null) : null);
     }
   }
 }

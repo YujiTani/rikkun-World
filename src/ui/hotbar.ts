@@ -1,10 +1,11 @@
-import type { Inventory, ItemStack } from '../contracts';
+import type { Durability, Inventory, ItemStack } from '../contracts';
 import { FX_SETTINGS, type FxSettings } from '../fx/config';
 import { HOTBAR_SIZE, gainedSlots, hotbarCells, snapshotSlots } from './hotbarModel';
 import { itemRarity } from '../drops/rarity';
 import { gemShape, gemUrl } from './gemArt';
 import { itemIconUrl } from './itemIcon';
 import { itemCategory, rarityIndex } from './itemCategory';
+import { paintWear, wearSignature } from './wearGauge';
 import './hotbar.css';
 
 export interface SlotEls {
@@ -46,7 +47,7 @@ export function createSlotEl(keyLabel?: string, size?: 'inv' | 'tansu'): SlotEls
  * 入っているときは 背景 = カテゴリーの色（data-cat）、ふち = めずらしさの色（data-rarity）、右上に宝石の印。
  * からっぽ は下地のまま・宝石の印なし。
  */
-export function paintSlot(els: SlotEls, stack: ItemStack | null): void {
+export function paintSlot(els: SlotEls, stack: ItemStack | null, durability?: Durability | null): void {
   if (stack && stack.count > 0) {
     const url = itemIconUrl(stack.item);
     if (els.icon.getAttribute('src') !== url) els.icon.src = url;
@@ -68,6 +69,8 @@ export function paintSlot(els: SlotEls, stack: ItemStack | null): void {
     els.count.textContent = '';
     els.gem.remove();
   }
+  // WEAPON-2 §3.6: たいきゅうで へる 道具の マスには ゲージを いつも 出す
+  paintWear(els.root, stack, durability);
 }
 
 /** ぽよん（Web Animations。使えない環境では何もしない） */
@@ -95,6 +98,7 @@ export class Hotbar {
   private readonly cells: SlotEls[] = [];
   private dirty = true;
   private lastSelected = -1;
+  private wearSig = 0;
   private snapshot: Array<ItemStack | null> = [];
   private readonly names = new Map<string, string>();
   private readonly off: () => void;
@@ -133,6 +137,12 @@ export class Hotbar {
       this.dirty = true;
       const held = this.inv.slots()[sel];
       if (held) this.notice.showName(this.names.get(held.item) ?? '');
+    }
+    // たいきゅうが へった（持ち物の 変化の 通知が 無くても ゲージを 直す）
+    const sig = wearSignature(this.inv.slots(), 0, HOTBAR_SIZE);
+    if (sig !== this.wearSig) {
+      this.wearSig = sig;
+      this.dirty = true;
     }
     if (this.dirty) this.render();
   }
