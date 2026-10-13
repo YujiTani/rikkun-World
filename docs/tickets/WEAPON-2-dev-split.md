@@ -99,3 +99,11 @@
 - `cameraRig.setWeaponSource({ blade: () => blade.state(), bowPose: () => bow.pose() })`。
 - かまえ変えは 8F の定数（設定 stanceSwitchTicks は読まない）。
 - 見た目の気づき（次の直しの候補）: 三人称の刀の左手が刀に届かない、弓の三人称でひじを引かない（表の値どおり）。
+### D（w2-d）
+1. `setWearSettings(() => w2)`。
+2. `new BladeHud(hud, () => w2)`、`new WearNotice(hud)`（step 毎ステップ）、`new WeaponFx({ scene, sound, blade, bow: tools.bow(), inventory, armor, bladeHud, notice, nameOf, handPos, shakeEl: canvas, onWear: (e) => achievements.feedWear(e), onArrowPickup })`（step 毎ステップ、update(dt) 描画前）。
+3. `wearHeld`・`wearSlot`・防具の `WearResult.worn` を `achievements.feedWorn(worn)` へ。
+4. 矢: `arrowVisuals.syncFlying(bow.arrows())`、ささった矢用の ArrowVisuals を別に作って `syncStuck(bow.stuck())`。
+5. `combat.sounds()` は `fx/soundLog.ts` の peek/drainSounds。
+6. `GUIDE_TABS.fight` を `FIGHT_CAPTIONS_W2` に差しかえてよい。
+- 契約の不足: `StuckArrowInfo` に向き（dir）が無い（今は id から斜め下）。つなぎ込みで dir を足してよい。
