@@ -10,6 +10,7 @@ import { ToolSystemImpl, createToolConfig, createToolHook } from './tools';
 import { createBladeSystem } from './tools/blade/BladeSystem';
 import { createBladeHook } from './tools/blade/hook';
 import { WeaponFx } from './fx/weaponFx';
+import { EventRelay } from './fx/eventRelay';
 import { BladeHud } from './ui/bladeHud';
 import { WearNotice } from './ui/wearNotice';
 import { setWearSettings } from './ui/wearGauge';
@@ -530,16 +531,13 @@ const combatFx = new CombatFx({
   onPickup: (item, count) => hotbar.pickup(item, count),
 });
 
+const arrowRelay = new EventRelay<import('./contracts').BowEvent>();
 const weaponFx = new WeaponFx({
   scene: game.scene,
   sound: fxSound,
   blade,
   bow: {
-    drainEvents: () => {
-      const r = arrowBuf;
-      arrowBuf = NO_ARROW;
-      return r;
-    },
+    drainEvents: () => arrowRelay.take() as import('./contracts').BowEvent[],
   },
   inventory,
   armor,
@@ -638,8 +636,6 @@ dragOut = new DragOut(inventoryScreen, {
 tryOpenTansu = () => dig.tryOpenAimedStorage();
 // 出来事の入れ物（毎ステップ 1 回だけ drain して、画面・音・実績に配る）
 // ゆみの出来事は main が 1 回だけ drain して、weaponFx にも配る
-const NO_ARROW: ReturnType<typeof tools.drainArrowEvents> = [];
-let arrowBuf: ReturnType<typeof tools.drainArrowEvents> = NO_ARROW;
 const NO_DIG: DigEvent[] = [];
 let digBuf: DigEvent[] = NO_DIG;
 time.onPhaseChange((p) => achievements.feedPhase(p));
@@ -867,7 +863,7 @@ game.onUpdate((dt) => {
     swingBuf = swingBuf === NO_SWINGS ? swings : swingBuf.concat(swings);
   }
   const arrowEvents = tools.drainArrowEvents();
-  if (arrowEvents.length > 0) arrowBuf = arrowEvents;
+  arrowRelay.give(arrowEvents);
   for (const e of arrowEvents) {
     if (e.type === 'noArrow') notice.showSignal('noArrow');
     else if (e.type === 'arrowHit') {

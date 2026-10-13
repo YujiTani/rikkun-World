@@ -58,8 +58,32 @@ function rig(held: ItemId | null, target: BlockId | null, opts: { above?: BlockI
     actions.release(btn);
     actions.endFrame();
   };
-  return { dig, inv, world, log, tap, step, hp: () => hp };
+  return { dig, inv, world, log, actions, tap, step, hp: () => hp };
 }
+
+describe('M7 DigSystem 押しっぱなしの たがやし', () => {
+  const hold = (r: ReturnType<typeof rig>, n: number) => {
+    for (let i = 0; i < n; i++) {
+      r.dig.update();
+      r.actions.endFrame();
+    }
+  };
+  it('たねを使い切ったあとも 押しつづけても 素手で たがやさない', () => {
+    const r = rig('seed_tomato', 'grass');
+    r.actions.press('secondary');
+    hold(r, 5); // たねを持っている間（ヒントだけ）
+    r.inv.setSlot(0, null); // たねを使い切った
+    hold(r, 200);
+    expect(r.log).not.toContain('till');
+    expect(r.log.some((l) => l.startsWith('press'))).toBe(false);
+  });
+  it('最初から素手で 押しっぱなしなら 今まで通り たがやせる', () => {
+    const r = rig(null, 'grass');
+    r.actions.press('secondary');
+    hold(r, 200);
+    expect(r.log).toContain('till');
+  });
+});
 
 describe('M7 DigSystem', () => {
   it('くわ で くさ を 1 回 → たがやす', () => {
