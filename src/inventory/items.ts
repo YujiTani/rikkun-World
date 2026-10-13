@@ -69,7 +69,20 @@ const M4_ITEMS: readonly ItemType[] = [
   { id: 'haniwa', name: 'はにわ', maxStack: BLOCK_MAX_STACK, placeBlock: null },
 ];
 
-export const ITEM_TYPES: readonly ItemType[] = [...PLACEABLE_TYPES, ...ITEM_ONLY, ...M4_BLOCKS, ...M4_ITEMS];
+/** M7: たね 4・やさい 4・くわ（置けない。たねは はたけ に まく） */
+const M7_ITEMS: readonly ItemType[] = [
+  { id: 'seed_onion', name: 'たまねぎの たね', maxStack: BLOCK_MAX_STACK, placeBlock: null },
+  { id: 'seed_tomato', name: 'トマトの たね', maxStack: BLOCK_MAX_STACK, placeBlock: null },
+  { id: 'seed_pumpkin', name: 'かぼちゃの たね', maxStack: BLOCK_MAX_STACK, placeBlock: null },
+  { id: 'seed_eggplant', name: 'なすの たね', maxStack: BLOCK_MAX_STACK, placeBlock: null },
+  { id: 'onion', name: 'たまねぎ', maxStack: BLOCK_MAX_STACK, placeBlock: null },
+  { id: 'tomato', name: 'トマト', maxStack: BLOCK_MAX_STACK, placeBlock: null },
+  { id: 'pumpkin', name: 'かぼちゃ', maxStack: BLOCK_MAX_STACK, placeBlock: null },
+  { id: 'eggplant', name: 'なす', maxStack: BLOCK_MAX_STACK, placeBlock: null },
+  { id: 'kuwa', name: 'くわ', maxStack: 1, placeBlock: null },
+];
+
+export const ITEM_TYPES: readonly ItemType[] = [...PLACEABLE_TYPES, ...ITEM_ONLY, ...M4_BLOCKS, ...M4_ITEMS, ...M7_ITEMS];
 
 const BY_ID = new Map<string, ItemType>(ITEM_TYPES.map((t) => [t.id, t]));
 

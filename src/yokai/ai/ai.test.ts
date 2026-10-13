@@ -34,6 +34,7 @@ function makeCombat() {
       hits.push({ amount, by, from });
       return true;
     },
+    heal: () => 0,
     drainEvents: () => [],
   };
   return c;

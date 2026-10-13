@@ -53,6 +53,15 @@ function tabArts(): Record<GuideTabId, string[]> {
       `<div class="po-keys">${KEY('Q')}</div>${ICON('dirt')}`,
       `${ICON('tansu')}`,
     ],
+    grow: [
+      `${ICON('kuwa')}${EMOJI('➡')}${ICON('farmland')}`,
+      `${ICON('seed_tomato')}${EMOJI('➡')}${ICON('farmland')}`,
+      `${EMOJI('💧')}${ICON('farmland_wet')}`,
+      `${EMOJI('🌱➡')}${ICON('tomato')}${LEFT()}`,
+      `${ICON('onion')}${ICON('tomato')}${RIGHT()}${EMOJI('❤')}`,
+      `${ICON('seed_onion')}${ICON('seed_pumpkin')}${ICON('seed_eggplant')}`,
+      `${EMOJI('☀')}${ICON('torch')}`,
+    ],
   };
 }
 

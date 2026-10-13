@@ -36,6 +36,16 @@ const ITEM_ONLY_RARITY: Record<string, Rarity> = {
   omamori: 'superRare',
   waraji: 'common',
   haniwa: 'uncommon',
+  // M7
+  seed_onion: 'common',
+  seed_tomato: 'common',
+  seed_pumpkin: 'common',
+  seed_eggplant: 'common',
+  onion: 'common',
+  tomato: 'common',
+  pumpkin: 'common',
+  eggplant: 'common',
+  kuwa: 'common',
 };
 
 export const RARITY_ORDER: readonly Rarity[] = ['common', 'uncommon', 'rare', 'superRare'];

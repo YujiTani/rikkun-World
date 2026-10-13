@@ -140,7 +140,43 @@ export const HELD_MODELS: Partial<Record<ItemId, Part[]>> = {
     { size: [0.03, 0.02, 0.03], pos: [-0.025, -0.055, -0.26], color: 0x2a1a10 },
     { size: [0.03, 0.02, 0.03], pos: [0.025, -0.055, -0.26], color: 0x2a1a10 },
   ],
+  // ---- M7（農業）
+  kuwa: [
+    stick(0.6, 0.05, WOOD, -0.1),
+    { size: [0.05, 0.05, 0.1], pos: [0, 0, -0.62], color: 0x9e9e9e },
+    { size: [0.2, 0.04, 0.05], pos: [0, 0, -0.66], color: 0x9e9e9e },
+    { size: [0.04, 0.05, 0.1], pos: [0.1, 0, -0.62], color: 0x757575 },
+  ],
+  seed_onion: seedBag(0xf5f0dc),
+  seed_tomato: seedBag(0xe53935),
+  seed_pumpkin: seedBag(0xf57c00),
+  seed_eggplant: seedBag(0x6a1b9a),
+  onion: [
+    { size: [0.2, 0.2, 0.18], pos: [0, 0, -0.1], color: 0xf5f0dc },
+    { size: [0.05, 0.05, 0.1], pos: [0, 0, -0.24], color: 0x43a047 },
+  ],
+  tomato: [
+    { size: [0.2, 0.2, 0.2], pos: [0, 0, -0.1], color: 0xe53935 },
+    { size: [0.08, 0.08, 0.03], pos: [0, 0, -0.22], color: 0x2e7d32 },
+  ],
+  pumpkin: [
+    { size: [0.3, 0.3, 0.22], pos: [0, 0, -0.12], color: 0xf57c00 },
+    { size: [0.06, 0.06, 0.05], pos: [0, 0, -0.26], color: 0x6d4c41 },
+  ],
+  eggplant: [
+    { size: [0.12, 0.12, 0.32], pos: [0, 0, -0.18], color: 0x6a1b9a },
+    { size: [0.07, 0.07, 0.05], pos: [0, 0, -0.36], color: 0x2e7d32 },
+  ],
 };
+
+/** たねの ふくろ（紙いろの 板に その やさいの色の 点） */
+function seedBag(color: number): Part[] {
+  return [
+    { size: [0.2, 0.05, 0.26], pos: [0, 0, -0.14], color: 0xe8d3a0 },
+    { size: [0.2, 0.06, 0.04], pos: [0, 0, -0.26], color: 0xc9ae78 },
+    { size: [0.09, 0.07, 0.09], pos: [0, 0, -0.12], color },
+  ];
+}
 
 /** 左手で持つ（ゆみ） */
 export function isLeftHanded(item: ItemId): boolean {

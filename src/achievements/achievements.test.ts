@@ -55,10 +55,12 @@ const attach = (sys: AchievementSystem) => {
 };
 
 describe('実績の表', () => {
-  it('180 こ・id かぶりなし・小 61', () => {
-    expect(ACHIEVEMENT_DEFS.length).toBe(180);
-    expect(new Set(ACHIEVEMENT_DEFS.map((d) => d.id)).size).toBe(180);
-    expect(ACHIEVEMENT_DEFS.filter((d) => d.small).length).toBe(61);
+  it('207 こ・id かぶりなし・小 72（M6 の 180・61 ＋ M7 の 27・11）', () => {
+    expect(ACHIEVEMENT_DEFS.length).toBe(207);
+    expect(new Set(ACHIEVEMENT_DEFS.map((d) => d.id)).size).toBe(207);
+    expect(ACHIEVEMENT_DEFS.filter((d) => d.small).length).toBe(72);
+    expect(ACHIEVEMENT_DEFS.filter((d) => d.category === 'farm').length).toBe(26);
+    expect(ACHIEVEMENT_DEFS.filter((d) => d.category === 'farm' && d.small).length).toBe(10);
   });
   it('メダルと名前', () => {
     const med = (id: string) => ACHIEVEMENT_DEFS.find((d) => d.id === id)?.medal;
@@ -317,8 +319,8 @@ describe('じっせき ページの きまり', () => {
     s.record('place:dirt', 1);
     p.setTab('achievements');
     let ui = p.ui(true);
-    expect(ui.categories.length).toBe(8);
-    expect(ui.total).toBe(180);
+    expect(ui.categories.length).toBe(9);
+    expect(ui.total).toBe(207);
     expect(ui.tabDot).toBe(true);
     expect(ui.rows.some((r) => r.isNew)).toBe(true);
     expect(ui.rows.filter((r) => !r.shown).length).toBeGreaterThan(0);

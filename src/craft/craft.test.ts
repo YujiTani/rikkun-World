@@ -64,10 +64,10 @@ describe('アイテムの種類表（AC1）', () => {
 });
 
 describe('つくる（AC1〜AC4）', () => {
-  it('list は 21 こ、持ち物が空なら全部 craftable false', () => {
+  it('list は 22 こ、持ち物が空なら全部 craftable false', () => {
     const { craft } = rig();
     const l = craft.list();
-    expect(l).toHaveLength(21);
+    expect(l).toHaveLength(22);
     expect(l.every((c) => !c.craftable && c.missing.length === c.inputs.length)).toBe(true);
     expect(l[0].id).toBe('wood_pickaxe');
     expect(craft.bakeList().map((b) => b.id)).toEqual(['iron_ingot', 'kawara', 'brick', 'haniwa']);

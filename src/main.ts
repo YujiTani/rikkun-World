@@ -19,7 +19,7 @@ import { PickupLogModel } from './ui/pickupLogModel';
 import { itemRarity } from './drops/rarity';
 import { itemType } from './inventory/items';
 import { createGuideHook } from './ui/playOverlay';
-import { createM6Settings, type AchievementId, type CombatEvent, type DefeatWith, type DigEvent, type ItemId, type SwingAnim, type YokaiKind } from './contracts';
+import { createM6Settings, createM7Settings, SEED_ITEM, VEG_ITEM, CROP_KINDS, cropKindOfBlock, type FarmPlacement, type AchievementId, type CombatEvent, type DefeatWith, type DigEvent, type ItemId, type SwingAnim, type YokaiKind } from './contracts';
 import { ACHIEVEMENT_DEFS, AchievementSystem, AchievementsPageModel, createAchievementsHook, type StepContext } from './achievements';
 import { CelebrateUi } from './ui/celebrate';
 import { AchievementsPage, achievementArtUrl } from './ui/achievementsPage';
@@ -74,6 +74,13 @@ import { generateIsland } from './world/gen/generateIsland';
 import { createWorldHook } from './world/hook';
 import { WorldRenderer } from './world/render/WorldRenderer';
 import { darkenFromBrightness, skyDarkness } from './world/light';
+import { createFarmSystem, createFarmHook } from './farm';
+import { computeFarmPlacement, applyFarmPlacement } from './world/gen/farmPlacement';
+import { createFarmVisual } from './world/render/farmVisual';
+import { FarmFx } from './fx/farmFx';
+import { FarmHint } from './ui/farmHint';
+import { FarmAimHud } from './ui/farmAim';
+import { itemIconPixels } from './ui/itemIcon';
 
 const container = document.getElementById('game')!;
 const hud = document.getElementById('hud')!;
@@ -169,6 +176,8 @@ const inventory = new InventoryImpl();
 const screenSettings = createScreenSettings();
 // M6 の設定（実績・演出・すてる・たんす）。settings から変えたら すぐ効く
 const m6 = createM6Settings();
+// M7 の設定（農業。settings から変えたら すぐ効く）
+const m7 = createM7Settings();
 // E でたんす: ScreenController より先に押しを聞く（画面は ScreenController が開く）
 let tryOpenTansu: () => boolean = () => false;
 let modalIsOpen: () => boolean = () => false;
@@ -301,6 +310,21 @@ const dropController = new DropController({
   inventoryOpen: () => screen.inventoryOpen(),
   hover: () => dragOut?.hoverTarget() ?? null,
 });
+// 農業（M7）。作物の段階を描画へ、出来事は 毎ステップ 1 回だけ drain して配る
+const farm = createFarmSystem({
+  world,
+  light: renderer.light,
+  seed,
+  dayLength: () => timeSettings.dayTicks + timeSettings.duskTicks + timeSettings.nightTicks + timeSettings.dawnTicks,
+  settings: m7,
+  tick: () => game.tick,
+  fillTansu: (pos, items) => {
+    items.forEach((st, i) => storage.set(pos.x, pos.y, pos.z, i, st));
+  },
+  placement: computeFarmPlacement,
+  regions: () => island.regions(),
+});
+renderer.setCropStageSource({ stageAt: (x, y, z) => farm.crop(x, y, z)?.stage ?? null });
 const dig = new DigSystemImpl(
   world,
   () => controller.state,
@@ -329,6 +353,8 @@ const dig = new DigSystemImpl(
     scatterItem: (pos, item, count) => {
       drops.scatter(pos, [{ item, count }], { kind: 'yokai' });
     },
+    farm,
+    vitals: combat,
   },
 );
 yokaiManager = new YokaiManager({
@@ -406,6 +432,8 @@ const pickupLog = new PickupLog(hud, { nameOf, rarityOf: itemRarity }, new Picku
 const craftHud = new CraftUiHud({ hud, craft, inv: inventory, nameOf, rarityOf: itemRarity }, pickupLog);
 const furnaceFx = new FurnaceFx(game.scene, fxSound, craftUi);
 onDropPicked = (item, count) => {
+  // からかさ・ろくろくび の おとしもの から たね を拾った
+  if (CROP_KINDS.some((k) => SEED_ITEM[k] === item)) farm.noteSeedFound('yokai', item, controller.state.position);
   craft.notifyPickup(item, count);
   hotbar.pickup(item, count);
 };
@@ -424,6 +452,8 @@ const fx = new DigFx({
     return r;
   },
 });
+const farmHint = new FarmHint(hud);
+const farmAimHud = new FarmAimHud(hud);
 const combatFx = new CombatFx({
   scene: game.scene,
   sound: fxSound,
@@ -456,6 +486,7 @@ const combatFx = new CombatFx({
 const RARITY_INDEX = { common: 0, uncommon: 1, rare: 2, superRare: 3 } as const;
 const rarity4 = (item: ItemId) => RARITY_INDEX[itemRarity(item)];
 const achievements = new AchievementSystem(() => m6);
+const farmFx = new FarmFx({ sound: fxSound, particles: fx.particles, hint: farmHint, achievements });
 onFullSignal = () => achievements.feedFull();
 const pageModel = new AchievementsPageModel(achievements);
 const achievementsPage = new AchievementsPage(achievements, pageModel, inventoryScreen);
@@ -578,13 +609,53 @@ const save = new SaveManager({
   // たんすは ブロックの復元のあとに（SaveManager が その順で呼ぶ）
   storage: { serialize: () => storage.serialize(), deserialize: (d) => storage.deserialize(d) },
   achievements: { serialize: () => achievements.serialize(), deserialize: (d) => achievements.deserialize(d) },
+  // 農業: 作物・印。前の保存（印なし）には 読んだあとに 置きものを置く
+  farm,
 });
 requestSave = () => save.saveIfChanged();
+let loadedSave = false;
 if (saveOptions.reset) {
   save.clear();
   history.replaceState(null, '', stripResetParam(location.href));
 } else {
-  save.load();
+  loadedSave = save.load();
+}
+// 新しい世界: 島の上に 置きもの（やせいの やさい・ふるい はたけ）を置く。保存があれば 保存の側（前の保存は placeLegacy）
+if (!loadedSave) {
+  const placement: FarmPlacement = computeFarmPlacement(seed, { world, info: island });
+  applyFarmPlacement(world, placement);
+  farm.noteNewWorldPlaced(placement);
+  requestSave();
+}
+// 農業の見た目（作物の絵・光）
+const farmVisual = createFarmVisual({
+  world,
+  light: renderer.light,
+  crops: { stageAt: (x, y, z) => farm.crop(x, y, z)?.stage ?? null },
+  ripeMin: () => m7.farmRipeMinBrightness,
+  itemIcon: (name) => {
+    try {
+      return itemIconPixels(name as ItemId).map((c) => (c[3] === 0 ? null : `#${[c[0], c[1], c[2]].map((v) => v.toString(16).padStart(2, '0')).join('')}`));
+    } catch {
+      return null;
+    }
+  },
+});
+// ふるい たんす から たね を持ち物へ うつしたか（たんす を開いているあいだ、たねの数がふえたら）
+let seedsInInv = 0;
+let oldTansu: { x: number; y: number; z: number } | null | undefined;
+const seedCount = (): number => CROP_KINDS.reduce((n, k) => n + inventory.count(SEED_ITEM[k]), 0);
+function trackOldFarmSeeds(): void {
+  const ui = storage.ui();
+  const n = seedCount();
+  if (ui.open && ui.position && n > seedsInInv) {
+    if (oldTansu === undefined) oldTansu = computeFarmPlacement(seed).oldFarm?.tansu ?? null;
+    const p = ui.position;
+    if (oldTansu && oldTansu.x === p.x && oldTansu.y === p.y && oldTansu.z === p.z) {
+      for (const k of CROP_KINDS) farm.noteSeedFound('oldfarm', SEED_ITEM[k], p);
+    }
+  }
+  seedsInInv = n;
 }
 achievements.syncSilently({ level: level.get().level, armor: [armor.equipped('head'), armor.equipped('body'), armor.equipped('arms'), armor.equipped('legs')] });
 celebrate.setPending(achievements.pendingCount());
@@ -675,6 +746,13 @@ game.onUpdate((dt) => {
   craft.update();
   storage.update();
   dropController.update();
+  // 農業: あそんでいるあいだは 毎ステップ、もちもの画面は 4 ステップに 1 回、止まっているあいだは進めない
+  {
+    const m = screen.mode();
+    if (m === 'play' || (m === 'inventory' && screen.timeScale() > 0 && game.tick % 4 === 0)) farm.update({ playerPos: controller.state.position });
+    renderer.setRipeMinBrightness(m7.farmRipeMinBrightness);
+    trackOldFarmSeeds();
+  }
   // 出来事を 1 回だけ取り出して配る（実績へは、記録する前に「はじめて」を決めてから）
   const modeNow = screen.mode();
   if (modeNow === 'play') madeTracker.advance(1);
@@ -694,6 +772,7 @@ game.onUpdate((dt) => {
     digBuf = digBuf === NO_DIG ? digEvents : digBuf.concat(digEvents);
     achievements.feedDig(digEvents);
   }
+  farmFx.feed(farm.drainEvents());
   const storageA = storage.drainEvents();
   const storageB = dropper.drainEvents();
   if (storageA.length > 0 || storageB.length > 0) {
@@ -740,6 +819,13 @@ game.onUpdate((dt) => {
   crosshair.setVisible(rig.crosshairVisible() && screen.mode() === 'play');
   yokaiFocus.update(hintVisible() ? dig.aimedYokaiId() : null);
   actionHint.update(hintVisible() ? actionHintLines(dig.previewRightClick(), dig.previewLeftClick(), { held: tools.current().item, heldIsPickaxe: tools.current().kind === 'pickaxe', heldIsBlade: tools.current().kind === 'blade' }) : {});
+  farmHint.step();
+  {
+    const tb = hintVisible() ? dig.target() : null;
+    const a = tb ? farm.aim(tb.block.x, tb.block.y, tb.block.z) : null;
+    const ck = tb ? cropKindOfBlock(tb.id) : null;
+    farmAimHud.update(a, ck ? nameOf(VEG_ITEM[ck.kind]) : a ? 'はたけ' : '');
+  }
   hotbar.update();
   inventoryScreen.update();
   storageScreen.update();
@@ -814,6 +900,21 @@ installTestHook(game, overlay, {
   } as unknown as TestHookGroups['craft'],
   achievements: achievementsHook as unknown as TestHookGroups['achievements'],
   storage: storageHook as unknown as TestHookGroups['storage'],
+  farm: createFarmHook({
+    farm,
+    visual: farmVisual,
+    aimed: () => dig.target()?.block ?? null,
+    give: (items) => {
+      for (const st of items) {
+        const left = inventory.add(st.item, st.count);
+        if (left > 0) drops.scatter(controller.state.position, [{ item: st.item, count: left }], { kind: 'yokai' });
+      }
+    },
+    store,
+    seed,
+    world,
+    placement: computeFarmPlacement,
+  }) as unknown as TestHookGroups['farm'],
   furnace: createFurnaceHook(craft, screen),
   armor: createArmorHook(armor, screen),
   level: createLevelHook(level),
@@ -833,6 +934,7 @@ installTestHook(game, overlay, {
       settingsViewOf(craftUi, ['bakeTicks', 'pickupLogTicks', 'pickupLogMax']),
       screenSettings,
       m6,
+      m7,
       hintSettings,
       { clockPhases },
       FX_SETTINGS,

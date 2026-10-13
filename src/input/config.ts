@@ -48,9 +48,9 @@ export const HELP_CAPTIONS = [
 ] as const;
 
 /** 案内画面（Esc）のあそびかたのタブ（M4 §2.11）。字はひらがな・カタカナと、ふりがな付きの漢字 */
-export type GuideTabId = 'move' | 'dig' | 'fight' | 'craft';
+export type GuideTabId = 'move' | 'dig' | 'fight' | 'craft' | 'grow';
 
-export const GUIDE_TAB_IDS: readonly GuideTabId[] = ['move', 'dig', 'fight', 'craft'];
+export const GUIDE_TAB_IDS: readonly GuideTabId[] = ['move', 'dig', 'fight', 'craft', 'grow'];
 
 export const GUIDE_TABS: Record<GuideTabId, { label: string; icon: string; captions: readonly string[] }> = {
   move: {
@@ -85,6 +85,20 @@ export const GUIDE_TABS: Record<GuideTabId, { label: string; icon: string; capti
       'ねんりょう は せきたん・あぶら・き',
       'Q で 1こ すてる',
       'たんす に しまう',
+    ],
+  },
+  // M7: 5 つ目のタブ「そだてる」（仕様 §3.7）。文が主役。漢字は ふりがな付き
+  grow: {
+    label: 'そだてる',
+    icon: '🌱',
+    captions: [
+      `くわ を もって ${ruby('草', 'くさ')}か ${ruby('土', 'つち')}を ${RIGHT_CLICK} すると ${ruby('畑', 'はたけ')}に なる。${ruby('素手', 'すで')}なら 3 ${ruby('回', 'かい')} ${RIGHT_CLICK}`,
+      `たね を もって ${ruby('畑', 'はたけ')}を ${RIGHT_CLICK} すると たね を まける`,
+      `${ruby('水', 'みず')}の そば の ${ruby('畑', 'はたけ')}は ${ruby('色', 'いろ')}が こく なって はやく ${ruby('育', 'そだ')}つ`,
+      `みのったら ${LEFT_CLICK} で とれる。まだ の ときは とれないよ`,
+      `やさい を もって ${RIGHT_CLICK} で たべる と ハート が もどる`,
+      `たね は さがそう: かかし の ある ふるい ${ruby('畑', 'はたけ')}、やせいの やさい、${ruby('草', 'くさ')}を こわす、${ruby('妖怪', 'ようかい')}の おとしもの`,
+      `${ruby('明', 'あか')}るい ところ で ${ruby('育', 'そだ')}つ。${ruby('夜', 'よる')}は たいまつ の そば なら ${ruby('育', 'そだ')}つ`,
     ],
   },
 };

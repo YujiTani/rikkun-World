@@ -1,6 +1,7 @@
 import { DataTexture, NearestFilter, RGBAFormat, SRGBColorSpace, UnsignedByteType } from 'three';
 import type { BlockId } from '../../contracts';
 import { tansuPixels } from '../../storage/tansuArt';
+import { FARM_TILE_NAMES, paintFarmTile } from './farmTextures';
 
 /** 16x16 ドット絵をコードで描く（M1-01 4-2 の色）。 */
 export const TILE_SIZE = 16;
@@ -26,7 +27,15 @@ export type TileName =
   | 'torch'
   | 'start_torch'
   | 'tansu_front'
-  | 'tansu_top';
+  | 'tansu_top'
+  | FarmTileName;
+
+/** M7 農業の絵の名前（`farm.texture` の name と同じ） */
+export type FarmTileName =
+  | 'farmland_top' | 'farmland_wet_top' | 'farmland_side' | 'farmland_wet_side'
+  | `crop_${'onion' | 'tomato' | 'pumpkin' | 'eggplant'}_${0 | 1 | 2 | 3}`
+  | `wild_${'onion' | 'tomato' | 'pumpkin' | 'eggplant'}`
+  | 'kakashi' | 'kakashi_head' | 'saku';
 
 export const TILE_NAMES: readonly TileName[] = [
   'grass_top',
@@ -49,6 +58,7 @@ export const TILE_NAMES: readonly TileName[] = [
   'start_torch',
   'tansu_front',
   'tansu_top',
+  ...(FARM_TILE_NAMES as readonly FarmTileName[]),
 ];
 export const ATLAS_ROWS = Math.ceil(TILE_NAMES.length / ATLAS_COLS);
 export const ATLAS_WIDTH = ATLAS_COLS * TILE_SIZE;
@@ -247,6 +257,11 @@ function paintTile(name: TileName): Tile {
       return tansuPixels('front').map((c) => hex(c));
     case 'tansu_top':
       return tansuPixels('top').map((c) => hex(c));
+    default:
+      return paintFarmTile(
+        name,
+        paintTile('dirt').map((c) => '#' + [c[0], c[1], c[2]].map((v) => v.toString(16).padStart(2, '0')).join('')),
+      ).map((c) => (c ? hex(c) : hex('#000000', 0)));
   }
 }
 
@@ -274,6 +289,20 @@ export const BLOCK_TILES: Readonly<Partial<Record<BlockId, readonly [TileName, T
   start_torch: ['start_torch', 'start_torch', 'start_torch'],
   // M6: 世界に向きのしかけは作らない（PO 決定）ので 4 面とも 前の面。向きは storage に記録する
   tansu: ['tansu_top', 'tansu_top', 'tansu_front'],
+  // M7 農業。作物・やせい・かかし・さく は 十字の板（全部の面が同じ絵）。作物の絵は 3 だんかい（みのった）
+  farmland: ['farmland_top', 'dirt', 'farmland_side'],
+  farmland_wet: ['farmland_wet_top', 'dirt', 'farmland_wet_side'],
+  crop_onion: ['crop_onion_3', 'crop_onion_3', 'crop_onion_3'],
+  crop_tomato: ['crop_tomato_3', 'crop_tomato_3', 'crop_tomato_3'],
+  crop_pumpkin: ['crop_pumpkin_3', 'crop_pumpkin_3', 'crop_pumpkin_3'],
+  crop_eggplant: ['crop_eggplant_3', 'crop_eggplant_3', 'crop_eggplant_3'],
+  wild_onion: ['wild_onion', 'wild_onion', 'wild_onion'],
+  wild_tomato: ['wild_tomato', 'wild_tomato', 'wild_tomato'],
+  wild_pumpkin: ['wild_pumpkin', 'wild_pumpkin', 'wild_pumpkin'],
+  wild_eggplant: ['wild_eggplant', 'wild_eggplant', 'wild_eggplant'],
+  kakashi: ['kakashi', 'kakashi', 'kakashi'],
+  kakashi_head: ['kakashi_head', 'kakashi_head', 'kakashi_head'],
+  saku: ['saku', 'saku', 'saku'],
 };
 
 /** タイルの UV の四角 [u0, v0, u1, v1]（v は下から。となりのタイルがにじまないよう少し内側） */

@@ -20,7 +20,8 @@ export function createSettingsHook(player: PlayerSettings, camera: CameraConfig,
     throw new Error(`知らない設定: ${name}`);
   };
   const names = (): string[] => bags.flatMap((b) => Object.keys(b));
-  const copy = (v: SettingValue): SettingValue => (isRecord(v) ? { ...v } : v);
+  const copy = (v: SettingValue): SettingValue =>
+    isRecord(v) ? (Object.fromEntries(Object.entries(v).map(([k, x]) => [k, typeof x === 'object' && x !== null ? { ...(x as object) } : x])) as SettingValue) : v;
   return {
     get: (name: string): SettingValue => {
       const bag = find(name);
@@ -34,11 +35,26 @@ export function createSettingsHook(player: PlayerSettings, camera: CameraConfig,
         for (const k of Object.keys(value)) {
           if (!(k in cur)) throw new Error(`設定 ${name} に ${k} はない`);
           const x = value[k];
+          // 入れ子（M7 の farmGrowDays など）: 中の数も 有限か しらべて、一段ふかく 合わせる
+          if (typeof cur[k] === 'object' && cur[k] !== null) {
+            if (!isRecord(x)) throw new Error(`設定 ${name}.${k} は入れ子`);
+            const inner = cur[k] as unknown as Record<string, number>;
+            for (const kk of Object.keys(x)) {
+              const xx = x[kk] as unknown;
+              if (!(kk in inner)) throw new Error(`設定 ${name}.${k} に ${kk} はない`);
+              if (typeof xx !== 'number' || !Number.isFinite(xx)) throw new Error(`設定 ${name}.${k}.${kk} は有限の数`);
+            }
+            continue;
+          }
           if (typeof cur[k] === 'string') {
             if (typeof x !== 'string') throw new Error(`設定 ${name}.${k} は文字`);
           } else if (x !== null && !(typeof x === 'number' && Number.isFinite(x))) throw new Error(`設定 ${name}.${k} は有限の数か null`);
         }
-        Object.assign(cur, value);
+        for (const k of Object.keys(value)) {
+          const c = cur[k] as unknown;
+          if (typeof c === 'object' && c !== null) Object.assign(c, value[k]);
+          else (cur as Record<string, unknown>)[k] = value[k];
+        }
         return;
       }
       if (typeof value !== typeof cur) throw new Error(`設定 ${name} の型がちがう`);
