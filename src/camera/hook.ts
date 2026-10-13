@@ -6,6 +6,12 @@ export function createCameraHook(rig: CameraRig) {
     camera: {
       get: () => rig.getInfo(),
       overview: (on: boolean) => rig.overview(on),
+      /** WEAPON-2 */
+      dollPose: () => rig.dollPose(),
+      firstPersonTip: () => rig.firstPersonTip(),
+      fov: () => rig.fov(),
+      bowPose: () => rig.bowPose(),
+      bowHand: () => rig.bowHand(),
     },
     /** `player.doll` に入れる関数 */
     doll: () => ({

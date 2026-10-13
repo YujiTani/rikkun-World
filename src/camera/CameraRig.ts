@@ -1,7 +1,8 @@
 import * as THREE from 'three';
-import type { ArmorSlot, CombatEvent, CraftEvent, ItemId, PlayerState, SwingAnim, VoxelWorld } from '../contracts';
+import type { WeaponVisualSource, ArmorSlot, CombatEvent, CraftEvent, ItemId, PlayerState, SwingAnim, VoxelWorld } from '../contracts';
 import type { ActionState } from '../input/actions';
 import { BlockDoll } from './BlockDoll';
+import { bladePoseAt, bowDollAt, bowHandAt, newBladePose } from './weaponPose';
 import {
   DEFAULT_CAMERA_CONFIG,
   DOLL_HIDE_DISTANCE,
@@ -105,9 +106,65 @@ export class CameraRig {
     else if (e.type === 'pickup') this.doll.play('pickup');
   }
 
+  private weaponSource: WeaponVisualSource | null = null;
+  private readonly bladeScratch = newBladePose();
+  private readonly bowScratch = { rx: 0, rz: 0, lx: 0, lz: 0, twist: 0 };
+  private readonly handScratch = { x: 0, y: 0 };
+
+  /** 刀・弓の今の形を返すもの（つなぎ込みが `{ blade: () => blade.state(), bowPose: () => bow.pose() }` をわたす） */
+  setWeaponSource(src: WeaponVisualSource | null): void {
+    this.weaponSource = src;
+  }
+
+  private bladeNow() {
+    const s = this.weaponSource?.blade();
+    return s && s.item !== null ? s : null;
+  }
+
+  /** 人形の今の形（度）。刀・弓のときは表の値 */
+  dollPose() {
+    const s = this.bladeNow();
+    if (s) {
+      const p = bladePoseAt(s, this.bladeScratch)!;
+      return {
+        rx: p.rx, rz: p.rz, lx: p.lx, lz: p.lz, swordPitch: p.swordPitch, twist: p.twist,
+        legFront: { right: p.legFront.right, left: p.legFront.left }, knee: p.knee,
+      };
+    }
+    const w = this.weaponSource?.bowPose();
+    if (w && (w.stage > 0 || w.pull > 0.001) && this.doll.heldItem === 'yumi') {
+      const p = bowDollAt(w, this.bowScratch);
+      return { rx: p.rx, rz: p.rz, lx: p.lx, lz: p.lz, swordPitch: 0, twist: p.twist, legFront: { right: 0, left: 0 }, knee: 0 };
+    }
+    const d = this.doll.dollPose;
+    return { ...d, legFront: { ...d.legFront } };
+  }
+  /** 一人称の剣先の画面の位置（刀を持っていなければ null） */
+  firstPersonTip(): { x: number; y: number } | null {
+    const s = this.bladeNow();
+    if (!s) return null;
+    const p = bladePoseAt(s, this.bladeScratch)!;
+    return { x: p.tip.x, y: p.tip.y };
+  }
+  bowPose() {
+    const w = this.weaponSource?.bowPose();
+    return w ? { stage: w.stage, pull: w.pull, bendDeg: w.bendDeg } : { stage: 0 as const, pull: 0, bendDeg: 0 };
+  }
+  bowHand(): { x: number; y: number } {
+    const w = this.weaponSource?.bowPose();
+    const h = bowHandAt(w ?? { stage: 0, pull: 0, bendDeg: 0 }, this.handScratch);
+    return { x: h.x, y: h.y };
+  }
+  fov(): number {
+    return this.camera.fov;
+  }
+
   private pumpSwings(): void {
     if (!this.swingSource) return;
+    const bladeHeld = this.bladeNow() !== null;
     for (const sw of this.swingSource()) {
+      // 刀は 形を weaponSource からきめる（わざ・かまえの合図では何もしない）
+      if (bladeHeld && sw.anim !== 'throw') continue;
       switch (sw.anim) {
         case 'whiff':
           this.doll.play('punch');
@@ -116,11 +173,8 @@ export class CameraRig {
           // ほるのは setDigging がくりかえす。すでに dig なら つくりなおさない
           if (this.doll.armAnim !== 'dig') this.doll.play('dig');
           break;
-        // WEAPON-2 の 仮のもの（担当 C が 刀の 絵に 直す）
         case 'kesa':
         case 'kiriage':
-          this.doll.play('slash');
-          break;
         case 'stance':
           break;
         default:
@@ -237,7 +291,9 @@ export class CameraRig {
     if (this.overviewOn) this.doll.setMode('hidden');
     else if (this.view === 'first') this.doll.setMode('first');
     else this.doll.setMode(this.distToEye >= DOLL_HIDE_DISTANCE ? 'third' : 'hidden');
+    this.doll.setWeapon(this.weaponSource ? this.bladeNow() : null, this.weaponSource ? this.weaponSource.bowPose() : null);
     this.doll.update(dt, s.position, s.yawDeg, s.pitchDeg, s.moving && s.onGround, s.onGround);
+    this.doll.placeFirstPerson(this.camera);
   }
 
   private placeThird(dt: number): void {
