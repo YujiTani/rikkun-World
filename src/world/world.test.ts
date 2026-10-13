@@ -50,9 +50,7 @@ describe('ドット絵', () => {
     expect(getTilePixels('stone')[0][3]).toBe(255);
   });
   it('ブロックごとに上・下・横のタイルがある', () => {
-    // M7 の絵は B が足す。足したら この除外（M7_IDS）を消す
-    const M7_IDS = new Set<BlockId>(ALL_IDS.slice(ALL_IDS.indexOf('farmland')));
-    for (const id of ALL_IDS.filter((i) => i !== 'air' && !M7_IDS.has(i))) expect(BLOCK_TILES[id]).toHaveLength(3);
+    for (const id of ALL_IDS.filter((i) => i !== 'air')) expect(BLOCK_TILES[id]).toHaveLength(3);
   });
 });
 
