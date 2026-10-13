@@ -185,6 +185,21 @@ export const computeFarmPlacement: FarmPlacementFn = (seed, pristine) => {
     }
   }
 
+  // 木の みき（根もと base〜てっぺん top）
+  const trunks: Array<{ x: number; z: number; base: number; top: number }> = [];
+  for (let z = 0; z < SZ; z++) {
+    for (let x = 0; x < SX; x++) {
+      if (!hasTree(x, z)) continue;
+      for (let y = 1; y < SY - 1; y++) {
+        if (world.getBlock(x, y, z) !== 'log' || world.getBlock(x, y - 1, z) === 'log') continue;
+        let top = y;
+        while (world.getBlock(x, top + 1, z) === 'log') top++;
+        trunks.push({ x, z, base: y, top });
+      }
+    }
+  }
+  const nearTrunks = trunks.filter((t) => Math.hypot(t.x - 64, t.z - 64) <= 12).length;
+
   // ---- ふるい はたけ の あと
   const oldFarm = findOldFarm();
 
@@ -193,19 +208,25 @@ export const computeFarmPlacement: FarmPlacementFn = (seed, pristine) => {
     const all: Array<{ x0: number; z0: number }> = [];
     for (let z0 = 0; z0 <= 63 - 5; z0++) for (let x0 = 65; x0 + 5 < SX; x0++) all.push({ x0, z0 });
     shuffle(rng, all);
-    for (let tier = 0; tier < OLD_FARM_TIERS.length; tier++) {
-      const T = OLD_FARM_TIERS[tier]!;
+    const steps: Array<{ T: { dMin: number; dMax: number; deg: number }; tier: number; trees: boolean }> = [
+      ...OLD_FARM_TIERS.map((T, tier) => ({ T, tier, trees: false })),
+      // 段 3: 8×8（と まわり 1 列）の 木を 差分として とりのぞく
+      { T: { dMin: 7, dMax: 12, deg: 40 }, tier: 3, trees: true },
+      { T: { dMin: 7, dMax: 16, deg: 60 }, tier: 3, trees: true },
+      { T: { dMin: 7, dMax: 20, deg: 60 }, tier: 3, trees: true },
+    ];
+    for (const st of steps) {
       for (const c of all) {
         const dist = Math.hypot(c.x0 + 3 - 64.5, c.z0 + 3 - 64.5);
-        if (dist < T.dMin || dist > T.dMax) continue;
-        const res = tryOldFarm(c.x0, c.z0, T.deg, tier as 0 | 1 | 2);
+        if (dist < st.T.dMin || dist > st.T.dMax) continue;
+        const res = tryOldFarm(c.x0, c.z0, st.T.deg, st.tier, st.trees);
         if (res) return res;
       }
     }
     return null;
   }
 
-  function tryOldFarm(x0: number, z0: number, maxDeg: number, tier: 0 | 1 | 2): FarmPlacement['oldFarm'] {
+  function tryOldFarm(x0: number, z0: number, maxDeg: number, tier: number, removeTrees: boolean): FarmPlacement['oldFarm'] {
     const frame = { x0: x0 - 1, x1: x0 + 6, z0: z0 - 1, z1: z0 + 6 };
     if (frame.x0 < 1 || frame.z0 < 1 || frame.x1 > SX - 2 || frame.z1 > SZ - 2) return null;
     if (overlaps(frame, START_5) || overlaps(frame, TEST_AREA)) return null;
@@ -215,7 +236,7 @@ export const computeFarmPlacement: FarmPlacementFn = (seed, pristine) => {
     let hi = -999;
     for (let z = frame.z0; z <= frame.z1; z++) {
       for (let x = frame.x0; x <= frame.x1; x++) {
-        if (hasTree(x, z) || hasWater(x, z)) return null;
+        if (hasWater(x, z) || (hasTree(x, z) && !removeTrees)) return null;
         const hh = h(x, z);
         if (hh < 8 || world.getBlock(x, hh, z) !== 'grass') return null;
         lo = Math.min(lo, hh);
@@ -230,6 +251,38 @@ export const computeFarmPlacement: FarmPlacementFn = (seed, pristine) => {
     // 置く マス（さいごに 書いた ものが 勝つ）
     const m = new Map<number, FarmPlacedBlock>();
     const put = (x: number, y: number, z: number, id: BlockId) => m.set(k3(x, y, z), { x, y, z, id });
+    let maxY = h0 + 6;
+    if (removeTrees) {
+      const ring = { x0: x0 - 2, x1: x0 + 7, z0: z0 - 2, z1: z0 + 7 };
+      const inRing = (x: number, z: number) => x >= ring.x0 && x <= ring.x1 && z >= ring.z0 && z <= ring.z1;
+      let removedNear = 0;
+      for (const t of trunks) {
+        if (!inRing(t.x, t.z)) continue;
+        for (let y = t.base; y <= t.top; y++) put(t.x, y, t.z, 'air');
+        for (let y = t.top - 1; y <= t.top + 2; y++) {
+          for (let dz = -2; dz <= 2; dz++) {
+            for (let dx = -2; dx <= 2; dx++) {
+              if (world.getBlock(t.x + dx, y, t.z + dz) === 'leaves') put(t.x + dx, y, t.z + dz, 'air');
+            }
+          }
+        }
+        maxY = Math.max(maxY, t.top + 2);
+        if (Math.hypot(t.x - 64, t.z - 64) <= 12) removedNear++;
+      }
+      if (nearTrunks - removedNear < 3) return null;
+      for (let z = ring.z0; z <= ring.z1; z++) {
+        for (let x = ring.x0; x <= ring.x1; x++) {
+          if (!hasTree(x, z)) continue;
+          for (let y = 1; y < SY; y++) {
+            const id = world.getBlock(x, y, z);
+            if (id === 'leaves' || id === 'log') {
+              put(x, y, z, 'air');
+              maxY = Math.max(maxY, y);
+            }
+          }
+        }
+      }
+    }
     for (let lz = 0; lz < 6; lz++) {
       for (let lx = 0; lx < 6; lx++) {
         const x = x0 + lx;
@@ -258,8 +311,12 @@ export const computeFarmPlacement: FarmPlacementFn = (seed, pristine) => {
       for (const b of m.values()) if (b.id !== 'air' && set.has(k3(b.x, b.y, b.z))) return true;
       return false;
     };
-    if (blocked(rockCells)) return null;
-    if (treeRays.length > 0 && treeRays.every(blocked)) return null;
+    const cut = (set: Set<number>) => {
+      for (const b of m.values()) if (b.id === 'air' && set.has(k3(b.x, b.y, b.z)) && world.getBlock(b.x, b.y, b.z) !== 'air') return true;
+      return false;
+    };
+    if (blocked(rockCells) || cut(rockCells)) return null;
+    if (treeRays.length > 0 && treeRays.every((r) => blocked(r) || cut(r))) return null;
 
     // (b) 目の位置から かかし の あたま への 向き と 見通し
     const qx = kx + 0.5;
@@ -270,7 +327,7 @@ export const computeFarmPlacement: FarmPlacementFn = (seed, pristine) => {
     const cells = rayCells(ex, ey, ez, qx, qy, qz);
     for (const [cx, cy, cz] of cells) {
       const key = k3(cx!, cy!, cz!);
-      const pre = world.getBlock(cx!, cy!, cz!);
+      const pre = m.get(key)?.id ?? world.getBlock(cx!, cy!, cz!);
       const isTarget = cx === kx && cz === kz && cy === h0 + 2;
       if (!isTarget && pre !== 'air' && pre !== 'water') return null; // 置く前の 地形
       const now = m.get(key)?.id ?? pre;
@@ -284,8 +341,8 @@ export const computeFarmPlacement: FarmPlacementFn = (seed, pristine) => {
       tansu: { x: tx, y: h0 + 1, z: tz },
       tansuItems: TANSU_ITEMS.map((t) => ({ item: t.item, count: t.count })),
       kakashi: { x: kx, y: h0 + 1, z: kz },
-      box: { x0: frame.x0, z0: frame.z0, x1: frame.x1, z1: frame.z1, y0: h0 - 3, y1: h0 + 6 },
-      tier,
+      box: { x0: frame.x0, z0: frame.z0, x1: frame.x1, z1: frame.z1, y0: h0 - 3, y1: maxY },
+      tier: tier as 0 | 1 | 2, // contracts は 0|1|2。段 3 は PO が contracts を 0|1|2|3 に する
     };
   }
 

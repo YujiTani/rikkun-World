@@ -29,16 +29,16 @@ describe.each(SEEDS)('置きもの seed=%i', (seed) => {
   it('同じシードで同じ答え・世界は変えない', () => {
     expect(computeFarmPlacement(seed)).toEqual(p);
   });
-  it('ふるい はたけ: 見つかった 段（申し送り: 仕様の AC33 は 20 シードぜんぶ 段 0 だが、地形の木のため 足りない）', () => {
-    const TIER: Record<number, number | null> = { 2: 1, 3: 1, 19: 1, 10: 2, 18: 2, 7: null, 9: null };
-    expect(p.oldFarm ? p.oldFarm.tier : null).toBe(TIER[seed] === undefined ? 0 : TIER[seed]);
+  it('ふるい はたけ は 20 シードぜんぶ 置ける（段 0〜3）', () => {
+    const TIER: Record<number, number> = { 2: 1, 3: 1, 19: 1, 10: 2, 18: 2, 7: 3, 9: 3 };
+    expect(p.oldFarm).not.toBeNull();
+    expect(p.oldFarm!.tier).toBe(TIER[seed] ?? 0);
   });
   it('置いたあとも 段差 1 以下・かかし・さく・はたけ・たんす', () => {
     const w2 = new ArrayVoxelWorld(WORLD_SIZE);
     const i2 = generateIsland(seed, w2);
     applyFarmPlacement(w2, p);
-    const of = p.oldFarm;
-    if (!of) return;
+    const of = p.oldFarm!;
     const n = (id: string) => of.blocks.filter((b) => b.id === id).length;
     expect(n('farmland')).toBe(12);
     expect(n('kakashi')).toBe(1);
@@ -57,6 +57,18 @@ describe.each(SEEDS)('置きもの seed=%i', (seed) => {
     expect(new Set(of.blocks.map((b) => `${b.x},${b.y},${b.z}`)).size).toBe(of.blocks.length);
     expect(of.tansuItems.reduce((n, t) => n + t.count, 0)).toBe(8);
     for (const b of of.blocks) if (b.id === 'kakashi') expect(w2.getBlock(b.x, b.y, b.z)).toBe('kakashi');
+    const bx = of.box;
+    for (let z = bx.z0; z <= bx.z1; z++) for (let x = bx.x0; x <= bx.x1; x++) for (let y = 1; y < 48; y++) expect(['log', 'leaves', 'water']).not.toContain(w2.getBlock(x, y, z));
+    let trunks = 0;
+    let near = 0;
+    for (let z = 0; z < 128; z++) for (let x = 0; x < 128; x++) for (let y = 1; y < 47; y++) {
+      if (w2.getBlock(x, y, z) === 'log' && w2.getBlock(x, y - 1, z) !== 'log') {
+        trunks++;
+        if (Math.hypot(x - 64, z - 64) <= 12) near++;
+      }
+    }
+    expect(trunks).toBeGreaterThanOrEqual(70);
+    expect(near).toBeGreaterThanOrEqual(3);
     void R;
   });
 });
