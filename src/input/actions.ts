@@ -164,7 +164,8 @@ export function bindKeyboardAndMouse(target: Window, state: ActionState, wheel?:
   };
   const onWheel = (e: WheelEvent) => {
     if (!wheel) return;
-    e.preventDefault();
+    // ゲームが使わないとき（もちもの画面など）は止めない。じっせき の一覧がスクロールできるように
+    if (wheel.isActive()) e.preventDefault();
     wheel.pushEvent(e.deltaY, e.deltaMode);
   };
   const onContextMenu = (e: Event) => e.preventDefault();
