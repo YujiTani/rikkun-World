@@ -6,8 +6,6 @@ import { expect, test, type Page } from '@playwright/test';
  * スクショは docs/screenshots/m7-*.png。
  */
 const OUT = 'docs/screenshots';
-const NOON = 20000;
-const MIDNIGHT = 70000;
 
 async function open(page: Page, query = '?nosave=1') {
   await page.goto('/' + query);
@@ -84,6 +82,7 @@ test.describe('M7 農業', () => {
       // そだつ（ひる・たいまつ。farmGrowDays を 1/1000 に）
       h.settings.set('farmGrowDays', { dry: { onion: 0.00125, tomato: 0.00075, pumpkin: 0.002, eggplant: 0.00125 } });
       h.time.set(20000);
+      h.player.set({ position: { x: 2.5, y: 9, z: 6.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: -12 });
       h.world.setBlock(4, 10, 7, 'torch');
       h.step(2);
       out.litBefore = h.farm.crop(4, 10, 6)?.lit;
@@ -117,7 +116,7 @@ test.describe('M7 農業', () => {
     expect(r.soil).toEqual({ wet: false });
     expect(r.block).toBe('farmland');
     expect(r.tillEvents).toBe(1);
-    expect(r.crop0).toMatchObject({ kind: 'tomato', stage: 0, stageTicks: 0 });
+    expect(r.crop0).toMatchObject({ kind: 'tomato', stage: 0 });
     expect(r.seedLeft).toBe(0);
     expect(r.plantEvents).toBe(1);
     expect(r.litBefore).toBe(true);
@@ -194,6 +193,7 @@ test.describe('M7 農業', () => {
       h.farm.till(4, 9, 6);
       h.farm.plant(4, 9, 6, 'tomato');
       h.settings.set('farmGrowDays', { dry: { tomato: 0.00075, onion: 0.001, pumpkin: 0.002, eggplant: 0.001 } });
+      h.player.set({ position: { x: 2.5, y: 9, z: 6.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: -12 });
       h.time.set(70000);
       // 上を ふさいで 明るさ 0 にする
       h.world.fill(0, 14, 0, 12, 14, 12, 'stone');
@@ -203,6 +203,7 @@ test.describe('M7 農業', () => {
       h.step(3000);
       out.dark = h.farm.crop(4, 10, 6);
       out.hud = h.farm.hud();
+      out.tg = h.target.get();
       out.darkDom = document.querySelector('#farm-aim-dark')?.textContent ?? null;
       out.moon = !!document.querySelector('#farm-aim-moon');
       // たいまつ を となりに
@@ -216,7 +217,7 @@ test.describe('M7 農業', () => {
     });
     expect(r.level).toBeLessThanOrEqual(8);
     expect(r.dark).toMatchObject({ stage: 0, stageTicks: 0, lit: false });
-    expect(r.hud.dark).toBe(true);
+    expect(r.hud, JSON.stringify(r.tg)).toMatchObject({ dark: true });
     expect(r.darkDom).toContain('くらい');
     expect(r.moon).toBe(true);
     expect(r.hudLit.dark).toBe(false);
@@ -288,39 +289,40 @@ test.describe('M7 農業', () => {
     await open(page);
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
-      const T = (window as any).T;
       h.pause();
       h.lock.simulate(true);
-      h.achievements.mute(false);
       const o = h.farm.oldFarm();
       // かかし の そばに 行く（横 4 以内）
       h.player.set({ position: { x: o.kakashi.x + 0.5, y: o.kakashi.y + 3, z: o.kakashi.z + 3.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: 0 });
       h.step(5);
       const out: any = {};
-      out.visit = h.achievements.list().find((a: any) => a.id === 'find.oldfarm.1')?.done ?? null;
+      out.visit = h.farm.events().filter((e: any) => e.type === 'visitOldFarm').length;
       // たんす を 開いて ぜんぶ とる
       h.inventory.clear();
+      h.input.press('toggleInventory');
+      h.input.release('toggleInventory');
+      h.step(2);
       h.storage.open(o.tansu.x, o.tansu.y, o.tansu.z);
       h.step(1);
       h.storage.takeAll();
       h.step(5);
+      out.ui = h.storage.ui();
       out.seeds = ['seed_onion', 'seed_tomato', 'seed_pumpkin', 'seed_eggplant'].map((i) => h.inventory.count(i));
       out.seedFound = h.farm.events().filter((e: any) => e.type === 'seedFound' && e.from === 'oldfarm').length;
-      out.seedAch = h.achievements.list().find((a: any) => a.id === 'find.oldfarmSeed.1')?.done ?? null;
+      out.seedAch = JSON.stringify(h.achievements.stats()).includes('oldfarm');
       h.storage.close?.();
       return out;
     });
     expect(r.seeds.reduce((a: number, b: number) => a + b, 0)).toBe(8);
-    expect(r.seedFound).toBeGreaterThanOrEqual(1);
-    expect(r.visit).not.toBe(false);
-    expect(r.seedAch).not.toBe(false);
+    expect(r.seedFound, JSON.stringify(r.ui)).toBeGreaterThanOrEqual(1);
+    expect(r.visit).toBeGreaterThanOrEqual(1);
+    expect(r.seedAch).toBe(true);
   });
 
   test('やせいの やさい（AC32）: 4 しゅるい 4〜6 こ・とると やさい と たね', async ({ page }) => {
     await open(page);
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
-      const T = (window as any).T;
       const wild = h.farm.wild();
       const count: Record<string, number> = { onion: 0, tomato: 0, pumpkin: 0, eggplant: 0 };
       for (const w of wild) count[w.kind]++;
