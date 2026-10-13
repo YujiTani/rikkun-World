@@ -1,3 +1,4 @@
+import type { FarmHintKind } from '../contracts';
 import { heartPixels } from './heartsModel';
 import { drawPixels, itemIconUrl } from './itemIcon';
 import { FARM_HINT_VIEW, FarmHintModel } from './farmHintModel';
@@ -21,7 +22,7 @@ export class FarmHint {
     parent.append(this.el);
   }
 
-  show(kind: 'till' | 'full'): void {
+  show(kind: FarmHintKind): void {
     this.model.show(kind);
     this.sync();
   }

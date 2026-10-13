@@ -1,6 +1,7 @@
 import type { FarmAim } from '../contracts';
-import { extraIconUrl } from './itemIcon';
-import { farmAimView } from './farmAimModel';
+import { heartPixels } from './heartsModel';
+import { drawPixels, extraIconUrl } from './itemIcon';
+import { WET_SOON_OPACITY, farmAimView } from './farmAimModel';
 import './farmAim.css';
 
 /**
@@ -13,6 +14,7 @@ export class FarmAimHud {
   private readonly dots: HTMLSpanElement[] = [];
   private readonly drop: HTMLImageElement;
   private readonly moon: HTMLImageElement;
+  private readonly heart: HTMLImageElement;
   private readonly dark: HTMLSpanElement;
   private key = '';
 
@@ -41,6 +43,13 @@ export class FarmAimHud {
     this.moon.className = 'farm-aim__art rk-art';
     this.moon.alt = '';
     this.moon.src = extraIconUrl('moon');
+    this.heart = document.createElement('img');
+    this.heart.id = 'farm-aim-heart';
+    this.heart.className = 'farm-aim__art rk-art';
+    this.heart.alt = '';
+    const hc = document.createElement('canvas');
+    drawPixels(hc, heartPixels('full'));
+    this.heart.src = hc.toDataURL();
     this.dark = document.createElement('span');
     this.dark.id = 'farm-aim-dark';
     this.dark.className = 'farm-aim__dark';
@@ -50,7 +59,7 @@ export class FarmAimHud {
 
   update(aim: FarmAim | null, label = ''): void {
     const v = farmAimView(aim);
-    const key = v ? `${label}|${v.dots.join()}|${v.dim}|${v.droplet}` : '';
+    const key = v ? `${label}|${v.dots.join()}|${v.dim}|${v.droplet}|${v.dropletFaint}|${v.heart}` : '';
     if (key === this.key) return;
     this.key = key;
     this.el.hidden = !v;
@@ -64,8 +73,12 @@ export class FarmAimHud {
     });
     // 暗い・しずく の要素は あるときだけ DOM に入れる（かわいた はたけ には しずく の要素が無い）
     this.present(this.drop, v.droplet);
+    this.drop.style.opacity = v.dropletFaint ? String(WET_SOON_OPACITY) : '';
+    this.present(this.heart, v.heart);
     this.present(this.moon, v.moon);
     this.present(this.dark, v.darkText !== null);
+    // 並び: しずく → ハート（しずく の 右）→ 月 → 文
+    for (const el of [this.drop, this.heart, this.moon, this.dark]) if (el.isConnected) this.el.append(el);
     this.dark.textContent = v.darkText ?? '';
   }
 
@@ -75,11 +88,13 @@ export class FarmAimHud {
   }
 
   /** テスト・窓口用: いま出している しるし */
-  current(): { dots: string[]; droplet: boolean; dark: boolean; text: string } | null {
+  current(): { dots: string[]; droplet: boolean; dropletOpacity: number; heart: boolean; dark: boolean; text: string } | null {
     if (this.el.hidden) return null;
     return {
       dots: this.dots.filter((d) => !d.hidden).map((d) => d.dataset.state ?? ''),
       droplet: this.drop.isConnected,
+      dropletOpacity: this.drop.style.opacity === '' ? 1 : Number(this.drop.style.opacity),
+      heart: this.heart.isConnected,
       dark: this.moon.isConnected,
       text: this.dark.textContent ?? '',
     };

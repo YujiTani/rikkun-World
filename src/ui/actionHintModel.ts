@@ -51,6 +51,19 @@ export function actionHintLines(right: RightClickPreview | null, left: LeftClick
       case 'eat':
         out.right = { icon: right.item!, word: 'たべる' };
         break;
+      // M7-2（§3.1）: 持っている じょうろ の 絵（ながい じょうろ なら その 絵）
+      case 'fill':
+        out.right = { icon: right.item!, word: 'くむ' };
+        break;
+      case 'pour':
+        out.right = { icon: right.item!, word: 'みずやり' };
+        break;
+      case 'fillHint':
+        out.right = { icon: right.item!, word: 'くもう' };
+        break;
+      case 'pet':
+        out.right = { icon: right.item!, word: 'なでる' };
+        break;
       case 'place':
         out.right = { icon: right.item!, word: 'おく' };
         break;

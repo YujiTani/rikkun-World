@@ -19,6 +19,10 @@ import type {
   DigVitalsPort,
   BladeSystem,
   W2Settings,
+  FarmEvent,
+  PetPort,
+  WateringPort,
+  WaterRay,
 } from '../contracts';
 import type { Action, ActionState } from '../input/actions';
 import { cropKindOfBlock, seedKindOfItem, vegKindOfItem } from '../contracts';
@@ -28,7 +32,7 @@ import { createRng, randInt, type Rng } from '../world/gen/random';
 import type { PunchGate } from '../combat/PlayerCombat';
 import { lookDirection, raycastBlocks } from './raycast';
 import { isBladeItem } from '../tools/blade/BladeSystem';
-import { previewRightClick, type LeftClickKind, type RightClickPreview } from './rightClick';
+import { computeWaterRay, createWaterRay, previewRightClick, type LeftClickKind, type RightClickPreview } from './rightClick';
 
 /** 出来事の列が読まれずにたまりすぎないように */
 const MAX_QUEUE = 256;
@@ -71,6 +75,14 @@ export interface DigM4Deps {
   farm?: DigFarmPort;
   /** M7: 体力を聞く・もどす（`PlayerCombat` が合う） */
   vitals?: DigVitalsPort;
+  /** M7-2: じょうろ（`WateringPort`。A）。4a くむ・4b まく・4c からっぽ の 判定と 実行 */
+  water?: WateringPort;
+  /** M7-2: なでる・ごきげん（`PetPort`。C の `farm/pet.ts`） */
+  pet?: PetPort;
+  /** M7-2: 農業 の 出来事 を 足す（A の `emit`。`pet` の 出来事 用）。なければ 出さない */
+  emitFarm?: (e: FarmEvent) => void;
+  /** M7-2: 出来事 の `tick`（なければ この 係 の 歩数） */
+  nowTick?: () => number;
   /** WEAPON-2: 刀（ひだりクリックの ふりわけ §2.1-6 で わざを 渡す）。なければ 刀も ほるだけ */
   blade?: Pick<BladeSystem, 'update' | 'state'>;
   /** WEAPON-2: たいきゅうの へる量（ほる・たがやす）。なければ へらさない */
@@ -140,6 +152,9 @@ export class DigSystemImpl implements DigSystem {
   private tillLast = -Infinity;
   /** まだ の作物を ゆらした ブロック（押しつづけで くりかえさない） */
   private unripeBlock: Vec3 | null = null;
+
+  /** ねらいの線 の みず の 情報（毎回 つくらず 書きかえる） */
+  private readonly waterRay: WaterRay = createWaterRay();
 
   private drainQueue: DigEvent[] = [];
   private hookQueue: DigEvent[] = [];
@@ -487,10 +502,11 @@ export class DigSystemImpl implements DigSystem {
     const every = this.config.placeRepeatTicks;
     const first = this.secondaryTicks === 0;
     const due = this.secondaryTicks % every === 0;
+    const pourDue = this.secondaryTicks % Math.max(1, this.m4.farm?.settings().farmPourRepeatTicks ?? every) === 0;
     if (first) this.pressStartedEmpty = this.inventory.held() === null;
     this.secondaryTicks++;
     // たんす > かまど > 防具 > 置く（たんす・かまど・防具は押した瞬間だけ）。ヒントと同じ previewRightClick で決める
-    const pv = this.previewRightClick();
+    const pv = this.previewRightClick(!first);
     if (!pv) {
       if (!first) return;
       return;
@@ -508,7 +524,14 @@ export class DigSystemImpl implements DigSystem {
       if (due && t) this.doPlant(t, pv.item);
       return;
     }
+    if (pv.kind === 'pour') {
+      if (pourDue && t) this.doPour(t);
+      return;
+    }
     if (!first) return;
+    if (pv.kind === 'fill') this.doFill();
+    else if (pv.kind === 'fillHint') this.m4.farm?.noteHint('fill', this.playerChest());
+    else if (pv.kind === 'pet' && t) this.doPet(t);
     if (pv.kind === 'storage' && t) this.m4.storage?.open(t.block.x, t.block.y, t.block.z);
     else if (pv.kind === 'furnace' && t) this.m4.craft?.openFurnace(t.block.x, t.block.y, t.block.z);
     else if (pv.kind === 'armor' && pv.item) this.m4.armor?.tryEquip(pv.item);
@@ -547,6 +570,41 @@ export class DigSystemImpl implements DigSystem {
     }
   }
 
+  private playerChest(): Vec3 {
+    const p = this.player().position;
+    return { x: p.x, y: p.y + 1, z: p.z };
+  }
+
+  /** 4a くむ（押した瞬間 だけ）。みず を 通った いちばん 手前 の マス を わたす */
+  private doFill(): void {
+    const cell = this.waterRay.waterCell;
+    if (!cell || !this.m4.water) return;
+    this.m4.water.fill(this.inventory.selected(), { x: cell.x, y: cell.y, z: cell.z });
+    this.m4.tools?.pushSwing('place');
+  }
+
+  /** 4b まく（押した瞬間 と 30 ステップ ごと）。向き = 見ている 向き の 水平 ベクトル */
+  private doPour(t: TargetInfo): void {
+    if (!this.m4.water) return;
+    this.m4.water.pour(this.inventory.selected(), { x: t.block.x, y: t.block.y, z: t.block.z }, { dx: this.dir.x, dz: this.dir.z });
+    this.m4.tools?.pushSwing('place');
+  }
+
+  /** 5 なでる（押した瞬間 だけ） */
+  private doPet(t: TargetInfo): void {
+    const farm = this.m4.farm;
+    const pet = this.m4.pet;
+    const ck = cropKindOfBlock(t.id);
+    if (!farm || !pet || !ck) return;
+    const { x, y, z } = t.block;
+    const info = farm.crop(x, y, z);
+    if (!info) return;
+    const result = pet.pet(x, y, z, { ...info, wild: ck.wild });
+    if (!result) return;
+    this.m4.emitFarm?.({ type: 'pet', tick: this.m4.nowTick?.() ?? this.tickCount, x, y, z, result });
+    this.m4.tools?.pushSwing('place');
+  }
+
   private doEat(item: ItemId): void {
     const farm = this.m4.farm;
     const v = this.m4.vitals;
@@ -567,7 +625,7 @@ export class DigSystemImpl implements DigSystem {
    * 今、右クリックしたら何が起きるか（何も起きないなら null）。実行（updatePlace）と同じ判定。
    * 遊べない間（画面が開いている・やられている）は null。
    */
-  previewRightClick(): RightClickPreview | null {
+  previewRightClick(repeat = false): RightClickPreview | null {
     if (!this.lock.playInputEnabled() || this.gate?.blocksInput()) return null;
     const st = this.m4.storage;
     const craft = this.m4.craft;
@@ -578,12 +636,49 @@ export class DigSystemImpl implements DigSystem {
       isTansu: (x, y, z) => st?.isTansu(x, y, z) ?? false,
       isFurnace: (x, y, z) => craft?.isFurnace(x, y, z) ?? false,
       canEquip: (item) => armor?.canEquip(item) ?? false,
+      water: () => this.waterPreview(repeat),
+      petSpot: () => this.petSpot(),
       canPlace: () => this.placeSpot() !== null,
       canTill: () => this.tillSpot(),
       canPlant: () => this.plantSpot(),
       isSeedHintSpot: () => this.seedHintSpot(),
       isVeg: (item) => !!this.m4.farm && !!this.m4.vitals && vegKindOfItem(item) !== null,
     });
+  }
+
+  /** 4a〜4c: じょうろ を 持っているとき だけ、みず を 通る 線 を しらべて A の 口 に 聞く */
+  private waterPreview(repeat: boolean): 'fill' | 'pour' | 'fillHint' | null {
+    const w = this.m4.water;
+    const held = this.inventory.held();
+    if (!w || !held || (held.item !== 'watering_can' && held.item !== 'long_watering_can')) return null;
+    const p = this.player();
+    const d = lookDirection(p.yawDeg, p.pitchDeg, this.dir);
+    const ray = computeWaterRay(
+      (x, y, z) => this.world.getBlock(x, y, z),
+      p.position.x,
+      p.position.y + this.eyeHeight(),
+      p.position.z,
+      d.x,
+      d.y,
+      d.z,
+      this.config.reach,
+      this.tgt,
+      this.waterRay,
+    );
+    return w.canPreview(held, ray, repeat);
+  }
+
+  /** 5: 作物・やせいの やさい を ねらっている（防具・じょうろ 以外 なんでも）。その やさい の 絵 を 返す */
+  private petSpot(): ItemId | null {
+    const t = this.tgt;
+    const farm = this.m4.farm;
+    if (!t || !farm || !this.m4.pet) return null;
+    const ck = cropKindOfBlock(t.id);
+    if (!ck) return null;
+    const h = this.inventory.held()?.item;
+    if (h === 'watering_can' || h === 'long_watering_can') return null;
+    if (!farm.crop(t.block.x, t.block.y, t.block.z)) return null;
+    return ck.kind;
   }
 
   /** くわ か すで で、上が くうき の くさ・つち を ねらっている */

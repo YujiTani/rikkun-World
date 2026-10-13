@@ -7,6 +7,17 @@ import type { SoundFx, Tone } from './sound';
 const chime = (freqs: readonly number[], start: number): Tone[] =>
   freqs.map((f, i) => ({ type: 'sine', f0: f, f1: f * 1.02, delay: start + i * 0.1, dur: 0.14, gain: 0.28 }));
 
+/** 「シャーッ」: 高い 小さな 音 を ずらして ならべる（ノイズ の かわり。やさしく） */
+function shower(sec: number): Tone[] {
+  const out: Tone[] = [];
+  const n = Math.round(sec / 0.04);
+  for (let i = 0; i < n; i++) {
+    const fade = Math.min(1, (n - i) / 4);
+    out.push({ type: 'square', f0: 3600 + ((i * 7) % 5) * 260, f1: 3000 + ((i * 3) % 4) * 300, delay: i * 0.04, dur: 0.05, gain: 0.05 * fade });
+  }
+  return out;
+}
+
 export const FARM_SOUNDS = {
   /** たがやす（3 回目 / くわ）「ザクッ」（ひくめの ノイズ 0.15 秒） */
   till: [
@@ -33,6 +44,31 @@ export const FARM_SOUNDS = {
     { type: 'triangle', f0: 260, f1: 180, delay: 0, dur: 0.07, gain: 0.4 },
     { type: 'triangle', f0: 280, f1: 190, delay: 0.14, dur: 0.07, gain: 0.4 },
   ],
+  // ---- M7-2（§3.6）。ノイズ は 作れない ので 高い 短い 音 を 重ねて 「シャーッ」にする
+  /** くむ「ゴボゴボ」（低めの あわ 3 回、0.3 秒） */
+  fill: [
+    { type: 'sine', f0: 150, f1: 240, delay: 0, dur: 0.08, gain: 0.4 },
+    { type: 'sine', f0: 170, f1: 270, delay: 0.1, dur: 0.08, gain: 0.4 },
+    { type: 'sine', f0: 190, f1: 300, delay: 0.2, dur: 0.1, gain: 0.4 },
+  ],
+  /** まんたん で くむ 小さな「ちゃぷん」 */
+  fullCan: [
+    { type: 'sine', f0: 520, f1: 300, delay: 0, dur: 0.08, gain: 0.2 },
+    { type: 'sine', f0: 380, f1: 260, delay: 0.07, dur: 0.06, gain: 0.12 },
+  ],
+  /** まく「シャーッ」（やさしい 0.4 秒） */
+  pour: shower(0.4),
+  /** からっぽ（4c）軽い「コン」 */
+  empty: [{ type: 'triangle', f0: 330, f1: 250, delay: 0, dur: 0.07, gain: 0.35 }],
+  /** スプリンクラー を 置く「シャーッ」（まく より 少し 長い 0.6 秒） */
+  sprinklerPlace: shower(0.6),
+  /** なでる（ごきげん に なった）「ふわっ♪」（やさしい 2 音、上がる） */
+  pet: [
+    { type: 'sine', f0: 660, f1: 700, delay: 0, dur: 0.12, gain: 0.3 },
+    { type: 'sine', f0: 880, f1: 930, delay: 0.1, dur: 0.18, gain: 0.3 },
+  ],
+  /** なでる（ごきげん の あいだ・やせい）「ふわっ」1 音 */
+  petAgain: [{ type: 'sine', f0: 660, f1: 700, delay: 0, dur: 0.14, gain: 0.25 }],
 } as const satisfies Record<string, readonly Tone[]>;
 
 export type FarmSoundName = keyof typeof FARM_SOUNDS;
