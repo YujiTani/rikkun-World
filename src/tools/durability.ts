@@ -31,8 +31,14 @@ export function maxDurability(item: ItemId, table: Readonly<Partial<Record<ItemI
 }
 
 /** じょうろ の 入る 回数（初期値。持ち物・保存で 読むときの そろえ方に 使う）。じょうろ でなければ null */
+let capacitySource: () => Readonly<Partial<Record<ItemId, number>>> = () => M7_SETTING_DEFAULTS.farmCanCapacity;
+/** 入る 回数 を 設定（live）から 読む よう に つなぐ（つなぎ込みが 呼ぶ） */
+export function setCanCapacitySource(fn: () => Readonly<Partial<Record<ItemId, number>>>): void {
+  capacitySource = fn;
+}
+
 export function canCapacity(item: ItemId): number | null {
-  const v = (M7_SETTING_DEFAULTS.farmCanCapacity as Partial<Record<ItemId, number>>)[item];
+  const v = capacitySource()[item];
   return typeof v === 'number' && v > 0 ? v : null;
 }
 

@@ -26,7 +26,7 @@ export const SPRAY_CONFIG = {
   color: 0x81d4fa,
 } as const;
 
-export type SprayConfig = { -readonly [K in keyof typeof SPRAY_CONFIG]: (typeof SPRAY_CONFIG)[K] };
+export type SprayConfig = { -readonly [K in keyof typeof SPRAY_CONFIG]: number };
 
 /** 場所 から 決まる ずらし（0 〜 period−1）。同じ 場所 は いつも 同じ。 */
 export function sprayPhase(x: number, y: number, z: number, period: number): number {
@@ -102,6 +102,11 @@ export class SprinklerFx {
     this.mesh.frustumCulled = false;
     this.mesh.count = 0;
     this.group.add(this.mesh);
+  }
+
+  /** しぶき の 間隔 を 設定 に 合わせる（`farmSprinklerSprayTicks`） */
+  setPeriod(period: number): void {
+    this.cfg.period = Math.max(1, Math.floor(period));
   }
 
   /** 毎ステップ。`sprinklers` は 世界 の スプリンクラー、`eye` は 目の 位置（遠い もの は 出さない） */

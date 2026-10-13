@@ -88,6 +88,7 @@ import { Pet } from './farm/pet';
 import { createWatering } from './farm/watering';
 import { WaterDropFx } from './fx/waterFx';
 import { SprinklerFx } from './fx/sprinklerFx';
+import { setCanCapacitySource } from './tools/durability';
 import { FarmSparkle, FarmSparkleView } from './fx/farmSparkle';
 import { lookDirection } from './dig/raycast';
 import { computeFarmPlacement, applyFarmPlacement } from './world/gen/farmPlacement';
@@ -363,6 +364,7 @@ let oldTansu: { x: number; y: number; z: number } | null = null;
 const dayLengthNow = () => timeSettings.dayTicks + timeSettings.duskTicks + timeSettings.nightTicks + timeSettings.dawnTicks;
 // M7-2: スプリンクラーの はんい（B）・ごきげん（C）
 setWaterCapacity(() => m7.farmCanCapacity);
+setCanCapacitySource(() => m7.farmCanCapacity);
 const sprinklers = createSprinklers({ radius: () => m7.farmSprinklerRadius });
 const pet = new Pet({ settings: m7, dayLength: dayLengthNow });
 const farm = createFarmSystem({
@@ -604,25 +606,39 @@ const sparkleView = new FarmSparkleView(sparkle);
 renderer.setSwaySource((cb) => sparkle.forEachSway(cb));
 sparkleView.addTo(game.scene);
 const waterFx = new WaterDropFx(game.scene);
-const sprayFx = new SprinklerFx({ period: m7.farmSprinklerSprayTicks } as never);
+const sprayFx = new SprinklerFx({ period: m7.farmSprinklerSprayTicks });
 game.scene.add(sprayFx.group);
 const sparkleList: Array<{ x: number; y: number; z: number; stage: number }> = [];
 /** 作物（farm.crops）と、目の まわりの やせいの やさい（stage 3）。15 ステップに 1 回だけ 呼ばれる */
+const wildScan = { x: -999, y: -999, z: -999, r: -1, n: 0, list: [] as Array<{ x: number; y: number; z: number; stage: number }> };
 function sparkleCrops(): ReadonlyArray<{ x: number; y: number; z: number; stage: number }> {
   sparkleList.length = 0;
   for (const c of farm.crops()) sparkleList.push(c);
+  // やせいの やさい は 近くを 数回に 1 回だけ さがし、毎回は まだ ある ものだけ たしかめる
   const r = Math.ceil(m7.farmSparkleRange);
   const ex = Math.floor(eyePos.x);
   const ey = Math.floor(eyePos.y);
   const ez = Math.floor(eyePos.z);
-  const y0 = Math.max(0, ey - r);
-  const y1 = Math.min(world.size.y - 1, ey + r);
-  for (let z = Math.max(0, ez - r); z <= Math.min(world.size.z - 1, ez + r); z++)
-    for (let x = Math.max(0, ex - r); x <= Math.min(world.size.x - 1, ex + r); x++)
-      for (let y = y0; y <= y1; y++) {
-        const k = cropKindOfBlock(world.getBlock(x, y, z));
-        if (k && k.wild) sparkleList.push({ x, y, z, stage: 3 });
-      }
+  const moved = Math.abs(ex - wildScan.x) + Math.abs(ey - wildScan.y) + Math.abs(ez - wildScan.z) >= 3;
+  if (moved || wildScan.n++ % 4 === 0 || wildScan.r !== r) {
+    wildScan.x = ex;
+    wildScan.y = ey;
+    wildScan.z = ez;
+    wildScan.r = r;
+    wildScan.list.length = 0;
+    const y0 = Math.max(0, ey - r);
+    const y1 = Math.min(world.size.y - 1, ey + r);
+    for (let z = Math.max(0, ez - r); z <= Math.min(world.size.z - 1, ez + r); z++)
+      for (let x = Math.max(0, ex - r); x <= Math.min(world.size.x - 1, ex + r); x++)
+        for (let y = y0; y <= y1; y++) {
+          const k = cropKindOfBlock(world.getBlock(x, y, z));
+          if (k && k.wild) wildScan.list.push({ x, y, z, stage: 3 });
+        }
+  }
+  for (const w of wildScan.list) {
+    const k = cropKindOfBlock(world.getBlock(w.x, w.y, w.z));
+    if (k && k.wild) sparkleList.push(w);
+  }
   return sparkleList;
 }
 const farmFx = new FarmFx({ sound: fxSound, particles: fx.particles, hint: farmHint, achievements, sparkle });
@@ -932,6 +948,7 @@ game.onUpdate((dt) => {
     sparkle.step(game.tick, eyePos);
     sparkleView.update();
     waterFx.step();
+    sprayFx.setPeriod(m7.farmSprinklerSprayTicks);
     sprayFx.update(game.tick, sprinklers.peek(), eyePos);
   }
   const storageA = storage.drainEvents();

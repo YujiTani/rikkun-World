@@ -1063,7 +1063,6 @@ test.describe('M7-2 案内画面の 文が 切れない（AC25）', () => {
   // NG（台帳 M7-2 参照）: そだてる タブの カードは 高さ 固定 + overflow:hidden で 文の 後ろが 切れる。
   // 直ったら この test.fail を 外す。
   test('AC25 そだてる タブ の カードの 文が 切れていない', async ({ page }) => {
-    test.fail(true, 'M7-2 台帳: 案内カードの 文が 切れる（軽微）');
     await page.setViewportSize({ width: 1280, height: 720 });
     await open(page);
     const cut = await page.evaluate(() => {
