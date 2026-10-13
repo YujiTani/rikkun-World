@@ -75,3 +75,10 @@
 - `createFarmVisual({ world, light: renderer.light, crops, ripeMin: () => settings.farmRipeMinBrightness, itemIcon })`。itemIcon は D のアイテム絵を返す関数（渡さないとアイテム id で例外）。
 - `farmRipeMinBrightness` を変えたら `renderer.setRipeMinBrightness(v)`（毎ステップでも可）。段階が変わったら A が `world.touch`。
 - `src/world/light/opacity.ts` に 1 行（十字の板は光を通す）。E2E で AC25 の明るさを確かめる。
+### A（m7-a）
+- `createFarmSystem(deps: FarmDepsM7)`：`regions: () => island.regions()` も渡す（PO 了承: contracts は変えず FarmDepsM7 で受ける）。
+- 保存: `SaveDeps.farm` に farm を渡す。読みこみは `deserialize(data.farm)` → `placeLegacy(changedSet)`（changedSet は保存の差分マスの番号の集合。置いたら次の保存で書く）。
+- 新しい世界: 島 → E の `applyFarmPlacement` → `farm.noteNewWorldPlaced(placement)`。
+- `createFarmHook({ farm, visual, aimed: () => dig.target().block ?? null, give, store, seed, world, placement })` を `__rikkun.farm` に。
+- `update` は止まっている間は呼ばない。もちもの画面は 4 ステップに 1 回。
+- `farm.events()` は直近 500 件のログ（drain しても消えない。PO 了承）。
