@@ -38,6 +38,11 @@ export class WheelAccumulator {
     }
   }
 
+  /** ホイールをゲームが使う状態か（使わないときは ブラウザの スクロールを止めない） */
+  isActive(): boolean {
+    return this.enabled();
+  }
+
   reset(): void {
     this.acc = 0;
   }

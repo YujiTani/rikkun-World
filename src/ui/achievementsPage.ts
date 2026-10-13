@@ -63,6 +63,7 @@ export class AchievementsPage {
   private readonly tip = createTooltip();
   private builtVersion = -1;
   private builtCategory = '';
+  private renderedCategory = '';
 
   constructor(
     private readonly sys: AchievementSystem,
@@ -135,6 +136,8 @@ export class AchievementsPage {
   }
 
   private renderRows(ui: ReturnType<AchievementsPageModel['ui']>): void {
+    const keep = this.renderedCategory === ui.category ? this.list.scrollTop : 0; // 分類が変わったら いちばん上
+    this.renderedCategory = ui.category;
     this.list.replaceChildren();
     const byId = new Map(ACHIEVEMENT_DEFS.map((d) => [d.id, d]));
     for (const r of ui.rows) {
@@ -168,6 +171,7 @@ export class AchievementsPage {
       });
       this.list.append(row);
     }
+    this.list.scrollTop = keep;
   }
 
   private showTip(row: HTMLElement, def: AchievementDef, unlocked: boolean): void {
