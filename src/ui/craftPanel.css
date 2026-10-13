@@ -40,6 +40,11 @@
   gap: var(--rk-sp-2);
   justify-content: start;
 }
+/* M7-2 §4.2: つくる は 4 列 × 7 段（マス 28、あき 3）の 場所を とっておく */
+.craft-grid {
+  min-height: calc(var(--rk-slot-inv) * 7 + var(--rk-sp-2) * 6);
+  align-content: start;
+}
 .cp-tile {
   cursor: pointer;
 }
