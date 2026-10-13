@@ -4,3 +4,6 @@ test-results/
 playwright-report/
 perf-results/
 .claude/worktrees/
+
+# Blender の自動バックアップ
+*.blend1
