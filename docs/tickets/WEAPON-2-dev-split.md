@@ -89,3 +89,9 @@
 - 弓は `ToolSystemImpl.step` が今までどおり `bow.update` を呼ぶ（別に呼ぶと二重）。`onShot` は中で `inventory.wearHeld` に接続済み（二重にしない。上書きは `ToolDeps.onBowShot`）。`ToolDeps.settings` に同じ W2Settings を渡す。
 - `createToolHook` の `bow: {state, events, arrows, stuck}` を testHook に。`ArrowEvent` は `BowEvent` の別名、`arrowEnd` の traveled/reason/id は無くなった（E2E・main.ts の確認）。
 - `config.ts` の `arrowDamage`・`arrowRange` は @deprecated で残してある（D の build.ts と main.ts:529 を直したら消す）。
+### A（w2-a）
+- 最初に刀を持つ前に `blade.update` を 1 回呼ぶ。毎ステップ `ctx.item` に今の持ち物。`techPressed/techHeld` は §2.1-6 のふりわけで「わざ」の時だけ。
+- 左クリックのふりわけは `PlayerCombat.aimedYokai(eye, dir, blockDistance)`（刀のとき 4.5）。
+- 刀がこわれた同じステップで null にしたいときは `wearHeld` のあと `update({item:null})` を呼び直す。ほる分の `wearHeld(blade.block)` は DigSystem 側（つなぎ込み）。
+- 突きの `deps.lunge(dx,dz)` はつなぎ込みが実装（かべで止める）。
+- `tools.test.ts` の古い M4 テスト 2 件（かたな・ぼくとうのパンチ前提）は、つなぎ込みが §6.2 のとおり AC2〜AC8 に置きかえる。
