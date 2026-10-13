@@ -928,7 +928,7 @@ export type FarmEvent =
   | { type: 'tillPress'; tick: number; x: number; y: number; z: number; count: number }
   | { type: 'plant'; tick: number; x: number; y: number; z: number; kind: CropKind }
   | { type: 'stage'; tick: number; x: number; y: number; z: number; kind: CropKind; from: CropStage; to: CropStage }
-  | { type: 'harvest'; tick: number; x: number; y: number; z: number; kind: CropKind; veg: number; seeds: number; wet: boolean }
+  | { type: 'harvest'; tick: number; x: number; y: number; z: number; kind: CropKind; veg: number; seeds: number; wet: boolean; happy?: boolean }
   | { type: 'wild'; tick: number; x: number; y: number; z: number; kind: CropKind; seeds: number }
   | { type: 'notRipe'; tick: number; x: number; y: number; z: number; kind: CropKind }
   | { type: 'wet'; tick: number; x: number; y: number; z: number; wet: boolean }
@@ -940,7 +940,7 @@ export type FarmEvent =
   | { type: 'visitOldFarm'; tick: number; x: number; y: number; z: number }
   // ---- M7-2
   /** じょうろ に みず を くんだ（x,y,z = 当たった みず の マス）。`water` = くんだ あと の 量 */
-  | { type: 'fill'; tick: number; x: number; y: number; z: number; item: WateringCanId; water: number }
+  | { type: 'fill'; tick: number; x: number; y: number; z: number; item: WateringCanId; water: number; wasFull?: boolean }
   /** みずやり（x,y,z = まん中 = ねらった はたけ。`tiles` = はんい の はたけ の 数。0 でも 出る） */
   | { type: 'pour'; tick: number; x: number; y: number; z: number; item: WateringCanId; tiles: number }
   /** なでた。happy = ごきげん に なった・again = ごきげん の あいだ・wild = やせいの やさい */

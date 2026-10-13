@@ -375,7 +375,7 @@ export function createFarmSystem(deps: FarmDepsM7): FarmSystemImpl {
 
   // ---------------------------------------------------------------- M7-2
   /** 「ごきげん の 作物 を しゅうかく」の 目印（`harvestPet` の 実績用。契約の 型には まだ 無い ので 足して わたす） */
-  const harvestEvent = (e: FarmEvent, happy: boolean): FarmEvent => (happy ? ({ ...e, happy: true } as unknown as FarmEvent) : e);
+  const harvestEvent = (e: FarmEvent, happy: boolean): FarmEvent => (happy && e.type === 'harvest' ? { ...e, happy: true } : e);
 
   /** ② だけ で のこり が `farmWetSoonRatio` 以下（① ③ の はんい なら false） */
   const wetSoon = (x: number, y: number, z: number): boolean => {

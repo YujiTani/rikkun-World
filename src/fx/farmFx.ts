@@ -93,7 +93,7 @@ export class FarmFx {
       // ---- M7-2（しずく・しぶき の つぶ は A・B の 担当。音 は ここ から）
       case 'fill':
         // まんたん で くむと 「ちゃぷん」（A が `wasFull` を 入れる）。入れない 間 は ゴボゴボ
-        this.snd((e as { wasFull?: boolean }).wasFull ? 'fullCan' : 'fill');
+        this.snd(e.wasFull ? 'fullCan' : 'fill');
         break;
       case 'pour':
         this.snd('pour');

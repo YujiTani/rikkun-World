@@ -111,7 +111,7 @@ export function createWatering(d: WateringDeps): WateringPort {
       const cap = d.settings.farmCanCapacity[c.item];
       const before = waterOf(c.s);
       if (before !== cap) write(slot, c.s, cap);
-      d.farm.emit({ type: 'fill', tick: d.tick(), x: at.x, y: at.y, z: at.z, item: c.item, water: cap });
+      d.farm.emit({ type: 'fill', tick: d.tick(), x: at.x, y: at.y, z: at.z, item: c.item, water: cap, wasFull: before === cap });
       return cap;
     },
     pour(slot, target, facing) {

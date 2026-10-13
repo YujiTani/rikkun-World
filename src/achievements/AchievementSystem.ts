@@ -344,7 +344,7 @@ export class AchievementSystem implements AchievementShowSource {
             this.bump('harvest:*', 1);
             if (e.wet) this.bump('harvestWet', 1);
             // M7-2: ごきげん の 作物（A が `happy` を 入れる。契約 の 型に 無い 間 は 読み取り だけ）
-            if ((e as { happy?: boolean }).happy) this.bump('harvestPet', 1);
+            if (e.happy) this.bump('harvestPet', 1);
             this.setMax('harvest:kinds', CROP_KINDS.filter((k) => this.stat(`harvest:${k}`) > 0).length);
             break;
           case 'wild':
