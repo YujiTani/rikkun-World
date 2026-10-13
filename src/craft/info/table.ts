@@ -18,6 +18,13 @@ export const ARMOR_KIND: Readonly<Record<string, 'normal' | 'ball' | 'fall'>> = 
   suneate: 'fall',
 };
 
+/** なかま の 文（WEAPON-2 §4.6 (8)）。「なにに つかう」の 下に 出す */
+export const CLASS_TEXT = {
+  consumable: 'つかうと 1 こ へる',
+  durable: 'つかうと へって、0 で こわれる',
+  permanent: 'へらない',
+} as const;
+
 export type StatKind = 'pickaxe' | 'blade' | 'bow' | 'arrow' | 'armor' | 'tansu';
 
 export interface InfoRow {
@@ -39,6 +46,7 @@ const PLACE_BTN: ButtonKey[] = ['1-9', 'right'];
 const CRAFT_E = 'E の つくる で つかう';
 const PICK_HOW = 'えらんで、ブロック に むけて ひだりクリック を おしつづける';
 const BLADE_HOW = 'えらんで、ようかい に むけて ひだりクリック';
+const KATANA_HOW = `${BLADE_HOW}。R で かまえ を かえると わざ が かわる`;
 const WEAR_HOW = 'ダブルクリック か、てに もって みぎクリック で きる。E の そうび の マス に いれても よい';
 const LATER_HOW = 'いまは もてる だけ';
 
@@ -108,18 +116,18 @@ export const ITEM_INFO: Readonly<Record<string, InfoRow>> = {
   wood_pickaxe: { use: 'ブロック を はやく ほれる', how: PICK_HOW, buttons: ['1-9', 'leftHold'], stats: 'pickaxe' },
   stone_pickaxe: { use: 'もっと はやく ほれる。てつ も ほれる', how: PICK_HOW, buttons: ['1-9', 'leftHold'], stats: 'pickaxe' },
   iron_pickaxe: { use: 'いちばん はやく ほれる。てつ も ほれる', how: PICK_HOW, buttons: ['1-9', 'leftHold'], stats: 'pickaxe' },
-  bokuto: { use: 'ようかい を たたく', how: BLADE_HOW, buttons: ['1-9', 'left'], stats: 'blade' },
-  katana: { use: 'ようかい を つよく たたく', how: BLADE_HOW, buttons: ['1-9', 'left'], stats: 'blade' },
+  bokuto: { use: 'ようかい を たたく', how: KATANA_HOW, buttons: ['1-9', 'left'], stats: 'blade' },
+  katana: { use: 'ようかい を つよく たたく', how: KATANA_HOW, buttons: ['1-9', 'left'], stats: 'blade' },
   naginata: {
     use: 'とおく まで とどく。つく と はらう を かわりばんこ',
     how: `${BLADE_HOW}（おしつづけると つづけて ふる）`,
     buttons: ['1-9', 'left'],
     stats: 'blade',
   },
-  crystal_katana: { use: 'いちばん つよい かたな', how: BLADE_HOW, buttons: ['1-9', 'left'], stats: 'blade' },
+  crystal_katana: { use: 'いちばん つよい かたな', how: KATANA_HOW, buttons: ['1-9', 'left'], stats: 'blade' },
   yumi: {
     use: 'や を とばして とおく の ようかい を たおす。や が いる',
-    how: 'えらんで ひだりクリック。おしつづけると つづけて とぶ',
+    how: 'えらんで ひだりクリック を おしつづけて ながく ひく。はなすと とぶ',
     buttons: ['1-9', 'left'],
     stats: 'bow',
   },

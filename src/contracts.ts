@@ -203,6 +203,8 @@ export type ItemId = BlockId | ItemOnlyId;
 export interface ItemStack {
   item: ItemId;
   count: number;
+  /** WEAPON-2: へった たいきゅう（0 か なし = 新品）。たいきゅうで へる 道具だけが 持つ（上限 1）。前の保存には 無い = 新品 */
+  wear?: number;
 }
 
 export interface ItemType {
@@ -235,6 +237,19 @@ export interface Inventory {
   held(): ItemStack | null;
   /** 手に持っているマスから 1 こ減らす。減らせたら true */
   consumeHeld(): boolean;
+  /**
+   * WEAPON-2: 手に持っている道具の たいきゅうを n へらす（n ≧ 1）。たいきゅうで へる 道具でなければ null（何もしない）。
+   * 0 になったら そのステップで マスを 空にして `toolBreak` を出す（その 1 回は ふつうに 効く。呼ぶ側は 先に 効かせてから 呼ぶ）
+   */
+  wearHeld(n: number): WearResult | null;
+  /** WEAPON-2: マス slot の たいきゅうを n へらす（`wearHeld` と 同じ） */
+  wearSlot(slot: number, n: number): WearResult | null;
+  /** WEAPON-2: マス slot の たいきゅう（たいきゅうで へる 道具でなければ null） */
+  durability(slot: number): Durability | null;
+  /** WEAPON-2: `wearLow` / `toolBreak`（呼ぶと空になる。画面と音用） */
+  drainWearEvents(): WearEvent[];
+  /** WEAPON-2: テストの窓口用（読んでも空にならない） */
+  peekWearEvents(): WearEvent[];
   /** もちもの画面でのクリック（M2 §2.5） */
   click(index: number): void;
   cursor(): ItemStack | null;
@@ -400,8 +415,11 @@ export interface YokaiWorld {
   list(): YokaiInfo[];
   /** 線に当たるいちばん近い妖怪（パンチ用）。maxDistance より遠ければ null */
   raycast(origin: Vec3, dir: Vec3, maxDistance: number): YokaiRayHit | null;
-  /** パンチが当たった。from はたたいた人の足もと（押される向き） */
-  damage(id: number, amount: number, from: Vec3): void;
+  /**
+   * パンチが当たった。from はたたいた人の足もと（押される向き）。
+   * WEAPON-2: `knock` を 省くと 今まで どおり（水平 1.0・上へ 0）。ぬりかべは どの 値でも 押されない
+   */
+  damage(id: number, amount: number, from: Vec3, knock?: YokaiKnock): void;
   /** そのマスに妖怪の当たりの箱が重なっているか（ブロックを置けない） */
   occupies(x: number, y: number, z: number): boolean;
   /** 画面と音用（呼ぶと空になる）。テストの窓口用の列は別に持つ */
@@ -490,8 +508,19 @@ export interface ArmorSystem {
   equipped(slot: ArmorSlot): ItemId | null;
   /** 着られるアイテムなら着る（手に持っているものを着る・入れかえ）。着たら true */
   tryEquip(item: ItemId): boolean;
-  /** 妖怪の攻撃を受けた。カットする量（体力の単位。ハート半分 = 1）を返す。受けるダメージ = max(1, 元 − カット) */
-  cut(kind?: DamageKind): number;
+  /**
+   * 妖怪の攻撃を受けた。カットする量（体力の単位。ハート半分 = 1）を返す。受けるダメージ = max(1, 元 − カット)。
+   * WEAPON-2: `amount` = 元の ダメージ。カットを **先に** 決めて 返し、**その あと** その 種類を ふせぐ 防具の たいきゅうを
+   * `max(1, 切り捨て(amount ÷ armorDiv))` へらす（`amount` が 無い 古い 呼び方は へらさない）
+   */
+  cut(kind?: DamageKind, amount?: number): number;
+  /** WEAPON-2: 着ている 防具を へった 量つきで（なければ null） */
+  equippedStack(slot: ArmorSlot): ItemStack | null;
+  /** WEAPON-2: 着ている 防具の たいきゅう（なければ null） */
+  durability(slot: ArmorSlot): Durability | null;
+  /** WEAPON-2: `wearLow` / `toolBreak`（`slot` は ArmorSlot。呼ぶと空になる） */
+  drainWearEvents(): WearEvent[];
+  peekWearEvents(): WearEvent[];
 }
 
 export type ToolKind = 'hand' | 'pickaxe' | 'blade' | 'bow' | 'other';
@@ -511,13 +540,29 @@ export interface ToolInfo {
   ticks: number;
 }
 
-export type SwingAnim = 'slash' | 'thrust' | 'sweep' | 'draw' | 'release' | 'punch' | 'dig' | 'place' | 'whiff' | 'throw';
+export type SwingAnim =
+  | 'slash'
+  | 'thrust'
+  | 'sweep'
+  | 'draw'
+  | 'release'
+  | 'punch'
+  | 'dig'
+  | 'place'
+  | 'whiff'
+  | 'throw'
+  // WEAPON-2（刀の わざ。かまえ を かえる は 'stance'）
+  | 'kesa'
+  | 'kiriage'
+  | 'stance';
 
 /** 手に持っているものの働き。担当 B が `src/tools/` で実装する */
 export interface ToolSystem {
   current(): ToolInfo;
   /** うでの動きを始めたとき（人形の動き用。呼ぶと空） */
   drainSwings(): { anim: SwingAnim; tick: number }[];
+  /** WEAPON-2: ゆみ（担当 B が `src/tools/bow/` で作り、ToolSystemImpl が 持つ） */
+  bow?(): BowSystem;
 }
 
 // ---------------------------------------------------------------- M4 光（担当 L）
@@ -649,7 +694,11 @@ export type StatKey =
   | 'arrowShot'
   | 'arrowHit'
   | 'full'
-  | 'storeFull';
+  | 'storeFull'
+  // WEAPON-2（道具が こわれた 回数・へった たいきゅうの 合計・防具が こわれた 回数）
+  | 'toolBroken'
+  | 'wearTotal'
+  | 'armorBroken';
 
 /** 実績 1 つ（表の 1 行。§4.2） */
 export interface AchievementDef {
@@ -1113,5 +1162,414 @@ export function createM7Settings(): M7Settings {
     },
     farmSeedYield: [...d.farmSeedYield],
     eatHeal: { ...d.eatHeal },
+  };
+}
+
+// ================================================================ WEAPON-2（弓の山なり・刀の構えと技・道具の たいきゅう）
+// 担当の割り振り: docs/tickets/WEAPON-2-dev-split.md。仕様: docs/design/WEAPON-2.md（第 5 版）
+
+// ---------------------------------------------------------------- 妖怪（E）
+
+/** 押す 距離（水平。P から 妖怪への 向き）と 上への 初速（ブロック/秒）。`YokaiWorld.damage` の 4 つ目 */
+export interface YokaiKnock {
+  /** 水平に 押す 距離（今の 値は 1.0。10 ステップ かけて 押す） */
+  dist: number;
+  /** 上への 初速（ブロック/秒。0 = 上げない） */
+  up: number;
+}
+
+// ---------------------------------------------------------------- たいきゅう（F）
+
+/** 3 つの なかま（§4.6 (1)）: つかうと なくなる・たいきゅうで へる・ずっと へらない */
+export type ItemClass = 'consumable' | 'durable' | 'permanent';
+
+/** たいきゅう（max = 新品の 値、left = 今の のこり。left = max − wear） */
+export interface Durability {
+  max: number;
+  left: number;
+}
+
+/** `wearHeld` / `wearSlot` の 答え（へらした あと の 様子） */
+export interface WearResult extends Durability {
+  /** このとき 本当に へった 量（のこりより 多く 頼まれても のこり まで） */
+  worn: number;
+  /** 0 になって こわれた（マスは 空になった） */
+  broke: boolean;
+  /** このとき はじめて のこり わずか（`wearLowRatio` 以下）に 入った */
+  low: boolean;
+}
+
+/** たいきゅうの 出来事（持ち物と 防具が 出す。`slot` は 持ち物の マス番号 か 防具の 部位） */
+export type WearEvent =
+  | { type: 'wearLow'; tick: number; item: ItemId; slot: number | ArmorSlot }
+  | { type: 'toolBreak'; tick: number; item: ItemId; slot: number | ArmorSlot };
+
+// ---------------------------------------------------------------- 動きの 制限（A・B → プレイヤー）
+
+/** わざ・ゆみを ひく あいだの 歩く 速さ。つなぎ込みが プレイヤーの 速さに かける */
+export interface PlayerMotionMod {
+  /** 歩く 速さの 倍率（1 = ふつう） */
+  speedMul: number;
+  /** true の あいだ ジャンプ できない（大げさ斬りの 硬直） */
+  jumpLocked: boolean;
+}
+
+// ---------------------------------------------------------------- 刀（A）
+
+export type BladeStance = 'chudan' | 'jodan' | 'gedan';
+export type BladeTech = 'thrust' | 'kesa' | 'kiriage';
+export type BladePhase = 'idle' | 'switch' | 'startup' | 'active' | 'recovery';
+
+export interface BladeState {
+  /** 刀を 持っていれば その アイテム（持っていない・こわれたら null） */
+  item: ItemId | null;
+  stance: BladeStance;
+  /** わざの 最中だけ */
+  tech: BladeTech | null;
+  phase: BladePhase;
+  /** わざ（か かまえ変え）を 始めた ステップを 1 とした F。`idle` は 0 */
+  frame: number;
+  /** 先行入力で おぼえている もの（1 つだけ） */
+  buffered: 'tech' | 'stance' | null;
+  /** `phase` が `switch` の とき 前の かまえ（なめらかに うつす 用）。ほかは null */
+  switchFrom: BladeStance | null;
+}
+
+/** 今の 当たりの 形（世界の 座標。§6.1） */
+export type BladeShapeInfo =
+  | { kind: 'capsule'; from: Vec3; to: Vec3; radius: number }
+  | {
+      kind: 'fan';
+      center: Vec3;
+      forward: Vec3;
+      halfAngleDeg: number;
+      rMin: number;
+      rMax: number;
+      yMin: number;
+      yMax: number;
+    };
+
+export type BladeEvent =
+  | { type: 'techStart'; tick: number; tech: BladeTech }
+  | { type: 'techHit'; tick: number; tech: BladeTech; yokaiId: number; damage: number; knock: number; up: number; position: Vec3 }
+  | { type: 'techMiss'; tick: number; tech: BladeTech }
+  | { type: 'stance'; tick: number; from: BladeStance; to: BladeStance }
+  | { type: 'cancel'; tick: number };
+
+/** 刀に 毎ステップ わたすもの。ふりわけ（わざ か ほる か しゅうかく）は つなぎ込みの DigSystem が 決めて、わざ なら techPressed / techHeld を 立てる */
+export interface BladeStepContext {
+  /** 手に 持っている 刀（ぼくとう・かたな・きらきらの かたな）。刀でなければ null（わざ・かまえは おわる） */
+  item: ItemId | null;
+  /** このステップに ひだりクリック を 押した **そして ふりわけが わざ** */
+  techPressed: boolean;
+  /** ひだりクリック を おしつづけている **そして ふりわけが わざ**（おしつづけの くりかえし用） */
+  techHeld: boolean;
+  /** `stanceNext`（R）を このステップに 押した */
+  stancePressed: boolean;
+  /** 目の 位置 E */
+  eye: Vec3;
+  /** 照準の 方向 d（長さ 1。上下を ふくむ） */
+  dir: Vec3;
+  /** 足もと P */
+  position: Vec3;
+  yawDeg: number;
+  /** false（やられた・案内画面 など）の ときは わざを 始めない・今の わざは やめる */
+  active: boolean;
+}
+
+export interface BladeDeps {
+  world: VoxelWorld;
+  yokai: () => YokaiWorld;
+  settings: W2Settings;
+  /** 刀の 強さ（`weaponDamage`。ぼくとう 2・かたな 4・きらきらの かたな 6） */
+  weaponDamage: (item: ItemId) => number;
+  /** わざが 1 体 以上 に 当たった（1 回の わざで 1 回）。つなぎ込みが `inventory.wearHeld(settings.toolWear.blade.hit)` につなぐ */
+  onHit: (info: { tech: BladeTech; count: number }) => void;
+  /** 突きの ふみこみ。かべに ぶつからない 距離を 返す（つなぎ込みが プレイヤー側で 動かす） */
+  lunge?: (dx: number, dz: number) => void;
+  tick: () => number;
+}
+
+/** 刀のしくみ。担当 A が `src/tools/blade/` で作る（`createBladeSystem(deps)`） */
+export interface BladeSystem {
+  state(): BladeState;
+  /** かまえを すぐ かえる（準備用。8F なし） */
+  setStance(s: BladeStance): void;
+  /** 1 ステップ（止まっている あいだは 呼ばない） */
+  update(ctx: BladeStepContext): void;
+  /** 今の 当たりの 形（持続 の あいだ だけ。なければ null） */
+  shape(): BladeShapeInfo | null;
+  motion(): PlayerMotionMod;
+  /** 画面と音用（呼ぶと空） */
+  drainEvents(): BladeEvent[];
+  /** テストの窓口用（読んでも 空にならない） */
+  peekEvents(): BladeEvent[];
+}
+
+// ---------------------------------------------------------------- 弓（B）
+
+export type BowStage = 0 | 1 | 2 | 3;
+
+export interface BowState {
+  drawing: boolean;
+  /** 押してから 何ステップか（押した ステップ = 1） */
+  drawTicks: number;
+  stage: BowStage;
+  /** 次に ひけるまで のこり ステップ（0 = ひける） */
+  nockLeft: number;
+}
+
+/** 弓の しなり（一人称・三人称で 同じ値。C が 絵に する） */
+export interface BowPose {
+  stage: BowStage;
+  /** つるを 引く 量 0〜1 */
+  pull: number;
+  /** 弓の まがり（度）。段 3 は ふるえ を ふくむ */
+  bendDeg: number;
+}
+
+export interface ArrowInfo {
+  id: number;
+  position: Vec3;
+  velocity: Vec3;
+  /** 飛んでから の ステップ */
+  age: number;
+}
+
+export interface StuckArrowInfo {
+  id: number;
+  position: Vec3;
+  /** ささった ときの 飛んでいた 向き（長さ 1） */
+  dir: Vec3;
+  age: number;
+}
+
+export type BowEvent =
+  | { type: 'drawStart'; tick: number }
+  | { type: 'stage'; tick: number; stage: 1 | 2 | 3 }
+  | { type: 'arrowShot'; tick: number; stage: 1 | 2 | 3; speed: number; position: Vec3; velocity: Vec3 }
+  | { type: 'arrowHit'; tick: number; yokaiId: number; damage: number; position: Vec3 }
+  | { type: 'arrowStick'; tick: number; position: Vec3 }
+  | { type: 'arrowEnd'; tick: number; position: Vec3 }
+  | { type: 'dryRelease'; tick: number }
+  | { type: 'noArrow'; tick: number }
+  | { type: 'pickup'; tick: number };
+
+export interface BowStepContext {
+  /** 手に 持っているのが ゆみ なら その アイテム、ちがえば null（ひくのを やめる。や は へらない） */
+  item: ItemId | null;
+  /** ひだりクリック を このステップに 押した */
+  pressed: boolean;
+  /** おしている */
+  held: boolean;
+  eye: Vec3;
+  /** 照準の 方向 d（長さ 1。上下を ふくむ） */
+  dir: Vec3;
+  /** 足もと P（や を 拾う 判定用） */
+  position: Vec3;
+  /** false（やられた・案内画面 など）の ときは ひかない */
+  active: boolean;
+}
+
+export interface BowDeps {
+  world: VoxelWorld;
+  yokai: () => YokaiWorld;
+  settings: W2Settings;
+  inventory: Pick<Inventory, 'count' | 'remove' | 'add' | 'canAdd'>;
+  /** や を 1 本 うった。つなぎ込み（か ToolSystemImpl）が `inventory.wearHeld(settings.toolWear.bow.shot)` につなぐ */
+  onShot: () => void;
+  /** や が 妖怪に 当たった / ささった（実績 `arrowHit` 用） */
+  tick: () => number;
+}
+
+/** 弓と や。担当 B が `src/tools/bow/` で作る（`createBowSystem(deps)`。`ToolSystem.bow()` が 返す） */
+export interface BowSystem {
+  state(): BowState;
+  pose(): BowPose;
+  update(ctx: BowStepContext): void;
+  arrows(): ArrowInfo[];
+  stuck(): StuckArrowInfo[];
+  motion(): PlayerMotionMod;
+  drainEvents(): BowEvent[];
+  peekEvents(): BowEvent[];
+}
+
+// ---------------------------------------------------------------- 見た目（A・B → C）
+
+/** 人形・一人称の 絵が 読む 武器の 今の 形（C の `CameraRig.setWeaponSource` に わたす） */
+export interface WeaponVisualSource {
+  /** 刀を 持っていない ときは `item` が null の 状態 */
+  blade(): BladeState;
+  /** 弓を ひいていない ときは `{stage:0, pull:0, bendDeg:0}` */
+  bowPose(): BowPose;
+}
+
+// ---------------------------------------------------------------- 設定（§4.2〜§4.6）
+
+export interface BladeTechFrames {
+  startup: number;
+  active: number;
+  recovery: number;
+}
+
+export interface W2Settings {
+  // 刀（§4.2・§4.3）
+  bladeTech: Record<BladeTech, BladeTechFrames>;
+  stanceSwitchTicks: number;
+  /** 先行入力: 硬直の さいご 何F から 受けるか（突きは 持続から） */
+  bladeBufferTicks: number;
+  /** 歩く 速さの 倍率。kesaRecovery 0 = 動けない・ジャンプ できない */
+  bladeMoveMul: { thrust: number; kesaStartupActive: number; kesaRecovery: number; kiriage: number };
+  thrustLunge: number;
+  /** 照準の 線で 妖怪を わざに ふりわける 距離 */
+  bladeAimReach: number;
+  bladeShape: {
+    thrust: { length: number; radius: number };
+    kesa: { halfAngleDeg: number; rMin: number; rMax: number; yMin: number; yMax: number };
+    kiriage: { halfAngleDeg: number; rMin: number; rMax: number; yMin: number; yMax: number };
+  };
+  bladeDamageMul: Record<BladeTech, number>;
+  /** [水平の 距離, 上への 初速] */
+  bladeKnock: Record<BladeTech, [number, number]>;
+  // 弓（§4.4）。段 1・2・3 の 順
+  bowStageTicks: [number, number, number];
+  bowSpeed: [number, number, number];
+  bowDamage: [number, number, number];
+  bowKnock: [number, number, number];
+  arrowGravity: number;
+  arrowLifeTicks: number;
+  bowNockTicks: number;
+  arrowStuckTicks: number;
+  arrowStuckMax: number;
+  /** ささった や を 拾う はんい [水平, 高さ] */
+  arrowPickupRange: [number, number];
+  bowMoveMul: number;
+  bowBend: { pull: [number, number, number]; bendDeg: [number, number, number]; blendTicks: number };
+  // たいきゅう（§4.6）
+  toolDurability: Partial<Record<ItemId, number>>;
+  toolWear: {
+    pickaxe: { block: number; hit: number };
+    blade: { block: number; hit: number };
+    bow: { shot: number };
+    kuwa: { till: number; block: number; hit: number };
+    armorDiv: number;
+  };
+  /** のこり わずか（のこり ÷ 新品 が これ 以下。切り上げで 数える） */
+  wearLowRatio: number;
+  /** 刀を ふった ときの きせき（武器ごとの 個性。オーナー決定）。style: plain=ふつう・star=星が まじる・long=長い 弧 */
+  bladeTrail: Partial<Record<ItemId, BladeTrailStyle>>;
+}
+
+export interface BladeTrailStyle {
+  color: number;
+  /** 線の 太さ（ブロック） */
+  width: number;
+  style: 'plain' | 'star' | 'long';
+}
+
+export const W2_SETTING_DEFAULTS: Readonly<W2Settings> = {
+  bladeTech: {
+    thrust: { startup: 4, active: 2, recovery: 8 },
+    kesa: { startup: 9, active: 3, recovery: 24 },
+    kiriage: { startup: 5, active: 3, recovery: 10 },
+  },
+  stanceSwitchTicks: 8,
+  bladeBufferTicks: 8,
+  bladeMoveMul: { thrust: 0.7, kesaStartupActive: 0.3, kesaRecovery: 0, kiriage: 0.5 },
+  thrustLunge: 0.25,
+  bladeAimReach: 4.5,
+  bladeShape: {
+    thrust: { length: 4.5, radius: 0.2 },
+    kesa: { halfAngleDeg: 75, rMin: 0.3, rMax: 3.2, yMin: -0.5, yMax: 2.6 },
+    kiriage: { halfAngleDeg: 45, rMin: 0.3, rMax: 3.0, yMin: -0.3, yMax: 4.2 },
+  },
+  bladeDamageMul: { thrust: 0.75, kiriage: 1, kesa: 2 },
+  bladeKnock: { thrust: [1.5, 0], kesa: [2.5, 2], kiriage: [1.0, 7] },
+  bowStageTicks: [10, 25, 40],
+  bowSpeed: [12, 20, 28],
+  bowDamage: [1, 2, 3],
+  bowKnock: [0.5, 1.0, 1.5],
+  arrowGravity: 20,
+  arrowLifeTicks: 600,
+  bowNockTicks: 10,
+  arrowStuckTicks: 1800,
+  arrowStuckMax: 32,
+  arrowPickupRange: [1.2, 2],
+  bowMoveMul: 0.5,
+  bowBend: { pull: [0.4, 0.7, 1.0], bendDeg: [12, 22, 32], blendTicks: 6 },
+  toolDurability: {
+    wood_pickaxe: 59,
+    stone_pickaxe: 131,
+    iron_pickaxe: 250,
+    bokuto: 59,
+    katana: 250,
+    naginata: 250,
+    crystal_katana: 500,
+    yumi: 384,
+    kuwa: 131,
+    kabuto: 165,
+    yoroi: 240,
+    kote: 225,
+    suneate: 195,
+  },
+  toolWear: {
+    pickaxe: { block: 1, hit: 2 },
+    blade: { block: 2, hit: 1 },
+    bow: { shot: 1 },
+    kuwa: { till: 1, block: 2, hit: 2 },
+    armorDiv: 4,
+  },
+  wearLowRatio: 0.1,
+  bladeTrail: {
+    bokuto: { color: 0x9c6b3a, width: 0.03, style: 'plain' },
+    katana: { color: 0xffffff, width: 0.05, style: 'plain' },
+    crystal_katana: { color: 0x7fdcff, width: 0.07, style: 'star' },
+    naginata: { color: 0xcfe8ff, width: 0.05, style: 'long' },
+  },
+};
+
+/** 設定の 入れ物を作る（毎回 ふかい コピー。つなぎ込みが `createSettingsHook` の extras に渡す） */
+export function createW2Settings(): W2Settings {
+  const d = W2_SETTING_DEFAULTS;
+  return {
+    bladeTech: {
+      thrust: { ...d.bladeTech.thrust },
+      kesa: { ...d.bladeTech.kesa },
+      kiriage: { ...d.bladeTech.kiriage },
+    },
+    stanceSwitchTicks: d.stanceSwitchTicks,
+    bladeBufferTicks: d.bladeBufferTicks,
+    bladeMoveMul: { ...d.bladeMoveMul },
+    thrustLunge: d.thrustLunge,
+    bladeAimReach: d.bladeAimReach,
+    bladeShape: {
+      thrust: { ...d.bladeShape.thrust },
+      kesa: { ...d.bladeShape.kesa },
+      kiriage: { ...d.bladeShape.kiriage },
+    },
+    bladeDamageMul: { ...d.bladeDamageMul },
+    bladeKnock: { thrust: [...d.bladeKnock.thrust], kesa: [...d.bladeKnock.kesa], kiriage: [...d.bladeKnock.kiriage] },
+    bowStageTicks: [...d.bowStageTicks],
+    bowSpeed: [...d.bowSpeed],
+    bowDamage: [...d.bowDamage],
+    bowKnock: [...d.bowKnock],
+    arrowGravity: d.arrowGravity,
+    arrowLifeTicks: d.arrowLifeTicks,
+    bowNockTicks: d.bowNockTicks,
+    arrowStuckTicks: d.arrowStuckTicks,
+    arrowStuckMax: d.arrowStuckMax,
+    arrowPickupRange: [...d.arrowPickupRange],
+    bowMoveMul: d.bowMoveMul,
+    bowBend: { pull: [...d.bowBend.pull], bendDeg: [...d.bowBend.bendDeg], blendTicks: d.bowBend.blendTicks },
+    toolDurability: { ...d.toolDurability },
+    toolWear: {
+      pickaxe: { ...d.toolWear.pickaxe },
+      blade: { ...d.toolWear.blade },
+      bow: { ...d.toolWear.bow },
+      kuwa: { ...d.toolWear.kuwa },
+      armorDiv: d.toolWear.armorDiv,
+    },
+    wearLowRatio: d.wearLowRatio,
+    bladeTrail: Object.fromEntries(Object.entries(d.bladeTrail).map(([k, v]) => [k, { ...v }])) as W2Settings['bladeTrail'],
   };
 }

@@ -1,6 +1,8 @@
 import type { Inventory, ItemId, ItemStack, StorageEvent, Vec3, VoxelWorld } from '../contracts';
 import { addInto } from '../inventory/Inventory';
 import { itemType } from '../inventory/items';
+import { addStack, copyStack, readWear, maxDurability } from '../tools/durability';
+import { W2_SETTING_DEFAULTS } from '../contracts';
 
 /** たんす 1 つの中身（M6 §2.9）。場所ごとにべつべつ */
 export type Facing = 'n' | 'e' | 's' | 'w';
@@ -127,14 +129,14 @@ export class StorageSystem {
 
   get(x: number, y: number, z: number): { slots: TansuSlot[]; facing: Facing | null } | null {
     const r = this.ensure(x, y, z);
-    return r ? { slots: r.slots.map((s) => (s ? { ...s } : null)), facing: r.facing } : null;
+    return r ? { slots: r.slots.map((s) => (s ? copyStack(s) : null)), facing: r.facing } : null;
   }
 
   /** 準備用: マス i を決める（出来事・実績なし） */
   set(x: number, y: number, z: number, i: number, stack: ItemStack | null): boolean {
     const r = this.ensure(x, y, z);
     if (!r || !Number.isInteger(i) || i < 0 || i >= r.slots.length) return false;
-    r.slots[i] = stack && stack.count > 0 ? { item: stack.item, count: stack.count } : null;
+    r.slots[i] = stack && stack.count > 0 ? copyStack(stack) : null;
     this.d.requestSave?.();
     return true;
   }
@@ -233,26 +235,26 @@ export class StorageSystem {
     if (from === 'inv') {
       const s = inv.slots()[i];
       if (!s) return { moved: 0, reason: null };
-      const left = addInto(r.slots, s.item, s.count);
+      const left = addInto(r.slots, s.item, s.count, 0, r.slots.length, s.wear ?? 0);
       const moved = s.count - left;
       if (moved === 0) {
         this.d.onFull?.('tansu');
         return { moved: 0, reason: 'full' };
       }
-      inv.setSlot(i, left > 0 ? { item: s.item, count: left } : null);
+      inv.setSlot(i, left > 0 ? { ...s, count: left } : null);
       this.pushStore(s.item, moved);
       this.afterChange(r);
       return { moved, reason: null };
     }
     const s = r.slots[i];
     if (!s) return { moved: 0, reason: null };
-    const left = inv.add(s.item, s.count);
+    const left = addStack(inv, s);
     const moved = s.count - left;
     if (moved === 0) {
       this.d.onFull?.('inv');
       return { moved: 0, reason: 'full' };
     }
-    r.slots[i] = left > 0 ? { item: s.item, count: left } : null;
+    r.slots[i] = left > 0 ? { ...s, count: left } : null;
     this.afterChange(r);
     return { moved, reason: null };
   }
@@ -266,10 +268,10 @@ export class StorageSystem {
     const inv = this.d.inventory;
     const s = inv.slots()[i];
     if (!s) return 0;
-    const left = addInto(r.slots, s.item, s.count);
+    const left = addInto(r.slots, s.item, s.count, 0, r.slots.length, s.wear ?? 0);
     const moved = s.count - left;
     if (moved <= 0) return 0;
-    inv.setSlot(i, left > 0 ? { item: s.item, count: left } : null);
+    inv.setSlot(i, left > 0 ? { ...s, count: left } : null);
     this.pushStore(s.item, moved);
     return moved;
   }
@@ -317,9 +319,9 @@ export class StorageSystem {
       const s = r.slots[i];
       if (!s) continue;
       tried++;
-      const left = inv.add(s.item, s.count);
+      const left = addStack(inv, s);
       moved += s.count - left;
-      r.slots[i] = left > 0 ? { item: s.item, count: left } : null;
+      r.slots[i] = left > 0 ? { ...s, count: left } : null;
     }
     if (moved > 0) this.afterChange(r);
     else if (tried > 0) {
@@ -359,9 +361,9 @@ export class StorageSystem {
     const s = r.slots[i];
     if (!s) return null;
     const n = all ? s.count : 1;
-    r.slots[i] = n >= s.count ? null : { item: s.item, count: s.count - n };
+    r.slots[i] = n >= s.count ? null : { ...s, count: s.count - n };
     this.afterChange(r);
-    return { item: s.item, count: n };
+    return copyStack({ ...s, count: n });
   }
 
   private pushStore(item: ItemId, count: number): void {
@@ -414,7 +416,7 @@ export class StorageSystem {
         this.d.scatter(this.d.player(), [cur]);
       }
     }
-    const stacks = r.slots.filter((s): s is ItemStack => s !== null).map((s) => ({ item: s.item, count: s.count }));
+    const stacks = r.slots.filter((s): s is ItemStack => s !== null).map((s) => copyStack(s));
     if (stacks.length > 0) this.d.scatter({ x: x + 0.5, y, z: z + 0.5 }, stacks);
     this.d.requestSave?.();
     return stacks.reduce((n, s) => n + s.count, 0);
@@ -466,7 +468,7 @@ export class StorageSystem {
       y: r.y,
       z: r.z,
       facing: r.facing,
-      slots: r.slots.map((s) => (s ? { item: s.item, count: s.count } : null)),
+      slots: r.slots.map((s) => (s ? copyStack(s) : null)),
     }));
   }
 
@@ -489,10 +491,10 @@ export class StorageSystem {
       const slots = new Array<TansuSlot>(n).fill(null);
       if (Array.isArray(r.slots)) {
         for (let i = 0; i < Math.min(n, r.slots.length); i++) {
-          const s = r.slots[i] as { item?: unknown; count?: unknown } | null;
+          const s = r.slots[i] as { item?: unknown; count?: unknown; wear?: unknown } | null;
           const t = s && typeof s.item === 'string' ? itemType(s.item) : undefined;
           if (!s || !t || typeof s.count !== 'number' || !Number.isInteger(s.count) || s.count < 1 || s.count > t.maxStack) continue;
-          slots[i] = { item: t.id, count: s.count };
+          slots[i] = copyStack({ item: t.id, count: s.count, wear: readWear(s.wear, maxDurability(t.id, W2_SETTING_DEFAULTS.toolDurability)) });
         }
       }
       const f = r.facing;

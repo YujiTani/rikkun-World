@@ -12,6 +12,7 @@ import type {
   VoxelWorld,
   YokaiEvent,
   YokaiInfo,
+  YokaiKnock,
   YokaiKind,
   YokaiRayHit,
   YokaiState,
@@ -119,6 +120,10 @@ interface Ent {
   lastSeenX: number;
   lastSeenZ: number;
   knockLeft: number;
+  /** ノックバックの 1 ステップ あたりの 水平の 距離 */
+  knockStep: number;
+  /** 上へ の 初速（ブロック/秒）。0 より 大きい あいだ は うきあがっている */
+  knockUpV: number;
   knockDx: number;
   knockDz: number;
   motion: 'wait' | 'move';
@@ -270,7 +275,17 @@ export class YokaiManager implements YokaiWorld {
     return best;
   }
 
-  damage(id: number, amount: number, from: Vec3): void {
+  /** テスト用: 体力を 決める（最大を こえて も よい。0 以下 は 1 に する） */
+  setHp(id: number, hp: number): boolean {
+    const e = this.ents.find((q) => q.id === id);
+    if (!e || e.state === 'dying' || e.state === 'leaving' || e.remove) return false;
+    e.hp = Math.max(1, hp);
+    this.showMarks(e);
+    return true;
+  }
+
+  /** knock（WEAPON-2）: 押す 距離（水平。省くと 1.0）・上への 初速（省くと 0）。ぬりかべ は 押されない */
+  damage(id: number, amount: number, from: Vec3, knock?: YokaiKnock): void {
     const e = this.ents.find((q) => q.id === id);
     if (!e || e.state === 'dying' || e.state === 'leaving' || e.remove) return;
     e.hp = Math.max(0, e.hp - amount);
@@ -295,6 +310,8 @@ export class YokaiManager implements YokaiWorld {
       e.knockDx = dx;
       e.knockDz = dz;
       e.knockLeft = AI_CONST.knockbackTicks;
+      e.knockStep = (knock ? Math.max(0, knock.dist) : this.config.knockback) / AI_CONST.knockbackTicks;
+      e.knockUpV = knock && knock.up > 0 ? knock.up : 0;
     }
   }
 
@@ -470,6 +487,8 @@ export class YokaiManager implements YokaiWorld {
       lastSeenX: x,
       lastSeenZ: z,
       knockLeft: 0,
+      knockStep: 0,
+      knockUpV: 0,
       knockDx: 0,
       knockDz: 0,
       motion: 'wait',
@@ -670,7 +689,7 @@ export class YokaiManager implements YokaiWorld {
     }
     if (e.kind === 'nurikabe' && this.stoneTick(e)) return;
     this.applyKnock(e);
-    this.settle(e, dt);
+    if (!this.rise(e, dt)) this.settle(e, dt);
     if (e.y < AI_CONST.voidY) {
       e.remove = true;
       return;
@@ -1164,10 +1183,25 @@ export class YokaiManager implements YokaiWorld {
     this.emit({ type: 'hurt', tick: this.tick(), id: e.id, kind: e.kind, position: { x: e.x, y: e.y, z: e.z } });
   }
 
+  /** 上への 初速で うきあがる。うきあがっている あいだ true（その ステップ は 地面あわせ を しない） */
+  private rise(e: Ent, dt: number): boolean {
+    if (e.knockUpV <= 0) return false;
+    const ny = e.y + e.knockUpV * dt;
+    e.knockUpV -= 25 * dt;
+    const r = KIND_AI[e.kind].radius;
+    const blocked = !this.boxFreeAt(e.x - r, ny + KIND_AI[e.kind].height - 0.05, e.z - r, e.x + r, ny + KIND_AI[e.kind].height, e.z + r);
+    if (e.knockUpV <= 0 || blocked) {
+      e.knockUpV = 0;
+      e.vy = 0;
+      return false;
+    }
+    e.y = ny;
+    return true;
+  }
+
   private applyKnock(e: Ent): void {
     if (e.knockLeft <= 0) return;
-    const step = this.config.knockback / AI_CONST.knockbackTicks;
-    if (this.walk(e, e.knockDx, e.knockDz, step) <= 0) e.knockLeft = 0;
+    if (this.walk(e, e.knockDx, e.knockDz, e.knockStep) <= 0) e.knockLeft = 0;
     else e.knockLeft--;
   }
 

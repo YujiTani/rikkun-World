@@ -1,3 +1,5 @@
+import { W2_SETTING_DEFAULTS } from '../contracts';
+import { addStack, copyStack, maxDurability, readWear } from '../tools/durability';
 import type { Inventory, ItemStack, Rarity, Vec3, VoxelWorld } from '../contracts';
 import { itemType } from '../inventory/items';
 import { RARITY_ORDER, itemRarity, topRarity } from './rarity';
@@ -67,6 +69,8 @@ export type DropSave = {
   ticksLeft: number;
   batch: number;
   rarity: Rarity;
+  /** WEAPON-2: へった たいきゅう（なし = 新品） */
+  wear?: number;
 };
 
 interface Entity {
@@ -164,7 +168,7 @@ export class DropField {
         vy: o.upMin + this.rng() * (o.upMax - o.upMin),
         vz: Math.sin(ang) * sp,
         resting: false,
-        item: { item: st.item, count: st.count },
+        item: copyStack(st),
         ticksLeft: this.d.live?.dropBagTicks ?? this.life,
         batch,
         rarity,
@@ -207,7 +211,7 @@ export class DropField {
       vy: this.d.live?.dropThrowUp ?? 2,
       vz: dz * speed,
       resting: false,
-      item: { item: stack.item, count: stack.count },
+      item: copyStack(stack),
       ticksLeft: this.d.live?.dropBagTicks ?? this.life,
       batch: this.nextBatch++,
       rarity: itemRarity(stack.item),
@@ -293,10 +297,10 @@ export class DropField {
       this.step(b);
       if (!canPickup || b.age < b.pickupAt) continue;
       if (Math.hypot(p.x - b.x, p.z - b.z) <= radius && Math.abs(p.y - b.y) <= DROP.pickupHeight) {
-        const left = this.d.inventory.add(b.item.item, b.item.count);
+        const left = addStack(this.d.inventory, b.item);
         if (left !== b.item.count) {
           this.d.onPickup?.(b.item.item, b.item.count - left);
-          b.item = { item: b.item.item, count: left };
+          b.item = { ...b.item, count: left };
           picked.push(b.id);
           changed = true;
         } else this.d.onFull?.();
@@ -393,6 +397,7 @@ export class DropField {
       ticksLeft: b.ticksLeft,
       batch: b.batch,
       rarity: b.rarity,
+      ...(b.item.wear && b.item.wear > 0 ? { wear: b.item.wear } : {}),
     }));
   }
 
@@ -426,7 +431,7 @@ export class DropField {
           resting: false,
           age: DROP.pickupDelay,
           bounces: DROP.bounce.maxCount,
-          item: { item: ty.id, count: c },
+          item: copyStack({ item: ty.id, count: c, wear: readWear(r.wear, maxDurability(ty.id, W2_SETTING_DEFAULTS.toolDurability)) }),
           ticksLeft: Math.min(Math.floor(t), this.life),
           batch,
           rarity,

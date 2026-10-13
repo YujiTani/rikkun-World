@@ -1,4 +1,6 @@
 import type {
+  BowEvent,
+  BowSystem,
   Inventory,
   ItemId,
   PlayerState,
@@ -8,10 +10,12 @@ import type {
   ToolSystem,
   Vec3,
   VoxelWorld,
+  W2Settings,
   YokaiWorld,
 } from '../contracts';
-import { raycastBlocks } from '../dig/raycast';
-import { STEPS_PER_SECOND, createToolConfig, type ToolConfig } from './config';
+import { createW2Settings } from '../contracts';
+import { createBowSystem } from './bow/BowSystem';
+import { createToolConfig, type ToolConfig } from './config';
 
 const MAX_QUEUE = 256;
 
@@ -21,12 +25,10 @@ export interface ToolBase {
   combat: { punchDamage: number; punchReach: number; punchTicks: number };
 }
 
-export type ArrowEvent =
-  | { type: 'arrowShot'; tick: number; id: number; position: Vec3; dir: Vec3 }
-  | { type: 'arrowHit'; tick: number; id: number; yokaiId: number; position: Vec3 }
-  | { type: 'arrowEnd'; tick: number; id: number; position: Vec3; traveled: number; reason: 'block' | 'range' | 'outside' }
-  | { type: 'noArrow'; tick: number };
+/** や の 出来事（WEAPON-2: `BowEvent` と 同じ） */
+export type ArrowEvent = BowEvent;
 
+/** 飛んでいる や の 見た目用（`dir` = 速度の 向き〈長さ 1〉、`traveled` = 飛んでからの ステップ） */
 export interface ArrowView {
   id: number;
   position: Vec3;
@@ -42,17 +44,10 @@ export interface ToolDeps {
   yokai?: () => YokaiWorld | null;
   base: ToolBase;
   config?: ToolConfig;
-}
-
-interface Arrow {
-  id: number;
-  x: number;
-  y: number;
-  z: number;
-  dx: number;
-  dy: number;
-  dz: number;
-  traveled: number;
+  /** WEAPON-2 の 設定の 入れ物（同じ オブジェクトを 読む。なければ 自分で 作る） */
+  settings?: W2Settings;
+  /** や を 1 本 うった とき。なければ `inventory.wearHeld(toolWear.bow.shot)` */
+  onBowShot?: () => void;
 }
 
 const BLADES: ReadonlySet<string> = new Set(['bokuto', 'katana', 'naginata', 'crystal_katana']);
@@ -69,18 +64,47 @@ export class ToolSystemImpl implements ToolSystem {
   private naginataNext: 'thrust' | 'sweep' = 'thrust';
   private naginataFreeAt = -Infinity;
 
-  // ゆみ
-  /** 引きはじめから数えたステップ（0 = ひいていない） */
-  private bowTick = 0;
-  /** この引きは や が無くて「カチン」だった（飛ばさない） */
-  private noArrowCycle = false;
-  private arrowList: Arrow[] = [];
-  private nextArrowId = 1;
-  private drainQueue: ArrowEvent[] = [];
-  private hookQueue: ArrowEvent[] = [];
+  // ゆみ（WEAPON-2: `src/tools/bow/`）
+  readonly settings: W2Settings;
+  private readonly bowSys: BowSystem;
+  private prevPrimary = false;
+  private readonly bowCtx = {
+    item: null as ItemId | null,
+    pressed: false,
+    held: false,
+    eye: { x: 0, y: 0, z: 0 },
+    dir: { x: 0, y: 0, z: 1 },
+    position: { x: 0, y: 0, z: 0 },
+    active: true,
+  };
+  private hookQueue: BowEvent[] = [];
+  private readonly arrowViews = new Map<number, ArrowView>();
 
   constructor(private readonly d: ToolDeps) {
     this.config = d.config ?? createToolConfig();
+    this.settings = d.settings ?? createW2Settings();
+    this.bowSys = createBowSystem({
+      world: d.world,
+      yokai: () => d.yokai?.() ?? NO_YOKAI,
+      settings: this.settings,
+      inventory: d.inventory,
+      onShot: () => {
+        if (d.onBowShot) d.onBowShot();
+        else d.inventory.wearHeld?.(this.settings.toolWear.bow.shot);
+      },
+      tick: () => this.tickCount,
+      onEvent: (e) => {
+        if (e.type === 'drawStart') this.pushSwing('draw');
+        else if (e.type === 'arrowShot') this.pushSwing('release');
+        this.hookQueue.push(e);
+        if (this.hookQueue.length > MAX_QUEUE) this.hookQueue.shift();
+      },
+    });
+  }
+
+  /** WEAPON-2: ゆみ と や */
+  bow(): BowSystem {
+    return this.bowSys;
   }
 
   // ---------------------------------------------------------- 持っているもの
@@ -100,9 +124,11 @@ export class ToolSystemImpl implements ToolSystem {
     if (t.kind === 'bow') {
       t.power = b.dig.handPower;
       t.level = b.dig.handLevel;
-      t.damage = c.arrowDamage;
-      t.reach = c.arrowRange;
-      t.ticks = c.bowDrawTicks;
+      // 段 3 の 値（reach は 段 3・45° の 目安 v²/g）
+      const s = this.settings;
+      t.damage = s.bowDamage[2];
+      t.reach = Math.round((s.bowSpeed[2] * s.bowSpeed[2]) / s.arrowGravity);
+      t.ticks = s.bowStageTicks[2];
     }
     return t;
   }
@@ -157,136 +183,58 @@ export class ToolSystemImpl implements ToolSystem {
   // ---------------------------------------------------------- 毎ステップ
 
   /**
-   * 1 ステップ進める。primary: 押している（ゆみの引きはじめ）。eye・dir: 目の位置と向き（長さ 1）
+   * 1 ステップ進める。primary: 押している（ゆみを ひく）。eye・dir: 目の位置と向き（長さ 1）
    * ゆみ以外を持っているあいだは引かない。飛んでいる や は持ち物に関係なく進める
    */
   step(primary: boolean, eye: Vec3, dir: Vec3): void {
-    this.stepBow(primary, eye, dir);
-    this.stepArrows();
+    const c = this.bowCtx;
+    c.item = this.current().kind === 'bow' ? (this.d.inventory.held()?.item ?? null) : null;
+    c.pressed = primary && !this.prevPrimary;
+    c.held = primary;
+    c.eye.x = eye.x;
+    c.eye.y = eye.y;
+    c.eye.z = eye.z;
+    c.dir.x = dir.x;
+    c.dir.y = dir.y;
+    c.dir.z = dir.z;
+    const pos = this.d.player().position;
+    c.position.x = pos.x;
+    c.position.y = pos.y;
+    c.position.z = pos.z;
+    this.prevPrimary = primary;
+    this.bowSys.update(c);
     this.tickCount++;
-  }
-
-  private stepBow(primary: boolean, eye: Vec3, dir: Vec3): void {
-    const c = this.config;
-    if (this.current().kind !== 'bow') {
-      this.bowTick = 0;
-      return;
-    }
-    if (this.bowTick > 0) {
-      this.bowTick++;
-      if (this.bowTick > c.bowInterval) this.bowTick = 0;
-    }
-    if (this.bowTick === 0 && primary) {
-      this.bowTick = 1;
-      if (this.d.inventory.count('ya') <= 0) {
-        // 引きはじめに や が無い: カチン（次の引きはじめまでの間かくは同じ）
-        this.noArrowCycle = true;
-        this.emit({ type: 'noArrow', tick: this.tickCount });
-        return;
-      }
-      this.noArrowCycle = false;
-      this.pushSwing('draw');
-    }
-    if (this.bowTick === c.bowDrawTicks && !this.noArrowCycle) this.shoot(eye, dir);
-  }
-
-  private shoot(eye: Vec3, dir: Vec3): void {
-    if (this.d.inventory.remove('ya', 1) < 1) {
-      this.emit({ type: 'noArrow', tick: this.tickCount });
-      return;
-    }
-    const len = Math.hypot(dir.x, dir.y, dir.z) || 1;
-    const a: Arrow = {
-      id: this.nextArrowId++,
-      x: eye.x,
-      y: eye.y,
-      z: eye.z,
-      dx: dir.x / len,
-      dy: dir.y / len,
-      dz: dir.z / len,
-      traveled: 0,
-    };
-    this.arrowList.push(a);
-    this.pushSwing('release');
-    this.emit({
-      type: 'arrowShot',
-      tick: this.tickCount,
-      id: a.id,
-      position: { x: a.x, y: a.y, z: a.z },
-      dir: { x: a.dx, y: a.dy, z: a.dz },
-    });
-  }
-
-  private stepArrows(): void {
-    const list = this.arrowList;
-    if (list.length === 0) return;
-    const c = this.config;
-    const stepLen = c.arrowSpeed / STEPS_PER_SECOND;
-    const yokai = this.d.yokai?.() ?? null;
-    const size = this.d.world.size;
-    let w = 0;
-    for (let i = 0; i < list.length; i++) {
-      const a = list[i];
-      const L = Math.min(stepLen, c.arrowRange - a.traveled);
-      const blk = raycastBlocks(this.d.world, a.x, a.y, a.z, a.dx, a.dy, a.dz, L);
-      const yh = yokai ? yokai.raycast({ x: a.x, y: a.y, z: a.z }, { x: a.dx, y: a.dy, z: a.dz }, L) : null;
-      let alive = true;
-      if (yh && (!blk || yh.distance < blk.distance)) {
-        a.traveled += yh.distance;
-        const pos = { x: a.x + a.dx * yh.distance, y: a.y + a.dy * yh.distance, z: a.z + a.dz * yh.distance };
-        yokai!.damage(yh.id, c.arrowDamage, { ...this.d.player().position });
-        this.emit({ type: 'arrowHit', tick: this.tickCount, id: a.id, yokaiId: yh.id, position: pos });
-        alive = false;
-      } else if (blk) {
-        a.traveled += blk.distance;
-        this.endArrow(a, 'block', blk.distance);
-        alive = false;
-      } else {
-        a.x += a.dx * L;
-        a.y += a.dy * L;
-        a.z += a.dz * L;
-        a.traveled += L;
-        if (a.x < 0 || a.y < 0 || a.z < 0 || a.x >= size.x || a.y >= size.y || a.z >= size.z) {
-          this.endArrow(a, 'outside', 0);
-          alive = false;
-        } else if (a.traveled >= c.arrowRange - 1e-9) {
-          this.endArrow(a, 'range', 0);
-          alive = false;
-        }
-      }
-      if (alive) list[w++] = a;
-    }
-    list.length = w;
-  }
-
-  private endArrow(a: Arrow, reason: 'block' | 'range' | 'outside', advance: number): void {
-    this.emit({
-      type: 'arrowEnd',
-      tick: this.tickCount,
-      id: a.id,
-      position: { x: a.x + a.dx * advance, y: a.y + a.dy * advance, z: a.z + a.dz * advance },
-      traveled: a.traveled,
-      reason,
-    });
   }
 
   // ---------------------------------------------------------- 窓口用
 
-  /** 飛んでいる や（コピー） */
+  /** 飛んでいる や（見た目用。毎ステップ 同じ 入れ物を 書きかえる） */
   arrows(): ArrowView[] {
-    return this.arrowList.map((a) => ({
-      id: a.id,
-      position: { x: a.x, y: a.y, z: a.z },
-      dir: { x: a.dx, y: a.dy, z: a.dz },
-      traveled: a.traveled,
-    }));
+    const src = this.bowSys.arrows();
+    const out: ArrowView[] = [];
+    const seen = this.arrowViews;
+    for (const a of src) {
+      let v = seen.get(a.id);
+      if (!v) {
+        v = { id: a.id, position: a.position, dir: { x: 0, y: 0, z: 1 }, traveled: 0 };
+        seen.set(a.id, v);
+      }
+      const len = Math.hypot(a.velocity.x, a.velocity.y, a.velocity.z) || 1;
+      v.dir.x = a.velocity.x / len;
+      v.dir.y = a.velocity.y / len;
+      v.dir.z = a.velocity.z / len;
+      v.traveled = a.age;
+      out.push(v);
+    }
+    if (seen.size > src.length) {
+      for (const id of seen.keys()) if (!src.some((a) => a.id === id)) seen.delete(id);
+    }
+    return out;
   }
 
   /** 画面と音用（呼ぶと空） */
   drainArrowEvents(): ArrowEvent[] {
-    const out = this.drainQueue;
-    this.drainQueue = [];
-    return out;
+    return this.bowSys.drainEvents();
   }
 
   /** テストの窓口用（呼ぶと空。画面側の列とは別） */
@@ -295,14 +243,16 @@ export class ToolSystemImpl implements ToolSystem {
     this.hookQueue = [];
     return out;
   }
-
-  private emit(e: ArrowEvent): void {
-    this.drainQueue.push(e);
-    this.hookQueue.push(e);
-    if (this.drainQueue.length > MAX_QUEUE) this.drainQueue.shift();
-    if (this.hookQueue.length > MAX_QUEUE) this.hookQueue.shift();
-  }
 }
+
+/** 妖怪が まだ ない とき の 空の 世界（や は 妖怪に 当たらない） */
+const NO_YOKAI = {
+  list: () => [],
+  raycast: () => null,
+  damage: () => {},
+  occupies: () => false,
+  drainEvents: () => [],
+} as unknown as YokaiWorld;
 
 function kindOf(item: ItemId | null, c: ToolConfig): ToolKind {
   if (item === null) return 'hand';

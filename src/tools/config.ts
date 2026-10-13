@@ -17,15 +17,12 @@ export interface ToolConfig {
   weaponTicks: Partial<Record<ItemId, number>>;
   /** なぎなた: これだけふらなかったら次は「つく」から */
   naginataComboReset: number;
-  /** ゆみ: 引く（このステップ目に や が飛ぶ） */
-  bowDrawTicks: number;
-  /** ゆみ: 押しっぱなしのときの間かく */
-  bowInterval: number;
-  /** や の強さ */
+  /**
+   * @deprecated WEAPON-2: ゆみ は `W2Settings`（`bowDamage`・`bowSpeed` など）に うつった。
+   * ToolSystem は もう 読まない。説明の 表（craft/info）と main.ts が 直るまで 残す。
+   */
   arrowDamage: number;
-  /** や の速さ（ブロック/秒） */
-  arrowSpeed: number;
-  /** や が飛ぶ距離（ブロック） */
+  /** @deprecated 同上（段 3・45° の 目安 39 に かわる） */
   arrowRange: number;
 }
 
@@ -36,10 +33,7 @@ export const TOOL_DEFAULTS: Readonly<ToolConfig> = {
   weaponReach: { naginata: 5.0 },
   weaponTicks: { naginata: 40 },
   naginataComboReset: 60,
-  bowDrawTicks: 10,
-  bowInterval: 30,
   arrowDamage: 2,
-  arrowSpeed: 30,
   arrowRange: 24,
 };
 

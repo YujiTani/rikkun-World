@@ -672,3 +672,49 @@ describe('FIX-fall-reach: ぬりかべ', () => {
     expect(s.world.getBlock(10, 9, 10)).toBe('air');
   });
 });
+
+describe('WEAPON-2: damage の 4 つ目（押す距離・上への初速）と setHp', () => {
+  const from = { x: 2.5, y: 9, z: 6.5 };
+  it('距離を 指定すると その分 押される（突き 1.5・大げさ 2.5）', () => {
+    for (const d of [1.5, 2.5, 0]) {
+      const { m, step } = setup();
+      const id = m.spawn('karakasa', 4.5, 9, 6.5, { ai: false });
+      m.damage(id, 1, from, { dist: d, up: 0 });
+      step(12);
+      expect(m.list()[0]!.position.x).toBeCloseTo(4.5 + d, 2);
+    }
+  });
+  it('上への初速: 切り上げ 7 で 0.8 以上 うき、もどる。ちょうちん も もとの高さへ', () => {
+    for (const kind of ['karakasa', 'chochin'] as const) {
+      const { m, step } = setup();
+      const id = m.spawn(kind, 4.5, 9, 6.5, { ai: false });
+      const y0 = m.list()[0]!.position.y;
+      m.damage(id, 1, from, { dist: 1, up: 7 });
+      let maxY = y0;
+      for (let i = 0; i < 10; i++) {
+        step(1);
+        maxY = Math.max(maxY, m.list()[0]!.position.y);
+      }
+      expect(maxY - y0).toBeGreaterThanOrEqual(0.8);
+      step(120);
+      expect(m.list()[0]!.position.y).toBeCloseTo(y0, 2);
+    }
+  });
+  it('ぬりかべ は 上にも 横にも 動かない', () => {
+    const { m, step } = setup();
+    const id = m.spawn('nurikabe', 6.5, 9, 6.5, { ai: false });
+    m.setHp(id, 48);
+    m.damage(id, 1, from, { dist: 2.5, up: 7 });
+    step(15);
+    const p = m.list()[0]!.position;
+    expect(p.x).toBeCloseTo(6.5, 5);
+    expect(p.y).toBeCloseTo(9, 5);
+  });
+  it('setHp は 最大を こえて も よい', () => {
+    const { m } = setup();
+    const id = m.spawn('karakasa', 4.5, 9, 6.5, { ai: false });
+    expect(m.setHp(id, 99)).toBe(true);
+    expect(m.list()[0]!.hp).toBe(99);
+    expect(m.setHp(999, 1)).toBe(false);
+  });
+});

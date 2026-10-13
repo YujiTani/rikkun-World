@@ -187,6 +187,8 @@ export interface DetailView {
   buttons: ItemInfoData['buttons'];
   later: string | null;
   stats: StatRow[];
+  /** WEAPON-2: なかま の 文（`つかうと へって、0 で こわれる` など） */
+  classText: string;
   materials: DetailMaterial[];
   fuel: { next: ItemIdM6 | null; counts: Record<string, number> } | null;
   /** できる数（2 こ以上のとき ×N を出す） */
@@ -227,6 +229,7 @@ export function buildDetail(o: {
     buttons: info.buttons,
     later: info.later,
     stats: info.stats,
+    classText: info.classText,
     materials: shown.materials.map((m) => ({ item: m.item, have: m.have, need: m.need, ok: !m.red })),
     fuel: o.bake && o.fuelCounts ? { next: o.fuelNext, counts: o.fuelCounts } : null,
     count: shown.output.count,

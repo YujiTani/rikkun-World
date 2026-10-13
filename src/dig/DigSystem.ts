@@ -17,6 +17,8 @@ import type {
   Vec3,
   DigFarmPort,
   DigVitalsPort,
+  BladeSystem,
+  W2Settings,
 } from '../contracts';
 import type { Action, ActionState } from '../input/actions';
 import { cropKindOfBlock, seedKindOfItem, vegKindOfItem } from '../contracts';
@@ -25,6 +27,7 @@ import { BODY_H, BODY_W, FARM_BREAK_DROP, createDigConfig, type DigConfig } from
 import { createRng, randInt, type Rng } from '../world/gen/random';
 import type { PunchGate } from '../combat/PlayerCombat';
 import { lookDirection, raycastBlocks } from './raycast';
+import { isBladeItem } from '../tools/blade/BladeSystem';
 import { previewRightClick, type LeftClickKind, type RightClickPreview } from './rightClick';
 
 /** 出来事の列が読まれずにたまりすぎないように */
@@ -68,6 +71,10 @@ export interface DigM4Deps {
   farm?: DigFarmPort;
   /** M7: 体力を聞く・もどす（`PlayerCombat` が合う） */
   vitals?: DigVitalsPort;
+  /** WEAPON-2: 刀（ひだりクリックの ふりわけ §2.1-6 で わざを 渡す）。なければ 刀も ほるだけ */
+  blade?: Pick<BladeSystem, 'update' | 'state'>;
+  /** WEAPON-2: たいきゅうの へる量（ほる・たがやす）。なければ へらさない */
+  w2?: W2Settings;
 }
 
 /** DigSystem が使う たんす の窓口（M6 §2.9） */
@@ -111,6 +118,8 @@ export class DigSystemImpl implements DigSystem {
   private blockedReason: DigBlockedReason | null = null;
   private cooldown = 0;
   private prevPrimary = false;
+  /** ふりわけ の 前の 生の 押し（刀の わざの 押した しゅんかん用） */
+  private prevPrimaryRaw = false;
   /** このステップはパンチ（ほらない） */
   private punching = false;
   /** secondary を押しつづけている歩数（押していなければ 0） */
@@ -233,7 +242,34 @@ export class DigSystemImpl implements DigSystem {
     const eye = { x: p.position.x, y: p.position.y + this.eyeHeight(), z: p.position.z };
     const bow = tools?.current().kind === 'bow';
     // ゆみ を持っているあいだは ほる・たたく をしない（や は tools が飛ばす）
-    const primary = primaryRaw && !bow;
+    let primary = primaryRaw && !bow;
+    // 刀（WEAPON-2 §2.1-6）: 照準の線で いちばん 手前が 妖怪（4.5 以内）か 何も ない → わざ。作物・ブロック → しゅうかく・ほる
+    const blade = this.m4.blade;
+    if (blade) {
+      const held = this.inventory.held()?.item ?? null;
+      const bladeItem = isBladeItem(held) ? held : null;
+      let tech = false;
+      if (bladeItem && enabled) {
+        if (blade.state().phase !== 'idle') tech = true;
+        else if (primaryRaw) {
+          const y = this.gate?.aimedYokai?.(eye, d, this.tgt?.distance ?? null) ?? null;
+          tech = y !== null || !this.tgt;
+        }
+      }
+      blade.update({
+        item: bladeItem,
+        techPressed: tech && primaryRaw && (!this.prevPrimaryRaw || this.actions.wasPressed('primary')),
+        techHeld: tech && primaryRaw,
+        stancePressed: enabled && this.actions.wasPressed('stanceNext' as Action),
+        eye,
+        dir: d,
+        position: p.position,
+        yawDeg: p.yawDeg,
+        active: enabled,
+      });
+      if (tech) primary = false;
+    }
+    this.prevPrimaryRaw = primaryRaw;
     tools?.step(primaryRaw, eye, d);
     this.punching = this.gate ? this.gate.primaryStep(primary, eye, d, this.tgt?.distance ?? null) : false;
     this.updateWhiff(primary, secondary);
@@ -370,9 +406,22 @@ export class DigSystemImpl implements DigSystem {
       }
     }
     this.emit({ type: 'break', tick: this.tickCount, block: { x, y, z }, id: t.id, gotItem: got > 0, count: got });
+    this.wearForBlock();
     this.clearMem();
     this.active = false;
     this.cooldown = this.config.digCooldown;
+  }
+
+  /** ほった ブロックを こわした: 持っている 道具の たいきゅうを へらす（先に 効かせた あと。WEAPON-2 §4.6 (3)） */
+  private wearForBlock(): void {
+    const w = this.m4.w2?.toolWear;
+    const it = this.inventory.held()?.item;
+    if (!w || !it) return;
+    let n = 0;
+    if (it.endsWith('_pickaxe')) n = w.pickaxe.block;
+    else if (it === 'kuwa') n = w.kuwa.block;
+    else if (isBladeItem(it) || it === 'naginata') n = w.blade.block;
+    if (n > 0) this.inventory.wearHeld?.(n);
   }
 
   /** (x, y, z) をこわした。下や横の支えをなくした たいまつ は落ちて アイテム になる（start_torch は こわれない） */
@@ -477,6 +526,10 @@ export class DigSystemImpl implements DigSystem {
     this.m4.tools?.pushSwing('dig');
     if (this.tillCount >= need) {
       farm.till(x, y, z);
+      if (this.inventory.held()?.item === 'kuwa') {
+        const n = this.m4.w2?.toolWear.kuwa.till ?? 0;
+        if (n > 0) this.inventory.wearHeld?.(n);
+      }
       this.tillBlock = null;
       this.tillCount = 0;
     } else farm.noteTillPress(x, y, z, this.tillCount);

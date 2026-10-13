@@ -56,7 +56,9 @@ export function actionHintLines(right: RightClickPreview | null, left: LeftClick
         break;
     }
   }
-  if (left === 'dig') out.left = { icon: c.held && c.heldIsPickaxe ? c.held : 'wood_pickaxe', word: 'ほる' };
+  // 刀を 持っているとき: ほる・わざ も「きる」に そろえる（オーナー決定）
+  if (c.heldIsBlade && c.held && (left === 'dig' || left === 'hit')) out.left = { icon: c.held, word: 'きる' };
+  else if (left === 'dig') out.left = { icon: c.held && c.heldIsPickaxe ? c.held : 'wood_pickaxe', word: 'ほる' };
   else if (left === 'hit') out.left = { icon: c.held && c.heldIsBlade ? c.held : 'bokuto', word: 'たたく' };
   else if (left === 'harvest') out.left = { icon: 'tomato', word: 'とる' };
   else if (left === 'shoot') out.left = { icon: 'yumi', word: 'うつ' };

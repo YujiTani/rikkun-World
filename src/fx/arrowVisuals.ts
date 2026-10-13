@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import type { Vec3 } from '../contracts';
+import type { ArrowInfo, StuckArrowInfo, Vec3 } from '../contracts';
 
 /** 飛んでいる や の見た目（M4 §2.6）。ひとつの InstancedMesh にまとめ、毎フレーム new しない。 */
 
@@ -78,6 +78,47 @@ export class ArrowVisuals {
     if (n > 0) this.mesh.instanceMatrix.needsUpdate = true;
     this.mesh.count = n;
     this.mesh.visible = n > 0;
+  }
+
+  private readonly buf: ArrowView[] = Array.from({ length: MAX_ARROWS }, () => ({
+    id: 0,
+    position: { x: 0, y: 0, z: 0 },
+    dir: { x: 0, y: 0, z: -1 },
+  }));
+
+  /** 飛んでいる や（`bow.arrows()`）を 写す。向き = 速度。毎ステップ 呼んでよい（new しない） */
+  syncFlying(arrows: readonly ArrowInfo[]): void {
+    const n = Math.min(arrows.length, MAX_ARROWS);
+    for (let i = 0; i < n; i++) {
+      const b = this.buf[i];
+      b.id = arrows[i].id;
+      b.position = arrows[i].position;
+      b.dir = arrows[i].velocity;
+    }
+    this.sync(this.slice(n));
+  }
+
+  /**
+   * ささった や（`bow.stuck()`）を 半分 ささった 形で 写す。向きの 情報が 無いので id から
+   * 下むきに 少し ななめ（毎回 同じ）。中心が ささった 位置なので 半分 ブロックに ささって 見える
+   */
+  syncStuck(arrows: readonly StuckArrowInfo[]): void {
+    const n = Math.min(arrows.length, MAX_ARROWS);
+    for (let i = 0; i < n; i++) {
+      const a = arrows[i];
+      const b = this.buf[i];
+      b.id = a.id;
+      b.position = a.position;
+      b.dir = a.dir;
+    }
+    this.sync(this.slice(n));
+  }
+
+  private readonly view: ArrowView[] = [];
+  private slice(n: number): ArrowView[] {
+    this.view.length = n;
+    for (let i = 0; i < n; i++) this.view[i] = this.buf[i];
+    return this.view;
   }
 
   /** 見えている本数（テスト用） */

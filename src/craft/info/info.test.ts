@@ -74,6 +74,7 @@ describe('つよさ は設定から（U7〜U10）', () => {
       { key: 'damage', value: 4, max: 6 },
       { key: 'reach', value: defaultInfoNumbers().punchReach, max: undefined },
       { key: 'speed', value: 'ふつう', max: undefined },
+      { key: 'durability', value: 250, max: undefined },
     ]);
     const b = make({ weaponDamage: { ...defaultInfoNumbers().weaponDamage, katana: 5 } }).info('katana');
     expect(b.stats[0].value).toBe(5);
@@ -94,7 +95,7 @@ describe('つよさ は設定から（U7〜U10）', () => {
     expect(make({ toolPower: { stone_pickaxe: 3 } }).info('stone_pickaxe').stats[0].value).toBe(3);
   });
   it('ゆみ・や', () => {
-    expect(make().info('yumi').stats.map((s) => s.value)).toEqual([2, 24]);
+    expect(make().info('yumi').stats.map((s) => s.value)).toEqual(['1〜3', 384, 'とおくへ とぶ']);
     expect(make().info('ya').stats[0].value).toBe(2);
   });
   it('ぼうぐ: かぶと=玉・よろい・こて=ふつう・すねあて=落下 の数を出す', () => {

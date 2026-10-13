@@ -1,13 +1,14 @@
 import type { Inventory, ItemId, ItemStack, ScreenState } from '../contracts';
+import { copyStack, itemClassOf } from '../tools/durability';
 
 /** `window.__rikkun.inventory.*`（M2 §6.1）。返す入れ物がそのまま `inventory` になる */
 export function createInventoryHook<E extends object = object>(
-  inv: Inventory,
+  inv: Inventory & { setDurability?(slot: number, left: number): void },
   screen: Pick<ScreenState, 'inventoryOpen'>,
   /** M4: pickup / pickupLog など（`createPickupHook(craft)`）。そのまま足される */
   extras?: E,
 ) {
-  const copy = (s: ItemStack | null) => (s ? { item: s.item, count: s.count } : null);
+  const copy = (s: ItemStack | null) => (s ? copyStack(s) : null);
   return {
     get: () => ({
       slots: inv.slots().map(copy),
@@ -25,6 +26,12 @@ export function createInventoryHook<E extends object = object>(
       if (screen.inventoryOpen()) inv.click(i);
     },
     itemTypes: () => inv.itemTypes(),
+    /** WEAPON-2 §6.1: そのマスの たいきゅう `{ max, left } | null` */
+    durability: (slot: number) => inv.durability(slot),
+    /** WEAPON-2 §6.1: 準備用 */
+    setDurability: (slot: number, left: number) => inv.setDurability?.(slot, left),
+    events: () => inv.peekWearEvents(),
+    itemClass: (item: ItemId) => itemClassOf(item),
     ...(extras ?? ({} as E)),
   };
 }

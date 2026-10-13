@@ -1,0 +1,64 @@
+/*
+ * たいきゅう ゲージ（WEAPON-2 §3.6）。マスの ふちの 内がわ: 左右 4px・下 3px・高さ 5px。
+ * 色は tokens.css の 変数だけ（みどり / き / あか）。点滅 しない。へった とき 6F（0.1 秒）で なめらかに ちぢむ。
+ */
+.wear-gauge {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  bottom: 3px;
+  height: 5px;
+  box-sizing: border-box;
+  border-radius: 2.5px;
+  background: var(--rk-bg-900);
+  /* まわりの 1px の ふち（カテゴリーの 背景の 上でも くっきり） */
+  box-shadow: 0 0 0 1px var(--rk-bg-900);
+  overflow: hidden;
+  pointer-events: none;
+}
+.wear-gauge__fill {
+  height: 100%;
+  border-radius: 2.5px;
+  background: var(--rk-ok);
+  transition: width 100ms linear;
+}
+.wear-gauge[data-tier='mid'] .wear-gauge__fill {
+  background: var(--rk-accent);
+}
+.wear-gauge[data-tier='low'] .wear-gauge__fill {
+  background: var(--rk-ng);
+}
+
+/* のこり わずかの「！」: 左上、16x16 の あかい まる に 白い ！ */
+.wear-low-mark {
+  position: absolute;
+  left: -1px;
+  top: -1px;
+  width: 16px;
+  height: 16px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  background: var(--rk-ng);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 16px;
+  text-align: center;
+  pointer-events: none;
+}
+/* ホットバーの 番号と かさならない ように 番号を 右へ */
+.slot[data-wearlow='true'] .slot-key {
+  left: 18px;
+}
+
+/* 絵と ゲージの あいだを 2px 以上 あける（絵を 小さく して 上へ よせる） */
+.slot[data-wear] .slot-icon {
+  width: calc(var(--slot-art) * 0.8);
+  height: calc(var(--slot-art) * 0.8);
+  margin-bottom: 10px;
+}
+.rk-slot[data-wear] .rk-slot__art {
+  width: 60%;
+  height: 60%;
+  margin-bottom: 10px;
+}

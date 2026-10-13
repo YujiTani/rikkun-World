@@ -39,6 +39,8 @@ type Vec = Partial<{ x: number; y: number; z: number }>;
 export class PlayerController {
   readonly state: PlayerState;
   readonly settings: PlayerSettings;
+  /** WEAPON-2: 刀・弓が かける 歩く倍率と ジャンプ止め（つなぎ込みが 毎ステップ 書く） */
+  readonly motion = { speedMul: 1, jumpLocked: false };
   private readonly p = [0, 0, 0]; // 作業用: 位置
   private readonly idx = [0, 0, 0];
 
@@ -91,6 +93,19 @@ export class PlayerController {
     this.updateWater();
   }
 
+  /** 突きの ふみこみ: 水平に dx, dz だけ 動かす（かべで 止まる） */
+  lunge(dx: number, dz: number): void {
+    const st = this.state;
+    const p = this.p;
+    p[0] = st.position.x;
+    p[1] = st.position.y;
+    p[2] = st.position.z;
+    this.sweep(0, dx);
+    this.sweep(2, dz);
+    st.position.x = p[0];
+    st.position.z = p[2];
+  }
+
   /** 1 ステップ進める（通常 1/60 秒） */
   update(dt: number): void {
     const st = this.state;
@@ -129,8 +144,9 @@ export class PlayerController {
 
     // 水平の速さ: 目標へ一定の割合で近づける（先に速さを変えてから位置を動かす）
     const walkSpeed = st.inWater ? cfg.walkSpeed * cfg.waterSpeedMul : cfg.walkSpeed;
-    const tx = wx * walkSpeed;
-    const tz = wz * walkSpeed;
+    const mul = this.motion.speedMul;
+    const tx = wx * walkSpeed * mul;
+    const tz = wz * walkSpeed * mul;
     const maxDelta = (walkSpeed / Math.max(cfg.accelTime, 1e-6)) * dt;
     const ex = tx - st.velocity.x;
     const ez = tz - st.velocity.z;
@@ -149,7 +165,7 @@ export class PlayerController {
     p[1] = st.position.y;
     p[2] = st.position.z;
     let vy = st.velocity.y;
-    if (st.onGround && (jumpHeld || (wlen > 0 && cfg.autoJump && this.shouldAutoJump(wx, wz)))) {
+    if (st.onGround && !this.motion.jumpLocked && (jumpHeld || (wlen > 0 && cfg.autoJump && this.shouldAutoJump(wx, wz)))) {
       vy = Math.sqrt(2 * cfg.gravity * cfg.jumpHeight * (st.inWater ? cfg.waterJumpMul : 1));
     }
 

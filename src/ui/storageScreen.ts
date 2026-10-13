@@ -1,6 +1,7 @@
 import { RARITY_ORDER, itemRarity } from '../drops/rarity';
 import type { StorageSystem } from '../storage/StorageSystem';
 import { tansuPixels } from '../storage/tansuArt';
+import { paintWear } from './wearGauge';
 import { createButton, createSlot, paintSlot, type Rarity4, type SlotParts } from './theme';
 import { drawPixels, itemIconUrl } from './itemIcon';
 import './storageScreen.css';
@@ -117,6 +118,7 @@ export class StorageScreen {
           ? { size: 'tansu', art: itemIconUrl(s.item), count: s.count, rarity: RARITY_ORDER.indexOf(itemRarity(s.item)) as Rarity4 }
           : { size: 'tansu' },
       );
+      paintWear(this.cells[i].root, s);
     }
   }
 
