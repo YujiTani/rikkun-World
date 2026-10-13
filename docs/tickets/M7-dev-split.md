@@ -95,3 +95,7 @@
 - 右クリックの順: たんす → かまど → 防具 → たがやす → まく → 合図 → たべる → 置く（previewRightClick と同じ）。左クリック `harvest`（絵はかごの代わりに tomato、語「とる」）。
 - itemCategory の 9 こ（D）が入るまで `itemCategory.test.ts` が 1 件落ちる。
 - D へ: 説明の表の「どこで」（たねの入手先）と たねの「そだつ はやさ」メーターは未実装。
+### D（m7-d）
+- 毎ステップ（止まっていない時）`farmFx.feed(farm.drainEvents())`。`new FarmFx({ sound, particles: digFx.particles, hint: farmHint, achievements })`、`farmHint = new FarmHint(hud)` で `farmHint.step()`。
+- `farmAimHud = new FarmAimHud(hud)`、毎ステップ `farmAimHud.update(farm.aim(x,y,z) or null, 名前)`。まるの位置は照準の上（「ほる名前」が今は無い）。
+- 実績ページの分類タブ 9 こは 2 列。1280×720 の収まりは E2E で確かめる。
