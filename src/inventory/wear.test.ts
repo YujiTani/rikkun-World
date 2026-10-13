@@ -157,7 +157,7 @@ describe('防具の たいきゅう (AC30・AC32)', () => {
   });
   it('のこり わずかは 1 回', () => {
     const { armor } = armorRig();
-    armor.set('kabuto');
+    armor.set('kabuto', null);
     armor.setDurability('head', 18); // 165 の 10% = 17
     armor.cut('ball', 2);
     armor.cut('ball', 2);
