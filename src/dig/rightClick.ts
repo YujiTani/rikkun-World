@@ -1,11 +1,11 @@
-import type { ItemId, TargetInfo } from '../contracts';
+import type { ItemId, RightClickKind, TargetInfo } from '../contracts';
+export type { RightClickKind };
 
 /**
  * 右クリックで起きること（実行と表示の両方が、この 1 か所の判定を使う）。
  * 新しい動き（たがやす・まく・たべる・しゅうかく・かまえ など）は、ここに種類と 1 行の判定を足せば、
  * ねらっている所の ヒントにも出る（DigSystem の実行側は kind でふりわける）。
  */
-export type RightClickKind = 'storage' | 'furnace' | 'armor' | 'till' | 'plant' | 'seedHint' | 'eat' | 'place';
 
 export interface RightClickPreview {
   kind: RightClickKind;

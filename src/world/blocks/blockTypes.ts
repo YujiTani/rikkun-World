@@ -36,6 +36,7 @@ export const BLOCK_TYPES: readonly BlockType[] = [
   { id: 'kakashi', name: 'かかし', solid: false, breakable: false },
   { id: 'kakashi_head', name: 'かかし', solid: false, breakable: false },
   { id: 'saku', name: 'さく', solid: false, breakable: true },
+  { id: 'sprinkler', name: 'スプリンクラー', solid: true, breakable: true }, // 仮（B が確かめる）
 ];
 
 export const BLOCK_INDEX: Readonly<Record<BlockId, number>> = Object.fromEntries(

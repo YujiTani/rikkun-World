@@ -54,6 +54,7 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     kakashi: null,
     kakashi_head: null,
     saku: 1,
+    sprinkler: 3,
   } satisfies Record<BlockId, number | null>,
   harvestLevel: {
     air: 0,
@@ -87,6 +88,7 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     kakashi: 0,
     kakashi_head: 0,
     saku: 0,
+    sprinkler: 0,
   },
   handPower: 1.0,
   handLevel: 0,
@@ -129,6 +131,7 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     kakashi: 'common',
     kakashi_head: 'common',
     saku: 'common',
+    sprinkler: 'uncommon',
   } satisfies Record<BlockId, Rarity>,
   dropMax: { common: 4, uncommon: 3, rare: 2, superRare: 1 },
 };
@@ -148,6 +151,7 @@ export const FARM_BREAK_DROP: Readonly<Partial<Record<BlockId, { item: ItemId; c
   farmland: { item: 'dirt', count: 1 },
   farmland_wet: { item: 'dirt', count: 1 },
   saku: { item: 'log', count: 1 },
+  sprinkler: { item: 'sprinkler', count: 1 },
 };
 
 /** 体の箱（M1-02 §4.1）。置く判定に使う */

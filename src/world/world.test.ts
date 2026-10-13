@@ -14,7 +14,7 @@ const ALL_IDS: BlockId[] = [
   'torch', 'start_torch', 'tansu',
   // M7
   'farmland', 'farmland_wet', 'crop_onion', 'crop_tomato', 'crop_pumpkin', 'crop_eggplant',
-  'wild_onion', 'wild_tomato', 'wild_pumpkin', 'wild_eggplant', 'kakashi', 'kakashi_head', 'saku',
+  'wild_onion', 'wild_tomato', 'wild_pumpkin', 'wild_eggplant', 'kakashi', 'kakashi_head', 'saku', 'sprinkler',
 ];
 
 /** この試験は M1 の 64×32×64 の世界で書かれている */
@@ -246,7 +246,7 @@ describe('createWorldHook', () => {
     expect(h.spawn().y).toBe(11);
     expect(h.testArea().y0).toBe(8);
     expect(h.genTimeMs()).toBe(12);
-    expect(h.blockTypes()).toHaveLength(30);
+    expect(h.blockTypes()).toHaveLength(31);
     r.update();
     expect(h.rebuildStats().count).toBeGreaterThan(0);
   });

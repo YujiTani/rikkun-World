@@ -303,6 +303,7 @@ export const BLOCK_TILES: Readonly<Partial<Record<BlockId, readonly [TileName, T
   kakashi: ['kakashi', 'kakashi', 'kakashi'],
   kakashi_head: ['kakashi_head', 'kakashi_head', 'kakashi_head'],
   saku: ['saku', 'saku', 'saku'],
+  sprinkler: ['stone', 'stone', 'stone'], // 仮（B が 絵を 足す）
 };
 
 /** タイルの UV の四角 [u0, v0, u1, v1]（v は下から。となりのタイルがにじまないよう少し内側） */
