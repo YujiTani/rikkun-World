@@ -37,6 +37,11 @@ export interface SaveExtra {
   deserialize(data: unknown): void;
 }
 
+/** M7: 農業。前の保存には 置きものを あとから置く（`changed` = 保存の「島とちがうマス」の番号） */
+export interface SaveFarm extends SaveExtra {
+  placeLegacy?(changed: ReadonlySet<number>): boolean;
+}
+
 /** 1 日の時刻の出し入れ（TimeOfDayImpl が合う） */
 export interface SaveClock {
   dayTick(): number;
@@ -70,6 +75,8 @@ export interface SaveDeps {
   achievements?: SaveExtra;
   /** M6: たんすの中身（ブロックの復元のあとに戻す） */
   storage?: SaveExtra;
+  /** M7: 作物・農業の乱数・「置きものを置いた」印。無い保存は 読んだあと 置きものを置く */
+  farm?: SaveFarm;
   /** 時刻と何日目。なければ保存しない */
   clock?: SaveClock;
 }
@@ -145,6 +152,7 @@ export class SaveManager {
     try {
       const raw = store.getItem(saveKey(this.d.seed));
       if (raw === null) return false;
+      let legacyPlaced = false;
       const data = JSON.parse(raw) as Record<string, unknown>;
       if (!data || data.version !== SAVE_VERSION || data.seed !== this.d.seed) return false;
       // M5: gen が 2 でない（gen が無いものもふくむ）、size がちがう保存は使わない
@@ -211,9 +219,24 @@ export class SaveManager {
       } catch {
         this.d.achievements?.deserialize(null);
       }
+      try {
+        this.d.farm?.deserialize(data.farm);
+      } catch {
+        this.d.farm?.deserialize(null);
+      }
+      if (this.d.farm?.placeLegacy) {
+        const changedSet = new Set<number>();
+        for (let k = 0; k < blocks.length; k += 2) changedSet.add(blocks[k] as number);
+        try {
+          if (this.d.farm.placeLegacy(changedSet)) legacyPlaced = true;
+        } catch {
+          /* 置きものに失敗しても 遊びは続ける */
+        }
+      }
       this.restoreTime(data.time);
       this.lastBody = this.makeBody().body;
       this.lastTimeKey = this.timeKey();
+      if (legacyPlaced) this.lastBody = null; // 置いた分と印を 次の保存で 書く
       this.infoState.changedBlocks = blocks.length / 2;
       return true;
     } catch {
@@ -341,6 +364,7 @@ export class SaveManager {
       level: this.d.level?.serialize() ?? null,
       storage: this.d.storage?.serialize() ?? null,
       achievements: this.d.achievements?.serialize() ?? null,
+      farm: this.d.farm?.serialize() ?? null,
     });
     return { body: make(bagsKey), full: make(bagsFull), changed: blocks.length / 2 };
   }
