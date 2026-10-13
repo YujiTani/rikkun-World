@@ -19,6 +19,7 @@ export interface DetailEls {
   howButtons: HTMLElement;
   howText: HTMLElement;
   stats: HTMLDivElement;
+  classEl: HTMLDivElement;
   mats: HTMLDivElement;
   fuel: HTMLDivElement;
   count: HTMLDivElement;
@@ -60,6 +61,7 @@ export function createDetailEls(parent: HTMLElement, h: { onPress(): void; onEnt
   const howBody = el('div', 'cp-text', howRow);
   const howButtons = el('span', 'cp-btns', howBody);
   const howText = el('span', 'cp-howtext', howBody);
+  const classEl = el('div', 'cp-class rk-sub', scroll);
   const stats = el('div', 'cp-stats', scroll);
   const mats = el('div', 'cp-mats', scroll);
   const fuel = el('div', 'cp-fuelrow', scroll);
@@ -84,7 +86,7 @@ export function createDetailEls(parent: HTMLElement, h: { onPress(): void; onEnt
     h.onPress();
   });
   root.append(button);
-  return { root, headArt, name, stars, word, scroll, useRow, useText, howRow, howButtons, howText, stats, mats, fuel, count, more, hint, button };
+  return { root, headArt, name, stars, word, scroll, useRow, useText, howRow, howButtons, howText, stats, classEl, mats, fuel, count, more, hint, button };
 }
 
 /** ▼ つづき: はみ出していて、まだ いちばん下でないとき だけ出す */
@@ -136,6 +138,8 @@ export function renderDetail(e: DetailEls, d: DetailView | null, iconOf: (item: 
   e.howText.textContent = d.how;
   e.howRow.hidden = d.how === '';
 
+  e.classEl.textContent = d.classText;
+  e.classEl.hidden = d.classText === '';
   e.stats.replaceChildren();
   e.stats.hidden = d.stats.length === 0;
   for (const s of d.stats) {

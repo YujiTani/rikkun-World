@@ -1,13 +1,14 @@
-import type { DamageKind, ItemId, Rarity, Recipe, YokaiKind } from '../../contracts';
-import { M6_SETTING_DEFAULTS, M7_SETTING_DEFAULTS, seedKindOfItem, vegKindOfItem, type CropKind } from '../../contracts';
+import type { DamageKind, ItemClass, ItemId, Rarity, Recipe, YokaiKind } from '../../contracts';
+import { M6_SETTING_DEFAULTS, M7_SETTING_DEFAULTS, W2_SETTING_DEFAULTS, seedKindOfItem, vegKindOfItem, type CropKind } from '../../contracts';
 import { DIG_DEFAULTS } from '../../dig/config';
 import { itemRarity } from '../../drops/rarity';
 import { createCombatConfig } from '../../combat/config';
 import { TOOL_DEFAULTS } from '../../tools/config';
+import { itemClassOf } from '../../tools/durability';
 import { YOKAI_DROPS } from '../../yokai/ai/config';
 import { CRAFT_DEFAULTS } from '../config';
 import { ALL_RECIPES } from '../recipes';
-import { ARMOR_KIND, ITEM_INFO, ORB_SOURCE, RARITY_WORD, STAT_MAX, YOKAI_NAME, type ButtonKey } from './table';
+import { ARMOR_KIND, CLASS_TEXT, ITEM_INFO, ORB_SOURCE, RARITY_WORD, STAT_MAX, YOKAI_NAME, type ButtonKey } from './table';
 
 export interface StatRow {
   key: string;
@@ -33,6 +34,9 @@ export interface ItemInfoData {
   usedIn: string[];
   sourceYokai: YokaiKind[];
   stats: StatRow[];
+  /** WEAPON-2 §4.6 (8): なかま と その 文（`つかうと へって、0 で こわれる` など） */
+  itemClass: ItemClass;
+  classText: string;
 }
 
 /** 説明の数の元（設定。画面を開くたびに読み直す） */
@@ -54,6 +58,8 @@ export interface InfoNumbers {
   tansuSlots: number;
   /** M7: かわいた はたけ で 0 → 3 に かかる にち（なければ 初期値） */
   farmGrowDays?: Readonly<Record<CropKind, number>>;
+  /** WEAPON-2: 新品の たいきゅう（設定 `toolDurability`。なければ 初期値） */
+  toolDurability?: Partial<Record<ItemId, number>>;
 }
 
 export interface InfoDeps {
@@ -62,6 +68,8 @@ export interface InfoDeps {
   numbers(): InfoNumbers;
   rarityOf?(item: ItemId): Rarity;
   dropTable?: Readonly<Record<YokaiKind, readonly { item: ItemId }[]>>;
+  /** WEAPON-2: なかま（なければ `itemClassOf`） */
+  classOf?: (item: ItemId) => ItemClass;
 }
 
 /** 初期値の数（設定がつながっていないとき・テスト用） */
@@ -141,6 +149,13 @@ export function createItemInfo(d: InfoDeps): ItemInfoSource {
     return parts.join('・');
   };
 
+  const classOf = d.classOf ?? itemClassOf;
+  /** たいきゅうで へる 道具は `たいきゅう 250`（新品の 値。メーターは 使わない） */
+  const durRow = (item: ItemId, n: InfoNumbers): StatRow[] => {
+    const v = (n.toolDurability ?? W2_SETTING_DEFAULTS.toolDurability)[item];
+    return typeof v === 'number' && v > 0 ? [{ key: 'durability', label: 'たいきゅう', value: v }] : [];
+  };
+
   const statRows = (item: ItemId, n: InfoNumbers): StatRow[] => {
     const seed = seedKindOfItem(item);
     if (seed !== null) {
@@ -165,6 +180,7 @@ export function createItemInfo(d: InfoDeps): ItemInfoSource {
             label: 'てつ を ほれる',
             value: (n.toolLevel[item] ?? n.handLevel) >= n.harvestLevel('iron_ore') ? '○' : '×',
           },
+          ...durRow(item, n),
         ];
       case 'blade': {
         const ticks = n.weaponTicks[item] ?? n.punchTicks;
@@ -178,18 +194,20 @@ export function createItemInfo(d: InfoDeps): ItemInfoSource {
           },
           { key: 'reach', label: 'とどく', value: n.weaponReach[item] ?? n.punchReach },
           { key: 'speed', label: 'はやさ', value: ticks <= 30 ? 'ふつう' : 'ゆっくり' },
+          ...durRow(item, n),
         ];
       }
       case 'bow':
         return [
-          { key: 'damage', label: 'や の つよさ', value: n.arrowDamage, max: STAT_MAX.damage },
-          { key: 'range', label: 'とぶ きょり', value: n.arrowRange },
+          { key: 'damage', label: 'や の つよさ', value: '1〜3' },
+          ...durRow(item, n),
+          { key: 'draw', label: 'ながく ひくほど', value: 'とおくへ とぶ' },
         ];
       case 'arrow':
         return [{ key: 'damage', label: 'つよさ', value: n.arrowDamage, max: STAT_MAX.damage }];
       case 'armor': {
         const k = ARMOR_KIND[item] ?? 'normal';
-        return [{ key: 'guard', label: 'まもる つよさ', value: n.armorValue[item]?.[k] ?? 0, max: STAT_MAX.guard }];
+        return [{ key: 'guard', label: 'まもる つよさ', value: n.armorValue[item]?.[k] ?? 0, max: STAT_MAX.guard }, ...durRow(item, n)];
       }
       case 'tansu':
         return [{ key: 'slots', label: 'しまえる マス', value: n.tansuSlots }];
@@ -216,6 +234,8 @@ export function createItemInfo(d: InfoDeps): ItemInfoSource {
         usedIn: d.recipes().filter((r) => r.inputs.some((i) => i.item === item)).map((r) => r.id),
         sourceYokai: sourceYokai(item),
         stats: statRows(item, n),
+        itemClass: classOf(item),
+        classText: CLASS_TEXT[classOf(item)],
       };
     },
   };

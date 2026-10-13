@@ -192,24 +192,24 @@ describe('ツールチップ（AC28）', () => {
     expect(t.name).toBe('いしの つるはし');
     expect(t.rarity).toBe('common');
     expect(t.stars).toBe(1);
-    expect(t.lines).toEqual(['ほる つよさ 4', 'てつ も ほれる']);
+    expect(t.lines).toEqual(['ほる つよさ 4', 'てつ も ほれる', 'たいきゅう 131 / 131']);
     expect(t.icons).toHaveLength(t.lines.length);
   });
   it('なぎなた・き・ねんど・たこ', () => {
-    expect(buildTooltip('naginata', deps).lines).toEqual(['たたく つよさ 3', 'とおくまで とどく']);
+    expect(buildTooltip('naginata', deps).lines).toEqual(['たたく つよさ 3', 'とおくまで とどく', 'たいきゅう 250 / 250']);
     expect(buildTooltip('log', deps).lines).toEqual(['おける', 'ねんりょう に なる', 'つくる ざいりょう']);
     expect(buildTooltip('clay', deps).lines).toEqual(['かまど で やける']);
     expect(buildTooltip('kite', deps).lines).toEqual(['もうすぐ つかえる']);
   });
   it('ゆみ・や・かぶと・かまど・きらきらの かたな', () => {
-    expect(buildTooltip('yumi', deps).lines).toEqual(['や を とばす', 'たたく つよさ 2']);
+    expect(buildTooltip('yumi', deps).lines).toEqual(['や を とばす', 'たたく つよさ 2', 'たいきゅう 384 / 384']);
     expect(buildTooltip('ya', deps).lines).toEqual(['ゆみ で とばす']);
-    expect(buildTooltip('kabuto', deps).lines).toEqual(['たま から まもる']);
+    expect(buildTooltip('kabuto', deps).lines).toEqual(['たま から まもる', 'たいきゅう 165 / 165']);
     expect(buildTooltip('kabuto', deps).stars).toBe(3);
     expect(buildTooltip('furnace', deps).lines).toEqual(['おける', 'みぎクリック で やく']);
     const k = buildTooltip('crystal_katana', deps);
     expect(k.stars).toBe(4);
-    expect(k.lines).toEqual(['たたく つよさ 6']);
+    expect(k.lines).toEqual(['たたく つよさ 6', 'たいきゅう 500 / 500']);
     expect(rarityCss(k.rarity)).toBe('#c79bff');
   });
   it('数は設定の値を使う', () => {
@@ -217,7 +217,7 @@ describe('ツールチップ（AC28）', () => {
       ...deps,
       tools: { toolPower: { stone_pickaxe: 9 }, toolLevel: { stone_pickaxe: 0 }, weaponDamage: {}, arrowDamage: 2 },
     });
-    expect(t.lines).toEqual(['ほる つよさ 9']);
+    expect(t.lines).toEqual(['ほる つよさ 9', 'たいきゅう 131 / 131']);
   });
 });
 

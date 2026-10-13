@@ -375,6 +375,23 @@ export class AchievementSystem implements AchievementShowSource {
     this.setMax('seedFrom:all', n);
   }
 
+  /** WEAPON-2: たいきゅうの 出来事（持ち物と 防具の 2 本をまとめて わたす）。こわれた: マス番号 = 道具、部位 = 防具 */
+  feedWear(events: ReadonlyArray<{ type: 'wearLow' | 'toolBreak'; slot: number | string }>): void {
+    if (events.length === 0) return;
+    this.run(() => {
+      for (const e of events) {
+        if (e.type !== 'toolBreak') continue;
+        this.bump(typeof e.slot === 'number' ? 'toolBroken' : 'armorBroken', 1);
+      }
+    });
+  }
+
+  /** WEAPON-2: たいきゅうが 実際に n へった（`WearResult.worn`。道具・防具の 合計 `wearTotal`） */
+  feedWorn(n: number): void {
+    if (!(n > 0)) return;
+    this.run(() => this.bump('wearTotal', n));
+  }
+
   feedArrow(kind: 'shot' | 'hit'): void {
     this.run(() => this.bump(kind === 'shot' ? 'arrowShot' : 'arrowHit', 1));
   }

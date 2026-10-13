@@ -55,10 +55,10 @@ const attach = (sys: AchievementSystem) => {
 };
 
 describe('実績の表', () => {
-  it('207 こ・id かぶりなし・小 72（M6 の 180・61 ＋ M7 の 27・11）', () => {
-    expect(ACHIEVEMENT_DEFS.length).toBe(207);
-    expect(new Set(ACHIEVEMENT_DEFS.map((d) => d.id)).size).toBe(207);
-    expect(ACHIEVEMENT_DEFS.filter((d) => d.small).length).toBe(72);
+  it('211 こ・id かぶりなし・小 73（M6 の 180・61 ＋ M7 の 27・11 ＋ WEAPON-2 の 4・1）', () => {
+    expect(ACHIEVEMENT_DEFS.length).toBe(211);
+    expect(new Set(ACHIEVEMENT_DEFS.map((d) => d.id)).size).toBe(211);
+    expect(ACHIEVEMENT_DEFS.filter((d) => d.small).length).toBe(73);
     expect(ACHIEVEMENT_DEFS.filter((d) => d.category === 'farm').length).toBe(26);
     expect(ACHIEVEMENT_DEFS.filter((d) => d.category === 'farm' && d.small).length).toBe(10);
   });
@@ -320,7 +320,7 @@ describe('じっせき ページの きまり', () => {
     p.setTab('achievements');
     let ui = p.ui(true);
     expect(ui.categories.length).toBe(9);
-    expect(ui.total).toBe(207);
+    expect(ui.total).toBe(211);
     expect(ui.tabDot).toBe(true);
     expect(ui.rows.some((r) => r.isNew)).toBe(true);
     expect(ui.rows.filter((r) => !r.shown).length).toBeGreaterThan(0);
@@ -332,5 +332,26 @@ describe('じっせき ページの きまり', () => {
     ui = p.ui(true);
     expect(ui.tabDot).toBe(false);
     expect(ui.badge.count).toBeGreaterThan(0);
+  });
+});
+
+describe('WEAPON-2 の 実績 4 こ', () => {
+  it('道具が こわれると tool.broken.1、防具は armor.broken.1（道具には 数えない）', () => {
+    const a = mk();
+    a.feedWear([{ type: 'wearLow', slot: 0 }]);
+    expect(a.stat('toolBroken')).toBe(0);
+    a.feedWear([{ type: 'toolBreak', slot: 3 }]);
+    expect(a.stat('toolBroken')).toBe(1);
+    expect(a.isUnlocked('tool.broken.1')).toBe(true);
+    a.feedWear([{ type: 'toolBreak', slot: 'body' }]);
+    expect(a.stat('toolBroken')).toBe(1);
+    expect(a.stat('armorBroken')).toBe(1);
+    expect(a.isUnlocked('armor.broken.1')).toBe(true);
+    a.feedWorn(1000);
+    expect(a.isUnlocked('tool.wearAll.1000')).toBe(true);
+  });
+  it('名前に 漢字なし', () => {
+    for (const id of ['tool.broken.1', 'tool.broken.10', 'tool.wearAll.1000', 'armor.broken.1'])
+      expect(ACHIEVEMENT_DEFS.find((d) => d.id === id)?.name).toMatch(/^[^一-鿿]+$/);
   });
 });
