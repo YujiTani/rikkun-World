@@ -601,6 +601,7 @@ const sparkle = new FarmSparkle({
   happy: (fn) => pet.forEach((x, y, z) => fn(x, y, z)),
 });
 const sparkleView = new FarmSparkleView(sparkle);
+renderer.setSwaySource((cb) => sparkle.forEachSway(cb));
 sparkleView.addTo(game.scene);
 const waterFx = new WaterDropFx(game.scene);
 const sprayFx = new SprinklerFx({ period: m7.farmSprinklerSprayTicks } as never);

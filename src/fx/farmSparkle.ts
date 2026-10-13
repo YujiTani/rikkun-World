@@ -226,6 +226,11 @@ export class FarmSparkle {
     return SPARKLE_STEPS.swayDeg * Math.sin(2 * Math.PI * SPARKLE_STEPS.swayCycles * t);
   }
 
+  /** ゆれている 作物 を 1 つ ずつ 見る（角度つき）。見た目（`WorldRenderer.setSwaySource`）が 使う */
+  forEachSway(fn: (x: number, y: number, z: number, deg: number) => void): void {
+    for (const s of this.swayMap.values()) fn(s.x, s.y, s.z, this.swayAngleDeg(s.x, s.y, s.z));
+  }
+
   // ---------------------------------------------------------------- テストの窓口
 
   /** 今 出ている つぶ（`farm.fx()`。テスト用。作る） */

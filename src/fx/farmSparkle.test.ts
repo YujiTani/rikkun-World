@@ -157,3 +157,19 @@ describe('ハート・ゆれ（AC15）', () => {
     expect(times[50]).toBeLessThan(0.3);
   });
 });
+
+describe('forEachSway', () => {
+  it('ゆれ中の 作物 を 角度つきで 返す', () => {
+    const s = new FarmSparkle({
+      settings: { farmSparkleEvery: 45, farmSparkleRange: 24, farmSparkleMax: 96, farmHeartEvery: 90, farmHeartRange: 16, farmHeartMax: 32 },
+      crops: () => [],
+      stageAt: () => null,
+      happy: () => {},
+    });
+    s.onPet(3, 4, 5, 'ok' as never);
+    const got: number[][] = [];
+    s.forEachSway((x, y, z, d) => got.push([x, y, z, d]));
+    expect(got.length).toBe(1);
+    expect(got[0].slice(0, 3)).toEqual([3, 4, 5]);
+  });
+});
