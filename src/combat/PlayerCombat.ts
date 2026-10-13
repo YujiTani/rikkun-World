@@ -32,8 +32,10 @@ const MAX_QUEUE = 256;
 /** 防具の窓口（M4。`ArmorSystemImpl` が合う） */
 export interface CombatArmorPort {
   /** 妖怪の攻撃を受けた。カットする量（体力の単位）を返す */
-  cut(kind?: DamageKind): number;
+  cut(kind?: DamageKind, amount?: number): number;
   equipped(slot: ArmorSlot): ItemId | null;
+  /** WEAPON-2: へった 量つき（やられて ふくろへ 入れる とき） */
+  equippedStack?(slot: ArmorSlot): ItemStack | null;
   /** そうびのマスを空にして中身を返す */
   take(slot: ArmorSlot): ItemId | null;
   resetHits(): void;
@@ -432,7 +434,7 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
     const cfg = this.config;
     // 防具でふせぐ（M4 §2.7）: 妖怪の攻撃だけ。ふせいだ回も むてき・押されるは ふつうどおり
     // 受けるダメージ = max(体力 1〈ハート半分〉, 元 − カット)。カットが 1 以上ならカキン（blocked）
-    const cutBy = by !== null || kind === 'fall' ? (this.d.armor?.cut(kind) ?? 0) : 0;
+    const cutBy = by !== null || kind === 'fall' ? (this.d.armor?.cut(kind, amount) ?? 0) : 0;
     const blocked = cutBy >= 1;
     // normal / ball は へらしても最低 1。fall は 0 まで へる（0 ならダメージなし）
     const taken = blocked ? Math.max(kind === 'fall' ? 0 : 1, amount - cutBy) : amount;
@@ -500,7 +502,7 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
       if (i === sel || !s) continue;
       if (this.rng() < this.config.dropChance) {
         dropped.push(i);
-        stacks.push({ item: s.item, count: s.count });
+        stacks.push(s.wear ? { item: s.item, count: s.count, wear: s.wear } : { item: s.item, count: s.count });
       }
     }
     for (const i of dropped) inv.setSlot(i, null);
@@ -510,8 +512,9 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
       for (const slot of ['head', 'body', 'arms', 'legs'] as const) {
         const it = armor.equipped(slot);
         if (it && this.rng() < this.config.dropChance) {
+          const st = armor.equippedStack?.(slot); // WEAPON-2: へった 量も いっしょに
           armor.take(slot);
-          stacks.push({ item: it, count: 1 });
+          stacks.push(st ?? { item: it, count: 1 });
         }
       }
     }
