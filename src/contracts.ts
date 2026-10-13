@@ -1470,7 +1470,7 @@ export interface BladeTrailStyle {
 export const W2_SETTING_DEFAULTS: Readonly<W2Settings> = {
   bladeTech: {
     thrust: { startup: 4, active: 2, recovery: 8 },
-    kesa: { startup: 9, active: 3, recovery: 24 },
+    kesa: { startup: 14, active: 3, recovery: 24 },
     kiriage: { startup: 5, active: 3, recovery: 10 },
   },
   stanceSwitchTicks: 8,
@@ -1483,7 +1483,7 @@ export const W2_SETTING_DEFAULTS: Readonly<W2Settings> = {
     kesa: { halfAngleDeg: 75, rMin: 0.3, rMax: 3.2, yMin: -0.5, yMax: 2.6 },
     kiriage: { halfAngleDeg: 45, rMin: 0.3, rMax: 3.0, yMin: -0.3, yMax: 4.2 },
   },
-  bladeDamageMul: { thrust: 0.75, kiriage: 1, kesa: 2 },
+  bladeDamageMul: { thrust: 0.75, kiriage: 0.75, kesa: 2 },
   bladeKnock: { thrust: [1.5, 0], kesa: [2.5, 2], kiriage: [1.0, 7] },
   bowStageTicks: [10, 25, 40],
   bowSpeed: [12, 20, 28],

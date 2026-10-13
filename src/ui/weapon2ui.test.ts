@@ -106,8 +106,8 @@ describe('刀の 演出の 計算（AC22）', () => {
     expect(trailOpacity(8)).toBe(0);
   });
   it('灰色の わ: 大げさ斬りの 硬直 前半だけ', () => {
-    expect(lockRingVisible({ tech: 'kesa', phase: 'recovery', frame: 13 }, 9, 3, 24)).toBe(true);
-    expect(lockRingVisible({ tech: 'kesa', phase: 'recovery', frame: 30 }, 9, 3, 24)).toBe(false);
+    expect(lockRingVisible({ tech: 'kesa', phase: 'recovery', frame: 13 }, 14, 3, 24)).toBe(true);
+    expect(lockRingVisible({ tech: 'kesa', phase: 'recovery', frame: 30 }, 14, 3, 24)).toBe(false);
     expect(lockRingVisible({ tech: 'thrust', phase: 'recovery', frame: 8 }, 4, 2, 8)).toBe(false);
   });
   it('かけらの 色は 8 こ・赤くない道具でも 同じ数', () => {
