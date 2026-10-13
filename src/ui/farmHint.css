@@ -1,0 +1,12 @@
+/* たがやす・たべる の合図: 画面の 上の方 まん中。点滅なし */
+#farm-hint {
+  position: fixed;
+  left: 50%;
+  top: 24%;
+  transform: translateX(-50%);
+  pointer-events: none;
+  z-index: 7;
+}
+#farm-hint[hidden] {
+  display: none;
+}

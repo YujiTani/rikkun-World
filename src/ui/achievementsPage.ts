@@ -14,6 +14,7 @@ export interface AchievementsPageHost {
 }
 
 const CATEGORY_ICON: Record<string, ItemId | 'clock'> = {
+  farm: 'tomato',
   break: 'iron_pickaxe',
   place: 'brick',
   craft: 'furnace',
@@ -25,8 +26,10 @@ const CATEGORY_ICON: Record<string, ItemId | 'clock'> = {
 };
 
 /** メダルの中の絵になる アイテム（なければ 絵なし） */
-function artOf(d: AchievementDef): ItemId | null {
+function artOf(d: AchievementDef): ItemId | 'droplet' | null {
   const s = d.stat;
+  const fm = farmArt(s);
+  if (fm) return fm;
   const m = /^(?:break|place|craft|bake|obtain|wear):([a-z_]+)$/.exec(s);
   if (m && m[1] !== 'pickaxes' && m[1] !== 'weapons' && m[1] !== 'armors' && m[1] !== 'everything') return m[1] as ItemId;
   const w = /^defeatWith:([a-z_]+)$/.exec(s);
@@ -40,6 +43,21 @@ function artOf(d: AchievementDef): ItemId | null {
   if (s === 'arrowShot' || s === 'arrowHit') return 'ya';
   if (s === 'bagBack') return 'cloth';
   return null;
+}
+
+/** そだてる の メダルの絵（はたけ は上の面、みず は しずく） */
+function farmArt(s: string): ItemId | 'droplet' | null {
+  const h = /^(?:harvest|wild):(onion|tomato|pumpkin|eggplant)$/.exec(s);
+  if (h) return h[1] as ItemId;
+  switch (s) {
+    case 'till': return 'farmland';
+    case 'plant:*': return 'seed_tomato';
+    case 'harvest:*': case 'harvest:kinds': case 'wild:*': case 'wild:kinds': case 'eat:*': return 'tomato';
+    case 'harvestWet': return 'droplet';
+    case 'visit:oldfarm': return 'farmland';
+    case 'seedFrom:oldfarm': case 'seedFrom:grass': case 'seedFrom:yokai': case 'seedFrom:all': return 'seed_onion';
+    default: return null;
+  }
 }
 
 function mark(def: AchievementDef): string | undefined {

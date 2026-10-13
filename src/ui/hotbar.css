@@ -87,6 +87,9 @@
 .slot[data-cat='home'] {
   background: var(--rk-cat-home);
 }
+.slot[data-cat='food'] {
+  background: var(--rk-cat-food);
+}
 .slot[data-rarity='0'] {
   border: var(--rk-bw-rarity) solid var(--rk-rarity-0);
 }

@@ -84,6 +84,9 @@
 .cp-tile[data-cat='home'] {
   background: var(--rk-cat-home);
 }
+.cp-tile[data-cat='food'] {
+  background: var(--rk-cat-food);
+}
 .cp-tile[data-rarity='0'] {
   border: var(--rk-bw-rarity) solid var(--rk-rarity-0);
 }
