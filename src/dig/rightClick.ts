@@ -1,11 +1,11 @@
-import type { ItemId, TargetInfo } from '../contracts';
+import type { BlockId, ItemId, RightClickKind, TargetInfo, WaterPreview, WaterRay } from '../contracts';
+export type { RightClickKind };
 
 /**
  * 右クリックで起きること（実行と表示の両方が、この 1 か所の判定を使う）。
  * 新しい動き（たがやす・まく・たべる・しゅうかく・かまえ など）は、ここに種類と 1 行の判定を足せば、
  * ねらっている所の ヒントにも出る（DigSystem の実行側は kind でふりわける）。
  */
-export type RightClickKind = 'storage' | 'furnace' | 'armor' | 'till' | 'plant' | 'seedHint' | 'eat' | 'place';
 
 export interface RightClickPreview {
   kind: RightClickKind;
@@ -23,6 +23,10 @@ export interface RightClickCtx {
   isTansu(x: number, y: number, z: number): boolean;
   isFurnace(x: number, y: number, z: number): boolean;
   canEquip(item: ItemId): boolean;
+  /** M7-2: 4a〜4c（じょうろ。`WateringPort.canPreview` が合う）。じょうろ でなければ null */
+  water?(): WaterPreview | null;
+  /** M7-2: 5（なでる）。作物・やせいの やさい を ねらっていれば その やさい の 絵（アイテム）。防具・じょうろ を 持つ ときは null */
+  petSpot?(): ItemId | null;
   /** 持っているものを、ねらっている所の前に置けるか */
   canPlace(): boolean;
   /** M7: くわ か すで で、上が くうき の くさ・つち を ねらっている（§2.7 の 4） */
@@ -35,16 +39,82 @@ export interface RightClickCtx {
   isVeg?(item: ItemId): boolean;
 }
 
-/** たんす → かまど → 防具 → たがやす → まく → 合図 → たべる → 置く の順。何も起きないなら null */
+/** たんす → かまど → 防具 → じょうろ（4a くむ・4b まく・4c 合図）→ なでる → たがやす → まく → 合図 → たべる → 置く の順（M7-2 §2.4）。何も起きないなら null */
 export function previewRightClick(c: RightClickCtx): RightClickPreview | null {
   const t = c.target;
   if (t && c.isTansu(t.block.x, t.block.y, t.block.z)) return { kind: 'storage', item: null };
   if (t && c.isFurnace(t.block.x, t.block.y, t.block.z)) return { kind: 'furnace', item: null };
   if (c.held && c.canEquip(c.held)) return { kind: 'armor', item: c.held };
+  const w = c.water?.();
+  if (w) return { kind: w, item: c.held };
+  const pet = t ? c.petSpot?.() : null;
+  if (pet) return { kind: 'pet', item: pet };
   if (t && c.canTill?.()) return { kind: 'till', item: c.held };
   if (t && c.held && c.canPlant?.()) return { kind: 'plant', item: c.held };
   if (t && c.held && c.isSeedHintSpot?.()) return { kind: 'seedHint', item: c.held };
   if (c.held && c.isVeg?.(c.held)) return { kind: 'eat', item: c.held };
   if (t && c.held && c.canPlace()) return { kind: 'place', item: c.held };
   return null;
+}
+
+/** ねらいの線 の 情報 を 入れる 入れもの（毎ステップ つくり直さない） */
+export function createWaterRay(): WaterRay {
+  return { throughWater: false, waterCell: null, hit: null };
+}
+
+/**
+ * M7-2 §2.1: 目 から 線 を のばし、固いブロック・作物 に 当たる より 手前（`hitDistance`。当たりが 無ければ reach まで）で
+ * `water` の マス を 通ったか。目 の ある マス は 数えない。いちばん 手前 の みず の マス を `out.waterCell` に 入れる。
+ * `hit` は ねらった ブロック（無ければ null）。`out` を 書きかえて 返す。
+ */
+export function computeWaterRay(
+  getBlock: (x: number, y: number, z: number) => BlockId | 'outside',
+  ox: number,
+  oy: number,
+  oz: number,
+  dx: number,
+  dy: number,
+  dz: number,
+  reach: number,
+  hit: TargetInfo | null,
+  out: WaterRay,
+): WaterRay {
+  out.throughWater = false;
+  out.waterCell = null;
+  out.hit = hit ? hit.block : null;
+  const limit = hit ? hit.distance : reach;
+  let x = Math.floor(ox);
+  let y = Math.floor(oy);
+  let z = Math.floor(oz);
+  const stepX = dx > 0 ? 1 : -1;
+  const stepY = dy > 0 ? 1 : -1;
+  const stepZ = dz > 0 ? 1 : -1;
+  const tDeltaX = dx === 0 ? Infinity : Math.abs(1 / dx);
+  const tDeltaY = dy === 0 ? Infinity : Math.abs(1 / dy);
+  const tDeltaZ = dz === 0 ? Infinity : Math.abs(1 / dz);
+  let tMaxX = dx === 0 ? Infinity : (dx > 0 ? x + 1 - ox : ox - x) * tDeltaX;
+  let tMaxY = dy === 0 ? Infinity : (dy > 0 ? y + 1 - oy : oy - y) * tDeltaY;
+  let tMaxZ = dz === 0 ? Infinity : (dz > 0 ? z + 1 - oz : oz - z) * tDeltaZ;
+  for (;;) {
+    let t: number;
+    if (tMaxX <= tMaxY && tMaxX <= tMaxZ) {
+      t = tMaxX;
+      x += stepX;
+      tMaxX += tDeltaX;
+    } else if (tMaxY <= tMaxZ) {
+      t = tMaxY;
+      y += stepY;
+      tMaxY += tDeltaY;
+    } else {
+      t = tMaxZ;
+      z += stepZ;
+      tMaxZ += tDeltaZ;
+    }
+    if (t > reach || (hit ? t >= limit : t > limit)) return out;
+    if (getBlock(x, y, z) === 'water') {
+      out.throughWater = true;
+      out.waterCell = { x, y, z };
+      return out;
+    }
+  }
 }

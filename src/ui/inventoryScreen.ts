@@ -85,6 +85,9 @@ export class InventoryScreen {
     this.dirty = true;
   }
   private fitSize = '';
+  private fitWin = '';
+  private pollId = 0;
+  private frameObserver: ResizeObserver | null = null;
   private pageSize: { w: number; h: number } | null = null;
   private outside: InventoryOutsideHandlers | null = null;
   private readonly onPointer: (e: MouseEvent) => void;
@@ -251,8 +254,30 @@ export class InventoryScreen {
       h?.(e, this.isInsidePanels(e.clientX, e.clientY));
     };
     for (const t of ['mousedown', 'mousemove', 'mouseup'] as const) window.addEventListener(t, this.onPointer);
-    this.onResize = () => this.fit();
+    this.onResize = () => {
+      this.fit();
+      // 窓の大きさが 反映される のが 遅れる ことが あるので、すぐ後にも もう一度 合わせる
+      requestAnimationFrame(() => {
+        if (this.open) this.fit();
+      });
+      window.setTimeout(() => {
+        if (this.open) this.fit();
+      }, 40);
+    };
     window.addEventListener('resize', this.onResize);
+    // resize の 知らせが 遅れても、ひらいている あいだは 窓の 大きさを 毎コマ みて すぐ 合わせる（数の くらべだけ）
+    const poll = () => {
+      this.pollId = requestAnimationFrame(poll);
+      if (this.open && `${window.innerWidth}x${window.innerHeight}` !== this.fitWin) this.fit();
+    };
+    this.pollId = requestAnimationFrame(poll);
+    // 窓の大きさで 文字・マスの大きさが 後から かわっても、枠の大きさが かわったら すぐ ちぢめなおす
+    if (typeof ResizeObserver !== 'undefined') {
+      this.frameObserver = new ResizeObserver(() => {
+        if (this.open && `${this.frame.offsetWidth}x${this.frame.offsetHeight}` !== this.fitSize) this.fit();
+      });
+      this.frameObserver.observe(this.frame);
+    }
   }
 
   /** 小さい画面では パネルぜんたいを 同じ比で ちぢめる（はしから 24px あける。大きい画面は CSS の clamp で大きくなる） */
@@ -261,6 +286,7 @@ export class InventoryScreen {
     const w = f.offsetWidth;
     const h = f.offsetHeight;
     this.fitSize = `${w}x${h}`;
+    this.fitWin = `${window.innerWidth}x${window.innerHeight}`;
     if (w === 0 || h === 0) {
       f.style.transform = '';
       return;
@@ -440,6 +466,8 @@ export class InventoryScreen {
     this.tooltip?.dispose();
     window.removeEventListener('mousemove', this.onMove);
     window.removeEventListener('resize', this.onResize);
+    this.frameObserver?.disconnect();
+    cancelAnimationFrame(this.pollId);
     for (const t of ['mousedown', 'mousemove', 'mouseup'] as const) window.removeEventListener(t, this.onPointer);
     this.el.remove();
   }

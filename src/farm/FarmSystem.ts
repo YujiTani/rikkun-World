@@ -20,7 +20,11 @@ import {
   type FarmSystem,
   type ItemId,
   type ItemStack,
+  type PetPort,
+  type PetResult,
   type SeedSource,
+  type SprinklerPort,
+  type WateringCanId,
   type Vec3,
   type WorldRegions,
 } from '../contracts';
@@ -43,11 +47,49 @@ export interface FarmSystemImpl extends FarmSystem {
   /** だんを かえる（テスト用。stageTicks は 0）。作物でなければ false */
   setStage(x: number, y: number, z: number, stage: CropStage): boolean;
   /** 明るさ いつも 15 で 作物 n こ を 0 → 3 まで そだてた ステップの 列（世界は 変えない） */
-  simulateGrowth(kind: CropKind, wet: boolean, n: number, seed: number): number[];
+  simulateGrowth(kind: CropKind, wet: boolean, n: number, seed: number, happy?: boolean): number[];
   /** 出ている合図 */
   lastHint(): FarmHintKind | null;
   /** 世界の かかし の 場所（置かれていなければ null） */
   kakashi(): Vec3 | null;
+
+  // ---- M7-2
+  crop(x: number, y: number, z: number): FarmCropInfoM72 | null;
+  crops(): Array<{ x: number; y: number; z: number } & FarmCropInfoM72>;
+  soil(x: number, y: number, z: number): FarmSoilInfo | null;
+  /** 出来事を 足す（B・C の 出来事も ここへ。`drainEvents()` に 集まる） */
+  emit(e: FarmEvent): void;
+  /**
+   * みずやり（§2.1・§4.3 ②）。`target` = 当たった マス（はたけ か 作物）、`dx, dz` = 見ている 向き の 水平 ベクトル。
+   * はんい の はたけ を しめらせ、のこり を さいしょ に もどし、出来事 `pour` を 出す。`tiles`（はんい の はたけ の 数）を 返す。
+   * `water` を へらす のは `WateringPort.pour`（A の watering.ts）
+   */
+  pourAt(target: Vec3, item: WateringCanId, dx: number, dz: number): number;
+  /** 直前の `pourAt` で しめらせた はたけ の マス（しずく の 位置用。`pour` の 出来事 を 受けた ときに 読む）。次の `pourAt` まで 変わらない */
+  lastPourCells(): readonly Vec3[];
+  /** なでる。ごきげん の 口（`PetPort`）を 呼び、出来事 `pet` を 出す。作物 でなければ null */
+  petCrop(x: number, y: number, z: number): PetResult | null;
+  /** ブロック が 変わった（置いた・こわした）。スプリンクラー の 口 へ 伝え、出来事 sprinklerPlaced / sprinklerBroken を 出す */
+  onBlockChanged(x: number, y: number, z: number, before: BlockId, after: BlockId): void;
+  /** 世界 に ある スプリンクラー */
+  sprinklers(): Vec3[];
+  /** じょうろ の しめり の のこり（② の はたけ でなければ 0） */
+  canLeft(x: number, y: number, z: number): number;
+  /** 1 にち の ステップ数（ゲージ・もうすぐ かわく の 計算用） */
+  waterTotal(): number;
+}
+
+/** 作物 の 情報 ＋ ごきげん（`farm.crop` / `farm.crops` の 中身） */
+export type FarmCropInfoM72 = FarmCropInfo & { happy: boolean; happyLeft: number };
+/** はたけ の 情報（`farm.soil` の 中身） */
+export interface FarmSoilInfo {
+  wet: boolean;
+  /** ① みず の そば */
+  water: boolean;
+  /** ② じょうろ の のこり（無ければ 0） */
+  canLeft: number;
+  /** ③ スプリンクラー の はんい */
+  sprinkler: boolean;
 }
 
 interface Crop {
@@ -77,10 +119,30 @@ function mulberry(seed: number) {
 }
 
 /** `FarmDeps` に 足す口（くさ の たね の 出やすさ用。`IslandInfo.regions` を そのまま わたす。無ければ 4 しゅるい 同じ） */
-export type FarmDepsM7 = FarmDeps & { regions?: () => WorldRegions };
+export type FarmDepsM7 = FarmDeps & {
+  regions?: () => WorldRegions;
+  /** M7-2: B の スプリンクラー の はんい（無ければ いつも 範囲外） */
+  sprinkler?: SprinklerPort;
+  /** M7-2: C の ごきげん（無ければ いつも 倍率 1・保存 なし） */
+  pet?: PetPort;
+};
+
+const NO_SPRINKLER: SprinklerPort = { covers: () => false, list: () => [], onBlockChanged() {}, rescan() {} };
+const NO_PET: PetPort = {
+  growFactor: () => 1,
+  isHappy: () => false,
+  left: () => 0,
+  pet: () => null,
+  tick() {},
+  onCropRemoved() {},
+  serialize: () => [],
+  deserialize() {},
+};
 
 export function createFarmSystem(deps: FarmDepsM7): FarmSystemImpl {
   const { world, light, settings } = deps;
+  const sprinkler = deps.sprinkler ?? NO_SPRINKLER;
+  const pet = deps.pet ?? NO_PET;
   const sx = world.size.x;
   const sy = world.size.y;
   const sz = world.size.z;
@@ -88,6 +150,8 @@ export function createFarmSystem(deps: FarmDepsM7): FarmSystemImpl {
   const key = (x: number, y: number, z: number) => (y * sz + z) * sx + x;
 
   const crops = new Map<number, Crop>();
+  /** ② じょうろ の しめり の のこり（はたけ のマス → ステップ） */
+  const watered = new Map<number, number>();
   /** はたけ のマスの 一覧（しめり の 見直し用）。配列＋場所の表 */
   const soilArr: number[] = [];
   const soilPos = new Map<number, number>();
@@ -132,10 +196,10 @@ export function createFarmSystem(deps: FarmDepsM7): FarmSystemImpl {
   const growTicks = (kind: CropKind, wet: boolean) => settings.farmGrowDays[wet ? 'wet' : 'dry'][kind] * dayLen();
 
   /** 1 ステップで 進む 確率 p と 必ず進む ステップ数 */
-  const params = (kind: CropKind, wet: boolean) => {
+  const params = (kind: CropKind, wet: boolean, happy = false) => {
     const f = settings.farmMaxWaitFactor;
     const T = Math.max(1, growTicks(kind, wet));
-    const p = Math.min(1, (3 * (1 - Math.exp(-f))) / T);
+    const p = Math.min(1, ((3 * (1 - Math.exp(-f))) / T) * (happy ? 1 + settings.farmPetGrowBonus : 1));
     return { p, cap: Math.max(1, Math.ceil(f / p)) };
   };
 
@@ -148,6 +212,15 @@ export function createFarmSystem(deps: FarmDepsM7): FarmSystemImpl {
   };
 
   const soilWet = (x: number, y: number, z: number): boolean => world.getBlock(x, y, z) === 'farmland_wet';
+
+  /** はたけ が しめる べき か（① みず の そば ② じょうろ ③ スプリンクラー） */
+  const shouldBeWet = (x: number, y: number, z: number): boolean =>
+    watered.has(key(x, y, z)) || sprinkler.covers(x, y, z) || hasWater(x, y, z);
+  const waterDuration = () => Math.max(1, Math.round(settings.farmWaterDays * dayLen()));
+  const isSoilBlock = (x: number, y: number, z: number) => {
+    const b = world.getBlock(x, y, z);
+    return b === 'farmland' || b === 'farmland_wet';
+  };
 
   const rint = (lo: number, hi: number) => lo + Math.floor(rng.next() * (hi - lo + 1));
 
@@ -174,18 +247,21 @@ export function createFarmSystem(deps: FarmDepsM7): FarmSystemImpl {
 
   const isLit = (x: number, y: number, z: number) => light.level(x, y, z) >= settings.farmMinLight;
 
-  const crop = (x: number, y: number, z: number): FarmCropInfo | null => {
+  const crop = (x: number, y: number, z: number): FarmCropInfoM72 | null => {
     const c = cropAt(x, y, z);
     if (!c) return null;
     const wet = !c.wild && soilWet(x, y - 1, z);
-    return {
+    const info: FarmCropInfoM72 = {
       kind: c.kind,
       stage: c.stage,
       stageTicks: c.rec ? c.rec.ticks : 0,
       wet,
       lit: isLit(x, y, z),
       ripe: c.stage === 3,
+      happy: !c.wild && pet.isHappy(x, y, z),
+      happyLeft: c.wild ? 0 : pet.left(x, y, z),
     };
+    return info;
   };
 
   const changeStage = (c: Crop, to: CropStage) => {
@@ -245,17 +321,24 @@ export function createFarmSystem(deps: FarmDepsM7): FarmSystemImpl {
     const minLight = settings.farmMinLight;
     const f = settings.farmMaxWaitFactor;
     const dl = dayLen();
+    // ごきげん・じょうろ の のこり（農業 の 1 ステップ ごと に 1 へる）
+    pet.tick();
+    for (const [k, left] of watered) {
+      if (left <= 1) watered.delete(k);
+      else watered.set(k, left - 1);
+    }
     // そだつ
     for (const [k, c] of crops) {
       if (world.getBlock(c.x, c.y, c.z) !== CROP_BLOCK[c.kind]) {
         crops.delete(k);
+        pet.onCropRemoved(c.x, c.y, c.z);
         continue;
       }
       if (c.stage >= 3) continue;
       if (light.level(c.x, c.y, c.z) < minLight) continue;
       const wet = world.getBlock(c.x, c.y - 1, c.z) === 'farmland_wet';
       const T = Math.max(1, settings.farmGrowDays[wet ? 'wet' : 'dry'][c.kind] * dl);
-      const p = Math.min(1, (3 * (1 - Math.exp(-f))) / T);
+      const p = Math.min(1, ((3 * (1 - Math.exp(-f))) / T) * pet.growFactor(c.x, c.y, c.z));
       c.ticks++;
       if (rng.next() < p || c.ticks >= f / p) changeStage(c, (c.stage + 1) as CropStage);
     }
@@ -270,9 +353,10 @@ export function createFarmSystem(deps: FarmDepsM7): FarmSystemImpl {
         const b = world.getBlock(x, y, z);
         if (b !== 'farmland' && b !== 'farmland_wet') {
           removeSoil(k);
+          watered.delete(k);
           continue;
         }
-        const w = hasWater(x, y, z);
+        const w = shouldBeWet(x, y, z);
         if (w !== (b === 'farmland_wet')) setWet(x, y, z, w);
         soilCursor++;
       }
@@ -289,6 +373,29 @@ export function createFarmSystem(deps: FarmDepsM7): FarmSystemImpl {
     }
   };
 
+  // ---------------------------------------------------------------- M7-2
+  /** 「ごきげん の 作物 を しゅうかく」の 目印（`harvestPet` の 実績用。契約の 型には まだ 無い ので 足して わたす） */
+  const harvestEvent = (e: FarmEvent, happy: boolean): FarmEvent => (happy && e.type === 'harvest' ? { ...e, happy: true } : e);
+
+  /** ② だけ で のこり が `farmWetSoonRatio` 以下（① ③ の はんい なら false） */
+  const wetSoon = (x: number, y: number, z: number): boolean => {
+    const left = watered.get(key(x, y, z));
+    if (left === undefined || left <= 0) return false;
+    if (hasWater(x, y, z) || sprinkler.covers(x, y, z)) return false;
+    return left <= waterDuration() * settings.farmWetSoonRatio;
+  };
+
+  /** 水平 の 向き (dx, dz) → 近い 軸（|dx| ≥ |dz| なら x。ちょうど 45° は x） */
+  const facingAxis = (dx: number, dz: number): { ax: number; az: number } =>
+    Math.abs(dx) >= Math.abs(dz) ? { ax: dx < 0 ? -1 : 1, az: 0 } : { ax: 0, az: dz < 0 ? -1 : 1 };
+
+  let lastPour: Vec3[] = [];
+  const wetNow = (x: number, y: number, z: number) => {
+    const k = key(x, y, z);
+    watered.set(k, waterDuration());
+    if (world.getBlock(x, y, z) === 'farmland') setWet(x, y, z, true);
+  };
+
   // ---------------------------------------------------------------- 置きもの
   const placeOldFarmBlocks = (p: NonNullable<FarmPlacement['oldFarm']>) => {
     for (const b of p.blocks) world.setBlock(b.x, b.y, b.z, b.id);
@@ -300,23 +407,29 @@ export function createFarmSystem(deps: FarmDepsM7): FarmSystemImpl {
   const sys: FarmSystemImpl = {
     crop,
     crops: () => {
-      const out: Array<{ x: number; y: number; z: number } & FarmCropInfo> = [];
+      const out: Array<{ x: number; y: number; z: number } & FarmCropInfoM72> = [];
       for (const c of crops.values()) {
         const i = crop(c.x, c.y, c.z);
         if (i) out.push({ x: c.x, y: c.y, z: c.z, ...i });
       }
       return out;
     },
-    soil: (x, y, z) => {
+    soil: (x, y, z): FarmSoilInfo | null => {
       const b = world.getBlock(x, y, z);
-      return b === 'farmland' ? { wet: false } : b === 'farmland_wet' ? { wet: true } : null;
+      if (b !== 'farmland' && b !== 'farmland_wet') return null;
+      return {
+        wet: b === 'farmland_wet',
+        water: hasWater(x, y, z),
+        canLeft: watered.get(key(x, y, z)) ?? 0,
+        sprinkler: sprinkler.covers(x, y, z),
+      };
     },
     settings: () => settings,
 
     till(x, y, z) {
       const b = world.getBlock(x, y, z);
       if ((b !== 'grass' && b !== 'dirt') || world.getBlock(x, y + 1, z) !== 'air') return false;
-      const wet = hasWater(x, y, z);
+      const wet = hasWater(x, y, z) || sprinkler.covers(x, y, z);
       world.setBlock(x, y, z, wet ? 'farmland_wet' : 'farmland');
       addSoil(key(x, y, z));
       emit({ type: 'till', tick: deps.tick(), x, y, z });
@@ -343,24 +456,29 @@ export function createFarmSystem(deps: FarmDepsM7): FarmSystemImpl {
         return { ok: false, reason: 'notRipe' };
       }
       const wet = !c.wild && soilWet(x, y - 1, z);
+      const happy = !c.wild && pet.isHappy(x, y, z);
       world.setBlock(x, y, z, 'air');
       crops.delete(key(x, y, z));
+      pet.onCropRemoved(x, y, z);
       const items = yieldItems(c.kind);
       if (c.wild) emit({ type: 'wild', tick, x, y, z, kind: c.kind, seeds: items[1]!.count });
-      else emit({ type: 'harvest', tick, x, y, z, kind: c.kind, veg: items[0]!.count, seeds: items[1]!.count, wet });
-      return { ok: true, kind: c.kind, wild: c.wild, wet, items };
+      else emit(harvestEvent({ type: 'harvest', tick, x, y, z, kind: c.kind, veg: items[0]!.count, seeds: items[1]!.count, wet }, happy));
+      return { ok: true, kind: c.kind, wild: c.wild, wet, items, happy } as FarmHarvestResult;
     },
     onBlockBroken(x, y, z, id: BlockId): ItemStack[] {
       if (id === 'farmland' || id === 'farmland_wet') {
         removeSoil(key(x, y, z));
+        watered.delete(key(x, y, z));
         const c = cropAt(x, y + 1, z);
         if (!c || c.wild) return [];
         const tick = deps.tick();
+        const happy = pet.isHappy(x, y + 1, z);
         world.setBlock(x, y + 1, z, 'air');
         crops.delete(key(x, y + 1, z));
+        pet.onCropRemoved(x, y + 1, z);
         if (c.stage < 3) return [{ item: SEED_ITEM[c.kind], count: 1 }];
         const items = yieldItems(c.kind);
-        emit({ type: 'harvest', tick, x, y: y + 1, z, kind: c.kind, veg: items[0]!.count, seeds: items[1]!.count, wet: id === 'farmland_wet' });
+        emit(harvestEvent({ type: 'harvest', tick, x, y: y + 1, z, kind: c.kind, veg: items[0]!.count, seeds: items[1]!.count, wet: id === 'farmland_wet' }, happy));
         return items;
       }
       if (id === 'grass') {
@@ -371,7 +489,10 @@ export function createFarmSystem(deps: FarmDepsM7): FarmSystemImpl {
         emit({ type: 'wild', tick: deps.tick(), x, y: y + 1, z, kind: c.kind, seeds: items[1]!.count });
         return items;
       }
-      if (cropKindOfBlock(id)) crops.delete(key(x, y, z));
+      if (cropKindOfBlock(id)) {
+        crops.delete(key(x, y, z));
+        pet.onCropRemoved(x, y, z);
+      }
       return [];
     },
     grassSeed(x, z) {
@@ -411,14 +532,75 @@ export function createFarmSystem(deps: FarmDepsM7): FarmSystemImpl {
     },
 
     update,
+    emit,
+    lastPourCells: () => lastPour,
+    canLeft: (x, y, z) => watered.get(key(x, y, z)) ?? 0,
+    waterTotal: waterDuration,
+    sprinklers: () => sprinkler.list(),
+    onBlockChanged(x, y, z, before, after) {
+      sprinkler.onBlockChanged(x, y, z, before, after);
+      if (before === after) return;
+      const tick = deps.tick();
+      if (after === 'sprinkler') emit({ type: 'sprinklerPlaced', tick, x, y, z });
+      else if (before === 'sprinkler') emit({ type: 'sprinklerBroken', tick, x, y, z });
+    },
+    pourAt(target, item, dx, dz) {
+      const tick = deps.tick();
+      // ねらった もの: はたけ なら その はたけ、作物 なら その 下 の はたけ
+      let sy0 = target.y;
+      if (!isSoilBlock(target.x, sy0, target.z) && cropKindOfBlock(world.getBlock(target.x, sy0, target.z)) && isSoilBlock(target.x, sy0 - 1, target.z)) sy0--;
+      const cells: Vec3[] = [];
+      if (isSoilBlock(target.x, sy0, target.z)) {
+        cells.push({ x: target.x, y: sy0, z: target.z });
+        const n = Math.max(1, Math.floor(settings.farmCanTiles[item] ?? 1));
+        const { ax, az } = facingAxis(dx, dz);
+        const reach = settings.farmCanYReach;
+        let cur = cells[0]!;
+        for (let i = 1; i < n; i++) {
+          const nx = cur.x + ax;
+          const nz = cur.z + az;
+          let found: Vec3 | null = null;
+          // 同じ 高さ → 上 → 下 の じゅん
+          for (const dy of [0, 1, -1]) {
+            if (Math.abs(dy) > reach) continue;
+            if (isSoilBlock(nx, cur.y + dy, nz)) {
+              found = { x: nx, y: cur.y + dy, z: nz };
+              break;
+            }
+          }
+          if (!found) break;
+          cells.push(found);
+          cur = found;
+        }
+      }
+      for (const c of cells) wetNow(c.x, c.y, c.z);
+      lastPour = cells;
+      emit({ type: 'pour', tick, x: target.x, y: sy0, z: target.z, item, tiles: cells.length });
+      return cells.length;
+    },
+    petCrop(x, y, z) {
+      const c = cropAt(x, y, z);
+      if (!c) return null;
+      const info = crop(x, y, z)!;
+      const r = pet.pet(x, y, z, { ...info, wild: c.wild });
+      if (r) emit({ type: 'pet', tick: deps.tick(), x, y, z, result: r });
+      return r;
+    },
     aim(x, y, z): FarmAim | null {
       const c = cropAt(x, y, z);
       if (c) {
         const wet = !c.wild && soilWet(x, y - 1, z);
-        return { dots: c.stage + 1, ripe: c.stage === 3, wet, dark: c.stage < 3 && !isLit(x, y, z) };
+        return {
+          dots: c.stage + 1,
+          ripe: c.stage === 3,
+          wet,
+          dark: c.stage < 3 && !isLit(x, y, z),
+          happy: !c.wild && pet.isHappy(x, y, z),
+          wetSoon: !c.wild && wetSoon(x, y - 1, z),
+        };
       }
       const s = sys.soil(x, y, z);
-      return s ? { dots: 0, ripe: false, wet: s.wet, dark: false } : null;
+      return s ? { dots: 0, ripe: false, wet: s.wet, dark: false, happy: false, wetSoon: wetSoon(x, y, z) } : null;
     },
     growTicks,
     drainEvents() {
@@ -432,11 +614,20 @@ export function createFarmSystem(deps: FarmDepsM7): FarmSystemImpl {
     serialize() {
       const flat: number[] = [];
       for (const c of crops.values()) flat.push(c.x, c.y, c.z, CROP_KINDS.indexOf(c.kind) * 4 + c.stage, c.ticks);
-      return { v: 1, placed, rng: rng.state(), kakashi: kakashiPos, crops: flat };
+      const w: number[] = [];
+      for (const [k, left] of watered) {
+        const p = unKey(k);
+        w.push(p.x, p.y, p.z, left);
+      }
+      return { v: 2, placed, rng: rng.state(), kakashi: kakashiPos, crops: flat, watered: w, happy: pet.serialize() };
     },
     deserialize(data) {
       crops.clear();
-      const d = data as { placed?: unknown; rng?: unknown; kakashi?: unknown; crops?: unknown } | null | undefined;
+      watered.clear();
+      const d = data as
+        | { placed?: unknown; rng?: unknown; kakashi?: unknown; crops?: unknown; watered?: unknown; happy?: unknown }
+        | null
+        | undefined;
       // 印なし（前の保存・null）は まだ置いていない。farm の中身があって こわれているときは 置いたまま
       placed = d !== null && d !== undefined && typeof d === 'object' ? d.placed !== false : false;
       kakashiPos = null;
@@ -455,7 +646,19 @@ export function createFarmSystem(deps: FarmDepsM7): FarmSystemImpl {
           crops.set(key(x!, y!, z!), { x: x!, y: y!, z: z!, kind, stage, ticks: Math.max(0, ticks!) });
         }
       }
+      // v: 2 の じょうろ の のこり（v: 1・おかしい 行 は 飛ばす）
+      const wa = d?.watered;
+      if (Array.isArray(wa)) {
+        for (let i = 0; i + 3 < wa.length; i += 4) {
+          const [x, y, z, left] = [wa[i], wa[i + 1], wa[i + 2], wa[i + 3]] as number[];
+          if (![x, y, z, left].every((v) => typeof v === 'number' && Number.isInteger(v)) || left! <= 0) continue;
+          if (!isSoilBlock(x!, y!, z!)) continue;
+          watered.set(key(x!, y!, z!), left!);
+        }
+      }
+      pet.deserialize(d?.happy, (x, y, z) => cropKindOfBlock(world.getBlock(x, y, z)) !== null && !cropKindOfBlock(world.getBlock(x, y, z))!.wild);
       rescanWorld();
+      sprinkler.rescan(world);
     },
 
     noteNewWorldPlaced(placement) {
@@ -493,9 +696,9 @@ export function createFarmSystem(deps: FarmDepsM7): FarmSystemImpl {
       world.touch?.(x, y, z);
       return true;
     },
-    simulateGrowth(kind, wet, n, seed) {
+    simulateGrowth(kind, wet, n, seed, happy = false) {
       const r = mulberry(seed >>> 0);
-      const { p, cap } = params(kind, wet);
+      const { p, cap } = params(kind, wet, happy);
       const lq = p >= 1 ? 0 : Math.log(1 - p);
       const out: number[] = [];
       for (let i = 0; i < n; i++) {

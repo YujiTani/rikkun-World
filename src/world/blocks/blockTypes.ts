@@ -36,6 +36,7 @@ export const BLOCK_TYPES: readonly BlockType[] = [
   { id: 'kakashi', name: 'かかし', solid: false, breakable: false },
   { id: 'kakashi_head', name: 'かかし', solid: false, breakable: false },
   { id: 'saku', name: 'さく', solid: false, breakable: true },
+  { id: 'sprinkler', name: 'スプリンクラー', solid: true, breakable: true },
 ];
 
 export const BLOCK_INDEX: Readonly<Record<BlockId, number>> = Object.fromEntries(
@@ -46,6 +47,7 @@ export const AIR = BLOCK_INDEX.air;
 export const WATER = BLOCK_INDEX.water;
 export const TORCH = BLOCK_INDEX.torch;
 export const START_TORCH = BLOCK_INDEX.start_torch;
+export const SPRINKLER = BLOCK_INDEX.sprinkler;
 
 /** たいまつの なかまか（細い棒＋炎の形で描く。光る） */
 export function isTorchIndex(index: number): boolean {

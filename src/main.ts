@@ -82,6 +82,15 @@ import { createWorldHook } from './world/hook';
 import { WorldRenderer } from './world/render/WorldRenderer';
 import { darkenFromBrightness, skyDarkness } from './world/light';
 import { createFarmSystem, createFarmHook } from './farm';
+import { setWaterCapacity } from './ui/waterGauge';
+import { createSprinklers } from './farm/sprinkler';
+import { Pet } from './farm/pet';
+import { createWatering } from './farm/watering';
+import { WaterDropFx } from './fx/waterFx';
+import { SprinklerFx } from './fx/sprinklerFx';
+import { setCanCapacitySource } from './tools/durability';
+import { FarmSparkle, FarmSparkleView } from './fx/farmSparkle';
+import { lookDirection } from './dig/raycast';
 import { computeFarmPlacement, applyFarmPlacement } from './world/gen/farmPlacement';
 import { createFarmVisual } from './world/render/farmVisual';
 import { FarmFx } from './fx/farmFx';
@@ -352,11 +361,19 @@ const dropController = new DropController({
 // 農業（M7）。作物の段階を描画へ、出来事は 毎ステップ 1 回だけ drain して配る
 // ふるい たんす の場所（置いたとき・保存を読んだあとに 1 回だけ決める）
 let oldTansu: { x: number; y: number; z: number } | null = null;
+const dayLengthNow = () => timeSettings.dayTicks + timeSettings.duskTicks + timeSettings.nightTicks + timeSettings.dawnTicks;
+// M7-2: スプリンクラーの はんい（B）・ごきげん（C）
+setWaterCapacity(() => m7.farmCanCapacity);
+setCanCapacitySource(() => m7.farmCanCapacity);
+const sprinklers = createSprinklers({ radius: () => m7.farmSprinklerRadius });
+const pet = new Pet({ settings: m7, dayLength: dayLengthNow });
 const farm = createFarmSystem({
+  sprinkler: sprinklers,
+  pet,
   world,
   light: renderer.light,
   seed,
-  dayLength: () => timeSettings.dayTicks + timeSettings.duskTicks + timeSettings.nightTicks + timeSettings.dawnTicks,
+  dayLength: dayLengthNow,
   settings: m7,
   tick: () => game.tick,
   fillTansu: (pos, items) => {
@@ -367,6 +384,23 @@ const farm = createFarmSystem({
   regions: () => island.regions(),
 });
 renderer.setCropStageSource({ stageAt: (x, y, z) => farm.crop(x, y, z)?.stage ?? null });
+// ブロックを 置く・こわす → スプリンクラーの 追いかけ（農業の 出来事 sprinklerPlaced / Broken もここから）
+{
+  const setBlock = world.setBlock.bind(world);
+  world.setBlock = (x, y, z, id) => {
+    const before = world.getBlock(x, y, z);
+    const ok = setBlock(x, y, z, id);
+    if (ok && before !== 'outside' && before !== id) farm.onBlockChanged(x, y, z, before, id);
+    return ok;
+  };
+  const fill = world.fill.bind(world);
+  world.fill = (x0, y0, z0, x1, y1, z1, id) => {
+    const had = sprinklers.peek().length > 0;
+    const n = fill(x0, y0, z0, x1, y1, z1, id);
+    if (n > 0 && (had || (id as string) === 'sprinkler')) sprinklers.rescan(world);
+    return n;
+  };
+}
 const dig = new DigSystemImpl(
   world,
   () => controller.state,
@@ -396,6 +430,10 @@ const dig = new DigSystemImpl(
       drops.scatter(pos, [{ item, count }]);
     },
     farm,
+    water: createWatering({ farm, inventory, settings: m7, tick: () => game.tick }),
+    pet,
+    emitFarm: (e) => farm.emit(e),
+    nowTick: () => game.tick,
     vitals: combat,
     blade,
     w2,
@@ -556,7 +594,54 @@ const RARITY_INDEX = { common: 0, uncommon: 1, rare: 2, superRare: 3 } as const;
 const rarity4 = (item: ItemId) => RARITY_INDEX[itemRarity(item)];
 const achievements = new AchievementSystem(() => m6);
 achievementsRef = achievements;
-const farmFx = new FarmFx({ sound: fxSound, particles: fx.particles, hint: farmHint, achievements });
+// M7-2: キラキラ・ハート（C）・しずく（A）・しぶき（B）
+const eyePos = { x: 0, y: 0, z: 0 };
+const sparkle = new FarmSparkle({
+  settings: m7,
+  crops: () => sparkleCrops(),
+  stageAt: (x, y, z) => farm.crop(x, y, z)?.stage ?? null,
+  happy: (fn) => pet.forEach((x, y, z) => fn(x, y, z)),
+});
+const sparkleView = new FarmSparkleView(sparkle);
+renderer.setSwaySource((cb) => sparkle.forEachSway(cb));
+sparkleView.addTo(game.scene);
+const waterFx = new WaterDropFx(game.scene);
+const sprayFx = new SprinklerFx({ period: m7.farmSprinklerSprayTicks });
+game.scene.add(sprayFx.group);
+const sparkleList: Array<{ x: number; y: number; z: number; stage: number }> = [];
+/** 作物（farm.crops）と、目の まわりの やせいの やさい（stage 3）。15 ステップに 1 回だけ 呼ばれる */
+const wildScan = { x: -999, y: -999, z: -999, r: -1, n: 0, list: [] as Array<{ x: number; y: number; z: number; stage: number }> };
+function sparkleCrops(): ReadonlyArray<{ x: number; y: number; z: number; stage: number }> {
+  sparkleList.length = 0;
+  for (const c of farm.crops()) sparkleList.push(c);
+  // やせいの やさい は 近くを 数回に 1 回だけ さがし、毎回は まだ ある ものだけ たしかめる
+  const r = Math.ceil(m7.farmSparkleRange);
+  const ex = Math.floor(eyePos.x);
+  const ey = Math.floor(eyePos.y);
+  const ez = Math.floor(eyePos.z);
+  const moved = Math.abs(ex - wildScan.x) + Math.abs(ey - wildScan.y) + Math.abs(ez - wildScan.z) >= 3;
+  if (moved || wildScan.n++ % 4 === 0 || wildScan.r !== r) {
+    wildScan.x = ex;
+    wildScan.y = ey;
+    wildScan.z = ez;
+    wildScan.r = r;
+    wildScan.list.length = 0;
+    const y0 = Math.max(0, ey - r);
+    const y1 = Math.min(world.size.y - 1, ey + r);
+    for (let z = Math.max(0, ez - r); z <= Math.min(world.size.z - 1, ez + r); z++)
+      for (let x = Math.max(0, ex - r); x <= Math.min(world.size.x - 1, ex + r); x++)
+        for (let y = y0; y <= y1; y++) {
+          const k = cropKindOfBlock(world.getBlock(x, y, z));
+          if (k && k.wild) wildScan.list.push({ x, y, z, stage: 3 });
+        }
+  }
+  for (const w of wildScan.list) {
+    const k = cropKindOfBlock(world.getBlock(w.x, w.y, w.z));
+    if (k && k.wild) sparkleList.push(w);
+  }
+  return sparkleList;
+}
+const farmFx = new FarmFx({ sound: fxSound, particles: fx.particles, hint: farmHint, achievements, sparkle });
 onFullSignal = () => achievements.feedFull();
 const pageModel = new AchievementsPageModel(achievements);
 const achievementsPage = new AchievementsPage(achievements, pageModel, inventoryScreen);
@@ -850,7 +935,22 @@ game.onUpdate((dt) => {
     digBuf = digBuf === NO_DIG ? digEvents : digBuf.concat(digEvents);
     achievements.feedDig(digEvents);
   }
-  farmFx.feed(farm.drainEvents());
+  {
+    const fe = farm.drainEvents();
+    if (fe.length > 0) {
+      for (const e of fe) if (e.type === 'pour') waterFx.pour(farm.lastPourCells());
+      farmFx.feed(fe);
+    }
+    // 目の 位置（キラキラ・しぶきの 遠さ）と つぶ の 1 ステップ
+    eyePos.x = controller.state.position.x;
+    eyePos.y = controller.state.position.y + controller.settings.eyeHeight;
+    eyePos.z = controller.state.position.z;
+    sparkle.step(game.tick, eyePos);
+    sparkleView.update();
+    waterFx.step();
+    sprayFx.setPeriod(m7.farmSprinklerSprayTicks);
+    sprayFx.update(game.tick, sprinklers.peek(), eyePos);
+  }
   const storageA = storage.drainEvents();
   const storageB = dropper.drainEvents();
   if (storageA.length > 0 || storageB.length > 0) {
@@ -953,6 +1053,7 @@ const achievementsHook = {
     achMuted = on;
   },
 };
+const facingTmp = { x: 0, y: 0, z: 0 };
 const hudHook = { actionHint: () => actionHint.current(), yokaiFocus: () => yokaiFocus.current(), yokaiFocusHulls: () => yokaiFocus.hullCount() };
 const guideHook = createGuideHook(playOverlay);
 const lockHook = createLockHook(lock);
@@ -986,7 +1087,27 @@ installTestHook(game, overlay, {
   storage: storageHook as unknown as TestHookGroups['storage'],
   farm: createFarmHook({
     farm,
-    visual: farmVisual,
+    visual: {
+      texture: (n) => farmVisual.texture(n),
+      look: (x, y, z) => {
+        const l = farmVisual.look(x, y, z);
+        return l ? ({ ...l, sway: sparkle.sway(x, y, z) } as typeof l) : l;
+      },
+    },
+    inventory,
+    facing: () => {
+      const d = lookDirection(controller.state.yawDeg, controller.state.pitchDeg, facingTmp);
+      return { dx: d.x, dz: d.z };
+    },
+    fx: () => ({
+      particles: [...sparkle.list(), ...sprayFx.particles(game.tick), ...waterFx.particles()],
+      counts: { star: sparkle.counts.star, heart: sparkle.counts.heart, spray: sprayFx.total, splash: waterFx.model.total },
+    }),
+    fxReset: () => {
+      sparkle.reset();
+      sprayFx.reset();
+      waterFx.model.reset();
+    },
     aimed: () => dig.target()?.block ?? null,
     give: (items) => {
       for (const st of items) {

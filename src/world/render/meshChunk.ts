@@ -204,7 +204,7 @@ const CROSS_QUADS: [number, number][][] = [
   [[1, 0], [0, 1]],
 ];
 
-function pushCross(mesh: MeshData, x: number, y: number, z: number, tile: TileName, sky: number, blk: number): void {
+export function pushCross(mesh: MeshData, x: number, y: number, z: number, tile: TileName, sky: number, blk: number): void {
   const uv = tileUv(tile);
   for (const [a, b] of CROSS_QUADS) {
     for (let side = 0; side < 2; side++) {
@@ -229,7 +229,17 @@ function pushCross(mesh: MeshData, x: number, y: number, z: number, tile: TileNa
   }
 }
 
-export function meshChunk(world: ArrayVoxelWorld, cx: number, cz: number, light?: WorldLight, crops?: CropStageSource): ChunkMeshData {
+/**
+ * `hide`: true を 返した マス の 十字の板 は 描かない（なでた ゆれ の 間、専用メッシュ で 描くため）。
+ */
+export function meshChunk(
+  world: ArrayVoxelWorld,
+  cx: number,
+  cz: number,
+  light?: WorldLight,
+  crops?: CropStageSource,
+  hide?: (x: number, y: number, z: number) => boolean,
+): ChunkMeshData {
   const opaque = emptyMesh();
   const water = emptyMesh();
   const x0 = cx * CHUNK_SIZE;
@@ -246,6 +256,7 @@ export function meshChunk(world: ArrayVoxelWorld, cx: number, cz: number, light?
           continue;
         }
         if (isCrossIndex(b)) {
+          if (hide && hide(x, y, z)) continue;
           const stage = crops?.stageAt(x, y, z) ?? 3;
           const ripe = isWildIndex(b) || (cropKindOfBlock(BLOCK_TYPES[b].id) !== null && stage === 3);
           pushCross(

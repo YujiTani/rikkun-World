@@ -113,7 +113,7 @@ test.describe('M7 農業', () => {
       out.tomatoLeft = h.inventory.count('tomato');
       return out;
     });
-    expect(r.soil).toEqual({ wet: false });
+    expect(r.soil).toMatchObject({ wet: false });
     expect(r.block).toBe('farmland');
     expect(r.tillEvents).toBe(1);
     expect(r.crop0).toMatchObject({ kind: 'tomato', stage: 0 });
@@ -176,7 +176,7 @@ test.describe('M7 農業', () => {
     expect(r.one).toBeNull();
     expect(r.two).toBeNull();
     expect(r.press).toEqual([1, 2]);
-    expect(r.three).toEqual({ wet: false });
+    expect(r.three).toMatchObject({ wet: false });
     expect(r.reset).toBeNull();
     expect(r.covered).toBeNull();
     expect(r.stone).toBe('stone');

@@ -151,6 +151,9 @@ export const HELD_MODELS: Partial<Record<ItemId, Part[]>> = {
   seed_tomato: seedBag(0xe53935),
   seed_pumpkin: seedBag(0xf57c00),
   seed_eggplant: seedBag(0x6a1b9a),
+  // ---- M7-2（じょうろ: 青 / ながい じょうろ: みどり・そそぎ口 が ながい・はす口 が 金）
+  watering_can: wateringCan(0x5c9bd5, 0x3f78b0, 0x2f5f8f, 0.3, 0xb0bec5),
+  long_watering_can: wateringCan(0x4caf50, 0x2e7d32, 0x1b5e20, 0.5, 0xffd54f),
   onion: [
     { size: [0.2, 0.2, 0.18], pos: [0, 0, -0.1], color: 0xf5f0dc },
     { size: [0.05, 0.05, 0.1], pos: [0, 0, -0.24], color: 0x43a047 },
@@ -168,6 +171,27 @@ export const HELD_MODELS: Partial<Record<ItemId, Part[]>> = {
     { size: [0.07, 0.07, 0.05], pos: [0, 0, -0.36], color: 0x2e7d32 },
   ],
 };
+
+/** じょうろ: どう体 ＋ とって（上） ＋ そそぎ口（前 = -Z。`spout` が 長さ）＋ はす口 */
+function wateringCan(body: number, shade: number, handle: number, spout: number, rose: number): Part[] {
+  return [
+    { size: [0.16, 0.16, 0.2], pos: [0, 0, -0.1], color: body },
+    { size: [0.16, 0.04, 0.2], pos: [0, -0.1, -0.1], color: shade },
+    { size: [0.04, 0.12, 0.1], pos: [0, 0.12, -0.04], color: handle },
+    { size: [0.04, 0.04, 0.1], pos: [0, 0.18, -0.1], color: handle },
+    { size: [0.04, 0.04, spout], pos: [0, 0.04, -0.2 - spout / 2], color: shade },
+    { size: [0.08, 0.08, 0.04], pos: [0, 0.04, -0.2 - spout], color: rose },
+  ];
+}
+
+/**
+ * じょうろ の かたむき（度。§3.2 (5)）。まく = 前 に 35° かたむけて 20 ステップ で もどす、くむ = 下 に 20°。
+ * `age` = 動き 始めて から の ステップ。おわったら 0
+ */
+export function wateringTiltDeg(kind: 'pour' | 'fill', age: number): number {
+  if (!(age >= 0) || age >= 20) return 0;
+  return (kind === 'pour' ? 35 : 20) * (1 - age / 20);
+}
 
 /** たねの ふくろ（紙いろの 板に その やさいの色の 点） */
 function seedBag(color: number): Part[] {

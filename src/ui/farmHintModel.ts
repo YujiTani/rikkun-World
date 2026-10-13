@@ -11,6 +11,10 @@ export const FARM_HINT_VIEW: Readonly<Record<FarmHintKind, { html: string; art: 
     html: `さきに くわ で ${ruby('土', 'つち')}を たがやして ${ruby('畑', 'はたけ')}に しよう`,
     art: ['kuwa', 'farmland'],
   },
+  fill: {
+    html: `じょうろ が からっぽ。${ruby('水', 'みず')}に むけて ${ruby('右', 'みぎ')}クリック で くもう`,
+    art: ['watering_can'],
+  },
   full: { html: 'ハート が いっぱい だから いまは たべられないよ', art: ['heart'] },
 };
 

@@ -17,7 +17,10 @@ import { createAtlasTexture } from '../blocks/textures';
 import { CHUNK_SIZE, type ArrayVoxelWorld } from '../VoxelWorld';
 import { CHUNK_DRAW_DISTANCE, RENDER_CONFIG } from './config';
 import { chunkNearDistance } from './visibility';
-import { meshChunk, type MeshData } from './meshChunk';
+import { crossTileName, meshChunk, RIPE_FLAG, type MeshData } from './meshChunk';
+import { CropSwayMesh, SWAY_POOL_MAX, type SwayItem } from './cropSway';
+import { BLOCK_TYPES, isCrossIndex, isWildIndex } from '../blocks/blockTypes';
+import { cropKindOfBlock } from '../../contracts';
 import { meshChunkLod } from './lodMesh';
 import { WATER_ALPHA } from '../blocks/textures';
 
@@ -64,6 +67,7 @@ function toGeometry(data: MeshData): BufferGeometry {
   return g;
 }
 
+const LIGHT_MAX_N = 15;
 const f = (n: number): string => n.toFixed(4);
 
 /**
@@ -138,6 +142,14 @@ export class WorldRenderer {
   /** LOD のメッシュが古い（地形が変わった／まだ作っていない）。LOD で描くときに作る（1 チャンク 0.3ms ほど） */
   private readonly lodStale: boolean[];
   private crops: CropStageSource | undefined;
+  /** なでた ゆれ（M7-2）: ゆれ中の 作物 を 専用メッシュ で 描き、チャンク側 の 板 は 隠す */
+  private swaySource: ((cb: (x: number, y: number, z: number, deg: number) => void) => void) | undefined;
+  private swayMesh: CropSwayMesh | null = null;
+  private readonly swayHidden = new Set<number>();
+  private readonly swayNext = new Set<number>();
+  private readonly swayCells: Array<{ x: number; y: number; z: number; deg: number }> = [];
+  private readonly swayItems: SwayItem[] = [];
+  private readonly hideFn = (x: number, y: number, z: number): boolean => this.swayHidden.has(this.swayKey(x, y, z));
   private stats: RebuildStats = { lastMs: 0, count: 0 };
   /** 光（置く・こわすと近くだけ計算し直す）。Sky・妖怪の出現・テストが読む */
   readonly light: WorldLight;
@@ -261,10 +273,89 @@ export class WorldRenderer {
     if (viewer) this.setViewer(viewer.x, viewer.z);
     const t0 = performance.now(); // 光の計算し直しもふくめて計る（M5 AC17）
     this.light.update();
-    if (!this.attached || !this.world.hasDirtyChunks()) return;
-    const dirty = this.world.takeDirtyChunks();
-    for (const i of dirty) this.rebuildChunk(i);
-    this.stats = { lastMs: performance.now() - t0, count: this.stats.count + dirty.length };
+    if (!this.attached) return;
+    this.syncSway();
+    if (this.world.hasDirtyChunks()) {
+      const dirty = this.world.takeDirtyChunks();
+      for (const i of dirty) this.rebuildChunk(i);
+      this.stats = { lastMs: performance.now() - t0, count: this.stats.count + dirty.length };
+    }
+    this.drawSway();
+  }
+
+  /** ゆれている 作物 の 一覧 を 教える 先（`FarmSparkle.forEachSway` が 合う）。 */
+  setSwaySource(src: ((cb: (x: number, y: number, z: number, deg: number) => void) => void) | undefined): void {
+    this.swaySource = src;
+  }
+
+  /** いま 専用メッシュ で ゆらしている 本数（テスト・計測用） */
+  swayCount(): number {
+    return this.swayMesh?.count ?? 0;
+  }
+
+  private swayKey(x: number, y: number, z: number): number {
+    return (x * 4096 + z) * 512 + y;
+  }
+
+  /** ゆれ 中 の マス の 集まり が 変わったら、そのチャンク だけ 作り直しに 出す（板 を 隠す／出す） */
+  private syncSway(): void {
+    this.swayCells.length = 0;
+    this.swayNext.clear();
+    if (this.swaySource) {
+      this.swaySource((x, y, z, deg) => {
+        if (this.swayCells.length >= SWAY_POOL_MAX) return;
+        const b = this.world.getIndex(x, y, z);
+        if (b < 0 || !isCrossIndex(b)) return;
+        this.swayCells.push({ x, y, z, deg });
+        this.swayNext.add(this.swayKey(x, y, z));
+      });
+    }
+    if (this.swayHidden.size === 0 && this.swayNext.size === 0) return;
+    let changed = false;
+    for (const c of this.swayCells) {
+      if (!this.swayHidden.has(this.swayKey(c.x, c.y, c.z))) {
+        this.world.touch(c.x, c.y, c.z);
+        changed = true;
+      }
+    }
+    if (this.swayHidden.size > 0) {
+      for (const k of this.swayHidden) {
+        if (this.swayNext.has(k)) continue;
+        const y = k % 512;
+        const r = (k - y) / 512;
+        const z = r % 4096;
+        const x = (r - z) / 4096;
+        this.world.touch(x, y, z);
+        changed = true;
+      }
+    }
+    if (changed) {
+      this.swayHidden.clear();
+      for (const k of this.swayNext) this.swayHidden.add(k);
+    }
+  }
+
+  private drawSway(): void {
+    if (this.swayCells.length === 0 && !this.swayMesh?.mesh.visible) return;
+    if (!this.swayMesh) {
+      this.swayMesh = new CropSwayMesh(this.opaqueMaterial);
+      this.group.add(this.swayMesh.mesh);
+    }
+    this.swayItems.length = 0;
+    for (const c of this.swayCells) {
+      // 板 を 隠せている（作り直し 済み）ものだけ 描く
+      if (!this.swayHidden.has(this.swayKey(c.x, c.y, c.z))) continue;
+      const b = this.world.getIndex(c.x, c.y, c.z);
+      const stage = this.crops?.stageAt(c.x, c.y, c.z) ?? 3;
+      const ripe = isWildIndex(b) || (cropKindOfBlock(BLOCK_TYPES[b].id) !== null && stage === 3);
+      this.swayItems.push({
+        x: c.x, y: c.y, z: c.z, deg: c.deg,
+        tile: crossTileName(b, stage),
+        sky: this.light.skyAt(c.x, c.y, c.z) / LIGHT_MAX_N,
+        blk: this.light.blockAt(c.x, c.y, c.z) / LIGHT_MAX_N + (ripe ? RIPE_FLAG : 0),
+      });
+    }
+    this.swayMesh.set(this.swayItems);
   }
 
   rebuildStats(): RebuildStats {
@@ -308,6 +399,7 @@ export class WorldRenderer {
       c.lodOpaque?.geometry.dispose();
       c.lodWater?.geometry.dispose();
     }
+    this.swayMesh?.dispose();
     this.opaqueMaterial.dispose();
     this.waterMaterial.dispose();
     this.lodOpaqueMaterial.dispose();
@@ -318,7 +410,7 @@ export class WorldRenderer {
   private rebuildChunk(index: number): void {
     const cx = index % this.world.chunksX;
     const cz = Math.floor(index / this.world.chunksX);
-    const data = meshChunk(this.world, cx, cz, this.light, this.crops);
+    const data = meshChunk(this.world, cx, cz, this.light, this.crops, this.swayHidden.size > 0 ? this.hideFn : undefined);
     const slot = this.chunks[index];
     const on = this.inRange[index];
     const lod = this.lodMode[index];

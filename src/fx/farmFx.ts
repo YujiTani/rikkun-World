@@ -1,4 +1,4 @@
-import type { CropKind, FarmEvent, FarmHintKind, Vec3 } from '../contracts';
+import type { CropKind, FarmEvent, FarmHintKind, PetResult, Vec3 } from '../contracts';
 import { FX_SETTINGS, type FxSettings } from './config';
 import { playFarm, type FarmSoundName } from './farmSounds';
 import type { SoundFx } from './sound';
@@ -21,6 +21,8 @@ export interface FarmFxDeps {
   hint?: { show(kind: FarmHintKind): void };
   /** 実績（`AchievementSystem.feedFarm` が合う） */
   achievements?: { feedFarm(events: readonly FarmEvent[]): void };
+  /** M7-2: なでた ハート・ゆれ（`FarmSparkle.onPet` が合う） */
+  sparkle?: { onPet(x: number, y: number, z: number, result: PetResult): void };
   settings?: FxSettings;
 }
 
@@ -86,9 +88,25 @@ export class FarmFx {
         break;
       case 'hint':
         this.d.hint?.show(e.hint);
+        if (e.hint === 'fill') this.snd('empty'); // からっぽ の じょうろ（4c）軽い「コン」
+        break;
+      // ---- M7-2（しずく・しぶき の つぶ は A・B の 担当。音 は ここ から）
+      case 'fill':
+        // まんたん で くむと 「ちゃぷん」（A が `wasFull` を 入れる）。入れない 間 は ゴボゴボ
+        this.snd(e.wasFull ? 'fullCan' : 'fill');
+        break;
+      case 'pour':
+        this.snd('pour');
+        break;
+      case 'pet':
+        this.snd(e.result === 'happy' ? 'pet' : 'petAgain');
+        this.d.sparkle?.onPet(e.x, e.y, e.z, e.result);
+        break;
+      case 'sprinklerPlaced':
+        this.snd('sprinklerPlace');
         break;
       default:
-        // stage・wet・visitOldFarm は 音なし
+        // stage・wet・visitOldFarm・sprinklerBroken は 音なし
         break;
     }
   }

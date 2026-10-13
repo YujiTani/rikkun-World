@@ -16,6 +16,9 @@ export const FARM_TILE_NAMES: readonly string[] = [
   'kakashi',
   'kakashi_head',
   'saku',
+  'sprinkler_top',
+  'sprinkler_side',
+  'sprinkler_bottom',
 ];
 
 export const FARM_SOIL = { dry: '#6E4520', wet: '#4A3A33' } as const;
@@ -287,6 +290,41 @@ function saku(): FarmPx {
   return p.t;
 }
 
+/** スプリンクラー（M7-2 §3.2 (3)）。上: 輪 + ふんしゃ口 + 穴 4 こ */
+function sprinklerTop(): FarmPx {
+  const t = blank();
+  const p: Pen = { t, minY: 0 };
+  rect(p, 0, 0, N, N, '#78909C');
+  // 輪（半径 5、1 ドット）
+  for (let y = 0; y < N; y++) {
+    for (let x = 0; x < N; x++) {
+      const d = Math.hypot(x + 0.5 - 8, y + 0.5 - 8);
+      if (d >= 4.5 && d < 5.5) dot(p, x, y, '#B0BEC5');
+    }
+  }
+  rect(p, 6, 6, 4, 4, '#455A64');
+  // 上下左右 3 ドット はなれた所 に 穴
+  for (const [x, y] of [[7, 2], [7, 13], [2, 7], [13, 7]]) dot(p, x, y, '#81D4FA');
+  return t;
+}
+
+/** 横: 青い 帯（y=6〜8）・四すみ の ねじ・下 2 行 */
+function sprinklerSide(): FarmPx {
+  const t = blank();
+  const p: Pen = { t, minY: 0 };
+  rect(p, 0, 0, N, N, '#78909C');
+  rect(p, 0, 6, N, 3, '#4FC3F7');
+  rect(p, 0, 14, N, 2, '#546E7A');
+  for (const [x, y] of [[1, 1], [14, 1], [1, 12], [14, 12]]) dot(p, x, y, '#455A64');
+  return t;
+}
+
+function sprinklerBottom(): FarmPx {
+  const t = blank();
+  rect({ t, minY: 0 }, 0, 0, N, N, '#546E7A');
+  return t;
+}
+
 /**
  * 農業の絵。`farmland_side` / `farmland_wet_side` は つち（dirt）の上 2 行を 下地の色にするので、
  * dirt の絵（16 進の文字列）を わたす
@@ -302,6 +340,9 @@ export function paintFarmTile(name: string, dirt: readonly string[]): FarmPx {
       for (let i = 0; i < 2 * N; i++) t[i] = c;
       return t;
     }
+    case 'sprinkler_top': return sprinklerTop();
+    case 'sprinkler_side': return sprinklerSide();
+    case 'sprinkler_bottom': return sprinklerBottom();
     case 'kakashi': return kakashiBody();
     case 'kakashi_head': return kakashiHead();
     case 'saku': return saku();

@@ -2,7 +2,8 @@ import type { AchievementDef, ItemId } from '../contracts';
 import { ACHIEVEMENT_DEFS, CATEGORY_LABEL, CATEGORY_ORDER } from '../achievements/defs';
 import type { AchievementSystem } from '../achievements/AchievementSystem';
 import type { AchievementsPageModel } from '../achievements/pageModel';
-import { anyIconUrl } from './itemIcon';
+import { heartPixels } from './heartsModel';
+import { anyIconUrl, drawPixels } from './itemIcon';
 import { createBar, createChip, createMedal, createTab, createTooltip, setBar, setTabState } from './theme';
 import './achievementsPage.css';
 
@@ -26,7 +27,7 @@ const CATEGORY_ICON: Record<string, ItemId | 'clock'> = {
 };
 
 /** メダルの中の絵になる アイテム（なければ 絵なし） */
-function artOf(d: AchievementDef): ItemId | 'droplet' | null {
+function artOf(d: AchievementDef): ItemId | 'droplet' | 'heart' | null {
   const s = d.stat;
   const fm = farmArt(s);
   if (fm) return fm;
@@ -46,7 +47,7 @@ function artOf(d: AchievementDef): ItemId | 'droplet' | null {
 }
 
 /** そだてる の メダルの絵（はたけ は上の面、みず は しずく） */
-function farmArt(s: string): ItemId | 'droplet' | null {
+function farmArt(s: string): ItemId | 'droplet' | 'heart' | null {
   const h = /^(?:harvest|wild):(onion|tomato|pumpkin|eggplant)$/.exec(s);
   if (h) return h[1] as ItemId;
   switch (s) {
@@ -54,15 +55,30 @@ function farmArt(s: string): ItemId | 'droplet' | null {
     case 'plant:*': return 'seed_tomato';
     case 'harvest:*': case 'harvest:kinds': case 'wild:*': case 'wild:kinds': case 'eat:*': return 'tomato';
     case 'harvestWet': return 'droplet';
+    // M7-2: じょうろ・スプリンクラー・ハート
+    case 'water:*': return 'watering_can';
+    case 'place:sprinkler': return 'sprinkler';
+    case 'pet:*': case 'harvestPet': return 'heart';
     case 'visit:oldfarm': return 'farmland';
     case 'seedFrom:oldfarm': case 'seedFrom:grass': case 'seedFrom:yokai': case 'seedFrom:all': return 'seed_onion';
     default: return null;
   }
 }
 
+let heartUrl: string | undefined;
+function heartIconUrl(): string {
+  if (!heartUrl) {
+    const c = document.createElement('canvas');
+    drawPixels(c, heartPixels('full'));
+    heartUrl = c.toDataURL();
+  }
+  return heartUrl;
+}
+
 function mark(def: AchievementDef): string | undefined {
   const a = artOf(def);
-  return a ? anyIconUrl(a) : undefined;
+  if (!a) return undefined;
+  return a === 'heart' ? heartIconUrl() : anyIconUrl(a);
 }
 
 /** その実績の メダルの中の絵（アイテムの絵。なければ undefined）。おめでとう画面も同じものを使う */

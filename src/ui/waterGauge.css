@@ -1,0 +1,32 @@
+/*
+ * みず の 棒（M7-2 §3.2 (4)）。マス の 下はし、高さ 6px・はば マス の 80%、ふち 1px #0D1520。
+ * 背景 #1B2A38、みず の 分 #4FC3F7。からっぽ は 背景（わく）だけ。
+ */
+.water-gauge {
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  bottom: 3px;
+  height: 6px;
+  box-sizing: border-box;
+  border: 1px solid #0d1520;
+  background: #1b2a38;
+  overflow: hidden;
+  pointer-events: none;
+}
+.water-gauge__fill {
+  height: 100%;
+  background: #4fc3f7;
+  transition: width 100ms linear;
+}
+/* 絵 と 棒 の あいだ を あける（たいきゅう ゲージ と 同じ） */
+.slot[data-water] .slot-icon {
+  width: calc(var(--slot-art) * 0.8);
+  height: calc(var(--slot-art) * 0.8);
+  margin-bottom: 10px;
+}
+.rk-slot[data-water] .rk-slot__art {
+  width: 60%;
+  height: 60%;
+  margin-bottom: 10px;
+}

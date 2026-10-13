@@ -128,6 +128,9 @@
   gap: var(--rk-sp-3);
   align-items: stretch;
   align-content: start;
+  /* M7-2: そだてる が 10 こ（3 だん）。タブの 中だけ たてに スクロール */
+  overflow-y: auto;
+  min-height: 0;
 }
 .po-help[hidden] {
   display: none;
@@ -153,7 +156,6 @@
 .po-help-item {
   min-width: 0;
   box-sizing: border-box;
-  overflow: hidden;
   display: flex;
   flex-direction: column;
   align-items: center;

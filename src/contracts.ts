@@ -48,7 +48,9 @@ export type BlockId =
   | 'wild_eggplant'
   | 'kakashi' // かかし（下）
   | 'kakashi_head' // かかし（上）
-  | 'saku'; // こわれた さく
+  | 'saku' // こわれた さく
+  // M7-2（うしろに足す）
+  | 'sprinkler'; // スプリンクラー
 
 export interface BlockType {
   id: BlockId;
@@ -195,7 +197,10 @@ export type ItemOnlyId =
   | 'tomato'
   | 'pumpkin'
   | 'eggplant'
-  | 'kuwa';
+  | 'kuwa'
+  // M7-2（うしろに足す）
+  | 'watering_can'
+  | 'long_watering_can';
 
 /** アイテムの種類。ブロックとアイテムだけのもの */
 export type ItemId = BlockId | ItemOnlyId;
@@ -205,6 +210,8 @@ export interface ItemStack {
   count: number;
   /** WEAPON-2: へった たいきゅう（0 か なし = 新品）。たいきゅうで へる 道具だけが 持つ（上限 1）。前の保存には 無い = 新品 */
   wear?: number;
+  /** M7-2: じょうろ の みず の 量（1〜入る回数。なし・0 = からっぽ）。じょうろ 2 しゅるい だけが 持つ */
+  water?: number;
 }
 
 export interface ItemType {
@@ -677,6 +684,10 @@ export type StatKey =
   | `eat:${string}` // `eat:<item>`・`eat:*`
   | `wild:${string}` // `wild:<kind>`・`wild:*`
   | `seedFrom:${string}` // `seedFrom:grass`・`seedFrom:yokai`・`seedFrom:oldfarm`
+  // M7-2
+  | 'water:*' // みずやり（はんい に はたけ が 1 つ 以上）
+  | 'pet:*' // ごきげん に した
+  | 'harvestPet' // ごきげん の 作物 を しゅうかく
   | 'craftItems:ya'
   | 'pickup:*'
   | 'bagBack'
@@ -907,7 +918,7 @@ export interface FarmCropInfo {
   ripe: boolean;
 }
 
-export type FarmHintKind = 'till' | 'full';
+export type FarmHintKind = 'till' | 'full' | 'fill';
 export type SeedSource = 'grass' | 'yokai' | 'oldfarm';
 
 /** 農業の出来事。`tick` と 場所つき。画面（D）・音・実績・テストの窓口が読む */
@@ -917,7 +928,7 @@ export type FarmEvent =
   | { type: 'tillPress'; tick: number; x: number; y: number; z: number; count: number }
   | { type: 'plant'; tick: number; x: number; y: number; z: number; kind: CropKind }
   | { type: 'stage'; tick: number; x: number; y: number; z: number; kind: CropKind; from: CropStage; to: CropStage }
-  | { type: 'harvest'; tick: number; x: number; y: number; z: number; kind: CropKind; veg: number; seeds: number; wet: boolean }
+  | { type: 'harvest'; tick: number; x: number; y: number; z: number; kind: CropKind; veg: number; seeds: number; wet: boolean; happy?: boolean }
   | { type: 'wild'; tick: number; x: number; y: number; z: number; kind: CropKind; seeds: number }
   | { type: 'notRipe'; tick: number; x: number; y: number; z: number; kind: CropKind }
   | { type: 'wet'; tick: number; x: number; y: number; z: number; wet: boolean }
@@ -926,7 +937,21 @@ export type FarmEvent =
   /** 合図（D が チップを出す）。C が `noteHint` で伝える */
   | { type: 'hint'; tick: number; x: number; y: number; z: number; hint: FarmHintKind }
   /** かかし から 横 4 以内に 入った（`visit:oldfarm`。はじめて だけでなく 入るたび。数えるのは D の実績） */
-  | { type: 'visitOldFarm'; tick: number; x: number; y: number; z: number };
+  | { type: 'visitOldFarm'; tick: number; x: number; y: number; z: number }
+  // ---- M7-2
+  /** じょうろ に みず を くんだ（x,y,z = 当たった みず の マス）。`water` = くんだ あと の 量 */
+  | { type: 'fill'; tick: number; x: number; y: number; z: number; item: WateringCanId; water: number; wasFull?: boolean }
+  /** みずやり（x,y,z = まん中 = ねらった はたけ。`tiles` = はんい の はたけ の 数。0 でも 出る） */
+  | { type: 'pour'; tick: number; x: number; y: number; z: number; item: WateringCanId; tiles: number }
+  /** なでた。happy = ごきげん に なった・again = ごきげん の あいだ・wild = やせいの やさい */
+  | { type: 'pet'; tick: number; x: number; y: number; z: number; result: PetResult }
+  | { type: 'sprinklerPlaced'; tick: number; x: number; y: number; z: number }
+  | { type: 'sprinklerBroken'; tick: number; x: number; y: number; z: number };
+
+/** M7-2: じょうろ 2 しゅるい */
+export type WateringCanId = 'watering_can' | 'long_watering_can';
+/** M7-2: なでた 結果（`null` = なでられない） */
+export type PetResult = 'happy' | 'again' | 'wild';
 
 /** しゅうかく の 結果 */
 export type FarmHarvestResult =
@@ -948,6 +973,10 @@ export interface FarmAim {
   wet: boolean;
   /** 暗くて そだたない（明るさ 8 以下 で まだ みのっていない作物） */
   dark: boolean;
+  /** M7-2: ごきげん の 作物（A が 入れる。無い = false） */
+  happy?: boolean;
+  /** M7-2: しめり が じょうろ の 分 だけ で のこり が `farmWetSoonRatio` 以下（「もうすぐ かわく」） */
+  wetSoon?: boolean;
 }
 
 /** 農業の毎ステップに渡すもの */
@@ -1016,6 +1045,80 @@ export interface FarmSystem {
   placedM7(): boolean;
   serialize(): unknown;
   deserialize(data: unknown): void;
+}
+
+// ---- M7-2: つなぎ目の口（docs/design/M7-2-farm.md §7。名前は 担当が 変えて よい。変えたら 報告）
+
+export type Facing = 'x+' | 'x-' | 'z+' | 'z-';
+
+/**
+ * B → A: スプリンクラー の はんい（`src/farm/sprinkler.ts`。B が実装）。
+ * A は ③（§4.3）を この口 だけ で 聞く。
+ */
+export interface SprinklerPort {
+  /** はたけ のマス (x,y,z) が どれか の スプリンクラー の はんい（5×5・sy−2 ≤ y ≤ sy）か */
+  covers(x: number, y: number, z: number): boolean;
+  /** 世界 に ある スプリンクラー（`farm.sprinklers()`） */
+  list(): Vec3[];
+  /** ブロックが 変わった（置いた・こわれた）ことを 知らせる。A が `setBlock` の まわりで 呼ぶ */
+  onBlockChanged(x: number, y: number, z: number, before: BlockId, after: BlockId): void;
+  /** 読みこみ の あと、世界 から さがし直す */
+  rescan(world: VoxelWorld): void;
+}
+
+/**
+ * C → A: ごきげん（`src/farm/pet.ts`。C が実装）。
+ * 座標は 作物のマス。A の `update` が `tick()` を 呼び、そだつ 計算 で `growFactor` を p に かける。
+ */
+export interface PetPort {
+  /** ごきげん なら 1 + `farmPetGrowBonus`、ちがえば 1 */
+  growFactor(x: number, y: number, z: number): number;
+  isHappy(x: number, y: number, z: number): boolean;
+  /** ごきげん の のこり ステップ（無ければ 0） */
+  left(x: number, y: number, z: number): number;
+  /** なでる。作物 でなければ null。やせいの やさい は 'wild'。'happy' の ときだけ のこり を `farmPetDays` に する */
+  pet(x: number, y: number, z: number, crop: FarmCropInfo & { wild: boolean }): PetResult | null;
+  /** 農業 の 1 ステップ ごと に A が 呼ぶ（のこり を へらす） */
+  tick(): void;
+  /** 作物 が なくなった（しゅうかく・こわした）。ごきげん を 消す */
+  onCropRemoved(x: number, y: number, z: number): void;
+  /** 保存 `farm.happy` に そのまま 入れる（x,y,z,のこり の 4 こ ずつ） */
+  serialize(): number[];
+  /** 読む。`isCrop(x,y,z)` が false の 行 と のこり ≤ 0 は 飛ばす */
+  deserialize(flat: unknown, isCrop: (x: number, y: number, z: number) => boolean): void;
+}
+
+/** ねらいの線 の 情報（A の `WateringPort` と C の ふりわけ が 使う） */
+export interface WaterRay {
+  /** 線 が 固いブロック・作物 に 当たる より 手前で `water` を 通った（目 の ある マス は 数えない） */
+  throughWater: boolean;
+  /** 通った いちばん 手前 の `water` の マス（throughWater の とき） */
+  waterCell: Vec3 | null;
+  /** 当たった ブロック・作物 の マス（無ければ null） */
+  hit: Vec3 | null;
+}
+
+/** 右クリック の 4a〜4c を 見分けた 答え */
+export type WaterPreview = 'fill' | 'pour' | 'fillHint';
+
+/**
+ * A → C: じょうろ（`src/farm/watering.ts`。A が実装）。C は ふりわけ の 4a〜4c で これ を 呼ぶ だけ。
+ * `water` を へらす・ふやす のも A（`slot` の `ItemStack.water` を 書きかえる）。
+ */
+export interface WateringPort {
+  /**
+   * 4a〜4c の どれか。持っているのが じょうろ でなければ null。
+   * 'fill' = くむ（4a）・'pour' = まく（4b）・'fillHint' = からっぽ の 合図（4c）。
+   * repeat = 押しつづけ の くりかえし の ステップ。その とき は 'fill'・'fillHint' を 返さない（4a の ステップ は null で 何もしない）
+   */
+  canPreview(held: ItemStack | null, ray: WaterRay, repeat: boolean): WaterPreview | null;
+  /** くむ。まんたん まで。出来事 fill（まんたん の ときも 出して よい: `water` が 変わらない）。戻り値 = くんだ あと の 量 */
+  fill(slot: number, at: Vec3): number;
+  /**
+   * まく。`target` = 当たった マス（はたけ か 作物）、`facing` = 見ている 向き の 水平 ベクトル (dx, dz)（§2.1 の 近い軸）。
+   * はたけ 1 つ 以上 なら `water` 1 へり、出来事 pour。戻り値 = `tiles`（はんい の はたけ の 数。0 なら 何も へらさない）
+   */
+  pour(slot: number, target: Vec3, facing: { dx: number; dz: number }): number;
 }
 
 /** A を作るときに わたすもの */
@@ -1110,6 +1213,11 @@ export interface FarmVisual {
   look(x: number, y: number, z: number): { tile: string; brightness: number } | null;
 }
 
+/** 右クリックで起きること（`src/dig/rightClick.ts` が 判定。M7-2 で 'fill'・'pour'・'fillHint'・'pet' を 足した） */
+export type RightClickKind =
+  | 'storage' | 'furnace' | 'armor' | 'till' | 'plant' | 'seedHint' | 'eat' | 'place'
+  | 'fill' | 'pour' | 'fillHint' | 'pet';
+
 // ---------------------------------------------------------------- 設定（§4.3・§4.4・§4.5）
 
 export interface M7Settings {
@@ -1127,6 +1235,23 @@ export interface M7Settings {
   farmGrassSeedWeight: number;
   eatHeal: Record<CropKind, number>;
   farmRipeMinBrightness: number;
+  // ---- M7-2
+  farmWaterDays: number;
+  farmCanCapacity: Record<WateringCanId, number>;
+  farmCanTiles: Record<WateringCanId, number>;
+  farmCanYReach: number;
+  farmPourRepeatTicks: number;
+  farmWetSoonRatio: number;
+  farmSprinklerRadius: number;
+  farmSprinklerSprayTicks: number;
+  farmPetDays: number;
+  farmPetGrowBonus: number;
+  farmHeartEvery: number;
+  farmHeartRange: number;
+  farmHeartMax: number;
+  farmSparkleEvery: number;
+  farmSparkleRange: number;
+  farmSparkleMax: number;
 }
 
 export const M7_SETTING_DEFAULTS: Readonly<M7Settings> = {
@@ -1146,6 +1271,22 @@ export const M7_SETTING_DEFAULTS: Readonly<M7Settings> = {
   farmGrassSeedWeight: 4,
   eatHeal: { onion: 2, tomato: 2, pumpkin: 4, eggplant: 2 },
   farmRipeMinBrightness: 0.7,
+  farmWaterDays: 1,
+  farmCanCapacity: { watering_can: 10, long_watering_can: 20 },
+  farmCanTiles: { watering_can: 1, long_watering_can: 2 },
+  farmCanYReach: 1,
+  farmPourRepeatTicks: 30,
+  farmWetSoonRatio: 0.25,
+  farmSprinklerRadius: 2,
+  farmSprinklerSprayTicks: 120,
+  farmPetDays: 1,
+  farmPetGrowBonus: 0.1,
+  farmHeartEvery: 180,
+  farmHeartRange: 16,
+  farmHeartMax: 32,
+  farmSparkleEvery: 45,
+  farmSparkleRange: 24,
+  farmSparkleMax: 96,
 };
 
 /** 設定の入れ物を作る（毎回 ふかい コピー。つなぎ込みが `createSettingsHook` の extras に渡す） */
@@ -1162,6 +1303,8 @@ export function createM7Settings(): M7Settings {
     },
     farmSeedYield: [...d.farmSeedYield],
     eatHeal: { ...d.eatHeal },
+    farmCanCapacity: { ...d.farmCanCapacity },
+    farmCanTiles: { ...d.farmCanTiles },
   };
 }
 

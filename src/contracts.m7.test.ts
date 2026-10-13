@@ -18,7 +18,7 @@ describe('M7 contracts', () => {
     expect(ids.indexOf('tansu')).toBe(16);
     expect(ids.slice(17)).toEqual([
       'farmland', 'farmland_wet', 'crop_onion', 'crop_tomato', 'crop_pumpkin', 'crop_eggplant',
-      'wild_onion', 'wild_tomato', 'wild_pumpkin', 'wild_eggplant', 'kakashi', 'kakashi_head', 'saku',
+      'wild_onion', 'wild_tomato', 'wild_pumpkin', 'wild_eggplant', 'kakashi', 'kakashi_head', 'saku', 'sprinkler',
     ]);
   });
   it('作物・たね・やさい の ひきかえ', () => {

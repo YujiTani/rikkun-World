@@ -67,6 +67,8 @@ export function buildTooltip(item: ItemId, d: TooltipDeps, stack?: ItemStack | n
   if (item === 'yoroi' || item === 'kote') add('こうげき から まもる', item);
   if (item === 'suneate') add('おちても いたくない', item);
   if (item === 'kuwa') add('はたけ を つくる', item);
+  if (item === 'watering_can' || item === 'long_watering_can') add('はたけ に みず を まく', item);
+  if (item === 'sprinkler') add('まわり の はたけ を しめらせる', item);
   if (seedKindOfItem(item) !== null) add('はたけ に まく', item);
   if (vegKindOfItem(item) !== null) add('たべると ハート が もどる', item);
   // WEAPON-2 §4.6 (8): たいきゅうで へる 道具は 「たいきゅう のこり / 新品」（へった 量が 分からない ときは 新品）

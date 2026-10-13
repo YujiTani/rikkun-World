@@ -72,7 +72,7 @@ describe('たがやす・まく・しゅうかく', () => {
   it('till は 上が くうき の くさ・つち だけ', () => {
     const { world, farm } = make();
     expect(farm.till(5, 7, 5)).toBe(true);
-    expect(farm.soil(5, 7, 5)).toEqual({ wet: false });
+    expect(farm.soil(5, 7, 5)).toMatchObject({ wet: false, water: false, canLeft: 0, sprinkler: false });
     expect(farm.till(5, 6, 5)).toBe(false);
     world.setBlock(6, 8, 6, 'torch');
     expect(farm.till(6, 7, 6)).toBe(false);

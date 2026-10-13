@@ -343,6 +343,8 @@ export class AchievementSystem implements AchievementShowSource {
             this.bump(`harvest:${e.kind}`, 1);
             this.bump('harvest:*', 1);
             if (e.wet) this.bump('harvestWet', 1);
+            // M7-2: ごきげん の 作物（A が `happy` を 入れる。契約 の 型に 無い 間 は 読み取り だけ）
+            if (e.happy) this.bump('harvestPet', 1);
             this.setMax('harvest:kinds', CROP_KINDS.filter((k) => this.stat(`harvest:${k}`) > 0).length);
             break;
           case 'wild':
@@ -361,6 +363,14 @@ export class AchievementSystem implements AchievementShowSource {
             break;
           case 'visitOldFarm':
             this.bump('visit:oldfarm', 1);
+            break;
+          case 'pour':
+            // はたけ 0 の まく は 数えない
+            if (e.tiles > 0) this.bump('water:*', 1);
+            break;
+          case 'pet':
+            // ごきげん に した 回数（'again'・'wild' は 数えない）
+            if (e.result === 'happy') this.bump('pet:*', 1);
             break;
           default:
             break;

@@ -25,7 +25,7 @@ export const CLASS_TEXT = {
   permanent: 'へらない',
 } as const;
 
-export type StatKind = 'pickaxe' | 'blade' | 'bow' | 'arrow' | 'armor' | 'tansu';
+export type StatKind = 'pickaxe' | 'blade' | 'bow' | 'arrow' | 'armor' | 'tansu' | 'can';
 
 export interface InfoRow {
   /** なにに つかう */
@@ -155,6 +155,21 @@ export const ITEM_INFO: Readonly<Record<string, InfoRow>> = {
   eggplant: VEG_ROW(1),
   pumpkin: VEG_ROW(2),
   kuwa: { use: 'くさ や つち を はたけ に する', how: 'もって くさ・つち に みぎクリック', buttons: ['1-9', 'right'] },
+
+  // ---- M7-2 農業 フェーズ 2（3。仕様 §4.8）
+  watering_can: {
+    use: 'はたけ 1 マス に みず を まく',
+    how: 'みず に みぎクリック で くむ、はたけ に みぎクリック',
+    buttons: ['1-9', 'right'],
+    stats: 'can',
+  },
+  long_watering_can: {
+    use: 'はたけ 2 マス（ねらった はたけ と その むこう）に みず を まく',
+    how: 'みず に みぎクリック で くむ、はたけ に みぎクリック',
+    buttons: ['1-9', 'right'],
+    stats: 'can',
+  },
+  sprinkler: { use: 'まわり の はたけ を ずっと しめらせる', how: 'もって みぎクリック で おく', buttons: PLACE_BTN },
 
   // ---- ようかいだま（§5。いまは 手に入らない。古い保存用）
   yokai_orb: { use: 'いまは つかえない よ', how: '', buttons: [] },

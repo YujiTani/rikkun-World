@@ -35,7 +35,8 @@ export type FarmTileName =
   | 'farmland_top' | 'farmland_wet_top' | 'farmland_side' | 'farmland_wet_side'
   | `crop_${'onion' | 'tomato' | 'pumpkin' | 'eggplant'}_${0 | 1 | 2 | 3}`
   | `wild_${'onion' | 'tomato' | 'pumpkin' | 'eggplant'}`
-  | 'kakashi' | 'kakashi_head' | 'saku';
+  | 'kakashi' | 'kakashi_head' | 'saku'
+  | 'sprinkler_top' | 'sprinkler_side' | 'sprinkler_bottom';
 
 export const TILE_NAMES: readonly TileName[] = [
   'grass_top',
@@ -303,6 +304,7 @@ export const BLOCK_TILES: Readonly<Partial<Record<BlockId, readonly [TileName, T
   kakashi: ['kakashi', 'kakashi', 'kakashi'],
   kakashi_head: ['kakashi_head', 'kakashi_head', 'kakashi_head'],
   saku: ['saku', 'saku', 'saku'],
+  sprinkler: ['sprinkler_top', 'sprinkler_bottom', 'sprinkler_side'],
 };
 
 /** タイルの UV の四角 [u0, v0, u1, v1]（v は下から。となりのタイルがにじまないよう少し内側） */
