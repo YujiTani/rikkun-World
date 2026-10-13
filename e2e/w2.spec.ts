@@ -148,7 +148,7 @@ test.describe('WEAPON-2 刀', () => {
       h.input.press('primary');
       h.step(1);
       h.input.release('primary');
-      h.step(13);
+      h.step(18);
       h.input.press('moveForward');
       h.input.press('jump');
       const p0 = h.player.get().position.x;
