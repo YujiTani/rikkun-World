@@ -68,3 +68,10 @@
 ## main（PR #15）を取りこんだ（2026-10-12）
 - `origin/main` を merge 済み（衝突なし、`check:fast` 925 件通過）。`contracts.ts` の M7 節は main の変更の影響なし。
 - 使う口（main の新しい形）: `ArmorSystem.equipFromSlot(i)`（防具をきる。C の右クリック順 3 番はこれ）。`Inventory.add(item, n)` は **n が 0 以下なら何もせず 0 を返す**（しゅうかく・たね で 0 こを渡しても安全。「入った数 = n − 返り値」を使ってよい）。`DigSystem` は もちもの画面を開いていても 1〜9 でえらべる（`gate.blocksInput()` を見る）。C は ふりわけ（§2.7）をこの新しい形の上に足す。
+
+## 申し送り（各担当の完了報告から）
+### B（m7-b）
+- `renderer.setCropStageSource({stageAt: (x,y,z) => farm.crop(x,y,z)?.stage ?? null})`（A の FarmSystem には stageAt が無いので橋を作る）。
+- `createFarmVisual({ world, light: renderer.light, crops, ripeMin: () => settings.farmRipeMinBrightness, itemIcon })`。itemIcon は D のアイテム絵を返す関数（渡さないとアイテム id で例外）。
+- `farmRipeMinBrightness` を変えたら `renderer.setRipeMinBrightness(v)`（毎ステップでも可）。段階が変わったら A が `world.touch`。
+- `src/world/light/opacity.ts` に 1 行（十字の板は光を通す）。E2E で AC25 の明るさを確かめる。
