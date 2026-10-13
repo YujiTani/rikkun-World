@@ -1032,7 +1032,7 @@ export interface FarmPlacement {
     /** 8×8 の わく（x0〜x1, z0〜z1 を ふくむ）と、しらべる 高さ（h₀−1〜h₀+6）。前の保存で「変えていない」を しらべる範囲 */
     box: { x0: number; z0: number; x1: number; z1: number; y0: number; y1: number };
     /** §4.5 (3) の ゆるめた 段（0 = ゆるめていない） */
-    tier: 0 | 1 | 2;
+    tier: 0 | 1 | 2 | 3;
   } | null;
 }
 

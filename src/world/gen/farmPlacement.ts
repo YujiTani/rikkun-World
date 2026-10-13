@@ -342,7 +342,7 @@ export const computeFarmPlacement: FarmPlacementFn = (seed, pristine) => {
       tansuItems: TANSU_ITEMS.map((t) => ({ item: t.item, count: t.count })),
       kakashi: { x: kx, y: h0 + 1, z: kz },
       box: { x0: frame.x0, z0: frame.z0, x1: frame.x1, z1: frame.z1, y0: h0 - 3, y1: maxY },
-      tier: tier as 0 | 1 | 2, // contracts は 0|1|2。段 3 は PO が contracts を 0|1|2|3 に する
+      tier: tier as 0 | 1 | 2 | 3,
     };
   }
 
