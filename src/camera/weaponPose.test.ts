@@ -33,18 +33,18 @@ describe('刀のかまえ (AC19/AC20)', () => {
     expect(Math.abs(p6.swordPitch)).toBeLessThanOrEqual(5);
   });
   it('大げさ斬り', () => {
-    expect(at(st('jodan', 'kesa', 12)).rx).toBeLessThanOrEqual(45);
-    expect(at(st('jodan', 'kesa', 12)).rz).toBeLessThanOrEqual(-30);
-    const a = at(st('jodan', 'kesa', 13)), b = at(st('jodan', 'kesa', 28));
+    expect(at(st('jodan', 'kesa', 24)).rx).toBeLessThanOrEqual(45);
+    expect(at(st('jodan', 'kesa', 24)).rz).toBeLessThanOrEqual(-30);
+    const a = at(st('jodan', 'kesa', 26)), b = at(st('jodan', 'kesa', 56));
     expect(Math.abs(a.rx - b.rx)).toBeLessThanOrEqual(1);
-    const t10 = at(st('jodan', 'kesa', 10)).tip, t12 = at(st('jodan', 'kesa', 12)).tip;
+    const t10 = at(st('jodan', 'kesa', 19)).tip, t12 = at(st('jodan', 'kesa', 24)).tip;
     expect(t10.x).toBeGreaterThan(0.7); expect(t10.y).toBeLessThan(0.15);
     expect(t12.x).toBeLessThan(0.3); expect(t12.y).toBeGreaterThan(0.85);
-    expect(at(st('jodan', 'kesa', 36)).rx).toBeCloseTo(165, 0);
+    expect(at(st('jodan', 'kesa', 72)).rx).toBeCloseTo(165, 0);
   });
   it('切り上げ', () => {
-    expect(at(st('gedan', 'kiriage', 8)).rx).toBeGreaterThanOrEqual(145);
-    const t6 = at(st('gedan', 'kiriage', 6)).tip, t8 = at(st('gedan', 'kiriage', 8)).tip;
+    expect(at(st('gedan', 'kiriage', 20)).rx).toBeGreaterThanOrEqual(145);
+    const t6 = at(st('gedan', 'kiriage', 15)).tip, t8 = at(st('gedan', 'kiriage', 20)).tip;
     expect(t6.x).toBeLessThan(0.3); expect(t6.y).toBeGreaterThan(0.85);
     expect(t8.x).toBeGreaterThan(0.7); expect(t8.y).toBeLessThan(0.15);
   });
