@@ -79,3 +79,9 @@
 ### E（w2-e）
 - A は `yokai.damage(id, 引く量, from=プレイヤー位置, {dist, up})`。省くと水平 1.0・上 0。ぬりかべは押されず浮かない。続けて damage すると押し・浮きは上書き。
 - `yokai.setHp(id, hp)`（最大を超えて可、0 以下は 1）を `__rikkun.yokai` に追加済み。
+### F（w2-f, 701efa7）
+- main.ts: `new InventoryImpl({ settings: () => w2Settings, tick })`、`new ArmorSystemImpl(inv, craftConfig, { settings: () => w2Settings, tick })`（無くても初期値で動く）。
+- `inventory.drainWearEvents()`・`armor.drainWearEvents()` は D が毎ステップ読む。`peekWearEvents()` は別ログ（256 件、drain で消えない）。
+- `Inventory.add` は wear を運べない。wear つきは `addStack(inv, stack)`（src/tools/durability.ts）。main.ts の scatter（910 行付近）が `{item,count}` を作り直しているので wear を保つよう直す。
+- testHook の型に inventory.durability/setDurability/itemClass/events と armor.durability/setDurability/events。
+- 担当表の外: PlayerCombat の die()（ふくろの wear）、StorageSystem（たんすの wear）を F が直した。
