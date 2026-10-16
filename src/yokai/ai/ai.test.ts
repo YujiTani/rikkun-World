@@ -91,7 +91,7 @@ describe('geometry', () => {
 });
 
 describe('パンチの窓口（raycast / damage / occupies）', () => {
-  it('からかさ: 目の高さの線が当たり、4 回で defeat、ドロップがイベントに出る', () => {
+  it('からかさ: 目の高さの線が当たり、8 回で defeat（体力 8）、ドロップがイベントに出る', () => {
     const { m, step, inv } = setup();
     const id = m.spawn('karakasa', 4.5, 9, 6.5, { ai: false });
     const hit = m.raycast({ x: 2.5, y: 10.62, z: 6.5 }, { x: 1, y: 0, z: 0 }, 3);
@@ -100,11 +100,11 @@ describe('パンチの窓口（raycast / damage / occupies）', () => {
     expect(m.raycast({ x: 2.5, y: 10.62, z: 6.5 }, { x: 1, y: 0, z: 0 }, 0.9)).toBeNull();
     const from = { x: 2.5, y: 9, z: 6.5 };
     m.damage(id, 1, from);
-    expect(m.list()[0]!.hp).toBe(3);
+    expect(m.list()[0]!.hp).toBe(7);
     step(10);
     expect(m.list()[0]!.position.x).toBeCloseTo(5.5, 2); // 1.0 押される
-    m.damage(id, 1, from);
-    m.damage(id, 1, from);
+    for (let i = 0; i < 6; i++) m.damage(id, 1, from);
+    expect(m.list()[0]!.state).not.toBe('dying'); // 7 回目まで体力 1 でたおれない
     m.damage(id, 1, from);
     const ev = m.drainEvents();
     expect(ev.filter((e) => e.type === 'defeat')).toHaveLength(1);
@@ -526,17 +526,17 @@ describe('FIX-fall-reach: おりる・落下ダメージ・当たり判定', () 
       minY = Math.min(minY, s.m.list()[0]?.position.y ?? 99);
     }
     expect(minY).toBeCloseTo(9, 2);
-    expect(s.m.list()[0]!.hp).toBe(2); // 5 マス落ちて 2
+    expect(s.m.list()[0]!.hp).toBe(10); // 5 マス落ちて 2（体力 12 → 10）
   });
   it('おりると倒れる深さ・みず の上へは降りない（ちょうちん以外の歩く妖怪）', () => {
     const s = setup();
-    for (let x = 9; x <= 14; x++) for (let z = 0; z <= 12; z++) for (let y = 9; y <= 20; y++) s.world.setBlock(x, y, z, 'stone');
+    for (let x = 9; x <= 14; x++) for (let z = 0; z <= 12; z++) for (let y = 9; y <= 24; y++) s.world.setBlock(x, y, z, 'stone');
     s.player.position = { x: 2.5, y: 9, z: 6.5 };
-    s.m.spawn('rokurokubi', 10.5, 21, 6.5); // 12 マス = ダメージ 9 > 体力 4
+    s.m.spawn('rokurokubi', 10.5, 25, 6.5); // 16 マス = ダメージ 13 >= 体力 12
     s.step(900);
-    expect(s.m.list()[0]!.position.y).toBeCloseTo(21, 2);
+    expect(s.m.list()[0]!.position.y).toBeCloseTo(25, 2);
   });
-  it('落下ダメージ: 3 マスで 0・5 マスで 2・みず で 0', () => {
+  it('落下ダメージ: 3 マスで 0・5 マスで 2・みず で 0（ろくろくび 体力 12）', () => {
     const fall = (y: number, water = false) => {
       const s = setup();
       if (water) for (let yy = 9; yy <= 12; yy++) s.world.setBlock(5, yy, 5, 'water');
@@ -544,16 +544,16 @@ describe('FIX-fall-reach: おりる・落下ダメージ・当たり判定', () 
       s.step(120);
       return s.m.list()[0]!.hp;
     };
-    expect(fall(12)).toBe(4);
-    expect(fall(14)).toBe(2);
-    expect(fall(18, true)).toBe(4);
+    expect(fall(12)).toBe(12);
+    expect(fall(14)).toBe(10);
+    expect(fall(18, true)).toBe(12);
   });
   it('落下で倒れたらドロップ・経験値なし（defeat は出る）', () => {
     const s = setup();
     let xp = 0;
     const m = new YokaiManager({ world: s.world, time: s.time, getPlayer: () => s.player, combat: s.combat, inventory: s.inv, seed: 3, onDefeat: () => xp++ });
     m.config.yokaiAutoSpawn = false;
-    m.spawn('rokurokubi', 5.5, 20, 5.5, { ai: false });
+    m.spawn('rokurokubi', 5.5, 25, 5.5, { ai: false }); // 16 マス = ダメージ 13 >= 体力 12
     for (let i = 0; i < 120; i++) m.update(1 / 60);
     expect(m.drainEvents().filter((e) => e.type === 'defeat')).toHaveLength(1);
     expect(xp).toBe(0);
@@ -578,7 +578,7 @@ describe('FIX-fall-reach: おりる・落下ダメージ・当たり判定', () 
     expect(maxDrop).toBeLessThanOrEqual(2 / 60 + 1e-6);
     expect(maxX - minX).toBeGreaterThan(0.8);
     s.step(20);
-    expect(s.m.list()[0]!.hp).toBe(4);
+    expect(s.m.list()[0]!.hp).toBe(8);
     expect(s.m.list()[0]!.position.y).toBeCloseTo(9, 2);
   });
   it('みず: ろくろくびは中まで追いかける・からかさは入らない。中では速さ ×0.5', () => {
@@ -616,11 +616,11 @@ describe('FIX-fall-reach: おりる・落下ダメージ・当たり判定', () 
 });
 
 describe('FIX-fall-reach: ぬりかべ', () => {
-  it('体力 48・のけぞらない（ノックバック 0）', () => {
+  it('体力 40・のけぞらない（ノックバック 0）', () => {
     const s = setup();
     const id = s.m.spawn('nurikabe', 10.5, 9, 10.5, { ai: false });
-    expect(s.m.list()[0]!.maxHp).toBe(48);
-    for (let i = 0; i < 47; i++) s.m.damage(id, 1, { x: 10.5, y: 9, z: 6.5 });
+    expect(s.m.list()[0]!.maxHp).toBe(40);
+    for (let i = 0; i < 39; i++) s.m.damage(id, 1, { x: 10.5, y: 9, z: 6.5 });
     s.step(30);
     expect(s.m.list()[0]!.position.z).toBeCloseTo(10.5, 3);
     expect(s.m.list()[0]!.state).not.toBe('dying');

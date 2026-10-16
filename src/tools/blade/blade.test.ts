@@ -200,7 +200,7 @@ describe('当たる F・ダメージ（AC3・AC4）', () => {
     expect(k.yokai.calls[0]).toMatchObject({ amount: 3, knock: { dist: 1.0, up: 7 } });
   });
   it('3 しゅるい x 3 わざの ダメージ表', () => {
-    const exp: Record<string, number[]> = { bokuto: [1, 1, 4], katana: [3, 3, 8], crystal_katana: [4, 4, 12] };
+    const exp: Record<string, number[]> = { bokuto: [2, 2, 4], katana: [3, 3, 8], crystal_katana: [5, 5, 12] };
     for (const it of Object.keys(exp)) {
       (['chudan', 'gedan', 'jodan'] as const).forEach((st, i) => {
         const r = rig(it as ItemId);

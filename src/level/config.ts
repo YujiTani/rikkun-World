@@ -1,4 +1,5 @@
 import type { YokaiKind } from '../contracts';
+import { yokaiStrength } from '../yokai/stats';
 
 /** 経験値とレベルの数（オーナー了承の PO 決め。あとで調整できる） */
 export interface LevelConfig {
@@ -11,7 +12,12 @@ export interface LevelConfig {
 }
 
 export const LEVEL_DEFAULTS: Readonly<LevelConfig> = {
-  xp: { chochin: 2, karakasa: 3, rokurokubi: 3, nurikabe: 6 },
+  xp: {
+    chochin: yokaiStrength('chochin').xp,
+    karakasa: yokaiStrength('karakasa').xp,
+    rokurokubi: yokaiStrength('rokurokubi').xp,
+    nurikabe: yokaiStrength('nurikabe').xp,
+  },
   perLevel: 5,
   maxLevel: 99,
 };
