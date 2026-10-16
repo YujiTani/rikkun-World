@@ -936,7 +936,7 @@ test.describe('M7-2 なでる・ごきげん・キラキラ', () => {
 });
 
 test.describe('M7-2 画面', () => {
-  test('AC20 つくる画面: カード 25・マス 28（4×7）・はみ出し 0（1280×720・1920×1080）', async ({ page }) => {
+  test('AC20 つくる画面: カード 29・マス 28（4×7）・はみ出し 0（1280×720・1920×1080）', async ({ page }) => {
     await open(page);
     for (const vp of [{ width: 1280, height: 720 }, { width: 1920, height: 1080 }]) {
       await page.setViewportSize(vp);
