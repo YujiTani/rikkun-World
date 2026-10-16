@@ -4,7 +4,9 @@
  * 漢字を入れるときは、呼ぶ側が ruby()（src/ui/text.ts）で作った HTML を html: に渡す。
  */
 
-export type Rarity4 = 0 | 1 | 2 | 3;
+import type { RarityIndex } from '../../contracts';
+
+export type { RarityIndex };
 export type MedalTier = 'bronze' | 'silver' | 'gold' | 'rainbow' | 'locked';
 
 export interface TextContent {
@@ -26,7 +28,7 @@ function make<K extends keyof HTMLElementTagNameMap>(tag: K, className: string):
 }
 
 /** めずらしさの色を 部品にわたす（--rk-rarity を切りかえる） */
-export function setRarity(el: HTMLElement, rarity: Rarity4 | null): void {
+export function setRarity(el: HTMLElement, rarity: RarityIndex | null): void {
   if (rarity === null) {
     el.style.removeProperty('--rk-rarity');
     el.classList.remove('has-rarity');
@@ -75,7 +77,7 @@ export interface SlotOptions {
   art?: string;
   count?: number;
   selected?: boolean;
-  rarity?: Rarity4 | null;
+  rarity?: RarityIndex | null;
 }
 
 export interface SlotParts {
@@ -250,7 +252,7 @@ export interface TooltipParts {
   desc: HTMLDivElement;
 }
 
-export function createTooltip(rarity: Rarity4 = 0): TooltipParts {
+export function createTooltip(rarity: RarityIndex = 0): TooltipParts {
   const root = make('div', 'rk-tooltip');
   root.style.setProperty('--rk-rarity', `var(--rk-rarity-${rarity})`);
   const name = make('div', 'rk-tooltip__name');

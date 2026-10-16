@@ -40,6 +40,8 @@ test('AC14 つなぎ: 7 つの段が ホットバー・ツールチップ・つ�
       h.settings.set('itemRarity', { katana: id });
       h.inventory.clear();
       h.inventory.setSlot(0, { item: 'katana', count: 1 });
+      // つくる画面は ざいりょうを 1 つでも もっているレシピだけ出す。かたなの レシピ（てつの かたまり・き）の ざいりょうを 1 つ入れておく
+      h.inventory.setSlot(2, { item: 'iron_ingot', count: 1 });
       h.inventory.select(1); // えらんだ枠の色とまざらないように、かたなの マスは えらばない
       h.step(2);
     }, t.id);
@@ -47,7 +49,7 @@ test('AC14 つなぎ: 7 つの段が ホットバー・ツールチップ・つ�
     const slot = page.locator('#hotbar .slot[data-item="katana"]');
     await expect(slot, t.id).toHaveAttribute('data-rarity', String(t.index));
     await expect(slot.locator('.slot-gem'), t.id).toHaveAttribute('data-gem', t.gem);
-    const border = await slot.evaluate((e) => getComputedStyle(e).borderTopColor);
+    const border = await slot.evaluate((e) => getComputedStyle(e).borderColor);
     expect(border, `${t.id} ふちの色`).toBe(toRgb(t.color));
 
     const info = await page.evaluate(() => {

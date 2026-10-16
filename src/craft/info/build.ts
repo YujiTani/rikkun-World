@@ -1,14 +1,14 @@
 import type { DamageKind, ItemClass, ItemId, Rarity, Recipe, YokaiKind } from '../../contracts';
 import { M6_SETTING_DEFAULTS, M7_SETTING_DEFAULTS, W2_SETTING_DEFAULTS, seedKindOfItem, vegKindOfItem, type CropKind } from '../../contracts';
 import { DIG_DEFAULTS } from '../../dig/config';
-import { itemRarity } from '../../drops/rarity';
+import { itemRarity, rarityTier } from '../../drops/rarity';
 import { createCombatConfig } from '../../combat/config';
 import { TOOL_DEFAULTS } from '../../tools/config';
 import { itemClassOf } from '../../tools/durability';
 import { YOKAI_DROPS } from '../../yokai/ai/config';
 import { CRAFT_DEFAULTS } from '../config';
 import { ALL_RECIPES } from '../recipes';
-import { ARMOR_KIND, CLASS_TEXT, ITEM_INFO, ORB_SOURCE, RARITY_WORD, STAT_MAX, YOKAI_NAME, type ButtonKey } from './table';
+import { ARMOR_KIND, CLASS_TEXT, ITEM_INFO, ORB_SOURCE, STAT_MAX, YOKAI_NAME, type ButtonKey } from './table';
 
 export interface StatRow {
   key: string;
@@ -97,8 +97,6 @@ export function defaultInfoNumbers(): InfoNumbers {
 }
 
 const PICKAXES = ['wood_pickaxe', 'stone_pickaxe', 'iron_pickaxe'];
-const STARS: Record<Rarity, number> = { common: 1, uncommon: 2, rare: 3, superRare: 4 };
-const RARITY_INDEX: Record<Rarity, number> = { common: 0, uncommon: 1, rare: 2, superRare: 3 };
 
 /** 「なにに つかう」の 1 行目（ツールチップの `desc`）。表だけから作る */
 export function descOf(item: ItemId): string {
@@ -228,8 +226,8 @@ export function createItemInfo(d: InfoDeps): ItemInfoSource {
         item,
         name: d.nameOf(item),
         rarity,
-        stars: STARS[rarity],
-        rarityWord: RARITY_WORD[RARITY_INDEX[rarity]],
+        stars: rarityTier(rarity).stars,
+        rarityWord: rarityTier(rarity).word,
         use: row?.use ?? '',
         how: row?.how ?? '',
         buttons: row ? [...row.buttons] : [],

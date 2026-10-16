@@ -123,6 +123,77 @@ const SCREENS: Screen[] = [
     },
   },
   {
+    // RARITY-7 AC16: 7 段目（★7・いちばん長いことば・いちばん長い名前）の物を、ホットバー・つくる画面・ツールチップに出す
+    id: 'rarity-7',
+    roots: ['#inventory-screen', '#hud'],
+    open: async (page) => {
+      await boot(page, true);
+      await page.evaluate(fillInventory);
+      await page.evaluate(() => {
+        const h = window.__rikkun! as any;
+        const all: Record<string, string> = {};
+        for (const it of ['katana', 'crystal_katana', 'wood_pickaxe', 'dirt', 'stone', 'log', 'yumi', 'ya', 'kabuto', 'yoroi']) all[it] = 'legendary';
+        h.settings.set('itemRarity', all);
+        h.inventory.add('crystal_katana', 1);
+        h.step(2);
+      });
+      await page.evaluate(toggleInventory);
+      await page.evaluate(() => {
+        const h = window.__rikkun! as any;
+        h.craft.hover('katana');
+        h.step(3);
+      });
+    },
+  },
+  {
+    // RARITY-7 AC16: 7 段目の ツールチップ（本物のマウスで合わせる。ほかの画面の上に出るのは ふつう）
+    id: 'rarity-7-tooltip',
+    roots: ['#tooltip'],
+    open: async (page) => {
+      await boot(page, true);
+      await page.evaluate(fillInventory);
+      await page.evaluate(() => {
+        const h = window.__rikkun! as any;
+        const all: Record<string, string> = {};
+        for (const it of ['katana', 'crystal_katana', 'wood_pickaxe', 'dirt', 'stone', 'log', 'yumi', 'ya', 'kabuto', 'yoroi']) all[it] = 'legendary';
+        h.settings.set('itemRarity', all);
+        h.inventory.add('crystal_katana', 1);
+        h.step(2);
+      });
+      await page.evaluate(toggleInventory);
+      await page.evaluate(() => {
+        const h = window.__rikkun! as any;
+        h.craft.hover('katana');
+        h.step(3);
+      });
+      // 本物のマウスで合わせる（ツールチップが マウスの近くに出る）
+      await page.locator('#inventory-screen .slot[data-item="katana"]').first().hover();
+      await page.evaluate(() => (window.__rikkun as any).step(3));
+    },
+  },
+  {
+    // RARITY-7 AC16: 7 段目の おいわいの横断幕（名前 ＋ ★7）
+    id: 'rarity-7-banner',
+    roots: ['.cel-banner-wrap'],
+    open: async (page) => {
+      await boot(page, true);
+      await page.evaluate(() => {
+        const h = window.__rikkun! as any;
+        h.settings.set('itemRarity', { wood_pickaxe: 'legendary' });
+        h.inventory.clear();
+        h.inventory.add('log', 6);
+        h.step(2);
+      });
+      await page.evaluate(toggleInventory);
+      await page.evaluate(() => {
+        const h = window.__rikkun! as any;
+        h.craft.tileClick('wood_pickaxe');
+        h.craft.tileClick('wood_pickaxe');
+        h.step(40);
+      });
+    },
+  },
+  {
     id: 'achievements',
     roots: ['#inventory-screen', '#hud'],
     open: async (page) => {

@@ -39,6 +39,7 @@
   line-height: var(--rk-lh);
 }
 .tip-stars {
+  white-space: nowrap; /* 星 7 つも 1 行（折り返さない） */
   font-size: var(--rk-fs-small);
   line-height: var(--rk-lh);
   margin: var(--rk-sp-1) 0;

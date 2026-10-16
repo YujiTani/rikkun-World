@@ -189,8 +189,5 @@ export const YOKAI_NAME: Readonly<Record<YokaiKind, string>> = {
   rokurokubi: 'ろくろくび',
 };
 
-/** めずらしさの ことば（めずらしさ 4 段） */
-export const RARITY_WORD: readonly string[] = ['ふつう', 'すこし めずらしい', 'めずらしい', 'とても めずらしい'];
-
 /** 四角のメーターの最大の数（§2.2） */
 export const STAT_MAX = { dig: 6, damage: 6, guard: 5 } as const;

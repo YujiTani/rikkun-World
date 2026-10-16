@@ -23,6 +23,10 @@ export const SPARKLE: Record<Rarity, SparkleSpec> = {
   uncommon: { rate: 4, width: 0.12, opacity: 0.3, pulse: false, rainbow: false, stars: false },
   rare: { rate: 7, width: 0.18, opacity: 0.42, pulse: true, rainbow: false, stars: false },
   superRare: { rate: 12, width: 0.28, opacity: 0.42, pulse: true, rainbow: true, stars: true },
+  // 5〜7 段目（RARITY-7 §4.5）: つぶ・はば・こさ・ゆれは 4 段目と同じ。色は段の色のまま（にじにしない。仮）
+  epic: { rate: 12, width: 0.28, opacity: 0.42, pulse: true, rainbow: false, stars: true },
+  mythic: { rate: 12, width: 0.28, opacity: 0.42, pulse: true, rainbow: false, stars: true },
+  legendary: { rate: 12, width: 0.28, opacity: 0.42, pulse: true, rainbow: false, stars: true },
 };
 
 export const SPARKLE_CFG = {
@@ -36,9 +40,9 @@ export const SPARKLE_CFG = {
   /** にじ色が ひとまわりする秒数 */
   rainbowSeconds: 10,
   /** 着地の ぱっと光る: つぶの数（めずらしさごと）・長さ・広がり */
-  flashCount: { common: 4, uncommon: 6, rare: 9, superRare: 14 } as Record<Rarity, number>,
+  flashCount: { common: 4, uncommon: 6, rare: 9, superRare: 14, epic: 14, mythic: 14, legendary: 14 } as Record<Rarity, number>,
   flashSeconds: 0.45,
-  flashRadius: { common: 0.35, uncommon: 0.45, rare: 0.6, superRare: 0.85 } as Record<Rarity, number>,
+  flashRadius: { common: 0.35, uncommon: 0.45, rare: 0.6, superRare: 0.85, epic: 0.85, mythic: 0.85, legendary: 0.85 } as Record<Rarity, number>,
   maxDots: 1200,
   maxStars: 600,
   maxFlashes: 24,

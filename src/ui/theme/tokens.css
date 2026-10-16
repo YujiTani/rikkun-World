@@ -33,11 +33,14 @@
   --rk-shu: #e8453c;
   --rk-kiri: #d2b07e;
   --rk-kurogane: #1f1f24;
-  /* めずらしさ（ふつう・すこし・めずらしい・とても） */
+  /* めずらしさ 7 段（src/drops/rarityTable.ts と同じ値。ユニットテストが見張る） */
   --rk-rarity-0: #ffffff;
   --rk-rarity-1: #8fe08f;
   --rk-rarity-2: #7fb8ff;
   --rk-rarity-3: #c79bff;
+  --rk-rarity-4: #ffd23f;
+  --rk-rarity-5: #ff7a3d;
+  --rk-rarity-6: #fff3a0;
   /* マスのカテゴリー色（§3.5 (7)。使うのは S2 の 割りあて表） */
   --rk-cat-soil: #6e4b2a;
   --rk-cat-stone: #505a68;

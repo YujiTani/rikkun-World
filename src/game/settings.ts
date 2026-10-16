@@ -1,3 +1,4 @@
+import { isRarity } from '../drops/rarityTable';
 import type { PlayerSettings } from '../player/config';
 import type { CameraConfig } from '../camera/config';
 
@@ -48,6 +49,7 @@ export function createSettingsHook(player: PlayerSettings, camera: CameraConfig,
           }
           if (typeof cur[k] === 'string') {
             if (typeof x !== 'string') throw new Error(`設定 ${name}.${k} は文字`);
+            if ((name === 'rarity' || name === 'itemRarity') && !isRarity(x)) throw new Error(`設定 ${name}.${k} は めずらしさの id だけ`);
           } else if (x !== null && !(typeof x === 'number' && Number.isFinite(x))) throw new Error(`設定 ${name}.${k} は有限の数か null`);
         }
         for (const k of Object.keys(value)) {

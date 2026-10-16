@@ -30,7 +30,8 @@ import { LogSystem, LogPage, createLogHook } from './ui/log';
 import { applyUiAlpha, uiAlpha } from './ui/theme';
 import { createCraft2Settings } from './contracts';
 import { FARM_HINT_VIEW } from './ui/farmHintModel';
-import { itemRarity } from './drops/rarity';
+import { ITEM_RARITY_SETTINGS, itemRarity, rarityIndex } from './drops/rarity';
+import { createRarityHook } from './drops/rarityHook';
 import { itemType } from './inventory/items';
 import { createGuideHook } from './ui/playOverlay';
 import { SEA_Y, createM6Settings, createM7Settings, createW2Settings, SEED_ITEM, VEG_ITEM, CROP_KINDS, cropKindOfBlock, type FarmPlacement, type AchievementId, type CombatEvent, type DefeatWith, type DigEvent, type ItemId, type SwingAnim, type YokaiKind } from './contracts';
@@ -812,8 +813,6 @@ const weaponFx = new WeaponFx({
 });
 
 // ---- M6: 実績・演出・たんす画面・説明 ----
-const RARITY_INDEX = { common: 0, uncommon: 1, rare: 2, superRare: 3 } as const;
-const rarity4 = (item: ItemId) => RARITY_INDEX[itemRarity(item)];
 const achievements = new AchievementSystem(() => m6);
 achievementsRef = achievements;
 // M7-2: キラキラ・ハート（C）・しずく（A）・しぶき（B）
@@ -916,7 +915,7 @@ const celebrate = new CelebrateUi({
   settings: () => m6,
   tileEl: (id) => craftPanel.tileElFor(id),
   itemName: nameOf,
-  itemRarity: rarity4,
+  itemRarity: (item: ItemId) => rarityIndex(itemRarity(item)),
   itemIconUrl,
   achievement: (id: AchievementId) => {
     const d = defById.get(id)!;
@@ -1482,8 +1481,10 @@ installTestHook(game, overlay, {
     sfx: () => fxSound.drainRecords().map((r) => ({ ...r, chord: parseChord(r.chord), t: game.tick / 60 })),
     sfxVoices: () => fxSound.activeVoices(),
   }),
+  rarity: createRarityHook(() => dig.config.dropMax),
   settings: createSettingsHook(controller.settings, rig.config, [
       digSettingsView(dig.config),
+      ITEM_RARITY_SETTINGS,
       settingsViewOf(craftConfig),
       settingsViewOf(toolConfig),
       settingsViewOf(craftUi, ['bakeTicks', 'pickupLogTicks', 'pickupLogMax']),

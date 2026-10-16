@@ -9,6 +9,13 @@ export interface PaletteColor {
   rgb: [number, number, number];
 }
 
+import { RARITY_TIERS } from '../../drops/rarityTable';
+
+/** --rk-rarity-0〜6（めずらしさの表 RARITY_TIERS から作る） */
+const RARITY_PALETTE: Record<string, string> = Object.fromEntries(
+  RARITY_TIERS.map((t) => [t.cssVar, `#${t.color.toString(16).padStart(6, '0')}`]),
+);
+
 const hex = (h: string): [number, number, number] => [
   parseInt(h.slice(1, 3), 16),
   parseInt(h.slice(3, 5), 16),
@@ -37,10 +44,7 @@ export const PALETTE_HEX: Readonly<Record<string, string>> = {
   '--rk-shu': '#e8453c',
   '--rk-kiri': '#d2b07e',
   '--rk-kurogane': '#1f1f24',
-  '--rk-rarity-0': '#ffffff',
-  '--rk-rarity-1': '#8fe08f',
-  '--rk-rarity-2': '#7fb8ff',
-  '--rk-rarity-3': '#c79bff',
+  ...RARITY_PALETTE,
   '--rk-cat-soil': '#6e4b2a',
   '--rk-cat-stone': '#505a68',
   '--rk-cat-plant': '#2e6b35',

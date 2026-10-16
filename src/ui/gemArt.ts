@@ -1,26 +1,25 @@
+import type { GemShape } from '../contracts';
+import { RARITY_TIERS } from '../drops/rarityTable';
 import { drawPixels } from './itemIcon';
 import type { Rgba } from '../world/blocks/textures';
 
 /**
- * 宝石の印（M6 §3.5 (7)）。16×16 のドット絵。めずらしさで形がちがう:
- * 0 ふつう = まる（白）、1 すこし = ひしがた（みどり）、2 めずらしい = 六角（あお）、3 とても = 星（むらさき）。
+ * 宝石の印（M6 §3.5 (7)、RARITY-7）。16×16 のドット絵。めずらしさ 7 段で形がちがう（形・色は src/drops/rarityTable.ts の表）:
+ * まる・ひしがた・六角・星・みかづき・ほのお・かんむり。
  * 色は めずらしさの色（--rk-rarity-N と同じ）、1 ドットのふちは --rk-bg-900。
  */
-export type GemShape = 'circle' | 'diamond' | 'hexagon' | 'star';
-export const GEM_SHAPES: readonly GemShape[] = ['circle', 'diamond', 'hexagon', 'star'];
+export type { GemShape };
+export const GEM_SHAPES: readonly GemShape[] = RARITY_TIERS.map((t) => t.gem);
 
-const FILL: readonly Rgba[] = [
-  [0xff, 0xff, 0xff, 255],
-  [0x8f, 0xe0, 0x8f, 255],
-  [0x7f, 0xb8, 0xff, 255],
-  [0xc7, 0x9b, 0xff, 255],
-];
+const hexRgba = (c: number): Rgba => [(c >> 16) & 255, (c >> 8) & 255, c & 255, 255];
+const FILL: readonly Rgba[] = RARITY_TIERS.map((t) => hexRgba(t.color));
 const INK: Rgba = [0x10, 0x14, 0x1f, 255];
 const CLEAR: Rgba = [0, 0, 0, 0];
 const N = 16;
+const LAST = RARITY_TIERS.length - 1;
 
 export function gemShape(rarity: number): GemShape {
-  return GEM_SHAPES[Math.min(3, Math.max(0, rarity | 0))];
+  return GEM_SHAPES[Math.min(LAST, Math.max(0, rarity | 0))];
 }
 
 type Pt = readonly [number, number];
@@ -45,7 +44,13 @@ function starPoly(): Pt[] {
   return pts;
 }
 
-const POLYS: Record<Exclude<GemShape, 'circle'>, Pt[]> = {
+const FLAME_TIP: Pt[] = [[8.6, 0.8], [12.6, 8], [4.2, 8]];
+const FLAME_SIDE: Pt[] = [[3.6, 3.6], [6.6, 8.4], [3.2, 9.2]];
+const CROWN: Pt[] = [[1.5, 13.8], [1.5, 4.2], [4.8, 8.4], [8, 2.0], [11.2, 8.4], [14.5, 4.2], [14.5, 13.8]];
+const circ = (cx: number, cy: number, r: number, x: number, y: number): boolean => (x - cx) ** 2 + (y - cy) ** 2 <= r * r;
+
+const POLYS: Partial<Record<GemShape, Pt[]>> = {
+  crown: CROWN,
   diamond: [
     [8, 1.2],
     [14.2, 8],
@@ -63,21 +68,34 @@ const POLYS: Record<Exclude<GemShape, 'circle'>, Pt[]> = {
   star: starPoly(),
 };
 
+function inShape(shape: GemShape, px: number, py: number): boolean {
+  switch (shape) {
+    case 'circle':
+      return circ(8, 8, 5.6, px, py);
+    case 'moon':
+      return circ(8, 8, 6.6, px, py) && !circ(11.2, 5.6, 5.2, px, py);
+    case 'flame':
+      return circ(8.4, 10.6, 4.4, px, py) || inPoly(FLAME_TIP, px, py) || inPoly(FLAME_SIDE, px, py);
+    default:
+      return inPoly(POLYS[shape]!, px, py);
+  }
+}
+
 function mask(shape: GemShape): boolean[] {
   const m: boolean[] = new Array<boolean>(N * N).fill(false);
   for (let y = 0; y < N; y++) {
     for (let x = 0; x < N; x++) {
       const px = x + 0.5;
       const py = y + 0.5;
-      m[y * N + x] = shape === 'circle' ? (px - 8) ** 2 + (py - 8) ** 2 <= 5.6 ** 2 : inPoly(POLYS[shape], px, py);
+      m[y * N + x] = inShape(shape, px, py);
     }
   }
   return m;
 }
 
-/** 宝石の 16×16（y = 0 が上）。めずらしさ 0〜3 */
+/** 宝石の 16×16（y = 0 が上）。めずらしさ 0〜6 */
 export function gemPixels(rarity: number): Rgba[] {
-  const idx = Math.min(3, Math.max(0, rarity | 0));
+  const idx = Math.min(LAST, Math.max(0, rarity | 0));
   const m = mask(GEM_SHAPES[idx]);
   const at = (x: number, y: number): boolean => x >= 0 && y >= 0 && x < N && y < N && m[y * N + x];
   const out: Rgba[] = [];
@@ -95,7 +113,7 @@ const urls: string[] = [];
 
 /** 宝石の絵の data URL（使いまわす。DOM のある所でだけ呼ぶ） */
 export function gemUrl(rarity: number): string {
-  const idx = Math.min(3, Math.max(0, rarity | 0));
+  const idx = Math.min(LAST, Math.max(0, rarity | 0));
   let u = urls[idx];
   if (!u) {
     const c = document.createElement('canvas');

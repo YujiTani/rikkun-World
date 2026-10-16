@@ -105,6 +105,15 @@
 .slot[data-rarity='3'] {
   border: var(--rk-bw-rarity) solid var(--rk-rarity-3);
 }
+.slot[data-rarity='4'] {
+  border: var(--rk-bw-rarity) solid var(--rk-rarity-4);
+}
+.slot[data-rarity='5'] {
+  border: var(--rk-bw-rarity) solid var(--rk-rarity-5);
+}
+.slot[data-rarity='6'] {
+  border: var(--rk-bw-rarity) solid var(--rk-rarity-6);
+}
 
 .slot-icon {
   width: var(--slot-art);

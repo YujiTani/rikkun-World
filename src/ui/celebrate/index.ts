@@ -1,7 +1,7 @@
 import type { AchievementId, AchievementModalPort, AchievementShow, CelebrateBusyPort, CraftMadeEvent, ModalScreenState, ScreenState } from '../../contracts';
 import { CRAFT_SOUNDS, type CraftSoundName } from '../../fx/craftSounds';
 import type { SoundFx, Tone } from '../../fx/sound';
-import { createBadge, popAnimation, type MedalTier, type Rarity4 } from '../theme';
+import { createBadge, popAnimation, type MedalTier, type RarityIndex } from '../theme';
 import { markUrl } from '../medalArt';
 import { BannerModel } from './bannerModel';
 import { ComboModel } from './comboModel';
@@ -36,7 +36,7 @@ export interface CelebrateDeps {
   tileEl(recipe: string): HTMLElement | null;
   itemName(item: string): string;
   /** めずらしさ 0〜3 */
-  itemRarity(item: string): Rarity4;
+  itemRarity(item: string): RarityIndex;
   itemIconUrl(item: string): string;
   achievement(id: AchievementId): AchievementLook;
   /** M4 の ばんざい・レベルアップの演出が出ているか */
