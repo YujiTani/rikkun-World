@@ -24,3 +24,12 @@
 | 2 | test-review | code-reviewer | 【軽微】「音は nick の 3 つだけ」の `walk(ROOT)` が 作業ツリー全体（未追跡の `ui-gate-report/`・`test-results/`・ほかの worktree）を 見るので、手元で 別の音が 置かれると 落ちる。`git ls-files` の 一覧を使うと 決定的 | 決定性 | G9 | 未対応 |
 | 2 | test-review | code-reviewer | 【軽微】`titleSound.test.ts` の うその AudioContext は `decodeAudioData`・`createBufferSource`・`createGain`（`gain.value`／`setValueAtTime`）しか持たない。実装が `linearRampToValueAtTime`・フィルタ等を 使うと 例外で落ちる。使ってよい口を 窓口の コメントに 書くか、うそを 広げる。`combatFx.test.ts` は 私有の `d` を 直接さわる（実装の名前に 依存） | 窓口の書き足し | G10 | 未対応 |
 | 2 | test-review | code-reviewer | 【軽微】立ち上がりを測る `measure()` は「鳴りはじめ」を 絶対値 1e-3 で決め（仕様は 最大の 1%）、meta の `attack_s`（1.11）と 数がずれる（1.38）。判定は ≥ 0.05 なので 結果は 同じだが、コメントに「仕様の 1% とは少し違う」と書くか 1% にそろえる。E2E の `combat.sounds()`・`yokai.palette()`・`yokai.marks()` は まだ testHook に無い（窓口は spec 冒頭に書いてある。開発が足す）| はかり方・窓口 | G11 | 未対応 |
+
+3 周目 code-review（開発の実装 7420c85・be8d826・a6dd494 を code-reviewer が確認）: **合格**（重大 0・軽微 4）。`npm run check:fast` は 型・ユニット 1690 とも緑。`e2e/ui-gate.spec.ts` の `openNick` に `announce` を引数へ足した直しは正当（`page.evaluate` の中から外の変数は見えず ReferenceError になる もとの バグで、期待は変えていない）。`known.json` の 追加 102 行は 今の `hud` と同じ 3 種（`#title`・`slot-key 1〜9`・`#hearts`）と、`tansu` と同じ `wear-gauge` だけで、新しい種類のくずれは なし。音は 最初の `pointerdown`/`keydown` のあとで はじめて AudioContext を作り、音量 0・読めない・AudioContext なし では 鳴らさず例外も 出さない。重ね防止は `titleSoundLeft`（`soundSeconds` を dt で減らす）。mp3 3 つで 約 313KB、元の素材は なし。テクスチャ・材料の dispose は 通っている。
+
+| 周 | ループ | 指摘した係 | 指摘（どこ・なに） | 原因の見立て | グループ | 状態 |
+|---|---|---|---|---|---|---|
+| 3 | code-review | code-reviewer | 【軽微】`main.ts` の `warm` → `titleSound.preload()` は 失敗しても 結果を キャッシュ（`loading ??=`）し、やりなおさない。通信が 一瞬 切れると そのセッションは 出現音が 無音のまま。失敗した音だけ 次の `play` で 読みなおす等（止まらないことは 守れている） | 失敗の再試行なし | G12 | 未対応（あとで可） |
+| 3 | code-review | code-reviewer | 【軽微】`SoundFx` と `TitleSound` が 別々の AudioContext を作る（2 つ）。動くが 資源が 2 倍。`SoundFx` の ctx を 渡せると よい。また「鳴った」の記録は `played` の数だけで `soundLog` の 列には 出ない（BAL-G §2「別に記録」は 数で 足りるが 窓口が 無い） | 窓口・資源 | G13 | 未対応（あとで可） |
+| 3 | code-review | code-reviewer | 【軽微】ヌシの光は `rig` の子で、`dying`（たおれる）・ふきだし中も 光り続ける可能性。たおれたとき 光も 消える／ 一緒に ちぢむか、ユニットか 目で確かめる（AC21 は オーナー確認） | 終わり方の確認もれ | G14 | 未対応（オーナー確認で 見る） |
+| 3 | code-review | code-reviewer | 【軽微】`baseColorOf` は 段階 2・3 の色から 逆引きする。今の表に 衝突は 無いが、将来 段階色が 別の もとの色と 同じになると 戻し間違える。表を 足すとき 衝突しない ユニットが あると 安全 | 将来の 衝突 | G15 | 未対応（あとで可） |
