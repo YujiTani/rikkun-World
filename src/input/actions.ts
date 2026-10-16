@@ -17,6 +17,7 @@ export const ACTIONS = [
   'toggleView', // 一人称 / 三人称（CHAR-1 第 5 版で割り当てをなくした。名前は後始末まで残す）
   'run', // 走る（シフト。CHAR-1）
   'toggleDebug', // 性能表示
+  'cycleMicroR', // 性能表示 (F3) を出しているとき: 小ブロックの半径 16 → 24 → 32（F4。VOX-E）
   'hotbar1', // ホットバーのマスをえらぶ（数字キー 1〜9）
   'hotbar2',
   'hotbar3',
@@ -52,6 +53,7 @@ export const DEFAULT_KEY_BINDINGS: Readonly<Record<string, Action>> = {
   ShiftLeft: 'run',
   ShiftRight: 'run',
   F3: 'toggleDebug',
+  F4: 'cycleMicroR',
   Digit1: 'hotbar1',
   Digit2: 'hotbar2',
   Digit3: 'hotbar3',

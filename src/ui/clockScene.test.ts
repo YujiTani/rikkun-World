@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createTimeSettings } from '../time/config';
 import { clockScenePixels } from './clockArt';
-import { CLOCK_SCENES, CLOCK_WORDS, clockScene } from './clockModel';
+import { CLOCK_FADE_MAX_STEPS, CLOCK_SCENES, CLOCK_WORDS, clockScene, clockShouldFade } from './clockModel';
 
 describe('時計の絵 6 つ（M6-clock）', () => {
   const s = createTimeSettings();
@@ -28,5 +28,25 @@ describe('時計の絵 6 つ（M6-clock）', () => {
       return px.reduce((a, p) => a + 0.2126 * p[0] + 0.7152 * p[1] + 0.0722 * p[2], 0) / px.length;
     };
     expect(mean('sunrise')).toBeGreaterThan(mean('sunset') + 60);
+  });
+});
+
+describe('時計の入れかえ: ふわっとするか すぐか（#129）', () => {
+  const s = createTimeSettings();
+  const len = s.dayTicks + s.duskTicks + s.nightTicks + s.dawnTicks;
+  it('ふつうの進み（差 1・60）は ふわっ', () => {
+    expect(CLOCK_FADE_MAX_STEPS).toBe(60);
+    expect(clockShouldFade(1000, 1001, s)).toBe(true);
+    expect(clockShouldFade(1000, 1000 + 60, s)).toBe(true);
+  });
+  it('61・大きくとぶ・もどる・最初は すぐ', () => {
+    expect(clockShouldFade(1000, 1061, s)).toBe(false);
+    expect(clockShouldFade(1000, 40000, s)).toBe(false);
+    expect(clockShouldFade(40000, 1000, s)).toBe(false);
+    expect(clockShouldFade(null, 1000, s)).toBe(false);
+  });
+  it('夜明けの最後 → 0 の回りこみは ふわっ', () => {
+    expect(clockShouldFade(len - 1, 0, s)).toBe(true);
+    expect(clockShouldFade(len - 10, 5, s)).toBe(true);
   });
 });

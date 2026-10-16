@@ -64,6 +64,16 @@ export function actionHintLines(right: RightClickPreview | null, left: LeftClick
       case 'pet':
         out.right = { icon: right.item!, word: 'なでる' };
         break;
+      // BUCKET-1（§3.1）: 持っている バケツ の 絵。4g（bucketNo）は 出さない
+      case 'bucketFill':
+        out.right = { icon: right.item!, word: 'くむ' };
+        break;
+      case 'bucketPlace':
+        out.right = { icon: right.item!, word: 'おく' };
+        break;
+      case 'bucketHint':
+        out.right = { icon: right.item!, word: 'くもう' };
+        break;
       case 'place':
         out.right = { icon: right.item!, word: 'おく' };
         break;

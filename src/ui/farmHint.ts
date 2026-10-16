@@ -1,6 +1,6 @@
 import type { FarmHintKind } from '../contracts';
 import { heartPixels } from './heartsModel';
-import { drawPixels, itemIconUrl } from './itemIcon';
+import { drawPixels, extraIconUrl, itemIconUrl } from './itemIcon';
 import { FARM_HINT_VIEW, FarmHintModel } from './farmHintModel';
 import { createChip } from './theme';
 import './farmHint.css';
@@ -51,6 +51,8 @@ export class FarmHint {
         const c = document.createElement('canvas');
         drawPixels(c, heartPixels('full'));
         img.src = c.toDataURL();
+      } else if (a === 'droplet') {
+        img.src = extraIconUrl('droplet');
       } else {
         img.src = itemIconUrl(a);
       }

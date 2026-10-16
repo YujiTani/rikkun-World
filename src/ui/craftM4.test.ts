@@ -263,7 +263,7 @@ describe('案内画面のタブ（AC22）', () => {
   it('タブは 5 つで、中身の数が 4・5・5・7・7（M6: Q で すてる・たんす に しまう、M7: そだてる）', () => {
     expect(GUIDE_TAB_IDS).toEqual(['move', 'dig', 'fight', 'craft', 'grow']);
     expect(GUIDE_TAB_IDS.map((id) => GUIDE_TABS[id].label)).toEqual(['うごく', 'ほる・おく', 'たたかう', 'つくる・やく', 'そだてる']);
-    expect(GUIDE_TAB_IDS.map((id) => GUIDE_TABS[id].captions.length)).toEqual([4, 5, 5, 9, 10]);
+    expect(GUIDE_TAB_IDS.map((id) => GUIDE_TABS[id].captions.length)).toEqual([4, 5, 5, 9, 11]);
     expect(GUIDE_TAB_STYLE.heightPx).toBeGreaterThanOrEqual(64);
     expect(GUIDE_TAB_STYLE.fontPx).toBeGreaterThanOrEqual(24);
     expect(GUIDE_TAB_STYLE.selectedColor).toBe('#FFD54F');

@@ -87,7 +87,7 @@
 | c | `fixM6Scroll` の E2E が 2 件落ちていたのを調べて直す | `developer` | 20 分 |
 | d | 防具のたいきゅうの減りを、実績 `wearTotal` に数える | `developer` | 15 分 |
 | e | 使わなくなった `arrowDamage`・`arrowRange`（`src/contracts.ts`）を消す | `developer` | 10 分 |
-| f | あとまわしにした M5・M6 の受け入れテスト（`e2e-wip/`）を回し、通ったものを `e2e/` へ移す | `tester` | 30 分 |
+| f | ~~あとまわしにした M5・M6 の受け入れテスト（`e2e-wip/`）を回し、通ったものを `e2e/` へ移す~~ 2026-10-16 オーナー判断で消した（#36） | — | — |
 | g | ホットバーの「-7」は、手順が分かるまで待つ（守りは入れてある） | — | — |
 
 c・d・e は 1 人の `developer` にまとめて頼んでよい（ブランチ例 `claude/leftovers-1`）。

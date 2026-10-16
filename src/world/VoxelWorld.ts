@@ -46,6 +46,8 @@ class Column implements ChunkColumn {
   colDirty = false;
   secListed = false;
   secBits = 0;
+  /** secBits のうち、ブロックを変えたことでついた分（光だけの変化とは分けて、描画が「プレイヤーが変えた所」を先に作れるように） */
+  blockBits = 0;
   /** 保存のための印（World が持つ一覧に入っているか） */
   saveDirty = false;
   /** uniform なら その番号、palette なら -2、full なら -1 */
@@ -375,11 +377,11 @@ export class ChunkedVoxelWorld implements VoxelWorld {
   private noteDirty(col: Column, x: number, y: number, z: number): void {
     const sy = y >> 4;
     this.markCol(col);
-    this.markSec(col, sy);
+    this.markSec(col, sy, true);
     const lx = x & 15;
     const lz = z & 15;
     const ly = y & 15;
-    if (lx === 0 || lx === 15 || lz === 0 || lz === 15 || ly === 0 || ly === 15) this.markEdgeNeighbors(col, sy, lx, ly, lz);
+    if (lx <= 1 || lx >= 14 || lz <= 1 || lz >= 14 || ly <= 1 || ly >= 14) this.markEdgeNeighbors(col, sy, lx, ly, lz);
     if (this.hiddenUsed) this.staleAround(col.cx, sy, col.cz);
   }
 
@@ -390,8 +392,9 @@ export class ChunkedVoxelWorld implements VoxelWorld {
     }
   }
 
-  private markSec(c: Column, sy: number): void {
+  private markSec(c: Column, sy: number, byBlock = false): void {
     c.secBits |= 1 << sy;
+    if (byBlock) c.blockBits |= 1 << sy;
     if (!c.secListed) {
       c.secListed = true;
       this.dirtySecList.push(c);
@@ -406,21 +409,24 @@ export class ChunkedVoxelWorld implements VoxelWorld {
     }
   }
 
-  /** 列のふち・セクションのふちのマスが変わった: となりの列・セクションも作り直す（ブロックの変化は reach 1） */
+  /**
+   * 列のふち・セクションのふちから 2 ブロック以内のマスが変わった: となりの列・セクションも作り直す。
+   * 小ブロックの地形（prepareTerrain）は となりを 2 ブロック先まで読むので、0・15 だけでは足りない。
+   */
   private markEdgeNeighbors(col: Column, sy: number, lx: number, ly: number, lz: number): void {
-    const nx = lx === 0 ? -1 : lx === 15 ? 1 : 0;
-    const nz = lz === 0 ? -1 : lz === 15 ? 1 : 0;
+    const nx = lx <= 1 ? -1 : lx >= 14 ? 1 : 0;
+    const nz = lz <= 1 ? -1 : lz >= 14 ? 1 : 0;
     if (nx !== 0) this.markNeighbor(col.cx + nx, sy, col.cz, true);
     if (nz !== 0) this.markNeighbor(col.cx, sy, col.cz + nz, true);
-    if (ly === 0 && sy > 0) this.markSec(col, sy - 1);
-    if (ly === 15 && sy + 1 < this.nSections) this.markSec(col, sy + 1);
+    if (ly <= 1 && sy > 0) this.markSec(col, sy - 1, true);
+    if (ly >= 14 && sy + 1 < this.nSections) this.markSec(col, sy + 1, true);
   }
 
   private markNeighbor(cx: number, sy: number, cz: number, col: boolean): void {
     const c = this.columns.get(columnKey(cx, cz));
     if (!c) return;
     if (col) this.markCol(c);
-    this.markSec(c, sy);
+    this.markSec(c, sy, true);
   }
 
   /** M7: id は変えずに、そのマスのチャンクだけ 見た目を作り直させる（作物の段階）。光は 計算し直さない */
@@ -629,18 +635,44 @@ export class ChunkedVoxelWorld implements VoxelWorld {
       }
   }
 
+  /** まだ光が受けとっていない「変わった」の数（変えたマスの箱・列の出入り）。setBlock のすぐあとは 0 でない */
+  uncollectedLightChanges(): number {
+    return this.changeBoxes.length + (this.columnEvents?.length ?? 0);
+  }
+
+  /** まだメッシュ側が受けとっていない「変わった」セクションを持つ列の数 */
+  uncollectedMeshChanges(): number {
+    return this.dirtySecList.length;
+  }
+
   /** 変わったセクションを渡して、覚えているのを空にする */
   takeDirtySections(): SectionPos[] {
-    const out: SectionPos[] = [];
+    return this.takeDirtySectionsEx().map(({ cx, sy, cz }) => ({ cx, sy, cz }));
+  }
+
+  /** takeDirtySections に、「ブロックを変えたことで変わった」か（false = 光だけ）をつけたもの */
+  takeDirtySectionsEx(): (SectionPos & { block: boolean })[] {
+    const out: (SectionPos & { block: boolean })[] = [];
     for (const c of this.dirtySecList) {
       if (this.columns.get(columnKey(c.cx, c.cz)) === c) {
-        for (let sy = 0; sy < c.sections.length; sy++) if ((c.secBits & (1 << sy)) !== 0) out.push({ cx: c.cx, sy, cz: c.cz });
+        for (let sy = 0; sy < c.sections.length; sy++) {
+          if ((c.secBits & (1 << sy)) !== 0) out.push({ cx: c.cx, sy, cz: c.cz, block: (c.blockBits & (1 << sy)) !== 0 });
+        }
       }
       c.secBits = 0;
+      c.blockBits = 0;
       c.secListed = false;
     }
     this.dirtySecList.length = 0;
     return out;
+  }
+
+  /** 光が変わった: そのセクションだけ メッシュの作り直しに入れる（列の dirty にも入る）。読みこんでいない所は何もしない */
+  markSectionDirty(cx: number, sy: number, cz: number): void {
+    const c = this.columns.get(columnKey(cx, cz));
+    if (!c || sy < 0 || sy >= c.sections.length) return;
+    this.markCol(c);
+    this.markSec(c, sy);
   }
 
   // ------------------------------------------------------------ 数える・ハッシュ

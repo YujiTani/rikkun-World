@@ -58,6 +58,7 @@ function farmArt(s: string): ItemId | 'droplet' | 'heart' | null {
     // M7-2: じょうろ・スプリンクラー・ハート
     case 'water:*': return 'watering_can';
     case 'place:sprinkler': return 'sprinkler';
+    case 'bucketPlace': return 'water_bucket';
     case 'pet:*': case 'harvestPet': return 'heart';
     case 'visit:oldfarm': return 'farmland';
     case 'seedFrom:oldfarm': case 'seedFrom:grass': case 'seedFrom:yokai': case 'seedFrom:all': return 'seed_onion';

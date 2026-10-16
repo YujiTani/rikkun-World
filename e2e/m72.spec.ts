@@ -933,7 +933,7 @@ test.describe('M7-2 なでる・ごきげん・キラキラ', () => {
 });
 
 test.describe('M7-2 画面', () => {
-  test('AC20 つくる画面: カード 32（BAL-D。マスは 4×8 になるかも）・はみ出し 0（1280×720・1920×1080）', async ({ page }) => {
+  test('AC20 つくる画面: カード 33（BAL-D。マスは 4×8 になるかも）・はみ出し 0（1280×720・1920×1080）', async ({ page }) => {
     await open(page);
     for (const vp of [{ width: 1280, height: 720 }, { width: 1920, height: 1080 }]) {
       await page.setViewportSize(vp);
@@ -976,7 +976,7 @@ test.describe('M7-2 画面', () => {
         return {
           open: ui.panelVisible,
           cards: ids.length,
-          tail: ids.slice(-7, -4),
+          tail: ids.slice(-8, -5),
           tiles: ui.tiles.length,
           cols: new Set(Object.values(ui.tileRects).map((r: any) => Math.round(r.x))).size,
           over,
@@ -986,7 +986,7 @@ test.describe('M7-2 画面', () => {
         };
       });
       expect(r.open).toBe(true);
-      expect(r.cards).toBe(32);
+      expect(r.cards).toBe(33);
       expect(r.tail).toEqual(['watering_can', 'long_watering_can', 'sprinkler']);
       expect(r.over).toBe(0);
       expect(r.sw).toBeLessThanOrEqual(0);
@@ -1020,7 +1020,7 @@ test.describe('M7-2 画面', () => {
     expect(made.stats).toEqual([1, 1, 1]);
   });
 
-  test('AC25 案内画面「そだてる」: 10 行・ふりがな・字 24px 以上・タブの中に 入る', async ({ page }) => {
+  test('AC25 案内画面「そだてる」: 11 行・ふりがな・字 24px 以上・タブの中に 入る', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 720 });
     await open(page);
     await page.evaluate(() => {
@@ -1054,7 +1054,7 @@ test.describe('M7-2 画面', () => {
       return { has: !!root, rows: rows.length, bad, lock: (window as any).__rikkun.lock.get(), fs, helpBottom: hb.bottom, helpRight: hb.right, scroll: sc, vh: innerHeight, vw: innerWidth, visible: hb.height > 0, texts: items.map((i) => i.textContent) };
     });
     expect(r.lock.guideTab).toBe('grow');
-    expect(r.lock.guideItems).toBe(10);
+    expect(r.lock.guideItems).toBe(11);
     expect(r.visible).toBe(true);
     // 仕様は「24px 以上 のまま」だが、案内画面の 字は M6 の 文字サイズ表（--rk-fs-body）で 前から 20px。M7-2 で 変えていない → 台帳に 記録
     expect(Math.min(...r.fs)).toBeGreaterThanOrEqual(20);

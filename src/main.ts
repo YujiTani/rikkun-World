@@ -103,6 +103,7 @@ import { setWaterCapacity } from './ui/waterGauge';
 import { createSprinklers } from './farm/sprinkler';
 import { Pet } from './farm/pet';
 import { createWatering } from './farm/watering';
+import { createBucket } from './farm/bucket';
 import { WaterDropFx } from './fx/waterFx';
 import { SprinklerFx } from './fx/sprinklerFx';
 import { setCanCapacitySource } from './tools/durability';
@@ -196,6 +197,11 @@ if (restored === null) {
   restored = NO_SAVE;
 }
 const renderer = new WorldRenderer(world);
+{
+  // 小ブロックの半径（?microR=16|24|32。F3 を出して F4 でも切りかえる。VOX-E）
+  const q = Number(new URLSearchParams(location.search).get('microR'));
+  if (q > 0) renderer.config.microRadius = q;
+}
 renderer.setViewer(island.spawn().x, island.spawn().z);
 renderer.attach(game.scene);
 const lighting = new Lighting();
@@ -543,6 +549,7 @@ const dig = new DigSystemImpl(
     },
     farm,
     water: createWatering({ farm, inventory, settings: m7, tick: () => game.tick }),
+    bucket: createBucket({ inventory, emit: (e) => farm.emit(e), tick: () => game.tick }),
     pet,
     emitFarm: (e) => farm.emit(e),
     nowTick: () => game.tick,
@@ -1105,7 +1112,17 @@ if (idb) {
   });
 }
 
-const overlay = new PerfOverlay(hud, game);
+const overlay = new PerfOverlay(hud, game, {
+  lines: () => {
+    const m = renderer.meshStats();
+    return [`micro r=${renderer.microRadiusNow} (F4)  mesh ${m.meshCount}  wait ${m.pending}  geo ${(m.geometryBytes / 1048576).toFixed(1)}MB`];
+  },
+  cycle: () => {
+    const radii = [16, 24, 32];
+    const i = radii.indexOf(renderer.microRadiusNow);
+    renderer.config.microRadius = radii[(i + 1) % radii.length];
+  },
+});
 
 function updateFurnaceFx(dt: number): void {
   furnaceFx.update(dt, craft.furnaceFxEntries() as readonly FurnaceFxEntry[], controller.state.position);
@@ -1235,7 +1252,10 @@ game.onUpdate((dt) => {
   {
     const fe = farm.drainEvents();
     if (fe.length > 0) {
-      for (const e of fe) if (e.type === 'pour') waterFx.pour(farm.lastPourCells());
+      for (const e of fe) {
+        if (e.type === 'pour') waterFx.pour(farm.lastPourCells());
+        else if (e.type === 'bucketPlace') waterFx.pour([{ x: e.x, y: e.y - 1, z: e.z }]); // 置いた マスの 上から しずく
+      }
       farmFx.feed(fe);
     }
     // 目の 位置（キラキラ・しぶきの 遠さ）と つぶ の 1 ステップ
@@ -1438,6 +1458,7 @@ installTestHook(game, overlay, {
       waterFx.model.reset();
     },
     aimed: () => dig.target()?.block ?? null,
+    bucketSpot: () => dig.bucketSpot(),
     give: (items) => {
       for (const st of items) {
         const left = inventory.add(st.item, st.count);
@@ -1505,6 +1526,7 @@ installTestHook(game, overlay, {
       combat.config,
       yokaiM.config,
       timeSettings,
+      renderer.config,
     ]),
 });
 game.start();
