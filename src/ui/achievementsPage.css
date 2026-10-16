@@ -51,7 +51,7 @@
 }
 .ach-cats .rk-tab {
   box-sizing: border-box;
-  min-height: clamp(48px, calc(48 / 12.8 * 1vw), 72px);
+  min-height: max(clamp(48px, calc(48 / 12.8 * 1vw), 72px), calc(44px / var(--rk-fit, 1)));
   padding: var(--rk-sp-1) var(--rk-sp-2);
   gap: var(--rk-sp-1);
   font-size: var(--rk-fs-body);

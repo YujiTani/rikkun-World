@@ -21,6 +21,8 @@ export interface CombatConfig {
   regenDelayTicks: number;
   /** 回復のあいだ（最初の 1 は regenDelayTicks のあと、この数ステップ目） */
   regenIntervalTicks: number;
+  /** 自然回復は体力がこの わりあい（最大の半分）より少ないときだけ。食べ物などは別 */
+  regenMaxRatio: number;
   /** 落とす確率（えらんでいるマスは対象外） */
   dropChance: number;
   /** やられた画面 */
@@ -58,7 +60,8 @@ export const COMBAT_DEFAULTS: Readonly<CombatConfig> = {
   playerMaxHp: 20,
   hurtInvincibleTicks: 30,
   regenDelayTicks: 600,
-  regenIntervalTicks: 240,
+  regenIntervalTicks: 900,
+  regenMaxRatio: 0.5,
   dropChance: 0.5,
   respawnDelayTicks: 120,
   respawnInvincibleTicks: 180,

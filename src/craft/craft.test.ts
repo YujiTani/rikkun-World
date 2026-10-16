@@ -3,6 +3,7 @@ import type { BlockId, ItemStack, Vec3 } from '../contracts';
 import { PlayerCombatImpl } from '../combat/PlayerCombat';
 import { createCombatConfig } from '../combat/config';
 import { CRAFT_DEFAULTS } from './config';
+import { CRAFT_RECIPES } from './recipes';
 import { DropField } from '../drops';
 import { InventoryImpl } from '../inventory/Inventory';
 import { ITEM_TYPES } from '../inventory/items';
@@ -63,11 +64,23 @@ describe('アイテムの種類表（AC1）', () => {
   });
 });
 
+describe('きらめく カタナ（#68）', () => {
+  it('名前が かわり、すいしょう 2・てつの かたまり 3・き 1 で作る', () => {
+    expect(ITEM_TYPES.find((x) => x.id === 'crystal_katana')!.name).toBe('きらめく カタナ');
+    const rc = CRAFT_RECIPES.find((x) => x.id === 'crystal_katana')!;
+    expect(rc.inputs).toEqual([
+      { item: 'crystal', count: 2 },
+      { item: 'iron_ingot', count: 3 },
+      { item: 'log', count: 1 },
+    ]);
+  });
+});
+
 describe('つくる（AC1〜AC4）', () => {
-  it('list は 25 こ、持ち物が空なら全部 craftable false', () => {
+  it('list は 29 こ、持ち物が空なら全部 craftable false', () => {
     const { craft } = rig();
     const l = craft.list();
-    expect(l).toHaveLength(25);
+    expect(l).toHaveLength(29);
     expect(l.every((c) => !c.craftable && c.missing.length === c.inputs.length)).toBe(true);
     expect(l[0].id).toBe('wood_pickaxe');
     expect(craft.bakeList().map((b) => b.id)).toEqual(['iron_ingot', 'kawara', 'brick', 'haniwa']);

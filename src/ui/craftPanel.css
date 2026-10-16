@@ -474,6 +474,10 @@
 }
 .cp-more {
   align-self: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: max(var(--rk-h-btn), calc(44px / var(--rk-fit, 1)));
   margin: 0;
   padding: 0 var(--rk-sp-3);
   font-family: inherit;
@@ -515,7 +519,8 @@
 /* ツールチップの「なにに つかう」は 省略せず 全部（長いときは ツールチップ全体がスクロール） */
 .tip-desc {
   max-width: calc(var(--rk-slot-inv) * 5);
-  overflow-wrap: anywhere;
+  word-break: keep-all; /* 折り返しは スペースの ところだけ */
+  overflow-wrap: break-word;
 }
 .tip-desc[hidden] {
   display: none;

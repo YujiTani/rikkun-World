@@ -1,5 +1,6 @@
 /* マスの ツールチップ: カードの形、ふち 3px = めずらしさの色（JS が borderColor を入れる）、影 2（M6 §3.5 (6)） */
 #tooltip {
+  word-break: keep-all; /* 折り返しは スペースの ところだけ */
   position: fixed;
   left: 0;
   top: 0;

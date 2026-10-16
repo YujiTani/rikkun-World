@@ -402,7 +402,7 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
       // 自然回復
       this.sinceDamage++;
       if (
-        this.hpNow < cfg.playerMaxHp &&
+        this.hpNow < cfg.playerMaxHp * cfg.regenMaxRatio &&
         this.sinceDamage >= cfg.regenDelayTicks + cfg.regenIntervalTicks &&
         (this.sinceDamage - cfg.regenDelayTicks) % cfg.regenIntervalTicks === 0
       ) {

@@ -127,32 +127,37 @@ describe('体力・ダメージ・むてき・回復', () => {
     expect(r.player.position.x).toBeLessThan(2.71);
   });
 
-  it('自然回復: 840・1080 ステップ目に 1 ずつ。ダメージで待ち直し', () => {
+  it('自然回復: 1500・2400 ステップ目に 1 ずつ。ダメージで待ち直し', () => {
     const r = rig();
-    r.combat.debugDamage(5);
-    r.step(599);
-    expect(r.combat.hp()).toBe(15);
+    r.combat.debugDamage(15); // 5
+    r.step(1499);
+    expect(r.combat.hp()).toBe(5);
     r.step(1);
-    expect(r.combat.hp()).toBe(15);
-    r.step(239);
-    expect(r.combat.hp()).toBe(15);
+    expect(r.combat.hp()).toBe(6);
+    r.step(899);
+    expect(r.combat.hp()).toBe(6);
     r.step(1);
-    expect(r.combat.hp()).toBe(16);
-    r.step(240);
-    expect(r.combat.hp()).toBe(17);
+    expect(r.combat.hp()).toBe(7);
     r.step(100);
     r.combat.debugDamage(1);
-    r.step(839);
-    expect(r.combat.hp()).toBe(16);
+    r.step(1499);
+    expect(r.combat.hp()).toBe(6);
     r.step(1);
-    expect(r.combat.hp()).toBe(17);
+    expect(r.combat.hp()).toBe(7);
   });
 
-  it('20 になったら増えない', () => {
+  it('自然回復は 最大の半分（10）までで止まる', () => {
+    const r = rig();
+    r.combat.debugDamage(12); // 8
+    r.step(600 + 900 * 6);
+    expect(r.combat.hp()).toBe(10);
+  });
+
+  it('半分以上なら 自然回復しない', () => {
     const r = rig();
     r.combat.debugDamage(1);
-    r.step(840 + 240 * 3);
-    expect(r.combat.hp()).toBe(20);
+    r.step(600 + 900 * 4);
+    expect(r.combat.hp()).toBe(19);
   });
 
   it('debugDamage は押さず playerHit も出さない', () => {

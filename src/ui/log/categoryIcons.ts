@@ -54,6 +54,12 @@ const STAR_PTS: (readonly [number, number])[] = (() => {
   return out;
 })();
 
+/**
+ * 六角（たたかい）: 横長（はば 16・高さ 12）で 上下が まっすぐ、左右が とがる形。行ごとの 左はし x（右はしは 15 − x）。
+ * 式で描くと 32px で まるに近く見えたので（#82）、正六角形の 左右の とがりを 行ごとに 手で 決めた
+ */
+const HEX_ROWS: Readonly<Record<number, number>> = { 2: 4, 3: 3, 4: 2, 5: 2, 6: 1, 7: 0, 8: 0, 9: 1, 10: 2, 11: 2, 12: 3, 13: 4 };
+
 /** 外の形（ふちをふくむ不透明なドット）。N×N の真偽 */
 export function shapeMask(shape: ShapeName): boolean[] {
   const m = new Array<boolean>(N * N).fill(false);
@@ -70,7 +76,7 @@ export function shapeMask(shape: ShapeName): boolean[] {
           on = x >= 1 && x <= 14 && y >= 1 && y <= 14 && !((x === 1 || x === 14) && (y === 1 || y === 14));
           break;
         case 'hexagon':
-          on = Math.abs(px) <= 6.6 && Math.abs(py) <= 7.6 - Math.abs(px) * 0.58;
+          on = HEX_ROWS[y] !== undefined && x >= HEX_ROWS[y] && x <= 15 - HEX_ROWS[y];
           break;
         case 'star':
           on = inPolygon(x + 0.5, y + 0.5, STAR_PTS);

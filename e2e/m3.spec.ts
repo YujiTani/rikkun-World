@@ -270,14 +270,14 @@ test.describe('M3 妖怪の AI（距離だけ）', () => {
     const r = await page.evaluate(() => {
       const T = (window as any).T;
       const h = (window as any).__rikkun;
-      const sight: Record<string, number> = { karakasa: 12, chochin: 14, nurikabe: 8, rokurokubi: 12 };
+      const sight: Record<string, number> = { karakasa: 18, chochin: 21, nurikabe: 12, rokurokubi: 18 };
       const out: any = {};
       for (const kind of Object.keys(sight)) {
         for (const delta of [-1, +1]) {
           T.base();
           h.world.fill(0, 8, 0, 12, 8, 12, 'stone');
           T.place(1.5, 9, 1.5, 135, 0);
-          // 対角線の距離 d（ちょうちん 15 は 1.5+10.6 の所に置く）
+          // 対角線の距離 d（遠い所は床を 20 まで のばして置く）
           const d = sight[kind] + delta;
           const o = d / Math.SQRT2;
           let x = 1.5 + o;
@@ -714,43 +714,40 @@ test.describe('M3 体力・ハート・ダメージ', () => {
     expect(r.bottom).toBeLessThanOrEqual(r.hotbarTop! + 1);
   });
 
-  test('AC21: 自然回復（600 ステップ待ち、840 で 16、1,080 で 17、ダメージで待ち直し）', async ({ page }) => {
+  test('AC21: 自然回復（600 ステップ待ち、1,500 で +1、2,400 で +2、半分まで、ダメージで待ち直し）', async ({ page }) => {
     await open(page);
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
       (window as any).T.base();
-      h.combat.damage(5);
+      h.combat.damage(15);
       const hp = (n: number) => {
         h.step(n);
         return h.combat.get().hp;
       };
       const out: any = {};
       out.s0 = h.combat.get().hp;
-      out.s599 = hp(599);
-      out.s600 = hp(1);
-      out.s839 = hp(239);
-      out.s840 = hp(1);
-      out.s1079 = hp(239);
-      out.s1080 = hp(1);
-      // もう一度ダメージ → そこから 600 待つ
+      out.s1499 = hp(1499);
+      out.s1500 = hp(1);
+      out.s2399 = hp(899);
+      out.s2400 = hp(1);
+      // もう一度ダメージ → そこから待ち直し
       h.combat.damage(2);
       out.after = h.combat.get().hp;
-      out.d599 = hp(599);
-      out.d839 = hp(240);
-      out.d840 = hp(1);
+      out.d1499 = hp(1499);
+      out.d1500 = hp(1);
+      // 半分（10）で止まる
+      out.long = hp(900 * 10);
       return out;
     });
-    expect(r.s0).toBe(15);
-    expect(r.s599).toBe(15);
-    expect(r.s600).toBe(15);
-    expect(r.s839).toBe(15);
-    expect(r.s840).toBe(16);
-    expect(r.s1079).toBe(16);
-    expect(r.s1080).toBe(17);
-    expect(r.after).toBe(15);
-    expect(r.d599).toBe(15);
-    expect(r.d839).toBe(15);
-    expect(r.d840).toBe(16);
+    expect(r.s0).toBe(5);
+    expect(r.s1499).toBe(5);
+    expect(r.s1500).toBe(6);
+    expect(r.s2399).toBe(6);
+    expect(r.s2400).toBe(7);
+    expect(r.after).toBe(5);
+    expect(r.d1499).toBe(5);
+    expect(r.d1500).toBe(6);
+    expect(r.long).toBe(10);
   });
 
   test('ダメージのスクショ: ふちのピンク・ハートがへる（赤い全画面の点滅なし）', async ({ page }) => {

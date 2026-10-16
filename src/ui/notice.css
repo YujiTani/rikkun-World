@@ -10,6 +10,13 @@
   z-index: 6;
   filter: drop-shadow(0 2px 0 var(--rk-bg-900));
 }
+/*
+ * ほる／おく の チップ（#action-hint）が出ているときは、合図（絵も 文字も）を チップの下に さげる（#82）。
+ * チップの高さ = 絵 --rk-icon-chip ＋ 上下の すき間 --rk-sp-1 ×2（actionHint.css）
+ */
+#hud:has(> #action-hint:not([hidden])) > :is(#notice-signal, #notice-signal-text) {
+  top: calc(50% + var(--rk-sp-5) + var(--rk-icon-chip) + var(--rk-sp-1) * 2 + var(--rk-sp-2));
+}
 #notice-signal[hidden],
 #notice-signal-text[hidden],
 #notice-name[hidden] {

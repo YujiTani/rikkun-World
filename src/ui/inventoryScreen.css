@@ -14,9 +14,18 @@
   justify-content: center;
   box-sizing: border-box;
   color: var(--rk-text);
+  word-break: keep-all; /* 折り返しは スペースの ところだけ */
 }
 #inventory-screen[hidden] {
   display: none;
+}
+/*
+ * 開いている間は、パネルの うしろに すけて見える 遊びの HUD（題・時計・レベルとハート・ホットバー・照準まわり）を消す。
+ * 世界は すけたまま。ホットバーは パネルの中にもある（#44・#82）。
+ */
+#hud:has(> #inventory-screen:not([hidden]))
+  > :is(#title, #crosshair, #notice-signal, #notice-signal-text, #notice-name, #hud-self, #clock, #hotbar, #action-hint, #hud-notice, #farm-hint, #farm-aim, #pickup-log, #home-notice) {
+  opacity: 0;
 }
 
 .inv-frame {
@@ -92,7 +101,7 @@
   display: flex;
   align-items: center;
   gap: var(--rk-sp-2);
-  min-height: var(--rk-h-tab-guide);
+  min-height: max(var(--rk-h-tab-guide), calc(44px / var(--rk-fit, 1)));
   padding: var(--rk-sp-2) var(--rk-sp-5);
   font-family: inherit;
   font-size: var(--rk-fs-head);

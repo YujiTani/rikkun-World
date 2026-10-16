@@ -153,7 +153,7 @@
   align-items: center;
   justify-content: center;
   gap: var(--rk-sp-2);
-  min-height: var(--rk-h-btn);
+  min-height: max(var(--rk-h-btn), calc(44px / var(--rk-fit, 1))); /* 画面を ちぢめても 見た目 44px 以上 */
   padding: var(--rk-sp-2) var(--rk-sp-5);
   margin: 0;
   font-family: inherit;
@@ -252,7 +252,7 @@
   align-items: center;
   justify-content: center;
   gap: var(--rk-sp-2);
-  min-height: var(--rk-h-btn);
+  min-height: max(var(--rk-h-btn), calc(44px / var(--rk-fit, 1))); /* 画面を ちぢめても 見た目 44px 以上 */
   padding: var(--rk-sp-2) var(--rk-sp-4);
   margin: 0;
   font-family: inherit;
