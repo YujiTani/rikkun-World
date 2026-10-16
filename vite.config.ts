@@ -13,6 +13,7 @@ export default defineConfig({
         main: resolve(import.meta.dirname, 'index.html'),
         preview: resolve(import.meta.dirname, 'preview.html'),
         voxelProto: resolve(import.meta.dirname, 'voxel-proto.html'),
+        sound: resolve(import.meta.dirname, 'sound.html'),
       },
     },
   },

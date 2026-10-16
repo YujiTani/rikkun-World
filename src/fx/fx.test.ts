@@ -86,20 +86,25 @@ describe('音', () => {
     const snd = new SoundFx(() => a.ctx, s);
     snd.play('break');
     expect(snd.played).toBe(0);
+    expect(a.peaks).toHaveLength(0);
     s.fxVolume = 0.2;
     snd.play('place');
-    const small = a.peaks[0];
+    const small = a.peaks[0]!;
     s.fxVolume = 1;
     snd.play('place');
-    expect(a.peaks[1]).toBeGreaterThan(small);
-    expect(a.peaks[1]).toBeLessThanOrEqual(0.3); // 大きすぎない
+    const n = a.peaks.length / 2;
+    expect(a.peaks[n]!).toBeGreaterThan(small);
+    expect(a.peaks[n]!).toBeLessThanOrEqual(1); // 1 をこえない
   });
   it('半音ぶん高くなる', () => {
     const a = fakeAudio();
     const snd = new SoundFx(() => a.ctx, { ...FX_SETTINGS });
-    snd.play('pickup', 0);
-    snd.play('pickup', 12);
-    expect(a.freqs[2] / a.freqs[0]).toBeCloseTo(2, 5);
+    snd.play('place', 0);
+    snd.play('place', 12);
+    const n = a.freqs.length / 2;
+    const rec = snd.drainRecords();
+    // ゆらぎ（cents）ぶんをのぞくと、ちょうど 1 オクターブ
+    expect(a.freqs[n]! / a.freqs[0]!).toBeCloseTo(2 * Math.pow(2, (rec[1]!.cents - rec[0]!.cents) / 1200), 5);
   });
   it('AudioContext が無くてもこわれない', () => {
     const snd = new SoundFx(() => null, { ...FX_SETTINGS });
@@ -131,7 +136,11 @@ function setup(over: Partial<FxSettings> = {}) {
   const dig = new FakeDig();
   const names: string[] = [];
   const sound = new SoundFx(() => null, { ...FX_SETTINGS });
-  sound.play = (n) => void names.push(n);
+  const calls: Array<[string, number | undefined, { comboStep?: number } | undefined]> = [];
+  sound.play = (n, semis, opt) => {
+    names.push(n);
+    calls.push([n, semis, opt]);
+  };
   const signals: string[] = [];
   const shakes: Array<[number, number]> = [];
   const picks: string[] = [];
@@ -146,7 +155,7 @@ function setup(over: Partial<FxSettings> = {}) {
     onPickup: (i) => void picks.push(i),
     settings: { ...FX_SETTINGS, ...over },
   });
-  return { dig, fx, names, signals, shakes, picks, swings };
+  return { dig, fx, names, calls, signals, shakes, picks, swings };
 }
 
 const B = { x: 4, y: 10, z: 6 };
@@ -195,6 +204,19 @@ describe('DigFx', () => {
       t.fx.update(DT);
     }
     expect(sem).toEqual([0, 1, 2]);
+  });
+  it('連続で取ると pickup に comboStep（0, 1, 2…）を渡す。2.5 秒あくと 0 にもどる', () => {
+    const t = setup();
+    for (let k = 0; k < 3; k++) {
+      t.dig.events.push({ type: 'break', tick: k, block: B, id: 'dirt', gotItem: true, count: 1 });
+      t.fx.update(DT);
+    }
+    const steps = () => t.calls.filter((c) => c[0] === 'pickup').map((c) => c[2]?.comboStep);
+    expect(steps()).toEqual([0, 1, 2]);
+    for (let i = 0; i < 160; i++) t.fx.update(DT); // 2.67 秒
+    t.dig.events.push({ type: 'break', tick: 9, block: B, id: 'dirt', gotItem: true, count: 1 });
+    t.fx.update(DT);
+    expect(steps()).toEqual([0, 1, 2, 0]);
   });
   it('いっぱい: 合図と赤い枠が 0.5 秒', () => {
     const t = setup();
