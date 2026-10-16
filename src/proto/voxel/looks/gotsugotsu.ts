@@ -3,8 +3,10 @@ import { ALL_FACES, LOOK_N, type KindSpec, type Look } from './types';
 
 /**
  * 案 B「ごつごつ」（id: gotsugotsu）。手で ほった ジオラマ（もけい）の島。
- * - 形: 1 マスの つぶ ではなく、3×3 の「かけら」単位で 面を へこませる。くさ は 3×3 の しばふ が段になり、ところどころ 草の芽が立つ。
- *   崖では くさ の下の土が 1 マス引っこみ、しばふ の「ひさし」ができる。木の皮は たての みぞ。はっぱ は 3×3×3 の かたまり。
+ * - 形（2026-10-16 オーナーの決定で強めた。きまりは docs/art/DESIGN.md）: 1 マスの つぶ ではなく、3×3 の「かけら」単位で
+ *   1〜3 マス へこませる。見える面が出会う へり・かどは 3×3×3 ごとに けずる。くさ は 3×3 ごとに 4 つの高さ（くぼみ・草の芽・
+ *   1 段ひくい・つまった）。崖では しばふ の くちびる を けずり、下のはしを ギザギザ、下の土を引っこめて ひさし を作る。
+ *   木の皮は 2 マスの たての みぞ。鉱石の かたまり は けずらない（少し とび出す）。はっぱ は 3×3×3 の かたまり。
  * - 色: ブロックの外がわほど明るく、中ほど暗い（外 → 1 段内 → 2 段内）。へこみの底が かってに 暗くなり、かげ（光の代わり）になる。
  * - 空気: すんだ 青空。遠くは 青く かすむ（遠近感）。
  * 色はブロックの中の位置だけで決める（3D テクスチャは位置しか見ないため）。
@@ -71,12 +73,15 @@ function exposedDepth(x: number, y: number, z: number, e: number): number {
 }
 
 /**
- * 3×3 の かけら の へこみ。面ごとに 9 枚の かけら の うち いくつかを 1 マス、まれに まんなかを 2 マス へこませる。
- * rate = 9 枚のうち へこむ 目安（0〜9）
+ * 3×3 の かけら の へこみ（強め。2026-10-16 オーナー「もっとゴツゴツでよい」）。
+ * - 面: 9 枚の かけら の うち rate 枚くらいを 1 マス、そのうち deep 枚くらいは かけら ごと 2 マス、
+ *   さらに その半分は まんなか 1 マスだけ 3 マスめ まで へこむ（だんだんの ほりかげ）。
+ * - かど: 見える面が 2 つ出会う へり・かど は、3×3×3 の かたまり ごとに edge/10 の わりあいで けずる（けずった岩の りんかく）。
+ *   2 マスの深さまで けずるので、崖や 山の シルエットが ごつごつ する。
+ * 見えない面に さわる マスは けずらない（dentable）。
  */
-function chipped(x: number, y: number, z: number, e: number, h: number, rate: number): boolean {
-  const d = exposedDepth(x, y, z, e);
-  if (d > 1 || !dentable(x, y, z, e)) return false;
+function carved(x: number, y: number, z: number, e: number, h: number, rate: number, deep: number, edge: number): boolean {
+  if (!dentable(x, y, z, e)) return false;
   const faces: [number, number, number, number][] = [
     [1, M - y, x, z],
     [2, y, x, z],
@@ -85,17 +90,40 @@ function chipped(x: number, y: number, z: number, e: number, h: number, rate: nu
     [16, M - z, x, y],
     [32, z, x, y],
   ];
+  let near = 0; // 1 マス以内の 見える面の数
   for (let f = 0; f < 6; f++) {
     const [bit, dd, u, v] = faces[f];
-    if (!(e & bit) || dd > 1) continue;
-    const tu = (u / 3) | 0;
-    const tv = (v / 3) | 0;
-    const r = mix(h, f * 16 + tv * 3 + tu);
-    if (r % 9 >= rate) continue;
-    if (dd === 0) return true;
-    // 2 マス目: かけら の まんなか だけ、ときどき
-    if (u % 3 === 1 && v % 3 === 1 && (r >>> 8) % 3 === 0) return true;
+    if (!(e & bit) || dd > 2) continue;
+    if (dd <= 1) near++;
+    const r = mix(h, f * 16 + ((v / 3) | 0) * 3 + ((u / 3) | 0));
+    const k = r % 9;
+    if (dd === 0 && k < rate) return true;
+    if (dd === 1 && k < deep) return true;
+    if (dd === 2 && k < deep && u % 3 === 1 && v % 3 === 1 && (r >>> 8) % 2 === 0) return true;
   }
+  if (near >= 2 && edge > 0) {
+    const r = mix(h, 500 + (((y / 3) | 0) * 3 + ((z / 3) | 0)) * 3 + ((x / 3) | 0));
+    if (r % 10 < edge) return true;
+  }
+  return false;
+}
+
+/**
+ * 草の上の面（y = 5〜8）。3×3 ごとに 4 つの高さ（だんだん の しばふ）:
+ * くぼみ 3 割（2 マス。まんなか は 3 マス・ときどき 草の芽が 1 本）/ 草の芽 3 割（1 マスめ に 3 本に 1 本）/
+ * 1 段ひくい しばふ 2 割 / もこっと つまった しばふ 2 割
+ */
+function grassTop(x: number, y: number, z: number, e: number, h: number): boolean {
+  if (!(e & 1) || y < 5 || !dentable(x, y, z, e)) return false;
+  const dTop = M - y;
+  const r = mix(h, ((z / 3) | 0) * 3 + ((x / 3) | 0)) % 10;
+  const mid = x % 3 === 1 && z % 3 === 1;
+  if (r < 3) {
+    if (mid && (r & 1) === 0) return false; // 草の芽が 1 本 のこる
+    return dTop <= 1 || (dTop === 2 && mid);
+  }
+  if (r < 6) return dTop === 0 && mix(h, z * 9 + x + 100) % 3 !== 0;
+  if (r < 8) return dTop === 0;
   return false;
 }
 
@@ -116,26 +144,24 @@ function kind(base: number, color: (x: number, y: number, z: number, h: number) 
   return { base, fill };
 }
 
-function rock(c: Layers, rate: number): KindSpec {
-  return kind(c[0], (x, y, z, h) => layered(c, x, y, z, h), (x, y, z, e, h) => chipped(x, y, z, e, h, rate));
+function rock(c: Layers, rate: number, deep: number, edge: number): KindSpec {
+  return kind(c[0], (x, y, z, h) => layered(c, x, y, z, h), (x, y, z, e, h) => carved(x, y, z, e, h, rate, deep, edge));
 }
 
 /** 石に うまった 3×3×3 の かたまり（つぶ ではなく かたまり。上の段が明るい）。27 の かたまりの うち 4〜6 こ */
+function isNugget(x: number, y: number, z: number, h: number): boolean {
+  const r = mix(h, (((y / 3) | 0) * 3 + ((z / 3) | 0)) * 3 + ((x / 3) | 0));
+  if (r % 5 !== 0) return false;
+  // かたまり の 角 は 石のまま（まるく見せる）
+  return (x % 3 !== 1 ? 1 : 0) + (y % 3 !== 1 ? 1 : 0) + (z % 3 !== 1 ? 1 : 0) < 3;
+}
+
+/** 石に うまった 3×3×3 の かたまり。まわりの石だけ けずるので、かたまり が 少し とび出して見える */
 function nugget(spec: number[]): KindSpec {
   return kind(
     STONE[0],
-    (x, y, z, h) => {
-      const r = mix(h, (((y / 3) | 0) * 3 + ((z / 3) | 0)) * 3 + ((x / 3) | 0));
-      if (r % 5 === 0) {
-        // かたまり の 角 は 石のまま（まるく見せる）
-        const ex = x % 3 !== 1 ? 1 : 0;
-        const ey = y % 3 !== 1 ? 1 : 0;
-        const ez = z % 3 !== 1 ? 1 : 0;
-        if (ex + ey + ez < 3) return y % 3 === 2 ? spec[1] : spec[0];
-      }
-      return layered(STONE, x, y, z, h);
-    },
-    (x, y, z, e, h) => chipped(x, y, z, e, h, 3),
+    (x, y, z, h) => (isNugget(x, y, z, h) ? (y % 3 === 2 ? spec[1] : spec[0]) : layered(STONE, x, y, z, h)),
+    (x, y, z, e, h) => !isNugget(x, y, z, h) && carved(x, y, z, e, h, 5, 2, 0),
   );
 }
 
@@ -158,31 +184,39 @@ export const gotsugotsuLook: Look = {
         }
         const k = x === 0 || x === M ? z : x;
         if (y === 5 && k % 3 !== 1) return GRASS[2]; // しばふ の ねもと
+        if (y === 5 && x > 0 && x < M && z > 0 && z < M) return GRASS[3]; // くぼみ の そこ（土を見せない）
         return layered(DIRT, x, y, z, h);
       },
       (x, y, z, e, h) => {
-        if ((e & 1) !== 0 && y === M && dentable(x, M, z, e)) {
-          // くさむら: 3×3 ごとに「もこっと つまった しばふ」(4 割) か「草の芽が 3 本に 1 本 立つ」(6 割)
-          const r = mix(h, ((z / 3) | 0) * 3 + ((x / 3) | 0));
-          if (r % 5 < 2) return false;
-          return mix(h, z * 9 + x + 100) % 3 !== 0;
-        }
-        // 崖: くさ の下の土（y <= 4）を 1 マス引っこめる（しばふ の ひさし）
-        if (y <= 4 && exposedDepth(x, y, z, e & ~3) === 0 && dentable(x, y, z, e)) return true;
+        if (grassTop(x, y, z, e, h)) return true;
+        const side = e & ~3;
+        if (!side || !dentable(x, y, z, e)) return false;
+        const sd = exposedDepth(x, y, z, side);
+        // 崖のふち: 上と横が出会う しばふ の くちびる を かたまり ごとに まるく けずる
+        if ((e & 1) !== 0 && y >= 7 && sd === 0 && mix(h, 600 + ((z / 3) | 0) * 3 + ((x / 3) | 0)) % 10 < 5) return true;
+        // しばふ の 下のはし（y = 5）を ギザギザに
+        if (y === 5 && sd === 0) return mix(h, 700 + x * 9 + z) % 3 === 0;
+        if (y > 4) return false;
+        // 崖: くさ の下の土を 1 マス引っこめる（しばふ の ひさし）。かけら ごとに もう 1 マス ほる
+        if (sd === 0) return true;
+        const u = exposedDepth(x, y, z, e & 12) === sd ? z : x; // 面の上の よこの位置
+        const r = mix(h, 800 + ((y / 3) | 0) * 9 + ((u / 3) | 0));
+        if (sd === 1) return r % 9 < 4;
+        if (sd === 2) return r % 9 < 2 && u % 3 === 1 && y % 3 === 1;
         return false;
       },
     ),
-    dirt: rock(DIRT, 3),
+    dirt: rock(DIRT, 4, 2, 5),
     sand: kind(
       SAND[0],
       (x, y, z, h) => layered(SAND, x, y, z, h),
       (x, y, z, e, h) => {
         // 上の面に 風の しま（なみ）。横は 少しだけ かける
         if ((e & 1) !== 0 && y === M && dentable(x, y, z, e)) return (z + (((x / 3) | 0) % 2)) % 3 === 0;
-        return chipped(x, y, z, e & ~1, h, 2);
+        return carved(x, y, z, e & ~1, h, 3, 1, 3);
       },
     ),
-    stone: rock(STONE, 4),
+    stone: rock(STONE, 6, 3, 7),
     coal_ore: nugget(COAL),
     iron_ore: nugget(IRON),
     log: kind(
@@ -195,11 +229,14 @@ export const gotsugotsuLook: Look = {
         return layered(BARK, x, y, z, h);
       },
       (x, y, z, e, h) => {
-        // たての みぞ（2 本ずつ）。ブロックごとに ずらす
+        // たての みぞ。ブロックごとに ずらす
         if (y === 0 || y === M || !dentable(x, y, z, e)) return false;
         const off = h % 3;
-        if ((e & 12) !== 0 && (x === 0 || x === M) && (z + off) % 4 === 0) return true;
-        if ((e & 48) !== 0 && (z === 0 || z === M) && (x + off) % 4 === 0) return true;
+        // みぞ は 2 マスの深さ（外の 1 マスは 2 本に 1 本、2 マスめ は 4 本に 1 本）
+        if ((e & 8) !== 0 && x <= 1 && (z + off) % (x === 0 ? 2 : 4) === 0) return true;
+        if ((e & 4) !== 0 && x >= M - 1 && (z + off) % (x === M ? 2 : 4) === 0) return true;
+        if ((e & 32) !== 0 && z <= 1 && (x + off) % (z === 0 ? 2 : 4) === 0) return true;
+        if ((e & 16) !== 0 && z >= M - 1 && (x + off) % (z === M ? 2 : 4) === 0) return true;
         return false;
       },
     ),
@@ -230,7 +267,7 @@ export const gotsugotsuLook: Look = {
         }
       },
     },
-    bedrock: rock(BEDROCK, 5),
-    ...Object.fromEntries(Object.entries(OTHER).map(([id, c]) => [id, rock(c, 2)])),
+    bedrock: rock(BEDROCK, 6, 3, 7),
+    ...Object.fromEntries(Object.entries(OTHER).map(([id, c]) => [id, rock(c, 2, 0, 0)])),
   },
 };

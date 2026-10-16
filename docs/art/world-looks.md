@@ -1,6 +1,8 @@
 # 世界の見た目 3 案（VOX-1 / issue #83）
 
-2026-10-16 art-director。**まだ決まりではない**（オーナーが Mac で 3 案をくらべて 1 つ選んだら、`docs/art/DESIGN.md` に書く）。
+**B「ごつごつ」に決定（2026-10-16）。** でこぼこは このあと強めた（オーナー「もっとゴツゴツでよい」）。きまりは `docs/art/DESIGN.md`。下の表の B の数は 強める前（強めた後: スタート 196,068 三角形・8.4MB、上空 536,622・14.0MB）。B のスクショ `gotsugotsu-*.png` は 強めた後に撮り直しずみ、比較の `compare.png` は 前のまま。
+
+2026-10-16 art-director。（以下は 選ぶ前に書いた くらべ）
 
 - 試し方: `npm run dev` → http://localhost:5173/voxel-proto.html?mode=hybrid&r=16&look=tsumiki （`gotsugotsu` / `dot-tile`）。画面上の「みため」ボタンでも切りかえ。
 - 比較の 1 枚: `docs/screenshots/VOX-1/compare.png`（左から A・B・C。上から スタート・キャラを横から・上空）
