@@ -20,6 +20,7 @@ describe('空の光', () => {
     expect(l.skyLight(5, 3, 5)).toBe(15);
     w.setBlock(20, 5, 20, 'leaves');
     l.update();
+    l.flush();
     expect(l.skyLight(20, 4, 20)).toBe(14);
     expect(l.skyLight(20, 5, 20)).toBe(14);
   });
@@ -27,6 +28,7 @@ describe('空の光', () => {
     const { w, l } = flat();
     w.fill(10, 5, 0, 40, 5, 47, 'stone');
     l.update();
+    l.flush();
     expect(l.skyLight(9, 3, 20)).toBe(15);
     expect(l.skyLight(10, 3, 20)).toBe(14);
     expect(l.skyLight(12, 3, 20)).toBe(12);
@@ -45,11 +47,13 @@ describe('たいまつの光', () => {
     const { w, l } = flat();
     w.setBlock(24, 1, 24, 'torch');
     l.update();
+    l.flush();
     expect(l.blockLight(24, 1, 24)).toBe(14);
     expect(l.blockLight(28, 1, 24)).toBe(10);
     expect(l.blockLight(24, 1, 33)).toBe(5);
     w.fill(26, 1, 20, 26, 6, 28, 'stone');
     l.update();
+    l.flush();
     expect(l.blockLight(27, 1, 24)).toBeLessThan(10);
     expect(l.blockLight(27, 1, 24)).toBeGreaterThan(0); // 回りこむ
   });
@@ -57,8 +61,10 @@ describe('たいまつの光', () => {
     const { w, l } = flat();
     w.setBlock(24, 1, 24, 'start_torch');
     l.update();
+    l.flush();
     w.setBlock(24, 1, 24, 'air');
     l.update();
+    l.flush();
     expect(l.blockLight(24, 1, 24)).toBe(0);
     expect(l.blockLight(26, 1, 24)).toBe(0);
     expect(l.lastRecomputeCells).toBeLessThan(48 * 16 * 48);
@@ -68,6 +74,7 @@ describe('たいまつの光', () => {
     w.setBlock(24, 1, 24, 'torch');
     w.takeDirtyChunks();
     l.update();
+    l.flush();
     expect(w.takeDirtyChunks().length).toBeGreaterThan(0);
   });
 });
@@ -85,6 +92,7 @@ describe('3 だんかい（強い・少し・なし）', () => {
     const { w, l } = flat();
     w.setBlock(24, 1, 24, 'torch');
     l.update();
+    l.flush();
     const at = (n: number) => blockLightBrightness(l.blockLight(24 + n, 1, 24));
     expect(at(4)).toBe(C.torchBrightBrightness);
     expect(at(5)).toBe(C.torchDimBrightness);
@@ -95,6 +103,7 @@ describe('3 だんかい（強い・少し・なし）', () => {
     const { w, l, d } = flat();
     w.setBlock(14, 1, 24, 'torch');
     l.update();
+    l.flush();
     d.value = 11;
     expect(l.isDarkForSpawn(14 + 8, 1, 24)).toBe(false);
     expect(l.isDarkForSpawn(14 + 9, 1, 24)).toBe(true);
@@ -122,6 +131,7 @@ describe('メッシュ', () => {
     const { w, l } = flat();
     w.setBlock(5, 1, 5, 'torch');
     l.update();
+    l.flush();
     const m = meshChunk(w, 0, 0, l);
     expect(m.opaque.lights.length / 2).toBe(m.opaque.positions.length / 3);
     expect(m.opaque.lights.length).toBeGreaterThan(0);

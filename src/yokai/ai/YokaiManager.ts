@@ -42,7 +42,7 @@ import {
   type OBox,
 } from './geometry';
 import { findNeckRoute, type P3 } from './neckRoute';
-import { Marks, disposeMarkMaterials } from './marks';
+import { HP_BAR, HpBar, disposeHpBarMaterials, hpBarState, type HpBarState, type YokaiTitle } from './hpBar';
 import { flySurface, groundSupport, isRoofed, settleGround } from './terrain';
 
 const DT = 1 / 60;
@@ -128,8 +128,10 @@ interface Ent {
   knockDz: number;
   motion: 'wait' | 'move';
   leaveAt: number;
-  marks: Marks | null;
+  marks: HpBar | null;
   marksLeft: number;
+  /** 二つ名（BAL-B #110 が決める。今は いつも 'none'） */
+  title: YokaiTitle;
   appearScale: number;
   remove: boolean;
   /** 落ち始めた高さ（落ちていなければ NaN） */
@@ -392,7 +394,7 @@ export class YokaiManager implements YokaiWorld {
   dispose(): void {
     this.clear();
     this.burst.dispose();
-    disposeMarkMaterials();
+    disposeHpBarMaterials();
   }
 
   // ---------------------------------------------------------------- 1 ステップ
@@ -434,11 +436,13 @@ export class YokaiManager implements YokaiWorld {
     }
 
     for (const e of this.ents) {
-      if (e.marks?.shown) {
-        e.marksLeft--;
-        if (e.marksLeft <= 0) e.marks.hide();
-        else this.placeMarks(e);
+      if (e.marksLeft > 0) e.marksLeft--;
+      if (e.state === 'dying' || e.state === 'leaving') {
+        e.marks?.hide();
+        continue;
       }
+      if (e.title === 'none' && !e.marks?.shown) continue;
+      this.refreshBar(e);
     }
 
     if (this.ents.some((e) => e.remove)) {
@@ -521,6 +525,7 @@ export class YokaiManager implements YokaiWorld {
       leaveAt: -1,
       marks: null,
       marksLeft: 0,
+      title: 'none',
       appearScale: appear ? 0 : 1,
       remove: false,
       fallFrom: NaN,
@@ -679,10 +684,40 @@ export class YokaiManager implements YokaiWorld {
   }
 
   private showMarks(e: Ent): void {
-    e.marks ??= new Marks();
+    e.marksLeft = HP_BAR.ticks;
+    this.refreshBar(e);
+  }
+
+  /** 体力のバーの 状態（テスト窓口 hud.hpBar 用）。いない id は null */
+  hpBarInfo(id: number): HpBarState | null {
+    const e = this.ents.find((q) => q.id === id);
+    if (!e || e.remove) return null;
+    return this.barStateOf(e);
+  }
+
+  /** 二つ名を決める（BAL-B #110 がつなぐ口。名前の表示は BAL-B） */
+  setTitle(id: number, title: YokaiTitle): boolean {
+    const e = this.ents.find((q) => q.id === id);
+    if (!e || e.remove) return false;
+    e.title = title;
+    this.refreshBar(e);
+    return true;
+  }
+
+  private barStateOf(e: Ent): HpBarState {
+    const dist = Math.hypot(this.px - e.x, this.pz - e.z);
+    return hpBarState(e.hp, e.maxHp, e.title, dist, e.marksLeft);
+  }
+
+  private refreshBar(e: Ent): void {
+    const s = this.barStateOf(e);
+    if (!s.visible) {
+      e.marks?.hide();
+      return;
+    }
+    e.marks ??= new HpBar();
     if (e.marks.group.parent !== this.group) this.group.add(e.marks.group);
-    e.marks.show(e.hp, e.maxHp);
-    e.marksLeft = AI_CONST.marksTicks;
+    e.marks.show(s);
     this.placeMarks(e);
   }
 
