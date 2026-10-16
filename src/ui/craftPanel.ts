@@ -14,7 +14,7 @@ import {
   type TileView,
 } from './craftModel';
 import { fingerUrl } from './craftPanel.art';
-import { renderDetail, createDetailEls, type DetailEls } from './craftPanel.detail';
+import { renderDetail, renderDetailEmpty, createDetailEls, EMPTY_TEXT, type DetailEls } from './craftPanel.detail';
 import { drawPixels, extraIconUrl, itemIconPixels, itemIconUrl } from './itemIcon';
 import { itemRarity } from '../drops/rarity';
 import { gemShape, gemUrl } from './gemArt';
@@ -151,7 +151,7 @@ function fly(icon: string, from: DOMRect, to: DOMRect, ms: number, parent: HTMLE
   a.onfinish = () => img.remove();
 }
 
-export const EMPTY_TEXT = 'ざいりょう を あつめよう！';
+export { EMPTY_TEXT };
 
 const rectOf = (e: Element): Rect => {
   const r = e.getBoundingClientRect();
@@ -174,7 +174,6 @@ export class CraftPanel {
   private readonly fuelRow: HTMLDivElement;
   private readonly fuelEls: { box: HTMLDivElement; count: HTMLSpanElement; item: ItemId }[] = [];
   private readonly furnaceCanvas: HTMLCanvasElement;
-  private readonly emptyMsg: HTMLDivElement;
   private readonly detailEls: DetailEls;
   private readonly finger: HTMLSpanElement;
   private readonly craftRecipes: Recipe[];
@@ -242,9 +241,6 @@ export class CraftPanel {
       this.fuelEls.push({ box, count, item: f as ItemId });
     }
     this.bakeGrid = el('div', 'cp-grid bake-grid', this.bakeBox);
-    this.emptyMsg = el('div', 'cp-empty', left);
-    this.emptyMsg.textContent = EMPTY_TEXT;
-    this.emptyMsg.hidden = true;
     for (const r of this.bakeRecipes) this.bakeGrid.append(this.makeTile(r));
 
     this.detailEls = createDetailEls(this.el, {
@@ -455,7 +451,6 @@ export class CraftPanel {
       const r = this.tileEls.get(t.id)!.root;
       if (grid.children[i] !== r) grid.insertBefore(r, grid.children[i] ?? null);
     });
-    this.emptyMsg.hidden = tiles.length > 0;
     let fingerOn: HTMLElement | null = null;
     for (const t of tiles) {
       const e = this.tileEls.get(t.id)!;
@@ -540,10 +535,11 @@ export class CraftPanel {
 
   private paintDetail(): void {
     const d = this.detail();
-    const key = d ? JSON.stringify(d) : '';
+    const key = d ? JSON.stringify(d) : this.d.isOpen() ? 'empty' : '';
     if (key === this.detailKey) return;
     this.detailKey = key;
-    renderDetail(this.detailEls, d, (i) => itemIconUrl(i), (i) => this.chooseFuel(i));
+    if (d || !this.d.isOpen()) renderDetail(this.detailEls, d, (i) => itemIconUrl(i), (i) => this.chooseFuel(i));
+    else renderDetailEmpty(this.detailEls, itemIconUrl('log' as ItemId));
   }
 
   /** マスにマウスを合わせた／外した（パネルの中は null と同じ）。同じステップで中身が替わる */
