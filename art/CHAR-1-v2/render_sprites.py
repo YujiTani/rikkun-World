@@ -3,7 +3,9 @@
 #
 # 設定（流す前に 上書きできる。書かなければ 既定）
 #   GLB      : 読みこむ .glb（Meshy で 動きを付けて書き出したもの。Mixamo の骨）
-#   MOTIONS  : [(名前, .glb の中の 動きの名前に ふくまれる 文字, コマ数)]。コマは 動きの はじめから終わりまで 等しく とる
+#   MOTIONS  : [(名前, .glb の中の 動きの名前, コマ数[, 腰の高さを固定])]。コマは 動きの はじめから終わりまで 等しく とる。
+#              名前は 前方一致（読みこみで .001 などが付いても 合う）。腰の高さを固定 = True のときは、
+#              腰の 上下の動きを 消して写す（ジャンプなど。ゲームの体の 上下と 二重にならないように）
 #   OUT_DIR  : 書き出し先。動きごとに <名前>.png（コマ表）と atlas.json（まとめ）
 # コマ表: よこ = コマ、たて = 段 × 8 方向（段 0 = 水平、1 = 見下ろし 75 度、2 = 見上げ 75 度。
 #         方向 0 = 正面、カメラが キャラの右へ 45 度ずつ まわる）。1 コマは CELL×CELL ドット。
@@ -20,7 +22,7 @@ except NameError:
 try:
     MOTIONS
 except NameError:
-    MOTIONS = [('idle', 'Idle', 1), ('walk', 'Walk', 8)]
+    MOTIONS = [('idle', 'Idle_4', 8), ('walk', 'Walking_Woman', 8), ('run', 'Run_03', 8), ('jump', 'Regular_Jump', 8, True)]
 try:
     OUT_DIR
 except NameError:
@@ -75,11 +77,11 @@ def setup_scene():
     return sc, arm, cam
 
 
-def place(cam, i, elev, cx, cy):
+def place(cam, i, elev, cx, cy, dz=0.0):
     a = math.radians(45 * i)
     e = math.radians(elev)
     d = 6
-    tgt = Vector((cx, cy, CENTER))
+    tgt = Vector((cx, cy, CENTER + dz))
     cam.location = tgt + Vector((-math.sin(a) * math.cos(e) * d, -math.cos(a) * math.cos(e) * d, math.sin(e) * d))
     cam.rotation_euler = (math.radians(90) - e, 0, -a)
 
@@ -114,8 +116,12 @@ def run():
     sc, arm, cam = setup_scene()
     hips = next(b for b in arm.pose.bones if 'hips' in b.name.lower())
     meta = {'cell': CELL, 'span': SPAN, 'center': CENTER, 'tiers': TIERS, 'dirs': 8, 'motions': {}}
-    for name, key, n in MOTIONS:
-        act = next(a for a in bpy.data.actions if key.lower() in a.name.lower())
+    if os.path.exists(OUT_DIR + 'atlas.json'):   # 前に撮った動きは のこす（動きを 分けて撮れるように）
+        meta['motions'] = json.load(open(OUT_DIR + 'atlas.json')).get('motions', {})
+    for mo in MOTIONS:
+        name, key, n = mo[:3]
+        lock_z = len(mo) > 3 and mo[3]
+        act = next(a for a in bpy.data.actions if a.name == key or a.name.startswith(key + '.'))
         ad = arm.animation_data
         ad.action = act
         # Blender 4.4 から 動きには「スロット」がある。つけないと ポーズが 動かない
@@ -123,13 +129,17 @@ def run():
             ad.action_slot = act.slots[0]
         f0, f1 = act.frame_range
         frames = [round(f0 + (f1 - f0) * k / n) for k in range(n)] if n > 1 else [round(f0)]
+        base_z = None
         atlas = np.zeros((len(TIERS) * 8 * CELL, len(frames) * CELL, 4), np.float32)
         for fi, f in enumerate(frames):
             sc.frame_set(f)
             hp = arm.matrix_world @ hips.head   # 腰が まん中に くるように カメラを よこに ずらす
+            if base_z is None:
+                base_z = hp.z
+            dz = max(0.0, hp.z - base_z) if lock_z else 0.0   # 上がる分だけ消す（しゃがむのは そのまま）
             for ti, e in enumerate(TIERS):
                 for i in range(8):
-                    place(cam, i, e, hp.x, hp.y)
+                    place(cam, i, e, hp.x, hp.y, dz)
                     path = tmp + 'r.png'
                     sc.render.filepath = path
                     bpy.ops.render.render(write_still=True)
