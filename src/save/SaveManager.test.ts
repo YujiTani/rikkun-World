@@ -3,7 +3,11 @@ import type { Inventory, PlayerState, SpawnPoint } from '../contracts';
 import { ArrayVoxelWorld } from '../world/VoxelWorld';
 import { generateIsland } from '../world/gen/generateIsland';
 import { SAVE_ID, MemoryBackend, packColumn } from './backend';
-import { encodeSections } from './chunkCodec';
+import { BLOCK_TYPES } from '../world/blocks/blockTypes';
+import { BLOCK_IDS_V1 } from './blockIdsV1';
+import { deflateRaw, encodeSections } from './chunkCodec';
+import { sectionToArray } from '../world/sections';
+import { exportSave, importSave } from './portable';
 import { PENDING_KEY, migratedKey, restoreStoredWorld } from './restore';
 import {
   SaveManager,
@@ -644,3 +648,159 @@ describe('SaveManager 時刻', () => {
     expect((db.metas.get(SAVE_ID)!.time as { dayTick: number }).dayTick).toBe(900);
   });
 });
+
+describe('SAVE-30: id の文字で読む保存', () => {
+  const nowIds = BLOCK_TYPES.map((t) => t.id as string);
+
+  async function pendingText(): Promise<Record<string, unknown>> {
+    const store = new MemoryStore();
+    const db = new MemoryBackend();
+    const a = await session(store, db);
+    a.world.setBlock(2, 25, 2, 'dirt');
+    await a.save.now();
+    a.world.setBlock(3, 25, 3, 'stone');
+    a.world.setBlock(40, 25, 40, 'farmland');
+    db.failWrites = true;
+    const handlers: Array<() => void> = [];
+    const win = { addEventListener: (_: string, f: () => void) => handlers.push(f), removeEventListener: () => {} };
+    const doc = { hidden: false, addEventListener: () => {}, removeEventListener: () => {} };
+    a.save.bindPageEvents(win as unknown as Window, doc as unknown as Document);
+    handlers[0]();
+    await a.save.idle();
+    return JSON.parse(store.data.get(PENDING_KEY)!) as Record<string, unknown>;
+  }
+
+  async function restoreWith(p: Record<string, unknown>) {
+    const store = new MemoryStore();
+    store.data.set(PENDING_KEY, JSON.stringify(p));
+    const db = new MemoryBackend();
+    const b = await session(store, db);
+    return b;
+  }
+
+  it('AC5: 保険に ids（書いたときの id の一覧）が入り、cells の番号はその一覧の番号', async () => {
+    const p = await pendingText();
+    expect(p.ids).toEqual(nowIds);
+    const cells = p.cells as number[];
+    const ids = p.ids as string[];
+    expect(cells.length).toBe(8);
+    expect(ids[cells[3]]).toBe('stone');
+  });
+
+  it('AC5: ids つきは その一覧で当たる。並び順のちがう表でも 同じ id', async () => {
+    const p = await pendingText();
+    const oldIds = p.ids as string[];
+    const rev = [...oldIds].reverse();
+    const cells = (p.cells as number[]).slice();
+    for (let k = 3; k < cells.length; k += 4) cells[k] = rev.indexOf(oldIds[cells[k]]);
+    const b = await restoreWith({ ...p, ids: rev, cells });
+    expect(b.world.getBlock(3, 25, 3)).toBe('stone');
+    expect(b.world.getBlock(40, 25, 40)).toBe('farmland');
+  });
+
+  it('AC5: ids なし（今のビルドが書いたもの）は BLOCK_IDS_V1 で読む', async () => {
+    const p = await pendingText();
+    const cells = (p.cells as number[]).slice();
+    for (let k = 3; k < cells.length; k += 4) cells[k] = BLOCK_IDS_V1.indexOf(nowIds[cells[k]]);
+    const { ids: _ids, ...rest } = p;
+    void _ids;
+    const b = await restoreWith({ ...rest, cells });
+    expect(b.world.getBlock(3, 25, 3)).toBe('stone');
+    expect(b.world.getBlock(40, 25, 40)).toBe('farmland');
+  });
+
+  it('AC5: 知らない id のマスは飛ばす。ほかのマスは当たる', async () => {
+    const p = await pendingText();
+    const ids = [...(p.ids as string[]), 'ghost_block'];
+    const cells = (p.cells as number[]).slice();
+    cells[3] = ids.length - 1; // 1 つめを 知らない id に
+    const b = await restoreWith({ ...p, ids, cells });
+    const first = { x: cells[0], y: cells[1], z: cells[2] };
+    expect(b.world.getBlock(first.x, first.y, first.z)).not.toBe('ghost_block');
+    expect(b.world.getBlock(40, 25, 40)).toBe('farmland');
+    expect(b.world.getBlock(3, 25, 3) === 'stone' && first.x === 3).toBe(false);
+  });
+
+  it('AC4: 版 2 の列に知らない id → その列だけ生成に戻り corrupt 1。ほかの列は読める', async () => {
+    const store = new MemoryStore();
+    const db = new MemoryBackend();
+    const a = await session(store, db);
+    a.world.setBlock(2, 25, 2, 'dirt');
+    a.world.setBlock(40, 25, 40, 'dirt');
+    await a.save.now();
+    const col = a.world.column(0, 0)!;
+    const ghost = nowIds.map((id) => (id === 'dirt' ? 'ghost_block' : id));
+    db.chunks.set(`${SAVE_ID}/0/0`, await packColumn(0, 0, encodeSections(col.sections, ghost), 2, col.sections.length));
+    const b = await session(store, db);
+    expect(b.restored.corrupt).toBe(1);
+    expect(b.world.getBlock(2, 25, 2)).toBe('air');
+    expect(b.world.getBlock(40, 25, 40)).toBe('dirt');
+  });
+
+  it('AC2: 版 1 の列（今のビルドが書いた形）が 同じブロックで読める。corrupt 0', async () => {
+    const store = new MemoryStore();
+    const db = new MemoryBackend();
+    const a = await session(store, db);
+    a.world.setBlock(2, 25, 2, 'dirt');
+    a.world.setBlock(3, 25, 3, 'farmland');
+    await a.save.now();
+    // 版 1 で書きなおす: 番号を 凍らせた表の番号にして encode → 版 1 の生バイトに 戻す
+    const col = a.world.column(0, 0)!;
+    const v1 = encodeV1(col.sections);
+    db.chunks.set(`${SAVE_ID}/0/0`, { cx: 0, cz: 0, v: 1, gen: 2, h: col.sections.length, data: await deflateRaw(v1) });
+    const b = await session(store, db);
+    expect(b.restored.corrupt).toBe(0);
+    expect(b.world.getBlock(2, 25, 2)).toBe('dirt');
+    expect(b.world.getBlock(3, 25, 3)).toBe('farmland');
+    expect(b.world.hash()).toBe(a.world.hash());
+    // さわると 版 2 で書きなおされる
+    b.world.setBlock(4, 25, 4, 'stone');
+    await b.save.now();
+    expect(db.chunks.get(`${SAVE_ID}/0/0`)!.v).toBe(2);
+  });
+
+  it('AC6: 古い localStorage の保存は BLOCK_IDS_V1 の番号で読む', async () => {
+    const store = new MemoryStore();
+    const doc = JSON.parse(legacyText([[4, 10, 6, 'log']])) as { blocks: number[] };
+    expect(doc.blocks[1]).toBe(BLOCK_IDS_V1.indexOf('log'));
+    doc.blocks.push(5000, BLOCK_IDS_V1.indexOf("sprinkler"));
+    store.data.set(saveKey(SEED), JSON.stringify({ ...doc }));
+    const a = await session(store, new MemoryBackend());
+    expect(a.loaded).toBe(true);
+    expect(a.world.getBlock(4, 10, 6)).toBe('log');
+  });
+
+  it('AC8: ファイルに出して読む → 版 2 の列がそのまま戻る', async () => {
+    const db = new MemoryBackend();
+    const a = await session(new MemoryStore(), db);
+    a.world.setBlock(2, 25, 2, 'dirt');
+    a.world.setBlock(90, 12, 50, 'sprinkler');
+    await a.save.now();
+    const before = [...db.chunks.values()].map((c) => `${c.cx},${c.cz},${c.v},${[...c.data].join('.')}`).sort();
+    expect([...db.chunks.values()].every((c) => c.v === 2)).toBe(true);
+    const file = await exportSave(db, SAVE_ID);
+    const db2 = new MemoryBackend();
+    await importSave(db2, SAVE_ID, file, SEED);
+    expect([...db2.chunks.values()].map((c) => `${c.cx},${c.cz},${c.v},${[...c.data].join('.')}`).sort()).toEqual(before);
+    const b = await session(new MemoryStore(), db2);
+    expect(b.restored.corrupt).toBe(0);
+    expect(b.world.getBlock(90, 12, 50)).toBe('sprinkler');
+    expect(b.world.hash()).toBe(a.world.hash());
+  });
+});
+
+/** 版 1 の生バイト（番号は 凍らせた表の番号。今のビルドが書いた形）を作る。テスト用 */
+function encodeV1(sections: readonly import('../contracts').SectionData[]): Uint8Array {
+  const out: number[] = [];
+  const toV1 = (n: number) => BLOCK_IDS_V1.indexOf(BLOCK_TYPES[n].id);
+  for (const sec of sections) {
+    const arr = sectionToArray(sec);
+    const kinds = [...new Set(arr)];
+    if (kinds.length === 1) out.push(0, toV1(kinds[0]));
+    else if (kinds.length <= 16) {
+      out.push(1, kinds.length, ...kinds.map(toV1));
+      for (let i = 0; i < 4096; i += 2) out.push(kinds.indexOf(arr[i]) | (kinds.indexOf(arr[i + 1]) << 4));
+    } else out.push(2, ...Array.from(arr, toV1));
+  }
+  return Uint8Array.from(out);
+}

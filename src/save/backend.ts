@@ -164,15 +164,15 @@ export async function packColumn(cx: number, cz: number, raw: Uint8Array, gen: n
   return { cx, cz, v: CHUNK_FORMAT_VERSION, gen, h, data: await deflateRaw(raw) };
 }
 
-/** record を列にする。版が新しすぎる・こわれている → Error。高さが低い保存は上を空気で足す */
+/** record を列にする（版 1 は凍らせた BLOCK_IDS_V1 の番号、版 2 は列の頭の id の一覧で読む）。版が新しすぎる・こわれている → Error。高さが低い保存は上を空気で足す */
 export async function unpackColumn(rec: StoredChunk, nSections: number): Promise<ChunkColumn> {
   if (!Number.isInteger(rec.cx) || !Number.isInteger(rec.cz)) throw new Error('列の場所がおかしい');
   if (typeof rec.v === 'number' && rec.v > CHUNK_FORMAT_VERSION) throw new NewerFormatError(`形式の版 ${rec.v} は新しい`);
-  if (rec.v !== CHUNK_FORMAT_VERSION) throw new Error(`形式の版 ${String(rec.v)} は読めない`);
+  if (rec.v !== CHUNK_FORMAT_VERSION && rec.v !== 1) throw new Error(`形式の版 ${String(rec.v)} は読めない`);
   if (!Number.isInteger(rec.h) || rec.h < 1 || rec.h > nSections) throw new Error('高さがおかしい');
   if (!(rec.data instanceof Uint8Array)) throw new Error('data がおかしい');
   const raw = await inflateRaw(rec.data);
-  return { cx: rec.cx, cz: rec.cz, sections: padSections(decodeSections(raw, rec.h), nSections) };
+  return { cx: rec.cx, cz: rec.cz, sections: padSections(decodeSections(raw, rec.h, rec.v), nSections) };
 }
 
 /** contracts.ts の ChunkStore（1 列ずつ読み書き）。nSections = 世界の セクションの数 */
