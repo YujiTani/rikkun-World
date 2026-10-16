@@ -1,0 +1,82 @@
+/* 案内画面の右下: 「おと」ボタン（64px 以上）と「おとの おおきさ」の枠（SOUND.md §7）。見た目の細かさはアートチーム */
+.ss-root {
+  position: absolute;
+  right: var(--rk-sp-5, 24px);
+  bottom: var(--rk-sp-5, 24px);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--rk-sp-3, 12px);
+  cursor: default;
+  z-index: 2;
+}
+.ss-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rk-sp-3, 12px);
+  padding: var(--rk-sp-4, 16px);
+  background: var(--rk-panel-bg, rgb(16 20 31 / 0.8));
+  border-radius: var(--rk-r-l, 24px);
+  box-shadow: var(--rk-shadow-2, 0 4px 12px rgb(0 0 0 / 0.4));
+}
+.ss-panel[hidden] {
+  display: none;
+}
+.ss-row {
+  display: flex;
+  align-items: center;
+  gap: var(--rk-sp-3, 12px);
+  color: var(--rk-text, #fff);
+  font-size: var(--rk-fs-body, 17px);
+  font-weight: 700;
+}
+.ss-label {
+  min-width: 6.5em;
+}
+.ss-range {
+  width: 220px;
+  height: 44px;
+  margin: 0;
+  accent-color: var(--rk-accent, #ffc83d);
+  cursor: pointer;
+}
+.ss-buttons {
+  display: flex;
+  align-items: center;
+  gap: var(--rk-sp-3, 12px);
+}
+.ss-open,
+.ss-mute {
+  min-height: 64px;
+  padding: 0 var(--rk-sp-5, 24px);
+  border: var(--rk-bw, 2px) solid var(--rk-accent, #ffc83d);
+  border-radius: var(--rk-r-pill, 999px);
+  background: var(--rk-panel-bg, rgb(16 20 31 / 0.8));
+  color: var(--rk-text, #fff);
+  font: inherit;
+  font-size: var(--rk-fs-body, 17px);
+  font-weight: 800;
+  cursor: pointer;
+}
+.ss-mute {
+  display: flex;
+  align-items: center;
+  gap: var(--rk-sp-2, 8px);
+  min-width: 64px;
+  background: var(--rk-accent-grad, linear-gradient(180deg, #ffc83d, #ff8a1f));
+  color: var(--rk-ink, #141414);
+}
+.ss-mute.ss-muted {
+  background: var(--rk-bg-700, #252f47);
+  color: var(--rk-text, #fff);
+}
+.ss-icon {
+  font-size: 1.6em;
+  line-height: 1;
+}
+.ss-open:focus-visible,
+.ss-mute:focus-visible,
+.ss-range:focus-visible {
+  outline: 4px solid var(--rk-info, #4fc3f7);
+  outline-offset: 2px;
+}

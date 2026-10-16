@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>りっくんワールド おと（試聴）</title>
+<style>
+  body { margin: 0; font-family: -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif; background: #f6f3ea; color: #2b2b2b; line-height: 1.6; }
+  main { max-width: 900px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  h2 { font-size: 17px; margin: 24px 0 8px; color: #4f9a6a; }
+  p.note { font-size: 13px; color: #6b6b6b; margin: 4px 0; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  button.snd { font: inherit; font-size: 16px; font-weight: bold; padding: 12px 20px; border: 2px solid #4f9a6a; border-radius: 10px; background: #fff; cursor: pointer; }
+  button.snd.on { background: #4f9a6a; color: #fff; }
+  button.snd.go { background: #ffc83d; border-color: #ff8a1f; }
+  #status { background: #fffdf7; border: 1px solid #e2dccb; border-radius: 10px; padding: 8px 14px; font-size: 14px; font-family: ui-monospace, monospace; white-space: pre-wrap; }
+  #settingsBox { position: relative; min-height: 220px; background: #2f3a4a; border-radius: 14px; }
+  #settingsBox .ss-root { right: 16px; bottom: 16px; }
+  table { border-collapse: collapse; font-size: 13px; background: #fffdf7; }
+  td, th { border: 1px solid #e2dccb; padding: 4px 10px; text-align: right; }
+  td:first-child, th:first-child { text-align: left; }
+  #sfxList button { margin: 2px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>りっくんワールド おと（試聴）</h1>
+  <p class="note">ゲームのコード（src/fx/）でそのまま鳴らします。docs/audio/SOUND.md の「案 B 木のおもちゃとオルゴール」。最初に「おとを ならす」を押してください（ブラウザのきまり）。</p>
+
+  <div class="row"><button class="snd go" id="unlock">おとを ならす</button></div>
+
+  <h2>BGM（曲のきりかえは 1.5 秒のクロスフェード）</h2>
+  <div class="row" id="songs"></div>
+  <div class="row" style="margin-top:10px">
+    <button class="snd" id="demoScenes">ひる → よる → たたかい → ひる（自動で 12 秒ごと）</button>
+  </div>
+  <p class="note">ひる・よるは 40 秒以上、たたかいは 25 秒以上のループです。頭の 8 小節（よるは 4 小節）は試聴ページ preview.html の案 B と同じ、そのあとは足した部分です（ここを聞いてください）。</p>
+  <div id="status">まだ鳴っていません</div>
+
+  <h2>画面ごとの BGM の大きさ・達成のときの BGM 下げ</h2>
+  <div class="row" id="screens"></div>
+
+  <h2>ミュートと音量（ゲームの案内画面と同じ部品）</h2>
+  <div id="settingsBox"></div>
+
+  <h2>こうかおん</h2>
+  <div id="sfxList"><p class="note">効果音は、つなぎ込みのときに SFX_CATALOG を読んでここに並べます。</p></div>
+
+  <h2>数で見る（ブラウザで書き出して測る）</h2>
+  <div class="row"><button class="snd" id="measure">3 曲を書き出して測る（20 秒ほど）</button></div>
+  <div id="measureOut"></div>
+</main>
+<script type="module" src="/src/audioPreview/main.ts"></script>
+</body>
+</html>

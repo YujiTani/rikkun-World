@@ -5,7 +5,8 @@
 import { MIX } from '../audioConfig';
 import type { AudioMixer } from '../audioMixer';
 import { chordAtSeconds, compileSong, NO_SONG_CHORD, songInfo, type BgmChord, type SongInfo, type StepEvent } from './compile';
-import { BGM_INSTRUMENTS, BGM_KIT, playTones, playVoice } from './instruments';
+import { BGM_INSTRUMENTS, BGM_KIT } from './instruments';
+import { createSongBus, scheduleSongStep, type SongBus } from './songBus';
 import { BGM_SONGS, type BgmSong } from './songs';
 
 export type { BgmChord } from './compile';
@@ -15,8 +16,7 @@ interface LiveSong {
   key: BgmSong;
   info: SongInfo;
   events: StepEvent[][];
-  input: GainNode;
-  echoIn: GainNode | null;
+  bus: SongBus;
   fade: GainNode;
   /** 曲の頭の時刻（音の時計） */
   start: number;
@@ -45,8 +45,8 @@ export class BgmPlayer {
   /** 同じ曲なら何もしない。null は fadeOut（0.8 秒）。AudioContext が まだ無いときは何もしない（あとで また呼ぶ） */
   play(song: BgmSong | null): void {
     const out = this.mixer.output();
-    const bus = this.mixer.bgmInput();
-    if (!out || !bus) return;
+    const bgmBus = this.mixer.bgmInput();
+    if (!out || !bgmBus) return;
     const ctx = out.ctx;
     if (song === null) {
       if (this.cur) {
@@ -65,34 +65,17 @@ export class BgmPlayer {
 
     const def = BGM_SONGS[song];
     const fade = ctx.createGain();
-    fade.connect(bus);
+    fade.connect(bgmBus);
     fade.gain.setValueAtTime(0, now);
     fade.gain.linearRampToValueAtTime(1, now + sec);
-    const input = ctx.createGain();
-    input.gain.value = def.level;
-    input.connect(fade);
-    let echoIn: GainNode | null = null;
     const info = songInfo(def);
-    if (def.echo) {
-      const dl = ctx.createDelay(2);
-      dl.delayTime.value = def.echo.steps * info.stepDur;
-      const fb = ctx.createGain();
-      fb.gain.value = def.echo.feedback;
-      const wet = ctx.createGain();
-      wet.gain.value = def.echo.mix;
-      echoIn = ctx.createGain();
-      echoIn.connect(dl);
-      dl.connect(fb);
-      fb.connect(dl);
-      dl.connect(wet);
-      wet.connect(input);
-    }
+    const bus = createSongBus(ctx, fade, def);
     let events = this.compiled.get(song);
     if (!events) {
       events = compileSong(def, BGM_INSTRUMENTS, BGM_KIT);
       this.compiled.set(song, events);
     }
-    const live: LiveSong = { key: song, info, events, input, echoIn, fade, start: now + 0.05, step: 0, stopAt: Infinity, killed: false };
+    const live: LiveSong = { key: song, info, events, bus, fade, start: now + 0.05, step: 0, stopAt: Infinity, killed: false };
     this.songs.push(live);
     this.cur = live;
     if (this.timer === null) this.timer = setInterval(() => this.tick(), TIMER_MS);
@@ -109,14 +92,14 @@ export class BgmPlayer {
       for (;;) {
         const t = s.start + s.step * s.info.stepDur;
         if (t >= horizon || t >= s.stopAt) break;
-        this.scheduleStep(ctx, s, s.step % s.info.steps, t);
+        scheduleSongStep(ctx, s.bus, s.events[s.step % s.info.steps], t, this.noteVoice);
         s.step++;
       }
     }
     this.songs = this.songs.filter((s) => {
       if (ctx.currentTime > s.stopAt + 0.1) {
         s.fade.disconnect();
-        s.input.disconnect();
+        s.bus.input.disconnect();
         return false;
       }
       return true;
@@ -177,22 +160,5 @@ export class BgmPlayer {
     s.fade.gain.linearRampToValueAtTime(0, now + sec);
     s.stopAt = now + sec;
     if (killed) s.killed = true;
-  }
-
-  private scheduleStep(ctx: BaseAudioContext, s: LiveSong, i: number, t: number): void {
-    for (const ev of s.events[i]) {
-      if ('drum' in ev) {
-        playTones(ctx, s.input, BGM_KIT[ev.drum], t, ev.vol, this.noteVoice);
-        continue;
-      }
-      const tail = playVoice(ctx, BGM_INSTRUMENTS[ev.inst], ev.freq, t, ev.dur, ev.vol, this.noteVoice);
-      tail.connect(s.input);
-      if (ev.echo && s.echoIn) {
-        const send = ctx.createGain();
-        send.gain.value = ev.echo;
-        tail.connect(send);
-        send.connect(s.echoIn);
-      }
-    }
   }
 }
