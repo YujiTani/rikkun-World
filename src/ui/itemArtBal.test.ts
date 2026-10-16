@@ -16,7 +16,7 @@ describe('ART-BAL', () => {
       expect(px).toHaveLength(256);
       const solid = px.filter((q) => q[3] > 0);
       expect(solid.some((q) => hexOf(q) === 0x2a1e14)).toBe(true);
-      expect(AXE_HELD_PARTS[a]).toHaveLength(4);
+      expect(AXE_HELD_PARTS[a]).toHaveLength(6);
     }
   });
 });

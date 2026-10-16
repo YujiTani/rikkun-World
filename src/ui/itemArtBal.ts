@@ -54,18 +54,19 @@ const STAR1 = [
   '.KKK....KKK.',
 ];
 const STAR_S = [
-  '...K...',
-  '..KYK..',
-  'KKKLKKK',
-  'KYYYYYK',
-  '.KYYYK.',
-  '.KYKYK.',
-  '.KK.KK.',
+  '...KK...',
+  '..KYYK..',
+  'KKKLYYKK',
+  'KYYYYYYK',
+  '.KYYYYK.',
+  '.KYYYYK.',
+  'KYYKKYYK',
+  '.KK..KK.',
 ];
 const CROWN = [
   '.K...KK...K.',
-  'KYK.KYYK.KYK',
-  'KYK.KYYK.KYK',
+  'KYKDKYYKDKYK',
+  'KYKDKYYKDKYK',
   'KYYKYYYYKYYK',
   'KYYYYYYYYYYK',
   'KYYYYBBYYYYK',
@@ -74,7 +75,7 @@ const CROWN = [
   'KYYYYYYYYYYK',
   '.KKKKKKKKKK.',
 ];
-const GOLD = { K: INK, Y: 0xffd23f, L: 0xfff3a0, B: 0x5fd3ff };
+const GOLD = { K: INK, D: 0xd9a520, Y: 0xffd23f, L: 0xfff3a0, B: 0x5fd3ff };
 /** 内の ふちの色 = めずらしさ の色（緑・青・紫） */
 export const NICK_RING: Record<NickTier, number> = { oyabun: 0x8fe08f, taisho: 0x7fb8ff, nushi: 0xc79bff };
 
@@ -90,10 +91,13 @@ export function nickIconPixels(tier: NickTier): Rgba[] {
     }
   if (tier === 'oyabun') stamp(p, STAR1, 2, 3, GOLD);
   if (tier === 'taisho') {
-    stamp(p, STAR_S, 1, 2, GOLD);
-    stamp(p, STAR_S, 8, 7, GOLD);
+    stamp(p, STAR_S, 1, 1, GOLD);
+    stamp(p, STAR_S, 7, 7, GOLD);
   }
   if (tier === 'nushi') stamp(p, CROWN, 2, 3, GOLD);
+  // バッジの まるから はみ出た ドットは 消す
+  for (let y = 0; y < S; y++)
+    for (let x = 0; x < S; x++) if (Math.hypot(x + 0.5 - 8, y + 0.5 - 8) > 8.1) p[y * S + x] = CLEAR;
   return p;
 }
 

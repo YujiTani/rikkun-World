@@ -1,5 +1,5 @@
 /**
- * おの 3 本の 手に持つ形（DESIGN 13.4）。箱 4 つ: え・みね・刃・刃先。
+ * おの 3 本の 手に持つ形（DESIGN 13.4）。箱 6 つ: え・みね・刃 2 段・刃先 2 段（前後に ひろがる くさび）。
  * 向き・Part の書き方は `heldTools.ts` と同じ（原点 = にぎった手、のびる向き = -Z、X = 横）。
  * つなぎこみは開発（#115）。
  */
@@ -20,11 +20,14 @@ const COL: Record<AxeId, { head: number; shade: number; edge: number }> = {
 
 function axe(id: AxeId): Part[] {
   const c = COL[id];
+  // かた刃のくさび: 刃の付け根（短い）→ 刃（前後に ひろがる）→ 刃先（いちばん長い）。前後は 先ほその 段
   return [
     { size: [0.05, 0.05, 0.55], pos: [0, 0, -0.175], color: WOOD },
     { size: [0.08, 0.07, 0.1], pos: [0, 0, -0.42], color: c.shade },
-    { size: [0.16, 0.04, 0.12], pos: [0.1, 0, -0.42], color: c.head },
-    { size: [0.05, 0.045, 0.18], pos: [0.2, 0, -0.42], color: c.edge },
+    { size: [0.07, 0.04, 0.1], pos: [0.075, 0, -0.42], color: c.head },
+    { size: [0.07, 0.04, 0.16], pos: [0.145, 0, -0.42], color: c.head },
+    { size: [0.06, 0.045, 0.22], pos: [0.21, 0, -0.42], color: c.edge },
+    { size: [0.03, 0.04, 0.26], pos: [0.255, 0, -0.42], color: c.edge },
   ];
 }
 
