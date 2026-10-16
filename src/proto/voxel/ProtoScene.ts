@@ -2,6 +2,8 @@ import {
   BufferAttribute,
   BufferGeometry,
   DoubleSide,
+  Color,
+  Fog,
   Group,
   Mesh,
   MeshBasicMaterial,
@@ -20,7 +22,9 @@ import { GEN_CONFIG } from '../../world/gen/config';
 import type { IslandInfo } from '../../contracts';
 import { VoxelChunkMesher, type QuadPiece, type VoxelMode } from './meshVoxel';
 import { createShapeTexture } from './shapeTexture';
-import { createVoxelMaterial } from './voxelMaterial';
+import { createVoxelMaterial, setVoxelFog } from './voxelMaterial';
+import { currentLook, setCurrentLook } from './looks';
+import type { Data3DTexture } from 'three';
 
 export type ProtoMode = 'current' | 'naive' | 'greedyColor' | 'greedyShape' | 'hybrid';
 export const PROTO_MODES: readonly ProtoMode[] = ['current', 'naive', 'greedyColor', 'greedyShape', 'hybrid'];
@@ -86,6 +90,7 @@ export class ProtoScene {
   private readonly lodWater: MeshBasicMaterial;
   private readonly colorMat;
   private readonly shapeMat;
+  private shapeTex: Data3DTexture;
 
   constructor(mode: ProtoMode, seed: number = GEN_CONFIG.defaultSeed) {
     this.mode = mode;
@@ -103,7 +108,28 @@ export class ProtoScene {
     this.lodOpaque = new MeshBasicMaterial({ vertexColors: true });
     this.lodWater = new MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: WATER_ALPHA, depthWrite: false, side: DoubleSide });
     this.colorMat = createVoxelMaterial();
-    this.shapeMat = createVoxelMaterial(createShapeTexture(BLOCK_TYPES.length));
+    this.shapeTex = createShapeTexture(BLOCK_TYPES.length);
+    this.shapeMat = createVoxelMaterial(this.shapeTex);
+    this.applyLookColors();
+  }
+
+  /** 空・霧を いまの Look にあわせる */
+  private applyLookColors(): void {
+    const look = currentLook();
+    this.scene.background = new Color(look.sky);
+    this.scene.fog = new Fog(look.fog.color, look.fog.near, look.fog.far);
+    setVoxelFog(this.shapeMat, look.fog);
+    setVoxelFog(this.colorMat, look.fog);
+  }
+
+  /** 見た目をかえる: 3D テクスチャと近くのメッシュを作り直す（遠くの LOD は Look に依らないので のこす） */
+  setLook(id: string): void {
+    setCurrentLook(id);
+    this.shapeTex.dispose();
+    this.shapeTex = createShapeTexture(BLOCK_TYPES.length);
+    this.shapeMat.uniforms.uTex.value = this.shapeTex;
+    this.applyLookColors();
+    this.setMode(this.mode); // 近くのメッシュを捨てて、次の update で作る
   }
 
   private make(geo: BufferGeometry, mat: Material, order = 0, chunk?: { cx: number; cz: number }): Mesh {

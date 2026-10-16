@@ -102,3 +102,77 @@ test('9×9×9 の 4 方式を測る', async ({ page }) => {
   writeFileSync('perf-results/voxel-proto.json', JSON.stringify(report, null, 2));
   if (errors.length > 0) console.log('console errors:', errors.slice(0, 10));
 });
+
+/**
+ * VOX-1: 見た目（Look）ごとに、hybrid r=16 の三角形・描画回数・頂点データを測り、スクショを撮る。
+ * スクショ: docs/screenshots/VOX-1/<id>-start.png / -char-front.png / -char-side.png / -sky.png
+ * 結果: perf-results/voxel-looks.json
+ */
+test('見た目ごとの重さと絵（hybrid r=16）', async ({ page }) => {
+  test.setTimeout(900_000);
+  const dir = 'docs/screenshots/VOX-1';
+  mkdirSync(dir, { recursive: true });
+  mkdirSync('perf-results', { recursive: true });
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(String(e)));
+  page.on('console', (m) => {
+    if (m.type() === 'error') errors.push(m.text());
+  });
+
+  await page.goto('/voxel-proto.html?mode=hybrid&r=16');
+  await page.waitForFunction(() => window.__voxelProto?.ready === true, undefined, { timeout: 300_000 });
+  const ids = await page.evaluate(() => window.__voxelProto!.looks);
+  const out = new Map<string, Buffer>();
+  const results: Record<string, unknown>[] = [];
+  for (const id of ids) {
+    await page.evaluate((i) => {
+      const h = window.__voxelProto!;
+      h.setRunning(false);
+      h.setMode('hybrid');
+      h.setMicroRadius(16);
+      h.setLook(i);
+    }, id);
+    await page.waitForFunction(() => window.__voxelProto!.getChar()?.ready === true, undefined, { timeout: 60_000 });
+    const shot = async (name: string, f: () => void): Promise<void> => {
+      await page.evaluate(f);
+      out.set(`${id}-${name}.png`, await page.screenshot({ timeout: 300_000 }));
+    };
+    await shot('start', () => {
+      const h = window.__voxelProto!;
+      h.setPose('start');
+      h.renderOnce();
+    });
+    await shot('char-front', () => {
+      const h = window.__voxelProto!;
+      h.orbitChar(0, 5, 2);
+      h.renderOnce();
+    });
+    await shot('char-side', () => {
+      const h = window.__voxelProto!;
+      h.orbitChar(90, 5, 2);
+      h.renderOnce();
+    });
+    await shot('sky', () => {
+      const h = window.__voxelProto!;
+      h.setPose('sky');
+      h.renderOnce();
+    });
+    const rows = await page.evaluate(() => {
+      const h = window.__voxelProto!;
+      const r: number[] = [];
+      for (let a = 0; a < 360; a += 45) {
+        h.orbitChar(a, 5, 2);
+        r.push(h.getChar()?.row ?? -1);
+      }
+      h.setPose('start');
+      return r;
+    });
+    const m = (await page.evaluate(() => window.__voxelProto!.measure())) as unknown as Record<string, unknown>;
+    m.charRowsAt45DegSteps = rows;
+    console.log(JSON.stringify(m));
+    results.push(m);
+  }
+  for (const [name, buf] of out) writeFileSync(`${dir}/${name}`, buf);
+  writeFileSync('perf-results/voxel-looks.json', JSON.stringify({ measuredAt: new Date().toISOString(), results }, null, 2));
+  if (errors.length > 0) console.log('console errors:', errors.slice(0, 10));
+});
