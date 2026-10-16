@@ -4,7 +4,7 @@
   left: 0;
   top: 0;
   padding: 0 var(--rk-sp-2);
-  font-size: var(--rk-fs-body);
+  font-size: var(--rk-fs-head); /* 20px 以上（1024 幅でも 20.4px） */
   font-weight: 800;
   line-height: var(--rk-lh);
   white-space: nowrap;

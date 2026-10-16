@@ -172,6 +172,10 @@ export class Karakasa extends YokaiBase {
     this.landingLatched = false;
   }
 
+  protected override headGroup(): THREE.Object3D {
+    return this.body;
+  }
+
   protected attackHitBox(): HitBox {
     return { cx: this.landing.x, cy: 0.5, cz: this.landing.z, w: 1.2, h: 1.0, d: 1.2 };
   }

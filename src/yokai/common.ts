@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import type { YokaiTitle } from '../contracts';
+import { buildNickMarks, createNushiGlow, nushiGlowOpacity, type NickMarkKind, type NickMarks } from './nickMarks';
 
 export const DEG = Math.PI / 180;
 
@@ -209,11 +211,13 @@ export abstract class YokaiBase {
   fallTilt = 0;
   /** みず で石になっていく度合い 0〜1（色を石の灰色へ近づける。applyDollBrightness が読む） */
   stoneness = 0;
+  /** 色の段階 1〜3（applyDollBrightness が決める。ちょうちんの どうの色など、毎ステップ色を決めるモデルが読む） */
+  stage: 1 | 2 | 3 = 1;
   private readonly puffGroup = new THREE.Group();
   private readonly puffMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 1 });
   private readonly puffs: THREE.Mesh[] = [];
 
-  private readonly parts: Part[] = [];
+  private parts: Part[] = [];
   private readonly flatMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
   private readonly focusHulls: { hull: THREE.Mesh; src: THREE.Mesh; w: number; h: number; d: number }[] = [];
   private _focused = false;
@@ -290,6 +294,60 @@ export abstract class YokaiBase {
       const k = (2 * wd) / Math.max(1e-4, (FOCUS_TMP.x + FOCUS_TMP.y + FOCUS_TMP.z) / 3);
       e.hull.scale.set(1 + k / e.w, 1 + k / e.h, 1 + k / e.d);
     }
+  }
+
+  // ---- 二つ名の 頭の印・ヌシの光（nickMarks.ts） ----
+  /** 印を つける 頭の グループ（首・かさ の動きに ついてくる）。印のない妖怪は null */
+  protected headGroup(): THREE.Object3D | null {
+    return null;
+  }
+  private nickMarks: NickMarks | null = null;
+  private nickGlow: THREE.Mesh | null = null;
+  nickTitle: YokaiTitle = 'none';
+
+  /** 二つ名に合わせて 印（たいしょう = はちまき、ヌシ = かんむり）と 光（ヌシ）を つけかえる */
+  setNickMarks(title: YokaiTitle): void {
+    if (title === this.nickTitle) return;
+    this.nickTitle = title;
+    if (this.nickMarks) {
+      const gone = new Set<THREE.Object3D>();
+      this.nickMarks.group.traverse((o) => gone.add(o));
+      for (const p of this.parts) if (gone.has(p.mesh)) (p.normal as THREE.Material).dispose();
+      this.parts = this.parts.filter((p) => !gone.has(p.mesh));
+      this.nickMarks.group.removeFromParent();
+      this.nickMarks = null;
+    }
+    if (this.nickGlow) {
+      (this.nickGlow.material as THREE.Material).dispose();
+      this.nickGlow.removeFromParent();
+      this.nickGlow = null;
+    }
+    const head = this.headGroup();
+    const marks = head ? buildNickMarks(this.id, title) : null;
+    if (marks && head) {
+      head.add(marks.group);
+      marks.group.traverse((o) => {
+        if (o instanceof THREE.Mesh) this.parts.push({ mesh: o, normal: o.material as THREE.Material, baseColor: (o.material as THREE.MeshBasicMaterial).color.getHex() });
+      });
+      this.nickMarks = marks;
+    }
+    if (marks && title === 'nushi') {
+      this.nickGlow = createNushiGlow({ width: this._size.width, height: this._size.height, depth: this._size.depth });
+      this.rig.add(this.nickGlow);
+    }
+  }
+
+  /** 印・光の 記録（テスト用） */
+  nickInfo(): { kind: NickMarkKind | 'none'; markOnHead: boolean; markColors: number[]; glow: THREE.Mesh | null } {
+    const head = this.headGroup();
+    const cols: number[] = [];
+    this.nickMarks?.group.traverse((o) => o instanceof THREE.Mesh && cols.push((o.material as THREE.MeshBasicMaterial).color.getHex()));
+    return {
+      kind: this.nickMarks?.kind ?? 'none',
+      markOnHead: !!this.nickMarks && !!head && this.nickMarks.group.parent === head,
+      markColors: cols,
+      glow: this.nickGlow,
+    };
   }
 
   /** サブクラスのコンストラクタの最後で呼ぶ */
@@ -461,6 +519,7 @@ export abstract class YokaiBase {
   die(): void {
     if (this.dying) return;
     this.dying = true;
+    if (this.nickGlow) this.nickGlow.visible = false;
     this.dieT = 0;
     this.attackT = -1;
     this.hitT = -1;
@@ -482,6 +541,10 @@ export abstract class YokaiBase {
   update(dt: number): void {
     this.clock += dt;
     this.updateBlink(dt);
+    if (this.nickGlow) {
+      this.nickGlow.visible = !this.dying; // たおれる演出に入ったら 光は 消す
+      (this.nickGlow.material as THREE.MeshBasicMaterial).opacity = nushiGlowOpacity(this.clock);
+    }
 
     if (this.dying) {
       this.dieT += dt;
@@ -601,12 +664,15 @@ export abstract class YokaiBase {
   dispose(): void {
     this.flatMat.dispose();
     this.puffMat.dispose();
+    this.setNickMarks('none');
     const seen = new Set<THREE.Material>();
     for (const p of this.parts) {
       for (const m of Array.isArray(p.normal) ? p.normal : [p.normal]) seen.add(m);
     }
     for (const m of seen) {
       (m as THREE.MeshBasicMaterial).map?.dispose();
+      const sm = m.userData.stageMaps as Record<number, THREE.Texture> | undefined;
+      if (sm) for (const t of Object.values(sm)) t.dispose();
       m.dispose();
     }
     for (const t of [...this.faceOpen, ...this.faceClosed]) t.dispose();

@@ -7,6 +7,10 @@ import type { Rgba } from '../world/blocks/textures';
 export type NickTier = 'oyabun' | 'taisho' | 'nushi';
 export type AxeItem = 'wood_axe' | 'stone_axe' | 'iron_axe';
 
+export function isAxeItem(item: string): item is AxeItem {
+  return item === 'wood_axe' || item === 'stone_axe' || item === 'iron_axe';
+}
+
 const S = 16;
 const CLEAR: Rgba = [0, 0, 0, 0];
 const OUTLINE = 0x2a1e14;

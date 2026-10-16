@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>二つ名の 出現音（しんぞう と おてらの かね）</title>
+<style>
+  body { font-family: "Hiragino Maru Gothic ProN", "Hiragino Sans", sans-serif; background: #1d1a17; color: #f3eadb; margin: 0; padding: 16px 20px; line-height: 1.6; }
+  button { font: inherit; font-size: 18px; border: 0; border-radius: 9px; padding: 10px 18px; margin: 6px 8px 6px 0; background: #8fb3d9; color: #1b1610; font-weight: bold; cursor: pointer; }
+  .row { margin: 8px 0; }
+</style>
+</head>
+<body>
+<h1>二つ名の 出現音</h1>
+<p>ゲームで 二つ名の妖怪が 出たときの 音です。ゲームの はじめの音量は 0.5 です。</p>
+<div class="row"><label>音量 <input id="vol" type="range" min="0" max="1" step="0.05" value="0.5"> <span id="volv">0.50</span></label></div>
+<div class="row">
+  <button data-file="appear_oyabun.mp3">おやぶん（3.0 秒）</button>
+  <button data-file="appear_taisho.mp3">たいしょう（3.8 秒）</button>
+  <button data-file="appear_nushi.mp3">ヌシ（5.2 秒）</button>
+  <button id="stop">とめる</button>
+</div>
+<script>
+'use strict';
+const vol = document.getElementById('vol');
+const volv = document.getElementById('volv');
+let live = [];
+vol.addEventListener('input', () => { volv.textContent = Number(vol.value).toFixed(2); });
+for (const b of document.querySelectorAll('button[data-file]')) {
+  b.addEventListener('click', () => {
+    const a = new Audio(b.dataset.file);
+    a.volume = Math.min(1, Number(vol.value));
+    a.play();
+    live.push(a);
+  });
+}
+document.getElementById('stop').addEventListener('click', () => { for (const a of live) a.pause(); live = []; });
+</script>
+</body>
+</html>

@@ -17,16 +17,16 @@ export interface TitleRule {
   dropRolls: number;
   /** からだの大きさ */
   bodyScale: number;
-  /** 出たときの音の長さの上限（秒。§5） */
+  /** 出現音が 鳴っている間（聞こえる長さ。−20 dB まで。秒）。この間は 2 体目の音を 重ねない（§5・§6） */
   soundSeconds: number;
 }
 
 /** BALANCE §2.5 の表（§4.9 の「二つ名」の設定） */
 export const TITLE_RULES: Record<YokaiTitle, TitleRule> = {
   none: { chance: 0, hpMul: 1, attackAdd: 0, speedMul: 1, xpMul: 1, dropRolls: 1, bodyScale: 1, soundSeconds: 0 },
-  oyabun: { chance: 0.03, hpMul: 1.5, attackAdd: 0, speedMul: 1, xpMul: 2, dropRolls: 2, bodyScale: 1.25, soundSeconds: 1.0 },
-  taisho: { chance: 0.01, hpMul: 2, attackAdd: 1, speedMul: 1.1, xpMul: 3, dropRolls: 3, bodyScale: 1.25, soundSeconds: 1.5 },
-  nushi: { chance: 0.003, hpMul: 3, attackAdd: 2, speedMul: 1.2, xpMul: 5, dropRolls: 4, bodyScale: 1.5, soundSeconds: 2.5 },
+  oyabun: { chance: 0.03, hpMul: 1.5, attackAdd: 0, speedMul: 1, xpMul: 2, dropRolls: 2, bodyScale: 1.25, soundSeconds: 3.0 },
+  taisho: { chance: 0.01, hpMul: 2, attackAdd: 1, speedMul: 1.1, xpMul: 3, dropRolls: 3, bodyScale: 1.25, soundSeconds: 3.8 },
+  nushi: { chance: 0.003, hpMul: 3, attackAdd: 2, speedMul: 1.2, xpMul: 5, dropRolls: 4, bodyScale: 1.5, soundSeconds: 5.2 },
 };
 
 /** たいしょう・ヌシ（同時に 1 体まで） */

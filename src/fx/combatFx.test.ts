@@ -8,6 +8,7 @@ import { CombatFx, type CombatFxDeps } from './combatFx';
 import { COMBAT_FX, bagPose, edgeOpacity, invincibleAlpha } from './combatFxModel';
 import { COMBAT_SOUNDS } from './combatSounds';
 import { FX_SETTINGS } from './config';
+import { drainSounds } from './soundLog';
 
 describe('計算', () => {
   it('ふちのピンクは 0.25 まで・0.4 秒で消える・1 回だけ', () => {
@@ -164,7 +165,7 @@ describe('人形（たおれる・うすい・パンチ・ようかいだま）'
 });
 
 describe('CombatFx（出来事 → 音・画面）', () => {
-  function setup() {
+  function setup(opts: { titleSound?: boolean } = {}) {
     const calls: string[] = [];
     const tones: number[] = [];
     let combatEvents: CombatEvent[] = [];
@@ -173,6 +174,7 @@ describe('CombatFx（出来事 → 音・画面）', () => {
     let inv = 0;
     let phaseFn: (p: DayPhase) => void = () => {};
     const shakes: Array<[number, number]> = [];
+    const titlePlays: string[] = [];
     const deps: CombatFxDeps = {
       scene: new THREE.Scene(),
       sound: {
@@ -217,12 +219,14 @@ describe('CombatFx（出来事 → 音・画面）', () => {
       edge: { flash: () => void calls.push('edge'), update: () => {} },
       clock: { set: (p) => void calls.push('clock:' + p) },
       onPickup: (item, n) => void calls.push(`pickup:${item}:${n}`),
+      ...(opts.titleSound === false ? {} : { titleSound: { play: (t: string) => void titlePlays.push(t) } }),
       settings: { ...FX_SETTINGS },
-    };
+    } as CombatFxDeps;
     const fx = new CombatFx(deps);
     return {
       fx,
       calls,
+      titlePlays,
       tones,
       shakes,
       push: (...e: CombatEvent[]) => (combatEvents = e),
@@ -305,5 +309,70 @@ describe('CombatFx（出来事 → 音・画面）', () => {
     s.phase('dawn');
     expect(s.calls).toEqual(expect.arrayContaining(['clock:dusk', 'clock:dawn']));
     expect(s.tones).toEqual([COMBAT_SOUNDS.bell[0].f0, COMBAT_SOUNDS.birds[0].f0]);
+  });
+
+  describe('BAL-G 二つ名の出現音（AC20 (3)(4)）', () => {
+    const ev = (title: 'oyabun' | 'taisho' | 'nushi', id = 1): YokaiEvent => ({ type: 'titleSound', tick: 1, id, kind: 'karakasa', title });
+    const defeat = (title: 'none' | 'oyabun' | 'taisho' | 'nushi'): YokaiEvent => ({ type: 'defeat', tick: 5, id: 1, kind: 'karakasa', position: { x: 0, y: 0, z: 0 }, reward: 2, title });
+
+    it('出来事 1 回で 「鳴らす頼み」を 1 回（記録 appear_<二つ名> と 音ファイルの口）。今の合成の ぽわん は鳴らさない', () => {
+      for (const t of ['oyabun', 'taisho', 'nushi'] as const) {
+        drainSounds();
+        const s = setup();
+        s.pushY(ev(t));
+        s.fx.update(1 / 60);
+        expect(drainSounds()).toEqual([`appear_${t}`]);
+        expect(s.titlePlays).toEqual([t]);
+        expect(s.tones).toHaveLength(0);
+      }
+    });
+
+    it('鳴っている間（聞こえる長さ 3.0・3.8・5.2 秒）の 2 体目は 頼まない。鳴り終われば また頼む', () => {
+      for (const [t, sec] of [['oyabun', 3.0], ['taisho', 3.8], ['nushi', 5.2]] as const) {
+        drainSounds();
+        const s = setup();
+        s.pushY(ev(t));
+        s.fx.update(1 / 60);
+        for (let i = 0; i < Math.floor((sec - 0.2) * 60); i++) s.fx.update(1 / 60);
+        s.pushY(ev('oyabun', 2));
+        s.fx.update(1 / 60);
+        expect(s.titlePlays, `${t} ${sec}s の途中で 重なった`).toEqual([t]);
+        expect(drainSounds()).toEqual([`appear_${t}`]);
+        for (let i = 0; i < 20; i++) s.fx.update(1 / 60); // 合わせて sec + 0.1 秒すぎ
+        s.pushY(ev('oyabun', 3));
+        s.fx.update(1 / 60);
+        expect(s.titlePlays).toEqual([t, 'oyabun']);
+      }
+    });
+
+    it('ヌシが鳴っている間に 出た たいしょう は 鳴らさない（おしらせは別）', () => {
+      drainSounds();
+      const s = setup();
+      s.pushY(ev('nushi'));
+      s.fx.update(1 / 60);
+      s.pushY(ev('taisho', 2));
+      s.fx.update(1 / 60);
+      expect(s.titlePlays).toEqual(['nushi']);
+    });
+
+    it('たおした音は 二つ名でも 今の「ポン」のまま（出現音は鳴らさない）', () => {
+      for (const t of ['none', 'oyabun', 'taisho', 'nushi'] as const) {
+        drainSounds();
+        const s = setup();
+        s.pushY(defeat(t));
+        s.fx.update(1 / 60);
+        expect(drainSounds()).toEqual(['defeat']);
+        expect(s.tones).toEqual([COMBAT_SOUNDS.defeat[0].f0]);
+        expect(s.titlePlays).toEqual([]);
+      }
+    });
+
+    it('音ファイルの口（titleSound）が無くても 止まらず、頼みは 記録する', () => {
+      drainSounds();
+      const s = setup({ titleSound: false });
+      s.pushY(ev('taisho'));
+      expect(() => s.fx.update(1 / 60)).not.toThrow();
+      expect(drainSounds()).toEqual(['appear_taisho']);
+    });
   });
 });

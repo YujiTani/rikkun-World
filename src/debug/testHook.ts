@@ -61,7 +61,7 @@ export interface TestHook {
   inventory: ReturnType<typeof createInventoryHook>;
   save: ReturnType<typeof createSaveHook>;
   time: ReturnType<typeof createTimeHook>;
-  combat: ReturnType<typeof createCombatHook> & { arrows(): unknown[] };
+  combat: ReturnType<typeof createCombatHook> & { arrows(): unknown[]; sounds(): string[] };
   /** M4 §6.1 */
   craft: Omit<ReturnType<typeof createCraftHook>, 'click'> & ReturnType<typeof createCraftUiHook>['craft'];
   furnace: ReturnType<typeof createFurnaceHook>;

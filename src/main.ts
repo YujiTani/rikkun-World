@@ -65,6 +65,8 @@ import { YokaiNameplates } from './ui/yokaiNameplates';
 import { actionHintLines } from './ui/actionHintModel';
 import { createRng } from './world/gen/random';
 import { FX_SETTINGS } from './fx/config';
+import { drainSounds } from './fx/soundLog';
+import { createBrowserTitleSound } from './fx/titleSound';
 import { SoundFx } from './fx/sound';
 import { createAudioSettings } from './fx/audioConfig';
 import { AudioMixer } from './fx/audioMixer';
@@ -229,6 +231,22 @@ const mixer = new AudioMixer(audioSettings);
 const bgm = new BgmPlayer(mixer);
 const bgmScene = new BgmSceneTracker(audioSettings);
 const fxSound = new SoundFx({ output: () => mixer.output(), chord: () => bgm.chord(), onBig: () => mixer.duck() });
+// 二つ名の出現音（音ファイル）。効果音と同じミキサーの sfx バスに流す。プレイヤーの 最初の 操作のあとで 読みこむ（それまで AudioContext を 作らない）
+const titleSound = createBrowserTitleSound(
+  () => FX_SETTINGS.fxVolume,
+  () => mixer.output()?.ctx ?? null,
+  () => mixer.output()?.destination ?? null,
+);
+{
+  const warm = (): void => {
+    window.removeEventListener('pointerdown', warm, true);
+    window.removeEventListener('keydown', warm, true);
+    mixer.unlock(); // 先に AudioContext を作ってから読む（下の unlock と同じ。何度呼んでもよい）
+    void titleSound.preload();
+  };
+  window.addEventListener('pointerdown', warm, true);
+  window.addEventListener('keydown', warm, true);
+}
 const playOverlay = new PlayOverlay(hud, lock, () => pointerLock.request(), () => playCraft(fxSound, 'tab'));
 const soundSettingsUi = createSoundSettings({ audio: audioSettings, fx: FX_SETTINGS, onChange: () => audioSync() }, playOverlay.el);
 // 最初のクリック・キーで音が使えるようになる（ブラウザのきまり）
@@ -796,6 +814,7 @@ const combatFx = new CombatFx({
   homeNotice: combatUi.homeNotice,
   edge: combatUi.edge,
   clock: combatUi.clock,
+  titleSound,
   onPickup: (item, count) => hotbar.pickup(item, count),
 });
 
@@ -1420,6 +1439,8 @@ installTestHook(game, overlay, {
   combat: {
     ...combatHook,
     arrows: toolHook.arrows,
+    /** 鳴らす頼み・鳴らした音の名前の列（呼ぶと空） */
+    sounds: () => drainSounds(),
     events: () => [...combatHook.events(), ...toolHook.arrowEvents()],
   } as unknown as TestHookGroups['combat'],
   ...logHook,
