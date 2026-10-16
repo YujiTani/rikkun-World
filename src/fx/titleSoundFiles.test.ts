@@ -2,7 +2,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { measure } from './titleSoundMeasure.testutil';
+import { FFMPEG, measure } from './titleSoundMeasure.testutil';
 
 /**
  * AC20 (1)(2)(5)（BALANCE.md §5・§7）: 加工した音ファイル 3 つ。
@@ -10,7 +10,7 @@ import { measure } from './titleSoundMeasure.testutil';
  *  (2) ピーク −1 dBFS 以下・立ち上がり（鳴り始め → 最大の 9 割）0.05 秒以上（ファイルを読んで数える）
  *  (5) 試聴ページ public/sound/nick/listen.html があり 3 つを指している（鳴るかは オーナー確認）
  * 長さの上限は 書かない。重ねない時間は「聞こえる長さ（−20 dB まで）」3.0・3.8・5.2 秒。
- * 数える道具は ffmpeg。手元に無ければ (2) だけ とばすが、CI（process.env.CI）では ffmpeg が無いと 失敗（ci.yml で入れる）。
+ * 数える道具は ffmpeg。手元に無ければ (2) だけ とばすが、CI（process.env.CI）では ffmpeg が無いと 失敗（npm の ffmpeg-static で入る）。
  */
 const ROOT = resolve(__dirname, '../..');
 const DIR = join(ROOT, 'public/sound/nick');
@@ -18,7 +18,7 @@ const TIERS = ['oyabun', 'taisho', 'nushi'] as const;
 const HEARABLE = { oyabun: 3.0, taisho: 3.8, nushi: 5.2 } as const;
 const files = TIERS.map((t) => join(DIR, `appear_${t}.mp3`));
 
-const hasFfmpeg = spawnSync('ffmpeg', ['-version']).status === 0;
+const hasFfmpeg = spawnSync(FFMPEG, ['-version']).status === 0;
 
 describe('AC20 (1) 音ファイル', () => {
   it('3 つとも public/sound/nick/ にあり、mp3（先頭が ID3 か フレーム同期）で 130KB 以下・3 つで 400KB 以下', () => {
@@ -60,7 +60,7 @@ describe('AC20 (5) 試聴ページ', () => {
   });
 });
 
-// CI（process.env.CI）で ffmpeg がなければ skip ではなく 失敗にする（.github/workflows/ci.yml で入れている）
+// CI（process.env.CI）で ffmpeg がなければ skip ではなく 失敗にする（npm の ffmpeg-static で入る）
 if (process.env.CI) {
   it('CI に ffmpeg がある（なければ AC20 (2) を測れない）', () => {
     expect(hasFfmpeg).toBe(true);

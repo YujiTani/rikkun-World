@@ -1,8 +1,12 @@
 import { execFileSync } from 'node:child_process';
+import ffmpegStatic from 'ffmpeg-static';
+
+/** 数える道具 ffmpeg（npm の ffmpeg-static。CI にも npm ci で入る。無ければ PATH の ffmpeg） */
+export const FFMPEG: string = (ffmpegStatic as unknown as string | null) ?? 'ffmpeg';
 
 /** mp3 → 48kHz ステレオ f32。{ peakDb, attack（秒）, hearable（秒）, length } */
 export function measure(file: string) {
-  const buf = execFileSync('ffmpeg', ['-v', 'error', '-i', file, '-f', 'f32le', '-ac', '2', '-ar', '48000', '-'], { maxBuffer: 1 << 30 });
+  const buf = execFileSync(FFMPEG, ['-v', 'error', '-i', file, '-f', 'f32le', '-ac', '2', '-ar', '48000', '-'], { maxBuffer: 1 << 30 });
   const f = new Float32Array(buf.buffer, buf.byteOffset, Math.floor(buf.byteLength / 4));
   const SR = 48000;
   let peak = 0;
