@@ -22,11 +22,11 @@ export const SPARKLE: Record<Rarity, SparkleSpec> = {
   common: { rate: 2, width: 0.12, opacity: 0.3, pulse: false, rainbow: false, stars: false },
   uncommon: { rate: 4, width: 0.12, opacity: 0.3, pulse: false, rainbow: false, stars: false },
   rare: { rate: 7, width: 0.18, opacity: 0.42, pulse: true, rainbow: false, stars: false },
-  superRare: { rate: 12, width: 0.28, opacity: 0.42, pulse: true, rainbow: true, stars: true },
-  // 5〜7 段目（RARITY-7 §4.5）: つぶ・はば・こさ・ゆれは 4 段目と同じ。色は段の色のまま（にじにしない。仮）
+  superRare: { rate: 12, width: 0.28, opacity: 0.42, pulse: true, rainbow: false, stars: true },
+  // 5〜7 段目（RARITY-7 §4.5）: つぶ・はば・こさ・ゆれは 4 段目と同じ。色は 案 A の段の色。にじ色に流れるのは 7 段目だけ（今の 4 段目のにじは 7 段目に うつした）
   epic: { rate: 12, width: 0.28, opacity: 0.42, pulse: true, rainbow: false, stars: true },
   mythic: { rate: 12, width: 0.28, opacity: 0.42, pulse: true, rainbow: false, stars: true },
-  legendary: { rate: 12, width: 0.28, opacity: 0.42, pulse: true, rainbow: false, stars: true },
+  legendary: { rate: 12, width: 0.28, opacity: 0.42, pulse: true, rainbow: true, stars: true },
 };
 
 export const SPARKLE_CFG = {

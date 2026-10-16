@@ -13,6 +13,8 @@ export const GEM_SHAPES: readonly GemShape[] = RARITY_TIERS.map((t) => t.gem);
 
 const hexRgba = (c: number): Rgba => [(c >> 16) & 255, (c >> 8) & 255, c & 255, 255];
 const FILL: readonly Rgba[] = RARITY_TIERS.map((t) => hexRgba(t.color));
+const RAINBOW: readonly Rgba[] = ['#ff5a5f', '#ffa040', '#ffd23f', '#3ddc84', '#4fc3f7', '#7f8cff', '#c79bff'].map((h) => hexRgba(parseInt(h.slice(1), 16)));
+const mix = (c: Rgba, to: number, k: number): Rgba => [Math.round(c[0] + (to - c[0]) * k), Math.round(c[1] + (to - c[1]) * k), Math.round(c[2] + (to - c[2]) * k), 255];
 const INK: Rgba = [0x10, 0x14, 0x1f, 255];
 const CLEAR: Rgba = [0, 0, 0, 0];
 const N = 16;
@@ -101,7 +103,13 @@ export function gemPixels(rarity: number): Rgba[] {
   const out: Rgba[] = [];
   for (let y = 0; y < N; y++) {
     for (let x = 0; x < N; x++) {
-      if (at(x, y)) out.push(FILL[idx]);
+      if (at(x, y)) {
+        // 案 A: 上・左が とぎれる ドットは 明るい 1 段、下・右は かげ 1 段。7 段目は にじ色のぬり
+        const base = idx === LAST ? RAINBOW[Math.min(RAINBOW.length - 1, Math.floor(((x + y) / 30) * RAINBOW.length))] : FILL[idx];
+        if (!at(x - 1, y - 1) || !at(x, y - 1)) out.push(mix(base, 255, 0.55));
+        else if (!at(x + 1, y + 1) || !at(x, y + 1)) out.push(mix(base, 0, 0.28));
+        else out.push(base);
+      }
       else if (at(x - 1, y) || at(x + 1, y) || at(x, y - 1) || at(x, y + 1)) out.push(INK);
       else out.push(CLEAR);
     }

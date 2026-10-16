@@ -183,8 +183,8 @@ export class BagVisuals {
           const sc = 0.4 + 0.6 * Math.min(1, v.restT / RING_GROW_SECONDS);
           this.mtx.makeScale(sc, 1, sc).setPosition(bag.position.x, bag.position.y + 0.03, bag.position.z);
           this.rings.setMatrixAt(n, this.mtx);
-          // 4 段目の輪は にじ色にゆっくり流れる（ほかは 段の色）
-          if (rar === 'superRare') this.ringColor.setHSL(rainbowHue(this.time, 0.3), 0.7, 0.7);
+          // 7 段目の輪は にじ色にゆっくり流れる（ほかは 段の色）
+          if (rar === 'legendary') this.ringColor.setHSL(rainbowHue(this.time, 0.3), 0.7, 0.7);
           else this.ringColor.setHex(RARITY_COLOR[rar]);
           this.rings.setColorAt(n, this.ringColor);
           this.ringN = n + 1;
@@ -244,7 +244,7 @@ export class BagVisuals {
     }
     // 柱の濃さ（めずらしい: ゆっくりゆれる）・とても めずらしい: にじ色がゆっくり流れる
     for (const r of RARITY_ORDER) PILLAR_MATS[r].opacity = pillarOpacity(r, this.time);
-    PILLAR_MATS.superRare.color.setHSL(rainbowHue(this.time), 0.7, 0.7);
+    PILLAR_MATS.legendary.color.setHSL(rainbowHue(this.time), 0.7, 0.7);
     this.sparkle.addFlashes();
     this.sparkle.end();
     if (landed >= 0) this.onLand?.(RARITY_ORDER[landed]!);

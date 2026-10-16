@@ -1,3 +1,8 @@
+@property --rk-rb-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
 /*
  * りっくんワールド UI の土台（M6 S1。仕様 docs/design/M6-ui-achievements.md §3.5）
  * 色・大きさ・余白・角・影・動きは、ここの変数だけを使う。ほかのファイルに数を じかに書かない。
@@ -63,6 +68,8 @@
   --rk-accent-grad: linear-gradient(180deg, var(--rk-accent), var(--rk-accent-2));
   --rk-xp-grad: linear-gradient(90deg, var(--rk-xp), var(--rk-xp-2));
   --rk-rarity: var(--rk-rarity-0);
+  /* 7 段目のふち: にじ色（8 秒で 1 周。--rk-rb-angle を動かす） */
+  --rk-rarity-rainbow: conic-gradient(from var(--rk-rb-angle), #ff5a5f, #ffc83d, #3ddc84, #4fc3f7, #c79bff, #ff5a5f);
 
   /* (3) 文字（表示・タイトル・見出し・本文・小） */
   --rk-fs-display: clamp(40.8px, 3.75vw, 72px);
