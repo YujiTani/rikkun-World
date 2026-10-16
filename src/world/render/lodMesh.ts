@@ -160,8 +160,9 @@ export function meshChunkLod(world: ArrayVoxelWorld, cx: number, cz: number, lig
   const avg = averages();
   const x0 = cx * C;
   const z0 = cz * C;
-  const sizeX = world.size.x;
-  const sizeZ = world.size.z;
+  const eb = world.loadedBounds();
+  const sizeX = eb.x1;
+  const sizeZ = eb.z1;
 
   // まわり 1 列ぶんをふくめた列の情報
   const W = C + 2;

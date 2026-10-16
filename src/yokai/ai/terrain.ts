@@ -19,8 +19,9 @@ export function groundSupport(
   allowWater = false,
 ): number {
   const r = ai.radius;
-  if (x < r + AI_CONST.edgeMargin || z < r + AI_CONST.edgeMargin) return NaN;
-  if (x > world.size.x - r - AI_CONST.edgeMargin || z > world.size.z - r - AI_CONST.edgeMargin) return NaN;
+  const e = world.loadedBounds();
+  if (x < e.x0 + r + AI_CONST.edgeMargin || z < e.z0 + r + AI_CONST.edgeMargin) return NaN;
+  if (x > e.x1 - r - AI_CONST.edgeMargin || z > e.z1 - r - AI_CONST.edgeMargin) return NaN;
   const startY = Math.floor(y + ai.stepUp + 1e-6) - 1;
   const cells = ai.stepUp + maxDrop + 1;
   let top = -Infinity;

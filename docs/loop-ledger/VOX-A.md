@@ -1,0 +1,9 @@
+- dev / code-reviewer / 1周目: 合格。check:fast 緑（型＋ 86 files / 1476 tests）。重大 0 件。票の AC1〜3 は実装・ユニットで確認（負座標、3 形の往復、352 高さ、見えない印の付く/外れる/洞くつの口）。AC3 の grep は generateIsland・farmPlacement（島の作り直し）・VoxelWorld 既定値・contracts のみ。
+- 【中】src/world/VoxelWorld.ts:115-118（loadColumn）/ 121-128（unloadColumn）: 列の出し入れで changeBox（光の計算し直し）を立てない。この PR の島では不要だが、VOX-D/G が「読みこみ→光」を頼る前に、契約（誰が光を起こすか）を決めること。
+- 【軽微】src/world/VoxelWorld.ts:352-356: fill が 1 マスごとに noteDirty→staleAround（辞書引き 7 回）を呼ぶ。見えない印を読みはじめたあとの大きな fill で遅くなりうる。セクション単位でまとめて stale にするとよい（今の島では fill は小さいので許容）。
+- 【軽微】src/world/VoxelWorld.ts:581-590（chunkIndex/takeDirtyChunks）: cz*chunksX+cx は負の cx・cz で他の列と衝突する。コメントのとおり原点の島専用。VOX-C で takeDirtySections へ置きかえるときに必ず消すこと。
+- 【軽微】src/world/VoxelWorld.ts:20-22（columnKey）: |cx|,|cz| > 32768 で衝突。無限の世界でも実用上届かないが、範囲を一行コメントしておくとよい。
+- 【軽微】src/world/VoxelWorld.ts:295（markAllSecs）: sections.length >= 31 で secBits が 32 ビットを超えると壊れる。22 まで（352）なら安全。WORLD_HEIGHT を上げる人向けにコメントか assert を。
+- 【軽微】src/contracts.ts（BuildSectionMesh の戻り値 unknown）: VOX-C/E の接続点が型で縛られない。C/E 着手前に具体型（BufferGeometry 系）へ。GenerateChunk/ChunkStore/ChunkColumn は B/F に十分な形。
+- 【軽微】src/world/VoxelWorld.ts:394-414（fillFlat）+ src/save/SaveManager.ts: scratch を使いまわし、読みこんでいないマスは前の値のまま（外=0 で、昔の 255 とは違う）。島では問題なし。VOX-F で範囲が動くときは再点検。
+- 【軽微】src/world/sections.ts:sectionSet: palette の使われなくなった項目が残る（compact まで）。見えない印は保守的に false 側へ倒れるだけで安全。

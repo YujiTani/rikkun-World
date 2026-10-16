@@ -145,7 +145,6 @@ export function createBowSystem(deps: BowDepsX): BowSystem {
   function stepArrows(): void {
     if (flying.length === 0) return;
     const yokai = deps.yokai();
-    const size = deps.world.size;
     let w = 0;
     for (let i = 0; i < flying.length; i++) {
       const a = flying[i]!;
@@ -186,7 +185,7 @@ export function createBowSystem(deps: BowDepsX): BowSystem {
           p.y += my;
           p.z += mz;
           // 世界の 外（上へ 出ても x・z が 中なら 落ちて くるまで 待つ）
-          if (p.x < 0 || p.z < 0 || p.y < 0 || p.x >= size.x || p.z >= size.z || a.age >= s.arrowLifeTicks) {
+          if (!deps.world.isLoaded(p.x, p.z) || p.y < 0 || a.age >= s.arrowLifeTicks) {
             emit({ type: 'arrowEnd', tick: deps.tick(), position: { ...p } });
             alive = false;
           }

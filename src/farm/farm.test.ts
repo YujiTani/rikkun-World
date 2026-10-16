@@ -294,7 +294,7 @@ describe('前の保存（AC35）', () => {
       tier: 0,
     },
   };
-  const key = (w: ArrayVoxelWorld, x: number, y: number, z: number) => (y * w.size.z + z) * w.size.x + x;
+  const key = (w: ArrayVoxelWorld, x: number, y: number, z: number) => (y * w.loadedBounds().z1 + z) * w.loadedBounds().x1 + x;
   it('変えていなければ ぜんぶ 置く・2 回 しない', () => {
     const { world, farm, tansu } = make({ placement });
     expect(farm.placeLegacy(new Set())).toBe(true);

@@ -57,7 +57,8 @@ describe('ドット絵', () => {
 describe('ArrayVoxelWorld', () => {
   it('大きさ・範囲外・get/set', () => {
     const w = new ArrayVoxelWorld(OLD_SIZE);
-    expect(w.size).toEqual({ x: 64, y: 32, z: 64 });
+    expect(w.size).toEqual({ y: 32 });
+    expect(w.loadedBounds()).toEqual({ x0: 0, z0: 0, x1: 64, z1: 64 });
     expect(w.getBlock(10, 10, 10)).toBe('air');
     expect(w.getBlock(-1, 10, 10)).toBe('outside');
     expect(w.getBlock(64, 10, 10)).toBe('outside');

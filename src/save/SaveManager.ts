@@ -10,7 +10,12 @@ export interface KeyValueStore {
 
 /** 保存と読みこみに必要な世界の窓口（ArrayVoxelWorld がそのまま合う） */
 export interface SaveWorld {
-  readonly size: { x: number; y: number; z: number };
+  readonly size: { readonly y: number };
+  /** 読みこんである範囲（保存は 原点から広がる島の 全マスを 平らな番号で持つ。IndexedDB 化は VOX-F） */
+  loadedBounds(): { x0: number; z0: number; x1: number; z1: number };
+  isLoaded(x: number, z: number): boolean;
+  /** 平らな番号 (y*sz+z)*sx+x で 全ブロック番号を out に写す */
+  fillFlat(out: Uint8Array, sx: number, sz: number): void;
   /** ブロックの番号（BLOCK_TYPES の順）。範囲外は -1 */
   getIndex(x: number, y: number, z: number): number;
   setBlock(x: number, y: number, z: number, id: BlockId): boolean;
@@ -99,12 +104,17 @@ export const saveKey = (seed: number): string => `${SAVE_KEY_PREFIX}${seed}`;
 const BODY = { halfWidth: 0.3, height: 1.8 } as const;
 const EPS = 1e-4;
 
+/** 保存の平らな番号に使う大きさ（原点から x・z の端まで） */
+export function saveDims(world: SaveWorld): { x: number; y: number; z: number } {
+  const b = world.loadedBounds();
+  return { x: b.x1, y: world.size.y, z: b.z1 };
+}
+
 /** 世界のブロック番号を全部写し取る（島を作った直後に呼ぶ） */
 export function snapshotWorld(world: SaveWorld): Uint8Array {
-  const { x: sx, y: sy, z: sz } = world.size;
+  const { x: sx, y: sy, z: sz } = saveDims(world);
   const out = new Uint8Array(sx * sy * sz);
-  let i = 0;
-  for (let y = 0; y < sy; y++) for (let z = 0; z < sz; z++) for (let x = 0; x < sx; x++) out[i++] = world.getIndex(x, y, z);
+  world.fillFlat(out, sx, sz);
   return out;
 }
 
@@ -117,7 +127,7 @@ export function isBodyPlaceable(world: SaveWorld, p: Vec3): boolean {
   const z1 = Math.floor(p.z + BODY.halfWidth - EPS);
   const y0 = Math.floor(p.y + EPS);
   const y1 = Math.floor(p.y + BODY.height - EPS);
-  if (x0 < 0 || z0 < 0 || y0 < 0 || x1 >= world.size.x || z1 >= world.size.z) return false;
+  if (x0 < 0 || z0 < 0 || y0 < 0 || !world.isLoaded(x1, z1)) return false;
   for (let y = y0; y <= y1; y++)
     for (let z = z0; z <= z1; z++)
       for (let x = x0; x <= x1; x++) if (world.isSolid(x, y, z)) return false;
@@ -157,7 +167,7 @@ export class SaveManager {
       if (!data || data.version !== SAVE_VERSION || data.seed !== this.d.seed) return false;
       // M5: gen が 2 でない（gen が無いものもふくむ）、size がちがう保存は使わない
       if (data.gen !== SAVE_GEN) return false;
-      const { x: sx, y: sy, z: sz } = this.d.world.size;
+      const { x: sx, y: sy, z: sz } = saveDims(this.d.world);
       const sz0 = data.size;
       if (!Array.isArray(sz0) || sz0.length !== 3 || sz0[0] !== sx || sz0[1] !== sy || sz0[2] !== sz) return false;
       const blocks = data.blocks;
@@ -329,17 +339,17 @@ export class SaveManager {
   }
 
   /** 島とちがうマス・持ち物・プレイヤー（tick なし）を文字にする */
+  private scratch = new Uint8Array(0);
+
   private makeBody(): { body: string; full: string; changed: number } {
     const { world, baseline } = this.d;
-    const { x: sx, y: sy, z: sz } = world.size;
+    const { x: sx, y: sy, z: sz } = saveDims(world);
     const blocks: number[] = [];
-    let i = 0;
-    for (let y = 0; y < sy; y++)
-      for (let z = 0; z < sz; z++)
-        for (let x = 0; x < sx; x++, i++) {
-          const v = world.getIndex(x, y, z);
-          if (v !== baseline[i]) blocks.push(i, v);
-        }
+    const n = sx * sy * sz;
+    if (this.scratch.length !== n) this.scratch = new Uint8Array(n);
+    const now = this.scratch;
+    world.fillFlat(now, sx, sz);
+    for (let i = 0; i < n; i++) if (now[i] !== baseline[i]) blocks.push(i, now[i]);
     const st = this.d.player.get();
     const bagsFull = this.d.bags?.serialize() ?? [];
     // 比べるときは のこりステップを入れない（毎ステップ変わるため）
@@ -355,7 +365,7 @@ export class SaveManager {
     const make = (bags: unknown, farmData: unknown) => JSON.stringify({
       version: SAVE_VERSION,
       gen: SAVE_GEN,
-      size: [world.size.x, world.size.y, world.size.z],
+      size: [saveDims(world).x, saveDims(world).y, saveDims(world).z],
       seed: this.d.seed,
       blocks,
       inventory: this.d.inventory.serialize(),

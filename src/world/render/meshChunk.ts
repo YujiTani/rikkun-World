@@ -244,8 +244,8 @@ export function meshChunk(
   const water = emptyMesh();
   const x0 = cx * CHUNK_SIZE;
   const z0 = cz * CHUNK_SIZE;
-  const x1 = Math.min(x0 + CHUNK_SIZE, world.size.x);
-  const z1 = Math.min(z0 + CHUNK_SIZE, world.size.z);
+  const x1 = x0 + CHUNK_SIZE; // 読みこんでいないマスは getIndex が -1 を返す
+  const z1 = z0 + CHUNK_SIZE;
   for (let y = 0; y < world.size.y; y++) {
     for (let z = z0; z < z1; z++) {
       for (let x = x0; x < x1; x++) {
