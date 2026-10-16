@@ -12,14 +12,15 @@ export * from './types';
  */
 export const ALL_LOOKS: readonly Look[] = [placeholderLook, tsumikiLook, gotsugotsuLook, dotTileLook];
 
-export const DEFAULT_LOOK_ID = ALL_LOOKS[0].id;
+/** オーナーが選んだ見た目（2026-10-16、B ごつごつ） */
+export const DEFAULT_LOOK_ID = gotsugotsuLook.id;
 
 export function findLook(id: string | null | undefined): Look | undefined {
   return ALL_LOOKS.find((l) => l.id === id);
 }
 
 // ---- いま使っている Look（メッシュ作りは ブロック番号で引く。番号 → id は initLooks で教える）
-let current: Look = ALL_LOOKS[0];
+let current: Look = gotsugotsuLook;
 let ids: readonly string[] = [];
 let specs: (Look['kinds'][string] | undefined)[] = [];
 let version = 0;
