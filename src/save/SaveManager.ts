@@ -177,6 +177,8 @@ export class SaveManager {
   private suspended = false;
   /** 次の保存で 変わっていなくても書く（保険や古い保存から戻したとき） */
   private forceNext = false;
+  /** 直近の保存が失敗した（そのあいだ 大きな変更の早め保存は しない。ふつうの間隔で やりなおす） */
+  private lastFailed = false;
   private migratePending = false;
   private readonly restored: RestoredSave;
 
@@ -184,7 +186,7 @@ export class SaveManager {
     this.saveId = d.saveId ?? SAVE_ID;
     this.restored = d.restored ?? NO_SAVE;
     this.infoState = {
-      enabled: d.store !== null && d.db !== null,
+      enabled: d.store !== null && d.db !== null && !(d.restored?.readOnly ?? false),
       lastSavedTick: null,
       lastMs: 0,
       dirtyChunks: 0,
@@ -204,7 +206,7 @@ export class SaveManager {
   }
 
   private get on(): boolean {
-    return this.d.store !== null && this.d.db !== null && !this.suspended;
+    return this.d.store !== null && this.d.db !== null && !this.suspended && !this.restored.readOnly;
   }
 
   /** 起動のとき: 保存があれば 持ち物・プレイヤーなどを戻す（列は restoreStoredWorld が 世界に入れ済み）。戻したら true */
@@ -307,7 +309,7 @@ export class SaveManager {
     if (!this.on) return;
     const w = this.d.world;
     // 保険に入りきらないほど 変えたら、閉じる前に ふつうの保存をしておく
-    const bigLog = w.changeLogCount() > PENDING_MAX_CELLS && this.inFlight === 0;
+    const bigLog = w.changeLogCount() > PENDING_MAX_CELLS && this.inFlight === 0 && !this.lastFailed;
     if (currentTick - this.lastCheckTick < this.d.settings.saveIntervalTicks && !bigLog) return;
     this.lastCheckTick = currentTick;
     void this.write(false);
@@ -502,6 +504,7 @@ export class SaveManager {
           for (const r of recs) bytes += r.data.length;
           this.infoState.bytes = bytes;
           this.infoState.writes++;
+          this.lastFailed = false;
           this.infoState.doneMs = performance.now() - t0;
           try {
             this.d.store?.removeItem(PENDING_KEY);
@@ -517,6 +520,7 @@ export class SaveManager {
           w.requeueSaveDirty(taken);
           this.lastKey = null;
           this.infoState.failures++;
+          this.lastFailed = true;
           this.infoState.doneMs = performance.now() - t0;
         } finally {
           this.inFlight--;

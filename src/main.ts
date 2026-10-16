@@ -63,7 +63,7 @@ import { DigSystemImpl, createDigConfig, createDigHook } from './dig';
 import { InventoryImpl, createInventoryHook } from './inventory';
 import { ScreenController } from './screen/ScreenController';
 import { createScreenSettings } from './screen/config';
-import { EXPORT_FILE_NAME, PENDING_KEY, SAVE_ID, SaveManager, compressionAvailable, createSaveHook, exportSave, importSave, openIdb, parseSaveOptions, requestPersist, restoreStoredWorld, stripResetParam } from './save';
+import { EXPORT_FILE_NAME, PENDING_KEY, SAVE_ID, SaveManager, compressionAvailable, createSaveHook, exportSave, importSave, NO_SAVE, openIdb, parseSaveOptions, requestPersist, restoreStoredWorld, stripResetParam } from './save';
 import { Hotbar } from './ui/hotbar';
 import { InventoryScreen } from './ui/inventoryScreen';
 import { Notice } from './ui/notice';
@@ -167,9 +167,18 @@ try {
   store = null;
 }
 const saveId = seed === GEN_CONFIG.defaultSeed ? SAVE_ID : `seed-${seed}`;
-const idb = store && compressionAvailable() ? await openIdb() : null;
+// IndexedDB が 開かない・返事がないときも ゲームは始める（3 秒でやめて 保存なしで遊ぶ）
+const SAVE_BOOT_TIMEOUT_MS = 3000;
+const sleepNull = () => new Promise<null>((ok) => setTimeout(() => ok(null), SAVE_BOOT_TIMEOUT_MS));
+let idb = store && compressionAvailable() ? await Promise.race([openIdb(), sleepNull()]) : null;
 if (idb) requestPersist();
-const restored = await restoreStoredWorld({ world, db: idb, store, seed, saveId, reset: saveOptions.reset });
+const bootSignal = { aborted: false };
+let restored = await Promise.race([restoreStoredWorld({ world, db: idb, store, seed, saveId, reset: saveOptions.reset, signal: bootSignal }), sleepNull()]);
+if (restored === null) {
+  bootSignal.aborted = true;
+  idb = null;
+  restored = NO_SAVE;
+}
 const renderer = new WorldRenderer(world);
 renderer.setViewer(island.spawn().x, island.spawn().z);
 renderer.attach(game.scene);

@@ -1,7 +1,7 @@
 import type { BlockId, ChunkColumn } from '../contracts';
 import { BLOCK_TYPES, blockIdFromIndex } from '../world/blocks/blockTypes';
 import { SAVE_GEN, SAVE_VERSION, saveDims, saveKey, type KeyValueStore, type SaveWorld } from './SaveManager';
-import { unpackColumn, type PersistBackend, type StoredMeta } from './backend';
+import { NewerFormatError, unpackColumn, type PersistBackend, type StoredMeta } from './backend';
 
 /** pagehide の保険（同期で localStorage に小さく書く）。VOX-plan §7 */
 export const PENDING_KEY = 'rikkun-world-pending';
@@ -24,6 +24,8 @@ export interface RestoredSave {
   legacy: { changed: Set<number> } | null;
   /** pagehide の保険から戻した（最初の保存で書く） */
   fromPending: boolean;
+  /** 保存が今のゲームより新しい版 / 読めない: さわらず、この遊びでは 保存しない */
+  readOnly?: boolean;
   /** 読みこんだ列の数 / こわれていて 生成に戻した列の数 */
   columns: number;
   corrupt: number;
@@ -40,6 +42,8 @@ export interface RestoreOptions {
   saveId: string;
   /** ?reset=1: IndexedDB の保存を消して 新しい世界から */
   reset: boolean;
+  /** 時間切れで 手を引くしるし（立ったら 世界を変えない） */
+  signal?: { aborted: boolean };
 }
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -118,21 +122,32 @@ export async function restoreStoredWorld(o: RestoreOptions): Promise<RestoredSav
       return NO_SAVE;
     }
     const all = await db.readAll(saveId);
+    if (o.signal?.aborted) return NO_SAVE;
     let meta: StoredMeta | null = null;
     let columns = 0;
     let corrupt = 0;
-    if (validMeta(all.meta, seed)) {
-      meta = all.meta;
+    const m = all.meta as { v?: unknown; seed?: unknown } | null;
+    // 新しい版・ほかのシードの meta は さわらない（古いビルドで 新しい保存を こわさない）
+    if (isObj(m) && ((typeof m.v === 'number' && m.v > SAVE_VERSION) || (m.v === SAVE_VERSION && m.seed !== seed))) {
+      return { ...NO_SAVE, readOnly: true };
+    }
+    if (validMeta(all.meta, seed)) meta = all.meta;
+    // meta がこわれていても 列は 読む（meta は 初期値から作りなおす）
+    if (meta !== null || all.chunks.length > 0) {
       const nSections = Math.ceil(world.size.y / 16);
+      let newer = false;
       const results = await Promise.all(
         all.chunks.map(async (rec) => {
           try {
             return await unpackColumn(rec, nSections);
-          } catch {
+          } catch (e) {
+            if (e instanceof NewerFormatError) newer = true;
             return rec;
           }
         }),
       );
+      if (o.signal?.aborted) return NO_SAVE;
+      if (newer) return { ...NO_SAVE, readOnly: true };
       const bad: { cx: number; cz: number }[] = [];
       for (const r of results) {
         if ('sections' in r) {
@@ -143,10 +158,8 @@ export async function restoreStoredWorld(o: RestoreOptions): Promise<RestoredSav
           if (Number.isInteger(r.cx) && Number.isInteger(r.cz)) bad.push({ cx: r.cx, cz: r.cz });
         }
       }
-      world.resetSaveTracking(); // 読んだだけ。生成に戻した列は 生成した形で 次の保存で上書きする
+      world.resetSaveTracking(); // 読んだだけ。生成に戻した列は 生成した形で 次の保存で 上書きする
       world.requeueSaveDirty(bad);
-    } else if (all.chunks.length > 0 || all.meta !== null) {
-      await db.clear(saveId); // 使えない保存（版が新しい・シードがちがう）。次の保存で上書き
     }
     let fromPending = false;
     const pending = readPending(store, saveId, seed);
@@ -162,7 +175,7 @@ export async function restoreStoredWorld(o: RestoreOptions): Promise<RestoredSav
       fromPending = true;
     }
     let legacy: RestoredSave['legacy'] = null;
-    if (meta === null && store.getItem(migratedKey(saveId)) === null) {
+    if (meta === null && columns === 0 && all.meta === null && store.getItem(migratedKey(saveId)) === null) {
       const old = applyLegacySave(world, store, seed);
       if (old) {
         meta = old.meta;

@@ -302,7 +302,7 @@ describe('SaveManager（さわった列だけ丸ごと保存）', () => {
     a.world.setBlock(2, 25, 2, 'dirt');
     a.world.setBlock(40, 25, 40, 'dirt');
     await a.save.now();
-    db.chunks.get(`${SAVE_ID}/0/0`)!.v = 99; // 新しすぎる
+    db.chunks.get(`${SAVE_ID}/0/0`)!.v = 0; // 読みかえの関数がない古い形式
     // 高さが低い保存: 上を空気で足す
     const col = a.world.column(2, 2)!;
     const low = await packColumn(2, 2, encodeSections(col.sections.slice(0, 2)), 2, 2);
@@ -314,16 +314,73 @@ describe('SaveManager（さわった列だけ丸ごと保存）', () => {
     expect(b.world.getBlock(40, b.world.size.y - 1, 40)).toBe('air');
   });
 
-  it('meta の版・シードがちがう保存は使わず、新しい世界。次の保存で上書き', async () => {
+  it('新しい版の meta・ほかのシードの meta は さわらない。この遊びでは 保存しない（古いビルドで こわさない）', async () => {
+    for (const edit of [(m: Record<string, unknown>) => (m.v = 2), (m: Record<string, unknown>) => (m.seed = 1)]) {
+      const db = new MemoryBackend();
+      const a = await session(new MemoryStore(), db);
+      a.world.setBlock(2, 25, 2, 'dirt');
+      await a.save.now();
+      edit(db.metas.get(SAVE_ID)!);
+      const metaBefore = JSON.stringify(db.metas.get(SAVE_ID));
+      const b = await session(new MemoryStore(), db);
+      expect(b.loaded).toBe(false);
+      expect(b.restored.readOnly).toBe(true);
+      expect(b.save.info().enabled).toBe(false);
+      b.world.setBlock(3, 25, 3, 'stone');
+      await b.save.now();
+      expect(db.chunks.size).toBe(1);
+      expect(JSON.stringify(db.metas.get(SAVE_ID))).toBe(metaBefore);
+    }
+  });
+
+  it('meta だけこわれていても 列は読む（meta は初期値から）', async () => {
     const db = new MemoryBackend();
     const a = await session(new MemoryStore(), db);
     a.world.setBlock(2, 25, 2, 'dirt');
     await a.save.now();
-    db.metas.get(SAVE_ID)!.v = 2;
+    db.metas.delete(SAVE_ID);
     const b = await session(new MemoryStore(), db);
     expect(b.loaded).toBe(false);
-    expect(b.world.getBlock(2, 25, 2)).not.toBe('dirt');
-    expect(db.chunks.size).toBe(0);
+    expect(b.restored.readOnly).toBeUndefined();
+    expect(b.world.getBlock(2, 25, 2)).toBe('dirt');
+    expect(db.chunks.size).toBe(1);
+  });
+
+  it('新しい形式の列があれば 何も上書きしない（保存しない）', async () => {
+    const db = new MemoryBackend();
+    const a = await session(new MemoryStore(), db);
+    a.world.setBlock(2, 25, 2, 'dirt');
+    await a.save.now();
+    db.chunks.get(`${SAVE_ID}/0/0`)!.v = 99;
+    const before = JSON.stringify([...db.chunks.values()].map((c) => [c.v, [...c.data]]));
+    const b = await session(new MemoryStore(), db);
+    expect(b.restored.readOnly).toBe(true);
+    b.world.setBlock(40, 25, 40, 'stone');
+    await b.save.now();
+    expect(JSON.stringify([...db.chunks.values()].map((c) => [c.v, [...c.data]]))).toBe(before);
+    expect(b.save.info().enabled).toBe(false);
+  });
+
+  it('大きな変更の早め保存は 失敗のあと くりかえさない', async () => {
+    const db = new MemoryBackend();
+    const s = await session(new MemoryStore(), db);
+    s.world.fill(0, 20, 0, 40, 40, 40, 'stone');
+    db.failWrites = true;
+    s.ticks.n = 1;
+    s.save.update(1);
+    await s.save.idle();
+    expect(s.save.info().failures).toBe(1);
+    for (let t = 2; t < 50; t++) {
+      s.ticks.n = t;
+      s.save.update(t);
+    }
+    await s.save.idle();
+    expect(s.save.info().failures).toBe(1);
+    db.failWrites = false;
+    s.ticks.n = 700;
+    s.save.update(700); // ふつうの間隔で やりなおす
+    await s.save.idle();
+    expect(s.save.info().writes).toBe(1);
   });
 
   it('書けなかったら 何も進まず、列は「さわった」に戻って 次の保存でやりなおす', async () => {

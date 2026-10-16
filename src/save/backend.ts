@@ -25,6 +25,9 @@ export interface PersistBackend {
   clear(saveId: string): Promise<void>;
 }
 
+/** 保存した列の形式が 今のゲームより新しい（読めない。上書きもしない） */
+export class NewerFormatError extends Error {}
+
 export const DB_NAME = 'rikkun-world';
 export const SAVE_ID = 'main';
 
@@ -83,12 +86,15 @@ export class IdbBackend implements PersistBackend {
 
   static async open(factory: IDBFactory = indexedDB, name = DB_NAME): Promise<IdbBackend> {
     const r = factory.open(name, 1);
+    const blocked = new Promise<never>((_, ng) => {
+      r.onblocked = () => ng(new Error('IndexedDB が ほかで ふさがっている'));
+    });
     r.onupgradeneeded = () => {
       const db = r.result;
       if (!db.objectStoreNames.contains('chunks')) db.createObjectStore('chunks');
       if (!db.objectStoreNames.contains('meta')) db.createObjectStore('meta');
     };
-    return new IdbBackend(await req(r));
+    return new IdbBackend(await Promise.race([req(r), blocked]));
   }
 
   close(): void {
@@ -161,6 +167,7 @@ export async function packColumn(cx: number, cz: number, raw: Uint8Array, gen: n
 /** record を列にする。版が新しすぎる・こわれている → Error。高さが低い保存は上を空気で足す */
 export async function unpackColumn(rec: StoredChunk, nSections: number): Promise<ChunkColumn> {
   if (!Number.isInteger(rec.cx) || !Number.isInteger(rec.cz)) throw new Error('列の場所がおかしい');
+  if (typeof rec.v === 'number' && rec.v > CHUNK_FORMAT_VERSION) throw new NewerFormatError(`形式の版 ${rec.v} は新しい`);
   if (rec.v !== CHUNK_FORMAT_VERSION) throw new Error(`形式の版 ${String(rec.v)} は読めない`);
   if (!Number.isInteger(rec.h) || rec.h < 1 || rec.h > nSections) throw new Error('高さがおかしい');
   if (!(rec.data instanceof Uint8Array)) throw new Error('data がおかしい');
