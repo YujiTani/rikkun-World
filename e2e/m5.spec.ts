@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { installAimHelpers } from './helpers/aim';
 
 /**
  * M5（広い世界）の受け入れ基準 docs/design/M5-world.md のうち、実際のゲームでしか確かめられないもの。
@@ -11,6 +12,7 @@ test.describe.configure({ timeout: 180_000 });
 async function open(page: Page, query = '?nosave=1') {
   await page.goto('/' + query);
   await page.waitForFunction(() => window.__rikkun?.ready === true);
+  await installAimHelpers(page);
   await page.evaluate(() => window.__rikkun!.achievements.mute(true));
 }
 
@@ -90,6 +92,7 @@ test.describe('M5 広い世界', () => {
       const torch = h.world.getBlock(T.x, T.y, T.z);
       // たいまつ の前（西がわ）に立って、たいまつ をねらって 300 ステップほる
       h.player.set({ position: { x: T.x - 1.5, y: h.world.groundHeight(T.x - 2, T.z) + 1, z: T.z + 0.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: 0 });
+      (window as any).__aim.solve(T.x, T.y, T.z, 0.5); // たいまつ の中心をねらう
       h.step(2);
       const tgt = h.target.get();
       h.input.press('primary');

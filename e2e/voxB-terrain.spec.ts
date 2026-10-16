@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { installAimHelpers } from './helpers/aim';
 import { installArena } from './helpers/arena';
 
 /**
@@ -131,6 +132,7 @@ test.describe('VOX-B 地形（つないだ後）', () => {
 
   test('AC12(ほる): たいまつ をねらって ほり続けても こわれない', async ({ page }) => {
     await open(page);
+    await installAimHelpers(page);
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
       h.pause();
@@ -141,6 +143,7 @@ test.describe('VOX-B 地形（つないだ後）', () => {
       // たいまつ の 西がわ 2 マスから 東を向いて ほる
       const gy = h.world.groundHeight(T.x - 2, T.z);
       h.player.set({ position: { x: T.x - 1.5, y: gy + 1, z: T.z + 0.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: 0 });
+      (window as any).__aim.solve(T.x, T.y, T.z, 0.5); // たいまつ の まん中を ほんとうに ねらう（pitch 0 だと目の高さの上を通り抜けて ほる相手が無い）
       h.step(2);
       h.input.press('primary');
       h.step(300);

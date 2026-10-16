@@ -15,3 +15,6 @@
 | 1 | design | design-reviewer | 【軽微】`docs/design/VOX-plan.md` §7 は saveId=`main`・古い h を読み足す、とあるが、B は 新しい saveId で 古い列を読まない（決定 5 に合う）。設計書の注記を VOX-F/B のあとで直す | 設計書が古い | G7 | 未対応（次のついで） |
 | 1 | design | design-reviewer | 【軽微】m1 AC14（海から歩いて上がる）は 対角 80 マスを直進するため、木・3 段の崖・岩にぶつかると 3000 step でも終わらない恐れ。終わりの条件が「y ≥ seaY()+1 かつ onGround」なので、ふつうは 海のふちの坂（T3 で木なし）で終わる。落ちたら 方向を スタート向きから 内側（+x）に変えること | テストの揺れ | G8 | 未対応（テスト係が見る） |
 | 1 | design | design-reviewer | 判定: 合格（重大 0 件） | | | |
+| 2 | test | code-reviewer | 軽微: m1 AC10 は hook があるときだけ見る形 | 実装前なので | T1 | 実装後に必須へ戻す |
+| 2 | test | code-reviewer | 軽微: arena の床は空気で 1 回 約 58 万マス埋める | 高さ 352 まで埋める | T2 | 重ければ opts.air |
+| 2 | test | code-reviewer | 中: m5 AC6/19 が pitch 0 のままほり、たいまつをねらっていない | 元からの弱さ | T3 | 直した（__aim.solve） |
