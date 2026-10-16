@@ -13,3 +13,6 @@
 | 1 | dev | code-reviewer | 【軽微】テスト準備(69d3f9c) AC7: 音 `empty` を直接見ず `bucketNo` 出来事で代用。(4) 妖怪の箱で `bucketNo` > 0 を確かめていない | テストのゆるさ | T1 | 未 |
 | 1 | dev | code-reviewer | 【軽微】AC10: 「別のマス・たんす・すてて拾う」を e2e で見ていない（置いた水と持つ マスの保存だけ）。AC9: 文の漢字が ruby の中かは ruby 数>0 だけ。AC4: とどく限界ちょうどの水が くめる所は未確認 | テストの抜け | T2 | 未 |
 | 1 | dev | code-reviewer | 判定: 合格（重大 0）。bucket.spec.ts は AC2/4/5/6/7/9/10 を設定値と bucketSpot に聞いて確認、既存テストの数の直しは §6.2 どおりで消したテストなし（m72ui の `slice(7,10)` と `c[10]` の追加は仕様どおり） | 判定 | T0 | - |
+| 1 | dev | code-reviewer | 【軽微】実装(237e211): 手に持った傾き（くむ下20°・おく前35°）未実装、しずくは `waterFx.pour` で代用（`main.ts`）。6 歳の遊びに影響なく受け入れ可。あとで足す | 仕様との違い | I1 | 未 |
+| 1 | dev | code-reviewer | 【軽微】`DigSystem.ts` の `waterRay.waterCell` は直前の `waterRayNow()`（プレビュー）の結果に頼る。実行の直前で呼ぶ順が崩れると古い値になりうる（今は正しい）。コメントがあるとよい | 読みにくさ | I2 | 未 |
+| 1 | dev | code-reviewer | 判定: 合格（重大 0）。`npm run check:fast` 緑（1786 件）。4d〜4g の順・置ける所の判定・保存（アイテムのみ）は仕様どおり | 判定 | I0 | - |
