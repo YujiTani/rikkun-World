@@ -28,11 +28,7 @@
   color: var(--rk-text);
   line-height: var(--rk-lh);
   font-variant-numeric: tabular-nums;
-  text-shadow:
-    2px 0 0 var(--rk-bg-900),
-    -2px 0 0 var(--rk-bg-900),
-    0 2px 0 var(--rk-bg-900),
-    0 -2px 0 var(--rk-bg-900);
+  text-shadow: var(--rk-text-outline);
 }
 /* たんす の小さな絵（16px）: アイテムの絵の左下 */
 .pickup-row > .log-tansu {

@@ -93,6 +93,10 @@
   /* 影 */
   --rk-shadow-1: 0 4px 0 var(--rk-bg-900);
   --rk-shadow-1-pressed: 0 2px 0 var(--rk-bg-900);
+  /* 字のふち: 1px のこい輪郭 + やわらかい影。半透明の下地の上の字だけに使う（不透明な下地では none） */
+  --rk-text-outline:
+    1px 0 1px var(--rk-bg-900), -1px 0 1px var(--rk-bg-900), 0 1px 1px var(--rk-bg-900), 0 -1px 1px var(--rk-bg-900),
+    0 1px 3px rgb(0 0 0 / 60%);
   --rk-shadow-2: 0 8px 24px rgb(0 0 0 / 40%);
   --rk-glow: 0 0 16px rgb(255 200 61 / 60%);
   --rk-glow-weak: 0 0 4px rgb(255 200 61 / 30%);

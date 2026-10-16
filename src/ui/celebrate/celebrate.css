@@ -39,7 +39,7 @@
   font-weight: 800;
   color: var(--rk-accent);
   font-variant-numeric: tabular-nums;
-  text-shadow: 2px 0 0 var(--rk-bg-900), -2px 0 0 var(--rk-bg-900), 0 2px 0 var(--rk-bg-900), 0 -2px 0 var(--rk-bg-900);
+  text-shadow: var(--rk-text-outline);
 }
 .cel-combo[hidden] {
   display: none;
@@ -166,7 +166,7 @@
   font-size: var(--rk-fs-display);
   font-weight: 800;
   color: var(--rk-accent);
-  text-shadow: 2px 0 0 var(--rk-bg-900), -2px 0 0 var(--rk-bg-900), 0 2px 0 var(--rk-bg-900), 0 -2px 0 var(--rk-bg-900);
+  text-shadow: var(--rk-text-outline);
 }
 .cel-main {
   position: relative;

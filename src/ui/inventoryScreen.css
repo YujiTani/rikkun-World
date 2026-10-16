@@ -3,11 +3,7 @@
  * 上: タブ（A）とじる。中: 左 持ち物（そうび 1 列・もちもの 9×3・ホットバー 9）、右 つくる／たんす。
  */
 #inventory-screen {
-  text-shadow:
-    2px 0 0 var(--rk-bg-900),
-    -2px 0 0 var(--rk-bg-900),
-    0 2px 0 var(--rk-bg-900),
-    0 -2px 0 var(--rk-bg-900);
+  text-shadow: var(--rk-text-outline);
   position: fixed;
   inset: 0;
   background: var(--rk-scrim);

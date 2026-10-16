@@ -12,11 +12,7 @@
   font-size: var(--rk-fs-title);
   font-weight: 800;
   color: var(--rk-text);
-  text-shadow:
-    2px 0 0 var(--rk-bg-900),
-    -2px 0 0 var(--rk-bg-900),
-    0 2px 0 var(--rk-bg-900),
-    0 -2px 0 var(--rk-bg-900);
+  text-shadow: var(--rk-text-outline);
 }
 .log-body {
   position: relative;
@@ -80,11 +76,7 @@
   color: var(--rk-text);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  text-shadow:
-    2px 0 0 var(--rk-bg-900),
-    -2px 0 0 var(--rk-bg-900),
-    0 2px 0 var(--rk-bg-900),
-    0 -2px 0 var(--rk-bg-900);
+  text-shadow: var(--rk-text-outline);
 }
 .log-side {
   display: flex;
@@ -117,9 +109,5 @@
 .log-empty__text {
   font-size: var(--rk-fs-body);
   color: var(--rk-text);
-  text-shadow:
-    2px 0 0 var(--rk-bg-900),
-    -2px 0 0 var(--rk-bg-900),
-    0 2px 0 var(--rk-bg-900),
-    0 -2px 0 var(--rk-bg-900);
+  text-shadow: var(--rk-text-outline);
 }

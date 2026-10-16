@@ -15,11 +15,7 @@
   display: none;
 }
 .po-panel {
-  text-shadow:
-    2px 0 0 var(--rk-bg-900),
-    -2px 0 0 var(--rk-bg-900),
-    0 2px 0 var(--rk-bg-900),
-    0 -2px 0 var(--rk-bg-900);
+  text-shadow: var(--rk-text-outline);
   display: flex;
   flex-direction: column;
   align-items: center;

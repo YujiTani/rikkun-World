@@ -3,11 +3,7 @@
  * 左: 絵だけのマスの一覧。右: 決まった場所の せつめい パネル（320px 分）。
  */
 .craft-panel {
-  text-shadow:
-    2px 0 0 var(--rk-bg-900),
-    -2px 0 0 var(--rk-bg-900),
-    0 2px 0 var(--rk-bg-900),
-    0 -2px 0 var(--rk-bg-900);
+  text-shadow: var(--rk-text-outline);
   --cp-detail-w: calc(var(--rk-slot-inv) * 320 / 56);
   box-sizing: border-box;
   display: flex;
