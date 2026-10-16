@@ -22,6 +22,8 @@ import type {
   FarmEvent,
   PetPort,
   WateringPort,
+  BucketPort,
+  BucketPreview,
   WaterRay,
 } from '../contracts';
 import type { Action, ActionState } from '../input/actions';
@@ -79,6 +81,8 @@ export interface DigM4Deps {
   vitals?: DigVitalsPort;
   /** M7-2: じょうろ（`WateringPort`。A）。4a くむ・4b まく・4c からっぽ の 判定と 実行 */
   water?: WateringPort;
+  /** BUCKET-1: バケツ（`BucketPort`。`farm/bucket.ts`）。4d〜4g の 判定と 実行 */
+  bucket?: BucketPort;
   /** M7-2: なでる・ごきげん（`PetPort`。C の `farm/pet.ts`） */
   pet?: PetPort;
   /** M7-2: 農業 の 出来事 を 足す（A の `emit`。`pet` の 出来事 用）。なければ 出さない */
@@ -593,6 +597,10 @@ export class DigSystemImpl implements DigSystem {
       return;
     }
     if (!first) return;
+    if (pv.kind === 'bucketFill') this.doBucketFill();
+    else if (pv.kind === 'bucketPlace') this.doBucketPlace();
+    else if (pv.kind === 'bucketHint') this.m4.farm?.noteHint('bucket', this.playerChest());
+    else if (pv.kind === 'bucketNo' && t) this.m4.bucket?.no({ x: t.place.x, y: t.place.y, z: t.place.z });
     if (pv.kind === 'fill') this.doFill();
     else if (pv.kind === 'fillHint') this.m4.farm?.noteHint('fill', this.playerChest());
     else if (pv.kind === 'pet' && t) this.doPet(t);
@@ -644,6 +652,23 @@ export class DigSystemImpl implements DigSystem {
     const cell = this.waterRay.waterCell;
     if (!cell || !this.m4.water) return;
     this.m4.water.fill(this.inventory.selected(), { x: cell.x, y: cell.y, z: cell.z });
+    this.m4.tools?.pushSwing('place');
+  }
+
+  /** 4d くむ（押した瞬間 だけ）。水の マスは そのまま */
+  private doBucketFill(): void {
+    const cell = this.waterRay.waterCell;
+    if (!cell || !this.m4.bucket) return;
+    this.m4.bucket.fill(this.inventory.selected(), { x: cell.x, y: cell.y, z: cell.z });
+    this.m4.tools?.pushSwing('place');
+  }
+
+  /** 4e おく（押した瞬間 だけ）。ブロックを 置くのと 同じ マスに water を 1 マス */
+  private doBucketPlace(): void {
+    const spot = this.bucketSpotCell();
+    if (!spot || !this.m4.bucket) return;
+    if (!this.world.setBlock(spot.x, spot.y, spot.z, 'water')) return;
+    this.m4.bucket.placed(this.inventory.selected(), spot);
     this.m4.tools?.pushSwing('place');
   }
 
@@ -701,6 +726,7 @@ export class DigSystemImpl implements DigSystem {
       isFurnace: (x, y, z) => craft?.isFurnace(x, y, z) ?? false,
       canEquip: (item) => armor?.canEquip(item) ?? false,
       water: () => this.waterPreview(repeat),
+      bucket: () => this.bucketPreview(repeat),
       petSpot: () => this.petSpot(),
       canPlace: () => this.placeSpot() !== null,
       canTill: () => this.tillSpot(),
@@ -715,10 +741,42 @@ export class DigSystemImpl implements DigSystem {
     const w = this.m4.water;
     const held = this.inventory.held();
     if (!w || !held || (held.item !== 'watering_can' && held.item !== 'long_watering_can')) return null;
+    return w.canPreview(held, this.waterRayNow(), repeat);
+  }
+
+  /** 4d〜4g: バケツ を 持っているとき だけ。じょうろ と 同じ ねらいの 線で 水を 通るか 見る */
+  private bucketPreview(repeat: boolean): BucketPreview | null {
+    const b = this.m4.bucket;
+    const held = this.inventory.held();
+    if (!b || !held || (held.item !== 'bucket' && held.item !== 'water_bucket')) return null;
+    const ray = this.waterRayNow();
+    const spot = held.item === 'water_bucket' && !ray.throughWater ? this.bucketSpotCell() : null;
+    return b.preview(held, ray, this.tgt !== null, spot, repeat);
+  }
+
+  /** `farm.bucketSpot()`: 今の ねらいで 4e が 水を 置く マス（置けない・水を ねらう ときは null） */
+  bucketSpot(): Vec3 | null {
+    if (!this.lock.playInputEnabled() || this.gate?.blocksInput()) return null;
+    if (this.inventory.held()?.item !== 'water_bucket' || this.waterRayNow().throughWater) return null;
+    return this.bucketSpotCell();
+  }
+
+  /** 水を 置ける マス（ぜんぶ 満たす: air・体と 重ならない・妖怪の箱で ない・ねらった ブロックが 作物で ない） */
+  private bucketSpotCell(): Vec3 | null {
+    const t = this.tgt;
+    if (!t || cropKindOfBlock(t.id)) return null;
+    const { x, y, z } = t.place;
+    if (this.world.getBlock(x, y, z) !== 'air') return null;
+    if (this.overlapsBody(x, y, z)) return null;
+    if (this.gate?.placeBlocked(x, y, z)) return null;
+    return { x, y, z };
+  }
+
+  private waterRayNow(): WaterRay {
     const p = this.player();
     const d = lookDirection(p.yawDeg, p.pitchDeg, this.dir);
     const o = this.origin(p, this.originScratch);
-    const ray = computeWaterRay(
+    return computeWaterRay(
       (x, y, z) => this.world.getBlock(x, y, z),
       o.x,
       o.y,
@@ -730,7 +788,6 @@ export class DigSystemImpl implements DigSystem {
       this.tgt,
       this.waterRay,
     );
-    return w.canPreview(held, ray, repeat);
   }
 
   /** 5: 作物・やせいの やさい を ねらっている（防具・じょうろ 以外 なんでも）。その やさい の 絵 を 返す */
@@ -741,7 +798,7 @@ export class DigSystemImpl implements DigSystem {
     const ck = cropKindOfBlock(t.id);
     if (!ck) return null;
     const h = this.inventory.held()?.item;
-    if (h === 'watering_can' || h === 'long_watering_can') return null;
+    if (h === 'watering_can' || h === 'long_watering_can' || h === 'bucket' || h === 'water_bucket') return null;
     if (!farm.crop(t.block.x, t.block.y, t.block.z)) return null;
     return ck.kind;
   }

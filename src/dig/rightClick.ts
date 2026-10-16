@@ -1,4 +1,4 @@
-import type { BlockId, ItemId, RightClickKind, TargetInfo, WaterPreview, WaterRay } from '../contracts';
+import type { BucketPreview, BlockId, ItemId, RightClickKind, TargetInfo, WaterPreview, WaterRay } from '../contracts';
 export type { RightClickKind };
 
 /**
@@ -25,6 +25,8 @@ export interface RightClickCtx {
   canEquip(item: ItemId): boolean;
   /** M7-2: 4a〜4c（じょうろ。`WateringPort.canPreview` が合う）。じょうろ でなければ null */
   water?(): WaterPreview | null;
+  /** BUCKET-1: 4d〜4g（バケツ。`BucketPort.preview` が合う）。バケツ でなければ null。'idle' = 何も しない（ほかの 段へ 進まない） */
+  bucket?(): BucketPreview | null;
   /** M7-2: 5（なでる）。作物・やせいの やさい を ねらっていれば その やさい の 絵（アイテム）。防具・じょうろ を 持つ ときは null */
   petSpot?(): ItemId | null;
   /** 持っているものを、ねらっている所の前に置けるか */
@@ -45,6 +47,8 @@ export function previewRightClick(c: RightClickCtx): RightClickPreview | null {
   if (t && c.isTansu(t.block.x, t.block.y, t.block.z)) return { kind: 'storage', item: null };
   if (t && c.isFurnace(t.block.x, t.block.y, t.block.z)) return { kind: 'furnace', item: null };
   if (c.held && c.canEquip(c.held)) return { kind: 'armor', item: c.held };
+  const b = c.bucket?.();
+  if (b) return b === 'idle' ? null : { kind: b, item: c.held };
   const w = c.water?.();
   if (w) return { kind: w, item: c.held };
   const pet = t ? c.petSpot?.() : null;

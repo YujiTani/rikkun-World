@@ -103,6 +103,7 @@ import { setWaterCapacity } from './ui/waterGauge';
 import { createSprinklers } from './farm/sprinkler';
 import { Pet } from './farm/pet';
 import { createWatering } from './farm/watering';
+import { createBucket } from './farm/bucket';
 import { WaterDropFx } from './fx/waterFx';
 import { SprinklerFx } from './fx/sprinklerFx';
 import { setCanCapacitySource } from './tools/durability';
@@ -543,6 +544,7 @@ const dig = new DigSystemImpl(
     },
     farm,
     water: createWatering({ farm, inventory, settings: m7, tick: () => game.tick }),
+    bucket: createBucket({ inventory, emit: (e) => farm.emit(e), tick: () => game.tick }),
     pet,
     emitFarm: (e) => farm.emit(e),
     nowTick: () => game.tick,
@@ -1235,7 +1237,10 @@ game.onUpdate((dt) => {
   {
     const fe = farm.drainEvents();
     if (fe.length > 0) {
-      for (const e of fe) if (e.type === 'pour') waterFx.pour(farm.lastPourCells());
+      for (const e of fe) {
+        if (e.type === 'pour') waterFx.pour(farm.lastPourCells());
+        else if (e.type === 'bucketPlace') waterFx.pour([{ x: e.x, y: e.y - 1, z: e.z }]); // 置いた マスの 上から しずく
+      }
       farmFx.feed(fe);
     }
     // 目の 位置（キラキラ・しぶきの 遠さ）と つぶ の 1 ステップ
@@ -1438,6 +1443,7 @@ installTestHook(game, overlay, {
       waterFx.model.reset();
     },
     aimed: () => dig.target()?.block ?? null,
+    bucketSpot: () => dig.bucketSpot(),
     give: (items) => {
       for (const st of items) {
         const left = inventory.add(st.item, st.count);

@@ -52,6 +52,9 @@ export const CRAFT_RECIPE_NAMES: ReadonlyArray<readonly [string, string]> = [
   ['sprinkler', 'スプリンクラー'],
 ];
 
+/** BUCKET-1: バケツ。`craft.everything`（28）には 入れない（数が かわると もう とった メダルの id が 消える） */
+const BUCKET_CRAFT_NAME = 'バケツ';
+
 export const BAKE_RECIPE_NAMES: ReadonlyArray<readonly [string, string]> = [
   ['iron_ingot', 'てつの かたまり'],
   ['kawara', 'かわら'],
@@ -187,6 +190,7 @@ function build(): AchievementDef[] {
     if (AXE_RECIPES.includes(id as never)) continue;
     add({ series: `craft.${id}`, category: 'craft', stat: `craft:${id}`, tiers: [t(1, true)], name: () => `はじめて ${name} を つくった！` });
   }
+  add({ series: 'craft.bucket', category: 'craft', stat: 'craft:bucket', tiers: [t(1, true)], name: () => `はじめて ${BUCKET_CRAFT_NAME} を つくった！` });
   add({ series: 'craft.all', category: 'craft', stat: 'craft:*', tiers: [t(10), t(50), t(100), t(500)], name: (g) => `${g} かい つくった！` });
   add({ series: 'craft.pickaxes', category: 'craft', stat: 'craft:pickaxes', tiers: [t(PICKAXE_RECIPES.length)], name: () => 'つるはし を ぜんぶ つくった！' });
   add({ series: 'craft.weapons', category: 'craft', stat: 'craft:weapons', tiers: [t(WEAPON_RECIPES.length)], name: () => 'ぶき を ぜんぶ つくった！' });
@@ -429,6 +433,8 @@ function build(): AchievementDef[] {
     name: firstOrN('はじめて やさい を なでた！', (g) => `やさい を ${g} かい なでた！`),
   });
   add({ series: 'farm.petHarvest', category: 'farm', stat: 'harvestPet', tiers: [t(1)], name: () => 'ごきげん の やさい を しゅうかく した！' });
+  // BUCKET-1: そだてる の いちばん うしろ（小 では ない）
+  add({ series: 'farm.bucket', category: 'farm', stat: 'bucketPlace', tiers: [t(1)], name: () => 'はじめて バケツ で みず を おいた！' });
 
   const out: AchievementDef[] = [];
   for (const s of specs) {
