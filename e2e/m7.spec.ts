@@ -80,7 +80,8 @@ test.describe('M7 農業', () => {
       out.seedLeft = h.inventory.count('seed_tomato');
       out.plantEvents = h.farm.events().filter((e: any) => e.type === 'plant').length;
       // そだつ（ひる・たいまつ。farmGrowDays を 1/1000 に）
-      h.settings.set('farmGrowDays', { dry: { onion: 0.00125, tomato: 0.00075, pumpkin: 0.002, eggplant: 0.00125 } });
+      h.world.setBlock(4, 9, 9, 'water'); // かわいた はたけ では そだたない
+      h.settings.set('farmGrowDays', { wet: { onion: 0.00125, tomato: 0.00075, pumpkin: 0.002, eggplant: 0.00125 } });
       h.time.set(20000);
       h.player.set({ position: { x: 2.5, y: 9, z: 6.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: -12 });
       h.world.setBlock(4, 10, 7, 'torch');
@@ -192,7 +193,8 @@ test.describe('M7 農業', () => {
       h.step(1);
       h.farm.till(4, 9, 6);
       h.farm.plant(4, 9, 6, 'tomato');
-      h.settings.set('farmGrowDays', { dry: { tomato: 0.00075, onion: 0.001, pumpkin: 0.002, eggplant: 0.001 } });
+      h.world.setBlock(4, 9, 9, 'water'); // かわいた はたけ では そだたない
+      h.settings.set('farmGrowDays', { wet: { tomato: 0.00075, onion: 0.001, pumpkin: 0.002, eggplant: 0.001 } });
       h.player.set({ position: { x: 2.5, y: 9, z: 6.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: -12 });
       h.time.set(70000);
       // 上を ふさいで 明るさ 0 にする

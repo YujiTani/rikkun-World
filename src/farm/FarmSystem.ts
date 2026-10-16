@@ -336,8 +336,9 @@ export function createFarmSystem(deps: FarmDepsM7): FarmSystemImpl {
       }
       if (c.stage >= 3) continue;
       if (light.level(c.x, c.y, c.z) < minLight) continue;
-      const wet = world.getBlock(c.x, c.y - 1, c.z) === 'farmland_wet';
-      const T = Math.max(1, settings.farmGrowDays[wet ? 'wet' : 'dry'][c.kind] * dl);
+      // かわいた はたけ では そだたない（とちゅうで とまり、ぬれたら つづきから）
+      if (world.getBlock(c.x, c.y - 1, c.z) !== 'farmland_wet') continue;
+      const T = Math.max(1, settings.farmGrowDays.wet[c.kind] * dl);
       const p = Math.min(1, ((3 * (1 - Math.exp(-f))) / T) * pet.growFactor(c.x, c.y, c.z));
       c.ticks++;
       if (rng.next() < p || c.ticks >= f / p) changeStage(c, (c.stage + 1) as CropStage);

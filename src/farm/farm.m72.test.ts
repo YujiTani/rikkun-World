@@ -312,7 +312,7 @@ describe('AC13 ごきげん の ボーナス', () => {
       let total = 0;
       for (let seed = 1; seed <= 6; seed++) {
         const m = make({ seed });
-        m.world.setBlock(10, 7, 10, 'water');
+        m.world.setBlock(9, 8, 10, 'water');
         m.field(10, 10, 10, 10);
         m.farm.plant(10, 8, 10, 'tomato');
         if (happy) m.pet.map.set('10,9,10', 1e9);
