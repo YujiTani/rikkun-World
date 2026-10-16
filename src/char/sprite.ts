@@ -30,6 +30,8 @@ export interface CharSpriteDeps {
   loadImage?: LoadImage;
   /** atlas.json を読む関数の差しかえ口 */
   loadJson?: (url: string) => Promise<unknown>;
+  /** 読みこんだ絵を 先に GPU へ上げる口（S が renderer.initTexture を わたす。なくても動く） */
+  initTexture?: (tex: THREE.Texture) => void;
 }
 
 export interface SpriteInfo {
@@ -82,7 +84,7 @@ uniform vec3 uTint;
 varying vec2 vUv;
 #include <fog_pars_fragment>
 void main() {
-  float idx = floor(texture2D(uMap, uRect.xy + vUv * uRect.zw).r * 255.0 + 0.5);
+  float idx = floor(texture2D(uMap, vec2(uRect.x + vUv.x * uRect.z, uRect.y + (1.0 - vUv.y) * uRect.w)).r * 255.0 + 0.5);
   if (idx < 0.5) discard;
   gl_FragColor = vec4(uPalette[int(idx)] * uTint, 1.0);
   #include <colorspace_fragment>
@@ -161,6 +163,12 @@ export function createCharSprite(deps: CharSpriteDeps): CharSprite {
       textures[m] = tex;
       gpuBytes += a.width * a.height;
       status[m] = 'ready';
+      // 始めて使うときの カクつきを防ぐ（はしる・ジャンプ）
+      try {
+        deps.initTexture?.(tex);
+      } catch {
+        /* 先に上げられなくても 使うときに上がる */
+      }
     } catch (e) {
       status[m] = 'failed';
       console.warn(`[char] ${m} の絵を読めませんでした。代わりの絵を使います`, e);
@@ -228,7 +236,7 @@ export function createCharSprite(deps: CharSpriteDeps): CharSprite {
     };
   };
 
-  const effectiveFrame = (): number => (machine.motion === 'jump' && effective('jump') !== 'jump' ? 0 : machine.frame);
+  const effectiveFrame = (): number => (machine.motion !== 'idle' && effective(machine.motion) === 'idle' ? 0 : machine.frame);
 
   function render(): void {
     parent.updateWorldMatrix(true, false);
@@ -285,7 +293,7 @@ export function createCharSprite(deps: CharSpriteDeps): CharSprite {
       const f = Math.min(effectiveFrame(), a.cols - 1);
       const row = tier * 8 + dir;
       uniforms.uMap!.value = tex;
-      (uniforms.uRect!.value as THREE.Vector4).set(f / a.cols, 1 - (row + 1) / a.rows, 1 / a.cols, 1 / a.rows);
+      (uniforms.uRect!.value as THREE.Vector4).set(f / a.cols, row / a.rows, 1 / a.cols, 1 / a.rows);
     }
     const t = tintValues();
     (uniforms.uTint!.value as THREE.Vector3).set(levelToLinear(t.r), levelToLinear(t.g), levelToLinear(t.b));

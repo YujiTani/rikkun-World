@@ -332,6 +332,39 @@ describe('板 (AC18-21, 31, 32, 40, 42)', () => {
     expect(sprite.info().motion).toBe('idle');
   });
 
+  it('dir・tier・frame から 絵の場所 uRect が決まり、上下は シェーダーで反転する (C1)', async () => {
+    const { sprite, camera, parent } = make();
+    await flush();
+    const mat = (parent.children[0] as THREE.Mesh).material as THREE.ShaderMaterial;
+    expect(mat.fragmentShader).toContain('(1.0 - vUv.y)');
+    place(camera, parent, [0, 2.12, 4], [0, 2.12, 0]);
+    sprite.step(input({ facingDeg: 0 }));
+    sprite.render();
+    let r = mat.uniforms.uRect!.value as THREE.Vector4;
+    expect([r.x, r.y, r.z, r.w]).toEqual([0, 4 / 24, 1 / COLS, 1 / 24]);
+    // 見下ろし（段 1）: 行 8 + dir
+    place(camera, parent, [0, 7, 1.5], [0, 2.12, 0]);
+    sprite.render();
+    const info = sprite.info();
+    expect(info.tier).toBe(1);
+    r = mat.uniforms.uRect!.value as THREE.Vector4;
+    expect(r.y).toBeCloseTo((8 + info.dir) / 24, 6);
+    // データの行 row * 256 が 色見本の row 番めの色（PNG の上から数えた行）
+    const tex = mat.uniforms.uMap!.value as THREE.DataTexture;
+    const data = tex.image.data as Uint8Array;
+    const row = Math.round(r.y * 24);
+    expect(data[(row * 256 + 20) * tex.image.width + 50]).toBe(((row + 0) % 20) + 1);
+  });
+
+  it('あるくが読めず たつ で代わるとき frame は 0 (C4)', async () => {
+    const miss = fakeImage(true);
+    const { sprite } = make({ perMotion: { walk: miss } });
+    await flush();
+    for (let i = 0; i < 20; i++) sprite.step(input({ vx: 4 }));
+    expect(sprite.info().motion).toBe('idle');
+    expect(sprite.info().frame).toBe(0);
+  });
+
   it('dispose で板が はずれる', async () => {
     const { sprite, parent } = make();
     await flush();
