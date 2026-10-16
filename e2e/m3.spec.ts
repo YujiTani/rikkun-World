@@ -275,7 +275,7 @@ test.describe('M3 妖怪の AI（距離だけ）', () => {
           T.base();
           h.world.fill(0, 8, 0, 12, 8, 12, 'stone');
           T.place(1.5, 9, 1.5, 135, 0);
-          // 対角線の距離 d（ちょうちん 15 は 1.5+10.6 の所に置く）
+          // 対角線の距離 d（遠い所は床を 20 まで のばして置く）
           const d = sight[kind] + delta;
           const o = d / Math.SQRT2;
           let x = 1.5 + o;
