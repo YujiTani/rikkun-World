@@ -1,4 +1,4 @@
-/* D 拾ったログ: 左はし（24px）、たて 56% から。チップを下から上へ（M4 §2.12 / M6 §3.6） */
+/* D 左のログ（拾った・たんす から つかった。CRAFT-2: 子の順 = 印 → 絵 → 白い字）: 左はし（24px）、たて 56% から。チップを下から上へ（M4 §2.12 / M6 §3.6） */
 #pickup-log {
   position: fixed;
   left: var(--rk-sp-5);
@@ -13,6 +13,7 @@
   z-index: 5;
 }
 .pickup-row {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--rk-sp-2);
@@ -21,19 +22,16 @@
   border-radius: var(--rk-r-pill);
   transform-origin: left center;
 }
-.pickup-row img {
-  width: var(--rk-icon-chip);
-  height: var(--rk-icon-chip);
-  image-rendering: pixelated;
-}
 .pickup-text {
   font-size: var(--rk-fs-body);
   font-weight: 500;
+  color: var(--rk-text);
   line-height: var(--rk-lh);
   font-variant-numeric: tabular-nums;
-  text-shadow:
-    2px 0 0 var(--rk-bg-900),
-    -2px 0 0 var(--rk-bg-900),
-    0 2px 0 var(--rk-bg-900),
-    0 -2px 0 var(--rk-bg-900);
+  text-shadow: var(--rk-text-outline);
+}
+/* たんす の小さな絵（16px）: アイテムの絵の左下 */
+.pickup-row > .log-tansu {
+  left: calc(var(--rk-sp-2) * 2 + var(--rk-icon-chip));
+  bottom: var(--rk-sp-1);
 }

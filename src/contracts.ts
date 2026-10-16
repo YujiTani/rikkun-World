@@ -473,7 +473,7 @@ export interface Recipe {
 }
 
 export type CraftEvent =
-  | { type: 'craft'; tick: number; recipe: string; item: ItemId; count: number }
+  | { type: 'craft'; tick: number; recipe: string; item: ItemId; count: number; /** CRAFT-2: たんす から使った分（空 = 使っていない。省くと 空と同じ） */ fromTansu?: (TansuPos & { item: ItemId; count: number })[] }
   | { type: 'craftFail'; tick: number; recipe: string; reason: 'missing' | 'full' | 'unknown' }
   | { type: 'bakeStart'; tick: number; recipe: string; fuel: ItemId; position: Vec3 }
   | { type: 'bakeDone'; tick: number; recipe: string; item: ItemId; count: number; position: Vec3 }
@@ -485,7 +485,13 @@ export interface CraftSystem {
   recipes(): Recipe[];
   /** 今の持ち物で作れるか・足りないもの */
   status(recipeId: string): { craftable: boolean; missing: ItemStack[] };
-  make(recipeId: string): { ok: boolean; reason: null | 'missing' | 'full' | 'unknown' | 'noFuel' | 'queueFull' };
+  make(recipeId: string): { ok: boolean; reason: null | 'missing' | 'full' | 'unknown' | 'noFuel' | 'queueFull'; /** CRAFT-2: ok のときだけ（ねんりょう もふくむ） */ used?: MaterialUse | null };
+  /** CRAFT-2: 今 つくったら どこから何こ取るかの 予定（何も変えない） */
+  sources(recipeId: string): MaterialSources;
+  /** CRAFT-2: 今の位置で `fogFar` 以内に しぼった 使える たんす（取る順。§2.4 (3)） */
+  tansuInRange(): (TansuPos & { dist: number })[];
+  /** CRAFT-2: テスト用の数（AC9b） */
+  debugCounts(): { tansuFilterCount: number };
   /** いま えらんでいる ねんりょう（0 こなら 自動の順の次。なければ null） */
   fuel?(): ItemId | null;
   /** ねんりょう を えらぶ（せきたん・あぶら・き のどれか。持っていなくてもよい） */
@@ -1715,4 +1721,97 @@ export function createW2Settings(): W2Settings {
     wearLowRatio: d.wearLowRatio,
     bladeTrail: Object.fromEntries(Object.entries(d.bladeTrail).map(([k, v]) => [k, { ...v }])) as W2Settings['bladeTrail'],
   };
+}
+
+// ================================================================ CRAFT-2（たんす の 素材・ログ・半透明）
+// 担当の割り振り: docs/tickets/CRAFT-2-dev.md。仕様: docs/design/CRAFT-2.md
+
+export interface TansuPos {
+  x: number;
+  y: number;
+  z: number;
+}
+
+/** つくる・やく で 使った（使う予定の）素材。持ち物と たんす ごと */
+export interface MaterialUse {
+  inv: { item: ItemId; count: number }[];
+  tansu: (TansuPos & { item: ItemId; count: number })[];
+}
+
+/** `CraftSystem.sources` の返り値（§6.1 `craft.sources`） */
+export interface MaterialSources extends MaterialUse {
+  ok: boolean;
+  missing: { item: ItemId; count: number }[];
+}
+
+/** たんす の 中身を 数える・取り出す口（A が `StorageSystem` に実装。B・C は使わない） */
+export interface TansuMaterialStore {
+  /** そこの たんす に item が 全部で何こ あるか（たんす でなければ 0） */
+  countItem(x: number, y: number, z: number, item: ItemId): number;
+  /** そこの たんす から item を 最大 count こ 取り出して 取れた数を返す（うしろのマス 53 → 0 の順に。仕様 §2.3） */
+  takeItem(x: number, y: number, z: number, item: ItemId, count: number): number;
+}
+
+/** §2.7 のカテゴリー 6 つ */
+export type LogCategory = 'pickup' | 'craft' | 'fight' | 'achieve' | 'info' | 'warn';
+
+/** §6.1 `log.history()` の kind 12 種 */
+export type LogKind =
+  | 'pickup'
+  | 'fromTansu'
+  | 'craft'
+  | 'bakeStart'
+  | 'signal'
+  | 'farmHint'
+  | 'wearLow'
+  | 'wearBroken'
+  | 'defeat'
+  | 'home'
+  | 'achievement'
+  | 'level';
+
+export interface LogEntry {
+  tick: number;
+  kind: LogKind;
+  category: LogCategory;
+  item: ItemId | null;
+  count: number | null;
+  text: string;
+  /** kind が fromTansu のとき */
+  positions?: (TansuPos & { count: number })[];
+}
+
+/** 画面の不透明度（§2.8。下限・0〜1 を通したあとの 今の値） */
+export interface UiAlpha {
+  panel: number;
+  hud: number;
+  scrim: number;
+  min: number;
+}
+
+/** §4 の設定（`settings.get/set` の名前そのまま）。初期値は `CRAFT2_SETTING_DEFAULTS`。`craftTansuRange` は 使える たんす の きょり（かすみ `fogFar` とは つなげない） */
+export interface Craft2Settings {
+  logHistoryMax: number;
+  logMergeTicks: number;
+  logScrollRows: number;
+  uiPanelAlpha: number;
+  uiHudAlpha: number;
+  uiScrimAlpha: number;
+  uiAlphaMin: number;
+  craftTansuRange: number;
+}
+
+export const CRAFT2_SETTING_DEFAULTS: Readonly<Craft2Settings> = {
+  logHistoryMax: 100,
+  logMergeTicks: 180,
+  logScrollRows: 3,
+  uiPanelAlpha: 0.8,
+  uiHudAlpha: 0.6,
+  uiScrimAlpha: 0.2,
+  uiAlphaMin: 0.6,
+  craftTansuRange: 40,
+};
+
+export function createCraft2Settings(): Craft2Settings {
+  return { ...CRAFT2_SETTING_DEFAULTS };
 }

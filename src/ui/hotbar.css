@@ -39,6 +39,9 @@
   color: var(--rk-text);
   --slot-art: 86%;
 }
+#hotbar .slot:not([data-cat]) {
+  background: var(--rk-slot-empty-hud);
+}
 #hotbar .slot {
   width: var(--rk-slot-hotbar);
   height: var(--rk-slot-hotbar);
@@ -132,11 +135,7 @@
   line-height: var(--rk-lh);
   font-weight: 800;
   color: var(--rk-text);
-  text-shadow:
-    2px 0 0 var(--rk-bg-900),
-    -2px 0 0 var(--rk-bg-900),
-    0 2px 0 var(--rk-bg-900),
-    0 -2px 0 var(--rk-bg-900);
+  text-shadow: var(--rk-text-outline);
   pointer-events: none;
 }
 
@@ -150,11 +149,7 @@
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   color: var(--rk-text);
-  text-shadow:
-    2px 0 0 var(--rk-bg-900),
-    -2px 0 0 var(--rk-bg-900),
-    0 2px 0 var(--rk-bg-900),
-    0 -2px 0 var(--rk-bg-900);
+  text-shadow: var(--rk-text-outline);
   pointer-events: none;
 }
 .slot-count:empty {
@@ -186,11 +181,7 @@
   font-size: var(--rk-fs-head);
   font-weight: 800;
   color: var(--rk-text);
-  text-shadow:
-    2px 0 0 var(--rk-bg-900),
-    -2px 0 0 var(--rk-bg-900),
-    0 2px 0 var(--rk-bg-900),
-    0 -2px 0 var(--rk-bg-900);
+  text-shadow: var(--rk-text-outline);
   pointer-events: none;
   z-index: 9;
 }

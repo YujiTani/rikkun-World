@@ -1,6 +1,6 @@
 import type { CraftSystem, Inventory, ItemId, ItemStack, Rarity, ScreenState } from '../contracts';
 import type { CraftUiSettings, ToolNumbers } from '../fx/craftConfig';
-import { CraftPanel, type FurnaceView } from './craftPanel';
+import { CraftPanel, type FurnaceView, type PanelMaterials } from './craftPanel';
 import { EquipPanel, type ArmorUi } from './equipPanel';
 import { createSlotEl, paintSlot, type SlotEls } from './hotbar';
 import { itemIconUrl } from './itemIcon';
@@ -23,10 +23,12 @@ export interface InventoryM4 {
   onFull?(): void;
   tools?: ToolNumbers;
   ui?: CraftUiSettings;
+  /** CRAFT-2: たんす の素材（つくる・やく の数え方） */
+  materials?: PanelMaterials;
 }
 
 /** もちもの画面の 上のタブ（M6 §2.7）。じっせき のとき パネルぜんたいが じっせき ページになる */
-export type InventoryTab = 'items' | 'achievements';
+export type InventoryTab = 'items' | 'achievements' | 'log';
 
 /** 右の場所に出すもの（M6）: つくる・やく か、たんす（§2.9） */
 export type InventorySide = 'craft' | 'storage';
@@ -202,6 +204,7 @@ export class InventoryScreen {
         slotElFor: (item) => this.slotElFor(item),
         onFull: m4.onFull,
         cfg: m4.ui,
+        materials: m4.materials,
       });
       main.append(this.equip.el);
     }
@@ -339,14 +342,21 @@ export class InventoryScreen {
   /** 上のタブを切りかえる。じっせき のときは パネルぜんたいを pageSlot に入れかえる */
   setTab(tab: InventoryTab): void {
     // じっせき ページは もちもの のときの 中身と同じ大きさにする（はかってから かくす）
-    if (tab === 'achievements' && this.tabNow === 'items') {
+    if (tab !== 'items' && this.tabNow === 'items') {
       const w = this.bodyEl.offsetWidth;
       const h = this.bodyEl.offsetHeight;
       if (w > 0 && h > 0) this.pageSize = { w, h };
     }
-    if (tab === 'achievements' && this.pageSize) {
+    if (tab !== 'items' && this.pageSize) {
       this.pageSlot.style.width = `${this.pageSize.w}px`;
-      this.pageSlot.style.height = `${this.pageSize.h}px`;
+      if (tab === 'log') {
+        // できごと ページは 7 行が ぜんぶ 見える高さが いる。もちもの の中身より 高いときは 伸ばす（枠ぜんたいは fit() が 縮める）
+        this.pageSlot.style.height = 'auto';
+        this.pageSlot.style.minHeight = `${this.pageSize.h}px`;
+      } else {
+        this.pageSlot.style.minHeight = '';
+        this.pageSlot.style.height = `${this.pageSize.h}px`;
+      }
     }
     this.tabNow = tab;
     this.paintHints();

@@ -22,7 +22,10 @@ import { CRAFT_UI_SETTINGS, type CraftUiSettings } from './fx/craftConfig';
 import { playCraft } from './fx/craftSounds';
 import { CraftUiHud, createCraftUiHook, handleCraftEvents, handleGuardEvents, playSwing } from './ui/craftUi';
 import { PickupLog } from './ui/pickupLog';
-import { PickupLogModel } from './ui/pickupLogModel';
+import { LogSystem, LogPage, createLogHook } from './ui/log';
+import { applyUiAlpha, uiAlpha } from './ui/theme';
+import { createCraft2Settings } from './contracts';
+import { FARM_HINT_VIEW } from './ui/farmHintModel';
 import { itemRarity } from './drops/rarity';
 import { itemType } from './inventory/items';
 import { createGuideHook } from './ui/playOverlay';
@@ -208,6 +211,9 @@ const inventory = new InventoryImpl({ settings: () => w2, tick: () => game.tick 
   };
 }
 const screenSettings = createScreenSettings();
+// CRAFT-2 の設定（ログ・半透明。settings から変えたら すぐ効く）
+const craft2Settings = createCraft2Settings();
+applyUiAlpha(craft2Settings);
 // M6 の設定（実績・演出・すてる・たんす）。settings から変えたら すぐ効く
 const m6 = createM6Settings();
 // M7 の設定（農業。settings から変えたら すぐ効く）
@@ -236,6 +242,8 @@ for (const n of ['bakeTicks', 'pickupLogTicks', 'pickupLogMax'] as const) {
 // 「いっぱい」の合図は 2 秒は出しなおさない（近くにいるあいだ毎ステップ呼ばれるため）
 const FULL_SIGNAL_GAP_TICKS = 120;
 let lastFullSignal = -FULL_SIGNAL_GAP_TICKS;
+// ログは あとで作る（たんす の いっぱい が 先に呼ばれても よいように 関数の中で読む）
+let skipSignalLog = false;
 // 落とし物の設定: 戦いの設定（消えるまで・拾う距離）と M6 の すてる設定をひとつに見せる
 const dropLive = {
   get dropBagTicks() {
@@ -254,6 +262,11 @@ const dropLive = {
     return m6.dropThrowUp;
   },
 };
+/** ふりがな付きの HTML を 読み（ひらがな）の文にする（できごと の履歴は 文字だけ） */
+function plainReading(html: string): string {
+  return html.replace(/<ruby>.*?<rt>(.*?)<\/rt><\/ruby>/g, '$1').replace(/<[^>]*>/g, '');
+}
+const YOKAI_NAME: Record<YokaiKind, string> = { karakasa: 'からかさ', chochin: 'ちょうちん', nurikabe: 'ぬりかべ', rokurokubi: 'ろくろくび' };
 let onDropPicked: (item: ItemId, count: number, fromYokai: boolean) => void = () => {};
 const drops = new DropField({
   world,
@@ -280,7 +293,6 @@ const level = new LevelSystem({
   onLevelUp: () => combat.healFull(),
 });
 const armor = new ArmorSystemImpl(inventory, craftConfig, { settings: () => w2, tick: () => game.tick });
-const craft = new CraftSystemImpl({ world, inventory, drops, requestSave: () => requestSave(), config: craftConfig });
 const tools = new ToolSystemImpl({
   inventory,
   world,
@@ -329,15 +341,28 @@ const storage = new StorageSystem({
     drops.scatter(p, stacks);
   },
   inventoryOpen: () => screen.inventoryOpen(),
-  openScreen: () => screen.toggle(),
+  openScreen: () => {
+    screen.toggle();
+    toItemsTab(); // たんす は もちもの タブで開く（できごと・じっせき の画面が のこっていても）
+  },
   closeScreen: () => screen.toggle(),
   live: m6,
   tick: () => game.tick,
   requestSave: () => requestSave(),
   onSound: (name) => playStorage(fxSound, name),
   // たんす の いっぱい は 実績（いっぱいにした）に数えない（もちものだけ）
-  onFull: () => showSignalRaw('full'),
+  onFull: (which) => {
+    // たんす が いっぱい: 画面の合図は今のまま。履歴には「たんす が いっぱい！」を 1 件（もちもの の文は 入れない）
+    if (which === 'tansu') {
+      log.signal('tansuFull');
+      skipSignalLog = true;
+      showSignalRaw('full');
+      skipSignalLog = false;
+    } else showSignalRaw('full');
+  },
 });
+// つくる・やく（CRAFT-2: たんす の素材も数える。たんす を先に作る）
+const craft = new CraftSystemImpl({ world, inventory, drops, requestSave: () => requestSave(), config: craftConfig, tansu: storage, player: () => controller.state.position, tansuRange: () => craft2Settings.craftTansuRange });
 const dropper = new ItemDropper({
   inventory,
   storage,
@@ -486,14 +511,25 @@ const notice = new Notice(hud);
 // 「もちもの が いっぱい」の合図は 実績（いっぱいにした）にも数える
 let onFullSignal: () => void = () => {};
 const showSignalRaw = notice.showSignal.bind(notice);
+let lastFullTick = -1;
 notice.showSignal = (kind) => {
-  if (kind === 'full') onFullSignal();
+  // 「いっぱい」は 同じステップで 2 回（つくる画面と つくる口の両方から）呼ばれても 実績には 1 回だけ数える
+  if (kind === 'full' && game.tick !== lastFullTick) {
+    lastFullTick = game.tick;
+    onFullSignal();
+  }
   showSignalRaw(kind);
 };
 hudSignal.full = () => notice.showSignal('full');
+// CRAFT-2: 合図が 出はじめたとき 1 件だけ 履歴へ（出たままの 同じ合図では 足さない）
+notice.onSignalStart = (k) => {
+  if (!skipSignalLog) log.signal(k);
+};
 // 時計の ひる の分け方（settings の clockPhases）
 const bladeHud = new BladeHud(hud, () => w2);
 const wearNotice = new WearNotice(hud);
+wearNotice.onLow = (item) => log.wearLow(item);
+wearNotice.onBroken = (item) => log.wearBroken(item);
 const clockPhases: ClockPhases = { ...CLOCK_PHASES };
 const combatUi = createCombatUi(hud, clockPhases);
 const levelHud = new LevelHud(hud);
@@ -514,8 +550,41 @@ const inventoryScreen = new InventoryScreen(hud, inventory, screen, () => screen
   onFull: () => notice.showSignal('full'),
   tools: toolConfig,
   ui: craftUi,
+  materials: {
+    count: (item) => craft.total(item),
+    inTansu: (item) => craft.inTansuCount(item),
+    fuelInTansu: () => craft.fuelInTansu(),
+    version: () => storage.version(),
+    refresh: () => craft.refreshTansu(),
+  },
 });
-const pickupLog = new PickupLog(hud, { nameOf, rarityOf: itemRarity }, new PickupLogModel(craftUi));
+// CRAFT-2: ログ（左のログ＋できごと の履歴）。拾ったログ（PickupLog）は これの liveModel を読む
+const log: LogSystem = new LogSystem({ nameOf, settings: craft2Settings, live: craftUi });
+// できごと ページ（もちもの画面の ページ置き場に入る）
+const logPage = new LogPage(log, { pageSlot: inventoryScreen.pageSlot });
+const pickupLog = new PickupLog(hud, { nameOf, rarityOf: itemRarity, log });
+// つくる がいっぱいで できなかったとき: どこから呼んでも（画面・窓口）「もちもの が いっぱい！」の合図
+{
+  const makeRaw = craft.make.bind(craft);
+  craft.make = (id) => {
+    const r = makeRaw(id);
+    if (!r.ok && r.reason === 'full') notice.showSignal('full');
+    return r;
+  };
+}
+// やく を押したとき: たんす から使った分と「やきはじめた」を 履歴へ（かまど の じゅんばんが 2 つ目以降でも 1 件ずつ）
+{
+  const bakeRaw = craft.bake.bind(craft);
+  craft.bake = (id, x, y, z) => {
+    const r = bakeRaw(id, x, y, z);
+    if (r.ok) {
+      log.fromTansu(r.used?.tansu);
+      const out = craft.recipes().find((rc) => rc.id === id)?.output.item;
+      if (out) log.bakeStart(out);
+    }
+    return r;
+  };
+}
 const craftHud = new CraftUiHud({ hud, craft, inv: inventory, nameOf, rarityOf: itemRarity }, pickupLog);
 const furnaceFx = new FurnaceFx(game.scene, fxSound, craftUi);
 onDropPicked = (item, count, fromYokai) => {
@@ -645,6 +714,44 @@ const farmFx = new FarmFx({ sound: fxSound, particles: fx.particles, hint: farmH
 onFullSignal = () => achievements.feedFull();
 const pageModel = new AchievementsPageModel(achievements);
 const achievementsPage = new AchievementsPage(achievements, pageModel, inventoryScreen);
+// ---- CRAFT-2: できごと タブ・L キー
+/** もちもの画面を できごと タブにする（閉じていれば 開く）。開けない場面（おめでとう・案内・やられた）では 何もしない */
+function openLogTab(): void {
+  if (screen.modalOpen() || combat.dead()) return;
+  if (!screen.inventoryOpen()) {
+    if (screen.mode() !== 'play') return;
+    screen.toggle();
+    if (!screen.inventoryOpen()) return;
+  }
+  inventoryScreen.setTab('log');
+  pageModel.setTab('log');
+  pageModel.sync(true);
+  log.resetScroll();
+  syncPages();
+}
+/** タブを替えた その場で ページの出し入れを 合わせる（時間が止まっていても 見た目が すぐ替わるように） */
+function toItemsTab(): void {
+  if (inventoryScreen.tab() === 'items') return;
+  inventoryScreen.setTab('items');
+  pageModel.setTab('items');
+  pageModel.sync(screen.inventoryOpen());
+  syncPages();
+}
+function syncPages(): void {
+  achievementsPage.update();
+  logPage.update(screen.inventoryOpen() && inventoryScreen.tab() === 'log');
+}
+log.bindHost({ isOpen: () => screen.inventoryOpen(), tab: () => inventoryScreen.tab(), open: openLogTab });
+game.input.onPress((action) => {
+  if (action !== 'openLog') return;
+  // おめでとう画面・案内画面・やられた画面・たんす画面のあいだは 何もしない
+  if (screen.modalOpen() || screen.mode() === 'guide' || combat.dead() || storage.ui().open) return;
+  if (screen.inventoryOpen() && inventoryScreen.tab() === 'log') screen.toggle();
+  else openLogTab();
+});
+achievements.onUnlock((d, silent) => {
+  if (!silent) log.achievement(d.name);
+});
 const defById = new Map(ACHIEVEMENT_DEFS.map((d) => [d.id, d]));
 const craftPanel = inventoryScreen.craftPanel!;
 const celebrate = new CelebrateUi({
@@ -704,6 +811,7 @@ const inventoryTabs = mountInventoryTabs(inventoryScreen, {
   onSwitch: (tab) => {
     pageModel.setTab(tab);
     pageModel.sync(screen.inventoryOpen());
+    syncPages();
     playCraft(fxSound, 'tab');
   },
 });
@@ -730,7 +838,10 @@ const defeatWith = (): DefeatWith => {
   if (h === 'wood_pickaxe' || h === 'stone_pickaxe' || h === 'iron_pickaxe') return 'pickaxe';
   return 'hand';
 };
-onDefeatAch = (kind) => achievements.feedDefeat({ kind, tick: game.tick, with: defeatWith(), hp: combat.hp() });
+onDefeatAch = (kind) => {
+  log.defeat(YOKAI_NAME[kind]);
+  achievements.feedDefeat({ kind, tick: game.tick, with: defeatWith(), hp: combat.hp() });
+};
 
 // 自動セーブ（?nosave=1 は保存しない、?reset=1 は消してから始める）
 const saveOptions = parseSaveOptions(location.search);
@@ -819,6 +930,8 @@ lock.onChange((locked) => {
   if (!locked) save.saveIfChanged();
 });
 screen.onClose(() => {
+  // できごと で とじたあと E で開いたら もちもの から（L で開いた画面は L で開き直す）
+  if (inventoryScreen.tab() === 'log') toItemsTab();
   craft.closeFurnace();
   save.saveIfChanged();
 });
@@ -878,6 +991,7 @@ function updateAchievements(): void {
 }
 
 game.onUpdate((dt) => {
+  applyUiAlpha(craft2Settings);
   // おめでとう画面のあいだ: 世界・妖怪・時刻・プレイヤーは進まない（画面の時間だけ進む。§2.6 (3)）
   if (screen.mode() === 'celebrate') {
     crosshair.setVisible(false);
@@ -886,6 +1000,7 @@ game.onUpdate((dt) => {
     inventoryScreen.update();
     storageScreen.update();
     achievementsPage.update();
+    logPage.update(screen.inventoryOpen() && inventoryScreen.tab() === 'log');
     return;
   }
   time.update();
@@ -924,6 +1039,10 @@ game.onUpdate((dt) => {
   if (craftEvents.length > 0) {
     handleCraftEvents(craftEvents, { sound: fxSound, pickupLog, celebrate: true });
     for (const e of craftEvents) {
+      if (e.type === 'craft') {
+        log.fromTansu(e.fromTansu);
+        log.craftMade(e.item, e.count);
+      }
       madeTracker.handle(e);
       if (e.type === 'craftFail') celebrate.failed();
       rig.onCraftEvent(e);
@@ -973,7 +1092,10 @@ game.onUpdate((dt) => {
   }
   const combatEvents = combat.drainEvents();
   if (combatEvents.length > 0) {
-    for (const e of combatEvents) rig.onCombatEvent(e);
+    for (const e of combatEvents) {
+      rig.onCombatEvent(e);
+      if (e.type === 'respawn') log.home();
+    }
     handleGuardEvents(combatEvents, fxSound);
     combatBuf = combatEvents;
     achievements.feedCombat(combatEvents);
@@ -990,6 +1112,7 @@ game.onUpdate((dt) => {
   for (const e of level.drainEvents()) {
     if (e.type === 'levelUp') {
       levelHud.celebrate();
+      log.level(e.level);
       fxSound.play('levelUp');
     }
   }
@@ -1005,6 +1128,17 @@ game.onUpdate((dt) => {
   actionHint.update(hintVisible() ? actionHintLines(dig.previewRightClick(), dig.previewLeftClick(), { held: tools.current().item, heldIsPickaxe: tools.current().kind === 'pickaxe', heldIsBlade: tools.current().kind === 'blade' }) : {});
   farmHint.step();
   {
+    // 農業の合図: 出ていない状態から 出たとき 1 件（見た目の文は ふりがなを 読みに直す）
+    const k = farmHint.model.current();
+    for (const kind of Object.keys(FARM_HINT_VIEW) as (keyof typeof FARM_HINT_VIEW)[]) {
+      log.edge(`farm:${kind}`, k === kind, () => {
+        const v = FARM_HINT_VIEW[kind];
+        const art = v.art.find((a) => a !== 'heart');
+        log.farmHint(plainReading(v.html), (art ?? null) as ItemId | null);
+      });
+    }
+  }
+  {
     const tb = hintVisible() ? dig.target() : null;
     const a = tb ? farm.aim(tb.block.x, tb.block.y, tb.block.z) : null;
     const ck = tb ? cropKindOfBlock(tb.id) : null;
@@ -1014,6 +1148,7 @@ game.onUpdate((dt) => {
   inventoryScreen.update();
   storageScreen.update();
   achievementsPage.update();
+  logPage.update(screen.inventoryOpen() && inventoryScreen.tab() === 'log');
   if (screen.inventoryOpen()) inventoryTabs.update();
   updateAchievements();
   celebrate.step();
@@ -1031,6 +1166,7 @@ game.onIdle((dt) => overlay.update(dt));
 const cameraHook = createCameraHook(rig);
 const toolHook = createToolHook(tools);
 const craftHook = createCraftHook(craft, screen);
+const logHook = createLogHook(log);
 const craftUiHook = createCraftUiHook({
   panel: inventoryScreen.craftPanel!,
   craft,
@@ -1043,7 +1179,10 @@ const storageHook = createStorageHook(storage, screen);
 const achievementsHook = {
   ...createAchievementsHook(achievements, pageModel, {
     inventoryOpen: () => screen.inventoryOpen(),
-    onTab: (tab) => inventoryScreen.setTab(tab),
+    onTab: (tab) => {
+      inventoryScreen.setTab(tab);
+      syncPages();
+    },
   }),
   modal: () => celebrate.modalInfo(),
   close: () => celebrate.close(),
@@ -1076,6 +1215,8 @@ installTestHook(game, overlay, {
     arrows: toolHook.arrows,
     events: () => [...combatHook.events(), ...toolHook.arrowEvents()],
   } as unknown as TestHookGroups['combat'],
+  ...logHook,
+  ui: { alpha: () => uiAlpha() },
   craft: {
     ...craftHook,
     ...craftUiHook.craft,
@@ -1139,6 +1280,7 @@ installTestHook(game, overlay, {
       settingsViewOf(craftConfig),
       settingsViewOf(toolConfig),
       settingsViewOf(craftUi, ['bakeTicks', 'pickupLogTicks', 'pickupLogMax']),
+      craft2Settings,
       screenSettings,
       m6,
       m7,

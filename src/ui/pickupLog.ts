@@ -1,30 +1,38 @@
 import type { ItemId, Rarity } from '../contracts';
-import { itemIconUrl } from './itemIcon';
-import { PickupLogModel, type PickupRow } from './pickupLogModel';
-import { rarityCss } from './tooltipModel';
+import { PickupLogModel, liveRowText, type PickupRow } from './pickupLogModel';
+import { createCategoryMark } from './log/icons';
+import { itemArt, tansuBadge } from './log/logPage';
+import type { LogSystem } from './log/LogSystem';
 import './pickupLog.css';
 
 export interface PickupLogDeps {
   nameOf(item: ItemId): string;
-  rarityOf(item: ItemId): Rarity;
+  /** 使わなくなった（字は 白。CRAFT-2 §2.5）。古い呼び方のため 残してある */
+  rarityOf?(item: ItemId): Rarity;
+  /**
+   * CRAFT-2: ログの中身。わたすと その `liveModel` を読み、`push` は 履歴にも入り、`step` は ログの時間を進める。
+   * 渡さないときは 今までどおり（モデルを自分で持つ）
+   */
+  log?: LogSystem;
 }
 
 /**
- * 拾ったときの ログ（M4 §2.12）。画面の左はし、たての真ん中より少し下。
- * 新しい行は いちばん下。DOM: `#pickup-log` の中に `.pickup-row[data-item]`（文字は `かみ ×2`）。
+ * 左のログ（M4 §2.12 ＋ CRAFT-2 §2.5）。画面の左はし、たての真ん中より少し下。
+ * 新しい行は いちばん下。DOM: `#pickup-log` の中に `.pickup-row[data-item][data-kind]`。
+ * 子の順は カテゴリーの印（`[data-cat]`）→ アイテムの絵 → 字（白。`かみ ×2`・`たんす から き ×1`）。
  * 出来事は push() で受け、毎ステップ step() を呼ぶ（ゲームのステップで数える）。
  */
 export class PickupLog {
   readonly model: PickupLogModel;
   readonly el: HTMLDivElement;
-  private readonly rowEls = new Map<ItemId, { root: HTMLDivElement; text: HTMLSpanElement; bump: number }>();
+  private readonly rowEls = new Map<string, { root: HTMLDivElement; text: HTMLSpanElement; bump: number }>();
 
   constructor(
     parent: HTMLElement,
     private readonly d: PickupLogDeps,
     model: PickupLogModel = new PickupLogModel(),
   ) {
-    this.model = model;
+    this.model = d.log ? d.log.liveModel : model;
     this.el = document.createElement('div');
     this.el.id = 'pickup-log';
     this.el.setAttribute('aria-hidden', 'true');
@@ -33,40 +41,41 @@ export class PickupLog {
 
   /** 拾って入った（入った数。0 こなら出さない） */
   push(item: ItemId, count: number): void {
-    this.model.push(item, count);
+    if (this.d.log) this.d.log.pickup(item, count);
+    else this.model.push(item, count);
     this.render();
   }
 
   /** 1 ステップ */
   step(): void {
-    this.model.step();
+    if (this.d.log) this.d.log.step();
+    else this.model.step();
     this.render();
   }
 
   private render(): void {
     const rows = this.model.rows();
-    const alive = new Set<ItemId>();
+    const alive = new Set<string>();
     rows.forEach((r: PickupRow, i) => {
-      alive.add(r.item);
-      let e = this.rowEls.get(r.item);
+      const key = `${r.kind}:${r.item}`;
+      alive.add(key);
+      let e = this.rowEls.get(key);
       if (!e) {
         const root = document.createElement('div');
         root.className = 'pickup-row';
         root.dataset.item = r.item;
-        const img = document.createElement('img');
-        img.alt = '';
-        img.src = itemIconUrl(r.item);
+        root.dataset.kind = r.kind;
         const text = document.createElement('span');
         text.className = 'pickup-text';
-        text.style.color = rarityCss(this.d.rarityOf(r.item));
-        root.append(img, text);
+        root.append(createCategoryMark(r.kind === 'fromTansu' ? 'craft' : 'pickup'), itemArt(r.item), text);
+        if (r.kind === 'fromTansu') root.append(tansuBadge());
         e = { root, text, bump: 0 };
-        this.rowEls.set(r.item, e);
+        this.rowEls.set(key, e);
         if (typeof root.animate === 'function') {
           root.animate([{ transform: 'translateY(16px)', opacity: 0 }, { transform: 'translateY(0)', opacity: 1 }], { duration: 160 });
         }
       }
-      const label = `${this.d.nameOf(r.item)} ×${r.count}`;
+      const label = liveRowText(r.kind, this.d.nameOf(r.item), r.count);
       if (e.text.textContent !== label) e.text.textContent = label;
       if (e.bump !== r.bump) {
         e.bump = r.bump;
@@ -81,10 +90,10 @@ export class PickupLog {
       // 並び順（上＝古い）をそろえる
       if (this.el.children[i] !== e.root) this.el.insertBefore(e.root, this.el.children[i] ?? null);
     });
-    for (const [item, e] of this.rowEls) {
-      if (!alive.has(item)) {
+    for (const [key, e] of this.rowEls) {
+      if (!alive.has(key)) {
         e.root.remove();
-        this.rowEls.delete(item);
+        this.rowEls.delete(key);
       }
     }
   }

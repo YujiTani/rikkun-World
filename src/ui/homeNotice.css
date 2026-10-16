@@ -11,6 +11,7 @@
   white-space: nowrap;
   color: var(--rk-text);
   background: var(--rk-hud-bg);
+  text-shadow: var(--rk-text-outline);
   border-left: var(--rk-bw-sel) solid var(--rk-info);
   border-radius: var(--rk-r-pill);
   pointer-events: none;

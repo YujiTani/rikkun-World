@@ -47,11 +47,7 @@
   background: var(--rk-hud-bg);
   border-left: var(--rk-bw-sel) solid var(--rk-ng);
   border-radius: var(--rk-r-pill);
-  text-shadow:
-    2px 0 0 var(--rk-bg-900),
-    -2px 0 0 var(--rk-bg-900),
-    0 2px 0 var(--rk-bg-900),
-    0 -2px 0 var(--rk-bg-900);
+  text-shadow: var(--rk-text-outline);
   pointer-events: none;
   z-index: 6;
 }
