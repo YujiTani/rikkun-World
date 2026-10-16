@@ -1,0 +1,959 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>りっくんワールド 音の方向 3 案（試聴）</title>
+<style>
+  :root { --bg:#f6f3ea; --card:#fffdf7; --ink:#2b2b2b; --sub:#6b6b6b; --line:#e2dccb; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif; background:var(--bg); color:var(--ink); line-height:1.6; }
+  .bar { position: sticky; top:0; z-index:10; background:#2f3a4a; color:#fff; padding:10px 14px; box-shadow:0 2px 6px rgba(0,0,0,.2); }
+  .bar h1 { font-size:17px; margin:0 0 6px; }
+  .controls { display:flex; flex-wrap:wrap; gap:10px 18px; align-items:center; font-size:14px; }
+  .controls label { display:flex; align-items:center; gap:6px; }
+  .controls input[type=range] { width:140px; }
+  #stop { background:#e8584f; color:#fff; border:0; border-radius:8px; padding:8px 16px; font-size:15px; font-weight:bold; cursor:pointer; }
+  #now { background:rgba(255,255,255,.15); padding:3px 10px; border-radius:12px; }
+  main { max-width:1200px; margin:0 auto; padding:14px; }
+  .intro { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:10px 16px; font-size:14px; }
+  .intro ul { margin:4px 0; padding-left:20px; }
+  .plans { display:grid; grid-template-columns:repeat(auto-fit, minmax(310px, 1fr)); gap:14px; margin-top:14px; }
+  .plan { background:var(--card); border:1px solid var(--line); border-top:8px solid var(--accent); border-radius:10px; padding:12px 14px; }
+  .plan h2 { margin:0; font-size:20px; }
+  .plan .tag { display:inline-block; background:var(--accent); color:#fff; border-radius:6px; padding:0 8px; margin-right:6px; }
+  .plan p { margin:6px 0; font-size:14px; }
+  .plan .spec { color:var(--sub); font-size:12.5px; }
+  .plan h3 { font-size:14px; margin:12px 0 4px; color:var(--sub); }
+  .row { display:grid; grid-template-columns:repeat(3, 1fr); gap:6px; }
+  .row4 { display:grid; grid-template-columns:repeat(4, 1fr); gap:6px; }
+  .row4 button.snd { font-size:13.5px; padding:10px 2px; }
+  button.snd.big { border-style:double; border-width:4px; font-weight:bold; }
+  #mute { background:#fff; color:#2f3a4a; border:0; border-radius:8px; padding:8px 12px; font-size:14px; cursor:pointer; }
+  #mute.on { background:#f2c94c; }
+  .status { font-size:12.5px; opacity:.9; margin-top:4px; min-height:1.2em; }
+  button.snd { border:2px solid var(--accent); background:#fff; color:var(--ink); border-radius:8px; padding:10px 4px; font-size:15px; cursor:pointer; min-height:48px; touch-action:manipulation; }
+  button.snd small { display:block; font-size:11px; color:var(--sub); }
+  button.snd:active { transform:scale(.97); }
+  button.snd.on { background:var(--accent); color:#fff; }
+  button.snd.on small { color:#fff; }
+  button.demo { width:100%; margin-top:8px; border:0; background:var(--accent); color:#fff; border-radius:8px; padding:10px; font-size:14px; cursor:pointer; }
+  .measure { margin-top:16px; background:var(--card); border:1px solid var(--line); border-radius:10px; padding:10px 16px; font-size:13.5px; overflow-x:auto; }
+  .measure table { border-collapse:collapse; margin-top:8px; }
+  .measure td, .measure th { border:1px solid var(--line); padding:3px 8px; text-align:right; white-space:nowrap; }
+  .measure th:first-child, .measure td:first-child { text-align:left; }
+  #errors { color:#c0392b; font-weight:bold; }
+  button.snd { word-break:keep-all; overflow-wrap:anywhere; }
+  #stopFloat { display:none; }
+  @media (max-width: 600px) {
+    .bar { position: static; }
+    .controls input[type=range] { width:110px; }
+    #stopFloat { display:block; position:fixed; right:12px; bottom:12px; z-index:20; background:#e8584f; color:#fff; border:0; border-radius:24px; padding:12px 20px; font-size:16px; font-weight:bold; box-shadow:0 2px 8px rgba(0,0,0,.3); }
+  }
+</style>
+</head>
+<body>
+<header class="bar">
+  <h1>りっくんワールド 音の方向 3 案（試聴）</h1>
+  <div class="controls">
+    <button id="stop">とめる</button>
+    <label>全体の音量 <input type="range" id="master" min="0" max="100" value="60"><span id="masterVal">60</span></label>
+    <label>BGM の大きさ <input type="range" id="bgmBal" min="0" max="100"><span id="bgmVal"></span></label>
+    <button id="mute">ミュート</button>
+    <label><input type="checkbox" id="vary" checked> ゆらぎ（毎回少し変える）</label>
+    <label><input type="checkbox" id="chordFit" checked> BGM の和音に合わせる</label>
+    <span id="now">いま: なし</span>
+  </div>
+  <div class="status"><span id="chordNow"></span>　<span id="lastSfx"></span></div>
+</header>
+<button id="stopFloat">とめる</button>
+<main>
+  <section class="intro">
+    <div id="errors"></div>
+    <ul>
+      <li>ボタンを押したときだけ鳴ります。外のファイルは使わず、ぜんぶこのページの中で音を作っています（ライセンスの心配なし）。</li>
+      <li>BGM はループします（つなぎ目なし）。ほかの BGM を押すと、1.5 秒かけて<b>ふわっと入れかわり</b>ます。「とめる」も少しずつ小さくなって止まります。</li>
+      <li>BGM を流したまま効果音ボタンを押すと、ゲーム中の「BGM と効果音の大きさの差」が分かります。ほかの案の効果音を、いまの BGM の上で鳴らしても OK。</li>
+      <li><b>ゆらぎ</b>: 今のゲームの効果音のよさ（毎回少しちがう）を 3 案とも入れています。チェックを外すと毎回同じ音になるので、くらべてみてください。「続けて鳴らす」で、くり返しても耳が疲れないかを聞けます（続けても、だんだん強く・高くはしません）。</li>
+      <li><b>和音合わせ</b>: 「ひろう」などの高さのある音は、BGM のいまの和音（上の「和音: 〇」）に合わせて高さが変わります。</li>
+      <li><b>二重わくのボタン</b>（レベルアップ・できた！）だけが大きく祝う音です。鳴っているあいだ BGM を少し下げて目立たせます（音量そのものは上げません）。「おしい」は失敗の音で、明るくはずむ音にしています（BGM は下げません）。</li>
+      <li>はじめの音量は小さめ（60）です。急に大きな音が出ないよう、全体に音のリミッターをかけています。ミュートもあります。</li>
+      <li>iPhone は消音スイッチが入っていると鳴らないことがあります。</li>
+    </ul>
+  </section>
+
+  <div id="plans" class="plans"></div>
+
+  <section class="measure">
+    <b>音の大きさを数で見る</b>（作る係・見る係むけ。オーナーは見なくて大丈夫）
+    <button id="measureBtn" class="demo" style="width:auto;background:#2f3a4a;padding:6px 14px">計算する</button>
+    <div id="measureOut"></div>
+  </section>
+</main>
+
+<script>
+'use strict';
+/* =====================================================================
+ * 1. 音量と切り替えのきまり（3 案共通。SOUND.md の下書き）
+ * ===================================================================== */
+const MIX = {
+  masterDefault: 0.6,   // 全体の音量のはじめの値（0〜1）
+  bgm: 0.4,             // BGM の大きさ（効果音を 1 としたとき）。約 -8 dB
+  sfx: 1.0,             // 効果音の大きさ
+  fadeIn: 1.5,          // BGM の入り（秒）
+  crossfade: 1.5,       // BGM の入れかえ（秒）
+  fadeOut: 0.8,         // とめるとき（秒）
+  // 急に大きな音を出さないためのリミッター（全体の最後にかける）
+  limiter: { threshold: -14, knee: 6, ratio: 4, attack: 0.005, release: 0.25 },
+  // 達成の音（レベルアップ・できた！）のあいだだけ BGM を少し下げて、祝う音を目立たせる（音量は上げない）
+  duck: { amount: 0.45, attack: 0.08, hold: 1.4, release: 1.0 },
+};
+
+/* ゆらぎ: 同じ効果音でも毎回少しちがう（今の src/fx/sound.ts のよさ。くり返しても耳が疲れにくい）
+ *  cents = 音の高さを ±何セントの中でずらす（100 セント = 半音）  gain = 大きさを ±何割  dur = 長さを ±何割
+ *  chord = 'tones': BGM のいまの和音の音（根音・3 度・5 度）から、直前とちがう音を選んで高さを合わせる
+ *          'root' : BGM のいまの和音の根音に合わせる（短調の和音なら 3 度を半音下げる）
+ *  音色を作るときは、高さのある効果音は「ド（C）を根音」として作る（ここで和音に合わせて動かす）。
+ *  続けて鳴らしても、だんだん大きく・高く・はやくはしない（同じ行動をくり返すゲームなので）。 */
+const VARY = {
+  dig:     { cents: 70,  gain: 0.15, dur: 0.12 },
+  place:   { cents: 50,  gain: 0.10, dur: 0.10 },
+  hit:     { cents: 80,  gain: 0.15, dur: 0.10 },
+  pickup:  { chord: 'tones', gain: 0.08 },
+  levelUp: { chord: 'root', big: true },
+  water:   { cents: 120, gain: 0.15, dur: 0.15 },
+  oshii:   { cents: 60,  gain: 0.10 },
+  made:    { chord: 'root', big: true },
+};
+
+/* =====================================================================
+ * 2. 案のデータ
+ *  - instruments: 楽器（音色）。wave = sine / triangle / square / sawtooth / pulse25 / pulse12（ドットらしい細い四角波）
+ *      a=立ち上がり秒 d=減っていく秒 s=のこる大きさ(0 なら打楽器のように消える) r=はなしたあと秒 gain=大きさ
+ *      partials=[倍音の比, 大きさ, 減る速さの倍率] の並び（木琴・オルゴールの「コン」「キン」）
+ *      filter=音の角を丸める（lowpass）  vibrato=ゆれ
+ *  - kit: 打楽器。効果音と同じ形（Tone の並び）
+ *  - bgm: 曲。notes は 1 文字の区切り = 1 ステップ（8 分音符）。
+ *      音名（C4 / F#5 / Bb3）= 鳴らす、. = 休み、- = 前の音をのばす、C4+E4 = 同時に鳴らす、| = 小節の区切り（数えない）
+ *      drums: true の行は kit の文字（k s h w）を並べる（kh = 同時）
+ *      echo: { steps: 何ステップあとにこだま, feedback, mix }  トラックの echo = こだまに送る量
+ *  - level: 曲・効果音ごとの大きさの倍率（3 案で大きさをそろえるため。「数で見る」で合わせた値）
+ *  - chords: 小節ごとの和音（効果音の高さを BGM に合わせるため）。Am = 短調の和音
+ *  - sfx: 効果音。src/fx/sound.ts の Tone と同じ形 { type, f0, f1, delay, dur, gain } に、
+ *      type 'noise' / 'pulse25'、attack（秒）、filter { type, freq, q } を足したもの。
+ *      ほる・おく・たたく・ひろう・レベルアップ・みず ＋ おしい（失敗。明るくはずむ）・できた！（はじめて作れた・家ができた）
+ * ===================================================================== */
+const PLANS = [
+/* ---------------------------------------------------------- 案 A */
+{
+  id: 'A', name: 'ドットのピコピコ', accent: '#d9822b',
+  desc: '昔のゲーム機のような、細い四角い波の「ピコピコ」。カクカクのドット絵にいちばん素直に合う。元気で分かりやすいが、長く聞くと少しにぎやか。',
+  spec: '音色: 細い四角波（メロディ）・三角波（ベース）・ザザッ（打楽器）／テンポ: ひる 140・よる 100・たたかい 160',
+  instruments: {
+    lead:  { wave: 'pulse25', a: 0.005, d: 0.10, s: 0.55, r: 0.04, gain: 0.10, vibrato: { rate: 6, depth: 0.006, delay: 0.12 } },
+    soft:  { wave: 'triangle', a: 0.02, d: 0.30, s: 0.60, r: 0.25, gain: 0.20, vibrato: { rate: 5, depth: 0.005, delay: 0.2 } },
+    arp:   { wave: 'pulse12', a: 0.003, d: 0.06, s: 0.30, r: 0.02, gain: 0.045 },
+    bass:  { wave: 'triangle', a: 0.005, d: 0.10, s: 0.80, r: 0.03, gain: 0.24 },
+  },
+  kit: {
+    k: [{ type: 'triangle', f0: 180, f1: 50, dur: 0.10, gain: 0.45 }],
+    s: [{ type: 'noise', dur: 0.08, gain: 0.16, filter: { type: 'bandpass', freq: 1800, q: 0.8 } }],
+    h: [{ type: 'noise', dur: 0.03, gain: 0.07, filter: { type: 'highpass', freq: 7000 } }],
+  },
+  bgm: {
+    day: {
+      title: 'ひる', level: 0.89, bpm: 140, beatsPerBar: 4, stepsPerBeat: 2, bars: 8, chords: 'C F G C Am F G C',
+      tracks: [
+        { inst: 'lead', notes: `G5 . E5 G5 C6 - B5 C6 | A5 - F5 - A5 C6 A5 F5 | G5 - D5 G5 B5 - A5 G5 | E5 - C5 - E5 - G5 - |
+                                A5 . E5 A5 C6 - B5 A5 | F5 - A5 - C6 - A5 - | G5 A5 B5 - D6 - B5 G5 | C6 - - - G5 . C5 .` },
+        { inst: 'arp', notes: `C4 E4 G4 E4 C4 E4 G4 E4 | F4 A4 C5 A4 F4 A4 C5 A4 | G4 B4 D5 B4 G4 B4 D5 B4 | C4 E4 G4 E4 C4 E4 G4 E4 |
+                               A3 C4 E4 C4 A3 C4 E4 C4 | F3 A3 C4 A3 F3 A3 C4 A3 | G3 B3 D4 B3 G3 B3 D4 F4 | C4 E4 G4 E4 C4 G3 E3 G3` },
+        { inst: 'bass', notes: `C3 . C4 . C3 . C4 . | F2 . F3 . F2 . F3 . | G2 . G3 . G2 . G3 . | C3 . C4 . C3 . C4 . |
+                                A2 . A3 . A2 . A3 . | F2 . F3 . F2 . F3 . | G2 . G3 . G2 . B2 . | C3 . G2 . C3 . G2 .` },
+        { drums: true, notes: `k . h . s . h . | k . h . s . h . | k . h . s . h . | k . h . s . h . |
+                               k . h . s . h . | k . h . s . h . | k . h . s . h . | k . h . s h s s` },
+      ],
+    },
+    night: {
+      title: 'よる', level: 0.65, bpm: 100, beatsPerBar: 4, stepsPerBeat: 2, bars: 4, chords: 'Am F C G',
+      echo: { steps: 3, feedback: 0.3, mix: 0.5 },
+      tracks: [
+        { inst: 'soft', echo: 0.6, notes: `E5 - - - C5 - A4 - | F5 - - - A5 - - - | G5 - - - E5 - C5 - | D5 - - - B4 - - -` },
+        { inst: 'arp', vol: 0.8, notes: `A3 C4 E4 C4 A3 C4 E4 C4 | F3 A3 C4 A3 F3 A3 C4 A3 | C4 E4 G4 E4 C4 E4 G4 E4 | G3 B3 D4 B3 G3 B3 D4 B3` },
+        { inst: 'bass', vol: 0.7, notes: `A2 - - - - - - - | F2 - - - - - - - | C3 - - - - - - - | G2 - - - - - - -` },
+        { drums: true, vol: 0.6, notes: `. . . . h . . . | . . . . h . . . | . . . . h . . . | . . . . h . . .` },
+      ],
+    },
+    battle: {
+      title: 'たたかい', level: 0.72, bpm: 160, beatsPerBar: 4, stepsPerBeat: 2, bars: 8, chords: 'Am Am F G Am Am F E',
+      tracks: [
+        { inst: 'lead', notes: `A5 . A5 C6 . A5 E6 . | D6 C6 B5 A5 B5 . G5 . | A5 . A5 C6 . A5 F6 . | E6 D6 C6 B5 D6 - - . |
+                                A5 . A5 C6 . A5 E6 . | G6 E6 D6 C6 D6 . E6 . | F6 . E6 . D6 . B5 . | B5 - - - G#5 . E5 .` },
+        { inst: 'bass', notes: `A2 A3 A2 A3 A2 A3 A2 A3 | A2 A3 A2 A3 G2 G3 G2 G3 | F2 F3 F2 F3 F2 F3 F2 F3 | G2 G3 G2 G3 G2 G3 G2 G3 |
+                                A2 A3 A2 A3 A2 A3 A2 A3 | A2 A3 A2 A3 G2 G3 G2 G3 | F2 F3 F2 F3 G2 G3 G2 G3 | E2 E3 E2 E3 E2 E3 G#2 B2` },
+        { inst: 'arp', vol: 0.8, notes: `. E4 . E4 . E4 . E4 | . E4 . E4 . D4 . D4 | . C4 . C4 . C4 . C4 | . D4 . D4 . D4 . D4 |
+                                         . E4 . E4 . E4 . E4 | . E4 . E4 . D4 . D4 | . C4 . C4 . D4 . D4 | . G#3 . G#3 . B3 . B3` },
+        { drums: true, notes: `k h s h k k s h | k h s h k k s h | k h s h k k s h | k h s h k k s h |
+                               k h s h k k s h | k h s h k k s h | k h s h k k s h | k h s h s s s s` },
+      ],
+    },
+  },
+  sfx: {
+    dig:     { label: 'ほる', level: 1.74, tones: [
+      { type: 'square', f0: 220, f1: 110, dur: 0.05, gain: 0.22, filter: { type: 'lowpass', freq: 2500 } },
+      { type: 'noise', dur: 0.05, gain: 0.25, filter: { type: 'lowpass', freq: 1200 } } ] },
+    place:   { label: 'おく', level: 1.01, tones: [
+      { type: 'pulse25', f0: 330, f1: 165, dur: 0.08, gain: 0.30 },
+      { type: 'triangle', f0: 140, f1: 70, dur: 0.09, gain: 0.45 } ] },
+    hit:     { label: 'たたく', level: 1.95, tones: [
+      { type: 'noise', dur: 0.06, gain: 0.35, filter: { type: 'bandpass', freq: 1500, q: 1 } },
+      { type: 'square', f0: 520, f1: 260, dur: 0.06, gain: 0.20 } ] },
+    pickup:  { label: 'ひろう', level: 1.36, tones: [
+      { type: 'square', f0: 784, dur: 0.07, gain: 0.20 },
+      { type: 'square', f0: 1047, delay: 0.07, dur: 0.22, gain: 0.20 } ] },
+    levelUp: { label: 'レベルアップ', level: 1.5, tones: [
+      { type: 'pulse25', f0: 523, dur: 0.08, gain: 0.25 },
+      { type: 'pulse25', f0: 659, delay: 0.07, dur: 0.08, gain: 0.25 },
+      { type: 'pulse25', f0: 784, delay: 0.14, dur: 0.08, gain: 0.25 },
+      { type: 'pulse25', f0: 1047, delay: 0.21, dur: 0.08, gain: 0.25 },
+      { type: 'pulse25', f0: 1319, delay: 0.28, dur: 0.08, gain: 0.22 },
+      { type: 'pulse25', f0: 1047, delay: 0.36, dur: 0.55, gain: 0.25 },
+      { type: 'pulse25', f0: 1319, delay: 0.36, dur: 0.55, gain: 0.18 },
+      { type: 'triangle', f0: 523, delay: 0.36, dur: 0.55, gain: 0.35 } ] },
+    water:   { label: 'みず', level: 1.64, tones: [
+      { type: 'triangle', f0: 300, f1: 900, dur: 0.07, gain: 0.35 },
+      { type: 'triangle', f0: 450, f1: 1300, delay: 0.08, dur: 0.06, gain: 0.30 },
+      { type: 'triangle', f0: 380, f1: 1100, delay: 0.16, dur: 0.06, gain: 0.25 },
+      { type: 'noise', dur: 0.25, gain: 0.08, attack: 0.02, filter: { type: 'lowpass', freq: 900 } } ] },
+    oshii:   { label: 'おしい（失敗）', level: 1.4, tones: [
+      { type: 'triangle', f0: 330, f1: 250, dur: 0.08, gain: 0.30 },
+      { type: 'pulse25', f0: 300, f1: 600, delay: 0.09, dur: 0.12, gain: 0.16 },
+      { type: 'triangle', f0: 400, f1: 800, delay: 0.09, dur: 0.12, gain: 0.25 } ] },
+    made:    { label: 'できた！', level: 1.23, tones: [
+      ...[523, 659, 784, 1047, 1319, 1568].map((f, i) => ({ type: 'pulse25', f0: f, delay: i * 0.06, dur: 0.09, gain: 0.20 })),
+      { type: 'pulse25', f0: 1047, delay: 0.40, dur: 0.18, gain: 0.22 },
+      { type: 'pulse25', f0: 1047, delay: 0.60, dur: 0.9, gain: 0.22 },
+      { type: 'pulse25', f0: 1319, delay: 0.60, dur: 0.9, gain: 0.16 },
+      { type: 'pulse25', f0: 1568, delay: 0.60, dur: 0.9, gain: 0.14 },
+      { type: 'triangle', f0: 262, delay: 0.60, dur: 0.9, gain: 0.40 },
+      { type: 'noise', delay: 0.60, dur: 0.5, gain: 0.08, filter: { type: 'highpass', freq: 6000 } } ] },
+  },
+},
+/* ---------------------------------------------------------- 案 B */
+{
+  id: 'B', name: '木のおもちゃとオルゴール', accent: '#4f9a6a',
+  desc: '木琴・マリンバ・オルゴールの、丸くてやさしい音。絵本のような世界。静かで長く聞いても疲れにくいが、ドット感はうすめ。',
+  spec: '音色: オルゴール（メロディ）・マリンバ（ベースと和音）・木の打楽器とシャカシャカ／テンポ: ひる 108（3 拍子）・よる 72・たたかい 132',
+  instruments: {
+    musicbox: { wave: 'sine', partials: [[1, 1, 1], [2, 0.15, 0.5], [5.4, 0.06, 0.2]], a: 0.002, d: 1.4, s: 0, gain: 0.15 },
+    marimba:  { wave: 'sine', partials: [[1, 1, 1], [4, 0.18, 0.12], [10, 0.04, 0.05]], a: 0.003, d: 0.45, s: 0, gain: 0.16 },
+    mbass:    { wave: 'sine', partials: [[1, 1, 1], [4, 0.15, 0.12], [2, 0.2, 0.5]], a: 0.004, d: 0.6, s: 0, gain: 0.34 },
+    xylo:     { wave: 'sine', partials: [[1, 1, 1], [3, 0.2, 0.2], [6, 0.08, 0.1]], a: 0.002, d: 0.3, s: 0, gain: 0.15 },
+    hum:      { wave: 'sine', a: 0.4, d: 0.5, s: 0.7, r: 0.8, gain: 0.04, gate: 1 },
+  },
+  kit: {
+    k: [{ type: 'sine', f0: 110, f1: 50, dur: 0.14, gain: 0.35 }],
+    w: [{ type: 'sine', f0: 1100, f1: 900, dur: 0.05, gain: 0.14 }, { type: 'sine', f0: 1650, dur: 0.03, gain: 0.05 }],
+    h: [{ type: 'noise', dur: 0.05, gain: 0.05, attack: 0.012, filter: { type: 'highpass', freq: 5000 } }],
+  },
+  bgm: {
+    day: {
+      title: 'ひる', level: 1.27, bpm: 108, beatsPerBar: 3, stepsPerBeat: 2, bars: 8, chords: 'G C D G Em C D G',
+      tracks: [
+        { inst: 'musicbox', notes: `D6 - B5 - G5 - | E6 - - - C6 - | F#6 - E6 - D6 - | B5 - - - - - |
+                                    E6 - G6 - E6 - | C6 - E6 - G6 - | F#6 - A6 - F#6 D6 | G6 - - - - -` },
+        { inst: 'mbass', notes: `G2 - - - - - | C3 - - - - - | D3 - - - - - | G2 - - - - - |
+                                 E2 - - - - - | C3 - - - - - | D3 - - - - - | G2 - - - D3 -` },
+        { inst: 'marimba', vol: 0.8, notes: `. . B3+D4 . B3+D4 . | . . C4+E4 . C4+E4 . | . . A3+F#4 . A3+F#4 . | . . B3+D4 . B3+D4 . |
+                                             . . G3+B3 . G3+B3 . | . . C4+E4 . C4+E4 . | . . A3+D4 . A3+F#4 . | . . B3+D4 . . .` },
+        { drums: true, notes: `w . h . h . | w . h . h . | w . h . h . | w . h . h . |
+                               w . h . h . | w . h . h . | w . h . h . | w . h . w .` },
+      ],
+    },
+    night: {
+      title: 'よる', level: 1.48, bpm: 72, beatsPerBar: 4, stepsPerBeat: 2, bars: 4, chords: 'F Dm Bb C',
+      echo: { steps: 3, feedback: 0.3, mix: 0.45 },
+      tracks: [
+        { inst: 'musicbox', echo: 0.5, notes: `C6 - A5 - - - F5 - | D6 - A5 - - - F5 - | D6 - C6 - Bb5 - A5 - | G5 - - - - - - -` },
+        { inst: 'marimba', vol: 0.6, notes: `F3 C4 A4 C4 F3 C4 A4 C4 | D3 A3 F4 A3 D3 A3 F4 A3 | Bb2 F3 D4 F3 Bb2 F3 D4 F3 | C3 G3 E4 G3 C3 G3 Bb3 G3` },
+        { inst: 'hum', notes: `F4+A4 - - - - - - - | D4+F4 - - - - - - - | Bb3+D4 - - - - - - - | E4+G4 - - - - - - -` },
+        { drums: true, vol: 0.7, notes: `. . h . . . h . | . . h . . . h . | . . h . . . h . | . . h . . . h .` },
+      ],
+    },
+    battle: {
+      title: 'たたかい', level: 1.0, bpm: 132, beatsPerBar: 4, stepsPerBeat: 2, bars: 8, chords: 'Am F G C Am F G E',
+      tracks: [
+        { inst: 'xylo', notes: `A5 . C6 . E6 . C6 . | F6 . E6 . C6 . A5 . | B5 . D6 . G6 - F6 . | E6 . D6 . C6 - - . |
+                                A5 C6 E6 . A6 . E6 . | F6 E6 D6 . C6 . A5 . | B5 . C6 . D6 . E6 . | E6 - - - B5 . G#5 .` },
+        { inst: 'mbass', notes: `A2 . A3 . A2 . A3 . | F2 . F3 . F2 . F3 . | G2 . G3 . G2 . G3 . | C3 . C4 . C3 . G2 . |
+                                 A2 . A3 . A2 . A3 . | F2 . F3 . F2 . F3 . | G2 . G3 . G2 . G3 . | E2 . E3 . E2 . B2 .` },
+        { inst: 'marimba', vol: 0.7, notes: `. C4+E4 . C4+E4 . C4+E4 . C4+E4 | . A3+C4 . A3+C4 . A3+C4 . A3+C4 | . B3+D4 . B3+D4 . B3+D4 . B3+D4 | . C4+E4 . C4+E4 . C4+E4 . C4+E4 |
+                                             . C4+E4 . C4+E4 . C4+E4 . C4+E4 | . A3+C4 . A3+C4 . A3+C4 . A3+C4 | . B3+D4 . B3+D4 . B3+D4 . B3+D4 | . G#3+B3 . G#3+B3 . G#3+B3 . G#3+B3` },
+        { drums: true, notes: `k h w h k h w h | k h w h k h w h | k h w h k h w h | k h w h k h w h |
+                               k h w h k h w h | k h w h k h w h | k h w h k h w h | k h w h w w w w` },
+      ],
+    },
+  },
+  sfx: {
+    dig:     { label: 'ほる', level: 0.98, tones: [
+      { type: 'sine', f0: 600, f1: 350, dur: 0.05, gain: 0.35 },
+      { type: 'triangle', f0: 220, f1: 150, dur: 0.08, gain: 0.35 },
+      { type: 'noise', dur: 0.05, gain: 0.15, filter: { type: 'lowpass', freq: 700 } } ] },
+    place:   { label: 'おく', level: 0.52, tones: [
+      { type: 'sine', f0: 392, dur: 0.30, gain: 0.50 },
+      { type: 'sine', f0: 784, dur: 0.12, gain: 0.12 },
+      { type: 'sine', f0: 1568, dur: 0.06, gain: 0.12 } ] },
+    hit:     { label: 'たたく', level: 1.02, tones: [
+      { type: 'sine', f0: 1050, f1: 820, dur: 0.07, gain: 0.45 },
+      { type: 'sine', f0: 1700, f1: 1500, dur: 0.035, gain: 0.15 },
+      { type: 'noise', dur: 0.02, gain: 0.08, filter: { type: 'highpass', freq: 3000 } } ] },
+    pickup:  { label: 'ひろう', level: 0.82, tones: [
+      { type: 'sine', f0: 1047, dur: 0.50, gain: 0.30 },
+      { type: 'sine', f0: 2093, dur: 0.15, gain: 0.05 },
+      { type: 'sine', f0: 1568, delay: 0.09, dur: 0.70, gain: 0.25 },
+      { type: 'sine', f0: 3136, delay: 0.09, dur: 0.15, gain: 0.04 } ] },
+    levelUp: { label: 'レベルアップ', level: 0.94, tones: [
+      { type: 'sine', f0: 784, dur: 0.9, gain: 0.28 },
+      { type: 'sine', f0: 1047, delay: 0.11, dur: 0.9, gain: 0.28 },
+      { type: 'sine', f0: 1319, delay: 0.22, dur: 0.9, gain: 0.28 },
+      { type: 'sine', f0: 1568, delay: 0.33, dur: 0.9, gain: 0.26 },
+      { type: 'sine', f0: 2093, delay: 0.46, dur: 1.2, gain: 0.25 },
+      { type: 'sine', f0: 1319, delay: 0.46, dur: 1.2, gain: 0.20 },
+      { type: 'sine', f0: 262, delay: 0.46, dur: 0.6, gain: 0.40 },
+      { type: 'sine', f0: 1047, delay: 0.46, dur: 0.12, gain: 0.08 } ] },
+    water:   { label: 'みず', level: 1.08, tones: [
+      { type: 'sine', f0: 450, f1: 1300, dur: 0.12, gain: 0.35 },
+      { type: 'sine', f0: 700, f1: 1800, delay: 0.10, dur: 0.09, gain: 0.22 },
+      { type: 'sine', f0: 1200, f1: 2400, delay: 0.18, dur: 0.06, gain: 0.10 },
+      { type: 'noise', dur: 0.30, gain: 0.07, attack: 0.03, filter: { type: 'lowpass', freq: 1400 } } ] },
+    oshii:   { label: 'おしい（失敗）', level: 0.9, tones: [
+      { type: 'sine', f0: 523, f1: 440, dur: 0.12, gain: 0.30 },
+      { type: 'sine', f0: 392, f1: 660, delay: 0.13, dur: 0.20, gain: 0.30 },
+      { type: 'sine', f0: 1100, f1: 900, delay: 0.32, dur: 0.05, gain: 0.12 } ] },
+    made:    { label: 'できた！', level: 0.81, tones: [
+      ...[523, 659, 784, 1047, 1319, 1568, 2093].map((f, i) => ({ type: 'sine', f0: f, delay: i * 0.07, dur: 0.9, gain: 0.20 })),
+      { type: 'sine', f0: 1047, delay: 0.55, dur: 1.4, gain: 0.25 },
+      { type: 'sine', f0: 1319, delay: 0.55, dur: 1.4, gain: 0.20 },
+      { type: 'sine', f0: 1568, delay: 0.55, dur: 1.4, gain: 0.18 },
+      { type: 'sine', f0: 131, delay: 0.55, dur: 0.8, gain: 0.45 },
+      { type: 'sine', f0: 1100, f1: 900, delay: 0.55, dur: 0.05, gain: 0.15 },
+      { type: 'sine', f0: 1100, f1: 900, delay: 0.75, dur: 0.05, gain: 0.12 } ] },
+  },
+},
+/* ---------------------------------------------------------- 案 C */
+{
+  id: 'C', name: 'おもちゃ箱ポップ（A と B の間）', accent: '#5b7fd1',
+  desc: 'ピコピコの四角い音の角を丸めて、ベルと「ポコポコ」打楽器を合わせた音。ドット感を残しつつ、耳にやさしい。今のゲームの効果音（ぽよん・きらーん）に近い。',
+  spec: '音色: 丸めた四角波（メロディ）・はじく三角波（ベース）・ベル・やわらかい手拍子／テンポ: ひる 124・よる 84・たたかい 144',
+  instruments: {
+    toy:   { wave: 'square', filter: { type: 'lowpass', freq: 1800, q: 0.5 }, a: 0.01, d: 0.15, s: 0.6, r: 0.08, gain: 0.10, vibrato: { rate: 5.5, depth: 0.005, delay: 0.15 } },
+    bell:  { wave: 'sine', partials: [[1, 1, 1], [2.76, 0.25, 0.3], [5.4, 0.1, 0.15]], a: 0.002, d: 1.0, s: 0, gain: 0.12 },
+    comp:  { wave: 'triangle', a: 0.005, d: 0.18, s: 0, gain: 0.08 },
+    pad:   { wave: 'square', filter: { type: 'lowpass', freq: 900, q: 0.3 }, a: 0.4, d: 0.5, s: 0.8, r: 0.8, gain: 0.035, gate: 1 },
+    pluck: { wave: 'triangle', a: 0.004, d: 0.25, s: 0.3, r: 0.05, gain: 0.26 },
+  },
+  kit: {
+    k: [{ type: 'sine', f0: 140, f1: 48, dur: 0.14, gain: 0.42 }],
+    s: [{ type: 'noise', dur: 0.07, gain: 0.13, filter: { type: 'bandpass', freq: 1400, q: 1 } },
+        { type: 'noise', delay: 0.012, dur: 0.06, gain: 0.08, filter: { type: 'bandpass', freq: 1400, q: 1 } }],
+    h: [{ type: 'noise', dur: 0.035, gain: 0.05, filter: { type: 'highpass', freq: 6000 } }],
+  },
+  bgm: {
+    day: {
+      title: 'ひる', level: 0.84, bpm: 124, beatsPerBar: 4, stepsPerBeat: 2, bars: 8, chords: 'F Bb C F Dm Bb C F',
+      tracks: [
+        { inst: 'toy', notes: `C5 . F5 . A5 . G5 F5 | D5 - F5 - Bb5 - A5 G5 | E5 . G5 . C6 - Bb5 A5 | A5 - - - F5 . . . |
+                               D5 . F5 A5 D6 - C6 A5 | Bb5 - A5 - G5 - F5 - | E5 . G5 . C6 . Bb5 . | A5 - - - F5 - . .` },
+        { inst: 'bell', vol: 0.8, notes: `. . . . . . . . | . . . . . . . . | . . . . . . . . | . . . . C6 . F6 . |
+                                          . . . . . . . . | . . . . . . . . | . . . . . . . . | . . . . A5 . C6 F6` },
+        { inst: 'comp', notes: `. . A3+C4 . . . A3+C4 . | . . Bb3+D4 . . . Bb3+D4 . | . . G3+C4 . . . G3+Bb3 . | . . A3+C4 . . . A3+C4 . |
+                                . . A3+D4 . . . A3+D4 . | . . Bb3+D4 . . . Bb3+D4 . | . . G3+C4 . . . G3+Bb3 . | . . A3+C4 . . . . .` },
+        { inst: 'pluck', notes: `F2 . C3 . F3 . C3 . | Bb2 . F3 . Bb2 . F3 . | C3 . G3 . C3 . G3 . | F2 . C3 . F3 . C3 . |
+                                 D3 . A3 . D3 . A3 . | Bb2 . F3 . Bb2 . F3 . | C3 . G3 . C3 . E3 . | F2 . C3 . F2 . . .` },
+        { drums: true, notes: `k . h . s . h . | k . h . s . h . | k . h . s . h . | k . h . s . h . |
+                               k . h . s . h . | k . h . s . h . | k . h . s . h . | k . h . s . s s` },
+      ],
+    },
+    night: {
+      title: 'よる', level: 1.11, bpm: 84, beatsPerBar: 4, stepsPerBeat: 2, bars: 4, chords: 'C F Am G',
+      echo: { steps: 3, feedback: 0.32, mix: 0.5 },
+      tracks: [
+        { inst: 'bell', echo: 0.6, notes: `E5 - G5 - B5 - - - | A5 - - - C6 - A5 - | G5 - E5 - C5 - - - | D5 - - - - - G4 -` },
+        { inst: 'pad', notes: `E4+G4 - - - - - - - | F4+A4 - - - - - - - | E4+A4 - - - - - - - | D4+G4 - - - - - - -` },
+        { inst: 'pluck', vol: 0.8, notes: `C3 - - - G2 - - - | F2 - - - C3 - - - | A2 - - - E3 - - - | G2 - - - D3 - - -` },
+        { drums: true, vol: 0.7, notes: `. . h . . . h . | . . h . . . h . | . . h . . . h . | . . h . . . h .` },
+      ],
+    },
+    battle: {
+      title: 'たたかい', level: 0.7, bpm: 144, beatsPerBar: 4, stepsPerBeat: 2, bars: 8, chords: 'Em C D Em Em C D B',
+      tracks: [
+        { inst: 'toy', notes: `E5 E5 G5 . B5 . A5 G5 | E5 E5 G5 . C6 . B5 A5 | F#5 F#5 A5 . D6 . C6 B5 | B5 - - . E5 . . . |
+                               G5 . A5 . B5 . E6 . | E6 . D6 . C6 . B5 . | A5 . B5 . C6 . D6 . | D#6 - - - B5 . F#5 .` },
+        { inst: 'comp', notes: `. G3+B3 . G3+B3 . G3+B3 . G3+B3 | . G3+C4 . G3+C4 . G3+C4 . G3+C4 | . F#3+A3 . F#3+A3 . F#3+A3 . F#3+A3 | . G3+B3 . G3+B3 . G3+B3 . G3+B3 |
+                                . G3+B3 . G3+B3 . G3+B3 . G3+B3 | . G3+C4 . G3+C4 . G3+C4 . G3+C4 | . F#3+A3 . F#3+A3 . F#3+A3 . F#3+A3 | . D#4+F#4 . D#4+F#4 . D#4+F#4 . D#4+F#4` },
+        { inst: 'pluck', notes: `E2 E3 E2 E3 E2 E3 E2 E3 | C2 C3 C2 C3 C2 C3 C2 C3 | D2 D3 D2 D3 D2 D3 D2 D3 | E2 E3 E2 E3 E2 E3 E2 E3 |
+                                 E2 E3 E2 E3 E2 E3 E2 E3 | C2 C3 C2 C3 C2 C3 C2 C3 | D2 D3 D2 D3 D2 D3 D2 D3 | B1 B2 B1 B2 B1 B2 D#2 F#2` },
+        { drums: true, notes: `k h s h k k s h | k h s h k k s h | k h s h k k s h | k h s h k k s h |
+                               k h s h k k s h | k h s h k k s h | k h s h k k s h | k h s h s s s s` },
+      ],
+    },
+  },
+  sfx: {
+    dig:     { label: 'ほる', level: 1.3, tones: [
+      { type: 'triangle', f0: 260, f1: 160, dur: 0.07, gain: 0.40 },
+      { type: 'noise', dur: 0.04, gain: 0.18, filter: { type: 'bandpass', freq: 900, q: 1 } } ] },
+    place:   { label: 'おく', level: 0.64, tones: [
+      { type: 'sine', f0: 330, f1: 150, dur: 0.12, gain: 0.60 },
+      { type: 'triangle', f0: 660, f1: 300, dur: 0.08, gain: 0.15 } ] },
+    hit:     { label: 'たたく', level: 1.12, tones: [
+      { type: 'noise', dur: 0.045, gain: 0.30, filter: { type: 'bandpass', freq: 2200, q: 1.5 } },
+      { type: 'square', f0: 500, f1: 250, dur: 0.06, gain: 0.15, filter: { type: 'lowpass', freq: 1500 } },
+      { type: 'sine', f0: 180, f1: 90, dur: 0.08, gain: 0.35 } ] },
+    pickup:  { label: 'ひろう', level: 1.0, tones: [
+      { type: 'sine', f0: 1047, f1: 1175, dur: 0.10, gain: 0.45 },
+      { type: 'sine', f0: 1568, f1: 1760, delay: 0.06, dur: 0.18, gain: 0.35 },
+      { type: 'sine', f0: 3136, delay: 0.06, dur: 0.25, gain: 0.06 } ] },
+    levelUp: { label: 'レベルアップ', level: 1.38, tones: [
+      { type: 'square', f0: 523, dur: 0.13, gain: 0.18, filter: { type: 'lowpass', freq: 2500 } },
+      { type: 'square', f0: 659, delay: 0.12, dur: 0.13, gain: 0.18, filter: { type: 'lowpass', freq: 2500 } },
+      { type: 'square', f0: 784, delay: 0.24, dur: 0.13, gain: 0.18, filter: { type: 'lowpass', freq: 2500 } },
+      { type: 'square', f0: 1047, delay: 0.36, dur: 0.50, gain: 0.20, filter: { type: 'lowpass', freq: 2500 } },
+      { type: 'triangle', f0: 523, delay: 0.36, dur: 0.50, gain: 0.35 },
+      { type: 'sine', f0: 2093, delay: 0.36, dur: 0.70, gain: 0.12 },
+      { type: 'sine', f0: 2637, delay: 0.44, dur: 0.60, gain: 0.08 },
+      { type: 'sine', f0: 3136, delay: 0.52, dur: 0.50, gain: 0.06 } ] },
+    water:   { label: 'みず', level: 0.92, tones: [
+      { type: 'sine', f0: 250, f1: 900, dur: 0.10, gain: 0.45 },
+      { type: 'sine', f0: 700, f1: 1500, delay: 0.09, dur: 0.08, gain: 0.25 },
+      { type: 'noise', dur: 0.22, gain: 0.10, attack: 0.01, filter: { type: 'lowpass', freq: 1500 } } ] },
+    oshii:   { label: 'おしい（失敗）', level: 0.89, tones: [
+      { type: 'sine', f0: 300, f1: 200, dur: 0.09, gain: 0.35 },
+      { type: 'sine', f0: 260, f1: 520, delay: 0.10, dur: 0.14, gain: 0.35 },
+      { type: 'triangle', f0: 520, f1: 780, delay: 0.10, dur: 0.10, gain: 0.10 } ] },
+    made:    { label: 'できた！', level: 1.23, tones: [
+      ...[523, 659, 784, 1047].map((f, i) => ({ type: 'square', f0: f, delay: i * 0.09, dur: 0.12, gain: 0.16, filter: { type: 'lowpass', freq: 2500 } })),
+      { type: 'square', f0: 1047, delay: 0.40, dur: 0.9, gain: 0.18, filter: { type: 'lowpass', freq: 2500 } },
+      { type: 'square', f0: 1319, delay: 0.40, dur: 0.9, gain: 0.12, filter: { type: 'lowpass', freq: 2500 } },
+      { type: 'triangle', f0: 262, delay: 0.40, dur: 0.9, gain: 0.35 },
+      ...[2093, 2637, 3136, 4186, 3136, 4186].map((f, i) => ({ type: 'sine', f0: f, delay: 0.45 + i * 0.08, dur: 0.4, gain: 0.07 })),
+      { type: 'noise', delay: 0.40, dur: 0.07, gain: 0.12, filter: { type: 'bandpass', freq: 1400, q: 1 } } ] },
+  },
+},
+];
+
+/* =====================================================================
+ * 3. 音を鳴らすしくみ（エンジン。ゲームに移すときは src/fx/ に）
+ * ===================================================================== */
+const BGM_KEYS = ['day', 'night', 'battle'];
+const SFX_KEYS = ['dig', 'place', 'hit', 'pickup', 'levelUp', 'water', 'oshii', 'made'];
+const NOTE_INDEX = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+const C4 = 261.6256;
+
+function pcOf(letter, acc) { return (NOTE_INDEX[letter] + (acc === '#' ? 1 : acc === 'b' ? -1 : 0) + 12) % 12; }
+function noteFreq(name) {
+  const m = /^([A-G])(#|b)?(\d)$/.exec(name);
+  if (!m) throw new Error('音の名前がおかしい: ' + name);
+  const midi = (Number(m[3]) + 1) * 12 + NOTE_INDEX[m[1]] + (m[2] === '#' ? 1 : m[2] === 'b' ? -1 : 0);
+  return 440 * Math.pow(2, (midi - 69) / 12);
+}
+/** 'C' 'F#' 'Bb' 'Am' → { root: 0〜11, minor } */
+function parseChord(name) {
+  const m = /^([A-G])(#|b)?(m?)$/.exec(name);
+  if (!m) throw new Error('和音の名前がおかしい: ' + name);
+  return { root: pcOf(m[1], m[2]), minor: m[3] === 'm' };
+}
+function tokens(str) { return str.split(/\s+/).filter(t => t && t !== '|'); }
+function songInfo(song) {
+  const stepDur = 60 / song.bpm / song.stepsPerBeat;
+  const stepsPerBar = song.beatsPerBar * song.stepsPerBeat;
+  const steps = song.bars * stepsPerBar;
+  return { stepDur, steps, stepsPerBar, seconds: steps * stepDur };
+}
+/** 曲を「ステップごとの鳴らす物の並び」にする */
+function compileSong(plan, song) {
+  const { stepDur, steps } = songInfo(song);
+  const events = Array.from({ length: steps }, () => []);
+  const ch = tokens(song.chords || '');
+  if (ch.length !== song.bars) throw new Error(`案 ${plan.id}「${song.title}」: 和音が ${ch.length} 個（${song.bars} 小節のはず）`);
+  ch.forEach(parseChord);
+  song.tracks.forEach((tr, ti) => {
+    const tk = tokens(tr.notes);
+    const where = `案 ${plan.id}「${song.title}」の ${ti + 1} 本目`;
+    if (tk.length !== steps) throw new Error(`${where}: ${tk.length} 個（${steps} 個のはず）`);
+    if (!tr.drums && !plan.instruments[tr.inst]) throw new Error(`${where}: 楽器 ${tr.inst} がない`);
+    tk.forEach((tok, i) => {
+      if (tok === '.' || tok === '-') return;
+      if (tr.drums) {
+        for (const c of tok) {
+          if (!plan.kit[c]) throw new Error(`${where}: 打楽器 ${c} がない`);
+          events[i].push({ drum: c, vol: tr.vol ?? 1 });
+        }
+        return;
+      }
+      let len = 1;
+      while (i + len < steps && tk[i + len] === '-') len++;
+      for (const nn of tok.split('+')) {
+        events[i].push({ inst: tr.inst, freq: noteFreq(nn), dur: len * stepDur, vol: tr.vol ?? 1, echo: tr.echo ?? 0 });
+      }
+    });
+  });
+  return events;
+}
+
+const waveCache = new WeakMap();
+function setWave(ctx, osc, type) {
+  if (type === 'pulse25' || type === 'pulse12') {
+    let m = waveCache.get(ctx);
+    if (!m) { m = {}; waveCache.set(ctx, m); }
+    if (!m[type]) {
+      const duty = type === 'pulse25' ? 0.25 : 0.125;
+      const N = 64, re = new Float32Array(N), im = new Float32Array(N);
+      for (let n = 1; n < N; n++) re[n] = (2 / (n * Math.PI)) * Math.sin(Math.PI * n * duty);
+      m[type] = ctx.createPeriodicWave(re, im);
+    }
+    osc.setPeriodicWave(m[type]);
+  } else {
+    osc.type = type;
+  }
+}
+const noiseCache = new WeakMap();
+function noiseBuffer(ctx) {
+  let b = noiseCache.get(ctx);
+  if (b) return b;
+  const len = ctx.sampleRate;
+  b = ctx.createBuffer(1, len, ctx.sampleRate);
+  const x = b.getChannelData(0);
+  let s = 12345; // シード付き（毎回同じザザッ）
+  for (let i = 0; i < len; i++) { s = (s * 1103515245 + 12345) >>> 0; x[i] = (s / 4294967296) * 2 - 1; }
+  noiseCache.set(ctx, b);
+  return b;
+}
+function makeFilter(ctx, f) {
+  const n = ctx.createBiquadFilter();
+  n.type = f.type; n.frequency.value = f.freq; n.Q.value = f.q ?? 0.7;
+  return n;
+}
+
+/**
+ * 効果音・打楽器: Tone の並びを鳴らす（src/fx/sound.ts の playTones と同じ考え方）
+ * opt.pitch(f) = 高さを変える関数、opt.gain = 大きさの倍率、opt.dur = 長さの倍率
+ */
+function playTones(ctx, dest, tones, t0, opt = {}) {
+  const pitch = opt.pitch || (f => f), gm = opt.gain ?? 1, dm = opt.dur ?? 1;
+  for (const tn of tones) {
+    const t = t0 + (tn.delay || 0) * dm;
+    const dur = tn.dur * dm, a = tn.attack ?? 0.005;
+    const end = t + Math.max(dur, a + 0.01);
+    const peak = Math.max(0.0002, tn.gain * gm);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(peak, t + a);
+    g.gain.exponentialRampToValueAtTime(0.0001, end);
+    let src;
+    if (tn.type === 'noise') {
+      src = ctx.createBufferSource(); src.buffer = noiseBuffer(ctx); src.loop = true;
+    } else {
+      src = ctx.createOscillator(); setWave(ctx, src, tn.type);
+      const f0 = pitch(tn.f0), f1 = pitch(tn.f1 ?? tn.f0);
+      src.frequency.setValueAtTime(f0, t);
+      if (f1 !== f0) src.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
+    }
+    let node = src;
+    if (tn.filter) { const f = makeFilter(ctx, tn.filter); node.connect(f); node = f; }
+    node.connect(g); g.connect(dest);
+    src.start(t); src.stop(end + 0.05);
+  }
+}
+
+/** 楽器の 1 音。出口のノードを返す（呼んだ側がつなぐ） */
+function playVoice(ctx, inst, freq, t, dur, vol) {
+  const out = ctx.createGain();
+  let tail = out;
+  if (inst.filter) { const f = makeFilter(ctx, inst.filter); out.connect(f); tail = f; }
+  const a = inst.a ?? 0.005, d = inst.d ?? 0.2, s = inst.s ?? 0, r = inst.r ?? 0.05;
+  const gateEnd = t + Math.max(a + 0.001, dur * (inst.gate ?? 0.92));
+  for (const [ratio, pg, ds = 1] of (inst.partials || [[1, 1, 1]])) {
+    const o = ctx.createOscillator(); setWave(ctx, o, inst.wave);
+    o.frequency.setValueAtTime(freq * ratio, t);
+    const g = ctx.createGain();
+    const peak = Math.max(0.0002, inst.gain * vol * pg);
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(peak, t + a);
+    let stopAt;
+    if (s <= 0) {
+      g.gain.exponentialRampToValueAtTime(0.0001, t + a + d * ds);
+      stopAt = t + a + d * ds + 0.02;
+    } else {
+      const sus = peak * s, dEnd = t + a + d * ds;
+      if (gateEnd >= dEnd) { g.gain.linearRampToValueAtTime(sus, dEnd); g.gain.setValueAtTime(sus, gateEnd); }
+      else { g.gain.linearRampToValueAtTime(peak + (sus - peak) * ((gateEnd - t - a) / (d * ds)), gateEnd); }
+      g.gain.linearRampToValueAtTime(0, gateEnd + r);
+      stopAt = gateEnd + r + 0.02;
+    }
+    if (inst.vibrato) {
+      const lfo = ctx.createOscillator(); lfo.frequency.value = inst.vibrato.rate;
+      const lg = ctx.createGain();
+      const vd = t + (inst.vibrato.delay || 0);
+      lg.gain.setValueAtTime(0, t); lg.gain.setValueAtTime(0, vd);
+      lg.gain.linearRampToValueAtTime(freq * ratio * inst.vibrato.depth, vd + 0.15);
+      lfo.connect(lg); lg.connect(o.frequency); lfo.start(t); lfo.stop(stopAt);
+    }
+    o.connect(g); g.connect(out);
+    o.start(t); o.stop(stopAt);
+  }
+  return tail;
+}
+
+/** 曲ごとの出口（こだまつき） */
+function makeSongBus(ctx, dest, song) {
+  const input = ctx.createGain(); input.gain.value = song.level ?? 1; input.connect(dest);
+  let echoIn = null;
+  if (song.echo) {
+    const { stepDur } = songInfo(song);
+    const dl = ctx.createDelay(2); dl.delayTime.value = song.echo.steps * stepDur;
+    const fb = ctx.createGain(); fb.gain.value = song.echo.feedback;
+    const wet = ctx.createGain(); wet.gain.value = song.echo.mix ?? 0.5;
+    echoIn = ctx.createGain();
+    echoIn.connect(dl); dl.connect(fb); fb.connect(dl); dl.connect(wet); wet.connect(input);
+  }
+  return { input, echoIn };
+}
+function scheduleStep(ctx, bus, plan, events, i, t) {
+  for (const ev of events[i]) {
+    if (ev.drum) { playTones(ctx, bus.input, plan.kit[ev.drum], t, { gain: ev.vol }); continue; }
+    const tail = playVoice(ctx, plan.instruments[ev.inst], ev.freq, t, ev.dur, ev.vol);
+    tail.connect(bus.input);
+    if (ev.echo && bus.echoIn) { const send = ctx.createGain(); send.gain.value = ev.echo; tail.connect(send); send.connect(bus.echoIn); }
+  }
+}
+/** 全体: [BGM → 達成のときだけ少し下げる] ＋ [効果音] → 全体の音量 → ミュート → リミッター → スピーカー */
+function makeMasterChain(ctx, masterValue) {
+  const lim = ctx.createDynamicsCompressor();
+  const L = MIX.limiter;
+  lim.threshold.value = L.threshold; lim.knee.value = L.knee; lim.ratio.value = L.ratio;
+  lim.attack.value = L.attack; lim.release.value = L.release;
+  // 連打で重なっても -1 dBFS（0.89）を超えないための 2 段目。0.5 までは何もせず、それより上をなめらかに 0.85 でおさえる
+  const safe = ctx.createWaveShaper();
+  const curve = new Float32Array(4097);
+  for (let i = 0; i < curve.length; i++) {
+    const x = (i / 2048) - 1, a = Math.abs(x), K = 0.5, C = 0.85;
+    const y = a <= K ? a : K + (C - K) * Math.tanh((a - K) / (C - K));
+    curve[i] = Math.sign(x) * y;
+  }
+  safe.curve = curve;
+  lim.connect(safe); safe.connect(ctx.destination);
+  const mute = ctx.createGain(); mute.connect(lim);
+  const master = ctx.createGain(); master.gain.value = masterValue; master.connect(mute);
+  const duck = ctx.createGain(); duck.connect(master);
+  const bgmBus = ctx.createGain(); bgmBus.gain.value = MIX.bgm; bgmBus.connect(duck);
+  const sfxBus = ctx.createGain(); sfxBus.gain.value = MIX.sfx; sfxBus.connect(master);
+  return { master, mute, duck, bgmBus, sfxBus };
+}
+
+/* ---- ゆらぎと和音合わせ（シード付きの乱数なので、テストでは同じ並びになる） ---- */
+function makeRng(seed) {
+  let a = seed >>> 0;
+  return () => { a = (a + 0x6d2b79f5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+}
+const rng = makeRng(20261016);
+const lastPick = {};
+/** -5〜+6 半音のうち、高さの種類が pc になるずらし幅 */
+function nearestShift(pc) { const v = ((pc % 12) + 12) % 12; return v > 6 ? v - 12 : v; }
+/**
+ * 効果音 1 回ぶんの「ずらし方」を決める。
+ * chord = { root, minor }（BGM のいまの和音。BGM がなければ C）
+ */
+function variation(key, chord, opts) {
+  const v = VARY[key] || {};
+  const out = { pitch: f => f, gain: 1, dur: 1, note: '' };
+  let semis = 0, cents = 0, minor = false;
+  if (v.chord && opts.chord) {
+    if (v.chord === 'tones') {
+      const third = chord.minor ? 3 : 4;
+      const cands = [0, third, 7].map(o => nearestShift(chord.root + o));
+      const prev = lastPick[key];
+      const choices = cands.filter(c => c !== prev);
+      semis = opts.vary ? choices[Math.floor(rng() * choices.length)] : nearestShift(chord.root);
+      lastPick[key] = semis;
+    } else {
+      semis = nearestShift(chord.root);
+      minor = chord.minor;
+    }
+  } else if (v.chord === 'tones' && opts.vary) {
+    // 和音合わせを切ったとき: ド・ミ・ソから直前とちがう音
+    const choices = [0, 4, 7].filter(c => c !== lastPick[key]);
+    semis = choices[Math.floor(rng() * choices.length)]; lastPick[key] = semis;
+  }
+  if (opts.vary) {
+    if (v.cents) cents = (rng() * 2 - 1) * v.cents;
+    if (v.gain) out.gain = 1 + (rng() * 2 - 1) * v.gain;
+    if (v.dur) out.dur = 1 + (rng() * 2 - 1) * v.dur;
+  }
+  const ratio = Math.pow(2, (semis + cents / 100) / 12);
+  out.pitch = f => {
+    let g = f;
+    if (minor) { // C を根音として作った音の「ミ」を半音下げる
+      const pc = ((Math.round(12 * Math.log2(f / C4)) % 12) + 12) % 12;
+      if (pc === 4) g = f * Math.pow(2, -1 / 12);
+    }
+    return g * ratio;
+  };
+  out.note = `${semis >= 0 ? '+' : ''}${semis} 半音${cents ? `・${cents >= 0 ? '+' : ''}${cents.toFixed(0)} セント` : ''}`;
+  return out;
+}
+
+/* ---- 画面で鳴らす（先読みして予約するので、ループのつなぎ目が切れない） ---- */
+const LOOKAHEAD = 0.2;
+const live = { ctx: null, chain: null, songs: [], current: null, timer: 0, masterValue: MIX.masterDefault, bgmValue: MIX.bgm, muted: false, vary: true, chord: true };
+const compiled = {};
+
+function ensureCtx() {
+  if (live.ctx) { if (live.ctx.state === 'suspended') live.ctx.resume(); return live.ctx; }
+  const Ctor = window.AudioContext || window.webkitAudioContext;
+  live.ctx = new Ctor();
+  live.chain = makeMasterChain(live.ctx, live.masterValue);
+  live.chain.bgmBus.gain.value = live.bgmValue;
+  live.chain.mute.gain.value = live.muted ? 0 : 1;
+  live.timer = setInterval(tick, 25);
+  return live.ctx;
+}
+function tick() {
+  const ctx = live.ctx; if (!ctx) return;
+  const horizon = ctx.currentTime + LOOKAHEAD;
+  for (const s of live.songs) {
+    for (;;) {
+      const t = s.start + s.step * s.info.stepDur;
+      if (t >= horizon || t >= s.stopAt) break;
+      scheduleStep(ctx, s.bus, s.plan, s.events, s.step % s.info.steps, t);
+      s.step++;
+    }
+  }
+  live.songs = live.songs.filter(s => {
+    if (ctx.currentTime > s.stopAt + 4) { s.fade.disconnect(); return false; }
+    return true;
+  });
+  const c = live.current;
+  const ch = currentChordName(ctx.currentTime);
+  const el = document.getElementById('chordNow');
+  if (el) el.textContent = c ? `和音: ${ch}` : '';
+}
+/** 時刻 t に鳴っている BGM の和音（BGM がなければ C） */
+function currentChordName(t) {
+  const s = live.current;
+  if (!s || t < s.start) return 'C';
+  const bar = Math.floor((t - s.start) / s.info.stepDur / s.info.stepsPerBar) % s.song.bars;
+  return tokens(s.song.chords)[bar];
+}
+function fadeOutSong(s, sec) {
+  const ctx = live.ctx, now = ctx.currentTime;
+  s.fade.gain.cancelScheduledValues(now);
+  s.fade.gain.setValueAtTime(s.fade.gain.value, now);
+  s.fade.gain.linearRampToValueAtTime(0, now + sec);
+  s.stopAt = now + sec;
+}
+function startSong(pi, key) {
+  const ctx = ensureCtx();
+  const plan = PLANS[pi], song = plan.bgm[key];
+  if (live.current && live.current.plan === plan && live.current.key === key) return;
+  const now = ctx.currentTime;
+  const sec = live.current ? MIX.crossfade : MIX.fadeIn;
+  if (live.current) fadeOutSong(live.current, MIX.crossfade);
+  const fade = ctx.createGain(); fade.connect(live.chain.bgmBus);
+  fade.gain.setValueAtTime(0, now); fade.gain.linearRampToValueAtTime(1, now + sec);
+  const s = { plan, key, song, info: songInfo(song), events: compiled[plan.id][key], bus: makeSongBus(ctx, fade, song), fade, start: now + 0.05, step: 0, stopAt: Infinity };
+  live.songs.push(s); live.current = s;
+  tick(); refreshUi();
+}
+function stopAll() {
+  if (!live.ctx) return;
+  for (const s of live.songs) if (s.stopAt === Infinity) fadeOutSong(s, MIX.fadeOut);
+  live.current = null; refreshUi();
+}
+function duckBgm(t) {
+  const g = live.chain.duck.gain, D = MIX.duck;
+  g.cancelScheduledValues(t);
+  g.setValueAtTime(g.value, t);
+  g.linearRampToValueAtTime(D.amount, t + D.attack);
+  g.setValueAtTime(D.amount, t + D.attack + D.hold);
+  g.linearRampToValueAtTime(1, t + D.attack + D.hold + D.release);
+}
+function playSfx(pi, key, at) {
+  const ctx = ensureCtx();
+  const t = at ?? ctx.currentTime + 0.01;
+  const chord = parseChord(currentChordName(t));
+  const v = variation(key, chord, { vary: live.vary, chord: live.chord });
+  if (VARY[key] && VARY[key].big && live.current) duckBgm(t);
+  const sfx = PLANS[pi].sfx[key];
+  playTones(ctx, live.chain.sfxBus, sfx.tones, t, { ...v, gain: v.gain * (sfx.level ?? 1) });
+  const el = document.getElementById('lastSfx');
+  if (el) el.textContent = `いまの効果音: 案 ${PLANS[pi].id} ${PLANS[pi].sfx[key].label}（${v.note}）`;
+}
+/** 同じ効果音を続けて鳴らす（だんだん強くはしない。疲れないかを聞く用） */
+function repeatSfx(pi, key, count, gap) {
+  const ctx = ensureCtx();
+  const t0 = ctx.currentTime + 0.05;
+  for (let i = 0; i < count; i++) {
+    const at = t0 + i * gap;
+    // 和音は鳴る時刻のものを使うので、鳴らす少し前に決める
+    setTimeout(() => playSfx(pi, key, Math.max(at, live.ctx.currentTime + 0.01)), Math.max(0, (at - ctx.currentTime - 0.1) * 1000));
+  }
+}
+function demo(pi) {
+  const ctx = ensureCtx();
+  if (!live.current || live.current.plan !== PLANS[pi]) startSong(pi, 'day');
+  const seq = [['dig', 0], ['dig', 0.3], ['dig', 0.6], ['pickup', 0.95], ['dig', 1.6], ['dig', 1.9], ['pickup', 2.25],
+    ['place', 3.0], ['place', 3.4], ['place', 3.8], ['hit', 4.5], ['oshii', 5.0], ['hit', 5.6], ['water', 6.3], ['levelUp', 7.3]];
+  const base = ctx.currentTime + 1.6;
+  for (const [k, dt] of seq) setTimeout(() => playSfx(pi, k), (base - ctx.currentTime + dt) * 1000);
+}
+
+/* =====================================================================
+ * 4. 数で見る（OfflineAudioContext で書き出して大きさを計る）
+ *    リミッターの前の値。dBFS（0 が いちばん大きい）。ゆらぎなし。
+ * ===================================================================== */
+async function renderLevels(seconds, build) {
+  const sr = 44100;
+  const ctx = new OfflineAudioContext(1, Math.ceil(sr * seconds), sr);
+  const out = ctx.createGain(); out.connect(ctx.destination);
+  build(ctx, out);
+  const buf = await ctx.startRendering();
+  const x = buf.getChannelData(0);
+  let peak = 0, sum = 0, maxWin = 0, wsum = 0;
+  const win = Math.round(sr * 0.05);
+  for (let i = 0; i < x.length; i++) {
+    const v = x[i], a = Math.abs(v);
+    if (a > peak) peak = a;
+    sum += v * v; wsum += v * v;
+    if (i >= win) wsum -= x[i - win] * x[i - win];
+    if (i >= win - 1 && wsum > maxWin) maxWin = wsum;
+  }
+  const db = v => (v > 0 ? 20 * Math.log10(v) : -Infinity);
+  return { peak: db(peak), rms: db(Math.sqrt(sum / x.length)), loud50: db(Math.sqrt(Math.max(0, maxWin) / win)) };
+}
+async function measureAll() {
+  const res = [];
+  for (const plan of PLANS) {
+    for (const key of BGM_KEYS) {
+      const song = plan.bgm[key], info = songInfo(song);
+      const r = await renderLevels(info.seconds * 2, (ctx, out) => {
+        const g = ctx.createGain(); g.gain.value = MIX.bgm; g.connect(out);
+        const bus = makeSongBus(ctx, g, song);
+        for (let i = 0; i < info.steps * 2; i++) scheduleStep(ctx, bus, plan, compiled[plan.id][key], i % info.steps, 0.01 + i * info.stepDur);
+      });
+      res.push({ plan: plan.id, kind: 'BGM', name: song.title, sec: info.seconds, ...r });
+    }
+    for (const key of SFX_KEYS) {
+      const r = await renderLevels(2.5, (ctx, out) => {
+        const g = ctx.createGain(); g.gain.value = MIX.sfx; g.connect(out);
+        playTones(ctx, g, plan.sfx[key].tones, 0.01, { gain: plan.sfx[key].level ?? 1 });
+      });
+      res.push({ plan: plan.id, kind: '効果音', name: plan.sfx[key].label, ...r });
+    }
+  }
+  return res;
+}
+window.__measure = measureAll;
+
+/* =====================================================================
+ * 5. 画面
+ * ===================================================================== */
+const errors = [];
+for (const plan of PLANS) {
+  compiled[plan.id] = {};
+  for (const key of SFX_KEYS) if (!plan.sfx[key]) errors.push(`案 ${plan.id}: 効果音 ${key} がない`);
+  for (const key of BGM_KEYS) {
+    try {
+      compiled[plan.id][key] = compileSong(plan, plan.bgm[key]);
+      const sec = songInfo(plan.bgm[key]).seconds;
+      if (sec < 8 || sec > 16) errors.push(`案 ${plan.id}「${plan.bgm[key].title}」: ${sec.toFixed(1)} 秒（8〜16 秒のはず）`);
+    } catch (e) { errors.push(e.message); compiled[plan.id][key] = Array.from({ length: songInfo(plan.bgm[key]).steps }, () => []); }
+  }
+}
+window.__errors = errors;
+document.getElementById('errors').textContent = errors.join(' / ');
+
+const plansEl = document.getElementById('plans');
+const songButtons = [];
+PLANS.forEach((plan, pi) => {
+  const el = document.createElement('section');
+  el.className = 'plan'; el.style.setProperty('--accent', plan.accent);
+  el.innerHTML = `<h2><span class="tag">${plan.id}</span>${plan.name}</h2><p>${plan.desc}</p><p class="spec">${plan.spec}</p>
+    <h3>BGM（ループ）</h3><div class="row bgm"></div>
+    <h3>効果音（BGM を流したままでも鳴らせます）</h3><div class="row4 sfx"></div>
+    <h3>続けて鳴らす（くり返しても疲れないか）</h3><div class="row rep"></div>`;
+  const bgmRow = el.querySelector('.bgm'), sfxRow = el.querySelector('.sfx'), repRow = el.querySelector('.rep');
+  for (const key of BGM_KEYS) {
+    const b = document.createElement('button');
+    b.className = 'snd';
+    b.innerHTML = `${plan.bgm[key].title}<small>${songInfo(plan.bgm[key]).seconds.toFixed(1)} 秒ループ</small>`;
+    b.addEventListener('click', () => startSong(pi, key));
+    b.dataset.plan = plan.id; b.dataset.key = key;
+    songButtons.push(b); bgmRow.appendChild(b);
+  }
+  for (const key of SFX_KEYS) {
+    const b = document.createElement('button');
+    b.className = 'snd' + (VARY[key] && VARY[key].big ? ' big' : '');
+    b.textContent = plan.sfx[key].label;
+    b.addEventListener('click', () => playSfx(pi, key));
+    sfxRow.appendChild(b);
+  }
+  for (const [key, n, gap, label] of [['dig', 12, 0.28, 'ほる ×12'], ['place', 8, 0.4, 'おく ×8'], ['pickup', 6, 0.45, 'ひろう ×6']]) {
+    const b = document.createElement('button');
+    b.className = 'snd'; b.textContent = label;
+    b.addEventListener('click', () => repeatSfx(pi, key, n, gap));
+    repRow.appendChild(b);
+  }
+  const d = document.createElement('button');
+  d.className = 'demo'; d.textContent = 'ゲームっぽく聞く（ひるの BGM の上で、ほる・ひろう・おく・たたく・おしい・みず・レベルアップ）';
+  d.addEventListener('click', () => demo(pi));
+  el.appendChild(d);
+  plansEl.appendChild(el);
+});
+
+function refreshUi() {
+  const c = live.current;
+  for (const b of songButtons) b.classList.toggle('on', !!c && c.plan.id === b.dataset.plan && c.key === b.dataset.key);
+  document.getElementById('now').textContent = c ? `いま: 案 ${c.plan.id} ${c.song.title}` : 'いま: なし';
+}
+document.getElementById('stop').addEventListener('click', stopAll);
+document.getElementById('stopFloat').addEventListener('click', stopAll);
+
+const masterEl = document.getElementById('master'), bgmEl = document.getElementById('bgmBal');
+masterEl.value = Math.round(MIX.masterDefault * 100);
+bgmEl.value = Math.round(MIX.bgm * 100);
+function showVals() {
+  document.getElementById('masterVal').textContent = masterEl.value;
+  const v = bgmEl.value / 100;
+  document.getElementById('bgmVal').textContent = v > 0 ? `効果音の ${bgmEl.value}%（${(20 * Math.log10(v)).toFixed(0)} dB）` : '0（BGM なし）';
+}
+showVals();
+masterEl.addEventListener('input', () => {
+  live.masterValue = masterEl.value / 100; showVals();
+  if (live.ctx) live.chain.master.gain.setTargetAtTime(live.masterValue, live.ctx.currentTime, 0.05);
+});
+bgmEl.addEventListener('input', () => {
+  live.bgmValue = bgmEl.value / 100; showVals();
+  if (live.ctx) live.chain.bgmBus.gain.setTargetAtTime(live.bgmValue, live.ctx.currentTime, 0.05);
+});
+const muteEl = document.getElementById('mute');
+muteEl.addEventListener('click', () => {
+  live.muted = !live.muted;
+  muteEl.textContent = live.muted ? 'ミュート中（押すと戻る）' : 'ミュート';
+  muteEl.classList.toggle('on', live.muted);
+  if (live.ctx) live.chain.mute.gain.setTargetAtTime(live.muted ? 0 : 1, live.ctx.currentTime, 0.05);
+});
+document.getElementById('vary').addEventListener('change', e => { live.vary = e.target.checked; });
+document.getElementById('chordFit').addEventListener('change', e => { live.chord = e.target.checked; });
+
+document.getElementById('measureBtn').addEventListener('click', async () => {
+  const out = document.getElementById('measureOut');
+  out.textContent = '計算中…';
+  const res = await measureAll();
+  const f = v => (isFinite(v) ? v.toFixed(1) : '-');
+  let html = '<p>BGM は「BGM の大きさ」の初期値（' + MIX.bgm + '）をかけた値。リミッターの前。ゆらぎなし。</p><table><tr><th>案</th><th>種類</th><th>名前</th><th>ピーク dB</th><th>いちばん大きい 50ms dB</th><th>平均 dB（BGM）</th></tr>';
+  for (const r of res) html += `<tr><td>${r.plan}</td><td>${r.kind}</td><td>${r.name}</td><td>${f(r.peak)}</td><td>${f(r.loud50)}</td><td>${r.kind === 'BGM' ? f(r.rms) : ''}</td></tr>`;
+  out.innerHTML = html + '</table>';
+});
+</script>
+</body>
+</html>
