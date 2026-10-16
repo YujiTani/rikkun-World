@@ -356,7 +356,11 @@ export interface DigSettings {
 }
 
 /** ブロックのめずらしさ（ドロップ数の最大を決める。オーナー決定） */
-export type Rarity = 'common' | 'uncommon' | 'rare' | 'superRare';
+export type Rarity = 'common' | 'uncommon' | 'rare' | 'superRare' | 'epic' | 'mythic' | 'legendary';
+/** めずらしさの順番（0〜6）。星の数は +1 */
+export type RarityIndex = 0 | 1 | 2 | 3 | 4 | 5 | 6;
+/** 宝石の印の形の名前（7 つ） */
+export type GemShape = 'circle' | 'diamond' | 'hexagon' | 'star' | 'moon' | 'flame' | 'crown';
 
 /** 担当 D の設定 */
 export interface ScreenSettings {

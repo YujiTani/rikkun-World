@@ -1,6 +1,6 @@
 import { seedKindOfItem, vegKindOfItem, type ItemId, type ItemStack, type Rarity, type Recipe } from '../contracts';
 import { CRAFT_UI_SETTINGS, TOOL_NUMBERS, type CraftUiSettings, type ToolNumbers } from '../fx/craftConfig';
-import { RARITY_COLOR } from '../drops/rarity';
+import { RARITY_COLOR, RARITY_TIERS } from '../drops/rarity';
 import { ITEM_INFO } from '../craft/info/table';
 import { wearView } from './wearGauge';
 
@@ -30,7 +30,7 @@ export interface TooltipDeps {
   ui?: CraftUiSettings;
 }
 
-export const STARS: Record<Rarity, number> = { common: 1, uncommon: 2, rare: 3, superRare: 4 };
+export const STARS: Record<Rarity, number> = Object.fromEntries(RARITY_TIERS.map((t) => [t.id, t.stars])) as Record<Rarity, number>;
 
 /** めずらしさの色（'#rrggbb'） */
 export function rarityCss(r: Rarity): string {

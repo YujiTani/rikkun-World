@@ -105,6 +105,15 @@
 .cp-tile[data-rarity='3'] {
   border: var(--rk-bw-rarity) solid var(--rk-rarity-3);
 }
+.cp-tile[data-rarity='4'] {
+  border: var(--rk-bw-rarity) solid var(--rk-rarity-4);
+}
+.cp-tile[data-rarity='5'] {
+  border: var(--rk-bw-rarity) solid var(--rk-rarity-5);
+}
+.cp-tile[data-rarity='6'] {
+  border: var(--rk-bw-rarity) solid var(--rk-rarity-6);
+}
 /* 足りない: 色分けを うすくして 下地に */
 .cp-tile[data-dim='true'] {
   background: var(--rk-bg-700);
@@ -318,8 +327,12 @@
   color: var(--rk-rarity, var(--rk-text));
   text-shadow: 0 0 var(--rk-sp-1) var(--rk-bg-900);
 }
+.cp-stars {
+  white-space: nowrap; /* 星の列は ★ と ★ の間で折り返さない */
+}
 .cp-rarity {
   display: flex;
+  flex-wrap: wrap; /* 星 7 つ ＋ ことばが 1 行に入らないときは、ことばを星の下の行へ */
   align-items: center;
   gap: var(--rk-sp-2);
   font-size: var(--rk-fs-body);

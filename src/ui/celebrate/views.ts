@@ -1,4 +1,4 @@
-import { createButton, createChip, createMedal, createModal, popAnimation, setRarity, type MedalTier, type Rarity4 } from '../theme';
+import { createButton, createChip, createMedal, createModal, popAnimation, setRarity, type MedalTier, type RarityIndex } from '../theme';
 import { CELEBRATE } from './config';
 import type { BannerLook } from './bannerModel';
 import { makeRng, poyonScale, type SparkPool } from './sparkModel';
@@ -59,7 +59,7 @@ export class EffectsView {
     this.poyon = { tile, age: 0 };
   }
 
-  startRing(x: number, y: number, rarity: Rarity4): void {
+  startRing(x: number, y: number, rarity: RarityIndex): void {
     const r = this.rings.find((q) => q.age < 0) ?? this.rings[0];
     r.x = x;
     r.y = y;
@@ -152,7 +152,7 @@ export class BannerView {
   }
 
   /** look が null なら 隠す。iconUrl/name/rarity は 出し始めに 1 回だけ使う */
-  paint(look: BannerLook | null, info: { name: string; iconUrl: string; rarity: Rarity4; stars: number } | null): void {
+  paint(look: BannerLook | null, info: { name: string; iconUrl: string; rarity: RarityIndex; stars: number } | null): void {
     if (!look || !info) {
       this.wrap.hidden = true;
       this.shownRecipe = null;
@@ -162,7 +162,11 @@ export class BannerView {
     if (this.shownRecipe !== look.recipe + look.kind) {
       this.shownRecipe = look.recipe + look.kind;
       this.head.textContent = look.kind === 'bake' ? 'はじめて やいた！' : 'はじめて つくった！';
-      this.name.textContent = `${info.name} ${'★'.repeat(info.stars)}`;
+      this.name.textContent = `${info.name} `;
+      const st = document.createElement('span');
+      st.className = 'cel-banner__stars';
+      st.textContent = '★'.repeat(info.stars);
+      this.name.append(st);
       this.icon.src = info.iconUrl;
       setRarity(this.wrap, info.rarity);
     }

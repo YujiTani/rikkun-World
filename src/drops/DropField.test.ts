@@ -115,6 +115,17 @@ describe('DropField', () => {
     expect(g.f.list().map((d) => [d.batch, d.rarity])).toEqual(l.map((d) => [d.batch, d.rarity]));
   });
 
+  it('AC11 セーブ: 7 つの id はそのまま、ほかの文字は アイテムの段階', () => {
+    const r = rig();
+    r.f.scatter({ x: 10.5, y: 9, z: 10.5 }, [{ item: 'iron_ore', count: 1 }]);
+    const base = JSON.parse(JSON.stringify(r.f.serialize()))[0];
+    for (const [saved, want] of [['superRare', 'superRare'], ['legendary', 'legendary'], ['epic', 'epic'], ['banana', 'rare']] as const) {
+      const g = rig();
+      g.f.deserialize([{ ...base, rarity: saved }]);
+      expect(g.f.list()[0]!.rarity, saved).toBe(want);
+    }
+  });
+
   it('拾う・足もとが消えたら落ちる・10 分で消える・保存', () => {
     const r = rig();
     r.f.scatter({ x: 10.5, y: 9, z: 10.5 }, [{ item: 'dirt', count: 2 }]);

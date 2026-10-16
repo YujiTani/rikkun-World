@@ -554,6 +554,37 @@ describe('ドロップ数（めずらしさ）', () => {
       }
     });
   }
+  for (const tier of ['epic', 'mythic', 'legendary'] as const) {
+    it(`AC10 dirt を ${tier} にすると 20 回ほって 毎回 1 こ`, () => {
+      for (let i = 0; i < 20; i++) {
+        const r = new Rig();
+        r.rngValue = i === 0 ? 0 : i === 1 ? 0.999999 : (i * 0.0471) % 1;
+        r.dig.config.handPower = 1000;
+        r.dig.config.handLevel = 1;
+        r.dig.config.rarity.dirt = tier;
+        r.set(4, 10, 6, 'dirt');
+        r.press('primary');
+        r.step(2);
+        r.repress();
+        expect(r.inv.count('dirt'), `${tier} #${i}`).toBe(1);
+      }
+    });
+  }
+  it('AC10 dropMax を { legendary: 3 } にすると 1〜3 こ', () => {
+    for (const [v, want] of [[0, 1], [0.999999, 3]] as const) {
+      const r = new Rig();
+      r.rngValue = v;
+      r.dig.config.handPower = 1000;
+      r.dig.config.handLevel = 1;
+      r.dig.config.rarity.dirt = 'legendary';
+      r.dig.config.dropMax.legendary = 3;
+      r.set(4, 10, 6, 'dirt');
+      r.press('primary');
+      r.step(2);
+      r.repress();
+      expect(r.inv.count('dirt')).toBe(want);
+    }
+  });
   it('superRare は最大 1', () => {
     const r = new Rig();
     r.rngValue = 0.999999;

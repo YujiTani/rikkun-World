@@ -2,7 +2,7 @@ import { W2_SETTING_DEFAULTS } from '../contracts';
 import { addStack, copyStack, maxDurability, readWater, readWear } from '../tools/durability';
 import type { Inventory, ItemStack, Rarity, Vec3, VoxelWorld } from '../contracts';
 import { itemType } from '../inventory/items';
-import { RARITY_ORDER, itemRarity, topRarity } from './rarity';
+import { isRarity, itemRarity, topRarity } from './rarity';
 import { createRng, type Rng } from '../world/gen/random';
 
 /** 落ちたアイテムの数値。やられた落とし物も 妖怪のドロップも同じ部品を使う */
@@ -429,7 +429,7 @@ export class DropField {
         if (!ty || typeof c !== 'number' || !Number.isInteger(c) || c < 1 || c > ty.maxStack) continue;
         const batch = Number.isInteger(r.batch) && (r.batch as number) > 0 ? (r.batch as number) : this.nextBatch++;
         maxBatch = Math.max(maxBatch, batch);
-        const rarity: Rarity = RARITY_ORDER.includes(r.rarity as Rarity) ? (r.rarity as Rarity) : itemRarity(ty.id);
+        const rarity: Rarity = isRarity(r.rarity) ? (r.rarity as Rarity) : itemRarity(ty.id);
         out.push({
           id: this.nextId++,
           x,

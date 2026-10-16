@@ -1,4 +1,3 @@
-import type { Rarity } from '../contracts';
 
 /**
  * マスの色分け（M6 §3.5 (7)）。アイテム id → カテゴリー → 色 を 1 か所で持つ。
@@ -66,7 +65,4 @@ export function categoryVar(cat: ItemCategory): string {
   return `--rk-cat-${cat}`;
 }
 
-/** めずらしさ → 0〜3（--rk-rarity-N と 宝石の印の形） */
-export function rarityIndex(r: Rarity): 0 | 1 | 2 | 3 {
-  return r === 'common' ? 0 : r === 'uncommon' ? 1 : r === 'rare' ? 2 : 3;
-}
+export { rarityIndex } from '../drops/rarityTable';

@@ -1,12 +1,19 @@
 import type * as THREE from 'three';
-import type { DayPhase, ItemId, PlayerCombat, TimeOfDay, YokaiWorld } from '../contracts';
+import type { DayPhase, ItemId, Rarity, PlayerCombat, TimeOfDay, YokaiWorld } from '../contracts';
 import { BagVisuals, type BagLike } from './bagVisuals';
 import { COMBAT_FX, invincibleAlpha } from './combatFxModel';
 import { playCombat } from './combatSounds';
 import { FX_SETTINGS, type FxSettings } from './config';
 import type { SoundFx } from './sound';
+import { rarityIndex } from '../drops/rarityTable';
 import { logSound } from './soundLog';
 import { TITLE_RULES } from '../yokai/title';
+
+/** 袋が着地したときの音の名前。4 段目（index 3）以上は どれも dropSuperRare（RARITY-7 §3.3） */
+export function dropSoundOf(r: Rarity): 'dropSuperRare' | 'dropRare' | 'dropUncommon' | 'dropCommon' {
+  const i = rarityIndex(r);
+  return i >= 3 ? 'dropSuperRare' : i === 2 ? 'dropRare' : i === 1 ? 'dropUncommon' : 'dropCommon';
+}
 
 export interface CombatFxDeps {
   scene: THREE.Scene;
@@ -51,7 +58,7 @@ export class CombatFx {
   constructor(private readonly d: CombatFxDeps) {
     this.cfg = d.settings ?? FX_SETTINGS;
     this.bags = new BagVisuals(d.scene, (r) =>
-      playCombat(d.sound, r === 'superRare' ? 'dropSuperRare' : r === 'rare' ? 'dropRare' : r === 'uncommon' ? 'dropUncommon' : 'dropCommon'),
+      playCombat(d.sound, dropSoundOf(r)),
     );
     d.clock?.set(d.time.phase());
     this.offPhase = d.time.onPhaseChange((p) => {

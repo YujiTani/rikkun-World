@@ -2,7 +2,8 @@ import type { ItemId } from '../contracts';
 import type { ButtonKey } from '../craft/info';
 import { materialDotSources, type DetailView } from './craftModel';
 import { mouseEl, questionUrl, fingerUrl } from './craftPanel.art';
-import { createChip, createMeter, createButton, setButtonKind, setRarity, type Rarity4 } from './theme';
+import { rarityIndex } from '../drops/rarityTable';
+import { createChip, createMeter, createButton, setButtonKind, setRarity, } from './theme';
 import { starText } from './tooltipModel';
 
 /** せつめい パネル（M6 §2.1 (2)）の DOM。1 度だけ作り、`renderDetail` で中身を入れかえる */
@@ -40,7 +41,6 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, parent?:
 
 export const EMPTY_TEXT = 'ざいりょう を あつめよう！';
 
-const RARITY_INDEX = { common: 0, uncommon: 1, rare: 2, superRare: 3 } as const;
 
 export function createDetailEls(parent: HTMLElement, h: { onPress(): void; onEnter(): void }): DetailEls {
   const root = el('div', 'rk-card cp-detail', parent);
@@ -147,7 +147,7 @@ export function renderDetail(e: DetailEls, d: DetailView | null, iconOf: (item: 
   e.empty.hidden = true;
   delete e.root.dataset.empty;
   if (!d) return;
-  setRarity(e.root, RARITY_INDEX[d.rarity] as Rarity4);
+  setRarity(e.root, rarityIndex(d.rarity));
   e.headArt.src = iconOf(d.item);
   e.name.textContent = d.name;
   e.stars.textContent = starText(d.stars);

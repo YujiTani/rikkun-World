@@ -1,5 +1,9 @@
 import type { ItemId, Rarity } from '../contracts';
 import { DIG_DEFAULTS } from '../dig/config';
+import { ITEM_TYPES } from '../inventory/items';
+import { RARITY_ORDER, rarityIndex } from './rarityTable';
+
+export { RARITY_COLOR, RARITY_ORDER, RARITY_TIERS, defaultDropMax, isRarity, rarityIndex, rarityTier, type RarityTier } from './rarityTable';
 
 /**
  * アイテムのめずらしさ（光の柱の色がこれできまる）。
@@ -58,26 +62,37 @@ const ITEM_ONLY_RARITY: Record<string, Rarity> = {
   water_bucket: 'common',
 };
 
-export const RARITY_ORDER: readonly Rarity[] = ['common', 'uncommon', 'rare', 'superRare'];
+/** 今の当てはめ（設定 itemRarity。ゲームに 1 つ。全アイテム → Rarity） */
+function initialItemRarity(): Record<string, Rarity> {
+  const out: Record<string, Rarity> = {};
+  for (const t of ITEM_TYPES) out[t.id] = ITEM_ONLY_RARITY[t.id] ?? (DIG_DEFAULTS.rarity as Record<string, Rarity>)[t.id] ?? 'common';
+  return out;
+}
+const current: Record<string, Rarity> = initialItemRarity();
+
+/** `createSettingsHook` にわたす設定の入れ物（名前 itemRarity） */
+export const ITEM_RARITY_SETTINGS: { itemRarity: Record<string, Rarity> } = { itemRarity: current };
+
+/** 設定 itemRarity を初期値にもどす（テスト用） */
+export function resetItemRarity(): void {
+  Object.assign(current, initialItemRarity());
+}
 
 export function itemRarity(item: ItemId): Rarity {
-  return ITEM_ONLY_RARITY[item] ?? (DIG_DEFAULTS.rarity as Record<string, Rarity>)[item] ?? 'common';
+  return current[item] ?? ITEM_ONLY_RARITY[item] ?? (DIG_DEFAULTS.rarity as Record<string, Rarity>)[item] ?? 'common';
+}
+
+/** item が tier 以上にめずらしいか（#69・#70 用） */
+export function rarityAtLeast(item: ItemId, tier: Rarity): boolean {
+  return rarityIndex(itemRarity(item)) >= rarityIndex(tier);
 }
 
 /** なかでいちばんめずらしいもの */
 export function topRarity(items: readonly ItemId[]): Rarity {
   let best = 0;
-  for (const it of items) best = Math.max(best, RARITY_ORDER.indexOf(itemRarity(it)));
+  for (const it of items) best = Math.max(best, rarityIndex(itemRarity(it)));
   return RARITY_ORDER[best]!;
 }
-
-/** 光の柱の色: 白・みどり・あお・むらさき */
-export const RARITY_COLOR: Record<Rarity, number> = {
-  common: 0xffffff,
-  uncommon: 0x8fe08f,
-  rare: 0x7fb8ff,
-  superRare: 0xc79bff,
-};
 
 export function isKnownItemRarity(item: ItemId): boolean {
   return item in ITEM_ONLY_RARITY || item in DIG_DEFAULTS.rarity;

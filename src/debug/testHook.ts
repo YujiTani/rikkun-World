@@ -15,6 +15,7 @@ import type { createLevelHook } from '../level';
 import type { createAchievementsHook } from '../achievements';
 import type { createLogHook } from '../ui/log';
 import type { UiAlpha } from '../contracts';
+import type { createRarityHook } from '../drops/rarityHook';
 import type { createStorageHook } from '../storage/hook';
 import type { createYokaiHook } from '../yokai';
 import type { createFarmHook } from '../farm';
@@ -84,6 +85,8 @@ export interface TestHook {
   log: ReturnType<typeof createLogHook>['log'];
   /** SOUND-1: 何を鳴らすと決めたか（docs/audio/SOUND.md §8） */
   audio: AudioHook;
+  /** RARITY-7 §4.4: めずらしさの表と当てはめ */
+  rarity: ReturnType<typeof createRarityHook>;
   /** CRAFT-2 §6.1: 画面の不透明度 */
   ui: { alpha(): UiAlpha };
 }
@@ -94,7 +97,7 @@ declare global {
   }
 }
 
-export type TestHookGroups = Pick<TestHook, 'world' | 'render' | 'player' | 'camera' | 'aim' | 'input' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm' | 'log' | 'ui' | 'audio'>;
+export type TestHookGroups = Pick<TestHook, 'world' | 'render' | 'player' | 'camera' | 'aim' | 'input' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm' | 'log' | 'ui' | 'audio' | 'rarity'>;
 
 export function installTestHook(game: Game, overlay: PerfOverlay, groups: TestHookGroups): void {
   window.__rikkun = {

@@ -7,6 +7,7 @@ import type { Tone } from '../fx/sound';
 import { GUIDE_TABS, GUIDE_TAB_IDS, GUIDE_TAB_STYLE } from '../input/config';
 import { BLOCK_TILES, getTilePixels } from '../world/blocks/textures';
 import { createRng } from '../world/gen/random';
+import { rarityTier } from '../drops/rarity';
 import { HintModel, anyCraftNow, buildCards, materialViews, nextFuel } from './craftModel';
 import { handleCraftEvents, swingSounds } from './craftUi';
 import { M4_ITEMS, clockPixels, hammerPixels, m4ItemPixels } from './itemArtM4';
@@ -210,7 +211,7 @@ describe('ツールチップ（AC28）', () => {
     const k = buildTooltip('crystal_katana', deps);
     expect(k.stars).toBe(4);
     expect(k.lines).toEqual(['たたく つよさ 6', 'たいきゅう 500 / 500']);
-    expect(rarityCss(k.rarity)).toBe('#c79bff');
+    expect(rarityCss(k.rarity)).toBe('#' + rarityTier('superRare').color.toString(16).padStart(6, '0'));
   });
   it('数は設定の値を使う', () => {
     const t = buildTooltip('stone_pickaxe', {

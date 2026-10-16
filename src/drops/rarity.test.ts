@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ITEM_TYPES } from '../inventory/items';
-import { RARITY_COLOR, isKnownItemRarity, itemRarity, topRarity } from './rarity';
+import { RARITY_COLOR, RARITY_TIERS, isKnownItemRarity, itemRarity, topRarity } from './rarity';
 
 describe('めずらしさ', () => {
   it('全アイテムにめずらしさが決まっている', () => {
@@ -12,9 +12,9 @@ describe('めずらしさ', () => {
     expect(itemRarity('iron_ore')).toBe('rare');
     expect(itemRarity('crystal')).toBe('superRare');
   });
-  it('いちばんめずらしいもの・色は 4 種ちがう', () => {
+  it('いちばんめずらしいもの・色は 7 種ちがう', () => {
     expect(topRarity(['dirt', 'iron_ore', 'log'])).toBe('rare');
     expect(topRarity(['dirt', 'crystal'])).toBe('superRare');
-    expect(new Set(Object.values(RARITY_COLOR)).size).toBe(4);
+    expect(new Set(Object.values(RARITY_COLOR)).size).toBe(RARITY_TIERS.length);
   });
 });

@@ -105,6 +105,15 @@
 .slot[data-rarity='3'] {
   border: var(--rk-bw-rarity) solid var(--rk-rarity-3);
 }
+.slot[data-rarity='4'] {
+  border: var(--rk-bw-rarity) solid var(--rk-rarity-4);
+}
+.slot[data-rarity='5'] {
+  border: var(--rk-bw-rarity) solid var(--rk-rarity-5);
+}
+.slot[data-rarity='6'] {
+  border: var(--rk-bw-rarity) solid var(--rk-rarity-6);
+}
 
 .slot-icon {
   width: var(--slot-art);
@@ -156,11 +165,87 @@
   display: none;
 }
 
-/* えらんでいる: ふちは めずらしさのまま、外がわに アクセントのわく 4px ＋ 光 */
+/*
+ * えらんでいる: ふちは めずらしさのまま、外がわに アクセントのわく 4px ＋ 光。
+ * 5 段目のきんのふち（--rk-rarity-4）と 色が近いので、わくとの すきま 2px を くらい色（--rk-bg-900）で うめて、
+ * 「ふち」と「えらぶわく」が 1 本につながって 見えないようにする（RARITY-7）。
+ */
 .slot[data-selected='true'] {
   outline: var(--rk-bw-sel) solid var(--rk-accent);
   outline-offset: 2px;
-  box-shadow: var(--rk-glow);
+  box-shadow:
+    0 0 0 2px var(--rk-bg-900),
+    var(--rk-glow);
+}
+
+/*
+ * 5〜7 段目のうごき（RARITY-7 案 A）。どれも ゆっくり・強い点滅なし（1 秒に 1 回より おそい）。
+ * 5 段 = 宝石に 小さな きらり（3 秒に 1 回）、6 段 = ふちの まわりが ふんわり光る（2.5 秒）、
+ * 7 段 = ふちが にじ色に ゆっくり まわる（8 秒で 1 周）。「うごきを へらす」では 止める。
+ */
+.slot[data-rarity='4'] .slot-gem {
+  animation: gem-twinkle 3s ease-in-out infinite;
+}
+@keyframes gem-twinkle {
+  0%,
+  82%,
+  100% {
+    filter: none;
+    transform: none;
+  }
+  91% {
+    filter: brightness(1.7);
+    transform: scale(1.18);
+  }
+}
+.slot[data-rarity='5']::before {
+  content: '';
+  position: absolute;
+  inset: calc(-1 * var(--rk-bw-rarity));
+  border-radius: var(--rk-r-s);
+  box-shadow: 0 0 0 0 transparent;
+  pointer-events: none;
+  animation: slot-breathe 2.5s ease-in-out infinite;
+}
+@keyframes slot-breathe {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+  50% {
+    box-shadow: 0 0 12px 3px color-mix(in srgb, var(--rk-rarity-5) 65%, transparent);
+  }
+}
+.slot[data-rarity='6']::before {
+  content: '';
+  position: absolute;
+  inset: calc(-1 * var(--rk-bw-rarity));
+  padding: var(--rk-bw-rarity);
+  box-sizing: border-box;
+  border-radius: var(--rk-r-s);
+  background: var(--rk-rarity-rainbow);
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  animation: rainbow-spin 8s linear infinite;
+}
+@keyframes rainbow-spin {
+  to {
+    --rk-rb-angle: 360deg;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .slot[data-rarity='4'] .slot-gem,
+  .slot[data-rarity='5']::before,
+  .slot[data-rarity='6']::before {
+    animation: none;
+  }
+  .slot[data-rarity='6']::before {
+    background: var(--rk-rarity-6); /* 止まったときの色 */
+  }
 }
 
 /*

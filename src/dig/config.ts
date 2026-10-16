@@ -1,3 +1,4 @@
+import { defaultDropMax } from '../drops/rarityTable';
 import type { BlockId, DigSettings, ItemId, Rarity } from '../contracts';
 
 /**
@@ -133,7 +134,7 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     saku: 'common',
     sprinkler: 'uncommon',
   } satisfies Record<BlockId, Rarity>,
-  dropMax: { common: 4, uncommon: 3, rare: 2, superRare: 1 },
+  dropMax: defaultDropMax(),
 };
 
 export function createDigConfig(): DigConfig {
