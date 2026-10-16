@@ -23,15 +23,15 @@ function tier(index: RarityIndex, id: Rarity, color: number, gem: GemShape, word
   return { id, index, stars: index + 1, color, cssVar: `--rk-rarity-${index}`, gem, word, dropMax };
 }
 
-// 見た目は案 A「いまの 4 色をそのままのばす」
+// 色・宝石の形は案 A「いまの 4 色をそのままのばす」、ことばは案 C（オーナー決定）
 export const RARITY_TIERS: readonly RarityTier[] = [
-  tier(0, 'common', 0xffffff, 'circle', 'ふつう', 4),
-  tier(1, 'uncommon', 0x8fe08f, 'diamond', 'すこし めずらしい', 3),
-  tier(2, 'rare', 0x7fb8ff, 'hexagon', 'めずらしい', 2),
-  tier(3, 'superRare', 0xc79bff, 'star', 'とても めずらしい', 1),
-  tier(4, 'epic', 0xffd23f, 'moon', 'すごく めずらしい', 1),
-  tier(5, 'mythic', 0xff7a3d, 'flame', 'まぼろし', 1),
-  tier(6, 'legendary', 0xfff3a0, 'crown', 'でんせつ', 1),
+  tier(0, 'common', 0xffffff, 'circle', 'ノーマル', 4),
+  tier(1, 'uncommon', 0x8fe08f, 'diamond', 'レア', 3),
+  tier(2, 'rare', 0x7fb8ff, 'hexagon', 'スーパーレア', 2),
+  tier(3, 'superRare', 0xc79bff, 'star', 'ハイパーレア', 1),
+  tier(4, 'epic', 0xffd23f, 'moon', 'ウルトラレア', 1),
+  tier(5, 'mythic', 0xff7a3d, 'flame', 'ミラクル', 1),
+  tier(6, 'legendary', 0xfff3a0, 'crown', 'レジェンダリー', 1),
 ];
 
 export const RARITY_ORDER: readonly Rarity[] = RARITY_TIERS.map((t) => t.id);

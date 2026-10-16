@@ -109,7 +109,7 @@ export const ITEM_INFO: Readonly<Record<string, InfoRow>> = {
   string: { use: 'ゆみ・よろい・すねあて・たこ・ふとん・おまもり・わらじ の ざいりょう', how: CRAFT_E, buttons: ['E'] },
   cloth: { use: 'かぶと・よろい・こて・ふとん・おまもり の ざいりょう', how: CRAFT_E, buttons: ['E'] },
   clay: { use: 'かまど で やくと かわら・レンガ・はにわ に なる', how: 'かまど に みぎクリック して やく', buttons: ['right'] },
-  crystal: { use: 'きらめく カタナ・おまもり の ざいりょう。とても めずらしい', how: CRAFT_E, buttons: ['E'] },
+  crystal: { use: 'きらめく カタナ・おまもり の ざいりょう。ハイパーレア', how: CRAFT_E, buttons: ['E'] },
   iron_ingot: { use: 'てつの つるはし・ぶき・ぼうぐ・たんす の ざいりょう', how: CRAFT_E, buttons: ['E'] },
 
   // ---- どうぐ・ぶき・ぼうぐ（13）
