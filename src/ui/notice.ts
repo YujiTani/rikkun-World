@@ -14,6 +14,11 @@ export class Notice {
   readonly nameEl: HTMLDivElement;
   private shownKind: SignalKind | null = null;
   private shownName = '';
+  /**
+   * CRAFT-2: 合図が「出ていない状態から」または「別の合図に替わって」出たとき 1 回呼ぶ（できごと の履歴用）。
+   * 出たままの同じ合図を もう一度 出しても 呼ばない
+   */
+  onSignalStart?: (kind: SignalKind) => void;
 
   constructor(parent: HTMLElement, cfg?: FxSettings) {
     this.model = new NoticeModel(cfg);
@@ -31,7 +36,9 @@ export class Notice {
   }
 
   showSignal(kind: SignalKind): void {
+    const started = !this.model.signal || this.model.signal.kind !== kind;
     this.model.showSignal(kind);
+    if (started) this.onSignalStart?.(kind);
     this.sync();
   }
   showName(text: string): void {

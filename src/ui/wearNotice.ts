@@ -2,6 +2,7 @@ import type { ItemId } from '../contracts';
 import { WEAPON_FX, brokenLogText, lowChipText } from '../fx/weaponFxModel';
 import { itemIconUrl } from './itemIcon';
 import { createChip } from './theme';
+import { createCategoryMark } from './log/icons';
 import './wearNotice.css';
 
 /**
@@ -18,6 +19,9 @@ export class WearNotice {
   /** 出した 回数（テスト用） */
   lowShown = 0;
   brokenShown = 0;
+  /** CRAFT-2: 出したときに 呼ぶ（できごと の履歴用） */
+  onLow?: (item: ItemId) => void;
+  onBroken?: (item: ItemId) => void;
 
   constructor(parent: HTMLElement) {
     this.hintEl = document.createElement('div');
@@ -39,6 +43,7 @@ export class WearNotice {
     this.hintEl.dataset.item = item;
     this.hintEl.hidden = false;
     this.hintLeft = WEAPON_FX.chipSteps;
+    this.onLow?.(item);
   }
 
   broken(item: ItemId, name: string): void {
@@ -47,8 +52,13 @@ export class WearNotice {
     row.className = 'wear-row';
     row.dataset.item = item;
     const chip = createChip({ art: itemIconUrl(item), text: brokenLogText(name), tone: 'info' });
-    row.append(chip);
+    // CRAFT-2 §2.5: 左のログと 同じく カテゴリーの印（おしらせ）を 左に付ける
+    row.style.display = 'flex';
+    row.style.alignItems = 'center';
+    row.style.gap = 'var(--rk-sp-2)';
+    row.append(createCategoryMark('info'), chip);
     this.logEl.append(row);
+    this.onBroken?.(item);
     this.rows.push({ el: row, left: 180 });
     while (this.rows.length > 3) this.rows.shift()!.el.remove();
   }

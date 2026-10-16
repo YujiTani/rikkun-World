@@ -1,7 +1,16 @@
 import type { ItemId } from '../contracts';
 import { CRAFT_UI_SETTINGS, type CraftUiSettings } from '../fx/craftConfig';
 
+/** ひろった／たんす から つかった（CRAFT-2 §2.5。2 しゅるいで 5 行を 分け合う） */
+export type LiveKind = 'pickup' | 'fromTansu';
+
+/** 行の 文（`つち ×2`・`たんす から き ×1`） */
+export function liveRowText(kind: LiveKind, name: string, count: number): string {
+  return kind === 'fromTansu' ? `たんす から ${name} ×${count}` : `${name} ×${count}`;
+}
+
 export interface PickupRow {
+  kind: LiveKind;
   item: ItemId;
   count: number;
   ticksLeft: number;
@@ -19,16 +28,16 @@ export class PickupLogModel {
   constructor(private readonly cfg: CraftUiSettings = CRAFT_UI_SETTINGS) {}
 
   /** 拾って持ち物に入った（入りきらなかった分は ふくめない）。0 以下は無視 */
-  push(item: ItemId, count: number): void {
+  push(item: ItemId, count: number, kind: LiveKind = 'pickup'): void {
     if (!(count > 0)) return;
-    const row = this.rows_.find((r) => r.item === item);
+    const row = this.rows_.find((r) => r.item === item && r.kind === kind);
     if (row) {
       row.count += count;
       row.ticksLeft = this.cfg.pickupLogTicks;
       row.bump++;
       return;
     }
-    this.rows_.push({ item, count, ticksLeft: this.cfg.pickupLogTicks, bump: 0 });
+    this.rows_.push({ kind, item, count, ticksLeft: this.cfg.pickupLogTicks, bump: 0 });
     while (this.rows_.length > this.cfg.pickupLogMax) this.rows_.shift();
   }
 
@@ -43,8 +52,14 @@ export class PickupLogModel {
     return this.rows_;
   }
 
+  /** 拾った行だけ（M4 AC27。`inventory.pickupLog()`） */
   list(): { item: ItemId; count: number; ticksLeft: number }[] {
-    return this.rows_.map((r) => ({ item: r.item, count: r.count, ticksLeft: r.ticksLeft }));
+    return this.rows_.filter((r) => r.kind === 'pickup').map((r) => ({ item: r.item, count: r.count, ticksLeft: r.ticksLeft }));
+  }
+
+  /** 2 しゅるい ぜんぶ（上＝古い） */
+  listAll(): { kind: LiveKind; item: ItemId; count: number; ticksLeft: number }[] {
+    return this.rows_.map((r) => ({ kind: r.kind, item: r.item, count: r.count, ticksLeft: r.ticksLeft }));
   }
 
   /** うすくなる度合い 0〜1（最後の pickupLogFadeTicks で 1 → 0） */
