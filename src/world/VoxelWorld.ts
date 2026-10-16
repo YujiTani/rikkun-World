@@ -36,6 +36,24 @@ class Column implements ChunkColumn {
   ) {
     this.sections = sections;
     this.hidden = new Int8Array(sections.length).fill(-1);
+    this.fast = new Array<Uint8Array | null>(sections.length).fill(null);
+    this.uni = new Int16Array(sections.length);
+    for (let sy = 0; sy < sections.length; sy++) this.sync(sy);
+  }
+  /** 読み出しを速くする写し: full なら その配列、それ以外は null（sections と同じものを指す） */
+  readonly fast: (Uint8Array | null)[];
+  /** 描画側に「変わった」と伝える印（World が持つ一覧に入っているか・どのセクションか） */
+  colDirty = false;
+  secListed = false;
+  secBits = 0;
+  /** uniform なら その番号、palette なら -2、full なら -1 */
+  readonly uni: Int16Array;
+
+  /** sections[sy] を入れかえたら呼ぶ */
+  sync(sy: number): void {
+    const s = this.sections[sy];
+    this.fast[sy] = s.kind === 'full' ? s.data : null;
+    this.uni[sy] = s.kind === 'uniform' ? s.block : s.kind === 'full' ? -1 : -2;
   }
 }
 
@@ -63,10 +81,11 @@ export class ChunkedVoxelWorld implements VoxelWorld {
   /** セクションの数（高さを 16 で切り上げたもの） */
   private readonly nSections: number;
   private readonly columns = new Map<number, Column>();
-  private readonly dirtyCols = new Set<number>();
-  private readonly dirtySecs = new Set<number>();
+  private readonly dirtyColList: Column[] = [];
+  private readonly dirtySecList: Column[] = [];
   private hiddenUsed = false;
-  private lastKey = -1;
+  private lastCx = NaN;
+  private lastCz = NaN;
   private lastCol: Column | null = null;
   private b: LoadedBounds = { x0: 0, z0: 0, x1: 0, z1: 0 };
   /** 光の計算し直し用: 前回の takeChangeBox() からあとに変わったマスをふくむ箱（無ければ null） */
@@ -102,9 +121,7 @@ export class ChunkedVoxelWorld implements VoxelWorld {
   unloadColumn(cx: number, cz: number): boolean {
     const key = columnKey(cx, cz);
     if (!this.columns.delete(key)) return false;
-    this.lastKey = -1;
-    this.lastCol = null;
-    this.dirtyCols.delete(key);
+    this.forgetLast();
     this.recomputeBounds();
     this.staleNeighborsOfColumn(cx, cz);
     return true;
@@ -131,10 +148,9 @@ export class ChunkedVoxelWorld implements VoxelWorld {
   private addColumn(col: Column): void {
     const key = columnKey(col.cx, col.cz);
     this.columns.set(key, col);
-    this.lastKey = -1;
-    this.lastCol = null;
-    this.dirtyCols.add(key);
-    for (let sy = 0; sy < col.sections.length; sy++) this.dirtySecs.add(this.secKey(col.cx, sy, col.cz));
+    this.forgetLast();
+    this.markCol(col);
+    this.markAllSecs(col);
     this.recomputeBounds();
     this.staleNeighborsOfColumn(col.cx, col.cz);
   }
@@ -158,12 +174,18 @@ export class ChunkedVoxelWorld implements VoxelWorld {
   }
 
   private colAt(cx: number, cz: number): Column | null {
-    const key = columnKey(cx, cz);
-    if (key === this.lastKey) return this.lastCol;
-    const c = this.columns.get(key) ?? null;
-    this.lastKey = key;
+    if (cx === this.lastCx && cz === this.lastCz) return this.lastCol;
+    const c = this.columns.get(columnKey(cx, cz)) ?? null;
+    this.lastCx = cx;
+    this.lastCz = cz;
     this.lastCol = c;
     return c;
+  }
+
+  private forgetLast(): void {
+    this.lastCx = NaN;
+    this.lastCz = NaN;
+    this.lastCol = null;
   }
 
   isLoaded(x: number, z: number): boolean {
@@ -175,11 +197,15 @@ export class ChunkedVoxelWorld implements VoxelWorld {
 
   /** ブロックの番号（BLOCK_TYPES の順）。読みこんでいない・高さの外は -1。描画の高速な読み出し用 */
   getIndex(x: number, y: number, z: number): number {
-    if (!Number.isInteger(x) || !Number.isInteger(y) || !Number.isInteger(z) || y < 0 || y >= this.size.y) return -1;
+    if (x !== (x | 0) || y !== (y | 0) || z !== (z | 0) || y < 0 || y >= this.size.y) return -1;
     const col = this.colAt(x >> 4, z >> 4);
     if (col === null) return -1;
-    const s = col.sections[y >> 4];
-    return sectionGet(s, localIndex(x & 15, y & 15, z & 15));
+    const sy = y >> 4;
+    const d = col.fast[sy];
+    if (d !== null) return d[((y & 15) << 8) | ((z & 15) << 4) | (x & 15)];
+    const u = col.uni[sy];
+    if (u >= 0) return u;
+    return sectionGet(col.sections[sy], ((y & 15) << 8) | ((z & 15) << 4) | (x & 15));
   }
 
   getBlock(x: number, y: number, z: number): BlockId | 'outside' {
@@ -190,31 +216,111 @@ export class ChunkedVoxelWorld implements VoxelWorld {
   /** 書く。変えたら true（同じ値でも true）。dirty などは呼ぶ側で */
   private put(col: Column, x: number, y: number, z: number, b: number): boolean {
     const sy = y >> 4;
-    const li = localIndex(x & 15, y & 15, z & 15);
+    const li = ((y & 15) << 8) | ((z & 15) << 4) | (x & 15);
+    const d = col.fast[sy];
+    if (d !== null) {
+      if (d[li] === b) return false;
+      d[li] = b;
+      return true;
+    }
     const s = col.sections[sy];
     if (sectionGet(s, li) === b) return false;
-    col.sections[sy] = sectionSet(s, li, b);
+    const ns = sectionSet(s, li, b);
+    if (ns !== s) {
+      col.sections[sy] = ns;
+      col.sync(sy);
+    }
     return true;
   }
 
   setBlock(x: number, y: number, z: number, id: BlockId): boolean {
     const b = blockIndexOf(id);
-    if (b < 0 || !Number.isInteger(x) || !Number.isInteger(y) || !Number.isInteger(z) || y < 0 || y >= this.size.y) return false;
+    if (b < 0 || x !== (x | 0) || y !== (y | 0) || z !== (z | 0) || y < 0 || y >= this.size.y) return false;
     const col = this.colAt(x >> 4, z >> 4);
     if (col === null) return false;
+    const sy = y >> 4;
+    const d = col.fast[sy];
+    if (d !== null) {
+      // いちばん多い道: full のセクションの中を 同じセクションのまま 書きつづける
+      const li = ((y & 15) << 8) | ((z & 15) << 4) | (x & 15);
+      if (d[li] === b) return true;
+      d[li] = b;
+      this.noteDirty(col, x, y, z);
+      const cb = this.changeBox;
+      if (cb === null) this.changeBox = { x0: x, y0: y, z0: z, x1: x, y1: y, z1: z };
+      else {
+        if (x < cb.x0) cb.x0 = x;
+        if (y < cb.y0) cb.y0 = y;
+        if (z < cb.z0) cb.z0 = z;
+        if (x > cb.x1) cb.x1 = x;
+        if (y > cb.y1) cb.y1 = y;
+        if (z > cb.z1) cb.z1 = z;
+      }
+      return true;
+    }
     if (!this.put(col, x, y, z, b)) return true;
-    this.markColumns(x, z, 1, false);
-    this.markSectionDirty(x, y, z);
-    this.staleAround(col.cx, y >> 4, col.cz);
+    this.noteDirty(col, x, y, z);
     this.noteChange(x, y, z, x, y, z);
     return true;
+  }
+
+  /** 変えたマスの dirty とステイルの印 */
+  private noteDirty(col: Column, x: number, y: number, z: number): void {
+    const sy = y >> 4;
+    this.markCol(col);
+    this.markSec(col, sy);
+    const lx = x & 15;
+    const lz = z & 15;
+    const ly = y & 15;
+    if (lx === 0 || lx === 15 || lz === 0 || lz === 15 || ly === 0 || ly === 15) this.markEdgeNeighbors(col, sy, lx, ly, lz);
+    if (this.hiddenUsed) this.staleAround(col.cx, sy, col.cz);
+  }
+
+  private markCol(c: Column): void {
+    if (!c.colDirty) {
+      c.colDirty = true;
+      this.dirtyColList.push(c);
+    }
+  }
+
+  private markSec(c: Column, sy: number): void {
+    c.secBits |= 1 << sy;
+    if (!c.secListed) {
+      c.secListed = true;
+      this.dirtySecList.push(c);
+    }
+  }
+
+  private markAllSecs(c: Column): void {
+    c.secBits = c.sections.length >= 31 ? -1 : (1 << c.sections.length) - 1;
+    if (!c.secListed) {
+      c.secListed = true;
+      this.dirtySecList.push(c);
+    }
+  }
+
+  /** 列のふち・セクションのふちのマスが変わった: となりの列・セクションも作り直す（ブロックの変化は reach 1） */
+  private markEdgeNeighbors(col: Column, sy: number, lx: number, ly: number, lz: number): void {
+    const nx = lx === 0 ? -1 : lx === 15 ? 1 : 0;
+    const nz = lz === 0 ? -1 : lz === 15 ? 1 : 0;
+    if (nx !== 0) this.markNeighbor(col.cx + nx, sy, col.cz, true);
+    if (nz !== 0) this.markNeighbor(col.cx, sy, col.cz + nz, true);
+    if (ly === 0 && sy > 0) this.markSec(col, sy - 1);
+    if (ly === 15 && sy + 1 < this.nSections) this.markSec(col, sy + 1);
+  }
+
+  private markNeighbor(cx: number, sy: number, cz: number, col: boolean): void {
+    const c = this.columns.get(columnKey(cx, cz));
+    if (!c) return;
+    if (col) this.markCol(c);
+    this.markSec(c, sy);
   }
 
   /** M7: id は変えずに、そのマスのチャンクだけ 見た目を作り直させる（作物の段階）。光は 計算し直さない */
   touch(x: number, y: number, z: number): void {
     if (this.getIndex(x, y, z) < 0) return;
-    this.markColumns(x, z, 1, false);
-    this.markSectionDirty(x, y, z);
+    const col = this.colAt(x >> 4, z >> 4);
+    if (col) this.noteDirty(col, x, y, z);
   }
 
   isSolid(x: number, y: number, z: number): boolean {
@@ -246,9 +352,7 @@ export class ChunkedVoxelWorld implements VoxelWorld {
         for (let y = ya; y <= yb; y++) {
           if (!this.put(col, x, y, z, b)) continue;
           changed++;
-          this.markColumns(x, z, 1, false);
-          this.markSectionDirty(x, y, z);
-          this.staleAround(col.cx, y >> 4, col.cz);
+          this.noteDirty(col, x, y, z);
           if (x < cminx) cminx = x;
           if (y < cminy) cminy = y;
           if (z < cminz) cminz = z;
@@ -323,12 +427,18 @@ export class ChunkedVoxelWorld implements VoxelWorld {
     const before = col.sections[sy];
     const after = compactSection(before);
     col.sections[sy] = after;
+    col.sync(sy);
     return after !== before;
   }
 
   /** ぜんぶのセクションを compactSection する */
   compactAll(): void {
-    for (const c of this.columns.values()) for (let sy = 0; sy < c.sections.length; sy++) c.sections[sy] = compactSection(c.sections[sy]);
+    for (const c of this.columns.values()) {
+      for (let sy = 0; sy < c.sections.length; sy++) {
+        c.sections[sy] = compactSection(c.sections[sy]);
+        c.sync(sy);
+      }
+    }
   }
 
   /**
@@ -353,8 +463,8 @@ export class ChunkedVoxelWorld implements VoxelWorld {
     for (const [dx, dy, dz] of NEIGHBORS) {
       const ny = sy + dy;
       if (ny < 0) continue; // 世界の底
-      const n = this.colAt(col.cx + dx, col.cz + dz);
-      if (n === null || ny >= n.sections.length) return false;
+      const n = this.columns.get(columnKey(col.cx + dx, col.cz + dz));
+      if (n === undefined || ny >= n.sections.length) return false;
       if (!faceSealed(n.sections[ny], -dx, -dy, -dz)) return false;
     }
     return true;
@@ -368,52 +478,29 @@ export class ChunkedVoxelWorld implements VoxelWorld {
   }
 
   private staleOne(cx: number, sy: number, cz: number): void {
-    const c = this.colAt(cx, cz);
+    const c = this.columns.get(columnKey(cx, cz));
     if (c && sy >= 0 && sy < c.hidden.length) c.hidden[sy] = -1;
   }
 
   private staleNeighborsOfColumn(cx: number, cz: number): void {
     for (let dz = -1; dz <= 1; dz++)
       for (let dx = -1; dx <= 1; dx++) {
-        const c = this.colAt(cx + dx, cz + dz);
+        const c = this.columns.get(columnKey(cx + dx, cz + dz));
         if (c) c.hidden.fill(-1);
       }
-  }
-
-  private secKey(cx: number, sy: number, cz: number): number {
-    return columnKey(cx, cz) * 32 + sy;
-  }
-
-  private markSectionDirty(x: number, y: number, z: number): void {
-    const cx = x >> 4;
-    const cz = z >> 4;
-    const sy = y >> 4;
-    this.dirtySecs.add(this.secKey(cx, sy, cz));
-    const lx = x & 15;
-    const ly = y & 15;
-    const lz = z & 15;
-    const add = (px: number, py: number, pz: number) => {
-      if (py >= 0 && py < this.nSections && this.colAt(px, pz)) this.dirtySecs.add(this.secKey(px, py, pz));
-    };
-    if (lx === 0) add(cx - 1, sy, cz);
-    if (lx === 15) add(cx + 1, sy, cz);
-    if (ly === 0) add(cx, sy - 1, cz);
-    if (ly === 15) add(cx, sy + 1, cz);
-    if (lz === 0) add(cx, sy, cz - 1);
-    if (lz === 15) add(cx, sy, cz + 1);
   }
 
   /** 変わったセクションを渡して、覚えているのを空にする */
   takeDirtySections(): SectionPos[] {
     const out: SectionPos[] = [];
-    for (const k of this.dirtySecs) {
-      const sy = k % 32;
-      const ck = (k - sy) / 32;
-      const cz = (ck % 65536) - 32768;
-      const cx = Math.floor(ck / 65536) - 32768;
-      out.push({ cx, sy, cz });
+    for (const c of this.dirtySecList) {
+      if (this.columns.get(columnKey(c.cx, c.cz)) === c) {
+        for (let sy = 0; sy < c.sections.length; sy++) if ((c.secBits & (1 << sy)) !== 0) out.push({ cx: c.cx, sy, cz: c.cz });
+      }
+      c.secBits = 0;
+      c.secListed = false;
     }
-    this.dirtySecs.clear();
+    this.dirtySecList.length = 0;
     return out;
   }
 
@@ -475,42 +562,38 @@ export class ChunkedVoxelWorld implements VoxelWorld {
    * reach: ふちから何マスまで となりに伝えるか（ブロックの変化は 1。光は面の角が 2 マス先まで読むので 2）
    */
   markDirty(x: number, z: number, reach = 1): void {
-    this.markColumns(x, z, reach, true);
-  }
-
-  private markColumns(x: number, z: number, reach: number, withSections: boolean): void {
     const cx = x >> 4;
     const cz = z >> 4;
     const lx = x & 15;
     const lz = z & 15;
     const dx = lx < reach ? -1 : lx >= CHUNK_SIZE - reach ? 1 : 0;
     const dz = lz < reach ? -1 : lz >= CHUNK_SIZE - reach ? 1 : 0;
-    this.dirtyColumn(cx, cz, withSections);
-    if (dx !== 0) this.dirtyColumn(cx + dx, cz, withSections);
-    if (dz !== 0) this.dirtyColumn(cx, cz + dz, withSections);
-    if (dx !== 0 && dz !== 0 && reach > 1) this.dirtyColumn(cx + dx, cz + dz, withSections);
+    this.dirtyWhole(cx, cz);
+    if (dx !== 0) this.dirtyWhole(cx + dx, cz);
+    if (dz !== 0) this.dirtyWhole(cx, cz + dz);
+    if (dx !== 0 && dz !== 0 && reach > 1) this.dirtyWhole(cx + dx, cz + dz);
   }
 
-  private dirtyColumn(cx: number, cz: number, withSections: boolean): void {
-    const key = columnKey(cx, cz);
-    if (!this.columns.has(key)) return;
-    this.dirtyCols.add(key);
-    if (withSections) for (let sy = 0; sy < this.nSections; sy++) this.dirtySecs.add(this.secKey(cx, sy, cz));
+  private dirtyWhole(cx: number, cz: number): void {
+    const c = this.columns.get(columnKey(cx, cz));
+    if (!c) return;
+    this.markCol(c);
+    this.markAllSecs(c);
   }
 
   /** 変わったチャンクの番号（chunkIndex）を渡して、覚えているのを空にする */
   takeDirtyChunks(): number[] {
     const out: number[] = [];
-    for (const key of this.dirtyCols) {
-      const c = this.columns.get(key);
-      if (c) out.push(this.chunkIndex(c.cx, c.cz));
+    for (const c of this.dirtyColList) {
+      if (this.columns.get(columnKey(c.cx, c.cz)) === c) out.push(this.chunkIndex(c.cx, c.cz));
+      c.colDirty = false;
     }
-    this.dirtyCols.clear();
+    this.dirtyColList.length = 0;
     return out;
   }
 
   hasDirtyChunks(): boolean {
-    return this.dirtyCols.size > 0;
+    return this.dirtyColList.length > 0;
   }
 }
 
