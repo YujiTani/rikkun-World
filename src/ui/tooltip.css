@@ -44,6 +44,36 @@
   line-height: var(--rk-lh);
   margin: var(--rk-sp-1) 0;
 }
+/* めずらしさの ことば（星の下。宝石の印 ＋ ことば。色は めずらしさの色） */
+.tip-word {
+  display: flex;
+  align-items: center;
+  gap: var(--rk-sp-2);
+  font-size: var(--rk-fs-body);
+  line-height: var(--rk-lh);
+  margin-bottom: var(--rk-sp-1);
+  white-space: nowrap;
+}
+.tip-word img {
+  width: var(--rk-icon-chip);
+  height: var(--rk-icon-chip);
+  image-rendering: pixelated;
+}
+/* 7 段目の名前: にじ色（8 秒で 1 周）。「うごきを へらす」では 止める */
+.tip-name--rainbow {
+  /* 字は にじ色の下地を 切りぬいて 見せる（fill は とうめい）。color は 字の色の検査用に、にじ色の上で 読める くらい色にしておく */
+  color: var(--rk-bg-900);
+  background: var(--rk-rarity-rainbow);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: rainbow-spin 8s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tip-name--rainbow {
+    animation: none;
+  }
+}
 .tip-line {
   display: flex;
   align-items: center;

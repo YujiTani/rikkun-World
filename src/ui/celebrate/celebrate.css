@@ -122,6 +122,11 @@
   font-weight: 800;
   line-height: 1.1;
 }
+.cel-banner__stars {
+  white-space: nowrap;
+  color: var(--rk-bg-900);
+  text-shadow: 0 0 var(--rk-sp-1) var(--rk-text), 0 0 var(--rk-sp-1) var(--rk-text); /* オレンジの帯の上でも よめる（くらい星に しろい ふち） */
+}
 .cel-banner__shine {
   position: absolute;
   top: 0;

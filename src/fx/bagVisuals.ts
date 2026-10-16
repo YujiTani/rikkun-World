@@ -69,7 +69,7 @@ function pillarMaterial(color: number): THREE.MeshBasicMaterial {
   m.userData.noDim = true; // 光るものは暗くしない
   return m;
 }
-// 7 段ぶん（RARITY-7）。5〜7 段目の柱は 段の色のまま（にじ色に流すのは 4 段目だけ。仮）
+// 7 段ぶん（RARITY-7）。5〜7 段目の柱は 段の色のまま（にじ色に流すのは 7 段目だけ）
 const PILLAR_MATS = Object.fromEntries(RARITY_ORDER.map((r) => [r, pillarMaterial(RARITY_COLOR[r])])) as Record<Rarity, THREE.MeshBasicMaterial>;
 const RING_GEO = new THREE.RingGeometry(0.34, 0.44, 32).rotateX(-Math.PI / 2);
 const RING_MAX = 400;

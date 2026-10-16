@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
-import type { CombatEvent, DayPhase, YokaiEvent } from '../contracts';
+import type { CombatEvent, DayPhase, Rarity, YokaiEvent } from '../contracts';
 import { BlockDoll } from '../camera/BlockDoll';
 import { BagVisuals } from './bagVisuals';
 import { sparkleCount } from './dropSparkle';
@@ -50,7 +50,7 @@ describe('計算', () => {
 });
 
 describe('BagVisuals', () => {
-  const it1 = (id: number, x: number, count = 1, item: 'dirt' | 'stone' = 'dirt', batch = 1, rarity: 'common' | 'rare' | 'superRare' = 'common') => ({
+  const it1 = (id: number, x: number, count = 1, item: 'dirt' | 'stone' = 'dirt', batch = 1, rarity: Rarity = 'common') => ({
     id,
     batch,
     rarity,
@@ -93,9 +93,9 @@ describe('BagVisuals', () => {
     const h0 = (pillar().material as THREE.MeshBasicMaterial).color.getHex();
     for (let i = 0; i < 120; i++) v.update(1 / 60, [it1(1, 1, 1, 'dirt', 1, 'superRare')]);
     expect((pillar().material as THREE.MeshBasicMaterial).color.getHex()).toBe(h0);
-    v.update(1 / 60, [it1(1, 1, 1, 'dirt', 1, 'legendary' as never)]);
+    v.update(1 / 60, [it1(1, 1, 1, 'dirt', 1, 'legendary')]);
     const l0 = (pillar().material as THREE.MeshBasicMaterial).color.getHex();
-    for (let i = 0; i < 120; i++) v.update(1 / 60, [it1(1, 1, 1, 'dirt', 1, 'legendary' as never)]);
+    for (let i = 0; i < 120; i++) v.update(1 / 60, [it1(1, 1, 1, 'dirt', 1, 'legendary')]);
     expect((pillar().material as THREE.MeshBasicMaterial).color.getHex()).not.toBe(l0);
     v.update(1 / 60, [it1(1, 1, 1, 'dirt', 1, 'common')]);
     expect(drawn(1)).toBe(0);

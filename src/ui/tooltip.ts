@@ -1,4 +1,6 @@
 import type { ItemId, ItemStack } from '../contracts';
+import { rarityTier } from '../drops/rarity';
+import { gemUrl } from './gemArt';
 import { anyIconUrl, itemIconUrl } from './itemIcon';
 import { buildTooltip, rarityCss, starText, type TooltipData, type TooltipDeps } from './tooltipModel';
 import './tooltip.css';
@@ -47,6 +49,9 @@ export class Tooltip {
   private readonly head: HTMLDivElement;
   private readonly nameEl: HTMLDivElement;
   private readonly starsEl: HTMLDivElement;
+  private readonly wordEl: HTMLDivElement;
+  private readonly wordImg: HTMLImageElement;
+  private readonly wordText: HTMLSpanElement;
   private readonly body: HTMLDivElement;
   private readonly descEl: HTMLDivElement;
   private readonly headIcon: HTMLImageElement;
@@ -65,11 +70,17 @@ export class Tooltip {
     this.head.append(this.headIcon, this.nameEl);
     this.starsEl = document.createElement('div');
     this.starsEl.className = 'tip-stars';
+    this.wordEl = document.createElement('div');
+    this.wordEl.className = 'tip-word';
+    this.wordImg = document.createElement('img');
+    this.wordImg.alt = '';
+    this.wordText = document.createElement('span');
+    this.wordEl.append(this.wordImg, this.wordText);
     this.descEl = document.createElement('div');
     this.descEl.className = 'tip-desc rk-tooltip__desc';
     this.body = document.createElement('div');
     this.body.className = 'tip-lines';
-    this.el.append(this.head, this.starsEl, this.descEl, this.body);
+    this.el.append(this.head, this.starsEl, this.wordEl, this.descEl, this.body);
     parent.append(this.el);
     this.onMove = (e) => {
       this.mx = e.clientX;
@@ -109,16 +120,23 @@ export class Tooltip {
       }
       return;
     }
-    const key = `${t.item}|${t.desc}|${t.lines.join('/')}`;
+    const key = `${t.item}|${t.rarity}|${t.desc}|${t.lines.join('/')}`;
     if (key !== this.shownKey) {
       this.shownKey = key;
       const col = rarityCss(t.rarity);
       this.el.style.borderColor = col;
       this.headIcon.src = itemIconUrl(t.item);
       this.nameEl.textContent = t.name;
-      this.nameEl.style.color = col;
+      this.nameEl.style.color = col; // 7 段目は 下で はずす
       this.starsEl.textContent = starText(t.stars);
       this.starsEl.style.color = col;
+      const tier = rarityTier(t.rarity);
+      this.wordImg.src = gemUrl(tier.index);
+      this.wordText.textContent = tier.word;
+      this.wordEl.style.color = col;
+      // 7 段目は 名前を にじ色に（案 A）
+      this.nameEl.classList.toggle('tip-name--rainbow', tier.index === 6);
+      if (tier.index === 6) this.nameEl.style.removeProperty('color');
       this.descEl.textContent = t.desc;
       this.descEl.hidden = t.desc === '';
       this.body.replaceChildren();

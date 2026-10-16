@@ -162,7 +162,11 @@ export class BannerView {
     if (this.shownRecipe !== look.recipe + look.kind) {
       this.shownRecipe = look.recipe + look.kind;
       this.head.textContent = look.kind === 'bake' ? 'はじめて やいた！' : 'はじめて つくった！';
-      this.name.textContent = `${info.name} ${'★'.repeat(info.stars)}`;
+      this.name.textContent = `${info.name} `;
+      const st = document.createElement('span');
+      st.className = 'cel-banner__stars';
+      st.textContent = '★'.repeat(info.stars);
+      this.name.append(st);
       this.icon.src = info.iconUrl;
       setRarity(this.wrap, info.rarity);
     }
