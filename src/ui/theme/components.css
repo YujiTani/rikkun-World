@@ -62,11 +62,16 @@
 
 /* ---- パネル ---- */
 .rk-panel {
+  text-shadow:
+    2px 0 0 var(--rk-bg-900),
+    -2px 0 0 var(--rk-bg-900),
+    0 2px 0 var(--rk-bg-900),
+    0 -2px 0 var(--rk-bg-900);
   display: flex;
   flex-direction: column;
   gap: var(--rk-sp-4);
   padding: var(--rk-sp-5);
-  background: color-mix(in srgb, var(--rk-bg-900) 96%, transparent);
+  background: var(--rk-panel-bg);
   border-radius: var(--rk-r-l);
   box-shadow: var(--rk-shadow-2);
   color: var(--rk-text);
@@ -348,6 +353,11 @@
   padding: var(--rk-sp-1) var(--rk-sp-4) var(--rk-sp-1) var(--rk-sp-2);
   color: var(--rk-text);
   background: var(--rk-hud-bg);
+  text-shadow:
+    2px 0 0 var(--rk-bg-900),
+    -2px 0 0 var(--rk-bg-900),
+    0 2px 0 var(--rk-bg-900),
+    0 -2px 0 var(--rk-bg-900);
   border-radius: var(--rk-r-pill);
   font-size: var(--rk-fs-body);
   font-weight: 500;
@@ -419,7 +429,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--rk-scrim);
+  background: var(--rk-scrim-modal);
 }
 .rk-modal {
   position: relative;

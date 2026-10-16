@@ -1,6 +1,6 @@
 import type { ItemId } from '../contracts';
 import type { ButtonKey } from '../craft/info';
-import type { DetailView } from './craftModel';
+import { materialDotSources, type DetailView } from './craftModel';
 import { mouseEl, questionUrl, fingerUrl } from './craftPanel.art';
 import { createChip, createMeter, createButton, setButtonKind, setRarity, type Rarity4 } from './theme';
 import { starText } from './tooltipModel';
@@ -120,6 +120,15 @@ function statNum(v: number | string): string {
   return typeof v === 'number' ? String(Math.round(v * 100) / 100) : v;
 }
 
+/** チップの右上に たんす の小さな絵（16px。1 倍）。「たんす の ものだ」と分かる印 */
+function addTansuMini(chip: HTMLElement, iconOf: (item: ItemId) => string): void {
+  const img = document.createElement('img');
+  img.className = 'cp-tansu-mini rk-art';
+  img.alt = '';
+  img.src = iconOf('tansu' as ItemId);
+  chip.append(img);
+}
+
 /** 中身を入れる（d が null なら かくす）。iconOf はアイテムの絵の URL */
 export function renderDetail(e: DetailEls, d: DetailView | null, iconOf: (item: ItemId) => string, onFuel?: (item: ItemId) => void): void {
   e.root.hidden = d === null;
@@ -167,7 +176,15 @@ export function renderDetail(e: DetailEls, d: DetailView | null, iconOf: (item: 
     chip.classList.add('cp-mat');
     chip.dataset.ok = String(m.ok);
     chip.dataset.item = m.item;
-    el('span', 'cp-dot', chip).dataset.ok = String(m.ok);
+    // まる（要る数だけ）: もちもの = みどり、たんす = 桐色、足りない = 赤いわくの白
+    const dotSet = el('span', 'cp-dotset', chip);
+    for (const src of materialDotSources(m.need, m.have, m.inTansu ?? 0)) {
+      const dot = el('span', 'cp-dot', dotSet);
+      dot.dataset.src = src;
+      dot.dataset.ok = String(src !== 'none');
+    }
+    chip.dataset.tansu = String(m.inTansu ?? 0);
+    if ((m.inTansu ?? 0) > 0) addTansuMini(chip, iconOf);
     e.mats.append(chip);
   }
 
@@ -182,6 +199,9 @@ export function renderDetail(e: DetailEls, d: DetailView | null, iconOf: (item: 
       chip.dataset.item = item;
       chip.style.cursor = 'pointer';
       chip.style.pointerEvents = 'auto';
+      const t = d.fuel.inTansu?.[item] ?? 0;
+      chip.dataset.tansu = String(t);
+      if (t > 0) addTansuMini(chip, iconOf);
       chip.addEventListener('click', (ev) => {
         ev.stopPropagation();
         onFuel?.(item as ItemId);

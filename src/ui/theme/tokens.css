@@ -9,8 +9,16 @@
   --rk-bg-800: #1a2132;
   --rk-bg-700: #252f47;
   --rk-line: #3a4766;
-  --rk-hud-bg: rgb(16 20 31 / 72%);
-  --rk-scrim: rgb(0 0 0 / 50%);
+  /* CRAFT-2 §2.8: すける下地。不透明度は applyUiAlpha(settings) が :root に入れる（はじめの値は ここ） */
+  --rk-ui-panel-a: 0.8;
+  --rk-ui-hud-a: 0.6;
+  --rk-ui-scrim-a: 0.2;
+  --rk-hud-bg: rgb(16 20 31 / var(--rk-ui-hud-a));
+  --rk-panel-bg: rgb(16 20 31 / var(--rk-ui-panel-a));
+  --rk-slot-empty-hud: rgb(37 47 71 / var(--rk-ui-hud-a));
+  --rk-scrim: rgb(0 0 0 / var(--rk-ui-scrim-a));
+  /* おめでとう画面・やられた画面の うしろ（モーダル）は 50% のまま */
+  --rk-scrim-modal: rgb(0 0 0 / 50%);
   --rk-text: #ffffff;
   --rk-text-sub: #aeb8d0;
   --rk-ink: #141414;

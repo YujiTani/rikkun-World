@@ -39,6 +39,9 @@
   color: var(--rk-text);
   --slot-art: 86%;
 }
+#hotbar .slot:not([data-cat]) {
+  background: var(--rk-slot-empty-hud);
+}
 #hotbar .slot {
   width: var(--rk-slot-hotbar);
   height: var(--rk-slot-hotbar);

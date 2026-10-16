@@ -10,6 +10,11 @@
   padding: var(--rk-sp-1) var(--rk-sp-3);
   color: var(--rk-text);
   background: var(--rk-hud-bg);
+  text-shadow:
+    2px 0 0 var(--rk-bg-900),
+    -2px 0 0 var(--rk-bg-900),
+    0 2px 0 var(--rk-bg-900),
+    0 -2px 0 var(--rk-bg-900);
   border-radius: var(--rk-r-pill);
   font-size: var(--rk-fs-body);
   line-height: var(--rk-lh);

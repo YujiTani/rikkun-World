@@ -13,6 +13,11 @@
   gap: var(--rk-sp-2);
   padding: var(--rk-sp-2) var(--rk-sp-3);
   background: var(--rk-hud-bg);
+  text-shadow:
+    2px 0 0 var(--rk-bg-900),
+    -2px 0 0 var(--rk-bg-900),
+    0 2px 0 var(--rk-bg-900),
+    0 -2px 0 var(--rk-bg-900);
   border-radius: var(--rk-r-m);
   pointer-events: none;
   z-index: 5;
