@@ -10,6 +10,7 @@
   cursor: pointer;
   z-index: 10;
   color: var(--rk-text);
+  word-break: keep-all; /* 折り返しは スペースの ところだけ */
 }
 .play-overlay[hidden] {
   display: none;
