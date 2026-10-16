@@ -192,7 +192,7 @@ describe('ツールチップ（AC28）', () => {
     expect(t.name).toBe('いしの つるはし');
     expect(t.rarity).toBe('common');
     expect(t.stars).toBe(1);
-    expect(t.lines).toEqual(['ほる つよさ 4', 'てつ も ほれる', 'たいきゅう 131 / 131']);
+    expect(t.lines).toEqual(['ほる つよさ 4', 'てつ も ほれる', 'いし に つよい', 'たいきゅう 131 / 131']);
     expect(t.icons).toHaveLength(t.lines.length);
   });
   it('なぎなた・き・ねんど・たこ', () => {
@@ -217,7 +217,7 @@ describe('ツールチップ（AC28）', () => {
       ...deps,
       tools: { toolPower: { stone_pickaxe: 9 }, toolLevel: { stone_pickaxe: 0 }, weaponDamage: {}, arrowDamage: 2 },
     });
-    expect(t.lines).toEqual(['ほる つよさ 9', 'たいきゅう 131 / 131']);
+    expect(t.lines).toEqual(['ほる つよさ 9', 'いし に つよい', 'たいきゅう 131 / 131']);
   });
 });
 

@@ -163,6 +163,30 @@
   box-shadow: var(--rk-glow);
 }
 
+/*
+ * あう道具の ヒント（BAL-D §4.6・§5.1）: マスの わくと 同じ大きさ（はみ出し 0）のうすい光が
+ * 明るくなる → もどる を 1 秒で 1 回、2 回。1 秒に 1 回より 速くは 点滅しない。
+ */
+.slot[data-hint='true']::after {
+  content: '';
+  position: absolute;
+  inset: calc(-1 * var(--rk-bw-rarity));
+  border-radius: var(--rk-r-s);
+  background: var(--rk-accent);
+  opacity: 0;
+  pointer-events: none;
+  animation: slot-hint 1s ease-in-out 2;
+}
+@keyframes slot-hint {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
 .fly-item {
   position: fixed;
   left: 0;

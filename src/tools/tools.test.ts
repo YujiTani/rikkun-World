@@ -246,11 +246,11 @@ describe('ほる', () => {
       expect(r.stepsToReady()).toBe(n);
     }
   });
-  it('leaves: てつの つるはし で 3', () => {
+  it('leaves: てつの つるはし で 5（BAL-D: つるはし は き のなかまに あわない。てつの おの なら 3）', () => {
     const r = new Rig();
     r.hold('iron_pickaxe');
     target(r, 'leaves');
-    expect(r.stepsToReady()).toBe(3);
+    expect(r.stepsToReady()).toBe(5);
   });
   it('iron_ore: すで・きは ほれない、いし 225、てつ 150', () => {
     for (const [item, n] of [

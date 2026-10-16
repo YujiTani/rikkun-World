@@ -369,7 +369,7 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
     if (!it || this.d.inventory.held()?.item !== it) return;
     const w = this.w2.toolWear;
     let n = 0;
-    if (it === 'wood_pickaxe' || it === 'stone_pickaxe' || it === 'iron_pickaxe') n = w.pickaxe.hit;
+    if (it === 'wood_pickaxe' || it === 'stone_pickaxe' || it === 'iron_pickaxe' || it === 'wood_axe' || it === 'stone_axe' || it === 'iron_axe') n = w.pickaxe.hit;
     else if (it === 'naginata') n = w.blade.hit;
     else if (it === 'kuwa') n = w.kuwa.hit;
     if (n > 0) this.d.inventory.wearHeld?.(n);

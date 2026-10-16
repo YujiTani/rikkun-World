@@ -20,11 +20,14 @@ export const CATEGORY_LABEL: Readonly<Record<AchievementCategory, string>> = {
   farm: 'そだてる',
 };
 
-/** つくる 25（M4 の 20 ＋ たんす ＋ くわ ＋ M7-2 の じょうろ 2・スプリンクラー）。`craft.everything` の対象 */
+/** つくる 28（M4 の 20 ＋ たんす ＋ くわ ＋ M7-2 の じょうろ 2・スプリンクラー ＋ BAL-D の おの 3）。`craft.everything` の対象 */
 export const CRAFT_RECIPE_NAMES: ReadonlyArray<readonly [string, string]> = [
   ['wood_pickaxe', 'きの つるはし'],
   ['stone_pickaxe', 'いしの つるはし'],
   ['iron_pickaxe', 'てつの つるはし'],
+  ['wood_axe', 'きの おの'],
+  ['stone_axe', 'いしの おの'],
+  ['iron_axe', 'てつの おの'],
   ['furnace', 'かまど'],
   ['bokuto', 'ぼくとう'],
   ['katana', 'かたな'],
@@ -56,6 +59,7 @@ export const BAKE_RECIPE_NAMES: ReadonlyArray<readonly [string, string]> = [
   ['haniwa', 'はにわ'],
 ];
 
+export const AXE_RECIPES = ['wood_axe', 'stone_axe', 'iron_axe'] as const;
 export const PICKAXE_RECIPES = ['wood_pickaxe', 'stone_pickaxe', 'iron_pickaxe'] as const;
 export const WEAPON_RECIPES = ['bokuto', 'katana', 'naginata', 'crystal_katana', 'yumi'] as const;
 export const ARMOR_RECIPES = ['kabuto', 'yoroi', 'kote', 'suneate'] as const;
@@ -179,6 +183,8 @@ function build(): AchievementDef[] {
 
   // C. つくる
   for (const [id, name] of CRAFT_RECIPE_NAMES) {
+    // BAL-D: おの 3 本 は 「ぜんぶ つくった」の 数に だけ 入れる（ひとつずつの 実績は ふやさない）
+    if (AXE_RECIPES.includes(id as never)) continue;
     add({ series: `craft.${id}`, category: 'craft', stat: `craft:${id}`, tiers: [t(1, true)], name: () => `はじめて ${name} を つくった！` });
   }
   add({ series: 'craft.all', category: 'craft', stat: 'craft:*', tiers: [t(10), t(50), t(100), t(500)], name: (g) => `${g} かい つくった！` });
