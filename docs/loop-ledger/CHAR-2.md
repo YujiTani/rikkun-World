@@ -9,4 +9,6 @@
 | 1 | design | design-reviewer | 【軽微】AC2・AC6 の「frame が 10 進む」は 8 で回るので数え方があいまい | 書き足し不足 | G1 | 対応済み（番号が変わった回数と明記） |
 | 1 | design | design-reviewer | 【軽微】AC20 の「（①だけのとき）」が 意味不明 | 言い回し | G2 | 対応済み |
 | 1 | design | design-reviewer | 【軽微】§9 が 質問のまま | オーナー回答待ちだった | G3 | 対応済み（O8 として決定に） |
+| 2 | design | design-reviewer | 【軽微】AC23 の `info().cpuBytes` と §8 の `sprite.cpuBytes` の呼び名が ずれている（同じ物なら そろえる） | 言い回し | G5 | 未対応 |
+| 2 | design | design-reviewer | 【軽微】§4.7 の表の「本当の値」が空欄。PO が §8 の順番（スクリプト → 表 → テスト係）で 埋めるまで AC20・21・23 の期待が確定しない | 順番待ち | G6 | 未対応（PO が埋める） |
 | 1 | design | design-reviewer | 【軽微】`src/ui/bladeHud.ts` が `bladeTech.kesa` を読む。大けさぎりの もどり 48→72 で 表示が変わるか §6.1 に確認がない | 抜け | G4 | 未対応（A 担当が確認） |
