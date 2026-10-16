@@ -1,5 +1,5 @@
 import { Data3DTexture, NearestFilter, RGBAFormat, RepeatWrapping, UnsignedByteType } from 'three';
-import { ALL_FACES, LOOK_N, LOOK_VOLUME, PALETTE_RGB, baseColorOf, fillBlockLook, hasLook } from './looks/placeholder';
+import { ALL_FACES, LOOK_N, LOOK_VOLUME, baseColorOf, fillBlockLook, hasLook, paletteRgb } from './looks';
 
 /** くり返しの大きさ: 3 ブロック = 27 小ブロック */
 export const TEX_REPEAT = 3;
@@ -12,6 +12,7 @@ export const TEX_N = TEX_REPEAT * LOOK_N;
 export function buildShapeTextureData(kindCount: number): Uint8Array {
   const data = new Uint8Array(TEX_N * TEX_N * TEX_N * kindCount * 4);
   const block = new Uint8Array(LOOK_VOLUME);
+  const PALETTE_RGB = paletteRgb();
   for (let kind = 0; kind < kindCount; kind++) {
     if (!hasLook(kind)) continue;
     const fallback = baseColorOf(kind);

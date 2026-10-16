@@ -9,8 +9,8 @@ import {
   hasLook,
   initLooks,
   occludes,
-  PALETTE_RGB as PAL,
-} from './looks/placeholder';
+  paletteRgb,
+} from './looks';
 
 /**
  * 9×9×9 の小ブロックのメッシュ作り（three に依存しない。型付き配列で作る）。
@@ -360,6 +360,7 @@ export class VoxelChunkMesher {
   }
 
   private meshNaive(yTop: number, H: number): void {
+    const PAL = paletteRgb();
     const g = this.grid;
     const b = this.builder;
     const inv = 1; // 座標は小ブロックのまま
@@ -401,6 +402,7 @@ export class VoxelChunkMesher {
   }
 
   private meshGreedy(yTop: number, H: number, shape: boolean): void {
+    const PAL = paletteRgb();
     const g = this.grid;
     const b = this.builder;
     const mask = this.maskV;

@@ -1,11 +1,15 @@
-import { Color, PerspectiveCamera, WebGLRenderer } from 'three';
+import { PerspectiveCamera, WebGLRenderer } from 'three';
 import { CHUNK_SIZE } from '../../world/VoxelWorld';
+import { ALL_LOOKS, DEFAULT_LOOK_ID, currentLook, findLook, setCurrentLook } from './looks';
+import { CharSprite } from './charSprite';
 import { MICRO_RADII, PROTO_MODES, ProtoScene, type ProtoMode } from './ProtoScene';
 
 /** 9×9×9 の試しの場面（VOX-0）。ゲーム本体とは別ページ。計測の入口は window.__voxelProto */
 
 export interface Measurement {
   mode: ProtoMode;
+  /** 見た目（Look）の id */
+  look: string;
   /** hybrid のとき、小ブロックの形で描く距離 */
   microRadius: number | null;
   triangles: { start: number; sky: number };
@@ -38,10 +42,13 @@ container.appendChild(renderer.domElement);
 const camera = new PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 400);
 camera.rotation.order = 'YXZ';
 
+function readLook(): string {
+  return findLook(new URLSearchParams(location.search).get('look'))?.id ?? DEFAULT_LOOK_ID;
+}
+setCurrentLook(readLook()); // 3D テクスチャを作る前に 決めておく
 const proto = new ProtoScene(readMode());
 const rParam = Number(new URLSearchParams(location.search).get('r'));
 if ((MICRO_RADII as readonly number[]).includes(rParam)) proto.microRadius = rParam;
-proto.scene.background = new Color(0x9ad0f5);
 const spawn = proto.island.spawn();
 
 // ---- カメラ
@@ -67,7 +74,7 @@ function setPose(name: PoseName): void {
   syncOrbitButton();
   if (name === 'start') {
     pos.x = spawn.x;
-    pos.y = spawn.y + 9;
+    pos.y = spawn.y + 4; // VOX-1: 9 -> 4（キャラが 5 ブロック先の地面に見えるように）
     pos.z = spawn.z;
     const far = Math.hypot(CENTER.x - spawn.x, CENTER.z - spawn.z) > 6;
     if (far) lookAt(CENTER.x, CENTER.y, CENTER.z);
@@ -93,9 +100,27 @@ function setPose(name: PoseName): void {
 }
 
 function applyCamera(): void {
+  character?.face(pos.x, pos.z);
   camera.position.set(pos.x, pos.y, pos.z);
   camera.rotation.set(pitch, yaw, 0);
   proto.update(Math.round(pos.x), Math.round(pos.z), updateBudget);
+}
+
+// ---- キャラ（?char=0 で消す）。スタート地点のカメラの 5 ブロック先の地面に、カメラのほうを向いて立つ
+let character: CharSprite | null = null;
+function placeCharacter(): void {
+  if (new URLSearchParams(location.search).get('char') === '0') return;
+  setPose('start');
+  const cx = pos.x - Math.sin(yaw) * 5;
+  const cz = pos.z - Math.cos(yaw) * 5;
+  let gy = 0;
+  for (let y = proto.world.size.y - 1; y >= 0; y--) {
+    if (proto.world.isSolid(Math.floor(cx), y, Math.floor(cz))) {
+      gy = y + 1;
+      break;
+    }
+  }
+  character = new CharSprite(proto.scene, cx, gy, cz, { x: Math.sin(yaw), z: Math.cos(yaw) });
 }
 
 // ---- 操作（試作なので Action 経由でない）
@@ -166,6 +191,19 @@ function syncRadius(): void {
   MICRO_RADII.forEach((r, i) => radiusButtons[i].classList.toggle('on', r === proto.microRadius));
 }
 syncRadius();
+const lookButtons = new Map<string, HTMLButtonElement>();
+function setLook(id: string): void {
+  const look = findLook(id);
+  if (!look) throw new Error(`知らない look: ${id}`);
+  proto.setLook(id);
+  const url = new URL(location.href);
+  url.searchParams.set('look', id);
+  history.replaceState(null, '', url);
+  for (const [k, b] of lookButtons) b.classList.toggle('on', k === id);
+  proto.update(Math.round(pos.x), Math.round(pos.z), updateBudget);
+}
+for (const l of ALL_LOOKS) lookButtons.set(l.id, addButton(`みため: ${l.label}`, () => setLook(l.id)));
+for (const [k, b] of lookButtons) b.classList.toggle('on', k === currentLook().id);
 const orbitBtn = addButton('ぐるっとまわる', () => {
   orbit = !orbit;
   syncOrbitButton();
@@ -209,6 +247,7 @@ function refreshHud(): void {
   const worst = n ? Math.max(...frames) : 0;
   const info = renderer.info;
   statsEl.textContent = [
+    `みため: ${currentLook().id}`,
     `ほうしき: ${proto.mode}${proto.mode === 'hybrid' ? `（r=${proto.microRadius}）` : ''}`,
     `fps: ${avg > 0 ? (1000 / avg).toFixed(1) : '-'} （さいあく ${worst.toFixed(1)} ms）`,
     `三角形: ${info.render.triangles.toLocaleString()}`,
@@ -284,6 +323,7 @@ function measure(): Measurement {
   }
   return {
     mode: proto.mode,
+    look: currentLook().id,
     microRadius: proto.mode === 'hybrid' ? proto.microRadius : null,
     triangles: { start: a.tri, sky: b.tri },
     drawCalls: { start: a.calls, sky: b.calls },
@@ -302,6 +342,44 @@ const hook = {
   modes: PROTO_MODES,
   getMode: (): ProtoMode => proto.mode,
   setMode,
+  looks: ALL_LOOKS.map((l) => l.id),
+  getLook: (): string => currentLook().id,
+  /** 見た目をかえる（3D テクスチャとメッシュを作り直す） */
+  setLook: (id: string): void => {
+    setLook(id);
+    applyCamera();
+  },
+  /** キャラ: 見ている行（0〜7）と 足もとの位置。?char=0 のときは null */
+  getChar: (): { ready: boolean; row: number; x: number; y: number; z: number } | null =>
+    character ? { ready: character.ready, row: character.currentRow, ...character.position } : null,
+  /** カメラを (x,y,z) に置いて (yawDeg, pitchDeg) を向く（スクショ用）。yaw 0 = -z を向く */
+  setCamera: (x: number, y: number, z: number, yawDeg: number, pitchDeg: number): void => {
+    orbit = false;
+    syncOrbitButton();
+    pos.x = x;
+    pos.y = y;
+    pos.z = z;
+    yaw = (yawDeg * Math.PI) / 180;
+    pitch = (pitchDeg * Math.PI) / 180;
+    applyCamera();
+  },
+  /** カメラを キャラのまわり（水平 dist ブロック）の 角度 deg（0 = キャラの正面）に置いて キャラを見る */
+  orbitChar: (deg: number, dist = 5, height = 2): void => {
+    if (!character) return;
+    const c = character.position;
+    const f = { x: Math.sin(startYaw), z: Math.cos(startYaw) };
+    const a = (deg * Math.PI) / 180;
+    // 正面から a だけ回した向き（charRow の角度と同じ向き）
+    const dx = f.x * Math.cos(a) - f.z * Math.sin(a);
+    const dz = f.z * Math.cos(a) + f.x * Math.sin(a);
+    orbit = false;
+    syncOrbitButton();
+    pos.x = c.x + dx * dist;
+    pos.z = c.z + dz * dist;
+    pos.y = c.y + height;
+    lookAt(c.x, c.y + 0.9, c.z);
+    applyCamera();
+  },
   setMicroRadius: (r: number): void => {
     proto.setMicroRadius(r);
     syncRadius();
@@ -333,5 +411,7 @@ declare global {
 window.__voxelProto = hook;
 
 setMode(readMode());
+placeCharacter();
+const startYaw = yaw;
 setPose('start');
 requestAnimationFrame(frame);

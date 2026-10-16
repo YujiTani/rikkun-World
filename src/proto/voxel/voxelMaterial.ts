@@ -1,4 +1,4 @@
-import { ShaderMaterial, type Data3DTexture } from 'three';
+import { Color, ShaderMaterial, type Data3DTexture } from 'three';
 import { RENDER_CONFIG } from '../../world/render/config';
 import { TEX_N } from './shapeTexture';
 
@@ -12,6 +12,7 @@ import { TEX_N } from './shapeTexture';
 const VERT = /* glsl */ `
 attribute vec4 aData;
 varying float vShade;
+varying float vDepth;
 #ifdef SHAPE
 flat varying float vKind;
 varying vec3 vTex;
@@ -32,11 +33,17 @@ void main() {
 #else
   vCol = pow(aData.xyz / 255.0, vec3(2.2));
 #endif
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  vec4 mv = modelViewMatrix * vec4(position, 1.0);
+  vDepth = -mv.z;
+  gl_Position = projectionMatrix * mv;
 }`;
 
 const FRAG = /* glsl */ `
 varying float vShade;
+varying float vDepth;
+uniform vec3 uFogColor;
+uniform float uFogNear;
+uniform float uFogFar;
 #ifdef SHAPE
 flat varying float vKind;
 varying vec3 vTex;
@@ -52,15 +59,28 @@ void main() {
 #else
   vec3 c = vCol;
 #endif
-  gl_FragColor = vec4(c * vShade, 1.0);
+  c = mix(c * vShade, uFogColor, smoothstep(uFogNear, uFogFar, vDepth));
+  gl_FragColor = vec4(c, 1.0);
 #include <colorspace_fragment>
 }`;
+
+/** 霧（Look の fog）。three の Fog と同じ線形の色で、近い距離から遠い距離へ 空の色にとかす */
+export function setVoxelFog(mat: ShaderMaterial, fog: { color: number; near: number; far: number }): void {
+  (mat.uniforms.uFogColor.value as Color).set(fog.color);
+  mat.uniforms.uFogNear.value = fog.near;
+  mat.uniforms.uFogFar.value = fog.far;
+}
 
 export function createVoxelMaterial(shapeTexture?: Data3DTexture): ShaderMaterial {
   return new ShaderMaterial({
     vertexShader: VERT,
     fragmentShader: FRAG,
     defines: shapeTexture ? { SHAPE: 1 } : {},
-    uniforms: shapeTexture ? { uTex: { value: shapeTexture } } : {},
+    uniforms: {
+      uFogColor: { value: new Color(0xffffff) },
+      uFogNear: { value: 1e6 },
+      uFogFar: { value: 2e6 },
+      ...(shapeTexture ? { uTex: { value: shapeTexture } } : {}),
+    },
   });
 }
