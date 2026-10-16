@@ -1,19 +1,10 @@
 import type { CropStageSource } from '../../../contracts';
-import {
-  LOOK_N,
-  LOOK_VOLUME,
-  baseColorOf,
-  currentLook,
-  fillBlockLook,
-  hasLook,
-  initLooks,
-  lookIdOf,
-  occludes,
-  paletteRgb,
-} from '../../../proto/voxel/looks';
+import { LOOK_N, LOOK_VOLUME, fillBlockLook, hasLook, initLooks, occludes } from '../../../proto/voxel/looks';
 import { newSample, sampleSurface, type ColumnSource, type SurfaceSample } from '../../../proto/voxel/terrain/microSurface';
 import { scanColumn, type ColumnInfo } from '../../../proto/voxel/terrain/worldColumns';
 import { BLOCK_TYPES, isOpaqueIndex } from '../../blocks/blockTypes';
+import { OCC_BYTES, packOccupancy } from './ao';
+import { ROW_NONE, rowCodeOf, terrainKindOf } from './projection';
 import { OPACITY } from '../../light/opacity';
 import type { WorldLight } from '../../light/WorldLight';
 import type { ArrayVoxelWorld } from '../../VoxelWorld';
@@ -23,9 +14,10 @@ import type { MeshData } from '../meshChunk';
 /**
  * セクション（16³）1 つぶんのメッシュ作り（three に依存しない。型付き配列で返す）。VOX-E。
  * 試作 `src/proto/voxel/meshVoxel.ts`（列ごと）を セクションごとに直したもの:
- * - micro: 小ブロック（9×9×9）の形。greedyShape（同じ種類・同じ光の面を 1 まいにまとめる。色は 3D テクスチャ）と、
- *   小ブロック地形（microSurface の S。色は頂点）。
- * - box: 1 マスの箱。色だけ 9×9 の模様（3D テクスチャ）。光は面の角のなめらかな平均（今までと同じ）。
+ * - micro: 小ブロック（9×9×9）の形。greedyShape（同じ種類・同じ光の面を 1 まいにまとめる）と、
+ *   小ブロック地形（microSurface の S）。色は 面の向き・ワールドの座標から 16×16 の絵の画素（シェーダー。TEX-A）。
+ *   頂点のデータ aData = [ブロックの種類, てっぺんから何小ブロック下か（形の面は 255）, 0, 面の番号]。
+ * - box: 1 マスの箱。絵は 近くと同じ投影。光は面の角のなめらかな平均（今までと同じ）。
  * - 光: micro の面は「面の前のブロックの光」を 1 つ（なめらかにしない）。頂点に aLight（空・ブロック各 1 バイト）として焼く。
  * - 座標は セクションの左下を 0 とした小ブロックの数（Uint16）。mesh.scale = 1/9、mesh.position = セクションの位置で置く。
  * - 小ブロック地形のとび出し（地面のブロックの上 8 小ブロックまで）は、地面のあるセクションが持つ。
@@ -37,7 +29,7 @@ import type { MeshData } from '../meshChunk';
 export interface VoxelPiece {
   /** セクションの中の小ブロック座標 */
   positions: Uint16Array;
-  /** aData = [r, g, b, 面の番号 (+8 なら 色の面)]。形の面は r = ブロックの種類 */
+  /** aData = [ブロックの種類, 地形の横の面の行の符号（255 = 世界の高さで決める）, 0, 面の番号] */
   data: Uint8Array;
   /** aLight = [空の光, ブロックの光]（0〜255。255 = 15 を 17 倍） */
   light: Uint8Array;
@@ -54,6 +46,8 @@ export interface SectionMeshData {
   water: MeshData;
   /** 三角形の合計（pieces + extras + water） */
   triangles: number;
+  /** 角の暗がり（AO）用の 小ブロックの「うまり」の 3D テクスチャの中身（ao.ts）。micro で面があるときだけ */
+  occupancy: Uint8Array | null;
 }
 
 export type MeshTier = 'micro' | 'box';
@@ -212,8 +206,8 @@ export interface BuildOptions {
 export class SectionMesher {
   /** 小ブロックの格子: (y * S + z) * S + x。0 = 空。まわり 1 ブロックの余白つき（余白はとなりのセクションのぶん） */
   private readonly grid = new Uint8Array(S * SS);
-  /** 格子と同じ並び: 1 = 小ブロック地形のマス（色は 頂点に入れる） */
-  private readonly tflag = new Uint8Array(S * SS);
+  /** 格子と同じ並び: 0 でない = 小ブロック地形のマス。値 = 行の符号 << 6 | ブロックの種類 */
+  private readonly tflag = new Uint16Array(S * SS);
   private useMin = 99;
   private useMax = -1;
   private readonly bk = new Int16Array(CUBE);
@@ -282,10 +276,15 @@ export class SectionMesher {
     else this.meshMicro();
     const pieces = b.finish();
     const faces = b.faces;
-    const ex = meshSectionExtras(this.world, cx, sy, cz, this.light, opts.crops, opts.hide);
+    const ex = meshSectionExtras(this.world, cx, sy, cz, this.light, opts.crops, opts.hide, tier === 'micro');
     let triangles = ex.opaque.indices.length / 3 + ex.water.indices.length / 3;
     for (const p of pieces) triangles += p.indices.length / 3;
-    return { pieces, faces, extras: ex.opaque, water: ex.water, triangles };
+    let occupancy: Uint8Array | null = null;
+    if (tier === 'micro' && pieces.length > 0 && this.useMax >= 0) {
+      occupancy = new Uint8Array(OCC_BYTES);
+      packOccupancy(this.grid, S, N, this.useMin * N, (this.useMax + 1) * N, occupancy);
+    }
+    return { pieces, faces, extras: ex.opaque, water: ex.water, triangles, occupancy };
   }
 
   /** まわり 1 ブロックをふくむ 18³ のブロックの種類を写す（読みこんでいない・世界の底の下 = -1、世界の上 = 空気） */
@@ -411,14 +410,21 @@ export class SectionMesher {
     return this.world.getIndex(this.ox + nx - 1, wy, this.oz + nz - 1);
   }
 
+  /** まわり 26 マスのどれかに 見える面のあるブロックが あるか（角の暗がりが となりの となりまで 見るため 斜めも） */
   private adjacentActive(bxi: number, byi: number, bzi: number): boolean {
     const e = this.expo;
-    for (let f = 0; f < 6; f++) {
-      const nx = bxi + DIR[f][0];
-      const ny = byi + DIR[f][1];
-      const nz = bzi + DIR[f][2];
-      if (nx < 0 || ny < 0 || nz < 0 || nx >= BL || ny >= BL || nz >= BL) continue;
-      if (e[(ny * BL + nz) * BL + nx] !== 0) return true;
+    for (let dy = -1; dy <= 1; dy++) {
+      const ny = byi + dy;
+      if (ny < 0 || ny >= BL) continue;
+      for (let dz = -1; dz <= 1; dz++) {
+        const nz = bzi + dz;
+        if (nz < 0 || nz >= BL) continue;
+        for (let dx = -1; dx <= 1; dx++) {
+          const nx = bxi + dx;
+          if (nx < 0 || nx >= BL || (dx === 0 && dy === 0 && dz === 0)) continue;
+          if (e[(ny * BL + nz) * BL + nx] !== 0) return true;
+        }
+      }
     }
     return false;
   }
@@ -468,6 +474,17 @@ export class SectionMesher {
           for (let f = 0; f < 6; f++) {
             const n = this.kindNear(bxi, byi, bzi, f);
             if (n >= 0 && OCC[n] === 0) e |= 1 << f;
+          }
+          if (terrain && OCC[k] === 1) {
+            // 小ブロック地形の となりの列の てっぺんが 同じ高さ: 地形の へこみから この横の面が 見えるので 形の面にする
+            // （置いた ブロックの下の地面・崖の下の段。ここが 空くと 空の色が すきまに 見える。TEX-A 基準 9）
+            const wy = this.oy + byi - 1;
+            for (let f = 2; f < 6; f++) {
+              if (e & (1 << f)) continue;
+              const cx = bxi + DIR[f][0] + 1;
+              const cz = bzi + DIR[f][2] + 1;
+              if (cx >= 0 && cz >= 0 && cx < BW && cz < BW && this.colTy[cz * BW + cx] === wy) e |= 1 << f;
+            }
           }
           expo[i] = e;
         }
@@ -567,8 +584,6 @@ export class SectionMesher {
   private fillTerrain(): void {
     const grid = this.grid;
     const tf = this.tflag;
-    const look = currentLook();
-    const colorFn = look.terrainColor;
     const mx0 = this.ox * N - N;
     const mz0 = this.oz * N - N;
     const colH = this.colH;
@@ -593,8 +608,7 @@ export class SectionMesher {
           for (let y = gy0; y < gy1; y++) grid[(y * S + gz) * S + gx] = 1;
           continue;
         }
-        const kindId = lookIdOf(this.colKind[k]);
-        const fallback = baseColorOf(this.colKind[k]);
+        const kindIdx = this.colKind[k];
         const g = this.colG[gi];
         const rockCol = this.colIsRock[gi] === 1;
         const wx = mx0 + gx;
@@ -608,14 +622,7 @@ export class SectionMesher {
             if (nh >= 0 && nh < m2) m2 = nh;
           }
         }
-        // てっぺんのマスは、となりが 高いほど くぼみ（ほりかげ）: 1 マス高い = 1 段内の色、2 マス以上 = 2 段内の色
-        let rise = 0;
-        for (let q = 0; q < 4; q++) {
-          const nh = colH[q === 0 ? gi - 1 : q === 1 ? gi + 1 : q === 2 ? gi - S : gi + S];
-          if (nh - h > rise) rise = nh - h;
-        }
-        const topDepth = rise >= 2 ? 2 : rise;
-        // 4 つのとなりより ひくい所は ぜんぶ囲まれていて 面ができない: 色は計算せず つめておく
+        // 4 つのとなりより ひくい所は ぜんぶ囲まれていて 面ができない: 絵の行は 計算せず つめておく
         let m1 = h;
         for (let q = 0; q < 4; q++) {
           const nh = colH[q === 0 ? gi - 1 : q === 1 ? gi + 1 : q === 2 ? gi - S : gi + S];
@@ -624,31 +631,15 @@ export class SectionMesher {
         const gyFill = Math.min(gy1, Math.max(gy0, m1 - 1 - rowBase));
         for (let gy = gy0; gy < gyFill; gy++) {
           const idx = (gy * S + gz) * S + gx;
-          grid[idx] = fallback;
-          tf[idx] = 1;
+          grid[idx] = 1;
+          tf[idx] = kindIdx;
         }
         for (let gy = gyFill; gy < gy1; gy++) {
           const y = gy + rowBase;
           const fromTop = h - 1 - y;
-          let depth = fromTop === 0 ? topDepth : fromTop < 2 ? fromTop : 2;
-          if (depth > 0 && y >= m2) {
-            // よこの となり（1 マス・2 マス先）が 空いていれば、そのぶん外がわに近い
-            for (let d = 1; d <= 2 && d - 1 < depth; d++) {
-              let open = false;
-              for (let q = 0; q < 4; q++) {
-                const ni = q === 0 ? gi - d : q === 1 ? gi + d : q === 2 ? gi - d * S : gi + d * S;
-                const nh = colH[ni];
-                if (nh >= 0 && y >= nh) open = true;
-              }
-              if (open) {
-                depth = d - 1;
-                break;
-              }
-            }
-          }
           const idx = (gy * S + gz) * S + gx;
-          grid[idx] = colorFn ? colorFn(kindId, depth, fromTop, rockCol && y >= g, wx, y, wz) : fallback;
-          tf[idx] = 1;
+          grid[idx] = 1;
+          tf[idx] = (rowCodeOf(fromTop) << 6) | terrainKindOf(kindIdx, fromTop, rockCol && y >= g, wx, wz);
         }
         const by = ty - this.oy;
         this.active[(by * 16 + bzl) * 16 + bxl] = 1;
@@ -664,7 +655,6 @@ export class SectionMesher {
     if (terrain) this.sampleTerrain();
     this.fillGrid(terrain);
     if (terrain) this.fillTerrain();
-    const PAL = paletteRgb();
     const g = this.grid;
     const tf = this.tflag;
     const b = this.builder;
@@ -727,19 +717,20 @@ export class SectionMesher {
               const nz = bZ + 1 + dz;
               lightB = lg[(ny * BL + nz) * BL + nx];
             }
-            const lk = lightB << 9;
+            const lk = lightB << 14;
             let touched = false;
             for (let vi = 0; vi < N; vi++) {
               const lv = vb * N + vi;
               for (let ui = 0; ui < N; ui++) {
                 const lu = ub * N + ui;
                 const idx = gBase + lu * uStep + lv * vStep + l * lStep;
-                const c = g[idx];
-                if (c === 0) continue;
+                if (g[idx] === 0) continue;
                 if (f === 0) {
                   if (l + 1 < ROWS_ALL && g[idx + off] !== 0) continue;
                 } else if (g[idx + off] !== 0) continue;
-                mask[lv * widthU + lu] = (tf[idx] ? 256 + c : key + 1) | lk;
+                const t = tf[idx];
+                // 地形のマス: 種類 + 行の符号（上下の面は 行を使わない）。形のマス: ブロックの種類
+                mask[lv * widthU + lu] = (t !== 0 ? (t & 63) | ((f < 2 ? ROW_NONE : t >> 6) << 6) : key | (ROW_NONE << 6)) | lk;
                 touched = true;
               }
             }
@@ -778,16 +769,11 @@ export class SectionMesher {
             hi[uAx] = origin[uAx] + u + w;
             lo[vAx] = origin[vAx] + v;
             hi[vAx] = origin[vAx] + v + h;
-            const lbyte = (k >> 9) & 255;
+            const lbyte = (k >> 14) & 255;
             const sky = (lbyte >> 4) * 17;
             const blk = (lbyte & 15) * 17;
-            const base = k & 511;
-            if (base >= 256) {
-              const c = base - 256;
-              b.quad(f, lo[0], hi[0], lo[1], hi[1], lo[2], hi[2], PAL[c * 3], PAL[c * 3 + 1], PAL[c * 3 + 2], 8, sky, blk, null);
-            } else {
-              b.quad(f, lo[0], hi[0], lo[1], hi[1], lo[2], hi[2], base - 1, 0, 0, 0, sky, blk, null);
-            }
+            const base = k & 0x3fff;
+            b.quad(f, lo[0], hi[0], lo[1], hi[1], lo[2], hi[2], base & 63, base >> 6, 0, 0, sky, blk, null);
           }
         }
       }
@@ -907,9 +893,9 @@ export class SectionMesher {
             if (k >= 1 << 30) {
               const cell = k & 0xffff;
               const kindHere = this.kindOfCell(ax, l, u, v);
-              b.quad(f, lo[0], hi[0], lo[1], hi[1], lo[2], hi[2], kindHere, 0, 0, 0, 0, 0, smooth.subarray(cell * 8, cell * 8 + 8));
+              b.quad(f, lo[0], hi[0], lo[1], hi[1], lo[2], hi[2], kindHere, ROW_NONE, 0, 0, 0, 0, smooth.subarray(cell * 8, cell * 8 + 8));
             } else {
-              b.quad(f, lo[0], hi[0], lo[1], hi[1], lo[2], hi[2], (k & 511) - 1, 0, 0, 0, (k >> 9) & 255, (k >> 17) & 255, null);
+              b.quad(f, lo[0], hi[0], lo[1], hi[1], lo[2], hi[2], (k & 511) - 1, ROW_NONE, 0, 0, (k >> 9) & 255, (k >> 17) & 255, null);
             }
           }
         }

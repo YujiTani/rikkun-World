@@ -34,15 +34,6 @@ const BARK = L('#76502F', '#6B482A', '#4E3320', '#3A2618');
 const RING = [P('#C99860'), P('#AE7E4A'), P('#8E6238')];
 const LEAF = L('#5DAA45', '#4F9A3C', '#3B7E33', '#2A6127');
 const BEDROCK = L('#4D4843', '#45403B', '#36322E', '#292624');
-const OTHER: Record<string, Layers> = {
-  furnace: L('#928B80', '#9E978A', '#6F685F', '#504A43'),
-  kawara: L('#4E6582', '#465C77', '#374A62', '#2A394C'),
-  brick: L('#AE5240', '#A04A3A', '#7E3A2D', '#5E2B22'),
-  tansu: L('#A2723F', '#966A3A', '#7A552E', '#5C4022'),
-  farmland: L('#624025', '#5A3A22', '#46301C', '#352416'),
-  farmland_wet: L('#4A2F1A', '#432A18', '#352113', '#28190E'),
-  sprinkler: L('#7F9FB8', '#7594AC', '#5C7A90', '#465E70'),
-};
 
 type Fill = KindSpec['fill'];
 const LEAF_SALT = 290;
@@ -310,6 +301,6 @@ export const gotsugotsuLook: Look = {
       },
     },
     bedrock: rock(BEDROCK, 6, 3, 7),
-    ...Object.fromEntries(Object.entries(OTHER).map(([id, c]) => [id, rock(c, 2, 0, 0)])),
+    // かまど・たんす・スプリンクラー・レンガ・かわら・はたけ・ぬれたはたけ は 形を持たない（TEX-A: 平らな箱。docs/art/DESIGN.md 5.3）
   },
 };

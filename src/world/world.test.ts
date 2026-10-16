@@ -140,7 +140,7 @@ describe('メッシュ（見えない面を描かない）', () => {
     w.setBlock(0, 0, 0, 'bedrock');
     expect(meshChunk(w, 0, 0).opaque.faceCount).toBe(3);
   });
-  it('面の頂点・index・色の数が合い、明るさは上 1.0・横 0.8・下 0.6', () => {
+  it('面の頂点・index・色の数が合い、明るさは上 1.0・南北 0.8・東西 0.6・下 0.5', () => {
     const w = new ArrayVoxelWorld(OLD_SIZE);
     w.setBlock(5, 5, 5, 'grass');
     const m = meshChunk(w, 0, 0).opaque;
@@ -148,7 +148,8 @@ describe('メッシュ（見えない面を描かない）', () => {
     expect(m.uvs).toHaveLength(6 * 4 * 2);
     expect(m.indices).toHaveLength(6 * 6);
     const shades = new Set(m.colors.filter((_, i) => i % 3 === 0));
-    expect([...shades].sort()).toEqual([0.6, 0.8, 1]);
+    // TEX-A（#146）: 面の明るさが マイクラ式（上 1.0・南北 0.8・東西 0.6・下 0.5）になった
+    expect([...shades].sort()).toEqual([0.5, 0.6, 0.8, 1]);
   });
   it('水は別メッシュ。海の水は上の面だけ', () => {
     const w = new ArrayVoxelWorld(OLD_SIZE);

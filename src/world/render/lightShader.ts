@@ -2,6 +2,7 @@ import type { MeshBasicMaterial } from 'three';
 import { ripeMinBrightness } from './cropLight';
 import { LIGHT_CONFIG as LC } from '../light/config';
 import { skyDarkness } from '../light/skyDarkness';
+import { aoUniforms } from './voxel/aoUniforms';
 
 const f = (n: number): string => n.toFixed(4);
 
@@ -41,13 +42,18 @@ export function applyLightShader(material: MeshBasicMaterial, cacheKey = 'rikkun
   material.onBeforeCompile = (shader) => {
     shader.uniforms.uDarken = skyDarkness.uniform;
     shader.uniforms.uRipeMin = ripeMinBrightness;
+    shader.uniforms.uAoOn = aoUniforms.on;
+    shader.uniforms.uAoFade = aoUniforms.fade;
     shader.vertexShader = shader.vertexShader
       .replace(
         '#include <common>',
         `#include <common>
 attribute vec2 aLight;
+attribute float aDark;
 uniform float uDarken;
 uniform float uRipeMin;
+uniform float uAoOn;
+uniform vec2 uAoFade;
 ${LIGHT_GLSL_FUNCS}`,
       )
       .replace(
@@ -61,7 +67,9 @@ ${LIGHT_GLSL_FUNCS}`,
   float bb = blockTier(bl);
   float w = clamp((bb - sb) * 3.0, 0.0, 1.0) * ${f(LC.warmTintStrength)};
   vec3 tint = mix(vec3(1.0), vec3(${f(LC.warmTint[0])}, ${f(LC.warmTint[1])}, ${f(LC.warmTint[2])}), w);
-  vColor.rgb *= max(max(sb, bb), ripe * uRipeMin) * tint;
+  // 角の暗がり（平らな箱の面。小ブロックの半径の外では 1.0 に消える）
+  float aoD = aDark * uAoOn * (1.0 - smoothstep(uAoFade.x, uAoFade.y, length((modelMatrix * vec4(position, 1.0)).xz - cameraPosition.xz)));
+  vColor.rgb *= max(max(sb, bb), ripe * uRipeMin) * tint * (1.0 - aoD);
 }`,
       );
   };

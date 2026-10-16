@@ -100,6 +100,11 @@ export class Game {
     this.render();
   }
 
+  /** いま 1 回 描く（テスト用: 画素を読む前に最新の絵にする） */
+  renderNow(): void {
+    this.render();
+  }
+
   getRenderStats(): RenderStats {
     this.flushRender();
     const info = this.renderer.info;

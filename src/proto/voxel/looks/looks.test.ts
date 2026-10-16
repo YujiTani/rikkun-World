@@ -92,9 +92,9 @@ for (const look of ALL_LOOKS) {
     // 投影のユニット（developer が TDD で書く: 面・座標 → タイル・画素）に置きかえる。形のテスト（つまり方・決定的）は上にのこしてある
     it.todo('色は投影のユニットで見る（パレット・shapeTexture の色は描画に使わない）');
 
-    // TEX-A: 道具 7 種は平らな箱（5.3）で、小ブロックの形を持たない。実装まで it.fails
+    // TEX-A: 道具 7 種は平らな箱（5.3）で、小ブロックの形を持たない
     // 本番の見た目（gotsugotsu）だけ。ほかの試作の見た目は対象外
-    if (look.id === 'gotsugotsu') it.fails('道具 7 種（かまど・たんす・スプリンクラー・レンガ・かわら・はたけ・ぬれたはたけ）は形を持たない（TEX-A）', () => {
+    if (look.id === 'gotsugotsu') it('道具 7 種（かまど・たんす・スプリンクラー・レンガ・かわら・はたけ・ぬれたはたけ）は形を持たない（TEX-A）', () => {
       const kinds = use().map(idOf);
       for (const id of ['furnace', 'tansu', 'sprinkler', 'brick', 'kawara', 'farmland', 'farmland_wet']) expect(kinds).not.toContain(id);
       // 鉱石は地形なので でこぼこのまま
