@@ -14,3 +14,13 @@
 | 1 | design | design-reviewer | 【軽微】音の記録が「鳴った」だけだと 読みこみ待ちで E2E が不安定。出来事 1 回で「鳴らす頼み」を 1 回記録（読めたかに関係なく）、「鳴った」は別に記録。E2E は頼みを見て 読みこみは待たない。読みこみ（成功・失敗・まだ）は うその読みこみ係で ユニット | テストの決定性 | G4 | 対応済み（版 4.1・BAL-G §2・§4） |
 | 1 | design | design-reviewer | 【軽微】ヌシの ふんわり光の「点滅しない」が UI 検査の静止画では確かめにくい。明るさの式（周期 2.5 秒・上下の幅）を ユニットで確かめると AC19 に書き、BALANCE.md と BAL-G.md をそろえた | 層の当てはめ違い | G5 | 対応済み（版 4.1） |
 | 1 | design | design-reviewer | 【軽微】「ゲームでも最後に −1 dBFS で止める」は 実装のしかたを決めていて、テストもしにくい。やめて「音ファイルのピーク −1 dBFS 以下（ユニットで測る）、ゲームでの音量の倍率は 1 以下」にした | 実装に踏みこみすぎ | G6 | 対応済み（版 4.1・BAL-G §2） |
+
+2 周目 test-review（tester の準備 c61617b を code-reviewer が確認）: **合格**（重大 0・軽微 5）。`npm run check:fast` は 新しい窓口が まだ無い型エラーだけで赤（期待どおり）。既存テストの変更は `title.test.ts` の soundSeconds（1.0・1.5・2.5 → 0・3.0・3.8・5.2。§5・§6 に合う）と hpBar の足しだけで、消した物・ゆるめた物なし。v4 の B の WAV で `measure()` を試すと 聞こえる長さ 2.98・3.78・5.20 秒・ピーク −6.2・−5.5・−4.8 dB で、期待の数に合う。
+
+| 周 | ループ | 指摘した係 | 指摘（どこ・なに） | 原因の見立て | グループ | 状態 |
+|---|---|---|---|---|---|---|
+| 2 | test-review | code-reviewer | 【軽微】AC19 の UI 検査の画面（二つ名 たいしょう・ヌシ × 色 1〜3・おしらせ・おの のアイコンと手に持った形、3 つの大きさ）が `e2e/ui-gate.spec.ts` に 足されていない（BAL-G.md §4 の 1）。E2E の おしらせのアイコン（48px・ぼかさない）だけでは バー 20 本の はば・名前の長さ・ツールチップが 見えない。検証の前に tester が 足す | 依頼の取りこぼし | G7 | 未対応（検証の前までに） |
+| 2 | test-review | code-reviewer | 【軽微】`titleSoundFiles.test.ts` の AC20 (2) は ffmpeg がないと skip され、`.github/workflows/ci.yml` に ffmpeg を入れる手順がない → CI で 音の安全の数が 確かめられないまま緑になりうる。`process.env.CI` のときは skip でなく失敗にする＋ ci.yml に `apt-get install ffmpeg`（または 入っている確認）を足す。ファイルの コメントの「台帳へ」は この台帳に 書いたことにする | skip の扱い | G8 | 未対応（開発の前後どちらでも） |
+| 2 | test-review | code-reviewer | 【軽微】「音は nick の 3 つだけ」の `walk(ROOT)` が 作業ツリー全体（未追跡の `ui-gate-report/`・`test-results/`・ほかの worktree）を 見るので、手元で 別の音が 置かれると 落ちる。`git ls-files` の 一覧を使うと 決定的 | 決定性 | G9 | 未対応 |
+| 2 | test-review | code-reviewer | 【軽微】`titleSound.test.ts` の うその AudioContext は `decodeAudioData`・`createBufferSource`・`createGain`（`gain.value`／`setValueAtTime`）しか持たない。実装が `linearRampToValueAtTime`・フィルタ等を 使うと 例外で落ちる。使ってよい口を 窓口の コメントに 書くか、うそを 広げる。`combatFx.test.ts` は 私有の `d` を 直接さわる（実装の名前に 依存） | 窓口の書き足し | G10 | 未対応 |
+| 2 | test-review | code-reviewer | 【軽微】立ち上がりを測る `measure()` は「鳴りはじめ」を 絶対値 1e-3 で決め（仕様は 最大の 1%）、meta の `attack_s`（1.11）と 数がずれる（1.38）。判定は ≥ 0.05 なので 結果は 同じだが、コメントに「仕様の 1% とは少し違う」と書くか 1% にそろえる。E2E の `combat.sounds()`・`yokai.palette()`・`yokai.marks()` は まだ testHook に無い（窓口は spec 冒頭に書いてある。開発が足す）| はかり方・窓口 | G11 | 未対応 |
