@@ -7,3 +7,5 @@ dev / code-review | 【中】 | e2e/voxE-mesh.spec.ts:240-242 AC3 中ほど: 基
 dev / code-review | 【軽微】 | e2e/voxE-mesh.spec.ts:195-208: `dx%4` `dz%4` の二重ループは 16 通りを 4 回くりかえしている。探す範囲を 4×4 にそろえて整理。
 dev / code-review | 【軽微】 | e2e/voxE-mesh.spec.ts AC6: `geometryBytesLimit` を実際に超えたときの「遠い順に dispose」は確かめていない（上限が大きいと `<= limit` は自明）。基準 6 の文言は輪の外の dispose で満たすが、上限の挙動は unit で見るか、hook に上限をさげる口（例 `meshStats().setLimit`）を足す。
 dev / code-review | 【軽微】 | e2e/voxE-mesh.spec.ts AC1: r=16/24（F3 の設定）の段の入れかえと ±2 のずらし（出る r+2・入る r-2）は E2E に無い。基準 1 の範囲外なので OK だが、ずらしは unit（段の判定の純関数）で必ず見ること。
+dev / code-review(テスト先) / 2周目: 合格。重大 0 件。前回の【重大】2 件（境目の手順・メッシュの順番待ち）と【中】3 件（光を先に・面が 0 は none/empty・閉じた穴は =1）は、テストとチケットの hook 節の直しで解消を確認。【軽微】のループ整理も済み。
+dev / code-review | 【軽微】 | e2e/voxE-mesh.spec.ts AC6 `c.perCorner toEqual b.perCorner`: 決定的になった前提は「落ちついたあとは同じ場所で同じバイト数」。実装が dispose／再作成の順で大きさが変わる（例: 水の有無）と落ちるので、落ちたらまず実装の決定性を疑う。geometryBytesLimit を実際に超える場合は引き続き unit で見ること。
