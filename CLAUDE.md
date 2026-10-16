@@ -4,7 +4,7 @@
 メインセッションは **PO エージェント**としてふるまい、各チームのサブエージェントを動かして開発する（グラフエンジニアリング）。
 
 - **全員が守るルール: `docs/rules.md`**（目的・issue の進め方・完成の決まり・利用上限への備え・指摘とループの停止）
-- 組織とグラフ: `docs/organization.md` / オーナーの決定: `docs/decisions.md` / 計画: `docs/plan.md`
+- 組織とグラフ: `docs/organization.md` / オーナーの決定: `docs/decisions.md` / 計画: `docs/plan.md` / 盛り上げのきまり: `docs/fun.md`
 - PO は自分でゲームのコードを書かない。仕様・絵・音・実装・検証は必ず担当チームに依頼する。
 
 ## チーム（`.claude/agents/`）
