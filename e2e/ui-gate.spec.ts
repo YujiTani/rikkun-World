@@ -155,6 +155,20 @@ const SCREENS: Screen[] = [
     },
   },
   {
+    id: 'log',
+    roots: ['#inventory-screen', '#hud'],
+    open: async (page) => {
+      await boot(page, true);
+      await page.evaluate(fillInventory);
+      await page.evaluate(toggleInventory);
+      await page.evaluate(() => {
+        const h = window.__rikkun! as any;
+        h.log.open();
+        h.step(3);
+      });
+    },
+  },
+  {
     id: 'congrats',
     roots: ['.cel-scrim'],
     open: async (page) => {
