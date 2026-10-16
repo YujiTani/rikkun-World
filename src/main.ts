@@ -301,6 +301,7 @@ rig.doll.setBoxBody(blockDollOnly);
 // TEX-A: キャラの足もとの丸い影。影（renderOrder 1）の あとに キャラの板（renderOrder 2）を描く
 const blobShadow = new BlobShadow();
 game.scene.add(blobShadow.mesh);
+window.addEventListener("pagehide", () => { game.scene.remove(blobShadow.mesh); blobShadow.dispose(); });
 rig.doll.group.traverse((o) => {
   if (o.name === 'charSprite') o.renderOrder = BLOB.spriteRenderOrder;
 });

@@ -37,7 +37,6 @@ varying float vShade;
 varying vec3 vLit;
 varying vec3 vWorld;
 varying vec3 vLocal;
-varying float vDist;
 flat varying vec4 vInfo;
 flat varying vec3 vAvg;
 vec3 voxGrow = vec3(0.0);
@@ -61,7 +60,6 @@ const VERT_BODY = `
   vAvg = tile < -0.5 ? vec3(1.0) : uTileAvg[int(tile + 0.5)];
   vWorld = (modelMatrix * vec4(position, 1.0)).xyz;
   vLocal = position;
-  vDist = length(vWorld.xz - cameraPosition.xz);
   float skyIn = aLight.x;
   float blkIn = aLight.y;
   ${LIGHT_GLSL_LIT}
@@ -72,7 +70,7 @@ varying float vShade;
 varying vec3 vLit;
 varying vec3 vWorld;
 varying vec3 vLocal;
-varying float vDist;
+#define vDist length(vWorld.xz - cameraPosition.xz)
 flat varying vec4 vInfo;
 flat varying vec3 vAvg;
 uniform sampler2D uAtlas;

@@ -19,3 +19,15 @@ AC1, AC4, AC7, AC8, AC10, AC11。原因は次のとおり。
 - AO の式は DESIGN の係数 [1,.82,.68,.55]、前の層の 8 近傍から面ごとにバイリニア。r-8〜r で薄くなる。
 - 追加フック: render.setTerrain（micro terrain の入切）。
 - 平らな箱 7 種は AO を頂点属性 aDark＋対角反転で表す。
+| 1 | art | art-reviewer | 【軽微】近くの草の上面: 近づくと 16px の明暗ブロックが大きく見え、でこぼこの段と模様が混ざる所がある。草タイルの明暗差をさらに小さく | 近景で段の形が読みにくい | T1 | 未対応 |
+| 1 | art | art-reviewer | 【軽微】丸い影: 足もとでは自然だが濃さが弱く、段の上かが分かりにくい。少し濃く | キャラの立ち位置 | T2 | 未対応 |
+| 1 | art | art-reviewer | 【軽微】夜・どうくつ・水ぎわ・遠く(LOD)は撮れておらず未確認。PR にスクショを足すこと | 見本どおりか判定できない | T3 | 未対応 |
+| 1 | dev | code-reviewer | 【軽微】voxelMaterial.ts の vDist（AO と遠くの色よせの距離）が頂点ごとの値を面の中で線形にまぜている。まとめた大きな面（最大 16 ブロック）では距離が実際よりずれ、AO の消える範囲（24〜32）で AO が早く消える。hook の aoAt は画素ごとの距離なので、テスターの「画素が 0.05〜0.08 明るい」の原因の有力候補 | フラグメントで length(vWorld.xz - cameraPosition.xz) を計算する | dev | 未対応 |
+| 1 | dev | code-reviewer | 【軽微】WorldRenderer.takeChanges / VoxelWorld.markEdgeNeighbors は x と z の斜めのセクションを作り直さない。セクションの角（lx,lz とも 0〜1）をほると、斜めとなりの AO の角 1 小ブロックが古いまま残ることがある | 斜めも markNeighbor する（または AO の角だけ許容と書く） | dev | 未対応 |
+| 1 | dev | code-reviewer | 【軽微】main.ts の BlobShadow は dispose されない（1 回作るだけなので実害なし） | 後片付けをそろえる | dev | 未対応 |
+
+## レビュー後の直し
+- vDist を頂点でなくフラグメントで計算（AO の薄れ・かすみが大きな面でも aoAt と合う）。
+- BlobShadow を pagehide で dispose。
+- 丸い影は dst*(1-a) の乗算なので、夜は暗い地面をさらに少し暗くするだけ（黒い円にならない）。
+- 追加スクショ: night, cave, water, far, flat（スプリンクラー・レンガ・かわら・はたけ・ぬれたはたけ）
