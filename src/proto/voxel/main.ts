@@ -23,7 +23,7 @@ type PoseName = 'start' | 'sky' | 'close';
 
 function readMode(): ProtoMode {
   const m = new URLSearchParams(location.search).get('mode');
-  return (PROTO_MODES as readonly string[]).includes(m ?? '') ? (m as ProtoMode) : 'greedyShape';
+  return (PROTO_MODES as readonly string[]).includes(m ?? '') ? (m as ProtoMode) : 'hybrid';
 }
 
 const container = document.getElementById('game')!;
