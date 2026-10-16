@@ -467,7 +467,7 @@ test.describe('M3 妖怪の攻撃とダメージ', () => {
 });
 
 test.describe('M3 プレイヤーの攻撃（パンチ）', () => {
-  test('AC16: 30 ステップ目に当たる・hp 4→3・1.0 押される。ぬりかべは押されない。スクショ（星・まる）', async ({ page }) => {
+  test('AC16: 30 ステップ目に当たる・hp 8→7・1.0 押される。ぬりかべは押されない。スクショ（星・まる）', async ({ page }) => {
     await open(page);
     const r = await page.evaluate(() => {
       const T = (window as any).T;
@@ -499,10 +499,10 @@ test.describe('M3 プレイヤーの攻撃（パンチ）', () => {
       return { x: T.one(id).position.x };
     }, r.id);
     expect(r.firstEvents).toContain('punchStart');
-    expect(r.hp29).toBe(4);
+    expect(r.hp29).toBe(8);
     expect(r.ev29).not.toContain('punchHit');
     expect(r.ev30.some((e: string) => e.startsWith('punchHit'))).toBe(true);
-    expect(r.hp30).toBe(3);
+    expect(r.hp30).toBe(7);
     expect(r2.x).toBeGreaterThan(5.4);
     expect(r2.x).toBeLessThan(5.6);
     // ぬりかべは押されない
@@ -518,17 +518,17 @@ test.describe('M3 プレイヤーの攻撃（パンチ）', () => {
       return { x: T.one(id).position.x, hp: T.one(id).hp };
     });
     expect(r3.x).toBeCloseTo(4.5, 2);
-    expect(r3.hp).toBe(47); // ぬりかべ 体力 48（#8）
+    expect(r3.hp).toBe(39); // ぬりかべ 体力 40（BALANCE §4.1）
   });
 
-  test('AC17: 押しっぱなしで 30・60・90・120 ステップ目に当たり 4 回でたおれる。ドロップ表で入る', async ({ page }) => {
+  test('AC17: 押しっぱなしで 30 ステップごとに当たり、体力ぶんの回数（8・5・12・40）でたおれる。ドロップ表で入る', async ({ page }) => {
     test.setTimeout(240_000);
     await open(page);
     const r = await page.evaluate(() => {
       const T = (window as any).T;
       const h = (window as any).__rikkun;
       const out: any = {};
-      const kinds: Record<string, number> = { karakasa: 4, chochin: 2, rokurokubi: 4, nurikabe: 48 };
+      const kinds: Record<string, number> = { karakasa: 8, chochin: 5, rokurokubi: 12, nurikabe: 40 }; // BALANCE §4.3 すで（1）の たおす回数
       for (const kind of Object.keys(kinds)) {
         T.base();
         h.world.fill(0, 8, 0, 20, 8, 12, 'stone');
@@ -595,8 +595,8 @@ test.describe('M3 プレイヤーの攻撃（パンチ）', () => {
       return out;
     });
     expect(r.near.evs).toContain('punchHit');
-    expect(r.near.hp).toBe(3);
-    expect(r.far.hp).toBe(4);
+    expect(r.near.hp).toBe(7);
+    expect(r.far.hp).toBe(8);
     expect(r.far.evs).not.toContain('punchHit');
     // 仕様 AC18 は 3.1 で punchMiss（からぶり）。実装は「とどかない妖怪は無視」で何も出さない（NG・軽微。下の test.fail と同じ原因）
   });
