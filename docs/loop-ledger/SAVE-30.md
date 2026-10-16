@@ -1,2 +1,3 @@
 | 1 | dev | code-reviewer | 【重大】e2e/voxF-save.spec.ts の SAVE-30 AC2: 版 1 の番号を `world.blockTypes()` の今の並びから引いている（`ids.indexOf`）。版 1 は「凍らせた表 BLOCK_IDS_V1」で読む決まりなので、テストも文字で書いた 31 個の id の並び（タスク票の BLOCK_IDS_V1 と同じ）をテストの中に持ち、そこから番号を作る | 今の並びに頼ると、VOX-B で並びが変わったときテストが作るバイト列も一緒に変わり、「古いバイト列が凍らせた表で読める」を確かめられない（実装が今の BLOCK_TYPES で読んでしまう間違いも赤にならない）。今は並びが同じなので緑のままだが、確かめたい事が確かめられていない | T1 | 未対応 |
 | 1 | dev | code-reviewer | 【軽微】e2e/voxF-save.spec.ts 先頭付近: `idbGetChunk` の前に空行が 2 つ並んでいる | 見た目だけ | T2 | 未対応 |
+dev / code-review(テスト先) / 2周目: T1・T2 の直し（099022e）を PO が確認。31 個の文字の表が BLOCK_TYPES の今の並びと一致。重大 0 件で合格。
