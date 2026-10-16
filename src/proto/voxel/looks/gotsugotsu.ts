@@ -165,9 +165,38 @@ function nugget(spec: number[]): KindSpec {
   );
 }
 
+/** 小ブロック地形の色（VOX-2）: ブロックの外がわほど明るく、内ほど暗い。草は 上から 4〜5 マス、その下は土 */
+function layersOf(c: Layers, depth: number, h3: number): number {
+  return depth >= 2 ? c[3] : depth === 1 ? c[2] : h3 % 3 === 0 ? c[1] : c[0];
+}
+
+function terrainColor(kind: string, depth: number, fromTop: number, isRock: boolean, wx: number, wy: number, wz: number): number {
+  // 3×3×3 のかたまりごとの まだら
+  const h3 = mix(mix(910, Math.floor(wx / 3)), Math.floor(wz / 3) * 512 + Math.floor(wy / 3));
+  if (isRock) return layersOf(STONE, depth, h3);
+  switch (kind) {
+    case 'grass': {
+      if (fromTop < 4 + (h3 % 2)) {
+        if (fromTop === 0 && depth === 0 && (((wx * 5 + wz * 3) % 7) + 7) % 7 === 0) return GRASS_TIP;
+        return layersOf(GRASS, depth, h3);
+      }
+      return layersOf(DIRT, depth, h3);
+    }
+    case 'dirt':
+      return layersOf(DIRT, depth, h3);
+    case 'sand':
+      return layersOf(SAND, depth, h3);
+    case 'bedrock':
+      return layersOf(BEDROCK, depth, h3);
+    default:
+      return layersOf(STONE, depth, h3);
+  }
+}
+
 export const gotsugotsuLook: Look = {
   id: 'gotsugotsu',
   label: 'B ごつごつ',
+  terrainColor,
   palette: pal.rgb(),
   // すんだ 青空。遠くは 青く かすむ（遠近感）。上空からも見えるよう near は 100
   sky: 0x6ea8e0,
