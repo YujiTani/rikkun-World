@@ -87,8 +87,8 @@
 }
 .log-up,
 .log-down {
-  width: var(--rk-h-btn);
-  height: var(--rk-h-btn);
+  width: max(var(--rk-h-btn), calc(44px / var(--rk-fit, 1)));
+  height: max(var(--rk-h-btn), calc(44px / var(--rk-fit, 1)));
   padding: 0;
 }
 .log-empty {

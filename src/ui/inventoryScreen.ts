@@ -297,6 +297,8 @@ export class InventoryScreen {
     const m = parseFloat(getComputedStyle(this.el).getPropertyValue('--rk-sp-5')) || 24;
     const k = Math.min(1, (window.innerWidth - 2 * m) / w, (window.innerHeight - 2 * m) / h);
     f.style.transform = k < 1 ? `scale(${k})` : '';
+    // 押せる物は ちぢめた後でも 見た目 44px 以上にするための 比（CSS の --rk-fit）
+    f.style.setProperty('--rk-fit', String(Math.round(k * 100) / 100));
   }
 
   /** 画面の下に「ここでできる操作」を出す（じっせき タブでは出さない。たんす のときは 文をかえる） */

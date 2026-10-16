@@ -100,7 +100,7 @@
   display: flex;
   align-items: center;
   gap: var(--rk-sp-2);
-  min-height: var(--rk-h-tab-guide);
+  min-height: max(var(--rk-h-tab-guide), calc(44px / var(--rk-fit, 1)));
   padding: var(--rk-sp-2) var(--rk-sp-5);
   font-family: inherit;
   font-size: var(--rk-fs-head);

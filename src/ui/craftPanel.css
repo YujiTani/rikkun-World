@@ -474,6 +474,10 @@
 }
 .cp-more {
   align-self: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: max(var(--rk-h-btn), calc(44px / var(--rk-fit, 1)));
   margin: 0;
   padding: 0 var(--rk-sp-3);
   font-family: inherit;
