@@ -515,7 +515,8 @@
 /* ツールチップの「なにに つかう」は 省略せず 全部（長いときは ツールチップ全体がスクロール） */
 .tip-desc {
   max-width: calc(var(--rk-slot-inv) * 5);
-  overflow-wrap: anywhere;
+  word-break: keep-all; /* 折り返しは スペースの ところだけ */
+  overflow-wrap: break-word;
 }
 .tip-desc[hidden] {
   display: none;
