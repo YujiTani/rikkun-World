@@ -71,7 +71,7 @@ describe('M4 のアイテムの絵（24 こ。ブロック 3 つは ブロック
     expect(has('stone_pickaxe', 0x8a, 0x8a, 0x8a)).toBe(true);
     expect(has('iron_pickaxe', 0xe0, 0xe0, 0xe8)).toBe(true);
   });
-  it('きらきらの かたな は 水色とむらさきと白', () => {
+  it('きらめく カタナ は 水色とむらさきと白', () => {
     const p = m4ItemPixels('crystal_katana');
     const has = (r: number, g: number, b: number) => p.some((c) => c[0] === r && c[1] === g && c[2] === b && c[3] === 255);
     expect(has(0x9f, 0xe8, 0xff)).toBe(true);
@@ -170,7 +170,7 @@ describe('ツールチップ（AC28）', () => {
     log: 'き',
     clay: 'ねんど',
     kite: 'たこ',
-    crystal_katana: 'きらきらの かたな',
+    crystal_katana: 'きらめく カタナ',
     yumi: 'ゆみ',
     ya: 'や',
     kabuto: 'かぶと',
@@ -201,7 +201,7 @@ describe('ツールチップ（AC28）', () => {
     expect(buildTooltip('clay', deps).lines).toEqual(['かまど で やける']);
     expect(buildTooltip('kite', deps).lines).toEqual(['もうすぐ つかえる']);
   });
-  it('ゆみ・や・かぶと・かまど・きらきらの かたな', () => {
+  it('ゆみ・や・かぶと・かまど・きらめく カタナ', () => {
     expect(buildTooltip('yumi', deps).lines).toEqual(['や を とばす', 'たたく つよさ 2', 'たいきゅう 384 / 384']);
     expect(buildTooltip('ya', deps).lines).toEqual(['ゆみ で とばす']);
     expect(buildTooltip('kabuto', deps).lines).toEqual(['たま から まもる', 'たいきゅう 165 / 165']);

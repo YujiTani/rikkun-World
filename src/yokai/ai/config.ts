@@ -105,10 +105,10 @@ export interface KindAi {
 }
 
 export const KIND_AI: Record<YokaiKind, KindAi> = {
-  karakasa: { sight: 12, giveUp: 18, stepUp: 2, radius: 0.6, height: 1.6, eyeHeight: 1.1, turnDegPerSec: 360, marksHeight: 2.1, flies: false },
-  chochin: { sight: 14, giveUp: 20, stepUp: 0, radius: 0.4, height: 1.7, eyeHeight: 0.95, turnDegPerSec: 180, marksHeight: 2.3, flies: true },
-  nurikabe: { sight: 8, giveUp: 12, stepUp: 1, radius: 0.9, height: 3.0, eyeHeight: 1.9, turnDegPerSec: 45, marksHeight: 3.5, flies: false },
-  rokurokubi: { sight: 12, giveUp: 18, stepUp: 1, radius: 0.4, height: 2.9, eyeHeight: 1.6, turnDegPerSec: 240, marksHeight: 3.3, flies: false },
+  karakasa: { sight: 18, giveUp: 24, stepUp: 2, radius: 0.6, height: 1.6, eyeHeight: 1.1, turnDegPerSec: 360, marksHeight: 2.1, flies: false },
+  chochin: { sight: 21, giveUp: 27, stepUp: 0, radius: 0.4, height: 1.7, eyeHeight: 0.95, turnDegPerSec: 180, marksHeight: 2.3, flies: true },
+  nurikabe: { sight: 12, giveUp: 18, stepUp: 1, radius: 0.9, height: 3.0, eyeHeight: 1.9, turnDegPerSec: 45, marksHeight: 3.5, flies: false },
+  rokurokubi: { sight: 18, giveUp: 24, stepUp: 1, radius: 0.4, height: 2.9, eyeHeight: 1.6, turnDegPerSec: 240, marksHeight: 3.3, flies: false },
 };
 
 /** そのほかの決まった数 */

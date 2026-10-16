@@ -60,7 +60,7 @@ export const CRAFT_SOUNDS = {
     { type: 'square', f0: 1300, f1: 1200, delay: 0, dur: 0.04, gain: 0.2 },
     { type: 'triangle', f0: 1800, f1: 1700, delay: 0, dur: 0.05, gain: 0.15 },
   ],
-  /** きらきらの かたな「キラン」 */
+  /** きらめく カタナ「キラン」 */
   sparkle: [
     { type: 'sine', f0: 1760, f1: 1900, delay: 0, dur: 0.1, gain: 0.3 },
     { type: 'sine', f0: 2349, f1: 2500, delay: 0.07, dur: 0.16, gain: 0.3 },

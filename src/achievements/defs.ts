@@ -29,7 +29,7 @@ export const CRAFT_RECIPE_NAMES: ReadonlyArray<readonly [string, string]> = [
   ['bokuto', 'ぼくとう'],
   ['katana', 'かたな'],
   ['naginata', 'なぎなた'],
-  ['crystal_katana', 'きらきらの かたな'],
+  ['crystal_katana', 'きらめく カタナ'],
   ['yumi', 'ゆみ'],
   ['ya', 'や'],
   ['kabuto', 'かぶと'],
@@ -258,7 +258,7 @@ function build(): AchievementDef[] {
     ['bokuto', 'ぼくとう で はじめて たおした！'],
     ['katana', 'かたな で はじめて たおした！'],
     ['naginata', 'なぎなた で はじめて たおした！'],
-    ['crystal_katana', 'きらきらの かたな で はじめて たおした！'],
+    ['crystal_katana', 'きらめく カタナ で はじめて たおした！'],
     ['yumi', 'ゆみ で はじめて たおした！'],
   ] as const) {
     add({ series: `defeat.with.${w}`, category: 'fight', stat: `defeatWith:${w}`, tiers: [t(1)], name: () => text });

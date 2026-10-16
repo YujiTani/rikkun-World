@@ -54,7 +54,7 @@ const M4_ITEMS: readonly ItemType[] = [
   { id: 'bokuto', name: 'ぼくとう', maxStack: 1, placeBlock: null },
   { id: 'katana', name: 'かたな', maxStack: 1, placeBlock: null },
   { id: 'naginata', name: 'なぎなた', maxStack: 1, placeBlock: null },
-  { id: 'crystal_katana', name: 'きらきらの かたな', maxStack: 1, placeBlock: null },
+  { id: 'crystal_katana', name: 'きらめく カタナ', maxStack: 1, placeBlock: null },
   { id: 'yumi', name: 'ゆみ', maxStack: 1, placeBlock: null },
   { id: 'ya', name: 'や', maxStack: BLOCK_MAX_STACK, placeBlock: null },
   { id: 'kabuto', name: 'かぶと', maxStack: 1, placeBlock: null },

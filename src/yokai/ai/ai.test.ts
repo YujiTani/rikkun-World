@@ -140,10 +140,10 @@ describe('AI（距離だけで動く）', () => {
     return s;
   }
   const sight: Array<[YokaiKind, number]> = [
-    ['karakasa', 12],
-    ['chochin', 14],
-    ['nurikabe', 8],
-    ['rokurokubi', 12],
+    ['karakasa', 18],
+    ['chochin', 21],
+    ['nurikabe', 12],
+    ['rokurokubi', 18],
   ];
   for (const [kind, range] of sight) {
     it(`${kind}: 見つける距離の内側は追いかけ、外側は気づかない`, () => {
@@ -466,13 +466,18 @@ describe('M5: 出る所と遠くの妖怪（AC18）', () => {
   }
   it('夜、ひらちでは出て、水平 12 以上はなれている', () => {
     const { m, player } = bigSetup(false);
-    for (let i = 0; i < 3000; i++) m.update(1 / 60);
-    const list = m.list();
-    expect(list.length).toBeGreaterThan(0);
-    for (const y of list) {
-      const d = Math.hypot(y.position.x - player.position.x, y.position.z - player.position.z);
-      expect(d).toBeGreaterThanOrEqual(11.9);
+    // 気づく範囲が広いので近づいてくる。出た その時の距離を見る
+    const seen = new Set<unknown>();
+    for (let i = 0; i < 3000; i++) {
+      m.update(1 / 60);
+      for (const y of m.list()) {
+        if (seen.has(y.id)) continue;
+        seen.add(y.id);
+        const d = Math.hypot(y.position.x - player.position.x, y.position.z - player.position.z);
+        expect(d).toBeGreaterThanOrEqual(11.9);
+      }
     }
+    expect(seen.size).toBeGreaterThan(0);
   });
   it('みず の列には出ない', () => {
     const { m } = bigSetup(true);

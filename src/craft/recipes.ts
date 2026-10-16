@@ -1,3 +1,4 @@
+import { CROP_KINDS, SEED_ITEM, VEG_ITEM } from '../contracts';
 import type { ItemId, Recipe } from '../contracts';
 
 const r = (
@@ -14,7 +15,7 @@ const r = (
   station,
 });
 
-/** つくる 25 こ（M4 §4.1 の 22 こ + M7-2 の 3 こ。カードの順） */
+/** つくる 29 こ（M4 §4.1 の 22 こ + M7-2 の 3 こ + #63 の たね 4 こ。カードの順） */
 export const CRAFT_RECIPES: readonly Recipe[] = [
   r('wood_pickaxe', 1, [['log', 3]], true),
   r('stone_pickaxe', 1, [['stone', 3], ['log', 2]], true),
@@ -23,7 +24,7 @@ export const CRAFT_RECIPES: readonly Recipe[] = [
   r('bokuto', 1, [['log', 2]], true),
   r('katana', 1, [['iron_ingot', 2], ['log', 1]], true),
   r('naginata', 1, [['iron_ingot', 1], ['log', 3]], true),
-  r('crystal_katana', 1, [['crystal', 1], ['iron_ingot', 1], ['log', 1]], true),
+  r('crystal_katana', 1, [['crystal', 2], ['iron_ingot', 3], ['log', 1]], true),
   r('yumi', 1, [['log', 3], ['string', 3]], true),
   r('ya', 4, [['log', 1], ['stone', 1], ['paper', 1]], true),
   r('kabuto', 1, [['iron_ingot', 2], ['cloth', 1]], true),
@@ -44,6 +45,8 @@ export const CRAFT_RECIPES: readonly Recipe[] = [
   r('watering_can', 1, [['iron_ingot', 1], ['stone', 2]], true),
   r('long_watering_can', 1, [['iron_ingot', 3], ['log', 1]], true),
   r('sprinkler', 1, [['iron_ingot', 4], ['stone', 2]], true),
+  // #63: やさい 1 こ → たね 4 こ（いちばん うしろ）
+  ...CROP_KINDS.map((k) => r(SEED_ITEM[k], 4, [[VEG_ITEM[k], 1]], true)),
 ];
 
 /** やく 4 こ（M4 §4.2。かまど で。ねんりょう 1 こ・60 ステップ） */
