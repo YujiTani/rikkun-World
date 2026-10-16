@@ -285,7 +285,7 @@ describe('CombatFx（出来事 → 音・画面）', () => {
   it('妖怪を たおした → ポン（ドロップは地面に落ちるので ようかいだまは飛ばさない）。帰るときは何もしない', () => {
     const s = setup();
     s.pushY(
-      { type: 'defeat', tick: 5, id: 1, kind: 'nurikabe', position: { x: 0, y: 0, z: 0 }, reward: 2 },
+      { type: 'defeat', tick: 5, id: 1, kind: 'nurikabe', position: { x: 0, y: 0, z: 0 }, reward: 2, title: 'none' },
       { type: 'leave', tick: 5, id: 2, kind: 'karakasa', position: { x: 0, y: 0, z: 0 } },
       { type: 'spawn', tick: 5, id: 3, kind: 'chochin', position: { x: 0, y: 0, z: 0 } },
     );

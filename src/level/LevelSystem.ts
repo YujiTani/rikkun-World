@@ -47,9 +47,9 @@ export class LevelSystem {
     return { level: this.lv, xp: this.points, next: this.nextXp() };
   }
 
-  /** 妖怪をたおした。入った経験値を返す */
-  onDefeat(kind: YokaiKind): number {
-    const n = this.config.xp[kind] ?? 0;
+  /** 妖怪をたおした。入った経験値を返す（xp = 場所の倍率・二つ名を入れた数。省くと 元の数） */
+  onDefeat(kind: YokaiKind, xp?: number): number {
+    const n = xp ?? this.config.xp[kind] ?? 0;
     this.addXp(n);
     return n;
   }

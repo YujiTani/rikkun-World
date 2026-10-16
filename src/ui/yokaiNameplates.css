@@ -1,0 +1,21 @@
+/* 二つ名の妖怪の頭の上の名前（HTML。16 ブロック以内。点滅しない） */
+.yokai-nameplate {
+  position: fixed;
+  left: 0;
+  top: 0;
+  padding: 0 var(--rk-sp-2);
+  font-size: var(--rk-fs-body);
+  font-weight: 800;
+  line-height: var(--rk-lh);
+  white-space: nowrap;
+  color: var(--rk-text);
+  background: var(--rk-hud-bg);
+  text-shadow: var(--rk-text-outline);
+  border-radius: var(--rk-r-pill);
+  pointer-events: none;
+  z-index: 5;
+  will-change: transform;
+}
+.yokai-nameplate[hidden] {
+  display: none;
+}

@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { installAimHelpers } from './helpers/aim';
 
 /**
  * BAL-D（issue #112）: 道具の使い分けと おの 3 本。
@@ -16,6 +17,7 @@ async function open(page: Page) {
   await page.goto('/?nosave=1');
   await page.waitForFunction(() => window.__rikkun?.ready === true);
   await page.evaluate(() => (window.__rikkun as any).achievements.mute(true));
+  await installAimHelpers(page);
   await page.evaluate(() => {
     const h = (window as any).__rikkun;
     const T: any = {
@@ -42,6 +44,7 @@ async function open(page: Page) {
       put(id: string) {
         const b = T.front();
         h.world.setBlock(b.x, b.y, b.z, id);
+        (window as any).__aim.solve(b.x, b.y, b.z, 0.5);
         h.step(1);
         const t = h.target.get();
         const ok = !!t && t.block.x === b.x && t.block.y === b.y && t.block.z === b.z && t.id === id;

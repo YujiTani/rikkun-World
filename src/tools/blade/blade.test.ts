@@ -11,7 +11,7 @@ class FakeYokai implements YokaiWorld {
   calls: Array<{ id: number; amount: number; from: Vec3; knock?: YokaiKnock }> = [];
   add(kind: YokaiKind, x: number, y: number, z: number): number {
     const id = this.items.length + 1;
-    this.items.push({ id, kind, position: { x, y, z }, yawDeg: 0, hp: 99, maxHp: 99, state: 'idle', attackTick: 0, scale: 1 });
+    this.items.push({ id, kind, position: { x, y, z }, yawDeg: 0, hp: 99, maxHp: 99, state: 'idle', attackTick: 0, scale: 1, name: 'テスト', title: 'none', m: 1, attack: 2 });
     return id;
   }
   list = () => this.items;
