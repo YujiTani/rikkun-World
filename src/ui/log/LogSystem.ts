@@ -50,6 +50,8 @@ interface Entry {
   base: string;
   /** 数のない件が 何回 起きたか */
   rep: number;
+  /** 数のある件の文を 作り直すための 前・後ろ（`×数` の前と後）。数のない件は null */
+  fmt: [string, string] | null;
   positions?: (TansuPos & { count: number })[];
 }
 
@@ -112,7 +114,7 @@ export class LogSystem {
     if (last && (last.count !== null) === (e.count !== null) && sameKey(last) && e.tick - last.tick <= this.settings.logMergeTicks) {
       if (e.count !== null && last.count !== null) {
         const next = last.count + e.count;
-        last.text = last.text.replace(`×${last.count}`, `×${next}`);
+        if (last.fmt) last.text = `${last.fmt[0]}×${next}${last.fmt[1]}`;
         last.count = next;
         if (e.positions) last.positions = mergePositions(last.positions ?? [], e.positions);
       } else {
@@ -129,6 +131,7 @@ export class LogSystem {
         text: e.text,
         base: e.text,
         rep: 1,
+        fmt: splitCount(e.text, e.count),
         positions: e.positions ? e.positions.map((p) => ({ ...p })) : undefined,
       });
       while (this.hist.length > Math.max(1, this.settings.logHistoryMax)) this.hist.shift();
@@ -317,6 +320,14 @@ export class LogSystem {
   private clampScroll(): void {
     this.scrollRow_ = Math.max(0, Math.min(this.maxScroll(), this.scrollRow_));
   }
+}
+
+/** 文を `×数` の前と後ろに分ける（数のない件・`×数` が見つからない件は null） */
+function splitCount(text: string, count: number | null): [string, string] | null {
+  if (count === null) return null;
+  const key = `×${count}`;
+  const i = text.lastIndexOf(key);
+  return i < 0 ? null : [text.slice(0, i), text.slice(i + key.length)];
 }
 
 function mergePositions(a: readonly (TansuPos & { count: number })[], b: readonly (TansuPos & { count: number })[]): (TansuPos & { count: number })[] {

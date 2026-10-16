@@ -30,6 +30,7 @@ export class LogPage {
   private readonly up: HTMLButtonElement;
   private readonly down: HTMLButtonElement;
   private builtVersion = -1;
+  private scrollKey = '';
   private wasVisible = false;
 
   constructor(
@@ -82,6 +83,7 @@ export class LogPage {
     if (!visible) {
       this.wasVisible = false;
       this.builtVersion = -1;
+      this.scrollKey = '';
       return;
     }
     if (!this.wasVisible) {
@@ -93,7 +95,11 @@ export class LogPage {
       this.builtVersion = v;
       this.build();
     }
-    this.applyScroll();
+    const key = `${v}|${this.log.ui().scrollRow}`;
+    if (key !== this.scrollKey) {
+      this.scrollKey = key;
+      this.applyScroll();
+    }
   }
 
   private build(): void {

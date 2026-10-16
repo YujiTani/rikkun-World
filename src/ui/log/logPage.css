@@ -35,9 +35,13 @@
   height: calc(var(--rk-h-btn) * 7 + var(--rk-sp-2) * 6);
   overflow: hidden;
 }
-.log-list[hidden],
 .log-empty[hidden] {
   display: none;
+}
+/* 0 件のときも 場所は そのまま（▲▼ が 右はしに のこり、パネルが 縮まない） */
+.log-list[hidden] {
+  display: flex;
+  visibility: hidden;
 }
 .log-row {
   position: relative;
@@ -112,5 +116,10 @@
 }
 .log-empty__text {
   font-size: var(--rk-fs-body);
-  color: var(--rk-text-sub);
+  color: var(--rk-text);
+  text-shadow:
+    2px 0 0 var(--rk-bg-900),
+    -2px 0 0 var(--rk-bg-900),
+    0 2px 0 var(--rk-bg-900),
+    0 -2px 0 var(--rk-bg-900);
 }
