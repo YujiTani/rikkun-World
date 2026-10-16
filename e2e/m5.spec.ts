@@ -144,12 +144,23 @@ test.describe('M5 広い世界', () => {
       const out: any = {};
       const spawn = h.world.spawn();
       h.step(2);
+      // メッシュ作りが終わる（pending 0）まで進める。決め打ちのコマ数は使わない
+      const settle = () => {
+        let n = 0;
+        while (h.world.meshStats().pending > 0) {
+          if (n >= 3000) throw new Error('QUIET_TIMEOUT: meshPending=' + h.world.meshStats().pending);
+          h.step(5); n += 5;
+        }
+        h.step(2);
+      };
+      settle();
       // 描く距離は 見ている人 = カメラの位置から（三人称だけになり、カメラは キャラの 4 うしろ）
       const cam = () => h.camera.get().position;
       out.start = { stats: h.render.chunks(), calc: calc(cam().x, cam().z), at: h.player.get().position };
       for (const [name, x, z] of [['nw', 1.5, 1.5], ['se', 126.5, 126.5], ['ne', 126.5, 1.5]] as const) {
         h.player.set({ position: { x, y: 12, z }, velocity: { x: 0, y: 0, z: 0 } });
         h.step(3);
+        settle();
         out[name] = { stats: h.render.chunks(), calc: calc(cam().x, cam().z) };
       }
       out.spawn = spawn;
