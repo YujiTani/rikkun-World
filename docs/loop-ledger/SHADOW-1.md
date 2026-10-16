@@ -12,3 +12,4 @@
 | 1 | design | design-reviewer | 【軽微】AC8 が tick 指定なし（スタートは日の出で影がうすい）／AC5 の「近く」があいまい／影がまっ黒でない下限と昼夜切りかわりの基準がない。→ 追記 | あいまい | G4 | 対応済み |
 | 1 | design | design-reviewer | 【軽微】アート（TEX-A の丸い影・AO・面の明るさ）と丸い影が重なる可能性。ただし `docs/tickets/TEX-A.md` と `docs/art/DESIGN.md` の影の節がこのブランチに無く確認できない。PO が丸い影の持ち主を 1 か所に決める | 他スレッドが見えない | G5 | 未対応 |
 - PO: 丸い影の持ち主は TEX-A（#146）に決めた。SHADOW AC15 は重なりの下限だけを見る（TEX-A は 6 ブロック、SHADOW は 3 ブロックで食いちがっていたため）。
+- テストレビュー合格（70b6ac2 で AC1/AC4 を影の先っぽで見る・AC12 の step を外す）。developer へ: 実装後に shadow.test.ts 4 本・time.test.ts 4 本の it.fails と m3 の test.fail を外し、shadow.test.ts の動的 import を普通の import に。nightBrightness 0.25・開始 9000 で他の spec（m72:791 の 0.45、sound1・fix129・bal ヘルパー）が前提をくずさないか確かめる。実装は TEX-A（#146）マージ後、main に rebase してから。
