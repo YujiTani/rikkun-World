@@ -18,7 +18,7 @@
 2. 曲の長さを足す（SOUND.md §2。頭の 8 小節は preview のまま。足した所はオーナー確認）。
 3. 全体の音のつなぎ（ミキサー: 全体・ミュート・リミッター・天井・BGM バス・効果音バス・duck）を作る。AudioContext は**このミキサーだけ**が作る。
 4. 場面の判定（SOUND.md §2）と、画面ごとの BGM の倍率（§5）、タブを見ていないとき。
-5. 音量・ミュートの画面（§7）と保存。**いまゲームに音量・ミュートの画面は無い**（`fxVolume` は `settings` からしか変えられない）ので、この票で作る。
+5. 音量・ミュートの画面（§7）と保存。**いまゲームに音量・ミュートの画面は無い**（`fxVolume` は `settings` からしか変えられない）ので、この票で作る。 `fxVolume`（効果音の大きさ）は `AudioSettings` に無いので、`soundSettings.ts` が今までどおり `FxSettings` 側に書いて保存する。
 6. 試聴ページ `sound.html`（ゲームのコードで鳴らす）。BGM 3 曲・切り替え・ミュートと音量。効果音の欄は `sfx-designer` の `SFX_CATALOG` を読んで並べる（つなぎ込みのときに足す）。
 7. **つなぎ込み**（この票の最後。`sfx-designer` の作業が入ったあと）: `src/main.ts`・`src/debug/testHook.ts`。
 
@@ -49,7 +49,8 @@ export class AudioMixer {
   output(): { ctx: AudioContext; destination: AudioNode } | null; // 効果音バス。unlock 前・作れないときは null
   bgmInput(): AudioNode | null;
   apply(): void;                     // 設定（音量・ミュート）を読み直して 0.05 秒以上かけて反映
-  duck(): void;                      // MIX.duck の形で BGM を下げてもどす
+  duck(): void;                      // MIX.duck の形で BGM を下げてもどす（保つ 1.4 秒）
+  holdDuck(on: boolean): void;       // おめでとう画面のあいだ下げたままにする（on=false で 1.0 秒でもどす）。duck() 中も holdDuck 中も state().ducking は true
   setScreenLevel(x: number): void;   // §5 の倍率。0.3 秒かけて
   setHidden(hidden: boolean): void;  // §5 のタブを見ていないとき
   contextState(): 'none' | 'suspended' | 'running' | 'closed';
@@ -76,7 +77,7 @@ export function screenLevel(mode: ScreenMode, dead: boolean): number; // §5 の
 
 ## つなぎ込み（`src/main.ts`・`src/debug/testHook.ts`）
 - `AudioMixer`・`BgmPlayer` を `SoundFx` より先に作り、上のとおり `SoundFx` に渡す。`unlock()` は最初の pointerdown / keydown / 案内画面のクリックで呼ぶ。
-- 毎ステップ: `tracker.update(...)` → `bgm.play(scene)`。妖怪の一覧は今の `yokaiSample`（10 ステップごと）でよい（判定は `tick` の差で数える）。`mixer.setScreenLevel(screenLevel(screen.mode(), combat.dead()))`。おめでとう画面のあいだは duck を保つ。
+- 毎ステップ: `tracker.update(...)` → `bgm.play(scene)`。妖怪の一覧は今の `yokaiSample`（10 ステップごと）でよい（判定は `tick` の差で数える）。`mixer.setScreenLevel(screenLevel(screen.mode(), combat.dead()))`。おめでとう画面のあいだは `mixer.holdDuck(screen.mode() === 'celebrate')`。
 - `visibilitychange` → `mixer.setHidden(document.hidden)`。
 - `createAudioSettings()` を `createSettingsHook` の extras に足す。`settings.set` のあと `mixer.apply()` が効くようにする（毎ステップ `apply()` でも、変わったときだけでもよい）。
 - `window.__rikkun.audio`（SOUND.md §8 の形）を `TestHook` に足す。`audio.sfx()` は `soundFx.drainRecords()`。
@@ -95,7 +96,7 @@ export function screenLevel(mode: ScreenMode, dead: boolean): number; // §5 の
 | B7 | 保存: `rikkun.audio.v1` に 3 つの音量とミュートを書き、次に読む。こわれた値・範囲外は はじめの値 | 【ユニット】 |
 | B8 | 遊ぶ画面でクリック後、`time.set` で よる にすると `audio.state().scene/song` が `night`。妖怪を近くに出して追いかけさせると たたかい、`yokai.clear()` のあと もどる（ステップ数は `settings.get('battleEnterTicks')` などから読む） | 【E2E】 |
 | B9 | もちもの画面 → `screenLevel` 0.7、案内画面 → 0.4、おめでとう画面 → `ducking` true、閉じると false | 【E2E】 |
-| B10 | 案内画面の「おと」ボタンで `muted` が切りかわる。つまみで `master/bgm/fx` が変わる。`settings.set('audioMuted', true)` も同じ。読みなおしても残る。案内画面のスクショ（ボタンとつまみ）を PR に | 【E2E】＋ UI 検査 |
+| B10 | 案内画面（配置は SOUND.md §7）の「おと」ボタンで `muted` が切りかわる。つまみで `master/bgm/fx` が変わる。`settings.set('audioMuted', true)` も同じ。読みなおしても残る。案内画面のスクショ（ボタンとつまみ）を PR に | 【E2E】＋ UI 検査 |
 | B11 | 曲を OfflineAudioContext で書き出して測る: ピーク・いちばん大きい 50ms・平均・ループのつなぎ目の差。SOUND.md §3 の目安の中、preview の案 B と ±2 dB | 数で見る（`audio-reviewer`） |
 | B12 | `sound.html` で 3 曲（足した部分を含む）と、ひる → よる → たたかい の切り替え、ミュート・音量を聞いて OK | 【オーナー確認】 |
 
