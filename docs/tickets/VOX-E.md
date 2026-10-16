@@ -31,6 +31,49 @@
 | 7 | 今の遊び（歩く・ほる・おく・畑・妖怪・保存）がこわれない | 全 E2E（CI） |
 | 8 | オーナーが Mac で見た目と fps を確かめる | オーナー確認 |
 
+## テストが使う hook
+`e2e/voxE-mesh.spec.ts`（基準 1・2・3・6）が使う。`window.__rikkun.world.*` に開発が足す（`src/world/hook.ts`）。セクション座標 `(sx, sy, sz) = (floor(x/16), floor(y/16), floor(z/16))`。
+
+```ts
+sectionInfo(sx, sy, sz): {
+  tier: 'micro' | 'box' | 'lod' | 'none'; // いま描いている段。lod = 箱の外（列ごと 1 枚の LOD だけ）
+  reason: 'empty' | 'hidden' | 'unlit' | null; // none のときだけ理由
+  meshes: number;    // 持っている three のメッシュ数（不透明・水で 0〜2）。none / lod は 0
+  triangles: number; // そのセクションのメッシュの三角形の合計
+  dist: number;      // プレイヤーから、そのセクションの水平のいちばん近い所までの距離
+}
+sectionStats(): {
+  microR: number; // いまの小ブロックの半径（既定 32）
+  total: number;  // 読みこんだセクションの数
+  micro: number; box: number; lod: number; none: number; // 合計 === total
+  noneBy: { empty: number; hidden: number; unlit: number }; // 合計 === none
+  microMaxDist: number; boxMinDist: number; boxMaxDist: number; // 段ごとの dist の幅（0 個なら 0）
+}
+meshStats(): {
+  geometryBytes: number; geometryBytesLimit: number; // 上限をこえたら遠い順に dispose
+  meshCount: number; disposedTotal: number;          // dispose したジオメトリの累計
+}
+rebuildLog(clear?: boolean): { x: number; y: number; z: number; kind: 'micro' | 'box' | 'water'; frame: number }[];
+// セクションのメッシュを作り直した記録（古い順、最初の全部の分もふくむ、光だけの作り直しもふくむ）。clear === true は返してから空にする
+```
+
+- 段の境目は ±2 のずらしを見こむ（小ブロックは dist ≤ 34、箱は 30 ≤ dist ≤ 50）。
+- 「全部空気」のセクションは必ず `none/empty`、中まで固くて 6 方向も固いセクションは `none/hidden`（高さ 48 でも、`fill` で y 0〜47 をうめれば中の段 `sy=1` が「見えない」になる）。
+- 小ブロックが間に合わず先に箱で出す場合、`tier` は「いま見えている段」。`rebuildLog` に同じセクションが 2 回出てもよい（テストは「ちがうセクションの数」を数える）。
+- 追加の hook 名・形を変えるときは、このチケットとテストを一緒に直す。
+
+## こわれる見込みのテスト
+世界が 9×9×9 の見た目になる（三角形・描画回数・作り直しの単位が変わる）ので、実装後に次を見直す。**今は直していない**（開発が実装と一緒に、基準 4・5 の値に合わせて直す）。
+| テスト | 理由 | 直し方の案 |
+|---|---|---|
+| `e2e/m1.spec.ts` AC17/18（110〜111 行）`drawCalls ≤ 100`・`triangles ≤ 300_000` | セクションごと・小ブロックで増える | 基準 5 の値（三角形 120 万、描画回数 スタート 300）に上げる |
+| `e2e/m1.spec.ts` AC19（`rebuildStats().count ≥ 20`・`lastMs`）、`e2e/m2.spec.ts` AC24a（`rebuildStats().lastMs`） | 作り直しの単位がチャンクからセクションに変わる | `rebuildStats` の意味（セクション 1 つ分）を決めて、記録のみ／基準 4 の値に |
+| `e2e/m1.spec.ts` AC15（`triangles` が変わる） | 動くはずだが、ほった所が箱／小ブロックの差しかえ待ちだと次のコマに変わらない恐れ | `step` の回数を 3 に |
+| `e2e/m72.spec.ts` AC24（`on.dc - off.dc ≤ 3`・`on.tri ≤ 600000`） | 世界の三角形が増えて 600000 をこえる | 差分で見る（`on.tri - off.tri`）か 基準 5 の値に |
+| `e2e/m5.spec.ts` AC15（`render.chunks().drawn` が 88 以内のチャンク数と同じ） | 描く輪の考え方が変わる（48＋LOD 96） | `render.chunks()` の意味を残すか、このテストを `sectionStats` の段の幅に置きかえる |
+| 見た目のスクショだけ撮る spec（`m1` AC21/22、`m3` の空・妖怪・ドロップ、`m5` AC22、`m2` AC23、`m72` の畑 など。画像の比較はしていない） | 落ちないが、保存した画像が古くなる | `docs/test-reports/assets` を撮りなおして、art-reviewer が B ごつごつどおりか見る |
+| `e2e/smoke.spec.ts`（`drawCalls > 0`・`triangles > 0`） | 影響なし（念のため） | — |
+
 ## 進め方（`docs/rules.md` 「テストは実装より先」）
 1. `tester`: 上の 1〜3・6 の E2E を先に書き、こわれる既存テスト（見た目のスクショなど）を直す → 1 回回して赤を確かめる。
 2. `code-reviewer`: テストが基準どおりか見る。
