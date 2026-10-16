@@ -145,10 +145,10 @@ for (const [w, h] of SIZES) {
       await page.locator('.inv-tabs [data-tab=items]').click();
       // 窓の大きさを変える → すぐ合わせ直す
       await page.setViewportSize({ width: 800, height: 500 });
-      // resize の 知らせは ブラウザの 描画待ちで 遅れることが ある（main でも 100ms では 不安定）ので 最大 1 秒 まつ
-      await expect.poll(frame, { timeout: 1000, intervals: [20] }).toBe(true);
+      // resize の 知らせは ブラウザの 描画待ちで 遅れることが ある（main でも 100ms では 不安定、CI では 1 秒 でも 足りなかった）ので 最大 3 秒 まつ
+      await expect.poll(frame, { timeout: 3000, intervals: [20] }).toBe(true);
       await page.setViewportSize({ width: w, height: h });
-      await expect.poll(frame, { timeout: 1000, intervals: [20] }).toBe(true);
+      await expect.poll(frame, { timeout: 3000, intervals: [20] }).toBe(true);
       // HUD（もちもの画面を閉じて）
       await page.evaluate(() => {
         const hk = window.__rikkun as any;
