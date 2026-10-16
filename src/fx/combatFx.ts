@@ -5,6 +5,7 @@ import { COMBAT_FX, invincibleAlpha } from './combatFxModel';
 import { playCombat } from './combatSounds';
 import { FX_SETTINGS, type FxSettings } from './config';
 import type { SoundFx } from './sound';
+import { TITLE_RULES } from '../yokai/title';
 
 export interface CombatFxDeps {
   scene: THREE.Scene;
@@ -41,6 +42,8 @@ export class CombatFx {
   private rng = 4242;
   private readonly offPhase: () => void;
   private lastAlpha = 1;
+  /** 二つ名の音が鳴り終わるまで（秒） */
+  private titleSoundLeft = 0;
 
   constructor(private readonly d: CombatFxDeps) {
     this.cfg = d.settings ?? FX_SETTINGS;
@@ -55,6 +58,13 @@ export class CombatFx {
     });
   }
 
+  /** 二つ名が出た音（仮: 今の「ぽわん」を 低くして鳴らす。本物は #113・#114 のあと #115 で入れかえる）。鳴っている間は あとの音を重ねない */
+  private playTitleSound(title: 'oyabun' | 'taisho' | 'nushi'): void {
+    if (this.titleSoundLeft > 0) return;
+    this.titleSoundLeft = TITLE_RULES[title].soundSeconds;
+    playCombat(this.d.sound, 'spawn', title === 'oyabun' ? -5 : title === 'taisho' ? -8 : -12);
+  }
+
   private rand(): number {
     this.rng = (Math.imul(this.rng, 1664525) + 1013904223) >>> 0;
     return this.rng / 4294967296 - 0.5;
@@ -63,6 +73,7 @@ export class CombatFx {
   update(dt: number): void {
     const d = this.d;
     const sound = d.sound;
+    if (this.titleSoundLeft > 0) this.titleSoundLeft -= dt;
 
     for (const ev of d.combat.drainEvents()) {
       switch (ev.type) {
@@ -107,6 +118,8 @@ export class CombatFx {
         playCombat(sound, 'spawn');
       } else if (ev.type === 'defeat') {
         playCombat(sound, 'defeat');
+      } else if (ev.type === 'titleSound') {
+        this.playTitleSound(ev.title);
       }
     }
 

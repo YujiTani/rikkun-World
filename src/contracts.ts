@@ -179,6 +179,10 @@ export type ItemOnlyId =
   | 'wood_pickaxe'
   | 'stone_pickaxe'
   | 'iron_pickaxe'
+  // BAL-D（BALANCE.md §2.8）: おの 3 本
+  | 'wood_axe'
+  | 'stone_axe'
+  | 'iron_axe'
   | 'iron_ingot'
   | 'bokuto'
   | 'katana'
@@ -407,7 +411,18 @@ export interface YokaiInfo {
   /** 攻撃の何ステップ目か（攻撃していなければ 0） */
   attackTick: number;
   scale: number;
+  /** 表示名（モデルの displayName。例 からかさおばけ） */
+  name: string;
+  /** 二つ名（BALANCE §2.5） */
+  title: YokaiTitle;
+  /** 出たときの場所の倍率 M（BALANCE §2.3） */
+  m: number;
+  /** 1 回の攻撃力（体力。1 = ハート半分） */
+  attack: number;
 }
+
+/** 二つ名（弱い順 おやぶん → たいしょう → ヌシ。BALANCE §2.5） */
+export type YokaiTitle = 'none' | 'oyabun' | 'taisho' | 'nushi';
 
 export type YokaiEvent =
   | { type: 'spawn'; tick: number; id: number; kind: YokaiKind; position: Vec3 }
@@ -416,7 +431,9 @@ export type YokaiEvent =
   | { type: 'fireball'; tick: number; id: number; position: Vec3 }
   | { type: 'fireballEnd'; tick: number; position: Vec3; hitPlayer: boolean }
   | { type: 'hurt'; tick: number; id: number; kind: YokaiKind; position: Vec3 }
-  | { type: 'defeat'; tick: number; id: number; kind: YokaiKind; position: Vec3; reward: number }
+  | { type: 'defeat'; tick: number; id: number; kind: YokaiKind; position: Vec3; reward: number; title: YokaiTitle }
+  /** 二つ名の妖怪が出た（1 体に 1 回。音を鳴らす合図） */
+  | { type: 'titleSound'; tick: number; id: number; kind: YokaiKind; title: Exclude<YokaiTitle, 'none'> }
   | { type: 'leave'; tick: number; id: number; kind: YokaiKind; position: Vec3 };
 
 export interface YokaiRayHit {
@@ -1722,6 +1739,9 @@ export const W2_SETTING_DEFAULTS: Readonly<W2Settings> = {
     wood_pickaxe: 59,
     stone_pickaxe: 131,
     iron_pickaxe: 250,
+    wood_axe: 59,
+    stone_axe: 131,
+    iron_axe: 250,
     bokuto: 59,
     katana: 250,
     naginata: 250,

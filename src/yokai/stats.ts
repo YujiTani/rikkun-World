@@ -1,9 +1,12 @@
+import type { YokaiKind, YokaiTitle } from '../contracts';
+import { TITLE_RULES } from './title';
+
+export type { YokaiTitle };
+
 /** 妖怪の強さ（設計書 3 章の表）。M3 本番の AI が使う */
 export interface YokaiStats {
   /** 体力（素手で何回たたくとたおれるか） */
   hp: number;
-  /** 攻撃力（ハートの数。0.5 = 半分） */
-  damageHearts: number;
   /** 攻撃を始めてから当たるまで（秒） */
   hitSeconds: number;
   /** 攻撃の合計の長さ（秒。起き上がり・首のもどりまで） */
@@ -18,8 +21,10 @@ export interface YokaiStats {
   avoidsWater: boolean;
 }
 
-/** 妖怪の種類（contracts と同じ名前。循環をさけてここで持つ） */
-export type StrengthKind = 'karakasa' | 'chochin' | 'nurikabe' | 'rokurokubi';
+/** 攻撃力の上限（ぬりかべ の今。防具なしでも 1 回は たえる。§2.3） */
+export const ATTACK_CAP = 16;
+/** M で 攻撃力が上がる速さ（M の上がり方の半分。§2.3） */
+export const ATTACK_M_RATE = 0.5;
 
 /** 強さの物さし「からかさ = 1」（BALANCE §2.2・§4.9）。からかさ の体力 8・攻撃力 2 */
 export const STRENGTH_SCALE = { hp: 8, attack: 2 } as const;
@@ -50,7 +55,7 @@ interface Basis {
   frontOnly: boolean;
 }
 
-const BASIS: Record<StrengthKind, Basis> = {
+const BASIS: Record<YokaiKind, Basis> = {
   karakasa: { target: 1, attack: 2, xp: 3, projectile: false, frontOnly: false },
   chochin: { target: 1.25, attack: 2, xp: 2, projectile: true, frontOnly: false },
   rokurokubi: { target: 1.5, attack: 2, xp: 3, projectile: false, frontOnly: false },
@@ -58,8 +63,8 @@ const BASIS: Record<StrengthKind, Basis> = {
 };
 
 /** 動きの数（今のまま）。hp は下で計算して入れる */
-type Motion = Omit<YokaiStats, 'hp' | 'damageHearts'>;
-const MOTION: Record<StrengthKind, Motion> = {
+type Motion = Omit<YokaiStats, 'hp'>;
+const MOTION: Record<YokaiKind, Motion> = {
   karakasa: { hitSeconds: 0.5, attackSeconds: 1.2, reach: 2.5, speed: 1.5, cooldownSeconds: 2.0, avoidsWater: true },
   chochin: { hitSeconds: 0.5, attackSeconds: 0.8, reach: 8, speed: 1.0, cooldownSeconds: 3.0, avoidsWater: true },
   nurikabe: { hitSeconds: 1.5, attackSeconds: 4.0, reach: 3, speed: 0.5, cooldownSeconds: 2.0, avoidsWater: false },
@@ -71,41 +76,60 @@ function ceilEps(x: number): number {
   return Math.ceil(x - 1e-9);
 }
 
-/** 二つ名（#110 が中身を足す。いまは なし だけ） */
-export type YokaiTitle = 'none';
-
 export interface StrengthResult {
   /** こわさ = 攻撃力の比 × 特ちょうの倍率 */
   fear: number;
   hp: number;
   attack: number;
   xp: number;
-  /** 体力の比 × こわさ（目標の強さにもどる。たしかめ用） */
+  /** 体力の比 × こわさ（目標の強さにもどる。たしかめ用。M・二つ名 なしのときの体力で出す） */
   strength: number;
+  /** はやさの倍率（二つ名） */
+  speedMul: number;
+  /** ドロップの表を引く回数（二つ名） */
+  dropRolls: number;
 }
 
 /**
- * (種類, 場所の倍率 M = 1, 二つ名 = なし) → 体力・攻撃力・経験値（BALANCE §2.2・§4.1）。
- * #110 が M と二つ名の中身をここに足す（引数はそのまま。いまは M = 1・なし だけ）。
+ * (種類, 場所の倍率 M, 二つ名) → 体力・攻撃力・経験値（BALANCE §2.2・§2.3・§2.5・§4.5）。
+ * - 体力 = 切り上げ（元の体力 × M × 二つ名の倍率）
+ * - 攻撃力 = 小さい方（16、切り上げ（元 × （1 ＋ （M − 1）÷ 2）） ＋ 二つ名の足し）。攻撃力の式は ここの 1 か所だけ
+ * - 経験値 = 切り上げ（元 × M × 二つ名の倍率）
  */
-export function yokaiStrength(kind: StrengthKind, _m = 1, _title: YokaiTitle = 'none'): StrengthResult {
+export function yokaiStrength(kind: YokaiKind, m = 1, title: YokaiTitle = 'none'): StrengthResult {
   const b = BASIS[kind];
-  const m = MOTION[kind];
+  const mo = MOTION[kind];
+  const t = TITLE_RULES[title];
   let fear = b.attack / STRENGTH_SCALE.attack;
   if (b.projectile) fear *= FEAR_RULES.projectile;
-  if (m.attackSeconds + m.cooldownSeconds >= FEAR_RULES.longGapSeconds - 1e-9) fear *= FEAR_RULES.longGapMul;
+  if (mo.attackSeconds + mo.cooldownSeconds >= FEAR_RULES.longGapSeconds - 1e-9) fear *= FEAR_RULES.longGapMul;
   if (b.frontOnly) fear *= FEAR_RULES.frontOnlyMul;
-  if (m.hitSeconds >= FEAR_RULES.longWindupSeconds) fear *= FEAR_RULES.longWindupMul;
-  const hp = ceilEps((STRENGTH_SCALE.hp * b.target) / fear);
-  return { fear, hp, attack: b.attack, xp: b.xp, strength: (hp / STRENGTH_SCALE.hp) * fear };
+  if (mo.hitSeconds >= FEAR_RULES.longWindupSeconds) fear *= FEAR_RULES.longWindupMul;
+  const baseHp = ceilEps((STRENGTH_SCALE.hp * b.target) / fear);
+  const attack = Math.min(ATTACK_CAP, ceilEps(b.attack * (1 + (m - 1) * ATTACK_M_RATE)) + t.attackAdd);
+  return {
+    fear,
+    hp: ceilEps(baseHp * m * t.hpMul),
+    attack,
+    xp: ceilEps(b.xp * m * t.xpMul),
+    strength: (baseHp / STRENGTH_SCALE.hp) * fear,
+    speedMul: t.speedMul,
+    dropRolls: t.dropRolls,
+  };
 }
 
-function build(kind: StrengthKind): YokaiStats {
+/** 二つ名をふくめた動きの数（はやさ ×二つ名）。体力は M で変わるので yokaiStrength で見る */
+export function yokaiStats(kind: YokaiKind, title: YokaiTitle = 'none'): YokaiStats {
+  const base = YOKAI_STATS[kind];
+  return { ...base, speed: base.speed * TITLE_RULES[title].speedMul };
+}
+
+function build(kind: YokaiKind): YokaiStats {
   const r = yokaiStrength(kind);
-  return { hp: r.hp, damageHearts: r.attack / 2, ...MOTION[kind] };
+  return { hp: r.hp, ...MOTION[kind] };
 }
 
-export const YOKAI_STATS: Record<StrengthKind, YokaiStats> = {
+export const YOKAI_STATS: Record<YokaiKind, YokaiStats> = {
   karakasa: build('karakasa'),
   chochin: build('chochin'),
   nurikabe: build('nurikabe'),

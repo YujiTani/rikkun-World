@@ -258,6 +258,8 @@ function kindOf(item: ItemId | null, c: ToolConfig): ToolKind {
   if (item === null) return 'hand';
   if (item === 'yumi') return 'bow';
   if (BLADES.has(item) || c.weaponDamage[item] !== undefined) return 'blade';
-  if (c.toolPower[item] !== undefined || item.endsWith('_pickaxe')) return 'pickaxe';
+  // おの・つるはし は 「ほる道具」。くわ は toolPower を 持つが たがやす 道具なので 今までどおり 'other'
+  if (item.endsWith('_pickaxe') || item.endsWith('_axe')) return 'pickaxe';
+  if (c.toolPower[item] !== undefined && item !== 'kuwa') return 'pickaxe';
   return 'other';
 }

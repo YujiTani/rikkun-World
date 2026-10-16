@@ -49,9 +49,9 @@ function rig() {
 }
 
 describe('たんす', () => {
-  it('レシピ 21 番目 = き 8・てつの かたまり 2', () => {
-    expect(CRAFT_RECIPES[20]).toMatchObject({ id: 'tansu', works: true });
-    expect(CRAFT_RECIPES[20]!.inputs).toEqual([{ item: 'log', count: 8 }, { item: 'iron_ingot', count: 2 }]);
+  it('レシピ 24 番目（BAL-D: おの 3 こ が 前に 入った） = き 8・てつの かたまり 2', () => {
+    expect(CRAFT_RECIPES[23]).toMatchObject({ id: 'tansu', works: true });
+    expect(CRAFT_RECIPES[23]!.inputs).toEqual([{ item: 'log', count: 8 }, { item: 'iron_ingot', count: 2 }]);
   });
 
   it('向き: 北を向いて置くと 前は 南', () => {

@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import { boxGeo } from '../common';
 
-/** 二つ名（BAL-B #110 が決める。今はいつも 'none'） */
-export type YokaiTitle = 'none' | 'oyabun' | 'taisho' | 'nushi';
+import type { YokaiTitle } from '../../contracts';
+
+export type { YokaiTitle };
 export type HpBarColor = 'white' | 'yellow' | 'red';
 export type HpBarIcon = 'oyabun' | 'taisho' | 'nushi';
 
@@ -155,6 +156,17 @@ export class HpBar {
 
   hide(): void {
     this.group.visible = false;
+  }
+
+  /** 二つ名のアイコンの板を捨てる（長方形の形・色と、アイコンの絵は みんなで使うので ここでは捨てない） */
+  dispose(): void {
+    if (this.iconMesh) {
+      this.iconMesh.geometry.dispose();
+      (this.iconMesh.material as THREE.Material).dispose();
+      this.group.remove(this.iconMesh);
+      this.iconMesh = null;
+    }
+    this.group.removeFromParent();
   }
 
   get shown(): boolean {

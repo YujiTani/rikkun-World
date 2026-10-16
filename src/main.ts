@@ -33,7 +33,7 @@ import { FARM_HINT_VIEW } from './ui/farmHintModel';
 import { itemRarity } from './drops/rarity';
 import { itemType } from './inventory/items';
 import { createGuideHook } from './ui/playOverlay';
-import { createM6Settings, createM7Settings, createW2Settings, SEED_ITEM, VEG_ITEM, CROP_KINDS, cropKindOfBlock, type FarmPlacement, type AchievementId, type CombatEvent, type DefeatWith, type DigEvent, type ItemId, type SwingAnim, type YokaiKind } from './contracts';
+import { SEA_Y, createM6Settings, createM7Settings, createW2Settings, SEED_ITEM, VEG_ITEM, CROP_KINDS, cropKindOfBlock, type FarmPlacement, type AchievementId, type CombatEvent, type DefeatWith, type DigEvent, type ItemId, type SwingAnim, type YokaiKind } from './contracts';
 import { ACHIEVEMENT_DEFS, AchievementSystem, AchievementsPageModel, createAchievementsHook, type StepContext } from './achievements';
 import { CelebrateUi } from './ui/celebrate';
 import { AchievementsPage, achievementArtUrl } from './ui/achievementsPage';
@@ -59,6 +59,8 @@ import { LevelSystem, createLevelHook } from './level';
 import { LevelHud } from './ui/levelHud';
 import { ActionHint } from './ui/actionHint';
 import { YokaiFocus } from './fx/yokaiFocus';
+import { TitleAnnounce } from './ui/titleAnnounce';
+import { YokaiNameplates } from './ui/yokaiNameplates';
 import { actionHintLines } from './ui/actionHintModel';
 import { createRng } from './world/gen/random';
 import { FX_SETTINGS } from './fx/config';
@@ -576,8 +578,11 @@ yokaiManager = new YokaiManager({
   tick: () => game.tick + 1,
   seed,
   light: renderer.light,
-  onDefeat: (kind) => {
-    level.onDefeat(kind);
+  // 場所の倍率 M の はじまりの場所・海面の高さは、世界の設定から読む（数を書きこまない）
+  origin: () => island.spawn(),
+  seaY: () => SEA_Y,
+  onDefeat: (kind, info) => {
+    level.onDefeat(kind, info.xp);
     onDefeatAch(kind);
   },
   // ぬりかべ: たおれこみでこわす・みず で石になる（くだけるつぶと音。fx はあとで作るので関数で包む）
@@ -639,6 +644,10 @@ const hotbar = new Hotbar(hud, inventory, notice);
 // ねらっている所の ヒント（設定 actionHint で消せる）
 const hintSettings = { actionHint: true };
 const actionHint = new ActionHint(hud);
+const titleAnnounce = new TitleAnnounce(hud);
+const yokaiNameplates = new YokaiNameplates(hud);
+const NO_PLATES: { id: number; text: string; x: number; y: number; z: number; dist: number }[] = [];
+const plateBuf: { id: number; text: string; x: number; y: number; z: number; dist: number }[] = [];
 const yokaiFocus = new YokaiFocus((id) => yokaiManager.modelOf(id), () => game.camera.position);
 const hintVisible = (): boolean => hintSettings.actionHint && screen.mode() === 'play' && !screen.inventoryOpen() && rig.crosshairVisible();
 const nameOf = (item: ItemId): string => itemType(item)?.name ?? item;
@@ -938,7 +947,7 @@ time.onPhaseChange((p) => achievements.feedPhase(p));
 const defeatWith = (): DefeatWith => {
   const h = inventory.held()?.item;
   if (h === 'bokuto' || h === 'katana' || h === 'naginata' || h === 'crystal_katana' || h === 'yumi') return h;
-  if (h === 'wood_pickaxe' || h === 'stone_pickaxe' || h === 'iron_pickaxe') return 'pickaxe';
+  if (h === 'wood_pickaxe' || h === 'stone_pickaxe' || h === 'iron_pickaxe' || h === 'wood_axe' || h === 'stone_axe' || h === 'iron_axe') return 'pickaxe';
   return 'hand';
 };
 onDefeatAch = (kind) => {
@@ -1258,6 +1267,9 @@ game.onUpdate((dt) => {
   combatUi.clock.setTime(time.dayTick(), timeSettings, time.day() + 1);
   crosshair.setVisible(rig.crosshairVisible() && screen.mode() === 'play');
   yokaiFocus.update(hintVisible() ? dig.aimedYokaiId() : null);
+  titleAnnounce.sync(yokaiM.announce());
+  // 持ち物・メニューを開いている間は 名前を出さない
+  yokaiNameplates.update(screen.mode() === 'play' ? yokaiM.nameplates(plateBuf) : NO_PLATES, game.camera);
   actionHint.update(hintVisible() ? actionHintLines(dig.previewRightClick(), dig.previewLeftClick(), { held: tools.current().item, heldIsPickaxe: tools.current().kind === 'pickaxe', heldIsBlade: tools.current().kind === 'blade' }) : {});
   farmHint.step();
   {
@@ -1277,7 +1289,7 @@ game.onUpdate((dt) => {
     const ck = tb ? cropKindOfBlock(tb.id) : null;
     farmAimHud.update(a, ck ? nameOf(VEG_ITEM[ck.kind]) : a ? 'はたけ' : '');
   }
-  hotbar.update();
+  hotbar.update(dig.toolHint()?.slot ?? null);
   inventoryScreen.update();
   storageScreen.update();
   achievementsPage.update();
@@ -1326,7 +1338,7 @@ const achievementsHook = {
   },
 };
 const facingTmp = { x: 0, y: 0, z: 0 };
-const hudHook = { actionHint: () => actionHint.current(), yokaiFocus: () => yokaiFocus.current(), yokaiFocusHulls: () => yokaiFocus.hullCount(), hpBar: (id: number) => yokaiManager?.hpBarInfo(id) ?? null };
+const hudHook = { toolHint: () => { const h = dig.toolHint(); return h ? { slot: h.slot, ticksLeft: h.ticksLeft } : null; }, actionHint: () => actionHint.current(), yokaiFocus: () => yokaiFocus.current(), yokaiFocusHulls: () => yokaiFocus.hullCount(), hpBar: (id: number) => yokaiManager?.hpBarInfo(id) ?? null, announce: () => yokaiManager?.announce() ?? null, nameplate: (id: number) => yokaiManager?.nameplateInfo(id) ?? null };
 const guideHook = createGuideHook(playOverlay);
 const lockHook = createLockHook(lock);
 const combatHook = createCombatHook(combat);

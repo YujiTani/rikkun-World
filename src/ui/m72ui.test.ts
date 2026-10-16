@@ -66,12 +66,12 @@ describe('M7-2 実績（AC21・§4.7）', () => {
     expect(s.stat('pet:*')).toBe(0);
     expect(s.stat('harvestPet')).toBe(0);
   });
-  it('つくる 3 つ で craft.everything は 25 が 目標', () => {
+  it('つくる 3 つ で craft.everything は 28 が 目標', () => {
     const s = mk();
     for (const recipe of ['watering_can', 'long_watering_can', 'sprinkler'])
       s.feedCraft([{ type: 'craft', tick: 1, recipe, item: recipe, count: 1 } as never]);
     for (const id of ['craft.watering_can.1', 'craft.long_watering_can.1', 'craft.sprinkler.1']) expect(s.isUnlocked(id), id).toBe(true);
-    expect(ACHIEVEMENT_DEFS.find((d) => d.id === 'craft.everything.25')).toBeTruthy();
+    expect(ACHIEVEMENT_DEFS.find((d) => d.id === 'craft.everything.28')).toBeTruthy();
   });
 });
 

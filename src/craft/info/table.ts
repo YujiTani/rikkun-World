@@ -116,6 +116,9 @@ export const ITEM_INFO: Readonly<Record<string, InfoRow>> = {
   wood_pickaxe: { use: 'ブロック を はやく ほれる', how: PICK_HOW, buttons: ['1-9', 'leftHold'], stats: 'pickaxe' },
   stone_pickaxe: { use: 'もっと はやく ほれる。てつ も ほれる', how: PICK_HOW, buttons: ['1-9', 'leftHold'], stats: 'pickaxe' },
   iron_pickaxe: { use: 'いちばん はやく ほれる。てつ も ほれる', how: PICK_HOW, buttons: ['1-9', 'leftHold'], stats: 'pickaxe' },
+  wood_axe: { use: 'き を はやく きれる', how: PICK_HOW, buttons: ['1-9', 'leftHold'], stats: 'pickaxe' },
+  stone_axe: { use: 'もっと はやく き を きれる', how: PICK_HOW, buttons: ['1-9', 'leftHold'], stats: 'pickaxe' },
+  iron_axe: { use: 'いちばん はやく き を きれる', how: PICK_HOW, buttons: ['1-9', 'leftHold'], stats: 'pickaxe' },
   bokuto: { use: 'ようかい を たたく', how: KATANA_HOW, buttons: ['1-9', 'left'], stats: 'blade' },
   katana: { use: 'ようかい を つよく たたく', how: KATANA_HOW, buttons: ['1-9', 'left'], stats: 'blade' },
   naginata: {

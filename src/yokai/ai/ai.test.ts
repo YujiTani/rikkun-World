@@ -739,3 +739,61 @@ describe('WEAPON-2: damage の 4 つ目（押す距離・上への初速）と s
     expect(m.setHp(999, 1)).toBe(false);
   });
 });
+
+describe('BAL-B: 二つ名・場所の倍率（つなぎ）', () => {
+  it('ヌシ: 体力 24・攻撃 4・おしらせ 180 ステップ・音の出来事 1 回・たおすと経験値 15 と title', () => {
+    let got: { xp: number; title: string } | null = null;
+    const s = setup();
+    const m = new YokaiManager({
+      world: s.world, time: s.time, getPlayer: () => s.player, combat: s.combat, inventory: s.inv, seed: 1,
+      onDefeat: (_k, info) => (got = info),
+    });
+    const id = m.spawn('karakasa', 4.5, 9, 6.5, { ai: false, title: 'nushi', m: 1 });
+    const row = m.list()[0]!;
+    expect([row.title, row.m, row.maxHp, row.attack, row.name]).toEqual(['nushi', 1, 24, 4, 'からかさおばけ']);
+    expect(m.announce()).toEqual({ text: 'からかさおばけ の ヌシ が あらわれた！', icon: 'nushi', ticksLeft: 180 });
+    expect(m.takeHookEvents().filter((e) => e.type === 'titleSound')).toHaveLength(1);
+    for (let i = 0; i < 179; i++) m.update(1 / 60);
+    expect(m.announce()).not.toBeNull();
+    m.update(1 / 60);
+    expect(m.announce()).toBeNull();
+    expect(m.nameplateInfo(id)).toEqual({ visible: true, text: 'からかさおばけ の ヌシ' });
+    m.damage(id, 24, s.player.position);
+    expect(got).toEqual({ xp: 15, title: 'nushi', m: 1 });
+    expect(m.drainEvents().find((e) => e.type === 'defeat')).toMatchObject({ title: 'nushi' });
+  });
+  it('たいしょう・ヌシ は 1 体まで・ぬりかべ は おやぶん まで・16 ブロックより遠いと名前なし', () => {
+    const { m, player } = setup();
+    const a = m.spawn('karakasa', 4.5, 9, 6.5, { ai: false, title: 'taisho' });
+    const b = m.spawn('karakasa', 4.5, 9, 9.5, { ai: false, title: 'nushi' });
+    const n = m.spawn('nurikabe', 8.5, 9, 6.5, { ai: false, title: 'taisho' });
+    const t = (id: number) => m.list().find((y) => y.id === id)!.title;
+    expect([t(a), t(b), t(n)]).toEqual(['taisho', 'none', 'oyabun']);
+    player.position.x = 40;
+    m.update(1 / 60);
+    expect(m.nameplateInfo(a)?.visible).toBe(false);
+  });
+  it('M: 出た場所から。はじまりの場所・海面は設定から読む', () => {
+    const s = setup();
+    const m = new YokaiManager({
+      world: s.world, time: s.time, getPlayer: () => s.player, combat: s.combat, inventory: s.inv, seed: 1,
+      origin: () => ({ x: 4.5 - 564, z: 6.5 }), seaY: () => 9 + 40,
+    });
+    const id = m.spawn('karakasa', 4.5, 9, 6.5, { ai: false });
+    expect(m.list()[0]!.m).toBe(1); // テスト用の出し方は m を省くと 1
+    m.clear();
+    m.spawn('karakasa', 4.5, 9, 6.5, { ai: false, m: 'auto' }); // 自動の出現と同じ決め方（場所から）
+    expect(m.list()[0]!.m).toBeCloseTo(2, 9); // 遠さ 564・深さ 40
+    expect(m.list()[0]!.maxHp).toBe(16);
+    expect(m.list()[0]!.attack).toBe(3);
+    expect(id).toBeGreaterThan(0);
+  });
+  it('大きい二つ名は 体が入らない所では なし', () => {
+    const { m, world } = setup();
+    for (let x = 0; x <= 40; x++) for (let z = 0; z <= 40; z++) world.setBlock(x, 11, z, 'stone'); // 天井 高さ 2（9〜10）
+    const id = m.spawn('karakasa', 4.5, 9, 6.5, { ai: false, title: 'nushi' }); // 高さ 1.6 × 1.5 = 2.4 は入らない
+    expect(m.list().find((y) => y.id === id)!.title).toBe('none');
+    const id2 = m.spawn('karakasa', 4.5, 9, 9.5, { ai: false, title: 'oyabun' }); // 1.6 × 1.25 = 2.0 は入る
+    expect(m.list().find((y) => y.id === id2)!.title).toBe('oyabun');
+  });
+});
