@@ -21,6 +21,11 @@
   gap: var(--rk-sp-1);
   padding: var(--rk-sp-1) var(--rk-sp-3) var(--rk-sp-1) var(--rk-sp-2);
   background: var(--rk-hud-bg);
+  text-shadow:
+    2px 0 0 var(--rk-bg-900),
+    -2px 0 0 var(--rk-bg-900),
+    0 2px 0 var(--rk-bg-900),
+    0 -2px 0 var(--rk-bg-900);
   border-radius: var(--rk-r-pill);
   opacity: 0.8;
 }
