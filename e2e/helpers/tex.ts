@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test';
 import { blockLightBrightness, lightBrightness } from '../../src/world/light/curve';
 import { LIGHT_CONFIG } from '../../src/world/light/config';
+import { SCENERY_CONFIG } from '../../src/game/config';
 
 /**
  * TEX-A（#146、docs/tickets/TEX-A.md）の E2E の共通の道具。
@@ -222,10 +223,11 @@ export function faceCorners(bx: number, by: number, bz: number, face: Face): { x
 }
 
 /** 面のタイルの 16×16 の画素の中心を、ワールドの点にする（面の上の点。上下 = (x,z)・東西 = (z,y)・南北 = (x,y)。向きは texelAt が決める） */
-export function faceGridPoints(bx: number, by: number, bz: number, face: Face, n = 4): { x: number; y: number; z: number }[] {
+export function faceGridPoints(bx: number, by: number, bz: number, face: Face, n = 4, inner = false): { x: number; y: number; z: number }[] {
   const pts: { x: number; y: number; z: number }[] = [];
   // 16 画素の中心 (k + 0.5) / 16 のうち、n × n 個（0.5/16 から 15.5/16 を等間隔に。n = 4 なら k = 1, 5, 9, 13 → 中心 (k + 0.5) / 16）
-  const ks = Array.from({ length: n }, (_, i) => Math.floor((i * 16) / n + 16 / n / 2 - 0.5));
+  // inner: ふちの 4 画素ぶんは のぞく（でこぼこの ふちでは 斜めから見ると 向こうがわの床が見えるため）
+  const ks = Array.from({ length: n }, (_, i) => (inner ? 4 + Math.floor((i * 8) / n + 8 / n / 2 - 0.5) : Math.floor((i * 16) / n + 16 / n / 2 - 0.5)));
   for (const b of ks)
     for (const a of ks) {
       const ua = (a + 0.5) / 16;
@@ -414,6 +416,8 @@ export interface Rec {
   /** 3×3 の画素（da, db = −1..1 の 1/16 ずつずらした点）の texelAt の rgb。まんなか = cands[4] */
   cands: Rgb[];
   ao: number;
+  /** 面の中で ±0.09 ブロックの 5×5 点ずらした AO（斜めから見たときの 位置のずれを ゆるす用） */
+  aoN: number[];
   sky: number;
   block: number;
   darken: number;
@@ -451,7 +455,15 @@ export async function sampleFace(page: Page, pts: { x: number; y: number; z: num
             cands.push(r.texelAt(q.x, q.y, q.z, face).rgb);
           }
         const l = h.world.lightAt(Math.floor(p.x + n[0] * 0.5), Math.floor(p.y + n[1] * 0.5), Math.floor(p.z + n[2] * 0.5));
-        return { scr, pixel, cands, ao: r.aoAt(p.x, p.y, p.z, face), sky: l.sky, block: l.block, darken };
+        const aoN: number[] = [];
+        for (const da of [-0.09, -0.045, 0, 0.045, 0.09])
+          for (const db of [-0.09, -0.045, 0, 0.045, 0.09]) {
+            const q: any = { x: p.x, y: p.y, z: p.z };
+            q[ax[0]] += da;
+            q[ax[1]] += db;
+            aoN.push(r.aoAt(q.x, q.y, q.z, face));
+          }
+        return { scr, pixel, cands, ao: r.aoAt(p.x, p.y, p.z, face), aoN, sky: l.sky, block: l.block, darken };
       });
     },
     { pts, face },
@@ -483,4 +495,93 @@ export const countSky = (px: (Rgb | null)[]): number => px.filter((p) => p && is
 export async function saveShot(page: Page, name: string): Promise<void> {
   if (!process.env.TEX_SHOTS) return;
   await page.screenshot({ path: `docs/test-reports/assets/${name}.png` });
+}
+
+/** ブロックの面のタイルに ある色の一覧（texelAt を 16×16 の中心で呼ぶ。重なりはまとめる） */
+export async function tilePalette(page: Page, bx: number, by: number, bz: number, face: Face): Promise<Rgb[]> {
+  return page.evaluate(
+    ({ bx, by, bz, face }) => {
+      const r = (window as any).__rikkun.render;
+      const seen = new Map<string, number[]>();
+      for (let b = 0; b < 16; b++)
+        for (let a = 0; a < 16; a++) {
+          const ua = (a + 0.5) / 16, ub = (b + 0.5) / 16;
+          const p = { top: [bx + ua, by + 1, bz + ub], bottom: [bx + ua, by, bz + ub], north: [bx + ua, by + ub, bz], south: [bx + ua, by + ub, bz + 1], east: [bx + 1, by + ub, bz + ua], west: [bx, by + ub, bz + ua] }[face as string]!;
+          const c = r.texelAt(p[0], p[1], p[2], face).rgb as number[];
+          seen.set(c.join(','), c);
+        }
+      return [...seen.values()];
+    },
+    { bx, by, bz, face },
+  ) as Promise<Rgb[]>;
+}
+
+/**
+ * 画素が「タイルにある どれかの色 × 面の明るさ × 光」に合うか。でこぼこの面は へこみの中に 上向き・横向きの面が 見えるので、
+ * shades を 4 つの向きの明るさ（既定）にすると「どの向きの明るさでもよい」、[FACE_SHADE[face]] にすると「その面の明るさ」。
+ * 場所と向きの きびしい見方は 平らな箱（基準 4）で行う。
+ */
+export function matchesPalette(r: Rec, face: Face, pal: Rgb[], o: { tol?: number; anyShade?: boolean } = {}): boolean {
+  if (!r.pixel) return false;
+  const light = lightTriple(r.sky, r.darken, r.block);
+  const shades = o.anyShade ? [1, 0.8, 0.6, 0.5] : [FACE_SHADE[face]];
+  return pal.some((c) => shades.some((sh) => near(r.pixel!, expectedRgb(c, sh, light, 1), o.tol ?? 6)));
+}
+
+/** AO: 画素の線形の明るさ ÷ (タイルの線形の明るさ × 面の明るさ × 光) が、hook の AO（まわり ±0.09 ブロックのどれか）の ±tol に入る 画素のまわり 3×3 のタイルがあるか */
+export function matchesAo(r: Rec, face: Face, tol = 0.04): boolean {
+  if (!r.pixel) return false;
+  const light = lightTriple(r.sky, r.darken, r.block);
+  return r.cands.some((c) => {
+    const base = [0, 1, 2].map((i) => lin(c[i]) * FACE_SHADE[face] * light[i]);
+    const got = [0, 1, 2].map((i) => lin(r.pixel![i]));
+    return r.aoN.some((ao) => [0, 1, 2].every((i) => base[i] < 0.004 || Math.abs(got[i] / base[i] - ao) <= tol));
+  });
+}
+
+/**
+ * 面（4 つの角）の画素の平均。かすみ（scene.fog。線形・白でなく 空の色）を とりのぞいてから 平均する。
+ * 点ごとに カメラからの深さ d（カメラの前向きの長さ）で f = clamp((d − near) / (far − near)) を出し、線形の色で (c − f·fog) / (1 − f)。
+ * 空（かすみ）に 近すぎる（f > 0.8）点は のぞく。camera の前向きは player の yaw・pitch。
+ */
+export async function quadMeanUnfogged(page: Page, corners: { x: number; y: number; z: number }[], n = 24): Promise<{ mean: Rgb; used: number; maxFog: number } | null> {
+  const fogHex = SCENERY_CONFIG.skyColor;
+  const res = await page.evaluate(
+    ({ corners, n, near, far }) => {
+      const h = (window as any).__rikkun;
+      const shot = (window as any).__shot;
+      const p = h.player.get();
+      const c = h.camera.get().position;
+      const yw = (p.yaw * Math.PI) / 180, pt = (p.pitch * Math.PI) / 180;
+      const f = [Math.sin(yw) * Math.cos(pt), Math.sin(pt), -Math.cos(yw) * Math.cos(pt)];
+      const out: { rgb: number[]; fog: number }[] = [];
+      const sc = corners.map((q: any) => h.render.toScreen(q.x, q.y, q.z));
+      if (sc.some((q: any) => !q.onScreen)) return null;
+      for (let j = 0; j < n; j++)
+        for (let i = 0; i < n; i++) {
+          const u = (i + 0.5) / n, v = (j + 0.5) / n;
+          const w = (k: 'x' | 'y' | 'z') => (1 - v) * ((1 - u) * corners[0][k] + u * corners[1][k]) + v * ((1 - u) * corners[3][k] + u * corners[2][k]);
+          const q = { x: w('x'), y: w('y'), z: w('z') };
+          const s = h.render.toScreen(q.x, q.y, q.z);
+          const ix = Math.floor(s.x), iy = Math.floor(s.y);
+          if (ix < 0 || iy < 0 || ix >= shot.w || iy >= shot.h) continue;
+          const d = (q.x - c.x) * f[0] + (q.y - c.y) * f[1] + (q.z - c.z) * f[2];
+          const k = (iy * shot.w + ix) * 4;
+          out.push({ rgb: [shot.data[k], shot.data[k + 1], shot.data[k + 2]], fog: Math.max(0, Math.min(1, (d - near) / (far - near))) });
+        }
+      return out;
+    },
+    { corners, n, near: SCENERY_CONFIG.fogNear, far: SCENERY_CONFIG.fogFar },
+  );
+  if (!res) return null;
+  const F = [(fogHex >> 16) & 255, (fogHex >> 8) & 255, fogHex & 255];
+  const sum = [0, 0, 0];
+  let used = 0, maxFog = 0;
+  for (const o of res) {
+    if (o.fog > 0.8) continue;
+    maxFog = Math.max(maxFog, o.fog);
+    for (let i = 0; i < 3; i++) sum[i] += enc((lin(o.rgb[i]) - o.fog * lin(F[i])) / (1 - o.fog));
+    used++;
+  }
+  return { mean: sum.map((v) => v / Math.max(1, used)) as Rgb, used, maxFog };
 }
