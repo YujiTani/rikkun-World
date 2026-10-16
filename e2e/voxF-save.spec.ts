@@ -11,7 +11,6 @@ async function boot(page: Page, query = '') {
   await page.evaluate(() => window.__rikkun!.achievements.mute(true));
 }
 
-
 /** IndexedDB の列を読む（DB rikkun-world 版 1、ストア chunks、キー ['main', cx, cz]） */
 const idbGetChunk = (page: Page, cx: number, cz: number) =>
   page.evaluate(
@@ -70,7 +69,8 @@ test.describe('VOX-F 保存', () => {
     // 列 (0,0) を、版 1 のバイト列で作ったもので上書き（番号は blockTypes() の並び = 版 1 の番号）
     await page.evaluate(async () => {
       const h = (window as any).__rikkun;
-      const ids: string[] = h.world.blockTypes().map((t: { id: string }) => t.id);
+      // 版 1 の id の表（凍らせた物。BLOCK_IDS_V1 と同じ。blockTypes() には頼らない）
+      const ids: string[] = ['air','grass','dirt','stone','sand','log','leaves','coal_ore','iron_ore','water','bedrock','furnace','kawara','brick','torch','start_torch','tansu','farmland','farmland_wet','crop_onion','crop_tomato','crop_pumpkin','crop_eggplant','wild_onion','wild_tomato','wild_pumpkin','wild_eggplant','kakashi','kakashi_head','saku','sprinkler'];
       const n = (id: string) => ids.indexOf(id);
       const li = (lx: number, ly: number, lz: number) => (ly * 16 + lz) * 16 + lx;
       const db: IDBDatabase = await new Promise((ok, ng) => {
