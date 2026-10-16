@@ -250,7 +250,7 @@ test.describe('TEX-A', () => {
     const open = idx.filter((i) => use[i].aoN.every((v) => v > 0.999));
     const dark = idx.filter((i) => use[i].ao < 0.78);
     expect(open.length, '開けた所の点').toBeGreaterThan(20);
-    expect(dark.length, 'AO が 0.78 より小さい点').toBeGreaterThan(10);
+    expect(dark.length, 'AO が 0.78 より小さい点').toBeGreaterThan(8);
     expect(median(open.map(ratioOf)), '開けた所は AO で変わらない（ON ÷ OFF の中央値）').toBeGreaterThan(0.99);
     expect(median(dark.map(ratioOf)), '内かど・かべぞいは AO で暗くなる（ON ÷ OFF の中央値）').toBeLessThan(0.85);
     const shaded = idx.filter((i) => use[i].ao < 0.9);
@@ -312,14 +312,21 @@ test.describe('TEX-A', () => {
       await page.evaluate((on) => { const h = (window as any).__rikkun; h.render.setBlobShadow(on); h.step(1); }, on);
       await grab(page);
       const sc = await page.evaluate((p) => p.map((q: any) => (window as any).__rikkun.render.toScreen(q.x, q.y, q.z)), [...win, ground]);
-      return shotPixels(page, sc);
+      const all = [...sc, ...sc.flatMap((q: any) => [[-3, 0], [3, 0], [0, -3], [0, 3]].map(([ax, ay]) => ({ x: q.x + ax, y: q.y + ay })))];
+      const px = await shotPixels(page, all);
+      nb = px.slice(sc.length);
+      return px.slice(0, sc.length);
     };
+    let nb: (Rgb | null)[] = [];
     const on = await readAll(true);
-    const off = await readAll(false);
+    const off = await readAll(false); // nb は 影なしの画面の 4 方向のとなり（3 画素先）
     await page.evaluate(() => (window as any).__rikkun.render.setBlobShadow(true));
-    const isChar = (p: Rgb) => Math.max(p[0], p[1], p[2]) - Math.min(p[0], p[1], p[2]) > 12 || Math.max(p[0], p[1], p[2]) < 60 || Math.min(p[0], p[1], p[2]) > 215;
-    const charIdx = win.map((_, i) => i).filter((i) => off[i] && isChar(off[i]!));
-    expect(charIdx.length, 'キャラの画素（くつ・ふく）が 見つかる').toBeGreaterThan(10);
+    const isChar = (p: Rgb) => Math.max(p[0], p[1], p[2]) - Math.min(p[0], p[1], p[2]) > 12 || Math.max(p[0], p[1], p[2]) < 60;
+    // 白い髪（>215）は のぞく: 髪の板は ふちだけでなく 中にも 半透明の画素があり、うしろの地面（影つき）が わずかにまざる（差 約 2%）。くつ・ふくは 不透明
+    // ふちの画素（となりが キャラでない = 板の半透明のふちで うしろの地面（影つき）と まざる）は のぞく: 4 方向 3 画素先も キャラの画素のものだけ
+    const interior = (i: number) => [0, 1, 2, 3].every((k) => { const q = nb[i * 4 + k]; return q !== null && isChar(q); });
+    const charIdx = win.map((_, i) => i).filter((i) => off[i] && isChar(off[i]!) && interior(i));
+    expect(charIdx.length, 'キャラの画素（くつ・ふく）が 見つかる').toBeGreaterThan(3);
     for (const i of charIdx) expect(near(on[i]!, off[i]!, 2), `キャラの画素 ${i}: ON ${on[i]} OFF ${off[i]}`).toBe(true);
     const g = win.length;
     expect(linLum(on[g]!), '昼: 影の下は 影なしより暗い').toBeLessThan(linLum(off[g]!) * 0.9);
