@@ -1262,8 +1262,8 @@ export interface M7Settings {
 
 export const M7_SETTING_DEFAULTS: Readonly<M7Settings> = {
   farmGrowDays: {
-    dry: { onion: 1.25, tomato: 0.75, pumpkin: 2, eggplant: 1.25 },
-    wet: { onion: 0.85, tomato: 0.5, pumpkin: 1.3, eggplant: 0.85 },
+    dry: { onion: 1.875, tomato: 1.125, pumpkin: 3, eggplant: 1.875 },
+    wet: { onion: 1.275, tomato: 0.75, pumpkin: 1.95, eggplant: 1.275 },
   },
   farmMinLight: 9,
   farmMaxWaitFactor: 3,

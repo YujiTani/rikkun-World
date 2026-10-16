@@ -163,7 +163,7 @@ export function createItemInfo(d: InfoDeps): ItemInfoSource {
     if (seed !== null) {
       // そだつ はやさ（トマト 3・たまねぎ／なす 2・かぼちゃ 1。最大 3）
       const days = (n.farmGrowDays ?? M7_SETTING_DEFAULTS.farmGrowDays.dry)[seed];
-      return [{ key: 'grow', label: 'そだつ はやさ', value: days <= 0.9 ? 3 : days <= 1.5 ? 2 : 1, max: 3 }];
+      return [{ key: 'grow', label: 'そだつ はやさ', value: days <= 1.35 ? 3 : days <= 2.25 ? 2 : 1, max: 3 }];
     }
     const kind = ITEM_INFO[item]?.stats;
     if (!kind) return [];
