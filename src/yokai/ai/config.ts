@@ -159,7 +159,7 @@ export const AI_CONST = {
   wanderRest: [120, 240] as readonly [number, number],
   /** 押される（10 ステップで） */
   knockbackTicks: 10,
-  /** 頭の上の まる を出す */
+  /** 頭の上の 体力のバー を出す ステップ（hpBar.ts の HP_BAR.ticks と同じ） */
   marksTicks: 180,
   /** ちょうちんの上下の速さ（ブロック/秒） */
   hoverRate: 2,
@@ -174,8 +174,6 @@ export const AI_CONST = {
   playerHeight: 1.8,
   /** 火の玉の当たりの箱（前は 0.5） */
   fireballBox: 0.9,
-  /** 頭の上の まる の最大数 */
-  maxMarks: 8,
   /** 場所をさがす回数 */
   spawnTries: 20,
   /** M5: これより水平に遠い妖怪は静かに消える */

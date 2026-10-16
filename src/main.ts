@@ -1232,7 +1232,7 @@ const achievementsHook = {
   },
 };
 const facingTmp = { x: 0, y: 0, z: 0 };
-const hudHook = { toolHint: () => { const h = dig.toolHint(); return h ? { slot: h.slot, ticksLeft: h.ticksLeft } : null; }, actionHint: () => actionHint.current(), yokaiFocus: () => yokaiFocus.current(), yokaiFocusHulls: () => yokaiFocus.hullCount() };
+const hudHook = { toolHint: () => { const h = dig.toolHint(); return h ? { slot: h.slot, ticksLeft: h.ticksLeft } : null; }, actionHint: () => actionHint.current(), yokaiFocus: () => yokaiFocus.current(), yokaiFocusHulls: () => yokaiFocus.hullCount(), hpBar: (id: number) => yokaiManager?.hpBarInfo(id) ?? null };
 const guideHook = createGuideHook(playOverlay);
 const lockHook = createLockHook(lock);
 const combatHook = createCombatHook(combat);
