@@ -140,7 +140,7 @@ describe('案内画面の HTML', () => {
   it('ボタンの文字と操作の説明 4 つが入る', () => {
     const html = buildOverlayHtml(INPUT_CONFIG.textFirst);
     expect(html).toContain('クリックして あそぼう！');
-    for (const c of ['あるく', 'ジャンプ', 'むきを かえる', 'みかた を かえる']) expect(html).toContain(c);
+    for (const c of ['あるく', 'ジャンプ', 'カメラ を まわす', 'シフトを おしながら あるくと はしる']) expect(html).toContain(c);
   });
 
   it('大きさの設定が仕様どおり（512 / 96 / 32 / 20）', () => {

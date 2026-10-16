@@ -144,6 +144,10 @@ export interface PlayerState {
   inWater: boolean;
   /** 水平に動いているか（人形の手足を振るため） */
   moving: boolean;
+  /** CHAR-1: キャラの向き（0 以上 360 未満。yaw と同じ数え方）。見た目だけ。省略時は yaw と同じ */
+  facingDeg?: number;
+  /** CHAR-1: 走る入力が効いているか（run を押していて 歩く入力あり） */
+  running?: boolean;
 }
 
 // ---------------------------------------------------------------- テスト用窓口の入れ物

@@ -19,6 +19,10 @@ export interface PlayerSettings {
   /** みず の中の歩く速さ・ジャンプの高さの倍率 */
   waterSpeedMul: number;
   waterJumpMul: number;
+  /** CHAR-1: 走る速さ（シフト） */
+  runSpeed: number;
+  /** CHAR-1: キャラが向きを変える速さ（度/秒） */
+  turnDegPerSecond: number;
 }
 
 export const PLAYER_DEFAULTS: Readonly<PlayerSettings> = {
@@ -35,6 +39,8 @@ export const PLAYER_DEFAULTS: Readonly<PlayerSettings> = {
   thirdPersonHeight: 0.5,
   waterSpeedMul: 0.5,
   waterJumpMul: 0.85,
+  runSpeed: 5.6,
+  turnDegPerSecond: 720,
 };
 
 export function createPlayerSettings(): PlayerSettings {
@@ -56,6 +62,9 @@ export const VOID_Y = -10;
 export const AUTOJUMP_PROBE = 0.3;
 export const AUTOJUMP_CLEAR_TOP = 2.8;
 export const AUTOJUMP_HEAD_TOP = 3.05;
+
+/** ねらう行動のあと、キャラがねらいの向きを向きつづける長さ（ステップ。CHAR-1 §4.2） */
+export const AIM_HOLD_STEPS = 30;
 
 /** 水平に動いているとみなす速さ（ブロック/秒） */
 export const MOVING_SPEED_EPS = 0.05;

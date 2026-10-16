@@ -16,7 +16,7 @@ describe('settings', () => {
     expect(hook.get('autoJump')).toBe(true);
     expect(Object.keys(hook.all()).sort()).toEqual(
       [
-        'accelTime', 'autoJump', 'eyeHeight', 'fov', 'gravity', 'jumpHeight',
+        'accelTime', 'autoJump', 'eyeHeight', 'fov', 'gravity', 'jumpHeight', 'runSpeed', 'turnDegPerSecond',
         'maxFallSpeed', 'mouseSensitivity', 'thirdPersonDistance', 'thirdPersonHeight', 'walkSpeed', 'waterJumpMul', 'waterSpeedMul',
       ].sort(),
     );

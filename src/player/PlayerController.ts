@@ -6,6 +6,7 @@ import {
   AUTOJUMP_PROBE,
   BODY_HALF,
   BODY_HEIGHT,
+  AIM_HOLD_STEPS,
   EPS,
   MOVING_SPEED_EPS,
   PITCH_LIMIT_DEG,
@@ -26,6 +27,14 @@ export function normalizeYaw(yaw: number): number {
   return y;
 }
 
+/** 近いほうへ回る（ちょうど 180 度のときは 時計まわり＝プラス）。1 回に step 度まで */
+export function turnToward(from: number, to: number, step: number): number {
+  let diff = (((to - from) % 360) + 360) % 360; // 0 以上 360 未満
+  if (diff > 180) diff -= 360;
+  if (Math.abs(diff) <= step) return normalizeYaw(to);
+  return normalizeYaw(from + Math.sign(diff) * step);
+}
+
 function clampPitch(p: number): number {
   return Math.max(-PITCH_LIMIT_DEG, Math.min(PITCH_LIMIT_DEG, p));
 }
@@ -43,6 +52,8 @@ export class PlayerController {
   readonly motion = { speedMul: 1, jumpLocked: false };
   private readonly p = [0, 0, 0]; // 作業用: 位置
   private readonly idx = [0, 0, 0];
+  /** ねらう行動のあと、向きをねらいに合わせつづける残りステップ */
+  private aimHold = 0;
 
   constructor(
     private readonly world: VoxelWorld,
@@ -61,6 +72,8 @@ export class PlayerController {
       onGround: false,
       inWater: false,
       moving: false,
+      facingDeg: 0,
+      running: false,
     };
     this.respawn();
   }
@@ -75,13 +88,16 @@ export class PlayerController {
     st.velocity.x = st.velocity.y = st.velocity.z = 0;
     st.yawDeg = normalizeYaw(s.yawDeg);
     st.pitchDeg = clampPitch(s.pitchDeg);
+    st.facingDeg = st.yawDeg;
+    st.running = false;
+    this.aimHold = 0;
     st.onGround = false;
     st.moving = false;
     this.updateWater();
   }
 
   /** テスト用: 置き直す。書かなかった項目はそのまま */
-  set(v: { position?: Vec; velocity?: Vec; yawDeg?: number; pitchDeg?: number }): void {
+  set(v: { position?: Vec; velocity?: Vec; yawDeg?: number; pitchDeg?: number; facingDeg?: number }): void {
     const st = this.state;
     if (v.position) {
       Object.assign(st.position, v.position);
@@ -90,6 +106,7 @@ export class PlayerController {
     if (v.velocity) Object.assign(st.velocity, v.velocity);
     if (v.yawDeg !== undefined) st.yawDeg = normalizeYaw(v.yawDeg);
     if (v.pitchDeg !== undefined) st.pitchDeg = clampPitch(v.pitchDeg);
+    if (v.facingDeg !== undefined) st.facingDeg = normalizeYaw(v.facingDeg);
     this.updateWater();
   }
 
@@ -123,11 +140,17 @@ export class PlayerController {
     let fwd = 0;
     let right = 0;
     let jumpHeld = false;
+    let runHeld = false;
+    let aiming = false;
     if (enabled) {
       const a = this.actions;
       fwd = (a.isHeld('moveForward') ? 1 : 0) - (a.isHeld('moveBack') ? 1 : 0);
       right = (a.isHeld('moveRight') ? 1 : 0) - (a.isHeld('moveLeft') ? 1 : 0);
       jumpHeld = a.isHeld('jump');
+      runHeld = a.isHeld('run');
+      aiming =
+        a.isHeld('primary') || a.isHeld('secondary') || a.isHeld('drop') || a.isHeld('dropStack') ||
+        a.wasPressed('primary') || a.wasPressed('secondary') || a.wasPressed('drop') || a.wasPressed('dropStack');
     }
     const yaw = st.yawDeg * DEG;
     const sin = Math.sin(yaw);
@@ -143,11 +166,26 @@ export class PlayerController {
     }
 
     // 水平の速さ: 目標へ一定の割合で近づける（先に速さを変えてから位置を動かす）
-    const walkSpeed = st.inWater ? cfg.walkSpeed * cfg.waterSpeedMul : cfg.walkSpeed;
+    const waterMul = st.inWater ? cfg.waterSpeedMul : 1;
+    const walkSpeed = cfg.walkSpeed * waterMul;
+    const running = runHeld && wlen > 0;
+    const topSpeed = (running ? cfg.runSpeed : cfg.walkSpeed) * waterMul;
     const mul = this.motion.speedMul;
-    const tx = wx * walkSpeed * mul;
-    const tz = wz * walkSpeed * mul;
+    const tx = wx * topSpeed * mul;
+    const tz = wz * topSpeed * mul;
     const maxDelta = (walkSpeed / Math.max(cfg.accelTime, 1e-6)) * dt;
+    st.running = running;
+
+    // キャラの向き（CHAR-1 §4.2）: ねらう行動のあいだと、そのあと 30 ステップはカメラの yaw、そうでなければ歩く向き
+    if (aiming) this.aimHold = AIM_HOLD_STEPS;
+    let faceTo = -1;
+    if (aiming || this.aimHold > 0) {
+      if (!aiming) this.aimHold--;
+      faceTo = st.yawDeg;
+    } else if (wlen > 0) {
+      faceTo = normalizeYaw(Math.atan2(wx, -wz) / DEG);
+    }
+    if (faceTo >= 0) st.facingDeg = turnToward(st.facingDeg ?? st.yawDeg, faceTo, cfg.turnDegPerSecond * dt);
     const ex = tx - st.velocity.x;
     const ez = tz - st.velocity.z;
     const elen = Math.hypot(ex, ez);
