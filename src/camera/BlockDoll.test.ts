@@ -8,6 +8,8 @@ import { createCameraHook } from './hook';
 
 const world = {
   size: { x: 64, y: 32, z: 64 },
+  isLoaded: () => true,
+  loadedBounds: () => ({ x0: 0, z0: 0, x1: 64, z1: 64 }),
   getBlock: () => 'air' as const,
   setBlock: () => false,
   isSolid: () => false,

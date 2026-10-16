@@ -163,7 +163,7 @@ renderer.setViewer(island.spawn().x, island.spawn().z);
 renderer.attach(game.scene);
 const lighting = new Lighting();
 const sceneBefore = new Set(game.scene.children);
-buildScenery(game.scene, world.size);
+buildScenery(game.scene, { x: world.loadedBounds().x1, z: world.loadedBounds().z1 });
 for (const child of game.scene.children) if (!sceneBefore.has(child)) lighting.registerTree(child, 'block');
 for (const m of renderer.materials()) lighting.register(m, 'block');
 const time = new TimeOfDayImpl();
@@ -697,8 +697,9 @@ function sparkleCrops(): ReadonlyArray<{ x: number; y: number; z: number; stage:
     wildScan.list.length = 0;
     const y0 = Math.max(0, ey - r);
     const y1 = Math.min(world.size.y - 1, ey + r);
-    for (let z = Math.max(0, ez - r); z <= Math.min(world.size.z - 1, ez + r); z++)
-      for (let x = Math.max(0, ex - r); x <= Math.min(world.size.x - 1, ex + r); x++)
+    const eb = world.loadedBounds();
+    for (let z = Math.max(eb.z0, ez - r); z <= Math.min(eb.z1 - 1, ez + r); z++)
+      for (let x = Math.max(eb.x0, ex - r); x <= Math.min(eb.x1 - 1, ex + r); x++)
         for (let y = y0; y <= y1; y++) {
           const k = cropKindOfBlock(world.getBlock(x, y, z));
           if (k && k.wild) wildScan.list.push({ x, y, z, stage: 3 });

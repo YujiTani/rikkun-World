@@ -9,6 +9,12 @@ import { createCraftHook, createFurnaceHook } from './hook';
 class W {
   blocks = new Map<string, BlockId>();
   size = { x: 256, y: 64, z: 256 };
+  isLoaded(x: number, z: number): boolean {
+    return x >= 0 && z >= 0 && x < this.size.x && z < this.size.z;
+  }
+  loadedBounds() {
+    return { x0: 0, z0: 0, x1: this.size.x, z1: this.size.z };
+  }
   getBlock(x: number, y: number, z: number): BlockId | 'outside' {
     return this.blocks.get(`${x},${y},${z}`) ?? 'air';
   }

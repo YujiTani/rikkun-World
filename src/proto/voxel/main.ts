@@ -72,7 +72,7 @@ let pitch = 0;
 const pos = { x: 0, y: 0, z: 0 };
 let orbit = new URLSearchParams(location.search).get('auto') === '1';
 let orbitAngle = 0;
-const CENTER = { x: proto.world.size.x / 2, y: SEA_Y + (14 - SEA_Y) * heightK, z: proto.world.size.z / 2 };
+const CENTER = { x: proto.world.loadedBounds().x1 / 2, y: SEA_Y + (14 - SEA_Y) * heightK, z: proto.world.loadedBounds().z1 / 2 };
 /** 高くした分だけ、上空・ぐるっとまわる のカメラも上げる（元は 48 ブロックの世界に合わせた高さ） */
 const SKY_Y = 125 + (BASE_HEIGHT * (heightK - 1)) * 0.5;
 const ORBIT_Y = 48 + (BASE_HEIGHT * (heightK - 1)) * 0.6;
@@ -398,7 +398,7 @@ function measure(): Measurement {
       renderWithFinishMs: c.fin,
     },
     height: heightK,
-    worldBytes: proto.world.size.x * proto.world.size.y * proto.world.size.z,
+    worldBytes: proto.world.loadedBounds().x1 * proto.world.size.y * proto.world.loadedBounds().z1,
   };
 }
 
@@ -476,8 +476,8 @@ const hook = {
   /** 崖の近く（スタートから 40 ブロック以内で、となりの列より 3 ブロック以上高い所）へ カメラをおいて 崖を見る（スクショ用）。見つからなければ false */
   gotoCliff: (): boolean => {
     let best: { x: number; z: number; nx: number; nz: number; drop: number; d: number } | null = null;
-    for (let z = 2; z < proto.world.size.z - 2; z++) {
-      for (let x = 2; x < proto.world.size.x - 2; x++) {
+    for (let z = 2; z < proto.world.loadedBounds().z1 - 2; z++) {
+      for (let x = 2; x < proto.world.loadedBounds().x1 - 2; x++) {
         const d = Math.hypot(x - spawn.x, z - spawn.z);
         if (d > 40) continue;
         const h = proto.groundY(x, z);
@@ -503,8 +503,8 @@ const hook = {
     return true;
   },
   height: heightK,
-  worldBytes: proto.world.size.x * proto.world.size.y * proto.world.size.z,
-  worldSize: { ...proto.world.size },
+  worldBytes: proto.world.loadedBounds().x1 * proto.world.size.y * proto.world.loadedBounds().z1,
+  worldSize: { x: proto.world.loadedBounds().x1, y: proto.world.size.y, z: proto.world.loadedBounds().z1 },
   peak,
 };
 declare global {

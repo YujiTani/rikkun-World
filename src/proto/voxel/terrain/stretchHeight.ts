@@ -40,13 +40,13 @@ export function stretchedTop(ty: number, k: number): number {
  */
 export function stretchHeight(src: ArrayVoxelWorld, k: number): ArrayVoxelWorld {
   const sy = src.size.y;
-  const dst = new ArrayVoxelWorld({ x: src.size.x, y: BASE_HEIGHT * k, z: src.size.z });
+  const dst = new ArrayVoxelWorld({ x: src.loadedBounds().x1, y: BASE_HEIGHT * k, z: src.loadedBounds().z1 });
   const dy = dst.size.y;
   const put = (x: number, y: number, z: number, b: number): void => {
     if (b > AIR && y >= 0 && y < dy) dst.setBlock(x, y, z, blockIdFromIndex(b));
   };
-  for (let z = 0; z < src.size.z; z++) {
-    for (let x = 0; x < src.size.x; x++) {
+  for (let z = 0; z < src.loadedBounds().z1; z++) {
+    for (let x = 0; x < src.loadedBounds().x1; x++) {
       const ty = groundTop(src, x, z);
       if (k === 1 || ty <= SEA_Y) {
         for (let y = 0; y < sy; y++) put(x, y, z, src.getIndex(x, y, z));

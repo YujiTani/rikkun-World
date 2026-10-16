@@ -103,8 +103,8 @@ export class ProtoScene {
     const leaves = BLOCK_INDEX.leaves;
     const log = BLOCK_INDEX.log;
     let best = { x: 0, y: -1, z: 0 };
-    for (let z = 0; z < this.world.size.z; z++) {
-      for (let x = 0; x < this.world.size.x; x++) {
+    for (let z = 0; z < this.world.loadedBounds().z1; z++) {
+      for (let x = 0; x < this.world.loadedBounds().x1; x++) {
         for (let y = this.world.size.y - 1; y > best.y; y--) {
           const k = this.world.getIndex(x, y, z);
           if (k > 0 && this.world.isSolid(x, y, z) && k !== leaves && k !== log) {

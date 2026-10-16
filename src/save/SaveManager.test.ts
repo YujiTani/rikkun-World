@@ -219,11 +219,11 @@ describe('SaveManager', () => {
     a.save.now();
     const good = JSON.parse((a.save as unknown as { d: { store: MemoryStore } }).d.store.getItem(key)!) as Record<string, unknown>;
     expect(good.gen).toBe(2);
-    expect(good.size).toEqual([a.world.size.x, a.world.size.y, a.world.size.z]);
+    expect(good.size).toEqual([a.world.loadedBounds().x1, a.world.size.y, a.world.loadedBounds().z1]);
     const variants: Array<Record<string, unknown>> = [
       { ...good, gen: 1 },
       { ...good, gen: undefined },
-      { ...good, size: [a.world.size.x, a.world.size.y, a.world.size.z + 1] },
+      { ...good, size: [a.world.loadedBounds().x1, a.world.size.y, a.world.loadedBounds().z1 + 1] },
       { ...good, size: undefined },
     ];
     for (const v of variants) {
@@ -236,7 +236,7 @@ describe('SaveManager', () => {
       s.save.now();
       const after = JSON.parse(store.getItem(key)!) as Record<string, unknown>;
       expect(after.gen).toBe(2);
-      expect(after.size).toEqual([s.world.size.x, s.world.size.y, s.world.size.z]);
+      expect(after.size).toEqual([s.world.loadedBounds().x1, s.world.size.y, s.world.loadedBounds().z1]);
     }
   });
 

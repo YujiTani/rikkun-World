@@ -93,8 +93,8 @@ export const computeFarmPlacement: FarmPlacementFn = (seed, pristine) => {
     info = generateIsland(seed, made);
   }
   const R = info.regions();
-  const SX = world.size.x;
-  const SZ = world.size.z;
+  const SX = WORLD_SIZE.x; // 島を作り直した世界（makeScratchWorld）の大きさ
+  const SZ = WORLD_SIZE.z;
   const SY = world.size.y;
 
   // ---- 列ごとの 下ごしらえ
@@ -439,6 +439,8 @@ function makeScratchWorld(): VoxelWorld {
   const idx = (x: number, y: number, z: number) => (y * size.z + z) * size.x + x;
   return {
     size,
+    isLoaded: (x, z) => x >= 0 && z >= 0 && x < size.x && z < size.z,
+    loadedBounds: () => ({ x0: 0, z0: 0, x1: size.x, z1: size.z }),
     getBlock: (x, y, z) => (inside(x, y, z) ? blockIdFromIndex(data[idx(x, y, z)]!) : 'outside'),
     setBlock: (x, y, z, id) => {
       const b = blockIndexOf(id);

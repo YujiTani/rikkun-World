@@ -1,3 +1,4 @@
+import { WORLD_SIZE } from '../../contracts';
 import type { BlockId, GenerateIsland, IslandInfo, RegionRect, SpawnPoint, TestArea, VoxelWorld, WorldRegions } from '../../contracts';
 import { GEN_CONFIG as C } from './config';
 import { createRng, randInt, shuffle, valueNoise, type Rng } from './random';
@@ -77,9 +78,10 @@ function makeCoast(rng: Rng): (x: number, z: number) => number {
 
 export const generateIsland: GenerateIsland = (seed: number, world: VoxelWorld): IslandInfo => {
   const t0 = performance.now();
-  const sx = world.size.x;
+  // 今の島は WORLD_SIZE の四角（無限の世界の生成は VOX-B）
+  const sx = WORLD_SIZE.x;
   const sy = world.size.y;
-  const sz = world.size.z;
+  const sz = WORLD_SIZE.z;
   const N = sx * sz;
   const rng = createRng(seed);
   const idx = (x: number, z: number) => z * sx + x;
@@ -414,7 +416,7 @@ export const generateIsland: GenerateIsland = (seed: number, world: VoxelWorld):
 function placeStartTorch(world: VoxelWorld, H: Int32Array): void {
   const x = C.spawn.x + C.startTorch.dx;
   const z = C.spawn.z + C.startTorch.dz;
-  world.setBlock(x, H[z * world.size.x + x]! + 1, z, 'start_torch');
+  world.setBlock(x, H[z * WORLD_SIZE.x + x]! + 1, z, 'start_torch');
 }
 
 // ------------------------------------------------------------------ 見えるせきたん（岩山の表面）

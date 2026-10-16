@@ -8,7 +8,10 @@ import { SAVE_GEN, SAVE_VERSION, saveKey, type KeyValueStore } from '../save/Sav
 export function makeLegacySaveText(seed: number, changes: Array<{ x: number; y: number; z: number; id: BlockId }>): string {
   const world = new ArrayVoxelWorld();
   generateIsland(seed, world);
-  const { x: sx, y: sy, z: sz } = world.size;
+  const eb = world.loadedBounds();
+  const sx = eb.x1;
+  const sy = world.size.y;
+  const sz = eb.z1;
   const byIndex = new Map<number, number>();
   for (const c of changes) {
     const b = blockIndexOf(c.id);

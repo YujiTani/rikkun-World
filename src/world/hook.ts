@@ -31,7 +31,10 @@ export interface WorldHook {
 export function createWorldHook(world: ArrayVoxelWorld, renderer: WorldRenderer, island: IslandInfo): WorldHook {
   return {
     seed: () => island.seed,
-    size: () => ({ ...world.size }),
+    size: () => {
+      const b = world.loadedBounds();
+      return { x: b.x1 - b.x0, y: world.size.y, z: b.z1 - b.z0 };
+    },
     getBlock: (x, y, z) => world.getBlock(x, y, z),
     setBlock: (x, y, z, id) => world.setBlock(x, y, z, id),
     fill: (x0, y0, z0, x1, y1, z1, id) => world.fill(x0, y0, z0, x1, y1, z1, id),

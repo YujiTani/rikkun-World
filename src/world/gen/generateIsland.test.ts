@@ -14,6 +14,12 @@ const SZ = WORLD_SIZE.z;
 
 class FakeWorld implements VoxelWorld {
   readonly size = { x: SX, y: SY, z: SZ };
+  isLoaded(x: number, z: number): boolean {
+    return x >= 0 && z >= 0 && x < this.size.x && z < this.size.z;
+  }
+  loadedBounds() {
+    return { x0: 0, z0: 0, x1: this.size.x, z1: this.size.z };
+  }
   readonly data = new Uint8Array(SX * SY * SZ);
   private inside(x: number, y: number, z: number) {
     return Number.isInteger(x) && Number.isInteger(y) && Number.isInteger(z) && x >= 0 && y >= 0 && z >= 0 && x < SX && y < SY && z < SZ;
