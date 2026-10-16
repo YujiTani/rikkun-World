@@ -10,3 +10,6 @@
 | 1 | design | design-reviewer | 【軽微】§6.2 の `craftM4.test.ts` は実際は `src/ui/craftM4.test.ts`（場所を書くとよい）。ほかの数（32/54/55/222/78/34/28・iron_ingot usedIn 13・`slice(28)`・`slice(-7,-4)`・`slice(-8)`）は今のコードと一致 | 書き方 | G1 | 反映済み（第 2 版 §6.2） |
 | 1 | design | design-reviewer | 【軽微】AC4 の「6 マス先」「61 ステップ」、AC6 の「横 3 / 横 5」は決め打ちの距離。`farmWetRange` と とどく距離の設定値から計算する形（定数を読む）と書くとよい | 数の決め打ち | G2 | 反映済み（第 2 版 AC4〜AC6） |
 | 1 | design | design-reviewer | 【軽微】AC15 のオーナー確認で「字を読まずに」が観察しにくい。確かめ方（りっくんが自分でできたか）を 1 行足すとよい | 言い回し | G3 | 反映済み（第 2 版 AC15） |
+| 1 | dev | code-reviewer | 【軽微】テスト準備(69d3f9c) AC7: 音 `empty` を直接見ず `bucketNo` 出来事で代用。(4) 妖怪の箱で `bucketNo` > 0 を確かめていない | テストのゆるさ | T1 | 未 |
+| 1 | dev | code-reviewer | 【軽微】AC10: 「別のマス・たんす・すてて拾う」を e2e で見ていない（置いた水と持つ マスの保存だけ）。AC9: 文の漢字が ruby の中かは ruby 数>0 だけ。AC4: とどく限界ちょうどの水が くめる所は未確認 | テストの抜け | T2 | 未 |
+| 1 | dev | code-reviewer | 判定: 合格（重大 0）。bucket.spec.ts は AC2/4/5/6/7/9/10 を設定値と bucketSpot に聞いて確認、既存テストの数の直しは §6.2 どおりで消したテストなし（m72ui の `slice(7,10)` と `c[10]` の追加は仕様どおり） | 判定 | T0 | - |
