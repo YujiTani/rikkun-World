@@ -51,6 +51,7 @@ setCurrentLook(readLook()); // 3D テクスチャを作る前に 決めておく
 const proto = new ProtoScene(readMode());
 const terrainParam = new URLSearchParams(location.search).get('terrain');
 if (terrainParam === 'micro' || terrainParam === 'block') proto.terrain = terrainParam;
+else proto.terrain = 'micro'; // VOX-2: オーナーに見てもらう間は 小ブロック地形 を最初に出す
 const rParam = Number(new URLSearchParams(location.search).get('r'));
 if ((MICRO_RADII as readonly number[]).includes(rParam)) proto.microRadius = rParam;
 const spawn = proto.island.spawn();

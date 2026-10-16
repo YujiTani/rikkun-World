@@ -12,6 +12,7 @@ import { mix } from '../looks/common';
  *     坂: ブロックの まんなかから へりに向けて、となりの高さへ なめらかに近づく（へりで 1/9 の段差）。
  *     崖: そのまま。崖の下には がれき（rubble）、上のふちには かけ（notch）を 3×3 のかたまりごとに足す。
  *  3. うねり（大きい）＋ ごつごつ（小さい）＋ 3×3 のかたまりのずれ（シード付きのノイズ）。
+ *     ＋ 地形の表情: 小さな丘・くぼ地（だんだん）・草むら（3×3 ごとに 0〜2 マス）・土が見える所（1 マス へこむ）。
  *  4. 岩: ブロックをまたぐ かたまり（3〜12 マス）。ゆかを ひとつ 持ち上げる。
  *  5. はんい: そのブロックの 3 マス上〜 ブロックの上のへり＋reach（上が空気なら 8）。
  *
@@ -22,12 +23,22 @@ export const MICRO_PARAMS = {
   seed: 4242,
   /** 1 ブロックの段差のうち、坂にする辺の割合（0〜1）。のこりは崖のまま */
   slopeRate: 0.6,
-  /** 大きいうねり: 波の長さ（小ブロック）と ふれはば（± 小ブロック） */
-  swell: { wavelength: 30, amplitude: 2.6 },
+  /** 大きいうねり: 波の長さ（小ブロック）と ふれはば（± 小ブロック）。平らな所は おだやかに（でこぼこは 下の「表情」で出す） */
+  swell: { wavelength: 34, amplitude: 1.6 },
   /** 小さいごつごつ: 波の長さと ふれはば */
-  rough: { wavelength: 8, amplitude: 1.4 },
+  rough: { wavelength: 9, amplitude: 0.6 },
   /** 3×3 のかたまりごとのずれ（± この数）。カクカクの もと */
   chunky: { cell: 3, amplitude: 1 },
+  /**
+   * 地形の表情（VOX-2 アート調整）。どれも 3×3 のかたまり単位で決める（ふちが カクカク）。
+   * - 小さな丘 / くぼ地: 大きい波（wavelength）が hill より上なら もり上がり、hollow より下なら へこむ。
+   *   高さは terrace マスずつの だんだん（だんの へりが ほりかげ になる）
+   * - 草むら: 波が threshold より上の所で、3×3 のかたまりごとに 0〜maxHeight マス もり上がる（すきまが 暗い）
+   * - 土が見える所: 波が threshold より下の所で、sink マス へこんで 土の色（色は looks の terrainColor が microSoil で見る）
+   */
+  mound: { wavelength: 44, hill: 0.66, hollow: 0.32, span: 0.2, hillHeight: 7, hollowDepth: 5, terrace: 2 },
+  tuft: { wavelength: 23, threshold: 0.6, maxHeight: 2 },
+  soil: { wavelength: 13, threshold: 0.22, sink: 1 },
   /** 崖の下の がれき（高さ・割合）と 上のふちの かけ（深さ・割合） */
   cliff: { rubbleHeight: 3, rubbleRate: 0.5, notchDepth: 3, notchRate: 0.34 },
   /** 岩: マスの大きさ（半径）と、高さ、出る割合（36×36 小ブロックに 1 つ ためす） */
@@ -88,6 +99,41 @@ function valueNoise(s: number, x: number, z: number): number {
   return a + (b - a) * fx + (c - a) * fz + (a - b - c + d) * fx * fz;
 }
 
+/** 3×3 のかたまり (cx, cz) の まんなかで 波を見る（ふちを 3×3 単位の カクカクにする） */
+function cellNoise(salt: number, cx: number, cz: number, wavelength: number): number {
+  return valueNoise(P.seed + salt, (cx * 3 + 1) / wavelength, (cz * 3 + 1) / wavelength);
+}
+
+/** 3×3 のかたまり (cx, cz) が「土が見える所」か */
+function soilCell(cx: number, cz: number): boolean {
+  return cellNoise(22, cx, cz, P.soil.wavelength) < P.soil.threshold;
+}
+
+/** 小ブロックの列 (mx, mz) が「土が見える所」か（色を決めるときに使う。S と同じ きまり） */
+export function microSoil(mx: number, mz: number): boolean {
+  return soilCell(Math.floor(mx / 3), Math.floor(mz / 3));
+}
+
+/** 地形の表情（小さな丘・くぼ地・草むら・土）で 足す高さ。3×3 のかたまり単位 */
+function features(cx: number, cz: number): number {
+  const M = P.mound;
+  let add = 0;
+  const m = cellNoise(20, cx, cz, M.wavelength);
+  if (m > M.hill) {
+    const t = Math.min(1, (m - M.hill) / M.span);
+    add += Math.floor((t * M.hillHeight) / M.terrace) * M.terrace;
+  } else if (m < M.hollow) {
+    const t = Math.min(1, (M.hollow - m) / M.span);
+    add -= Math.floor((t * M.hollowDepth) / M.terrace) * M.terrace;
+  }
+  if (soilCell(cx, cz)) return add - P.soil.sink;
+  if (cellNoise(21, cx, cz, P.tuft.wavelength) > P.tuft.threshold) {
+    const j = mix(mix(P.seed + 23, cx), cz) % 4; // 0: すきま / 1: 1 マス / 2, 3: いちばん高い
+    add += Math.min(j, P.tuft.maxHeight);
+  }
+  return add;
+}
+
 /** 岩を のぞいた 地面の高さ。この列が小ブロック地形でなければ -1 */
 function groundHeight(mx: number, mz: number, src: ColumnSource): number {
   const bx = Math.floor(mx / N);
@@ -133,13 +179,15 @@ function groundHeight(mx: number, mz: number, src: ColumnSource): number {
     }
   }
 
-  // ノイズ: 大きいうねり（やや下向き）＋ 小さいごつごつ ＋ 3×3 のずれ
-  h += (valueNoise(seed + 11, mx / P.swell.wavelength, mz / P.swell.wavelength) - 0.62) * 2 * P.swell.amplitude;
+  // ノイズ: 大きいうねり ＋ 小さいごつごつ ＋ 3×3 のずれ
+  h += (valueNoise(seed + 11, mx / P.swell.wavelength, mz / P.swell.wavelength) - 0.5) * 2 * P.swell.amplitude;
   h += (valueNoise(seed + 12, mx / P.rough.wavelength, mz / P.rough.wavelength) - 0.5) * 2 * P.rough.amplitude;
   const cs = P.chunky.cell;
-  const k = mix(mix(seed + 13, Math.floor(mx / cs)), Math.floor(mz / cs)) % 5;
+  const cmx = Math.floor(mx / cs);
+  const cmz = Math.floor(mz / cs);
+  const k = mix(mix(seed + 13, cmx), cmz) % 5;
   h += k === 0 ? -P.chunky.amplitude : k === 4 ? P.chunky.amplitude : 0;
-
+  h += features(cmx, cmz);
   const reach = src.reach(bx, bz);
   if (reach < 0) return base;
   const lo = ty * N + P.minAboveBase;

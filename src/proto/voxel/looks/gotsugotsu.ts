@@ -1,4 +1,5 @@
 import { blockHash, createPalette, dentable, mix } from './common';
+import { microSoil } from '../terrain/microSurface';
 import { ALL_FACES, LOOK_N, type KindSpec, type Look } from './types';
 
 /**
@@ -165,20 +166,32 @@ function nugget(spec: number[]): KindSpec {
   );
 }
 
-/** 小ブロック地形の色（VOX-2）: ブロックの外がわほど明るく、内ほど暗い。草は 上から 4〜5 マス、その下は土 */
+/** 小ブロック地形の色（VOX-2）: ブロックの外がわほど明るく、内ほど暗い。草は 上から 3〜4 マス、その下は土 */
 function layersOf(c: Layers, depth: number, h3: number): number {
   return depth >= 2 ? c[3] : depth === 1 ? c[2] : h3 % 3 === 0 ? c[1] : c[0];
 }
 
+/**
+ * 小ブロック地形の色（VOX-2 アート調整）。
+ * - てっぺん（fromTop 0）: 深さ（となりが高いほど くぼみ）で 4 段。草の先は 7 マスに 1 マス。
+ * - 横に見える しばふ（fromTop 1〜）: 上より 1 段ずつ 暗く（上の面ほど明るい。2 マス以上の段差が 読める）。
+ * - しばふ の下（3〜4 マスめから）: 土。崖の横は 土が見える。
+ * - 土が見える所（microSoil）: てっぺんと そのすぐ下が 土。
+ */
 function terrainColor(kind: string, depth: number, fromTop: number, isRock: boolean, wx: number, wy: number, wz: number): number {
   // 3×3×3 のかたまりごとの まだら
   const h3 = mix(mix(910, Math.floor(wx / 3)), Math.floor(wz / 3) * 512 + Math.floor(wy / 3));
   if (isRock) return layersOf(STONE, depth, h3);
   switch (kind) {
     case 'grass': {
-      if (fromTop < 4 + (h3 % 2)) {
-        if (fromTop === 0 && depth === 0 && (((wx * 5 + wz * 3) % 7) + 7) % 7 === 0) return GRASS_TIP;
+      if (fromTop < 2 && microSoil(wx, wz)) return layersOf(DIRT, depth, h3);
+      if (fromTop === 0) {
+        if (depth === 0 && (((wx * 5 + wz * 3) % 7) + 7) % 7 === 0) return GRASS_TIP;
         return layersOf(GRASS, depth, h3);
+      }
+      if (fromTop < 3 + (h3 % 2)) {
+        if (depth > 0) return layersOf(GRASS, depth, h3);
+        return fromTop === 1 ? GRASS[1] : GRASS[2];
       }
       return layersOf(DIRT, depth, h3);
     }
