@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { installArena } from './helpers/arena';
 import { WORLD_CENTER, WORLD_SIZE } from '../src/contracts';
 import { findUnrubiedKanji } from '../src/ui/text';
 
@@ -15,6 +16,7 @@ async function open(page: Page, seed: number | null = null) {
   await page.goto(seed === null ? '/' : `/?seed=${seed}`);
   await page.waitForFunction(() => window.__rikkun?.ready === true);
   await page.evaluate(() => window.__rikkun!.achievements.mute(true));
+  await installArena(page);
 }
 
 test.describe('M1-01 世界（つないだ後）', () => {
@@ -30,7 +32,10 @@ test.describe('M1-01 世界（つないだ後）', () => {
     });
     expect(r.size).toEqual({ x: WORLD_SIZE.x, y: WORLD_SIZE.y, z: WORLD_SIZE.z });
     expect(r.out).toEqual(['outside', 'outside', 'outside']);
-    expect(r.types.length).toBe(31); // M4: かまど・かわら・レンガ・たいまつ・こわれない たいまつ、M6: たんす、M7: はたけ・作物・やせい・かかし・さく 13 こ、M7-2: スプリンクラー を足した
+    // 数は ブロックを足すたびに変わるので、M1 で決めた種類が そろっていることだけを見る（#37）
+    const ids = r.types.map((t) => t.id);
+    for (const id of ['air', 'grass', 'dirt', 'stone', 'sand', 'water', 'log', 'leaves', 'bedrock']) expect(ids).toContain(id);
+    expect(new Set(ids).size).toBe(ids.length);
     const by = Object.fromEntries(r.types.map((t) => [t.id, t]));
     expect(by.bedrock.breakable).toBe(false);
     expect(by.water.breakable).toBe(false);
@@ -313,7 +318,7 @@ test.describe('M1-02 動き・視点・ロック（つないだ後）', () => {
       const h = window.__rikkun! as any;
       h.pause();
       h.lock.simulate(true);
-      h.world.fill(0, 8, 0, 12, 8, 12, 'stone');
+      (window as any).__arena.floor(0, 0, 12, 12);
       const P = () => h.player.set({ position: { x: 2.5, y: 9, z: 6.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: 0 });
       P();
       h.step(2);
@@ -424,7 +429,7 @@ test.describe('M1-02 動き・視点・ロック（つないだ後）', () => {
       const h = window.__rikkun! as any;
       h.pause();
       h.lock.simulate(true);
-      h.world.fill(0, 8, 0, 12, 8, 12, 'stone');
+      (window as any).__arena.floor(0, 0, 12, 12);
       h.step(2);
       const open = () => {
         h.player.set({ position: { x: 10.5, y: 9, z: 6.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: 0 });
@@ -485,7 +490,7 @@ test.describe('M1-02 動き・視点・ロック（つないだ後）', () => {
     const r = await page.evaluate(async () => {
       const h = window.__rikkun! as any;
       h.lock.simulate(true);
-      h.world.fill(0, 8, 0, 12, 8, 12, 'stone');
+      (window as any).__arena.floor(0, 0, 12, 12);
       h.player.set({ position: { x: 2.5, y: 9, z: 6.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: 0 });
       h.pause();
       h.step(2);
