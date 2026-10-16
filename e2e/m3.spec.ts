@@ -714,43 +714,40 @@ test.describe('M3 体力・ハート・ダメージ', () => {
     expect(r.bottom).toBeLessThanOrEqual(r.hotbarTop! + 1);
   });
 
-  test('AC21: 自然回復（600 ステップ待ち、840 で 16、1,080 で 17、ダメージで待ち直し）', async ({ page }) => {
+  test('AC21: 自然回復（600 ステップ待ち、1,500 で +1、2,400 で +2、半分まで、ダメージで待ち直し）', async ({ page }) => {
     await open(page);
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
       (window as any).T.base();
-      h.combat.damage(5);
+      h.combat.damage(15);
       const hp = (n: number) => {
         h.step(n);
         return h.combat.get().hp;
       };
       const out: any = {};
       out.s0 = h.combat.get().hp;
-      out.s599 = hp(599);
-      out.s600 = hp(1);
-      out.s839 = hp(239);
-      out.s840 = hp(1);
-      out.s1079 = hp(239);
-      out.s1080 = hp(1);
-      // もう一度ダメージ → そこから 600 待つ
+      out.s1499 = hp(1499);
+      out.s1500 = hp(1);
+      out.s2399 = hp(899);
+      out.s2400 = hp(1);
+      // もう一度ダメージ → そこから待ち直し
       h.combat.damage(2);
       out.after = h.combat.get().hp;
-      out.d599 = hp(599);
-      out.d839 = hp(240);
-      out.d840 = hp(1);
+      out.d1499 = hp(1499);
+      out.d1500 = hp(1);
+      // 半分（10）で止まる
+      out.long = hp(900 * 10);
       return out;
     });
-    expect(r.s0).toBe(15);
-    expect(r.s599).toBe(15);
-    expect(r.s600).toBe(15);
-    expect(r.s839).toBe(15);
-    expect(r.s840).toBe(16);
-    expect(r.s1079).toBe(16);
-    expect(r.s1080).toBe(17);
-    expect(r.after).toBe(15);
-    expect(r.d599).toBe(15);
-    expect(r.d839).toBe(15);
-    expect(r.d840).toBe(16);
+    expect(r.s0).toBe(5);
+    expect(r.s1499).toBe(5);
+    expect(r.s1500).toBe(6);
+    expect(r.s2399).toBe(6);
+    expect(r.s2400).toBe(7);
+    expect(r.after).toBe(5);
+    expect(r.d1499).toBe(5);
+    expect(r.d1500).toBe(6);
+    expect(r.long).toBe(10);
   });
 
   test('ダメージのスクショ: ふちのピンク・ハートがへる（赤い全画面の点滅なし）', async ({ page }) => {
