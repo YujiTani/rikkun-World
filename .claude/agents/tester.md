@@ -13,7 +13,7 @@ model: sonnet
    - `window.__rikkun` で一時停止・コマ送り（`step`）して、結果がぶれないようにする。
    - 見た目に関わる基準はスクショを撮って画像を見て確かめ、`docs/test-reports/assets/` に保存する。
    - 必要な操作口が `window.__rikkun` にない場合は、不具合チケットとして開発に依頼する（自分で `src/` を直さない）。
-3. `npm run check` と `npm run perf` を実行する。
+3. 回すのは **新しい受け入れ基準の spec と smoke だけ**。全部の E2E は PR の CI（GitHub Actions）が回すので、自分では回さない。CI が落ちたら、落ちたテストの名前とログだけ読む。性能に関係する変更なら `npm run perf` も回す。
 4. レポートを `docs/test-reports/<ID>.md` に書く（テンプレート: `docs/test-reports/_template.md`）。
    - 性能の数値は前回と比べる。描画回数・ポリゴン数・処理時間が大きく増えたら書く。
 5. NG の基準は指摘台帳 `docs/loop-ledger/<ID>.md` に 1 行ずつ追記する（ループ名は `test`）。原因が仕様側なら「仕様」、実装側なら「実装」と書く。
