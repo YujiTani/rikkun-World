@@ -30,6 +30,8 @@ import type { MeshData } from '../meshChunk';
  * - 座標は セクションの左下を 0 とした小ブロックの数（Uint16）。mesh.scale = 1/9、mesh.position = セクションの位置で置く。
  * - 小ブロック地形のとび出し（地面のブロックの上 8 小ブロックまで）は、地面のあるセクションが持つ。
  *   だから 全部空気のセクションは いつも 面が 0。
+ * - 地面の表面ブロックのとなりの固いブロック（段差の下・建物の下）は、けずらない平らな箱として 面を作る対象（active）に入れる。
+ *   表面の高さ S は ブロックの上のへりより下へへこむので、そこは 1 ブロック単位では「見えない面」でも 帯が見える（#142）。
  */
 
 export interface VoxelPiece {
@@ -421,6 +423,29 @@ export class SectionMesher {
     return false;
   }
 
+  /** ブロック (bxi, byi, bzi)（18³ の中の番号）の 横 4 つのとなりに、地面の表面ブロック（小ブロック地形で描く）があるか */
+  private besideSurface(bxi: number, byi: number, bzi: number): boolean {
+    const wy = this.oy + byi - 1;
+    const ct = this.colTy;
+    const c = (bzi + 1) * BW + bxi + 1;
+    return ct[c - 1] === wy || ct[c + 1] === wy || ct[c - BW] === wy || ct[c + BW] === wy;
+  }
+
+  /**
+   * 見える面が 0 の固いブロックを「けずらない平らな箱」として 面を作る対象（active）に入れる。
+   * 表面ブロック T は 小ブロック地形の高さ S が 上のへりより最大 6 小ブロック下まで へこむので、
+   * となりの固いブロック X の T がわの面（見えない面 = 外がわの層は 9×9 ぜんぶつまっている）は、S と上のへりの間の帯が見える。
+   * 1 ブロック単位の判定では ここは「見えない」ので、だれも面を作らず 地面の中ごしに空が見えてしまう（#142）。
+   * 面を省くのは 小ブロック単位の判定（meshMicro の g[idx + off] !== 0）がやる: S が へこんでいない所は 面が 1 まいも 増えない。
+   * 色は そのブロックの 3D テクスチャ（形のない絵のブロックは 色が決まらないので 対象にしない）。
+   */
+  private flatActive(bxi: number, byi: number, bzi: number, k: number): void {
+    if (bxi < 1 || bxi > 16 || byi < 1 || byi > 16 || bzi < 1 || bzi > 16 || !hasLook(k)) return;
+    const ai = ((byi - 1) * 16 + (bzi - 1)) * 16 + (bxi - 1);
+    this.active[ai] = 1;
+    this.kinds[ai] = k;
+  }
+
   /** 小ブロックの形で 格子と active をうめる（micro）。terrain: 地面の列を調べたか */
   private fillGrid(terrain: boolean): void {
     this.clearGrid();
@@ -471,6 +496,7 @@ export class SectionMesher {
             if (OCC[k] === 1 && this.adjacentActive(bxi, byi, bzi)) {
               this.fillSolid(gx, gy, gz);
               this.markRows(byi, byi);
+              if (terrain && this.besideSurface(bxi, byi, bzi)) this.flatActive(bxi, byi, bzi, k);
             }
             continue;
           }
@@ -529,6 +555,14 @@ export class SectionMesher {
     }
   }
 
+  /** 自分の列 (bxl, bzl) の表面ブロック (ty) の すぐ下の固いブロックを、上の面も作る対象に入れる（flatActive と同じ考え） */
+  private exposeBelow(bxl: number, bzl: number, ty: number): void {
+    const by = ty - 1 - this.oy;
+    if (by < 0 || by > 15) return;
+    const k = this.bk[((by + 1) * BL + (bzl + 1)) * BL + (bxl + 1)];
+    if (k > 0 && OCC[k] === 1) this.flatActive(bxl + 1, by + 1, bzl + 1, k);
+  }
+
   /** 小ブロック地形を格子に書く。自分の列で 地面が このセクションにあるものだけ 面を作る（flag つき） */
   private fillTerrain(): void {
     const grid = this.grid;
@@ -548,6 +582,8 @@ export class SectionMesher {
         if (ty < 0) continue;
         const gi = gz * S + gx;
         const h = colH[gi];
+        // S が ブロックの底まで下がった（アートが minAboveBase を 0 にしたとき）: すぐ下の固いブロックの上の面が 見える
+        if (h <= ty * N && bxl >= 0 && bxl < 16 && bzl >= 0 && bzl < 16) this.exposeBelow(bxl, bzl, ty);
         const gy0 = Math.max(ty * N, rowBase) - rowBase;
         const gy1 = Math.min(h, rowBase + S) - rowBase;
         if (gy1 <= gy0) continue;

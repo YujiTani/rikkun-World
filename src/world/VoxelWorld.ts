@@ -9,6 +9,7 @@ import {
   type SectionData,
   type VoxelWorld,
 } from '../contracts';
+import { scanColumn, type ColumnInfo } from '../proto/voxel/terrain/worldColumns';
 import { BLOCK_TYPES, blockIdFromIndex, blockIndexOf, isOpaqueIndex, isSolidIndex } from './blocks/blockTypes';
 import { OPACITY } from './light/opacity';
 import { SECTION_VOLUME, compactSection, localIndex, sectionGet, sectionSet, sectionToArray, uniformSection } from './sections';
@@ -110,6 +111,8 @@ export class ChunkedVoxelWorld implements VoxelWorld {
   private readonly dirtyColList: Column[] = [];
   private readonly dirtySecList: Column[] = [];
   private hiddenUsed = false;
+  /** faceHasSurface の作業用 */
+  private readonly surfaceInfo: ColumnInfo = { ty: -1, kind: 0, reach: 0, rockOk: false };
   private lastCx = NaN;
   private lastCz = NaN;
   private lastCol: Column | null = null;
@@ -589,6 +592,8 @@ export class ChunkedVoxelWorld implements VoxelWorld {
   /**
    * 「見えない」印（VOX-plan §6）: セクションの中が全部 ふさがったブロックで、6 方向のとなりの接する面も全部
    * ふさがっている。読みこんでいないとなり・空に向いた面は「あいている」とみなす。下の世界の底はふさがっている。
+   * ただし、となりの接する面が 地面の表面ブロック（小ブロック地形で描く。高さ S が上のへりより下までへこむ）なら
+   * 「ふさがっている」とは みなさない（#142: 段差の下の固いブロックの面が、S と上のへりの間に見える）。
    * 読みこんでいないセクションは false。
    */
   isSectionHidden(cx: number, sy: number, cz: number): boolean {
@@ -612,7 +617,40 @@ export class ChunkedVoxelWorld implements VoxelWorld {
       if (n === undefined || ny >= n.sections.length) return false;
       if (!faceSealed(n.sections[ny], -dx, -dy, -dz)) return false;
     }
+    // となりの接する面が 地面の表面ブロックなら見える（下のとなりは 上に固いブロックがあるので 表面ブロックではない）
+    for (const [dx, dy, dz] of NEIGHBORS) {
+      if (dy < 0) continue;
+      if (this.faceHasSurface(col.cx + dx, sy + dy, col.cz + dz, -dx, -dy, -dz)) return false;
+    }
     return true;
+  }
+
+  /**
+   * セクション (cx, sy, cz) の (fx, fy, fz) 向きの外側の面（端の 16×16）に、その列の地面の表面ブロック
+   * （worldColumns の scanColumn の ty）が あるか。よこの面（fy = 0）は 16 列（どの高さでも）、上下の面（fy ≠ 0）は 256 列（その段だけ）を 調べる。
+   */
+  private faceHasSurface(cx: number, sy: number, cz: number, fx: number, fy: number, fz: number): boolean {
+    const info = this.surfaceInfo;
+    const x0 = cx * CHUNK_SIZE;
+    const z0 = cz * CHUNK_SIZE;
+    const y0 = sy * SECTION_SIZE;
+    if (fy !== 0) {
+      const y = fy > 0 ? y0 + SECTION_SIZE - 1 : y0;
+      for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+        for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+          scanColumn(this, x0 + lx, z0 + lz, info);
+          if (info.ty === y) return true;
+        }
+      }
+      return false;
+    }
+    for (let c = 0; c < CHUNK_SIZE; c++) {
+      const wx = x0 + (fx !== 0 ? (fx > 0 ? CHUNK_SIZE - 1 : 0) : c);
+      const wz = z0 + (fz !== 0 ? (fz > 0 ? CHUNK_SIZE - 1 : 0) : c);
+      scanColumn(this, wx, wz, info);
+      if (info.ty >= y0 && info.ty < y0 + SECTION_SIZE) return true;
+    }
+    return false;
   }
 
   /** 自分と 6 つのとなりの印を つけなおす */
