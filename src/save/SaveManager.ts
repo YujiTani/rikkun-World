@@ -39,8 +39,6 @@ export interface SaveTracking {
 export interface SavePlayer {
   get(): PlayerState;
   set(v: { position: Vec3; velocity: Vec3; yawDeg: number; pitchDeg: number }): void;
-  isThirdPerson(): boolean;
-  setThirdPerson(third: boolean): void;
 }
 
 /** おとしもの ぶくろの出し入れ（M3 §2.10）。ticksLeft 以外が変わったときだけ「変わった」と数える */
@@ -408,7 +406,7 @@ export class SaveManager {
   }
 
   private restorePlayer(raw: unknown): void {
-    const p = raw as Partial<Record<'x' | 'y' | 'z' | 'yaw' | 'pitch', unknown>> & { third?: unknown };
+    const p = raw as Partial<Record<'x' | 'y' | 'z' | 'yaw' | 'pitch', unknown>>;
     const pos = { x: Number(p?.x), y: Number(p?.y), z: Number(p?.z) };
     const yaw = Number(p?.yaw);
     const pitch = Number(p?.pitch);
@@ -419,7 +417,7 @@ export class SaveManager {
       const s = this.d.spawn();
       this.d.player.set({ position: { x: s.x, y: s.y, z: s.z }, velocity: zero, yawDeg: s.yawDeg, pitchDeg: s.pitchDeg });
     }
-    this.d.player.setThirdPerson(p?.third === true);
+    // CHAR-1 第 5 版: 三人称だけ。古い保存の third は見ない
   }
 
   /**
@@ -451,7 +449,6 @@ export class SaveManager {
         z: round(st.position.z),
         yaw: round(st.yawDeg),
         pitch: round(st.pitchDeg),
-        third: this.d.player.isThirdPerson(),
       },
       bags,
       furnaces: this.d.furnaces?.serialize() ?? [],

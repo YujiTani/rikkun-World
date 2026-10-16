@@ -32,7 +32,7 @@ function rig(held: ItemId | null, target: BlockId | null, opts: { body?: boolean
     pitchDeg: 0,
     onGround: true,
     inWater: false,
-    moving: false,
+    moving: false, facingDeg: 0, running: false,
   };
   const lock: LockStatus = { locked: () => true, overlayVisible: () => false, realtimeAllowed: () => true, playInputEnabled: () => true };
   const actions = new ActionState();
@@ -115,7 +115,7 @@ describe('出る絵と語', () => {
   it('左: 妖怪が手前なら たたく', () => {
     const r = rig('katana', 'stone');
     const gate = { blocksInput: () => false, primaryStep: () => false, placeBlocked: () => false, aimedYokai: () => 7 };
-    const d = new DigSystemImpl(r.world as never, () => ({ position: { x: 2.5, y: 9, z: 6.5 }, velocity: { x: 0, y: 0, z: 0 }, yawDeg: 90, pitchDeg: 0, onGround: true, inWater: false, moving: false }), new ActionState(), { locked: () => true, overlayVisible: () => false, realtimeAllowed: () => true, playInputEnabled: () => true }, r.inv, () => 1.62, createDigConfig(), () => 0, gate);
+    const d = new DigSystemImpl(r.world as never, () => ({ position: { x: 2.5, y: 9, z: 6.5 }, velocity: { x: 0, y: 0, z: 0 }, yawDeg: 90, pitchDeg: 0, onGround: true, inWater: false, moving: false, facingDeg: 0, running: false }), new ActionState(), { locked: () => true, overlayVisible: () => false, realtimeAllowed: () => true, playInputEnabled: () => true }, r.inv, () => 1.62, createDigConfig(), () => 0, gate);
     d.update();
     expect(d.previewLeftClick()).toBe('hit');
     expect(actionHintLines(null, 'hit', { held: 'katana', heldIsPickaxe: false, heldIsBlade: true }).left).toEqual({ icon: 'katana', word: 'きる' });

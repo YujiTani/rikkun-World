@@ -259,6 +259,32 @@ export class YokaiManager implements YokaiWorld {
   private readonly boxList: OBox[] = [];
   private readonly floorScratch: number[] = [];
 
+  private readonly aimPool: { id: number; min: Vec3; max: Vec3 }[] = [];
+  private readonly aimView: { id: number; min: Vec3; max: Vec3 }[] = [];
+
+  /** ねらい補助用（CHAR-1 第 5.2 版）: 妖怪の当たりの箱（ねらいと同じに広げた箱）の 世界の外接の箱。毎回 同じ入れ物を使いまわす */
+  aimBoxes(): readonly { id: number; min: Vec3; max: Vec3 }[] {
+    let n = 0;
+    for (const e of this.ents) {
+      this.syncTransform(e);
+      for (const b of this.boxesOf(e, this.boxList)) {
+        b.hx += AI_CONST.hitPad;
+        b.hy += AI_CONST.hitPad;
+        b.hz += AI_CONST.hitPad;
+        const bb = obbBounds(b, e.x, e.y, e.z, e.yaw, tmpBox);
+        let o = this.aimPool[n];
+        if (!o) this.aimPool[n] = o = { id: 0, min: { x: 0, y: 0, z: 0 }, max: { x: 0, y: 0, z: 0 } };
+        o.id = e.id;
+        o.min.x = bb.minX; o.min.y = bb.minY; o.min.z = bb.minZ;
+        o.max.x = bb.maxX; o.max.y = bb.maxY; o.max.z = bb.maxZ;
+        this.aimView[n] = o;
+        n++;
+      }
+    }
+    this.aimView.length = n;
+    return this.aimView;
+  }
+
   raycast(origin: Vec3, dir: Vec3, maxDistance: number): YokaiRayHit | null {
     let best: YokaiRayHit | null = null;
     for (const e of this.ents) {

@@ -32,7 +32,7 @@ function rig(withArmor?: ('suneate' | 'kabuto' | 'yoroi' | 'kote')[]) {
     const pick = (n: string) => (withArmor.includes(n as never) ? n : null);
     armor.set(pick('kabuto') as 'kabuto' | null, pick('yoroi') as 'yoroi' | null, pick('kote') as 'kote' | null, pick('suneate') as 'suneate' | null);
   }
-  const player = { position: { x: 5, y: 20, z: 5 }, velocity: { x: 0, y: 0, z: 0 }, yawDeg: 0, pitchDeg: 0, onGround: true, inWater: false, moving: false };
+  const player = { position: { x: 5, y: 20, z: 5 }, velocity: { x: 0, y: 0, z: 0 }, yawDeg: 0, pitchDeg: 0, onGround: true, inWater: false, moving: false, facingDeg: 0, running: false };
   const combat = new PlayerCombatImpl({
     world: new W(),
     player: { get: () => player, set: (v) => Object.assign(player.position, v.position ?? {}) },

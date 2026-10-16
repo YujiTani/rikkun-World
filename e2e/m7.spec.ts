@@ -1,3 +1,4 @@
+import { installAimHelpers } from './helpers/aim';
 import { expect, test, type Page } from '@playwright/test';
 
 /**
@@ -10,6 +11,7 @@ const OUT = 'docs/screenshots';
 async function open(page: Page, query = '?nosave=1') {
   await page.goto('/' + query);
   await page.waitForFunction(() => window.__rikkun?.ready === true);
+  await installAimHelpers(page);
   await page.evaluate(() => (window.__rikkun as any).achievements.mute(true));
   await page.evaluate(() => {
     const h = (window as any).__rikkun;
@@ -27,7 +29,7 @@ async function open(page: Page, query = '?nosave=1') {
         h.farm.events();
       },
       look() {
-        h.player.set({ position: { x: 2.5, y: 9, z: 6.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: -30 });
+        (window as any).__aim.standForS(2.5, 6.5, 90, -30, 9);
         h.step(1);
       },
       /** ボタンを 1 ステップだけ 押す */
@@ -83,7 +85,7 @@ test.describe('M7 農業', () => {
       h.world.setBlock(4, 9, 9, 'water'); // かわいた はたけ では そだたない
       h.settings.set('farmGrowDays', { wet: { onion: 0.00125, tomato: 0.00075, pumpkin: 0.002, eggplant: 0.00125 } });
       h.time.set(20000);
-      h.player.set({ position: { x: 2.5, y: 9, z: 6.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: -12 });
+      (window as any).__aim.standForS(2.5, 6.5, 90, -12, 9);
       h.world.setBlock(4, 10, 7, 'torch');
       h.step(2);
       out.litBefore = h.farm.crop(4, 10, 6)?.lit;
@@ -195,7 +197,7 @@ test.describe('M7 農業', () => {
       h.farm.plant(4, 9, 6, 'tomato');
       h.world.setBlock(4, 9, 9, 'water'); // かわいた はたけ では そだたない
       h.settings.set('farmGrowDays', { wet: { tomato: 0.00075, onion: 0.001, pumpkin: 0.002, eggplant: 0.001 } });
-      h.player.set({ position: { x: 2.5, y: 9, z: 6.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: -12 });
+      (window as any).__aim.standForS(2.5, 6.5, 90, -12, 9);
       h.time.set(70000);
       // 上を ふさいで 明るさ 0 にする
       h.world.fill(0, 14, 0, 12, 14, 12, 'stone');
@@ -295,7 +297,7 @@ test.describe('M7 農業', () => {
       h.lock.simulate(true);
       const o = h.farm.oldFarm();
       // かかし の そばに 行く（横 4 以内）
-      h.player.set({ position: { x: o.kakashi.x + 0.5, y: o.kakashi.y + 3, z: o.kakashi.z + 3.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: 0 });
+      (window as any).__aim.standForS(o.kakashi.x + 0.5, o.kakashi.z + 3.5, 0, 0, o.kakashi.y + 3);
       h.step(5);
       const out: any = {};
       out.visit = h.farm.events().filter((e: any) => e.type === 'visitOldFarm').length;
@@ -336,7 +338,7 @@ test.describe('M7 農業', () => {
       h.pause();
       h.lock.simulate(true);
       h.inventory.clear();
-      h.player.set({ position: { x: w0.x - 1.5, y: w0.y + 1, z: w0.z + 0.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: -35 });
+      (window as any).__aim.standForS(w0.x - 1.5, w0.z + 0.5, 90, -35, w0.y + 1);
       h.step(3);
       out.target = h.target.get()?.id;
       h.input.press('primary');
@@ -484,7 +486,7 @@ test.describe('M7 農業', () => {
       h.pause();
       h.lock.simulate(true);
       h.time.set(20000);
-      h.player.set({ position: { x: o.kakashi.x - 5.5, y: o.kakashi.y + 2, z: o.kakashi.z + 0.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: -15 });
+      (window as any).__aim.standForS(o.kakashi.x - 5.5, o.kakashi.z + 0.5, 90, -15, o.kakashi.y + 2);
       h.step(10);
     });
     await page.screenshot({ path: `${OUT}/m7-oldfarm.png` });
@@ -504,16 +506,16 @@ test.describe('M7 農業', () => {
           h.farm.plant(x, 9, z, kinds[k]);
           h.farm.setStage(x, 10, z, s);
         }
-      h.player.set({ position: { x: 5.5, y: 12.5, z: 1.6 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: -50 });
+      (window as any).__aim.standForS(5.5, 1.6, 0, -50, 12.5);
       h.step(10);
     });
     await page.screenshot({ path: `${OUT}/m7-stages.png` });
     // ねらった作物の まる
     await page.evaluate(() => {
       const h = (window as any).__rikkun;
-      h.player.set({ position: { x: 5.5, y: 9, z: 4.5 + 0 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: -30 });
+      (window as any).__aim.standForS(5.5, 4.5 + 0, 90, -30, 9);
       h.step(1);
-      h.player.set({ position: { x: 2.5, y: 9, z: 5.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: -30 });
+      (window as any).__aim.standForS(2.5, 5.5, 90, -30, 9);
       h.step(3);
     });
     const aim = await page.evaluate(() => ({ t: (window as any).__rikkun.target.get(), hud: (window as any).__rikkun.farm.hud() }));
@@ -527,7 +529,7 @@ test.describe('M7 農業', () => {
       h.world.setBlock(4, 9, 6, 'dirt');
       h.farm.till(4, 9, 6);
       h.farm.plant(4, 9, 6, 'tomato');
-      h.player.set({ position: { x: 2.5, y: 9, z: 6.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: -30 });
+      (window as any).__aim.standForS(2.5, 6.5, 90, -30, 9);
       h.step(5);
     });
     await page.screenshot({ path: `${OUT}/m7-dark.png` });
@@ -536,7 +538,7 @@ test.describe('M7 農業', () => {
       const h = (window as any).__rikkun;
       const w = h.farm.wild().find((q: any) => q.kind === 'pumpkin') ?? h.farm.wild()[0];
       h.time.set(20000);
-      h.player.set({ position: { x: w.x - 2.5, y: w.y + 1, z: w.z + 0.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: -25 });
+      (window as any).__aim.standForS(w.x - 2.5, w.z + 0.5, 90, -25, w.y + 1);
       h.step(10);
     });
     await page.screenshot({ path: `${OUT}/m7-wild.png` });

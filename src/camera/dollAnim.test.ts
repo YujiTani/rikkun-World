@@ -25,13 +25,12 @@ function setup() {
     pitchDeg: 0,
     onGround: true,
     inWater: false,
-    moving: false,
+    moving: false, facingDeg: 0, running: false,
   };
   const cam = new THREE.PerspectiveCamera(75, 16 / 9, 0.1, 500);
   const rig = new CameraRig(cam, new THREE.Scene(), world, () => state, new ActionState());
   let held: ItemId | null = 'katana';
   rig.setHeldProvider(() => held);
-  rig.toggleView();
   rig.update(DT);
   const hook = createCameraHook(rig);
   const step = (n = 1) => {
@@ -215,10 +214,11 @@ describe('持つ道具・防具の見た目', () => {
       t.setHeld(item);
       t.step();
       expect(orb.visible).toBe(false);
-      expect(t.hook.doll().heldScreen).not.toBeNull();
+      expect(t.hook.doll().heldItem).toBe(item);
+      expect(t.hook.doll().heldScreen).toBeNull(); // 一人称がなくなったので いつも null
     }
   });
-  it('かぶと・よろいを着る・脱ぐ。一人称では見えない', () => {
+  it('かぶと・よろいを着る・脱ぐ', () => {
     const t = setup();
     t.rig.doll.setArmor('kabuto', 'yoroi');
     expect(t.rig.doll.armorWorn('head')).toBe('kabuto');
