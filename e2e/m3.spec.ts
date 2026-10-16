@@ -467,7 +467,7 @@ test.describe('M3 妖怪の攻撃とダメージ', () => {
 });
 
 test.describe('M3 プレイヤーの攻撃（パンチ）', () => {
-  test('AC16: 30 ステップ目に当たる・hp 4→3・1.0 押される。ぬりかべは押されない。スクショ（星・まる）', async ({ page }) => {
+  test('AC16: 30 ステップ目に当たる・hp 4→3・1.0 押される。ぬりかべは押されない。スクショ（星・体力のバー。BAL-C で まる → バー）', async ({ page }) => {
     await open(page);
     const r = await page.evaluate(() => {
       const T = (window as any).T;
