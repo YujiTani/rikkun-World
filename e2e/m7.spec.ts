@@ -368,7 +368,7 @@ test.describe('M7 農業', () => {
 
   test('保存: 作物と はたけ が 読み直しても 同じ。やせい を とったあとも もどらない（AC20）', async ({ page }) => {
     await open(page, '?reset=1');
-    const before = await page.evaluate(() => {
+    const before = await page.evaluate(async () => {
       const h = (window as any).__rikkun;
       const T = (window as any).T;
       T.base();
@@ -382,7 +382,7 @@ test.describe('M7 農業', () => {
       h.step(300);
       const w = h.farm.wild()[0];
       h.world.setBlock(w.x, w.y, w.z, 'air');
-      h.save.now();
+      await h.save.now(); // 書き終わるまで まつ（VOX-F から Promise）
       return { crops: h.farm.crops(), wild: h.farm.wild().length, w };
     });
     await page.goto('/');

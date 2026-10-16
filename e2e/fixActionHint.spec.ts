@@ -1,11 +1,29 @@
 import { expect, test } from '@playwright/test';
 import { installAimHelpers } from './helpers/aim';
+import { installArena } from './helpers/arena';
+
+/**
+ * ヒントの「絵」だけを くらべる。1 語（おく・ほる・ひらく…）は ユニット（`src/dig/rightClick.test.ts`）が見るので、
+ * E2E では「ねらうと出る・ことばが空でない」だけを見る（#37: 文言が変わるたびに E2E が古くならないように）。
+ */
+type HintLines = { right?: { icon: string; word: string }; left?: { icon: string; word: string } };
+function icons(h: HintLines): { right?: string; left?: string } {
+  const out: { right?: string; left?: string } = {};
+  for (const k of ['right', 'left'] as const) {
+    const line = h[k];
+    if (!line) continue;
+    expect(line.word.length).toBeGreaterThan(0);
+    out[k] = line.icon;
+  }
+  return out;
+}
 
 /** FIX-action-hint: ねらっている所で 右クリックすると どうなるか が照準の下に出る */
 test('ねらう物でヒントの文がかわる', async ({ page }) => {
   await page.goto('/?nosave=1');
   await page.waitForFunction(() => window.__rikkun?.ready === true);
   await installAimHelpers(page);
+  await installArena(page);
   const hint = async () =>
     page.evaluate(() => {
       const h = window.__rikkun! as any;
@@ -16,7 +34,7 @@ test('ねらう物でヒントの文がかわる', async ({ page }) => {
     const h = window.__rikkun! as any;
     h.pause();
     h.lock.simulate(true);
-    h.world.fill(0, 8, 0, 12, 8, 12, 'stone'); // 足もとの 床（落ちないように）
+    (window as any).__arena.floor(0, 0, 12, 12); // 足もとの 床（落ちないように）と その上の空気
     h.inventory.clear();
     h.inventory.add('dirt', 10);
     h.inventory.add('tansu', 1);
@@ -43,23 +61,23 @@ test('ねらう物でヒントの文がかわる', async ({ page }) => {
   // つち を持って ブロックをねらう
   await select('dirt');
   await put('stone');
-  expect(await hint()).toEqual({ right: { icon: 'dirt', word: 'おく' }, left: { icon: 'wood_pickaxe', word: 'ほる' } });
+  expect(icons(await hint())).toEqual({ right: 'dirt', left: 'wood_pickaxe' });
 
   // たんす・かまど
   await put('tansu');
-  expect((await hint()).right).toEqual({ icon: 'tansu', word: 'ひらく' });
+  expect(icons(await hint()).right).toBe('tansu');
   await put('furnace');
-  expect((await hint()).right).toEqual({ icon: 'furnace', word: 'ひらく' });
+  expect(icons(await hint()).right).toBe('furnace');
   await page.screenshot({ path: 'docs/screenshots/fix-action-hint.png' });
 
   // 防具
   await put('stone');
   await select('kabuto');
-  expect((await hint()).right).toEqual({ icon: 'kabuto', word: 'きる' });
+  expect(icons(await hint()).right).toBe('kabuto');
 
   // 刀でブロック: 置けないので 左だけ。刀のときは ほる も「きる」にそろえる（WEAPON-2 のオーナー決定）
   await select('katana');
-  expect(await hint()).toEqual({ left: { icon: 'katana', word: 'きる' } });
+  expect(icons(await hint())).toEqual({ left: 'katana' });
 
   // 設定で消せる
   await select('dirt');
@@ -81,6 +99,7 @@ for (const kind of ['karakasa', 'rokurokubi']) {
     await page.goto('/?nosave=1');
     await page.waitForFunction(() => window.__rikkun?.ready === true);
     await installAimHelpers(page);
+  await installArena(page);
     const r = await page.evaluate((k) => {
       const h = window.__rikkun! as any;
       h.pause();
@@ -88,6 +107,7 @@ for (const kind of ['karakasa', 'rokurokubi']) {
       h.inventory.clear();
       h.inventory.select(0); // すで。刃物（ぼくとう・刀）を持つと「きる」にそろう（WEAPON-2 のオーナー決定）
       h.yokai.clear();
+      (window as any).__arena.floor(0, 0, 12, 12);
       (window as any).__aim.standForS(2.5, 6.5, 90, 0, 9);
       const id = h.yokai.spawn(k, 6.5, 9, 6.5);
       h.step(1);
@@ -101,16 +121,17 @@ for (const kind of ['karakasa', 'rokurokubi']) {
     }, kind);
     expect(r.focus).toBe(r.id);
     expect(r.hulls).toBeGreaterThan(0);
-    expect(r.hint.left.word).toBe('たたく');
+    expect(r.hint.left.icon).toBe('bokuto');
     await page.screenshot({ path: `docs/screenshots/fix-action-hint-${kind}.png` });
     const after = await page.evaluate(() => {
       const h = window.__rikkun! as any;
-      h.player.set({ yaw: 270 });
+      // 妖怪は 近よってくるので、うしろを向くだけでなく 空を見上げて はっきり 外す（地面の形に よらない）
+      h.player.set({ yaw: 270, pitch: 60 });
       h.step(2);
       return { focus: h.hud.yokaiFocus(), hulls: h.hud.yokaiFocusHulls(), hint: h.hud.actionHint() };
     });
     expect(after.focus).toBeNull();
     expect(after.hulls).toBe(0);
-    expect(after.hint.left?.word).not.toBe('たたく');
+    expect(after.hint.left?.icon).not.toBe('bokuto');
   });
 }

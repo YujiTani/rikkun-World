@@ -61,13 +61,15 @@ export async function standOnGround(
       const h = (window as any).__rikkun;
       const floorY: number = o.floorY ?? h.world.groundHeight(Math.floor(x), Math.floor(z));
       const half: number = o.half ?? 12;
-      const size = h.world.size();
-      const x0 = Math.max(0, Math.floor(x) - half);
-      const z0 = Math.max(0, Math.floor(z) - half);
-      const x1 = Math.min(size.x - 1, Math.floor(x) + half);
-      const z1 = Math.min(size.z - 1, Math.floor(z) + half);
+      // 世界に はしがあるときだけ はしで切る（無限の世界 VOX-B では size が なくなる）
+      const size: { x: number; y: number; z: number } | null = h.world.size?.() ?? null;
+      const lo = (v: number) => (size ? Math.max(0, v) : v);
+      const x0 = lo(Math.floor(x) - half);
+      const z0 = lo(Math.floor(z) - half);
+      const x1 = size ? Math.min(size.x - 1, Math.floor(x) + half) : Math.floor(x) + half;
+      const z1 = size ? Math.min(size.z - 1, Math.floor(z) + half) : Math.floor(z) + half;
       h.world.fill(x0, floorY, z0, x1, floorY, z1, 'stone');
-      h.world.fill(x0, floorY + 1, z0, x1, Math.min(size.y - 1, floorY + 20), z1, 'air');
+      h.world.fill(x0, floorY + 1, z0, x1, size ? Math.min(size.y - 1, floorY + 20) : floorY + 20, z1, 'air');
       h.player.set({ position: { x, y: floorY + 1, z }, velocity: { x: 0, y: 0, z: 0 }, yaw: o.yaw ?? 90, pitch: o.pitch ?? 0 });
       h.step(1);
       return { floorY };

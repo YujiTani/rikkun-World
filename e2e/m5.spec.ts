@@ -284,7 +284,7 @@ test.describe('M5 広い世界', () => {
     await page.goto('/?reset=1');
     await page.waitForFunction(() => window.__rikkun?.ready === true);
     await page.evaluate(() => window.__rikkun!.achievements.mute(true));
-    const a = await page.evaluate(() => {
+    const a = await page.evaluate(async () => {
       const h = (window as any).__rikkun;
       h.pause();
       h.lock.simulate(true);
@@ -292,7 +292,7 @@ test.describe('M5 広い世界', () => {
       const r2 = h.world.setBlock(64, 25, 28, 'sand');
       const r3 = h.world.setBlock(65, 30, 28, 'log'); // 空中
       h.step(2);
-      h.save.now();
+      await h.save.now(); // 書き終わるまで まつ（VOX-F から Promise）
       return { r1, r2, r3, hash: h.world.hash() };
     });
     await page.goto('/');

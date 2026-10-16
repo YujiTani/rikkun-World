@@ -967,7 +967,7 @@ test.describe('M3 やられたとき・落とし物', () => {
 
   test('AC24(保存): 保存して開き直すと落ちたアイコンの場所・中身・のこりが同じ。妖怪 0・hp 20・ひる', async ({ page }) => {
     await open(page, '?reset=1');
-    const before = await page.evaluate(() => {
+    const before = await page.evaluate(async () => {
       const T = (window as any).T;
       const h = (window as any).__rikkun;
       T.base();
@@ -981,7 +981,7 @@ test.describe('M3 やられたとき・落とし物', () => {
       h.combat.damage(20);
       h.step(125);
       h.step(300);
-      h.save.now();
+      await h.save.now(); // 書き終わるまで まつ（VOX-F から Promise）
       return { tick: h.tick(), bags: h.combat.bags() };
     });
     await page.goto('/');
