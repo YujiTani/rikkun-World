@@ -38,6 +38,15 @@ function pickaxe(head: number): Part[] {
   ];
 }
 
+/** おの（仮: つるはし と 同じ 作り。頭を 片がわに 寄せた。本物の 絵・形は アート #113） */
+function axe(head: number): Part[] {
+  return [
+    stick(0.55, 0.05, WOOD, -0.1),
+    { size: [0.22, 0.06, 0.16], pos: [0.1, 0, -0.5], color: head },
+    { size: [0.05, 0.06, 0.2], pos: [0.2, 0, -0.5], color: head },
+  ];
+}
+
 function sword(bladeColor: number, handle: number, guard: number, core?: number): Part[] {
   const parts: Part[] = [
     { size: [0.06, 0.06, 0.2], pos: [0, 0, -0.0], color: handle },
@@ -52,6 +61,9 @@ export const HELD_MODELS: Partial<Record<ItemId, Part[]>> = {
   wood_pickaxe: pickaxe(LIGHT_WOOD),
   stone_pickaxe: pickaxe(0x9a9a9a),
   iron_pickaxe: pickaxe(0xd8dde3),
+  wood_axe: axe(LIGHT_WOOD),
+  stone_axe: axe(0x9a9a9a),
+  iron_axe: axe(0xd8dde3),
   bokuto: [
     { size: [0.06, 0.06, 0.2], pos: [0, 0, 0], color: WOOD },
     { size: [0.14, 0.04, 0.04], pos: [0, 0, -0.12], color: WOOD },

@@ -32,6 +32,8 @@ import { createRng, randInt, type Rng } from '../world/gen/random';
 import type { PunchGate } from '../combat/PlayerCombat';
 import { lookDirection, raycastBlocks } from './raycast';
 import { isBladeItem } from '../tools/blade/BladeSystem';
+import { blockFamily, effectivePower, toolFamily, toolRank } from './toolFamily';
+import { ToolHintModel, bestHotbarSlot, type ToolHintState } from './toolHint';
 import { computeWaterRay, createWaterRay, previewRightClick, type LeftClickKind, type RightClickPreview } from './rightClick';
 
 /** 出来事の列が読まれずにたまりすぎないように */
@@ -152,6 +154,8 @@ export class DigSystemImpl implements DigSystem {
   private tillLast = -Infinity;
   /** まだ の作物を ゆらした ブロック（押しつづけで くりかえさない） */
   private unripeBlock: Vec3 | null = null;
+  /** BAL-D: あう道具の ヒント（§4.6） */
+  private readonly toolHintModel = new ToolHintModel();
 
   /** ねらいの線 の みず の 情報（毎回 つくらず 書きかえる） */
   private readonly waterRay: WaterRay = createWaterRay();
@@ -320,7 +324,9 @@ export class DigSystemImpl implements DigSystem {
     tools?.step(primaryRaw, eye, d);
     this.punching = this.gate ? this.gate.primaryStep(primary, eye, d, this.tgt?.distance ?? null) : false;
     this.updateWhiff(primary, secondary);
+    this.toolHintModel.tick(this.inventory.selected());
     this.updateDig(primary);
+    if (!this.active) this.toolHintModel.idle();
     this.prevPrimary = primary;
     this.prevSecondary = secondary;
     this.updatePlace(secondary);
@@ -390,16 +396,43 @@ export class DigSystemImpl implements DigSystem {
         if (this.justPressed()) this.breakBlock(t);
         return;
       }
-      // 強さ ÷ すでの強さ だけ進む（すでの何ステップ分で数える。持ちかえてもそのまま続く）
-      this.mem += tool ? tool.power / cfg.handPower : 1;
+      // 強さ ÷ すでの強さ だけ進む（すでの何ステップ分で数える。持ちかえてもそのまま続く）。
+      // あわない道具は 強さが 半分（BAL-D §2.8）
+      this.mem += this.stepPower(tool, t.id) / cfg.handPower;
       if (this.mem >= r.steps - 1e-9) {
         this.mem = r.steps;
         this.ready = true;
         this.emit({ type: 'ready', tick: this.tickCount, block: { ...t.block }, id: t.id });
       }
+      this.updateToolHint(tool, t);
       return;
     }
     this.decay();
+  }
+
+  /** 1 ステップに 進む 強さ（あわない道具は 半分。道具が つながっていなければ すでの強さ） */
+  private stepPower(tool: ToolInfo | undefined, id: BlockId): number {
+    if (!tool) return this.config.handPower;
+    return effectivePower(tool.item, tool.power, id, this.config.handPower);
+  }
+
+  /** あう道具の ヒント（BALANCE.md §4.6）。あわない道具で ほっている 1 ステップごとに 数える */
+  private updateToolHint(tool: ToolInfo | undefined, t: TargetInfo): void {
+    const bf = blockFamily(t.id);
+    if (bf === null || toolFamily(tool?.item ?? null) === bf) {
+      this.toolHintModel.idle();
+      return;
+    }
+    const slots = this.inventory.slots();
+    const items: Array<ItemId | undefined> = [];
+    for (let i = 0; i < 9; i++) items.push(slots[i]?.item);
+    const slot = bestHotbarSlot(items, (it) => it !== undefined && toolFamily(it) === bf, toolRank);
+    this.toolHintModel.digTick(`${t.block.x},${t.block.y},${t.block.z}`, slot, this.inventory.selected(), this.ready);
+  }
+
+  /** あう道具の ヒント（光らせるマス）。出ていなければ null */
+  toolHint(): ToolHintState | null {
+    return this.toolHintModel.current();
   }
 
   /** はなしている間、ほった量が少しずつもどる（digDecayRate） */
@@ -408,7 +441,7 @@ export class DigSystemImpl implements DigSystem {
     // MAX になったら減らない（こわれるか、別のブロックをほり始めるまで MAX のまま）
     if (this.ready) return;
     const tool = this.m4.tools?.current();
-    this.mem -= this.config.digDecayRate * (tool ? tool.power / this.config.handPower : 1);
+    this.mem -= this.config.digDecayRate * (this.memId ? this.stepPower(tool, this.memId) : 1) / this.config.handPower;
     this.ready = false;
     if (this.mem <= 1e-9) this.clearMem();
   }
@@ -454,6 +487,7 @@ export class DigSystemImpl implements DigSystem {
     }
     this.emit({ type: 'break', tick: this.tickCount, block: { x, y, z }, id: t.id, gotItem: got > 0, count: got });
     this.wearForBlock();
+    this.toolHintModel.forget(`${x},${y},${z}`);
     this.clearMem();
     this.active = false;
     this.cooldown = this.config.digCooldown;
@@ -465,7 +499,7 @@ export class DigSystemImpl implements DigSystem {
     const it = this.inventory.held()?.item;
     if (!w || !it) return;
     let n = 0;
-    if (it.endsWith('_pickaxe')) n = w.pickaxe.block;
+    if (it.endsWith('_pickaxe') || it.endsWith('_axe')) n = w.pickaxe.block;
     else if (it === 'kuwa') n = w.kuwa.block;
     else if (isBladeItem(it) || it === 'naginata') n = w.blade.block;
     if (n > 0) this.inventory.wearHeld?.(n);
