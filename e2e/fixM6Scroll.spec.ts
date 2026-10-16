@@ -145,10 +145,10 @@ for (const [w, h] of SIZES) {
       await page.locator('.inv-tabs [data-tab=items]').click();
       // 窓の大きさを変える → すぐ合わせ直す
       await page.setViewportSize({ width: 800, height: 500 });
-      // resize の 知らせは ブラウザの 描画待ちで 遅れることが ある（main でも 100ms では 不安定）ので 最大 1 秒 まつ
-      await expect.poll(frame, { timeout: 1000, intervals: [20] }).toBe(true);
+      // resize の 知らせは ブラウザの 描画待ちで 遅れることが ある（main でも 100ms では 不安定、CI では 1 秒 でも 足りなかった）ので 最大 3 秒 まつ
+      await expect.poll(frame, { timeout: 3000, intervals: [20] }).toBe(true);
       await page.setViewportSize({ width: w, height: h });
-      await expect.poll(frame, { timeout: 1000, intervals: [20] }).toBe(true);
+      await expect.poll(frame, { timeout: 3000, intervals: [20] }).toBe(true);
       // HUD（もちもの画面を閉じて）
       await page.evaluate(() => {
         const hk = window.__rikkun as any;
@@ -201,31 +201,21 @@ test('実キーで W A S D と Shift ながら の D が効く', async ({ page }
   await page.evaluate(() => (window.__rikkun as any).lock.simulate(true));
   await page.waitForTimeout(300);
   const pos = () => page.evaluate(() => (window.__rikkun as any).player.get().position as { x: number; z: number });
-  const dirs: [string, 'x' | 'z', number][] = [['KeyW', 'z', -1], ['KeyS', 'z', 1], ['KeyA', 'x', -1], ['KeyD', 'x', 1]];
-  for (const [k, axis, sign] of dirs) {
+  // ソフト描画で 3 並列だとコマが遅れるので、決まった時間は待たず「0.3 マス動くまで」待つ（最大 3 秒）
+  const movesWhileHeld = async (keys: string[], axis: 'x' | 'z', sign: number, label: string) => {
     const a = await pos();
-    await page.keyboard.down(k);
-    await page.waitForTimeout(400);
-    await page.keyboard.up(k);
-    const b = await pos();
-    expect((b[axis] - a[axis]) * sign, k).toBeGreaterThan(0.3);
-  }
-  const a = await pos();
-  await page.keyboard.down('Shift');
-  await page.keyboard.down('KeyD');
-  await page.waitForTimeout(400);
-  await page.keyboard.up('KeyD');
-  await page.keyboard.up('Shift');
-  expect((await pos()).x - a.x).toBeGreaterThan(0.3);
+    for (const k of keys) await page.keyboard.down(k);
+    await expect.poll(async () => ((await pos())[axis] - a[axis]) * sign, { message: label, timeout: 3000 }).toBeGreaterThan(0.3);
+    for (const k of [...keys].reverse()) await page.keyboard.up(k);
+  };
+  const dirs: [string, 'x' | 'z', number][] = [['KeyW', 'z', -1], ['KeyS', 'z', 1], ['KeyA', 'x', -1], ['KeyD', 'x', 1]];
+  for (const [k, axis, sign] of dirs) await movesWhileHeld([k], axis, sign, k);
+  await movesWhileHeld(['Shift', 'KeyD'], 'x', 1, 'Shift+KeyD');
   // おめでとう画面が出ている間に D をはなしても、あとで D が効く
   await page.evaluate(() => (window.__rikkun as any).achievements.close?.());
   await page.keyboard.down('KeyD');
   await page.keyboard.up('KeyD');
-  const c = await pos();
-  await page.keyboard.down('KeyD');
-  await page.waitForTimeout(400);
-  await page.keyboard.up('KeyD');
-  expect((await pos()).x - c.x).toBeGreaterThan(0.3);
+  await movesWhileHeld(['KeyD'], 'x', 1, 'KeyD（おめでとう画面のあと）');
 });
 
 // ---- もちもの画面の操作の表示 ----

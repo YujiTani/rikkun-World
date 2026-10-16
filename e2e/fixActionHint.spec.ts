@@ -54,9 +54,9 @@ test('ねらう物でヒントの文がかわる', async ({ page }) => {
   await select('kabuto');
   expect((await hint()).right).toEqual({ icon: 'kabuto', word: 'きる' });
 
-  // 刀でブロック: 置けないので 左だけ
+  // 刀でブロック: 置けないので 左だけ。刀のときは ほる も「きる」にそろえる（WEAPON-2 のオーナー決定）
   await select('katana');
-  expect(await hint()).toEqual({ left: { icon: 'wood_pickaxe', word: 'ほる' } });
+  expect(await hint()).toEqual({ left: { icon: 'katana', word: 'きる' } });
 
   // 設定で消せる
   await select('dirt');
@@ -82,8 +82,7 @@ for (const kind of ['karakasa', 'rokurokubi']) {
       h.pause();
       h.lock.simulate(true);
       h.inventory.clear();
-      h.inventory.add('katana', 1);
-      h.inventory.select(0);
+      h.inventory.select(0); // すで。刃物（ぼくとう・刀）を持つと「きる」にそろう（WEAPON-2 のオーナー決定）
       h.yokai.clear();
       h.player.set({ position: { x: 2.5, y: 9, z: 6.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: 0 });
       const id = h.yokai.spawn(k, 6.5, 9, 6.5);

@@ -30,7 +30,7 @@ test.describe('M1-01 世界（つないだ後）', () => {
     });
     expect(r.size).toEqual({ x: WORLD_SIZE.x, y: WORLD_SIZE.y, z: WORLD_SIZE.z });
     expect(r.out).toEqual(['outside', 'outside', 'outside']);
-    expect(r.types.length).toBe(30); // M4: かまど・かわら・レンガ・たいまつ・こわれない たいまつ、M6: たんす、M7: はたけ・作物・やせい・かかし・さく 13 こ を足した
+    expect(r.types.length).toBe(31); // M4: かまど・かわら・レンガ・たいまつ・こわれない たいまつ、M6: たんす、M7: はたけ・作物・やせい・かかし・さく 13 こ、M7-2: スプリンクラー を足した
     const by = Object.fromEntries(r.types.map((t) => [t.id, t]));
     expect(by.bedrock.breakable).toBe(false);
     expect(by.water.breakable).toBe(false);
@@ -473,9 +473,10 @@ test.describe('M1-02 動き・視点・ロック（つないだ後）', () => {
     await page.evaluate(() => window.__rikkun!.lock.simulate(true));
     expect((await page.evaluate(() => window.__rikkun!.lock.get())).overlayVisible).toBe(false);
     const t0 = await page.evaluate(() => window.__rikkun!.tick());
-    await page.waitForTimeout(1000);
-    const t1 = await page.evaluate(() => window.__rikkun!.tick());
-    expect(t1 - t0).toBeGreaterThanOrEqual(30);
+    // 実時間で進むかを見る。CI の遅い機械では 1 秒で 30 ステップに届かないことがある（13 だった）ので、届くまで最大 5 秒 まつ
+    await expect
+      .poll(async () => (await page.evaluate(() => window.__rikkun!.tick())) - t0, { timeout: 5000 })
+      .toBeGreaterThanOrEqual(30);
   });
 
   test('AC32/AC33/AC34: ロックが外れる → 入力が止まり、戻ると続きから', async ({ page }) => {
