@@ -963,7 +963,16 @@ test.describe('M7-2 画面', () => {
         for (const e of els) {
           const b = e.getBoundingClientRect();
           if (b.width === 0) continue;
-          if (e.closest('[style*="overflow"]') && getComputedStyle(e.parentElement!).overflowY === 'auto') continue;
+          // スクロールする欄（せつめいの .cp-scroll など）の中で 見えない所に ある物は はみ出しに 数えない
+          let clipped = false;
+          for (let p = e.parentElement; p && p !== panel; p = p.parentElement) {
+            const oy = getComputedStyle(p).overflowY;
+            if (oy === 'auto' || oy === 'scroll' || oy === 'hidden') {
+              clipped = true;
+              break;
+            }
+          }
+          if (clipped) continue;
           if (b.right > innerWidth + 0.5 || b.bottom > innerHeight + 0.5) over = Math.max(over, Math.round(Math.max(b.right - innerWidth, b.bottom - innerHeight)));
         }
         const ids = ui.cards.map((c: any) => c.id);
