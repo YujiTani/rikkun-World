@@ -12,6 +12,8 @@ import { expect, test, type Page } from '@playwright/test';
  *  4. 絵の中の「空の色（水色）のかたまり」の大きさを数える。地面・土・かべ・草は 水色にならない。
  *     穴があると、地面の中ごしに 空が 帯になって見える（実装前の数: 1 枚の絵で かたまり 数十〜数百ピクセル）。
  *     いちばん大きいかたまりが 25 ピクセル未満なら すけていない（ふちの 1〜数ピクセルの すきまは ここでは数えない）。
+ *  0. 判定式そのもの（水色の判定）が 昼の空の色を ちゃんと見つけることを、最初に確かめる（E0。陽性対照）。
+ *     実装後は「0 が正解」なので、判定がずれると 穴があっても緑になってしまう。
  *  新しい hook は いらない（sectionInfo・meshStats・lightPending・rebuildLog・player.set・world.fill で足りる）。
  *
  * ユニットテスト（src/world/render/voxel/seeThrough.test.ts）が「面が全部ある」を数で確かめる。
@@ -36,6 +38,9 @@ const QUIET_SRC = `(h) => {
   h.step(2);
 }`;
 
+/** ページの中で使う: 空の色（水色）の判定式。絵の判定（BLOBS_SRC）と 陽性対照（E0）で 同じものを使う */
+const IS_SKY_SRC = `(r, g, b) => b >= 170 && b > r + 30 && b > g - 10`;
+
 /** ページの中で使う: 絵（PNG の base64）の中の「水色」のかたまり（8 近傍でつながったピクセル）のいちばん大きいもの・25 以上のかたまりの数・水色の合計 */
 const BLOBS_SRC = `async (b64) => {
   const blob = await (await fetch('data:image/png;base64,' + b64)).blob();
@@ -49,7 +54,7 @@ const BLOBS_SRC = `async (b64) => {
   let total = 0;
   for (let y = Y0; y < H; y++) for (let x = 0; x < W; x++) {
     const i = (y * W + x) * 4;
-    if (d[i + 2] >= 170 && d[i + 2] > d[i] + 30 && d[i + 2] > d[i + 1] - 10) { sky[y * W + x] = 1; total++; }
+    if (window.__isSky(d[i], d[i + 1], d[i + 2])) { sky[y * W + x] = 1; total++; }
   }
   let largest = 0, big = 0;
   const stack = [];
@@ -74,7 +79,7 @@ const BLOBS_SRC = `async (b64) => {
 
 async function open(page: Page) {
   await page.setViewportSize({ width: 1280, height: 720 });
-  await page.addInitScript(`window.__quiet = ${QUIET_SRC}; window.__blobs = ${BLOBS_SRC};`);
+  await page.addInitScript(`window.__quiet = ${QUIET_SRC}; window.__isSky = ${IS_SKY_SRC}; window.__blobs = ${BLOBS_SRC};`);
   await page.goto('/?nosave=1');
   await page.waitForFunction(() => window.__rikkun?.ready === true);
 }
@@ -183,13 +188,40 @@ function expectNoSky(label: string, seen: Seen[]) {
 }
 
 test.describe('SEETHRU: 段差の下が空の色にすけない（#142）', () => {
+  test('E0（陽性対照）: 判定式は 昼の空の色を 水色と判定し、地面・土・石・れんが・白は 水色と判定しない。空を見上げた絵では 大きな水色のかたまりが見つかる', async ({ page }) => {
+    await open(page);
+    await flatArea(page);
+    await settle(page);
+    const r = await page.evaluate(() => {
+      const h = (window as any).__rikkun;
+      const isSky = (window as any).__isSky as (r: number, g: number, b: number) => boolean;
+      const hex = h.time.get().skyColor as string; // 昼（dayTick 1000）の空の色。例 '#8FD3FF'
+      const rgb = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+      const notSky = { 草: [86, 166, 58], 土: [134, 86, 56], 石: [136, 133, 128], れんが: [176, 78, 62], 白: [255, 255, 255] };
+      return { hex, rgb, sky: isSky(rgb[0], rgb[1], rgb[2]), notSky: Object.entries(notSky).filter(([, c]) => isSky(c[0], c[1], c[2])).map(([k]) => k) };
+    });
+    expect(r.hex, '昼の空の色が 変わった（判定式を見直す）').toMatch(/^#[0-9A-Fa-f]{6}$/);
+    expect(r.sky, `昼の空の色 ${r.hex}（${r.rgb}）が 水色の判定式を通らない`).toBe(true);
+    expect(r.notSky, '地面などの色が 水色と判定された').toEqual([]);
+    // 空を見上げた絵: 絵の判定（かたまり数え）が 大きな水色のかたまりを見つける（実装後に 0 が正解のテストが 空振りしないため）
+    await page.evaluate(() => {
+      const h = (window as any).__rikkun;
+      h.player.set({ position: { x: 62.5, y: 25, z: 64.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: 60 });
+      h.step(40);
+    });
+    const buf = await page.screenshot();
+    const blobs = (await page.evaluate(`(window.__blobs)("${buf.toString('base64')}")`)) as { largest: number; total: number };
+    console.log('E0 空を見上げた絵', JSON.stringify(blobs));
+    expect(blobs.largest, '空を見上げた絵で 水色のかたまりが 見つからない（かたまり数えが動いていない）').toBeGreaterThan(100_000);
+  });
+
   for (const diff of [1, 2, 3]) {
     test(`E1: 崖 ${diff} ブロック: 崖の足もとの固いブロックの面があり、絵で空の色がすけない`, async ({ page }) => {
       await open(page);
       await flatArea(page);
       await plateau(page, WALL_X, TOP + diff);
       await settle(page);
-      await expectMicroMeshes(page, WALL_X - 2, 64, [TOP - 1, TOP + 1]);
+      await expectMicroMeshes(page, WALL_X - 2, 64, [TOP - 1]); // y 16〜31 = セクション (3,1,4)
       expectNoSky(`E1 diff=${diff}`, await look(page, WALL_X, Z_VIEWS, `${ASSETS}/SEETHRU-cliff${diff}.png`));
     });
   }
@@ -204,7 +236,7 @@ test.describe('SEETHRU: 段差の下が空の色にすけない（#142）', () =
       [WALL_X, TOP],
     );
     await settle(page);
-    await expectMicroMeshes(page, WALL_X - 2, 64, [TOP, TOP + 2]);
+    await expectMicroMeshes(page, WALL_X - 2, 64, [TOP]); // かべの下の草（y=24）。かべそのもの（y 25〜27）も同じセクション
     expectNoSky('E2', await look(page, WALL_X, Z_VIEWS, `${ASSETS}/SEETHRU-brick.png`));
   });
 

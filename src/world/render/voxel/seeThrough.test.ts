@@ -91,13 +91,41 @@ export interface HoleCount {
 }
 
 const covered = new Uint8Array(6 * P * P * P);
+/** 印をつけた添字（次のセクションの前に、ここだけ 0 に戻す。22MB を毎回ぬりなおさない） */
+let touched: number[] = [];
 
-/** セクション (cx, sy, cz) を小ブロック段で作って、見えるはずの面が全部あるか数える */
+/** セクション (cx, sy, cz) を小ブロック段で作って、見えるはずの面が全部あるか数える。見るべき面が 1 つも無いセクションは 作らない */
 function countHoles(world: ArrayVoxelWorld, mesher: SectionMesher, cols: Columns, cx: number, sy: number, cz: number): HoleCount {
   const out: HoleCount = { faces: 0, blocks: 0, byDir: [0, 0, 0, 0, 0, 0], checked: 0 };
+  const ox = cx * 16;
+  const oy = sy * 16;
+  const oz = cz * 16;
+  // 1. 世界のほうで「見るべき面」の候補（X と向き）を決める。メッシュが空かどうかでは 決めない（穴を見落とすので）
+  const cand: [number, number, number, number][] = [];
+  for (let ly = 0; ly < 16; ly++) {
+    for (let lz = 0; lz < 16; lz++) {
+      for (let lx = 0; lx < 16; lx++) {
+        const wx = ox + lx;
+        const wy = oy + ly;
+        const wz = oz + lz;
+        const k = world.getIndex(wx, wy, wz);
+        if (k <= 0 || !closed(k)) continue;
+        if (cols.info(wx, wz).ty === wy) continue; // その列の地面の表面ブロック（小ブロック地形が描く）
+        for (let f = 0; f < 6; f++) {
+          const nx = wx + DIR[f][0];
+          const ny = wy + DIR[f][1];
+          const nz = wz + DIR[f][2];
+          const nk = world.getIndex(nx, ny, nz);
+          if (nk <= 0 || !closed(nk)) continue;
+          if (cols.info(nx, nz).ty !== ny) continue; // となりが 地面の表面ブロック (T) のときだけ
+          cand.push([lx, ly, lz, f]);
+        }
+      }
+    }
+  }
+  if (cand.length === 0) return out;
+  // 2. 作られた四角を 面の置き場（向き, 面の高さ, u, v）ごとに 1 小ブロックずつ印にする
   const data = mesher.build(cx, sy, cz, 'micro');
-  // 作られた四角を 面の置き場（向き, 面の高さ, u, v）ごとに 1 小ブロックずつ印にする
-  covered.fill(0);
   for (const piece of data.pieces) {
     for (let q = 0; q + 3 < piece.vertexCount; q += 4) {
       const f = piece.data[q * 4 + 3] & 7;
@@ -117,64 +145,52 @@ function countHoles(world: ArrayVoxelWorld, mesher: SectionMesher, cols: Columns
         if (vb < b0) b0 = vb;
         if (vb > b1) b1 = vb;
       }
-      for (let u = a0; u < a1; u++) for (let v = b0; v < b1; v++) covered[((f * P + plane) * P + u) * P + v] = 1;
-    }
-  }
-  const ox = cx * 16;
-  const oy = sy * 16;
-  const oz = cz * 16;
-  for (let ly = 0; ly < 16; ly++) {
-    for (let lz = 0; lz < 16; lz++) {
-      for (let lx = 0; lx < 16; lx++) {
-        const wx = ox + lx;
-        const wy = oy + ly;
-        const wz = oz + lz;
-        const k = world.getIndex(wx, wy, wz);
-        if (k <= 0 || !closed(k)) continue;
-        if (cols.info(wx, wz).ty === wy) continue; // その列の地面の表面ブロック（小ブロック地形が描く）
-        let blockHas = false;
-        for (let f = 0; f < 6; f++) {
-          const nx = wx + DIR[f][0];
-          const ny = wy + DIR[f][1];
-          const nz = wz + DIR[f][2];
-          const nk = world.getIndex(nx, ny, nz);
-          if (nk <= 0 || !closed(nk)) continue;
-          if (cols.info(nx, nz).ty !== ny) continue; // となりが 地面の表面ブロック (T) のときだけ
-          const ax = AXIS_OF[f];
-          const plus = (f & 1) === 0;
-          const a = ax === 0 ? 1 : 0;
-          const b = ax === 2 ? 1 : 2;
-          const base = [lx * N, ly * N, lz * N];
-          const abs = [wx * N, wy * N, wz * N];
-          for (let i = 0; i < N; i++) {
-            for (let j = 0; j < N; j++) {
-              const c = [0, 0, 0];
-              c[ax] = plus ? N - 1 : 0;
-              c[a] = i;
-              c[b] = j;
-              // となりの小ブロック（T の中）が S より上で 空いているか
-              const mx = abs[0] + c[0] + DIR[f][0];
-              const my = abs[1] + c[1] + DIR[f][1];
-              const mz = abs[2] + c[2] + DIR[f][2];
-              if (my < cols.surfaceH(mx, mz)) continue;
-              out.checked++;
-              const plane = base[ax] + c[ax] + (plus ? 1 : 0);
-              if (covered[((f * P + plane) * P + base[a] + c[a]) * P + base[b] + c[b]] === 0) {
-                out.faces++;
-                out.byDir[f]++;
-                blockHas = true;
-              }
-            }
-          }
+      for (let u = a0; u < a1; u++) {
+        for (let v = b0; v < b1; v++) {
+          const idx = ((f * P + plane) * P + u) * P + v;
+          covered[idx] = 1;
+          touched.push(idx);
         }
-        if (blockHas) out.blocks++;
       }
     }
   }
+  // 3. 候補の面の 9×9 を 1 小ブロックずつ調べる
+  const seenBlocks = new Set<number>();
+  for (const [lx, ly, lz, f] of cand) {
+    const ax = AXIS_OF[f];
+    const plus = (f & 1) === 0;
+    const a = ax === 0 ? 1 : 0;
+    const b = ax === 2 ? 1 : 2;
+    const base = [lx * N, ly * N, lz * N];
+    const abs = [(ox + lx) * N, (oy + ly) * N, (oz + lz) * N];
+    for (let i = 0; i < N; i++) {
+      for (let j = 0; j < N; j++) {
+        const c = [0, 0, 0];
+        c[ax] = plus ? N - 1 : 0;
+        c[a] = i;
+        c[b] = j;
+        // となりの小ブロック（T の中）が S より上で 空いているか
+        const mx = abs[0] + c[0] + DIR[f][0];
+        const my = abs[1] + c[1] + DIR[f][1];
+        const mz = abs[2] + c[2] + DIR[f][2];
+        if (my < cols.surfaceH(mx, mz)) continue;
+        out.checked++;
+        const plane = base[ax] + c[ax] + (plus ? 1 : 0);
+        if (covered[((f * P + plane) * P + base[a] + c[a]) * P + base[b] + c[b]] === 0) {
+          out.faces++;
+          out.byDir[f]++;
+          seenBlocks.add((ly * 16 + lz) * 16 + lx);
+        }
+      }
+    }
+  }
+  out.blocks = seenBlocks.size;
+  for (const idx of touched) covered[idx] = 0;
+  touched = [];
   return out;
 }
 
-/** 世界の全セクションを小ブロック段で作って数える（空のセクションは とばす） */
+/** 世界の全セクションを数える（見るべき面が 1 つも無いセクションは countHoles が 作らずに とばす） */
 function countWorld(world: ArrayVoxelWorld, sizeX: number, sizeZ: number): HoleCount {
   const cols = new Columns(world);
   const mesher = new SectionMesher(world);
@@ -198,11 +214,11 @@ function countWorld(world: ArrayVoxelWorld, sizeX: number, sizeZ: number): HoleC
 
 const SIZE = 48;
 
-/** 平らな高さ関数から 48×48 の地面を作る（y=0 は bedrock、下は stone、その上に dirt、てっぺんは grass） */
-function terrain(topAt: (x: number, z: number) => number): ArrayVoxelWorld {
-  const w = new ArrayVoxelWorld({ x: SIZE, y: 48, z: SIZE });
-  for (let z = 0; z < SIZE; z++) {
-    for (let x = 0; x < SIZE; x++) {
+/** 高さ関数から 地面を作る（既定 48×48。y=0 は bedrock、下は stone、その上に dirt、てっぺんは grass） */
+function terrain(topAt: (x: number, z: number) => number, sx = SIZE, sz = SIZE): ArrayVoxelWorld {
+  const w = new ArrayVoxelWorld({ x: sx, y: 48, z: sz });
+  for (let z = 0; z < sz; z++) {
+    for (let x = 0; x < sx; x++) {
       const t = topAt(x, z);
       w.setBlock(x, 0, z, 'bedrock');
       w.fill(x, 1, z, x, t - 3, z, 'stone');
@@ -214,10 +230,12 @@ function terrain(topAt: (x: number, z: number) => number): ArrayVoxelWorld {
 }
 
 const TOP = 20;
+/** 数える世界が 2 つ以上・島ぜんぶ などの重いテスト。遅い CI でも 5 秒（既定）に届かないように */
+const HEAVY = { timeout: 60_000 };
 
 describe('段差の下の面（#142）: 見えるはずの小ブロックの面が 全部ある', () => {
   // ---- 数え方そのものが 動いているか（0 を返すだけのテストにしない）
-  it('数え方の確認: 平らな地面では「調べた面」が 0（段差が無い）で、段差があると調べた面が ふえる', () => {
+  it('数え方の確認: 平らな地面では「調べた面」が 0（段差が無い）で、段差があると調べた面が ふえる', HEAVY, () => {
     const flat = terrain(() => TOP);
     const cliff = terrain((x) => (x < 24 ? TOP : TOP + 2));
     expect(countWorld(flat, SIZE, SIZE).checked).toBe(0);
@@ -227,7 +245,7 @@ describe('段差の下の面（#142）: 見えるはずの小ブロックの面�
   // ---- 崖: 1・2・3 ブロックの高さの段差（x の向き・z の向き）
   for (const diff of [1, 2, 3]) {
     for (const axis of ['x', 'z'] as const) {
-      it(`崖 ${diff} ブロック（${axis} の向き）: 崖のいちばん下の固いブロックの面が ぬけていない`, () => {
+      it(`崖 ${diff} ブロック（${axis} の向き）: 崖のいちばん下の固いブロックの面が ぬけていない`, HEAVY, () => {
         const w = terrain((x, z) => ((axis === 'x' ? x : z) < 24 ? TOP : TOP + diff));
         const h = countWorld(w, SIZE, SIZE);
         expect(h.checked).toBeGreaterThan(0);
@@ -237,7 +255,7 @@ describe('段差の下の面（#142）: 見えるはずの小ブロックの面�
     }
   }
 
-  it('崖が 2 段・3 段（1 ブロックずつ 3 回・4 回さがる階段）: どの段のいちばん下も ぬけていない', () => {
+  it('階段 2 段・3 段（1 ブロックずつ 2 回・3 回さがる）: どの段のいちばん下も ぬけていない', HEAVY, () => {
     for (const steps of [2, 3]) {
       const w = terrain((x) => TOP + Math.min(steps, Math.floor(x / 12)));
       const h = countWorld(w, SIZE, SIZE);
@@ -246,7 +264,7 @@ describe('段差の下の面（#142）: 見えるはずの小ブロックの面�
     }
   });
 
-  it('くぼみ（深さ 1・2 の四角い穴。4 つの向きがある）: ぬけていない', () => {
+  it('くぼみ（深さ 1・2 の四角い穴。4 つの向きがある）: ぬけていない', HEAVY, () => {
     for (const depth of [1, 2]) {
       const w = terrain((x, z) => (x >= 16 && x < 32 && z >= 16 && z < 32 ? TOP - depth : TOP));
       const h = countWorld(w, SIZE, SIZE);
@@ -256,7 +274,7 @@ describe('段差の下の面（#142）: 見えるはずの小ブロックの面�
   });
 
   // ---- 建物の下・置いたブロックの下
-  it('建物の下: 草の上の れんが のかべの下の草ブロックの横の面が ぬけていない（かべの列は地形ではない）', () => {
+  it('建物の下: 草の上の れんが のかべの下の草ブロックの横の面が ぬけていない（かべの列は地形ではない）', HEAVY, () => {
     const w = terrain(() => TOP);
     w.fill(20, TOP + 1, 10, 20, TOP + 3, 37, 'brick'); // z 方向に長い 高さ 3 のかべ
     const cols = new Columns(w);
@@ -267,7 +285,7 @@ describe('段差の下の面（#142）: 見えるはずの小ブロックの面�
     expect(h.faces, `ぬけている面 ${h.faces}（向きごと ${h.byDir}）`).toBe(0);
   });
 
-  it('置いたブロックの下: 地面に 石を 1〜2 つ積むと、その下の草・土の横の面が ぬけていない', () => {
+  it('置いたブロックの下: 地面に 石を 1〜2 つ積むと、その下の草・土の横の面が ぬけていない', HEAVY, () => {
     const w = terrain(() => TOP);
     w.setBlock(24, TOP + 1, 24, 'stone');
     w.fill(30, TOP + 1, 24, 30, TOP + 2, 24, 'stone');
@@ -277,25 +295,54 @@ describe('段差の下の面（#142）: 見えるはずの小ブロックの面�
     expect(h.faces, `ぬけている面 ${h.faces}（向きごと ${h.byDir}）`).toBe(0);
   });
 
-  // ---- 上の面（小ブロック地形の下限 minAboveBase を 0 にしたとき）
-  it('上の面: アートが minAboveBase を 0 にしても、表面ブロックの下のブロックの上の面が ぬけない', () => {
-    // 今の数では S がブロックの底まで下がることは めったに無いので、くぼ地も深くして 底まで下がる所を作る
-    const p = MICRO_PARAMS as unknown as { minAboveBase: number; mound: { hollowDepth: number }; soil: { sink: number } };
-    const saved = { min: p.minAboveBase, hollow: p.mound.hollowDepth, sink: p.soil.sink };
-    p.minAboveBase = 0;
-    p.mound.hollowDepth = 12;
-    p.soil.sink = 9;
-    try {
-      const w = terrain(() => TOP);
+  // ---- 上の面（小ブロック地形の下限 minAboveBase を 0 にしたとき）。表面が セクションの いちばん下の段（16）のときは、上の面が セクションの境をまたぐ
+  for (const top of [TOP, 16]) {
+    it(`上の面（表面の高さ ${top}）: アートが minAboveBase を 0 にしても、表面ブロックの下のブロックの上の面が ぬけない`, HEAVY, () => {
+      // 今の数では S がブロックの底まで下がることは めったに無いので、くぼ地も深くして 底まで下がる所を作る
+      const p = MICRO_PARAMS as unknown as { minAboveBase: number; mound: { hollowDepth: number }; soil: { sink: number } };
+      const saved = { min: p.minAboveBase, hollow: p.mound.hollowDepth, sink: p.soil.sink };
+      p.minAboveBase = 0;
+      p.mound.hollowDepth = 12;
+      p.soil.sink = 9;
+      try {
+        const w = terrain(() => top);
+        const h = countWorld(w, SIZE, SIZE);
+        expect(h.checked, 'S がブロックの底まで下がる所が無いと、上の面は調べられない').toBeGreaterThan(0);
+        expect(h.byDir[0], `上の面のぬけ ${h.byDir[0]}（向きごと ${h.byDir}）`).toBe(0);
+        expect(h.faces).toBe(0);
+      } finally {
+        p.minAboveBase = saved.min;
+        p.mound.hollowDepth = saved.hollow;
+        p.soil.sink = saved.sink;
+      }
+    });
+  }
+
+  // ---- 縦のセクションの境: 表面が セクションのいちばん上の段（15）・いちばん下の段（16）
+  for (const top of [15, 16]) {
+    it(`セクションの縦の境（低い側の表面 y=${top}）: 崖 1 ブロックの足もとの面が ぬけていない`, HEAVY, () => {
+      const w = terrain((x) => (x < 24 ? top : top + 1));
       const h = countWorld(w, SIZE, SIZE);
-      expect(h.checked, 'S がブロックの底まで下がる所が無いと、上の面は調べられない').toBeGreaterThan(0);
-      expect(h.byDir[0], `上の面のぬけ ${h.byDir[0]}（向きごと ${h.byDir}）`).toBe(0);
-      expect(h.faces).toBe(0);
-    } finally {
-      p.minAboveBase = saved.min;
-      p.mound.hollowDepth = saved.hollow;
-      p.soil.sink = saved.sink;
-    }
+      expect(h.checked).toBeGreaterThan(0);
+      expect(h.faces, `ぬけている面 ${h.faces}（向きごと ${h.byDir}）`).toBe(0);
+    });
+  }
+
+  // ---- 見えないセクション（isSectionHidden）。VOX-plan §6。世界が深くなると、段差の下の固いブロックのセクションが まるごと「見えない」になる
+  it('見えないセクション: 段差の下の固いブロックの入ったセクションは「見えない」にならず、その面が作られる', HEAVY, () => {
+    // x < 32: 表面 y=31（セクション (1,1,*) の いちばん上の段）。x >= 32: 表面 y=34。
+    // 高い側のセクション (2,1,1)（x 32〜47、y 16〜31、z 16〜31）は 中が全部固い。-x のとなりは 低い側の 表面ブロック (x=31, y=31) をふくむ
+    const w = terrain((x) => (x < 32 ? 31 : 34), 64, 48);
+    const cols = new Columns(w);
+    expect(cols.info(31, 20).ty).toBe(31);
+    expect(cols.info(32, 20).ty).toBe(34);
+    // 前提: 中は 全部 ふさがっている（固い石・土・草）
+    for (let y = 16; y < 32; y += 5) expect(w.getIndex(40, y, 24)).toBeGreaterThan(0);
+    expect(w.isSectionHidden(2, 1, 1), '低い側の 地形の表面（S でへこむ）に 面した固いセクションは「見えない」ではない').toBe(false);
+    // 面は ちゃんと作られる（X = (32, 31, z) の -x の面）
+    const h = countHoles(w, new SectionMesher(w), cols, 2, 1, 1);
+    expect(h.checked).toBeGreaterThan(0);
+    expect(h.faces, `ぬけている面 ${h.faces}（向きごと ${h.byDir}）`).toBe(0);
   });
 
   // ---- 「ほったら でこぼこになる」
@@ -333,7 +380,7 @@ describe('段差の下の面（#142）: 見えるはずの小ブロックの面�
     expect(planes.size, `でこぼこの高さ ${[...planes]}`).toBeGreaterThanOrEqual(2);
   });
 
-  it('ほったあとも すけない: 広くほって 1 ブロックの段差ができても、まわりの草の下の面が ぬけていない', () => {
+  it('ほったあとも すけない: 広くほって 1 ブロックの段差ができても、まわりの草の下の面が ぬけていない', HEAVY, () => {
     const w = terrain(() => TOP);
     w.fill(19, TOP, 19, 29, TOP, 29, 'air'); // 11×11 をほる
     const cols = new Columns(w);
@@ -345,7 +392,7 @@ describe('段差の下の面（#142）: 見えるはずの小ブロックの面�
 });
 
 describe('いつもの島（seed 20261012）: 小ブロック段の全セクションで ぬけている面が 0', () => {
-  it('ぬけている小ブロックの面 0・穴のあるブロック 0（調べた時は 10,048 面。このテストの数え方では 1,072 ブロック）', () => {
+  it('ぬけている小ブロックの面 0・穴のあるブロック 0（調べた時は 10,048 面。このテストの数え方では 1,072 ブロック）', { timeout: 120_000 }, () => {
     const w = new ArrayVoxelWorld();
     generateIsland(20261012, w);
     const h = countWorld(w, 128, 128);
@@ -353,5 +400,5 @@ describe('いつもの島（seed 20261012）: 小ブロック段の全セクシ�
     expect(h.checked, '調べた面が 0 だと何も確かめていない').toBeGreaterThan(10_000);
     expect(h.faces, `ぬけている小ブロックの面（向きごと ${h.byDir}）`).toBe(0);
     expect(h.blocks, '穴のあるブロック').toBe(0);
-  }, 120_000);
+  });
 });
