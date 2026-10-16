@@ -205,7 +205,7 @@ test.describe('CHAR-1 テスト係の受け入れ', () => {
     expect(r.after.bowHidden).toBe(true);
   });
 
-  test('AC29: ほる・おく・たたく・刀・弓・ばんざい の間 motion は idle/walk/run/jump、箱人形の部品なし、刀の弧は 9 ステップ', async ({ page }) => {
+  test('AC29: 刀・弓を持っていない間（ほる・おく・素手でたたく・なぎなた・ばんざい）motion は idle/walk/run/jump、箱人形の部品なし、なぎなたの弧は 9 ステップ（刀・弓の絵は CHAR-2 AC20・AC21）', async ({ page }) => {
     await open(page);
     const r = await page.evaluate(() => {
       const h = window.__rikkun! as any;
@@ -213,12 +213,14 @@ test.describe('CHAR-1 テスト係の受け入れ', () => {
       const seen = new Set<string>();
       let badMotion = 0;
       let partsVisible = 0;
+      // CHAR-2 §6.1: 刀・弓を持っている間は 第 1 段階の 4 つの絵ではない（e2e/char2.spec.ts が 見る）
+      let checking = true;
       const tick = (n: number) => {
         for (let i = 0; i < n; i++) {
           h.step(1);
           const d = h.player.doll();
           seen.add(d.sprite.motion);
-          if (!ok.has(d.sprite.motion)) badMotion++;
+          if (checking && !ok.has(d.sprite.motion)) badMotion++;
           if (d.parts.head || d.parts.body || d.parts.arms || d.parts.legs) partsVisible++;
         }
       };
@@ -233,7 +235,13 @@ test.describe('CHAR-1 テスト係の受け入れ', () => {
       h.input.press('secondary');
       tick(10);
       h.input.release('secondary');
-      // たたく（妖怪）
+      // たたく（妖怪）。素手のあいだ
+      h.player.set({ pitch: 0 });
+      h.inventory.select(7);
+      h.yokai.spawn('karakasa', 6.5, 9, 4.0);
+      tick(14);
+      h.inventory.select(0);
+      checking = false;
       h.player.set({ pitch: 0 });
       h.inventory.setSlot(0, { item: 'katana', count: 1 });
       h.inventory.select(0);
@@ -246,6 +254,7 @@ test.describe('CHAR-1 テスト係の受け入れ', () => {
       for (const item of ['katana', 'naginata']) {
         h.inventory.setSlot(0, { item, count: 1 });
         h.inventory.select(0);
+        checking = item === 'naginata';
         tick(14);
         for (let k = 0; k < 3; k++) {
           h.input.press('primary');
@@ -260,7 +269,8 @@ test.describe('CHAR-1 テスト係の受け入れ', () => {
         }
       }
       h.input.releaseAll();
-      // 弓
+      // 弓（絵は CHAR-2 AC21）
+      checking = false;
       h.inventory.setSlot(1, { item: 'yumi', count: 1 });
       h.inventory.setSlot(2, { item: 'ya', count: 5 });
       h.inventory.select(1);
@@ -269,7 +279,11 @@ test.describe('CHAR-1 テスト係の受け入れ', () => {
       tick(45);
       h.input.release('primary');
       tick(20);
-      // ばんざい（つくる）
+      // ばんざい（つくる）。何も持たない
+      h.input.releaseAll();
+      h.inventory.select(7);
+      checking = true;
+      tick(30);
       h.inventory.setSlot(3, { item: 'stone', count: 20 });
       h.inventory.setSlot(4, { item: 'log', count: 20 });
       const recipes = h.craft.list();

@@ -9,9 +9,12 @@ describe('WEAPON-2 contracts', () => {
   });
   it('設定の 初期値は 仕様書 §4.2〜§4.6 の とおり', () => {
     const s = createW2Settings();
-    expect(s.bladeTech.kesa).toEqual({ startup: 28, active: 6, recovery: 48 });
-    expect(s.bladeTech.thrust.startup + s.bladeTech.thrust.active + s.bladeTech.thrust.recovery).toBe(14);
-    expect(s.bladeTech.kiriage.startup + s.bladeTech.kiriage.active + s.bladeTech.kiriage.recovery).toBe(53);
+    expect(s.bladeTech.kesa).toEqual({ startup: 28, active: 6, recovery: 72 });
+    expect(s.bladeTech.thrust).toEqual({ startup: 4, active: 2, recovery: 35 });
+    expect(s.bladeTech.thrust.startup + s.bladeTech.thrust.active + s.bladeTech.thrust.recovery).toBe(41);
+    expect(s.bladeTech.kiriage).toEqual({ startup: 38, active: 5, recovery: 61 });
+    expect(s.bladeTech.kiriage.startup + s.bladeTech.kiriage.active + s.bladeTech.kiriage.recovery).toBe(104);
+    expect(s.bladeTech.kesa.startup + s.bladeTech.kesa.active + s.bladeTech.kesa.recovery).toBe(106);
     expect(s.bowStageTicks).toEqual([10, 25, 40]);
     expect(s.bowSpeed).toEqual([12, 20, 28]);
     expect(s.toolDurability.crystal_katana).toBe(500);
