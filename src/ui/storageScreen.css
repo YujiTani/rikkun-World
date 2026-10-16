@@ -37,6 +37,7 @@
 .tansu-kana[data-pos='r2'] { right: var(--rk-sp-5); }
 .tansu-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--rk-sp-3);
 }
@@ -46,7 +47,8 @@
   image-rendering: pixelated;
 }
 .tansu-title {
-  flex: 1;
+  flex: 1 0 auto;
+  white-space: nowrap;
   margin: 0;
   font-size: var(--rk-fs-title);
   font-weight: 800;

@@ -7,9 +7,6 @@
     "guide-grow | wrap | span.po-text「クリックして あそぼう！」",
     "guide-move | wrap | span.po-text「クリックして あそぼう！」"
   ],
-  "#55 たんす画面の「たんす」の文字が 1 文字ずつ縦に折り返される": [
-    "tansu | wrap | h2.tansu-title「たんす」"
-  ],
   "#56 押せる物が小さい": [
     "achievements | small | button#inventory-close.inv-close",
     "achievements | small | button.rk-tab.is-selected「こわす」",
