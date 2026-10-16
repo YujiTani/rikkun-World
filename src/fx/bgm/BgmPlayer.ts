@@ -100,7 +100,7 @@ export class BgmPlayer {
     this.songs = this.songs.filter((s) => {
       if (ctx.currentTime > s.stopAt + 0.1) {
         s.fade.disconnect();
-        s.bus.input.disconnect();
+        s.bus.dispose();
         return false;
       }
       return true;

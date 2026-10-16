@@ -1,11 +1,12 @@
 /* 案内画面の右下: 「おと」ボタン（64px 以上）と「おとの おおきさ」の枠（SOUND.md §7）。見た目の細かさはアートチーム */
 .ss-root {
   position: absolute;
-  right: var(--rk-sp-5, 24px);
-  bottom: var(--rk-sp-5, 24px);
+  /* 主ボタン・もちものの たな・「おとなの ひと」と かさならない 左下のすみ（画面のはしから 16px 以上） */
+  left: 16px;
+  bottom: 16px;
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
+  align-items: flex-start;
   gap: var(--rk-sp-3, 12px);
   cursor: default;
   z-index: 2;
@@ -31,10 +32,21 @@
   font-weight: 700;
 }
 .ss-label {
-  min-width: 6.5em;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 5.5em;
+  line-height: 1.2;
+}
+.ss-pic {
+  font-size: 1.5em;
+}
+.ss-eg {
+  font-size: 0.75em;
+  opacity: 0.85;
 }
 .ss-range {
-  width: 220px;
+  width: 150px;
   height: 44px;
   margin: 0;
   accent-color: var(--rk-accent, #ffc83d);
@@ -42,7 +54,8 @@
 }
 .ss-buttons {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
   gap: var(--rk-sp-3, 12px);
 }
 .ss-open,

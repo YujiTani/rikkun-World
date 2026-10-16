@@ -158,12 +158,12 @@ export interface Variation {
 export interface VaryState {
   /** 名前ごとの「直前に選んだ和音の音」 */
   last: Map<string, number>;
-  /** 続けて取る段のはじめに選んだ和音の音（0 = 根音、1 = 3 度、2 = 5 度） */
-  comboIdx: number;
+  /** 名前ごとの、続けて取る段のはじめに選んだ和音の音（0 = 根音、1 = 3 度、2 = 5 度） */
+  comboIdx: Map<string, number>;
 }
 
 export function newVaryState(): VaryState {
-  return { last: new Map(), comboIdx: 0 };
+  return { last: new Map(), comboIdx: new Map() };
 }
 
 /**
@@ -188,7 +188,7 @@ export function variation(
     const cands = [0, 1, 2].map((i) => nearestShift(chord.root + offs[i]!));
     if (comboStep !== undefined && comboStep > 0) {
       // 続けて取る: はじめの音から、和音の音を 1 つずつ上がる。1 オクターブで止まる
-      const i0 = state.comboIdx;
+      const i0 = state.comboIdx.get(name) ?? 0;
       const idx = Math.min(i0 + comboStep, 3);
       out.shift = cands[i0]! + offs[idx]! - offs[i0]!;
       out.semis = nearestShift(out.shift);
@@ -197,7 +197,7 @@ export function variation(
       const choices = [0, 1, 2].filter((i) => cands[i] !== prev);
       const i = choices[Math.floor(rng() * choices.length)]!;
       state.last.set(name, cands[i]!);
-      state.comboIdx = i;
+      state.comboIdx.set(name, i);
       out.semis = out.shift = cands[i]!;
     }
   }

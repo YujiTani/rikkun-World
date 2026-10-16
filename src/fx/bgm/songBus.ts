@@ -9,6 +9,8 @@ export interface SongBus {
   input: GainNode;
   /** こだまに送る所（こだまのない曲は null） */
   echoIn: GainNode | null;
+  /** 曲の片付け: こだまの輪（delay ↔ feedback）も切る */
+  dispose(): void;
 }
 
 /** 曲ごとの出口を作って dest につなぐ（曲の大きさ level・こだま） */
@@ -17,6 +19,7 @@ export function createSongBus(ctx: BaseAudioContext, dest: AudioNode, song: Song
   input.gain.value = song.level;
   input.connect(dest);
   let echoIn: GainNode | null = null;
+  const echoNodes: AudioNode[] = [];
   if (song.echo) {
     const { stepDur } = songInfo(song);
     const dl = ctx.createDelay(2);
@@ -31,8 +34,16 @@ export function createSongBus(ctx: BaseAudioContext, dest: AudioNode, song: Song
     fb.connect(dl);
     dl.connect(wet);
     wet.connect(input);
+    echoNodes.push(dl, fb, wet, echoIn);
   }
-  return { input, echoIn };
+  return {
+    input,
+    echoIn,
+    dispose() {
+      for (const n of echoNodes) n.disconnect();
+      input.disconnect();
+    },
+  };
 }
 
 /** 時刻 t に 1 ステップぶんの音を予約する */

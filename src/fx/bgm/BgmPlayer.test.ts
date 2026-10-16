@@ -125,6 +125,19 @@ describe('B4 BGM の切り替え', () => {
     expect(bgm.songCount()).toBe(1);
   });
 
+  it('片づけた曲の こだま（delay と feedback の輪）も切る', () => {
+    const { bgm, ctx } = mk();
+    bgm.play('night');
+    const delays = ctx.all('delay');
+    expect(delays.length).toBe(1);
+    expect(delays[0].outputs.length).toBeGreaterThan(0);
+    ctx.currentTime = 1;
+    bgm.play('day');
+    ctx.currentTime = 10;
+    bgm.tick();
+    expect(delays[0].outputs.length).toBe(0);
+  });
+
   it('unlock の前の play は 覚えておいて、unlock のあとに鳴らす', () => {
     const s = createAudioSettings();
     let ctx: FakeAudioContext | null = null;

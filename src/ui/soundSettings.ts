@@ -23,9 +23,9 @@ export interface SoundSettingsUi {
 }
 
 const KNOBS = [
-  { id: 'sound-master', label: 'ぜんぶ', get: (d: SoundSettingsDeps) => d.audio.masterVolume, set: (d: SoundSettingsDeps, v: number) => (d.audio.masterVolume = v) },
-  { id: 'sound-bgm', label: 'おんがく', get: (d: SoundSettingsDeps) => d.audio.bgmVolume, set: (d: SoundSettingsDeps, v: number) => (d.audio.bgmVolume = v) },
-  { id: 'sound-fx', label: 'こうかおん', get: (d: SoundSettingsDeps) => d.fx.fxVolume, set: (d: SoundSettingsDeps, v: number) => (d.fx.fxVolume = v) },
+  { id: 'sound-master', label: 'ぜんぶ', pic: '🔊', eg: '', get: (d: SoundSettingsDeps) => d.audio.masterVolume, set: (d: SoundSettingsDeps, v: number) => (d.audio.masterVolume = v) },
+  { id: 'sound-bgm', label: 'おんがく', pic: '🎵', eg: '', get: (d: SoundSettingsDeps) => d.audio.bgmVolume, set: (d: SoundSettingsDeps, v: number) => (d.audio.bgmVolume = v) },
+  { id: 'sound-fx', label: 'こうかおん', pic: '🔔', eg: 'ポン', get: (d: SoundSettingsDeps) => d.fx.fxVolume, set: (d: SoundSettingsDeps, v: number) => (d.fx.fxVolume = v) },
 ] as const;
 
 export function createSoundSettings(deps: SoundSettingsDeps, parent?: HTMLElement): SoundSettingsUi {
@@ -35,7 +35,7 @@ export function createSoundSettings(deps: SoundSettingsDeps, parent?: HTMLElemen
     `<div class="ss-panel" data-testid="sound-panel" hidden>` +
     KNOBS.map(
       (k) =>
-        `<label class="ss-row"><span class="ss-label">${k.label}</span>` +
+        `<label class="ss-row"><span class="ss-label"><span class="ss-pic" aria-hidden="true">${k.pic}</span>${k.label}${k.eg ? `<span class="ss-eg" aria-hidden="true">（${k.eg}）</span>` : ''}</span>` +
         `<input class="ss-range" type="range" min="0" max="1" step="0.01" data-testid="${k.id}" aria-label="${k.label}"></label>`,
     ).join('') +
     `</div>` +

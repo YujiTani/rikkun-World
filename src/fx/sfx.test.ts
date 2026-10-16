@@ -5,7 +5,13 @@ import { FARM_SOUNDS } from './farmSounds';
 import { FX_SETTINGS, type FxSettings } from './config';
 import { ComboTracker } from './combo';
 import { SFX_CATALOG } from './sfxCatalog';
-import { BIG_NAMES, VARY, varyOf } from './sfxVary';
+import { BIG_NAMES, VARY, newVaryState, variation, varyOf } from './sfxVary';
+
+function newVaryStateWith(name: string, idx: number) {
+  const s = newVaryState();
+  s.comboIdx.set(name, idx);
+  return s;
+}
 import { hz } from './sfxVoices';
 import { SoundFx, SOUNDS, type AudioLike, type Chord, type Tone } from './sound';
 import { drainSounds } from './soundLog';
@@ -368,6 +374,36 @@ describe('S5 続けてひろう', () => {
 });
 
 describe('S6 数の上限', () => {
+  it('落とした音は ゆらぎの乱数を使わない（あとの音の並びが変わらない）', () => {
+    const a = make({ seed: 7 });
+    const b = make({ seed: 7 });
+    for (let i = 0; i < 4; i++) a.fx.play('pickup'); // 4 つ目は落ちる
+    for (let i = 0; i < 3; i++) b.fx.play('pickup');
+    a.f.clock.t = 10;
+    b.f.clock.t = 10;
+    a.fx.drainRecords();
+    b.fx.drainRecords();
+    for (let i = 0; i < 3; i++) {
+      a.fx.play('dig');
+      b.fx.play('dig');
+    }
+    const ra = a.fx.drainRecords().map((r) => [r.semis, r.cents]);
+    const rb = b.fx.drainRecords().map((r) => [r.semis, r.cents]);
+    expect(ra).toEqual(rb);
+  });
+  it('続けて取る段のはじめの音は 名前ごと（ほかの tones 音に上書きされない）', () => {
+    const st = newVaryState();
+    const chord = { root: 0, minor: false };
+    const rng = () => 0; // いつも 先頭の候補
+    variation('pickup', chord, rng, st);
+    const first = st.comboIdx.get('pickup');
+    variation('dropRare', chord, () => 0.99, st);
+    expect(st.comboIdx.get('pickup')).toBe(first);
+    expect(st.comboIdx.get('dropRare')).not.toBeUndefined();
+    const v = variation('pickup', chord, rng, st, 1);
+    const w = variation('pickup', chord, rng, newVaryStateWith('pickup', first!), 1);
+    expect(v.shift).toBe(w.shift);
+  });
   it('同じ名前が鳴っているうちに 4 つ目 → 鳴らさず dropped: true', () => {
     const { fx, f } = make();
     for (let i = 0; i < 4; i++) fx.play('pickup');

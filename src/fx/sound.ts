@@ -320,19 +320,13 @@ export class SoundFx {
       drop = true;
     }
 
-    const v = variation(name, chord, this.rng, this.vary, opt?.comboStep);
-    const rec: SfxRecord = {
-      name,
-      semis: v.semis,
-      cents: v.cents,
-      chord: name ? chord.name : 'C',
-      big,
-      dropped: drop,
-    };
+    // 落とす音は ゆらぎの乱数も「直前の和音の音」も使わない（あとの音の並びを変えない）
     if (drop) {
-      this.record(rec);
+      this.record({ name, semis: 0, cents: 0, chord: name ? chord.name : 'C', big, dropped: true });
       return;
     }
+    const v = variation(name, chord, this.rng, this.vary, opt?.comboStep);
+    this.record({ name, semis: v.semis, cents: v.cents, chord: name ? chord.name : 'C', big, dropped: false });
 
     const ratio = Math.pow(2, (v.shift + (v.cents + semitones * 100) / 100) / 12);
     const pitch = (f: number): number => {
@@ -402,7 +396,6 @@ export class SoundFx {
       end = Math.max(end, stop + 0.02);
     }
     this.active.push({ name, parts, end, big });
-    this.record(rec);
     this.played++;
     if (big) this.opts.onBig?.(name);
   }
