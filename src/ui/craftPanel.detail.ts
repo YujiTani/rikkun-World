@@ -26,6 +26,9 @@ export interface DetailEls {
   more: HTMLButtonElement;
   hint: HTMLDivElement;
   button: HTMLButtonElement;
+  /** 材料が 1 つも無いときの 大きな文と絵 */
+  empty: HTMLDivElement;
+  emptyArt: HTMLImageElement;
 }
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, parent?: HTMLElement): HTMLElementTagNameMap[K] {
@@ -34,6 +37,8 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, parent?:
   parent?.append(e);
   return e;
 }
+
+export const EMPTY_TEXT = 'ざいりょう を あつめよう！';
 
 const RARITY_INDEX = { common: 0, uncommon: 1, rare: 2, superRare: 3 } as const;
 
@@ -78,6 +83,13 @@ export function createDetailEls(parent: HTMLElement, h: { onPress(): void; onEnt
   });
   scroll.addEventListener('scroll', () => updateMore({ scroll, more }));
 
+  const empty = el('div', 'cp-empty', root);
+  empty.hidden = true;
+  const emptyArt = el('img', 'cp-empty-art rk-art', empty);
+  emptyArt.alt = '';
+  const emptyText = el('div', 'cp-empty-text rk-fs-title', empty);
+  emptyText.textContent = EMPTY_TEXT;
+
   const hint = el('div', 'cp-hint rk-sub', root);
   const button = createButton({ text: 'つくる', kind: 'primary' });
   button.classList.add('cp-press');
@@ -86,7 +98,7 @@ export function createDetailEls(parent: HTMLElement, h: { onPress(): void; onEnt
     h.onPress();
   });
   root.append(button);
-  return { root, headArt, name, stars, word, scroll, useRow, useText, howRow, howButtons, howText, stats, classEl, mats, fuel, count, more, hint, button };
+  return { root, headArt, name, stars, word, scroll, useRow, useText, howRow, howButtons, howText, stats, classEl, mats, fuel, count, more, hint, button, empty, emptyArt };
 }
 
 /** ▼ つづき: はみ出していて、まだ いちばん下でないとき だけ出す */
@@ -132,6 +144,8 @@ function addTansuMini(chip: HTMLElement, iconOf: (item: ItemId) => string): void
 /** 中身を入れる（d が null なら かくす）。iconOf はアイテムの絵の URL */
 export function renderDetail(e: DetailEls, d: DetailView | null, iconOf: (item: ItemId) => string, onFuel?: (item: ItemId) => void): void {
   e.root.hidden = d === null;
+  e.empty.hidden = true;
+  delete e.root.dataset.empty;
   if (!d) return;
   setRarity(e.root, RARITY_INDEX[d.rarity] as Rarity4);
   e.headArt.src = iconOf(d.item);
@@ -220,4 +234,20 @@ export function renderDetail(e: DetailEls, d: DetailView | null, iconOf: (item: 
   e.button.classList.toggle('is-disabled', !d.button.enabled);
   e.button.setAttribute('aria-disabled', String(!d.button.enabled));
   updateMore(e);
+}
+
+/** 作れる物が 1 つも無いとき: 真ん中に大きな文と木の絵、「つくる」は灰色で押せない */
+export function renderDetailEmpty(e: DetailEls, iconUrl: string): void {
+  e.root.hidden = false;
+  e.root.dataset.empty = 'true';
+  delete e.root.dataset.id;
+  setRarity(e.root, 0);
+  e.empty.hidden = false;
+  e.emptyArt.src = iconUrl;
+  e.hint.hidden = true;
+  e.more.hidden = true;
+  e.button.textContent = 'つくる';
+  setButtonKind(e.button, 'normal');
+  e.button.classList.add('is-disabled');
+  e.button.setAttribute('aria-disabled', 'true');
 }

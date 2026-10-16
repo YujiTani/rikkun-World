@@ -436,6 +436,22 @@ describe('ろくろくびの首・妖怪の体にふれる（M4 追加）', () =
     expect(t.m.takeHookEvents().some((e) => e.type === 'attackStart')).toBe(false);
   });
 
+  it('プレイヤーが高い所にいても、首が届くなら かみつく。届かない高さなら かみつかない（#71）', () => {
+    const { m, step, player, combat, world } = setup();
+    for (let x = 7; x <= 10; x++) for (let z = 5; z <= 8; z++) world.setBlock(x, 12, z, 'stone');
+    player.position = { x: 8.5, y: 13, z: 6.5 };
+    m.spawn('rokurokubi', 3.5, 9, 6.5, { yawDeg: 90 });
+    for (let i = 0; i < 120; i++) step();
+    expect(m.takeHookEvents().some((e) => e.type === 'attackStart')).toBe(true);
+    expect(combat.hits.some((h) => h.by === 'rokurokubi' && h.amount === 2)).toBe(true);
+    const t = setup();
+    for (let x = 4; x <= 8; x++) for (let z = 5; z <= 8; z++) t.world.setBlock(x, 20, z, 'stone');
+    t.player.position = { x: 5.5, y: 21, z: 6.5 };
+    t.m.spawn('rokurokubi', 3.5, 9, 6.5, { yawDeg: 90 });
+    for (let i = 0; i < 200; i++) t.step();
+    expect(t.m.takeHookEvents().some((e) => e.type === 'attackStart')).toBe(false);
+  });
+
   it('体の箱にふれたら ハート半分（体力 1）。攻撃中は攻撃のダメージだけ', () => {
     const { m, step, player, combat } = setup();
     m.spawn('karakasa', 2.5, 9, 6.5, { ai: false });

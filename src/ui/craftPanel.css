@@ -526,15 +526,31 @@
   display: none;
 }
 
-/* 材料が 1 つも無いとき（その5） */
+/* 材料が 1 つも無いとき: せつめい欄の真ん中に 大きな文と木の絵 */
 .cp-empty {
+  flex: 1;
+  min-height: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: calc(var(--rk-slot-inv) * 3);
-  font-size: var(--rk-fs-body);
-  color: var(--rk-text);
+  gap: var(--rk-sp-4);
   text-align: center;
+}
+.cp-empty[hidden] {
+  display: none;
+}
+.cp-empty-art {
+  width: calc(var(--rk-slot-inv) * 2);
+  height: calc(var(--rk-slot-inv) * 2);
+  image-rendering: pixelated;
+}
+.cp-empty-text {
+  font-weight: 800;
+  color: var(--rk-text);
+}
+.cp-detail[data-empty='true'] > :not(.cp-empty):not(.cp-press) {
+  display: none;
 }
 
 /* ねんりょう の行: クリックで えらぶ（えらんだ物は アクセントのわく） */

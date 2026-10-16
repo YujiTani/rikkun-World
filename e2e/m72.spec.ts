@@ -444,7 +444,7 @@ test.describe('M7-2 じょうろ', () => {
       o.dark = h.world.lightAt(4, 9, 4).level;
       o.nightWet = !!h.farm.soil(4, 8, 4)?.wet;
       T.hold('stone');
-      h.settings.set('farmGrowDays', { dry: { onion: 0.00125, tomato: 0.00075, pumpkin: 0.002, eggplant: 0.00125 } });
+      h.settings.set('farmGrowDays', { wet: { onion: 0.00125, tomato: 0.00075, pumpkin: 0.002, eggplant: 0.00125 } });
       h.farm.plant(4, 8, 4, 'tomato');
       h.step(1000);
       o.crop = h.farm.crop(4, 9, 4);

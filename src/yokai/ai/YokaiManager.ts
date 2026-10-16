@@ -888,7 +888,7 @@ export class YokaiManager implements YokaiWorld {
           return moved;
         }
         e.state = 'chase';
-        if (canAttack && dist <= YOKAI_STATS.rokurokubi.reach && Math.abs(dy) <= 3 && this.planNeck(e)) {
+        if (canAttack && dist <= YOKAI_STATS.rokurokubi.reach && this.planNeck(e)) {
           this.turn(e, yawToward(ux, uz), 1);
           this.startAttack(e);
           return 0;
