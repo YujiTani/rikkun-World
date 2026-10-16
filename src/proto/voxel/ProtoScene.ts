@@ -28,6 +28,9 @@ import type { Data3DTexture } from 'three';
 
 export type ProtoMode = 'current' | 'naive' | 'greedyColor' | 'greedyShape' | 'hybrid';
 export const PROTO_MODES: readonly ProtoMode[] = ['current', 'naive', 'greedyColor', 'greedyShape', 'hybrid'];
+/** 地面の作り方: block = 1 ブロックごとの段々（今まで）/ micro = 表面を小ブロック単位で決める（VOX-2） */
+export type TerrainMode = 'block' | 'micro';
+export const TERRAIN_MODES: readonly TerrainMode[] = ['micro', 'block'];
 export const MICRO_RADII = [16, 24, 32] as const;
 
 interface Built {
@@ -66,6 +69,7 @@ export class ProtoScene {
   readonly world = new ArrayVoxelWorld();
   readonly island: IslandInfo;
   mode: ProtoMode;
+  terrain: TerrainMode = 'block';
   /** hybrid: カメラからこの距離（ブロック）以内のチャンクだけ 小ブロックの形 */
   microRadius = 16;
   /** 直近の「足りないチャンクを作った」時間と数 */
@@ -155,9 +159,10 @@ export class ProtoScene {
       bytes += bytesOf(geo);
       meshes.push(this.make(geo, mat, order, chunk));
     };
-    const d = this.mesher.build(cx, cz, mode);
+    const d = this.mesher.build(cx, cz, mode, this.terrain === 'micro');
     const mat = mode === 'greedyShape' || mode === 'box' ? this.shapeMat : this.colorMat;
     for (const piece of d.solid.pieces) add(geometryFromPiece(piece), mat, 0, { cx, cz });
+    for (const piece of d.solidColor.pieces) add(geometryFromPiece(piece), this.colorMat, 0, { cx, cz });
     if (d.cross.faceCount > 0) add(geometryFromMeshData(d.cross), this.atlasOpaque);
     if (d.water.faceCount > 0) add(geometryFromMeshData(d.water), this.flatWater, RENDER_CONFIG.waterRenderOrder);
     return { meshes, bytes };
@@ -226,6 +231,12 @@ export class ProtoScene {
       this.box[i] = null;
     }
     this.viewer = { x: Number.NaN, z: Number.NaN };
+  }
+
+  /** 地面の作り方をかえる。近くのメッシュを捨てて、次の update で作り直す */
+  setTerrain(t: TerrainMode): void {
+    this.terrain = t;
+    this.setMode(this.mode);
   }
 
   /** hybrid の 16 / 24 / 32。メッシュは捨てず、チャンクごとの切りかえだけ変わる */

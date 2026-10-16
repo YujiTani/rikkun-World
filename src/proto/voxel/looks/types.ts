@@ -57,4 +57,11 @@ export interface Look {
   fog: { color: number; near: number; far: number };
   /** ブロック id → 見た目。ここに無い id は 小ブロックで描かない */
   kinds: Readonly<Record<string, KindSpec>>;
+  /**
+   * 小ブロック地形（VOX-2。terrain/microSurface.ts）の 1 マスの色番号。省略 = その種類の `base`。
+   * 形が位置と深さで決まるため、色も「ブロックの中の位置」ではなく 深さで決める。
+   * kind = 地面ブロックの id / depth = 外がわから 0, 1, 2（2 は それより内）/ fromTop = 地面の上から何マス下か（0 = てっぺん）/
+   * rock = 岩の マスか / wx, wy, wz = ワールドの小ブロック座標（まだらのハッシュ用）
+   */
+  terrainColor?(kind: string, depth: number, fromTop: number, rock: boolean, wx: number, wy: number, wz: number): number;
 }

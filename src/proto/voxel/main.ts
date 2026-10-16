@@ -2,7 +2,7 @@ import { PerspectiveCamera, WebGLRenderer } from 'three';
 import { CHUNK_SIZE } from '../../world/VoxelWorld';
 import { ALL_LOOKS, DEFAULT_LOOK_ID, currentLook, findLook, setCurrentLook } from './looks';
 import { CharSprite } from './charSprite';
-import { MICRO_RADII, PROTO_MODES, ProtoScene, type ProtoMode } from './ProtoScene';
+import { MICRO_RADII, PROTO_MODES, ProtoScene, TERRAIN_MODES, type ProtoMode, type TerrainMode } from './ProtoScene';
 
 /** 9×9×9 の試しの場面（VOX-0）。ゲーム本体とは別ページ。計測の入口は window.__voxelProto */
 
@@ -10,6 +10,8 @@ export interface Measurement {
   mode: ProtoMode;
   /** 見た目（Look）の id */
   look: string;
+  /** 地面の作り方（block = 今まで / micro = 小ブロック単位） */
+  terrain: TerrainMode;
   /** hybrid のとき、小ブロックの形で描く距離 */
   microRadius: number | null;
   triangles: { start: number; sky: number };
@@ -47,6 +49,9 @@ function readLook(): string {
 }
 setCurrentLook(readLook()); // 3D テクスチャを作る前に 決めておく
 const proto = new ProtoScene(readMode());
+const terrainParam = new URLSearchParams(location.search).get('terrain');
+if (terrainParam === 'micro' || terrainParam === 'block') proto.terrain = terrainParam;
+else proto.terrain = 'micro'; // VOX-2: オーナーに見てもらう間は 小ブロック地形 を最初に出す
 const rParam = Number(new URLSearchParams(location.search).get('r'));
 if ((MICRO_RADII as readonly number[]).includes(rParam)) proto.microRadius = rParam;
 const spawn = proto.island.spawn();
@@ -191,6 +196,17 @@ function syncRadius(): void {
   MICRO_RADII.forEach((r, i) => radiusButtons[i].classList.toggle('on', r === proto.microRadius));
 }
 syncRadius();
+const terrainButtons = new Map<TerrainMode, HTMLButtonElement>();
+function setTerrain(t: TerrainMode): void {
+  proto.setTerrain(t);
+  const url = new URL(location.href);
+  url.searchParams.set('terrain', t);
+  history.replaceState(null, '', url);
+  for (const [k, b] of terrainButtons) b.classList.toggle('on', k === t);
+  proto.update(Math.round(pos.x), Math.round(pos.z), updateBudget);
+}
+for (const t of TERRAIN_MODES) terrainButtons.set(t, addButton(`ちけい: ${t === 'micro' ? 'こまかい' : 'ブロック'}`, () => setTerrain(t)));
+for (const [k, b] of terrainButtons) b.classList.toggle('on', k === proto.terrain);
 const lookButtons = new Map<string, HTMLButtonElement>();
 function setLook(id: string): void {
   const look = findLook(id);
@@ -248,6 +264,7 @@ function refreshHud(): void {
   const info = renderer.info;
   statsEl.textContent = [
     `みため: ${currentLook().id}`,
+    `ちけい: ${proto.terrain}`,
     `ほうしき: ${proto.mode}${proto.mode === 'hybrid' ? `（r=${proto.microRadius}）` : ''}`,
     `fps: ${avg > 0 ? (1000 / avg).toFixed(1) : '-'} （さいあく ${worst.toFixed(1)} ms）`,
     `三角形: ${info.render.triangles.toLocaleString()}`,
@@ -324,6 +341,7 @@ function measure(): Measurement {
   return {
     mode: proto.mode,
     look: currentLook().id,
+    terrain: proto.terrain,
     microRadius: proto.mode === 'hybrid' ? proto.microRadius : null,
     triangles: { start: a.tri, sky: b.tri },
     drawCalls: { start: a.calls, sky: b.calls },
@@ -342,6 +360,12 @@ const hook = {
   modes: PROTO_MODES,
   getMode: (): ProtoMode => proto.mode,
   setMode,
+  terrains: TERRAIN_MODES,
+  getTerrain: (): TerrainMode => proto.terrain,
+  setTerrain: (t: TerrainMode): void => {
+    setTerrain(t);
+    applyCamera();
+  },
   looks: ALL_LOOKS.map((l) => l.id),
   getLook: (): string => currentLook().id,
   /** 見た目をかえる（3D テクスチャとメッシュを作り直す） */

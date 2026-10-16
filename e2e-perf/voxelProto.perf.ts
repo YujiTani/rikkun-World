@@ -176,3 +176,68 @@ test('見た目ごとの重さと絵（hybrid r=16）', async ({ page }) => {
   writeFileSync('perf-results/voxel-looks.json', JSON.stringify({ measuredAt: new Date().toISOString(), results }, null, 2));
   if (errors.length > 0) console.log('console errors:', errors.slice(0, 10));
 });
+
+/**
+ * VOX-2: 地面の作り方（block / micro）ごとに、B ごつごつ・hybrid r=16 の重さを測り、スクショを撮る。
+ * スクショ: docs/screenshots/VOX-2/<terrain>-start.png / -char-side.png / -sky.png / -close.png
+ * 結果: perf-results/voxel-terrain.json
+ */
+test('地面の作り方ごとの重さと絵（B・hybrid r=16）', async ({ page }) => {
+  test.setTimeout(900_000);
+  const dir = 'docs/screenshots/VOX-2';
+  mkdirSync(dir, { recursive: true });
+  mkdirSync('perf-results', { recursive: true });
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(String(e)));
+  page.on('console', (m) => {
+    if (m.type() === 'error') errors.push(m.text());
+  });
+
+  await page.goto('/voxel-proto.html?mode=hybrid&r=16&look=gotsugotsu');
+  await page.waitForFunction(() => window.__voxelProto?.ready === true, undefined, { timeout: 300_000 });
+  const out = new Map<string, Buffer>();
+  const results: Record<string, unknown>[] = [];
+  for (const terrain of ['block', 'micro'] as const) {
+    await page.evaluate((t) => {
+      const h = window.__voxelProto!;
+      h.setRunning(false);
+      h.setMode('hybrid');
+      h.setMicroRadius(16);
+      h.setLook('gotsugotsu');
+      h.setTerrain(t);
+    }, terrain);
+    await page.waitForFunction(() => window.__voxelProto!.getChar()?.ready === true, undefined, { timeout: 60_000 });
+    const shot = async (name: string, f: () => void): Promise<void> => {
+      await page.evaluate(f);
+      out.set(`${terrain}-${name}.png`, await page.screenshot({ timeout: 300_000 }));
+    };
+    await shot('start', () => {
+      const h = window.__voxelProto!;
+      h.setPose('start');
+      h.renderOnce();
+    });
+    await shot('char-side', () => {
+      const h = window.__voxelProto!;
+      h.orbitChar(90, 5, 2);
+      h.renderOnce();
+    });
+    await shot('sky', () => {
+      const h = window.__voxelProto!;
+      h.setPose('sky');
+      h.renderOnce();
+    });
+    // 近くを大きく: 地面すれすれから、坂・1/9 の段差・岩を見る
+    await shot('close', () => {
+      const h = window.__voxelProto!;
+      const s = h.spawn;
+      h.setCamera(s.x - 1, s.y + 1.8, s.z + 1, 25, -14);
+      h.renderOnce();
+    });
+    const m = (await page.evaluate(() => window.__voxelProto!.measure())) as unknown as Record<string, unknown>;
+    console.log(JSON.stringify(m));
+    results.push(m);
+  }
+  for (const [name, buf] of out) writeFileSync(`${dir}/${name}`, buf);
+  writeFileSync('perf-results/voxel-terrain.json', JSON.stringify({ measuredAt: new Date().toISOString(), results }, null, 2));
+  if (errors.length > 0) console.log('console errors:', errors.slice(0, 10));
+});
