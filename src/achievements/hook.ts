@@ -8,7 +8,7 @@ import type { AchievementsPageModel } from './pageModel';
 export function createAchievementsHook(
   sys: AchievementSystem,
   page: AchievementsPageModel,
-  host: { inventoryOpen(): boolean; onTab(tab: 'items' | 'achievements'): void },
+  host: { inventoryOpen(): boolean; onTab(tab: 'items' | 'achievements' | 'log'): void },
 ) {
   return {
     list: () => sys.list(),
@@ -21,7 +21,7 @@ export function createAchievementsHook(
     },
     reset: () => sys.reset(),
     ui: () => page.ui(host.inventoryOpen()),
-    tab: (name: 'items' | 'achievements') => {
+    tab: (name: 'items' | 'achievements' | 'log') => {
       page.setTab(name);
       host.onTab(name);
       page.sync(host.inventoryOpen());

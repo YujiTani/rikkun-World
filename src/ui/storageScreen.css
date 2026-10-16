@@ -1,11 +1,12 @@
 /* たんす画面（M6 §2.9 (4)）。色・大きさは S1 の変数だけを使う */
 .tansu-panel {
+  text-shadow: var(--rk-text-outline);
   position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--rk-sp-4);
   padding: var(--rk-sp-5);
-  background: color-mix(in srgb, var(--rk-bg-900) 96%, transparent);
+  background: var(--rk-panel-bg);
   border-radius: var(--rk-r-l);
   box-shadow: var(--rk-shadow-2);
   color: var(--rk-text);

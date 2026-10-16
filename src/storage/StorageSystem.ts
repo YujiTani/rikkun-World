@@ -1,4 +1,4 @@
-import type { Inventory, ItemId, ItemStack, StorageEvent, Vec3, VoxelWorld } from '../contracts';
+import type { TansuMaterialStore, Inventory, ItemId, ItemStack, StorageEvent, Vec3, VoxelWorld } from '../contracts';
 import { addInto } from '../inventory/Inventory';
 import { itemType } from '../inventory/items';
 import { addStack, copyStack, readWater, readWear, maxDurability } from '../tools/durability';
@@ -82,7 +82,7 @@ export function facingFromYaw(yawDeg: number): Facing {
  * たんす（和だんす）の中身・開く・閉じる・うつす・こわす・保存。世界のブロックは 'tansu'。
  * 毎ステップ update() を呼ぶ。
  */
-export class StorageSystem {
+export class StorageSystem implements TansuMaterialStore {
   private readonly records = new Map<string, TansuRecord>();
   private opened: TansuRecord | null = null;
   private lookOpenNow = false;
@@ -90,6 +90,7 @@ export class StorageSystem {
   /** カーソルに持ち上げたマス（たんす）。画面を閉じたときそこへもどす */
   private liftedFrom: { rec: TansuRecord; index: number; item: ItemId } | null = null;
   private fullNow = new Set<TansuRecord>();
+  private ver = 0;
 
   constructor(private readonly d: StorageDeps) {
     d.inventory.setReturnHandler?.((st) => this.returnToLifted(st));
@@ -137,6 +138,7 @@ export class StorageSystem {
     const r = this.ensure(x, y, z);
     if (!r || !Number.isInteger(i) || i < 0 || i >= r.slots.length) return false;
     r.slots[i] = stack && stack.count > 0 ? copyStack(stack) : null;
+    this.ver++;
     this.d.requestSave?.();
     return true;
   }
@@ -371,6 +373,7 @@ export class StorageSystem {
   }
 
   private afterChange(r: TansuRecord): void {
+    this.ver++;
     const full = r.slots.every((s) => s !== null);
     if (full && !this.fullNow.has(r)) {
       this.fullNow.add(r);
@@ -403,6 +406,7 @@ export class StorageSystem {
     if (!r) return 0;
     this.records.delete(k);
     this.fullNow.delete(r);
+    this.ver++;
     if (this.opened === r) {
       this.opened = null;
       this.lookOpenNow = false;
@@ -434,6 +438,7 @@ export class StorageSystem {
       const far = Math.hypot(p.x - (o.x + 0.5), p.z - (o.z + 0.5), p.y - o.y) > this.live.tansuCloseDist;
       if (gone) {
         this.records.delete(key(o.x, o.y, o.z));
+        this.ver++;
         this.opened = null;
         this.lookOpenNow = false;
         if (this.d.inventoryOpen()) this.d.closeScreen();
@@ -448,11 +453,50 @@ export class StorageSystem {
       if (!this.isTansu(r.x, r.y, r.z)) {
         this.records.delete(k);
         this.fullNow.delete(r);
+        this.ver++;
       }
     }
   }
 
   /** C の記録へ渡す出来事（呼ぶと空） */
+  // ------------------------------------------------------------ CRAFT-2: つくる・やく の 素材（TansuMaterialStore）
+
+  /** 中身・置き場所が変わるたびに ふえる数（CraftSystem の しらべ直しの合図。保存はしない） */
+  version(): number {
+    return this.ver;
+  }
+
+  /** そこの たんす に item が 全部で何こ あるか（たんす でなければ 0。記録を作らない） */
+  countItem(x: number, y: number, z: number, item: ItemId): number {
+    if (!this.isTansu(x, y, z)) return 0;
+    const r = this.records.get(key(x, y, z));
+    if (!r) return 0;
+    let n = 0;
+    for (const s of r.slots) if (s && s.item === item) n += s.count;
+    return n;
+  }
+
+  /**
+   * item を 最大 count こ 取り出して 取れた数を返す（§2.3: うしろのマス（53 → 0）から。もちもの と同じ向き）。
+   * 出来事 `store` は出さない（しまったのではない）。いっぱいの印は 空きができたら はずれる
+   */
+  takeItem(x: number, y: number, z: number, item: ItemId, count: number): number {
+    if (!this.isTansu(x, y, z) || !(count > 0)) return 0;
+    const r = this.records.get(key(x, y, z));
+    if (!r) return 0;
+    let left = Math.floor(count);
+    for (let i = r.slots.length - 1; i >= 0 && left > 0; i--) {
+      const s = r.slots[i];
+      if (!s || s.item !== item) continue;
+      const n = Math.min(s.count, left);
+      left -= n;
+      r.slots[i] = n === s.count ? null : { ...s, count: s.count - n };
+    }
+    const took = Math.floor(count) - left;
+    if (took > 0) this.afterChange(r);
+    return took;
+  }
+
   drainEvents(): StorageEvent[] {
     if (this.events.length === 0) return NO_EVENTS;
     const out = this.events;
@@ -476,6 +520,7 @@ export class StorageSystem {
   deserialize(data: unknown): void {
     this.records.clear();
     this.fullNow.clear();
+    this.ver++;
     this.opened = null;
     this.lookOpenNow = false;
     this.liftedFrom = null;

@@ -86,6 +86,21 @@ export interface CraftPanelDeps {
   isMade?(kind: 'craft' | 'bake', recipe: string): boolean;
   /** M6: マスを えらんだ（音「ポン」） */
   onSelect?(id: string): void;
+  /** CRAFT-2: たんす の素材（あれば `count` は たんす もふくむ合計。つなぎ込みが つなぐ） */
+  materials?: PanelMaterials;
+}
+
+/** CRAFT-2: 画面が たんす の素材を 数えるための口（`CraftSystemImpl` が合う） */
+export interface PanelMaterials {
+  /** もちもの＋たんす の合計 */
+  count(item: ItemId): number;
+  /** たんす だけの数 */
+  inTansu(item: ItemId): number;
+  fuelInTansu(): Record<string, number>;
+  /** たんす の中身が 変わるたびに ふえる数（画面の作り直しの目印） */
+  version(): number;
+  /** 画面を開いたとき しぼり直す */
+  refresh(): void;
 }
 
 interface TileEls {
@@ -167,6 +182,7 @@ export class CraftPanel {
   private readonly tileEls = new Map<string, TileEls>();
   private readonly cfg: CraftUiSettings;
   private d: CraftPanelDeps;
+  private matVer = 0;
   private info_: ItemInfoSource;
   private tab_: CraftTab = 'craft';
   private tabs_: CraftTab[] = ['craft'];
@@ -328,8 +344,8 @@ export class CraftPanel {
   private views(): { craft: CardView[]; bake: CardView[] } {
     const st = this.furnaceState();
     return {
-      craft: buildCards(this.craftRecipes, this.d.craft, this.d.inv),
-      bake: buildCards(this.bakeRecipes, this.d.craft, this.d.inv, { bake: true, queued: this.bakeQueued(st), cfg: this.cfg }),
+      craft: buildCards(this.craftRecipes, this.d.craft, this.counter(), this.cardOpt()),
+      bake: buildCards(this.bakeRecipes, this.d.craft, this.counter(), { ...this.cardOpt(), bake: true, queued: this.bakeQueued(st), cfg: this.cfg }),
     };
   }
 
@@ -347,6 +363,17 @@ export class CraftPanel {
     return this.madeLocal.has(`${kind}:${id}`) || (this.d.isMade?.(kind, id) ?? false);
   }
 
+  /** 材料の数え方（たんす もふくむ）。なければ もちもの だけ */
+  private counter(): Pick<Inventory, 'count'> {
+    const m = this.d.materials;
+    return m ? { count: (i) => m.count(i) } : this.d.inv;
+  }
+
+  private cardOpt(): { tansuOf?: (item: ItemId) => number } {
+    const m = this.d.materials;
+    return m ? { tansuOf: (i) => m.inTansu(i) } : {};
+  }
+
   /** 毎ステップ */
   update(): void {
     const open = this.d.isOpen();
@@ -354,6 +381,8 @@ export class CraftPanel {
       this.open = open;
       this.el.hidden = !open;
       if (open) {
+        this.d.materials?.refresh();
+        this.matVer = this.d.materials?.version() ?? 0;
         this.tab_ = this.furnacePos() ? 'bake' : 'craft';
         this.hovered_ = null;
         this.ensureSelection();
@@ -361,6 +390,13 @@ export class CraftPanel {
       this.dirty = true;
     }
     if (!open) return;
+    if (this.d.materials) {
+      const v = this.d.materials.version();
+      if (v !== this.matVer) {
+        this.matVer = v;
+        this.dirty = true;
+      }
+    }
     const hasF = this.furnacePos() !== null;
     const tabs: CraftTab[] = hasF ? ['craft', 'bake'] : ['craft'];
     if (tabs.length !== this.tabs_.length) {
@@ -443,18 +479,18 @@ export class CraftPanel {
 
   /** 今つかう ねんりょう（えらんだ物。0 こなら 自動の順） */
   private currentFuel(): ItemId | null {
-    return this.d.craft.fuel?.() ?? nextFuel((i) => this.d.inv.count(i), this.cfg);
+    return this.d.craft.fuel?.() ?? nextFuel((i) => this.counter().count(i), this.cfg);
   }
 
   private chooseFuel(id: ItemId): void {
-    if (this.d.inv.count(id) <= 0) return;
+    if (this.counter().count(id) <= 0) return;
     this.d.craft.setFuel?.(id);
     this.paintFuel(this.furnaceState());
     this.paintDetail();
   }
 
   private paintFuel(st: FurnaceState | null): void {
-    const countOf = (i: ItemId) => this.d.inv.count(i);
+    const countOf = (i: ItemId) => this.counter().count(i);
     const next = this.currentFuel();
     for (const f of this.fuelEls) {
       const n = countOf(f.item);
@@ -488,7 +524,7 @@ export class CraftPanel {
     if (!sel) return null;
     const hov = this.hovered_ && !this.d.cursorHeld?.() ? views.find((c) => c.id === this.hovered_) : undefined;
     const shown = hov ?? sel;
-    const countOf = (i: ItemId) => this.d.inv.count(i);
+    const countOf = (i: ItemId) => this.counter().count(i);
     const fuelCounts: Record<string, number> = {};
     for (const f of this.cfg.fuelOrder) fuelCounts[f] = countOf(f as ItemId);
     return buildDetail({
@@ -498,6 +534,7 @@ export class CraftPanel {
       bake: tab === 'bake',
       fuelCounts: tab === 'bake' ? fuelCounts : null,
       fuelNext: this.currentFuel(),
+      fuelInTansu: this.d.materials ? this.d.materials.fuelInTansu() : undefined,
     });
   }
 
@@ -613,7 +650,7 @@ export class CraftPanel {
 
   /** つくる のカードが 1 まい以上 光っているか（つくれる マーク） */
   anyCraftable(): boolean {
-    return buildCards(this.craftRecipes, this.d.craft, this.d.inv).some((c) => c.glowing);
+    return buildCards(this.craftRecipes, this.d.craft, this.counter(), this.cardOpt()).some((c) => c.glowing);
   }
 
   dispose(): void {

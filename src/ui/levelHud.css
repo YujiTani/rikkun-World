@@ -13,6 +13,7 @@
   gap: var(--rk-sp-2);
   padding: var(--rk-sp-2) var(--rk-sp-3);
   background: var(--rk-hud-bg);
+  text-shadow: var(--rk-text-outline);
   border-radius: var(--rk-r-m);
   pointer-events: none;
   z-index: 5;
@@ -90,11 +91,7 @@
   font-size: var(--rk-fs-display);
   font-weight: 800;
   color: var(--rk-accent);
-  text-shadow:
-    2px 0 0 var(--rk-bg-900),
-    -2px 0 0 var(--rk-bg-900),
-    0 2px 0 var(--rk-bg-900),
-    0 -2px 0 var(--rk-bg-900);
+  text-shadow: var(--rk-text-outline);
   animation: lu-rise 2.4s ease-out both;
 }
 #levelup .lu-star {

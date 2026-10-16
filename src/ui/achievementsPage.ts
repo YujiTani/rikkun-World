@@ -10,7 +10,7 @@ import './achievementsPage.css';
 /** もちもの画面の側の口（InventoryScreen が合う） */
 export interface AchievementsPageHost {
   pageSlot: HTMLElement;
-  setTab(t: 'items' | 'achievements'): void;
+  setTab(t: 'items' | 'achievements' | 'log'): void;
   isOpen(): boolean;
 }
 
@@ -149,7 +149,8 @@ export class AchievementsPage {
     // 出入りの検出（見た にする）は軽いので毎フレーム。重い ui() は見えていて変わったときだけ
     this.model.sync(open);
     const visible = open && this.model.tab() === 'achievements';
-    this.host.pageSlot.hidden = !visible;
+    // pageSlot の 出し入れは もちもの画面（できごと ページと 同じ場所を 使う）。ここでは 自分だけ 出し入れする
+    this.el.style.display = visible ? '' : 'none';
     if (!visible) {
       this.builtVersion = -1; // 見えるようになったら作り直す
       return;

@@ -62,8 +62,8 @@ describe('せつめい パネルの中身（AC4・AC6）', () => {
     expect(d.rarityWord).toBe('めずらしい');
     expect(d.buttons).toEqual(['1-9', 'left']);
     expect(d.materials).toEqual([
-      { item: 'iron_ingot', have: 1, need: 2, ok: false },
-      { item: 'log', have: 1, need: 1, ok: true },
+      { item: 'iron_ingot', have: 1, need: 2, ok: false, inTansu: 0 },
+      { item: 'log', have: 1, need: 1, ok: true, inTansu: 0 },
     ]);
     expect(d.button).toEqual({ enabled: false, label: 'ざいりょう が たりない' });
     expect(d.hint).toBeNull();
@@ -87,7 +87,7 @@ describe('せつめい パネルの中身（AC4・AC6）', () => {
     expect(buttonState(c, true, null)).toEqual({ enabled: false, label: 'ねんりょう が たりない' });
     expect(buttonState(c, true, 'coal_ore')).toEqual({ enabled: true, label: 'やく' });
     const d = buildDetail({ shown: c, selected: c, info: info.info('iron_ingot'), bake: true, fuelCounts: { coal_ore: 1, oil: 0, log: 0 }, fuelNext: 'coal_ore' });
-    expect(d.fuel).toEqual({ next: 'coal_ore', counts: { coal_ore: 1, oil: 0, log: 0 } });
+    expect(d.fuel).toEqual({ next: 'coal_ore', counts: { coal_ore: 1, oil: 0, log: 0 }, inTansu: {} });
   });
 });
 

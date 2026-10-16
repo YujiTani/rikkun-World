@@ -59,8 +59,9 @@ describe('tokens.css', () => {
       if (name === '--rk-hud-bg' || name === '--rk-scrim') continue; // 不透明度つきの書き方
       expect(css, name).toMatch(new RegExp(`${name}:\\s*${hex}\\b`, 'i'));
     }
-    expect(css).toMatch(/--rk-hud-bg:\s*rgb\(16 20 31 \/ 72%\)/);
-    expect(css).toMatch(/--rk-scrim:\s*rgb\(0 0 0 \/ 50%\)/);
+    expect(css).toMatch(/--rk-hud-bg:\s*rgb\(16 20 31 \/ var\(--rk-ui-hud-a\)\)/);
+    expect(css).toMatch(/--rk-scrim:\s*rgb\(0 0 0 \/ var\(--rk-ui-scrim-a\)\)/);
+    expect(css).toMatch(/--rk-scrim-modal:\s*rgb\(0 0 0 \/ 50%\)/);
   });
 
   it('components.css は 色を じかに書かない', () => {

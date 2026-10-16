@@ -15,12 +15,13 @@
   display: none;
 }
 .po-panel {
+  text-shadow: var(--rk-text-outline);
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--rk-sp-4);
   padding: var(--rk-sp-5);
-  background: color-mix(in srgb, var(--rk-bg-900) 96%, transparent);
+  background: var(--rk-panel-bg);
   border-radius: var(--rk-r-l);
   box-shadow: var(--rk-shadow-2);
 }
@@ -243,4 +244,10 @@
 }
 .po-help-item .po-mouse-big {
   --rk-mouse-size: var(--rk-fs-head);
+}
+
+/* CRAFT-2 AC23: おれんじの ボタンの上の マウスの「L」は 暗い字に（まっ白の世界でも 読める） */
+.po-button .rk-mouse__letter {
+  color: var(--rk-bg-900);
+  text-shadow: none;
 }

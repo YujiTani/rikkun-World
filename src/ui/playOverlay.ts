@@ -3,6 +3,7 @@ import type { LockController } from '../input/lockController';
 import { fillMouseSrc, mouseHtml } from './craftPanel.art';
 import { anyIconUrl } from './itemIcon';
 import { escapeHtml } from './text';
+import { scrollIconUrl } from './log/icons';
 import { FIGHT_CAPTIONS_W2 } from './weapon2Guide';
 import './playOverlay.css';
 
@@ -56,6 +57,9 @@ function tabArts(): Record<GuideTabId, string[]> {
       `${ICON('coal_ore')}${ICON('oil')}${ICON('log')}`,
       `<div class="po-keys">${KEY('Q')}</div>${ICON('dirt')}`,
       `${ICON('tansu')}`,
+      // CRAFT-2: L で できごと（まきものの絵）／ちかくの たんす の ものも つかえる（たんす と かなづち）
+      `<div class="po-keys">${KEY('L')}</div><img class="po-icon po-scroll" data-scroll="1" alt="">`,
+      `${ICON('tansu')}${ICON('hammer')}`,
     ],
     grow: [
       `${ICON('kuwa')}${EMOJI('➡')}${ICON('farmland')}`,
@@ -129,6 +133,7 @@ export class PlayOverlay {
     for (const img of this.el.querySelectorAll<HTMLImageElement>('img[data-icon]')) {
       img.src = anyIconUrl(img.dataset.icon as never);
     }
+    for (const img of this.el.querySelectorAll<HTMLImageElement>('img[data-scroll]')) img.src = scrollIconUrl();
     for (const b of this.el.querySelectorAll<HTMLButtonElement>('.po-tab')) {
       b.addEventListener('click', (e) => {
         e.stopPropagation(); // あそびは始めない

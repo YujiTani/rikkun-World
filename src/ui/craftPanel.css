@@ -3,13 +3,14 @@
  * 左: 絵だけのマスの一覧。右: 決まった場所の せつめい パネル（320px 分）。
  */
 .craft-panel {
+  text-shadow: var(--rk-text-outline);
   --cp-detail-w: calc(var(--rk-slot-inv) * 320 / 56);
   box-sizing: border-box;
   display: flex;
   align-items: stretch;
   gap: var(--rk-sp-4);
   padding: var(--rk-sp-4);
-  background: color-mix(in srgb, var(--rk-bg-900) 96%, transparent);
+  background: var(--rk-panel-bg);
   border-radius: var(--rk-r-l);
   color: var(--rk-text);
   pointer-events: auto;
@@ -189,7 +190,7 @@
   padding: 0 var(--rk-sp-1);
   font-size: var(--rk-fs-rt);
   font-weight: 800;
-  background: var(--rk-hud-bg);
+  background: var(--rk-bg-900);
   border-radius: var(--rk-r-s);
 }
 .cp-queue:empty {
@@ -420,6 +421,10 @@
   font-weight: 800;
   background: var(--rk-bg-700);
 }
+.cp-mat[data-ok='false'] {
+  /* 赤い字が まっ白の世界の上でも 読めるよう、足りない材料の下地は いちばん暗い色に（AC23） */
+  background: var(--rk-bg-900);
+}
 .cp-mat[data-ok='false'] .cp-have {
   color: var(--rk-ng);
 }
@@ -438,6 +443,28 @@
   background: var(--rk-bg-700);
   font-weight: 800;
 }
+.cp-mat,
+.cp-fuelchip {
+  position: relative;
+}
+.cp-dotset {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--rk-sp-1);
+}
+.cp-dot[data-src='tansu'] {
+  background: var(--rk-kiri);
+}
+/* たんす の小さな絵: 16px の 1 倍。チップの右上 */
+.cp-tansu-mini {
+  position: absolute;
+  top: -8px;
+  right: -4px;
+  width: 16px;
+  height: 16px;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
 .cp-fuelchip[data-next='true'] {
   outline: var(--rk-bw-sel) solid var(--rk-accent);
 }
@@ -451,7 +478,7 @@
   padding: 0 var(--rk-sp-3);
   font-family: inherit;
   font-size: var(--rk-fs-small);
-  color: var(--rk-text-sub);
+  color: var(--rk-text);
   background: transparent;
   border: 0;
   cursor: pointer;
@@ -501,7 +528,7 @@
   justify-content: center;
   min-height: calc(var(--rk-slot-inv) * 3);
   font-size: var(--rk-fs-body);
-  color: var(--rk-text-sub);
+  color: var(--rk-text);
   text-align: center;
 }
 

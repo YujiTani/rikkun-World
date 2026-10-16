@@ -8,8 +8,20 @@ export interface MaterialView {
   have: number;
   /** 足りない（絵のうしろがうすい赤） */
   red: boolean;
-  /** まる。true = みどり（持っている） */
+  /** まる。true = ぬってある（持っている。たんす の分もふくむ） */
   dots: boolean[];
+  /** CRAFT-2: `have` のうち たんす から使う分（0 なら もちもの だけ） */
+  inTansu: number;
+}
+
+/** まるの ぬり方（CRAFT-2 §3.2）。順は もちもの（みどり）→ たんす（桐色）→ 足りない。`have` は たんす もふくむ数 */
+export type DotSource = 'inv' | 'tansu' | 'none';
+export function materialDotSources(need: number, have: number, inTansu: number): DotSource[] {
+  const tansu = Math.max(0, Math.min(inTansu, have));
+  const invHave = have - tansu;
+  const inv = Math.min(need, invHave);
+  const kiri = Math.min(need - inv, tansu);
+  return Array.from({ length: need }, (_, k) => (k < inv ? 'inv' : k < inv + kiri ? 'tansu' : 'none'));
 }
 
 export interface CardView {
@@ -27,7 +39,7 @@ export interface CardView {
   queued: number;
 }
 
-export function materialViews(inputs: readonly ItemStack[], countOf: (item: ItemId) => number): MaterialView[] {
+export function materialViews(inputs: readonly ItemStack[], countOf: (item: ItemId) => number, tansuOf?: (item: ItemId) => number): MaterialView[] {
   return inputs.map((i) => {
     const have = countOf(i.item);
     const shown = Math.min(have, i.count);
@@ -37,6 +49,7 @@ export function materialViews(inputs: readonly ItemStack[], countOf: (item: Item
       have,
       red: have < i.count,
       dots: Array.from({ length: i.count }, (_, k) => k < shown),
+      inTansu: Math.max(0, Math.min(tansuOf?.(i.item) ?? 0, have)),
     };
   });
 }
@@ -53,6 +66,8 @@ export interface CardOptions {
   /** その かまど で待っているレシピごとの数 */
   queued?: ReadonlyMap<string, number> | Record<string, number>;
   cfg?: CraftUiSettings;
+  /** CRAFT-2: アイテムごとの「たんす にある数」。`inv.count` は たんす もふくむ数を返す（S が つなぐ） */
+  tansuOf?: (item: ItemId) => number;
 }
 
 /** カードの表示用データ。材料の数え方は 持ち物 36 マスの合計（カーソルは数えない） */
@@ -72,7 +87,7 @@ export function buildCards(
       output: r.output,
       works: r.works,
       glowing: st.craftable && fuelOk,
-      materials: materialViews(r.inputs, countOf),
+      materials: materialViews(r.inputs, countOf, opt.tansuOf),
       redItems: st.missing.map((m) => m.item),
       countLabel: r.output.count >= 2 ? `×${r.output.count}` : '',
       queued: q ?? 0,
@@ -171,6 +186,8 @@ export interface DetailMaterial {
   have: number;
   need: number;
   ok: boolean;
+  /** CRAFT-2: `have` のうち たんす にある分 */
+  inTansu: number;
 }
 
 /** せつめい パネルの 中身（`craft.ui().detail`） */
@@ -190,7 +207,7 @@ export interface DetailView {
   /** WEAPON-2: なかま の 文（`つかうと へって、0 で こわれる` など） */
   classText: string;
   materials: DetailMaterial[];
-  fuel: { next: ItemIdM6 | null; counts: Record<string, number> } | null;
+  fuel: { next: ItemIdM6 | null; counts: Record<string, number>; inTansu: Record<string, number> } | null;
   /** できる数（2 こ以上のとき ×N を出す） */
   count: number;
   /** いつも えらんでいるマスのもの */
@@ -215,6 +232,8 @@ export function buildDetail(o: {
   bake: boolean;
   fuelCounts: Record<string, number> | null;
   fuelNext: ItemIdM6 | null;
+  /** CRAFT-2: ねんりょうごとの たんす の数 */
+  fuelInTansu?: Record<string, number>;
 }): DetailView {
   const { shown, selected, info } = o;
   return {
@@ -230,8 +249,8 @@ export function buildDetail(o: {
     later: info.later,
     stats: info.stats,
     classText: info.classText,
-    materials: shown.materials.map((m) => ({ item: m.item, have: m.have, need: m.need, ok: !m.red })),
-    fuel: o.bake && o.fuelCounts ? { next: o.fuelNext, counts: o.fuelCounts } : null,
+    materials: shown.materials.map((m) => ({ item: m.item, have: m.have, need: m.need, ok: !m.red, inTansu: m.inTansu })),
+    fuel: o.bake && o.fuelCounts ? { next: o.fuelNext, counts: o.fuelCounts, inTansu: o.fuelInTansu ?? {} } : null,
     count: shown.output.count,
     button: buttonState(selected, o.bake, o.fuelNext),
     hint: shown.id !== selected.id ? HINT_SELECT : null,

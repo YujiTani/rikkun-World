@@ -7,11 +7,17 @@ export function createCraftHook(craft: CraftSystemImpl, screen: { inventoryOpen(
   return {
     list: () => craft.list(),
     make: (id: string) => craft.make(id),
-    click: (id: string) => (screen.inventoryOpen() ? craft.make(id) : { ok: false, reason: 'closed' as const }),
+    click: (id: string) => (screen.inventoryOpen() ? craft.make(id) : { ok: false, reason: 'closed' as const, used: null }),
     events: () => craft.takeCraftHookEvents(),
     fuel: () => craft.fuel(),
     setFuel: (id: string) => craft.setFuel(id as ItemId),
     openFurnace: (x: number, y: number, z: number) => craft.openFurnace(x, y, z),
+    /** CRAFT-2 §6.1: 今 つくったら どこから何こ取るかの 予定（何も変えない） */
+    sources: (id: string) => craft.sources(id),
+    /** CRAFT-2 §6.1: 今の位置で しぼった 使える たんす（取る順） */
+    tansuInRange: () => craft.tansuInRange(),
+    /** CRAFT-2 §6.1: `{ tansuFilterCount }` */
+    debug: () => craft.debugCounts(),
   };
 }
 
@@ -19,7 +25,7 @@ export function createCraftHook(craft: CraftSystemImpl, screen: { inventoryOpen(
 export function createFurnaceHook(craft: CraftSystemImpl, screen: { inventoryOpen(): boolean }) {
   return {
     list: () => craft.bakeList(),
-    click: (id: string) => (screen.inventoryOpen() ? craft.clickBake(id) : { ok: false, reason: 'closed' as const }),
+    click: (id: string) => (screen.inventoryOpen() ? craft.clickBake(id) : { ok: false, reason: 'closed' as const, used: null }),
     bake: (id: string, x: number, y: number, z: number) => craft.bake(id, x, y, z),
     get: (x: number, y: number, z: number) => craft.furnaceAt(x, y, z),
     events: () => craft.takeFurnaceHookEvents(),

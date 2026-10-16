@@ -1,0 +1,8 @@
+/* カテゴリーの印（16×16 を 2 倍 = 32px）と できごと タブの絵 */
+.log-mark,
+.log-tab-art {
+  width: var(--rk-icon-chip);
+  height: var(--rk-icon-chip);
+  flex: none;
+  image-rendering: pixelated;
+}

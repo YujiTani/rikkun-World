@@ -47,11 +47,7 @@
   line-height: var(--rk-lh);
   font-variant-numeric: tabular-nums;
   color: var(--rk-text);
-  text-shadow:
-    2px 0 0 var(--rk-bg-900),
-    -2px 0 0 var(--rk-bg-900),
-    0 2px 0 var(--rk-bg-900),
-    0 -2px 0 var(--rk-bg-900);
+  text-shadow: var(--rk-text-outline);
 }
 #clock .clock-word {
   font-size: var(--rk-fs-body);

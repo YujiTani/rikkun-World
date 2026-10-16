@@ -49,11 +49,7 @@
 /* HUD の字: こいふち 2px */
 .rk-hud-text {
   color: var(--rk-text);
-  text-shadow:
-    2px 0 0 var(--rk-bg-900),
-    -2px 0 0 var(--rk-bg-900),
-    0 2px 0 var(--rk-bg-900),
-    0 -2px 0 var(--rk-bg-900);
+  text-shadow: var(--rk-text-outline);
 }
 /* ドット絵は 整数倍で くっきり。色しらべの 対象外 */
 .rk-art {
@@ -62,11 +58,12 @@
 
 /* ---- パネル ---- */
 .rk-panel {
+  text-shadow: var(--rk-text-outline);
   display: flex;
   flex-direction: column;
   gap: var(--rk-sp-4);
   padding: var(--rk-sp-5);
-  background: color-mix(in srgb, var(--rk-bg-900) 96%, transparent);
+  background: var(--rk-panel-bg);
   border-radius: var(--rk-r-l);
   box-shadow: var(--rk-shadow-2);
   color: var(--rk-text);
@@ -144,11 +141,7 @@
   line-height: var(--rk-lh);
   font-variant-numeric: tabular-nums;
   color: var(--rk-text);
-  text-shadow:
-    2px 0 0 var(--rk-bg-900),
-    -2px 0 0 var(--rk-bg-900),
-    0 2px 0 var(--rk-bg-900),
-    0 -2px 0 var(--rk-bg-900);
+  text-shadow: var(--rk-text-outline);
 }
 .rk-slot--empty {
   border-style: solid;
@@ -348,6 +341,7 @@
   padding: var(--rk-sp-1) var(--rk-sp-4) var(--rk-sp-1) var(--rk-sp-2);
   color: var(--rk-text);
   background: var(--rk-hud-bg);
+  text-shadow: var(--rk-text-outline);
   border-radius: var(--rk-r-pill);
   font-size: var(--rk-fs-body);
   font-weight: 500;
@@ -419,7 +413,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--rk-scrim);
+  background: var(--rk-scrim-modal);
 }
 .rk-modal {
   position: relative;
@@ -521,15 +515,53 @@
   line-height: 1;
   font-weight: 900;
   color: var(--rk-text);
-  text-shadow:
-    1px 0 0 var(--rk-bg-900),
-    -1px 0 0 var(--rk-bg-900),
-    0 1px 0 var(--rk-bg-900),
-    0 -1px 0 var(--rk-bg-900);
+  text-shadow: var(--rk-text-outline);
 }
 .rk-mouse[data-btn='L'] .rk-mouse__letter {
   padding-right: 22%;
 }
 .rk-mouse[data-btn='R'] .rk-mouse__letter {
   padding-left: 22%;
+}
+
+/* ---- 字のふち: 不透明な下地の上は なし（半透明の下地の上の字だけに ふちを付ける） ----
+   `html` を前に付けて、中の字に付いた ふち（.rk-slot__count など）より 強くする */
+html .rk-card,
+html .rk-card *,
+html .rk-slot,
+html .rk-slot *,
+html .rk-btn,
+html .rk-btn *,
+html .rk-tab,
+html .rk-tab *,
+html .rk-tooltip,
+html .rk-tooltip *,
+html .rk-badge,
+html .rk-badge *,
+html .rk-modal,
+html .rk-modal *,
+html #tooltip,
+html #tooltip *,
+html .slot,
+html .slot *,
+html .inv-slot,
+html .inv-slot *,
+html .cp-tile,
+html .cp-tile *,
+html .cp-mat,
+html .cp-mat *,
+html .cp-dot,
+html .cp-dot *,
+html .cp-fuelchip,
+html .cp-fuelchip *,
+html .po-button,
+html .po-button *,
+html .ach-tip,
+html .ach-tip * {
+  text-shadow: none;
+}
+/* ホットバーの 空のマスは 下地が 半透明なので ふちを付ける */
+html #hotbar .slot:not([data-cat]),
+html #hotbar .slot:not([data-cat]) * {
+  text-shadow: var(--rk-text-outline);
 }

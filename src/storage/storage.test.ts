@@ -223,3 +223,22 @@ describe('Inventory.shiftMove とキー', () => {
     expect(state.isHeld('dropStack')).toBe(false);
   });
 });
+
+describe('CRAFT-2: たんす から素材を数える・取り出す', () => {
+  it('countItem / takeItem（うしろのマスから・store を出さない・version がふえる）', () => {
+    const r = rig();
+    r.st.set(5, 5, 5, 0, { item: 'log', count: 2 });
+    r.st.set(5, 5, 5, 53, { item: 'log', count: 2 });
+    expect(r.st.countItem(5, 5, 5, 'log')).toBe(4);
+    expect(r.st.countItem(1, 1, 1, 'log')).toBe(0);
+    const v = r.st.version();
+    expect(r.st.takeItem(5, 5, 5, 'log', 3)).toBe(3);
+    expect(r.st.version()).toBeGreaterThan(v);
+    const s = r.st.get(5, 5, 5)!.slots;
+    expect(s[53]).toBeNull();
+    expect(s[0]).toEqual({ item: 'log', count: 1 });
+    expect(r.st.takeItem(5, 5, 5, 'log', 9)).toBe(1);
+    expect(r.st.takeItem(5, 5, 5, 'log', 1)).toBe(0);
+    expect(r.st.drainEvents()).toEqual([]);
+  });
+});
