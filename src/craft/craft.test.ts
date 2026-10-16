@@ -3,6 +3,7 @@ import type { BlockId, ItemStack, Vec3 } from '../contracts';
 import { PlayerCombatImpl } from '../combat/PlayerCombat';
 import { createCombatConfig } from '../combat/config';
 import { CRAFT_DEFAULTS } from './config';
+import { CRAFT_RECIPES } from './recipes';
 import { DropField } from '../drops';
 import { InventoryImpl } from '../inventory/Inventory';
 import { ITEM_TYPES } from '../inventory/items';
@@ -60,6 +61,18 @@ describe('アイテムの種類表（AC1）', () => {
     expect(itemRarity('crystal_katana')).toBe('superRare');
     expect(itemRarity('furnace')).toBe('uncommon');
     expect(itemRarity('katana')).toBe('rare');
+  });
+});
+
+describe('きらめく カタナ（#68）', () => {
+  it('名前が かわり、すいしょう 2・てつの かたまり 3・き 1 で作る', () => {
+    expect(ITEM_TYPES.find((x) => x.id === 'crystal_katana')!.name).toBe('きらめく カタナ');
+    const rc = CRAFT_RECIPES.find((x) => x.id === 'crystal_katana')!;
+    expect(rc.inputs).toEqual([
+      { item: 'crystal', count: 2 },
+      { item: 'iron_ingot', count: 3 },
+      { item: 'log', count: 1 },
+    ]);
   });
 });
 

@@ -43,7 +43,7 @@ export function handleCraftEvents(
   }
 }
 
-/** うでの動き（ToolSystem.drainSwings）に合わせた音の名前。武器が きらきらの かたな なら「キラン」もつく */
+/** うでの動き（ToolSystem.drainSwings）に合わせた音の名前。武器が きらめく カタナ なら「キラン」もつく */
 export function swingSounds(anim: SwingAnim, held: ItemId | null): CraftSoundName[] {
   switch (anim) {
     case 'slash':

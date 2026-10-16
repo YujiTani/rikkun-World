@@ -23,7 +23,7 @@ export const CRAFT_RECIPES: readonly Recipe[] = [
   r('bokuto', 1, [['log', 2]], true),
   r('katana', 1, [['iron_ingot', 2], ['log', 1]], true),
   r('naginata', 1, [['iron_ingot', 1], ['log', 3]], true),
-  r('crystal_katana', 1, [['crystal', 1], ['iron_ingot', 1], ['log', 1]], true),
+  r('crystal_katana', 1, [['crystal', 2], ['iron_ingot', 3], ['log', 1]], true),
   r('yumi', 1, [['log', 3], ['string', 3]], true),
   r('ya', 4, [['log', 1], ['stone', 1], ['paper', 1]], true),
   r('kabuto', 1, [['iron_ingot', 2], ['cloth', 1]], true),

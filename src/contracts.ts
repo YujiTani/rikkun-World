@@ -1407,7 +1407,7 @@ export type BladeEvent =
 
 /** 刀に 毎ステップ わたすもの。ふりわけ（わざ か ほる か しゅうかく）は つなぎ込みの DigSystem が 決めて、わざ なら techPressed / techHeld を 立てる */
 export interface BladeStepContext {
-  /** 手に 持っている 刀（ぼくとう・かたな・きらきらの かたな）。刀でなければ null（わざ・かまえは おわる） */
+  /** 手に 持っている 刀（ぼくとう・かたな・きらめく カタナ）。刀でなければ null（わざ・かまえは おわる） */
   item: ItemId | null;
   /** このステップに ひだりクリック を 押した **そして ふりわけが わざ** */
   techPressed: boolean;
@@ -1430,7 +1430,7 @@ export interface BladeDeps {
   world: VoxelWorld;
   yokai: () => YokaiWorld;
   settings: W2Settings;
-  /** 刀の 強さ（`weaponDamage`。ぼくとう 2・かたな 4・きらきらの かたな 6） */
+  /** 刀の 強さ（`weaponDamage`。ぼくとう 2・かたな 4・きらめく カタナ 6） */
   weaponDamage: (item: ItemId) => number;
   /** わざが 1 体 以上 に 当たった（1 回の わざで 1 回）。つなぎ込みが `inventory.wearHeld(settings.toolWear.blade.hit)` につなぐ */
   onHit: (info: { tech: BladeTech; count: number }) => void;
