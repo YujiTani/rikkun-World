@@ -13,6 +13,8 @@ import type { createToolHook } from '../tools';
 import type { createBladeHook } from '../tools/blade/hook';
 import type { createLevelHook } from '../level';
 import type { createAchievementsHook } from '../achievements';
+import type { createLogHook } from '../ui/log';
+import type { UiAlpha } from '../contracts';
 import type { createStorageHook } from '../storage/hook';
 import type { createYokaiHook } from '../yokai';
 import type { createFarmHook } from '../farm';
@@ -73,6 +75,10 @@ export interface TestHook {
   storage: ReturnType<typeof createStorageHook>;
   /** M7 §6.1: 農業 */
   farm: ReturnType<typeof createFarmHook>;
+  /** CRAFT-2 §6.1: ログとできごと */
+  log: ReturnType<typeof createLogHook>['log'];
+  /** CRAFT-2 §6.1: 画面の不透明度 */
+  ui: { alpha(): UiAlpha };
 }
 
 declare global {
@@ -81,7 +87,7 @@ declare global {
   }
 }
 
-export type TestHookGroups = Pick<TestHook, 'world' | 'render' | 'player' | 'camera' | 'input' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm'>;
+export type TestHookGroups = Pick<TestHook, 'world' | 'render' | 'player' | 'camera' | 'input' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm' | 'log' | 'ui'>;
 
 export function installTestHook(game: Game, overlay: PerfOverlay, groups: TestHookGroups): void {
   window.__rikkun = {

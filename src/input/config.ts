@@ -85,6 +85,8 @@ export const GUIDE_TABS: Record<GuideTabId, { label: string; icon: string; capti
       'ねんりょう は せきたん・あぶら・き',
       'Q で 1こ すてる',
       'たんす に しまう',
+      'L で できごと を みる',
+      'ちかくの たんす の ものも つかえる',
     ],
   },
   // M7: 5 つ目のタブ「そだてる」（仕様 §3.7）。文が主役。漢字は ふりがな付き

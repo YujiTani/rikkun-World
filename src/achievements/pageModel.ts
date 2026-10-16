@@ -2,7 +2,7 @@ import type { AchievementCategory, AchievementId } from '../contracts';
 import { ACHIEVEMENT_DEFS, CATEGORY_LABEL, CATEGORY_ORDER } from './defs';
 import type { AchievementSystem } from './AchievementSystem';
 
-export type PageTab = 'items' | 'achievements';
+export type PageTab = 'items' | 'achievements' | 'log';
 
 export interface PageRow {
   id: AchievementId;

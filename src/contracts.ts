@@ -1748,7 +1748,7 @@ export interface MaterialSources extends MaterialUse {
 export interface TansuMaterialStore {
   /** そこの たんす に item が 全部で何こ あるか（たんす でなければ 0） */
   countItem(x: number, y: number, z: number, item: ItemId): number;
-  /** そこの たんす から item を 最大 count こ 取り出して 取れた数を返す（小さい番号のマスから） */
+  /** そこの たんす から item を 最大 count こ 取り出して 取れた数を返す（うしろのマス 53 → 0 の順に。仕様 §2.3） */
   takeItem(x: number, y: number, z: number, item: ItemId, count: number): number;
 }
 
