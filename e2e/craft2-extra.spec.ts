@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { installAimHelpers } from './helpers/aim';
 
 /**
  * CRAFT-2 テスト係の 足し分（e2e/craft2.spec.ts が ゆるい／足りない AC だけ）。
@@ -7,6 +8,7 @@ import { expect, test, type Page } from '@playwright/test';
 async function open(page: Page, query = '?nosave=1') {
   await page.goto('/' + query);
   await page.waitForFunction(() => window.__rikkun?.ready === true);
+  await installAimHelpers(page);
   await page.evaluate(() => {
     const h = (window as any).__rikkun;
     const T: any = {
@@ -20,7 +22,7 @@ async function open(page: Page, query = '?nosave=1') {
         h.inventory.clear();
         for (const p of h.storage.list()) for (let i = 0; i < 54; i++) h.storage.set(p.x, p.y, p.z, i, null);
         h.time.set(6000);
-        h.player.set({ position: { x: 10.5, y: 9, z: 10.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: 0 });
+        (window as any).__aim.standForS(10.5, 10.5, 90, 0, 9);
         h.step(10);
         h.log.clear();
         h.craft.events();
@@ -117,7 +119,7 @@ test('AC15: こわれた ログ(#wear-log)の 行に [data-cat=info] の印', as
     h.inventory.setSlot(0, { item: 'wood_pickaxe', count: 1 });
     h.inventory.select(0);
     h.inventory.setDurability(0, 1);
-    h.world.setBlock(14, 11, 10, 'stone');
+    h.world.setBlock(14, 10, 10, 'stone');
     h.input.press('primary');
     h.step(240);
     h.input.release('primary');
@@ -157,12 +159,12 @@ test('AC16: 文・カテゴリー・item・「履歴だけ」は 左のログに
     out.liveItems = h.log.live().map((e: any) => e.item);
     // もうすぐ こわれる
     h.step(200);
-    h.world.setBlock(14, 11, 10, 'stone');
+    h.world.setBlock(14, 10, 10, 'stone');
     h.inventory.clear();
     h.inventory.setSlot(0, { item: 'wood_pickaxe', count: 1 });
     h.inventory.select(0);
     h.inventory.setDurability(0, 7);
-    h.player.set({ position: { x: 10.5, y: 9, z: 10.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: 0 });
+    (window as any).__aim.standForS(10.5, 10.5, 90, 0, 9);
     h.step(2);
     h.input.press('primary');
     h.step(200);
@@ -172,7 +174,7 @@ test('AC16: 文・カテゴリー・item・「履歴だけ」は 左のログに
     h.step(3);
     h.input.release('primary');
     h.step(2);
-    out.blk = h.world.getBlock ? h.world.getBlock(14, 11, 10) : 'n/a';
+    out.blk = h.world.getBlock ? h.world.getBlock(14, 10, 10) : 'n/a';
     out.low = top('wearLow');
     out.dbg = h.log.history().map((e: any) => e.kind + ':' + e.text);
     out.dur = h.inventory.get().slots?.[0] ?? null;
@@ -184,8 +186,6 @@ test('AC16: 文・カテゴリー・item・「履歴だけ」は 左のログに
     h.inventory.clear();
     h.inventory.setSlot(0, { item: 'katana', count: 1 });
     h.inventory.select(0);
-    h.player.set({ pitch: -20 }); // 線は P から出る。低い からかさ に 当てる
-    h.step(1);
     h.input.press('primary');
     h.step(20);
     h.input.release('primary');
@@ -296,7 +296,7 @@ test.describe('できごと タブ・印', () => {
       h.step(2);
       h.level.add(1000);
       h.step(2);
-      h.world.setBlock(14, 11, 10, 'stone');
+      h.world.setBlock(14, 10, 10, 'stone');
       h.inventory.setSlot(1, { item: 'wood_pickaxe', count: 1 });
       h.inventory.select(1);
       h.inventory.setDurability(1, 1);
@@ -498,8 +498,8 @@ test.describe('AC26 撮り直し（足りない画面だけ）', () => {
       T.base();
       h.world.fill(0, 8, 0, 40, 8, 40, 'grass');
       h.time.set(6000);
-      const face = (pitch = 0) => {
-        h.player.set({ position: { x: 10.5, y: 9, z: 10.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch });
+      const face = () => {
+        (window as any).__aim.standForS(10.5, 10.5, 90, 0, 9);
         h.step(2);
       };
       const kill = () => {
@@ -508,7 +508,7 @@ test.describe('AC26 撮り直し（足りない画面だけ）', () => {
         h.yokai.setHp(id, 1);
         h.inventory.setSlot(0, { item: 'katana', count: 1 });
         h.inventory.select(0);
-        face(-20); // 線は P から出る。低い からかさ に 当てる
+        face();
         h.input.press('primary');
         h.step(20);
         h.input.release('primary');
@@ -519,7 +519,7 @@ test.describe('AC26 撮り直し（足りない画面だけ）', () => {
       const round = (lv: number) => {
         // 古い → 新しい: いしを ほる（こわれた） → つくった → や が いるよ → たおした（ひろう いと）。7 行に 6 カテゴリー
         h.inventory.clear();
-        h.world.setBlock(14, 11, 10, 'stone');
+        h.world.setBlock(14, 10, 10, 'stone');
         h.inventory.setSlot(0, { item: 'wood_pickaxe', count: 1 });
         h.inventory.select(0);
         h.inventory.setDurability(0, 1);
@@ -547,7 +547,8 @@ test.describe('AC26 撮り直し（足りない画面だけ）', () => {
         h.step(2);
         h.step(181);
         kill();
-        h.level.add(lv);
+        // 2 回目は ちょうど つぎのレベルに とどく だけ足す（たおした経験値で ずれても レベルの件が かならず出る）
+        h.level.add(lv > 1 ? lv : Math.max(1, h.level.get().next - h.level.get().xp));
         h.step(2);
       };
       round(1000); // はじめての 実績・レベルの 実績の件を すませる

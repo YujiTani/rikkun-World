@@ -1,3 +1,4 @@
+import { installAimHelpers } from './helpers/aim';
 import { expect, test, type Page } from '@playwright/test';
 
 /**
@@ -11,6 +12,7 @@ async function open(page: Page, query = '?nosave=1') {
   await page.goto('/' + query);
   await page.waitForFunction(() => window.__rikkun?.ready === true);
   await page.evaluate(() => (window.__rikkun as any).achievements.mute(true));
+  await installAimHelpers(page);
   await page.evaluate(() => {
     const h = (window as any).__rikkun;
     const T: any = {
@@ -28,17 +30,12 @@ async function open(page: Page, query = '?nosave=1') {
         h.farm.fxReset();
       },
       stand(x: number, z: number, yaw: number, pitch: number) {
-        h.player.set({ position: { x, y: 9, z }, velocity: { x: 0, y: 0, z: 0 }, yaw, pitch });
+        (window as any).__aim.standForS(x, z, yaw, pitch, 9); // 肩の点 S が (x, z) に来るように立つ
         h.step(1);
       },
       /** いまの位置から (tx,ty,tz) の ブロックの 上の面の まん中を ねらう */
       aim(tx: number, ty: number, tz: number, top = 1) {
-        const p = h.player.get().position;
-        const ex = p.x, ey = p.y + 2.12, ez = p.z;
-        const dx = tx + 0.5 - ex, dy = ty + top - ey, dz = tz + 0.5 - ez;
-        const yaw = (Math.atan2(dx, -dz) * 180) / Math.PI;
-        const pitch = (Math.atan2(dy, Math.hypot(dx, dz)) * 180) / Math.PI;
-        h.player.set({ yaw, pitch });
+        T.aimNow(tx, ty, tz, top);
         h.step(1);
       },
       /** 1 ステップだけ 押す。押した ステップの 直後 に cb を 呼ぶ */
@@ -52,9 +49,8 @@ async function open(page: Page, query = '?nosave=1') {
       },
       /** ステップを 進めずに ねらい だけ 変える */
       aimNow(tx: number, ty: number, tz: number, top = 1) {
-        const p = h.player.get().position;
-        const dx = tx + 0.5 - p.x, dy = ty + top - (p.y + 2.12), dz = tz + 0.5 - p.z;
-        h.player.set({ yaw: (Math.atan2(dx, -dz) * 180) / Math.PI, pitch: (Math.atan2(dy, Math.hypot(dx, dz)) * 180) / Math.PI });
+        // ねらいの線は 肩の点 S から出る（CHAR-1 第 5.2 版）。S は向きで変わるので 共通の道具で くりかえして 合わせる（e2e/helpers/aim.ts）
+        (window as any).__aim.solve(tx, ty, tz, top);
       },
       hold(item: string, extra?: any) {
         h.inventory.clear();
@@ -120,7 +116,7 @@ test.describe('M7-2 じょうろ', () => {
       // 目が みず の マス: water 5 で はたけ をねらうと くまずに まく
       T.base();
       T.soil(5, 6);
-      h.world.setBlock(2, 11, 6, 'water'); // 線の出どころ P（足もと + 2.12）の マス
+      h.world.setBlock(2, 10, 6, 'water'); // 目の マス
       h.step(1);
       T.hold('watering_can', { water: 5 });
       T.aim(5, 8, 6);
@@ -883,6 +879,7 @@ test.describe('M7-2 なでる・ごきげん・キラキラ', () => {
     await page.reload();
     await page.waitForFunction(() => window.__rikkun?.ready === true);
     await page.evaluate(() => (window.__rikkun as any).achievements.mute(true));
+    await installAimHelpers(page);
     await page.evaluate(() => {
       const h = (window as any).__rikkun;
       h.pause();
@@ -896,7 +893,7 @@ test.describe('M7-2 なでる・ごきげん・キラキラ', () => {
       h.inventory.add('watering_can', 1);
       h.farm.setCanWater(0, 7);
       h.step(1);
-      h.player.set({ position: { x: 3.5, y: 9, z: 1.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 180, pitch: -30 });
+      (window as any).__aim.standForS(3.5, 1.5, 180, -30, 9);
       for (let i = 0; i < 4; i++) h.farm.pour(3 + i, 8, 3, 'watering_can');
       for (let i = 0; i < 3; i++) h.farm.pet(3 + i, 9, 5);
       h.step(77);

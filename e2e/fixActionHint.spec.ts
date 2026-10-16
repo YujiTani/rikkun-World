@@ -1,9 +1,11 @@
 import { expect, test } from '@playwright/test';
+import { installAimHelpers } from './helpers/aim';
 
 /** FIX-action-hint: ねらっている所で 右クリックすると どうなるか が照準の下に出る */
 test('ねらう物でヒントの文がかわる', async ({ page }) => {
   await page.goto('/?nosave=1');
   await page.waitForFunction(() => window.__rikkun?.ready === true);
+  await installAimHelpers(page);
   const hint = async () =>
     page.evaluate(() => {
       const h = window.__rikkun! as any;
@@ -22,7 +24,7 @@ test('ねらう物でヒントの文がかわる', async ({ page }) => {
     h.inventory.add('kabuto', 1);
     h.inventory.add('katana', 1);
     for (let x = 3; x <= 9; x++) for (let y = 10; y <= 12; y++) h.world.setBlock(x, y, 6, 'air');
-    h.player.set({ position: { x: 2.5, y: 9, z: 6.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: 0 });
+    (window as any).__aim.standForS(2.5, 6.5, 90, 0, 9);
   });
   const select = (item: string) =>
     page.evaluate((it) => {
@@ -31,7 +33,7 @@ test('ねらう物でヒントの文がかわる', async ({ page }) => {
       h.inventory.select(s);
     }, item);
   const put = (id: string) =>
-    page.evaluate((b) => (window.__rikkun as any).world.setBlock(4, 11, 6, b), id);
+    page.evaluate((b) => (window.__rikkun as any).world.setBlock(4, 10, 6, b), id);
 
   // 何もない所 + 道具: 何も出ない
   await select('katana');
@@ -78,6 +80,7 @@ for (const kind of ['karakasa', 'rokurokubi']) {
   test(`妖怪（${kind}）をねらうと 黄色いふちどり と たたく が出て、外すと消える`, async ({ page }) => {
     await page.goto('/?nosave=1');
     await page.waitForFunction(() => window.__rikkun?.ready === true);
+    await installAimHelpers(page);
     const r = await page.evaluate((k) => {
       const h = window.__rikkun! as any;
       h.pause();
@@ -85,7 +88,7 @@ for (const kind of ['karakasa', 'rokurokubi']) {
       h.inventory.clear();
       h.inventory.select(0); // すで。刃物（ぼくとう・刀）を持つと「きる」にそろう（WEAPON-2 のオーナー決定）
       h.yokai.clear();
-      h.player.set({ position: { x: 2.5, y: 9, z: 6.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: 0 });
+      (window as any).__aim.standForS(2.5, 6.5, 90, 0, 9);
       const id = h.yokai.spawn(k, 6.5, 9, 6.5);
       h.step(1);
       for (const pitch of [0, -5, -10, -15, 5, 10]) {

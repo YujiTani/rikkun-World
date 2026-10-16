@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { installAimHelpers } from './helpers/aim';
 import { findUnrubiedKanji } from '../src/ui/text';
 
 /**
@@ -13,6 +14,7 @@ async function open(page: Page, query = '') {
   await page.goto('/' + query);
   await page.waitForFunction(() => window.__rikkun?.ready === true);
   await page.evaluate(() => window.__rikkun!.achievements.mute(true));
+  await installAimHelpers(page);
   await installHelpers(page);
 }
 
@@ -33,8 +35,9 @@ async function installHelpers(page: Page) {
         h.step(10); // 前のブロックをこわした後の休み（6 ステップ）を終わらせる
         h.dig.events();
       },
+      /** 「ねらいの線の出どころ（肩の点 S）が (x, z) に来る」ように立つ。足もとの高さは y */
       place(x: number, y: number, z: number, yaw: number, pitch: number) {
-        h.player.set({ position: { x, y, z }, velocity: { x: 0, y: 0, z: 0 }, yaw, pitch });
+        (window as any).__aim.standForS(x, z, yaw, pitch, y);
         h.step(1);
       },
       press(n: number, a = 'primary') {
@@ -66,47 +69,50 @@ async function installHelpers(page: Page) {
 }
 
 test.describe('M2 ねらう', () => {
-  test('AC1/AC2/AC3: ねらい（距離 1.5・4.5・5.5 を P（足もと + 2.12）から はかる、水ごしの海底）', async ({ page }) => {
+  test('AC1/AC2/AC3: ねらい（距離 1.5・4.5・5.5 を S の線・P から はかる、水ごしの海底）', async ({ page }) => {
     await open(page);
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
       const T = (window as any).T;
       T.base();
-      h.world.setBlock(4, 11, 6, 'dirt');
+      h.world.setBlock(4, 10, 6, 'dirt');
       h.step(1);
       const a1 = h.target.get();
-      h.world.setBlock(4, 11, 6, 'air');
+      h.world.setBlock(4, 10, 6, 'air');
       h.step(1);
       const a1b = h.target.get();
-      h.world.setBlock(7, 11, 6, 'dirt');
+      h.world.setBlock(7, 10, 6, 'dirt');
       h.step(1);
       const a2 = h.target.get();
       const a2third = h.target.get();
-      h.world.setBlock(7, 11, 6, 'air');
-      h.world.setBlock(8, 11, 6, 'dirt');
+      h.world.setBlock(7, 10, 6, 'air');
+      h.world.setBlock(8, 10, 6, 'dirt');
       h.step(1);
       const a2far = h.target.get();
-      h.world.setBlock(8, 11, 6, 'air');
+      h.world.setBlock(8, 10, 6, 'air');
       // AC3: 海の底
       h.world.fill(0, 8, 0, 12, 8, 12, 'water');
-      h.player.set({ position: { x: 2.5, y: 7, z: 6.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: -45 });
+      (window as any).__aim.standForS(2.5, 6.5, 90, -45, 7);
       h.step(1);
       const a3 = h.target.get();
-      return { a1, a1b, a2, a2third, a2far, a3 };
+      return { a1, a1b, a2, a2third, a2far, a3, x3: h.aim.point() };
     });
     expect(r.a1.id).toBe('dirt');
-    expect(r.a1.block).toEqual({ x: 4, y: 11, z: 6 });
+    expect(r.a1.block).toEqual({ x: 4, y: 10, z: 6 });
     expect(r.a1.face).toEqual({ x: -1, y: 0, z: 0 });
-    expect(r.a1.place).toEqual({ x: 3, y: 11, z: 6 });
+    expect(r.a1.place).toEqual({ x: 3, y: 10, z: 6 });
     expect(r.a1.distance).toBeCloseTo(1.5, 1);
     expect(r.a1b).toBeNull();
-    expect(r.a2.block).toEqual({ x: 7, y: 11, z: 6 });
+    expect(r.a2.block).toEqual({ x: 7, y: 10, z: 6 });
     expect(r.a2.distance).toBeCloseTo(4.5, 1);
-    expect(r.a2third?.block).toEqual({ x: 7, y: 11, z: 6 });
+    expect(r.a2third?.block).toEqual({ x: 7, y: 10, z: 6 });
     expect(r.a2far).toBeNull();
     expect(r.a3.id).toBe('sand');
-    expect(r.a3.block).toEqual({ x: 4, y: 6, z: 6 });
-    expect(r.a3.place).toEqual({ x: 4, y: 7, z: 6 });
+    // 「＋」の先の点 X（窓口 aim.point()）が 海底の砂に乗っている。ブロックは X から 決める（目の高さ・肩の高さに よらない）
+    const b3 = { x: Math.floor(r.x3.x), y: Math.floor(r.x3.y - 0.001), z: Math.floor(r.x3.z) };
+    expect(r.a3.block).toEqual(b3);
+    expect(r.a3.block.y).toBe(6);
+    expect(r.a3.place).toEqual({ x: b3.x, y: 7, z: b3.z });
   });
 });
 
@@ -117,22 +123,22 @@ test.describe('M2 ほる', () => {
       const h = (window as any).__rikkun;
       const T = (window as any).T;
       T.base();
-      h.world.setBlock(4, 11, 6, 'dirt');
+      h.world.setBlock(4, 10, 6, 'dirt');
       h.step(1);
       T.press(29);
       const s29 = h.dig.get();
-      const b29 = h.world.getBlock(4, 11, 6);
+      const b29 = h.world.getBlock(4, 10, 6);
       h.step(1);
       const s30 = h.dig.get();
-      const b30 = h.world.getBlock(4, 11, 6);
+      const b30 = h.world.getBlock(4, 10, 6);
       h.step(200);
       const s230 = h.dig.get();
-      const b230 = h.world.getBlock(4, 11, 6);
+      const b230 = h.world.getBlock(4, 10, 6);
       T.repress();
       const after = h.dig.get();
       return {
         s29, b29, s30, b30, s230, b230, after,
-        bAfter: h.world.getBlock(4, 11, 6),
+        bAfter: h.world.getBlock(4, 10, 6),
         slot0: h.inventory.get().slots[0],
         ev1: h.dig.events(),
         ev2: h.dig.events(),
@@ -152,7 +158,7 @@ test.describe('M2 ほる', () => {
     expect(r.slot0).toEqual({ item: 'dirt', count: 1 });
     expect(r.after.ready).toBe(false);
     expect(r.ev1.map((e: any) => e.type)).toEqual(['ready', 'break']);
-    expect(r.ev1[1]).toMatchObject({ block: { x: 4, y: 11, z: 6 }, id: 'dirt', gotItem: true, count: 1 });
+    expect(r.ev1[1]).toMatchObject({ block: { x: 4, y: 10, z: 6 }, id: 'dirt', gotItem: true, count: 1 });
     expect(r.ev2).toEqual([]);
   });
 
@@ -165,15 +171,15 @@ test.describe('M2 ほる', () => {
       const out: Record<string, any> = {};
       for (const id of ['leaves', 'grass', 'sand', 'log', 'stone', 'coal_ore']) {
         T.base();
-        h.world.setBlock(4, 11, 6, id);
+        h.world.setBlock(4, 10, 6, id);
         h.step(1);
         const at = T.readyAt(700);
         T.repress();
-        out[id] = { at, gone: h.world.getBlock(4, 11, 6), got: h.inventory.get().slots[0] };
+        out[id] = { at, gone: h.world.getBlock(4, 10, 6), got: h.inventory.get().slots[0] };
       }
       T.base();
       h.settings.set('handPower', 2);
-      h.world.setBlock(4, 11, 6, 'dirt');
+      h.world.setBlock(4, 10, 6, 'dirt');
       h.step(1);
       out.fast = T.readyAt(100);
       h.settings.set('handPower', 1);
@@ -194,19 +200,19 @@ test.describe('M2 ほる', () => {
       const h = (window as any).__rikkun;
       const T = (window as any).T;
       T.base();
-      h.world.setBlock(4, 11, 6, 'iron_ore');
+      h.world.setBlock(4, 10, 6, 'iron_ore');
       h.step(1);
       h.input.press('primary');
       h.step(1);
       const ev = h.dig.events();
       h.step(1200);
-      const iron = { s: h.dig.get(), b: h.world.getBlock(4, 11, 6), inv: h.inventory.get().slots.filter((x: any) => x), ev2: h.dig.events() };
+      const iron = { s: h.dig.get(), b: h.world.getBlock(4, 10, 6), inv: h.inventory.get().slots.filter((x: any) => x), ev2: h.dig.events() };
       h.input.release('primary');
-      h.world.setBlock(4, 11, 6, 'bedrock');
+      h.world.setBlock(4, 10, 6, 'bedrock');
       h.step(1);
       h.input.press('primary');
       h.step(1200);
-      const bed = { s: h.dig.get(), b: h.world.getBlock(4, 11, 6) };
+      const bed = { s: h.dig.get(), b: h.world.getBlock(4, 10, 6) };
       return { ev, iron, bed };
     });
     expect(r.ev.filter((e: any) => e.type === 'blocked').length).toBe(1);
@@ -228,7 +234,7 @@ test.describe('M2 ほる', () => {
       const T = (window as any).T;
       const fresh = (id = 'dirt') => {
         T.base();
-        h.world.setBlock(4, 11, 6, id);
+        h.world.setBlock(4, 10, 6, id);
         h.step(1);
       };
       const o: any = {};
@@ -249,7 +255,7 @@ test.describe('M2 ほる', () => {
       }
       o.a_at = at;
       T.repress();
-      o.a_gone = h.world.getBlock(4, 11, 6);
+      o.a_gone = h.world.getBlock(4, 10, 6);
       // (b)
       fresh();
       T.press(20);
@@ -276,14 +282,14 @@ test.describe('M2 ほる', () => {
       h.input.release('primary');
       // (e)
       fresh();
-      h.world.setBlock(4, 10, 6, 'stone');
+      h.world.setBlock(4, 11, 6, 'stone');
       T.place(2.5, 9, 6.5, 90, 0);
       T.press(20);
       h.input.release('primary');
       T.place(2.5, 9, 6.5, 90, 0);
-      h.player.set({ position: { x: 2.5, y: 9, z: 6.5 }, yaw: 90, pitch: 0 });
-      // 見る向きを下げて (4,10,6) をねらう（線は P = 足もと + 2.12 から出る）
-      h.player.set({ position: { x: 2.5, y: 9, z: 6.5 }, yaw: 90, pitch: -35 });
+      (window as any).__aim.standForS(2.5, 6.5, 90, 0, 9);
+      // 見る向きを上げて (4,11,6) をねらう
+      (window as any).__aim.standForS(2.5, 6.5, 90, 35, 9);
       h.step(1);
       o.e_target = h.target.get()?.block;
       h.input.release('primary');
@@ -302,7 +308,7 @@ test.describe('M2 ほる', () => {
       o.m_a = h.dig.get();
       h.input.press('primary');
       h.step(1);
-      o.m_a_block = h.world.getBlock(4, 11, 6);
+      o.m_a_block = h.world.getBlock(4, 10, 6);
       h.input.release('primary');
       // (b)
       fresh();
@@ -313,12 +319,12 @@ test.describe('M2 ほる', () => {
       o.m_b = h.dig.get();
       // (c)
       fresh();
-      h.world.setBlock(4, 11, 6, 'dirt');
+      h.world.setBlock(4, 10, 6, 'dirt');
       T.press(30);
       h.input.release('primary');
       T.place(2.5, 9, 6.5, 90, 0);
-      h.world.setBlock(4, 10, 6, 'dirt');
-      h.player.set({ position: { x: 2.5, y: 9, z: 6.5 }, yaw: 90, pitch: -35 });
+      h.world.setBlock(4, 11, 6, 'dirt');
+      (window as any).__aim.standForS(2.5, 6.5, 90, 35, 9);
       h.step(1);
       h.input.press('primary');
       h.step(1);
@@ -331,7 +337,7 @@ test.describe('M2 ほる', () => {
       h.step(5);
       h.input.press('primary');
       h.step(1);
-      o.m_d_block = h.world.getBlock(4, 11, 6);
+      o.m_d_block = h.world.getBlock(4, 10, 6);
       return o;
     });
     expect(r.a_active).toBe(false);
@@ -346,8 +352,8 @@ test.describe('M2 ほる', () => {
     expect(r.c.progress).toBeCloseTo(10 / 30, 1);
     expect(r.d1.active).toBe(false);
     expect(r.d2.progress).toBeLessThan(r.d1.progress);
-    expect(r.e_target).toEqual({ x: 4, y: 10, z: 6 });
-    expect(r.e.block).toEqual({ x: 4, y: 10, z: 6 });
+    expect(r.e_target).toEqual({ x: 4, y: 11, z: 6 });
+    expect(r.e.block).toEqual({ x: 4, y: 11, z: 6 });
     expect(r.e.progress).toBeCloseTo(1 / 360, 2);
     expect(r.stages.slice(0, 9)).toEqual(Array(9).fill(1));
     expect(r.stages.slice(9, 19)).toEqual(Array(10).fill(2));
@@ -358,7 +364,7 @@ test.describe('M2 ほる', () => {
     expect(r.m_a_block).toBe('air');
     expect(r.m_b.ready).toBe(true);
     expect(r.m_c.ready).toBe(false);
-    expect(r.m_c.block).toEqual({ x: 4, y: 10, z: 6 });
+    expect(r.m_c.block).toEqual({ x: 4, y: 11, z: 6 });
     expect(r.m_d_block).toBe('dirt');
   });
 
@@ -368,12 +374,12 @@ test.describe('M2 ほる', () => {
       const h = (window as any).__rikkun;
       const T = (window as any).T;
       T.base();
-      h.world.setBlock(4, 11, 6, 'dirt');
-      h.world.setBlock(5, 11, 6, 'dirt');
+      h.world.setBlock(4, 10, 6, 'dirt');
+      h.world.setBlock(5, 10, 6, 'dirt');
       h.step(1);
       T.press(30);
       T.repress();
-      const first = h.world.getBlock(4, 11, 6);
+      const first = h.world.getBlock(4, 10, 6);
       let at = -1;
       let at35 = true;
       for (let i = 1; i <= 60; i++) {
@@ -385,9 +391,9 @@ test.describe('M2 ほる', () => {
       // ここまで repress のステップを 0 番目として数える。ready までのステップ（repress の次から）
       const s = at;
       h.step(100);
-      const still = h.world.getBlock(5, 11, 6);
+      const still = h.world.getBlock(5, 10, 6);
       T.repress();
-      return { first, s, at35, still, second: h.world.getBlock(5, 11, 6), dirt: h.inventory.count('dirt') };
+      return { first, s, at35, still, second: h.world.getBlock(5, 10, 6), dirt: h.inventory.count('dirt') };
     });
     expect(r.first).toBe('air');
     expect(r.at35).toBe(false);
@@ -404,11 +410,11 @@ test.describe('M2 ほる', () => {
       const h = (window as any).__rikkun;
       const T = (window as any).T;
       T.base();
-      h.world.setBlock(4, 11, 6, 'dirt');
+      h.world.setBlock(4, 10, 6, 'dirt');
       h.step(1);
       h.lock.simulate(false);
       T.press(60);
-      return { b: h.world.getBlock(4, 11, 6), inv: h.inventory.get().slots.filter((s: any) => s) };
+      return { b: h.world.getBlock(4, 10, 6), inv: h.inventory.get().slots.filter((s: any) => s) };
     });
     expect(r.b).toBe('dirt');
     expect(r.inv).toEqual([]);
@@ -416,17 +422,17 @@ test.describe('M2 ほる', () => {
 });
 
 test.describe('M2 おく', () => {
-  test('AC11/AC26: 押しっぱなしで 0.5 秒ごと（P の高さの列は 体と重ならない）', async ({ page }) => {
+  test('AC11/AC26: 押しっぱなしで 0.5 秒ごと、体と重なる所は置かない', async ({ page }) => {
     await open(page);
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
       const T = (window as any).T;
       T.base();
-      h.world.setBlock(6, 11, 6, 'stone');
+      h.world.setBlock(6, 10, 6, 'stone');
       h.inventory.setSlot(0, { item: 'dirt', count: 5 });
       h.step(1);
       h.dig.events();
-      const g = (x: number) => h.world.getBlock(x, 11, 6);
+      const g = (x: number) => h.world.getBlock(x, 10, 6);
       const log: any = {};
       h.input.press('secondary');
       for (let i = 1; i <= 121; i++) {
@@ -446,9 +452,8 @@ test.describe('M2 おく', () => {
     expect(r.log[30]).toEqual(['dirt', 'air', 'air', 'air', 4]);
     expect(r.log[31]).toEqual(['dirt', 'dirt', 'air', 'air', 3]);
     expect(r.log[61]).toEqual(['dirt', 'dirt', 'dirt', 'air', 2]);
-    // 線は P（足もと + 2.12）から出るので 置く列（y 11）は 体（〜10.8）と重ならない → 4 こ目も置ける
-    expect(r.log[121]).toEqual(['dirt', 'dirt', 'dirt', 'dirt', 1]);
-    expect(r.places).toBe(4);
+    expect(r.log[121]).toEqual(['dirt', 'dirt', 'dirt', 'air', 2]);
+    expect(r.places).toBe(3);
     expect(r.same).toBe(true);
   });
 
@@ -466,30 +471,34 @@ test.describe('M2 おく', () => {
       const a12 = { t: t12?.place, same: h.world.hash() === hash12, n: h.inventory.get().slots[0].count };
       // AC13
       h.world.fill(0, 47, 0, 12, 47, 12, 'stone');
-      h.player.set({ position: { x: 2.5, y: 48, z: 6.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: -45 });
+      (window as any).__aim.standForS(2.5, 6.5, 90, -45, 48);
       h.step(1);
       const y = h.player.get().position.y;
       const t13 = h.target.get();
       const hash13 = h.world.hash();
       T.tap('secondary');
-      const a13 = { y, block: t13?.block, place: t13?.place, same: h.world.hash() === hash13, n: h.inventory.get().slots[0].count };
+      const x13 = h.aim.point();
+      const a13 = { y, x13, block: t13?.block, place: t13?.place, same: h.world.hash() === hash13, n: h.inventory.get().slots[0].count };
       h.world.fill(0, 47, 0, 12, 47, 12, 'air');
       // AC14
       h.world.fill(0, 8, 0, 12, 8, 12, 'water');
-      h.player.set({ position: { x: 2.5, y: 7, z: 6.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: -45 });
+      (window as any).__aim.standForS(2.5, 6.5, 90, -45, 7);
       h.step(1);
+      const x14 = h.aim.point();
       T.tap('secondary');
-      return { a12, a13, b: h.world.getBlock(4, 7, 6), n: h.inventory.get().slots[0].count };
+      return { a12, a13, b14: h.world.getBlock(Math.floor(x14.x), 7, Math.floor(x14.z)), n: h.inventory.get().slots[0].count };
     });
     expect(r.a12.t).toEqual({ x: 2, y: 9, z: 6 });
     expect(r.a12.same).toBe(true);
     expect(r.a12.n).toBe(5);
     expect(r.a13.y).toBeCloseTo(48, 1);
-    expect(r.a13.block).toEqual({ x: 4, y: 47, z: 6 });
-    expect(r.a13.place).toEqual({ x: 4, y: 48, z: 6 });
+    const b13 = { x: Math.floor(r.a13.x13.x), y: Math.floor(r.a13.x13.y - 0.001), z: Math.floor(r.a13.x13.z) };
+    expect(r.a13.block).toEqual(b13);
+    expect(r.a13.block.y).toBe(47);
+    expect(r.a13.place).toEqual({ x: b13.x, y: 48, z: b13.z });
     expect(r.a13.same).toBe(true);
     expect(r.a13.n).toBe(5);
-    expect(r.b).toBe('dirt');
+    expect(r.b14).toBe('dirt');
     expect(r.n).toBe(4);
   });
 });
@@ -501,7 +510,7 @@ test.describe('M2 持ち物', () => {
       const h = (window as any).__rikkun;
       const T = (window as any).T;
       const dig = (id: string) => {
-        h.world.setBlock(4, 11, 6, id);
+        h.world.setBlock(4, 10, 6, id);
         h.step(1);
         T.press(h.dig.get().ready ? 0 : 600 + 1, 'primary');
         h.input.release('primary');
@@ -515,20 +524,20 @@ test.describe('M2 持ち物', () => {
       h.inventory.setSlot(0, { item: 'dirt', count: 64 });
       h.inventory.setSlot(1, { item: 'stone', count: 10 });
       h.inventory.setSlot(20, { item: 'dirt', count: 3 });
-      h.world.setBlock(4, 11, 6, 'dirt');
+      h.world.setBlock(4, 10, 6, 'dirt');
       h.step(1);
       T.press(30);
       T.repress();
       h.input.release('primary');
       o.s20 = h.inventory.get().slots[20];
-      h.world.setBlock(4, 11, 6, 'stone');
+      h.world.setBlock(4, 10, 6, 'stone');
       h.step(10);
       T.press(360);
       T.repress();
       h.input.release('primary');
       o.s1 = h.inventory.get().slots[1];
       h.inventory.setSlot(20, null);
-      h.world.setBlock(4, 11, 6, 'dirt');
+      h.world.setBlock(4, 10, 6, 'dirt');
       h.step(10);
       T.press(30);
       T.repress();
@@ -552,13 +561,13 @@ test.describe('M2 持ち物', () => {
       // AC17
       T.base();
       for (let i = 0; i < 36; i++) h.inventory.setSlot(i, { item: 'stone', count: 64 });
-      h.world.setBlock(4, 11, 6, 'dirt');
+      h.world.setBlock(4, 10, 6, 'dirt');
       h.step(1);
       h.dig.events();
       T.press(30);
       T.repress();
       h.input.release('primary');
-      o.full = { b: h.world.getBlock(4, 11, 6), same: before === JSON.stringify(h.inventory.get().slots), ev: h.dig.events() };
+      o.full = { b: h.world.getBlock(4, 10, 6), same: before === JSON.stringify(h.inventory.get().slots), ev: h.dig.events() };
       void dig;
       return o;
     });
@@ -632,7 +641,7 @@ test.describe('M2 持ち物', () => {
         const mine = (id: string, n: number) => {
           const counts: number[] = [];
           for (let i = 0; i < n; i++) {
-            h.world.setBlock(4, 11, 6, id);
+            h.world.setBlock(4, 10, 6, id);
             h.step(1);
             h.dig.events();
             T.press(id === 'log' ? 300 : 30);
@@ -682,7 +691,7 @@ test.describe('M2 AC30(d) rarity', () => {
       h.settings.set('rarity', { dirt: 'superRare' });
       const counts: number[] = [];
       for (let i = 0; i < 5; i++) {
-        h.world.setBlock(4, 11, 6, 'dirt');
+        h.world.setBlock(4, 10, 6, 'dirt');
         h.step(10);
         T.press(30);
         T.repress();
@@ -702,7 +711,7 @@ test.describe('M2 もちもの画面', () => {
       const h = (window as any).__rikkun;
       (window as any).T.base();
       h.inventory.setSlot(3, { item: 'dirt', count: 5 });
-      h.world.setBlock(4, 11, 6, 'dirt');
+      h.world.setBlock(4, 10, 6, 'dirt');
       h.step(1);
     });
     // 開く
@@ -729,7 +738,7 @@ test.describe('M2 もちもの画面', () => {
     const a1 = await page.evaluate(() => ({
       tick: (window as any).__rikkun.tick(),
       p: (window as any).__rikkun.player.get().position,
-      b: (window as any).__rikkun.world.getBlock(4, 11, 6),
+      b: (window as any).__rikkun.world.getBlock(4, 10, 6),
       d: (window as any).__rikkun.dig.get(),
     }));
     const dt = a1.tick - a0.tick;
@@ -911,7 +920,7 @@ test.describe('M2 自動セーブ', () => {
     const before = await page.evaluate(() => {
       const h = (window as any).__rikkun;
       (window as any).T.base();
-      h.world.setBlock(4, 11, 6, 'log');
+      h.world.setBlock(4, 10, 6, 'log');
       h.inventory.setSlot(4, { item: 'sand', count: 9 });
       h.inventory.select(4);
       h.player.set({ position: { x: 6.5, y: 9, z: 6.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 180, pitch: -20 });
@@ -935,7 +944,7 @@ test.describe('M2 自動セーブ', () => {
     expect(after.p.position.y).toBeCloseTo(before.p.position.y, 1);
     expect(after.p.position.z).toBeCloseTo(before.p.position.z, 1);
     expect(after.p.yaw).toBeCloseTo(before.p.yaw, 0);
-    expect(after.p.pitch).toBeCloseTo(before.p.pitch, 0);
+    expect(after.p.pitch).toBeCloseTo(-25, 0); // 読みこんだら はじめの pitch（CHAR-1 第 5.2 版）
     expect(after.lock.overlayVisible).toBe(true);
 
     // ?seed=2 で開いても、ふだんの島の保存は消えない
@@ -975,7 +984,7 @@ test.describe('M2 自動セーブ', () => {
       h.step(60); // 着地
       h.save.now();
       const t0 = h.save.info().lastSavedTick;
-      h.world.setBlock(4, 11, 6, 'dirt');
+      h.world.setBlock(4, 10, 6, 'dirt');
       h.step(599);
       const t1 = h.save.info().lastSavedTick;
       h.step(1);
@@ -996,7 +1005,7 @@ test.describe('M2 自動セーブ', () => {
       localStorage.clear();
       const h = (window as any).__rikkun;
       h.pause();
-      h.world.setBlock(4, 11, 6, 'dirt');
+      h.world.setBlock(4, 10, 6, 'dirt');
       h.step(700);
       h.save.now();
       return { keys: Object.keys(localStorage).filter((k) => k.startsWith('rikkun-world-save-v1-')), info: h.save.info() };
@@ -1103,7 +1112,7 @@ test.describe('M2 スクショ（AC23）', () => {
       T.base();
       // 見やすいように背景に柱
       h.world.fill(8, 9, 3, 8, 12, 9, 'stone');
-      h.world.setBlock(4, 11, 6, 'dirt');
+      h.world.setBlock(4, 10, 6, 'dirt');
       h.inventory.setSlot(0, { item: 'dirt', count: 12 });
       h.inventory.setSlot(1, { item: 'stone', count: 64 });
       h.inventory.setSlot(2, { item: 'log', count: 3 });
@@ -1112,7 +1121,7 @@ test.describe('M2 スクショ（AC23）', () => {
       h.inventory.setSlot(10, { item: 'coal_ore', count: 5 });
       h.inventory.setSlot(11, { item: 'grass', count: 40 });
       h.inventory.select(0);
-      T.place(2.5, 9, 6.5, 90, -3);
+      T.place(2.5, 9, 6.5, 90, -15);
       h.step(3);
     });
     await shot('a-frame');
@@ -1149,8 +1158,8 @@ test.describe('M2 スクショ（AC23）', () => {
     await ev(() => {
       const h = (window as any).__rikkun;
       h.lock.simulate(true);
-      h.world.setBlock(4, 11, 6, 'iron_ore');
-      (window as any).T.place(2.5, 9, 6.5, 90, -3);
+      h.world.setBlock(4, 10, 6, 'iron_ore');
+      (window as any).T.place(2.5, 9, 6.5, 90, -15);
       h.input.press('primary');
       h.step(8);
     });
@@ -1158,7 +1167,7 @@ test.describe('M2 スクショ（AC23）', () => {
     await ev(() => {
       const h = (window as any).__rikkun;
       h.input.release('primary');
-      h.world.setBlock(4, 11, 6, 'air');
+      h.world.setBlock(4, 10, 6, 'air');
     });
     // 全部いっぱい
     // 三人称

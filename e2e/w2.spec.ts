@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { installAimHelpers } from './helpers/aim';
 
 /**
  * WEAPON-2 の つないだ あとの 受け入れ（docs/design/WEAPON-2.md §6）のうち、実際の ゲームで しか
@@ -10,6 +11,7 @@ test.describe.configure({ timeout: 120_000 });
 async function open(page: Page) {
   await page.goto('/?nosave=1');
   await page.waitForFunction(() => window.__rikkun?.ready === true);
+  await installAimHelpers(page);
   await page.evaluate(() => {
     const h = (window as any).__rikkun;
     h.achievements.mute(true);
@@ -25,7 +27,7 @@ async function open(page: Page) {
         h.world.fill(0, 9, 0, 12, 20, 12, 'air');
         h.inventory.clear();
         h.time.set(0);
-        h.player.set({ position: { x: 2.5, y: 9, z: 6.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: 0 });
+        (window as any).__aim.standForS(2.5, 6.5, 90, 0, 9);
         h.step(10);
         h.yokai.events();
         h.combat.events();
@@ -118,7 +120,7 @@ test.describe('WEAPON-2 刀', () => {
       const h = (window as any).__rikkun;
       const T = (window as any).T;
       T.base();
-      h.world.fill(4, 11, 6, 4, 11, 6, 'dirt');
+      h.world.fill(4, 10, 6, 4, 10, 6, 'dirt');
       h.inventory.setSlot(0, { item: 'katana', count: 1 });
       h.inventory.select(0);
       h.input.press('primary');
@@ -129,7 +131,7 @@ test.describe('WEAPON-2 刀', () => {
       h.step(1);
       h.input.release('primary');
       h.step(2);
-      return { block: h.world.getBlock(4, 11, 6), techs: h.blade.events().filter((e: any) => e.type === 'techStart').length, dur: h.inventory.durability(0).left };
+      return { block: h.world.getBlock(4, 10, 6), techs: h.blade.events().filter((e: any) => e.type === 'techStart').length, dur: h.inventory.durability(0).left };
     });
     expect(r.block).toBe('air');
     expect(r.techs).toBe(0);
@@ -229,7 +231,7 @@ test.describe('WEAPON-2 たいきゅう', () => {
       T.base();
       h.inventory.setSlot(0, { item: 'wood_pickaxe', count: 1 });
       h.inventory.select(0);
-      h.world.fill(4, 11, 6, 4, 11, 6, 'stone');
+      h.world.fill(4, 10, 6, 4, 10, 6, 'stone');
       h.step(1);
       const out: any = { max: h.inventory.durability(0).max };
       out.gauge = document.querySelectorAll('#hud .wear-gauge').length;
@@ -246,7 +248,7 @@ test.describe('WEAPON-2 たいきゅう', () => {
       dig();
       out.left = h.inventory.durability(0).left;
       h.inventory.setDurability(0, 1);
-      h.world.fill(4, 11, 6, 4, 11, 6, 'stone');
+      h.world.fill(4, 10, 6, 4, 10, 6, 'stone');
       dig();
       out.broke = h.inventory.slots?.()?.[0] ?? null;
       out.events = h.inventory.events().map((e: any) => e.type);

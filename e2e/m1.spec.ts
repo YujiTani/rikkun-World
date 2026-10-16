@@ -100,7 +100,7 @@ test.describe('M1-01 世界（つないだ後）', () => {
       expect(r.p0.position.y).toBeCloseTo(r.spawn.y, 3);
       expect(r.p0.position.z).toBeCloseTo(r.spawn.z, 3);
       expect(r.p0.yaw).toBeCloseTo(0, 3);
-      expect(r.p0.pitch).toBeCloseTo(0, 3);
+      expect(r.p0.pitch).toBeCloseTo(-25, 3); // はじめの pitch（CHAR-1 第 5.2 版 §4.1）
       // AC11
       expect(r.tick1 - r.tick0).toBe(120);
       expect(Math.abs(r.p1.position.y - r.spawn.y)).toBeLessThan(0.05);
@@ -181,7 +181,7 @@ test.describe('M1-01 世界（つないだ後）', () => {
       expect(p.velocity.y).toBeCloseTo(0, 5);
       expect(p.velocity.z).toBeCloseTo(0, 5);
       expect(p.yaw).toBeCloseTo(0, 3);
-      expect(p.pitch).toBeCloseTo(0, 3);
+      expect(p.pitch).toBeCloseTo(-25, 3);
     }
     expect(r.b.p.position.y).toBeCloseTo(r.b.g + 2, 1);
   });
@@ -446,7 +446,7 @@ test.describe('M1-02 動き・視点・ロック（つないだ後）', () => {
     expect(r.a.cam.view).toBe('third');
     expect(r.a.cam.distanceToEye).toBeGreaterThan(4.0);
     expect(r.a.cam.distanceToEye).toBeLessThan(4.1);
-    expect(r.a.cam.position.y - r.a.cam.eye.y).toBeCloseTo(0.5, 1);
+    expect(r.a.cam.position.y - r.a.cam.eye.y).toBeCloseTo(-0.22, 1); // カメラは 肩の点 S（足もと + 1.40）から 4.0
     expect(r.a.cam.eye.x - r.a.cam.position.x).toBeCloseTo(4.0, 1);
     expect(r.a.vis).toBe(true);
     expect(r.b.cam.distanceToEye).toBeLessThanOrEqual(2.0);

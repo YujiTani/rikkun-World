@@ -101,6 +101,10 @@ export interface CombatDeps {
   settings?: W2Settings;
   /** M4: 拾って入った（自分で作る DropField 用。拾ったログ） */
   onPickup?: (item: ItemId, count: number) => void;
+  /** CHAR-1 第 5.2 版 §4.5: 届く距離の はかり始め P を `out` に入れる（なければ 線の出どころ（S）から はかる） */
+  reachOrigin?: (out: Vec3) => Vec3;
+  /** CHAR-1 第 5.2 版 §4.5: S からの線が 妖怪に当たらないときの「やさしい ねらい補助」。えらんだ妖怪の id か null */
+  assist?: (eye: Vec3, dir: Vec3, reach: number) => number | null;
 }
 
 export interface CombatHookState {
@@ -156,6 +160,9 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
   /** いまのパンチを始めたときに 持っていた もの（たいきゅうを へらす 先の 見分け用） */
   private pItem: ItemId | null = null;
   private readonly w2: W2Settings;
+  private readonly reachTmp: Vec3 = { x: 0, y: 0, z: 0 };
+  /** 直前の妖怪のねらいが 補助で えらばれた妖怪の id（線がそのまま当たったときと いないときは null。テストの窓口用） */
+  lastAssist: number | null = null;
 
   readonly drops: DropField;
 
@@ -279,9 +286,27 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
     const tp = this.d.tool?.punchParams();
     // 刀は わざの ふりわけ用に 照準の 線 4.5（WEAPON-2 §2.1 の 6）
     const reach = this.holdingBlade() ? this.w2.bladeAimReach : tp ? tp.reach : this.config.punchReach;
-    const maxD = blockDistance === null ? reach : Math.min(blockDistance, reach);
+    return this.pickYokai(eye, dir, blockDistance, reach);
+  }
+
+  /**
+   * ねらう妖怪（CHAR-1 第 5.2 版 §4.5）。(1) 出どころ eye（S）からの線が ブロックより手前で 妖怪に当たり、
+   * 届く距離を P から はかって 内なら その妖怪。(2) なければ やさしい ねらい補助（ブロックに当たっていても 妖怪を優先）。
+   */
+  private pickYokai(eye: Vec3, dir: Vec3, blockDistance: number | null, reach: number): number | null {
+    const ro = this.d.reachOrigin ? this.d.reachOrigin(this.reachTmp) : null;
+    const span = ro ? Math.hypot(eye.x - ro.x, eye.y - ro.y, eye.z - ro.z) : 0;
+    const limit = reach + span;
+    const maxD = blockDistance === null ? limit : Math.min(blockDistance, limit);
     const hit = this.d.yokai().raycast(eye, dir, maxD);
-    return hit && (blockDistance === null || hit.distance < blockDistance) ? hit.id : null;
+    this.lastAssist = null;
+    if (hit && (blockDistance === null || hit.distance < blockDistance)) {
+      const dist = ro ? Math.hypot(eye.x + dir.x * hit.distance - ro.x, eye.y + dir.y * hit.distance - ro.y, eye.z + dir.z * hit.distance - ro.z) : hit.distance;
+      if (dist <= reach) return hit.id;
+    }
+    const a = this.d.assist ? this.d.assist(eye, dir, reach) : null;
+    this.lastAssist = a;
+    return a;
   }
 
   primaryStep(primary: boolean, eye: Vec3, dir: Vec3, blockDistance: number | null): boolean {
@@ -307,9 +332,7 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
     // とどく距離内で いちばん手前が妖怪ならパンチ（遠い妖怪は無視。ブロックはふつうにほれる）
     const tp = this.d.tool?.punchParams();
     const reach = tp ? tp.reach : cfg.punchReach;
-    const maxD = blockDistance === null ? reach : Math.min(blockDistance, reach);
-    const hit = this.d.yokai().raycast(eye, dir, maxD);
-    if (!hit || (blockDistance !== null && hit.distance >= blockDistance)) return false;
+    if (this.pickYokai(eye, dir, blockDistance, reach) === null) return false;
     this.pDamage = tp ? tp.damage : cfg.punchDamage;
     this.pReach = reach;
     this.pTicks = tp ? tp.ticks : cfg.punchTicks;
@@ -325,12 +348,11 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
   }
 
   private resolvePunch(eye: Vec3, dir: Vec3, blockDistance: number | null): void {
-    const maxD = blockDistance === null ? this.pReach : Math.min(blockDistance, this.pReach);
     const yw = this.d.yokai();
-    const hit = yw.raycast(eye, dir, maxD);
-    if (hit && hit.distance <= this.pReach && (blockDistance === null || hit.distance < blockDistance)) {
-      this.emit({ type: 'punchHit', tick: this.tickCount, yokaiId: hit.id });
-      yw.damage(hit.id, this.pDamage, { ...this.d.player.get().position });
+    const id = this.pickYokai(eye, dir, blockDistance, this.pReach);
+    if (id !== null) {
+      this.emit({ type: 'punchHit', tick: this.tickCount, yokaiId: id });
+      yw.damage(id, this.pDamage, { ...this.d.player.get().position });
       this.wearForPunch();
     } else {
       this.emit({ type: 'punchMiss', tick: this.tickCount });

@@ -49,6 +49,8 @@ export interface TestHook {
   render: { chunks(): ChunkStats };
   player: PlayerHook;
   camera: CameraHook['camera'];
+  /** CHAR-1 第 5.2 版 §4.9: ねらいの点 X・ねらい補助で えらんだ妖怪の id */
+  aim: { point(): { x: number; y: number; z: number }; assist(): number | null };
   input: ReturnType<typeof createInputHook>;
   lock: ReturnType<typeof createLockHook> & { tab(name: string): void };
   settings: ReturnType<typeof createSettingsHook>;
@@ -89,7 +91,7 @@ declare global {
   }
 }
 
-export type TestHookGroups = Pick<TestHook, 'world' | 'render' | 'player' | 'camera' | 'input' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm' | 'log' | 'ui'>;
+export type TestHookGroups = Pick<TestHook, 'world' | 'render' | 'player' | 'camera' | 'aim' | 'input' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm' | 'log' | 'ui'>;
 
 export function installTestHook(game: Game, overlay: PerfOverlay, groups: TestHookGroups): void {
   window.__rikkun = {

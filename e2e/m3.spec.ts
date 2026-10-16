@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { installAimHelpers } from './helpers/aim';
 import { findUnrubiedKanji } from '../src/ui/text';
 
 /**
@@ -16,6 +17,7 @@ test.describe.configure({ timeout: 180_000 });
 async function open(page: Page, query = '?nosave=1') {
   await page.goto('/' + query);
   await page.waitForFunction(() => window.__rikkun?.ready === true);
+  await installAimHelpers(page);
   await page.evaluate(() => window.__rikkun!.achievements.mute(true));
   await page.evaluate(() => {
     const h = (window as any).__rikkun;
@@ -32,7 +34,7 @@ async function open(page: Page, query = '?nosave=1') {
         h.world.fill(0, 9, 0, 12, 20, 12, 'air');
         h.inventory.clear();
         h.time.set(0);
-        T.place(2.5, 9, 6.5, 90, -20); // 線は P（足もと + 2.12）から出る。低い妖怪に当てるため すこし 下を向く
+        (window as any).__aim.standForS(2.5, 6.5, 90, 0, 9); // 肩の点 S が (2.5, 6.5) に来るように立つ
         h.step(10);
         h.yokai.events();
         h.combat.events();
@@ -348,7 +350,8 @@ test.describe('M3 妖怪の攻撃とダメージ', () => {
     rokurokubi: { x: 7.5, hit: 30, hp: 18 },
     nurikabe: { x: 5.0, hit: 90, hp: 4 }  // #8: ぬりかべ の たおれこみ 16,
   };
-  for (const [kind, view] of Object.keys(SCENES).map((k) => [k, '-third'] as const)) {  // CHAR-1 第 5 版: 一人称がないので 三人称の 1 回だけ
+  // CHAR-1 第 5 版: 一人称がないので 三人称の 1 回だけ
+  for (const [kind, view] of Object.keys(SCENES).map((k) => [k, '-third'] as const)) {
     test(`AC15${view}: ${kind} の攻撃（合図・当たる 1 ステップ・ダメージ・おし返し・30 ステップのむてき）とスクショ`, async ({ page }) => {
       await open(page);
       const sc = SCENES[kind]!;
