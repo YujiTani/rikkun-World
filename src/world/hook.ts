@@ -27,6 +27,9 @@ export interface WorldHook {
   skyDarkness(): number;
   /** M5: 最初の明るさの計算にかかったミリ秒 */
   lightInitMs(): number;
+  /** セクションごとの光が持っているメモリ（バイト）と、作り直し待ちのセクションの数（VOX-C） */
+  lightMemoryBytes(): number;
+  lightPending(): number;
 }
 
 export function createWorldHook(world: ArrayVoxelWorld, renderer: WorldRenderer, island: IslandInfo): WorldHook {
@@ -56,5 +59,7 @@ export function createWorldHook(world: ArrayVoxelWorld, renderer: WorldRenderer,
     }),
     skyDarkness: () => skyDarkness.value,
     lightInitMs: () => renderer.light.initMs,
+    lightMemoryBytes: () => renderer.light.memoryBytes(),
+    lightPending: () => renderer.light.pendingCount(),
   };
 }

@@ -197,6 +197,7 @@ export class WorldRenderer {
   setViewer(x: number, z: number): void {
     const v = this.viewer;
     if (v && v.x === x && v.z === z) return;
+    this.light.setViewer(x, z);
     if (v) {
       v.x = x;
       v.z = z;
