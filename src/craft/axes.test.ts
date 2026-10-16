@@ -16,8 +16,8 @@ describe('BAL-D おの のレシピ（AC17）', () => {
     expect(text('stone_axe')).toEqual([1, 'stone3,log2', true, 'craft']);
     expect(text('iron_axe')).toEqual([1, 'iron_ingot3,log2', true, 'craft']);
   });
-  it('カードは 32 枚。おの 3 枚は てつの つるはし のすぐ後ろ', () => {
-    expect(CRAFT_RECIPES).toHaveLength(32);
+  it('カードは 33 枚。おの 3 枚は てつの つるはし のすぐ後ろ', () => {
+    expect(CRAFT_RECIPES).toHaveLength(33);
     expect(CRAFT_RECIPES.slice(0, 7).map((r) => r.id)).toEqual([
       'wood_pickaxe', 'stone_pickaxe', 'iron_pickaxe', 'wood_axe', 'stone_axe', 'iron_axe', 'furnace',
     ]);

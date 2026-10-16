@@ -88,7 +88,7 @@ export class FarmFx {
         break;
       case 'hint':
         this.d.hint?.show(e.hint);
-        if (e.hint === 'fill') this.snd('empty'); // からっぽ の じょうろ（4c）軽い「コン」
+        if (e.hint === 'fill' || e.hint === 'bucket') this.snd('empty'); // からっぽ の じょうろ（4c）・バケツ（4f）軽い「コン」
         break;
       // ---- M7-2（しずく・しぶき の つぶ は A・B の 担当。音 は ここ から）
       case 'fill':
@@ -101,6 +101,16 @@ export class FarmFx {
       case 'pet':
         this.snd(e.result === 'happy' ? 'pet' : 'petAgain');
         this.d.sparkle?.onPet(e.x, e.y, e.z, e.result);
+        break;
+      // ---- BUCKET-1（新しい音は 作らない）
+      case 'bucketFill':
+        this.snd(e.changed ? 'fill' : 'fullCan');
+        break;
+      case 'bucketPlace':
+        this.snd('sprinklerPlace');
+        break;
+      case 'bucketNo':
+        this.snd('empty');
         break;
       case 'sprinklerPlaced':
         this.snd('sprinklerPlace');

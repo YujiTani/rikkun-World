@@ -213,7 +213,10 @@ export type ItemOnlyId =
   | 'kuwa'
   // M7-2（うしろに足す）
   | 'watering_can'
-  | 'long_watering_can';
+  | 'long_watering_can'
+  // BUCKET-1（うしろに足す）
+  | 'bucket' // バケツ（から）
+  | 'water_bucket'; // みずの バケツ
 
 /** アイテムの種類。ブロックとアイテムだけのもの */
 export type ItemId = BlockId | ItemOnlyId;
@@ -782,6 +785,7 @@ export type StatKey =
   // M7-2
   | 'water:*' // みずやり（はんい に はたけ が 1 つ 以上）
   | 'pet:*' // ごきげん に した
+  | 'bucketPlace' // BUCKET-1: バケツ で 水を おいた
   | 'harvestPet' // ごきげん の 作物 を しゅうかく
   | 'craftItems:ya'
   | 'pickup:*'
@@ -1013,7 +1017,7 @@ export interface FarmCropInfo {
   ripe: boolean;
 }
 
-export type FarmHintKind = 'till' | 'full' | 'fill';
+export type FarmHintKind = 'till' | 'full' | 'fill' | 'bucket';
 export type SeedSource = 'grass' | 'yokai' | 'oldfarm';
 
 /** 農業の出来事。`tick` と 場所つき。画面（D）・音・実績・テストの窓口が読む */
@@ -1041,7 +1045,17 @@ export type FarmEvent =
   /** なでた。happy = ごきげん に なった・again = ごきげん の あいだ・wild = やせいの やさい */
   | { type: 'pet'; tick: number; x: number; y: number; z: number; result: PetResult }
   | { type: 'sprinklerPlaced'; tick: number; x: number; y: number; z: number }
-  | { type: 'sprinklerBroken'; tick: number; x: number; y: number; z: number };
+  | { type: 'sprinklerBroken'; tick: number; x: number; y: number; z: number }
+  // ---- BUCKET-1
+  /** バケツ で 水を くんだ（x,y,z = 水の マス。`item` = くむ ときに 持っていた バケツ。`changed` = から → みず に かわった） */
+  | { type: 'bucketFill'; tick: number; x: number; y: number; z: number; item: BucketId; changed: boolean }
+  /** バケツ で 水を おいた（x,y,z = 水の マス） */
+  | { type: 'bucketPlace'; tick: number; x: number; y: number; z: number }
+  /** みずの バケツ が 置けない（コン） */
+  | { type: 'bucketNo'; tick: number; x: number; y: number; z: number };
+
+/** BUCKET-1: バケツ 2 しゅるい */
+export type BucketId = 'bucket' | 'water_bucket';
 
 /** M7-2: じょうろ 2 しゅるい */
 export type WateringCanId = 'watering_can' | 'long_watering_can';
@@ -1308,10 +1322,26 @@ export interface FarmVisual {
   look(x: number, y: number, z: number): { tile: string; brightness: number } | null;
 }
 
+/** BUCKET-1: 4d〜4g の 答え（'idle' = バケツ を 持っているが 何も しない。ほかの 段へ 進まない） */
+export type BucketPreview = 'bucketFill' | 'bucketPlace' | 'bucketHint' | 'bucketNo' | 'idle';
+
+/** BUCKET-1: バケツ（`src/farm/bucket.ts`）。持ち物の id を かえる のも 出来事を 出す のも ここだけ */
+export interface BucketPort {
+  /** 4d〜4g。バケツ でなければ null。repeat（押しつづけ）の ステップは 'idle' */
+  preview(held: ItemStack | null, ray: WaterRay, hasTarget: boolean, spot: Vec3 | null, repeat: boolean): BucketPreview | null;
+  /** くむ（から → みず。みず は かわらない）。かわったら true。出来事 bucketFill */
+  fill(slot: number, at: Vec3): boolean;
+  /** おいた あと: みず → から。出来事 bucketPlace。みず でなければ false */
+  placed(slot: number, at: Vec3): boolean;
+  /** 置けない（コン）。出来事 bucketNo */
+  no(at: Vec3): void;
+}
+
 /** 右クリックで起きること（`src/dig/rightClick.ts` が 判定。M7-2 で 'fill'・'pour'・'fillHint'・'pet' を 足した） */
 export type RightClickKind =
   | 'storage' | 'furnace' | 'armor' | 'till' | 'plant' | 'seedHint' | 'eat' | 'place'
-  | 'fill' | 'pour' | 'fillHint' | 'pet';
+  | 'fill' | 'pour' | 'fillHint' | 'pet'
+  | 'bucketFill' | 'bucketPlace' | 'bucketHint' | 'bucketNo';
 
 // ---------------------------------------------------------------- 設定（§4.3・§4.4・§4.5）
 

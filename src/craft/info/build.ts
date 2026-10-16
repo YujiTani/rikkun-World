@@ -139,6 +139,7 @@ export function createItemInfo(d: InfoDeps): ItemInfoSource {
     if (vegKindOfItem(item) !== null) parts.push('はたけ で しゅうかく・やせいの やさい');
     const ys = sourceYokai(item);
     if (ys.length > 0) parts.push(`${ys.map((k) => YOKAI_NAME[k]).join('・')} が おとす`);
+    if (item === 'water_bucket') parts.push(`${d.nameOf('bucket')} で みず を くむ`);
     for (const r of d.recipes()) {
       if (r.output.item !== item) continue;
       if (r.station === 'furnace') {
