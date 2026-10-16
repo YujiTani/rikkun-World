@@ -196,6 +196,11 @@ if (restored === null) {
   restored = NO_SAVE;
 }
 const renderer = new WorldRenderer(world);
+{
+  // 小ブロックの半径（?microR=16|24|32。F3 を出して F4 でも切りかえる。VOX-E）
+  const q = Number(new URLSearchParams(location.search).get('microR'));
+  if (q > 0) renderer.config.microRadius = q;
+}
 renderer.setViewer(island.spawn().x, island.spawn().z);
 renderer.attach(game.scene);
 const lighting = new Lighting();
@@ -1105,7 +1110,17 @@ if (idb) {
   });
 }
 
-const overlay = new PerfOverlay(hud, game);
+const overlay = new PerfOverlay(hud, game, {
+  lines: () => {
+    const m = renderer.meshStats();
+    return [`micro r=${renderer.microRadiusNow} (F4)  mesh ${m.meshCount}  wait ${m.pending}  geo ${(m.geometryBytes / 1048576).toFixed(1)}MB`];
+  },
+  cycle: () => {
+    const radii = [16, 24, 32];
+    const i = radii.indexOf(renderer.microRadiusNow);
+    renderer.config.microRadius = radii[(i + 1) % radii.length];
+  },
+});
 
 function updateFurnaceFx(dt: number): void {
   furnaceFx.update(dt, craft.furnaceFxEntries() as readonly FurnaceFxEntry[], controller.state.position);
@@ -1505,6 +1520,7 @@ installTestHook(game, overlay, {
       combat.config,
       yokaiM.config,
       timeSettings,
+      renderer.config,
     ]),
 });
 game.start();

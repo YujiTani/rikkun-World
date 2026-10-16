@@ -4,8 +4,9 @@ import { ArrayVoxelWorld, CHUNK_SIZE } from '../VoxelWorld';
 import { WorldRenderer } from './WorldRenderer';
 import { meshChunk } from './meshChunk';
 import { meshChunkLod } from './lodMesh';
-import { CHUNK_DRAW_DISTANCE, RENDER_CONFIG } from './config';
+import { CHUNK_DRAW_DISTANCE } from './config';
 import { chunkNearDistance } from './visibility';
+import { BOX_OUTER, TIER_HYSTERESIS } from './voxel/tier';
 
 /** 平地＋山っぽい凸凹＋池（128×48×128） */
 export function makeBumpyWorld(): ArrayVoxelWorld {
@@ -87,16 +88,17 @@ describe('WorldRenderer: 距離で LOD に切りかわる', () => {
     for (let cz = 0; cz < 8; cz++) {
       for (let cx = 0; cx < 8; cx++) {
         const d = chunkNearDistance(cx, cz, 1, 1, CHUNK_SIZE);
-        if (d > RENDER_CONFIG.lodDistance && d <= CHUNK_DRAW_DISTANCE) expectedLod++;
+        // VOX-E: 箱 → LOD は 48 + 2 のずらし（はじめは視点なしで全部 小ブロックだったので 箱の内がわから出る）
+        if (d > BOX_OUTER + TIER_HYSTERESIS && d <= CHUNK_DRAW_DISTANCE) expectedLod++;
       }
     }
     expect(expectedLod).toBeGreaterThan(0);
     expect(r.chunkStats().lodDrawn).toBe(expectedLod);
-    const triNear = r.triangleCount();
     r.setViewer(64, 64);
     expect(r.chunkStats().lodDrawn).toBeGreaterThan(0);
     r.setViewer(1, 1);
-    expect(r.triangleCount()).toBe(triNear);
+    // VOX-E: 段の境目に ±2 のずらしがあるので、行って もどると 境目の列の段が はじめと同じとは限らない（三角形の一致はやめた）
+    expect(r.chunkStats().lodDrawn).toBeGreaterThan(0);
     // 1 つのチャンクに見えているのは ふつう か LOD のどちらか 1 組だけ
     expect(r.group.children.filter((m) => m.visible).length).toBe(r.meshCount());
   });

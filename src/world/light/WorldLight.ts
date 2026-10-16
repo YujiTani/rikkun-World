@@ -16,7 +16,7 @@ import { skyDarkness, type SkyDarkness } from './skyDarkness';
  *   ③ ふつう = Uint8Array(4096)。1 マス 1 バイト = 空 4 ビット（上）| 明かり 4 ビット（下）
  * - セクション S の光は、まわり 3×3×3 のセクションの ブロックだけから計算して S の中だけ書く（順番に関係なく同じ答え）。
  * - ブロックが変わったら、15 マス以内にかかるセクションを「作り直し待ち」に入れ、1 コマに BUDGET 個ずつ計算する。
- *   光が変わったマスの列は、描画側に作り直しを伝える（world.markDirty）。
+ *   光が変わったセクション（と、ふちのとなり）は、描画側に作り直しを伝える（world.markSectionDirty）。
  * - ぜんぶ光を通さないブロックのセクション（VOX-A の isSectionHidden より少し広い。光は 0 のまま）は計算せず、持たない。
  *   となりをほっても そのセクション自身の光は 0 のまま。ほった側のセクションは 作り直し待ちで計算される。
  * - 読みこんだばかりの列は 計算されるまで isSectionReady / isColumnLit が false。描画側はそれまでメッシュを作らない。
@@ -78,7 +78,6 @@ export class WorldLight implements LightField {
   private rz = R3;
   private readonly skyQ: number[] = [];
   private readonly blockQ: number[] = [];
-  private readonly changedXZ = new Uint8Array(256);
   private ry = 0;
   private readonly out = new Uint8Array(SECTION_SIZE ** 3);
 
@@ -157,6 +156,13 @@ export class WorldLight implements LightField {
   blockAt(x: number, y: number, z: number): number {
     if (y < 0 || y >= this.sy) return 0;
     return this.cell(x, y, z) & 15;
+  }
+
+  /** 1 マスの (空の光 << 4) | ブロックの光（世界の外の高さ: 上は空 15、下は 0）。メッシュ用。整数の座標だけ */
+  packedAt(x: number, y: number, z: number): number {
+    if (y >= this.sy) return UNI_BYTE;
+    if (y < 0) return 0;
+    return this.cell(x, y, z);
   }
 
   /** セクションの形（テスト・計測用）。'uniform' = 空 15 だけ、'dark' = 持たない、'full' = 4096 バイト、'pending' = まだ */
@@ -428,7 +434,7 @@ export class WorldLight implements LightField {
           if (fixed === 0) need.push({ cx, sy, cz });
           else {
             const old = this.setEntry(cx, cz, sy, fixed);
-            if (markDirty && (old !== fixed || prev === undefined)) this.markChanged(cx, cz, old, fixed);
+            if (markDirty && (old !== fixed || prev === undefined)) this.markChanged(cx, sy, cz, old, fixed);
           }
         }
       }
@@ -473,41 +479,60 @@ export class WorldLight implements LightField {
     if (allF || all0) {
       const e = allF ? UNI : null;
       const old = this.setEntry(cx, cz, sy, e);
-      if (markDirty) this.markChanged(cx, cz, old, e);
+      if (markDirty) this.markChanged(cx, sy, cz, old, e);
     } else if (prev instanceof Uint8Array && prev.length === out.length) {
-      if (markDirty) this.markChanged(cx, cz, prev, out);
+      if (markDirty) this.markChanged(cx, sy, cz, prev, out);
       prev.set(out);
     } else {
       const e = out.slice();
       const old = this.setEntry(cx, cz, sy, e);
-      if (markDirty) this.markChanged(cx, cz, old, e);
+      if (markDirty) this.markChanged(cx, sy, cz, old, e);
     }
   }
 
-  /** 光が変わったマスの列を 描画側に知らせる（old: 前の持ち方。undefined = まだ無かった） */
-  private markChanged(cx: number, cz: number, old: Entry, now: Entry): void {
+  /**
+   * 光が変わったセクションを 描画側に知らせる（old: 前の持ち方。undefined = まだ無かった）。
+   * 作り直すのは そのセクションと、変わったマスが ふちから 2 マス以内のときの となりのセクションだけ
+   * （面の光は 前のマスと その角のまわりを読むので 2 マス先まで届く）。
+   */
+  private markChanged(cx: number, sy: number, cz: number, old: Entry, now: Entry): void {
     if (old === now) return;
-    const changed = this.changedXZ;
-    let any = false;
+    const w = this.world;
+    // となりのセクション 27 通り（3×3×3）のうち、作り直しが要るもの
+    let need = 0;
     if (old === undefined) {
-      changed.fill(1);
-      any = true;
+      need = (1 << 27) - 1; // はじめて計算した: まわりのセクションの面の光も 読みなおす
     } else {
-      changed.fill(0);
       const oa = old === null ? 0 : old.length === 1 ? UNI_BYTE : -1;
       const na = now === null ? 0 : (now as Uint8Array).length === 1 ? UNI_BYTE : -1;
       if (oa >= 0 && oa === na) return;
+      let changed = false;
       for (let i = 0; i < 4096; i++) {
         const a = oa >= 0 ? oa : (old as Uint8Array)[i];
         const b = na >= 0 ? na : (now as Uint8Array)[i];
-        if (a !== b) {
-          changed[i & 255] = 1;
-          any = true;
+        if (a === b) continue;
+        changed = true;
+        const lx = i & 15;
+        const lz = (i >> 4) & 15;
+        const ly = i >> 8;
+        const ax = lx < 2 ? -1 : lx > 13 ? 1 : 0;
+        const ay = ly < 2 ? -1 : ly > 13 ? 1 : 0;
+        const az = lz < 2 ? -1 : lz > 13 ? 1 : 0;
+        if (ax === 0 && ay === 0 && az === 0) continue;
+        for (const dx of ax === 0 ? [0] : [0, ax]) {
+          for (const dy of ay === 0 ? [0] : [0, ay]) {
+            for (const dz of az === 0 ? [0] : [0, az]) need |= 1 << ((dx + 1) + (dy + 1) * 3 + (dz + 1) * 9);
+          }
         }
       }
+      if (!changed) return;
     }
-    if (!any) return;
-    for (let i = 0; i < 256; i++) if (changed[i]) this.world.markDirty(cx * 16 + (i & 15), cz * 16 + (i >> 4), 2); // 面の角の光は 2 マス先まで読む
+    w.markSectionDirty(cx, sy, cz);
+    if (need === 0) return;
+    for (let k = 0; k < 27; k++) {
+      if ((need & (1 << k)) === 0 || k === 13) continue;
+      w.markSectionDirty(cx + (k % 3) - 1, sy + (((k / 3) | 0) % 3) - 1, cz + ((k / 9) | 0) - 1);
+    }
   }
 
   /** 箱（横 tw+2 × td+2 列、セクション a-1〜b+1）のブロックの番号を blk に写す（読みこんでいない所は UNKNOWN） */
