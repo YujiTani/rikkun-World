@@ -53,7 +53,8 @@ async function open(page: Page, query = '?nosave=1') {
 }
 
 test.describe('M3 昼と夜', () => {
-  test('AC1/AC2: 時間帯の境目（昼 15 分・ゆうがた 1.5 分・夜 7.5 分・あさ 1.5 分）、空の色、明るさ', async ({ page }) => {
+  // SHADOW-1: はじまりは dayTick 9000・夜の外の明るさ 0.25（オーナーの決定）。実装したら test.fail を外す
+  test.fail('AC1/AC2: 時間帯の境目（昼 15 分・ゆうがた 1.5 分・夜 7.5 分・あさ 1.5 分）、空の色、明るさ', async ({ page }) => {
     await open(page);
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
@@ -93,14 +94,14 @@ test.describe('M3 昼と夜', () => {
       out.maxDiff = maxDiff;
       return out;
     });
-    expect(r.first).toMatchObject({ phase: 'day', dayTick: 0, day: 0, brightness: 1 });
+    expect(r.first).toMatchObject({ phase: 'day', dayTick: 9000, day: 0, brightness: 1 });
     expect(r.first.skyColor.toLowerCase()).toBe('#8fd3ff');
     expect(r.beforeDusk).toBe('day');
     expect(r.dusk.phase).toBe('dusk');
     expect(r.beforeNight).toBe('dusk');
     expect(r.night.phase).toBe('night');
     expect(r.night.skyColor.toLowerCase()).toBe('#1b2350');
-    expect(r.night.brightness).toBeCloseTo(0.45, 2);
+    expect(r.night.brightness).toBeCloseTo(0.25, 2);
     expect(r.night.dollBrightness).toBeCloseTo(0.75, 2);
     expect(r.beforeDawn).toBe('night');
     expect(r.dawn.phase).toBe('dawn');
