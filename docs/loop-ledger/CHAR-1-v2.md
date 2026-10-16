@@ -22,3 +22,7 @@
 | 1 | dev | code-reviewer | 【軽微】src/char/char.test.ts: uRect（どの行・どのコマを読むか）と 絵の上下を確かめるテストがない（C1 を見のがした原因）。dir/tier/frame から uRect.xy が決まる所を 1 本、uniform を読んで確かめる | テストの抜け | C2 | 未対応 |
 | 1 | dev | code-reviewer | 【軽微】src/char/sprite.ts:154 テクスチャは needsUpdate のまま初回 render で GPU へ上がる（run/jump は 12.6MB が最初に使うフレームで上がり、カクッとしうる、AC の「一瞬止まらない」）。読みこみ後に renderer.initTexture か、S が最初に 1 回 render しておく手を考える。あわせて CPU の indices は readCell のため 4 動き 約 50MB 残る（テスト窓口専用なら必要な動きだけ／dispose で手ばなす） | 初回アップロード・CPU メモリ | C3 | 未対応 |
 | 1 | dev | code-reviewer | 【軽微】src/char/sprite.ts effective(): walk 不可で idle に代わるとき frame に 歩きの 0〜7 を そのまま使う（idle の絵が コマ切りかわる）。代わりの絵のときは frame 0 に | 読みにくさ・代わりの絵 | C4 | 未対応 |
+| 1 | dev | code-reviewer | 【軽微】e2e/m2.spec.ts AC11/AC26「押しっぱなしで 0.5 秒ごと」: 期待を 4 こ置ける に直したのは P の高さ（y 11）が体（〜10.8）と重ならないので仕様どおり。ただ「体と重なる所は置かない」を確かめる場面が E2E から消えた。体と重なる列（足もとの高さ）を向けて置けないことを 1 本足すと安心 | テストの抜け | S1 | 未対応 |
+| 1 | dev | code-reviewer | 【軽微】e2e/m72.spec.ts AC3 北東 45° → 47°: 期待のマスは同じで、ちょうど斜めの境目を避けた直しに見える。仕様はゆがんでいない。理由を一言コメントに（P で高さが変わると 境目のマスが動く、など） | 読みにくさ | S2 | 未対応 |
+| 1 | dev | code-reviewer | 【軽微】src/dig/DigSystem.ts:277 `const eye = { x: o.x, ... }` が毎ステップ new（今回の差分より前からある）。性能ループで scratch にしてよい | 性能 | S3 | 未対応 |
+| 1 | dev | code-reviewer | 【軽微】src/main.ts:1031 sprite.step を screen.mode()==='play' のときだけ呼ぶので、もちもの画面などの間は 赤み（12 ステップ）が止まる。気にならないが、意図ならコメントを | 時間 | S4 | 未対応 |
