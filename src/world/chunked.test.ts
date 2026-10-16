@@ -208,6 +208,41 @@ describe('見えない印（VOX-plan §6）', () => {
   });
 });
 
+describe('メッシュ作り直しの印（VOX-E）', () => {
+  const stone3x3 = () => {
+    const cols: [number, number][] = [];
+    for (let cz = -1; cz <= 1; cz++) for (let cx = -1; cx <= 1; cx++) cols.push([cx, cz]);
+    const w = makeWorld(cols, 64);
+    w.fill(-16, 0, -16, 31, 47, 31, 'stone');
+    return w;
+  };
+
+  it('takeDirtySectionsEx: ブロックを変えた分は block=true、光だけ（markSectionDirty）は false', () => {
+    const w = stone3x3();
+    w.takeDirtySections();
+    w.setBlock(8, 20, 8, 'air');
+    w.markSectionDirty(1, 1, 1);
+    const d = w.takeDirtySectionsEx().sort((a, b) => a.cx - b.cx);
+    expect(d).toEqual([
+      { cx: 0, sy: 1, cz: 0, block: true },
+      { cx: 1, sy: 1, cz: 1, block: false },
+    ]);
+    expect(w.takeDirtySectionsEx()).toEqual([]);
+  });
+
+  it('markSectionDirty: そのセクションだけ。読みこんでいない所・高さの外は何もしない。列の dirty にも入る', () => {
+    const w = stone3x3();
+    w.takeDirtySections();
+    w.takeDirtyChunks();
+    w.markSectionDirty(1, 2, 1);
+    w.markSectionDirty(9, 0, 9);
+    w.markSectionDirty(1, 99, 1);
+    w.markSectionDirty(1, -1, 1);
+    expect(w.takeDirtySections()).toEqual([{ cx: 1, sy: 2, cz: 1 }]);
+    expect(w.takeDirtyChunks().length).toBe(1);
+  });
+});
+
 describe('保存用の印（VOX-F）', () => {
   it('setBlock・fill が さわった列と変えたマスの記録に入る。同じ値は入らない', () => {
     const w = new ChunkedVoxelWorld({ x: 48, z: 48 });
