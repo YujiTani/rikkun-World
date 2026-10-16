@@ -268,7 +268,7 @@ test.describe('M3 妖怪の AI（距離だけ）', () => {
     const r = await page.evaluate(() => {
       const T = (window as any).T;
       const h = (window as any).__rikkun;
-      const sight: Record<string, number> = { karakasa: 12, chochin: 14, nurikabe: 8, rokurokubi: 12 };
+      const sight: Record<string, number> = { karakasa: 18, chochin: 21, nurikabe: 12, rokurokubi: 18 };
       const out: any = {};
       for (const kind of Object.keys(sight)) {
         for (const delta of [-1, +1]) {
