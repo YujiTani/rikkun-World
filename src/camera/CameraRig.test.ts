@@ -30,6 +30,12 @@ class FakeWorld implements VoxelWorld {
 
 const DT = 1 / 60;
 
+/** 肩の点 S からカメラまでの距離 */
+function camToS(rig: CameraRig): number {
+  const i = rig.getInfo();
+  return Math.hypot(i.position.x - i.shoulder.x, i.position.y - i.shoulder.y, i.position.z - i.shoulder.z);
+}
+
 function setup(opts: { wall?: number } = {}) {
   const world = new FakeWorld();
   world.fillSolid(0, 0, 0, 63, 8, 63); // 床 (y=9 が表面)
@@ -83,7 +89,7 @@ describe('CameraRig: 三人称だけ', () => {
     expect(hook.doll().heldScreen).toBeNull();
   });
 
-  it('AC4: P = 足もと + 2.12、カメラは P の真うしろ 4.0（yaw 0・pitch 0）', () => {
+  it('AC4: P・S・カメラ（yaw 0・pitch 0）。S は P の 0.72 下で 右へ 0.70', () => {
     const t = setup();
     t.state.yawDeg = 0;
     t.step();
@@ -91,11 +97,30 @@ describe('CameraRig: 三人称だけ', () => {
     expect(c.pivot.x).toBeCloseTo(10.5, 2);
     expect(c.pivot.y).toBeCloseTo(9 + 2.12, 2);
     expect(c.pivot.z).toBeCloseTo(6.5, 2);
-    expect(c.position.x).toBeCloseTo(10.5, 2);
-    expect(c.position.y).toBeCloseTo(9 + 2.12, 2);
+    expect(c.shoulder.x).toBeCloseTo(10.5 + 0.7, 2);
+    expect(c.shoulder.y).toBeCloseTo(9 + 1.4, 2);
+    expect(c.shoulder.z).toBeCloseTo(6.5, 2);
+    expect(c.position.x).toBeCloseTo(10.5 + 0.7, 2);
+    expect(c.position.y).toBeCloseTo(9 + 1.4, 2);
     expect(c.position.z).toBeCloseTo(6.5 + 4.0, 2);
-    expect(c.distanceToPivot).toBeCloseTo(4.0, 2);
     expect(t.rig.doll.visible).toBe(true);
+  });
+
+  it('AC4: shoulderOffset = 0.70 × cos(pitch)。yaw 90 では ずらしが +Z', () => {
+    const t = setup();
+    t.state.yawDeg = 0;
+    t.state.pitchDeg = -25;
+    t.step();
+    expect(t.rig.getInfo().shoulderOffset).toBeCloseTo(0.634, 2);
+    t.state.pitchDeg = -89;
+    t.step(20);
+    expect(t.rig.getInfo().shoulderOffset).toBeCloseTo(0.012, 2);
+    t.state.yawDeg = 90;
+    t.state.pitchDeg = 0;
+    t.step(20);
+    const c = t.rig.getInfo();
+    expect(c.shoulder.z).toBeCloseTo(6.5 + 0.7, 2);
+    expect(c.shoulder.x).toBeCloseTo(10.5, 2);
   });
 
   it('AC4: aimPivot は 平らな地面で 足もと + 2.12', () => {
@@ -111,20 +136,22 @@ describe('CameraRig: 三人称だけ', () => {
     t.step();
     const c = t.rig.getInfo();
     expect(c.pivot.y).toBeCloseTo(9 + 1.9, 2);
+    expect(c.shoulder.y).toBeCloseTo(9 + 1.18, 2);
     expect(t.world.isSolid(Math.floor(c.position.x), Math.floor(c.position.y), Math.floor(c.position.z))).toBe(false);
+    expect(t.world.isSolid(Math.floor(c.shoulder.x), Math.floor(c.shoulder.y), Math.floor(c.shoulder.z))).toBe(false);
   });
 
-  it('AC6: 後ろ（z0 + 2）に高いかべ -> P からカメラまで 1.30。かべを消すと 15 ステップで 4.00', () => {
+  it('AC6: 後ろ（z0 + 2）に高いかべ -> S からカメラまで 1.30。かべを消すと 15 ステップで 4.00', () => {
     const t = setup();
     t.state.yawDeg = 0;
     t.state.position.z = 6.5;
     t.world.fillSolid(0, 9, 8, 63, 20, 8); // z = 8 の列（キャラ z0 = 6 の + 2）
     t.step();
-    expect(t.rig.getInfo().distanceToPivot).toBeCloseTo(1.3, 1);
-    expect(Math.abs(t.rig.getInfo().distanceToPivot - 1.3)).toBeLessThanOrEqual(0.03);
+    expect(camToS(t.rig)).toBeCloseTo(1.3, 1);
+    expect(Math.abs(camToS(t.rig) - 1.3)).toBeLessThanOrEqual(0.03);
     t.world.clearSolid(0, 9, 8, 63, 20, 8);
     t.step(15);
-    expect(t.rig.getInfo().distanceToPivot).toBeCloseTo(4.0, 2);
+    expect(camToS(t.rig)).toBeCloseTo(4.0, 2);
   });
 
   it('AC7: 平らな地面で pitch +80 は かくす、+45 は 見える。1.2 を境にする', () => {
@@ -141,24 +168,22 @@ describe('CameraRig: 三人称だけ', () => {
     expect(t.rig.doll.visible).toBe(true);
   });
 
-  it('§4.1 の計算: pitch +65 は からだの中心まで 約 1.22（見える）、+70 は 約 1.07（かくす）', () => {
+  it('§4.1 の計算: 見上げ +45 は 1.60、+57 は 1.22（見える）、+58 は 1.19（かくす）', () => {
     const t = setup();
-    t.state.pitchDeg = 65;
-    t.step();
-    expect(t.rig.getInfo().distanceToBody).toBeCloseTo(1.22, 1);
-    expect(t.rig.doll.visible).toBe(true);
-    t.state.pitchDeg = 70;
-    t.step(30);
-    expect(t.rig.getInfo().distanceToBody).toBeCloseTo(1.07, 1);
-    expect(t.rig.doll.visible).toBe(false);
+    for (const [pitch, dist, vis] of [[45, 1.6, true], [57, 1.22, true], [58, 1.19, false]] as const) {
+      t.state.pitchDeg = pitch;
+      t.step(30);
+      expect(t.rig.getInfo().distanceToBody).toBeCloseTo(dist, 1);
+      expect(t.rig.doll.visible).toBe(vis);
+    }
   });
 
-  it('pitch -89 でカメラが P の 4.0 上、キャラは見える', () => {
+  it('pitch -89 でカメラが S の 4.0 上、キャラは見える', () => {
     const t = setup();
     t.state.pitchDeg = -89;
     t.step();
     const c = t.rig.getInfo();
-    expect(c.position.y - c.pivot.y).toBeGreaterThan(3.9);
+    expect(c.position.y - c.shoulder.y).toBeGreaterThan(3.9);
     expect(t.rig.doll.visible).toBe(true);
   });
 
@@ -172,25 +197,25 @@ describe('CameraRig: 三人称だけ', () => {
   it('壁から離れるときは 0.25 秒かけてなめらかに戻る', () => {
     const t = setup({ wall: 2 });
     t.step();
-    const near = t.rig.getInfo().distanceToPivot;
+    const near = camToS(t.rig);
     expect(near).toBeCloseTo(1.8, 1);
     t.state.position.x += 6; // 壁が遠くなる
     t.step(3);
-    const mid = t.rig.getInfo().distanceToPivot;
+    const mid = camToS(t.rig);
     expect(mid).toBeGreaterThan(near);
     expect(mid).toBeLessThan(4.0);
     t.step(20);
-    expect(t.rig.getInfo().distanceToPivot).toBeCloseTo(4.0, 2);
+    expect(camToS(t.rig)).toBeCloseTo(4.0, 2);
   });
 
-  it('AC8: 向きはプレイヤーと同じ（yaw 90 で東を見る）。中心の線は P を通る', () => {
+  it('AC8: 向きはプレイヤーと同じ（yaw 90 で東を見る）。中心の線は S を通る', () => {
     const t = setup();
     t.step();
     const v = new THREE.Vector3(0, 0, -1).applyQuaternion(t.camera.quaternion);
     expect(v.x).toBeCloseTo(1, 3);
     expect(v.z).toBeCloseTo(0, 3);
     const c = t.rig.getInfo();
-    const toP = new THREE.Vector3(c.pivot.x - c.position.x, c.pivot.y - c.position.y, c.pivot.z - c.position.z).normalize();
+    const toP = new THREE.Vector3(c.shoulder.x - c.position.x, c.shoulder.y - c.position.y, c.shoulder.z - c.position.z).normalize();
     expect(toP.dot(v)).toBeCloseTo(1, 3);
   });
 

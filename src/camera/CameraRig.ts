@@ -11,6 +11,10 @@ import {
   OVERVIEW_POSITION,
   OVERVIEW_TARGET,
   RAY_STEP,
+  SHOULDER_DROP,
+  SHOULDER_OFFSET,
+  SHOULDER_RECOVER_SECONDS,
+  SHOULDER_WALL_MARGIN,
   WALL_MARGIN,
   WALL_RECOVER_SECONDS,
   type CameraConfig,
@@ -36,6 +40,11 @@ export class CameraRig {
   private readonly pivot = { x: 0, y: 0, z: 0 };
   private readonly dir = new THREE.Vector3();
   private readonly camPos = new THREE.Vector3();
+  /** 肩の点 S（カメラの回転の中心・ねらいの線の出どころ）。固定ステップで決める */
+  private readonly shoulder = { x: 0, y: 0, z: 0 };
+  /** 壁ぎわで s に かける上限（壁がなければ 十分大きい値）。小さくなるのは一瞬・もどりは 0.25 秒 */
+  private shoulderCap = Infinity;
+  private shoulderS = SHOULDER_OFFSET;
   private distToEye = 0;
   private distToPivot = 0;
   private distToBody = 0;
@@ -242,6 +251,17 @@ export class CameraRig {
     this.apply(dt);
   }
 
+  /**
+   * ねらいの線の出どころ S を `out` に入れる（DigSystem.aimOrigin に `(p, out) => rig.aimOrigin(out)` で渡す）。
+   * 値は update() で決めたもの（同じステップの S）。
+   */
+  aimOrigin(out: Vec3): Vec3 {
+    out.x = this.shoulder.x;
+    out.y = this.shoulder.y;
+    out.z = this.shoulder.z;
+    return out;
+  }
+
   getInfo() {
     return {
       view: this.view,
@@ -250,6 +270,10 @@ export class CameraRig {
       eye: { x: this.eye.x, y: this.eye.y, z: this.eye.z },
       /** 回転の中心 P（CHAR-1 §4.1） */
       pivot: { x: this.pivot.x, y: this.pivot.y, z: this.pivot.z },
+      /** 肩の点 S（第 5.2 版 §4.1）。ねらいの線の出どころ。カメラはここから 4.0 うしろ */
+      shoulder: { x: this.shoulder.x, y: this.shoulder.y, z: this.shoulder.z },
+      /** 肩ごしのずらし s（右へ。0.70 × cos(pitch)、壁ぎわでは小さくなる） */
+      shoulderOffset: this.shoulderS,
       distanceToEye: this.distToEye,
       distanceToPivot: this.distToPivot,
       /** カメラと からだの中心（足もと + 1.0）の距離。1.2 未満でキャラをかくす */
@@ -273,6 +297,8 @@ export class CameraRig {
     const pitch = s.pitchDeg * DEG;
     // 見ている向き D（yaw 0 = 北 -Z、上から見て時計回り）
     this.dir.set(Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), -Math.cos(yaw) * Math.cos(pitch));
+
+    this.placeShoulder(dt, yaw, pitch);
 
     if (this.overviewOn) {
       this.camera.position.set(OVERVIEW_POSITION.x, OVERVIEW_POSITION.y, OVERVIEW_POSITION.z);
@@ -303,16 +329,40 @@ export class CameraRig {
     this.doll.placeFirstPerson(this.camera);
   }
 
+  /** S = P の 0.72 下から カメラの右 R へ s ずらした点。壁ぎわでは s を小さくする（§4.1） */
+  private placeShoulder(dt: number, yaw: number, pitch: number): void {
+    const P = this.pivot;
+    const by = P.y - SHOULDER_DROP;
+    const rx = Math.cos(yaw);
+    const rz = Math.sin(yaw); // yaw 0 で +X、yaw 90 で +Z
+    const full = SHOULDER_OFFSET * Math.cos(pitch);
+    const base = { x: P.x, y: by, z: P.z };
+    const reachLen = full + SHOULDER_WALL_MARGIN;
+    const hit = this.firstSolidDistance(base, rx, 0, rz, reachLen);
+    const target = hit !== null ? Math.max(0, hit - SHOULDER_WALL_MARGIN) : Infinity;
+    if (target < this.shoulderCap) {
+      this.shoulderCap = target; // 小さくするのは一瞬
+    } else if (this.shoulderCap !== Infinity) {
+      this.shoulderCap += (SHOULDER_OFFSET / SHOULDER_RECOVER_SECONDS) * dt; // もどりは 0.25 秒
+      if (this.shoulderCap >= target) this.shoulderCap = target;
+    }
+    const sOff = Math.max(0, Math.min(full, this.shoulderCap));
+    this.shoulderS = sOff;
+    this.shoulder.x = P.x + rx * sOff;
+    this.shoulder.y = by;
+    this.shoulder.z = P.z + rz * sOff;
+  }
+
   private placeThird(dt: number): void {
     const cfg = this.config;
-    const P = this.pivot;
-    // カメラ = P - 距離 × D（真ん中の線は いつも P を通る）
+    const P = this.shoulder;
+    // カメラ = S - 距離 × D（真ん中の線は いつも S を通る）
     const dx = -cfg.thirdPersonDistance * this.dir.x;
     const dy = -cfg.thirdPersonDistance * this.dir.y;
     const dz = -cfg.thirdPersonDistance * this.dir.z;
     const full = Math.hypot(dx, dy, dz);
 
-    // P からカメラへの線分で最初にぶつかるブロック
+    // S からカメラへの線分で最初にぶつかるブロック
     let allowed = full;
     if (full > 1e-6) {
       const hit = this.firstSolidDistance(P, dx / full, dy / full, dz / full, full);
@@ -334,7 +384,17 @@ export class CameraRig {
       w.isSolid(Math.floor(o.x + ux * t), Math.floor(o.y + uy * t), Math.floor(o.z + uz * t));
     if (solidAt(0)) return 0;
     for (let t = RAY_STEP; t < maxLen; t += RAY_STEP) {
-      if (solidAt(t)) return t - RAY_STEP / 2;
+      if (solidAt(t)) {
+        // 刻みのあいだを 二分して 面の位置を細かく出す
+        let lo = t - RAY_STEP;
+        let hi = t;
+        for (let i = 0; i < 8; i++) {
+          const mid = (lo + hi) / 2;
+          if (solidAt(mid)) hi = mid;
+          else lo = mid;
+        }
+        return hi;
+      }
     }
     return solidAt(maxLen) ? maxLen : null;
   }

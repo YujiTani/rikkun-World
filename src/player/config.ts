@@ -55,6 +55,9 @@ export const BODY_HALF = BODY_WIDTH / 2;
 /** 上下の向きの範囲（度） */
 export const PITCH_LIMIT_DEG = 89;
 
+/** CHAR-1 第 5.2 版 §4.1: はじめの pitch（スタート・やり直し・セーブの読みこみ。度）。ひらけた地面で「＋」が 3 マス先の地面に乗る */
+export const START_PITCH_DEG = -25;
+
 /** これより下に落ちたらスタート地点に戻す（M1-01 4-8） */
 export const VOID_Y = -10;
 

@@ -27,6 +27,14 @@ export const DOLL_HIDE_DISTANCE = 1.2;
 export const BODY_CENTER_HEIGHT = 1.0;
 /** P が固いブロックの下の面より下がる量 */
 export const PIVOT_CEILING_GAP = 0.1;
+/** 肩の点 S: P の何下か（CHAR-1 第 5.2 版 §4.1） */
+export const SHOULDER_DROP = 0.72;
+/** 肩ごしのずらし s の大きさ（s = これ × cos(pitch)） */
+export const SHOULDER_OFFSET = 0.7;
+/** 壁ぎわで s を 面の何手前まで小さくするか */
+export const SHOULDER_WALL_MARGIN = 0.2;
+/** 壁がなくなってから s がもとへもどる秒数（15 ステップ） */
+export const SHOULDER_RECOVER_SECONDS = 0.25;
 /** 壁の判定でたどる刻み幅 */
 export const RAY_STEP = 0.02;
 

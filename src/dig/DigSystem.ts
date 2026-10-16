@@ -169,6 +169,28 @@ export class DigSystemImpl implements DigSystem {
    */
   aimOrigin?: (player: PlayerState, out: Vec3) => Vec3;
 
+  /**
+   * 届く距離のはかり始め（CHAR-1 第 5.2 版 §4.5。つなぎ込みが P = `aimPivot` を入れる）。
+   * なければ 出どころ（aimOrigin／目）と同じ。あるときは、線を出どころから 遠くまでのばし、
+   * 最初に当たったブロックの点が この点から reach 以内のときだけ ねらう。
+   */
+  reachOrigin?: (player: PlayerState, out: Vec3) => Vec3;
+  private readonly reachScratch = { x: 0, y: 0, z: 0 };
+
+  /** 出どころ o から d の向きの線で ねらうブロック（reachOrigin があれば その点から reach 以内のものだけ）。distance は o から */
+  private aimBlock(p: PlayerState, o: Vec3, d: Vec3): TargetInfo | null {
+    const reach = this.config.reach;
+    if (!this.reachOrigin) return raycastBlocks(this.world, o.x, o.y, o.z, d.x, d.y, d.z, reach);
+    const r = this.reachOrigin(p, this.reachScratch);
+    const span = Math.hypot(o.x - r.x, o.y - r.y, o.z - r.z);
+    const t = raycastBlocks(this.world, o.x, o.y, o.z, d.x, d.y, d.z, reach + span);
+    if (!t) return null;
+    const hx = o.x + d.x * t.distance - r.x;
+    const hy = o.y + d.y * t.distance - r.y;
+    const hz = o.z + d.z * t.distance - r.z;
+    return Math.hypot(hx, hy, hz) <= reach ? t : null;
+  }
+
   private origin(p: PlayerState, out: Vec3): Vec3 {
     if (this.aimOrigin) return this.aimOrigin(p, out);
     out.x = p.position.x;
@@ -242,7 +264,6 @@ export class DigSystemImpl implements DigSystem {
   }
 
   update(): void {
-    const cfg = this.config;
     const enabled = this.lock.playInputEnabled() && !this.gate?.blocksInput();
 
     // ホットバー
@@ -259,16 +280,7 @@ export class DigSystemImpl implements DigSystem {
     const p = this.player();
     const d = lookDirection(p.yawDeg, p.pitchDeg, this.dir);
     const o = this.origin(p, this.originScratch);
-    this.tgt = raycastBlocks(
-      this.world,
-      o.x,
-      o.y,
-      o.z,
-      d.x,
-      d.y,
-      d.z,
-      cfg.reach,
-    );
+    this.tgt = this.aimBlock(p, o, d);
 
     // 同じステップのうちに押してはなす短いタップも拾う（wasPressed）
     const primaryRaw = enabled && (this.actions.isHeld('primary') || this.actions.wasPressed('primary'));
@@ -680,7 +692,7 @@ export class DigSystemImpl implements DigSystem {
       d.x,
       d.y,
       d.z,
-      this.config.reach,
+      this.reachOrigin ? this.config.reach + 1.1 : this.config.reach,
       this.tgt,
       this.waterRay,
     );
