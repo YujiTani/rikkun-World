@@ -17,3 +17,6 @@
 | 2 | dev | code-reviewer | 【軽微】`src/drops/rarity7.test.ts` に AC10（dirt を epic/mythic/legendary にして 20 回ほる→毎回 1 こ、`dropMax {legendary:3}` で 1〜3 こ）と AC11（袋 rarity `superRare`/`legendary` のセーブ読み込み、`banana` はアイテムの段階）の確かめがない。`DigSystem.test.ts`・`DropField.test.ts` にも epic/legendary の確かめなし。足す | テストの抜け | R1 | 直した（DigSystem.test・DropField.test に AC10・AC11） |
 | 2 | dev | code-reviewer | 【軽微】`src/fx/bagVisuals.ts:72` のコメント「にじ色に流すのは 4 段目だけ。仮」が古い（今は 7 段目だけ）。直す | 言い回し | R2 | 直した |
 | 2 | dev | code-reviewer | 【軽微】`src/fx/combatFx.test.ts` は `'legendary' as never` で型をごまかしている（Rarity は 7 つなので不要）。外す | 読みにくさ | R3 | 直した |
+| 2 | art | art-reviewer | A1 再見（5d77e15・tooltip-legendary.png）: 星の下に「かんむり＋でんせつ」の行が出た。案 A のとおり。合格（直った） | 再見 | A1 | 直った（合格） |
+| 2 | art | art-reviewer | A3 再見: 7 段目のツールチップの名前が 1 字ずつ にじ色（きらめく=むらさき、カタナ=きいろ）になった。ふちは きいろ 1 色のまま（ホットバーのにじふちとは差）だが、名前で でんせつ が 伝わるので合格（軽微の残り: ふちのにじは 任意） | 再見 | A3 | 直った（合格） |
+| 2 | art | art-reviewer | A4 再見: ★7 が くらい色＋しろい ふちで、オレンジの帯の上で 読める。合格。絵の物は つるはし のまま（検査用の段上げ）で 問題なし。A2（空の星）・A5・A6 は 軽微のまま未対応でも 合格をさまたげない | 再見 | A4 | 直った（合格） |
