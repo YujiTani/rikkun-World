@@ -117,7 +117,8 @@ describe('SectionMesher（セクション 1 つのメッシュ。VOX-E）', () =
     }
   });
 
-  it('たいまつ・十字の板・水は 別のメッシュ（extras / water）に入る。レンガは小ブロックの形で描く', () => {
+  // TEX-A（#146）: レンガは平らな箱（5.3）。実装まで it.fails。実装したら .fails を外す
+  it.fails('たいまつ・十字の板・水・レンガは 別のメッシュ（extras / water）に入る。レンガは平らな箱で描く（TEX-A）', () => {
     const w = slab(20);
     w.setBlock(20, 21, 20, 'torch');
     w.setBlock(21, 21, 20, 'wild_tomato');
@@ -126,13 +127,13 @@ describe('SectionMesher（セクション 1 つのメッシュ。VOX-E）', () =
     const d = new SectionMesher(w).build(1, 1, 1, 'micro');
     expect(d.extras.faceCount).toBeGreaterThan(0);
     expect(d.water.faceCount).toBeGreaterThan(0);
-    // レンガは 形のある種類（looks の OTHER）。たいまつと十字の板だけが extras
-    expect(d.extras.faceCount).toBe(5 + 4);
+    // たいまつ 5 + 十字の板 4 + レンガ 5（台の上なので下の面はかくれる）
+    expect(d.extras.faceCount).toBe(5 + 4 + 5);
     const withBrick = d.faces;
     w.setBlock(22, 21, 20, 'air');
     const without = new SectionMesher(w).build(1, 1, 1, 'micro');
-    expect(withBrick).not.toBe(without.faces);
-    expect(without.extras.faceCount).toBe(d.extras.faceCount);
+    expect(withBrick).not.toBe(without.faces); // 台の上の面がレンガの下でかくれる
+    expect(without.extras.faceCount).toBe(d.extras.faceCount - 5);
   });
 
   it('小ブロック地形のとび出し: 地面のブロックの上のはみ出しは 地面のあるセクションが持つ', () => {

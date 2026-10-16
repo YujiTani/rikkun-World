@@ -75,7 +75,7 @@
 | 15 | 今の遊び（歩く・ほる・おく・畑・妖怪・保存・明かり）がこわれない | 全 E2E（CI） |
 | 16 | オーナーが Mac で見た目（スタート・キャラのまわり・上空・ほらあな・夜・水のふち・道具の箱）と fps（F3）を確かめる。(1) が「最初より暗い」なら東西 0.8・下 0.6 にもどす | オーナー確認 |
 
-**基準 13 の点数**: 1280×720 の画面の明るさ L = 0.2126R + 0.7152G + 0.0722B。空（`b > r+40 かつ b > 180 かつ g > 150`）を 9×9 でぼかした所と画面のふち 8 画素はのぞく。B = L を 9×9 の箱でぼかした物。点数 = std(B) ÷ std(L − B)。景色は `texture-back.md` と同じ: 時刻 1000、スタート（そのまま）、キャラのまわり（スタートの場所で yaw 150・pitch 8）、上空（スタートの 26 ブロック上、yaw 20・pitch −38）。妖怪なし・HUD をかくす。
+**基準 13 の点数（いまの値をこの worktree で測り直した: 2026-10-16、`e2e/helpers/tex.ts` の `legibilityScore`。スタート 1.856・キャラのまわり 2.120・上空 0.840。texture-back.md の 1.86 / 2.11 / 0.85 と一致。三角形 522,732 / 641,372（キャラのまわり）/ 597,162、描画回数 81 / 78 / 97）**: 1280×720 の画面の明るさ L = 0.2126R + 0.7152G + 0.0722B。空（`b > r+40 かつ b > 180 かつ g > 150`）を 9×9 でぼかした所と画面のふち 8 画素はのぞく。B = L を 9×9 の箱でぼかした物。点数 = std(B) ÷ std(L − B)。景色は `texture-back.md` と同じ: 時刻 1000、スタート（そのまま）、キャラのまわり（スタートの場所で yaw 150・pitch 8）、上空（スタートの 26 ブロック上、yaw 20・pitch −38）。妖怪なし・HUD をかくす。
 
 ## テストが使う hook
 `window.__rikkun.render.*` に開発が足す（`src/world/hook.ts` か `src/debug/testHook.ts`。いまは `render.chunks()` だけ）。`Face = 'top' | 'bottom' | 'north' | 'south' | 'east' | 'west'`（north = −z）。
@@ -92,8 +92,11 @@ blobShadow(): { visible: boolean; x: number; y: number; z: number; size: number;
                 renderOrder: number; spriteRenderOrder: number; transparent: boolean };
 aoStats(): { mode: 'shader' | 'lightmap' | 'vertex' | 'off'; radius: number; textureBytes: number; sections: number };
 setAo(on: boolean): void;                    // テスト用: AO を切る（基準 7 の ON / OFF くらべ）
+setBlobShadow(on: boolean): void;            // テスト用: 丸い影を切る（基準 8「くつの画素は ON / OFF で同じ」「かけ算」。tester が追加で依頼）
 ```
 
+- `texelAt`・`aoAt` の点 (x,y,z) は「ブロックの面の平面の上」の点。小ブロックのへこみの底に当たるときは、その列の見える表面（へこみの底）の画素・AO を返す。
+- テストは 1 コマ撮ったスクリーンショットから多くの画素を読む（`pixel` は 1 回ごとに描くので遅い）。`pixel` はスクリーンショットと同じ値（±2）を返すこと。
 - 期待の数は hook（ゲームの値）に聞く。タイルの画素は `texelAt` の `rgb`、光の式は `world/light/curve.ts` と同じ式。
 - キャラが画面をふさがないよう、見る面はキャラの横か上に作る（`player.set` で向きを決める）。
 - hook の名前・形を変えるときは、このチケットとテストを一緒に直す。

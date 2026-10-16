@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { BLOCK_TYPES } from '../../../world/blocks/blockTypes';
-import { buildShapeTextureData, TEX_N } from '../shapeTexture';
 import '../meshVoxel';
 import {
   ALL_FACES,
@@ -8,7 +7,6 @@ import {
   FACE_BIT,
   LOOK_N,
   LOOK_VOLUME,
-  currentLook,
   fillBlockLook,
   findLook,
   hasLook,
@@ -90,20 +88,17 @@ for (const look of ALL_LOOKS) {
       }
     });
 
-    it('色番号は パレットの中。3D テクスチャは種類ぶんの大きさで、形のある種類は ぜんぶ色つき', () => {
-      const kinds = use();
-      const out = new Uint8Array(LOOK_VOLUME);
-      for (const k of kinds) {
-        for (const ex of [ALL_FACES, 0, 1]) {
-          fillBlockLook(k, 1, 2, 3, ex, out);
-          for (const v of out) expect(v * 3 + 2).toBeLessThan(currentLook().palette.length);
-        }
-        expect(currentLook().palette.length).toBeGreaterThan(look.kinds[idOf(k)].base * 3 + 2);
-      }
-      const data = buildShapeTextureData(BLOCK_TYPES.length);
-      expect(data.length).toBe(TEX_N * TEX_N * TEX_N * BLOCK_TYPES.length * 4);
-      const start = indexOf('stone') * TEX_N * TEX_N * TEX_N * 4;
-      for (let i = 0; i < TEX_N * TEX_N * TEX_N; i++) expect(data[start + i * 4 + 3]).toBe(255);
+    // TEX-A（#146）: 色は 3D の模様ではなく 16×16 の絵の投影。パレット・3D テクスチャの色のテストは
+    // 投影のユニット（developer が TDD で書く: 面・座標 → タイル・画素）に置きかえる。形のテスト（つまり方・決定的）は上にのこしてある
+    it.todo('色は投影のユニットで見る（パレット・shapeTexture の色は描画に使わない）');
+
+    // TEX-A: 道具 7 種は平らな箱（5.3）で、小ブロックの形を持たない。実装まで it.fails
+    // 本番の見た目（gotsugotsu）だけ。ほかの試作の見た目は対象外
+    if (look.id === 'gotsugotsu') it.fails('道具 7 種（かまど・たんす・スプリンクラー・レンガ・かわら・はたけ・ぬれたはたけ）は形を持たない（TEX-A）', () => {
+      const kinds = use().map(idOf);
+      for (const id of ['furnace', 'tansu', 'sprinkler', 'brick', 'kawara', 'farmland', 'farmland_wet']) expect(kinds).not.toContain(id);
+      // 鉱石は地形なので でこぼこのまま
+      for (const id of ['coal_ore', 'iron_ore']) expect(kinds).toContain(id);
     });
   });
 }
