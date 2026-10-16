@@ -17,7 +17,7 @@ function rig(held: ItemId | null, target: BlockId | null, opts: { above?: BlockI
   };
   if (target) blocks.set(key(5, 10, 6), target);
   if (opts.above) blocks.set(key(5, 11, 6), opts.above);
-  const player: PlayerState = { position: { x: 2.5, y: 9, z: 6.5 }, velocity: { x: 0, y: 0, z: 0 }, yawDeg: 90, pitchDeg: 0, onGround: true, inWater: false, moving: false };
+  const player: PlayerState = { position: { x: 2.5, y: 9, z: 6.5 }, velocity: { x: 0, y: 0, z: 0 }, yawDeg: 90, pitchDeg: 0, onGround: true, inWater: false, moving: false, facingDeg: 0, running: false };
   const lock: LockStatus = { locked: () => true, overlayVisible: () => false, realtimeAllowed: () => true, playInputEnabled: () => true };
   const actions = new ActionState();
   const inv = new InventoryImpl();

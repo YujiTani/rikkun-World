@@ -30,7 +30,7 @@ function rig(item: ItemId) {
     pitchDeg: 0,
     onGround: true,
     inWater: false,
-    moving: false,
+    moving: false, facingDeg: 0, running: false,
   };
   const inv = new InventoryImpl();
   inv.setSlot(0, { item, count: 1 });

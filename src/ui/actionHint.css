@@ -42,7 +42,7 @@
   width: 20px;
   height: 28px;
   border: 2px solid var(--rk-text);
-  border-radius: 10px 10px 12px 12px;
+  border-radius: 8px 8px 14px 14px;
   overflow: hidden;
   box-sizing: border-box;
 }

@@ -1,4 +1,8 @@
 import { CameraRig } from './camera/CameraRig';
+import { useBlockDoll } from './debug/glbDoll';
+import { aimPivot } from './camera/pivot';
+import { createCharSprite } from './char';
+import { AimMarks } from './ui/aimMarks';
 import { createCrosshair } from './camera/crosshair';
 import { createCameraHook } from './camera/hook';
 import { DigFx } from './fx/DigFx';
@@ -70,11 +74,11 @@ import { Hotbar } from './ui/hotbar';
 import { InventoryScreen } from './ui/inventoryScreen';
 import { Notice } from './ui/notice';
 import { PerfOverlay } from './debug/perfOverlay';
-import { installTestHook, type TestHookGroups } from './debug/testHook';
+import { installTestHook, withSpriteDoll, type TestHookGroups } from './debug/testHook';
 import { Game } from './game/Game';
 import { buildScenery } from './game/scenery';
 import { createSettingsHook } from './game/settings';
-import { ActionState, bindKeyboardAndMouse } from './input/actions';
+import { bindKeyboardAndMouse } from './input/actions';
 import { LockController, MouseLook, WheelAccumulator, bindPointerLock, createInputHook, createLockHook } from './input';
 import { createPlayerHook } from './player/hook';
 import { PlayerController } from './player/PlayerController';
@@ -95,7 +99,9 @@ import { WaterDropFx } from './fx/waterFx';
 import { SprinklerFx } from './fx/sprinklerFx';
 import { setCanCapacitySource } from './tools/durability';
 import { FarmSparkle, FarmSparkleView } from './fx/farmSparkle';
-import { lookDirection } from './dig/raycast';
+import { lookDirection, raycastBlocks } from './dig/raycast';
+import { pickAimAssist } from './camera/aimAssist';
+import { START_PITCH_DEG } from './player/config';
 import { computeFarmPlacement, applyFarmPlacement } from './world/gen/farmPlacement';
 import { createFarmVisual } from './world/render/farmVisual';
 import { FarmFx } from './fx/farmFx';
@@ -204,13 +210,26 @@ const fxSound = new SoundFx();
 const playOverlay = new PlayOverlay(hud, lock, () => pointerLock.request(), () => playCraft(fxSound, 'tab'));
 
 // プレイヤーとカメラ
-const controller = new PlayerController(world, game.input, look, lock, () => island.spawn());
-// V（視点の切り替え）はロックがないあいだは無視する（T5 の指摘）。
-// CameraRig には専用の ActionState を渡し、ロックがあるときだけ押しを写して読ませる。
-const viewActions = new ActionState();
-const rig = new CameraRig(game.camera, game.scene, world, () => controller.state, viewActions);
+// スタート・やり直し・セーブの読みこみでは pitch は START_PITCH_DEG（CHAR-1 第 5.2 版 §4.1）
+const startPoint = () => ({ ...island.spawn(), pitchDeg: START_PITCH_DEG });
+const controller = new PlayerController(world, game.input, look, lock, startPoint);
+// CHAR-1 第 5 版: 一人称（V）はなくなった。CameraRig は受け取るだけの ActionState を使う
+const rig = new CameraRig(game.camera, game.scene, world, () => controller.state, game.input);
 lighting.registerTree(rig.doll.group, 'doll');
+// キャラは 8 方向のドット絵の板。?char=block のときだけ 箱人形（描画回数を比べるため）
+const blockDollOnly = useBlockDoll(location.search);
+const sprite = blockDollOnly
+  ? null
+  : createCharSprite({
+      parent: rig.doll.group,
+      camera: game.camera,
+      lighting,
+      basePath: './models/char/',
+      initTexture: (t) => game.renderer.initTexture(t),
+    });
+rig.doll.setBoxBody(blockDollOnly);
 const crosshair = createCrosshair(hud);
+const aimMarks = new AimMarks(hud);
 crosshair.setVisible(rig.crosshairVisible());
 
 // 持ち物・画面の状態・ほる／おく
@@ -348,7 +367,10 @@ const combat = new PlayerCombatImpl({
   },
   inventory,
   yokai: () => yokaiManager!,
-  spawn: () => island.spawn(),
+  spawn: startPoint,
+  // 妖怪のねらい（CHAR-1 第 5.2 版 §4.5）: 届く距離は P から。S からの線で当たらないときは やさしい ねらい補助
+  reachOrigin: (out) => aimPivot(world, controller.state.position, out),
+  assist: (eye, dir, reach) => aimAssistPick(eye, dir, reach),
   closeInventory: () => {
     if (screen.inventoryOpen()) screen.toggle();
   },
@@ -487,6 +509,65 @@ const dig = new DigSystemImpl(
     w2,
   },
 );
+// ねらいの線・矢・刀・パンチの出どころは 目でなく 回転の中心 P（CHAR-1 §4.5）
+dig.aimOrigin = (_p, out) => rig.aimOrigin(out); // ねらいの線の出どころは 肩の点 S
+dig.reachOrigin = (p, out) => aimPivot(world, p.position, out); // 届く距離は P から
+// ねらい補助の 設定（settings の aimAssistDeg）と、そのつなぎ（CHAR-1 第 5.2 版 §4.5）
+const aimCfg = { aimAssistDeg: 4 };
+const assistP = { x: 0, y: 0, z: 0 };
+const assistDir = { x: 0, y: 0, z: 0 };
+const assistShoulder = { x: 0, y: 0, z: 0 };
+function aimAssistPick(eye: { x: number; y: number; z: number }, dir: { x: number; y: number; z: number }, reach: number): number | null {
+  if (!(aimCfg.aimAssistDeg > 0)) return null;
+  return pickAimAssist({
+    camera: game.camera.position,
+    dir,
+    shoulder: eye,
+    pivot: aimPivot(world, controller.state.position, assistP),
+    reach,
+    assistDeg: aimCfg.aimAssistDeg,
+    boxes: yokaiM.aimBoxes(),
+    blocked: (from, to) => {
+      const dx = to.x - from.x, dy = to.y - from.y, dz = to.z - from.z;
+      const len = Math.hypot(dx, dy, dz);
+      if (len < 1e-6) return false;
+      assistDir.x = dx / len; assistDir.y = dy / len; assistDir.z = dz / len;
+      return raycastBlocks(world, from.x, from.y, from.z, assistDir.x, assistDir.y, assistDir.z, len, true) !== null;
+    },
+  });
+}
+/** ねらいの点 X（S から D の線で 最初に当たる 固いブロックか 妖怪の箱の点。なければ S + D × 64） */
+const AIM_FAR = 64;
+function aimPointInto(out: { x: number; y: number; z: number }): { x: number; y: number; z: number } {
+  const st = controller.state;
+  const S = rig.aimOrigin(assistShoulder);
+  const D = lookDirection(st.yawDeg, st.pitchDeg, assistDir);
+  const b = raycastBlocks(world, S.x, S.y, S.z, D.x, D.y, D.z, AIM_FAR, true);
+  const y = yokaiM.raycast(S, D, b ? b.distance : AIM_FAR);
+  const t = y ? y.distance : b ? b.distance : AIM_FAR;
+  out.x = S.x + D.x * t;
+  out.y = S.y + D.y * t;
+  out.z = S.z + D.z * t;
+  return out;
+}
+// 矢は P から X へ向けて出す（CHAR-1 第 5.2 版 §4.5）
+{
+  const toolStep = tools.step.bind(tools);
+  const aimX = { x: 0, y: 0, z: 0 };
+  const aimPv = { x: 0, y: 0, z: 0 };
+  const aimV = { x: 0, y: 0, z: 0 };
+  tools.step = (primary, _eye, dir) => {
+    const pv = aimPivot(world, controller.state.position, aimPv);
+    aimPointInto(aimX);
+    const dx = aimX.x - pv.x, dy = aimX.y - pv.y, dz = aimX.z - pv.z;
+    const len = Math.hypot(dx, dy, dz);
+    if (len < 1e-3) toolStep(primary, pv, dir);
+    else {
+      aimV.x = dx / len; aimV.y = dy / len; aimV.z = dz / len;
+      toolStep(primary, pv, aimV);
+    }
+  };
+}
 yokaiManager = new YokaiManager({
   world,
   time,
@@ -883,13 +964,10 @@ const save = new SaveManager({
   inventory,
   player: {
     get: () => controller.state,
-    set: (v) => controller.set({ position: v.position, velocity: v.velocity, yawDeg: v.yawDeg, pitchDeg: v.pitchDeg }),
-    isThirdPerson: () => rig.getView() === 'third',
-    setThirdPerson: (third) => {
-      if ((rig.getView() === 'third') !== third) rig.toggleView();
-    },
+    // 読みこんだら 向きはカメラの yaw と同じ（背中が見える）
+    set: (v) => controller.set({ position: v.position, velocity: v.velocity, yawDeg: v.yawDeg, pitchDeg: START_PITCH_DEG, facingDeg: v.yawDeg }),
   },
-  spawn: () => island.spawn(),
+  spawn: startPoint,
   store,
   tick: () => game.tick,
   settings: screenSettings,
@@ -1061,9 +1139,18 @@ game.onUpdate((dt) => {
   // 空の光の弱まりを先に今の時刻にそろえる（妖怪の出現の「暗い所」がこれを読む。Sky は あとで画面ぶんを更新）
   skyDarkness.value = darkenFromBrightness(time.brightness(), timeSettings.nightBrightness);
   controller.update(dt);
-  if (lock.playInputEnabled() && game.input.wasPressed('toggleView')) {
-    viewActions.press('toggleView');
-    viewActions.release('toggleView');
+  // カメラ（肩の点 S）を先に決める。ねらい（dig.update）は S を使う（CHAR-1 第 5.2 版）
+  rig.update(dt);
+  if (screen.mode() === 'play') {
+    const st = controller.state;
+    sprite?.step({
+      position: st.position,
+      velocity: st.velocity,
+      onGround: st.onGround,
+      inWater: st.inWater,
+      running: st.running,
+      facingDeg: st.facingDeg,
+    });
   }
   yokaiM.update();
   dig.update();
@@ -1141,6 +1228,7 @@ game.onUpdate((dt) => {
   if (combatEvents.length > 0) {
     for (const e of combatEvents) {
       rig.onCombatEvent(e);
+      if ((e.type === 'playerHit' && e.amount > 0 && (e as { blocked?: boolean }).blocked !== true) || e.type === 'fallHurt') sprite?.hurt();
       if (e.type === 'respawn') log.home();
     }
     handleGuardEvents(combatEvents, fxSound);
@@ -1166,10 +1254,16 @@ game.onUpdate((dt) => {
   levelHud.update(level.get());
   levelHud.tick(dt);
   updateFurnaceFx(dt);
-  rig.update(dt);
+  // 箱人形は 白い弧・星のために残す。板の絵が出せない（たつ の絵も読めない）ときだけ からだも見せる
+  rig.doll.setBoxBody(blockDollOnly || (sprite?.needsBoxDoll() ?? false));
+  sprite?.render();
+  {
+    const playing = screen.mode() === 'play' && !rig.isOverview();
+    const bs = blade.state();
+    aimMarks.update({ stance: playing && bs.item !== null ? bs.stance : null, bowStage: playing ? tools.bow().pose().stage : 0 });
+  }
   sky.update(game.camera);
   combatUi.clock.setTime(time.dayTick(), timeSettings, time.day() + 1);
-  viewActions.endFrame();
   crosshair.setVisible(rig.crosshairVisible() && screen.mode() === 'play');
   yokaiFocus.update(hintVisible() ? dig.aimedYokaiId() : null);
   titleAnnounce.sync(yokaiM.announce());
@@ -1249,7 +1343,7 @@ const combatHook = createCombatHook(combat);
 installTestHook(game, overlay, {
   world: createWorldHook(world, renderer, island),
   render: { chunks: () => renderer.chunkStats() },
-  player: { ...createPlayerHook(controller), doll: cameraHook.doll } as unknown as TestHookGroups['player'],
+  player: { ...createPlayerHook(controller), doll: withSpriteDoll(cameraHook.doll, sprite, rig.doll.group) } as unknown as TestHookGroups['player'],
   ...createDigHook(dig),
   hud: hudHook,
   inventory: createInventoryHook(inventory, screen, {
@@ -1318,6 +1412,15 @@ installTestHook(game, overlay, {
   ...createYokaiHook(yokaiM),
   ...createBladeHook(blade),
   camera: cameraHook.camera,
+  aim: {
+    /** ねらいの点 X（§4.5） */
+    point: () => ({ ...aimPointInto({ x: 0, y: 0, z: 0 }) }),
+    /** 補助で えらんだ妖怪の id（線がそのまま当たっているときと いないときは null） */
+    assist: () => {
+      dig.aimedYokaiId();
+      return combat.lastAssist;
+    },
+  },
   lock: {
     ...lockHook,
     tab: guideHook.tab,
@@ -1335,6 +1438,7 @@ installTestHook(game, overlay, {
       m7,
       w2,
       hintSettings,
+      aimCfg,
       { clockPhases },
       FX_SETTINGS,
       sharedSettingsView('knockback', [combat.config, yokaiM.config]),

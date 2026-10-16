@@ -23,7 +23,7 @@ function setup(pitch = 0, aspect = 16 / 9) {
     pitchDeg: pitch,
     onGround: true,
     inWater: false,
-    moving: false,
+    moving: false, facingDeg: 0, running: false,
   };
   const cam = new THREE.PerspectiveCamera(75, aspect, 0.1, 500);
   const rig = new CameraRig(cam, new THREE.Scene(), world, () => state, new ActionState());
@@ -35,47 +35,10 @@ function setup(pitch = 0, aspect = 16 / 9) {
 
 const armR = (rig: CameraRig) => (rig.doll as unknown as { armR: THREE.Group }).armR;
 
-describe('一人称の手足と持ったブロック（AC27）', () => {
-  it('頭とからだは消え、手足は見える', () => {
-    const t = setup();
-    const d = t.hook.doll();
-    expect(d.parts).toEqual({ head: false, body: false, arms: true, legs: true });
-    expect(d.visible).toBe(false);
-  });
-  it('一人称は ひじから先・ひざから先だけ。三人称は全部', () => {
-    const t = setup();
-    const up = (rig: CameraRig) => (rig.doll as unknown as { upperParts: THREE.Mesh[] }).upperParts;
-    expect(up(t.rig).length).toBeGreaterThan(0);
-    expect(up(t.rig).every((m) => !m.visible)).toBe(true);
-    t.rig.doll.setMode('third');
-    expect(up(t.rig).every((m) => m.visible)).toBe(true);
-  });
-  it('持ったブロックは画面の右下', () => {
-    for (const aspect of [16 / 9, 1, 4 / 3]) {
-      const t = setup(0, aspect);
-      const d = t.hook.doll();
-      expect(d.heldItem).toBe('dirt');
-      expect(d.heldScreen!.x).toBeGreaterThan(0.55);
-      expect(d.heldScreen!.x).toBeLessThan(0.95);
-      expect(d.heldScreen!.y).toBeGreaterThan(0.55);
-      expect(d.heldScreen!.y).toBeLessThan(0.95);
-    }
-  });
-  it('空のマスなら null', () => {
-    const t = setup();
-    t.setHeld(null);
-    expect(t.hook.doll().heldItem).toBeNull();
-    expect(t.hook.doll().heldScreen).toBeNull();
-  });
-  it('下を向いても手が画面に入る', () => {
-    const t = setup(-80);
-    const s = t.hook.doll().heldScreen!;
-    expect(s.x).toBeGreaterThan(0);
-    expect(s.x).toBeLessThan(1);
-  });
+// CHAR-1 第 5 版で 一人称をなくしたため、一人称の手足・持ったブロックのテスト 5 つ（AC27）は消した
+describe('箱人形（三人称）', () => {
   it('三人称は全部見えて、同じものを持つ', () => {
     const t = setup();
-    t.rig.toggleView();
     t.rig.update(1 / 60);
     const d = t.hook.doll();
     expect(d.parts).toEqual({ head: true, body: true, arms: true, legs: true });
@@ -86,29 +49,20 @@ describe('一人称の手足と持ったブロック（AC27）', () => {
     const before = armR(t.rig).rotation.x;
     t.rig.doll.swing();
     for (let i = 0; i < 7; i++) t.rig.update(1 / 60);
-    expect(armR(t.rig).rotation.x).toBeLessThan(before);
+    expect(Math.abs(armR(t.rig).rotation.x - before)).toBeGreaterThan(0.1); // 三人称では 振ると角度が変わる
     for (let i = 0; i < 20; i++) t.rig.update(1 / 60);
     expect(armR(t.rig).rotation.x).toBeCloseTo(before, 5);
   });
 });
 
 describe('WEAPON-2 刀と弓の人形', () => {
-  it('刀を持つと両うでが中段の形になり、一人称では剣先が画面の位置に置かれる', async () => {
-    const THREE = await import('three');
+  it('刀を持つと両うでが中段の形になる', async () => {
     const doll = new BlockDoll();
     doll.setHeld('katana');
     doll.setMode('third');
     doll.setWeapon({ item: 'katana', stance: 'chudan', tech: null, phase: 'idle', frame: 0, buffered: null, switchFrom: null }, { stage: 0, pull: 0, bendDeg: 0 });
     doll.update(1 / 60, { x: 0, y: 0, z: 0 }, 0, 0, false, true);
     expect(doll.dollPose.rx).toBe(50);
-    doll.setMode('first');
-    const cam = new THREE.PerspectiveCamera(75, 16 / 9);
-    doll.update(1 / 60, { x: 0, y: 0, z: 0 }, 0, 0, false, true);
-    doll.placeFirstPerson(cam);
-    expect(doll.heldWorldPosition(new THREE.Vector3())).not.toBeNull();
-    doll.setMode('third');
-    doll.update(1 / 60, { x: 0, y: 0, z: 0 }, 0, 0, false, true);
-    doll.placeFirstPerson(cam);
     doll.dispose();
   });
   it('弓をひくとしなる', () => {
