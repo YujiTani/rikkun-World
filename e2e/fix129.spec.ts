@@ -25,6 +25,14 @@ const clockState = (page: Page) =>
     };
   });
 
+/** いちばん上の絵のアニメが終わるまで待つ */
+const settle = (page: Page) =>
+  page.waitForFunction(() => {
+    const imgs = [...document.querySelectorAll('#clock .clock-img')] as HTMLImageElement[];
+    const front = imgs[imgs.length - 1];
+    return !!front && front.getAnimations().length === 0;
+  });
+
 /** time.set(t) して 1 ステップ進めた直後の時計 */
 const jump = (page: Page, t: number) =>
   page.evaluate((tt) => {
@@ -88,12 +96,12 @@ test('基準1: よる から ひる 1000 に とばした直後、絵が あさ 
   expect(m.sample.night).toBeDefined();
   // あさ の絵（いちばん上の img の src）を、とばす前に ふつうの出方で覚える
   await jump(page, 1000);
-  await page.waitForTimeout(700);
+  await settle(page);
   const ref = await clockState(page);
   expect(ref.scene).toBe('morning');
 
   await jump(page, m.sample.night);
-  await page.waitForTimeout(800);
+  await settle(page);
   expect((await clockState(page)).scene).toBe('night');
 
   await jump(page, 1000); // 待たない
@@ -114,7 +122,7 @@ test('基準2: ほかの とびかたでも 絵とことばが すぐそろう',
   const refs: Record<string, { word: string; src: string }> = {};
   for (const sc of scenes) {
     await jump(page, m.sample[sc]);
-    await page.waitForTimeout(650);
+    await settle(page);
     const r = await clockState(page);
     expect(r.scene).toBe(sc);
     refs[sc] = { word: r.word, src: r.frontSrc };
@@ -144,7 +152,7 @@ test('基準3: ふつうに進んで変わり目をこえたときは 0.5 秒で
   expect(b).toBeDefined();
   // 変わり目の少し前に set → アニメが終わるまで待つ
   await jump(page, b.at - 10);
-  await page.waitForTimeout(700);
+  await settle(page);
   const before = await clockState(page);
   expect(before.scene).toBe(b.from);
   expect(before.frontAnimating).toBe(false);
@@ -159,7 +167,7 @@ test('基準3: ふつうに進んで変わり目をこえたときは 0.5 秒で
   expect(during.frontFade).toBe(true);
   expect(during.frontAnimating).toBe(true);
   // 終わったあとは opacity 1
-  await page.waitForTimeout(800);
+  await settle(page);
   const after = await clockState(page);
   expect(after.frontAnimating).toBe(false);
   expect(after.frontOpacity).toBe('1');
