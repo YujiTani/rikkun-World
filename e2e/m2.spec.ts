@@ -850,7 +850,8 @@ test.describe('M2 もちもの画面', () => {
     });
     // pause 中（時間が止まっている）でも E で開く
     await page.keyboard.press('KeyE');
-    await page.waitForFunction(() => (window as any).__rikkun.inventory.get().open === true, null, { timeout: 300 });
+    // 開くまでの時間は確かめる中身ではない（CI の遅いソフト描画で 300ms をこえることがあった）ので、長めに待つ
+    await page.waitForFunction(() => (window as any).__rikkun.inventory.get().open === true, null, { timeout: 5000 });
     await expect(page.locator('#inventory-close')).toBeVisible();
     // 画面が小さいと パネルぜんたいが 同じ比で ちぢむ（fit）。ちぢむ前の 大きさ（CSS の高さ）で 64px 以上を確かめる
     const h = await page.locator('#inventory-close').evaluate((el) => (el as HTMLElement).offsetHeight);
