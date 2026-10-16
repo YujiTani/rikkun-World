@@ -1,4 +1,7 @@
+import { dotTileLook } from './dotTile';
+import { gotsugotsuLook } from './gotsugotsu';
 import { placeholderLook } from './placeholder';
+import { tsumikiLook } from './tsumiki';
 import { LOOK_VOLUME, type Look } from './types';
 
 export * from './types';
@@ -7,7 +10,7 @@ export * from './types';
  * 見た目の一覧。案を足すときは、ここに 1 行（import と配列の 1 つ）足すだけ。
  * ボタンは この順に並ぶ。`?look=<id>` で最初の案を選べる。先頭が いまの おすすめ（初期表示）。
  */
-export const ALL_LOOKS: readonly Look[] = [placeholderLook];
+export const ALL_LOOKS: readonly Look[] = [placeholderLook, tsumikiLook, gotsugotsuLook, dotTileLook];
 
 export const DEFAULT_LOOK_ID = ALL_LOOKS[0].id;
 
