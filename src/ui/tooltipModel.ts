@@ -78,6 +78,8 @@ export function buildTooltip(item: ItemId, d: TooltipDeps, stack?: ItemStack | n
     add('はたけ を つくる', item);
   }
   if (item === 'watering_can' || item === 'long_watering_can') add('はたけ に みず を まく', item);
+  if (item === 'bucket') add('みず を くむ', item);
+  if (item === 'water_bucket') add('みず を おく', item);
   if (item === 'sprinkler') add('まわり の はたけ を しめらせる', item);
   if (seedKindOfItem(item) !== null) add('はたけ に まく', item);
   if (vegKindOfItem(item) !== null) add('たべると ハート が もどる', item);

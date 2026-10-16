@@ -105,6 +105,8 @@ export const GUIDE_TABS: Record<GuideTabId, { label: string; icon: string; capti
       `じょうろ を もって ${ruby('水', 'みず')}を ${RIGHT_CLICK} で くむ。${ruby('畑', 'はたけ')}を ${RIGHT_CLICK} で ${ruby('水', 'みず')}やり。1 ${ruby('日', 'にち')} しめる よ`,
       `スプリンクラー を おくと まわり の ${ruby('畑', 'はたけ')}が ずっと しめる`,
       `やさい を ${RIGHT_CLICK} で なでる と ごきげん に なって すこし はやく ${ruby('育', 'そだ')}つ`,
+      // BUCKET-1（11 こ目。いちばん うしろ）
+      `バケツ で ${ruby('水', 'みず')}を くんで ${ruby('畑', 'はたけ')}の そば に おく と ずっと しめる`,
     ],
   },
 };

@@ -1,5 +1,6 @@
 import type { DayPhase } from '../contracts';
 import type { TimeSettings } from '../time/config';
+import { dayLength } from '../time/dayCycle';
 import { sunMoonPose } from '../sky/sunMoon';
 
 export type ClockBody = 'sun' | 'moon';
@@ -80,4 +81,20 @@ export function clockScene(dayTick: number, s: TimeSettings, cfg: ClockPhases = 
   if (t < s.dayTicks + s.duskTicks) return 'sunset';
   if (t < s.dayTicks + s.duskTicks + s.nightTicks) return 'night';
   return 'sunrise';
+}
+
+// ---------------------------------------------------------------- 入れかえ（#129）
+
+/** ふつうに進んだと見なす いちばん大きい差（ステップ。60 = 1 秒） */
+export const CLOCK_FADE_MAX_STEPS = 60;
+
+/**
+ * 絵を ふわっと入れかえるか。前に見た dayTick から、1 日で回りこむ前向きの差が小さいときだけ true。
+ * 大きくとんだ・もどった・最初（prev なし）は false（すぐ入れかえる）。
+ */
+export function clockShouldFade(prevTick: number | null, tick: number, s: TimeSettings): boolean {
+  if (prevTick === null) return false;
+  const len = dayLength(s);
+  const diff = (((tick - prevTick) % len) + len) % len;
+  return diff <= CLOCK_FADE_MAX_STEPS;
 }

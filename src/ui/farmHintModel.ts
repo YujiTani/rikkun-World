@@ -6,7 +6,7 @@ import { ruby } from './text';
 export const FARM_HINT_STEPS = 120;
 
 /** 文（漢字は ふりがな付き。HTML）と 添える絵（左から） */
-export const FARM_HINT_VIEW: Readonly<Record<FarmHintKind, { html: string; art: ReadonlyArray<ItemId | 'heart'> }>> = {
+export const FARM_HINT_VIEW: Readonly<Record<FarmHintKind, { html: string; art: ReadonlyArray<ItemId | 'heart' | 'droplet'> }>> = {
   till: {
     html: `さきに くわ で ${ruby('土', 'つち')}を たがやして ${ruby('畑', 'はたけ')}に しよう`,
     art: ['kuwa', 'farmland'],
@@ -14,6 +14,10 @@ export const FARM_HINT_VIEW: Readonly<Record<FarmHintKind, { html: string; art: 
   fill: {
     html: `じょうろ が からっぽ。${ruby('水', 'みず')}に むけて ${ruby('右', 'みぎ')}クリック で くもう`,
     art: ['watering_can'],
+  },
+  bucket: {
+    html: `バケツ が からっぽ。${ruby('水', 'みず')}に むけて ${ruby('右', 'みぎ')}クリック で くもう`,
+    art: ['bucket', 'droplet'],
   },
   full: { html: 'ハート が いっぱい だから いまは たべられないよ', art: ['heart'] },
 };

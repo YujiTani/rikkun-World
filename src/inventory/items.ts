@@ -92,6 +92,12 @@ const M72_ITEMS: readonly ItemType[] = [
   { id: 'sprinkler', name: 'スプリンクラー', maxStack: BLOCK_MAX_STACK, placeBlock: 'sprinkler' },
 ];
 
+/** BUCKET-1: バケツ（から・みず）。置けない・上限 1 */
+const BUCKET_ITEMS: readonly ItemType[] = [
+  { id: 'bucket', name: 'バケツ', maxStack: 1, placeBlock: null },
+  { id: 'water_bucket', name: 'みずの バケツ', maxStack: 1, placeBlock: null },
+];
+
 export const ITEM_TYPES: readonly ItemType[] = [
   ...PLACEABLE_TYPES,
   ...ITEM_ONLY,
@@ -99,6 +105,7 @@ export const ITEM_TYPES: readonly ItemType[] = [
   ...M4_ITEMS,
   ...M7_ITEMS,
   ...M72_ITEMS,
+  ...BUCKET_ITEMS,
 ];
 
 const BY_ID = new Map<string, ItemType>(ITEM_TYPES.map((t) => [t.id, t]));

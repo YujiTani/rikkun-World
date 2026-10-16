@@ -44,7 +44,7 @@ export const CATEGORY_ITEMS: Readonly<Record<ItemCategory, readonly string[]>> =
   build: ['kawara', 'brick'],
   material: ['paper', 'string', 'cloth', 'oil', 'clay', 'yokai_orb'],
   metal: ['iron_ingot', 'crystal'],
-  tool: ['wood_pickaxe', 'stone_pickaxe', 'iron_pickaxe', 'wood_axe', 'stone_axe', 'iron_axe', 'kuwa', 'watering_can', 'long_watering_can'],
+  tool: ['wood_pickaxe', 'stone_pickaxe', 'iron_pickaxe', 'wood_axe', 'stone_axe', 'iron_axe', 'kuwa', 'watering_can', 'long_watering_can', 'bucket', 'water_bucket'],
   weapon: ['bokuto', 'katana', 'naginata', 'crystal_katana', 'yumi', 'ya'],
   armor: ['kabuto', 'yoroi', 'kote', 'suneate'],
   light: ['torch', 'lantern'],

@@ -29,6 +29,8 @@ export interface FarmHookDeps {
   facing?: () => { dx: number; dz: number };
   /** M7-2: 今 出ている つぶ と 出た 数（B・C の fx が 持つ。`farm.fx()` / `farm.fxReset()`） */
   fx?: () => unknown;
+  /** BUCKET-1: 今の ねらいで 4e が 水を 置く マス（`dig.bucketSpot`）。なければ null */
+  bucketSpot?: () => Vec3 | null;
   fxReset?: () => void;
 }
 
@@ -125,6 +127,8 @@ export function createFarmHook(d: FarmHookDeps) {
       return true;
     },
     sprinklers: () => farm.sprinklers(),
+    /** BUCKET-1: 今の ねらいで 水を 置く マス（置けなければ null） */
+    bucketSpot: () => d.bucketSpot?.() ?? null,
     fx: () => d.fx?.() ?? { particles: [], counts: { star: 0, heart: 0, spray: 0, splash: 0 } },
     fxReset: () => d.fxReset?.(),
   };

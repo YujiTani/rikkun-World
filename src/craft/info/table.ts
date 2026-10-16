@@ -174,6 +174,10 @@ export const ITEM_INFO: Readonly<Record<string, InfoRow>> = {
   },
   sprinkler: { use: 'まわり の はたけ を ずっと しめらせる', how: 'もって みぎクリック で おく', buttons: PLACE_BTN },
 
+  // ---- BUCKET-1
+  bucket: { use: 'みず を くんで はこぶ', how: 'みず に みぎクリック で くむ', buttons: ['1-9', 'right'] },
+  water_bucket: { use: 'はたけ の そば に みず を おく', how: 'もって みぎクリック で おく', buttons: ['1-9', 'right'] },
+
   // ---- ようかいだま（§5。いまは 手に入らない。古い保存用）
   yokai_orb: { use: 'いまは つかえない よ', how: '', buttons: [] },
 };

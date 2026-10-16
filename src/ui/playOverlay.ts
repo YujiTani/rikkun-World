@@ -72,6 +72,7 @@ function tabArts(): Record<GuideTabId, string[]> {
       `${ICON('watering_can')}${EMOJI('💧')}${ICON('farmland_wet')}`,
       `${ICON('sprinkler')}${EMOJI('💦')}${ICON('farmland_wet')}`,
       `${ICON('tomato')}${RIGHT()}${EMOJI('❤')}`,
+      `${ICON('bucket')}${EMOJI('💧')}${ICON('farmland_wet')}`,
     ],
   };
 }

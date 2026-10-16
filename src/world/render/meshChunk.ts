@@ -23,11 +23,11 @@ export interface ChunkMeshData {
   water: MeshData;
 }
 
-function emptyMesh(): MeshData {
+export function emptyMesh(): MeshData {
   return { positions: [], uvs: [], colors: [], lights: [], indices: [], faceCount: 0 };
 }
 
-interface FaceDef {
+export interface FaceDef {
   /** となりのブロックの向き */
   dir: [number, number, number];
   /** 0 = 上, 1 = 下, 2 = 横（タイルの選び方と明るさ） */
@@ -36,7 +36,7 @@ interface FaceDef {
   verts: [number, number, number][];
 }
 
-const FACES: FaceDef[] = [
+export const FACES: FaceDef[] = [
   { dir: [0, 1, 0], kind: 0, verts: [[0, 1, 1], [1, 1, 1], [1, 1, 0], [0, 1, 0]] },
   { dir: [0, -1, 0], kind: 1, verts: [[0, 0, 0], [1, 0, 0], [1, 0, 1], [0, 0, 1]] },
   { dir: [1, 0, 0], kind: 2, verts: [[1, 0, 1], [1, 0, 0], [1, 1, 0], [1, 1, 1]] },
@@ -53,12 +53,12 @@ const CORNER_UV: [number, number][] = [
 const BRIGHTNESS = [RENDER_CONFIG.brightnessTop, RENDER_CONFIG.brightnessBottom, RENDER_CONFIG.brightnessSide];
 
 // ブロックの番号ごとの [上, 下, 横] の UV を先に作っておく
-const TILE_UV: ([number, number, number, number][] | undefined)[] = BLOCK_TYPES.map((t) => {
+export const TILE_UV: ([number, number, number, number][] | undefined)[] = BLOCK_TYPES.map((t) => {
   const tiles = BLOCK_TILES[t.id];
   return tiles ? tiles.map((n) => tileUv(n)) : undefined;
 });
 
-const LIGHT_MAX = 15;
+export const LIGHT_MAX = 15;
 
 /**
  * 面の角の光。面の前のマスと、その角のまわりの 3 マス（全部 面と同じ向きの層）のうち、光を通すマスの平均（なめらかな光）。
@@ -124,7 +124,7 @@ function cornerLight(
 
 const LIGHT_TMP: [number, number] = [1, 0];
 
-function pushFace(
+export function pushFace(
   mesh: MeshData,
   world: ArrayVoxelWorld,
   light: WorldLight | undefined,
@@ -163,7 +163,7 @@ const TORCH_BOX = {
   y1: (16 - TORCH_PX.y0) / 16,
 };
 
-function pushTorch(mesh: MeshData, x: number, y: number, z: number, tile: TileName, sky: number): void {
+export function pushTorch(mesh: MeshData, x: number, y: number, z: number, tile: TileName, sky: number): void {
   const side = tileSubUv(tile, TORCH_PX.x0, TORCH_PX.y0, TORCH_PX.x1, 16);
   const top = tileSubUv(tile, TORCH_PX.x0, TORCH_PX.y0, TORCH_PX.x1, TORCH_PX.y0 + 1);
   for (const face of FACES) {

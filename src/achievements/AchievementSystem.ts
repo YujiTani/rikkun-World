@@ -368,6 +368,9 @@ export class AchievementSystem implements AchievementShowSource {
             // はたけ 0 の まく は 数えない
             if (e.tiles > 0) this.bump('water:*', 1);
             break;
+          case 'bucketPlace':
+            this.bump('bucketPlace', 1);
+            break;
           case 'pet':
             // ごきげん に した 回数（'again'・'wild' は 数えない）
             if (e.result === 'happy') this.bump('pet:*', 1);

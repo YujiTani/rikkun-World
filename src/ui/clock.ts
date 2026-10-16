@@ -1,7 +1,7 @@
 import type { DayPhase } from '../contracts';
 import type { TimeSettings } from '../time/config';
 import { clockSceneUrl } from './clockArt';
-import { CLOCK_PHASES, CLOCK_WORDS, clockScene, type ClockPhases, type ClockScene } from './clockModel';
+import { CLOCK_PHASES, CLOCK_WORDS, clockScene, clockShouldFade, type ClockPhases, type ClockScene } from './clockModel';
 import './clock.css';
 
 /**
@@ -20,6 +20,7 @@ export class Clock {
   private shown: DayPhase | null = null;
   private shownScene: ClockScene | null = null;
   private shownDay = -1;
+  private prevTick: number | null = null;
 
   constructor(parent: HTMLElement, private readonly phases: ClockPhases = CLOCK_PHASES) {
     this.el = document.createElement('div');
@@ -57,14 +58,19 @@ export class Clock {
       this.dayEl.hidden = false;
     }
     const scene = clockScene(dayTick, settings, this.phases);
+    const fade = clockShouldFade(this.prevTick, dayTick, settings);
+    this.prevTick = dayTick;
     if (scene === this.shownScene) return;
     const first = this.shownScene === null;
-    if (!first) this.back.src = this.front.src;
+    if (!first && fade) this.back.src = this.front.src;
     this.shownScene = scene;
     this.el.dataset.scene = scene;
     this.front.src = clockSceneUrl(scene);
     this.wordEl.textContent = CLOCK_WORDS[scene];
-    if (!first) {
+    if (!fade) {
+      // とんだとき・最初は すぐ入れかえ（走っている ふわっも止める）
+      this.front.classList.remove('is-fade');
+    } else if (!first) {
       // 0.5 秒で ふわっと入れかえ（1 回だけ）
       this.front.classList.remove('is-fade');
       void this.front.offsetWidth;

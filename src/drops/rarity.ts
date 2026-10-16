@@ -57,6 +57,9 @@ const ITEM_ONLY_RARITY: Record<string, Rarity> = {
   watering_can: 'common',
   long_watering_can: 'uncommon',
   sprinkler: 'uncommon',
+  // BUCKET-1
+  bucket: 'common',
+  water_bucket: 'common',
 };
 
 /** 今の当てはめ（設定 itemRarity。ゲームに 1 つ。全アイテム → Rarity） */

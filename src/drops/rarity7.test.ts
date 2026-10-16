@@ -72,7 +72,7 @@ describe('RARITY-7 表', () => {
 
 describe('RARITY-7 当てはめ・設定', () => {
   it('AC6 rarityAtLeast は全アイテム × 7 段で式と同じ', () => {
-    expect(ITEM_TYPES).toHaveLength(55);
+    expect(ITEM_TYPES).toHaveLength(57);
     for (const it of ITEM_TYPES) {
       for (const t of ids) {
         expect(rarityAtLeast(it.id, t), `${it.id}/${t}`).toBe(rarityIndex(itemRarity(it.id)) >= rarityIndex(t));
@@ -88,7 +88,7 @@ describe('RARITY-7 当てはめ・設定', () => {
       expect(isRarity(r)).toBe(true);
       n[r] = (n[r] ?? 0) + 1;
     }
-    expect(n).toEqual({ common: 26, uncommon: 16, rare: 10, superRare: 3 });
+    expect(n).toEqual({ common: 28, uncommon: 16, rare: 10, superRare: 3 });
     expect(itemRarity('crystal_katana')).toBe('superRare');
   });
 

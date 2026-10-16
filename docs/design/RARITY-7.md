@@ -128,7 +128,7 @@ export function rarityAtLeast(item: ItemId, tier: Rarity): boolean; // #69・#70
 
 | 設定の名前 | 中身 | 効く所 |
 |---|---|---|
-| `itemRarity`（新） | 全アイテム（`ITEM_TYPES` の 55 こ）→ `Rarity`。初期値 = §5 の当てはめ表 | `itemRarity()` を読む所すべて（§2 の 8 つ・`rarityAtLeast`）。そのあとに画面に出した物から効く（もう出ているマスを ぬり直さなくてよい） |
+| `itemRarity`（新） | 全アイテム（`ITEM_TYPES` の 57 こ）→ `Rarity`。初期値 = §5 の当てはめ表 | `itemRarity()` を読む所すべて（§2 の 8 つ・`rarityAtLeast`）。そのあとに画面に出した物から効く（もう出ているマスを ぬり直さなくてよい） |
 | `rarity`（今のまま） | ブロック → `Rarity`。ほったときの数だけに効く | `DigSystem` の dropMax。意味は変えない |
 | `dropMax`（今のまま、キーが 7 つに） | `Rarity` → 数。初期値は表の dropMax | `DigSystem`。一部のキーだけの set も今どおりできる |
 
@@ -168,13 +168,13 @@ export function rarityAtLeast(item: ItemId, tier: Rarity): boolean; // #69・#70
 - #69 の「レアな武器」が何段目以上か（`epic` 以上か `superRare` 以上か など）は **#69 で決める**。#69 は `rarityAtLeast(item, <#69 で決めた段>)` で聞く。
 - この issue では、段階で動き・強さを変える所を作らない。
 
-## 5. 今あるアイテムの当てはめ（全 55 こ）
+## 5. 今あるアイテムの当てはめ（全 57 こ）
 
 PO の基本の方針（案 A）: 今の 4 段の割りあては変えず、5〜7 段目は今は 0 こ。
 
 | 段 | 案 A（PO の基本） | こ数 |
 |---|---|---|
-| 0 common | grass・dirt・stone・sand・leaves・paper・string・cloth・torch・wood_pickaxe・stone_pickaxe・wood_axe・stone_axe・bokuto・ya・waraji・seed_onion・seed_tomato・seed_pumpkin・seed_eggplant・onion・tomato・pumpkin・eggplant・kuwa・watering_can | 26 |
+| 0 common | grass・dirt・stone・sand・leaves・paper・string・cloth・torch・wood_pickaxe・stone_pickaxe・wood_axe・stone_axe・bokuto・ya・waraji・seed_onion・seed_tomato・seed_pumpkin・seed_eggplant・onion・tomato・pumpkin・eggplant・kuwa・watering_can ・bucket・water_bucket | 28 |
 | 1 uncommon | log・coal_ore・yokai_orb・oil・clay・furnace・kawara・brick・tansu・yumi・lantern・kite・futon・haniwa・long_watering_can・sprinkler | 16 |
 | 2 rare | iron_ore・iron_pickaxe・iron_axe・iron_ingot・katana・naginata・kabuto・yoroi・kote・suneate | 10 |
 | 3 superRare | crystal・crystal_katana・omamori | 3 |
@@ -218,8 +218,8 @@ PO の基本の方針（案 A）: 今の 4 段の割りあては変えず、5〜
 | AC3 | 宝石の印 7 つ: どれも 16×16、ぬりのドットが 40 こより多い、ふちのドットが切れない（端の列は とうめい か ふちの色）、7 つの形の模様がぜんぶちがう。`gemShape(i)` は表の gem と同じ。7 以上・負の数は 0〜6 におさめる | 【ユニット】 |
 | AC4 | ことば 7 つ: ぜんぶちがい、空でなく、ひらがな・カタカナ・のばし棒・空白だけ（漢字なし。§3.1）、空白をのぞき 9 文字以下 | 【ユニット】 |
 | AC5 | どの段 id でも、ツールチップ（`buildTooltip`）の stars・`rarityCss` の色、せつめい（`createItemInfo().info`）の stars・rarityWord、`rarityIndex` が表の値と同じ（`rarityOf` に 7 つの id を順に返す仮の関数をわたして確かめる） | 【ユニット】 |
-| AC6 | `rarityAtLeast(item, tier)` は、全 55 アイテム × 7 段で `rarityIndex(itemRarity(item)) >= rarityIndex(tier)` と同じ。`rarityAtLeast(x, 'common')` はいつも true | 【ユニット】 |
-| AC7 | 当てはめ: 全 55 アイテムの段が 7 つの id のどれかで、§5 の選ばれた案の表と同じ（案 A なら epic・mythic・legendary が 0 こ）。今の 4 段の割りあて（今の `rarity.test.ts`・`craft.test.ts`・`itemArtM72.test.ts` の期待）は、案 B の crystal_katana をのぞき変わらない | 【ユニット】 |
+| AC6 | `rarityAtLeast(item, tier)` は、全 57 アイテム × 7 段で `rarityIndex(itemRarity(item)) >= rarityIndex(tier)` と同じ。`rarityAtLeast(x, 'common')` はいつも true | 【ユニット】 |
+| AC7 | 当てはめ: 全 57 アイテムの段が 7 つの id のどれかで、§5 の選ばれた案の表と同じ（案 A なら epic・mythic・legendary が 0 こ）。今の 4 段の割りあて（今の `rarity.test.ts`・`craft.test.ts`・`itemArtM72.test.ts` の期待）は、案 B の crystal_katana をのぞき変わらない | 【ユニット】 |
 | AC8 | アイテムでもあるブロック 14 こで、設定 `itemRarity` の初期値と ほる設定 `rarity` の初期値が同じ | 【ユニット】 |
 | AC9 | 設定: `set('itemRarity', {katana:'legendary'})` のあと `itemRarity('katana')` が `'legendary'`。`set('rarity', {dirt:'banana'})`・`set('itemRarity', {katana:'banana'})`・`set('itemRarity', {nanika:'rare'})` は Error で、値は変わらない。`resetItemRarity()` のあと `itemRarity('katana')` は初期値（案 A: `'rare'`）にもどる | 【ユニット】 |
 | AC10 | ほる: ほる設定 `rarity` で dirt を epic・mythic・legendary にすると、それぞれ 20 回ほって 毎回 1 こ（= 設定 `dropMax` のその段の値）。`dropMax` を `{legendary: 3}` にすると 1〜3 こ | 【ユニット】 |
@@ -318,3 +318,4 @@ PO の基本の方針（案 A）: 今の 4 段の割りあては変えず、5〜
 | 1 | 初版（2026-10-16） |
 | 2 | 台帳の軽微 5 件: G1 §4.2・§4.3・AC9 に 設定 `itemRarity` の置き場所（`rarity.ts` に 1 つ）・`itemRarity()` の読み方・`resetItemRarity()` で戻す方法を追加。G2 §3.1・§3.2 のことばを かな・カタカナだけにそろえた（AC4 と一致）。G3 §9 に `craftModelM6.test.ts:62` を追加。G4 AC14・§8.1 でたんすのマスに `data-rarity` を付けて読む形にした。G5 §7 に「案が決まるまでテストは案 A で書く」を追加 |
 | 3 | オーナー決定（2026-10-16）: 色・宝石の形は案 A、ことばは案 C（ノーマル〜レジェンダリー）、当てはめは案 A（きらめく カタナは上げない）。§3.1 の「未定」を決まった値で埋めた（§3.4 の幅の計算は 旧ことばでの見積りで、新ことばは どれも それより短い） |
+| 4 | main の BUCKET-1（#62）で bucket・water_bucket（common）が入ったので、全 57 こ・common 28 こに合わせた |
