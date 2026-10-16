@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { CraftEvent, ItemId, Recipe } from '../contracts';
 import { createItemInfo, defaultInfoNumbers } from '../craft/info';
 import { ALL_RECIPES } from '../craft/recipes';
+import { rarityTier } from '../drops/rarity';
 import { itemType } from '../inventory/items';
 import { buildCards, buildDetail, buildTiles, buttonState, visibleCards, CraftMadeTracker, pickSelection } from './craftModel';
 
@@ -59,7 +60,7 @@ describe('せつめい パネルの中身（AC4・AC6）', () => {
     const d = buildDetail({ shown: katana, selected: katana, info: info.info('katana'), bake: false, fuelCounts: null, fuelNext: null });
     expect(d.name).toBe('かたな');
     expect(d.stars).toBe(3);
-    expect(d.rarityWord).toBe('めずらしい');
+    expect(d.rarityWord).toBe(rarityTier('rare').word);
     expect(d.buttons).toEqual(['1-9', 'left']);
     expect(d.materials).toEqual([
       { item: 'iron_ingot', have: 1, need: 2, ok: false, inTansu: 0 },

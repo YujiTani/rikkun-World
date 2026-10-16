@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { itemRarity } from '../drops/rarity';
+import { RARITY_TIERS, itemRarity, rarityIndex } from '../drops/rarity';
 import { ITEM_TYPES } from '../inventory/items';
 import { contrastRatio, parseCssColor } from './theme/colorMath';
 import { PALETTE_HEX } from './theme/palette';
-import { CATEGORY_ITEMS, ITEM_CATEGORIES, categoryVar, itemCategory, rarityIndex } from './itemCategory';
+import { CATEGORY_ITEMS, ITEM_CATEGORIES, categoryVar, itemCategory } from './itemCategory';
 import { GEM_SHAPES, gemPixels, gemShape } from './gemArt';
 
 const rgb = (h: string) => parseCssColor(`rgb(${parseInt(h.slice(1, 3), 16)}, ${parseInt(h.slice(3, 5), 16)}, ${parseInt(h.slice(5, 7), 16)})`)!;
@@ -37,16 +37,17 @@ describe('マスの カテゴリー（§3.5 (7)）', () => {
     expect(itemCategory('kuwa')).toBe('tool');
     expect(PALETTE_HEX['--rk-cat-food']).toBe('#8e3d73');
   });
-  it('めずらしさ → 0〜3', () => {
+  it('めずらしさ → 0〜6（7 つの id ぜんぶ）', () => {
     expect(rarityIndex(itemRarity('dirt'))).toBe(0);
     expect(rarityIndex(itemRarity('crystal'))).toBe(3);
+    RARITY_TIERS.forEach((t, i) => expect(rarityIndex(t.id)).toBe(i));
   });
 });
 
 describe('宝石の印', () => {
-  it('4 つの形は ぜんぶちがい、16×16 の中に収まる（ふちが切れない）', () => {
+  it('7 つの形は ぜんぶちがい、16×16 の中に収まる（ふちが切れない）', () => {
     const seen = new Set<string>();
-    for (let r = 0; r < 4; r++) {
+    for (let r = 0; r < 7; r++) {
       const px = gemPixels(r);
       expect(px.length).toBe(256);
       expect(gemShape(r)).toBe(GEM_SHAPES[r]);
@@ -57,6 +58,8 @@ describe('宝石の印', () => {
       }
       seen.add(px.map((p) => p[3] > 0 && p[0] === 0x10 ? 'o' : p[3] > 0 ? 'f' : '.').join(''));
     }
-    expect(seen.size).toBe(4);
+    expect(seen.size).toBe(7);
+    expect(gemShape(7)).toBe(GEM_SHAPES[6]);
+    expect(gemShape(-1)).toBe(GEM_SHAPES[0]);
   });
 });

@@ -3,6 +3,7 @@ import type { ItemId } from '../../contracts';
 import { YOKAI_DROPS } from '../../yokai/ai/config';
 import { findUnrubiedKanji } from '../../ui/text';
 import { itemType } from '../../inventory/items';
+import { rarityTier } from '../../drops/rarity';
 import { CRAFT_DEFAULTS } from '../config';
 import { ALL_RECIPES } from '../recipes';
 import { createItemInfo, defaultInfoNumbers, descOf, type InfoNumbers } from './build';
@@ -108,7 +109,7 @@ describe('つよさ は設定から（U7〜U10）', () => {
   });
   it('たんす: しまえる マス 54。めずらしさのことば', () => {
     expect(make().info('tansu' as ItemId).stats[0].value).toBe(54);
-    expect(make().info('katana').rarityWord).toBe('めずらしい');
+    expect(make().info('katana').rarityWord).toBe(rarityTier('rare').word);
     expect(make().info('katana').stars).toBe(3);
   });
   it('ツールチップの desc は「なにに」と同じ', () => {
