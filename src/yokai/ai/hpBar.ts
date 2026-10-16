@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { boxGeo } from '../common';
+import { nickIconPixels } from '../../ui/itemArtBal';
+import type { Rgba } from '../../world/blocks/textures';
 
 import type { YokaiTitle } from '../../contracts';
 
@@ -17,8 +19,18 @@ export const HP_BAR = {
   titleRange: 16,
   /** 横はばの上限（ブロック） */
   maxWidth: 1.6,
-  /** 1 本の たかさ */
-  barHeight: 0.26,
+  /** 1 本の たかさ（DESIGN 13.3） */
+  barHeight: 0.18,
+  /** 1 本の はば・すきま（20 本で 0.06 × 20 ＋ 0.02 × 19 = 1.58） */
+  barWidth: 0.06,
+  barGap: 0.02,
+  /** アイコンの高さ（バーの高さの 1.5 倍まで）・アイコンとバーの あいだ */
+  iconHeight: 0.27,
+  iconGap: 0.05,
+  /** うしろの 下じき */
+  underlayColor: 0x10141f,
+  underlayOpacity: 0.55,
+  underlayPad: 0.03,
 } as const;
 
 export interface HpBarState {
@@ -48,10 +60,10 @@ export function hpBarState(hp: number, maxHp: number, title: YokaiTitle, dist: n
   return { visible, ...m, icon };
 }
 
-/** 1 本の ふち（間隔・はば）。20 本で 1.6 ブロック以内 */
+/** 1 本の ふち（間隔・はば）。20 本で 1.58 ブロック（1.6 以内） */
 export function hpBarLayout(bars: number): { pitch: number; width: number; total: number } {
-  const pitch = Math.min(0.12, HP_BAR.maxWidth / Math.max(1, bars));
-  const width = pitch * 0.6;
+  const width = HP_BAR.barWidth;
+  const pitch = width + HP_BAR.barGap;
   return { pitch, width, total: (bars - 1) * pitch + width };
 }
 
@@ -66,31 +78,47 @@ function mat(c: HpBarColor | 'gray'): THREE.MeshBasicMaterial {
   return m;
 }
 
-const iconTex = new Map<number, THREE.CanvasTexture>();
-function starTexture(n: number): THREE.CanvasTexture | null {
-  if (typeof document === 'undefined') return null;
-  let t = iconTex.get(n);
+/** アイコンの 絵（16×16 の丸いバッジ。★ の文字ではない） */
+export function hpBarIconPixels(icon: HpBarIcon): Rgba[] {
+  return nickIconPixels(icon);
+}
+
+const iconTex = new Map<HpBarIcon, THREE.DataTexture>();
+/** ドットのまま（ぼかさない）。DataTexture は 下の行が先 */
+function iconTexture(icon: HpBarIcon): THREE.DataTexture {
+  let t = iconTex.get(icon);
   if (!t) {
-    const c = document.createElement('canvas');
-    c.width = 64 * n;
-    c.height = 64;
-    const g = c.getContext('2d');
-    if (g) {
-      g.font = '56px sans-serif';
-      g.textAlign = 'center';
-      g.textBaseline = 'middle';
-      g.fillStyle = '#FFD54F';
-      g.strokeStyle = '#000';
-      g.lineWidth = 4;
-      for (let i = 0; i < n; i++) {
-        g.strokeText('★', 32 + 64 * i, 34);
-        g.fillText('★', 32 + 64 * i, 34);
+    const px = hpBarIconPixels(icon);
+    const data = new Uint8Array(16 * 16 * 4);
+    for (let y = 0; y < 16; y++)
+      for (let x = 0; x < 16; x++) {
+        const c = px[y * 16 + x]!;
+        const i = ((15 - y) * 16 + x) * 4;
+        data[i] = c[0];
+        data[i + 1] = c[1];
+        data[i + 2] = c[2];
+        data[i + 3] = c[3];
       }
-    }
-    t = new THREE.CanvasTexture(c);
-    iconTex.set(n, t);
+    t = new THREE.DataTexture(data, 16, 16, THREE.RGBAFormat);
+    t.magFilter = THREE.NearestFilter;
+    t.minFilter = THREE.NearestFilter;
+    t.generateMipmaps = false;
+    t.colorSpace = THREE.SRGBColorSpace;
+    t.needsUpdate = true;
+    iconTex.set(icon, t);
   }
   return t;
+}
+
+let underlayMaterial: THREE.MeshBasicMaterial | null = null;
+function underlayMat(): THREE.MeshBasicMaterial {
+  underlayMaterial ??= new THREE.MeshBasicMaterial({
+    color: HP_BAR.underlayColor,
+    transparent: true,
+    opacity: HP_BAR.underlayOpacity,
+    depthWrite: false,
+  });
+  return underlayMaterial;
 }
 
 export function disposeHpBarMaterials(): void {
@@ -98,15 +126,27 @@ export function disposeHpBarMaterials(): void {
   mats.clear();
   for (const t of iconTex.values()) t.dispose();
   iconTex.clear();
+  underlayMaterial?.dispose();
+  underlayMaterial = null;
 }
 
-const STAR_COUNT: Record<HpBarIcon, number> = { oyabun: 1, taisho: 2, nushi: 3 };
+export interface HpBarIconInfo {
+  tier: HpBarIcon;
+  /** ドットのまま（ぼかさない）か */
+  nearest: boolean;
+  width: number;
+  height: number;
+  /** バーの左はしと アイコンの右はしの あいだ */
+  gap: number;
+}
 
 /** 頭の上の 体力のバー（細い長方形を 横に ならべる）。点滅しない */
 export class HpBar {
   readonly group = new THREE.Group();
   private readonly rects: THREE.Mesh[] = [];
   private iconMesh: THREE.Mesh | null = null;
+  private under: THREE.Mesh | null = null;
+  private info: HpBarIconInfo | null = null;
   private key = '';
 
   constructor() {
@@ -131,26 +171,42 @@ export class HpBar {
       m.scale.x = width;
       m.position.set(-total / 2 + width / 2 + i * pitch, 0, 0);
     }
+    // 下じき（バー ＋ アイコンの うしろ）
+    const iconH = HP_BAR.iconHeight;
+    const pad = HP_BAR.underlayPad;
+    const left = -total / 2 - (s.icon ? iconH + HP_BAR.iconGap : 0) - pad;
+    const right = total / 2 + pad;
+    const h = (s.icon ? Math.max(iconH, HP_BAR.barHeight) : HP_BAR.barHeight) + pad * 2;
+    if (!this.under) {
+      this.under = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), underlayMat());
+      this.under.renderOrder = -1;
+      this.group.add(this.under);
+    }
+    this.under.material = underlayMat();
+    this.under.scale.set(right - left, h, 1);
+    this.under.position.set((left + right) / 2, 0, -0.03);
+
     if (this.iconMesh) this.iconMesh.visible = false;
+    this.info = null;
     if (s.icon) {
-      const n = STAR_COUNT[s.icon];
-      const tex = starTexture(n);
-      if (tex) {
-        const h = HP_BAR.barHeight * 1.5;
-        if (!this.iconMesh) {
-          this.iconMesh = new THREE.Mesh(
-            new THREE.PlaneGeometry(1, 1),
-            new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false }),
-          );
-          this.group.add(this.iconMesh);
-        }
-        const im = this.iconMesh;
-        (im.material as THREE.MeshBasicMaterial).map = tex;
-        (im.material as THREE.MeshBasicMaterial).needsUpdate = true;
-        im.scale.set(h * n, h, 1);
-        im.position.set(-total / 2 - h * n / 2 - 0.05, 0, 0.03);
-        im.visible = true;
+      if (!this.iconMesh) {
+        this.iconMesh = new THREE.Mesh(
+          new THREE.PlaneGeometry(1, 1),
+          new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false }),
+        );
+        this.group.add(this.iconMesh);
       }
+      const im = this.iconMesh;
+      const tex = iconTexture(s.icon);
+      const m = im.material as THREE.MeshBasicMaterial;
+      if (m.map !== tex) {
+        m.map = tex;
+        m.needsUpdate = true;
+      }
+      im.scale.set(iconH, iconH, 1);
+      im.position.set(-total / 2 - HP_BAR.iconGap - iconH / 2, 0, 0.03);
+      im.visible = true;
+      this.info = { tier: s.icon, nearest: tex.magFilter === THREE.NearestFilter, width: iconH, height: iconH, gap: HP_BAR.iconGap };
     }
   }
 
@@ -166,7 +222,22 @@ export class HpBar {
       this.group.remove(this.iconMesh);
       this.iconMesh = null;
     }
+    if (this.under) {
+      this.under.geometry.dispose();
+      this.group.remove(this.under);
+      this.under = null;
+    }
     this.group.removeFromParent();
+  }
+
+  /** アイコンの 大きさ・場所の 記録（テスト用）。アイコンが 無ければ null */
+  get iconInfo(): HpBarIconInfo | null {
+    return this.group.visible ? this.info : null;
+  }
+
+  /** うしろの 下じき（テスト用） */
+  get underlay(): THREE.Mesh | null {
+    return this.under;
   }
 
   get shown(): boolean {
