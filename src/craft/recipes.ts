@@ -15,11 +15,15 @@ const r = (
   station,
 });
 
-/** つくる 29 こ（M4 §4.1 の 22 こ + M7-2 の 3 こ + #63 の たね 4 こ。カードの順） */
+/** つくる 32 こ（M4 §4.1 の 22 こ + BAL-D の おの 3 こ + M7-2 の 3 こ + #63 の たね 4 こ。カードの順） */
 export const CRAFT_RECIPES: readonly Recipe[] = [
   r('wood_pickaxe', 1, [['log', 3]], true),
   r('stone_pickaxe', 1, [['stone', 3], ['log', 2]], true),
   r('iron_pickaxe', 1, [['iron_ingot', 3], ['log', 2]], true),
+  // BAL-D: おの 3 本（てつの つるはし のすぐ後ろ）
+  r('wood_axe', 1, [['log', 3]], true),
+  r('stone_axe', 1, [['stone', 3], ['log', 2]], true),
+  r('iron_axe', 1, [['iron_ingot', 3], ['log', 2]], true),
   r('furnace', 1, [['stone', 5]], true),
   r('bokuto', 1, [['log', 2]], true),
   r('katana', 1, [['iron_ingot', 2], ['log', 1]], true),

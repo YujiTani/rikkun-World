@@ -175,6 +175,10 @@ export type ItemOnlyId =
   | 'wood_pickaxe'
   | 'stone_pickaxe'
   | 'iron_pickaxe'
+  // BAL-D（BALANCE.md §2.8）: おの 3 本
+  | 'wood_axe'
+  | 'stone_axe'
+  | 'iron_axe'
   | 'iron_ingot'
   | 'bokuto'
   | 'katana'
@@ -1711,6 +1715,9 @@ export const W2_SETTING_DEFAULTS: Readonly<W2Settings> = {
     wood_pickaxe: 59,
     stone_pickaxe: 131,
     iron_pickaxe: 250,
+    wood_axe: 59,
+    stone_axe: 131,
+    iron_axe: 250,
     bokuto: 59,
     katana: 250,
     naginata: 250,

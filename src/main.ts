@@ -857,7 +857,7 @@ time.onPhaseChange((p) => achievements.feedPhase(p));
 const defeatWith = (): DefeatWith => {
   const h = inventory.held()?.item;
   if (h === 'bokuto' || h === 'katana' || h === 'naginata' || h === 'crystal_katana' || h === 'yumi') return h;
-  if (h === 'wood_pickaxe' || h === 'stone_pickaxe' || h === 'iron_pickaxe') return 'pickaxe';
+  if (h === 'wood_pickaxe' || h === 'stone_pickaxe' || h === 'iron_pickaxe' || h === 'wood_axe' || h === 'stone_axe' || h === 'iron_axe') return 'pickaxe';
   return 'hand';
 };
 onDefeatAch = (kind) => {
@@ -1183,7 +1183,7 @@ game.onUpdate((dt) => {
     const ck = tb ? cropKindOfBlock(tb.id) : null;
     farmAimHud.update(a, ck ? nameOf(VEG_ITEM[ck.kind]) : a ? 'はたけ' : '');
   }
-  hotbar.update();
+  hotbar.update(dig.toolHint()?.slot ?? null);
   inventoryScreen.update();
   storageScreen.update();
   achievementsPage.update();
@@ -1232,7 +1232,7 @@ const achievementsHook = {
   },
 };
 const facingTmp = { x: 0, y: 0, z: 0 };
-const hudHook = { actionHint: () => actionHint.current(), yokaiFocus: () => yokaiFocus.current(), yokaiFocusHulls: () => yokaiFocus.hullCount() };
+const hudHook = { toolHint: () => { const h = dig.toolHint(); return h ? { slot: h.slot, ticksLeft: h.ticksLeft } : null; }, actionHint: () => actionHint.current(), yokaiFocus: () => yokaiFocus.current(), yokaiFocusHulls: () => yokaiFocus.hullCount() };
 const guideHook = createGuideHook(playOverlay);
 const lockHook = createLockHook(lock);
 const combatHook = createCombatHook(combat);

@@ -131,8 +131,17 @@ export class Hotbar {
     this.el.style.display = v ? '' : 'none';
   }
 
-  /** 毎ステップ呼ぶ */
-  update(): void {
+  /** あう道具の ヒント（BAL-D §4.6）で 光っているマス。なければ -1 */
+  private hintSlot = -1;
+
+  /** 毎ステップ呼ぶ。hintSlot = ヒントで光らせるマス（なければ null。DigSystem.toolHint()?.slot） */
+  update(hintSlot: number | null = null): void {
+    const hs = hintSlot ?? -1;
+    if (hs !== this.hintSlot) {
+      if (this.hintSlot >= 0) delete this.cells[this.hintSlot]?.root.dataset.hint;
+      if (hs >= 0) this.cells[hs]?.root.setAttribute('data-hint', 'true');
+      this.hintSlot = hs;
+    }
     const sel = this.inv.selected();
     if (sel !== this.lastSelected) {
       this.lastSelected = sel;

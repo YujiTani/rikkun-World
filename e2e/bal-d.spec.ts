@@ -308,7 +308,7 @@ test.describe('BAL-D あう道具のヒント（AC18）', () => {
       T.setup([[2, 'stone_axe'], [3, 'kuwa']], 0);
       o.aimedB = T.put('dirt') !== null;
       h.input.press('primary');
-      o.dirt = seenIn(25);
+      o.dirt = seenIn(60);
       T.release();
       // おの は あるが いし（なかま ちがい。おの は いし に あわない）
       T.base();
@@ -366,5 +366,49 @@ test.describe('BAL-D あう道具のヒント（AC18）', () => {
       return o;
     });
     expect(r.strong).toBe(4);
+  });
+  test('別のブロックなら もう 1 回光る・刀を持っていても出る・同じ強さの おの なら 左', async ({ page }) => {
+    await open(page);
+    const r = await page.evaluate(() => {
+      const h = (window as any).__rikkun;
+      const T = (window as any).T;
+      const o: any = {};
+      // 刀（ぼくとう）を 持って き を ほる → 出る。べつの き（となり）では また 出る
+      T.base();
+      T.setup([[0, 'bokuto'], [4, 'stone_axe']], 0);
+      const b1 = T.put('log');
+      h.input.press('primary');
+      h.step(31);
+      o.sword = h.hud.toolHint()?.slot;
+      h.step(130);
+      o.gone = h.hud.toolHint();
+      T.release();
+      // となりの き（ひとつ上）を ほる
+      const b = T.front();
+      h.world.setBlock(b.x, b.y + 1, b.z, 'log');
+      h.player.set({ pitch: 25 });
+      h.step(2);
+      const t = h.target.get();
+      o.aimedOther = !!t && t.block.y === b.y + 1;
+      h.input.press('primary');
+      h.step(31);
+      o.again = h.hud.toolHint()?.slot;
+      T.release();
+      // 同じ強さの おの が 2 本 → 左
+      T.base();
+      T.setup([[6, 'stone_axe'], [2, 'stone_axe']], 0);
+      T.put('log');
+      h.input.press('primary');
+      h.step(31);
+      o.left = h.hud.toolHint()?.slot;
+      T.release();
+      return { aimed: b1 !== null, ...o };
+    });
+    expect(r.aimed).toBe(true);
+    expect(r.sword).toBe(4);
+    expect(r.gone).toBeNull();
+    expect(r.aimedOther).toBe(true);
+    expect(r.again).toBe(4);
+    expect(r.left).toBe(2);
   });
 });

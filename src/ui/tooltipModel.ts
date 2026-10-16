@@ -38,6 +38,7 @@ export function rarityCss(r: Rarity): string {
 }
 
 const PICKAXES = ['wood_pickaxe', 'stone_pickaxe', 'iron_pickaxe'];
+const AXES = ['wood_axe', 'stone_axe', 'iron_axe'];
 const BLADES = ['bokuto', 'katana', 'naginata', 'crystal_katana'];
 
 /** ツールチップの中身（M4 §2.13 の表の順。当てはまるものだけ） */
@@ -53,6 +54,11 @@ export function buildTooltip(item: ItemId, d: TooltipDeps, stack?: ItemStack | n
   if (PICKAXES.includes(item)) {
     add(`ほる つよさ ${tools.toolPower[item] ?? 1}`, item);
     if ((tools.toolLevel[item] ?? 0) >= 1) add('てつ も ほれる', 'iron_ore');
+    add('いし に つよい', item); // BAL-D §5: あう道具の 1 行
+  }
+  if (AXES.includes(item)) {
+    add(`ほる つよさ ${tools.toolPower[item] ?? 1}`, item);
+    add('き に つよい', item);
   }
   if (BLADES.includes(item)) {
     add(`たたく つよさ ${tools.weaponDamage[item] ?? 1}`, item);
@@ -66,7 +72,11 @@ export function buildTooltip(item: ItemId, d: TooltipDeps, stack?: ItemStack | n
   if (item === 'kabuto') add('たま から まもる', item);
   if (item === 'yoroi' || item === 'kote') add('こうげき から まもる', item);
   if (item === 'suneate') add('おちても いたくない', item);
-  if (item === 'kuwa') add('はたけ を つくる', item);
+  if (item === 'kuwa') {
+    add(`ほる つよさ ${tools.toolPower[item] ?? 1}`, item);
+    add('つち に つよい', item);
+    add('はたけ を つくる', item);
+  }
   if (item === 'watering_can' || item === 'long_watering_can') add('はたけ に みず を まく', item);
   if (item === 'sprinkler') add('まわり の はたけ を しめらせる', item);
   if (seedKindOfItem(item) !== null) add('はたけ に まく', item);

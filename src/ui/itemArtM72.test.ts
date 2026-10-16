@@ -47,6 +47,10 @@ describe('M7-2 アイテム（AC19）', () => {
 });
 
 describe('M7-2 レシピ（AC20 の ユニット部分）', () => {
+  it('おの 3 つは てつの つるはし のすぐ後ろ（BAL-D AC17。id の ならびを 直接）', () => {
+    expect(CRAFT_RECIPES.slice(2, 6).map((r) => r.id)).toEqual(['iron_pickaxe', 'wood_axe', 'stone_axe', 'iron_axe']);
+    expect(CRAFT_RECIPES.slice(3, 6).map((r) => r.inputs.map((i) => `${i.item}${i.count}`).join(','))).toEqual(['log3', 'stone3,log2', 'iron_ingot3,log2']);
+  });
   it('29〜32 こ目は やさい 1 こ → たね 4 こ', () => {
     expect(CRAFT_RECIPES.slice(28).map((r) => [r.id, r.output.count, r.inputs.map((i) => `${i.item}${i.count}`).join(','), r.works])).toEqual([
       ['seed_onion', 4, 'onion1', true],
