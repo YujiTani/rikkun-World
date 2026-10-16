@@ -173,3 +173,36 @@ describe('セクションの光の性質 (VOX-C AC2)', () => {
     expect(d).not.toContain(w.chunkIndex(0, 0));
   });
 });
+
+describe('レビュー指摘（VOX-C 1 周目）', () => {
+  it('高い世界に列を 1 本読みこんでも すぐ落ち着く（自明なセクションは予算に数えない）', () => {
+    const w = new ArrayVoxelWorld({ x: 48, y: 352, z: 48 });
+    w.fill(0, 0, 0, 47, 63, 47, 'stone');
+    const l = new WorldLight(w, new SkyDarkness());
+    const sections = w.column(0, 0)!.sections.map((s) => (s.kind === 'uniform' ? { kind: 'uniform' as const, block: s.block } : s));
+    w.loadColumn({ cx: 3, cz: 1, sections });
+    let frames = 0;
+    while (true) {
+      l.update();
+      frames++;
+      if (l.pendingCount() === 0 || frames > 60) break;
+    }
+    expect(l.pendingCount()).toBe(0);
+    expect(frames).toBeLessThanOrEqual(10);
+  });
+
+  it('読みこんだばかりの列は 光が計算されるまで「まだ」と分かる', () => {
+    const w = new ArrayVoxelWorld({ x: 32, y: 48, z: 32 });
+    w.fill(0, 0, 0, 31, 3, 31, 'stone');
+    const l = new WorldLight(w, new SkyDarkness());
+    expect(l.isColumnLit(0, 0)).toBe(true);
+    const sections = w.column(0, 0)!.sections.map((s) => (s.kind === 'uniform' ? { kind: 'uniform' as const, block: s.block } : s));
+    w.loadColumn({ cx: 2, cz: 0, sections });
+    expect(l.isSectionReady(2, 0, 0)).toBe(false);
+    expect(l.isColumnLit(2, 0)).toBe(false);
+    l.flush();
+    expect(l.isSectionReady(2, 0, 0)).toBe(true);
+    expect(l.isColumnLit(2, 0)).toBe(true);
+    expect(l.isSectionReady(9, 0, 9)).toBe(false);
+  });
+});

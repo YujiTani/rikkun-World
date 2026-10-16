@@ -17,7 +17,9 @@ import { skyDarkness, type SkyDarkness } from './skyDarkness';
  * - セクション S の光は、まわり 3×3×3 のセクションの ブロックだけから計算して S の中だけ書く（順番に関係なく同じ答え）。
  * - ブロックが変わったら、15 マス以内にかかるセクションを「作り直し待ち」に入れ、1 コマに BUDGET 個ずつ計算する。
  *   光が変わったマスの列は、描画側に作り直しを伝える（world.markDirty）。
- * - 見えないセクション（world.isSectionHidden）は計算しない。となりをほったら、作り直しで ③ になる。
+ * - ぜんぶ光を通さないブロックのセクション（VOX-A の isSectionHidden より少し広い。光は 0 のまま）は計算せず、持たない。
+ *   となりをほっても そのセクション自身の光は 0 のまま。ほった側のセクションは 作り直し待ちで計算される。
+ * - 読みこんだばかりの列は 計算されるまで isSectionReady / isColumnLit が false。描画側はそれまでメッシュを作らない。
  */
 
 /** 1 セクションを計算するときの 3×3×3 の 1 辺（マス）。はじめにまとめて計算するときは もっと大きい */
@@ -27,6 +29,8 @@ const TILE = 4;
 const SLAB = 4;
 /** 1 コマに計算するセクションの数（VOX-plan §4 順番待ち） */
 const BUDGET = 2;
+/** 自明なセクションをまとめて片づける時間の上限（ミリ秒） */
+const TIME_BUDGET_MS = 3;
 /** 空 15・明かり 0 のセクションの目印（長さ 1。中身は読まない） */
 const UNI = new Uint8Array(1);
 const UNI_BYTE = 0xf0;
@@ -194,12 +198,39 @@ export class WorldLight implements LightField {
     this.collect();
     this.lastRecomputeCells = 0;
     if (this.pending.size === 0) return;
-    for (let n = 0; n < BUDGET; n++) {
+    // 数えるのは「ほんとうに計算した」セクションだけ。ふさがり・空だけは ただで片づける（時間の上限つき）
+    const t0 = performance.now();
+    let real = 0;
+    while (real < BUDGET && this.pending.size > 0 && performance.now() - t0 < TIME_BUDGET_MS) {
       const key = this.pickNext();
       if (key < 0) break;
       this.pending.delete(key);
+      const before = this.lastRecomputeCells;
       this.computeKey(key);
+      if (this.lastRecomputeCells !== before) real++;
     }
+  }
+
+  /**
+   * このセクションの光は 計算ずみか（契約 VOX-C。contracts.ts の LightField 参照）。
+   * 読みこんだばかり・まだ計算していないセクションは false。作り直し待ちでも 前の値があれば true。
+   */
+  isSectionReady(cx: number, sy: number, cz: number): boolean {
+    const arr = this.lights.get(columnKey(cx, cz));
+    return arr !== undefined && arr[sy] !== undefined;
+  }
+
+  /** この列と、まわり 8 列（読みこんである分）の光が ぜんぶ計算ずみか。メッシュ作りはこれが true になってから */
+  isColumnLit(cx: number, cz: number): boolean {
+    for (let dz = -1; dz <= 1; dz++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        if (!this.world.column(cx + dx, cz + dz)) continue;
+        const arr = this.lights.get(columnKey(cx + dx, cz + dz));
+        if (arr === undefined) return false;
+        for (let i = 0; i < arr.length; i++) if (arr[i] === undefined) return false;
+      }
+    }
+    return true;
   }
 
   /** 作り直し待ちを ぜんぶ計算する（テスト・起動時用） */

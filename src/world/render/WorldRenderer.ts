@@ -411,6 +411,8 @@ export class WorldRenderer {
   private rebuildChunk(index: number): void {
     const cx = index % this.world.chunksX;
     const cz = Math.floor(index / this.world.chunksX);
+    // 光が未計算の列は作らない（「空 15」で明るく出るのを防ぐ）。光が計算されると markDirty で もう一度来る
+    if (!this.light.isColumnLit(cx, cz)) return;
     const data = meshChunk(this.world, cx, cz, this.light, this.crops, this.swayHidden.size > 0 ? this.hideFn : undefined);
     const slot = this.chunks[index];
     const on = this.inRange[index];
