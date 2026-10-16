@@ -3,6 +3,7 @@ import type { DigEvent, DigSystem, ItemId, Vec3 } from '../contracts';
 import { ComboTracker } from './combo';
 import { FX_SETTINGS, type FxSettings } from './config';
 import { BlockPuffs, BreakParticles, CrackOverlay, TargetOutline } from './objects3d';
+import { WHIFF_TONES } from './sfxVoices';
 import type { SoundFx, Tone } from './sound';
 
 export interface DigFxDeps {
@@ -25,7 +26,7 @@ export interface DigFxDeps {
 }
 
 /** 空振りの小さな「ひゅっ」（控えめ） */
-const WHIFF_SOUND: readonly Tone[] = [{ type: 'triangle', f0: 700, f1: 380, delay: 0, dur: 0.07, gain: 0.1 }];
+const WHIFF_SOUND: readonly Tone[] = WHIFF_TONES;
 
 const same = (a: Vec3 | null, b: Vec3 | null) => !!a && !!b && a.x === b.x && a.y === b.y && a.z === b.z;
 
@@ -107,8 +108,9 @@ export class DigFx {
         );
         sound.play('break');
         if (hadItem) {
-          // 数が多いほど少し高く（控えめに 0.5 半音ずつ）
-          sound.play('pickup', this.combo.hit(ev.id) + (ev.count - 1) * 0.5);
+          // 続けて取ると、和音の音を 1 つずつ上がる（comboStep。1 オクターブで止まる）。数が多いほど少し高く（0.5 半音ずつ）
+          this.combo.hit(ev.id);
+          sound.play('pickup', (ev.count - 1) * 0.5, { comboStep: this.combo.chain });
           this.d.onPickup?.(ev.id, ev.count);
         } else {
           notice.showSignal('full');
