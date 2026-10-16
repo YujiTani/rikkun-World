@@ -52,6 +52,7 @@ sectionStats(): {
 meshStats(): {
   geometryBytes: number; geometryBytesLimit: number; // 上限をこえたら遠い順に dispose
   meshCount: number; disposedTotal: number;          // dispose したジオメトリの累計
+  pending: number; // メッシュ作り直しの順番待ちの数（0 で落ちついた）。光の順番待ちは `world.lightPending()`。テストは両方 0 まで進める（最大 3000 コマ、超えたら失敗）
 }
 rebuildLog(clear?: boolean): { x: number; y: number; z: number; kind: 'micro' | 'box' | 'water'; frame: number }[];
 // セクションのメッシュを作り直した記録（古い順、最初の全部の分もふくむ、光だけの作り直しもふくむ）。clear === true は返してから空にする
@@ -60,6 +61,9 @@ rebuildLog(clear?: boolean): { x: number; y: number; z: number; kind: 'micro' | 
 - 段の境目は ±2 のずらしを見こむ（小ブロックは dist ≤ 34、箱は 30 ≤ dist ≤ 50）。
 - 「全部空気」のセクションは必ず `none/empty`、中まで固くて 6 方向も固いセクションは `none/hidden`（高さ 48 でも、`fill` で y 0〜47 をうめれば中の段 `sy=1` が「見えない」になる）。
 - 小ブロックが間に合わず先に箱で出す場合、`tier` は「いま見えている段」。`rebuildLog` に同じセクションが 2 回出てもよい（テストは「ちがうセクションの数」を数える）。
+- **空の面なしのセクション**: 全部空気でも「見えない」でもないが、見える面が 0 のセクションは `tier: 'none', reason: 'empty'`（メッシュを作らない）。
+- **ほったセクションの光を先に**: プレイヤーが変えたセクションは、光の計算を他より先にする（`light` の順番待ちの先頭）。これで「3 コマ以内にメッシュができる」が成り立つ。3 コマのまま。
+- **閉じた穴**: セクションの中ほどで、上下左右が固い所を 1 つほると、作り直すのはそのセクション 1 つだけ（`rebuildLog` のちがうセクションの数 `=== 1`。kind のちがいは同じセクション）。
 - 追加の hook 名・形を変えるときは、このチケットとテストを一緒に直す。
 
 ## こわれる見込みのテスト

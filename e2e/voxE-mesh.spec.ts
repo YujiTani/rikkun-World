@@ -9,6 +9,7 @@ import { expect, test, type Page } from '@playwright/test';
  *  world.sectionInfo(sx, sy, sz): {
  *    tier: 'micro' | 'box' | 'lod' | 'none',   // いま描いている段。lod = 箱の外（列ごと 1 枚の LOD だけ）
  *    reason: 'empty' | 'hidden' | 'unlit' | null,   // tier === 'none' のときだけ理由、それ以外は null
+ *    // 全部空気、または 見える面が 0 のセクションも none / "empty"
  *    meshes: number,       // いま持っている three のメッシュの数（不透明・水で 0〜2）。none / lod は 0
  *    triangles: number,    // そのセクションのメッシュの三角形の合計
  *    dist: number,         // プレイヤーから、そのセクションの水平のいちばん近い所までの距離
@@ -23,6 +24,7 @@ import { expect, test, type Page } from '@playwright/test';
  *  world.meshStats(): {
  *    geometryBytes: number,        // いま持っているセクションのジオメトリの合計（バイト）
  *    geometryBytesLimit: number,   // 上限。これを超えたら遠い順に dispose
+ *    pending: number,              // メッシュ作り直しの順番待ちの数（0 で落ちついた）。光の順番待ちは world.lightPending()
  *    meshCount: number,            // いま持っているセクションのメッシュの数
  *    disposedTotal: number,        // はじまってから dispose したジオメトリの数
  *  }
@@ -35,6 +37,7 @@ const ASSETS = 'docs/test-reports/assets';
 test.describe.configure({ timeout: 180_000 });
 
 async function open(page: Page, query = '?nosave=1') {
+  await page.addInitScript(`window.__quiet = ${QUIET_SRC};`);
   await page.goto('/' + query);
   await page.waitForFunction(() => window.__rikkun?.ready === true);
   await page.evaluate(() => window.__rikkun!.achievements.mute(true));
@@ -50,11 +53,20 @@ async function settle(page: Page) {
     h.yokai.clear();
     h.time.set(1000);
     h.step(2);
-    // メッシュと光の順番待ちが空になるまで（最大 600 コマ）
-    for (let i = 0; i < 60 && h.world.lightPending() > 0; i++) h.step(10);
-    h.step(30);
+    h.step(10);
+    (window as any).__quiet(h);
   });
 }
+
+/** ページの中で使う: 光とメッシュの順番待ちが両方 0 になるまで進める。最大 3000 コマ、超えたら理由つきで失敗 */
+const QUIET_SRC = `(h) => {
+  let n = 0;
+  while (h.world.lightPending() > 0 || h.world.meshStats().pending > 0) {
+    if (n >= 3000) throw new Error('QUIET_TIMEOUT: lightPending=' + h.world.lightPending() + ' meshPending=' + h.world.meshStats().pending);
+    h.step(5); n += 5;
+  }
+  h.step(2);
+}`;
 
 test.describe('VOX-E メッシュ', () => {
   test('AC1: スタートで、近くは小ブロック・その外は箱・さらに遠くは LOD（段ごとのセクション数とスクショ）', async ({ page }) => {
@@ -159,8 +171,7 @@ test.describe('VOX-E メッシュ', () => {
       const h = (window as any).__rikkun;
       // x・z 16〜79、高さ 0〜47 を石でうめる → セクション (2,1,2) は 6 方向とも固いセクションにかこまれる
       h.world.fill(16, 0, 16, 79, 47, 79, 'stone');
-      h.step(30);
-      for (let i = 0; i < 30 && h.world.lightPending() > 0; i++) h.step(10);
+      (window as any).__quiet(h);
       const before = h.world.sectionInfo(2, 1, 2);
       const hiddenBefore = h.world.sectionStats().noneBy.hidden;
       h.world.rebuildLog(true);
@@ -168,7 +179,7 @@ test.describe('VOX-E メッシュ', () => {
       let steps = 0;
       let after = h.world.sectionInfo(2, 1, 2);
       while (steps < 6 && after.meshes === 0) { h.step(1); steps++; after = h.world.sectionInfo(2, 1, 2); }
-      h.step(6);
+      (window as any).__quiet(h);
       const log = h.world.rebuildLog(true);
       const keys = new Set(log.map((e: any) => `${e.x},${e.y},${e.z}`));
       return { before, after, steps, hiddenBefore, keys: [...keys], hiddenAfter: h.world.sectionStats().noneBy.hidden };
@@ -183,7 +194,7 @@ test.describe('VOX-E メッシュ', () => {
     expect(r.hiddenAfter).toBeLessThan(r.hiddenBefore);
     // 作り直したのは、そのセクションだけ（まわりは固いままで見える面が増えないので、となりは作り直さない）
     expect(r.keys).toContain('2,1,2');
-    expect(r.keys.length).toBeLessThanOrEqual(1);
+    expect(r.keys.length).toBe(1);
   });
 
   test('AC3: ブロックを 1 つほると、作り直すのはそのセクション（境目ならとなりも）だけ', async ({ page }) => {
@@ -195,13 +206,13 @@ test.describe('VOX-E メッシュ', () => {
       // スタート近くで、セクションの中ほど（x・z が 16 の中で 4〜11）の石か土をほる場所を、高さ 4〜11 の中で探す
       let spot: { x: number; y: number; z: number } | null = null;
       const bx = Math.floor(sp.x / 16) * 16, bz = Math.floor(sp.z / 16) * 16;
-      for (let dz = 0; dz < 16 && !spot; dz++)
-        for (let dx = 0; dx < 16 && !spot; dx++)
+      const solid = (x: number, y: number, z: number) => { const b = h.world.getBlock(x, y, z); return b !== 'air' && b !== 'water' && b !== 'outside'; };
+      // セクションの真ん中（x・z が 16 の中で 6〜9）で、上下左右の 6 方向が固い所（ほると閉じた穴になる）を探す
+      for (let dz = 0; dz < 4 && !spot; dz++)
+        for (let dx = 0; dx < 4 && !spot; dx++)
           for (const y of [8, 6, 10, 5, 11]) {
-            const x = bx + 6 + (dx % 4), z = bz + 6 + (dz % 4);
-            const here = h.world.getBlock(x, y, z);
-            if (here !== 'air' && here !== 'water' && h.world.getBlock(x, y + 1, z) !== 'air') {
-              // 上がつまった固い所 → ほると穴ができる
+            const x = bx + 6 + dx, z = bz + 6 + dz;
+            if (solid(x, y, z) && solid(x + 1, y, z) && solid(x - 1, y, z) && solid(x, y + 1, z) && solid(x, y - 1, z) && solid(x, y, z + 1) && solid(x, y, z - 1)) {
               spot = { x, y, z };
               break;
             }
@@ -210,27 +221,23 @@ test.describe('VOX-E メッシュ', () => {
       const sec = [Math.floor(spot.x / 16), Math.floor(spot.y / 16), Math.floor(spot.z / 16)];
       const info0 = h.world.sectionInfo(sec[0], sec[1], sec[2]);
       h.world.rebuildLog(true);
-      const hashBefore = h.world.hash(sec[0], sec[2]);
       h.world.setBlock(spot.x, spot.y, spot.z, 'air');
       let steps = 0;
       let info = h.world.sectionInfo(sec[0], sec[1], sec[2]);
       while (steps < 3 && info.triangles === info0.triangles) { h.step(1); steps++; info = h.world.sectionInfo(sec[0], sec[1], sec[2]); }
-      h.step(8);
+      (window as any).__quiet(h);
       const interior = h.world.rebuildLog(true);
       const interiorKeys = [...new Set(interior.map((e: any) => `${e.x},${e.y},${e.z}`))];
-      // 境目のブロック: セクション (sec) の x の左はし（x % 16 === 0）。となりは x-1 のセクション
-      const bxEdge = sec[0] * 16;
-      const edge = { x: bxEdge, y: spot.y, z: spot.z };
+      // 境目のブロック: セクションの右はし（x % 16 === 15）。となりは sx+1 のセクション。1 回だけ変える
+      const edge = { x: sec[0] * 16 + 15, y: spot.y, z: spot.z };
       const edgeWas = h.world.getBlock(edge.x, edge.y, edge.z);
-      h.world.setBlock(edge.x, edge.y, edge.z, 'stone'); // どちらでも変化させる（石の上に置く or すでに石ならそのまま）
-      h.world.setBlock(edge.x, edge.y, edge.z, 'air');
-      h.step(1);
       h.world.rebuildLog(true);
       h.world.setBlock(edge.x, edge.y, edge.z, edgeWas === 'air' ? 'stone' : 'air');
-      h.step(10);
+      (window as any).__quiet(h);
       const border = h.world.rebuildLog(true);
       const borderKeys = [...new Set(border.map((e: any) => `${e.x},${e.y},${e.z}`))];
-      return { spot, sec, steps, info0, info, interiorKeys, borderKeys, hashChanged: h.world.hash(sec[0], sec[2]) !== hashBefore };
+      const edgeNow = h.world.getBlock(edge.x, edge.y, edge.z);
+      return { edge, edgeWas, edgeNow, spot, sec, steps, info0, info, interiorKeys, borderKeys };
     });
     console.log('AC3', JSON.stringify(r));
     expect(r.noSpot).toBeUndefined();
@@ -239,7 +246,9 @@ test.describe('VOX-E メッシュ', () => {
     expect(r.info.triangles).not.toBe(r.info0.triangles);
     // 中ほど: そのセクションだけ（ふつうは 1 つ。穴の光が上のセクションのメッシュに影響しても、まわりの 1 つまで）
     expect(r.interiorKeys).toContain(r.sec.join(','));
-    expect(r.interiorKeys.length).toBeLessThanOrEqual(2);
+    expect(r.interiorKeys.length).toBe(1); // 閉じた穴は、そのセクションだけ（ちがう kind は同じセクション）
+    expect(r.edgeNow).not.toBe(r.edgeWas);
+    expect(r.edge.x % 16).toBe(15);
     // 境目: そのセクション＋となり 1 つ（合わせて 2 つ）まで
     expect(r.borderKeys.length).toBeGreaterThanOrEqual(1);
     expect(r.borderKeys.length).toBeLessThanOrEqual(2);
@@ -258,13 +267,16 @@ test.describe('VOX-E メッシュ', () => {
       const corners: [number, number][] = [[3.5, 3.5], [124.5, 3.5], [124.5, 124.5], [3.5, 124.5]];
       const lap = () => {
         let max = 0;
+        const perCorner: number[] = [];
         const farMesh: number[] = [];
         for (const [x, z] of corners) {
           const gy = h.world.groundHeight(Math.floor(x), Math.floor(z));
           h.player.set({ position: { x, y: gy + 2, z }, velocity: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: 0 });
           h.step(40);
-          for (let i = 0; i < 20 && h.world.lightPending() > 0; i++) h.step(10);
-          max = Math.max(max, h.world.meshStats().geometryBytes);
+          (window as any).__quiet(h);
+          const gb = h.world.meshStats().geometryBytes;
+          perCorner.push(gb);
+          max = Math.max(max, gb);
           // いまの場所から 96 より遠いセクションに、メッシュはない
           let n = 0;
           for (let y = 0; y < 3; y++)
@@ -275,7 +287,7 @@ test.describe('VOX-E メッシュ', () => {
               }
           farMesh.push(n);
         }
-        return { max, farMesh };
+        return { max, farMesh, perCorner };
       };
       const start = h.world.meshStats();
       const a = lap();
@@ -294,7 +306,8 @@ test.describe('VOX-E メッシュ', () => {
     // geometryBytes は上限をこえず、2 周目・3 周目で増え続けない
     expect(r.end.geometryBytesLimit).toBeGreaterThan(0);
     for (const m of [r.a.max, r.b.max, r.c.max]) expect(m).toBeLessThanOrEqual(r.end.geometryBytesLimit);
-    expect(r.c.max).toBeLessThanOrEqual(Math.max(r.a.max, r.b.max) * 1.1);
+    // 落ちついたあとは、同じ場所で同じ大きさ（時間にゆれない）。周をかさねても増えない
+    expect(r.c.perCorner).toEqual(r.b.perCorner);
     expect(r.end.meshCount).toBeLessThanOrEqual(Math.max(r.mid.meshCount, r.start.meshCount) * 2);
   });
 });
