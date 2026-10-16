@@ -1,4 +1,5 @@
 import type { ItemId, YokaiKind } from '../../contracts';
+import { yokaiStrength } from '../stats';
 
 /**
  * 妖怪の数値（仕様 M3-combat §4.2・§4.3・§4.5・§4.6 の「設定の名前」と同じ）。
@@ -183,8 +184,8 @@ export const AI_CONST = {
 
 /** 攻撃のダメージ（体力の数。ハート半分 = 1。オーナー決定で M3 の 2 倍） */
 export const ATTACK_DAMAGE: Record<YokaiKind, number> = {
-  karakasa: 2,
-  chochin: 2,
-  rokurokubi: 2,
-  nurikabe: 16,
+  karakasa: yokaiStrength('karakasa').attack,
+  chochin: yokaiStrength('chochin').attack,
+  rokurokubi: yokaiStrength('rokurokubi').attack,
+  nurikabe: yokaiStrength('nurikabe').attack,
 };
