@@ -37,7 +37,7 @@
 - **モデルの使い分け**: 計画・方向（PO, `designer`, `art-director`, `sound-director`）= Opus。作る・見る・テスト（ほかの係）= Sonnet。ファイル探し・単純作業 = Haiku。
 - 依頼文は短く。詳しい指示はファイルに書いて「〇〇を読んで」と渡す。同じ資料を何人にも読ませない。
 - 細かい差し戻しは、別のエージェントを起こさず、同じエージェントに続けて頼む。差分がとても大きいときだけ、レビュー係を担当ごとに 2〜3 人に分ける。
-- **E2E**: 全部（`npm run test:e2e`）は PR の CI が回す。エージェントは関係する spec と smoke だけ回す（例: 農業なら m7・m2・smoke）。開発者・レビュー係は `npm run check:fast` だけ。`--workers` は付けない（設定の 3 を使う）。
+- **E2E**: 手元は「新しいテストが赤 → 緑」の確認と、関係する spec と smoke だけ（例: 農業なら m7・m2・smoke）。push の前に全部（`npm run test:e2e`・`npm run check`）は回さず、PR の CI にまかせる。開発者・レビュー係は `npm run check:fast` だけ。`--workers` は付けない（設定の 3 を使う）。
 - スクショはつなぎ込み担当が撮った物を使い、足りない画面だけ撮る。
 
 ## コマンド
@@ -52,7 +52,7 @@
 | 速いチェック（型＋ユニット） | `npm run check:fast` |
 | 速い E2E（smoke など） | `npm run test:e2e:fast` |
 | UI 検査（全画面×3 つの大きさ、約 30 秒） | `npm run check:ui` → 結果とスクショは `ui-gate-report/` |
-| 全部（E2E 込み） | `npm run check` |
+| 全部（E2E 込み。手元では回さず CI にまかせる） | `npm run check` |
 
 ## コードのきまり
 
