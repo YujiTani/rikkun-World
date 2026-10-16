@@ -5,6 +5,7 @@ import { COMBAT_FX, invincibleAlpha } from './combatFxModel';
 import { playCombat } from './combatSounds';
 import { FX_SETTINGS, type FxSettings } from './config';
 import type { SoundFx } from './sound';
+import { logSound } from './soundLog';
 import { TITLE_RULES } from '../yokai/title';
 
 export interface CombatFxDeps {
@@ -24,6 +25,8 @@ export interface CombatFxDeps {
   homeNotice: { show(): void; update(dt: number): void };
   edge: { flash(): void; update(dt: number): void };
   clock?: { set(phase: DayPhase): void };
+  /** 二つ名の出現音（音ファイル）。無ければ 鳴らさない（頼みの記録は する） */
+  titleSound?: { play(title: 'oyabun' | 'taisho' | 'nushi'): unknown };
   /** アイテムが入った（ホットバーの飛ぶ絵）。ようかいだまが入ったとき */
   onPickup?: (item: ItemId, count: number) => void;
   settings?: FxSettings;
@@ -58,11 +61,15 @@ export class CombatFx {
     });
   }
 
-  /** 二つ名が出た音（仮: 今の「ぽわん」を 低くして鳴らす。本物は #113・#114 のあと #115 で入れかえる）。鳴っている間は あとの音を重ねない */
+  /**
+   * 二つ名が出た音（版 B の音ファイル）。出来事 1 回で「鳴らす頼み」を 1 回記録する（読めたかに関係なく）。
+   * 鳴っている間（聞こえる長さ）の 2 体目は 頼まない。
+   */
   private playTitleSound(title: 'oyabun' | 'taisho' | 'nushi'): void {
     if (this.titleSoundLeft > 0) return;
     this.titleSoundLeft = TITLE_RULES[title].soundSeconds;
-    playCombat(this.d.sound, 'spawn', title === 'oyabun' ? -5 : title === 'taisho' ? -8 : -12);
+    logSound(`appear_${title}`);
+    this.d.titleSound?.play(title);
   }
 
   private rand(): number {

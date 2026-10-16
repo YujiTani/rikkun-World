@@ -64,6 +64,8 @@ import { YokaiNameplates } from './ui/yokaiNameplates';
 import { actionHintLines } from './ui/actionHintModel';
 import { createRng } from './world/gen/random';
 import { FX_SETTINGS } from './fx/config';
+import { drainSounds } from './fx/soundLog';
+import { createBrowserTitleSound } from './fx/titleSound';
 import { SoundFx } from './fx/sound';
 import { DigSystemImpl, createDigConfig, createDigHook } from './dig';
 import { InventoryImpl, createInventoryHook } from './inventory';
@@ -207,6 +209,17 @@ bindKeyboardAndMouse(window, game.input, wheel);
 const look = new MouseLook(lock);
 const pointerLock = bindPointerLock(document, window, game.renderer.domElement, lock, look, game.input);
 const fxSound = new SoundFx();
+// 二つ名の出現音（音ファイル）。プレイヤーの 最初の 操作のあとで 読みこむ（それまで AudioContext を 作らない）
+const titleSound = createBrowserTitleSound(() => FX_SETTINGS.fxVolume);
+{
+  const warm = (): void => {
+    window.removeEventListener('pointerdown', warm, true);
+    window.removeEventListener('keydown', warm, true);
+    void titleSound.preload();
+  };
+  window.addEventListener('pointerdown', warm, true);
+  window.addEventListener('keydown', warm, true);
+}
 const playOverlay = new PlayOverlay(hud, lock, () => pointerLock.request(), () => playCraft(fxSound, 'tab'));
 
 // プレイヤーとカメラ
@@ -746,6 +759,7 @@ const combatFx = new CombatFx({
   homeNotice: combatUi.homeNotice,
   edge: combatUi.edge,
   clock: combatUi.clock,
+  titleSound,
   onPickup: (item, count) => hotbar.pickup(item, count),
 });
 
@@ -1358,6 +1372,8 @@ installTestHook(game, overlay, {
   combat: {
     ...combatHook,
     arrows: toolHook.arrows,
+    /** 鳴らす頼み・鳴らした音の名前の列（呼ぶと空） */
+    sounds: () => drainSounds(),
     events: () => [...combatHook.events(), ...toolHook.arrowEvents()],
   } as unknown as TestHookGroups['combat'],
   ...logHook,
