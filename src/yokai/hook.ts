@@ -14,6 +14,10 @@ export function createYokaiHook(m: YokaiManager) {
       fireballs: (): number => m.fireballCount(),
       /** 体力を 決める（準備用。最大を こえて も よい） */
       setHp: (id: number, hp: number): boolean => m.setHp(id, hp),
+      /** 色の段階・暗さ・いまの色（BAL-G。テスト用） */
+      palette: (id: number) => m.paletteInfo(id),
+      /** 頭の印・ヌシの光（BAL-G。テスト用） */
+      marks: (id: number) => m.marksInfo(id),
       /** 線にふれる妖怪（テスト用） */
       raycast: (origin: Vec3, dir: Vec3, max: number) => m.raycast(origin, dir, max),
     },

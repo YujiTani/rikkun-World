@@ -789,6 +789,52 @@ export class YokaiManager implements YokaiWorld {
     return this.barStateOf(e);
   }
 
+  /** テスト窓口 yokai.palette 用: 色の段階・暗さ・いまの材料の色（テクスチャなし）・ぬりかべの もよう（2 色のテクスチャ）の色 */
+  paletteInfo(id: number): { stage: 1 | 2 | 3; brightness: number; colors: number[]; textureColors: number[] } | null {
+    const e = this.ents.find((q) => q.id === id);
+    if (!e || e.remove) return null;
+    const colors = new Set<number>();
+    const tex = new Set<number>();
+    e.model.root.traverse((o) => {
+      if (!(o instanceof THREE.Mesh)) return;
+      for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
+        const mm = m as THREE.MeshBasicMaterial;
+        const data = (mm.map?.image as { data?: Uint8Array } | undefined)?.data;
+        if (!mm.map) colors.add(mm.color.getHex());
+        else if (data) {
+          const own = new Set<number>();
+          for (let i = 0; i < data.length; i += 4) if (data[i + 3]! > 0) own.add((data[i]! << 16) | (data[i + 1]! << 8) | data[i + 2]!);
+          if (own.size <= 2 && !own.has(0x222222)) for (const c of own) tex.add(c);
+        }
+      }
+    });
+    return { stage: e.stage, brightness: e.bright, colors: [...colors], textureColors: [...tex] };
+  }
+
+  /** テスト窓口 yokai.marks 用: 頭の印・ヌシの光 */
+  marksInfo(id: number): {
+    mark: 'none' | 'hachimaki' | 'crown';
+    markColors: number[];
+    markOnHead: boolean;
+    glow: null | { color: number; opacity: number; additive: boolean; lift: number };
+  } | null {
+    const e = this.ents.find((q) => q.id === id);
+    if (!e || e.remove) return null;
+    const n = e.model.nickInfo();
+    let glow = null;
+    if (n.glow) {
+      const mat = n.glow.material as THREE.MeshBasicMaterial;
+      const g = n.glow.geometry as THREE.BoxGeometry;
+      glow = {
+        color: mat.color.getHex(),
+        opacity: mat.opacity,
+        additive: mat.blending === THREE.AdditiveBlending,
+        lift: (n.glow.position.y - g.parameters.height / 2) / Math.max(1e-6, e.model.size.height),
+      };
+    }
+    return { mark: n.kind, markColors: n.markColors, markOnHead: n.markOnHead, glow };
+  }
+
   /** テスト窓口用: 出現は decidePlace を通る（§6 のきまりもそこ）。これは あとから 二つ名を かえる口 */
   /** 二つ名を決めなおす（体力・攻撃力・大きさを 計算しなおす。体力は割合をたもつ。§6 のきまりを通る） */
   setTitle(id: number, title: YokaiTitle): boolean {
@@ -874,6 +920,10 @@ export class YokaiManager implements YokaiWorld {
     const full = e.hp >= e.maxHp;
     const ratio = e.maxHp > 0 ? e.hp / e.maxHp : 1;
     e.title = title;
+    if (e.model.nickTitle !== title) {
+      e.model.setNickMarks(title);
+      applyDollBrightness(e.model, e.kind, e.bright, e.stage); // 印の色にも 夜の暗さ・段階を かける
+    }
     e.maxHp = st.hp;
     e.hp = full ? st.hp : Math.max(1, Math.ceil(st.hp * ratio));
     e.attack = st.attack;

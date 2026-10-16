@@ -4,7 +4,7 @@ import { clockPixels, hammerPixels, isM4Item, m4ItemPixels } from './itemArtM4';
 import { farmExtraPixels, isM7Item, m7ItemPixels, type FarmExtraIcon } from './itemArtM7';
 import { isM72Item, m72ItemPixels } from './itemArtM72';
 import { bucketItemPixels, isBucketItem } from './bucketArt';
-import { axePixels, isAxeItem } from './itemArtAxe';
+import { axeItemPixels, isAxeItem } from './itemArtBal';
 import { tansuPixels } from '../storage/tansuArt';
 import { BLOCK_TILES, TILE_SIZE, getTilePixels, type Rgba, type TileName } from '../world/blocks/textures';
 
@@ -19,7 +19,7 @@ export function itemIconPixels(item: ItemId): Pixels {
   if (item === 'yokai_orb') return orbPixels();
   if ((item as string) === 'tansu') return tansuPixels('icon').map(hexToRgba);
   if (isMaterialItem(item)) return materialPixels(item);
-  if (isAxeItem(item)) return axePixels(item);
+  if (isAxeItem(item)) return axeItemPixels(item);
   if (isM4Item(item)) return m4ItemPixels(item);
   if (isM7Item(item)) return m7ItemPixels(item);
   if (isM72Item(item)) return m72ItemPixels(item);

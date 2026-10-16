@@ -97,6 +97,8 @@ describe('BAL-B AC3: M × 二つ名 の数（からかさ 48 こ）', () => {
     expect(TITLES.map((t) => TITLE_RULES[t].speedMul)).toEqual([1, 1, 1.1, 1.2]);
     expect(TITLES.map((t) => TITLE_RULES[t].dropRolls)).toEqual([1, 2, 3, 4]);
     expect(TITLES.map((t) => TITLE_RULES[t].bodyScale)).toEqual([1, 1.25, 1.25, 1.5]);
+    // BAL-G: 出現音の重ねない時間 = 版 B の 聞こえる長さ（−20 dB まで。BALANCE §5・§6）。仮の 1.0・1.5・2.5 はやめた
+    expect(TITLES.map((t) => TITLE_RULES[t].soundSeconds)).toEqual([0, 3.0, 3.8, 5.2]);
     expect(yokaiStrength('karakasa', 1, 'nushi').dropRolls).toBe(4);
     expect(yokaiStats('karakasa', 'nushi').speed).toBeCloseTo(1.8, 9);
   });

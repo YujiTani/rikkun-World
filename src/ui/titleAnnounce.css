@@ -26,6 +26,6 @@
   display: none;
 }
 #title-announce .title-announce-icon {
-  color: #ffd54f;
-  white-space: nowrap;
+  flex: none;
+  image-rendering: pixelated;
 }
