@@ -1,15 +1,17 @@
 import { Color, PerspectiveCamera, WebGLRenderer } from 'three';
 import { CHUNK_SIZE } from '../../world/VoxelWorld';
-import { PROTO_MODES, ProtoScene, type ProtoMode } from './ProtoScene';
+import { MICRO_RADII, PROTO_MODES, ProtoScene, type ProtoMode } from './ProtoScene';
 
 /** 9×9×9 の試しの場面（VOX-0）。ゲーム本体とは別ページ。計測の入口は window.__voxelProto */
 
 export interface Measurement {
   mode: ProtoMode;
+  /** hybrid のとき、小ブロックの形で描く距離 */
+  microRadius: number | null;
   triangles: { start: number; sky: number };
   drawCalls: { start: number; sky: number };
   geometryBytes: { start: number; sky: number };
-  chunks: { start: { near: number; far: number }; sky: { near: number; far: number } };
+  chunks: { start: { micro: number; box: number; far: number }; sky: { micro: number; box: number; far: number } };
   buildAllMs: number;
   buildSkyExtraMs: number;
   rebuildChunkMs: { median: number; max: number; samples: number };
@@ -37,10 +39,14 @@ const camera = new PerspectiveCamera(65, window.innerWidth / window.innerHeight,
 camera.rotation.order = 'YXZ';
 
 const proto = new ProtoScene(readMode());
+const rParam = Number(new URLSearchParams(location.search).get('r'));
+if ((MICRO_RADII as readonly number[]).includes(rParam)) proto.microRadius = rParam;
 proto.scene.background = new Color(0x9ad0f5);
 const spawn = proto.island.spawn();
 
 // ---- カメラ
+/** 1 回の applyCamera で作るチャンクの数（遊ぶとき 2。計測・ポーズ切りかえは無制限） */
+let updateBudget = Number.POSITIVE_INFINITY;
 let yaw = 0;
 let pitch = 0;
 const pos = { x: 0, y: 0, z: 0 };
@@ -89,7 +95,7 @@ function setPose(name: PoseName): void {
 function applyCamera(): void {
   camera.position.set(pos.x, pos.y, pos.z);
   camera.rotation.set(pitch, yaw, 0);
-  proto.update(Math.round(pos.x), Math.round(pos.z));
+  proto.update(Math.round(pos.x), Math.round(pos.z), updateBudget);
 }
 
 // ---- 操作（試作なので Action 経由でない）
@@ -149,6 +155,17 @@ function setMode(mode: ProtoMode): void {
   proto.update(Math.round(pos.x), Math.round(pos.z));
 }
 for (const m of PROTO_MODES) modeButtons.set(m, addButton(m, () => setMode(m)));
+const radiusButtons = MICRO_RADII.map((r) =>
+  addButton(`r=${r}`, () => {
+    proto.setMicroRadius(r);
+    syncRadius();
+    applyCamera();
+  }),
+);
+function syncRadius(): void {
+  MICRO_RADII.forEach((r, i) => radiusButtons[i].classList.toggle('on', r === proto.microRadius));
+}
+syncRadius();
 const orbitBtn = addButton('ぐるっとまわる', () => {
   orbit = !orbit;
   syncOrbitButton();
@@ -175,7 +192,9 @@ function frame(now: number): void {
   if (frames.length > 120) frames.shift();
   last = now;
   move(dt);
+  updateBudget = 2;
   applyCamera();
+  updateBudget = Number.POSITIVE_INFINITY;
   renderer.render(proto.scene, camera);
   if (now - hudAt > 250) {
     hudAt = now;
@@ -190,7 +209,7 @@ function refreshHud(): void {
   const worst = n ? Math.max(...frames) : 0;
   const info = renderer.info;
   statsEl.textContent = [
-    `ほうしき: ${proto.mode}`,
+    `ほうしき: ${proto.mode}${proto.mode === 'hybrid' ? `（r=${proto.microRadius}）` : ''}`,
     `fps: ${avg > 0 ? (1000 / avg).toFixed(1) : '-'} （さいあく ${worst.toFixed(1)} ms）`,
     `三角形: ${info.render.triangles.toLocaleString()}`,
     `描画回数: ${info.render.calls}`,
@@ -219,7 +238,7 @@ function timeRender(samples: number, finish: boolean): number {
   return median(t);
 }
 
-function measureAt(): { tri: number; calls: number; bytes: number; chunks: { near: number; far: number }; cpu: number; fin: number } {
+function measureAt(): { tri: number; calls: number; bytes: number; chunks: { micro: number; box: number; far: number }; cpu: number; fin: number } {
   renderer.render(proto.scene, camera); // 慣らし（シェーダーのコンパイル）
   renderer.getContext().finish();
   renderer.render(proto.scene, camera);
@@ -265,6 +284,7 @@ function measure(): Measurement {
   }
   return {
     mode: proto.mode,
+    microRadius: proto.mode === 'hybrid' ? proto.microRadius : null,
     triangles: { start: a.tri, sky: b.tri },
     drawCalls: { start: a.calls, sky: b.calls },
     geometryBytes: { start: a.bytes, sky: b.bytes },
@@ -282,6 +302,11 @@ const hook = {
   modes: PROTO_MODES,
   getMode: (): ProtoMode => proto.mode,
   setMode,
+  setMicroRadius: (r: number): void => {
+    proto.setMicroRadius(r);
+    syncRadius();
+    applyCamera();
+  },
   measure,
   rebuildChunk: (cx: number, cz: number): number => proto.rebuildChunk(cx, cz),
   setPose,

@@ -7,7 +7,16 @@ import { test } from '@playwright/test';
  * renderCpuMs は目安。本当の fps はオーナーの Mac で。
  * スクショ: docs/screenshots/VOX-0/（4 方式 × スタート・上空 と、greedyShape の近くの大きな絵）
  */
-const MODES = ['current', 'naive', 'greedyColor', 'greedyShape'] as const;
+type Cfg = { mode: 'current' | 'naive' | 'greedyColor' | 'greedyShape' | 'hybrid'; r?: number; shots: boolean; close: boolean };
+const CONFIGS: Cfg[] = [
+  { mode: 'current', shots: true, close: false },
+  { mode: 'naive', shots: true, close: false },
+  { mode: 'greedyColor', shots: true, close: false },
+  { mode: 'greedyShape', shots: true, close: true },
+  { mode: 'hybrid', r: 16, shots: true, close: true },
+  { mode: 'hybrid', r: 24, shots: false, close: false },
+  { mode: 'hybrid', r: 32, shots: false, close: false },
+];
 const SHOT_DIR = 'docs/screenshots/VOX-0';
 
 test('9×9×9 の 4 方式を測る', async ({ page }) => {
@@ -25,31 +34,36 @@ test('9×9×9 の 4 方式を測る', async ({ page }) => {
   await page.waitForFunction(() => window.__voxelProto?.ready === true, undefined, { timeout: 300_000 });
 
   const results: unknown[] = [];
-  for (const mode of MODES) {
-    await page.evaluate((m) => {
+  for (const cfg of CONFIGS) {
+    const { mode } = cfg;
+    await page.evaluate((c) => {
       const h = window.__voxelProto!;
       h.setRunning(false);
-      h.setMode(m);
-    }, mode);
+      h.setMode(c.mode);
+      if (c.r) h.setMicroRadius(c.r);
+    }, cfg);
 
-    for (const pose of ['start', 'sky'] as const) {
-      await page.evaluate((p) => {
-        const h = window.__voxelProto!;
-        h.setPose(p);
-        h.renderOnce();
-      }, pose);
-      await page.screenshot({ path: `${SHOT_DIR}/${mode}-${pose}.png`, timeout: 300_000 });
+    if (cfg.shots) {
+      for (const pose of ['start', 'sky'] as const) {
+        await page.evaluate((p) => {
+          const h = window.__voxelProto!;
+          h.setPose(p);
+          h.renderOnce();
+        }, pose);
+        await page.screenshot({ path: `${SHOT_DIR}/${mode}-${pose}.png`, timeout: 300_000 });
+      }
     }
-    if (mode === 'greedyShape') {
+    if (cfg.close) {
       await page.evaluate(() => {
         const h = window.__voxelProto!;
         h.setPose('close');
         h.renderOnce();
       });
-      await page.screenshot({ path: `${SHOT_DIR}/greedyShape-close.png`, timeout: 300_000 });
+      await page.screenshot({ path: `${SHOT_DIR}/${mode}-close.png`, timeout: 300_000 });
     }
 
     const r = await page.evaluate(() => window.__voxelProto!.measure());
+    void mode;
     console.log(JSON.stringify(r));
     results.push(r);
   }

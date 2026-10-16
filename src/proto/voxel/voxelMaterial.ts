@@ -4,6 +4,7 @@ import { TEX_N } from './shapeTexture';
 
 /**
  * 小ブロックのメッシュ用の材料（光なし）。attribute aData = [r, g, b, 面の番号]。
+ * position は チャンクの中の小ブロック座標（Uint16）。mesh.scale = 1/9、mesh.position = チャンクの位置で ワールドに置く。
  * - 色の方式: r, g, b が色（sRGB）。
  * - 形の方式（shape）: r = ブロックの種類。色はワールドの小ブロック座標から 3D テクスチャを引く。
  * 面の明るさは今と同じ（上 1.0・横 0.8・下 0.6）。
@@ -26,7 +27,8 @@ void main() {
 #ifdef SHAPE
   vKind = aData.x;
   // 面のすぐ内側の小ブロックの座標（9 倍）。負にならないよう 27 の倍数を足す
-  vTex = position * 9.0 - NRM[f] * 0.5 + vec3(0.001) + vec3(2700.0);
+  // position は チャンクの中の小ブロック座標。mesh.position（= チャンクの位置）を 9 倍して足すと ワールドの小ブロック座標
+  vTex = position + modelMatrix[3].xyz * 9.0 - NRM[f] * 0.5 + vec3(0.001) + vec3(2700.0);
 #else
   vCol = pow(aData.xyz / 255.0, vec3(2.2));
 #endif

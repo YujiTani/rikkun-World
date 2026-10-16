@@ -18,7 +18,8 @@ import {
  * - naive: 小面 1 つ = 四角 1 枚 / greedyColor: 同じ向き・同じ高さ・同じ色をまとめる /
  *   greedyShape: 色を見ず、同じ種類のブロックどうしを形だけでまとめる（色はシェーダーが 3D テクスチャから引く）。
  */
-export type VoxelMode = 'naive' | 'greedyColor' | 'greedyShape';
+/** box: 形は 1 マスの箱のまま、色だけ 9×9 の模様（greedyShape と同じ 3D テクスチャ）。hybrid の中くらいの距離で使う */
+export type VoxelMode = 'naive' | 'greedyColor' | 'greedyShape' | 'box';
 
 const C = CHUNK_SIZE;
 const N = LOOK_N;
@@ -30,11 +31,20 @@ const SS = S * S;
 
 initLooks(BLOCK_TYPES.map((t) => t.id));
 
-/** 頂点データ: attribute `aData` = [r, g, b, 面の番号]。shape のときは r = ブロックの番号 */
-export interface QuadMesh {
-  positions: Float32Array;
+/**
+ * 頂点データ（1 つのメッシュ = 頂点 65535 個以下）。
+ * - positions: チャンクの中の小ブロック座標（Uint16 ×3。チャンクの位置と 1/9 倍は mesh.position / mesh.scale で）
+ * - data: aData = [r, g, b, 面の番号]。shape のとき r = ブロックの番号
+ */
+export interface QuadPiece {
+  positions: Uint16Array;
   data: Uint8Array;
-  indices: Uint32Array;
+  indices: Uint16Array;
+  vertexCount: number;
+}
+
+export interface QuadMesh {
+  pieces: QuadPiece[];
   /** 四角の数 */
   faces: number;
   /** 四角の広さの合計（小ブロックの面 1 つ = 1） */
@@ -59,34 +69,39 @@ const FACE_VERTS: readonly (readonly [number, number, number])[][] = [
   [[1, 0, 0], [0, 0, 0], [0, 1, 0], [1, 1, 0]],
 ];
 
+const PIECE_VERTS = 65532;
+
 class QuadBuilder {
-  private pos = new Float32Array(3 * 4 * 4096);
-  private dat = new Uint8Array(4 * 4 * 4096);
-  private idx = new Uint32Array(6 * 4096);
+  private pos = new Uint16Array(3 * PIECE_VERTS);
+  private dat = new Uint8Array(4 * PIECE_VERTS);
+  private idx = new Uint16Array((PIECE_VERTS / 4) * 6);
   private nv = 0;
   private ni = 0;
+  private pieces: QuadPiece[] = [];
   faces = 0;
   area = 0;
 
   reset(): void {
     this.nv = 0;
     this.ni = 0;
+    this.pieces = [];
     this.faces = 0;
     this.area = 0;
   }
 
-  private grow(): void {
-    const pos = new Float32Array(this.pos.length * 2);
-    pos.set(this.pos);
-    this.pos = pos;
-    const dat = new Uint8Array(this.dat.length * 2);
-    dat.set(this.dat);
-    this.dat = dat;
-    const idx = new Uint32Array(this.idx.length * 2);
-    idx.set(this.idx);
-    this.idx = idx;
+  private flush(): void {
+    if (this.nv === 0) return;
+    this.pieces.push({
+      positions: this.pos.slice(0, this.nv * 3),
+      data: this.dat.slice(0, this.nv * 4),
+      indices: this.idx.slice(0, this.ni),
+      vertexCount: this.nv,
+    });
+    this.nv = 0;
+    this.ni = 0;
   }
 
+  /** 座標はチャンクの中の小ブロック（整数）。面は f の向き */
   quad(
     f: number,
     x0: number,
@@ -100,7 +115,7 @@ class QuadBuilder {
     b: number,
     area: number,
   ): void {
-    if ((this.nv + 4) * 3 > this.pos.length || this.ni + 6 > this.idx.length) this.grow();
+    if (this.nv + 4 > PIECE_VERTS) this.flush();
     const verts = FACE_VERTS[f];
     const pos = this.pos;
     const dat = this.dat;
@@ -132,13 +147,8 @@ class QuadBuilder {
   }
 
   finish(): QuadMesh {
-    return {
-      positions: this.pos.slice(0, this.nv * 3),
-      data: this.dat.slice(0, this.nv * 4),
-      indices: this.idx.slice(0, this.ni),
-      faces: this.faces,
-      areaSmall: this.area,
-    };
+    this.flush();
+    return { pieces: this.pieces, faces: this.faces, areaSmall: this.area };
   }
 }
 
@@ -165,34 +175,121 @@ export class VoxelChunkMesher {
   private readonly active: Uint8Array;
   private readonly kinds: Uint8Array;
   private readonly maskV: Uint8Array;
+  private readonly boxMask: Uint8Array;
 
   constructor(private readonly world: ArrayVoxelWorld) {
     this.grid = new Uint8Array(SS * world.size.y * N);
     this.active = new Uint8Array(C * C * world.size.y);
     this.kinds = new Uint8Array(C * C * world.size.y);
+    this.boxMask = new Uint8Array(C * Math.max(C, world.size.y));
     this.maskV = new Uint8Array(CV * world.size.y * N);
   }
 
-  build(cx: number, cz: number, mode: VoxelMode): VoxelChunkMesh {
+  /** チャンクのいちばん高い（空気でない）ブロックの y。無ければ -1 */
+  private topOf(cx: number, cz: number): number {
     const world = this.world;
-    const sy = world.size.y;
+    for (let y = world.size.y - 1; y >= 0; y--) {
+      for (let z = 0; z < C; z++) {
+        for (let x = 0; x < C; x++) {
+          if (world.getIndex(cx * C + x, y, cz * C + z) > AIR) return y;
+        }
+      }
+    }
+    return -1;
+  }
+
+  /** 箱の方式（形は 1 マス）。十字の板・水は micro と同じ */
+  private buildBox(cx: number, cz: number): VoxelChunkMesh {
+    const world = this.world;
+    const x0 = cx * C;
+    const z0 = cz * C;
+    const cross = emptyData();
+    const water = emptyData();
+    const b = this.builder;
+    b.reset();
+    const yTop = this.topOf(cx, cz);
+    if (yTop < 0) return { solid: b.finish(), cross, water };
+    for (let by = 0; by <= yTop; by++) {
+      for (let bz = 0; bz < C; bz++) {
+        for (let bx = 0; bx < C; bx++) {
+          const wx = x0 + bx;
+          const wz = z0 + bz;
+          const kind = world.getIndex(wx, by, wz);
+          if (kind === WATER) {
+            if (world.getIndex(wx, by + 1, wz) === AIR) pushWaterTop(water, wx, by, wz);
+          } else if (isTorchIndex(kind)) {
+            pushCross(cross, wx, by, wz, BLOCK_TYPES[kind].id as TileName, 1, 0);
+          } else if (isCrossIndex(kind)) {
+            pushCross(cross, wx, by, wz, crossTileName(kind, 3), 1, 0);
+          }
+        }
+      }
+    }
+    const mask = this.boxMask;
+    const nb = yTop + 1;
+    for (let f = 0; f < 6; f++) {
+      const ax = AXIS_OF[f];
+      const plus = (f & 1) === 0;
+      const nU = C;
+      const nV = ax === 1 ? C : nb;
+      const L = ax === 1 ? nb : C;
+      const d = DIR[f];
+      for (let l = 0; l < L; l++) {
+        let any = false;
+        for (let v = 0; v < nV; v++) {
+          for (let u = 0; u < nU; u++) {
+            const bX = ax === 1 ? u : ax === 0 ? l : u;
+            const bY = ax === 1 ? l : v;
+            const bZ = ax === 1 ? v : ax === 0 ? u : l;
+            const kind = world.getIndex(x0 + bX, bY, z0 + bZ);
+            if (kind <= AIR || !hasLook(kind)) continue;
+            const n = world.getIndex(x0 + bX + d[0], bY + d[1], z0 + bZ + d[2]);
+            if (n < 0 || hasLook(n)) continue;
+            mask[v * nU + u] = kind + 1;
+            any = true;
+          }
+        }
+        if (!any) continue;
+        const plane = (l + (plus ? 1 : 0)) * N;
+        for (let v = 0; v < nV; v++) {
+          for (let u = 0; u < nU; u++) {
+            const k = mask[v * nU + u];
+            if (k === 0) continue;
+            let w = 1;
+            while (u + w < nU && mask[v * nU + u + w] === k) w++;
+            let h = 1;
+            outer: while (v + h < nV) {
+              for (let i = 0; i < w; i++) if (mask[(v + h) * nU + u + i] !== k) break outer;
+              h++;
+            }
+            for (let dv = 0; dv < h; dv++) mask.fill(0, (v + dv) * nU + u, (v + dv) * nU + u + w);
+            const lo = [0, 0, 0];
+            const hi = [0, 0, 0];
+            const uAx = ax === 0 ? 2 : 0;
+            const vAx = ax === 1 ? 2 : 1;
+            lo[ax] = plane;
+            hi[ax] = plane;
+            lo[uAx] = u * N;
+            hi[uAx] = (u + w) * N;
+            lo[vAx] = v * N;
+            hi[vAx] = (v + h) * N;
+            b.quad(f, lo[0], hi[0], lo[1], hi[1], lo[2], hi[2], k - 1, 0, 0, w * h * N * N);
+          }
+        }
+      }
+    }
+    return { solid: b.finish(), cross, water };
+  }
+
+  build(cx: number, cz: number, mode: VoxelMode): VoxelChunkMesh {
+    if (mode === 'box') return this.buildBox(cx, cz);
+    const world = this.world;
     const x0 = cx * C;
     const z0 = cz * C;
     const cross = emptyData();
     const water = emptyData();
 
-    // いちばん高いブロック
-    let yTop = -1;
-    for (let y = sy - 1; y >= 0 && yTop < 0; y--) {
-      for (let z = 0; z < C && yTop < 0; z++) {
-        for (let x = 0; x < C; x++) {
-          if (world.getIndex(x0 + x, y, z0 + z) > AIR) {
-            yTop = y;
-            break;
-          }
-        }
-      }
-    }
+    const yTop = this.topOf(cx, cz);
     if (yTop < 0) {
       this.builder.reset();
       return { solid: this.builder.finish(), cross, water };
@@ -257,15 +354,15 @@ export class VoxelChunkMesher {
 
     const b = this.builder;
     b.reset();
-    if (mode === 'naive') this.meshNaive(x0, z0, yTop, H);
-    else this.meshGreedy(x0, z0, yTop, H, mode === 'greedyShape');
+    if (mode === 'naive') this.meshNaive(yTop, H);
+    else this.meshGreedy(yTop, H, mode === 'greedyShape');
     return { solid: b.finish(), cross, water };
   }
 
-  private meshNaive(x0: number, z0: number, yTop: number, H: number): void {
+  private meshNaive(yTop: number, H: number): void {
     const g = this.grid;
     const b = this.builder;
-    const inv = 1 / N;
+    const inv = 1; // 座標は小ブロックのまま
     for (let by = 0; by <= yTop; by++) {
       for (let bz = 0; bz < C; bz++) {
         for (let bx = 0; bx < C; bx++) {
@@ -279,9 +376,9 @@ export class VoxelChunkMesher {
                 const idx = (ly * S + lz + N) * S + lx + N;
                 const c = g[idx];
                 if (c === 0) continue;
-                const wx = x0 + lx * inv;
-                const wz = z0 + lz * inv;
-                const wy = ly * inv;
+                const wx = lx;
+                const wz = lz;
+                const wy = ly;
                 const r = PAL[c * 3];
                 const gg = PAL[c * 3 + 1];
                 const bb = PAL[c * 3 + 2];
@@ -303,12 +400,12 @@ export class VoxelChunkMesher {
     }
   }
 
-  private meshGreedy(x0: number, z0: number, yTop: number, H: number, shape: boolean): void {
+  private meshGreedy(yTop: number, H: number, shape: boolean): void {
     const g = this.grid;
     const b = this.builder;
     const mask = this.maskV;
-    const inv = 1 / N;
-    const origin = [x0, 0, z0];
+    const inv = 1;
+    const origin = [0, 0, 0];
     const gStride = [1, SS, S]; // 格子の足し算（x, y, z）
     const nb = yTop + 1;
     for (let f = 0; f < 6; f++) {

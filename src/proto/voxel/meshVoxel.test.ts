@@ -3,23 +3,43 @@ import { generateIsland } from '../../world/gen/generateIsland';
 import { ArrayVoxelWorld } from '../../world/VoxelWorld';
 import { VoxelChunkMesher, type QuadMesh, type VoxelMode } from './meshVoxel';
 
-const MODES: VoxelMode[] = ['naive', 'greedyColor', 'greedyShape'];
+const MODES: VoxelMode[] = ['naive', 'greedyColor', 'greedyShape', 'box'];
+
+interface Quad {
+  f: number;
+  /** ワールドの小ブロック座標（整数）の 最小・最大の角 */
+  lo: number[];
+  hi: number[];
+}
+
+/** メッシュの四角を ぜんぶ取り出す（positions はチャンクの中の小ブロック座標） */
+function quadsOf(q: QuadMesh, cx = 0, cz = 0): Quad[] {
+  const out: Quad[] = [];
+  const org = [cx * 144, 0, cz * 144];
+  for (const piece of q.pieces) {
+    expect(piece.vertexCount).toBeLessThanOrEqual(65535);
+    for (let k = 0; k < piece.vertexCount / 4; k++) {
+      const lo = [Infinity, Infinity, Infinity];
+      const hi = [-Infinity, -Infinity, -Infinity];
+      for (let v = 0; v < 4; v++) {
+        for (let a = 0; a < 3; a++) {
+          const p = piece.positions[(k * 4 + v) * 3 + a] + org[a];
+          lo[a] = Math.min(lo[a], p);
+          hi[a] = Math.max(hi[a], p);
+        }
+      }
+      out.push({ f: piece.data[k * 16 + 3], lo, hi });
+    }
+  }
+  expect(out.length).toBe(q.faces);
+  return out;
+}
 
 /** 四角を 1 小面ずつにばらして "面の向き,位置,位置,位置" の集まりにする（重なりは数える） */
-function cells(q: QuadMesh): { set: Set<string>; dup: number } {
+function cells(q: QuadMesh, cx = 0, cz = 0): { set: Set<string>; dup: number } {
   const set = new Set<string>();
   let dup = 0;
-  for (let k = 0; k < q.faces; k++) {
-    const f = q.data[k * 16 + 3];
-    const lo = [Infinity, Infinity, Infinity];
-    const hi = [-Infinity, -Infinity, -Infinity];
-    for (let v = 0; v < 4; v++) {
-      for (let a = 0; a < 3; a++) {
-        const p = Math.round(q.positions[(k * 4 + v) * 3 + a] * 9);
-        lo[a] = Math.min(lo[a], p);
-        hi[a] = Math.max(hi[a], p);
-      }
-    }
+  for (const { f, lo, hi } of quadsOf(q, cx, cz)) {
     const ax = [1, 1, 0, 0, 2, 2][f];
     expect(lo[ax]).toBe(hi[ax]);
     const [u, v] = ax === 0 ? [1, 2] : ax === 1 ? [0, 2] : [0, 1];
@@ -34,14 +54,12 @@ function cells(q: QuadMesh): { set: Set<string>; dup: number } {
   return { set, dup };
 }
 
-/** x = plane の面（±x 向き）の四角の数 */
+/** x = plane（ブロック単位）の面（±x 向き）の四角の数。y は ブロック単位の範囲 */
 function facesOnPlaneX(q: QuadMesh, plane: number, y0 = -Infinity, y1 = Infinity): number {
   let n = 0;
-  for (let k = 0; k < q.faces; k++) {
-    const f = q.data[k * 16 + 3];
+  for (const { f, lo } of quadsOf(q)) {
     if (f !== 2 && f !== 3) continue;
-    const y = q.positions[k * 12 + 1];
-    if (Math.abs(q.positions[k * 12] - plane) < 1e-4 && y >= y0 - 1e-4 && y < y1 - 1e-4) n++;
+    if (lo[0] === plane * 9 && lo[1] >= y0 * 9 && lo[1] < y1 * 9) n++;
   }
   return n;
 }
@@ -72,12 +90,8 @@ describe('小ブロックの見える面だけ作る（受け入れ基準 3）',
       expect(facesOnPlaneX(q, 6, 2, 3)).toBe(0); // y = 2 の段（グラスといしの間）
       // y = 3 の面（グラスの上・すなの下）は 0 枚
       let between = 0;
-      for (let k = 0; k < q.faces; k++) {
-        const f = q.data[k * 16 + 3];
-        if ((f === 0 || f === 1) && Math.abs(q.positions[k * 12 + 1] - 3) < 1e-4) {
-          const x = q.positions[k * 12];
-          if (x >= 5 - 1e-4 && x < 6 - 1e-4) between++;
-        }
+      for (const { f, lo } of quadsOf(q)) {
+        if ((f === 0 || f === 1) && lo[1] === 3 * 9 && lo[0] >= 5 * 9 && lo[0] < 6 * 9) between++;
       }
       expect(between).toBe(0);
     });
@@ -104,9 +118,9 @@ describe('まとめても見えている形が同じ（受け入れ基準 4）',
       const color = mesher.build(x, z, 'greedyColor').solid;
       const shape = mesher.build(x, z, 'greedyShape').solid;
       expect(naive.faces).toBeGreaterThan(1000);
-      const a = cells(naive);
-      const b = cells(color);
-      const c = cells(shape);
+      const a = cells(naive, x, z);
+      const b = cells(color, x, z);
+      const c = cells(shape, x, z);
       expect(a.dup).toBe(0);
       expect(b.dup).toBe(0);
       expect(c.dup).toBe(0);
@@ -120,4 +134,44 @@ describe('まとめても見えている形が同じ（受け入れ基準 4）',
       expect(shape.faces).toBeLessThanOrEqual(color.faces);
     }
   }, 120_000);
+});
+
+describe('hybrid の中くらい（箱）と 頂点の大きさ', () => {
+  it('box: ならんだ ブロックの間の面は 0 枚、外の面だけ。広さは ブロックの面 1 つ = 81', () => {
+    const w = smallWorld();
+    w.setBlock(5, 2, 5, 'dirt');
+    w.setBlock(6, 2, 5, 'stone');
+    w.setBlock(6, 3, 5, 'stone');
+    const q = new VoxelChunkMesher(w).build(0, 0, 'box').solid;
+    expect(facesOnPlaneX(q, 6, 2, 3)).toBe(0);
+    // 3 ブロックで 18 面。ふれあう 2 組（4 面）は無いので 14 面分
+    expect(q.areaSmall).toBe(81 * 14);
+  });
+
+  it('box の面の広さは、同じ形の greedyShape（小ブロック）のうち「つまった ブロックの外の面」と同じ向きの数', () => {
+    const w = new ArrayVoxelWorld();
+    const sp = generateIsland(1, w).spawn();
+    const cx = Math.floor(sp.x / 16);
+    const cz = Math.floor(sp.z / 16);
+    const q = new VoxelChunkMesher(w).build(cx, cz, 'box').solid;
+    const c = cells(q, cx, cz);
+    expect(c.dup).toBe(0);
+    expect(q.faces).toBeGreaterThan(50);
+    expect(q.areaSmall).toBe(c.set.size);
+  }, 60_000);
+
+  it('1 つの 頂点の集まりは 65535 個以下（Uint16 の index）。大きいチャンクは分けて、四角は 1 枚も欠けない', () => {
+    const w = new ArrayVoxelWorld();
+    const sp = generateIsland(1, w).spawn();
+    const cx = Math.floor(sp.x / 16);
+    const cz = Math.floor(sp.z / 16);
+    const q = new VoxelChunkMesher(w).build(cx, cz, 'naive').solid;
+    expect(q.pieces.length).toBeGreaterThan(1);
+    for (const p of q.pieces) {
+      expect(p.vertexCount).toBeLessThanOrEqual(65535);
+      expect(p.indices).toBeInstanceOf(Uint16Array);
+      expect(p.positions).toBeInstanceOf(Uint16Array);
+    }
+    expect(q.pieces.reduce((n, p) => n + p.vertexCount / 4, 0)).toBe(q.faces);
+  }, 60_000);
 });
