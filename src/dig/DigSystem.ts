@@ -159,6 +159,21 @@ export class DigSystemImpl implements DigSystem {
   private drainQueue: DigEvent[] = [];
   private hookQueue: DigEvent[] = [];
   private readonly dir = { x: 0, y: 0, z: 0 };
+  private readonly originScratch = { x: 0, y: 0, z: 0 };
+
+  /**
+   * ねらいの線の出どころ（CHAR-1 §4.5）。つなぎ込みが `aimPivot` を入れる。
+   * なければ 今の 目（足もと + eyeHeight）。
+   */
+  aimOrigin?: (player: PlayerState, out: Vec3) => Vec3;
+
+  private origin(p: PlayerState, out: Vec3): Vec3 {
+    if (this.aimOrigin) return this.aimOrigin(p, out);
+    out.x = p.position.x;
+    out.y = p.position.y + this.eyeHeight();
+    out.z = p.position.z;
+    return out;
+  }
 
   constructor(
     private readonly world: VoxelWorld,
@@ -241,11 +256,12 @@ export class DigSystemImpl implements DigSystem {
     // ねらい（ステップごとに決め直す）
     const p = this.player();
     const d = lookDirection(p.yawDeg, p.pitchDeg, this.dir);
+    const o = this.origin(p, this.originScratch);
     this.tgt = raycastBlocks(
       this.world,
-      p.position.x,
-      p.position.y + this.eyeHeight(),
-      p.position.z,
+      o.x,
+      o.y,
+      o.z,
       d.x,
       d.y,
       d.z,
@@ -256,7 +272,7 @@ export class DigSystemImpl implements DigSystem {
     const primaryRaw = enabled && (this.actions.isHeld('primary') || this.actions.wasPressed('primary'));
     const secondary = enabled && (this.actions.isHeld('secondary') || this.actions.wasPressed('secondary'));
     const tools = this.m4.tools;
-    const eye = { x: p.position.x, y: p.position.y + this.eyeHeight(), z: p.position.z };
+    const eye = { x: o.x, y: o.y, z: o.z };
     const bow = tools?.current().kind === 'bow';
     // ゆみ を持っているあいだは ほる・たたく をしない（や は tools が飛ばす）
     let primary = primaryRaw && !bow;
@@ -653,11 +669,12 @@ export class DigSystemImpl implements DigSystem {
     if (!w || !held || (held.item !== 'watering_can' && held.item !== 'long_watering_can')) return null;
     const p = this.player();
     const d = lookDirection(p.yawDeg, p.pitchDeg, this.dir);
+    const o = this.origin(p, this.originScratch);
     const ray = computeWaterRay(
       (x, y, z) => this.world.getBlock(x, y, z),
-      p.position.x,
-      p.position.y + this.eyeHeight(),
-      p.position.z,
+      o.x,
+      o.y,
+      o.z,
       d.x,
       d.y,
       d.z,
@@ -721,7 +738,7 @@ export class DigSystemImpl implements DigSystem {
   aimedYokaiId(): number | null {
     if (!this.gate?.aimedYokai || !this.lock.playInputEnabled() || this.gate.blocksInput()) return null;
     const p = this.player();
-    const eye = { x: p.position.x, y: p.position.y + this.eyeHeight(), z: p.position.z };
+    const eye = this.origin(p, { x: 0, y: 0, z: 0 });
     return this.gate.aimedYokai(eye, lookDirection(p.yawDeg, p.pitchDeg, this.dir), this.tgt?.distance ?? null);
   }
 
