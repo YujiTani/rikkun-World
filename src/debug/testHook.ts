@@ -20,6 +20,7 @@ import type { createYokaiHook } from '../yokai';
 import type { createFarmHook } from '../farm';
 import type { WorldHook } from '../world/hook';
 import type { ChunkStats } from '../world/render/WorldRenderer';
+import type { AudioHook } from '../fx/bgm/hook';
 import type { PerfOverlay } from './perfOverlay';
 
 type CameraHook = ReturnType<typeof createCameraHook>;
@@ -77,6 +78,8 @@ export interface TestHook {
   farm: ReturnType<typeof createFarmHook>;
   /** CRAFT-2 §6.1: ログとできごと */
   log: ReturnType<typeof createLogHook>['log'];
+  /** SOUND-1: 何を鳴らすと決めたか（docs/audio/SOUND.md §8） */
+  audio: AudioHook;
   /** CRAFT-2 §6.1: 画面の不透明度 */
   ui: { alpha(): UiAlpha };
 }
@@ -87,7 +90,7 @@ declare global {
   }
 }
 
-export type TestHookGroups = Pick<TestHook, 'world' | 'render' | 'player' | 'camera' | 'input' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm' | 'log' | 'ui'>;
+export type TestHookGroups = Pick<TestHook, 'world' | 'render' | 'player' | 'camera' | 'input' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm' | 'log' | 'ui' | 'audio'>;
 
 export function installTestHook(game: Game, overlay: PerfOverlay, groups: TestHookGroups): void {
   window.__rikkun = {

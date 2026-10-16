@@ -65,6 +65,7 @@ export class BgmPlayer {
 
     const def = BGM_SONGS[song];
     const fade = ctx.createGain();
+    fade.gain.value = 0;
     fade.connect(bgmBus);
     fade.gain.setValueAtTime(0, now);
     fade.gain.linearRampToValueAtTime(1, now + sec);

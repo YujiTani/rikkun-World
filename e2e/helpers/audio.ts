@@ -6,7 +6,7 @@ export async function openGame(page: Page, query = '?nosave=1') {
   await page.goto('/' + query);
   await page.waitForFunction(() => window.__rikkun?.ready === true);
   // 最初のクリックで音が使えるようになる（unlock）。あそぶ画面にもどす
-  await page.mouse.click(300, 300);
+  await page.mouse.click(0, 0); // マウスをうごかさずに押す（うごかすと 視点が ずれる）
   await page.evaluate(() => {
     const h = window.__rikkun! as any;
     h.pause();

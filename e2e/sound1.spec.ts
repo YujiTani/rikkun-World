@@ -134,6 +134,7 @@ test.describe('SOUND-1 案内画面の おと', () => {
   async function openGuide(page: Page) {
     await page.evaluate(() => {
       const h = window.__rikkun! as any;
+      document.exitPointerLock(); // 本物のロックが残っていると、マウスの位置が止まったままになる
       h.lock.simulate(false);
       h.step(3);
     });
@@ -228,7 +229,7 @@ test.describe('SOUND-1 ほる効果音', () => {
         const h = window.__rikkun! as any;
         h.inventory.clear();
         h.settings.set('dropMax', { common: 1, uncommon: 1, rare: 1, superRare: 1 });
-        h.world.setBlock(bx + 2, by, bz, 'dirt'); // 立つ所の 2 つ先（yaw 90 のむき）
+        h.world.setBlock(bx + 2, by + 1, bz, 'dirt'); // 立つ所の 2 つ先、目の高さ（yaw 90 のむき）
         h.step(2);
         h.audio.sfx(); // これまでの記録を空にする
       },
@@ -237,11 +238,19 @@ test.describe('SOUND-1 ほる効果音', () => {
     expect(await page.evaluate(() => (window.__rikkun as any).target.get()), 'ブロックをねらえている').not.toBeNull();
 
     await page.evaluate(() => (window.__rikkun as any).input.press('primary'));
-    const records = await stepCollectSfx(page, 400);
+    // ほり終わる（ready）まで押しつづけ、押し直すとこわれる（M2 AC4）
+    const records = await stepCollectSfx(page, 60);
     await page.evaluate(() => (window.__rikkun as any).input.release('primary'));
+    await page.evaluate(() => (window.__rikkun as any).step(2));
+    await page.evaluate(() => (window.__rikkun as any).input.press('primary'));
+    records.push(...(await stepCollectSfx(page, 10)));
+    await page.evaluate(() => (window.__rikkun as any).input.release('primary'));
+    records.push(...(await stepCollectSfx(page, 60)));
 
     const names = records.map((r: any) => r.name);
-    const order = ['dig', 'crack', 'crackFinal', 'ready', 'break', 'pickup'];
+    // dig は「コツ」の間隔で鳴り、ひびの段が上がるステップでは ひびの音に代わる（DigFx）ので、dig は ready の前のどこかに 1 回以上。
+    expect(names.slice(0, names.indexOf('ready')), 'ready の前に dig がある').toContain('dig');
+    const order = ['crack', 'crackFinal', 'ready', 'break', 'pickup'];
     // 順に出る（間にほかの音が混ざってもよいが、この順に 1 つずつ見つかる）
     let from = 0;
     const at: number[] = [];
@@ -253,12 +262,13 @@ test.describe('SOUND-1 ほる効果音', () => {
     }
 
     // pickup の高さは、そのときの和音（根音・3 度・5 度）の音
-    const pick = records[at[5]];
+    const pick = records[at[4]];
     const chord = pick.chord ?? (await page.evaluate(() => (window.__rikkun as any).audio.chord()));
     const root = typeof chord === 'object' ? chord.root : null;
     const minor = typeof chord === 'object' ? chord.minor : null;
     expect(root, 'pickup の記録に和音（root / minor）が入っている').not.toBeNull();
     const allowed = [0, minor ? 3 : 4, 7].map((d) => (root + d) % 12);
-    expect(allowed).toContain((((root + pick.semis) % 12) + 12) % 12);
+    // semis は「C を根音として作った音」からのずらし（contract 3.）なので、semis そのものが 高さの種類
+    expect(allowed).toContain(((pick.semis % 12) + 12) % 12);
   });
 });

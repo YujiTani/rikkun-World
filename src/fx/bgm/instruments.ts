@@ -87,6 +87,7 @@ export function playTones(ctx: BaseAudioContext, dest: AudioNode, tones: readonl
     const end = t + Math.max(dur, a + 0.01);
     const peak = Math.max(0.0002, tn.gain * gain);
     const g = ctx.createGain();
+    g.gain.value = 0; // 初期値 1.0 のまま始まりの 1 サンプルが鳴らないように
     g.gain.setValueAtTime(0.0001, t);
     g.gain.linearRampToValueAtTime(peak, t + a);
     g.gain.exponentialRampToValueAtTime(0.0001, end);
@@ -138,6 +139,7 @@ export function playVoice(ctx: BaseAudioContext, inst: InstrumentDef, freq: numb
     o.type = inst.wave;
     o.frequency.setValueAtTime(freq * ratio, t);
     const g = ctx.createGain();
+    g.gain.value = 0; // 初期値 1.0 のまま始まりの 1 サンプルが鳴らないように
     const peak = Math.max(0.0002, inst.gain * vol * pg);
     g.gain.setValueAtTime(0, t);
     g.gain.linearRampToValueAtTime(peak, t + a);

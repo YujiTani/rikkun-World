@@ -10,6 +10,8 @@ import { levelStats, seamStats } from '../fx/bgm/measure';
 import { renderBgm } from '../fx/bgm/render';
 import { BGM_SONGS } from '../fx/bgm/songs';
 import { FX_SETTINGS } from '../fx/config';
+import { SFX_CATALOG, type SfxGroup } from '../fx/sfxCatalog';
+import { SoundFx } from '../fx/sound';
 import { createSoundSettings } from '../ui/soundSettings';
 import { createAudioPersistence } from '../ui/soundSettingsModel';
 
@@ -19,6 +21,7 @@ const persist = createAudioPersistence(localStorage, audio, fx);
 persist.load();
 const mixer = new AudioMixer(audio);
 const bgm = new BgmPlayer(mixer);
+const sfx = new SoundFx({ output: () => mixer.output(), chord: () => bgm.chord(), onBig: () => mixer.duck(), settings: fx });
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
 const status = $('status');
@@ -144,3 +147,26 @@ $('measure').addEventListener('click', async () => {
   }
   out.innerHTML = html + '</table>';
 });
+
+// こうかおん（SFX_CATALOG）。BGM を流したまま鳴らせる。和音は BGM のいまの和音に合う
+const GROUPS: Record<SfxGroup, string> = { dig: 'ほる・おく', combat: 'たたかい・ようかい・じかん', weapon: 'ぶき', craft: 'つくる・じっせき', farm: 'はたけ・みず・どうぶつ', storage: 'たんす' };
+{
+  const box = $('sfxList');
+  box.innerHTML = '<p class="note">大きく祝う音（レベルアップ・fanfare・modal）を鳴らすと BGM が少し下がります。</p>';
+  for (const g of Object.keys(GROUPS) as SfxGroup[]) {
+    const h = document.createElement('h3');
+    h.textContent = GROUPS[g];
+    box.appendChild(h);
+    for (const e of SFX_CATALOG.filter((x) => x.group === g)) {
+      const b = document.createElement('button');
+      b.className = 'snd';
+      b.textContent = e.label;
+      b.title = e.name;
+      b.addEventListener('click', () => {
+        unlock();
+        e.play(sfx);
+      });
+      box.appendChild(b);
+    }
+  }
+}

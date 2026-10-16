@@ -59,6 +59,14 @@ import { actionHintLines } from './ui/actionHintModel';
 import { createRng } from './world/gen/random';
 import { FX_SETTINGS } from './fx/config';
 import { SoundFx } from './fx/sound';
+import { createAudioSettings } from './fx/audioConfig';
+import { AudioMixer } from './fx/audioMixer';
+import { BgmPlayer } from './fx/bgm/BgmPlayer';
+import { parseChord } from './fx/bgm/compile';
+import { createAudioHook } from './fx/bgm/hook';
+import { BgmSceneTracker, screenLevel, type BgmSceneInput } from './fx/bgm/scene';
+import { createSoundSettings } from './ui/soundSettings';
+import { createAudioPersistence } from './ui/soundSettingsModel';
 import { DigSystemImpl, createDigConfig, createDigHook } from './dig';
 import { InventoryImpl, createInventoryHook } from './inventory';
 import { ScreenController } from './screen/ScreenController';
@@ -198,8 +206,42 @@ const wheel = new WheelAccumulator(game.input, () => lock.playInputEnabled());
 bindKeyboardAndMouse(window, game.input, wheel);
 const look = new MouseLook(lock);
 const pointerLock = bindPointerLock(document, window, game.renderer.domElement, lock, look, game.input);
-const fxSound = new SoundFx();
+// SOUND-1: 音（ミキサー → BGM → 効果音の順に作る。AudioContext は ミキサーだけが作る）
+const audioSettings = createAudioSettings();
+const audioPersist = createAudioPersistence(window.localStorage, audioSettings, FX_SETTINGS); // ?nosave=1 でも音の設定は保存する
+audioPersist.load();
+const mixer = new AudioMixer(audioSettings);
+const bgm = new BgmPlayer(mixer);
+const bgmScene = new BgmSceneTracker(audioSettings);
+const fxSound = new SoundFx({ output: () => mixer.output(), chord: () => bgm.chord(), onBig: () => mixer.duck() });
 const playOverlay = new PlayOverlay(hud, lock, () => pointerLock.request(), () => playCraft(fxSound, 'tab'));
+const soundSettingsUi = createSoundSettings({ audio: audioSettings, fx: FX_SETTINGS, onChange: () => audioSync() }, playOverlay.el);
+// 最初のクリック・キーで音が使えるようになる（ブラウザのきまり）
+for (const ev of ['pointerdown', 'keydown'] as const) window.addEventListener(ev, () => mixer.unlock(), true);
+document.addEventListener('visibilitychange', () => mixer.setHidden(document.hidden));
+mixer.setHidden(document.hidden);
+let audioKey = '';
+let audioYokai: BgmSceneInput['yokai'] = [];
+/** 設定が変わっていたら ミキサーに反映・保存・画面を合わせる */
+function audioSync(): void {
+  const k = `${audioSettings.masterVolume}|${audioSettings.bgmVolume}|${audioSettings.audioMuted}|${FX_SETTINGS.fxVolume}`;
+  if (k === audioKey) return;
+  audioKey = k;
+  mixer.apply();
+  audioPersist.sync();
+  soundSettingsUi.refresh();
+}
+/** 毎ステップ: 場面 → BGM、画面の倍率、おめでとう画面のあいだ BGM を下げたまま */
+function audioStep(): void {
+  audioSync();
+  if (game.tick % 10 === 0) audioYokai = yokaiM.list().map((y) => ({ state: y.state, position: y.position }));
+  const dead = combat.dead();
+  bgm.play(bgmScene.update({ tick: game.tick, phase: time.phase(), player: controller.state.position, yokai: audioYokai, dead }));
+  const mode = screen.mode();
+  mixer.setScreenLevel(screenLevel(mode, dead));
+  mixer.holdDuck(mode === 'celebrate');
+  if (mode !== 'guide' && soundSettingsUi.isOpen()) soundSettingsUi.close();
+}
 
 // プレイヤーとカメラ
 const controller = new PlayerController(world, game.input, look, lock, () => island.spawn());
@@ -1030,6 +1072,7 @@ function updateAchievements(): void {
 }
 
 game.onUpdate((dt) => {
+  audioStep();
   applyUiAlpha(craft2Settings);
   // おめでとう画面のあいだ: 世界・妖怪・時刻・プレイヤーは進まない（画面の時間だけ進む。§2.6 (3)）
   if (screen.mode() === 'celebrate') {
@@ -1314,6 +1357,16 @@ installTestHook(game, overlay, {
     get: () => ({ ...lockHook.get(), ...guideHook.state() }),
   },
   input: createInputHook(game.input, look, wheel),
+  audio: createAudioHook({
+    mixer,
+    bgm,
+    tracker: bgmScene,
+    audio: audioSettings,
+    fx: FX_SETTINGS,
+    // contract 3.: chord は { root, minor }、t は秒（ゲームの時間）
+    sfx: () => fxSound.drainRecords().map((r) => ({ ...r, chord: parseChord(r.chord), t: game.tick / 60 })),
+    sfxVoices: () => fxSound.activeVoices(),
+  }),
   settings: createSettingsHook(controller.settings, rig.config, [
       digSettingsView(dig.config),
       settingsViewOf(craftConfig),
@@ -1327,6 +1380,7 @@ installTestHook(game, overlay, {
       hintSettings,
       { clockPhases },
       FX_SETTINGS,
+      audioSettings,
       sharedSettingsView('knockback', [combat.config, yokaiM.config]),
       sharedSettingsView('yokaiLeaveTicks', [timeSettings, yokaiM.config]),
       sharedSettingsView('safeFallHeight', [combat.config, yokaiM.config]),
