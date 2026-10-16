@@ -30,7 +30,7 @@ test.describe('M1-01 世界（つないだ後）', () => {
     });
     expect(r.size).toEqual({ x: WORLD_SIZE.x, y: WORLD_SIZE.y, z: WORLD_SIZE.z });
     expect(r.out).toEqual(['outside', 'outside', 'outside']);
-    expect(r.types.length).toBe(30); // M4: かまど・かわら・レンガ・たいまつ・こわれない たいまつ、M6: たんす、M7: はたけ・作物・やせい・かかし・さく 13 こ を足した
+    expect(r.types.length).toBe(31); // M4: かまど・かわら・レンガ・たいまつ・こわれない たいまつ、M6: たんす、M7: はたけ・作物・やせい・かかし・さく 13 こ、M7-2: スプリンクラー を足した
     const by = Object.fromEntries(r.types.map((t) => [t.id, t]));
     expect(by.bedrock.breakable).toBe(false);
     expect(by.water.breakable).toBe(false);
