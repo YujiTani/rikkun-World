@@ -815,6 +815,11 @@ export class WorldRenderer {
     return this.viewer;
   }
 
+  /** 全部のセクションを 作り直しに出す（テスト用: 小ブロック地形の入り切りのあと） */
+  rebuildAll(): void {
+    for (const col of this.cols.values()) for (const st of col.secs) this.markDirty(st, false);
+  }
+
   /** 小ブロックの半径（F3 表示用。sectionStats より軽い） */
   get microRadiusNow(): number {
     return this.microR;

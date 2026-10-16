@@ -155,7 +155,7 @@ describe('SectionMesher（セクション 1 つのメッシュ。VOX-E）', () =
 
   // ---------------------------------------------------------------- TEX-A（#146）
 
-  it('頂点のデータ aData = [ブロックの種類, 行の符号, 0, 面の番号]。色（r, g, b）は 持たない', () => {
+  it('頂点のデータ aData = [ブロックの種類, 行の符号, 角の印, 面の番号]。色（r, g, b）は 持たない', () => {
     const w = slab(20);
     const d = new SectionMesher(w).build(1, 1, 1, 'micro');
     const stone = BLOCK_INDEX.stone;
@@ -168,7 +168,7 @@ describe('SectionMesher（セクション 1 つのメッシュ。VOX-E）', () =
         const face = p.data[v * 4 + 3];
         expect(kind === stone || kind === BLOCK_INDEX.bedrock || kind === grass || kind === BLOCK_INDEX.dirt, `種類 ${kind}`).toBe(true);
         expect(face).toBeLessThan(6);
-        expect(p.data[v * 4 + 2]).toBe(0);
+        expect(p.data[v * 4 + 2], '角の印（3 ビット）').toBeLessThan(8);
         if (face < 2) expect(row, '上下の面は 世界の高さで行を決める').toBe(255);
         else expect(row === 255 || row <= 17, `行の符号 ${row}`).toBe(true);
         seen++;

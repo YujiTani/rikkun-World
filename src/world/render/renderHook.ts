@@ -4,7 +4,7 @@ import { BLOCK_TYPES, isOpaqueIndex } from '../blocks/blockTypes';
 import { TILE_NAMES, getTilePixels } from '../blocks/textures';
 import { hasLook } from '../../proto/voxel/looks';
 import { sampleSurface, newSample } from '../../proto/voxel/terrain/microSurface';
-import { scanColumn, worldColumnSource, type ColumnInfo } from '../../proto/voxel/terrain/worldColumns';
+import { microTerrain, scanColumn, worldColumnSource, type ColumnInfo } from '../../proto/voxel/terrain/worldColumns';
 import type { ArrayVoxelWorld } from '../VoxelWorld';
 import { AO_LEVELS, FACE_NAMES, faceShadeTable, type FaceName } from './config';
 import { FACES, flatAoFlip, flatAoLevels, flatInterp } from './meshChunk';
@@ -267,6 +267,11 @@ export function createRenderHook(d: RenderHookDeps) {
       aoUniforms.on.value = on ? 1 : 0;
     },
     setBlobShadow: (on: boolean) => d.blob.setEnabled(on),
+    /** テスト用: 小ブロック地形（地面の でこぼこの高さ）の入り切り。切ると 地面も ふつうの形のブロック（へこみは 1〜3 マスだけ）になる */
+    setTerrain: (on: boolean) => {
+      microTerrain.enabled = on;
+      renderer.rebuildAll();
+    },
   };
 }
 

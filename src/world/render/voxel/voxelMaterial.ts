@@ -23,6 +23,8 @@ import { FADE_FAR, FADE_NEAR, KINDS, tileAverageTable, tileTable } from './proje
 const SHADE_GLSL = `float[6](${FACE_SHADE_BY_INDEX.map((v) => v.toFixed(2)).join(', ')})`;
 const AO_GLSL = AO_LEVELS.map((v) => v.toFixed(2));
 const N_TILES = TILE_NAMES.length;
+/** 面を ひろげる量（小ブロック。1/9 ブロックの 0.03）。つぎ目の 1 画素の すきまを ふさぐ */
+const GROW = 0.03;
 const DIRT_TILE = TILE_NAMES.indexOf('dirt');
 
 const VERT_DECL = `
@@ -38,6 +40,7 @@ varying vec3 vLocal;
 varying float vDist;
 flat varying vec4 vInfo;
 flat varying vec3 vAvg;
+vec3 voxGrow = vec3(0.0);
 const float SHADE[6] = ${SHADE_GLSL};
 const vec3 NRM[6] = vec3[6](
   vec3(0.0, 1.0, 0.0), vec3(0.0, -1.0, 0.0), vec3(1.0, 0.0, 0.0),
@@ -47,6 +50,10 @@ ${LIGHT_GLSL_FUNCS}`;
 const VERT_BODY = `
 {
   int f = int(aData.w + 0.5);
+  // 面を 面の中の向きに ごく少し ひろげる（つぎ目の 1 画素の すきまを ふさぐ）。計算は ひろげる前の位置で
+  float cb = aData.z + 0.5;
+  vec3 corner = vec3(mod(floor(cb), 2.0), mod(floor(cb / 2.0), 2.0), mod(floor(cb / 4.0), 2.0)) * 2.0 - 1.0;
+  voxGrow = corner * (vec3(1.0) - abs(NRM[f])) * ${GROW.toFixed(3)};
   int kind = int(aData.x + 0.5);
   float tile = uTileOf[kind][f == 0 ? 0 : (f == 1 ? 1 : 2)];
   vShade = SHADE[f];
@@ -198,7 +205,8 @@ export function createVoxelMaterial(shared: VoxelShared, ao: Data3DTexture | nul
     shader.uniforms.uAoFade = aoUniforms.fade;
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', `#include <common>\n${VERT_DECL}`)
-      .replace('#include <color_vertex>', `#include <color_vertex>\n${VERT_BODY}`);
+      .replace('#include <color_vertex>', `#include <color_vertex>\n${VERT_BODY}`)
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\n  transformed += voxGrow;');
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', `#include <common>\n${FRAG_DECL}`)
       .replace('#include <color_fragment>', `#include <color_fragment>\n${FRAG_BODY}`);

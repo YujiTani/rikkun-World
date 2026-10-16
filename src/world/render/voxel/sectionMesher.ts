@@ -159,7 +159,8 @@ class QuadBuilder {
       this.pos[p++] = v[2] ? z1 : z0;
       this.dat[d++] = d0;
       this.dat[d++] = d1;
-      this.dat[d++] = d2;
+      // 角の印（x, y, z の どちら側か: ビット 0, 1, 2）。シェーダーが 面の中で ごく少し ひろげて 面どうしの つぎ目の 空の色を ふさぐ
+      this.dat[d++] = v[0] | (v[1] << 1) | (v[2] << 2) | d2;
       this.dat[d++] = f | flag;
       if (lights) {
         this.lit[l++] = lights[i * 2];
@@ -212,6 +213,8 @@ export class SectionMesher {
   private useMax = -1;
   private readonly bk = new Int16Array(CUBE);
   private readonly expo = new Uint8Array(CUBE);
+  /** 1 = 地形のとなりで 面を作る つまった ブロック（地形のへこみから 横の面が 見える） */
+  private readonly gap = new Uint8Array(CUBE);
   /** ブロックごとの光（空 << 4 | ブロック）。光を通さないマスは まわりの光を かりる */
   private readonly lg = new Uint8Array(CUBE);
   private readonly lsky = new Uint8Array(CUBE);
@@ -458,6 +461,7 @@ export class SectionMesher {
     const { bk, expo } = this;
     const scratch = this.scratch;
     // 1. 見える面の印
+    this.gap.fill(0);
     let i = 0;
     for (let byi = 0; byi < BL; byi++) {
       for (let bzi = 0; bzi < BL; bzi++) {
@@ -475,15 +479,19 @@ export class SectionMesher {
             const n = this.kindNear(bxi, byi, bzi, f);
             if (n >= 0 && OCC[n] === 0) e |= 1 << f;
           }
-          if (terrain && OCC[k] === 1) {
-            // 小ブロック地形の となりの列の てっぺんが 同じ高さ: 地形の へこみから この横の面が 見えるので 形の面にする
-            // （置いた ブロックの下の地面・崖の下の段。ここが 空くと 空の色が すきまに 見える。TEX-A 基準 9）
+          if (e === 0 && terrain && OCC[k] === 1) {
+            // 小ブロック地形の となりの列の てっぺんが 同じ高さ: 地形の へこみから この横の面が 見える（置いた ブロックの下の地面・
+            // 崖の下の段。ここが 空くと 空の色が すきまに 見える。TEX-A 基準 9）。形は つまったまま（へこませない）で、
+            // 面を作る ブロックに する（面ができるのは となりのマスが 空のところだけ）
             const wy = this.oy + byi - 1;
             for (let f = 2; f < 6; f++) {
-              if (e & (1 << f)) continue;
               const cx = bxi + DIR[f][0] + 1;
               const cz = bzi + DIR[f][2] + 1;
-              if (cx >= 0 && cz >= 0 && cx < BW && cz < BW && this.colTy[cz * BW + cx] === wy) e |= 1 << f;
+              if (cx >= 0 && cz >= 0 && cx < BW && cz < BW && this.colTy[cz * BW + cx] === wy) {
+                this.gap[i] = 1;
+                e = 1 << f;
+                break;
+              }
             }
           }
           expo[i] = e;
@@ -509,6 +517,16 @@ export class SectionMesher {
           }
           if (terrain && this.colTy[(bzi - 1 + 2) * BW + (bxi - 1 + 2)] === this.oy + byi - 1) continue;
           const e = expo[i];
+          if (this.gap[i] === 1) {
+            this.fillSolid(gx, gy, gz);
+            this.markRows(byi, byi);
+            if (bxi >= 1 && bxi <= 16 && byi >= 1 && byi <= 16 && bzi >= 1 && bzi <= 16) {
+              const ai = ((byi - 1) * 16 + (bzi - 1)) * 16 + (bxi - 1);
+              this.active[ai] = 1;
+              this.kinds[ai] = k;
+            }
+            continue;
+          }
           if (!hasLook(k) || e === 0) {
             if (OCC[k] === 1 && this.adjacentActive(bxi, byi, bzi)) {
               this.fillSolid(gx, gy, gz);
