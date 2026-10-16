@@ -1,5 +1,6 @@
 import { mkdirSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
+import { installAimHelpers } from './helpers/aim';
 import { checkContrast, snapshotUi } from './helpers/uiRules';
 
 /**
@@ -12,6 +13,7 @@ const SHOTS = 'docs/test-reports/CRAFT-2/shots';
 async function open(page: Page, query = '?nosave=1') {
   await page.goto('/' + query);
   await page.waitForFunction(() => window.__rikkun?.ready === true);
+  await installAimHelpers(page);
   await page.evaluate(() => {
     const h = (window as any).__rikkun;
     const T: any = {
@@ -27,7 +29,7 @@ async function open(page: Page, query = '?nosave=1') {
         // ふるい たんす などの 中身を 空にする（材料に まざらないように）
         for (const p of h.storage.list()) for (let i = 0; i < 54; i++) h.storage.set(p.x, p.y, p.z, i, null);
         h.time.set(6000);
-        h.player.set({ position: { x: 10.5, y: 9, z: 10.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: 0 });
+        (window as any).__aim.standForS(10.5, 10.5, 90, 0, 9);
         h.step(10);
         h.log.clear();
         h.craft.events();
@@ -527,7 +529,7 @@ test.describe('CRAFT-2 画面とログ', () => {
       h.inventory.select(0);
       h.inventory.setDurability(0, 1);
       h.world.fill(14, 9, 12, 14, 9, 12, 'stone');
-      h.player.set({ position: { x: 10.5, y: 9, z: 12.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: 0 });
+      (window as any).__aim.standForS(10.5, 13.2, 90, 0, 9);
       h.step(2);
       h.world.fill(11, 9, 12, 11, 9, 12, 'stone');
       h.input.press('primary');
@@ -606,7 +608,7 @@ test.describe('CRAFT-2 できごと（履歴）', () => {
         h.step(2);
       };
       const face = (pitch = 0) => {
-        h.player.set({ position: { x: 10.5, y: 9, z: 10.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch });
+        (window as any).__aim.standForS(10.5, 10.5, 90, pitch, 9);
         h.step(2);
       };
       const next = () => {
@@ -645,7 +647,9 @@ test.describe('CRAFT-2 できごと（履歴）', () => {
       h.inventory.setSlot(0, { item: 'seed_tomato', count: 1 });
       h.inventory.select(0);
       h.world.setBlock(13, 8, 10, 'dirt');
-      face(-30);
+      face();
+      (window as any).__aim.solve(13, 8, 10, 1); // (13,8,10) の上の面を ねらう（S から 窓口で 求める）
+      h.step(1);
       h.input.press('secondary');
       h.step(3);
       h.input.release('secondary');
@@ -764,7 +768,7 @@ test.describe('CRAFT-2 できごと（履歴）', () => {
       h.settings.get('logMergeTicks');
       // 合図を 2 回（出たままの間）
       h.world.fill(14, 9, 10, 14, 9, 10, 'sand');
-      h.player.set({ position: { x: 10.5, y: 9, z: 10.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: 0 });
+      (window as any).__aim.standForS(10.5, 10.5, 90, 0, 9);
       h.step(2);
       h.input.press('primary');
       h.step(200);
@@ -1151,7 +1155,7 @@ test.describe('CRAFT-2 スクショ（AC26）', () => {
         h.inventory.setSlot(4, { item: 'iron_ore', count: 2 });
         h.inventory.setSlot(10, { item: 'paper', count: 3 });
         T.tansu(A.x, A.y, A.z, [[0, 'log', 2]]);
-        h.player.set({ position: { x: 10.5, y: 9, z: 10.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: -5 });
+        (window as any).__aim.standForS(10.5, 10.5, 90, -5, 9);
         h.step(60);
       }, { A, time });
     };
@@ -1186,7 +1190,7 @@ test.describe('CRAFT-2 スクショ（AC26）', () => {
       h.inventory.pickup('stone', 5);
       h.inventory.setSlot(8, { item: 'log', count: 1 });
       h.craft.make('wood_pickaxe');
-      h.player.set({ position: { x: 10.5, y: 9, z: 10.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: -70 });
+      (window as any).__aim.standForS(10.5, 10.5, 90, -70, 9);
       h.step(20);
     });
     await page.screenshot({ path: `${SHOTS}/c-hud-sky-log3.png` });
@@ -1196,7 +1200,7 @@ test.describe('CRAFT-2 スクショ（AC26）', () => {
       const h = (window as any).__rikkun;
       const T = (window as any).T;
       const face = () => {
-        h.player.set({ position: { x: 10.5, y: 9, z: 10.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: 0 });
+        (window as any).__aim.standForS(10.5, 10.5, 90, 0, 9);
         h.step(2);
       };
       // 1 回目は「はじめて」の実績の件を すませるため。2 回目の件だけを 見せる
@@ -1243,7 +1247,7 @@ test.describe('CRAFT-2 スクショ（AC26）', () => {
         h.input.release('primary');
         h.step(2);
         h.step(181);
-        h.level.add(n);
+        h.level.add(n > 1 ? n : Math.max(1, h.level.get().next - h.level.get().xp)); // 2 回目は ちょうど つぎのレベルに とどく だけ
         h.step(2);
       };
       round(1);
@@ -1277,7 +1281,7 @@ test.describe('CRAFT-2 スクショ（AC26）', () => {
       for (let i = 0; i < 36; i++) h.inventory.setSlot(i, { item: 'dirt', count: 64 });
       h.inventory.select(0);
       h.time.set(6000);
-      h.player.set({ position: { x: 10.5, y: 10, z: 10.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: -25 });
+      (window as any).__aim.standForS(10.5, 11.2, 90, -25, 10);
       h.step(5);
       h.input.press('primary');
       h.step(60);

@@ -1,14 +1,20 @@
 import * as THREE from 'three';
-import type { WeaponVisualSource, ArmorSlot, CombatEvent, CraftEvent, ItemId, PlayerState, SwingAnim, VoxelWorld } from '../contracts';
+import type { Vec3, WeaponVisualSource, ArmorSlot, CombatEvent, CraftEvent, ItemId, PlayerState, SwingAnim, VoxelWorld } from '../contracts';
 import type { ActionState } from '../input/actions';
+import { aimPivot } from './pivot';
 import { BlockDoll } from './BlockDoll';
 import { bladePoseAt, bowDollAt, bowHandAt, newBladePose } from './weaponPose';
 import {
   DEFAULT_CAMERA_CONFIG,
+  BODY_CENTER_HEIGHT,
   DOLL_HIDE_DISTANCE,
   OVERVIEW_POSITION,
   OVERVIEW_TARGET,
   RAY_STEP,
+  SHOULDER_DROP,
+  SHOULDER_OFFSET,
+  SHOULDER_RECOVER_SECONDS,
+  SHOULDER_WALL_MARGIN,
   WALL_MARGIN,
   WALL_RECOVER_SECONDS,
   type CameraConfig,
@@ -16,30 +22,40 @@ import {
 
 const DEG = Math.PI / 180;
 
-export type ViewMode = 'first' | 'third';
+/** CHAR-1 第 5 版: 一人称はなくなった。いつも 'third' */
+export type ViewMode = 'third';
 
-/** 一人称／三人称／見下ろしのカメラ。プレイヤーの更新のあとに update(dt) を呼ぶ。 */
+/** 三人称／見下ろしのカメラ（CHAR-1 §4.1）。プレイヤーの更新のあとに update(dt) を呼ぶ。 */
 export class CameraRig {
   /** 数値。settings.set で書きかえてよい */
   readonly config: CameraConfig;
   readonly doll = new BlockDoll();
-  private view: ViewMode = 'first';
+  private readonly view: ViewMode = 'third';
   private overviewOn = false;
-  /** 壁よけ後の今のカメラまでの距離（目から）。-1 = 次の更新でぴったり合わせる */
+  /** 壁よけ後の今のカメラまでの距離（P から）。-1 = 次の更新でぴったり合わせる */
   private current = -1;
   private fogBackup: THREE.Scene['fog'] = null;
   private fogStashed = false;
   private readonly eye = new THREE.Vector3();
+  private readonly pivot = { x: 0, y: 0, z: 0 };
   private readonly dir = new THREE.Vector3();
   private readonly camPos = new THREE.Vector3();
+  /** 肩の点 S（カメラの回転の中心・ねらいの線の出どころ）。固定ステップで決める */
+  private readonly shoulder = { x: 0, y: 0, z: 0 };
+  /** 壁ぎわで s に かける上限（壁がなければ 十分大きい値）。小さくなるのは一瞬・もどりは 0.25 秒 */
+  private shoulderCap = Infinity;
+  private shoulderS = SHOULDER_OFFSET;
   private distToEye = 0;
+  private distToPivot = 0;
+  private distToBody = 0;
 
   constructor(
     private readonly camera: THREE.PerspectiveCamera,
     private readonly scene: THREE.Scene,
     private readonly world: VoxelWorld,
     private readonly getState: () => PlayerState,
-    private readonly actions: ActionState,
+    /** 受け取るだけ（V キーはなくなった）。呼ぶ側の形を変えないために残す */
+    readonly actions: ActionState,
     config: Partial<CameraConfig> = {},
   ) {
     this.config = { ...DEFAULT_CAMERA_CONFIG, ...config };
@@ -58,7 +74,6 @@ export class CameraRig {
   }
 
   private heldProvider: (() => ItemId | null) | null = null;
-  private readonly tmpHeld = new THREE.Vector3();
 
   /** 右手に持つアイテムを返す関数（持ち物の held()）。毎ステップ読む */
   setHeldProvider(fn: () => ItemId | null): void {
@@ -71,14 +86,9 @@ export class CameraRig {
     return this.doll.heldItem;
   }
 
-  /** 持ったブロックの中心の画面上の位置（左上 0・右下 1。画面の外なら範囲外）。持っていなければ null */
+  /** 一人称がなくなったので いつも null（窓口の形だけ残す） */
   heldScreen(): { x: number; y: number } | null {
-    if (this.heldProvider) this.doll.setHeld(this.heldProvider());
-    const p = this.doll.heldWorldPosition(this.tmpHeld);
-    if (!p) return null;
-    this.camera.updateMatrixWorld(true);
-    p.project(this.camera);
-    return { x: (p.x + 1) / 2, y: (1 - p.y) / 2 };
+    return null;
   }
 
   private swingSource: (() => { anim: SwingAnim; tick: number }[]) | null = null;
@@ -139,12 +149,9 @@ export class CameraRig {
     const d = this.doll.dollPose;
     return { ...d, legFront: { ...d.legFront } };
   }
-  /** 一人称の剣先の画面の位置（刀を持っていなければ null） */
+  /** 一人称がなくなったので いつも null（窓口の形だけ残す） */
   firstPersonTip(): { x: number; y: number } | null {
-    const s = this.bladeNow();
-    if (!s) return null;
-    const p = bladePoseAt(s, this.bladeScratch)!;
-    return { x: p.tip.x, y: p.tip.y };
+    return null;
   }
   bowPose() {
     const w = this.weaponSource?.bowPose();
@@ -211,11 +218,8 @@ export class CameraRig {
     return !this.overviewOn;
   }
 
-  toggleView(): void {
-    this.view = this.view === 'first' ? 'third' : 'first';
-    this.current = -1;
-    this.apply(0);
-  }
+  /** 古い呼び出しのために残す。何もしない（一人称はなくなった） */
+  toggleView(): void {}
 
   overview(on: boolean): void {
     if (on === this.overviewOn) return;
@@ -242,10 +246,20 @@ export class CameraRig {
   }
 
   update(dt: number): void {
-    if (this.actions.wasPressed('toggleView')) this.toggleView();
     this.pumpSwings();
     this.pumpArmor();
     this.apply(dt);
+  }
+
+  /**
+   * ねらいの線の出どころ S を `out` に入れる（DigSystem.aimOrigin に `(p, out) => rig.aimOrigin(out)` で渡す）。
+   * 値は update() で決めたもの（同じステップの S）。
+   */
+  aimOrigin(out: Vec3): Vec3 {
+    out.x = this.shoulder.x;
+    out.y = this.shoulder.y;
+    out.z = this.shoulder.z;
+    return out;
   }
 
   getInfo() {
@@ -254,7 +268,18 @@ export class CameraRig {
       overview: this.overviewOn,
       position: { x: this.camera.position.x, y: this.camera.position.y, z: this.camera.position.z },
       eye: { x: this.eye.x, y: this.eye.y, z: this.eye.z },
+      /** 回転の中心 P（CHAR-1 §4.1） */
+      pivot: { x: this.pivot.x, y: this.pivot.y, z: this.pivot.z },
+      /** 肩の点 S（第 5.2 版 §4.1）。ねらいの線の出どころ。カメラはここから 4.0 うしろ */
+      shoulder: { x: this.shoulder.x, y: this.shoulder.y, z: this.shoulder.z },
+      /** 肩ごしのずらし s（右へ。0.70 × cos(pitch)、壁ぎわでは小さくなる） */
+      shoulderOffset: this.shoulderS,
       distanceToEye: this.distToEye,
+      distanceToPivot: this.distToPivot,
+      /** カメラと からだの中心（足もと + 1.0）の距離。1.2 未満でキャラをかくす */
+      distanceToBody: this.distToBody,
+      /** キャラ（板・箱人形）をかくす決まりに当たっているか */
+      hideChar: this.distToBody < DOLL_HIDE_DISTANCE,
     };
   }
 
@@ -266,11 +291,14 @@ export class CameraRig {
       this.camera.updateProjectionMatrix();
     }
     this.eye.set(s.position.x, s.position.y + cfg.eyeHeight, s.position.z);
+    aimPivot(this.world, s.position, this.pivot, cfg.eyeHeight + cfg.thirdPersonHeight, cfg.eyeHeight);
 
     const yaw = s.yawDeg * DEG;
     const pitch = s.pitchDeg * DEG;
     // 見ている向き D（yaw 0 = 北 -Z、上から見て時計回り）
     this.dir.set(Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), -Math.cos(yaw) * Math.cos(pitch));
+
+    this.placeShoulder(dt, yaw, pitch);
 
     if (this.overviewOn) {
       this.camera.position.set(OVERVIEW_POSITION.x, OVERVIEW_POSITION.y, OVERVIEW_POSITION.z);
@@ -278,39 +306,66 @@ export class CameraRig {
       this.camPos.copy(this.camera.position);
     } else {
       this.camera.rotation.set(pitch + this.shakePitch, -yaw + this.shakeYaw, 0);
-      if (this.view === 'first') {
-        this.camPos.copy(this.eye);
-      } else {
-        this.placeThird(dt);
-      }
+      this.placeThird(dt);
       this.camera.position.copy(this.camPos);
     }
     this.distToEye = this.camPos.distanceTo(this.eye);
+    this.distToPivot = Math.hypot(
+      this.camPos.x - this.pivot.x,
+      this.camPos.y - this.pivot.y,
+      this.camPos.z - this.pivot.z,
+    );
+    this.distToBody = Math.hypot(
+      this.camPos.x - s.position.x,
+      this.camPos.y - (s.position.y + BODY_CENTER_HEIGHT),
+      this.camPos.z - s.position.z,
+    );
 
     if (this.heldProvider) this.doll.setHeld(this.heldProvider());
     if (this.overviewOn) this.doll.setMode('hidden');
-    else if (this.view === 'first') this.doll.setMode('first');
-    else this.doll.setMode(this.distToEye >= DOLL_HIDE_DISTANCE ? 'third' : 'hidden');
+    else this.doll.setMode(this.distToBody >= DOLL_HIDE_DISTANCE ? 'third' : 'hidden');
     this.doll.setWeapon(this.weaponSource ? this.bladeNow() : null, this.weaponSource ? this.weaponSource.bowPose() : null);
     this.doll.update(dt, s.position, s.yawDeg, s.pitchDeg, s.moving && s.onGround, s.onGround);
     this.doll.placeFirstPerson(this.camera);
   }
 
+  /** S = P の 0.72 下から カメラの右 R へ s ずらした点。壁ぎわでは s を小さくする（§4.1） */
+  private placeShoulder(dt: number, yaw: number, pitch: number): void {
+    const P = this.pivot;
+    const by = P.y - SHOULDER_DROP;
+    const rx = Math.cos(yaw);
+    const rz = Math.sin(yaw); // yaw 0 で +X、yaw 90 で +Z
+    const full = SHOULDER_OFFSET * Math.cos(pitch);
+    const base = { x: P.x, y: by, z: P.z };
+    const reachLen = full + SHOULDER_WALL_MARGIN;
+    const hit = this.firstSolidDistance(base, rx, 0, rz, reachLen);
+    const target = hit !== null ? Math.max(0, hit - SHOULDER_WALL_MARGIN) : Infinity;
+    if (target < this.shoulderCap) {
+      this.shoulderCap = target; // 小さくするのは一瞬
+    } else if (this.shoulderCap !== Infinity) {
+      this.shoulderCap += (SHOULDER_OFFSET / SHOULDER_RECOVER_SECONDS) * dt; // もどりは 0.25 秒
+      if (this.shoulderCap >= target) this.shoulderCap = target;
+    }
+    const sOff = Math.max(0, Math.min(full, this.shoulderCap));
+    this.shoulderS = sOff;
+    this.shoulder.x = P.x + rx * sOff;
+    this.shoulder.y = by;
+    this.shoulder.z = P.z + rz * sOff;
+  }
+
   private placeThird(dt: number): void {
     const cfg = this.config;
-    // 回転の中心 P = 目 + (0, 0.5, 0)。カメラ = P - 距離 × D
-    const cx = this.eye.x - cfg.thirdPersonDistance * this.dir.x;
-    const cy = this.eye.y + cfg.thirdPersonHeight - cfg.thirdPersonDistance * this.dir.y;
-    const cz = this.eye.z - cfg.thirdPersonDistance * this.dir.z;
-    const dx = cx - this.eye.x;
-    const dy = cy - this.eye.y;
-    const dz = cz - this.eye.z;
+    const P = this.shoulder;
+    // カメラ = S - 距離 × D（真ん中の線は いつも S を通る）
+    const dx = -cfg.thirdPersonDistance * this.dir.x;
+    const dy = -cfg.thirdPersonDistance * this.dir.y;
+    const dz = -cfg.thirdPersonDistance * this.dir.z;
     const full = Math.hypot(dx, dy, dz);
 
-    // 目からカメラへの線分で最初にぶつかるブロック
+    // S からカメラへの線分で最初にぶつかるブロック
     let allowed = full;
     if (full > 1e-6) {
-      const hit = this.firstSolidDistance(dx / full, dy / full, dz / full, full);
+      const hit = this.firstSolidDistance(P, dx / full, dy / full, dz / full, full);
       if (hit !== null) allowed = Math.max(0, hit - WALL_MARGIN);
     }
     if (this.current < 0 || allowed < this.current) {
@@ -319,21 +374,27 @@ export class CameraRig {
       this.current = Math.min(allowed, this.current + (full / WALL_RECOVER_SECONDS) * dt);
     }
     const k = full > 1e-6 ? this.current / full : 0;
-    this.camPos.set(this.eye.x + dx * k, this.eye.y + dy * k, this.eye.z + dz * k);
+    this.camPos.set(P.x + dx * k, P.y + dy * k, P.z + dz * k);
   }
 
-  /** 目から (ux,uy,uz) の向きへ進んで、固いブロックに入る最初の距離。なければ null */
-  private firstSolidDistance(ux: number, uy: number, uz: number, maxLen: number): number | null {
+  /** o から (ux,uy,uz) の向きへ進んで、固いブロックに入る最初の距離。なければ null */
+  private firstSolidDistance(o: Vec3, ux: number, uy: number, uz: number, maxLen: number): number | null {
     const w = this.world;
     const solidAt = (t: number) =>
-      w.isSolid(
-        Math.floor(this.eye.x + ux * t),
-        Math.floor(this.eye.y + uy * t),
-        Math.floor(this.eye.z + uz * t),
-      );
+      w.isSolid(Math.floor(o.x + ux * t), Math.floor(o.y + uy * t), Math.floor(o.z + uz * t));
     if (solidAt(0)) return 0;
     for (let t = RAY_STEP; t < maxLen; t += RAY_STEP) {
-      if (solidAt(t)) return t - RAY_STEP / 2;
+      if (solidAt(t)) {
+        // 刻みのあいだを 二分して 面の位置を細かく出す
+        let lo = t - RAY_STEP;
+        let hi = t;
+        for (let i = 0; i < 8; i++) {
+          const mid = (lo + hi) / 2;
+          if (solidAt(mid)) hi = mid;
+          else lo = mid;
+        }
+        return hi;
+      }
     }
     return solidAt(maxLen) ? maxLen : null;
   }

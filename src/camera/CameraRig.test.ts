@@ -4,6 +4,7 @@ import type { BlockId, PlayerState, VoxelWorld } from '../contracts';
 import { ActionState } from '../input/actions';
 import { CameraRig } from './CameraRig';
 import { createCameraHook } from './hook';
+import { aimPivot } from './pivot';
 
 class FakeWorld implements VoxelWorld {
   readonly size = { x: 64, y: 64, z: 64 };
@@ -18,6 +19,10 @@ class FakeWorld implements VoxelWorld {
     for (let x = x0; x <= x1; x++)
       for (let y = y0; y <= y1; y++) for (let z = z0; z <= z1; z++) this.solid.add(`${x},${y},${z}`);
   }
+  clearSolid(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number) {
+    for (let x = x0; x <= x1; x++)
+      for (let y = y0; y <= y1; y++) for (let z = z0; z <= z1; z++) this.solid.delete(`${x},${y},${z}`);
+  }
   getBlock(x: number, y: number, z: number): BlockId | 'outside' {
     return this.isSolid(x, y, z) ? 'stone' : 'air';
   }
@@ -31,6 +36,12 @@ class FakeWorld implements VoxelWorld {
 
 const DT = 1 / 60;
 
+/** 肩の点 S からカメラまでの距離 */
+function camToS(rig: CameraRig): number {
+  const i = rig.getInfo();
+  return Math.hypot(i.position.x - i.shoulder.x, i.position.y - i.shoulder.y, i.position.z - i.shoulder.z);
+}
+
 function setup(opts: { wall?: number } = {}) {
   const world = new FakeWorld();
   world.fillSolid(0, 0, 0, 63, 8, 63); // 床 (y=9 が表面)
@@ -41,7 +52,7 @@ function setup(opts: { wall?: number } = {}) {
     pitchDeg: 0,
     onGround: true,
     inWater: false,
-    moving: false,
+    moving: false, facingDeg: 0, running: false,
   };
   if (opts.wall !== undefined) {
     // yaw 90 (東向き) の真後ろ = 西 (-X)。中心から壁の面までの距離 = opts.wall
@@ -62,107 +73,173 @@ function setup(opts: { wall?: number } = {}) {
   return { world, state, camera, scene, actions, rig, step };
 }
 
-describe('CameraRig: 一人称・切り替え', () => {
-  it('AC23/24: はじめは一人称。目の高さ 1.62、人形は見えない', () => {
+// CHAR-1 第 5 版で 一人称をなくしたため、「はじめは一人称」「V で切り替え」のテストは消した（AC1・AC2 に置きかえ）
+describe('CameraRig: 三人称だけ', () => {
+  it('AC1: はじめから三人称。V（toggleView）を押しても 位置は変わらない', () => {
     const t = setup();
     const hook = createCameraHook(t.rig);
     t.step();
-    const c = hook.camera.get();
-    expect(c.view).toBe('first');
-    expect(c.position.y).toBeCloseTo(9 + 1.62, 2);
-    expect(c.position.x).toBeCloseTo(10.5, 2);
-    expect(hook.doll().visible).toBe(false);
-    expect(t.rig.crosshairVisible()).toBe(true);
-  });
-
-  it('AC23: V で 1 回ずつ切り替わり、押しっぱなしでも 1 回だけ', () => {
-    const t = setup();
+    expect(hook.camera.get().view).toBe('third');
+    expect(t.rig.getView()).toBe('third');
+    const before = { ...t.rig.getInfo().position };
     t.actions.press('toggleView');
     t.step();
-    expect(t.rig.getView()).toBe('third');
-    t.step(60);
-    expect(t.rig.getView()).toBe('third');
     t.actions.release('toggleView');
-    t.actions.press('toggleView');
-    t.step();
-    expect(t.rig.getView()).toBe('first');
+    expect(hook.camera.get().view).toBe('third');
+    const after = t.rig.getInfo().position;
+    expect(after.x).toBeCloseTo(before.x, 3);
+    expect(after.y).toBeCloseTo(before.y, 3);
+    expect(after.z).toBeCloseTo(before.z, 3);
+    expect(t.rig.crosshairVisible()).toBe(true);
+    expect(hook.camera.firstPersonTip()).toBeNull();
+    expect(hook.doll().heldScreen).toBeNull();
   });
-});
 
-describe('CameraRig: 三人称', () => {
-  it('AC25: pitch 0 で距離 4.0〜4.1、0.5 上、真後ろ 4.0。人形が見える', () => {
+  it('AC4: P・S・カメラ（yaw 0・pitch 0）。S は P の 0.72 下で 右へ 0.70', () => {
     const t = setup();
-    t.rig.toggleView();
+    t.state.yawDeg = 0;
     t.step();
     const c = t.rig.getInfo();
-    expect(c.distanceToEye).toBeGreaterThanOrEqual(4.0);
-    expect(c.distanceToEye).toBeLessThanOrEqual(4.1);
-    expect(c.position.y - c.eye.y).toBeCloseTo(0.5, 2);
-    expect(c.eye.x - c.position.x).toBeCloseTo(4.0, 2);
-    expect(c.position.z).toBeCloseTo(c.eye.z, 2);
+    expect(c.pivot.x).toBeCloseTo(10.5, 2);
+    expect(c.pivot.y).toBeCloseTo(9 + 2.12, 2);
+    expect(c.pivot.z).toBeCloseTo(6.5, 2);
+    expect(c.shoulder.x).toBeCloseTo(10.5 + 0.7, 2);
+    expect(c.shoulder.y).toBeCloseTo(9 + 1.4, 2);
+    expect(c.shoulder.z).toBeCloseTo(6.5, 2);
+    expect(c.position.x).toBeCloseTo(10.5 + 0.7, 2);
+    expect(c.position.y).toBeCloseTo(9 + 1.4, 2);
+    expect(c.position.z).toBeCloseTo(6.5 + 4.0, 2);
     expect(t.rig.doll.visible).toBe(true);
   });
 
-  it('AC26: pitch -89 でカメラが 4.4〜4.6 上', () => {
+  it('AC4: shoulderOffset = 0.70 × cos(pitch)。yaw 90 では ずらしが +Z', () => {
+    const t = setup();
+    t.state.yawDeg = 0;
+    t.state.pitchDeg = -25;
+    t.step();
+    expect(t.rig.getInfo().shoulderOffset).toBeCloseTo(0.634, 2);
+    t.state.pitchDeg = -89;
+    t.step(20);
+    expect(t.rig.getInfo().shoulderOffset).toBeCloseTo(0.012, 2);
+    t.state.yawDeg = 90;
+    t.state.pitchDeg = 0;
+    t.step(20);
+    const c = t.rig.getInfo();
+    expect(c.shoulder.z).toBeCloseTo(6.5 + 0.7, 2);
+    expect(c.shoulder.x).toBeCloseTo(10.5, 2);
+  });
+
+  it('AC4: aimPivot は 平らな地面で 足もと + 2.12', () => {
+    const t = setup();
+    const out = aimPivot(t.world, { x: 3.5, y: 9, z: 3.5 }, { x: 0, y: 0, z: 0 });
+    expect(out).toEqual({ x: 3.5, y: 9 + 2.12, z: 3.5 });
+  });
+
+  it('AC5: 天井が 足もと + 2 のトンネルで P は 足もと + 1.90、カメラは固いブロックの中にない', () => {
+    const t = setup();
+    t.state.yawDeg = 0;
+    t.world.fillSolid(0, 11, 0, 63, 11, 63); // 足もと 9 + 2 = 11 が天井
+    t.step();
+    const c = t.rig.getInfo();
+    expect(c.pivot.y).toBeCloseTo(9 + 1.9, 2);
+    expect(c.shoulder.y).toBeCloseTo(9 + 1.18, 2);
+    expect(t.world.isSolid(Math.floor(c.position.x), Math.floor(c.position.y), Math.floor(c.position.z))).toBe(false);
+    expect(t.world.isSolid(Math.floor(c.shoulder.x), Math.floor(c.shoulder.y), Math.floor(c.shoulder.z))).toBe(false);
+  });
+
+  it('AC6: 後ろ（z0 + 2）に高いかべ -> S からカメラまで 1.30。かべを消すと 15 ステップで 4.00', () => {
+    const t = setup();
+    t.state.yawDeg = 0;
+    t.state.position.z = 6.5;
+    t.world.fillSolid(0, 9, 8, 63, 20, 8); // z = 8 の列（キャラ z0 = 6 の + 2）
+    t.step();
+    expect(camToS(t.rig)).toBeCloseTo(1.3, 1);
+    expect(Math.abs(camToS(t.rig) - 1.3)).toBeLessThanOrEqual(0.03);
+    t.world.clearSolid(0, 9, 8, 63, 20, 8);
+    t.step(15);
+    expect(camToS(t.rig)).toBeCloseTo(4.0, 2);
+  });
+
+  it('AC7: 平らな地面で pitch +80 は かくす、+45 は 見える。1.2 を境にする', () => {
+    const t = setup();
+    t.state.pitchDeg = 80;
+    t.step();
+    expect(t.rig.getInfo().distanceToBody).toBeLessThan(1.2);
+    expect(t.rig.getInfo().hideChar).toBe(true);
+    expect(t.rig.doll.visible).toBe(false);
+    t.state.pitchDeg = 45;
+    t.step(30);
+    expect(t.rig.getInfo().distanceToBody).toBeGreaterThanOrEqual(1.2);
+    expect(t.rig.getInfo().hideChar).toBe(false);
+    expect(t.rig.doll.visible).toBe(true);
+  });
+
+  it('§4.1 の計算: 見上げ +45 は 1.60、+57 は 1.22（見える）、+58 は 1.19（かくす）', () => {
+    const t = setup();
+    for (const [pitch, dist, vis] of [[45, 1.6, true], [57, 1.22, true], [58, 1.19, false]] as const) {
+      t.state.pitchDeg = pitch;
+      t.step(30);
+      expect(t.rig.getInfo().distanceToBody).toBeCloseTo(dist, 1);
+      expect(t.rig.doll.visible).toBe(vis);
+    }
+  });
+
+  it('pitch -89 でカメラが S の 4.0 上、キャラは見える', () => {
     const t = setup();
     t.state.pitchDeg = -89;
-    t.rig.toggleView();
     t.step();
     const c = t.rig.getInfo();
-    const up = c.position.y - c.eye.y;
-    expect(up).toBeGreaterThan(4.4);
-    expect(up).toBeLessThan(4.6);
+    expect(c.position.y - c.shoulder.y).toBeGreaterThan(3.9);
     expect(t.rig.doll.visible).toBe(true);
   });
 
-  it('AC27: 後ろの壁 2.0 -> 距離 2.0 以下、ブロックの中にない、切り替え直後から', () => {
-    const t = setup({ wall: 2 });
-    t.rig.toggleView();
-    t.step();
-    const c = t.rig.getInfo();
-    expect(c.distanceToEye).toBeLessThanOrEqual(2.0);
-    expect(c.distanceToEye).toBeCloseTo(1.82, 1);
-    expect(
-      t.world.isSolid(Math.floor(c.position.x), Math.floor(c.position.y), Math.floor(c.position.z)),
-    ).toBe(false);
-  });
-
-  it('AC28: 後ろの壁 0.5 -> 人形が見えない', () => {
+  it('後ろの壁 0.5 -> キャラが見えない（からだの中心から 1.2 未満）', () => {
     const t = setup({ wall: 0.5 });
-    t.rig.toggleView();
     t.step();
-    expect(t.rig.getInfo().distanceToEye).toBeLessThan(1.0);
+    expect(t.rig.getInfo().distanceToBody).toBeLessThan(1.2);
     expect(t.rig.doll.visible).toBe(false);
   });
 
   it('壁から離れるときは 0.25 秒かけてなめらかに戻る', () => {
     const t = setup({ wall: 2 });
-    t.rig.toggleView();
     t.step();
-    const near = t.rig.getInfo().distanceToEye;
+    const near = camToS(t.rig);
+    expect(near).toBeCloseTo(1.8, 1);
     t.state.position.x += 6; // 壁が遠くなる
     t.step(3);
-    const mid = t.rig.getInfo().distanceToEye;
+    const mid = camToS(t.rig);
     expect(mid).toBeGreaterThan(near);
     expect(mid).toBeLessThan(4.0);
     t.step(20);
-    expect(t.rig.getInfo().distanceToEye).toBeGreaterThanOrEqual(4.0);
+    expect(camToS(t.rig)).toBeCloseTo(4.0, 2);
   });
 
-  it('向きはプレイヤーと同じ（yaw 90 で東を見る）', () => {
+  it('AC8: 向きはプレイヤーと同じ（yaw 90 で東を見る）。中心の線は S を通る', () => {
     const t = setup();
-    t.rig.toggleView();
     t.step();
     const v = new THREE.Vector3(0, 0, -1).applyQuaternion(t.camera.quaternion);
     expect(v.x).toBeCloseTo(1, 3);
     expect(v.z).toBeCloseTo(0, 3);
+    const c = t.rig.getInfo();
+    const toP = new THREE.Vector3(c.shoulder.x - c.position.x, c.shoulder.y - c.position.y, c.shoulder.z - c.position.z).normalize();
+    expect(toP.dot(v)).toBeCloseTo(1, 3);
+  });
+
+  it('キャラが動いても カメラの向きは変わらず、位置だけついていく', () => {
+    const t = setup();
+    t.step();
+    const q = t.camera.quaternion.clone();
+    const x0 = t.rig.getInfo().position.x;
+    t.state.position.x += 3;
+    t.step();
+    expect(t.camera.quaternion.angleTo(q)).toBeLessThan(1e-6);
+    expect(t.rig.getInfo().position.x - x0).toBeCloseTo(3, 2);
   });
 });
 
 describe('人形の手足', () => {
   it('AC29: 歩くと手足が振れて 30 度以内、止めて 30 ステップで 0 に戻る', () => {
     const t = setup();
-    t.rig.toggleView();
     t.state.moving = true;
     let maxArm = 0;
     let nonZero = false;
@@ -186,7 +263,6 @@ describe('人形の手足', () => {
     const t = setup();
     t.state.moving = true;
     t.state.onGround = false;
-    t.rig.toggleView();
     t.step(30);
     expect(t.rig.doll.legAngle).toBeCloseTo(0, 5);
   });
@@ -197,7 +273,6 @@ describe('見下ろしカメラ', () => {
     const t = setup();
     t.scene.fog = new THREE.Fog(0xffffff, 10, 50);
     const fog = t.scene.fog;
-    t.rig.toggleView();
     t.step();
     t.rig.overview(true);
     const c = t.rig.getInfo();

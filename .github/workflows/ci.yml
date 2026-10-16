@@ -27,9 +27,13 @@ jobs:
       - run: npm run check:fast
 
   e2e:
-    name: E2E（全部）
+    name: E2E（${{ matrix.shard }}/3）
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -39,15 +43,15 @@ jobs:
       - run: npm ci
       - name: Playwright の Chromium を入れる
         run: npx playwright install --with-deps chromium
-      - name: E2E
-        run: npx playwright test --reporter=list,html
+      - name: E2E（3 つに分けた ${{ matrix.shard }} つ目）
+        run: npx playwright test --shard=${{ matrix.shard }}/3 --reporter=list,html
         env:
           PLAYWRIGHT_HTML_OPEN: never
       - name: 失敗したときのレポートとスクショ
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.shard }}
           path: |
             playwright-report/
             test-results/
@@ -56,6 +60,17 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ui-gate-report
+          name: ui-gate-report-${{ matrix.shard }}
           path: ui-gate-report/
+          if-no-files-found: ignore
           retention-days: 7
+
+  # 3 つ全部が通ったかを、前と同じ名前の 1 つのチェックにまとめる（必須チェックの名前を変えないため）
+  e2e-all:
+    name: E2E（全部）
+    needs: e2e
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: 3 つの結果をたしかめる
+        run: test "${{ needs.e2e.result }}" = "success"

@@ -65,9 +65,8 @@ async function session(store: KeyValueStore | null, db: MemoryBackend | null, o:
     pitchDeg: spawn.pitchDeg,
     onGround: true,
     inWater: false,
-    moving: false,
+    moving: false, facingDeg: 0, running: false,
   };
-  let third = false;
   const clock = o.clock;
   const save = new SaveManager({
     world,
@@ -83,10 +82,6 @@ async function session(store: KeyValueStore | null, db: MemoryBackend | null, o:
         state.yawDeg = v.yawDeg;
         state.pitchDeg = v.pitchDeg;
       },
-      isThirdPerson: () => third,
-      setThirdPerson: (t) => {
-        third = t;
-      },
     },
     spawn: () => island.spawn(),
     store,
@@ -101,7 +96,7 @@ async function session(store: KeyValueStore | null, db: MemoryBackend | null, o:
     },
   });
   const loaded = save.load();
-  return { world, island, save, state, inventory, ticks, restored, loaded, isThird: () => third, setThird: (t: boolean) => (third = t) };
+  return { world, island, save, state, inventory, ticks, restored, loaded };
 }
 
 /** VOX-F より前の保存（島との差分を localStorage に 1 本の JSON）を作る */
@@ -151,7 +146,6 @@ describe('SaveManager（さわった列だけ丸ごと保存）', () => {
     a.state.position.z = 6.5;
     a.state.yawDeg = 180;
     a.state.pitchDeg = -20;
-    a.setThird(true);
     await a.save.now();
     const hash = a.world.hash();
 
@@ -165,7 +159,6 @@ describe('SaveManager（さわった列だけ丸ごと保存）', () => {
     expect(b.state.position).toEqual({ x: 6.5, y: 30, z: 6.5 });
     expect(b.state.yawDeg).toBe(180);
     expect(b.state.pitchDeg).toBe(-20);
-    expect(b.isThird()).toBe(true);
     // 読んだだけの列は、まださわった列ではない
     expect(b.world.saveDirtyCount()).toBe(0);
   });
@@ -451,6 +444,14 @@ describe('古い localStorage の保存を 1 回だけ移す（AC4）', () => {
     expect(b.loaded).toBe(true);
     expect(b.world.hash()).toBe(hash);
     expect(b.world.getBlock(5, 11, 6)).not.toBe('stone');
+  });
+
+  it('AC3（CHAR-1）: 「三人称でない」（third: false）と書かれた古い保存も そのまま読める（third は見ない）', async () => {
+    const store = new MemoryStore();
+    store.data.set(saveKey(SEED), legacyText([[4, 10, 6, 'log']]));
+    const a = await session(store, new MemoryBackend());
+    expect(a.loaded).toBe(true);
+    expect(a.state.yawDeg).toBe(90);
   });
 
   it('こわれた・版や島がちがう古い保存は 使わない', async () => {

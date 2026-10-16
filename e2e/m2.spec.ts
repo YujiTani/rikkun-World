@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { installAimHelpers } from './helpers/aim';
 import { findUnrubiedKanji } from '../src/ui/text';
 
 /**
@@ -13,6 +14,7 @@ async function open(page: Page, query = '') {
   await page.goto('/' + query);
   await page.waitForFunction(() => window.__rikkun?.ready === true);
   await page.evaluate(() => window.__rikkun!.achievements.mute(true));
+  await installAimHelpers(page);
   await installHelpers(page);
 }
 
@@ -33,8 +35,9 @@ async function installHelpers(page: Page) {
         h.step(10); // 前のブロックをこわした後の休み（6 ステップ）を終わらせる
         h.dig.events();
       },
+      /** 「ねらいの線の出どころ（肩の点 S）が (x, z) に来る」ように立つ。足もとの高さは y */
       place(x: number, y: number, z: number, yaw: number, pitch: number) {
-        h.player.set({ position: { x, y, z }, velocity: { x: 0, y: 0, z: 0 }, yaw, pitch });
+        (window as any).__aim.standForS(x, z, yaw, pitch, y);
         h.step(1);
       },
       press(n: number, a = 'primary') {
@@ -66,7 +69,7 @@ async function installHelpers(page: Page) {
 }
 
 test.describe('M2 ねらう', () => {
-  test('AC1/AC2/AC3: ねらい（距離 1.5・4.5・5.5、三人称、水ごしの海底）', async ({ page }) => {
+  test('AC1/AC2/AC3: ねらい（距離 1.5・4.5・5.5 を S の線・P から はかる、水ごしの海底）', async ({ page }) => {
     await open(page);
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
@@ -81,14 +84,7 @@ test.describe('M2 ねらう', () => {
       h.world.setBlock(7, 10, 6, 'dirt');
       h.step(1);
       const a2 = h.target.get();
-      h.input.press('toggleView');
-      h.step(1);
-      h.input.release('toggleView');
-      h.step(1);
       const a2third = h.target.get();
-      h.input.press('toggleView');
-      h.step(1);
-      h.input.release('toggleView');
       h.world.setBlock(7, 10, 6, 'air');
       h.world.setBlock(8, 10, 6, 'dirt');
       h.step(1);
@@ -96,10 +92,10 @@ test.describe('M2 ねらう', () => {
       h.world.setBlock(8, 10, 6, 'air');
       // AC3: 海の底
       h.world.fill(0, 8, 0, 12, 8, 12, 'water');
-      h.player.set({ position: { x: 2.5, y: 7, z: 6.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: -45 });
+      (window as any).__aim.standForS(2.5, 6.5, 90, -45, 7);
       h.step(1);
       const a3 = h.target.get();
-      return { a1, a1b, a2, a2third, a2far, a3 };
+      return { a1, a1b, a2, a2third, a2far, a3, x3: h.aim.point() };
     });
     expect(r.a1.id).toBe('dirt');
     expect(r.a1.block).toEqual({ x: 4, y: 10, z: 6 });
@@ -112,8 +108,11 @@ test.describe('M2 ねらう', () => {
     expect(r.a2third?.block).toEqual({ x: 7, y: 10, z: 6 });
     expect(r.a2far).toBeNull();
     expect(r.a3.id).toBe('sand');
-    expect(r.a3.block).toEqual({ x: 4, y: 6, z: 6 });
-    expect(r.a3.place).toEqual({ x: 4, y: 7, z: 6 });
+    // 「＋」の先の点 X（窓口 aim.point()）が 海底の砂に乗っている。ブロックは X から 決める（目の高さ・肩の高さに よらない）
+    const b3 = { x: Math.floor(r.x3.x), y: Math.floor(r.x3.y - 0.001), z: Math.floor(r.x3.z) };
+    expect(r.a3.block).toEqual(b3);
+    expect(r.a3.block.y).toBe(6);
+    expect(r.a3.place).toEqual({ x: b3.x, y: 7, z: b3.z });
   });
 });
 
@@ -288,9 +287,9 @@ test.describe('M2 ほる', () => {
       T.press(20);
       h.input.release('primary');
       T.place(2.5, 9, 6.5, 90, 0);
-      h.player.set({ position: { x: 2.5, y: 9, z: 6.5 }, yaw: 90, pitch: 0 });
+      (window as any).__aim.standForS(2.5, 6.5, 90, 0, 9);
       // 見る向きを上げて (4,11,6) をねらう
-      h.player.set({ position: { x: 2.5, y: 9, z: 6.5 }, yaw: 90, pitch: 35 });
+      (window as any).__aim.standForS(2.5, 6.5, 90, 35, 9);
       h.step(1);
       o.e_target = h.target.get()?.block;
       h.input.release('primary');
@@ -325,7 +324,7 @@ test.describe('M2 ほる', () => {
       h.input.release('primary');
       T.place(2.5, 9, 6.5, 90, 0);
       h.world.setBlock(4, 11, 6, 'dirt');
-      h.player.set({ position: { x: 2.5, y: 9, z: 6.5 }, yaw: 90, pitch: 35 });
+      (window as any).__aim.standForS(2.5, 6.5, 90, 35, 9);
       h.step(1);
       h.input.press('primary');
       h.step(1);
@@ -472,30 +471,34 @@ test.describe('M2 おく', () => {
       const a12 = { t: t12?.place, same: h.world.hash() === hash12, n: h.inventory.get().slots[0].count };
       // AC13
       h.world.fill(0, 47, 0, 12, 47, 12, 'stone');
-      h.player.set({ position: { x: 2.5, y: 48, z: 6.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: -45 });
+      (window as any).__aim.standForS(2.5, 6.5, 90, -45, 48);
       h.step(1);
       const y = h.player.get().position.y;
       const t13 = h.target.get();
       const hash13 = h.world.hash();
       T.tap('secondary');
-      const a13 = { y, block: t13?.block, place: t13?.place, same: h.world.hash() === hash13, n: h.inventory.get().slots[0].count };
+      const x13 = h.aim.point();
+      const a13 = { y, x13, block: t13?.block, place: t13?.place, same: h.world.hash() === hash13, n: h.inventory.get().slots[0].count };
       h.world.fill(0, 47, 0, 12, 47, 12, 'air');
       // AC14
       h.world.fill(0, 8, 0, 12, 8, 12, 'water');
-      h.player.set({ position: { x: 2.5, y: 7, z: 6.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: -45 });
+      (window as any).__aim.standForS(2.5, 6.5, 90, -45, 7);
       h.step(1);
+      const x14 = h.aim.point();
       T.tap('secondary');
-      return { a12, a13, b: h.world.getBlock(4, 7, 6), n: h.inventory.get().slots[0].count };
+      return { a12, a13, b14: h.world.getBlock(Math.floor(x14.x), 7, Math.floor(x14.z)), n: h.inventory.get().slots[0].count };
     });
     expect(r.a12.t).toEqual({ x: 2, y: 9, z: 6 });
     expect(r.a12.same).toBe(true);
     expect(r.a12.n).toBe(5);
     expect(r.a13.y).toBeCloseTo(48, 1);
-    expect(r.a13.block).toEqual({ x: 4, y: 47, z: 6 });
-    expect(r.a13.place).toEqual({ x: 4, y: 48, z: 6 });
+    const b13 = { x: Math.floor(r.a13.x13.x), y: Math.floor(r.a13.x13.y - 0.001), z: Math.floor(r.a13.x13.z) };
+    expect(r.a13.block).toEqual(b13);
+    expect(r.a13.block.y).toBe(47);
+    expect(r.a13.place).toEqual({ x: b13.x, y: 48, z: b13.z });
     expect(r.a13.same).toBe(true);
     expect(r.a13.n).toBe(5);
-    expect(r.b).toBe('dirt');
+    expect(r.b14).toBe('dirt');
     expect(r.n).toBe(4);
   });
 });
@@ -847,7 +850,8 @@ test.describe('M2 もちもの画面', () => {
     });
     // pause 中（時間が止まっている）でも E で開く
     await page.keyboard.press('KeyE');
-    await page.waitForFunction(() => (window as any).__rikkun.inventory.get().open === true, null, { timeout: 300 });
+    // 開くまでの時間は確かめる中身ではない（CI の遅いソフト描画で 300ms をこえることがあった）ので、長めに待つ
+    await page.waitForFunction(() => (window as any).__rikkun.inventory.get().open === true, null, { timeout: 5000 });
     await expect(page.locator('#inventory-close')).toBeVisible();
     // 画面が小さいと パネルぜんたいが 同じ比で ちぢむ（fit）。ちぢむ前の 大きさ（CSS の高さ）で 64px 以上を確かめる
     const h = await page.locator('#inventory-close').evaluate((el) => (el as HTMLElement).offsetHeight);
@@ -863,37 +867,7 @@ test.describe('M2 もちもの画面', () => {
   });
 });
 
-test.describe('M2 体と持ったブロック', () => {
-  test('AC27: 一人称・三人称の人形と手に持ったブロック', async ({ page }) => {
-    await open(page);
-    const r = await page.evaluate(() => {
-      const h = (window as any).__rikkun;
-      const T = (window as any).T;
-      T.base();
-      h.inventory.setSlot(0, { item: 'dirt', count: 5 });
-      h.inventory.select(0);
-      h.step(2);
-      const first = h.player.doll();
-      h.inventory.select(5);
-      h.step(1);
-      const empty = h.player.doll();
-      h.inventory.select(0);
-      T.tap('toggleView');
-      h.step(2);
-      const third = h.player.doll();
-      return { first, empty, third };
-    });
-    expect(r.first.parts).toEqual({ head: false, body: false, arms: true, legs: true });
-    expect(r.first.heldItem).toBe('dirt');
-    expect(r.first.heldScreen.x).toBeGreaterThanOrEqual(0.55);
-    expect(r.first.heldScreen.x).toBeLessThanOrEqual(0.95);
-    expect(r.first.heldScreen.y).toBeGreaterThanOrEqual(0.55);
-    expect(r.first.heldScreen.y).toBeLessThanOrEqual(0.95);
-    expect(r.empty.heldItem).toBeNull();
-    expect(r.third.parts).toEqual({ head: true, body: true, arms: true, legs: true });
-    expect(r.third.heldItem).toBe('dirt');
-  });
-});
+// CHAR-1 第 5 版で 一人称をなくしたため、旧 AC27（一人称・三人称の人形と手に持ったブロック）を消した（AC29: e2e/char1.spec.ts）
 
 test.describe('M2 見た目', () => {
   test('AC22: ホットバーの DOM（64px 以上・黄色いふち・数・漢字なし）', async ({ page }) => {
@@ -971,7 +945,7 @@ test.describe('M2 自動セーブ', () => {
     expect(after.p.position.y).toBeCloseTo(before.p.position.y, 1);
     expect(after.p.position.z).toBeCloseTo(before.p.position.z, 1);
     expect(after.p.yaw).toBeCloseTo(before.p.yaw, 0);
-    expect(after.p.pitch).toBeCloseTo(before.p.pitch, 0);
+    expect(after.p.pitch).toBeCloseTo(-25, 0); // 読みこんだら はじめの pitch（CHAR-1 第 5.2 版）
     expect(after.lock.overlayVisible).toBe(true);
 
     // ?seed=2 で開いても、ふだんの島の保存は消えない
@@ -1124,7 +1098,7 @@ test.describe('M2 性能（記録）', () => {
 });
 
 test.describe('M2 スクショ（AC23）', () => {
-  test('AC23: ねらいの枠・ひび・ホットバー・もちもの画面・合図・一人称の手と足', async ({ page }) => {
+  test('AC23: ねらいの枠・ひび・ホットバー・もちもの画面・合図・三人称', async ({ page }) => {
     test.setTimeout(120_000);
     await page.setViewportSize({ width: 1280, height: 720 });
     await open(page);
@@ -1197,24 +1171,10 @@ test.describe('M2 スクショ（AC23）', () => {
       h.world.setBlock(4, 10, 6, 'air');
     });
     // 全部いっぱい
-    // 一人称 pitch 0
-    await ev(() => {
-      const h = (window as any).__rikkun;
-      (window as any).T.place(2.5, 9, 6.5, 90, 0);
-      h.step(5);
-    });
-    await shot('f-hand-pitch0');
-    await ev(() => {
-      const h = (window as any).__rikkun;
-      (window as any).T.place(2.5, 9, 6.5, 90, -80);
-      h.step(5);
-    });
-    await shot('g-feet-pitch-80');
     // 三人称
     await ev(() => {
       const h = (window as any).__rikkun;
       (window as any).T.place(2.5, 9, 6.5, 90, -10);
-      (window as any).T.tap('toggleView');
       h.step(5);
     });
     await shot('h-third');

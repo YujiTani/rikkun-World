@@ -30,7 +30,7 @@ function tabArts(): Record<GuideTabId, string[]> {
       wasd,
       `<div class="po-space">${KEY('スペース')}</div>${EMOJI('🧍⬆')}`,
       EMOJI('⬅🖱➡'),
-      `<div class="po-keys">${KEY('V')}</div>${EMOJI('👀')}`,
+      `<div class="po-keys">${KEY('shift')}</div>${EMOJI('🏃')}`,
     ],
     dig: [
       `${LEFT()}${EMOJI('⛏')}`,

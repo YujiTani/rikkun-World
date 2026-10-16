@@ -100,7 +100,7 @@ test.describe('M1-01 世界（つないだ後）', () => {
       expect(r.p0.position.y).toBeCloseTo(r.spawn.y, 3);
       expect(r.p0.position.z).toBeCloseTo(r.spawn.z, 3);
       expect(r.p0.yaw).toBeCloseTo(0, 3);
-      expect(r.p0.pitch).toBeCloseTo(0, 3);
+      expect(r.p0.pitch).toBeCloseTo(-25, 3); // はじめの pitch（CHAR-1 第 5.2 版 §4.1）
       // AC11
       expect(r.tick1 - r.tick0).toBe(120);
       expect(Math.abs(r.p1.position.y - r.spawn.y)).toBeLessThan(0.05);
@@ -181,7 +181,7 @@ test.describe('M1-01 世界（つないだ後）', () => {
       expect(p.velocity.y).toBeCloseTo(0, 5);
       expect(p.velocity.z).toBeCloseTo(0, 5);
       expect(p.yaw).toBeCloseTo(0, 3);
-      expect(p.pitch).toBeCloseTo(0, 3);
+      expect(p.pitch).toBeCloseTo(-25, 3);
     }
     expect(r.b.p.position.y).toBeCloseTo(r.b.g + 2, 1);
   });
@@ -386,33 +386,36 @@ test.describe('M1-02 動き・視点・ロック（つないだ後）', () => {
     expect(r.p3).toBeCloseTo(-89, 1);
   });
 
-  test('AC23/AC24/AC41: 視点の切り替え（V）と人形', async ({ page }) => {
+  // CHAR-1 第 5 版で 一人称をなくしたため、旧 AC23/AC24/AC41（V での切りかえ）を AC1 に置きかえた
+  test('CHAR-1 AC1: はじめから三人称。キャラの板が出る。V を押しても変わらない', async ({ page }) => {
     await open(page);
+    await page.evaluate(() => {
+      const h = window.__rikkun! as any;
+      h.lock.simulate(true);
+    });
+    // 絵の読みこみは 本当の時間で進む（上限 5 秒）
+    await expect.poll(() => page.evaluate(() => (window.__rikkun! as any).player.doll().sprite.loaded), { timeout: 5000 }).toBe(true);
     const r = await page.evaluate(() => {
       const h = window.__rikkun! as any;
       h.pause();
-      h.lock.simulate(true);
-      h.step(1);
-      const first = h.camera.get();
-      const doll1 = h.player.doll().visible;
-      const eyeDy = first.position.y - h.player.get().position.y;
-      h.input.press('toggleView');
-      h.step(60);
-      const third = h.camera.get().view;
-      h.input.release('toggleView');
-      h.step(1);
-      h.input.press('toggleView');
-      h.step(1);
-      h.input.release('toggleView');
-      h.step(1);
-      const back = h.camera.get().view;
-      return { view0: first.view, doll1, eyeDy, third, back };
+      h.player.set({ pitch: 0 });
+      h.step(2);
+      const before = h.camera.get();
+      return { view: before.view, pos: before.position, sprite: h.player.doll().sprite };
     });
-    expect(r.view0).toBe('first');
-    expect(r.doll1).toBe(false);
-    expect(r.eyeDy).toBeCloseTo(1.62, 1);
-    expect(r.third).toBe('third');
-    expect(r.back).toBe('first');
+    expect(r.view).toBe('third');
+    expect(r.sprite.visible).toBe(true);
+    await page.keyboard.press('KeyV');
+    const after = await page.evaluate(() => {
+      const h = window.__rikkun! as any;
+      h.step(1);
+      const c = h.camera.get();
+      return { view: c.view, pos: c.position };
+    });
+    expect(after.view).toBe('third');
+    expect(Math.abs(after.pos.x - r.pos.x)).toBeLessThan(0.001);
+    expect(Math.abs(after.pos.y - r.pos.y)).toBeLessThan(0.001);
+    expect(Math.abs(after.pos.z - r.pos.z)).toBeLessThan(0.001);
   });
 
   test('AC25/AC27/AC28: 三人称のカメラ（開けた場所・後ろが壁 2.0・壁 0.5）を実ゲームで', async ({ page }) => {
@@ -422,10 +425,7 @@ test.describe('M1-02 動き・視点・ロック（つないだ後）', () => {
       h.pause();
       h.lock.simulate(true);
       h.world.fill(0, 8, 0, 12, 8, 12, 'stone');
-      h.input.press('toggleView');
-      h.step(1);
-      h.input.release('toggleView');
-      h.step(1);
+      h.step(2);
       const open = () => {
         h.player.set({ position: { x: 10.5, y: 9, z: 6.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: 0 });
         h.step(2);
@@ -440,18 +440,19 @@ test.describe('M1-02 動き・視点・ロック（つないだ後）', () => {
       h.world.fill(5, 9, 0, 5, 11, 12, 'stone');
       h.player.set({ position: { x: 6.5, y: 9, z: 6.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: 0 });
       h.step(2);
-      const c = { vis: h.player.doll().visible, dist: h.camera.get().distanceToEye };
+      const c = { vis: h.player.doll().visible, hide: h.camera.get().hideChar, dist: h.camera.get().distanceToEye };
       return { a, b, c };
     });
     expect(r.a.cam.view).toBe('third');
     expect(r.a.cam.distanceToEye).toBeGreaterThan(4.0);
     expect(r.a.cam.distanceToEye).toBeLessThan(4.1);
-    expect(r.a.cam.position.y - r.a.cam.eye.y).toBeCloseTo(0.5, 1);
+    expect(r.a.cam.position.y - r.a.cam.eye.y).toBeCloseTo(-0.22, 1); // カメラは 肩の点 S（足もと + 1.40）から 4.0
     expect(r.a.cam.eye.x - r.a.cam.position.x).toBeCloseTo(4.0, 1);
     expect(r.a.vis).toBe(true);
     expect(r.b.cam.distanceToEye).toBeLessThanOrEqual(2.0);
     expect(['air', 'water']).toContain(r.b.block);
-    expect(r.c.vis).toBe(false);
+    // からだの中心から 1.2 未満のときだけ かくす（CHAR-1 §4.1。P の高さのぶん 目より遠くなる）
+    expect(r.c.vis).toBe(!r.c.hide);
   });
 
   test('AC30: 起動直後は案内画面で時間が止まる。step は進む', async ({ page }) => {
@@ -500,7 +501,6 @@ test.describe('M1-02 動き・視点・ロック（つないだ後）', () => {
       h.pause();
       h.input.press('moveForward');
       h.input.look(100, 0);
-      h.input.press('toggleView');
       h.step(60);
       const p1 = h.player.get();
       const view = h.camera.get().view;
@@ -524,7 +524,7 @@ test.describe('M1-02 動き・視点・ロック（つないだ後）', () => {
     expect(Math.abs(r.p1.position.z - r.p0.position.z)).toBeLessThan(0.01);
     expect(Math.abs(r.p1.position.x - r.p0.position.x)).toBeLessThan(0.01);
     expect(Math.abs(r.p1.yaw - r.p0.yaw)).toBeLessThan(0.01);
-    expect(r.view).toBe('first');
+    expect(r.view).toBe('third');
     expect(r.l2.overlayVisible).toBe(false);
     expect(r.held2).toEqual([]);
     expect(Math.abs(r.p2.position.x - r.p0.position.x)).toBeLessThan(0.01);
@@ -583,22 +583,14 @@ test.describe('M1-02 動き・視点・ロック（つないだ後）', () => {
     await page.screenshot({ path: `${ASSETS}/M1-02-AC39-overlay.png` });
   });
 
-  test('AC40/AC41: 三人称・一人称のスクショ', async ({ page }) => {
+  test('AC40: 三人称のスクショ', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 720 });
     await open(page);
     await page.evaluate(() => {
       const h = window.__rikkun! as any;
       h.pause();
       h.lock.simulate(true);
-      h.step(1);
-    });
-    await page.screenshot({ path: `${ASSETS}/M1-02-AC41-first.png` });
-    await page.evaluate(() => {
-      const h = window.__rikkun! as any;
-      h.input.press('toggleView');
-      h.step(1);
-      h.input.release('toggleView');
-      h.step(2);
+      h.step(3);
     });
     expect(await page.evaluate(() => window.__rikkun!.player.doll().visible)).toBe(true);
     await page.screenshot({ path: `${ASSETS}/M1-02-AC40-third.png` });

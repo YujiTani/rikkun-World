@@ -18,14 +18,17 @@ export function createPlayerHook(controller: PlayerController): HookNamespace {
         pitch: s.pitchDeg,
         forward: { x: Math.sin(yaw), z: -Math.cos(yaw) },
         onGround: s.onGround,
+        facing: normalizeYaw(s.facingDeg),
+        running: s.running,
       };
     },
-    set: (v: { position?: Vec; velocity?: Vec; yaw?: number; pitch?: number }) => {
+    set: (v: { position?: Vec; velocity?: Vec; yaw?: number; pitch?: number; facing?: number }) => {
       controller.set({
         position: v.position,
         velocity: v.velocity,
         yawDeg: v.yaw,
         pitchDeg: v.pitch,
+        facingDeg: v.facing,
       });
     },
   };

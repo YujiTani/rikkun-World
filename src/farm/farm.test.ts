@@ -333,7 +333,7 @@ describe('前の保存（AC35）', () => {
     const save = new SaveManager({
       world, seed: 777, db, restored,
       inventory: { serialize: () => null, deserialize: () => {}, clear: () => {} } as never,
-      player: { get: () => ({ position: sp, velocity: { x: 0, y: 0, z: 0 }, yawDeg: 0, pitchDeg: 0, onGround: true, inWater: false, moving: false }), set: () => {}, isThirdPerson: () => false, setThirdPerson: () => {} },
+      player: { get: () => ({ position: sp, velocity: { x: 0, y: 0, z: 0 }, yawDeg: 0, pitchDeg: 0, onGround: true, inWater: false, moving: false, facingDeg: 0, running: false }), set: () => {} },
       spawn: () => sp, store: kv, tick: () => 0, settings: { saveIntervalTicks: 600 }, farm,
     });
     expect(save.load()).toBe(true);
