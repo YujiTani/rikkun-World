@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>9×9×9 ためし（VOX-0）</title>
+    <style>
+      html, body { margin: 0; height: 100%; overflow: hidden; background: #9ad0f5; font-family: system-ui, sans-serif; }
+      #game { position: fixed; inset: 0; }
+      #game canvas { display: block; }
+      #bar { position: fixed; top: 8px; left: 8px; display: flex; flex-wrap: wrap; gap: 6px; max-width: 60vw; }
+      #bar button { font-size: 14px; padding: 6px 10px; border: 2px solid #345; border-radius: 6px; background: #fff; cursor: pointer; }
+      #bar button.on { background: #ffd54a; font-weight: bold; }
+      #stats { position: fixed; top: 8px; right: 8px; min-width: 270px; padding: 8px 10px; font: 13px/1.5 ui-monospace, monospace;
+        color: #fff; background: rgba(0, 0, 0, 0.65); border-radius: 6px; white-space: pre; }
+      #help { position: fixed; bottom: 8px; left: 8px; padding: 4px 8px; font-size: 12px; color: #fff; background: rgba(0, 0, 0, 0.5); border-radius: 6px; }
+    </style>
+  </head>
+  <body>
+    <div id="game"></div>
+    <div id="bar"></div>
+    <div id="stats"></div>
+    <div id="help">ドラッグ: むき / W A S D: いどう / Space: うえ / Shift: した</div>
+    <script type="module" src="/src/proto/voxel/main.ts"></script>
+  </body>
+</html>

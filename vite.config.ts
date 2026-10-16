@@ -10,6 +10,7 @@ export default defineConfig({
       input: {
         main: resolve(import.meta.dirname, 'index.html'),
         preview: resolve(import.meta.dirname, 'preview.html'),
+        voxelProto: resolve(import.meta.dirname, 'voxel-proto.html'),
       },
     },
   },
