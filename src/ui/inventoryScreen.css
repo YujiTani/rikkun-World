@@ -18,6 +18,14 @@
 #inventory-screen[hidden] {
   display: none;
 }
+/*
+ * 開いている間は、パネルの うしろに すけて見える 遊びの HUD（題・時計・レベルとハート・ホットバー・照準まわり）を消す。
+ * 世界は すけたまま。ホットバーは パネルの中にもある（#44・#82）。
+ */
+#hud:has(> #inventory-screen:not([hidden]))
+  > :is(#title, #crosshair, #notice-signal, #notice-signal-text, #notice-name, #hud-self, #clock, #hotbar, #action-hint, #hud-notice, #farm-hint, #farm-aim, #pickup-log, #home-notice) {
+  opacity: 0;
+}
 
 .inv-frame {
   display: flex;
