@@ -27,7 +27,7 @@ async function flatGround(page: Page, waitLoaded = true) {
     const h = window.__rikkun! as any;
     h.pause();
     h.world.fill(0, 8, 0, 40, 8, 40, 'stone');
-    h.world.fill(0, 9, 0, 40, 40, 40, 'air');
+    h.world.fill(0, 9, 0, 40, h.world.size().y - 1, 40, 'air');
     h.player.set({ position: { x: 6.5, y: 9, z: 6.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: 0, facing: 0 });
     h.step(3);
   });
@@ -97,7 +97,7 @@ test.describe('CHAR-1 キャラの板', () => {
         h.lock.simulate(true);
         h.pause();
         h.world.fill(0, 8, 0, 40, 8, 40, 'stone');
-        h.world.fill(0, 9, 0, 40, 40, 40, 'air');
+        h.world.fill(0, 9, 0, 40, h.world.size().y - 1, 40, 'air');
         h.player.set({ position: { x: 6.5, y: 9, z: 6.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: 0, facing: 0 });
         h.step(5);
       });
@@ -139,7 +139,7 @@ test.describe('CHAR-1 キャラの板', () => {
       h.settings.set('yokaiWander', false);
       h.yokai.clear();
       h.world.fill(0, 8, 0, 40, 8, 40, 'stone');
-      h.world.fill(0, 9, 0, 40, 40, 40, 'air');
+      h.world.fill(0, 9, 0, 40, h.world.size().y - 1, 40, 'air');
       h.inventory.clear();
       h.player.set({ position: { x: 6.5, y: 9, z: 6.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 0, facing: 0 });
       h.step(40);

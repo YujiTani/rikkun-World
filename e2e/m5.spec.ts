@@ -15,7 +15,7 @@ async function open(page: Page, query = '?nosave=1') {
 }
 
 test.describe('M5 広い世界', () => {
-  test('AC1/AC13: 大きさ 128×48×128・見えないかべ・テスト場所', async ({ page }) => {
+  test('AC1/AC13: 大きさ 128×高さ×128・見えないかべ・テスト場所', async ({ page }) => {
     await open(page);
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
@@ -26,16 +26,19 @@ test.describe('M5 広い世界', () => {
       // 床の列
       out.col = [] as string[];
       for (const [x, z] of [[0, 0], [12, 12], [6, 6]]) {
-        out.col.push([0, 5, 6, 7, 8, 47].map((y) => h.world.getBlock(x, y, z)).join(','));
+        out.col.push([0, 5, 6, 7, 8, h.world.size().y - 1].map((y) => h.world.getBlock(x, y, z)).join(','));
       }
       return out;
     });
-    expect(r.size).toEqual({ x: 128, y: 48, z: 128 });
-    expect(r.area).toEqual({ x0: 0, x1: 12, z0: 0, z1: 12, y0: 8, y1: 47 });
+    // 高さは WORLD_HEIGHT（今の島 48・VOX-B で 352）。ゲームに聞く
+    expect(r.size.x).toBe(128);
+    expect(r.size.z).toBe(128);
+    expect(r.size.y).toBeGreaterThanOrEqual(48);
+    expect(r.area).toEqual({ x0: 0, x1: 12, z0: 0, z1: 12, y0: 8, y1: r.size.y - 1 });
     console.log('AC1', JSON.stringify(r));
   });
 
-  test('AC1(歩き): 西・東へ歩き続けても足もとの中央は 0.3〜127.7', async ({ page }) => {
+  test('AC1(歩き): 西・東へ歩き続けても足もとの中央は 0.3〜size−0.3', async ({ page }) => {
     await open(page);
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
@@ -44,25 +47,29 @@ test.describe('M5 広い世界', () => {
       h.settings.set('yokaiAutoSpawn', false);
       const res: any = {};
       for (const [name, x, z, yaw] of [['west', 3.5, 40.5, 270], ['east', 124.5, 40.5, 90], ['north', 40.5, 3.5, 0], ['south', 40.5, 124.5, 180]] as const) {
-        h.player.set({ position: { x, y: 12, z }, velocity: { x: 0, y: 0, z: 0 }, yaw, pitch: 0 });
+        const sz = h.world.size();
+        // 立つ高さは その列の地面の上（はしは 仮の海でも 同じ）。0.3〜size−0.3 の中
+        h.player.set({ position: { x: name === 'east' ? sz.x - 3.5 : x, y: h.world.groundHeight(Math.floor(name === 'east' ? sz.x - 3.5 : x), Math.floor(name === 'south' ? sz.z - 3.5 : z)) + 1, z: name === 'south' ? sz.z - 3.5 : z }, velocity: { x: 0, y: 0, z: 0 }, yaw, pitch: 0 });
         h.input.releaseAll();
         h.input.press('moveForward');
         h.step(240);
         h.input.releaseAll();
         res[name] = h.player.get().position;
       }
+      res.size = h.world.size();
       return res;
     });
     console.log('AC1 walk', JSON.stringify(r));
     expect(r.west.x).toBeCloseTo(0.3, 1);
-    expect(r.east.x).toBeCloseTo(127.7, 1);
+    expect(r.east.x).toBeCloseTo(r.size.x - 0.3, 1);
     expect(r.north.z).toBeCloseTo(0.3, 1);
-    expect(r.south.z).toBeCloseTo(127.7, 1);
-    for (const p of Object.values<any>(r)) {
+    expect(r.south.z).toBeCloseTo(r.size.z - 0.3, 1);
+    for (const k of ['west', 'east', 'north', 'south']) {
+      const p = r[k];
       expect(p.x).toBeGreaterThanOrEqual(0.3 - 1e-6);
-      expect(p.x).toBeLessThanOrEqual(127.7 + 1e-6);
+      expect(p.x).toBeLessThanOrEqual(r.size.x - 0.3 + 1e-6);
       expect(p.z).toBeGreaterThanOrEqual(0.3 - 1e-6);
-      expect(p.z).toBeLessThanOrEqual(127.7 + 1e-6);
+      expect(p.z).toBeLessThanOrEqual(r.size.z - 0.3 + 1e-6);
     }
   });
 
@@ -74,29 +81,35 @@ test.describe('M5 広い世界', () => {
       h.lock.simulate(true);
       h.settings.set('yokaiAutoSpawn', false);
       h.yokai.clear();
-      const H0 = h.world.regions().startH0;
-      const torch = h.world.getBlock(66, H0 + 1, 63);
+      // たいまつ の場所は ゲームに聞く（VOX-B: startTorch()。今の島は スタート + (2, H0+1, −1)）
+      const sp = h.world.spawn();
+      const T = h.world.startTorch
+        ? h.world.startTorch()
+        : { x: Math.floor(sp.x) + 2, y: h.world.regions().startH0 + 1, z: Math.floor(sp.z) - 1 };
+      const H0 = T.y - 1;
+      const torch = h.world.getBlock(T.x, T.y, T.z);
       // たいまつ の前（西がわ）に立って、たいまつ をねらって 300 ステップほる
-      h.player.set({ position: { x: 64.5, y: H0 + 1, z: 63.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: 0 });
+      h.player.set({ position: { x: T.x - 1.5, y: h.world.groundHeight(T.x - 2, T.z) + 1, z: T.z + 0.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: 0 });
       h.step(2);
       const tgt = h.target.get();
       h.input.press('primary');
       h.step(300);
       h.input.release('primary');
-      const after = h.world.getBlock(66, H0 + 1, 63);
+      const after = h.world.getBlock(T.x, T.y, T.z);
       h.time.set(59400);
       h.step(3);
       const levels: number[] = [];
       let min = 99;
       for (let dx = -4; dx <= 4; dx++)
         for (let dz = -4; dz <= 4; dz++) {
-          const x = 66 + dx, z = 63 + dz;
+          const x = T.x + dx, z = T.z + dz;
           if (Math.abs(dx) + Math.abs(dz) > 4 || h.world.groundHeight(x, z) !== H0) continue;
           const l = h.world.lightAt(x, H0 + 1, z);
           levels.push(l.level);
           min = Math.min(min, l.level);
         }
-      const far = h.world.lightAt(66 + 20, h.world.groundHeight(86, 63) + 1, 63);
+      // 遠い所は たいまつ から +20（地面の上）
+      const far = h.world.lightAt(T.x + 20, h.world.groundHeight(T.x + 20, T.z) + 1, T.z);
       return { H0, torch, after, tgt: JSON.stringify(tgt).slice(0, 120), n: levels.length, min, far, sample: levels.slice(0, 12) };
     });
     console.log('AC6/19', JSON.stringify(r));
@@ -107,21 +120,38 @@ test.describe('M5 広い世界', () => {
     expect(r.far.level).toBeLessThan(r.min);
   });
 
-  test('AC13: 北西のすみ（テスト場所）の地層', async ({ page }) => {
+  test('AC13: スタートから 8 以内の陸の列の地層・y=0 は こわれない そこいし（VOX-B 基準 4）', async ({ page }) => {
     await open(page);
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
+      const sp = h.world.spawn();
+      const sx = Math.floor(sp.x);
+      const sz = Math.floor(sp.z);
+      const seaY: number = h.world.seaY ? h.world.seaY() : 7; // hook が無い今の島は 海面 7
+      const rock = h.world.regions().rock;
       const bad: string[] = [];
-      for (let x = 0; x <= 12; x++)
-        for (let z = 0; z <= 12; z++) {
+      let land = 0;
+      for (let x = sx - 8; x <= sx + 8; x++)
+        for (let z = sz - 8; z <= sz + 8; z++) {
           if (h.world.getBlock(x, 0, z) !== 'bedrock') bad.push(`y0 ${x},${z}`);
-          for (const y of [5, 6]) if (h.world.getBlock(x, y, z) !== 'sand') bad.push(`sand ${x},${y},${z}`);
-          if (h.world.getBlock(x, 7, z) !== 'water') bad.push(`water ${x},${z}`);
-          for (let y = 8; y <= 47; y++) if (h.world.getBlock(x, y, z) !== 'air') bad.push(`air ${x},${y},${z}`);
+          const H = h.world.groundHeight(x, z);
+          if (H < seaY + 2) continue; // 浜・海は 別の きまり
+          if (Math.hypot(x - rock.cx, z - rock.cz) <= rock.r + 1) continue; // はじまりの岩山の円の中はのぞく
+          if (['farmland', 'farmland_wet', 'tansu'].includes(h.world.getBlock(x, H, z))) continue; // ふるい畑の列は 畑の きまり（F1）
+          land++;
+          const at = (d: number) => h.world.getBlock(x, H - d, z);
+          if (at(0) !== 'grass') bad.push(`top ${x},${z} ${at(0)}`);
+          if (at(1) !== 'dirt') bad.push(`dirt1 ${x},${z} ${at(1)}`);
+          if (at(2) !== 'dirt' && at(2) !== 'stone') bad.push(`dirt2 ${x},${z} ${at(2)}`);
+          for (let d = 3; d <= 7; d++) {
+            const b = at(d);
+            if (b === 'air' || b === 'water' || b === 'outside') bad.push(`under ${x},${H - d},${z} ${b}`);
+          }
         }
-      return { bad: bad.slice(0, 5), n: bad.length, y0: h.world.getBlock(0, 0, 0) };
+      return { bad: bad.slice(0, 5), n: bad.length, land };
     });
     console.log('AC13', JSON.stringify(r));
+    expect(r.land).toBeGreaterThan(50);
     expect(r.n).toBe(0);
   });
 
@@ -189,7 +219,8 @@ test.describe('M5 広い世界', () => {
       h.settings.set('yokaiWander', false);
       h.time.set(59400);
       h.yokai.clear();
-      h.player.set({ position: { x: P.x, y: 9, z: P.z }, velocity: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: 0 });
+      const gy = h.world.groundHeight(cx, cz) + 1; // ひらちの地面の上
+      h.player.set({ position: { x: P.x, y: gy, z: P.z }, velocity: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: 0 });
       h.step(1);
       h.yokai.events();
       const spawns: any[] = [];
@@ -200,18 +231,18 @@ test.describe('M5 広い世界', () => {
         for (const e of h.yokai.events()) if (e.type === 'spawn') spawns.push(e);
       }
       const below = spawns.map((e) => h.world.getBlock(Math.floor(e.position.x), Math.floor(e.position.y - 0.5), Math.floor(e.position.z)));
-      const colWater = spawns.map((e) => h.world.getBlock(Math.floor(e.position.x), 7, Math.floor(e.position.z)) === 'water');
+      const colWater = spawns.map((e) => h.world.getBlock(Math.floor(e.position.x), h.world.seaY ? h.world.seaY() : 7, Math.floor(e.position.z)) === 'water');
       // 遠くの妖怪
       h.settings.set('yokaiAutoSpawn', false);
       h.yokai.clear();
       h.yokai.events();
-      const id = h.yokai.spawn('karakasa', P.x + 20, 9, P.z, { ai: false });
+      const id = h.yokai.spawn('karakasa', P.x + 20, gy, P.z, { ai: false });
       const before = h.yokai.list().some((y: any) => y.id === id);
       const items0 = h.drops ? 0 : 0;
       h.yokai.events();
-      const moved = h.yokai.spawn('karakasa', P.x - 10, 9, P.z, { ai: false });
+      const moved = h.yokai.spawn('karakasa', P.x - 10, gy, P.z, { ai: false });
       // 65 の所は世界の中（x=cx+65 は外）→ 西へ 65
-      const farId = h.yokai.spawn('karakasa', P.x - 65, 9, P.z, { ai: false });
+      const farId = h.yokai.spawn('karakasa', P.x - 65, gy, P.z, { ai: false });
       h.step(1);
       const ids = h.yokai.list().map((y: any) => y.id);
       const ev = h.yokai.events();
@@ -230,7 +261,9 @@ test.describe('M5 広い世界', () => {
     expect(r.defeat).toBe(0);
   });
 
-  test('AC20（VOX-F AC4）: 古い localStorage の保存は 1 回だけ IndexedDB に移り、古いキーは残る。使えない古い保存は読まない', async ({ browser }) => {
+  test('AC20（VOX-B 基準 19）: 古い localStorage の保存は 読まない・消さない（移しもしない）', async ({ browser }) => {
+    // VOX-F AC4（古い localStorage を IndexedDB へ移す）は VOX-B で やめた（決定 5: 今のセーブは 全部リセット）。
+    // どの形の古い保存も 同じに 読まれず、古いキーは 残る。
     const variants: Record<string, (d: any) => any> = {
       good: (d) => d,
       gen1: (d) => ({ ...d, gen: 1 }),
@@ -272,21 +305,11 @@ test.describe('M5 広い世界', () => {
         return { sand, info: h.save.info(), marker: Object.keys(localStorage).filter((k) => k.startsWith('rikkun-world-migrated-')) };
       });
       console.log('AC20', name, JSON.stringify(r));
-      if (name === 'good') {
-        expect(r.sand).toBe('sand');
-        expect(r.info.migrated).toBe(true);
-        expect(r.marker).toHaveLength(1);
-        expect(await page.evaluate((k) => localStorage.getItem(k) !== null, key)).toBe(true); // 古いキーは残る
-        // 古いキーを消しても、IndexedDB の保存から同じ世界
-        await page.evaluate((k) => localStorage.removeItem(k), key);
-        await page.goto('/');
-        await page.waitForFunction(() => window.__rikkun?.ready === true);
-        expect(await page.evaluate(() => (window as any).__rikkun.world.getBlock(100, 8, 60))).toBe('sand');
-        expect(await page.evaluate(() => (window as any).__rikkun.save.info().migrated)).toBe(false);
-      } else {
-        expect(r.sand).not.toBe('sand');
-        expect(r.info.migrated).toBe(false);
-      }
+      expect(r.sand, name).not.toBe('sand'); // 古い保存の砂は 世界に入らない
+      expect(r.info.migrated, name).toBe(false);
+      expect(r.info.saveId, name).not.toBe('main');
+      expect(r.marker, name).toHaveLength(0);
+      expect(await page.evaluate((k) => localStorage.getItem(k) !== null, key), name).toBe(true); // 古いキーは消えずに残る
       await ctx.close();
     }
   });

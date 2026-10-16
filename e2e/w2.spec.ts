@@ -24,7 +24,7 @@ async function open(page: Page) {
         h.settings.set('yokaiWander', false);
         h.yokai.clear();
         h.world.fill(0, 8, 0, 12, 8, 12, 'stone');
-        h.world.fill(0, 9, 0, 12, 20, 12, 'air');
+        h.world.fill(0, 9, 0, 12, h.world.size().y - 1, 12, 'air');
         h.inventory.clear();
         h.time.set(0);
         (window as any).__aim.standForS(2.5, 6.5, 90, 0, 9);

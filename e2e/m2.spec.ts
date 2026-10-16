@@ -28,7 +28,7 @@ async function installHelpers(page: Page) {
         h.lock.simulate(true);
         h.input.releaseAll();
         h.world.fill(0, 8, 0, 12, 8, 12, 'stone');
-        h.world.fill(0, 9, 0, 12, 20, 12, 'air');
+        h.world.fill(0, 9, 0, 12, h.world.size().y - 1, 12, 'air');
         h.inventory.clear();
         if (!opts.keepDrop) h.settings.set('dropMax', { common: 1, uncommon: 1, rare: 1, superRare: 1 });
         T.place(2.5, 9, 6.5, 90, 0);
@@ -1041,7 +1041,7 @@ test.describe('M2 性能（記録）', () => {
         if (g < 8) continue;
         let top = g;
         // 一番上のブロック（log でない）
-        while (top < 47 && h.world.getBlock(x, top + 1, z) !== 'air') top++;
+        while (top < h.world.size().y - 2 && h.world.getBlock(x, top + 1, z) !== 'air') top++;
         const id = h.world.getBlock(x, top, z);
         if (id === 'log' || id === 'water' || id === 'bedrock' || id === 'iron_ore') continue;
         h.inventory.clear();
@@ -1074,7 +1074,7 @@ test.describe('M2 性能（記録）', () => {
       let c = 0;
       for (let x = 0; x <= 12 && c < 2000; x++)
         for (let y = 9; y < 20 && c < 2000; y++)
-          for (let z = 0; z <= 12 && c < 2000; z++) { h.world.setBlock(x, y, z, 'stone'); c++; }
+          for (let z = 0; z <= 12 && c < 2000; z++) { h.world.setBlock(x, y, z, 'log'); c++; } // いし の上に いし では変化 0（VOX-B: 地下）なので log
       // 保存は ?nosave=1 だと何もしないので別途
       return { n: ms.length, median: ms[Math.floor(ms.length / 2)], max: ms[ms.length - 1], all: ms };
     });
@@ -1089,7 +1089,7 @@ test.describe('M2 性能（記録）', () => {
       let c = 0;
       for (let y = 9; y < 25 && c < 2000; y++)
         for (let x = 0; x <= 12 && c < 2000; x++)
-          for (let z = 0; z <= 12 && c < 2000; z++) { h.world.setBlock(x, y, z, 'stone'); c++; }
+          for (let z = 0; z <= 12 && c < 2000; z++) { h.world.setBlock(x, y, z, 'log'); c++; } // 同上
       h.save.now(); // ここは 書きはじめの すぐあとの数を見る（またない）
       return h.save.info();
     });

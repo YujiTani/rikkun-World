@@ -13,7 +13,7 @@ async function fullOnSand(page: Page) {
     h.input.releaseAll();
     h.achievements.mute(true);
     h.world.fill(0, 8, 0, 40, 8, 40, 'sand');
-    h.world.fill(0, 9, 0, 40, 20, 40, 'air');
+    h.world.fill(0, 9, 0, 40, h.world.size().y - 1, 40, 'air');
     h.time.set(6000);
     h.inventory.clear();
     for (let i = 0; i < 36; i++) h.inventory.setSlot(i, { item: 'dirt', count: 64 });

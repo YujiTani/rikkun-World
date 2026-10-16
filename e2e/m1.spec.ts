@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { installArena } from './helpers/arena';
-import { WORLD_CENTER, WORLD_SIZE } from '../src/contracts';
+import { WORLD_SIZE } from '../src/contracts';
 import { findUnrubiedKanji } from '../src/ui/text';
 
 /**
@@ -26,7 +26,7 @@ test.describe('M1-01 世界（つないだ後）', () => {
       const w = window.__rikkun!.world;
       return {
         size: w.size(),
-        out: [w.getBlock(-1, 10, 10), w.getBlock(128, 10, 10), w.getBlock(10, 48, 10)],
+        out: [w.getBlock(-1, 10, 10), w.getBlock(w.size().x, 10, 10), w.getBlock(10, w.size().y, 10)], // 外 = 読みこみ範囲の外・y = size().y（VOX-B: 高さ 352）
         types: w.blockTypes(),
       };
     });
@@ -72,6 +72,12 @@ test.describe('M1-01 世界（つないだ後）', () => {
         const cx = Math.floor(spawn.x);
         const cz = Math.floor(spawn.z);
         const g = h.world.groundHeight(cx, cz);
+        // VOX-B 基準 12: 海面と 草原は ゲームに聞く（hook がまだ無い今の島では 海面 7・草原 = 島の草）
+        const seaY: number = h.world.seaY ? h.world.seaY() : 7;
+        const biome: string | null = h.world.terrainAt ? h.world.terrainAt(cx, cz).biome : null;
+        const fallback: boolean | null = h.world.spawnInfo ? h.world.spawnInfo().fallback : null;
+        const torch = h.world.startTorch ? h.world.startTorch() : null;
+        const torchBlock = torch ? h.world.getBlock(torch.x, torch.y, torch.z) : null;
         // 5x5 が草で同じ高さ、上 3 段は固くない
         let flat = true;
         for (let x = cx - 2; x <= cx + 2; x++)
@@ -83,21 +89,38 @@ test.describe('M1-01 世界（つないだ後）', () => {
               if (b !== 'air' && b !== 'start_torch') flat = false; // M4: こわれない たいまつ はあってよい
             }
           }
-        // テスト地形の場所
-        let testAreaOk = true;
-        for (let x = 0; x <= 12; x++)
-          for (let z = 0; z <= 12; z++) {
-            if (h.world.groundHeight(x, z) !== 6 || h.world.getBlock(x, 7, z) !== 'water') testAreaOk = false;
-            for (let y = 8; y <= 47; y++) if (h.world.getBlock(x, y, z) !== 'air') testAreaOk = false;
+        // 基準 12: たいまつ は ほっても こわれない（目の前で 1 回ほって 確かめる代わりに 種類の「こわれない」を見る）
+        const torchBreakable = h.world.blockTypes().find((t: any) => t.id === 'start_torch')?.breakable;
+        // テスト場所（AC20）: 床を敷いた あと、床は いし・その上は空まで空気・空の光が床まで届く
+        const ta = h.world.testArea();
+        (window as any).__arena.floor(ta.x0, ta.z0, ta.x1, ta.z1, { y: ta.y0 });
+        h.step(2);
+        let testAreaOk = ta.y1 === h.world.size().y - 1;
+        for (let x = ta.x0; x <= ta.x1; x++)
+          for (let z = ta.z0; z <= ta.z1; z++) {
+            if (h.world.getBlock(x, ta.y0, z) !== 'stone') testAreaOk = false;
+            if (h.world.groundHeight(x, z) !== ta.y0) testAreaOk = false;
+            for (const y of [ta.y0 + 1, ta.y0 + 20, ta.y1]) if (h.world.getBlock(x, y, z) !== 'air') testAreaOk = false;
           }
-        return { spawn, p0, p1, tick0, tick1, stats, g, flat, testAreaOk, gen: h.world.genTimeMs() };
+        const sky = h.world.lightAt(6, ta.y0 + 1, 6).sky;
+        return { spawn, p0, p1, tick0, tick1, stats, g, flat, testAreaOk, sky, seaY, biome, fallback, torch, torchBlock, torchBreakable, gen: h.world.genTimeMs() };
       });
       // AC10
-      expect(r.spawn.x).toBeCloseTo(WORLD_CENTER.x + 0.5, 3);
-      expect(r.spawn.z).toBeCloseTo(WORLD_CENTER.z + 0.5, 3);
+      // VOX-B 基準 12: スタートの場所は ゲームに聞く（島の中心とは限らない）。列の まん中・地面は 海面 +2〜+12
+      expect(r.spawn.x - Math.floor(r.spawn.x)).toBeCloseTo(0.5, 3);
+      expect(r.spawn.z - Math.floor(r.spawn.z)).toBeCloseTo(0.5, 3);
       expect(r.spawn.y).toBeCloseTo(r.g + 1, 3);
-      expect(r.g).toBeGreaterThanOrEqual(10);
-      expect(r.g).toBeLessThanOrEqual(12);
+      expect(r.g).toBeGreaterThanOrEqual(r.seaY + 2);
+      expect(r.g).toBeLessThanOrEqual(r.seaY + 12);
+      if (r.biome !== null) expect(r.biome).toBe('grassland');
+      if (r.fallback !== null) expect(r.fallback).toBe(false);
+      if (r.torch) {
+        expect(r.torchBlock).toBe('start_torch');
+        expect(r.torch.x).toBe(Math.floor(r.spawn.x) + 2);
+        expect(r.torch.z).toBe(Math.floor(r.spawn.z) - 1);
+        expect(r.torch.y).toBe(r.g + 1);
+      }
+      expect(r.torchBreakable).toBe(false);
       expect(r.spawn.yawDeg).toBeCloseTo(0, 3);
       expect(r.spawn.pitchDeg).toBeCloseTo(0, 3);
       expect(r.flat).toBe(true);
@@ -115,19 +138,24 @@ test.describe('M1-01 世界（つないだ後）', () => {
       // VOX-E: 世界が 9×9×9 の小ブロックになり、メッシュがセクションごとになった（チケット 基準 5: 描画回数 スタート 300・三角形 r=32 で 120 万）
       expect(r.stats.drawCalls).toBeLessThanOrEqual(300);
       expect(r.stats.triangles).toBeLessThanOrEqual(1_200_000);
-      // AC20
+      // AC20（VOX-B: 床を敷いた テスト場所は 空まで空気・空の光 15）
       expect(r.testAreaOk).toBe(true);
+      expect(r.sky).toBe(15);
     });
   }
 
   test('AC12: 世界の端（海の中を 4 方向へ 300 ステップ）で体が外に出ない', async ({ page }) => {
     test.setTimeout(90_000);
     await open(page);
+    // VOX-B: はしの海（仮の海のふち）。立つ高さは ゲームに聞く（その列の groundHeight + 1）
+    const size = await page.evaluate(() => (window as any).__rikkun.world.size());
+    const mx = Math.floor(size.x / 2) + 0.5;
+    const mz = Math.floor(size.z / 2) + 0.5;
     const cases = [
-      { name: '西', x: 2.5, z: WORLD_CENTER.z + 0.5, yaw: 270, axis: 'x', want: 0.3 },
-      { name: '東', x: WORLD_SIZE.x - 2.5, z: WORLD_CENTER.z + 0.5, yaw: 90, axis: 'x', want: WORLD_SIZE.x - 0.3 },
-      { name: '北', x: WORLD_CENTER.x + 0.5, z: 2.5, yaw: 0, axis: 'z', want: 0.3 },
-      { name: '南', x: WORLD_CENTER.x + 0.5, z: WORLD_SIZE.z - 2.5, yaw: 180, axis: 'z', want: WORLD_SIZE.z - 0.3 },
+      { name: '西', x: 2.5, z: mz, yaw: 270, axis: 'x', want: 0.3 },
+      { name: '東', x: size.x - 2.5, z: mz, yaw: 90, axis: 'x', want: size.x - 0.3 },
+      { name: '北', x: mx, z: 2.5, yaw: 0, axis: 'z', want: 0.3 },
+      { name: '南', x: mx, z: size.z - 2.5, yaw: 180, axis: 'z', want: size.z - 0.3 },
     ];
     await page.evaluate(() => {
       window.__rikkun!.pause();
@@ -137,7 +165,7 @@ test.describe('M1-01 世界（つないだ後）', () => {
       const r = await page.evaluate((c) => {
         const h = window.__rikkun! as any;
         h.input.releaseAll();
-        h.player.set({ position: { x: c.x, y: 7, z: c.z }, velocity: { x: 0, y: 0, z: 0 }, yaw: c.yaw, pitch: 0 });
+        h.player.set({ position: { x: c.x, y: h.world.groundHeight(Math.floor(c.x), Math.floor(c.z)) + 1, z: c.z }, velocity: { x: 0, y: 0, z: 0 }, yaw: c.yaw, pitch: 0 });
         h.step(1);
         h.input.press('moveForward');
         let min = 99;
@@ -154,7 +182,7 @@ test.describe('M1-01 世界（つないだ後）', () => {
         return { min, max, end: h.player.get().position };
       }, c);
       expect(r.min, c.name).toBeGreaterThanOrEqual(0.29);
-      expect(r.max, c.name).toBeLessThanOrEqual(WORLD_SIZE.x - 0.29);
+      expect(r.max, c.name).toBeLessThanOrEqual(size.x - 0.29);
       expect((r.end as any)[c.axis], c.name).toBeCloseTo(c.want, 1);
     }
   });
@@ -201,8 +229,10 @@ test.describe('M1-01 世界（つないだ後）', () => {
       const sp = h.world.spawn();
       const sx = 6.5;
       const sz = 6.5;
+      const seaY: number = h.world.seaY ? h.world.seaY() : 7; // hook が無い今の島は 海面 7
+      const gy = h.world.groundHeight(6, 6) + 1; // はしから 6: 水の中（海の底）に立つ
       const yaw = (Math.atan2(sp.x - sx, -(sp.z - sz)) * 180) / Math.PI;
-      h.player.set({ position: { x: sx, y: 7, z: sz }, velocity: { x: 0, y: 0, z: 0 }, yaw, pitch: 0 });
+      h.player.set({ position: { x: sx, y: gy, z: sz }, velocity: { x: 0, y: 0, z: 0 }, yaw, pitch: 0 });
       h.step(120);
       const y0 = h.player.get().position.y;
       h.lock.simulate(true);
@@ -211,12 +241,13 @@ test.describe('M1-01 世界（つないだ後）', () => {
       for (let i = 0; i < 3000 && !up; i++) {
         h.step(1);
         const p = h.player.get();
-        if (p.position.y >= 8 && p.onGround) up = true;
+        if (p.position.y >= seaY + 1 && p.onGround) up = true;
       }
-      return { y0, up };
+      return { y0, gy, seaY, up };
     });
-    expect(r.y0).toBeGreaterThan(6.95);
-    expect(r.y0).toBeLessThan(7.05);
+    expect(r.gy).toBeLessThanOrEqual(r.seaY); // 海の底（足もとが 海面より下）
+    expect(r.y0).toBeGreaterThan(r.gy - 0.05);
+    expect(r.y0).toBeLessThan(r.gy + 0.05);
     expect(r.up).toBe(true);
   });
 
@@ -232,7 +263,7 @@ test.describe('M1-01 世界（つないだ後）', () => {
       const cz = Math.floor(sp.z);
       const g = h.world.groundHeight(cx, cz);
       const hash0 = h.world.hash();
-      const outRes = [h.world.setBlock(-1, 5, 5, 'stone'), h.world.setBlock(5, 48, 5, 'stone'), h.world.setBlock(128, 5, 5, 'stone')];
+      const outRes = [h.world.setBlock(-1, 5, 5, 'stone'), h.world.setBlock(5, h.world.size().y, 5, 'stone'), h.world.setBlock(h.world.size().x, 5, 5, 'stone')];
       const hashSame = h.world.hash() === hash0;
       h.world.setBlock(cx, g, cz, 'air');
       const got = h.world.getBlock(cx, g, cz);

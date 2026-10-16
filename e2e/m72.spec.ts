@@ -21,7 +21,7 @@ async function open(page: Page, query = '?nosave=1') {
         h.lock.simulate(true);
         h.input.releaseAll();
         h.world.fill(0, 8, 0, 14, 8, 14, 'stone');
-        h.world.fill(0, 9, 0, 14, 20, 14, 'air');
+        h.world.fill(0, 9, 0, 14, h.world.size().y - 1, 14, 'air');
         h.inventory.clear();
         h.time.set(12000);
         T.stand(2.5, 6.5, 90, -30);
@@ -677,7 +677,7 @@ test.describe('M7-2 なでる・ごきげん・キラキラ', () => {
       h.settings.set('farmPetDays', 1);
       T.base();
       h.world.fill(0, 8, 0, 40, 8, 14, 'stone');
-      h.world.fill(0, 9, 0, 40, 20, 14, 'air');
+      h.world.fill(0, 9, 0, 40, h.world.size().y - 1, 14, 'air');
       T.soil(30, 6);
       h.farm.plant(30, 8, 6, 'tomato');
       h.step(1);
@@ -700,7 +700,7 @@ test.describe('M7-2 なでる・ごきげん・キラキラ', () => {
       const o: any = {};
       T.base();
       h.world.fill(0, 8, 0, 50, 8, 14, 'stone');
-      h.world.fill(0, 9, 0, 50, 20, 14, 'air');
+      h.world.fill(0, 9, 0, 50, h.world.size().y - 1, 14, 'air');
       const crops: Array<[number, number]> = [];
       for (let i = 0; i < 10; i++) crops.push([4 + (i % 5), 3 + Math.floor(i / 5) * 6]);
       for (const [x, z] of crops) { T.soil(x, z); h.farm.plant(x, 8, z, 'tomato'); }
@@ -722,7 +722,7 @@ test.describe('M7-2 なでる・ごきげん・キラキラ', () => {
       // 25 マス先 (プレイヤー x=2.5 → x=30)
       T.base();
       h.world.fill(0, 8, 0, 50, 8, 14, 'stone');
-      h.world.fill(0, 9, 0, 50, 20, 14, 'air');
+      h.world.fill(0, 9, 0, 50, h.world.size().y - 1, 14, 'air');
       T.soil(30, 6);
       h.farm.plant(30, 8, 6, 'tomato');
       h.step(1);
@@ -885,7 +885,7 @@ test.describe('M7-2 なでる・ごきげん・キラキラ', () => {
       h.pause();
       h.lock.simulate(true);
       h.world.fill(0, 8, 0, 14, 8, 14, 'stone');
-      h.world.fill(0, 9, 0, 14, 20, 14, 'air');
+      h.world.fill(0, 9, 0, 14, h.world.size().y - 1, 14, 'air');
       for (let i = 0; i < 4; i++) { h.world.setBlock(3 + i, 8, 3, 'dirt'); h.farm.till(3 + i, 8, 3); }
       for (let i = 0; i < 3; i++) { h.world.setBlock(3 + i, 8, 5, 'dirt'); h.farm.till(3 + i, 8, 5); h.farm.plant(3 + i, 8, 5, 'tomato'); }
       h.world.setBlock(12, 9, 12, 'sprinkler');
@@ -1093,7 +1093,7 @@ test.describe('M7-2 性能', () => {
       const T = (window as any).T;
       T.base();
       h.world.fill(0, 8, 0, 40, 8, 40, 'stone');
-      h.world.fill(0, 9, 0, 40, 20, 40, 'air');
+      h.world.fill(0, 9, 0, 40, h.world.size().y - 1, 40, 'air');
       let n = 0;
       for (let z = 2; z < 22 && n < 480; z++) for (let x = 3; x < 27 && n < 480; x++, n++) { T.soil(x, z); h.farm.plant(x, 8, z, ['tomato', 'onion', 'pumpkin', 'eggplant'][n % 4]); }
       h.step(1);

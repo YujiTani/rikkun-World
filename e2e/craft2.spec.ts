@@ -23,7 +23,7 @@ async function open(page: Page, query = '?nosave=1') {
         h.input.releaseAll();
         h.achievements.mute(true);
         h.world.fill(0, 8, 0, 40, 8, 40, 'stone');
-        h.world.fill(0, 9, 0, 40, 20, 40, 'air');
+        h.world.fill(0, 9, 0, 40, h.world.size().y - 1, 40, 'air');
         h.inventory.clear();
         h.log.clear();
         // ふるい たんす などの 中身を 空にする（材料に まざらないように）

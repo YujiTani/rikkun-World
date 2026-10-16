@@ -192,7 +192,7 @@ terrainAt(x: number, z: number): {               // 生成の値。読みこま�
 spawnInfo(): { from: { x: number; z: number }; fallback: boolean; checked: number }; // さがし始めの点・P3 を使ったか・調べた列の数
 startTorch(): { x: number; y: number; z: number };
 startFeatures(): { rock: { cx: number; cz: number; r: number; peakY: number }; trees: { x: number; y: number; z: number }[] }; // y = みきの いちばん下
-caveMouths(): { x: number; y: number; z: number; dir: 0 | 1 | 2 | 3; room: { x: number; y: number; z: number } }[]; // 読みこみ範囲の口。dir = yaw 0/90/180/270
+caveMouths(): { x: number; y: number; z: number; dir: 0 | 1 | 2 | 3; room: { x: number; y: number; z: number } }[]; // 読みこみ範囲の口。dir = yaw 0/90/180/270。x,y,z = 入り口で立つ所（y は足もとの空気のマス＝下が固い）。room = へやの床で立てる所（テストは水平 2 マス以内で「着いた」）
 genStats(): { columns: number; medianMs: number; maxMs: number; spawnSearchMs: number }; // 記録用（合否は perf）
 ```
 `save.info()` に `saveId: string` を足す。`world.size()` は `{ x: 128, y: 352, z: 128 }` になる。`world.teleport` は VOX-D。

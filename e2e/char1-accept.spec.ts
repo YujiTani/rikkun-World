@@ -26,7 +26,7 @@ async function open(page: Page, query = '?nosave=1') {
     h.inventory.clear();
     // 平らな石の床（上の面 y = 9）。キャラは (6.5, 9, 6.5)
     h.world.fill(0, 8, 0, 40, 8, 40, 'stone');
-    h.world.fill(0, 9, 0, 40, 40, 40, 'air');
+    h.world.fill(0, 9, 0, 40, h.world.size().y - 1, 40, 'air');
     h.player.set({ position: { x: 6.5, y: 9, z: 6.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: 0, facing: 0 });
     h.step(10);
   });
