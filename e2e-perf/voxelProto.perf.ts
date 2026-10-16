@@ -18,6 +18,8 @@ const CONFIGS: Cfg[] = [
   { mode: 'hybrid', r: 32, shots: false, close: false },
 ];
 const SHOT_DIR = 'docs/screenshots/VOX-0';
+// スクショは最後にまとめて書く（docs/ に書くたびに vite が画面を作り直して window.__voxelProto が消えることがあった）
+const shots = new Map<string, Buffer>();
 
 test('9×9×9 の 4 方式を測る', async ({ page }) => {
   test.setTimeout(1_800_000); // naive は SwiftShader でとても重い
@@ -50,7 +52,7 @@ test('9×9×9 の 4 方式を測る', async ({ page }) => {
           h.setPose(p);
           h.renderOnce();
         }, pose);
-        await page.screenshot({ path: `${SHOT_DIR}/${mode}-${pose}.png`, timeout: 300_000 });
+        shots.set(`${mode}${cfg.r ? cfg.r : ''}-${pose}.png`, await page.screenshot({ timeout: 300_000 }));
       }
     }
     if (cfg.close) {
@@ -59,11 +61,33 @@ test('9×9×9 の 4 方式を測る', async ({ page }) => {
         h.setPose('close');
         h.renderOnce();
       });
-      await page.screenshot({ path: `${SHOT_DIR}/${mode}-close.png`, timeout: 300_000 });
+      shots.set(`${mode}${cfg.r ? cfg.r : ''}-close.png`, await page.screenshot({ timeout: 300_000 }));
     }
 
-    const r = await page.evaluate(() => window.__voxelProto!.measure());
-    void mode;
+    const r = (await page.evaluate(() => window.__voxelProto!.measure())) as unknown as Record<string, unknown>;
+    // 描き終わるまで待つ時間（readPixels で同期。SwiftShader の CPU 描画なので絶対値ではなく方式の比べに使う）
+    r.syncRenderMs = await page.evaluate(() => {
+      const h = window.__voxelProto!;
+      const gl = (document.querySelector('canvas') as HTMLCanvasElement).getContext('webgl2')!;
+      const px = new Uint8Array(4);
+      const out: Record<string, number> = {};
+      for (const p of ['start', 'sky'] as const) {
+        h.setPose(p);
+        h.renderOnce();
+        gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
+        const t: number[] = [];
+        for (let i = 0; i < 5; i++) {
+          const t0 = performance.now();
+          h.renderOnce();
+          gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
+          t.push(performance.now() - t0);
+        }
+        out[p] = t.sort((a, b) => a - b)[2];
+      }
+      h.setPose('start');
+      return out;
+    });
+    r.label = mode === 'hybrid' ? `hybrid r=${cfg.r}` : mode;
     console.log(JSON.stringify(r));
     results.push(r);
   }
@@ -74,6 +98,7 @@ test('9×9×9 の 4 方式を測る', async ({ page }) => {
     note: 'クラウド（SwiftShader, GPU なし）。renderCpuMs は目安。三角形・描画回数・バイト数・作る時間を見る',
     results,
   };
+  for (const [name, buf] of shots) writeFileSync(`${SHOT_DIR}/${name}`, buf);
   writeFileSync('perf-results/voxel-proto.json', JSON.stringify(report, null, 2));
   if (errors.length > 0) console.log('console errors:', errors.slice(0, 10));
 });
