@@ -1,4 +1,5 @@
-import type { BlockId, CraftEvent, CraftSystem, Inventory, MaterialSources, TansuPos, ItemId, ItemStack, Recipe, Vec3, VoxelWorld } from '../contracts';
+import type { BlockId, CraftEvent, CraftSystem, Inventory, MaterialSources, MaterialUse, TansuMaterialStore, TansuPos, ItemId, ItemStack, Recipe, Vec3, VoxelWorld } from '../contracts';
+import { SCENERY_CONFIG } from '../game/config';
 import { itemType } from '../inventory/items';
 import { PickupLog } from '../inventory/pickupLog';
 import { ALL_RECIPES, BAKE_RECIPES, CRAFT_RECIPES } from './recipes';
@@ -39,6 +40,28 @@ export interface CraftDeps {
   /** 保存してほしいとき */
   requestSave?: () => void;
   config?: CraftConfig;
+  /** CRAFT-2: たんす（`StorageSystem`）。なければ たんす は 使わない */
+  tansu?: TansuMaterialStore & { list(): Vec3[]; version?(): number };
+  /** CRAFT-2: プレイヤーの足もと（きょりの はかり始め）。なければ たんす は 使わない */
+  player?: () => Vec3;
+  /** CRAFT-2: 使える たんす の きょり（はじめは `fogFar`。なければ 景色の設定の値） */
+  fogFar?: () => number;
+}
+
+/** 範囲の中の たんす 1 こ（数は 見るたびに 1 回だけ数えて覚える） */
+interface RangeTansu extends TansuPos {
+  dist: number;
+  counts: Map<ItemId, number>;
+}
+
+/** 素材の取り方の予定（何も変えない） */
+interface Plan {
+  ok: boolean;
+  /** ねんりょう（やくときだけ。見つからなければ null） */
+  fuel: ItemId | null;
+  inv: Map<ItemId, number>;
+  tansu: (TansuPos & { item: ItemId; count: number })[];
+  missing: { item: ItemId; count: number }[];
 }
 
 type Slot = ItemStack | null;
@@ -100,6 +123,16 @@ export class CraftSystemImpl implements CraftSystem {
   private opened: Vec3 | null = null;
   private furnaces = new Map<string, { pos: Vec3; state: FurnaceState }>();
 
+  // ---- CRAFT-2: 範囲の中の たんす（しぼるのは 位置・たんす の中身・きょり が 変わった後の 次に数えるときだけ）
+  private range: RangeTansu[] = [];
+  private rangeValid = false;
+  private rangePos = { x: NaN, y: NaN, z: NaN };
+  private rangeVer = -1;
+  private rangeFog = NaN;
+  private filterCount = 0;
+  private invVer = 0;
+  private hint: { key: string; value: boolean } = { key: '', value: false };
+
   private drainQueue: CraftEvent[] = [];
   private craftHookQueue: CraftEvent[] = [];
   private furnaceHookQueue: CraftEvent[] = [];
@@ -107,6 +140,163 @@ export class CraftSystemImpl implements CraftSystem {
   constructor(private readonly d: CraftDeps) {
     this.config = d.config ?? createCraftConfig();
     this.log = new PickupLog({ ticks: this.config.pickupLogTicks, max: this.config.pickupLogMax });
+    d.inventory.onChange?.(() => {
+      this.invVer++;
+    });
+  }
+
+  // ---------------------------------------------------------- たんす の素材（CRAFT-2 §2.2〜§2.4）
+
+  private fog(): number {
+    return this.d.fogFar?.() ?? SCENERY_CONFIG.fogFar;
+  }
+
+  /** 使える たんす を しぼる（位置・中身・きょり が 同じなら しぼり直さない）。近い順（同じなら x → z → y） */
+  private ensureRange(): RangeTansu[] {
+    const st = this.d.tansu;
+    const pl = this.d.player;
+    if (!st || !pl) return this.range;
+    const p = pl();
+    const fog = this.fog();
+    const ver = st.version ? st.version() : -2;
+    const rp = this.rangePos;
+    if (this.rangeValid && ver !== -2 && ver === this.rangeVer && fog === this.rangeFog && p.x === rp.x && p.y === rp.y && p.z === rp.z) {
+      return this.range;
+    }
+    this.filterCount++;
+    const out: RangeTansu[] = [];
+    for (const t of st.list()) {
+      if (this.d.world.getBlock(t.x, t.y, t.z) !== 'tansu') continue;
+      const dist = Math.hypot(p.x - (t.x + 0.5), p.y - t.y, p.z - (t.z + 0.5));
+      if (dist <= fog) out.push({ x: t.x, y: t.y, z: t.z, dist, counts: new Map() });
+    }
+    out.sort((a, b) => a.dist - b.dist || a.x - b.x || a.z - b.z || a.y - b.y);
+    this.range = out;
+    this.rangeValid = true;
+    this.rangePos = { x: p.x, y: p.y, z: p.z };
+    this.rangeVer = ver;
+    this.rangeFog = fog;
+    return out;
+  }
+
+  private tansuHas(t: RangeTansu, item: ItemId): number {
+    let n = t.counts.get(item);
+    if (n === undefined) {
+      n = this.d.tansu!.countItem(t.x, t.y, t.z, item);
+      t.counts.set(item, n);
+    }
+    return n;
+  }
+
+  /** 画面（もちもの・かまど）を 開いたとき: かならず しぼり直す（AC9b） */
+  refreshTansu(): void {
+    this.rangeValid = false;
+    this.hint.key = '';
+    this.ensureRange();
+  }
+
+  /** 今の位置で 使える たんす（取る順） */
+  tansuInRange(): (TansuPos & { dist: number })[] {
+    return this.ensureRange().map((t) => ({ x: t.x, y: t.y, z: t.z, dist: t.dist }));
+  }
+
+  debugCounts(): { tansuFilterCount: number } {
+    return { tansuFilterCount: this.filterCount };
+  }
+
+  /** もちもの＋たんす の合計 */
+  total(item: ItemId): number {
+    let n = this.d.inventory.count(item);
+    for (const t of this.ensureRange()) n += this.tansuHas(t, item);
+    return n;
+  }
+
+  /** 範囲の中の たんす だけの合計（ねんりょうの チップの `inTansu` 用） */
+  inTansuCount(item: ItemId): number {
+    let n = 0;
+    for (const t of this.ensureRange()) n += this.tansuHas(t, item);
+    return n;
+  }
+
+  /** ねんりょう（`fuelOrder`）ごとの たんす の数 */
+  fuelInTansu(): Record<string, number> {
+    const o: Record<string, number> = {};
+    for (const f of this.config.fuelOrder) o[f] = this.inTansuCount(f);
+    return o;
+  }
+
+  /** 素材の取り方を 予定する（もちもの → たんす の順。何も変えない） */
+  private plan(inputs: readonly { item: ItemId; count: number }[], withFuel: boolean): Plan {
+    const inv = this.d.inventory;
+    const range = this.ensureRange();
+    const usedInv = new Map<ItemId, number>();
+    const usedT: Map<ItemId, number>[] = range.map(() => new Map());
+    const tansu: Plan['tansu'] = [];
+    const missing: Plan['missing'] = [];
+    const take = (item: ItemId, need: number): number => {
+      const fromInv = Math.min(Math.max(0, inv.count(item) - (usedInv.get(item) ?? 0)), need);
+      if (fromInv > 0) usedInv.set(item, (usedInv.get(item) ?? 0) + fromInv);
+      let rem = need - fromInv;
+      for (let i = 0; i < range.length && rem > 0; i++) {
+        const t = range[i];
+        const n = Math.min(Math.max(0, this.tansuHas(t, item) - (usedT[i].get(item) ?? 0)), rem);
+        if (n <= 0) continue;
+        usedT[i].set(item, (usedT[i].get(item) ?? 0) + n);
+        const same = tansu.find((e) => e.x === t.x && e.y === t.y && e.z === t.z && e.item === item);
+        if (same) same.count += n;
+        else tansu.push({ x: t.x, y: t.y, z: t.z, item, count: n });
+        rem -= n;
+      }
+      return rem;
+    };
+    const left = (item: ItemId): number => {
+      let n = inv.count(item) - (usedInv.get(item) ?? 0);
+      for (let i = 0; i < range.length; i++) n += this.tansuHas(range[i], item) - (usedT[i].get(item) ?? 0);
+      return n;
+    };
+    for (const i of inputs) {
+      const rem = take(i.item, i.count);
+      if (rem > 0) missing.push({ item: i.item, count: rem });
+    }
+    let fuel: ItemId | null = null;
+    if (withFuel) {
+      if (this.chosenFuel !== null && left(this.chosenFuel) > 0) fuel = this.chosenFuel;
+      else fuel = this.config.fuelOrder.find((f) => left(f) > 0) ?? null;
+      if (fuel !== null) take(fuel, 1);
+    }
+    // 取る順: たんす ごと（近い順）→ アイテム
+    if (range.length > 1) {
+      const order = new Map<string, number>();
+      range.forEach((t, i) => order.set(`${t.x},${t.y},${t.z}`, i));
+      tansu.sort((a, b) => order.get(`${a.x},${a.y},${a.z}`)! - order.get(`${b.x},${b.y},${b.z}`)!);
+    }
+    return { ok: missing.length === 0 && (!withFuel || fuel !== null), fuel, inv: usedInv, tansu, missing };
+  }
+
+  /** 予定どおりに へらす。使った分を返す */
+  private apply(p: Plan): MaterialUse {
+    const inv: MaterialUse['inv'] = [];
+    for (const [item, count] of p.inv) {
+      if (count <= 0) continue;
+      this.d.inventory.remove(item, count);
+      inv.push({ item, count });
+    }
+    const tansu: MaterialUse['tansu'] = [];
+    for (const e of p.tansu) {
+      const took = this.d.tansu!.takeItem(e.x, e.y, e.z, e.item, e.count);
+      if (took > 0) tansu.push({ x: e.x, y: e.y, z: e.z, item: e.item, count: took });
+    }
+    return { inv, tansu };
+  }
+
+  /** 今 つくったら どこから何こ取るか（何も変えない。やく は ねんりょう 1 こ もふくむ） */
+  sources(recipeId: string): MaterialSources {
+    const r = this.recipe(recipeId);
+    if (!r) return { ok: false, inv: [], tansu: [], missing: [] };
+    const p = this.plan(r.inputs, r.station === 'furnace');
+    const missing = p.missing.map((m) => ({ ...m }));
+    if (r.station === 'furnace' && p.fuel === null) missing.push({ item: this.chosenFuel ?? this.config.fuelOrder[0], count: 1 });
+    return { ok: p.ok, inv: [...p.inv].filter(([, n]) => n > 0).map(([item, count]) => ({ item, count })), tansu: p.tansu.map((e) => ({ ...e })), missing };
   }
 
   // ---------------------------------------------------------- レシピ
@@ -122,11 +312,7 @@ export class CraftSystemImpl implements CraftSystem {
   status(recipeId: string): { craftable: boolean; missing: ItemStack[] } {
     const r = this.recipe(recipeId);
     if (!r) return { craftable: false, missing: [] };
-    const missing: ItemStack[] = [];
-    for (const inp of r.inputs) {
-      const have = this.d.inventory.count(inp.item);
-      if (have < inp.count) missing.push({ item: inp.item, count: inp.count - have });
-    }
+    const missing: ItemStack[] = this.plan(r.inputs, false).missing.map((m) => ({ item: m.item, count: m.count }));
     return { craftable: missing.length === 0, missing };
   }
 
@@ -171,7 +357,7 @@ export class CraftSystemImpl implements CraftSystem {
 
   /** えらんでいる ねんりょう。0 こ（か 未選択）なら 自動の順の先頭。保存はしない */
   fuel(): ItemId | null {
-    if (this.chosenFuel !== null && this.d.inventory.count(this.chosenFuel) > 0) return this.chosenFuel;
+    if (this.chosenFuel !== null && this.total(this.chosenFuel) > 0) return this.chosenFuel;
     return this.autoFuel();
   }
 
@@ -182,42 +368,46 @@ export class CraftSystemImpl implements CraftSystem {
   }
 
   private autoFuel(): ItemId | null {
-    for (const f of this.config.fuelOrder) if (this.d.inventory.count(f) > 0) return f;
+    for (const f of this.config.fuelOrder) if (this.total(f) > 0) return f;
     return null;
   }
 
   // ---------------------------------------------------------- つくる
 
-  make(recipeId: string): { ok: boolean; reason: MakeReason } {
+  make(recipeId: string): { ok: boolean; reason: MakeReason; used: MaterialUse | null } {
     const r = this.recipe(recipeId);
     if (!r) {
       this.emit({ type: 'craftFail', tick: this.tickCount, recipe: recipeId, reason: 'unknown' }, 'craft');
-      return { ok: false, reason: 'unknown' };
+      return { ok: false, reason: 'unknown', used: null };
     }
     if (r.station === 'furnace') {
       const o = this.opened;
-      if (!o) return { ok: false, reason: 'unknown' };
+      if (!o) return { ok: false, reason: 'unknown', used: null };
       const res = this.bake(recipeId, o.x, o.y, o.z);
       const reason = res.reason === 'closed' || res.reason === 'notFurnace' ? 'unknown' : res.reason;
-      return { ok: res.ok, reason };
+      return { ok: res.ok, reason, used: res.used };
     }
     const inv = this.d.inventory;
-    if (!this.status(r.id).craftable) {
+    const p = this.plan(r.inputs, false);
+    if (!p.ok) {
       this.emit({ type: 'craftFail', tick: this.tickCount, recipe: r.id, reason: 'missing' }, 'craft');
-      return { ok: false, reason: 'missing' };
+      return { ok: false, reason: 'missing', used: null };
     }
-    // 材料を取ったあとに、できたものが全部入るか（カーソルのものは数えない）
+    // もちもの から取る分を取ったあとに、できたものが全部入るか（たんす から取る分は 空きを ふやさない。カーソルのものは数えない）
     const trial: Slot[] = inv.slots().map((s) => (s ? { ...s } : null));
-    for (const inp of r.inputs) simulateRemove(trial, inp.item, inp.count);
+    for (const [item, n] of p.inv) simulateRemove(trial, item, n);
     if (simulateAdd(trial, r.output.item, r.output.count) > 0) {
       this.emit({ type: 'craftFail', tick: this.tickCount, recipe: r.id, reason: 'full' }, 'craft');
-      return { ok: false, reason: 'full' };
+      return { ok: false, reason: 'full', used: null };
     }
-    for (const inp of r.inputs) inv.remove(inp.item, inp.count);
+    const used = this.apply(p);
     inv.add(r.output.item, r.output.count);
-    this.emit({ type: 'craft', tick: this.tickCount, recipe: r.id, item: r.output.item, count: r.output.count }, 'craft');
+    this.emit(
+      { type: 'craft', tick: this.tickCount, recipe: r.id, item: r.output.item, count: r.output.count, fromTansu: used.tansu.map((e) => ({ ...e })) },
+      'craft',
+    );
     this.d.requestSave?.();
-    return { ok: true, reason: null };
+    return { ok: true, reason: null, used };
   }
 
   // ---------------------------------------------------------- 拾った
@@ -249,7 +439,10 @@ export class CraftSystemImpl implements CraftSystem {
   }
 
   openFurnace(x: number, y: number, z: number): void {
-    if (this.isFurnace(x, y, z)) this.opened = { x, y, z };
+    if (this.isFurnace(x, y, z)) {
+      this.opened = { x, y, z };
+      this.refreshTansu();
+    }
   }
 
   closeFurnace(): void {
@@ -261,30 +454,29 @@ export class CraftSystemImpl implements CraftSystem {
   }
 
   /** その かまど で やく（画面に関係なく） */
-  bake(recipeId: string, x: number, y: number, z: number): { ok: boolean; reason: BakeReason } {
-    if (!this.isFurnace(x, y, z)) return { ok: false, reason: 'notFurnace' };
+  bake(recipeId: string, x: number, y: number, z: number): { ok: boolean; reason: BakeReason; used: MaterialUse | null } {
+    if (!this.isFurnace(x, y, z)) return { ok: false, reason: 'notFurnace', used: null };
     const r = BAKE_RECIPES.find((b) => b.id === recipeId);
-    if (!r) return { ok: false, reason: 'unknown' };
-    const inv = this.d.inventory;
-    if (!this.status(r.id).craftable) return { ok: false, reason: 'missing' };
-    const fuel = this.nextFuel();
-    if (fuel === null) return { ok: false, reason: 'noFuel' };
+    if (!r) return { ok: false, reason: 'unknown', used: null };
+    const p = this.plan(r.inputs, true);
+    if (p.missing.length > 0) return { ok: false, reason: 'missing', used: null };
+    const fuel = p.fuel;
+    if (fuel === null) return { ok: false, reason: 'noFuel', used: null };
     const f = this.stateAt(x, y, z);
-    if (f.queue.length >= this.config.bakeQueueMax) return { ok: false, reason: 'queueFull' };
-    for (const inp of r.inputs) inv.remove(inp.item, inp.count);
-    inv.remove(fuel, 1);
+    if (f.queue.length >= this.config.bakeQueueMax) return { ok: false, reason: 'queueFull', used: null };
+    const used = this.apply(p);
     f.queue.push({ recipe: r.id, fuel });
     if (f.queue.length === 1) {
       f.progress = 0;
       this.emit({ type: 'bakeStart', tick: this.tickCount, recipe: r.id, fuel, position: { x, y, z } }, 'furnace');
     }
     this.d.requestSave?.();
-    return { ok: true, reason: null };
+    return { ok: true, reason: null, used };
   }
 
   /** 開いている かまど で やく（カードを押したのと同じ） */
-  clickBake(recipeId: string): { ok: boolean; reason: BakeReason } {
-    if (!this.opened) return { ok: false, reason: 'closed' };
+  clickBake(recipeId: string): { ok: boolean; reason: BakeReason; used: MaterialUse | null } {
+    if (!this.opened) return { ok: false, reason: 'closed', used: null };
     return this.bake(recipeId, this.opened.x, this.opened.y, this.opened.z);
   }
 
@@ -301,21 +493,32 @@ export class CraftSystemImpl implements CraftSystem {
     };
   }
 
-  /** 毎ステップ呼べる: 今の持ち物で「つくる」のレシピが 1 つでも作れるか（配列を作らない） */
+  /**
+   * 毎ステップ呼べる: 今の素材（もちもの＋使える たんす）で「つくる」のレシピが 1 つでも作れるか（かなづち の印）。
+   * しらべ直すのは プレイヤーのいる ブロックが 変わったとき・もちもの か どれかの たんす の中身が 変わったときだけ（§2.4 (2) 3）
+   */
   canCraftAny(): boolean {
-    const inv = this.d.inventory;
+    const p = this.d.player?.();
+    const ver = this.d.tansu?.version?.() ?? -2;
+    const key = p ? `${Math.floor(p.x)},${Math.floor(p.y)},${Math.floor(p.z)}|${this.invVer}|${ver}|${this.fog()}` : `|${this.invVer}|${ver}`;
+    if (ver !== -2 && key === this.hint.key) return this.hint.value;
+    let any = false;
     for (const r of ALL_RECIPES) {
       if (r.station !== 'craft') continue;
       let ok = true;
       for (const inp of r.inputs) {
-        if (inv.count(inp.item) < inp.count) {
+        if (this.total(inp.item) < inp.count) {
           ok = false;
           break;
         }
       }
-      if (ok) return true;
+      if (ok) {
+        any = true;
+        break;
+      }
     }
-    return false;
+    this.hint = { key, value: any };
+    return any;
   }
 
   private readonly fxEntries: FurnaceFxEntryLike[] = [];
@@ -449,17 +652,6 @@ export class CraftSystemImpl implements CraftSystem {
   }
 
   // ---------------------------------------------------------- 出来事
-
-  /** CRAFT-2 S0: 空の口（A が実装） */
-  sources(_recipeId: string): MaterialSources {
-    return { ok: false, inv: [], tansu: [], missing: [] };
-  }
-  tansuInRange(): (TansuPos & { dist: number })[] {
-    return [];
-  }
-  debugCounts(): { tansuFilterCount: number } {
-    return { tansuFilterCount: 0 };
-  }
 
   drainEvents(): CraftEvent[] {
     if (this.drainQueue.length === 0) return NO_CRAFT_EVENTS; // 空のときは毎ステップ new しない

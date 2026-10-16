@@ -85,7 +85,7 @@ describe('つくる（AC1〜AC4）', () => {
     const { craft, inv } = rig();
     inv.setSlot(0, { item: 'log', count: 2 });
     inv.setSlot(20, { item: 'log', count: 2 });
-    expect(craft.make('bokuto')).toEqual({ ok: true, reason: null });
+    expect(craft.make('bokuto')).toMatchObject({ ok: true, reason: null });
     expect(inv.slots()[20]).toBeNull();
     expect(inv.slots()[0]).toEqual({ item: 'log', count: 2 });
     expect(inv.count('bokuto')).toBe(1);
@@ -106,7 +106,7 @@ describe('つくる（AC1〜AC4）', () => {
   it('足りないと missing で何も変わらない。カーソルは数えない', () => {
     const { craft, inv } = rig();
     inv.add('log', 1);
-    expect(craft.make('bokuto')).toEqual({ ok: false, reason: 'missing' });
+    expect(craft.make('bokuto')).toMatchObject({ ok: false, reason: 'missing' });
     expect(inv.count('log')).toBe(1);
     expect(craft.takeCraftHookEvents().map((e) => e.type)).toEqual(['craftFail']);
     inv.clear();
@@ -124,14 +124,14 @@ describe('つくる（AC1〜AC4）', () => {
     inv.clear();
     for (let i = 0; i < 35; i++) inv.setSlot(i, { item: 'dirt', count: 64 });
     inv.setSlot(35, { item: 'log', count: 64 });
-    expect(craft.make('bokuto')).toEqual({ ok: false, reason: 'full' });
+    expect(craft.make('bokuto')).toMatchObject({ ok: false, reason: 'full' });
     expect(inv.count('log')).toBe(64);
     expect(craft.make('nothing').reason).toBe('unknown');
   });
 
   it('click は閉じていると closed', () => {
     const { craft } = rig();
-    expect(createCraftHook(craft, { inventoryOpen: () => false }).click('bokuto')).toEqual({ ok: false, reason: 'closed' });
+    expect(createCraftHook(craft, { inventoryOpen: () => false }).click('bokuto')).toMatchObject({ ok: false, reason: 'closed' });
   });
 });
 
@@ -143,7 +143,7 @@ describe('かまど・やく（AC5〜AC9）', () => {
     expect(craft.openedFurnace()).toEqual({ x: 3, y: 5, z: 3 });
     inv.add('iron_ore', 1);
     inv.add('coal_ore', 1);
-    expect(craft.clickBake('iron_ingot')).toEqual({ ok: true, reason: null });
+    expect(craft.clickBake('iron_ingot')).toMatchObject({ ok: true, reason: null });
     expect(inv.count('iron_ore')).toBe(0);
     expect(inv.count('coal_ore')).toBe(0);
     expect(craft.furnaceAt(3, 5, 3)!.burning).toBe(true);
@@ -206,11 +206,11 @@ describe('かまど・やく（AC5〜AC9）', () => {
   it('ねんりょう 0 は noFuel、じゅんばん 8 のとき 9 回目は queueFull、材料なしは missing', () => {
     const { craft, inv } = rig();
     inv.add('iron_ore', 10);
-    expect(craft.bake('iron_ingot', 3, 5, 3)).toEqual({ ok: false, reason: 'noFuel' });
+    expect(craft.bake('iron_ingot', 3, 5, 3)).toMatchObject({ ok: false, reason: 'noFuel' });
     expect(inv.count('iron_ore')).toBe(10);
     inv.add('log', 20);
     for (let i = 0; i < 8; i++) expect(craft.bake('iron_ingot', 3, 5, 3).ok).toBe(true);
-    expect(craft.bake('iron_ingot', 3, 5, 3)).toEqual({ ok: false, reason: 'queueFull' });
+    expect(craft.bake('iron_ingot', 3, 5, 3)).toMatchObject({ ok: false, reason: 'queueFull' });
     expect(craft.bake('kawara', 3, 5, 3).reason).toBe('missing');
     expect(craft.bake('iron_ingot', 0, 0, 0).reason).toBe('notFurnace');
   });
@@ -283,7 +283,7 @@ describe('かまど・やく（AC5〜AC9）', () => {
     inv.add('log', 1);
     const h = createFurnaceHook(craft, { inventoryOpen: () => true });
     expect(h.list()[0]).toMatchObject({ id: 'iron_ingot', canBake: true, fuelOk: true });
-    expect(h.click('iron_ingot')).toEqual({ ok: false, reason: 'closed' }); // かまど を開いていない
+    expect(h.click('iron_ingot')).toMatchObject({ ok: false, reason: 'closed' }); // かまど を開いていない
     craft.openFurnace(3, 5, 3);
     expect(h.click('iron_ingot').ok).toBe(true);
     expect(h.get(3, 5, 3)!.current).toEqual({ id: 'iron_ingot', progress: 0 });
