@@ -20,9 +20,10 @@
 - `TansuPos = { x:number; y:number; z:number }`
 - `MaterialUse = { inv: {item:ItemId; count:number}[]; tansu: (TansuPos & {item:ItemId; count:number})[] }`
 - つくる・やくの結果（ok のとき）に `used: MaterialUse | null` を足す。
-- `CraftEvent` の `craft` に `fromTansu: (TansuPos & {item:ItemId; count:number})[]` を足す（空配列 = たんす から使っていない）。
+- `CraftEvent` の `craft` に `fromTansu: (TansuPos & {item:ItemId; count:number})[]` を足す（空配列 = たんす から使っていない）。S0 では既存のテストを壊さないため **省いてよい形（`fromTansu?`）**。読む側は `?? []`。`make` の結果の `used` も同じく `used?`。
 - `CraftSystem` に足す: `sources(recipeId): { ok:boolean; inv; tansu; missing:{item;count}[] }`、`tansuInRange(): (TansuPos & {dist:number})[]`、`debugCounts(): { tansuFilterCount:number }`。
 - `StorageSystem` に足す（A が実装）: たんす ごとに 中身を数える口と、指定の数を取り出す口（形は A が決めて contracts に書き足してよい。B・C は使わない）。
+- S0 で足した: `MaterialSources`（`MaterialUse` + `ok`・`missing`）、`TansuMaterialStore = { countItem(x,y,z,item):number; takeItem(x,y,z,item,count):number }`（`StorageSystem` が実装。A が中身を書く。形を変えてよい）、`UiAlpha`、`Craft2Settings`・`CRAFT2_SETTING_DEFAULTS`・`createCraft2Settings()`（§4 の 7 つ。`fogFar` は足さない）。`CraftSystemImpl`・`StorageSystem` には 空の口を足した。
 - `LogCategory = 'pickup' | 'craft' | 'fight' | 'achieve' | 'info' | 'warn'`（§2.7 の 6 つ）
 - `LogKind` = §6.1 の `log.history()` の `kind` 12 種。
 - `LogEntry = { tick:number; kind:LogKind; category:LogCategory; item:ItemId|null; count:number|null; text:string; positions?: (TansuPos & {count:number})[] }`
@@ -33,3 +34,4 @@
 ## 経過
 | 日付 | 手順 | 結果 |
 |---|---|---|
+| 2026-10-16 | S0 | つなぎ目を `src/contracts.ts`・`actions.ts` に足した |

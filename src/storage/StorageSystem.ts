@@ -1,4 +1,4 @@
-import type { Inventory, ItemId, ItemStack, StorageEvent, Vec3, VoxelWorld } from '../contracts';
+import type { TansuMaterialStore, Inventory, ItemId, ItemStack, StorageEvent, Vec3, VoxelWorld } from '../contracts';
 import { addInto } from '../inventory/Inventory';
 import { itemType } from '../inventory/items';
 import { addStack, copyStack, readWater, readWear, maxDurability } from '../tools/durability';
@@ -82,7 +82,7 @@ export function facingFromYaw(yawDeg: number): Facing {
  * たんす（和だんす）の中身・開く・閉じる・うつす・こわす・保存。世界のブロックは 'tansu'。
  * 毎ステップ update() を呼ぶ。
  */
-export class StorageSystem {
+export class StorageSystem implements TansuMaterialStore {
   private readonly records = new Map<string, TansuRecord>();
   private opened: TansuRecord | null = null;
   private lookOpenNow = false;
@@ -453,6 +453,14 @@ export class StorageSystem {
   }
 
   /** C の記録へ渡す出来事（呼ぶと空） */
+  /** CRAFT-2 S0: 空の口（A が実装） */
+  countItem(_x: number, _y: number, _z: number, _item: ItemId): number {
+    return 0;
+  }
+  takeItem(_x: number, _y: number, _z: number, _item: ItemId, _count: number): number {
+    return 0;
+  }
+
   drainEvents(): StorageEvent[] {
     if (this.events.length === 0) return NO_EVENTS;
     const out = this.events;

@@ -1,4 +1,4 @@
-import type { BlockId, CraftEvent, CraftSystem, Inventory, ItemId, ItemStack, Recipe, Vec3, VoxelWorld } from '../contracts';
+import type { BlockId, CraftEvent, CraftSystem, Inventory, MaterialSources, TansuPos, ItemId, ItemStack, Recipe, Vec3, VoxelWorld } from '../contracts';
 import { itemType } from '../inventory/items';
 import { PickupLog } from '../inventory/pickupLog';
 import { ALL_RECIPES, BAKE_RECIPES, CRAFT_RECIPES } from './recipes';
@@ -449,6 +449,17 @@ export class CraftSystemImpl implements CraftSystem {
   }
 
   // ---------------------------------------------------------- 出来事
+
+  /** CRAFT-2 S0: 空の口（A が実装） */
+  sources(_recipeId: string): MaterialSources {
+    return { ok: false, inv: [], tansu: [], missing: [] };
+  }
+  tansuInRange(): (TansuPos & { dist: number })[] {
+    return [];
+  }
+  debugCounts(): { tansuFilterCount: number } {
+    return { tansuFilterCount: 0 };
+  }
 
   drainEvents(): CraftEvent[] {
     if (this.drainQueue.length === 0) return NO_CRAFT_EVENTS; // 空のときは毎ステップ new しない
