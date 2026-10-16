@@ -4,7 +4,7 @@ import { checkContrast, snapshotUi } from './helpers/uiRules';
 
 /**
  * CRAFT-2（たんす の素材・ログ・できごと・半透明）の自動の受け入れ基準（docs/design/CRAFT-2.md §6）。
- * 場所: 床 stone y=8、うえは くうき。P = (10.5, 9, 10.5)。たんす A = P から きょり 3、B = 10、E = ちょうど 80、F = 81。
+ * 場所: 床 stone y=8、うえは くうき。P = (10.5, 9, 10.5)。たんす A = P から きょり 3、B = 10、E = ちょうど 40、F = 41。
  * スクショ（AC26）は docs/test-reports/CRAFT-2/shots/。
  */
 const SHOTS = 'docs/test-reports/CRAFT-2/shots';
@@ -248,7 +248,7 @@ test.describe('CRAFT-2 素材（たんす から つかう）', () => {
     expect(r.fuel.inTansu.coal_ore).toBe(1);
   });
 
-  test('AC8・AC9・AC9b: きょり（見える範囲 = 80）・かなづち の印・しらべる回数', async ({ page }) => {
+  test('AC8・AC9・AC9b: きょり（つかえる きょり = 40）・かなづち の印・しらべる回数', async ({ page }) => {
     await open(page);
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
@@ -258,8 +258,8 @@ test.describe('CRAFT-2 素材（たんす から つかう）', () => {
       // P を 世界の はし近くに
       h.player.set({ position: { x: 10.5, y: 9, z: 10.5 }, velocity: { x: 0, y: 0, z: 0 } });
       h.step(2);
-      const E = { x: 90, y: 9, z: 10 }; // きょり ちょうど 80
-      const F = { x: 91, y: 9, z: 10 }; // きょり 81
+      const E = { x: 50, y: 9, z: 10 }; // きょり ちょうど 40
+      const F = { x: 51, y: 9, z: 10 }; // きょり 41
       T.tansu(F.x, F.y, F.z, [[0, 'log', 3]]);
       h.step(1);
       const lf = h.craft.list().find((c: any) => c.id === 'wood_pickaxe');
@@ -299,9 +299,9 @@ test.describe('CRAFT-2 素材（たんす から つかう）', () => {
     expect(r.fNone).toBe(2);
     expect(r.fInv).toBe(1);
     expect(r.e).toBe(true);
-    expect(r.range).toContain('90,9,10');
-    expect(r.range).not.toContain('91,9,10');
-    expect(r.sources).not.toContain('91,9,10');
+    expect(r.range).toContain('50,9,10');
+    expect(r.range).not.toContain('51,9,10');
+    expect(r.sources).not.toContain('51,9,10');
     expect(r.wall).toBe(true);
   });
 
@@ -320,9 +320,9 @@ test.describe('CRAFT-2 素材（たんす から つかう）', () => {
       h.world.setBlock(A.x, A.y, A.z, 'air');
       h.step(1);
       out.off = h.craft.ui().hintVisible;
-      // F（81）
+      // F（41）
       h.player.set({ position: { x: 10.5, y: 9, z: 10.5 }, velocity: { x: 0, y: 0, z: 0 } });
-      T.tansu(91, 9, 10, [[0, 'log', 3]]);
+      T.tansu(51, 9, 10, [[0, 'log', 3]]);
       h.step(2);
       out.far = h.craft.ui().hintVisible;
       h.player.set({ position: { x: 11.5, y: 9, z: 10.5 }, velocity: { x: 0, y: 0, z: 0 } });

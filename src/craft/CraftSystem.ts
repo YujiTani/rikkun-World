@@ -1,5 +1,5 @@
 import type { BlockId, CraftEvent, CraftSystem, Inventory, MaterialSources, MaterialUse, TansuMaterialStore, TansuPos, ItemId, ItemStack, Recipe, Vec3, VoxelWorld } from '../contracts';
-import { SCENERY_CONFIG } from '../game/config';
+import { CRAFT2_SETTING_DEFAULTS } from '../contracts';
 import { itemType } from '../inventory/items';
 import { PickupLog } from '../inventory/pickupLog';
 import { ALL_RECIPES, BAKE_RECIPES, CRAFT_RECIPES } from './recipes';
@@ -44,8 +44,8 @@ export interface CraftDeps {
   tansu?: TansuMaterialStore & { list(): Vec3[]; version?(): number };
   /** CRAFT-2: プレイヤーの足もと（きょりの はかり始め）。なければ たんす は 使わない */
   player?: () => Vec3;
-  /** CRAFT-2: 使える たんす の きょり（はじめは `fogFar`。なければ 景色の設定の値） */
-  fogFar?: () => number;
+  /** CRAFT-2: 使える たんす の きょり（設定 `craftTansuRange`。かすみ `fogFar` とは つながない。なければ はじめの値 40） */
+  tansuRange?: () => number;
 }
 
 /** 範囲の中の たんす 1 こ（数は 見るたびに 1 回だけ数えて覚える） */
@@ -148,7 +148,7 @@ export class CraftSystemImpl implements CraftSystem {
   // ---------------------------------------------------------- たんす の素材（CRAFT-2 §2.2〜§2.4）
 
   private fog(): number {
-    return this.d.fogFar?.() ?? SCENERY_CONFIG.fogFar;
+    return this.d.tansuRange?.() ?? CRAFT2_SETTING_DEFAULTS.craftTansuRange;
   }
 
   /** 使える たんす を しぼる（位置・中身・きょり が 同じなら しぼり直さない）。近い順（同じなら x → z → y） */

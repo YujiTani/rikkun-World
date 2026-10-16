@@ -1789,7 +1789,7 @@ export interface UiAlpha {
   min: number;
 }
 
-/** §4 の設定（`settings.get/set` の名前そのまま）。初期値は `CRAFT2_SETTING_DEFAULTS`。`fogFar` は 既存の景色の値を使う */
+/** §4 の設定（`settings.get/set` の名前そのまま）。初期値は `CRAFT2_SETTING_DEFAULTS`。`craftTansuRange` は 使える たんす の きょり（かすみ `fogFar` とは つなげない） */
 export interface Craft2Settings {
   logHistoryMax: number;
   logMergeTicks: number;
@@ -1798,6 +1798,7 @@ export interface Craft2Settings {
   uiHudAlpha: number;
   uiScrimAlpha: number;
   uiAlphaMin: number;
+  craftTansuRange: number;
 }
 
 export const CRAFT2_SETTING_DEFAULTS: Readonly<Craft2Settings> = {
@@ -1808,6 +1809,7 @@ export const CRAFT2_SETTING_DEFAULTS: Readonly<Craft2Settings> = {
   uiHudAlpha: 0.6,
   uiScrimAlpha: 0.2,
   uiAlphaMin: 0.6,
+  craftTansuRange: 40,
 };
 
 export function createCraft2Settings(): Craft2Settings {

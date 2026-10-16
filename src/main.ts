@@ -362,7 +362,7 @@ const storage = new StorageSystem({
   },
 });
 // つくる・やく（CRAFT-2: たんす の素材も数える。たんす を先に作る）
-const craft = new CraftSystemImpl({ world, inventory, drops, requestSave: () => requestSave(), config: craftConfig, tansu: storage, player: () => controller.state.position });
+const craft = new CraftSystemImpl({ world, inventory, drops, requestSave: () => requestSave(), config: craftConfig, tansu: storage, player: () => controller.state.position, tansuRange: () => craft2Settings.craftTansuRange });
 const dropper = new ItemDropper({
   inventory,
   storage,

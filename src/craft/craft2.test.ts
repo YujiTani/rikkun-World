@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { BlockId, ItemStack, Vec3 } from '../contracts';
+import { CRAFT2_SETTING_DEFAULTS } from '../contracts';
 import { InventoryImpl } from '../inventory/Inventory';
 import { StorageSystem } from '../storage/StorageSystem';
 import { CraftSystemImpl } from './CraftSystem';
@@ -140,38 +141,55 @@ describe('たんす の素材（CRAFT-2 §2.2〜§2.4）', () => {
     expect(inv.count('iron_ingot')).toBe(1);
   });
 
-  it('AC8: きょり ちょうど 80 は使える・81 は使えない・壁ごしでも使える', () => {
+  it('AC8: きょり ちょうど 40 は使える・41 は使えない・壁ごしでも使える・設定で かわる', () => {
     const { craft, put, player, st, world } = rig();
-    put(81, 5, 0, 0, log(3));
+    put(41, 5, 0, 0, log(3));
     expect(craft.list().find((c) => c.id === 'wood_pickaxe')).toMatchObject({ craftable: false, missing: [{ item: 'log', count: 3 }] });
     expect(craft.make('wood_pickaxe')).toMatchObject({ ok: false, reason: 'missing' });
-    expect(st.get(81, 5, 0)!.slots[0]).toEqual(log(3));
+    expect(st.get(41, 5, 0)!.slots[0]).toEqual(log(3));
     expect(craft.sources('wood_pickaxe').tansu).toEqual([]);
     expect(craft.tansuInRange()).toEqual([]);
-    put(81, 5, 0, 0, null);
-    put(80, 5, 0, 0, log(3));
-    for (const [x, y, z] of [[79, 5, 0], [81, 5, 0], [80, 4, 0], [80, 6, 0], [80, 5, 1], [80, 5, -1]]) world.setBlock(x, y, z, 'stone');
+    put(41, 5, 0, 0, null);
+    put(40, 5, 0, 0, log(3));
+    for (const [x, y, z] of [[39, 5, 0], [41, 5, 0], [40, 4, 0], [40, 6, 0], [40, 5, 1], [40, 5, -1]]) world.setBlock(x, y, z, 'stone');
     expect(craft.list().find((c) => c.id === 'wood_pickaxe')!.craftable).toBe(true);
-    expect(craft.tansuInRange()).toEqual([{ x: 80, y: 5, z: 0, dist: 80 }]);
-    player.x = 0.49; // 80.01
+    expect(craft.tansuInRange()).toEqual([{ x: 40, y: 5, z: 0, dist: 40 }]);
+    player.x = 0.49; // 40.01
+    expect(craft.tansuInRange()).toEqual([]);
+  });
+
+  it('craftTansuRange: settings で かえると 次に数えるときから ききる', () => {
+    const world = new W();
+    const inv = new InventoryImpl();
+    const player: Vec3 = { x: 0.5, y: 5, z: 0.5 };
+    const st = new StorageSystem({ world, inventory: inv, player: () => player, scatter: () => undefined, inventoryOpen: () => false, openScreen: () => undefined, closeScreen: () => undefined });
+    let range = CRAFT2_SETTING_DEFAULTS.craftTansuRange;
+    expect(range).toBe(40);
+    const craft = new CraftSystemImpl({ world, inventory: inv, tansu: st, player: () => player, tansuRange: () => range });
+    world.setBlock(60, 5, 0, 'tansu');
+    st.set(60, 5, 0, 0, log(3));
+    expect(craft.tansuInRange()).toEqual([]);
+    range = 80;
+    expect(craft.tansuInRange()).toHaveLength(1);
+    range = 59;
     expect(craft.tansuInRange()).toEqual([]);
   });
 
   it('AC9/AC9b: かなづち の印は ブロックが変わったときだけ しらべ直す', () => {
     const { craft, put, player, st, world } = rig();
-    put(60, 5, 0, 0, log(3));
+    put(30, 5, 0, 0, log(3));
     expect(craft.canCraftAny()).toBe(true);
     const n0 = craft.debugCounts().tansuFilterCount;
     for (let i = 0; i < 600; i++) craft.update(), craft.canCraftAny();
     expect(craft.debugCounts().tansuFilterCount).toBe(n0);
-    player.x = -20.5; // 80.5 → 範囲の外
+    player.x = -10.5; // 40.5 → 範囲の外
     expect(craft.canCraftAny()).toBe(false);
     expect(craft.debugCounts().tansuFilterCount).toBeGreaterThan(n0);
     player.x = 0.5;
     expect(craft.canCraftAny()).toBe(true);
     // たんす を こわす（中身が変わる）→ false
-    st.broken(60, 5, 0);
-    world.setBlock(60, 5, 0, 'air');
+    st.broken(30, 5, 0);
+    world.setBlock(30, 5, 0, 'air');
     expect(craft.canCraftAny()).toBe(false);
     const n1 = craft.debugCounts().tansuFilterCount;
     craft.refreshTansu();
