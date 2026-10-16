@@ -186,3 +186,14 @@ export function createChunkStore(backend: PersistBackend, saveId: string, nSecti
     },
   };
 }
+
+/** 起動のとき 1 回だけ「消さないで」とたのむ（だめでも・なくても 遊べる。待たない）。たのんだら true */
+export function requestPersist(storage: { persist?: () => Promise<boolean> } | undefined = typeof navigator === 'undefined' ? undefined : navigator.storage): boolean {
+  try {
+    if (!storage || typeof storage.persist !== 'function') return false;
+    void storage.persist().catch(() => {});
+    return true;
+  } catch {
+    return false;
+  }
+}

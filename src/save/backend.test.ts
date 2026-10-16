@@ -5,7 +5,7 @@ import type { SectionData } from '../contracts';
 import { ArrayVoxelWorld } from '../world/VoxelWorld';
 import { generateIsland } from '../world/gen/generateIsland';
 import { sectionToArray } from '../world/sections';
-import { IdbBackend, MemoryBackend, SAVE_ID, createChunkStore, packColumn, unpackColumn, type PersistBackend } from './backend';
+import { IdbBackend, MemoryBackend, SAVE_ID, createChunkStore, packColumn, requestPersist, unpackColumn, type PersistBackend } from './backend';
 import { decodeSections, deflateRaw, encodeSections, inflateRaw, padSections } from './chunkCodec';
 import { exportSave, importSave } from './portable';
 import { restoreStoredWorld } from './restore';
@@ -142,5 +142,17 @@ describe('IndexedDB 版で 世界ぜんぶ（AC1）', () => {
     expect(c.world.hash()).toBe(a.world.hash());
     await expect(importSave(new MemoryBackend(), SAVE_ID, file, 8)).rejects.toThrow();
     await expect(importSave(new MemoryBackend(), SAVE_ID, Uint8Array.of(1, 2, 3), 7)).rejects.toThrow();
+  });
+});
+
+describe('requestPersist', () => {
+  it('1 回たのむ。なくても・失敗しても 止まらない', () => {
+    let n = 0;
+    expect(requestPersist({ persist: async () => (n++, true) })).toBe(true);
+    expect(n).toBe(1);
+    expect(requestPersist(undefined)).toBe(false);
+    expect(requestPersist({})).toBe(false);
+    expect(requestPersist({ persist: () => Promise.reject(new Error('no')) })).toBe(true);
+    expect(requestPersist({ persist: () => { throw new Error('no'); } })).toBe(false);
   });
 });

@@ -63,7 +63,7 @@ import { DigSystemImpl, createDigConfig, createDigHook } from './dig';
 import { InventoryImpl, createInventoryHook } from './inventory';
 import { ScreenController } from './screen/ScreenController';
 import { createScreenSettings } from './screen/config';
-import { EXPORT_FILE_NAME, PENDING_KEY, SAVE_ID, SaveManager, compressionAvailable, createSaveHook, exportSave, importSave, openIdb, parseSaveOptions, restoreStoredWorld, stripResetParam } from './save';
+import { EXPORT_FILE_NAME, PENDING_KEY, SAVE_ID, SaveManager, compressionAvailable, createSaveHook, exportSave, importSave, openIdb, parseSaveOptions, requestPersist, restoreStoredWorld, stripResetParam } from './save';
 import { Hotbar } from './ui/hotbar';
 import { InventoryScreen } from './ui/inventoryScreen';
 import { Notice } from './ui/notice';
@@ -168,6 +168,7 @@ try {
 }
 const saveId = seed === GEN_CONFIG.defaultSeed ? SAVE_ID : `seed-${seed}`;
 const idb = store && compressionAvailable() ? await openIdb() : null;
+if (idb) requestPersist();
 const restored = await restoreStoredWorld({ world, db: idb, store, seed, saveId, reset: saveOptions.reset });
 const renderer = new WorldRenderer(world);
 renderer.setViewer(island.spawn().x, island.spawn().z);
