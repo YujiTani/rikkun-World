@@ -1,11 +1,18 @@
-import { Color, PerspectiveCamera, WebGLRenderer } from 'three';
+import { PerspectiveCamera, WebGLRenderer } from 'three';
 import { CHUNK_SIZE } from '../../world/VoxelWorld';
-import { MICRO_RADII, PROTO_MODES, ProtoScene, type ProtoMode } from './ProtoScene';
+import { ALL_LOOKS, DEFAULT_LOOK_ID, currentLook, findLook, setCurrentLook } from './looks';
+import { CharSprite } from './charSprite';
+import { HEIGHT_FACTORS, BASE_HEIGHT, SEA_Y, heightFactorFromParam } from './terrain/stretchHeight';
+import { MICRO_RADII, PROTO_MODES, ProtoScene, TERRAIN_MODES, type ProtoMode, type TerrainMode } from './ProtoScene';
 
 /** 9×9×9 の試しの場面（VOX-0）。ゲーム本体とは別ページ。計測の入口は window.__voxelProto */
 
 export interface Measurement {
   mode: ProtoMode;
+  /** 見た目（Look）の id */
+  look: string;
+  /** 地面の作り方（block = 今まで / micro = 小ブロック単位） */
+  terrain: TerrainMode;
   /** hybrid のとき、小ブロックの形で描く距離 */
   microRadius: number | null;
   triangles: { start: number; sky: number };
@@ -17,9 +24,13 @@ export interface Measurement {
   rebuildChunkMs: { median: number; max: number; samples: number };
   renderCpuMs: { start: number; sky: number };
   renderWithFinishMs: { start: number; sky: number };
+  /** VOX-3: 岩山のふもとから見上げる */
+  lookup: { triangles: number; drawCalls: number; geometryBytes: number; chunks: { micro: number; box: number; far: number }; buildMs: number; renderCpuMs: number; renderWithFinishMs: number };
+  height: number;
+  worldBytes: number;
 }
 
-type PoseName = 'start' | 'sky' | 'close';
+type PoseName = 'start' | 'sky' | 'close' | 'lookup';
 
 function readMode(): ProtoMode {
   const m = new URLSearchParams(location.search).get('mode');
@@ -38,11 +49,20 @@ container.appendChild(renderer.domElement);
 const camera = new PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 400);
 camera.rotation.order = 'YXZ';
 
-const proto = new ProtoScene(readMode());
+function readLook(): string {
+  return findLook(new URLSearchParams(location.search).get('look'))?.id ?? DEFAULT_LOOK_ID;
+}
+setCurrentLook(readLook()); // 3D テクスチャを作る前に 決めておく
+const heightK = heightFactorFromParam(new URLSearchParams(location.search).get('height'));
+const proto = new ProtoScene(readMode(), undefined, heightK);
+const terrainParam = new URLSearchParams(location.search).get('terrain');
+if (terrainParam === 'micro' || terrainParam === 'block') proto.terrain = terrainParam;
+else proto.terrain = 'micro'; // VOX-2: オーナーに見てもらう間は 小ブロック地形 を最初に出す
 const rParam = Number(new URLSearchParams(location.search).get('r'));
 if ((MICRO_RADII as readonly number[]).includes(rParam)) proto.microRadius = rParam;
-proto.scene.background = new Color(0x9ad0f5);
-const spawn = proto.island.spawn();
+const spawn = proto.spawn();
+/** 世界でいちばん高い所（岩山のてっぺん）。「ふもとから見上げる」の目当て */
+const peak = proto.highestPoint();
 
 // ---- カメラ
 /** 1 回の applyCamera で作るチャンクの数（遊ぶとき 2。計測・ポーズ切りかえは無制限） */
@@ -52,7 +72,10 @@ let pitch = 0;
 const pos = { x: 0, y: 0, z: 0 };
 let orbit = new URLSearchParams(location.search).get('auto') === '1';
 let orbitAngle = 0;
-const CENTER = { x: proto.world.size.x / 2, y: 14, z: proto.world.size.z / 2 };
+const CENTER = { x: proto.world.size.x / 2, y: SEA_Y + (14 - SEA_Y) * heightK, z: proto.world.size.z / 2 };
+/** 高くした分だけ、上空・ぐるっとまわる のカメラも上げる（元は 48 ブロックの世界に合わせた高さ） */
+const SKY_Y = 125 + (BASE_HEIGHT * (heightK - 1)) * 0.5;
+const ORBIT_Y = 48 + (BASE_HEIGHT * (heightK - 1)) * 0.6;
 
 function lookAt(tx: number, ty: number, tz: number): void {
   const dx = tx - pos.x;
@@ -67,7 +90,7 @@ function setPose(name: PoseName): void {
   syncOrbitButton();
   if (name === 'start') {
     pos.x = spawn.x;
-    pos.y = spawn.y + 9;
+    pos.y = spawn.y + 4; // VOX-1: 9 -> 4（キャラが 5 ブロック先の地面に見えるように）
     pos.z = spawn.z;
     const far = Math.hypot(CENTER.x - spawn.x, CENTER.z - spawn.z) > 6;
     if (far) lookAt(CENTER.x, CENTER.y, CENTER.z);
@@ -78,10 +101,19 @@ function setPose(name: PoseName): void {
     pitch = Math.min(pitch, (-12 * Math.PI) / 180);
   } else if (name === 'sky') {
     pos.x = CENTER.x;
-    pos.y = 125;
+    pos.y = SKY_Y;
     pos.z = CENTER.z;
     yaw = 0;
     pitch = (-89 * Math.PI) / 180;
+  } else if (name === 'lookup') {
+    // 岩山のてっぺんから スタートの方へ 26 ブロックはなれた地面に立って、てっぺんを見上げる
+    const dx = spawn.x - peak.x;
+    const dz = spawn.z - peak.z;
+    const len = Math.hypot(dx, dz) || 1;
+    pos.x = peak.x + (dx / len) * 26;
+    pos.z = peak.z + (dz / len) * 26;
+    pos.y = proto.groundY(pos.x, pos.z) + 1.6;
+    lookAt(peak.x, peak.y, peak.z);
   } else {
     pos.x = spawn.x;
     pos.y = spawn.y + 2.6;
@@ -93,9 +125,27 @@ function setPose(name: PoseName): void {
 }
 
 function applyCamera(): void {
+  character?.face(pos.x, pos.z);
   camera.position.set(pos.x, pos.y, pos.z);
   camera.rotation.set(pitch, yaw, 0);
   proto.update(Math.round(pos.x), Math.round(pos.z), updateBudget);
+}
+
+// ---- キャラ（?char=0 で消す）。スタート地点のカメラの 5 ブロック先の地面に、カメラのほうを向いて立つ
+let character: CharSprite | null = null;
+function placeCharacter(): void {
+  if (new URLSearchParams(location.search).get('char') === '0') return;
+  setPose('start');
+  const cx = pos.x - Math.sin(yaw) * 5;
+  const cz = pos.z - Math.cos(yaw) * 5;
+  let gy = 0;
+  for (let y = proto.world.size.y - 1; y >= 0; y--) {
+    if (proto.world.isSolid(Math.floor(cx), y, Math.floor(cz))) {
+      gy = y + 1;
+      break;
+    }
+  }
+  character = new CharSprite(proto.scene, cx, gy, cz, { x: Math.sin(yaw), z: Math.cos(yaw) });
 }
 
 // ---- 操作（試作なので Action 経由でない）
@@ -118,7 +168,7 @@ function move(dt: number): void {
     orbitAngle += dt * 0.25;
     pos.x = CENTER.x + Math.cos(orbitAngle) * 62;
     pos.z = CENTER.z + Math.sin(orbitAngle) * 62;
-    pos.y = 48;
+    pos.y = ORBIT_Y;
     lookAt(CENTER.x, CENTER.y, CENTER.z);
     return;
   }
@@ -166,6 +216,38 @@ function syncRadius(): void {
   MICRO_RADII.forEach((r, i) => radiusButtons[i].classList.toggle('on', r === proto.microRadius));
 }
 syncRadius();
+const terrainButtons = new Map<TerrainMode, HTMLButtonElement>();
+function setTerrain(t: TerrainMode): void {
+  proto.setTerrain(t);
+  const url = new URL(location.href);
+  url.searchParams.set('terrain', t);
+  history.replaceState(null, '', url);
+  for (const [k, b] of terrainButtons) b.classList.toggle('on', k === t);
+  proto.update(Math.round(pos.x), Math.round(pos.z), updateBudget);
+}
+for (const t of TERRAIN_MODES) terrainButtons.set(t, addButton(`ちけい: ${t === 'micro' ? 'こまかい' : 'ブロック'}`, () => setTerrain(t)));
+for (const [k, b] of terrainButtons) b.classList.toggle('on', k === proto.terrain);
+const lookButtons = new Map<string, HTMLButtonElement>();
+function setLook(id: string): void {
+  const look = findLook(id);
+  if (!look) throw new Error(`知らない look: ${id}`);
+  proto.setLook(id);
+  const url = new URL(location.href);
+  url.searchParams.set('look', id);
+  history.replaceState(null, '', url);
+  for (const [k, b] of lookButtons) b.classList.toggle('on', k === id);
+  proto.update(Math.round(pos.x), Math.round(pos.z), updateBudget);
+}
+for (const l of ALL_LOOKS) lookButtons.set(l.id, addButton(`みため: ${l.label}`, () => setLook(l.id)));
+for (const [k, b] of lookButtons) b.classList.toggle('on', k === currentLook().id);
+for (const k of HEIGHT_FACTORS) {
+  const b = addButton(`たかさ: ${k} ばい`, () => {
+    const url = new URL(location.href);
+    url.searchParams.set('height', String(k));
+    location.href = url.toString(); // 世界を作り直すので ページを読みなおす
+  });
+  b.classList.toggle('on', k === heightK);
+}
 const orbitBtn = addButton('ぐるっとまわる', () => {
   orbit = !orbit;
   syncOrbitButton();
@@ -175,6 +257,7 @@ function syncOrbitButton(): void {
 }
 addButton('スタート', () => setPose('start'));
 addButton('上空', () => setPose('sky'));
+addButton('みあげる', () => setPose('lookup'));
 addButton('このチャンクを作り直す', () => {
   proto.rebuildChunk(Math.floor(pos.x / CHUNK_SIZE), Math.floor(pos.z / CHUNK_SIZE));
 });
@@ -209,6 +292,9 @@ function refreshHud(): void {
   const worst = n ? Math.max(...frames) : 0;
   const info = renderer.info;
   statsEl.textContent = [
+    `たかさ: ${heightK} ばい（世界 ${proto.world.size.y} ブロック）`,
+    `みため: ${currentLook().id}`,
+    `ちけい: ${proto.terrain}`,
     `ほうしき: ${proto.mode}${proto.mode === 'hybrid' ? `（r=${proto.microRadius}）` : ''}`,
     `fps: ${avg > 0 ? (1000 / avg).toFixed(1) : '-'} （さいあく ${worst.toFixed(1)} ms）`,
     `三角形: ${info.render.triangles.toLocaleString()}`,
@@ -276,6 +362,12 @@ function measure(): Measurement {
   setPose('sky');
   const buildSkyExtraMs = performance.now() - t1;
   const b = measureAt();
+  // 見上げる（岩山のふもと）
+  proto.clearAll();
+  const t2 = performance.now();
+  setPose('lookup');
+  const lookupBuildMs = performance.now() - t2;
+  const c = measureAt();
   setPose('start');
   if (wasRunning) {
     running = true;
@@ -284,6 +376,8 @@ function measure(): Measurement {
   }
   return {
     mode: proto.mode,
+    look: currentLook().id,
+    terrain: proto.terrain,
     microRadius: proto.mode === 'hybrid' ? proto.microRadius : null,
     triangles: { start: a.tri, sky: b.tri },
     drawCalls: { start: a.calls, sky: b.calls },
@@ -294,6 +388,17 @@ function measure(): Measurement {
     rebuildChunkMs: { median: median(rb), max: Math.max(...rb), samples: rb.length },
     renderCpuMs: { start: a.cpu, sky: b.cpu },
     renderWithFinishMs: { start: a.fin, sky: b.fin },
+    lookup: {
+      triangles: c.tri,
+      drawCalls: c.calls,
+      geometryBytes: c.bytes,
+      chunks: c.chunks,
+      buildMs: lookupBuildMs,
+      renderCpuMs: c.cpu,
+      renderWithFinishMs: c.fin,
+    },
+    height: heightK,
+    worldBytes: proto.world.size.x * proto.world.size.y * proto.world.size.z,
   };
 }
 
@@ -302,6 +407,50 @@ const hook = {
   modes: PROTO_MODES,
   getMode: (): ProtoMode => proto.mode,
   setMode,
+  terrains: TERRAIN_MODES,
+  getTerrain: (): TerrainMode => proto.terrain,
+  setTerrain: (t: TerrainMode): void => {
+    setTerrain(t);
+    applyCamera();
+  },
+  looks: ALL_LOOKS.map((l) => l.id),
+  getLook: (): string => currentLook().id,
+  /** 見た目をかえる（3D テクスチャとメッシュを作り直す） */
+  setLook: (id: string): void => {
+    setLook(id);
+    applyCamera();
+  },
+  /** キャラ: 見ている行（0〜7）と 足もとの位置。?char=0 のときは null */
+  getChar: (): { ready: boolean; row: number; x: number; y: number; z: number } | null =>
+    character ? { ready: character.ready, row: character.currentRow, ...character.position } : null,
+  /** カメラを (x,y,z) に置いて (yawDeg, pitchDeg) を向く（スクショ用）。yaw 0 = -z を向く */
+  setCamera: (x: number, y: number, z: number, yawDeg: number, pitchDeg: number): void => {
+    orbit = false;
+    syncOrbitButton();
+    pos.x = x;
+    pos.y = y;
+    pos.z = z;
+    yaw = (yawDeg * Math.PI) / 180;
+    pitch = (pitchDeg * Math.PI) / 180;
+    applyCamera();
+  },
+  /** カメラを キャラのまわり（水平 dist ブロック）の 角度 deg（0 = キャラの正面）に置いて キャラを見る */
+  orbitChar: (deg: number, dist = 5, height = 2): void => {
+    if (!character) return;
+    const c = character.position;
+    const f = { x: Math.sin(startYaw), z: Math.cos(startYaw) };
+    const a = (deg * Math.PI) / 180;
+    // 正面から a だけ回した向き（charRow の角度と同じ向き）
+    const dx = f.x * Math.cos(a) - f.z * Math.sin(a);
+    const dz = f.z * Math.cos(a) + f.x * Math.sin(a);
+    orbit = false;
+    syncOrbitButton();
+    pos.x = c.x + dx * dist;
+    pos.z = c.z + dz * dist;
+    pos.y = c.y + height;
+    lookAt(c.x, c.y + 0.9, c.z);
+    applyCamera();
+  },
   setMicroRadius: (r: number): void => {
     proto.setMicroRadius(r);
     syncRadius();
@@ -324,6 +473,39 @@ const hook = {
     }
   },
   spawn: { x: spawn.x, y: spawn.y, z: spawn.z },
+  /** 崖の近く（スタートから 40 ブロック以内で、となりの列より 3 ブロック以上高い所）へ カメラをおいて 崖を見る（スクショ用）。見つからなければ false */
+  gotoCliff: (): boolean => {
+    let best: { x: number; z: number; nx: number; nz: number; drop: number; d: number } | null = null;
+    for (let z = 2; z < proto.world.size.z - 2; z++) {
+      for (let x = 2; x < proto.world.size.x - 2; x++) {
+        const d = Math.hypot(x - spawn.x, z - spawn.z);
+        if (d > 40) continue;
+        const h = proto.groundY(x, z);
+        if (h <= SEA_Y + 2) continue;
+        for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const drop = h - proto.groundY(x + dx, z + dz);
+          if (drop >= 3 && (!best || drop > best.drop || (drop === best.drop && d < best.d))) best = { x, z, nx: dx, nz: dz, drop, d };
+        }
+      }
+    }
+    if (!best) return false;
+    // 崖の下がわ（落ちている側）に 9 ブロックはなれて立ち、崖の中ほどを見る
+    const cx = best.x + 0.5 + best.nx * 9;
+    const cz = best.z + 0.5 + best.nz * 9;
+    const top = proto.groundY(best.x, best.z);
+    orbit = false;
+    syncOrbitButton();
+    pos.x = cx;
+    pos.z = cz;
+    pos.y = proto.groundY(cx, cz) + 2;
+    lookAt(best.x + 0.5, top - best.drop / 2, best.z + 0.5);
+    applyCamera();
+    return true;
+  },
+  height: heightK,
+  worldBytes: proto.world.size.x * proto.world.size.y * proto.world.size.z,
+  worldSize: { ...proto.world.size },
+  peak,
 };
 declare global {
   interface Window {
@@ -333,5 +515,7 @@ declare global {
 window.__voxelProto = hook;
 
 setMode(readMode());
+placeCharacter();
+const startYaw = yaw;
 setPose('start');
 requestAnimationFrame(frame);

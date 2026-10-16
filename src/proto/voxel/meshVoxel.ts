@@ -5,12 +5,17 @@ import { crossTileName, pushCross, type MeshData } from '../../world/render/mesh
 import {
   LOOK_N,
   LOOK_VOLUME,
+  baseColorOf,
+  currentLook,
   fillBlockLook,
   hasLook,
   initLooks,
+  lookIdOf,
   occludes,
-  PALETTE_RGB as PAL,
-} from './looks/placeholder';
+  paletteRgb,
+} from './looks';
+import { newSample, sampleSurface, type ColumnSource, type SurfaceSample } from './terrain/microSurface';
+import { scanColumn, type ColumnInfo } from './terrain/worldColumns';
 
 /**
  * 9×9×9 の小ブロックのメッシュ作り（three に依存しない。型付き配列で作る）。
@@ -28,6 +33,8 @@ const CV = C * N;
 /** まわり 1 ブロックぶんをふくむ横の大きさ（小ブロック） */
 const S = (C + 2) * N;
 const SS = S * S;
+/** 小ブロック地形で調べる列の幅（ブロック）: チャンク + まわり 2 ブロック */
+const BW = C + 4;
 
 initLooks(BLOCK_TYPES.map((t) => t.id));
 
@@ -53,6 +60,8 @@ export interface QuadMesh {
 
 export interface VoxelChunkMesh {
   solid: QuadMesh;
+  /** 小ブロック地形（VOX-2）の面。色は頂点に入れる（地形の色は 位置ではなく 深さで決まるため）。無ければ空 */
+  solidColor: QuadMesh;
   /** 十字の板・たいまつ（今の描き方。atlas の絵） */
   cross: MeshData;
   /** 水の上の面（平らな半透明） */
@@ -152,6 +161,10 @@ class QuadBuilder {
   }
 }
 
+function emptyQuadMesh(): QuadMesh {
+  return { pieces: [], faces: 0, areaSmall: 0 };
+}
+
 function emptyData(): MeshData {
   return { positions: [], uvs: [], colors: [], lights: [], indices: [], faceCount: 0 };
 }
@@ -174,15 +187,159 @@ export class VoxelChunkMesher {
   /** チャンクの中のブロック: 面を作る必要があるか（1）／種類 */
   private readonly active: Uint8Array;
   private readonly kinds: Uint8Array;
-  private readonly maskV: Uint8Array;
+  private readonly maskV: Uint16Array;
   private readonly boxMask: Uint8Array;
+  /** 小ブロック地形の色つき面用（形の方式の中で 色を頂点に持つ面） */
+  private readonly builderColor = new QuadBuilder();
+  /** 格子と同じ並び: 1 = 小ブロック地形のマス（色は 格子の色番号を そのまま使う） */
+  private readonly tflag: Uint8Array;
+  // 小ブロック地形の作業用（チャンク + まわり 2 ブロックの列）
+  private readonly colTy = new Int16Array(BW * BW);
+  private readonly colKind = new Uint8Array(BW * BW);
+  private readonly colReach = new Int8Array(BW * BW);
+  private readonly colRock = new Uint8Array(BW * BW);
+  private readonly colH = new Int16Array(SS);
+  private readonly colG = new Int16Array(SS);
+  private readonly colIsRock = new Uint8Array(SS);
+  private readonly colInfo: ColumnInfo = { ty: -1, kind: 0, reach: 0, rockOk: false };
+  private readonly sample: SurfaceSample = newSample();
+  private ox = 0;
+  private oz = 0;
+  private readonly colSrc: ColumnSource = {
+    surfaceY: (bx, bz) => {
+      const i = this.colIndex(bx, bz);
+      return i < 0 ? -1 : this.colTy[i];
+    },
+    reach: (bx, bz) => {
+      const i = this.colIndex(bx, bz);
+      return i < 0 ? -1 : this.colReach[i];
+    },
+    rockOk: (bx, bz) => {
+      const i = this.colIndex(bx, bz);
+      return i < 0 ? false : this.colRock[i] === 1;
+    },
+  };
 
   constructor(private readonly world: ArrayVoxelWorld) {
     this.grid = new Uint8Array(SS * world.size.y * N);
     this.active = new Uint8Array(C * C * world.size.y);
     this.kinds = new Uint8Array(C * C * world.size.y);
     this.boxMask = new Uint8Array(C * Math.max(C, world.size.y));
-    this.maskV = new Uint8Array(CV * world.size.y * N);
+    this.maskV = new Uint16Array(CV * world.size.y * N);
+    this.tflag = new Uint8Array(SS * world.size.y * N);
+  }
+
+  /** 世界のブロック座標 → 作業用の列の番号（範囲外は -1） */
+  private colIndex(bx: number, bz: number): number {
+    const i = bx - this.ox + 2;
+    const j = bz - this.oz + 2;
+    return i < 0 || j < 0 || i >= BW || j >= BW ? -1 : j * BW + i;
+  }
+
+  /** 小ブロック地形: チャンクのまわりの列を調べ、S（つまっている高さ）を格子の列ごとに決める */
+  private prepareMicro(cx: number, cz: number): void {
+    const x0 = cx * C;
+    const z0 = cz * C;
+    this.ox = x0;
+    this.oz = z0;
+    const info = this.colInfo;
+    for (let j = 0; j < BW; j++) {
+      for (let i = 0; i < BW; i++) {
+        scanColumn(this.world, x0 + i - 2, z0 + j - 2, info);
+        const k = j * BW + i;
+        this.colTy[k] = info.ty;
+        this.colKind[k] = info.kind;
+        this.colReach[k] = info.reach;
+        this.colRock[k] = info.rockOk ? 1 : 0;
+      }
+    }
+    const s = this.sample;
+    const mx0 = x0 * N - N;
+    const mz0 = z0 * N - N;
+    for (let gz = 0; gz < S; gz++) {
+      for (let gx = 0; gx < S; gx++) {
+        sampleSurface(mx0 + gx, mz0 + gz, this.colSrc, s);
+        const gi = gz * S + gx;
+        this.colH[gi] = s.h;
+        this.colG[gi] = s.ground;
+        this.colIsRock[gi] = s.rock ? 1 : 0;
+      }
+    }
+  }
+
+  /** 小ブロック地形を 格子に書く（地面ブロックと、そのすぐ上の空気ブロックのぶん） */
+  private fillMicro(cx: number, cz: number, yTop: number, H: number): void {
+    const grid = this.grid;
+    const tf = this.tflag;
+    const look = currentLook();
+    const colorFn = look.terrainColor;
+    const mx0 = cx * CV - N;
+    const mz0 = cz * CV - N;
+    const colH = this.colH;
+    for (let gz = 0; gz < S; gz++) {
+      const bzl = Math.floor(gz / N) - 1;
+      for (let gx = 0; gx < S; gx++) {
+        const bxl = Math.floor(gx / N) - 1;
+        const k = (bzl + 2) * BW + (bxl + 2);
+        const ty = this.colTy[k];
+        if (ty < 0) continue;
+        const gi = gz * S + gx;
+        const h = colH[gi];
+        const own = bxl >= 0 && bxl < C && bzl >= 0 && bzl < C;
+        const yEnd = Math.min(h, H);
+        const y0 = ty * N;
+        if (!own) {
+          for (let y = y0; y < yEnd; y++) grid[(y * S + gz) * S + gx] = 1;
+          continue;
+        }
+        const kindId = lookIdOf(this.colKind[k]);
+        const fallback = baseColorOf(this.colKind[k]);
+        const g = this.colG[gi];
+        const rockCol = this.colIsRock[gi] === 1;
+        const wx = mx0 + gx;
+        const wz = mz0 + gz;
+        // まわり 2 マスの S の いちばん低い所（これより下のマスは よこから見えない）
+        let m2 = h;
+        for (let d = 1; d <= 2; d++) {
+          for (let q = 0; q < 4; q++) {
+            const ni = q === 0 ? gi - d : q === 1 ? gi + d : q === 2 ? gi - d * S : gi + d * S;
+            const nh = colH[ni];
+            if (nh >= 0 && nh < m2) m2 = nh;
+          }
+        }
+        // てっぺんのマスは、となりが 高いほど くぼみ（ほりかげ）: 1 マス高い = 1 段内の色、2 マス以上 = 2 段内の色
+        let rise = 0;
+        for (let q = 0; q < 4; q++) {
+          const nh = colH[q === 0 ? gi - 1 : q === 1 ? gi + 1 : q === 2 ? gi - S : gi + S];
+          if (nh - h > rise) rise = nh - h;
+        }
+        const topDepth = rise >= 2 ? 2 : rise;
+        for (let y = y0; y < yEnd; y++) {
+          const fromTop = h - 1 - y;
+          let depth = fromTop === 0 ? topDepth : fromTop < 2 ? fromTop : 2;
+          if (depth > 0 && y >= m2) {
+            // よこの となり（1 マス・2 マス先）が 空いていれば、そのぶん外がわに近い
+            for (let d = 1; d <= 2 && d - 1 < depth; d++) {
+              let open = false;
+              for (let q = 0; q < 4; q++) {
+                const ni = q === 0 ? gi - d : q === 1 ? gi + d : q === 2 ? gi - d * S : gi + d * S;
+                const nh = colH[ni];
+                if (nh >= 0 && y >= nh) open = true;
+              }
+              if (open) {
+                depth = d - 1;
+                break;
+              }
+            }
+          }
+          const idx = (y * S + gz) * S + gx;
+          grid[idx] = colorFn ? colorFn(kindId, depth, fromTop, rockCol && y >= g, wx, y, wz) : fallback;
+          tf[idx] = 1;
+        }
+        this.active[(ty * C + bzl) * C + bxl] = 1;
+        if (h > (ty + 1) * N && ty + 1 <= yTop) this.active[((ty + 1) * C + bzl) * C + bxl] = 1;
+      }
+    }
   }
 
   /** チャンクのいちばん高い（空気でない）ブロックの y。無ければ -1 */
@@ -208,7 +365,7 @@ export class VoxelChunkMesher {
     const b = this.builder;
     b.reset();
     const yTop = this.topOf(cx, cz);
-    if (yTop < 0) return { solid: b.finish(), cross, water };
+    if (yTop < 0) return { solid: b.finish(), solidColor: emptyQuadMesh(), cross, water };
     for (let by = 0; by <= yTop; by++) {
       for (let bz = 0; bz < C; bz++) {
         for (let bx = 0; bx < C; bx++) {
@@ -278,27 +435,33 @@ export class VoxelChunkMesher {
         }
       }
     }
-    return { solid: b.finish(), cross, water };
+    return { solid: b.finish(), solidColor: emptyQuadMesh(), cross, water };
   }
 
-  build(cx: number, cz: number, mode: VoxelMode): VoxelChunkMesh {
+  /** terrain = true: 地面を 小ブロック単位の形にする（VOX-2。box には効かない） */
+  build(cx: number, cz: number, mode: VoxelMode, terrain = false): VoxelChunkMesh {
     if (mode === 'box') return this.buildBox(cx, cz);
+    const micro = terrain;
     const world = this.world;
     const x0 = cx * C;
     const z0 = cz * C;
     const cross = emptyData();
     const water = emptyData();
 
-    const yTop = this.topOf(cx, cz);
+    let yTop = this.topOf(cx, cz);
     if (yTop < 0) {
       this.builder.reset();
-      return { solid: this.builder.finish(), cross, water };
+      return { solid: this.builder.finish(), solidColor: emptyQuadMesh(), cross, water };
     }
+    // 小ブロック地形は 地面ブロックの上の空気ブロックにも はみ出す
+    if (micro) yTop = Math.min(yTop + 1, this.world.size.y - 1);
     const H = (yTop + 1) * N;
     const grid = this.grid;
     grid.fill(0, 0, H * SS);
+    this.tflag.fill(0, 0, H * SS);
     this.active.fill(0, 0, C * C * (yTop + 1));
     const scratch = this.scratch;
+    if (micro) this.prepareMicro(cx, cz);
 
     for (let by = 0; by <= yTop; by++) {
       for (let bz = -1; bz <= C; bz++) {
@@ -316,6 +479,8 @@ export class VoxelChunkMesher {
             continue;
           }
           if (kind === AIR) continue;
+          // 小ブロック地形の地面ブロックは あとで（fillMicro）
+          if (micro && this.colTy[(bz + 2) * BW + bx + 2] === by) continue;
           if (own) {
             if (kind === WATER) {
               if (world.getIndex(wx, by + 1, wz) === AIR) pushWaterTop(water, wx, by, wz);
@@ -352,14 +517,18 @@ export class VoxelChunkMesher {
       }
     }
 
+    if (micro) this.fillMicro(cx, cz, yTop, H);
+
     const b = this.builder;
     b.reset();
+    this.builderColor.reset();
     if (mode === 'naive') this.meshNaive(yTop, H);
     else this.meshGreedy(yTop, H, mode === 'greedyShape');
-    return { solid: b.finish(), cross, water };
+    return { solid: b.finish(), solidColor: this.builderColor.finish(), cross, water };
   }
 
   private meshNaive(yTop: number, H: number): void {
+    const PAL = paletteRgb();
     const g = this.grid;
     const b = this.builder;
     const inv = 1; // 座標は小ブロックのまま
@@ -401,6 +570,7 @@ export class VoxelChunkMesher {
   }
 
   private meshGreedy(yTop: number, H: number, shape: boolean): void {
+    const PAL = paletteRgb();
     const g = this.grid;
     const b = this.builder;
     const mask = this.maskV;
@@ -464,7 +634,8 @@ export class VoxelChunkMesher {
                 } else if (f === 1) {
                   if (l === 0 || g[idx + off] !== 0) continue;
                 } else if (g[idx + off] !== 0) continue;
-                mask[lv * widthU + lu] = shape ? key + 1 : c;
+                // 小ブロック地形のマスは 色を頂点に持つ（256 + 色番号）
+                mask[lv * widthU + lu] = this.tflag[idx] ? 256 + c : shape ? key + 1 : c;
                 touched = true;
               }
             }
@@ -504,7 +675,10 @@ export class VoxelChunkMesher {
             hi[uAx] = origin[uAx] + (u + w) * inv;
             lo[vAx] = origin[vAx] + v * inv;
             hi[vAx] = origin[vAx] + (v + h) * inv;
-            if (shape) b.quad(f, lo[0], hi[0], lo[1], hi[1], lo[2], hi[2], k - 1, 0, 0, w * h);
+            if (k >= 256) {
+              const c = k - 256;
+              this.builderColor.quad(f, lo[0], hi[0], lo[1], hi[1], lo[2], hi[2], PAL[c * 3], PAL[c * 3 + 1], PAL[c * 3 + 2], w * h);
+            } else if (shape) b.quad(f, lo[0], hi[0], lo[1], hi[1], lo[2], hi[2], k - 1, 0, 0, w * h);
             else b.quad(f, lo[0], hi[0], lo[1], hi[1], lo[2], hi[2], PAL[k * 3], PAL[k * 3 + 1], PAL[k * 3 + 2], w * h);
           }
         }

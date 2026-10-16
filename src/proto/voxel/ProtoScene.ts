@@ -2,13 +2,15 @@ import {
   BufferAttribute,
   BufferGeometry,
   DoubleSide,
+  Color,
+  Fog,
   Group,
   Mesh,
   MeshBasicMaterial,
   Scene,
   type Material,
 } from 'three';
-import { BLOCK_TYPES } from '../../world/blocks/blockTypes';
+import { BLOCK_INDEX, BLOCK_TYPES } from '../../world/blocks/blockTypes';
 import { WATER_ALPHA, createAtlasTexture } from '../../world/blocks/textures';
 import { generateIsland } from '../../world/gen/generateIsland';
 import { CHUNK_DRAW_DISTANCE, RENDER_CONFIG } from '../../world/render/config';
@@ -20,10 +22,16 @@ import { GEN_CONFIG } from '../../world/gen/config';
 import type { IslandInfo } from '../../contracts';
 import { VoxelChunkMesher, type QuadPiece, type VoxelMode } from './meshVoxel';
 import { createShapeTexture } from './shapeTexture';
-import { createVoxelMaterial } from './voxelMaterial';
+import { createVoxelMaterial, setVoxelFog } from './voxelMaterial';
+import { currentLook, setCurrentLook } from './looks';
+import type { Data3DTexture } from 'three';
+import { stretchHeight, type HeightFactor } from './terrain/stretchHeight';
 
 export type ProtoMode = 'current' | 'naive' | 'greedyColor' | 'greedyShape' | 'hybrid';
 export const PROTO_MODES: readonly ProtoMode[] = ['current', 'naive', 'greedyColor', 'greedyShape', 'hybrid'];
+/** 地面の作り方: block = 1 ブロックごとの段々（今まで）/ micro = 表面を小ブロック単位で決める（VOX-2） */
+export type TerrainMode = 'block' | 'micro';
+export const TERRAIN_MODES: readonly TerrainMode[] = ['micro', 'block'];
 export const MICRO_RADII = [16, 24, 32] as const;
 
 interface Built {
@@ -59,14 +67,55 @@ type Tier = 'micro' | 'box' | 'lod' | null;
 /** 島の世界と、方式ごとのチャンクのメッシュ（ゲーム本体とは別。光なし） */
 export class ProtoScene {
   readonly scene = new Scene();
-  readonly world = new ArrayVoxelWorld();
+  readonly world: ArrayVoxelWorld;
   readonly island: IslandInfo;
+  /** 高さの倍率（VOX-3）。1 = 今のまま */
+  readonly height: HeightFactor;
+  /** のばす前の島（スポーン地点などを読む） */
+  readonly baseWorld = new ArrayVoxelWorld();
   mode: ProtoMode;
+  terrain: TerrainMode = 'block';
   /** hybrid: カメラからこの距離（ブロック）以内のチャンクだけ 小ブロックの形 */
   microRadius = 16;
   /** 直近の「足りないチャンクを作った」時間と数 */
   lastBuild = { ms: 0, chunks: 0 };
   lastRebuildMs = 0;
+
+  /** スタート地点（のばした世界の地面の上） */
+  spawn(): { x: number; y: number; z: number } {
+    const s = this.island.spawn();
+    for (let y = this.world.size.y - 1; y >= 0; y--) {
+      if (this.world.isSolid(Math.floor(s.x), y, Math.floor(s.z))) return { x: s.x, y: y + 1, z: s.z };
+    }
+    return s;
+  }
+
+  /** (x, z) の地面の上の y（固いブロックのいちばん上 + 1） */
+  groundY(x: number, z: number): number {
+    for (let y = this.world.size.y - 1; y >= 0; y--) {
+      if (this.world.isSolid(Math.floor(x), y, Math.floor(z))) return y + 1;
+    }
+    return 0;
+  }
+
+  /** 世界でいちばん高い地面の列（岩山のてっぺん。木の葉は除く） */
+  highestPoint(): { x: number; y: number; z: number } {
+    const leaves = BLOCK_INDEX.leaves;
+    const log = BLOCK_INDEX.log;
+    let best = { x: 0, y: -1, z: 0 };
+    for (let z = 0; z < this.world.size.z; z++) {
+      for (let x = 0; x < this.world.size.x; x++) {
+        for (let y = this.world.size.y - 1; y > best.y; y--) {
+          const k = this.world.getIndex(x, y, z);
+          if (k > 0 && this.world.isSolid(x, y, z) && k !== leaves && k !== log) {
+            best = { x: x + 0.5, y: y + 1, z: z + 0.5 };
+            break;
+          }
+        }
+      }
+    }
+    return best;
+  }
 
   private readonly root = new Group();
   /** 小ブロックの形（current のときは今のメッシュ） */
@@ -86,10 +135,13 @@ export class ProtoScene {
   private readonly lodWater: MeshBasicMaterial;
   private readonly colorMat;
   private readonly shapeMat;
+  private shapeTex: Data3DTexture;
 
-  constructor(mode: ProtoMode, seed: number = GEN_CONFIG.defaultSeed) {
+  constructor(mode: ProtoMode, seed: number = GEN_CONFIG.defaultSeed, height: HeightFactor = 1) {
     this.mode = mode;
-    this.island = generateIsland(seed, this.world);
+    this.height = height;
+    this.island = generateIsland(seed, this.baseWorld);
+    this.world = height === 1 ? this.baseWorld : stretchHeight(this.baseWorld, height);
     this.mesher = new VoxelChunkMesher(this.world);
     this.count = this.world.chunksX * this.world.chunksZ;
     this.micro = new Array<Built | null>(this.count).fill(null);
@@ -103,7 +155,28 @@ export class ProtoScene {
     this.lodOpaque = new MeshBasicMaterial({ vertexColors: true });
     this.lodWater = new MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: WATER_ALPHA, depthWrite: false, side: DoubleSide });
     this.colorMat = createVoxelMaterial();
-    this.shapeMat = createVoxelMaterial(createShapeTexture(BLOCK_TYPES.length));
+    this.shapeTex = createShapeTexture(BLOCK_TYPES.length);
+    this.shapeMat = createVoxelMaterial(this.shapeTex);
+    this.applyLookColors();
+  }
+
+  /** 空・霧を いまの Look にあわせる */
+  private applyLookColors(): void {
+    const look = currentLook();
+    this.scene.background = new Color(look.sky);
+    this.scene.fog = new Fog(look.fog.color, look.fog.near, look.fog.far);
+    setVoxelFog(this.shapeMat, look.fog);
+    setVoxelFog(this.colorMat, look.fog);
+  }
+
+  /** 見た目をかえる: 3D テクスチャと近くのメッシュを作り直す（遠くの LOD は Look に依らないので のこす） */
+  setLook(id: string): void {
+    setCurrentLook(id);
+    this.shapeTex.dispose();
+    this.shapeTex = createShapeTexture(BLOCK_TYPES.length);
+    this.shapeMat.uniforms.uTex.value = this.shapeTex;
+    this.applyLookColors();
+    this.setMode(this.mode); // 近くのメッシュを捨てて、次の update で作る
   }
 
   private make(geo: BufferGeometry, mat: Material, order = 0, chunk?: { cx: number; cz: number }): Mesh {
@@ -129,9 +202,10 @@ export class ProtoScene {
       bytes += bytesOf(geo);
       meshes.push(this.make(geo, mat, order, chunk));
     };
-    const d = this.mesher.build(cx, cz, mode);
+    const d = this.mesher.build(cx, cz, mode, this.terrain === 'micro');
     const mat = mode === 'greedyShape' || mode === 'box' ? this.shapeMat : this.colorMat;
     for (const piece of d.solid.pieces) add(geometryFromPiece(piece), mat, 0, { cx, cz });
+    for (const piece of d.solidColor.pieces) add(geometryFromPiece(piece), this.colorMat, 0, { cx, cz });
     if (d.cross.faceCount > 0) add(geometryFromMeshData(d.cross), this.atlasOpaque);
     if (d.water.faceCount > 0) add(geometryFromMeshData(d.water), this.flatWater, RENDER_CONFIG.waterRenderOrder);
     return { meshes, bytes };
@@ -200,6 +274,12 @@ export class ProtoScene {
       this.box[i] = null;
     }
     this.viewer = { x: Number.NaN, z: Number.NaN };
+  }
+
+  /** 地面の作り方をかえる。近くのメッシュを捨てて、次の update で作り直す */
+  setTerrain(t: TerrainMode): void {
+    this.terrain = t;
+    this.setMode(this.mode);
   }
 
   /** hybrid の 16 / 24 / 32。メッシュは捨てず、チャンクごとの切りかえだけ変わる */
