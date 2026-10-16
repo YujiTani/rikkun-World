@@ -80,7 +80,8 @@ describe('たがやす・まく・しゅうかく', () => {
   });
   it('植える→育つ→とる。明るさ 低いと 育たない', () => {
     const { world, farm, settings, state, step } = make();
-    settings.farmGrowDays.dry.tomato = 0.001;
+    settings.farmGrowDays.wet.tomato = 0.001;
+    world.setBlock(4, 7, 5, 'water');
     farm.till(5, 7, 5);
     expect(farm.plant(5, 7, 5, 'tomato')).toBe(true);
     expect(farm.plant(5, 7, 5, 'tomato')).toBe(false);
@@ -103,6 +104,18 @@ describe('たがやす・まく・しゅうかく', () => {
     expect(r.ok && r.items[0]!.count >= 1 && r.items[1]!.count >= 1).toBe(true);
     expect(world.getBlock(5, 8, 5)).toBe('air');
     expect(farm.soil(5, 7, 5)).not.toBeNull();
+  });
+  it('かわいた はたけ では 育たない。ぬれたら つづきから', () => {
+    const { world, farm, settings, step } = make();
+    settings.farmGrowDays.wet.tomato = 0.001;
+    settings.farmGrowDays.dry.tomato = 0.001;
+    farm.till(5, 7, 5);
+    farm.plant(5, 7, 5, 'tomato');
+    step(5000);
+    expect(farm.crop(5, 8, 5)).toMatchObject({ stage: 0, stageTicks: 0 });
+    world.setBlock(4, 7, 5, 'water');
+    for (let i = 0; i < 3000 && farm.crop(5, 8, 5)!.stage < 3; i++) step();
+    expect(farm.crop(5, 8, 5)?.ripe).toBe(true);
   });
   it('まだ のとき notRipe・こわれない', () => {
     const { world, farm } = make();
