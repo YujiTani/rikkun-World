@@ -129,9 +129,9 @@ test.describe('BAL-A 強さの数と式', () => {
     expect(r.defeat[3]).toBe(1);
   });
 
-  for (const [name, armor, after] of [
-    ['防具なし', null, 4],
-    ['てつの防具 一式（かぶと・よろい・こて・すねあて）', ['kabuto', 'yoroi', 'kote', 'suneate'], 7],
+  for (const [name, armor, after, amount] of [
+    ['防具なし', null, 4, 16],
+    ['てつの防具 一式（かぶと・よろい・こて・すねあて）', ['kabuto', 'yoroi', 'kote', 'suneate'], 7, 13],
   ] as const) {
     test(`AC11: ぬりかべ の たおれこみ（${name}）で 体力 20 → ${after}`, async ({ page }) => {
       await open(page);
@@ -161,6 +161,7 @@ test.describe('BAL-A 強さの数と式', () => {
       expect(r.hitAt, '600 ステップのうちに たおれこみが当たらなかった').toBeGreaterThan(0);
       expect(r.hits.length).toBe(1);
       expect(r.hits[0].by).toBe('nurikabe');
+      expect(r.hits[0].amount).toBe(amount);
       expect(r.hpAfter).toBe(after);
     });
   }

@@ -528,7 +528,7 @@ test.describe('M3 プレイヤーの攻撃（パンチ）', () => {
       const T = (window as any).T;
       const h = (window as any).__rikkun;
       const out: any = {};
-      const kinds: Record<string, number> = { karakasa: 8, chochin: 5, rokurokubi: 12, nurikabe: 40 } // BALANCE §4.3 すで（1）の たおす回数;
+      const kinds: Record<string, number> = { karakasa: 8, chochin: 5, rokurokubi: 12, nurikabe: 40 }; // BALANCE §4.3 すで（1）の たおす回数
       for (const kind of Object.keys(kinds)) {
         T.base();
         h.world.fill(0, 8, 0, 20, 8, 12, 'stone');
