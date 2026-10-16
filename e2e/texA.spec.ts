@@ -256,7 +256,7 @@ test.describe('TEX-A', () => {
     expect(Math.abs(b0.y - (21 + 0.13))).toBeLessThanOrEqual(0.02);
     expect(b0.size).toBeGreaterThan(0);
     expect(b0.opacity).toBeGreaterThan(0);
-    expect(b0.transparent).toBe(true);
+    expect(b0.transparent, '不透明の列で描く（透明の列だとキャラの板より後になる）').toBe(false);
     expect(b0.renderOrder, 'キャラの板より先に描く').toBeLessThan(b0.spriteRenderOrder);
     // くつの画素は ON / OFF で同じ。足もとの南の地面は ON のほうが暗い
     const feet = [-0.1, 0, 0.1].flatMap((dx) => [0.15, 0.3].map((dy) => ({ x: P.x + dx, y: 21 + dy, z: P.z })));
