@@ -59,11 +59,26 @@ test.describe('SHADOW-1 太陽と月の影', () => {
     // 画面の見本（アートが色をかえても こわれない比べ方は AC6。ここは目で見る用）
     await page.screenshot({ path: SHOT + 'SHADOW-1-pillar-day.png' });
 
-    // AC4: 影のへりのあたりの 小ブロックの目（1/9）の中の 2 点は同じ答え
-    const s = await shadowDir(page);
-    let edge = 1 + 0;
-    for (let i = 0; i < 16; i++) if (edges[i] < 0.5) edge = 1 + i * 0.2;
-    const e = { x: 10.5 + s.x * (edge + 0.1), z: 10.5 + s.z * (edge + 0.1) };
+    // 1〜4 ブロックは 影の中ばかり（柱の高さ 5 の影は 5×len 先まで）なので、先っぽのあたりの 16 点でも くらべる（へりを本当にまたぐ）
+    const sd = await shadowDir(page);
+    const tip = 5 * sd.len;
+    let agreeTip = 0;
+    const tipVis: number[] = [];
+    for (let i = 0; i < 16; i++) {
+      const p = await groundPoint(page, tip - 1.5 + i * 0.2);
+      const v = await vis(page, p);
+      const blocked = await page.evaluate((q) => (window as any).__rikkun.shadow.rayBlocked(q.x, q.y, q.z) as boolean, p);
+      if (v < 0.5 === blocked) agreeTip++;
+      tipVis.push(v);
+    }
+    expect(agreeTip, `先っぽ 一致 ${agreeTip}/16 ${tipVis.map((v) => v.toFixed(2))}`).toBeGreaterThanOrEqual(14);
+    expect(Math.min(...tipVis) < 0.5 && Math.max(...tipVis) > 0.5, '先っぽで 影と光の両方をまたぐ').toBe(true);
+
+    // AC4: 影のへり（光⇄影の変わり目）の 小ブロックの目（1/9）の中の 2 点は同じ答え
+    const s = sd;
+    let edge = tip;
+    for (let i = 1; i < 16; i++) if (tipVis[i - 1] < 0.5 !== tipVis[i] < 0.5) edge = tip - 1.5 + i * 0.2;
+    const e = { x: 10.5 + s.x * edge, z: 10.5 + s.z * edge };
     const cell = (v: number) => Math.floor(v * 9) / 9;
     const cx = cell(e.x);
     const cz = cell(e.z);
@@ -160,8 +175,7 @@ test.describe('SHADOW-1 太陽と月の影', () => {
       await pillarScene(page, DAY);
       if (off) {
         await page.evaluate(() => (window as any).__rikkun.shadow.set(false));
-        await page.evaluate(() => (window as any).__rikkun.step(1));
-        await frames(page, 3);
+        await frames(page, 3); // tick は進めない（光の向きをかえない）
       }
       const stats = await page.evaluate(() => (window as any).__rikkun.renderStats());
       const png = await page.screenshot();
