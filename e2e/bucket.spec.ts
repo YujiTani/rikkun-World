@@ -388,10 +388,10 @@ test.describe('BUCKET-1 バケツ', () => {
       T.hold('bucket');
       T.aim(6, 8, 4);
       o.fill = hint();
-      T.aim(8, 8, 8);
+      T.aim(4, 8, 8);
       o.empty = hint();
       T.hold('water_bucket');
-      T.aim(8, 8, 8);
+      T.aim(4, 8, 8);
       o.place = hint();
       T.aim(5, 9, 6, 0.5); // 4g: 作物を ねらう
       o.g4 = hint();
@@ -399,7 +399,7 @@ test.describe('BUCKET-1 バケツ', () => {
       o.g4sky = hint();
       // 合図
       T.hold('bucket');
-      T.aim(8, 8, 8);
+      T.aim(4, 8, 8);
       T.tap();
       h.step(3);
       const chip = document.querySelector('#farm-hint');
