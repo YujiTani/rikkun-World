@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { flatArea, openGame, stepCollectSfx } from './helpers/audio';
+import { aimAtBlock, installAimHelpers } from './helpers/aim';
 
 /**
  * SOUND-1 の受け入れ（docs/tickets/SOUND-1-bgm.md の B8・B9・B10、SOUND-1-sfx.md の S9）。
@@ -235,6 +236,10 @@ test.describe('SOUND-1 ほる効果音', () => {
       },
       { bx, by, bz },
     );
+    // CHAR-1 v2 の三人称のねらい（肩の点 S から）で、そのブロックの横の面をねらう
+    await installAimHelpers(page);
+    await aimAtBlock(page, bx + 2, by + 1, bz, 0.5);
+    await page.evaluate(() => (window.__rikkun as any).audio.sfx());
     expect(await page.evaluate(() => (window.__rikkun as any).target.get()), 'ブロックをねらえている').not.toBeNull();
 
     await page.evaluate(() => (window.__rikkun as any).input.press('primary'));

@@ -65,6 +65,25 @@ export interface SectionPos {
   cz: number;
 }
 
+export interface ChangeBox {
+  x0: number;
+  y0: number;
+  z0: number;
+  x1: number;
+  y1: number;
+  z1: number;
+}
+
+export interface ColumnEvent {
+  cx: number;
+  cz: number;
+  /** true = 読みこんだ、false = 捨てた */
+  loaded: boolean;
+}
+
+/** 変えた箱を ためておく数の上限（これを超えたら 最後の箱にまとめる） */
+const CHANGE_BOX_CAP = 64;
+
 /** 変えたマスの記録に入れる数の上限（これを超えたら 保険ではなく ふつうの保存にたよる） */
 const CHANGE_LOG_CAP = 40000;
 
@@ -101,7 +120,9 @@ export class ChunkedVoxelWorld implements VoxelWorld {
   /** これまでに捨てた記録の数（保存が「ここまで書けた」を数で言えるように） */
   private changeLogBase = 0;
   private changeLogFull = false;
-  private changeBox: { x0: number; y0: number; z0: number; x1: number; y1: number; z1: number } | null = null;
+  private changeBoxes: ChangeBox[] = [];
+  /** 光のための「列を読みこんだ / 捨てた」記録。takeColumnEvents() を一度呼んでから ためはじめる */
+  private columnEvents: ColumnEvent[] | null = null;
 
   /**
    * extent: 読みこんでおく範囲（原点から x×z マス ぶんの列を 空気で作る）。
@@ -136,6 +157,8 @@ export class ChunkedVoxelWorld implements VoxelWorld {
     this.forgetLast();
     this.recomputeBounds();
     this.staleNeighborsOfColumn(cx, cz);
+    // 光: まわりの列の光を作り直す。この列の光は捨てる（VOX-A のレビュー台帳「中」: 契約は takeColumnEvents）
+    this.columnEvents?.push({ cx, cz, loaded: false });
     return true;
   }
 
@@ -165,6 +188,7 @@ export class ChunkedVoxelWorld implements VoxelWorld {
     this.markAllSecs(col);
     this.recomputeBounds();
     this.staleNeighborsOfColumn(col.cx, col.cz);
+    this.columnEvents?.push({ cx: col.cx, cz: col.cz, loaded: true });
   }
 
   private recomputeBounds(): void {
@@ -259,16 +283,7 @@ export class ChunkedVoxelWorld implements VoxelWorld {
       d[li] = b;
       this.noteSave(col, x, y, z, b);
       this.noteDirty(col, x, y, z);
-      const cb = this.changeBox;
-      if (cb === null) this.changeBox = { x0: x, y0: y, z0: z, x1: x, y1: y, z1: z };
-      else {
-        if (x < cb.x0) cb.x0 = x;
-        if (y < cb.y0) cb.y0 = y;
-        if (z < cb.z0) cb.z0 = z;
-        if (x > cb.x1) cb.x1 = x;
-        if (y > cb.y1) cb.y1 = y;
-        if (z > cb.z1) cb.z1 = z;
-      }
+      this.noteChange(x, y, z, x, y, z);
       return true;
     }
     if (!this.put(col, x, y, z, b)) return true;
@@ -460,24 +475,55 @@ export class ChunkedVoxelWorld implements VoxelWorld {
   }
 
   private noteChange(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number): void {
-    const b = this.changeBox;
-    if (!b) {
-      this.changeBox = { x0, y0, z0, x1, y1, z1 };
-      return;
+    const bs = this.changeBoxes;
+    const n = bs.length;
+    if (n > 0) {
+      const b = bs[n - 1];
+      const near = x0 <= b.x1 + 2 && x1 >= b.x0 - 2 && y0 <= b.y1 + 2 && y1 >= b.y0 - 2 && z0 <= b.z1 + 2 && z1 >= b.z0 - 2;
+      if (near || n >= CHANGE_BOX_CAP) {
+        if (x0 < b.x0) b.x0 = x0;
+        if (y0 < b.y0) b.y0 = y0;
+        if (z0 < b.z0) b.z0 = z0;
+        if (x1 > b.x1) b.x1 = x1;
+        if (y1 > b.y1) b.y1 = y1;
+        if (z1 > b.z1) b.z1 = z1;
+        return;
+      }
     }
-    if (x0 < b.x0) b.x0 = x0;
-    if (y0 < b.y0) b.y0 = y0;
-    if (z0 < b.z0) b.z0 = z0;
-    if (x1 > b.x1) b.x1 = x1;
-    if (y1 > b.y1) b.y1 = y1;
-    if (z1 > b.z1) b.z1 = z1;
+    bs.push({ x0, y0, z0, x1, y1, z1 });
   }
 
-  /** 変わったマスをふくむ箱を渡して、覚えているのを空にする（光の計算し直し用） */
-  takeChangeBox(): { x0: number; y0: number; z0: number; x1: number; y1: number; z1: number } | null {
-    const b = this.changeBox;
-    this.changeBox = null;
-    return b;
+  /** 変わったマスの箱たちを渡して、覚えているのを空にする（光の計算し直し用。近い変化は 1 つの箱にまとまる） */
+  takeChangeBoxes(): ChangeBox[] {
+    const out = this.changeBoxes;
+    this.changeBoxes = [];
+    return out;
+  }
+
+  /** 変わったマスをふくむ 1 つの箱（takeChangeBoxes を合わせたもの）を渡して、空にする */
+  takeChangeBox(): ChangeBox | null {
+    const bs = this.takeChangeBoxes();
+    if (bs.length === 0) return null;
+    const u = { ...bs[0] };
+    for (const b of bs) {
+      u.x0 = Math.min(u.x0, b.x0);
+      u.y0 = Math.min(u.y0, b.y0);
+      u.z0 = Math.min(u.z0, b.z0);
+      u.x1 = Math.max(u.x1, b.x1);
+      u.y1 = Math.max(u.y1, b.y1);
+      u.z1 = Math.max(u.z1, b.z1);
+    }
+    return u;
+  }
+
+  /**
+   * 列を読みこんだ / 捨てた記録を渡して、空にする。最初に呼んだときから ためはじめる（光が呼ぶ）。
+   * 契約: 列の出し入れで、まわり（3×3 の列）の光を作り直すのは 光の側の しごと。世界は この記録を残すだけ。
+   */
+  takeColumnEvents(): ColumnEvent[] {
+    const out = this.columnEvents ?? [];
+    this.columnEvents = [];
+    return out;
   }
 
   /**

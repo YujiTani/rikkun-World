@@ -22,6 +22,8 @@ import type { WorldHook } from '../world/hook';
 import type { ChunkStats } from '../world/render/WorldRenderer';
 import type { AudioHook } from '../fx/bgm/hook';
 import type { PerfOverlay } from './perfOverlay';
+import type { CharSprite, SpriteInfo } from '../char';
+import type { SpriteMotion } from '../char';
 
 type CameraHook = ReturnType<typeof createCameraHook>;
 type PlayerHook = {
@@ -48,6 +50,8 @@ export interface TestHook {
   render: { chunks(): ChunkStats };
   player: PlayerHook;
   camera: CameraHook['camera'];
+  /** CHAR-1 第 5.2 版 §4.9: ねらいの点 X・ねらい補助で えらんだ妖怪の id */
+  aim: { point(): { x: number; y: number; z: number }; assist(): number | null };
   input: ReturnType<typeof createInputHook>;
   lock: ReturnType<typeof createLockHook> & { tab(name: string): void };
   settings: ReturnType<typeof createSettingsHook>;
@@ -71,7 +75,7 @@ export interface TestHook {
   /** M6 §6.1: 実績・おめでとう画面 */
   achievements: ReturnType<typeof createAchievementsHook> & { modal(): unknown; close(): unknown; sounds(): string[]; mute(on: boolean): void };
   /** FIX-action-hint: 照準の下に出している 絵（アイテム名）と 1 語 */
-  hud: { /** ふちどりを付けている妖怪の id（なければ null） */ yokaiFocus(): number | null; /** ふちどりの複製の数 */ yokaiFocusHulls(): number; actionHint(): { right?: { icon: string; word: string }; left?: { icon: string; word: string } } };
+  hud: { /** ふちどりを付けている妖怪の id（なければ null） */ yokaiFocus(): number | null; /** ふちどりの複製の数 */ yokaiFocusHulls(): number; /** 妖怪の体力のバー（BALANCE.md §4.7）。いない id は null */ hpBar(yokaiId: number): { visible: boolean; bars: number; left: number; color: 'white' | 'yellow' | 'red'; icon: 'oyabun' | 'taisho' | 'nushi' | null } | null; actionHint(): { right?: { icon: string; word: string }; left?: { icon: string; word: string } } };
   /** M6 §6.1: たんす */
   storage: ReturnType<typeof createStorageHook>;
   /** M7 §6.1: 農業 */
@@ -90,7 +94,7 @@ declare global {
   }
 }
 
-export type TestHookGroups = Pick<TestHook, 'world' | 'render' | 'player' | 'camera' | 'input' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm' | 'log' | 'ui' | 'audio'>;
+export type TestHookGroups = Pick<TestHook, 'world' | 'render' | 'player' | 'camera' | 'aim' | 'input' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm' | 'log' | 'ui' | 'audio'>;
 
 export function installTestHook(game: Game, overlay: PerfOverlay, groups: TestHookGroups): void {
   window.__rikkun = {
@@ -106,5 +110,28 @@ export function installTestHook(game: Game, overlay: PerfOverlay, groups: TestHo
     renderStats: () => game.getRenderStats(),
     perfOverlayVisible: () => overlay.visible,
     ...groups,
+  };
+}
+
+/**
+ * `player.doll()` に キャラの板の窓口 `sprite` を足す（CHAR-1 §4.9）。
+ * 板が箱人形の入れ物ごと かくれているとき（見下ろしカメラなど）は visible を false にする。
+ * ?char=block のときは 板がないので loaded false・visible false。
+ */
+export function withSpriteDoll(base: () => object, sprite: CharSprite | null, group: { visible: boolean }) {
+  return () => {
+    const info: SpriteInfo | null = sprite ? sprite.info() : null;
+    return {
+      ...base(),
+      sprite: {
+        ...(info ?? {
+          visible: false, motion: 'idle', frame: 0, dir: 0, tier: 0, elevDeg: 0, tiltDeg: 0, upDeg: 0,
+          tint: { r: 1, g: 1, b: 1 }, loaded: false, gpuBytes: 0,
+        }),
+        visible: !!info && info.visible && group.visible,
+        readCell: (motion: SpriteMotion, tier: 0 | 1 | 2, dir: number, frame: number) =>
+          sprite ? sprite.readCell(motion, tier, dir, frame) : new Uint8ClampedArray(256 * 256 * 4),
+      },
+    };
   };
 }

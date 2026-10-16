@@ -116,7 +116,7 @@ class Rig {
     pitchDeg: 0,
     onGround: true,
     inWater: false,
-    moving: false,
+    moving: false, facingDeg: 0, running: false,
   };
   lock: LockStatus = {
     locked: () => true,

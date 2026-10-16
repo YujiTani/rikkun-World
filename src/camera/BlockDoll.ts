@@ -277,16 +277,27 @@ export class BlockDoll {
   getMode(): DollMode {
     return this.mode;
   }
+  /** からだの部品（あたま・からだ・うで・あし・持ち物）を見せるか。白い弧・星はこれと関係なく出る（CHAR-1: 板を使うときは false） */
+  private boxBody = true;
+  setBoxBody(on: boolean): void {
+    if (on === this.boxBody) return;
+    this.boxBody = on;
+    this.applyMode();
+  }
   private applyMode(): void {
     this.group.visible = this.mode !== 'hidden';
-    this.head.visible = this.mode === 'third';
-    this.bodyMesh.visible = this.mode === 'third';
-    for (const m of this.upperParts) m.visible = this.mode === 'third';
+    const show = this.boxBody;
+    this.upper.visible = show;
+    this.legL.visible = show;
+    this.legR.visible = show;
+    this.head.visible = show && this.mode === 'third';
+    this.bodyMesh.visible = show && this.mode === 'third';
+    for (const m of this.upperParts) m.visible = show && this.mode === 'third';
   }
   /** どの部分が見えるか */
   get parts(): { head: boolean; body: boolean; arms: boolean; legs: boolean } {
-    const third = this.mode === 'third';
-    const any = this.mode !== 'hidden';
+    const third = this.boxBody && this.mode === 'third';
+    const any = this.boxBody && this.mode !== 'hidden';
     return { head: third, body: third, arms: any, legs: any };
   }
 

@@ -20,6 +20,11 @@ const MAX_QUEUE = 256;
 /** 刀（わざ・かまえが ある もの）。なぎなたは 入れない（今の パンチのまま） */
 export const BLADE_ITEMS: ReadonlySet<ItemId> = new Set<ItemId>(['bokuto', 'katana', 'crystal_katana']);
 
+/** わざのダメージ = 刀の強さ × 倍率。四捨五入（0.5 は上）、最低 1（BALANCE §4.2） */
+export function techDamage(base: number, mul: number): number {
+  return Math.max(1, Math.floor(base * mul + 0.5 + 1e-9));
+}
+
 export function isBladeItem(item: ItemId | null | undefined): boolean {
   return !!item && BLADE_ITEMS.has(item);
 }
@@ -224,7 +229,7 @@ export function createBladeSystem(deps: BladeDeps): BladeSystem {
 
   function applyHit(t: BladeTech, ctx: BladeStepContext, y: YokaiInfo): void {
     const base = item ? deps.weaponDamage(item) : 1;
-    const dmg = Math.max(1, Math.floor(base * S.bladeDamageMul[t] + 1e-9));
+    const dmg = techDamage(base, S.bladeDamageMul[t]);
     const [dist, up] = S.bladeKnock[t];
     hitSet.add(y.id);
     deps.yokai().damage(y.id, dmg, { ...ctx.position }, { dist, up });

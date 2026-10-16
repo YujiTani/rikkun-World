@@ -42,7 +42,7 @@ import {
   type OBox,
 } from './geometry';
 import { findNeckRoute, type P3 } from './neckRoute';
-import { Marks, disposeMarkMaterials } from './marks';
+import { HP_BAR, HpBar, disposeHpBarMaterials, hpBarState, type HpBarState, type YokaiTitle } from './hpBar';
 import { flySurface, groundSupport, isRoofed, settleGround } from './terrain';
 
 const DT = 1 / 60;
@@ -128,8 +128,10 @@ interface Ent {
   knockDz: number;
   motion: 'wait' | 'move';
   leaveAt: number;
-  marks: Marks | null;
+  marks: HpBar | null;
   marksLeft: number;
+  /** 二つ名（BAL-B #110 が決める。今は いつも 'none'） */
+  title: YokaiTitle;
   appearScale: number;
   remove: boolean;
   /** 落ち始めた高さ（落ちていなければ NaN） */
@@ -257,6 +259,32 @@ export class YokaiManager implements YokaiWorld {
   private readonly boxList: OBox[] = [];
   private readonly floorScratch: number[] = [];
 
+  private readonly aimPool: { id: number; min: Vec3; max: Vec3 }[] = [];
+  private readonly aimView: { id: number; min: Vec3; max: Vec3 }[] = [];
+
+  /** ねらい補助用（CHAR-1 第 5.2 版）: 妖怪の当たりの箱（ねらいと同じに広げた箱）の 世界の外接の箱。毎回 同じ入れ物を使いまわす */
+  aimBoxes(): readonly { id: number; min: Vec3; max: Vec3 }[] {
+    let n = 0;
+    for (const e of this.ents) {
+      this.syncTransform(e);
+      for (const b of this.boxesOf(e, this.boxList)) {
+        b.hx += AI_CONST.hitPad;
+        b.hy += AI_CONST.hitPad;
+        b.hz += AI_CONST.hitPad;
+        const bb = obbBounds(b, e.x, e.y, e.z, e.yaw, tmpBox);
+        let o = this.aimPool[n];
+        if (!o) this.aimPool[n] = o = { id: 0, min: { x: 0, y: 0, z: 0 }, max: { x: 0, y: 0, z: 0 } };
+        o.id = e.id;
+        o.min.x = bb.minX; o.min.y = bb.minY; o.min.z = bb.minZ;
+        o.max.x = bb.maxX; o.max.y = bb.maxY; o.max.z = bb.maxZ;
+        this.aimView[n] = o;
+        n++;
+      }
+    }
+    this.aimView.length = n;
+    return this.aimView;
+  }
+
   raycast(origin: Vec3, dir: Vec3, maxDistance: number): YokaiRayHit | null {
     let best: YokaiRayHit | null = null;
     for (const e of this.ents) {
@@ -366,7 +394,7 @@ export class YokaiManager implements YokaiWorld {
   dispose(): void {
     this.clear();
     this.burst.dispose();
-    disposeMarkMaterials();
+    disposeHpBarMaterials();
   }
 
   // ---------------------------------------------------------------- 1 ステップ
@@ -408,11 +436,13 @@ export class YokaiManager implements YokaiWorld {
     }
 
     for (const e of this.ents) {
-      if (e.marks?.shown) {
-        e.marksLeft--;
-        if (e.marksLeft <= 0) e.marks.hide();
-        else this.placeMarks(e);
+      if (e.marksLeft > 0) e.marksLeft--;
+      if (e.state === 'dying' || e.state === 'leaving') {
+        e.marks?.hide();
+        continue;
       }
+      if (e.title === 'none' && !e.marks?.shown) continue;
+      this.refreshBar(e);
     }
 
     if (this.ents.some((e) => e.remove)) {
@@ -495,6 +525,7 @@ export class YokaiManager implements YokaiWorld {
       leaveAt: -1,
       marks: null,
       marksLeft: 0,
+      title: 'none',
       appearScale: appear ? 0 : 1,
       remove: false,
       fallFrom: NaN,
@@ -653,10 +684,40 @@ export class YokaiManager implements YokaiWorld {
   }
 
   private showMarks(e: Ent): void {
-    e.marks ??= new Marks();
+    e.marksLeft = HP_BAR.ticks;
+    this.refreshBar(e);
+  }
+
+  /** 体力のバーの 状態（テスト窓口 hud.hpBar 用）。いない id は null */
+  hpBarInfo(id: number): HpBarState | null {
+    const e = this.ents.find((q) => q.id === id);
+    if (!e || e.remove) return null;
+    return this.barStateOf(e);
+  }
+
+  /** 二つ名を決める（BAL-B #110 がつなぐ口。名前の表示は BAL-B） */
+  setTitle(id: number, title: YokaiTitle): boolean {
+    const e = this.ents.find((q) => q.id === id);
+    if (!e || e.remove) return false;
+    e.title = title;
+    this.refreshBar(e);
+    return true;
+  }
+
+  private barStateOf(e: Ent): HpBarState {
+    const dist = Math.hypot(this.px - e.x, this.pz - e.z);
+    return hpBarState(e.hp, e.maxHp, e.title, dist, e.marksLeft);
+  }
+
+  private refreshBar(e: Ent): void {
+    const s = this.barStateOf(e);
+    if (!s.visible) {
+      e.marks?.hide();
+      return;
+    }
+    e.marks ??= new HpBar();
     if (e.marks.group.parent !== this.group) this.group.add(e.marks.group);
-    e.marks.show(e.hp, e.maxHp);
-    e.marksLeft = AI_CONST.marksTicks;
+    e.marks.show(s);
     this.placeMarks(e);
   }
 

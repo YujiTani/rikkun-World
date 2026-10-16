@@ -1,4 +1,5 @@
 import type { ItemId, YokaiKind } from '../../contracts';
+import { yokaiStrength } from '../stats';
 
 /**
  * 妖怪の数値（仕様 M3-combat §4.2・§4.3・§4.5・§4.6 の「設定の名前」と同じ）。
@@ -158,7 +159,7 @@ export const AI_CONST = {
   wanderRest: [120, 240] as readonly [number, number],
   /** 押される（10 ステップで） */
   knockbackTicks: 10,
-  /** 頭の上の まる を出す */
+  /** 頭の上の 体力のバー を出す ステップ（hpBar.ts の HP_BAR.ticks と同じ） */
   marksTicks: 180,
   /** ちょうちんの上下の速さ（ブロック/秒） */
   hoverRate: 2,
@@ -173,8 +174,6 @@ export const AI_CONST = {
   playerHeight: 1.8,
   /** 火の玉の当たりの箱（前は 0.5） */
   fireballBox: 0.9,
-  /** 頭の上の まる の最大数 */
-  maxMarks: 8,
   /** 場所をさがす回数 */
   spawnTries: 20,
   /** M5: これより水平に遠い妖怪は静かに消える */
@@ -183,8 +182,8 @@ export const AI_CONST = {
 
 /** 攻撃のダメージ（体力の数。ハート半分 = 1。オーナー決定で M3 の 2 倍） */
 export const ATTACK_DAMAGE: Record<YokaiKind, number> = {
-  karakasa: 2,
-  chochin: 2,
-  rokurokubi: 2,
-  nurikabe: 16,
+  karakasa: yokaiStrength('karakasa').attack,
+  chochin: yokaiStrength('chochin').attack,
+  rokurokubi: yokaiStrength('rokurokubi').attack,
+  nurikabe: yokaiStrength('nurikabe').attack,
 };

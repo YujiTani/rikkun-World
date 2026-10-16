@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { installAimHelpers } from './helpers/aim';
 import { findUnrubiedKanji } from '../src/ui/text';
 
 /**
@@ -16,6 +17,7 @@ test.describe.configure({ timeout: 180_000 });
 async function open(page: Page, query = '?nosave=1') {
   await page.goto('/' + query);
   await page.waitForFunction(() => window.__rikkun?.ready === true);
+  await installAimHelpers(page);
   await page.evaluate(() => window.__rikkun!.achievements.mute(true));
   await page.evaluate(() => {
     const h = (window as any).__rikkun;
@@ -32,7 +34,7 @@ async function open(page: Page, query = '?nosave=1') {
         h.world.fill(0, 9, 0, 12, 20, 12, 'air');
         h.inventory.clear();
         h.time.set(0);
-        T.place(2.5, 9, 6.5, 90, 0);
+        (window as any).__aim.standForS(2.5, 6.5, 90, 0, 9); // 肩の点 S が (2.5, 6.5) に来るように立つ
         h.step(10);
         h.yokai.events();
         h.combat.events();
@@ -348,7 +350,8 @@ test.describe('M3 妖怪の攻撃とダメージ', () => {
     rokurokubi: { x: 7.5, hit: 30, hp: 18 },
     nurikabe: { x: 5.0, hit: 90, hp: 4 }  // #8: ぬりかべ の たおれこみ 16,
   };
-  for (const [kind, view] of Object.keys(SCENES).flatMap((k) => [[k, ''], [k, '-third']] as const)) {
+  // CHAR-1 第 5 版: 一人称がないので 三人称の 1 回だけ
+  for (const [kind, view] of Object.keys(SCENES).map((k) => [k, '-third'] as const)) {
     test(`AC15${view}: ${kind} の攻撃（合図・当たる 1 ステップ・ダメージ・おし返し・30 ステップのむてき）とスクショ`, async ({ page }) => {
       await open(page);
       const sc = SCENES[kind]!;
@@ -360,9 +363,6 @@ test.describe('M3 妖怪の攻撃とダメージ', () => {
           h.world.fill(0, 8, 0, 20, 8, 12, 'stone');
           T.place(2.5, 9, 6.5, 90, 0);
           if (view) {
-            h.input.press('toggleView');
-            h.step(1);
-            h.input.release('toggleView');
             // 横から見えるように、妖怪（東）が右ななめ前に見える向きにする
             h.player.set({ position: { x: 2.5, y: 9, z: 6.5 }, yaw: 40, pitch: 8 });
             h.step(1);
@@ -467,7 +467,7 @@ test.describe('M3 妖怪の攻撃とダメージ', () => {
 });
 
 test.describe('M3 プレイヤーの攻撃（パンチ）', () => {
-  test('AC16: 30 ステップ目に当たる・hp 4→3・1.0 押される。ぬりかべは押されない。スクショ（星・まる）', async ({ page }) => {
+  test('AC16: 30 ステップ目に当たる・hp 8→7・1.0 押される。ぬりかべは押されない。スクショ（星・体力のバー。BAL-C で まる → バー）', async ({ page }) => {
     await open(page);
     const r = await page.evaluate(() => {
       const T = (window as any).T;
@@ -499,10 +499,10 @@ test.describe('M3 プレイヤーの攻撃（パンチ）', () => {
       return { x: T.one(id).position.x };
     }, r.id);
     expect(r.firstEvents).toContain('punchStart');
-    expect(r.hp29).toBe(4);
+    expect(r.hp29).toBe(8);
     expect(r.ev29).not.toContain('punchHit');
     expect(r.ev30.some((e: string) => e.startsWith('punchHit'))).toBe(true);
-    expect(r.hp30).toBe(3);
+    expect(r.hp30).toBe(7);
     expect(r2.x).toBeGreaterThan(5.4);
     expect(r2.x).toBeLessThan(5.6);
     // ぬりかべは押されない
@@ -518,17 +518,17 @@ test.describe('M3 プレイヤーの攻撃（パンチ）', () => {
       return { x: T.one(id).position.x, hp: T.one(id).hp };
     });
     expect(r3.x).toBeCloseTo(4.5, 2);
-    expect(r3.hp).toBe(47); // ぬりかべ 体力 48（#8）
+    expect(r3.hp).toBe(39); // ぬりかべ 体力 40（BALANCE §4.1）
   });
 
-  test('AC17: 押しっぱなしで 30・60・90・120 ステップ目に当たり 4 回でたおれる。ドロップ表で入る', async ({ page }) => {
+  test('AC17: 押しっぱなしで 30 ステップごとに当たり、体力ぶんの回数（8・5・12・40）でたおれる。ドロップ表で入る', async ({ page }) => {
     test.setTimeout(240_000);
     await open(page);
     const r = await page.evaluate(() => {
       const T = (window as any).T;
       const h = (window as any).__rikkun;
       const out: any = {};
-      const kinds: Record<string, number> = { karakasa: 4, chochin: 2, rokurokubi: 4, nurikabe: 48 };
+      const kinds: Record<string, number> = { karakasa: 8, chochin: 5, rokurokubi: 12, nurikabe: 40 }; // BALANCE §4.3 すで（1）の たおす回数
       for (const kind of Object.keys(kinds)) {
         T.base();
         h.world.fill(0, 8, 0, 20, 8, 12, 'stone');
@@ -553,7 +553,7 @@ test.describe('M3 プレイヤーの攻撃（パンチ）', () => {
           if (defeatAt > 0 && i === defeatAt + 36) size36 = T.one(y)?.scale ?? 0;
           // たたくたびに押されるので、P を 2 ブロック西に置き直す
           const yy = T.one(y);
-          if (yy && i % 30 === 0) h.player.set({ position: { x: yy.position.x - 2, y: 9, z: 6.5 } });
+          if (yy && i % 30 === 0) (window as any).__aim.standForS(yy.position.x - 2, yy.position.z, 90, 0, 9);
           if (removeAt > 0) break;
         }
         h.input.release('primary');
@@ -595,8 +595,8 @@ test.describe('M3 プレイヤーの攻撃（パンチ）', () => {
       return out;
     });
     expect(r.near.evs).toContain('punchHit');
-    expect(r.near.hp).toBe(3);
-    expect(r.far.hp).toBe(4);
+    expect(r.near.hp).toBe(7);
+    expect(r.far.hp).toBe(8);
     expect(r.far.evs).not.toContain('punchHit');
     // 仕様 AC18 は 3.1 で punchMiss（からぶり）。実装は「とどかない妖怪は無視」で何も出さない（NG・軽微。下の test.fail と同じ原因）
   });

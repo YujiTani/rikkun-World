@@ -149,6 +149,10 @@ export interface PlayerState {
   inWater: boolean;
   /** 水平に動いているか（人形の手足を振るため） */
   moving: boolean;
+  /** CHAR-1: キャラの向き（0 以上 360 未満。yaw と同じ数え方）。見た目だけ。省略時は yaw と同じ */
+  facingDeg: number;
+  /** CHAR-1: 走る入力が効いているか（run を押していて 歩く入力あり） */
+  running: boolean;
 }
 
 // ---------------------------------------------------------------- テスト用窓口の入れ物
@@ -587,6 +591,13 @@ export interface ToolSystem {
 
 /** 明るさ 0〜15（マイクラと同じ）。担当 L が `src/world/light/` で実装する */
 export interface LightField {
+  // VOX-C の契約（VOX-D/E 向け）: 列を読みこんだ直後の光は 未計算で、skyLight は「空 15」を返してしまう。
+  // メッシュを作る側は isColumnLit(cx, cz)（まわり 8 列をふくむ）が true になってから作ること。
+  // 光が計算されると、光の側が world.markDirty で その列の作り直しを呼ぶ。
+  /** そのセクションの光が計算ずみか */
+  isSectionReady?(cx: number, sy: number, cz: number): boolean;
+  /** その列とまわりの列の光が ぜんぶ計算ずみか */
+  isColumnLit?(cx: number, cz: number): boolean;
   /** そのマスの空の光（0〜15。昼の空の下は 15） */
   skyLight(x: number, y: number, z: number): number;
   /** そのマスのブロックの光（たいまつなど。0〜15） */

@@ -437,7 +437,7 @@ describe('PlayerCombat と防具（AC18・AC19）', () => {
     const world = new W();
     const inv = new InventoryImpl();
     const armor = new ArmorSystemImpl(inv, { armorValue: CRAFT_DEFAULTS.armorValue });
-    const player = { position: { x: 2.5, y: 9, z: 6.5 }, velocity: { x: 0, y: 0, z: 0 }, yawDeg: 0, pitchDeg: 0, onGround: true, inWater: false, moving: false };
+    const player = { position: { x: 2.5, y: 9, z: 6.5 }, velocity: { x: 0, y: 0, z: 0 }, yawDeg: 0, pitchDeg: 0, onGround: true, inWater: false, moving: false, facingDeg: 0, running: false };
     const config = createCombatConfig();
     const drops = new DropField({ world: world as never, inventory: inv, player: () => player.position });
     const combat = new PlayerCombatImpl({

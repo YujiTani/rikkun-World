@@ -116,7 +116,7 @@ describe('IndexedDB 版で 世界ぜんぶ（AC1）', () => {
         restored,
         store: kv,
         inventory: { serialize: () => inv, deserialize: (d: unknown) => void (inv = d), clear: () => void (inv = null) } as never,
-        player: { get: () => ({ position: { x: 6.5, y: 30, z: 6.5 }, velocity: { x: 0, y: 0, z: 0 }, yawDeg: 0, pitchDeg: 0, onGround: true, inWater: false, moving: false }), set: () => {}, isThirdPerson: () => false, setThirdPerson: () => {} },
+        player: { get: () => ({ position: { x: 6.5, y: 30, z: 6.5 }, velocity: { x: 0, y: 0, z: 0 }, yawDeg: 0, pitchDeg: 0, onGround: true, inWater: false, moving: false, facingDeg: 0, running: false }), set: () => {} },
         spawn: () => ({ x: 6.5, y: 30, z: 6.5, yawDeg: 0, pitchDeg: 0 }),
         tick: () => 0,
         settings: { saveIntervalTicks: 600 },

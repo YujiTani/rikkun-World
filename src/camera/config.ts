@@ -6,7 +6,7 @@ export interface CameraConfig {
   fov: number;
   /** 三人称: カメラの距離 */
   thirdPersonDistance: number;
-  /** 三人称: 目より上の回転の中心の高さ */
+  /** 三人称: 目より上の回転の中心 P の高さ */
   thirdPersonHeight: number;
 }
 
@@ -21,8 +21,20 @@ export const DEFAULT_CAMERA_CONFIG: Readonly<CameraConfig> = {
 export const WALL_MARGIN = 0.2;
 /** 壁から離れるときにもとの距離へ戻すのにかける秒数 */
 export const WALL_RECOVER_SECONDS = 0.25;
-/** カメラと目の距離がこれ未満なら人形を隠す */
-export const DOLL_HIDE_DISTANCE = 1.0;
+/** カメラと キャラの からだの中心 の距離がこれ未満なら キャラを隠す（CHAR-1 §4.1） */
+export const DOLL_HIDE_DISTANCE = 1.2;
+/** からだの中心の高さ（足もとから） */
+export const BODY_CENTER_HEIGHT = 1.0;
+/** P が固いブロックの下の面より下がる量 */
+export const PIVOT_CEILING_GAP = 0.1;
+/** 肩の点 S: P の何下か（CHAR-1 第 5.2 版 §4.1） */
+export const SHOULDER_DROP = 0.72;
+/** 肩ごしのずらし s の大きさ（s = これ × cos(pitch)） */
+export const SHOULDER_OFFSET = 0.7;
+/** 壁ぎわで s を 面の何手前まで小さくするか */
+export const SHOULDER_WALL_MARGIN = 0.2;
+/** 壁がなくなってから s がもとへもどる秒数（15 ステップ） */
+export const SHOULDER_RECOVER_SECONDS = 0.25;
 /** 壁の判定でたどる刻み幅 */
 export const RAY_STEP = 0.02;
 
