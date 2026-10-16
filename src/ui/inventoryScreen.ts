@@ -349,7 +349,14 @@ export class InventoryScreen {
     }
     if (tab !== 'items' && this.pageSize) {
       this.pageSlot.style.width = `${this.pageSize.w}px`;
-      this.pageSlot.style.height = `${this.pageSize.h}px`;
+      if (tab === 'log') {
+        // できごと ページは 7 行が ぜんぶ 見える高さが いる。もちもの の中身より 高いときは 伸ばす（枠ぜんたいは fit() が 縮める）
+        this.pageSlot.style.height = 'auto';
+        this.pageSlot.style.minHeight = `${this.pageSize.h}px`;
+      } else {
+        this.pageSlot.style.minHeight = '';
+        this.pageSlot.style.height = `${this.pageSize.h}px`;
+      }
     }
     this.tabNow = tab;
     this.paintHints();

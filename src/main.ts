@@ -341,7 +341,10 @@ const storage = new StorageSystem({
     drops.scatter(p, stacks);
   },
   inventoryOpen: () => screen.inventoryOpen(),
-  openScreen: () => screen.toggle(),
+  openScreen: () => {
+    screen.toggle();
+    toItemsTab(); // たんす は もちもの タブで開く（できごと・じっせき の画面が のこっていても）
+  },
   closeScreen: () => screen.toggle(),
   live: m6,
   tick: () => game.tick,
@@ -508,8 +511,13 @@ const notice = new Notice(hud);
 // 「もちもの が いっぱい」の合図は 実績（いっぱいにした）にも数える
 let onFullSignal: () => void = () => {};
 const showSignalRaw = notice.showSignal.bind(notice);
+let lastFullTick = -1;
 notice.showSignal = (kind) => {
-  if (kind === 'full') onFullSignal();
+  // 「いっぱい」は 同じステップで 2 回（つくる画面と つくる口の両方から）呼ばれても 実績には 1 回だけ数える
+  if (kind === 'full' && game.tick !== lastFullTick) {
+    lastFullTick = game.tick;
+    onFullSignal();
+  }
   showSignalRaw(kind);
 };
 hudSignal.full = () => notice.showSignal('full');
@@ -555,6 +563,15 @@ const log: LogSystem = new LogSystem({ nameOf, settings: craft2Settings, live: c
 // できごと ページ（もちもの画面の ページ置き場に入る）
 const logPage = new LogPage(log, { pageSlot: inventoryScreen.pageSlot });
 const pickupLog = new PickupLog(hud, { nameOf, rarityOf: itemRarity, log });
+// つくる がいっぱいで できなかったとき: どこから呼んでも（画面・窓口）「もちもの が いっぱい！」の合図
+{
+  const makeRaw = craft.make.bind(craft);
+  craft.make = (id) => {
+    const r = makeRaw(id);
+    if (!r.ok && r.reason === 'full') notice.showSignal('full');
+    return r;
+  };
+}
 // やく を押したとき: たんす から使った分と「やきはじめた」を 履歴へ（かまど の じゅんばんが 2 つ目以降でも 1 件ずつ）
 {
   const bakeRaw = craft.bake.bind(craft);
@@ -710,6 +727,19 @@ function openLogTab(): void {
   pageModel.setTab('log');
   pageModel.sync(true);
   log.resetScroll();
+  syncPages();
+}
+/** タブを替えた その場で ページの出し入れを 合わせる（時間が止まっていても 見た目が すぐ替わるように） */
+function toItemsTab(): void {
+  if (inventoryScreen.tab() === 'items') return;
+  inventoryScreen.setTab('items');
+  pageModel.setTab('items');
+  pageModel.sync(screen.inventoryOpen());
+  syncPages();
+}
+function syncPages(): void {
+  achievementsPage.update();
+  logPage.update(screen.inventoryOpen() && inventoryScreen.tab() === 'log');
 }
 log.bindHost({ isOpen: () => screen.inventoryOpen(), tab: () => inventoryScreen.tab(), open: openLogTab });
 game.input.onPress((action) => {
@@ -781,6 +811,7 @@ const inventoryTabs = mountInventoryTabs(inventoryScreen, {
   onSwitch: (tab) => {
     pageModel.setTab(tab);
     pageModel.sync(screen.inventoryOpen());
+    syncPages();
     playCraft(fxSound, 'tab');
   },
 });
@@ -899,6 +930,8 @@ lock.onChange((locked) => {
   if (!locked) save.saveIfChanged();
 });
 screen.onClose(() => {
+  // できごと で とじたあと E で開いたら もちもの から（L で開いた画面は L で開き直す）
+  if (inventoryScreen.tab() === 'log') toItemsTab();
   craft.closeFurnace();
   save.saveIfChanged();
 });
@@ -1146,7 +1179,10 @@ const storageHook = createStorageHook(storage, screen);
 const achievementsHook = {
   ...createAchievementsHook(achievements, pageModel, {
     inventoryOpen: () => screen.inventoryOpen(),
-    onTab: (tab) => inventoryScreen.setTab(tab),
+    onTab: (tab) => {
+      inventoryScreen.setTab(tab);
+      syncPages();
+    },
   }),
   modal: () => celebrate.modalInfo(),
   close: () => celebrate.close(),

@@ -249,3 +249,9 @@
 .po-help-item .po-mouse-big {
   --rk-mouse-size: var(--rk-fs-head);
 }
+
+/* CRAFT-2 AC23: おれんじの ボタンの上の マウスの「L」は 暗い字に（まっ白の世界でも 読める） */
+.po-button .rk-mouse__letter {
+  color: var(--rk-bg-900);
+  text-shadow: none;
+}

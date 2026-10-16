@@ -425,6 +425,10 @@
   font-weight: 800;
   background: var(--rk-bg-700);
 }
+.cp-mat[data-ok='false'] {
+  /* 赤い字が まっ白の世界の上でも 読めるよう、足りない材料の下地は いちばん暗い色に（AC23） */
+  background: var(--rk-bg-900);
+}
 .cp-mat[data-ok='false'] .cp-have {
   color: var(--rk-ng);
 }
