@@ -14,6 +14,7 @@
   justify-content: center;
   box-sizing: border-box;
   color: var(--rk-text);
+  word-break: keep-all; /* 折り返しは スペースの ところだけ */
 }
 #inventory-screen[hidden] {
   display: none;
