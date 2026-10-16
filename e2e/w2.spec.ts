@@ -118,7 +118,7 @@ test.describe('WEAPON-2 刀', () => {
       const h = (window as any).__rikkun;
       const T = (window as any).T;
       T.base();
-      h.world.fill(4, 10, 6, 4, 10, 6, 'dirt');
+      h.world.fill(4, 11, 6, 4, 11, 6, 'dirt');
       h.inventory.setSlot(0, { item: 'katana', count: 1 });
       h.inventory.select(0);
       h.input.press('primary');
@@ -129,7 +129,7 @@ test.describe('WEAPON-2 刀', () => {
       h.step(1);
       h.input.release('primary');
       h.step(2);
-      return { block: h.world.getBlock(4, 10, 6), techs: h.blade.events().filter((e: any) => e.type === 'techStart').length, dur: h.inventory.durability(0).left };
+      return { block: h.world.getBlock(4, 11, 6), techs: h.blade.events().filter((e: any) => e.type === 'techStart').length, dur: h.inventory.durability(0).left };
     });
     expect(r.block).toBe('air');
     expect(r.techs).toBe(0);
@@ -229,7 +229,7 @@ test.describe('WEAPON-2 たいきゅう', () => {
       T.base();
       h.inventory.setSlot(0, { item: 'wood_pickaxe', count: 1 });
       h.inventory.select(0);
-      h.world.fill(4, 10, 6, 4, 10, 6, 'stone');
+      h.world.fill(4, 11, 6, 4, 11, 6, 'stone');
       h.step(1);
       const out: any = { max: h.inventory.durability(0).max };
       out.gauge = document.querySelectorAll('#hud .wear-gauge').length;
@@ -246,7 +246,7 @@ test.describe('WEAPON-2 たいきゅう', () => {
       dig();
       out.left = h.inventory.durability(0).left;
       h.inventory.setDurability(0, 1);
-      h.world.fill(4, 10, 6, 4, 10, 6, 'stone');
+      h.world.fill(4, 11, 6, 4, 11, 6, 'stone');
       dig();
       out.broke = h.inventory.slots?.()?.[0] ?? null;
       out.events = h.inventory.events().map((e: any) => e.type);
@@ -280,9 +280,6 @@ test.describe('WEAPON-2 スクリーンショット', () => {
     await page.evaluate(() => {
       const h = (window as any).__rikkun;
       h.step(2);
-      h.input.press('toggleView');
-      h.step(1);
-      h.input.release('toggleView');
       h.input.press('primary');
       h.step(1);
       h.input.release('primary');

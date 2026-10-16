@@ -21,6 +21,8 @@ import type { createFarmHook } from '../farm';
 import type { WorldHook } from '../world/hook';
 import type { ChunkStats } from '../world/render/WorldRenderer';
 import type { PerfOverlay } from './perfOverlay';
+import type { CharSprite, SpriteInfo } from '../char';
+import type { SpriteMotion } from '../char';
 
 type CameraHook = ReturnType<typeof createCameraHook>;
 type PlayerHook = {
@@ -103,5 +105,28 @@ export function installTestHook(game: Game, overlay: PerfOverlay, groups: TestHo
     renderStats: () => game.getRenderStats(),
     perfOverlayVisible: () => overlay.visible,
     ...groups,
+  };
+}
+
+/**
+ * `player.doll()` に キャラの板の窓口 `sprite` を足す（CHAR-1 §4.9）。
+ * 板が箱人形の入れ物ごと かくれているとき（見下ろしカメラなど）は visible を false にする。
+ * ?char=block のときは 板がないので loaded false・visible false。
+ */
+export function withSpriteDoll(base: () => object, sprite: CharSprite | null, group: { visible: boolean }) {
+  return () => {
+    const info: SpriteInfo | null = sprite ? sprite.info() : null;
+    return {
+      ...base(),
+      sprite: {
+        ...(info ?? {
+          visible: false, motion: 'idle', frame: 0, dir: 0, tier: 0, elevDeg: 0, tiltDeg: 0, upDeg: 0,
+          tint: { r: 1, g: 1, b: 1 }, loaded: false, gpuBytes: 0,
+        }),
+        visible: !!info && info.visible && group.visible,
+        readCell: (motion: SpriteMotion, tier: 0 | 1 | 2, dir: number, frame: number) =>
+          sprite ? sprite.readCell(motion, tier, dir, frame) : new Uint8ClampedArray(256 * 256 * 4),
+      },
+    };
   };
 }

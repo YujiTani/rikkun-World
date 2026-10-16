@@ -65,7 +65,7 @@ function rig(opts: { rng?: () => number } = {}) {
     pitchDeg: 0,
     onGround: true,
     inWater: false,
-    moving: false,
+    moving: false, facingDeg: 0, running: false,
   };
   const inv = new InventoryImpl();
   const yokai = new FakeYokai();

@@ -42,7 +42,7 @@ function rig(o: Opts) {
     pitchDeg: o.pitch ?? 0,
     onGround: true,
     inWater: false,
-    moving: false,
+    moving: false, facingDeg: 0, running: false,
   };
   const lock: LockStatus = { locked: () => true, overlayVisible: () => false, realtimeAllowed: () => true, playInputEnabled: () => true };
   const actions = new ActionState();

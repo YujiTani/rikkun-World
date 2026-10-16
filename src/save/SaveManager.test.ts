@@ -53,9 +53,8 @@ function session(store: KeyValueStore | null, ticks = { n: 0 }, bags?: SaveBags,
     pitchDeg: spawn.pitchDeg,
     onGround: true,
     inWater: false,
-    moving: false,
+    moving: false, facingDeg: 0, running: false,
   };
-  let third = false;
   const save = new SaveManager({
     world,
     seed: SEED,
@@ -68,10 +67,6 @@ function session(store: KeyValueStore | null, ticks = { n: 0 }, bags?: SaveBags,
         Object.assign(state.velocity, v.velocity);
         state.yawDeg = v.yawDeg;
         state.pitchDeg = v.pitchDeg;
-      },
-      isThirdPerson: () => third,
-      setThirdPerson: (t) => {
-        third = t;
       },
     },
     spawn: () => island.spawn(),
@@ -86,7 +81,7 @@ function session(store: KeyValueStore | null, ticks = { n: 0 }, bags?: SaveBags,
       setDay: (n: number) => void (clock.d = n),
     },
   });
-  return { world, island, save, state, inventory, ticks, isThird: () => third, setThird: (t: boolean) => (third = t) };
+  return { world, island, save, state, inventory, ticks };
 }
 
 describe('SaveManager', () => {
@@ -101,7 +96,6 @@ describe('SaveManager', () => {
     a.state.position.z = 6.5;
     a.state.yawDeg = 180;
     a.state.pitchDeg = -20;
-    a.setThird(true);
     a.save.now();
     const hash = a.world.hash();
 
@@ -113,7 +107,21 @@ describe('SaveManager', () => {
     expect(b.state.position).toEqual({ x: 6.5, y: 30, z: 6.5 });
     expect(b.state.yawDeg).toBe(180);
     expect(b.state.pitchDeg).toBe(-20);
-    expect(b.isThird()).toBe(true);
+  });
+
+  it('AC3: 「三人称でない」と書かれた古い保存も そのまま読める（third は見ない）', () => {
+    const store = new MemoryStore();
+    const a = session(store);
+    a.state.yawDeg = 90;
+    a.save.now();
+    for (const [k, v] of store.data) {
+      const o = JSON.parse(v);
+      o.player.third = false;
+      store.data.set(k, JSON.stringify(o));
+    }
+    const b = session(store);
+    expect(b.save.load()).toBe(true);
+    expect(b.state.yawDeg).toBe(90);
   });
 
   it('島のままなら差分は 0 こ。変えたマスだけが入る', () => {

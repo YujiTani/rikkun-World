@@ -173,6 +173,7 @@ export class PlayerController {
     const mul = this.motion.speedMul;
     const tx = wx * topSpeed * mul;
     const tz = wz * topSpeed * mul;
+    // 加速は 歩く速さ基準のまま（仕様 §4.4: 0.1 秒で歩く速さぶん → 走る 5.6 までは 約 0.14 秒）
     const maxDelta = (walkSpeed / Math.max(cfg.accelTime, 1e-6)) * dt;
     st.running = running;
 
@@ -185,7 +186,7 @@ export class PlayerController {
     } else if (wlen > 0) {
       faceTo = normalizeYaw(Math.atan2(wx, -wz) / DEG);
     }
-    if (faceTo >= 0) st.facingDeg = turnToward(st.facingDeg ?? st.yawDeg, faceTo, cfg.turnDegPerSecond * dt);
+    if (faceTo >= 0) st.facingDeg = turnToward(st.facingDeg, faceTo, cfg.turnDegPerSecond * dt);
     const ex = tx - st.velocity.x;
     const ez = tz - st.velocity.z;
     const elen = Math.hypot(ex, ez);

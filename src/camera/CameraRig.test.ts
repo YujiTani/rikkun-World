@@ -40,7 +40,7 @@ function setup(opts: { wall?: number } = {}) {
     pitchDeg: 0,
     onGround: true,
     inWater: false,
-    moving: false,
+    moving: false, facingDeg: 0, running: false,
   };
   if (opts.wall !== undefined) {
     // yaw 90 (東向き) の真後ろ = 西 (-X)。中心から壁の面までの距離 = opts.wall

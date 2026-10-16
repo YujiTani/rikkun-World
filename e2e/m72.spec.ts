@@ -34,7 +34,7 @@ async function open(page: Page, query = '?nosave=1') {
       /** いまの位置から (tx,ty,tz) の ブロックの 上の面の まん中を ねらう */
       aim(tx: number, ty: number, tz: number, top = 1) {
         const p = h.player.get().position;
-        const ex = p.x, ey = p.y + 1.62, ez = p.z;
+        const ex = p.x, ey = p.y + 2.12, ez = p.z;
         const dx = tx + 0.5 - ex, dy = ty + top - ey, dz = tz + 0.5 - ez;
         const yaw = (Math.atan2(dx, -dz) * 180) / Math.PI;
         const pitch = (Math.atan2(dy, Math.hypot(dx, dz)) * 180) / Math.PI;
@@ -53,7 +53,7 @@ async function open(page: Page, query = '?nosave=1') {
       /** ステップを 進めずに ねらい だけ 変える */
       aimNow(tx: number, ty: number, tz: number, top = 1) {
         const p = h.player.get().position;
-        const dx = tx + 0.5 - p.x, dy = ty + top - (p.y + 1.62), dz = tz + 0.5 - p.z;
+        const dx = tx + 0.5 - p.x, dy = ty + top - (p.y + 2.12), dz = tz + 0.5 - p.z;
         h.player.set({ yaw: (Math.atan2(dx, -dz) * 180) / Math.PI, pitch: (Math.atan2(dy, Math.hypot(dx, dz)) * 180) / Math.PI });
       },
       hold(item: string, extra?: any) {
@@ -120,7 +120,7 @@ test.describe('M7-2 じょうろ', () => {
       // 目が みず の マス: water 5 で はたけ をねらうと くまずに まく
       T.base();
       T.soil(5, 6);
-      h.world.setBlock(2, 10, 6, 'water'); // 目の マス
+      h.world.setBlock(2, 11, 6, 'water'); // 線の出どころ P（足もと + 2.12）の マス
       h.step(1);
       T.hold('watering_can', { water: 5 });
       T.aim(5, 8, 6);
@@ -216,7 +216,7 @@ test.describe('M7-2 じょうろ', () => {
       { name: '西', yaw: 270, exp: ['5,6', '4,6'], tiles: 2 },
       { name: '南から 20° 西', yaw: 160, exp: ['5,6', '5,7'], tiles: 2 },
       { name: '北', yaw: 0, exp: ['5,6', '5,5'], tiles: 2 },
-      { name: '北東 45°', yaw: 45, exp: ['5,6', '6,6'], tiles: 2 },
+      { name: '北東 47°', yaw: 47, exp: ['5,6', '6,6'], tiles: 2 },
     ];
     for (const c of cases) {
       await open(page);

@@ -32,7 +32,7 @@ async function open(page: Page, query = '?nosave=1') {
         h.world.fill(0, 9, 0, 12, 20, 12, 'air');
         h.inventory.clear();
         h.time.set(0);
-        T.place(2.5, 9, 6.5, 90, 0);
+        T.place(2.5, 9, 6.5, 90, -20); // 線は P（足もと + 2.12）から出る。低い妖怪に当てるため すこし 下を向く
         h.step(10);
         h.yokai.events();
         h.combat.events();
@@ -348,7 +348,7 @@ test.describe('M3 妖怪の攻撃とダメージ', () => {
     rokurokubi: { x: 7.5, hit: 30, hp: 18 },
     nurikabe: { x: 5.0, hit: 90, hp: 4 }  // #8: ぬりかべ の たおれこみ 16,
   };
-  for (const [kind, view] of Object.keys(SCENES).flatMap((k) => [[k, ''], [k, '-third']] as const)) {
+  for (const [kind, view] of Object.keys(SCENES).map((k) => [k, '-third'] as const)) {  // CHAR-1 第 5 版: 一人称がないので 三人称の 1 回だけ
     test(`AC15${view}: ${kind} の攻撃（合図・当たる 1 ステップ・ダメージ・おし返し・30 ステップのむてき）とスクショ`, async ({ page }) => {
       await open(page);
       const sc = SCENES[kind]!;
@@ -360,9 +360,6 @@ test.describe('M3 妖怪の攻撃とダメージ', () => {
           h.world.fill(0, 8, 0, 20, 8, 12, 'stone');
           T.place(2.5, 9, 6.5, 90, 0);
           if (view) {
-            h.input.press('toggleView');
-            h.step(1);
-            h.input.release('toggleView');
             // 横から見えるように、妖怪（東）が右ななめ前に見える向きにする
             h.player.set({ position: { x: 2.5, y: 9, z: 6.5 }, yaw: 40, pitch: 8 });
             h.step(1);

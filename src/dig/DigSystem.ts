@@ -160,6 +160,8 @@ export class DigSystemImpl implements DigSystem {
   private hookQueue: DigEvent[] = [];
   private readonly dir = { x: 0, y: 0, z: 0 };
   private readonly originScratch = { x: 0, y: 0, z: 0 };
+  /** aimedYokaiId 用（毎フレーム呼ばれても new しない） */
+  private readonly yokaiOriginScratch = { x: 0, y: 0, z: 0 };
 
   /**
    * ねらいの線の出どころ（CHAR-1 §4.5）。つなぎ込みが `aimPivot` を入れる。
@@ -738,7 +740,7 @@ export class DigSystemImpl implements DigSystem {
   aimedYokaiId(): number | null {
     if (!this.gate?.aimedYokai || !this.lock.playInputEnabled() || this.gate.blocksInput()) return null;
     const p = this.player();
-    const eye = this.origin(p, { x: 0, y: 0, z: 0 });
+    const eye = this.origin(p, this.yokaiOriginScratch);
     return this.gate.aimedYokai(eye, lookDirection(p.yawDeg, p.pitchDeg, this.dir), this.tgt?.distance ?? null);
   }
 

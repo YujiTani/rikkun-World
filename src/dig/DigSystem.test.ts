@@ -40,7 +40,7 @@ class Rig {
     pitchDeg: 0,
     onGround: true,
     inWater: false,
-    moving: false,
+    moving: false, facingDeg: 0, running: false,
   };
   lock: LockStatus = {
     locked: () => this.enabled,
@@ -100,6 +100,22 @@ describe('ねらう', () => {
     expect(r.dig.target()!.distance).toBeCloseTo(4.5, 2);
     r.set(7, 10, 6, 'air');
     r.set(8, 10, 6, 'dirt');
+    expect(r.dig.target()).toBeNull();
+  });
+  it('aimOrigin を差すと 線は そこから出る（なければ 目）', () => {
+    const r = new Rig();
+    r.set(4, 11, 6, 'dirt'); // 目（足もと + 1.62 = y 10.62）の高さの線には当たらない高さ
+    expect(r.dig.target()).toBeNull();
+    r.dig.aimOrigin = (p, out) => {
+      out.x = p.position.x;
+      out.y = p.position.y + 2.12;
+      out.z = p.position.z;
+      return out;
+    };
+    r.step();
+    expect(r.dig.target()!.block).toEqual({ x: 4, y: 11, z: 6 });
+    r.dig.aimOrigin = undefined;
+    r.step();
     expect(r.dig.target()).toBeNull();
   });
   it('AC3: 水は通りぬける', () => {

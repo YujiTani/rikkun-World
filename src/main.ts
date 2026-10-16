@@ -1,5 +1,8 @@
 import { CameraRig } from './camera/CameraRig';
-import { attachAtlasDoll, attachGlbDoll, attachSpriteDoll, charParam } from './debug/glbDoll';
+import { useBlockDoll } from './debug/glbDoll';
+import { aimPivot } from './camera/pivot';
+import { createCharSprite } from './char';
+import { AimMarks } from './ui/aimMarks';
 import { createCrosshair } from './camera/crosshair';
 import { createCameraHook } from './camera/hook';
 import { DigFx } from './fx/DigFx';
@@ -69,11 +72,11 @@ import { Hotbar } from './ui/hotbar';
 import { InventoryScreen } from './ui/inventoryScreen';
 import { Notice } from './ui/notice';
 import { PerfOverlay } from './debug/perfOverlay';
-import { installTestHook, type TestHookGroups } from './debug/testHook';
+import { installTestHook, withSpriteDoll, type TestHookGroups } from './debug/testHook';
 import { Game } from './game/Game';
 import { buildScenery } from './game/scenery';
 import { createSettingsHook } from './game/settings';
-import { ActionState, bindKeyboardAndMouse } from './input/actions';
+import { bindKeyboardAndMouse } from './input/actions';
 import { LockController, MouseLook, WheelAccumulator, bindPointerLock, createInputHook, createLockHook } from './input';
 import { createPlayerHook } from './player/hook';
 import { PlayerController } from './player/PlayerController';
@@ -183,23 +186,23 @@ const playOverlay = new PlayOverlay(hud, lock, () => pointerLock.request(), () =
 
 // プレイヤーとカメラ
 const controller = new PlayerController(world, game.input, look, lock, () => island.spawn());
-// V（視点の切り替え）はロックがないあいだは無視する（T5 の指摘）。
-// CameraRig には専用の ActionState を渡し、ロックがあるときだけ押しを写して読ませる。
-const viewActions = new ActionState();
-const rig = new CameraRig(game.camera, game.scene, world, () => controller.state, viewActions);
+// CHAR-1 第 5 版: 一人称（V）はなくなった。CameraRig は受け取るだけの ActionState を使う
+const rig = new CameraRig(game.camera, game.scene, world, () => controller.state, game.input);
 lighting.registerTree(rig.doll.group, 'doll');
-// CHAR-1 のお試し（?char=<名前> のときだけ）: 三人称で public/models/<名前>.glb を出す
-const glbCharName = charParam(location.search);
-const glbDoll = !glbCharName
+// キャラは 8 方向のドット絵の板。?char=block のときだけ 箱人形（描画回数を比べるため）
+const blockDollOnly = useBlockDoll(location.search);
+const sprite = blockDollOnly
   ? null
-  : glbCharName.startsWith('sprite')
-    ? attachSpriteDoll(rig.doll, lighting, game.camera, glbCharName)
-    : glbCharName === 'kittywalk'
-      ? attachAtlasDoll(rig.doll, lighting, game.camera, 'kitty_walk_atlas')
-      : glbCharName === 'kittywalk3'
-        ? attachAtlasDoll(rig.doll, lighting, game.camera, 'kitty_walk_atlas3', 3)
-      : attachGlbDoll(rig.doll, lighting, glbCharName);
+  : createCharSprite({
+      parent: rig.doll.group,
+      camera: game.camera,
+      lighting,
+      basePath: './models/char/',
+      initTexture: (t) => game.renderer.initTexture(t),
+    });
+rig.doll.setBoxBody(blockDollOnly);
 const crosshair = createCrosshair(hud);
+const aimMarks = new AimMarks(hud);
 crosshair.setVisible(rig.crosshairVisible());
 
 // 持ち物・画面の状態・ほる／おく
@@ -476,6 +479,8 @@ const dig = new DigSystemImpl(
     w2,
   },
 );
+// ねらいの線・矢・刀・パンチの出どころは 目でなく 回転の中心 P（CHAR-1 §4.5）
+dig.aimOrigin = (p, out) => aimPivot(world, p.position, out);
 yokaiManager = new YokaiManager({
   world,
   time,
@@ -870,11 +875,8 @@ const save = new SaveManager({
   inventory,
   player: {
     get: () => controller.state,
-    set: (v) => controller.set({ position: v.position, velocity: v.velocity, yawDeg: v.yawDeg, pitchDeg: v.pitchDeg }),
-    isThirdPerson: () => rig.getView() === 'third',
-    setThirdPerson: (third) => {
-      if ((rig.getView() === 'third') !== third) rig.toggleView();
-    },
+    // 読みこんだら 向きはカメラの yaw と同じ（背中が見える）
+    set: (v) => controller.set({ position: v.position, velocity: v.velocity, yawDeg: v.yawDeg, pitchDeg: v.pitchDeg, facingDeg: v.yawDeg }),
   },
   spawn: () => island.spawn(),
   store,
@@ -1026,9 +1028,16 @@ game.onUpdate((dt) => {
   // 空の光の弱まりを先に今の時刻にそろえる（妖怪の出現の「暗い所」がこれを読む。Sky は あとで画面ぶんを更新）
   skyDarkness.value = darkenFromBrightness(time.brightness(), timeSettings.nightBrightness);
   controller.update(dt);
-  if (lock.playInputEnabled() && game.input.wasPressed('toggleView')) {
-    viewActions.press('toggleView');
-    viewActions.release('toggleView');
+  if (screen.mode() === 'play') {
+    const st = controller.state;
+    sprite?.step({
+      position: st.position,
+      velocity: st.velocity,
+      onGround: st.onGround,
+      inWater: st.inWater,
+      running: st.running,
+      facingDeg: st.facingDeg,
+    });
   }
   yokaiM.update();
   dig.update();
@@ -1106,6 +1115,7 @@ game.onUpdate((dt) => {
   if (combatEvents.length > 0) {
     for (const e of combatEvents) {
       rig.onCombatEvent(e);
+      if ((e.type === 'playerHit' && e.amount > 0 && (e as { blocked?: boolean }).blocked !== true) || e.type === 'fallHurt') sprite?.hurt();
       if (e.type === 'respawn') log.home();
     }
     handleGuardEvents(combatEvents, fxSound);
@@ -1132,10 +1142,16 @@ game.onUpdate((dt) => {
   levelHud.tick(dt);
   updateFurnaceFx(dt);
   rig.update(dt);
-  glbDoll?.update(dt);
+  // 箱人形は 白い弧・星のために残す。板の絵が出せない（たつ の絵も読めない）ときだけ からだも見せる
+  rig.doll.setBoxBody(blockDollOnly || (sprite?.needsBoxDoll() ?? false));
+  sprite?.render();
+  {
+    const playing = screen.mode() === 'play' && !rig.isOverview();
+    const bs = blade.state();
+    aimMarks.update({ stance: playing && bs.item !== null ? bs.stance : null, bowStage: playing ? tools.bow().pose().stage : 0 });
+  }
   sky.update(game.camera);
   combatUi.clock.setTime(time.dayTick(), timeSettings, time.day() + 1);
-  viewActions.endFrame();
   crosshair.setVisible(rig.crosshairVisible() && screen.mode() === 'play');
   yokaiFocus.update(hintVisible() ? dig.aimedYokaiId() : null);
   actionHint.update(hintVisible() ? actionHintLines(dig.previewRightClick(), dig.previewLeftClick(), { held: tools.current().item, heldIsPickaxe: tools.current().kind === 'pickaxe', heldIsBlade: tools.current().kind === 'blade' }) : {});
@@ -1213,7 +1229,7 @@ const combatHook = createCombatHook(combat);
 installTestHook(game, overlay, {
   world: createWorldHook(world, renderer, island),
   render: { chunks: () => renderer.chunkStats() },
-  player: { ...createPlayerHook(controller), doll: cameraHook.doll } as unknown as TestHookGroups['player'],
+  player: { ...createPlayerHook(controller), doll: withSpriteDoll(cameraHook.doll, sprite, rig.doll.group) } as unknown as TestHookGroups['player'],
   ...createDigHook(dig),
   hud: hudHook,
   inventory: createInventoryHook(inventory, screen, {

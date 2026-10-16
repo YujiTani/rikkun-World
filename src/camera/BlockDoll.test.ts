@@ -21,7 +21,7 @@ function setup(pitch = 0, aspect = 16 / 9) {
     pitchDeg: pitch,
     onGround: true,
     inWater: false,
-    moving: false,
+    moving: false, facingDeg: 0, running: false,
   };
   const cam = new THREE.PerspectiveCamera(75, aspect, 0.1, 500);
   const rig = new CameraRig(cam, new THREE.Scene(), world, () => state, new ActionState());
