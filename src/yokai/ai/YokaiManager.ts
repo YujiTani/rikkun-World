@@ -789,6 +789,7 @@ export class YokaiManager implements YokaiWorld {
     return this.barStateOf(e);
   }
 
+  /** テスト窓口用: 出現は decidePlace を通る（§6 のきまりもそこ）。これは あとから 二つ名を かえる口 */
   /** 二つ名を決めなおす（体力・攻撃力・大きさを 計算しなおす。体力は割合をたもつ。§6 のきまりを通る） */
   setTitle(id: number, title: YokaiTitle): boolean {
     const e = this.ents.find((q) => q.id === id);

@@ -646,6 +646,7 @@ const hintSettings = { actionHint: true };
 const actionHint = new ActionHint(hud);
 const titleAnnounce = new TitleAnnounce(hud);
 const yokaiNameplates = new YokaiNameplates(hud);
+const NO_PLATES: { id: number; text: string; x: number; y: number; z: number; dist: number }[] = [];
 const plateBuf: { id: number; text: string; x: number; y: number; z: number; dist: number }[] = [];
 const yokaiFocus = new YokaiFocus((id) => yokaiManager.modelOf(id), () => game.camera.position);
 const hintVisible = (): boolean => hintSettings.actionHint && screen.mode() === 'play' && !screen.inventoryOpen() && rig.crosshairVisible();
@@ -1267,7 +1268,8 @@ game.onUpdate((dt) => {
   crosshair.setVisible(rig.crosshairVisible() && screen.mode() === 'play');
   yokaiFocus.update(hintVisible() ? dig.aimedYokaiId() : null);
   titleAnnounce.sync(yokaiM.announce());
-  yokaiNameplates.update(yokaiM.nameplates(plateBuf), game.camera);
+  // 持ち物・メニューを開いている間は 名前を出さない
+  yokaiNameplates.update(screen.mode() === 'play' ? yokaiM.nameplates(plateBuf) : NO_PLATES, game.camera);
   actionHint.update(hintVisible() ? actionHintLines(dig.previewRightClick(), dig.previewLeftClick(), { held: tools.current().item, heldIsPickaxe: tools.current().kind === 'pickaxe', heldIsBlade: tools.current().kind === 'blade' }) : {});
   farmHint.step();
   {

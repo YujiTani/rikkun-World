@@ -18,6 +18,8 @@ const v = new THREE.Vector3();
 export class YokaiNameplates {
   private readonly pool: HTMLDivElement[] = [];
 
+  private readonly size = new WeakMap<HTMLElement, { vw: number; w: number; h: number }>();
+
   constructor(private readonly parent: HTMLElement) {}
 
   update(items: readonly NameplateItem[], camera: THREE.Camera): void {
@@ -31,10 +33,17 @@ export class YokaiNameplates {
       v.set(it.x, it.y, it.z).project(camera);
       if (v.z > 1 || v.z < -1) continue; // うしろ
       const el = this.el(n++);
-      if (el.textContent !== it.text) el.textContent = it.text;
+      const wasHidden = el.hidden;
       el.hidden = false;
-      const hw = el.offsetWidth / 2;
-      const hh = el.offsetHeight;
+      // 大きさは 文字が変わったとき・画面の大きさが変わったとき・出し直したときだけ測る
+      let sz = this.size.get(el);
+      if (el.textContent !== it.text || !sz || sz.vw !== w || wasHidden) {
+        el.textContent = it.text;
+        sz = { vw: w, w: el.offsetWidth, h: el.offsetHeight };
+        this.size.set(el, sz);
+      }
+      const hw = sz.w / 2;
+      const hh = sz.h;
       const px = Math.min(Math.max((v.x * 0.5 + 0.5) * w, hw + 4), w - hw - 4);
       const py = Math.min(Math.max((-v.y * 0.5 + 0.5) * h, hh + 4), h - hh - 4);
       el.style.transform = `translate(${(px - hw).toFixed(1)}px, ${(py - hh).toFixed(1)}px)`;
