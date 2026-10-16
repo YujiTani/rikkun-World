@@ -46,6 +46,8 @@ class Column implements ChunkColumn {
   colDirty = false;
   secListed = false;
   secBits = 0;
+  /** 保存のための印（World が持つ一覧に入っているか） */
+  saveDirty = false;
   /** uniform なら その番号、palette なら -2、full なら -1 */
   readonly uni: Int16Array;
 
@@ -62,6 +64,9 @@ export interface SectionPos {
   sy: number;
   cz: number;
 }
+
+/** 変えたマスの記録に入れる数の上限（これを超えたら 保険ではなく ふつうの保存にたよる） */
+const CHANGE_LOG_CAP = 40000;
 
 const NEIGHBORS: readonly (readonly [number, number, number])[] = [
   [1, 0, 0],
@@ -89,6 +94,13 @@ export class ChunkedVoxelWorld implements VoxelWorld {
   private lastCol: Column | null = null;
   private b: LoadedBounds = { x0: 0, z0: 0, x1: 0, z1: 0 };
   /** 光の計算し直し用: 前回の takeChangeBox() からあとに変わったマスをふくむ箱（無ければ null） */
+  /** 保存用: さわった列（描画の dirty とは別）。保存が takeSaveDirty() で受け取る */
+  private readonly saveDirtyList: Column[] = [];
+  /** 保存用: 前の保存から変えたマスの記録 [x,y,z,番号]…（pagehide の保険。VOX-plan §7） */
+  private changeLog: number[] = [];
+  /** これまでに捨てた記録の数（保存が「ここまで書けた」を数で言えるように） */
+  private changeLogBase = 0;
+  private changeLogFull = false;
   private changeBox: { x0: number; y0: number; z0: number; x1: number; y1: number; z1: number } | null = null;
 
   /**
@@ -245,6 +257,7 @@ export class ChunkedVoxelWorld implements VoxelWorld {
       const li = ((y & 15) << 8) | ((z & 15) << 4) | (x & 15);
       if (d[li] === b) return true;
       d[li] = b;
+      this.noteSave(col, x, y, z, b);
       this.noteDirty(col, x, y, z);
       const cb = this.changeBox;
       if (cb === null) this.changeBox = { x0: x, y0: y, z0: z, x1: x, y1: y, z1: z };
@@ -259,9 +272,88 @@ export class ChunkedVoxelWorld implements VoxelWorld {
       return true;
     }
     if (!this.put(col, x, y, z, b)) return true;
+    this.noteSave(col, x, y, z, b);
     this.noteDirty(col, x, y, z);
     this.noteChange(x, y, z, x, y, z);
     return true;
+  }
+
+  /** 保存用: 列を「さわった」に入れ、変えたマスを記録に足す */
+  private noteSave(col: Column, x: number, y: number, z: number, b: number): void {
+    if (!col.saveDirty) {
+      col.saveDirty = true;
+      this.saveDirtyList.push(col);
+    }
+    const log = this.changeLog;
+    if (log.length < CHANGE_LOG_CAP * 4) log.push(x, y, z, b);
+    else this.changeLogFull = true;
+  }
+
+  /** さわった列の数 */
+  saveDirtyCount(): number {
+    let n = 0;
+    for (const c of this.saveDirtyList) if (this.columns.get(columnKey(c.cx, c.cz)) === c) n++;
+    return n;
+  }
+
+  /** さわった列を渡して、覚えているのを空にする（書けなかったら requeueSaveDirty で戻す） */
+  takeSaveDirty(): ChunkColumn[] {
+    const out: ChunkColumn[] = [];
+    for (const c of this.saveDirtyList) {
+      if (this.columns.get(columnKey(c.cx, c.cz)) === c) out.push(c);
+      c.saveDirty = false;
+    }
+    this.saveDirtyList.length = 0;
+    return out;
+  }
+
+  /** 書けなかった列を「さわった」に戻す */
+  requeueSaveDirty(cols: readonly { cx: number; cz: number }[]): void {
+    for (const p of cols) {
+      const c = this.columns.get(columnKey(p.cx, p.cz));
+      if (c && !c.saveDirty) {
+        c.saveDirty = true;
+        this.saveDirtyList.push(c);
+      }
+    }
+  }
+
+  /** 記録の「いま」の位置（捨てた分もふくめた通し番号）/ 一覧 [x,y,z,番号]…（先頭は 通し番号 changeLogStart()）/ 通し番号 end の前を捨てる / 入りきらなかったか */
+  changeLogEnd(): number {
+    return this.changeLogBase + (this.changeLog.length >> 2);
+  }
+  changeLogStart(): number {
+    return this.changeLogBase;
+  }
+  changeLogCount(): number {
+    return this.changeLog.length >> 2;
+  }
+  changeLogCells(): readonly number[] {
+    return this.changeLog;
+  }
+  dropChangeLogTo(end: number): void {
+    const n = Math.min(end - this.changeLogBase, this.changeLog.length >> 2);
+    if (n <= 0) return;
+    if (n * 4 >= this.changeLog.length) this.changeLog = [];
+    else this.changeLog.splice(0, n * 4);
+    this.changeLogBase += n;
+    this.changeLogFull = false;
+  }
+  changeLogOverflowed(): boolean {
+    return this.changeLogFull;
+  }
+
+  /** ぜんぶの列を「さわった」にする（保存を消したあと、今の世界を丸ごと書きなおすため） */
+  markAllSaveDirty(): void {
+    this.requeueSaveDirty(this.loadedColumns());
+  }
+
+  /** 保存の印をぜんぶ捨てる（島を作った直後・保存を読んだ直後） */
+  resetSaveTracking(): void {
+    this.takeSaveDirty();
+    this.changeLogBase += this.changeLog.length >> 2;
+    this.changeLog = [];
+    this.changeLogFull = false;
   }
 
   /** 変えたマスの dirty とステイルの印 */
@@ -352,6 +444,7 @@ export class ChunkedVoxelWorld implements VoxelWorld {
         for (let y = ya; y <= yb; y++) {
           if (!this.put(col, x, y, z, b)) continue;
           changed++;
+          this.noteSave(col, x, y, z, b);
           this.noteDirty(col, x, y, z);
           if (x < cminx) cminx = x;
           if (y < cminy) cminy = y;
@@ -389,7 +482,7 @@ export class ChunkedVoxelWorld implements VoxelWorld {
 
   /**
    * 原点から (sx, size.y, sz) の四角の全ブロック番号を、平らな番号 (y * sz + z) * sx + x で out に写す
-   * （保存の「島とちがうマス」の比べ用。読みこんでいない所は書きかえない）
+   * （テスト用。保存は VOX-F から さわった列だけを書くので、これは使わない。読みこんでいない所は書きかえない）
    */
   fillFlat(out: Uint8Array, sx: number, sz: number): void {
     for (const c of this.columns.values()) {
@@ -541,6 +634,19 @@ export class ChunkedVoxelWorld implements VoxelWorld {
       }
     }
     return (h >>> 0).toString(16).padStart(8, '0') + `-${n}`;
+  }
+
+  /** 1 列だけのハッシュ（FNV-1a。順は y, z, x）。読みこんでいなければ 'none' */
+  hashColumn(cx: number, cz: number): string {
+    if (this.colAt(cx, cz) === null) return 'none';
+    let h = 0x811c9dc5;
+    for (let y = 0; y < this.size.y; y++)
+      for (let z = cz * 16; z < cz * 16 + 16; z++)
+        for (let x = cx * 16; x < cx * 16 + 16; x++) {
+          h ^= this.getIndex(x, y, z);
+          h = Math.imul(h, 0x01000193);
+        }
+    return (h >>> 0).toString(16).padStart(8, '0');
   }
 
   // ------------------------------------------------------------ 描画側への「変わった」

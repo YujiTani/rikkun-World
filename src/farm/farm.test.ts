@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { CROP_KINDS, M7_SETTING_DEFAULTS, createM7Settings, type BlockId, type CropKind, type FarmPlacement, type ItemStack } from '../contracts';
-import { SaveManager, saveKey, snapshotWorld, type KeyValueStore } from '../save/SaveManager';
+import { MemoryBackend, SAVE_ID } from '../save/backend';
+import { restoreStoredWorld } from '../save/restore';
+import { SaveManager, saveKey, type KeyValueStore } from '../save/SaveManager';
 import { ArrayVoxelWorld } from '../world/VoxelWorld';
 import { generateIsland } from '../world/gen/generateIsland';
 import { createFarmSystem } from './FarmSystem';
@@ -313,13 +315,15 @@ describe('前の保存（AC35）', () => {
     expect(world.getBlock(3, 8, 3)).toBe('air');
     expect(world.getBlock(5, 8, 5)).toBe('wild_onion');
   });
-  it('SaveManager: 前の保存を 読む', () => {
+  it('SaveManager: 前の保存を 読む', async () => {
     const store = new Map<string, string>();
     const kv: KeyValueStore = { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => void store.set(k, v), removeItem: (k) => void store.delete(k) };
     store.set(saveKey(777), makeLegacySaveText(777, []));
     const world = new ArrayVoxelWorld();
     const island = generateIsland(777, world);
-    const baseline = snapshotWorld(world);
+    world.resetSaveTracking();
+    const db = new MemoryBackend();
+    const restored = await restoreStoredWorld({ world, db, store: kv, seed: 777, saveId: SAVE_ID, reset: false });
     const farm = createFarmSystem({
       world, light: { skyLight: () => 15, blockLight: () => 0, level: () => 15 }, seed: 777, dayLength: () => DAY, settings: createM7Settings(),
       tick: () => 0, fillTansu: () => {},
@@ -327,7 +331,7 @@ describe('前の保存（AC35）', () => {
     });
     const sp = island.spawn();
     const save = new SaveManager({
-      world, seed: 777, baseline,
+      world, seed: 777, db, restored,
       inventory: { serialize: () => null, deserialize: () => {}, clear: () => {} } as never,
       player: { get: () => ({ position: sp, velocity: { x: 0, y: 0, z: 0 }, yawDeg: 0, pitchDeg: 0, onGround: true, inWater: false, moving: false }), set: () => {}, isThirdPerson: () => false, setThirdPerson: () => {} },
       spawn: () => sp, store: kv, tick: () => 0, settings: { saveIntervalTicks: 600 }, farm,
@@ -335,9 +339,8 @@ describe('前の保存（AC35）', () => {
     expect(save.load()).toBe(true);
     expect(farm.placedM7()).toBe(true);
     expect(world.getBlock(64, 30, 64)).toBe('wild_onion');
-    save.now();
-    const text = store.get(saveKey(777))!;
-    expect(JSON.parse(text).farm.placed).toBe(true);
+    await save.now();
+    expect((db.metas.get(SAVE_ID)!.farm as { placed: boolean }).placed).toBe(true);
     void M7_SETTING_DEFAULTS;
   });
 });
