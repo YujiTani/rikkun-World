@@ -103,6 +103,8 @@ import { WorldRenderer } from './world/render/WorldRenderer';
 import { createRenderHook } from './world/render/renderHook';
 import { BlobShadow, BLOB, groundBelow } from './fx/blobShadow';
 import { WATER, isSolidIndex } from './world/blocks/blockTypes';
+import { ShadowProto, parseShadowParams } from './proto/shadow/ShadowProto';
+import type { Mesh } from 'three';
 import { darkenFromBrightness, skyDarkness } from './world/light';
 import { createFarmSystem, createFarmHook } from './farm';
 import { setWaterCapacity } from './ui/waterGauge';
@@ -1579,4 +1581,65 @@ installTestHook(game, overlay, {
       renderer.config,
     ]),
 });
+// #144 影の試作（?shadow=1 のときだけ。本番ではない。docs/design/SHADOW.md）
+{
+  const sp = parseShadowParams(location.search);
+  let shadow: ShadowProto | null = null;
+  if (sp) {
+    shadow = new ShadowProto(
+      {
+        renderer: game.renderer,
+        scene: game.scene,
+        camera: game.camera,
+        world,
+        worldRenderer: renderer,
+        timeSettings,
+        dayTick: () => time.dayTick(),
+        yokaiGroup: yokaiManager.group,
+        player: () => controller.state.position,
+        facing: () => controller.state.facingDeg,
+        yokaiFeet: () => yokaiManager.list().map((y) => ({ x: y.position.x, y: y.position.y, z: y.position.z, r: 0.6 })),
+      },
+      sp,
+    );
+    shadow.patchWorldMaterials();
+    const sm = rig.doll.group.getObjectByName('charSprite');
+    if (sm) shadow.attachSprite(sm as Mesh);
+    const sh = shadow;
+    game.onBeforeRender(() => sh.preRender());
+  }
+  // 計測（クラウドの SwiftShader でも 描き終わりまで待って はかる）: 描く → 1 画素読む（待つ）
+  const gl = game.renderer.getContext();
+  const px = new Uint8Array(4);
+  (window as unknown as Record<string, unknown>).__shadowProto = {
+    on: shadow !== null,
+    stats: () => shadow?.stats() ?? null,
+    params: () => shadow?.params ?? null,
+    setEnabled: (v: boolean) => {
+      if (shadow) shadow.enabled = v;
+    },
+    invalidate: () => shadow?.invalidate(),
+    debug: (v: number) => {
+      if (shadow) shadow.uniforms.uShDebug.value = v;
+    },
+    bench: (n: number, forceStatic = false) => {
+      const ms: number[] = [];
+      const cpu: number[] = [];
+      for (let i = 0; i < n; i++) {
+        if (shadow) shadow.forceStatic = forceStatic;
+        game.step(0);
+        const t0 = performance.now();
+        game.flushRender();
+        cpu.push(performance.now() - t0);
+        gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
+        ms.push(performance.now() - t0);
+      }
+      if (shadow) shadow.forceStatic = false;
+      const info = game.renderer.info.render;
+      const sorted = (a: number[]) => [...a].sort((x, y) => x - y);
+      const med = (a: number[]) => sorted(a)[Math.floor(a.length / 2)]!;
+      return { medianMs: med(ms), maxMs: Math.max(...ms), cpuMedianMs: med(cpu), mainCalls: info.calls, mainTriangles: info.triangles, shadow: shadow?.stats().frame ?? null };
+    },
+  };
+}
 game.start();

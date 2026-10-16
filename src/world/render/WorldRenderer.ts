@@ -258,6 +258,8 @@ export class WorldRenderer {
   private readonly hideFn = (x: number, y: number, z: number): boolean => this.swayHidden.has(this.swayKey(x, y, z));
   /** 光（置く・こわすと近くだけ計算し直す）。Sky・妖怪の出現・テストが読む */
   readonly light: WorldLight;
+  /** メッシュを足す・捨てる・見せ方を変えるたびに 1 増える（#144 影の試作: 影の地図を描き直す合図） */
+  meshVersion = 0;
 
   constructor(private readonly world: ArrayVoxelWorld) {
     this.light = new WorldLight(world);
@@ -678,6 +680,7 @@ export class WorldRenderer {
     this.bytes += st.bytes;
     st.faceless = !voxel && !extras && !water;
     st.evicted = false;
+    this.meshVersion++;
     if (voxel) this.pushLog(st, tier);
     if (water) this.pushLog(st, 'water');
   }
@@ -705,6 +708,7 @@ export class WorldRenderer {
   /** セクションのメッシュを捨てる（built は そのまま） */
   private dropMeshes(st: SecState): void {
     if (!st.voxel && !st.extras && !st.water) return;
+    this.meshVersion++;
     for (const m of [st.voxel, st.extras, st.water]) if (m) this.disposeMesh(m);
     st.voxel = st.extras = st.water = null;
     st.voxMat?.dispose();
@@ -756,6 +760,7 @@ export class WorldRenderer {
     const want = (col.tier === 'lod' && col.dist <= CHUNK_DRAW_DISTANCE) || col.lodHold;
     if (want && col.lodStale && this.attached && this.light.isColumnLit(col.cx, col.cz)) this.rebuildLod(col);
     const on = want && !!col.lodOpaque;
+    if (col.lodOpaque && col.lodOpaque.visible !== want) this.meshVersion++;
     if (col.lodOpaque) col.lodOpaque.visible = want;
     if (col.lodWater) col.lodWater.visible = want;
     if (!on && col.lodHold && !col.lodOpaque) col.lodHold = false;
@@ -768,6 +773,7 @@ export class WorldRenderer {
     col.lodOpaque = data.opaque.faceCount > 0 ? this.atlasMesh(data.opaque, this.lodOpaqueMaterial, 0) : null;
     col.lodWater = data.water.faceCount > 0 ? this.atlasMesh(data.water, this.lodWaterMaterial, RENDER_CONFIG.waterRenderOrder) : null;
     col.lodStale = false;
+    this.meshVersion++;
   }
 
   private dropLod(col: ColState): void {
