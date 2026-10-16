@@ -80,7 +80,7 @@ export class CharSprite {
       this.mesh.visible = true;
       this.row = -1;
     };
-    img.src = '/proto/char_atlas.png';
+    img.src = 'proto/char_atlas.png';
   }
 
   /** カメラを向ける（横だけ回す）＋ 見ている向きの行を選ぶ */
