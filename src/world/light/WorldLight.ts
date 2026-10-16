@@ -29,9 +29,11 @@ export class WorldLight implements LightField {
     private readonly world: ArrayVoxelWorld,
     private readonly darkness: SkyDarkness = skyDarkness,
   ) {
-    this.sx = world.size.x;
+    // 今の光は 世界ぜんぶで 1 枚の配列（原点から広がる島向け）。セクションごとにするのは VOX-D
+    const eb = world.loadedBounds();
+    this.sx = eb.x1;
     this.sy = world.size.y;
-    this.sz = world.size.z;
+    this.sz = eb.z1;
     const n = this.sx * this.sy * this.sz;
     this.sky = new Uint8Array(n);
     this.block = new Uint8Array(n);

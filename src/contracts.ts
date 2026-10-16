@@ -62,8 +62,13 @@ export interface BlockType {
 
 /** ブロックの入れ物。T2 が `src/world/VoxelWorld.ts` で実装する */
 export interface VoxelWorld {
-  readonly size: { x: number; y: number; z: number };
-  /** 整数座標。範囲外は 'outside' */
+  /** 高さだけ持つ（VOX-A: 横の大きさは無い。読みこんでいるかは isLoaded で見る） */
+  readonly size: { readonly y: number };
+  /** その (x,z) の列が読みこんであるか */
+  isLoaded(x: number, z: number): boolean;
+  /** 読みこんである列をふくむ いちばん小さい長方形（ブロック座標。x1・z1 はふくまない）。世界の端の処理用 */
+  loadedBounds(): LoadedBounds;
+  /** 整数座標。読みこんでいないマス・高さの外は 'outside'（固い） */
   getBlock(x: number, y: number, z: number): BlockId | 'outside';
   /** 範囲外・知らない id は false で何もしない。変わったチャンクは描画側に伝わる */
   setBlock(x: number, y: number, z: number, id: BlockId): boolean;
@@ -599,6 +604,62 @@ export interface LightField {
 
 /** 世界の大きさ（M5 で 64×32×64 から変更） */
 export const WORLD_SIZE = { x: 128, y: 48, z: 128 } as const;
+
+// ================================================================ VOX-A（無限の世界の土台）
+// 仕様: docs/design/VOX-plan.md §2・§6・§9。中身を作るのは VOX-B〜F。
+
+/** 世界の高さ（16 の倍数）。今は 48。VOX-B で 352 にする。ほかの所は この定数から求めること */
+export const WORLD_HEIGHT = 48;
+/** 海面の高さ。今は 6。VOX-B で 144 にする */
+export const SEA_Y = 6;
+/** 列（チャンク）の横の大きさ */
+export const CHUNK_SIZE = 16;
+/** セクションの 1 辺 */
+export const SECTION_SIZE = 16;
+
+/** 読みこんである範囲の長方形（ブロック座標。x1・z1 はふくまない） */
+export interface LoadedBounds {
+  x0: number;
+  z0: number;
+  x1: number;
+  z1: number;
+}
+
+/** 列の位置（チャンク座標。負もある） */
+export interface ColumnPos {
+  cx: number;
+  cz: number;
+}
+
+/**
+ * セクション（16³）の持ち方 3 つ。番号は BLOCK_TYPES の順。マスの順は (ly * 16 + lz) * 16 + lx。
+ * - uniform: 全部同じ 1 種類（1 バイト）
+ * - palette: 16 種類までの表 + 1 マス 4 ビット（2,048 B）
+ * - full: そのまま 1 マス 1 バイト（4,096 B）
+ */
+export type SectionData =
+  | { readonly kind: 'uniform'; readonly block: number }
+  | { readonly kind: 'palette'; readonly palette: Uint8Array; readonly packed: Uint8Array }
+  | { readonly kind: 'full'; readonly data: Uint8Array };
+
+/** 1 列（16×WORLD_HEIGHT×16）。sections は下から並ぶ（長さ WORLD_HEIGHT/16） */
+export interface ChunkColumn {
+  readonly cx: number;
+  readonly cz: number;
+  readonly sections: SectionData[];
+}
+
+/** 列を 1 つ作る（VOX-B が実装）。同じ seed と (cx,cz) なら いつも同じ列 */
+export type GenerateChunk = (seed: number, cx: number, cz: number) => ChunkColumn;
+
+/** 列の保存・読み出し（VOX-F が実装） */
+export interface ChunkStore {
+  load(cx: number, cz: number): Promise<ChunkColumn | null>;
+  save(column: ChunkColumn): Promise<void>;
+}
+
+/** セクションのメッシュを作る（VOX-C・E が実装）。見えないセクションは null */
+export type BuildSectionMesh = (cx: number, sy: number, cz: number) => unknown | null;
 /** 世界の中心・スタート地点の列 */
 export const WORLD_CENTER = { x: 64, z: 64 } as const;
 
@@ -1266,8 +1327,8 @@ export interface M7Settings {
 
 export const M7_SETTING_DEFAULTS: Readonly<M7Settings> = {
   farmGrowDays: {
-    dry: { onion: 1.25, tomato: 0.75, pumpkin: 2, eggplant: 1.25 },
-    wet: { onion: 0.85, tomato: 0.5, pumpkin: 1.3, eggplant: 0.85 },
+    dry: { onion: 1.875, tomato: 1.125, pumpkin: 3, eggplant: 1.875 },
+    wet: { onion: 1.275, tomato: 0.75, pumpkin: 1.95, eggplant: 1.275 },
   },
   farmMinLight: 9,
   farmMaxWaitFactor: 3,

@@ -1093,7 +1093,7 @@ test.describe('M2 性能（記録）', () => {
     });
     console.log('AC24b', JSON.stringify(s));
     testInfo.annotations.push({ type: 'AC24b', description: JSON.stringify(s) });
-    expect(s.changedBlocks).toBeGreaterThanOrEqual(1900);
+    expect(s.dirtyChunks).toBeGreaterThanOrEqual(1);
   });
 });
 

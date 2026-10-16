@@ -2,15 +2,17 @@ import { describe, expect, it } from 'vitest';
 import type { Inventory, PlayerState, SpawnPoint } from '../contracts';
 import { ArrayVoxelWorld } from '../world/VoxelWorld';
 import { generateIsland } from '../world/gen/generateIsland';
+import { SAVE_ID, MemoryBackend, packColumn } from './backend';
+import { encodeSections } from './chunkCodec';
+import { PENDING_KEY, migratedKey, restoreStoredWorld } from './restore';
 import {
   SaveManager,
-  type SaveBags,
   isBodyPlaceable,
   parseSaveOptions,
   saveKey,
-  snapshotWorld,
   stripResetParam,
   type KeyValueStore,
+  type SaveBags,
 } from './SaveManager';
 
 class MemoryStore implements KeyValueStore {
@@ -30,11 +32,21 @@ class MemoryStore implements KeyValueStore {
 
 const SEED = 12345;
 
-/** 1 回のページ表示に当たるもの（世界・持ち物・プレイヤー・保存係）を作る */
-function session(store: KeyValueStore | null, ticks = { n: 0 }, bags?: SaveBags, clock?: { t: number; d: number }) {
+interface Opts {
+  ticks?: { n: number };
+  bags?: SaveBags;
+  clock?: { t: number; d: number };
+  reset?: boolean;
+  noDb?: boolean;
+}
+
+/** 1 回のページ表示に当たるもの（世界・持ち物・プレイヤー・保存係）を作る。main.ts と同じ順 */
+async function session(store: KeyValueStore | null, db: MemoryBackend | null, o: Opts = {}) {
+  const ticks = o.ticks ?? { n: 0 };
   const world = new ArrayVoxelWorld();
   const island = generateIsland(SEED, world);
-  const baseline = snapshotWorld(world);
+  world.resetSaveTracking();
+  const restored = await restoreStoredWorld({ world, db, store, seed: SEED, saveId: SAVE_ID, reset: o.reset ?? false });
   let slots: unknown = { slots: [], selected: 0 };
   const inventory = {
     serialize: () => slots,
@@ -55,10 +67,12 @@ function session(store: KeyValueStore | null, ticks = { n: 0 }, bags?: SaveBags,
     inWater: false,
     moving: false, facingDeg: 0, running: false,
   };
+  const clock = o.clock;
   const save = new SaveManager({
     world,
     seed: SEED,
-    baseline,
+    db,
+    restored,
     inventory,
     player: {
       get: () => state,
@@ -73,7 +87,7 @@ function session(store: KeyValueStore | null, ticks = { n: 0 }, bags?: SaveBags,
     store,
     tick: () => ticks.n,
     settings: { saveIntervalTicks: 600 },
-    bags,
+    bags: o.bags,
     clock: clock && {
       dayTick: () => clock.t,
       day: () => clock.d,
@@ -81,72 +95,97 @@ function session(store: KeyValueStore | null, ticks = { n: 0 }, bags?: SaveBags,
       setDay: (n: number) => void (clock.d = n),
     },
   });
-  return { world, island, save, state, inventory, ticks };
+  const loaded = save.load();
+  return { world, island, save, state, inventory, ticks, restored, loaded };
 }
 
-describe('SaveManager', () => {
-  it('保存して開き直すと、世界・持ち物・位置・向きが同じに戻る（AC28）', () => {
+/** VOX-F より前の保存（島との差分を localStorage に 1 本の JSON）を作る */
+function legacyText(edits: Array<[number, number, number, 'log' | 'sand' | 'stone']>): string {
+  const w = new ArrayVoxelWorld();
+  generateIsland(SEED, w);
+  const { x1: sx, z1: sz } = w.loadedBounds();
+  const sy = w.size.y;
+  const before = new Uint8Array(sx * sy * sz);
+  w.fillFlat(before, sx, sz);
+  for (const [x, y, z, id] of edits) w.setBlock(x, y, z, id);
+  const after = new Uint8Array(sx * sy * sz);
+  w.fillFlat(after, sx, sz);
+  const blocks: number[] = [];
+  for (let i = 0; i < after.length; i++) if (after[i] !== before[i]) blocks.push(i, after[i]);
+  return JSON.stringify({
+    version: 1,
+    gen: 2,
+    size: [sx, sy, sz],
+    seed: SEED,
+    blocks,
+    inventory: { slots: [null, { item: 'sand', count: 7 }], selected: 1 },
+    player: { x: 6.5, y: 30, z: 6.5, yaw: 90, pitch: 0, third: false },
+    bags: [],
+    furnaces: [],
+    armor: null,
+    level: null,
+    storage: null,
+    achievements: null,
+    farm: null,
+    time: { day: 2, dayTick: 777 },
+    tick: 99,
+  });
+}
+
+describe('SaveManager（さわった列だけ丸ごと保存）', () => {
+  it('保存して開き直すと、世界・持ち物・位置・向きが同じに戻る（AC1）', async () => {
     const store = new MemoryStore();
-    const a = session(store);
+    const db = new MemoryBackend();
+    const a = await session(store, db);
     a.world.setBlock(4, 10, 6, 'log');
     a.world.setBlock(0, 20, 0, 'sand');
+    a.world.setBlock(100, 20, 90, 'stone'); // 遠い列
     a.inventory.deserialize({ slots: [null, { item: 'sand', count: 9 }], selected: 4 });
     a.state.position.x = 6.5;
     a.state.position.y = 30;
     a.state.position.z = 6.5;
     a.state.yawDeg = 180;
     a.state.pitchDeg = -20;
-    a.save.now();
+    await a.save.now();
     const hash = a.world.hash();
 
-    const b = session(store);
-    expect(b.world.hash()).not.toBe(hash);
-    expect(b.save.load()).toBe(true);
+    const b = await session(store, db);
+    expect(b.loaded).toBe(true);
+    expect(b.restored.columns).toBe(2);
     expect(b.world.hash()).toBe(hash);
+    expect(b.world.hashColumn(0, 0)).toBe(a.world.hashColumn(0, 0));
+    expect(b.world.getBlock(100, 20, 90)).toBe('stone');
     expect(b.inventory.serialize()).toEqual({ slots: [null, { item: 'sand', count: 9 }], selected: 4 });
     expect(b.state.position).toEqual({ x: 6.5, y: 30, z: 6.5 });
     expect(b.state.yawDeg).toBe(180);
     expect(b.state.pitchDeg).toBe(-20);
+    // 読んだだけの列は、まださわった列ではない
+    expect(b.world.saveDirtyCount()).toBe(0);
   });
 
-  it('AC3: 「三人称でない」と書かれた古い保存も そのまま読める（third は見ない）', () => {
-    const store = new MemoryStore();
-    const a = session(store);
-    a.state.yawDeg = 90;
-    a.save.now();
-    for (const [k, v] of store.data) {
-      const o = JSON.parse(v);
-      o.player.third = false;
-      store.data.set(k, JSON.stringify(o));
-    }
-    const b = session(store);
-    expect(b.save.load()).toBe(true);
-    expect(b.state.yawDeg).toBe(90);
-  });
-
-  it('島のままなら差分は 0 こ。変えたマスだけが入る', () => {
-    const store = new MemoryStore();
-    const a = session(store);
-    a.save.now();
-    expect(a.save.info().changedBlocks).toBe(0);
+  it('さわった列だけ書く。島のままなら 列は 0 こ（AC2）', async () => {
+    const db = new MemoryBackend();
+    const a = await session(new MemoryStore(), db);
+    await a.save.now();
+    expect(a.save.info().dirtyChunks).toBe(0);
+    expect(db.chunks.size).toBe(0);
     a.world.setBlock(1, 25, 1, 'stone');
-    a.save.now();
-    expect(a.save.info().changedBlocks).toBe(1);
+    a.world.setBlock(2, 25, 2, 'stone'); // 同じ列
+    a.world.setBlock(40, 25, 40, 'stone');
+    await a.save.now();
+    expect(a.save.info().dirtyChunks).toBe(2);
+    expect([...db.chunks.keys()].sort()).toEqual([`${SAVE_ID}/0/0`, `${SAVE_ID}/2/2`]);
     expect(a.save.info().bytes).toBeGreaterThan(0);
+    // 書き終わったので、もう さわった列はない
+    await a.save.now();
+    expect(a.save.info().dirtyChunks).toBe(0);
   });
 
-  it('保存の入れ物はシードごと。名前が決まりどおり', () => {
-    const store = new MemoryStore();
-    session(store).save.now();
-    expect([...store.data.keys()]).toEqual(['rikkun-world-save-v1-12345']);
-    expect(saveKey(7)).toBe('rikkun-world-save-v1-7');
-  });
-
-  it('自動: 600 ステップごと、変わっていれば保存（AC29 a・b）', () => {
-    const store = new MemoryStore();
-    const s = session(store);
+  it('自動: 600 ステップごと、変わっていれば保存', async () => {
+    const db = new MemoryBackend();
+    const s = await session(new MemoryStore(), db);
     s.ticks.n = 100;
-    s.save.now();
+    await s.save.now();
     expect(s.save.info().lastSavedTick).toBe(100);
     s.world.setBlock(2, 25, 2, 'dirt');
     for (let t = 101; t < 700; t++) {
@@ -157,7 +196,7 @@ describe('SaveManager', () => {
     s.ticks.n = 700;
     s.save.update(700);
     expect(s.save.info().lastSavedTick).toBe(700);
-    // 何も変えずに 600 ステップ
+    await s.save.idle();
     for (let t = 701; t <= 1300; t++) {
       s.ticks.n = t;
       s.save.update(t);
@@ -165,129 +204,337 @@ describe('SaveManager', () => {
     expect(s.save.info().lastSavedTick).toBe(700);
   });
 
-  it('ロックが外れたときなど: 変わっていなければ書かない、変わっていれば書く', () => {
-    const store = new MemoryStore();
-    const s = session(store);
-    s.save.now();
+  it('ロックが外れたときなど: 変わっていなければ書かない、変わっていれば書く', async () => {
+    const s = await session(new MemoryStore(), new MemoryBackend());
+    await s.save.now();
     s.ticks.n = 50;
     s.save.saveIfChanged();
     expect(s.save.info().lastSavedTick).toBe(0);
     s.state.yawDeg = 90;
     s.save.saveIfChanged();
     expect(s.save.info().lastSavedTick).toBe(50);
+    await s.save.idle();
   });
 
-  it('?nosave: 読みも書きもしない', () => {
-    const s = session(null);
+  it('?nosave: 読みも書きもしない', async () => {
+    const db = new MemoryBackend();
+    const s = await session(null, db);
     s.world.setBlock(2, 25, 2, 'dirt');
-    s.save.now();
+    await s.save.now();
     s.save.update(5000);
     expect(s.save.info().enabled).toBe(false);
     expect(s.save.info().lastSavedTick).toBeNull();
-    expect(s.save.load()).toBe(false);
+    expect(s.loaded).toBe(false);
+    expect(db.writes).toBe(0);
   });
 
-  it('clear で消え、開き直すと最初から（?reset=1）', () => {
+  it('IndexedDB が使えない（db が null）ときは 保存しないで遊べる', async () => {
+    const s = await session(new MemoryStore(), null);
+    s.world.setBlock(2, 25, 2, 'dirt');
+    await s.save.now();
+    expect(s.save.info().enabled).toBe(false);
+  });
+
+  it('?reset=1: 保存を消して 最初から。古い保存も もう読まない', async () => {
     const store = new MemoryStore();
-    const a = session(store);
-    const fresh = a.world.hash();
-    a.world.setBlock(2, 25, 2, 'dirt');
-    a.save.now();
-    a.save.clear();
-    expect(store.data.size).toBe(0);
-    const b = session(store);
-    expect(b.save.load()).toBe(false);
+    const db = new MemoryBackend();
+    const fresh = (await session(new MemoryStore(), new MemoryBackend())).world.hash();
+    store.data.set(saveKey(SEED), legacyText([[2, 25, 2, 'stone']]));
+    const a = await session(store, db);
+    await a.save.idle();
+    expect(db.metas.size).toBe(1);
+    const b = await session(store, db, { reset: true });
+    expect(b.loaded).toBe(false);
     expect(b.world.hash()).toBe(fresh);
+    expect(db.metas.size).toBe(0);
+    expect(db.chunks.size).toBe(0);
+    const c = await session(store, db); // リセットのあと 古い保存が よみがえらない
+    expect(c.loaded).toBe(false);
+    expect(c.world.hash()).toBe(fresh);
   });
 
-  it('こわれた保存・版や島がちがう保存は使わない', () => {
+  it('clear で IndexedDB が空になり、そのあとの保存で 今の世界が 丸ごと書き直される', async () => {
+    const db = new MemoryBackend();
+    const a = await session(new MemoryStore(), db);
+    a.world.setBlock(2, 25, 2, 'dirt');
+    await a.save.now();
+    const hash = a.world.hash();
+    await a.save.clear();
+    expect(db.metas.size).toBe(0);
+    await a.save.now();
+    expect(a.save.info().dirtyChunks).toBe(64);
+    const b = await session(new MemoryStore(), db);
+    expect(b.world.hash()).toBe(hash);
+  });
+
+  it('こわれた列は その列だけ生成に戻る。ほかの列と meta は そのまま', async () => {
     const store = new MemoryStore();
-    const key = saveKey(SEED);
-    for (const bad of [
-      'not json',
-      '{"version":99,"seed":12345,"blocks":[]}',
-      `{"version":1,"seed":1,"blocks":[]}`,
-      '{"version":1,"seed":12345,"blocks":[1]}',
-      '{"version":1,"seed":12345,"blocks":[999999999,1]}',
-      '{"version":1,"seed":12345,"blocks":[5,99]}',
-      'null',
-    ]) {
-      store.data.set(key, bad);
-      const s = session(store);
-      const fresh = s.world.hash();
-      expect(s.save.load()).toBe(false);
-      expect(s.world.hash()).toBe(fresh);
+    const db = new MemoryBackend();
+    const a = await session(store, db);
+    a.world.setBlock(2, 25, 2, 'dirt'); // 列 (0,0)
+    a.world.setBlock(40, 25, 40, 'dirt'); // 列 (2,2)
+    a.inventory.deserialize({ slots: [], selected: 3 });
+    await a.save.now();
+    const bad = db.chunks.get(`${SAVE_ID}/0/0`)!;
+    bad.data = Uint8Array.of(1, 2, 3, 4, 5); // deflate として読めない
+    const b = await session(store, db);
+    expect(b.loaded).toBe(true);
+    expect(b.restored.corrupt).toBe(1);
+    expect(b.world.getBlock(2, 25, 2)).toBe('air'); // 生成に戻った
+    expect(b.world.getBlock(40, 25, 40)).toBe('dirt');
+    expect(b.inventory.serialize()).toEqual({ slots: [], selected: 3 });
+    // 戻した列は、次の保存で 書き直される
+    await b.save.now();
+    expect(b.save.info().dirtyChunks).toBe(1);
+  });
+
+  it('形式の版が新しい列・高さがちがう列の扱い（v・h）', async () => {
+    const store = new MemoryStore();
+    const db = new MemoryBackend();
+    const a = await session(store, db);
+    a.world.setBlock(2, 25, 2, 'dirt');
+    a.world.setBlock(40, 25, 40, 'dirt');
+    await a.save.now();
+    db.chunks.get(`${SAVE_ID}/0/0`)!.v = 0; // 読みかえの関数がない古い形式
+    // 高さが低い保存: 上を空気で足す
+    const col = a.world.column(2, 2)!;
+    const low = await packColumn(2, 2, encodeSections(col.sections.slice(0, 2)), 2, 2);
+    db.chunks.set(`${SAVE_ID}/2/2`, low);
+    const b = await session(store, db);
+    expect(b.restored.corrupt).toBe(1);
+    expect(b.world.getBlock(2, 25, 2)).toBe('air');
+    expect(b.world.getBlock(40, 25, 40)).toBe('dirt');
+    expect(b.world.getBlock(40, b.world.size.y - 1, 40)).toBe('air');
+  });
+
+  it('新しい版の meta・ほかのシードの meta は さわらない。この遊びでは 保存しない（古いビルドで こわさない）', async () => {
+    for (const edit of [(m: Record<string, unknown>) => (m.v = 2), (m: Record<string, unknown>) => (m.seed = 1)]) {
+      const db = new MemoryBackend();
+      const a = await session(new MemoryStore(), db);
+      a.world.setBlock(2, 25, 2, 'dirt');
+      await a.save.now();
+      edit(db.metas.get(SAVE_ID)!);
+      const metaBefore = JSON.stringify(db.metas.get(SAVE_ID));
+      const b = await session(new MemoryStore(), db);
+      expect(b.loaded).toBe(false);
+      expect(b.restored.readOnly).toBe(true);
+      expect(b.save.info().enabled).toBe(false);
+      b.world.setBlock(3, 25, 3, 'stone');
+      await b.save.now();
+      expect(db.chunks.size).toBe(1);
+      expect(JSON.stringify(db.metas.get(SAVE_ID))).toBe(metaBefore);
     }
   });
 
-  it('gen=1・gen なし・size ちがいの保存は使わず、そのあとの保存は gen=2・size つき（AC20）', () => {
-    const key = saveKey(SEED);
-    const a = session(new MemoryStore());
-    a.world.setBlock(4, 10, 6, 'log');
-    a.save.now();
-    const good = JSON.parse((a.save as unknown as { d: { store: MemoryStore } }).d.store.getItem(key)!) as Record<string, unknown>;
-    expect(good.gen).toBe(2);
-    expect(good.size).toEqual([a.world.size.x, a.world.size.y, a.world.size.z]);
-    const variants: Array<Record<string, unknown>> = [
-      { ...good, gen: 1 },
-      { ...good, gen: undefined },
-      { ...good, size: [a.world.size.x, a.world.size.y, a.world.size.z + 1] },
-      { ...good, size: undefined },
-    ];
-    for (const v of variants) {
-      const store = new MemoryStore();
-      store.data.set(key, JSON.stringify(v));
-      const s = session(store);
-      const fresh = s.world.hash();
-      expect(s.save.load()).toBe(false);
-      expect(s.world.hash()).toBe(fresh);
-      s.save.now();
-      const after = JSON.parse(store.getItem(key)!) as Record<string, unknown>;
-      expect(after.gen).toBe(2);
-      expect(after.size).toEqual([s.world.size.x, s.world.size.y, s.world.size.z]);
-    }
+  it('meta だけこわれていても 列は読む（meta は初期値から）', async () => {
+    const db = new MemoryBackend();
+    const a = await session(new MemoryStore(), db);
+    a.world.setBlock(2, 25, 2, 'dirt');
+    await a.save.now();
+    db.metas.delete(SAVE_ID);
+    const b = await session(new MemoryStore(), db);
+    expect(b.loaded).toBe(false);
+    expect(b.restored.readOnly).toBeUndefined();
+    expect(b.world.getBlock(2, 25, 2)).toBe('dirt');
+    expect(db.chunks.size).toBe(1);
   });
 
-  it('保存できなくても（容量いっぱい）止まらず、保存済みの印は進まない', () => {
-    const store = new MemoryStore();
-    const s = session(store);
-    store.fail = true;
+  it('新しい形式の列があれば 何も上書きしない（保存しない）', async () => {
+    const db = new MemoryBackend();
+    const a = await session(new MemoryStore(), db);
+    a.world.setBlock(2, 25, 2, 'dirt');
+    await a.save.now();
+    db.chunks.get(`${SAVE_ID}/0/0`)!.v = 99;
+    const before = JSON.stringify([...db.chunks.values()].map((c) => [c.v, [...c.data]]));
+    const b = await session(new MemoryStore(), db);
+    expect(b.restored.readOnly).toBe(true);
+    b.world.setBlock(40, 25, 40, 'stone');
+    await b.save.now();
+    expect(JSON.stringify([...db.chunks.values()].map((c) => [c.v, [...c.data]]))).toBe(before);
+    expect(b.save.info().enabled).toBe(false);
+  });
+
+  it('大きな変更の早め保存は 失敗のあと くりかえさない', async () => {
+    const db = new MemoryBackend();
+    const s = await session(new MemoryStore(), db);
+    s.world.fill(0, 20, 0, 40, 40, 40, 'stone');
+    db.failWrites = true;
+    s.ticks.n = 1;
+    s.save.update(1);
+    await s.save.idle();
+    expect(s.save.info().failures).toBe(1);
+    for (let t = 2; t < 50; t++) {
+      s.ticks.n = t;
+      s.save.update(t);
+    }
+    await s.save.idle();
+    expect(s.save.info().failures).toBe(1);
+    db.failWrites = false;
+    s.ticks.n = 700;
+    s.save.update(700); // ふつうの間隔で やりなおす
+    await s.save.idle();
+    expect(s.save.info().writes).toBe(1);
+  });
+
+  it('書けなかったら 何も進まず、列は「さわった」に戻って 次の保存でやりなおす', async () => {
+    const db = new MemoryBackend();
+    const s = await session(new MemoryStore(), db);
+    s.world.setBlock(2, 25, 2, 'dirt');
+    db.failWrites = true;
     s.ticks.n = 10;
-    expect(() => s.save.now()).not.toThrow();
-    expect(s.save.info().lastSavedTick).toBeNull();
+    await expect(s.save.now()).resolves.toBeUndefined();
+    expect(s.save.info().failures).toBe(1);
+    expect(db.chunks.size).toBe(0);
+    expect(s.world.saveDirtyCount()).toBe(1);
+    db.failWrites = false;
+    await s.save.now();
+    expect(db.chunks.size).toBe(1);
+    expect(s.save.info().dirtyChunks).toBe(1);
   });
 
-  it('もどした位置が ブロックと重なる・世界の外 なら スタート地点', () => {
+  it('もどした位置が ブロックと重なる・世界の外 なら スタート地点', async () => {
     for (const bad of [{ x: 6.5, y: 5, z: 6.5 }, { x: -3, y: 30, z: 6 }, { x: 6.5, y: -2, z: 6.5 }, { x: NaN, y: 30, z: 6 }]) {
       const store = new MemoryStore();
-      const a = session(store);
+      const db = new MemoryBackend();
+      const a = await session(store, db);
       a.state.position.x = bad.x;
       a.state.position.y = bad.y;
       a.state.position.z = bad.z;
       a.state.yawDeg = 33;
-      a.save.now();
-      const b = session(store);
+      await a.save.now();
+      const b = await session(store, db);
       const sp = b.island.spawn();
-      b.save.load();
       expect(b.state.position).toEqual({ x: sp.x, y: sp.y, z: sp.z });
       expect(b.state.yawDeg).toBe(sp.yawDeg);
     }
   });
 
-  it('変わったマス 2,000 この保存が 10 ミリ秒以下の目安（記録）', () => {
-    const store = new MemoryStore();
-    const s = session(store);
-    let n = 0;
-    for (let x = 0; x < 64 && n < 2000; x++)
-      for (let z = 0; z < 64 && n < 2000; z++) {
-        s.world.setBlock(x, 28, z, 'stone');
-        n++;
-      }
-    s.save.now();
-    s.save.now();
-    expect(s.save.info().changedBlocks).toBeGreaterThanOrEqual(2000);
-    // 目安。CI の機械でぶれるので広めに見る
+  it('4 列＋meta の保存: メインスレッドの時間と書き終わり（記録）', async () => {
+    const db = new MemoryBackend();
+    const s = await session(new MemoryStore(), db);
+    for (const [cx, cz] of [[1, 1], [3, 1], [1, 3], [3, 3]]) for (let i = 0; i < 40; i++) s.world.setBlock(cx * 16 + (i % 8), 28 + (i % 3), cz * 16 + 2, i % 2 ? 'stone' : 'log');
+    await s.save.now();
+    expect(s.save.info().dirtyChunks).toBe(4);
+    // CI の機械でぶれるので 広めに見る（本当の目安は docs/perf-reports/VOX-F.md）
     expect(s.save.info().lastMs).toBeLessThan(50);
+  });
+});
+
+describe('古い localStorage の保存を 1 回だけ移す（AC4）', () => {
+  it('IndexedDB に移り、古いキーは残る。2 回目は読まない', async () => {
+    const store = new MemoryStore();
+    const db = new MemoryBackend();
+    const legacy = legacyText([[4, 10, 6, 'log'], [100, 20, 90, 'sand']]);
+    store.data.set(saveKey(SEED), legacy);
+    const a = await session(store, db);
+    expect(a.loaded).toBe(true);
+    expect(a.world.getBlock(4, 10, 6)).toBe('log');
+    expect(a.world.getBlock(100, 20, 90)).toBe('sand');
+    expect(a.inventory.serialize()).toEqual({ slots: [null, { item: 'sand', count: 7 }], selected: 1 });
+    await a.save.idle();
+    expect(db.metas.size).toBe(1);
+    expect(db.chunks.size).toBe(2);
+    expect(store.data.get(saveKey(SEED))).toBe(legacy); // 古いキーは消さない
+    expect(store.data.get(migratedKey(SAVE_ID))).toBe('1');
+    const hash = a.world.hash();
+
+    // 古い保存を変えても、もう読まない（IndexedDB の保存が 本物）
+    store.data.set(saveKey(SEED), legacyText([[5, 11, 6, 'stone']]));
+    const b = await session(store, db);
+    expect(b.loaded).toBe(true);
+    expect(b.world.hash()).toBe(hash);
+    expect(b.world.getBlock(5, 11, 6)).not.toBe('stone');
+  });
+
+  it('AC3（CHAR-1）: 「三人称でない」（third: false）と書かれた古い保存も そのまま読める（third は見ない）', async () => {
+    const store = new MemoryStore();
+    store.data.set(saveKey(SEED), legacyText([[4, 10, 6, 'log']]));
+    const a = await session(store, new MemoryBackend());
+    expect(a.loaded).toBe(true);
+    expect(a.state.yawDeg).toBe(90);
+  });
+
+  it('こわれた・版や島がちがう古い保存は 使わない', async () => {
+    const key = saveKey(SEED);
+    const good = JSON.parse(legacyText([[4, 10, 6, 'log']])) as Record<string, unknown>;
+    const bads = [
+      'not json',
+      'null',
+      JSON.stringify({ ...good, version: 99 }),
+      JSON.stringify({ ...good, seed: 1 }),
+      JSON.stringify({ ...good, gen: 1 }),
+      JSON.stringify({ ...good, gen: undefined }),
+      JSON.stringify({ ...good, size: [1, 2, 3] }),
+      JSON.stringify({ ...good, blocks: [1] }),
+      JSON.stringify({ ...good, blocks: [999999999, 1] }),
+      JSON.stringify({ ...good, blocks: [5, 99] }),
+    ];
+    for (const bad of bads) {
+      const store = new MemoryStore();
+      store.data.set(key, bad);
+      const s = await session(store, new MemoryBackend());
+      expect(s.loaded).toBe(false);
+      expect(s.world.getBlock(4, 10, 6)).not.toBe('log');
+    }
+  });
+});
+
+describe('pagehide の保険（AC5）', () => {
+  function hide(save: SaveManager) {
+    const handlers: Array<() => void> = [];
+    const win = { addEventListener: (_: string, f: () => void) => handlers.push(f), removeEventListener: () => {} };
+    const doc = { hidden: false, addEventListener: () => {}, removeEventListener: () => {} };
+    save.bindPageEvents(win as unknown as Window, doc as unknown as Document);
+    handlers[0]();
+  }
+
+  it('IndexedDB に書けなかった変更が、次の起動で戻って 書かれ、保険は消える', async () => {
+    const store = new MemoryStore();
+    const db = new MemoryBackend();
+    const a = await session(store, db);
+    a.world.setBlock(2, 25, 2, 'dirt');
+    await a.save.now(); // ここまでは書けた
+    a.world.setBlock(3, 25, 3, 'stone');
+    a.world.setBlock(40, 25, 40, 'stone');
+    a.inventory.deserialize({ slots: [], selected: 5 });
+    db.failWrites = true; // 閉じる途中で 書き終わらなかった
+    hide(a.save);
+    expect(store.data.has(PENDING_KEY)).toBe(true);
+    expect(store.data.get(PENDING_KEY)!.length).toBeLessThan(20000);
+    await a.save.idle();
+    db.failWrites = false;
+
+    const b = await session(store, db);
+    expect(b.loaded).toBe(true);
+    expect(b.world.getBlock(2, 25, 2)).toBe('dirt');
+    expect(b.world.getBlock(3, 25, 3)).toBe('stone');
+    expect(b.world.getBlock(40, 25, 40)).toBe('stone');
+    expect(b.inventory.serialize()).toEqual({ slots: [], selected: 5 });
+    await b.save.idle();
+    expect(store.data.has(PENDING_KEY)).toBe(false);
+    const c = await session(store, db); // IndexedDB にも 入った
+    expect(c.world.hash()).toBe(b.world.hash());
+  });
+
+  it('書けたあとは 保険を 置かない・消す', async () => {
+    const store = new MemoryStore();
+    const a = await session(store, new MemoryBackend());
+    a.world.setBlock(3, 25, 3, 'stone');
+    hide(a.save);
+    await a.save.idle();
+    expect(store.data.has(PENDING_KEY)).toBe(false);
+  });
+
+  it('入りきらないほど変えたら 保険ではなく ふつうの保存をする', async () => {
+    const db = new MemoryBackend();
+    const s = await session(new MemoryStore(), db);
+    s.world.fill(0, 20, 0, 40, 40, 40, 'stone'); // 約 5 万マス
+    expect(s.world.changeLogCount()).toBeGreaterThan(20000);
+    s.ticks.n = 1;
+    s.save.update(1);
+    await s.save.idle();
+    expect(db.writes).toBe(1);
+    expect(s.world.changeLogCount()).toBe(0);
   });
 });
 
@@ -329,94 +576,71 @@ describe('SaveManager: おとしもの ぶくろ（M3 §2.10）', () => {
     return b;
   }
 
-  it('保存して開き直すと ふくろが戻る', () => {
+  it('保存して開き直すと ふくろが戻る', async () => {
     const store = new MemoryStore();
+    const db = new MemoryBackend();
     const bag = { x: 6.5, y: 9, z: 6.5, item: 'dirt', count: 3, ticksLeft: 30000 };
-    const a = session(store, { n: 0 }, fakeBags([bag]));
-    a.save.now();
+    const a = await session(store, db, { bags: fakeBags([bag]) });
+    await a.save.now();
     const fb = fakeBags([]);
-    const b = session(store, { n: 0 }, fb);
-    expect(b.save.load()).toBe(true);
+    const b = await session(store, db, { bags: fb });
+    expect(b.loaded).toBe(true);
     expect(fb.list).toEqual([bag]);
   });
 
-  it('のこりステップだけが変わっても「変わった」とは数えない', () => {
-    const store = new MemoryStore();
+  it('のこりステップだけが変わっても「変わった」とは数えない', async () => {
+    const db = new MemoryBackend();
     const fb = fakeBags([{ x: 1, y: 2, z: 3, item: 'dirt', count: 1, ticksLeft: 100 }]);
-    const ticks = { n: 0 };
-    const a = session(store, ticks, fb);
-    a.save.now();
-    const first = store.data.get(saveKey(SEED));
+    const a = await session(new MemoryStore(), db, { bags: fb });
+    await a.save.now();
+    const n = db.writes;
     fb.list[0]!.ticksLeft = 50;
     a.save.saveIfChanged();
-    expect(store.data.get(saveKey(SEED))).toBe(first);
+    await a.save.idle();
+    expect(db.writes).toBe(n);
     fb.list = [];
     a.save.saveIfChanged();
-    expect(store.data.get(saveKey(SEED))).not.toBe(first);
+    await a.save.idle();
+    expect(db.writes).toBe(n + 1);
   });
 });
 
 describe('SaveManager 時刻', () => {
-  it('時刻と何日目が続きから始まる', () => {
+  it('時刻と何日目が続きから始まる', async () => {
     const store = new MemoryStore();
-    session(store, undefined, undefined, { t: 5000, d: 3 }).save.now();
+    const db = new MemoryBackend();
+    await (await session(store, db, { clock: { t: 5000, d: 3 } })).save.now();
     const c = { t: 1, d: 1 };
-    expect(session(store, undefined, undefined, c).save.load()).toBe(true);
+    expect((await session(store, db, { clock: c })).loaded).toBe(true);
     expect(c).toEqual({ t: 5000, d: 3 });
   });
 
-  it('古い保存（時刻なし）は昼の始まり', () => {
+  it('時刻のない meta は昼の始まり', async () => {
     const store = new MemoryStore();
-    session(store).save.now();
+    const db = new MemoryBackend();
+    await (await session(store, db)).save.now(); // clock なしで保存 = time なし
     const c = { t: 9, d: 9 };
-    expect(session(store, undefined, undefined, c).save.load()).toBe(true);
+    expect((await session(store, db, { clock: c })).loaded).toBe(true);
     expect(c).toEqual({ t: 0, d: 0 });
   });
 
-  it('時刻だけの変化では書かず、ページをかくすときは書く', () => {
-    const store = new MemoryStore();
+  it('時刻だけの変化では書かず、ページをかくすときは書く', async () => {
+    const db = new MemoryBackend();
     const c = { t: 100, d: 0 };
-    const a = session(store, undefined, undefined, c);
-    a.save.now();
-    const before = [...store.data.values()][0];
+    const a = await session(new MemoryStore(), db, { clock: c });
+    await a.save.now();
+    const n = db.writes;
     c.t = 900;
     a.save.saveIfChanged();
-    expect([...store.data.values()][0]).toBe(before);
+    await a.save.idle();
+    expect(db.writes).toBe(n);
     const handlers: Array<() => void> = [];
     const win = { addEventListener: (_: string, f: () => void) => handlers.push(f), removeEventListener: () => {} };
     const doc = { hidden: false, addEventListener: () => {}, removeEventListener: () => {} };
     a.save.bindPageEvents(win as unknown as Window, doc as unknown as Document);
     handlers[0]();
-    expect([...store.data.values()][0]).toContain('"dayTick":900');
-  });
-});
-
-describe('SaveManager: 広い世界（M5 AC21）', () => {
-  it('ひらち (100,8,60) とやま (64,25,28) で 500 個変えて、保存して読み直すと同じ。20ms 以下・30,000 文字以下', () => {
-    const store = new MemoryStore();
-    const a = session(store);
-    let n = 0;
-    for (let i = 0; i < 500; i++) {
-      const base = i % 2 === 0 ? { x: 100, y: 8, z: 60 } : { x: 64, y: 25, z: 28 };
-      const x = base.x + (Math.floor(i / 2) % 10);
-      const y = base.y + (Math.floor(i / 20) % 5);
-      const z = base.z + (Math.floor(i / 100) % 5);
-      if (a.world.setBlock(x, y, z, i % 4 === 0 ? 'log' : 'sand')) n++;
-    }
-    expect(n).toBeGreaterThan(0);
-    const times: number[] = [];
-    for (let k = 0; k < 5; k++) {
-      const t0 = performance.now();
-      a.save.now();
-      times.push(performance.now() - t0);
-    }
-    times.sort((p, q) => p - q);
-    expect(times[2]).toBeLessThanOrEqual(20);
-    const saved = [...store.data.values()][0];
-    expect(saved.length).toBeLessThanOrEqual(30000);
-    const hash = a.world.hash();
-    const b = session(store);
-    expect(b.save.load()).toBe(true);
-    expect(b.world.hash()).toBe(hash);
+    await a.save.idle();
+    expect(db.writes).toBe(n + 1);
+    expect((db.metas.get(SAVE_ID)!.time as { dayTick: number }).dayTick).toBe(900);
   });
 });

@@ -7,6 +7,12 @@ import { createPlayerHook } from './hook';
 /** 仮の世界: y<=8 は いし（床の上面 y=9）。fill で足す */
 class FakeWorld implements VoxelWorld {
   readonly size = { x: 64, y: 64, z: 64 };
+  isLoaded(x: number, z: number): boolean {
+    return x >= 0 && z >= 0 && x < this.size.x && z < this.size.z;
+  }
+  loadedBounds() {
+    return { x0: 0, z0: 0, x1: this.size.x, z1: this.size.z };
+  }
   private blocks = new Map<string, BlockId>();
   getBlock(x: number, y: number, z: number): BlockId | 'outside' {
     if (x < 0 || y < 0 || z < 0 || x >= 64 || y >= 64 || z >= 64) return 'outside';

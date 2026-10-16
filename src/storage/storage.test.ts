@@ -9,6 +9,12 @@ import { TANSU_COLORS, tansuPixels, type TansuFace } from './tansuArt';
 
 class W implements VoxelWorld {
   readonly size = { x: 32, y: 32, z: 32 };
+  isLoaded(x: number, z: number): boolean {
+    return x >= 0 && z >= 0 && x < this.size.x && z < this.size.z;
+  }
+  loadedBounds() {
+    return { x0: 0, z0: 0, x1: this.size.x, z1: this.size.z };
+  }
   b = new Map<string, BlockId>();
   getBlock(x: number, y: number, z: number): BlockId | 'outside' {
     return this.b.get(`${x},${y},${z}`) ?? 'air';

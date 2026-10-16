@@ -17,7 +17,7 @@ export interface FarmHookDeps {
   /** 世界の シード */
   seed: number;
   /** 世界を 走査して 数えるための 窓口（`world.getBlock` と `size`） */
-  world: { size: { x: number; y: number; z: number }; getBlock(x: number, y: number, z: number): BlockId | 'outside' };
+  world: { size: { y: number }; loadedBounds(): { x0: number; z0: number; x1: number; z1: number }; getBlock(x: number, y: number, z: number): BlockId | 'outside' };
   /** 置きもの の 計算（`farm.placement(seed)`）。なければ `deps.placement` と 同じものを つなぐ */
   placement: (seed: number) => FarmPlacement;
   /** M7-2: 持ち物（`farm.setCanWater`）。なければ false を 返す */
@@ -39,9 +39,10 @@ export function createFarmHook(d: FarmHookDeps) {
   const { farm, world } = d;
   const scan = (pred: (id: BlockId) => boolean) => {
     const out: Array<{ x: number; y: number; z: number; id: BlockId }> = [];
+    const eb = world.loadedBounds();
     for (let y = 0; y < world.size.y; y++)
-      for (let z = 0; z < world.size.z; z++)
-        for (let x = 0; x < world.size.x; x++) {
+      for (let z = eb.z0; z < eb.z1; z++)
+        for (let x = eb.x0; x < eb.x1; x++) {
           const id = world.getBlock(x, y, z);
           if (id !== 'outside' && pred(id)) out.push({ x, y, z, id });
         }

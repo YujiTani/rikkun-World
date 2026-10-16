@@ -86,7 +86,7 @@ test.describe('WEAPON-2 刀', () => {
       const id = h.yokai.spawn('nurikabe', 4.5, 9, 6.5, { ai: false, yawDeg: 270 });
       for (const st of ['chudan', 'jodan', 'gedan']) {
         h.blade.setStance(st);
-        h.yokai.setHp(id, 48);
+        h.yokai.setHp(id, 40);
         const n0 = h.blade.events().filter((e: any) => e.type === 'techHit').length;
         const hp0 = h.yokai.list().find((y: any) => y.id === id).hp;
         h.input.press('primary');

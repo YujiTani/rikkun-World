@@ -13,7 +13,8 @@ export interface WorldHook {
   fill(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, id: BlockId): number;
   groundHeight(x: number, z: number): number;
   countBlocks(): Record<BlockId, number>;
-  hash(): string;
+  /** 引数なし: 読みこんだ全部。(cx, cz): その列だけ */
+  hash(cx?: number, cz?: number): string;
   spawn(): SpawnPoint;
   testArea(): TestArea;
   /** M5: 地形の場所 */
@@ -31,13 +32,16 @@ export interface WorldHook {
 export function createWorldHook(world: ArrayVoxelWorld, renderer: WorldRenderer, island: IslandInfo): WorldHook {
   return {
     seed: () => island.seed,
-    size: () => ({ ...world.size }),
+    size: () => {
+      const b = world.loadedBounds();
+      return { x: b.x1 - b.x0, y: world.size.y, z: b.z1 - b.z0 };
+    },
     getBlock: (x, y, z) => world.getBlock(x, y, z),
     setBlock: (x, y, z, id) => world.setBlock(x, y, z, id),
     fill: (x0, y0, z0, x1, y1, z1, id) => world.fill(x0, y0, z0, x1, y1, z1, id),
     groundHeight: (x, z) => island.groundHeight(x, z),
     countBlocks: () => world.countBlocks(),
-    hash: () => world.hash(),
+    hash: (cx, cz) => (cx === undefined || cz === undefined ? world.hash() : world.hashColumn(cx, cz)),
     spawn: () => island.spawn(),
     testArea: () => island.testArea(),
     regions: () => island.regions(),

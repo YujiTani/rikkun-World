@@ -8,6 +8,12 @@ import { DigSystemImpl } from './DigSystem';
 
 class W implements VoxelWorld {
   readonly size = { x: 64, y: 32, z: 64 };
+  isLoaded(x: number, z: number): boolean {
+    return x >= 0 && z >= 0 && x < this.size.x && z < this.size.z;
+  }
+  loadedBounds() {
+    return { x0: 0, z0: 0, x1: this.size.x, z1: this.size.z };
+  }
   isSolid(_x: number, y: number): boolean {
     return y <= 8;
   }

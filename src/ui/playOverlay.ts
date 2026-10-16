@@ -151,6 +151,28 @@ export class PlayOverlay {
     return this.tab_;
   }
 
+  /**
+   * おとな向けの小さな入り口（VOX-F）: ほぞんを ファイル（.rikkun.gz）に だす・よみこむ。
+   * Safari が 7 日で 保存を消すことに そなえる。子どもの目に 入りにくい 右下のすみ。
+   */
+  mountAdult(adult: { exportSave(): Promise<void>; importSave(file: File): Promise<void> }): void {
+    const box = document.createElement('details');
+    box.className = 'po-adult';
+    box.innerHTML =
+      `<summary>おとなの ひと</summary>` +
+      `<button type="button" data-adult="export">ほぞんを ファイルに かきだす</button>` +
+      `<label class="po-adult-load">ファイルから よみこむ<input type="file" accept=".gz,.rikkun.gz" hidden></label>`;
+    box.addEventListener('click', (e) => e.stopPropagation()); // あそびは始めない
+    box.querySelector<HTMLButtonElement>('[data-adult="export"]')!.addEventListener('click', () => void adult.exportSave());
+    const input = box.querySelector<HTMLInputElement>('input')!;
+    input.addEventListener('change', () => {
+      const f = input.files?.[0];
+      input.value = '';
+      if (f) void adult.importSave(f);
+    });
+    this.el.appendChild(box);
+  }
+
   /** タブの名前（ひらがな）。ならびは GUIDE_TAB_IDS と同じ */
   tabs(): string[] {
     return GUIDE_TAB_IDS.map((id) => GUIDE_TABS[id].label);

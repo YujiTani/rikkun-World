@@ -1,5 +1,7 @@
-import type { BlockId, Inventory, PlayerState, ScreenSettings, SpawnPoint, Vec3 } from '../contracts';
-import { BLOCK_TYPES, blockIdFromIndex } from '../world/blocks/blockTypes';
+import type { BlockId, ChunkColumn, Inventory, PlayerState, ScreenSettings, SpawnPoint, Vec3 } from '../contracts';
+import { packColumn, SAVE_ID, type PersistBackend, type StoredChunk, type StoredMeta } from './backend';
+import { encodeSections } from './chunkCodec';
+import { migratedKey, NO_SAVE, PENDING_KEY, PENDING_MAX_CELLS, type RestoredSave } from './restore';
 
 /** localStorage と同じ形（テストでは偽物を渡す） */
 export interface KeyValueStore {
@@ -8,13 +10,29 @@ export interface KeyValueStore {
   removeItem(key: string): void;
 }
 
-/** 保存と読みこみに必要な世界の窓口（ArrayVoxelWorld がそのまま合う） */
+/** 保存と読みこみに必要な世界の窓口（ChunkedVoxelWorld がそのまま合う） */
 export interface SaveWorld {
-  readonly size: { x: number; y: number; z: number };
+  readonly size: { readonly y: number };
+  loadedBounds(): { x0: number; z0: number; x1: number; z1: number };
+  isLoaded(x: number, z: number): boolean;
   /** ブロックの番号（BLOCK_TYPES の順）。範囲外は -1 */
   getIndex(x: number, y: number, z: number): number;
   setBlock(x: number, y: number, z: number, id: BlockId): boolean;
   isSolid(x: number, y: number, z: number): boolean;
+}
+
+/** 保存に使う世界の窓口: さわった列（VOX-F）と、変えたマスの記録 */
+export interface SaveTracking {
+  saveDirtyCount(): number;
+  takeSaveDirty(): ChunkColumn[];
+  requeueSaveDirty(cols: readonly { cx: number; cz: number }[]): void;
+  markAllSaveDirty(): void;
+  changeLogEnd(): number;
+  changeLogStart(): number;
+  changeLogCount(): number;
+  changeLogCells(): readonly number[];
+  dropChangeLogTo(end: number): void;
+  changeLogOverflowed(): boolean;
 }
 
 /** プレイヤーの位置と向きの出し入れ（PlayerController と CameraRig をつなぐ） */
@@ -35,7 +53,7 @@ export interface SaveExtra {
   deserialize(data: unknown): void;
 }
 
-/** M7: 農業。前の保存には 置きものを あとから置く（`changed` = 保存の「島とちがうマス」の番号） */
+/** M7: 農業。前の保存には 置きものを あとから置く（`changed` = 古い保存の「島とちがうマス」の番号） */
 export interface SaveFarm extends SaveExtra {
   placeLegacy?(changed: ReadonlySet<number>): boolean;
 }
@@ -49,15 +67,19 @@ export interface SaveClock {
 }
 
 export interface SaveDeps {
-  world: SaveWorld;
+  world: SaveWorld & SaveTracking;
   seed: number;
-  /** 島を作った直後の世界（snapshotWorld で取る）。これとちがうマスだけ保存する */
-  baseline: Uint8Array;
+  /** セーブの名前（IndexedDB のキー。既定のシードは 'main'） */
+  saveId?: string;
+  /** IndexedDB（かメモリ版）。null = 保存しない */
+  db: PersistBackend | null;
+  /** localStorage（pagehide の保険・古い保存の読み出し）。null = ?nosave=1 で 保存しない */
+  store: KeyValueStore | null;
+  /** 起動のとき restoreStoredWorld が返したもの（なければ 新しい世界） */
+  restored?: RestoredSave;
   inventory: Inventory;
   player: SavePlayer;
   spawn: () => SpawnPoint;
-  /** null = 保存しない（?nosave=1） */
-  store: KeyValueStore | null;
   /** 今までに更新した回数 */
   tick: () => number;
   settings: Pick<ScreenSettings, 'saveIntervalTicks'>;
@@ -82,14 +104,30 @@ export interface SaveDeps {
 export interface SaveInfo {
   enabled: boolean;
   lastSavedTick: number | null;
+  /** 直近の保存で メインスレッドを使った時間（縮める前まで）。書き終わりは doneMs */
   lastMs: number;
-  changedBlocks: number;
+  /** 直近の保存で 書いた列の数 */
+  dirtyChunks: number;
+  /** 直近の保存で 書いたバイト数（縮めた列 + meta の文字数） */
   bytes: number;
+  /** 保存を始めてから 書き終わるまで */
+  doneMs: number;
+  /** 書き終わった回数 / 失敗した回数 */
+  writes: number;
+  failures: number;
+  /** 前の保存から さわった列（まだ書いていない） */
+  pendingChunks: number;
+  /** 古い localStorage の保存を 移した */
+  migrated: boolean;
+  /** 保存を読んだとき: 保存した列の数・こわれて生成に戻した列の数 */
+  loadedColumns: number;
+  corruptColumns: number;
 }
 
 export const SAVE_VERSION = 1;
-/** 島の作り方の版。島生成（src/world/gen）で地形が変わったら上げる（差分の番号が別の場所に当たらないように、版がちがう保存は使わない） */
+/** 島の作り方の版。島生成（src/world/gen）で地形が変わったら上げる。保存した列は そのまま読み、保存していない所だけ新しい生成 */
 export const SAVE_GEN = 2;
+/** 古い（VOX-F より前の）保存の localStorage のキー。読むだけで 消さない */
 export const SAVE_KEY_PREFIX = 'rikkun-world-save-v1-';
 export const saveKey = (seed: number): string => `${SAVE_KEY_PREFIX}${seed}`;
 
@@ -97,13 +135,10 @@ export const saveKey = (seed: number): string => `${SAVE_KEY_PREFIX}${seed}`;
 const BODY = { halfWidth: 0.3, height: 1.8 } as const;
 const EPS = 1e-4;
 
-/** 世界のブロック番号を全部写し取る（島を作った直後に呼ぶ） */
-export function snapshotWorld(world: SaveWorld): Uint8Array {
-  const { x: sx, y: sy, z: sz } = world.size;
-  const out = new Uint8Array(sx * sy * sz);
-  let i = 0;
-  for (let y = 0; y < sy; y++) for (let z = 0; z < sz; z++) for (let x = 0; x < sx; x++) out[i++] = world.getIndex(x, y, z);
-  return out;
+/** 古い保存の平らな番号に使う大きさ（原点から x・z の端まで） */
+export function saveDims(world: SaveWorld): { x: number; y: number; z: number } {
+  const b = world.loadedBounds();
+  return { x: b.x1, y: world.size.y, z: b.z1 };
 }
 
 /** 体の箱が、ブロックと重なる・世界の横や下の外に出るなら false（上にはみ出すのは OK） */
@@ -115,7 +150,7 @@ export function isBodyPlaceable(world: SaveWorld, p: Vec3): boolean {
   const z1 = Math.floor(p.z + BODY.halfWidth - EPS);
   const y0 = Math.floor(p.y + EPS);
   const y1 = Math.floor(p.y + BODY.height - EPS);
-  if (x0 < 0 || z0 < 0 || y0 < 0 || x1 >= world.size.x || z1 >= world.size.z) return false;
+  if (x0 < 0 || z0 < 0 || y0 < 0 || !world.isLoaded(x1, z1)) return false;
   for (let y = y0; y <= y1; y++)
     for (let z = z0; z <= z1; z++)
       for (let x = x0; x <= x1; x++) if (world.isSolid(x, y, z)) return false;
@@ -125,160 +160,199 @@ export function isBodyPlaceable(world: SaveWorld, p: Vec3): boolean {
 const round = (n: number) => Math.round(n * 1000) / 1000;
 
 /**
- * 自動セーブ（M2 §2.7・§4.4）。島との差分・持ち物・プレイヤーを localStorage に保存する。
+ * 自動セーブ（VOX-plan §7）。さわった列は 丸ごと縮めて IndexedDB に、持ち物・プレイヤーなどは meta に書く。
  * 子どもには何も見せない。失敗しても遊びは続ける。
  */
 export class SaveManager {
-  private lastBody: string | null = null;
+  private lastKey: string | null = null;
   private lastCheckTick = 0;
   private lastTimeKey = '';
   private infoState: SaveInfo;
+  private readonly saveId: string;
+  /** 書く順番（前の保存が終わってから 次を書く） */
+  private chain: Promise<void> = Promise.resolve();
+  private inFlight = 0;
+  private suspended = false;
+  /** 次の保存で 変わっていなくても書く（保険や古い保存から戻したとき） */
+  private forceNext = false;
+  /** 直近の保存が失敗した（そのあいだ 大きな変更の早め保存は しない。ふつうの間隔で やりなおす） */
+  private lastFailed = false;
+  private migratePending = false;
+  private readonly restored: RestoredSave;
 
   constructor(private readonly d: SaveDeps) {
-    this.infoState = { enabled: d.store !== null, lastSavedTick: null, lastMs: 0, changedBlocks: 0, bytes: 0 };
+    this.saveId = d.saveId ?? SAVE_ID;
+    this.restored = d.restored ?? NO_SAVE;
+    this.infoState = {
+      enabled: d.store !== null && d.db !== null && !(d.restored?.readOnly ?? false),
+      lastSavedTick: null,
+      lastMs: 0,
+      dirtyChunks: 0,
+      bytes: 0,
+      doneMs: 0,
+      writes: 0,
+      failures: 0,
+      pendingChunks: 0,
+      migrated: false,
+      loadedColumns: this.restored.columns,
+      corruptColumns: this.restored.corrupt,
+    };
   }
 
   info(): SaveInfo {
-    return { ...this.infoState };
+    return { ...this.infoState, pendingChunks: this.d.world.saveDirtyCount() };
   }
 
-  /** 起動のとき: 保存があれば世界・持ち物・プレイヤーを戻す。戻したら true */
+  private get on(): boolean {
+    return this.d.store !== null && this.d.db !== null && !this.suspended && !this.restored.readOnly;
+  }
+
+  /** 起動のとき: 保存があれば 持ち物・プレイヤーなどを戻す（列は restoreStoredWorld が 世界に入れ済み）。戻したら true */
   load(): boolean {
     this.lastCheckTick = this.d.tick();
-    const store = this.d.store;
-    if (!store) return false;
+    const data = this.restored.meta;
+    if (!this.on || data === null) return false;
     try {
-      const raw = store.getItem(saveKey(this.d.seed));
-      if (raw === null) return false;
+      this.restoreAll(data);
+      this.lastKey = this.makeMeta().key;
+      this.lastTimeKey = this.timeKey();
       let legacyPlaced = false;
-      const data = JSON.parse(raw) as Record<string, unknown>;
-      if (!data || data.version !== SAVE_VERSION || data.seed !== this.d.seed) return false;
-      // M5: gen が 2 でない（gen が無いものもふくむ）、size がちがう保存は使わない
-      if (data.gen !== SAVE_GEN) return false;
-      const { x: sx, y: sy, z: sz } = this.d.world.size;
-      const sz0 = data.size;
-      if (!Array.isArray(sz0) || sz0.length !== 3 || sz0[0] !== sx || sz0[1] !== sy || sz0[2] !== sz) return false;
-      const blocks = data.blocks;
-      if (!Array.isArray(blocks) || blocks.length % 2 !== 0) return false;
-      const total = sx * sy * sz;
-      // 先に全部しらべる（途中でこわれていたら何も変えない）
-      for (let k = 0; k < blocks.length; k += 2) {
-        const i = blocks[k];
-        const v = blocks[k + 1];
-        if (!Number.isInteger(i) || i < 0 || i >= total) return false;
-        if (!Number.isInteger(v) || v < 0 || v >= BLOCK_TYPES.length) return false;
-      }
-      for (let k = 0; k < blocks.length; k += 2) {
-        const i = blocks[k] as number;
-        const x = i % sx;
-        const z = Math.floor(i / sx) % sz;
-        const y = Math.floor(i / (sx * sz));
-        this.d.world.setBlock(x, y, z, blockIdFromIndex(blocks[k + 1] as number));
-      }
-      try {
-        this.d.inventory.deserialize(data.inventory);
-      } catch {
-        this.d.inventory.clear();
-      }
-      try {
-        this.restorePlayer(data.player);
-      } catch {
-        const sp = this.d.spawn();
-        this.d.player.set({ position: { x: sp.x, y: sp.y, z: sp.z }, velocity: { x: 0, y: 0, z: 0 }, yawDeg: sp.yawDeg, pitchDeg: sp.pitchDeg });
-      }
-      try {
-        this.d.bags?.deserialize(data.bags);
-      } catch {
-        this.d.bags?.deserialize([]);
-      }
-      // M4: 古い保存（かまど・そうびが無い）もそのまま開ける
-      try {
-        this.d.furnaces?.deserialize(data.furnaces);
-      } catch {
-        this.d.furnaces?.deserialize([]);
-      }
-      try {
-        this.d.armor?.deserialize(data.armor);
-      } catch {
-        this.d.armor?.deserialize(null);
-      }
-      try {
-        this.d.level?.deserialize(data.level);
-      } catch {
-        this.d.level?.deserialize(null);
-      }
-      try {
-        this.d.storage?.deserialize(data.storage);
-      } catch {
-        this.d.storage?.deserialize(null);
-      }
-      try {
-        this.d.achievements?.deserialize(data.achievements);
-      } catch {
-        this.d.achievements?.deserialize(null);
-      }
-      try {
-        this.d.farm?.deserialize(data.farm);
-      } catch {
-        // 新しい保存（farm のキーがある）でこわれたときは 置いた印を 残す。前の保存（キーなし）は null
-        this.d.farm?.deserialize(data.farm === undefined || data.farm === null ? null : {});
-      }
-      if (this.d.farm?.placeLegacy) {
-        const changedSet = new Set<number>();
-        for (let k = 0; k < blocks.length; k += 2) changedSet.add(blocks[k] as number);
+      if (this.restored.legacy && this.d.farm?.placeLegacy) {
         try {
-          if (this.d.farm.placeLegacy(changedSet)) legacyPlaced = true;
+          legacyPlaced = this.d.farm.placeLegacy(this.restored.legacy.changed);
         } catch {
           /* 置きものに失敗しても 遊びは続ける */
         }
       }
-      this.restoreTime(data.time);
-      this.lastBody = this.makeBody().body;
-      this.lastTimeKey = this.timeKey();
-      if (legacyPlaced) this.lastBody = null; // 置いた分と印を 次の保存で 書く
-      this.infoState.changedBlocks = blocks.length / 2;
+      if (legacyPlaced) this.lastKey = null; // 置いた分と印を 次の保存で 書く
+      if (this.restored.legacy) {
+        this.migratePending = true;
+        this.forceNext = true;
+        this.infoState.migrated = true;
+        void this.write(true); // 古い保存を IndexedDB に移す（古いキーは消さない）
+      } else if (this.restored.fromPending) {
+        this.forceNext = true;
+        void this.write(true);
+      }
       return true;
     } catch {
       return false; // こわれた保存は使わない（次の保存で上書き）
     }
   }
 
-  /** すぐ保存する */
-  now(): void {
-    this.write(true);
+  private restoreAll(data: StoredMeta): void {
+    try {
+      this.d.inventory.deserialize(data.inventory);
+    } catch {
+      this.d.inventory.clear();
+    }
+    try {
+      this.restorePlayer(data.player);
+    } catch {
+      const sp = this.d.spawn();
+      this.d.player.set({ position: { x: sp.x, y: sp.y, z: sp.z }, velocity: { x: 0, y: 0, z: 0 }, yawDeg: sp.yawDeg, pitchDeg: sp.pitchDeg });
+    }
+    try {
+      this.d.bags?.deserialize(data.bags);
+    } catch {
+      this.d.bags?.deserialize([]);
+    }
+    // M4: 古い保存（かまど・そうびが無い）もそのまま開ける
+    try {
+      this.d.furnaces?.deserialize(data.furnaces);
+    } catch {
+      this.d.furnaces?.deserialize([]);
+    }
+    try {
+      this.d.armor?.deserialize(data.armor);
+    } catch {
+      this.d.armor?.deserialize(null);
+    }
+    try {
+      this.d.level?.deserialize(data.level);
+    } catch {
+      this.d.level?.deserialize(null);
+    }
+    try {
+      this.d.storage?.deserialize(data.storage);
+    } catch {
+      this.d.storage?.deserialize(null);
+    }
+    try {
+      this.d.achievements?.deserialize(data.achievements);
+    } catch {
+      this.d.achievements?.deserialize(null);
+    }
+    try {
+      this.d.farm?.deserialize(data.farm);
+    } catch {
+      // 新しい保存（farm のキーがある）でこわれたときは 置いた印を 残す。前の保存（キーなし）は null
+      this.d.farm?.deserialize(data.farm === undefined || data.farm === null ? null : {});
+    }
+    this.restoreTime(data.time);
+  }
+
+  /** すぐ保存する。書き終わると解決する（失敗しても 解決する） */
+  now(): Promise<void> {
+    return this.write(true);
   }
 
   /** 前の保存から何か変わっていれば保存する（ロックが外れたとき・画面を閉じたとき・ページを閉じるとき） */
   saveIfChanged(): void {
-    this.write(false);
+    void this.write(false);
   }
 
   /** 毎ステップ呼ぶ。`currentTick` はこのステップが終わったあとの tick */
   update(currentTick: number): void {
-    if (!this.d.store) return;
-    if (currentTick - this.lastCheckTick < this.d.settings.saveIntervalTicks) return;
+    if (!this.on) return;
+    const w = this.d.world;
+    // 保険に入りきらないほど 変えたら、閉じる前に ふつうの保存をしておく
+    const bigLog = w.changeLogCount() > PENDING_MAX_CELLS && this.inFlight === 0 && !this.lastFailed;
+    if (currentTick - this.lastCheckTick < this.d.settings.saveIntervalTicks && !bigLog) return;
     this.lastCheckTick = currentTick;
-    this.write(false);
+    void this.write(false);
   }
 
-  /** 今のシードの保存を消す（遊んでいる世界はそのまま） */
-  clear(): void {
-    const store = this.d.store;
-    if (!store) return;
+  /** 今のセーブを消す（遊んでいる世界はそのまま。そのあとの保存で 今の世界を丸ごと書きなおす） */
+  clear(): Promise<void> {
+    const { store, db } = this.d;
+    if (!store || !db) return Promise.resolve();
     try {
-      store.removeItem(saveKey(this.d.seed));
+      store.removeItem(PENDING_KEY);
+      store.setItem(migratedKey(this.saveId), '1');
     } catch {
       /* 何もしない */
     }
-    this.lastBody = null;
+    this.lastKey = null;
     this.infoState.lastSavedTick = null;
     this.infoState.bytes = 0;
-    this.infoState.changedBlocks = 0;
+    this.infoState.dirtyChunks = 0;
+    this.d.world.markAllSaveDirty();
+    const p = this.chain.then(() => db.clear(this.saveId)).catch(() => {});
+    this.chain = p;
+    return p;
+  }
+
+  /** 保存をとめる（ファイルから読みこんで、ページを読みなおす前に呼ぶ） */
+  suspend(): void {
+    this.suspended = true;
+  }
+
+  resume(): void {
+    this.suspended = false;
+  }
+
+  /** 書いている最中のものが 全部終わるまで待つ */
+  idle(): Promise<void> {
+    return this.chain;
   }
 
   /** ページを閉じる・かくれるときに保存する。戻り値で解除 */
   bindPageEvents(win: Window, doc: Document): () => void {
-    const onHide = () => this.write(false, true);
+    const onHide = () => {
+      void this.write(false, true);
+      this.writePending();
+    };
     const onVisibility = () => {
       if (doc.hidden) onHide();
     };
@@ -288,6 +362,26 @@ export class SaveManager {
       win.removeEventListener('pagehide', onHide);
       doc.removeEventListener('visibilitychange', onVisibility);
     };
+  }
+
+  /**
+   * pagehide の保険: まだ IndexedDB に書けていない変更（変えたマスの一覧 + meta）を、同期で localStorage に小さく置く。
+   * 次の起動で当てて IndexedDB に書き、消す。入りきらないほど多いときは 置かない（ふつうの保存にたよる）。
+   */
+  private writePending(): void {
+    const { store, world } = this.d;
+    if (!this.on || !store) return;
+    try {
+      const n = world.changeLogCount();
+      if (n === 0 && this.inFlight === 0) return;
+      if (n > PENDING_MAX_CELLS || world.changeLogOverflowed()) return;
+      const metaNow = this.makeMeta().meta;
+      const c = this.d.clock;
+      const meta: StoredMeta = { ...metaNow, ...(c ? { time: { day: c.day(), dayTick: c.dayTick() } } : {}), tick: this.d.tick() };
+      store.setItem(PENDING_KEY, JSON.stringify({ saveId: this.saveId, cells: world.changeLogCells(), meta }));
+    } catch {
+      /* 容量いっぱいなど: あきらめる */
+    }
   }
 
   private timeKey(): string {
@@ -326,21 +420,13 @@ export class SaveManager {
     // CHAR-1 第 5 版: 三人称だけ。古い保存の third は見ない
   }
 
-  /** 島とちがうマス・持ち物・プレイヤー（tick なし）を文字にする */
-  private makeBody(): { body: string; full: string; changed: number } {
-    const { world, baseline } = this.d;
-    const { x: sx, y: sy, z: sz } = world.size;
-    const blocks: number[] = [];
-    let i = 0;
-    for (let y = 0; y < sy; y++)
-      for (let z = 0; z < sz; z++)
-        for (let x = 0; x < sx; x++, i++) {
-          const v = world.getIndex(x, y, z);
-          if (v !== baseline[i]) blocks.push(i, v);
-        }
+  /**
+   * meta（今の JSON の blocks 以外。time・tick なし）と、変わったか比べる文字。
+   * 比べる文字には のこりステップを入れない（毎ステップ変わるため）。JSON.stringify は 1 回だけ。
+   */
+  private makeMeta(): { meta: StoredMeta; key: string } {
     const st = this.d.player.get();
     const bagsFull = this.d.bags?.serialize() ?? [];
-    // 比べるときは のこりステップを入れない（毎ステップ変わるため）
     const bagsKey = bagsFull.map((b) => ({ ...b, ticksLeft: 0 }));
     // 作物の ticks・じょうろ の のこり・ごきげん の のこり も 毎ステップ変わるので 比べるときは 0 にする
     const farmFull = this.d.farm?.serialize() ?? null;
@@ -350,12 +436,12 @@ export class SaveManager {
       const zeroLast = (a: unknown, n: number) => (Array.isArray(a) ? a.map((v, k) => (k % n === n - 1 ? 0 : v)) : a);
       return { ...f, crops: zeroLast(f.crops, 5), watered: zeroLast(f.watered, 4), happy: zeroLast(f.happy, 4) };
     })();
-    const make = (bags: unknown, farmData: unknown) => JSON.stringify({
-      version: SAVE_VERSION,
+    const sp = this.d.spawn();
+    const make = (bags: unknown, farm: unknown): StoredMeta => ({
+      v: SAVE_VERSION,
       gen: SAVE_GEN,
-      size: [world.size.x, world.size.y, world.size.z],
       seed: this.d.seed,
-      blocks,
+      spawn: { x: sp.x, y: sp.y, z: sp.z },
       inventory: this.d.inventory.serialize(),
       player: {
         x: round(st.position.x),
@@ -370,37 +456,83 @@ export class SaveManager {
       level: this.d.level?.serialize() ?? null,
       storage: this.d.storage?.serialize() ?? null,
       achievements: this.d.achievements?.serialize() ?? null,
-      farm: farmData,
+      farm,
     });
-    return { body: make(bagsKey, farmKey), full: make(bagsFull, farmFull), changed: blocks.length / 2 };
+    // inventory などは 2 回 serialize しない: 比べる側の meta から 取りだす
+    const keyObj = make(bagsKey, farmKey);
+    const key = JSON.stringify(keyObj);
+    const meta: StoredMeta = { ...keyObj, bags: bagsFull, farm: farmFull };
+    return { meta, key };
   }
 
-  private write(force: boolean, flushTime = false): void {
-    const store = this.d.store;
-    if (!store) return;
+  /** 保存を始める。同期の部分（比べる・さわった列を縮める前のバイト列にする）はここ。書き終わると解決する */
+  private write(force: boolean, flushTime = false): Promise<void> {
+    const db = this.d.db;
+    if (!this.on || !db) return Promise.resolve();
     const t0 = performance.now();
+    const w = this.d.world;
     this.lastCheckTick = this.d.tick(); // 「前の保存から 600 ステップ」の数え始め
+    let taken: ChunkColumn[] = [];
     try {
-      const { body, full, changed } = this.makeBody();
+      const { meta, key } = this.makeMeta();
       const timeKey = this.timeKey();
-      if (!force && body === this.lastBody && !(flushTime && timeKey !== this.lastTimeKey)) return;
+      const dirty = w.saveDirtyCount();
+      if (!force && !this.forceNext && dirty === 0 && key === this.lastKey && !(flushTime && timeKey !== this.lastTimeKey)) return Promise.resolve();
+      this.forceNext = false;
       const tick = this.d.tick();
       const c = this.d.clock;
-      const timeText = c ? `,"time":{"day":${c.day()},"dayTick":${c.dayTick()}}` : '';
-      const text = `${full.slice(0, -1)}${timeText},"tick":${tick}}`;
+      if (c) meta.time = { day: c.day(), dayTick: c.dayTick() };
+      meta.tick = tick;
+      taken = w.takeSaveDirty();
+      const raws = taken.map((col) => ({ cx: col.cx, cz: col.cz, h: col.sections.length, raw: encodeSections(col.sections) }));
+      const logEnd = w.changeLogEnd();
+      this.lastKey = key;
       this.lastTimeKey = timeKey;
-      store.setItem(saveKey(this.d.seed), text);
-      this.lastBody = body;
-      this.infoState = {
-        enabled: true,
-        lastSavedTick: tick,
-        lastMs: performance.now() - t0,
-        changedBlocks: changed,
-        bytes: text.length,
-      };
-    } catch {
-      // 容量いっぱいなど: 保存せずに遊び続ける。子どもには何も出さない
+      this.infoState.lastSavedTick = tick;
+      this.infoState.dirtyChunks = taken.length;
       this.infoState.lastMs = performance.now() - t0;
+      this.inFlight++;
+      const run = async () => {
+        try {
+          const recs: StoredChunk[] = await Promise.all(raws.map((r) => packColumn(r.cx, r.cz, r.raw, SAVE_GEN, r.h)));
+          await db.write(this.saveId, recs, meta);
+          w.dropChangeLogTo(logEnd);
+          let bytes = key.length;
+          for (const r of recs) bytes += r.data.length;
+          this.infoState.bytes = bytes;
+          this.infoState.writes++;
+          this.lastFailed = false;
+          this.infoState.doneMs = performance.now() - t0;
+          try {
+            this.d.store?.removeItem(PENDING_KEY);
+            if (this.migratePending) {
+              this.d.store?.setItem(migratedKey(this.saveId), '1');
+              this.migratePending = false;
+            }
+          } catch {
+            /* 何もしない */
+          }
+        } catch {
+          // 容量いっぱい・トランザクション失敗: 何も書けていない。列を「さわった」に戻して 次の保存で やりなおす
+          w.requeueSaveDirty(taken);
+          this.lastKey = null;
+          this.infoState.failures++;
+          this.lastFailed = true;
+          this.infoState.doneMs = performance.now() - t0;
+        } finally {
+          this.inFlight--;
+        }
+      };
+      const p = this.chain.then(run);
+      this.chain = p;
+      return p;
+    } catch {
+      // 縮める前に失敗: 列を戻して 遊び続ける。子どもには何も出さない
+      w.requeueSaveDirty(taken);
+      this.lastKey = null;
+      this.infoState.failures++;
+      this.infoState.lastMs = performance.now() - t0;
+      return Promise.resolve();
     }
   }
 }

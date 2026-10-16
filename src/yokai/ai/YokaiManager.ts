@@ -573,7 +573,9 @@ export class YokaiManager implements YokaiWorld {
     if (!kind) return;
     const ai = KIND_AI[kind];
     const night = this.time.phase() === 'night';
-    const { x: sx, z: sz } = this.world.size;
+    const eb = this.world.loadedBounds();
+    const sx = eb.x1;
+    const sz = eb.z1;
     const minD = Math.max(this.config.yokaiSpawnMinDist, this.config.yokaiSpawnNearExclude);
     const maxD = Math.max(minD, this.config.yokaiSpawnMaxDist);
     for (let t = 0; t < AI_CONST.spawnTries; t++) {
@@ -1008,8 +1010,9 @@ export class YokaiManager implements YokaiWorld {
     const ai = KIND_AI[e.kind];
     if (ai.flies) {
       const r = ai.radius;
-      if (x < r + AI_CONST.edgeMargin || z < r + AI_CONST.edgeMargin) return false;
-      if (x > this.world.size.x - r - AI_CONST.edgeMargin || z > this.world.size.z - r - AI_CONST.edgeMargin) return false;
+      const eb = this.world.loadedBounds();
+      if (x < eb.x0 + r + AI_CONST.edgeMargin || z < eb.z0 + r + AI_CONST.edgeMargin) return false;
+      if (x > eb.x1 - r - AI_CONST.edgeMargin || z > eb.z1 - r - AI_CONST.edgeMargin) return false;
       const s = flySurface(this.world, x, z, e.y);
       if (s === null) return false;
       const ny = e.y + Math.max(-AI_CONST.hoverRate * DT, Math.min(AI_CONST.hoverRate * DT, s - e.y));
@@ -1098,8 +1101,9 @@ export class YokaiManager implements YokaiWorld {
     const nz = e.z + Math.sin(e.yaw) * d;
     const ai = KIND_AI[e.kind];
     const r = ai.radius;
-    if (nx < r + AI_CONST.edgeMargin || nz < r + AI_CONST.edgeMargin) return;
-    if (nx > this.world.size.x - r - AI_CONST.edgeMargin || nz > this.world.size.z - r - AI_CONST.edgeMargin) return;
+    const eb = this.world.loadedBounds();
+    if (nx < eb.x0 + r + AI_CONST.edgeMargin || nz < eb.z0 + r + AI_CONST.edgeMargin) return;
+    if (nx > eb.x1 - r - AI_CONST.edgeMargin || nz > eb.z1 - r - AI_CONST.edgeMargin) return;
     if (!this.boxFreeAt(nx - r, e.y + 0.05, nz - r, nx + r, e.y + ai.height, nz + r)) return;
     const g = settleGround(this.world, nx, nz, e.y, ai);
     if (!Number.isFinite(g) || this.world.getBlock(Math.floor(nx), Math.floor(g), Math.floor(nz)) === 'water') return;
@@ -1368,7 +1372,7 @@ export class YokaiManager implements YokaiWorld {
       if (!f.fb.alive) {
         end = true; // 8 ブロックで消えた
       } else if (
-        p.x < 0 || p.z < 0 || p.y < 0 || p.x >= this.world.size.x || p.z >= this.world.size.z || p.y >= this.world.size.y
+        !this.world.isLoaded(p.x, p.z) || p.y < 0 || p.y >= this.world.size.y
       ) {
         end = true;
       } else if (this.world.isSolid(Math.floor(p.x), Math.floor(p.y), Math.floor(p.z))) {

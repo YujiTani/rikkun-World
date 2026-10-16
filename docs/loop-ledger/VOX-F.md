@@ -1,0 +1,8 @@
+- dev / code-reviewer / 1周目: 合格。check:fast 緑（87 files / 1496 tests）。重大 0 件。確かめたこと: 書くのは縮め終わってから readwrite 1 トランザクション（backend.ts:120-126）、失敗は requeue＋changeLog を捨てない（SaveManager.ts:515-520）、pending は適用→setBlock で dirty→forceNext→書き終わりで消す（restore.ts:153-163, SaveManager.ts:233,507）、legacy は meta なし＆しるしなしのときだけ・書き終わりでしるし（SaveManager.ts:508）、?reset=1 は IDB・pending を消し しるしを付ける（restore.ts:114-118）、codec の往復と壊れ検査（chunkCodec.ts:241-271）、メイン時間は encodeSections のみ（perf 0.4ms）。
+- 【中・済】src/save/restore.ts:124,148-150: meta が validMeta でない（v が新しい・meta だけ壊れた）と db.clear(saveId) で列ごと全部消す。古いビルドで開くと新しい版の保存を破壊する。設計 §7「v が古ければ読みかえ」に対し、新しい v は「消さずに読まない（保存もしない）」にするか、消す前に確認/退避を。
+- 【中・済】src/save/backend.ts:164 と restore.ts:136-147: rec.v が違う（新しい）列は「壊れた」扱いで生成に戻し、次の保存で上書きする。上と同じく 将来版のデータを 古いビルドが消す。v>現在 の列は上書きしない扱いが安全。
+- 【中・済】src/main.ts:170-172（top-level await）と backend.ts:84-92: openIdb / restoreStoredWorld にタイムアウトも onblocked もない。Safari などで IDB が開くのを返さないと、ゲームが始まらない（真っ黒）。数秒で db=null に落として遊べるようにする。
+- 【中・済】src/save/SaveManager.ts:310-313: bigLog（変えたマスが 2 万超）は間隔を無視して inFlight===0 のたびに書く。保存が失敗し続ける（容量いっぱい）と、毎ステップ encode＋圧縮を やりなおす。失敗後は間隔（または バックオフ）を置く。
+- 【軽微】src/save/SaveManager.ts:500: 先の保存 #1 が失敗し 後の #2 が成功すると #2 の dropChangeLogTo が #1 のマスの記録も捨てる（列は requeue で残る）。この間にページが死ぬと pending に #1 分が入らない。ごく狭い窓。
+- 【軽微】src/main.ts:963-966, src/ui/playOverlay.ts:161: 子どもの目に入りにくい右下の details＋確認ダイアログ（confirm）で 6 歳が誤って上書きする危険は低いが、読みこみは ファイルを選んだあとの confirm 1 回だけ。ファイル名に .rikkun.gz 以外も accept=.gz で通る（seed/format 検査で弾かれ何も変わらない）。許容。
+- 【軽微】src/save/portable.ts:215-221: 読みこみ時に chunk の data の大きさ/ h の範囲を検査しない（起動時の unpackColumn で壊れた列だけ生成に戻るので 損失は その列のみ）。

@@ -143,9 +143,11 @@ export function createFarmSystem(deps: FarmDepsM7): FarmSystemImpl {
   const { world, light, settings } = deps;
   const sprinkler = deps.sprinkler ?? NO_SPRINKLER;
   const pet = deps.pet ?? NO_PET;
-  const sx = world.size.x;
+  // 保存の「島とちがうマス」の番号と同じ平らな番号（VOX-G で 列＋中の番号に作りかえる）。今の島は原点から広がる
+  const eb0 = world.loadedBounds();
+  const sx = eb0.x1;
   const sy = world.size.y;
-  const sz = world.size.z;
+  const sz = eb0.z1;
   const rng = mulberry((deps.seed ^ 0x4fa2a9c1) >>> 0);
   const key = (x: number, y: number, z: number) => (y * sz + z) * sx + x;
 

@@ -63,10 +63,10 @@ export class Sprinklers implements SprinklerPort {
   rescan(world: VoxelWorld): void {
     this.set.clear();
     this.items = [];
-    const { x: sx, y: sy, z: sz } = world.size;
-    for (let y = 0; y < sy; y++) {
-      for (let z = 0; z < sz; z++) {
-        for (let x = 0; x < sx; x++) {
+    const eb = world.loadedBounds();
+    for (let y = 0; y < world.size.y; y++) {
+      for (let z = eb.z0; z < eb.z1; z++) {
+        for (let x = eb.x0; x < eb.x1; x++) {
           if (world.getBlock(x, y, z) === 'sprinkler') this.add(x, y, z);
         }
       }

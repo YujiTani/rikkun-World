@@ -240,9 +240,9 @@ export class PlayerController {
 
     // 世界の端の面（x・z のみ）
     if (a !== 1) {
-      const size = a === 0 ? this.world.size.x : this.world.size.z;
-      const lo = -LO[a];
-      const hi = size - HI[a];
+      const eb = this.world.loadedBounds();
+      const lo = (a === 0 ? eb.x0 : eb.z0) - LO[a];
+      const hi = (a === 0 ? eb.x1 : eb.z1) - HI[a];
       if (target < lo) {
         target = lo;
         hit = true;
