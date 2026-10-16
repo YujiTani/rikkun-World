@@ -237,7 +237,15 @@ test.describe('VOX-E メッシュ', () => {
       const border = h.world.rebuildLog(true);
       const borderKeys = [...new Set(border.map((e: any) => `${e.x},${e.y},${e.z}`))];
       const edgeNow = h.world.getBlock(edge.x, edge.y, edge.z);
-      return { edge, edgeWas, edgeNow, spot, sec, steps, info0, info, interiorKeys, borderKeys };
+      // ふちから 2 つ目（x % 16 === 1）: 小ブロック地形は となり 2 ブロック先まで読むので、左のとなりも作り直す
+      const near = { x: sec[0] * 16 + 1, y: spot.y, z: spot.z };
+      const nearWas = h.world.getBlock(near.x, near.y, near.z);
+      h.world.rebuildLog(true);
+      h.world.setBlock(near.x, near.y, near.z, nearWas === 'air' ? 'stone' : 'air');
+      (window as any).__quiet(h);
+      const nearKeys = [...new Set(h.world.rebuildLog(true).map((e: any) => `${e.x},${e.y},${e.z}`))];
+      const nearNow = h.world.getBlock(near.x, near.y, near.z);
+      return { edge, edgeWas, edgeNow, near, nearWas, nearNow, nearKeys, spot, sec, steps, info0, info, interiorKeys, borderKeys };
     });
     console.log('AC3', JSON.stringify(r));
     expect(r.noSpot).toBeUndefined();
@@ -252,8 +260,13 @@ test.describe('VOX-E メッシュ', () => {
     // 境目: そのセクション＋となり 1 つ（合わせて 2 つ）まで
     expect(r.borderKeys.length).toBeGreaterThanOrEqual(1);
     expect(r.borderKeys.length).toBeLessThanOrEqual(2);
+    // ふちから 2 つ目（lx=1）: そのセクション＋左のとなり（合わせて 2 つ）
+    expect(r.nearNow).not.toBe(r.nearWas);
+    expect(r.nearKeys).toContain(r.sec.join(','));
+    expect(r.nearKeys).toContain([r.sec[0] - 1, r.sec[1], r.sec[2]].join(','));
+    expect(r.nearKeys.length).toBeLessThanOrEqual(2);
     // どちらも、遠くのセクションは作り直さない
-    for (const k of [...r.interiorKeys, ...r.borderKeys]) {
+    for (const k of [...r.interiorKeys, ...r.borderKeys, ...r.nearKeys]) {
       const [x, y, z] = k.split(',').map(Number);
       expect(Math.abs(x - r.sec[0]) + Math.abs(y - r.sec[1]) + Math.abs(z - r.sec[2])).toBeLessThanOrEqual(2);
     }

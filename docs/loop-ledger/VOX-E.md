@@ -9,3 +9,25 @@ dev / code-review | 【軽微】 | e2e/voxE-mesh.spec.ts AC6: `geometryBytesLimi
 dev / code-review | 【軽微】 | e2e/voxE-mesh.spec.ts AC1: r=16/24（F3 の設定）の段の入れかえと ±2 のずらし（出る r+2・入る r-2）は E2E に無い。基準 1 の範囲外なので OK だが、ずらしは unit（段の判定の純関数）で必ず見ること。
 dev / code-review(テスト先) / 2周目: 合格。重大 0 件。前回の【重大】2 件（境目の手順・メッシュの順番待ち）と【中】3 件（光を先に・面が 0 は none/empty・閉じた穴は =1）は、テストとチケットの hook 節の直しで解消を確認。【軽微】のループ整理も済み。
 dev / code-review | 【軽微】 | e2e/voxE-mesh.spec.ts AC6 `c.perCorner toEqual b.perCorner`: 決定的になった前提は「落ちついたあとは同じ場所で同じバイト数」。実装が dispose／再作成の順で大きさが変わる（例: 水の有無）と落ちるので、落ちたらまず実装の決定性を疑う。geometryBytesLimit を実際に超える場合は引き続き unit で見ること。
+art / art-reviewer(ゲーム内スクショ: VOX-E-AC1-start.png・VOX-E-AC1-ground-close.png) / 1周目: 不合格。重大 1 件。start は B ごつごつの方向に合っている（試作 `VOX-2/micro-start.png` と同じ作り・段差・色の段）。ただし「近くの地面」の絵が足りず、基準 1 を絵で確かめられない。
+art | 【重大】 | VOX-E-AC1-ground-close.png: 名前は「地面の近く」なのに、カメラが空を向いていて、地面・岩・草のふさがほぼ写っていない（空の水色が 8 割、左に葉のかたまり、下はしに草がちょっと）。基準 1（近くは草のふさ・けずった岩）と DESIGN §5.4 の確認（足もとの土の見やすさ・2 段内の明るさ）が絵でできない。直し方: 目線を下げ、地面の 2〜3 ブロック先を見る（`VOX-2/micro-close.png` と同じ向き）絵に撮りなおす。できれば「けずった岩」「土が見える所」が写る場所も 1 枚。
+art | 【軽微】 | VOX-E-AC1-start.png 右下〜手前: 草の先の明るい黄緑（`#8CCB55`）の面が多く、とくに右半分と下はしで 1 割をこえて見える（DESIGN §4・§6 は 1 割以下）。明るい点が多いと、まだらがうるさく、遠目に「ざらざら」に見える。直し方: 草の先の明るい面を 3×3 かけらの 1 割以下にする（本番の色のきめ直し。試作と同じ割合かを `micro-start.png` とくらべる）。
+art | 【軽微】 | VOX-E-AC1-start.png / ground-close.png 空の色: 空が明るい水色（`#87CEFA` 付近）で、DESIGN §8 の `#6EA8E0`（すんだ青空）より白っぽい。霧（`#A6C6E4`）も遠くの丘にほとんど効いていないように見える。「昼夜のシェーダーは今のまま」(チケット) なので VOX-E の範囲外かもしれない → 本番の空・霧は別 issue（DESIGN §14 の申し送りと一緒に）で DESIGN の色に合わせる。
+art | 【軽微】 | 今回の 2 枚で見えないもの: ねらったブロックのわく（黒・黄・赤）、よる、箱／小ブロックの段の境目（r の出入り）、LOD との明るさの差（DESIGN §14-2）。オーナー確認（基準 8）の前に、PR のスクショに わく付き 1 枚・よる 1 枚・境目が見える上空寄り 1 枚を足すと、見落としが減る（重大ではない）。
+art | 【軽微】 | VOX-E-AC1-start.png 左上の葉: 葉のかたまりが画面の 1 割ほどをしめ、すきまの 2 段内の色が黒に近く見える所がある（`#2A6127` が V 38% なので設計は守れているが、画面では黒っぽい）。近くの木は暗いすじが目立つので、葉の 2 段内を 1 段明るくするかを、オーナーが Mac で見て決める。
+art | 【メモ】 | 良い点: 段差・坂がマス目でなく 3×3 かけらの丘に見える／土の崖と草のくちびるが読める／遠くの岩山・木・かかしの形が分かる／血・こわい表現なし／マイクラの「ざらざらの箱」とは別の見た目。HUD（ホットバー・体力）は読める。絵の最終決定はオーナー。
+dev / code-review | 【メモ】 | 重大 0 件・判定: 合格（check:fast 緑: 型・107 ファイル 1685 テスト）。下は medium / minor の指摘
+dev / code-review | 【軽微】(medium 相当) | src/world/VoxelWorld.ts noteDirty の となり印（lx===0/15 だけ）と WorldRenderer.takeChanges: sectionMesher は 小ブロック地形のため 両どなりの列を 2 ブロック先（BW=20、prepareTerrain）まで読む。ふちから 2 つ目（lx=1/14, lz=1/14）のブロックをほっても となりのセクションが作り直されず 地形の高さの継ぎ目が古いままになりうる。となりが 2 ブロック以内なら markNeighbor する（y は ly<=1/>=14 も）か、takeChanges で 変えたセクションの 4 方向となりも 小ブロック段なら dirty にする。E2E「ふちをほる」を lx=1 でも足す
+dev / code-review | 【軽微】(medium 相当) | src/world/render/voxel/*.ts → src/proto/voxel/{looks,shapeTexture,terrain}: 本番が proto を import し、proto/terrain/worldColumns は逆に world/ を import（向きが循環）。VOX-plan §5 は src/world/micro/ に移すと書いている。動くので今回は通すが、移す issue を作る（proto の削除で本番が壊れる）
+dev / code-review | 【軽微】 | src/main.ts overlay lines(): 0.25 秒ごとに renderer.sectionStats() が全セクションで classify（sectionAllAir の 4096 ループ＋isSectionHidden）を回す。F3 表示中だけだが、microR だけ欲しいので getter（microR）を足して meshStats だけにする
+dev / code-review | 【軽微】 | src/world/render/voxel/tier.ts nextTier: `h * (prev === null ? 0 : 1)` は h が 0 なので不要（読みにくい）。`dist <= r - h` に
+dev / code-review | 【軽微】 | src/world/render/WorldRenderer.ts pickNext: 待ち全部を 1 つ作るたびに走査し isColumnLit も毎回呼ぶ（O(待ち数)×作る数）。今の 64 列×3 段なら問題ないが、世界を広げる前に 近さ順のヒープか列ごとの待ちにする
+dev / code-review | 【軽微】 | src/world/render/WorldRenderer.ts sectionInfo: 捨てた（evicted）セクションが tier=micro/box・meshes=0 と返る。tier を 'none' にするかコメントで意味を残す
+art / art-reviewer(再判定: VOX-E-art-ground-close / rock-dirt / aim-frame / night / high) / 2周目: 合格。重大 0 件。前回の重大（地面の近くの絵が無い）は解消。軽微 3（わく・夜・境目）は絵で確認できた。最終決定はオーナー。
+art | 【解消】 | art-ground-close.png・art-rock-dirt.png: 目線が下がり、草のふさ・土の見える所・けずった岩・土の崖が写った。足もとの土でもキャラ（ピンク・白髪・黒い足）の輪郭がはっきり読める。B ごつごつ（3×3 かけらの段差・マス目なし）に合っている。
+art | 【解消】 | art-night.png: 夜はこい青〜むらさきに寄り、黒つぶれなし（DESIGN §8）。地面・木・岩・かかしの形が読める。
+art | 【軽微】 | art-aim-frame.png: わくは出ていて 1 ブロックの箱の大きさも分かるが、昼の明るい草の上では黒 60% の細い線が弱い（草の先と同化して見える所あり）。DESIGN §7 の許可（太さ 0.03 まで・重なりを無視）を使うかは、オーナーが Mac で見て決める。
+art | 【軽微】 | art-high.png: 上空では 近い所（左下の小ブロック）が遠い所（LOD・霧にかすんだ木）より暗く濃く見え、境目にうっすら四角い明るさの差がある（DESIGN §14-2 の既知の申し送り）。遠くの色を 外 1 と 1 段内の あいだにする直しは本番 LOD の作業で。遠近感・霧の青さ自体は出ている。
+art | 【軽微】 | art-high.png 右上の時間の表示: 絵が月（よる）なのに文字は「あさ」。VOX-E の絵ではなく UI の問題の可能性が高いので、見つけた課題として別 issue（rules G）。
+art | 【軽微】 | 前回の軽微（草の先の明るい面の割合・空の水色・左上の葉の黒っぽさ）は据え置き（オーナーが Mac で確認）。
+dev / 直した内容(コードレビュー指摘) | 指摘1: VoxelWorld.markEdgeNeighbors を「ふちから 2 ブロック以内（lx/lz/ly が 0〜1・14〜15）」に広げ、となりの列・セクションも作り直す（unit を先に書いて赤を確認 → 緑。E2E「ふちをほる」に lx=1 を追加）。指摘3: WorldRenderer に軽い getter `microRadiusNow` を足し、main.ts の F3 lines()・F4 はそれを使う（sectionStats の全走査をやめた）。指摘4: tier.ts の `h * (prev === null ? 0 : 1)` を `r - h` / `BOX_OUTER - h` に。指摘6: sectionInfo は 捨てた（evicted）セクションを tier 'none'（reason 'unlit'＝いま描いていない）で返す。指摘2・5 は今回は直さない（別 issue）。check:fast 緑、e2e/voxE-mesh.spec.ts 5 件緑。

@@ -381,7 +381,7 @@ export class ChunkedVoxelWorld implements VoxelWorld {
     const lx = x & 15;
     const lz = z & 15;
     const ly = y & 15;
-    if (lx === 0 || lx === 15 || lz === 0 || lz === 15 || ly === 0 || ly === 15) this.markEdgeNeighbors(col, sy, lx, ly, lz);
+    if (lx <= 1 || lx >= 14 || lz <= 1 || lz >= 14 || ly <= 1 || ly >= 14) this.markEdgeNeighbors(col, sy, lx, ly, lz);
     if (this.hiddenUsed) this.staleAround(col.cx, sy, col.cz);
   }
 
@@ -409,14 +409,17 @@ export class ChunkedVoxelWorld implements VoxelWorld {
     }
   }
 
-  /** 列のふち・セクションのふちのマスが変わった: となりの列・セクションも作り直す（ブロックの変化は reach 1） */
+  /**
+   * 列のふち・セクションのふちから 2 ブロック以内のマスが変わった: となりの列・セクションも作り直す。
+   * 小ブロックの地形（prepareTerrain）は となりを 2 ブロック先まで読むので、0・15 だけでは足りない。
+   */
   private markEdgeNeighbors(col: Column, sy: number, lx: number, ly: number, lz: number): void {
-    const nx = lx === 0 ? -1 : lx === 15 ? 1 : 0;
-    const nz = lz === 0 ? -1 : lz === 15 ? 1 : 0;
+    const nx = lx <= 1 ? -1 : lx >= 14 ? 1 : 0;
+    const nz = lz <= 1 ? -1 : lz >= 14 ? 1 : 0;
     if (nx !== 0) this.markNeighbor(col.cx + nx, sy, col.cz, true);
     if (nz !== 0) this.markNeighbor(col.cx, sy, col.cz + nz, true);
-    if (ly === 0 && sy > 0) this.markSec(col, sy - 1, true);
-    if (ly === 15 && sy + 1 < this.nSections) this.markSec(col, sy + 1, true);
+    if (ly <= 1 && sy > 0) this.markSec(col, sy - 1, true);
+    if (ly >= 14 && sy + 1 < this.nSections) this.markSec(col, sy + 1, true);
   }
 
   private markNeighbor(cx: number, sy: number, cz: number, col: boolean): void {

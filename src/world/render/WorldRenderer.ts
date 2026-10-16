@@ -751,6 +751,8 @@ export class WorldRenderer {
     if (cls === CLS_AIR) return none('empty');
     if (cls === CLS_HIDDEN) return none('hidden');
     if (col.tier === 'lod') return { tier: 'lod', reason: null, meshes: 0, triangles: 0, dist };
+    // 上限をこえて捨てた（evicted）セクションは いま描いていない: tier 'none'（reason は unlit 扱い＝まだ作っていない）
+    if (st.evicted) return none('unlit');
     const meshes = (st.voxel ? 1 : 0) + (st.extras ? 1 : 0) + (st.water ? 1 : 0);
     if (meshes === 0) {
       if (st.built !== null && st.faceless) return none('empty'); // 見える面が 0
@@ -758,6 +760,11 @@ export class WorldRenderer {
     }
     const tier = meshes > 0 && st.built ? st.built : (col.tier ?? 'micro');
     return { tier, reason: null, meshes, triangles: st.tris, dist };
+  }
+
+  /** 小ブロックの半径（F3 表示用。sectionStats より軽い） */
+  get microRadiusNow(): number {
+    return this.microR;
   }
 
   sectionStats(): SectionStats {

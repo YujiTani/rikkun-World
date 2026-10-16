@@ -1113,12 +1113,11 @@ if (idb) {
 const overlay = new PerfOverlay(hud, game, {
   lines: () => {
     const m = renderer.meshStats();
-    const st = renderer.sectionStats();
-    return [`micro r=${st.microR} (F4)  mesh ${m.meshCount}  wait ${m.pending}  geo ${(m.geometryBytes / 1048576).toFixed(1)}MB`];
+    return [`micro r=${renderer.microRadiusNow} (F4)  mesh ${m.meshCount}  wait ${m.pending}  geo ${(m.geometryBytes / 1048576).toFixed(1)}MB`];
   },
   cycle: () => {
     const radii = [16, 24, 32];
-    const i = radii.indexOf(renderer.sectionStats().microR);
+    const i = radii.indexOf(renderer.microRadiusNow);
     renderer.config.microRadius = radii[(i + 1) % radii.length];
   },
 });

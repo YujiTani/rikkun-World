@@ -230,6 +230,26 @@ describe('メッシュ作り直しの印（VOX-E）', () => {
     expect(w.takeDirtySectionsEx()).toEqual([]);
   });
 
+  it('ふちから 2 ブロック以内（小ブロック地形が読む範囲）をほると、となりのセクションも作り直す。真ん中なら自分だけ', () => {
+    const dig = (x: number, y: number, z: number) => {
+      const w = stone3x3();
+      w.takeDirtySections();
+      w.setBlock(x, y, z, 'air');
+      return w
+        .takeDirtySectionsEx()
+        .filter((d) => d.block)
+        .map((d) => `${d.cx},${d.sy},${d.cz}`)
+        .sort();
+    };
+    expect(dig(1, 20, 8)).toEqual(['-1,1,0', '0,1,0']);
+    expect(dig(14, 20, 8)).toEqual(['0,1,0', '1,1,0']);
+    expect(dig(8, 20, 1)).toEqual(['0,1,-1', '0,1,0']);
+    expect(dig(8, 20, 14)).toEqual(['0,1,0', '0,1,1']);
+    expect(dig(8, 17, 8)).toEqual(['0,0,0', '0,1,0']);
+    expect(dig(8, 30, 8)).toEqual(['0,1,0', '0,2,0']);
+    expect(dig(8, 24, 8)).toEqual(['0,1,0']);
+  });
+
   it('markSectionDirty: そのセクションだけ。読みこんでいない所・高さの外は何もしない。列の dirty にも入る', () => {
     const w = stone3x3();
     w.takeDirtySections();

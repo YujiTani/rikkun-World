@@ -34,10 +34,10 @@ export function normalizeMicroR(r: number): number {
  */
 export function nextTier(dist: number, prev: Tier | null, r: number): Tier {
   const h = prev === null ? 0 : TIER_HYSTERESIS;
-  const inMicro = prev === 'micro' ? dist <= r + h : dist <= r - h * (prev === null ? 0 : 1);
+  const inMicro = prev === 'micro' ? dist <= r + h : dist <= r - h;
   if (inMicro) return 'micro';
   // 小ブロックだった列は 箱の内がわにいたので、箱を出るのも 48+2 まで
-  const inBox = prev === 'box' || prev === 'micro' ? dist <= BOX_OUTER + h : dist <= BOX_OUTER - h * (prev === null ? 0 : 1);
+  const inBox = prev === 'box' || prev === 'micro' ? dist <= BOX_OUTER + h : dist <= BOX_OUTER - h;
   return inBox ? 'box' : 'lod';
 }
 
