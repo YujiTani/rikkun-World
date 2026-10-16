@@ -117,7 +117,7 @@ test('AC15: こわれた ログ(#wear-log)の 行に [data-cat=info] の印', as
     h.inventory.setSlot(0, { item: 'wood_pickaxe', count: 1 });
     h.inventory.select(0);
     h.inventory.setDurability(0, 1);
-    h.world.setBlock(14, 10, 10, 'stone');
+    h.world.setBlock(14, 11, 10, 'stone');
     h.input.press('primary');
     h.step(240);
     h.input.release('primary');
@@ -157,7 +157,7 @@ test('AC16: 文・カテゴリー・item・「履歴だけ」は 左のログに
     out.liveItems = h.log.live().map((e: any) => e.item);
     // もうすぐ こわれる
     h.step(200);
-    h.world.setBlock(14, 10, 10, 'stone');
+    h.world.setBlock(14, 11, 10, 'stone');
     h.inventory.clear();
     h.inventory.setSlot(0, { item: 'wood_pickaxe', count: 1 });
     h.inventory.select(0);
@@ -172,7 +172,7 @@ test('AC16: 文・カテゴリー・item・「履歴だけ」は 左のログに
     h.step(3);
     h.input.release('primary');
     h.step(2);
-    out.blk = h.world.getBlock ? h.world.getBlock(14, 10, 10) : 'n/a';
+    out.blk = h.world.getBlock ? h.world.getBlock(14, 11, 10) : 'n/a';
     out.low = top('wearLow');
     out.dbg = h.log.history().map((e: any) => e.kind + ':' + e.text);
     out.dur = h.inventory.get().slots?.[0] ?? null;
@@ -184,6 +184,8 @@ test('AC16: 文・カテゴリー・item・「履歴だけ」は 左のログに
     h.inventory.clear();
     h.inventory.setSlot(0, { item: 'katana', count: 1 });
     h.inventory.select(0);
+    h.player.set({ pitch: -20 }); // 線は P から出る。低い からかさ に 当てる
+    h.step(1);
     h.input.press('primary');
     h.step(20);
     h.input.release('primary');
@@ -294,7 +296,7 @@ test.describe('できごと タブ・印', () => {
       h.step(2);
       h.level.add(1000);
       h.step(2);
-      h.world.setBlock(14, 10, 10, 'stone');
+      h.world.setBlock(14, 11, 10, 'stone');
       h.inventory.setSlot(1, { item: 'wood_pickaxe', count: 1 });
       h.inventory.select(1);
       h.inventory.setDurability(1, 1);
@@ -496,8 +498,8 @@ test.describe('AC26 撮り直し（足りない画面だけ）', () => {
       T.base();
       h.world.fill(0, 8, 0, 40, 8, 40, 'grass');
       h.time.set(6000);
-      const face = () => {
-        h.player.set({ position: { x: 10.5, y: 9, z: 10.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: 0 });
+      const face = (pitch = 0) => {
+        h.player.set({ position: { x: 10.5, y: 9, z: 10.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch });
         h.step(2);
       };
       const kill = () => {
@@ -506,7 +508,7 @@ test.describe('AC26 撮り直し（足りない画面だけ）', () => {
         h.yokai.setHp(id, 1);
         h.inventory.setSlot(0, { item: 'katana', count: 1 });
         h.inventory.select(0);
-        face();
+        face(-20); // 線は P から出る。低い からかさ に 当てる
         h.input.press('primary');
         h.step(20);
         h.input.release('primary');
@@ -517,7 +519,7 @@ test.describe('AC26 撮り直し（足りない画面だけ）', () => {
       const round = (lv: number) => {
         // 古い → 新しい: いしを ほる（こわれた） → つくった → や が いるよ → たおした（ひろう いと）。7 行に 6 カテゴリー
         h.inventory.clear();
-        h.world.setBlock(14, 10, 10, 'stone');
+        h.world.setBlock(14, 11, 10, 'stone');
         h.inventory.setSlot(0, { item: 'wood_pickaxe', count: 1 });
         h.inventory.select(0);
         h.inventory.setDurability(0, 1);

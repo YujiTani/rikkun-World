@@ -14,6 +14,7 @@ test('ねらう物でヒントの文がかわる', async ({ page }) => {
     const h = window.__rikkun! as any;
     h.pause();
     h.lock.simulate(true);
+    h.world.fill(0, 8, 0, 12, 8, 12, 'stone'); // 足もとの 床（落ちないように）
     h.inventory.clear();
     h.inventory.add('dirt', 10);
     h.inventory.add('tansu', 1);
@@ -30,7 +31,7 @@ test('ねらう物でヒントの文がかわる', async ({ page }) => {
       h.inventory.select(s);
     }, item);
   const put = (id: string) =>
-    page.evaluate((b) => (window.__rikkun as any).world.setBlock(4, 10, 6, b), id);
+    page.evaluate((b) => (window.__rikkun as any).world.setBlock(4, 11, 6, b), id);
 
   // 何もない所 + 道具: 何も出ない
   await select('katana');

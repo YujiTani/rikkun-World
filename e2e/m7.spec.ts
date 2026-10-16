@@ -334,7 +334,7 @@ test.describe('M7 農業', () => {
       h.pause();
       h.lock.simulate(true);
       h.inventory.clear();
-      h.player.set({ position: { x: w0.x - 1.5, y: w0.y + 1, z: w0.z + 0.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: -35 });
+      h.player.set({ position: { x: w0.x - 1.5, y: w0.y + 1, z: w0.z + 0.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: -50 }); // 線は P（足もと + 2.12）から出るので 深めに
       h.step(3);
       out.target = h.target.get()?.id;
       h.input.press('primary');

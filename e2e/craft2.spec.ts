@@ -617,14 +617,14 @@ test.describe('CRAFT-2 できごと（履歴）', () => {
       h.inventory.clear();
       for (let i = 0; i < 36; i++) h.inventory.setSlot(i, { item: 'dirt', count: 64 });
       h.inventory.select(0);
-      h.world.setBlock(14, 10, 10, 'sand');
+      h.world.setBlock(14, 11, 10, 'sand');
       face();
       mine();
       out.full = hist();
       next();
       // つるはし が いるよ
       h.inventory.clear();
-      h.world.setBlock(14, 10, 10, 'iron_ore');
+      h.world.setBlock(14, 11, 10, 'iron_ore');
       face();
       mine();
       out.needTool = hist();
@@ -645,7 +645,7 @@ test.describe('CRAFT-2 できごと（履歴）', () => {
       h.inventory.setSlot(0, { item: 'seed_tomato', count: 1 });
       h.inventory.select(0);
       h.world.setBlock(13, 8, 10, 'dirt');
-      face(-30);
+      face(-35); // P（足もと + 2.12）から (13,8,10) の上の面をねらう
       h.input.press('secondary');
       h.step(3);
       h.input.release('secondary');
@@ -653,7 +653,7 @@ test.describe('CRAFT-2 できごと（履歴）', () => {
       out.farm = hist();
       next();
       // たいきゅう 0 でこわす
-      h.world.setBlock(14, 10, 10, 'stone');
+      h.world.setBlock(14, 11, 10, 'stone');
       h.inventory.clear();
       h.inventory.setSlot(0, { item: 'wood_pickaxe', count: 1 });
       h.inventory.select(0);
@@ -668,7 +668,7 @@ test.describe('CRAFT-2 できごと（履歴）', () => {
       h.inventory.clear();
       h.inventory.setSlot(0, { item: 'katana', count: 1 });
       h.inventory.select(0);
-      face();
+      face(-20); // 線は P から出る。低い からかさ に 当てる
       h.input.press('primary');
       h.step(20);
       h.input.release('primary');
@@ -1195,8 +1195,8 @@ test.describe('CRAFT-2 スクショ（AC26）', () => {
     await page.evaluate(({ A }) => {
       const h = (window as any).__rikkun;
       const T = (window as any).T;
-      const face = () => {
-        h.player.set({ position: { x: 10.5, y: 9, z: 10.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: 0 });
+      const face = (pitch = 0) => {
+        h.player.set({ position: { x: 10.5, y: 9, z: 10.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch });
         h.step(2);
       };
       // 1 回目は「はじめて」の実績の件を すませるため。2 回目の件だけを 見せる
@@ -1213,7 +1213,7 @@ test.describe('CRAFT-2 スクショ（AC26）', () => {
         h.yokai.setHp(id, 1);
         h.inventory.setSlot(0, { item: 'katana', count: 1 });
         h.inventory.select(0);
-        face();
+        face(-20); // 線は P から出る。低い からかさ に 当てる
         h.input.press('primary');
         h.step(20);
         h.input.release('primary');
@@ -1221,7 +1221,7 @@ test.describe('CRAFT-2 スクショ（AC26）', () => {
         h.yokai.clear();
         h.step(181);
         h.inventory.clear();
-        h.world.setBlock(14, 10, 10, 'stone');
+        h.world.setBlock(14, 11, 10, 'stone');
         h.inventory.setSlot(0, { item: 'wood_pickaxe', count: 1 });
         h.inventory.select(0);
         h.inventory.setDurability(0, 1);
