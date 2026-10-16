@@ -1,5 +1,5 @@
-import { spawnSync } from 'node:child_process';
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { measure } from './titleSoundMeasure.testutil';
@@ -10,24 +10,13 @@ import { measure } from './titleSoundMeasure.testutil';
  *  (2) ピーク −1 dBFS 以下・立ち上がり（鳴り始め → 最大の 9 割）0.05 秒以上（ファイルを読んで数える）
  *  (5) 試聴ページ public/sound/nick/listen.html があり 3 つを指している（鳴るかは オーナー確認）
  * 長さの上限は 書かない。重ねない時間は「聞こえる長さ（−20 dB まで）」3.0・3.8・5.2 秒。
- * 数える道具は ffmpeg（なければ (2) だけ とばす。CI の入れ物に ffmpeg がなければ、そのままでは通らない: 台帳へ）。
+ * 数える道具は ffmpeg。手元に無ければ (2) だけ とばすが、CI（process.env.CI）では ffmpeg が無いと 失敗（ci.yml で入れる）。
  */
 const ROOT = resolve(__dirname, '../..');
 const DIR = join(ROOT, 'public/sound/nick');
 const TIERS = ['oyabun', 'taisho', 'nushi'] as const;
 const HEARABLE = { oyabun: 3.0, taisho: 3.8, nushi: 5.2 } as const;
 const files = TIERS.map((t) => join(DIR, `appear_${t}.mp3`));
-
-function walk(dir: string, out: string[] = []): string[] {
-  for (const n of readdirSync(dir)) {
-    if (n === 'node_modules' || n === '.git' || n === 'dist' || n === 'test-results' || n === 'playwright-report') continue;
-    const p = join(dir, n);
-    const st = statSync(p);
-    if (st.isDirectory()) walk(p, out);
-    else out.push(p);
-  }
-  return out;
-}
 
 const hasFfmpeg = spawnSync('ffmpeg', ['-version']).status === 0;
 
@@ -46,7 +35,8 @@ describe('AC20 (1) 音ファイル', () => {
   });
 
   it('元の素材ファイル（太鼓・心臓・鐘の 1 打。samples/*.mp3）は リポジトリに無い。音は nick の 3 つだけ', () => {
-    const all = walk(ROOT).map((p) => p.slice(ROOT.length + 1));
+    // リポジトリ（git が管理している物）だけ見る。作業の場所の ごみは 数えない
+    const all = execFileSync('git', ['ls-files'], { cwd: ROOT, encoding: 'utf8' }).split('\n').filter(Boolean);
     expect(all.filter((p) => /(^|\/)samples\//.test(p) && /\.(mp3|wav|ogg|flac|m4a)$/i.test(p))).toEqual([]);
     const audio = all.filter((p) => /\.(mp3|wav|ogg|flac|m4a|aac)$/i.test(p));
     expect(audio.sort()).toEqual(TIERS.map((t) => `public/sound/nick/appear_${t}.mp3`).sort());
@@ -70,7 +60,14 @@ describe('AC20 (5) 試聴ページ', () => {
   });
 });
 
-describe.skipIf(!hasFfmpeg)('AC20 (2) 安全のきまり（ファイルを読んで数える）', () => {
+// CI（process.env.CI）で ffmpeg がなければ skip ではなく 失敗にする（.github/workflows/ci.yml で入れている）
+if (process.env.CI) {
+  it('CI に ffmpeg がある（なければ AC20 (2) を測れない）', () => {
+    expect(hasFfmpeg).toBe(true);
+  });
+}
+
+describe.skipIf(!hasFfmpeg && !process.env.CI)('AC20 (2) 安全のきまり（ファイルを読んで数える）', () => {
   for (const [i, t] of TIERS.entries()) {
     it(`${t}: ピーク −1 dBFS 以下・立ち上がり 0.05 秒以上・聞こえる長さ ${HEARABLE[t]} 秒（±0.15）`, () => {
       expect(existsSync(files[i]!)).toBe(true);

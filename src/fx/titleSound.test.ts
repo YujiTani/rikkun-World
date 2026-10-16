@@ -13,24 +13,47 @@ import { TITLE_SOUND_URLS, TitleSound, type TitleAudio } from './titleSound';
  *  - `played: Record<title, number>`（実際に鳴らしはじめた回数）
  * 「鳴らす頼み」の記録と、鳴っている間 2 体目を鳴らさない時間は CombatFx（combatFx.test.ts）が見る。
  */
+/**
+ * うその AudioContext が 受けつける口（実装は この中だけで 書く。ほかの口が要るときは tester に頼んで ここを足す）:
+ *  context: currentTime・destination・state・resume()・decodeAudioData・createBufferSource・createGain・createDynamicsCompressor
+ *  BufferSource: buffer・connect・disconnect・start・stop・onended
+ *  Gain: gain.value・gain.setValueAtTime・linearRampToValueAtTime・exponentialRampToValueAtTime・setTargetAtTime・cancelScheduledValues、connect・disconnect
+ *  DynamicsCompressor（−1 dBFS で止める用）: threshold・knee・ratio・attack・release（どれも { value }）、connect・disconnect
+ */
 function fakeAudio() {
   const log = { sources: 0, started: 0, decoded: 0, gains: [] as number[], limiter: 0 };
-  const audio: TitleAudio = {
+  const node = () => ({ connect: (n: unknown) => n, disconnect: () => {} });
+  const param = (record = false) => {
+    let v = 1;
+    const p = {
+      get value() { return v; },
+      set value(x: number) { v = x; if (record) log.gains.push(x); },
+      setValueAtTime: (x: number) => { if (record) log.gains.push(x); return p; },
+      linearRampToValueAtTime: (x: number) => { if (record) log.gains.push(x); return p; },
+      exponentialRampToValueAtTime: (x: number) => { if (record) log.gains.push(x); return p; },
+      setTargetAtTime: (x: number) => { if (record) log.gains.push(x); return p; },
+      cancelScheduledValues: () => p,
+    };
+    return p;
+  };
+  const audio = {
     currentTime: 0,
     destination: {},
     state: 'running',
+    resume: async () => {},
     decodeAudioData: async () => {
       log.decoded++;
-      return { fake: true };
+      return { fake: true, duration: 1 };
     },
     createBufferSource: () => {
       log.sources++;
-      return { buffer: null, connect: () => ({}), start: () => void log.started++ };
+      const src = { ...node(), buffer: null as unknown, onended: null as null | (() => void), start: () => void log.started++, stop: () => {} };
+      return src;
     },
-    createGain: () => {
-      const g = { gain: { value: 1, setValueAtTime: () => ({}) }, connect: () => ({}) };
-      log.gains.push(0);
-      return g;
+    createGain: () => ({ ...node(), gain: param(true) }),
+    createDynamicsCompressor: () => {
+      log.limiter++;
+      return { ...node(), threshold: param(), knee: param(), ratio: param(), attack: param(), release: param() };
     },
   } as unknown as TitleAudio;
   return { audio, log };
@@ -82,7 +105,7 @@ describe('TitleSound（AC20 (3)）', () => {
     expect(() => bad.play('nushi')).not.toThrow();
     expect(bad.play('nushi')).toBe(false);
 
-    const audio2 = { ...f.audio, decodeAudioData: () => Promise.reject(new Error('decode')) } as unknown as TitleAudio;
+    const audio2 = Object.assign(Object.create(null), f.audio, { decodeAudioData: () => Promise.reject(new Error('decode')) }) as TitleAudio;
     const bad2 = new TitleSound({ audio: () => audio2, load: okLoad, volume: () => 1 });
     await expect(bad2.preload()).resolves.toBeUndefined();
     expect(bad2.play('taisho')).toBe(false);
@@ -110,20 +133,10 @@ describe('TitleSound（AC20 (3)）', () => {
 
   it('鳴らす音の大きさの倍率は 1 以下（音量の設定をかけるだけで、大きくしない）', async () => {
     const f = fakeAudio();
-    const gains: number[] = [];
-    const orig = f.audio.createGain.bind(f.audio);
-    (f.audio as { createGain: unknown }).createGain = () => {
-      const g = orig();
-      const box = { v: g.gain.value };
-      Object.defineProperty(g.gain, 'value', { get: () => box.v, set: (x: number) => { box.v = x; gains.push(x); } });
-      const sv = g.gain.setValueAtTime;
-      g.gain.setValueAtTime = ((x: number, t: number) => { gains.push(x); return sv(x, t); }) as typeof sv;
-      return g;
-    };
     const s = new TitleSound({ audio: () => f.audio, load: okLoad, volume: () => 1 });
     await s.preload();
     s.play('nushi');
-    expect(gains.length).toBeGreaterThan(0);
-    for (const g of gains) expect(g).toBeLessThanOrEqual(1);
+    expect(f.log.gains.length).toBeGreaterThan(0);
+    for (const g of f.log.gains) expect(g).toBeLessThanOrEqual(1);
   });
 });

@@ -16,7 +16,8 @@ export function measure(file: string) {
     env.push(Math.sqrt(a / (win * 2)));
   }
   const max = Math.max(...env);
-  const first = env.findIndex((e) => e > 1e-3);
+  // 立ち上がりの始まり = 最大の 1%（−40 dB）をこえた所。9 割までの長さを はかる
+  const first = env.findIndex((e) => e >= 0.01 * max);
   const at90 = env.findIndex((e) => e >= 0.9 * max);
   const iMax = env.indexOf(max);
   let last = iMax;

@@ -160,7 +160,7 @@ describe('人形（たおれる・うすい・パンチ・ようかいだま）'
 });
 
 describe('CombatFx（出来事 → 音・画面）', () => {
-  function setup() {
+  function setup(opts: { titleSound?: boolean } = {}) {
     const calls: string[] = [];
     const tones: number[] = [];
     let combatEvents: CombatEvent[] = [];
@@ -214,7 +214,7 @@ describe('CombatFx（出来事 → 音・画面）', () => {
       edge: { flash: () => void calls.push('edge'), update: () => {} },
       clock: { set: (p) => void calls.push('clock:' + p) },
       onPickup: (item, n) => void calls.push(`pickup:${item}:${n}`),
-      titleSound: { play: (t: string) => void titlePlays.push(t) },
+      ...(opts.titleSound === false ? {} : { titleSound: { play: (t: string) => void titlePlays.push(t) } }),
       settings: { ...FX_SETTINGS },
     } as CombatFxDeps;
     const fx = new CombatFx(deps);
@@ -364,8 +364,7 @@ describe('CombatFx（出来事 → 音・画面）', () => {
 
     it('音ファイルの口（titleSound）が無くても 止まらず、頼みは 記録する', () => {
       drainSounds();
-      const s = setup();
-      (s.fx as unknown as { d: { titleSound?: unknown } }).d.titleSound = undefined;
+      const s = setup({ titleSound: false });
       s.pushY(ev('taisho'));
       expect(() => s.fx.update(1 / 60)).not.toThrow();
       expect(drainSounds()).toEqual(['appear_taisho']);

@@ -196,6 +196,54 @@ const SCREENS: Screen[] = [
   },
 ];
 
+/**
+ * BAL-G（#115）AC19: 二つ名の妖怪（たいしょう・ヌシ × 色の段階 1〜3）・登場のおしらせ・おのの絵と手に持つ形。
+ * 窓口は e2e/bal-g.spec.ts の注と同じ（まだ無いので、実装までは赤）。段階は M 1 / 1.5 / 2.25 で決まる。
+ */
+const NICK_M = { 1: 1, 2: 1.5, 3: 2.25 } as const;
+const openNick = (title: 'taisho' | 'nushi', stage: 1 | 2 | 3, announce: boolean): Screen['open'] => async (page) => {
+  await boot(page, true);
+  await page.evaluate(
+    ({ title, m }) => {
+      const h = window.__rikkun! as any;
+      const p = h.player.get().position;
+      const x = Math.floor(p.x);
+      const y = Math.floor(p.y);
+      const z = Math.floor(p.z);
+      h.world.fill(x, y - 1, z - 5, x + 9, y - 1, z + 5, 'stone');
+      h.world.fill(x, y, z - 5, x + 9, y + 10, z + 5, 'air');
+      h.settings.set('yokaiAutoSpawn', false);
+      h.yokai.clear();
+      h.player.set({ position: { x: x + 0.5, y, z: z + 0.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: 0 });
+      h.time.set(20000);
+      h.yokai.spawn('karakasa', x + 4.5, y, z + 0.5, { ai: false, yawDeg: 270, title, m });
+      h.step(announce ? 20 : 8);
+    },
+    { title, m: NICK_M[stage] },
+  );
+};
+const BAL_SCREENS: Screen[] = [
+  ...(['taisho', 'nushi'] as const).flatMap((t) => [
+    { id: `nick-announce-${t}`, roots: ['#title-announce', '#hud'], open: openNick(t, 1, true) },
+    ...([1, 2, 3] as const).map((st) => ({ id: `nick-${t}-stage${st}`, roots: ['#hud'], open: openNick(t, st, false) })),
+  ]),
+  {
+    id: 'axes',
+    roots: ['#hud'],
+    open: async (page) => {
+      await boot(page, true);
+      await page.evaluate(() => {
+        const h = window.__rikkun! as any;
+        h.inventory.clear();
+        for (const a of ['wood_axe', 'stone_axe', 'iron_axe', 'wood_pickaxe', 'kuwa']) h.inventory.add(a, 1);
+        h.inventory.select?.(0);
+        h.step(5);
+      });
+    },
+  },
+];
+SCREENS.push(...BAL_SCREENS);
+
 interface Issue {
   kind: string;
   /** 数字を ふくまない 目印（known.json と くらべる） */
