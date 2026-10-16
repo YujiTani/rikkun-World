@@ -1,5 +1,6 @@
 import type { BlockId, ChunkColumn, Inventory, PlayerState, ScreenSettings, SpawnPoint, Vec3 } from '../contracts';
 import { packColumn, SAVE_ID, type PersistBackend, type StoredChunk, type StoredMeta } from './backend';
+import { BLOCK_TYPES } from '../world/blocks/blockTypes';
 import { encodeSections } from './chunkCodec';
 import { migratedKey, NO_SAVE, PENDING_KEY, PENDING_MAX_CELLS, type RestoredSave } from './restore';
 
@@ -378,7 +379,7 @@ export class SaveManager {
       const metaNow = this.makeMeta().meta;
       const c = this.d.clock;
       const meta: StoredMeta = { ...metaNow, ...(c ? { time: { day: c.day(), dayTick: c.dayTick() } } : {}), tick: this.d.tick() };
-      store.setItem(PENDING_KEY, JSON.stringify({ saveId: this.saveId, cells: world.changeLogCells(), meta }));
+      store.setItem(PENDING_KEY, JSON.stringify({ saveId: this.saveId, ids: BLOCK_TYPES.map((t) => t.id), cells: world.changeLogCells(), meta }));
     } catch {
       /* 容量いっぱいなど: あきらめる */
     }

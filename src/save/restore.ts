@@ -1,5 +1,6 @@
 import type { BlockId, ChunkColumn } from '../contracts';
-import { BLOCK_TYPES, blockIdFromIndex } from '../world/blocks/blockTypes';
+import { blockIndexOf } from '../world/blocks/blockTypes';
+import { BLOCK_IDS_V1 } from './blockIdsV1';
 import { SAVE_GEN, SAVE_VERSION, saveDims, saveKey, type KeyValueStore, type SaveWorld } from './SaveManager';
 import { NewerFormatError, unpackColumn, type PersistBackend, type StoredMeta } from './backend';
 
@@ -75,12 +76,14 @@ export function applyLegacySave(world: SaveWorld, store: KeyValueStore, seed: nu
       const i = blocks[k];
       const v = blocks[k + 1];
       if (!Number.isInteger(i) || i < 0 || i >= total) return null;
-      if (!Number.isInteger(v) || v < 0 || v >= BLOCK_TYPES.length) return null;
+      if (!Number.isInteger(v) || v < 0 || v >= BLOCK_IDS_V1.length) return null;
     }
     const changed = new Set<number>();
     for (let k = 0; k < blocks.length; k += 2) {
       const i = blocks[k] as number;
-      world.setBlock(i % sx, Math.floor(i / (sx * sz)), Math.floor(i / sx) % sz, blockIdFromIndex(blocks[k + 1] as number) as BlockId);
+      const id = BLOCK_IDS_V1[blocks[k + 1] as number];
+      if (blockIndexOf(id) < 0) continue; // ゲームから消えたブロック: 飛ばす
+      world.setBlock(i % sx, Math.floor(i / (sx * sz)), Math.floor(i / sx) % sz, id as BlockId);
       changed.add(i);
     }
     const meta: StoredMeta = { ...data, v: SAVE_VERSION };
@@ -94,13 +97,15 @@ export function applyLegacySave(world: SaveWorld, store: KeyValueStore, seed: nu
 }
 
 /** pagehide の保険を読む（自分のセーブのものだけ）。使えなければ null */
-function readPending(store: KeyValueStore, saveId: string, seed: number): { cells: number[]; meta: StoredMeta } | null {
+function readPending(store: KeyValueStore, saveId: string, seed: number): { cells: number[]; ids: readonly string[]; meta: StoredMeta } | null {
   try {
     const raw = store.getItem(PENDING_KEY);
     if (raw === null) return null;
-    const p = JSON.parse(raw) as { saveId?: unknown; cells?: unknown; meta?: unknown };
+    const p = JSON.parse(raw) as { saveId?: unknown; ids?: unknown; cells?: unknown; meta?: unknown };
     if (!isObj(p) || p.saveId !== saveId || !Array.isArray(p.cells) || p.cells.length % 4 !== 0 || !validMeta(p.meta, seed)) return null;
-    return { cells: p.cells as number[], meta: p.meta };
+    // ids つき = 書いたときの id の一覧。ids なし（SAVE-30 より前のビルド）= 凍らせた BLOCK_IDS_V1
+    if (p.ids !== undefined && (!Array.isArray(p.ids) || !p.ids.every((x) => typeof x === 'string'))) return null;
+    return { cells: p.cells as number[], ids: (p.ids as string[] | undefined) ?? BLOCK_IDS_V1, meta: p.meta };
   } catch {
     return null;
   }
@@ -165,10 +170,12 @@ export async function restoreStoredWorld(o: RestoreOptions): Promise<RestoredSav
     const pending = readPending(store, saveId, seed);
     if (pending) {
       const c = pending.cells;
+      const ids = pending.ids;
       for (let k = 0; k < c.length; k += 4) {
         const b = c[k + 3];
-        if (Number.isInteger(c[k]) && Number.isInteger(c[k + 1]) && Number.isInteger(c[k + 2]) && Number.isInteger(b) && b >= 0 && b < BLOCK_TYPES.length) {
-          world.setBlock(c[k], c[k + 1], c[k + 2], blockIdFromIndex(b) as BlockId);
+        // 番号は ids の番号。知らない id（ゲームから消えたブロック）のマスは飛ばす
+        if (Number.isInteger(c[k]) && Number.isInteger(c[k + 1]) && Number.isInteger(c[k + 2]) && Number.isInteger(b) && b >= 0 && b < ids.length && blockIndexOf(ids[b]) >= 0) {
+          world.setBlock(c[k], c[k + 1], c[k + 2], ids[b] as BlockId);
         }
       }
       meta = pending.meta;

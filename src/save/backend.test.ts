@@ -34,9 +34,12 @@ describe('chunkCodec', () => {
     const few = new Uint8Array(4096);
     few[7] = 4;
     const raw2 = encodeSections([{ kind: 'full', data: few }]);
-    expect(raw2[0]).toBe(1);
-    expect(raw2.length).toBe(2 + 2 + 2048);
-    expect(encodeSections([{ kind: 'full', data: new Uint8Array(4096).fill(9) }])).toEqual(Uint8Array.of(0, 9));
+    const head = 1 + (1 + 3) + (1 + 4); // 版 2: 頭に id の一覧（air, sand）
+    expect(raw2[head]).toBe(1);
+    expect(raw2.length).toBe(head + 2 + 2 + 2048);
+    // 版 1 の生バイト（番号は凍らせた表）は 版 1 として今までどおり読める
+    expect(decodeSections(Uint8Array.of(0, 9), 1, 1)[0]).toEqual({ kind: 'uniform', block: 9 });
+    expect(decodeSections(encodeSections([{ kind: 'full', data: new Uint8Array(4096).fill(9) }]), 1)[0]).toEqual({ kind: 'uniform', block: 9 });
   });
 
   it('こわれていたら Error', () => {
@@ -44,7 +47,7 @@ describe('chunkCodec', () => {
     expect(() => decodeSections(raw.slice(0, raw.length - 1), 4)).toThrow();
     expect(() => decodeSections(raw, 3)).toThrow(); // 余り
     expect(() => decodeSections(Uint8Array.of(7), 1)).toThrow();
-    expect(() => decodeSections(Uint8Array.of(0, 250), 1)).toThrow(); // 知らない番号
+    expect(() => decodeSections(Uint8Array.of(0, 250), 1, 1)).toThrow(); // 知らない番号（版 1）
   });
 
   it('deflate-raw で縮めて戻せる。上を空気で足せる', async () => {
