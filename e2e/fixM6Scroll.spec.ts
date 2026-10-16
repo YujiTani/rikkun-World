@@ -291,20 +291,25 @@ test('実キー Digit1〜9 で ホットバーが かわる（遊び中・もち
   await page.goto('/?nosave=1');
   await page.waitForFunction(() => window.__rikkun?.ready === true);
   await page.evaluate(() => (window.__rikkun as any).lock.simulate(true));
-  await page.waitForTimeout(300);
+  // 速さにたよらない: 止めて、実キーを押し、ゲームのコマを進めてから見る
+  await page.evaluate(() => { (window.__rikkun as any).pause(); (window.__rikkun as any).step(2); });
+  const stepN = (k: number) => page.evaluate((k) => (window.__rikkun as any).step(k), k);
   const sel = () => page.evaluate(() => (window.__rikkun as any).inventory.get().selected as number);
   for (let n = 1; n <= 9; n++) {
     await page.keyboard.press(`Digit${n}`);
-    await expect.poll(sel, { message: `play ${n}`, timeout: 3000 }).toBe(n - 1);
+    await stepN(3);
+    expect(await sel(), `play ${n}`).toBe(n - 1);
   }
   await page.keyboard.press('Digit1');
-  await expect.poll(sel).toBe(0);
+  await stepN(3);
+  expect(await sel()).toBe(0);
   await page.keyboard.press('KeyE');
+  await stepN(5);
   await expect(page.locator('#inventory-screen')).toBeVisible();
-  await page.waitForTimeout(500);
   for (let n = 9; n >= 1; n--) {
     await page.keyboard.press(`Digit${n}`);
-    await expect.poll(sel, { message: `inventory ${n}`, timeout: 3000 }).toBe(n - 1);
+    await stepN(3);
+    expect(await sel(), `inventory ${n}`).toBe(n - 1);
   }
 });
 

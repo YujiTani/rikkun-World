@@ -185,11 +185,17 @@ describe('WorldRenderer', () => {
     expect(r.triangleCount()).toBeGreaterThan(0);
     expect(r.rebuildStats().count).toBe(0);
   });
+  /** メッシュの順番待ちが空になるまで進める（VOX-E: 箱から小ブロックへの差しかえは 1 コマ 8ms の予算で少しずつ） */
+  const settle = (r: WorldRenderer) => {
+    for (let i = 0; i < 2000 && (i === 0 || r.meshStats().pending > 0 || r.light.pendingCount() > 0); i++) r.update();
+  };
   it('変えたチャンクだけ作り直す', () => {
     const { w, r } = setup();
+    settle(r);
     const before = r.group.children.slice();
     w.setBlock(5, 6, 5, 'air');
     r.update();
+    settle(r);
     expect(r.rebuildStats().count).toBe(1);
     const changed = r.group.children.filter((c) => !before.includes(c));
     expect(changed).toHaveLength(1);
@@ -199,15 +205,17 @@ describe('WorldRenderer', () => {
   });
   it('チャンクの端のブロックを変えるととなりも作り直す', () => {
     const { w, r } = setup();
+    settle(r);
     w.setBlock(15, 6, 5, 'air');
-    r.update();
+    settle(r); // 1 コマの予算（8ms）で 2 つ目は次のコマになる
     expect(r.rebuildStats().count).toBe(2);
   });
   it('ブロックをこわすと三角形の数が変わる (AC15)', () => {
     const { w, r } = setup();
+    settle(r);
     const n = r.triangleCount();
     w.setBlock(32, 6, 32, 'air');
-    r.update();
+    settle(r);
     expect(r.triangleCount()).not.toBe(n);
     expect(r.rebuildStats().lastMs).toBeGreaterThanOrEqual(0);
   });
