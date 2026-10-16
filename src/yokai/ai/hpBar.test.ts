@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { HP_BAR, HpBar, hpBarLayout, hpBarModel, hpBarState } from './hpBar';
+import * as THREE from 'three';
+import { HP_BAR, HpBar, hpBarIconPixels, hpBarLayout, hpBarModel, hpBarState } from './hpBar';
+import { nickIconPixels } from '../../ui/itemArtBal';
 
 describe('BAL-C 体力のバー（BALANCE.md §4.7 AC12）', () => {
   const table: [number, number, number, number, string][] = [
@@ -32,6 +34,45 @@ describe('BAL-C 体力のバー（BALANCE.md §4.7 AC12）', () => {
 
   it('いちばん長い 20 本で 横はば 1.6 ブロック以内', () => {
     for (let n = 1; n <= 20; n++) expect(hpBarLayout(n).total).toBeLessThanOrEqual(HP_BAR.maxWidth);
+  });
+
+  it('BAL-G 寸法（DESIGN 13.3）: 1 本 はば 0.06・すきま 0.02・高さ 0.18。20 本で 1.58', () => {
+    expect(HP_BAR.barHeight).toBe(0.18);
+    expect(hpBarLayout(1)).toMatchObject({ pitch: 0.08, width: 0.06 });
+    expect(hpBarLayout(20).total).toBeCloseTo(0.06 * 20 + 0.02 * 19, 9);
+    expect(hpBarLayout(20).total).toBeCloseTo(1.58, 9);
+    expect(hpBarLayout(8).total).toBeCloseTo(0.06 * 8 + 0.02 * 7, 9);
+  });
+
+  it('BAL-G アイコン: 絵は nickIconPixels（★ の文字ではない）。ドットのまま（ぼかさない）。高さ 0.27 以下・バーとの あいだ 0.05', () => {
+    for (const t of ['oyabun', 'taisho', 'nushi'] as const) {
+      expect(hpBarIconPixels(t)).toEqual(nickIconPixels(t));
+      const b = new HpBar();
+      b.show(hpBarState(40, 40, t, 0, 1));
+      const info = b.iconInfo;
+      expect(info, t).not.toBeNull();
+      expect(info!.tier).toBe(t);
+      expect(info!.nearest).toBe(true);
+      expect(info!.height).toBeLessThanOrEqual(0.18 * 1.5 + 1e-9);
+      expect(info!.height).toBeGreaterThan(0.18);
+      expect(info!.width).toBeCloseTo(info!.height, 9); // 16x16 の丸いバッジ
+      // 左はしは バーの左はしから 0.05 はなれる
+      expect(info!.gap).toBeCloseTo(0.05, 9);
+    }
+    const none = new HpBar();
+    none.show(hpBarState(8, 8, 'none', 0, 1));
+    expect(none.iconInfo).toBeNull();
+  });
+
+  it('BAL-G うしろの下じき: #10141F 55%', () => {
+    const b = new HpBar();
+    b.show(hpBarState(40, 40, 'none', 0, 1));
+    const u = b.underlay;
+    expect(u).not.toBeNull();
+    const m = u!.material as THREE.MeshBasicMaterial;
+    expect(m.color.getHex()).toBe(0x10141f);
+    expect(m.opacity).toBeCloseTo(0.55, 9);
+    expect(m.transparent).toBe(true);
   });
 
   it('ふつうは たたかれてから（残りステップ > 0）だけ出る。二つ名は 16 ブロック以内ならいつも', () => {
