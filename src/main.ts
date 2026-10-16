@@ -29,7 +29,7 @@ import { FARM_HINT_VIEW } from './ui/farmHintModel';
 import { itemRarity } from './drops/rarity';
 import { itemType } from './inventory/items';
 import { createGuideHook } from './ui/playOverlay';
-import { createM6Settings, createM7Settings, createW2Settings, SEED_ITEM, VEG_ITEM, CROP_KINDS, cropKindOfBlock, type FarmPlacement, type AchievementId, type CombatEvent, type DefeatWith, type DigEvent, type ItemId, type SwingAnim, type YokaiKind } from './contracts';
+import { SEA_Y, createM6Settings, createM7Settings, createW2Settings, SEED_ITEM, VEG_ITEM, CROP_KINDS, cropKindOfBlock, type FarmPlacement, type AchievementId, type CombatEvent, type DefeatWith, type DigEvent, type ItemId, type SwingAnim, type YokaiKind } from './contracts';
 import { ACHIEVEMENT_DEFS, AchievementSystem, AchievementsPageModel, createAchievementsHook, type StepContext } from './achievements';
 import { CelebrateUi } from './ui/celebrate';
 import { AchievementsPage, achievementArtUrl } from './ui/achievementsPage';
@@ -55,6 +55,8 @@ import { LevelSystem, createLevelHook } from './level';
 import { LevelHud } from './ui/levelHud';
 import { ActionHint } from './ui/actionHint';
 import { YokaiFocus } from './fx/yokaiFocus';
+import { TitleAnnounce } from './ui/titleAnnounce';
+import { YokaiNameplates } from './ui/yokaiNameplates';
 import { actionHintLines } from './ui/actionHintModel';
 import { createRng } from './world/gen/random';
 import { FX_SETTINGS } from './fx/config';
@@ -495,8 +497,11 @@ yokaiManager = new YokaiManager({
   tick: () => game.tick + 1,
   seed,
   light: renderer.light,
-  onDefeat: (kind) => {
-    level.onDefeat(kind);
+  // 場所の倍率 M の はじまりの場所・海面の高さは、世界の設定から読む（数を書きこまない）
+  origin: () => island.spawn(),
+  seaY: () => SEA_Y,
+  onDefeat: (kind, info) => {
+    level.onDefeat(kind, info.xp);
     onDefeatAch(kind);
   },
   // ぬりかべ: たおれこみでこわす・みず で石になる（くだけるつぶと音。fx はあとで作るので関数で包む）
@@ -558,6 +563,9 @@ const hotbar = new Hotbar(hud, inventory, notice);
 // ねらっている所の ヒント（設定 actionHint で消せる）
 const hintSettings = { actionHint: true };
 const actionHint = new ActionHint(hud);
+const titleAnnounce = new TitleAnnounce(hud);
+const yokaiNameplates = new YokaiNameplates(hud);
+const plateBuf: { id: number; text: string; x: number; y: number; z: number; dist: number }[] = [];
 const yokaiFocus = new YokaiFocus((id) => yokaiManager.modelOf(id), () => game.camera.position);
 const hintVisible = (): boolean => hintSettings.actionHint && screen.mode() === 'play' && !screen.inventoryOpen() && rig.crosshairVisible();
 const nameOf = (item: ItemId): string => itemType(item)?.name ?? item;
@@ -1164,6 +1172,8 @@ game.onUpdate((dt) => {
   viewActions.endFrame();
   crosshair.setVisible(rig.crosshairVisible() && screen.mode() === 'play');
   yokaiFocus.update(hintVisible() ? dig.aimedYokaiId() : null);
+  titleAnnounce.sync(yokaiM.announce());
+  yokaiNameplates.update(yokaiM.nameplates(plateBuf), game.camera);
   actionHint.update(hintVisible() ? actionHintLines(dig.previewRightClick(), dig.previewLeftClick(), { held: tools.current().item, heldIsPickaxe: tools.current().kind === 'pickaxe', heldIsBlade: tools.current().kind === 'blade' }) : {});
   farmHint.step();
   {
@@ -1232,7 +1242,7 @@ const achievementsHook = {
   },
 };
 const facingTmp = { x: 0, y: 0, z: 0 };
-const hudHook = { actionHint: () => actionHint.current(), yokaiFocus: () => yokaiFocus.current(), yokaiFocusHulls: () => yokaiFocus.hullCount(), hpBar: (id: number) => yokaiManager?.hpBarInfo(id) ?? null };
+const hudHook = { actionHint: () => actionHint.current(), yokaiFocus: () => yokaiFocus.current(), yokaiFocusHulls: () => yokaiFocus.hullCount(), hpBar: (id: number) => yokaiManager?.hpBarInfo(id) ?? null, announce: () => yokaiManager?.announce() ?? null, nameplate: (id: number) => yokaiManager?.nameplateInfo(id) ?? null };
 const guideHook = createGuideHook(playOverlay);
 const lockHook = createLockHook(lock);
 const combatHook = createCombatHook(combat);

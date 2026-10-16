@@ -1,0 +1,31 @@
+/* 二つ名のおしらせ（たいしょう・ヌシ。画面の上のまん中。点滅しない） */
+#title-announce {
+  position: fixed;
+  left: 50%;
+  top: 14%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: var(--rk-sp-2);
+  width: max-content;
+  max-width: 94vw;
+  padding: var(--rk-sp-2) var(--rk-sp-5);
+  font-size: var(--rk-fs-title);
+  font-weight: 800;
+  line-height: var(--rk-lh);
+  text-align: center;
+  color: var(--rk-text);
+  background: var(--rk-hud-bg);
+  text-shadow: var(--rk-text-outline);
+  border-left: var(--rk-bw-sel) solid var(--rk-info);
+  border-radius: var(--rk-r-pill);
+  pointer-events: none;
+  z-index: 7;
+}
+#title-announce[hidden] {
+  display: none;
+}
+#title-announce .title-announce-icon {
+  color: #ffd54f;
+  white-space: nowrap;
+}

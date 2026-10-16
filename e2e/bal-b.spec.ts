@@ -101,7 +101,10 @@ test.describe('BAL-B 二つ名（AC10）', () => {
       out.titleSounds = ev.filter((e: any) => e.type === 'titleSound');
       // 名前・アイコン（名前は出ているだけ。バーは たたいたら出る）
       out.nameplate = h.hud.nameplate(id);
-      out.far = null;
+      // 16 ブロックより遠いと 名前もバーも出ない
+      T.place(6.5, 9, 6.5 + 20);
+      out.far = h.hud.nameplate(id);
+      out.farBar = h.hud.hpBar(id);
       T.place(6.5 - 2, 9, 6.5);
       out.nameplateNear = h.hud.nameplate(id);
       out.hpBarIdle = h.hud.hpBar(id);
@@ -121,7 +124,8 @@ test.describe('BAL-B 二つ名（AC10）', () => {
     expect(r.announce0.icon).toBe('nushi');
     expect(r.announce0.ticksLeft).toBeLessThanOrEqual(180);
     expect(r.announce0.ticksLeft).toBeGreaterThanOrEqual(178);
-    const name = r.row.name ?? 'からかさおばけ'; // 表示名は list の name（なければ今の名前）
+    expect(r.row.name).toBe('からかさおばけ');
+    const name = r.row.name;
     expect(r.announce0.text).toBe(`${name} の ヌシ が あらわれた！`);
     expect(r.at170).not.toBeNull();
     expect(r.shown).toBeGreaterThanOrEqual(179);
@@ -133,6 +137,11 @@ test.describe('BAL-B 二つ名（AC10）', () => {
     // 頭の上の名前（16 ブロック以内）とアイコン
     expect(r.nameplateNear?.visible).toBe(true);
     expect(r.nameplateNear?.text).toBe(`${name} の ヌシ`);
+    expect(r.far?.visible).toBe(false);
+    expect(r.farBar?.visible).toBe(false);
+    // 二つ名のバーは 近ければ たたく前から出る（BALANCE §4.7）
+    expect(r.hpBarIdle?.visible).toBe(true);
+    expect(r.hpBarIdle?.icon).toBe('nushi');
     expect(r.hpAfterPunch).toBeLessThan(24);
     expect(r.hpBarHit?.visible).toBe(true);
     expect(r.hpBarHit?.icon).toBe('nushi');
@@ -229,7 +238,8 @@ test.describe('BAL-B 二つ名（AC10）', () => {
     expect(r.announce.every((a: any) => a === null), JSON.stringify(r.announce)).toBe(true);
     expect(r.titleSounds.length).toBe(1);
     expect(r.titleSounds[0].title).toBe('oyabun');
-    const name = r.row.name ?? 'からかさおばけ';
+    expect(r.row.name).toBe('からかさおばけ');
+    const name = r.row.name;
     expect(r.nameplate?.visible).toBe(true);
     expect(r.nameplate?.text).toBe(`${name} おやぶん`);
     expect(r.hpBarHit?.icon).toBe('oyabun');
@@ -260,6 +270,9 @@ test.describe('BAL-B 二つ名（AC10）', () => {
       h.yokai.clear();
       const n = h.yokai.spawn('nurikabe', 6.5, 9, 6.5, { ai: false, title: 'nushi', m: 1 });
       out.nurikabe = { title: T.one(n)?.title, maxHp: T.one(n)?.maxHp };
+      h.yokai.clear();
+      const n2 = h.yokai.spawn('nurikabe', 6.5, 9, 6.5, { ai: false, title: 'taisho', m: 1 });
+      out.nurikabeTaisho = { title: T.one(n2)?.title, maxHp: T.one(n2)?.maxHp };
       return out;
     });
     expect(r.first).toBe('nushi');
@@ -270,5 +283,7 @@ test.describe('BAL-B 二つ名（AC10）', () => {
     expect(r.afterClear).toBe('taisho');
     expect(r.nurikabe.title).toBe('oyabun');
     expect(r.nurikabe.maxHp).toBe(60);
+    expect(r.nurikabeTaisho.title).toBe('oyabun');
+    expect(r.nurikabeTaisho.maxHp).toBe(60);
   });
 });
