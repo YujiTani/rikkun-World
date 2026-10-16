@@ -241,3 +241,52 @@ test('地面の作り方ごとの重さと絵（B・hybrid r=16）', async ({ pa
   writeFileSync('perf-results/voxel-terrain.json', JSON.stringify({ measuredAt: new Date().toISOString(), results }, null, 2));
   if (errors.length > 0) console.log('console errors:', errors.slice(0, 10));
 });
+
+/**
+ * VOX-3: 高さの倍率 k = 1 / 2 / 3 で、B ごつごつ・小ブロック地形・hybrid r=16 の重さを測り、スクショを撮る。
+ * 場所: スタート・上空・やまのふもとから見上げる。
+ * スクショ: docs/screenshots/VOX-3/h<k>-start.png / -sky.png / -lookup.png
+ * 結果: perf-results/voxel-height.json
+ */
+test('高さの倍率ごとの重さと絵（B・hybrid r=16）', async ({ page }) => {
+  test.setTimeout(900_000);
+  const dir = 'docs/screenshots/VOX-3';
+  mkdirSync(dir, { recursive: true });
+  mkdirSync('perf-results', { recursive: true });
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(String(e)));
+  page.on('console', (m) => {
+    if (m.type() === 'error') errors.push(m.text());
+  });
+  const out = new Map<string, Buffer>();
+  const results: Record<string, unknown>[] = [];
+  for (const k of [1, 2, 3]) {
+    await page.goto(`/voxel-proto.html?mode=hybrid&r=16&look=gotsugotsu&terrain=micro&height=${k}`);
+    await page.waitForFunction(() => window.__voxelProto?.ready === true, undefined, { timeout: 300_000 });
+    await page.evaluate(() => window.__voxelProto!.setRunning(false));
+    for (const pose of ['start', 'sky', 'lookup'] as const) {
+      await page.evaluate((p) => {
+        const h = window.__voxelProto!;
+        h.setPose(p);
+        h.renderOnce();
+      }, pose);
+      out.set(`h${k}-${pose}.png`, await page.screenshot({ timeout: 300_000 }));
+    }
+    const cliff = await page.evaluate(() => {
+      const h = window.__voxelProto!;
+      const ok = h.gotoCliff();
+      h.renderOnce();
+      return ok;
+    });
+    if (cliff) out.set(`h${k}-cliff.png`, await page.screenshot({ timeout: 300_000 }));
+    const m = (await page.evaluate(() => {
+      const h = window.__voxelProto!;
+      return { ...h.measure(), worldSize: h.worldSize, peak: h.peak };
+    })) as unknown as Record<string, unknown>;
+    console.log(JSON.stringify(m));
+    results.push(m);
+  }
+  for (const [name, buf] of out) writeFileSync(`${dir}/${name}`, buf);
+  writeFileSync('perf-results/voxel-height.json', JSON.stringify({ measuredAt: new Date().toISOString(), results }, null, 2));
+  if (errors.length > 0) console.log('console errors:', errors.slice(0, 10));
+});

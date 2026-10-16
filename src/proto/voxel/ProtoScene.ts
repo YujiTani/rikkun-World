@@ -10,7 +10,7 @@ import {
   Scene,
   type Material,
 } from 'three';
-import { BLOCK_TYPES } from '../../world/blocks/blockTypes';
+import { BLOCK_INDEX, BLOCK_TYPES } from '../../world/blocks/blockTypes';
 import { WATER_ALPHA, createAtlasTexture } from '../../world/blocks/textures';
 import { generateIsland } from '../../world/gen/generateIsland';
 import { CHUNK_DRAW_DISTANCE, RENDER_CONFIG } from '../../world/render/config';
@@ -25,6 +25,7 @@ import { createShapeTexture } from './shapeTexture';
 import { createVoxelMaterial, setVoxelFog } from './voxelMaterial';
 import { currentLook, setCurrentLook } from './looks';
 import type { Data3DTexture } from 'three';
+import { stretchHeight, type HeightFactor } from './terrain/stretchHeight';
 
 export type ProtoMode = 'current' | 'naive' | 'greedyColor' | 'greedyShape' | 'hybrid';
 export const PROTO_MODES: readonly ProtoMode[] = ['current', 'naive', 'greedyColor', 'greedyShape', 'hybrid'];
@@ -66,8 +67,12 @@ type Tier = 'micro' | 'box' | 'lod' | null;
 /** 島の世界と、方式ごとのチャンクのメッシュ（ゲーム本体とは別。光なし） */
 export class ProtoScene {
   readonly scene = new Scene();
-  readonly world = new ArrayVoxelWorld();
+  readonly world: ArrayVoxelWorld;
   readonly island: IslandInfo;
+  /** 高さの倍率（VOX-3）。1 = 今のまま */
+  readonly height: HeightFactor;
+  /** のばす前の島（スポーン地点などを読む） */
+  readonly baseWorld = new ArrayVoxelWorld();
   mode: ProtoMode;
   terrain: TerrainMode = 'block';
   /** hybrid: カメラからこの距離（ブロック）以内のチャンクだけ 小ブロックの形 */
@@ -75,6 +80,42 @@ export class ProtoScene {
   /** 直近の「足りないチャンクを作った」時間と数 */
   lastBuild = { ms: 0, chunks: 0 };
   lastRebuildMs = 0;
+
+  /** スタート地点（のばした世界の地面の上） */
+  spawn(): { x: number; y: number; z: number } {
+    const s = this.island.spawn();
+    for (let y = this.world.size.y - 1; y >= 0; y--) {
+      if (this.world.isSolid(Math.floor(s.x), y, Math.floor(s.z))) return { x: s.x, y: y + 1, z: s.z };
+    }
+    return s;
+  }
+
+  /** (x, z) の地面の上の y（固いブロックのいちばん上 + 1） */
+  groundY(x: number, z: number): number {
+    for (let y = this.world.size.y - 1; y >= 0; y--) {
+      if (this.world.isSolid(Math.floor(x), y, Math.floor(z))) return y + 1;
+    }
+    return 0;
+  }
+
+  /** 世界でいちばん高い地面の列（岩山のてっぺん。木の葉は除く） */
+  highestPoint(): { x: number; y: number; z: number } {
+    const leaves = BLOCK_INDEX.leaves;
+    const log = BLOCK_INDEX.log;
+    let best = { x: 0, y: -1, z: 0 };
+    for (let z = 0; z < this.world.size.z; z++) {
+      for (let x = 0; x < this.world.size.x; x++) {
+        for (let y = this.world.size.y - 1; y > best.y; y--) {
+          const k = this.world.getIndex(x, y, z);
+          if (k > 0 && this.world.isSolid(x, y, z) && k !== leaves && k !== log) {
+            best = { x: x + 0.5, y: y + 1, z: z + 0.5 };
+            break;
+          }
+        }
+      }
+    }
+    return best;
+  }
 
   private readonly root = new Group();
   /** 小ブロックの形（current のときは今のメッシュ） */
@@ -96,9 +137,11 @@ export class ProtoScene {
   private readonly shapeMat;
   private shapeTex: Data3DTexture;
 
-  constructor(mode: ProtoMode, seed: number = GEN_CONFIG.defaultSeed) {
+  constructor(mode: ProtoMode, seed: number = GEN_CONFIG.defaultSeed, height: HeightFactor = 1) {
     this.mode = mode;
-    this.island = generateIsland(seed, this.world);
+    this.height = height;
+    this.island = generateIsland(seed, this.baseWorld);
+    this.world = height === 1 ? this.baseWorld : stretchHeight(this.baseWorld, height);
     this.mesher = new VoxelChunkMesher(this.world);
     this.count = this.world.chunksX * this.world.chunksZ;
     this.micro = new Array<Built | null>(this.count).fill(null);
