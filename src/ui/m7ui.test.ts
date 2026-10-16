@@ -87,9 +87,9 @@ describe('ねらった作物の しるし（§3.4）', () => {
 });
 
 describe('案内画面の そだてる タブ（§3.7）', () => {
-  it('10 こ（M7-2 で 3 こ ふえた）で 漢字は ふりがな付き', () => {
+  it('11 こ（M7-2 で 3 こ・BUCKET-1 で 1 こ ふえた）で 漢字は ふりがな付き', () => {
     expect(GUIDE_TABS.grow.label).toBe('そだてる');
-    expect(GUIDE_TABS.grow.captions.length).toBe(10);
+    expect(GUIDE_TABS.grow.captions.length).toBe(11);
     for (const c of GUIDE_TABS.grow.captions) expect(findUnrubiedKanji(c)).toEqual([]);
   });
 });
@@ -129,9 +129,9 @@ describe('農業の出来事 → 音・つぶ・合図・実績', () => {
 describe('実績 そだてる（§4.7）', () => {
   const mk = () => new AchievementSystem(() => ({ ...M6_SETTING_DEFAULTS, achieveCooldown: 0, achieveCooldownEarly: 0 }));
   const ev = (e: Record<string, unknown>): FarmEvent => ({ ...at, ...e }) as FarmEvent;
-  it('数: 分類そだてる 34・小 12、つくる に くわ（つくれる もの 28）', () => {
+  it('数: 分類そだてる 35・小 12、つくる に くわ（つくれる もの 28）', () => {
     const farm = ACHIEVEMENT_DEFS.filter((d) => d.category === 'farm');
-    expect(farm.length).toBe(34);
+    expect(farm.length).toBe(35);
     expect(farm.filter((d) => d.small).length).toBe(12);
     expect(CRAFT_RECIPE_NAMES.length).toBe(28);
     expect(ACHIEVEMENT_DEFS.find((d) => d.id === 'craft.kuwa.1')).toMatchObject({ category: 'craft', small: true });

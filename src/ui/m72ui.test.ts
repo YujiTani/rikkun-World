@@ -16,18 +16,18 @@ const ev = (e: Record<string, unknown>): FarmEvent => ({ ...at, ...e }) as FarmE
 const mk = () => new AchievementSystem(() => ({ ...M6_SETTING_DEFAULTS, achieveCooldown: 0, achieveCooldownEarly: 0 }));
 
 describe('M7-2 実績（AC21・§4.7）', () => {
-  it('数の表: そだてる +8、つくる +3、ぜんぶ 222・小 78', () => {
+  it('数の表: そだてる +8、つくる +3、ぜんぶ 224・小 79', () => {
     const cnt = (cat: string) => ACHIEVEMENT_DEFS.filter((d) => d.category === cat).length;
-    expect(cnt('farm')).toBe(26 + 8);
-    expect(ACHIEVEMENT_DEFS.length).toBe(222);
-    expect(ACHIEVEMENT_DEFS.filter((d) => d.small).length).toBe(78);
+    expect(cnt('farm')).toBe(26 + 8 + 1);
+    expect(ACHIEVEMENT_DEFS.length).toBe(224);
+    expect(ACHIEVEMENT_DEFS.filter((d) => d.small).length).toBe(79);
     for (const id of ['craft.watering_can.1', 'craft.long_watering_can.1', 'craft.sprinkler.1']) {
       expect(ACHIEVEMENT_DEFS.find((d) => d.id === id)).toMatchObject({ category: 'craft', small: true });
     }
   });
   it('そだてる の 並び: M7 の 行 の うしろ に water・sprinkler・pet・petHarvest の 順、名前 に 漢字 なし', () => {
     const farm = ACHIEVEMENT_DEFS.filter((d) => d.category === 'farm');
-    expect(farm.slice(-8).map((d) => d.id)).toEqual([
+    expect(farm.slice(-9, -1).map((d) => d.id)).toEqual([
       'farm.water.1',
       'farm.water.10',
       'farm.water.100',
@@ -37,7 +37,8 @@ describe('M7-2 実績（AC21・§4.7）', () => {
       'farm.pet.100',
       'farm.petHarvest.1',
     ]);
-    expect(farm.slice(-8).filter((d) => d.small).map((d) => d.id)).toEqual(['farm.water.1', 'farm.pet.1']);
+    expect(farm[farm.length - 1].id).toBe('farm.bucket.1');
+    expect(farm.slice(-9, -1).filter((d) => d.small).map((d) => d.id)).toEqual(['farm.water.1', 'farm.pet.1']);
     expect(farm.some((d) => /[一-鿿]/.test(d.name))).toBe(false);
     expect(ACHIEVEMENT_DEFS.find((d) => d.id === 'farm.water.10')?.name).toBe('10 かい みずやり した！');
     expect(ACHIEVEMENT_DEFS.find((d) => d.id === 'farm.pet.10')?.name).toBe('やさい を 10 かい なでた！');
@@ -137,14 +138,15 @@ describe('M7-2 HUD（AC17）と 案内画面（AC25）と 案内の絵（AC18）
     expect(farmAimView({ ...base, wet: false, wetSoon: true })).toMatchObject({ droplet: false, dropletFaint: false });
     expect(WET_SOON_OPACITY).toBe(0.45);
   });
-  it('そだてる タブ は 10 こ・漢字 は ふりがな付き', () => {
+  it('そだてる タブ は 11 こ・漢字 は ふりがな付き', () => {
     const c = GUIDE_TABS.grow.captions;
-    expect(c.length).toBe(10);
+    expect(c.length).toBe(11);
     for (const t of c) expect(findUnrubiedKanji(t), t).toEqual([]);
-    const plain = c.slice(7).map((t) => t.replace(/<[^>]+>/g, ''));
+    const plain = c.slice(7, 10).map((t) => t.replace(/<[^>]+>/g, ''));
     expect(plain[0]).toContain('じょうろ');
     expect(plain[1]).toContain('スプリンクラー');
     expect(plain[2]).toContain('なでる');
+    expect(c[10].replace(/<[^>]+>/g, '')).toContain('バケツ');
   });
   it('照準の下: くむ・みずやり・くもう・なでる', () => {
     const c = { held: null, heldIsPickaxe: false, heldIsBlade: false };

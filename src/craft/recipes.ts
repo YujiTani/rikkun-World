@@ -49,6 +49,8 @@ export const CRAFT_RECIPES: readonly Recipe[] = [
   r('watering_can', 1, [['iron_ingot', 1], ['stone', 2]], true),
   r('long_watering_can', 1, [['iron_ingot', 3], ['log', 1]], true),
   r('sprinkler', 1, [['iron_ingot', 4], ['stone', 2]], true),
+  // BUCKET-1: バケツ（29 こ目 = スプリンクラー の すぐ うしろ）
+  r('bucket', 1, [['iron_ingot', 3]], true),
   // #63: やさい 1 こ → たね 4 こ（いちばん うしろ）
   ...CROP_KINDS.map((k) => r(SEED_ITEM[k], 4, [[VEG_ITEM[k], 1]], true)),
 ];
