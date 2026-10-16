@@ -516,8 +516,10 @@ export class SectionMesher {
     const s = this.sample;
     const mx0 = this.ox * N - N;
     const mz0 = this.oz * N - N;
-    for (let gz = 0; gz < S; gz++) {
-      for (let gx = 0; gx < S; gx++) {
+    this.colH.fill(-1);
+    // 面を作るのは 自分の 144×144 と、そのまわり 1 マス（となりの有無）。高さの比べは 2 マス先まで読む
+    for (let gz = N - 2; gz < S - N + 2; gz++) {
+      for (let gx = N - 2; gx < S - N + 2; gx++) {
         sampleSurface(mx0 + gx, mz0 + gz, this.colSrc, s);
         const gi = gz * S + gx;
         this.colH[gi] = s.h;
@@ -577,7 +579,19 @@ export class SectionMesher {
           if (nh - h > rise) rise = nh - h;
         }
         const topDepth = rise >= 2 ? 2 : rise;
-        for (let gy = gy0; gy < gy1; gy++) {
+        // 4 つのとなりより ひくい所は ぜんぶ囲まれていて 面ができない: 色は計算せず つめておく
+        let m1 = h;
+        for (let q = 0; q < 4; q++) {
+          const nh = colH[q === 0 ? gi - 1 : q === 1 ? gi + 1 : q === 2 ? gi - S : gi + S];
+          if (nh >= 0 && nh < m1) m1 = nh;
+        }
+        const gyFill = Math.min(gy1, Math.max(gy0, m1 - 1 - rowBase));
+        for (let gy = gy0; gy < gyFill; gy++) {
+          const idx = (gy * S + gz) * S + gx;
+          grid[idx] = fallback;
+          tf[idx] = 1;
+        }
+        for (let gy = gyFill; gy < gy1; gy++) {
           const y = gy + rowBase;
           const fromTop = h - 1 - y;
           let depth = fromTop === 0 ? topDepth : fromTop < 2 ? fromTop : 2;

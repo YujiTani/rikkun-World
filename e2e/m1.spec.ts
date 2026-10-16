@@ -112,8 +112,9 @@ test.describe('M1-01 世界（つないだ後）', () => {
       expect(r.p1.onGround).toBe(true);
       // AC17 / AC18
       expect(r.gen).toBeLessThanOrEqual(2500); // M5: 世界が広くなった（仕様 §4-7）
-      expect(r.stats.drawCalls).toBeLessThanOrEqual(100);
-      expect(r.stats.triangles).toBeLessThanOrEqual(300_000);
+      // VOX-E: 世界が 9×9×9 の小ブロックになり、メッシュがセクションごとになった（チケット 基準 5: 描画回数 スタート 300・三角形 r=32 で 120 万）
+      expect(r.stats.drawCalls).toBeLessThanOrEqual(300);
+      expect(r.stats.triangles).toBeLessThanOrEqual(1_200_000);
       // AC20
       expect(r.testAreaOk).toBe(true);
     });
