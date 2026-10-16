@@ -632,6 +632,16 @@ export class ChunkedVoxelWorld implements VoxelWorld {
       }
   }
 
+  /** まだ光が受けとっていない「変わった」の数（変えたマスの箱・列の出入り）。setBlock のすぐあとは 0 でない */
+  uncollectedLightChanges(): number {
+    return this.changeBoxes.length + (this.columnEvents?.length ?? 0);
+  }
+
+  /** まだメッシュ側が受けとっていない「変わった」セクションを持つ列の数 */
+  uncollectedMeshChanges(): number {
+    return this.dirtySecList.length;
+  }
+
   /** 変わったセクションを渡して、覚えているのを空にする */
   takeDirtySections(): SectionPos[] {
     return this.takeDirtySectionsEx().map(({ cx, sy, cz }) => ({ cx, sy, cz }));

@@ -804,7 +804,8 @@ export class WorldRenderer {
       geometryBytesLimit: this.geometryBytesLimit,
       meshCount,
       disposedTotal: this.disposed,
-      pending: this.queue.size,
+      // 世界が教えてくれたのに まだ受けとっていない変化（setBlock のすぐあと）もふくめる: 0 なら本当に落ちついた
+      pending: this.queue.size + this.world.uncollectedMeshChanges(),
     };
   }
 
