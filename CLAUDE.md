@@ -50,6 +50,7 @@
 | 性能の記録 | `npm run perf` → `perf-results/latest.json` |
 | 速いチェック（型＋ユニット） | `npm run check:fast` |
 | 速い E2E（smoke など） | `npm run test:e2e:fast` |
+| UI 検査（全画面×3 つの大きさ、約 30 秒） | `npm run check:ui` → 結果とスクショは `ui-gate-report/` |
 | 全部（E2E 込み） | `npm run check` |
 
 ## コードのきまり
