@@ -1,0 +1,52 @@
+/* 刀・弓の しるし: 「＋」(画面の まんなか) の そば。3 つの画面の大きさで 同じ px */
+#aim-stance {
+  position: fixed;
+  left: calc(50% + 28px);
+  top: 50%;
+  width: 18px;
+  height: 25px;
+  margin-top: -12.5px; /* まん中の線が ＋ と同じ高さ */
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  pointer-events: none;
+  z-index: 6;
+}
+.aim-stance__line {
+  width: 18px;
+  height: 5px;
+  box-sizing: border-box;
+  border-radius: 2px;
+  background: rgb(150 156 170 / 45%);
+}
+.aim-stance__line.on {
+  background: #fff6c8;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 55%);
+}
+#aim-bow {
+  position: fixed;
+  left: 50%;
+  top: calc(50% + 24px);
+  width: 42px;
+  height: 10px;
+  margin-left: -21px; /* まん中の丸が ＋ の真下 */
+  display: flex;
+  gap: 6px;
+  pointer-events: none;
+  z-index: 6;
+}
+.aim-bow__dot {
+  width: 10px;
+  height: 10px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  background: rgb(150 156 170 / 45%);
+}
+.aim-bow__dot.on {
+  background: #ffb347;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 55%);
+}
+#aim-stance[hidden],
+#aim-bow[hidden] {
+  display: none;
+}
