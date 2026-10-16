@@ -78,6 +78,11 @@ test.describe('BAL-C 体力のバー（AC12b）', () => {
     for (const b of r.untouched) expect(b?.visible).toBe(false);
     expect(r.unknown).toBeNull();
     expect(r.hits.length).toBeGreaterThan(0);
+    // AC12b（BAL-A のあと）: からかさ は 最大 8。5 回で 残り 3・黄、6 回で 残り 2・赤
+    expect(r.max).toBe(8);
+    const at = (hp: number) => r.hits.find((h: any) => h.hp === hp)?.bar;
+    expect(at(3)).toMatchObject({ bars: 8, left: 3, color: 'yellow' });
+    expect(at(2)).toMatchObject({ bars: 8, left: 2, color: 'red' });
     const colors = new Set<string>();
     for (const hit of r.hits) {
       const e = expected(hit.hp, r.max);
