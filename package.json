@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:e2e": "playwright test",
+    "check:ui": "playwright test e2e/ui-gate.spec.ts",
     "test:e2e:fast": "playwright test e2e/smoke.spec.ts e2e/m6-shots.spec.ts e2e/partsPage.spec.ts",
     "perf": "playwright test --config playwright.perf.config.ts",
     "check": "npm run typecheck && npm run test && npm run test:e2e",

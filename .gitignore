@@ -8,3 +8,4 @@ perf-results/
 # Blender の自動バックアップ
 *.blend1
 node_modules
+ui-gate-report/
