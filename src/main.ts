@@ -1,4 +1,5 @@
 import { CameraRig } from './camera/CameraRig';
+import { attachAtlasDoll, attachGlbDoll, attachSpriteDoll, charParam } from './debug/glbDoll';
 import { createCrosshair } from './camera/crosshair';
 import { createCameraHook } from './camera/hook';
 import { DigFx } from './fx/DigFx';
@@ -187,6 +188,17 @@ const controller = new PlayerController(world, game.input, look, lock, () => isl
 const viewActions = new ActionState();
 const rig = new CameraRig(game.camera, game.scene, world, () => controller.state, viewActions);
 lighting.registerTree(rig.doll.group, 'doll');
+// CHAR-1 のお試し（?char=<名前> のときだけ）: 三人称で public/models/<名前>.glb を出す
+const glbCharName = charParam(location.search);
+const glbDoll = !glbCharName
+  ? null
+  : glbCharName.startsWith('sprite')
+    ? attachSpriteDoll(rig.doll, lighting, game.camera, glbCharName)
+    : glbCharName === 'kittywalk'
+      ? attachAtlasDoll(rig.doll, lighting, game.camera, 'kitty_walk_atlas')
+      : glbCharName === 'kittywalk3'
+        ? attachAtlasDoll(rig.doll, lighting, game.camera, 'kitty_walk_atlas3', 3)
+      : attachGlbDoll(rig.doll, lighting, glbCharName);
 const crosshair = createCrosshair(hud);
 crosshair.setVisible(rig.crosshairVisible());
 
@@ -1120,6 +1132,7 @@ game.onUpdate((dt) => {
   levelHud.tick(dt);
   updateFurnaceFx(dt);
   rig.update(dt);
+  glbDoll?.update(dt);
   sky.update(game.camera);
   combatUi.clock.setTime(time.dayTick(), timeSettings, time.day() + 1);
   viewActions.endFrame();
