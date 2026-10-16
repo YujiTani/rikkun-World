@@ -207,3 +207,38 @@ describe('見えない印（VOX-plan §6）', () => {
     expect(w.takeDirtySections()).toEqual([]);
   });
 });
+
+describe('保存用の印（VOX-F）', () => {
+  it('setBlock・fill が さわった列と変えたマスの記録に入る。同じ値は入らない', () => {
+    const w = new ChunkedVoxelWorld({ x: 48, z: 48 });
+    expect(w.saveDirtyCount()).toBe(0);
+    w.setBlock(1, 5, 1, 'stone');
+    w.setBlock(1, 5, 1, 'stone');
+    w.setBlock(20, 5, 20, 'dirt');
+    w.fill(33, 2, 33, 34, 2, 33, 'sand');
+    expect(w.saveDirtyCount()).toBe(3);
+    expect(w.changeLogCount()).toBe(4);
+    const cols = w.takeSaveDirty();
+    expect(cols.map((c) => [c.cx, c.cz]).sort()).toEqual([[0, 0], [1, 1], [2, 2]]);
+    expect(w.saveDirtyCount()).toBe(0);
+    w.requeueSaveDirty([{ cx: 1, cz: 1 }, { cx: 9, cz: 9 }]);
+    expect(w.saveDirtyCount()).toBe(1);
+  });
+
+  it('記録は 通し番号で捨てる。resetSaveTracking で空になる', () => {
+    const w = new ChunkedVoxelWorld({ x: 16, z: 16 });
+    w.setBlock(1, 5, 1, 'stone');
+    w.setBlock(2, 5, 1, 'stone');
+    const end = w.changeLogEnd();
+    w.setBlock(3, 5, 1, 'stone');
+    w.dropChangeLogTo(end);
+    expect(w.changeLogCount()).toBe(1);
+    expect(w.changeLogCells().slice(0, 3)).toEqual([3, 5, 1]);
+    expect(w.changeLogEnd()).toBe(3);
+    w.resetSaveTracking();
+    expect(w.changeLogCount()).toBe(0);
+    expect(w.saveDirtyCount()).toBe(0);
+    expect(w.hashColumn(0, 0)).toMatch(/^[0-9a-f]{8}$/);
+    expect(w.hashColumn(5, 5)).toBe('none');
+  });
+});

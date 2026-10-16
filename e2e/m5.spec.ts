@@ -217,31 +217,9 @@ test.describe('M5 広い世界', () => {
     expect(r.defeat).toBe(0);
   });
 
-  test('AC20: gen=1・gen なし・size ちがいの保存は使わない。そのあとの保存は gen=2・size=[128,48,128]', async ({ page }) => {
-    await open(page, '?nosave=1');
-    const key = await page.evaluate(() => {
-      const h = (window as any).__rikkun;
-      return `rikkun-world-save-v1-${h.world.seed()}`;
-    });
-    // 実際の保存を 1 回作って形を見る
-    await page.goto('/?reset=1');
-    await page.waitForFunction(() => window.__rikkun?.ready === true);
-    await page.evaluate(() => window.__rikkun!.achievements.mute(true));
-    const base = await page.evaluate((k) => {
-      const h = (window as any).__rikkun;
-      h.pause();
-      h.lock.simulate(true);
-      h.world.setBlock(100, 8, 60, 'sand');
-      h.save.now();
-      const raw = localStorage.getItem(k);
-      return raw;
-    }, key);
-    expect(base).not.toBeNull();
-    const parsed = JSON.parse(base!);
-    expect(parsed.gen).toBe(2);
-    expect(parsed.size).toEqual([128, 48, 128]);
-
+  test('AC20（VOX-F AC4）: 古い localStorage の保存は 1 回だけ IndexedDB に移り、古いキーは残る。使えない古い保存は読まない', async ({ browser }) => {
     const variants: Record<string, (d: any) => any> = {
+      good: (d) => d,
       gen1: (d) => ({ ...d, gen: 1 }),
       noGen: (d) => {
         const c = { ...d };
@@ -251,35 +229,53 @@ test.describe('M5 広い世界', () => {
       size64: (d) => ({ ...d, size: [64, 32, 64] }),
     };
     for (const [name, f] of Object.entries(variants)) {
-      const text = JSON.stringify(f(parsed));
-      await page.evaluate(([k, t]) => localStorage.setItem(k, t), [key, text]);
+      const ctx = await browser.newContext();
+      const page = await ctx.newPage();
+      // ?nosave=1 なら IndexedDB にさわらない。古い保存を 置くだけ
+      await page.goto('/?nosave=1');
+      await page.waitForFunction(() => window.__rikkun?.ready === true);
+      const key = await page.evaluate(
+        ([text]) => {
+          const h = (window as any).__rikkun;
+          const sand = h.world.blockTypes().findIndex((t: any) => t.id === 'sand');
+          const d = {
+            version: 1, gen: 2, size: [128, 48, 128], seed: h.world.seed(), blocks: [(8 * 128 + 60) * 128 + 100, sand],
+            inventory: null, player: null, bags: [], tick: 0,
+          };
+          const k = `rikkun-world-save-v1-${h.world.seed()}`;
+          localStorage.setItem(k, JSON.stringify((0, eval)(text)(d)));
+          return k;
+        },
+        [f.toString()],
+      );
       await page.goto('/');
       await page.waitForFunction(() => window.__rikkun?.ready === true);
       await page.evaluate(() => window.__rikkun!.achievements.mute(true));
-      const r = await page.evaluate(() => {
+      const r = await page.evaluate(async () => {
         const h = (window as any).__rikkun;
         h.pause();
-        const sp = h.world.spawn();
-        const pos = h.player.get().position;
-        const inv = h.inventory.get ? h.inventory.get() : null;
-        const total = inv ? JSON.stringify(inv).length : 0;
-        return { sandChanged: h.world.getBlock(100, 8, 60), pos, sp, inv: inv ? JSON.stringify(inv).slice(0, 200) : null, total };
+        const sand = h.world.getBlock(100, 8, 60);
+        await h.save.now();
+        return { sand, info: h.save.info(), marker: Object.keys(localStorage).filter((k) => k.startsWith('rikkun-world-migrated-')) };
       });
       console.log('AC20', name, JSON.stringify(r));
-      expect(r.sandChanged).not.toBe('sand');
-      expect(Math.abs(r.pos.x - r.sp.x)).toBeLessThan(0.01);
-      expect(Math.abs(r.pos.z - r.sp.z)).toBeLessThan(0.01);
-      // そのあとの保存
-      const after = await page.evaluate((k) => {
-        const h = (window as any).__rikkun;
-        h.world.setBlock(101, 8, 60, 'sand');
-        h.save.now();
-        const d = JSON.parse(localStorage.getItem(k)!);
-        return { gen: d.gen, size: d.size };
-      }, key);
-      expect(after).toEqual({ gen: 2, size: [128, 48, 128] });
+      if (name === 'good') {
+        expect(r.sand).toBe('sand');
+        expect(r.info.migrated).toBe(true);
+        expect(r.marker).toHaveLength(1);
+        expect(await page.evaluate((k) => localStorage.getItem(k) !== null, key)).toBe(true); // 古いキーは残る
+        // 古いキーを消しても、IndexedDB の保存から同じ世界
+        await page.evaluate((k) => localStorage.removeItem(k), key);
+        await page.goto('/');
+        await page.waitForFunction(() => window.__rikkun?.ready === true);
+        expect(await page.evaluate(() => (window as any).__rikkun.world.getBlock(100, 8, 60))).toBe('sand');
+        expect(await page.evaluate(() => (window as any).__rikkun.save.info().migrated)).toBe(false);
+      } else {
+        expect(r.sand).not.toBe('sand');
+        expect(r.info.migrated).toBe(false);
+      }
+      await ctx.close();
     }
-    await page.evaluate((k) => localStorage.removeItem(k), key);
   });
 
   test('AC21: ひらち (100,8,60) とやま (64,25,28) の変更を保存して読み直すと同じ', async ({ page }) => {

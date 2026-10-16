@@ -63,7 +63,7 @@ import { DigSystemImpl, createDigConfig, createDigHook } from './dig';
 import { InventoryImpl, createInventoryHook } from './inventory';
 import { ScreenController } from './screen/ScreenController';
 import { createScreenSettings } from './screen/config';
-import { SaveManager, createSaveHook, parseSaveOptions, snapshotWorld, stripResetParam } from './save';
+import { EXPORT_FILE_NAME, PENDING_KEY, SAVE_ID, SaveManager, compressionAvailable, createSaveHook, exportSave, importSave, NO_SAVE, openIdb, parseSaveOptions, requestPersist, restoreStoredWorld, stripResetParam } from './save';
 import { Hotbar } from './ui/hotbar';
 import { InventoryScreen } from './ui/inventoryScreen';
 import { Notice } from './ui/notice';
@@ -157,7 +157,28 @@ const game = new Game(container);
 const world = new ArrayVoxelWorld();
 const seed = readSeed();
 const island = generateIsland(seed, world);
-const baseline = snapshotWorld(world);
+world.resetSaveTracking(); // 島を作っただけ。保存するのは さわった列だけ
+// 保存（VOX-F）: IndexedDB から さわった列を 世界に入れる。描画の前に（光が 最初から 正しくなるように）
+const saveOptions = parseSaveOptions(location.search);
+let store: Storage | null = null;
+try {
+  store = saveOptions.nosave ? null : window.localStorage;
+} catch {
+  store = null;
+}
+const saveId = seed === GEN_CONFIG.defaultSeed ? SAVE_ID : `seed-${seed}`;
+// IndexedDB が 開かない・返事がないときも ゲームは始める（3 秒でやめて 保存なしで遊ぶ）
+const SAVE_BOOT_TIMEOUT_MS = 3000;
+const sleepNull = () => new Promise<null>((ok) => setTimeout(() => ok(null), SAVE_BOOT_TIMEOUT_MS));
+let idb = store && compressionAvailable() ? await Promise.race([openIdb(), sleepNull()]) : null;
+if (idb) requestPersist();
+const bootSignal = { aborted: false };
+let restored = await Promise.race([restoreStoredWorld({ world, db: idb, store, seed, saveId, reset: saveOptions.reset, signal: bootSignal }), sleepNull()]);
+if (restored === null) {
+  bootSignal.aborted = true;
+  idb = null;
+  restored = NO_SAVE;
+}
 const renderer = new WorldRenderer(world);
 renderer.setViewer(island.spawn().x, island.spawn().z);
 renderer.attach(game.scene);
@@ -845,17 +866,12 @@ onDefeatAch = (kind) => {
 };
 
 // 自動セーブ（?nosave=1 は保存しない、?reset=1 は消してから始める）
-const saveOptions = parseSaveOptions(location.search);
-let store: Storage | null = null;
-try {
-  store = saveOptions.nosave ? null : window.localStorage;
-} catch {
-  store = null;
-}
 const save = new SaveManager({
   world,
   seed,
-  baseline,
+  saveId,
+  db: idb,
+  restored,
   inventory,
   player: {
     get: () => controller.state,
@@ -881,13 +897,8 @@ const save = new SaveManager({
   farm,
 });
 requestSave = () => save.saveIfChanged();
-let loadedSave = false;
-if (saveOptions.reset) {
-  save.clear();
-  history.replaceState(null, '', stripResetParam(location.href));
-} else {
-  loadedSave = save.load();
-}
+if (saveOptions.reset) history.replaceState(null, '', stripResetParam(location.href));
+const loadedSave = save.load();
 // 新しい世界: 島の上に 置きもの（やせいの やさい・ふるい はたけ）を置く。保存があれば 保存の側（前の保存は placeLegacy）
 if (!loadedSave) {
   const placement: FarmPlacement = computeFarmPlacement(seed, { world, info: island });
@@ -937,6 +948,33 @@ screen.onClose(() => {
   save.saveIfChanged();
 });
 save.bindPageEvents(window, document);
+if (idb) {
+  // おとな向け: ほぞんを ファイル（.rikkun.gz）に だす・よみこむ（Safari の 7 日消去にそなえる）
+  playOverlay.mountAdult({
+    exportSave: async () => {
+      await save.now();
+      const bytes = await exportSave(idb, saveId);
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([bytes as BlobPart], { type: 'application/gzip' }));
+      a.download = EXPORT_FILE_NAME;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+    },
+    importSave: async (file) => {
+      if (!window.confirm('いまの せかいが ファイルの ものに かわります。いいですか？')) return;
+      try {
+        save.suspend(); // 読みなおすまで、いまの世界で ファイルの中身を 上書きしない
+        await save.idle();
+        await importSave(idb, saveId, new Uint8Array(await file.arrayBuffer()), seed);
+        store?.removeItem(PENDING_KEY);
+        location.reload();
+      } catch (e) {
+        save.resume();
+        window.alert(e instanceof Error ? e.message : 'よみこめませんでした');
+      }
+    },
+  });
+}
 
 const overlay = new PerfOverlay(hud, game);
 

@@ -256,3 +256,27 @@
   color: var(--rk-bg-900);
   text-shadow: none;
 }
+
+/* VOX-F: おとな向けの ほぞんの 出し入れ（右下のすみに 小さく） */
+.po-adult {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  max-width: 260px;
+  font-size: 12px;
+  color: var(--rk-text-300, #cfd8dc);
+  opacity: 0.7;
+}
+.po-adult summary {
+  cursor: pointer;
+  text-align: right;
+}
+.po-adult button,
+.po-adult-load {
+  display: block;
+  margin-top: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  text-align: center;
+}
