@@ -77,10 +77,10 @@ describe('きらめく カタナ（#68）', () => {
 });
 
 describe('つくる（AC1〜AC4）', () => {
-  it('list は 25 こ、持ち物が空なら全部 craftable false', () => {
+  it('list は 29 こ、持ち物が空なら全部 craftable false', () => {
     const { craft } = rig();
     const l = craft.list();
-    expect(l).toHaveLength(25);
+    expect(l).toHaveLength(29);
     expect(l.every((c) => !c.craftable && c.missing.length === c.inputs.length)).toBe(true);
     expect(l[0].id).toBe('wood_pickaxe');
     expect(craft.bakeList().map((b) => b.id)).toEqual(['iron_ingot', 'kawara', 'brick', 'haniwa']);

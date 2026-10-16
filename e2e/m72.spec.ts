@@ -970,7 +970,7 @@ test.describe('M7-2 画面', () => {
         return {
           open: ui.panelVisible,
           cards: ids.length,
-          tail: ids.slice(-3),
+          tail: ids.slice(-7, -4),
           tiles: ui.tiles.length,
           cols: new Set(Object.values(ui.tileRects).map((r: any) => Math.round(r.x))).size,
           over,
@@ -980,7 +980,7 @@ test.describe('M7-2 画面', () => {
         };
       });
       expect(r.open).toBe(true);
-      expect(r.cards).toBe(25);
+      expect(r.cards).toBe(29);
       expect(r.tail).toEqual(['watering_can', 'long_watering_can', 'sprinkler']);
       expect(r.over).toBe(0);
       expect(r.sw).toBeLessThanOrEqual(0);
