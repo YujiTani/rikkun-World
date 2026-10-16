@@ -216,7 +216,7 @@ const openNick = (title: 'taisho' | 'nushi', stage: 1 | 2 | 3, announce: boolean
       h.yokai.clear();
       h.player.set({ position: { x: x + 0.5, y, z: z + 0.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: 0 });
       h.time.set(20000);
-      h.yokai.spawn('karakasa', x + 4.5, y, z + 0.5, { ai: false, yawDeg: 270, title, m });
+      h.yokai.spawn('karakasa', x + 5.5, y, z + 3.6, { ai: false, yawDeg: 300, title, m });
       h.step(announce ? 20 : 8);
     },
     { title, m: NICK_M[stage], announce },

@@ -519,6 +519,7 @@ export abstract class YokaiBase {
   die(): void {
     if (this.dying) return;
     this.dying = true;
+    if (this.nickGlow) this.nickGlow.visible = false;
     this.dieT = 0;
     this.attackT = -1;
     this.hitT = -1;
@@ -540,7 +541,10 @@ export abstract class YokaiBase {
   update(dt: number): void {
     this.clock += dt;
     this.updateBlink(dt);
-    if (this.nickGlow) (this.nickGlow.material as THREE.MeshBasicMaterial).opacity = nushiGlowOpacity(this.clock);
+    if (this.nickGlow) {
+      this.nickGlow.visible = !this.dying; // たおれる演出に入ったら 光は 消す
+      (this.nickGlow.material as THREE.MeshBasicMaterial).opacity = nushiGlowOpacity(this.clock);
+    }
 
     if (this.dying) {
       this.dieT += dt;

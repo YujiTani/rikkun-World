@@ -103,7 +103,7 @@ export function createNushiGlow(size: { width: number; height: number; depth: nu
   // 夜の暗さを かけない（applyDollBrightness は skip を見る）
   mat.userData = { base: NUSHI_GLOW.color, skip: true };
   const h = size.height * (1 - NUSHI_GLOW.liftRatio);
-  const m = new THREE.Mesh(boxGeo(size.width * 1.1, h, size.depth * 1.1), mat);
+  const m = new THREE.Mesh(boxGeo(size.width, h, size.depth), mat);
   m.position.y = size.height * NUSHI_GLOW.liftRatio + h / 2;
   m.name = 'nushiGlow';
   m.renderOrder = 2;

@@ -92,3 +92,19 @@ describe('ヌシの ふんわり光', () => {
     expect(maxStep).toBeLessThanOrEqual(0.06 / 10);
   });
 });
+
+describe('ヌシの光は たおれる演出で 消える（G14）', () => {
+  it('die() で 光が 見えなくなり、revive() で もどる', async () => {
+    const { createYokai } = await import('./index');
+    const m = createYokai('karakasa');
+    m.setNickMarks('nushi');
+    const glow = () => m.nickInfo().glow!;
+    expect(glow().visible).toBe(true);
+    m.die();
+    m.update(0.1);
+    expect(glow().visible).toBe(false);
+    m.revive();
+    m.update(0.1);
+    expect(glow().visible).toBe(true);
+  });
+});

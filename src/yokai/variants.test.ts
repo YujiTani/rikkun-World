@@ -121,3 +121,17 @@ describe('BAL-G 色ちがいは 色を差しかえる（上乗せではない）
     }
   });
 });
+
+describe('BAL-G 色の表に 衝突が ない（G15）', () => {
+  it('段階色は 同じ妖怪の 別の もとの色と 同じにならず、2 段階 と 3 段階の 色も 重ならない', () => {
+    for (const k of KINDS) {
+      const from = new Set(Object.keys(YOKAI_VARIANT_COLORS[k][2]).map(Number));
+      const t2 = Object.values(YOKAI_VARIANT_COLORS[k][2]);
+      const t3 = Object.values(YOKAI_VARIANT_COLORS[k][3]);
+      for (const c of [...t2, ...t3]) expect(from.has(c), `${k} ${c.toString(16)}`).toBe(false);
+      for (const c of t2) expect(t3.includes(c), `${k} ${c.toString(16)}`).toBe(false);
+      expect(new Set(t2).size).toBe(t2.length);
+      expect(new Set(t3).size).toBe(t3.length);
+    }
+  });
+});

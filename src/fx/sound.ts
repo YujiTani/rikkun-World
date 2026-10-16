@@ -108,6 +108,11 @@ export class SoundFx {
     private readonly settings: FxSettings = FX_SETTINGS,
   ) {}
 
+  /** 使っている AudioContext（なければ 作る。出現音の音ファイルも 同じ物を使う） */
+  audioContext(): AudioLike | null {
+    return this.context();
+  }
+
   private context(): AudioLike | null {
     if (this.ctx) return this.ctx;
     if (this.failed) return null;

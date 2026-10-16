@@ -210,7 +210,7 @@ const look = new MouseLook(lock);
 const pointerLock = bindPointerLock(document, window, game.renderer.domElement, lock, look, game.input);
 const fxSound = new SoundFx();
 // 二つ名の出現音（音ファイル）。プレイヤーの 最初の 操作のあとで 読みこむ（それまで AudioContext を 作らない）
-const titleSound = createBrowserTitleSound(() => FX_SETTINGS.fxVolume);
+const titleSound = createBrowserTitleSound(() => FX_SETTINGS.fxVolume, () => fxSound.audioContext());
 {
   const warm = (): void => {
     window.removeEventListener('pointerdown', warm, true);

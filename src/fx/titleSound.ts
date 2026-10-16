@@ -58,12 +58,15 @@ export interface TitleSoundDeps {
 export class TitleSound {
   private readonly buffers: Partial<Record<NickTitle, unknown>> = {};
   private loading: Promise<void> | null = null;
+  /** 読みこみが 1 回 失敗した（次の play で 1 回だけ やりなおす） */
+  private failedOnce = false;
+  private retried = false;
   /** 実際に 鳴らしはじめた 回数（テスト用） */
   readonly played: Record<NickTitle, number> = { oyabun: 0, taisho: 0, nushi: 0 };
 
   constructor(private readonly d: TitleSoundDeps) {}
 
-  /** 3 つを 読みこむ。失敗しても reject しない（その音は 鳴らさない） */
+  /** 3 つを 読みこむ（読めた物は とばす）。失敗しても reject しない（その音は 鳴らさない） */
   preload(): Promise<void> {
     this.loading ??= (async () => {
       let ctx: TitleAudio | null = null;
@@ -72,17 +75,19 @@ export class TitleSound {
       } catch {
         ctx = null;
       }
-      if (!ctx) return;
-      await Promise.all(
-        TITLES.map(async (t) => {
-          try {
-            const raw = await this.d.load(TITLE_SOUND_URLS[t]);
-            this.buffers[t] = await ctx.decodeAudioData(raw);
-          } catch {
-            // 読めなかった: この音は 鳴らさない
-          }
-        }),
-      );
+      if (ctx) {
+        await Promise.all(
+          TITLES.filter((t) => this.buffers[t] === undefined).map(async (t) => {
+            try {
+              const raw = await this.d.load(TITLE_SOUND_URLS[t]);
+              this.buffers[t] = await ctx.decodeAudioData(raw);
+            } catch {
+              // 読めなかった: この音は 鳴らさない
+            }
+          }),
+        );
+      }
+      this.failedOnce = !this.ready();
     })();
     return this.loading;
   }
@@ -96,7 +101,14 @@ export class TitleSound {
   play(title: NickTitle): boolean {
     try {
       const buf = this.buffers[title];
-      if (buf === undefined) return false;
+      if (buf === undefined) {
+        if (this.failedOnce && !this.retried) {
+          this.retried = true;
+          this.loading = null;
+          void this.preload();
+        }
+        return false;
+      }
       const vol = Math.min(1, this.d.volume());
       if (!(vol > 0)) return false;
       const ctx = this.d.audio();
@@ -121,21 +133,11 @@ export class TitleSound {
   }
 }
 
-/** ふつうの 作り方（ブラウザの AudioContext と fetch）。AudioContext は 1 つを 使いまわす */
-export function createBrowserTitleSound(volume: () => number): TitleSound {
-  let ctx: TitleAudio | null | undefined;
+/** ふつうの 作り方（効果音と 同じ AudioContext と fetch） */
+export function createBrowserTitleSound(volume: () => number, audio: () => unknown): TitleSound {
   return new TitleSound({
-    audio: () => {
-      if (ctx !== undefined) return ctx;
-      const g = globalThis as unknown as { AudioContext?: new () => TitleAudio; webkitAudioContext?: new () => TitleAudio };
-      const Ctor = g.AudioContext ?? g.webkitAudioContext;
-      try {
-        ctx = Ctor ? new Ctor() : null;
-      } catch {
-        ctx = null;
-      }
-      return ctx;
-    },
+    // 今の効果音（SoundFx）と 同じ AudioContext を使う
+    audio: () => audio() as TitleAudio | null,
     load: async (url) => {
       const r = await fetch(url);
       if (!r.ok) throw new Error(`${r.status} ${url}`);
