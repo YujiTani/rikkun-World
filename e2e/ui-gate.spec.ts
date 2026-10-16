@@ -204,7 +204,7 @@ const NICK_M = { 1: 1, 2: 1.5, 3: 2.25 } as const;
 const openNick = (title: 'taisho' | 'nushi', stage: 1 | 2 | 3, announce: boolean): Screen['open'] => async (page) => {
   await boot(page, true);
   await page.evaluate(
-    ({ title, m }) => {
+    ({ title, m, announce }) => {
       const h = window.__rikkun! as any;
       const p = h.player.get().position;
       const x = Math.floor(p.x);
@@ -219,7 +219,7 @@ const openNick = (title: 'taisho' | 'nushi', stage: 1 | 2 | 3, announce: boolean
       h.yokai.spawn('karakasa', x + 4.5, y, z + 0.5, { ai: false, yawDeg: 270, title, m });
       h.step(announce ? 20 : 8);
     },
-    { title, m: NICK_M[stage] },
+    { title, m: NICK_M[stage], announce },
   );
 };
 const BAL_SCREENS: Screen[] = [

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { DEG, YokaiBase, boxGeo, makeBlinkRows, makePixelTexture, solid } from '../common';
 import type { HitBox, YokaiPoseInput } from '../common';
 import { YOKAI_STATS } from '../stats';
+import { variantColor } from '../variants';
 
 const FACE = [
   '................',
@@ -136,6 +137,10 @@ export class Chochin extends YokaiBase {
     return out.set(0, this.uku.position.y + 0.3, this.uku.position.z - 0.45);
   }
 
+  protected override headGroup(): THREE.Object3D {
+    return this.tsuri;
+  }
+
   protected attackHitBox(): HitBox {
     const m = this.mouthLocal(this.tmp);
     return { cx: m.x, cy: m.y, cz: m.z, w: FIREBALL_BOX, h: FIREBALL_BOX, d: FIREBALL_BOX };
@@ -198,7 +203,7 @@ export class Chochin extends YokaiBase {
         this.uku.position.z = 0.2 * k;
       }
     }
-    this.bodyMat.color.setHex(color);
+    this.bodyMat.color.setHex(variantColor('chochin', this.stage, color));
   }
 
   protected poseDie(p: number): void {

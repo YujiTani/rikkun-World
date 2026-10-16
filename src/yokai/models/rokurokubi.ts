@@ -242,6 +242,10 @@ export class Rokurokubi extends YokaiBase {
     this.target.set(dx, this.aim.y + HEAD_TARGET_Y, dz);
   }
 
+  protected override headGroup(): THREE.Object3D {
+    return this.head;
+  }
+
   protected attackHitBox(): HitBox {
     const t = this.target;
     return { cx: t.x, cy: t.y, cz: t.z, w: 0.6, h: 0.6, d: 0.6 };

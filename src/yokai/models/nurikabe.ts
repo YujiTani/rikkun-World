@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { DEG, Smoke, YokaiBase, makeBlinkRows, makePixelTexture } from '../common';
 import type { HitBox, YokaiPoseInput } from '../common';
 import { YOKAI_STATS } from '../stats';
+import { variantColor } from '../variants';
 
 const FACE = [
   '................',
@@ -75,6 +76,12 @@ export class Nurikabe extends YokaiBase {
     const k = this.kabe;
     const pattern = makePixelTexture(PATTERN, { S: STONE, D: STONE_DARK });
     const bodyMat = new THREE.MeshBasicMaterial({ map: pattern });
+    // 色ちがい 3 段階: もようの 2 色（S・D）を 同じ表で 作りかえる（applyDollBrightness が 段階で 差しかえる）
+    bodyMat.userData.stageMaps = {
+      1: pattern,
+      2: makePixelTexture(PATTERN, { S: variantColor('nurikabe', 2, STONE), D: variantColor('nurikabe', 2, STONE_DARK) }),
+      3: makePixelTexture(PATTERN, { S: variantColor('nurikabe', 3, STONE), D: variantColor('nurikabe', 3, STONE_DARK) }),
+    };
     // 子にするので (0, -0.15, +0.4) ずらす
     const dy = -PIVOT[1];
     const dz = -PIVOT[2];
