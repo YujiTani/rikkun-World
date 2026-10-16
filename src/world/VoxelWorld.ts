@@ -203,7 +203,7 @@ export class ChunkedVoxelWorld implements VoxelWorld {
     const col = this.colAt(x >> 4, z >> 4);
     if (col === null) return false;
     if (!this.put(col, x, y, z, b)) return true;
-    this.markDirty(x, z);
+    this.markColumns(x, z, 1, false);
     this.markSectionDirty(x, y, z);
     this.staleAround(col.cx, y >> 4, col.cz);
     this.noteChange(x, y, z, x, y, z);
@@ -213,7 +213,7 @@ export class ChunkedVoxelWorld implements VoxelWorld {
   /** M7: id は変えずに、そのマスのチャンクだけ 見た目を作り直させる（作物の段階）。光は 計算し直さない */
   touch(x: number, y: number, z: number): void {
     if (this.getIndex(x, y, z) < 0) return;
-    this.markDirty(x, z);
+    this.markColumns(x, z, 1, false);
     this.markSectionDirty(x, y, z);
   }
 
@@ -246,7 +246,7 @@ export class ChunkedVoxelWorld implements VoxelWorld {
         for (let y = ya; y <= yb; y++) {
           if (!this.put(col, x, y, z, b)) continue;
           changed++;
-          this.markDirty(x, z);
+          this.markColumns(x, z, 1, false);
           this.markSectionDirty(x, y, z);
           this.staleAround(col.cx, y >> 4, col.cz);
           if (x < cminx) cminx = x;
@@ -475,23 +475,27 @@ export class ChunkedVoxelWorld implements VoxelWorld {
    * reach: ふちから何マスまで となりに伝えるか（ブロックの変化は 1。光は面の角が 2 マス先まで読むので 2）
    */
   markDirty(x: number, z: number, reach = 1): void {
+    this.markColumns(x, z, reach, true);
+  }
+
+  private markColumns(x: number, z: number, reach: number, withSections: boolean): void {
     const cx = x >> 4;
     const cz = z >> 4;
     const lx = x & 15;
     const lz = z & 15;
     const dx = lx < reach ? -1 : lx >= CHUNK_SIZE - reach ? 1 : 0;
     const dz = lz < reach ? -1 : lz >= CHUNK_SIZE - reach ? 1 : 0;
-    this.dirtyColumn(cx, cz);
-    if (dx !== 0) this.dirtyColumn(cx + dx, cz);
-    if (dz !== 0) this.dirtyColumn(cx, cz + dz);
-    if (dx !== 0 && dz !== 0 && reach > 1) this.dirtyColumn(cx + dx, cz + dz);
+    this.dirtyColumn(cx, cz, withSections);
+    if (dx !== 0) this.dirtyColumn(cx + dx, cz, withSections);
+    if (dz !== 0) this.dirtyColumn(cx, cz + dz, withSections);
+    if (dx !== 0 && dz !== 0 && reach > 1) this.dirtyColumn(cx + dx, cz + dz, withSections);
   }
 
-  private dirtyColumn(cx: number, cz: number): void {
+  private dirtyColumn(cx: number, cz: number, withSections: boolean): void {
     const key = columnKey(cx, cz);
     if (!this.columns.has(key)) return;
     this.dirtyCols.add(key);
-    for (let sy = 0; sy < this.nSections; sy++) this.dirtySecs.add(this.secKey(cx, sy, cz));
+    if (withSections) for (let sy = 0; sy < this.nSections; sy++) this.dirtySecs.add(this.secKey(cx, sy, cz));
   }
 
   /** 変わったチャンクの番号（chunkIndex）を渡して、覚えているのを空にする */
