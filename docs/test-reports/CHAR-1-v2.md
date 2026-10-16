@@ -89,3 +89,26 @@
 4. ねらい: pitch 0 で からかさ・ちょうちんを すり抜ける（上の節）
 5. AC15: ねらいの枠が 細い 暗い線（白ではない）で、キャラの まわりに 出る。見えるが 目立たない（オーナー確認で）
 6. 画面下の レベル・ハートの板が キャラの足を かくす（1280×800・pitch 0）。HUD の置き場の問題（CHAR-1 の前から ある板。第 1 段階の見た目に影響）
+
+---
+
+# 第 5.2 版の分（コミット 27c4bc9 / 42fff4e）
+
+- 回した: `npx playwright test -c playwright.local.config.ts e2e/char1-accept.spec.ts e2e/char1.spec.ts` → **17 本すべて OK**（char1.spec には AC47 を含む）。e2e/char1-accept.spec.ts の AC13/14・AC43 を 第 5.2 版の数に直した（ねらいの点 X は `aim.point()` から取る）
+- 判定: **合格**（重大 0）
+
+| # | 結果 | 確かめ方・証拠 |
+|---|---|---|
+| AC13 | OK | E: char1-accept。pitch −15 → なし、−20 → (7,8,2)、**−25 → (7,8,3)=(x0+1,G−1,z0−3)**、−30 → (7,8,4)、−89 → 足もと (6,8,6)。X は y = 9・ブロックの上の面の中 |
+| AC14 | OK | E: pitch −25 で 右クリック → (7,9,3) に dirt |
+| AC15 | OK（スクショ オーナー確認） | 第 5.1 版のスクショ AC15-pitch-89-aimframe.png を保存ずみ。枠の見た目は 範囲外（仕様の注のとおり） |
+| AC43 | OK | E: char1-accept。矢の出る位置 = P + (X−P)/|X−P| × 0.3（差 0.000）、はじめの向きと X−P の角 0.000001 度（0.5 度以内） |
+| AC44 | OK（ユニット） | camera/CameraRig.shoulder.test（`npm test`・check:fast で通過。回し直していない） |
+| AC45 | OK（ユニット） | 同上（camera 側のユニット） |
+| AC46 | OK（ユニット） | camera/aimAssist.test |
+| AC47 | OK | E: e2e/char1.spec.ts（17 本に含む） |
+| AC48 | OK | ユニット（CameraRig.shoulder.test「画面の配置」）＋ E: e2e/char1.spec「AC48」3 つの大きさ（今回の 17 本に含む） |
+| AC49 | オーナー確認待ち | りっくんが 使えるか |
+
+- 第 5.1 版で挙げた軽微 4（pitch 0 で 低い妖怪を すりぬける）・6（HUD の板が足をかくす）は 第 5.2 版（はじめ pitch −25・ねらい補助 4 度）の対象。AC47 ① で からかさ（pitch −25）に 当たることは確認ずみ。台帳の状態は PO が更新。
+- E2E で 上書きされた 古い スクショは `git checkout -- docs/screenshots` で もどした。

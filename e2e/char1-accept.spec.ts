@@ -33,32 +33,44 @@ async function open(page: Page, query = '?nosave=1') {
 }
 
 test.describe('CHAR-1 テスト係の受け入れ', () => {
-  test('AC13/AC14: pitch -30 で (x0, G-1, z0-4) をねらう・-20 はねらいなし・土が置かれる', async ({ page }) => {
+  test('AC13/AC14（5.2）: pitch -25 で (x0+1, G-1, z0-3)・-30 で z0-2・-20 で z0-4・-15 は なし・-89 は 足もと・土が置かれる', async ({ page }) => {
     await open(page);
     const r = await page.evaluate(() => {
       const h = window.__rikkun! as any;
       const out: any = {};
-      h.player.set({ pitch: -20 });
-      h.step(2);
-      out.t20 = h.target.get();
-      h.player.set({ pitch: -30 });
-      h.step(2);
-      const t = h.target.get();
-      out.t30 = t && { block: t.block, place: t.place, distance: t.distance };
+      const at = (pitch: number) => {
+        h.player.set({ pitch });
+        h.step(2);
+        const t = h.target.get();
+        const X = h.aim.point();
+        return t && { block: t.block, place: t.place, X: { x: X.x, y: X.y, z: X.z } };
+      };
+      out.p15 = at(-15);
+      out.p20 = at(-20);
+      out.p25 = at(-25);
+      out.p30 = at(-30);
+      out.p89 = at(-89);
       h.inventory.setSlot(0, { item: 'dirt', count: 5 });
       h.inventory.select(0);
+      h.player.set({ pitch: -25 });
       h.step(2);
       h.input.press('secondary');
       h.step(2);
       h.input.release('secondary');
       h.step(2);
-      out.placed = h.world.getBlock(6, 9, 2);
-      out.below = h.world.getBlock(6, 8, 2);
+      out.placed = h.world.getBlock(7, 9, 3);
       return out;
     });
     console.log('AC13/14', JSON.stringify(r));
-    expect(r.t20).toBeNull();
-    expect(r.t30.block).toEqual({ x: 6, y: 8, z: 2 });
+    expect(r.p15).toBeNull();
+    expect(r.p20.block).toEqual({ x: 7, y: 8, z: 2 });
+    expect(r.p25.block).toEqual({ x: 7, y: 8, z: 3 });
+    expect(r.p30.block).toEqual({ x: 7, y: 8, z: 4 });
+    expect(r.p89.block).toEqual({ x: 6, y: 8, z: 6 });
+    // ねらいの点 X は ねらうブロックの上の面（y = 9）の中
+    expect(Math.abs(r.p25.X.y - 9)).toBeLessThan(0.02);
+    expect(Math.floor(r.p25.X.x)).toBe(7);
+    expect(Math.floor(r.p25.X.z)).toBe(3);
     expect(r.placed).toBe('dirt');
   });
 
@@ -95,7 +107,7 @@ test.describe('CHAR-1 テスト係の受け入れ', () => {
     for (const x of r) expect(Math.abs(x.upDeg)).toBeLessThanOrEqual(1);
   });
 
-  test('AC43: 弓を放つと矢の出る位置 = P + D * 0.3', async ({ page }) => {
+  test('AC43（5.2）: 矢は P から X への向きに 出る。出る位置 = P + (X-P)/|X-P| * 0.3', async ({ page }) => {
     await open(page);
     const r = await page.evaluate(() => {
       const h = window.__rikkun! as any;
@@ -106,20 +118,25 @@ test.describe('CHAR-1 テスト係の受け入れ', () => {
       h.step(12);
       h.input.press('primary');
       h.step(45);
+      const X = h.aim.point();
+      const P = h.camera.get().pivot;
       h.input.release('primary');
       h.step(1);
       const shot = h.bow.events().find((e: any) => e.type === 'arrowShot');
-      const P = h.camera.get().pivot;
-      const y = (30 * Math.PI) / 180;
-      const p = (-20 * Math.PI) / 180;
-      const D = { x: Math.sin(y) * Math.cos(p), y: Math.sin(p), z: -Math.cos(y) * Math.cos(p) };
-      return { shot: shot?.position, P, D, exp: { x: P.x + D.x * 0.3, y: P.y + D.y * 0.3, z: P.z + D.z * 0.3 } };
+      const a = h.combat.arrows()[0] ?? h.bow.arrows()[0];
+      const d = { x: X.x - P.x, y: X.y - P.y, z: X.z - P.z };
+      const L = Math.hypot(d.x, d.y, d.z);
+      const exp = { x: P.x + (d.x / L) * 0.3, y: P.y + (d.y / L) * 0.3, z: P.z + (d.z / L) * 0.3 };
+      const v = shot?.velocity;
+      const vl = v ? Math.hypot(v.x, v.y, v.z) : 1;
+      const cos = v ? (v.x * d.x + v.y * d.y + v.z * d.z) / (vl * L) : 0;
+      return { shot: shot?.position, exp, X, P, angleDeg: (Math.acos(Math.min(1, cos)) * 180) / Math.PI, a: !!a };
     });
     console.log('AC43', JSON.stringify(r));
     expect(r.shot).toBeTruthy();
-    expect(Math.abs(r.shot.x - r.exp.x)).toBeLessThanOrEqual(0.01);
-    expect(Math.abs(r.shot.y - r.exp.y)).toBeLessThanOrEqual(0.01);
-    expect(Math.abs(r.shot.z - r.exp.z)).toBeLessThanOrEqual(0.01);
+    for (const k of ['x', 'y', 'z'] as const) expect(Math.abs(r.shot[k] - r.exp[k])).toBeLessThanOrEqual(0.01);
+    // はじめの向きは X - P の向き（0.5 度以内。矢の速さ 28 の 山なりは 1 ステップぶんの 重力で ほぼ 0）
+    expect(r.angleDeg).toBeLessThanOrEqual(0.5);
   });
 
   test('AC35: 刀の印（上中下・R・しまう）と弓の印（1〜3 こ・はなすと消える）', async ({ page }) => {
