@@ -46,7 +46,7 @@ const A = { x: 13, y: 9, z: 10 };
 
 test('AC10: たんす から つかった 結果が 保存される', async ({ page }) => {
   await open(page, '');
-  await page.evaluate(({ A }) => {
+  await page.evaluate(async ({ A }) => {
     const h = (window as any).__rikkun;
     const T = (window as any).T;
     T.base();
@@ -57,7 +57,7 @@ test('AC10: たんす から つかった 結果が 保存される', async ({ p
     h.step(2);
     h.storage.close();
     h.step(2);
-    h.save.now();
+    await h.save.now(); // 書き終わるまで まつ（VOX-F から Promise）
   }, { A });
   await page.reload();
   await page.waitForFunction(() => window.__rikkun?.ready === true);

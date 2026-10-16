@@ -1,9 +1,11 @@
 import { expect, test, type Page } from '@playwright/test';
+import { installAimHelpers } from './helpers/aim';
 
 /** #82（と #44）: 合図が ほる／おく の チップに重ならない・もちもの画面の うしろに HUD が すけて見えない */
 async function fullOnSand(page: Page) {
   await page.goto('/?nosave=1');
   await page.waitForFunction(() => window.__rikkun?.ready === true);
+  await installAimHelpers(page);
   await page.evaluate(() => {
     const h = window.__rikkun! as any;
     h.pause();
@@ -16,13 +18,16 @@ async function fullOnSand(page: Page) {
     h.inventory.clear();
     for (let i = 0; i < 36; i++) h.inventory.setSlot(i, { item: 'dirt', count: 64 });
     h.inventory.select(0);
-    h.player.set({ position: { x: 10.5, y: 9, z: 10.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: -50 });
+    h.player.set({ position: { x: 10.5, y: 9, z: 10.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: 0 });
     h.step(10);
+    // 足もとの となりの 砂を ねらう（角度は いまの ねらい方から 求める）
+    (window as any).__aim.solve(11, 8, 10);
+    h.step(1);
     h.input.press('primary');
     h.step(60);
     h.input.release('primary');
     h.step(2);
-    // ほれた 砂を ひろえない ので 合図が出る
+    // ほれた 砂を ひろえない ので 合図が出る（同じ向きのまま もう一度 おす）
     h.input.press('primary');
     h.step(3);
     h.input.release('primary');

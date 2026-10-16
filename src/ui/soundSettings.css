@@ -1,0 +1,101 @@
+/* 案内画面の右下: 「おと」ボタン（64px 以上）と「おとの おおきさ」の枠（SOUND.md §7）。見た目の細かさはアートチーム */
+.ss-root {
+  position: absolute;
+  /* 主ボタン・もちものの たな・「おとなの ひと」と かさならない 左下のすみ（画面のはしから 16px 以上） */
+  left: 16px;
+  bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--rk-sp-3, 12px);
+  cursor: default;
+  z-index: 2;
+}
+.ss-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rk-sp-3, 12px);
+  padding: var(--rk-sp-4, 16px);
+  background: var(--rk-bg-900, #10141f); /* すけない色（字は白＋ふち） */
+  border-radius: var(--rk-r-l, 24px);
+  box-shadow: var(--rk-shadow-2, 0 4px 12px rgb(0 0 0 / 0.4));
+}
+.ss-panel[hidden] {
+  display: none;
+}
+.ss-row {
+  text-shadow: var(--rk-text-outline, 0 0 3px #000);
+  display: flex;
+  align-items: center;
+  gap: var(--rk-sp-3, 12px);
+  color: var(--rk-text, #fff);
+  font-size: var(--rk-fs-body, 17px);
+  font-weight: 700;
+}
+.ss-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 5.5em;
+  line-height: 1.2;
+}
+.ss-pic {
+  font-size: 1.5em;
+}
+.ss-eg {
+  font-size: 0.75em;
+  opacity: 0.85;
+}
+.ss-range {
+  width: 150px;
+  height: 44px;
+  margin: 0;
+  accent-color: var(--rk-accent, #ffc83d);
+  cursor: pointer;
+}
+.ss-buttons {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--rk-sp-3, 12px);
+}
+.ss-open,
+.ss-mute {
+  min-height: 64px;
+  padding: 0 var(--rk-sp-5, 24px);
+  border: var(--rk-bw, 2px) solid var(--rk-accent, #ffc83d);
+  border-radius: var(--rk-r-pill, 999px);
+  background: var(--rk-bg-900, #10141f); /* すけない色 */
+  color: var(--rk-text, #fff);
+  text-shadow: var(--rk-text-outline, 0 0 3px #000);
+  font: inherit;
+  font-size: var(--rk-fs-body, 17px);
+  font-weight: 800;
+  cursor: pointer;
+}
+.ss-mute {
+  display: flex;
+  align-items: center;
+  gap: var(--rk-sp-2, 8px);
+  min-width: 64px;
+  background-color: #ffc83d; /* すけない色（うしろの下地） */
+  background-image: var(--rk-accent-grad, linear-gradient(180deg, #ffc83d, #ff8a1f));
+  color: var(--rk-ink, #141414);
+  text-shadow: none;
+}
+.ss-mute.ss-muted {
+  background: var(--rk-bg-700, #252f47);
+  color: var(--rk-text, #fff);
+  text-shadow: var(--rk-text-outline, 0 0 3px #000);
+}
+.ss-icon {
+  font-size: 32px;
+  line-height: 1.3;
+  padding: 0 4px;
+}
+.ss-open:focus-visible,
+.ss-mute:focus-visible,
+.ss-range:focus-visible {
+  outline: 4px solid var(--rk-info, #4fc3f7);
+  outline-offset: 2px;
+}

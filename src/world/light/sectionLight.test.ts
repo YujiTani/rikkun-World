@@ -174,6 +174,26 @@ describe('セクションの光の性質 (VOX-C AC2)', () => {
   });
 });
 
+describe('光が変わったセクションだけ メッシュの作り直しに入る（VOX-E）', () => {
+  it('セクションの中ほどのたいまつ: そのセクションだけ。ふちに近い光は となりのセクションも', () => {
+    const w = new ArrayVoxelWorld({ x: 96, y: 48, z: 96 });
+    w.fill(0, 0, 0, 95, 0, 95, 'stone');
+    const l = new WorldLight(w, new SkyDarkness());
+    w.takeDirtySections();
+    w.setBlock(40, 1, 40, 'torch'); // セクション (2,0,2) の中ほど（x・z は 8）
+    w.takeDirtySections();
+    l.update();
+    l.flush();
+    const keys = w.takeDirtySections().map((s) => `${s.cx},${s.sy},${s.cz}`);
+    expect(keys).toContain('2,0,2');
+    // 光は 14 マス広がるので となりのセクションにも届く。でも 遠いセクション (0,0,0) は 入らない
+    expect(keys).not.toContain('0,0,0');
+    expect(keys).not.toContain('5,0,5');
+    // ひとつ上のセクションは 空だけ 15 のまま（光が変わらない）
+    expect(keys).not.toContain('2,2,2');
+  });
+});
+
 describe('レビュー指摘（VOX-C 1 周目）', () => {
   it('高い世界に列を 1 本読みこんでも すぐ落ち着く（自明なセクションは予算に数えない）', () => {
     const w = new ArrayVoxelWorld({ x: 48, y: 352, z: 48 });

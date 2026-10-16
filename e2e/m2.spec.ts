@@ -91,7 +91,8 @@ test.describe('M2 ねらう', () => {
       const a2far = h.target.get();
       h.world.setBlock(8, 10, 6, 'air');
       // AC3: 海の底
-      h.world.fill(0, 8, 0, 12, 8, 12, 'water');
+      h.world.fill(0, 6, 0, 12, 6, 12, 'sand'); // 海の底と水も 自分で作る（島の海に たよらない）
+      h.world.fill(0, 7, 0, 12, 8, 12, 'water');
       (window as any).__aim.standForS(2.5, 6.5, 90, -45, 7);
       h.step(1);
       const a3 = h.target.get();
@@ -481,7 +482,8 @@ test.describe('M2 おく', () => {
       const a13 = { y, x13, block: t13?.block, place: t13?.place, same: h.world.hash() === hash13, n: h.inventory.get().slots[0].count };
       h.world.fill(0, 47, 0, 12, 47, 12, 'air');
       // AC14
-      h.world.fill(0, 8, 0, 12, 8, 12, 'water');
+      h.world.fill(0, 6, 0, 12, 6, 12, 'sand'); // 海の底と水も 自分で作る（島の海に たよらない）
+      h.world.fill(0, 7, 0, 12, 8, 12, 'water');
       (window as any).__aim.standForS(2.5, 6.5, 90, -45, 7);
       h.step(1);
       const x14 = h.aim.point();
@@ -918,7 +920,7 @@ test.describe('M2 見た目', () => {
 test.describe('M2 自動セーブ', () => {
   test('AC28/AC29(c): 保存して読みこみ直す、?reset=1', async ({ page }) => {
     await open(page);
-    const before = await page.evaluate(() => {
+    const before = await page.evaluate(async () => {
       const h = (window as any).__rikkun;
       (window as any).T.base();
       h.world.setBlock(4, 10, 6, 'log');
@@ -926,7 +928,7 @@ test.describe('M2 自動セーブ', () => {
       h.inventory.select(4);
       h.player.set({ position: { x: 6.5, y: 9, z: 6.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 180, pitch: -20 });
       h.step(30);
-      h.save.now();
+      await h.save.now(); // 書き終わるまで まつ（VOX-F から Promise）
       return { hash: h.world.hash(), p: h.player.get(), inv: h.inventory.get(), info: h.save.info() };
     });
     expect(before.info.enabled).toBe(true);
@@ -979,11 +981,11 @@ test.describe('M2 自動セーブ', () => {
 
   test('AC29(a)(b)(d): 保存の間隔と ?nosave=1', async ({ page }) => {
     await open(page);
-    const r = await page.evaluate(() => {
+    const r = await page.evaluate(async () => {
       const h = (window as any).__rikkun;
       (window as any).T.base();
       h.step(60); // 着地
-      h.save.now();
+      await h.save.now(); // 書き終わるまで まつ（VOX-F から Promise）
       const t0 = h.save.info().lastSavedTick;
       h.world.setBlock(4, 10, 6, 'dirt');
       h.step(599);
@@ -1002,13 +1004,13 @@ test.describe('M2 自動セーブ', () => {
     await page.goto('/?nosave=1');
     await page.waitForFunction(() => window.__rikkun?.ready === true);
     await page.evaluate(() => window.__rikkun!.achievements.mute(true));
-    const keys = await page.evaluate(() => {
+    const keys = await page.evaluate(async () => {
       localStorage.clear();
       const h = (window as any).__rikkun;
       h.pause();
       h.world.setBlock(4, 10, 6, 'dirt');
       h.step(700);
-      h.save.now();
+      await h.save.now(); // 書き終わるまで まつ（VOX-F から Promise）
       return { keys: Object.keys(localStorage).filter((k) => k.startsWith('rikkun-world-save-v1-')), info: h.save.info() };
     });
     expect(keys.keys).toEqual([]);
@@ -1088,7 +1090,7 @@ test.describe('M2 性能（記録）', () => {
       for (let y = 9; y < 25 && c < 2000; y++)
         for (let x = 0; x <= 12 && c < 2000; x++)
           for (let z = 0; z <= 12 && c < 2000; z++) { h.world.setBlock(x, y, z, 'stone'); c++; }
-      h.save.now();
+      h.save.now(); // ここは 書きはじめの すぐあとの数を見る（またない）
       return h.save.info();
     });
     console.log('AC24b', JSON.stringify(s));

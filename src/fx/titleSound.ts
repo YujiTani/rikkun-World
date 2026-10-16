@@ -53,6 +53,8 @@ export interface TitleSoundDeps {
   load: (url: string) => Promise<ArrayBuffer>;
   /** 「効果音の音量」0〜1 */
   volume: () => number;
+  /** 鳴らす先（なければ ctx.destination）。ゲームでは ミキサーの sfx バス */
+  output?: () => unknown;
 }
 
 export class TitleSound {
@@ -119,7 +121,7 @@ export class TitleSound {
       src.buffer = buf;
       gain.gain.setValueAtTime(vol * TITLE_SOUND_MASTER, ctx.currentTime);
       src.connect(gain);
-      gain.connect(ctx.destination);
+      gain.connect(this.d.output?.() ?? ctx.destination);
       src.onended = () => {
         src.disconnect();
         gain.disconnect();
@@ -134,10 +136,11 @@ export class TitleSound {
 }
 
 /** ふつうの 作り方（効果音と 同じ AudioContext と fetch） */
-export function createBrowserTitleSound(volume: () => number, audio: () => unknown): TitleSound {
+export function createBrowserTitleSound(volume: () => number, audio: () => unknown, output?: () => unknown): TitleSound {
   return new TitleSound({
-    // 今の効果音（SoundFx）と 同じ AudioContext を使う
+    // 効果音（SoundFx）と 同じ ミキサーの AudioContext と sfx バスを使う
     audio: () => audio() as TitleAudio | null,
+    output,
     load: async (url) => {
       const r = await fetch(url);
       if (!r.ok) throw new Error(`${r.status} ${url}`);

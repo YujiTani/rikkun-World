@@ -119,5 +119,7 @@ describe('出る絵と語', () => {
     d.update();
     expect(d.previewLeftClick()).toBe('hit');
     expect(actionHintLines(null, 'hit', { held: 'katana', heldIsPickaxe: false, heldIsBlade: true }).left).toEqual({ icon: 'katana', word: 'きる' });
+    // すで なら ぼくとう の絵で たたく（fixActionHint の E2E は 絵だけを見るので、1 語は ここで見る。#37）
+    expect(actionHintLines(null, 'hit', { held: null, heldIsPickaxe: false, heldIsBlade: false }).left).toEqual({ icon: 'bokuto', word: 'たたく' });
   });
 });

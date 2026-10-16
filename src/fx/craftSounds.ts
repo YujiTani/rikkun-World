@@ -1,89 +1,59 @@
+import { box, boxRun, hz, mar, noise, powan, shaka, sine, swish, tri, wood, xylo } from './sfxVoices';
 import type { SoundFx, Tone } from './sound';
-
-/** 上がっていく音の列（step 秒ごと） */
-function ascending(freqs: readonly number[], step: number, dur: number, gain: number, start = 0): Tone[] {
-  return freqs.map((f, i) => ({ type: 'sine', f0: f, f1: f * 1.02, delay: start + i * step, dur, gain }));
-}
 
 /** めずらしさの チャイム: ★ の数だけ（n 音）。「トントン ぽん！」のあと 0.4 秒から */
 function chimeTones(n: number): Tone[] {
-  return ascending([1047, 1319, 1568, 2093].slice(0, n), 0.1, 0.16, 0.3, 0.4);
+  return boxRun([hz('C6'), hz('E6'), hz('G6'), hz('C7')].slice(0, n), 0.1, 0.16, 0.3, 0.4);
 }
 
 /**
- * M4 の音（M4 §3）。コードで作る短い音。大きい音・こわい音は使わない。
+ * M4 の音（M4 §3）。コードで作る短い音（案 B: 木・オルゴール・木琴・シャカ）。大きい音・こわい音は使わない。
  * 武器の振りの音（シュッ・ブォン・ギギ・ビュン）は、道具の担当（B）の出来事から鳴らす。
  */
 export const CRAFT_SOUNDS = {
-  /** つくった「トントン ぽん！」 */
+  /** つくった「トントン ぽん！」: 木の 2 打 ＋ 木琴の ぽん */
   craft: [
-    { type: 'triangle', f0: 220, f1: 150, delay: 0, dur: 0.05, gain: 0.5 },
-    { type: 'triangle', f0: 230, f1: 160, delay: 0.09, dur: 0.05, gain: 0.5 },
-    { type: 'sine', f0: 600, f1: 1100, delay: 0.19, dur: 0.14, gain: 0.6 },
-    { type: 'sine', f0: 1500, f1: 1800, delay: 0.24, dur: 0.12, gain: 0.25 },
+    ...wood(220, 150, 0, 0.05, 0.5),
+    ...wood(230, 160, 0.09, 0.05, 0.5),
+    ...xylo(hz('G5'), hz('C6'), 0.19, 0.16, 0.55),
   ],
-  /** つくれない「ぷぷ」 */
-  craftFail: [
-    { type: 'sine', f0: 300, f1: 240, delay: 0, dur: 0.07, gain: 0.4 },
-    { type: 'sine', f0: 300, f1: 240, delay: 0.1, dur: 0.07, gain: 0.4 },
-  ],
-  /** やく を押した「ボッ」 */
+  /** つくれない「おしい」: 下がって はずむ（明るい） */
+  craftFail: [sine(300, 200, 0, 0.09, 0.35), sine(260, 520, 0.1, 0.14, 0.35), tri(520, 780, 0.1, 0.1, 0.1)],
+  /** やく を押した「ボッ」: ノイズ ＋ 低い sine */
   bakeStart: [
-    { type: 'sine', f0: 110, f1: 260, delay: 0, dur: 0.14, gain: 0.55 },
-    { type: 'triangle', f0: 400, f1: 700, delay: 0.02, dur: 0.08, gain: 0.15 },
+    noise(0, 0.14, 0.4, { type: 'lowpass', freq: 400, freq1: 1000, q: 0.7 }, 0.02),
+    sine(110, 260, 0, 0.14, 0.45, 0.02),
   ],
-  /** 焼いているあいだ「パチパチ」（小さく） */
-  crackle: [
-    { type: 'square', f0: 2200, f1: 900, delay: 0, dur: 0.02, gain: 0.07 },
-    { type: 'square', f0: 1700, f1: 700, delay: 0.035, dur: 0.02, gain: 0.05 },
-  ],
-  /** 焼けた「ぽん」 */
-  bakeDone: [
-    { type: 'sine', f0: 500, f1: 900, delay: 0, dur: 0.1, gain: 0.6 },
-    { type: 'sine', f0: 1200, f1: 1400, delay: 0.06, dur: 0.1, gain: 0.25 },
-  ],
+  /** 焼いているあいだ「パチパチ」（小さく）: 小さいシャカ */
+  crackle: [shaka(0, 0.02, 0.07, 3500), shaka(0.035, 0.02, 0.05, 3000)],
+  /** 焼けた「ぽん」: 木琴 */
+  bakeDone: [...xylo(hz('C5'), hz('G5'), 0, 0.12, 0.55), ...xylo(hz('C6'), hz('D6'), 0.06, 0.12, 0.22)],
   /** かたな類「シュッ」 */
-  slash: [{ type: 'triangle', f0: 1400, f1: 500, delay: 0, dur: 0.08, gain: 0.22 }],
+  slash: [swish(2200, 700, 0, 0.08, 0.22)],
   /** なぎなた「ブォン」 */
-  naginata: [{ type: 'triangle', f0: 320, f1: 150, delay: 0, dur: 0.16, gain: 0.35 }],
-  /** ゆみ を引く「ギギ」 */
-  bowDraw: [
-    { type: 'square', f0: 180, f1: 240, delay: 0, dur: 0.06, gain: 0.1 },
-    { type: 'square', f0: 200, f1: 270, delay: 0.08, dur: 0.06, gain: 0.1 },
-  ],
+  naginata: [swish(800, 280, 0, 0.16, 0.35, 0.8)],
+  /** ゆみ を引く「トン・コツ」: 木 */
+  bowDraw: [...wood(260, 300, 0, 0.05, 0.18), ...wood(280, 330, 0.08, 0.05, 0.18)],
   /** ゆみ をはなす「ビュン」 */
-  bowRelease: [{ type: 'sine', f0: 900, f1: 260, delay: 0, dur: 0.12, gain: 0.4 }],
+  bowRelease: [swish(2000, 550, 0, 0.12, 0.35)],
   /** や がブロックに当たる「コツン」 */
-  arrowThud: [{ type: 'triangle', f0: 360, f1: 220, delay: 0, dur: 0.05, gain: 0.4 }],
-  /** や が無い「カチン」 */
-  noArrow: [
-    { type: 'square', f0: 1300, f1: 1200, delay: 0, dur: 0.04, gain: 0.2 },
-    { type: 'triangle', f0: 1800, f1: 1700, delay: 0, dur: 0.05, gain: 0.15 },
-  ],
-  /** きらめく カタナ「キラン」 */
-  sparkle: [
-    { type: 'sine', f0: 1760, f1: 1900, delay: 0, dur: 0.1, gain: 0.3 },
-    { type: 'sine', f0: 2349, f1: 2500, delay: 0.07, dur: 0.16, gain: 0.3 },
-  ],
-  /** 着た「カシャ」 */
-  equip: [
-    { type: 'square', f0: 1200, f1: 700, delay: 0, dur: 0.04, gain: 0.18 },
-    { type: 'triangle', f0: 800, f1: 500, delay: 0.05, dur: 0.07, gain: 0.3 },
-  ],
-  /** ふせいだ「カキン！」 */
-  guard: [
-    { type: 'square', f0: 2000, f1: 1900, delay: 0, dur: 0.05, gain: 0.25 },
-    { type: 'triangle', f0: 3000, f1: 2800, delay: 0, dur: 0.12, gain: 0.22 },
-    { type: 'sine', f0: 1500, f1: 1450, delay: 0.02, dur: 0.18, gain: 0.2 },
-  ],
-  /** ばんざい「わーい」風の明るい音 */
+  arrowThud: wood(360, 220, 0, 0.05, 0.4),
+  /** や が無い「カチ」: 高い木 */
+  noArrow: [...wood(1100, 950, 0, 0.045, 0.28), ...wood(1500, 1300, 0, 0.05, 0.12)],
+  /** きらめく カタナ「キラン」: オルゴール 2 音 */
+  sparkle: [...box(hz('G6'), hz('A6'), 0, 0.1, 0.3, true), ...box(hz('C7'), hz('D7'), 0.07, 0.16, 0.3)],
+  /** 着た「カシャ」: 木 ＋ ぽわん */
+  equip: [...wood(1000, 650, 0, 0.04, 0.22), powan(500, 800, 0.05, 0.09, 0.3, 0.02)],
+  /** ふせいだ「コーン」: 木琴の高い 1 音 ＋ オルゴールの余韻 */
+  guard: [...xylo(hz('G6'), hz('G6') * 0.98, 0, 0.1, 0.4), ...box(hz('C7'), hz('C7') * 0.98, 0.02, 0.25, 0.2)],
+  /** ばんざい「わーい」: 木琴 3 音（上がる） */
   banzai: [
-    { type: 'sine', f0: 523, f1: 587, delay: 0, dur: 0.1, gain: 0.35 },
-    { type: 'sine', f0: 659, f1: 740, delay: 0.1, dur: 0.1, gain: 0.35 },
-    { type: 'sine', f0: 784, f1: 880, delay: 0.2, dur: 0.2, gain: 0.35 },
+    ...xylo(hz('C5'), hz('D5'), 0, 0.1, 0.35),
+    ...xylo(hz('E5'), hz('F#5'), 0.1, 0.1, 0.35),
+    ...xylo(hz('G5'), hz('A5'), 0.2, 0.2, 0.35),
   ],
-  /** 案内画面のタブ「ポン」 */
-  tab: [{ type: 'sine', f0: 520, f1: 700, delay: 0, dur: 0.08, gain: 0.45 }],
+  /** 案内画面のタブ「ポン」: 小さい木 */
+  tab: wood(520, 640, 0, 0.07, 0.4),
   // ---- M6（仕様 §2.4・§3）。音の大きさは M4 のレベルアップの音いか ----
   /** めずらしさの チャイム（★ の数だけ 上がっていく。1〜4 音。「トントン ぽん！」のあとに鳴らす） */
   chime1: chimeTones(1),
@@ -91,36 +61,32 @@ export const CRAFT_SOUNDS = {
   chime3: chimeTones(3),
   chime4: chimeTones(4),
   /** 横断幕で 回っているあいだ「シャララ」（上がっていく） */
-  bannerSpin: ascending([784, 988, 1175, 1319, 1568, 1760, 1976, 2349], 0.045, 0.1, 0.16),
-  /** 横断幕「パ パ パ パーン！」（4 音、さいごが長い。1.2 秒） */
+  bannerSpin: boxRun([hz('G5'), hz('B5'), hz('D6'), hz('E6'), hz('G6'), hz('A6'), hz('B6'), hz('D7')], 0.045, 0.1, 0.16),
+  /** 横断幕「パ パ パ パーン！」（4 音、さいごが長い。1.2 秒）: オルゴール ＋ マリンバの和音 */
   fanfare: [
-    { type: 'triangle', f0: 523, f1: 523, delay: 0, dur: 0.14, gain: 0.4 },
-    { type: 'triangle', f0: 659, f1: 659, delay: 0.2, dur: 0.14, gain: 0.4 },
-    { type: 'triangle', f0: 784, f1: 784, delay: 0.4, dur: 0.14, gain: 0.4 },
-    { type: 'triangle', f0: 1047, f1: 1047, delay: 0.6, dur: 0.6, gain: 0.45 },
-    { type: 'sine', f0: 2093, f1: 2093, delay: 0.6, dur: 0.5, gain: 0.12 },
+    ...box(hz('C5'), hz('C5'), 0, 0.14, 0.4),
+    ...box(hz('E5'), hz('E5'), 0.2, 0.14, 0.4),
+    ...box(hz('G5'), hz('G5'), 0.4, 0.14, 0.4),
+    ...box(hz('C6'), hz('C6'), 0.6, 0.6, 0.42, true),
+    ...mar(hz('C5'), hz('C5'), 0.6, 0.6, 0.35),
+    ...mar(hz('E5'), hz('E5'), 0.6, 0.5, 0.2),
+    sine(hz('C7'), hz('C7'), 0.6, 0.5, 0.08),
   ],
   /** おめでとう画面「タタタ ターン♪」（横断幕とは べつのふし。1.5 秒） */
   modal: [
-    { type: 'triangle', f0: 392, f1: 392, delay: 0, dur: 0.1, gain: 0.4 },
-    { type: 'triangle', f0: 392, f1: 392, delay: 0.14, dur: 0.1, gain: 0.4 },
-    { type: 'triangle', f0: 392, f1: 392, delay: 0.28, dur: 0.1, gain: 0.4 },
-    { type: 'triangle', f0: 523, f1: 523, delay: 0.5, dur: 0.9, gain: 0.45 },
-    { type: 'triangle', f0: 659, f1: 659, delay: 0.5, dur: 0.9, gain: 0.3 },
-    { type: 'triangle', f0: 784, f1: 784, delay: 0.5, dur: 0.9, gain: 0.25 },
+    ...xylo(hz('G4'), hz('G4'), 0, 0.1, 0.4),
+    ...xylo(hz('G4'), hz('G4'), 0.14, 0.1, 0.4),
+    ...xylo(hz('G4'), hz('G4'), 0.28, 0.1, 0.4),
+    ...box(hz('C5'), hz('C5'), 0.5, 0.9, 0.4, true),
+    ...mar(hz('E5'), hz('E5'), 0.5, 0.8, 0.25),
+    ...mar(hz('G5'), hz('G5'), 0.5, 0.7, 0.2),
   ],
   /** きん・にじ の主役のとき さいごに「キラキラ」 */
-  modalSparkle: ascending([2093, 2637, 3136, 2637, 3136, 4186], 0.08, 0.12, 0.14, 1.0),
-  /** メダルの印「ポン」 */
-  badge: [
-    { type: 'sine', f0: 600, f1: 900, delay: 0, dur: 0.09, gain: 0.4 },
-    { type: 'sine', f0: 1200, f1: 1300, delay: 0.05, dur: 0.08, gain: 0.15 },
-  ],
-  /** とじる が押せるようになった「ピコ」 */
-  closeReady: [
-    { type: 'sine', f0: 880, f1: 880, delay: 0, dur: 0.06, gain: 0.4 },
-    { type: 'sine', f0: 1320, f1: 1320, delay: 0.07, dur: 0.1, gain: 0.4 },
-  ],
+  modalSparkle: boxRun([hz('C7'), hz('E7'), hz('G7'), hz('E7'), hz('G7'), hz('C8')], 0.08, 0.12, 0.14, 1.0),
+  /** メダルの印「ポン」: 木 ＋ オルゴール */
+  badge: [...wood(600, 900, 0, 0.09, 0.4), ...box(hz('D6'), hz('E6'), 0.05, 0.1, 0.15)],
+  /** とじる が押せるようになった「ピコ」: オルゴール 2 音 */
+  closeReady: [...box(hz('G5'), hz('G5'), 0, 0.07, 0.4), ...box(hz('D6'), hz('D6'), 0.07, 0.12, 0.4)],
 } as const satisfies Record<string, readonly Tone[]>;
 
 export type CraftSoundName = keyof typeof CRAFT_SOUNDS;

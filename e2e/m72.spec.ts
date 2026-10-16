@@ -880,7 +880,7 @@ test.describe('M7-2 なでる・ごきげん・キラキラ', () => {
     await page.waitForFunction(() => window.__rikkun?.ready === true);
     await page.evaluate(() => (window.__rikkun as any).achievements.mute(true));
     await installAimHelpers(page);
-    await page.evaluate(() => {
+    await page.evaluate(async () => {
       const h = (window as any).__rikkun;
       h.pause();
       h.lock.simulate(true);
@@ -903,7 +903,7 @@ test.describe('M7-2 なでる・ごきげん・キラキラ', () => {
         spr: h.farm.sprinklers(),
         water: h.inventory.get().slots[0].water,
       };
-      h.save.now();
+      await h.save.now(); // 書き終わるまで まつ（VOX-F から Promise）
       localStorage.setItem('__snap', JSON.stringify((window as any).snap));
     });
     await page.reload();
