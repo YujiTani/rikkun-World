@@ -29,7 +29,26 @@ async function open(page: Page) {
     h.yokai.events();
     h.combat.events();
   });
+  await page.evaluate(FACE);
 }
+
+/** ページ内の道具。妖怪の位置から立つ場所を置き直し、yokai.raycast で当たるか確かめる（bal-a.spec.ts の AC8 と同じやり方） */
+const FACE = `
+  (window).__faceTo = (id, dist = 2) => {
+    const h = window.__rikkun;
+    const y = h.yokai.list().find((q) => q.id === id);
+    if (!y) return false;
+    h.player.set({ position: { x: y.position.x - dist, y: y.position.y, z: y.position.z }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: 0 });
+    h.step(1);
+    const hit = h.yokai.raycast(h.camera.get().eye, { x: 1, y: 0, z: 0 }, 4);
+    return hit?.id === id;
+  };
+  (window).__spawnAhead = () => {
+    const h = window.__rikkun;
+    const e = h.camera.get().eye;
+    return h.yokai.spawn('karakasa', e.x + 2, 9, e.z, { ai: false, yawDeg: 270 });
+  };
+`;
 
 /** §4.7 の式 */
 function expected(hp: number, max: number) {
@@ -45,8 +64,8 @@ test.describe('BAL-C 体力のバー（AC12b）', () => {
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
       const one = (id: number) => h.yokai.list().find((y: any) => y.id === id);
-      const id = h.yokai.spawn('karakasa', 4.5, 9, 6.5, { ai: false, yawDeg: 270 });
-      const out: any = { id, max: one(id).maxHp, untouched: [] as any[], hits: [] as any[] };
+      const id = (window as any).__spawnAhead();
+      const out: any = { id, max: one(id).maxHp, untouched: [] as any[], hits: [] as any[], aimed: [] as boolean[] };
       // たたかなければ 180 ステップ ずっと出ない
       for (let i = 0; i < 18; i++) {
         h.step(10);
@@ -58,6 +77,7 @@ test.describe('BAL-C 体力のバー（AC12b）', () => {
       let guard = 0;
       while (one(id).hp > 1 && guard++ < 30) {
         const before = one(id).hp;
+        out.aimed.push((window as any).__faceTo(id));
         h.input.press('primary');
         h.step(1);
         h.input.release('primary');
@@ -77,6 +97,7 @@ test.describe('BAL-C 体力のバー（AC12b）', () => {
     // たたく前: バーなし（visible=false）。まる も出ない
     for (const b of r.untouched) expect(b?.visible).toBe(false);
     expect(r.unknown).toBeNull();
+    expect(r.aimed.every((a: boolean) => a), JSON.stringify(r.aimed)).toBe(true);
     expect(r.hits.length).toBeGreaterThan(0);
     // AC12b（BAL-A のあと）: からかさ は 最大 8。5 回で 残り 3・黄、6 回で 残り 2・赤
     expect(r.max).toBe(8);
@@ -110,7 +131,8 @@ test.describe('BAL-C 体力のバー（AC12b）', () => {
     await open(page);
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
-      const id = h.yokai.spawn('karakasa', 4.5, 9, 6.5, { ai: false, yawDeg: 270 });
+      const id = (window as any).__spawnAhead();
+      (window as any).__faceTo(id);
       h.input.press('primary');
       h.step(1);
       h.input.release('primary');
