@@ -312,7 +312,7 @@ test.describe('CHAR-1 テスト係の受け入れ', () => {
       const h = window.__rikkun! as any;
       const atlas = await (await fetch('./models/char/atlas.json')).json();
       const k = 1.8 / atlas.modelH;
-      const px = h.player.doll().sprite.readCell('idle', 0, 0, 0) as Uint8ClampedArray;
+      const px = (await h.player.doll().sprite.readCell('idle', 0, 0, 0)) as Uint8ClampedArray;
       let top = 999, bot = -1;
       for (let y = 0; y < 256; y++) for (let x = 0; x < 256; x++) if (px[(y * 256 + x) * 4 + 3] > 0) { if (y < top) top = y; if (y > bot) bot = y; }
       const yOf = (row: number) => 0.95 * k + (128 - row) * (2 * k) / 256;
@@ -339,15 +339,15 @@ test.describe('CHAR-1 テスト係の受け入れ', () => {
     expect(r.all).not.toMatch(/一人称|いちにんしょう|\bV\b|ブイ/);
   });
 
-  test('AC30: atlas.json と 4 つの PNG（2048×6144・コマ 8×24・ふちから 2 ドット・色の数）', async ({ page }) => {
+  test('AC30: もとの atlas.json と 4 つの PNG（art/char-sheets/。2048×6144・コマ 8×24・ふちから 2 ドット・色の数）', async ({ page }) => {
     await open(page);
     const r = await page.evaluate(async () => {
-      const atlas = await (await fetch('./models/char/atlas.json')).json();
+      const atlas = await (await fetch('/art/char-sheets/atlas.json')).json();
       const out: any = { atlas: { cell: atlas.cell, dirs: atlas.dirs, tiers: atlas.tiers, modelH: atlas.modelH, frames: Object.fromEntries(Object.entries(atlas.motions).map(([k, v]: any) => [k, v.frames])) }, motions: {} };
       const colors = new Set<number>();
       for (const m of ['idle', 'walk', 'run', 'jump']) {
         const img = new Image();
-        img.src = `./models/char/${m}.png`;
+        img.src = `/art/char-sheets/${m}.png`; // 切りつめた絵（public/models/char/）は CHAR-2 AC32 で見る
         await img.decode();
         const c = document.createElement('canvas');
         c.width = img.width;

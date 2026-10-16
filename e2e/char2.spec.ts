@@ -11,9 +11,12 @@ test.describe.configure({ timeout: 180_000 });
 
 const KATANA_SET = ['katana_thrust', 'katana_kesa', 'katana_kiriage', 'katana_walk_chudan', 'katana_walk_jodan', 'katana_walk_gedan'];
 const BOW_SET = ['bow_shot', 'bow_hold_walk', 'bow_walk', 'bow_rapid'];
-const BASE_BYTES = 50_331_648; // はじめの 4 つ（32 コマ）
-const KATANA_BYTES = 68 * 1_572_864; // 106,954,752
-const BOW_BYTES = 39 * 1_572_864; // 61,341,696
+// 仕様書 第 2 版 §4.7 の「本当の値」（切りつめた PNG の よこ × たて の合計）。上限 64 MiB
+const BASE_BYTES = 12_863_488; // はじめの 4 つ
+const KATANA_BYTES = 31_672_320; // 刀の組 6 まい（はじめ ＋ 刀 = 44,535,808）
+const BOW_BYTES = 18_585_600; // 弓の組 4 まい（はじめ ＋ 弓 = 31,449,088）
+const ALL_BYTES = 63_121_408; // ぜんぶ 14 まい
+const LIMIT_BYTES = 67_108_864;
 
 /** 絵の 時間割（仕様書 §4.2・§4.3 の `ticks`） */
 const KESA_TICKS = [8, 7, 4, 4, 5, 2, 2, 2, 5, 28, 8, 8, 8, 8, 7];
@@ -64,6 +67,14 @@ async function waitReady(page: Page, names: string[]) {
     .toBe(true);
 }
 
+/** `atlas.json` の `packed` の よこ × たて の合計（ちょうど `gpuBytes` になる） */
+const packedBytes = (page: Page, names: string[]) =>
+  page.evaluate(async (ns) => {
+    const atlas = await (await fetch('./models/char/atlas.json')).json();
+    return ns.reduce((a: number, n: string) => a + atlas.motions[n].packed.width * atlas.motions[n].packed.height, 0);
+  }, names);
+const BASE_SET = ['idle', 'walk', 'run', 'jump'];
+
 const sprite = (page: Page) =>
   page.evaluate(() => {
     const s = (window.__rikkun! as any).player.doll().sprite;
@@ -85,6 +96,8 @@ test.describe('CHAR-2 通し', () => {
     });
     await waitReady(page, KATANA_SET);
     expect(await gpu(page)).toBe(BASE_BYTES + KATANA_BYTES);
+    expect(await gpu(page)).toBe(await packedBytes(page, [...BASE_SET, ...KATANA_SET]));
+    expect(await gpu(page)).toBeLessThanOrEqual(LIMIT_BYTES);
 
     // 立つ: かまえ・中段の 0 コマめ
     await page.evaluate(() => (window.__rikkun! as any).step(30));
@@ -190,6 +203,7 @@ test.describe('CHAR-2 通し', () => {
     });
     await waitReady(page, BOW_SET);
     expect(await gpu(page)).toBe(BASE_BYTES + BOW_BYTES);
+    expect(await gpu(page)).toBe(await packedBytes(page, [...BASE_SET, ...BOW_SET]));
 
     // 立つ
     await page.evaluate(() => (window.__rikkun! as any).step(20));
@@ -267,7 +281,9 @@ test.describe('CHAR-2 通し', () => {
     });
     await waitReady(page, KATANA_SET);
     expect(await gpu(page)).toBe(BASE_BYTES + BOW_BYTES + KATANA_BYTES);
-    expect(BASE_BYTES + BOW_BYTES + KATANA_BYTES).toBe(218_628_096);
+    expect(BASE_BYTES + BOW_BYTES + KATANA_BYTES).toBe(ALL_BYTES);
+    expect(await gpu(page)).toBe(await packedBytes(page, [...BASE_SET, ...BOW_SET, ...KATANA_SET]));
+    expect(await gpu(page)).toBeLessThanOrEqual(LIMIT_BYTES);
     const swap = await page.evaluate(([ks, bs]) => {
       const h = window.__rikkun! as any;
       const out: number[] = [];
@@ -279,7 +295,7 @@ test.describe('CHAR-2 通し', () => {
       const st = h.player.doll().sprite.status;
       return { out, allReady: [...ks!, ...bs!].every((n) => st?.[n] === 'ready') };
     }, [KATANA_SET, BOW_SET] as const);
-    expect(new Set(swap.out)).toEqual(new Set([218_628_096]));
+    expect(new Set(swap.out)).toEqual(new Set([ALL_BYTES]));
     expect(swap.allReady).toBe(true);
   });
 });
