@@ -68,7 +68,6 @@ test.describe('VOX-F 保存', () => {
     expect(before).not.toBeNull();
     // 列 (0,0) を、版 1 のバイト列で作ったもので上書き（番号は blockTypes() の並び = 版 1 の番号）
     await page.evaluate(async () => {
-      const h = (window as any).__rikkun;
       // 版 1 の id の表（凍らせた物。BLOCK_IDS_V1 と同じ。blockTypes() には頼らない）
       const ids: string[] = ['air','grass','dirt','stone','sand','log','leaves','coal_ore','iron_ore','water','bedrock','furnace','kawara','brick','torch','start_torch','tansu','farmland','farmland_wet','crop_onion','crop_tomato','crop_pumpkin','crop_eggplant','wild_onion','wild_tomato','wild_pumpkin','wild_eggplant','kakashi','kakashi_head','saku','sprinkler'];
       const n = (id: string) => ids.indexOf(id);
