@@ -223,6 +223,9 @@ export function judgeLayout(snap: LayoutSnapshot): LayoutIssue[] {
     out.push({ kind, target: name(e), detail });
   };
   const visibleBox = (e: LayoutEl): Box => inter(e.box, e.clip);
+  /** 文字の行のうち 見えている分（親に 切りとられた分・画面の外は のぞく） */
+  const seenLines = (e: LayoutEl): Box[] =>
+    e.lines.map((l) => inter(inter(l, e.clip), screen)).filter((l) => l.r - l.x > 0 && l.b - l.y > 0);
 
   for (const e of snap.els) {
     // 画面の外（親に 切りとられて 見えない分と、スクロールで 見られる分は のぞく）
@@ -249,9 +252,10 @@ export function judgeLayout(snap: LayoutSnapshot): LayoutIssue[] {
         break;
       }
     }
-    // ボタンの中の 文字・みじかい名前（8 文字まで）が 折り返す
-    if (e.lines.length > 1) {
-      const rows = new Set(e.lines.map((l) => Math.round(l.y))).size;
+    // ボタンの中の 文字・みじかい名前（8 文字まで）が 折り返す（見えている行だけで数える。たたんである所は のぞく）
+    const shown = seenLines(e);
+    if (shown.length > 1) {
+      const rows = new Set(shown.map((l) => Math.round(l.y))).size;
       const inButton = e.pressable || e.ancestors.some((a) => byIndex.get(a)?.pressable);
       const short = e.text.replace(/\s/g, '').length <= 8;
       if (rows > 1 && (inButton || short)) add('wrap', e, `${inButton ? 'ボタンの' : 'みじかい '}文字が ${rows} 行に 折り返す`);
@@ -267,8 +271,6 @@ export function judgeLayout(snap: LayoutSnapshot): LayoutIssue[] {
 
   // 重なり（文字どうし・押せる物どうし。親子は のぞく）
   const related = (a: LayoutEl, b: LayoutEl): boolean => a.ancestors.includes(b.i) || b.ancestors.includes(a.i);
-  const seenLines = (e: LayoutEl): Box[] =>
-    e.lines.map((l) => inter(inter(l, e.clip), screen)).filter((l) => l.r - l.x > 0 && l.b - l.y > 0);
   const texts = snap.els.map((e) => ({ ...e, lines: seenLines(e) })).filter((e) => e.lines.length);
   for (let i = 0; i < texts.length; i++) {
     for (let j = i + 1; j < texts.length; j++) {

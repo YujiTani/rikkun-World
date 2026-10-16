@@ -212,12 +212,29 @@ async function inspect(page: Page, roots: string[], withRules: boolean): Promise
   return out;
 }
 
-/** known.json（{ "issue の説明": [key, ...] }）を key → issue の表にする */
-function loadKnown(): Record<string, string> {
+interface Known {
+  /** key がそのまま書いてある物 → issue */
+  exact: Record<string, string>;
+  /** `*` をふくむ物（字の幅で 相手が かわる 重なりなど）→ issue */
+  patterns: { re: RegExp; issue: string }[];
+}
+
+/** known.json（{ "issue の説明": [key か `*` つきの形, ...] }）を読む */
+function loadKnown(): Known {
   const raw = JSON.parse(readFileSync(KNOWN_FILE, 'utf8')) as Record<string, string | string[]>;
-  const out: Record<string, string> = {};
-  for (const [issue, keys] of Object.entries(raw)) if (Array.isArray(keys)) for (const k of keys) out[k] = issue;
-  return out;
+  const known: Known = { exact: {}, patterns: [] };
+  for (const [issue, keys] of Object.entries(raw)) {
+    if (!Array.isArray(keys)) continue;
+    for (const k of keys) {
+      if (!k.includes('*')) known.exact[k] = issue;
+      else known.patterns.push({ re: new RegExp(`^${k.split('*').map((p) => p.replace(/[.+?^${}()|[\]\\]/g, '\\$&')).join('.*')}$`), issue });
+    }
+  }
+  return known;
+}
+
+function issueOf(known: Known, k: string): string | null {
+  return known.exact[k] ?? known.patterns.find((p) => p.re.test(k))?.issue ?? null;
 }
 
 test.describe('UI 検査ゲート', () => {
@@ -246,9 +263,12 @@ test.describe('UI 検査ゲート', () => {
       }
       expect(rootsSeen, `${screen.roots.join(', ')} が見つからない`).toBeGreaterThan(0);
 
-      const fresh = [...found.keys()].filter((k) => !(k in known));
-      const fixed = Object.keys(known).filter((k) => k.startsWith(`${screen.id} | `) && !found.has(k));
-      const lines = [...found].map(([k, d]) => `${k in known ? `  (既知 ${known[k].split(' ')[0]})` : '★ 新規'} ${k}\n      ${d.join('\n      ')}`);
+      const fresh = [...found.keys()].filter((k) => !issueOf(known, k));
+      const fixed = Object.keys(known.exact).filter((k) => k.startsWith(`${screen.id} | `) && !found.has(k));
+      const lines = [...found].map(([k, d]) => {
+        const issue = issueOf(known, k);
+        return `${issue ? `  (既知 ${issue.split(' ')[0]})` : '★ 新規'} ${k}\n      ${d.join('\n      ')}`;
+      });
       writeFileSync(`${OUT}/${screen.id}.txt`, lines.join('\n') + (fixed.length ? `\n\nもう出ない（known.json から消す）:\n${fixed.join('\n')}` : '') + '\n');
       if (fixed.length) console.log(`[${screen.id}] もう出ない くずれ（e2e/ui-gate/known.json から消す）:\n  ${fixed.join('\n  ')}`);
       expect(
