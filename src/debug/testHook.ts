@@ -42,6 +42,8 @@ export interface TestHook {
   ready: boolean;
   tick(): number;
   pause(): void;
+  /** 描画を止める／再開（再開すると次の 1 回を描く） */
+  suspendRender(on: boolean): void;
   resume(): void;
   step(count?: number): void;
   renderStats(): RenderStats;
@@ -105,6 +107,10 @@ export function installTestHook(game: Game, overlay: PerfOverlay, groups: TestHo
     tick: () => game.tick,
     pause: () => {
       game.paused = true;
+    },
+    suspendRender: (on: boolean) => {
+      game.renderSuspended = on;
+      if (!on) game.renderNow();
     },
     resume: () => {
       game.paused = false;

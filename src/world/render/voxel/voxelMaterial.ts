@@ -70,7 +70,6 @@ varying float vShade;
 varying vec3 vLit;
 varying vec3 vWorld;
 varying vec3 vLocal;
-#define vDist length(vWorld.xz - cameraPosition.xz)
 flat varying vec4 vInfo;
 flat varying vec3 vAvg;
 uniform sampler2D uAtlas;
@@ -93,6 +92,8 @@ float aoCorner(bool s1, bool s2, bool c) {
 
 const FRAG_BODY = `
 {
+  // 見おろし距離は フラグメントで 1 回だけ（大きな面でも 合う）
+  float vDist = length(vWorld.xz - cameraPosition.xz);
   int face = int(vInfo.z + 0.5);
   vec3 nrm = NRM_F[face];
   // 絵: 面の向き → 画素（projection.ts pixelInTile と同じ）
@@ -112,12 +113,14 @@ const FRAG_BODY = `
   py = clamp(py, 0.0, 15.0);
   float px = clamp(floor(u * 16.0), 0.0, 15.0);
   vec3 c = vec3(1.0, 0.0, 1.0);
-  if (tile > -0.5) {
+  if (vDist >= ${FADE_FAR.toFixed(1)}) {
+    c = vAvg; // 遠くは 絵を引かない（かすみで平均の色になるので同じ）
+  } else if (tile > -0.5) {
     float tcol = mod(tile, ${ATLAS_COLS}.0);
     float trow = floor(tile / ${ATLAS_COLS}.0);
     c = texelFetch(uAtlas, ivec2(int(tcol * 16.0 + px), int(trow * 16.0 + 15.0 - py)), 0).rgb;
   }
-  c = mix(c, vAvg, smoothstep(${FADE_NEAR.toFixed(1)}, ${FADE_FAR.toFixed(1)}, vDist));
+  if (vDist < ${FADE_FAR.toFixed(1)}) c = mix(c, vAvg, smoothstep(${FADE_NEAR.toFixed(1)}, ${FADE_FAR.toFixed(1)}, vDist));
   // 角の暗がり（AO）
   float ao = 1.0;
   if (uHasAo > 0.5 && uAoOn > 0.5) {
