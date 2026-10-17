@@ -101,6 +101,7 @@ import { GEN_CONFIG } from './world/gen/config';
 import { populateWorld } from './world/gen/populate';
 import { createWorldHook } from './world/hook';
 import { WorldRenderer } from './world/render/WorldRenderer';
+import { decideFrameClock } from './world/frameClock';
 import { decideMicroR } from './world/render/voxel/tier';
 import { createRenderHook } from './world/render/renderHook';
 import { BlobShadow, BLOB, groundBelow } from './fx/blobShadow';
@@ -213,7 +214,9 @@ if (restored === null) {
 }
 // 小ブロックの半径（?microR=0|16|24|32。F3 を出して F4 でも切りかえる。VOX-E）。
 // E2E のサーバー（VITE_MICRO_DEFAULT=off）は 0 = 小ブロックなし。最初の列の段から効くよう 作るときに渡す（#180）
-const renderer = new WorldRenderer(world, decideMicroR(location.search, import.meta.env.VITE_MICRO_DEFAULT as string | undefined));
+// 1 コマの仕事を 時間で決めるか 数で決めるか（E2E のサーバー VITE_FRAME_CLOCK=count は数。#179）
+const frameClock = decideFrameClock(location.search, import.meta.env.VITE_FRAME_CLOCK as string | undefined);
+const renderer = new WorldRenderer(world, decideMicroR(location.search, import.meta.env.VITE_MICRO_DEFAULT as string | undefined), frameClock);
 renderer.setViewer(island.spawn().x, island.spawn().z);
 renderer.attach(game.scene);
 const lighting = new Lighting();
@@ -1663,5 +1666,5 @@ installTestHook(game, overlay, {
       timeSettings,
       renderer.config,
     ]),
-});
+}, frameClock);
 game.start();
