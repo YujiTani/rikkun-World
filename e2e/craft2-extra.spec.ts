@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { settleForShot } from './helpers/anim';
 import { installAimHelpers } from './helpers/aim';
 
 /**
@@ -371,7 +372,7 @@ test.describe('半透明（足し分）', () => {
     expect(r.invFull).toBe(1);
     expect(r.btn).toBe(1);
     expect(r.guide).toBeCloseTo(0.2, 1);
-    await page.waitForTimeout(1500); // やられた画面の ふわっと出る 動き（実時間）が おわるのを まつ
+    await settleForShot(page); // やられた画面の ふわっと出る 動きが おわるのを まつ
     const death = await page.evaluate(() => {
       const d = document.querySelector('.rk-scrim') as HTMLElement;
       const m = getComputedStyle(d).backgroundColor.match(/rgba?\(([^)]+)\)/)!;
@@ -485,7 +486,7 @@ test.describe('AC26 撮り直し（足りない画面だけ）', () => {
       h.craft.hover('wood_pickaxe');
       h.step(3);
     }, { A });
-    await page.waitForTimeout(900);
+    await settleForShot(page); // やられた画面の ふわっと出る 動きが おわるのを まつ
     await page.screenshot({ path: `${SHOTS}/b-night-inventory.png` });
 
     await page.evaluate(() => {
@@ -560,7 +561,7 @@ test.describe('AC26 撮り直し（足りない画面だけ）', () => {
       T.press('openLog');
       h.step(3);
     });
-    await page.waitForTimeout(900);
+    await settleForShot(page); // やられた画面の ふわっと出る 動きが おわるのを まつ
     await page.screenshot({ path: `${SHOTS}/e-log-page.png` });
     const cats = await page.evaluate(() => {
       const list = document.querySelector('.log-list') as HTMLElement;
@@ -576,7 +577,7 @@ test.describe('AC26 撮り直し（足りない画面だけ）', () => {
       h.log.clear();
       h.step(3);
     });
-    await page.waitForTimeout(900);
+    await settleForShot(page); // やられた画面の ふわっと出る 動きが おわるのを まつ
     await page.screenshot({ path: `${SHOTS}/f-log-empty.png` });
   });
 });

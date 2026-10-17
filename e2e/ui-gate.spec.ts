@@ -2,6 +2,8 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import { standOnGround } from './helpers/aim';
 import { toStance } from './helpers/blade';
+import { waitSpritesReady } from './helpers/char';
+import { findLand, openBooting } from './helpers/stream';
 import { checkLayout } from './helpers/layoutRules';
 import { checkColors, checkComponents, checkContrast, checkFontSizes, snapshotUi } from './helpers/uiRules';
 
@@ -342,12 +344,7 @@ async function char2Setup(page: Page, held: string, names: string[]): Promise<vo
     h.inventory.select(0);
     h.step(1);
   }, held);
-  await page.waitForFunction((ns) => {
-    const h = window.__rikkun! as any;
-    h.step(1);
-    const st = h.player.doll().sprite.status;
-    return ns.every((n: string) => st?.[n] === 'ready');
-  }, names, { timeout: 8000 });
+  await waitSpritesReady(page, names);
 }
 const CHAR2_SCREENS: Screen[] = [
   {
@@ -380,6 +377,49 @@ const CHAR2_SCREENS: Screen[] = [
   },
 ];
 SCREENS.push(...CHAR2_SCREENS);
+
+/**
+ * VOX-D 基準 26: じゅんびちゅう（起動の大きいボタンの中・遠くへもどるカード）。進みを止めて（?streamWork=0 / setStreamWork(0)）撮る。
+ * 窓口（world.stream / teleport / setStreamWork、player.respawn）と 画面（.prep-card ほか）は 実装まで無いので、実装までは赤。
+ */
+const VOXD_SCREENS: Screen[] = [
+  {
+    id: 'prep-boot',
+    roots: ['.play-overlay'],
+    layoutOnly: true,
+    open: async (page) => {
+      await openBooting(page, '?nosave=1&streamWork=0');
+      await page.evaluate(() => {
+        const h = window.__rikkun! as any;
+        h.world.setStreamWork(1);
+        // 半分ほどそろった所（ブロックが 2〜3 こ できた）で 止める
+        for (let i = 0; i < 3000 && h.world.stream().progress < 0.5; i++) h.step(1);
+        h.world.setStreamWork(0);
+        h.step(2);
+      });
+    },
+  },
+  {
+    id: 'prep-card',
+    roots: ['.prep-card'],
+    layoutOnly: true,
+    open: async (page) => {
+      await boot(page, false);
+      const P = await findLand(page);
+      await page.evaluate((P) => (window.__rikkun! as any).world.teleport(P.x, P.z), P);
+      await page.evaluate(() => (window.__rikkun! as any).world.settle());
+      await page.evaluate(() => {
+        const h = window.__rikkun! as any;
+        h.world.setStreamWork(1);
+        h.player.respawn();
+        h.step(40); // 30 コマを こえて カードが出る
+        h.world.setStreamWork(0);
+        h.step(2);
+      });
+    },
+  },
+];
+SCREENS.push(...VOXD_SCREENS);
 
 /**
  * CHAR-4 AC18: 刀の軌跡が 出ている 場面で HUD の はみ出し・重なりが 0。
@@ -649,12 +689,7 @@ test('CHAR-4 AC13: ぼくとう と かたなの 画面の ちがいは キャ�
     h.inventory.select(0);
     h.step(1);
   });
-  await page.waitForFunction((ns) => {
-    const h = window.__rikkun! as any;
-    h.step(1);
-    const st = h.player.doll().sprite.status;
-    return ns.every((n: string) => st?.[n] === 'ready');
-  }, CHAR2_KATANA, { timeout: 10_000 });
+  await waitSpritesReady(page, CHAR2_KATANA);
 
   const shoot = async (slot: number): Promise<Buffer> => {
     await page.evaluate((slot) => {

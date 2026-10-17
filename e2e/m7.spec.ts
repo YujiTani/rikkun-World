@@ -382,6 +382,7 @@ test.describe('M7 農業', () => {
         h.farm.setStage(2 + i, 10, 3, i);
       }
       h.step(300);
+      await h.world.settle({ full: true }); // VOX-D: やせいの やさい は 読みこんだ列の中だけ 数えるので、輪を そろえてから
       const w = h.farm.wild()[0];
       h.world.setBlock(w.x, w.y, w.z, 'air');
       await h.save.now(); // 書き終わるまで まつ（VOX-F から Promise）
@@ -389,8 +390,9 @@ test.describe('M7 農業', () => {
     });
     await page.goto('/');
     await page.waitForFunction(() => window.__rikkun?.ready === true);
-    const after = await page.evaluate(() => {
+    const after = await page.evaluate(async () => {
       const h = (window as any).__rikkun;
+      await h.world.settle({ full: true });
       return { crops: h.farm.crops(), wild: h.farm.wild().length, placed: h.farm.placedM7(), soil: h.farm.soil(2, 9, 3) };
     });
     const key = (c: any) => `${c.x},${c.y},${c.z},${c.kind},${c.stage},${c.stageTicks},${c.wet}`;

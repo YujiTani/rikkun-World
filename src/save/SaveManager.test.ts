@@ -42,6 +42,7 @@ interface Opts {
   clock?: { t: number; d: number };
   reset?: boolean;
   noDb?: boolean;
+  streaming?: boolean;
 }
 
 /** 1 回のページ表示に当たるもの（世界・持ち物・プレイヤー・保存係）を作る。main.ts と同じ順 */
@@ -92,6 +93,7 @@ async function session(store: KeyValueStore | null, db: MemoryBackend | null, o:
     tick: () => ticks.n,
     settings: { saveIntervalTicks: 600 },
     bags: o.bags,
+    streaming: o.streaming,
     clock: clock && {
       dayTick: () => clock.t,
       day: () => clock.d,
@@ -352,6 +354,21 @@ describe('SaveManager（さわった列だけ丸ごと保存）', () => {
     expect(b.save.info().enabled).toBe(false);
   });
 
+  it('列の読みが時間切れになったら（readOnly にする）、そのあとは IDB に書かない・保険も置かない', async () => {
+    const db = new MemoryBackend();
+    const store = new MemoryStore();
+    const a = await session(store, db);
+    a.world.setBlock(2, 300, 2, 'dirt');
+    await a.save.now();
+    const before = JSON.stringify([...db.chunks.values()].map((c) => [c.v, [...c.data]]));
+    a.restored.readOnly = true; // main.ts: columnIO.onReadTimeout
+    a.world.setBlock(40, 300, 40, 'stone');
+    await a.save.now();
+    a.save.saveIfChanged();
+    expect(JSON.stringify([...db.chunks.values()].map((c) => [c.v, [...c.data]]))).toBe(before);
+    expect(a.save.isOn()).toBe(false);
+  });
+
   it('大きな変更の早め保存は 失敗のあと くりかえさない', async () => {
     const db = new MemoryBackend();
     const s = await session(new MemoryStore(), db);
@@ -390,8 +407,8 @@ describe('SaveManager（さわった列だけ丸ごと保存）', () => {
     expect(s.save.info().dirtyChunks).toBe(1);
   });
 
-  it('もどした位置が ブロックと重なる・世界の外 なら スタート地点', async () => {
-    for (const bad of [{ x: 6.5, y: 5, z: 6.5 }, { x: -3, y: 30, z: 6 }, { x: 6.5, y: -2, z: 6.5 }, { x: NaN, y: 30, z: 6 }]) {
+  it('もどした位置が ブロックと重なる・見えない壁の外 なら スタート地点（負の座標は よい。VOX-D D6）', async () => {
+    for (const bad of [{ x: 6.5, y: 5, z: 6.5 }, { x: 30001, y: 30, z: 6 }, { x: 6.5, y: -2, z: 6.5 }, { x: NaN, y: 30, z: 6 }]) {
       const store = new MemoryStore();
       const db = new MemoryBackend();
       const a = await session(store, db);
@@ -678,6 +695,28 @@ describe('SAVE-30: id の文字で読む保存', () => {
     const b = await session(store, db);
     return b;
   }
+
+  it('K6: 保険から戻した起動(streaming)は ready まで書かない。ページが隠れても 保険は消えず 上書きもしない。ready のあと書ける', async () => {
+    const p = await pendingText();
+    const store = new MemoryStore();
+    const text = JSON.stringify(p);
+    store.data.set(PENDING_KEY, text);
+    const db = new MemoryBackend();
+    const b = await session(store, db, { streaming: true });
+    expect(b.restored.fromPending).toBe(true);
+    const handlers: Array<() => void> = [];
+    const win = { addEventListener: (_: string, f: () => void) => handlers.push(f), removeEventListener: () => {} };
+    const doc = { hidden: false, addEventListener: () => {}, removeEventListener: () => {} };
+    b.save.bindPageEvents(win as unknown as Window, doc as unknown as Document);
+    b.world.setBlock(5, 300, 5, 'sand');
+    b.save.saveIfChanged();
+    handlers[0]();
+    await b.save.idle();
+    expect(store.data.get(PENDING_KEY)).toBe(text);
+    b.save.releasePendingHold();
+    await b.save.now();
+    expect(store.data.has(PENDING_KEY)).toBe(false);
+  });
 
   it('AC5: 保険に ids（書いたときの id の一覧）が入り、cells の番号はその一覧の番号', async () => {
     const p = await pendingText();

@@ -255,7 +255,7 @@ describe('createWorldHook', () => {
       testArea: () => ({ x0: 0, x1: 12, z0: 0, z1: 12, y0: 8, y1: 31 }),
       regions: () => { throw new Error("not used"); },
     } as WorldGenInfo;
-    const h = createWorldHook(w, r, island);
+    const h = createWorldHook(w, r, island, {} as never);
     expect(h.seed()).toBe(7);
     expect(h.size()).toEqual({ x: 64, y: 32, z: 64 });
     expect(h.setBlock(1, 1, 1, 'iron_ore')).toBe(true);

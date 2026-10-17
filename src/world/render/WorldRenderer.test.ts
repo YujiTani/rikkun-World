@@ -1,5 +1,5 @@
 import { Scene } from 'three';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ArrayVoxelWorld } from '../VoxelWorld';
 import { WorldRenderer } from './WorldRenderer';
 import { CHUNK_DRAW_DISTANCE } from './config';
@@ -288,5 +288,105 @@ describe('距離でチャンクを描く／描かない (M5 AC15 の意味を �
     w.setBlock(126, 6, 126, 'air');
     settle(r);
     expect(r.chunkStats().drawn).toBe(before);
+  });
+});
+
+describe('時計 count（#179: 1 コマの仕事を数で決める）', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  function island(clock?: 'time' | 'count', microR = 32) {
+    const w = new ArrayVoxelWorld({ x: 128, y: 48, z: 128 });
+    w.fill(0, 0, 0, 127, 0, 127, 'bedrock');
+    w.fill(0, 1, 0, 127, 6, 127, 'stone');
+    const r = clock === undefined ? new WorldRenderer(w, microR) : new WorldRenderer(w, microR, clock);
+    r.setViewer(64, 64);
+    r.attach(new Scene());
+    return { w, r };
+  }
+
+  /** 半径 0（箱だけ）の島を落ちつかせてから、地面を あちこち掘って 多くのセクションを 一度に 作り直し待ちにする */
+  function dirtyBoxes(clock: 'time' | 'count') {
+    const { w, r } = island(clock, 0);
+    settle(r);
+    for (let x = 4; x < 128; x += 8) for (let z = 4; z < 128; z += 8) w.setBlock(x, 6, z, 'air');
+    return { w, r };
+  }
+
+  /** performance.now() を 呼ぶたびに 100 ms 進める（本当の時間で 8 ms をこえる機械を まねる）。時間で決める作りなら 1 コマ 1 つになる */
+  function slowClock(): void {
+    let t = 0;
+    vi.spyOn(performance, 'now').mockImplementation(() => (t += 100));
+  }
+
+  /** update() を n 回。1 回ごとの rebuildLog（attach のぶんは のぞく） */
+  function perFrame(r: WorldRenderer, n: number): { micro: number; total: number }[] {
+    r.rebuildLog(true);
+    const out: { micro: number; total: number }[] = [];
+    for (let i = 0; i < n; i++) {
+      r.update();
+      const log = r.rebuildLog(true);
+      out.push({ micro: log.filter((e) => e.kind === 'micro').length, total: log.length });
+    }
+    return out;
+  }
+
+  it("count: 1 回の update() で 作るメッシュは 8 個まで・小ブロックは 1 個まで。時間が かかっても 数で進む", () => {
+    // 箱だけ: 多くのセクションが 一度に作り直し待ち。100 ms ずつ進んでも 1 コマに 複数の箱を作る
+    const { r } = dirtyBoxes('count');
+    slowClock();
+    const boxes = perFrame(r, 40);
+    expect(Math.max(...boxes.map((f) => f.total))).toBeLessThanOrEqual(8);
+    expect(Math.max(...boxes.map((f) => f.total))).toBeGreaterThan(1);
+    // 小ブロックあり: 1 コマに 小ブロックは 1 個まで・合計 8 個まで
+    const { r: r2 } = island('count');
+    slowClock();
+    const frames = perFrame(r2, 400);
+    expect(Math.max(...frames.map((f) => f.total))).toBeLessThanOrEqual(8);
+    expect(Math.max(...frames.map((f) => f.micro))).toBeLessThanOrEqual(1);
+  });
+
+  it('count: 小ブロックを 1 個作ったコマは そこでおしまい（その前の箱は あってよい）', () => {
+    const { r } = island('count');
+    slowClock();
+    const frames = perFrame(r, 400);
+    expect(frames.filter((f) => f.micro === 1).length).toBeGreaterThan(0);
+  });
+
+  it('count: 同じ世界を 2 回作って 同じコマ数 進めると rebuildLog が 同じ（x, y, z, kind, frame）', () => {
+    const run = (): string => {
+      const { r } = island('count');
+      for (let i = 0; i < 60; i++) r.update();
+      return JSON.stringify(r.rebuildLog());
+    };
+    const a = run();
+    const b = run();
+    expect(a).toBe(b);
+    expect(JSON.parse(a).length).toBeGreaterThan(0);
+  });
+
+  it('count: 落ちつくまでのコマ数は 時間の読みに よらない。箱は 1 コマに まとめて作るので コマ数 < 作ったメッシュの数', () => {
+    const run = (slow: boolean) => {
+      vi.restoreAllMocks();
+      const { r } = dirtyBoxes('count');
+      r.rebuildLog(true);
+      if (slow) slowClock();
+      const n = settle(r);
+      return { n, made: r.rebuildLog().length };
+    };
+    const a = run(false);
+    const b = run(true);
+    expect(b.n).toBe(a.n);
+    expect(b.made).toBe(a.made);
+    expect(b.made).toBeGreaterThan(b.n);
+  });
+
+  it('time が 既定: 3 つ目を 渡さなくても 渡しても 100 ms かかる機械では 1 コマ 1 つ（かならず 1 つ）', () => {
+    for (const clock of [undefined, 'time' as const]) {
+      const { r } = island(clock);
+      slowClock();
+      const frames = perFrame(r, 200);
+      expect(Math.max(...frames.map((f) => f.total))).toBeLessThanOrEqual(1);
+      vi.restoreAllMocks();
+    }
   });
 });

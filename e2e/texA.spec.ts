@@ -583,9 +583,20 @@ test.describe('TEX-A', () => {
     }
     // ?tex=b&shade=ao をつけても 見た目が同じ（切りかえが効かない）
     await openTex(page, '?nosave=1&tex=b&shade=mc,ao,blob');
-    const a = await goView(page, SCORE_VIEWS[0]).then(() => stats(page));
+    // 比べる前に 光とメッシュの順番待ちが 0 になるまで進める（CI の重さで 1 つ遅れたセクションの数が ずれないように、#179）
+    const settledStats = (pg: Page) =>
+      pg.evaluate(() => {
+        const h = (window as any).__rikkun;
+        for (let i = 0; i < 10; i++) {
+          (window as any).__quiet(h);
+          h.step(1);
+          if (h.world.lightPending() === 0 && h.world.meshStats().pending === 0) break;
+        }
+        return h.renderStats() as { drawCalls: number; triangles: number };
+      });
+    const a = await goView(page, SCORE_VIEWS[0]).then(() => settledStats(page));
     await openTex(page);
-    const b = await goView(page, SCORE_VIEWS[0]).then(() => stats(page));
+    const b = await goView(page, SCORE_VIEWS[0]).then(() => settledStats(page));
     // 見た目の数だけ比べる（textures は 絵のアップロードの時刻で ゆれる）
     expect({ drawCalls: a.drawCalls, triangles: a.triangles }).toEqual({ drawCalls: b.drawCalls, triangles: b.triangles });
   });

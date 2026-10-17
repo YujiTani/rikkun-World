@@ -2,6 +2,7 @@ import type { LightField } from '../../contracts';
 import { SECTION_SIZE } from '../../contracts';
 import { columnKey, type ArrayVoxelWorld, type ChangeBox } from '../VoxelWorld';
 import { sectionToArray } from '../sections';
+import { COUNT_LIGHT_TOTAL_MAX, type FrameClock } from '../frameClock';
 import { LIGHT_CONFIG as C } from './config';
 import { combinedBrightness, isDarkForSpawn } from './curve';
 import { EMISSION, OPACITY } from './opacity';
@@ -62,6 +63,8 @@ export class WorldLight implements LightField {
   private lastArr: Entry[] | undefined;
   private viewerX = 0;
   private viewerZ = 0;
+  /** 手動: 列の出入りで まわりを作り直さない。光は lightColumn で 1 列ずつ計算する（ChunkStream が呼ぶ。VOX-D） */
+  private manual = false;
   /** 最後の update() で計算し直したマスの数（計測・テスト用） */
   lastRecomputeCells = 0;
   /** 最初の全部の光の計算にかかったミリ秒（M5 AC14。世界を作る時間と合わせて 2,500 以下） */
@@ -84,6 +87,7 @@ export class WorldLight implements LightField {
   constructor(
     private readonly world: ArrayVoxelWorld,
     private readonly darkness: SkyDarkness = skyDarkness,
+    private readonly clock: FrameClock = 'time',
   ) {
     this.sy = world.size.y;
     this.nSections = Math.ceil(this.sy / SECTION_SIZE);
@@ -196,6 +200,30 @@ export class WorldLight implements LightField {
 
   // ------------------------------------------------------------ 更新
 
+  /** 手動のモード（VOX-D）。列を読みこんでも まわりを作り直さず、捨てた列の光だけ捨てる。光は lightColumn で計算する */
+  setManual(on: boolean): void {
+    this.manual = on;
+  }
+
+  /** この列が 光を計算ずみか（全セクション） */
+  isLitColumn(cx: number, cz: number): boolean {
+    const arr = this.lights.get(columnKey(cx, cz));
+    if (arr === undefined) return false;
+    for (let i = 0; i < arr.length; i++) if (arr[i] === undefined) return false;
+    return true;
+  }
+
+  /**
+   * 1 列ぶん（全セクション）の光を、いま計算する（手動のモード。まわり 8 列が生成ずみのとき）。
+   * 光は 列を捨てるまで持つ。ブロックを変えたときの作り直しは ふつうの update。
+   */
+  lightColumn(cx: number, cz: number): void {
+    this.collect();
+    if (!this.world.column(cx, cz)) return;
+    for (let s = 0; s < this.nSections; s++) this.pending.delete(columnKey(cx, cz) * 1024 + s);
+    this.computeTile(cx, cz, 1, 1, 0, this.nSections - 1, false);
+  }
+
   /**
    * ブロックが変わっていたら、まわり（15 マス以内）のセクションを作り直し待ちに入れ、BUDGET 個だけ計算する。
    * 毎コマ呼んでよい（変化が無ければすぐ終わる）。
@@ -207,7 +235,11 @@ export class WorldLight implements LightField {
     // 数えるのは「ほんとうに計算した」セクションだけ。ふさがり・空だけは ただで片づける（時間の上限つき）
     const t0 = performance.now();
     let real = 0;
-    while (real < BUDGET && this.pending.size > 0 && performance.now() - t0 < TIME_BUDGET_MS) {
+    let calls = 0;
+    const count = this.clock === 'count';
+    // count: 時間は見ない。ただで片づけるものもふくめて 64 回まで
+    while (real < BUDGET && this.pending.size > 0 && (count ? calls < COUNT_LIGHT_TOTAL_MAX : performance.now() - t0 < TIME_BUDGET_MS)) {
+      calls++;
       const key = this.pickNext();
       if (key < 0) break;
       this.pending.delete(key);
@@ -257,6 +289,11 @@ export class WorldLight implements LightField {
       this.lights.delete(k);
       this.tops.delete(k);
       this.lastKey = NaN;
+      if (this.manual) {
+        // 捨てた列の光だけ捨てる（となりの光は そのまま）。読みこんだ列は lightColumn が来るまで 光なし
+        for (let s = 0; s < this.nSections; s++) this.pending.delete(k * 1024 + s);
+        continue;
+      }
       // この列が 出入りした: まわり 3×3 の列の ぜんぶのセクションを作り直す
       for (let dz = -1; dz <= 1; dz++) {
         for (let dx = -1; dx <= 1; dx++) {

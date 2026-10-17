@@ -197,6 +197,21 @@ describe('AC6 しめる 時間・もう 1 回 まく', () => {
   });
 });
 
+describe('たがやしなおした はたけ は まえ の じょうろ を おぼえていない', () => {
+  it('まいた はたけ を こわさずに 石 で うめ、すぐ たがやしなおすと かわいた まま', () => {
+    const m = make();
+    m.field(10, 10, 12, 10);
+    m.farm.pourAt({ x: 10, y: 8, z: 10 }, 'watering_can', 1, 0);
+    expect(wetAt(m, 10, 10)).toBe(true);
+    // world.fill など 掘らずに ブロック が かわる（しめり の 見直し が まだ 来ない うち）
+    m.world.fill(10, 8, 10, 12, 8, 10, 'dirt');
+    for (let x = 10; x <= 12; x++) expect(m.farm.till(x, 8, 10)).toBe(true);
+    expect(m.farm.soil(10, 8, 10)!.canLeft).toBe(0);
+    m.step(120);
+    expect(wetAt(m, 10, 10)).toBe(false);
+  });
+});
+
 describe('AC7 しめり と そだつ・① ③ は ② が おわっても', () => {
   it('② の 作物 は wet。おわると false', () => {
     const m = make();

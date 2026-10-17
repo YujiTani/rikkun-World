@@ -2,6 +2,7 @@ import {
   CHUNK_SIZE,
   SECTION_SIZE,
   WORLD_HEIGHT,
+  WORLD_LIMIT,
   WORLD_SIZE,
   type BlockId,
   type ChunkColumn,
@@ -13,6 +14,7 @@ import { scanColumn, type ColumnInfo } from './micro/worldColumns';
 import { BLOCK_TYPES, blockIdFromIndex, blockIndexOf, isOpaqueIndex, isSolidIndex } from './blocks/blockTypes';
 import { OPACITY } from './light/opacity';
 import { SECTION_VOLUME, compactSection, sectionGet, sectionSet, sectionToArray, uniformSection } from './sections';
+import { cellInWall } from './wall';
 
 export { CHUNK_SIZE, SECTION_SIZE, WORLD_SIZE };
 export type { LoadedBounds };
@@ -123,8 +125,8 @@ export class ChunkedVoxelWorld implements VoxelWorld {
    * 海のふちの 海ゆかより下は 外から見えないので、ふちの列の地下も「見えない」にできる。
    */
   edgeClosedBelow = 0;
-  /** 空・読みこんでいない所・ほった穴に つながった「地下の空気」を数えてあるか（false = 作りなおし待ち。数えたマスは ちぢまない。Column.exp） */
-  private exposureBuilt = false;
+  /** 列ごとの「地下の空気」の数えなおし待ち（EXP_FULL = その列ぜんぶ / 下の 4 ビット = 捨てた・足した となりに面した側だけ）。数えたマスは ちぢまない（Column.exp） */
+  private readonly expPending = new Map<Column, number>();
   /** ほった穴（空気などに変えたマス）の記録 [x,y,z]…。exposure を作りなおすとき、空にとどいている しるしとして使う */
   private dugCells: number[] = [];
   /** faceHasSurface の作業用 */
@@ -177,9 +179,9 @@ export class ChunkedVoxelWorld implements VoxelWorld {
   unloadColumn(cx: number, cz: number): boolean {
     const key = columnKey(cx, cz);
     if (!this.columns.delete(key)) return false;
-    this.invalidateExposure();
+    this.invalidateExposure(cx, cz);
     this.forgetLast();
-    this.recomputeBounds();
+    this.boundsAfterRemove(cx, cz);
     this.staleNeighborsOfColumn(cx, cz);
     // 光: まわりの列の光を作り直す。この列の光は捨てる（VOX-A のレビュー台帳「中」: 契約は takeColumnEvents）
     this.columnEvents?.push({ cx, cz, loaded: false });
@@ -207,31 +209,62 @@ export class ChunkedVoxelWorld implements VoxelWorld {
   private addColumn(col: Column): void {
     const key = columnKey(col.cx, col.cz);
     this.columns.set(key, col);
-    this.invalidateExposure();
+    this.invalidateExposure(col.cx, col.cz);
     this.forgetLast();
     this.markCol(col);
     this.markAllSecs(col);
-    this.recomputeBounds();
+    this.boundsAfterAdd(col.cx, col.cz);
     this.staleNeighborsOfColumn(col.cx, col.cz);
     this.columnEvents?.push({ cx: col.cx, cz: col.cz, loaded: true });
   }
 
-  private recomputeBounds(): void {
+  /** 列の番号のはし（loadedBounds の元。列の出入りで 少しずつ直す） */
+  private bc = { x0: 0, z0: 0, x1: -1, z1: -1 };
+
+  private boundsAfterAdd(cx: number, cz: number): void {
+    const c = this.bc;
+    if (this.columns.size === 1) {
+      c.x0 = c.x1 = cx;
+      c.z0 = c.z1 = cz;
+    } else {
+      if (cx < c.x0) c.x0 = cx;
+      if (cz < c.z0) c.z0 = cz;
+      if (cx > c.x1) c.x1 = cx;
+      if (cz > c.z1) c.z1 = cz;
+    }
+    this.syncBounds();
+  }
+
+  private boundsAfterRemove(cx: number, cz: number): void {
+    const c = this.bc;
     if (this.columns.size === 0) {
-      this.b = { x0: 0, z0: 0, x1: 0, z1: 0 };
-      return;
+      c.x0 = c.z0 = 0;
+      c.x1 = c.z1 = -1;
+    } else if (cx === c.x0 || cx === c.x1 || cz === c.z0 || cz === c.z1) {
+      let x0 = Infinity;
+      let z0 = Infinity;
+      let x1 = -Infinity;
+      let z1 = -Infinity;
+      for (const k of this.columns.values()) {
+        if (k.cx < x0) x0 = k.cx;
+        if (k.cz < z0) z0 = k.cz;
+        if (k.cx > x1) x1 = k.cx;
+        if (k.cz > z1) z1 = k.cz;
+      }
+      c.x0 = x0;
+      c.z0 = z0;
+      c.x1 = x1;
+      c.z1 = z1;
     }
-    let x0 = Infinity;
-    let z0 = Infinity;
-    let x1 = -Infinity;
-    let z1 = -Infinity;
-    for (const c of this.columns.values()) {
-      if (c.cx < x0) x0 = c.cx;
-      if (c.cz < z0) z0 = c.cz;
-      if (c.cx > x1) x1 = c.cx;
-      if (c.cz > z1) z1 = c.cz;
-    }
-    this.b = { x0: x0 * CHUNK_SIZE, z0: z0 * CHUNK_SIZE, x1: (x1 + 1) * CHUNK_SIZE, z1: (z1 + 1) * CHUNK_SIZE };
+    this.syncBounds();
+  }
+
+  private syncBounds(): void {
+    const c = this.bc;
+    this.b =
+      this.columns.size === 0
+        ? { x0: 0, z0: 0, x1: 0, z1: 0 }
+        : { x0: c.x0 * CHUNK_SIZE, z0: c.z0 * CHUNK_SIZE, x1: (c.x1 + 1) * CHUNK_SIZE, z1: (c.z1 + 1) * CHUNK_SIZE };
   }
 
   private colAt(cx: number, cz: number): Column | null {
@@ -349,7 +382,7 @@ export class ChunkedVoxelWorld implements VoxelWorld {
 
   setBlock(x: number, y: number, z: number, id: BlockId): boolean {
     const b = blockIndexOf(id);
-    if (b < 0 || x !== (x | 0) || y !== (y | 0) || z !== (z | 0) || y < 0 || y >= this.size.y) return false;
+    if (b < 0 || x !== (x | 0) || y !== (y | 0) || z !== (z | 0) || y < 0 || y >= this.size.y || !cellInWall(x, z)) return false; // 壁の外は ほれない・おけない（W4）
     const col = this.colAt(x >> 4, z >> 4);
     if (col === null) return false;
     const sy = y >> 4;
@@ -382,6 +415,11 @@ export class ChunkedVoxelWorld implements VoxelWorld {
     const log = this.changeLog;
     if (log.length < CHANGE_LOG_CAP * 4) log.push(x, y, z, b);
     else this.changeLogFull = true;
+  }
+
+  /** その列は さわった（保存がまだ書いていない）か */
+  isSaveDirty(cx: number, cz: number): boolean {
+    return this.columns.get(columnKey(cx, cz))?.saveDirty === true;
   }
 
   /** さわった列の数 */
@@ -536,12 +574,12 @@ export class ChunkedVoxelWorld implements VoxelWorld {
   fill(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, id: BlockId): number {
     const b = blockIndexOf(id);
     if (b < 0) return 0;
-    const xa = Math.ceil(Math.min(x0, x1));
+    const xa = Math.max(-WORLD_LIMIT, Math.ceil(Math.min(x0, x1)));
     const ya = Math.max(0, Math.ceil(Math.min(y0, y1)));
-    const za = Math.ceil(Math.min(z0, z1));
-    const xb = Math.floor(Math.max(x0, x1));
+    const za = Math.max(-WORLD_LIMIT, Math.ceil(Math.min(z0, z1)));
+    const xb = Math.min(WORLD_LIMIT - 1, Math.floor(Math.max(x0, x1)));
     const yb = Math.min(this.size.y - 1, Math.floor(Math.max(y0, y1)));
-    const zb = Math.floor(Math.max(z0, z1));
+    const zb = Math.min(WORLD_LIMIT - 1, Math.floor(Math.max(z0, z1)));
     let changed = 0;
     let cminx = Infinity;
     let cminy = Infinity;
@@ -689,6 +727,7 @@ export class ChunkedVoxelWorld implements VoxelWorld {
     const col = this.colAt(cx, cz);
     if (!col || sy < 0 || sy >= col.sections.length) return false;
     this.hiddenUsed = true;
+    this.flushExposure();
     let h = col.hidden[sy];
     if (h < 0) {
       h = this.computeHidden(col, sy) ? 1 : 0;
@@ -698,7 +737,7 @@ export class ChunkedVoxelWorld implements VoxelWorld {
   }
 
   private computeHidden(col: Column, sy: number): boolean {
-    if (!this.exposureBuilt) this.buildExposure();
+    this.flushExposure();
     if (!this.sectionClosed(col, sy)) return false;
     for (const [dx, dy, dz] of NEIGHBORS) {
       const ny = sy + dy;
@@ -833,51 +872,153 @@ export class ChunkedVoxelWorld implements VoxelWorld {
     return true;
   }
 
-  /** 空にとどいている地下の空気を すべて数えなおす（読みこみ・捨てたあと、はじめて印を読むとき） */
-  private buildExposure(): void {
-    this.exposureBuilt = true;
+  /** 数えなおし待ちの列の数（テスト用） */
+  exposurePending(): number {
+    return this.expPending.size;
+  }
+
+  /** たまった数えなおしを いま片づける（毎コマ renderer から。最初にほる・読む人が 一度に まとめて 作り直しを起こさないように） */
+  settleExposure(): void {
+    if (this.hiddenUsed) this.flushExposure();
+  }
+
+  /** 数えなおし待ちの列を 数えなおす（hidden を読む前・ほる前に呼ぶ）。足した空気が 数えずみの列にとどいたら その絵を作りなおす */
+  private flushExposure(): void {
+    if (this.expPending.size === 0) return;
+    const pending = [...this.expPending];
+    this.expPending.clear();
     const q: number[] = [];
-    for (const col of this.columns.values()) {
-      const sky = this.skyOf(col);
-      const ox = col.cx * CHUNK_SIZE;
-      const oz = col.cz * CHUNK_SIZE;
-      for (let sy = 0; sy < col.sections.length; sy++) {
-        const y0 = sy * SECTION_SIZE;
-        if (y0 > col.skyMax) break;
-        const s = col.sections[sy];
-        if (s.kind === 'uniform' ? s.block !== 0 : s.kind === 'palette' && !s.palette.includes(0)) continue;
-        const d = s.kind === 'uniform' ? null : sectionToArray(s);
-        for (let lz = 0; lz < CHUNK_SIZE; lz++) {
-          for (let lx = 0; lx < CHUNK_SIZE; lx++) {
-            const top = Math.min(SECTION_SIZE - 1, sky[(lz << 4) | lx] - y0);
-            for (let ly = 0; ly <= top; ly++) {
-              if (d !== null && d[(ly << 8) | (lz << 4) | lx] !== 0) continue;
-              const y = y0 + ly;
-              const x = ox + lx;
-              const z = oz + lz;
-              // 上が空 / よこが 空・読みこんでいない列（下は 自分より低いので 空ではない）
-              const open =
-                y + 1 > sky[(lz << 4) | lx] ||
-                (lx < 15 ? y > sky[(lz << 4) | (lx + 1)] : this.skyish(x + 1, y, z)) ||
-                (lx > 0 ? y > sky[(lz << 4) | (lx - 1)] : this.skyish(x - 1, y, z)) ||
-                (lz < 15 ? y > sky[((lz + 1) << 4) | lx] : this.skyish(x, y, z + 1)) ||
-                (lz > 0 ? y > sky[((lz - 1) << 4) | lx] : this.skyish(x, y, z - 1));
-              if (open && this.expAdd(col, sy, (ly << 8) | (lz << 4) | lx)) q.push(x, y, z);
-            }
+    const added: number[] = [];
+    const fresh = new Set<Column>();
+    for (const [col, mask] of pending) {
+      if (this.columns.get(columnKey(col.cx, col.cz)) !== col) continue;
+      if ((mask & EXP_FULL) !== 0) {
+        this.seedColumn(col, q);
+        fresh.add(col);
+      } else {
+        for (let side = 0; side < 4; side++) if ((mask & (1 << side)) !== 0) this.seedSide(col, side, q, added);
+      }
+    }
+    if (fresh.size > 0) {
+      const dug = this.dugCells;
+      for (let i = 0; i < dug.length; i += 3) {
+        const x = dug[i];
+        const y = dug[i + 1];
+        const z = dug[i + 2];
+        const col = this.columns.get(columnKey(x >> 4, z >> 4));
+        if (col === undefined || !fresh.has(col) || this.getIndex(x, y, z) !== 0) continue;
+        if (this.expAdd(col, y >> 4, ((y & 15) << 8) | ((z & 15) << 4) | (x & 15))) q.push(x, y, z);
+      }
+    }
+    this.spreadExposure(q, added);
+    this.notifyExposed(added, fresh);
+  }
+
+  /** 空になった（地下の空気が空にとどいた）マスの セクションと となりを 作りなおす。skip の列は 新しいので 何もしない */
+  private notifyExposed(added: number[], skip: ReadonlySet<Column> | null): void {
+    if (added.length === 0) return;
+    const secs = new Set<number>();
+    for (let i = 0; i < added.length; i += 3) secs.add(((added[i] >> 4) + 4096) * 8192 * 32 + ((added[i + 2] >> 4) + 4096) * 32 + (added[i + 1] >> 4));
+    for (const id of secs) {
+      const sy = id % 32;
+      const cz = (Math.floor(id / 32) % 8192) - 4096;
+      const cx = Math.floor(id / (8192 * 32)) - 4096;
+      const c = this.columns.get(columnKey(cx, cz));
+      if (c !== undefined && skip?.has(c)) continue;
+      this.staleAround(cx, sy, cz);
+      this.markSectionDirty(cx, sy, cz);
+      for (const [dx, dy, dz] of NEIGHBORS) this.markSectionDirty(cx + dx, sy + dy, cz + dz);
+    }
+  }
+
+  /** 新しい列 1 つぶんの「空にとどいている地下の空気」を数える（となりの数えずみの空気からも つなぐ） */
+  private seedColumn(col: Column, q: number[]): void {
+    const sky = this.skyOf(col);
+    const ox = col.cx * CHUNK_SIZE;
+    const oz = col.cz * CHUNK_SIZE;
+    for (let sy = 0; sy < col.sections.length; sy++) {
+      const y0 = sy * SECTION_SIZE;
+      if (y0 > col.skyMax) break;
+      const s = col.sections[sy];
+      if (s.kind === 'uniform' ? s.block !== 0 : s.kind === 'palette' && !s.palette.includes(0)) continue;
+      const d = s.kind === 'uniform' ? null : sectionToArray(s);
+      for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+        for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+          const top = Math.min(SECTION_SIZE - 1, sky[(lz << 4) | lx] - y0);
+          for (let ly = 0; ly <= top; ly++) {
+            if (d !== null && d[(ly << 8) | (lz << 4) | lx] !== 0) continue;
+            const y = y0 + ly;
+            const x = ox + lx;
+            const z = oz + lz;
+            // 上が空 / よこが 空・読みこんでいない列（下は 自分より低いので 空ではない）
+            const open =
+              y + 1 > sky[(lz << 4) | lx] ||
+              (lx < 15 ? y > sky[(lz << 4) | (lx + 1)] : this.skyish(x + 1, y, z)) ||
+              (lx > 0 ? y > sky[(lz << 4) | (lx - 1)] : this.skyish(x - 1, y, z)) ||
+              (lz < 15 ? y > sky[((lz + 1) << 4) | lx] : this.skyish(x, y, z + 1)) ||
+              (lz > 0 ? y > sky[((lz - 1) << 4) | lx] : this.skyish(x, y, z - 1));
+            if (open && this.expAdd(col, sy, (ly << 8) | (lz << 4) | lx)) q.push(x, y, z);
           }
         }
       }
     }
-    const dug = this.dugCells;
-    for (let i = 0; i < dug.length; i += 3) {
-      const x = dug[i];
-      const y = dug[i + 1];
-      const z = dug[i + 2];
-      if (this.getIndex(x, y, z) !== 0) continue;
-      const col = this.colAt(x >> 4, z >> 4)!;
-      if (this.expAdd(col, y >> 4, ((y & 15) << 8) | ((z & 15) << 4) | (x & 15))) q.push(x, y, z);
+    // となりの列で もう空にとどいている空気に つながる
+    for (let side = 0; side < 4; side++) this.joinSide(col, side, q);
+  }
+
+  /** side: 0 = +x, 1 = −x, 2 = +z, 3 = −z の ふち。col のふちの空気が、となりの数えずみの空気につながっていれば 数える */
+  private joinSide(col: Column, side: number, q: number[]): void {
+    const dx = side === 0 ? 1 : side === 1 ? -1 : 0;
+    const dz = side === 2 ? 1 : side === 3 ? -1 : 0;
+    const nb = this.columns.get(columnKey(col.cx + dx, col.cz + dz));
+    if (nb === undefined) return;
+    const sky = this.skyOf(col);
+    const edge = dx !== 0 ? (dx > 0 ? 15 : 0) : dz > 0 ? 15 : 0;
+    const nEdge = 15 - edge;
+    for (let sy = 0; sy < col.sections.length; sy++) {
+      const nbits = nb.exp[sy];
+      if (nbits === null) continue;
+      for (let ly = 0; ly < SECTION_SIZE; ly++) {
+        for (let a = 0; a < 16; a++) {
+          const lx = dx !== 0 ? edge : a;
+          const lz = dx !== 0 ? a : edge;
+          const li = (ly << 8) | (lz << 4) | lx;
+          const nli = (ly << 8) | ((dx !== 0 ? a : nEdge) << 4) | (dx !== 0 ? nEdge : a);
+          if ((nbits[nli >> 3] & (1 << (nli & 7))) === 0) continue;
+          const y = sy * SECTION_SIZE + ly;
+          if (y > sky[(lz << 4) | lx]) continue;
+          if (sectionGet(col.sections[sy], li) !== 0) continue;
+          if (this.expAdd(col, sy, li)) q.push(col.cx * CHUNK_SIZE + lx, y, col.cz * CHUNK_SIZE + lz);
+        }
+      }
     }
-    this.spreadExposure(q, null);
+  }
+
+  /** 数えずみの列の side のふちを、いまの となり（読みこんでいない / 空）に合わせて 数えなおす */
+  private seedSide(col: Column, side: number, q: number[], added: number[]): void {
+    const dx = side === 0 ? 1 : side === 1 ? -1 : 0;
+    const dz = side === 2 ? 1 : side === 3 ? -1 : 0;
+    const sky = this.skyOf(col);
+    const edge = dx !== 0 ? (dx > 0 ? 15 : 0) : dz > 0 ? 15 : 0;
+    const ox = col.cx * CHUNK_SIZE;
+    const oz = col.cz * CHUNK_SIZE;
+    const loadedNb = this.columns.has(columnKey(col.cx + dx, col.cz + dz));
+    for (let a = 0; a < 16; a++) {
+      const lx = dx !== 0 ? edge : a;
+      const lz = dx !== 0 ? a : edge;
+      const top = sky[(lz << 4) | lx];
+      for (let y = 0; y <= top; y++) {
+        if (loadedNb) break; // となりがいれば 空気は そちらから つながる（足した列の joinSide）
+        if (y < this.edgeClosedBelow) continue;
+        const sy = y >> 4;
+        const li = ((y & 15) << 8) | (lz << 4) | lx;
+        if (sectionGet(col.sections[sy], li) !== 0) continue;
+        if (this.expAdd(col, sy, li)) {
+          q.push(ox + lx, y, oz + lz);
+          added.push(ox + lx, y, oz + lz);
+        }
+      }
+    }
   }
 
   /** q（x,y,z の並び）の空気から、つながった地下の空気へ 広げる（広がったマスを added に足す） */
@@ -904,31 +1045,29 @@ export class ChunkedVoxelWorld implements VoxelWorld {
   private noteDug(col: Column, x: number, y: number, z: number): void {
     if (y > this.skyOf(col)[((z & 15) << 4) | (x & 15)]) return; // 空の中
     if (this.dugCells.length < DUG_CAP * 3) this.dugCells.push(x, y, z);
-    if (!this.exposureBuilt) return;
+    if (!this.hiddenUsed) return;
+    this.flushExposure();
     if (!this.expAdd(col, y >> 4, ((y & 15) << 8) | ((z & 15) << 4) | (x & 15))) return;
     const added: number[] = [];
     this.spreadExposure([x, y, z], added);
     if (added.length === 0) return;
-    // 遠くのセクションまで 空にとどいた: そのセクションと、となりを 作りなおす
-    const secs = new Set<number>();
-    for (let i = 0; i < added.length; i += 3) secs.add(((added[i] >> 4) + 4096) * 8192 * 32 + ((added[i + 2] >> 4) + 4096) * 32 + (added[i + 1] >> 4));
-    for (const id of secs) {
-      const sy = id % 32;
-      const cz = (Math.floor(id / 32) % 8192) - 4096;
-      const cx = Math.floor(id / (8192 * 32)) - 4096;
-      this.staleAround(cx, sy, cz);
-      this.markSectionDirty(cx, sy, cz);
-      for (const [dx, dy, dz] of NEIGHBORS) this.markSectionDirty(cx + dx, sy + dy, cz + dz);
-    }
+    this.notifyExposed(added, null);
   }
 
-  /** 列の読みこみ・捨て: 空にとどいているかの答えが かわる。つぎに印を読むとき作りなおす */
-  private invalidateExposure(): void {
-    if (!this.exposureBuilt) return;
-    this.exposureBuilt = false;
-    for (const c of this.columns.values()) {
-      c.hidden.fill(-1);
-      c.exp.fill(null);
+  /** 列 (cx, cz) の読みこみ・捨て: その列（あれば）と、4 つのとなりの その側が 数えなおし待ちになる。ほかの列の数えたマスは そのまま */
+  private invalidateExposure(cx: number, cz: number): void {
+    const own = this.columns.get(columnKey(cx, cz));
+    if (own !== undefined) {
+      own.hidden.fill(-1);
+      this.expPending.set(own, (this.expPending.get(own) ?? 0) | EXP_FULL);
+    }
+    for (let side = 0; side < 4; side++) {
+      const dx = side === 0 ? 1 : side === 1 ? -1 : 0;
+      const dz = side === 2 ? 1 : side === 3 ? -1 : 0;
+      const nb = this.columns.get(columnKey(cx + dx, cz + dz));
+      if (nb === undefined) continue;
+      // nb から見て、この列は 逆向きの側
+      this.expPending.set(nb, (this.expPending.get(nb) ?? 0) | (1 << (side ^ 1)));
     }
   }
 
@@ -1015,16 +1154,19 @@ export class ChunkedVoxelWorld implements VoxelWorld {
 
   /** 読みこんだ範囲の全ブロックから作った文字列（FNV-1a。順は y, z, x）。同じ世界なら同じ */
   hash(): string {
-    const { x0, z0, x1, z1 } = this.b;
+    const list = [...this.columns.values()].sort((a, b) => a.cz - b.cz || a.cx - b.cx);
     let h = 0x811c9dc5;
     let n = 0;
-    for (let y = 0; y < this.size.y; y++) {
-      for (let z = z0; z < z1; z++) {
-        for (let x = x0; x < x1; x++) {
-          const v = this.getIndex(x, y, z);
-          h ^= v < 0 ? 0 : v;
-          h = Math.imul(h, 0x01000193);
-          n++;
+    for (const c of list) {
+      const ox = c.cx * CHUNK_SIZE;
+      const oz = c.cz * CHUNK_SIZE;
+      for (let y = 0; y < this.size.y; y++) {
+        for (let z = oz; z < oz + CHUNK_SIZE; z++) {
+          for (let x = ox; x < ox + CHUNK_SIZE; x++) {
+            h ^= this.getIndex(x, y, z);
+            h = Math.imul(h, 0x01000193);
+            n++;
+          }
         }
       }
     }
@@ -1102,3 +1244,5 @@ export class ChunkedVoxelWorld implements VoxelWorld {
 export { ChunkedVoxelWorld as ArrayVoxelWorld };
 
 const DUG_CAP = 20000;
+/** expPending の印: 列ぜんぶ */
+const EXP_FULL = 16;

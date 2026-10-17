@@ -287,6 +287,23 @@ describe('放物線（AC14）', () => {
   });
 });
 
+describe('見えない壁（VOX-D W4）', () => {
+  it('や は x = 30000 の壁を こえたら 消える（その先の列が 読みこまれていても）', () => {
+    const r = new Rig();
+    const air = r.world.column(0, 0)!;
+    for (const cx of [1873, 1874, 1875, 1876]) r.world.loadColumn({ cx, cz: 4, sections: air.sections });
+    r.eye = { x: 29990, y: 40, z: 64 };
+    r.dir = { x: 1, y: 0, z: 0 };
+    r.pull(40);
+    r.step(60);
+    expect(r.events('arrowEnd')).toHaveLength(1);
+    expect(r.bow.arrows()).toHaveLength(0);
+    const end = r.events('arrowEnd')[0] as Extract<BowEvent, { type: 'arrowEnd' }>;
+    expect(end.position.x).toBeLessThan(30010);
+    expect(end.position.x).toBeGreaterThanOrEqual(30000);
+  });
+});
+
 describe('当たり（AC15）', () => {
   it.each([
     [10, 1, 0.5],

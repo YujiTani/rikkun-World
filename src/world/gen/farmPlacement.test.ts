@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { ArrayVoxelWorld } from '../VoxelWorld';
 import { applyFarmPlacement, computeFarmPlacement } from './farmPlacement';
 import { populateWorld } from './populate';
+import { regionRect } from './region';
 import { terrainAt } from './terrain';
 
 const SEEDS = [20261012, 1, 2, 3, 4, 5];
@@ -13,7 +14,8 @@ describe.each(SEEDS)('置きもの seed=%i（F1〜F3・基準 23）', (seed) => 
   const sp = info.spawn();
   const sx = Math.floor(sp.x);
   const sz = Math.floor(sp.z);
-  const p = computeFarmPlacement(seed, { world: w, info });
+  const p = computeFarmPlacement(seed);
+  const Rr = regionRect(seed);
 
   it('やせいの やさい 4〜6 こずつ・条件（F2）', () => {
     for (const kind of ['onion', 'tomato', 'pumpkin', 'eggplant'] as const) {
@@ -28,7 +30,7 @@ describe.each(SEEDS)('置きもの seed=%i（F1〜F3・基準 23）', (seed) => 
       const d = cheb(a, { x: sx, z: sz });
       expect(d).toBeGreaterThanOrEqual(8);
       expect(d).toBeLessThanOrEqual(56);
-      expect(Math.min(a.x, a.z, 127 - a.x, 127 - a.z)).toBeGreaterThanOrEqual(8);
+      expect(Math.min(a.x - Rr.x0, a.z - Rr.z0, Rr.x1 - 1 - a.x, Rr.z1 - 1 - a.z)).toBeGreaterThanOrEqual(8);
       for (const b of p.wild) if (a !== b) expect(cheb(a, b)).toBeGreaterThanOrEqual(3);
     }
   });
@@ -39,10 +41,16 @@ describe.each(SEEDS)('置きもの seed=%i（F1〜F3・基準 23）', (seed) => 
     expect(inGrass).toBeGreaterThan(0);
   });
 
-  it('同じシードで同じ答え・世界は変えない（F3）', () => {
+  it('同じシードで同じ答え・世界は変えない（F3）・読みこんでいなくても同じ（G4）', () => {
     const before = w.hash();
     expect(computeFarmPlacement(seed)).toEqual(p);
     expect(w.hash()).toBe(before);
+  });
+
+  it('置き場所は ぜんぶ R の中（G1・G4）', () => {
+    const inR = (x: number, z: number) => x >= Rr.x0 && x < Rr.x1 && z >= Rr.z0 && z < Rr.z1;
+    for (const a of p.wild) expect(inR(a.x, a.z)).toBe(true);
+    for (const b of p.oldFarm?.blocks ?? []) expect(inR(b.x, b.z)).toBe(true);
   });
 
   it('ふるい はたけ は 置ける。6×6・はたけ 12・さく・かかし・たんす（F1）', () => {

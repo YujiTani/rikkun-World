@@ -24,6 +24,7 @@ import type { BiomeHook } from '../world/gen/biomeHook';
 import type { createRenderHook } from '../world/render/renderHook';
 import type { AudioHook } from '../fx/bgm/hook';
 import type { ShadowHook } from '../world/render/shadow/shadowHook';
+import type { FrameClock } from '../world/frameClock';
 import type { PerfOverlay } from './perfOverlay';
 import type { CharSprite, SpriteInfo } from '../char';
 import type { SpriteMotion } from '../char';
@@ -49,6 +50,8 @@ export interface TestHook {
   resume(): void;
   step(count?: number): void;
   renderStats(): RenderStats;
+  /** #179: 1 コマの仕事を 時間（ms）で決めるか 数で決めるか（E2E のサーバーは 'count'） */
+  clock(): FrameClock;
   perfOverlayVisible(): boolean;
   world: WorldHook;
   /** VOX-I-1 §8.1: 12 の国（at・here・find・take.path） */
@@ -109,9 +112,12 @@ declare global {
 
 export type TestHookGroups = Pick<TestHook, 'shadow' | 'world' | 'biome' | 'render' | 'player' | 'camera' | 'aim' | 'input' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'attack' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm' | 'log' | 'ui' | 'audio' | 'rarity'>;
 
-export function installTestHook(game: Game, overlay: PerfOverlay, groups: TestHookGroups): void {
+export function installTestHook(game: Game, overlay: PerfOverlay, isReady: () => boolean, groups: TestHookGroups, clock: FrameClock = 'time'): void {
   window.__rikkun = {
-    ready: true,
+    // 起動の ChunkStream が そろってから true（一度 true になったら そのまま。VOX-D）
+    get ready(): boolean {
+      return isReady();
+    },
     tick: () => game.tick,
     pause: () => {
       game.paused = true;
@@ -125,6 +131,7 @@ export function installTestHook(game: Game, overlay: PerfOverlay, groups: TestHo
     },
     step: (count = 1) => game.step(count),
     renderStats: () => game.getRenderStats(),
+    clock: () => clock,
     perfOverlayVisible: () => overlay.visible,
     ...groups,
   };

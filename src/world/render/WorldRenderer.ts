@@ -13,10 +13,13 @@ import type { CropStageSource, SectionData } from '../../contracts';
 import { cropKindOfBlock } from '../../contracts';
 import { BLOCK_TYPES, isCrossIndex, isWildIndex } from '../blocks/blockTypes';
 import { createAtlasTexture, WATER_ALPHA } from '../blocks/textures';
+import { COUNT_MESH_MAX, COUNT_MESH_TOTAL_MAX, type FrameClock } from '../frameClock';
 import { WorldLight } from '../light/WorldLight';
 import { sectionGet } from '../sections';
 import { lodSortKey, sectionSortKey } from './drawOrder';
 import { columnKey, CHUNK_SIZE, type ArrayVoxelWorld } from '../VoxelWorld';
+import type { StreamLight, StreamMesh } from '../stream/ChunkStream';
+import { R_DRAW, R_DRAW_DROP, cheb, colKey } from '../stream/ring';
 import { CHUNK_DRAW_DISTANCE, RENDER_CONFIG } from './config';
 import { setRipeMinBrightness } from './cropLight';
 import { applyLightShader } from './lightShader';
@@ -48,7 +51,7 @@ export interface ChunkStats {
   inRange: number;
   /** 描く距離（88） */
   maxDistance: number;
-  /** 描いている列の番号（cx + cz * 横の数） */
+  /** 描いている列の番号（colKey(cx, cz)。負の列でも ちがう数） */
   drawnIndices: number[];
 }
 
@@ -155,6 +158,14 @@ interface ColState {
   lodStale: boolean;
   /** LOD をやめて 箱・小ブロックにした直後: セクションができるまで LOD を見せておく */
   lodHold: boolean;
+  /** この列の作り直し待ち（queue の列ごとの分。ストリーミングの仕事えらび用） */
+  readonly work: Set<SecState>;
+  /** 描く輪の中心から この列までのチェビシェフ距離（ストリーミングのとき） */
+  ring: number;
+  /** ring ≤ R_DRAW（ストリーミングのとき、作る対象） */
+  inDraw: boolean;
+  /** 自分と 8 つのとなりの光がそろっている（ストリーミングのとき、メッシュを作ってよい。S2） */
+  meshable: boolean;
 }
 
 function toGeometry(data: MeshData): BufferGeometry {
@@ -235,6 +246,11 @@ export class WorldRenderer {
   private readonly mesher: SectionMesher;
   private readonly nSections: number;
   private attached = false;
+  /** ストリーミング（VOX-D）: 列は ChunkStream が光を計算した順に足し、メッシュは 描く輪の中だけ、1 つずつ stream が進める */
+  private streaming = false;
+  private ringC = { cx: 0, cz: 0 };
+  /** ストリーミング: 光を計算ずみの列 */
+  private readonly litCols = new Set<number>();
   /** 距離で段を決める。viewer を渡す前は 全部 小ブロック（距離 0） */
   private viewer: { x: number; z: number } | null = null;
   private microR = DEFAULT_MICRO_R;
@@ -243,6 +259,9 @@ export class WorldRenderer {
   private bytes = 0;
   private disposed = 0;
   private frame = 0;
+  /** build 1 回で rebuildLog に足した数と、小ブロックを作ったか（count の時計用） */
+  private logged = 0;
+  private loggedMicro = false;
   private evictedCount = 0;
   /** 角の暗がり（AO）の「うまり」のメモリ（バイト）と、持っているセクションの数 */
   private aoBytes = 0;
@@ -268,10 +287,14 @@ export class WorldRenderer {
    * microRadius: はじめの小ブロックの半径（0 = 小ブロックなし）。作るときに渡すので、最初の update を待たずに効く
    * （列の段も 光る前から この半径で決まる。#180: E2E のサーバーは 細かいメッシュを 1 つも作らない）。
    */
-  constructor(private readonly world: ArrayVoxelWorld, microRadius: number = DEFAULT_MICRO_R) {
+  constructor(
+    private readonly world: ArrayVoxelWorld,
+    microRadius: number = DEFAULT_MICRO_R,
+    private readonly clock: FrameClock = 'time',
+  ) {
     this.microR = normalizeMicroR(microRadius);
     this.config.microRadius = this.microR;
-    this.light = new WorldLight(world);
+    this.light = new WorldLight(world, undefined, clock);
     this.mesher = new SectionMesher(world, this.light);
     this.nSections = Math.ceil(world.size.y / 16);
     this.group.name = 'world';
@@ -317,6 +340,10 @@ export class WorldRenderer {
       lodWater: null,
       lodStale: true,
       lodHold: false,
+      work: new Set(),
+      ring: 0,
+      inDraw: false,
+      meshable: false,
     };
     for (let sy = 0; sy < this.nSections; sy++) {
       col.secs.push({
@@ -344,6 +371,7 @@ export class WorldRenderer {
 
   /** 読みこんである列と 状態を合わせる（足す・捨てる） */
   private syncColumns(): void {
+    if (this.streaming) return;
     const loaded = this.world.loadedColumns();
     if (loaded.length === this.cols.size && loaded.every((c) => this.cols.has(columnKey(c.cx, c.cz)))) return;
     const seen = new Set<number>();
@@ -361,7 +389,7 @@ export class WorldRenderer {
       if (seen.has(k)) continue;
       for (const st of col.secs) {
         this.dropMeshes(st);
-        this.queue.delete(st);
+        this.dequeue(st);
       }
       this.dropLod(col);
       this.cols.delete(k);
@@ -374,8 +402,16 @@ export class WorldRenderer {
 
   private enqueue(st: SecState): void {
     if (st.queued) return;
+    if (this.streaming && !st.col.inDraw) return; // 描く輪の外は 仕事にしない
     st.queued = true;
     this.queue.add(st);
+    st.col.work.add(st);
+  }
+
+  private dequeue(st: SecState): void {
+    st.queued = false;
+    this.queue.delete(st);
+    st.col.work.delete(st);
   }
 
   /** この列の段を、いまの視点・半径で決める。変わったら true */
@@ -392,8 +428,7 @@ export class WorldRenderer {
         this.dropMeshes(st);
         st.built = null;
         st.dirty = true;
-        st.queued = false;
-        this.queue.delete(st);
+        this.dequeue(st);
       }
       col.lodHold = false;
     } else {
@@ -434,14 +469,13 @@ export class WorldRenderer {
     const drawnIndices: number[] = [];
     let inRange = 0;
     let lodDrawn = 0;
-    const { chunksX } = this.world;
     for (const col of this.cols.values()) {
       if (col.dist > CHUNK_DRAW_DISTANCE) continue;
       inRange++;
       const lodOn = !!(col.lodOpaque?.visible || col.lodWater?.visible);
       const any = lodOn || col.secs.some((st) => st.voxel || st.extras || st.water);
       if (!any) continue;
-      drawnIndices.push(col.cx + col.cz * chunksX);
+      drawnIndices.push(colKey(col.cx, col.cz));
       if (col.tier === 'lod' && lodOn) lodDrawn++;
     }
     drawnIndices.sort((a, b) => a - b);
@@ -491,6 +525,7 @@ export class WorldRenderer {
     this.world.takeDirtySectionsEx();
     this.world.takeDirtyChunks();
     this.syncColumns();
+    if (this.streaming) return; // 作るのは ChunkStream の runJob
     for (const col of this.cols.values()) this.updateLod(col);
     this.process(Number.POSITIVE_INFINITY, true);
     for (const col of this.cols.values()) this.updateLod(col);
@@ -512,8 +547,9 @@ export class WorldRenderer {
     if (!this.attached) return;
     this.syncColumns();
     this.syncSway();
+    this.world.settleExposure();
     this.takeChanges();
-    this.process(FRAME_BUDGET_MS, false);
+    if (!this.streaming) this.process(FRAME_BUDGET_MS, false);
     this.manageBytes();
     for (const col of this.cols.values()) if (col.lodHold || col.lodStale) this.updateLod(col);
     this.drawSway();
@@ -551,6 +587,7 @@ export class WorldRenderer {
   private needsWork(st: SecState): boolean {
     const col = st.col;
     if (col.tier === null || col.tier === 'lod') return false;
+    if (this.streaming && !col.inDraw) return false;
     if (st.evicted) {
       if (this.bytes > this.geometryBytesLimit * REVIVE_RATIO) return false;
     }
@@ -566,10 +603,7 @@ export class WorldRenderer {
     for (const st of this.queue) {
       if (!this.needsWork(st)) {
         // 仕事が無くなったもの（段が変わったなど）は 待ちから外す
-        if (!st.evicted) {
-          st.queued = false;
-          this.queue.delete(st);
-        }
+        if (!st.evicted) this.dequeue(st);
         continue;
       }
       if (!this.light.isColumnLit(st.cx, st.cz)) continue; // 光ができてから（光が計算されると dirty でもう一度来る）
@@ -589,6 +623,10 @@ export class WorldRenderer {
 
   /** 予算（ミリ秒）のあいだ、待ちのセクションを 順に作る（かならず 1 つは作る）。boxOnly: 箱だけ（はじめの一気） */
   private process(budgetMs: number, boxOnly: boolean): void {
+    if (this.clock === 'count' && Number.isFinite(budgetMs)) {
+      this.processCount(boxOnly);
+      return;
+    }
     const t0 = performance.now();
     let did = 0;
     for (;;) {
@@ -597,6 +635,22 @@ export class WorldRenderer {
       if (!st) break;
       this.build(st, boxOnly);
       did++;
+    }
+  }
+
+  /** count の時計: 作ったメッシュ 8 個まで（小ブロックは 1 個で そのコマはおしまい）。作らないものは数えず、合計 256 まで */
+  private processCount(boxOnly: boolean): void {
+    let made = 0;
+    for (let n = 0; n < COUNT_MESH_TOTAL_MAX; n++) {
+      // 1 つの作り直しで 最大 2 つ（本体＋水）のメッシュができる
+      if (made > COUNT_MESH_MAX - 2) break;
+      const st = this.pickNext(boxOnly ? 1 : 2);
+      if (!st) break;
+      this.logged = 0;
+      this.loggedMicro = false;
+      this.build(st, boxOnly);
+      made += this.logged;
+      if (this.loggedMicro) break;
     }
   }
 
@@ -633,10 +687,7 @@ export class WorldRenderer {
   }
 
   private finishItem(st: SecState): void {
-    if (!this.needsWork(st)) {
-      st.queued = false;
-      this.queue.delete(st);
-    }
+    if (!this.needsWork(st)) this.dequeue(st);
     this.afterBuilt(st.col);
   }
 
@@ -693,6 +744,8 @@ export class WorldRenderer {
     this.meshChanged(st.cx, st.cz);
     if (voxel) this.pushLog(st, tier);
     if (water) this.pushLog(st, 'water');
+    this.logged = (voxel ? 1 : 0) + (water ? 1 : 0);
+    this.loggedMicro = voxel !== null && tier === 'micro';
   }
 
   private atlasMesh(data: MeshData, material: MeshBasicMaterial, order: number, sortKey: number): Mesh {
@@ -769,7 +822,7 @@ export class WorldRenderer {
   /** この列の LOD を 見せる／消す（作るのは 1 列 0.3ms ほどなので その場で） */
   private updateLod(col: ColState): void {
     const want = (col.tier === 'lod' && col.dist <= CHUNK_DRAW_DISTANCE) || col.lodHold;
-    if (want && col.lodStale && this.attached && this.light.isColumnLit(col.cx, col.cz)) this.rebuildLod(col);
+    if (want && col.lodStale && this.attached && !this.streaming && this.light.isColumnLit(col.cx, col.cz)) this.rebuildLod(col);
     const on = want && !!col.lodOpaque;
     if (col.lodOpaque && col.lodOpaque.visible !== want) this.meshChanged(col.cx, col.cz);
     if (col.lodOpaque) col.lodOpaque.visible = want;
@@ -798,6 +851,220 @@ export class WorldRenderer {
     col.lodOpaque = col.lodWater = null;
   }
 
+  // ------------------------------------------------------------ ストリーミング（VOX-D。ChunkStream とのつなぎ）
+
+  /**
+   * ストリーミングにする（列を足す前に 1 回）。光は手動（lightColumn）になり、列は streamLight() で光ができた順に足され、
+   * メッシュは 描く輪（≤ R_DRAW）の中だけ、streamMesh() の runJob で 1 つずつ作る（予算は ChunkStream）。
+   */
+  enableStreaming(): void {
+    this.streaming = true;
+    this.upgradesOn = false; // 開始(ready)まで 箱から小ブロックへの差しかえは しない
+    this.light.setManual(true);
+  }
+
+  /** 箱から小ブロックへの差しかえを してよいか（ストリーミングでは ready のあと） */
+  private upgradesOn = true;
+
+  get isStreaming(): boolean {
+    return this.streaming;
+  }
+
+  /** ChunkStream の光の窓口。1 列の光を計算し、その列を 描く候補に足す */
+  streamLight(): StreamLight {
+    return {
+      lightColumn: (cx, cz) => {
+        this.light.lightColumn(cx, cz);
+        this.noteLit(cx, cz);
+      },
+    };
+  }
+
+  /** ChunkStream のメッシュの窓口 */
+  streamMesh(): StreamMesh {
+    return {
+      setRing: (cx, cz) => this.setRing(cx, cz),
+      pendingJobs: () => this.pendingJobs(),
+      nextJobDist: () => this.nextJobDist(),
+      runJob: () => this.runJob(),
+      columnState: (cx, cz) => this.columnState(cx, cz),
+      allowUpgrades: (on) => {
+        this.upgradesOn = on;
+      },
+      lastJob: () => ({ meshes: this.logged, micro: this.loggedMicro }),
+    };
+  }
+
+  /** 光ができた列を足す */
+  noteLit(cx: number, cz: number): void {
+    this.takeChanges(); // 読みこんだときの「変わった」を ここで受けとる（作る前に 作りなおしにならないように）
+    this.litCols.add(columnKey(cx, cz));
+    const k = columnKey(cx, cz);
+    if (!this.cols.has(k)) {
+      const col = this.newCol(cx, cz);
+      this.cols.set(k, col);
+      this.setRingOf(col);
+      this.setTier(col);
+      for (const st of col.secs) this.enqueue(st);
+    }
+    this.refreshMeshable(cx, cz);
+  }
+
+  /** 世界から列を捨てた（ブロックを捨てる前後どちらでもよい）。この列の絵と状態を捨てる。となりの絵は そのまま */
+  noteUnloaded(cx: number, cz: number): void {
+    const k = columnKey(cx, cz);
+    this.litCols.delete(k);
+    const col = this.cols.get(k);
+    if (col !== undefined) {
+      for (const st of col.secs) {
+        this.dropMeshes(st);
+        this.dequeue(st);
+      }
+      this.dropLod(col);
+      this.cols.delete(k);
+    }
+    this.refreshMeshable(cx, cz);
+  }
+
+  private refreshMeshable(cx: number, cz: number): void {
+    for (let dz = -1; dz <= 1; dz++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        const c = this.cols.get(columnKey(cx + dx, cz + dz));
+        if (c === undefined) continue;
+        let ok = true;
+        for (let ez = -1; ez <= 1 && ok; ez++) for (let ex = -1; ex <= 1; ex++) if (!this.litCols.has(columnKey(c.cx + ex, c.cz + ez))) { ok = false; break; }
+        c.meshable = ok;
+      }
+    }
+  }
+
+  private setRingOf(col: ColState): void {
+    col.ring = cheb(col.cx, col.cz, this.ringC.cx, this.ringC.cz);
+    col.inDraw = col.ring <= R_DRAW;
+  }
+
+  /** 描く輪の中心（プレイヤーのいる列）。輪の外（> R_DRAW_DROP）になった列の絵は捨てる */
+  setRing(cx: number, cz: number): void {
+    this.ringC = { cx, cz };
+    for (const col of this.cols.values()) {
+      const was = col.inDraw;
+      this.setRingOf(col);
+      if (col.ring > R_DRAW_DROP) {
+        for (const st of col.secs) {
+          if (st.built !== null || st.voxel || st.extras || st.water) this.dropMeshes(st);
+          st.built = null;
+          st.dirty = true;
+          st.evicted = false;
+          this.dequeue(st);
+        }
+        if (col.lodOpaque || col.lodWater) this.dropLod(col);
+        col.lodStale = true;
+        col.lodHold = false;
+      } else if (col.inDraw && !was) {
+        for (const st of col.secs) this.enqueue(st);
+      } else if (!col.inDraw && was) {
+        for (const st of col.secs) this.dequeue(st);
+      }
+    }
+  }
+
+  /** この列の LOD を いま作る仕事があるか */
+  private lodJob(col: ColState): boolean {
+    return col.lodStale && col.tier === 'lod' && col.dist <= CHUNK_DRAW_DISTANCE && col.inDraw && col.meshable;
+  }
+
+  private lodJobCount(): number {
+    if (!this.streaming) return 0;
+    let n = 0;
+    for (const col of this.cols.values()) if (this.lodJob(col)) n++;
+    return n;
+  }
+
+  /** 光ずみで まだ作っていない仕事の数（セクション 1 つ・LOD 1 列が 1 つ） */
+  pendingJobs(): number {
+    let n = this.lodJobCount();
+    for (const col of this.cols.values()) {
+      if (!col.meshable || !col.inDraw) continue;
+      for (const st of col.work) if (this.needsWork(st)) n++;
+    }
+    return n;
+  }
+
+  private pickJob(): { col: ColState; st: SecState | null; p: number } | null {
+    let best: { col: ColState; st: SecState | null; p: number } | null = null;
+    let bd = Infinity;
+    let be = Infinity;
+    const { cx: pcx, cz: pcz } = this.ringC;
+    for (const col of this.cols.values()) {
+      if (!col.inDraw || !col.meshable) continue;
+      let p = Infinity;
+      let bs: SecState | null = null;
+      for (const st of col.work) {
+        if (!this.needsWork(st)) {
+          if (!st.evicted) this.dequeue(st);
+          continue;
+        }
+        const sp = st.player ? 0 : st.built === null || st.dirty ? 1 : 2;
+        if (sp === 2 && !this.upgradesOn) continue;
+        if (sp < p || (sp === p && bs !== null && st.sy < bs.sy)) {
+          p = sp;
+          bs = st;
+        }
+      }
+      if (this.lodJob(col) && p > 1) {
+        p = 1;
+        bs = null;
+      }
+      if (p === Infinity) continue;
+      const e = (col.cx - pcx) ** 2 + (col.cz - pcz) ** 2;
+      const better = best === null || p < best.p || (p === best.p && jobBefore(col, e, bd, be, best.col));
+      if (better) {
+        best = { col, st: bs, p };
+        bd = col.ring;
+        be = e;
+      }
+    }
+    return best;
+  }
+
+  /** 次の仕事の近さ（チェビシェフ。プレイヤーが変えた所は −1）。無ければ null */
+  nextJobDist(): number | null {
+    const j = this.pickJob();
+    if (j === null) return null;
+    return j.p === 0 ? -1 : j.col.ring;
+  }
+
+  /** 仕事を 1 つ進める（セクション 1 つのメッシュ、または 列 1 つの LOD）。進めたら true */
+  runJob(): boolean {
+    const j = this.pickJob();
+    if (j === null) return false;
+    this.logged = 0;
+    this.loggedMicro = false;
+    if (j.st !== null) this.build(j.st, false);
+    else {
+      this.logged = 1;
+      this.rebuildLod(j.col);
+      this.updateLod(j.col);
+    }
+    return true;
+  }
+
+  /** 'true' = その列の本当の段まで・'drawn' = 何かの絵を出している・'none' = まだ */
+  columnState(cx: number, cz: number): 'none' | 'drawn' | 'true' {
+    const col = this.cols.get(columnKey(cx, cz));
+    if (col === undefined || col.tier === null || !col.meshable) return 'none';
+    if (col.tier === 'lod') {
+      if (col.dist > CHUNK_DRAW_DISTANCE) return 'true'; // 描くものが無い
+      return col.lodStale ? 'none' : 'true';
+    }
+    let all = true;
+    for (const st of col.secs) {
+      if (st.built === null) return 'none';
+      if (this.needsWork(st)) all = false;
+    }
+    return all ? 'true' : 'drawn';
+  }
+
   // ------------------------------------------------------------ 見る（テスト・計測）
 
   /** window.__rikkun.world.sectionInfo 用。セクション座標 (sx, sy, sz) */
@@ -816,7 +1083,7 @@ export class WorldRenderer {
     const meshes = (st.voxel ? 1 : 0) + (st.extras ? 1 : 0) + (st.water ? 1 : 0);
     if (meshes === 0) {
       if (st.built !== null && st.faceless) return none('empty'); // 見える面が 0
-      if (!this.light.isColumnLit(st.cx, st.cz)) return none('unlit');
+      if (this.streaming ? !col.meshable : !this.light.isColumnLit(st.cx, st.cz)) return none('unlit');
     }
     const tier = meshes > 0 && st.built ? st.built : (col.tier ?? 'micro');
     return { tier, reason: null, meshes, triangles: st.tris, dist };
@@ -892,7 +1159,7 @@ export class WorldRenderer {
       meshCount,
       disposedTotal: this.disposed,
       // 世界が教えてくれたのに まだ受けとっていない変化（setBlock のすぐあと）もふくめる: 0 なら本当に落ちついた
-      pending: this.queue.size + this.world.uncollectedMeshChanges(),
+      pending: this.queue.size + this.lodJobCount() + this.world.uncollectedMeshChanges(),
     };
   }
 
@@ -1031,6 +1298,14 @@ export class WorldRenderer {
     }
     this.swayMesh.set(this.swayItems);
   }
+}
+
+/** 同じ優先なら: 輪の距離 → 中心どうしの距離 → cz → cx（S3） */
+function jobBefore(col: ColState, e: number, bd: number, be: number, other: ColState): boolean {
+  if (col.ring !== bd) return col.ring < bd;
+  if (e !== be) return e < be;
+  if (col.cz !== other.cz) return col.cz < other.cz;
+  return col.cx < other.cx;
 }
 
 const NEIGHBORS: readonly (readonly [number, number, number])[] = [

@@ -397,7 +397,7 @@ describe('いつもの世界（seed 20261012）: 小ブロック段の全セク�
     populateWorld(w, 20261012);
     const h = countWorld(w, 128, 128);
     console.log(`SEETHRU island: checked=${h.checked} 穴のある面=${h.faces} 穴のあるブロック=${h.blocks} 向きごと=${h.byDir}`);
-    expect(h.checked, '調べた面が 0 だと何も確かめていない').toBeGreaterThan(5_000); // 新しい地形（VOX-B）は 調べる面が 約 9,000（前の島は 約 10,000）
+    expect(h.checked, '調べた面が 0 だと何も確かめていない').toBeGreaterThan(3_000); // 調べる面は VOX-D で 約 4,100（VOX-B は 約 9,000。仮の海のふちの 段差が無くなり 面が へった）。半分より下に ならなければ 何も確かめていない ことには ならない
     expect(h.faces, `ぬけている小ブロックの面（向きごと ${h.byDir}）`).toBe(0);
     expect(h.blocks, '穴のあるブロック').toBe(0);
   });

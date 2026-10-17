@@ -22,7 +22,8 @@ async function open(page: Page, query = '?nosave=1') {
 const q = (seed: number | null) => (seed === null ? '?nosave=1' : `?nosave=1&seed=${seed}`);
 
 test.describe('VOX-B 地形（つないだ後）', () => {
-  test('AC15: 高さ 352・海面 144。y=352 と 読みこみ範囲の外は outside、setBlock は false', async ({ page }) => {
+  test('AC15: 高さ 352・海面 144。y=352 と 読みこんでいない遠い列（x = 100000）は outside、setBlock は false', async ({ page }) => {
+    // VOX-D: 128×128 の固定をやめた。範囲の外 = 壁の外・読みこんでいない遠い列で確かめる
     await open(page);
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
@@ -33,15 +34,15 @@ test.describe('VOX-B 地形（つないだ後）', () => {
       const out = [
         w.getBlock(10, 352, 10),
         w.getBlock(10, 353, 10),
-        w.getBlock(-1, 100, 10),
-        w.getBlock(128, 100, 10),
-        w.getBlock(10, 100, 128),
-        w.getBlock(10, 100, -1),
+        w.getBlock(10, -1, 10),
+        w.getBlock(100000, 100, 10),
+        w.getBlock(10, 100, 100000),
+        w.getBlock(-100000, 100, 10),
       ];
-      const set = [w.setBlock(5, 352, 5, 'stone'), w.setBlock(-1, 100, 5, 'stone'), w.setBlock(128, 100, 5, 'stone'), w.setBlock(5, 100, 128, 'stone')];
-      return { size, sea: w.seaY?.(), out, set, hashSame: w.hash() === hash0, top: w.getBlock(10, 351, 10), area: w.testArea() };
+      const set = [w.setBlock(5, 352, 5, 'stone'), w.setBlock(100000, 100, 5, 'stone'), w.setBlock(5, 100, 100000, 'stone'), w.setBlock(-100000, 100, 5, 'stone')];
+      return { y: size.y, sea: w.seaY?.(), out, set, hashSame: w.hash() === hash0, top: w.getBlock(10, 351, 10), area: w.testArea() };
     });
-    expect(r.size).toEqual({ x: 128, y: 352, z: 128 });
+    expect(r.y).toBe(352);
     expect(r.sea).toBe(144);
     expect(r.out).toEqual(['outside', 'outside', 'outside', 'outside', 'outside', 'outside']);
     expect(r.set).toEqual([false, false, false, false]);
@@ -50,37 +51,23 @@ test.describe('VOX-B 地形（つないだ後）', () => {
     expect(r.area).toEqual({ x0: 0, x1: 12, z0: 0, z1: 12, y0: 8, y1: 351 });
   });
 
-  test('AC16: 読みこむ列は cx, cz = 0〜7 の 64 列。はしの e ≤ 3 の列は 地面 ≤ seaY−4 で、その上 seaY まで水', async ({ page }) => {
+  test('AC16(VOX-D): 動かない起動で 読みこんだ列は 289（スタートの列から 8 以内）。仮の海のふちは無い（基準 22 は voxD-stream）', async ({ page }) => {
     await open(page);
-    const r = await page.evaluate(() => {
+    const r = await page.evaluate(async () => {
       const h = (window as any).__rikkun;
       const w = h.world;
+      await w.settle({ full: true });
+      const sp = w.spawn();
+      const pcx = Math.floor(sp.x) >> 4;
+      const pcz = Math.floor(sp.z) >> 4;
       const chunks: { cx: number; cz: number }[] = w.loadedChunks();
       const keys = new Set(chunks.map((c) => `${c.cx},${c.cz}`));
-      const inRange = chunks.every((c) => c.cx >= 0 && c.cx <= 7 && c.cz >= 0 && c.cz <= 7);
-      const loadedOk = [w.isLoaded(0, 0), w.isLoaded(127, 127), w.isLoaded(64, 64)];
-      const loadedOut = [w.isLoaded(-1, 0), w.isLoaded(128, 0), w.isLoaded(0, 128), w.isLoaded(0, -1)];
-      const sea: number = w.seaY();
-      const bad: string[] = [];
-      let n = 0;
-      for (let x = 0; x < 128; x += 3)
-        for (let z = 0; z < 128; z += 3) {
-          const e = Math.min(x, z, 127 - x, 127 - z);
-          if (e > 3) continue;
-          n++;
-          const g = w.groundHeight(x, z);
-          if (g > sea - 4) bad.push(`ground ${x},${z} ${g}`);
-          for (let y = g + 1; y <= sea; y++) if (w.getBlock(x, y, z) !== 'water') bad.push(`water ${x},${y},${z}`);
-        }
-      return { count: chunks.length, unique: keys.size, inRange, loadedOk, loadedOut, n, bad: bad.slice(0, 5), nBad: bad.length };
+      const inRange = chunks.every((c) => Math.max(Math.abs(c.cx - pcx), Math.abs(c.cz - pcz)) <= 8);
+      return { count: chunks.length, unique: keys.size, inRange };
     });
-    expect(r.count).toBe(64);
-    expect(r.unique).toBe(64);
+    expect(r.count).toBe(289);
+    expect(r.unique).toBe(289);
     expect(r.inRange).toBe(true);
-    expect(r.loadedOk).toEqual([true, true, true]);
-    expect(r.loadedOut).toEqual([false, false, false, false]);
-    expect(r.n).toBeGreaterThan(100);
-    expect(r.nBad, JSON.stringify(r.bad)).toBe(0);
   });
 
   for (const seed of SEEDS) {
@@ -369,6 +356,7 @@ test.describe('VOX-B 地形（つないだ後）', () => {
       h.settings.set('yokaiAutoSpawn', false);
       h.yokai.clear();
       const w = h.world;
+      await w.settle({ full: true }); // VOX-D: 起動直後は 輪が そろっていない（光・メッシュの待ちが のこる）
       const sp = w.spawn();
       const cx = Math.floor(sp.x);
       const cz = Math.floor(sp.z);
@@ -398,7 +386,10 @@ test.describe('VOX-B 地形（つないだ後）', () => {
     for (const t of r.tiers) expect(t.tier, t.s).not.toBe('none');
     await page.reload();
     await page.waitForFunction(() => window.__rikkun?.ready === true);
-    const hash2 = await page.evaluate(() => (window as any).__rikkun.world.hash());
+    const hash2 = await page.evaluate(async () => {
+      await (window as any).__rikkun.world.settle({ full: true }); // VOX-D: 輪を そろえてから 全体の hash を比べる
+      return (window as any).__rikkun.world.hash();
+    });
     expect(hash2).toBe(r.hash);
     await page.evaluate(() => (window as any).__rikkun.save.clear());
   });
@@ -436,15 +427,17 @@ test.describe('VOX-B 地形（つないだ後）', () => {
     // 置いたあとの起動 A
     await page.goto('/');
     await page.waitForFunction(() => window.__rikkun?.ready === true);
-    const a = await page.evaluate(() => {
+    const a = await page.evaluate(async () => {
       const h = (window as any).__rikkun;
+      await h.world.settle({ full: true }); // VOX-D: 輪を そろえてから 全体の hash を比べる
       return { hash: h.world.hash(), saveId: h.save.info().saveId, sand: h.world.getBlock(100, 8, 60) };
     });
     // ?reset=1 の起動 B（新しい saveId だけを消す）
     await page.goto('/?reset=1');
     await page.waitForFunction(() => window.__rikkun?.ready === true);
-    const b = await page.evaluate(() => {
+    const b = await page.evaluate(async () => {
       const h = (window as any).__rikkun;
+      await h.world.settle({ full: true });
       return { hash: h.world.hash(), saveId: h.save.info().saveId };
     });
     // 置いた物が 残っている

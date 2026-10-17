@@ -3,6 +3,7 @@ import { addStack, copyStack, maxDurability, readWater, readWear } from '../tool
 import type { Inventory, ItemStack, Rarity, Vec3, VoxelWorld } from '../contracts';
 import { itemType } from '../inventory/items';
 import { isRarity, itemRarity, topRarity } from './rarity';
+import { cellInWall } from '../world/wall';
 import { createRng, type Rng } from '../world/gen/random';
 
 /** 落ちたアイテムの数値。やられた落とし物も 妖怪のドロップも同じ部品を使う */
@@ -301,6 +302,8 @@ export class DropField {
         changed = true;
         continue;
       }
+      // 読みこんでいない列の上では 動かさない・ひろえない（消えるまでの時間だけ進む。VOX-D）
+      if (!this.d.world.isLoaded(Math.floor(b.x), Math.floor(b.z))) continue;
       b.age++;
       this.step(b);
       if (!canPickup || b.age < b.pickupAt) continue;
@@ -388,9 +391,10 @@ export class DropField {
     const nx = b.x + b.vx * DT;
     const nz = b.z + b.vz * DT;
     const fy = Math.floor(b.y + 0.2);
-    if (w.isSolid(Math.floor(nx), fy, Math.floor(b.z))) b.vx = 0;
+    // 見えない壁と、読みこんでいない列は こえない
+    if (!cellInWall(Math.floor(nx), Math.floor(b.z)) || !w.isLoaded(Math.floor(nx), Math.floor(b.z)) || w.isSolid(Math.floor(nx), fy, Math.floor(b.z))) b.vx = 0;
     else b.x = nx;
-    if (w.isSolid(Math.floor(b.x), fy, Math.floor(nz))) b.vz = 0;
+    if (!cellInWall(Math.floor(b.x), Math.floor(nz)) || !w.isLoaded(Math.floor(b.x), Math.floor(nz)) || w.isSolid(Math.floor(b.x), fy, Math.floor(nz))) b.vz = 0;
     else b.z = nz;
   }
 

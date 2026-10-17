@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { populateWorld } from '../gen/populate';
 import { ArrayVoxelWorld } from '../VoxelWorld';
 import { referenceLight } from './referenceLight';
@@ -224,5 +224,73 @@ describe('レビュー指摘（VOX-C 1 周目）', () => {
     expect(l.isSectionReady(2, 0, 0)).toBe(true);
     expect(l.isColumnLit(2, 0)).toBe(true);
     expect(l.isSectionReady(9, 0, 9)).toBe(false);
+  });
+});
+
+describe('時計 count（#179: 光の 1 コマの仕事を数で決める）', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  /** 島に たいまつを ばらまいて、作り直し待ちを たくさん ためる（まだ update しない） */
+  function dirty(clock?: 'time' | 'count'): { l: WorldLight; real: () => number; calls: () => number } {
+    const w = island(31);
+    const l = clock === undefined ? new WorldLight(w, new SkyDarkness()) : new WorldLight(w, new SkyDarkness(), clock);
+    const g = (x: number, z: number): number => {
+      for (let y = w.size.y - 1; y >= 0; y--) if (w.getIndex(x, y, z) > 0) return y;
+      return 0;
+    };
+    for (let x = 20; x < 110; x += 14) for (let z = 20; z < 110; z += 14) w.setBlock(x, g(x, z) + 1, z, 'torch');
+    let real = 0;
+    let calls = 0;
+    const priv = l as unknown as { computeKey: (k: number) => void; lastRecomputeCells: number };
+    const orig = priv.computeKey.bind(l);
+    priv.computeKey = (k: number): void => {
+      const before = priv.lastRecomputeCells;
+      orig(k);
+      calls++;
+      if (priv.lastRecomputeCells !== before) real++;
+    };
+    return { l, real: () => real, calls: () => calls };
+  }
+
+  /** performance.now() を 呼ぶたびに 100 ms 進める。時間で決める作りなら 3 ms をこえて 1 つも計算しない */
+  function slowClock(): void {
+    let t = 0;
+    vi.spyOn(performance, 'now').mockImplementation(() => (t += 100));
+  }
+
+  it('count: 1 回の update() で ほんとうに計算するのは 2 セクション（時間は見ない）。ただで片づけるものを ふくめて 64 回まで', () => {
+    const { l, real, calls } = dirty('count');
+    slowClock();
+    l.update();
+    expect(l.pendingCount()).toBeGreaterThan(0); // 1 回では おわらない作りの世界
+    expect(real()).toBe(2);
+    expect(calls()).toBeLessThanOrEqual(64);
+    const r1 = real();
+    l.update();
+    expect(real() - r1).toBeLessThanOrEqual(2);
+  });
+
+  it('count: ならべて 2 回作って 同じ回数 update すると 同じ（作り直し待ちの数が 毎コマ同じ）', () => {
+    const run = (): number[] => {
+      const { l } = dirty('count');
+      const out: number[] = [];
+      for (let i = 0; i < 30; i++) {
+        l.update();
+        out.push(l.pendingCount());
+      }
+      return out;
+    };
+    slowClock();
+    const a = run();
+    vi.restoreAllMocks();
+    const b = run();
+    expect(a).toEqual(b);
+  });
+
+  it('time が 既定: 3 つ目を 渡さなければ 100 ms かかる機械では 3 ms をこえて 1 つも計算しない（今のまま）', () => {
+    const { l, real } = dirty();
+    slowClock();
+    l.update();
+    expect(real()).toBe(0);
   });
 });

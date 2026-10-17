@@ -6,6 +6,7 @@ import type { CountryKind } from './gen/config';
 import { BLOCK_TYPES } from './blocks/blockTypes';
 import { skyDarkness } from './light/skyDarkness';
 import type { WorldRenderer, RebuildStats, SectionInfo, SectionStats, MeshStats, RebuildLogEntry } from './render/WorldRenderer';
+import type { StreamInfo, Stage } from './stream/ChunkStream';
 import type { ArrayVoxelWorld } from './VoxelWorld';
 
 /** window.__rikkun.world.*（M1-01 §6.1）。つなぎ込み担当が組み立てて入れる */
@@ -56,10 +57,25 @@ export interface WorldHook {
   startFeatures(): StartFeatures;
   caveMouths(): MouthInfo[];
   genStats(): { columns: number; medianMs: number; maxMs: number; spawnSearchMs: number };
+  /** VOX-D: テスト用。中心を (x, z) の列にして 輪を作りなおす。そろうまで プレイヤーは動かず、そろったら (x, groundHeight + 1, z) に立つ */
+  teleport(x: number, z: number): void;
+  /** VOX-D: ストリーミングの いま */
+  stream(): StreamInfo;
+  /** VOX-D: ready・保存が書きおわり・捨てる待ちが 0 になるまで 進める（full: 仕事が 0 まで）。maxFrames（既定 2000）でやめる */
+  settle(opt?: { full?: boolean; maxFrames?: number }): Promise<StreamInfo>;
+  /** VOX-D: 1 コマの仕事を ちょうど n こにする（null = ms の予算）。?streamWork=<n> と同じ */
+  setStreamWork(n: number | null): void;
+  chunkStage(cx: number, cz: number): Stage;
+  /** 見えない壁（WORLD_LIMIT） */
+  wall(): number;
 }
 
-export function createWorldHook(world: ArrayVoxelWorld, renderer: WorldRenderer, island: WorldGenInfo): WorldHook {
+/** createWorldHook に つなぐ ストリーミングの窓口（main が StreamHost から作る） */
+export type StreamFacade = Pick<WorldHook, 'teleport' | 'stream' | 'settle' | 'setStreamWork' | 'chunkStage' | 'wall'>;
+
+export function createWorldHook(world: ArrayVoxelWorld, renderer: WorldRenderer, island: WorldGenInfo, stream: StreamFacade): WorldHook {
   return {
+    ...stream,
     seed: () => island.seed,
     size: () => {
       const b = world.loadedBounds();

@@ -35,7 +35,7 @@ import { ITEM_RARITY_SETTINGS, itemRarity, rarityIndex } from './drops/rarity';
 import { createRarityHook } from './drops/rarityHook';
 import { itemType } from './inventory/items';
 import { createGuideHook } from './ui/playOverlay';
-import { SEA_Y, createM6Settings, createM7Settings, createW2Settings, SEED_ITEM, VEG_ITEM, CROP_KINDS, cropKindOfBlock, type FarmPlacement, type AchievementId, type CombatEvent, type DefeatWith, type DigEvent, type ItemId, type SwingAnim, type YokaiKind } from './contracts';
+import { SEA_Y, WORLD_LIMIT, createM6Settings, createM7Settings, createW2Settings, SEED_ITEM, VEG_ITEM, CROP_KINDS, cropKindOfBlock, type FarmPlacement, type AchievementId, type CombatEvent, type DefeatWith, type DigEvent, type ItemId, type SwingAnim, type YokaiKind } from './contracts';
 import { ACHIEVEMENT_DEFS, AchievementSystem, AchievementsPageModel, createAchievementsHook, type StepContext } from './achievements';
 import { CelebrateUi } from './ui/celebrate';
 import { AchievementsPage, achievementArtUrl } from './ui/achievementsPage';
@@ -81,14 +81,22 @@ import { DigSystemImpl, createDigConfig, createDigHook } from './dig';
 import { InventoryImpl, createInventoryHook } from './inventory';
 import { ScreenController } from './screen/ScreenController';
 import { createScreenSettings } from './screen/config';
-import { EXPORT_FILE_NAME, PENDING_KEY, SAVE_ID, SaveManager, compressionAvailable, createSaveHook, exportSave, importSave, NO_SAVE, openIdb, parseSaveOptions, requestPersist, restoreStoredWorld, shouldReset, stripResetParam } from './save';
+import { EXPORT_FILE_NAME, PENDING_KEY, SAVE_ID, SaveManager, isBodyPlaceable, compressionAvailable, createSaveHook, exportSave, importSave, openIdb, parseSaveOptions, requestPersist, shouldReset, stripResetParam } from './save';
+import { ColumnIO } from './save/columnIO';
+import { emptyStreamRestore, openStoredKeys } from './save/streamRestore';
+import { StreamHost } from './world/stream/StreamHost';
+import { colKey } from './world/stream/ring';
+import { PrepCard } from './ui/prep';
+import { showPrepCard } from './ui/prepModel';
+import { generateChunk } from './world/gen/chunk';
+import { createWorldInfo } from './world/gen/worldInfo';
 import { Hotbar } from './ui/hotbar';
 import { InventoryScreen } from './ui/inventoryScreen';
 import { Notice } from './ui/notice';
 import { PerfOverlay } from './debug/perfOverlay';
 import { installTestHook, withSpriteDoll, type TestHookGroups } from './debug/testHook';
 import { Game } from './game/Game';
-import { buildScenery } from './game/scenery';
+import { buildScenery, followScenery } from './game/scenery';
 import { createSettingsHook } from './game/settings';
 import { bindKeyboardAndMouse } from './input/actions';
 import { LockController, MouseLook, WheelAccumulator, bindPointerLock, createInputHook, createLockHook } from './input';
@@ -98,10 +106,11 @@ import { mountHud } from './ui/hud';
 import { PlayOverlay } from './ui/playOverlay';
 import { ArrayVoxelWorld } from './world/VoxelWorld';
 import { GEN_CONFIG } from './world/gen/config';
-import { populateWorld } from './world/gen/populate';
 import { createBiomeHook } from './world/gen/biomeHook';
+import { installMicroCountries } from './world/gen/microCountry';
 import { createWorldHook } from './world/hook';
 import { WorldRenderer } from './world/render/WorldRenderer';
+import { decideFrameClock } from './world/frameClock';
 import { decideMicroR } from './world/render/voxel/tier';
 import { createRenderHook } from './world/render/renderHook';
 import { BlobShadow, BLOB, groundBelow } from './fx/blobShadow';
@@ -183,11 +192,12 @@ function digSettingsView(cfg: DigSystemImpl['config']): object {
 
 const game = new Game(container);
 
-// 世界: 入れ物 → 読みこむ（8×8 列。VOX-B） → 絵
+// 世界: 入れ物（空）→ 列は ChunkStream が プレイヤーのまわりから 近い順に 読みこむ・捨てる（VOX-D）
 const world = new ArrayVoxelWorld({ x: 0, z: 0 });
+world.edgeClosedBelow = SEA_Y - 8; // 読みこんでいない列の横は、海ゆかより下は ふさがっているとみなす（地下の「見えない」印）
 const seed = readSeed();
-const island = populateWorld(world, seed);
-world.resetSaveTracking(); // 生成して読みこんだだけ。保存するのは さわった列だけ
+installMicroCountries(world, seed);
+const island = createWorldInfo(seed, world);
 // 保存（VOX-F）: IndexedDB から さわった列を 世界に入れる。描画の前に（光が 最初から 正しくなるように）
 const saveOptions = parseSaveOptions(location.search);
 let store: Storage | null = null;
@@ -206,20 +216,24 @@ if (idb) requestPersist();
 const bootSignal = { aborted: false };
 // 公開したゲームの ?reset=1 は 何もしない（いたずらのリンクで 世界が消えないように。#169）
 const doReset = shouldReset(saveOptions.reset, import.meta.env.DEV);
-let restored = await Promise.race([restoreStoredWorld({ world, db: idb, store, seed, saveId, reset: doReset, signal: bootSignal }), sleepNull()]);
+// 起動で読むのは meta と 列のキーの一覧だけ（列の中身は いるときに 1 列ずつ。VOX-D D1）
+let restored = await Promise.race([openStoredKeys({ db: idb, store, seed, saveId, reset: doReset, signal: bootSignal }), sleepNull()]);
 if (restored === null) {
   bootSignal.aborted = true;
   idb = null;
-  restored = NO_SAVE;
+  restored = emptyStreamRestore();
 }
 // 小ブロックの半径（?microR=0|16|24|32。F3 を出して F4 でも切りかえる。VOX-E）。
 // E2E のサーバー（VITE_MICRO_DEFAULT=off）は 0 = 小ブロックなし。最初の列の段から効くよう 作るときに渡す（#180）
-const renderer = new WorldRenderer(world, decideMicroR(location.search, import.meta.env.VITE_MICRO_DEFAULT as string | undefined));
+// 1 コマの仕事を 時間で決めるか 数で決めるか（E2E のサーバー VITE_FRAME_CLOCK=count は数。#179）
+const frameClock = decideFrameClock(location.search, import.meta.env.VITE_FRAME_CLOCK as string | undefined);
+const renderer = new WorldRenderer(world, decideMicroR(location.search, import.meta.env.VITE_MICRO_DEFAULT as string | undefined), frameClock);
+renderer.enableStreaming();
 renderer.setViewer(island.spawn().x, island.spawn().z);
 renderer.attach(game.scene);
 const lighting = new Lighting();
 const sceneBefore = new Set(game.scene.children);
-buildScenery(game.scene, { x: world.loadedBounds().x1, z: world.loadedBounds().z1 });
+buildScenery(game.scene);
 for (const child of game.scene.children) if (!sceneBefore.has(child)) lighting.registerTree(child, 'block');
 for (const m of renderer.materials()) lighting.register(m, 'block');
 const time = new TimeOfDayImpl();
@@ -288,7 +302,21 @@ function audioStep(): void {
 
 // プレイヤーとカメラ
 // スタート・やり直し・セーブの読みこみでは pitch は START_PITCH_DEG（CHAR-1 第 5.2 版 §4.1）
-const startPoint = () => ({ ...island.spawn(), pitchDeg: START_PITCH_DEG });
+// スタートへ もどす。スタートのまわりが 読みこまれていなければ、そろうまで その場で まつ（VOX-D「遠くへ もどる」）
+let streamHost: StreamHost | null = null;
+const spawnPlain = () => ({ ...island.spawn(), pitchDeg: START_PITCH_DEG });
+/** 地形だけで決まる立ち位置の y を、置いたブロックの上まで 上げる（石を置いた上に立つ）。列が読みこまれていなければ そのまま */
+const raiseAboveBlocks = (x: number, y: number, z: number): number => {
+  let yy = y;
+  for (let i = 0; i < 64 && world.isLoaded(Math.floor(x), Math.floor(z)) && !isBodyPlaceable(world, { x, y: yy, z }); i++) yy++;
+  return yy;
+};
+const startPoint = () => {
+  const sp = island.spawn();
+  const y = raiseAboveBlocks(sp.x, sp.y, sp.z);
+  streamHost?.goTo({ x: sp.x, y, z: sp.z });
+  return { ...sp, y, pitchDeg: START_PITCH_DEG };
+};
 const controller = new PlayerController(world, game.input, look, lock, startPoint);
 // CHAR-1 第 5 版: 一人称（V）はなくなった。CameraRig は受け取るだけの ActionState を使う
 const rig = new CameraRig(game.camera, game.scene, world, () => controller.state, game.input);
@@ -667,6 +695,8 @@ yokaiManager = new YokaiManager({
   tick: () => game.tick + 1,
   seed,
   light: renderer.light,
+  // 出る場所は 描く輪の メッシュずみの列だけ（VOX-D）
+  canSpawnAt: (x, z) => streamHost?.stream.isDrawn(Math.floor(x) >> 4, Math.floor(z) >> 4) ?? true,
   // 場所の倍率 M の はじまりの場所・海面の高さは、世界の設定から読む（数を書きこまない）
   origin: () => island.spawn(),
   seaY: () => SEA_Y,
@@ -899,13 +929,14 @@ function sparkleCrops(): ReadonlyArray<{ x: number; y: number; z: number; stage:
     wildScan.list.length = 0;
     const y0 = Math.max(0, ey - r);
     const y1 = Math.min(world.size.y - 1, ey + r);
-    const eb = world.loadedBounds();
-    for (let z = Math.max(eb.z0, ez - r); z <= Math.min(eb.z1 - 1, ez + r); z++)
-      for (let x = Math.max(eb.x0, ex - r); x <= Math.min(eb.x1 - 1, ex + r); x++)
+    for (let z = ez - r; z <= ez + r; z++)
+      for (let x = ex - r; x <= ex + r; x++) {
+        if (!world.isLoaded(x, z)) continue;
         for (let y = y0; y <= y1; y++) {
           const k = cropKindOfBlock(world.getBlock(x, y, z));
           if (k && k.wild) wildScan.list.push({ x, y, z, stage: 3 });
         }
+      }
   }
   for (const w of wildScan.list) {
     const k = cropKindOfBlock(world.getBlock(w.x, w.y, w.z));
@@ -1059,7 +1090,7 @@ const save = new SaveManager({
     // 読みこんだら 向きはカメラの yaw と同じ（背中が見える）
     set: (v) => controller.set({ position: v.position, velocity: v.velocity, yawDeg: v.yawDeg, pitchDeg: START_PITCH_DEG, facingDeg: v.yawDeg }),
   },
-  spawn: startPoint,
+  spawn: spawnPlain, // 保存の meta に 書くだけ（スタートへ もどす動きは しない）
   store,
   tick: () => game.tick,
   settings: screenSettings,
@@ -1073,19 +1104,100 @@ const save = new SaveManager({
   achievements: { serialize: () => achievements.serialize(), deserialize: (d) => achievements.deserialize(d) },
   // 農業: 作物・印。前の保存（印なし）には 読んだあとに 置きものを置く
   farm,
+  // VOX-D: 列は stream が読みこむ。保険から戻したときの最初の保存は ready のあと
+  streaming: true,
+  onWritten: (cols) => columnIO.noteWritten(cols),
+  storedChunks: () => restored.keys.size,
 });
 requestSave = () => save.saveIfChanged();
 if (saveOptions.reset) history.replaceState(null, '', stripResetParam(location.href));
 const loadedSave = save.load();
-// 新しい世界: 地形の上に 置きもの（やせいの やさい・ふるい はたけ）を置く。保存があれば 保存の側
-if (!loadedSave) {
+// 列の出どころ・保存先（VOX-D D1〜D5）。保存できない（?nosave=1・IndexedDB なし・読むだけ）ときは 捨てる列を ページの中に預ける
+const columnIO = new ColumnIO({
+  db: idb,
+  saveId,
+  nSections: Math.ceil(world.size.y / 16),
+  keys: restored.keys,
+  generate: (cx, cz) => {
+    const t0 = performance.now();
+    const col = generateChunk(seed, cx, cz);
+    island.noteGen?.(performance.now() - t0);
+    return col;
+  },
+  saveOn: () => save.isOn(),
+  saving: () => save.saving(),
+  writing: (cx, cz) => save.writing(cx, cz),
+  canFlush: () => save.isOn(),
+  flush: () => save.flushNow(),
+  onCorrupt: () => {
+    restored.corrupt++;
+  },
+  onReadTimeout: () => {
+    restored.readOnly = true; // 列の読みが 止まった: この遊びでは 保存をやめる（IDB に書かない。捨てる列は ページの中に預ける）
+  },
+  onNewer: () => {
+    restored.readOnly = true; // 新しい形式の保存は さわらない・この遊びでは 保存しない
+  },
+});
+// 新しい世界: 地形の上に 置きもの（やせいの やさい・ふるい はたけ）を置く（R が 生成ずみになったとき 1 回。stream が呼ぶ）。保存があれば 保存の側
+if (!loadedSave) save.holdWrites = true; // 置きものを書くまで 保存しない（「置いた」印が 先に保存されないように）
+const applyPlacementNow = (): void => {
   const placement: FarmPlacement = computeFarmPlacement(seed, { world, info: island });
   applyFarmPlacement(world, placement);
   farm.noteNewWorldPlaced(placement);
+  save.holdWrites = false;
   requestSave();
-}
+};
 // 保存を読んだ世界では たんす の場所が わからないので、ここで 1 回だけ 計算する（あそびの途中では 計算しない）
 if (loadedSave && oldTansu === null && farm.kakashi()) oldTansu = computeFarmPlacement(seed).oldFarm?.tansu ?? null;
+// ストリーミング（VOX-D）: プレイヤーのまわりの列を 近い順に作り、遠くなったら捨てる。起動・テレポート・遠くへもどる は「中心を変えて、そろったら立たせる」
+const prepCard = new PrepCard(hud);
+const host = new StreamHost({
+  world,
+  renderer,
+  io: columnIO,
+  info: island,
+  seed,
+  newWorld: !loadedSave,
+  applyPlacement: applyPlacementNow,
+  pending: restored.pending,
+  clock: frameClock,
+  placePlayer: (p) => controller.set({ position: { x: p.x, y: raiseAboveBlocks(p.x, p.y, p.z), z: p.z }, velocity: { x: 0, y: 0, z: 0 }, yawDeg: p.yawDeg, pitchDeg: p.pitchDeg }),
+  onColumnsLoaded: () => farm.rescan(),
+  onReady: (kind) => {
+    if (kind !== 'boot') return;
+    // 保存したプレイヤーの位置が ブロックと重なっていたら スタートへ（D6。そろうまで その場で まつ）
+    if (loadedSave && !isBodyPlaceable(world, controller.state.position)) {
+      const sp = startPoint();
+      controller.set({ position: { x: sp.x, y: sp.y, z: sp.z }, velocity: { x: 0, y: 0, z: 0 }, yawDeg: sp.yawDeg, pitchDeg: START_PITCH_DEG });
+    }
+    // 保険から戻したときの 最初の保存（保険を当てたあと）
+    if (restored.fromPending) {
+      save.releasePendingHold();
+      void save.now();
+    }
+  },
+});
+streamHost = host;
+{
+  const n = new URLSearchParams(location.search).get('streamWork');
+  if (n !== null && n.trim() !== '' && Number.isInteger(Number(n)) && Number(n) >= 0) host.stream.setWork(Number(n));
+  const p = controller.state.position;
+  host.boot(Math.floor(p.x) >> 4, Math.floor(p.z) >> 4);
+  renderer.setViewer(p.x, p.z);
+}
+/** 世界が 動けるか（そろうまでは プレイヤー・妖怪を 動かさない・落とさない） */
+const worldReady = (): boolean => host.stream.ready;
+/** 輪の仕事・じゅんびちゅうの表示（毎コマ。案内画面で 止まっている間も 進める） */
+function streamFrame(): void {
+  const p = controller.state.position;
+  host.update(p.x, p.z);
+  followScenery(game.scene, p.x, p.z);
+  const s = host.stream;
+  const now = performance.now();
+  playOverlay.setPrep(host.everReady ? null : s.progress, now);
+  prepCard.update(showPrepCard(s.phase, s.waitedFrames), s.progress, now);
+}
 // 農業の見た目（作物の絵・光）
 const farmVisual = createFarmVisual({
   world,
@@ -1223,6 +1335,7 @@ function updateAchievements(): void {
 }
 
 game.onUpdate((dt) => {
+  streamFrame();
   audioStep();
   applyUiAlpha(craft2Settings);
   // おめでとう画面のあいだ: 世界・妖怪・時刻・プレイヤーは進まない（画面の時間だけ進む。§2.6 (3)）
@@ -1251,10 +1364,10 @@ game.onUpdate((dt) => {
   }
   // 空の光の弱まりを先に今の時刻にそろえる（妖怪の出現の「暗い所」がこれを読む。Sky は あとで画面ぶんを更新）
   skyDarkness.value = darkenFromBrightness(time.brightness(), timeSettings.nightBrightness);
-  controller.update(dt);
+  if (worldReady()) controller.update(dt); // 読みこみを まつ間は 動かない・落ちない（VOX-D）
   // カメラ（肩の点 S）を先に決める。ねらい（dig.update）は S を使う（CHAR-1 第 5.2 版）
   rig.update(dt);
-  yokaiM.update();
+  if (worldReady()) yokaiM.update();
   dig.update();
   // CHAR-2 §4.6: 刀・弓が 決まったあとで 板のコマを決める。矢の出来事は ここで 取り出して 配る
   const arrowEvents = tools.drainArrowEvents();
@@ -1438,6 +1551,15 @@ game.onUpdate((dt) => {
   save.update(game.tick + 1);
 });
 game.onUpdate((dt) => overlay.update(dt));
+// 案内画面で止まっている間も 読みこみは進める（B3）
+// count の時計（E2E のサーバー）: そろって いまの中心のまわりも そろったら、止めている間は進めない
+// （そのあとは テストが step したコマだけ 仕事をする。#179）
+game.onIdle(() => {
+  if (frameClock === 'count' && host.everReady && host.stream.startSettled()) return;
+  streamFrame();
+  const p = controller.state.position;
+  renderer.update({ x: p.x, z: p.z });
+});
 game.onUpdate(() => {
   const p = controller.state.position;
   const bx = Math.floor(p.x);
@@ -1517,7 +1639,7 @@ const setShadow = (on: boolean): void => {
   game.step(0); // 次のコマで画面を合わせる
 };
 shadowSettingUi.bind(shadowSystem !== null, shadowStart.on, setShadow);
-installTestHook(game, overlay, {
+installTestHook(game, overlay, () => host.everReady, {
   shadow: createShadowHook({
     system: shadowSystem,
     renderer: game.renderer,
@@ -1529,8 +1651,27 @@ installTestHook(game, overlay, {
     renderNow: () => game.renderNow(),
     setEnabled: setShadow,
   }),
-  world: createWorldHook(world, renderer, island),
   biome: createBiomeHook({ seed, player: () => controller.state.position }),
+  world: createWorldHook(world, renderer, island, {
+    teleport: (x, z) => host.goTo({ x, y: null, z }, true),
+    stream: () => host.info(),
+    // ready・保存が書きおわり・捨てる待ち 0（full なら 仕事も 0）まで 1 コマずつ進める。保存の返事（IndexedDB）は待つ
+    settle: async (opt) => {
+      const full = opt?.full === true;
+      const max = opt?.maxFrames ?? 2000;
+      for (let i = 0; i < max; i++) {
+        const s = host.info();
+        if (s.ready && !s.saving && s.unloadPending === 0 && s.columns.loading === 0 && (!full || s.queued === 0)) return s;
+        if (s.ready && s.saving) await save.idle();
+        else if (s.columns.loading > 0) await new Promise<void>((ok) => setTimeout(ok, 0));
+        game.step(1);
+      }
+      return host.info();
+    },
+    setStreamWork: (n) => host.stream.setWork(n),
+    chunkStage: (cx, cz) => host.stream.stageOf(cx, cz),
+    wall: () => WORLD_LIMIT,
+  }),
   render: createRenderHook({
     world,
     renderer,
@@ -1540,7 +1681,7 @@ installTestHook(game, overlay, {
     blob: blobShadow,
     chunks: () => renderer.chunkStats(),
   }),
-  player: { ...createPlayerHook(controller), doll: withSpriteDoll(cameraHook.doll, sprite, rig.doll.group) } as unknown as TestHookGroups['player'],
+  player: { ...createPlayerHook(controller), respawn: () => controller.respawn(), doll: withSpriteDoll(cameraHook.doll, sprite, rig.doll.group) } as unknown as TestHookGroups['player'],
   ...createDigHook(dig),
   hud: hudHook,
   inventory: createInventoryHook(inventory, screen, {
@@ -1548,7 +1689,7 @@ installTestHook(game, overlay, {
     ...craftUiHook.inventory,
     ...createInventoryM6Extras({ inventory, storage, dropper, screen }),
   }),
-  save: createSaveHook(save),
+  save: createSaveHook(save, (cx, cz) => restored.keys.has(colKey(cx, cz))),
   time: createTimeHook(time),
   combat: {
     ...combatHook,
@@ -1665,5 +1806,5 @@ installTestHook(game, overlay, {
       timeSettings,
       renderer.config,
     ]),
-});
+}, frameClock);
 game.start();

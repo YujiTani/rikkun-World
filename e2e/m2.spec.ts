@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { installAimHelpers } from './helpers/aim';
 import { fine } from './helpers/fine';
 import { findUnrubiedKanji } from '../src/ui/text';
+import { waitAnimationsDone, waitFrames } from './helpers/anim';
 
 /**
  * M2 の受け入れ基準（docs/design/M2-dig-inventory.md 第 4 版）のうち、
@@ -723,7 +724,7 @@ test.describe('M2 もちもの画面', () => {
     // 開く（開くまでの時間は ここでは測らない。e2e-perf/m2.perf.ts が描画ありで記録する）。時間切れは長めに付ける
     await page.evaluate(() => (window as any).__rikkun.resume());
     await page.keyboard.press('KeyE');
-    await page.waitForFunction(() => (window as any).__rikkun.inventory.get().open === true, null, { timeout: 10000 });
+    await page.waitForFunction(() => (window as any).__rikkun.inventory.get().open === true, null, { timeout: 0 });
     // ここから先は 本当の時間を使わない: 止めて、step で決まった回数だけ進める
     await page.evaluate(() => (window as any).__rikkun.pause());
     const st = await page.evaluate(() => ({ lock: (window as any).__rikkun.lock.get() }));
@@ -805,7 +806,7 @@ test.describe('M2 もちもの画面', () => {
     // 閉じる (E)。閉じたあとの 1 秒あたりの tick は e2e-perf/m2.perf.ts で記録する
     await page.evaluate(() => (window as any).__rikkun.resume());
     await page.keyboard.press('KeyE');
-    await page.waitForFunction(() => (window as any).__rikkun.inventory.get().open === false, null, { timeout: 10000 });
+    await page.waitForFunction(() => (window as any).__rikkun.inventory.get().open === false, null, { timeout: 0 });
     await page.evaluate(() => (window as any).__rikkun.pause());
     const cl = await page.evaluate(() => ({
       tick: (window as any).__rikkun.tick(),
@@ -831,15 +832,15 @@ test.describe('M2 もちもの画面', () => {
     // AC20: Esc
     await page.evaluate(() => (window as any).__rikkun.resume());
     await page.keyboard.press('KeyE');
-    await page.waitForFunction(() => (window as any).__rikkun.inventory.get().open === true, null, { timeout: 10000 });
+    await page.waitForFunction(() => (window as any).__rikkun.inventory.get().open === true, null, { timeout: 0 });
     await page.keyboard.press('Escape');
-    await page.waitForTimeout(300);
+    await page.waitForFunction(() => !(window as any).__rikkun.inventory.get().open && (window as any).__rikkun.lock.get().overlayVisible, null, { timeout: 0 });
     const e1 = await page.evaluate(() => ({
       open: (window as any).__rikkun.inventory.get().open,
       lock: (window as any).__rikkun.lock.get(),
       tick: (window as any).__rikkun.tick(),
     }));
-    await page.waitForTimeout(1000);
+    await waitFrames(page, 5);
     const e2 = await page.evaluate(() => (window as any).__rikkun.tick());
     expect(e1.open).toBe(false);
     expect(e1.lock.locked).toBe(false);
@@ -848,7 +849,7 @@ test.describe('M2 もちもの画面', () => {
     expect(e2).toBe(e1.tick);
     // 案内画面中の E は無視
     await page.keyboard.press('KeyE');
-    await page.waitForTimeout(200);
+    await waitFrames(page, 3);
     expect(await page.evaluate(() => (window as any).__rikkun.inventory.get().open)).toBe(false);
   });
 
@@ -861,7 +862,7 @@ test.describe('M2 もちもの画面', () => {
     // pause 中（時間が止まっている）でも E で開く
     await page.keyboard.press('KeyE');
     // 開くまでの時間は確かめる中身ではない（CI の遅いソフト描画で 300ms をこえることがあった）ので、長めに待つ
-    await page.waitForFunction(() => (window as any).__rikkun.inventory.get().open === true, null, { timeout: 5000 });
+    await page.waitForFunction(() => (window as any).__rikkun.inventory.get().open === true, null, { timeout: 0 });
     await expect(page.locator('#inventory-close')).toBeVisible();
     // 画面が小さいと パネルぜんたいが 同じ比で ちぢむ（fit）。ちぢむ前の 大きさ（CSS の高さ）で 64px 以上を確かめる
     const h = await page.locator('#inventory-close').evaluate((el) => (el as HTMLElement).offsetHeight);
@@ -1113,7 +1114,7 @@ test.describe('M2 スクショ（AC23）', () => {
     await page.setViewportSize({ width: 1280, height: 720 });
     await open(page);
     const shot = async (name: string) => {
-      await page.waitForTimeout(150);
+      await waitAnimationsDone(page);
       await page.screenshot({ path: `${ASSETS}/M2-AC23-${name}.png` });
     };
     const ev = <T,>(f: () => T) => page.evaluate(f);

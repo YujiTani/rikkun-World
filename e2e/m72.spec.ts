@@ -748,6 +748,8 @@ test.describe('M7-2 なでる・ごきげん・キラキラ', () => {
   });
 
   test('AC17 HUD: ごきげんの ハート・もうすぐ かわく は うすい しずく', async ({ page }) => {
+    // 「もうすぐ かわく」まで 約 2 万コマ 進めるので、3 本同時の CI では 60 秒をこえる（#183）。#179・#180 で 1 コマが軽くなったら 既定にもどす
+    test.setTimeout(150_000);
     await open(page);
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
@@ -1126,6 +1128,7 @@ test.describe('M7-2 性能', () => {
       o.on = { dc: b.drawCalls, tri: b.triangles };
       o.star = h.farm.fx().particles.filter((p: any) => p.kind === 'star').length;
       o.spray = h.farm.fx().particles.filter((p: any) => p.kind === 'spray').length;
+      // stepMs は 記録だけ（合否にしない。#175）。速さは npm run perf で見る
       const t0 = performance.now();
       h.step(120);
       o.stepMs = (performance.now() - t0) / 120;

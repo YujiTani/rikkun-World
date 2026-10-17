@@ -1,4 +1,5 @@
 import type { BlockId, SprinklerPort, Vec3, VoxelWorld } from '../contracts';
+import { cellKey } from './cellKey';
 import { blockIndexOf } from '../world/blocks/blockTypes';
 
 /**
@@ -12,8 +13,7 @@ export interface SprinklerDeps {
   radius?: () => number;
 }
 
-const OFF = 512;
-const key = (x: number, y: number, z: number): number => ((x + OFF) * 1024 + (z + OFF)) * 1024 + (y + OFF);
+const key = cellKey;
 
 /** 高さの はば（スプリンクラー と 同じ 〜 2 下） */
 export const SPRINKLER_DEPTH = 2;
@@ -61,9 +61,14 @@ export class Sprinklers implements SprinklerPort {
     else if (before === 'sprinkler') this.remove(x, y, z);
   }
 
+  /**
+   * 読みこんでいる列を 数えなおす。読みこんでいない列にある スプリンクラーは 覚えたまま（その列が もどったら また数える。VOX-D）
+   */
   rescan(world: VoxelWorld): void {
+    const keep = this.items.filter((p) => !world.isLoaded(Math.floor(p.x), Math.floor(p.z)));
     this.set.clear();
     this.items = [];
+    for (const p of keep) this.add(p.x, p.y, p.z);
     const sc = (world as unknown as { scanBlocks?: (want: (i: number) => boolean, found: (x: number, y: number, z: number) => void) => void }).scanBlocks;
     if (sc) {
       // 高さ 352 でも 速い: スプリンクラーが入っているセクションだけ見る

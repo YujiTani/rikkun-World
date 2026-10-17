@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { settleForShot } from './helpers/anim';
 import { AI_CONST } from '../src/yokai/ai/config';
 import { waitCharLoaded } from './helpers/char';
 
@@ -126,7 +127,7 @@ test.describe('CHAR-1 キャラの板', () => {
       const r = await look(page, i * 45, -10);
       expect(r.dir).toBe(expected[i]);
       expect(r.tier).toBe(0);
-      await page.waitForTimeout(100);
+      await settleForShot(page);
       await page.screenshot({ path: `${SHOTS}/AC36-yaw${String(i * 45).padStart(3, '0')}-dir${expected[i]}.png` });
     }
   });

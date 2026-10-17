@@ -1,5 +1,6 @@
 import { isLeafId } from '../../world/blocks/blockTypes';
 import * as THREE from 'three';
+import { bodyInWall } from '../../world/wall';
 import type {
   BlockId,
   Inventory,
@@ -86,6 +87,8 @@ export interface YokaiManagerOptions {
   lightMin?: number;
   /** プレイヤーが妖怪をたおした（経験値用。xp = 場所の倍率 M と二つ名を入れた数） */
   onDefeat?: (kind: YokaiKind, info: DefeatInfo) => void;
+  /** あれば、妖怪が出てよい (x, z) か聞く（VOX-D: つなぎ込みが「描く輪のメッシュずみの列」を渡す。無ければ 読みこんでいる列ならどこでも） */
+  canSpawnAt?: (x: number, z: number) => boolean;
   /** はじまりの場所（水平）。世界の設定から読む。複数なら いちばん近い所から d をはかる。省くと (0, 0) */
   origin?: () => { x: number; z: number } | readonly { x: number; z: number }[];
   /** 海面の高さ。世界の設定（contracts の SEA_Y）。省くと SEA_Y */
@@ -668,9 +671,6 @@ export class YokaiManager implements YokaiWorld {
     if (!kind) return;
     const ai = KIND_AI[kind];
     const night = this.time.phase() === 'night';
-    const eb = this.world.loadedBounds();
-    const sx = eb.x1;
-    const sz = eb.z1;
     const minD = Math.max(this.config.yokaiSpawnMinDist, this.config.yokaiSpawnNearExclude);
     const maxD = Math.max(minD, this.config.yokaiSpawnMaxDist);
     for (let t = 0; t < AI_CONST.spawnTries; t++) {
@@ -678,7 +678,10 @@ export class YokaiManager implements YokaiWorld {
       const d = minD + this.rng() * (maxD - minD);
       const x = this.px + Math.sin(a) * d;
       const z = this.pz - Math.cos(a) * d;
-      if (x < 2 || z < 2 || x > sx - 2 || z > sz - 2) continue;
+      if (!bodyInWall(x, z, 2)) continue;
+      // 出る場所は 読みこんでいる列だけ。つなぎ込みが「描く輪のメッシュずみの列」を聞く窓口を渡す
+      if (!this.world.isLoaded(Math.floor(x), Math.floor(z))) continue;
+      if (this.opts.canSpawnAt && !this.opts.canSpawnAt(x, z)) continue;
       // 立てる床（固くて、はっぱ・水でない、上が空気）を列から集めて、1 つえらぶ
       const floors = this.floorScratch;
       floors.length = 0;
@@ -722,6 +725,8 @@ export class YokaiManager implements YokaiWorld {
       const dx = e.x - this.px;
       const dz = e.z - this.pz;
       if (dx * dx + dz * dz > lim * lim) e.remove = true;
+      // 列が捨てられたら、その列の妖怪は 静かに消す（VOX-D。落とし物なし）
+      else if (!this.world.isLoaded(Math.floor(e.x), Math.floor(e.z))) e.remove = true;
     }
   }
 
@@ -1285,9 +1290,8 @@ export class YokaiManager implements YokaiWorld {
     const ai = e.dims;
     if (ai.flies) {
       const r = ai.radius;
-      const eb = this.world.loadedBounds();
-      if (x < eb.x0 + r + AI_CONST.edgeMargin || z < eb.z0 + r + AI_CONST.edgeMargin) return false;
-      if (x > eb.x1 - r - AI_CONST.edgeMargin || z > eb.z1 - r - AI_CONST.edgeMargin) return false;
+      if (!bodyInWall(x, z, r, AI_CONST.edgeMargin)) return false;
+      if (!this.world.isLoaded(Math.floor(x), Math.floor(z))) return false;
       const s = flySurface(this.world, x, z, e.y);
       if (s === null) return false;
       const ny = e.y + Math.max(-AI_CONST.hoverRate * DT, Math.min(AI_CONST.hoverRate * DT, s - e.y));
@@ -1376,9 +1380,8 @@ export class YokaiManager implements YokaiWorld {
     const nz = e.z + Math.sin(e.yaw) * d;
     const ai = e.dims;
     const r = ai.radius;
-    const eb = this.world.loadedBounds();
-    if (nx < eb.x0 + r + AI_CONST.edgeMargin || nz < eb.z0 + r + AI_CONST.edgeMargin) return;
-    if (nx > eb.x1 - r - AI_CONST.edgeMargin || nz > eb.z1 - r - AI_CONST.edgeMargin) return;
+    if (!bodyInWall(nx, nz, r, AI_CONST.edgeMargin)) return;
+    if (!this.world.isLoaded(Math.floor(nx), Math.floor(nz))) return;
     if (!this.boxFreeAt(nx - r, e.y + 0.05, nz - r, nx + r, e.y + ai.height, nz + r)) return;
     const g = settleGround(this.world, nx, nz, e.y, ai);
     if (!Number.isFinite(g) || this.world.getBlock(Math.floor(nx), Math.floor(g), Math.floor(nz)) === 'water') return;

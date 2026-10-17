@@ -5,21 +5,22 @@ import type {
   FarmPlacedBlock,
   FarmPlacement,
   FarmPlacementFn,
-  IslandInfo,
   VoxelWorld,
 } from '../../contracts';
 import { CROP_KINDS, SEA_Y, WILD_BLOCK } from '../../contracts';
-import { ArrayVoxelWorld, type ChunkedVoxelWorld } from '../VoxelWorld';
 import { GEN_CONFIG as C } from './config';
 import { inMouthFootprint, mouthOfChunk, type Mouth } from './mouths';
-import { populateWorld } from './populate';
 import { createRng, randInt, shuffle } from './random';
 import { startFeaturesOf } from './features';
+import { regionRect } from './region';
+import { regionsOf } from './worldInfo';
+import { surfaceFor } from './surface';
 import { spawnOf, terrainFor } from './terrain';
 
 /**
- * 置きもの の 場所（M7 §4.5 (0)〜(3)。VOX-B F1〜F3）。シード と 作った直後の 地形 だけ で 決まる 純粋な 計算。
- * 世界は 変えない。同じ シードの 答えは おぼえておく。
+ * 置きもの の 場所（M7 §4.5 (0)〜(3)。VOX-B F1〜F3、VOX-D G1〜G6）。シード だけ で 決まる 純粋な 計算。
+ * ブロックは 読みこまない: 四角 R（スタートのまわり 128×128）の中を、高さ・木・洞くつの口から調べる（surface.ts）。
+ * 読みこんでいる列・テレポートに 関係なく 同じ答え。同じ シードの 答えは おぼえておく。
  */
 
 /** ふるい はたけ の ゆるめ方（段ごと: 距離の はんい・角度）。最後の段（どの向きでも・40 まで）は VOX-B で足した（新しい地形で置けない seed をなくす） */
@@ -69,32 +70,24 @@ function rayKeys(ex: number, ey: number, ez: number, qx: number, qy: number, qz:
 
 const memo = new Map<number, FarmPlacement>();
 
-export const computeFarmPlacement: FarmPlacementFn = (seed, pristine) => {
+export const computeFarmPlacement: FarmPlacementFn = (seed) => {
   const hit = memo.get(seed);
   if (hit) return structuredClone(hit);
-  let world: ChunkedVoxelWorld;
-  let info: IslandInfo;
-  if (pristine) {
-    world = pristine.world as ChunkedVoxelWorld;
-    info = pristine.info;
-  } else {
-    world = new ArrayVoxelWorld({ x: 0, z: 0 });
-    info = populateWorld(world, seed);
-  }
-  const result = place(seed, world, info);
+  const result = place(seed);
   if (memo.size >= 8) memo.delete(memo.keys().next().value as number);
   memo.set(seed, result);
   return structuredClone(result);
 };
 
-function place(seed: number, world: ChunkedVoxelWorld, info: IslandInfo): FarmPlacement {
-  const R = info.regions();
+function place(seed: number): FarmPlacement {
+  const R = regionsOf(seed);
   const T = terrainFor(seed);
   const sp = spawnOf(seed);
-  const b = world.loadedBounds();
+  const S = surfaceFor(seed);
+  const b = regionRect(seed);
+  const inside = (x: number, z: number) => x >= b.x0 && z >= b.z0 && x < b.x1 && z < b.z1;
   const W = b.x1 - b.x0;
   const D = b.z1 - b.z0;
-  const inside = (x: number, z: number) => x >= b.x0 && z >= b.z0 && x < b.x1 && z < b.z1;
 
   // ---- 列ごとの 下ごしらえ
   const hCache = new Int16Array(W * D).fill(-2);
@@ -103,18 +96,13 @@ function place(seed: number, world: ChunkedVoxelWorld, info: IslandInfo): FarmPl
     const i = (z - b.z0) * W + (x - b.x0);
     let v = hCache[i]!;
     if (v === -2) {
-      v = info.groundHeight(x, z);
+      v = S.ground(x, z);
       hCache[i] = v;
     }
     return v;
   };
   const hasWater = (x: number, z: number) => inside(x, z) && h(x, z) < SEA_Y;
-  const hasTree = (x: number, z: number) => {
-    const t = world.topY(x, z);
-    if (t < 0) return false;
-    const id = world.getBlock(x, t, z);
-    return id === 'log' || id === 'leaves';
-  };
+  const hasTree = (x: number, z: number) => S.treeCover(x, z);
 
   const features = startFeaturesOf(seed);
   const start5: Rect = { x0: sp.x - 2, x1: sp.x + 2, z0: sp.z - 2, z1: sp.z + 2 };
@@ -192,7 +180,7 @@ function place(seed: number, world: ChunkedVoxelWorld, info: IslandInfo): FarmPl
       for (let x = frame.x0; x <= frame.x1; x++) {
         if (hasWater(x, z) || hasTree(x, z) || nearRock(x, z, 2) || nearMouths(x, z, 2)) return null;
         const hh = h(x, z);
-        if (hh < SEA_Y + 2 || world.getBlock(x, hh, z) !== 'grass') return null;
+        if (hh < SEA_Y + 2 || !S.groundIsGrass(x, z)) return null;
         lo = Math.min(lo, hh);
         hi = Math.max(hi, hh);
       }
@@ -247,7 +235,7 @@ function place(seed: number, world: ChunkedVoxelWorld, info: IslandInfo): FarmPl
       const [cx, cy, cz] = key.split(',').map(Number) as [number, number, number];
       const isTarget = cx === kx && cz === kz && cy === h0 + 2;
       if (isTarget) continue;
-      const pre = world.getBlock(cx, cy, cz);
+      const pre = S.blockAt(cx, cy, cz);
       if (pre !== 'air' && pre !== 'water') return null; // 置く前の 地形
       const now = m.get(key)?.id ?? pre;
       if (now !== 'air' && now !== 'water' && now !== 'saku' && now !== 'kakashi' && now !== 'kakashi_head') return null;
@@ -275,8 +263,8 @@ function place(seed: number, world: ChunkedVoxelWorld, info: IslandInfo): FarmPl
     if (farmFrame && x >= farmFrame.x0 - 1 && x <= farmFrame.x1 + 1 && z >= farmFrame.z0 - 1 && z <= farmFrame.z1 + 1) return null;
     if (nearRock(x, z, 2) || nearMouths(x, z, 2)) return null;
     const hh = h(x, z);
-    if (hh < SEA_Y + 2 || world.getBlock(x, hh, z) !== 'grass' || world.getBlock(x, hh + 1, z) !== 'air') return null;
-    if (world.topY(x, z) !== hh) return null;
+    if (hh < SEA_Y + 2 || !S.groundIsGrass(x, z) || S.blockAt(x, hh + 1, z) !== 'air') return null;
+    if (S.covered(x, z)) return null;
     if (reserved.has(`${x},${hh + 1},${z}`)) return null;
     return hh;
   };

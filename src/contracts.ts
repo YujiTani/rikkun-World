@@ -652,6 +652,8 @@ export const SEA_Y = 144;
  * src の中では y を使わず WORLD_HEIGHT を使う（テストが 大きさを聞く用）。
  */
 export const WORLD_SIZE = { x: 128, y: WORLD_HEIGHT, z: 128 } as const;
+/** 世界の果ての見えない壁（VOX-D W1）。遊べるマスは x, z = -WORLD_LIMIT 〜 WORLD_LIMIT - 1 */
+export const WORLD_LIMIT = 30000;
 /** 列（チャンク）の横の大きさ */
 export const CHUNK_SIZE = 16;
 /** セクションの 1 辺 */
