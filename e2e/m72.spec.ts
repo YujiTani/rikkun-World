@@ -1125,6 +1125,7 @@ test.describe('M7-2 性能', () => {
       o.on = { dc: b.drawCalls, tri: b.triangles };
       o.star = h.farm.fx().particles.filter((p: any) => p.kind === 'star').length;
       o.spray = h.farm.fx().particles.filter((p: any) => p.kind === 'spray').length;
+      // stepMs は 記録だけ（合否にしない。#175）。速さは npm run perf で見る
       const t0 = performance.now();
       h.step(120);
       o.stepMs = (performance.now() - t0) / 120;

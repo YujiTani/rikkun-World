@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { waitAnimationsDone } from './helpers/anim';
 
 /** FIX-ach-scroll: じっせき の一覧が 実際のホイールで 縦にスクロールできる */
 for (const [w, h] of [[960, 540], [1280, 720], [1440, 900]] as const) {
@@ -17,7 +18,7 @@ for (const [w, h] of [[960, 540], [1280, 720], [1440, 900]] as const) {
         k.input.release('toggleInventory');
         k.step(3);
       });
-      await page.waitForTimeout(700);
+      await waitAnimationsDone(page);
       await page.locator('.inv-tabs [data-tab=achievements]').click();
       const list = page.locator('.ach-list');
       const cats = page.locator('.ach-cats > *');

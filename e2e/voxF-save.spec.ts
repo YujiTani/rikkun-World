@@ -206,6 +206,6 @@ test.describe('VOX-F 保存', () => {
     console.log('AC3', JSON.stringify(r));
     testInfo.annotations.push({ type: 'AC3', description: JSON.stringify(r) });
     expect(r.failures).toBe(0);
-    expect(r.mainMedian).toBeLessThan(25); // 目安。本当の数字は docs/perf-reports/VOX-F.md
+    // 時間の目安（mainMedian < 25ms）は 合否から外した（#175・ルール #130）。数字は 記録だけ（annotation）。本当の数字は docs/perf-reports/VOX-F.md と npm run perf で見る
   });
 });

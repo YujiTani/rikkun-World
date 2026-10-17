@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { settleForShot } from './helpers/anim';
 import { waitCharLoaded } from './helpers/char';
 
 /**
@@ -88,7 +89,7 @@ test.describe('CHAR-1 テスト係の受け入れ', () => {
     console.log('AC15', JSON.stringify(r));
     expect(r.t?.block).toEqual({ x: 6, y: 8, z: 6 });
     expect(r.sprite).toBe(true);
-    await page.waitForTimeout(150);
+    await settleForShot(page);
     await page.screenshot({ path: `${SHOTS}/AC15-pitch-89-aimframe.png` });
   });
 
@@ -447,7 +448,7 @@ test.describe('CHAR-1 ねらいの高さ（P = 足もと + 2.12）の遊びや�
       h.step(1);
     });
     const f0 = await page.evaluate(() => (window.__rikkun! as any).hud.yokaiFocus());
-    await page.waitForTimeout(200);
+    await settleForShot(page);
     await page.screenshot({ path: `${SHOTS}/REACH-karakasa-pitch0-d3.png` });
     const f1 = await page.evaluate(() => {
       const h = window.__rikkun! as any;
@@ -455,7 +456,7 @@ test.describe('CHAR-1 ねらいの高さ（P = 足もと + 2.12）の遊びや�
       h.step(1);
       return { focus: h.hud.yokaiFocus(), pitch: -12 };
     });
-    await page.waitForTimeout(200);
+    await settleForShot(page);
     await page.screenshot({ path: `${SHOTS}/REACH-karakasa-pitch-12-d3.png` });
     console.log('FOCUS pitch0', f0, 'pitch-12', JSON.stringify(f1));
     // 地面のブロックを正面にしたとき（pitch 0 で ねらいなし）
@@ -465,7 +466,7 @@ test.describe('CHAR-1 ねらいの高さ（P = 足もと + 2.12）の遊びや�
       h.player.set({ pitch: -35 });
       h.step(2);
     });
-    await page.waitForTimeout(150);
+    await settleForShot(page);
     await page.screenshot({ path: `${SHOTS}/REACH-ground-pitch-35.png` });
   });
 });

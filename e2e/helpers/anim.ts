@@ -42,3 +42,36 @@ export async function waitFrames(page: Page, n = 5): Promise<void> {
     n,
   );
 }
+
+/**
+ * selector に合う要素の 位置・大きさが、続けて frames 回の描き直しのあいだ 変わらなくなるのを待つ。
+ * ゲーム側が「動きが終わった」と教えてくれない動き（カメラが引ききる、など）に使う。
+ * 時間の上限は テスト全体にまかせる。
+ */
+export async function waitLayoutStable(page: Page, selector: string, frames = 3): Promise<void> {
+  await page.waitForFunction(
+    ({ sel, need }) => {
+      const w = window as unknown as { __stab?: { key: string; n: number } };
+      const key = Array.from(document.querySelectorAll(sel))
+        .map((e) => {
+          const r = e.getBoundingClientRect();
+          return [r.x, r.y, r.width, r.height].map((v) => v.toFixed(2)).join(',');
+        })
+        .join('|');
+      const prev = w.__stab;
+      w.__stab = { key, n: prev && prev.key === key ? prev.n + 1 : 0 };
+      return w.__stab.n >= need;
+    },
+    { sel: selector, need: frames },
+    { timeout: 0, polling: 'raf' },
+  );
+}
+
+/**
+ * スクショの前: 一時停止中の step で たまった描画が 画面に出て（2 回 描き直し）、
+ * CSS の動きが おわるのを待つ。決まった時間は 待たない。
+ */
+export async function settleForShot(page: Page): Promise<void> {
+  await waitFrames(page, 2);
+  await waitAnimationsDone(page);
+}
