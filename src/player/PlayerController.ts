@@ -49,13 +49,15 @@ export class PlayerController {
   readonly state: PlayerState;
   readonly settings: PlayerSettings;
   /** WEAPON-2: 刀・弓が かける 歩く倍率と ジャンプ止め（つなぎ込みが 毎ステップ 書く） */
-  readonly motion: { speedMul: number; jumpLocked: boolean; faceDeg: number | null; stopNow: boolean } = {
+  readonly motion: { speedMul: number; jumpLocked: boolean; faceDeg: number | null; stopNow: boolean; leftAims: boolean } = {
     speedMul: 1,
     jumpLocked: false,
     /** CHAR-2: null でない あいだ facing は これ（わざの向き）。回らない */
     faceDeg: null,
     /** CHAR-2: true の ステップは 水平の速さを 0 に する */
     stopNow: false,
+    /** WEAPON-3: false の ステップは 左クリックを「ねらう行動」にしない（刀・パンチの 攻撃・空ぶり） */
+    leftAims: true,
   };
   private readonly p = [0, 0, 0]; // 作業用: 位置
   private readonly idx = [0, 0, 0];
@@ -159,8 +161,9 @@ export class PlayerController {
       jumpHeld = a.isHeld('jump');
       runHeld = a.isHeld('run');
       aiming =
-        a.isHeld('primary') || a.isHeld('secondary') || a.isHeld('drop') || a.isHeld('dropStack') ||
-        a.wasPressed('primary') || a.wasPressed('secondary') || a.wasPressed('drop') || a.wasPressed('dropStack');
+        (this.motion.leftAims && (a.isHeld('primary') || a.wasPressed('primary'))) ||
+        a.isHeld('secondary') || a.isHeld('drop') || a.isHeld('dropStack') ||
+        a.wasPressed('secondary') || a.wasPressed('drop') || a.wasPressed('dropStack');
     }
     const yaw = st.yawDeg * DEG;
     const sin = Math.sin(yaw);

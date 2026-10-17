@@ -88,6 +88,9 @@ export class BlockDoll {
   private yoroiMesh: THREE.Group | null = null;
   private readonly shoulders: THREE.Group[] = [];
   private arcMeshes: { slash: THREE.Mesh; sweep: THREE.Mesh } | null = null;
+  /** WEAPON-3: 白い弧を出す向き（パンチの向き u。null = 人形の向き = カメラの yaw） */
+  private arcDirDeg: number | null = null;
+  private lastYawDeg = 0;
   private readonly stars = new THREE.Group();
   private readonly armL = new THREE.Group();
   private readonly armR = new THREE.Group();
@@ -487,6 +490,11 @@ export class BlockDoll {
     this.animator.setDigging(on);
   }
 
+  /** WEAPON-3 §7: 白い弧の 向きだけ パンチの向き u にする（null で もとに もどす） */
+  setArcDir(deg: number | null): void {
+    this.arcDirDeg = deg;
+  }
+
   /** 位置・向き・手足を更新する。onGround = false ならジャンプの形 */
   update(
     dt: number,
@@ -509,6 +517,7 @@ export class BlockDoll {
     const downHop = DOLL_ANIM.downHop * Math.sin(Math.PI * Math.max(0, Math.min(1, (this.fallen - 0.7) / 0.3)));
     this.group.position.set(pos.x, pos.y + FALLEN_LIFT * this.fallen + downHop, pos.z);
     this.group.rotation.y = -yawDeg * DEG;
+    this.lastYawDeg = yawDeg;
     this.group.rotation.z = this.fallen * FALLEN_ROLL_DEG * DEG;
     const p = Math.max(-DOLL_HEAD_PITCH_MAX_DEG, Math.min(DOLL_HEAD_PITCH_MAX_DEG, pitchDeg));
     this.head.rotation.x = p * DEG;
@@ -729,6 +738,7 @@ export class BlockDoll {
       for (const k of ['slash', 'sweep'] as const) {
         const m = this.arcMeshes[k];
         m.visible = kind === k && this.mode !== 'hidden';
+        m.rotation.y = this.arcDirDeg === null ? 0 : -(this.arcDirDeg - this.lastYawDeg) * DEG;
         if (m.visible) {
           (m.material as THREE.MeshBasicMaterial).opacity = 1 - this.animator.arcAge / (DOLL_ANIM.arcTicks + 1);
         }
@@ -769,6 +779,7 @@ export class BlockDoll {
         new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, side: THREE.DoubleSide, depthWrite: false }),
       );
       // 平らな輪を横にねかせ（前が輪の上）、少しななめにして見えるように
+      m.rotation.order = 'YXZ';
       m.rotation.x = -Math.PI / 2 + 0.35;
       m.position.set(0, DOLL_ANIM.arcHeight, 0);
       m.userData.noAlpha = true;
