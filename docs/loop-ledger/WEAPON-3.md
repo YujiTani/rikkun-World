@@ -11,3 +11,5 @@
 | 1 | design | design-reviewer | 【軽微】弧の向きを確かめる AC がない（なぎなたの弧が u に出る）。AC13 か AC21 に 1 行足す | 抜け | G2 | 未対応 |
 | 1 | design | design-reviewer | 【軽微】§4.3 エ「攻撃できない妖怪（いれば）」があいまい。対象の種類を名指しするか削る | 言い回し | G3 | 未対応 |
 | 1 | design | design-reviewer | 【軽微】CHAR-4 §3.2 の「肩ごし・おくを向く」の位置の説明も同時に直す（§7 は §2 だけ挙げている） | CHAR-4 側の記述 | G4 | 未対応 |
+| 1 | dev | code-reviewer | 【軽微】src/combat/PlayerCombat.punch.test.ts AC11・AC13: 体力のへり(1)・ステップ(30/40)・届く距離を数で決め打ち。settings.get / tool.punchParams に聞く方が良い | 既存 m3 のテストと同じ書き方を踏襲 | G? | 未対応 |
+| 1 | dev | code-reviewer | 【軽微】src/combat/PlayerCombat.punch.test.ts AC12「扇の中に 2 体」: T=近い方なので「T が先」と区別できない(P に最も近い 1 体の分岐は別テストで見ていない) | T を遠い方にした場面を足すと良い | G? | 未対応 |
