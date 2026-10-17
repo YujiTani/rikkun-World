@@ -85,8 +85,12 @@ function rig(item: ItemId = 'katana') {
       position: P,
       yawDeg: 0,
       active: true,
+      // WEAPON-3 §6.1: 向き u・T・体の点 B を わたす（北向き・妖怪を えらばない = 今までと 同じ場面）
+      body: { x: P.x, y: P.y + 1.4, z: P.z },
+      attackDirDeg: 0,
+      attackTarget: null,
       ...o,
-    };
+    } as BladeStepContext;
   }
   const step = (o: Partial<BladeStepContext> = {}) => {
     tick++;
@@ -312,8 +316,9 @@ describe('かべごし（AC8）', () => {
     const c = (o: Partial<BladeStepContext>): BladeStepContext => ({
       item: 'katana', techPressed: false, techHeld: false, stancePressed: false,
       eye: { x: 16.5, y: 10.62, z: 16.5 }, dir: { x: 0, y: Math.SQRT1_2, z: -Math.SQRT1_2 },
-      position: { x: 16.5, y: 9, z: 16.5 }, yawDeg: 0, active: true, ...o,
-    });
+      position: { x: 16.5, y: 9, z: 16.5 }, yawDeg: 0, active: true,
+      body: { x: 16.5, y: 10.4, z: 16.5 }, attackDirDeg: 0, attackTarget: null, ...o,
+    } as BladeStepContext);
     b.update(c({}));
     b.setStance('jodan');
     b.update(c({ techPressed: true }));
