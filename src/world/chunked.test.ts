@@ -203,7 +203,7 @@ describe('見えない印（VOX-plan §6）', () => {
     expect(w.takeDirtySections()).toEqual([{ cx: 0, sy: 1, cz: 0 }]);
     w.setBlock(15, 16, 8, 'air'); // x+ のふち・sy=1 の下のふち
     const d = w.takeDirtySections().map((s) => `${s.cx},${s.sy},${s.cz}`).sort();
-    expect(d).toEqual(['0,0,0', '0,1,0', '1,1,0']);
+    expect(d).toEqual(['0,0,0', '0,1,0', '1,0,0', '1,1,0']);
     expect(w.takeDirtySections()).toEqual([]);
   });
 });
