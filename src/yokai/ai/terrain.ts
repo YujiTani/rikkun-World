@@ -1,6 +1,7 @@
 import type { VoxelWorld } from '../../contracts';
 import type { WorldLight } from '../../world/light/WorldLight';
 import { AI_CONST, type KindAi } from './config';
+import { bodyInWall } from '../../world/wall';
 import { boxFree, groundTop, surfaceTop } from './geometry';
 
 /**
@@ -19,9 +20,9 @@ export function groundSupport(
   allowWater = false,
 ): number {
   const r = ai.radius;
-  const e = world.loadedBounds();
-  if (x < e.x0 + r + AI_CONST.edgeMargin || z < e.z0 + r + AI_CONST.edgeMargin) return NaN;
-  if (x > e.x1 - r - AI_CONST.edgeMargin || z > e.z1 - r - AI_CONST.edgeMargin) return NaN;
+  // 見えない壁（VOX-D W4）と、読みこんでいない列（そこは立てない）
+  if (!bodyInWall(x, z, r, AI_CONST.edgeMargin)) return NaN;
+  if (!world.isLoaded(Math.floor(x), Math.floor(z))) return NaN;
   const startY = Math.floor(y + ai.stepUp + 1e-6) - 1;
   const cells = ai.stepUp + maxDrop + 1;
   let top = -Infinity;
