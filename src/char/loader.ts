@@ -44,7 +44,7 @@ export interface IndexedAtlas {
   height: number;
   cols: number;
   rows: number;
-  /** width × height バイト。0 = とうめい、1〜20 = 色見本の番号 */
+  /** width × height バイト。0 = とうめい、1〜22 = 色見本の番号 */
   indices: Uint8Array;
   /** 切りつめた絵のとき 四角の表（なければ 今の 格子の形） */
   packed?: Packed;

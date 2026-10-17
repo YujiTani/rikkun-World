@@ -1,16 +1,17 @@
 import * as THREE from 'three';
-import { W2_SETTING_DEFAULTS, type W2Settings, type BladeTrailStyle, type ArmorSystem, BladeEvent, BladeShapeInfo, BladeSystem, BowEvent, BowSystem, Inventory, ItemId, Vec3, WearEvent } from '../contracts';
+import { type W2Settings, type ArmorSystem, BladeEvent, BladeSystem, BowEvent, BowSystem, Inventory, ItemId, Vec3, WearEvent } from '../contracts';
 import type { BladeHud } from '../ui/bladeHud';
 import type { WearNotice } from '../ui/wearNotice';
 import { playCombat } from './combatSounds';
 import type { SoundFx } from './sound';
-import { WEAPON_FX, pickShardColors, shakeOffset, trailOpacity } from './weaponFxModel';
+import { WEAPON_FX, pickShardColors, shakeOffset } from './weaponFxModel';
+import { BladeTrail, type TrailSnapshot } from './bladeTrail';
 import { playWeapon } from './weaponSounds';
 
 export interface WeaponFxDeps {
   scene: THREE.Scene;
   sound: Pick<SoundFx, 'play' | 'playTones'>;
-  blade: Pick<BladeSystem, 'drainEvents' | 'state' | 'shape'>;
+  blade: Pick<BladeSystem, 'drainEvents' | 'state'>;
   bow: Pick<BowSystem, 'drainEvents'>;
   inventory: Pick<Inventory, 'drainWearEvents'>;
   armor: Pick<ArmorSystem, 'drainWearEvents'>;
@@ -21,8 +22,11 @@ export interface WeaponFxDeps {
   handPos(): Vec3;
   /** ゆれる 画面（ゲームの canvas）。なければ ゆらさない */
   shakeEl?: HTMLElement;
-  /** 武器ごとの きせき（なければ 初期値） */
-  settings?: () => Pick<W2Settings, 'bladeTrail'>;
+  /** 武器ごとの きせき・わざの 長さ（なければ 初期値） */
+  settings?: () => Pick<W2Settings, 'bladeTrail' | 'bladeTrailShape' | 'bladeTrailWindow' | 'bladeTech'>;
+  /** CHAR-4: 体（当たり判定の 足もと）の いまの 位置。ふみこみの あとで 呼ぶ。`camera` と 両方 あるときだけ 刃の軌跡を 出す */
+  body?: () => Vec3;
+  camera?: THREE.Camera;
   /** たいきゅうの 出来事を 実績へ */
   onWear?: (events: readonly WearEvent[]) => void;
   /** こわれた（人形が 手を 見る 動きなど） */
@@ -33,24 +37,17 @@ export interface WeaponFxDeps {
 }
 
 const POOL = 64;
-const WEAPON_TRAIL_FALLBACK: BladeTrailStyle = { color: WEAPON_FX.trailColor, width: 0.05, style: 'plain' };
 
 /**
  * 刀・弓・たいきゅうの 演出と 音（WEAPON-2 §3.3〜§3.6）。1 ステップに 1 回 `step()`、描画の 前に `update(dt)`。
- * きせき・星・かけらは InstancedMesh 2 つ + メッシュ 数こ を 使いまわす（毎フレーム new しない）。点滅・赤い色は 使わない。
+ * 星・かけらは InstancedMesh 2 つ、刃の 軌跡（CHAR-4）は 帯 1 つ + 星 1 つ を 使いまわす（毎フレーム new しない）。点滅・赤い色は 使わない。
  */
 export class WeaponFx {
   private readonly stars: THREE.InstancedMesh;
   private readonly shards: THREE.InstancedMesh;
   private readonly sp: Particles;
   private readonly hp: Particles;
-  private readonly trail = new THREE.Group();
-  private readonly line: THREE.Mesh;
-  private readonly band: THREE.Mesh;
-  private readonly bandInner: THREE.Group;
-  private bandHalf = -1;
-  private trailSince = 999;
-  private trailStyle: BladeTrailStyle = WEAPON_TRAIL_FALLBACK;
+  private readonly bladeTrail: BladeTrail | null;
   private rng = 777;
   private shakeLeft = 0;
   private shakeFrame = 0;
@@ -59,8 +56,6 @@ export class WeaponFx {
   private readonly v = new THREE.Vector3();
   private readonly sc = new THREE.Vector3();
   private readonly col = new THREE.Color();
-  private readonly lineMat: THREE.MeshBasicMaterial;
-  private readonly bandMat: THREE.MeshBasicMaterial;
 
   constructor(private readonly d: WeaponFxDeps) {
     const geo = new THREE.BoxGeometry(1, 1, 1);
@@ -78,17 +73,7 @@ export class WeaponFx {
     this.sp = new Particles(this.stars, POOL);
     this.hp = new Particles(this.shards, POOL);
 
-    this.lineMat = new THREE.MeshBasicMaterial({ color: WEAPON_FX.trailColor, transparent: true, depthWrite: false });
-    this.bandMat = new THREE.MeshBasicMaterial({ color: WEAPON_FX.trailColor, transparent: true, depthWrite: false, side: THREE.DoubleSide });
-    this.line = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), this.lineMat);
-    this.band = new THREE.Mesh(new THREE.BufferGeometry(), this.bandMat);
-    this.bandInner = new THREE.Group();
-    this.bandInner.add(this.band);
-    this.trail.add(this.line, this.bandInner);
-    this.trail.visible = false;
-    this.line.visible = false;
-    this.bandInner.visible = false;
-    d.scene.add(this.trail);
+    this.bladeTrail = d.camera && d.body && d.settings ? new BladeTrail({ scene: d.scene, camera: d.camera, settings: d.settings }) : null;
   }
 
   private rand(): number {
@@ -192,63 +177,14 @@ export class WeaponFx {
     }
   }
 
-  // ---- きせき（刃が 通った 白い 帯。持続の あいだ 出て 8F で 消える。1 回 だけ）
+  // ---- きせき（CHAR-4: 刃先の 通り道の 半月。ふみこみの あと = main の dig.update の あと に 呼ばれる）
   private trailStep(): void {
-    const st = this.d.blade.state();
-    if (st.phase === 'active') {
-      const shape = this.d.blade.shape();
-      if (shape && this.trailSince !== -1) {
-        const tr = (this.d.settings?.() ?? W2_SETTING_DEFAULTS).bladeTrail[st.item ?? 'katana'] ?? WEAPON_TRAIL_FALLBACK;
-        this.lineMat.color.setHex(tr.color);
-        this.bandMat.color.setHex(tr.color);
-        this.trailStyle = tr;
-        this.setTrailShape(shape, st.tech === 'kiriage' ? 1 : -1);
-        if (tr.style === 'star') {
-          const at = shape.kind === 'capsule' ? shape.to : shape.center;
-          this.burst(at, 3, tr.color, WEAPON_FX.starSeconds, 0.1, false);
-        }
-        this.trailSince = -1;
-      } else if (shape) {
-        this.trailSince = -1;
-      }
-    } else if (this.trailSince < 999) {
-      this.trailSince = this.trailSince < 0 ? 0 : this.trailSince + 1;
-    }
-    const o = this.trailSince >= 999 ? 0 : trailOpacity(this.trailSince);
-    this.lineMat.opacity = o;
-    this.bandMat.opacity = o * 0.85;
-    this.trail.visible = o > 0;
-    if (o <= 0) this.trailSince = 999;
+    if (this.bladeTrail && this.d.body) this.bladeTrail.step(this.d.blade.state(), this.d.body());
   }
 
-  private setTrailShape(shape: BladeShapeInfo, dir: number): void {
-    if (shape.kind === 'capsule') {
-      const a = shape.from;
-      const b = shape.to;
-      this.v.set(b.x - a.x, b.y - a.y, b.z - a.z);
-      const len = Math.max(0.01, this.v.length());
-      this.line.position.set((a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2);
-      this.line.scale.set(this.trailStyle.width, this.trailStyle.width, len);
-      this.q.setFromUnitVectors(this.sc.set(0, 0, 1), this.v.normalize());
-      this.line.quaternion.copy(this.q);
-      this.line.visible = true;
-      this.bandInner.visible = false;
-      return;
-    }
-    if (shape.halfAngleDeg !== this.bandHalf) {
-      this.bandHalf = shape.halfAngleDeg;
-      this.band.geometry.dispose();
-      this.band.geometry = sectorGeometry(shape.halfAngleDeg, 0.55, 1);
-    }
-    const r = shape.rMax;
-    this.trail.position.set(0, 0, 0);
-    this.bandInner.position.set(shape.center.x, shape.center.y + (shape.yMin + shape.yMax) / 2, shape.center.z);
-    this.bandInner.rotation.set(0, Math.atan2(shape.forward.x, shape.forward.z), 0);
-    this.band.scale.set(r, 1, r);
-    this.band.rotation.set(0, 0, dir * (this.trailStyle.style === 'long' ? 1.0 : 0.6));
-    this.band.rotation.order = 'ZXY';
-    this.bandInner.visible = true;
-    this.line.visible = false;
+  /** 軌跡の ようす（`window.__rikkun.blade.trail()` 用）。体・カメラが なければ null */
+  trailInfo(): TrailSnapshot | null {
+    return this.bladeTrail ? this.bladeTrail.snapshot() : null;
   }
 
   // ---- 画面の ゆれ（大げさ斬りが 当たったとき だけ。2px・0.1 秒。明るさは かえない）
@@ -279,30 +215,9 @@ export class WeaponFx {
       im.dispose();
     }
     this.stars.geometry.dispose();
-    this.trail.removeFromParent();
-    this.band.geometry.dispose();
-    this.line.geometry.dispose();
-    this.lineMat.dispose();
-    this.bandMat.dispose();
+    this.bladeTrail?.dispose();
     if (this.d.shakeEl) this.d.shakeEl.style.transform = '';
   }
-}
-
-/** 水平の 輪の 一部（-half〜+half 度）。内側 r0・外側 r1（単位の 半径）。+Z が 前 */
-function sectorGeometry(halfDeg: number, r0: number, r1: number): THREE.BufferGeometry {
-  const N = 16;
-  const pos = new Float32Array((N + 1) * 2 * 3);
-  const idx: number[] = [];
-  for (let i = 0; i <= N; i++) {
-    const a = ((-halfDeg + (2 * halfDeg * i) / N) * Math.PI) / 180;
-    pos.set([Math.sin(a) * r0, 0, Math.cos(a) * r0], i * 6);
-    pos.set([Math.sin(a) * r1, 0, Math.cos(a) * r1], i * 6 + 3);
-    if (i < N) idx.push(i * 2, i * 2 + 1, i * 2 + 2, i * 2 + 1, i * 2 + 3, i * 2 + 2);
-  }
-  const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  g.setIndex(idx);
-  return g;
 }
 
 /** 小さな 四角の 粒を InstancedMesh で 動かす（場所は 使いまわす） */

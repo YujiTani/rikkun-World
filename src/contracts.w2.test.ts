@@ -33,6 +33,57 @@ describe('WEAPON-2 contracts', () => {
     expect(s.toolDurability.kabuto).toBe(165);
     expect(s.wearLowRatio).toBe(0.1);
   });
+  it('CHAR-4 AC1: 軌跡の 色の 表（§4.5）・書く時間（§4.2）・形（§4.4）の 初期値。width は ない', () => {
+    const s = createW2Settings() as unknown as Record<string, any>;
+    const rows = {
+      bokuto: { color: 0x9c6b3a, glow: 0xe8c08a, blade: 0xb98b54, bladeShine: 0xe0bc86, style: 'plain' },
+      katana: { color: 0xe8f1fa, glow: 0xffffff, blade: 0xc8cdd8, bladeShine: 0xffffff, style: 'plain' },
+      crystal_katana: { color: 0x7fdcff, glow: 0xe6faff, blade: 0x6fcdf5, bladeShine: 0xe6faff, style: 'star' },
+      naginata: { color: 0xcfe8ff, glow: 0xffffff, blade: 0xb8cce0, bladeShine: 0xeef6ff, style: 'long' },
+    };
+    expect(s.bladeTrail).toEqual(rows);
+    for (const r of Object.values(s.bladeTrail as Record<string, object>)) expect('width' in r).toBe(false);
+    expect(s.bladeTrailWindow).toEqual({ thrust: [2, 6], kesa: [28, 34], kiriage: [38, 43] });
+    expect(s.bladeTrailShape).toEqual({
+      widthRatio: 0.45,
+      minWidth: 0.1,
+      lifeSteps: 9,
+      segPerStep: 6,
+      maxSegs: 36,
+      bandEdges: [1 / 6, 1 / 2, 5 / 6],
+      bandAlpha: [1, 0.85, 0.5, 0.22],
+      fadeAges: [2.25, 4.5, 6.75],
+      starAt: [0.25, 0.55, 0.85],
+      starMaxAge: 8.55,
+    });
+    // 毎回 ふかい コピー（新しい 設定も）
+    s.bladeTrail.katana.color = 1;
+    s.bladeTrailWindow.kesa[0] = 0;
+    s.bladeTrailShape.bandAlpha[0] = 0;
+    const d = W2_SETTING_DEFAULTS as unknown as Record<string, any>;
+    expect(d.bladeTrail.katana.color).toBe(0xe8f1fa);
+    expect(d.bladeTrailWindow.kesa[0]).toBe(28);
+    expect(d.bladeTrailShape.bandAlpha[0]).toBe(1);
+  });
+  it('CHAR-4 AC1: 刃先の データ（art/char-sheets/blade_path.json）は 3 わざ・perTick の 数 = ticks の 合計 + 1（42・107・105）・各点に base・tip の 3 つの 数', () => {
+    const data = JSON.parse(readFileSync('art/char-sheets/blade_path.json', 'utf8')) as Record<string, { perTick: { base: number[]; tip: number[] }[] }>;
+    const s = createW2Settings();
+    const want = { katana_thrust: 42, katana_kesa: 107, katana_kiriage: 105 };
+    expect(Object.keys(data).sort()).toEqual(Object.keys(want).sort());
+    const techOf = { katana_thrust: 'thrust', katana_kesa: 'kesa', katana_kiriage: 'kiriage' } as const;
+    for (const [name, n] of Object.entries(want)) {
+      const t = s.bladeTech[techOf[name as keyof typeof techOf]];
+      expect(t.startup + t.active + t.recovery + 1).toBe(n);
+      const rows = data[name]!.perTick;
+      expect(rows).toHaveLength(n);
+      for (const r of rows) {
+        for (const v of [r.base, r.tip]) {
+          expect(v).toHaveLength(3);
+          for (const x of v) expect(Number.isFinite(x)).toBe(true);
+        }
+      }
+    }
+  });
   it('createW2Settings は 毎回 ふかい コピー', () => {
     const a = createW2Settings();
     a.bladeKnock.kesa[0] = 99;

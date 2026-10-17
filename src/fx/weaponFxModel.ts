@@ -9,9 +9,6 @@ export const WEAPON_FX = {
   /** かまえを かえた とき 絵が ぽよんと する F */
   stancePopSteps: 8,
   stancePopScale: 1.2,
-  /** きせき が 消えるまで（持続の あと）の F */
-  trailFadeSteps: 8,
-  trailColor: 0xcfe8ff,
   /** 当たりの 星 */
   starCount: 6,
   starSeconds: 0.3,
@@ -54,12 +51,6 @@ export function shakeOffset(frame: number): number {
   const W = WEAPON_FX;
   if (frame < 0 || frame >= W.shakeSteps) return 0;
   return W.shakePx * Math.sin((Math.PI * (frame + 0.5)) / W.shakeSteps);
-}
-
-/** きせきの 濃さ。持続（active）の あいだ 1、あとは trailFadeSteps で 消える。`since` = active が 終わってからの F（active 中は 負） */
-export function trailOpacity(since: number): number {
-  if (since < 0) return 1;
-  return Math.max(0, 1 - since / WEAPON_FX.trailFadeSteps);
 }
 
 /** 大げさ斬り の 硬直 前半か（照準の まわりに うすい 灰色の わ） */
