@@ -548,6 +548,19 @@ export function parseSaveOptions(search: string): { reset: boolean; nosave: bool
   return { reset: on('reset'), nosave: on('nosave') };
 }
 
+/** 公開したゲームで ?reset=1 を開いたときに出す たしかめ（いたずらのリンクで 世界が消えないように） */
+export const RESET_CONFIRM_TEXT = 'せかいを ぜんぶ けして、さいしょから はじめますか？\n（もとには もどせません）';
+
+/**
+ * ?reset=1 で 本当に消すか。開発サーバー（テスト）では そのまま消す。
+ * 公開したゲームでは ask（ふつうは window.confirm）で 大人に たしかめてから。
+ */
+export function shouldReset(reset: boolean, isDev: boolean, ask: (text: string) => boolean): boolean {
+  if (!reset) return false;
+  if (isDev) return true;
+  return ask(RESET_CONFIRM_TEXT);
+}
+
 /** 住所から reset を消した新しい住所（再読みこみでまた消えないように） */
 export function stripResetParam(href: string): string {
   const url = new URL(href);

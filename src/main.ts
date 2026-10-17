@@ -80,7 +80,7 @@ import { DigSystemImpl, createDigConfig, createDigHook } from './dig';
 import { InventoryImpl, createInventoryHook } from './inventory';
 import { ScreenController } from './screen/ScreenController';
 import { createScreenSettings } from './screen/config';
-import { EXPORT_FILE_NAME, PENDING_KEY, SAVE_ID, SaveManager, compressionAvailable, createSaveHook, exportSave, importSave, NO_SAVE, openIdb, parseSaveOptions, requestPersist, restoreStoredWorld, stripResetParam } from './save';
+import { EXPORT_FILE_NAME, PENDING_KEY, SAVE_ID, SaveManager, compressionAvailable, createSaveHook, exportSave, importSave, NO_SAVE, openIdb, parseSaveOptions, requestPersist, restoreStoredWorld, shouldReset, stripResetParam } from './save';
 import { Hotbar } from './ui/hotbar';
 import { InventoryScreen } from './ui/inventoryScreen';
 import { Notice } from './ui/notice';
@@ -200,7 +200,9 @@ const sleepNull = () => new Promise<null>((ok) => setTimeout(() => ok(null), SAV
 let idb = store && compressionAvailable() ? await Promise.race([openIdb(), sleepNull()]) : null;
 if (idb) requestPersist();
 const bootSignal = { aborted: false };
-let restored = await Promise.race([restoreStoredWorld({ world, db: idb, store, seed, saveId, reset: saveOptions.reset, signal: bootSignal }), sleepNull()]);
+// 公開したゲームの ?reset=1 は たしかめてから消す（いたずらのリンクで 世界が消えないように）
+const doReset = shouldReset(saveOptions.reset, import.meta.env.DEV, (t) => window.confirm(t));
+let restored = await Promise.race([restoreStoredWorld({ world, db: idb, store, seed, saveId, reset: doReset, signal: bootSignal }), sleepNull()]);
 if (restored === null) {
   bootSignal.aborted = true;
   idb = null;
