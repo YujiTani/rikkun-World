@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { installAimHelpers } from './helpers/aim';
+import { fine } from './helpers/fine';
 
 /**
  * M5（広い世界）の受け入れ基準 docs/design/M5-world.md のうち、実際のゲームでしか確かめられないもの。
@@ -161,7 +162,7 @@ test.describe('M5 広い世界', () => {
 
   test('AC15: かすみ 40〜80・88 より遠いチャンクは描かない（スタートと 100 ブロックはなれた 3 か所）', async ({ page }) => {
     // VOX-D: 世界は 128×128 でなく 輪。メッシュのある列（meshed）の数を ゲームに聞いて 数え、かどは スタートから ±100 の 3 か所に した
-    await open(page);
+    await open(page, fine('?nosave=1')); // (b) 描く列の上限（メッシュの段）を見る（#180）
     const r = await page.evaluate(async () => {
       const h = (window as any).__rikkun;
       h.pause();
@@ -333,6 +334,7 @@ test.describe('M5 広い世界', () => {
       const h = (window as any).__rikkun;
       h.pause();
       h.lock.simulate(true);
+      await h.world.settle({ full: true }); // VOX-D: 起動直後は 輪が そろっていない（全体の hash は 輪が全部そろってから比べる）
       const r1 = h.world.setBlock(100, 8, 60, 'log');
       const r2 = h.world.setBlock(64, 25, 28, 'sand');
       const r3 = h.world.setBlock(65, 30, 28, 'log'); // 空中
@@ -343,8 +345,9 @@ test.describe('M5 広い世界', () => {
     await page.goto('/');
     await page.waitForFunction(() => window.__rikkun?.ready === true);
     await page.evaluate(() => window.__rikkun!.achievements.mute(true));
-    const b = await page.evaluate(() => {
+    const b = await page.evaluate(async () => {
       const h = (window as any).__rikkun;
+      await h.world.settle({ full: true });
       return { hash: h.world.hash(), a: h.world.getBlock(100, 8, 60), b: h.world.getBlock(64, 25, 28), c: h.world.getBlock(65, 30, 28) };
     });
     console.log('AC21', JSON.stringify({ a, b }));
@@ -368,7 +371,7 @@ async function shot(page: Page, name: string, spot: { x: number; z: number; y?: 
 test.describe('M5 見た目（スクショ）', () => {
   test('AC22: 地形の見どころ', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 720 });
-    await open(page);
+    await open(page, fine('?nosave=1')); // (d) 地形の見どころのスクショ（#180）
     const reg = await page.evaluate(() => {
       const h = (window as any).__rikkun;
       h.pause();

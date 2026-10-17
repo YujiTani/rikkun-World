@@ -26,6 +26,67 @@ function settle(r: WorldRenderer): number {
   return n;
 }
 
+describe('小ブロックの半径 0（#180: 小ブロックなし。近くも箱の段）', () => {
+  function setup0() {
+    const w = new ArrayVoxelWorld({ x: 128, y: 48, z: 128 });
+    w.fill(0, 0, 0, 127, 0, 127, 'bedrock');
+    w.fill(0, 1, 0, 127, 6, 127, 'stone');
+    const r = new WorldRenderer(w, 0);
+    return { w, r };
+  }
+
+  it('作った時点から 半径 0。最初の update を待たずに 小ブロックの段が無い', () => {
+    const { r } = setup0();
+    expect(r.microRadiusNow).toBe(0);
+    expect(r.config.microRadius).toBe(0);
+    r.setViewer(64, 64);
+    r.attach(new Scene());
+    const s = r.sectionStats(); // update() を 1 回も呼ばない
+    expect(s.microR).toBe(0);
+    expect(s.micro).toBe(0);
+    expect(s.box).toBeGreaterThan(0);
+    expect(r.sectionInfo(4, 0, 4).tier).toBe('box'); // プレイヤーのいる列
+    expect(r.rebuildLog().filter((e) => e.kind === 'micro')).toHaveLength(0);
+  });
+
+  it('いつまでたっても 小ブロックのメッシュを作らない（update・ほって作り直したあとも）', () => {
+    const { w, r } = setup0();
+    r.setViewer(64, 64);
+    r.attach(new Scene());
+    settle(r);
+    w.setBlock(64, 7, 64, 'stone'); // プレイヤーのいる列を掘って（置いて）作り直す
+    settle(r);
+    r.setViewer(20, 90);
+    settle(r);
+    const s = r.sectionStats();
+    expect(s.microR).toBe(0);
+    expect(s.micro).toBe(0);
+    expect(s.box).toBeGreaterThan(0);
+    expect(s.lod).toBeGreaterThan(0); // 箱の外側 48 より遠くは LOD のまま
+    expect(r.rebuildLog().filter((e) => e.kind === 'micro')).toHaveLength(0);
+  });
+
+  it('あとから 16 → 32 に切りかえると 小ブロックが出る。0 にもどせる', () => {
+    const { r } = setup0();
+    r.setViewer(64, 64);
+    r.attach(new Scene());
+    settle(r);
+    r.config.microRadius = 32;
+    settle(r);
+    expect(r.sectionStats().microR).toBe(32);
+    expect(r.sectionStats().micro).toBeGreaterThan(0);
+    r.config.microRadius = 0;
+    settle(r);
+    expect(r.sectionStats().microR).toBe(0);
+    expect(r.sectionStats().micro).toBe(0);
+  });
+
+  it('作るときの半径を 渡さなければ 今のまま 32', () => {
+    const w = new ArrayVoxelWorld({ x: 128, y: 48, z: 128 });
+    expect(new WorldRenderer(w).microRadiusNow).toBe(32);
+  });
+});
+
 describe('セクションごとのメッシュ（VOX-E）', () => {
   it('スタート: 近くは小ブロック・その外は箱・さらに外は LOD。全部で 8×8×3 = 192 セクション', () => {
     const { r } = setup();

@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { fine } from './helpers/fine';
 
 /**
  * VOX-E（docs/tickets/VOX-E.md、issue #95）: hybrid メッシュをセクション（16³）ごとに本番化。
@@ -38,7 +39,7 @@ test.describe.configure({ timeout: 180_000 });
 
 async function open(page: Page, query = '?nosave=1') {
   await page.addInitScript(`window.__quiet = ${QUIET_SRC};`);
-  await page.goto('/' + query);
+  await page.goto('/' + fine(query)); // 段・セクション数・メッシュのバイトを見る（#180: 細かいメッシュのまま）
   await page.waitForFunction(() => window.__rikkun?.ready === true);
   await page.evaluate(() => window.__rikkun!.achievements.mute(true));
 }

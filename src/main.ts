@@ -108,6 +108,7 @@ import { ArrayVoxelWorld } from './world/VoxelWorld';
 import { GEN_CONFIG } from './world/gen/config';
 import { createWorldHook } from './world/hook';
 import { WorldRenderer } from './world/render/WorldRenderer';
+import { decideMicroR } from './world/render/voxel/tier';
 import { createRenderHook } from './world/render/renderHook';
 import { BlobShadow, BLOB, groundBelow } from './fx/blobShadow';
 import { WATER, isSolidIndex } from './world/blocks/blockTypes';
@@ -218,13 +219,10 @@ if (restored === null) {
   idb = null;
   restored = emptyStreamRestore();
 }
-const renderer = new WorldRenderer(world);
+// 小ブロックの半径（?microR=0|16|24|32。F3 を出して F4 でも切りかえる。VOX-E）。
+// E2E のサーバー（VITE_MICRO_DEFAULT=off）は 0 = 小ブロックなし。最初の列の段から効くよう 作るときに渡す（#180）
+const renderer = new WorldRenderer(world, decideMicroR(location.search, import.meta.env.VITE_MICRO_DEFAULT as string | undefined));
 renderer.enableStreaming();
-{
-  // 小ブロックの半径（?microR=16|24|32。F3 を出して F4 でも切りかえる。VOX-E）
-  const q = Number(new URLSearchParams(location.search).get('microR'));
-  if (q > 0) renderer.config.microRadius = q;
-}
 renderer.setViewer(island.spawn().x, island.spawn().z);
 renderer.attach(game.scene);
 const lighting = new Lighting();

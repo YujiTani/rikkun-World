@@ -2,6 +2,7 @@ import type { Page } from '@playwright/test';
 import { blockLightBrightness, lightBrightness } from '../../src/world/light/curve';
 import { LIGHT_CONFIG } from '../../src/world/light/config';
 import { SCENERY_CONFIG } from '../../src/game/config';
+import { fine } from './fine';
 
 /**
  * TEX-A（#146、docs/tickets/TEX-A.md）の E2E の共通の道具。
@@ -83,7 +84,7 @@ export const QUIET_SRC = `(h) => {
 export async function openTex(page: Page, query = '?nosave=1'): Promise<void> {
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.addInitScript(`window.__quiet = ${QUIET_SRC};`);
-  await page.goto('/' + query);
+  await page.goto('/' + fine(query)); // 画素・AO・段を見るので、細かいメッシュのまま（#180）
   await page.waitForFunction(() => window.__rikkun?.ready === true, null, { timeout: 120_000 });
   await page.evaluate(() => {
     const h = (window as any).__rikkun;
