@@ -646,8 +646,8 @@ test.describe('M3 プレイヤーの攻撃（パンチ）', () => {
     });
     expect(r.pre.rc).not.toBeNull();
     expect(r.pre.tg).not.toBeNull();
-    expect(r.pre.tg.x).toBe(7);
-    expect(r.pre.rc).toBeLessThan(r.pre.tg.d);
+    expect(r.pre.tg!.x).toBe(7);
+    expect(r.pre.rc).toBeLessThan(r.pre.tg!.d);
     expect(r.pre.reach).toBeGreaterThan(3.5); // すでの パンチは とどかない
     expect(r.pre.preview.use).toBe('whiff');
     expect(r.maxProgress).toBe(0);

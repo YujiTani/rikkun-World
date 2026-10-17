@@ -161,6 +161,8 @@ export class DigSystemImpl implements DigSystem {
   private prevPrimaryRaw = false;
   /** このステップはパンチ（ほらない） */
   private punching = false;
+  /** ＋マークの線で ブロックより手前に 妖怪が いて 空ぶりに なる（ほらない。#34） */
+  private yokaiBlocks = false;
   /** secondary を押しつづけている歩数（押していなければ 0） */
   private secondaryTicks = 0;
 
@@ -395,6 +397,8 @@ export class DigSystemImpl implements DigSystem {
       }
       this.prevPunchDir = pd;
     }
+    // ＋マークの線で ブロックより手前に 妖怪 → ほらずに 空ぶり（M3 AC18・#34。刀は 上で わざに なる）
+    this.yokaiBlocks = dec !== null && dec.use === 'whiff' && this.tgt !== null;
     this.updateWhiff(primary, secondary);
     this.toolHintModel.tick(this.inventory.selected());
     this.updateDig(primary);
@@ -408,7 +412,7 @@ export class DigSystemImpl implements DigSystem {
   /** 何もねらっていない（ブロックも妖怪もない）ときのクリックで腕を振る。押した瞬間と、押しっぱなしの 0.5 秒ごと */
   private updateWhiff(primary: boolean, secondary: boolean): void {
     if (!primary) this.whiffHold = -1;
-    else if (!this.punching && !this.tgt) {
+    else if (!this.punching && (!this.tgt || this.yokaiBlocks)) {
       const every = this.m4.tools?.current().ticks ?? WHIFF_REPEAT_TICKS;
       if (this.whiffHold < 0 || this.whiffHold >= every) {
         this.whiffs++;
@@ -428,7 +432,7 @@ export class DigSystemImpl implements DigSystem {
     this.active = false;
     this.blockedReason = null;
 
-    if (this.punching) {
+    if (this.punching || this.yokaiBlocks) {
       this.decay();
       return;
     }
@@ -947,6 +951,8 @@ export class DigSystemImpl implements DigSystem {
     const a = this.actions;
     const aimYokai = this.gate.aimedYokai?.(o, d, tgt?.distance ?? null) ?? null;
     const block: 'block' | 'crop' | null = tgt ? (this.m4.farm && cropKindOfBlock(tgt.id) ? 'crop' : 'block') : null;
+    const before = tgt ? this.m4.yokai().raycast(o, d, tgt.distance) : null;
+    const yokaiBeforeBlock = before !== null && before.distance < tgt!.distance;
     return decideAttack({
       settings: w2,
       hold,
@@ -964,7 +970,7 @@ export class DigSystemImpl implements DigSystem {
       body: this.bodyPoint(p, this.bodyScratch),
       yokai: list,
       world: this.world,
-      aim: { yokaiId: aimYokai, block },
+      aim: { yokaiId: aimYokai, block, yokaiBeforeBlock },
     });
   }
 
