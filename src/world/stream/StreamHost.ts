@@ -1,4 +1,5 @@
 import type { BlockId, ChunkColumn } from '../../contracts';
+import type { FrameClock } from '../frameClock';
 import type { PendingColumn } from '../../save/streamRestore';
 import { applyPendingColumn } from '../../save/streamRestore';
 import type { WorldGenInfo } from '../gen/populate';
@@ -44,6 +45,8 @@ export interface StreamHostDeps {
   onColumnsLoaded?: () => void;
   onReady?: (kind: 'boot' | 'wait') => void;
   now?: () => number;
+  /** #179: E2E のサーバーは count（1 コマの仕事を数で決める） */
+  clock?: FrameClock;
 }
 
 /**
@@ -81,6 +84,7 @@ export class StreamHost {
       mesh: d.renderer.streamMesh(),
       io: d.io,
       now: d.now,
+      clock: d.clock,
       holdLight: (cx, cz) => !this.placed && this.holdCols.has(colKey(cx, cz)),
       onLoaded: (cx, cz) => {
         this.rescanNeeded = true;

@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { waitLayoutStable } from './helpers/anim';
 import { ALLOWED_TEXT } from '../src/preview/texts';
 
 test.beforeEach(async ({ page }) => {
@@ -176,8 +177,8 @@ test('スクリーンショット', async ({ page }, testInfo) => {
     ['c', 0],
   ] as const) {
     await page.evaluate((n) => window.__preview!.step(n), steps);
-    // カメラが引ききるのを待つ（描画だけの動き）
-    await page.waitForTimeout(1500);
+    // カメラが引ききるのを待つ（描画だけの動き）。ラベルの位置が 止まるまで
+    await waitLayoutStable(page, '.label');
     await page.screenshot({ path: testInfo.outputPath(`yokai2-attack-${name}.png`) });
   }
 });

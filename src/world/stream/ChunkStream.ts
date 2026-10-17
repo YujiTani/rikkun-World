@@ -1,4 +1,5 @@
 import type { ChunkColumn } from '../../contracts';
+import { COUNT_LIGHT_TOTAL_MAX, COUNT_MESH_MAX, type FrameClock } from '../frameClock';
 import { MAX_COLUMNS, R_DRAW, R_GEN, R_KEEP, R_LIGHT, canLight, cheb, colKey, compareNear, ringCount } from './ring';
 
 /**
@@ -37,6 +38,8 @@ export interface StreamMesh {
   columnState(cx: number, cz: number): 'none' | 'drawn' | 'true';
   /** 箱から小ブロックへの差しかえを してよいか（開始のあと） */
   allowUpgrades?(on: boolean): void;
+  /** 前の runJob で作ったメッシュの数と、小ブロックを作ったか（count の時計用。#179） */
+  lastJob?(): { meshes: number; micro: boolean };
 }
 
 /** 列の出どころ・保存先（保存は SaveManager がつなぐ） */
@@ -64,6 +67,8 @@ export interface StreamDeps {
   mesh: StreamMesh;
   io: StreamIO;
   now?: () => number;
+  /** 1 コマの仕事を 時間で決めるか 数で決めるか（#179。E2E のサーバーは count） */
+  clock?: FrameClock;
   /** true の列は 光を計算しない（S4: 置きものを書くまで待つ） */
   holdLight?: (cx: number, cz: number) => boolean;
   /** 列を世界に入れたとき（how: 作った / 保存から） */
@@ -250,13 +255,19 @@ export class ChunkStream {
     const streamMs = prep ? BUDGET_PREP_MS : BUDGET_STREAM_MS;
     let done = 0;
     let streamUsed = 0;
+    const count = this.d.clock === 'count';
+    let made = 0;
+    let madeMicro = false;
     this.unloadWait = 0;
     let flushed = false;
     for (;;) {
       if (this.work !== null) {
         if (done >= this.work) break;
+      } else if (count) {
+        // count: 時間は見ない。メッシュ 8 個まで（小ブロックは 1 個で おしまい）・仕事は 64 こまで
+        if (done >= COUNT_LIGHT_TOTAL_MAX || made > COUNT_MESH_MAX - 2 || madeMicro) break;
       } else if (done > 0 && this.now() - t0 >= totalMs) break;
-      const sj = this.work === null && done > 0 && streamUsed >= streamMs ? null : this.pickStreamJob();
+      const sj = this.work === null && !count && done > 0 && streamUsed >= streamMs ? null : this.pickStreamJob();
       const md = this.d.mesh.nextJobDist();
       let ran = false;
       if (sj !== null && sj.kind === 'unload') {
@@ -270,6 +281,11 @@ export class ChunkStream {
         ran = true;
       } else if (md !== null) {
         ran = this.d.mesh.runJob();
+        if (ran && count) {
+          const j = this.d.mesh.lastJob?.() ?? { meshes: 1, micro: false };
+          made += j.meshes;
+          madeMicro = j.micro;
+        }
       }
       if (!ran) {
         // 捨てたいけれど 保存の書き終わりを待っている列: 保存を始める
@@ -290,6 +306,11 @@ export class ChunkStream {
     if (this._phase === 'wait') this.waitFrames++;
     this.frame.last = this.now() - t0;
     if (this.frame.last > this.frame.max) this.frame.max = this.frame.last;
+  }
+
+  /** いまの中心で 開始の条件（K1・K2）が そろっているか（count の時計で 止めている間に進めるかを決める。#179） */
+  startSettled(): boolean {
+    return this.startCount(this.cx, this.cz) === START_JOBS;
   }
 
   private updateReady(): void {

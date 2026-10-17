@@ -446,6 +446,7 @@ export function createFarmSystem(deps: FarmDepsM7): FarmSystemImpl {
       const wet = hasWater(x, y, z) || sprinkler.covers(x, y, z);
       world.setBlock(x, y, z, wet ? 'farmland_wet' : 'farmland');
       addSoil(key(x, y, z));
+      watered.delete(key(x, y, z)); // 掘らずに うまった 前の はたけ の じょうろ を ひきつがない（しめり の 見直し が まだ 来ていない うち）
       emit({ type: 'till', tick: deps.tick(), x, y, z });
       return true;
     },

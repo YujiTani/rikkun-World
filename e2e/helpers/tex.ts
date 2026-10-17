@@ -85,7 +85,7 @@ export async function openTex(page: Page, query = '?nosave=1'): Promise<void> {
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.addInitScript(`window.__quiet = ${QUIET_SRC};`);
   await page.goto('/' + fine(query)); // 画素・AO・段を見るので、細かいメッシュのまま（#180）
-  await page.waitForFunction(() => window.__rikkun?.ready === true, null, { timeout: 120_000 });
+  await page.waitForFunction(() => window.__rikkun?.ready === true, null, { timeout: 0 });
   await page.evaluate(() => {
     const h = (window as any).__rikkun;
     h.achievements.mute(true);
@@ -97,17 +97,21 @@ export async function openTex(page: Page, query = '?nosave=1'): Promise<void> {
     h.step(12);
     (window as any).__quiet(h);
   });
-  // キャラの板の絵の読みこみ（非同期）を待つ
-  await page
-    .waitForFunction(
+  // キャラの板の絵の読みこみ（非同期）を待つ。待つあいだは 描画を止め、時間の上限は テスト全体にまかせる
+  await page.evaluate(() => (window as any).__rikkun.suspendRender(true));
+  try {
+    await page.waitForFunction(
       () => {
         const d = (window as any).__rikkun.player.doll?.();
-        return !d || !d.sprite || d.sprite.loaded === true;
+        // 読みこみに失敗したとき（status.idle === 'failed'）は 代わりの絵になるので 待たない
+        return !d || !d.sprite || d.sprite.loaded === true || d.sprite.status?.idle === 'failed';
       },
       null,
-      { timeout: 60_000 },
-    )
-    .catch(() => undefined);
+      { timeout: 0 },
+    );
+  } finally {
+    await page.evaluate(() => (window as any).__rikkun.suspendRender(false));
+  }
   await page.addStyleTag({ content: '#hud, .hud, [data-ui], .rk-hud { visibility: hidden !important; }' });
   await page.evaluate(() => (window as any).__rikkun.step(2));
 }

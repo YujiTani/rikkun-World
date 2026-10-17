@@ -15,6 +15,7 @@
  * ページの中では 生の値だけを集め（snapshotUi）、判定は Node 側（src/ui/theme/colorMath.ts）でする。
  */
 import type { Page } from '@playwright/test';
+import { waitAnimationsDone } from './anim';
 import { composite, contrastRatio, isAllowedColor, parseCssColor, requiredContrast, type Rgba } from '../../src/ui/theme/colorMath';
 import { ALL_RK_VARS, FONT_SIZES_PX, RADII_PX, SPACING_PX } from '../../src/ui/theme/palette';
 
@@ -288,7 +289,7 @@ export async function checkPressedShift(page: Page, selector: string): Promise<s
     const q = await cdp.send('DOM.querySelector', { nodeId: doc.root.nodeId, selector });
     if (!q.nodeId) return [`${selector} が見つからない`];
     await cdp.send('CSS.forcePseudoState', { nodeId: q.nodeId, forcedPseudoClasses: ['active'] });
-    await page.waitForTimeout(250); // 120ms の動きが終わるまで
+    await waitAnimationsDone(page); // 120ms の動きが終わるまで
     const ty = await page.evaluate((sel) => {
       const el = document.querySelector(sel);
       if (!el) return null;
