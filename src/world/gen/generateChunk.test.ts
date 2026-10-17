@@ -6,6 +6,7 @@ import { BLOCK_INDEX, BLOCK_TYPES } from '../blocks/blockTypes';
 import { SECTION_VOLUME, sectionToArray } from '../sections';
 import { columnHash, generateChunk } from './chunk';
 import { inMouthFootprint, mouthsNear } from './mouths';
+import { countryAt } from './biome';
 import { clearTerrainCache, terrainFor } from './terrain';
 import { treesInRect } from './trees';
 
@@ -257,30 +258,30 @@ describe('基準 3・4・6・7・9: 作った列のブロック（10 シード �
                   trunks.push([x, z]);
                 }
               }
-              const bio = T.biome(x, z);
+              // #184: 草原 → はらっぱ、森 → もり（境目 e < blend は のぞく）
+              const bio = countryAt(seed, x, z);
               const raw = T.raw(x, z);
-              if (raw >= SEA_Y + 2 && raw < SEA_Y + 70 && !rock) {
-                if (bio.forest === 0) pureGrass++;
-                else if (bio.forest === 1) pureForest++;
+              if (raw >= SEA_Y + 2 && raw < SEA_Y + 70 && !rock && bio.e >= 14) {
+                if (bio.kind === 'harappa') pureGrass++;
+                else if (bio.kind === 'mori') pureForest++;
               }
               if (onMouth || rock) continue;
               // 基準 4: 地層
               const bad = (why: string): void => {
                 if (st.strataBad.length < 8) st.strataBad.push(`seed ${seed} (${x},${z}) H=${H} ${why}`);
               };
-              if (H >= SEA_Y + 70) {
-                for (let d = 0; d <= 7; d++) {
-                  const b = at(H - d);
-                  if (b !== STONE && b !== COAL && b !== IRON) bad(`山 d${d}=${b}`);
-                }
-              } else if (H >= SEA_Y + 2) {
-                if (at(H) !== GRASS) bad(`top ${at(H)}`);
-                if (at(H - 1) !== DIRT) bad(`dirt ${at(H - 1)}`);
-                const second = at(H - 2);
-                if (H >= SEA_Y + 50 ? second !== STONE && second !== COAL && second !== IRON : second !== DIRT) bad(`dirt2 ${second}`);
+              // #184: 陸の地面は くさ のほかに すな（すなはま）・ゆき（ゆきやま）・いし（いわやま・てんぐ・山の上）がある。
+              // くさ の列は 今のまま（つち 1〜2 まい → いし）。それ以外は 上が すな・ゆき・いし のどれかで、その下 d3〜7 は 地面のブロックか いし・鉱石
+              if (H >= SEA_Y + 2) {
+                const topB = at(H);
+                if (topB === GRASS) {
+                  if (at(H - 1) !== DIRT) bad(`dirt ${at(H - 1)}`);
+                  const second = at(H - 2);
+                  if (H >= SEA_Y + 50 ? second !== STONE && second !== COAL && second !== IRON && second !== DIRT : second !== DIRT) bad(`dirt2 ${second}`);
+                } else if (topB !== SAND && topB !== STONE && topB !== BLOCK_INDEX.snow) bad(`top ${topB}`);
                 for (let d = 3; d <= 7; d++) {
                   const b = at(H - d);
-                  if (b !== STONE && b !== COAL && b !== IRON) bad(`under d${d}=${b}`);
+                  if (b !== STONE && b !== COAL && b !== IRON && b !== DIRT && b !== SAND && b !== BLOCK_INDEX.snow) bad(`under d${d}=${b}`);
                 }
               } else if (H >= SEA_Y) {
                 if (at(H) !== SAND || at(H - 1) !== SAND) bad(`浜 ${at(H)} ${at(H - 1)}`);

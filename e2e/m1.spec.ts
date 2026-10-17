@@ -116,7 +116,7 @@ test.describe('M1-01 世界（つないだ後）', () => {
       expect(r.spawn.y).toBeCloseTo(r.g + 1, 3);
       expect(r.g).toBeGreaterThanOrEqual(r.seaY + 2);
       expect(r.g).toBeLessThanOrEqual(r.seaY + 12);
-      expect(r.biome).toBe('grassland');
+      expect(r.biome).toBe('harappa'); // #184: 12 の国。スタートは はじまりの はらっぱ
       expect(r.fallback).toBe(false);
       expect(r.torchBlock).toBe('start_torch');
       expect(r.torch.x).toBe(Math.floor(r.spawn.x) + 2);

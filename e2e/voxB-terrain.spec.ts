@@ -117,7 +117,7 @@ test.describe('VOX-B 地形（つないだ後）', () => {
           torchSet: w.setBlock(torch.x, torch.y, torch.z, 'start_torch'),
         };
       });
-      expect(r.biome).toBe('grassland');
+      expect(r.biome).toBe('harappa'); // #184: 12 の国。スタートは はじまりの はらっぱ
       expect(r.nBad, JSON.stringify(r.bad)).toBe(0);
       expect(r.g).toBeGreaterThanOrEqual(r.sea + 2);
       expect(r.g).toBeLessThanOrEqual(r.sea + 12);
@@ -355,7 +355,7 @@ test.describe('VOX-B 地形（つないだ後）', () => {
     for (const x of [a1, s1, s2]) {
       expect(x.t.h).toBeGreaterThanOrEqual(114);
       expect(x.t.h).toBeLessThanOrEqual(270);
-      expect(['grassland', 'forest']).toContain(x.t.biome);
+      expect(['harappa', 'mori', 'ookina', 'hana', 'sunahama', 'susuki', 'take', 'kappa', 'iwayama', 'tengu', 'momiji', 'yuki']).toContain(x.t.biome); // #184: 12 の国
     }
   });
 
