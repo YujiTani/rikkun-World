@@ -20,3 +20,27 @@ export async function waitCharLoaded(page: Page, opts: { gpuBytes?: number } = {
     await page.evaluate(() => (window.__rikkun! as any).suspendRender(false));
   }
 }
+
+/**
+ * 持った武器などの絵（names）が ぜんぶ 'ready' になるのを待つ（本当の時間で進む）。
+ * 待つあいだは 描画を止め、1 ステップずつ 進める。時間の上限は テスト全体にまかせる。
+ */
+export async function waitSpritesReady(page: Page, names: string[]): Promise<void> {
+  await page.evaluate(() => (window.__rikkun! as any).suspendRender(true));
+  try {
+    await page.waitForFunction(
+      (ns) => {
+        const h = window.__rikkun! as any;
+        h.step(1);
+        const st = h.player.doll().sprite.status;
+        const bad = ns.filter((n: string) => st?.[n] === 'failed');
+        if (bad.length) throw new Error('絵の読みこみに失敗: ' + bad.join(','));
+        return ns.every((n: string) => st?.[n] === 'ready');
+      },
+      names,
+      { timeout: 0 },
+    );
+  } finally {
+    await page.evaluate(() => (window.__rikkun! as any).suspendRender(false));
+  }
+}
