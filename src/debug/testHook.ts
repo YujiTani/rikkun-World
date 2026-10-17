@@ -139,7 +139,7 @@ export function withSpriteDoll(base: () => object, sprite: CharSprite | null, gr
         ...(info ?? {
           visible: false, motion: 'idle', frame: 0, dir: 0, tier: 0, elevDeg: 0, tiltDeg: 0, upDeg: 0,
           tint: { r: 1, g: 1, b: 1 }, loaded: false, gpuBytes: 0,
-          scene: 'stand', want: { motion: 'idle', frame: 0 }, status: {}, cpuBytes: 0,
+          scene: 'stand', want: { motion: 'idle', frame: 0 }, status: {}, cpuBytes: 0, bladeColors: null,
         }),
         visible: !!info && info.visible && group.visible,
         restartMotion: () => sprite?.restartMotion(),

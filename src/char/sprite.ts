@@ -59,6 +59,8 @@ export interface SpriteInfo {
   status: Record<SpriteMotion, SpriteStatus>;
   /** 板が CPU に 持っている 色番号の バイト（ふだん 0） */
   cpuBytes: number;
+  /** CHAR-4: いま 板が 使っている 刃の色（なければ null） */
+  bladeColors: { body: number; shine: number } | null;
 }
 
 export interface CharSprite {
@@ -140,6 +142,18 @@ export function createCharSprite(deps: CharSpriteDeps): CharSprite {
       uTint: { value: new THREE.Vector3(1, 1, 1) },
     },
   ]);
+  // CHAR-4: 色見本の 20・21 番（色番号 21・22）= 刃の地・ふちの光。武器の色に ぬりかえる
+  let bladeColors: { body: number; shine: number } | null = null;
+  const setBladeColors = (bc: { body: number; shine: number } | null): void => {
+    if (bc?.body === bladeColors?.body && bc?.shine === bladeColors?.shine) return;
+    bladeColors = bc ? { body: bc.body, shine: bc.shine } : null;
+    const set = (i: number, hex: number | null): void => {
+      const c = hex === null ? PALETTE_RGB[i]! : [(hex >> 16) & 255, (hex >> 8) & 255, hex & 255];
+      (uniforms.uPalette!.value as THREE.Vector3[])[i + 1]!.set(srgbToLinear(c[0]!), srgbToLinear(c[1]!), srgbToLinear(c[2]!));
+    };
+    set(20, bc ? bc.body : null);
+    set(21, bc ? bc.shine : null);
+  };
   const material = new THREE.ShaderMaterial({
     uniforms,
     vertexShader: VERT,
@@ -428,6 +442,7 @@ export function createCharSprite(deps: CharSpriteDeps): CharSprite {
   return {
     step(input) {
       startWeaponLoads(input.weapon);
+      setBladeColors(input.weapon === 'katana' ? (input.bladeColors ?? null) : null);
       machine.step(input);
       lastRunning = input.running;
       facing = input.facingDeg;
@@ -458,6 +473,7 @@ export function createCharSprite(deps: CharSpriteDeps): CharSprite {
         want: machine.want,
         status: { ...status },
         cpuBytes: cpuPending,
+        bladeColors: bladeColors ? { ...bladeColors } : null,
       };
     },
     async readCell(motion, t, d, frame) {

@@ -46,6 +46,8 @@ export interface SpriteStepInput {
   blade: { stance: BladeStance; tech: BladeTech | null; phase: BladePhase; frame: number; lengths: BladeTechFrames | null } | null;
   /** shot = このステップに 矢をうった（arrowShot） */
   bow: { drawing: boolean; drawTicks: number; shot: boolean } | null;
+  /** CHAR-4: 持っている刀の 刃の色（20・21 番に する）。刀でなければ null */
+  bladeColors?: { body: number; shine: number } | null;
 }
 
 /** 場面が 見たい絵（読みこみの 代わりの絵にする前） */

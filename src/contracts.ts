@@ -1757,13 +1757,35 @@ export interface W2Settings {
   thrustTiltMaxDeg: number;
   /** パンチの 扇の柱（届く距離は punchReach・weaponReach） */
   punchShape: { halfAngleDeg: number; yMin: number; yMax: number };
+  bladeTrailShape: BladeTrailShape;
+  /** 軌跡を 書く 絵の時 τ（CHAR-4 §4.2） */
+  bladeTrailWindow: Record<BladeTech, [number, number]>;
 }
 
 export interface BladeTrailStyle {
+  /** 軌跡の色 */
   color: number;
-  /** 線の 太さ（ブロック） */
-  width: number;
+  /** 軌跡の そとの光 */
+  glow: number;
+  /** キャラの絵の 刃の地（色見本の 20 番を これに） */
+  blade: number;
+  /** 刃の ふちの光（21 番を これに） */
+  bladeShine: number;
   style: 'plain' | 'star' | 'long';
+}
+
+/** CHAR-4 §4.4: 軌跡の 形・だん・消え方 */
+export interface BladeTrailShape {
+  widthRatio: number;
+  minWidth: number;
+  lifeSteps: number;
+  segPerStep: number;
+  maxSegs: number;
+  bandEdges: [number, number, number];
+  bandAlpha: [number, number, number, number];
+  fadeAges: [number, number, number];
+  starAt: [number, number, number];
+  starMaxAge: number;
 }
 
 export const W2_SETTING_DEFAULTS: Readonly<W2Settings> = {
@@ -1827,14 +1849,27 @@ export const W2_SETTING_DEFAULTS: Readonly<W2Settings> = {
   },
   wearLowRatio: 0.1,
   bladeTrail: {
-    bokuto: { color: 0x9c6b3a, width: 0.03, style: 'plain' },
-    katana: { color: 0xffffff, width: 0.05, style: 'plain' },
-    crystal_katana: { color: 0x7fdcff, width: 0.07, style: 'star' },
-    naginata: { color: 0xcfe8ff, width: 0.05, style: 'long' },
+    bokuto: { color: 0x9c6b3a, glow: 0xe8c08a, blade: 0xb98b54, bladeShine: 0xe0bc86, style: 'plain' },
+    katana: { color: 0xe8f1fa, glow: 0xffffff, blade: 0xc8cdd8, bladeShine: 0xffffff, style: 'plain' },
+    crystal_katana: { color: 0x7fdcff, glow: 0xe6faff, blade: 0x6fcdf5, bladeShine: 0xe6faff, style: 'star' },
+    naginata: { color: 0xcfe8ff, glow: 0xffffff, blade: 0xb8cce0, bladeShine: 0xeef6ff, style: 'long' },
   },
   bladeFaceAssistDeg: 30,
   thrustTiltMaxDeg: 45,
   punchShape: { halfAngleDeg: 45, yMin: -0.5, yMax: 3.0 },
+  bladeTrailShape: {
+    widthRatio: 0.45,
+    minWidth: 0.1,
+    lifeSteps: 9,
+    segPerStep: 6,
+    maxSegs: 36,
+    bandEdges: [1 / 6, 1 / 2, 5 / 6],
+    bandAlpha: [1, 0.85, 0.5, 0.22],
+    fadeAges: [2.25, 4.5, 6.75],
+    starAt: [0.25, 0.55, 0.85],
+    starMaxAge: 8.55,
+  },
+  bladeTrailWindow: { thrust: [2, 6], kesa: [28, 34], kiriage: [38, 43] },
 };
 
 /** 設定の 入れ物を作る（毎回 ふかい コピー。つなぎ込みが `createSettingsHook` の extras に渡す） */
@@ -1887,6 +1922,14 @@ export function createW2Settings(): W2Settings {
     bladeFaceAssistDeg: d.bladeFaceAssistDeg,
     thrustTiltMaxDeg: d.thrustTiltMaxDeg,
     punchShape: { ...d.punchShape },
+    bladeTrailShape: {
+      ...d.bladeTrailShape,
+      bandEdges: [...d.bladeTrailShape.bandEdges],
+      bandAlpha: [...d.bladeTrailShape.bandAlpha],
+      fadeAges: [...d.bladeTrailShape.fadeAges],
+      starAt: [...d.bladeTrailShape.starAt],
+    },
+    bladeTrailWindow: { thrust: [...d.bladeTrailWindow.thrust], kesa: [...d.bladeTrailWindow.kesa], kiriage: [...d.bladeTrailWindow.kiriage] },
   };
 }
 
