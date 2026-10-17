@@ -62,14 +62,10 @@ const f = Math.fround;
  * 切りつめた PNG の ドット。四角の外は null（とうめい）
  */
 export function shaderTexel(u: CellUniforms, W: number, H: number, i: number, j: number): { x: number; y: number } | null {
-  const cx = f(f(i + 0.5) / CELL_SIZE);
-  const cy = f(f(j + 0.5) / CELL_SIZE);
-  const qx = f(f(cx - f(u.crop[0])) / f(u.crop[2]));
-  const qy = f(f(cy - f(u.crop[1])) / f(u.crop[3]));
-  if (qx < 0 || qy < 0 || qx >= 1 || qy >= 1) return null;
-  const tx = f(f(u.rect[0]) + f(qx * f(u.rect[2])));
-  const ty = f(f(u.rect[1]) + f(qy * f(u.rect[3])));
-  return { x: Math.floor(f(tx * W)), y: Math.floor(f(ty * H)) };
+  const dx = i - Math.floor(f(u.crop[0] * CELL_SIZE) + 0.5);
+  const dy = j - Math.floor(f(u.crop[1] * CELL_SIZE) + 0.5);
+  if (dx < 0 || dy < 0 || dx >= Math.floor(f(u.crop[2] * CELL_SIZE) + 0.5) || dy >= Math.floor(f(u.crop[3] * CELL_SIZE) + 0.5)) return null;
+  return { x: Math.floor(f(u.rect[0] * W) + 0.5) + dx, y: Math.floor(f(u.rect[1] * H) + 0.5) + dy };
 }
 
 /** 切りつめた PNG の色番号から、もとの 256 × 256 の コマの色番号を もどす */

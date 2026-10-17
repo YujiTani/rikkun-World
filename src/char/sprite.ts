@@ -93,16 +93,19 @@ const FRAG = /* glsl */ `
 uniform sampler2D uMap;
 uniform vec4 uRect;
 uniform vec4 uCrop;
+uniform vec2 uSize;
 uniform vec3 uPalette[${PALETTE_SIZE + 1}];
 uniform vec3 uTint;
 varying vec2 vUv;
 #include <fog_pars_fragment>
 void main() {
-  // もとの 256 のコマの中の位置 → 切りつめた絵の中の位置。四角の外は とうめい
-  vec2 c = vec2(vUv.x, (1.0 - vUv.y));
-  vec2 q = (c - uCrop.xy) / uCrop.zw;
-  if (q.x < 0.0 || q.y < 0.0 || q.x >= 1.0 || q.y >= 1.0) discard;
-  float idx = floor(texture2D(uMap, uRect.xy + q * uRect.zw).r * 255.0 + 0.5);
+  // コマの中の ドット（整数 0〜255。上から）→ 四角の左上を引いて 切りつめた絵の ドット。整数で 引く
+  // （もとの格子の絵も 同じ計算。四角の外は とうめい）
+  vec2 cp = floor(clamp(vec2(vUv.x, (1.0 - vUv.y)) * 256.0, 0.0, 255.0));
+  vec2 d = cp - floor(uCrop.xy * 256.0 + 0.5);
+  if (d.x < 0.0 || d.y < 0.0 || d.x >= floor(uCrop.z * 256.0 + 0.5) || d.y >= floor(uCrop.w * 256.0 + 0.5)) discard;
+  vec2 t = floor(uRect.xy * uSize + 0.5) + d;
+  float idx = floor(texture2D(uMap, (t + 0.5) / uSize).r * 255.0 + 0.5);
   if (idx < 0.5) discard;
   gl_FragColor = vec4(uPalette[int(idx)] * uTint, 1.0);
   #include <colorspace_fragment>
@@ -131,6 +134,7 @@ export function createCharSprite(deps: CharSpriteDeps): CharSprite {
       uMap: { value: null as THREE.Texture | null },
       uRect: { value: new THREE.Vector4(0, 0, 1, 1) },
       uCrop: { value: new THREE.Vector4(0, 0, 1, 1) },
+      uSize: { value: new THREE.Vector2(1, 1) },
       uPalette: { value: palette },
       uTint: { value: new THREE.Vector3(1, 1, 1) },
     },
@@ -386,6 +390,7 @@ export function createCharSprite(deps: CharSpriteDeps): CharSprite {
       const f = Math.min(v.frame, a.cols - 1);
       const row = tier * 8 + dir;
       uniforms.uMap!.value = tex;
+      (uniforms.uSize!.value as THREE.Vector2).set(a.width, a.height);
       const rect = uniforms.uRect!.value as THREE.Vector4;
       const crop = uniforms.uCrop!.value as THREE.Vector4;
       const cell = a.packed?.cells[row * a.cols + f];
