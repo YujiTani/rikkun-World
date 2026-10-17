@@ -823,8 +823,12 @@ export class WorldRenderer {
    */
   enableStreaming(): void {
     this.streaming = true;
+    this.upgradesOn = false; // 開始(ready)まで 箱から小ブロックへの差しかえは しない
     this.light.setManual(true);
   }
+
+  /** 箱から小ブロックへの差しかえを してよいか（ストリーミングでは ready のあと） */
+  private upgradesOn = true;
 
   get isStreaming(): boolean {
     return this.streaming;
@@ -848,6 +852,9 @@ export class WorldRenderer {
       nextJobDist: () => this.nextJobDist(),
       runJob: () => this.runJob(),
       columnState: (cx, cz) => this.columnState(cx, cz),
+      allowUpgrades: (on) => {
+        this.upgradesOn = on;
+      },
     };
   }
 
@@ -961,6 +968,7 @@ export class WorldRenderer {
           continue;
         }
         const sp = st.player ? 0 : st.built === null || st.dirty ? 1 : 2;
+        if (sp === 2 && !this.upgradesOn) continue;
         if (sp < p || (sp === p && bs !== null && st.sy < bs.sy)) {
           p = sp;
           bs = st;

@@ -55,11 +55,20 @@ function make() {
 }
 
 describe('ストリーミングのメッシュ', () => {
-  it('開始: 半径 2 は本当の段・半径 4 まで何かの絵。描く輪の中だけ作り、仕事は 1 こずつ数える', () => {
+  it('開始: 半径 4 まで何かの絵（半径 2 は箱でよい）。小ブロックへの差しかえは ready のあと。描く輪の中だけ作り、仕事は 1 こずつ数える', () => {
     const { r, stream, view, run } = make();
     view(0, 0);
     stream.restart(0, 0, 'boot');
     expect(stream.ready).toBe(false);
+    stream.setWork(6);
+    for (let i = 0; i < 3000 && !stream.ready; i++) {
+      r.update();
+      stream.update();
+    }
+    expect(stream.ready).toBe(true);
+    for (let dz = -2; dz <= 2; dz++) for (let dx = -2; dx <= 2; dx++) expect(r.streamMesh().columnState(dx, dz)).not.toBe('none');
+    // ready の時点では 小ブロックへの差しかえが のこっている（開始のあと 予算の中で進む）
+    expect(r.streamMesh().pendingJobs()).toBeGreaterThan(0);
     run();
     expect(stream.ready).toBe(true);
     for (let dz = -2; dz <= 2; dz++) for (let dx = -2; dx <= 2; dx++) expect(r.streamMesh().columnState(dx, dz)).toBe('true');

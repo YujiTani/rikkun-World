@@ -35,6 +35,8 @@ export interface StreamMesh {
   runJob(): boolean;
   /** 'true' = その列の本当の段まで・'drawn' = 何かの絵を出している・'none' = まだ */
   columnState(cx: number, cz: number): 'none' | 'drawn' | 'true';
+  /** 箱から小ブロックへの差しかえを してよいか（開始のあと） */
+  allowUpgrades?(on: boolean): void;
 }
 
 /** 列の出どころ・保存先（保存は SaveManager がつなぐ） */
@@ -232,7 +234,7 @@ export class ChunkStream {
         if (c.stage === 'lit') n++; // 光（半径 5）
         if (r > 4 || c.stage !== 'lit') continue;
         const m = this.d.mesh.columnState(cx, cz);
-        if (r <= 2 ? m === 'true' : m !== 'none') n++; // メッシュ（K1・K2）
+        if (m !== 'none') n++; // メッシュ（K1・K2: 何かの絵。半径 2 も 箱でよい）
       }
     }
     return n;
@@ -242,6 +244,7 @@ export class ChunkStream {
   update(): void {
     const t0 = this.now();
     this.drainArrivals();
+    this.d.mesh.allowUpgrades?.(this._ready);
     const prep = this._phase !== 'play';
     const totalMs = prep ? BUDGET_PREP_MS : BUDGET_TOTAL_MS;
     const streamMs = prep ? BUDGET_PREP_MS : BUDGET_STREAM_MS;
@@ -304,6 +307,7 @@ export class ChunkStream {
       if (this.reqSeen.size > 0) this.keepReq = { keys: new Set(this.reqSeen), until: this.tick + REQ_KEEP_FRAMES };
       const kind = this._phase === 'boot' ? 'boot' : 'wait';
       this._phase = 'play';
+      this.d.mesh.allowUpgrades?.(true);
       this.d.onReady?.(kind);
     }
   }
