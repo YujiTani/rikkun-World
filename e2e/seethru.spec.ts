@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { fine } from './helpers/fine';
 
 /**
  * SEETHRU（docs/tickets/SEETHRU.md、issue #142）: 段差の下が空の色にすけて見える。
@@ -81,7 +82,7 @@ const BLOBS_SRC = `async (b64) => {
 async function open(page: Page) {
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.addInitScript(`window.__quiet = ${QUIET_SRC}; window.__isSky = ${IS_SKY_SRC}; window.__blobs = ${BLOBS_SRC};`);
-  await page.goto('/?nosave=1');
+  await page.goto('/' + fine('?nosave=1')); // 絵で すけないか・小ブロックの段を見る（#180: 細かいメッシュのまま）
   await page.waitForFunction(() => window.__rikkun?.ready === true);
 }
 

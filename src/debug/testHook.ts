@@ -23,6 +23,7 @@ import type { WorldHook } from '../world/hook';
 import type { createRenderHook } from '../world/render/renderHook';
 import type { AudioHook } from '../fx/bgm/hook';
 import type { ShadowHook } from '../world/render/shadow/shadowHook';
+import type { FrameClock } from '../world/frameClock';
 import type { PerfOverlay } from './perfOverlay';
 import type { CharSprite, SpriteInfo } from '../char';
 import type { SpriteMotion } from '../char';
@@ -48,6 +49,8 @@ export interface TestHook {
   resume(): void;
   step(count?: number): void;
   renderStats(): RenderStats;
+  /** #179: 1 コマの仕事を 時間（ms）で決めるか 数で決めるか（E2E のサーバーは 'count'） */
+  clock(): FrameClock;
   perfOverlayVisible(): boolean;
   world: WorldHook;
   /** SHADOW-1: 光の位置から計算する影（docs/design/SHADOW.md §8.1） */
@@ -106,7 +109,7 @@ declare global {
 
 export type TestHookGroups = Pick<TestHook, 'shadow' | 'world' | 'render' | 'player' | 'camera' | 'aim' | 'input' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'attack' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm' | 'log' | 'ui' | 'audio' | 'rarity'>;
 
-export function installTestHook(game: Game, overlay: PerfOverlay, groups: TestHookGroups): void {
+export function installTestHook(game: Game, overlay: PerfOverlay, groups: TestHookGroups, clock: FrameClock = 'time'): void {
   window.__rikkun = {
     ready: true,
     tick: () => game.tick,
@@ -122,6 +125,7 @@ export function installTestHook(game: Game, overlay: PerfOverlay, groups: TestHo
     },
     step: (count = 1) => game.step(count),
     renderStats: () => game.getRenderStats(),
+    clock: () => clock,
     perfOverlayVisible: () => overlay.visible,
     ...groups,
   };

@@ -2,6 +2,7 @@ import type { LightField } from '../../contracts';
 import { SECTION_SIZE } from '../../contracts';
 import { columnKey, type ArrayVoxelWorld, type ChangeBox } from '../VoxelWorld';
 import { sectionToArray } from '../sections';
+import { COUNT_LIGHT_TOTAL_MAX, type FrameClock } from '../frameClock';
 import { LIGHT_CONFIG as C } from './config';
 import { combinedBrightness, isDarkForSpawn } from './curve';
 import { EMISSION, OPACITY } from './opacity';
@@ -84,6 +85,7 @@ export class WorldLight implements LightField {
   constructor(
     private readonly world: ArrayVoxelWorld,
     private readonly darkness: SkyDarkness = skyDarkness,
+    private readonly clock: FrameClock = 'time',
   ) {
     this.sy = world.size.y;
     this.nSections = Math.ceil(this.sy / SECTION_SIZE);
@@ -207,7 +209,11 @@ export class WorldLight implements LightField {
     // 数えるのは「ほんとうに計算した」セクションだけ。ふさがり・空だけは ただで片づける（時間の上限つき）
     const t0 = performance.now();
     let real = 0;
-    while (real < BUDGET && this.pending.size > 0 && performance.now() - t0 < TIME_BUDGET_MS) {
+    let calls = 0;
+    const count = this.clock === 'count';
+    // count: 時間は見ない。ただで片づけるものもふくめて 64 回まで
+    while (real < BUDGET && this.pending.size > 0 && (count ? calls < COUNT_LIGHT_TOTAL_MAX : performance.now() - t0 < TIME_BUDGET_MS)) {
+      calls++;
       const key = this.pickNext();
       if (key < 0) break;
       this.pending.delete(key);

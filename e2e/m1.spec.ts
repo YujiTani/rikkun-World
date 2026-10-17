@@ -3,6 +3,8 @@ import { installArena } from './helpers/arena';
 import { WORLD_SIZE } from '../src/contracts';
 import { findUnrubiedKanji } from '../src/ui/text';
 import { waitCharLoaded } from './helpers/char';
+import { waitFrames } from './helpers/anim';
+import { fine } from './helpers/fine';
 
 /**
  * M1 の受け入れ基準のうち、つないだ後の実際のゲームでしか確かめられないもの。
@@ -13,8 +15,10 @@ import { waitCharLoaded } from './helpers/char';
 const SEEDS = [null, 1, 2, 3, 4, 5]; // null = ふだんのシード
 const ASSETS = 'test-shots/assets';
 
-async function open(page: Page, seed: number | null = null) {
-  await page.goto(seed === null ? '/' : `/?seed=${seed}`);
+/** microR32 = true: 細かいメッシュ（小ブロック）のまま開く。E2E のサーバーは ふつう 作らない（#180。docs/tickets/E2E-180.md） */
+async function open(page: Page, seed: number | null = null, microR32 = false) {
+  const q = seed === null ? '' : `?seed=${seed}`;
+  await page.goto('/' + (microR32 ? fine(q) : q));
   await page.waitForFunction(() => window.__rikkun?.ready === true);
   await page.evaluate(() => window.__rikkun!.achievements.mute(true));
   await installArena(page);
@@ -57,7 +61,7 @@ test.describe('M1-01 世界（つないだ後）', () => {
 
   for (const seed of SEEDS) {
     test(`AC10/11/17/18/20: スタート地点・立っている・生成時間・描画量（seed=${seed ?? '既定'}）`, async ({ page }) => {
-      await open(page, seed);
+      await open(page, seed, true); // (b) 描画回数・三角形の上限を見る
       const r = await page.evaluate(() => {
         const h = window.__rikkun! as any;
         h.pause();
@@ -277,7 +281,7 @@ test.describe('M1-01 世界（つないだ後）', () => {
   });
 
   test('AC19: ブロックを変えたあとの見た目の作り直し時間（20 か所）', async ({ page }, testInfo) => {
-    await open(page);
+    await open(page, null, true); // (b) 小ブロックのメッシュの作り直し時間を記録する
     const r = await page.evaluate(() => {
       const h = window.__rikkun! as any;
       h.pause();
@@ -307,7 +311,7 @@ test.describe('M1-01 世界（つないだ後）', () => {
   for (const seed of [null, 1, 3]) {
     test(`AC21: スタート地点のスクショ（seed=${seed ?? '既定'}）`, async ({ page }, testInfo) => {
       await page.setViewportSize({ width: 1280, height: 720 });
-      await open(page, seed);
+      await open(page, seed, true); // (d) スタート地点の景色のスクショ
       const overlayVisible = await page.evaluate(() => {
         const h = window.__rikkun! as any;
         h.pause();
@@ -326,7 +330,7 @@ test.describe('M1-01 世界（つないだ後）', () => {
 
   test('AC22: 上から見たスクショ', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 720 });
-    await open(page);
+    await open(page, null, true); // (d) 地形を上から見るスクショ
     const v = await page.evaluate(() => {
       const h = window.__rikkun! as any;
       h.pause();
@@ -496,7 +500,7 @@ test.describe('M1-02 動き・視点・ロック（つないだ後）', () => {
     const lock = await page.evaluate(() => window.__rikkun!.lock.get());
     expect(lock).toMatchObject({ locked: false, overlayVisible: true, overlayText: 'クリックして あそぼう！' });
     const t0 = await page.evaluate(() => window.__rikkun!.tick());
-    await page.waitForTimeout(1000);
+    await waitFrames(page, 5);
     expect(await page.evaluate(() => window.__rikkun!.tick())).toBe(t0);
     const t1 = await page.evaluate(() => {
       window.__rikkun!.step(30);
@@ -511,7 +515,7 @@ test.describe('M1-02 動き・視点・ロック（つないだ後）', () => {
     expect((await page.evaluate(() => window.__rikkun!.lock.get())).overlayVisible).toBe(false);
     const t0 = await page.evaluate(() => window.__rikkun!.tick());
     // 速さにたよらない: 「止まっていない（tick が進む）」だけを、ゲームに聞いて見る（何コマ進むかは数えない）
-    await expect.poll(async () => page.evaluate(() => window.__rikkun!.tick()), { timeout: 30000 }).toBeGreaterThan(t0);
+    await expect.poll(async () => page.evaluate(() => window.__rikkun!.tick()), { timeout: 0 }).toBeGreaterThan(t0);
   });
 
   test('AC32/AC33/AC34: ロックが外れる → 入力が止まり、戻ると続きから', async ({ page }) => {
@@ -530,7 +534,11 @@ test.describe('M1-02 動き・視点・ロック（つないだ後）', () => {
       const p0 = h.player.get();
       const t0 = h.tick();
       h.resume();
-      await new Promise((r) => setTimeout(r, 1000));
+      await new Promise<void>((r) => {
+        let n = 5;
+        const f = () => (--n <= 0 ? r() : requestAnimationFrame(f));
+        requestAnimationFrame(f);
+      });
       const t1 = h.tick();
       h.pause();
       h.input.press('moveForward');
@@ -572,23 +580,22 @@ test.describe('M1-02 動き・視点・ロック（つないだ後）', () => {
     // ロックなしで resume しても増えない
     await page.evaluate(() => window.__rikkun!.resume());
     let a = await tick();
-    await page.waitForTimeout(700);
+    await waitFrames(page, 5);
     expect(await tick()).toBe(a);
     await page.evaluate(() => window.__rikkun!.lock.simulate(true));
     await page.evaluate(() => window.__rikkun!.pause());
     a = await tick();
-    await page.waitForTimeout(700);
+    await waitFrames(page, 5);
     expect(await tick()).toBe(a);
     await page.evaluate(() => window.__rikkun!.resume());
-    await page.waitForTimeout(700);
-    expect(await tick()).toBeGreaterThan(a);
+    await expect.poll(tick, { timeout: 0 }).toBeGreaterThan(a);
   });
 
   test('AC36: 案内画面の間でも F3 が効く', async ({ page }) => {
     await open(page);
     const before = await page.evaluate(() => window.__rikkun!.perfOverlayVisible());
     await page.keyboard.press('F3');
-    await page.waitForFunction((b) => window.__rikkun!.perfOverlayVisible() !== b, before, { timeout: 500 });
+    await page.waitForFunction((b) => window.__rikkun!.perfOverlayVisible() !== b, before, { timeout: 0 });
   });
 
   test('AC37/AC38: 案内画面のボタンの大きさと漢字', async ({ page }) => {
@@ -619,7 +626,7 @@ test.describe('M1-02 動き・視点・ロック（つないだ後）', () => {
 
   test('AC40: 三人称のスクショ', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 720 });
-    await open(page);
+    await open(page, null, true); // (d) スタートの景色の中の三人称
     await page.evaluate(() => {
       const h = window.__rikkun! as any;
       h.pause();

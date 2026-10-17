@@ -13,6 +13,7 @@ import type { CropStageSource, SectionData } from '../../contracts';
 import { cropKindOfBlock } from '../../contracts';
 import { BLOCK_TYPES, isCrossIndex, isWildIndex } from '../blocks/blockTypes';
 import { createAtlasTexture, WATER_ALPHA } from '../blocks/textures';
+import { COUNT_MESH_MAX, COUNT_MESH_TOTAL_MAX, type FrameClock } from '../frameClock';
 import { WorldLight } from '../light/WorldLight';
 import { sectionGet } from '../sections';
 import { lodSortKey, sectionSortKey } from './drawOrder';
@@ -243,6 +244,9 @@ export class WorldRenderer {
   private bytes = 0;
   private disposed = 0;
   private frame = 0;
+  /** build 1 回で rebuildLog に足した数と、小ブロックを作ったか（count の時計用） */
+  private logged = 0;
+  private loggedMicro = false;
   private evictedCount = 0;
   /** 角の暗がり（AO）の「うまり」のメモリ（バイト）と、持っているセクションの数 */
   private aoBytes = 0;
@@ -264,8 +268,18 @@ export class WorldRenderer {
   /** メッシュが変わった列 (cx, cz) を知らせる（影の地図が範囲に入るときだけ描き直すため） */
   onMeshChange: ((cx: number, cz: number) => void) | null = null;
 
-  constructor(private readonly world: ArrayVoxelWorld) {
-    this.light = new WorldLight(world);
+  /**
+   * microRadius: はじめの小ブロックの半径（0 = 小ブロックなし）。作るときに渡すので、最初の update を待たずに効く
+   * （列の段も 光る前から この半径で決まる。#180: E2E のサーバーは 細かいメッシュを 1 つも作らない）。
+   */
+  constructor(
+    private readonly world: ArrayVoxelWorld,
+    microRadius: number = DEFAULT_MICRO_R,
+    private readonly clock: FrameClock = 'time',
+  ) {
+    this.microR = normalizeMicroR(microRadius);
+    this.config.microRadius = this.microR;
+    this.light = new WorldLight(world, undefined, clock);
     this.mesher = new SectionMesher(world, this.light);
     this.nSections = Math.ceil(world.size.y / 16);
     this.group.name = 'world';
@@ -583,6 +597,10 @@ export class WorldRenderer {
 
   /** 予算（ミリ秒）のあいだ、待ちのセクションを 順に作る（かならず 1 つは作る）。boxOnly: 箱だけ（はじめの一気） */
   private process(budgetMs: number, boxOnly: boolean): void {
+    if (this.clock === 'count' && Number.isFinite(budgetMs)) {
+      this.processCount(boxOnly);
+      return;
+    }
     const t0 = performance.now();
     let did = 0;
     for (;;) {
@@ -591,6 +609,22 @@ export class WorldRenderer {
       if (!st) break;
       this.build(st, boxOnly);
       did++;
+    }
+  }
+
+  /** count の時計: 作ったメッシュ 8 個まで（小ブロックは 1 個で そのコマはおしまい）。作らないものは数えず、合計 256 まで */
+  private processCount(boxOnly: boolean): void {
+    let made = 0;
+    for (let n = 0; n < COUNT_MESH_TOTAL_MAX; n++) {
+      // 1 つの作り直しで 最大 2 つ（本体＋水）のメッシュができる
+      if (made > COUNT_MESH_MAX - 2) break;
+      const st = this.pickNext(boxOnly ? 1 : 2);
+      if (!st) break;
+      this.logged = 0;
+      this.loggedMicro = false;
+      this.build(st, boxOnly);
+      made += this.logged;
+      if (this.loggedMicro) break;
     }
   }
 
@@ -687,6 +721,8 @@ export class WorldRenderer {
     this.meshChanged(st.cx, st.cz);
     if (voxel) this.pushLog(st, tier);
     if (water) this.pushLog(st, 'water');
+    this.logged = (voxel ? 1 : 0) + (water ? 1 : 0);
+    this.loggedMicro = voxel !== null && tier === 'micro';
   }
 
   private atlasMesh(data: MeshData, material: MeshBasicMaterial, order: number, sortKey: number): Mesh {

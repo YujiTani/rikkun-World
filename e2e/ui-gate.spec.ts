@@ -2,6 +2,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import { standOnGround } from './helpers/aim';
 import { toStance } from './helpers/blade';
+import { waitSpritesReady } from './helpers/char';
 import { checkLayout } from './helpers/layoutRules';
 import { checkColors, checkComponents, checkContrast, checkFontSizes, snapshotUi } from './helpers/uiRules';
 
@@ -342,12 +343,7 @@ async function char2Setup(page: Page, held: string, names: string[]): Promise<vo
     h.inventory.select(0);
     h.step(1);
   }, held);
-  await page.waitForFunction((ns) => {
-    const h = window.__rikkun! as any;
-    h.step(1);
-    const st = h.player.doll().sprite.status;
-    return ns.every((n: string) => st?.[n] === 'ready');
-  }, names, { timeout: 8000 });
+  await waitSpritesReady(page, names);
 }
 const CHAR2_SCREENS: Screen[] = [
   {
@@ -649,12 +645,7 @@ test('CHAR-4 AC13: ぼくとう と かたなの 画面の ちがいは キャ�
     h.inventory.select(0);
     h.step(1);
   });
-  await page.waitForFunction((ns) => {
-    const h = window.__rikkun! as any;
-    h.step(1);
-    const st = h.player.doll().sprite.status;
-    return ns.every((n: string) => st?.[n] === 'ready');
-  }, CHAR2_KATANA, { timeout: 10_000 });
+  await waitSpritesReady(page, CHAR2_KATANA);
 
   const shoot = async (slot: number): Promise<Buffer> => {
     await page.evaluate((slot) => {
