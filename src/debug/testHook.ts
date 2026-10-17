@@ -20,7 +20,7 @@ import type { createStorageHook } from '../storage/hook';
 import type { createYokaiHook } from '../yokai';
 import type { createFarmHook } from '../farm';
 import type { WorldHook } from '../world/hook';
-import type { ChunkStats } from '../world/render/WorldRenderer';
+import type { createRenderHook } from '../world/render/renderHook';
 import type { AudioHook } from '../fx/bgm/hook';
 import type { PerfOverlay } from './perfOverlay';
 import type { CharSprite, SpriteInfo } from '../char';
@@ -42,13 +42,15 @@ export interface TestHook {
   ready: boolean;
   tick(): number;
   pause(): void;
+  /** 描画を止める／再開（再開すると次の 1 回を描く） */
+  suspendRender(on: boolean): void;
   resume(): void;
   step(count?: number): void;
   renderStats(): RenderStats;
   perfOverlayVisible(): boolean;
   world: WorldHook;
   /** M5: 距離で描くチャンクの数 */
-  render: { chunks(): ChunkStats };
+  render: ReturnType<typeof createRenderHook>;
   player: PlayerHook;
   camera: CameraHook['camera'];
   /** CHAR-1 第 5.2 版 §4.9: ねらいの点 X・ねらい補助で えらんだ妖怪の id */
@@ -105,6 +107,10 @@ export function installTestHook(game: Game, overlay: PerfOverlay, groups: TestHo
     tick: () => game.tick,
     pause: () => {
       game.paused = true;
+    },
+    suspendRender: (on: boolean) => {
+      game.renderSuspended = on;
+      if (!on) game.renderNow();
     },
     resume: () => {
       game.paused = false;

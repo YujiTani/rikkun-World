@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { ArrayVoxelWorld } from '../../VoxelWorld';
 import { WorldLight } from '../../light/WorldLight';
 import { SkyDarkness } from '../../light/skyDarkness';
+import { BLOCK_INDEX } from '../../blocks/blockTypes';
+import { FACES, flatAoLevels } from '../meshChunk';
+import { OCC_BYTES } from './ao';
 import { SectionMesher, type SectionMeshData } from './sectionMesher';
 
 /** 32×32 の石の台（高さ 0〜20）。ほか: bedrock は y=0 */
@@ -117,7 +120,8 @@ describe('SectionMesher（セクション 1 つのメッシュ。VOX-E）', () =
     }
   });
 
-  it('たいまつ・十字の板・水は 別のメッシュ（extras / water）に入る。レンガは小ブロックの形で描く', () => {
+  // TEX-A（#146）: レンガは平らな箱（5.3）
+  it('たいまつ・十字の板・水・レンガは 別のメッシュ（extras / water）に入る。レンガは平らな箱で描く（TEX-A）', () => {
     const w = slab(20);
     w.setBlock(20, 21, 20, 'torch');
     w.setBlock(21, 21, 20, 'wild_tomato');
@@ -126,13 +130,13 @@ describe('SectionMesher（セクション 1 つのメッシュ。VOX-E）', () =
     const d = new SectionMesher(w).build(1, 1, 1, 'micro');
     expect(d.extras.faceCount).toBeGreaterThan(0);
     expect(d.water.faceCount).toBeGreaterThan(0);
-    // レンガは 形のある種類（looks の OTHER）。たいまつと十字の板だけが extras
-    expect(d.extras.faceCount).toBe(5 + 4);
+    // たいまつ 5 + 十字の板 4 + レンガ 5（台の上なので下の面はかくれる）
+    expect(d.extras.faceCount).toBe(5 + 4 + 5);
     const withBrick = d.faces;
     w.setBlock(22, 21, 20, 'air');
     const without = new SectionMesher(w).build(1, 1, 1, 'micro');
-    expect(withBrick).not.toBe(without.faces);
-    expect(without.extras.faceCount).toBe(d.extras.faceCount);
+    expect(withBrick).not.toBe(without.faces); // 台の上の面がレンガの下でかくれる
+    expect(without.extras.faceCount).toBe(d.extras.faceCount - 5);
   });
 
   it('小ブロック地形のとび出し: 地面のブロックの上のはみ出しは 地面のあるセクションが持つ', () => {
@@ -147,5 +151,155 @@ describe('SectionMesher（セクション 1 つのメッシュ。VOX-E）', () =
     expect(upper.triangles).toBe(0);
     expect(maxOf(lower, 1)).toBeGreaterThan(144); // 草のふさが 上のセクションの高さにはみ出す
     expect(maxOf(lower, 1)).toBeLessThanOrEqual(144 + 9);
+  });
+
+  // ---------------------------------------------------------------- TEX-A（#146）
+
+  it('頂点のデータ aData = [ブロックの種類, 行の符号, 角の印, 面の番号]。色（r, g, b）は 持たない', () => {
+    const w = slab(20);
+    const d = new SectionMesher(w).build(1, 1, 1, 'micro');
+    const stone = BLOCK_INDEX.stone;
+    const grass = BLOCK_INDEX.grass;
+    let seen = 0;
+    for (const p of d.pieces) {
+      for (let v = 0; v < p.vertexCount; v++) {
+        const kind = p.data[v * 4];
+        const row = p.data[v * 4 + 1];
+        const face = p.data[v * 4 + 3];
+        expect(kind === stone || kind === BLOCK_INDEX.bedrock || kind === grass || kind === BLOCK_INDEX.dirt, `種類 ${kind}`).toBe(true);
+        expect(face).toBeLessThan(6);
+        expect(p.data[v * 4 + 2], '角の印（3 ビット）').toBeLessThan(8);
+        if (face < 2) expect(row, '上下の面は 世界の高さで行を決める').toBe(255);
+        else expect(row === 255 || row <= 17, `行の符号 ${row}`).toBe(true);
+        seen++;
+      }
+    }
+    expect(seen).toBeGreaterThan(0);
+  });
+
+  it('小ブロック地形の横の面は 行の符号を持つ（てっぺんから何小ブロック下か）', () => {
+    const w = new ArrayVoxelWorld({ x: 48, y: 48, z: 48 });
+    w.fill(0, 0, 0, 47, 0, 47, 'bedrock');
+    w.fill(0, 1, 0, 47, 19, 47, 'stone');
+    w.fill(0, 20, 0, 47, 20, 47, 'grass');
+    w.fill(20, 21, 20, 30, 21, 30, 'grass'); // 1 ブロックの段（崖）
+    const d = new SectionMesher(w).build(1, 1, 1, 'micro');
+    const rows = new Set<number>();
+    for (const p of d.pieces) for (let v = 0; v < p.vertexCount; v++) if (p.data[v * 4 + 3] >= 2) rows.add(p.data[v * 4 + 1]);
+    expect([...rows].some((r) => r < 255), '地形の横の面に 行の符号').toBe(true);
+    expect(Math.max(...[...rows].filter((r) => r < 255))).toBeLessThanOrEqual(17);
+  });
+
+  it('同じ種類・同じ行の符号の面は 1 まいにまとまる（符号が同じなら 色が ちがっても つながる）', () => {
+    const w = slab(20);
+    const m = new SectionMesher(w);
+    const d = m.build(1, 1, 1, 'micro');
+    // 石の台の上: 地形のてっぺんは 種類が 同じ。面の数は 小ブロックの数より ずっと 少ない
+    expect(d.faces).toBeLessThan(144 * 144);
+  });
+
+  it('道具 7 種は 平らな箱: 1 こ置くと extras の面が 6 以下（三角形 12 以下）。小ブロックの面は ない', () => {
+    for (const id of ['furnace', 'tansu', 'sprinkler', 'brick', 'kawara', 'farmland', 'farmland_wet'] as const) {
+      const w = new ArrayVoxelWorld({ x: 48, y: 48, z: 48 });
+      w.setBlock(24, 24, 24, id);
+      const d = new SectionMesher(w).build(1, 1, 1, 'micro');
+      expect(d.extras.faceCount, id).toBe(6);
+      expect(d.extras.indices.length / 3, id).toBeLessThanOrEqual(12);
+      expect(d.faces, `${id} の小ブロックの面`).toBe(0);
+      expect(d.triangles, id).toBe(12);
+    }
+  });
+
+  it('石は 平らな箱ではない（でこぼこの形）。鉱石も', () => {
+    for (const id of ['stone', 'coal_ore', 'iron_ore'] as const) {
+      const w = new ArrayVoxelWorld({ x: 48, y: 48, z: 48 });
+      w.setBlock(24, 24, 24, id);
+      const d = new SectionMesher(w).build(1, 1, 1, 'micro');
+      expect(d.extras.faceCount, id).toBe(0);
+      expect(d.triangles, id).toBeGreaterThan(12 * 3);
+    }
+  });
+
+  it('平らな箱の面の角の暗がり（AO）: 地面に置いた箱の 横の面の下の角が 暗い。小ブロックの段だけ。上の面は 暗くない', () => {
+    const w = slab(20);
+    w.setBlock(24, 21, 24, 'brick');
+    const micro = new SectionMesher(w).build(1, 1, 1, 'micro');
+    const box = new SectionMesher(w).build(1, 1, 1, 'box');
+    expect(Math.max(...micro.extras.darks), '小ブロックの段: 暗がりがある').toBeGreaterThan(0.1);
+    expect(Math.max(...box.extras.darks), '箱の段: AO なし').toBe(0);
+    // 上の面（y = 22）の 4 つの角は ぜんぶ 0
+    const pos = micro.extras.positions;
+    for (let v = 0; v < pos.length / 3; v++) if (pos[v * 3 + 1] === 22 && pos.slice(v * 3, v * 3 + 3).length === 3) {
+      // 上の面の頂点（y = 22）は 横の面の上の角でもある。上の面の 4 角が 0 かどうかは 下の flatAoLevels で見る
+    }
+    const lv = [0, 0, 0, 0];
+    flatAoLevels(w, 24, 21, 24, FACES[0], lv);
+    expect(lv).toEqual([0, 0, 0, 0]);
+    flatAoLevels(w, 24, 21, 24, FACES[4], lv); // 南の面: 下の角（床と ふれる）は 2（s + c）、上は 0
+    expect(lv.slice().sort()).toEqual([0, 0, 2, 2]);
+  });
+
+  it('平らな箱の AO: 壁ぎわの 内かどは 3', () => {
+    const w = slab(20);
+    w.setBlock(24, 21, 24, 'stone');
+    w.setBlock(25, 21, 25, 'stone');
+    const lv = [0, 0, 0, 0];
+    // 24,21,24 の上の面: +x の となりは 空気 (25,22,24)、+z の となりも 空気。斜めの (25,22,25) も空気 → 0
+    flatAoLevels(w, 24, 21, 24, FACES[0], lv);
+    expect(lv).toEqual([0, 0, 0, 0]);
+    w.setBlock(25, 22, 24, 'stone');
+    w.setBlock(24, 22, 25, 'stone');
+    flatAoLevels(w, 24, 21, 24, FACES[0], lv);
+    expect(Math.max(...lv)).toBe(3);
+  });
+
+  it('箱の下の地面を 横から見せる: 平らな箱の下の地面（となりの列の地形の てっぺんが 同じ高さ）の 横の面を 作る（基準 9）', () => {
+    // 草の地面。まんなかの 1 マスに かまど（かまどの下の草は 地形の列ではなくなる）
+    const w = new ArrayVoxelWorld({ x: 48, y: 48, z: 48 });
+    w.fill(0, 0, 0, 47, 0, 47, 'bedrock');
+    w.fill(0, 1, 0, 47, 19, 47, 'dirt');
+    w.fill(0, 20, 0, 47, 20, 47, 'grass');
+    w.setBlock(24, 21, 24, 'furnace');
+    const m = new SectionMesher(w);
+    const withBox = m.build(1, 1, 1, 'micro');
+    // 下の草 (24, 20, 24) の 4 つの横の面が 地形のとなりへ むけて 形の面になる: 面の数が ふえている
+    const flat = new ArrayVoxelWorld({ x: 48, y: 48, z: 48 });
+    flat.fill(0, 0, 0, 47, 0, 47, 'bedrock');
+    flat.fill(0, 1, 0, 47, 19, 47, 'dirt');
+    flat.fill(0, 20, 0, 47, 20, 47, 'grass');
+    const without = new SectionMesher(flat).build(1, 1, 1, 'micro');
+    expect(withBox.faces).toBeGreaterThan(0);
+    // かまどの下の草のブロック（セクションの中 (8, 4, 8) → 小ブロック x 72〜81・y 36〜45・z 72〜81）に 横の面がある
+    const inG = (d: SectionMeshData): number => {
+      let n = 0;
+      for (const p of d.pieces) {
+        for (let i = 0; i + 3 < p.vertexCount; i += 4) {
+          if (p.data[i * 4 + 3] < 2) continue;
+          const xs = [0, 1, 2, 3].map((k) => p.positions[(i + k) * 3]);
+          const ys = [0, 1, 2, 3].map((k) => p.positions[(i + k) * 3 + 1]);
+          const zs = [0, 1, 2, 3].map((k) => p.positions[(i + k) * 3 + 2]);
+          if (Math.min(...xs) >= 72 && Math.max(...xs) <= 81 && Math.min(...zs) >= 72 && Math.max(...zs) <= 81 && Math.min(...ys) >= 36 && Math.max(...ys) <= 45) n++;
+        }
+      }
+      return n;
+    };
+    expect(inG(withBox), 'かまどの下の草の 横の面（地形のへこみから見える）').toBeGreaterThan(0);
+    expect(inG(new SectionMesher(w).build(1, 1, 1, 'box')), '箱の段では 平らな面だけ').toBeLessThanOrEqual(4);
+    expect(withBox.extras.faceCount).toBe(5); // 地面の上: 上と 横 4（下は かくれる）
+    expect(without.extras.faceCount).toBe(0);
+  });
+
+  it('うまり（角の暗がりの 3D テクスチャの中身）は 小ブロックの段で 面があるときだけ。箱の段・面なしは null', () => {
+    const w = slab(20);
+    const m = new SectionMesher(w);
+    const micro = m.build(1, 1, 1, 'micro');
+    expect(micro.occupancy).not.toBeNull();
+    expect(micro.occupancy!.length).toBe(OCC_BYTES);
+    expect(m.build(1, 1, 1, 'box').occupancy).toBeNull();
+    expect(m.build(1, 3, 1, 'micro').occupancy).toBeNull();
+    // 石の台の中: 小ブロックの 面の となり（y 方向 -1〜）まで うまっている
+    let bits = 0;
+    for (const b of micro.occupancy!) for (let k = 0; k < 8; k++) bits += (b >> k) & 1;
+    expect(bits).toBeGreaterThan(144 * 144 * 5);
   });
 });

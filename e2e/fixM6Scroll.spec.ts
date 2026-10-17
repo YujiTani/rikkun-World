@@ -33,6 +33,8 @@ for (const [w, h] of [[960, 540], [1280, 720]] as const) {
 
     test('ツールチップ: 全文・画面の下と右はしで収まる', async ({ page }) => {
       await open(page);
+      // 文字（DOM）だけ見る: 重い描画で マウス操作が遅れないよう 描画を止める（スクショの前に 戻す）
+      await page.evaluate(() => (window.__rikkun as any).suspendRender(true));
       const slots = page.locator('.inv-slot');
       const n = await slots.count();
       for (const where of ['normal', 'bottom', 'right'] as const) {
@@ -55,6 +57,7 @@ for (const [w, h] of [[960, 540], [1280, 720]] as const) {
           });
           expect(['none', '', 'unset']).toContain(t.clamp);
           if (where === 'bottom') {
+            await page.evaluate(() => (window.__rikkun as any).suspendRender(false));
             await page.screenshot({ path: `${OUT}/fix-m6-scroll-tooltip-${w}.png` });
             break;
           }
@@ -198,14 +201,14 @@ test('かまど: せきたんと あぶら を持つと せきたん が先に�
 test('実キーで W A S D と Shift ながら の D が効く', async ({ page }) => {
   await page.goto('/?nosave=1');
   await page.waitForFunction(() => window.__rikkun?.ready === true);
-  await page.evaluate(() => (window.__rikkun as any).lock.simulate(true));
-  await page.waitForTimeout(300);
+  // 実キーは本物のキー入力。時間は step() で進める（機械の速さに よらない）
+  await page.evaluate(() => { const h = window.__rikkun as any; h.lock.simulate(true); h.pause(); h.step(5); });
   const pos = () => page.evaluate(() => (window.__rikkun as any).player.get().position as { x: number; z: number });
-  // ソフト描画で 3 並列だとコマが遅れるので、決まった時間は待たず「0.3 マス動くまで」待つ（最大 3 秒）
   const movesWhileHeld = async (keys: string[], axis: 'x' | 'z', sign: number, label: string) => {
     const a = await pos();
     for (const k of keys) await page.keyboard.down(k);
-    await expect.poll(async () => ((await pos())[axis] - a[axis]) * sign, { message: label, timeout: 3000 }).toBeGreaterThan(0.3);
+    await page.evaluate(() => (window.__rikkun as any).step(30)); // 0.5 びょう分
+    expect(((await pos())[axis] - a[axis]) * sign, label).toBeGreaterThan(0.3);
     for (const k of [...keys].reverse()) await page.keyboard.up(k);
   };
   const dirs: [string, 'x' | 'z', number][] = [['KeyW', 'z', -1], ['KeyS', 'z', 1], ['KeyA', 'x', -1], ['KeyD', 'x', 1]];

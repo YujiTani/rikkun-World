@@ -11,7 +11,6 @@ import {
 } from 'three';
 import type { CropStageSource, SectionData } from '../../contracts';
 import { cropKindOfBlock } from '../../contracts';
-import { createShapeTexture } from '../../proto/voxel/shapeTexture';
 import { BLOCK_TYPES, isCrossIndex, isWildIndex } from '../blocks/blockTypes';
 import { createAtlasTexture, WATER_ALPHA } from '../blocks/textures';
 import { WorldLight } from '../light/WorldLight';
@@ -24,9 +23,10 @@ import { CropSwayMesh, SWAY_POOL_MAX, type SwayItem } from './cropSway';
 import { meshChunkLod } from './lodMesh';
 import { crossTileName, RIPE_FLAG, type MeshData } from './meshChunk';
 import { pickEvictions } from './voxel/geometryBudget';
+import { setAoRadius } from './voxel/aoUniforms';
 import { SectionMesher, type SectionMeshData, type VoxelPiece } from './voxel/sectionMesher';
 import { DEFAULT_MICRO_R, columnDistance, nextTier, normalizeMicroR, type Tier } from './voxel/tier';
-import { createVoxelMaterial } from './voxel/voxelMaterial';
+import { createOccupancyTexture, createVoxelMaterial, createVoxelShared, type VoxelShared } from './voxel/voxelMaterial';
 
 export interface RebuildStats {
   /** いちばん最近の作り直し（セクション 1 つ分のメッシュ作り）にかかったミリ秒（描画そのものはふくまない） */
@@ -134,6 +134,10 @@ interface SecState {
   voxel: Mesh | null;
   extras: Mesh | null;
   water: Mesh | null;
+  /** 小ブロックの段の材料（このセクションの「うまり」のテクスチャを持つ）と、うまりの中身（角の暗がり用。TEX-A） */
+  voxMat: MeshBasicMaterial | null;
+  aoTex: Data3DTexture | null;
+  occ: Uint8Array | null;
   bytes: number;
   tris: number;
 }
@@ -158,6 +162,7 @@ function toGeometry(data: MeshData): BufferGeometry {
   if (data.uvs.length > 0) g.setAttribute('uv', new BufferAttribute(new Float32Array(data.uvs), 2));
   g.setAttribute('color', new BufferAttribute(new Float32Array(data.colors), 3));
   g.setAttribute('aLight', new BufferAttribute(new Float32Array(data.lights), 2));
+  g.setAttribute('aDark', new BufferAttribute(new Float32Array(data.darks), 1));
   g.setIndex(new BufferAttribute(new Uint32Array(data.indices), 1));
   g.computeBoundingSphere();
   g.computeBoundingBox();
@@ -218,8 +223,9 @@ export class WorldRenderer {
   geometryBytesLimit = GEOMETRY_BYTES_LIMIT;
   private readonly cols = new Map<number, ColState>();
   private readonly atlas: Texture;
-  private readonly shapeTex: Data3DTexture;
-  private readonly voxelMaterial: MeshBasicMaterial;
+  private readonly voxelShared: VoxelShared;
+  /** 箱の段の材料（うまりなし） */
+  private readonly boxMaterial: MeshBasicMaterial;
   private readonly opaqueMaterial: MeshBasicMaterial;
   private readonly waterMaterial: MeshBasicMaterial;
   /** LOD 用: テクスチャなし（頂点の色だけ） */
@@ -237,6 +243,9 @@ export class WorldRenderer {
   private disposed = 0;
   private frame = 0;
   private evictedCount = 0;
+  /** 角の暗がり（AO）の「うまり」のメモリ（バイト）と、持っているセクションの数 */
+  private aoBytes = 0;
+  private aoSections = 0;
   private readonly log: RebuildLogEntry[] = [];
   private stats: RebuildStats = { lastMs: 0, count: 0 };
   /** なでた ゆれ（M7-2）: ゆれ中の 作物 を 専用メッシュ で 描き、セクション側 の 板 は 隠す */
@@ -256,8 +265,9 @@ export class WorldRenderer {
     this.nSections = Math.ceil(world.size.y / 16);
     this.group.name = 'world';
     this.atlas = createAtlasTexture();
-    this.shapeTex = createShapeTexture(BLOCK_TYPES.length);
-    this.voxelMaterial = createVoxelMaterial(this.shapeTex);
+    this.voxelShared = createVoxelShared(this.atlas);
+    this.boxMaterial = createVoxelMaterial(this.voxelShared, null);
+    setAoRadius(this.microR);
     // alphaTest: 作物などの十字の板の すきとおる所を切りぬく
     this.opaqueMaterial = new MeshBasicMaterial({ map: this.atlas, vertexColors: true, alphaTest: 0.5 });
     this.waterMaterial = new MeshBasicMaterial({
@@ -311,6 +321,9 @@ export class WorldRenderer {
         voxel: null,
         extras: null,
         water: null,
+        voxMat: null,
+        aoTex: null,
+        occ: null,
         bytes: 0,
         tris: 0,
       });
@@ -481,6 +494,7 @@ export class WorldRenderer {
     const r = normalizeMicroR(this.config.microRadius);
     if (r !== this.microR) {
       this.microR = r;
+      setAoRadius(r);
       this.retier();
     }
     this.light.update();
@@ -625,12 +639,20 @@ export class WorldRenderer {
 
   private install(st: SecState, data: SectionMeshData, tier: 'micro' | 'box'): void {
     const oldMeshes = [st.voxel, st.extras, st.water];
+    const oldMat = st.voxMat;
+    const oldTex = st.aoTex;
     let voxel: Mesh | null = null;
     let extras: Mesh | null = null;
     let water: Mesh | null = null;
     const org = [st.cx * CHUNK_SIZE, st.sy * 16, st.cz * CHUNK_SIZE] as const;
+    let voxMat: MeshBasicMaterial | null = null;
+    let aoTex: Data3DTexture | null = null;
     if (data.pieces.length > 0) {
-      voxel = new Mesh(voxelGeometry(data.pieces[0]), this.voxelMaterial);
+      if (data.occupancy) {
+        aoTex = createOccupancyTexture(data.occupancy);
+        voxMat = createVoxelMaterial(this.voxelShared, aoTex);
+      }
+      voxel = new Mesh(voxelGeometry(data.pieces[0]), voxMat ?? this.boxMaterial);
       voxel.scale.setScalar(1 / 9);
       voxel.position.set(org[0], org[1], org[2]);
       voxel.matrixAutoUpdate = false;
@@ -641,6 +663,13 @@ export class WorldRenderer {
     if (data.water.faceCount > 0) water = this.atlasMesh(data.water, this.waterMaterial, RENDER_CONFIG.waterRenderOrder);
     this.bytes -= st.bytes;
     for (const m of oldMeshes) if (m) this.disposeMesh(m);
+    oldMat?.dispose();
+    oldTex?.dispose();
+    this.aoBytes += (aoTex ? data.occupancy!.length : 0) - (st.occ ? st.occ.length : 0);
+    this.aoSections += (aoTex ? 1 : 0) - (st.occ ? 1 : 0);
+    st.voxMat = voxMat;
+    st.aoTex = aoTex;
+    st.occ = aoTex ? data.occupancy : null;
     st.voxel = voxel;
     st.extras = extras;
     st.water = water;
@@ -678,6 +707,15 @@ export class WorldRenderer {
     if (!st.voxel && !st.extras && !st.water) return;
     for (const m of [st.voxel, st.extras, st.water]) if (m) this.disposeMesh(m);
     st.voxel = st.extras = st.water = null;
+    st.voxMat?.dispose();
+    st.aoTex?.dispose();
+    if (st.occ) {
+      this.aoBytes -= st.occ.length;
+      this.aoSections--;
+    }
+    st.voxMat = null;
+    st.aoTex = null;
+    st.occ = null;
     this.bytes -= st.bytes;
     st.bytes = 0;
     st.tris = 0;
@@ -762,6 +800,26 @@ export class WorldRenderer {
     return { tier, reason: null, meshes, triangles: st.tris, dist };
   }
 
+  /** 角の暗がり（AO）の 作り方・小ブロックの半径・うまりのメモリ・持っているセクションの数（hook render.aoStats） */
+  aoStats(): { mode: 'shader'; radius: number; textureBytes: number; sections: number } {
+    return { mode: 'shader', radius: this.microR, textureBytes: this.aoBytes, sections: this.aoSections };
+  }
+
+  /** そのセクションの「うまり」（小ブロックの段で、面があるときだけ。無ければ null） */
+  occupancyOf(sx: number, sy: number, sz: number): Uint8Array | null {
+    return this.colAt(sx, sz)?.secs[sy]?.occ ?? null;
+  }
+
+  /** 視点（水平）。まだ無ければ null */
+  viewerNow(): { x: number; z: number } | null {
+    return this.viewer;
+  }
+
+  /** 全部のセクションを 作り直しに出す（テスト用: 小ブロック地形の入り切りのあと） */
+  rebuildAll(): void {
+    for (const col of this.cols.values()) for (const st of col.secs) this.markDirty(st, false);
+  }
+
   /** 小ブロックの半径（F3 表示用。sectionStats より軽い） */
   get microRadiusNow(): number {
     return this.microR;
@@ -840,7 +898,7 @@ export class WorldRenderer {
 
   /** 絵の材料（昼夜の明るさを渡すために登録する用） */
   materials(): MeshBasicMaterial[] {
-    return [this.voxelMaterial, this.opaqueMaterial, this.waterMaterial, this.lodOpaqueMaterial, this.lodWaterMaterial];
+    return [this.boxMaterial, this.opaqueMaterial, this.waterMaterial, this.lodOpaqueMaterial, this.lodWaterMaterial];
   }
 
   /** メッシュの数（描画回数の目安。見えているもの） */
@@ -857,17 +915,21 @@ export class WorldRenderer {
   dispose(): void {
     this.group.removeFromParent();
     for (const col of this.cols.values()) {
-      for (const st of col.secs) for (const m of [st.voxel, st.extras, st.water]) m?.geometry.dispose();
+      for (const st of col.secs) {
+        for (const m of [st.voxel, st.extras, st.water]) m?.geometry.dispose();
+        st.voxMat?.dispose();
+        st.aoTex?.dispose();
+      }
       col.lodOpaque?.geometry.dispose();
       col.lodWater?.geometry.dispose();
     }
     this.swayMesh?.dispose();
-    this.voxelMaterial.dispose();
+    this.boxMaterial.dispose();
+    this.voxelShared.dummyAo.dispose();
     this.opaqueMaterial.dispose();
     this.waterMaterial.dispose();
     this.lodOpaqueMaterial.dispose();
     this.lodWaterMaterial.dispose();
-    this.shapeTex.dispose();
     this.atlas.dispose();
   }
 
