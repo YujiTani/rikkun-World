@@ -37,6 +37,15 @@ export const BLOCK_TYPES: readonly BlockType[] = [
   { id: 'kakashi_head', name: 'かかし', solid: false, breakable: false },
   { id: 'saku', name: 'さく', solid: false, breakable: true },
   { id: 'sprinkler', name: 'スプリンクラー', solid: true, breakable: true },
+  // VOX-I-1（12 の国。番号は後ろに足す）
+  { id: 'snow', name: 'ゆき', solid: true, breakable: true },
+  { id: 'momiji_leaves', name: 'もみじの はっぱ', solid: true, breakable: true },
+  { id: 'matsu_leaves', name: 'まつの はっぱ', solid: true, breakable: true },
+  { id: 'flower_y', name: 'はな', solid: false, breakable: true },
+  { id: 'flower_o', name: 'はな', solid: false, breakable: true },
+  { id: 'flower_p', name: 'はな', solid: false, breakable: true },
+  { id: 'bamboo', name: 'たけ', solid: true, breakable: true },
+  { id: 'susuki', name: 'すすき', solid: false, breakable: true },
 ];
 
 export const BLOCK_INDEX: Readonly<Record<BlockId, number>> = Object.fromEntries(
@@ -68,6 +77,7 @@ const CROSS_IDS: ReadonlySet<string> = new Set([
   'crop_onion', 'crop_tomato', 'crop_pumpkin', 'crop_eggplant',
   'wild_onion', 'wild_tomato', 'wild_pumpkin', 'wild_eggplant',
   'kakashi', 'kakashi_head', 'saku',
+  'flower_y', 'flower_o', 'flower_p', 'susuki',
 ]);
 const CROSS = BLOCK_TYPES.map((t) => CROSS_IDS.has(t.id));
 /** 十字の板で描くブロックか（作物・やせいの やさい・かかし・さく）。固くない・光を通す・まわりの面を隠さない */
@@ -78,6 +88,15 @@ export function isCrossIndex(index: number): boolean {
 const WILD_IDS: ReadonlySet<string> = new Set(['wild_onion', 'wild_tomato', 'wild_pumpkin', 'wild_eggplant']);
 export function isWildIndex(index: number): boolean {
   return WILD_IDS.has(BLOCK_TYPES[index]?.id);
+}
+
+/** はっぱの なかま（はっぱ・もみじの はっぱ・まつの はっぱ。光を 1 弱める・屋根にならない・上に乗れない 床にならない） */
+const LEAF_IDS: ReadonlySet<string> = new Set(['leaves', 'momiji_leaves', 'matsu_leaves']);
+export function isLeafId(id: string): boolean {
+  return LEAF_IDS.has(id);
+}
+export function isLeafIndex(index: number): boolean {
+  return LEAF_IDS.has(BLOCK_TYPES[index]?.id);
 }
 
 /** 色のついた不透明ブロックか（面を描く・隠す判定に使う）。水・空気・十字の板はちがう */

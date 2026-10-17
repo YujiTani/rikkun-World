@@ -20,6 +20,7 @@ import type { createStorageHook } from '../storage/hook';
 import type { createYokaiHook } from '../yokai';
 import type { createFarmHook } from '../farm';
 import type { WorldHook } from '../world/hook';
+import type { BiomeHook } from '../world/gen/biomeHook';
 import type { createRenderHook } from '../world/render/renderHook';
 import type { AudioHook } from '../fx/bgm/hook';
 import type { ShadowHook } from '../world/render/shadow/shadowHook';
@@ -50,6 +51,8 @@ export interface TestHook {
   renderStats(): RenderStats;
   perfOverlayVisible(): boolean;
   world: WorldHook;
+  /** VOX-I-1 §8.1: 12 の国（at・here・find・take.path） */
+  biome: BiomeHook;
   /** SHADOW-1: 光の位置から計算する影（docs/design/SHADOW.md §8.1） */
   shadow: ShadowHook;
   /** M5: 距離で描くチャンクの数 */
@@ -104,7 +107,7 @@ declare global {
   }
 }
 
-export type TestHookGroups = Pick<TestHook, 'shadow' | 'world' | 'render' | 'player' | 'camera' | 'aim' | 'input' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'attack' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm' | 'log' | 'ui' | 'audio' | 'rarity'>;
+export type TestHookGroups = Pick<TestHook, 'shadow' | 'world' | 'biome' | 'render' | 'player' | 'camera' | 'aim' | 'input' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'attack' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm' | 'log' | 'ui' | 'audio' | 'rarity'>;
 
 export function installTestHook(game: Game, overlay: PerfOverlay, groups: TestHookGroups): void {
   window.__rikkun = {

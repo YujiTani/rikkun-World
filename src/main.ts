@@ -99,6 +99,7 @@ import { PlayOverlay } from './ui/playOverlay';
 import { ArrayVoxelWorld } from './world/VoxelWorld';
 import { GEN_CONFIG } from './world/gen/config';
 import { populateWorld } from './world/gen/populate';
+import { createBiomeHook } from './world/gen/biomeHook';
 import { createWorldHook } from './world/hook';
 import { WorldRenderer } from './world/render/WorldRenderer';
 import { decideMicroR } from './world/render/voxel/tier';
@@ -1529,6 +1530,7 @@ installTestHook(game, overlay, {
     setEnabled: setShadow,
   }),
   world: createWorldHook(world, renderer, island),
+  biome: createBiomeHook({ seed, player: () => controller.state.position }),
   render: createRenderHook({
     world,
     renderer,

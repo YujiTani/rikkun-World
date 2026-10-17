@@ -12,6 +12,9 @@ const BLOCK_FAMILY: Partial<Record<BlockId, ToolFamily>> = {
   // き（あう道具: おの）
   log: 'log',
   leaves: 'log',
+  momiji_leaves: 'log',
+  matsu_leaves: 'log',
+  bamboo: 'log',
   saku: 'log',
   tansu: 'log',
   // いし（あう道具: つるはし）
@@ -26,6 +29,7 @@ const BLOCK_FAMILY: Partial<Record<BlockId, ToolFamily>> = {
   grass: 'dirt',
   dirt: 'dirt',
   sand: 'dirt',
+  snow: 'dirt',
   farmland: 'dirt',
   farmland_wet: 'dirt',
 };

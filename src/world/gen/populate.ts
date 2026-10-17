@@ -5,7 +5,10 @@ import { HW, columnHash, generateChunk } from './chunk';
 import { GEN_CONFIG as C } from './config';
 import { startFeaturesOf, type StartFeatures } from './features';
 import { LOAD_BOUNDS, edgeDistance, edgeHeight, generateLoaded, mouthsInBounds, type Bounds, type MouthInfo } from './region';
-import { terrainAt, terrainFor, type BiomeKind } from './terrain';
+import { microCountries } from '../micro/microSurface';
+import { defOf, newSample } from './biome';
+import type { CountryKind } from './config';
+import { terrainAt, terrainFor } from './terrain';
 import { treesInRect } from './trees';
 
 /**
@@ -19,7 +22,7 @@ export interface WorldGenInfo extends IslandInfo {
   startTorch(): { x: number; y: number; z: number };
   startFeatures(): StartFeatures;
   caveMouths(): MouthInfo[];
-  terrainAt(x: number, z: number): { h: number; biome: BiomeKind; sea: boolean };
+  terrainAt(x: number, z: number): { h: number; biome: CountryKind; sea: boolean };
   genHash(cx: number, cz: number): string;
   genStats(): { columns: number; medianMs: number; maxMs: number; spawnSearchMs: number };
   loadedChunks(): { cx: number; cz: number }[];
@@ -74,7 +77,28 @@ export function populateWorld(world: ChunkedVoxelWorld, seed: number, bounds: Bo
     }
   }
   world.edgeClosedBelow = SEA_Y - 8; // 海のふちの 海ゆかより下は 外から見えない（地下の「見えない」印を ふちの列まで）
-  world.microForest = (bx, bz) => T.biome(bx, bz).forest;
+  // 12 の国: 小ブロックの地面のきまりを 国（と 境目のまぜ具合）ごとの表の番号で返す
+  const microKeys = new Map<string, number>();
+  const microTmp = newSample();
+  world.microForest = (bx, bz) => {
+    const b = T.biome(bx, bz, microTmp);
+    const q = Math.round(b.a * 8);
+    const key = `${b.kind}|${b.kind2}|${q}`;
+    let idx = microKeys.get(key);
+    if (idx === undefined) {
+      const w = q / 8;
+      const m1 = defOf(b.kind).micro;
+      const m2 = defOf(b.kind2).micro;
+      microCountries.table.push({
+        tuftThreshold: m1.tuft * w + m2.tuft * (1 - w),
+        rockChance: m1.rock * w + m2.rock * (1 - w),
+        soilThreshold: m1.soil * w + m2.soil * (1 - w),
+      });
+      idx = microCountries.table.length;
+      microKeys.set(key, idx);
+    }
+    return idx;
+  };
   const h = (x: number, z: number): number => H[(z - bounds.z0) * W + (x - bounds.x0)]!;
 
   const startTorch = (): { x: number; y: number; z: number } => {

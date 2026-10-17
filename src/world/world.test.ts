@@ -16,6 +16,8 @@ const ALL_IDS: BlockId[] = [
   // M7
   'farmland', 'farmland_wet', 'crop_onion', 'crop_tomato', 'crop_pumpkin', 'crop_eggplant',
   'wild_onion', 'wild_tomato', 'wild_pumpkin', 'wild_eggplant', 'kakashi', 'kakashi_head', 'saku', 'sprinkler',
+  // #184 VOX-I-1（うしろに足す）
+  'snow', 'momiji_leaves', 'matsu_leaves', 'flower_y', 'flower_o', 'flower_p', 'bamboo', 'susuki',
 ];
 
 /** この試験は M1 の 64×32×64 の世界で書かれている */

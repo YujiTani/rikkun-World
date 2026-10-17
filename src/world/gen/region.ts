@@ -34,7 +34,8 @@ export function edgeDistance(b: Bounds, x: number, z: number): number {
 }
 
 /** ブロックの並びに 仮の海のふちをかける。heights（18×18）も その列の高さに直す */
-export function applyEdgeSea(blocks: Uint8Array, heights: Int16Array, cx: number, cz: number, b: Bounds): void {
+export function applyEdgeSea(blocks: Uint8Array, heights: Int16Array, cx: number, cz: number, b: Bounds, seed: number): void {
+  const T = terrainFor(seed);
   const x0 = cx * CHUNK_SIZE;
   const z0 = cz * CHUNK_SIZE;
   // どの列も ふちから 50 より内側なら 何もしない（高さは 270 まで ＝ e ≤ 3 + 270 − 140）
@@ -46,12 +47,12 @@ export function applyEdgeSea(blocks: Uint8Array, heights: Int16Array, cx: number
       const cut = edgeHeight(h, e);
       if (cut >= h) continue;
       const base = lz * CHUNK_SIZE + lx;
-      // H' より上の物（木・岩・はっぱ）は消す
-      const top = Math.min(WORLD_HEIGHT - 1, Math.max(h + 8, SEA_Y));
+      // H' より上の物（木・岩・はっぱ・たけ）は消す。大木は みき 14 ＋ はっぱ 2 まで
+      const top = Math.min(WORLD_HEIGHT - 1, Math.max(h + 20, SEA_Y));
       for (let y = cut + 1; y <= top; y++) blocks[y * LAYER + base] = AIR;
       // 下の 洞くつは 海の底にあなをあけない（H'−10〜H'−2 は いしでうめる）
       for (let y = Math.max(1, cut - 10); y <= cut - 2; y++) if (blocks[y * LAYER + base] === AIR) blocks[y * LAYER + base] = STONE;
-      writeStrata(blocks, lx, lz, cut, false, Math.max(1, cut - 12));
+      writeStrata(blocks, lx, lz, cut, false, Math.max(1, cut - 12), T.topBlock(x0 + lx, z0 + lz, cut));
       heights[hi] = cut;
     }
   }
@@ -60,7 +61,7 @@ export function applyEdgeSea(blocks: Uint8Array, heights: Int16Array, cx: number
 /** 列を 1 つ作り、仮の海のふちをかける（読みこむ用） */
 export function generateLoaded(seed: number, cx: number, cz: number, bounds: Bounds = LOAD_BOUNDS): { column: ChunkColumn; heights: Int16Array } {
   const built = buildBlocks(seed, cx, cz);
-  applyEdgeSea(built.blocks, built.heights, cx, cz, bounds);
+  applyEdgeSea(built.blocks, built.heights, cx, cz, bounds, seed);
   return { column: { cx, cz, sections: toSections(built.blocks) }, heights: built.heights };
 }
 

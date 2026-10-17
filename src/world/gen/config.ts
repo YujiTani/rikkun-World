@@ -1,5 +1,68 @@
 import { SEA_Y, WORLD_HEIGHT } from '../../contracts';
 
+/** VOX-I-1: 12 の国（docs/design/VOX-I.md §2）。山でない 8 国と、山の 4 国 */
+export const COUNTRY_KINDS: readonly CountryKind[] = ['harappa', 'mori', 'ookina', 'hana', 'sunahama', 'susuki', 'take', 'kappa', 'iwayama', 'tengu', 'momiji', 'yuki'];
+export const MOUNTAIN_KINDS: readonly CountryKind[] = ['iwayama', 'tengu', 'momiji', 'yuki'];
+export type CountryKind = 'harappa' | 'mori' | 'ookina' | 'hana' | 'sunahama' | 'susuki' | 'take' | 'kappa' | 'iwayama' | 'tengu' | 'momiji' | 'yuki';
+
+/** 国ごとの数（VOX-I §6 の表）。高さは SEA_Y からの相対 */
+export interface CountryDef {
+  hillScale: number;
+  hill: number;
+  bump: number;
+  cliff: number;
+  /** 木になる区画の割合 */
+  trees: number;
+  /** すな にする高さ（海から これ未満だけ。なければ くさ） */
+  sandBelow?: number;
+  /** ゆき にする高さ（海から これ以上は てっぺんまで ゆき） */
+  snowFrom?: number;
+  /** いし にする高さ（海から これ以上。なければ stoneTopFrom） */
+  stoneFrom?: number;
+  /** 大陸の高さを まるごと 上げ下げ（境目で まぜる） */
+  landShift?: number;
+  leaves?: 'momiji_leaves' | 'matsu_leaves';
+  /** 見える せきたん・てつ の 倍 */
+  visibleOre?: number;
+  /** 木のうち 2×2 の大木の割合 */
+  bigTree?: number;
+  /** 1 列（16×16）の上限 */
+  cap?: { trees?: number; bigTrees?: number; flower?: number; susuki?: number; take?: number };
+  /** 草の上の 物の割合（1 マスあたり） */
+  flower?: number;
+  susuki?: number;
+  take?: number;
+  /** たけやぶ の道のはば */
+  path?: readonly [number, number];
+  /** 山の形（§3.6） */
+  mountain?: { top: number; k: number; plateau: number };
+  /** かっぱの ぬま: 浅い所を 持ち上げる（§3.8） */
+  landFloor?: { above: number; eFrom: number; eTo: number; onlyFrom: number; taper: number; mustArea: number };
+  pond?: { count: readonly [number, number]; must: number; mustArea: number; slot: number; width: readonly [number, number]; depth: readonly [number, number]; eMin: number };
+  /** 小ブロックの地面のきまり */
+  micro: { tuft: number; rock: number; soil: number };
+}
+
+const COUNTRIES: Readonly<Record<CountryKind, CountryDef>> = {
+  harappa: { hillScale: 64, hill: 10, bump: 1.5, cliff: 0.04, trees: 0.09, micro: { tuft: 0.6, rock: 0.4, soil: 0.22 } },
+  mori: { hillScale: 48, hill: 14, bump: 2, cliff: 0.08, trees: 0.6, cap: { trees: 12 }, micro: { tuft: 0.5, rock: 0.5, soil: 0.3 } },
+  ookina: { hillScale: 56, hill: 10, bump: 1.5, cliff: 0.04, trees: 0.2, bigTree: 0.6, cap: { trees: 5, bigTrees: 2 }, micro: { tuft: 0.45, rock: 0.4, soil: 0.35 } },
+  hana: { hillScale: 72, hill: 8, bump: 1, cliff: 0.02, trees: 0.04, flower: 0.15, cap: { flower: 40 }, micro: { tuft: 0.7, rock: 0.25, soil: 0.15 } },
+  sunahama: { hillScale: 96, hill: 6, bump: 1, cliff: 0, trees: 0.01, sandBelow: 10, landShift: -16, micro: { tuft: 0.95, rock: 0.25, soil: 0 } },
+  susuki: { hillScale: 80, hill: 9, bump: 1, cliff: 0.02, trees: 0.02, susuki: 0.156, cap: { susuki: 40 }, micro: { tuft: 0.8, rock: 0.3, soil: 0.15 } },
+  take: { hillScale: 56, hill: 8, bump: 1.5, cliff: 0.04, trees: 0, take: 0.23, path: [2, 3], cap: { take: 60 }, micro: { tuft: 0.7, rock: 0.3, soil: 0.35 } },
+  kappa: {
+    hillScale: 96, hill: 4, bump: 1, cliff: 0, trees: 0.06,
+    landFloor: { above: 2, eFrom: 14, eTo: 30, onlyFrom: -4, taper: 8, mustArea: 18 },
+    pond: { count: [4, 8], must: 4, mustArea: 18, slot: 9, width: [4, 7], depth: [1, 2], eMin: 30 },
+    micro: { tuft: 0.45, rock: 0.2, soil: 0.4 },
+  },
+  iwayama: { hillScale: 40, hill: 8, bump: 2, cliff: 0.08, trees: 0.04, stoneFrom: 20, visibleOre: 3, mountain: { top: 70, k: 0.8, plateau: 3 }, micro: { tuft: 0.75, rock: 0.8, soil: 0.1 } },
+  tengu: { hillScale: 40, hill: 8, bump: 2, cliff: 0.08, trees: 0.12, stoneFrom: 30, leaves: 'matsu_leaves', visibleOre: 2.5, mountain: { top: 68, k: 0.87, plateau: 1 }, micro: { tuft: 0.75, rock: 0.8, soil: 0.1 } },
+  momiji: { hillScale: 48, hill: 8, bump: 2, cliff: 0.04, trees: 0.45, leaves: 'momiji_leaves', visibleOre: 1.5, mountain: { top: 64, k: 0.6, plateau: 4 }, micro: { tuft: 0.6, rock: 0.6, soil: 0.25 } },
+  yuki: { hillScale: 40, hill: 8, bump: 2, cliff: 0.04, trees: 0.03, snowFrom: 40, visibleOre: 2, mountain: { top: 80, k: 0.85, plateau: 3 }, micro: { tuft: 0.9, rock: 0.7, soil: 0.05 } },
+};
+
 /**
  * 世界生成の数値（VOX-B。docs/tickets/VOX-B.md の「数の表」）。ここだけで変えられるようにする。
  * 高さは SEA_Y（海面）からの相対で書く。
@@ -26,8 +89,8 @@ export const GEN_CONFIG = {
     farRadius: 192,
     /** 陸の重み L = clamp((Hb − SEA_Y) / landRamp, 0, 1) */
     landRamp: 24,
-    /** 山: smoothstep(from, to, n(scale)) × peak × L × (1 − w) */
-    mountain: { scale: 512, from: 0.62, to: 0.85, peak: 50 },
+    /** 山（山の国いがい用の「高台」）: smoothstep(from, to, n(scale)) × peak × L × (1 − w) */
+    mountain: { scale: 512, from: 0.62, to: 0.85, peak: 20 },
     /** でこぼこの大きさ */
     bumpScale: 16,
     /** 崖: n(scale) の順位が (1 − 割合) より上の所を step の倍数に切り下げる（L ≥ minL かつ w = 0） */
@@ -37,22 +100,34 @@ export const GEN_CONFIG = {
     max: 270,
   },
 
-  /** バイオーム（B1〜B5） */
+  /** 国（VOX-I-1。docs/design/VOX-I.md §3・§6）。升目の点・境目・はじまり・山のわく */
   biome: {
-    cell: 128,
-    pointMin: 16,
-    pointSpan: 96,
-    /** しめり n(384) がこれ以上なら森 */
-    forestMoist: 0.56,
-    noiseScale: 384,
-    /** 境目のはば（いちばん近い 2 点の距離の差） */
-    blend: 16,
+    cell: 112,
+    pointMin: 28,
+    pointSpan: 56,
+    /** 「しめり」「でこぼこ」のノイズの格子の大きさ */
+    noiseScale: 256,
+    /** 境目のはば（いちばん近い 2 点の距離の差 e） */
+    blend: 14,
+    /** anchor から この距離以内に点がある升目は はじまりの はらっぱ */
+    startForce: 80,
+    /**
+     * ノイズの値 → 0〜1 の順位の表（101 こ、小さい順）。シード 20261012 の 値ノイズ（subSeed 105、格子 256）を 間かく 16・4096×4096 で読み、
+     * 小さい順に並べた 1% きざみ。シードで変えない。ノイズの目（105）は、3 つのシードで 8 国が 12.5% に近くなる目を えらんだ（#184-AC2）
+     */
+    rankTable: [
+      6e-05, 0.05993, 0.08786, 0.11269, 0.13514, 0.1527, 0.16917, 0.18412, 0.1984, 0.21134, 0.22324, 0.23475, 0.24522, 0.25564, 0.26524, 0.2745, 0.28344, 0.29162, 0.30028, 0.30795,
+      0.3157, 0.32364, 0.33093, 0.33836, 0.34525, 0.35289, 0.36018, 0.3673, 0.3745, 0.38147, 0.3881, 0.39457, 0.40128, 0.40812, 0.41478, 0.42119, 0.42725, 0.43393, 0.43973, 0.4456,
+      0.45216, 0.45774, 0.46295, 0.46811, 0.47359, 0.47928, 0.48489, 0.49031, 0.49579, 0.50187, 0.50729, 0.51305, 0.51867, 0.5248, 0.53086, 0.53687, 0.54325, 0.5497, 0.55621, 0.56263,
+      0.56876, 0.57544, 0.58189, 0.58849, 0.59522, 0.60175, 0.60864, 0.61533, 0.62234, 0.62885, 0.63519, 0.64143, 0.64841, 0.65455, 0.66072, 0.66742, 0.67423, 0.68091, 0.68823, 0.6953,
+      0.70291, 0.71039, 0.71801, 0.72554, 0.73352, 0.7413, 0.74958, 0.75802, 0.76663, 0.77686, 0.78711, 0.79751, 0.80952, 0.82301, 0.83761, 0.85287, 0.8701, 0.88961, 0.91142, 0.93572,
+      0.99938,
+    ] as readonly number[],
+    /** 山のわく: 4×4 升目に 山 1 こ。anchor が わく のまん中に来るよう 2 升目ずらす。山は 2×2 升目で、点は 2×2 のまん中から ±jitter */
+    mountain: { frame: 4, shift: 2, jitter: 8, minBase: 2, roughAmp: 1, roughScale: 24, maxReach: 200 },
   },
-  /** 草原 / 森 の数（B の表） */
-  biomes: {
-    grassland: { hillScale: 64, hill: 10, bump: 1.5, cliff: 0.04, trees: 0.09 },
-    forest: { hillScale: 48, hill: 14, bump: 2, cliff: 0.08, trees: 0.75 },
-  },
+  /** 国ごとの数（B の表） */
+  countries: COUNTRIES,
 
   /** 地層 */
   strata: {

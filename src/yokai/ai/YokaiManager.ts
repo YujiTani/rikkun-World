@@ -1,3 +1,4 @@
+import { isLeafId } from '../../world/blocks/blockTypes';
 import * as THREE from 'three';
 import type {
   BlockId,
@@ -691,7 +692,7 @@ export class YokaiManager implements YokaiWorld {
         if (this.world.getBlock(ix, y, iz) === 'water') waterColumn = true;
         if (!this.world.isSolid(ix, y, iz) || this.world.isSolid(ix, y + 1, iz)) continue;
         const b = this.world.getBlock(ix, y, iz);
-        if (b === 'leaves' || b === 'water') continue;
+        if (isLeafId(b) || b === 'water') continue;
         floors.push(y + 1);
       }
       // M5: みず の列（うみ・かわ・いずみ・いけ）には出ない
