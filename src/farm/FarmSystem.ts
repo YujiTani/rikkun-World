@@ -28,6 +28,7 @@ import {
   type WorldRegions,
 } from '../contracts';
 import { blockIndexOf } from '../world/blocks/blockTypes';
+import { cellFromKey, cellKey } from './cellKey';
 
 /** 合図が出ている長さ（ステップ） */
 export const HINT_TICKS = 120;
@@ -46,6 +47,11 @@ export interface FarmSystemImpl extends FarmSystem {
   lastHint(): FarmHintKind | null;
   /** 世界の かかし の 場所（置かれていなければ null） */
   kakashi(): Vec3 | null;
+  /**
+   * 列を読みこんだあとに呼ぶ（VOX-D）。読みこんでいる列の はたけ・スプリンクラーを 数えなおす。
+   * 読みこんでいない列の分は 覚えたまま（時間は止まる）。まとめて 1 コマに 1 回でよい
+   */
+  rescan(): void;
 
   // ---- M7-2
   crop(x: number, y: number, z: number): FarmCropInfoM72 | null;
@@ -118,11 +124,11 @@ export type FarmDepsM7 = FarmDeps & {
   /** M7-2: B の スプリンクラー の はんい（無ければ いつも 範囲外） */
   sprinkler?: SprinklerPort;
   /** M7-2: C の ごきげん（無ければ いつも 倍率 1・保存 なし） */
-  pet?: PetPort;
+  pet?: PetPort & { tick(active?: (x: number, z: number) => boolean): void };
 };
 
 const NO_SPRINKLER: SprinklerPort = { covers: () => false, list: () => [], onBlockChanged() {}, rescan() {} };
-const NO_PET: PetPort = {
+const NO_PET: PetPort & { tick(active?: (x: number, z: number) => boolean): void } = {
   growFactor: () => 1,
   isHappy: () => false,
   left: () => 0,
@@ -137,13 +143,12 @@ export function createFarmSystem(deps: FarmDepsM7): FarmSystemImpl {
   const { world, light, settings } = deps;
   const sprinkler = deps.sprinkler ?? NO_SPRINKLER;
   const pet = deps.pet ?? NO_PET;
-  // 保存の「島とちがうマス」の番号と同じ平らな番号（VOX-G で 列＋中の番号に作りかえる）。今の島は原点から広がる
-  const eb0 = world.loadedBounds();
-  const sx = eb0.x1;
   const sy = world.size.y;
-  const sz = eb0.z1;
   const rng = mulberry((deps.seed ^ 0x4fa2a9c1) >>> 0);
-  const key = (x: number, y: number, z: number) => (y * sz + z) * sx + x;
+  // マスの番号は ±30,000・高さ全部で 重ならない形（VOX-D 基準 19）
+  const key = cellKey;
+  /** その (x, z) の列が 読みこまれている（読みこんでいない列の畑は 時間を止める） */
+  const colLoaded = (x: number, z: number) => world.isLoaded(Math.floor(x), Math.floor(z));
 
   const crops = new Map<number, Crop>();
   /** ② じょうろ の しめり の のこり（はたけ のマス → ステップ） */
@@ -166,11 +171,7 @@ export function createFarmSystem(deps: FarmDepsM7): FarmSystemImpl {
     if (pending.length > LOG_MAX) pending.splice(0, pending.length - LOG_MAX);
   };
 
-  const unKey = (k: number): Vec3 => {
-    const x = k % sx;
-    const z = Math.floor(k / sx) % sz;
-    return { x, y: Math.floor(k / (sx * sz)), z };
-  };
+  const unKey = (k: number): Vec3 => cellFromKey(k);
 
   const addSoil = (k: number) => {
     if (soilPos.has(k)) return;
@@ -275,8 +276,14 @@ export function createFarmSystem(deps: FarmDepsM7): FarmSystemImpl {
 
   /** 世界ぜんぶから はたけ を 数えなおす（読みこみ・置きもの のあと） */
   const rescanWorld = () => {
+    // 読みこんでいない列の はたけは 覚えたまま
+    const keep = soilArr.filter((k) => {
+      const p = unKey(k);
+      return !colLoaded(p.x, p.z);
+    });
     soilArr.length = 0;
     soilPos.clear();
+    for (const k of keep) addSoil(k);
     const fi = blockIndexOf('farmland');
     const wi = blockIndexOf('farmland_wet');
     const w = world as unknown as { scanBlocks?: (want: (i: number) => boolean, found: (x: number, y: number, z: number) => void) => void; getIndex?: (x: number, y: number, z: number) => number };
@@ -285,12 +292,13 @@ export function createFarmSystem(deps: FarmDepsM7): FarmSystemImpl {
       w.scanBlocks((v) => v === fi || v === wi, (x, y, z) => addSoil(key(x, y, z)));
       return;
     }
-    let i = 0;
+    // scanBlocks の無い にせの世界だけ
+    const eb = world.loadedBounds();
     for (let y = 0; y < sy; y++)
-      for (let z = 0; z < sz; z++)
-        for (let x = 0; x < sx; x++, i++) {
+      for (let z = eb.z0; z < eb.z1; z++)
+        for (let x = eb.x0; x < eb.x1; x++) {
           const v = w.getIndex ? w.getIndex(x, y, z) : blockIndexOf(world.getBlock(x, y, z));
-          if (v === fi || v === wi) addSoil(i);
+          if (v === fi || v === wi) addSoil(key(x, y, z));
         }
   };
 
@@ -324,14 +332,20 @@ export function createFarmSystem(deps: FarmDepsM7): FarmSystemImpl {
     const f = settings.farmMaxWaitFactor;
     const dl = dayLen();
     // ごきげん・じょうろ の のこり（農業 の 1 ステップ ごと に 1 へる）
-    pet.tick();
+    pet.tick(colLoaded);
     for (const [k, left] of watered) {
+      // 読みこんでいない列の じょうろの のこりは 止まる
+      const p = unKey(k);
+      if (!colLoaded(p.x, p.z)) continue;
       if (left <= 1) watered.delete(k);
       else watered.set(k, left - 1);
     }
     // そだつ
     for (const [k, c] of crops) {
-      if (world.getBlock(c.x, c.y, c.z) !== CROP_BLOCK[c.kind]) {
+      const here = world.getBlock(c.x, c.y, c.z);
+      // 読みこんでいない列は 時間を止める（記録も消さない）
+      if (here === 'outside') continue;
+      if (here !== CROP_BLOCK[c.kind]) {
         crops.delete(k);
         pet.onCropRemoved(c.x, c.y, c.z);
         continue;
@@ -354,6 +368,10 @@ export function createFarmSystem(deps: FarmDepsM7): FarmSystemImpl {
         const k = soilArr[soilCursor]!;
         const { x, y, z } = unKey(k);
         const b = world.getBlock(x, y, z);
+        if (b === 'outside') {
+          soilCursor++;
+          continue;
+        }
         if (b !== 'farmland' && b !== 'farmland_wet') {
           removeSoil(k);
           watered.delete(k);
@@ -639,7 +657,8 @@ export function createFarmSystem(deps: FarmDepsM7): FarmSystemImpl {
           if (![x, y, z, ks, ticks].every(Number.isInteger)) continue;
           const kind = CROP_KINDS[Math.floor(ks! / 4)];
           const stage = (ks! % 4) as CropStage;
-          if (!kind || world.getBlock(x!, y!, z!) !== CROP_BLOCK[kind]) continue;
+          const here = world.getBlock(x!, y!, z!);
+          if (!kind || (here !== 'outside' && here !== CROP_BLOCK[kind])) continue;
           crops.set(key(x!, y!, z!), { x: x!, y: y!, z: z!, kind, stage, ticks: Math.max(0, ticks!) });
         }
       }
@@ -649,11 +668,16 @@ export function createFarmSystem(deps: FarmDepsM7): FarmSystemImpl {
         for (let i = 0; i + 3 < wa.length; i += 4) {
           const [x, y, z, left] = [wa[i], wa[i + 1], wa[i + 2], wa[i + 3]] as number[];
           if (![x, y, z, left].every((v) => typeof v === 'number' && Number.isInteger(v)) || left! <= 0) continue;
-          if (!isSoilBlock(x!, y!, z!)) continue;
+          if (world.getBlock(x!, y!, z!) !== 'outside' && !isSoilBlock(x!, y!, z!)) continue;
           watered.set(key(x!, y!, z!), left!);
         }
       }
-      pet.deserialize(d?.happy, (x, y, z) => cropKindOfBlock(world.getBlock(x, y, z)) !== null && !cropKindOfBlock(world.getBlock(x, y, z))!.wild);
+      pet.deserialize(d?.happy, (x, y, z) => {
+        const id = world.getBlock(x, y, z);
+        if (id === 'outside') return true;
+        const info = cropKindOfBlock(id);
+        return info !== null && !info.wild;
+      });
       rescanWorld();
       sprinkler.rescan(world);
     },
@@ -689,6 +713,10 @@ export function createFarmSystem(deps: FarmDepsM7): FarmSystemImpl {
       return hint && deps.tick() - hint.tick < HINT_TICKS ? hint.kind : null;
     },
     kakashi: () => (kakashiPos ? { ...kakashiPos } : null),
+    rescan() {
+      rescanWorld();
+      sprinkler.rescan(world);
+    },
   };
 
   /** 新しい世界: ブロックは E が 置いた。たんす の 中身と しるしだけ */

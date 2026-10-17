@@ -63,7 +63,7 @@ export function removePendingOf(store: KeyValueStore, saveId: string): void {
 }
 
 /** pagehide の保険を読む（自分のセーブのものだけ）。使えなければ null */
-function readPending(store: KeyValueStore, saveId: string, seed: number): { cells: number[]; ids: readonly string[]; meta: StoredMeta } | null {
+export function readPending(store: KeyValueStore, saveId: string, seed: number): { cells: number[]; ids: readonly string[]; meta: StoredMeta } | null {
   try {
     const raw = store.getItem(PENDING_KEY);
     if (raw === null) return null;

@@ -12,6 +12,7 @@ import type {
   Vec3,
 } from '../../contracts';
 import { raycastBlocks } from '../../dig/raycast';
+import { cellInWall } from '../../world/wall';
 
 /** WEAPON-2 §4.4（弓）。段・放物線・当たり・ささった や と 拾う。更新は固定ステップ（1/60 秒）。乱数は使わない */
 
@@ -185,7 +186,7 @@ export function createBowSystem(deps: BowDepsX): BowSystem {
           p.y += my;
           p.z += mz;
           // 世界の 外（上へ 出ても x・z が 中なら 落ちて くるまで 待つ）
-          if (!deps.world.isLoaded(p.x, p.z) || p.y < 0 || a.age >= s.arrowLifeTicks) {
+          if (!deps.world.isLoaded(p.x, p.z) || !cellInWall(Math.floor(p.x), Math.floor(p.z)) || p.y < 0 || a.age >= s.arrowLifeTicks) {
             emit({ type: 'arrowEnd', tick: deps.tick(), position: { ...p } });
             alive = false;
           }

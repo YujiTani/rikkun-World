@@ -18,7 +18,7 @@ async function open(page: Page, query = '?nosave=1') {
 }
 
 test.describe('M5 広い世界', () => {
-  test('AC1/AC13: 大きさ 128×高さ×128・見えないかべ・テスト場所', async ({ page }) => {
+  test('AC1/AC13: 高さ・テスト場所（x・z の大きさは VOX-D で動く範囲になった）', async ({ page }) => {
     await open(page);
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
@@ -34,14 +34,13 @@ test.describe('M5 広い世界', () => {
       return out;
     });
     // 高さは WORLD_HEIGHT（今の島 48・VOX-B で 352）。ゲームに聞く
-    expect(r.size.x).toBe(128);
-    expect(r.size.z).toBe(128);
     expect(r.size.y).toBeGreaterThanOrEqual(48);
     expect(r.area).toEqual({ x0: 0, x1: 12, z0: 0, z1: 12, y0: 8, y1: r.size.y - 1 });
     console.log('AC1', JSON.stringify(r));
   });
 
-  test('AC1(歩き): 西・東へ歩き続けても足もとの中央は 0.3〜size−0.3', async ({ page }) => {
+  test('AC1(歩き): 4 方向へ歩き続けても 足もとの中央は 見えない壁（±30,000）の中で、読みこんだ列の上', async ({ page }) => {
+    // VOX-D: 壁は ±30,000（W2: 中心 −29,999.7〜29,999.7）。壁そのもののテストは e2e/voxD-stream.spec.ts 基準 23
     await open(page);
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
@@ -49,30 +48,32 @@ test.describe('M5 広い世界', () => {
       h.lock.simulate(true);
       h.settings.set('yokaiAutoSpawn', false);
       const res: any = {};
-      for (const [name, x, z, yaw] of [['west', 3.5, 40.5, 270], ['east', 124.5, 40.5, 90], ['north', 40.5, 3.5, 0], ['south', 40.5, 124.5, 180]] as const) {
-        const sz = h.world.size();
-        // 立つ高さは その列の地面の上（はしは 仮の海でも 同じ）。0.3〜size−0.3 の中
-        h.player.set({ position: { x: name === 'east' ? sz.x - 3.5 : x, y: h.world.groundHeight(Math.floor(name === 'east' ? sz.x - 3.5 : x), Math.floor(name === 'south' ? sz.z - 3.5 : z)) + 1, z: name === 'south' ? sz.z - 3.5 : z }, velocity: { x: 0, y: 0, z: 0 }, yaw, pitch: 0 });
+      const sp = h.world.spawn();
+      for (const [name, yaw] of [['west', 270], ['east', 90], ['north', 0], ['south', 180]] as const) {
+        h.player.set({ position: { x: sp.x, y: h.world.groundHeight(Math.floor(sp.x), Math.floor(sp.z)) + 1, z: sp.z }, velocity: { x: 0, y: 0, z: 0 }, yaw, pitch: 0 });
         h.input.releaseAll();
         h.input.press('moveForward');
-        h.step(240);
+        let loaded = true;
+        for (let i = 0; i < 240; i++) {
+          h.step(1);
+          const p = h.player.get().position;
+          if (!h.world.isLoaded(Math.floor(p.x), Math.floor(p.z))) loaded = false;
+        }
         h.input.releaseAll();
-        res[name] = h.player.get().position;
+        res[name] = { ...h.player.get().position, loaded };
       }
-      res.size = h.world.size();
+      res.wall = h.world.wall();
       return res;
     });
     console.log('AC1 walk', JSON.stringify(r));
-    expect(r.west.x).toBeCloseTo(0.3, 1);
-    expect(r.east.x).toBeCloseTo(r.size.x - 0.3, 1);
-    expect(r.north.z).toBeCloseTo(0.3, 1);
-    expect(r.south.z).toBeCloseTo(r.size.z - 0.3, 1);
+    expect(r.wall).toBe(30000);
     for (const k of ['west', 'east', 'north', 'south']) {
       const p = r[k];
-      expect(p.x).toBeGreaterThanOrEqual(0.3 - 1e-6);
-      expect(p.x).toBeLessThanOrEqual(r.size.x - 0.3 + 1e-6);
-      expect(p.z).toBeGreaterThanOrEqual(0.3 - 1e-6);
-      expect(p.z).toBeLessThanOrEqual(r.size.z - 0.3 + 1e-6);
+      expect(p.loaded, k).toBe(true);
+      for (const v of [p.x, p.z]) {
+        expect(v).toBeGreaterThanOrEqual(-29999.7 - 1e-6);
+        expect(v).toBeLessThanOrEqual(29999.7 + 1e-6);
+      }
     }
   });
 
@@ -159,9 +160,10 @@ test.describe('M5 広い世界', () => {
     expect(r.n).toBe(0);
   });
 
-  test('AC15: かすみ 40〜80・88 より遠いチャンクは描かない（スタートと かど）', async ({ page }) => {
+  test('AC15: かすみ 40〜80・88 より遠いチャンクは描かない（スタートと 100 ブロックはなれた 3 か所）', async ({ page }) => {
+    // VOX-D: 世界は 128×128 でなく 輪。メッシュのある列（meshed）の数を ゲームに聞いて 数え、かどは スタートから ±100 の 3 か所に した
     await open(page, fine('?nosave=1')); // (b) 描く列の上限（メッシュの段）を見る（#180）
-    const r = await page.evaluate(() => {
+    const r = await page.evaluate(async () => {
       const h = (window as any).__rikkun;
       h.pause();
       h.lock.simulate(true);
@@ -170,16 +172,20 @@ test.describe('M5 広い世界', () => {
         const dz = Math.max(cz * 16 - pz, 0, pz - (cz * 16 + 16));
         return Math.hypot(dx, dz);
       };
+      // 描く列 = meshed の列（描く輪）。そのうち 見ている人から 88 以内の数
       const calc = (px: number, pz: number) => {
+        const c = h.world.stream().center;
         let n = 0;
-        for (let cz = 0; cz < 8; cz++) for (let cx = 0; cx < 8; cx++) if (near(cx, cz, px, pz) <= 88) n++;
+        for (let cz = c.cz - 10; cz <= c.cz + 10; cz++)
+          for (let cx = c.cx - 10; cx <= c.cx + 10; cx++) if (h.world.chunkStage(cx, cz) === 'meshed' && near(cx, cz, px, pz) <= 88) n++;
         return n;
       };
       const out: any = {};
       const spawn = h.world.spawn();
       h.step(2);
-      // メッシュ作りが終わる（pending 0）まで進める。決め打ちのコマ数は使わない
-      const settle = () => {
+      // 輪が そろい、メッシュ作りが終わる（pending 0）まで進める。決め打ちのコマ数は使わない
+      const settle = async () => {
+        await h.world.settle({ full: true });
         let n = 0;
         while (h.world.meshStats().pending > 0) {
           if (n >= 3000) throw new Error('QUIET_TIMEOUT: meshPending=' + h.world.meshStats().pending);
@@ -187,25 +193,27 @@ test.describe('M5 広い世界', () => {
         }
         h.step(2);
       };
-      settle();
+      await settle();
       // 描く距離は 見ている人 = カメラの位置から（三人称だけになり、カメラは キャラの 4 うしろ）
       const cam = () => h.camera.get().position;
       out.start = { stats: h.render.chunks(), calc: calc(cam().x, cam().z), at: h.player.get().position };
-      for (const [name, x, z] of [['nw', 1.5, 1.5], ['se', 126.5, 126.5], ['ne', 126.5, 1.5]] as const) {
-        h.player.set({ position: { x, y: 12, z }, velocity: { x: 0, y: 0, z: 0 } });
-        h.step(3);
-        settle();
+      for (const [name, dx, dz] of [['nw', -100, -100], ['se', 100, 100], ['ne', 100, -100]] as const) {
+        const x = Math.floor(spawn.x) + dx + 0.5;
+        const z = Math.floor(spawn.z) + dz + 0.5;
+        h.world.teleport(x, z);
+        await settle();
         out[name] = { stats: h.render.chunks(), calc: calc(cam().x, cam().z) };
       }
       out.spawn = spawn;
       return out;
     });
-    console.log('AC15', JSON.stringify(r));
-    expect(r.start.stats.total).toBe(64);
+    console.log('AC15', JSON.stringify(r).slice(0, 400));
+    expect(r.start.stats.total).toBeGreaterThanOrEqual(169);
+    expect(r.start.stats.total).toBeLessThanOrEqual(441);
     expect(r.start.stats.drawn).toBe(r.start.calc);
     for (const k of ['nw', 'se', 'ne']) {
       expect(r[k].stats.drawn).toBe(r[k].calc);
-      expect(r[k].stats.drawn).toBeLessThan(64);
+      expect(r[k].stats.drawn).toBeLessThan(r[k].stats.total);
     }
   });
 
@@ -326,6 +334,7 @@ test.describe('M5 広い世界', () => {
       const h = (window as any).__rikkun;
       h.pause();
       h.lock.simulate(true);
+      await h.world.settle({ full: true }); // VOX-D: 起動直後は 輪が そろっていない（全体の hash は 輪が全部そろってから比べる）
       const r1 = h.world.setBlock(100, 8, 60, 'log');
       const r2 = h.world.setBlock(64, 25, 28, 'sand');
       const r3 = h.world.setBlock(65, 30, 28, 'log'); // 空中
@@ -336,8 +345,9 @@ test.describe('M5 広い世界', () => {
     await page.goto('/');
     await page.waitForFunction(() => window.__rikkun?.ready === true);
     await page.evaluate(() => window.__rikkun!.achievements.mute(true));
-    const b = await page.evaluate(() => {
+    const b = await page.evaluate(async () => {
       const h = (window as any).__rikkun;
+      await h.world.settle({ full: true });
       return { hash: h.world.hash(), a: h.world.getBlock(100, 8, 60), b: h.world.getBlock(64, 25, 28), c: h.world.getBlock(65, 30, 28) };
     });
     console.log('AC21', JSON.stringify({ a, b }));

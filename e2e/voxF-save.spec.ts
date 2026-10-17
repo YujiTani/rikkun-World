@@ -38,14 +38,17 @@ test.describe('VOX-F 保存', () => {
       h.world.setBlock(100, 8, 60, 'sand');
       h.inventory.setSlot(3, { item: 'dirt', count: 5 });
       h.step(2);
+      await h.world.settle({ full: true }); // VOX-D: 読みこんだ列の数が 毎回ちがうと 全体のハッシュが 比べられない
       await h.save.now();
       return { hash: h.world.hash(), c00: h.world.hash(0, 0), c63: h.world.hash(6, 3), info: h.save.info() };
     });
     expect(before.info.dirtyChunks).toBeGreaterThanOrEqual(2);
     await page.reload();
     await page.waitForFunction(() => window.__rikkun?.ready === true);
-    const after = await page.evaluate(() => {
+    const after = await page.evaluate(async () => {
       const h = (window as any).__rikkun;
+      h.pause();
+      await h.world.settle({ full: true });
       return { hash: h.world.hash(), c00: h.world.hash(0, 0), c63: h.world.hash(6, 3), slot: h.inventory.get().slots[3], info: h.save.info() };
     });
     expect(after.hash).toBe(before.hash);
@@ -143,36 +146,66 @@ test.describe('VOX-F 保存', () => {
     expect(b?.v).toBe(2);
   });
 
-  test('AC5: pagehide の保険で、最後の保存のあとの変更が残る（page.close）', async ({ context }) => {
+  test('AC5(VOX-D 基準 14): pagehide の保険で、最後の保存のあとの変更が残る（スタートから 300 はなれた列もふくむ）。最初の保存のあと保険が消える', async ({ context }) => {
+    test.setTimeout(120_000);
     const page = await context.newPage();
     await boot(page);
-    await page.evaluate(async () => {
+    const far = await page.evaluate(async () => {
       const h = (window as any).__rikkun;
       h.pause();
+      await h.world.settle({ full: true });
       h.world.setBlock(2, 25, 2, 'log'); // いし の上に いし では変化 0（VOX-B: 地下）なので log
       await h.save.now();
-      // 閉じる途中に 保険が 置かれたかを 見張る（保存の側の pagehide の あとに 走る）
-      window.addEventListener('pagehide', () => localStorage.setItem('__pendingSeen', localStorage.getItem('rikkun-world-pending') ?? 'none'));
-      // 最後の保存のあとの変更
+      // 最後の保存のあとの変更（近い所）
       h.world.setBlock(3, 25, 3, 'sand');
       h.world.setBlock(90, 12, 50, 'log');
+      // スタートから 300 はなれた列へ（テレポート）。そこの空に 1 マス置いて そのまま閉じる（輪の外の 保険の列）
+      const sp = h.world.spawn();
+      const fx = Math.floor(sp.x) + 300;
+      const fz = Math.floor(sp.z);
+      h.world.teleport(fx, fz);
+      await h.world.settle();
+      const fy = h.world.groundHeight(fx, fz) + 40;
+      if (!h.world.setBlock(fx, fy, fz, 'log')) throw new Error('far setBlock failed');
+      // 保険は pagehide で置かれる。ここで 手で pagehide を出して 取りだし、プレイヤーの位置を スタートに もどして 渡す
+      // （中心はスタートのまま・保険の列だけ 輪の外、を作る。teleport したままだと 中心も遠くになる）
+      window.dispatchEvent(new Event('pagehide'));
+      const pending = JSON.parse(localStorage.getItem('rikkun-world-pending') ?? 'null');
+      if (!pending) throw new Error('保険が置かれていない');
+      pending.meta.player = { ...pending.meta.player, x: sp.x, y: sp.y, z: sp.z };
+      return { fx, fy, fz, pending: JSON.stringify(pending), spawn: { x: sp.x, z: sp.z } };
     });
+    expect(JSON.parse(far.pending).cells.length).toBeGreaterThanOrEqual(4);
     await page.close({ runBeforeUnload: true });
     const page2 = await context.newPage();
+    // 閉じるときの pagehide が 置きなおした保険を、中心がスタートの形に 置きかえてから 起動する
+    await page2.addInitScript((p) => localStorage.setItem('rikkun-world-pending', p), far.pending);
     await boot(page2);
-    const r = await page2.evaluate(() => {
-      const h = (window as any).__rikkun;
-      return {
-        a: h.world.getBlock(2, 25, 2),
-        b: h.world.getBlock(3, 25, 3),
-        c: h.world.getBlock(90, 12, 50),
-        seen: localStorage.getItem('__pendingSeen'),
-      };
-    });
+    const r = await page2.evaluate(
+      async (far) => {
+        const h = (window as any).__rikkun;
+        h.pause();
+        // ready のあと すぐ: 保険の列（輪の外でも 開始の前に読みこんで当てる K6）
+        const farAtReady = h.world.getBlock(far.fx, far.fy, far.fz);
+        const near = { a: h.world.getBlock(2, 25, 2), b: h.world.getBlock(3, 25, 3), c: h.world.getBlock(90, 12, 50) };
+        const center = h.world.stream().center;
+        const seen = center;
+        await h.save.now();
+        const pendingAfter = localStorage.getItem('rikkun-world-pending');
+        await h.world.settle();
+        h.world.teleport(far.fx, far.fz);
+        await h.world.settle();
+        const farAfterSave = h.world.getBlock(far.fx, far.fy, far.fz);
+        return { farAtReady, near, seen, pendingAfter, farAfterSave };
+      },
+      far,
+    );
     console.log('AC5', JSON.stringify(r));
-    expect(r.a).toBe('log');
-    expect(r.b).toBe('sand');
-    expect(r.c).toBe('log');
+    expect(r.seen).toEqual({ cx: Math.floor(far.spawn.x) >> 4, cz: Math.floor(far.spawn.z) >> 4 }); // 中心はスタート（保険の列は輪の外）
+    expect(r.near).toEqual({ a: 'log', b: 'sand', c: 'log' });
+    expect(r.farAtReady).toBe('log');
+    expect(r.pendingAfter).toBeNull();
+    expect(r.farAfterSave).toBe('log');
   });
 
   test('AC3: 保存の時間（記録）: dirty 4 列 + meta', async ({ page }, testInfo) => {

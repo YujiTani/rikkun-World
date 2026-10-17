@@ -46,9 +46,10 @@ async function open(page: Page, query = '?nosave=1') {
 
 /** 一時停止して、妖怪と時間を固定し、メッシュと光が落ちつくまで進める */
 async function settle(page: Page) {
-  await page.evaluate(() => {
+  await page.evaluate(async () => {
     const h = (window as any).__rikkun;
     h.pause();
+    await h.world.settle({ full: true }); // VOX-D: 起動直後は 輪が そろっていない。となりの列の光・メッシュが 作り直しの数に まざらないように
     h.lock.simulate(true);
     h.settings.set('yokaiAutoSpawn', false);
     h.yokai.clear();

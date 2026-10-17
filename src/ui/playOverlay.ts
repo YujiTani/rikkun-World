@@ -3,6 +3,7 @@ import type { LockController } from '../input/lockController';
 import { fillMouseSrc, mouseHtml } from './craftPanel.art';
 import { anyIconUrl } from './itemIcon';
 import { escapeHtml } from './text';
+import { mountPrep, syncPrep } from './prep';
 import { scrollIconUrl } from './log/icons';
 import { FIGHT_CAPTIONS_W2 } from './weapon2Guide';
 import './playOverlay.css';
@@ -111,6 +112,9 @@ export class PlayOverlay {
   readonly el: HTMLDivElement;
   private textEl: HTMLElement;
   private tab_: GuideTabId = lastTab;
+  /** 起動の「じゅんびちゅう」を出している間 true（押しても あそびは始めない） */
+  private prepOn = false;
+  private lockRef: LockController;
 
   constructor(
     parent: HTMLElement,
@@ -119,6 +123,7 @@ export class PlayOverlay {
     /** タブを押した（音「ポン」用） */
     private readonly onTab?: (tab: GuideTabId) => void,
   ) {
+    this.lockRef = lock;
     this.el = document.createElement('div');
     this.el.className = 'play-overlay';
     this.el.style.setProperty('--po-dim', String(INPUT_CONFIG.dimOpacity));
@@ -143,7 +148,10 @@ export class PlayOverlay {
     }
     parent.appendChild(this.el);
 
-    this.el.addEventListener('click', () => requestLock());
+    this.el.addEventListener('click', () => {
+      if (this.prepOn) return; // 起動中は あそびを始めない（ロックしない・音なし）
+      requestLock();
+    });
     lock.onChange(() => this.sync(lock));
     this.sync(lock);
   }
@@ -194,8 +202,28 @@ export class PlayOverlay {
     if (changed) this.onTab?.(tab);
   }
 
+  /**
+   * 起動の「じゅんびちゅう」（VOX-D）。progress（0〜1）を渡すと ボタンの字が「じゅんびちゅう」と ブロック 5 こになる。
+   * null で ふつうの字（lock.overlayText()）にもどる。
+   */
+  setPrep(progress: number | null, nowMs: number): void {
+    if (progress === null) {
+      if (!this.prepOn) return;
+      this.prepOn = false;
+      this.el.classList.remove('po-prep');
+      this.textEl.textContent = this.lockRef.overlayText();
+      return;
+    }
+    if (!this.prepOn) {
+      this.prepOn = true;
+      this.el.classList.add('po-prep');
+      mountPrep(this.textEl);
+    }
+    syncPrep(this.textEl, progress, nowMs);
+  }
+
   private sync(lock: LockController): void {
-    this.textEl.textContent = lock.overlayText();
+    if (!this.prepOn) this.textEl.textContent = lock.overlayText();
     this.el.hidden = !lock.overlayVisible();
   }
 }

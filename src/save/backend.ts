@@ -17,6 +17,8 @@ export type StoredMeta = Record<string, unknown>;
 
 /** 保存先（IndexedDB 版とメモリ版）。write は 列たちと meta を 1 つのトランザクションで書く（全部か、何もか） */
 export interface PersistBackend {
+  /** 起動で読む物（VOX-D D1）: meta と、列のキーの一覧だけ。列の中身は読まない */
+  readKeys(saveId: string): Promise<{ meta: StoredMeta | null; keys: { cx: number; cz: number }[] }>;
   readAll(saveId: string): Promise<{ meta: StoredMeta | null; chunks: StoredChunk[] }>;
   readChunk(saveId: string, cx: number, cz: number): Promise<StoredChunk | null>;
   write(saveId: string, chunks: readonly StoredChunk[], meta: StoredMeta | null): Promise<void>;
@@ -41,14 +43,26 @@ export class MemoryBackend implements PersistBackend {
   /** true にすると write が失敗する（テスト用） */
   failWrites = false;
   writes = 0;
+  /** 数える用（テスト）: readAll・readChunk・readKeys を呼んだ回数 */
+  readAllCalls = 0;
+  readChunkCalls = 0;
+  readKeysCalls = 0;
   private key = (id: string, cx: number, cz: number) => `${id}/${cx}/${cz}`;
 
+  async readKeys(id: string) {
+    this.readKeysCalls++;
+    const keys = [...this.chunks.entries()].filter(([k]) => k.startsWith(`${id}/`)).map(([, c]) => ({ cx: c.cx, cz: c.cz }));
+    const m = this.metas.get(id);
+    return { meta: m ? (structuredClone(m) as StoredMeta) : null, keys };
+  }
   async readAll(id: string) {
+    this.readAllCalls++;
     const chunks = [...this.chunks.entries()].filter(([k]) => k.startsWith(`${id}/`)).map(([, c]) => copyChunk(c));
     const m = this.metas.get(id);
     return { meta: m ? (structuredClone(m) as StoredMeta) : null, chunks };
   }
   async readChunk(id: string, cx: number, cz: number) {
+    this.readChunkCalls++;
     const c = this.chunks.get(this.key(id, cx, cz));
     return c ? copyChunk(c) : null;
   }
@@ -104,6 +118,17 @@ export class IdbBackend implements PersistBackend {
 
   private range(id: string): IDBKeyRange {
     return IDBKeyRange.bound([id, -Infinity, -Infinity], [id, Infinity, Infinity]);
+  }
+
+  async readKeys(id: string) {
+    const tx = this.db.transaction(['chunks', 'meta'], 'readonly');
+    const [keys, meta] = await Promise.all([req(tx.objectStore('chunks').getAllKeys(this.range(id))), req(tx.objectStore('meta').get(id))]);
+    const out: { cx: number; cz: number }[] = [];
+    for (const k of keys) {
+      const key = k as unknown as [string, number, number];
+      if (Array.isArray(key) && Number.isInteger(key[1]) && Number.isInteger(key[2])) out.push({ cx: key[1], cz: key[2] });
+    }
+    return { meta: (meta ?? null) as StoredMeta | null, keys: out };
   }
 
   async readAll(id: string) {

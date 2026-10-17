@@ -15,6 +15,9 @@ import { createCraftHook, createFurnaceHook, createPickupHook } from './hook';
 class W {
   blocks = new Map<string, BlockId>();
   size = { x: 16, y: 16, z: 16 };
+  isLoaded(): boolean {
+    return true;
+  }
   getBlock(x: number, y: number, z: number): BlockId | 'outside' {
     return this.blocks.get(`${x},${y},${z}`) ?? 'air';
   }

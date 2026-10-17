@@ -1,4 +1,5 @@
 import type { LockStatus, LookSource, PlayerState, SpawnPoint, VoxelWorld } from '../contracts';
+import { WORLD_LIMIT } from '../contracts';
 import type { ActionState } from '../input/actions';
 import {
   AUTOJUMP_CLEAR_TOP,
@@ -253,11 +254,10 @@ export class PlayerController {
     let hit = false;
     let target = p[a] + d;
 
-    // 世界の端の面（x・z のみ）
+    // 世界の果ての見えない壁（x・z のみ。VOX-D W2。読みこんでいない列は 'outside'＝固いので、それ以外のはしは要らない）
     if (a !== 1) {
-      const eb = this.world.loadedBounds();
-      const lo = (a === 0 ? eb.x0 : eb.z0) - LO[a];
-      const hi = (a === 0 ? eb.x1 : eb.z1) - HI[a];
+      const lo = -WORLD_LIMIT - LO[a];
+      const hi = WORLD_LIMIT - HI[a];
       if (target < lo) {
         target = lo;
         hit = true;
@@ -307,7 +307,8 @@ export class PlayerController {
       for (let j = e0; j <= e1; j++) {
         idx[b] = i;
         idx[e] = j;
-        if (this.world.isSolid(idx[0], idx[1], idx[2])) return true;
+        // 読みこんでいない列は 固い（'outside'。VOX-D: 世界のはしの面のかわり）
+        if (!this.world.isLoaded(idx[0], idx[2]) || this.world.isSolid(idx[0], idx[1], idx[2])) return true;
       }
     }
     return false;

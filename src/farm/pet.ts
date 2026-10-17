@@ -1,3 +1,4 @@
+import { cellKey } from './cellKey';
 import type { FarmCropInfo, M7Settings, PetPort, PetResult } from '../contracts';
 
 /**
@@ -19,7 +20,7 @@ interface Entry {
   left: number;
 }
 
-const key = (x: number, y: number, z: number): number => (x * 4096 + z) * 512 + y;
+const key = cellKey;
 
 export class Pet implements PetPort {
   private readonly map = new Map<number, Entry>();
@@ -48,9 +49,13 @@ export class Pet implements PetPort {
     return 'happy';
   }
 
-  tick(): void {
+  /** 1 ステップ。active があれば、それが false の (x, z)（読みこんでいない列）の作物は 時間を止める（VOX-D） */
+  tick(active?: (x: number, z: number) => boolean): void {
     if (this.map.size === 0) return;
-    for (const [k, e] of this.map) if (--e.left <= 0) this.map.delete(k);
+    for (const [k, e] of this.map) {
+      if (active && !active(e.x, e.z)) continue;
+      if (--e.left <= 0) this.map.delete(k);
+    }
   }
 
   onCropRemoved(x: number, y: number, z: number): void {
