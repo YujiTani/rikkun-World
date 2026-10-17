@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { waitCharLoaded } from './helpers/char';
 
 /**
  * CHAR-1 第 1 段階 テスト係の受け入れ（docs/design/CHAR-1-v2-sprite.md）。
@@ -12,7 +13,7 @@ async function open(page: Page, query = '?nosave=1') {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto(`/${query}`);
   await page.waitForFunction(() => window.__rikkun?.ready === true);
-  await expect.poll(() => page.evaluate(() => (window.__rikkun! as any).player.doll().sprite.loaded), { timeout: 5000 }).toBe(true);
+  await waitCharLoaded(page);
   await page.evaluate(() => {
     const h = window.__rikkun! as any;
     h.achievements.mute(true);
