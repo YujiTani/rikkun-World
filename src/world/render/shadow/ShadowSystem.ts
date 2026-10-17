@@ -148,8 +148,23 @@ export class ShadowSystem {
     const cardMat = new THREE.ShaderMaterial({
       uniforms: { uMap: mat.uniforms.uMap!, uRect: { value: this.cardRect } },
       vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-      fragmentShader:
-        'uniform sampler2D uMap; uniform vec4 uRect; varying vec2 vUv; void main(){ float idx = floor(texture2D(uMap, vec2(uRect.x + vUv.x * uRect.z, uRect.y + (1.0 - vUv.y) * uRect.w)).r * 255.0 + 0.5); if (idx < 0.5) discard; gl_FragColor = vec4(0.0); }',
+      // 絵の透明でぬく。ほそい足・すきまが 光をもらさないよう、まわり 12 目ぶんふくらませた形にする（見やすい影）
+      fragmentShader: `uniform sampler2D uMap; uniform vec4 uRect; varying vec2 vUv;
+bool solid(vec2 c) {
+  c = clamp(c, 0.001, 0.999);
+  float idx = floor(texture2D(uMap, vec2(uRect.x + c.x * uRect.z, uRect.y + (1.0 - c.y) * uRect.w)).r * 255.0 + 0.5);
+  return idx > 0.5;
+}
+void main() {
+  bool hit = solid(vUv);
+  for (int i = 0; i < 8 && !hit; i++) {
+    float a = float(i) * 0.7853982;
+    vec2 d = vec2(cos(a), sin(a));
+    hit = solid(vUv + d * (6.0 / 256.0)) || solid(vUv + d * (12.0 / 256.0));
+  }
+  if (!hit) discard;
+  gl_FragColor = vec4(0.0);
+}`,
       side: THREE.DoubleSide,
     });
     this.card = new THREE.Mesh(mesh.geometry, cardMat);

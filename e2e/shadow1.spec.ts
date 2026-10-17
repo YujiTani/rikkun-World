@@ -178,7 +178,7 @@ test.describe('SHADOW-1 太陽と月の影', () => {
         await frames(page, 3); // tick は進めない（光の向きをかえない）
       }
       const stats = await page.evaluate(() => (window as any).__rikkun.renderStats());
-      const png = await page.screenshot();
+      const png = await page.screenshot({ clip: { x: 0, y: 120, width: 1280, height: 680 } }); // 右上の時計の飾り（ゆれる）は 影と関係ないので 外す
       await page.context().close();
       return { stats, png };
     };
@@ -237,8 +237,9 @@ test.describe('SHADOW-1 太陽と月の影', () => {
     await page.screenshot({ path: SHOT + 'SHADOW-1-settings.png' });
 
     // F3 に影の行（描き直し回数・三角形）
+    await page.evaluate(() => (window as any).__rikkun.resume()); // 一時停止のままだと F3 の見た目が更新されない（ロックなしの絵だけが動く）
     await page.keyboard.press('F3');
-    await frames(page, 4);
+    await expect(page.locator('#perf-overlay')).toContainText('shadow'); // F3 の文字は 0.25 秒ごとに書きかわる
     const text = await page.locator('#perf-overlay').innerText();
     expect(text).toMatch(/shadow/i);
     expect(text).toMatch(/shadow[^\n]*tri/i);
