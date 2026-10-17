@@ -1,13 +1,10 @@
 // #144 SHADOW-1 の受け入れテスト（ユニット層: AC5・AC13）。実装の前に書いた。
-// 実装がまだ無いので、読みこみは動的 import（変数の道すじ）。developer は実装を入れたら
-//   1. 下の load* を `import { shadowLight } from './shadowLight'` のふつうの import にかえ、
-//   2. `it.fails` を `it` にかえる。
 // 決まり: docs/design/SHADOW.md §5.1（強さ）・§5.2（地図のカメラ）・§8（AC5・AC13）。
 import { describe, expect, it } from 'vitest';
 import { createTimeSettings } from '../../../time/config';
+import { snapMapCenter } from './shadowCamera';
+import { shadowLight } from './shadowLight';
 
-const LIGHT = './shadowLight';
-const CAMERA = './shadowCamera';
 
 /**
  * shadowLight(dayTick, settings) → { body: 'sun'|'moon', dir: {x,y,z}（地面→光。単位ベクトル。sunMoonPose + skyDirection と同じ）,
@@ -15,13 +12,13 @@ const CAMERA = './shadowCamera';
  */
 type Light = { body: 'sun' | 'moon'; dir: V; mapDir: V; strength: number };
 type V = { x: number; y: number; z: number };
-const loadLight = async (): Promise<(t: number, s: ReturnType<typeof createTimeSettings>) => Light> => (await import(/* @vite-ignore */ LIGHT)).shadowLight;
+const loadLight = async (): Promise<(t: number, s: ReturnType<typeof createTimeSettings>) => Light> => shadowLight;
 /**
  * snapMapCenter(center, mapDir, half, size) → 地図のカメラの中心（世界の座標）。
  * 右 = normalize(mapDir.y, -mapDir.x, 0)、上 = mapDir × 右 としたとき、中心の（右, 上）の値が 1 目（= 2*half/size）の整数倍。
  * 奥行きの値はそのまま。
  */
-const loadSnap = async (): Promise<(c: V, dir: V, half: number, size: number) => V> => (await import(/* @vite-ignore */ CAMERA)).snapMapCenter;
+const loadSnap = async (): Promise<(c: V, dir: V, half: number, size: number) => V> => snapMapCenter;
 
 const S = createTimeSettings();
 const DAY_LEN = S.dayTicks + S.duskTicks + S.nightTicks + S.dawnTicks;
@@ -31,7 +28,7 @@ const smooth = (y: number) => {
 };
 
 describe('SHADOW AC5: 影の強さ', () => {
-  it.fails('表の値（SHADOW.md §5.1）と同じ: smoothstep(L.y, 0.03, 0.25)、月は × 0.5', async () => {
+  it('表の値（SHADOW.md §5.1）と同じ: smoothstep(L.y, 0.03, 0.25)、月は × 0.5', async () => {
     const light = await loadLight();
     const table: [number, number][] = [[0, 0], [1800, 0.19], [3600, 0.78], [9000, 1], [14000, 1], [29700, 1], [55600, 0.84], [67400, 0.5]];
     for (const [t, want] of table) expect(light(t, S).strength, `tick ${t}`).toBeCloseTo(want, 1);
@@ -39,7 +36,7 @@ describe('SHADOW AC5: 影の強さ', () => {
     expect(light(67400, S).body).toBe('moon');
   });
 
-  it.fails('L.y < 0.03 のとき強さ 0（1 日ぜんぶの tick を調べる）。向きは単位ベクトル、mapDir.y ≥ 0.05', async () => {
+  it('L.y < 0.03 のとき強さ 0（1 日ぜんぶの tick を調べる）。向きは単位ベクトル、mapDir.y ≥ 0.05', async () => {
     const light = await loadLight();
     let low = 0;
     for (let t = 0; t < DAY_LEN; t += 7) {
@@ -57,7 +54,7 @@ describe('SHADOW AC5: 影の強さ', () => {
     expect(low).toBeGreaterThan(0); // 低い tick が本当にあった（調べたことになっている）
   });
 
-  it.fails('太陽→月・月→太陽の切りかわりと 1 日のつなぎ目の前後 1 tick で、強さが 0.1 以上とばない（1 日ぜんぶ）', async () => {
+  it('太陽→月・月→太陽の切りかわりと 1 日のつなぎ目の前後 1 tick で、強さが 0.1 以上とばない（1 日ぜんぶ）', async () => {
     const light = await loadLight();
     let prev = light(DAY_LEN - 1, S).strength;
     for (let t = 0; t < DAY_LEN; t++) {
@@ -71,7 +68,7 @@ describe('SHADOW AC5: 影の強さ', () => {
 });
 
 describe('SHADOW AC13: 地図のカメラは 1 目単位でしか動かない', () => {
-  it.fails('中心を 0.1 ブロックずつ動かしても、（右, 上）の値は 1 目の整数倍。1 目より小さく動いたら同じ所に止まる', async () => {
+  it('中心を 0.1 ブロックずつ動かしても、（右, 上）の値は 1 目の整数倍。1 目より小さく動いたら同じ所に止まる', async () => {
     const snap = await loadSnap();
     const half = 32;
     const size = 2048;

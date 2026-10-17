@@ -207,7 +207,7 @@ test.describe('SHADOW-1 太陽と月の影', () => {
   });
 
   test('AC16: 設定の「かげ」オン／オフで切りかわる（はじめはオン）。F3 に影の数が出る', async ({ page }) => {
-    await openShadow(page, '?nosave=1');
+    await openShadow(page, '?nosave=1&shadow=1'); // E2E のサーバーは影を既定オフにしている（既定の決め方は shadowPref.test.ts で見る）
     await pillarScene(page, DAY);
     expect(await page.evaluate(() => (window as any).__rikkun.shadow.enabled()), 'はじめはオン').toBe(true);
     await page.evaluate(() => {

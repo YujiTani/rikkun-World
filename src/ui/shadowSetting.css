@@ -1,0 +1,38 @@
+/* 案内画面の左下: 「かげ」の オン／オフ（64px 以上のボタン。SHADOW.md AC16）。見た目の細かさはアートチーム */
+.shs-row {
+  display: flex;
+  align-items: center;
+  gap: var(--rk-sp-3, 12px);
+  color: var(--rk-text, #fff);
+  text-shadow: var(--rk-text-outline, 0 0 3px #000);
+  font-size: var(--rk-fs-body, 17px);
+  font-weight: 800;
+}
+.shs-row[hidden] {
+  display: none;
+}
+.shs-label {
+  min-width: 3em;
+}
+.shs-btn {
+  min-width: 64px;
+  min-height: 64px;
+  padding: 0 var(--rk-sp-5, 24px);
+  border: var(--rk-bw, 2px) solid var(--rk-accent, #ffc83d);
+  border-radius: var(--rk-r-pill, 999px);
+  background: var(--rk-bg-900, #10141f); /* すけない色 */
+  color: var(--rk-text, #fff);
+  text-shadow: var(--rk-text-outline, 0 0 3px #000);
+  font: inherit;
+  cursor: pointer;
+}
+.shs-btn[aria-pressed='true'] {
+  background-color: #ffc83d; /* すけない色（うしろの下地） */
+  background-image: var(--rk-accent-grad, linear-gradient(180deg, #ffc83d, #ff8a1f));
+  color: var(--rk-ink, #141414);
+  text-shadow: none;
+}
+.shs-btn:focus-visible {
+  outline: 4px solid var(--rk-info, #4fc3f7);
+  outline-offset: 2px;
+}
