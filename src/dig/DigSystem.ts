@@ -1011,6 +1011,8 @@ export class DigSystemImpl implements DigSystem {
     const t = this.tgt;
     if (this.aimedYokaiId() !== null) return 'hit';
     if (!t) return null;
+    // ＋マークの線で ブロックより手前に 妖怪 → ほらない（#34）ので 案内も 出さない
+    if (this.freshDecision()?.use === 'whiff') return null;
     if (this.m4.farm && cropKindOfBlock(t.id)) return 'harvest';
     return 'steps' in digSteps(this.config, t.id, tool?.level) ? 'dig' : null;
   }

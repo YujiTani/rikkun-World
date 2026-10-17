@@ -631,7 +631,7 @@ test.describe('M3 プレイヤーの攻撃（パンチ）', () => {
       const tg = h.target.get();
       const p = h.player.get().position;
       const reach = Math.hypot(y0.position.x - p.x, y0.position.z - p.z) - 0.7; // P から 広げた箱（0.4 + 0.3）まで
-      const pre = { rc: rc?.distance ?? null, tg: tg ? { x: tg.block.x, d: tg.distance } : null, reach, preview: h.attack.preview() };
+      const pre = { rc: rc?.distance ?? null, tg: tg ? { x: tg.block.x, d: tg.distance } : null, reach, preview: h.attack.preview(), hint: h.hud.actionHint() };
       h.combat.events();
       h.input.press('primary');
       let maxProgress = 0;
@@ -650,6 +650,7 @@ test.describe('M3 プレイヤーの攻撃（パンチ）', () => {
     expect(r.pre.rc).toBeLessThan(r.pre.tg!.d);
     expect(r.pre.reach).toBeGreaterThan(3.5); // すでの パンチは とどかない
     expect(r.pre.preview.use).toBe('whiff');
+    expect(r.pre.hint.left).toBeUndefined(); // 照準の下に「ほる」を出さない
     expect(r.maxProgress).toBe(0);
     expect(r.dirt).toBe('dirt');
     expect(r.evs).not.toContain('punchHit');
