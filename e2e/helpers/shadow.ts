@@ -19,7 +19,7 @@ import type { Page } from '@playwright/test';
  * }
  * Shade = { r; g; b; luma }   (0..1、画面に出る色。luma = 0.2126r + 0.7152g + 0.0722b)
  *
- * URL: 影の spec は `?nosave=1&shadow=1`（影オン）、ほかの spec は影オフ（CI の計画。`?shadow=0`）。
+ * URL: 影の spec は `?nosave=1&shadow=1`（影オン）、ほかの spec は URL に何も付けない（E2E のサーバーが `VITE_SHADOW_DEFAULT=off` で影を作らない。playwright.config.ts）。`?shadow=0` も同じく作らない。
  * 付けないときの既定はオン（AC16「はじめはオン」）。
  */
 export interface Shade { r: number; g: number; b: number; luma: number }

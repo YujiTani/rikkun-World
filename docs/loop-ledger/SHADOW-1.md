@@ -25,3 +25,23 @@
 - 数（1280×720、SwiftShader、tick 14000 ほか）: メインの描く回数・三角形は影なしと同じ（start 82 / 380,376、sky 117 / 661,310、dusk 96 / 417,532、night 101 / 482,250、cave 81 / 350,716）。ふだんのコマに影が足すのは 1〜12 回・2〜134 三角形（動く物の地図だけ）。止まっている地図の描き直し 1 回: 近く 71〜87 回・約 74〜84 万三角形、遠く 108〜118 回・約 76〜85 万三角形（目標 1 枚 1.3M 以下）。立って 600 tick: 近く 6〜8・遠く 3〜4（昼 3 場面。夜は月が速く 近く 12・遠く 6）、1 コマに描き直す地図は最大 1 枚。F3 に `shadow near N far N dyn N  draw N tri N`。
 - 確かめた E2E: shadow1・m3・texA・smoke・m1・m2・m7・m72・bal-a〜d,g・fix129・seethru・sound1・w2 が通った（m2 の AC19/20/21 が 1 回だけ落ちたが、再実行・main でも通る。時間のゆれ）。m72:791 の 0.45 は畑のしずくの不透明度で夜の明るさと関係なし。
 - 気になる所: (1) 夜の再描き直しは月が速いので多い（近く 12 / 10 秒）。(2) 妖怪が影を受けるのは段 3。(3) 本当の fps と M4 での描き直しのコマは、オーナーの Mac の F3 で確認が必要（AC14）。
+
+## code-reviewer（実装レビュー、fe3f6e7）判定: 合格（check:fast 緑。重大 0）
+
+| 周 | ループ | 指摘した係 | 指摘（どこ・なに） | 原因の見立て | グループ | 状態 |
+|---|---|---|---|---|---|---|
+| 2 | dev | code-reviewer | 【中】CI は影なし（playwright.config.ts の VITE_SHADOW_DEFAULT=off）なので、影ありの本番の見た目を見る自動の目は shadow1 だけ。ui-gate に「かげ」の行が出ない／texA（AO・丸い影）と影のかけ算も自動では見ない。→ ui-gate か texA に `?shadow=1` の 1 画面を足す | CI を軽くした副作用 | G6 | 未対応 |
+| 2 | dev | code-reviewer | 【中】ShadowSystem.ts meshChanged/maybeStatic: 掘る・歩いて新しいチャンクが出るたびに近い地図（約 75 万三角形）が 4 コマに 1 回まで描き直される。AC9 は立ち止まりだけ。歩き・掘りの間の数は未計測 → オーナーの Mac の F3 で確認（AC14）。重ければ THROTTLE を上げる | 計測が立ち止まりのみ | G7 | 未対応 |
+| 2 | dev | code-reviewer | 【軽微】ShadowSystem.ts: dispose なし（地図 3 枚・板の材料）。placeCam/cardCall が毎コマ new（Matrix4・Vector3）。renderWorldDepth/renderDynamic の材料の入れかえが try/finally でない | 一生ものなので害は小さい | G8 | 未対応 |
+| 2 | dev | code-reviewer | 【軽微】docs/design/SHADOW.md §8.1 と e2e/helpers/shadow.ts の説明が「ほかの spec は `?shadow=0`」のまま。実際は VITE_SHADOW_DEFAULT=off。AC12 の clip y≥120 は時計の飾りだけを避ける目的で妥当（影の差は上 120px に出ない場面）。文書だけ合わせる | 実装中に方法が変わった | G9 | 未対応 |
+
+## developer（レビューの直し）
+- 【中 1】texA に AC8c を足した（`?shadow=1`、石の柱の影の中に丸い影と AO が重なる点で、影あり ÷ 影なし が 0.35 以上 0.8 未満）。1 本だけなので CI は軽い。
+- 【軽微】ShadowSystem に dispose（地図・材料・板。pagehide で呼ぶ）、placeCam / cardCall の new をやめて作業用の物を使い回す、材料の入れかえを try/finally に。SHADOW.md §8.1 と e2e/helpers/shadow.ts の説明を VITE_SHADOW_DEFAULT=off に直した。
+- 【中 2】歩き・掘りの間の地図の描き直しの数は未計測のまま。オーナーの Mac の F3（`shadow near N far N`）で確認してもらう。
+
+## art-reviewer（見た目、合格）
+| 3 | art | art-reviewer | 【軽微】はじまり（tick 9000・start 視点）でキャラが草のでこぼこの影に入り、髪が白→灰むらさき・パーカーが暗く見える（影あり/なしの比較）。第一印象でキャラが少しくすむ | キャラが受ける影の下限をほかの物より少しあげる（例 0.55→0.7）か、はじまりの向きを日なたにする | オーナーの Mac で見て決める | 未対応 |
+| 3 | art | art-reviewer | 【軽微】夜（tick 70000・0.25）は遠くの木・地面がほぼ黒緑、夕方（dusk）も試作より約 13% 暗くキャラのパーカーが沈む。たいまつの近くは十分見える | こわくはないがオーナーが Mac で確認。暗いと感じたら遠くだけ明るさの下限をあげる | オーナーの Mac | 未対応 |
+| 3 | art | art-reviewer | 【軽微】impl/sky.png は上空でなく地上の絵（落下して地面に着く）で、木の影・丸い影の「上から見た見え方」が確認できない。cave も妖怪がいない | 撮影スクリプトで player を浮かせて撮り直す（見た目ではなく撮り方の問題） | 次のついで | 未対応 |
+- 【軽微】impl/sky.png を撮り直した（撮影スクリプトで 600 tick の前に撮り、空の上にもどしてから 1 コマ。見た目はかえていない）。

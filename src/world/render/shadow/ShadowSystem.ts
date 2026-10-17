@@ -92,6 +92,15 @@ export class ShadowSystem {
   /** 影を落とす板の 絵の場所（光の側から見た向きの絵） */
   private readonly cardRect = new THREE.Vector4(0, 0, 1, 1);
   private readonly L = new THREE.Vector3(0, 1, 0);
+  // 毎コマ new しないための作業用
+  private readonly tmpBasis = new THREE.Matrix4();
+  private readonly tmpRight = new THREE.Vector3();
+  private readonly tmpUp = new THREE.Vector3();
+  private readonly tmpPos = new THREE.Vector3();
+  private readonly tmpScale = new THREE.Vector3();
+  private readonly tmpQuat = new THREE.Quaternion();
+  private readonly yokaiSwap: [THREE.Mesh, THREE.Material | THREE.Material[], boolean][] = [];
+  private readonly worldSwap: [THREE.Mesh, THREE.Material | THREE.Material[], boolean][] = [];
   private info: ShadowLightInfo;
   private inited = false;
   private _enabled = true;
@@ -230,9 +239,7 @@ void main() {
     const { right, up } = lightAxes(this.L);
     const cam = c.cam;
     cam.position.set(s.x + this.L.x * DEPTH_REACH, s.y + this.L.y * DEPTH_REACH, s.z + this.L.z * DEPTH_REACH);
-    cam.quaternion.setFromRotationMatrix(
-      new THREE.Matrix4().makeBasis(new THREE.Vector3(right.x, right.y, right.z), new THREE.Vector3(up.x, up.y, up.z), this.L),
-    );
+    cam.quaternion.setFromRotationMatrix(this.tmpBasis.makeBasis(this.tmpRight.set(right.x, right.y, right.z), this.tmpUp.set(up.x, up.y, up.z), this.L));
     cam.updateMatrixWorld(true);
     cam.updateProjectionMatrix();
     c.matrix.multiplyMatrices(BIAS, cam.projectionMatrix).multiply(cam.matrixWorldInverse);
@@ -282,7 +289,8 @@ void main() {
     const r = this.d.renderer;
     const wr = this.d.worldRenderer;
     const [, opaque, water, lodOpaque, lodWater] = wr.materials();
-    const swapped: [THREE.Mesh, THREE.Material | THREE.Material[], boolean][] = [];
+    const swapped = this.worldSwap;
+    swapped.length = 0;
     for (const o of wr.group.children) {
       const m = o as THREE.Mesh;
       if (!m.isMesh) continue;
@@ -292,16 +300,19 @@ void main() {
       else if (mat === opaque) m.material = this.depthCutout;
       else if (mat === lodOpaque || (!Array.isArray(mat) && mat.customProgramCacheKey().startsWith('rikkun-voxel-tex'))) m.material = this.depthBasic;
     }
-    r.setRenderTarget(target);
-    r.autoClear = false;
-    r.clear(false, true, false);
-    r.render(wr.group, cam);
-    const s = { calls: r.info.render.calls, triangles: r.info.render.triangles };
-    for (const [m, mat, vis] of swapped) {
-      m.material = mat;
-      m.visible = vis;
+    try {
+      r.setRenderTarget(target);
+      r.autoClear = false;
+      r.clear(false, true, false);
+      r.render(wr.group, cam);
+      return { calls: r.info.render.calls, triangles: r.info.render.triangles };
+    } finally {
+      for (const [m, mat, vis] of swapped) {
+        m.material = mat;
+        m.visible = vis;
+      }
+      swapped.length = 0;
     }
-    return s;
   }
 
   /** 動く物（妖怪・キャラの板）を 動く物の地図に描く（毎コマ） */
@@ -315,7 +326,8 @@ void main() {
     r.clear(false, true, false);
     let calls = 0;
     let triangles = 0;
-    const swapped: [THREE.Mesh, THREE.Material | THREE.Material[], boolean][] = [];
+    const swapped = this.yokaiSwap;
+    swapped.length = 0;
     this.d.yokaiGroup.traverse((o) => {
       const m = o as THREE.Mesh;
       if (!m.isMesh) return;
@@ -325,12 +337,16 @@ void main() {
       if (Array.isArray(m.material) || mat.transparent || mat.side === THREE.BackSide || (mat as THREE.MeshBasicMaterial).fog === false) m.visible = false;
       else m.material = this.depthBasic;
     });
-    r.render(this.d.yokaiGroup, c.cam);
-    calls += r.info.render.calls;
-    triangles += r.info.render.triangles;
-    for (const [m, mat, vis] of swapped) {
-      m.material = mat;
-      m.visible = vis;
+    try {
+      r.render(this.d.yokaiGroup, c.cam);
+      calls += r.info.render.calls;
+      triangles += r.info.render.triangles;
+    } finally {
+      for (const [m, mat, vis] of swapped) {
+        m.material = mat;
+        m.visible = vis;
+      }
+      swapped.length = 0;
     }
     const card = this.cardCall(c.cam);
     calls += card.calls;
@@ -350,9 +366,9 @@ void main() {
     if (!mat.uniforms.uMap!.value) return { calls: 0, triangles: 0 };
     const r = this.d.renderer;
     sm.updateWorldMatrix(true, false);
-    const pos = new THREE.Vector3();
-    const scl = new THREE.Vector3();
-    const q = new THREE.Quaternion();
+    const pos = this.tmpPos;
+    const scl = this.tmpScale;
+    const q = this.tmpQuat;
     sm.matrixWorld.decompose(pos, q, scl);
     // 板を 光の来る向きへ 立てて向ける（たての軸だけ回す）
     q.setFromAxisAngle(THREE.Object3D.DEFAULT_UP, Math.atan2(this.L.x, this.L.z));
@@ -408,6 +424,23 @@ void main() {
     if (!this._enabled) return 'shadow off';
     const f = this.frameInfo;
     return `shadow near ${this.redraws.near} far ${this.redraws.far} dyn ${this.redraws.dynamic}  draw ${f.draws} tri ${f.triangles}`;
+  }
+
+  /** 地図・材料・板を 捨てる（GPU の物を返す）。ゲームの終わりに 1 回 */
+  dispose(): void {
+    if (this.d.worldRenderer.onMeshChange) this.d.worldRenderer.onMeshChange = null;
+    for (const c of [...this.cascades, this.dyn]) {
+      c.rt.dispose();
+      c.depth.dispose();
+    }
+    this.depthBasic.dispose();
+    this.depthCutout.dispose();
+    if (this.card) {
+      (this.card.material as THREE.Material).dispose();
+      this.cardScene.remove(this.card);
+      this.card = null;
+    }
+    this.uniforms.uShP.value.x = 0;
   }
 
   /** 地図の GPU メモリの目安（バイト） */

@@ -212,7 +212,7 @@ AC2・AC8 は AC1・AC3 にまとめた（E2E の本数をふやさないため�
 
 ### 8.1 窓口（hook）の決まり（テスト係が足した。正本は `e2e/helpers/shadow.ts` の上の説明）
 
-`window.__rikkun.shadow`: `enabled()` / `set(on)` / `stats()`（`enabled`・`redraws {near, far, dynamic}`・`frame {staticRedrawn, draws, triangles, maxStaticPerFrame}`・`light {x, y, z, strength, body}`）/ `resetStats()` / `advance(ticks, renderEvery)`（tick を進めながら `renderEvery` ごとに 1 回描く）/ `visAt(x, y, z)` / `rayBlocked(x, y, z)` / `shadeAt(x, y, z, {shadow})`（真上から 1 画素の色 `{r, g, b, luma}`）/ `shadeChar({shadow})`。URL: `?shadow=0` = 影のしくみを作らない、`?shadow=1` = オン、なし = オン（はじめはオン）。設定の画面: `data-testid` が `shadow-setting`（行）・`shadow-on`・`shadow-off`。F3 に `shadow ... tri ...` の行。
+`window.__rikkun.shadow`: `enabled()` / `set(on)` / `stats()`（`enabled`・`redraws {near, far, dynamic}`・`frame {staticRedrawn, draws, triangles, maxStaticPerFrame}`・`light {x, y, z, strength, body}`）/ `resetStats()` / `advance(ticks, renderEvery)`（tick を進めながら `renderEvery` ごとに 1 回描く）/ `visAt(x, y, z)` / `rayBlocked(x, y, z)` / `shadeAt(x, y, z, {shadow})`（真上から 1 画素の色 `{r, g, b, luma}`）/ `shadeChar({shadow})`。URL: `?shadow=0` = 影のしくみを作らない、`?shadow=1` = オン、なし = オン（はじめはオン）。E2E のサーバーは `VITE_SHADOW_DEFAULT=off`（playwright.config.ts）で、URL になにもないときは影を作らない（影の spec と texA の 1 本だけ `?shadow=1`）。設定の画面: `data-testid` が `shadow-setting`（行）・`shadow-on`・`shadow-off`。F3 に `shadow ... tri ...` の行。
 ユニット（AC5・AC13）: `src/world/render/shadow/shadowLight.ts` の `shadowLight(dayTick, settings)`（`body`・`dir`・`mapDir`・`strength`）と `shadowCamera.ts` の `snapMapCenter(center, mapDir, half, size)`。
 
 ## 9. 性能の目標

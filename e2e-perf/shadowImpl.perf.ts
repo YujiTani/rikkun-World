@@ -30,12 +30,22 @@ test('数とスクショ', async ({ page }) => {
     await open(page, q);
     for (const s of SCENES) {
       await scene(page, s);
-      await page.evaluate(() => (window as any).__rikkun.step(2));
+      if (s === 'sky') {
+        // 場面づくりの step で落ちるので、撮る直前に 空の上へもどして 1 コマだけ進める（落ちるのは 0.01 ブロックほど）
+        await page.evaluate(() => {
+          const h = (window as any).__rikkun;
+          const sp = h.world.spawn();
+          h.player.set({ position: { x: sp.x, y: sp.y + 26, z: sp.z }, velocity: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: -70 });
+        });
+      }
+      await page.evaluate(() => (window as any).__rikkun.step(1));
       await page.waitForTimeout(300);
       const a = await probe(page);
-      const b = await probe(page); // 地図が落ちついたあとの ふだんのコマ
+      const b = await probe(page);
+      if (s === 'sky') await page.evaluate(() => { const h = (window as any).__rikkun; const sp = h.world.spawn(); h.player.set({ position: { x: sp.x, y: sp.y + 26, z: sp.z }, velocity: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: -70 }); h.step(1); }); // 地図が落ちついたあとの ふだんのコマ
       rows.push(`${q} ${s}: main draw ${b.main.drawCalls} tri ${b.main.triangles} | 影の足す draw ${b.shadowFrame.draws} tri ${b.shadowFrame.triangles} | 1 回目 ${a.ms}ms ${JSON.stringify(a.shadowFrame.staticRedrawn)} ふだん ${b.ms}ms`);
       if (q === '&shadow=1') {
+        await page.screenshot({ path: `${OUT}/${s}.png` }); // 600 tick で落ちる前に撮る
         const r = await page.evaluate(() => {
           const h = (window as any).__rikkun;
           h.shadow.resetStats();
@@ -54,7 +64,6 @@ test('数とスクショ', async ({ page }) => {
         });
         rows.push(`   ${s} 600tick: ${JSON.stringify(r)}`);
       }
-      if (q === '&shadow=1') await page.screenshot({ path: `${OUT}/${s}.png` });
     }
   }
   console.log('\n' + rows.join('\n'));

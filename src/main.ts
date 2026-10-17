@@ -1471,6 +1471,7 @@ if (shadowStart.build) {
   if (sprite) sys.attachSprite(sprite as import('three').Mesh);
   game.onBeforeRender(() => sys.preRender());
   shadowSystem = sys;
+  window.addEventListener('pagehide', () => sys.dispose());
 }
 const setShadow = (on: boolean): void => {
   if (!shadowSystem) return;
