@@ -42,7 +42,9 @@ describe('ドット絵', () => {
     expect(buildAtlasData()).toHaveLength(ATLAS_WIDTH * ATLAS_HEIGHT * 4);
     const hexOf = (c: readonly number[]) => c.slice(0, 3).map((v) => v.toString(16).padStart(2, '0')).join('');
     const has = (n: Parameters<typeof getTilePixels>[0], h: string) => getTilePixels(n).some((c) => hexOf(c) === h);
-    expect(has('grass_top', '5dbb3f')).toBe(true);
+    // CALM（#194）: calmColor(#5DBB3F, #5DBB3F) = (106,181,82)
+    expect(has('grass_top', '6ab552')).toBe(true);
+    expect(has('grass_top', '5dbb3f')).toBe(false);
     expect(has('coal_ore', '222222')).toBe(true);
     expect(has('iron_ore', 'e0a872')).toBe(true);
   });
