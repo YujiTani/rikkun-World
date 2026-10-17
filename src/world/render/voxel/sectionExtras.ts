@@ -1,6 +1,6 @@
 import type { CropStageSource } from '../../../contracts';
 import { cropKindOfBlock } from '../../../contracts';
-import { hasLook } from '../../../proto/voxel/looks';
+import { hasLook, occludes } from '../../../proto/voxel/looks';
 import { AIR, BLOCK_TYPES, WATER, isCrossIndex, isOpaqueIndex, isTorchIndex, isWildIndex } from '../../blocks/blockTypes';
 import type { TileName } from '../../blocks/textures';
 import type { WorldLight } from '../../light/WorldLight';
@@ -9,7 +9,7 @@ import { FACES, LIGHT_MAX, RIPE_FLAG, TILE_UV, crossTileName, emptyMesh, pushCro
 
 /**
  * セクション 1 つぶんの「絵（atlas）で描くもの」: たいまつ・十字の板（作物・やせいの やさい・かかし・さく）・
- * 小ブロックの形を持たない固いブロック（かまど・レンガ・はたけ など）・水。
+ * 小ブロックの形を持たない固いブロック（平らな箱: かまど・たんす・スプリンクラー・レンガ・かわら・はたけ・ぬれたはたけ）・水。
  * 小ブロックの形（3D テクスチャ）で描く種類は meshVoxel の側（sectionMesher.ts）が描く。
  * 光は今までと同じ（面の角のなめらかな平均）。
  */
@@ -27,6 +27,8 @@ export function meshSectionExtras(
   light: WorldLight | undefined,
   crops?: CropStageSource,
   hide?: (x: number, y: number, z: number) => boolean,
+  /** true: 平らな箱の面に 角の暗がり（AO。ブロック単位）を入れる（小ブロックの段。箱の段は入れない） */
+  ao = false,
 ): SectionExtras {
   const opaque = emptyMesh();
   const water = emptyMesh();
@@ -61,9 +63,10 @@ export function meshSectionExtras(
         for (const face of FACES) {
           const n = world.getIndex(x + face.dir[0], y + face.dir[1], z + face.dir[2]);
           if (n < 0) continue; // 世界の外へ向く面は見えない
-          // となりが 絵のブロックなら 面はかくれる。小ブロックの形のとなりは、へこみから見えることがあるので 描く
-          if (isWater ? n !== AIR : isOpaqueIndex(n) && !hasLook(n)) continue;
-          pushFace(isWater ? water : opaque, world, light, x, y, z, face, uv[face.kind]);
+          // となりが 絵のブロックなら 面はかくれる。小ブロックの形のとなりは、横は 地形のへこみから見えることがあるので 描く。
+          // 上下は となりの面が ぜんぶ つまっている（箱でふさがれた面は へこまない）ので かくれる
+          if (isWater ? n !== AIR : isOpaqueIndex(n) && (!hasLook(n) || (face.dir[1] !== 0 && occludes(n)))) continue;
+          pushFace(isWater ? water : opaque, world, light, x, y, z, face, uv[face.kind], ao && !isWater);
         }
       }
     }

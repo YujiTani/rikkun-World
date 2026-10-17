@@ -28,6 +28,8 @@ export class Game {
   tick = 0;
   /** true のとき自動では進まない（テスト用。step() で進める） */
   paused = false;
+  /** true のあいだは 絵を描かない（テスト用: 画面の文字だけ見るテストを 機械の速さに よらなくする） */
+  renderSuspended = false;
   private renderDirty = false;
 
   private accumulator = 0;
@@ -100,6 +102,11 @@ export class Game {
     this.render();
   }
 
+  /** いま 1 回 描く（テスト用: 画素を読む前に最新の絵にする） */
+  renderNow(): void {
+    this.render();
+  }
+
   getRenderStats(): RenderStats {
     this.flushRender();
     const info = this.renderer.info;
@@ -154,6 +161,7 @@ export class Game {
 
   private render(): void {
     this.renderDirty = false;
+    if (this.renderSuspended) return;
     this.renderer.render(this.scene, this.camera);
   }
 

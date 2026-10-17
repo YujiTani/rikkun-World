@@ -1,5 +1,4 @@
 import { Color, ShaderMaterial, type Data3DTexture } from 'three';
-import { RENDER_CONFIG } from '../../world/render/config';
 import { TEX_N } from './shapeTexture';
 
 /**
@@ -24,7 +23,7 @@ const vec3 NRM[6] = vec3[6](
   vec3(-1.0, 0.0, 0.0), vec3(0.0, 0.0, 1.0), vec3(0.0, 0.0, -1.0));
 void main() {
   int f = int(aData.w + 0.5);
-  vShade = f == 0 ? ${RENDER_CONFIG.brightnessTop.toFixed(2)} : (f == 1 ? ${RENDER_CONFIG.brightnessBottom.toFixed(2)} : ${RENDER_CONFIG.brightnessSide.toFixed(2)});
+  vShade = f == 0 ? 1.00 : (f == 1 ? 0.60 : 0.80);
 #ifdef SHAPE
   vKind = aData.x;
   // 面のすぐ内側の小ブロックの座標（9 倍）。負にならないよう 27 の倍数を足す

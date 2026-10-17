@@ -1,9 +1,10 @@
 import { AIR, BLOCK_TYPES, WATER, isCrossIndex, isTorchIndex } from '../blocks/blockTypes';
-import { BLOCK_TILES, getTilePixels, type TileName } from '../blocks/textures';
+import { BLOCK_TILES } from '../blocks/textures';
 import type { WorldLight } from '../light/WorldLight';
 import { CHUNK_SIZE, type ArrayVoxelWorld } from '../VoxelWorld';
-import { RENDER_CONFIG } from './config';
-import type { MeshData } from './meshChunk';
+import { FACE_SHADE_BY_INDEX } from './config';
+import { emptyMesh, type MeshData } from './meshChunk';
+import { tileAverage } from './voxel/projection';
 
 /**
  * 遠いチャンク用の かんたんメッシュ（LOD）。
@@ -20,27 +21,11 @@ export interface LodChunkMeshData {
 }
 
 const LIGHT_MAX = 15;
+/** 面の明るさ（config.ts の FACE_SHADE_BY_INDEX）: 上 / 東西（±x） / 南北（±z） */
+const SHADE_TOP = FACE_SHADE_BY_INDEX[0];
+const SHADE_EW = FACE_SHADE_BY_INDEX[2];
+const SHADE_NS = FACE_SHADE_BY_INDEX[4];
 const C = CHUNK_SIZE;
-
-function srgbToLinear(c: number): number {
-  const v = c / 255;
-  return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
-}
-
-/** タイルの平均の色（線形。頂点の色は線形あつかいなので、テクスチャの sRGB をもどして平均する） */
-function tileAverage(name: TileName): [number, number, number] {
-  const px = getTilePixels(name);
-  let r = 0;
-  let g = 0;
-  let b = 0;
-  for (const p of px) {
-    r += srgbToLinear(p[0]);
-    g += srgbToLinear(p[1]);
-    b += srgbToLinear(p[2]);
-  }
-  const n = px.length;
-  return [r / n, g / n, b / n];
-}
 
 type Rgb = [number, number, number];
 let AVG: { top: Rgb[]; side: Rgb[]; water: Rgb } | null = null;
@@ -68,10 +53,6 @@ const SIDES = [
 ] as const;
 const TOP_VERTS = [[0, 1, 1], [1, 1, 1], [1, 1, 0], [0, 1, 0]] as const;
 
-function emptyMesh(): MeshData {
-  return { positions: [], uvs: [], colors: [], lights: [], indices: [], faceCount: 0 };
-}
-
 function pushQuad(
   mesh: MeshData,
   verts: readonly (readonly number[])[],
@@ -91,6 +72,7 @@ function pushQuad(
     mesh.positions.push(v[0] ? x1 : x0, v[1] ? y1 : y0, v[2] ? z1 : z0);
     mesh.colors.push(rgb[0] * b, rgb[1] * b, rgb[2] * b);
     mesh.lights.push(sky / LIGHT_MAX, blk / LIGHT_MAX);
+    mesh.darks.push(0);
   }
   mesh.indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
   mesh.faceCount++;
@@ -197,11 +179,11 @@ export function meshChunkLod(world: ArrayVoxelWorld, cx: number, cz: number, lig
 
   greedy(topKeys, (x, z, w, d, k) => {
     const t = unpack(k);
-    pushQuad(opaque, TOP_VERTS, x0 + x, x0 + x + w, t.y + 1, t.y + 1, z0 + z, z0 + z + d, avg.top[t.b], RENDER_CONFIG.brightnessTop, t.s, t.l);
+    pushQuad(opaque, TOP_VERTS, x0 + x, x0 + x + w, t.y + 1, t.y + 1, z0 + z, z0 + z + d, avg.top[t.b], SHADE_TOP, t.s, t.l);
   });
   greedy(waterKeys, (x, z, w, d, k) => {
     const t = unpack(k);
-    pushQuad(water, TOP_VERTS, x0 + x, x0 + x + w, t.y + 1, t.y + 1, z0 + z, z0 + z + d, avg.water, RENDER_CONFIG.brightnessTop, t.s, t.l);
+    pushQuad(water, TOP_VERTS, x0 + x, x0 + x + w, t.y + 1, t.y + 1, z0 + z, z0 + z + d, avg.water, SHADE_TOP, t.s, t.l);
   });
 
   // 横の面: となりの列より高い所だけ。縁にそって同じものを 1 まいにまとめる
@@ -222,9 +204,9 @@ export function meshChunkLod(world: ArrayVoxelWorld, cx: number, cz: number, lig
         const lo = (alongX ? x0 : z0) + runStart;
         const hi = (alongX ? x0 : z0) + end;
         if (alongX) {
-          pushQuad(opaque, side.verts, lo, hi, bottom, top, plane, plane, avg.side[rb], RENDER_CONFIG.brightnessSide, rs, rl);
+          pushQuad(opaque, side.verts, lo, hi, bottom, top, plane, plane, avg.side[rb], SHADE_NS, rs, rl);
         } else {
-          pushQuad(opaque, side.verts, plane, plane, bottom, top, lo, hi, avg.side[rb], RENDER_CONFIG.brightnessSide, rs, rl);
+          pushQuad(opaque, side.verts, plane, plane, bottom, top, lo, hi, avg.side[rb], SHADE_EW, rs, rl);
         }
       };
       for (let m = 0; m <= C; m++) {

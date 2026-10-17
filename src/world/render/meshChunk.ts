@@ -5,7 +5,7 @@ import { cropKindOfBlock } from '../../contracts';
 import { OPACITY } from '../light/opacity';
 import type { WorldLight } from '../light/WorldLight';
 import { CHUNK_SIZE, type ArrayVoxelWorld } from '../VoxelWorld';
-import { RENDER_CONFIG } from './config';
+import { AO_LEVELS, FACE_SHADE_BY_INDEX } from './config';
 
 /** メッシュの材料（three に依存しない。テストしやすい） */
 export interface MeshData {
@@ -14,6 +14,8 @@ export interface MeshData {
   colors: number[];
   /** 頂点ごとの [空の光, ブロックの光]（0〜1 = 明るさ / 15）。時刻による空の暗さはシェーダーで毎コマかける */
   lights: number[];
+  /** 頂点ごとの 角の暗がり（AO）の暗さ（0 = なし 〜 0.45）。AO は 平らな箱の面にだけ（ブロック単位）。シェーダーが 1 - 暗さ を かける */
+  darks: number[];
   indices: number[];
   faceCount: number;
 }
@@ -24,10 +26,12 @@ export interface ChunkMeshData {
 }
 
 export function emptyMesh(): MeshData {
-  return { positions: [], uvs: [], colors: [], lights: [], indices: [], faceCount: 0 };
+  return { positions: [], uvs: [], colors: [], lights: [], darks: [], indices: [], faceCount: 0 };
 }
 
 export interface FaceDef {
+  /** 面の向きの番号: 0 上, 1 下, 2 +x, 3 -x, 4 +z, 5 -z */
+  index: number;
   /** となりのブロックの向き */
   dir: [number, number, number];
   /** 0 = 上, 1 = 下, 2 = 横（タイルの選び方と明るさ） */
@@ -37,12 +41,12 @@ export interface FaceDef {
 }
 
 export const FACES: FaceDef[] = [
-  { dir: [0, 1, 0], kind: 0, verts: [[0, 1, 1], [1, 1, 1], [1, 1, 0], [0, 1, 0]] },
-  { dir: [0, -1, 0], kind: 1, verts: [[0, 0, 0], [1, 0, 0], [1, 0, 1], [0, 0, 1]] },
-  { dir: [1, 0, 0], kind: 2, verts: [[1, 0, 1], [1, 0, 0], [1, 1, 0], [1, 1, 1]] },
-  { dir: [-1, 0, 0], kind: 2, verts: [[0, 0, 0], [0, 0, 1], [0, 1, 1], [0, 1, 0]] },
-  { dir: [0, 0, 1], kind: 2, verts: [[0, 0, 1], [1, 0, 1], [1, 1, 1], [0, 1, 1]] },
-  { dir: [0, 0, -1], kind: 2, verts: [[1, 0, 0], [0, 0, 0], [0, 1, 0], [1, 1, 0]] },
+  { index: 0, dir: [0, 1, 0], kind: 0, verts: [[0, 1, 1], [1, 1, 1], [1, 1, 0], [0, 1, 0]] },
+  { index: 1, dir: [0, -1, 0], kind: 1, verts: [[0, 0, 0], [1, 0, 0], [1, 0, 1], [0, 0, 1]] },
+  { index: 2, dir: [1, 0, 0], kind: 2, verts: [[1, 0, 1], [1, 0, 0], [1, 1, 0], [1, 1, 1]] },
+  { index: 3, dir: [-1, 0, 0], kind: 2, verts: [[0, 0, 0], [0, 0, 1], [0, 1, 1], [0, 1, 0]] },
+  { index: 4, dir: [0, 0, 1], kind: 2, verts: [[0, 0, 1], [1, 0, 1], [1, 1, 1], [0, 1, 1]] },
+  { index: 5, dir: [0, 0, -1], kind: 2, verts: [[1, 0, 0], [0, 0, 0], [0, 1, 0], [1, 1, 0]] },
 ];
 const CORNER_UV: [number, number][] = [
   [0, 0],
@@ -50,7 +54,6 @@ const CORNER_UV: [number, number][] = [
   [1, 1],
   [0, 1],
 ];
-const BRIGHTNESS = [RENDER_CONFIG.brightnessTop, RENDER_CONFIG.brightnessBottom, RENDER_CONFIG.brightnessSide];
 
 // ブロックの番号ごとの [上, 下, 横] の UV を先に作っておく
 export const TILE_UV: ([number, number, number, number][] | undefined)[] = BLOCK_TYPES.map((t) => {
@@ -124,6 +127,49 @@ function cornerLight(
 
 const LIGHT_TMP: [number, number] = [1, 0];
 
+/** 面の角 v が向く 2 つの軸の 向き（+1 か -1）。a = 1 つめの軸、b = 2 つめの軸（cornerLight と同じ） */
+function cornerAxes(face: FaceDef, v: readonly number[]): [number, number, number, number, number, number] {
+  if (face.dir[0] !== 0) return [0, v[1] ? 1 : -1, 0, 0, 0, v[2] ? 1 : -1];
+  if (face.dir[1] !== 0) return [v[0] ? 1 : -1, 0, 0, 0, 0, v[2] ? 1 : -1];
+  return [v[0] ? 1 : -1, 0, 0, 0, v[1] ? 1 : -1, 0];
+}
+
+/**
+ * 平らな箱の面の 4 つの角の AO の段（0〜3。ブロック単位。マイクラと同じ）。となりの ブロック（面の前の層）で見る:
+ * 横の 2 つ（s1, s2）が どちらも 不透明なら 3。ほかは s1 + s2 + c。out[i] = 角 i（face.verts の順）。
+ */
+export function flatAoLevels(world: ArrayVoxelWorld, x: number, y: number, z: number, face: FaceDef, out: number[]): void {
+  const fx = x + face.dir[0];
+  const fy = y + face.dir[1];
+  const fz = z + face.dir[2];
+  const solid = (a: number, b: number, c: number): number => {
+    const t = world.getIndex(a, b, c);
+    return t > 0 && isOpaqueIndex(t) ? 1 : 0;
+  };
+  for (let i = 0; i < 4; i++) {
+    const [ax, ay, az, bx, by, bz] = cornerAxes(face, face.verts[i]);
+    const s1 = solid(fx + ax, fy + ay, fz + az);
+    const s2 = solid(fx + bx, fy + by, fz + bz);
+    const c = solid(fx + ax + bx, fy + ay + by, fz + az + bz);
+    out[i] = s1 && s2 ? 3 : s1 + s2 + c;
+  }
+}
+
+/** 四角の 2 まいの三角形を どの対角線で切るか（暗い角どうしを つなぐ。true = 1-3 の対角線） */
+export function flatAoFlip(l: readonly number[]): boolean {
+  return l[0] + l[2] > l[1] + l[3];
+}
+
+/** 角の値 v[0..3]（CORNER_UV の順）を、三角形の補間で (s, t)（0〜1、s = 絵の u、t = 絵の v（上））に */
+export function flatInterp(v: readonly number[], flip: boolean, s: number, t: number): number {
+  if (!flip) {
+    // 三角形 (0,1,2) と (0,2,3)
+    return s >= t ? (1 - s) * v[0] + (s - t) * v[1] + t * v[2] : (1 - t) * v[0] + s * v[2] + (t - s) * v[3];
+  }
+  // 三角形 (1,2,3) と (1,3,0)
+  return s + t >= 1 ? (1 - t) * v[1] + (s + t - 1) * v[2] + (1 - s) * v[3] : s * v[1] + (1 - s - t) * v[0] + t * v[3];
+}
+
 export function pushFace(
   mesh: MeshData,
   world: ArrayVoxelWorld,
@@ -133,9 +179,12 @@ export function pushFace(
   z: number,
   face: FaceDef,
   uvRect: [number, number, number, number],
+  /** true: 角の暗がり（AO）を 頂点に入れる（平らな箱の面） */
+  ao = false,
 ): void {
   const base = mesh.positions.length / 3;
-  const b = BRIGHTNESS[face.kind];
+  const b = FACE_SHADE_BY_INDEX[face.index];
+  if (ao) flatAoLevels(world, x, y, z, face, AO_TMP);
   for (let i = 0; i < 4; i++) {
     const v = face.verts[i];
     mesh.positions.push(x + v[0], y + v[1], z + v[2]);
@@ -144,10 +193,13 @@ export function pushFace(
     mesh.colors.push(b, b, b);
     cornerLight(world, light, x, y, z, face, v, LIGHT_TMP);
     mesh.lights.push(LIGHT_TMP[0], LIGHT_TMP[1]);
+    mesh.darks.push(ao ? 1 - AO_LEVELS[AO_TMP[i]] : 0);
   }
-  mesh.indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
+  if (ao && flatAoFlip(AO_TMP)) mesh.indices.push(base + 1, base + 2, base + 3, base + 1, base + 3, base);
+  else mesh.indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
   mesh.faceCount++;
 }
+const AO_TMP: number[] = [0, 0, 0, 0];
 
 /**
  * 1 チャンク（横 16x16、高さは世界ぜんぶ）のメッシュの材料を作る。
@@ -181,6 +233,7 @@ export function pushTorch(mesh: MeshData, x: number, y: number, z: number, tile:
       // 炎は面の向きで暗くしない
       mesh.colors.push(1, 1, 1);
       mesh.lights.push(sky, 1);
+      mesh.darks.push(0);
     }
     mesh.indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
     mesh.faceCount++;
@@ -222,6 +275,7 @@ export function pushCross(mesh: MeshData, x: number, y: number, z: number, tile:
         mesh.uvs.push(c[0] === 0 ? uv[0] : uv[2], c[1] === 0 ? uv[1] : uv[3]);
         mesh.colors.push(1, 1, 1);
         mesh.lights.push(sky, blk);
+        mesh.darks.push(0);
       }
       mesh.indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
       mesh.faceCount++;

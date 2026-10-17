@@ -22,7 +22,7 @@ export interface SwayItem {
   blk: number;
 }
 
-const scratch: MeshData = { positions: [], uvs: [], colors: [], lights: [], indices: [], faceCount: 0 };
+const scratch: MeshData = { positions: [], uvs: [], colors: [], lights: [], darks: [], indices: [], faceCount: 0 };
 
 /**
  * 1 本 分 の 頂点（4 面 × 4 角）を out に 書く。足もと（マスの まん中 の 下）を 軸 に、z 軸まわり に deg 度 かたむける。
@@ -40,6 +40,7 @@ export function writeSwayVertices(
   scratch.uvs.length = 0;
   scratch.colors.length = 0;
   scratch.lights.length = 0;
+  scratch.darks.length = 0;
   scratch.indices.length = 0;
   scratch.faceCount = 0;
   pushCross(scratch, item.x, item.y, item.z, item.tile, item.sky, item.blk);
