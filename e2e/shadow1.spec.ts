@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { openShadow, flatGrass, settleLight, frames, shadowDir, type Shade } from './helpers/shadow';
+import { openShadow, flatGrass, FLOOR_Y, settleLight, frames, shadowDir, type Shade } from './helpers/shadow';
 
 /**
  * #144 SHADOW-1（段 1: 太陽と月の影）の受け入れテスト。docs/design/SHADOW.md §8（AC1〜AC9・AC12・AC15・AC16）。
@@ -11,16 +11,16 @@ const DAY = 14000; // 太陽 41°
 const MOON = 67400; // 月 43°
 const SHOT = 'test-shots/assets/';
 
-/** 石の柱（1×1×5）を (10, 9..13, 10) に立てる。根もとの中心は (10.5, 9, 10.5) */
+/** 石の柱（1×1×5）を (10, 床+1..床+5, 10) に立てる。根もとの中心は (10.5, 床+1, 10.5)（床の高さは flatGrass が 世界に聞く） */
 async function pillarScene(page: Page, tick: number): Promise<void> {
   await flatGrass(page);
-  await page.evaluate((t) => {
+  await page.evaluate(([t, fy]) => {
     const h = (window as any).__rikkun;
-    h.world.fill(10, 9, 10, 10, 13, 10, 'stone');
-    h.player.set({ position: { x: 4.5, y: 9, z: 4.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 45, pitch: 25 });
+    h.world.fill(10, fy + 1, 10, 10, fy + 5, 10, 'stone');
+    h.player.set({ position: { x: 4.5, y: fy + 1, z: 4.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 45, pitch: 25 });
     h.time.set(t);
     h.step(2);
-  }, tick);
+  }, [tick, FLOOR_Y] as const);
   await settleLight(page);
   await frames(page, 2);
 }
@@ -28,7 +28,7 @@ async function pillarScene(page: Page, tick: number): Promise<void> {
 /** 柱の根もとから 影の向きに d ブロック進んだ地面の点（d が負なら 光の側） */
 async function groundPoint(page: Page, d: number): Promise<{ x: number; y: number; z: number }> {
   const s = await shadowDir(page);
-  return { x: 10.5 + s.x * d, y: 9, z: 10.5 + s.z * d };
+  return { x: 10.5 + s.x * d, y: FLOOR_Y + 1, z: 10.5 + s.z * d };
 }
 const vis = (page: Page, p: { x: number; y: number; z: number }) => page.evaluate((q) => (window as any).__rikkun.shadow.visAt(q.x, q.y, q.z) as number, p);
 const shade = (page: Page, p: { x: number; y: number; z: number }, shadow: boolean) =>
@@ -82,8 +82,8 @@ test.describe('SHADOW-1 太陽と月の影', () => {
     const cell = (v: number) => Math.floor(v * 9) / 9;
     const cx = cell(e.x);
     const cz = cell(e.z);
-    const a = await vis(page, { x: cx + 0.01 / 9, y: 9, z: cz + 0.01 / 9 });
-    const b = await vis(page, { x: cx + 0.99 / 9, y: 9, z: cz + 0.99 / 9 });
+    const a = await vis(page, { x: cx + 0.01 / 9, y: FLOOR_Y + 1, z: cz + 0.01 / 9 });
+    const b = await vis(page, { x: cx + 0.99 / 9, y: FLOOR_Y + 1, z: cz + 0.99 / 9 });
     expect(Math.abs(a - b), `同じ目の中 ${a} ${b}`).toBeLessThan(0.02);
   });
 
@@ -91,18 +91,18 @@ test.describe('SHADOW-1 太陽と月の影', () => {
     await openShadow(page);
     await flatGrass(page);
     for (const [tick, torch] of [[9000, false], [DAY, true]] as const) {
-      await page.evaluate(([t, tc]) => {
+      await page.evaluate(([t, tc, fy]) => {
         const h = (window as any).__rikkun;
-        h.world.fill(15, 9, 15, 17, 9, 17, 'air');
-        if (tc) h.world.setBlock(16, 9, 15, 'start_torch');
-        h.player.set({ position: { x: 16.5, y: 9, z: 16.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: 10 });
+        h.world.fill(15, fy + 1, 15, 17, fy + 1, 17, 'air');
+        if (tc) h.world.setBlock(16, fy + 1, 15, 'start_torch');
+        h.player.set({ position: { x: 16.5, y: fy + 1, z: 16.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: 10 });
         h.time.set(t);
         h.step(3);
-      }, [tick, torch] as const);
+      }, [tick, torch, FLOOR_Y] as const);
       await settleLight(page);
       await frames(page, 2);
       const s = await shadowDir(page);
-      const v = await vis(page, { x: 16.5 + s.x, y: 9, z: 16.5 + s.z });
+      const v = await vis(page, { x: 16.5 + s.x, y: FLOOR_Y + 1, z: 16.5 + s.z });
       expect(v, `tick ${tick} torch ${torch}`).toBeLessThan(0.3);
     }
   });
@@ -129,20 +129,20 @@ test.describe('SHADOW-1 太陽と月の影', () => {
   test('AC7: 洞くつ（空の光 8 以下）の床とキャラの明るさは 影なしと ±2%', async ({ page }) => {
     await openShadow(page);
     await flatGrass(page, -4, -4, 60, 60);
-    await page.evaluate(() => {
+    await page.evaluate((fy) => {
       const h = (window as any).__rikkun;
-      h.world.fill(40, 8, 40, 52, 16, 52, 'stone');
-      h.world.fill(41, 9, 41, 51, 15, 51, 'air');
-      h.world.setBlock(46, 9, 41, 'torch');
-      h.player.set({ position: { x: 46.5, y: 9, z: 46.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: 10 });
+      h.world.fill(40, fy, 40, 52, fy + 8, 52, 'stone');
+      h.world.fill(41, fy + 1, 41, 51, fy + 7, 51, 'air');
+      h.world.setBlock(46, fy + 1, 41, 'torch');
+      h.player.set({ position: { x: 46.5, y: fy + 1, z: 46.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: 10 });
       h.time.set(14000);
       h.step(3);
-    });
+    }, FLOOR_Y);
     await settleLight(page);
     await frames(page, 2);
-    const info = await page.evaluate(() => (window as any).__rikkun.world.lightAt(44, 9, 44));
+    const info = await page.evaluate((fy) => (window as any).__rikkun.world.lightAt(44, fy + 1, 44), FLOOR_Y);
     expect(info.sky, '洞くつの空の光').toBeLessThanOrEqual(8);
-    const floor = { x: 44.5, y: 9, z: 44.5 };
+    const floor = { x: 44.5, y: FLOOR_Y + 1, z: 44.5 };
     const on = await shade(page, floor, true);
     const off = await shade(page, floor, false);
     expect(Math.abs(on.luma - off.luma), `床 ${on.luma} ${off.luma}`).toBeLessThanOrEqual(0.02 * Math.max(off.luma, 0.05));
@@ -194,10 +194,10 @@ test.describe('SHADOW-1 太陽と月の影', () => {
     await pillarScene(page, DAY);
     const s = await shadowDir(page);
     // キャラを 柱の影の中に立たせる（足もとの丸い影と 柱の影が重なる）
-    const p = { x: 10.5 + s.x * 1.5, y: 9, z: 10.5 + s.z * 1.5 };
+    const p = { x: 10.5 + s.x * 1.5, y: FLOOR_Y + 1, z: 10.5 + s.z * 1.5 };
     await page.evaluate((q) => {
       const h = (window as any).__rikkun;
-      h.player.set({ position: { x: q.x, y: 9, z: q.z }, velocity: { x: 0, y: 0, z: 0 } });
+      h.player.set({ position: { x: q.x, y: q.y, z: q.z }, velocity: { x: 0, y: 0, z: 0 } });
       h.step(3);
     }, p);
     await frames(page, 2);

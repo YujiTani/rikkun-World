@@ -1,9 +1,12 @@
 import { validMeta } from './restore';
+import { SAVE_GEN } from './SaveManager';
 import { gunzip, gzip } from './chunkCodec';
 import type { PersistBackend, StoredChunk, StoredMeta } from './backend';
 
 /** ファイルに出す / 読む（大人向け。Safari の 7 日消去にそなえる）。全レコード + meta を JSON にして gzip した `.rikkun.gz` */
 export const EXPORT_FORMAT = 'rikkun-world-save';
+/** 前の世界のファイルを読もうとしたときの文 */
+export const OLD_WORLD_FILE_MESSAGE = 'まえの せかいの ファイルなので よめません';
 export const EXPORT_FILE_NAME = 'rikkun-world.rikkun.gz';
 
 const toB64 = (u: Uint8Array): string => {
@@ -34,6 +37,10 @@ export async function importSave(db: PersistBackend, saveId: string, file: Uint8
     throw new Error('ファイルが よめません');
   }
   if (doc.format !== EXPORT_FORMAT || doc.v !== 1 || !Array.isArray(doc.chunks)) throw new Error('りっくんワールドの ファイルでは ありません');
+  // 前の世界（gen 2 まで。高さ 48 の島）のファイルは 読まない（VOX-B）
+  const metaGen = (doc.meta as { gen?: unknown } | null | undefined)?.gen;
+  const gens = (doc.chunks as { gen?: unknown }[]).map((c) => c?.gen);
+  if ((typeof metaGen === 'number' && metaGen < SAVE_GEN) || gens.some((g) => typeof g === 'number' && g < SAVE_GEN)) throw new Error(OLD_WORLD_FILE_MESSAGE);
   if (!validMeta(doc.meta, seed)) throw new Error('この せかいの ファイルでは ありません');
   const chunks: StoredChunk[] = [];
   for (const c of doc.chunks as Record<string, unknown>[]) {

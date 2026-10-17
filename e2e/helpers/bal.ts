@@ -24,7 +24,8 @@ export async function openBal(page: Page): Promise<void> {
         h.settings.set('yokaiWander', false);
         h.yokai.clear();
         h.world.fill(0, 8, 0, 20, 8, 12, 'stone');
-        h.world.fill(0, 9, 0, 20, 20, 12, 'air');
+        h.world.fill(0, 9, 0, 20, h.world.size().y - 1, 12, 'air');
+        for (let n = 0; (h.world.lightPending() > 0 || h.world.meshStats().pending > 0) && n < 3000; n++) h.step(1); // 空気の穴の光とメッシュを先に済ませる
         h.inventory.clear();
         h.armor.set(null, null, null, null);
         h.time.set(20000);

@@ -29,7 +29,8 @@ export interface PersistBackend {
 export class NewerFormatError extends Error {}
 
 export const DB_NAME = 'rikkun-world';
-export const SAVE_ID = 'main';
+/** 既定のシードの セーブの名前。VOX-B で 前の世界（'main'・'seed-N'）と別の名前にした（前の世界は読まない・消さない） */
+export const SAVE_ID = 'vox-main';
 
 const copyChunk = (c: StoredChunk): StoredChunk => ({ ...c, data: c.data.slice() });
 

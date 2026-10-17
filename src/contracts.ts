@@ -101,7 +101,7 @@ export interface TestArea {
   y1: number;
 }
 
-/** 島を作った結果。T1 が `src/world/gen/generateIsland.ts` で実装する */
+/** 世界を読みこんだ結果（VOX-B: `src/world/gen/populate.ts` の `populateWorld`。島は作らない） */
 export interface IslandInfo {
   readonly seed: number;
   readonly genTimeMs: number;
@@ -113,9 +113,6 @@ export interface IslandInfo {
   /** M5: 地形の場所 */
   regions(): WorldRegions;
 }
-
-/** 空の world に島を書きこむ */
-export type GenerateIsland = (seed: number, world: VoxelWorld) => IslandInfo;
 
 // ---------------------------------------------------------------- 入力・スタート画面（T5）
 
@@ -633,16 +630,19 @@ export interface LightField {
 // ================================================================ M5（広い世界）
 // 担当の割り振り: docs/tickets/M5-dev-split.md。仕様: docs/design/M5-world.md
 
-/** 世界の大きさ（M5 で 64×32×64 から変更） */
-export const WORLD_SIZE = { x: 128, y: 48, z: 128 } as const;
 
 // ================================================================ VOX-A（無限の世界の土台）
 // 仕様: docs/design/VOX-plan.md §2・§6・§9。中身を作るのは VOX-B〜F。
 
-/** 世界の高さ（16 の倍数）。今は 48。VOX-B で 352 にする。ほかの所は この定数から求めること */
-export const WORLD_HEIGHT = 48;
-/** 海面の高さ。今は 6。VOX-B で 144 にする */
-export const SEA_Y = 6;
+/** 世界の高さ（16 の倍数）。ほかの所は この定数から求めること（VOX-B: 352） */
+export const WORLD_HEIGHT = 352;
+/** 海面の高さ。いちばん上の水のマスの y（VOX-B: 144） */
+export const SEA_Y = 144;
+/**
+ * 読みこんでおく範囲（VOX-B では 横 128×128 に固定。VOX-D で プレイヤーのまわりへ広げる）。
+ * src の中では y を使わず WORLD_HEIGHT を使う（テストが 大きさを聞く用）。
+ */
+export const WORLD_SIZE = { x: 128, y: WORLD_HEIGHT, z: 128 } as const;
 /** 列（チャンク）の横の大きさ */
 export const CHUNK_SIZE = 16;
 /** セクションの 1 辺 */
@@ -1303,7 +1303,7 @@ export interface FarmPlacement {
 
 /**
  * 置きもの の 場所を 計算する（E が `src/world/gen/` で実装する。純粋: 世界は 変えない）。
- * `pristine` を わたすと その 島（作った直後の 世界と `IslandInfo`）を 使う。なければ 同じ シードで 島を 作り直して 使う。
+ * `pristine` を わたすと その 世界（読みこんだ直後の 世界と `IslandInfo`）を 使う。なければ 同じ シードで 読みこみ直して 使う。
  */
 export type FarmPlacementFn = (seed: number, pristine?: { world: VoxelWorld; info: IslandInfo }) => FarmPlacement;
 

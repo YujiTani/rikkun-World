@@ -23,7 +23,8 @@ import { expect, test, type Page } from '@playwright/test';
 const ASSETS = 'test-shots/assets';
 test.describe.configure({ timeout: 180_000 });
 
-const TOP = 24;
+/** 平らな地面の高さ。flatArea が 世界に聞いて 決める（スタートのまわりの地面の高さ。VOX-B で 島の 24 では なくなった） */
+let TOP = 24;
 /** 段差の面の x（これより小さい x が低い側）。プレイヤーから 32 以内（小ブロックの輪の中） */
 const WALL_X = 64;
 const Z_VIEWS = [64, 60, 68, 56, 72];
@@ -86,6 +87,7 @@ async function open(page: Page) {
 
 /** 一時停止して、妖怪と時間を固定し、島の一角（x 40〜87、z 40〜87）を 平らな地面（高さ TOP）にする */
 async function flatArea(page: Page) {
+  TOP = await page.evaluate(() => (window as any).__rikkun.world.groundHeight(64, 64) as number);
   await page.evaluate((TOP) => {
     const h = (window as any).__rikkun;
     h.pause();
@@ -98,7 +100,7 @@ async function flatArea(page: Page) {
     W.fill(40, 1, 40, 87, TOP - 3, 87, 'stone');
     W.fill(40, TOP - 2, 40, 87, TOP - 1, 87, 'dirt');
     W.fill(40, TOP, 40, 87, TOP, 87, 'grass');
-    W.fill(40, TOP + 1, 40, 87, 47, 87, 'air');
+    W.fill(40, TOP + 1, 40, 87, W.size().y - 1, 87, 'air'); // 空まで あける（高さ 352 の世界では 上に 地面が ある）
   }, TOP);
   await page.addStyleTag({ content: '#hud{display:none !important}' });
 }
@@ -135,16 +137,16 @@ async function look(page: Page, wallX: number, zs: number[], shot: string): Prom
   for (const z of zs) {
     for (const dx of [-1.5, -3]) {
       const locked = await page.evaluate(
-        ([x, z]) => {
+        ([x, z, top]) => {
           const h = (window as any).__rikkun;
-          h.player.set({ position: { x, y: 25, z }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: -40 });
+          h.player.set({ position: { x, y: top + 1, z }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: -40 });
           h.step(40);
           // はじめて来た場所（島の z 40〜47 は「やま」）だと おめでとう画面が出て ロックが外れる（#145）。
           // 「とじる」が押せるまで進めて とじれば、ロックにもどる
           for (let i = 0; i < 600 && h.achievements.modal(); i++) if (!h.achievements.close().ok) h.step(1);
           return h.lock.get().locked as boolean;
         },
-        [wallX + dx, z + 0.5],
+        [wallX + dx, z + 0.5, TOP],
       );
       expect(locked, `ゲームがロックを失った（z=${z}）。カメラが動かないので テストにならない`).toBe(true);
       const buf = await page.screenshot(first ? { path: shot } : {});
@@ -207,11 +209,11 @@ test.describe('SEETHRU: 段差の下が空の色にすけない（#142）', () =
     expect(r.sky, `昼の空の色 ${r.hex}（${r.rgb}）が 水色の判定式を通らない`).toBe(true);
     expect(r.notSky, '地面などの色が 水色と判定された').toEqual([]);
     // 空を見上げた絵: 絵の判定（かたまり数え）が 大きな水色のかたまりを見つける（実装後に 0 が正解のテストが 空振りしないため）
-    await page.evaluate(() => {
+    await page.evaluate((top) => {
       const h = (window as any).__rikkun;
-      h.player.set({ position: { x: 62.5, y: 25, z: 64.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: 60 });
+      h.player.set({ position: { x: 62.5, y: top + 1, z: 64.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: 60 });
       h.step(40);
-    });
+    }, TOP);
     const buf = await page.screenshot();
     const blobs = (await page.evaluate(`(window.__blobs)("${buf.toString('base64')}")`)) as { largest: number; total: number };
     console.log('E0 空を見上げた絵', JSON.stringify(blobs));
@@ -247,8 +249,9 @@ test.describe('SEETHRU: 段差の下が空の色にすけない（#142）', () =
     await open(page);
     await flatArea(page);
     await settle(page);
-    // セクション (3,1,4) = x 48〜63, y 16〜31, z 64〜79。平らな地面の ほる前
-    const before = await page.evaluate(() => (window as any).__rikkun.world.sectionInfo(3, 1, 4).triangles as number);
+    // セクション (3,SY,4) = x 48〜63, z 64〜79, 平らな地面（y=TOP）をふくむ高さ。ほる前
+    const SY = Math.floor(TOP / 16);
+    const before = await page.evaluate((sy) => (window as any).__rikkun.world.sectionInfo(3, sy, 4).triangles as number, SY);
     // x 52〜63、z 52〜76 の草 1 ブロックぶんをほる（深さ 1 のくぼみ。東のふち x=64 に 1 ブロックの段差ができる）
     await page.evaluate(
       ([top]) => {
@@ -259,12 +262,12 @@ test.describe('SEETHRU: 段差の下が空の色にすけない（#142）', () =
       [TOP],
     );
     await settle(page);
-    const after = await page.evaluate(() => {
+    const after = await page.evaluate((sy) => {
       const h = (window as any).__rikkun;
-      return { tri: h.world.sectionInfo(3, 1, 4).triangles as number, log: h.world.rebuildLog(true) as { x: number; y: number; z: number }[] };
-    });
+      return { tri: h.world.sectionInfo(3, sy, 4).triangles as number, log: h.world.rebuildLog(true) as { x: number; y: number; z: number }[] };
+    }, SY);
     // ほった所は 土が新しい表面になり、小ブロック地形（でこぼこ）で描かれる（ほったセクションが作り直されて 三角形が変わる）
-    expect(after.log.some((e) => e.x === 3 && e.y === 1 && e.z === 4), 'ほったセクションが作り直されていない').toBe(true);
+    expect(after.log.some((e) => e.x === 3 && e.y === SY && e.z === 4), 'ほったセクションが作り直されていない').toBe(true);
     expect(after.tri).not.toBe(before);
     await expectMicroMeshes(page, 56, 64, [TOP - 1]);
     // くぼみの中から 東のふち（x=64 の草のかべの下の 土）を見る

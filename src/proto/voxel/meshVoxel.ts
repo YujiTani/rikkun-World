@@ -14,8 +14,8 @@ import {
   occludes,
   paletteRgb,
 } from './looks';
-import { newSample, sampleSurface, type ColumnSource, type SurfaceSample } from './terrain/microSurface';
-import { scanColumn, type ColumnInfo } from './terrain/worldColumns';
+import { newSample, sampleSurface, type ColumnSource, type SurfaceSample } from '../../world/micro/microSurface';
+import { scanColumn, type ColumnInfo } from '../../world/micro/worldColumns';
 
 /**
  * 9×9×9 の小ブロックのメッシュ作り（three に依存しない。型付き配列で作る）。

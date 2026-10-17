@@ -6,30 +6,28 @@ import type {
   FarmPlacement,
   FarmPlacementFn,
   IslandInfo,
-  RegionRect,
   VoxelWorld,
 } from '../../contracts';
-import { CROP_KINDS, WILD_BLOCK, WORLD_SIZE } from '../../contracts';
-import { blockIdFromIndex, blockIndexOf } from '../blocks/blockTypes';
+import { CROP_KINDS, SEA_Y, WILD_BLOCK } from '../../contracts';
+import { ArrayVoxelWorld, type ChunkedVoxelWorld } from '../VoxelWorld';
 import { GEN_CONFIG as C } from './config';
-import { generateIsland } from './generateIsland';
+import { inMouthFootprint, mouthOfChunk, type Mouth } from './mouths';
+import { populateWorld } from './populate';
 import { createRng, randInt, shuffle } from './random';
+import { startFeaturesOf } from './features';
+import { spawnOf, terrainFor } from './terrain';
 
 /**
- * 置きもの の 場所（M7 §4.5 (0)〜(3)）。シード と 島を作った直後の 地形 だけ で 決まる 純粋な 計算。
- * 世界は 変えない。
+ * 置きもの の 場所（M7 §4.5 (0)〜(3)。VOX-B F1〜F3）。シード と 作った直後の 地形 だけ で 決まる 純粋な 計算。
+ * 世界は 変えない。同じ シードの 答えは おぼえておく。
  */
 
-const TEST_AREA = { x0: 0, x1: 12, z0: 0, z1: 12 };
-const START_AREA = { x0: 59, x1: 69, z0: 59, z1: 69 };
-const START_5 = { x0: 62, x1: 66, z0: 62, z1: 66 };
-const ROCK_BOX = { x0: 58, x1: 70, z0: 45, z1: 59 };
-
-/** ふるい はたけ の ゆるめ方（段ごと: 距離の はんい・角度） */
+/** ふるい はたけ の ゆるめ方（段ごと: 距離の はんい・角度）。最後の段（どの向きでも・40 まで）は VOX-B で足した（新しい地形で置けない seed をなくす） */
 const OLD_FARM_TIERS: ReadonlyArray<{ dMin: number; dMax: number; deg: number }> = [
   { dMin: 7, dMax: 12, deg: 40 },
   { dMin: 7, dMax: 16, deg: 40 },
   { dMin: 7, dMax: 20, deg: 60 },
+  { dMin: 7, dMax: 40, deg: 360 },
 ];
 
 /** 6×6 の 中の 決まった 形（lx = 東、lz = 南 が 正。0〜5） */
@@ -53,55 +51,56 @@ export const TANSU_ITEMS: ReadonlyArray<{ item: 'seed_onion' | 'seed_tomato' | '
   { item: 'seed_pumpkin', count: 1 },
 ];
 
-const k3 = (x: number, y: number, z: number) => (y * 128 + z) * 128 + x;
+type Rect = { x0: number; x1: number; z0: number; z1: number };
 
-function overlaps(a: { x0: number; x1: number; z0: number; z1: number }, b: { x0: number; x1: number; z0: number; z1: number }) {
+function overlaps(a: Rect, b: Rect): boolean {
   return a.x0 <= b.x1 && a.x1 >= b.x0 && a.z0 <= b.z1 && a.z1 >= b.z0;
 }
 
-/** E から Q への 線が とおる マス（firstBlockOnRay と 同じ 刻み） */
-function rayCells(ex: number, ey: number, ez: number, qx: number, qy: number, qz: number): number[][] {
+/** 線が とおる マスの キー（firstBlockOnRay と 同じ 刻み） */
+function rayKeys(ex: number, ey: number, ez: number, qx: number, qy: number, qz: number, out: Set<string>): void {
   const len = Math.hypot(qx - ex, qy - ey, qz - ez);
   const steps = Math.ceil(len / C.rayStep);
-  const out: number[][] = [];
-  let lx = NaN;
-  let ly = NaN;
-  let lz = NaN;
   for (let i = 1; i <= steps; i++) {
     const t = Math.min(1, (i * C.rayStep) / len);
-    const x = Math.floor(ex + (qx - ex) * t);
-    const y = Math.floor(ey + (qy - ey) * t);
-    const z = Math.floor(ez + (qz - ez) * t);
-    if (x !== lx || y !== ly || z !== lz) out.push([x, y, z]);
-    lx = x;
-    ly = y;
-    lz = z;
+    out.add(`${Math.floor(ex + (qx - ex) * t)},${Math.floor(ey + (qy - ey) * t)},${Math.floor(ez + (qz - ez) * t)}`);
   }
-  return out;
 }
 
+const memo = new Map<number, FarmPlacement>();
+
 export const computeFarmPlacement: FarmPlacementFn = (seed, pristine) => {
-  let world: VoxelWorld;
+  const hit = memo.get(seed);
+  if (hit) return structuredClone(hit);
+  let world: ChunkedVoxelWorld;
   let info: IslandInfo;
   if (pristine) {
-    world = pristine.world;
+    world = pristine.world as ChunkedVoxelWorld;
     info = pristine.info;
   } else {
-    // 同じ シードで 島を作り直す（ArrayVoxelWorld は 重いので 動的 import せず、配列だけの 世界を 作る）
-    const made = makeScratchWorld();
-    world = made;
-    info = generateIsland(seed, made);
+    world = new ArrayVoxelWorld({ x: 0, z: 0 });
+    info = populateWorld(world, seed);
   }
+  const result = place(seed, world, info);
+  if (memo.size >= 8) memo.delete(memo.keys().next().value as number);
+  memo.set(seed, result);
+  return structuredClone(result);
+};
+
+function place(seed: number, world: ChunkedVoxelWorld, info: IslandInfo): FarmPlacement {
   const R = info.regions();
-  const SX = WORLD_SIZE.x; // 島を作り直した世界（makeScratchWorld）の大きさ
-  const SZ = WORLD_SIZE.z;
-  const SY = world.size.y;
+  const T = terrainFor(seed);
+  const sp = spawnOf(seed);
+  const b = world.loadedBounds();
+  const W = b.x1 - b.x0;
+  const D = b.z1 - b.z0;
+  const inside = (x: number, z: number) => x >= b.x0 && z >= b.z0 && x < b.x1 && z < b.z1;
 
   // ---- 列ごとの 下ごしらえ
-  const hCache = new Int16Array(SX * SZ).fill(-2);
+  const hCache = new Int16Array(W * D).fill(-2);
   const h = (x: number, z: number): number => {
-    if (x < 0 || z < 0 || x >= SX || z >= SZ) return -1;
-    const i = z * SX + x;
+    if (!inside(x, z)) return -1;
+    const i = (z - b.z0) * W + (x - b.x0);
     let v = hCache[i]!;
     if (v === -2) {
       v = info.groundHeight(x, z);
@@ -109,96 +108,54 @@ export const computeFarmPlacement: FarmPlacementFn = (seed, pristine) => {
     }
     return v;
   };
-  // bit0 = みず、bit1 = 木（みき・はっぱ）
-  const flags = new Uint8Array(SX * SZ);
-  for (let z = 0; z < SZ; z++) {
-    for (let x = 0; x < SX; x++) {
-      let f = 0;
-      for (let y = 1; y < SY; y++) {
-        const id = world.getBlock(x, y, z);
-        if (id === 'water') f |= 1;
-        else if (id === 'log' || id === 'leaves') f |= 2;
-      }
-      flags[z * SX + x] = f;
-    }
-  }
-  const hasWater = (x: number, z: number) => x >= 0 && z >= 0 && x < SX && z < SZ && (flags[z * SX + x]! & 1) !== 0;
-  const hasTree = (x: number, z: number) => (flags[z * SX + x]! & 2) !== 0;
-
-  // ---- 守る 見通しの 線（M5 AC7）: 岩山 と、スタートから 見える 木
-  const h0S = h(C.spawn.x, C.spawn.z);
-  const ex = C.spawn.x + 0.5;
-  const ey = h0S + 2.62;
-  const ez = C.spawn.z + 0.5;
-  const reserved = new Set<number>(); // 岩山の線 と 見える木の線（やせいの やさい は ぜんぶ よける）
-  const rockCells = new Set<number>(); // 岩山の線（ふるい はたけ は 1 マスも さえぎらない）
-  const treeRays: Set<number>[] = []; // 見える木ごとの線（ふるい はたけ は 1 本は のこす）
-  const addRay = (qx: number, qy: number, qz: number) => {
-    for (const [x, y, z] of rayCells(ex, ey, ez, qx, qy, qz)) {
-      reserved.add(k3(x!, y!, z!));
-      rockCells.add(k3(x!, y!, z!));
-    }
+  const hasWater = (x: number, z: number) => inside(x, z) && h(x, z) < SEA_Y;
+  const hasTree = (x: number, z: number) => {
+    const t = world.topY(x, z);
+    if (t < 0) return false;
+    const id = world.getBlock(x, t, z);
+    return id === 'log' || id === 'leaves';
   };
-  {
-    let maxH = -1;
-    let best: [number, number] = [0, 0];
-    for (let z = ROCK_BOX.z0; z <= 59; z++) {
-      for (let x = ROCK_BOX.x0; x <= ROCK_BOX.x1; x++) {
-        const hh = h(x, z);
-        const top = world.getBlock(x, hh, z);
-        if (top !== 'stone' && top !== 'coal_ore') continue;
-        const better = hh > maxH || (hh === maxH && (z > best[1] || (z === best[1] && Math.abs(x - 64) < Math.abs(best[0] - 64))));
-        if (better) {
-          maxH = hh;
-          best = [x, z];
-        }
-      }
-    }
-    if (maxH >= 0) addRay(best[0] + 0.5, maxH + 0.5, best[1] + 0.5);
-    // スタートから 見える 木
-    for (let z = 0; z < C.centerZ; z++) {
-      for (let x = 0; x < SX; x++) {
-        const D = 64 - z;
-        if (D < 1 || Math.abs(x - 64) > D) continue;
-        for (let y = 1; y < SY - 1; y++) {
-          if (world.getBlock(x, y, z) !== 'log' || world.getBlock(x, y - 1, z) === 'log') continue;
-          let top = y;
-          while (world.getBlock(x, top + 1, z) === 'log') top++;
-          if (Math.abs(top + 0.5 - ey) > 0.75 * D) continue;
-          const cells = rayCells(ex, ey, ez, x + 0.5, top + 0.5, z + 0.5);
-          let hit: BlockId | 'outside' = 'air';
-          for (const [cx, cy, cz] of cells) {
-            const id = world.getBlock(cx!, cy!, cz!);
-            if (id !== 'air' && id !== 'water') {
-              hit = id;
-              break;
-            }
-          }
-          if (hit === 'leaves' || hit === 'log') {
-            const set = new Set<number>();
-            for (const [cx, cy, cz] of cells) set.add(k3(cx!, cy!, cz!));
-            for (const k of set) reserved.add(k);
-            treeRays.push(set);
-          }
-        }
-      }
-    }
-  }
 
-  // 木の みき（根もと base〜てっぺん top）
-  const trunks: Array<{ x: number; z: number; base: number; top: number }> = [];
-  for (let z = 0; z < SZ; z++) {
-    for (let x = 0; x < SX; x++) {
-      if (!hasTree(x, z)) continue;
-      for (let y = 1; y < SY - 1; y++) {
-        if (world.getBlock(x, y, z) !== 'log' || world.getBlock(x, y - 1, z) === 'log') continue;
-        let top = y;
-        while (world.getBlock(x, top + 1, z) === 'log') top++;
-        trunks.push({ x, z, base: y, top });
-      }
+  const features = startFeaturesOf(seed);
+  const start5: Rect = { x0: sp.x - 2, x1: sp.x + 2, z0: sp.z - 2, z1: sp.z + 2 };
+  const testArea: Rect = { x0: C.testArea.x0, x1: C.testArea.x1, z0: C.testArea.z0, z1: C.testArea.z1 };
+  const rock = features.rock;
+  const nearRock = (x: number, z: number, extra: number) => Math.hypot(x - rock.cx, z - rock.cz) <= rock.r + extra;
+  const mouths: Mouth[] = [];
+  for (let cz = (b.z0 >> 4) - 2; cz <= ((b.z1 - 1) >> 4) + 2; cz++) {
+    for (let cx = (b.x0 >> 4) - 2; cx <= ((b.x1 - 1) >> 4) + 2; cx++) {
+      const m = mouthOfChunk(T, cx, cz);
+      if (m) mouths.push(m);
     }
   }
-  const nearTrunks = trunks.filter((t) => Math.hypot(t.x - 64, t.z - 64) <= 12).length;
+  const nearMouths = (x: number, z: number, margin: number) => mouths.some((m) => inMouthFootprint(m, x, z, margin));
+
+  // ---- 守る 見通しの 線（M5 AC7）: スタートから 岩山の頂上、北 ±45° の はじまりの木
+  const ex = sp.x + 0.5;
+  const ey = sp.h + 2.62;
+  const ez = sp.z + 0.5;
+  const rockRay = new Set<string>();
+  const treeRays: Set<string>[] = [];
+  {
+    let best = { x: rock.cx, z: rock.cz, h: -1 };
+    for (let z = Math.floor(rock.cz - rock.r); z <= Math.ceil(rock.cz + rock.r); z++) {
+      for (let x = Math.floor(rock.cx - rock.r); x <= Math.ceil(rock.cx + rock.r); x++) {
+        if (!inside(x, z) || !nearRock(x, z, 0)) continue;
+        const hh = h(x, z);
+        if (hh > best.h) best = { x, z, h: hh };
+      }
+    }
+    if (best.h >= 0) rayKeys(ex, ey, ez, best.x + 0.5, best.h + 0.5, best.z + 0.5, rockRay);
+    for (const t of features.trees) {
+      const dx = t.x - sp.x;
+      const dz = t.z - sp.z;
+      if (dz >= 0 || Math.abs(dx) > -dz) continue;
+      const s = new Set<string>();
+      rayKeys(ex, ey, ez, t.x + 0.5, t.y + 1.5, t.z + 0.5, s);
+      treeRays.push(s);
+    }
+  }
+  const reserved = new Set<string>([...rockRay, ...treeRays.flatMap((s) => [...s])]);
 
   // ---- ふるい はたけ の あと
   const oldFarm = findOldFarm();
@@ -206,39 +163,36 @@ export const computeFarmPlacement: FarmPlacementFn = (seed, pristine) => {
   function findOldFarm(): FarmPlacement['oldFarm'] {
     const rng = createRng((seed ^ 0x3c6ef372) >>> 0);
     const all: Array<{ x0: number; z0: number }> = [];
-    for (let z0 = 0; z0 <= 63 - 5; z0++) for (let x0 = 65; x0 + 5 < SX; x0++) all.push({ x0, z0 });
+    for (let z0 = Math.max(b.z0 + 8, sp.z - 43); z0 <= Math.min(b.z1 - 15, sp.z + 40); z0++) {
+      for (let x0 = Math.max(b.x0 + 8, sp.x - 43); x0 <= Math.min(b.x1 - 15, sp.x + 40); x0++) all.push({ x0, z0 });
+    }
     shuffle(rng, all);
-    const steps: Array<{ T: { dMin: number; dMax: number; deg: number }; tier: number; trees: boolean }> = [
-      ...OLD_FARM_TIERS.map((T, tier) => ({ T, tier, trees: false })),
-      // 段 3: 8×8（と まわり 1 列）の 木を 差分として とりのぞく
-      { T: { dMin: 7, dMax: 12, deg: 40 }, tier: 3, trees: true },
-      { T: { dMin: 7, dMax: 16, deg: 60 }, tier: 3, trees: true },
-      { T: { dMin: 7, dMax: 20, deg: 60 }, tier: 3, trees: true },
-    ];
-    for (const st of steps) {
+    for (let tier = 0; tier < OLD_FARM_TIERS.length; tier++) {
+      const tr = OLD_FARM_TIERS[tier]!;
       for (const c of all) {
-        const dist = Math.hypot(c.x0 + 3 - 64.5, c.z0 + 3 - 64.5);
-        if (dist < st.T.dMin || dist > st.T.dMax) continue;
-        const res = tryOldFarm(c.x0, c.z0, st.T.deg, st.tier, st.trees);
+        const dist = Math.hypot(c.x0 + 3 - (sp.x + 0.5), c.z0 + 3 - (sp.z + 0.5));
+        if (dist < tr.dMin || dist > tr.dMax) continue;
+        // 段 0〜2 は スタートの 北東（北から東）だけ。最後の段は どの向きでも
+        if (tier < 3 && !(c.x0 > sp.x && c.z0 + 5 < sp.z)) continue;
+        const res = tryOldFarm(c.x0, c.z0, tr.deg, tier);
         if (res) return res;
       }
     }
     return null;
   }
 
-  function tryOldFarm(x0: number, z0: number, maxDeg: number, tier: number, removeTrees: boolean): FarmPlacement['oldFarm'] {
+  function tryOldFarm(x0: number, z0: number, maxDeg: number, tier: number): FarmPlacement['oldFarm'] {
     const frame = { x0: x0 - 1, x1: x0 + 6, z0: z0 - 1, z1: z0 + 6 };
-    if (frame.x0 < 1 || frame.z0 < 1 || frame.x1 > SX - 2 || frame.z1 > SZ - 2) return null;
-    if (overlaps(frame, START_5) || overlaps(frame, TEST_AREA)) return null;
-    if (overlaps(frame, R.flat)) return null;
-    // 8×8: 木・みず なし、一番上は くさ、高さは h0 か h0+1
+    if (frame.x0 < b.x0 + 8 || frame.z0 < b.z0 + 8 || frame.x1 > b.x1 - 9 || frame.z1 > b.z1 - 9) return null;
+    if (overlaps(frame, start5) || overlaps(frame, testArea) || overlaps(frame, R.flat)) return null;
+    // 8×8: 木・みず・岩・洞くつの口 なし、一番上は くさ、高さは h0 か h0+1
     let lo = 999;
     let hi = -999;
     for (let z = frame.z0; z <= frame.z1; z++) {
       for (let x = frame.x0; x <= frame.x1; x++) {
-        if (hasWater(x, z) || (hasTree(x, z) && !removeTrees)) return null;
+        if (hasWater(x, z) || hasTree(x, z) || nearRock(x, z, 2) || nearMouths(x, z, 2)) return null;
         const hh = h(x, z);
-        if (hh < 8 || world.getBlock(x, hh, z) !== 'grass') return null;
+        if (hh < SEA_Y + 2 || world.getBlock(x, hh, z) !== 'grass') return null;
         lo = Math.min(lo, hh);
         hi = Math.max(hi, hh);
       }
@@ -249,46 +203,13 @@ export const computeFarmPlacement: FarmPlacementFn = (seed, pristine) => {
     const h0 = lo;
 
     // 置く マス（さいごに 書いた ものが 勝つ）
-    const m = new Map<number, FarmPlacedBlock>();
-    const put = (x: number, y: number, z: number, id: BlockId) => m.set(k3(x, y, z), { x, y, z, id });
-    let maxY = h0 + 6;
-    if (removeTrees) {
-      const ring = { x0: x0 - 2, x1: x0 + 7, z0: z0 - 2, z1: z0 + 7 };
-      const inRing = (x: number, z: number) => x >= ring.x0 && x <= ring.x1 && z >= ring.z0 && z <= ring.z1;
-      let removedNear = 0;
-      for (const t of trunks) {
-        if (!inRing(t.x, t.z)) continue;
-        for (let y = t.base; y <= t.top; y++) put(t.x, y, t.z, 'air');
-        for (let y = t.top - 1; y <= t.top + 2; y++) {
-          for (let dz = -2; dz <= 2; dz++) {
-            for (let dx = -2; dx <= 2; dx++) {
-              if (world.getBlock(t.x + dx, y, t.z + dz) === 'leaves') put(t.x + dx, y, t.z + dz, 'air');
-            }
-          }
-        }
-        maxY = Math.max(maxY, t.top + 2);
-        if (Math.hypot(t.x - 64, t.z - 64) <= 12) removedNear++;
-      }
-      if (nearTrunks - removedNear < 3) return null;
-      for (let z = ring.z0; z <= ring.z1; z++) {
-        for (let x = ring.x0; x <= ring.x1; x++) {
-          if (!hasTree(x, z)) continue;
-          for (let y = 1; y < SY; y++) {
-            const id = world.getBlock(x, y, z);
-            if (id === 'leaves' || id === 'log') {
-              put(x, y, z, 'air');
-              maxY = Math.max(maxY, y);
-            }
-          }
-        }
-      }
-    }
+    const m = new Map<string, FarmPlacedBlock>();
+    const put = (x: number, y: number, z: number, id: BlockId) => m.set(`${x},${y},${z}`, { x, y, z, id });
     for (let lz = 0; lz < 6; lz++) {
       for (let lx = 0; lx < 6; lx++) {
         const x = x0 + lx;
         const z = z0 + lz;
         if (h(x, z) === h0 + 1) {
-          put(x, h0 - 3, z, 'dirt'); // 地層（くさ の下は つち 3 まい）
           put(x, h0, z, 'grass');
           put(x, h0 + 1, z, 'air');
         }
@@ -307,94 +228,60 @@ export const computeFarmPlacement: FarmPlacementFn = (seed, pristine) => {
     put(tx, h0 + 1, tz, 'tansu');
 
     // 守る 線を さえぎらない
-    const blocked = (set: Set<number>) => {
-      for (const b of m.values()) if (b.id !== 'air' && set.has(k3(b.x, b.y, b.z))) return true;
+    const blocked = (set: Set<string>) => {
+      for (const bl of m.values()) if (bl.id !== 'air' && set.has(`${bl.x},${bl.y},${bl.z}`)) return true;
       return false;
     };
-    const cut = (set: Set<number>) => {
-      for (const b of m.values()) if (b.id === 'air' && set.has(k3(b.x, b.y, b.z)) && world.getBlock(b.x, b.y, b.z) !== 'air') return true;
-      return false;
-    };
-    if (blocked(rockCells) || cut(rockCells)) return null;
-    if (treeRays.length > 0 && treeRays.every((r) => blocked(r) || cut(r))) return null;
+    if (blocked(rockRay)) return null;
+    if (treeRays.some((r) => blocked(r))) return null;
 
-    // (b) 目の位置から かかし の あたま への 向き と 見通し
+    // 目の位置から かかし の あたま への 向き と 見通し
     const qx = kx + 0.5;
     const qy = h0 + 2.5;
     const qz = kz + 0.5;
     const deg = (Math.atan2(qx - ex, -(qz - ez)) * 180) / Math.PI;
-    if (deg < 0 || deg > maxDeg) return null;
-    const cells = rayCells(ex, ey, ez, qx, qy, qz);
-    for (const [cx, cy, cz] of cells) {
-      const key = k3(cx!, cy!, cz!);
-      const pre = m.get(key)?.id ?? world.getBlock(cx!, cy!, cz!);
+    if (maxDeg < 360 && (deg < 0 || deg > maxDeg)) return null;
+    const line = new Set<string>();
+    rayKeys(ex, ey, ez, qx, qy, qz, line);
+    for (const key of line) {
+      const [cx, cy, cz] = key.split(',').map(Number) as [number, number, number];
       const isTarget = cx === kx && cz === kz && cy === h0 + 2;
-      if (!isTarget && pre !== 'air' && pre !== 'water') return null; // 置く前の 地形
-      const now = m.get(key)?.id ?? pre;
       if (isTarget) continue;
+      const pre = world.getBlock(cx, cy, cz);
+      if (pre !== 'air' && pre !== 'water') return null; // 置く前の 地形
+      const now = m.get(key)?.id ?? pre;
       if (now !== 'air' && now !== 'water' && now !== 'saku' && now !== 'kakashi' && now !== 'kakashi_head') return null;
     }
 
-    const blocks = [...m.values()].sort((a, b) => a.y - b.y || a.z - b.z || a.x - b.x);
+    const blocks = [...m.values()].sort((a, c) => a.y - c.y || a.z - c.z || a.x - c.x);
     return {
       blocks,
       tansu: { x: tx, y: h0 + 1, z: tz },
       tansuItems: TANSU_ITEMS.map((t) => ({ item: t.item, count: t.count })),
       kakashi: { x: kx, y: h0 + 1, z: kz },
-      box: { x0: frame.x0, z0: frame.z0, x1: frame.x1, z1: frame.z1, y0: h0 - 3, y1: maxY },
+      box: { x0: frame.x0, z0: frame.z0, x1: frame.x1, z1: frame.z1, y0: h0 - 3, y1: h0 + 6 },
       tier: tier as 0 | 1 | 2 | 3,
     };
   }
 
-  // ---- やせいの やさい
+  // ---- やせいの やさい（F2）
   const wild: FarmPlacement['wild'] = [];
   const farmFrame = oldFarm ? oldFarm.box : null;
-  const inFlat = (x: number, z: number) => x >= R.flat.x0 && x <= R.flat.x1 && z >= R.flat.z0 && z <= R.flat.z1;
-  const rectDist = (x: number, z: number, r: RegionRect) =>
-    Math.max(Math.max(0, r.x0 - x, x - r.x1), Math.max(0, r.z0 - z, z - r.z1));
-  const nearPond = (x: number, z: number) => {
-    for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) if (Math.hypot(x + dx - R.pond.cx, z + dz - R.pond.cz) <= R.pond.r) return true;
-    return false;
-  };
-
-  const eligibleBase = (x: number, z: number): number | null => {
-    if (x < 1 || z < 1 || x >= SX - 1 || z >= SZ - 1) return null;
-    if (x >= TEST_AREA.x0 && x <= TEST_AREA.x1 && z >= TEST_AREA.z0 && z <= TEST_AREA.z1) return null;
-    if (x >= START_AREA.x0 && x <= START_AREA.x1 && z >= START_AREA.z0 && z <= START_AREA.z1) return null;
+  const eligible = (x: number, z: number): number | null => {
+    if (x < b.x0 + 8 || z < b.z0 + 8 || x >= b.x1 - 8 || z >= b.z1 - 8) return null;
+    const cheb = Math.max(Math.abs(x - sp.x), Math.abs(z - sp.z));
+    if (cheb < 8 || cheb > 56) return null;
+    if (x >= testArea.x0 - 1 && x <= testArea.x1 + 1 && z >= testArea.z0 - 1 && z <= testArea.z1 + 1) return null;
     if (farmFrame && x >= farmFrame.x0 - 1 && x <= farmFrame.x1 + 1 && z >= farmFrame.z0 - 1 && z <= farmFrame.z1 + 1) return null;
+    if (nearRock(x, z, 2) || nearMouths(x, z, 2)) return null;
     const hh = h(x, z);
-    if (hh < 7 || world.getBlock(x, hh, z) !== 'grass' || world.getBlock(x, hh + 1, z) !== 'air') return null;
-    if (hasTree(x, z) && world.getBlock(x, hh + 1, z) !== 'air') return null;
-    if (reserved.has(k3(x, hh + 1, z))) return null;
+    if (hh < SEA_Y + 2 || world.getBlock(x, hh, z) !== 'grass' || world.getBlock(x, hh + 1, z) !== 'air') return null;
+    if (world.topY(x, z) !== hh) return null;
+    if (reserved.has(`${x},${hh + 1},${z}`)) return null;
     return hh;
   };
-
-  const rules: Record<CropKind, Array<(x: number, z: number) => boolean>> = {
-    tomato: [1, 2].map((_, i) => {
-      const w = i === 0 ? 2 : 4;
-      return (x: number, z: number) => {
-        if (inFlat(x, z)) return false;
-        const d = rectDist(x, z, R.flat);
-        if (d < 1 || d > w) return false;
-        return z < R.flat.z0 || x > R.flat.x1; // 北と東がわ
-      };
-    }),
-    pumpkin: [12, 15].map(
-      (r) => (x: number, z: number) => Math.hypot(x - R.meadow.cx, z - R.meadow.cz) <= r && !nearPond(x, z) && h(x, z) !== 7,
-    ),
-    eggplant: [3, 5].map((w) => (x: number, z: number) => {
-      if (inFlat(x, z)) return false;
-      const d = Math.min(...R.river.map((r) => rectDist(x, z, r)));
-      return d >= 1 && d <= w;
-    }),
-    onion: [
-      [9, 12],
-      [7, 14],
-    ].map(([a, b]) => (x: number, z: number) => {
-      const d = Math.hypot(x - R.forest.cx, z - R.forest.cz);
-      return d >= a! && d <= b!;
-    }),
-  };
+  /** たまねぎ・トマトは 草原、かぼちゃ・なすは 森 を さきに さがす */
+  const prefer: Record<CropKind, 'grassland' | 'forest'> = { onion: 'grassland', tomato: 'grassland', pumpkin: 'forest', eggplant: 'forest' };
 
   const taken: Array<{ x: number; z: number }> = [];
   const farEnough = (x: number, z: number) => taken.every((t) => Math.max(Math.abs(t.x - x), Math.abs(t.z - z)) >= 3);
@@ -402,16 +289,16 @@ export const computeFarmPlacement: FarmPlacementFn = (seed, pristine) => {
     const rng = createRng((seed ^ (0x9e3779b9 + ki * 0x632be5ab)) >>> 0);
     const want = randInt(rng, 4, 6);
     const order: Array<{ x: number; z: number }> = [];
-    for (let z = 1; z < SZ - 1; z++) for (let x = 1; x < SX - 1; x++) order.push({ x, z });
+    for (let z = b.z0 + 8; z < b.z1 - 8; z++) for (let x = b.x0 + 8; x < b.x1 - 8; x++) order.push({ x, z });
     shuffle(rng, order);
     let got = 0;
     for (let level = 0; level < 2; level++) {
       if (level === 1 && got >= 4) break;
-      const rule = rules[kind][level]!;
       for (const c of order) {
         if (got >= want) break;
-        if (!rule(c.x, c.z) || !farEnough(c.x, c.z)) continue;
-        const hh = eligibleBase(c.x, c.z);
+        if (level === 0 && T.biome(c.x, c.z).kind !== prefer[kind]) continue;
+        if (!farEnough(c.x, c.z)) continue;
+        const hh = eligible(c.x, c.z);
         if (hh === null) continue;
         wild.push({ x: c.x, y: hh + 1, z: c.z, kind });
         taken.push({ x: c.x, z: c.z });
@@ -421,37 +308,10 @@ export const computeFarmPlacement: FarmPlacementFn = (seed, pristine) => {
   });
 
   return { wild, oldFarm };
-};
+}
 
-/** 新しい世界に 置く（島を作った直後に 1 回。たんす の 中身は 置かない） */
-export const applyFarmPlacement: ApplyFarmPlacement = (world, placement) => {
+/** 新しい世界に 置く（作った直後に 1 回。たんす の 中身は 置かない） */
+export const applyFarmPlacement: ApplyFarmPlacement = (world: VoxelWorld, placement) => {
   for (const b of placement.oldFarm?.blocks ?? []) world.setBlock(b.x, b.y, b.z, b.id);
   for (const w of placement.wild) world.setBlock(w.x, w.y, w.z, WILD_BLOCK[w.kind]);
 };
-
-// ---------------------------------------------------------------- 島を作り直す用の 配列だけの 世界
-
-function makeScratchWorld(): VoxelWorld {
-  const size = { ...WORLD_SIZE };
-  const data = new Uint8Array(size.x * size.y * size.z);
-  const inside = (x: number, y: number, z: number) =>
-    Number.isInteger(x) && Number.isInteger(y) && Number.isInteger(z) && x >= 0 && y >= 0 && z >= 0 && x < size.x && y < size.y && z < size.z;
-  const idx = (x: number, y: number, z: number) => (y * size.z + z) * size.x + x;
-  return {
-    size,
-    isLoaded: (x, z) => x >= 0 && z >= 0 && x < size.x && z < size.z,
-    loadedBounds: () => ({ x0: 0, z0: 0, x1: size.x, z1: size.z }),
-    getBlock: (x, y, z) => (inside(x, y, z) ? blockIdFromIndex(data[idx(x, y, z)]!) : 'outside'),
-    setBlock: (x, y, z, id) => {
-      const b = blockIndexOf(id);
-      if (b < 0 || !inside(x, y, z)) return false;
-      data[idx(x, y, z)] = b;
-      return true;
-    },
-    isSolid: (x, y, z) => {
-      if (!inside(x, y, z)) return false;
-      const id = blockIdFromIndex(data[idx(x, y, z)]!);
-      return id !== 'air' && id !== 'water' && id !== 'torch' && id !== 'start_torch';
-    },
-  } as VoxelWorld;
-}

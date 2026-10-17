@@ -28,7 +28,8 @@ async function open(page: Page) {
         h.lock.simulate(true);
         h.input.releaseAll();
         h.world.fill(0, 8, 0, 14, 8, 14, 'stone');
-        h.world.fill(0, 9, 0, 14, 20, 14, 'air');
+        h.world.fill(0, 9, 0, 14, h.world.size().y - 1, 14, 'air');
+        for (let n = 0; (h.world.lightPending() > 0 || h.world.meshStats().pending > 0) && n < 3000; n++) h.step(1); // 空気の穴の光とメッシュを先に済ませる
         h.inventory.clear();
         h.settings.set('dropMax', { common: 1, uncommon: 1, rare: 1, superRare: 1 });
         h.player.set({ position: { x: 2.5, y: 9, z: 2.5 + (T.k++ % 10) }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: 0 });

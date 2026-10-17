@@ -1,4 +1,8 @@
-import type { BlockId, BlockType, IslandInfo, SpawnPoint, TestArea, WorldRegions } from '../contracts';
+import type { BlockId, BlockType, SpawnPoint, TestArea, WorldRegions } from '../contracts';
+import type { StartFeatures } from './gen/features';
+import type { WorldGenInfo } from './gen/populate';
+import type { MouthInfo } from './gen/region';
+import type { BiomeKind } from './gen/terrain';
 import { BLOCK_TYPES } from './blocks/blockTypes';
 import { skyDarkness } from './light/skyDarkness';
 import type { WorldRenderer, RebuildStats, SectionInfo, SectionStats, MeshStats, RebuildLogEntry } from './render/WorldRenderer';
@@ -38,9 +42,23 @@ export interface WorldHook {
   meshStats(): MeshStats;
   /** VOX-E: セクションのメッシュを作り直した記録（古い順）。clear === true は返してから空にする */
   rebuildLog(clear?: boolean): RebuildLogEntry[];
+  /** VOX-B: 海面の高さ（SEA_Y） */
+  seaY(): number;
+  isLoaded(x: number, z: number): boolean;
+  /** 読みこんだ列（VOX-B では 64） */
+  loadedChunks(): { cx: number; cz: number }[];
+  /** generateChunk の結果のハッシュ（読みこまずに作る。仮の海のふち・畑の置きものは入らない） */
+  genHash(cx: number, cz: number): string;
+  /** 生成の値（読みこまずに計算。仮の海のふちの前） */
+  terrainAt(x: number, z: number): { h: number; biome: BiomeKind; sea: boolean };
+  spawnInfo(): { from: { x: number; z: number }; fallback: boolean; checked: number };
+  startTorch(): { x: number; y: number; z: number };
+  startFeatures(): StartFeatures;
+  caveMouths(): MouthInfo[];
+  genStats(): { columns: number; medianMs: number; maxMs: number; spawnSearchMs: number };
 }
 
-export function createWorldHook(world: ArrayVoxelWorld, renderer: WorldRenderer, island: IslandInfo): WorldHook {
+export function createWorldHook(world: ArrayVoxelWorld, renderer: WorldRenderer, island: WorldGenInfo): WorldHook {
   return {
     seed: () => island.seed,
     size: () => {
@@ -74,5 +92,15 @@ export function createWorldHook(world: ArrayVoxelWorld, renderer: WorldRenderer,
     sectionStats: () => renderer.sectionStats(),
     meshStats: () => renderer.meshStats(),
     rebuildLog: (clear) => renderer.rebuildLog(clear === true),
+    seaY: () => island.seaY(),
+    isLoaded: (x, z) => world.isLoaded(x, z),
+    loadedChunks: () => island.loadedChunks(),
+    genHash: (cx, cz) => island.genHash(cx, cz),
+    terrainAt: (x, z) => island.terrainAt(x, z),
+    spawnInfo: () => island.spawnInfo(),
+    startTorch: () => island.startTorch(),
+    startFeatures: () => island.startFeatures(),
+    caveMouths: () => island.caveMouths(),
+    genStats: () => island.genStats(),
   };
 }

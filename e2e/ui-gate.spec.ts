@@ -515,7 +515,8 @@ test.describe('UI 検査ゲート', () => {
  * 切りつめた絵（ふだん）と もとの格子の絵（?charsheets=orig。開発サーバーだけ）で、同じ場面の画面を撮って ドット単位でくらべる。
  */
 test('CHAR-2 AC34: 切りつめる前と後で 画面が ドット単位で 同じ', async ({ browser }) => {
-  test.setTimeout(240_000);
+  // 新しい地形（高さ 352）は 1 ステップが重く、CI（GPU なし）では もとの格子の絵の 読みこみに 時間が かかるため 広げる
+  test.setTimeout(480_000);
   type Scene = { id: string; held: 'none' | 'katana' | 'yumi'; yaw: number; pitch: number; stance?: number; draw?: boolean };
   const scenes: Scene[] = [
     ...[0, 45, 90, 135, 180, 225, 270, 315].map((yaw) => ({ id: `dir-yaw${yaw}`, held: 'none' as const, yaw, pitch: -10 })),
@@ -562,12 +563,16 @@ test('CHAR-2 AC34: 切りつめる前と後で 画面が ドット単位で 同�
             h.step(1);
           }, sc);
           if (sc === first) {
-            await page.waitForFunction((ns) => {
-              const h = window.__rikkun! as any;
-              h.step(1);
-              const st = h.player.doll().sprite.status;
-              return ns.every((n: string) => st?.[n] === 'ready');
-            }, names, { timeout: 10_000 });
+            // 読みこみは本当の時間で進む。描画を止めて待ち、時間の上限は テスト全体にまかせる（待ちの中で step は回さない。始めの step(1) は 上で 済み）
+            await page.evaluate(() => (window.__rikkun! as any).suspendRender(true));
+            try {
+              await page.waitForFunction((ns) => {
+                const st = (window.__rikkun! as any).player.doll().sprite.status;
+                return ns.every((n: string) => st?.[n] === 'ready');
+              }, names, { timeout: 0 });
+            } finally {
+              await page.evaluate(() => (window.__rikkun! as any).suspendRender(false));
+            }
           }
           // 世界の光とメッシュが落ちつくまで進める（作る順番は 機械の速さで変わる。落ちつけば 2 回の撮影は 同じ世界）
           await page.evaluate(() => {

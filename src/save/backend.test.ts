@@ -3,7 +3,7 @@ import { IDBFactory } from 'fake-indexeddb';
 import { describe, expect, it } from 'vitest';
 import type { SectionData } from '../contracts';
 import { ArrayVoxelWorld } from '../world/VoxelWorld';
-import { generateIsland } from '../world/gen/generateIsland';
+import { populateWorld } from '../world/gen/populate';
 import { sectionToArray } from '../world/sections';
 import { IdbBackend, MemoryBackend, SAVE_ID, createChunkStore, packColumn, requestPersist, unpackColumn, type PersistBackend } from './backend';
 import { decodeSections, deflateRaw, encodeSections, inflateRaw, padSections } from './chunkCodec';
@@ -107,8 +107,8 @@ describe('IndexedDB 版で 世界ぜんぶ（AC1）', () => {
   it('ほる・おく → 保存 → 読みなおしで、世界のハッシュと持ち物が同じ。ファイルに出して入れても同じ', async () => {
     const db = await IdbBackend.open(new IDBFactory(), `w${Math.random()}`);
     const mk = async (b: PersistBackend) => {
-      const world = new ArrayVoxelWorld();
-      generateIsland(7, world);
+      const world = new ArrayVoxelWorld({ x: 0, z: 0 });
+      populateWorld(world, 7);
       world.resetSaveTracking();
       const restored = await restoreStoredWorld({ world, db: b, store: kv, seed: 7, saveId: SAVE_ID, reset: false });
       let inv: unknown = null;

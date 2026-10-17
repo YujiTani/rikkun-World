@@ -1,4 +1,5 @@
 import type { BlockId, SprinklerPort, Vec3, VoxelWorld } from '../contracts';
+import { blockIndexOf } from '../world/blocks/blockTypes';
 
 /**
  * スプリンクラー の はんい（M7-2 §2.2・§4.3 ③）。
@@ -63,6 +64,13 @@ export class Sprinklers implements SprinklerPort {
   rescan(world: VoxelWorld): void {
     this.set.clear();
     this.items = [];
+    const sc = (world as unknown as { scanBlocks?: (want: (i: number) => boolean, found: (x: number, y: number, z: number) => void) => void }).scanBlocks;
+    if (sc) {
+      // 高さ 352 でも 速い: スプリンクラーが入っているセクションだけ見る
+      const si = blockIndexOf('sprinkler');
+      sc.call(world, (i) => i === si, (x, y, z) => this.add(x, y, z));
+      return;
+    }
     const eb = world.loadedBounds();
     for (let y = 0; y < world.size.y; y++) {
       for (let z = eb.z0; z < eb.z1; z++) {

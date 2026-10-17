@@ -350,13 +350,14 @@ test('たんす: とじる は 1 こ・ぜんぶ しまう・えらんで しま
     hk.input.press('toggleInventory');
     hk.input.release('toggleInventory');
     hk.step(2);
-    hk.world.setBlock(60, 20, 60, 'tansu');
-    hk.player.set?.({ position: { x: 60.5, y: 20, z: 62.5 } });
+    const gy = hk.world.groundHeight(60, 60) + 1; // たんすの高さは 世界に聞く
+    hk.world.setBlock(60, gy, 60, 'tansu');
+    hk.player.set?.({ position: { x: 60.5, y: gy, z: 62.5 } });
     hk.inventory.clear();
     hk.inventory.setSlot(9, { item: 'dirt', count: 5 });
     hk.inventory.setSlot(10, { item: 'stone', count: 7 });
     hk.inventory.setSlot(0, { item: 'log', count: 3 });
-    hk.storage.open(60, 20, 60);
+    hk.storage.open(60, gy, 60);
     hk.step(3);
   });
   await page.waitForTimeout(600);

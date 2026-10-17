@@ -28,11 +28,13 @@ async function installHelpers(page: Page) {
         h.lock.simulate(true);
         h.input.releaseAll();
         h.world.fill(0, 8, 0, 12, 8, 12, 'stone');
-        h.world.fill(0, 9, 0, 12, 20, 12, 'air');
+        h.world.fill(0, 9, 0, 12, h.world.size().y - 1, 12, 'air');
         h.inventory.clear();
         if (!opts.keepDrop) h.settings.set('dropMax', { common: 1, uncommon: 1, rare: 1, superRare: 1 });
         T.place(2.5, 9, 6.5, 90, 0);
         h.step(10); // 前のブロックをこわした後の休み（6 ステップ）を終わらせる
+        // 空気の穴の光とメッシュの作りなおしを ここで済ませる（あとの時間はかり・コマ数はかりに はみ出さない）
+        for (let n = 0; (h.world.lightPending() > 0 || h.world.meshStats().pending > 0) && n < 3000; n++) h.step(1);
         h.dig.events();
       },
       /** 「ねらいの線の出どころ（肩の点 S）が (x, z) に来る」ように立つ。足もとの高さは y */
@@ -470,9 +472,10 @@ test.describe('M2 おく', () => {
       const hash12 = h.world.hash();
       T.tap('secondary');
       const a12 = { t: t12?.place, same: h.world.hash() === hash12, n: h.inventory.get().slots[0].count };
-      // AC13
-      h.world.fill(0, 47, 0, 12, 47, 12, 'stone');
-      (window as any).__aim.standForS(2.5, 6.5, 90, -45, 48);
+      // AC13（世界の いちばん上の段に 立つ。その上は 世界の外）
+      const H = h.world.size().y;
+      h.world.fill(0, H - 1, 0, 12, H - 1, 12, 'stone');
+      (window as any).__aim.standForS(2.5, 6.5, 90, -45, H);
       h.step(1);
       const y = h.player.get().position.y;
       const t13 = h.target.get();
@@ -480,7 +483,7 @@ test.describe('M2 おく', () => {
       T.tap('secondary');
       const x13 = h.aim.point();
       const a13 = { y, x13, block: t13?.block, place: t13?.place, same: h.world.hash() === hash13, n: h.inventory.get().slots[0].count };
-      h.world.fill(0, 47, 0, 12, 47, 12, 'air');
+      h.world.fill(0, H - 1, 0, 12, H - 1, 12, 'air');
       // AC14
       h.world.fill(0, 6, 0, 12, 6, 12, 'sand'); // 海の底と水も 自分で作る（島の海に たよらない）
       h.world.fill(0, 7, 0, 12, 8, 12, 'water');
@@ -488,16 +491,16 @@ test.describe('M2 おく', () => {
       h.step(1);
       const x14 = h.aim.point();
       T.tap('secondary');
-      return { a12, a13, b14: h.world.getBlock(Math.floor(x14.x), 7, Math.floor(x14.z)), n: h.inventory.get().slots[0].count };
+      return { H, a12, a13, b14: h.world.getBlock(Math.floor(x14.x), 7, Math.floor(x14.z)), n: h.inventory.get().slots[0].count };
     });
     expect(r.a12.t).toEqual({ x: 2, y: 9, z: 6 });
     expect(r.a12.same).toBe(true);
     expect(r.a12.n).toBe(5);
-    expect(r.a13.y).toBeCloseTo(48, 1);
+    expect(r.a13.y).toBeCloseTo(r.H, 1);
     const b13 = { x: Math.floor(r.a13.x13.x), y: Math.floor(r.a13.x13.y - 0.001), z: Math.floor(r.a13.x13.z) };
     expect(r.a13.block).toEqual(b13);
-    expect(r.a13.block.y).toBe(47);
-    expect(r.a13.place).toEqual({ x: b13.x, y: 48, z: b13.z });
+    expect(r.a13.block.y).toBe(r.H - 1);
+    expect(r.a13.place).toEqual({ x: b13.x, y: r.H, z: b13.z });
     expect(r.a13.same).toBe(true);
     expect(r.a13.n).toBe(5);
     expect(r.b14).toBe('dirt');
@@ -1045,7 +1048,7 @@ test.describe('M2 性能（記録）', () => {
         if (g < 8) continue;
         let top = g;
         // 一番上のブロック（log でない）
-        while (top < 47 && h.world.getBlock(x, top + 1, z) !== 'air') top++;
+        while (top < h.world.size().y - 2 && h.world.getBlock(x, top + 1, z) !== 'air') top++;
         const id = h.world.getBlock(x, top, z);
         if (id === 'log' || id === 'water' || id === 'bedrock' || id === 'iron_ore') continue;
         h.inventory.clear();
@@ -1078,7 +1081,7 @@ test.describe('M2 性能（記録）', () => {
       let c = 0;
       for (let x = 0; x <= 12 && c < 2000; x++)
         for (let y = 9; y < 20 && c < 2000; y++)
-          for (let z = 0; z <= 12 && c < 2000; z++) { h.world.setBlock(x, y, z, 'stone'); c++; }
+          for (let z = 0; z <= 12 && c < 2000; z++) { h.world.setBlock(x, y, z, 'log'); c++; } // いし の上に いし では変化 0（VOX-B: 地下）なので log
       // 保存は ?nosave=1 だと何もしないので別途
       return { n: ms.length, median: ms[Math.floor(ms.length / 2)], max: ms[ms.length - 1], all: ms };
     });
@@ -1093,7 +1096,7 @@ test.describe('M2 性能（記録）', () => {
       let c = 0;
       for (let y = 9; y < 25 && c < 2000; y++)
         for (let x = 0; x <= 12 && c < 2000; x++)
-          for (let z = 0; z <= 12 && c < 2000; z++) { h.world.setBlock(x, y, z, 'stone'); c++; }
+          for (let z = 0; z <= 12 && c < 2000; z++) { h.world.setBlock(x, y, z, 'log'); c++; } // 同上
       h.save.now(); // ここは 書きはじめの すぐあとの数を見る（またない）
       return h.save.info();
     });

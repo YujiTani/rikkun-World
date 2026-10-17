@@ -1,7 +1,7 @@
 import type { CropStageSource } from '../../../contracts';
 import { LOOK_N, LOOK_VOLUME, fillBlockLook, hasLook, initLooks, occludes } from '../../../proto/voxel/looks';
-import { newSample, sampleSurface, type ColumnSource, type SurfaceSample } from '../../../proto/voxel/terrain/microSurface';
-import { scanColumn, type ColumnInfo } from '../../../proto/voxel/terrain/worldColumns';
+import { newSample, sampleSurface, type ColumnSource, type SurfaceSample } from '../../micro/microSurface';
+import { scanColumn, type ColumnInfo } from '../../micro/worldColumns';
 import { BLOCK_TYPES, isOpaqueIndex } from '../../blocks/blockTypes';
 import { OCC_BYTES, packOccupancy } from './ao';
 import { ROW_NONE, rowCodeOf, terrainKindOf } from './projection';

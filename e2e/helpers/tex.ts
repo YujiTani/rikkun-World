@@ -360,14 +360,19 @@ export interface Arena {
   /** 床のブロックの y（床の上の面は y + 1） */
   y: number;
 }
-/** 空に浮かぶ石の床（地形に左右されない）。床の上 20 段は空気 */
-export const ARENA: Arena = { x0: 24, z0: 24, x1: 48, z1: 48, y: 20 };
+/**
+ * 空に浮かぶ石の床（地形に左右されない）。床の上 20 段は空気。
+ * 高さは 地形のいちばん高い所（山 270）より上（VOX-B: 世界の高さ 352。床を 低い所に おくと 山の中の穴になり、空の光が とどかない）。
+ */
+export const FY = 300;
+export const ARENA: Arena = { x0: 24, z0: 24, x1: 48, z1: 48, y: FY };
 /** 試験のブロックを置く場所（床の上） */
-export const SPOT = { x: 36, y: 21, z: 36 };
+export const SPOT = { x: 36, y: FY + 1, z: 36 };
 
 export async function buildArena(page: Page, a: Arena = ARENA): Promise<void> {
   await page.evaluate((a) => {
     const h = (window as any).__rikkun;
+    (window as any).__FY = a.y; // ページの中の テストの式でも 床の高さを 使えるように
     h.world.fill(a.x0, a.y, a.z0, a.x1, a.y, a.z1, 'stone');
     h.world.fill(a.x0, a.y + 1, a.z0, a.x1, a.y + 20, a.z1, 'air');
   }, a);

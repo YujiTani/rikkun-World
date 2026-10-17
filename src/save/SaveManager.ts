@@ -2,7 +2,7 @@ import type { BlockId, ChunkColumn, Inventory, PlayerState, ScreenSettings, Spaw
 import { packColumn, SAVE_ID, type PersistBackend, type StoredChunk, type StoredMeta } from './backend';
 import { BLOCK_TYPES } from '../world/blocks/blockTypes';
 import { encodeSections } from './chunkCodec';
-import { migratedKey, NO_SAVE, PENDING_KEY, PENDING_MAX_CELLS, type RestoredSave } from './restore';
+import { NO_SAVE, PENDING_KEY, PENDING_MAX_CELLS, removePendingOf, type RestoredSave } from './restore';
 
 /** localStorage と同じ形（テストでは偽物を渡す） */
 export interface KeyValueStore {
@@ -54,10 +54,8 @@ export interface SaveExtra {
   deserialize(data: unknown): void;
 }
 
-/** M7: 農業。前の保存には 置きものを あとから置く（`changed` = 古い保存の「島とちがうマス」の番号） */
-export interface SaveFarm extends SaveExtra {
-  placeLegacy?(changed: ReadonlySet<number>): boolean;
-}
+/** M7: 農業 */
+export type SaveFarm = SaveExtra;
 
 /** 1 日の時刻の出し入れ（TimeOfDayImpl が合う） */
 export interface SaveClock {
@@ -70,7 +68,7 @@ export interface SaveClock {
 export interface SaveDeps {
   world: SaveWorld & SaveTracking;
   seed: number;
-  /** セーブの名前（IndexedDB のキー。既定のシードは 'main'） */
+  /** セーブの名前（IndexedDB のキー。既定のシードは 'vox-main'） */
   saveId?: string;
   /** IndexedDB（かメモリ版）。null = 保存しない */
   db: PersistBackend | null;
@@ -103,6 +101,8 @@ export interface SaveDeps {
 }
 
 export interface SaveInfo {
+  /** セーブの名前（IndexedDB のキー。VOX-B から 'vox-main' / 'vox-seed-N'。前の世界の 'main' とは別） */
+  saveId: string;
   enabled: boolean;
   lastSavedTick: number | null;
   /** 直近の保存で メインスレッドを使った時間（縮める前まで）。書き終わりは doneMs */
@@ -118,7 +118,7 @@ export interface SaveInfo {
   failures: number;
   /** 前の保存から さわった列（まだ書いていない） */
   pendingChunks: number;
-  /** 古い localStorage の保存を 移した */
+  /** 古い localStorage の保存を 移した（VOX-B から いつも false。移すしくみは無い） */
   migrated: boolean;
   /** 保存を読んだとき: 保存した列の数・こわれて生成に戻した列の数 */
   loadedColumns: number;
@@ -126,11 +126,8 @@ export interface SaveInfo {
 }
 
 export const SAVE_VERSION = 1;
-/** 島の作り方の版。島生成（src/world/gen）で地形が変わったら上げる。保存した列は そのまま読み、保存していない所だけ新しい生成 */
-export const SAVE_GEN = 2;
-/** 古い（VOX-F より前の）保存の localStorage のキー。読むだけで 消さない */
-export const SAVE_KEY_PREFIX = 'rikkun-world-save-v1-';
-export const saveKey = (seed: number): string => `${SAVE_KEY_PREFIX}${seed}`;
+/** 地形の作り方の版。世界生成（src/world/gen）で地形が変わったら上げる。保存した列は そのまま読み、保存していない所だけ新しい生成。3 = VOX-B（無限の地形・高さ 352。前の世界（2）は読まない） */
+export const SAVE_GEN = 3;
 
 /** 体の箱（M1-02 §4.1）。置き直しの重なり判定用 */
 const BODY = { halfWidth: 0.3, height: 1.8 } as const;
@@ -178,13 +175,13 @@ export class SaveManager {
   private forceNext = false;
   /** 直近の保存が失敗した（そのあいだ 大きな変更の早め保存は しない。ふつうの間隔で やりなおす） */
   private lastFailed = false;
-  private migratePending = false;
   private readonly restored: RestoredSave;
 
   constructor(private readonly d: SaveDeps) {
     this.saveId = d.saveId ?? SAVE_ID;
     this.restored = d.restored ?? NO_SAVE;
     this.infoState = {
+      saveId: this.saveId,
       enabled: d.store !== null && d.db !== null && !(d.restored?.readOnly ?? false),
       lastSavedTick: null,
       lastMs: 0,
@@ -217,21 +214,7 @@ export class SaveManager {
       this.restoreAll(data);
       this.lastKey = this.makeMeta().key;
       this.lastTimeKey = this.timeKey();
-      let legacyPlaced = false;
-      if (this.restored.legacy && this.d.farm?.placeLegacy) {
-        try {
-          legacyPlaced = this.d.farm.placeLegacy(this.restored.legacy.changed);
-        } catch {
-          /* 置きものに失敗しても 遊びは続ける */
-        }
-      }
-      if (legacyPlaced) this.lastKey = null; // 置いた分と印を 次の保存で 書く
-      if (this.restored.legacy) {
-        this.migratePending = true;
-        this.forceNext = true;
-        this.infoState.migrated = true;
-        void this.write(true); // 古い保存を IndexedDB に移す（古いキーは消さない）
-      } else if (this.restored.fromPending) {
+      if (this.restored.fromPending) {
         this.forceNext = true;
         void this.write(true);
       }
@@ -319,8 +302,7 @@ export class SaveManager {
     const { store, db } = this.d;
     if (!store || !db) return Promise.resolve();
     try {
-      store.removeItem(PENDING_KEY);
-      store.setItem(migratedKey(this.saveId), '1');
+      removePendingOf(store, this.saveId);
     } catch {
       /* 何もしない */
     }
@@ -505,11 +487,7 @@ export class SaveManager {
           this.lastFailed = false;
           this.infoState.doneMs = performance.now() - t0;
           try {
-            this.d.store?.removeItem(PENDING_KEY);
-            if (this.migratePending) {
-              this.d.store?.setItem(migratedKey(this.saveId), '1');
-              this.migratePending = false;
-            }
+            if (this.d.store) removePendingOf(this.d.store, this.saveId);
           } catch {
             /* 何もしない */
           }

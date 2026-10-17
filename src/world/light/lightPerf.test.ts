@@ -1,21 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { generateIsland } from '../gen/generateIsland';
+import { populateWorld } from '../gen/populate';
 import { ArrayVoxelWorld } from '../VoxelWorld';
 import { referenceLight } from './referenceLight';
 import { SkyDarkness } from './skyDarkness';
 import { WorldLight } from './WorldLight';
 
-/** 高さ H の世界: 今の島を 上へ H-48 ずらして、その下は 石でうめる（地下は ほとんど「見えない」セクション） */
-function tall(H: number): ArrayVoxelWorld {
-  const src = new ArrayVoxelWorld();
-  generateIsland(12345, src);
-  const w = new ArrayVoxelWorld({ x: 128, z: 128, y: H });
-  const off = H - 48;
-  if (off > 0) w.fill(0, 0, 0, 127, off - 1, 127, 'stone');
-  for (let y = 0; y < 48; y++) for (let z = 0; z < 128; z++) for (let x = 0; x < 128; x++) {
-    const b = src.getIndex(x, y, z);
-    if (b > 0 || off > 0) w.setBlock(x, y + off, z, src.getBlock(x, y, z) as never);
-  }
+/** 本番の世界（高さ 352。VOX-B の生成で 8×8 列を読みこんだもの） */
+function tall(_H: number): ArrayVoxelWorld {
+  const w = new ArrayVoxelWorld({ x: 0, z: 0 });
+  populateWorld(w, 12345);
   w.takeDirtyChunks();
   w.takeChangeBoxes();
   w.takeColumnEvents();
@@ -23,7 +16,7 @@ function tall(H: number): ArrayVoxelWorld {
 }
 
 describe('光の初期化の時間とメモリ（VOX-C AC4。数を出す）', () => {
-  for (const H of [48, 352]) {
+  for (const H of [352]) {
     it(`高さ ${H}`, () => {
       const w = tall(H);
       const t0 = performance.now();

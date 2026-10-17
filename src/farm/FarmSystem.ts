@@ -3,7 +3,6 @@ import {
   CROP_KINDS,
   SEED_ITEM,
   VEG_ITEM,
-  WILD_BLOCK,
   cropKindOfBlock,
   vegKindOfItem,
   type BlockId,
@@ -39,11 +38,6 @@ const VISIT_RANGE = 4;
 export interface FarmSystemImpl extends FarmSystem {
   /** 新しい世界: 置きものを 置いた直後に呼ぶ（たんす の中身を入れて 印をつける） */
   noteNewWorldPlaced(placement: FarmPlacement): void;
-  /**
-   * 前の保存: 読みこみのあとに呼ぶ。`changed` = 保存の「島とちがうマス」の番号（(y*sz+z)*sx+x）。
-   * 印が あれば何もせず false。印が無ければ §4.5 (5) で置いて 印をつけ true
-   */
-  placeLegacy(changed: ReadonlySet<number>): boolean;
   /** だんを かえる（テスト用。stageTicks は 0）。作物でなければ false */
   setStage(x: number, y: number, z: number, stage: CropStage): boolean;
   /** 明るさ いつも 15 で 作物 n こ を 0 → 3 まで そだてた ステップの 列（世界は 変えない） */
@@ -285,7 +279,12 @@ export function createFarmSystem(deps: FarmDepsM7): FarmSystemImpl {
     soilPos.clear();
     const fi = blockIndexOf('farmland');
     const wi = blockIndexOf('farmland_wet');
-    const w = world as unknown as { getIndex?: (x: number, y: number, z: number) => number };
+    const w = world as unknown as { scanBlocks?: (want: (i: number) => boolean, found: (x: number, y: number, z: number) => void) => void; getIndex?: (x: number, y: number, z: number) => number };
+    if (w.scanBlocks) {
+      // 高さ 352 でも 速い: ほしいブロックが入っているセクションだけ見る
+      w.scanBlocks((v) => v === fi || v === wi, (x, y, z) => addSoil(key(x, y, z)));
+      return;
+    }
     let i = 0;
     for (let y = 0; y < sy; y++)
       for (let z = 0; z < sz; z++)
@@ -296,7 +295,8 @@ export function createFarmSystem(deps: FarmDepsM7): FarmSystemImpl {
   };
 
   const surfaceY = (x: number, z: number): number => {
-    for (let y = sy - 1; y >= 0; y--) if (world.getBlock(x, y, z) !== 'air') return y + 1;
+    const t = (world as unknown as { topY?: (x: number, z: number) => number }).topY?.(x, z);
+    for (let y = t === undefined ? sy - 1 : Math.max(t, -1); y >= 0; y--) if (world.getBlock(x, y, z) !== 'air') return y + 1;
     return 0;
   };
 
@@ -400,13 +400,6 @@ export function createFarmSystem(deps: FarmDepsM7): FarmSystemImpl {
   };
 
   // ---------------------------------------------------------------- 置きもの
-  const placeOldFarmBlocks = (p: NonNullable<FarmPlacement['oldFarm']>) => {
-    for (const b of p.blocks) world.setBlock(b.x, b.y, b.z, b.id);
-    for (const b of p.blocks) if (b.id === 'farmland' || b.id === 'farmland_wet') addSoil(key(b.x, b.y, b.z));
-    kakashiPos = { ...p.kakashi };
-    deps.fillTansu(p.tansu, p.tansuItems.map((s) => ({ ...s })));
-  };
-
   const sys: FarmSystemImpl = {
     crop,
     crops: () => {
@@ -667,29 +660,6 @@ export function createFarmSystem(deps: FarmDepsM7): FarmSystemImpl {
     noteNewWorldPlaced(placement) {
       if (placement.oldFarm) placeOldFarmTansuOnly(placement.oldFarm);
       placed = true;
-    },
-    placeLegacy(changed) {
-      if (placed) return false;
-      const pl = deps.placement(deps.seed);
-      for (const w of pl.wild) {
-        if (changed.has(key(w.x, w.y, w.z)) || changed.has(key(w.x, w.y - 1, w.z))) continue;
-        world.setBlock(w.x, w.y, w.z, WILD_BLOCK[w.kind]);
-      }
-      const of = pl.oldFarm;
-      if (of) {
-        const b = of.box;
-        let clean = true;
-        for (let y = b.y0; y <= b.y1 && clean; y++)
-          for (let z = b.z0; z <= b.z1 && clean; z++)
-            for (let x = b.x0; x <= b.x1; x++)
-              if (changed.has(key(x, y, z))) {
-                clean = false;
-                break;
-              }
-        if (clean) placeOldFarmBlocks(of);
-      }
-      placed = true;
-      return true;
     },
     setStage(x, y, z, stage) {
       const c = crops.get(key(x, y, z));

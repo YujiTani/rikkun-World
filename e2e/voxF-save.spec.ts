@@ -11,7 +11,7 @@ async function boot(page: Page, query = '') {
   await page.evaluate(() => window.__rikkun!.achievements.mute(true));
 }
 
-/** IndexedDB の列を読む（DB rikkun-world 版 1、ストア chunks、キー ['main', cx, cz]） */
+/** IndexedDB の列を読む（DB rikkun-world 版 1、ストア chunks、キー [saveId, cx, cz]）。saveId は ゲームに聞く（VOX-B で 'main' から 変わる。聞けない今は 'main'） */
 const idbGetChunk = (page: Page, cx: number, cz: number) =>
   page.evaluate(
     (k) =>
@@ -19,7 +19,8 @@ const idbGetChunk = (page: Page, cx: number, cz: number) =>
         const r = indexedDB.open('rikkun-world', 1);
         r.onerror = () => ng(r.error);
         r.onsuccess = () => {
-          const g = r.result.transaction('chunks', 'readonly').objectStore('chunks').get(['main', k[0], k[1]]);
+          const sid: string = (window as any).__rikkun.save.info().saveId ?? 'main';
+          const g = r.result.transaction('chunks', 'readonly').objectStore('chunks').get([sid, k[0], k[1]]);
           g.onsuccess = () => ok(g.result ? { v: g.result.v, gen: g.result.gen, h: g.result.h, len: g.result.data.length } : null);
           g.onerror = () => ng(g.error);
         };
@@ -77,8 +78,9 @@ test.describe('VOX-F 保存', () => {
         r.onsuccess = () => ok(r.result);
         r.onerror = () => ng(r.error);
       });
+      const saveId: string = (window as any).__rikkun.save.info().saveId ?? 'main';
       const old: { h: number; gen: number } = await new Promise((ok) => {
-        const g = db.transaction('chunks', 'readonly').objectStore('chunks').get(['main', 0, 0]);
+        const g = db.transaction('chunks', 'readonly').objectStore('chunks').get([saveId, 0, 0]);
         g.onsuccess = () => ok(g.result);
       });
       const parts: number[] = [];
@@ -101,7 +103,7 @@ test.describe('VOX-F 保存', () => {
       const data = new Uint8Array(await new Response(w.readable).arrayBuffer());
       await new Promise<void>((ok, ng) => {
         const tx = db.transaction('chunks', 'readwrite');
-        tx.objectStore('chunks').put({ v: 1, gen: old.gen, h: old.h, data }, ['main', 0, 0]);
+        tx.objectStore('chunks').put({ v: 1, gen: old.gen, h: old.h, data }, [saveId, 0, 0]);
         tx.oncomplete = () => ok();
         tx.onerror = () => ng(tx.error);
       });
@@ -147,7 +149,7 @@ test.describe('VOX-F 保存', () => {
     await page.evaluate(async () => {
       const h = (window as any).__rikkun;
       h.pause();
-      h.world.setBlock(2, 25, 2, 'stone');
+      h.world.setBlock(2, 25, 2, 'log'); // いし の上に いし では変化 0（VOX-B: 地下）なので log
       await h.save.now();
       // 閉じる途中に 保険が 置かれたかを 見張る（保存の側の pagehide の あとに 走る）
       window.addEventListener('pagehide', () => localStorage.setItem('__pendingSeen', localStorage.getItem('rikkun-world-pending') ?? 'none'));
@@ -168,7 +170,7 @@ test.describe('VOX-F 保存', () => {
       };
     });
     console.log('AC5', JSON.stringify(r));
-    expect(r.a).toBe('stone');
+    expect(r.a).toBe('log');
     expect(r.b).toBe('sand');
     expect(r.c).toBe('log');
   });
@@ -185,7 +187,7 @@ test.describe('VOX-F 保存', () => {
       const bytes: number[] = [];
       for (let k = 0; k < 15; k++) {
         for (const [cx, cz] of [[1, 1], [3, 1], [1, 3], [3, 3]]) {
-          for (let i = 0; i < 60; i++) h.world.setBlock(cx * 16 + (i % 12), 14 + (i % 4), cz * 16 + 2 + k, i % 2 ? 'stone' : 'log');
+          for (let i = 0; i < 60; i++) h.world.setBlock(cx * 16 + (i % 12), 14 + (i % 4), cz * 16 + 2 + k, i % 2 ? 'sand' : 'log');
         }
         const t = performance.now();
         const p = h.save.now();

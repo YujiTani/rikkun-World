@@ -210,7 +210,9 @@ test.describe('VOX-E メッシュ', () => {
       // セクションの真ん中（x・z が 16 の中で 6〜9）で、上下左右の 6 方向が固い所（ほると閉じた穴になる）を探す
       for (let dz = 0; dz < 4 && !spot; dz++)
         for (let dx = 0; dx < 4 && !spot; dx++)
-          for (const y of [8, 6, 10, 5, 11]) {
+          // 地面（world.groundHeight）のすぐ下から 12 ブロックの中で、セクションの高さ 4〜11。ふかい所（見えない全部石）では となりが「メッシュなし」で 作り直しが 数えられない
+          for (let y = h.world.groundHeight(bx + 6 + dx, bz + 6 + dz) - 1; y >= h.world.groundHeight(bx + 6 + dx, bz + 6 + dz) - 12; y--) {
+            if (y % 16 < 4 || y % 16 > 11) continue;
             const x = bx + 6 + dx, z = bz + 6 + dz;
             if (solid(x, y, z) && solid(x + 1, y, z) && solid(x - 1, y, z) && solid(x, y + 1, z) && solid(x, y - 1, z) && solid(x, y, z + 1) && solid(x, y, z - 1)) {
               spot = { x, y, z };

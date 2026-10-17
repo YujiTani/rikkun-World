@@ -91,7 +91,7 @@ const OUTSIDE: Col = { gy: -2, gb: AIR, wy: -1 };
 
 function scanColumn(world: ArrayVoxelWorld, x: number, z: number): Col {
   let wy = -1;
-  for (let y = world.size.y - 1; y >= 0; y--) {
+  for (let y = Math.max(world.topY(x, z), -1); y >= 0; y--) {
     const b = world.getIndex(x, y, z);
     if (b === AIR || isTorchIndex(b) || isCrossIndex(b)) continue;
     if (b === WATER) {

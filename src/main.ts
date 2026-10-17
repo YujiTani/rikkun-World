@@ -98,7 +98,7 @@ import { mountHud } from './ui/hud';
 import { PlayOverlay } from './ui/playOverlay';
 import { ArrayVoxelWorld } from './world/VoxelWorld';
 import { GEN_CONFIG } from './world/gen/config';
-import { generateIsland } from './world/gen/generateIsland';
+import { populateWorld } from './world/gen/populate';
 import { createWorldHook } from './world/hook';
 import { WorldRenderer } from './world/render/WorldRenderer';
 import { createRenderHook } from './world/render/renderHook';
@@ -132,7 +132,7 @@ import { itemIconPixels } from './ui/itemIcon';
 const container = document.getElementById('game')!;
 const hud = document.getElementById('hud')!;
 
-/** URL の ?seed=数 で島を変えられる（なければふだんのシード） */
+/** URL の ?seed=数 で世界を変えられる（なければふだんのシード） */
 function readSeed(): number {
   const raw = new URLSearchParams(location.search).get('seed');
   const n = raw === null || raw.trim() === '' ? NaN : Number(raw);
@@ -181,11 +181,11 @@ function digSettingsView(cfg: DigSystemImpl['config']): object {
 
 const game = new Game(container);
 
-// 世界: 入れ物 → 島 → 絵
-const world = new ArrayVoxelWorld();
+// 世界: 入れ物 → 読みこむ（8×8 列。VOX-B） → 絵
+const world = new ArrayVoxelWorld({ x: 0, z: 0 });
 const seed = readSeed();
-const island = generateIsland(seed, world);
-world.resetSaveTracking(); // 島を作っただけ。保存するのは さわった列だけ
+const island = populateWorld(world, seed);
+world.resetSaveTracking(); // 生成して読みこんだだけ。保存するのは さわった列だけ
 // 保存（VOX-F）: IndexedDB から さわった列を 世界に入れる。描画の前に（光が 最初から 正しくなるように）
 const saveOptions = parseSaveOptions(location.search);
 let store: Storage | null = null;
@@ -194,7 +194,8 @@ try {
 } catch {
   store = null;
 }
-const saveId = seed === GEN_CONFIG.defaultSeed ? SAVE_ID : `seed-${seed}`;
+// 前の世界（'main'・'seed-N'）とは別の名前。前の世界は読まず、消さない（VOX-B）
+const saveId = seed === GEN_CONFIG.defaultSeed ? SAVE_ID : `vox-seed-${seed}`;
 // IndexedDB が 開かない・返事がないときも ゲームは始める（3 秒でやめて 保存なしで遊ぶ）
 const SAVE_BOOT_TIMEOUT_MS = 3000;
 const sleepNull = () => new Promise<null>((ok) => setTimeout(() => ok(null), SAVE_BOOT_TIMEOUT_MS));
@@ -1077,7 +1078,7 @@ const save = new SaveManager({
 requestSave = () => save.saveIfChanged();
 if (saveOptions.reset) history.replaceState(null, '', stripResetParam(location.href));
 const loadedSave = save.load();
-// 新しい世界: 島の上に 置きもの（やせいの やさい・ふるい はたけ）を置く。保存があれば 保存の側（前の保存は placeLegacy）
+// 新しい世界: 地形の上に 置きもの（やせいの やさい・ふるい はたけ）を置く。保存があれば 保存の側
 if (!loadedSave) {
   const placement: FarmPlacement = computeFarmPlacement(seed, { world, info: island });
   applyFarmPlacement(world, placement);

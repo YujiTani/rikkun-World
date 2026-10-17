@@ -63,7 +63,10 @@ export function isRoofed(world: VoxelWorld, x: number, y: number, z: number, hei
   const ix = Math.floor(x);
   const iz = Math.floor(z);
   const from = Math.floor(y + height);
-  for (let yy = from; yy < world.size.y; yy++) {
+  // 高さ 352 でも 速いように、あるなら「いちばん上の固い所」から下へ見る（空気だけのセクションは飛ばす）
+  const topY = (world as { topY?: (x: number, z: number) => number }).topY;
+  const top = typeof topY === 'function' ? Math.min(topY.call(world, ix, iz), world.size.y - 1) : world.size.y - 1;
+  for (let yy = from; yy <= top; yy++) {
     if (world.isSolid(ix, yy, iz) && world.getBlock(ix, yy, iz) !== 'leaves') return true;
   }
   return false;

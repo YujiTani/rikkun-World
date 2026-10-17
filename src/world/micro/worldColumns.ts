@@ -1,5 +1,5 @@
-import { AIR, BLOCK_INDEX, WATER, isCrossIndex, isTorchIndex } from '../../../world/blocks/blockTypes';
-import type { ArrayVoxelWorld } from '../../../world/VoxelWorld';
+import { AIR, BLOCK_INDEX, WATER, isCrossIndex, isTorchIndex } from '../blocks/blockTypes';
+import type { ArrayVoxelWorld } from '../VoxelWorld';
 import { MICRO_PARAMS, type ColumnSource } from './microSurface';
 
 /** 小ブロック地形の「地面」にする種類（建物・畑・たいまつ などは ふつうのブロックのまま） */
@@ -31,7 +31,7 @@ export function scanColumn(world: ArrayVoxelWorld, wx: number, wz: number, out: 
   out.reach = 0;
   out.rockOk = false;
   if (!microTerrain.enabled) return;
-  for (let y = world.size.y - 1; y >= 0; y--) {
+  for (let y = world.topY(wx, wz); y >= 0; y--) {
     const k = world.getIndex(wx, y, wz);
     if (k < 0) return;
     if (k === AIR || k === WATER || k === LEAVES || k === LOG || isCrossIndex(k) || isTorchIndex(k)) continue;
@@ -62,5 +62,6 @@ export function worldColumnSource(world: ArrayVoxelWorld): ColumnSource {
       scanColumn(world, bx, bz, info);
       return info.rockOk;
     },
+    forest: (bx, bz) => (world.microForest === null ? 0 : world.microForest(bx, bz)),
   };
 }

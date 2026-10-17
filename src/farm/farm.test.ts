@@ -1,12 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { CROP_KINDS, M7_SETTING_DEFAULTS, createM7Settings, type BlockId, type CropKind, type FarmPlacement, type ItemStack } from '../contracts';
-import { MemoryBackend, SAVE_ID } from '../save/backend';
-import { restoreStoredWorld } from '../save/restore';
-import { SaveManager, saveKey, type KeyValueStore } from '../save/SaveManager';
+import { CROP_KINDS, createM7Settings, type BlockId, type CropKind, type FarmPlacement, type ItemStack } from '../contracts';
 import { ArrayVoxelWorld } from '../world/VoxelWorld';
-import { generateIsland } from '../world/gen/generateIsland';
 import { createFarmSystem } from './FarmSystem';
-import { makeLegacySaveText } from './legacy';
 
 const DAY = 91800;
 
@@ -274,74 +269,6 @@ describe('保存（AC20・AC21）', () => {
     }
     ts.sort((p, q) => p - q);
     expect(ts[10]).toBeLessThan(0.3 * 4);
-  });
-});
-
-describe('前の保存（AC35）', () => {
-  const placement: FarmPlacement = {
-    wild: [
-      { x: 3, y: 8, z: 3, kind: 'tomato' },
-      { x: 5, y: 8, z: 5, kind: 'onion' },
-    ],
-    oldFarm: {
-      blocks: [
-        { x: 10, y: 7, z: 10, id: 'farmland' },
-        { x: 10, y: 8, z: 10, id: 'kakashi' },
-        { x: 12, y: 8, z: 10, id: 'tansu' },
-      ],
-      tansu: { x: 12, y: 8, z: 10 },
-      tansuItems: [{ item: 'seed_onion', count: 2 }],
-      kakashi: { x: 10, y: 8, z: 10 },
-      box: { x0: 9, z0: 9, x1: 13, z1: 13, y0: 6, y1: 13 },
-      tier: 0,
-    },
-  };
-  const key = (w: ArrayVoxelWorld, x: number, y: number, z: number) => (y * w.loadedBounds().z1 + z) * w.loadedBounds().x1 + x;
-  it('変えていなければ ぜんぶ 置く・2 回 しない', () => {
-    const { world, farm, tansu } = make({ placement });
-    expect(farm.placeLegacy(new Set())).toBe(true);
-    expect(world.getBlock(3, 8, 3)).toBe('wild_tomato');
-    expect(world.getBlock(10, 8, 10)).toBe('kakashi');
-    expect(tansu).toHaveLength(1);
-    expect(farm.placedM7()).toBe(true);
-    expect(farm.placeLegacy(new Set())).toBe(false);
-    expect(tansu).toHaveLength(1);
-  });
-  it('変えたマスが あれば その分だけ とばす', () => {
-    const { world, farm, tansu } = make({ placement });
-    farm.placeLegacy(new Set([key(world, 11, 9, 11), key(world, 3, 7, 3)]));
-    expect(world.getBlock(10, 8, 10)).toBe('air');
-    expect(tansu).toHaveLength(0);
-    expect(world.getBlock(3, 8, 3)).toBe('air');
-    expect(world.getBlock(5, 8, 5)).toBe('wild_onion');
-  });
-  it('SaveManager: 前の保存を 読む', async () => {
-    const store = new Map<string, string>();
-    const kv: KeyValueStore = { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => void store.set(k, v), removeItem: (k) => void store.delete(k) };
-    store.set(saveKey(777), makeLegacySaveText(777, []));
-    const world = new ArrayVoxelWorld();
-    const island = generateIsland(777, world);
-    world.resetSaveTracking();
-    const db = new MemoryBackend();
-    const restored = await restoreStoredWorld({ world, db, store: kv, seed: 777, saveId: SAVE_ID, reset: false });
-    const farm = createFarmSystem({
-      world, light: { skyLight: () => 15, blockLight: () => 0, level: () => 15 }, seed: 777, dayLength: () => DAY, settings: createM7Settings(),
-      tick: () => 0, fillTansu: () => {},
-      placement: () => ({ wild: [{ x: 64, y: 30, z: 64, kind: 'onion' }], oldFarm: null }),
-    });
-    const sp = island.spawn();
-    const save = new SaveManager({
-      world, seed: 777, db, restored,
-      inventory: { serialize: () => null, deserialize: () => {}, clear: () => {} } as never,
-      player: { get: () => ({ position: sp, velocity: { x: 0, y: 0, z: 0 }, yawDeg: 0, pitchDeg: 0, onGround: true, inWater: false, moving: false, facingDeg: 0, running: false }), set: () => {} },
-      spawn: () => sp, store: kv, tick: () => 0, settings: { saveIntervalTicks: 600 }, farm,
-    });
-    expect(save.load()).toBe(true);
-    expect(farm.placedM7()).toBe(true);
-    expect(world.getBlock(64, 30, 64)).toBe('wild_onion');
-    await save.now();
-    expect((db.metas.get(SAVE_ID)!.farm as { placed: boolean }).placed).toBe(true);
-    void M7_SETTING_DEFAULTS;
   });
 });
 

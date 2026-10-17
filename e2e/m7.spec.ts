@@ -1,4 +1,5 @@
 import { installAimHelpers } from './helpers/aim';
+import { installArena } from './helpers/arena';
 import { expect, test, type Page } from '@playwright/test';
 
 /**
@@ -12,6 +13,7 @@ async function open(page: Page, query = '?nosave=1') {
   await page.goto('/' + query);
   await page.waitForFunction(() => window.__rikkun?.ready === true);
   await installAimHelpers(page);
+  await installArena(page);
   await page.evaluate(() => (window.__rikkun as any).achievements.mute(true));
   await page.evaluate(() => {
     const h = (window as any).__rikkun;
@@ -20,8 +22,7 @@ async function open(page: Page, query = '?nosave=1') {
         h.pause();
         h.lock.simulate(true);
         h.input.releaseAll();
-        h.world.fill(0, 8, 0, 12, 8, 12, 'stone');
-        h.world.fill(0, 9, 0, 12, 20, 12, 'air');
+        (window as any).__arena.floor(0, 0, 12, 12); // 床 y=8 ＋ 空までの空気（VOX-B）
         h.inventory.clear();
         h.time.set(12000);
         T.look();
@@ -399,39 +400,9 @@ test.describe('M7 農業', () => {
     expect(after.soil).not.toBeNull();
   });
 
-  test('前の保存: M6 までの保存を 読むと 置きものを あとから 置く。2 回は 置かない（AC35）', async ({ page }) => {
-    await open(page, '?nosave=1');
-    const seed = await page.evaluate(() => (window as any).__rikkun.world.seed());
-    const ref = await page.evaluate(() => {
-      const h = (window as any).__rikkun;
-      return { wild: h.farm.wild().length, o: h.farm.oldFarm() };
-    });
-    // 保存の場所に 前の保存を書く（?nosave=1 では store が無い）
-    await page.goto('/?reset=1');
-    await page.waitForFunction(() => window.__rikkun?.ready === true);
-    const wrote = await page.evaluate((s) => (window as any).__rikkun.farm.makeLegacySave(s, []), seed);
-    expect(wrote).toBe(true);
-    await page.goto('/');
-    await page.waitForFunction(() => window.__rikkun?.ready === true);
-    const r = await page.evaluate(() => {
-      const h = (window as any).__rikkun;
-      h.pause();
-      return { wild: h.farm.wild().length, o: h.farm.oldFarm(), placed: h.farm.placedM7(), counts: h.world.countBlocks() };
-    });
-    expect(r.placed).toBe(true);
-    expect(r.wild).toBe(ref.wild);
-    expect(r.o).toEqual(ref.o);
-    // 保存して 読み直しても ふえない
-    await page.evaluate(() => (window as any).__rikkun.save.now());
-    await page.goto('/');
-    await page.waitForFunction(() => window.__rikkun?.ready === true);
-    const r2 = await page.evaluate(() => {
-      const h = (window as any).__rikkun;
-      return { wild: h.farm.wild().length, counts: h.world.countBlocks() };
-    });
-    expect(r2.wild).toBe(r.wild);
-    expect(r2.counts).toEqual(r.counts);
-  });
+  // 「前の保存: M6 までの保存を 読むと 置きものを あとから 置く（AC35）」は VOX-B で消した。
+  // 理由: M6 の前の保存は もう読まない（決定 5: 今のセーブは 全部リセット）。`farm.makeLegacySave` も無くなる。
+  // 読まないことは e2e/voxB-terrain.spec.ts の基準 19 と e2e/m5.spec.ts の AC20 で確かめる。
 
   test('案内画面の「そだてる」タブ・合図・ふりがな（AC6・AC24）', async ({ page }) => {
     await open(page);

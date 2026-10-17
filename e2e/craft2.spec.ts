@@ -23,7 +23,8 @@ async function open(page: Page, query = '?nosave=1') {
         h.input.releaseAll();
         h.achievements.mute(true);
         h.world.fill(0, 8, 0, 40, 8, 40, 'stone');
-        h.world.fill(0, 9, 0, 40, 20, 40, 'air');
+        h.world.fill(0, 9, 0, 40, h.world.size().y - 1, 40, 'air');
+        for (let n = 0; (h.world.lightPending() > 0 || h.world.meshStats().pending > 0) && n < 3000; n++) h.step(1); // 空気の穴の光とメッシュを先に済ませる
         h.inventory.clear();
         h.log.clear();
         // ふるい たんす などの 中身を 空にする（材料に まざらないように）
@@ -1138,6 +1139,8 @@ test.describe('CRAFT-2 スクショ（AC26）', () => {
   test.use({ viewport: { width: 1280, height: 720 } });
 
   test('a〜g', async ({ page }) => {
+    // 7 まいの場面を 続けて作る（場所づくり T.base を 5 回、高さ 352 の空気ぬき つき）ので、1 本ぶんの時間を 長くする（ステップ数や待ちは 変えない）
+    test.setTimeout(300_000);
     mkdirSync(SHOTS, { recursive: true });
     await open(page);
     const setup = async (time: number) => {

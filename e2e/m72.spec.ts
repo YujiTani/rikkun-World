@@ -21,7 +21,8 @@ async function open(page: Page, query = '?nosave=1') {
         h.lock.simulate(true);
         h.input.releaseAll();
         h.world.fill(0, 8, 0, 14, 8, 14, 'stone');
-        h.world.fill(0, 9, 0, 14, 20, 14, 'air');
+        h.world.fill(0, 9, 0, 14, h.world.size().y - 1, 14, 'air');
+        for (let n = 0; (h.world.lightPending() > 0 || h.world.meshStats().pending > 0) && n < 3000; n++) h.step(1); // 空気の穴の光とメッシュを先に済ませる
         h.inventory.clear();
         h.time.set(12000);
         T.stand(2.5, 6.5, 90, -30);
@@ -214,8 +215,8 @@ test.describe('M7-2 じょうろ', () => {
       { name: '北', yaw: 0, exp: ['5,6', '5,5'], tiles: 2 },
       { name: '北東 47°', yaw: 47, exp: ['5,6', '6,6'], tiles: 2 },
     ];
+    await open(page); // 1 回だけ ひらく（T.base() が 毎回 場所を 敷きなおす。高さ 352 の空気ぬきを 5 回 ひらき直すと 時間がかかる）
     for (const c of cases) {
-      await open(page);
       const r = await page.evaluate((c) => {
         const T = (window as any).T;
         T.base();
@@ -235,7 +236,6 @@ test.describe('M7-2 じょうろ', () => {
       expect(r.water, c.name).toBe(19);
       expect(r.tiles, c.name).toEqual([2]);
     }
-    await open(page);
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
       const T = (window as any).T;
@@ -498,6 +498,8 @@ test.describe('M7-2 なでる・ごきげん・キラキラ', () => {
       const T = (window as any).T;
       const o: any = {};
       T.base();
+      // ごきげんの ハート（AC15）は 農業の通しのステップの位置で 出る時が 変わる。ここは「なでた ハート」だけ 数えたいので 止めておく
+      h.settings.set('farmHeartEvery', 1e9);
       T.soil(5, 6);
       h.farm.plant(5, 8, 6, 'tomato');
       h.farm.setStage(5, 9, 6, 1);
@@ -677,7 +679,8 @@ test.describe('M7-2 なでる・ごきげん・キラキラ', () => {
       h.settings.set('farmPetDays', 1);
       T.base();
       h.world.fill(0, 8, 0, 40, 8, 14, 'stone');
-      h.world.fill(0, 9, 0, 40, 20, 14, 'air');
+      h.world.fill(0, 9, 0, 40, h.world.size().y - 1, 14, 'air');
+      for (let n = 0; (h.world.lightPending() > 0 || h.world.meshStats().pending > 0) && n < 3000; n++) h.step(1); // 空気の穴の光とメッシュを先に済ませる
       T.soil(30, 6);
       h.farm.plant(30, 8, 6, 'tomato');
       h.step(1);
@@ -700,7 +703,8 @@ test.describe('M7-2 なでる・ごきげん・キラキラ', () => {
       const o: any = {};
       T.base();
       h.world.fill(0, 8, 0, 50, 8, 14, 'stone');
-      h.world.fill(0, 9, 0, 50, 20, 14, 'air');
+      h.world.fill(0, 9, 0, 50, h.world.size().y - 1, 14, 'air');
+      for (let n = 0; (h.world.lightPending() > 0 || h.world.meshStats().pending > 0) && n < 3000; n++) h.step(1); // 空気の穴の光とメッシュを先に済ませる
       const crops: Array<[number, number]> = [];
       for (let i = 0; i < 10; i++) crops.push([4 + (i % 5), 3 + Math.floor(i / 5) * 6]);
       for (const [x, z] of crops) { T.soil(x, z); h.farm.plant(x, 8, z, 'tomato'); }
@@ -714,6 +718,7 @@ test.describe('M7-2 なでる・ごきげん・キラキラ', () => {
       o.stage2 = h.farm.fx().counts.star;
       const lightBefore = h.world.lightAt(5, 9, 5).level;
       for (const [x, z] of crops) h.farm.setStage(x, 9, z, 3);
+      h.step(20); // 作物の一覧の読みなおし（15 ステップごと）を 先に待つ。農業の通しのステップの位置で 数がずれないように
       h.farm.fxReset();
       h.step(450);
       o.stage3 = h.farm.fx().counts.star;
@@ -722,7 +727,8 @@ test.describe('M7-2 なでる・ごきげん・キラキラ', () => {
       // 25 マス先 (プレイヤー x=2.5 → x=30)
       T.base();
       h.world.fill(0, 8, 0, 50, 8, 14, 'stone');
-      h.world.fill(0, 9, 0, 50, 20, 14, 'air');
+      h.world.fill(0, 9, 0, 50, h.world.size().y - 1, 14, 'air');
+      for (let n = 0; (h.world.lightPending() > 0 || h.world.meshStats().pending > 0) && n < 3000; n++) h.step(1); // 空気の穴の光とメッシュを先に済ませる
       T.soil(30, 6);
       h.farm.plant(30, 8, 6, 'tomato');
       h.step(1);
@@ -885,7 +891,8 @@ test.describe('M7-2 なでる・ごきげん・キラキラ', () => {
       h.pause();
       h.lock.simulate(true);
       h.world.fill(0, 8, 0, 14, 8, 14, 'stone');
-      h.world.fill(0, 9, 0, 14, 20, 14, 'air');
+      h.world.fill(0, 9, 0, 14, h.world.size().y - 1, 14, 'air');
+      for (let n = 0; (h.world.lightPending() > 0 || h.world.meshStats().pending > 0) && n < 3000; n++) h.step(1); // 空気の穴の光とメッシュを先に済ませる
       for (let i = 0; i < 4; i++) { h.world.setBlock(3 + i, 8, 3, 'dirt'); h.farm.till(3 + i, 8, 3); }
       for (let i = 0; i < 3; i++) { h.world.setBlock(3 + i, 8, 5, 'dirt'); h.farm.till(3 + i, 8, 5); h.farm.plant(3 + i, 8, 5, 'tomato'); }
       h.world.setBlock(12, 9, 12, 'sprinkler');
@@ -1093,7 +1100,8 @@ test.describe('M7-2 性能', () => {
       const T = (window as any).T;
       T.base();
       h.world.fill(0, 8, 0, 40, 8, 40, 'stone');
-      h.world.fill(0, 9, 0, 40, 20, 40, 'air');
+      h.world.fill(0, 9, 0, 40, h.world.size().y - 1, 40, 'air');
+      for (let n = 0; (h.world.lightPending() > 0 || h.world.meshStats().pending > 0) && n < 3000; n++) h.step(1); // 空気の穴の光とメッシュを先に済ませる
       let n = 0;
       for (let z = 2; z < 22 && n < 480; z++) for (let x = 3; x < 27 && n < 480; x++, n++) { T.soil(x, z); h.farm.plant(x, 8, z, ['tomato', 'onion', 'pumpkin', 'eggplant'][n % 4]); }
       h.step(1);
