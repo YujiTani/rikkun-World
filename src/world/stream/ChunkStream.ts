@@ -100,6 +100,9 @@ export interface StreamInfo {
   frameMs: { last: number; max: number };
 }
 
+/** 保険の列を ready のあと捨てない コマ数 */
+const REQ_KEEP_FRAMES = 600;
+
 export class ChunkStream {
   private readonly cols = new Map<number, Col>();
   private readonly arrivals: { cx: number; cz: number; col: ChunkColumn | null }[] = [];
@@ -110,6 +113,10 @@ export class ChunkStream {
   private _progress = 0;
   private work: number | null = null;
   private waitFrames = 0;
+  /** 保険の列(K6)を ready のあと しばらく（コマ数で）捨てずに おく: ready の直後に 当たったマスを 読めるように */
+  private tick = 0;
+  private reqSeen = new Set<number>();
+  private keepReq: { keys: Set<number>; until: number } | null = null;
   private unloadWait = 0;
   private blockedWait = 0;
   /** 前の flush から 数えた update の回数（書けないときに 毎コマ 保存を始めないため） */
@@ -144,6 +151,8 @@ export class ChunkStream {
     this._phase = kind;
     this._progress = 0;
     this.waitFrames = 0;
+    this.reqSeen.clear();
+    this.keepReq = null;
   }
 
   /** テスト用: 1 コマの仕事を ちょうど n こにする（null = ms の予算）。0 は止める */
@@ -273,6 +282,7 @@ export class ChunkStream {
       flushed = true;
       this.sinceFlush = 0;
     }
+    this.tick++;
     this.updateReady();
     if (this._phase === 'wait') this.waitFrames++;
     this.frame.last = this.now() - t0;
@@ -283,6 +293,7 @@ export class ChunkStream {
     if (this._ready) return;
     const n = this.startCount(this.cx, this.cz);
     const req = this.d.required?.() ?? [];
+    for (const r of req) this.reqSeen.add(colKey(r.cx, r.cz));
     const reqOk = req.every((r) => this.isGenerated(r.cx, r.cz));
     const full = n === START_JOBS;
     const p = Math.min(n / START_JOBS, full && !reqOk ? 0.999 : 1);
@@ -290,6 +301,7 @@ export class ChunkStream {
     if (full && reqOk) {
       this._progress = 1;
       this._ready = true;
+      if (this.reqSeen.size > 0) this.keepReq = { keys: new Set(this.reqSeen), until: this.tick + REQ_KEEP_FRAMES };
       const kind = this._phase === 'boot' ? 'boot' : 'wait';
       this._phase = 'play';
       this.d.onReady?.(kind);
@@ -319,6 +331,7 @@ export class ChunkStream {
     // 2. 開始の前に要る保険の列（K6）は、輪の外でも先に読みこむ
     if (!this._ready) {
       for (const r of this.d.required?.() ?? []) {
+        this.reqSeen.add(colKey(r.cx, r.cz));
         if (!this.cols.has(colKey(r.cx, r.cz))) return { kind: 'gen', cx: r.cx, cz: r.cz, dist: -1, col: r.cx, row: r.cz };
       }
     }
@@ -346,8 +359,10 @@ export class ChunkStream {
 
   /** 開始の前で、保険の列として要る列か（輪の外でも 捨てない） */
   private isRequiredNow(cx: number, cz: number): boolean {
-    if (this._ready) return false;
-    return (this.d.required?.() ?? []).some((r) => r.cx === cx && r.cz === cz);
+    const k = colKey(cx, cz);
+    if (this._ready) return this.keepReq !== null && this.tick < this.keepReq.until && this.keepReq.keys.has(k);
+    // 読みこんで 当てた列は required から消える。ready までは reqSeen で覚えておく
+    return this.reqSeen.has(k) || (this.d.required?.() ?? []).some((r) => r.cx === cx && r.cz === cz);
   }
 
   private runStreamJob(j: StreamJob): void {
@@ -403,7 +418,7 @@ export class ChunkStream {
       const k = colKey(a.cx, a.cz);
       const c = this.cols.get(k);
       if (c === undefined || c.stage !== 'loading') continue;
-      if (cheb(a.cx, a.cz, this.cx, this.cz) > R_KEEP) {
+      if (cheb(a.cx, a.cz, this.cx, this.cz) > R_KEEP && !this.isRequiredNow(a.cx, a.cz)) {
         this.cols.delete(k); // 輪の外になった: 取り消す
         continue;
       }

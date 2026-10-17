@@ -251,8 +251,21 @@ describe('開始の条件（基準 4）', () => {
     }
     expect(h.stream.ready).toBe(true);
     expect(sawLoadedBeforeReady).toBe(true);
-    for (let i = 0; i < 50; i++) h.stream.update();
+    for (let i = 0; i < 700; i++) h.stream.update();
     expect(h.cols.has(colKey(100, 100))).toBe(false);
+  });
+
+  it('保険の列が 保存にあって 非同期で読むときも、輪の外で取り消されず ready になる (K6)', async () => {
+    const h = harness({ saved: [[100, 100]], async: true, required: () => [{ cx: 100, cz: 100 }] });
+    h.stream.restart(0, 0, 'boot');
+    h.stream.setWork(1);
+    for (let i = 0; i < 3000 && !h.stream.ready; i++) {
+      h.stream.update();
+      await Promise.resolve();
+      await Promise.resolve();
+    }
+    expect(h.stream.ready).toBe(true);
+    expect(h.cols.has(colKey(100, 100))).toBe(true);
   });
 
   it('同じ n なら 何回やっても 同じコマ数で ready（機械の速さにたよらない）', () => {
