@@ -13,6 +13,7 @@ import {
   SaveManager,
   isBodyPlaceable,
   parseSaveOptions,
+  shouldReset,
   stripResetParam,
   type KeyValueStore,
   type SaveBags,
@@ -553,6 +554,13 @@ describe('住所の設定', () => {
     expect(parseSaveOptions('?reset=1')).toEqual({ reset: true, nosave: false });
     expect(parseSaveOptions('?seed=3&nosave=1')).toEqual({ reset: false, nosave: true });
     expect(parseSaveOptions('?reset=0')).toEqual({ reset: false, nosave: false });
+  });
+
+  it('公開したゲームの ?reset=1 では 消さない（開発サーバーだけ 消す）', () => {
+    expect(shouldReset(false, true)).toBe(false);
+    expect(shouldReset(true, true)).toBe(true);
+    expect(shouldReset(true, false)).toBe(false);
+    expect(shouldReset(false, false)).toBe(false);
   });
 
   it('reset だけを消す', () => {

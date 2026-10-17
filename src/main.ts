@@ -14,6 +14,7 @@ import { ToolSystemImpl, createToolConfig, createToolHook } from './tools';
 import { createBladeSystem } from './tools/blade/BladeSystem';
 import { createBladeHook } from './tools/blade/hook';
 import { WeaponFx } from './fx/weaponFx';
+import { bladeColorsOf } from './fx/bladeTrailModel';
 import { EventRelay } from './fx/eventRelay';
 import { BladeHud } from './ui/bladeHud';
 import { WearNotice } from './ui/wearNotice';
@@ -80,7 +81,7 @@ import { DigSystemImpl, createDigConfig, createDigHook } from './dig';
 import { InventoryImpl, createInventoryHook } from './inventory';
 import { ScreenController } from './screen/ScreenController';
 import { createScreenSettings } from './screen/config';
-import { EXPORT_FILE_NAME, PENDING_KEY, SAVE_ID, SaveManager, compressionAvailable, createSaveHook, exportSave, importSave, NO_SAVE, openIdb, parseSaveOptions, requestPersist, restoreStoredWorld, stripResetParam } from './save';
+import { EXPORT_FILE_NAME, PENDING_KEY, SAVE_ID, SaveManager, compressionAvailable, createSaveHook, exportSave, importSave, NO_SAVE, openIdb, parseSaveOptions, requestPersist, restoreStoredWorld, shouldReset, stripResetParam } from './save';
 import { Hotbar } from './ui/hotbar';
 import { InventoryScreen } from './ui/inventoryScreen';
 import { Notice } from './ui/notice';
@@ -201,7 +202,9 @@ const sleepNull = () => new Promise<null>((ok) => setTimeout(() => ok(null), SAV
 let idb = store && compressionAvailable() ? await Promise.race([openIdb(), sleepNull()]) : null;
 if (idb) requestPersist();
 const bootSignal = { aborted: false };
-let restored = await Promise.race([restoreStoredWorld({ world, db: idb, store, seed, saveId, reset: saveOptions.reset, signal: bootSignal }), sleepNull()]);
+// 公開したゲームの ?reset=1 は 何もしない（いたずらのリンクで 世界が消えないように。#169）
+const doReset = shouldReset(saveOptions.reset, import.meta.env.DEV);
+let restored = await Promise.race([restoreStoredWorld({ world, db: idb, store, seed, saveId, reset: doReset, signal: bootSignal }), sleepNull()]);
 if (restored === null) {
   bootSignal.aborted = true;
   idb = null;
@@ -849,6 +852,9 @@ const weaponFx = new WeaponFx({
   nameOf,
   handPos: () => ({ x: controller.state.position.x, y: controller.state.position.y + 1, z: controller.state.position.z }),
   settings: () => w2,
+  // CHAR-4: 刃の軌跡は 体（当たり判定の 足もと）の そのステップの おわりの 位置と カメラから 作る
+  body: () => controller.state.position,
+  camera: game.camera,
   shakeEl: game.renderer.domElement,
   onWear: (e) => achievements.feedWear(e),
   onArrowPickup: () => hotbar.pickup('ya', 1),
@@ -1038,7 +1044,7 @@ onDefeatAch = (kind) => {
   achievements.feedDefeat({ kind, tick: game.tick, with: defeatWith(), hp: combat.hp() });
 };
 
-// 自動セーブ（?nosave=1 は保存しない、?reset=1 は消してから始める）
+// 自動セーブ（?nosave=1 は保存しない、?reset=1 は消してから始める。消すのは開発サーバーだけ）
 const save = new SaveManager({
   world,
   seed,
@@ -1268,6 +1274,8 @@ game.onUpdate((dt) => {
       running: st.running,
       facingDeg: st.facingDeg,
       weapon,
+      // CHAR-4: 持っている 刀の 色（20・21 番を この 色に）。表に ない 刀は かたなの 行
+      bladeColors: weapon === 'katana' ? bladeColorsOf(w2, bs.item) : null,
       blade:
         weapon === 'katana'
           ? { stance: bs.stance, tech: bs.tech, phase: bs.phase, frame: bs.frame, lengths: bs.tech ? w2.bladeTech[bs.tech] : null }
@@ -1597,7 +1605,7 @@ installTestHook(game, overlay, {
   tool: toolHook.tool,
   bow: toolHook.bow,
   ...createYokaiHook(yokaiM),
-  ...createBladeHook(blade),
+  ...createBladeHook(blade, () => weaponFx.trailInfo()),
   camera: cameraHook.camera,
   aim: {
     /** ねらいの点 X（§4.5） */

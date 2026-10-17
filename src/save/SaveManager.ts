@@ -526,6 +526,14 @@ export function parseSaveOptions(search: string): { reset: boolean; nosave: bool
   return { reset: on('reset'), nosave: on('nosave') };
 }
 
+/**
+ * ?reset=1 で 本当に消すか。消すのは 開発サーバー（テスト）だけ。
+ * 公開したゲームでは 何もしない（いたずらのリンクで りっくんの世界が 消えないように。#169）。
+ */
+export function shouldReset(reset: boolean, isDev: boolean): boolean {
+  return reset && isDev;
+}
+
 /** 住所から reset を消した新しい住所（再読みこみでまた消えないように） */
 export function stripResetParam(href: string): string {
   const url = new URL(href);
