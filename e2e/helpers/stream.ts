@@ -1,4 +1,5 @@
 import { expect, type Page } from '@playwright/test';
+import { buildBlocks } from '../../src/world/gen/chunk';
 
 /**
  * VOX-D（docs/tickets/VOX-D.md）の E2E が くり返し使う準備。
@@ -73,7 +74,9 @@ export interface Land {
  * 「陸（`sea === false`）・まわり 3×3 の列の高さの差 1 以下」の列。seed ごとに決まる。
  */
 export async function findLand(page: Page, near = { x: -5000, z: -5000 }): Promise<Land> {
-  const r = await page.evaluate((near) => {
+  // 条件に合う列を うずまき順に 順に 出してもらう（木のチェックは Node 側で 生成の関数に 聞く）
+  const seed: number = await page.evaluate(() => (window.__rikkun! as any).world.seed());
+  const cands = await page.evaluate((near) => {
     const w = (window.__rikkun! as any).world;
     const hOf = (cx: number, cz: number) => w.terrainAt(cx * 16 + 8, cz * 16 + 8);
     const c0x = Math.floor(near.x / 16);
@@ -90,17 +93,26 @@ export async function findLand(page: Page, near = { x: -5000, z: -5000 }): Promi
         }
       return hi - lo <= 1;
     };
-    for (let ring = 0; ring < 400; ring++) {
+    const out: { cx: number; cz: number; h: number }[] = [];
+    for (let ring = 0; ring < 400 && out.length < 40; ring++) {
       for (let dz = -ring; dz <= ring; dz++)
         for (let dx = -ring; dx <= ring; dx++) {
           if (Math.max(Math.abs(dx), Math.abs(dz)) !== ring) continue;
-          if (ok(c0x + dx, c0z + dz)) return { cx: c0x + dx, cz: c0z + dz };
+          if (ok(c0x + dx, c0z + dz)) out.push({ cx: c0x + dx, cz: c0z + dz, h: hOf(c0x + dx, c0z + dz).h });
         }
     }
-    return null;
+    return out;
   }, near);
-  expect(r, 'P: 陸で平らな列が見つからない（デザインへ）').not.toBeNull();
-  return { cx: r!.cx, cz: r!.cz, x: r!.cx * 16 + 8.5, z: r!.cz * 16 + 8.5 };
+  // 列のまんなかのマス (8, 8) の上 4 マスが 空気（木・葉・水が体に入らない）で、足もとが 固い列
+  for (const c of cands) {
+    const blocks = buildBlocks(seed, c.cx, c.cz).blocks;
+    const at = (y: number) => blocks[(y * 16 + 8) * 16 + 8]!;
+    let free = at(c.h) !== 0;
+    for (let y = c.h + 1; y <= c.h + 4; y++) if (at(y) !== 0) free = false;
+    if (free) return { cx: c.cx, cz: c.cz, x: c.cx * 16 + 8.5, z: c.cz * 16 + 8.5 };
+  }
+  expect(cands.length, 'P: 陸で平らで 木の無い列が見つからない（デザインへ）').toBe(-1);
+  throw new Error('unreachable');
 }
 
 /**
