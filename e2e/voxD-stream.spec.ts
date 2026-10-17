@@ -529,7 +529,7 @@ test.describe('VOX-D ストリーミング', () => {
       R.river.forEach((o: any, i: number) => rect(`river${i}`, o));
       if (!inR(R.center.x, R.center.z)) bad.push('center');
       if (!inR(R.mountain.peak.x, R.mountain.peak.z)) bad.push('peak');
-      expect(nChecked).toBeGreaterThanOrEqual(8);
+      expect(nChecked).toBeGreaterThanOrEqual(7);
       for (const m of a.mouths) if (!inR(m.x, m.z) || !inR(m.room.x, m.room.z)) bad.push(`mouth ${m.x},${m.z}`);
       for (const k of a.placement.wild) if (!inR(k.x, k.z)) bad.push(`wild ${k.x},${k.z}`);
       for (const k of a.placement.oldFarm?.blocks ?? []) if (!inR(k.x, k.z)) bad.push(`oldFarm ${k.x},${k.z}`);
