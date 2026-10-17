@@ -2,7 +2,7 @@
 
 - 判定: 合格 / 不合格
 - 対象の仕様書:
-- 実行したコマンド: `npm run check`, `npm run perf`
+- 実行したコマンド: 関係する spec・`npm run check:fast`・`npm run perf`（全部の E2E は PR の CI の結果を書く）
 
 ## 受け入れ基準
 | # | 結果 | 確かめ方・証拠（テスト名・スクショ） |
