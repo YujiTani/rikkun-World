@@ -14,3 +14,6 @@
 | 1 | design | design-reviewer | 【軽微】`src/ui/bladeHud.ts` が `bladeTech.kesa` を読む。大けさぎりの もどり 48→72 で 表示が変わるか §6.1 に確認がない | 抜け | G4 | 未対応（A 担当が確認） |
 | 3 | dev | code-reviewer | 【軽微】テスト準備で AC13 の bladeMoveMul 0・thrustLunge なし・bladeAdvance=atlas.json の確認が抜けていた | 抜け | G4 | 修正済み（contracts.w2.test.ts に追加 2de04e4） |
 | 4 | dev | code-reviewer | 【軽微】AC11（80/100 度のうしろ歩き）・AC1〜10・AC15/16/19・AC22/23/25 のユニットは tester の分になく、開発係が先に書く分。AC11 は 90 度ちょうどを避けて 80/100 度で見ること | 引き継ぎ | G4 | 開発係へ |
+dev / code-review(B) | 【軽微】【直した】 | src/char/sprite.ts `cpuBytes` が 0 固定で、AC23 のテストが 意味を持たなかった。GPU へ上がるまでの写しを数える形に直し、テストも 上がる前は 4 まい分あることを 確かめるように した
+dev / code-review(B) | 【軽微】 | src/char/motion.ts 歩きながら 矢をうって B3 になったあと、a < 22 のうちに 止まると はなす絵（B4）が 遅れて出る。仕様 §4.1 は 「すぐ B3」としか 書いていないので S のつなぎ込み後に Mac で見て 気になれば 直す
+dev / code-review(B) | 【軽微】 | src/char/motion.ts SpriteStepInput の weapon/blade/bow は 省略可。S が 渡し忘れても 型で気づけない。つなぎ込みで 必須に 戻すこと
