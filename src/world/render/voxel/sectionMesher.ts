@@ -204,6 +204,9 @@ export interface BuildOptions {
   hide?: (x: number, y: number, z: number) => boolean;
 }
 
+/** edgeTy の「まだ調べていない」しるし */
+const EDGE_UNKNOWN = -2147483648;
+
 export class SectionMesher {
   /** 小ブロックの格子: (y * S + z) * S + x。0 = 空。まわり 1 ブロックの余白つき（余白はとなりのセクションのぶん） */
   private readonly grid = new Uint8Array(S * SS);
@@ -583,7 +586,14 @@ export class SectionMesher {
       for (let gx = N - 2; gx < S - N + 2; gx++) {
         sampleSurface(mx0 + gx, mz0 + gz, this.colSrc, s);
         const gi = gz * S + gx;
-        this.colH[gi] = s.h;
+        let hh = s.h;
+        // 自分の 16×16 の外の列は、地面ブロックの上のへり (ty+1)*9 で上を切る。
+        // となりのセクションが 箱の段かもしれない（箱は上が平ら）ので、S がへりより高いと面がぬける（#143）
+        if (gx < N || gx >= S - N || gz < N || gz >= S - N) {
+          const ty = this.colTy[(Math.floor(gz / N) + 1) * BW + Math.floor(gx / N) + 1];
+          if (ty >= 0 && hh > (ty + 1) * N) hh = (ty + 1) * N;
+        }
+        this.colH[gi] = hh;
         this.colG[gi] = s.ground;
         this.colIsRock[gi] = s.rock ? 1 : 0;
       }
@@ -801,9 +811,9 @@ export class SectionMesher {
   // ------------------------------------------------------------ box（形は 1 マス）
 
   /** 面の角の光（なめらかな平均）を out[0..1] に（0〜255 の バイト）。面の前のマスと、角のまわりの 3 マスのうち光を通すものの平均 */
-  private corner(bxi: number, byi: number, bzi: number, f: number, v: readonly [number, number, number], out: Uint8Array, o: number): void {
+  private corner(bxi: number, byi: number, bzi: number, f: number, v: readonly [number, number, number], out: Uint8Array, o: number, dy = 0): void {
     const fx = bxi + DIR[f][0];
-    const fy = byi + DIR[f][1];
+    const fy = byi + DIR[f][1] + dy;
     const fz = bzi + DIR[f][2];
     let ax = 0;
     let ay = 0;
@@ -851,6 +861,7 @@ export class SectionMesher {
     const bk = this.bk;
     const smooth = this.smooth;
     const co = this.cornerOut;
+    this.edgeTy.fill(EDGE_UNKNOWN);
     for (let f = 0; f < 6; f++) {
       const ax = AXIS_OF[f];
       const plus = (f & 1) === 0;
@@ -869,11 +880,13 @@ export class SectionMesher {
             const kind = bk[(byi * BL + bzi) * BL + bxi];
             if (kind <= 0 || !hasLook(kind)) continue;
             const n = this.kindNear(bxi, byi, bzi, f);
-            if (n < 0 || OCC[n] === 1) continue;
+            // となりが 不透明な表面ブロックで 描く面（#143）は、前のマスの光が 0 なので 1 段上（空気）から光を取る
+            const edge = OCC[n] === 1;
+            if (n < 0 || (edge && !this.edgeSurface(bxi, byi, bzi, f))) continue;
             // 角の光。4 つ同じなら まとめてよい
             let flat = true;
             for (let i = 0; i < 4; i++) {
-              this.corner(bxi, byi, bzi, f, FACE_VERTS[f][i], co, i * 2);
+              this.corner(bxi, byi, bzi, f, FACE_VERTS[f][i], co, i * 2, edge ? 1 : 0);
               if (i > 0 && (co[i * 2] !== co[0] || co[i * 2 + 1] !== co[1])) flat = false;
             }
             const cell = v * 16 + u;
@@ -919,6 +932,29 @@ export class SectionMesher {
         }
       }
     }
+  }
+
+  /** box: セクションの外の 1 周の列の 地面の表面ブロックの高さ (ty)。bk と同じ添字 (nz * BL + nx)。1 回の build の中で 列ごとに 1 度だけ調べる */
+  private readonly edgeTy = new Int32Array(BL * BL);
+  private readonly edgeInfo: ColumnInfo = { ty: -1, kind: 0, reach: 0, rockOk: false };
+
+  /**
+   * box: 横の面の となり（セクションの外）が その列の地面の表面ブロックなら true。
+   * となりが 小ブロックの段だと S が 上のへりより下にへこむので、OCC でも横の面を描く。
+   * 描かないと S と上のへりの間に穴があく（#143）。となりの列は build の中でキャッシュする
+   */
+  private edgeSurface(bxi: number, byi: number, bzi: number, f: number): boolean {
+    if (f < 2) return false;
+    const nx = bxi + DIR[f][0];
+    const nz = bzi + DIR[f][2];
+    if (nx >= 1 && nx <= 16 && nz >= 1 && nz <= 16) return false;
+    const ei = nz * BL + nx;
+    let ty = this.edgeTy[ei];
+    if (ty === EDGE_UNKNOWN) {
+      scanColumn(this.world, this.ox + nx - 1, this.oz + nz - 1, this.edgeInfo);
+      ty = this.edgeTy[ei] = this.edgeInfo.ty;
+    }
+    return ty === this.oy + byi - 1;
   }
 
   /** box: 層 l の (u, v) のブロックの種類 */

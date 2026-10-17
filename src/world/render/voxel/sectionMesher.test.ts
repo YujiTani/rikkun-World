@@ -15,7 +15,6 @@ function slab(top = 20, height = 48): ArrayVoxelWorld {
   return w;
 }
 
-const tris = (d: SectionMeshData) => d.triangles;
 const maxOf = (d: SectionMeshData, axis: 0 | 1 | 2) => {
   let m = 0;
   for (const p of d.pieces) for (let i = axis; i < p.positions.length; i += 3) m = Math.max(m, p.positions[i]);
@@ -40,10 +39,38 @@ describe('SectionMesher（セクション 1 つのメッシュ。VOX-E）', () =
     const m = new SectionMesher(w);
     expect(m.build(1, 0, 1, 'box').faces).toBe(0);
     expect(m.build(1, 0, 1, 'micro').faces).toBe(0);
-    // y 16〜20 が石のセクション (1,1,1): 上の面 (y=21) が 16×16 の 1 まい。まわりも石で、横の面は無い
+    // y 16〜20 が石のセクション (1,1,1): 上の面 (y=21) が 16×16 の 1 まい。まわりも石で、横の面は 中には無い。
+    // 例外（#143、SEAM.md 直し方 2）: 箱の段は となりのセクションの段が分からないので、セクションの横のふちで
+    // となりが 地面の表面ブロック（石の台のてっぺん y=20）なら、その高さの 1 段だけ 横の面を描く（4 辺 × 16 ブロック = 64 まい）
     const d = m.build(1, 1, 1, 'box');
-    expect(d.faces).toBe(1);
-    expect(tris(d)).toBe(2);
+    const sides: { y0: number; y1: number; w: number }[] = [];
+    let tops = 0;
+    for (const piece of d.pieces) {
+      for (let q = 0; q + 3 < piece.vertexCount; q += 4) {
+        const f = piece.data[q * 4 + 3] & 7;
+        if (f < 2) {
+          tops++;
+          expect(f, '下の面は 無い').toBe(0);
+          continue;
+        }
+        const ys = [0, 1, 2, 3].map((i) => piece.positions[(q + i) * 3 + 1]);
+        const xs = [0, 1, 2, 3].map((i) => piece.positions[(q + i) * 3]);
+        const zs = [0, 1, 2, 3].map((i) => piece.positions[(q + i) * 3 + 2]);
+        const w = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...zs) - Math.min(...zs));
+        sides.push({ y0: Math.min(...ys), y1: Math.max(...ys), w });
+      }
+    }
+    expect(tops).toBe(1);
+    expect(sides.length, 'ふちの横の面が ある').toBeGreaterThan(0);
+    // 横の面は ぜんぶ 表面ブロック（y=20 = セクションの中の 4 段目）の 1 段の高さだけ
+    const unit = sides[0].y1 - sides[0].y0;
+    expect(unit).toBeGreaterThan(0);
+    for (const s of sides) {
+      expect(s.y0).toBe(4 * unit);
+      expect(s.y1).toBe(5 * unit);
+    }
+    // ふち 4 辺 × 16 ブロック = 64 ブロックぶん（まとまり方は問わない）
+    expect(sides.reduce((a, e) => a + e.w, 0) / unit, 'ふち以外の横の面は 0。ふちは 4 辺 × 16 ブロック').toBe(64);
   });
 
   it('小ブロック（micro）は 箱（box）より 三角形が多い（ごつごつの形がある）', () => {
