@@ -350,6 +350,33 @@ test.describe('TEX-A', () => {
     expect((await blob()).visible).toBe(false);
   });
 
+  test('AC8c: 影あり（?shadow=1）の本番の見た目: 太陽の影の中に丸い影と AO が重なっても「かげ オフ」の 0.35 倍以上（#144 SHADOW）', async ({ page }) => {
+    // E2E のサーバーは影を既定オフにしているので、この 1 本だけ ?shadow=1 で影ありの見た目を自動で見る
+    await openTex(page, '?nosave=1&shadow=1');
+    await buildArena(page);
+    await page.evaluate(() => {
+      const h = (window as any).__rikkun;
+      h.world.fill(40, 21, 40, 40, 25, 40, 'stone'); // 石の柱（根もとの角に AO が出る）
+      h.time.set(14000);
+      h.step(3);
+      (window as any).__quiet(h);
+    });
+    const r = await page.evaluate(() => {
+      const h = (window as any).__rikkun;
+      const l = h.shadow.stats().light;
+      const n = Math.hypot(l.x, l.z);
+      const p = { x: 40.5 - (l.x / n) * 1.5, z: 40.5 - (l.z / n) * 1.5 };
+      h.player.set({ position: { x: p.x, y: 21, z: p.z }, velocity: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: -25 });
+      h.step(3);
+      const on = h.shadow.shadeAt(p.x, 21, p.z, { shadow: true });
+      const off = h.shadow.shadeAt(p.x, 21, p.z, { shadow: false });
+      return { on: on.luma, off: off.luma, blob: h.render.blobShadow().visible };
+    });
+    expect(r.blob, '丸い影が出ている').toBe(true);
+    expect(r.on / r.off, `影あり ${r.on} / 影なし ${r.off}`).toBeGreaterThanOrEqual(0.35);
+    expect(r.on / r.off, '太陽の影で暗くなっている').toBeLessThan(0.8);
+  });
+
   test('AC8b: 真っ暗な所で 影の下の画素が 影なしより明るくならない（かけ算）', async ({ page }) => {
     await ready(page, ['setBlobShadow']);
     await page.evaluate(() => {

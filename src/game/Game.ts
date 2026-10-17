@@ -37,6 +37,8 @@ export class Game {
   private rafId = 0;
   private readonly updaters: Array<(dt: number) => void> = [];
   private readonly idleUpdaters: Array<(dt: number) => void> = [];
+  /** 描く直前に呼ぶ処理（#144 影の試作: 影の地図を先に描く） */
+  private readonly preRenders: Array<() => void> = [];
   private realtimeGate: () => boolean = () => true;
   /** 止まっている間の絵がもう描いてあるか（変化がないコマは描き直さない） */
   private idleDrawn = false;
@@ -69,6 +71,11 @@ export class Game {
   /** 実時間の進む速さの倍率（もちもの画面で 0.25 など）。step() には関係しない */
   setTimeScale(fn: () => number): void {
     this.timeScale = fn;
+  }
+
+  /** 描く直前（renderer.render の前）に毎回呼ばれる処理（#144 影の試作） */
+  onBeforeRender(fn: () => void): void {
+    this.preRenders.push(fn);
   }
 
   /** 実時間のループが止まっている間も毎コマ呼ばれる処理（F3 の性能表示など） */
@@ -162,6 +169,7 @@ export class Game {
   private render(): void {
     this.renderDirty = false;
     if (this.renderSuspended) return;
+    for (const fn of this.preRenders) fn();
     this.renderer.render(this.scene, this.camera);
   }
 

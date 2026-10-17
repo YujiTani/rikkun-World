@@ -4,6 +4,7 @@ import { BLOCK_INDEX } from '../../blocks/blockTypes';
 import { skyDarkness } from '../../light/skyDarkness';
 import { AO_LEVELS, FACE_SHADE_BY_INDEX } from '../config';
 import { LIGHT_GLSL_FUNCS, LIGHT_GLSL_LIT } from '../lightShader';
+import { patchVoxelShader, shadowCacheKey, shadowPatch } from '../shadow/shadowPatch';
 import { OCC_NY, OCC_NZ, OCC_W } from './ao';
 import { aoUniforms } from './aoUniforms';
 import { FADE_FAR, FADE_NEAR, KINDS, tileAverageTable, tileTable } from './projection';
@@ -211,7 +212,8 @@ export function createVoxelMaterial(shared: VoxelShared, ao: Data3DTexture | nul
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', `#include <common>\n${FRAG_DECL}`)
       .replace('#include <color_fragment>', `#include <color_fragment>\n${FRAG_BODY}`);
+    if (shadowPatch.active) patchVoxelShader(shader); // SHADOW-1: 光に影をかける（作らないときは今のまま）
   };
-  m.customProgramCacheKey = () => 'rikkun-voxel-tex';
+  m.customProgramCacheKey = () => `rikkun-voxel-tex${shadowCacheKey()}`;
   return m;
 }

@@ -12,13 +12,16 @@ export interface TimeSettings {
   yokaiLeaveTicks: number;
 }
 
+/** ゲームを開いた直後の 1 日の中の時刻（ステップ）。朝の長い影をさけて、影の向きが分かる 2.5 分め（SHADOW-1、オーナーの決定） */
+export const START_DAY_TICK = 9000;
+
 export function createTimeSettings(): TimeSettings {
   return {
     dayTicks: 54000,
     duskTicks: 5400,
     nightTicks: 27000,
     dawnTicks: 5400,
-    nightBrightness: 0.45,
+    nightBrightness: 0.25,
     nightDollBrightness: 0.75,
     yokaiLeaveTicks: 600,
   };
