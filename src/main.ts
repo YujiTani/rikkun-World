@@ -14,6 +14,7 @@ import { ToolSystemImpl, createToolConfig, createToolHook } from './tools';
 import { createBladeSystem } from './tools/blade/BladeSystem';
 import { createBladeHook } from './tools/blade/hook';
 import { WeaponFx } from './fx/weaponFx';
+import { bladeColorsOf } from './fx/bladeTrailModel';
 import { EventRelay } from './fx/eventRelay';
 import { BladeHud } from './ui/bladeHud';
 import { WearNotice } from './ui/wearNotice';
@@ -848,6 +849,9 @@ const weaponFx = new WeaponFx({
   nameOf,
   handPos: () => ({ x: controller.state.position.x, y: controller.state.position.y + 1, z: controller.state.position.z }),
   settings: () => w2,
+  // CHAR-4: 刃の軌跡は 体（当たり判定の 足もと）の そのステップの おわりの 位置と カメラから 作る
+  body: () => controller.state.position,
+  camera: game.camera,
   shakeEl: game.renderer.domElement,
   onWear: (e) => achievements.feedWear(e),
   onArrowPickup: () => hotbar.pickup('ya', 1),
@@ -1267,6 +1271,8 @@ game.onUpdate((dt) => {
       running: st.running,
       facingDeg: st.facingDeg,
       weapon,
+      // CHAR-4: 持っている 刀の 色（20・21 番を この 色に）。表に ない 刀は かたなの 行
+      bladeColors: weapon === 'katana' ? bladeColorsOf(w2, bs.item) : null,
       blade:
         weapon === 'katana'
           ? { stance: bs.stance, tech: bs.tech, phase: bs.phase, frame: bs.frame, lengths: bs.tech ? w2.bladeTech[bs.tech] : null }
@@ -1596,7 +1602,7 @@ installTestHook(game, overlay, {
   tool: toolHook.tool,
   bow: toolHook.bow,
   ...createYokaiHook(yokaiM),
-  ...createBladeHook(blade),
+  ...createBladeHook(blade, () => weaponFx.trailInfo()),
   camera: cameraHook.camera,
   aim: {
     /** ねらいの点 X（§4.5） */

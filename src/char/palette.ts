@@ -1,5 +1,5 @@
-// CHAR-1 の色見本（art/CHAR-1-v2/palette.json の 20 色を 0〜255 に丸めたもの。PNG のドットと同じ値）。
-// 色番号 0 = とうめい、1〜20 = この表の 0〜19 番。
+// CHAR-1 の色見本（art/CHAR-1-v2/palette.json の 22 色を 0〜255 に丸めたもの。PNG のドットと同じ値）。
+// 色番号 0 = とうめい、1〜22 = この表の 0〜21 番。表の 20・21 番（色番号 21・22）は CHAR-4 の刀の刃の 2 色。
 
 export const PALETTE_RGB: readonly (readonly [number, number, number])[] = [
   [102, 7, 52],
@@ -22,6 +22,8 @@ export const PALETTE_RGB: readonly (readonly [number, number, number])[] = [
   [238, 232, 237],
   [253, 251, 253],
   [200, 195, 207],
+  [218, 215, 225], // 20: 刀の刃の地（CHAR-4。武器ごとの色にぬりかえる）
+  [253, 251, 252], // 21: 刀の刃のふちの光（CHAR-4。武器ごとの色にぬりかえる）
 ];
 
 export const PALETTE_SIZE = PALETTE_RGB.length;
@@ -30,7 +32,7 @@ const pack = (r: number, g: number, b: number): number => (r << 16) | (g << 8) |
 const EXACT = new Map<number, number>();
 PALETTE_RGB.forEach((c, i) => EXACT.set(pack(c[0], c[1], c[2]), i + 1));
 
-/** 1 ドットの色を 色番号（1〜20）にする。ぴったりの色がなければ いちばん近い色 */
+/** 1 ドットの色を 色番号（1〜22）にする。ぴったりの色がなければ いちばん近い色 */
 export function nearestIndex(r: number, g: number, b: number): number {
   const hit = EXACT.get(pack(r, g, b));
   if (hit !== undefined) return hit;
