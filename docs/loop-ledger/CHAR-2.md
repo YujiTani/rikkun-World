@@ -19,3 +19,4 @@ dev / code-review(B) | 【軽微】 | src/char/motion.ts 歩きながら 矢を�
 dev / code-review(B) | 【軽微】 | src/char/motion.ts SpriteStepInput の weapon/blade/bow は 省略可。S が 渡し忘れても 型で気づけない。つなぎ込みで 必須に 戻すこと
 test / tester | 【軽微】 | 弓を持って立つ絵（AC21-1）が うしろ姿だと 弓が 小さく 見えにくい。オーナーが AC29 で 見る | 仕様（見た目）
 test / tester | 【軽微】 | e2e/char1.spec.ts AC31 が `sprite.loaded` を 5 秒で待つため 並列で まれに 時間切れ（単独は OK）。待ち時間を のばす | テスト
+dev / code-review(14a9a26) | 【軽微】 | src/world/render/drawOrder.ts stableOpaqueSort は 鍵を 材料より先に見るので、種類(kind)が 場所ごとに まざり、絵(extras)と 小ブロックの プログラム切りかえが セクション数ぶん 増える（描画回数は 同じ）。kind を 上位にした鍵にすれば グループ化できる。M4 の実測で 気になったら 直す | 性能
