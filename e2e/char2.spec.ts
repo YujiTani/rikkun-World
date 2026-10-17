@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { standOnGround } from './helpers/aim';
-import { waitCharLoaded } from './helpers/char';
+import { waitCharLoaded, waitSpritesReady } from './helpers/char';
 
 /**
  * CHAR-2（docs/design/CHAR-2.md §6 通し）: AC20 刀の通し・AC21 弓の通し。
@@ -52,20 +52,9 @@ async function open(page: Page) {
   await standOnGround(page, 20.5, 20.5, { yaw: 0, pitch: 0 });
 }
 
-/** 持ったあとの 絵の 読みこみ（本当の時間で 上限 5 秒）を 待つ。待つあいだ 1 ステップずつ進める */
-async function waitReady(page: Page, names: string[]) {
-  await expect
-    .poll(
-      () =>
-        page.evaluate((ns) => {
-          const h = window.__rikkun! as any;
-          h.step(1);
-          const st = h.player.doll().sprite.status;
-          return ns.every((n: string) => st?.[n] === 'ready');
-        }, names),
-      { timeout: 5000 },
-    )
-    .toBe(true);
+/** 持ったあとの 絵の 読みこみを 待つ（描画を止めて 1 ステップずつ 進める） */
+async function waitReady(page: Page, names: string[]): Promise<void> {
+  await waitSpritesReady(page, names);
 }
 
 /** `atlas.json` の `packed` の よこ × たて の合計（ちょうど `gpuBytes` になる） */

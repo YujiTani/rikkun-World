@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { standOnGround } from './helpers/aim';
+import { waitCharLoaded, waitSpritesReady } from './helpers/char';
 
 /**
  * WEAPON-3（docs/design/WEAPON-3.md §6 通し）: AC20 刀の通し・AC21 パンチと弓の通し。
@@ -16,7 +17,7 @@ async function open(page: Page) {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto('/?nosave=1');
   await page.waitForFunction(() => window.__rikkun?.ready === true);
-  await expect.poll(() => page.evaluate(() => (window.__rikkun! as any).player.doll().sprite.loaded), { timeout: 8000 }).toBe(true);
+  await waitCharLoaded(page);
   await page.evaluate(() => {
     const h = window.__rikkun! as any;
     h.achievements.mute(true);
@@ -33,20 +34,9 @@ async function open(page: Page) {
   await standOnGround(page, 20.5, 20.5, { floorY: 8, yaw: 0, pitch: -25 });
 }
 
-/** 絵の 読みこみを 待つ。待つあいだ 1 ステップずつ 進める */
-async function waitReady(page: Page, names: string[]) {
-  await expect
-    .poll(
-      () =>
-        page.evaluate((ns) => {
-          const h = window.__rikkun! as any;
-          h.step(1);
-          const st = h.player.doll().sprite.status;
-          return ns.every((n: string) => st?.[n] === 'ready');
-        }, names),
-      { timeout: 8000 },
-    )
-    .toBe(true);
+/** 絵の 読みこみを 待つ（描画を止めて 1 ステップずつ 進める） */
+async function waitReady(page: Page, names: string[]): Promise<void> {
+  await waitSpritesReady(page, names);
 }
 
 async function useKatana(page: Page) {
