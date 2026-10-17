@@ -117,4 +117,22 @@ describe('#180 decideMicroR: はじめの小ブロックの半径の決め方', 
     expect(decide('?microR=abc', undefined)).toBe(32);
     expect(decide('?microR=abc', 'off')).toBe(0);
   });
+
+  // 台帳 E2E-180 の指摘 2: 空の ?microR=（Number('') は 0 になるので ?microR=0 と取りちがえやすい）は 無いのと同じ
+  it('空の ?microR= は 無いのと同じ（0 と取りちがえない）', () => {
+    expect(decide('?microR=', undefined)).toBe(32);
+    expect(decide('?microR=', 'off')).toBe(0);
+    expect(decide('?microR=&nosave=1', undefined)).toBe(32);
+    expect(decide('?nosave=1&microR=', 'off')).toBe(0);
+    expect(decide('?microR=%20', undefined)).toBe(32);
+  });
+
+  // 許されない数は 近い許される値に直して返す（normalizeMicroR と同じ。renderer も同じ直しをする）。負の数は 無いのと同じ
+  it('許されない数は 近い許される値に直す。負の数は 無いのと同じ', () => {
+    expect(decide('?microR=20', undefined)).toBe(16);
+    expect(decide('?microR=27', 'off')).toBe(24);
+    expect(decide('?microR=1000', 'off')).toBe(32);
+    expect(decide('?microR=-1', undefined)).toBe(32);
+    expect(decide('?microR=-1', 'off')).toBe(0);
+  });
 });
