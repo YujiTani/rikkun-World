@@ -33,6 +33,8 @@ async function installHelpers(page: Page) {
         if (!opts.keepDrop) h.settings.set('dropMax', { common: 1, uncommon: 1, rare: 1, superRare: 1 });
         T.place(2.5, 9, 6.5, 90, 0);
         h.step(10); // 前のブロックをこわした後の休み（6 ステップ）を終わらせる
+        // 空気の穴の光とメッシュの作りなおしを ここで済ませる（あとの時間はかり・コマ数はかりに はみ出さない）
+        for (let n = 0; (h.world.lightPending() > 0 || h.world.meshStats().pending > 0) && n < 3000; n++) h.step(1);
         h.dig.events();
       },
       /** 「ねらいの線の出どころ（肩の点 S）が (x, z) に来る」ように立つ。足もとの高さは y */
@@ -470,9 +472,10 @@ test.describe('M2 おく', () => {
       const hash12 = h.world.hash();
       T.tap('secondary');
       const a12 = { t: t12?.place, same: h.world.hash() === hash12, n: h.inventory.get().slots[0].count };
-      // AC13
-      h.world.fill(0, 47, 0, 12, 47, 12, 'stone');
-      (window as any).__aim.standForS(2.5, 6.5, 90, -45, 48);
+      // AC13（世界の いちばん上の段に 立つ。その上は 世界の外）
+      const H = h.world.size().y;
+      h.world.fill(0, H - 1, 0, 12, H - 1, 12, 'stone');
+      (window as any).__aim.standForS(2.5, 6.5, 90, -45, H);
       h.step(1);
       const y = h.player.get().position.y;
       const t13 = h.target.get();
@@ -480,7 +483,7 @@ test.describe('M2 おく', () => {
       T.tap('secondary');
       const x13 = h.aim.point();
       const a13 = { y, x13, block: t13?.block, place: t13?.place, same: h.world.hash() === hash13, n: h.inventory.get().slots[0].count };
-      h.world.fill(0, 47, 0, 12, 47, 12, 'air');
+      h.world.fill(0, H - 1, 0, 12, H - 1, 12, 'air');
       // AC14
       h.world.fill(0, 6, 0, 12, 6, 12, 'sand'); // 海の底と水も 自分で作る（島の海に たよらない）
       h.world.fill(0, 7, 0, 12, 8, 12, 'water');
@@ -488,16 +491,16 @@ test.describe('M2 おく', () => {
       h.step(1);
       const x14 = h.aim.point();
       T.tap('secondary');
-      return { a12, a13, b14: h.world.getBlock(Math.floor(x14.x), 7, Math.floor(x14.z)), n: h.inventory.get().slots[0].count };
+      return { H, a12, a13, b14: h.world.getBlock(Math.floor(x14.x), 7, Math.floor(x14.z)), n: h.inventory.get().slots[0].count };
     });
     expect(r.a12.t).toEqual({ x: 2, y: 9, z: 6 });
     expect(r.a12.same).toBe(true);
     expect(r.a12.n).toBe(5);
-    expect(r.a13.y).toBeCloseTo(48, 1);
+    expect(r.a13.y).toBeCloseTo(r.H, 1);
     const b13 = { x: Math.floor(r.a13.x13.x), y: Math.floor(r.a13.x13.y - 0.001), z: Math.floor(r.a13.x13.z) };
     expect(r.a13.block).toEqual(b13);
-    expect(r.a13.block.y).toBe(47);
-    expect(r.a13.place).toEqual({ x: b13.x, y: 48, z: b13.z });
+    expect(r.a13.block.y).toBe(r.H - 1);
+    expect(r.a13.place).toEqual({ x: b13.x, y: r.H, z: b13.z });
     expect(r.a13.same).toBe(true);
     expect(r.a13.n).toBe(5);
     expect(r.b14).toBe('dirt');

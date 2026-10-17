@@ -32,10 +32,13 @@ async function open(page: Page, query = '?nosave=1') {
         h.yokai.clear();
         h.world.fill(0, 8, 0, 12, 8, 12, 'stone');
         h.world.fill(0, 9, 0, 12, h.world.size().y - 1, 12, 'air');
+        for (let n = 0; (h.world.lightPending() > 0 || h.world.meshStats().pending > 0) && n < 3000; n++) h.step(1); // 空気の穴の光とメッシュを先に済ませる
         h.inventory.clear();
         h.time.set(0);
         (window as any).__aim.standForS(2.5, 6.5, 90, 0, 9); // 肩の点 S が (2.5, 6.5) に来るように立つ
         h.step(10);
+        // 空気の穴の光とメッシュの作りなおしを ここで済ませる
+        for (let n = 0; (h.world.lightPending() > 0 || h.world.meshStats().pending > 0) && n < 3000; n++) h.step(1);
         h.yokai.events();
         h.combat.events();
         h.dig.events();
@@ -156,8 +159,9 @@ test.describe('M3 出現と帰る', () => {
       h.lock.simulate(true);
       h.settings.set('yokaiAutoSpawn', true);
       const sp = h.world.spawn();
-      h.player.set({ position: { x: sp.x, y: 40, z: sp.z }, yaw: 0, pitch: 0 });
+      h.player.set({ position: { x: sp.x, y: sp.y, z: sp.z }, yaw: 0, pitch: 0 });
       h.time.set(0);
+      const top = h.world.size().y;
       const bad: any[] = [];
       let spawns = 0;
       let phases = new Set<string>();
@@ -171,7 +175,7 @@ test.describe('M3 出現と帰る', () => {
           spawns++;
           // 屋根（はっぱ以外の固いブロック）が上にあるか
           let roofed = false;
-          for (let y = Math.floor(e.position.y + 1.7); y < 48; y++) {
+          for (let y = Math.floor(e.position.y + 1.7); y < top; y++) {
             const id = h.world.getBlock(Math.floor(e.position.x), y, Math.floor(e.position.z));
             if (id && id !== 'air' && id !== 'water' && id !== 'leaves') roofed = true;
           }
@@ -198,7 +202,7 @@ test.describe('M3 出現と帰る', () => {
         h.settings.set('yokaiAutoSpawn', true);
         h.settings.set('yokaiWander', true);
         h.time.set(59400);
-        h.player.set({ position: { x: sp.x, y: 40, z: sp.z }, yaw: 0, pitch: 0 });
+        h.player.set({ position: { x: sp.x, y: sp.y, z: sp.z }, yaw: 0, pitch: 0 });
         h.step(1);
         const P = { x: sp.x, z: sp.z };
         const spawns: any[] = [];
@@ -287,6 +291,7 @@ test.describe('M3 妖怪の AI（距離だけ）', () => {
             h.world.fill(0, 8, 0, 20, 8, 20, 'stone');
           }
           h.world.fill(0, 9, 0, 20, h.world.size().y - 1, 20, 'air');
+          for (let n = 0; (h.world.lightPending() > 0 || h.world.meshStats().pending > 0) && n < 3000; n++) h.step(1); // 空気の穴の光とメッシュを先に済ませる
           const id = h.yokai.spawn(kind, x, 9, z, { yawDeg: 315 });
           h.yokai.list();
           let chaseAt = -1;

@@ -25,6 +25,7 @@ async function open(page: Page) {
         h.yokai.clear();
         h.world.fill(0, 8, 0, 12, 8, 12, 'stone');
         h.world.fill(0, 9, 0, 12, h.world.size().y - 1, 12, 'air');
+        for (let n = 0; (h.world.lightPending() > 0 || h.world.meshStats().pending > 0) && n < 3000; n++) h.step(1); // 空気の穴の光とメッシュを先に済ませる
         h.inventory.clear();
         h.time.set(0);
         (window as any).__aim.standForS(2.5, 6.5, 90, 0, 9);

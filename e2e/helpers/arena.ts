@@ -17,6 +17,8 @@ export async function installArena(page: Page): Promise<void> {
         h.world.fill(x0, y, z0, x1, y, z1, opts.block ?? 'stone');
         const top = opts.air === undefined ? h.world.size().y - 1 : Math.min(h.world.size().y - 1, y + opts.air);
         h.world.fill(x0, y + 1, z0, x1, top, z1, 'air');
+        // 空気の穴の光とメッシュの作りなおしを ここで済ませる（あとの時間はかり・コマ数はかりに はみ出さない）
+        for (let n = 0; (h.world.lightPending() > 0 || h.world.meshStats().pending > 0) && n < 3000; n++) h.step(1);
       },
     };
   });

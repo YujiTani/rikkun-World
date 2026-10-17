@@ -19,6 +19,7 @@ async function open(page: Page, query = '?nosave=1') {
         h.achievements.mute(true);
         h.world.fill(0, 8, 0, 40, 8, 40, 'stone');
         h.world.fill(0, 9, 0, 40, h.world.size().y - 1, 40, 'air');
+        for (let n = 0; (h.world.lightPending() > 0 || h.world.meshStats().pending > 0) && n < 3000; n++) h.step(1); // 空気の穴の光とメッシュを先に済ませる
         h.inventory.clear();
         for (const p of h.storage.list()) for (let i = 0; i < 54; i++) h.storage.set(p.x, p.y, p.z, i, null);
         h.time.set(6000);

@@ -20,3 +20,8 @@
 | 2 | test | code-reviewer | 中: m5 AC6/19 が pitch 0 のままほり、たいまつをねらっていない | 元からの弱さ | T3 | 直した（__aim.solve） |
 | 3 | dev | developer | T1: m1 AC10 を hook 必須に戻した | — | T1 | 対応済み |
 | 3 | dev | developer | T2: arena の床は そのまま（m2 AC19 は T.base が 13×13×140 の穴をほるため 200ms をこえる。テスト係へ） | T.base が地面 y≈9 を前提 | T2 | テスト係へ差し戻し |
+| 4 | dev | code-reviewer | 【軽微】exposure の dugCells は 20000 マスで打ち切り。VOX-D で列の出入りがあると、大きなほり跡が作りなおしで「見えない」に戻りうる（VoxelWorld.ts DUG_CAP） | 保存・列の出入りで失う | R1 | VOX-D で保存の差分から作る |
+| 4 | dev | code-reviewer | 【軽微】SaveManager が save 後に PENDING_KEY を saveId に関係なく消す（SaveManager.ts:306,:490）。古い 'main' の保険を消しうる | 「消さない」の趣旨 | R2 | saveId が自分のときだけ消す |
+| 4 | dev | code-reviewer | 【軽微】check:fast の初回に 1 本落ちたが再実行で緑（重い並列での時間ぎれ疑い。island(777) の行） | — | R3 | 様子見 |
+| 4 | dev | code-reviewer | 【軽微】noteDug の幅優先は 大きな洞くつに初めて穴が通じた 1 コマで全体をたどる（上限なし） | 1 コマの重さ | R4 | perf で最大を記録 |
+| 4 | test | tester | T2 対応: 床の上の空気の穴（高さ 352）の光とメッシュは、テストの場所づくり（T.base・__arena.floor・直書き fill 全 15 ファイル）の中で `lightPending`/`meshStats().pending` が 0 になるまで step して先に済ませる形に。m2 AC12-14 と m3 AC3/AC4-5 の島の高さ（47/48・y:40）は `size().y`・`spawn().y` に聞く形に。m2 AC19 の実時間の行は変えず。負荷の高い並列実行では AC19「2 秒でコマ数」が揺れる（性能チェックへ移す予定の所） | 地形が高くなった | T2 | 対応済み |

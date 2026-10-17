@@ -22,6 +22,7 @@ async function open(page: Page, query = '?nosave=1') {
         h.input.releaseAll();
         h.world.fill(0, 8, 0, 14, 8, 14, 'stone');
         h.world.fill(0, 9, 0, 14, h.world.size().y - 1, 14, 'air');
+        for (let n = 0; (h.world.lightPending() > 0 || h.world.meshStats().pending > 0) && n < 3000; n++) h.step(1); // 空気の穴の光とメッシュを先に済ませる
         h.inventory.clear();
         h.time.set(12000);
         T.stand(2.5, 6.5, 90, -30);
@@ -678,6 +679,7 @@ test.describe('M7-2 なでる・ごきげん・キラキラ', () => {
       T.base();
       h.world.fill(0, 8, 0, 40, 8, 14, 'stone');
       h.world.fill(0, 9, 0, 40, h.world.size().y - 1, 14, 'air');
+      for (let n = 0; (h.world.lightPending() > 0 || h.world.meshStats().pending > 0) && n < 3000; n++) h.step(1); // 空気の穴の光とメッシュを先に済ませる
       T.soil(30, 6);
       h.farm.plant(30, 8, 6, 'tomato');
       h.step(1);
@@ -701,6 +703,7 @@ test.describe('M7-2 なでる・ごきげん・キラキラ', () => {
       T.base();
       h.world.fill(0, 8, 0, 50, 8, 14, 'stone');
       h.world.fill(0, 9, 0, 50, h.world.size().y - 1, 14, 'air');
+      for (let n = 0; (h.world.lightPending() > 0 || h.world.meshStats().pending > 0) && n < 3000; n++) h.step(1); // 空気の穴の光とメッシュを先に済ませる
       const crops: Array<[number, number]> = [];
       for (let i = 0; i < 10; i++) crops.push([4 + (i % 5), 3 + Math.floor(i / 5) * 6]);
       for (const [x, z] of crops) { T.soil(x, z); h.farm.plant(x, 8, z, 'tomato'); }
@@ -723,6 +726,7 @@ test.describe('M7-2 なでる・ごきげん・キラキラ', () => {
       T.base();
       h.world.fill(0, 8, 0, 50, 8, 14, 'stone');
       h.world.fill(0, 9, 0, 50, h.world.size().y - 1, 14, 'air');
+      for (let n = 0; (h.world.lightPending() > 0 || h.world.meshStats().pending > 0) && n < 3000; n++) h.step(1); // 空気の穴の光とメッシュを先に済ませる
       T.soil(30, 6);
       h.farm.plant(30, 8, 6, 'tomato');
       h.step(1);
@@ -886,6 +890,7 @@ test.describe('M7-2 なでる・ごきげん・キラキラ', () => {
       h.lock.simulate(true);
       h.world.fill(0, 8, 0, 14, 8, 14, 'stone');
       h.world.fill(0, 9, 0, 14, h.world.size().y - 1, 14, 'air');
+      for (let n = 0; (h.world.lightPending() > 0 || h.world.meshStats().pending > 0) && n < 3000; n++) h.step(1); // 空気の穴の光とメッシュを先に済ませる
       for (let i = 0; i < 4; i++) { h.world.setBlock(3 + i, 8, 3, 'dirt'); h.farm.till(3 + i, 8, 3); }
       for (let i = 0; i < 3; i++) { h.world.setBlock(3 + i, 8, 5, 'dirt'); h.farm.till(3 + i, 8, 5); h.farm.plant(3 + i, 8, 5, 'tomato'); }
       h.world.setBlock(12, 9, 12, 'sprinkler');
@@ -1094,6 +1099,7 @@ test.describe('M7-2 性能', () => {
       T.base();
       h.world.fill(0, 8, 0, 40, 8, 40, 'stone');
       h.world.fill(0, 9, 0, 40, h.world.size().y - 1, 40, 'air');
+      for (let n = 0; (h.world.lightPending() > 0 || h.world.meshStats().pending > 0) && n < 3000; n++) h.step(1); // 空気の穴の光とメッシュを先に済ませる
       let n = 0;
       for (let z = 2; z < 22 && n < 480; z++) for (let x = 3; x < 27 && n < 480; x++, n++) { T.soil(x, z); h.farm.plant(x, 8, z, ['tomato', 'onion', 'pumpkin', 'eggplant'][n % 4]); }
       h.step(1);
