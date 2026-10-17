@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { AI_CONST } from '../src/yokai/ai/config';
+import { waitCharLoaded } from './helpers/char';
 
 /**
  * CHAR-1 第 5 版（docs/design/CHAR-1-v2-sprite.md）の E2E 3 本: AC17（段の切りかえ）・AC31（描画回数と重さ）・AC36（8 方向のスクショ）。
@@ -21,9 +22,7 @@ async function open(page: Page, query = '') {
 /** 平らな石の床（y = 8）の上、空は空気。絵の読みこみ（本当の時間）を待つ */
 async function flatGround(page: Page, waitLoaded = true) {
   if (waitLoaded) {
-    await page.evaluate(() => (window.__rikkun! as any).suspendRender(true)); // 絵の読みこみ中に 重い描画を走らせない
-    await page.waitForFunction(() => (window.__rikkun! as any).player.doll().sprite.loaded === true, null, { timeout: 0 }); // 時間は テスト全体の上限にまかせる
-    await page.evaluate(() => (window.__rikkun! as any).suspendRender(false));
+    await waitCharLoaded(page);
   }
   await page.evaluate(() => {
     const h = window.__rikkun! as any;
@@ -132,9 +131,7 @@ test.describe('CHAR-1 キャラの板', () => {
 
   test('AC47: 通し（正面の妖怪・ねらい補助・「＋」の先の地面）', async ({ page }) => {
     await open(page);
-    await page.evaluate(() => (window.__rikkun! as any).suspendRender(true)); // 絵の読みこみ中に 重い描画を走らせない
-    await page.waitForFunction(() => (window.__rikkun! as any).player.doll().sprite.loaded === true, null, { timeout: 0 }); // 時間は テスト全体の上限にまかせる
-    await page.evaluate(() => (window.__rikkun! as any).suspendRender(false));
+    await waitCharLoaded(page);
     // キャラは (x0 + 0.5, G, z0 + 0.5) = (6.5, 9, 6.5)・yaw 0。pitch は さわらず はじめの −25 のまま
     const start = await page.evaluate(() => {
       const h = window.__rikkun! as any;

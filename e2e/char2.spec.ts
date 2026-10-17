@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { standOnGround } from './helpers/aim';
+import { waitCharLoaded } from './helpers/char';
 
 /**
  * CHAR-2（docs/design/CHAR-2.md §6 通し）: AC20 刀の通し・AC21 弓の通し。
@@ -35,7 +36,7 @@ async function open(page: Page) {
   await page.goto('/?nosave=1');
   await page.waitForFunction(() => window.__rikkun?.ready === true);
   // はじめの 4 つ（たつ・あるく・はしる・ジャンプ）が ぜんぶ 読めるまで
-  await expect.poll(() => page.evaluate(() => (window.__rikkun! as any).player.doll().sprite.gpuBytes), { timeout: 8000 }).toBe(BASE_BYTES);
+  await waitCharLoaded(page, { gpuBytes: BASE_BYTES });
   await page.evaluate(() => {
     const h = window.__rikkun! as any;
     h.achievements.mute(true);

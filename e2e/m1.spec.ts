@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { installArena } from './helpers/arena';
 import { WORLD_CENTER, WORLD_SIZE } from '../src/contracts';
 import { findUnrubiedKanji } from '../src/ui/text';
+import { waitCharLoaded } from './helpers/char';
 
 /**
  * M1 の受け入れ基準のうち、つないだ後の実際のゲームでしか確かめられないもの。
@@ -399,8 +400,8 @@ test.describe('M1-02 動き・視点・ロック（つないだ後）', () => {
       const h = window.__rikkun! as any;
       h.lock.simulate(true);
     });
-    // 絵の読みこみは 本当の時間で進む（上限 5 秒）
-    await expect.poll(() => page.evaluate(() => (window.__rikkun! as any).player.doll().sprite.loaded), { timeout: 5000 }).toBe(true);
+    // 絵の読みこみは 本当の時間で進む（時間は テスト全体の上限にまかせる）
+    await waitCharLoaded(page);
     const r = await page.evaluate(() => {
       const h = window.__rikkun! as any;
       h.pause();
