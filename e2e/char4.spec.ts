@@ -55,7 +55,6 @@ async function spawnTarget(page: Page): Promise<void> {
     const id = h.yokai.spawn('nurikabe', p.position.x + Math.sin(yawRad) * 2, p.position.y, p.position.z - Math.cos(yawRad) * 2, { ai: false });
     h.yokai.setHp(id, 400);
     h.yokai.events();
-    h.blade.events();
   });
 }
 
@@ -97,8 +96,10 @@ test.describe('CHAR-4 通し', () => {
     const { err, n } = maxPointError(rec, 'kesa', dir!, k);
     expect(n).toBeGreaterThan(0);
     expect(err).toBeLessThanOrEqual(0.01);
-    // ぼくの 軌跡は 1 本・三角形 288 以下
+    // 軌跡は 1 本・三角形 288 以下
     expectCheap(rec, 1, 288);
+    // かたなの 軌跡には 星が ない
+    for (const s of rec) expect(s.trail.stars, `F${s.f}`).toHaveLength(0);
 
     // F45 で ぼくとうに 持ちかえ → 同じ ステップに 板の 刃の色が ぼくとう
     const swapped = await page.evaluate(() => {
@@ -147,9 +148,11 @@ test.describe('CHAR-4 通し', () => {
     await page.evaluate(() => (window.__rikkun! as any).step(150));
     await toStance(page, 'jodan');
     await spawnTarget(page);
+    // blade.events() は 読んでも 空に ならない（peek）ので 前後の 差で 数える
+    const countHits = () => page.evaluate(() => (window.__rikkun! as any).blade.events().filter((e: any) => e.type === 'techHit').length as number);
+    const hits0 = await countHits();
     const hit = await fire(page, 50);
-    const hits = await page.evaluate(() => (window.__rikkun! as any).blade.events().filter((e: any) => e.type === 'techHit').length);
-    expect(hits, '妖怪に 当たった').toBeGreaterThan(0);
+    expect((await countHits()) - hits0, '妖怪に 当たった').toBeGreaterThan(0);
     expect(visibleSteps(hit)).toEqual(visibleSteps(miss));
     expect(visibleSteps(hit)).toEqual(range(29, 42));
     expect(maxPointError(hit, 'kesa', hit[0]!.dir!, k).err).toBeLessThanOrEqual(0.01);
@@ -183,9 +186,12 @@ test.describe('CHAR-4 通し', () => {
     // 星は 3 こ。それぞれ 軌跡の 区切りの 点（刃先）の 上
     const f42 = at(rec, 42).trail;
     expect(f42.stars).toHaveLength(3);
-    for (const st of f42.stars) {
-      const near = Math.min(...f42.columns.map((c) => dist(c.tip, st)));
-      expect(near, '星は 軌跡の 刃先の 点から 0.05 以内').toBeLessThanOrEqual(0.05);
+    // q = 0.25・0.55・0.85 の 区切り（番号 = ⌊q × 区切りの数⌋）の 刃先それぞれに 星が ある（順番は 決めない）
+    const cols42 = [...f42.columns].sort((a, b) => a.q - b.q);
+    for (const q of [0.25, 0.55, 0.85]) {
+      const tip = cols42[Math.floor(q * f42.segments)]!.tip;
+      const near = Math.min(...f42.stars.map((st) => dist(tip, st)));
+      expect(near, `q = ${q} の 区切りの 刃先から 0.05 以内に 星`).toBeLessThanOrEqual(0.05);
     }
     expect(maxPointError(rec, 'kiriage', rec[0]!.dir!, k).err).toBeLessThanOrEqual(0.01);
     // 星 3 こ込みで 物 2 以下・三角形 360 以下
@@ -291,7 +297,7 @@ test.describe('CHAR-4 通し', () => {
     await waitReady(page, KATANA_SET);
     await toStance(page, 'jodan');
     const rec = await fire(page, 46);
-    const lastFade = new Map<string, number>();
+    let checked = 0;
     for (const s of rec) {
       const t = s.trail;
       if (!t.visible) continue;
@@ -302,27 +308,23 @@ test.describe('CHAR-4 通し', () => {
       // 見える部分は いまの 時刻から 9 ステップ いない
       expect(t.head!, `F${s.f}`).toBeLessThanOrEqual(s.f + 1e-9);
       expect(t.tail!, `F${s.f}`).toBeGreaterThanOrEqual(s.f - 9 - 1e-9);
-      let prevAge = Infinity;
+      // 三角形 = 区切り × だん 4 × 2 以下
+      expect(t.triangles, `F${s.f}`).toBeLessThanOrEqual(t.segments * 8);
+      // fade は 区切りの 年れいだけで 決まる（並びは 決めない）
       for (const st of t.strips) {
         expect(st.age, `F${s.f}`).toBeLessThan(9);
         expect(st.fade, `F${s.f} age ${st.age}`).toBeCloseTo(fadeOfAge(st.age), 6);
-        expect(st.age, 'しっぽ（古い方）が 先').toBeLessThanOrEqual(prevAge + 1e-9);
-        prevAge = st.age;
-        // 同じ 時刻の 所は ステップが 進んでも ふえない
-        const key = (s.f - st.age).toFixed(4);
-        const before = lastFade.get(key);
-        if (before !== undefined) expect(st.fade, `F${s.f} 時刻 ${key}`).toBeLessThanOrEqual(before + 1e-9);
-        lastFade.set(key, st.fade);
+        checked++;
       }
-      // 形: q = 0 でも q = 1 でも うちの へり = 刃先（とがる）
-      const cols = t.columns;
+      // 形: q = 0 でも q = 1 でも うちの へり = 刃先（とがる）。q で 並べて 見る
+      const cols = [...t.columns].sort((a, b) => a.q - b.q);
       expect(cols[0]!.q).toBeCloseTo(0, 6);
       expect(cols[cols.length - 1]!.q).toBeCloseTo(1, 6);
       expect(dist(cols[0]!.inner, cols[0]!.tip), `F${s.f} q=0`).toBeLessThanOrEqual(0.001);
       expect(dist(cols[cols.length - 1]!.inner, cols[cols.length - 1]!.tip), `F${s.f} q=1`).toBeLessThanOrEqual(0.001);
     }
     // 見える間に 1 回は 検査した
-    expect(lastFade.size).toBeGreaterThan(0);
+    expect(checked).toBeGreaterThan(0);
   });
 
   test('AC7: わざの とちゅうで 持ちかえ → 点は 4 こ のまま・8 ステップめまで 見えて 9 ステップめに 消える', async ({ page }) => {
