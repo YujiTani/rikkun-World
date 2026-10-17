@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import {
-  FACE_SHADE, FLAT_BLOCKS, SCORE_VIEWS, SPOT, buildArena, countSky, enc, expectedRgb, faceCorners, faceFacesCamera, faceGridPoints, goView, grab,
+  FACE_SHADE, FLAT_BLOCKS, FY, SCORE_VIEWS, SPOT, buildArena, countSky, enc, expectedRgb, faceCorners, faceFacesCamera, faceGridPoints, goView, grab,
   legibilityScore, lightTriple, lin, linLum, matches, matchesPalette, missingHooks, near, openTex, quadMean, quiet, sampleFace, saveShot, setBlock, tilePalette,
   setPose, setPoseSettled, shotPixels, stage, usable, type Face, type Rgb,
 } from './helpers/tex';
@@ -131,11 +131,11 @@ test.describe('TEX-A', () => {
     const flat: string[] = await page.evaluate(() => (window as any).__rikkun.render.flatBlocks());
     expect([...flat].sort()).toEqual([...FLAT_BLOCKS].sort());
     await setAo(page, false);
-    // 空のセクション (4, 2, 4) に 1 こだけ置く → 三角形 ≤ 12（箱）。石なら ごつごつで ずっと多い
+    // 空のセクション (4, FY/16, 4)（床と同じ高さの 空き地）に 1 こだけ置く → 三角形 ≤ 12（箱）。石なら ごつごつで ずっと多い
     const tri = async (id: string) => {
-      await setBlock(page, 72, 40, 72, id);
+      await setBlock(page, 72, FY, 72, id);
       await quiet(page);
-      return page.evaluate(() => { const i = (window as any).__rikkun.world.sectionInfo(4, 2, 4); return { tier: i.tier as string, t: i.triangles as number }; });
+      return page.evaluate(() => { const i = (window as any).__rikkun.world.sectionInfo(4, Math.floor((window as any).__FY / 16), 4); return { tier: i.tier as string, t: i.triangles as number }; });
     };
     const results: Record<string, number> = {};
     for (const id of FLAT_BLOCKS) {
@@ -146,7 +146,7 @@ test.describe('TEX-A', () => {
       expect(r.t, `${id} の三角形`).toBeLessThanOrEqual(12);
     }
     expect((await tri('stone')).t).toBeGreaterThan(12 * 3);
-    await setBlock(page, 72, 40, 72, 'air');
+    await setBlock(page, 72, FY, 72, 'air');
     await setTerrain(page, false); // 床の丘が 箱の根もとをかくさないように（ふつうの地形での すきまは AC9）
     // 絵: 面ごとに 16 点ぜんぶ、元の絵に合う
     for (const id of FLAT_BLOCKS) {
@@ -158,7 +158,7 @@ test.describe('TEX-A', () => {
   test('AC5: 鉱石は でこぼこのまま。ほらあなの部屋でタイルの点（#222222・#E0A872）が見える', async ({ page }) => {
     await ready(page);
     // 石の部屋（中 9×9×4）。北のかべに鉱石、そのすぐ前にたいまつ
-    const R = { x0: 28, z0: 28, x1: 38, z1: 38, fy: 21 };
+    const R = { x0: 28, z0: 28, x1: 38, z1: 38, fy: FY + 1 };
     await page.evaluate((R) => {
       const w = (window as any).__rikkun.world;
       w.fill(R.x0, R.fy, R.z0, R.x1, R.fy + 5, R.z1, 'stone');
@@ -223,15 +223,16 @@ test.describe('TEX-A', () => {
     // かべの前の床: 東のかべ (x=40) と 北のかべ (z=30) の内かど
     await page.evaluate(() => {
       const w = (window as any).__rikkun.world;
-      w.fill(40, 21, 30, 40, 24, 36, 'stone');
-      w.fill(34, 21, 30, 40, 24, 30, 'stone');
+      const f = (window as any).__FY;
+      w.fill(40, f + 1, 30, 40, f + 4, 36, 'stone');
+      w.fill(34, f + 1, 30, 40, f + 4, 30, 'stone');
     });
     await quiet(page);
     // 真上から（高さ 12 ブロック・pitch -89）見る: カメラの真下の近くは でこぼこの へこみの 視差が ほぼない（距離 16 に対して 1 ブロックはなれ）
-    const st = await stage(page, { x: 38, y: 21, z: 32 }, { dx: -0.2, dz: 0.4, py: 33, pitch: -89, off: 0 });
+    const st = await stage(page, { x: 38, y: FY + 1, z: 32 }, { dx: -0.2, dz: 0.4, py: FY + 13, pitch: -89, off: 0 });
     await grab(page);
     const pts: { x: number; y: number; z: number }[] = [];
-    for (let j = 0; j < 27; j++) for (let i = 0; i < 27; i++) pts.push({ x: 37 + (i + 0.5) / 9, y: 21, z: 31 + (j + 0.5) / 9 }); // かべの中は のぞく
+    for (let j = 0; j < 27; j++) for (let i = 0; i < 27; i++) pts.push({ x: 37 + (i + 0.5) / 9, y: FY + 1, z: 31 + (j + 0.5) / 9 }); // かべの中は のぞく
     const recs = await sampleFace(page, pts, 'top');
     const aos = recs.map((r) => r.ao);
     expect(Math.min(...aos), '内かどに 0.55 に近い点がある').toBeLessThanOrEqual(0.6);
@@ -271,17 +272,18 @@ test.describe('TEX-A', () => {
     // 箱の段（r の外）は AO なし: 同じ形を 40 ブロック先に置く
     await page.evaluate(() => {
       const w = (window as any).__rikkun.world;
-      w.fill(100, 21, 30, 100, 24, 36, 'stone');
-      w.fill(94, 21, 30, 100, 24, 30, 'stone');
+      const f = (window as any).__FY;
+      w.fill(100, f + 1, 30, 100, f + 4, 36, 'stone');
+      w.fill(94, f + 1, 30, 100, f + 4, 30, 'stone');
     });
-    await page.evaluate(() => (window as any).__rikkun.world.fill(86, 20, 24, 108, 20, 40, 'stone'));
+    await page.evaluate(() => { const f = (window as any).__FY; (window as any).__rikkun.world.fill(86, f, 24, 108, f, 40, 'stone'); });
     await quiet(page);
-    await setPoseSettled(page, 64, 21, 64, 0, -20);
+    await setPoseSettled(page, 64, FY + 1, 64, 0, -20);
     const far2 = await page.evaluate(() => {
       const r = (window as any).__rikkun.render;
-      const info = (window as any).__rikkun.world.sectionInfo(6, 1, 1);
+      const info = (window as any).__rikkun.world.sectionInfo(6, Math.floor((window as any).__FY / 16), 1);
       let min = 1;
-      for (let j = 0; j < 18; j++) for (let i = 0; i < 18; i++) min = Math.min(min, r.aoAt(98 + (i + 0.5) / 9, 21, 31 + (j + 0.5) / 9, 'top'));
+      for (let j = 0; j < 18; j++) for (let i = 0; i < 18; i++) min = Math.min(min, r.aoAt(98 + (i + 0.5) / 9, (window as any).__FY + 1, 31 + (j + 0.5) / 9, 'top'));
       return { min, tier: info.tier as string };
     });
     expect(far2.tier).not.toBe('micro');
@@ -292,13 +294,13 @@ test.describe('TEX-A', () => {
     await ready(page, ['setBlobShadow']);
     const P = { x: 36.5, z: 36.5 };
     const blob = () => page.evaluate(() => (window as any).__rikkun.render.blobShadow() as { visible: boolean; x: number; y: number; z: number; size: number; opacity: number; renderOrder: number; spriteRenderOrder: number; transparent: boolean });
-    await setPose(page, P.x, 21, P.z, 0, -25);
+    await setPose(page, P.x, FY + 1, P.z, 0, -25);
     await page.evaluate(() => (window as any).__rikkun.step(2));
     const b0 = await blob();
     expect(b0.visible).toBe(true);
     expect(Math.abs(b0.x - P.x)).toBeLessThanOrEqual(0.05);
     expect(Math.abs(b0.z - P.z)).toBeLessThanOrEqual(0.05);
-    expect(Math.abs(b0.y - (21 + 0.13))).toBeLessThanOrEqual(0.02);
+    expect(Math.abs(b0.y - (FY + 1 + 0.13))).toBeLessThanOrEqual(0.02);
     expect(b0.size).toBeGreaterThan(0);
     expect(b0.opacity).toBeGreaterThan(0);
     expect(b0.transparent, '不透明の列で描く（透明の列だとキャラの板より後になる）').toBe(false);
@@ -306,8 +308,8 @@ test.describe('TEX-A', () => {
     // くつの画素は ON / OFF で同じ。足もとの南の地面は ON のほうが暗い
     // キャラの画素 = 影なしの画面で 床の色（灰色: 3 つの値が近く 70〜180）でない画素（足の すきまの地面は のぞく）
     const win: { x: number; y: number; z: number }[] = [];
-    for (let dx = -0.3; dx <= 0.3; dx += 0.05) for (let dy = 0.04; dy <= 0.5; dy += 0.04) win.push({ x: P.x + dx, y: 21 + dy, z: P.z });
-    const ground = { x: P.x, y: 21, z: P.z + 0.25 };
+    for (let dx = -0.3; dx <= 0.3; dx += 0.05) for (let dy = 0.04; dy <= 0.5; dy += 0.04) win.push({ x: P.x + dx, y: FY + 1 + dy, z: P.z });
+    const ground = { x: P.x, y: FY + 1, z: P.z + 0.25 };
     const readAll = async (on: boolean) => {
       await page.evaluate((on) => { const h = (window as any).__rikkun; h.render.setBlobShadow(on); h.step(1); }, on);
       await grab(page);
@@ -331,7 +333,7 @@ test.describe('TEX-A', () => {
     const g = win.length;
     expect(linLum(on[g]!), '昼: 影の下は 影なしより暗い').toBeLessThan(linLum(off[g]!) * 0.9);
     // 3 ブロックとぶと 小さく うすく
-    await setPose(page, P.x, 24, P.z, 0, -25);
+    await setPose(page, P.x, FY + 4, P.z, 0, -25);
     const b3 = await blob();
     expect(b3.visible).toBe(true);
     expect(b3.size).toBeLessThan(b0.size);
@@ -339,13 +341,13 @@ test.describe('TEX-A', () => {
     expect(b3.size / b0.size).toBeLessThan(0.85);
     expect(b3.opacity / b0.opacity).toBeGreaterThan(0.4);
     expect(b3.opacity / b0.opacity).toBeLessThan(0.6);
-    expect(Math.abs(b3.y - 21.13)).toBeLessThanOrEqual(0.02);
+    expect(Math.abs(b3.y - (FY + 1.13))).toBeLessThanOrEqual(0.02);
     // 6 ブロックより上では出ない
-    await setPose(page, P.x, 28, P.z, 0, -25);
+    await setPose(page, P.x, FY + 8, P.z, 0, -25);
     expect((await blob()).visible).toBe(false);
     // 水の中では出ない
-    await page.evaluate(({ P }) => (window as any).__rikkun.world.fill(P.x - 3, 21, P.z - 3, P.x + 3, 24, P.z + 3, 'water'), { P: { x: 36, z: 36 } });
-    await setPose(page, P.x, 21.2, P.z, 0, -25);
+    await page.evaluate(({ P, fy }) => (window as any).__rikkun.world.fill(P.x - 3, fy + 1, P.z - 3, P.x + 3, fy + 4, P.z + 3, 'water'), { P: { x: 36, z: 36 }, fy: FY });
+    await setPose(page, P.x, FY + 1.2, P.z, 0, -25);
     await page.evaluate(() => (window as any).__rikkun.step(2));
     expect((await blob()).visible).toBe(false);
   });
@@ -356,7 +358,8 @@ test.describe('TEX-A', () => {
     await buildArena(page);
     await page.evaluate(() => {
       const h = (window as any).__rikkun;
-      h.world.fill(40, 21, 40, 40, 25, 40, 'stone'); // 石の柱（根もとの角に AO が出る）
+      const f = (window as any).__FY;
+      h.world.fill(40, f + 1, 40, 40, f + 5, 40, 'stone'); // 石の柱（根もとの角に AO が出る）
       h.time.set(14000);
       h.step(3);
       (window as any).__quiet(h);
@@ -366,10 +369,11 @@ test.describe('TEX-A', () => {
       const l = h.shadow.stats().light;
       const n = Math.hypot(l.x, l.z);
       const p = { x: 40.5 - (l.x / n) * 1.5, z: 40.5 - (l.z / n) * 1.5 };
-      h.player.set({ position: { x: p.x, y: 21, z: p.z }, velocity: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: -25 });
+      const f = (window as any).__FY + 1;
+      h.player.set({ position: { x: p.x, y: f, z: p.z }, velocity: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: -25 });
       h.step(3);
-      const on = h.shadow.shadeAt(p.x, 21, p.z, { shadow: true });
-      const off = h.shadow.shadeAt(p.x, 21, p.z, { shadow: false });
+      const on = h.shadow.shadeAt(p.x, f, p.z, { shadow: true });
+      const off = h.shadow.shadeAt(p.x, f, p.z, { shadow: false });
       return { on: on.luma, off: off.luma, blob: h.render.blobShadow().visible };
     });
     expect(r.blob, '丸い影が出ている').toBe(true);
@@ -381,17 +385,18 @@ test.describe('TEX-A', () => {
     await ready(page, ['setBlobShadow']);
     await page.evaluate(() => {
       const w = (window as any).__rikkun.world;
-      w.fill(33, 21, 33, 40, 26, 40, 'stone');
-      w.fill(34, 21, 34, 39, 24, 39, 'air');
+      const f = (window as any).__FY;
+      w.fill(33, f + 1, 33, 40, f + 6, 40, 'stone');
+      w.fill(34, f + 1, 34, 39, f + 4, 39, 'air');
     });
     await page.evaluate(() => (window as any).__rikkun.time.set(70000));
     await quiet(page);
     const P = { x: 36.5, z: 36.5 };
-    await setPose(page, P.x, 21, P.z, 0, -25);
+    await setPose(page, P.x, FY + 1, P.z, 0, -25);
     const read = async (on: boolean) => {
       await page.evaluate((on) => { const h = (window as any).__rikkun; h.render.setBlobShadow(on); h.step(1); }, on);
       await grab(page);
-      const pts = [0.15, 0.25, 0.35].map((d) => ({ x: P.x, y: 21, z: P.z + d }));
+      const pts = [0.15, 0.25, 0.35].map((d) => ({ x: P.x, y: FY + 1, z: P.z + d }));
       const sc = await page.evaluate((p) => p.map((q: any) => (window as any).__rikkun.render.toScreen(q.x, q.y, q.z)), pts);
       return shotPixels(page, sc);
     };
@@ -440,18 +445,18 @@ test.describe('TEX-A', () => {
   test('AC10: 近く・箱の段・LOD で 同じ面の平均色が ±6%（遠いほどかかる かすみは 見えかたに あわせて とりのぞく）', async ({ page }) => {
     await ready(page);
     await setAo(page, false);
-    // 石の塔（x 16..27, z 48..59, y 12..40）。東の面 (x=28) を 見る
-    await page.evaluate(() => (window as any).__rikkun.world.fill(16, 12, 48, 27, 40, 59, 'stone'));
+    // 石の塔（x 16..27, z 48..59, y FY-8..FY+20）。東の面 (x=28) を 見る
+    await page.evaluate((fy) => (window as any).__rikkun.world.fill(16, fy - 8, 48, 27, fy + 20, 59, 'stone'), FY);
     await quiet(page);
     const means: Record<string, Rgb> = {};
     let fogRgb: Rgb = [143, 211, 255];
     for (const [tier, x] of [['micro', 38], ['box', 66], ['lod', 82]] as const) {
-      await stage(page, { x: 27, y: 35, z: 53 }, { dx: x - 27.5, dz: 0, py: 33, pitch: 0, off: 30 });
+      await stage(page, { x: 27, y: FY + 15, z: 53 }, { dx: x - 27.5, dz: 0, py: FY + 13, pitch: 0, off: 30 });
       await page.evaluate(() => (window as any).__rikkun.step(1));
-      const t = await page.evaluate(() => (window as any).__rikkun.world.sectionInfo(1, 2, 3).tier as string);
+      const t = await page.evaluate((fy) => (window as any).__rikkun.world.sectionInfo(1, Math.floor((fy + 15) / 16), 3).tier as string, FY);
       expect(t, `x=${x} のとき`).toBe(tier);
       await grab(page);
-      const q = await quadMean(page, [{ x: 28, y: 30, z: 60 }, { x: 28, y: 30, z: 48 }, { x: 28, y: 40, z: 48 }, { x: 28, y: 40, z: 60 }], 24);
+      const q = await quadMean(page, [{ x: 28, y: FY + 10, z: 60 }, { x: 28, y: FY + 10, z: 48 }, { x: 28, y: FY + 20, z: 48 }, { x: 28, y: FY + 20, z: 60 }], 24);
       expect(q, `${tier}: 面が画面に出る`).not.toBeNull();
       means[tier] = q!.mean;
       if (tier === 'micro') fogRgb = (await shotPixels(page, [{ x: 640, y: 8 }]))[0]!; // かすみの色 = 空の色
@@ -496,19 +501,20 @@ test.describe('TEX-A', () => {
     // ほらあな: 石の部屋の床で、たいまつから 2 ブロックと 8 ブロックの点
     await page.evaluate(() => {
       const w = (window as any).__rikkun.world;
-      w.fill(26, 21, 26, 42, 26, 36, 'stone');
-      w.fill(27, 21, 27, 41, 24, 35, 'air');
-      w.setBlock(28, 21, 31, 'torch');
+      const f = (window as any).__FY;
+      w.fill(26, f + 1, 26, 42, f + 6, 36, 'stone');
+      w.fill(27, f + 1, 27, 41, f + 4, 35, 'air');
+      w.setBlock(28, f + 1, 31, 'torch');
     });
     await quiet(page);
     await setTerrain(page, false);
     await quiet(page);
-    await stage(page, { x: 34, y: 21, z: 31 }, { dx: 3, dz: 3, pitch: -50, off: 20 });
+    await stage(page, { x: 34, y: FY + 1, z: 31 }, { dx: 3, dz: 3, pitch: -50, off: 20 });
     await grab(page);
     // たいまつから 2 ブロックと 8 ブロックのあたりの 床の 3×3 の点。画素 ÷ タイルの明るさ の中央値
     const ratio = async (x: number) => {
       const pts: { x: number; y: number; z: number }[] = [];
-      for (const dx of [-0.3, 0, 0.3]) for (const dz of [-0.3, 0, 0.3]) pts.push({ x: x + 0.5 + dx, y: 21, z: 31.5 + dz });
+      for (const dx of [-0.3, 0, 0.3]) for (const dz of [-0.3, 0, 0.3]) pts.push({ x: x + 0.5 + dx, y: FY + 1, z: 31.5 + dz });
       const rs = usable(await sampleFace(page, pts, 'top'), { x: -999, y: -999 }, 0);
       expect(rs.length, `x=${x} のあたりが画面に出る`).toBeGreaterThanOrEqual(6);
       return median(rs.map((r) => linLum(r.pixel!) / linLum(r.cands[4])));
