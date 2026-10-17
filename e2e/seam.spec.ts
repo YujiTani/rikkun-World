@@ -14,11 +14,13 @@ import { IS_SKY_SRC, blobsSrc } from './helpers/skyBlobs';
 test.describe.configure({ timeout: 300_000 });
 
 const Y0 = 300;
+/** 左のはし（x 0〜139）は見ない: 北を向いた絵では 遠くの島のはしと空が ここに写る（境目ではない） */
+const X0 = 140;
 const MAX_STEPS = 30_000;
 
 async function open(page: Page) {
   await page.setViewportSize({ width: 1280, height: 720 });
-  await page.addInitScript(`window.__isSky = ${IS_SKY_SRC}; window.__blobs = ${blobsSrc(Y0)};`);
+  await page.addInitScript(`window.__isSky = ${IS_SKY_SRC}; window.__blobs = ${blobsSrc(Y0, X0)};`);
   await page.goto('/?nosave=1&microR=16');
   await page.waitForFunction(() => window.__rikkun?.ready === true);
   await page.evaluate(() => {
