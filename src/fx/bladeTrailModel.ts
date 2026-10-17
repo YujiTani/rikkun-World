@@ -29,34 +29,28 @@ export const TRAIL_K = 1.8 / TRAIL_MODEL_H;
 /** 絵の わざの 長さ（初期の 設定と 同じ） */
 const PICTURE: Record<BladeTech, BladeTechFrames> = W2_SETTING_DEFAULTS.bladeTech;
 
-/** [絵の 長さ L, 設定の 長さ S, 絵の 中の はじまり P] を 出だし・当たり・もどりの 順に */
-function segs(tech: BladeTech, lengths: BladeTechFrames): [number, number, number][] {
-  const ph = PICTURE[tech];
-  return [
-    [ph.startup, lengths.startup, 0],
-    [ph.active, lengths.active, ph.startup],
-    [ph.recovery, lengths.recovery, ph.startup + ph.active],
-  ];
-}
-
-/** 設定の 時刻 t（わざの ステップ f の おわり = f）→ 絵の 時 τ（§4.2） */
+/** 設定の 時刻 t（わざの ステップ f の おわり = f）→ 絵の 時 τ（§4.2）。出だし・当たり・もどりを 順に たどる（new しない） */
 export function timeToTau(tech: BladeTech, lengths: BladeTechFrames, t: number): number {
-  let base = 0;
-  for (const [L, S, P] of segs(tech, lengths)) {
-    if (t <= base + S) return P + ((t - base) * L) / S;
-    base += S;
-  }
   const ph = PICTURE[tech];
-  return ph.startup + ph.active + ph.recovery;
+  // 出だし
+  let base = lengths.startup;
+  if (t <= base) return (t * ph.startup) / lengths.startup;
+  // 当たり
+  const t1 = base;
+  base += lengths.active;
+  if (t <= base) return ph.startup + ((t - t1) * ph.active) / lengths.active;
+  // もどり
+  return t <= base + lengths.recovery ? ph.startup + ph.active + ((t - base) * ph.recovery) / lengths.recovery : ph.startup + ph.active + ph.recovery;
 }
 
 /** 絵の 時 τ → 設定の 時刻 */
 export function tauToTime(tech: BladeTech, lengths: BladeTechFrames, tau: number): number {
-  let base = 0;
-  for (const [L, S, P] of segs(tech, lengths)) {
-    if (tau <= P + L) return base + ((tau - P) * S) / L;
-    base += S;
-  }
+  const ph = PICTURE[tech];
+  if (tau <= ph.startup) return (tau * lengths.startup) / ph.startup;
+  const p1 = ph.startup;
+  if (tau <= p1 + ph.active) return lengths.startup + ((tau - p1) * lengths.active) / ph.active;
+  const p2 = p1 + ph.active;
+  if (tau <= p2 + ph.recovery) return lengths.startup + lengths.active + ((tau - p2) * lengths.recovery) / ph.recovery;
   return lengths.startup + lengths.active + lengths.recovery;
 }
 
@@ -98,9 +92,22 @@ export function trailRow(settings: Pick<W2Settings, 'bladeTrail'>, item: ItemId 
   return (item ? settings.bladeTrail[item] : undefined) ?? settings.bladeTrail.katana ?? W2_SETTING_DEFAULTS.bladeTrail.katana!;
 }
 
-/** キャラの絵の 刃の 2 色（色見本の 20・21 番に ぬる）。刀（`BLADE_TRAIL_ITEMS`）を 持っている ときだけ。弓・素手・ほかは null（§4.6） */
+const colorsCache = new WeakMap<object, { body: number; shine: number }>();
+
+/**
+ * キャラの絵の 刃の 2 色（色見本の 20・21 番に ぬる）。刀（`BLADE_TRAIL_ITEMS`）を 持っている ときだけ。弓・素手・ほかは null（§4.6）。
+ * 表の 行ごとに 入れ物を 使いまわす（毎ステップ new しない。値が 変われば 中身を 書きかえる）
+ */
 export function bladeColorsOf(settings: Pick<W2Settings, 'bladeTrail'>, item: ItemId | null): { body: number; shine: number } | null {
   if (!item || !BLADE_TRAIL_ITEMS.has(item)) return null;
   const row = trailRow(settings, item);
-  return { body: row.blade, shine: row.bladeShine };
+  let c = colorsCache.get(row);
+  if (!c) {
+    c = { body: row.blade, shine: row.bladeShine };
+    colorsCache.set(row, c);
+  } else if (c.body !== row.blade || c.shine !== row.bladeShine) {
+    c.body = row.blade;
+    c.shine = row.bladeShine;
+  }
+  return c;
 }
