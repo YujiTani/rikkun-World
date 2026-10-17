@@ -255,7 +255,7 @@ describe('#184-AC4: 山の升目 12% 以上。すな・ゆき の出る所', () 
     }
   });
 
-  it('すな は すなはま の 海から +10 未満だけ。ゆき は ゆきやま の +40 以上だけ、+40 以上の地面は 頂上まで ゆき（いし 0）。ほかに すな・ゆき 0（陸の列。境目 e < blend の列は のぞく）', () => {
+  it('すな は すなはま だけ（山の形がかかる列は 海から +10 未満）。ゆき は ゆきやま の +40 以上だけ、+40 以上の地面は 頂上まで ゆき（いし 0）。ほかに すな・ゆき 0（陸の列。境目 e < blend の列は のぞく）', () => {
     let snow = 0;
     let sand = 0;
     for (const seed of SEEDS) {
@@ -266,7 +266,8 @@ describe('#184-AC4: 山の升目 12% 以上。すな・ゆき の出る所', () 
         if (s.top === 'sand') {
           sand++;
           expect(s.country, ctx).toBe('sunahama');
-          expect(above, ctx).toBeLessThan(10);
+          const shape = mountainShapeAt(seed, s.x, s.z);
+          if (shape && shape.m >= s.h) expect(above, ctx).toBeLessThan(10);
         }
         if (s.top === 'snow') {
           snow++;
@@ -587,8 +588,8 @@ describe('#184-AC12: たけやぶ の道', () => {
   });
 });
 
-describe('#184-AC13: すなはま の陸の列の 5 割以上が すな', () => {
-  it('3 つのシードで、すなはま の陸の列（海から 0 以上）の 5 割以上が すな。落ちたら designer へ', () => {
+describe('#184-AC13: すなはま の陸の列の 7.5 割以上が すな（6 版）', () => {
+  it('3 つのシードで、すなはま の陸の列（海から 0 以上）の 7.5 割以上が すな（シードごと）。落ちたら designer へ', () => {
     for (const seed of SEEDS) {
       let land = 0;
       let sand = 0;
@@ -598,7 +599,7 @@ describe('#184-AC13: すなはま の陸の列の 5 割以上が すな', () => 
         if (s.top === 'sand') sand++;
       }
       expect(land, `seed ${seed}`).toBeGreaterThan(300);
-      expect(sand / land, `seed ${seed}`).toBeGreaterThanOrEqual(0.5);
+      expect(sand / land, `seed ${seed}`).toBeGreaterThanOrEqual(0.75);
     }
   });
 });

@@ -375,13 +375,13 @@ describe('基準 3・4・6・7・9: 作った列のブロック（10 シード �
     // 海の列は y ≤ H−10 だけ: 上の st.caveAbove が見る
   });
 
-  it('基準 9: 木は 草原の陸 1 列 0.8〜2.0 本、森 8〜14 本。みきどうしは チェビシェフ 3 以上', () => {
+  it('基準 9: 木は 草原の陸 1 列 0.8〜2.0 本、森 平均 6.5〜14 本（6 版）。みきどうしは チェビシェフ 3 以上', () => {
     const avg = (a: number[]): number => a.reduce((p, c) => p + c, 0) / a.length;
     expect(st.grassTrees.length).toBeGreaterThan(20);
     expect(st.forestTrees.length).toBeGreaterThan(10);
     expect(avg(st.grassTrees)).toBeGreaterThanOrEqual(0.8);
     expect(avg(st.grassTrees)).toBeLessThanOrEqual(2.0);
-    expect(avg(st.forestTrees)).toBeGreaterThanOrEqual(8);
+    expect(avg(st.forestTrees)).toBeGreaterThanOrEqual(6.5);
     expect(avg(st.forestTrees)).toBeLessThanOrEqual(14);
     expect(st.trunks).toBeGreaterThan(300);
     expect(st.trunkClose).toBe(0);
