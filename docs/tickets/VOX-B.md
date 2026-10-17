@@ -250,6 +250,7 @@ genStats(): { columns: number; medianMs: number; maxMs: number; spawnSearchMs: n
 ## 経過（PO が追記）
 | 日付 | ループ | 結果 | メモ |
 |---|---|---|---|
+| 2026-10-17 | 開発 | 実装（developer） | 消したテスト: generateIsland.test.ts（島はもう無い）・farm.test の AC35 legacy と farm/legacy.ts（M6 の保存は読まない）・SaveManager.test の古い保存の移行（前の世界は読まない・消さない）・stretchHeight.test（48 高の実験）・AC3-CHAR-1/AC6 の legacy。変えたテスト: seeThrough の面の数の下限 10,000 → 5,000（新しい地形で 約 9,057）。ほか: ふくらみ高さ 4（仕様 C4 の 3 だと 自動ジャンプで戻れない）、mouthChance 1/4、農地 tier 3、山・森はスタートから 30/24 以上、地下の「見えない」印（exposure） |
 | 2026-10-16 | テストのレビュー | 合格（重大 0・中 1 直した） | 新 26 本中 25 本が赤。m5 AC6/19 のねらいを __aim.solve に。軽微は台帳 |
 | 2026-10-16 | テストの準備 | できた | e2e/voxB-terrain.spec.ts・こわれるテストの直し（docs/test-reports/VOX-B-prep.md） |
 | 2026-10-16 | オーナー確認① | OK | 読みこみ範囲のはしは (a) 海でかこむ（yuzu） |

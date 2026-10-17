@@ -279,7 +279,12 @@ export function createFarmSystem(deps: FarmDepsM7): FarmSystemImpl {
     soilPos.clear();
     const fi = blockIndexOf('farmland');
     const wi = blockIndexOf('farmland_wet');
-    const w = world as unknown as { getIndex?: (x: number, y: number, z: number) => number };
+    const w = world as unknown as { scanBlocks?: (want: (i: number) => boolean, found: (x: number, y: number, z: number) => void) => void; getIndex?: (x: number, y: number, z: number) => number };
+    if (w.scanBlocks) {
+      // 高さ 352 でも 速い: ほしいブロックが入っているセクションだけ見る
+      w.scanBlocks((v) => v === fi || v === wi, (x, y, z) => addSoil(key(x, y, z)));
+      return;
+    }
     let i = 0;
     for (let y = 0; y < sy; y++)
       for (let z = 0; z < sz; z++)
@@ -290,7 +295,8 @@ export function createFarmSystem(deps: FarmDepsM7): FarmSystemImpl {
   };
 
   const surfaceY = (x: number, z: number): number => {
-    for (let y = sy - 1; y >= 0; y--) if (world.getBlock(x, y, z) !== 'air') return y + 1;
+    const t = (world as unknown as { topY?: (x: number, z: number) => number }).topY?.(x, z);
+    for (let y = t === undefined ? sy - 1 : Math.max(t, -1); y >= 0; y--) if (world.getBlock(x, y, z) !== 'air') return y + 1;
     return 0;
   };
 

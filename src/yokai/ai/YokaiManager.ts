@@ -684,7 +684,10 @@ export class YokaiManager implements YokaiWorld {
       const ix = Math.floor(x);
       const iz = Math.floor(z);
       let waterColumn = false;
-      for (let y = this.world.size.y - 2; y >= 0; y--) {
+      // 高さ 352 でも 速いように、あるなら 列のいちばん上の ブロックから 下へ見る
+      const topFn = (this.world as { topY?: (x: number, z: number) => number }).topY;
+      const yTop = typeof topFn === 'function' ? Math.min(this.world.size.y - 2, topFn.call(this.world, ix, iz)) : this.world.size.y - 2;
+      for (let y = yTop; y >= 0; y--) {
         if (this.world.getBlock(ix, y, iz) === 'water') waterColumn = true;
         if (!this.world.isSolid(ix, y, iz) || this.world.isSolid(ix, y + 1, iz)) continue;
         const b = this.world.getBlock(ix, y, iz);

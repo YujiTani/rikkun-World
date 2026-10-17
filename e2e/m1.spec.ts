@@ -72,12 +72,12 @@ test.describe('M1-01 世界（つないだ後）', () => {
         const cx = Math.floor(spawn.x);
         const cz = Math.floor(spawn.z);
         const g = h.world.groundHeight(cx, cz);
-        // VOX-B 基準 12: 海面と 草原は ゲームに聞く（hook がまだ無い今の島では 海面 7・草原 = 島の草）
-        const seaY: number = h.world.seaY ? h.world.seaY() : 7;
-        const biome: string | null = h.world.terrainAt ? h.world.terrainAt(cx, cz).biome : null;
-        const fallback: boolean | null = h.world.spawnInfo ? h.world.spawnInfo().fallback : null;
-        const torch = h.world.startTorch ? h.world.startTorch() : null;
-        const torchBlock = torch ? h.world.getBlock(torch.x, torch.y, torch.z) : null;
+        // VOX-B 基準 12: 海面と 草原は ゲームに聞く（hook は必須）
+        const seaY: number = h.world.seaY();
+        const biome: string = h.world.terrainAt(cx, cz).biome;
+        const fallback: boolean = h.world.spawnInfo().fallback;
+        const torch = h.world.startTorch();
+        const torchBlock = h.world.getBlock(torch.x, torch.y, torch.z);
         // 5x5 が草で同じ高さ、上 3 段は固くない
         let flat = true;
         for (let x = cx - 2; x <= cx + 2; x++)
@@ -112,14 +112,12 @@ test.describe('M1-01 世界（つないだ後）', () => {
       expect(r.spawn.y).toBeCloseTo(r.g + 1, 3);
       expect(r.g).toBeGreaterThanOrEqual(r.seaY + 2);
       expect(r.g).toBeLessThanOrEqual(r.seaY + 12);
-      if (r.biome !== null) expect(r.biome).toBe('grassland');
-      if (r.fallback !== null) expect(r.fallback).toBe(false);
-      if (r.torch) {
-        expect(r.torchBlock).toBe('start_torch');
-        expect(r.torch.x).toBe(Math.floor(r.spawn.x) + 2);
-        expect(r.torch.z).toBe(Math.floor(r.spawn.z) - 1);
-        expect(r.torch.y).toBe(r.g + 1);
-      }
+      expect(r.biome).toBe('grassland');
+      expect(r.fallback).toBe(false);
+      expect(r.torchBlock).toBe('start_torch');
+      expect(r.torch.x).toBe(Math.floor(r.spawn.x) + 2);
+      expect(r.torch.z).toBe(Math.floor(r.spawn.z) - 1);
+      expect(r.torch.y).toBe(r.g + 1);
       expect(r.torchBreakable).toBe(false);
       expect(r.spawn.yawDeg).toBeCloseTo(0, 3);
       expect(r.spawn.pitchDeg).toBeCloseTo(0, 3);

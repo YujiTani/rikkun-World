@@ -40,10 +40,10 @@ export function buildScenery(scene: THREE.Scene, worldSize: { x: number; z: numb
   const mesh = new THREE.Mesh(build(y), material);
   mesh.name = 'ocean';
   scene.add(mesh);
-  // 世界のふちの下: 水ごしに世界の外の下を見ると空が見えて細い線になるので、海の底（世界の底の高さ）をしく
+  // 世界のふちの下: 水ごしに世界の外の下を見ると空が見えて細い線になるので、海の底（仮の海のふちの底の高さ）をしく
   // 色は、水（#3A7BD5 の 60%）ごしに見たとき海の色（ocean.color）になるすなの色
   const floorMaterial = new THREE.MeshBasicMaterial({ color: 0xdfd7a0, side: THREE.DoubleSide });
-  const floor = new THREE.Mesh(build(0), floorMaterial);
+  const floor = new THREE.Mesh(build(C.ocean.floorY), floorMaterial);
   floor.name = 'oceanFloor';
   scene.add(floor);
   return mesh;

@@ -18,3 +18,5 @@
 | 2 | test | code-reviewer | 軽微: m1 AC10 は hook があるときだけ見る形 | 実装前なので | T1 | 実装後に必須へ戻す |
 | 2 | test | code-reviewer | 軽微: arena の床は空気で 1 回 約 58 万マス埋める | 高さ 352 まで埋める | T2 | 重ければ opts.air |
 | 2 | test | code-reviewer | 中: m5 AC6/19 が pitch 0 のままほり、たいまつをねらっていない | 元からの弱さ | T3 | 直した（__aim.solve） |
+| 3 | dev | developer | T1: m1 AC10 を hook 必須に戻した | — | T1 | 対応済み |
+| 3 | dev | developer | T2: arena の床は そのまま（m2 AC19 は T.base が 13×13×140 の穴をほるため 200ms をこえる。テスト係へ） | T.base が地面 y≈9 を前提 | T2 | テスト係へ差し戻し |

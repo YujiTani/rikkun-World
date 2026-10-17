@@ -92,9 +92,10 @@ export const GEN_CONFIG = {
     mouthFarFromStart: 40,
     rampLength: 12,
     rampWidth: 3,
-    rampHeight: 3,
+    /** さか道・へやの 空気の高さ。表（C4）は 3 だが、自動ジャンプは 足もとの上 3.05 が空いていないと 跳ばず、もどれないので 4（VOX-B 返事に理由） */
+    rampHeight: 4,
     roomSize: 5,
-    roomHeight: 3,
+    roomHeight: 4,
     /** 口を置くための しらべ直しの回数 */
     mouthTries: 8,
     /** 口の入り口の陸の高さ（H ≥ SEA_Y + この値） */

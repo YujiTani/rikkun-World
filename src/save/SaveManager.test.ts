@@ -418,7 +418,8 @@ describe('SaveManager（さわった列だけ丸ごと保存）', () => {
 });
 
 describe('前の世界の保存は 読まない・消さない（VOX-B 基準 19）', () => {
-  it('新しい saveId は main と seed-N のどちらでもない', () => {
+  it('新しい saveId は main と seed-N のどちらでもない。save.info().saveId で聞ける', async () => {
+    expect((await session(new MemoryStore(), new MemoryBackend())).save.info().saveId).toBe(SAVE_ID);
     expect(SAVE_ID).not.toBe('main');
     expect(SAVE_ID.startsWith('seed-')).toBe(false);
   });

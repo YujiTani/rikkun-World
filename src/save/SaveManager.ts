@@ -101,6 +101,8 @@ export interface SaveDeps {
 }
 
 export interface SaveInfo {
+  /** セーブの名前（IndexedDB のキー。VOX-B から 'vox-main' / 'vox-seed-N'。前の世界の 'main' とは別） */
+  saveId: string;
   enabled: boolean;
   lastSavedTick: number | null;
   /** 直近の保存で メインスレッドを使った時間（縮める前まで）。書き終わりは doneMs */
@@ -179,6 +181,7 @@ export class SaveManager {
     this.saveId = d.saveId ?? SAVE_ID;
     this.restored = d.restored ?? NO_SAVE;
     this.infoState = {
+      saveId: this.saveId,
       enabled: d.store !== null && d.db !== null && !(d.restored?.readOnly ?? false),
       lastSavedTick: null,
       lastMs: 0,

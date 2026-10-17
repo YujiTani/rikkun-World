@@ -164,12 +164,13 @@ describe('洞くつの口（基準 8）', () => {
           for (const l of [-1, 0, 1]) {
             const x = m.x + k * dx + l * -dz;
             const z = m.z + k * dz + l * dx;
-            for (let y = floor; y < floor + 3; y++) expect(SOLID.has(w.get(x, y, z)), `seed ${seed} 空間 k=${k} l=${l} y=${y}`).toBe(false);
+            // 自動ジャンプは 足もとの上 3.05 まで 空いていないと 跳ばない → 空気 4 マス（F〜F+3）
+            for (let y = floor; y < floor + 4; y++) expect(SOLID.has(w.get(x, y, z)), `seed ${seed} 空間 k=${k} l=${l} y=${y}`).toBe(false);
           }
           // 中心線の足もとは 固い
           expect(SOLID.has(w.get(m.x + k * dx, floor - 1, m.z + k * dz)), `seed ${seed} 中心の床 k=${k}`).toBe(true);
         }
-        // へや（5×5×3）
+        // へや（5×5×高さ 4。1 段の自動ジャンプで さか道へ もどれるように）
         const rf = roomFloor(h0);
         expect(m.room.y).toBe(rf);
         expect(prevFloor - rf).toBeLessThanOrEqual(1);
@@ -178,7 +179,7 @@ describe('洞くつの口（基準 8）', () => {
             const x = m.x + k * dx + l * -dz;
             const z = m.z + k * dz + l * dx;
             expect(SOLID.has(w.get(x, rf - 1, z)), `seed ${seed} へやの床`).toBe(true);
-            for (let y = rf; y < rf + 3; y++) expect(SOLID.has(w.get(x, y, z)), `seed ${seed} へやの空間`).toBe(false);
+            for (let y = rf; y < rf + 4; y++) expect(SOLID.has(w.get(x, y, z)), `seed ${seed} へやの空間`).toBe(false);
           }
         }
         expect(m.room).toEqual({ x: m.x + 14 * dx, y: rf, z: m.z + 14 * dz });

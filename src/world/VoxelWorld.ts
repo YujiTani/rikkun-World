@@ -12,7 +12,7 @@ import {
 import { scanColumn, type ColumnInfo } from './micro/worldColumns';
 import { BLOCK_TYPES, blockIdFromIndex, blockIndexOf, isOpaqueIndex, isSolidIndex } from './blocks/blockTypes';
 import { OPACITY } from './light/opacity';
-import { SECTION_VOLUME, compactSection, localIndex, sectionGet, sectionSet, sectionToArray, uniformSection } from './sections';
+import { SECTION_VOLUME, compactSection, sectionGet, sectionSet, sectionToArray, uniformSection } from './sections';
 
 export { CHUNK_SIZE, SECTION_SIZE, WORLD_SIZE };
 export type { LoadedBounds };
@@ -37,6 +37,7 @@ class Column implements ChunkColumn {
   ) {
     this.sections = sections;
     this.hidden = new Int8Array(sections.length).fill(-1);
+    this.exp = new Array<Uint8Array | null>(sections.length).fill(null);
     this.fast = new Array<Uint8Array | null>(sections.length).fill(null);
     this.uni = new Int16Array(sections.length);
     for (let sy = 0; sy < sections.length; sy++) this.sync(sy);
@@ -53,6 +54,12 @@ class Column implements ChunkColumn {
   saveDirty = false;
   /** uniform なら その番号、palette なら -2、full なら -1 */
   readonly uni: Int16Array;
+  /** 「空」の高さ: 16×16 の各マスの topY（最初に必要になった時の値。ほっても かえない）。exposure 用 */
+  sky: Int16Array | null = null;
+  /** sky の最大 */
+  skyMax = -1;
+  /** 空にとどいている地下の空気のマス（セクションごとの 4096 ビット。無ければ null） */
+  readonly exp: (Uint8Array | null)[];
 
   /** sections[sy] を入れかえたら呼ぶ */
   sync(sy: number): void {
@@ -111,6 +118,15 @@ export class ChunkedVoxelWorld implements VoxelWorld {
   private readonly dirtyColList: Column[] = [];
   private readonly dirtySecList: Column[] = [];
   private hiddenUsed = false;
+  /**
+   * この高さより下は、読みこんでいない列の横を「ふさがっている」とみなす（世界のふちの地下。生成がつなぐ）。0 = みなさない。
+   * 海のふちの 海ゆかより下は 外から見えないので、ふちの列の地下も「見えない」にできる。
+   */
+  edgeClosedBelow = 0;
+  /** 空・読みこんでいない所・ほった穴に つながった「地下の空気」を数えてあるか（false = 作りなおし待ち。数えたマスは ちぢまない。Column.exp） */
+  private exposureBuilt = false;
+  /** ほった穴（空気などに変えたマス）の記録 [x,y,z]…。exposure を作りなおすとき、空にとどいている しるしとして使う */
+  private dugCells: number[] = [];
   /** faceHasSurface の作業用 */
   private readonly surfaceInfo: ColumnInfo = { ty: -1, kind: 0, reach: 0, rockOk: false };
   /** 小ブロック地形の「森の重み」（0〜1）を ブロックの列 (bx, bz) で返す窓口。生成がつなぐ。なければ 草原（0） */
@@ -161,6 +177,7 @@ export class ChunkedVoxelWorld implements VoxelWorld {
   unloadColumn(cx: number, cz: number): boolean {
     const key = columnKey(cx, cz);
     if (!this.columns.delete(key)) return false;
+    this.invalidateExposure();
     this.forgetLast();
     this.recomputeBounds();
     this.staleNeighborsOfColumn(cx, cz);
@@ -190,6 +207,7 @@ export class ChunkedVoxelWorld implements VoxelWorld {
   private addColumn(col: Column): void {
     const key = columnKey(col.cx, col.cz);
     this.columns.set(key, col);
+    this.invalidateExposure();
     this.forgetLast();
     this.markCol(col);
     this.markAllSecs(col);
@@ -282,6 +300,33 @@ export class ChunkedVoxelWorld implements VoxelWorld {
     return -1;
   }
 
+  /**
+   * `want(番号)` が true の ブロックの場所を ぜんぶ `found` に渡す。
+   * セクションごとに 「ほしい番号が 入っているか」を先に見て、入っていないセクション（地下の いし・空）は 飛ばす。
+   * 高さ 352 でも 速い（農業・スプリンクラーの 見直しが 全マスを 見ないため）。
+   */
+  scanBlocks(want: (index: number) => boolean, found: (x: number, y: number, z: number, index: number) => void): void {
+    for (const col of this.columns.values()) {
+      const ox = col.cx * CHUNK_SIZE;
+      const oz = col.cz * CHUNK_SIZE;
+      for (let sy = 0; sy < col.sections.length; sy++) {
+        const sec = col.sections[sy];
+        if (sec.kind === 'uniform') {
+          if (!want(sec.block)) continue;
+        } else if (sec.kind === 'palette') {
+          let any = false;
+          for (let k = 0; k < sec.palette.length; k++) if (want(sec.palette[k])) any = true;
+          if (!any) continue;
+        }
+        const d = sectionToArray(sec);
+        for (let i = 0; i < 4096; i++) {
+          const b = d[i];
+          if (b !== 0 && want(b)) found(ox + (i & 15), sy * SECTION_SIZE + (i >> 8), oz + ((i >> 4) & 15), b);
+        }
+      }
+    }
+  }
+
   /** 書く。変えたら true（同じ値でも true）。dirty などは呼ぶ側で */
   private put(col: Column, x: number, y: number, z: number, b: number): boolean {
     const sy = y >> 4;
@@ -316,12 +361,14 @@ export class ChunkedVoxelWorld implements VoxelWorld {
       d[li] = b;
       this.noteSave(col, x, y, z, b);
       this.noteDirty(col, x, y, z);
+      if (SEALS[b] === 0) this.noteDug(col, x, y, z);
       this.noteChange(x, y, z, x, y, z);
       return true;
     }
     if (!this.put(col, x, y, z, b)) return true;
     this.noteSave(col, x, y, z, b);
     this.noteDirty(col, x, y, z);
+    if (SEALS[b] === 0) this.noteDug(col, x, y, z);
     this.noteChange(x, y, z, x, y, z);
     return true;
   }
@@ -498,6 +545,7 @@ export class ChunkedVoxelWorld implements VoxelWorld {
           changed++;
           this.noteSave(col, x, y, z, b);
           this.noteDirty(col, x, y, z);
+          if (SEALS[b] === 0) this.noteDug(col, x, y, z);
           if (x < cminx) cminx = x;
           if (y < cminy) cminy = y;
           if (z < cminz) cminz = z;
@@ -637,13 +685,15 @@ export class ChunkedVoxelWorld implements VoxelWorld {
   }
 
   private computeHidden(col: Column, sy: number): boolean {
-    if (!sectionAllSealed(col.sections[sy])) return false;
+    if (!this.exposureBuilt) this.buildExposure();
+    if (!this.sectionClosed(col, sy)) return false;
     for (const [dx, dy, dz] of NEIGHBORS) {
       const ny = sy + dy;
       if (ny < 0) continue; // 世界の底
       const n = this.columns.get(columnKey(col.cx + dx, col.cz + dz));
+      if (n === undefined && dy === 0 && sy * SECTION_SIZE + SECTION_SIZE - 1 < this.edgeClosedBelow) continue;
       if (n === undefined || ny >= n.sections.length) return false;
-      if (!faceSealed(n.sections[ny], -dx, -dy, -dz)) return false;
+      if (!this.faceClosed(n, ny, -dx, -dy, -dz)) return false;
     }
     // となりの接する面が 地面の表面ブロックなら見える（下のとなりは 上に固いブロックがあるので 表面ブロックではない）
     for (const [dx, dy, dz] of NEIGHBORS) {
@@ -679,6 +729,194 @@ export class ChunkedVoxelWorld implements VoxelWorld {
       if (info.ty >= y0 && info.ty < y0 + SECTION_SIZE) return true;
     }
     return false;
+  }
+
+  // ------------------------------------------------------------ 地下の空気（exposure）
+
+  /**
+   * ふさがったブロック、または「空にとどいていない地下の空気」か。空気は、空・読みこんでいない列・世界の上・
+   * ほった穴に つながっていれば「あいている」。exposure を先に作っておくこと。
+   */
+  private blockClosed(col: Column, sy: number, li: number, b: number): boolean {
+    if (SEALS[b] === 1) return true;
+    if (b !== 0) return false;
+    const lx = li & 15;
+    const lz = (li >> 4) & 15;
+    const y = sy * SECTION_SIZE + (li >> 8);
+    if (y > this.skyOf(col)[(lz << 4) | lx]) return false;
+    const bits = col.exp[sy];
+    return bits === null || (bits[li >> 3] & (1 << (li & 7))) === 0;
+  }
+
+  private sectionClosed(col: Column, sy: number): boolean {
+    const s = col.sections[sy];
+    if (s.kind === 'uniform') {
+      if (SEALS[s.block] === 1) return true;
+      if (s.block !== 0) return false;
+    } else if (s.kind === 'palette') {
+      let allSealed = true;
+      for (const b of s.palette) {
+        if (SEALS[b] === 1) continue;
+        allSealed = false;
+        if (b !== 0) return false;
+      }
+      if (allSealed) return true;
+    }
+    for (let li = 0; li < SECTION_VOLUME; li++) if (!this.blockClosed(col, sy, li, sectionGet(s, li))) return false;
+    return true;
+  }
+
+  /** セクション (col, sy) の (dx,dy,dz) 向きの外側の面（端の 16×16）が 全部「ふさがった / 地下の空気」か */
+  private faceClosed(col: Column, sy: number, dx: number, dy: number, dz: number): boolean {
+    const s = col.sections[sy];
+    if (s.kind === 'uniform' && SEALS[s.block] === 1) return true;
+    const fixed = (d: number) => (d > 0 ? 15 : 0);
+    for (let a = 0; a < 16; a++) {
+      for (let c = 0; c < 16; c++) {
+        let li: number;
+        if (dx !== 0) li = (a << 8) | (c << 4) | fixed(dx);
+        else if (dy !== 0) li = (fixed(dy) << 8) | (a << 4) | c;
+        else li = (a << 8) | (fixed(dz) << 4) | c;
+        if (!this.blockClosed(col, sy, li, sectionGet(s, li))) return false;
+      }
+    }
+    return true;
+  }
+
+  private skyOf(col: Column): Int16Array {
+    if (col.sky !== null) return col.sky;
+    const sky = new Int16Array(256);
+    const ox = col.cx * CHUNK_SIZE;
+    const oz = col.cz * CHUNK_SIZE;
+    let mx = -1;
+    for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+      for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+        const t = this.topY(ox + lx, oz + lz);
+        sky[(lz << 4) | lx] = t;
+        if (t > mx) mx = t;
+      }
+    }
+    col.sky = sky;
+    col.skyMax = mx;
+    return sky;
+  }
+
+  /** (x,y,z) が 空・読みこんでいない所・世界の上か（そのマスが空気かは 見ない） */
+  private skyish(x: number, y: number, z: number): boolean {
+    if (y >= this.size.y) return true;
+    if (y < 0) return false;
+    const c = this.columns.get(columnKey(x >> 4, z >> 4));
+    if (c === undefined) return y >= this.edgeClosedBelow;
+    return y > this.skyOf(c)[((z & 15) << 4) | (x & 15)];
+  }
+
+  /** 印をつける。もうついていたら false */
+  private expAdd(col: Column, sy: number, li: number): boolean {
+    let bits = col.exp[sy];
+    if (bits === null) bits = col.exp[sy] = new Uint8Array(SECTION_VOLUME >> 3);
+    const m = 1 << (li & 7);
+    if ((bits[li >> 3] & m) !== 0) return false;
+    bits[li >> 3] |= m;
+    return true;
+  }
+
+  /** 空にとどいている地下の空気を すべて数えなおす（読みこみ・捨てたあと、はじめて印を読むとき） */
+  private buildExposure(): void {
+    this.exposureBuilt = true;
+    const q: number[] = [];
+    for (const col of this.columns.values()) {
+      const sky = this.skyOf(col);
+      const ox = col.cx * CHUNK_SIZE;
+      const oz = col.cz * CHUNK_SIZE;
+      for (let sy = 0; sy < col.sections.length; sy++) {
+        const y0 = sy * SECTION_SIZE;
+        if (y0 > col.skyMax) break;
+        const s = col.sections[sy];
+        if (s.kind === 'uniform' ? s.block !== 0 : s.kind === 'palette' && !s.palette.includes(0)) continue;
+        const d = s.kind === 'uniform' ? null : sectionToArray(s);
+        for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+          for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+            const top = Math.min(SECTION_SIZE - 1, sky[(lz << 4) | lx] - y0);
+            for (let ly = 0; ly <= top; ly++) {
+              if (d !== null && d[(ly << 8) | (lz << 4) | lx] !== 0) continue;
+              const y = y0 + ly;
+              const x = ox + lx;
+              const z = oz + lz;
+              // 上が空 / よこが 空・読みこんでいない列（下は 自分より低いので 空ではない）
+              const open =
+                y + 1 > sky[(lz << 4) | lx] ||
+                (lx < 15 ? y > sky[(lz << 4) | (lx + 1)] : this.skyish(x + 1, y, z)) ||
+                (lx > 0 ? y > sky[(lz << 4) | (lx - 1)] : this.skyish(x - 1, y, z)) ||
+                (lz < 15 ? y > sky[((lz + 1) << 4) | lx] : this.skyish(x, y, z + 1)) ||
+                (lz > 0 ? y > sky[((lz - 1) << 4) | lx] : this.skyish(x, y, z - 1));
+              if (open && this.expAdd(col, sy, (ly << 8) | (lz << 4) | lx)) q.push(x, y, z);
+            }
+          }
+        }
+      }
+    }
+    const dug = this.dugCells;
+    for (let i = 0; i < dug.length; i += 3) {
+      const x = dug[i];
+      const y = dug[i + 1];
+      const z = dug[i + 2];
+      if (this.getIndex(x, y, z) !== 0) continue;
+      const col = this.colAt(x >> 4, z >> 4)!;
+      if (this.expAdd(col, y >> 4, ((y & 15) << 8) | ((z & 15) << 4) | (x & 15))) q.push(x, y, z);
+    }
+    this.spreadExposure(q, null);
+  }
+
+  /** q（x,y,z の並び）の空気から、つながった地下の空気へ 広げる（広がったマスを added に足す） */
+  private spreadExposure(q: number[], added: number[] | null): void {
+    for (let qi = 0; qi < q.length; qi += 3) {
+      const x = q[qi];
+      const y = q[qi + 1];
+      const z = q[qi + 2];
+      for (let d = 0; d < 6; d++) {
+        const nx = x + (d === 0 ? 1 : d === 1 ? -1 : 0);
+        const ny = y + (d === 2 ? 1 : d === 3 ? -1 : 0);
+        const nz = z + (d === 4 ? 1 : d === 5 ? -1 : 0);
+        if (this.getIndex(nx, ny, nz) !== 0) continue;
+        const col = this.colAt(nx >> 4, nz >> 4)!;
+        if (ny > this.skyOf(col)[((nz & 15) << 4) | (nx & 15)]) continue; // 空
+        if (!this.expAdd(col, ny >> 4, ((ny & 15) << 8) | ((nz & 15) << 4) | (nx & 15))) continue;
+        q.push(nx, ny, nz);
+        added?.push(nx, ny, nz);
+      }
+    }
+  }
+
+  /** ほった（空気などに変えた）マス: 空にとどいていることにして、つながった地下の空気も 見えるようにする */
+  private noteDug(col: Column, x: number, y: number, z: number): void {
+    if (y > this.skyOf(col)[((z & 15) << 4) | (x & 15)]) return; // 空の中
+    if (this.dugCells.length < DUG_CAP * 3) this.dugCells.push(x, y, z);
+    if (!this.exposureBuilt) return;
+    if (!this.expAdd(col, y >> 4, ((y & 15) << 8) | ((z & 15) << 4) | (x & 15))) return;
+    const added: number[] = [];
+    this.spreadExposure([x, y, z], added);
+    if (added.length === 0) return;
+    // 遠くのセクションまで 空にとどいた: そのセクションと、となりを 作りなおす
+    const secs = new Set<number>();
+    for (let i = 0; i < added.length; i += 3) secs.add(((added[i] >> 4) + 4096) * 8192 * 32 + ((added[i + 2] >> 4) + 4096) * 32 + (added[i + 1] >> 4));
+    for (const id of secs) {
+      const sy = id % 32;
+      const cz = (Math.floor(id / 32) % 8192) - 4096;
+      const cx = Math.floor(id / (8192 * 32)) - 4096;
+      this.staleAround(cx, sy, cz);
+      this.markSectionDirty(cx, sy, cz);
+      for (const [dx, dy, dz] of NEIGHBORS) this.markSectionDirty(cx + dx, sy + dy, cz + dz);
+    }
+  }
+
+  /** 列の読みこみ・捨て: 空にとどいているかの答えが かわる。つぎに印を読むとき作りなおす */
+  private invalidateExposure(): void {
+    if (!this.exposureBuilt) return;
+    this.exposureBuilt = false;
+    for (const c of this.columns.values()) {
+      c.hidden.fill(-1);
+      c.exp.fill(null);
+    }
   }
 
   /** 自分と 6 つのとなりの印を つけなおす */
@@ -850,36 +1088,4 @@ export class ChunkedVoxelWorld implements VoxelWorld {
 /** 今までの名前（テスト・つなぎ込みが使っている） */
 export { ChunkedVoxelWorld as ArrayVoxelWorld };
 
-function sectionAllSealed(s: SectionData): boolean {
-  if (s.kind === 'uniform') return SEALS[s.block] === 1;
-  if (s.kind === 'palette') {
-    for (const b of s.palette) if (SEALS[b] === 0) return false;
-    return true;
-  }
-  const d = s.data;
-  for (let i = 0; i < SECTION_VOLUME; i++) if (SEALS[d[i]] === 0) return false;
-  return true;
-}
-
-/** セクション s の (dx,dy,dz) 向きの外側の面（その向きの端の 16×16）が全部ふさがっているか */
-function faceSealed(s: SectionData, dx: number, dy: number, dz: number): boolean {
-  if (s.kind === 'uniform') return SEALS[s.block] === 1;
-  if (s.kind === 'palette') {
-    let all = true;
-    for (const b of s.palette) if (SEALS[b] === 0) all = false;
-    if (all) return true;
-  }
-  const fixed = (d: number) => (d > 0 ? 15 : 0);
-  for (let a = 0; a < 16; a++) {
-    for (let c = 0; c < 16; c++) {
-      let lx: number;
-      let ly: number;
-      let lz: number;
-      if (dx !== 0) [lx, ly, lz] = [fixed(dx), a, c];
-      else if (dy !== 0) [lx, ly, lz] = [a, fixed(dy), c];
-      else [lx, ly, lz] = [a, c, fixed(dz)];
-      if (SEALS[sectionGet(s, localIndex(lx, ly, lz))] === 0) return false;
-    }
-  }
-  return true;
-}
+const DUG_CAP = 20000;

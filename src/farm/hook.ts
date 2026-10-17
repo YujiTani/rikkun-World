@@ -1,5 +1,6 @@
 import type { BlockId, CropKind, CropStage, FarmPlacement, FarmVisual, ItemStack, Vec3, WateringCanId } from '../contracts';
 import { canCapacity, readWater } from '../tools/durability';
+import { BLOCK_TYPES } from '../world/blocks/blockTypes';
 import type { KeyValueStore } from '../save/SaveManager';
 import type { FarmSystemImpl } from './FarmSystem';
 
@@ -40,6 +41,14 @@ export function createFarmHook(d: FarmHookDeps) {
   const { farm, world } = d;
   const scan = (pred: (id: BlockId) => boolean) => {
     const out: Array<{ x: number; y: number; z: number; id: BlockId }> = [];
+    const sc = (world as unknown as { scanBlocks?: (want: (i: number) => boolean, found: (x: number, y: number, z: number, i: number) => void) => void }).scanBlocks;
+    if (sc) {
+      // 高さ 352 でも 速い: 条件に合うブロックが入っているセクションだけ見る
+      const table = BLOCK_TYPES.map((t) => pred(t.id as BlockId));
+      sc.call(world, (i) => table[i] === true, (x, y, z, i) => out.push({ x, y, z, id: BLOCK_TYPES[i]!.id as BlockId }));
+      out.sort((a, b) => a.y - b.y || a.z - b.z || a.x - b.x);
+      return out;
+    }
     const eb = world.loadedBounds();
     for (let y = 0; y < world.size.y; y++)
       for (let z = eb.z0; z < eb.z1; z++)

@@ -43,6 +43,10 @@ export function terrainTopOf(world: ChunkedVoxelWorld, x: number, z: number): nu
   return -1;
 }
 
+/** 山の中心が スタートから これより近くない（スタートが 山の円（r 18）に入らない） */
+const MOUNTAIN_FROM_START = 30;
+const FOREST_FROM_START = 24;
+
 const rectOverlap = (a: RegionRect, b: RegionRect): boolean => a.x0 <= b.x1 && a.x1 >= b.x0 && a.z0 <= b.z1 && a.z1 >= b.z0;
 
 export function populateWorld(world: ChunkedVoxelWorld, seed: number, bounds: Bounds = LOAD_BOUNDS): WorldGenInfo {
@@ -69,6 +73,7 @@ export function populateWorld(world: ChunkedVoxelWorld, seed: number, bounds: Bo
       }
     }
   }
+  world.edgeClosedBelow = SEA_Y - 8; // 海のふちの 海ゆかより下は 外から見えない（地下の「見えない」印を ふちの列まで）
   world.microForest = (bx, bz) => T.biome(bx, bz).forest;
   const h = (x: number, z: number): number => H[(z - bounds.z0) * W + (x - bounds.x0)]!;
 
@@ -131,11 +136,13 @@ function makeRegions(seed: number, b: Bounds, h: (x: number, z: number) => numbe
   const r16 = 16;
   const dSp = (x: number, z: number): number => Math.hypot(x - sp.x, z - sp.z);
 
-  // 山: はしから 16 より内で いちばん高い地面（岩山のまわりはのぞく。同じなら スタートに近い方）
+  // 山: はしから 16 より内で いちばん高い地面（岩山のまわり・スタートから 30 までは のぞく。同じなら スタートに近い方）。
+  // スタートの すぐそばは 低い土地（H3）で いちばん高くなりがちだが、はじめから「やま に きた」にならないようにする
   let peak = { x: sp.x, z: sp.z, h: -1 };
   for (let z = b.z0 + r16; z < b.z1 - r16; z++) {
     for (let x = b.x0 + r16; x < b.x1 - r16; x++) {
       if (Math.hypot(x - rock.cx, z - rock.cz) <= rock.r + 2) continue;
+      if (dSp(x, z) < MOUNTAIN_FROM_START) continue;
       const hh = h(x, z);
       if (hh > peak.h || (hh === peak.h && dSp(x, z) < dSp(peak.x, peak.z))) peak = { x, z, h: hh };
     }
@@ -143,10 +150,11 @@ function makeRegions(seed: number, b: Bounds, h: (x: number, z: number) => numbe
 
   // 森: 半径 12 の円の中の みきが いちばん多い所（中心は 4 マスおき）
   const trunks = treesInRect(T, b.x0, b.z0, b.x1 - 1, b.z1 - 1).filter((t) => edgeHeight(t.y, edgeDistance(b, t.x, t.z)) >= t.y);
-  let forest = { cx: sp.x, cz: sp.z, r: 12 };
+  let forest = { cx: sp.x, cz: sp.z + FOREST_FROM_START, r: 12 };
   let bestN = -1;
   for (let cz = b.z0 + 12; cz <= b.z1 - 12; cz += 4) {
     for (let cx = b.x0 + 12; cx <= b.x1 - 12; cx += 4) {
+      if (dSp(cx, cz) < FOREST_FROM_START) continue; // スタートが 森の円（r 12）に入らない
       let n = 0;
       for (const t of trunks) if (Math.hypot(t.x - cx, t.z - cz) <= 12) n++;
       if (n > bestN || (n === bestN && dSp(cx, cz) < dSp(forest.cx, forest.cz))) {
