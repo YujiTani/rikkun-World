@@ -146,6 +146,12 @@ export class CountryMap {
   private readonly candC: Cell[] = [];
   private readonly candD: number[] = [];
   private nCand = 0;
+  private pondI = NaN;
+  private pondJ = NaN;
+  private pondOn = false;
+  private topBX = NaN;
+  private topBZ = NaN;
+  private topDef: (typeof DEFS)[CountryKind] | null = null;
   private readonly hOut: HeightOut = { h: 0, base: 0, lift: 0 };
   private readonly ptOut: HeightOut = { h: 0, base: 0, lift: 0 };
 
@@ -500,8 +506,16 @@ export class CountryMap {
   /** 地面のいちばん上のブロック。h は 生成の高さ。国は 3×3 のかたまりのまん中で決める（境目が ギザギザしない） */
   topBlock(x: number, z: number, h: number): BlockId {
     if (h < SEA_Y + C.strata.landFrom) return 'sand';
-    this.nearest(Math.floor(x / 3) * 3 + 1, Math.floor(z / 3) * 3 + 1);
-    const def = DEFS[this.n1.kind];
+    // 国は 3×3 のかたまりごとに 1 回だけ決める（同じかたまりの 9 列は 使いまわす。結果は同じ）
+    const bx = Math.floor(x / 3);
+    const bz = Math.floor(z / 3);
+    if (bx !== this.topBX || bz !== this.topBZ) {
+      this.nearest(bx * 3 + 1, bz * 3 + 1);
+      this.topBX = bx;
+      this.topBZ = bz;
+      this.topDef = DEFS[this.n1.kind];
+    }
+    const def = this.topDef!;
     const rel = h - SEA_Y;
     if (def.snowFrom !== undefined) return rel >= def.snowFrom ? 'snow' : 'grass';
     if (rel >= (def.stoneFrom ?? C.strata.stoneTopFrom)) return 'stone';
@@ -581,8 +595,14 @@ export class CountryMap {
   pondAt(x: number, z: number): { kind: 'inner' | 'ring'; level: number; depth: number } | null {
     const i = Math.floor((x - A.x) / B.cell);
     const j = Math.floor((z - A.z) / B.cell);
-    const cell = this.cell(i, j);
-    if (cell.kind !== 'kappa' || cell.mountain) return null;
+    // 同じ升目が つづくあいだは 升目を 引きなおさない
+    if (i !== this.pondI || j !== this.pondJ) {
+      this.pondI = i;
+      this.pondJ = j;
+      const cell = this.cell(i, j);
+      this.pondOn = cell.kind === 'kappa' && !cell.mountain;
+    }
+    if (!this.pondOn) return null;
     for (const p of this.pondsOfCell(i, j).ponds) {
       if (x < p.x0 - 1 || x > p.x1 + 1 || z < p.z0 - 1 || z > p.z1 + 1) continue;
       const rx = (p.x1 - p.x0 + 1) / 2;
