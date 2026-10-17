@@ -1,16 +1,19 @@
+import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { SEA_Y, WORLD_HEIGHT } from '../../contracts';
+import { WORLD_HEIGHT } from '../../contracts';
 import { BLOCK_INDEX, BLOCK_TYPES } from '../blocks/blockTypes';
 import { SECTION_VOLUME, sectionToArray } from '../sections';
 import { startFeaturesOf } from './features';
-import { LOAD_BOUNDS, edgeDistance, edgeHeight, generateLoaded, mouthsInBounds } from './region';
+import { generateChunk } from './chunk';
+import { mouthsInRegion, regionRect } from './region';
 import { inMouthFootprint, mouthsNear, rampFloor, roomFloor } from './mouths';
 import { heightAt, spawnOf, terrainFor } from './terrain';
 import { GEN_CONFIG } from './config';
 
 /**
- * VOX-B 受け入れ基準 8（洞くつの口）・12/13（スタートの広場）・14（はじまりの木・岩山）・16（仮の海のふち）のうち、
- * 作った列のブロックで確かめられるもの。読みこむ 8×8 列（仮の海のふち つき）を 使う。
+ * VOX-B 受け入れ基準 8（洞くつの口）・12/13（スタートの広場）・14（はじまりの木・岩山）のうち、
+ * 作った列のブロックで確かめられるもの。列は generateChunk のそのまま（VOX-D: 仮の海のふちは もう無い。16 は 22 に）。
  */
 
 const SEEDS = [20261012, 1, 2, 3, 4, 5];
@@ -21,12 +24,11 @@ const SOLID = new Set<number>(BLOCK_TYPES.map((t, i) => (t.solid ? i : -1)).filt
 function loaded(seed: number) {
   const cols = new Map<number, Uint8Array>();
   const chunk = (cx: number, cz: number): Uint8Array | null => {
-    if (cx < 0 || cz < 0 || cx > 7 || cz > 7) return null;
-    const key = cx * 8 + cz;
+    const key = (cx + 5000) * 10007 + (cz + 5000);
     let a = cols.get(key);
     if (!a) {
       a = new Uint8Array(WORLD_HEIGHT * 256);
-      generateLoaded(seed, cx, cz).column.sections.forEach((s, sy) => a!.set(sectionToArray(s), sy * SECTION_VOLUME));
+      generateChunk(seed, cx, cz).sections.forEach((s, sy) => a!.set(sectionToArray(s), sy * SECTION_VOLUME));
       cols.set(key, a);
     }
     return a;
@@ -138,7 +140,7 @@ describe('はじまりの木・岩山（基準 14）', () => {
 describe('洞くつの口（基準 8）', () => {
   it('seed 既定・1〜5 で 1 つ以上。スタートから 40 より外', () => {
     for (const seed of SEEDS) {
-      const ms = mouthsInBounds(seed);
+      const ms = mouthsInRegion(seed);
       expect(ms.length, `seed ${seed}`).toBeGreaterThanOrEqual(1);
       const sp = spawnOf(seed);
       for (const m of ms) expect(Math.max(Math.abs(m.x - sp.x), Math.abs(m.z - sp.z))).toBeGreaterThan(40);
@@ -149,7 +151,7 @@ describe('洞くつの口（基準 8）', () => {
     let total = 0;
     for (const seed of SEEDS_20) {
       const w = loaded(seed);
-      const mouths = mouthsInBounds(seed);
+      const mouths = mouthsInRegion(seed);
       total += mouths.length;
       for (const m of mouths) {
         const dx = [0, 1, 0, -1][m.dir]!;
@@ -189,39 +191,43 @@ describe('洞くつの口（基準 8）', () => {
   });
 });
 
-describe('仮の海のふち（基準 16・S6）', () => {
-  it('e ≤ 3 の列は 地面 ≤ SEA_Y−4 で、その上 SEA_Y まで水。e が 1 ふえると 1 段高く（海から歩いて上がれる）', () => {
-    for (const seed of [20261012, 1, 2]) {
-      const w = loaded(seed);
-      for (let x = 0; x < 128; x += 3) {
-        for (let z = 0; z < 128; z += 3) {
-          const e = edgeDistance(LOAD_BOUNDS, x, z);
-          if (e > 20) continue;
-          const T = terrainFor(seed);
-          if (mouthsNear(T, x >> 4, z >> 4).some((m) => inMouthFootprint(m, x, z, 1))) continue;
-          const h = T.height(x, z);
-          const cut = edgeHeight(h, e);
-          const g = w.top(x, z);
-          expect(g, `seed ${seed} (${x},${z}) e=${e}`).toBe(cut);
-          if (e <= 3) {
-            expect(g).toBeLessThanOrEqual(SEA_Y - 4);
-            for (let y = g + 1; y <= SEA_Y; y++) expect(w.get(x, y, z)).toBe(BLOCK_INDEX.water);
-          }
-          if (cut < SEA_Y) for (let y = g + 1; y <= SEA_Y; y++) expect(w.get(x, y, z)).toBe(BLOCK_INDEX.water);
-          expect(w.get(x, SEA_Y + 1, z) === BLOCK_INDEX.air || cut >= SEA_Y, `seed ${seed} (${x},${z})`).toBe(true);
+describe('仮の海のふちが無い（VOX-D 基準 22）', () => {
+  it('src に LOAD_BOUNDS・applyEdgeSea・edgeHeight を使う所が無い（src/proto と テストは のぞく）', () => {
+    const bad: string[] = [];
+    const walk = (dir: string): void => {
+      for (const name of readdirSync(dir)) {
+        const path = join(dir, name);
+        if (statSync(path).isDirectory()) {
+          if (name === 'proto') continue;
+          walk(path);
+        } else if (/\.(ts|tsx)$/.test(name) && !/\.test\.ts$/.test(name)) {
+          const text = readFileSync(path, 'utf8');
+          if (/\b(LOAD_BOUNDS|applyEdgeSea|edgeHeight)\b/.test(text)) bad.push(path);
         }
+      }
+    };
+    walk(join(process.cwd(), 'src'));
+    expect(bad).toEqual([]);
+  });
+
+  it('どの列も generateChunk のそのままの形（R のはしの列も 海にならない・高さが変わらない）', () => {
+    for (const seed of SEEDS_20.slice(0, 6)) {
+      const R = regionRect(seed);
+      const w = loaded(seed);
+      for (const [x, z] of [[R.x0, R.z0], [R.x1 - 1, R.z1 - 1], [R.x0, R.z1 - 1], [R.x1 - 1, R.z0]] as const) {
+        if (mouthsNear(terrainFor(seed), x >> 4, z >> 4).some((m) => inMouthFootprint(m, x, z, 1))) continue;
+        expect(w.top(x, z), `seed ${seed} (${x},${z})`).toBe(heightAt(seed, x, z));
       }
     }
   });
 
-  it('スタート（e ≥ 47）・岩山には かからない', () => {
+  it('スタート・岩山の高さは 生成のまま', () => {
     for (const seed of SEEDS_20) {
       const sp = spawnOf(seed);
-      expect(edgeDistance(LOAD_BOUNDS, sp.x, sp.z)).toBeGreaterThanOrEqual(47);
       const r = startFeaturesOf(seed).rock;
-      for (const [x, z] of [[r.cx, r.cz], [r.cx - 4, r.cz], [r.cx + 4, r.cz]]) {
-        expect(edgeHeight(heightAt(seed, x!, z!), edgeDistance(LOAD_BOUNDS, x!, z!))).toBe(heightAt(seed, x!, z!));
-      }
+      const w = loaded(seed);
+      expect(w.top(sp.x, sp.z)).toBe(sp.h);
+      expect(w.top(r.cx, r.cz)).toBe(heightAt(seed, r.cx, r.cz));
     }
   });
 });
