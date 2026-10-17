@@ -139,6 +139,9 @@ async function look(page: Page, wallX: number, zs: number[], shot: string): Prom
           const h = (window as any).__rikkun;
           h.player.set({ position: { x, y: 25, z }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: -40 });
           h.step(40);
+          // はじめて来た場所（島の z 40〜47 は「やま」）だと おめでとう画面が出て ロックが外れる（#145）。
+          // 「とじる」が押せるまで進めて とじれば、ロックにもどる
+          for (let i = 0; i < 600 && h.achievements.modal(); i++) if (!h.achievements.close().ok) h.step(1);
           return h.lock.get().locked as boolean;
         },
         [wallX + dx, z + 0.5],
