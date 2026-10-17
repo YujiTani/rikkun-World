@@ -33,6 +33,8 @@ export async function waitSpritesReady(page: Page, names: string[]): Promise<voi
         const h = window.__rikkun! as any;
         h.step(1);
         const st = h.player.doll().sprite.status;
+        const bad = ns.filter((n: string) => st?.[n] === 'failed');
+        if (bad.length) throw new Error('絵の読みこみに失敗: ' + bad.join(','));
         return ns.every((n: string) => st?.[n] === 'ready');
       },
       names,

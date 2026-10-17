@@ -102,7 +102,8 @@ export async function openTex(page: Page, query = '?nosave=1'): Promise<void> {
     await page.waitForFunction(
       () => {
         const d = (window as any).__rikkun.player.doll?.();
-        return !d || !d.sprite || d.sprite.loaded === true;
+        // 読みこみに失敗したとき（status.idle === 'failed'）は 代わりの絵になるので 待たない
+        return !d || !d.sprite || d.sprite.loaded === true || d.sprite.status?.idle === 'failed';
       },
       null,
       { timeout: 0 },
