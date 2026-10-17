@@ -356,6 +356,7 @@ test.describe('VOX-B 地形（つないだ後）', () => {
       h.settings.set('yokaiAutoSpawn', false);
       h.yokai.clear();
       const w = h.world;
+      await w.settle({ full: true }); // VOX-D: 起動直後は 輪が そろっていない（光・メッシュの待ちが のこる）
       const sp = w.spawn();
       const cx = Math.floor(sp.x);
       const cz = Math.floor(sp.z);
@@ -385,7 +386,10 @@ test.describe('VOX-B 地形（つないだ後）', () => {
     for (const t of r.tiers) expect(t.tier, t.s).not.toBe('none');
     await page.reload();
     await page.waitForFunction(() => window.__rikkun?.ready === true);
-    const hash2 = await page.evaluate(() => (window as any).__rikkun.world.hash());
+    const hash2 = await page.evaluate(async () => {
+      await (window as any).__rikkun.world.settle({ full: true }); // VOX-D: 輪を そろえてから 全体の hash を比べる
+      return (window as any).__rikkun.world.hash();
+    });
     expect(hash2).toBe(r.hash);
     await page.evaluate(() => (window as any).__rikkun.save.clear());
   });
@@ -423,15 +427,17 @@ test.describe('VOX-B 地形（つないだ後）', () => {
     // 置いたあとの起動 A
     await page.goto('/');
     await page.waitForFunction(() => window.__rikkun?.ready === true);
-    const a = await page.evaluate(() => {
+    const a = await page.evaluate(async () => {
       const h = (window as any).__rikkun;
+      await h.world.settle({ full: true }); // VOX-D: 輪を そろえてから 全体の hash を比べる
       return { hash: h.world.hash(), saveId: h.save.info().saveId, sand: h.world.getBlock(100, 8, 60) };
     });
     // ?reset=1 の起動 B（新しい saveId だけを消す）
     await page.goto('/?reset=1');
     await page.waitForFunction(() => window.__rikkun?.ready === true);
-    const b = await page.evaluate(() => {
+    const b = await page.evaluate(async () => {
       const h = (window as any).__rikkun;
+      await h.world.settle({ full: true });
       return { hash: h.world.hash(), saveId: h.save.info().saveId };
     });
     // 置いた物が 残っている

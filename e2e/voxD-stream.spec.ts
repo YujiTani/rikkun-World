@@ -381,6 +381,8 @@ test.describe('VOX-D ストリーミング', () => {
         h.inventory.add('iron_ore', 1);
         h.inventory.add('log', 3);
         h.furnace.bake('iron_ingot', f.x, f.y, f.z);
+        // 持ち物を いっぱいにする（焼けた物は 持ち物に空きがあると 持ち物へ入る。かまどに たまるのは 満杯のとき）
+        for (let i = 0; i < h.inventory.get().slots.length; i++) h.inventory.setSlot(i, { item: 'dirt', count: 64 });
         // 畑: つち + 水 → ぬれた はたけ → 作物（段 1）
         const c = { x: sx - 3, y: g, z: sz };
         w.setBlock(c.x, c.y, c.z, 'dirt');

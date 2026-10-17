@@ -159,9 +159,10 @@ test.describe('M5 広い世界', () => {
     expect(r.n).toBe(0);
   });
 
-  test('AC15: かすみ 40〜80・88 より遠いチャンクは描かない（スタートと かど）', async ({ page }) => {
+  test('AC15: かすみ 40〜80・88 より遠いチャンクは描かない（スタートと 100 ブロックはなれた 3 か所）', async ({ page }) => {
+    // VOX-D: 世界は 128×128 でなく 輪。メッシュのある列（meshed）の数を ゲームに聞いて 数え、かどは スタートから ±100 の 3 か所に した
     await open(page);
-    const r = await page.evaluate(() => {
+    const r = await page.evaluate(async () => {
       const h = (window as any).__rikkun;
       h.pause();
       h.lock.simulate(true);
@@ -170,16 +171,20 @@ test.describe('M5 広い世界', () => {
         const dz = Math.max(cz * 16 - pz, 0, pz - (cz * 16 + 16));
         return Math.hypot(dx, dz);
       };
+      // 描く列 = meshed の列（描く輪）。そのうち 見ている人から 88 以内の数
       const calc = (px: number, pz: number) => {
+        const c = h.world.stream().center;
         let n = 0;
-        for (let cz = 0; cz < 8; cz++) for (let cx = 0; cx < 8; cx++) if (near(cx, cz, px, pz) <= 88) n++;
+        for (let cz = c.cz - 10; cz <= c.cz + 10; cz++)
+          for (let cx = c.cx - 10; cx <= c.cx + 10; cx++) if (h.world.chunkStage(cx, cz) === 'meshed' && near(cx, cz, px, pz) <= 88) n++;
         return n;
       };
       const out: any = {};
       const spawn = h.world.spawn();
       h.step(2);
-      // メッシュ作りが終わる（pending 0）まで進める。決め打ちのコマ数は使わない
-      const settle = () => {
+      // 輪が そろい、メッシュ作りが終わる（pending 0）まで進める。決め打ちのコマ数は使わない
+      const settle = async () => {
+        await h.world.settle({ full: true });
         let n = 0;
         while (h.world.meshStats().pending > 0) {
           if (n >= 3000) throw new Error('QUIET_TIMEOUT: meshPending=' + h.world.meshStats().pending);
@@ -187,25 +192,27 @@ test.describe('M5 広い世界', () => {
         }
         h.step(2);
       };
-      settle();
+      await settle();
       // 描く距離は 見ている人 = カメラの位置から（三人称だけになり、カメラは キャラの 4 うしろ）
       const cam = () => h.camera.get().position;
       out.start = { stats: h.render.chunks(), calc: calc(cam().x, cam().z), at: h.player.get().position };
-      for (const [name, x, z] of [['nw', 1.5, 1.5], ['se', 126.5, 126.5], ['ne', 126.5, 1.5]] as const) {
-        h.player.set({ position: { x, y: 12, z }, velocity: { x: 0, y: 0, z: 0 } });
-        h.step(3);
-        settle();
+      for (const [name, dx, dz] of [['nw', -100, -100], ['se', 100, 100], ['ne', 100, -100]] as const) {
+        const x = Math.floor(spawn.x) + dx + 0.5;
+        const z = Math.floor(spawn.z) + dz + 0.5;
+        h.world.teleport(x, z);
+        await settle();
         out[name] = { stats: h.render.chunks(), calc: calc(cam().x, cam().z) };
       }
       out.spawn = spawn;
       return out;
     });
-    console.log('AC15', JSON.stringify(r));
-    expect(r.start.stats.total).toBe(64);
+    console.log('AC15', JSON.stringify(r).slice(0, 400));
+    expect(r.start.stats.total).toBeGreaterThanOrEqual(169);
+    expect(r.start.stats.total).toBeLessThanOrEqual(441);
     expect(r.start.stats.drawn).toBe(r.start.calc);
     for (const k of ['nw', 'se', 'ne']) {
       expect(r[k].stats.drawn).toBe(r[k].calc);
-      expect(r[k].stats.drawn).toBeLessThan(64);
+      expect(r[k].stats.drawn).toBeLessThan(r[k].stats.total);
     }
   });
 
