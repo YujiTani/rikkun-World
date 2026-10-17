@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { installAimHelpers } from './helpers/aim';
+import { fine } from './helpers/fine';
 import { findUnrubiedKanji } from '../src/ui/text';
 
 /**
@@ -1028,7 +1029,7 @@ test.describe('M2 自動セーブ', () => {
 test.describe('M2 性能（記録）', () => {
   test('AC24: 掘ったときの再構築時間・保存時間', async ({ page }, testInfo) => {
     test.setTimeout(120_000);
-    await open(page, '?nosave=1');
+    await open(page, fine('?nosave=1')); // (b) 小ブロックのメッシュの作り直し時間を記録する（#180）
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
       h.pause();

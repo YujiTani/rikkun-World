@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { installAimHelpers } from './helpers/aim';
+import { fine } from './helpers/fine';
 import { findUnrubiedKanji } from '../src/ui/text';
 
 /**
@@ -114,7 +115,7 @@ test.describe('M3 昼と夜', () => {
   });
 
   test('スクショ: ひる・ゆうがた・よる・あさ（空・時計・おひさま／おつきさま）', async ({ page }) => {
-    await open(page);
+    await open(page, fine('?nosave=1')); // (d) 昼と夜の景色（地形の明るさ）のスクショ（#180）
     await page.evaluate(() => {
       const h = (window as any).__rikkun;
       h.pause();

@@ -1,4 +1,5 @@
 import { installAimHelpers } from './helpers/aim';
+import { fine } from './helpers/fine';
 import { expect, test, type Page } from '@playwright/test';
 
 /**
@@ -1094,7 +1095,7 @@ test.describe('M7-2 案内画面の 文が 切れない（AC25）', () => {
 
 test.describe('M7-2 性能', () => {
   test('AC24 描画回数: 作物 480 ぜんぶ stage 3 + スプリンクラー 20（キラキラ・しぶき の あり/なし）', async ({ page }) => {
-    await open(page);
+    await open(page, fine('?nosave=1')); // (b) 描画回数・三角形の上限を見る（#180）
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
       const T = (window as any).T;

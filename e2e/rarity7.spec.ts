@@ -8,6 +8,9 @@ import { readTiers, toRgb, toggleInventory } from './helpers/rarity';
  * 当てはめは案 A（katana = rare = index 2、5〜7 段目は 0 こ）で書く。
  */
 
+// 持ち物の画面を開いて step を回す重い場面が多く、ほかの重いテストと並ぶと 60 秒をこえることがある（#180 の調査: 単独で 28〜44 秒。細かいメッシュの有無とは関係ない）
+test.describe.configure({ timeout: 120_000 });
+
 const IDS = ['common', 'uncommon', 'rare', 'superRare', 'epic', 'mythic', 'legendary'];
 const DROP_MAX = [4, 3, 2, 1, 1, 1, 1];
 
