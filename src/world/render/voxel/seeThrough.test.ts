@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { hasLook, occludes } from '../../../proto/voxel/looks';
-import { MICRO_PARAMS, sampleSurface, newSample, type ColumnSource } from '../../../proto/voxel/terrain/microSurface';
-import { scanColumn, type ColumnInfo } from '../../../proto/voxel/terrain/worldColumns';
+import { MICRO_PARAMS, sampleSurface, newSample, type ColumnSource } from '../../micro/microSurface';
+import { scanColumn, type ColumnInfo } from '../../micro/worldColumns';
 import { isOpaqueIndex } from '../../blocks/blockTypes';
-import { generateIsland } from '../../gen/generateIsland';
+import { populateWorld } from '../../gen/populate';
 import { ArrayVoxelWorld } from '../../VoxelWorld';
 import { SectionMesher } from './sectionMesher';
 
@@ -391,13 +391,13 @@ describe('段差の下の面（#142）: 見えるはずの小ブロックの面�
   });
 });
 
-describe('いつもの島（seed 20261012）: 小ブロック段の全セクションで ぬけている面が 0', () => {
+describe('いつもの世界（seed 20261012）: 小ブロック段の全セクションで ぬけている面が 0', () => {
   it('ぬけている小ブロックの面 0・穴のあるブロック 0（調べた時は 10,048 面。このテストの数え方では 1,072 ブロック）', { timeout: 120_000 }, () => {
-    const w = new ArrayVoxelWorld();
-    generateIsland(20261012, w);
+    const w = new ArrayVoxelWorld({ x: 0, z: 0 });
+    populateWorld(w, 20261012);
     const h = countWorld(w, 128, 128);
     console.log(`SEETHRU island: checked=${h.checked} 穴のある面=${h.faces} 穴のあるブロック=${h.blocks} 向きごと=${h.byDir}`);
-    expect(h.checked, '調べた面が 0 だと何も確かめていない').toBeGreaterThan(10_000);
+    expect(h.checked, '調べた面が 0 だと何も確かめていない').toBeGreaterThan(5_000); // 新しい地形（VOX-B）は 調べる面が 約 9,000（前の島は 約 10,000）
     expect(h.faces, `ぬけている小ブロックの面（向きごと ${h.byDir}）`).toBe(0);
     expect(h.blocks, '穴のあるブロック').toBe(0);
   });

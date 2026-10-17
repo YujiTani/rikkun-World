@@ -1,13 +1,11 @@
 import type { BlockId, ChunkColumn } from '../contracts';
 import { blockIndexOf } from '../world/blocks/blockTypes';
 import { BLOCK_IDS_V1 } from './blockIdsV1';
-import { SAVE_GEN, SAVE_VERSION, saveDims, saveKey, type KeyValueStore, type SaveWorld } from './SaveManager';
+import { SAVE_VERSION, type KeyValueStore, type SaveWorld } from './SaveManager';
 import { NewerFormatError, unpackColumn, type PersistBackend, type StoredMeta } from './backend';
 
 /** pagehide の保険（同期で localStorage に小さく書く）。VOX-plan §7 */
 export const PENDING_KEY = 'rikkun-world-pending';
-/** 保存を IndexedDB に移した（または リセットした）しるし。これがあると 古い localStorage の保存は もう読まない */
-export const migratedKey = (saveId: string): string => `rikkun-world-migrated-${saveId}`;
 /** 保険に入れるマスの数の上限。これを超えたら ふつうの保存をする */
 export const PENDING_MAX_CELLS = 20000;
 
@@ -19,10 +17,8 @@ export interface RestoreWorld extends SaveWorld {
 }
 
 export interface RestoredSave {
-  /** 保存の meta（なければ null = 新しい世界）。古い localStorage の保存から移したときも この形 */
+  /** 保存の meta（なければ null = 新しい世界） */
   meta: StoredMeta | null;
-  /** 古い localStorage の保存を 今 IndexedDB に移す（最初の保存で書き、しるしを付ける） */
-  legacy: { changed: Set<number> } | null;
   /** pagehide の保険から戻した（最初の保存で書く） */
   fromPending: boolean;
   /** 保存が今のゲームより新しい版 / 読めない: さわらず、この遊びでは 保存しない */
@@ -32,7 +28,7 @@ export interface RestoredSave {
   corrupt: number;
 }
 
-export const NO_SAVE: RestoredSave = { meta: null, legacy: null, fromPending: false, columns: 0, corrupt: 0 };
+export const NO_SAVE: RestoredSave = { meta: null, fromPending: false, columns: 0, corrupt: 0 };
 
 export interface RestoreOptions {
   world: RestoreWorld;
@@ -54,45 +50,15 @@ export function validMeta(m: unknown, seed: number): m is StoredMeta {
   return isObj(m) && m.v === SAVE_VERSION && m.seed === seed;
 }
 
-/** 古い localStorage の保存（blocks に 島との差分）を 検査して世界に当てる。使えなければ null */
-export function applyLegacySave(world: SaveWorld, store: KeyValueStore, seed: number): { meta: StoredMeta; changed: Set<number> } | null {
-  let raw: string | null;
+/** 自分のセーブの保険だけ消す（ほかのセーブのものは さわらない） */
+function removePendingOf(store: KeyValueStore, saveId: string): void {
   try {
-    raw = store.getItem(saveKey(seed));
+    const raw = store.getItem(PENDING_KEY);
+    if (raw === null) return;
+    const p = JSON.parse(raw) as { saveId?: unknown };
+    if (isObj(p) && p.saveId === saveId) store.removeItem(PENDING_KEY);
   } catch {
-    return null;
-  }
-  if (raw === null) return null;
-  try {
-    const data = JSON.parse(raw) as Record<string, unknown>;
-    if (!isObj(data) || data.version !== 1 || data.seed !== seed || data.gen !== SAVE_GEN) return null;
-    const { x: sx, y: sy, z: sz } = saveDims(world);
-    const dim = data.size;
-    if (!Array.isArray(dim) || dim.length !== 3 || dim[0] !== sx || dim[1] !== sy || dim[2] !== sz) return null;
-    const blocks = data.blocks;
-    if (!Array.isArray(blocks) || blocks.length % 2 !== 0) return null;
-    const total = sx * sy * sz;
-    for (let k = 0; k < blocks.length; k += 2) {
-      const i = blocks[k];
-      const v = blocks[k + 1];
-      if (!Number.isInteger(i) || i < 0 || i >= total) return null;
-      if (!Number.isInteger(v) || v < 0 || v >= BLOCK_IDS_V1.length) return null;
-    }
-    const changed = new Set<number>();
-    for (let k = 0; k < blocks.length; k += 2) {
-      const i = blocks[k] as number;
-      const id = BLOCK_IDS_V1[blocks[k + 1] as number];
-      if (blockIndexOf(id) < 0) continue; // ゲームから消えたブロック: 飛ばす
-      world.setBlock(i % sx, Math.floor(i / (sx * sz)), Math.floor(i / sx) % sz, id as BlockId);
-      changed.add(i);
-    }
-    const meta: StoredMeta = { ...data, v: SAVE_VERSION };
-    delete meta.version;
-    delete meta.size;
-    delete meta.blocks;
-    return { meta, changed };
-  } catch {
-    return null;
+    /* 何もしない */
   }
 }
 
@@ -113,7 +79,7 @@ function readPending(store: KeyValueStore, saveId: string, seed: number): { cell
 
 /**
  * 起動のとき、レンダラーを作る前に呼ぶ。保存した列を世界に入れ（ない列は 生成のまま）、
- * 保険（pending）があれば当て、IndexedDB に何もなければ 古い localStorage の保存を 1 回だけ移す。
+ * 保険（pending）があれば当てる。古い localStorage の保存（rikkun-world-save-v1-*）と 前の世界の IndexedDB（main）は VOX-B から読まない・消さない。
  * 戻り値の meta は SaveManager.load() が 持ち物などに戻すのに使う。
  */
 export async function restoreStoredWorld(o: RestoreOptions): Promise<RestoredSave> {
@@ -122,8 +88,7 @@ export async function restoreStoredWorld(o: RestoreOptions): Promise<RestoredSav
   try {
     if (o.reset) {
       await db.clear(saveId);
-      store.removeItem(PENDING_KEY);
-      store.setItem(migratedKey(saveId), '1'); // 古い保存を 読みなおさない（リセットのあと 島がまた古い作品に戻らないように）
+      removePendingOf(store, saveId); // 前の世界（main）の保険は 消さない
       return NO_SAVE;
     }
     const all = await db.readAll(saveId);
@@ -181,15 +146,7 @@ export async function restoreStoredWorld(o: RestoreOptions): Promise<RestoredSav
       meta = pending.meta;
       fromPending = true;
     }
-    let legacy: RestoredSave['legacy'] = null;
-    if (meta === null && columns === 0 && all.meta === null && store.getItem(migratedKey(saveId)) === null) {
-      const old = applyLegacySave(world, store, seed);
-      if (old) {
-        meta = old.meta;
-        legacy = { changed: old.changed };
-      }
-    }
-    return { meta, legacy, fromPending, columns, corrupt };
+    return { meta, fromPending, columns, corrupt };
   } catch {
     return NO_SAVE; // 読めなかった: 新しい世界で始める（こわれた保存は次の保存で上書き）
   }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { generateIsland } from '../../world/gen/generateIsland';
+import { populateWorld } from '../../world/gen/populate';
 import { ArrayVoxelWorld } from '../../world/VoxelWorld';
 import { VoxelChunkMesher, type QuadMesh, type VoxelMode } from './meshVoxel';
 
@@ -105,8 +105,8 @@ describe('小ブロックの見える面だけ作る（受け入れ基準 3）',
 
 describe('まとめても見えている形が同じ（受け入れ基準 4）', () => {
   it('本物の島の 3 チャンクで、naive・greedyColor・greedyShape の小面が ぜんぶ同じ（穴も重なりもない）', () => {
-    const w = new ArrayVoxelWorld();
-    const info = generateIsland(1, w);
+    const w = new ArrayVoxelWorld({ x: 0, z: 0 });
+    const info = populateWorld(w, 1);
     const sp = info.spawn();
     const cx = Math.floor(sp.x / 16);
     const cz = Math.floor(sp.z / 16);
@@ -149,8 +149,8 @@ describe('hybrid の中くらい（箱）と 頂点の大きさ', () => {
   });
 
   it('box の面の広さは、同じ形の greedyShape（小ブロック）のうち「つまった ブロックの外の面」と同じ向きの数', () => {
-    const w = new ArrayVoxelWorld();
-    const sp = generateIsland(1, w).spawn();
+    const w = new ArrayVoxelWorld({ x: 0, z: 0 });
+    const sp = populateWorld(w, 1).spawn();
     const cx = Math.floor(sp.x / 16);
     const cz = Math.floor(sp.z / 16);
     const q = new VoxelChunkMesher(w).build(cx, cz, 'box').solid;
@@ -161,8 +161,8 @@ describe('hybrid の中くらい（箱）と 頂点の大きさ', () => {
   }, 60_000);
 
   it('1 つの 頂点の集まりは 65535 個以下（Uint16 の index）。大きいチャンクは分けて、四角は 1 枚も欠けない', () => {
-    const w = new ArrayVoxelWorld();
-    const sp = generateIsland(1, w).spawn();
+    const w = new ArrayVoxelWorld({ x: 0, z: 0 });
+    const sp = populateWorld(w, 1).spawn();
     const cx = Math.floor(sp.x / 16);
     const cz = Math.floor(sp.z / 16);
     const q = new VoxelChunkMesher(w).build(cx, cz, 'naive').solid;

@@ -3,7 +3,6 @@ import {
   CROP_KINDS,
   SEED_ITEM,
   VEG_ITEM,
-  WILD_BLOCK,
   cropKindOfBlock,
   vegKindOfItem,
   type BlockId,
@@ -39,11 +38,6 @@ const VISIT_RANGE = 4;
 export interface FarmSystemImpl extends FarmSystem {
   /** 新しい世界: 置きものを 置いた直後に呼ぶ（たんす の中身を入れて 印をつける） */
   noteNewWorldPlaced(placement: FarmPlacement): void;
-  /**
-   * 前の保存: 読みこみのあとに呼ぶ。`changed` = 保存の「島とちがうマス」の番号（(y*sz+z)*sx+x）。
-   * 印が あれば何もせず false。印が無ければ §4.5 (5) で置いて 印をつけ true
-   */
-  placeLegacy(changed: ReadonlySet<number>): boolean;
   /** だんを かえる（テスト用。stageTicks は 0）。作物でなければ false */
   setStage(x: number, y: number, z: number, stage: CropStage): boolean;
   /** 明るさ いつも 15 で 作物 n こ を 0 → 3 まで そだてた ステップの 列（世界は 変えない） */
@@ -400,13 +394,6 @@ export function createFarmSystem(deps: FarmDepsM7): FarmSystemImpl {
   };
 
   // ---------------------------------------------------------------- 置きもの
-  const placeOldFarmBlocks = (p: NonNullable<FarmPlacement['oldFarm']>) => {
-    for (const b of p.blocks) world.setBlock(b.x, b.y, b.z, b.id);
-    for (const b of p.blocks) if (b.id === 'farmland' || b.id === 'farmland_wet') addSoil(key(b.x, b.y, b.z));
-    kakashiPos = { ...p.kakashi };
-    deps.fillTansu(p.tansu, p.tansuItems.map((s) => ({ ...s })));
-  };
-
   const sys: FarmSystemImpl = {
     crop,
     crops: () => {
@@ -667,29 +654,6 @@ export function createFarmSystem(deps: FarmDepsM7): FarmSystemImpl {
     noteNewWorldPlaced(placement) {
       if (placement.oldFarm) placeOldFarmTansuOnly(placement.oldFarm);
       placed = true;
-    },
-    placeLegacy(changed) {
-      if (placed) return false;
-      const pl = deps.placement(deps.seed);
-      for (const w of pl.wild) {
-        if (changed.has(key(w.x, w.y, w.z)) || changed.has(key(w.x, w.y - 1, w.z))) continue;
-        world.setBlock(w.x, w.y, w.z, WILD_BLOCK[w.kind]);
-      }
-      const of = pl.oldFarm;
-      if (of) {
-        const b = of.box;
-        let clean = true;
-        for (let y = b.y0; y <= b.y1 && clean; y++)
-          for (let z = b.z0; z <= b.z1 && clean; z++)
-            for (let x = b.x0; x <= b.x1; x++)
-              if (changed.has(key(x, y, z))) {
-                clean = false;
-                break;
-              }
-        if (clean) placeOldFarmBlocks(of);
-      }
-      placed = true;
-      return true;
     },
     setStage(x, y, z, stage) {
       const c = crops.get(key(x, y, z));

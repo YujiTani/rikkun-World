@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { generateIsland } from '../gen/generateIsland';
+import { populateWorld } from '../gen/populate';
 import { ArrayVoxelWorld } from '../VoxelWorld';
 import { referenceLight } from './referenceLight';
 import { SkyDarkness } from './skyDarkness';
@@ -22,8 +22,8 @@ function compare(w: ArrayVoxelWorld, l: WorldLight): { diffs: number; first: str
 }
 
 function island(seed = 12345): ArrayVoxelWorld {
-  const w = new ArrayVoxelWorld();
-  generateIsland(seed, w);
+  const w = new ArrayVoxelWorld({ x: 0, z: 0 });
+  populateWorld(w, seed);
   w.takeDirtyChunks();
   return w;
 }

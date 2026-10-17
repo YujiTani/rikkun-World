@@ -1,4 +1,4 @@
-import { mix } from '../looks/common';
+import { mix } from './hash';
 
 /**
  * 小ブロック地形（VOX-2）の「表面の高さ S」。three にも world にも依らない純粋関数（同じ入力 → 同じ結果）。
@@ -50,7 +50,27 @@ export const MICRO_PARAMS = {
   minAboveBase: 3,
 } as const;
 
-/** 世界の列（ブロック単位）の情報。world から作る（terrain/worldColumns.ts） */
+/**
+ * 森の MICRO_PARAMS（VOX-B）。草原は上の MICRO_PARAMS そのまま。森は 草むら・岩・土が見える所が 多い。
+ * 境目では 森の重み w（0〜1）で まぜる。アートが見て直してよい。
+ */
+export const MICRO_FOREST = {
+  tuft: { threshold: 0.5 },
+  rock: { chance: 0.5 },
+  soil: { threshold: 0.3 },
+} as const;
+
+/** 森の重み w（0 = 草原 〜 1 = 森）でまぜた 数（草むらのしきい・岩の出る割合・土が見えるしきい） */
+export function microMix(w: number): { tuftThreshold: number; rockChance: number; soilThreshold: number } {
+  const t = w <= 0 ? 0 : w >= 1 ? 1 : w;
+  return {
+    tuftThreshold: MICRO_PARAMS.tuft.threshold + (MICRO_FOREST.tuft.threshold - MICRO_PARAMS.tuft.threshold) * t,
+    rockChance: MICRO_PARAMS.rock.chance + (MICRO_FOREST.rock.chance - MICRO_PARAMS.rock.chance) * t,
+    soilThreshold: MICRO_PARAMS.soil.threshold + (MICRO_FOREST.soil.threshold - MICRO_PARAMS.soil.threshold) * t,
+  };
+}
+
+/** 世界の列（ブロック単位）の情報。world から作る（micro/worldColumns.ts） */
 export interface ColumnSource {
   /** その列の いちばん上の「地面のブロック」の y。無ければ（水だけ・建物・世界の外）-1 */
   surfaceY(bx: number, bz: number): number;
@@ -58,6 +78,8 @@ export interface ColumnSource {
   reach(bx: number, bz: number): number;
   /** 岩を のせてよい列か */
   rockOk(bx: number, bz: number): boolean;
+  /** 森の重み 0〜1（バイオームの境目でまぜる）。省くと 0（草原） */
+  forest?(bx: number, bz: number): number;
 }
 
 export interface SurfaceSample {
@@ -104,18 +126,18 @@ function cellNoise(salt: number, cx: number, cz: number, wavelength: number): nu
   return valueNoise(P.seed + salt, (cx * 3 + 1) / wavelength, (cz * 3 + 1) / wavelength);
 }
 
-/** 3×3 のかたまり (cx, cz) が「土が見える所」か */
-function soilCell(cx: number, cz: number): boolean {
-  return cellNoise(22, cx, cz, P.soil.wavelength) < P.soil.threshold;
+/** 3×3 のかたまり (cx, cz) が「土が見える所」か（w = 森の重み） */
+function soilCell(cx: number, cz: number, w: number): boolean {
+  return cellNoise(22, cx, cz, P.soil.wavelength) < (w === 0 ? P.soil.threshold : microMix(w).soilThreshold);
 }
 
-/** 小ブロックの列 (mx, mz) が「土が見える所」か（色を決めるときに使う。S と同じ きまり） */
-export function microSoil(mx: number, mz: number): boolean {
-  return soilCell(Math.floor(mx / 3), Math.floor(mz / 3));
+/** 小ブロックの列 (mx, mz) が「土が見える所」か（色を決めるときに使う。S と同じ きまり。forest = そのブロックの森の重み） */
+export function microSoil(mx: number, mz: number, forest = 0): boolean {
+  return soilCell(Math.floor(mx / 3), Math.floor(mz / 3), forest);
 }
 
 /** 地形の表情（小さな丘・くぼ地・草むら・土）で 足す高さ。3×3 のかたまり単位 */
-function features(cx: number, cz: number): number {
+function features(cx: number, cz: number, w: number): number {
   const M = P.mound;
   let add = 0;
   const m = cellNoise(20, cx, cz, M.wavelength);
@@ -126,8 +148,8 @@ function features(cx: number, cz: number): number {
     const t = Math.min(1, (M.hollow - m) / M.span);
     add -= Math.floor((t * M.hollowDepth) / M.terrace) * M.terrace;
   }
-  if (soilCell(cx, cz)) return add - P.soil.sink;
-  if (cellNoise(21, cx, cz, P.tuft.wavelength) > P.tuft.threshold) {
+  if (soilCell(cx, cz, w)) return add - P.soil.sink;
+  if (cellNoise(21, cx, cz, P.tuft.wavelength) > (w === 0 ? P.tuft.threshold : microMix(w).tuftThreshold)) {
     const j = mix(mix(P.seed + 23, cx), cz) % 4; // 0: すきま / 1: 1 マス / 2, 3: いちばん高い
     add += Math.min(j, P.tuft.maxHeight);
   }
@@ -187,7 +209,7 @@ function groundHeight(mx: number, mz: number, src: ColumnSource): number {
   const cmz = Math.floor(mz / cs);
   const k = mix(mix(seed + 13, cmx), cmz) % 5;
   h += k === 0 ? -P.chunky.amplitude : k === 4 ? P.chunky.amplitude : 0;
-  h += features(cmx, cmz);
+  h += features(cmx, cmz, src.forest ? src.forest(bx, bz) : 0);
   const reach = src.reach(bx, bz);
   if (reach < 0) return base;
   const lo = ty * N + P.minAboveBase;
@@ -208,7 +230,8 @@ export function sampleSurface(mx: number, mz: number, src: ColumnSource, out: Su
   const rcx = Math.floor(mx / R.cell);
   const rcz = Math.floor(mz / R.cell);
   const r = hash3(seed, rcx, rcz, 1);
-  if (unit(r) >= R.chance) return;
+  // 出る割合は 岩の まん中のブロックの森の重みでまぜる（先に まん中をきめる）
+  if (unit(r) >= (src.forest ? microMix(forestAtRock(src, r, rcx, rcz)).rockChance : R.chance)) return;
   const radius = R.minRadius + unit(mix(r, 2)) * (R.maxRadius - R.minRadius);
   const margin = Math.ceil(R.maxRadius) + 1;
   const span = R.cell - 2 * margin;
@@ -245,6 +268,16 @@ export function sampleSurface(mx: number, mz: number, src: ColumnSource, out: Su
     out.h = h;
     out.rock = true;
   }
+}
+
+/** 岩のマス (rcx, rcz) の まん中のブロックの森の重み */
+function forestAtRock(src: ColumnSource, r: number, rcx: number, rcz: number): number {
+  const R = P.rock;
+  const margin = Math.ceil(R.maxRadius) + 1;
+  const span = R.cell - 2 * margin;
+  const cx = rcx * R.cell + margin + (mix(r, 3) % span);
+  const cz = rcz * R.cell + margin + (mix(r, 4) % span);
+  return src.forest ? src.forest(Math.floor(cx / N), Math.floor(cz / N)) : 0;
 }
 
 const tmp: SurfaceSample = newSample();

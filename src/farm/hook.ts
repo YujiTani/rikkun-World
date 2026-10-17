@@ -2,7 +2,6 @@ import type { BlockId, CropKind, CropStage, FarmPlacement, FarmVisual, ItemStack
 import { canCapacity, readWater } from '../tools/durability';
 import type { KeyValueStore } from '../save/SaveManager';
 import type { FarmSystemImpl } from './FarmSystem';
-import { writeLegacySave } from './legacy';
 
 export interface FarmHookDeps {
   farm: FarmSystemImpl;
@@ -79,11 +78,6 @@ export function createFarmHook(d: FarmHookDeps) {
         wild: p.wild,
         oldFarm: p.oldFarm ? { blocks: p.oldFarm.blocks, tansu: p.oldFarm.tansu, tier: p.oldFarm.tier } : null,
       };
-    },
-    makeLegacySave: (seed: number, changes: Array<{ x: number; y: number; z: number; id: BlockId }>) => {
-      if (!d.store) return false;
-      writeLegacySave(d.store, seed, changes);
-      return true;
     },
     grassSeedKind: (x: number, z: number) => farm.grassSeedKind(x, z),
     soil: (x: number, y: number, z: number) => farm.soil(x, y, z),

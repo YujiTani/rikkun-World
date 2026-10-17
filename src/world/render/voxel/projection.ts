@@ -1,6 +1,6 @@
 import { BLOCK_INDEX, BLOCK_TYPES } from '../../blocks/blockTypes';
 import { BLOCK_TILES, TILE_NAMES, getTilePixels, type TileName } from '../../blocks/textures';
-import { microSoil } from '../../../proto/voxel/terrain/microSurface';
+import { microSoil } from '../../micro/microSurface';
 
 /**
  * 元の 16×16 の絵（タイル）を ブロックの面に そのまま 投影する きまり（TEX-A、docs/art/DESIGN.md 4.1・4.2）。

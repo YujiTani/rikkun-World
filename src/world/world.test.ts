@@ -1,6 +1,7 @@
 import { Scene } from 'three';
 import { describe, expect, it } from 'vitest';
-import type { BlockId, IslandInfo } from '../contracts';
+import type { BlockId } from '../contracts';
+import type { WorldGenInfo } from './gen/populate';
 import { BLOCK_TYPES } from './blocks/blockTypes';
 import { BLOCK_TILES, TILE_NAMES, buildAtlasData, getTilePixels, ATLAS_WIDTH, ATLAS_HEIGHT } from './blocks/textures';
 import { createWorldHook } from './hook';
@@ -235,14 +236,23 @@ describe('createWorldHook', () => {
     const w = new ArrayVoxelWorld(OLD_SIZE);
     const r = new WorldRenderer(w);
     r.attach(new Scene());
-    const island: IslandInfo = {
+    const island = {
+      seaY: () => 144,
+      spawnInfo: () => ({ from: { x: 64, z: 64 }, fallback: false, checked: 1 }),
+      startTorch: () => ({ x: 34, y: 11, z: 31 }),
+      startFeatures: () => ({ rock: { cx: 0, cz: 0, r: 4, peakY: 12 }, trees: [] }),
+      caveMouths: () => [],
+      terrainAt: () => ({ h: 150, biome: 'grassland' as const, sea: false }),
+      genHash: () => 'x',
+      genStats: () => ({ columns: 1, medianMs: 1, maxMs: 1, spawnSearchMs: 1 }),
+      loadedChunks: () => [{ cx: 0, cz: 0 }],
       seed: 7,
       genTimeMs: 12,
       groundHeight: () => 10,
       spawn: () => ({ x: 32.5, y: 11, z: 32.5, yawDeg: 0, pitchDeg: 0 }),
       testArea: () => ({ x0: 0, x1: 12, z0: 0, z1: 12, y0: 8, y1: 31 }),
       regions: () => { throw new Error("not used"); },
-    };
+    } as WorldGenInfo;
     const h = createWorldHook(w, r, island);
     expect(h.seed()).toBe(7);
     expect(h.size()).toEqual({ x: 64, y: 32, z: 64 });
@@ -256,6 +266,12 @@ describe('createWorldHook', () => {
     expect(h.spawn().y).toBe(11);
     expect(h.testArea().y0).toBe(8);
     expect(h.genTimeMs()).toBe(12);
+    expect(h.seaY()).toBe(144);
+    expect(h.isLoaded(1, 1)).toBe(true);
+    expect(h.isLoaded(1000, 1)).toBe(false);
+    expect(h.loadedChunks()).toEqual([{ cx: 0, cz: 0 }]);
+    expect(h.startTorch().x).toBe(34);
+    expect(h.terrainAt(0, 0).biome).toBe('grassland');
     expect(h.blockTypes()).toHaveLength(31);
     r.update();
     expect(h.rebuildStats().count).toBeGreaterThan(0);

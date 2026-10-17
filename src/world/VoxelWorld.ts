@@ -9,7 +9,7 @@ import {
   type SectionData,
   type VoxelWorld,
 } from '../contracts';
-import { scanColumn, type ColumnInfo } from '../proto/voxel/terrain/worldColumns';
+import { scanColumn, type ColumnInfo } from './micro/worldColumns';
 import { BLOCK_TYPES, blockIdFromIndex, blockIndexOf, isOpaqueIndex, isSolidIndex } from './blocks/blockTypes';
 import { OPACITY } from './light/opacity';
 import { SECTION_VOLUME, compactSection, localIndex, sectionGet, sectionSet, sectionToArray, uniformSection } from './sections';
@@ -113,6 +113,8 @@ export class ChunkedVoxelWorld implements VoxelWorld {
   private hiddenUsed = false;
   /** faceHasSurface の作業用 */
   private readonly surfaceInfo: ColumnInfo = { ty: -1, kind: 0, reach: 0, rockOk: false };
+  /** 小ブロック地形の「森の重み」（0〜1）を ブロックの列 (bx, bz) で返す窓口。生成がつなぐ。なければ 草原（0） */
+  microForest: ((bx: number, bz: number) => number) | null = null;
   private lastCx = NaN;
   private lastCz = NaN;
   private lastCol: Column | null = null;
@@ -252,6 +254,32 @@ export class ChunkedVoxelWorld implements VoxelWorld {
   getBlock(x: number, y: number, z: number): BlockId | 'outside' {
     const i = this.getIndex(x, y, z);
     return i < 0 ? 'outside' : blockIdFromIndex(i);
+  }
+
+  /**
+   * その列の いちばん上の「空気でない」ブロックの y（全部空気・読みこんでいない・x,z が整数でないときは -1）。
+   * 空気だけのセクションは 飛ばすので、高さ 352 でも 速い（地面をさがす所は ここから下へ見る）。
+   */
+  topY(x: number, z: number): number {
+    if (x !== (x | 0) || z !== (z | 0)) return -1;
+    const col = this.colAt(x >> 4, z >> 4);
+    if (col === null) return -1;
+    const lx = x & 15;
+    const lz = z & 15;
+    const base = (lz << 4) | lx;
+    for (let sy = col.sections.length - 1; sy >= 0; sy--) {
+      const u = col.uni[sy];
+      if (u === 0) continue; // 全部空気
+      if (u > 0) return Math.min(sy * SECTION_SIZE + 15, this.size.y - 1);
+      const d = col.fast[sy];
+      if (d !== null) {
+        for (let ly = 15; ly >= 0; ly--) if (d[(ly << 8) | base] !== 0) return sy * SECTION_SIZE + ly;
+      } else {
+        const sec = col.sections[sy];
+        for (let ly = 15; ly >= 0; ly--) if (sectionGet(sec, (ly << 8) | base) !== 0) return sy * SECTION_SIZE + ly;
+      }
+    }
+    return -1;
   }
 
   /** 書く。変えたら true（同じ値でも true）。dirty などは呼ぶ側で */

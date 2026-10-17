@@ -12,7 +12,7 @@ import {
 } from 'three';
 import { BLOCK_INDEX, BLOCK_TYPES } from '../../world/blocks/blockTypes';
 import { WATER_ALPHA, createAtlasTexture } from '../../world/blocks/textures';
-import { generateIsland } from '../../world/gen/generateIsland';
+import { populateWorld } from '../../world/gen/populate';
 import { CHUNK_DRAW_DISTANCE, RENDER_CONFIG } from '../../world/render/config';
 import { meshChunkLod } from '../../world/render/lodMesh';
 import { meshChunk, type MeshData } from '../../world/render/meshChunk';
@@ -72,7 +72,7 @@ export class ProtoScene {
   /** 高さの倍率（VOX-3）。1 = 今のまま */
   readonly height: HeightFactor;
   /** のばす前の島（スポーン地点などを読む） */
-  readonly baseWorld = new ArrayVoxelWorld();
+  readonly baseWorld = new ArrayVoxelWorld({ x: 0, z: 0 });
   mode: ProtoMode;
   terrain: TerrainMode = 'block';
   /** hybrid: カメラからこの距離（ブロック）以内のチャンクだけ 小ブロックの形 */
@@ -140,7 +140,7 @@ export class ProtoScene {
   constructor(mode: ProtoMode, seed: number = GEN_CONFIG.defaultSeed, height: HeightFactor = 1) {
     this.mode = mode;
     this.height = height;
-    this.island = generateIsland(seed, this.baseWorld);
+    this.island = populateWorld(this.baseWorld, seed);
     this.world = height === 1 ? this.baseWorld : stretchHeight(this.baseWorld, height);
     this.mesher = new VoxelChunkMesher(this.world);
     this.count = this.world.chunksX * this.world.chunksZ;
