@@ -533,6 +533,7 @@ export class WorldRenderer {
     if (!this.attached) return;
     this.syncColumns();
     this.syncSway();
+    this.world.settleExposure();
     this.takeChanges();
     if (!this.streaming) this.process(FRAME_BUDGET_MS, false);
     this.manageBytes();

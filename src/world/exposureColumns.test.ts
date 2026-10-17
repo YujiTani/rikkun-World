@@ -32,6 +32,25 @@ function fresh(order: number[]): ChunkedVoxelWorld {
   return w;
 }
 
+describe('数えなおしの片づけ', () => {
+  it('settleExposure で たまった数えなおしが片づき、そのあとの hidden の問い合わせで 作り直しが起きない', () => {
+    const w = new ChunkedVoxelWorld({ x: 0, z: 0, y: H });
+    w.edgeClosedBelow = 40;
+    load(w, 1);
+    load(w, 2);
+    w.isSectionHidden(1, 0, 0); // 印を読む
+    load(w, 0); // たて穴が空にとどく
+    w.takeDirtySectionsEx();
+    expect(w.exposurePending()).toBeGreaterThan(0);
+    w.settleExposure();
+    expect(w.exposurePending()).toBe(0);
+    const afterSettle = w.takeDirtySectionsEx().length;
+    expect(afterSettle).toBeGreaterThan(0); // 片づけのときに まとめて 作り直しが出る
+    w.isSectionHidden(2, 1, 0);
+    expect(w.takeDirtySectionsEx().length).toBe(0); // 問い合わせでは 起きない
+  });
+});
+
 describe('列ごとの数えなおし', () => {
   it('足すたびに 答えを聞いても、ぜんぶ足してから聞いたのと同じ', () => {
     const w = new ChunkedVoxelWorld({ x: 0, z: 0, y: H });

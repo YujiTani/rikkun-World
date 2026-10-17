@@ -18,6 +18,8 @@ export interface ColumnIODeps {
   generate: (cx: number, cz: number) => ChunkColumn;
   /** 保存が 使えるか（?nosave=1・IndexedDB なし・読むだけ では false） */
   saveOn: () => boolean;
+  /** 列を読む返事を待つ上限（ミリ秒）。こえたら 保存なしの扱い（生成）。起動のキー一覧と同じ 3 秒 */
+  readTimeoutMs?: number;
   /** いま保存を書いている最中か / 書いている列か / 保存を始めてよいか / 保存を始める */
   saving: () => boolean;
   writing: (cx: number, cz: number) => boolean;
@@ -59,7 +61,7 @@ export class ColumnIO implements StreamIO {
     const db = this.d.db;
     if (db === null || !this.d.keys.has(k)) return null;
     this.readCalls++;
-    return db.readChunk(this.d.saveId, cx, cz).then(
+    const reading = db.readChunk(this.d.saveId, cx, cz).then(
       async (rec) => {
         if (rec === null) return null;
         try {
@@ -72,6 +74,12 @@ export class ColumnIO implements StreamIO {
       },
       () => null,
     );
+    // IndexedDB が止まっても ready を止めない: 返事が無ければ null（生成）
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const giveUp = new Promise<null>((ok) => {
+      timer = setTimeout(() => ok(null), this.d.readTimeoutMs ?? 3000);
+    });
+    return Promise.race([reading, giveUp]).finally(() => clearTimeout(timer));
   }
 
   persistent(): boolean {

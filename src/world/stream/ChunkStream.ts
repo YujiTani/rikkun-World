@@ -314,6 +314,7 @@ export class ChunkStream {
     const pcx = this.cx;
     const pcz = this.cz;
     const w = this.d.world;
+    if (!this._ready) for (const r of this.d.required?.() ?? []) this.reqSeen.add(colKey(r.cx, r.cz)); // 1 回だけ作る
     // 1. 捨てる（いちばん遠いものから。保存を待つものは とばす）
     let far: Col | null = null;
     let farD = -1;
@@ -327,7 +328,8 @@ export class ChunkStream {
         farD = dd;
       }
     }
-    if (far !== null) return { kind: 'unload', c: far, dist: farD, col: far.cx, row: far.cz };
+    // そろうまでは、生成・光を 先にする（テレポートのあと 古い列を捨てるのを待たずに 開始できるように）
+    if (far !== null && this._ready) return { kind: 'unload', c: far, dist: farD, col: far.cx, row: far.cz };
     // 2. 開始の前に要る保険の列（K6）は、輪の外でも先に読みこむ
     if (!this._ready) {
       for (const r of this.d.required?.() ?? []) {
@@ -354,6 +356,7 @@ export class ChunkStream {
       }
     }
     void w;
+    if (best === null && far !== null) return { kind: 'unload', c: far, dist: farD, col: far.cx, row: far.cz };
     return best;
   }
 
@@ -361,8 +364,8 @@ export class ChunkStream {
   private isRequiredNow(cx: number, cz: number): boolean {
     const k = colKey(cx, cz);
     if (this._ready) return this.keepReq !== null && this.tick < this.keepReq.until && this.keepReq.keys.has(k);
-    // 読みこんで 当てた列は required から消える。ready までは reqSeen で覚えておく
-    return this.reqSeen.has(k) || (this.d.required?.() ?? []).some((r) => r.cx === cx && r.cz === cz);
+    // 読みこんで 当てた列は required から消える。ready までは reqSeen で覚えておく（pickStreamJob が 毎回 1 回だけ足す）
+    return this.reqSeen.has(k);
   }
 
   private runStreamJob(j: StreamJob): void {

@@ -217,9 +217,16 @@ export class SaveManager {
 
   /** true のあいだは 保存しない（VOX-D: 新しい世界で 置きものを書くまで） */
   holdWrites = false;
+  /** 保険から戻した起動で、保険のマスを 列に当てるまで（ready まで）書かない・保険も上書きしない */
+  private pendingHold = false;
+
+  /** 保険のマスを当て終わった（ready）。ここから書ける */
+  releasePendingHold(): void {
+    this.pendingHold = false;
+  }
 
   private get on(): boolean {
-    return this.d.store !== null && this.d.db !== null && !this.suspended && !this.restored.readOnly && !this.holdWrites;
+    return this.d.store !== null && this.d.db !== null && !this.suspended && !this.restored.readOnly && !this.holdWrites && !this.pendingHold;
   }
 
   /** 起動のとき: 保存があれば 持ち物・プレイヤーなどを戻す（列は restoreStoredWorld が 世界に入れ済み）。戻したら true */
@@ -234,6 +241,7 @@ export class SaveManager {
       if (this.restored.fromPending) {
         this.forceNext = true;
         if (!this.d.streaming) void this.write(true);
+        else this.pendingHold = true;
       }
       return true;
     } catch {

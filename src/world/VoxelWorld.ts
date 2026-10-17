@@ -859,6 +859,16 @@ export class ChunkedVoxelWorld implements VoxelWorld {
     return true;
   }
 
+  /** 数えなおし待ちの列の数（テスト用） */
+  exposurePending(): number {
+    return this.expPending.size;
+  }
+
+  /** たまった数えなおしを いま片づける（毎コマ renderer から。最初にほる・読む人が 一度に まとめて 作り直しを起こさないように） */
+  settleExposure(): void {
+    if (this.hiddenUsed) this.flushExposure();
+  }
+
   /** 数えなおし待ちの列を 数えなおす（hidden を読む前・ほる前に呼ぶ）。足した空気が 数えずみの列にとどいたら その絵を作りなおす */
   private flushExposure(): void {
     if (this.expPending.size === 0) return;

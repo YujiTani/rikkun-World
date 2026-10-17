@@ -301,10 +301,17 @@ function audioStep(): void {
 // スタートへ もどす。スタートのまわりが 読みこまれていなければ、そろうまで その場で まつ（VOX-D「遠くへ もどる」）
 let streamHost: StreamHost | null = null;
 const spawnPlain = () => ({ ...island.spawn(), pitchDeg: START_PITCH_DEG });
+/** 地形だけで決まる立ち位置の y を、置いたブロックの上まで 上げる（石を置いた上に立つ）。列が読みこまれていなければ そのまま */
+const raiseAboveBlocks = (x: number, y: number, z: number): number => {
+  let yy = y;
+  for (let i = 0; i < 64 && world.isLoaded(Math.floor(x), Math.floor(z)) && !isBodyPlaceable(world, { x, y: yy, z }); i++) yy++;
+  return yy;
+};
 const startPoint = () => {
   const sp = island.spawn();
-  streamHost?.goTo({ x: sp.x, y: sp.y, z: sp.z });
-  return { ...sp, pitchDeg: START_PITCH_DEG };
+  const y = raiseAboveBlocks(sp.x, sp.y, sp.z);
+  streamHost?.goTo({ x: sp.x, y, z: sp.z });
+  return { ...sp, y, pitchDeg: START_PITCH_DEG };
 };
 const controller = new PlayerController(world, game.input, look, lock, startPoint);
 // CHAR-1 第 5 版: 一人称（V）はなくなった。CameraRig は受け取るだけの ActionState を使う
@@ -1147,7 +1154,7 @@ const host = new StreamHost({
   newWorld: !loadedSave,
   applyPlacement: applyPlacementNow,
   pending: restored.pending,
-  placePlayer: (p) => controller.set({ position: { x: p.x, y: p.y, z: p.z }, velocity: { x: 0, y: 0, z: 0 }, yawDeg: p.yawDeg, pitchDeg: p.pitchDeg }),
+  placePlayer: (p) => controller.set({ position: { x: p.x, y: raiseAboveBlocks(p.x, p.y, p.z), z: p.z }, velocity: { x: 0, y: 0, z: 0 }, yawDeg: p.yawDeg, pitchDeg: p.pitchDeg }),
   onColumnsLoaded: () => farm.rescan(),
   onReady: (kind) => {
     if (kind !== 'boot') return;
@@ -1157,7 +1164,10 @@ const host = new StreamHost({
       controller.set({ position: { x: sp.x, y: sp.y, z: sp.z }, velocity: { x: 0, y: 0, z: 0 }, yawDeg: sp.yawDeg, pitchDeg: START_PITCH_DEG });
     }
     // 保険から戻したときの 最初の保存（保険を当てたあと）
-    if (restored.fromPending) void save.now();
+    if (restored.fromPending) {
+      save.releasePendingHold();
+      void save.now();
+    }
   },
 });
 streamHost = host;
