@@ -13,7 +13,6 @@ import {
   BOW_MOTIONS,
   KATANA_MOTIONS,
   MOTIONS,
-  ROWS,
   SPAN,
   defaultLoadImage,
   defaultLoadJson,
@@ -22,7 +21,7 @@ import {
   type AtlasInfo,
   type LoadImage,
 } from './loader';
-import { cellUniforms, unpackCell, type Packed } from './packing';
+import { cellRectCrop, unpackCell, type Packed } from './packing';
 import { BODY_CENTER_Y, HIDE_DISTANCE, bearingDeg, dirIndex, tierFor } from './view';
 
 export interface CharSpriteDeps {
@@ -153,6 +152,16 @@ export function createCharSprite(deps: CharSpriteDeps): CharSprite {
   mesh.frustumCulled = false;
   mesh.visible = false;
   mesh.name = 'charSprite';
+  // 影を落とす板（ShadowSystem）用: 段・向きを 指定して、いまの動き・コマの 四角を rect / crop に書く。絵が まだ無ければ false
+  mesh.userData.cardCell = (t: number, d: number, rect: THREE.Vector4, crop: THREE.Vector4): boolean => {
+    const v = view();
+    const a = loadedInfo[v.motion];
+    if (!textures[v.motion] || !a) return false;
+    const u = cellRectCrop(a, t * 8 + d, v.frame);
+    rect.set(u.rect[0], u.rect[1], u.rect[2], u.rect[3]);
+    crop.set(u.crop[0], u.crop[1], u.crop[2], u.crop[3]);
+    return true;
+  };
   parent.add(mesh);
 
   let modelH = DEFAULT_MODEL_H;
@@ -389,21 +398,12 @@ export function createCharSprite(deps: CharSpriteDeps): CharSprite {
     const tex = textures[v.motion];
     const a = loadedInfo[v.motion];
     if (tex && a) {
-      const f = Math.min(v.frame, a.cols - 1);
       const row = tier * 8 + dir;
       uniforms.uMap!.value = tex;
       (uniforms.uSize!.value as THREE.Vector2).set(a.width, a.height);
-      const rect = uniforms.uRect!.value as THREE.Vector4;
-      const crop = uniforms.uCrop!.value as THREE.Vector4;
-      const cell = a.packed?.cells[row * a.cols + f];
-      if (a.packed && cell) {
-        const u = cellUniforms(cell, a.packed.width, a.packed.height);
-        rect.set(u.rect[0], u.rect[1], u.rect[2], u.rect[3]);
-        crop.set(u.crop[0], u.crop[1], u.crop[2], u.crop[3]);
-      } else {
-        rect.set(f / a.cols, row / ROWS, 1 / a.cols, 1 / ROWS);
-        crop.set(0, 0, 1, 1);
-      }
+      const u = cellRectCrop(a, row, v.frame);
+      (uniforms.uRect!.value as THREE.Vector4).set(u.rect[0], u.rect[1], u.rect[2], u.rect[3]);
+      (uniforms.uCrop!.value as THREE.Vector4).set(u.crop[0], u.crop[1], u.crop[2], u.crop[3]);
     }
     const t = tintValues();
     (uniforms.uTint!.value as THREE.Vector3).set(levelToLinear(t.r), levelToLinear(t.g), levelToLinear(t.b));

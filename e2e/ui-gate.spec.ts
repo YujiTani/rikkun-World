@@ -491,15 +491,19 @@ test('CHAR-2 AC34: 切りつめる前と後で 画面が ドット単位で 同�
     ...[0, 1, 2].map((stance) => ({ id: `kamae-${stance}`, held: 'katana' as const, yaw: 45, pitch: -10, stance })),
     { id: 'bow-full-draw', held: 'yumi', yaw: 90, pitch: -10, draw: true },
   ];
+  // 読みこみ（page.goto）は 重い。持ち物ごと（なし・刀・弓）に 1 回だけ読んで、場面を 続けて撮る。
+  // 2 回（切りつめ・もとの格子）とも 同じ順・同じ手順なので 決定的。かまえは 前の場面からの 差だけ 押す
+  const groups = (['none', 'katana', 'yumi'] as const).map((held) => scenes.filter((sc) => sc.held === held));
   const shoot = async (query: string): Promise<Record<string, Buffer>> => {
     const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
     const page = await ctx.newPage();
     const out: Record<string, Buffer> = {};
     try {
-      for (const sc of scenes) {
+      for (const group of groups) {
+        const first = group[0]!;
         await page.goto(`/?nosave=1${query}`);
         await page.waitForFunction(() => window.__rikkun?.ready === true);
-        const names = sc.held === 'katana' ? CHAR2_KATANA : sc.held === 'yumi' ? CHAR2_BOW : ['idle', 'walk', 'run', 'jump'];
+        const names = first.held === 'katana' ? CHAR2_KATANA : first.held === 'yumi' ? CHAR2_BOW : ['idle', 'walk', 'run', 'jump'];
         await page.evaluate(() => {
           const h = window.__rikkun! as any;
           h.pause();
@@ -512,46 +516,53 @@ test('CHAR-2 AC34: 切りつめる前と後で 画面が ドット単位で 同�
           h.time.set(0);
           h.inventory.clear();
         });
-        await standOnGround(page, 20.5, 20.5, { yaw: sc.yaw, pitch: sc.pitch });
-        await page.evaluate((sc) => {
-          const h = window.__rikkun! as any;
-          if (sc.held !== 'none') {
-            h.inventory.setSlot(0, { item: sc.held, count: 1 });
-            if (sc.held === 'yumi') h.inventory.setSlot(1, { item: 'ya', count: 5 });
-            h.inventory.select(0);
-          }
-          h.step(1);
-        }, sc);
-        await page.waitForFunction((ns) => {
-          const h = window.__rikkun! as any;
-          h.step(1);
-          const st = h.player.doll().sprite.status;
-          return ns.every((n: string) => st?.[n] === 'ready');
-        }, names, { timeout: 10_000 });
-        // 世界の光とメッシュが落ちつくまで進める（作る順番は 機械の速さで変わる。落ちつけば 2 回の撮影は 同じ世界）
-        await page.evaluate(() => {
-          const h = window.__rikkun! as any;
-          for (let n = 0; (h.world.lightPending() > 0 || h.world.meshStats().pending > 0) && n < 3000; n += 5) h.step(5);
-          h.step(2);
-          // 待ったステップの数は 機械の速さで ちがう。キャラの コマの数え（立ち 45 ステップに 1 コマ）を ここから数えなおす
-          h.player.doll().sprite.restartMotion();
-        });
-        await page.evaluate((sc) => {
-          const h = window.__rikkun! as any;
-          for (let i = 0; i < (sc.stance ?? 0); i++) {
-            h.input.press('stanceNext');
+        let stanceNow = 0;
+        for (const sc of group) {
+          await standOnGround(page, 20.5, 20.5, { yaw: sc.yaw, pitch: sc.pitch });
+          await page.evaluate((sc) => {
+            const h = window.__rikkun! as any;
+            if (sc.held !== 'none') {
+              h.inventory.setSlot(0, { item: sc.held, count: 1 });
+              if (sc.held === 'yumi') h.inventory.setSlot(1, { item: 'ya', count: 5 });
+              h.inventory.select(0);
+            }
             h.step(1);
-            h.input.release('stanceNext');
-            h.step(10);
+          }, sc);
+          if (sc === first) {
+            await page.waitForFunction((ns) => {
+              const h = window.__rikkun! as any;
+              h.step(1);
+              const st = h.player.doll().sprite.status;
+              return ns.every((n: string) => st?.[n] === 'ready');
+            }, names, { timeout: 10_000 });
           }
-          h.step(30);
-          if (sc.draw) {
-            h.input.press('primary');
-            h.step(45);
-          }
-        }, sc);
-        await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
-        out[sc.id] = await page.screenshot();
+          // 世界の光とメッシュが落ちつくまで進める（作る順番は 機械の速さで変わる。落ちつけば 2 回の撮影は 同じ世界）
+          await page.evaluate(() => {
+            const h = window.__rikkun! as any;
+            for (let n = 0; (h.world.lightPending() > 0 || h.world.meshStats().pending > 0) && n < 3000; n += 5) h.step(5);
+            h.step(2);
+            // 待ったステップの数は 機械の速さで ちがう。キャラの コマの数え（立ち 45 ステップに 1 コマ）を ここから数えなおす
+            h.player.doll().sprite.restartMotion();
+          });
+          const presses = (sc.stance ?? 0) - stanceNow;
+          stanceNow = sc.stance ?? 0;
+          await page.evaluate(([sc, presses]) => {
+            const h = window.__rikkun! as any;
+            for (let i = 0; i < presses; i++) {
+              h.input.press('stanceNext');
+              h.step(1);
+              h.input.release('stanceNext');
+              h.step(10);
+            }
+            h.step(30);
+            if (sc.draw) {
+              h.input.press('primary');
+              h.step(45);
+            }
+          }, [sc, presses] as const);
+          await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+          out[sc.id] = await page.screenshot();
+        }
       }
     } finally {
       await ctx.close();

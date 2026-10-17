@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { decodePng } from '../../scripts/pack-char-atlas.mjs';
 import { quantizeRgba, PALETTE_RGB } from './palette';
-import { cellUniforms, shaderTexel, unpackCell, type Cell } from './packing';
+import { cellUniforms, cellRectCrop, shaderTexel, unpackCell, type Cell } from './packing';
 import { createCharSprite } from './index';
 import type { LoadImage } from './loader';
 import * as THREE from 'three';
@@ -103,4 +103,24 @@ describe('AC33 readCell (Promise)', () => {
     }
     sprite.dispose();
   }, 120000);
+});
+
+describe('cellRectCrop: 動きの 絵から 段・コマの 四角を 決める（板と 影の板で 同じ）', () => {
+  it('格子の絵（packed なし）は コマ = 格子の 1 つ、crop はコマ全体', () => {
+    const r = cellRectCrop({ cols: 4, packed: undefined, width: 1024, height: 6144 }, 9, 3);
+    expect(r.rect).toEqual([3 / 4, 9 / 24, 1 / 4, 1 / 24]);
+    expect(r.crop).toEqual([0, 0, 1, 1]);
+  });
+  it('コマ番号は cols - 1 までにおさえる', () => {
+    const r = cellRectCrop({ cols: 4, packed: undefined, width: 1024, height: 6144 }, 0, 9);
+    expect(r.rect[0]).toBe(3 / 4);
+  });
+  it('packed があれば cellUniforms と同じ', () => {
+    const cells: Cell[] = [];
+    for (let i = 0; i < 48; i++) cells.push([i, 2 * i, 20 + i, 30, 5, 6]);
+    const packed = { width: 100, height: 200, cells };
+    const r = cellRectCrop({ cols: 2, packed, width: 100, height: 200 }, 5, 1);
+    const u = cellUniforms(cells[5 * 2 + 1]!, 100, 200);
+    expect(r).toEqual(u);
+  });
 });

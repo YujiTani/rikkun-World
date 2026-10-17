@@ -55,6 +55,19 @@ export function cellUniforms(cell: Cell, W: number, H: number): CellUniforms {
   };
 }
 
+/**
+ * 動き 1 まいの絵（cols コマ）から、段・向きの行 row（段 × 8 + 向き）・コマ f の 四角と ずれを決める。
+ * 板（sprite.ts）と 影を落とす板（ShadowSystem）で 同じ計算を使う。packed が無い 格子の絵は 四角 = 格子の 1 つ・crop = コマ全体
+ */
+export function cellRectCrop(a: { cols: number; width: number; height: number; packed?: Packed | undefined }, row: number, frame: number): CellUniforms {
+  const f = Math.max(0, Math.min(frame, a.cols - 1));
+  const cell = a.packed?.cells[row * a.cols + f];
+  if (a.packed && cell) return cellUniforms(cell, a.packed.width, a.packed.height);
+  return { rect: [f / a.cols, row / GRID_ROWS, 1 / a.cols, 1 / GRID_ROWS], crop: [0, 0, 1, 1] };
+}
+
+const GRID_ROWS = 24;
+
 const f = Math.fround;
 
 /**

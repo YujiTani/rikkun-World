@@ -282,3 +282,57 @@ describe('テスト用: 動きの はじめにもどす（restartMotion）', () 
     expect(b).toBe(0);
   });
 });
+
+describe('影の板が 使う cardCell（段・向きを 指定して いまの動き・コマの 四角を 引く）', () => {
+  it('格子の絵: 段 0・向き dir の 行、いまのコマ。絵が まだ なければ false', async () => {
+    const { sprite, parent } = make(makeLoader().loadImage);
+    const mesh = parent.getObjectByName('charSprite') as THREE.Mesh;
+    const cardCell = mesh.userData.cardCell as (t: number, d: number, rect: THREE.Vector4, crop: THREE.Vector4) => boolean;
+    const rect = new THREE.Vector4();
+    const crop = new THREE.Vector4();
+    expect(cardCell(0, 3, rect, crop)).toBe(false);
+    await flush();
+    step(sprite, {});
+    sprite.render();
+    expect(cardCell(0, 3, rect, crop)).toBe(true);
+    expect(rect.toArray()).toEqual([0, 3 / 24, 1 / COLS, 1 / 24]);
+    expect(crop.toArray()).toEqual([0, 0, 1, 1]);
+    expect(cardCell(1, 5, rect, crop)).toBe(true);
+    expect(rect.y).toBe(13 / 24);
+  });
+
+  it('切りつめた絵: packed の 四角と 詰めたときの ずれ。uSize は 板と同じ入れ物', async () => {
+    const PW = 10;
+    const cells: number[][] = [];
+    for (let i = 0; i < 24; i++) cells.push([0, i * 10, PW, 10, i, 2]);
+    const loadImage: LoadImage = async (url) => {
+      if (!/idle\.png$/.test(url)) throw new Error('no png');
+      const data = new Uint8ClampedArray(PW * 240 * 4);
+      const c = PALETTE_RGB[0]!;
+      for (let i = 0; i < PW * 240; i++) data.set([c[0], c[1], c[2], 255], i * 4);
+      return { width: PW, height: 240, data } as unknown as ImageData;
+    };
+    const parent = new THREE.Group();
+    const sprite = createCharSprite({
+      parent,
+      camera: new THREE.PerspectiveCamera(),
+      lighting: new Lighting(),
+      basePath: './models/char/',
+      loadJson: async () => ({ modelH: 1.7, motions: { idle: { frames: 1, fps: 0, packed: { width: PW, height: 240, cells } } } }),
+      loadImage,
+      initTexture: (t) => t.onUpdate?.(t as never),
+    });
+    await flush();
+    step(sprite, {});
+    sprite.render();
+    const mesh = parent.getObjectByName('charSprite') as THREE.Mesh;
+    const cardCell = mesh.userData.cardCell as (t: number, d: number, rect: THREE.Vector4, crop: THREE.Vector4) => boolean;
+    const rect = new THREE.Vector4();
+    const crop = new THREE.Vector4();
+    expect(cardCell(0, 3, rect, crop)).toBe(true);
+    expect(rect.toArray()).toEqual([0, 30 / 240, 10 / PW, 10 / 240]);
+    expect(crop.toArray()).toEqual([3 / 256, 2 / 256, 10 / 256, 10 / 256]);
+    const mat = mesh.material as THREE.ShaderMaterial;
+    expect((mat.uniforms.uSize!.value as THREE.Vector2).toArray()).toEqual([PW, 240]);
+  });
+});
