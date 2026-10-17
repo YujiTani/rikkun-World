@@ -593,11 +593,14 @@ const dig = new DigSystemImpl(
     vitals: combat,
     blade,
     w2,
+    yokai: () => yokaiManager!,
   },
 );
 // ねらいの線・矢・刀・パンチの出どころは 目でなく 回転の中心 P（CHAR-1 §4.5）
 dig.aimOrigin = (_p, out) => rig.aimOrigin(out); // ねらいの線の出どころは 肩の点 S
 dig.reachOrigin = (p, out) => aimPivot(world, p.position, out); // 届く距離は P から
+// WEAPON-3: 体の点 B = P の 真上で 肩の点 S と 同じ高さ（右へは ずらさない）
+dig.bodyOrigin = (_p, out) => rig.aimOrigin(out);
 // ねらい補助の 設定（settings の aimAssistDeg）と、そのつなぎ（CHAR-1 第 5.2 版 §4.5）
 const aimCfg = { aimAssistDeg: 4 };
 const assistP = { x: 0, y: 0, z: 0 };
@@ -1241,7 +1244,9 @@ game.onUpdate((dt) => {
     controller.motion.speedMul = bm.speedMul * wm.speedMul;
     controller.motion.jumpLocked = bm.jumpLocked || wm.jumpLocked;
     // CHAR-2: わざのあいだは 向きを わざの向きに 固定（わざを始めたステップは あとで その場で）
-    controller.motion.faceDeg = blade.state().move?.dirDeg ?? null;
+    // WEAPON-3: 刀の わざ・パンチの あいだは 攻撃の向き u。攻撃・空ぶりは ＋マークへ 回らない（leftAims）
+    controller.motion.faceDeg = dig.attackFaceDeg();
+    controller.motion.leftAims = !['attack', 'whiff'].includes(dig.attackPreview().use);
     controller.motion.stopNow = false;
   }
   // 空の光の弱まりを先に今の時刻にそろえる（妖怪の出現の「暗い所」がこれを読む。Sky は あとで画面ぶんを更新）
@@ -1258,10 +1263,10 @@ game.onUpdate((dt) => {
     const st = controller.state;
     const bs = blade.state();
     // わざを始めた ステップ: その場で わざの向きを向き、水平の速さを 0 に
-    if (bs.move !== null && bs.frame === 1) {
-      st.facingDeg = ((bs.move.dirDeg % 360) + 360) % 360;
-      st.velocity.x = st.velocity.z = 0;
-    }
+    const faceU = dig.attackFaceDeg();
+    if (faceU !== null) st.facingDeg = ((faceU % 360) + 360) % 360;
+    rig.doll.setArcDir(st.facingDeg);
+    if (bs.move !== null && bs.frame === 1) st.velocity.x = st.velocity.z = 0;
     const bowPose = tools.bow().state();
     const held = inventory.held()?.item ?? null;
     const weapon = bs.item !== null ? 'katana' : held === 'yumi' ? 'bow' : 'none';
@@ -1605,6 +1610,7 @@ installTestHook(game, overlay, {
   bow: toolHook.bow,
   ...createYokaiHook(yokaiM),
   ...createBladeHook(blade, () => weaponFx.trailInfo()),
+  attack: { preview: () => dig.attackPreview(), last: () => dig.attackLast() },
   camera: cameraHook.camera,
   aim: {
     /** ねらいの点 X（§4.5） */

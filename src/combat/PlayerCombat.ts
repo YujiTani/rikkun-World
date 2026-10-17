@@ -18,6 +18,7 @@ import { createW2Settings } from '../contracts';
 import { isBladeItem } from '../tools/blade';
 import { DropField, type DropView } from '../drops';
 import { createRng, type Rng } from '../world/gen/random';
+import { centerOfYokai, inPunchFan, wallBetween, type AttackDecision } from './attackFacing';
 import {
   BODY_HALF,
   BODY_HEIGHT,
@@ -55,11 +56,13 @@ export interface PunchGate {
    * 毎ステップ呼ぶ。パンチを進める。このステップが「パンチ」なら true（ほらない）。
    * blockDistance: 線がブロックにふれる距離（なければ null）
    */
-  primaryStep(primary: boolean, eye: Vec3, dir: Vec3, blockDistance: number | null): boolean;
+  primaryStep(primary: boolean, eye: Vec3, dir: Vec3, blockDistance: number | null, attack?: AttackDecision | null): boolean;
   /** 左クリックしたら 妖怪をたたくか（とどく距離内で いちばん手前が妖怪。ヒント用。primaryStep と同じ判定） */
   aimsYokai?(eye: Vec3, dir: Vec3, blockDistance: number | null): boolean;
   /** 同じ判定で、ねらっている妖怪の id（いなければ null。ふちどり用） */
   aimedYokai?(eye: Vec3, dir: Vec3, blockDistance: number | null): number | null;
+  /** WEAPON-3: パンチの 間は その向き u（始めた ステップで 固定）。そうでなければ（古い 線で 当てる ときも）null */
+  punchDirDeg?(): number | null;
   /** そのマスに妖怪の当たりの箱があるか（ブロックを置けない） */
   placeBlocked(x: number, y: number, z: number): boolean;
 }
@@ -103,6 +106,8 @@ export interface CombatDeps {
   onPickup?: (item: ItemId, count: number) => void;
   /** CHAR-1 第 5.2 版 §4.5: 届く距離の はかり始め P を `out` に入れる（なければ 線の出どころ（S）から はかる） */
   reachOrigin?: (out: Vec3) => Vec3;
+  /** WEAPON-3: 体の点 B を `out` に入れる（かべごしの 線の 出どころ。なければ 足もと + 1.40） */
+  bodyPoint?: (out: Vec3) => Vec3;
   /** CHAR-1 第 5.2 版 §4.5: S からの線が 妖怪に当たらないときの「やさしい ねらい補助」。えらんだ妖怪の id か null */
   assist?: (eye: Vec3, dir: Vec3, reach: number) => number | null;
 }
@@ -159,6 +164,11 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
   private pTicks = 30;
   /** いまのパンチを始めたときに 持っていた もの（たいきゅうを へらす 先の 見分け用） */
   private pItem: ItemId | null = null;
+  /** WEAPON-3: パンチを 始めた ステップの 向き u と えらんだ 妖怪（legacy = 線で 当てる ときは null） */
+  private pDir: number | null = null;
+  private pTarget: number | null = null;
+  private readonly bodyTmp: Vec3 = { x: 0, y: 0, z: 0 };
+  private readonly centerTmp: Vec3 = { x: 0, y: 0, z: 0 };
   private readonly w2: W2Settings;
   private readonly reachTmp: Vec3 = { x: 0, y: 0, z: 0 };
   /** 直前の妖怪のねらいが 補助で えらばれた妖怪の id（線がそのまま当たったときと いないときは null。テストの窓口用） */
@@ -309,7 +319,7 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
     return a;
   }
 
-  primaryStep(primary: boolean, eye: Vec3, dir: Vec3, blockDistance: number | null): boolean {
+  primaryStep(primary: boolean, eye: Vec3, dir: Vec3, blockDistance: number | null, attack?: AttackDecision | null): boolean {
     if (this.isDead) {
       this.punchTickNow = 0;
       return false;
@@ -329,16 +339,26 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
       return true;
     }
     if (!primary) return false;
-    // とどく距離内で いちばん手前が妖怪ならパンチ（遠い妖怪は無視。ブロックはふつうにほれる）
     const tp = this.d.tool?.punchParams();
     const reach = tp ? tp.reach : cfg.punchReach;
-    if (this.pickYokai(eye, dir, blockDistance, reach) === null) return false;
+    // WEAPON-3: 向きの決まり（attack）が わたされたら (1)(2) の とき だけ パンチ。わたされなければ 今までどおり 線で 見る
+    if (attack !== undefined) {
+      if (attack === null || attack.use !== 'attack' || attack.dirDeg === null) return false;
+      this.pDir = attack.dirDeg;
+      this.pTarget = attack.targetId;
+    } else {
+      // とどく距離内で いちばん手前が妖怪ならパンチ（遠い妖怪は無視。ブロックはふつうにほれる）
+      if (this.pickYokai(eye, dir, blockDistance, reach) === null) return false;
+      this.pDir = null;
+      this.pTarget = null;
+    }
     this.pDamage = tp ? tp.damage : cfg.punchDamage;
     this.pReach = reach;
     this.pTicks = tp ? tp.ticks : cfg.punchTicks;
     this.pItem = this.d.inventory.held()?.item ?? null;
     this.punchTickNow = 1;
-    this.emit({ type: 'punchStart', tick: this.tickCount });
+    if (this.pDir !== null) this.emit({ type: 'punchStart', tick: this.tickCount, dirDeg: this.pDir, targetId: this.pTarget });
+    else this.emit({ type: 'punchStart', tick: this.tickCount });
     this.d.tool?.onPunchStart();
     if (this.pTicks <= 1) {
       this.punchTickNow = 0;
@@ -347,9 +367,38 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
     return true;
   }
 
+  /** パンチの 向き u（始めた ステップで 固定）。legacy のときは null */
+  punchDirDeg(): number | null {
+    return this.punchTickNow > 0 ? this.pDir : null;
+  }
+
+  /** 当たる ステップ: その時の P から 扇の柱（§4.5）で 1 体。T が 扇の中なら T、なければ 扇の中で P に いちばん 近い 1 体 */
+  private pickInFan(): number | null {
+    const st = this.d.player.get();
+    const P = st.position;
+    const u = this.pDir!;
+    const shape = this.w2.punchShape;
+    const body = this.d.bodyPoint ? this.d.bodyPoint(this.bodyTmp) : ((this.bodyTmp.x = P.x), (this.bodyTmp.y = P.y + 1.4), (this.bodyTmp.z = P.z), this.bodyTmp);
+    let best: number | null = null;
+    let bestD = Infinity;
+    for (const y of this.d.yokai().list()) {
+      if (y.state === 'dying' || y.state === 'leaving') continue;
+      if (!inPunchFan(P, u, shape, this.pReach, y)) continue;
+      const c = centerOfYokai(y, this.centerTmp);
+      if (wallBetween(this.d.world, body, c.x, c.y, c.z)) continue;
+      if (y.id === this.pTarget) return y.id;
+      const dh = Math.hypot(c.x - P.x, c.z - P.z);
+      if (dh < bestD - 1e-9 || (Math.abs(dh - bestD) <= 1e-9 && best !== null && y.id < best)) {
+        bestD = dh;
+        best = y.id;
+      }
+    }
+    return best;
+  }
+
   private resolvePunch(eye: Vec3, dir: Vec3, blockDistance: number | null): void {
     const yw = this.d.yokai();
-    const id = this.pickYokai(eye, dir, blockDistance, this.pReach);
+    const id = this.pDir !== null ? this.pickInFan() : this.pickYokai(eye, dir, blockDistance, this.pReach);
     if (id !== null) {
       this.emit({ type: 'punchHit', tick: this.tickCount, yokaiId: id });
       yw.damage(id, this.pDamage, { ...this.d.player.get().position });

@@ -40,7 +40,7 @@ export function moveState(settings: W2Settings, item: ItemId, tech: BladeTech, f
   const len = settings.bladeTech[tech];
   const phase = f <= len.startup ? 'startup' : f <= len.startup + len.active ? 'active' : 'recovery';
   const target = techAdvance(settings.bladeAdvance[tech], W2_SETTING_DEFAULTS.bladeTech[tech], len, f);
-  return { item, stance: STANCE_OF[tech], tech, phase, frame: f, buffered: null, switchFrom: null, move: { dirDeg, origin, target, moved: target } };
+  return { item, stance: STANCE_OF[tech], tech, phase, frame: f, buffered: null, switchFrom: null, move: { dirDeg, origin, target, moved: target, tiltDeg: 0 } };
 }
 
 export function idleState(item: ItemId | null, stance: BladeState['stance'] = 'chudan'): BladeState {

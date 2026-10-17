@@ -25,6 +25,8 @@ import type {
   BucketPort,
   BucketPreview,
   WaterRay,
+  YokaiInfo,
+  YokaiWorld,
 } from '../contracts';
 import type { Action, ActionState } from '../input/actions';
 import { cropKindOfBlock, seedKindOfItem, vegKindOfItem } from '../contracts';
@@ -32,6 +34,7 @@ import { itemType } from '../inventory/items';
 import { BODY_H, BODY_W, FARM_BREAK_DROP, createDigConfig, type DigConfig } from './config';
 import { createRng, randInt, type Rng } from '../world/gen/random';
 import type { PunchGate } from '../combat/PlayerCombat';
+import { centerOfYokai, decideAttack, type AttackDecision, type AttackHold } from '../combat/attackFacing';
 import { lookDirection, raycastBlocks } from './raycast';
 import { isBladeItem } from '../tools/blade/BladeSystem';
 import { blockFamily, effectivePower, toolFamily, toolRank } from './toolFamily';
@@ -59,6 +62,8 @@ export interface DigToolPort {
   pushSwing(anim: SwingAnim): void;
   /** 何もない所を振った（武器なら武器の振り） */
   swingWhiff(): void;
+  /** WEAPON-3: 今の 持ち物の パンチの 届く距離（なければ 3.5） */
+  punchParams?(): { damage: number; reach: number; ticks: number };
 }
 
 /** M4 の つなぎ目（どれもなくてよい。なければ M2 のとおり） */
@@ -93,6 +98,20 @@ export interface DigM4Deps {
   blade?: Pick<BladeSystem, 'update' | 'state'>;
   /** WEAPON-2: たいきゅうの へる量（ほる・たがやす）。なければ へらさない */
   w2?: W2Settings;
+  /** WEAPON-3: 妖怪の 世界（一覧を 向きの決まりに わたす）。`blade`・`w2` と そろっていれば 近接の 攻撃は 向いている方へ */
+  yokai?: () => YokaiWorld;
+}
+
+/** WEAPON-3: さいごに 始めた 攻撃（`attack.last()`） */
+export interface AttackLast {
+  tick: number;
+  kind: 'blade' | 'punch';
+  rule: number;
+  baseDeg: number;
+  keyDeg: number | null;
+  dirDeg: number;
+  targetId: number | null;
+  tiltDeg: number;
 }
 
 /** DigSystem が使う たんす の窓口（M6 §2.9） */
@@ -107,6 +126,8 @@ export interface DigStoragePort {
 }
 
 const NO_DIG_EVENTS: DigEvent[] = [];
+
+const TECH_OF_STANCE = { chudan: 'thrust', jodan: 'kesa', gedan: 'kiriage' } as const;
 
 /** ほる時間（ステップ。すでの強さで数える）。かたさ × 60 ÷ 強さ、切り上げ。ほれないなら理由 */
 export function digSteps(
@@ -184,6 +205,15 @@ export class DigSystemImpl implements DigSystem {
    */
   reachOrigin?: (player: PlayerState, out: Vec3) => Vec3;
   private readonly reachScratch = { x: 0, y: 0, z: 0 };
+
+  /** WEAPON-3: 体の点 B（P の 真上・肩の高さ）。つなぎ込みが `aimOrigin` の 高さで 入れる。なければ 足もと + 1.40 */
+  bodyOrigin?: (player: PlayerState, out: Vec3) => Vec3;
+  private readonly bodyScratch = { x: 0, y: 0, z: 0 };
+  private readonly pvDir = { x: 0, y: 0, z: 0 };
+  private readonly pvOrigin = { x: 0, y: 0, z: 0 };
+  private readonly targetScratch = { x: 0, y: 0, z: 0 };
+  private lastAttack: AttackLast | null = null;
+  private prevPunchDir: number | null = null;
 
   /** 出どころ o から d の向きの線で ねらうブロック（reachOrigin があれば その点から reach 以内のものだけ）。distance は o から */
   private aimBlock(p: PlayerState, o: Vec3, d: Vec3): TargetInfo | null {
@@ -272,6 +302,16 @@ export class DigSystemImpl implements DigSystem {
   }
 
   update(): void {
+    this.listCacheTick = -1;
+    this.inUpdate = true;
+    try {
+      this.updateInner();
+    } finally {
+      this.inUpdate = false;
+    }
+  }
+
+  private updateInner(): void {
     const enabled = this.lock.playInputEnabled() && !this.gate?.blocksInput();
 
     // ホットバー
@@ -298,8 +338,10 @@ export class DigSystemImpl implements DigSystem {
     const bow = tools?.current().kind === 'bow';
     // ゆみ を持っているあいだは ほる・たたく をしない（や は tools が飛ばす）
     let primary = primaryRaw && !bow;
-    // 刀（WEAPON-2 §2.1-6）: 照準の線で いちばん 手前が 妖怪（4.5 以内）か 何も ない → わざ。作物・ブロック → しゅうかく・ほる
+    // 刀（WEAPON-2 §2.1-6・WEAPON-3 §4.4）: 向いている方の 妖怪（1）・＋マークで ねらった 妖怪（2）・何もない（4）→ わざ。作物・ブロック → しゅうかく・ほる
     const blade = this.m4.blade;
+    const list = enabled && !bow ? this.yokaiList() : null;
+    const dec = enabled && !bow ? this.buildDecision(p, d, o, this.tgt, list) : null;
     if (blade) {
       const held = this.inventory.held()?.item ?? null;
       const bladeItem = isBladeItem(held) ? held : null;
@@ -307,10 +349,14 @@ export class DigSystemImpl implements DigSystem {
       if (bladeItem && enabled) {
         if (blade.state().phase !== 'idle') tech = true;
         else if (primaryRaw) {
-          const y = this.gate?.aimedYokai?.(eye, d, this.tgt?.distance ?? null) ?? null;
-          tech = y !== null || !this.tgt;
+          if (dec) tech = dec.use === 'attack' || dec.use === 'whiff';
+          else {
+            const y = this.gate?.aimedYokai?.(eye, d, this.tgt?.distance ?? null) ?? null;
+            tech = y !== null || !this.tgt;
+          }
         }
       }
+      const body = this.bodyPoint(p, this.bodyScratch);
       blade.update({
         item: bladeItem,
         techPressed: tech && primaryRaw && (!this.prevPrimaryRaw || this.actions.wasPressed('primary')),
@@ -321,12 +367,34 @@ export class DigSystemImpl implements DigSystem {
         position: p.position,
         yawDeg: p.yawDeg,
         active: enabled,
+        body,
+        attackDirDeg: dec?.dirDeg ?? p.yawDeg,
+        attackTarget: dec && dec.targetId !== null && list ? this.targetCenter(list, dec.targetId) : null,
       });
       if (tech) primary = false;
+      if (dec && bladeItem) {
+        const bs = blade.state();
+        if (bs.tech !== null && bs.frame === 1 && bs.move) {
+          this.lastAttack = {
+            tick: this.tickCount, kind: 'blade', rule: dec.rule ?? 4, baseDeg: dec.baseDeg, keyDeg: dec.keyDeg,
+            dirDeg: bs.move.dirDeg, targetId: dec.targetId, tiltDeg: bs.move.tiltDeg,
+          };
+        }
+      }
     }
     this.prevPrimaryRaw = primaryRaw;
     tools?.step(primaryRaw, eye, d);
-    this.punching = this.gate ? this.gate.primaryStep(primary, eye, d, this.tgt?.distance ?? null) : false;
+    this.punching = this.gate ? this.gate.primaryStep(primary, eye, d, this.tgt?.distance ?? null, dec ?? undefined) : false;
+    {
+      const pd = this.gate?.punchDirDeg?.() ?? null;
+      if (pd !== null && this.prevPunchDir === null && dec) {
+        this.lastAttack = {
+          tick: this.tickCount, kind: 'punch', rule: dec.rule ?? 4, baseDeg: dec.baseDeg, keyDeg: dec.keyDeg,
+          dirDeg: pd, targetId: dec.targetId, tiltDeg: 0,
+        };
+      }
+      this.prevPunchDir = pd;
+    }
     this.updateWhiff(primary, secondary);
     this.toolHintModel.tick(this.inventory.selected());
     this.updateDig(primary);
@@ -827,6 +895,108 @@ export class DigSystemImpl implements DigSystem {
     return !!t && !!h && !!this.m4.farm && seedKindOfItem(h) !== null && (t.id === 'grass' || t.id === 'dirt');
   }
 
+  // ---------------------------------------------------------------- WEAPON-3: 近接の 攻撃の 向き
+
+  private listCache: YokaiInfo[] = [];
+  private listCacheTick = -1;
+  private inUpdate = false;
+
+  /** 妖怪の 一覧。1 ステップに 1 回だけ 作る（歩数が 変わったときだけ 取り直す） */
+  private yokaiList(): YokaiInfo[] {
+    if (!this.m4.yokai) return [];
+    // update() の中だけ キャッシュ(1 ステップ 1 回)。外から 呼ばれたときは 毎回 取り直す
+    if (!this.inUpdate) return this.m4.yokai().list();
+    if (this.listCacheTick !== this.tickCount) {
+      this.listCache = this.m4.yokai().list();
+      this.listCacheTick = this.tickCount;
+    }
+    return this.listCache;
+  }
+
+  private targetCenter(list: YokaiInfo[], id: number): Vec3 | null {
+    for (const y of list) if (y.id === id) return { ...centerOfYokai(y, this.targetScratch) };
+    return null;
+  }
+
+  /** 体の点 B: P の 真上（肩の高さ）。右へは ずらさない */
+  private bodyPoint(p: PlayerState, out: Vec3): Vec3 {
+    if (this.bodyOrigin) {
+      this.bodyOrigin(p, out);
+      out.x = p.position.x;
+      out.z = p.position.z;
+      return out;
+    }
+    out.x = p.position.x;
+    out.y = p.position.y + 1.4;
+    out.z = p.position.z;
+    return out;
+  }
+
+  /** 今の 持ち物の 近接の なかま（弓は bow） */
+  private holdKind(): AttackHold {
+    if (this.m4.tools?.current().kind === 'bow') return 'bow';
+    return isBladeItem(this.inventory.held()?.item) ? 'blade' : 'punch';
+  }
+
+  /** 向きの決まり（§4.4）。つなぎが そろっていなければ null（今までの 線で 決める） */
+  private buildDecision(p: PlayerState, d: Vec3, o: Vec3, tgt: TargetInfo | null, list: YokaiInfo[] | null): AttackDecision | null {
+    const w2 = this.m4.w2;
+    if (!w2 || !this.m4.yokai || !this.gate || !list) return null;
+    const hold = this.holdKind();
+    if (hold === 'blade' && !this.m4.blade) return null;
+    const a = this.actions;
+    const aimYokai = this.gate.aimedYokai?.(o, d, tgt?.distance ?? null) ?? null;
+    const block: 'block' | 'crop' | null = tgt ? (this.m4.farm && cropKindOfBlock(tgt.id) ? 'crop' : 'block') : null;
+    return decideAttack({
+      settings: w2,
+      hold,
+      tech: hold === 'blade' ? TECH_OF_STANCE[this.m4.blade!.state().stance] : 'thrust',
+      punchReach: this.m4.tools?.punchParams?.().reach ?? 3.5,
+      yawDeg: p.yawDeg,
+      facingDeg: p.facingDeg,
+      keys: {
+        forward: a.isHeld('moveForward'),
+        back: a.isHeld('moveBack'),
+        right: a.isHeld('moveRight'),
+        left: a.isHeld('moveLeft'),
+      },
+      position: p.position,
+      body: this.bodyPoint(p, this.bodyScratch),
+      yokai: list,
+      world: this.world,
+      aim: { yokaiId: aimYokai, block },
+    });
+  }
+
+  /** 今 決め直した 向きの決まり（遊べない間・弓・つなぎがない間は null） */
+  private freshDecision(): AttackDecision | null {
+    if (!this.lock.playInputEnabled() || this.gate?.blocksInput()) return null;
+    if (!this.m4.w2 || !this.m4.yokai || this.m4.tools?.current().kind === 'bow') return null;
+    const p = this.player();
+    const d = lookDirection(p.yawDeg, p.pitchDeg, this.pvDir);
+    const o = this.origin(p, this.pvOrigin);
+    return this.buildDecision(p, d, o, this.aimBlock(p, o, d), this.yokaiList());
+  }
+
+  /** `attack.preview()`（§4.8）: 今 左クリックしたら どうなるか */
+  attackPreview(): { use: 'attack' | 'dig' | 'harvest' | 'whiff' | 'none'; rule: 1 | 2 | 3 | 4 | null; dirDeg: number | null; targetId: number | null } {
+    const dec = this.freshDecision();
+    if (!dec) return { use: 'none', rule: null, dirDeg: null, targetId: null };
+    return { use: dec.use, rule: dec.rule, dirDeg: dec.dirDeg, targetId: dec.targetId };
+  }
+
+  /** `attack.last()`（§4.8）: さいごに 始めた 攻撃。まだなければ null */
+  attackLast(): AttackLast | null {
+    return this.lastAttack ? { ...this.lastAttack } : null;
+  }
+
+  /** 刀の わざ・パンチの 間は 攻撃の向き u。そうでなければ null（キャラの向きを u に 固定する） */
+  attackFaceDeg(): number | null {
+    const mv = this.m4.blade?.state().move;
+    if (mv) return mv.dirDeg;
+    return this.gate?.punchDirDeg?.() ?? null;
+  }
+
   /** 今、左クリックしたら 何をするか（たたく・ほる・や を うつ）。出すヒントの薄い行用（妖怪が手前なら 'hit'） */
   previewLeftClick(): LeftClickKind | null {
     if (!this.lock.playInputEnabled() || this.gate?.blocksInput()) return null;
@@ -842,6 +1012,9 @@ export class DigSystemImpl implements DigSystem {
   /** ねらっている（手前の・とどく距離内の）妖怪の id。たたく ヒントとふちどりが同じ判定を使う。遊べない間は null */
   aimedYokaiId(): number | null {
     if (!this.gate?.aimedYokai || !this.lock.playInputEnabled() || this.gate.blocksInput()) return null;
+    // WEAPON-3: 刀・パンチの 持ち物では、毎ステップ「今 左クリックしたら 攻撃する 妖怪」（§4.4 の (1)・(2)）
+    const dec = this.freshDecision();
+    if (dec) return dec.use === 'attack' ? dec.targetId : null;
     const p = this.player();
     const eye = this.origin(p, this.yokaiOriginScratch);
     return this.gate.aimedYokai(eye, lookDirection(p.yawDeg, p.pitchDeg, this.dir), this.tgt?.distance ?? null);

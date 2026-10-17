@@ -31,8 +31,10 @@ function rig() {
     return {
       item, techPressed: false, techHeld: false, stancePressed: false,
       eye: { x: p.x, y: p.y + 1.62, z: p.z }, dir: { x: Math.sin((yaw * Math.PI) / 180), y: 0, z: -Math.cos((yaw * Math.PI) / 180) },
-      position: p, yawDeg: yaw, active: true, ...o,
-    };
+      position: p, yawDeg: yaw, active: true,
+      // WEAPON-3: わざの 向き u・T・体の点 B（既定は 北 = カメラの yaw 0 と 同じ。個別に わたす）
+      body: { x: p.x, y: p.y + 1.4, z: p.z }, attackDirDeg: yaw, attackTarget: null, ...o,
+    } as BladeStepContext;
   };
   const step = (o: Partial<BladeStepContext> = {}) => {
     tick++;
@@ -40,7 +42,7 @@ function rig() {
     player.update(1 / 60);
   };
   step();
-  return { world, player, blade, settings, step, steps(n: number) { for (let i = 0; i < n; i++) step(); }, setItem: (i: ItemId | null) => (item = i), setYaw: (y: number) => (yaw = y) };
+  return { world, player, blade, settings, step, steps(n: number, o: Partial<BladeStepContext> = {}) { for (let i = 0; i < n; i++) step(o); }, setItem: (i: ItemId | null) => (item = i), setYaw: (y: number) => (yaw = y) };
 }
 
 describe('AC15 かべ', () => {
@@ -88,49 +90,71 @@ describe('AC15 かべ', () => {
   });
 });
 
-describe('AC16 向き', () => {
-  it('始めたステップの yaw が わざの向き。とちゅうで yaw を かえても 北のまま', () => {
+describe('AC16 向き（WEAPON-3: わざの向き = 始めたステップに わたされた u）', () => {
+  it('始めたステップの u が わざの向き。とちゅうで u や yaw を かえても 始めのまま', () => {
     const r = rig();
     r.player.set({ facingDeg: 90 });
     r.blade.setStance('jodan');
-    r.step({ techPressed: true });
+    // facing 90・yaw 0 で 始める。カメラの yaw ではなく わたした u（東 = 90）が わざの向き
+    r.step({ techPressed: true, attackDirDeg: 90 });
     const m = r.blade.state().move!;
-    expect(m.dirDeg).toBe(0);
+    expect(m.dirDeg).toBe(90);
     expect(m.origin).toEqual({ x: 16.5, y: 9, z: 16.5 });
-    r.setYaw(90);
+    r.setYaw(180);
     const o = { ...r.player.state.position };
-    r.steps(30); // active (F29〜34) に 入る
-    expect(r.blade.state().move!.dirDeg).toBe(0);
+    r.steps(30, { attackDirDeg: 180 }); // active (F29〜34) に 入る。あとから わたす u・yaw は 無視
+    expect(r.blade.state().move!.dirDeg).toBe(90);
     for (let i = 0; i < 6; i++) {
-      r.step();
+      r.step({ attackDirDeg: 180 });
       const sh = r.blade.shape();
       if (sh && sh.kind === 'fan') {
-        expect(sh.forward.x).toBeCloseTo(0, 9);
-        expect(sh.forward.z).toBeCloseTo(-1, 9);
+        expect(sh.forward.x).toBeCloseTo(1, 9);
+        expect(sh.forward.z).toBeCloseTo(0, 9);
       }
     }
-    expect(Math.abs(r.player.state.position.x - o.x)).toBeLessThan(1e-9);
-    expect(r.player.state.position.z).toBeLessThan(o.z);
+    expect(Math.abs(r.player.state.position.z - o.z)).toBeLessThan(1e-9);
+    expect(r.player.state.position.x).toBeGreaterThan(o.x);
   });
-  it('突きの 線の 向きは 始めたステップの ねらい（上下ふくむ）', () => {
+  it('突きの 線は u の 水平。T が あれば T への かたむき（上下ふくむ）。始めたステップで 固定（WEAPON-3 §4.5）', () => {
     const r = rig();
-    // 始めたステップは 北むき・少し 上。そのあと ねらいが 東向きに かわっても 線は 北
     const s = createBladeSystem({
       world: r.world, yokai: () => noYokai, settings: createW2Settings(), weaponDamage: () => 4, onHit: () => {}, tick: () => 0,
     });
-    const base: BladeStepContext = {
+    const body = { x: 16.5, y: 10.4, z: 16.5 };
+    const base = {
       item: 'katana', techPressed: false, techHeld: false, stancePressed: false,
-      eye: { x: 16.5, y: 10.62, z: 16.5 }, dir: { x: 0, y: 0.6, z: -0.8 }, position: { x: 16.5, y: 9, z: 16.5 }, yawDeg: 0, active: true,
-    };
+      // E は もう 突きに 使わない（B から）。わざと 遠い 値を 入れて、使われないことも 確かめる
+      eye: { x: 16.5, y: 10.62, z: 16.5 }, dir: { x: 1, y: 0.9, z: 0 }, position: { x: 16.5, y: 9, z: 16.5 }, yawDeg: 90, active: true,
+      body, attackDirDeg: 0, attackTarget: null,
+    } as BladeStepContext;
+    // ① T なし: u = 北 の 水平
     s.update(base);
     s.update({ ...base, techPressed: true });
-    for (let i = 0; i < 4; i++) s.update({ ...base, dir: { x: 1, y: 0, z: 0 }, yawDeg: 90 });
-    const sh = s.shape();
+    for (let i = 0; i < 4; i++) s.update({ ...base, attackDirDeg: 90, attackTarget: { x: 30, y: 15, z: 16.5 } });
+    let sh = s.shape();
     expect(sh?.kind).toBe('capsule');
     if (sh?.kind === 'capsule') {
-      expect(sh.to.x - sh.from.x).toBeCloseTo(0, 9);
+      expect(sh.from).toEqual(body);
+      expect(Math.abs(sh.to.x - sh.from.x)).toBeLessThan(1e-9);
+      expect(Math.abs(sh.to.y - sh.from.y)).toBeLessThan(0.001);
+      expect(sh.to.z - sh.from.z).toBeLessThan(0);
+    }
+    // ② T あり: 北へ 水平 3.0・中心が B より 1.45 上 → 上へ かたむく
+    const t = createBladeSystem({
+      world: r.world, yokai: () => noYokai, settings: createW2Settings(), weaponDamage: () => 4, onHit: () => {}, tick: () => 0,
+    });
+    const tgt = { x: 16.5, y: 11.85, z: 13.5 };
+    t.update(base);
+    t.update({ ...base, techPressed: true, attackDirDeg: 0, attackTarget: tgt });
+    for (let i = 0; i < 4; i++) t.update({ ...base, attackDirDeg: 90, attackTarget: null });
+    sh = t.shape();
+    expect(sh?.kind).toBe('capsule');
+    if (sh?.kind === 'capsule') {
+      expect(Math.abs(sh.to.x - sh.from.x)).toBeLessThan(1e-9);
       expect(sh.to.y - sh.from.y).toBeGreaterThan(0);
       expect(sh.to.z - sh.from.z).toBeLessThan(0);
+      const tilt = (Math.atan2(sh.to.y - sh.from.y, Math.abs(sh.to.z - sh.from.z)) * 180) / Math.PI;
+      expect(tilt).toBeCloseTo((Math.atan2(1.45, 3.0) * 180) / Math.PI, 1);
     }
   });
 });
