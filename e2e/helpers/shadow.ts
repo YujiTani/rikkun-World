@@ -38,12 +38,28 @@ export async function openShadow(page: Page, query = '?nosave=1&shadow=1'): Prom
   });
 }
 
-/** 平らな草の床（y = 8、その上は空気）。足もとの面の高さは 9。地形に左右されない（#103） */
+/**
+ * 平らな草の床。床の高さ FLOOR_Y は 世界に聞いて決める（その範囲の いちばん高い地面。VOX-B で 島の y=8 では なくなった）。
+ * 足もとの面の高さは FLOOR_Y + 1。床の下は 石でうめ、その上は 空まで 空気にする（穴の底にならない）。
+ */
+export let FLOOR_Y = 8;
 export async function flatGrass(page: Page, x0 = -4, z0 = -4, x1 = 28, z1 = 28): Promise<void> {
-  await page.evaluate(([a, b, c, d]) => {
+  FLOOR_Y = await page.evaluate(([a, b, c, d]) => {
     const h = (window as any).__rikkun;
-    h.world.fill(a, 8, b, c, 8, d, 'grass');
-    h.world.fill(a, 9, b, c, 40, d, 'air');
+    let lo = Infinity;
+    let hi = 0;
+    for (let x = Math.max(0, a); x <= Math.min(h.world.size().x - 1, c); x += 2) {
+      for (let z = Math.max(0, b); z <= Math.min(h.world.size().z - 1, d); z += 2) {
+        const g = h.world.groundHeight(x, z) as number;
+        lo = Math.min(lo, g);
+        hi = Math.max(hi, g);
+      }
+    }
+    const y = hi;
+    h.world.fill(a, Math.max(1, lo - 1), b, c, y - 1, d, 'stone');
+    h.world.fill(a, y, b, c, y, d, 'grass');
+    h.world.fill(a, y + 1, b, c, h.world.size().y - 1, d, 'air');
+    return y;
   }, [x0, z0, x1, z1]);
 }
 
