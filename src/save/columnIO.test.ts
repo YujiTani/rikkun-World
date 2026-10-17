@@ -116,6 +116,7 @@ describe('起動で全部は読まない（基準 11・D1・D2）', () => {
 
 describe('読みの上限', () => {
   it('IndexedDB の返事が無いと、上限のあと null（生成に落ちる）。ready を止めない', async () => {
+    let timedOut = 0;
     const stalled = { readChunk: () => new Promise(() => undefined) } as unknown as MemoryBackend;
     const io = new ColumnIO({
       db: stalled,
@@ -129,10 +130,12 @@ describe('読みの上限', () => {
       canFlush: () => false,
       flush: () => undefined,
       readTimeoutMs: 20,
+      onReadTimeout: () => void timedOut++,
     });
     const r = io.read(0, 0);
     expect(r).toBeInstanceOf(Promise);
     expect(await r).toBeNull();
+    expect(timedOut).toBe(1);
   });
 });
 

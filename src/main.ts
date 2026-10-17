@@ -1128,6 +1128,9 @@ const columnIO = new ColumnIO({
   onCorrupt: () => {
     restored.corrupt++;
   },
+  onReadTimeout: () => {
+    restored.readOnly = true; // 列の読みが 止まった: この遊びでは 保存をやめる（IDB に書かない。捨てる列は ページの中に預ける）
+  },
   onNewer: () => {
     restored.readOnly = true; // 新しい形式の保存は さわらない・この遊びでは 保存しない
   },

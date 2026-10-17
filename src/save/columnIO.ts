@@ -20,6 +20,8 @@ export interface ColumnIODeps {
   saveOn: () => boolean;
   /** 列を読む返事を待つ上限（ミリ秒）。こえたら 保存なしの扱い（生成）。起動のキー一覧と同じ 3 秒 */
   readTimeoutMs?: number;
+  /** 読みが時間切れになった（この遊びでは 保存をやめる。保存にある列を 生成で上書きしないため） */
+  onReadTimeout?: () => void;
   /** いま保存を書いている最中か / 書いている列か / 保存を始めてよいか / 保存を始める */
   saving: () => boolean;
   writing: (cx: number, cz: number) => boolean;
@@ -77,7 +79,10 @@ export class ColumnIO implements StreamIO {
     // IndexedDB が止まっても ready を止めない: 返事が無ければ null（生成）
     let timer: ReturnType<typeof setTimeout> | undefined;
     const giveUp = new Promise<null>((ok) => {
-      timer = setTimeout(() => ok(null), this.d.readTimeoutMs ?? 3000);
+      timer = setTimeout(() => {
+        this.d.onReadTimeout?.();
+        ok(null);
+      }, this.d.readTimeoutMs ?? 3000);
     });
     return Promise.race([reading, giveUp]).finally(() => clearTimeout(timer));
   }

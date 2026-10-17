@@ -354,6 +354,21 @@ describe('SaveManager（さわった列だけ丸ごと保存）', () => {
     expect(b.save.info().enabled).toBe(false);
   });
 
+  it('列の読みが時間切れになったら（readOnly にする）、そのあとは IDB に書かない・保険も置かない', async () => {
+    const db = new MemoryBackend();
+    const store = new MemoryStore();
+    const a = await session(store, db);
+    a.world.setBlock(2, 300, 2, 'dirt');
+    await a.save.now();
+    const before = JSON.stringify([...db.chunks.values()].map((c) => [c.v, [...c.data]]));
+    a.restored.readOnly = true; // main.ts: columnIO.onReadTimeout
+    a.world.setBlock(40, 300, 40, 'stone');
+    await a.save.now();
+    a.save.saveIfChanged();
+    expect(JSON.stringify([...db.chunks.values()].map((c) => [c.v, [...c.data]]))).toBe(before);
+    expect(a.save.isOn()).toBe(false);
+  });
+
   it('大きな変更の早め保存は 失敗のあと くりかえさない', async () => {
     const db = new MemoryBackend();
     const s = await session(new MemoryStore(), db);
