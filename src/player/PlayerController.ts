@@ -49,7 +49,14 @@ export class PlayerController {
   readonly state: PlayerState;
   readonly settings: PlayerSettings;
   /** WEAPON-2: 刀・弓が かける 歩く倍率と ジャンプ止め（つなぎ込みが 毎ステップ 書く） */
-  readonly motion = { speedMul: 1, jumpLocked: false };
+  readonly motion: { speedMul: number; jumpLocked: boolean; faceDeg: number | null; stopNow: boolean } = {
+    speedMul: 1,
+    jumpLocked: false,
+    /** CHAR-2: null でない あいだ facing は これ（わざの向き）。回らない */
+    faceDeg: null,
+    /** CHAR-2: true の ステップは 水平の速さを 0 に する */
+    stopNow: false,
+  };
   private readonly p = [0, 0, 0]; // 作業用: 位置
   private readonly idx = [0, 0, 0];
   /** ねらう行動のあと、向きをねらいに合わせつづける残りステップ */
@@ -110,17 +117,20 @@ export class PlayerController {
     this.updateWater();
   }
 
-  /** 突きの ふみこみ: 水平に dx, dz だけ 動かす（かべで 止まる） */
-  lunge(dx: number, dz: number): void {
+  /** わざの ふみこみ: 水平に dx, dz だけ 動かす（かべで 止まる）。実際に 動いた量を 返す */
+  lunge(dx: number, dz: number): { x: number; z: number } {
     const st = this.state;
     const p = this.p;
-    p[0] = st.position.x;
+    const x0 = st.position.x;
+    const z0 = st.position.z;
+    p[0] = x0;
     p[1] = st.position.y;
-    p[2] = st.position.z;
+    p[2] = z0;
     this.sweep(0, dx);
     this.sweep(2, dz);
     st.position.x = p[0];
     st.position.z = p[2];
+    return { x: p[0] - x0, z: p[2] - z0 };
   }
 
   /** 1 ステップ進める（通常 1/60 秒） */
@@ -186,7 +196,8 @@ export class PlayerController {
     } else if (wlen > 0) {
       faceTo = normalizeYaw(Math.atan2(wx, -wz) / DEG);
     }
-    if (faceTo >= 0) st.facingDeg = turnToward(st.facingDeg, faceTo, cfg.turnDegPerSecond * dt);
+    if (this.motion.faceDeg !== null) st.facingDeg = normalizeYaw(this.motion.faceDeg);
+    else if (faceTo >= 0) st.facingDeg = turnToward(st.facingDeg, faceTo, cfg.turnDegPerSecond * dt);
     const ex = tx - st.velocity.x;
     const ez = tz - st.velocity.z;
     const elen = Math.hypot(ex, ez);
@@ -197,6 +208,7 @@ export class PlayerController {
       st.velocity.x += (ex / elen) * maxDelta;
       st.velocity.z += (ez / elen) * maxDelta;
     }
+    if (this.motion.stopNow) st.velocity.x = st.velocity.z = 0;
 
     // ジャンプ（地面にいるときだけ。押しっぱなしで着地のたびに続けて跳ぶ）
     const p = this.p;

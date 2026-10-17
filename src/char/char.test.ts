@@ -14,6 +14,9 @@ const input = (o: Partial<SpriteStepInput> & { vx?: number; vy?: number }): Spri
   inWater: o.inWater ?? false,
   running: o.running ?? false,
   facingDeg: o.facingDeg ?? 0,
+  weapon: o.weapon ?? 'none',
+  blade: o.blade ?? null,
+  bow: o.bow ?? null,
 });
 
 describe('方向と段 (AC16)', () => {
@@ -163,7 +166,7 @@ function make(opts: { img?: LoadImage; perMotion?: Record<string, LoadImage> } =
     basePath: './models/char/',
     loadJson: async () => ({ modelH: 1.7 }),
     loadImage: async (url) => {
-      const key = /([a-z]+)\.png$/.exec(url)![1]!;
+      const key = /([a-z_]+)\.png$/.exec(url)![1]!;
       return (opts.perMotion?.[key] ?? base)(url);
     },
   });
@@ -212,7 +215,7 @@ describe('板 (AC18-21, 31, 32, 40, 42)', () => {
   it('readCell が 色番号から もとの色にもどる (AC40)', async () => {
     const { sprite } = make();
     await flush();
-    const cell = sprite.readCell('idle', 1, 3, 1);
+    const cell = await sprite.readCell('idle', 1, 3, 1);
     const c = PALETTE_RGB[(8 + 3 + 1) % 20]!;
     const o = (20 * 256 + 50) * 4;
     expect([...cell.slice(o, o + 4)]).toEqual([c[0], c[1], c[2], 255]);

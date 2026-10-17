@@ -1,8 +1,26 @@
 import { resolve } from 'node:path';
-import { defineConfig } from 'vite';
+import { createReadStream, existsSync, statSync } from 'node:fs';
+import { defineConfig, type Plugin } from 'vite';
+
+/** CHAR-2: 開発サーバーだけ、もとの格子の絵（art/char-sheets/）を /__char-orig/ で見せる（?charsheets=orig 用） */
+const charOrig = (): Plugin => ({
+  name: 'char-orig',
+  apply: 'serve',
+  configureServer(server) {
+    server.middlewares.use('/__char-orig', (req, res, next) => {
+      const name = (req.url ?? '').split('?')[0]!.replace(/^\//, '');
+      if (!/^[a-z_]+\.(png|json)$/.test(name)) return next();
+      const file = resolve(import.meta.dirname, 'art/char-sheets', name);
+      if (!existsSync(file) || !statSync(file).isFile()) return next();
+      res.setHeader('Content-Type', name.endsWith('.png') ? 'image/png' : 'application/json');
+      createReadStream(file).pipe(res);
+    });
+  },
+});
 
 export default defineConfig({
   base: './',
+  plugins: [charOrig()],
   server: { port: 5173 },
   build: {
     // main.ts は 起動で IndexedDB の保存を待つ（トップレベル await）

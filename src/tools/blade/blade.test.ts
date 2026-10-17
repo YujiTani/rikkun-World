@@ -63,7 +63,10 @@ function rig(item: ItemId = 'katana') {
     settings,
     weaponDamage: (i) => dmg[i] ?? 1,
     onHit: (i) => hits.push(i),
-    lunge: (dx, dz) => lunges.push([dx, dz]),
+    lunge: (dx, dz) => {
+      lunges.push([dx, dz]);
+      return { x: dx, z: dz }; // ひらけた所: 言われた ぶんだけ 動く
+    },
     tick: () => tick,
   });
   // 北向き（yaw 0）。P = (16.5, 9, 16.5)。前 = -z
@@ -146,18 +149,21 @@ describe('フレーム表（AC2）', () => {
     expect(s.slice(a + b, a + b + c).every((p) => p === 'recovery')).toBe(true);
     expect(s[a + b + c]).toBe('idle');
   };
-  it('突き 4/2/8', () => {
+  it('突き 4/2/35', () => {
     const r = rig();
-    const s = r.phases(15, { techPressed: true });
+    const s = r.phases(42, { techPressed: true });
     expect(r.blade.state().tech).toBeNull();
-    expectPhases(s, 4, 2, 8);
+    expectPhases(s, 4, 2, 35);
   });
-  it('大げさ斬り 28/6/48', () => {
+  it('大げさ斬り 28/6/72', () => {
     const r = rig();
     r.blade.setStance('jodan');
-    expectPhases(r.phases(83, { techPressed: true }), 28, 6, 48);
+    expectPhases(r.phases(107, { techPressed: true }), 28, 6, 72);
   });
-  it('切り上げ 15/5/33。設定を かえると かわる', () => {
+  it('切り上げ 38/5/61。設定を かえると かわる', () => {
+    const d = rig();
+    d.blade.setStance('gedan');
+    expectPhases(d.phases(105, { techPressed: true }), 38, 5, 61);
     const r = rig();
     r.blade.setStance('gedan');
     r.settings.bladeTech.kiriage = { startup: 2, active: 1, recovery: 3 };
@@ -181,7 +187,7 @@ describe('当たる F・ダメージ（AC3・AC4）', () => {
     expect(r.yokai.calls).toHaveLength(1);
     expect(r.hits).toEqual([{ tech: 'thrust', count: 1 }]);
   });
-  it('大げさ斬り F29 に 8、切り上げ F16 に 3', () => {
+  it('大げさ斬り F29 に 8、切り上げ F39 に 3', () => {
     const r = rig();
     r.blade.setStance('jodan');
     r.yokai.add('karakasa', ...(Object.values(r.front(2)) as [number, number, number]));
@@ -194,9 +200,9 @@ describe('当たる F・ダメージ（AC3・AC4）', () => {
     k.blade.setStance('gedan');
     k.yokai.add('karakasa', ...(Object.values(k.front(2)) as [number, number, number]));
     k.step({ techPressed: true });
-    k.steps(14);
+    k.steps(37); // F38
     expect(k.yokai.calls).toHaveLength(0);
-    k.step();
+    k.step(); // F39
     expect(k.yokai.calls[0]).toMatchObject({ amount: 3, knock: { dist: 1.0, up: 7 } });
   });
   it('3 しゅるい x 3 わざの ダメージ表', () => {
@@ -207,7 +213,7 @@ describe('当たる F・ダメージ（AC3・AC4）', () => {
         r.blade.setStance(st);
         r.yokai.add('nurikabe', ...(Object.values(r.front(2)) as [number, number, number]));
         r.step({ techPressed: true });
-        r.steps(33);
+        r.steps(42);
         expect(r.yokai.calls[0].amount).toBe(exp[it][i]);
       });
     }
@@ -263,7 +269,7 @@ describe('大げさ斬り・切り上げの 形（AC6・AC7）', () => {
     r.blade.setStance(stance);
     setup(r);
     r.step({ techPressed: true });
-    r.steps(33);
+    r.steps(42); // 切り上げの 当たり F39〜43 も ふくむ
     return r;
   };
   it('0°・60° は 当たり、120° と 4.5 は 当たらない', () => {
@@ -315,39 +321,53 @@ describe('かべごし（AC8）', () => {
     expect(yokai.calls).toHaveLength(0);
     expect(b.peekEvents().some((e) => e.type === 'techMiss')).toBe(true);
     world.setBlock(16, 10, 15, 'air');
-    for (let i = 0; i < 50; i++) b.update(c({}));
+    for (let i = 0; i < 80; i++) b.update(c({})); // 大げさ斬りが おわるまで（106 − 34 = 72 より多く）
     b.update(c({ techPressed: true }));
-    for (let i = 0; i < 33; i++) b.update(c({}));
+    for (let i = 0; i < 42; i++) b.update(c({}));
     expect(yokai.calls).toHaveLength(1);
   });
 });
 
-describe('動き（AC10）', () => {
-  it('大げさ斬り F35〜82 は 動けず ジャンプ できない、F83 から 動ける', () => {
-    const r = rig();
-    r.blade.setStance('jodan');
-    r.step({ techPressed: true });
-    for (let f = 2; f <= 82; f++) {
+describe('動き・ふみこみ（AC14・AC17）', () => {
+  // 仕様書 §4.5 の「計算の確認」にある 値（ひらけた所・北向き）
+  const A: Record<string, Array<[number, number]>> = {
+    thrust: [[4, 0.197], [6, 0.2675], [41, 0]],
+    kesa: [[29, 0.543], [34, 0.654], [53, 0.8], [106, 0.8]],
+    kiriage: [[39, 1.016], [104, 1.04]],
+  };
+  const stanceOf = { thrust: 'chudan', kesa: 'jodan', kiriage: 'gedan' } as const;
+  const lenOf = { thrust: 41, kesa: 106, kiriage: 104 } as const;
+  for (const tech of ['thrust', 'kesa', 'kiriage'] as const) {
+    it(`${tech}: ぜんぶの F で 歩けず ジャンプできず、ふみこみの合計が A(f)`, () => {
+      const r = rig();
+      r.blade.setStance(stanceOf[tech]);
+      const want = new Map(A[tech]);
+      r.step({ techPressed: true });
+      for (let f = 1; f <= lenOf[tech]; f++) {
+        if (f > 1) r.step();
+        expect(r.blade.motion(), `F${f}`).toEqual({ speedMul: 0, jumpLocked: true });
+        const total = r.lunges.reduce((a, l) => a - l[1], 0); // 北 = -z
+        const sideways = r.lunges.reduce((a, l) => a + Math.abs(l[0]), 0);
+        expect(sideways).toBeLessThan(1e-9);
+        if (want.has(f)) expect(Math.abs(total - want.get(f)!), `F${f}: ${total}`).toBeLessThan(0.001);
+      }
       r.step();
-      const m = r.blade.motion();
-      if (f <= 34) expect(m).toEqual({ speedMul: 0.3, jumpLocked: false });
-      else expect(m).toEqual({ speedMul: 0, jumpLocked: true });
+      expect(r.blade.motion()).toEqual({ speedMul: 1, jumpLocked: false });
+    });
+  }
+  it('どのわざも 1 ステップの ふみこみは 0.12 以下', () => {
+    for (const tech of ['thrust', 'kesa', 'kiriage'] as const) {
+      const r = rig();
+      r.blade.setStance(stanceOf[tech]);
+      r.step({ techPressed: true });
+      r.steps(lenOf[tech]);
+      for (const l of r.lunges) expect(Math.hypot(l[0], l[1])).toBeLessThanOrEqual(0.12);
     }
-    r.step();
-    expect(r.blade.motion()).toEqual({ speedMul: 1, jumpLocked: false });
   });
-  it('突き 0.7、切り上げ 0.5。突きは 持続で 0.25 ふみこむ', () => {
+  it('かまえ変え（switch）の あいだは 歩ける・ジャンプできる', () => {
     const r = rig();
-    r.step({ techPressed: true });
-    expect(r.blade.motion().speedMul).toBe(0.7);
-    r.steps(5);
-    const total = r.lunges.reduce((a, l) => a + Math.hypot(l[0], l[1]), 0);
-    expect(total).toBeCloseTo(0.25, 5);
-    expect(r.lunges[0][1]).toBeLessThan(0); // 北
-    const k = rig();
-    k.blade.setStance('gedan');
-    k.step({ techPressed: true });
-    expect(k.blade.motion().speedMul).toBe(0.5);
+    r.step({ stancePressed: true });
+    expect(r.blade.motion()).toEqual({ speedMul: 1, jumpLocked: false });
   });
 });
 
@@ -362,39 +382,39 @@ describe('先行入力・おしつづけ（AC11）', () => {
     }
     return starts;
   };
-  it('F76 に 押す → F83 に 次が 始まる。F73 は 出ない', () => {
+  it('F99 に 押す → F107 に 次が 始まる。F98 は 出ない', () => {
     const r = rig();
     r.blade.setStance('jodan');
-    expect(startsAt(r, 90, (f) => ({ techPressed: f === 76 }))).toEqual([83]);
+    expect(startsAt(r, 115, (f) => ({ techPressed: f === 99 }))).toEqual([107]);
     const q = rig();
     q.blade.setStance('jodan');
-    expect(startsAt(q, 90, (f) => ({ techPressed: f === 73 }))).toEqual([]);
+    expect(startsAt(q, 115, (f) => ({ techPressed: f === 98 }))).toEqual([]);
   });
-  it('F76 に R → F83 に かまえが かわる。R のあと primary は あとの方', () => {
+  it('F100 に R → F107 に かまえが かわる。R のあと primary は あとの方', () => {
     const r = rig();
     r.blade.setStance('jodan');
     r.step({ techPressed: true });
-    r.steps(74);
-    r.step({ stancePressed: true }); // F76
+    r.steps(98);
+    r.step({ stancePressed: true }); // F100
     r.steps(6);
-    r.step(); // F83
+    r.step(); // F107
     expect(r.blade.state()).toMatchObject({ stance: 'gedan', phase: 'switch', frame: 1 });
     const q = rig();
     q.blade.setStance('jodan');
     q.step({ techPressed: true });
-    q.steps(74);
-    q.step({ stancePressed: true });
+    q.steps(98);
+    q.step({ stancePressed: true }); // F100
     q.step();
-    q.step({ techPressed: true }); // F78
+    q.step({ techPressed: true }); // F102
     expect(q.blade.state().buffered).toBe('tech');
     q.steps(4);
     q.step();
     expect(q.blade.state()).toMatchObject({ stance: 'jodan', tech: 'kesa', frame: 1 });
   });
-  it('おしつづけ: 突きが F1・F15・F29', () => {
+  it('おしつづけ: 突きが F1・F42・F83', () => {
     const r = rig();
-    const starts = startsAt(r, 30, () => ({ techHeld: true }));
-    expect(starts).toEqual([15, 29]);
+    const starts = startsAt(r, 90, () => ({ techHeld: true }));
+    expect(starts).toEqual([42, 83]);
   });
 });
 

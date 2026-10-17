@@ -9,10 +9,13 @@ import type {
   BladeTech,
   ItemId,
   PlayerMotionMod,
+  Vec3,
   YokaiInfo,
 } from '../../contracts';
+import { W2_SETTING_DEFAULTS } from '../../contracts';
 import { raycastBlocks } from '../../dig/raycast';
 import { KIND_AI } from '../../yokai/ai/config';
+import { techAdvance } from './advance';
 
 const DEG = Math.PI / 180;
 const MAX_QUEUE = 256;
@@ -28,6 +31,9 @@ export function techDamage(base: number, mul: number): number {
 export function isBladeItem(item: ItemId | null | undefined): boolean {
   return !!item && BLADE_ITEMS.has(item);
 }
+
+/** 絵の わざの 長さ（`atlas.json` の phases。初期値の bladeTech と 同じ）。設定の 長さが ちがうとき 比で のばす もとになる */
+const PICTURE_PHASES = W2_SETTING_DEFAULTS.bladeTech;
 
 const TECH_OF_STANCE: Record<BladeStance, BladeTech> = { chudan: 'thrust', jodan: 'kesa', gedan: 'kiriage' };
 const NEXT_STANCE: Record<BladeStance, BladeStance> = { chudan: 'jodan', jodan: 'gedan', gedan: 'chudan' };
@@ -51,6 +57,9 @@ export function createBladeSystem(deps: BladeDeps): BladeSystem {
   let shapeInfo: BladeShapeInfo | null = null;
   let hitSet = new Set<number>();
   let hitReported = false;
+  /** CHAR-2: わざの ふみこみ（わざの あいだだけ）。向き u・始めた足もと O・ねらいの向き（突きの線）は 始めたステップで 固定 */
+  let move: BladeState['move'] = null;
+  let aimDir: Vec3 = { x: 0, y: 0, z: -1 };
   let drainQ: BladeEvent[] = [];
   const peekQ: BladeEvent[] = [];
 
@@ -84,6 +93,7 @@ export function createBladeSystem(deps: BladeDeps): BladeSystem {
     shapeInfo = null;
     buffered = null;
     hitSet = new Set<number>();
+    move = null;
   }
 
   function cancelAll(): void {
@@ -107,6 +117,8 @@ export function createBladeSystem(deps: BladeDeps): BladeSystem {
     switchFrom = null;
     hitSet = new Set<number>();
     hitReported = false;
+    move = { dirDeg: ctx.yawDeg, origin: { ...ctx.position }, target: 0, moved: 0 };
+    aimDir = { ...ctx.dir };
     emit({ type: 'techStart', tick: deps.tick(), tech });
     processFrame(ctx);
   }
@@ -123,16 +135,21 @@ export function createBladeSystem(deps: BladeDeps): BladeSystem {
     if (!tech) return;
     phase = phaseOfFrame(tech, frame);
     shapeInfo = null;
-    if (phase !== 'active') return;
-    const c = S.bladeTech[tech];
-    const yawR = ctx.yawDeg * DEG;
+    // わざの向き u（始めたステップで 固定）へ ふみこむ
+    const yawR = (move ? move.dirDeg : ctx.yawDeg) * DEG;
     const fx = Math.sin(yawR);
     const fz = -Math.cos(yawR);
-    shapeInfo = makeShape(tech, ctx, fx, fz);
-    if (tech === 'thrust' && deps.lunge && c.active > 0) {
-      const step = S.thrustLunge / c.active;
-      deps.lunge(fx * step, fz * step);
+    if (move) {
+      move.target = techAdvance(S.bladeAdvance[tech], PICTURE_PHASES[tech], S.bladeTech[tech], frame);
+      const want = move.target - move.moved; // かべで 止まった ぶんも 押しつづける（とおりぬけない）
+      if (deps.lunge) {
+        const got = deps.lunge(fx * want, fz * want);
+        move.moved += got.x * fx + got.z * fz;
+      } else move.moved = move.target;
     }
+    if (phase !== 'active') return;
+    const c = S.bladeTech[tech];
+    shapeInfo = makeShape(tech, ctx, fx, fz);
     const hits = evalHits(tech, ctx, fx, fz);
     if (hits > 0 && !hitReported) {
       hitReported = true;
@@ -149,7 +166,7 @@ export function createBladeSystem(deps: BladeDeps): BladeSystem {
       return {
         kind: 'capsule',
         from: { ...ctx.eye },
-        to: { x: ctx.eye.x + ctx.dir.x * sh.length, y: ctx.eye.y + ctx.dir.y * sh.length, z: ctx.eye.z + ctx.dir.z * sh.length },
+        to: { x: ctx.eye.x + aimDir.x * sh.length, y: ctx.eye.y + aimDir.y * sh.length, z: ctx.eye.z + aimDir.z * sh.length },
         radius: sh.radius,
       };
     }
@@ -200,7 +217,7 @@ export function createBladeSystem(deps: BladeDeps): BladeSystem {
     const { r, h } = boxOf(y);
     const len = sh.length;
     const ey = ctx.eye.y;
-    const vy = ctx.dir.y * len;
+    const vy = aimDir.y * len;
     const lo = y.position.y - sh.radius;
     const hi = y.position.y + h + sh.radius;
     let t0 = 0;
@@ -214,8 +231,8 @@ export function createBladeSystem(deps: BladeDeps): BladeSystem {
       t1 = Math.min(t1, Math.max(a, b));
       if (t0 > t1) return -1;
     }
-    const vx = ctx.dir.x * len;
-    const vz = ctx.dir.z * len;
+    const vx = aimDir.x * len;
+    const vz = aimDir.z * len;
     const wx = y.position.x - ctx.eye.x;
     const wz = y.position.z - ctx.eye.z;
     const vv = vx * vx + vz * vz;
@@ -251,7 +268,7 @@ export function createBladeSystem(deps: BladeDeps): BladeSystem {
     let count = 0;
     if (t === 'thrust') {
       if (hitSet.size > 0) return 0; // 1 体 だけ
-      const ray = yw.raycast(ctx.eye, ctx.dir, S.bladeAimReach);
+      const ray = yw.raycast(ctx.eye, aimDir, S.bladeAimReach);
       let best: YokaiInfo | null = null;
       let bestD = Infinity;
       for (const y of list) {
@@ -293,7 +310,7 @@ export function createBladeSystem(deps: BladeDeps): BladeSystem {
 
   return {
     state(): BladeState {
-      return { item, stance, tech, phase, frame, buffered, switchFrom };
+      return { item, stance, tech, phase, frame, buffered, switchFrom, move: move ? { ...move, origin: { ...move.origin } } : null };
     },
     setStance(s: BladeStance): void {
       stance = s;
@@ -331,6 +348,7 @@ export function createBladeSystem(deps: BladeDeps): BladeSystem {
           phase = 'idle';
           frame = 0;
           switchFrom = null;
+          move = null;
         }
       }
 
@@ -360,13 +378,12 @@ export function createBladeSystem(deps: BladeDeps): BladeSystem {
       motionOut.speedMul = 1;
       motionOut.jumpLocked = false;
       if (phase === 'idle' || phase === 'switch' || !tech) return motionOut;
+      // CHAR-2: わざの あいだは ジャンプできない。歩く倍率は 設定（初期値は 4 つとも 0）
       const m = S.bladeMoveMul;
+      motionOut.jumpLocked = true;
       if (tech === 'thrust') motionOut.speedMul = m.thrust;
       else if (tech === 'kiriage') motionOut.speedMul = m.kiriage;
-      else if (phase === 'recovery') {
-        motionOut.speedMul = m.kesaRecovery;
-        motionOut.jumpLocked = m.kesaRecovery === 0;
-      } else motionOut.speedMul = m.kesaStartupActive;
+      else motionOut.speedMul = phase === 'recovery' ? m.kesaRecovery : m.kesaStartupActive;
       return motionOut;
     },
     drainEvents(): BladeEvent[] {

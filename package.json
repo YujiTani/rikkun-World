@@ -14,7 +14,8 @@
     "test:e2e:fast": "playwright test e2e/smoke.spec.ts e2e/m6-shots.spec.ts e2e/partsPage.spec.ts",
     "perf": "playwright test --config playwright.perf.config.ts",
     "check": "npm run typecheck && npm run test && npm run test:e2e",
-    "check:fast": "npm run typecheck && npm run test"
+    "check:fast": "npm run typecheck && npm run test",
+    "pack:char": "node scripts/pack-char-atlas.mjs"
   },
   "dependencies": {
     "three": "^0.186.1"

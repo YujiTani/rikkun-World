@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { ActionState } from '../input/actions';
+import { stableOpaqueSort, stableTransparentSort } from '../world/render/drawOrder';
 import { FrameStats } from '../debug/frameStats';
 
 /** ゲームの更新は 1/60 秒きざみ（固定）。テストで同じ結果を再現しやすくするため。 */
@@ -46,6 +47,9 @@ export class Game {
 
   constructor(private readonly container: HTMLElement) {
     this.renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
+    // 描く順番を セクションの場所で決める（機械の速さで つなぎ目の 1 ピクセルが かわらないように）
+    this.renderer.setOpaqueSort(stableOpaqueSort);
+    this.renderer.setTransparentSort(stableTransparentSort);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setSize(container.clientWidth, container.clientHeight);
     container.appendChild(this.renderer.domElement);
