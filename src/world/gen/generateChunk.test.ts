@@ -322,10 +322,24 @@ describe('基準 3・4・6・7・9: 作った列のブロック（10 シード �
       }
       if (SEEDS_10.includes(seed)) {
         st.trunks += trunks.length;
+        // 大木（みき 2×2）の 4 マスは 1 本。となりあう（チェビシェフ 1）マスは 同じ木として まとめ、別の木どうしだけ 数える
+        const parent = new Map<number, number>();
+        const key = (x: number, z: number): number => x * 100000 + z;
+        const find = (k: number): number => {
+          let r = k;
+          while (parent.get(r) !== r) r = parent.get(r)!;
+          return r;
+        };
+        for (const [x, z] of trunks) parent.set(key(x, z), key(x, z));
+        for (const [x, z] of trunks) {
+          for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
+            if (parent.has(key(x + dx, z + dz))) parent.set(find(key(x, z)), find(key(x + dx, z + dz)));
+          }
+        }
         for (const [x, z] of trunks) {
           for (let dz = -2; dz <= 2; dz++) {
             for (let dx = -2; dx <= 2; dx++) {
-              if ((dx !== 0 || dz !== 0) && trunkSet.has((x + dx) * 100000 + z + dz)) st.trunkClose++;
+              if ((dx !== 0 || dz !== 0) && trunkSet.has(key(x + dx, z + dz)) && find(key(x, z)) !== find(key(x + dx, z + dz))) st.trunkClose++;
             }
           }
         }
