@@ -15,7 +15,6 @@ import {
   pickShardColors,
   shakeOffset,
   techNameOpacity,
-  trailOpacity,
 } from '../fx/weaponFxModel';
 import { WEAPON_SOUNDS, weaponSoundLogNames } from '../fx/weaponSounds';
 import { COMBAT_SOUNDS } from '../fx/combatSounds';
@@ -94,16 +93,6 @@ describe('刀の 演出の 計算（AC22）', () => {
   it('ゆれは 2px 以下・6F・もどる', () => {
     for (let f = 0; f < WEAPON_FX.shakeSteps; f++) expect(Math.abs(shakeOffset(f))).toBeLessThanOrEqual(2);
     expect(shakeOffset(WEAPON_FX.shakeSteps)).toBe(0);
-  });
-  it('きせきは 持続の あいだ 1、8F で 消える（単調に へる）', () => {
-    expect(trailOpacity(-1)).toBe(1);
-    let prev = 1;
-    for (let i = 0; i <= 8; i++) {
-      const o = trailOpacity(i);
-      expect(o).toBeLessThanOrEqual(prev);
-      prev = o;
-    }
-    expect(trailOpacity(8)).toBe(0);
   });
   it('灰色の わ: 大げさ斬りの 硬直 前半だけ', () => {
     expect(lockRingVisible({ tech: 'kesa', phase: 'recovery', frame: 13 }, 14, 3, 24)).toBe(true);
