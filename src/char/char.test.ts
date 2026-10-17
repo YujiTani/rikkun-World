@@ -14,6 +14,9 @@ const input = (o: Partial<SpriteStepInput> & { vx?: number; vy?: number }): Spri
   inWater: o.inWater ?? false,
   running: o.running ?? false,
   facingDeg: o.facingDeg ?? 0,
+  weapon: o.weapon ?? 'none',
+  blade: o.blade ?? null,
+  bow: o.bow ?? null,
 });
 
 describe('方向と段 (AC16)', () => {

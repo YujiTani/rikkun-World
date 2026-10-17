@@ -1,15 +1,8 @@
 // わざの絵・弓の絵の 時間割（public/models/char/atlas.json の ticks・advance・step・phases の写し）。
 // 絵が読めなくても コマを決められるように コードにも持つ。atlas.json と同じことは techCurves.test.ts で確かめる。
-import type { BladeTech, BladeTechFrames } from '../contracts';
+import type { BladeAdvanceCurve, BladeTech, BladeTechFrames } from '../contracts';
 
-/** A の BladeAdvanceCurve（src/contracts.ts）と 同じ形。S がつなぐときは contracts のものと 差しかえる */
-export interface TechCurve {
-  ticks: number[];
-  advance: number[];
-  step: number;
-}
-
-export const TECH_CURVES: Record<BladeTech, TechCurve> = {
+export const TECH_CURVES: Record<BladeTech, BladeAdvanceCurve> = {
   thrust: {
     ticks: [2, 2, 1, 1, 3, 11, 4, 4, 4, 4, 5],
     advance: [0, 0.08, 0.255, 0.26, 0.29, 0.32, 0.285, 0.241, 0.16, 0.073, 0.002],

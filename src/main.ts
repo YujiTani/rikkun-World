@@ -291,7 +291,8 @@ const sprite = blockDollOnly
       parent: rig.doll.group,
       camera: game.camera,
       lighting,
-      basePath: './models/char/',
+      // ?charsheets=orig（開発サーバーだけ）: 切りつめる前の 格子の絵を 読む（AC34 の くらべ用）
+      basePath: import.meta.env.DEV && new URLSearchParams(location.search).get('charsheets') === 'orig' ? './__char-orig/' : './models/char/',
       initTexture: (t) => game.renderer.initTexture(t),
     });
 rig.doll.setBoxBody(blockDollOnly);
@@ -1214,14 +1215,31 @@ game.onUpdate((dt) => {
     const wm = tools.bow().motion();
     controller.motion.speedMul = bm.speedMul * wm.speedMul;
     controller.motion.jumpLocked = bm.jumpLocked || wm.jumpLocked;
+    // CHAR-2: わざのあいだは 向きを わざの向きに 固定（わざを始めたステップは あとで その場で）
+    controller.motion.faceDeg = blade.state().move?.dirDeg ?? null;
+    controller.motion.stopNow = false;
   }
   // 空の光の弱まりを先に今の時刻にそろえる（妖怪の出現の「暗い所」がこれを読む。Sky は あとで画面ぶんを更新）
   skyDarkness.value = darkenFromBrightness(time.brightness(), timeSettings.nightBrightness);
   controller.update(dt);
   // カメラ（肩の点 S）を先に決める。ねらい（dig.update）は S を使う（CHAR-1 第 5.2 版）
   rig.update(dt);
+  yokaiM.update();
+  dig.update();
+  // CHAR-2 §4.6: 刀・弓が 決まったあとで 板のコマを決める。矢の出来事は ここで 取り出して 配る
+  const arrowEvents = tools.drainArrowEvents();
+  arrowRelay.give(arrowEvents);
   if (screen.mode() === 'play') {
     const st = controller.state;
+    const bs = blade.state();
+    // わざを始めた ステップ: その場で わざの向きを向き、水平の速さを 0 に
+    if (bs.move !== null && bs.frame === 1) {
+      st.facingDeg = ((bs.move.dirDeg % 360) + 360) % 360;
+      st.velocity.x = st.velocity.z = 0;
+    }
+    const bowPose = tools.bow().state();
+    const held = inventory.held()?.item ?? null;
+    const weapon = bs.item !== null ? 'katana' : held === 'yumi' ? 'bow' : 'none';
     sprite?.step({
       position: st.position,
       velocity: st.velocity,
@@ -1229,10 +1247,17 @@ game.onUpdate((dt) => {
       inWater: st.inWater,
       running: st.running,
       facingDeg: st.facingDeg,
+      weapon,
+      blade:
+        weapon === 'katana'
+          ? { stance: bs.stance, tech: bs.tech, phase: bs.phase, frame: bs.frame, lengths: bs.tech ? w2.bladeTech[bs.tech] : null }
+          : null,
+      bow:
+        weapon === 'bow'
+          ? { drawing: bowPose.drawing, drawTicks: bowPose.drawTicks, shot: arrowEvents.some((e) => e.type === 'arrowShot') }
+          : null,
     });
   }
-  yokaiM.update();
-  dig.update();
   combat.update();
   craft.update();
   storage.update();
@@ -1297,8 +1322,6 @@ game.onUpdate((dt) => {
     for (const sw of swings) playSwing(fxSound, sw.anim, held);
     swingBuf = swingBuf === NO_SWINGS ? swings : swingBuf.concat(swings);
   }
-  const arrowEvents = tools.drainArrowEvents();
-  arrowRelay.give(arrowEvents);
   for (const e of arrowEvents) {
     if (e.type === 'noArrow') notice.showSignal('noArrow');
     else if (e.type === 'arrowHit') {

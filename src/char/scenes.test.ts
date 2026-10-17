@@ -1,7 +1,7 @@
 // CHAR-2 AC1〜AC11: 場面の えらび方と コマ（MotionMachine。絵の読みこみとは 関係ない純粋な決まり）
 import { describe, expect, it } from 'vitest';
 import { MotionMachine, type SpriteStepInput } from './motion';
-import { techCell } from './techCell';
+import { techCell } from '../tools/blade/advance';
 import { TECH_CURVES, TECH_PHASES } from './techCurves';
 import type { BladeStance, BladeTech, BladePhase } from '../contracts';
 

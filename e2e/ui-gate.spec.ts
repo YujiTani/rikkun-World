@@ -1,5 +1,6 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
+import { standOnGround } from './helpers/aim';
 import { checkLayout } from './helpers/layoutRules';
 import { checkColors, checkComponents, checkContrast, checkFontSizes, snapshotUi } from './helpers/uiRules';
 
@@ -30,6 +31,8 @@ interface Screen {
   id: string;
   /** しらべる範囲（CSS セレクタ） */
   roots: string[];
+  /** true なら くずれ（はみ出し・重なり）だけ しらべる（色・字の きまりは ほかの画面で見ている） */
+  layoutOnly?: boolean;
   /** ゲームを開いたあと、この画面を出す */
   open(page: Page): Promise<void>;
 }
@@ -315,6 +318,68 @@ const BAL_SCREENS: Screen[] = [
 ];
 SCREENS.push(...BAL_SCREENS);
 
+/**
+ * CHAR-2 AC26: 刀のわざ・弓を引く 場面の画面が HUD と重ならない（はみ出し・重なり）。
+ * 絵の読みこみ（本当の時間）を待ってから、1 ステップずつ進めて場面を作る。
+ */
+const CHAR2_KATANA = ['katana_thrust', 'katana_kesa', 'katana_kiriage', 'katana_walk_chudan', 'katana_walk_jodan', 'katana_walk_gedan'];
+const CHAR2_BOW = ['bow_shot', 'bow_hold_walk', 'bow_walk', 'bow_rapid'];
+async function char2Setup(page: Page, held: 'katana' | 'yumi', names: string[]): Promise<void> {
+  await boot(page, true);
+  await page.evaluate(() => {
+    const h = window.__rikkun! as any;
+    h.settings.set('yokaiAutoSpawn', false);
+    h.yokai.clear();
+    h.time.set(0);
+  });
+  await standOnGround(page, 20.5, 20.5, { yaw: 0, pitch: 0 });
+  await page.evaluate((held) => {
+    const h = window.__rikkun! as any;
+    h.inventory.clear();
+    h.inventory.setSlot(0, { item: held, count: 1 });
+    if (held === 'yumi') h.inventory.setSlot(1, { item: 'ya', count: 5 });
+    h.inventory.select(0);
+    h.step(1);
+  }, held);
+  await page.waitForFunction((ns) => {
+    const h = window.__rikkun! as any;
+    h.step(1);
+    const st = h.player.doll().sprite.status;
+    return ns.every((n: string) => st?.[n] === 'ready');
+  }, names, { timeout: 8000 });
+}
+const CHAR2_SCREENS: Screen[] = [
+  {
+    id: 'char2-katana-tech',
+    roots: ['#hud'],
+    layoutOnly: true,
+    open: async (page) => {
+      await char2Setup(page, 'katana', CHAR2_KATANA);
+      await page.evaluate(() => {
+        const h = window.__rikkun! as any;
+        h.step(20);
+        h.input.press('primary');
+        h.step(30);
+      });
+    },
+  },
+  {
+    id: 'char2-bow-draw',
+    roots: ['#hud'],
+    layoutOnly: true,
+    open: async (page) => {
+      await char2Setup(page, 'yumi', CHAR2_BOW);
+      await page.evaluate(() => {
+        const h = window.__rikkun! as any;
+        h.step(20);
+        h.input.press('primary');
+        h.step(45);
+      });
+    },
+  },
+];
+SCREENS.push(...CHAR2_SCREENS);
+
 interface Issue {
   kind: string;
   /** 数字を ふくまない 目印（known.json と くらべる） */
@@ -388,7 +453,7 @@ test.describe('UI 検査ゲート', () => {
           return new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
         });
         rootsSeen += await page.evaluate((sels) => sels.filter((q) => document.querySelector(q)).length, screen.roots);
-        for (const issue of await inspect(page, screen.roots, s === SIZES[0])) {
+        for (const issue of await inspect(page, screen.roots, s === SIZES[0] && !screen.layoutOnly)) {
           const k = key(screen.id, issue);
           found.set(k, [...new Set([...(found.get(k) ?? []), `${s.w}×${s.h}: ${issue.detail}`])]);
         }
@@ -410,6 +475,93 @@ test.describe('UI 検査ゲート', () => {
       ).toEqual([]);
     });
   }
+});
+
+/**
+ * CHAR-2 AC34: 切りつめる前と後で 画面が 同じ。
+ * 切りつめた絵（ふだん）と もとの格子の絵（?charsheets=orig。開発サーバーだけ）で、同じ場面の画面を撮って ドット単位でくらべる。
+ */
+test('CHAR-2 AC34: 切りつめる前と後で 画面が ドット単位で 同じ', async ({ browser }) => {
+  test.setTimeout(240_000);
+  type Scene = { id: string; held: 'none' | 'katana' | 'yumi'; yaw: number; pitch: number; stance?: number; draw?: boolean };
+  const scenes: Scene[] = [
+    ...[0, 45, 90, 135, 180, 225, 270, 315].map((yaw) => ({ id: `dir-yaw${yaw}`, held: 'none' as const, yaw, pitch: -10 })),
+    { id: 'down', held: 'none', yaw: 0, pitch: -75 },
+    { id: 'up', held: 'none', yaw: 0, pitch: 75 },
+    ...[0, 1, 2].map((stance) => ({ id: `kamae-${stance}`, held: 'katana' as const, yaw: 45, pitch: -10, stance })),
+    { id: 'bow-full-draw', held: 'yumi', yaw: 90, pitch: -10, draw: true },
+  ];
+  const shoot = async (query: string): Promise<Record<string, Buffer>> => {
+    const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    const page = await ctx.newPage();
+    const out: Record<string, Buffer> = {};
+    try {
+      for (const sc of scenes) {
+        await page.goto(`/?nosave=1${query}`);
+        await page.waitForFunction(() => window.__rikkun?.ready === true);
+        const names = sc.held === 'katana' ? CHAR2_KATANA : sc.held === 'yumi' ? CHAR2_BOW : ['idle', 'walk', 'run', 'jump'];
+        await page.evaluate(() => {
+          const h = window.__rikkun! as any;
+          h.pause();
+          h.achievements.mute(true);
+          h.lock.simulate(true);
+          h.input.releaseAll();
+          h.settings.set('yokaiAutoSpawn', false);
+          h.settings.set('yokaiWander', false);
+          h.yokai.clear();
+          h.time.set(0);
+          h.inventory.clear();
+        });
+        await standOnGround(page, 20.5, 20.5, { yaw: sc.yaw, pitch: sc.pitch });
+        await page.evaluate((sc) => {
+          const h = window.__rikkun! as any;
+          if (sc.held !== 'none') {
+            h.inventory.setSlot(0, { item: sc.held, count: 1 });
+            if (sc.held === 'yumi') h.inventory.setSlot(1, { item: 'ya', count: 5 });
+            h.inventory.select(0);
+          }
+          h.step(1);
+        }, sc);
+        await page.waitForFunction((ns) => {
+          const h = window.__rikkun! as any;
+          h.step(1);
+          const st = h.player.doll().sprite.status;
+          return ns.every((n: string) => st?.[n] === 'ready');
+        }, names, { timeout: 10_000 });
+        await page.evaluate((sc) => {
+          const h = window.__rikkun! as any;
+          for (let i = 0; i < (sc.stance ?? 0); i++) {
+            h.input.press('stanceNext');
+            h.step(1);
+            h.input.release('stanceNext');
+            h.step(10);
+          }
+          h.step(30);
+          if (sc.draw) {
+            h.input.press('primary');
+            h.step(45);
+          }
+        }, sc);
+        await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+        out[sc.id] = await page.screenshot();
+      }
+    } finally {
+      await ctx.close();
+    }
+    return out;
+  };
+  const packed = await shoot('');
+  const orig = await shoot('&charsheets=orig');
+  mkdirSync(OUT, { recursive: true });
+  const diffs: string[] = [];
+  for (const sc of scenes) {
+    if (!packed[sc.id]!.equals(orig[sc.id]!)) {
+      diffs.push(sc.id);
+      writeFileSync(`${OUT}/ac34-${sc.id}-packed.png`, packed[sc.id]!);
+      writeFileSync(`${OUT}/ac34-${sc.id}-orig.png`, orig[sc.id]!);
+    }
+  }
+  expect(diffs, 'ちがう場面（ui-gate-report/ac34-*.png）').toEqual([]);
 });
 
 test('道具が わるい例を 見つける', async ({ page }) => {

@@ -1,7 +1,8 @@
 // 動き・場面とコマの えらび方・進み方（CHAR-1 §4.4、CHAR-2 §4.1〜§4.4）。固定ステップ（1/60 秒）ごとに step を呼ぶ。
 import type { BladePhase, BladeStance, BladeTech, BladeTechFrames, Vec3 } from '../contracts';
-import { techCell } from './techCell';
-import { BOW_RAPID_TICKS, BOW_SHOT_TICKS, TECH_CURVES, TECH_PHASES } from './techCurves';
+import { W2_SETTING_DEFAULTS } from '../contracts';
+import { techCell } from '../tools/blade/advance';
+import { BOW_RAPID_TICKS, BOW_SHOT_TICKS } from './techCurves';
 
 export type SpriteMotion =
   | 'idle'
@@ -41,10 +42,10 @@ export interface SpriteStepInput {
   running: boolean;
   facingDeg: number;
   /** 持っている物（なければ 'none'） */
-  weapon?: 'none' | 'katana' | 'bow';
-  blade?: { stance: BladeStance; tech: BladeTech | null; phase: BladePhase; frame: number; lengths: BladeTechFrames | null } | null;
+  weapon: 'none' | 'katana' | 'bow';
+  blade: { stance: BladeStance; tech: BladeTech | null; phase: BladePhase; frame: number; lengths: BladeTechFrames | null } | null;
   /** shot = このステップに 矢をうった（arrowShot） */
-  bow?: { drawing: boolean; drawTicks: number; shot: boolean } | null;
+  bow: { drawing: boolean; drawTicks: number; shot: boolean } | null;
 }
 
 /** 場面が 見たい絵（読みこみの 代わりの絵にする前） */
@@ -208,7 +209,7 @@ export class MotionMachine {
     // K1: わざ
     if (b && b.tech && (b.phase === 'startup' || b.phase === 'active' || b.phase === 'recovery')) {
       const t = b.tech;
-      this.setStill('tech', TECH_MOTION[t], techCell(TECH_CURVES[t], TECH_PHASES[t], b.lengths ?? TECH_PHASES[t], b.frame));
+      this.setStill('tech', TECH_MOTION[t], techCell(W2_SETTING_DEFAULTS.bladeAdvance[t], W2_SETTING_DEFAULTS.bladeTech[t], b.lengths ?? W2_SETTING_DEFAULTS.bladeTech[t], b.frame));
       return;
     }
     // K3: かまえ歩き（K2 空中・K4 立つ は かまえの 1 コマ目）
