@@ -8,12 +8,11 @@ function steps(t: TimeOfDayImpl, n: number): void {
 }
 
 describe('昼と夜（AC1）', () => {
-  // SHADOW-1（オーナーの決定）: はじまりは tick 9000（朝の長い影をさける）。実装したら it.fails を it に
-  it.fails('開いた直後は ひる の 9000 tick め', () => {
+  it('開いた直後は ひる の 9000 tick め', () => {
     const hook = createTimeHook(new TimeOfDayImpl());
     expect(hook.get()).toMatchObject({ phase: 'day', dayTick: 9000, day: 0 });
   });
-  it.fails('時間帯の境目と 1 日の終わり（はじまりは 9000）', () => {
+  it('時間帯の境目と 1 日の終わり（はじまりは 9000）', () => {
     const t = new TimeOfDayImpl();
     steps(t, 54000 - 9000 - 1);
     expect(t.phase()).toBe('day');
@@ -35,7 +34,7 @@ describe('昼と夜（AC1）', () => {
     expect(t.dayTick()).toBe(5);
     expect(t.day()).toBe(0);
   });
-  it.fails('時間帯が変わったときだけ知らせる。解除できる（はじまりは 9000）', () => {
+  it('時間帯が変わったときだけ知らせる。解除できる（はじまりは 9000）', () => {
     const t = new TimeOfDayImpl();
     const seen: DayPhase[] = [];
     const off = t.onPhaseChange((p) => seen.push(p));
@@ -51,7 +50,7 @@ describe('昼と夜（AC1）', () => {
 });
 
 describe('空と明るさ（AC2）', () => {
-  it.fails('ひる・よる の色と明るさ（夜の外の明るさ 0.25）', () => {
+  it('ひる・よる の色と明るさ（夜の外の明るさ 0.25）', () => {
     const t = new TimeOfDayImpl();
     expect(t.skyColor()).toBe('#8FD3FF');
     expect(t.brightness()).toBe(1);
@@ -80,7 +79,7 @@ describe('空と明るさ（AC2）', () => {
       prevDoll = t.dollBrightness();
     }
   });
-  it.fails('あさ は よる から ひる へ戻る（夜の外の明るさ 0.25）', () => {
+  it('あさ は よる から ひる へ戻る（夜の外の明るさ 0.25）', () => {
     const t = new TimeOfDayImpl();
     t.set(86400);
     expect(t.brightness()).toBeCloseTo(0.25);

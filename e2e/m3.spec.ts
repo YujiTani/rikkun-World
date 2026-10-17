@@ -53,8 +53,7 @@ async function open(page: Page, query = '?nosave=1') {
 }
 
 test.describe('M3 昼と夜', () => {
-  // SHADOW-1: はじまりは dayTick 9000・夜の外の明るさ 0.25（オーナーの決定）。実装したら test.fail を外す
-  test.fail('AC1/AC2: 時間帯の境目（昼 15 分・ゆうがた 1.5 分・夜 7.5 分・あさ 1.5 分）、空の色、明るさ', async ({ page }) => {
+  test('AC1/AC2: 時間帯の境目（昼 15 分・ゆうがた 1.5 分・夜 7.5 分・あさ 1.5 分）、空の色、明るさ', async ({ page }) => {
     await open(page);
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
