@@ -35,6 +35,7 @@ import { BODY_H, BODY_W, FARM_BREAK_DROP, createDigConfig, type DigConfig } from
 import { createRng, randInt, type Rng } from '../world/gen/random';
 import type { PunchGate } from '../combat/PlayerCombat';
 import { centerOfYokai, decideAttack, type AttackDecision, type AttackHold } from '../combat/attackFacing';
+import { cellInWall } from '../world/wall';
 import { lookDirection, raycastBlocks } from './raycast';
 import { isBladeItem } from '../tools/blade/BladeSystem';
 import { blockFamily, effectivePower, toolFamily, toolRank } from './toolFamily';
@@ -217,6 +218,12 @@ export class DigSystemImpl implements DigSystem {
 
   /** 出どころ o から d の向きの線で ねらうブロック（reachOrigin があれば その点から reach 以内のものだけ）。distance は o から */
   private aimBlock(p: PlayerState, o: Vec3, d: Vec3): TargetInfo | null {
+    const t = this.aimBlockRaw(p, o, d);
+    // 見えない壁の外のマスは ほれない（VOX-D W4）。ブロックも おく所も 壁の中だけ
+    return t && cellInWall(t.block.x, t.block.z) && cellInWall(t.place.x, t.place.z) ? t : null;
+  }
+
+  private aimBlockRaw(p: PlayerState, o: Vec3, d: Vec3): TargetInfo | null {
     const reach = this.config.reach;
     if (!this.reachOrigin) return raycastBlocks(this.world, o.x, o.y, o.z, d.x, d.y, d.z, reach);
     const r = this.reachOrigin(p, this.reachScratch);

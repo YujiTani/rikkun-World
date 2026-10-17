@@ -797,3 +797,33 @@ describe('BAL-B: 二つ名・場所の倍率（つなぎ）', () => {
     expect(m.list().find((y) => y.id === id2)!.title).toBe('oyabun');
   });
 });
+
+describe('列を捨てる・出てよい列（VOX-D）', () => {
+  it('canSpawnAt が false を返す所には 出ない', () => {
+    const s = setup({ phase: 'night' });
+    s.m.config.yokaiAutoSpawn = true;
+    (s.m as unknown as { opts: { canSpawnAt?: (x: number, z: number) => boolean } }).opts.canSpawnAt = () => false;
+    s.player.position = { x: 20.5, y: 9, z: 20.5 };
+    s.step(600);
+    expect(s.m.list()).toHaveLength(0);
+  });
+  it('canSpawnAt が true なら 今までどおり 出る', () => {
+    const s = setup({ phase: 'night' });
+    s.m.config.yokaiAutoSpawn = true;
+    (s.m as unknown as { opts: { canSpawnAt?: (x: number, z: number) => boolean } }).opts.canSpawnAt = () => true;
+    s.player.position = { x: 20.5, y: 9, z: 20.5 };
+    s.step(1);
+    expect(s.m.list()).toHaveLength(1);
+  });
+  it('読みこんでいない列にいる妖怪は 静かに消える（落とし物なし）', () => {
+    const s = setup();
+    s.m.spawn('karakasa', 10.5, 9, 10.5, { ai: false });
+    s.step(2);
+    expect(s.m.list()).toHaveLength(1);
+    s.world.isLoaded = () => false;
+    s.step(2);
+    expect(s.m.list()).toHaveLength(0);
+    expect(s.inv.added).toHaveLength(0);
+    expect(s.m.drainEvents().filter((e) => e.type === 'defeat')).toHaveLength(0);
+  });
+});

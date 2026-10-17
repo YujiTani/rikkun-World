@@ -107,6 +107,12 @@ export class StorageSystem implements TansuMaterialStore {
     return this.d.world.getBlock(x, y, z) === 'tansu';
   }
 
+  /** そのマスが 読みこまれていて、たんす でなくなった（読みこんでいない列は 'outside' = まだ分からない。記録は消さない。VOX-D） */
+  private changedAway(x: number, y: number, z: number): boolean {
+    const b = this.d.world.getBlock(x, y, z);
+    return b !== 'tansu' && b !== 'outside';
+  }
+
   /** そこの たんす の記録。たんす でなければ null。記録がなければ（テストで置いた）空で作る */
   private ensure(x: number, y: number, z: number): TansuRecord | null {
     if (!this.isTansu(x, y, z)) return null;
@@ -145,7 +151,7 @@ export class StorageSystem implements TansuMaterialStore {
 
   list(): Vec3[] {
     const out: Vec3[] = [];
-    for (const r of this.records.values()) if (this.isTansu(r.x, r.y, r.z)) out.push({ x: r.x, y: r.y, z: r.z });
+    for (const r of this.records.values()) if (!this.changedAway(r.x, r.y, r.z)) out.push({ x: r.x, y: r.y, z: r.z });
     return out;
   }
 
@@ -434,7 +440,7 @@ export class StorageSystem implements TansuMaterialStore {
     const o = this.opened;
     if (o) {
       const p = this.d.player();
-      const gone = !this.isTansu(o.x, o.y, o.z);
+      const gone = this.changedAway(o.x, o.y, o.z);
       const far = Math.hypot(p.x - (o.x + 0.5), p.z - (o.z + 0.5), p.y - o.y) > this.live.tansuCloseDist;
       if (gone) {
         this.records.delete(key(o.x, o.y, o.z));
@@ -450,7 +456,7 @@ export class StorageSystem implements TansuMaterialStore {
     }
     // ブロックが書きかえられて消えた たんす は 中身も消える（落とさない）
     for (const [k, r] of this.records) {
-      if (!this.isTansu(r.x, r.y, r.z)) {
+      if (this.changedAway(r.x, r.y, r.z)) {
         this.records.delete(k);
         this.fullNow.delete(r);
         this.ver++;
