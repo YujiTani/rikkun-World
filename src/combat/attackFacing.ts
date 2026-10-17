@@ -35,8 +35,11 @@ export interface AttackInput {
   body: Vec3;
   yokai: ReadonlyArray<YokaiInfo>;
   world: VoxelWorld;
-  /** ＋マークの 結果: ねらっている 妖怪（4° の ねらい補助 ふくむ）と、先の ブロック */
-  aim: { yokaiId: number | null; block: 'block' | 'crop' | null };
+  /**
+   * ＋マークの 結果: ねらっている 妖怪（4° の ねらい補助 ふくむ）と、先の ブロック。
+   * yokaiBeforeBlock: ＋マークの 線で ブロックより 手前に 妖怪が いる（届かなくても。M3 AC18・#34）
+   */
+  aim: { yokaiId: number | null; block: 'block' | 'crop' | null; yokaiBeforeBlock?: boolean };
 }
 
 export type AttackUse = 'attack' | 'dig' | 'harvest' | 'whiff' | 'none';
@@ -281,8 +284,8 @@ export function decideAttack(inp: AttackInput): AttackDecision {
       return { use: 'attack', rule: 2, baseDeg: a0, keyDeg, dirDeg: dir, targetId: y.id };
     }
   }
-  // (3) ＋マークの先の 作物・ブロック
-  if (inp.aim.block !== null) {
+  // (3) ＋マークの先の 作物・ブロック（線で 手前に 妖怪が いれば ほらない。妖怪が じゃまをする、M3 AC18）
+  if (inp.aim.block !== null && !inp.aim.yokaiBeforeBlock) {
     return { use: inp.aim.block === 'crop' ? 'harvest' : 'dig', rule: 3, baseDeg: a0, keyDeg, dirDeg: a0, targetId: null };
   }
   // (4) 空ぶり

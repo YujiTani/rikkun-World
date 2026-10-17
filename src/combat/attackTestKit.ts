@@ -91,7 +91,7 @@ export interface DecideOpts {
   yokai?: YokaiInfo[];
   world?: VoxelWorld;
   settings?: W3Settings;
-  aim?: { yokaiId: number | null; block: 'block' | 'crop' | null };
+  aim?: AttackInput['aim'];
 }
 
 /** 既定: 刀・突き・yaw 0・facing 0・キーなし・妖怪なし・＋マークの先は 何もない（空ぶり） */

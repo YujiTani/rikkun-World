@@ -207,6 +207,14 @@ describe('AC5 使いみちの 順（§4.4）', () => {
     expect(g.use).toBe('dig');
     expect(g.rule).toBe(3);
   });
+  it('#34: ＋マークの 線で ブロックより 手前に とどかない妖怪 → ほらずに whiff・rule 4（M3 AC18）', () => {
+    const y = yokaiAt('karakasa', at(0, 4.6));
+    const d = decide({ hold: 'punch', yokai: [y], aim: { yokaiId: null, block: 'block', yokaiBeforeBlock: true } });
+    expect(d.use).toBe('whiff');
+    expect(d.rule).toBe(4);
+    expect(decide({ aim: { yokaiId: null, block: 'crop', yokaiBeforeBlock: true } }).use).toBe('whiff');
+    expect(decide({ hold: 'punch', yokai: [y], aim: { yokaiId: null, block: 'block', yokaiBeforeBlock: false } }).use).toBe('dig');
+  });
   it('(3) 妖怪なし・＋マークに 作物 → harvest。ブロック → dig', () => {
     const h = decide({ aim: { yokaiId: null, block: 'crop' } });
     expect(h.use).toBe('harvest');
