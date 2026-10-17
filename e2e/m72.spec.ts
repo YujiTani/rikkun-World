@@ -215,8 +215,8 @@ test.describe('M7-2 じょうろ', () => {
       { name: '北', yaw: 0, exp: ['5,6', '5,5'], tiles: 2 },
       { name: '北東 47°', yaw: 47, exp: ['5,6', '6,6'], tiles: 2 },
     ];
+    await open(page); // 1 回だけ ひらく（T.base() が 毎回 場所を 敷きなおす。高さ 352 の空気ぬきを 5 回 ひらき直すと 時間がかかる）
     for (const c of cases) {
-      await open(page);
       const r = await page.evaluate((c) => {
         const T = (window as any).T;
         T.base();
@@ -236,7 +236,6 @@ test.describe('M7-2 じょうろ', () => {
       expect(r.water, c.name).toBe(19);
       expect(r.tiles, c.name).toEqual([2]);
     }
-    await open(page);
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
       const T = (window as any).T;
@@ -499,6 +498,8 @@ test.describe('M7-2 なでる・ごきげん・キラキラ', () => {
       const T = (window as any).T;
       const o: any = {};
       T.base();
+      // ごきげんの ハート（AC15）は 農業の通しのステップの位置で 出る時が 変わる。ここは「なでた ハート」だけ 数えたいので 止めておく
+      h.settings.set('farmHeartEvery', 1e9);
       T.soil(5, 6);
       h.farm.plant(5, 8, 6, 'tomato');
       h.farm.setStage(5, 9, 6, 1);
@@ -717,6 +718,7 @@ test.describe('M7-2 なでる・ごきげん・キラキラ', () => {
       o.stage2 = h.farm.fx().counts.star;
       const lightBefore = h.world.lightAt(5, 9, 5).level;
       for (const [x, z] of crops) h.farm.setStage(x, 9, z, 3);
+      h.step(20); // 作物の一覧の読みなおし（15 ステップごと）を 先に待つ。農業の通しのステップの位置で 数がずれないように
       h.farm.fxReset();
       h.step(450);
       o.stage3 = h.farm.fx().counts.star;
