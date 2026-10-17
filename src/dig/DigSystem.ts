@@ -302,6 +302,16 @@ export class DigSystemImpl implements DigSystem {
   }
 
   update(): void {
+    this.listCacheTick = -1;
+    this.inUpdate = true;
+    try {
+      this.updateInner();
+    } finally {
+      this.inUpdate = false;
+    }
+  }
+
+  private updateInner(): void {
     const enabled = this.lock.playInputEnabled() && !this.gate?.blocksInput();
 
     // ホットバー
@@ -889,10 +899,13 @@ export class DigSystemImpl implements DigSystem {
 
   private listCache: YokaiInfo[] = [];
   private listCacheTick = -1;
+  private inUpdate = false;
 
   /** 妖怪の 一覧。1 ステップに 1 回だけ 作る（歩数が 変わったときだけ 取り直す） */
   private yokaiList(): YokaiInfo[] {
     if (!this.m4.yokai) return [];
+    // update() の中だけ キャッシュ(1 ステップ 1 回)。外から 呼ばれたときは 毎回 取り直す
+    if (!this.inUpdate) return this.m4.yokai().list();
     if (this.listCacheTick !== this.tickCount) {
       this.listCache = this.m4.yokai().list();
       this.listCacheTick = this.tickCount;
