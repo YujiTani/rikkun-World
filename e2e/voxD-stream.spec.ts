@@ -119,6 +119,7 @@ test.describe('VOX-D ストリーミング', () => {
   test('基準 7: 歩く: 北へ 1,200 step（setStreamWork(4)）毎 step 北 7 列先まで読みこみ済み・持つ列 441 以下・止まって 10 以内だけ', async ({ page }) => {
     test.setTimeout(300_000);
     await openStream(page);
+    await settleWorld(page, true); // ready は半径 6 まで。歩く前に 輪を全部そろえる
     const r = await page.evaluate(() => {
       const h = window.__rikkun! as any;
       const w = h.world;
@@ -141,7 +142,7 @@ test.describe('VOX-D ストリーミング', () => {
             break;
           }
         }
-        if (i % 20 === 0) maxCols = Math.max(maxCols, w.loadedChunks().length);
+        maxCols = Math.max(maxCols, w.loadedChunks().length);
       }
       h.input.releaseAll();
       const walked = startZ - h.player.get().position.z;
@@ -176,7 +177,7 @@ test.describe('VOX-D ストリーミング', () => {
         h.world.teleport(P.x, P.z);
         return { sx: Math.floor(sp.x), sz: Math.floor(sp.z) };
       }, P);
-      await settleWorld(page);
+      await settleWorld(page, true);
       const after = await page.evaluate(
         ({ P, sx, sz }) => {
           const h = window.__rikkun! as any;
@@ -194,7 +195,7 @@ test.describe('VOX-D ストリーミング', () => {
       expect(Math.abs(after.y - (after.g + 1))).toBeLessThanOrEqual(0.01);
       expect(after.startLoaded).toBe(false);
       expect(after.center).toEqual({ cx: P.cx, cz: P.cz });
-      expect(after.n).toBeGreaterThan(200);
+      expect(after.n).toBe(289);
       expect(after.diff).toBe(0);
     });
   }
@@ -462,6 +463,33 @@ test.describe('VOX-D ストリーミング', () => {
     expect(back.soilAfter).toBe('farmland');
   });
 
+  test('基準 15(出る場所): 妖怪は 描く輪（スタートの列から 6 以内の meshed）の外の列には出ない', async ({ page }) => {
+    await openStream(page);
+    await settleWorld(page, true);
+    const r = await page.evaluate(() => {
+      const h = window.__rikkun! as any;
+      const w = h.world;
+      h.settings.set('yokaiAutoSpawn', true);
+      h.time.set(20000); // 夜
+      h.world.setStreamWork(null);
+      const out: string[] = [];
+      let seen = 0;
+      for (let i = 0; i < 1500; i++) {
+        h.step(1);
+        if (i % 25 !== 0) continue;
+        const c = w.stream().center;
+        for (const y of h.yokai.list()) {
+          seen++;
+          const cx = Math.floor(y.position.x) >> 4;
+          const cz = Math.floor(y.position.z) >> 4;
+          if (Math.max(Math.abs(cx - c.cx), Math.abs(cz - c.cz)) > 6 || w.chunkStage(cx, cz) !== 'meshed') out.push(`${cx},${cz} ${w.chunkStage(cx, cz)}`);
+        }
+      }
+      return { seen, out: out.slice(0, 5), n: out.length };
+    });
+    expect(r.n, JSON.stringify(r.out)).toBe(0);
+  });
+
   for (const seed of SEEDS_20) {
     test(`基準 20: regions・置きもの・洞くつの口は 起動・テレポート・読みなおしのあとで同じ。どれも R の中（${label(seed)}）`, async ({ page }) => {
       await openStream(page, q(seed));
@@ -483,12 +511,25 @@ test.describe('VOX-D ストリーミング', () => {
       // R（G1）の中
       const inR = (x: number, z: number) => x >= a.sx - 64 && x <= a.sx + 63 && z >= a.sz - 64 && z <= a.sz + 63;
       const bad: string[] = [];
-      for (const [name, v] of Object.entries(a.regions as Record<string, any>)) {
-        for (const o of Array.isArray(v) ? v : [v]) {
-          if (o && typeof o === 'object' && 'cx' in o && !inR(o.cx, o.cz)) bad.push(`${name} circle ${o.cx},${o.cz}`);
-          if (o && typeof o === 'object' && 'x0' in o && !(inR(o.x0, o.z0) && inR(o.x1, o.z1))) bad.push(`${name} rect`);
-        }
-      }
+      const R = a.regions as any;
+      let nChecked = 0;
+      const circle = (name: string, o: any) => {
+        nChecked++;
+        if (!(typeof o?.cx === 'number' && typeof o?.cz === 'number' && typeof o?.r === 'number')) bad.push(`${name} 形`);
+        else if (!inR(o.cx, o.cz)) bad.push(`${name} circle ${o.cx},${o.cz}`);
+      };
+      const rect = (name: string, o: any) => {
+        nChecked++;
+        if (!['x0', 'z0', 'x1', 'z1'].every((k) => typeof o?.[k] === 'number')) bad.push(`${name} 形`);
+        else if (!(inR(o.x0, o.z0) && inR(o.x1, o.z1))) bad.push(`${name} rect`);
+      };
+      for (const n of ['mountain', 'rock', 'forest', 'spring', 'meadow', 'pond']) circle(n, R[n]);
+      rect('flat', R.flat);
+      expect(Array.isArray(R.river) && R.river.length > 0, 'river').toBe(true);
+      R.river.forEach((o: any, i: number) => rect(`river${i}`, o));
+      if (!inR(R.center.x, R.center.z)) bad.push('center');
+      if (!inR(R.mountain.peak.x, R.mountain.peak.z)) bad.push('peak');
+      expect(nChecked).toBeGreaterThanOrEqual(8);
       for (const m of a.mouths) if (!inR(m.x, m.z) || !inR(m.room.x, m.room.z)) bad.push(`mouth ${m.x},${m.z}`);
       for (const k of a.placement.wild) if (!inR(k.x, k.z)) bad.push(`wild ${k.x},${k.z}`);
       for (const k of a.placement.oldFarm?.blocks ?? []) if (!inR(k.x, k.z)) bad.push(`oldFarm ${k.x},${k.z}`);
@@ -724,7 +765,7 @@ test.describe('VOX-D ストリーミング', () => {
       return { moved, steps, hp0, minHp, ready: h.world.stream().ready, y: q.position.y, x: q.position.x, z: q.position.z, g: h.world.groundHeight(Math.floor(sp.x), Math.floor(sp.z)), sp: { x: sp.x, z: sp.z }, onGround: q.onGround };
     });
     expect(w3.ready).toBe(true);
-    expect(w3.steps).toBeGreaterThanOrEqual(300);
+    expect(w3.steps).toBeGreaterThanOrEqual(371 - 31); // 371 こ以上 ＞ すでに進めた 31 step のあと
     expect(w3.moved).toBe(0);
     expect(w3.minHp).toBe(w3.hp0);
     expect(Math.abs(w3.y - (w3.g + 1))).toBeLessThanOrEqual(0.05);

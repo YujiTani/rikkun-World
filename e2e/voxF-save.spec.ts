@@ -167,12 +167,19 @@ test.describe('VOX-F 保存', () => {
       await h.world.settle();
       const fy = h.world.groundHeight(fx, fz) + 40;
       if (!h.world.setBlock(fx, fy, fz, 'log')) throw new Error('far setBlock failed');
-      // 閉じる途中に 保険が 置かれたかを 見張る
-      window.addEventListener('pagehide', () => localStorage.setItem('__pendingSeen', localStorage.getItem('rikkun-world-pending') ?? 'none'));
-      return { fx, fy, fz };
+      // 保険は pagehide で置かれる。ここで 手で pagehide を出して 取りだし、プレイヤーの位置を スタートに もどして 渡す
+      // （中心はスタートのまま・保険の列だけ 輪の外、を作る。teleport したままだと 中心も遠くになる）
+      window.dispatchEvent(new Event('pagehide'));
+      const pending = JSON.parse(localStorage.getItem('rikkun-world-pending') ?? 'null');
+      if (!pending) throw new Error('保険が置かれていない');
+      pending.meta.player = { ...pending.meta.player, x: sp.x, y: sp.y, z: sp.z };
+      return { fx, fy, fz, pending: JSON.stringify(pending), spawn: { x: sp.x, z: sp.z } };
     });
+    expect(JSON.parse(far.pending).cells.length).toBeGreaterThanOrEqual(4);
     await page.close({ runBeforeUnload: true });
     const page2 = await context.newPage();
+    // 閉じるときの pagehide が 置きなおした保険を、中心がスタートの形に 置きかえてから 起動する
+    await page2.addInitScript((p) => localStorage.setItem('rikkun-world-pending', p), far.pending);
     await boot(page2);
     const r = await page2.evaluate(
       async (far) => {
@@ -181,7 +188,8 @@ test.describe('VOX-F 保存', () => {
         // ready のあと すぐ: 保険の列（輪の外でも 開始の前に読みこんで当てる K6）
         const farAtReady = h.world.getBlock(far.fx, far.fy, far.fz);
         const near = { a: h.world.getBlock(2, 25, 2), b: h.world.getBlock(3, 25, 3), c: h.world.getBlock(90, 12, 50) };
-        const seen = localStorage.getItem('__pendingSeen');
+        const center = h.world.stream().center;
+        const seen = center;
         await h.save.now();
         const pendingAfter = localStorage.getItem('rikkun-world-pending');
         await h.world.settle();
@@ -193,7 +201,7 @@ test.describe('VOX-F 保存', () => {
       far,
     );
     console.log('AC5', JSON.stringify(r));
-    expect(r.seen).not.toBe('none');
+    expect(r.seen).toEqual({ cx: Math.floor(far.spawn.x) >> 4, cz: Math.floor(far.spawn.z) >> 4 }); // 中心はスタート（保険の列は輪の外）
     expect(r.near).toEqual({ a: 'log', b: 'sand', c: 'log' });
     expect(r.farAtReady).toBe('log');
     expect(r.pendingAfter).toBeNull();
