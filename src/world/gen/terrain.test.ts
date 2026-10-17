@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { SEA_Y, WORLD_HEIGHT } from '../../contracts';
 import { startFeaturesOf } from './features';
-import { biomeAt, biomeCell, heightAt, rawHeightAt, spawnOf, terrainAt } from './terrain';
+import { COUNTRY_KINDS, countryAt, countryCell } from './biome';
+import { heightAt, rawHeightAt, spawnOf, terrainAt } from './terrain';
 
 /** VOX-B 受け入れ基準 3（高さ）・5（海から上がれる）・10（バイオーム）・11（スタート）・14（はじまりの木・岩山）のうち、高さだけで見られるもの */
 
@@ -25,7 +26,7 @@ describe('基準 3: 高さ H は SEA_Y−30〜270（200 シード × 64 列）',
           expect(t.h).toBeGreaterThanOrEqual(SEA_Y - 30);
           expect(t.h).toBeLessThanOrEqual(270);
           expect(t.sea).toBe(t.h <= SEA_Y - 1);
-          expect(['grassland', 'forest']).toContain(t.biome);
+          expect(COUNTRY_KINDS).toContain(t.biome); // #184: 12 の国
         }
       }
     }
@@ -92,75 +93,26 @@ describe('基準 5: 海から上がれる', () => {
   }, 30000);
 });
 
-describe('基準 10: バイオーム', () => {
-  it('1,000 升目で 森は 25〜45%（25 シード × 40 升目。1 つの seed だけだと 大きな形のかたよりで 3〜5 割にふれる）', () => {
-    let forest = 0;
-    let n = 0;
-    for (let seed = 1; seed <= 25; seed++) {
-      for (let i = 0; i < 8; i++) {
-        for (let j = 0; j < 5; j++) {
-          n++;
-          if (biomeCell(seed, i - 4, j - 2).kind === 'forest') forest++;
-        }
-      }
-    }
-    expect(n).toBe(1000);
-    expect(forest / n).toBeGreaterThanOrEqual(0.25);
-    expect(forest / n).toBeLessThanOrEqual(0.45);
-  });
-
-  it('升目の点は 升目の中の 16〜111（線は 64 + 128k）', () => {
+describe('基準 10: バイオーム（#184 で 12 の国に。数の基準は src/world/gen/biome.test.ts の #184-AC1〜9）', () => {
+  // 消した 4 つ（理由）: 「森 25〜45%」「森が 1 つ以上」は 国が 2 種 → 12 種で意味がなくなった（#184-AC2 が 8 国 12.5% ずつ・#184-AC5 が はらっぱ を見る）。
+  // 「境目の 森の重み」2 つは 森の重み（forest 0〜1）という考えが なくなった（境目は e < blend。#184-AC6 が 高さの差を見る）。
+  it('升目の点は 升目の中の 28〜84（線は 64 + 112k）', () => {
     for (const seed of [1, 2, 3]) {
       for (let i = -5; i < 5; i++) {
         for (let j = -5; j < 5; j++) {
-          const c = biomeCell(seed, i, j);
-          expect(c.px - (64 + 128 * i)).toBeGreaterThanOrEqual(16);
-          expect(c.px - (64 + 128 * i)).toBeLessThanOrEqual(111);
-          expect(c.pz - (64 + 128 * j)).toBeGreaterThanOrEqual(16);
-          expect(c.pz - (64 + 128 * j)).toBeLessThanOrEqual(111);
+          const c = countryCell(seed, i, j);
+          if (c.mountain) continue;
+          expect(c.px - (64 + 112 * i)).toBeGreaterThanOrEqual(28);
+          expect(c.px - (64 + 112 * i)).toBeLessThanOrEqual(84);
+          expect(c.pz - (64 + 112 * j)).toBeGreaterThanOrEqual(28);
+          expect(c.pz - (64 + 112 * j)).toBeLessThanOrEqual(84);
         }
       }
     }
   });
 
-  it('(64,64) は草原。まわり 4 升目に 森が 1 つ以上（200 シード）', () => {
-    for (const seed of SEEDS_200) {
-      expect(biomeAt(seed, 64, 64).kind, `seed ${seed}`).toBe('grassland');
-      const kinds = [[-1, -1], [0, -1], [-1, 0], [0, 0]].map(([i, j]) => biomeCell(seed, i!, j!).kind);
-      expect(kinds.filter((k) => k === 'forest').length, `seed ${seed}`).toBeGreaterThanOrEqual(1);
-      expect(kinds.filter((k) => k === 'grassland').length, `seed ${seed}`).toBeGreaterThanOrEqual(1);
-    }
-  });
-
-  it('境目（森の重みが 0〜1 の間）をまたぐとなりの列の高さの差は、境目でない所の最大をこえない', () => {
-    for (const seed of [20261012, 1, 2]) {
-      let maxPure = 0;
-      let maxBlend = 0;
-      let blend = 0;
-      for (let x = -700; x < 700; x++) {
-        for (let z = -150; z < 150; z += 3) {
-          const w0 = biomeAt(seed, x, z).forest;
-          const w1 = biomeAt(seed, x + 1, z).forest;
-          const d = Math.abs(rawHeightAt(seed, x, z) - rawHeightAt(seed, x + 1, z));
-          if ((w0 > 0 && w0 < 1) || (w1 > 0 && w1 < 1)) {
-            blend++;
-            maxBlend = Math.max(maxBlend, d);
-          } else maxPure = Math.max(maxPure, d);
-        }
-      }
-      expect(blend).toBeGreaterThan(500);
-      expect(maxBlend, `seed ${seed}`).toBeLessThanOrEqual(maxPure);
-    }
-  });
-
-  it('境目の重みは なめらか（1 マスで 0.1 以内）。種類は 重み 0.5 でかわる', () => {
-    for (const seed of [1, 2, 3]) {
-      for (let x = -500; x < 500; x++) {
-        const a = biomeAt(seed, x, 40).forest;
-        const b = biomeAt(seed, x + 1, 40).forest;
-        expect(Math.abs(a - b)).toBeLessThanOrEqual(0.1);
-      }
-    }
+  it('(64,64) は はらっぱ（200 シード）', () => {
+    for (const seed of SEEDS_200) expect(countryAt(seed, 64, 64).kind, `seed ${seed}`).toBe('harappa');
   });
 });
 
@@ -173,7 +125,7 @@ describe('基準 11: スタート', () => {
       expect(Math.abs(sp.z - 64)).toBeLessThanOrEqual(16);
       expect(sp.from).toEqual({ x: 64, z: 64 });
       expect(sp.checked).toBeGreaterThanOrEqual(1);
-      expect(terrainAt(seed, sp.x, sp.z).biome).toBe('grassland');
+      expect(terrainAt(seed, sp.x, sp.z).biome).toBe('harappa');
       expect(sp.h).toBeGreaterThanOrEqual(SEA_Y + 2);
       expect(sp.h).toBeLessThanOrEqual(SEA_Y + 12);
       expect(sp.h).toBe(rawHeightAt(seed, sp.x, sp.z));

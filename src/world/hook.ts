@@ -2,7 +2,7 @@ import type { BlockId, BlockType, SpawnPoint, TestArea, WorldRegions } from '../
 import type { StartFeatures } from './gen/features';
 import type { WorldGenInfo } from './gen/populate';
 import type { MouthInfo } from './gen/region';
-import type { BiomeKind } from './gen/terrain';
+import type { CountryKind } from './gen/config';
 import { BLOCK_TYPES } from './blocks/blockTypes';
 import { skyDarkness } from './light/skyDarkness';
 import type { WorldRenderer, RebuildStats, SectionInfo, SectionStats, MeshStats, RebuildLogEntry } from './render/WorldRenderer';
@@ -51,7 +51,7 @@ export interface WorldHook {
   /** generateChunk の結果のハッシュ（読みこまずに作る。仮の海のふち・畑の置きものは入らない） */
   genHash(cx: number, cz: number): string;
   /** 生成の値（読みこまずに計算。仮の海のふちの前） */
-  terrainAt(x: number, z: number): { h: number; biome: BiomeKind; sea: boolean };
+  terrainAt(x: number, z: number): { h: number; biome: CountryKind; sea: boolean };
   spawnInfo(): { from: { x: number; z: number }; fallback: boolean; checked: number };
   startTorch(): { x: number; y: number; z: number };
   startFeatures(): StartFeatures;

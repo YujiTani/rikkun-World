@@ -98,6 +98,11 @@ const BUCKET_ITEMS: readonly ItemType[] = [
   { id: 'water_bucket', name: 'みずの バケツ', maxStack: 1, placeBlock: null },
 ];
 
+/** VOX-I-1: 12 の国のブロック（置ける）。すすき は こわすと 消えるので 持ち物にならない */
+const VOX_I_BLOCKS: readonly ItemType[] = (
+  ['snow', 'momiji_leaves', 'matsu_leaves', 'flower_y', 'flower_o', 'flower_p', 'bamboo'] as const
+).map((id): ItemType => ({ id, name: BLOCK_TYPES.find((b) => b.id === id)!.name, maxStack: BLOCK_MAX_STACK, placeBlock: id }));
+
 export const ITEM_TYPES: readonly ItemType[] = [
   ...PLACEABLE_TYPES,
   ...ITEM_ONLY,
@@ -106,6 +111,7 @@ export const ITEM_TYPES: readonly ItemType[] = [
   ...M7_ITEMS,
   ...M72_ITEMS,
   ...BUCKET_ITEMS,
+  ...VOX_I_BLOCKS,
 ];
 
 const BY_ID = new Map<string, ItemType>(ITEM_TYPES.map((t) => [t.id, t]));
