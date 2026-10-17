@@ -200,8 +200,8 @@ const sleepNull = () => new Promise<null>((ok) => setTimeout(() => ok(null), SAV
 let idb = store && compressionAvailable() ? await Promise.race([openIdb(), sleepNull()]) : null;
 if (idb) requestPersist();
 const bootSignal = { aborted: false };
-// 公開したゲームの ?reset=1 は たしかめてから消す（いたずらのリンクで 世界が消えないように）
-const doReset = shouldReset(saveOptions.reset, import.meta.env.DEV, (t) => window.confirm(t));
+// 公開したゲームの ?reset=1 は 何もしない（いたずらのリンクで 世界が消えないように。#169）
+const doReset = shouldReset(saveOptions.reset, import.meta.env.DEV);
 let restored = await Promise.race([restoreStoredWorld({ world, db: idb, store, seed, saveId, reset: doReset, signal: bootSignal }), sleepNull()]);
 if (restored === null) {
   bootSignal.aborted = true;
@@ -1039,7 +1039,7 @@ onDefeatAch = (kind) => {
   achievements.feedDefeat({ kind, tick: game.tick, with: defeatWith(), hp: combat.hp() });
 };
 
-// 自動セーブ（?nosave=1 は保存しない、?reset=1 は消してから始める）
+// 自動セーブ（?nosave=1 は保存しない、?reset=1 は消してから始める。消すのは開発サーバーだけ）
 const save = new SaveManager({
   world,
   seed,

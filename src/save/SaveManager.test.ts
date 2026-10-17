@@ -13,7 +13,6 @@ import {
   SaveManager,
   isBodyPlaceable,
   parseSaveOptions,
-  RESET_CONFIRM_TEXT,
   shouldReset,
   saveKey,
   stripResetParam,
@@ -564,16 +563,11 @@ describe('住所の設定', () => {
     expect(parseSaveOptions('?reset=0')).toEqual({ reset: false, nosave: false });
   });
 
-  it('公開したゲームの ?reset=1 は たしかめて「はい」のときだけ消す', () => {
-    const asked: string[] = [];
-    const yes = (t: string) => (asked.push(t), true);
-    const no = (t: string) => (asked.push(t), false);
-    expect(shouldReset(false, false, yes)).toBe(false);
-    expect(shouldReset(true, true, no)).toBe(true); // 開発サーバー（E2E）は たしかめない
-    expect(asked).toEqual([]);
-    expect(shouldReset(true, false, no)).toBe(false);
-    expect(shouldReset(true, false, yes)).toBe(true);
-    expect(asked).toEqual([RESET_CONFIRM_TEXT, RESET_CONFIRM_TEXT]);
+  it('公開したゲームの ?reset=1 では 消さない（開発サーバーだけ 消す）', () => {
+    expect(shouldReset(false, true)).toBe(false);
+    expect(shouldReset(true, true)).toBe(true);
+    expect(shouldReset(true, false)).toBe(false);
+    expect(shouldReset(false, false)).toBe(false);
   });
 
   it('reset だけを消す', () => {
