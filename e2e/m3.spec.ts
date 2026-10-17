@@ -121,7 +121,7 @@ test.describe('M3 昼と夜', () => {
       h.lock.simulate(true);
       h.settings.set('yokaiAutoSpawn', false);
       const sp = h.world.spawn();
-      h.player.set({ position: { x: sp.x, y: 40, z: sp.z }, yaw: 90, pitch: 12 });
+      h.player.set({ position: { x: sp.x, y: sp.y + 16, z: sp.z }, yaw: 90, pitch: 12 }); // スタートの 16 ブロック上（地面の高さは 世界に聞く）
       h.step(2);
     });
     const marks: [string, number][] = [
