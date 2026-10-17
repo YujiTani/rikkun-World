@@ -1,12 +1,12 @@
 // コマ表（PNG）と atlas.json の読みこみ。PNG は 色番号 1 バイトのドットにして持つ（仕様 §4.8 ①）。
 import { quantizeRgba } from './palette';
 import type { SpriteMotion } from './motion';
-import { parsePacked, validatePacked, type Packed } from './packing';
+import { GRID_ROWS, parsePacked, validatePacked, type Packed } from './packing';
 
 export const CELL = 256;
 export const DIRS = 8;
 export const TIERS = 3;
-export const ROWS = DIRS * TIERS;
+export const ROWS = GRID_ROWS; // = DIRS * TIERS（packing.ts が持つ）
 /** はじめに読む 4 つ（たつ・あるく → はしる・ジャンプ） */
 export const BASE_MOTIONS: readonly SpriteMotion[] = ['idle', 'walk', 'run', 'jump'];
 /** 刀の組（読む順。持ったときは いつも中段なので 中段から） */

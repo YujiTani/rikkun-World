@@ -92,6 +92,9 @@ export class ShadowSystem {
   /** 影を落とす板の 絵の場所（光の側から見た向きの絵） */
   private readonly cardRect = new THREE.Vector4(0, 0, 1, 1);
   private readonly cardCrop = new THREE.Vector4(0, 0, 1, 1);
+  /** 影を落とす板の 絵・大きさ（cardCell が そのコマの ぶんを 書く。キャラの板とは 別の入れ物） */
+  private readonly cardMap: { value: THREE.Texture | null } = { value: null };
+  private readonly cardSize = new THREE.Vector2(1, 1);
   private readonly L = new THREE.Vector3(0, 1, 0);
   // 毎コマ new しないための作業用
   private readonly tmpBasis = new THREE.Matrix4();
@@ -154,10 +157,10 @@ export class ShadowSystem {
     this.spriteMesh = mesh;
     const mat = mesh.material as THREE.ShaderMaterial;
     patchSpriteMaterial(mat);
-    // 影を落とす板: 同じ絵（uMap の入れ物は同じ）を、光の方へたてに向ける。絵は「光の側から見た向き」のコマ
+    // 影を落とす板: 同じ絵を、光の方へたてに向ける。絵は「光の側から見た向き」のコマ
     const cardMat = new THREE.ShaderMaterial({
-      // uMap・uSize の入れ物は キャラの板と同じ。uRect・uCrop は 光の側から見た向きのコマ（cardCell が決める）
-      uniforms: { uMap: mat.uniforms.uMap!, uSize: mat.uniforms.uSize!, uRect: { value: this.cardRect }, uCrop: { value: this.cardCrop } },
+      // uMap・uSize・uRect・uCrop は 光の側から見た向きのコマ（cardCell が いまの動き・コマから 決める。キャラの板の uniform とは 別）
+      uniforms: { uMap: this.cardMap, uSize: { value: this.cardSize }, uRect: { value: this.cardRect }, uCrop: { value: this.cardCrop } },
       vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
       // 絵の透明でぬく。ほそい足・すきまが 光をもらさないよう、まわり 12 目ぶんふくらませた形にする（見やすい影）
       // 絵の引き方は キャラの板（src/char/sprite.ts）と同じ整数の目（切りつめた絵。四角の外は とうめい）
@@ -368,8 +371,6 @@ void main() {
   private cardCall(cam: THREE.Camera): { calls: number; triangles: number } {
     const sm = this.spriteMesh;
     if (!this.card || !sm) return { calls: 0, triangles: 0 };
-    const mat = sm.material as THREE.ShaderMaterial;
-    if (!mat.uniforms.uMap!.value) return { calls: 0, triangles: 0 };
     const r = this.d.renderer;
     sm.updateWorldMatrix(true, false);
     const pos = this.tmpPos;
@@ -379,10 +380,10 @@ void main() {
     // 板を 光の来る向きへ 立てて向ける（たての軸だけ回す）
     q.setFromAxisAngle(THREE.Object3D.DEFAULT_UP, Math.atan2(this.L.x, this.L.z));
     // 絵: いまの動きのコマのまま、段は 0（横から）、向きは「光の側から見た向き」
-    const cardCell = sm.userData.cardCell as ((t: number, d: number, rect: THREE.Vector4, crop: THREE.Vector4) => boolean) | undefined;
+    const cardCell = sm.userData.cardCell as ((t: number, d: number, rect: THREE.Vector4, crop: THREE.Vector4, map: { value: THREE.Texture | null }, size: THREE.Vector2) => boolean) | undefined;
     if (!cardCell) return { calls: 0, triangles: 0 };
     const dir = dirIndex(bearingDeg(this.L.x, this.L.z), this.d.facing());
-    if (!cardCell(0, dir, this.cardRect, this.cardCrop)) return { calls: 0, triangles: 0 };
+    if (!cardCell(0, dir, this.cardRect, this.cardCrop, this.cardMap, this.cardSize)) return { calls: 0, triangles: 0 };
     this.card!.matrix.compose(pos, q, scl);
     this.card!.matrixWorld.copy(this.card!.matrix);
     r.render(this.cardScene, cam);

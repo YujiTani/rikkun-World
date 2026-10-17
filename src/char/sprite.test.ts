@@ -283,25 +283,31 @@ describe('テスト用: 動きの はじめにもどす（restartMotion）', () 
   });
 });
 
+type CardCell = (t: number, d: number, rect: THREE.Vector4, crop: THREE.Vector4, map: { value: THREE.Texture | null }, size: THREE.Vector2) => boolean;
+
 describe('影の板が 使う cardCell（段・向きを 指定して いまの動き・コマの 四角を 引く）', () => {
   it('格子の絵: 段 0・向き dir の 行、いまのコマ。絵が まだ なければ false', async () => {
     const { sprite, parent } = make(makeLoader().loadImage);
     const mesh = parent.getObjectByName('charSprite') as THREE.Mesh;
-    const cardCell = mesh.userData.cardCell as (t: number, d: number, rect: THREE.Vector4, crop: THREE.Vector4) => boolean;
+    const cardCell = mesh.userData.cardCell as CardCell;
     const rect = new THREE.Vector4();
     const crop = new THREE.Vector4();
-    expect(cardCell(0, 3, rect, crop)).toBe(false);
+    const map: { value: THREE.Texture | null } = { value: null };
+    const size = new THREE.Vector2();
+    expect(cardCell(0, 3, rect, crop, map, size)).toBe(false);
     await flush();
     step(sprite, {});
     sprite.render();
-    expect(cardCell(0, 3, rect, crop)).toBe(true);
+    expect(cardCell(0, 3, rect, crop, map, size)).toBe(true);
+    expect(map.value).not.toBeNull();
+    expect(size.toArray()).toEqual([W, H]);
     expect(rect.toArray()).toEqual([0, 3 / 24, 1 / COLS, 1 / 24]);
     expect(crop.toArray()).toEqual([0, 0, 1, 1]);
-    expect(cardCell(1, 5, rect, crop)).toBe(true);
+    expect(cardCell(1, 5, rect, crop, map, size)).toBe(true);
     expect(rect.y).toBe(13 / 24);
   });
 
-  it('切りつめた絵: packed の 四角と 詰めたときの ずれ。uSize は 板と同じ入れ物', async () => {
+  it('切りつめた絵: packed の 四角と 詰めたときの ずれ。絵・大きさは 板の uniform とは べつに 自分で 書く', async () => {
     const PW = 10;
     const cells: number[][] = [];
     for (let i = 0; i < 24; i++) cells.push([0, i * 10, PW, 10, i, 2]);
@@ -326,13 +332,30 @@ describe('影の板が 使う cardCell（段・向きを 指定して いまの�
     step(sprite, {});
     sprite.render();
     const mesh = parent.getObjectByName('charSprite') as THREE.Mesh;
-    const cardCell = mesh.userData.cardCell as (t: number, d: number, rect: THREE.Vector4, crop: THREE.Vector4) => boolean;
+    const cardCell = mesh.userData.cardCell as CardCell;
     const rect = new THREE.Vector4();
     const crop = new THREE.Vector4();
-    expect(cardCell(0, 3, rect, crop)).toBe(true);
+    const map: { value: THREE.Texture | null } = { value: null };
+    const size = new THREE.Vector2();
+    expect(cardCell(0, 3, rect, crop, map, size)).toBe(true);
     expect(rect.toArray()).toEqual([0, 30 / 240, 10 / PW, 10 / 240]);
     expect(crop.toArray()).toEqual([3 / 256, 2 / 256, 10 / 256, 10 / 256]);
+    expect(size.toArray()).toEqual([PW, 240]);
+    expect(map.value).not.toBeNull();
+  });
+
+  it('render の前でも 絵・大きさを 自分で 持ってこられる（板の uniform は さわらない）', async () => {
+    const { sprite, parent } = make(makeLoader().loadImage);
+    await flush();
+    step(sprite, {});
+    const mesh = parent.getObjectByName('charSprite') as THREE.Mesh;
     const mat = mesh.material as THREE.ShaderMaterial;
-    expect((mat.uniforms.uSize!.value as THREE.Vector2).toArray()).toEqual([PW, 240]);
+    expect(mat.uniforms.uMap!.value).toBeNull(); // render() は まだ
+    const map: { value: THREE.Texture | null } = { value: null };
+    const size = new THREE.Vector2();
+    expect((mesh.userData.cardCell as CardCell)(0, 0, new THREE.Vector4(), new THREE.Vector4(), map, size)).toBe(true);
+    expect(map.value).not.toBeNull();
+    expect(size.toArray()).toEqual([W, H]);
+    expect(mat.uniforms.uMap!.value).toBeNull();
   });
 });

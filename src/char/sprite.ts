@@ -152,14 +152,18 @@ export function createCharSprite(deps: CharSpriteDeps): CharSprite {
   mesh.frustumCulled = false;
   mesh.visible = false;
   mesh.name = 'charSprite';
-  // 影を落とす板（ShadowSystem）用: 段・向きを 指定して、いまの動き・コマの 四角を rect / crop に書く。絵が まだ無ければ false
-  mesh.userData.cardCell = (t: number, d: number, rect: THREE.Vector4, crop: THREE.Vector4): boolean => {
+  // 影を落とす板（ShadowSystem）用: 段・向きを 指定して、いまの動き・コマの 四角を rect / crop に、絵と大きさを map / size に書く。
+  // 絵が まだ無ければ false（板の uniform とは べつの入れ物に書くので、render の前後で ずれない）
+  mesh.userData.cardCell = (t: number, d: number, rect: THREE.Vector4, crop: THREE.Vector4, map: { value: THREE.Texture | null }, size: THREE.Vector2): boolean => {
     const v = view();
     const a = loadedInfo[v.motion];
-    if (!textures[v.motion] || !a) return false;
+    const tex = textures[v.motion];
+    if (!tex || !a) return false;
     const u = cellRectCrop(a, t * 8 + d, v.frame);
     rect.set(u.rect[0], u.rect[1], u.rect[2], u.rect[3]);
     crop.set(u.crop[0], u.crop[1], u.crop[2], u.crop[3]);
+    map.value = tex;
+    size.set(a.width, a.height);
     return true;
   };
   parent.add(mesh);

@@ -541,6 +541,8 @@ test('CHAR-2 AC34: 切りつめる前と後で 画面が ドット単位で 同�
             const h = window.__rikkun! as any;
             for (let n = 0; (h.world.lightPending() > 0 || h.world.meshStats().pending > 0) && n < 3000; n += 5) h.step(5);
             h.step(2);
+            // 待ったステップの数は 機械の速さで ちがい、時刻（太陽・影の向き）に のこる。場面ごとに 時刻をそろえる
+            h.time.set(0);
             // 待ったステップの数は 機械の速さで ちがう。キャラの コマの数え（立ち 45 ステップに 1 コマ）を ここから数えなおす
             h.player.doll().sprite.restartMotion();
           });

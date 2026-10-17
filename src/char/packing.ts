@@ -11,6 +11,8 @@ export interface Packed {
 }
 
 export const CELL_SIZE = 256;
+/** 1 コマの 行の数 = 段 3 × 向き 8 */
+export const GRID_ROWS = 24;
 
 /** atlas.json の `packed` を 読む。形がおかしければ undefined */
 export function parsePacked(raw: unknown): Packed | undefined {
@@ -30,7 +32,7 @@ export function parsePacked(raw: unknown): Packed | undefined {
 /** 読んだ PNG が packed と 合っているか。ちがえば Error（大きさが ちがう・四角が 外に出る・コマが たりない） */
 export function validatePacked(p: Packed, imgW: number, imgH: number, frames: number): void {
   if (imgW !== p.width || imgH !== p.height) throw new Error(`絵の大きさが packed と ちがいます（${imgW}×${imgH} と ${p.width}×${p.height}）`);
-  if (p.cells.length < 24 * frames) throw new Error(`コマの数が たりません（${p.cells.length} < ${24 * frames}）`);
+  if (p.cells.length < GRID_ROWS * frames) throw new Error(`コマの数が たりません（${p.cells.length} < ${GRID_ROWS * frames}）`);
   for (const [x, y, w, h, ox, oy] of p.cells) {
     const ok =
       Number.isFinite(x + y + w + h + ox + oy) &&
@@ -65,8 +67,6 @@ export function cellRectCrop(a: { cols: number; width: number; height: number; p
   if (a.packed && cell) return cellUniforms(cell, a.packed.width, a.packed.height);
   return { rect: [f / a.cols, row / GRID_ROWS, 1 / a.cols, 1 / GRID_ROWS], crop: [0, 0, 1, 1] };
 }
-
-const GRID_ROWS = 24;
 
 const f = Math.fround;
 

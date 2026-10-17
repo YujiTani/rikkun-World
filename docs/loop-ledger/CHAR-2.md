@@ -20,3 +20,6 @@ dev / code-review(B) | 【軽微】 | src/char/motion.ts SpriteStepInput の wea
 test / tester | 【軽微】 | 弓を持って立つ絵（AC21-1）が うしろ姿だと 弓が 小さく 見えにくい。オーナーが AC29 で 見る | 仕様（見た目）
 test / tester | 【軽微】 | e2e/char1.spec.ts AC31 が `sprite.loaded` を 5 秒で待つため 並列で まれに 時間切れ（単独は OK）。待ち時間を のばす | テスト
 dev / code-review(14a9a26) | 【軽微】 | src/world/render/drawOrder.ts stableOpaqueSort は 鍵を 材料より先に見るので、種類(kind)が 場所ごとに まざり、絵(extras)と 小ブロックの プログラム切りかえが セクション数ぶん 増える（描画回数は 同じ）。kind を 上位にした鍵にすれば グループ化できる。M4 の実測で 気になったら 直す | 性能
+dev / code-review(327ec50) | 【軽微】 | src/world/render/shadow/ShadowSystem.ts:382-386 影の板は uMap・uSize をキャラの板と共有するが、uRect・uCrop は cardCell が「いま」の view() から決める。2 つが合うのは、sprite.render() が preRender より前に走るときだけ（動きの絵が読みおわって view() が変わった直後に、step せず描くと 1 コマ ずれる）。cardCell が texture・大きさも返し、影の板専用の uMap・uSize に書けば自己完結する | つなぎ目の結びつき
+dev / code-review(327ec50) | 【軽微】 | e2e/ui-gate.spec.ts:505-ほか AC34 の h.time.set(0) が 持ち物ごとの最初の 1 回だけ。読みこみ待ちのステップ数（機械・絵の大きさで ちがう）が dayTick に残り、影の向き（SHADOW-1 は dayTick で連続に動く）が 切りつめ/格子の 2 回で ずれうる。場面ごとに 待ったあと（restartMotion の前）にも time.set(0) を入れると 決定的 | テスト（決定性）
+dev / code-review(327ec50) | 【軽微】 | src/char/packing.ts:69 GRID_ROWS = 24 を新しく置いたが loader.ts の ROWS と同じ値の重複（loader は packing を import しているので ROWS は import できない）。24 の出どころを 1 か所の定数（CELL/ROWS を packing 側へ）にまとめるとよい | 読みにくさ
