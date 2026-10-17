@@ -17,3 +17,5 @@
 dev / code-review(B) | 【軽微】【直した】 | src/char/sprite.ts `cpuBytes` が 0 固定で、AC23 のテストが 意味を持たなかった。GPU へ上がるまでの写しを数える形に直し、テストも 上がる前は 4 まい分あることを 確かめるように した
 dev / code-review(B) | 【軽微】 | src/char/motion.ts 歩きながら 矢をうって B3 になったあと、a < 22 のうちに 止まると はなす絵（B4）が 遅れて出る。仕様 §4.1 は 「すぐ B3」としか 書いていないので S のつなぎ込み後に Mac で見て 気になれば 直す
 dev / code-review(B) | 【軽微】 | src/char/motion.ts SpriteStepInput の weapon/blade/bow は 省略可。S が 渡し忘れても 型で気づけない。つなぎ込みで 必須に 戻すこと
+test / tester | 【軽微】 | 弓を持って立つ絵（AC21-1）が うしろ姿だと 弓が 小さく 見えにくい。オーナーが AC29 で 見る | 仕様（見た目）
+test / tester | 【軽微】 | e2e/char1.spec.ts AC31 が `sprite.loaded` を 5 秒で待つため 並列で まれに 時間切れ（単独は OK）。待ち時間を のばす | テスト
