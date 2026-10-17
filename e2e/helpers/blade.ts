@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { expect, type Page } from '@playwright/test';
 import { standOnGround } from './aim';
+import { waitSpritesReady } from './char';
 
 /**
  * 刀の 軌跡・刃の色の E2E 用の 道具（CHAR-4 仕様書 §4・§8）。
@@ -94,16 +95,14 @@ export async function openBladeWorld(page: Page, opts: { half?: number } = {}): 
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto('/?nosave=1');
   await page.waitForFunction(() => window.__rikkun?.ready === true);
-  await expect
-    .poll(
-      () =>
-        page.evaluate((ns) => {
-          const st = (window.__rikkun! as any).player.doll().sprite.status;
-          return ns.every((n: string) => st?.[n] === 'ready');
-        }, BASE_SET),
-      { timeout: 8000 },
-    )
-    .toBe(true);
+  await page.waitForFunction(
+    (ns) => {
+      const st = (window.__rikkun! as any).player.doll().sprite.status;
+      return ns.every((n: string) => st?.[n] === 'ready');
+    },
+    BASE_SET,
+    { timeout: 0 },
+  );
   await page.evaluate(() => {
     const h = window.__rikkun! as any;
     h.achievements.mute(true);
@@ -132,20 +131,9 @@ export async function holdItems(page: Page, items: { item: string; count?: numbe
   );
 }
 
-/** 絵の 読みこみ（本当の時間で 上限 5 秒）を 待つ。待つあいだ 1 ステップずつ 進める */
+/** 絵の 読みこみを 待つ（描画を止めて 1 ステップずつ 進める） */
 export async function waitReady(page: Page, names: string[]): Promise<void> {
-  await expect
-    .poll(
-      () =>
-        page.evaluate((ns) => {
-          const h = window.__rikkun! as any;
-          h.step(1);
-          const st = h.player.doll().sprite.status;
-          return ns.every((n: string) => st?.[n] === 'ready');
-        }, names),
-      { timeout: 5000 },
-    )
-    .toBe(true);
+  await waitSpritesReady(page, names);
 }
 
 /** 窓口が あるか（実装の 前は ここで 落ちる） */
