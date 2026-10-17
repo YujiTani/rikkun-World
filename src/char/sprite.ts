@@ -175,6 +175,8 @@ export function createCharSprite(deps: CharSpriteDeps): CharSprite {
   let atlasSettled = false;
   let disposed = false;
   let gpuBytes = 0;
+  /** GPU へ まだ上がっていない 色番号の写しの バイト */
+  let cpuPending = 0;
 
   const atlasP: Promise<void> = loadJson(`${base}atlas.json`)
     .then((raw) => {
@@ -203,8 +205,12 @@ export function createCharSprite(deps: CharSpriteDeps): CharSprite {
       tex.generateMipmaps = false;
       tex.unpackAlignment = 1;
       // GPU へ上がったら CPU の写しを すてる
+      const bytes = a.indices.byteLength;
+      cpuPending += bytes;
       tex.onUpdate = () => {
-        (tex.image as { data: unknown }).data = null;
+        const img = tex.image as { data: unknown };
+        if (img.data !== null) cpuPending -= bytes;
+        img.data = null;
       };
       tex.needsUpdate = true;
       loadedInfo[m] = { width: a.width, height: a.height, cols: a.cols, ...(a.packed ? { packed: a.packed } : {}) };
@@ -437,7 +443,7 @@ export function createCharSprite(deps: CharSpriteDeps): CharSprite {
         scene: v.scene,
         want: machine.want,
         status: { ...status },
-        cpuBytes: 0,
+        cpuBytes: cpuPending,
       };
     },
     async readCell(motion, t, d, frame) {
