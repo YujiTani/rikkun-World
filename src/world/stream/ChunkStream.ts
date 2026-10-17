@@ -302,14 +302,20 @@ export class ChunkStream {
       if (c.stage === 'loading') continue;
       const dd = cheb(c.cx, c.cz, pcx, pcz);
       if (dd <= R_KEEP) continue;
-      if (!this.canDiscard(c.cx, c.cz)) continue;
+      if (!this.canDiscard(c.cx, c.cz) || this.isRequiredNow(c.cx, c.cz)) continue;
       if (dd > farD) {
         far = c;
         farD = dd;
       }
     }
     if (far !== null) return { kind: 'unload', c: far, dist: farD, col: far.cx, row: far.cz };
-    // 2. 生成・光（近い順）
+    // 2. 開始の前に要る保険の列（K6）は、輪の外でも先に読みこむ
+    if (!this._ready) {
+      for (const r of this.d.required?.() ?? []) {
+        if (!this.cols.has(colKey(r.cx, r.cz))) return { kind: 'gen', cx: r.cx, cz: r.cz, dist: -1, col: r.cx, row: r.cz };
+      }
+    }
+    // 3. 生成・光（近い順）
     let best: StreamJob | null = null;
     for (let dz = -R_GEN; dz <= R_GEN; dz++) {
       for (let dx = -R_GEN; dx <= R_GEN; dx++) {
@@ -329,6 +335,12 @@ export class ChunkStream {
     }
     void w;
     return best;
+  }
+
+  /** 開始の前で、保険の列として要る列か（輪の外でも 捨てない） */
+  private isRequiredNow(cx: number, cz: number): boolean {
+    if (this._ready) return false;
+    return (this.d.required?.() ?? []).some((r) => r.cx === cx && r.cz === cz);
   }
 
   private runStreamJob(j: StreamJob): void {

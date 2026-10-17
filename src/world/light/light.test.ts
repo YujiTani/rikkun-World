@@ -137,3 +137,49 @@ describe('メッシュ', () => {
     expect(m.opaque.lights.length).toBeGreaterThan(0);
   });
 });
+
+describe('手動のモード（VOX-D の lightColumn）', () => {
+  function cols(): ArrayVoxelWorld {
+    const w = new ArrayVoxelWorld({ x: 48, y: 32, z: 48 });
+    w.fill(0, 0, 0, 47, 0, 47, 'stone');
+    w.setBlock(24, 1, 24, 'torch');
+    return w;
+  }
+
+  it('読みこんでも勝手に計算しない。lightColumn で 1 列ぶん計算し、ふつうの計算と同じ値', () => {
+    const auto = new WorldLight(cols(), new SkyDarkness());
+    auto.flush();
+    const w = cols();
+    const l = new WorldLight(w, new SkyDarkness());
+    l.setManual(true);
+    w.unloadColumn(1, 1);
+    l.update();
+    expect(l.isLitColumn(1, 1)).toBe(false);
+    expect(l.pendingCount()).toBe(0);
+    w.loadColumn(cols().column(1, 1)!);
+    l.update();
+    expect(l.pendingCount()).toBe(0); // まわりを作り直し待ちにしない
+    expect(l.isLitColumn(1, 1)).toBe(false);
+    l.lightColumn(1, 1);
+    expect(l.isLitColumn(1, 1)).toBe(true);
+    for (const [x, y, z] of [[24, 1, 24], [28, 1, 24], [20, 5, 30], [17, 2, 17]] as const) {
+      expect(l.blockAt(x, y, z)).toBe(auto.blockAt(x, y, z));
+      expect(l.skyAt(x, y, z)).toBe(auto.skyAt(x, y, z));
+    }
+  });
+
+  it('列を捨てても となりの光は そのまま。ブロックを変えたときは ふつうに作り直す', () => {
+    const w = cols();
+    const l = new WorldLight(w, new SkyDarkness());
+    l.setManual(true);
+    const before = l.blockAt(30, 1, 24);
+    w.unloadColumn(0, 1);
+    l.update();
+    expect(l.isLitColumn(1, 1)).toBe(true);
+    expect(l.blockAt(30, 1, 24)).toBe(before);
+    w.setBlock(40, 1, 5, 'torch');
+    l.update();
+    l.flush();
+    expect(l.blockAt(40, 1, 5)).toBe(14);
+  });
+});
