@@ -18,7 +18,7 @@ import { sectionGet } from '../sections';
 import { lodSortKey, sectionSortKey } from './drawOrder';
 import { columnKey, CHUNK_SIZE, type ArrayVoxelWorld } from '../VoxelWorld';
 import type { StreamLight, StreamMesh } from '../stream/ChunkStream';
-import { R_DRAW, R_DRAW_DROP, cheb } from '../stream/ring';
+import { R_DRAW, R_DRAW_DROP, cheb, colKey } from '../stream/ring';
 import { CHUNK_DRAW_DISTANCE, RENDER_CONFIG } from './config';
 import { setRipeMinBrightness } from './cropLight';
 import { applyLightShader } from './lightShader';
@@ -50,7 +50,7 @@ export interface ChunkStats {
   inRange: number;
   /** 描く距離（88） */
   maxDistance: number;
-  /** 描いている列の番号（cx + cz * 横の数） */
+  /** 描いている列の番号（colKey(cx, cz)。負の列でも ちがう数） */
   drawnIndices: number[];
 }
 
@@ -455,14 +455,13 @@ export class WorldRenderer {
     const drawnIndices: number[] = [];
     let inRange = 0;
     let lodDrawn = 0;
-    const { chunksX } = this.world;
     for (const col of this.cols.values()) {
       if (col.dist > CHUNK_DRAW_DISTANCE) continue;
       inRange++;
       const lodOn = !!(col.lodOpaque?.visible || col.lodWater?.visible);
       const any = lodOn || col.secs.some((st) => st.voxel || st.extras || st.water);
       if (!any) continue;
-      drawnIndices.push(col.cx + col.cz * chunksX);
+      drawnIndices.push(colKey(col.cx, col.cz));
       if (col.tier === 'lod' && lodOn) lodDrawn++;
     }
     drawnIndices.sort((a, b) => a - b);

@@ -1,20 +1,20 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import { SCENERY_CONFIG } from './config';
-import { buildScenery } from './scenery';
+import { buildScenery, followScenery } from './scenery';
 
 describe('buildScenery', () => {
   it('空の色・かすみ（40〜80）・世界の外の海を作る', () => {
     const scene = new THREE.Scene();
-    const ocean = buildScenery(scene, { x: 64, z: 64 });
+    const ocean = buildScenery(scene);
     expect((scene.background as THREE.Color).getHex()).toBe(0x8fd3ff);
     const fog = scene.fog as THREE.Fog;
     expect([fog.near, fog.far, fog.color.getHex()]).toEqual([40, 80, 0x8fd3ff]);
     expect(scene.children).toContain(ocean);
   });
 
-  it('海は世界の中（0〜64）にかぶらず、外側を囲む', () => {
-    const geo = buildScenery(new THREE.Scene(), { x: 64, z: 64 }).geometry;
+  it('海は プレイヤーのまわり（はば hole）にかぶらず、外側を囲む', () => {
+    const geo = buildScenery(new THREE.Scene()).geometry;
     const p = geo.getAttribute('position');
     const e = SCENERY_CONFIG.ocean.extent;
     let area = 0;
@@ -24,6 +24,14 @@ describe('buildScenery', () => {
       area += w * d;
       expect(p.getY(i)).toBe(SCENERY_CONFIG.ocean.surfaceY);
     }
-    expect(area).toBeCloseTo((64 + 2 * e) ** 2 - 64 ** 2, 3);
+    const h = SCENERY_CONFIG.ocean.hole;
+    expect(area).toBeCloseTo((2 * h + 2 * e) ** 2 - (2 * h) ** 2, 3);
+  });
+
+  it('followScenery: プレイヤーの いる列に 板が ついてくる', () => {
+    const scene = new THREE.Scene();
+    const ocean = buildScenery(scene);
+    followScenery(scene, 1234.5, -77.2);
+    expect([ocean.position.x, ocean.position.z]).toEqual([1232, -80]);
   });
 });

@@ -2,6 +2,7 @@ import {
   CHUNK_SIZE,
   SECTION_SIZE,
   WORLD_HEIGHT,
+  WORLD_LIMIT,
   WORLD_SIZE,
   type BlockId,
   type ChunkColumn,
@@ -13,6 +14,7 @@ import { scanColumn, type ColumnInfo } from './micro/worldColumns';
 import { BLOCK_TYPES, blockIdFromIndex, blockIndexOf, isOpaqueIndex, isSolidIndex } from './blocks/blockTypes';
 import { OPACITY } from './light/opacity';
 import { SECTION_VOLUME, compactSection, sectionGet, sectionSet, sectionToArray, uniformSection } from './sections';
+import { cellInWall } from './wall';
 
 export { CHUNK_SIZE, SECTION_SIZE, WORLD_SIZE };
 export type { LoadedBounds };
@@ -380,7 +382,7 @@ export class ChunkedVoxelWorld implements VoxelWorld {
 
   setBlock(x: number, y: number, z: number, id: BlockId): boolean {
     const b = blockIndexOf(id);
-    if (b < 0 || x !== (x | 0) || y !== (y | 0) || z !== (z | 0) || y < 0 || y >= this.size.y) return false;
+    if (b < 0 || x !== (x | 0) || y !== (y | 0) || z !== (z | 0) || y < 0 || y >= this.size.y || !cellInWall(x, z)) return false; // 壁の外は ほれない・おけない（W4）
     const col = this.colAt(x >> 4, z >> 4);
     if (col === null) return false;
     const sy = y >> 4;
@@ -559,12 +561,12 @@ export class ChunkedVoxelWorld implements VoxelWorld {
   fill(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, id: BlockId): number {
     const b = blockIndexOf(id);
     if (b < 0) return 0;
-    const xa = Math.ceil(Math.min(x0, x1));
+    const xa = Math.max(-WORLD_LIMIT, Math.ceil(Math.min(x0, x1)));
     const ya = Math.max(0, Math.ceil(Math.min(y0, y1)));
-    const za = Math.ceil(Math.min(z0, z1));
-    const xb = Math.floor(Math.max(x0, x1));
+    const za = Math.max(-WORLD_LIMIT, Math.ceil(Math.min(z0, z1)));
+    const xb = Math.min(WORLD_LIMIT - 1, Math.floor(Math.max(x0, x1)));
     const yb = Math.min(this.size.y - 1, Math.floor(Math.max(y0, y1)));
-    const zb = Math.floor(Math.max(z0, z1));
+    const zb = Math.min(WORLD_LIMIT - 1, Math.floor(Math.max(z0, z1)));
     let changed = 0;
     let cminx = Infinity;
     let cminy = Infinity;

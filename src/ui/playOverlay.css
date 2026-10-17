@@ -280,3 +280,71 @@
   cursor: pointer;
   text-align: center;
 }
+
+/* VOX-D: じゅんびちゅう（起動のボタンの中・遠くへもどるカード）。2 だん: ことば ＋ ブロック 5 こ */
+.po-prep .po-button {
+  cursor: default;
+  animation: none;
+}
+.po-prep .po-mouse {
+  display: none;
+}
+.po-prep .po-text,
+.prep-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.prep-text {
+  white-space: nowrap;
+  font-weight: 700;
+}
+.prep-dot[data-on='off'] {
+  visibility: hidden; /* 3 こ分の はばを とっておく（ことばが ゆれない） */
+}
+.prep-blocks {
+  display: flex;
+  gap: 8px;
+}
+.prep-block {
+  width: 40px;
+  height: 40px;
+  image-rendering: pixelated;
+  opacity: 0.3; /* まだの物は うすい */
+}
+.prep-block[data-done='true'] {
+  opacity: 1;
+  animation: prep-pop 0.2s ease-out 1; /* できたとき 1 回 はねる（点滅はしない） */
+}
+@keyframes prep-pop {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.25);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.prep-card {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  box-sizing: border-box;
+  width: 400px;
+  height: 140px;
+  justify-content: center;
+  border-radius: var(--rk-r-m, 12px);
+  background: rgba(30, 55, 90, 0.92);
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  color: #fff;
+  font-size: 32px;
+  z-index: 20;
+  pointer-events: none;
+}
+.prep-card[hidden] {
+  display: none;
+}

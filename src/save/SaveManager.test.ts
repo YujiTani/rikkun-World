@@ -390,8 +390,8 @@ describe('SaveManager（さわった列だけ丸ごと保存）', () => {
     expect(s.save.info().dirtyChunks).toBe(1);
   });
 
-  it('もどした位置が ブロックと重なる・世界の外 なら スタート地点', async () => {
-    for (const bad of [{ x: 6.5, y: 5, z: 6.5 }, { x: -3, y: 30, z: 6 }, { x: 6.5, y: -2, z: 6.5 }, { x: NaN, y: 30, z: 6 }]) {
+  it('もどした位置が ブロックと重なる・見えない壁の外 なら スタート地点（負の座標は よい。VOX-D D6）', async () => {
+    for (const bad of [{ x: 6.5, y: 5, z: 6.5 }, { x: 30001, y: 30, z: 6 }, { x: 6.5, y: -2, z: 6.5 }, { x: NaN, y: 30, z: 6 }]) {
       const store = new MemoryStore();
       const db = new MemoryBackend();
       const a = await session(store, db);

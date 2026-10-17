@@ -142,9 +142,6 @@ export function meshChunkLod(world: ArrayVoxelWorld, cx: number, cz: number, lig
   const avg = averages();
   const x0 = cx * C;
   const z0 = cz * C;
-  const eb = world.loadedBounds();
-  const sizeX = eb.x1;
-  const sizeZ = eb.z1;
 
   // まわり 1 列ぶんをふくめた列の情報
   const W = C + 2;
@@ -153,7 +150,7 @@ export function meshChunkLod(world: ArrayVoxelWorld, cx: number, cz: number, lig
     for (let i = 0; i < W; i++) {
       const x = x0 + i - 1;
       const z = z0 + j - 1;
-      cols[j * W + i] = x < 0 || z < 0 || x >= sizeX || z >= sizeZ ? OUTSIDE : scanColumn(world, x, z);
+      cols[j * W + i] = world.isLoaded(x, z) ? scanColumn(world, x, z) : OUTSIDE;
     }
   }
   const at = (i: number, j: number): Col => cols[(j + 1) * W + (i + 1)];

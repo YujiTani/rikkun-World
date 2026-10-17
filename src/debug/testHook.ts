@@ -106,9 +106,12 @@ declare global {
 
 export type TestHookGroups = Pick<TestHook, 'shadow' | 'world' | 'render' | 'player' | 'camera' | 'aim' | 'input' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'attack' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm' | 'log' | 'ui' | 'audio' | 'rarity'>;
 
-export function installTestHook(game: Game, overlay: PerfOverlay, groups: TestHookGroups): void {
+export function installTestHook(game: Game, overlay: PerfOverlay, isReady: () => boolean, groups: TestHookGroups): void {
   window.__rikkun = {
-    ready: true,
+    // 起動の ChunkStream が そろってから true（一度 true になったら そのまま。VOX-D）
+    get ready(): boolean {
+      return isReady();
+    },
     tick: () => game.tick,
     pause: () => {
       game.paused = true;

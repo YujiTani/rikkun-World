@@ -2,6 +2,8 @@ import type { BlockId, ChunkColumn, Inventory, PlayerState, ScreenSettings, Spaw
 import { packColumn, SAVE_ID, type PersistBackend, type StoredChunk, type StoredMeta } from './backend';
 import { BLOCK_TYPES } from '../world/blocks/blockTypes';
 import { encodeSections } from './chunkCodec';
+import { colKey } from '../world/stream/ring';
+import { bodyInWall } from '../world/wall';
 import { NO_SAVE, PENDING_KEY, PENDING_MAX_CELLS, removePendingOf, type RestoredSave } from './restore';
 
 /** localStorage と同じ形（テストでは偽物を渡す） */
@@ -98,6 +100,12 @@ export interface SaveDeps {
   farm?: SaveFarm;
   /** 時刻と何日目。なければ保存しない */
   clock?: SaveClock;
+  /** VOX-D: 列は stream が読みこむ。保険から戻したときの最初の保存は、保険を当てたあとに main が now() で始める（load では書かない） */
+  streaming?: boolean;
+  /** VOX-D: 列を書けたとき（キーの一覧に足す） */
+  onWritten?: (cols: readonly { cx: number; cz: number }[]) => void;
+  /** VOX-D: 保存にある列の数（キーの一覧） */
+  storedChunks?: () => number;
 }
 
 export interface SaveInfo {
@@ -116,6 +124,8 @@ export interface SaveInfo {
   /** 書き終わった回数 / 失敗した回数 */
   writes: number;
   failures: number;
+  /** 保存にある列の数（キーの一覧。VOX-D） */
+  storedChunks: number;
   /** 前の保存から さわった列（まだ書いていない） */
   pendingChunks: number;
   /** 古い localStorage の保存を 移した（VOX-B から いつも false。移すしくみは無い） */
@@ -148,7 +158,8 @@ export function isBodyPlaceable(world: SaveWorld, p: Vec3): boolean {
   const z1 = Math.floor(p.z + BODY.halfWidth - EPS);
   const y0 = Math.floor(p.y + EPS);
   const y1 = Math.floor(p.y + BODY.height - EPS);
-  if (x0 < 0 || z0 < 0 || y0 < 0 || !world.isLoaded(x1, z1)) return false;
+  if (y0 < 0 || !world.isLoaded(x0, z0) || !world.isLoaded(x1, z1)) return false;
+  if (!bodyInWall(p.x, p.z, BODY.halfWidth)) return false;
   for (let y = y0; y <= y1; y++)
     for (let z = z0; z <= z1; z++)
       for (let x = x0; x <= x1; x++) if (world.isSolid(x, y, z)) return false;
@@ -176,6 +187,8 @@ export class SaveManager {
   /** 直近の保存が失敗した（そのあいだ 大きな変更の早め保存は しない。ふつうの間隔で やりなおす） */
   private lastFailed = false;
   private readonly restored: RestoredSave;
+  /** いま書いている列（colKey）。stream は この列を 捨てない */
+  private readonly writingKeys = new Set<number>();
 
   constructor(private readonly d: SaveDeps) {
     this.saveId = d.saveId ?? SAVE_ID;
@@ -190,6 +203,7 @@ export class SaveManager {
       doneMs: 0,
       writes: 0,
       failures: 0,
+      storedChunks: 0,
       pendingChunks: 0,
       migrated: false,
       loadedColumns: this.restored.columns,
@@ -198,11 +212,14 @@ export class SaveManager {
   }
 
   info(): SaveInfo {
-    return { ...this.infoState, pendingChunks: this.d.world.saveDirtyCount() };
+    return { ...this.infoState, pendingChunks: this.d.world.saveDirtyCount(), storedChunks: this.d.storedChunks?.() ?? 0 };
   }
 
+  /** true のあいだは 保存しない（VOX-D: 新しい世界で 置きものを書くまで） */
+  holdWrites = false;
+
   private get on(): boolean {
-    return this.d.store !== null && this.d.db !== null && !this.suspended && !this.restored.readOnly;
+    return this.d.store !== null && this.d.db !== null && !this.suspended && !this.restored.readOnly && !this.holdWrites;
   }
 
   /** 起動のとき: 保存があれば 持ち物・プレイヤーなどを戻す（列は restoreStoredWorld が 世界に入れ済み）。戻したら true */
@@ -216,7 +233,7 @@ export class SaveManager {
       this.lastTimeKey = this.timeKey();
       if (this.restored.fromPending) {
         this.forceNext = true;
-        void this.write(true);
+        if (!this.d.streaming) void this.write(true);
       }
       return true;
     } catch {
@@ -325,6 +342,26 @@ export class SaveManager {
     this.suspended = false;
   }
 
+  /** 保存を書いている途中か（stream が「捨てる前の保存」を始めてよいかを見る） */
+  saving(): boolean {
+    return this.inFlight > 0;
+  }
+
+  /** この列を いま書いている最中か */
+  writing(cx: number, cz: number): boolean {
+    return this.writingKeys.has(colKey(cx, cz));
+  }
+
+  /** 保存を使うか（?nosave=1・IndexedDB なし・読むだけ では false） */
+  isOn(): boolean {
+    return this.on;
+  }
+
+  /** 捨てる前の保存を すぐ始める（600 ステップを待たない。書いている最中なら 終わってから 次の 1 回） */
+  flushNow(): void {
+    void this.write(false);
+  }
+
   /** 書いている最中のものが 全部終わるまで待つ */
   idle(): Promise<void> {
     return this.chain;
@@ -394,7 +431,10 @@ export class SaveManager {
     const yaw = Number(p?.yaw);
     const pitch = Number(p?.pitch);
     const zero = { x: 0, y: 0, z: 0 };
-    if (p && isBodyPlaceable(this.d.world, pos) && Number.isFinite(yaw) && Number.isFinite(pitch)) {
+    // 列が読みこまれていれば 重なりを見る。まだなら（VOX-D: stream が その位置を中心に 輪を作る）壁の中なら そのまま受けとる
+    const loaded = [pos.x, pos.z].every(Number.isFinite) && this.d.world.isLoaded(pos.x, pos.z);
+    const ok = p && Number.isFinite(pos.y) && (loaded ? isBodyPlaceable(this.d.world, pos) : [pos.x, pos.z].every(Number.isFinite) && bodyInWall(pos.x, pos.z, BODY.halfWidth) && pos.y >= 0);
+    if (ok && Number.isFinite(yaw) && Number.isFinite(pitch)) {
       this.d.player.set({ position: pos, velocity: zero, yawDeg: yaw, pitchDeg: pitch });
     } else {
       const s = this.d.spawn();
@@ -467,6 +507,8 @@ export class SaveManager {
       if (c) meta.time = { day: c.day(), dayTick: c.dayTick() };
       meta.tick = tick;
       taken = w.takeSaveDirty();
+      const takenKeys = taken.map((col) => colKey(col.cx, col.cz));
+      for (const k of takenKeys) this.writingKeys.add(k);
       const raws = taken.map((col) => ({ cx: col.cx, cz: col.cz, h: col.sections.length, raw: encodeSections(col.sections) }));
       const logEnd = w.changeLogEnd();
       this.lastKey = key;
@@ -485,6 +527,7 @@ export class SaveManager {
           this.infoState.bytes = bytes;
           this.infoState.writes++;
           this.lastFailed = false;
+          this.d.onWritten?.(taken);
           this.infoState.doneMs = performance.now() - t0;
           try {
             if (this.d.store) removePendingOf(this.d.store, this.saveId);
@@ -500,6 +543,7 @@ export class SaveManager {
           this.infoState.doneMs = performance.now() - t0;
         } finally {
           this.inFlight--;
+          for (const k of takenKeys) this.writingKeys.delete(k);
         }
       };
       const p = this.chain.then(run);
@@ -507,6 +551,7 @@ export class SaveManager {
       return p;
     } catch {
       // 縮める前に失敗: 列を戻して 遊び続ける。子どもには何も出さない
+      for (const col of taken) this.writingKeys.delete(colKey(col.cx, col.cz));
       w.requeueSaveDirty(taken);
       this.lastKey = null;
       this.infoState.failures++;

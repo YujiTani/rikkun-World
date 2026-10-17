@@ -77,6 +77,8 @@ export const BUDGET_STREAM_MS = 4;
 export const BUDGET_TOTAL_MS = 8;
 export const BUDGET_PREP_MS = 30;
 /** K3 */
+/** 捨てる前の保存を また始めるまでの、最小の update の回数 */
+export const FLUSH_GAP = 30;
 export const START_JOBS = 169 + 121 + 81;
 
 interface Col {
@@ -109,6 +111,9 @@ export class ChunkStream {
   private work: number | null = null;
   private waitFrames = 0;
   private unloadWait = 0;
+  private blockedWait = 0;
+  /** 前の flush から 数えた update の回数（書けないときに 毎コマ 保存を始めないため） */
+  private sinceFlush = 1e9;
   private readonly totals = { generated: 0, readFromSave: 0, unloaded: 0, savedBeforeUnload: 0 };
   private readonly frame = { last: 0, max: 0 };
   /** 保存を待たせた列（待っていた列の数え用） */
@@ -262,9 +267,11 @@ export class ChunkStream {
     }
     // 捨てる待ち（保存の書き終わりを待つ列）の数え直しと、保存の開始
     this.countUnloadWait();
-    if (!flushed && this.unloadWait > 0 && !this.d.io.saving() && this.d.io.canFlush()) {
+    this.sinceFlush++;
+    if (!flushed && this.blockedWait > 0 && this.sinceFlush >= FLUSH_GAP && !this.d.io.saving() && this.d.io.canFlush()) {
       this.d.io.flush();
       flushed = true;
+      this.sinceFlush = 0;
     }
     this.updateReady();
     if (this._phase === 'wait') this.waitFrames++;
@@ -428,18 +435,24 @@ export class ChunkStream {
     return true;
   }
 
-  /** 輪の外で まだ捨てられない列（保存の書き終わりを待つ）を数える。ここで待たせた列を覚える */
+  /**
+   * 輪の外（> R_KEEP）で まだ捨てていない列の数（unloadPending）。そのうち、保存の書き終わりを待って いま捨てられない列は
+   * 「待たせた列」として覚える。blocked = 待たせている列の数
+   */
   private countUnloadWait(): void {
     let n = 0;
+    let blocked = 0;
     for (const c of this.cols.values()) {
       if (c.stage === 'loading') continue;
       if (cheb(c.cx, c.cz, this.cx, this.cz) <= R_KEEP) continue;
+      n++;
       if (!this.canDiscard(c.cx, c.cz)) {
-        n++;
+        blocked++;
         this.waited.add(colKey(c.cx, c.cz));
       }
     }
     this.unloadWait = n;
+    this.blockedWait = blocked;
   }
 
   // ------------------------------------------------------------ 見る（窓口）
