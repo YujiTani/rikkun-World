@@ -460,7 +460,11 @@ export class ChunkedVoxelWorld implements VoxelWorld {
     const lz = z & 15;
     const ly = y & 15;
     if (lx <= 1 || lx >= 14 || lz <= 1 || lz >= 14 || ly <= 1 || ly >= 14) this.markEdgeNeighbors(col, sy, lx, ly, lz);
-    if (this.hiddenUsed) this.staleAround(col.cx, sy, col.cz);
+    if (this.hiddenUsed) {
+      this.staleAround(col.cx, sy, col.cz);
+      // 底の段（ly=0）のマス: 列の表面（ty）が 1 つ下のセクションの いちばん上の段と行き来するので、そちらのとなりの印も見なおす
+      if (ly === 0 && sy > 0) this.staleAround(col.cx, sy - 1, col.cz);
+    }
   }
 
   private markCol(c: Column): void {
@@ -494,10 +498,19 @@ export class ChunkedVoxelWorld implements VoxelWorld {
   private markEdgeNeighbors(col: Column, sy: number, lx: number, ly: number, lz: number): void {
     const nx = lx <= 1 ? -1 : lx >= 14 ? 1 : 0;
     const nz = lz <= 1 ? -1 : lz >= 14 ? 1 : 0;
-    if (nx !== 0) this.markNeighbor(col.cx + nx, sy, col.cz, true);
-    if (nz !== 0) this.markNeighbor(col.cx, sy, col.cz + nz, true);
-    if (ly <= 1 && sy > 0) this.markSec(col, sy - 1, true);
-    if (ly >= 14 && sy + 1 < this.nSections) this.markSec(col, sy + 1, true);
+    const ny = ly <= 1 ? -1 : ly >= 14 ? 1 : 0;
+    // ななめ（x と z、x と y、z と y、3 つとも）も入れる: AO の角や 段差の下のすき間が 古いまま残らないように
+    for (const ax of nx !== 0 ? [0, nx] : [0]) {
+      for (const az of nz !== 0 ? [0, nz] : [0]) {
+        for (const ay of ny !== 0 ? [0, ny] : [0]) {
+          if (ax === 0 && az === 0 && ay === 0) continue;
+          const nsy = sy + ay;
+          if (nsy < 0 || nsy >= this.nSections) continue;
+          if (ax !== 0 || az !== 0) this.markNeighbor(col.cx + ax, nsy, col.cz + az, true);
+          else this.markSec(col, nsy, true);
+        }
+      }
+    }
   }
 
   private markNeighbor(cx: number, sy: number, cz: number, col: boolean): void {
