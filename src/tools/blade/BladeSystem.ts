@@ -13,8 +13,7 @@ import type {
   YokaiInfo,
 } from '../../contracts';
 import { W2_SETTING_DEFAULTS } from '../../contracts';
-import { raycastBlocks } from '../../dig/raycast';
-import { KIND_AI } from '../../yokai/ai/config';
+import { boxOf, capsuleDist, normDeg, thrustTilt, wallBetween } from '../../combat/attackFacing';
 import { techAdvance } from './advance';
 
 const DEG = Math.PI / 180;
@@ -38,12 +37,6 @@ const PICTURE_PHASES = W2_SETTING_DEFAULTS.bladeTech;
 const TECH_OF_STANCE: Record<BladeStance, BladeTech> = { chudan: 'thrust', jodan: 'kesa', gedan: 'kiriage' };
 const NEXT_STANCE: Record<BladeStance, BladeStance> = { chudan: 'jodan', jodan: 'gedan', gedan: 'chudan' };
 
-/** 妖怪の 当たりの箱（円柱で 近づける。仕様 §4.1） */
-function boxOf(y: YokaiInfo): { r: number; h: number } {
-  const ai = KIND_AI[y.kind];
-  return { r: ai.radius * y.scale, h: ai.height * y.scale };
-}
-
 /** 刀のしくみ（WEAPON-2 §2.1・§4.2・§4.3）。1 ステップ 1 回 `update` を呼ぶ */
 export function createBladeSystem(deps: BladeDeps): BladeSystem {
   const S = deps.settings;
@@ -59,7 +52,9 @@ export function createBladeSystem(deps: BladeDeps): BladeSystem {
   let hitReported = false;
   /** CHAR-2: わざの ふみこみ（わざの あいだだけ）。向き u・始めた足もと O・ねらいの向き（突きの線）は 始めたステップで 固定 */
   let move: BladeState['move'] = null;
+  /** WEAPON-3: 突きの 線の 向き（u と かたむき）と 出どころ B。始めたステップで 固定 */
   let aimDir: Vec3 = { x: 0, y: 0, z: -1 };
+  const bodyStart: Vec3 = { x: 0, y: 0, z: 0 };
   let drainQ: BladeEvent[] = [];
   const peekQ: BladeEvent[] = [];
 
@@ -117,8 +112,15 @@ export function createBladeSystem(deps: BladeDeps): BladeSystem {
     switchFrom = null;
     hitSet = new Set<number>();
     hitReported = false;
-    move = { dirDeg: ctx.yawDeg, origin: { ...ctx.position }, target: 0, moved: 0 };
-    aimDir = { ...ctx.dir };
+    const u = normDeg(ctx.attackDirDeg);
+    const tiltDeg = tech === 'thrust' && ctx.attackTarget ? thrustTilt(ctx.body, ctx.attackTarget, S.thrustTiltMaxDeg) : 0;
+    move = { dirDeg: u, origin: { ...ctx.position }, target: 0, moved: 0, tiltDeg };
+    const ur = u * DEG;
+    const tr = tiltDeg * DEG;
+    aimDir = { x: Math.sin(ur) * Math.cos(tr), y: Math.sin(tr), z: -Math.cos(ur) * Math.cos(tr) };
+    bodyStart.x = ctx.body.x;
+    bodyStart.y = ctx.body.y;
+    bodyStart.z = ctx.body.z;
     emit({ type: 'techStart', tick: deps.tick(), tech });
     processFrame(ctx);
   }
@@ -136,7 +138,7 @@ export function createBladeSystem(deps: BladeDeps): BladeSystem {
     phase = phaseOfFrame(tech, frame);
     shapeInfo = null;
     // わざの向き u（始めたステップで 固定）へ ふみこむ
-    const yawR = (move ? move.dirDeg : ctx.yawDeg) * DEG;
+    const yawR = (move ? move.dirDeg : ctx.attackDirDeg) * DEG;
     const fx = Math.sin(yawR);
     const fz = -Math.cos(yawR);
     if (move) {
@@ -165,8 +167,8 @@ export function createBladeSystem(deps: BladeDeps): BladeSystem {
       const sh = S.bladeShape.thrust;
       return {
         kind: 'capsule',
-        from: { ...ctx.eye },
-        to: { x: ctx.eye.x + aimDir.x * sh.length, y: ctx.eye.y + aimDir.y * sh.length, z: ctx.eye.z + aimDir.z * sh.length },
+        from: { ...bodyStart },
+        to: { x: bodyStart.x + aimDir.x * sh.length, y: bodyStart.y + aimDir.y * sh.length, z: bodyStart.z + aimDir.z * sh.length },
         radius: sh.radius,
       };
     }
@@ -183,14 +185,9 @@ export function createBladeSystem(deps: BladeDeps): BladeSystem {
     };
   }
 
-  /** E から 箱の 中心への 線が 固いブロックに さえぎられるか */
+  /** B から 箱の 中心への 線が 固いブロックに さえぎられるか */
   function blocked(ctx: BladeStepContext, cx: number, cy: number, cz: number): boolean {
-    const dx = cx - ctx.eye.x;
-    const dy = cy - ctx.eye.y;
-    const dz = cz - ctx.eye.z;
-    const len = Math.hypot(dx, dy, dz);
-    if (len < 1e-6) return false;
-    return raycastBlocks(deps.world, ctx.eye.x, ctx.eye.y, ctx.eye.z, dx / len, dy / len, dz / len, len, true) !== null;
+    return wallBetween(deps.world, ctx.body, cx, cy, cz);
   }
 
   /** 扇形の 柱に 当たるか（箱は 円柱で 近づける） */
@@ -209,39 +206,6 @@ export function createBladeSystem(deps: BladeDeps): BladeSystem {
     const ang = Math.acos(Math.max(-1, Math.min(1, cos)));
     const tol = Math.asin(Math.min(1, r / d));
     return ang <= sh.halfAngleDeg * DEG + tol;
-  }
-
-  /** 突きの カプセル。当たれば 線の 上の 近さ（E からの 距離）を 返す。当たらなければ -1 */
-  function thrustDist(ctx: BladeStepContext, y: YokaiInfo): number {
-    const sh = S.bladeShape.thrust;
-    const { r, h } = boxOf(y);
-    const len = sh.length;
-    const ey = ctx.eye.y;
-    const vy = aimDir.y * len;
-    const lo = y.position.y - sh.radius;
-    const hi = y.position.y + h + sh.radius;
-    let t0 = 0;
-    let t1 = 1;
-    if (Math.abs(vy) < 1e-9) {
-      if (ey < lo || ey > hi) return -1;
-    } else {
-      const a = (lo - ey) / vy;
-      const b = (hi - ey) / vy;
-      t0 = Math.max(t0, Math.min(a, b));
-      t1 = Math.min(t1, Math.max(a, b));
-      if (t0 > t1) return -1;
-    }
-    const vx = aimDir.x * len;
-    const vz = aimDir.z * len;
-    const wx = y.position.x - ctx.eye.x;
-    const wz = y.position.z - ctx.eye.z;
-    const vv = vx * vx + vz * vz;
-    let t = vv < 1e-12 ? t0 : (wx * vx + wz * vz) / vv;
-    t = Math.max(t0, Math.min(t1, t));
-    const px = ctx.eye.x + vx * t - y.position.x;
-    const pz = ctx.eye.z + vz * t - y.position.z;
-    if (Math.hypot(px, pz) > r + sh.radius) return -1;
-    return t * len;
   }
 
   function applyHit(t: BladeTech, ctx: BladeStepContext, y: YokaiInfo): void {
@@ -268,12 +232,12 @@ export function createBladeSystem(deps: BladeDeps): BladeSystem {
     let count = 0;
     if (t === 'thrust') {
       if (hitSet.size > 0) return 0; // 1 体 だけ
-      const ray = yw.raycast(ctx.eye, aimDir, S.bladeAimReach);
+      const ray = yw.raycast(bodyStart, aimDir, S.bladeAimReach);
       let best: YokaiInfo | null = null;
       let bestD = Infinity;
       for (const y of list) {
         if (y.state === 'dying' || y.state === 'leaving') continue;
-        let d = thrustDist(ctx, y);
+        let d = capsuleDist(bodyStart, aimDir, S.bladeShape.thrust.length, S.bladeShape.thrust.radius, y);
         if (ray && ray.id === y.id && (d < 0 || ray.distance < d)) d = ray.distance;
         if (d < 0) continue;
         const { h } = boxOf(y);

@@ -467,7 +467,7 @@ export interface YokaiWorld {
 }
 
 export type CombatEvent =
-  | { type: 'punchStart'; tick: number }
+  | { type: 'punchStart'; tick: number; /** WEAPON-3: パンチの向き u と えらんだ 妖怪 */ dirDeg?: number; targetId?: number | null }
   | { type: 'punchHit'; tick: number; yokaiId: number }
   | { type: 'punchMiss'; tick: number }
   | { type: 'playerHit'; tick: number; by: YokaiKind; amount: number; /** 防具でカットした（カキン） */ blocked?: boolean }
@@ -1510,7 +1510,7 @@ export interface BladeState {
   /** `phase` が `switch` の とき 前の かまえ（なめらかに うつす 用）。ほかは null */
   switchFrom: BladeStance | null;
   /** CHAR-2: わざの あいだだけ ふみこみ（それ以外は null）。dirDeg = わざの向き u、origin = 始めた足もと O、target = A(f)、moved = 実際に u へ進んだ きょり */
-  move: { dirDeg: number; origin: Vec3; target: number; moved: number } | null;
+  move: { dirDeg: number; origin: Vec3; target: number; moved: number; tiltDeg: number } | null;
 }
 
 /** 今の 当たりの 形（世界の 座標。§6.1） */
@@ -1553,6 +1553,12 @@ export interface BladeStepContext {
   yawDeg: number;
   /** false（やられた・案内画面 など）の ときは わざを 始めない・今の わざは やめる */
   active: boolean;
+  /** WEAPON-3: 体の点 B（P の 真上。肩の高さ） */
+  body: Vec3;
+  /** WEAPON-3: わざの向き u（度。始めたステップで 固定） */
+  attackDirDeg: number;
+  /** WEAPON-3: 向きの補助で えらんだ 妖怪 T の 中心の 点（なければ null） */
+  attackTarget: Vec3 | null;
 }
 
 export interface BladeDeps {
@@ -1744,6 +1750,13 @@ export interface W2Settings {
   wearLowRatio: number;
   /** 刀を ふった ときの きせき（武器ごとの 個性。オーナー決定）。style: plain=ふつう・star=星が まじる・long=長い 弧 */
   bladeTrail: Partial<Record<ItemId, BladeTrailStyle>>;
+  // WEAPON-3（§4.7）
+  /** 向きの補助の 片がわの 角（度）。0 以下で 補助なし。刀・パンチ どちらにも 使う */
+  bladeFaceAssistDeg: number;
+  /** 突きを 上下へ かたむける 上限（度） */
+  thrustTiltMaxDeg: number;
+  /** パンチの 扇の柱（届く距離は punchReach・weaponReach） */
+  punchShape: { halfAngleDeg: number; yMin: number; yMax: number };
 }
 
 export interface BladeTrailStyle {
@@ -1819,6 +1832,9 @@ export const W2_SETTING_DEFAULTS: Readonly<W2Settings> = {
     crystal_katana: { color: 0x7fdcff, width: 0.07, style: 'star' },
     naginata: { color: 0xcfe8ff, width: 0.05, style: 'long' },
   },
+  bladeFaceAssistDeg: 30,
+  thrustTiltMaxDeg: 45,
+  punchShape: { halfAngleDeg: 45, yMin: -0.5, yMax: 3.0 },
 };
 
 /** 設定の 入れ物を作る（毎回 ふかい コピー。つなぎ込みが `createSettingsHook` の extras に渡す） */
@@ -1868,6 +1884,9 @@ export function createW2Settings(): W2Settings {
     },
     wearLowRatio: d.wearLowRatio,
     bladeTrail: Object.fromEntries(Object.entries(d.bladeTrail).map(([k, v]) => [k, { ...v }])) as W2Settings['bladeTrail'],
+    bladeFaceAssistDeg: d.bladeFaceAssistDeg,
+    thrustTiltMaxDeg: d.thrustTiltMaxDeg,
+    punchShape: { ...d.punchShape },
   };
 }
 
