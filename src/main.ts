@@ -100,6 +100,9 @@ import { GEN_CONFIG } from './world/gen/config';
 import { generateIsland } from './world/gen/generateIsland';
 import { createWorldHook } from './world/hook';
 import { WorldRenderer } from './world/render/WorldRenderer';
+import { createRenderHook } from './world/render/renderHook';
+import { BlobShadow, BLOB, groundBelow } from './fx/blobShadow';
+import { WATER, isSolidIndex } from './world/blocks/blockTypes';
 import { darkenFromBrightness, skyDarkness } from './world/light';
 import { createFarmSystem, createFarmHook } from './farm';
 import { setWaterCapacity } from './ui/waterGauge';
@@ -295,6 +298,13 @@ const sprite = blockDollOnly
       initTexture: (t) => game.renderer.initTexture(t),
     });
 rig.doll.setBoxBody(blockDollOnly);
+// TEX-A: キャラの足もとの丸い影。影（renderOrder 1）の あとに キャラの板（renderOrder 2）を描く
+const blobShadow = new BlobShadow();
+game.scene.add(blobShadow.mesh);
+window.addEventListener("pagehide", () => { game.scene.remove(blobShadow.mesh); blobShadow.dispose(); });
+rig.doll.group.traverse((o) => {
+  if (o.name === 'charSprite') o.renderOrder = BLOB.spriteRenderOrder;
+});
 const crosshair = createCrosshair(hud);
 const aimMarks = new AimMarks(hud);
 crosshair.setVisible(rig.crosshairVisible());
@@ -1383,6 +1393,16 @@ game.onUpdate((dt) => {
   save.update(game.tick + 1);
 });
 game.onUpdate((dt) => overlay.update(dt));
+game.onUpdate(() => {
+  const p = controller.state.position;
+  const bx = Math.floor(p.x);
+  const bz = Math.floor(p.z);
+  const ground = groundBelow(p.y, (y) => {
+    const b = world.getIndex(bx, y, bz);
+    return b === WATER ? 'water' : b > 0 && isSolidIndex(b) ? 'solid' : 'other';
+  });
+  blobShadow.update(p, ground, rig.doll.group.visible);
+});
 // ロックがないあいだは時間を止める。F3 だけは効く（M1-02 §2.4）
 game.setRealtimeGate(() => lock.realtimeAllowed());
 // おめでとう画面の中の時間は 実時間で進める（世界は上で止めてある）
@@ -1425,7 +1445,15 @@ const lockHook = createLockHook(lock);
 const combatHook = createCombatHook(combat);
 installTestHook(game, overlay, {
   world: createWorldHook(world, renderer, island),
-  render: { chunks: () => renderer.chunkStats() },
+  render: createRenderHook({
+    world,
+    renderer,
+    gl: game.renderer,
+    camera: game.camera,
+    renderNow: () => game.renderNow(),
+    blob: blobShadow,
+    chunks: () => renderer.chunkStats(),
+  }),
   player: { ...createPlayerHook(controller), doll: withSpriteDoll(cameraHook.doll, sprite, rig.doll.group) } as unknown as TestHookGroups['player'],
   ...createDigHook(dig),
   hud: hudHook,

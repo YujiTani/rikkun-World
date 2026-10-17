@@ -68,6 +68,30 @@ describe('LOD メッシュ（遠くのかんたんメッシュ）', () => {
     expect(r2.opaque.faceCount).toBe(2);
   });
 
+  // TEX-A（#146）: 横の明るさは 南北 0.8・東西 0.6（面の向きで 2 つ）
+  it('横の面の明るさは 南北 0.8・東西 0.6（東西 ÷ 南北 = 0.75）。上は 1.0（TEX-A）', () => {
+    const w = new ArrayVoxelWorld({ x: 48, y: 16, z: 48 });
+    w.fill(0, 0, 0, 47, 3, 47, 'stone');
+    w.fill(16, 4, 16, 31, 6, 31, 'stone'); // 台: -x 側の面と -z 側の面が 16 のところに出る
+    const r = meshChunkLod(w, 1, 1);
+    const quads: { axis: 'x' | 'y' | 'z'; at: number; r: number }[] = [];
+    for (let q = 0; q < r.opaque.faceCount; q++) {
+      const px = [0, 1, 2, 3].map((k) => r.opaque.positions[(q * 4 + k) * 3]);
+      const py = [0, 1, 2, 3].map((k) => r.opaque.positions[(q * 4 + k) * 3 + 1]);
+      const pz = [0, 1, 2, 3].map((k) => r.opaque.positions[(q * 4 + k) * 3 + 2]);
+      const same = (a: number[]) => a.every((v) => v === a[0]);
+      const axis = same(px) ? 'x' : same(pz) ? 'z' : same(py) ? 'y' : null;
+      if (axis) quads.push({ axis, at: axis === 'x' ? px[0] : axis === 'z' ? pz[0] : py[0], r: r.opaque.colors[q * 4 * 3] });
+    }
+    const west = quads.find((v) => v.axis === 'x' && v.at === 16);
+    const north = quads.find((v) => v.axis === 'z' && v.at === 16);
+    const top = quads.find((v) => v.axis === 'y' && v.at === 7);
+    expect(west && north && top).toBeTruthy();
+    // 同じ石の平均色に面の明るさがかかる。色の比 = 明るさの比
+    expect(west!.r / north!.r).toBeCloseTo(0.6 / 0.8, 2);
+    expect(north!.r / top!.r).toBeCloseTo(0.8, 1);
+  });
+
   it('光（空の光）が頂点にそのまま入る', () => {
     const w = new ArrayVoxelWorld({ x: 16, y: 16, z: 16 });
     w.fill(0, 0, 0, 15, 3, 15, 'stone');

@@ -166,7 +166,7 @@ function emptyQuadMesh(): QuadMesh {
 }
 
 function emptyData(): MeshData {
-  return { positions: [], uvs: [], colors: [], lights: [], indices: [], faceCount: 0 };
+  return { positions: [], uvs: [], colors: [], lights: [], darks: [], indices: [], faceCount: 0 };
 }
 
 function pushWaterTop(mesh: MeshData, x: number, y: number, z: number): void {

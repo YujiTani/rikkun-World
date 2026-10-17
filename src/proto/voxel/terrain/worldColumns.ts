@@ -21,12 +21,16 @@ export interface ColumnInfo {
   rockOk: boolean;
 }
 
+/** テスト用: false にすると 小ブロック地形（地面の でこぼこの高さ）を 作らない（地面のブロックも ふつうの形のブロックとして描く）。TEX-A の E2E の 平らな面の確認用 */
+export const microTerrain = { enabled: true };
+
 /** ワールドの 1 列を見て、小ブロック地形の地面があるか調べる（上から下へ。空気・水・草花・たいまつ・木・葉は とばす） */
 export function scanColumn(world: ArrayVoxelWorld, wx: number, wz: number, out: ColumnInfo): void {
   out.ty = -1;
   out.kind = AIR;
   out.reach = 0;
   out.rockOk = false;
+  if (!microTerrain.enabled) return;
   for (let y = world.size.y - 1; y >= 0; y--) {
     const k = world.getIndex(wx, y, wz);
     if (k < 0) return;
