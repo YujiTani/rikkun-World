@@ -147,6 +147,24 @@ function treeChance(T: Terrain, x: number, z: number): number {
   return defOf(b.kind).trees * b.a + defOf(b.kind2).trees * (1 - b.a);
 }
 
+interface BigPot {
+  x: number;
+  z: number;
+  order: number;
+}
+
+/** 区画 (a, b) に 大木（2×2）になれる木が あるか（上限は見ない。となりの列からも 同じ答えが出る） */
+function bigPotential(T: Terrain, sT: number, forced: Set<number>, a: number, b: number): BigPot | null {
+  const p = plotPoint(sT, a, b);
+  const def = defOf(T.biome(p.x, p.z).kind);
+  if (!def.bigTree) return null;
+  if (!forced.has(plotKey(a, b)) && hash01(sT, a, b, 2) >= treeChance(T, p.x, p.z)) return null;
+  const g = treeGround(T, p.x, p.z);
+  if (g < 0 || hash01(sT, a, b, 3) >= def.bigTree) return null;
+  if (treeGround(T, p.x + 1, p.z) !== g || treeGround(T, p.x, p.z + 1) !== g || treeGround(T, p.x + 1, p.z + 1) !== g) return null;
+  return { x: p.x, z: p.z, order: hash01(sT, a, b, 5) };
+}
+
 const chunkCache = new WeakMap<Terrain, Map<number, Tree[]>>();
 const MAX_CHUNKS = 600;
 
@@ -196,9 +214,28 @@ export function treesOfChunk(T: Terrain, cx: number, cz: number): Tree[] {
       }
     }
   }
+  // 大木の みき（2×2）にも ふつうの木と同じ間隔（みきの マスどうし チェビシェフ 3 以上）。近い木は置かない。
+  // 大木どうしは order の大きい方を やめる。となりの区画の大木は 上限に関係なく 同じ答えになるよう bigPotential で見る
+  const bigNear = (c: (typeof cand)[number], isBig: boolean): boolean => {
+    for (let db = -1; db <= 1; db++) {
+      for (let da = -1; da <= 1; da++) {
+        if (da === 0 && db === 0) continue;
+        const P = bigPotential(T, sT, forced, c.a + da, c.b + db);
+        if (P === null) continue;
+        if (isBig && P.order > c.order) continue;
+        const w = isBig ? 2 : 1;
+        // c の幅 w のかたまり と P の 2×2 のあいだの チェビシェフきょり（マスの番号の差）
+        const dx = Math.max(P.x - (c.p.x + w - 1), c.p.x - (P.x + 1));
+        const dz = Math.max(P.z - (c.p.z + w - 1), c.p.z - (P.z + 1));
+        if (Math.max(dx, dz) < 3) return true;
+      }
+    }
+    return false;
+  };
   const out: Tree[] = [];
   for (const c of cand) {
     if (!keep.has(c)) continue;
+    if (bigNear(c, bigOf.has(c))) continue;
     const def = defOf(T.biome(c.p.x, c.p.z).kind);
     const leaves = def.leaves ?? 'leaves';
     const g = bigOf.get(c);
