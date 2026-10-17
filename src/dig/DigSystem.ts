@@ -887,8 +887,17 @@ export class DigSystemImpl implements DigSystem {
 
   // ---------------------------------------------------------------- WEAPON-3: 近接の 攻撃の 向き
 
+  private listCache: YokaiInfo[] = [];
+  private listCacheTick = -1;
+
+  /** 妖怪の 一覧。1 ステップに 1 回だけ 作る（歩数が 変わったときだけ 取り直す） */
   private yokaiList(): YokaiInfo[] {
-    return this.m4.yokai ? this.m4.yokai().list() : [];
+    if (!this.m4.yokai) return [];
+    if (this.listCacheTick !== this.tickCount) {
+      this.listCache = this.m4.yokai().list();
+      this.listCacheTick = this.tickCount;
+    }
+    return this.listCache;
   }
 
   private targetCenter(list: YokaiInfo[], id: number): Vec3 | null {

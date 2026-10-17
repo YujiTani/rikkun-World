@@ -1262,8 +1262,8 @@ game.onUpdate((dt) => {
     const bs = blade.state();
     // わざを始めた ステップ: その場で わざの向きを向き、水平の速さを 0 に
     const faceU = dig.attackFaceDeg();
-    rig.doll.setArcDir(st.facingDeg);
     if (faceU !== null) st.facingDeg = ((faceU % 360) + 360) % 360;
+    rig.doll.setArcDir(st.facingDeg);
     if (bs.move !== null && bs.frame === 1) st.velocity.x = st.velocity.z = 0;
     const bowPose = tools.bow().state();
     const held = inventory.held()?.item ?? null;
