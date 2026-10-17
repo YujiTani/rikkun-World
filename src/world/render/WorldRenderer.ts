@@ -264,7 +264,13 @@ export class WorldRenderer {
   /** メッシュが変わった列 (cx, cz) を知らせる（影の地図が範囲に入るときだけ描き直すため） */
   onMeshChange: ((cx: number, cz: number) => void) | null = null;
 
-  constructor(private readonly world: ArrayVoxelWorld) {
+  /**
+   * microRadius: はじめの小ブロックの半径（0 = 小ブロックなし）。作るときに渡すので、最初の update を待たずに効く
+   * （列の段も 光る前から この半径で決まる。#180: E2E のサーバーは 細かいメッシュを 1 つも作らない）。
+   */
+  constructor(private readonly world: ArrayVoxelWorld, microRadius: number = DEFAULT_MICRO_R) {
+    this.microR = normalizeMicroR(microRadius);
+    this.config.microRadius = this.microR;
     this.light = new WorldLight(world);
     this.mesher = new SectionMesher(world, this.light);
     this.nSections = Math.ceil(world.size.y / 16);
