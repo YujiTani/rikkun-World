@@ -1482,8 +1482,12 @@ export type WearEvent =
 export interface PlayerMotionMod {
   /** 歩く 速さの 倍率（1 = ふつう） */
   speedMul: number;
-  /** true の あいだ ジャンプ できない（大げさ斬りの 硬直） */
+  /** true の あいだ ジャンプ できない（刀の わざの あいだ） */
   jumpLocked: boolean;
+  /** CHAR-2: null でない あいだ キャラの 向き（facing）は これ。回らない（わざの 向きの 固定） */
+  faceDeg?: number | null;
+  /** CHAR-2: true の ステップは 水平の速さを 0 に する */
+  stopNow?: boolean;
 }
 
 // ---------------------------------------------------------------- 刀（A）
@@ -1505,6 +1509,8 @@ export interface BladeState {
   buffered: 'tech' | 'stance' | null;
   /** `phase` が `switch` の とき 前の かまえ（なめらかに うつす 用）。ほかは null */
   switchFrom: BladeStance | null;
+  /** CHAR-2: わざの あいだだけ ふみこみ（それ以外は null）。dirDeg = わざの向き u、origin = 始めた足もと O、target = A(f)、moved = 実際に u へ進んだ きょり */
+  move: { dirDeg: number; origin: Vec3; target: number; moved: number } | null;
 }
 
 /** 今の 当たりの 形（世界の 座標。§6.1） */
@@ -1557,8 +1563,8 @@ export interface BladeDeps {
   weaponDamage: (item: ItemId) => number;
   /** わざが 1 体 以上 に 当たった（1 回の わざで 1 回）。つなぎ込みが `inventory.wearHeld(settings.toolWear.blade.hit)` につなぐ */
   onHit: (info: { tech: BladeTech; count: number }) => void;
-  /** 突きの ふみこみ。かべに ぶつからない 距離を 返す（つなぎ込みが プレイヤー側で 動かす） */
-  lunge?: (dx: number, dz: number) => void;
+  /** わざの ふみこみ。水平に dx, dz だけ 動かして、かべで 止まった あとの 実際に 動いた量を 返す（つなぎ込みが プレイヤー側で 動かす） */
+  lunge?: (dx: number, dz: number) => { x: number; z: number };
   tick: () => number;
 }
 
@@ -1678,6 +1684,13 @@ export interface WeaponVisualSource {
 
 // ---------------------------------------------------------------- 設定（§4.2〜§4.6）
 
+/** CHAR-2: 刀の わざの 絵の データ（atlas.json の ticks・advance・step と 同じ） */
+export interface BladeAdvanceCurve {
+  ticks: number[];
+  advance: number[];
+  step: number;
+}
+
 export interface BladeTechFrames {
   startup: number;
   active: number;
@@ -1690,9 +1703,10 @@ export interface W2Settings {
   stanceSwitchTicks: number;
   /** 先行入力: 硬直の さいご 何F から 受けるか（突きは 持続から） */
   bladeBufferTicks: number;
-  /** 歩く 速さの 倍率。kesaRecovery 0 = 動けない・ジャンプ できない */
+  /** わざの あいだの 歩く 速さの 倍率（CHAR-2: 4 つとも 0 = 歩けない。体は ふみこみ だけで 動く） */
   bladeMoveMul: { thrust: number; kesaStartupActive: number; kesaRecovery: number; kiriage: number };
-  thrustLunge: number;
+  /** CHAR-2: わざの 絵の ふみこみ（初期値は art の atlas.json を 写す） */
+  bladeAdvance: Record<BladeTech, BladeAdvanceCurve>;
   /** 照準の 線で 妖怪を わざに ふりわける 距離 */
   bladeAimReach: number;
   bladeShape: {
@@ -1741,14 +1755,18 @@ export interface BladeTrailStyle {
 
 export const W2_SETTING_DEFAULTS: Readonly<W2Settings> = {
   bladeTech: {
-    thrust: { startup: 4, active: 2, recovery: 8 },
-    kesa: { startup: 28, active: 6, recovery: 48 },
-    kiriage: { startup: 15, active: 5, recovery: 33 },
+    thrust: { startup: 4, active: 2, recovery: 35 },
+    kesa: { startup: 28, active: 6, recovery: 72 },
+    kiriage: { startup: 38, active: 5, recovery: 61 },
   },
   stanceSwitchTicks: 8,
   bladeBufferTicks: 8,
-  bladeMoveMul: { thrust: 0.7, kesaStartupActive: 0.3, kesaRecovery: 0, kiriage: 0.5 },
-  thrustLunge: 0.25,
+  bladeMoveMul: { thrust: 0, kesaStartupActive: 0, kesaRecovery: 0, kiriage: 0 },
+  bladeAdvance: {
+    thrust: { ticks: [2, 2, 1, 1, 3, 11, 4, 4, 4, 4, 5], advance: [0, 0.08, 0.255, 0.26, 0.29, 0.32, 0.285, 0.241, 0.16, 0.073, 0.002], step: 0 },
+    kesa: { ticks: [8, 7, 4, 4, 5, 2, 2, 2, 5, 28, 8, 8, 8, 8, 7], advance: [0, 0.019, 0.088, 0.22, 0.351, 0.543, 0.62, 0.639, 0.691, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8], step: 0.8 },
+    kiriage: { ticks: [5, 5, 5, 5, 5, 5, 4, 4, 2, 1, 2, 8, 27, 6, 6, 6, 4, 4], advance: [0, 0.13, 0.26, 0.39, 0.52, 0.65, 0.78, 0.91, 1.016, 1.04, 1.059, 1.05, 1.04, 1.04, 1.04, 1.04, 1.04, 1.04], step: 1.04 },
+  },
   bladeAimReach: 4.5,
   bladeShape: {
     thrust: { length: 4.5, radius: 0.2 },
@@ -1815,7 +1833,11 @@ export function createW2Settings(): W2Settings {
     stanceSwitchTicks: d.stanceSwitchTicks,
     bladeBufferTicks: d.bladeBufferTicks,
     bladeMoveMul: { ...d.bladeMoveMul },
-    thrustLunge: d.thrustLunge,
+    bladeAdvance: {
+      thrust: { ...d.bladeAdvance.thrust, ticks: [...d.bladeAdvance.thrust.ticks], advance: [...d.bladeAdvance.thrust.advance] },
+      kesa: { ...d.bladeAdvance.kesa, ticks: [...d.bladeAdvance.kesa.ticks], advance: [...d.bladeAdvance.kesa.advance] },
+      kiriage: { ...d.bladeAdvance.kiriage, ticks: [...d.bladeAdvance.kiriage.ticks], advance: [...d.bladeAdvance.kiriage.advance] },
+    },
     bladeAimReach: d.bladeAimReach,
     bladeShape: {
       thrust: { ...d.bladeShape.thrust },

@@ -83,9 +83,13 @@ test.describe('WEAPON-2 刀', () => {
       h.inventory.setSlot(0, { item: 'katana', count: 1 });
       h.inventory.select(0);
       h.step(1);
-      const out: any = { hits: {}, dur: [] };
+      const out: any = { hits: {}, dur: [], moved: {} };
       const id = h.yokai.spawn('nurikabe', 4.5, 9, 6.5, { ai: false, yawDeg: 270 });
       for (const st of ['chudan', 'jodan', 'gedan']) {
+        // CHAR-2: わざごとに 体が 前へ進む（大けさぎり 0.80・切り上げ 1.04）ので、毎回 同じ場所から始める
+        (window as any).__aim.standForS(2.5, 6.5, 90, 0, 9);
+        h.step(1);
+        const p0 = h.player.get().position;
         h.blade.setStance(st);
         h.yokai.setHp(id, 40);
         const n0 = h.blade.events().filter((e: any) => e.type === 'techHit').length;
@@ -93,7 +97,9 @@ test.describe('WEAPON-2 刀', () => {
         h.input.press('primary');
         h.step(1);
         h.input.release('primary');
-        h.step(90);
+        h.step(110); // 大けさぎり 106 が おわってから 次を押す
+        const p1 = h.player.get().position;
+        out.moved[st] = Math.hypot(p1.x - p0.x, p1.z - p0.z);
         const ev = h.blade.events().filter((e: any) => e.type === 'techHit');
         out.hits[st] = ev.length - n0;
         out.dur.push(h.inventory.durability(0).left);
@@ -112,6 +118,10 @@ test.describe('WEAPON-2 刀', () => {
     });
     expect(r.hits).toEqual({ chudan: 1, jodan: 1, gedan: 1 });
     expect(r.dur).toEqual([249, 248, 247]);
+    // おわったときの ふみこみ: 突き 0・大けさぎり 0.80・切り上げ 1.04（仕様書 §4.5）
+    expect(Math.abs(r.moved.chudan)).toBeLessThan(0.02);
+    expect(Math.abs(r.moved.jodan - 0.8)).toBeLessThan(0.02);
+    expect(Math.abs(r.moved.gedan - 1.04)).toBeLessThan(0.02);
     expect(r.whiffWear).toBe(0);
   });
 

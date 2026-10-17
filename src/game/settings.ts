@@ -14,6 +14,8 @@ const isRecord = (v: unknown): v is Record<string, number | string | null> => ty
  * `settings.get/set/all`（M1-02 §4.1, M2 §6.1）。プレイヤー・カメラ・ほる・画面・演出の数値を同じ名前で読み書きする。
  * hardness / harvestLevel のような Record は、まるごと読み書きできる（set は一部のキーだけでもよい）。
  */
+const deepCopy = <T extends object>(v: T): T => structuredClone(v);
+
 export function createSettingsHook(player: PlayerSettings, camera: CameraConfig, extras: Bag[] = []) {
   const bags: Bag[] = [player, ...extras];
   const find = (name: string): Record<string, SettingValue> => {
@@ -22,7 +24,7 @@ export function createSettingsHook(player: PlayerSettings, camera: CameraConfig,
   };
   const names = (): string[] => bags.flatMap((b) => Object.keys(b));
   const copy = (v: SettingValue): SettingValue =>
-    isRecord(v) ? (Object.fromEntries(Object.entries(v).map(([k, x]) => [k, typeof x === 'object' && x !== null ? { ...(x as object) } : x])) as SettingValue) : v;
+    isRecord(v) ? (Object.fromEntries(Object.entries(v).map(([k, x]) => [k, typeof x === 'object' && x !== null ? deepCopy(x) : x])) as SettingValue) : v;
   return {
     get: (name: string): SettingValue => {
       const bag = find(name);
@@ -43,6 +45,8 @@ export function createSettingsHook(player: PlayerSettings, camera: CameraConfig,
             for (const kk of Object.keys(x)) {
               const xx = x[kk] as unknown;
               if (!(kk in inner)) throw new Error(`設定 ${name}.${k} に ${kk} はない`);
+              // CHAR-2: bladeAdvance の ticks・advance は 数の列
+              if (Array.isArray(xx) && Array.isArray(inner[kk]) && xx.every((n) => typeof n === 'number' && Number.isFinite(n))) continue;
               if (typeof xx !== 'number' || !Number.isFinite(xx)) throw new Error(`設定 ${name}.${k}.${kk} は有限の数`);
             }
             continue;
@@ -54,7 +58,7 @@ export function createSettingsHook(player: PlayerSettings, camera: CameraConfig,
         }
         for (const k of Object.keys(value)) {
           const c = cur[k] as unknown;
-          if (typeof c === 'object' && c !== null) Object.assign(c, value[k]);
+          if (typeof c === 'object' && c !== null) Object.assign(c, deepCopy(value[k] as unknown as object));
           else (cur as Record<string, unknown>)[k] = value[k];
         }
         return;

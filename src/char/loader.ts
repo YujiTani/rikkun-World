@@ -1,12 +1,26 @@
 // コマ表（PNG）と atlas.json の読みこみ。PNG は 色番号 1 バイトのドットにして持つ（仕様 §4.8 ①）。
 import { quantizeRgba } from './palette';
 import type { SpriteMotion } from './motion';
+import { GRID_ROWS, parsePacked, validatePacked, type Packed } from './packing';
 
 export const CELL = 256;
 export const DIRS = 8;
 export const TIERS = 3;
-export const ROWS = DIRS * TIERS;
-export const MOTIONS: readonly SpriteMotion[] = ['idle', 'walk', 'run', 'jump'];
+export const ROWS = GRID_ROWS; // = DIRS * TIERS（packing.ts が持つ）
+/** はじめに読む 4 つ（たつ・あるく → はしる・ジャンプ） */
+export const BASE_MOTIONS: readonly SpriteMotion[] = ['idle', 'walk', 'run', 'jump'];
+/** 刀の組（読む順。持ったときは いつも中段なので 中段から） */
+export const KATANA_MOTIONS: readonly SpriteMotion[] = [
+  'katana_thrust',
+  'katana_walk_chudan',
+  'katana_kesa',
+  'katana_walk_jodan',
+  'katana_kiriage',
+  'katana_walk_gedan',
+];
+/** 弓の組（読む順） */
+export const BOW_MOTIONS: readonly SpriteMotion[] = ['bow_shot', 'bow_hold_walk', 'bow_walk', 'bow_rapid'];
+export const MOTIONS: readonly SpriteMotion[] = [...BASE_MOTIONS, ...KATANA_MOTIONS, ...BOW_MOTIONS];
 /** atlas.json に modelH がないときの 背の高さ（試しの表示と同じ） */
 export const DEFAULT_MODEL_H = 1.7;
 export const SPAN = 2.0;
@@ -21,7 +35,7 @@ export interface AtlasInfo {
   dirs: number;
   tiers: number[];
   modelH: number;
-  motions: Record<string, { frames: number; fps: number }>;
+  motions: Record<string, { frames: number; fps: number; packed?: Packed }>;
 }
 
 /** 色番号にした 1 つの動きのコマ表 */
@@ -32,13 +46,18 @@ export interface IndexedAtlas {
   rows: number;
   /** width × height バイト。0 = とうめい、1〜20 = 色見本の番号 */
   indices: Uint8Array;
+  /** 切りつめた絵のとき 四角の表（なければ 今の 格子の形） */
+  packed?: Packed;
 }
 
 export function parseAtlasJson(raw: unknown): AtlasInfo {
   const o = (raw ?? {}) as Record<string, unknown>;
   const motions: AtlasInfo['motions'] = {};
-  const m = (o.motions ?? {}) as Record<string, { frames?: number; fps?: number }>;
-  for (const [k, v] of Object.entries(m)) motions[k] = { frames: Number(v?.frames) || 8, fps: Number(v?.fps) || 0 };
+  const m = (o.motions ?? {}) as Record<string, { frames?: number; fps?: number; packed?: unknown }>;
+  for (const [k, v] of Object.entries(m)) {
+    const packed = parsePacked(v?.packed);
+    motions[k] = { frames: Number(v?.frames) || 8, fps: Number(v?.fps) || 0, ...(packed ? { packed } : {}) };
+  }
   const h = Number(o.modelH);
   return {
     cell: Number(o.cell) || CELL,
@@ -80,12 +99,24 @@ export const defaultLoadJson = async (url: string): Promise<unknown> => {
   return res.json();
 };
 
-/** 絵を読んで 色番号にする。大きさが決まりと ちがえば 失敗（Error） */
-export async function loadIndexedAtlas(url: string, loadImage: LoadImage): Promise<IndexedAtlas> {
-  const img = await loadImage(url);
+/** 読んだ絵を 色番号にする。packed があれば 切りつめた形、なければ 格子の形。決まりと ちがえば 失敗（Error） */
+export function indexImage(url: string, img: ImageData, packed?: Packed, frames?: number): IndexedAtlas {
   const { width, height } = img;
+  if (packed) {
+    try {
+      validatePacked(packed, width, height, frames ?? Math.floor(packed.cells.length / ROWS));
+    } catch (e) {
+      throw new Error(`${url}: ${(e as Error).message}`);
+    }
+    return { width, height, cols: frames ?? packed.cells.length / ROWS, rows: ROWS, indices: quantizeRgba(img.data, width, height), packed };
+  }
   if (width % CELL !== 0 || height !== CELL * ROWS || width / CELL > 32) {
     throw new Error(`${url}: 絵の大きさが ちがいます（${width}×${height}）`);
   }
   return { width, height, cols: width / CELL, rows: ROWS, indices: quantizeRgba(img.data, width, height) };
+}
+
+/** 絵を読んで 色番号にする */
+export async function loadIndexedAtlas(url: string, loadImage: LoadImage, packed?: Packed, frames?: number): Promise<IndexedAtlas> {
+  return indexImage(url, await loadImage(url), packed, frames);
 }

@@ -1,0 +1,409 @@
+{
+ "cell": 256,
+ "span": 2.0,
+ "center": 0.95,
+ "tiers": [
+  0,
+  75,
+  -75
+ ],
+ "dirs": 8,
+ "motions": {
+  "idle": {
+   "action": "Idle_4",
+   "frames": 8,
+   "fps": 0.57
+  },
+  "walk": {
+   "action": "Walking_Woman",
+   "frames": 8,
+   "fps": 8.0
+  },
+  "run": {
+   "action": "Run_03",
+   "frames": 8,
+   "fps": 9.6
+  },
+  "jump": {
+   "action": "Regular_Jump",
+   "frames": 8,
+   "fps": 4.27
+  },
+  "bow_shot": {
+   "frames": 12,
+   "fps": 9.73,
+   "ticks": [
+    6,
+    6,
+    6,
+    6,
+    6,
+    5,
+    5,
+    12,
+    4,
+    6,
+    6,
+    6
+   ],
+   "labels": [
+    "Archery_Shot f0 look0.7",
+    "Archery_Shot f14 look0.9",
+    "Archery_Shot f27 look1.0",
+    "Archery_Shot f40 look1.0",
+    "Archery_Shot f48 look1.0",
+    "Archery_Shot f56 look1.0",
+    "Archery_Shot f64 look1.0",
+    "Archery_Shot f80 look1.0",
+    "Archery_Shot f97 look1.0",
+    "Archery_Shot f104 look1.0",
+    "Archery_Shot f112 look0.9",
+    "Archery_Shot f120 look0.7"
+   ],
+   "note": "弓を うつ（せなかから 矢を とり、つがえて、ひきしぼり、はなす）。ひきしぼった コマは 40 tick め（弓の 3 段めと 同じ）",
+   "action": "Archery_Shot"
+  },
+  "bow_walk": {
+   "frames": 8,
+   "fps": 6.67,
+   "ticks": [
+    9,
+    9,
+    9,
+    9,
+    9,
+    9,
+    9,
+    9
+   ],
+   "labels": [
+    "Walk_Forward_with_Bow_Aimed f0 look1.0",
+    "Walk_Forward_with_Bow_Aimed f4 look1.0",
+    "Walk_Forward_with_Bow_Aimed f7 look1.0",
+    "Walk_Forward_with_Bow_Aimed f11 look1.0",
+    "Walk_Forward_with_Bow_Aimed f14 look1.0",
+    "Walk_Forward_with_Bow_Aimed f18 look1.0",
+    "Walk_Forward_with_Bow_Aimed f22 look1.0",
+    "Walk_Forward_with_Bow_Aimed f25 look1.0"
+   ],
+   "note": "弓を かまえて 歩く",
+   "action": "Walk_Forward_with_Bow_Aimed"
+  },
+  "bow_hold_walk": {
+   "frames": 8,
+   "fps": 6.67,
+   "ticks": [
+    9,
+    9,
+    9,
+    9,
+    9,
+    9,
+    9,
+    9
+   ],
+   "labels": [
+    "Walk_Forward_with_Bow_Aimed f0.0 upper bow_shot f0",
+    "Walk_Forward_with_Bow_Aimed f3.6 upper bow_shot f0",
+    "Walk_Forward_with_Bow_Aimed f7.2 upper bow_shot f0",
+    "Walk_Forward_with_Bow_Aimed f10.9 upper bow_shot f0",
+    "Walk_Forward_with_Bow_Aimed f14.5 upper bow_shot f0",
+    "Walk_Forward_with_Bow_Aimed f18.1 upper bow_shot f0",
+    "Walk_Forward_with_Bow_Aimed f21.8 upper bow_shot f0",
+    "Walk_Forward_with_Bow_Aimed f25.4 upper bow_shot f0"
+   ],
+   "note": "弓を 下げて 持ったまま 歩く（引かない とき。上半身は 弓を うつ の 1 コマ目、足は 弓を かまえて 歩く 動き）"
+  },
+  "bow_rapid": {
+   "frames": 11,
+   "fps": 15.0,
+   "ticks": [
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    5,
+    3,
+    4,
+    4,
+    4
+   ],
+   "labels": [
+    "Archery_Shot_1 f0 look1.0",
+    "Archery_Shot_1 f4 look1.0",
+    "Archery_Shot_1 f8 look1.0",
+    "Archery_Shot_1 f12 look1.0",
+    "Archery_Shot_1 f16 look1.0",
+    "Archery_Shot_1 f20 look1.0",
+    "Archery_Shot_1 f24 look1.0",
+    "Archery_Shot_3 f3 look1.0",
+    "Archery_Shot_3 f6 look1.0",
+    "Archery_Shot_3 f10 look1.0",
+    "Archery_Shot_3 f14 look1.0"
+   ],
+   "note": "弓を つづけて うつ（つがえる → ひく → はなす を くりかえす）"
+  },
+  "katana_thrust": {
+   "frames": 11,
+   "fps": 16.1,
+   "ticks": [
+    2,
+    2,
+    1,
+    1,
+    3,
+    11,
+    4,
+    4,
+    4,
+    4,
+    5
+   ],
+   "labels": [
+    "t0 startup",
+    "t2 startup",
+    "t4.5 active",
+    "t5.5 active",
+    "t7.5 recovery",
+    "t14 recovery",
+    "t22.5 recovery",
+    "t26 recovery",
+    "t30 recovery",
+    "t34.5 recovery",
+    "t39.5 recovery"
+   ],
+   "note": "突き（中段から 手を 引きながら ふみこんで 突く。止まって、歩いて ゆっくり 元の 位置へ もどる）",
+   "phases": {
+    "startup": 4,
+    "active": 2,
+    "recovery": 35
+   },
+   "step": 0.0,
+   "advance": [
+    0.0,
+    0.08,
+    0.255,
+    0.26,
+    0.29,
+    0.32,
+    0.285,
+    0.241,
+    0.16,
+    0.073,
+    0.002
+   ]
+  },
+  "katana_kesa": {
+   "frames": 15,
+   "fps": 8.49,
+   "ticks": [
+    8,
+    7,
+    4,
+    4,
+    5,
+    2,
+    2,
+    2,
+    5,
+    28,
+    8,
+    8,
+    8,
+    8,
+    7
+   ],
+   "labels": [
+    "t0 startup",
+    "t9 startup",
+    "t16 startup",
+    "t21 startup",
+    "t25.5 startup",
+    "t29 active",
+    "t31 active",
+    "t33 active",
+    "t37 recovery",
+    "t50 recovery",
+    "t72 recovery",
+    "t80 recovery",
+    "t88 recovery",
+    "t95 recovery",
+    "t102 recovery"
+   ],
+   "note": "大けさぎり（右上段から 刀を 大きく ふりかぶりながら 右足で 2 歩分 とびこみ、右上→左下へ 切りおろす。止まって、その場で ゆっくり 上段へ もどる）",
+   "phases": {
+    "startup": 28,
+    "active": 6,
+    "recovery": 72
+   },
+   "step": 0.8,
+   "advance": [
+    0.0,
+    0.019,
+    0.088,
+    0.22,
+    0.351,
+    0.543,
+    0.62,
+    0.639,
+    0.691,
+    0.8,
+    0.8,
+    0.8,
+    0.8,
+    0.8,
+    0.8
+   ]
+  },
+  "katana_kiriage": {
+   "frames": 18,
+   "fps": 10.38,
+   "ticks": [
+    5,
+    5,
+    5,
+    5,
+    5,
+    5,
+    4,
+    4,
+    2,
+    1,
+    2,
+    8,
+    27,
+    6,
+    6,
+    6,
+    4,
+    4
+   ],
+   "labels": [
+    "t0 startup",
+    "t5 startup",
+    "t10 startup",
+    "t15 startup",
+    "t20 startup",
+    "t25 startup",
+    "t30 startup",
+    "t34 startup",
+    "t38.5 active",
+    "t40.5 active",
+    "t42 active",
+    "t47 recovery",
+    "t64 recovery",
+    "t81 recovery",
+    "t87 recovery",
+    "t93 recovery",
+    "t98 recovery",
+    "t102 recovery"
+   ],
+   "note": "切り上げ（刀を 右下の 下段に かまえたまま 4 歩 歩き、4 歩目と いっしょに 右下→左上へ 切り上げる。止まって、その場で ゆっくり 下段へ もどる）",
+   "phases": {
+    "startup": 38,
+    "active": 5,
+    "recovery": 61
+   },
+   "step": 1.04,
+   "advance": [
+    0.0,
+    0.13,
+    0.26,
+    0.39,
+    0.52,
+    0.65,
+    0.78,
+    0.91,
+    1.016,
+    1.04,
+    1.059,
+    1.05,
+    1.04,
+    1.04,
+    1.04,
+    1.04,
+    1.04,
+    1.04
+   ]
+  },
+  "katana_walk_chudan": {
+   "frames": 8,
+   "fps": 6.67,
+   "ticks": [
+    9,
+    9,
+    9,
+    9,
+    9,
+    9,
+    9,
+    9
+   ],
+   "labels": [
+    "Walk_Forward_with_Bow_Aimed f0.0 C",
+    "Walk_Forward_with_Bow_Aimed f3.6 C",
+    "Walk_Forward_with_Bow_Aimed f7.2 C",
+    "Walk_Forward_with_Bow_Aimed f10.9 C",
+    "Walk_Forward_with_Bow_Aimed f14.5 C",
+    "Walk_Forward_with_Bow_Aimed f18.1 C",
+    "Walk_Forward_with_Bow_Aimed f21.8 C",
+    "Walk_Forward_with_Bow_Aimed f25.4 C"
+   ],
+   "note": "刀を 中段に かまえたまま 歩く（くりかえし。足は 弓を かまえて 歩く 動き）"
+  },
+  "katana_walk_jodan": {
+   "frames": 8,
+   "fps": 6.67,
+   "ticks": [
+    9,
+    9,
+    9,
+    9,
+    9,
+    9,
+    9,
+    9
+   ],
+   "labels": [
+    "Walk_Forward_with_Bow_Aimed f0.0 C",
+    "Walk_Forward_with_Bow_Aimed f3.6 C",
+    "Walk_Forward_with_Bow_Aimed f7.2 C",
+    "Walk_Forward_with_Bow_Aimed f10.9 C",
+    "Walk_Forward_with_Bow_Aimed f14.5 C",
+    "Walk_Forward_with_Bow_Aimed f18.1 C",
+    "Walk_Forward_with_Bow_Aimed f21.8 C",
+    "Walk_Forward_with_Bow_Aimed f25.4 C"
+   ],
+   "note": "刀を 上段に かまえたまま 歩く（くりかえし。足は 弓を かまえて 歩く 動き）"
+  },
+  "katana_walk_gedan": {
+   "frames": 8,
+   "fps": 6.67,
+   "ticks": [
+    9,
+    9,
+    9,
+    9,
+    9,
+    9,
+    9,
+    9
+   ],
+   "labels": [
+    "Walk_Forward_with_Bow_Aimed f0.0 C",
+    "Walk_Forward_with_Bow_Aimed f3.6 C",
+    "Walk_Forward_with_Bow_Aimed f7.2 C",
+    "Walk_Forward_with_Bow_Aimed f10.9 C",
+    "Walk_Forward_with_Bow_Aimed f14.5 C",
+    "Walk_Forward_with_Bow_Aimed f18.1 C",
+    "Walk_Forward_with_Bow_Aimed f21.8 C",
+    "Walk_Forward_with_Bow_Aimed f25.4 C"
+   ],
+   "note": "刀を 下段に かまえたまま 歩く（くりかえし。足は 弓を かまえて 歩く 動き）"
+  }
+ },
+ "modelH": 1.7,
+ "note": "modelH = モデルの背の高さ（ネコ耳の先まで、m。A ポーズで測った値）。modelH = モデルの背の高さ（ネコ耳の先まで、m）。ticks = コマごとの 長さ（1/60 秒）。advance = その コマで 立ち位置から 前へ 進んだ きょり（m）。絵は 腰を まん中に 撮って あるので、ゲームでは 体（当たり判定）を advance だけ 前へ 動かすと 足が 地面に とまって 見える。side = その コマで 右へ ずれた きょり（m、マイナスは 左。ある 動きだけ）。step = 最後に 進む きょり。"
+}

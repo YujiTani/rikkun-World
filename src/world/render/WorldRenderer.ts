@@ -15,6 +15,7 @@ import { BLOCK_TYPES, isCrossIndex, isWildIndex } from '../blocks/blockTypes';
 import { createAtlasTexture, WATER_ALPHA } from '../blocks/textures';
 import { WorldLight } from '../light/WorldLight';
 import { sectionGet } from '../sections';
+import { lodSortKey, sectionSortKey } from './drawOrder';
 import { columnKey, CHUNK_SIZE, type ArrayVoxelWorld } from '../VoxelWorld';
 import { CHUNK_DRAW_DISTANCE, RENDER_CONFIG } from './config';
 import { setRipeMinBrightness } from './cropLight';
@@ -659,12 +660,13 @@ export class WorldRenderer {
       voxel = new Mesh(voxelGeometry(data.pieces[0]), voxMat ?? this.boxMaterial);
       voxel.scale.setScalar(1 / 9);
       voxel.position.set(org[0], org[1], org[2]);
+      voxel.userData.sortKey = sectionSortKey(st.cx, st.sy, st.cz, 0);
       voxel.matrixAutoUpdate = false;
       voxel.updateMatrix();
       this.group.add(voxel);
     }
-    if (data.extras.faceCount > 0) extras = this.atlasMesh(data.extras, this.opaqueMaterial, 0);
-    if (data.water.faceCount > 0) water = this.atlasMesh(data.water, this.waterMaterial, RENDER_CONFIG.waterRenderOrder);
+    if (data.extras.faceCount > 0) extras = this.atlasMesh(data.extras, this.opaqueMaterial, 0, sectionSortKey(st.cx, st.sy, st.cz, 1));
+    if (data.water.faceCount > 0) water = this.atlasMesh(data.water, this.waterMaterial, RENDER_CONFIG.waterRenderOrder, sectionSortKey(st.cx, st.sy, st.cz, 2));
     this.bytes -= st.bytes;
     for (const m of oldMeshes) if (m) this.disposeMesh(m);
     oldMat?.dispose();
@@ -687,9 +689,10 @@ export class WorldRenderer {
     if (water) this.pushLog(st, 'water');
   }
 
-  private atlasMesh(data: MeshData, material: MeshBasicMaterial, order: number): Mesh {
+  private atlasMesh(data: MeshData, material: MeshBasicMaterial, order: number, sortKey: number): Mesh {
     const mesh = new Mesh(toGeometry(data), material);
     mesh.renderOrder = order;
+    mesh.userData.sortKey = sortKey;
     mesh.matrixAutoUpdate = false;
     mesh.updateMatrix();
     this.group.add(mesh);
@@ -772,8 +775,8 @@ export class WorldRenderer {
     const data = meshChunkLod(this.world, col.cx, col.cz, this.light);
     if (col.lodOpaque) this.group.remove(col.lodOpaque), col.lodOpaque.geometry.dispose();
     if (col.lodWater) this.group.remove(col.lodWater), col.lodWater.geometry.dispose();
-    col.lodOpaque = data.opaque.faceCount > 0 ? this.atlasMesh(data.opaque, this.lodOpaqueMaterial, 0) : null;
-    col.lodWater = data.water.faceCount > 0 ? this.atlasMesh(data.water, this.lodWaterMaterial, RENDER_CONFIG.waterRenderOrder) : null;
+    col.lodOpaque = data.opaque.faceCount > 0 ? this.atlasMesh(data.opaque, this.lodOpaqueMaterial, 0, lodSortKey(col.cx, col.cz, false)) : null;
+    col.lodWater = data.water.faceCount > 0 ? this.atlasMesh(data.water, this.lodWaterMaterial, RENDER_CONFIG.waterRenderOrder, lodSortKey(col.cx, col.cz, true)) : null;
     col.lodStale = false;
     this.meshChanged(col.cx, col.cz);
   }

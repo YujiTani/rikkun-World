@@ -3,7 +3,7 @@ import type { BladeState, BladeStance, BladeTech } from '../contracts';
 import { bladePoseAt, bowDollAt, bowHandAt, newBladePose } from './weaponPose';
 
 const st = (stance: BladeStance, tech: BladeTech | null = null, frame = 0): BladeState => ({
-  item: 'katana', stance, tech, phase: tech ? 'active' : 'idle', frame, buffered: null, switchFrom: null,
+  item: 'katana', stance, tech, phase: tech ? 'active' : 'idle', frame, buffered: null, switchFrom: null, move: null,
 });
 const at = (s: BladeState) => bladePoseAt(s, newBladePose())!;
 

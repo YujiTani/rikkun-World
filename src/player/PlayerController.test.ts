@@ -476,3 +476,41 @@ describe('ロックなし・もどる', () => {
     expect(r.s.position).toEqual({ x: 32.5, y: 12, z: 32.5 });
   });
 });
+
+describe('CHAR-2: lunge の戻り値・向きの指定・すぐ止まる', () => {
+  it('lunge は 実際に動いた量を 返す（ひらけた所は 言われたぶん・かべでは 手前まで）', () => {
+    const r = new Rig();
+    r.floor({ x: 2.5, y: 9, z: 6.5 }, 90);
+    const got = r.player.lunge(0.5, 0);
+    expect(got.x).toBeCloseTo(0.5, 9);
+    expect(got.z).toBe(0);
+    expect(r.s.position.x).toBeCloseTo(3.0, 9);
+    r.world.fill(5, 9, 6, 5, 10, 6, 'stone'); // 体の 前ふち 3.3 → かべの 面 x=5 まで 1.7
+    const g2 = r.player.lunge(3, 0);
+    expect(g2.x).toBeCloseTo(1.7, 6);
+    expect(r.s.position.x).toBeCloseTo(4.7, 6);
+  });
+  it('faceDeg が あるあいだ facing は それ（歩く向き・ねらう向きでは かわらない）', () => {
+    const r = new Rig();
+    r.floor({ x: 6.5, y: 9, z: 6.5 }, 0);
+    r.player.motion.faceDeg = 45;
+    r.press('moveBack');
+    r.step(3);
+    expect(r.s.facingDeg).toBeCloseTo(45, 9);
+    r.release('moveBack');
+    r.player.motion.faceDeg = null;
+    r.press('moveBack');
+    r.step(40);
+    expect(r.s.facingDeg).toBeCloseTo(180, 0);
+  });
+  it('stopNow の ステップは 水平の速さが 0', () => {
+    const r = new Rig();
+    r.floor();
+    r.press('moveForward');
+    r.step(30);
+    expect(Math.hypot(r.s.velocity.x, r.s.velocity.z)).toBeGreaterThan(3);
+    r.player.motion.stopNow = true;
+    r.step(1);
+    expect(Math.hypot(r.s.velocity.x, r.s.velocity.z)).toBe(0);
+  });
+});

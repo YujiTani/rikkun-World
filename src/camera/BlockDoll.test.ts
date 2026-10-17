@@ -60,7 +60,7 @@ describe('WEAPON-2 刀と弓の人形', () => {
     const doll = new BlockDoll();
     doll.setHeld('katana');
     doll.setMode('third');
-    doll.setWeapon({ item: 'katana', stance: 'chudan', tech: null, phase: 'idle', frame: 0, buffered: null, switchFrom: null }, { stage: 0, pull: 0, bendDeg: 0 });
+    doll.setWeapon({ item: 'katana', stance: 'chudan', tech: null, phase: 'idle', frame: 0, buffered: null, switchFrom: null, move: null }, { stage: 0, pull: 0, bendDeg: 0 });
     doll.update(1 / 60, { x: 0, y: 0, z: 0 }, 0, 0, false, true);
     expect(doll.dollPose.rx).toBe(50);
     doll.dispose();
