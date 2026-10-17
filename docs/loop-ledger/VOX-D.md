@@ -46,3 +46,4 @@
 | 2 | perf | perf-engineer | 【軽微】起動中に 小ブロックを 2 回目に作っている（`micro->micro change` 70 回・1.56 s）。ごつごつの色を ブロックごとに 毎回計算している | 実装 | G19 | 任意（開始 −1.5 s の見込み） |
 | 2 | perf | perf-engineer | 【軽微】光 `lightColumn` が 中央値 5 ms・p95 9.5 ms・最大 22.7 ms（4 ms の予算を こえる）。`updateLod` が 毎コマ 約 450 回（`lodStale` 立ちっぱなし）。起動中 `flushExposure` 1 回 118 ms | 実装 | G20 | 任意 |
 | 3 | test | tester | 仕様変更で期待を変えた: K1・基準 5（0a15c34）。半径 2 の 25 列は「小ブロックか箱の絵が 1 つ以上」でよい（本当の段 = micro を要求しない）。`e2e/voxD-stream.spec.ts` 基準 5 から `microR`・距離の段の計算を消した（細かいメッシュなしでも成り立つ） | 仕様 | G17 | 直した |
+| 3 | test | tester | 基準 21: ready のあと 箱→小ブロックの差しかえ（kind:micro 9〜11 件）が rebuildLog に入り赤。ねらいは「置きもので作りなおさない」なので、先に `settle({full})` と光・メッシュの待ち 0 で差しかえを終わらせ、`rebuildLog(true)` で空にしてから 60 コマ見る形に（ready の時点で置きものが全部 getBlock にあることの確認はそのまま） | 仕様変更（K1）の影響 | G17 | 直した |

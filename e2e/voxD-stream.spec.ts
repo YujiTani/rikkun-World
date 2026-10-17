@@ -559,15 +559,17 @@ test.describe('VOX-D ストリーミング', () => {
         h.pause();
         const w = h.world;
         const pl = h.farm.placement(w.seed());
-        w.rebuildLog(true);
         const missing: string[] = [];
         for (const k of pl.wild) if (w.getBlock(k.x, k.y, k.z) !== `wild_${k.kind}`) missing.push(`wild ${k.x},${k.y},${k.z} ${w.getBlock(k.x, k.y, k.z)}`);
         const of = pl.oldFarm;
         // ふるい畑: 置く マス ぜんぶ（かかし・たんす・はたけ・さく）が そのとおりに ある
         for (const k of of?.blocks ?? []) if (w.getBlock(k.x, k.y, k.z) !== k.id) missing.push(`oldFarm ${k.id} ${k.x},${k.y},${k.z} ${w.getBlock(k.x, k.y, k.z)}`);
         if (of && w.getBlock(of.tansu.x, of.tansu.y, of.tansu.z) !== 'tansu') missing.push('tansu');
+        // 箱 → 小ブロックの差しかえ（開始のあと、予算の中で進む）を 先に終わらせてから 記録を空にして見る
         await w.settle({ full: true });
-        h.step(30);
+        for (let n = 0; (h.world.lightPending() > 0 || w.meshStats().pending > 0) && n < 3000; n += 5) h.step(5);
+        w.rebuildLog(true);
+        h.step(60);
         const secs = new Set<string>();
         const add = (x: number, y: number, z: number) => secs.add(`${x >> 4},${y >> 4},${z >> 4}`);
         for (const k of pl.wild) add(k.x, k.y, k.z);
