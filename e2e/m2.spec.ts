@@ -716,6 +716,15 @@ test.describe('M2 もちもの画面', () => {
       h.world.setBlock(4, 10, 6, 'dirt');
       h.step(1);
     });
+    // 本当の時間で測る所なので、機械の速さで ゆれないように:
+    // 絵（SwiftShader）を止め、キャラの絵の読みこみと 世界の光・メッシュの順番待ちが おわってから 時間を動かす
+    await page.evaluate(() => (window as any).__rikkun.suspendRender(true));
+    await page.waitForFunction(() => (window as any).__rikkun.player.doll().sprite.loaded === true, null, { timeout: 0 }); // 時間は テスト全体の上限にまかせる
+    await page.evaluate(() => {
+      const h = (window as any).__rikkun;
+      for (let n = 0; (h.world.lightPending() > 0 || h.world.meshStats().pending > 0) && n < 3000; n += 5) h.step(5);
+      h.step(2);
+    });
     // 開く
     await page.evaluate(() => {
       const h = (window as any).__rikkun;
@@ -805,6 +814,7 @@ test.describe('M2 もちもの画面', () => {
       const tb = await page.evaluate(() => (window as any).__rikkun.tick());
       bestRate = Math.max(bestRate, tb - ta);
     }
+    await page.evaluate(() => (window as any).__rikkun.suspendRender(false)); // 時間を測る所は ここまで
     const cl = await page.evaluate(() => ({
       tick: (window as any).__rikkun.tick(),
       open: (window as any).__rikkun.inventory.get().open,

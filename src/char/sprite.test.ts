@@ -262,3 +262,23 @@ describe('AC25 板は 描画 1・三角形 2 のまま', () => {
     expect(Array.isArray(mesh.material)).toBe(false);
   });
 });
+
+describe('テスト用: 動きの はじめにもどす（restartMotion）', () => {
+  it('立っている時間が ちがっても、もどしたあとの 数ステップで 同じコマ', async () => {
+    const frameAfterRestart = async (standSteps: number): Promise<number> => {
+      const { sprite } = make(makeLoader().loadImage);
+      await flush();
+      for (let i = 0; i < standSteps; i++) step(sprite, {});
+      sprite.restartMotion();
+      for (let i = 0; i < 30; i++) step(sprite, {});
+      const f = sprite.info().want.frame;
+      sprite.dispose();
+      return f;
+    };
+    // 立ちはじめから 100 ステップなら 3 コマ目に進んでいる（45 ステップに 1 コマ）。もどせば 30 ステップ後は 0 コマ
+    const a = await frameAfterRestart(3);
+    const b = await frameAfterRestart(100);
+    expect(a).toBe(0);
+    expect(b).toBe(0);
+  });
+});

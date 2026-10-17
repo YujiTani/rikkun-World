@@ -66,6 +66,8 @@ export interface CharSprite {
   step(input: SpriteStepInput): void;
   render(): void;
   hurt(): void;
+  /** 動きの 数えを はじめにもどす（立つ・歩くの コマの数え）。テストで 待ったステップの数に よらず 同じコマにする */
+  restartMotion(): void;
   info(): SpriteInfo;
   /** もとの 256 × 256 の コマ（RGBA）。そのたびに 切りつめた PNG を 読みなおして もどす（テスト用） */
   readCell(motion: SpriteMotion, tier: 0 | 1 | 2, dir: number, frame: number): Promise<Uint8ClampedArray>;
@@ -430,6 +432,9 @@ export function createCharSprite(deps: CharSpriteDeps): CharSprite {
     render,
     hurt() {
       hurtAge = 0;
+    },
+    restartMotion() {
+      machine.reset();
     },
     info() {
       const v = view();

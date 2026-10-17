@@ -528,6 +528,14 @@ test('CHAR-2 AC34: 切りつめる前と後で 画面が ドット単位で 同�
           const st = h.player.doll().sprite.status;
           return ns.every((n: string) => st?.[n] === 'ready');
         }, names, { timeout: 10_000 });
+        // 世界の光とメッシュが落ちつくまで進める（作る順番は 機械の速さで変わる。落ちつけば 2 回の撮影は 同じ世界）
+        await page.evaluate(() => {
+          const h = window.__rikkun! as any;
+          for (let n = 0; (h.world.lightPending() > 0 || h.world.meshStats().pending > 0) && n < 3000; n += 5) h.step(5);
+          h.step(2);
+          // 待ったステップの数は 機械の速さで ちがう。キャラの コマの数え（立ち 45 ステップに 1 コマ）を ここから数えなおす
+          h.player.doll().sprite.restartMotion();
+        });
         await page.evaluate((sc) => {
           const h = window.__rikkun! as any;
           for (let i = 0; i < (sc.stance ?? 0); i++) {
