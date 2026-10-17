@@ -17,7 +17,7 @@ async function open(page: Page, query = '?nosave=1') {
 }
 
 test.describe('M5 広い世界', () => {
-  test('AC1/AC13: 大きさ 128×高さ×128・見えないかべ・テスト場所', async ({ page }) => {
+  test('AC1/AC13: 高さ・テスト場所（x・z の大きさは VOX-D で動く範囲になった）', async ({ page }) => {
     await open(page);
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
@@ -33,14 +33,13 @@ test.describe('M5 広い世界', () => {
       return out;
     });
     // 高さは WORLD_HEIGHT（今の島 48・VOX-B で 352）。ゲームに聞く
-    expect(r.size.x).toBe(128);
-    expect(r.size.z).toBe(128);
     expect(r.size.y).toBeGreaterThanOrEqual(48);
     expect(r.area).toEqual({ x0: 0, x1: 12, z0: 0, z1: 12, y0: 8, y1: r.size.y - 1 });
     console.log('AC1', JSON.stringify(r));
   });
 
-  test('AC1(歩き): 西・東へ歩き続けても足もとの中央は 0.3〜size−0.3', async ({ page }) => {
+  test('AC1(歩き): 4 方向へ歩き続けても 足もとの中央は 見えない壁（±30,000）の中で、読みこんだ列の上', async ({ page }) => {
+    // VOX-D: 壁は ±30,000（W2: 中心 −29,999.7〜29,999.7）。壁そのもののテストは e2e/voxD-stream.spec.ts 基準 23
     await open(page);
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
@@ -48,30 +47,32 @@ test.describe('M5 広い世界', () => {
       h.lock.simulate(true);
       h.settings.set('yokaiAutoSpawn', false);
       const res: any = {};
-      for (const [name, x, z, yaw] of [['west', 3.5, 40.5, 270], ['east', 124.5, 40.5, 90], ['north', 40.5, 3.5, 0], ['south', 40.5, 124.5, 180]] as const) {
-        const sz = h.world.size();
-        // 立つ高さは その列の地面の上（はしは 仮の海でも 同じ）。0.3〜size−0.3 の中
-        h.player.set({ position: { x: name === 'east' ? sz.x - 3.5 : x, y: h.world.groundHeight(Math.floor(name === 'east' ? sz.x - 3.5 : x), Math.floor(name === 'south' ? sz.z - 3.5 : z)) + 1, z: name === 'south' ? sz.z - 3.5 : z }, velocity: { x: 0, y: 0, z: 0 }, yaw, pitch: 0 });
+      const sp = h.world.spawn();
+      for (const [name, yaw] of [['west', 270], ['east', 90], ['north', 0], ['south', 180]] as const) {
+        h.player.set({ position: { x: sp.x, y: h.world.groundHeight(Math.floor(sp.x), Math.floor(sp.z)) + 1, z: sp.z }, velocity: { x: 0, y: 0, z: 0 }, yaw, pitch: 0 });
         h.input.releaseAll();
         h.input.press('moveForward');
-        h.step(240);
+        let loaded = true;
+        for (let i = 0; i < 240; i++) {
+          h.step(1);
+          const p = h.player.get().position;
+          if (!h.world.isLoaded(Math.floor(p.x), Math.floor(p.z))) loaded = false;
+        }
         h.input.releaseAll();
-        res[name] = h.player.get().position;
+        res[name] = { ...h.player.get().position, loaded };
       }
-      res.size = h.world.size();
+      res.wall = h.world.wall();
       return res;
     });
     console.log('AC1 walk', JSON.stringify(r));
-    expect(r.west.x).toBeCloseTo(0.3, 1);
-    expect(r.east.x).toBeCloseTo(r.size.x - 0.3, 1);
-    expect(r.north.z).toBeCloseTo(0.3, 1);
-    expect(r.south.z).toBeCloseTo(r.size.z - 0.3, 1);
+    expect(r.wall).toBe(30000);
     for (const k of ['west', 'east', 'north', 'south']) {
       const p = r[k];
-      expect(p.x).toBeGreaterThanOrEqual(0.3 - 1e-6);
-      expect(p.x).toBeLessThanOrEqual(r.size.x - 0.3 + 1e-6);
-      expect(p.z).toBeGreaterThanOrEqual(0.3 - 1e-6);
-      expect(p.z).toBeLessThanOrEqual(r.size.z - 0.3 + 1e-6);
+      expect(p.loaded, k).toBe(true);
+      for (const v of [p.x, p.z]) {
+        expect(v).toBeGreaterThanOrEqual(-29999.7 - 1e-6);
+        expect(v).toBeLessThanOrEqual(29999.7 + 1e-6);
+      }
     }
   });
 

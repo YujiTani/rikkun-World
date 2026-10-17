@@ -27,11 +27,11 @@ test.describe('M1-01 世界（つないだ後）', () => {
       const w = window.__rikkun!.world;
       return {
         size: w.size(),
-        out: [w.getBlock(-1, 10, 10), w.getBlock(w.size().x, 10, 10), w.getBlock(10, w.size().y, 10)], // 外 = 読みこみ範囲の外・y = size().y（VOX-B: 高さ 352）
+        out: [w.getBlock(-100000, 10, 10), w.getBlock(100000, 10, 10), w.getBlock(10, w.size().y, 10)], // 外 = 壁の外・読みこんでいない遠い列（VOX-D: 128 の決め打ちをやめた）・y = size().y（VOX-B: 高さ 352）
         types: w.blockTypes(),
       };
     });
-    expect(r.size).toEqual({ x: WORLD_SIZE.x, y: WORLD_SIZE.y, z: WORLD_SIZE.z });
+    expect(r.size.y).toBe(WORLD_SIZE.y); // x・z は 読みこんでいる範囲（動く）。使わない（VOX-D）
     expect(r.out).toEqual(['outside', 'outside', 'outside']);
     // 数は ブロックを足すたびに変わるので、M1 で決めた種類が そろっていることだけを見る（#37）
     const ids = r.types.map((t) => t.id);
@@ -143,46 +143,43 @@ test.describe('M1-01 世界（つないだ後）', () => {
     });
   }
 
-  test('AC12: 世界の端（海の中を 4 方向へ 300 ステップ）で体が外に出ない', async ({ page }) => {
+  test('AC12: 4 方向へ 300 ステップ歩いても、いつも読みこまれた列の上で 地面か水の中（世界のはしで落ちない）', async ({ page }) => {
+    // VOX-D: 仮の海のふち（はしの海）が無くなった。壁は ±30,000 で遠い。見るのは「歩く先の列がいつも読みこまれている」こと
     test.setTimeout(90_000);
     await open(page);
-    // VOX-B: はしの海（仮の海のふち）。立つ高さは ゲームに聞く（その列の groundHeight + 1）
-    const size = await page.evaluate(() => (window as any).__rikkun.world.size());
-    const mx = Math.floor(size.x / 2) + 0.5;
-    const mz = Math.floor(size.z / 2) + 0.5;
-    const cases = [
-      { name: '西', x: 2.5, z: mz, yaw: 270, axis: 'x', want: 0.3 },
-      { name: '東', x: size.x - 2.5, z: mz, yaw: 90, axis: 'x', want: size.x - 0.3 },
-      { name: '北', x: mx, z: 2.5, yaw: 0, axis: 'z', want: 0.3 },
-      { name: '南', x: mx, z: size.z - 2.5, yaw: 180, axis: 'z', want: size.z - 0.3 },
-    ];
     await page.evaluate(() => {
       window.__rikkun!.pause();
       window.__rikkun!.lock.simulate(true);
     });
-    for (const c of cases) {
+    for (const c of [{ name: '西', yaw: 270 }, { name: '東', yaw: 90 }, { name: '北', yaw: 0 }, { name: '南', yaw: 180 }]) {
       const r = await page.evaluate((c) => {
         const h = window.__rikkun! as any;
         h.input.releaseAll();
-        h.player.set({ position: { x: c.x, y: h.world.groundHeight(Math.floor(c.x), Math.floor(c.z)) + 1, z: c.z }, velocity: { x: 0, y: 0, z: 0 }, yaw: c.yaw, pitch: 0 });
+        const sp = h.world.spawn();
+        const sx = Math.floor(sp.x);
+        const sz = Math.floor(sp.z);
+        h.player.set({ position: { x: sp.x, y: h.world.groundHeight(sx, sz) + 1, z: sp.z }, velocity: { x: 0, y: 0, z: 0 }, yaw: c.yaw, pitch: 0 });
         h.step(1);
         h.input.press('moveForward');
-        let min = 99;
-        let max = -99;
+        let allLoaded = true;
+        let minY = 1e9;
         for (let i = 0; i < 300; i++) {
           h.step(1);
           const p = h.player.get().position;
-          for (const v of [p.x, p.z]) {
-            min = Math.min(min, v);
-            max = Math.max(max, v);
-          }
+          if (!h.world.isLoaded(Math.floor(p.x), Math.floor(p.z))) allLoaded = false;
+          minY = Math.min(minY, p.y);
         }
         h.input.release('moveForward');
-        return { min, max, end: h.player.get().position };
+        h.step(60);
+        const p = h.player.get();
+        const g = h.world.groundHeight(Math.floor(p.position.x), Math.floor(p.position.z));
+        return { allLoaded, minY, y: p.position.y, g, onGround: p.onGround, sea: h.world.seaY() };
       }, c);
-      expect(r.min, c.name).toBeGreaterThanOrEqual(0.29);
-      expect(r.max, c.name).toBeLessThanOrEqual(size.x - 0.29);
-      expect((r.end as any)[c.axis], c.name).toBeCloseTo(c.want, 1);
+      expect(r.allLoaded, c.name).toBe(true);
+      expect(r.minY, c.name).toBeGreaterThan(0);
+      // 地面の上に立っている（onGround）か、水の中（足もとが海面より下で 地面の上）
+      expect(r.onGround || r.y <= r.sea + 1, c.name).toBe(true);
+      expect(r.y, c.name).toBeGreaterThanOrEqual(r.g + 1 - 0.05);
     }
   });
 
@@ -219,31 +216,54 @@ test.describe('M1-01 世界（つないだ後）', () => {
     expect(r.b.p.position.y).toBeCloseTo(r.b.g + 2, 1);
   });
 
-  test('AC14: 海の底に立つ → 中心へ向かって歩いて浜に上がる', async ({ page }) => {
+  test('AC14: 海の底に立つ → スタートへ向かって歩いて浜に上がる', async ({ page }) => {
+    // VOX-D: はしの海が無い。スタートの R（±64）の中に 海は無い（seed 既定で いちばん近い海は 約 226 ブロック先）ので、
+    // terrainAt で 近い海の列をさがして teleport で 立ち、スタートへ向かって歩く（歩く先の列は ストリーミングで 読みこまれる）
+    test.setTimeout(180_000);
     await open(page);
-    const r = await page.evaluate(() => {
+    const pick = await page.evaluate(() => {
       const h = window.__rikkun! as any;
       h.pause();
-      // M5: 北西のすみ（うみ）から、世界の中心（スタート）の向きへ歩く
       const sp = h.world.spawn();
-      const sx = 6.5;
-      const sz = 6.5;
-      const seaY: number = h.world.seaY ? h.world.seaY() : 7; // hook が無い今の島は 海面 7
-      const gy = h.world.groundHeight(6, 6) + 1; // はしから 6: 水の中（海の底）に立つ
-      const yaw = (Math.atan2(sp.x - sx, -(sp.z - sz)) * 180) / Math.PI;
-      h.player.set({ position: { x: sx, y: gy, z: sz }, velocity: { x: 0, y: 0, z: 0 }, yaw, pitch: 0 });
-      h.step(120);
-      const y0 = h.player.get().position.y;
+      const seaY: number = h.world.seaY();
+      let best: { x: number; z: number; d: number } | null = null;
+      for (let dx = -400; dx <= 400; dx += 4)
+        for (let dz = -400; dz <= 400; dz += 4) {
+          const x = Math.floor(sp.x) + dx;
+          const z = Math.floor(sp.z) + dz;
+          const t = h.world.terrainAt(x, z);
+          if (!t.sea || t.h > seaY - 3) continue;
+          const d = Math.hypot(dx, dz);
+          if (!best || d < best.d) best = { x, z, d };
+        }
+      return best ? { x: best.x + 0.5, z: best.z + 0.5, sp: { x: sp.x, z: sp.z } } : null;
+    });
+    expect(pick, '400 ブロック以内に 海の列が無い（デザインへ）').not.toBeNull();
+    await page.evaluate(async (pick) => {
+      const h = window.__rikkun! as any;
+      h.world.setStreamWork(4);
+      h.world.teleport(pick!.x, pick!.z);
+      await h.world.settle();
+    }, pick);
+    const r = await page.evaluate((pick) => {
+      const h = window.__rikkun! as any;
+      const seaY: number = h.world.seaY();
+      h.step(60);
+      const p0 = h.player.get().position;
+      const gy = h.world.groundHeight(Math.floor(pick!.x), Math.floor(pick!.z)) + 1;
+      const yaw = (Math.atan2(pick!.sp.x - p0.x, -(pick!.sp.z - p0.z)) * 180) / Math.PI;
+      h.player.set({ yaw, pitch: 0 });
       h.lock.simulate(true);
+      h.input.press('run');
       h.input.press('moveForward');
       let up = false;
-      for (let i = 0; i < 3000 && !up; i++) {
+      for (let i = 0; i < 6000 && !up; i++) {
         h.step(1);
         const p = h.player.get();
         if (p.position.y >= seaY + 1 && p.onGround) up = true;
       }
-      return { y0, gy, seaY, up };
-    });
+      return { y0: p0.y, gy, seaY, up };
+    }, pick);
     expect(r.gy).toBeLessThanOrEqual(r.seaY); // 海の底（足もとが 海面より下）
     expect(r.y0).toBeGreaterThan(r.gy - 0.05);
     expect(r.y0).toBeLessThan(r.gy + 0.05);
@@ -262,7 +282,7 @@ test.describe('M1-01 世界（つないだ後）', () => {
       const cz = Math.floor(sp.z);
       const g = h.world.groundHeight(cx, cz);
       const hash0 = h.world.hash();
-      const outRes = [h.world.setBlock(-1, 5, 5, 'stone'), h.world.setBlock(5, h.world.size().y, 5, 'stone'), h.world.setBlock(h.world.size().x, 5, 5, 'stone')];
+      const outRes = [h.world.setBlock(-100000, 5, 5, 'stone'), h.world.setBlock(5, h.world.size().y, 5, 'stone'), h.world.setBlock(100000, 5, 5, 'stone')];
       const hashSame = h.world.hash() === hash0;
       h.world.setBlock(cx, g, cz, 'air');
       const got = h.world.getBlock(cx, g, cz);
