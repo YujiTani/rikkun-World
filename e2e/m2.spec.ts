@@ -8,7 +8,7 @@ import { findUnrubiedKanji } from '../src/ui/text';
  * ユニットテストで確かめ済みの基準は docs/test-reports/M2.md に書いてある。
  */
 
-const ASSETS = 'docs/test-reports/assets';
+const ASSETS = 'test-shots/assets';
 
 async function open(page: Page, query = '') {
   await page.goto('/' + query);

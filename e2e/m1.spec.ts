@@ -11,7 +11,7 @@ import { waitCharLoaded } from './helpers/char';
  */
 
 const SEEDS = [null, 1, 2, 3, 4, 5]; // null = ふだんのシード
-const ASSETS = 'docs/test-reports/assets';
+const ASSETS = 'test-shots/assets';
 
 async function open(page: Page, seed: number | null = null) {
   await page.goto(seed === null ? '/' : `/?seed=${seed}`);

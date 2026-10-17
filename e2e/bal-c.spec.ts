@@ -141,6 +141,6 @@ test.describe('BAL-C 体力のバー（AC12b）', () => {
       return { id, bar: h.hud.hpBar(id) };
     });
     expect(r.bar?.visible).toBe(true);
-    await page.screenshot({ path: 'docs/test-reports/assets/BAL-C-hp-bar.png' });
+    await page.screenshot({ path: 'test-shots/assets/BAL-C-hp-bar.png' });
   });
 });

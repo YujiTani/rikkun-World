@@ -33,7 +33,7 @@ import { expect, test, type Page } from '@playwright/test';
  *    // 最初の全部の分もふくむ（だから、ほる前に 1 回 clear する）。光だけの作り直しもふくむ。
  */
 
-const ASSETS = 'docs/test-reports/assets';
+const ASSETS = 'test-shots/assets';
 test.describe.configure({ timeout: 180_000 });
 
 async function open(page: Page, query = '?nosave=1') {

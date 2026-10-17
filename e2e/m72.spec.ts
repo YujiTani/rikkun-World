@@ -4,9 +4,9 @@ import { expect, test, type Page } from '@playwright/test';
 /**
  * M7-2 農業 フェーズ 2 の受け入れ確認（docs/design/M7-2-farm.md §6 の AC のうち、E2E で見るもの）。
  * ユニットで済んでいる分は docs/test-reports/M7-2.md に テスト名を書いた。
- * 場所は テスト用の場所（床 stone y=8、うえは くうき）。スクショは docs/test-reports/assets/M7-2-*.png。
+ * 場所は テスト用の場所（床 stone y=8、うえは くうき）。スクショは test-shots/assets/M7-2-*.png。
  */
-const OUT = 'docs/test-reports/assets';
+const OUT = 'test-shots/assets';
 
 async function open(page: Page, query = '?nosave=1') {
   await page.goto('/' + query);

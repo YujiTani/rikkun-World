@@ -4,9 +4,9 @@ import { expect, test, type Page } from '@playwright/test';
 /**
  * M7 農業 フェーズ 1 の つなぎ込みの確認（docs/design/M7-farm.md §6 の AC のうち、E2E でしか見えないもの）。
  * 場所は テスト用の場所（床 stone y=8、うえは くうき）。プレイヤー (2.5,9,6.5) が +x を向き、ななめ下の (4,9,6) をねらう。
- * スクショは docs/screenshots/m7-*.png。
+ * スクショは test-shots/m7-*.png。
  */
-const OUT = 'docs/screenshots';
+const OUT = 'test-shots';
 
 async function open(page: Page, query = '?nosave=1') {
   await page.goto('/' + query);

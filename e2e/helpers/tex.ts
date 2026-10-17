@@ -491,10 +491,10 @@ export function matches(r: Rec, face: Face, o: { tol?: number; aoSlack?: number;
 /** 画素のうち 空の色の数 */
 export const countSky = (px: (Rgb | null)[]): number => px.filter((p) => p && isSky(p[0], p[1], p[2])).length;
 
-/** スクリーンショットを docs/test-reports/assets に保存する（TEX_SHOTS=1 のときだけ。レポート用） */
+/** スクリーンショットを test-shots/assets に保存する（TEX_SHOTS=1 のときだけ。レポート用） */
 export async function saveShot(page: Page, name: string): Promise<void> {
   if (!process.env.TEX_SHOTS) return;
-  await page.screenshot({ path: `docs/test-reports/assets/${name}.png` });
+  await page.screenshot({ path: `test-shots/assets/${name}.png` });
 }
 
 /** ブロックの面のタイルに ある色の一覧（texelAt を 16×16 の中心で呼ぶ。重なりはまとめる） */

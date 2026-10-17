@@ -9,7 +9,7 @@ import { findUnrubiedKanji } from '../src/ui/text';
  * ドロップ表、ばらまく落とし物）は決定のほうを優先して読みかえている（レポート参照）。
  */
 
-const ASSETS = 'docs/test-reports/assets';
+const ASSETS = 'test-shots/assets';
 
 // クラウドは遅く、並列で動かすと 30 秒をこえることがある（長い場面を step で進めるため）
 test.describe.configure({ timeout: 180_000 });

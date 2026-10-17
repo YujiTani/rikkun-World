@@ -6,9 +6,9 @@ import { checkContrast, snapshotUi } from './helpers/uiRules';
 /**
  * CRAFT-2（たんす の素材・ログ・できごと・半透明）の自動の受け入れ基準（docs/design/CRAFT-2.md §6）。
  * 場所: 床 stone y=8、うえは くうき。P = (10.5, 9, 10.5)。たんす A = P から きょり 3、B = 10、E = ちょうど 40、F = 41。
- * スクショ（AC26）は docs/test-reports/CRAFT-2/shots/。
+ * スクショ（AC26）は test-shots/CRAFT-2/。
  */
-const SHOTS = 'docs/test-reports/CRAFT-2/shots';
+const SHOTS = 'test-shots/CRAFT-2';
 
 async function open(page: Page, query = '?nosave=1') {
   await page.goto('/' + query);

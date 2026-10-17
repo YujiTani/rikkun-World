@@ -9,7 +9,7 @@ import { openShadow, flatGrass, settleLight, frames, shadowDir, type Shade } fro
  */
 const DAY = 14000; // 太陽 41°
 const MOON = 67400; // 月 43°
-const SHOT = 'docs/test-reports/assets/';
+const SHOT = 'test-shots/assets/';
 
 /** 石の柱（1×1×5）を (10, 9..13, 10) に立てる。根もとの中心は (10.5, 9, 10.5) */
 async function pillarScene(page: Page, tick: number): Promise<void> {

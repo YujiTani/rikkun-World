@@ -5,7 +5,7 @@ import { expect, test, type Page } from '@playwright/test';
  * 20 シードの地形（AC2〜AC13）・保存（AC20/AC21）・妖怪（AC18）の細かい所はユニットテストが受け持つ。
  * ここでは「つないだ後の実ゲーム」で AC1・AC15・AC18・AC20・AC21 と、見た目（AC22）を確かめる。
  */
-const ASSETS = 'docs/test-reports/assets';
+const ASSETS = 'test-shots/assets';
 test.describe.configure({ timeout: 180_000 });
 
 async function open(page: Page, query = '?nosave=1') {

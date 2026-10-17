@@ -7,7 +7,7 @@ import { waitCharLoaded } from './helpers/char';
  * 数は ゲーム（window.__rikkun）に聞く。コマの表は 仕様書 §4.2・§4.3 の `ticks`（絵の長さ）から 計算する。
  * 絵は public/models/char/ に 10 まい入っていることが前提（名前は 仕様書 §4.7 の とおり）。
  */
-const SHOTS = 'docs/screenshots/CHAR-2';
+const SHOTS = 'test-shots/CHAR-2';
 test.describe.configure({ timeout: 180_000 });
 
 const KATANA_SET = ['katana_thrust', 'katana_kesa', 'katana_kiriage', 'katana_walk_chudan', 'katana_walk_jodan', 'katana_walk_gedan'];
