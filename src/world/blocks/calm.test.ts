@@ -153,15 +153,22 @@ describe('CALM 基準 2: おさえる絵の各画素 = calmColor(もとの画素
 
 describe('CALM 基準 3: 明るさの差がもとの 55% 以下', () => {
   for (const [name, spec] of Object.entries(CALMED)) {
-    it(name, () => {
-      const old = spec.old();
-      const now = getTilePixels(name as TileName);
-      const idx = [...Array(256).keys()].filter((i) => !(spec.dot && sameRgba(old[i], hex(spec.dot))));
-      const spread = (px: readonly Rgba[]) => Math.max(...idx.map((i) => lum(px[i]))) - Math.min(...idx.map((i) => lum(px[i])));
-      const before = spread(old);
-      expect(before).toBeGreaterThan(0);
-      expect(spread(now)).toBeLessThanOrEqual(before * 0.55);
-    });
+    // grass_side は上 4 行（草）と下 12 行（土）を別々に測る
+    const parts: Array<[string, (i: number) => boolean]> =
+      name === 'grass_side'
+        ? [['上 4 行', (i) => i < 64], ['下 12 行', (i) => i >= 64]]
+        : [['全体', () => true]];
+    for (const [label, inPart] of parts) {
+      it(`${name} ${label}`, () => {
+        const old = spec.old();
+        const now = getTilePixels(name as TileName);
+        const idx = [...Array(256).keys()].filter((i) => inPart(i) && !(spec.dot && sameRgba(old[i], hex(spec.dot))));
+        const spread = (px: readonly Rgba[]) => Math.max(...idx.map((i) => lum(px[i]))) - Math.min(...idx.map((i) => lum(px[i])));
+        const before = spread(old);
+        expect(before).toBeGreaterThan(0);
+        expect(spread(now)).toBeLessThanOrEqual(before * 0.55);
+      });
+    }
   }
 });
 
@@ -234,7 +241,9 @@ describe('CALM 基準 6: アイコンと LOD の平均色は新しい絵から',
       for (let i = 0; i < 256; i++) expect(Array.from(icon[i])).toEqual(Array.from(px[i]));
     }
     // もとの絵ではない
-    expect(Array.from(itemIconPixels('stone')[0])).not.toEqual(Array.from(oldStone()[0]));
+    const o = oldStone();
+    const dot = [...o.keys()].find((i) => !sameRgba(o[i], hex(STONE)))!;
+    expect(Array.from(itemIconPixels('stone')[dot])).not.toEqual(Array.from(o[dot]));
   });
   it('tileAverage = 新しい絵の線形平均', () => {
     const lin = (c: number) => { const v = c / 255; return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
