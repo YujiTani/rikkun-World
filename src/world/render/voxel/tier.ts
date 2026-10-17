@@ -14,8 +14,12 @@ export const BOX_OUTER = 48;
 /** 段の境目のずらし */
 export const TIER_HYSTERESIS = 2;
 
-/** 許される半径に直す（知らない数は 近い許される値へ） */
+/**
+ * 許される半径に直す（知らない数は 近い許される値へ）。0 は 0 のまま = 小ブロックなし（近くも箱の段。#180）。
+ * F4 の切りかえ（MICRO_RADII）には 0 を入れない: 0 は 見た目を見ないテスト（E2E のサーバー）だけの値。
+ */
 export function normalizeMicroR(r: number): number {
+  if (r === 0) return 0;
   let best: number = MICRO_RADII[MICRO_RADII.length - 1];
   let bd = Infinity;
   for (const v of MICRO_RADII) {
@@ -29,12 +33,28 @@ export function normalizeMicroR(r: number): number {
 }
 
 /**
+ * はじめの小ブロックの半径（main.ts が `location.search` と `import.meta.env.VITE_MICRO_DEFAULT` を渡す。#180）。
+ * 決める順: URL の `?microR=0|16|24|32`（許されない数は normalizeMicroR で近い値に直す）
+ *   > 環境変数 `off` なら 0（E2E のサーバー。小ブロックの細かいメッシュを作らない）> なし・ほかの値なら DEFAULT_MICRO_R。
+ * 空・数でない・負の `?microR` は 無いのと同じ。
+ */
+export function decideMicroR(search: string, envDefault: string | undefined): number {
+  const raw = new URLSearchParams(search).get('microR');
+  if (raw !== null && raw.trim() !== '') {
+    const q = Number(raw);
+    if (Number.isFinite(q) && q >= 0) return normalizeMicroR(q);
+  }
+  return envDefault === 'off' ? 0 : DEFAULT_MICRO_R;
+}
+
+/**
  * 次の段。prev = いまの段（まだ決まっていなければ null: ずらさずに境目そのもので決める）。
  * 小ブロックの中にいるあいだは r+2 まで、外から入るのは r−2 まで。箱も 48 の前後で同じ。
+ * r = 0 は 小ブロックなし: micro を返さない（近くも箱）。
  */
 export function nextTier(dist: number, prev: Tier | null, r: number): Tier {
   const h = prev === null ? 0 : TIER_HYSTERESIS;
-  const inMicro = prev === 'micro' ? dist <= r + h : dist <= r - h;
+  const inMicro = r > 0 && (prev === 'micro' ? dist <= r + h : dist <= r - h);
   if (inMicro) return 'micro';
   // 小ブロックだった列は 箱の内がわにいたので、箱を出るのも 48+2 まで
   const inBox = prev === 'box' || prev === 'micro' ? dist <= BOX_OUTER + h : dist <= BOX_OUTER - h;

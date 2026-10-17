@@ -4,6 +4,7 @@ import { WORLD_SIZE } from '../src/contracts';
 import { findUnrubiedKanji } from '../src/ui/text';
 import { waitCharLoaded } from './helpers/char';
 import { waitFrames } from './helpers/anim';
+import { fine } from './helpers/fine';
 
 /**
  * M1 の受け入れ基準のうち、つないだ後の実際のゲームでしか確かめられないもの。
@@ -14,8 +15,10 @@ import { waitFrames } from './helpers/anim';
 const SEEDS = [null, 1, 2, 3, 4, 5]; // null = ふだんのシード
 const ASSETS = 'test-shots/assets';
 
-async function open(page: Page, seed: number | null = null) {
-  await page.goto(seed === null ? '/' : `/?seed=${seed}`);
+/** microR32 = true: 細かいメッシュ（小ブロック）のまま開く。E2E のサーバーは ふつう 作らない（#180。docs/tickets/E2E-180.md） */
+async function open(page: Page, seed: number | null = null, microR32 = false) {
+  const q = seed === null ? '' : `?seed=${seed}`;
+  await page.goto('/' + (microR32 ? fine(q) : q));
   await page.waitForFunction(() => window.__rikkun?.ready === true);
   await page.evaluate(() => window.__rikkun!.achievements.mute(true));
   await installArena(page);
@@ -58,7 +61,7 @@ test.describe('M1-01 世界（つないだ後）', () => {
 
   for (const seed of SEEDS) {
     test(`AC10/11/17/18/20: スタート地点・立っている・生成時間・描画量（seed=${seed ?? '既定'}）`, async ({ page }) => {
-      await open(page, seed);
+      await open(page, seed, true); // (b) 描画回数・三角形の上限を見る
       const r = await page.evaluate(() => {
         const h = window.__rikkun! as any;
         h.pause();
@@ -278,7 +281,7 @@ test.describe('M1-01 世界（つないだ後）', () => {
   });
 
   test('AC19: ブロックを変えたあとの見た目の作り直し時間（20 か所）', async ({ page }, testInfo) => {
-    await open(page);
+    await open(page, null, true); // (b) 小ブロックのメッシュの作り直し時間を記録する
     const r = await page.evaluate(() => {
       const h = window.__rikkun! as any;
       h.pause();
@@ -308,7 +311,7 @@ test.describe('M1-01 世界（つないだ後）', () => {
   for (const seed of [null, 1, 3]) {
     test(`AC21: スタート地点のスクショ（seed=${seed ?? '既定'}）`, async ({ page }, testInfo) => {
       await page.setViewportSize({ width: 1280, height: 720 });
-      await open(page, seed);
+      await open(page, seed, true); // (d) スタート地点の景色のスクショ
       const overlayVisible = await page.evaluate(() => {
         const h = window.__rikkun! as any;
         h.pause();
@@ -327,7 +330,7 @@ test.describe('M1-01 世界（つないだ後）', () => {
 
   test('AC22: 上から見たスクショ', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 720 });
-    await open(page);
+    await open(page, null, true); // (d) 地形を上から見るスクショ
     const v = await page.evaluate(() => {
       const h = window.__rikkun! as any;
       h.pause();
@@ -623,7 +626,7 @@ test.describe('M1-02 動き・視点・ロック（つないだ後）', () => {
 
   test('AC40: 三人称のスクショ', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 720 });
-    await open(page);
+    await open(page, null, true); // (d) スタートの景色の中の三人称
     await page.evaluate(() => {
       const h = window.__rikkun! as any;
       h.pause();

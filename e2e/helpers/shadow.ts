@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test';
+import { fine } from './fine';
 
 /**
  * #144 SHADOW-1 の E2E の共通の準備。窓口 `window.__rikkun.shadow` の決まり（docs/design/SHADOW.md §8.1）:
@@ -25,7 +26,7 @@ import type { Page } from '@playwright/test';
 export interface Shade { r: number; g: number; b: number; luma: number }
 
 export async function openShadow(page: Page, query = '?nosave=1&shadow=1'): Promise<void> {
-  await page.goto('/' + query);
+  await page.goto('/' + fine(query)); // 影を見るので、細かいメッシュのまま（#180。E2E のサーバーは ?microR なしだと小ブロックを作らない）
   await page.waitForFunction(() => window.__rikkun?.ready === true);
   await page.evaluate(() => {
     const h = (window as any).__rikkun;

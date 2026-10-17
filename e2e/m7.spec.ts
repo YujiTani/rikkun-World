@@ -1,5 +1,6 @@
 import { installAimHelpers } from './helpers/aim';
 import { installArena } from './helpers/arena';
+import { fine } from './helpers/fine';
 import { expect, test, type Page } from '@playwright/test';
 
 /**
@@ -449,7 +450,7 @@ test.describe('M7 農業', () => {
   });
 
   test('スクショ: ふるい はたけ・作物 4 段階・ねらった作物・暗い月・やせいの やさい', async ({ page }) => {
-    await open(page);
+    await open(page, fine('?nosave=1')); // (d) はたけ・やせいの やさいのまわりの景色のスクショ（#180）
     // ふるい はたけ と かかし
     await page.evaluate(() => {
       const h = (window as any).__rikkun;

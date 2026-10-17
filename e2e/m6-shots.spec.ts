@@ -1,10 +1,12 @@
 import { expect, test, type Page } from '@playwright/test';
+import { fine } from './helpers/fine';
 
 /** M6 の画面のスクショ（test-shots/m6-*.png）と、つなぎ込みの動作の確認 */
 const OUT = 'test-shots';
 
-async function open(page: Page) {
-  await page.goto('/?nosave=1');
+/** microR32 = true: 細かいメッシュのまま開く（HUD の後ろの景色を見せるスクショ。#180） */
+async function open(page: Page, microR32 = false) {
+  await page.goto('/' + (microR32 ? fine('?nosave=1') : '?nosave=1'));
   await page.waitForFunction(() => window.__rikkun?.ready === true);
   await page.evaluate(() => {
     const h = window.__rikkun! as any;
@@ -27,7 +29,7 @@ const stuff = () => {
 
 test.describe('M6 つなぎ込み', () => {
   test('HUD・もちもの・作る・せつめい', async ({ page }) => {
-    await open(page);
+    await open(page, true); // (d) m6-hud.png は HUD の後ろに景色が見える
     await page.evaluate(stuff);
     await page.evaluate(() => (window.__rikkun as any).step(3));
     await page.screenshot({ path: `${OUT}/m6-hud.png` });
