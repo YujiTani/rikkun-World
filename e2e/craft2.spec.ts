@@ -1139,6 +1139,8 @@ test.describe('CRAFT-2 スクショ（AC26）', () => {
   test.use({ viewport: { width: 1280, height: 720 } });
 
   test('a〜g', async ({ page }) => {
+    // 7 まいの場面を 続けて作る（場所づくり T.base を 5 回、高さ 352 の空気ぬき つき）ので、1 本ぶんの時間を 長くする（ステップ数や待ちは 変えない）
+    test.setTimeout(300_000);
     mkdirSync(SHOTS, { recursive: true });
     await open(page);
     const setup = async (time: number) => {

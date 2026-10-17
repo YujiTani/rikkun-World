@@ -131,6 +131,8 @@ test.describe('TEX-A', () => {
     const flat: string[] = await page.evaluate(() => (window as any).__rikkun.render.flatBlocks());
     expect([...flat].sort()).toEqual([...FLAT_BLOCKS].sort());
     await setAo(page, false);
+    // スプリンクラーの しぶき（水の つぶ）は 上の面の上を とび、出る時が 農業のステップと 場所（y）で 決まる。試験場所を 移したら 点に かぶった（CI で 1 点）ので 止めておく
+    await page.evaluate(() => (window as any).__rikkun.settings.set('farmSprinklerSprayTicks', 1e9));
     // 空のセクション (4, FY/16, 4)（床と同じ高さの 空き地）に 1 こだけ置く → 三角形 ≤ 12（箱）。石なら ごつごつで ずっと多い
     const tri = async (id: string) => {
       await setBlock(page, 72, FY, 72, id);
