@@ -18,7 +18,8 @@ export default defineConfig({
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'], launchOptions: { args: chromiumArgs } } }],
   webServer: {
     // 影は影の spec（?shadow=1）だけオン。ほかの spec は影を作らない（SwiftShader で 1 コマが 1.5〜2.5 倍になるため。SHADOW.md §6）
-    command: 'VITE_SHADOW_DEFAULT=off npx vite --port 5173 --strictPort',
+    // 小ブロックの細かいメッシュも 見た目を見る spec（URL に microR=32。e2e/helpers/fine.ts）だけ作る（#180。起動が 8〜12 秒 → 1.4〜1.9 秒）
+    command: 'VITE_SHADOW_DEFAULT=off VITE_MICRO_DEFAULT=off npx vite --port 5173 --strictPort',
     url: 'http://localhost:5173',
     reuseExistingServer: true,
     timeout: 60_000,
