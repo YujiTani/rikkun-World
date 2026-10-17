@@ -25,7 +25,7 @@ import {
  * 数は ゲーム（window.__rikkun）に 聞く。決め打ちは 仕様書 §4.2 の 見える ステップ（F の 範囲）と §4.5 の 色の 表だけ。
  * 実装の 前は `blade.trail()` と `sprite.bladeColors` が まだ ないので 落ちる（赤）。
  */
-const SHOTS = 'docs/screenshots/CHAR-4';
+const SHOTS = 'test-shots/CHAR-4';
 test.describe.configure({ timeout: 180_000 });
 
 const visibleSteps = (rec: Snap[]) => rec.filter((s) => s.trail.visible).map((s) => s.f);

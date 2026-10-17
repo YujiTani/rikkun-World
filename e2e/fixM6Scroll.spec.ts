@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
 /** FIX-m6-scroll: ツールチップ・せつめい パネル・じっせき ページが 画面に収まる */
-const OUT = 'docs/screenshots';
+const OUT = 'test-shots';
 
 async function open(page: Page) {
   await page.goto('/?nosave=1');

@@ -20,7 +20,7 @@ import { expect, test, type Page } from '@playwright/test';
  * こちらは「実際の絵で すけない」ことと、メッシュが小ブロックの段で できていることを確かめる。
  */
 
-const ASSETS = 'docs/test-reports/assets';
+const ASSETS = 'test-shots/assets';
 test.describe.configure({ timeout: 180_000 });
 
 const TOP = 24;

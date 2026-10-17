@@ -44,7 +44,7 @@ test.describe('部品見本（M6 S1）', () => {
   test('スクショ', async ({ page }) => {
     await page.goto('/src/ui/theme/parts.html');
     await page.waitForSelector('#parts-panel');
-    mkdirSync('docs/screenshots', { recursive: true });
-    await page.screenshot({ path: 'docs/screenshots/m6-s1-parts.png', fullPage: true });
+    mkdirSync('test-shots', { recursive: true });
+    await page.screenshot({ path: 'test-shots/m6-s1-parts.png', fullPage: true });
   });
 });

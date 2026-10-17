@@ -5,7 +5,7 @@ import { test } from '@playwright/test';
  * VOX-0: 9×9×9 の試しの場面で、4 方式の重さを測る。
  * 注意: クラウドは GPU なし（SwiftShader）。見るのは 三角形・描画回数・メモリ・メッシュを作る時間。
  * renderCpuMs は目安。本当の fps はオーナーの Mac で。
- * スクショ: docs/screenshots/VOX-0/（4 方式 × スタート・上空 と、greedyShape の近くの大きな絵）
+ * スクショ: test-shots/VOX-0/（4 方式 × スタート・上空 と、greedyShape の近くの大きな絵）
  */
 type Cfg = { mode: 'current' | 'naive' | 'greedyColor' | 'greedyShape' | 'hybrid'; r?: number; shots: boolean; close: boolean };
 const CONFIGS: Cfg[] = [
@@ -17,7 +17,7 @@ const CONFIGS: Cfg[] = [
   { mode: 'hybrid', r: 24, shots: false, close: false },
   { mode: 'hybrid', r: 32, shots: false, close: false },
 ];
-const SHOT_DIR = 'docs/screenshots/VOX-0';
+const SHOT_DIR = 'test-shots/VOX-0';
 // スクショは最後にまとめて書く（docs/ に書くたびに vite が画面を作り直して window.__voxelProto が消えることがあった）
 const shots = new Map<string, Buffer>();
 
@@ -105,12 +105,12 @@ test('9×9×9 の 4 方式を測る', async ({ page }) => {
 
 /**
  * VOX-1: 見た目（Look）ごとに、hybrid r=16 の三角形・描画回数・頂点データを測り、スクショを撮る。
- * スクショ: docs/screenshots/VOX-1/<id>-start.png / -char-front.png / -char-side.png / -sky.png
+ * スクショ: test-shots/VOX-1/<id>-start.png / -char-front.png / -char-side.png / -sky.png
  * 結果: perf-results/voxel-looks.json
  */
 test('見た目ごとの重さと絵（hybrid r=16）', async ({ page }) => {
   test.setTimeout(900_000);
-  const dir = 'docs/screenshots/VOX-1';
+  const dir = 'test-shots/VOX-1';
   mkdirSync(dir, { recursive: true });
   mkdirSync('perf-results', { recursive: true });
   const errors: string[] = [];
@@ -179,12 +179,12 @@ test('見た目ごとの重さと絵（hybrid r=16）', async ({ page }) => {
 
 /**
  * VOX-2: 地面の作り方（block / micro）ごとに、B ごつごつ・hybrid r=16 の重さを測り、スクショを撮る。
- * スクショ: docs/screenshots/VOX-2/<terrain>-start.png / -char-side.png / -sky.png / -close.png
+ * スクショ: test-shots/VOX-2/<terrain>-start.png / -char-side.png / -sky.png / -close.png
  * 結果: perf-results/voxel-terrain.json
  */
 test('地面の作り方ごとの重さと絵（B・hybrid r=16）', async ({ page }) => {
   test.setTimeout(900_000);
-  const dir = 'docs/screenshots/VOX-2';
+  const dir = 'test-shots/VOX-2';
   mkdirSync(dir, { recursive: true });
   mkdirSync('perf-results', { recursive: true });
   const errors: string[] = [];
@@ -245,12 +245,12 @@ test('地面の作り方ごとの重さと絵（B・hybrid r=16）', async ({ pa
 /**
  * VOX-3: 高さの倍率 k = 1 / 2 / 3 で、B ごつごつ・小ブロック地形・hybrid r=16 の重さを測り、スクショを撮る。
  * 場所: スタート・上空・やまのふもとから見上げる。
- * スクショ: docs/screenshots/VOX-3/h<k>-start.png / -sky.png / -lookup.png
+ * スクショ: test-shots/VOX-3/h<k>-start.png / -sky.png / -lookup.png
  * 結果: perf-results/voxel-height.json
  */
 test('高さの倍率ごとの重さと絵（B・hybrid r=16）', async ({ page }) => {
   test.setTimeout(900_000);
-  const dir = 'docs/screenshots/VOX-3';
+  const dir = 'test-shots/VOX-3';
   mkdirSync(dir, { recursive: true });
   mkdirSync('perf-results', { recursive: true });
   const errors: string[] = [];

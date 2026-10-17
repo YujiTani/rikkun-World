@@ -274,7 +274,7 @@ test.describe('WEAPON-2 たいきゅう', () => {
 test.describe('WEAPON-2 スクリーンショット', () => {
   test('構え・ゲージ・きせき・弓', async ({ page }) => {
     await open(page);
-    const shot = (n: string) => page.screenshot({ path: `docs/screenshots/w2-${n}.png` });
+    const shot = (n: string) => page.screenshot({ path: `test-shots/w2-${n}.png` });
     await page.evaluate(() => {
       const h = (window as any).__rikkun;
       (window as any).T.base();

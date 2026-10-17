@@ -17,7 +17,8 @@ model: sonnet
 1. 仕様書（`docs/design/`）の受け入れ基準を 1 つずつ確かめる。
 2. 確かめ方は E2E テスト（Playwright, `e2e/*.spec.ts`）を書いて実行する。
    - `window.__rikkun` で一時停止・コマ送り（`step`）して、結果がぶれないようにする。
-   - 見た目に関わる基準はスクショを撮って画像を見て確かめ、`docs/test-reports/assets/` に保存する。
+   - 見た目に関わる基準はスクショを撮って画像を見て確かめる。スクショは `test-shots/`（git に入らない）に保存し、コミットしない（#157）。
+   - オーナーに見せるスクショは project files の `shots/<ID>/` に写し、レポートと PR にはそのパスを書く。
    - 必要な操作口が `window.__rikkun` にない場合は、不具合チケットとして開発に依頼する（自分で `src/` を直さない）。
 3. 回すのは **新しい受け入れ基準の spec と smoke だけ**。全部の E2E は PR の CI（GitHub Actions）が回すので、自分では回さない。CI が落ちたら、落ちたテストの名前とログだけ読む。性能に関係する変更なら `npm run perf` も回す。
 4. レポートを `docs/test-reports/<ID>.md` に書く（テンプレート: `docs/test-reports/_template.md`）。

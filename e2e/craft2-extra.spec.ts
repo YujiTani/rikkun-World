@@ -464,7 +464,7 @@ test.describe('半透明（足し分）', () => {
 
 test.describe('AC26 撮り直し（足りない画面だけ）', () => {
   test.use({ viewport: { width: 1280, height: 720 } });
-  const SHOTS = 'docs/test-reports/CRAFT-2/shots';
+  const SHOTS = 'test-shots/CRAFT-2';
 
   test('b 夜のもちもの（動きが おわるのを まつ）・e 6 カテゴリーが 7 行に入る・f 0 件', async ({ page }) => {
     await open(page);

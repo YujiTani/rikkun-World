@@ -6,7 +6,7 @@ import { waitCharLoaded } from './helpers/char';
  * e2e/char1.spec.ts（AC17・AC31・AC29/36）に足りない分: AC13・AC14・AC15・AC29・AC30・AC33・AC35・AC42・AC43 と、
  * ねらいの高さ（P = 足もと + 2.12）の遊びやすさの数字。
  */
-const SHOTS = 'docs/screenshots/CHAR-1-v2';
+const SHOTS = 'test-shots/CHAR-1-v2';
 test.describe.configure({ timeout: 120_000 });
 
 async function open(page: Page, query = '?nosave=1') {

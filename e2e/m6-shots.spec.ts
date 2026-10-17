@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
-/** M6 の画面のスクショ（docs/screenshots/m6-*.png）と、つなぎ込みの動作の確認 */
-const OUT = 'docs/screenshots';
+/** M6 の画面のスクショ（test-shots/m6-*.png）と、つなぎ込みの動作の確認 */
+const OUT = 'test-shots';
 
 async function open(page: Page) {
   await page.goto('/?nosave=1');

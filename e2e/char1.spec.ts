@@ -6,7 +6,7 @@ import { waitCharLoaded } from './helpers/char';
  * CHAR-1 第 5 版（docs/design/CHAR-1-v2-sprite.md）の E2E 3 本: AC17（段の切りかえ）・AC31（描画回数と重さ）・AC36（8 方向のスクショ）。
  * AC1 は e2e/m1.spec.ts に置いた。
  */
-const SHOTS = 'docs/screenshots/CHAR-1-v2';
+const SHOTS = 'test-shots/CHAR-1-v2';
 
 async function open(page: Page, query = '') {
   await page.setViewportSize({ width: 1280, height: 800 });

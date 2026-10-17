@@ -8,7 +8,7 @@ import { aimAtBlock, installAimHelpers } from './helpers/aim';
  * 場面を変えるステップ数は settings から読む（決め打ちしない）。
  */
 
-const ASSETS = 'docs/test-reports/assets';
+const ASSETS = 'test-shots/assets';
 
 test.describe.configure({ timeout: 120_000 });
 

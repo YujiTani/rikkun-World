@@ -68,7 +68,7 @@ test('ねらう物でヒントの文がかわる', async ({ page }) => {
   expect(icons(await hint()).right).toBe('tansu');
   await put('furnace');
   expect(icons(await hint()).right).toBe('furnace');
-  await page.screenshot({ path: 'docs/screenshots/fix-action-hint.png' });
+  await page.screenshot({ path: 'test-shots/fix-action-hint.png' });
 
   // 防具
   await put('stone');
@@ -122,7 +122,7 @@ for (const kind of ['karakasa', 'rokurokubi']) {
     expect(r.focus).toBe(r.id);
     expect(r.hulls).toBeGreaterThan(0);
     expect(r.hint.left.icon).toBe('bokuto');
-    await page.screenshot({ path: `docs/screenshots/fix-action-hint-${kind}.png` });
+    await page.screenshot({ path: `test-shots/fix-action-hint-${kind}.png` });
     const after = await page.evaluate(() => {
       const h = window.__rikkun! as any;
       // 妖怪は 近よってくるので、うしろを向くだけでなく 空を見上げて はっきり 外す（地面の形に よらない）
