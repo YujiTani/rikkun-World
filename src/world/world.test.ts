@@ -121,7 +121,7 @@ describe('ArrayVoxelWorld', () => {
     w.setBlock(15, 5, 5, 'stone');
     expect(w.takeDirtyChunks().sort()).toEqual([0, 1]);
     w.setBlock(16, 5, 16, 'stone');
-    expect(w.takeDirtyChunks().sort((p, q) => p - q)).toEqual([1, 4, 5]);
+    expect(w.takeDirtyChunks().sort((p, q) => p - q)).toEqual([0, 1, 4, 5]);
   });
 });
 

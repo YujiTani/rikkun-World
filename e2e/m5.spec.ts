@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { installAimHelpers } from './helpers/aim';
+import { fine } from './helpers/fine';
 
 /**
  * M5（広い世界）の受け入れ基準 docs/design/M5-world.md のうち、実際のゲームでしか確かめられないもの。
@@ -159,7 +160,7 @@ test.describe('M5 広い世界', () => {
   });
 
   test('AC15: かすみ 40〜80・88 より遠いチャンクは描かない（スタートと かど）', async ({ page }) => {
-    await open(page);
+    await open(page, fine('?nosave=1')); // (b) 描く列の上限（メッシュの段）を見る（#180）
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
       h.pause();
@@ -360,7 +361,7 @@ async function shot(page: Page, name: string, spot: { x: number; z: number; y?: 
 test.describe('M5 見た目（スクショ）', () => {
   test('AC22: 地形の見どころ', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 720 });
-    await open(page);
+    await open(page, fine('?nosave=1')); // (d) 地形の見どころのスクショ（#180）
     const reg = await page.evaluate(() => {
       const h = (window as any).__rikkun;
       h.pause();

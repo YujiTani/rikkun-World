@@ -46,4 +46,28 @@ describe('見えない印と 地面の表面ブロック（#142）', () => {
     const w2 = stoneWorld(() => 17); // 表面が 1 段上: 底の段は ふつうの固いブロック
     expect(w2.isSectionHidden(0, 0, 0)).toBe(true);
   });
+  it('FIX-149 A: ななめ（x と y）のセクションの底をほって 表面が よこのふちに来たら、見えない が はずれる', () => {
+    const w = stoneWorld(() => 33);
+    expect(w.isSectionHidden(0, 1, 0)).toBe(true); // 印を一度読ませる
+    w.setBlock(16, 33, 5, 'air');
+    w.setBlock(16, 32, 5, 'air'); // セクション (1,2,0) の底の段。列の表面は y=31 = (1,1,0) の -x のふち
+    expect(w.isSectionHidden(0, 1, 0)).toBe(false);
+  });
+
+  it('FIX-149 B: 同じほり方で ななめの セクション (0,1,0) も 作り直しに入る', () => {
+    const w = stoneWorld(() => 33);
+    w.takeDirtySections();
+    w.setBlock(16, 33, 5, 'air');
+    w.setBlock(16, 32, 5, 'air');
+    expect(w.takeDirtySections()).toContainEqual({ cx: 0, sy: 1, cz: 0 });
+  });
+
+  it('FIX-149 C: セクションの角（x と z のななめ）をほると ななめの列のセクションも 作り直しに入る', () => {
+    const w = stoneWorld(() => 33);
+    w.takeDirtySections();
+    w.setBlock(16, 33, 16, 'air');
+    expect(w.takeDirtySections()).toContainEqual({ cx: 0, sy: 2, cz: 0 });
+    w.setBlock(15, 33, 15, 'air');
+    expect(w.takeDirtySections()).toContainEqual({ cx: 1, sy: 2, cz: 1 });
+  });
 });
