@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { waitAnimationsDone } from './helpers/anim';
 
 /** FIX-m6-scroll: ツールチップ・せつめい パネル・じっせき ページが 画面に収まる */
 const OUT = 'test-shots';
@@ -18,7 +19,7 @@ async function open(page: Page) {
     h.input.release('toggleInventory');
     h.step(3);
   });
-  await page.waitForTimeout(700); // 開くアニメーションが終わるまで
+  await waitAnimationsDone(page); // 開くアニメーションが終わるまで
 }
 
 const inView = (page: Page, sel: string) =>
@@ -148,10 +149,10 @@ for (const [w, h] of SIZES) {
       await page.locator('.inv-tabs [data-tab=items]').click();
       // 窓の大きさを変える → すぐ合わせ直す
       await page.setViewportSize({ width: 800, height: 500 });
-      // resize の 知らせは ブラウザの 描画待ちで 遅れることが ある（main でも 100ms では 不安定、CI では 1 秒 でも 足りなかった）ので 最大 3 秒 まつ
-      await expect.poll(frame, { timeout: 3000, intervals: [20] }).toBe(true);
+      // resize の 知らせは ブラウザの 描画待ちで 遅れることが ある（main でも 100ms では 不安定、CI では 1 秒 でも 足りなかった）ので できるまで まつ（時間の上限は テスト全体）
+      await expect.poll(frame, { timeout: 0, intervals: [20] }).toBe(true);
       await page.setViewportSize({ width: w, height: h });
-      await expect.poll(frame, { timeout: 3000, intervals: [20] }).toBe(true);
+      await expect.poll(frame, { timeout: 0, intervals: [20] }).toBe(true);
       // HUD（もちもの画面を閉じて）
       await page.evaluate(() => {
         const hk = window.__rikkun as any;
@@ -337,7 +338,7 @@ for (const [w, h] of [[960, 540], [1280, 720]] as const) {
     });
     const first = await size();
     await page.evaluate(() => (window.__rikkun as any).step(10));
-    await page.waitForTimeout(600);
+    await waitAnimationsDone(page);
     expect(await size()).toEqual(first);
   });
 }
@@ -360,7 +361,7 @@ test('たんす: とじる は 1 こ・ぜんぶ しまう・えらんで しま
     hk.storage.open(60, gy, 60);
     hk.step(3);
   });
-  await page.waitForTimeout(600);
+  await waitAnimationsDone(page);
   await expect(page.locator('.tansu-panel')).toBeVisible();
   await expect(page.locator('#tansu-close')).toHaveCount(0);
   await expect(page.locator('#inventory-close')).toBeVisible();
@@ -406,7 +407,7 @@ test('防具のマスを ダブルクリックで きる・そうびのマスを
       hk.achievements.close(); // 着たごほうびの おめでとう画面を とじる
     }
   });
-  await page.waitForTimeout(500);
+  await waitAnimationsDone(page);
   await page.locator('.equip-slot[data-slot="head"]').dblclick({ force: true });
   await page.evaluate(() => (window.__rikkun as any).step(3));
   expect(await page.evaluate(() => (window.__rikkun as any).armor.get().head)).toBe(null);
@@ -423,7 +424,7 @@ for (const [w, h] of SIZES) {
     await expect(page.locator('.po-panel')).toBeVisible();
     for (const tab of ['move', 'dig', 'fight', 'craft']) {
       await page.locator(`.po-tab[data-tab="${tab}"]`).click();
-      await page.waitForTimeout(100);
+      await waitAnimationsDone(page);
       const bad = await page.evaluate(() => {
         const out: string[] = [];
         for (const item of document.querySelectorAll<HTMLElement>('.po-help:not([hidden]) .po-help-item')) {
