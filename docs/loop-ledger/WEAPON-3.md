@@ -13,3 +13,5 @@
 | 1 | design | design-reviewer | 【軽微】CHAR-4 §3.2 の「肩ごし・おくを向く」の位置の説明も同時に直す（§7 は §2 だけ挙げている） | CHAR-4 側の記述 | G4 | 未対応 |
 | 1 | dev | code-reviewer | 【軽微】src/combat/PlayerCombat.punch.test.ts AC11・AC13: 体力のへり(1)・ステップ(30/40)・届く距離を数で決め打ち。settings.get / tool.punchParams に聞く方が良い | 既存 m3 のテストと同じ書き方を踏襲 | G? | 未対応 |
 | 1 | dev | code-reviewer | 【軽微】src/combat/PlayerCombat.punch.test.ts AC12「扇の中に 2 体」: T=近い方なので「T が先」と区別できない(P に最も近い 1 体の分岐は別テストで見ていない) | T を遠い方にした場面を足すと良い | G? | 未対応 |
+| 2 | dev | code-reviewer | 【軽微】src/dig/DigSystem.ts yokaiList(): yokai.list() は呼ぶたびに全妖怪の YokaiInfo を作り直す。1 ステップに dig.update・attackPreview(main)・aimedYokaiId(ふちどり・ヒント) で 3〜5 回。妖怪が多い場面で GC が増える | 1 ステップ 1 回の取り直しに寄せる(キャッシュ)と良い。今の数なら実害は小さい | G? | 未対応 |
+| 2 | dev | code-reviewer | 【軽微】src/main.ts 白い弧: setArcDir(st.facingDeg) を faceU で上書きする前に呼ぶので、パンチを始めた最初の 1 ステップだけ弧が前の facing に出る | faceU の上書きのあとで setArcDir を呼ぶ | G? | 未対応 |
