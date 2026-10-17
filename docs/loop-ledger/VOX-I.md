@@ -25,3 +25,6 @@
 | 1 | test(#184) | code-reviewer | 【軽微】#184-AC4/AC13 の列の数えで、仕様にない「境目 e < blend を のぞく」「h < SEA+2 を のぞく」を足している（ticket に理由あり・国の決まらない列を避けるため）。仕様側に 1 行書くか、AC13 は境目をふくめた数も 1 本見ると ゆるめた分が分かる。AC9 の いけ はば 4〜7 も 仕様の文にない | 仕様との差 | G5 | 未対応 |
 | 1 | test(#184) | code-reviewer | 【軽微】AC14 は 読みこみが 128×128 固定だと、実装が正しくても `loaded` が false で赤のまま（ticket に PO への連絡あり）。実装の前に VOX-D との順番を PO が決めておくこと。テスト自体は step の数で待ち、座標も find/groundHeight に聞いていて問題なし | 順番の注意 | G5 | 未対応 |
 | 1 | test(#184) | code-reviewer | 合格: AC1〜13・14・17(fixme)・10 は 仕様の数のまま（AC8 の 9/12、AC7 の 79/69/67/63、AC7b の 4 つの はば、AC3 の 15〜35% など 一致）。AC15/16/18 は ticket に層の理由あり。消した 4 本・直した既存テストは ticket の表に理由があり妥当。つなぎ目は 仕様と一致。check:fast は 実装がないため型で赤（想定どおり） | 確認 | — | — |
+| 3 | dev(#184) | code-reviewer | 合格: check:fast 緑（2080 通過）。?biome= など試作の切りかえは src に無い。乱数は hash01/シード付きのみ（Math.random は生成に無し）。120 秒は biome.test.ts だけ projects で分けてあり妥当。e2e の消した期待は grassland 固定の 3 行のみで、国が変わったための修正 | 確認 | — | — |
+| 3 | dev(#184) | code-reviewer | 【軽微】chunk.ts の buildBlocks / placeVisibleOres が 列ごとに T.biome・T.topBlock（nearest＋mountainShape）・pondAt を別々に呼ぶ。列の国を 1 回だけ決めて使い回すと 生成が軽くなる（性能ループで計測してから） | 性能 | G5 | 未対応 |
+| 3 | dev(#184) | code-reviewer | 【軽微】性能レポートの「おおきな きの もり が 903,036 を こえる見込み」は VOX-D 後に必ず数えること（AC15 は今は範囲外の国が未計測） | 順番の注意 | G5 | 未対応 |
