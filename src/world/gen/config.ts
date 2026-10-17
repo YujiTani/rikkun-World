@@ -14,7 +14,7 @@ export interface CountryDef {
   /** 木になる区画の割合 */
   trees: number;
   /** すな にする高さ（海から これ未満だけ。なければ くさ） */
-  sandBelow?: number;
+  sandBelowOnMountain?: number;
   /** ゆき にする高さ（海から これ以上は てっぺんまで ゆき） */
   snowFrom?: number;
   /** いし にする高さ（海から これ以上。なければ stoneTopFrom） */
@@ -48,7 +48,7 @@ const COUNTRIES: Readonly<Record<CountryKind, CountryDef>> = {
   mori: { hillScale: 48, hill: 14, bump: 2, cliff: 0.08, trees: 0.6, cap: { trees: 12 }, micro: { tuft: 0.5, rock: 0.5, soil: 0.3 } },
   ookina: { hillScale: 56, hill: 10, bump: 1.5, cliff: 0.04, trees: 0.2, bigTree: 0.6, cap: { trees: 5, bigTrees: 2 }, micro: { tuft: 0.45, rock: 0.4, soil: 0.35 } },
   hana: { hillScale: 72, hill: 8, bump: 1, cliff: 0.02, trees: 0.04, flower: 0.15, cap: { flower: 40 }, micro: { tuft: 0.7, rock: 0.25, soil: 0.15 } },
-  sunahama: { hillScale: 96, hill: 6, bump: 1, cliff: 0, trees: 0.01, sandBelow: 10, landShift: -16, micro: { tuft: 0.95, rock: 0.25, soil: 0 } },
+  sunahama: { hillScale: 96, hill: 6, bump: 1, cliff: 0, trees: 0.01, sandBelowOnMountain: 10, landShift: -16, micro: { tuft: 0.95, rock: 0.25, soil: 0 } },
   susuki: { hillScale: 80, hill: 9, bump: 1, cliff: 0.02, trees: 0.02, susuki: 0.156, cap: { susuki: 40 }, micro: { tuft: 0.8, rock: 0.3, soil: 0.15 } },
   take: { hillScale: 56, hill: 8, bump: 1.5, cliff: 0.04, trees: 0, take: 0.23, path: [2, 3], cap: { take: 60 }, micro: { tuft: 0.7, rock: 0.3, soil: 0.35 } },
   kappa: {

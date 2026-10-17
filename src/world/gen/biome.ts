@@ -505,7 +505,12 @@ export class CountryMap {
     const rel = h - SEA_Y;
     if (def.snowFrom !== undefined) return rel >= def.snowFrom ? 'snow' : 'grass';
     if (rel >= (def.stoneFrom ?? C.strata.stoneTopFrom)) return 'stone';
-    if (def.sandBelow !== undefined && rel < def.sandBelow) return 'sand';
+    if (def.sandBelowOnMountain !== undefined) {
+      // 6 版: すなはま の地面は 高さに関係なく すな。「+10 未満」は 山の形が かかる列（M ≥ ふつうの高さ）だけ
+      if (rel < def.sandBelowOnMountain) return 'sand';
+      const M = this.mountainShape(x, z);
+      return M !== null && M.m >= h ? 'grass' : 'sand';
+    }
     return 'grass';
   }
 
