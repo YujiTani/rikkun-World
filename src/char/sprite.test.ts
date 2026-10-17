@@ -67,6 +67,8 @@ function make(loadImage: LoadImage, extra: { initTexture?: (t: THREE.Texture) =>
     basePath: './models/char/',
     loadJson: async () => ({ modelH: 1.7 }),
     loadImage,
+    // 本物の renderer.initTexture は 上げたあとに onUpdate を呼ぶ
+    initTexture: (t) => t.onUpdate?.(t as never),
     ...extra,
   });
   return { sprite, parent };
@@ -166,6 +168,8 @@ describe('AC23 読む時と重さ', () => {
     const { sprite } = make(L.loadImage, { initTexture: (t) => ups.push(t) });
     await flush();
     expect(ups.length).toBe(4);
+    // 上がる前は 写しを持っている（cpuBytes が 本当の値）
+    expect(sprite.info().cpuBytes).toBe(4 * ONE);
     for (const t of ups) t.onUpdate?.(t as never);
     expect(sprite.info().cpuBytes).toBe(0);
     for (const t of ups) expect((t.image as { data: unknown }).data).toBeNull();
