@@ -63,7 +63,6 @@ test('VOX-D 性能', async ({ page }) => {
     h.step(5);
     h.input.releaseAll();
     const p0 = h.player.get().position;
-    const z0 = p0.z;
     let lastX = p0.x, lastZ = p0.z, dodge = 0, dodgeSide = 1, dodges = 0;
     let r_dodges = 0, closes = 0;
     const stepMs: number[] = [];

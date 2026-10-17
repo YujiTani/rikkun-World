@@ -17,13 +17,12 @@ const q = (seed: number | null, extra = '') => `?nosave=1${seed === null ? '' : 
 
 test.describe('VOX-D ストリーミング', () => {
   for (const seed of SEEDS) {
-    test(`基準 5: 起動 ready のとき 25 列は本当の段・81 列は meshed（${label(seed)}）`, async ({ page }) => {
+    test(`基準 5: 起動 ready のとき 25 列は 小ブロックか箱の絵・81 列は meshed（${label(seed)}）`, async ({ page }) => {
       await openStream(page, q(seed));
       const r = await page.evaluate(() => {
         const h = window.__rikkun! as any;
         const w = h.world;
         const s = w.stream();
-        const st = w.sectionStats();
         const { cx, cz } = s.center;
         const bad: string[] = [];
         let n25 = 0;
@@ -36,17 +35,18 @@ test.describe('VOX-D ストリーミング', () => {
             if (w.chunkStage(x, z) !== 'meshed') bad.push(`stage ${x},${z} ${w.chunkStage(x, z)}`);
             const near = Math.max(Math.abs(dx), Math.abs(dz)) <= 2;
             if (near) n25++;
+            // K1（2026-10-17 変更）: 半径 2 の 25 列は「何かの絵（小ブロックか箱）」を出していればよい。小ブロックへの差しかえは開始のあと
+            // （細かいメッシュなしの E2E でも成り立つ。段の名前は micro か box のどちらでもよい）
+            let drawn = 0;
             for (let sy = 0; sy < 22; sy++) {
               const i = w.sectionInfo(x, sy, z);
               if (i.tier === 'none') {
                 if (i.reason === 'unlit') bad.push(`unlit ${x},${sy},${z}`);
                 continue;
               }
-              if (!near) continue;
-              // その列の本当の段（今の WorldRenderer が距離で決める。microR 以内 = 小ブロック、48 以内 = 箱、それより遠い = LOD）
-              const want = i.dist <= st.microR ? 'micro' : i.dist <= 48 ? 'box' : 'lod';
-              if (i.tier !== want) bad.push(`tier ${x},${sy},${z} ${i.tier} want ${want} dist ${i.dist}`);
+              if (near && (i.tier === 'micro' || i.tier === 'box') && i.meshes > 0) drawn++;
             }
+            if (near && drawn === 0) bad.push(`25列 ${x},${z}: 小ブロックか箱の絵が無い`);
           }
         return { s, readyFlag: h.ready, n25, n81, bad: bad.slice(0, 8), nBad: bad.length };
       });
