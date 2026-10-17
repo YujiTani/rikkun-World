@@ -101,6 +101,26 @@ function speckle(base: string, dots: string[], seed: number, count = 40): Tile {
   return tile;
 }
 
+/**
+ * ざわざわをへらす（#194）: 自然のブロックの絵の中の明暗の差を 地の色へ近づけ（contrast）、
+ * 彩度を少しおさえる（saturation）。絵そのもの（点の場所・形）は変えない。
+ */
+export const TILE_CALM = { contrast: 0.5, saturation: 0.8 } as const;
+
+/** 1 色をおさえる（c = もとの色、base = 地の色）。透明度はそのまま */
+export function calmColor(c: Rgba, base: Rgba): Rgba {
+  const { contrast, saturation } = TILE_CALM;
+  const v = [0, 1, 2].map((i) => base[i] + (c[i] - base[i]) * contrast);
+  const l = 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2];
+  const o = v.map((x) => Math.max(0, Math.min(255, Math.round(l + (x - l) * saturation))));
+  return [o[0], o[1], o[2], c[3]];
+}
+
+function calm(tile: Tile, base: string): Tile {
+  const b = hex(base);
+  return tile.map((c) => calmColor(c, b));
+}
+
 function blobs(tile: Tile, color: string, seed: number, n: number): Tile {
   const rnd = lcg(seed);
   const c = hex(color);
@@ -197,21 +217,21 @@ function brickTile(): Tile {
 function paintTile(name: TileName): Tile {
   switch (name) {
     case 'grass_top':
-      return speckle('#5DBB3F', ['#4CA332', '#73CC52'], 11);
+      return calm(speckle('#5DBB3F', ['#4CA332', '#73CC52'], 11), '#5DBB3F');
     case 'dirt':
-      return speckle('#8B5A2B', ['#6F4520', '#A06A38'], 22);
+      return calm(speckle('#8B5A2B', ['#6F4520', '#A06A38'], 22), '#8B5A2B');
     case 'grass_side': {
-      const t = speckle('#8B5A2B', ['#6F4520', '#A06A38'], 22);
-      const g = speckle('#5DBB3F', ['#4CA332', '#73CC52'], 11);
+      const t = calm(speckle('#8B5A2B', ['#6F4520', '#A06A38'], 22), '#8B5A2B');
+      const g = calm(speckle('#5DBB3F', ['#4CA332', '#73CC52'], 11), '#5DBB3F');
       for (let y = 0; y < 4; y++) {
         for (let x = 0; x < TILE_SIZE; x++) t[y * TILE_SIZE + x] = g[y * TILE_SIZE + x];
       }
       return t;
     }
     case 'stone':
-      return speckle('#8E8E8E', ['#757575', '#A5A5A5'], 33);
+      return calm(speckle('#8E8E8E', ['#757575', '#A5A5A5'], 33), '#8E8E8E');
     case 'sand':
-      return speckle('#E8D9A0', ['#D6C487'], 44, 30);
+      return calm(speckle('#E8D9A0', ['#D6C487'], 44, 30), '#E8D9A0');
     case 'log_side': {
       const t = solid(hex('#8A5A2E'));
       for (let x = 0; x < TILE_SIZE; x++) {
@@ -219,7 +239,7 @@ function paintTile(name: TileName): Tile {
           for (let y = 0; y < TILE_SIZE; y++) t[y * TILE_SIZE + x] = hex('#6B4421');
         }
       }
-      return t;
+      return calm(t, '#8A5A2E');
     }
     case 'log_top': {
       const t = solid(hex('#8A5A2E'));
@@ -230,18 +250,19 @@ function paintTile(name: TileName): Tile {
           else if (Math.floor(d) % 2 === 0) t[y * TILE_SIZE + x] = hex('#B88A55');
         }
       }
-      return t;
+      return calm(t, '#8A5A2E');
     }
     case 'leaves':
-      return speckle('#3E9B2F', ['#2E7D22'], 55, 60);
+      return calm(speckle('#3E9B2F', ['#2E7D22'], 55, 60), '#3E9B2F');
     case 'coal_ore':
-      return blobs(speckle('#8E8E8E', ['#757575', '#A5A5A5'], 33), '#222222', 66, 5);
+      // 鉱石の つぶ は さがす目じるしなので そのまま（地の石だけ おさえる）
+      return blobs(calm(speckle('#8E8E8E', ['#757575', '#A5A5A5'], 33), '#8E8E8E'), '#222222', 66, 5);
     case 'iron_ore':
-      return blobs(speckle('#8E8E8E', ['#757575', '#A5A5A5'], 33), '#E0A872', 77, 5);
+      return blobs(calm(speckle('#8E8E8E', ['#757575', '#A5A5A5'], 33), '#8E8E8E'), '#E0A872', 77, 5);
     case 'water':
       return solid(hex('#3A7BD5', Math.round(WATER_ALPHA * 255)));
     case 'bedrock':
-      return speckle('#3A3A3A', ['#555555'], 88, 50);
+      return calm(speckle('#3A3A3A', ['#555555'], 88, 50), '#3A3A3A');
     case 'furnace_top':
       return furnaceTop();
     case 'furnace_side':
