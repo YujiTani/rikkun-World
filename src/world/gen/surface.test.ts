@@ -12,7 +12,9 @@ import { surfaceFor } from './surface';
  */
 
 const SEEDS = [20261012, 1, 2];
-const SOFT = new Set<number>([BLOCK_INDEX.air, BLOCK_INDEX.water, BLOCK_INDEX.log, BLOCK_INDEX.leaves, BLOCK_INDEX.start_torch]);
+const PLANTS = [BLOCK_INDEX.flower_y, BLOCK_INDEX.flower_o, BLOCK_INDEX.flower_p, BLOCK_INDEX.susuki, BLOCK_INDEX.bamboo];
+const LEAVES = [BLOCK_INDEX.leaves, BLOCK_INDEX.momiji_leaves, BLOCK_INDEX.matsu_leaves];
+const SOFT = new Set<number>([BLOCK_INDEX.air, BLOCK_INDEX.water, BLOCK_INDEX.log, BLOCK_INDEX.start_torch, ...LEAVES, ...PLANTS]);
 
 function realColumns(seed: number) {
   const R = regionRect(seed);
@@ -42,14 +44,14 @@ describe.each(SEEDS)('surface seed=%i', (seed) => {
         if (S.ground(x, z) !== g) bad++;
         else if (S.groundIsGrass(x, z) !== (get(x, g, z) === BLOCK_INDEX.grass)) bad++;
         else if (S.covered(x, z) !== (top !== g)) bad++;
-        else if (S.treeCover(x, z) !== (get(x, top, z) === BLOCK_INDEX.log || get(x, top, z) === BLOCK_INDEX.leaves)) bad++;
+        else if (S.treeCover(x, z) !== (get(x, top, z) === BLOCK_INDEX.log || LEAVES.includes(get(x, top, z)))) bad++;
       }
     expect(bad).toBe(0);
   });
 
   it('地面の上の 空気・みず・木 が 本当の列と同じ（地面から 12 マス上まで）', () => {
     let bad = 0;
-    const kind = (b: number): string => (b === BLOCK_INDEX.air ? 'air' : b === BLOCK_INDEX.water ? 'water' : b === BLOCK_INDEX.log ? 'log' : b === BLOCK_INDEX.leaves ? 'leaves' : b === BLOCK_INDEX.start_torch ? 'torch' : 'solid');
+    const kind = (b: number): string => (b === BLOCK_INDEX.air ? 'air' : b === BLOCK_INDEX.water ? 'water' : b === BLOCK_INDEX.log ? 'log' : LEAVES.includes(b) ? 'leaves' : PLANTS.includes(b) ? 'plant' : b === BLOCK_INDEX.start_torch ? 'torch' : 'solid');
     for (let z = R.z0; z < R.z1; z += 3)
       for (let x = R.x0; x < R.x1; x += 3) {
         const g = S.ground(x, z);
