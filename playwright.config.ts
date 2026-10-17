@@ -17,7 +17,8 @@ export default defineConfig({
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'], launchOptions: { args: chromiumArgs } } }],
   webServer: {
-    command: 'npx vite --port 5173 --strictPort',
+    // 影は影の spec（?shadow=1）だけオン。ほかの spec は影を作らない（SwiftShader で 1 コマが 1.5〜2.5 倍になるため。SHADOW.md §6）
+    command: 'VITE_SHADOW_DEFAULT=off npx vite --port 5173 --strictPort',
     url: 'http://localhost:5173',
     reuseExistingServer: true,
     timeout: 60_000,

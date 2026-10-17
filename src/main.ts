@@ -103,6 +103,10 @@ import { WorldRenderer } from './world/render/WorldRenderer';
 import { createRenderHook } from './world/render/renderHook';
 import { BlobShadow, BLOB, groundBelow } from './fx/blobShadow';
 import { WATER, isSolidIndex } from './world/blocks/blockTypes';
+import { ShadowSystem } from './world/render/shadow/ShadowSystem';
+import { createShadowHook } from './world/render/shadow/shadowHook';
+import { decideShadowStart, saveShadowPref } from './world/render/shadow/shadowPref';
+import { createShadowSetting } from './ui/shadowSetting';
 import { darkenFromBrightness, skyDarkness } from './world/light';
 import { createFarmSystem, createFarmHook } from './farm';
 import { setWaterCapacity } from './ui/waterGauge';
@@ -1141,10 +1145,15 @@ if (idb) {
   });
 }
 
+// #144 SHADOW-1: 光の位置から計算する影（?shadow=0 は作らない。くわしくは docs/design/SHADOW.md）
+let shadowSystem: ShadowSystem | null = null;
 const overlay = new PerfOverlay(hud, game, {
   lines: () => {
     const m = renderer.meshStats();
-    return [`micro r=${renderer.microRadiusNow} (F4)  mesh ${m.meshCount}  wait ${m.pending}  geo ${(m.geometryBytes / 1048576).toFixed(1)}MB`];
+    return [
+      `micro r=${renderer.microRadiusNow} (F4)  mesh ${m.meshCount}  wait ${m.pending}  geo ${(m.geometryBytes / 1048576).toFixed(1)}MB`,
+      ...(shadowSystem ? [shadowSystem.line()] : []),
+    ];
   },
   cycle: () => {
     const radii = [16, 24, 32];
@@ -1444,7 +1453,47 @@ const hudHook = { toolHint: () => { const h = dig.toolHint(); return h ? { slot:
 const guideHook = createGuideHook(playOverlay);
 const lockHook = createLockHook(lock);
 const combatHook = createCombatHook(combat);
+const shadowStore = saveOptions.nosave ? null : window.localStorage;
+const shadowStart = decideShadowStart(location.search, import.meta.env.VITE_SHADOW_DEFAULT as string | undefined, shadowStore);
+const shadowSettingUi = createShadowSetting(soundSettingsUi.el);
+if (shadowStart.build) {
+  ShadowSystem.activate();
+  const sys = new ShadowSystem({
+    renderer: game.renderer,
+    worldRenderer: renderer,
+    timeSettings,
+    dayTick: () => time.dayTick(),
+    yokaiGroup: yokaiManager.group,
+    player: () => controller.state.position,
+    facing: () => controller.state.facingDeg,
+  });
+  sys.enabled = shadowStart.on;
+  const sprite = rig.doll.group.getObjectByName('charSprite');
+  if (sprite) sys.attachSprite(sprite as import('three').Mesh);
+  game.onBeforeRender(() => sys.preRender());
+  shadowSystem = sys;
+  window.addEventListener('pagehide', () => sys.dispose());
+}
+const setShadow = (on: boolean): void => {
+  if (!shadowSystem) return;
+  shadowSystem.enabled = on;
+  saveShadowPref(shadowStore, on);
+  shadowSettingUi.refresh(on);
+  game.step(0); // 次のコマで画面を合わせる
+};
+shadowSettingUi.bind(shadowSystem !== null, shadowStart.on, setShadow);
 installTestHook(game, overlay, {
+  shadow: createShadowHook({
+    system: shadowSystem,
+    renderer: game.renderer,
+    scene: game.scene,
+    camera: game.camera,
+    world,
+    player: () => controller.state.position,
+    step: (n) => game.step(n),
+    renderNow: () => game.renderNow(),
+    setEnabled: setShadow,
+  }),
   world: createWorldHook(world, renderer, island),
   render: createRenderHook({
     world,

@@ -3,6 +3,7 @@ import { ripeMinBrightness } from './cropLight';
 import { LIGHT_CONFIG as LC } from '../light/config';
 import { skyDarkness } from '../light/skyDarkness';
 import { aoUniforms } from './voxel/aoUniforms';
+import { patchAtlasShader, shadowCacheKey, shadowPatch } from './shadow/shadowPatch';
 
 const f = (n: number): string => n.toFixed(4);
 
@@ -72,6 +73,7 @@ ${LIGHT_GLSL_FUNCS}`,
   vColor.rgb *= max(max(sb, bb), ripe * uRipeMin) * tint * (1.0 - aoD);
 }`,
       );
+    if (shadowPatch.active) patchAtlasShader(shader); // SHADOW-1: 光に影をかける（作らないときは今のまま）
   };
-  material.customProgramCacheKey = () => cacheKey;
+  material.customProgramCacheKey = () => `${cacheKey}${shadowCacheKey()}`;
 }

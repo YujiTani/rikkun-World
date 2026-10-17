@@ -8,13 +8,13 @@ function steps(t: TimeOfDayImpl, n: number): void {
 }
 
 describe('昼と夜（AC1）', () => {
-  it('開いた直後は ひる の始め', () => {
+  it('開いた直後は ひる の 9000 tick め', () => {
     const hook = createTimeHook(new TimeOfDayImpl());
-    expect(hook.get()).toMatchObject({ phase: 'day', dayTick: 0, day: 0 });
+    expect(hook.get()).toMatchObject({ phase: 'day', dayTick: 9000, day: 0 });
   });
-  it('時間帯の境目と 1 日の終わり', () => {
+  it('時間帯の境目と 1 日の終わり（はじまりは 9000）', () => {
     const t = new TimeOfDayImpl();
-    steps(t, 53999);
+    steps(t, 54000 - 9000 - 1);
     expect(t.phase()).toBe('day');
     steps(t, 1);
     expect(t.phase()).toBe('dusk');
@@ -34,11 +34,11 @@ describe('昼と夜（AC1）', () => {
     expect(t.dayTick()).toBe(5);
     expect(t.day()).toBe(0);
   });
-  it('時間帯が変わったときだけ知らせる。解除できる', () => {
+  it('時間帯が変わったときだけ知らせる。解除できる（はじまりは 9000）', () => {
     const t = new TimeOfDayImpl();
     const seen: DayPhase[] = [];
     const off = t.onPhaseChange((p) => seen.push(p));
-    steps(t, 54000);
+    steps(t, 54000 - 9000);
     t.set(59400);
     t.set(59500);
     t.set(86400);
@@ -50,14 +50,14 @@ describe('昼と夜（AC1）', () => {
 });
 
 describe('空と明るさ（AC2）', () => {
-  it('ひる・よる の色と明るさ', () => {
+  it('ひる・よる の色と明るさ（夜の外の明るさ 0.25）', () => {
     const t = new TimeOfDayImpl();
     expect(t.skyColor()).toBe('#8FD3FF');
     expect(t.brightness()).toBe(1);
     expect(t.dollBrightness()).toBe(1);
     t.set(60000);
     expect(t.skyColor()).toBe('#1B2350');
-    expect(t.brightness()).toBeCloseTo(0.45);
+    expect(t.brightness()).toBeCloseTo(0.25);
     expect(t.dollBrightness()).toBeCloseTo(0.75);
   });
   it('ゆうがた の まん中は 0.6〜0.85、ゆうやけ色', () => {
@@ -79,10 +79,10 @@ describe('空と明るさ（AC2）', () => {
       prevDoll = t.dollBrightness();
     }
   });
-  it('あさ は よる から ひる へ戻る', () => {
+  it('あさ は よる から ひる へ戻る（夜の外の明るさ 0.25）', () => {
     const t = new TimeOfDayImpl();
     t.set(86400);
-    expect(t.brightness()).toBeCloseTo(0.45);
+    expect(t.brightness()).toBeCloseTo(0.25);
     t.set(86400 + 2700);
     expect(t.skyColor()).toBe('#FFC48A');
     t.set(91799);

@@ -93,14 +93,14 @@ test.describe('M3 昼と夜', () => {
       out.maxDiff = maxDiff;
       return out;
     });
-    expect(r.first).toMatchObject({ phase: 'day', dayTick: 0, day: 0, brightness: 1 });
+    expect(r.first).toMatchObject({ phase: 'day', dayTick: 9000, day: 0, brightness: 1 });
     expect(r.first.skyColor.toLowerCase()).toBe('#8fd3ff');
     expect(r.beforeDusk).toBe('day');
     expect(r.dusk.phase).toBe('dusk');
     expect(r.beforeNight).toBe('dusk');
     expect(r.night.phase).toBe('night');
     expect(r.night.skyColor.toLowerCase()).toBe('#1b2350');
-    expect(r.night.brightness).toBeCloseTo(0.45, 2);
+    expect(r.night.brightness).toBeCloseTo(0.25, 2);
     expect(r.night.dollBrightness).toBeCloseTo(0.75, 2);
     expect(r.beforeDawn).toBe('night');
     expect(r.dawn.phase).toBe('dawn');

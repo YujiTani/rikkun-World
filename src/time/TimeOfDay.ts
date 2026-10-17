@@ -1,10 +1,10 @@
 import type { DayPhase, TimeOfDay } from '../contracts';
-import { createTimeSettings, type TimeSettings } from './config';
+import { START_DAY_TICK, createTimeSettings, type TimeSettings } from './config';
 import { dayLength, hexString, lookAt, phaseAt } from './dayCycle';
 
-/** 1 日の時刻。ゲームの更新から毎ステップ update() を呼ぶ。開いた直後は いつも ひる の始め */
+/** 1 日の時刻。ゲームの更新から毎ステップ update() を呼ぶ。開いた直後は ひる の 9000 ステップめ（START_DAY_TICK） */
 export class TimeOfDayImpl implements TimeOfDay {
-  private tick = 0;
+  private tick = START_DAY_TICK;
   private dayNo = 0;
   private lastPhase: DayPhase = 'day';
   private readonly listeners = new Set<(phase: DayPhase) => void>();
