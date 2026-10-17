@@ -424,6 +424,18 @@ describe('前の世界の保存は 読まない・消さない（VOX-B 基準 19
     expect(SAVE_ID.startsWith('seed-')).toBe(false);
   });
 
+  it('clear() は 前の世界（main）の pagehide の保険を 消さない。自分の保険は 消す', async () => {
+    const store = new MemoryStore();
+    const old = JSON.stringify({ saveId: 'main', ids: [], cells: [], meta: {} });
+    store.data.set(PENDING_KEY, old);
+    const a = await session(store, new MemoryBackend());
+    await a.save.clear();
+    expect(store.data.get(PENDING_KEY)).toBe(old);
+    store.data.set(PENDING_KEY, JSON.stringify({ saveId: SAVE_ID, ids: [], cells: [], meta: {} }));
+    await a.save.clear();
+    expect(store.data.has(PENDING_KEY)).toBe(false);
+  });
+
   it('古い localStorage の保存と main の IndexedDB が あっても 読まず、消さない', async () => {
     const store = new MemoryStore();
     const db = new MemoryBackend();

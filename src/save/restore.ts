@@ -51,7 +51,7 @@ export function validMeta(m: unknown, seed: number): m is StoredMeta {
 }
 
 /** 自分のセーブの保険だけ消す（ほかのセーブのものは さわらない） */
-function removePendingOf(store: KeyValueStore, saveId: string): void {
+export function removePendingOf(store: KeyValueStore, saveId: string): void {
   try {
     const raw = store.getItem(PENDING_KEY);
     if (raw === null) return;

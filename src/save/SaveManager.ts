@@ -2,7 +2,7 @@ import type { BlockId, ChunkColumn, Inventory, PlayerState, ScreenSettings, Spaw
 import { packColumn, SAVE_ID, type PersistBackend, type StoredChunk, type StoredMeta } from './backend';
 import { BLOCK_TYPES } from '../world/blocks/blockTypes';
 import { encodeSections } from './chunkCodec';
-import { NO_SAVE, PENDING_KEY, PENDING_MAX_CELLS, type RestoredSave } from './restore';
+import { NO_SAVE, PENDING_KEY, PENDING_MAX_CELLS, removePendingOf, type RestoredSave } from './restore';
 
 /** localStorage と同じ形（テストでは偽物を渡す） */
 export interface KeyValueStore {
@@ -302,7 +302,7 @@ export class SaveManager {
     const { store, db } = this.d;
     if (!store || !db) return Promise.resolve();
     try {
-      store.removeItem(PENDING_KEY);
+      removePendingOf(store, this.saveId);
     } catch {
       /* 何もしない */
     }
@@ -487,7 +487,7 @@ export class SaveManager {
           this.lastFailed = false;
           this.infoState.doneMs = performance.now() - t0;
           try {
-            this.d.store?.removeItem(PENDING_KEY);
+            if (this.d.store) removePendingOf(this.d.store, this.saveId);
           } catch {
             /* 何もしない */
           }
