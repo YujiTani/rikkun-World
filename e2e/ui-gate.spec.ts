@@ -1,6 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import { standOnGround } from './helpers/aim';
+import { toStance } from './helpers/blade';
 import { checkLayout } from './helpers/layoutRules';
 import { checkColors, checkComponents, checkContrast, checkFontSizes, snapshotUi } from './helpers/uiRules';
 
@@ -324,7 +325,7 @@ SCREENS.push(...BAL_SCREENS);
  */
 const CHAR2_KATANA = ['katana_thrust', 'katana_kesa', 'katana_kiriage', 'katana_walk_chudan', 'katana_walk_jodan', 'katana_walk_gedan'];
 const CHAR2_BOW = ['bow_shot', 'bow_hold_walk', 'bow_walk', 'bow_rapid'];
-async function char2Setup(page: Page, held: 'katana' | 'yumi', names: string[]): Promise<void> {
+async function char2Setup(page: Page, held: string, names: string[]): Promise<void> {
   await boot(page, true);
   await page.evaluate(() => {
     const h = window.__rikkun! as any;
@@ -379,6 +380,38 @@ const CHAR2_SCREENS: Screen[] = [
   },
 ];
 SCREENS.push(...CHAR2_SCREENS);
+
+/**
+ * CHAR-4 AC18: 刀の軌跡が 出ている 場面で HUD の はみ出し・重なりが 0。
+ * 大けさぎり F31（ぼくとう・かたな・きらきらの かたな）・切り上げ F41（きらきらの かたな）・突き F5（かたな）。
+ * スクショ（ui-gate-report/char4-*-<大きさ>.png）は ui-reviewer が 見る。
+ */
+const char4Scene = (id: string, item: string, stance: 'chudan' | 'jodan' | 'gedan', frame: number): Screen => ({
+  id,
+  roots: ['#hud'],
+  layoutOnly: true,
+  open: async (page) => {
+    await char2Setup(page, item, CHAR2_KATANA);
+    await page.evaluate(() => (window.__rikkun! as any).step(30));
+    await toStance(page, stance);
+    const shown = await page.evaluate((frame) => {
+      const h = window.__rikkun! as any;
+      h.input.press('primary');
+      h.step(1);
+      h.input.release('primary');
+      h.step(frame - 1);
+      return { f: h.blade.state().frame as number, visible: h.blade.trail().visible as boolean };
+    }, frame);
+    expect(shown, `${id}: 軌跡が 出ている 場面に なっていない`).toEqual({ f: frame, visible: true });
+  },
+});
+SCREENS.push(
+  char4Scene('char4-kesa-bokuto-F31', 'bokuto', 'jodan', 31),
+  char4Scene('char4-kesa-katana-F31', 'katana', 'jodan', 31),
+  char4Scene('char4-kesa-crystal-F31', 'crystal_katana', 'jodan', 31),
+  char4Scene('char4-kiriage-crystal-F41', 'crystal_katana', 'gedan', 41),
+  char4Scene('char4-thrust-katana-F5', 'katana', 'chudan', 5),
+);
 
 interface Issue {
   kind: string;
@@ -583,6 +616,166 @@ test('CHAR-2 AC34: 切りつめる前と後で 画面が ドット単位で 同�
     }
   }
   expect(diffs, 'ちがう場面（ui-gate-report/ac34-*.png）').toEqual([]);
+});
+
+/**
+ * CHAR-4 AC13: 同じ 場面（立って 中段・yaw 45・pitch −10・1280×800）で HUD を 隠して、ぼくとう と かたなの 3D の 画面を くらべる。
+ * ちがう ドットが 1 つ 以上 あり、ぜんぶ キャラの板の 四すみを 画面へ うつした 四角の 中（地面・空は 1 ドットも ちがわない）。
+ * 板の 四すみは 窓口から 計算する（板の 中心 = 足もと + (0, 0.95k)、一辺 2k、k = 1.8 ÷ modelH。カメラの 向きは yaw・pitch）。
+ */
+test('CHAR-4 AC13: ぼくとう と かたなの 画面の ちがいは キャラの板の 四角の 中だけ', async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await boot(page, true);
+  await page.addStyleTag({ content: '#hud{display:none !important}' });
+  await page.evaluate(() => {
+    const h = window.__rikkun! as any;
+    h.settings.set('yokaiAutoSpawn', false);
+    h.settings.set('yokaiWander', false);
+    h.yokai.clear();
+    h.time.set(0);
+    h.inventory.clear();
+  });
+  await standOnGround(page, 20.5, 20.5, { yaw: 45, pitch: -10 });
+  await page.evaluate(() => {
+    const h = window.__rikkun! as any;
+    h.inventory.setSlot(0, { item: 'bokuto', count: 1 });
+    h.inventory.setSlot(1, { item: 'katana', count: 1 });
+    h.inventory.select(0);
+    h.step(1);
+  });
+  await page.waitForFunction((ns) => {
+    const h = window.__rikkun! as any;
+    h.step(1);
+    const st = h.player.doll().sprite.status;
+    return ns.every((n: string) => st?.[n] === 'ready');
+  }, CHAR2_KATANA, { timeout: 10_000 });
+
+  const shoot = async (slot: number): Promise<Buffer> => {
+    await page.evaluate((slot) => {
+      const h = window.__rikkun! as any;
+      h.inventory.select(slot);
+      h.step(1);
+      for (let n = 0; (h.world.lightPending() > 0 || h.world.meshStats().pending > 0) && n < 3000; n += 5) h.step(5);
+      h.step(2);
+      h.time.set(0);
+      h.player.doll().sprite.restartMotion();
+      h.step(30);
+    }, slot);
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    return page.screenshot();
+  };
+  const a = await shoot(0);
+  const b = await shoot(1);
+  const b2 = await shoot(1);
+  mkdirSync(OUT, { recursive: true });
+  writeFileSync(`${OUT}/ac13-bokuto.png`, a);
+  writeFileSync(`${OUT}/ac13-katana.png`, b);
+  expect(b.equals(b2), '同じ かたなを 2 回 撮ると 同じ（場面が 決定的）').toBe(true);
+
+  // 板の 四すみを 画面へ うつす
+  const quad = await page.evaluate(async () => {
+    const h = window.__rikkun! as any;
+    const p = h.player.get();
+    const cam = h.camera.get();
+    const fovDeg = h.camera.fov() as number;
+    const modelH = (await (await fetch('./models/char/atlas.json')).json()).modelH as number;
+    const k = 1.8 / modelH;
+    const sprite = h.player.doll().sprite;
+    const yaw = (p.yaw * Math.PI) / 180;
+    const pitch = (p.pitch * Math.PI) / 180;
+    const f = [Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), -Math.cos(yaw) * Math.cos(pitch)];
+    const r = [Math.cos(yaw), 0, Math.sin(yaw)];
+    const cross = (a: number[], b: number[]) => [a[1]! * b[2]! - a[2]! * b[1]!, a[2]! * b[0]! - a[0]! * b[2]!, a[0]! * b[1]! - a[1]! * b[0]!];
+    const dot = (a: number[], b: number[]) => a[0]! * b[0]! + a[1]! * b[1]! + a[2]! * b[2]!;
+    const u = cross(r, f);
+    const cpos = [cam.position.x, cam.position.y, cam.position.z];
+    const center = [p.position.x, p.position.y + 0.95 * k, p.position.z];
+    // 板の 向き（src/char/sprite.ts と 同じ）
+    let bx: number[];
+    let by: number[];
+    const dx = cpos[0]! - p.position.x;
+    const dz = cpos[2]! - p.position.z;
+    if (sprite.tier === 0) {
+      const ang = Math.atan2(dx, dz);
+      bx = [Math.cos(ang), 0, -Math.sin(ang)];
+      by = [0, 1, 0];
+    } else {
+      let z = [dx, cpos[1]! - center[1]!, dz];
+      const zl = Math.hypot(z[0]!, z[1]!, z[2]!);
+      z = z.map((v) => v / zl);
+      let x = [r[0]!, r[1]!, r[2]!];
+      const d = dot(x, z);
+      x = x.map((v, i) => v - d * z[i]!);
+      const xl = Math.hypot(x[0]!, x[1]!, x[2]!);
+      bx = x.map((v) => v / xl);
+      by = cross(z, bx);
+    }
+    const half = k; // 一辺 2k
+    const W = 1280;
+    const H = 800;
+    const th = Math.tan((fovDeg * Math.PI) / 360);
+    const corners = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([sx, sy]) => {
+      const P = center.map((c, i) => c + half * sx! * bx[i]! + half * sy! * by[i]!);
+      const v = P.map((c, i) => c - cpos[i]!);
+      const depth = dot(v, f);
+      const nx = dot(v, r) / depth / (th * (W / H));
+      const ny = dot(v, u) / depth / th;
+      return { x: ((nx + 1) / 2) * W, y: ((1 - ny) / 2) * H };
+    });
+    return { corners, tier: sprite.tier as number };
+  });
+
+  // ちがう ドットを 数える（ページの 中で PNG を 読む）
+  const toB64 = (buf: Buffer) => buf.toString('base64');
+  const diff = await page.evaluate(async ({ a, b }) => {
+    const load = async (s: string) => {
+      const img = new Image();
+      img.src = `data:image/png;base64,${s}`;
+      await img.decode();
+      const c = document.createElement('canvas');
+      c.width = img.width;
+      c.height = img.height;
+      const g = c.getContext('2d')!;
+      g.drawImage(img, 0, 0);
+      return g.getImageData(0, 0, c.width, c.height);
+    };
+    const A = await load(a);
+    const B = await load(b);
+    const pts: [number, number][] = [];
+    for (let i = 0; i < A.data.length; i += 4) {
+      if (A.data[i] !== B.data[i] || A.data[i + 1] !== B.data[i + 1] || A.data[i + 2] !== B.data[i + 2]) {
+        const px = i / 4;
+        pts.push([px % A.width, Math.floor(px / A.width)]);
+      }
+    }
+    return { w: A.width, h: A.height, pts };
+  }, { a: toB64(a), b: toB64(b) });
+
+  expect(diff.w).toBe(1280);
+  expect(diff.pts.length, 'ぼくとう と かたなで ちがう ドットが 1 つ 以上').toBeGreaterThan(0);
+  // 点が 四角形（凸）の 中に あるか。1 ドットぶんの よゆうを みる
+  const q = quad.corners;
+  const inside = (x: number, y: number): boolean => {
+    let sign = 0;
+    for (let i = 0; i < 4; i++) {
+      const p1 = q[i]!;
+      const p2 = q[(i + 1) % 4]!;
+      const cr = (p2.x - p1.x) * (y - p1.y) - (p2.y - p1.y) * (x - p1.x);
+      const len = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+      const d = cr / len;
+      if (Math.abs(d) <= 1) continue;
+      const sg = Math.sign(d);
+      if (sign === 0) sign = sg;
+      else if (sg !== sign) return false;
+    }
+    return true;
+  };
+  const outside = diff.pts.filter(([x, y]) => !inside(x! + 0.5, y! + 0.5));
+  const xs = diff.pts.map((p) => p[0]!);
+  const ys = diff.pts.map((p) => p[1]!);
+  console.log(`[AC13] tier ${quad.tier}, ちがうドット ${diff.pts.length}, 範囲 x ${Math.min(...xs)}〜${Math.max(...xs)} y ${Math.min(...ys)}〜${Math.max(...ys)}, 板の四すみ ${q.map((c) => `(${c.x.toFixed(0)},${c.y.toFixed(0)})`).join(' ')}, 四角の外 ${outside.length}`);
+  expect(outside.slice(0, 5), '板の 四角の 外で ちがうドット').toEqual([]);
 });
 
 test('道具が わるい例を 見つける', async ({ page }) => {
