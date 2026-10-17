@@ -716,45 +716,40 @@ test.describe('M2 もちもの画面', () => {
       h.world.setBlock(4, 10, 6, 'dirt');
       h.step(1);
     });
-    // 本当の時間で測る所なので、機械の速さで ゆれないように:
-    // 絵（SwiftShader）を止め、キャラの絵の読みこみと 世界の光・メッシュの順番待ちが おわってから 時間を動かす
-    await page.evaluate(() => (window as any).__rikkun.suspendRender(true));
-    await page.waitForFunction(() => (window as any).__rikkun.player.doll().sprite.loaded === true, null, { timeout: 0 }); // 時間は テスト全体の上限にまかせる
-    await page.evaluate(() => {
-      const h = (window as any).__rikkun;
-      for (let n = 0; (h.world.lightPending() > 0 || h.world.meshStats().pending > 0) && n < 3000; n += 5) h.step(5);
-      h.step(2);
-    });
-    // 開く
-    await page.evaluate(() => {
-      const h = (window as any).__rikkun;
-      h.resume();
-    });
-    const t0 = Date.now();
+    // 開く（開くまでの時間は ここでは測らない。e2e-perf/m2.perf.ts が描画ありで記録する）。時間切れは長めに付ける
+    await page.evaluate(() => (window as any).__rikkun.resume());
     await page.keyboard.press('KeyE');
-    await page.waitForFunction(() => (window as any).__rikkun.inventory.get().open === true, null, { timeout: 200 });
-    const openedIn = Date.now() - t0;
+    await page.waitForFunction(() => (window as any).__rikkun.inventory.get().open === true, null, { timeout: 10000 });
+    // ここから先は 本当の時間を使わない: 止めて、step で決まった回数だけ進める
+    await page.evaluate(() => (window as any).__rikkun.pause());
     const st = await page.evaluate(() => ({ lock: (window as any).__rikkun.lock.get() }));
-    expect(openedIn).toBeLessThan(800);
     expect(st.lock.locked).toBe(false);
     expect(st.lock.overlayVisible).toBe(false);
     await expect(page.locator('#inventory-screen .inv-panel .inv-slot:not(.equip-slot)')).toHaveCount(36);
+    // 1/4 の速さ: 開いている間の 1 ステップは 画面ステップ 4 つ分（= 1 ÷ timeScale 0.25）。
+    // あそんでいる間（1 ステップ = 1）と くらべる。実績の playTicks は 画面ステップを足していく
+    const playTicks = () => page.evaluate(() => (window as any).__rikkun.achievements.stats().playTicks ?? 0);
+    await page.evaluate(() => (window as any).__rikkun.achievements.mute(false));
+    const p0 = await playTicks();
+    await page.evaluate(() => (window as any).__rikkun.step(20));
+    const p1 = await playTicks();
+    await page.evaluate(() => (window as any).__rikkun.achievements.mute(true));
+    expect(p1 - p0).toBe(20 * 4);
+    // 前へ歩いても・こわそうとしても 動かない（20〜40 ステップぶん進めても 変わらない）
     await page.evaluate(() => {
       const h = (window as any).__rikkun;
       h.input.press('moveForward');
       h.input.press('primary');
     });
     const a0 = await page.evaluate(() => ({ tick: (window as any).__rikkun.tick(), p: (window as any).__rikkun.player.get().position }));
-    await page.waitForTimeout(2000);
+    await page.evaluate(() => (window as any).__rikkun.step(30));
     const a1 = await page.evaluate(() => ({
       tick: (window as any).__rikkun.tick(),
       p: (window as any).__rikkun.player.get().position,
       b: (window as any).__rikkun.world.getBlock(4, 10, 6),
       d: (window as any).__rikkun.dig.get(),
     }));
-    const dt = a1.tick - a0.tick;
-    expect(dt).toBeGreaterThanOrEqual(20);
-    expect(dt).toBeLessThanOrEqual(40);
+    expect(a1.tick - a0.tick).toBe(30);
     expect(a1.p.x).toBeCloseTo(a0.p.x, 2);
     expect(a1.p.z).toBeCloseTo(a0.p.z, 2);
     expect(a1.b).toBe('dirt');
@@ -803,18 +798,11 @@ test.describe('M2 もちもの画面', () => {
     expect(c.d.slot).toEqual({ item: 'dirt', count: 16 });
     expect(c.d.cur).toEqual({ item: 'stone', count: 7 });
 
-    // 閉じる (E)
-    const b0 = await page.evaluate(() => (window as any).__rikkun.tick());
+    // 閉じる (E)。閉じたあとの 1 秒あたりの tick は e2e-perf/m2.perf.ts で記録する
+    await page.evaluate(() => (window as any).__rikkun.resume());
     await page.keyboard.press('KeyE');
-    // GPU なしの描画は 1 フレームが遅いことがある（1 フレーム最大 5 ステップ）。1 秒の窓を最大 3 回見て、一番速いものを使う
-    let bestRate = 0;
-    for (let k = 0; k < 3 && bestRate < 30; k++) {
-      const ta = await page.evaluate(() => (window as any).__rikkun.tick());
-      await page.waitForTimeout(1000);
-      const tb = await page.evaluate(() => (window as any).__rikkun.tick());
-      bestRate = Math.max(bestRate, tb - ta);
-    }
-    await page.evaluate(() => (window as any).__rikkun.suspendRender(false)); // 時間を測る所は ここまで
+    await page.waitForFunction(() => (window as any).__rikkun.inventory.get().open === false, null, { timeout: 10000 });
+    await page.evaluate(() => (window as any).__rikkun.pause());
     const cl = await page.evaluate(() => ({
       tick: (window as any).__rikkun.tick(),
       open: (window as any).__rikkun.inventory.get().open,
@@ -824,16 +812,22 @@ test.describe('M2 もちもの画面', () => {
     expect(cl.open).toBe(false);
     expect(cl.lock.locked).toBe(true);
     expect(cl.lock.overlayVisible).toBe(false);
-    expect(bestRate).toBeGreaterThanOrEqual(30);
-    void b0;
+    // 閉じたら 時間は 1 ステップ = 画面ステップ 1（あそぶ速さ）にもどる
+    await page.evaluate(() => (window as any).__rikkun.achievements.mute(false));
+    const q0 = await playTicks();
+    await page.evaluate(() => (window as any).__rikkun.step(20));
+    const q1 = await playTicks();
+    await page.evaluate(() => (window as any).__rikkun.achievements.mute(true));
+    expect(q1 - q0).toBe(20);
     // (f) 入れかえて閉じる
     expect(cl.inv.cursor).toBeNull();
     expect(cl.inv.slots[3]).toEqual({ item: 'stone', count: 7 });
     expect(cl.inv.slots[5]).toEqual({ item: 'dirt', count: 5 });
 
     // AC20: Esc
+    await page.evaluate(() => (window as any).__rikkun.resume());
     await page.keyboard.press('KeyE');
-    await page.waitForFunction(() => (window as any).__rikkun.inventory.get().open === true, null, { timeout: 500 });
+    await page.waitForFunction(() => (window as any).__rikkun.inventory.get().open === true, null, { timeout: 10000 });
     await page.keyboard.press('Escape');
     await page.waitForTimeout(300);
     const e1 = await page.evaluate(() => ({
