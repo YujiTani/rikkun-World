@@ -603,24 +603,36 @@ test.describe('M3 プレイヤーの攻撃（パンチ）', () => {
     expect(r.near.hp).toBe(7);
     expect(r.far.hp).toBe(8);
     expect(r.far.evs).not.toContain('punchHit');
-    // 仕様 AC18 は 3.1 で punchMiss（からぶり）。実装は「とどかない妖怪は無視」で何も出さない（NG・軽微。下の test.fail と同じ原因）
+    // とどかない妖怪は WEAPON-3 §4.4 の (4) 空ぶり（腕をふる）。punchMiss は出ない
   });
 
-  test('AC18(b): 3.9 の妖怪のうしろ 4.0 の dirt は、妖怪がじゃまをしてほれない（既知の NG: 実装はほれてしまう）', async ({ page }) => {
-    test.fail();
+  test('AC18(b): ＋マークの線で ブロックより手前に とどかない妖怪がいると、うしろのブロックは ほれない（空ぶり、#34）', async ({ page }) => {
     await open(page);
     const r = await page.evaluate(() => {
       const T = (window as any).T;
       const h = (window as any).__rikkun;
-      const out: any = {};
-      // 3.1 の妖怪のうしろ 4.0 の dirt
       T.base();
-      const x = 2.5 + 3.9 + 0.75;
-      h.yokai.spawn('karakasa', x, 9, 6.5, { ai: false, yawDeg: 270 });
-      h.world.setBlock(6, 10, 6, 'dirt'); // 目の高さの線 (y=10.62) ではなく足の高さ
-      h.world.setBlock(6, 9, 6, 'dirt');
-      h.world.setBlock(Math.floor(2.5 + 4.0), 10, 6, 'dirt');
+      // ＋マークで dirt (7,10,6) の横の面をねらい、肩の点 S からその線の上に ちょうちんを置く（窓口に聞く）。
+      // 体とブロックは重ねない（重なると妖怪が押し出されて線から外れる）。ちょうちんの箱は x 6.15..6.95
+      T.place(2.2, 9, 6.5, 90, 0);
+      h.world.setBlock(7, 10, 6, 'dirt');
+      (window as any).__aim.solve(7, 10, 6, 0.5);
       h.step(1);
+      const S = h.camera.get().shoulder;
+      const X = { x: 7.5, y: 10.5, z: 6.5 };
+      const t = (6.55 - S.x) / (X.x - S.x);
+      const c = { x: S.x + (X.x - S.x) * t, y: S.y + (X.y - S.y) * t, z: S.z + (X.z - S.z) * t };
+      const id = h.yokai.spawn('chochin', c.x, c.y - 1.1, c.z, { ai: false, yawDeg: 270 });
+      h.step(1);
+      const y0 = T.one(id);
+      const dir = { x: X.x - S.x, y: X.y - S.y, z: X.z - S.z };
+      const len = Math.hypot(dir.x, dir.y, dir.z);
+      const rc = h.yokai.raycast(S, { x: dir.x / len, y: dir.y / len, z: dir.z / len }, 6);
+      const tg = h.target.get();
+      const p = h.player.get().position;
+      const reach = Math.hypot(y0.position.x - p.x, y0.position.z - p.z) - 0.7; // P から 広げた箱（0.4 + 0.3）まで
+      const pre = { rc: rc?.distance ?? null, tg: tg ? { x: tg.block.x, d: tg.distance } : null, reach, preview: h.attack.preview(), hint: h.hud.actionHint() };
+      h.combat.events();
       h.input.press('primary');
       let maxProgress = 0;
       for (let i = 0; i < 60; i++) {
@@ -628,11 +640,22 @@ test.describe('M3 プレイヤーの攻撃（パンチ）', () => {
         maxProgress = Math.max(maxProgress, h.dig.get().progress ?? 0);
       }
       h.input.release('primary');
-      out.maxProgress = maxProgress;
-      out.dirtStill = h.world.getBlock(6, 10, 6);
-      return out;
+      const y1 = T.one(id);
+      const evs = h.combat.events().map((e: any) => e.type);
+      return { pre, maxProgress, dirt: h.world.getBlock(7, 10, 6), evs, hp0: y0.hp, hp1: y1.hp, dx: Math.abs(y1.position.x - y0.position.x) };
     });
+    expect(r.pre.rc).not.toBeNull();
+    expect(r.pre.tg).not.toBeNull();
+    expect(r.pre.tg!.x).toBe(7);
+    expect(r.pre.rc).toBeLessThan(r.pre.tg!.d);
+    expect(r.pre.reach).toBeGreaterThan(3.5); // すでの パンチは とどかない
+    expect(r.pre.preview.use).toBe('whiff');
+    expect(r.pre.hint.left).toBeUndefined(); // 照準の下に「ほる」を出さない
     expect(r.maxProgress).toBe(0);
+    expect(r.dirt).toBe('dirt');
+    expect(r.evs).not.toContain('punchHit');
+    expect(r.hp1).toBe(r.hp0);
+    expect(r.dx).toBeLessThan(0.01);
   });
 
   test('AC19: ほる か パンチか（手前にあるほうが受ける）', async ({ page }) => {
