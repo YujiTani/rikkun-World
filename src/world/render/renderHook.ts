@@ -263,6 +263,8 @@ export function createRenderHook(d: RenderHookDeps) {
     pixel,
     blobShadow: () => d.blob.info(),
     aoStats: () => renderer.aoStats(),
+    /** PERF-2: 見えているセクションのメッシュ（全部の attribute・index のバイト・うまり）の FNV-1a（セクションの鍵の順） */
+    meshDigest: () => renderer.meshDigest(),
     setAo: (on: boolean) => {
       aoUniforms.on.value = on ? 1 : 0;
     },

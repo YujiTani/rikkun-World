@@ -1,0 +1,137 @@
+{
+ "note": "パリィ（案 B＋案 A の うずまき）の 絵の 数。絵は parry_icon.png・parry_spark.png。青白い 光は 絵ではなく 色と 強さの 数だけ",
+ "icon": {
+  "file": "parry_icon.png",
+  "size": [
+   128,
+   32
+  ],
+  "cell": 16,
+  "spin": {
+   "row": 0,
+   "frames": 8,
+   "secPerTurn": 2.0,
+   "secPerFrame": 0.25
+  },
+  "burst": {
+   "row": 1,
+   "frames": 4,
+   "steps": 6,
+   "note": "2 倍が 当たったら。コマ 0〜3 を 1.5 ステップずつ。ゲーム側で 少し 拡大（1.5 倍まで）して うすく して 消す"
+  },
+  "worldSizeBlocks": 0.5,
+  "gapAboveBlocks": 0.05,
+  "outline": "#10141F",
+  "colors": [
+   "#D6F4FF",
+   "#9FE8FF",
+   "#5FD3FF",
+   "#10141F"
+  ],
+  "filter": "Nearest",
+  "blink": false
+ },
+ "spark": {
+  "file": "parry_spark.png",
+  "size": [
+   512,
+   128
+  ],
+  "cell": 128,
+  "frames": [
+   {
+    "name": "S",
+    "step": 0
+   },
+   {
+    "name": "S+3",
+    "step": 3
+   },
+   {
+    "name": "S+8",
+    "step": 8
+   }
+  ],
+  "dotsPerBlock": 128,
+  "worldSizeBlocks": 1.0,
+  "where": "受けの 刀の まん中（blade_path の parry の base と tip の まん中）",
+  "particles": {
+   "count": 12,
+   "was": 20,
+   "colors": [
+    "#FFF3A0",
+    "#FFFFFF",
+    "#5FD3FF"
+   ],
+   "sizeDots": 4,
+   "note": "粒は 絵では なく 点。スパーク 1 回で 12 こ（3 色を 4 こずつ）、外へ とび 0.4 秒で 消える"
+  },
+  "colors": [
+   "#FFF3A0",
+   "#FFFFFF",
+   "#5FD3FF",
+   "#10141F"
+  ],
+  "noRed": true
+ },
+ "glow": {
+  "colors": {
+   "edge": "#D6F4FF",
+   "aura": "#8FD8FF",
+   "tint": "#D6F4FF",
+   "particle": "#FFFFFF"
+  },
+  "steps": 20,
+  "startsAfterSuccessStep": 1,
+  "peakCount": 1,
+  "levelPerStep": [
+   1.0,
+   1.0,
+   1.0,
+   1.0,
+   1.0,
+   1.0,
+   0.88,
+   0.79,
+   0.71,
+   0.63,
+   0.56,
+   0.49,
+   0.43,
+   0.36,
+   0.3,
+   0.24,
+   0.18,
+   0.12,
+   0.06,
+   0
+  ],
+  "levelNote": "s=1..20（成功の 次の ステップが 1）。1〜6 は 1.0（スローの 間）、7〜20 は 1-((s-6)/14)^0.8 で さがる。点滅なし（山は 1 つ）",
+  "aura": {
+   "maxAlpha": 0.59,
+   "alphaAtLevel1": "150/255",
+   "reachBlocksBeyondBody": 0.3,
+   "shape": "体の まわりの だ円（ぼかし）",
+   "note": "ぼかしの 画像を 使わず、だ円の 板 1 まい を 使い、すけの 強さ = 0.59 × level"
+  },
+  "outline": {
+   "widthDots": 2,
+   "alphaPerLevel": 1.0,
+   "color": "#D6F4FF",
+   "note": "キャラの 絵を 青白で ふちどった 1 まい（すけ = level）"
+  },
+  "bodyTint": {
+   "mix": 0.45,
+   "toward": "#D6F4FF",
+   "note": "キャラの 色を 青白に まぜる 量 = 0.45 × level（色番号の 絵は そのまま。シェーダーで まぜる）"
+  },
+  "risingParticles": {
+   "count": 6,
+   "shape": "ひし形（高さ 8〜12・はば 5〜7 ドット）",
+   "color": "#FFFFFF",
+   "rise": "level が さがるほど 上へ 40 ドット",
+   "note": "『動きを へらす』では 止める（光の 色は まぜる）"
+  },
+  "reducedMotion": "粒と 光の 玉を 止めて、色の まぜ方（level）だけ 出す"
+ }
+}

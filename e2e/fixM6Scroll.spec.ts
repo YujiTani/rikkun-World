@@ -414,31 +414,38 @@ test('防具のマスを ダブルクリックで きる・そうびのマスを
   expect(await page.evaluate(() => (window.__rikkun as any).inventory.count('kabuto'))).toBe(1);
 });
 
-// ---- 案内画面のカードが はみ出さない ----
+// ---- 案内の本（BOOK-1）の リンク・説明が 画面から はみ出さない（前は カードが 収まる 試験） ----
 for (const [w, h] of SIZES) {
-  test(`案内画面のカードが 収まる ${w}x${h}`, async ({ page }) => {
+  test(`案内の本の リンクと 説明が 画面に 収まる ${w}x${h}`, async ({ page }) => {
     await page.setViewportSize({ width: w, height: h });
     await page.goto('/?nosave=1');
     await page.waitForFunction(() => window.__rikkun?.ready === true);
     await page.evaluate(() => (window.__rikkun as any).step(2));
-    await expect(page.locator('.po-panel')).toBeVisible();
-    for (const tab of ['move', 'dig', 'fight', 'craft']) {
-      await page.locator(`.po-tab[data-tab="${tab}"]`).click();
-      await waitAnimationsDone(page);
-      const bad = await page.evaluate(() => {
-        const out: string[] = [];
-        for (const item of document.querySelectorAll<HTMLElement>('.po-help:not([hidden]) .po-help-item')) {
-          const r = item.getBoundingClientRect();
-          for (const ch of item.querySelectorAll<HTMLElement>('.po-art > *, .po-art')) {
-            const c = ch.getBoundingClientRect();
-            if (c.right > r.right + 1 || c.left < r.left - 1 || c.bottom > r.bottom + 1) out.push(ch.className);
-          }
-          if (r.right > window.innerWidth + 1 || r.bottom > window.innerHeight + 1) out.push('card-out');
-        }
-        return out;
-      });
-      expect(bad, tab).toEqual([]);
-      if (tab === 'fight' && (w === 960 || w === 1920)) await page.screenshot({ path: `${OUT}/fix-m6-scroll-guide-fight-${w}.png` });
-    }
+    const bad = await page.evaluate(() => {
+      const hk = (window.__rikkun as any);
+      const out: string[] = [];
+      const settle = () => { for (let i = 0; i < 1200 && hk.lock.get().bookAnim !== 'none'; i++) hk.step(1); hk.step(2); };
+      const inView = (el: HTMLElement, tag: string) => {
+        const r = el.getBoundingClientRect();
+        if (r.right > innerWidth + 1 || r.bottom > innerHeight + 1 || r.left < -1 || r.top < -1) out.push(tag + ' out');
+      };
+      const ids: string[] = hk.lock.get().bookChapters.map((c: any) => c.id);
+      for (const id of ['toc', ...ids]) {
+        hk.lock.book(id);
+        settle();
+        for (const el of document.querySelectorAll<HTMLElement>('[data-book-link]:not([hidden])')) inView(el, id + ':' + el.dataset.bookLink);
+      }
+      for (const id of hk.lock.get().bookItemIds as string[]) {
+        hk.lock.book(id);
+        settle();
+        const el = document.querySelector<HTMLElement>('[data-item-id]');
+        if (!el) { out.push(id + ' no text'); continue; }
+        inView(el, id);
+        if (el.scrollHeight > el.clientHeight + 1) out.push(id + ' scroll');
+      }
+      return out;
+    });
+    expect(bad).toEqual([]);
+    await page.screenshot({ path: `${OUT}/fix-m6-scroll-guide-book-${w}.png` });
   });
 }

@@ -467,7 +467,8 @@ export interface YokaiWorld {
    * パンチが当たった。from はたたいた人の足もと（押される向き）。
    * WEAPON-2: `knock` を 省くと 今まで どおり（水平 1.0・上へ 0）。ぬりかべは どの 値でも 押されない
    */
-  damage(id: number, amount: number, from: Vec3, knock?: YokaiKnock): void;
+  /** 実際に 与えた ダメージを 返してもよい（よろけの 2 倍の あと。WEAPON-5） */
+  damage(id: number, amount: number, from: Vec3, knock?: YokaiKnock): number | void;
   /** そのマスに妖怪の当たりの箱が重なっているか（ブロックを置けない） */
   occupies(x: number, y: number, z: number): boolean;
   /** 画面と音用（呼ぶと空になる）。テストの窓口用の列は別に持つ */
@@ -1601,6 +1602,10 @@ export interface BladeSystem {
   drainEvents(): BladeEvent[];
   /** テストの窓口用（読んでも 空にならない） */
   peekEvents(): BladeEvent[];
+  /** WEAPON-5: 先行入力を すてる（パリィが 勝った とき） */
+  dropBuffer?(): void;
+  /** WEAPON-5: 次の ステップを すすめたあとも わざ・かまえ替えが つづくか（パリィを すぐ 出せるか）・先行入力の 区間か */
+  busyNext?(): { busy: boolean; accepts: boolean };
 }
 
 // ---------------------------------------------------------------- 弓（B）
@@ -1776,6 +1781,27 @@ export interface W2Settings {
   bladeTrailShape: BladeTrailShape;
   /** 軌跡を 書く 絵の時 τ（CHAR-4 §4.2） */
   bladeTrailWindow: Record<BladeTech, [number, number]>;
+  // WEAPON-5（刀の パリィ。§4.7）
+  /** かまえ・受け・すき（ステップ） */
+  parryTicks: { ready: number; guard: number; recover: number };
+  /** すきの はじめの 何ステップが 半分か */
+  parryEarlyTicks: number;
+  /** 成功のあとの きめ（ステップ） */
+  parryKimeTicks: number;
+  /** おしい（F1〜2・早すぎ）の ダメージの 倍率（切り上げ） */
+  parryEarlyMul: number;
+  /** 受けられる 向き（前から 左右 何度まで） */
+  parryArcDeg: number;
+  /** スロー（ステップ数・ゲームの時間の倍率） */
+  parrySlow: { ticks: number; scale: number };
+  /** 青白い光（ステップ） */
+  parryGlowTicks: number;
+  /** よろけ（ステップ） */
+  staggerTicks: number;
+  /** よろけ中の 次の一撃の 倍率 */
+  staggerDamageMul: number;
+  /** はね返した 火の玉（速さ ブロック/秒・とどく きょり・ダメージ = 火の玉の強さ × damageMul） */
+  reflectFireball: { speed: number; range: number; damageMul: number };
 }
 
 export interface BladeTrailStyle {
@@ -1887,6 +1913,16 @@ export const W2_SETTING_DEFAULTS: Readonly<W2Settings> = {
     starMaxAge: 8.55,
   },
   bladeTrailWindow: { thrust: [2, 6], kesa: [28, 34], kiriage: [19, 22] },
+  parryTicks: { ready: 2, guard: 18, recover: 20 },
+  parryEarlyTicks: 12,
+  parryKimeTicks: 8,
+  parryEarlyMul: 0.5,
+  parryArcDeg: 90,
+  parrySlow: { ticks: 6, scale: 0.25 },
+  parryGlowTicks: 20,
+  staggerTicks: 90,
+  staggerDamageMul: 2,
+  reflectFireball: { speed: 10, range: 8, damageMul: 1 },
 };
 
 /** 設定の 入れ物を作る（毎回 ふかい コピー。つなぎ込みが `createSettingsHook` の extras に渡す） */
@@ -1948,6 +1984,16 @@ export function createW2Settings(): W2Settings {
       starAt: [...d.bladeTrailShape.starAt],
     },
     bladeTrailWindow: { thrust: [...d.bladeTrailWindow.thrust], kesa: [...d.bladeTrailWindow.kesa], kiriage: [...d.bladeTrailWindow.kiriage] },
+    parryTicks: { ...d.parryTicks },
+    parryEarlyTicks: d.parryEarlyTicks,
+    parryKimeTicks: d.parryKimeTicks,
+    parryEarlyMul: d.parryEarlyMul,
+    parryArcDeg: d.parryArcDeg,
+    parrySlow: { ...d.parrySlow },
+    parryGlowTicks: d.parryGlowTicks,
+    staggerTicks: d.staggerTicks,
+    staggerDamageMul: d.staggerDamageMul,
+    reflectFireball: { ...d.reflectFireball },
   };
 }
 

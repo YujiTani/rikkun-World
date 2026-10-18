@@ -66,9 +66,9 @@ export function patchSpriteMaterial(mat: import('three').ShaderMaterial): void {
   );
   mat.fragmentShader = mustReplace(
     mustReplace(mat.fragmentShader, 'varying vec2 vUv;', `varying vec2 vUv;\nvarying vec3 vShW;\n${SHADOW_FRAG_PARS}`, 'sprite フラグメント varying'),
-    'gl_FragColor = vec4(uPalette[int(idx)] * uTint, 1.0);',
-    // 影のこさは 見た目の明るさ（2.2 乗でリニアへ）。影の強さ 0 のときは 今と同じ
-    'float shK = 1.0;\n  if (uShP.x > 0.001) shK = pow(mix(1.0, uShP.y, (1.0 - shSunVis(vShW, uShL, false)) * uShP.x * uShSpriteDirect), 2.2);\n  gl_FragColor = vec4(uPalette[int(idx)] * uTint * shK, 1.0);',
+    'gl_FragColor = vec4(mix(uPalette[int(idx)], uMixColor, uMix) * uTint, 1.0);',
+    // 影のこさは 見た目の明るさ（2.2 乗でリニアへ）。影の強さ 0 のときは 今と同じ。パリィの光のまぜ（uMix）は そのまま（#199）
+    'float shK = 1.0;\n  if (uShP.x > 0.001) shK = pow(mix(1.0, uShP.y, (1.0 - shSunVis(vShW, uShL, false)) * uShP.x * uShSpriteDirect), 2.2);\n  gl_FragColor = vec4(mix(uPalette[int(idx)], uMixColor, uMix) * uTint * shK, 1.0);',
     'sprite フラグメント色',
   );
   mat.needsUpdate = true;

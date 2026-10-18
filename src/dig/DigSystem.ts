@@ -39,6 +39,7 @@ import { centerOfYokai, decideAttack, type AttackDecision, type AttackHold } fro
 import { cellInWall } from '../world/wall';
 import { lookDirection, raycastBlocks } from './raycast';
 import { isBladeItem } from '../tools/blade/BladeSystem';
+import { routeAttackInput, type ParryInput, type Parry } from '../combat/parry';
 import { blockFamily, effectivePower, toolFamily, toolRank } from './toolFamily';
 import { ToolHintModel, bestHotbarSlot, type ToolHintState } from './toolHint';
 import { computeWaterRay, createWaterRay, previewRightClick, type LeftClickKind, type RightClickPreview } from './rightClick';
@@ -97,7 +98,9 @@ export interface DigM4Deps {
   /** M7-2: 出来事 の `tick`（なければ この 係 の 歩数） */
   nowTick?: () => number;
   /** WEAPON-2: 刀（ひだりクリックの ふりわけ §2.1-6 で わざを 渡す）。なければ 刀も ほるだけ */
-  blade?: Pick<BladeSystem, 'update' | 'state'>;
+  blade?: Pick<BladeSystem, 'update' | 'state' | 'dropBuffer' | 'busyNext'>;
+  /** WEAPON-5: パリィ（刀の Shift＋クリック）。なければ 今のまま */
+  parry?: Pick<Parry, 'state' | 'inWindow' | 'dropBuffer'>;
   /** WEAPON-2: たいきゅうの へる量（ほる・たがやす）。なければ へらさない */
   w2?: W2Settings;
   /** WEAPON-3: 妖怪の 世界（一覧を 向きの決まりに わたす）。`blade`・`w2` と そろっていれば 近接の 攻撃は 向いている方へ */
@@ -161,6 +164,8 @@ export class DigSystemImpl implements DigSystem {
   private prevPrimary = false;
   /** ふりわけ の 前の 生の 押し（刀の わざの 押した しゅんかん用） */
   private prevPrimaryRaw = false;
+  /** WEAPON-5: パリィの 先行入力の 間に 押した ふつうの こうげき（パリィが おわった ステップに わざを 出す） */
+  private pendingTech = false;
   /** このステップはパンチ（ほらない） */
   private punching = false;
   /** ＋マークの線で ブロックより手前に 妖怪が いて 空ぶりに なる（ほらない。#34） */
@@ -321,6 +326,22 @@ export class DigSystemImpl implements DigSystem {
     }
   }
 
+  /**
+   * WEAPON-5: パリィの この ステップの 入力（`main.ts` が 妖怪の 更新の 前に `parry.update` へ わたす）。
+   * 刀が わざ・かまえ替えの さいごなら 先行入力に して、刀の 先行入力は すてる（あとに 押した 方が 勝つ）。
+   */
+  parryInput(tick: number): ParryInput {
+    const enabled = this.lock.playInputEnabled() && !this.gate?.blocksInput();
+    const blade = this.m4.blade;
+    const nb = blade?.busyNext?.() ?? { busy: false, accepts: false };
+    const pressed = enabled && this.actions.wasPressed('primary');
+    const held = enabled && (this.actions.isHeld('primary') || pressed);
+    const item = this.inventory.held()?.item ?? null;
+    const run = this.actions.isHeld('run');
+    if (enabled && run && pressed && isBladeItem(item) && nb.busy && nb.accepts) blade?.dropBuffer?.();
+    return { tick, item, run, pressed, held, active: enabled, bladeBusy: nb.busy, bladeAccepts: nb.accepts };
+  }
+
   private updateInner(): void {
     const enabled = this.lock.playInputEnabled() && !this.gate?.blocksInput();
 
@@ -341,7 +362,24 @@ export class DigSystemImpl implements DigSystem {
     this.tgt = this.aimBlock(p, o, d);
 
     // 同じステップのうちに押してはなす短いタップも拾う（wasPressed）
-    const primaryRaw = enabled && (this.actions.isHeld('primary') || this.actions.wasPressed('primary'));
+    const primaryAny = enabled && (this.actions.isHeld('primary') || this.actions.wasPressed('primary'));
+    // WEAPON-5: 刀＋Shift は パリィ（押した）か 何も出さない（押しつづけ）。ほる・わざは しない
+    const parryM = this.m4.parry;
+    const route = this.m4.blade && parryM ? routeAttackInput({ item: this.inventory.held()?.item, run: this.actions.isHeld('run'), pressed: this.actions.wasPressed('primary'), held: primaryAny }) : 'normal';
+    const pstate = parryM ? parryM.state() : null;
+    const parryBusy = pstate !== null && pstate.phase !== 'idle';
+    let primaryRaw = primaryAny && route === 'normal';
+    if (parryBusy && primaryRaw) {
+      // パリィの 間の ふつうの こうげき: 先行入力の 区間なら あとに 押した 方が 勝つ（パリィが おわった ステップに わざ）
+      if (this.actions.wasPressed('primary') && parryM!.inWindow()) {
+        parryM!.dropBuffer();
+        this.pendingTech = true;
+      }
+      primaryRaw = false;
+    }
+    if (route === 'parry' && this.pendingTech) this.pendingTech = false;
+    const pendingNow = this.pendingTech && !parryBusy;
+    if (pendingNow) this.pendingTech = false;
     const secondary = enabled && (this.actions.isHeld('secondary') || this.actions.wasPressed('secondary'));
     const tools = this.m4.tools;
     const eye = { x: o.x, y: o.y, z: o.z };
@@ -357,7 +395,9 @@ export class DigSystemImpl implements DigSystem {
       const bladeItem = isBladeItem(held) ? held : null;
       let tech = false;
       if (bladeItem && enabled) {
-        if (blade.state().phase !== 'idle') tech = true;
+        if (parryBusy) tech = false;
+        else if (pendingNow) tech = true;
+        else if (blade.state().phase !== 'idle') tech = true;
         else if (primaryRaw) {
           if (dec) tech = dec.use === 'attack' || dec.use === 'whiff';
           else {
@@ -366,12 +406,13 @@ export class DigSystemImpl implements DigSystem {
           }
         }
       }
+      if (parryM && tech && primaryRaw && this.actions.wasPressed('primary') && blade.state().phase !== 'idle' && pstate?.buffered) parryM.dropBuffer();
       const body = this.bodyPoint(p, this.bodyScratch);
       blade.update({
         item: bladeItem,
-        techPressed: tech && primaryRaw && (!this.prevPrimaryRaw || this.actions.wasPressed('primary')),
+        techPressed: tech && ((primaryRaw && (!this.prevPrimaryRaw || this.actions.wasPressed('primary'))) || pendingNow),
         techHeld: tech && primaryRaw,
-        stancePressed: enabled && this.actions.wasPressed('stanceNext' as Action),
+        stancePressed: enabled && !parryBusy && this.actions.wasPressed('stanceNext' as Action),
         eye,
         dir: d,
         position: p.position,
@@ -381,6 +422,7 @@ export class DigSystemImpl implements DigSystem {
         attackDirDeg: dec?.dirDeg ?? p.yawDeg,
         attackTarget: dec && dec.targetId !== null && list ? this.targetCenter(list, dec.targetId) : null,
       });
+      if (parryBusy) blade.dropBuffer?.();
       if (tech) primary = false;
       if (dec && bladeItem) {
         const bs = blade.state();
