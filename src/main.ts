@@ -643,6 +643,7 @@ const dig = new DigSystemImpl(
     bucket: createBucket({ inventory, emit: (e) => farm.emit(e), tick: () => game.tick }),
     pet,
     animals,
+    eggHeal: () => live.animalEggHeal,
     emitFarm: (e) => farm.emit(e),
     nowTick: () => game.tick,
     vitals: combat,

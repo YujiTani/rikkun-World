@@ -95,6 +95,16 @@ test.describe('LIVE-1 なかま（ついてくる・ワープ・保存）', () =
       const p = h.player.get().position;
       const out: any = { warpCount: w.length, d: A.dist(c, p), dy: c.y - p.y, below: h.world.getBlock(Math.floor(c.x), Math.floor(c.y) - 1, Math.floor(c.z)) };
       // (4) 200 マス
+      h.player.set({ position: { x: 210.5, y: 40, z: 6.5 }, velocity: { x: 0, y: 0, z: 0 } });
+      h.step(1);
+      return out;
+    });
+    await page.evaluate(() => (window as any).__rikkun.world.settle({ full: true }));
+    const r2 = await page.evaluate(() => {
+      const h = (window as any).__rikkun;
+      const A = (window as any).__A;
+      const id = h.animals.list().find((a: any) => a.friend)?.id;
+      const out: any = {};
       (window as any).__arena.floor(200, 0, 220, 20);
       h.player.set({ position: { x: 210.5, y: 9, z: 6.5 }, velocity: { x: 0, y: 0, z: 0 } });
       h.step(120);
@@ -107,8 +117,8 @@ test.describe('LIVE-1 なかま（ついてくる・ワープ・保存）', () =
     expect(r.d).toBeLessThanOrEqual(3 + 0.2);
     expect(Math.abs(r.dy)).toBeLessThanOrEqual(1.01);
     expect(r.below).not.toBe('air');
-    expect(r.far, '200 マスでも 消えない').toBe(true);
-    expect(r.farDist).toBeLessThanOrEqual(4);
+    expect(r2.far, '200 マスでも 消えない').toBe(true);
+    expect(r2.farDist).toBeLessThanOrEqual(4);
   });
 
   test('AC11b 2 段の かべの 上 8 マス先 → 近づけない ので stuck ワープ（120〜240 ステップ）', async ({ page }) => {

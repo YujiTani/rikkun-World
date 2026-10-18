@@ -324,6 +324,20 @@ describe('なかよし(AC6・AC9)', () => {
     expect(s.one(w0).hearts).toBe(1);
   });
 
+  it('3 つ目 の あと ロック中 に 上限 に なる → 先に full（やさい は へらない・ハート 2 の まま）', () => {
+    const s = setup();
+    for (let i = 0; i < 7; i++) s.m.spawn(48.5 + i * 0.7, 9, 50.5, { friend: true });
+    const a = s.m.spawn(60.5, 9, 55.5, { hearts: 2 })!;
+    const b = s.m.spawn(60.5, 9, 58.5, { hearts: 2 })!;
+    s.step(31);
+    expect(s.m.feed(a, 'tomato')).toBe('ate');
+    expect(s.m.feed(b, 'tomato')).toBe('full');
+    s.step(31);
+    expect(s.one(a).friend).toBe(true);
+    expect(s.one(b).hearts).toBe(2);
+    expect(s.one(b).friend).toBe(false);
+  });
+
   it('やせい を やさい 以外 で なでる → feedHint・ハート そのまま', () => {
     const s = setup();
     const id = s.m.spawn(55.5, 9, 50.5)!;

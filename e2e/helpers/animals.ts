@@ -33,6 +33,7 @@ export async function openAnimals(page: Page, query = '?nosave=1'): Promise<void
       for (let i = 0; i < n; i++) {
         rawStep(1);
         if (h.achievements.modal().open) {
+          (window as any).__modalSeen = true; // 出た ことは 記録（AC6 が 見る）
           // ボタンが 押せる ように なるまで 画面だけ 進めて 閉じる（世界は 止まったまま）
           for (let k = 0; k < 600 && h.achievements.modal().open; k++) {
             h.achievements.close();

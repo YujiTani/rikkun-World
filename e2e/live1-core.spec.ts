@@ -112,8 +112,8 @@ test.describe('LIVE-1 にわとり（であう・あげる・たたけない）'
       const h = (window as any).__rikkun;
       const A = (window as any).__A;
       A.base();
-      // にわとり (4.5, 9, 6.5) の うしろ（東）に 土の かべ
-      for (let y = 9; y <= 12; y++) for (let z = 5; z <= 8; z++) h.world.setBlock(6, y, z, 'dirt');
+      // にわとり (4.5, 9, 6.5) の すぐ うしろ（東）に 土の かべ（ねらいの 線は 下向きで 床に 当たる 前に とどく よう 近くに 置く）
+      for (let y = 9; y <= 12; y++) for (let z = 5; z <= 8; z++) h.world.setBlock(5, y, z, 'dirt');
       h.step(2);
       const id = A.chicken(4.5, 6.5);
       const out: any = { aimed: A.aim(id) };
@@ -141,12 +141,17 @@ test.describe('LIVE-1 にわとり（であう・あげる・たたけない）'
       h.inventory.clear();
       A.aim(id);
       const t = h.target.get();
-      out.targetBlock = t ? { x: t.block.x, y: t.block.y } : null;
-      out.wallBefore = h.world.getBlock(6, 10, 6);
+      out.targetBlock = t ? { x: t.block.x, y: t.block.y, z: t.block.z } : null;
+      out.wallBefore = h.world.getBlock(5, 10, 6);
       h.input.press('primary');
-      h.step(400);
+      h.step(200); // ほり終わる（ready）まで
       h.input.release('primary');
-      out.wallAfter = h.world.getBlock(6, 10, 6) + '/' + h.world.getBlock(6, 9, 6);
+      h.step(2);
+      h.input.press('primary'); // 押し直すと こわれる（M2 AC4）
+      h.step(20);
+      h.input.release('primary');
+      h.step(2);
+      out.wallAfter = h.world.getBlock(out.targetBlock.x, out.targetBlock.y, out.targetBlock.z);
       return out;
     });
     expect(r.aimed).toBe(true);
@@ -155,8 +160,8 @@ test.describe('LIVE-1 にわとり（であう・あげる・たたけない）'
     expect(r.drift).toBeLessThanOrEqual(0.1);
     expect(r.hurt).toBe(0);
     expect(r.targetBlock, '左クリックは にわとりの うしろの ブロックを ねらう').not.toBeNull();
-    expect(r.targetBlock.x).toBe(6);
-    expect(r.wallAfter, 'ねらった ブロックが こわれた').toContain('air');
+    expect(r.targetBlock.x).toBe(5);
+    expect(r.wallAfter, 'ねらった ブロックが こわれた').toBe('air');
   });
 
   test('AC5b すりぬける・妖怪は ねらわない', async ({ page }) => {
@@ -232,6 +237,7 @@ test.describe('LIVE-1 にわとり（であう・あげる・たたけない）'
       out.friendStat = A.stat('friend:*');
       out.unlockFriend = A.unlocked('animal.friend.1');
       out.tomatoEnd = h.inventory.count('tomato');
+      out.modalSeen = !!(window as any).__modalSeen;
       return out;
     });
     expect(r.aimed).toBe(true);
@@ -251,6 +257,7 @@ test.describe('LIVE-1 にわとり（であう・あげる・たたけない）'
     expect(r.friendEv[0]).toMatchObject({ first: true });
     expect(r.friendStat).toBe(1);
     expect(r.unlockFriend).toBe(true);
+    expect(r.modalSeen, 'おめでとう画面が 出た').toBe(true);
     expect(r.tomatoEnd).toBe(2);
   });
 

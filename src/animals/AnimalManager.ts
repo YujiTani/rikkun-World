@@ -70,6 +70,30 @@ export interface AnimalManagerOptions {
   getPlayer: () => { position: Vec3 };
 }
 
+const SLAB: [number, number] = [0, 0];
+/** 1 つの 軸 の 区間 [t0,t1] を 箱 [lo,hi] で せばめる。当たらなければ null（返す 配列は 使いまわし） */
+function slab(o: number, d: number, lo: number, hi: number, t0: number, t1: number): [number, number] | null {
+  if (Math.abs(d) < 1e-9) {
+    if (o < lo || o > hi) return null;
+  } else {
+    let ta = (lo - o) / d;
+    let tb = (hi - o) / d;
+    if (ta > tb) {
+      const x = ta;
+      ta = tb;
+      tb = x;
+    }
+    if (ta > t0) t0 = ta;
+    if (tb < t1) t1 = tb;
+    if (t0 > t1) return null;
+  }
+  SLAB[0] = t0;
+  SLAB[1] = t1;
+  return SLAB;
+}
+const FOLLOW_OFFS: readonly number[] = [0, 0.5, -0.5, 1.0, -1.0, 1.6, -1.6];
+const SEP_OFFS: readonly number[] = [0, 0.8, -0.8, 1.6, -1.6];
+
 const dist2d = (ax: number, az: number, bx: number, bz: number) => Math.hypot(ax - bx, az - bz);
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -208,32 +232,24 @@ export class AnimalManager implements AnimalApi {
   // ------------------------------------------------------------ AnimalApi
 
   rayHit(origin: Vec3, dir: Vec3, maxDist: number): { id: number; distance: number } | null {
-    let best: { id: number; distance: number } | null = null;
+    let bestId = -1;
+    let bestT = Infinity;
     const hw = 0.4;
     for (const e of this.ents) {
       if (e.state === 'appear') continue;
-      let t0 = 0;
-      let t1 = maxDist;
-      const lo = [e.x - hw, e.y, e.z - hw];
-      const hi = [e.x + hw, e.y + 1.0, e.z + hw];
-      const o = [origin.x, origin.y, origin.z];
-      const dv = [dir.x, dir.y, dir.z];
-      let ok = true;
-      for (let a = 0; a < 3 && ok; a++) {
-        if (Math.abs(dv[a]!) < 1e-9) {
-          if (o[a]! < lo[a]! || o[a]! > hi[a]!) ok = false;
-        } else {
-          let ta = (lo[a]! - o[a]!) / dv[a]!;
-          let tb = (hi[a]! - o[a]!) / dv[a]!;
-          if (ta > tb) [ta, tb] = [tb, ta];
-          if (ta > t0) t0 = ta;
-          if (tb < t1) t1 = tb;
-          if (t0 > t1) ok = false;
-        }
+      const t = slab(origin.x, dir.x, e.x - hw, e.x + hw, 0, maxDist);
+      if (t === null) continue;
+      const ty = slab(origin.y, dir.y, e.y, e.y + 1.0, t[0], t[1]);
+      if (ty === null) continue;
+      const tz = slab(origin.z, dir.z, e.z - hw, e.z + hw, ty[0], ty[1]);
+      if (tz === null) continue;
+      if (tz[0] <= maxDist && tz[0] < bestT) {
+        bestT = tz[0];
+        bestId = e.id;
       }
-      if (ok && t0 <= maxDist && (best === null || t0 < best.distance)) best = { id: e.id, distance: t0 };
     }
-    return best;
+    if (bestId < 0) return null;
+    return { id: bestId, distance: bestT };
   }
 
   preview(id: number, held: ItemStack | null): 'feed' | 'animalPet' | null {
@@ -260,7 +276,7 @@ export class AnimalManager implements AnimalApi {
       return 'ate';
     }
     if (e.hearts >= 2) {
-      if (this.friendCount() >= s.animalFriendMax) {
+      if (this.friendCount() + this.pendingFriends() >= s.animalFriendMax) {
         this.hintOut('friendFull');
         return 'full';
       }
@@ -272,6 +288,13 @@ export class AnimalManager implements AnimalApi {
     }
     this.setLock(e, 'eat', s.animalReactTicks);
     return 'ate';
+  }
+
+  /** 3 つ目 の やさい を たべて ロック中 の（まもなく なかま に なる）数 */
+  private pendingFriends(): number {
+    let n = 0;
+    for (const e of this.ents) if (e.becomeFriend) n++;
+    return n;
   }
 
   pet(id: number): 'wild' | 'friend' | null {
@@ -595,7 +618,7 @@ export class AnimalManager implements AnimalApi {
     let v = s.animalFollowSpeed * DT * (e.inWater ? 0.5 : 1);
     v = Math.min(v, Math.max(0, d - 0.05));
     e.walkYaw = base;
-    for (const off of [0, 0.5, -0.5, 1.0, -1.0, 1.6, -1.6]) {
+    for (const off of FOLLOW_OFFS) {
       const a = base + off;
       if (this.tryMove(e, Math.sin(a) * v, -Math.cos(a) * v, this.world.size.y, true)) return;
     }
@@ -743,7 +766,7 @@ export class AnimalManager implements AnimalApi {
       const push = Math.min(0.05, FRIEND_MIN_GAP + 0.05 - Math.hypot(e.x - o.x, e.z - o.z) || 0.05);
       const ux = dx / dd;
       const uz = dz / dd;
-      for (const off of [0, 0.8, -0.8, 1.6, -1.6]) {
+      for (const off of SEP_OFFS) {
         const c = Math.cos(off);
         const sn = Math.sin(off);
         if (this.tryMove(e, (ux * c - uz * sn) * push, (ux * sn + uz * c) * push, this.world.size.y, true)) break;

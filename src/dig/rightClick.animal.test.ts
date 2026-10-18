@@ -16,6 +16,7 @@ interface Opts {
   preview?: 'feed' | 'animalPet' | null;
   feed?: 'ate' | 'pet' | 'full' | null;
   hp?: number;
+  eggHeal?: number;
 }
 
 function rig(o: Opts) {
@@ -89,6 +90,7 @@ function rig(o: Opts) {
       noteHint: (h) => void log.push(`hint ${h}`),
     },
     vitals: { hp: () => hp, maxHp: () => 10, heal: (n) => ((hp = Math.min(10, hp + n)), n) },
+    ...(o.eggHeal !== undefined ? { eggHeal: () => o.eggHeal! } : {}),
   });
   dig.update();
   actions.endFrame();
@@ -183,6 +185,11 @@ describe('右クリック 9: たまご を たべる', () => {
     press(r);
     expect(r.log).toEqual(['eat egg 2']);
     expect(r.inv.held()?.count).toBe(2);
+  });
+  it('たまご の 回復 は 設定（eggHeal）を すぐ 読む', () => {
+    const r = rig({ held: 'egg', hp: 5, hitDistance: null, eggHeal: 4 });
+    press(r);
+    expect(r.log).toEqual(['eat egg 4']);
   });
   it('体力 まんたん → たべず 合図 full', () => {
     const r = rig({ held: 'egg', hp: 10, hitDistance: null });

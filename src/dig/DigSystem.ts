@@ -92,6 +92,8 @@ export interface DigM4Deps {
   bucket?: BucketPort;
   /** LIVE-1: にわとり（A の `AnimalApi`。ふりわけ 0 は 口 を 呼ぶ だけ。なければ M7-2 のとおり） */
   animals?: AnimalApi;
+  /** LIVE-1: たまご の 回復（設定 animalEggHeal を すぐ 読む）。なければ 初期値 */
+  eggHeal?: () => number;
   /** M7-2: なでる・ごきげん（`PetPort`。C の `farm/pet.ts`） */
   pet?: PetPort;
   /** M7-2: 農業 の 出来事 を 足す（A の `emit`。`pet` の 出来事 用）。なければ 出さない */
@@ -818,7 +820,7 @@ export class DigSystemImpl implements DigSystem {
       farm.noteHint('full', at);
       return;
     }
-    const got = v.heal(farm.eatHeal(item) || (item === 'egg' ? LIVE_SETTING_DEFAULTS.animalEggHeal : 0));
+    const got = v.heal(farm.eatHeal(item) || (item === 'egg' ? (this.m4.eggHeal?.() ?? LIVE_SETTING_DEFAULTS.animalEggHeal) : 0));
     this.inventory.consumeHeld();
     this.m4.tools?.pushSwing('place');
     farm.noteEat(item, got, at);
