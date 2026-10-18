@@ -50,3 +50,6 @@
 | 7 | dev | code-reviewer | 【軽微】(直した) live1-carry AC18（`aimBlock` の 戻り を 見ず、ねらえて なくても「こわれない」で 通る）・AC17c（`A.aim(id)` を 見ず 空振りでも 通る）に ねらえた ことの 断言を 足した | 空振り | G20 | 対応済み（直した） |
 | 7 | dev | code-reviewer | 【軽微】(直した) AC13 の「leaves ＋ あみ → mushi_ami・とる」が どの E2E にも 無かった。live1-net に AC13 を 足した | 基準の 抜け | G21 | 対応済み（直した） |
 | 7 | dev | code-reviewer | 【軽微】(残し) live1-carry AC17c: だっこ 中 に 2 わ目 を 60 ステップ 押しつづけ る が、00（おろす）で 押し が 使われた あと 続きの 押しで 2 わ目 を だっこ する か は 仕様 に 明記 なし。実装 が だっこ しても 正しい かも。実装 時 に 仕様 を 確かめる。live1-net AC7c は 同じ 木 の おやすみ が 1,900 後 に 明ける 前提。AC9 は 「1,800 より 前 は まだ おやすみ」を 見ない | 仕様 の すき間 | G22 | 未対応 |
+| 8 | dev | code-reviewer | 【軽微】(直した) src/dig/DigSystem.ts rightFirst・AnimalManager.carryHold: やせい の 長おし の 合図 carryWild は A の `wildAnnounced` が 戻らず、実機 では 1 回 目 しか 出ない（DigSystem は 40 ちょうど でしか 呼ばない ため）。やせい を 押した ステップ に `carryHold(id, 0)` で 印 を もどす | 新しい 押し ごと の 初期化 | G23 | 対応済み（直した） |
+| 8 | dev | code-reviewer | 【軽微】(残し) AnimalManager warp の `ents.filter`・rayHit/follow の 小さな 配列: 毎ステップ の new（G3 の まま） | 毎フレームの new | G3 | 未対応 |
+| 8 | dev | code-reviewer | 版 3.2 実装: 判定 合格（重大 0）。確かめた: 保存 v1→v2・だっこ中 の 保存 位置・やられた 時 dropCarried・くじ の 乱数 1 回／別シード・だっこ中 は 当たり判定／ワープ／ついてくる 減り から 外れる・文 の ruby。check:fast OK（exit 0） | — | — | 対応済み |

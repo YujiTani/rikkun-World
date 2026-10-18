@@ -809,6 +809,7 @@ export class DigSystemImpl implements DigSystem {
         this.rightMode = 'hold';
       } else {
         this.rightMode = 'wild';
+        a.carryHold?.(h.id, 0); // A の「合図 を 出した」印 を 新しい 押し ごと に もどす（2 回目 の 長おし でも carryWild）
         if (pv) this.doAnimalKind(pv.kind);
       }
       return;
