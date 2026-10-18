@@ -249,8 +249,11 @@ function nobanaTile(): Tile {
   const t = solid(hex('#000000', 0));
   for (const [x, top] of [[3, 12], [8, 9], [12, 11]] as const) {
     for (let y = top; y < 16; y++) t[y * TILE_SIZE + x] = hex('#3E8B2F');
-    fillRect(t, x - 1, top - 2, 3, 3, hex('#8FC1F0'));
+    // ちいさな あお（3×3 だと 遠くで 空の色の かたまりに まぎれる）。きいろの 芯を となりに 1 つ
+    t[(top - 2) * TILE_SIZE + x] = hex('#8FC1F0');
+    t[(top - 1) * TILE_SIZE + x + 1] = hex('#8FC1F0');
     t[(top - 1) * TILE_SIZE + x] = hex('#FFF3B0');
+    t[(top - 2) * TILE_SIZE + x + 1] = hex('#FFF3B0');
   }
   for (const x of [5, 6, 10, 14]) for (let y = 13; y < 16; y++) t[y * TILE_SIZE + x] = hex('#4CA332');
   return t;

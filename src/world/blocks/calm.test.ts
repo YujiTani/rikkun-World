@@ -189,7 +189,7 @@ describe('CALM 基準 5: 変えない絵は 1 画素も変わらない', () => {
   // 今の出力（変更前）の FNV-1a ハッシュ
   const HASH: Record<string, string> = {
     // FLORA-75: 新しい絵（くさ・のばな）。この絵が かわったら ここも かえる
-    kusa: 'de2c024e', nobana: '7fc19837',
+    kusa: 'de2c024e', nobana: '72dd2d99',
     water: 'f64947c5', furnace_top: '2aedb2c5', furnace_side: 'fdaf9b1d', kawara: 'e25734c5', brick: 'b40ddb95',
     torch: '4c858a0d', start_torch: '311711f5', tansu_front: '649007d9', tansu_top: '2ac3a495',
     farmland_top: '235cb4e0', farmland_wet_top: '2906be25',
