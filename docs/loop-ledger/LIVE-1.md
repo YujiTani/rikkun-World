@@ -30,3 +30,6 @@
 | 2 | dev | code-reviewer | 【軽微】e2e/live1-follow.spec.ts AC11b（140 行）: 下限 `stuck - 20` が §2.6「120 ステップ 動けなかった」より ゆるい。先に プレイヤー を 12.5 に 置く 手順 を やめ、16.5 へ 置いてから 数える ように して 下限 `stuck` に する。AC10: 12 マス の 歩き 数に 4.0 を 決め打ち（`animalFollowSpeed` から 読む）。「300 ステップ 以内」は 最後 の 1 点 だけ 見て いる | 境界 の ゆるみ | G9 | 未対応 |
 | 2 | dev | code-reviewer | 【軽微】e2e/live1-egg.spec.ts AC16b: なかまを プレイヤーから ちょうど 4.0 マス（animalFollowStart）に 置いて いて 歩きだす 境目。5 マス以上 か 非なかま に する。AC18: 遠い 側で プレイヤーを x=-2.5（床の 外）に 置く ので 落ちる。床の 内側で 離す。AC19 の 1,000 文字・10 わ・おかしい 行・うまった は E2E に 無い → ユニット（開発）で 必ず 書く | 境界・足場 | G9 | 未対応 |
 | 3 | dev | code-reviewer | 重大 5 件（G7・G8）は 120aac0 で 直った（day≥5・step なし・石 半径 5・合図を すぐ 読む・aimed を 断言）。軽微 は 未対応 の まま でよい。判定: 合格 | — | G7・G8 | 対応済み |
+| 1 | dev | code-reviewer | 【軽微】src/animals/AnimalManager.ts rayHit・follow・separate・warp: 毎ステップ `[lo,hi,o,dv]` や `[0,0.5,-0.5,…]` の 配列 を にわとり ごと に 作る（rayHit は dig が 毎ステップ 呼ぶ）。定数 の 配列 に する・スカラー で 書く | 毎フレームの new | G3 | 未対応 |
+| 1 | dev | code-reviewer | 【軽微】src/dig/DigSystem.ts doEat: たまご の 回復 に `LIVE_SETTING_DEFAULTS.animalEggHeal` を 使い、`live` 設定 を 変えても 効かない（設定 は すぐ 効く 約束）。設定 を 渡す | 設定 が 届いて いない | G4 | 未対応 |
+| 1 | dev | code-reviewer | 【軽微】AnimalManager.ts finishLock: 3 つ目 の やさい を 食べた あと ロック 中 に なかま が 上限 に なる と やさい だけ 減って なかま に ならない（ハート 2 の まま）。ほぼ 起きない ので あとで 直す | 境界 | G5 | 未対応 |
