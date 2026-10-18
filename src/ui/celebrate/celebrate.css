@@ -336,6 +336,9 @@
   background-clip: text;
   color: transparent;
   -webkit-text-fill-color: transparent;
+  text-shadow: none; /* ふちの影が すけて 黒く 見えるので 消す */
+  -webkit-text-stroke: 0;
+  filter: drop-shadow(0 1px 0 rgb(0 0 0 / 60%));
   animation: cel-rainbow-flow 6s linear infinite;
 }
 @media (prefers-reduced-motion: reduce) {
