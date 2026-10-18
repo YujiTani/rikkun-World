@@ -1,5 +1,5 @@
 import type { CropStageSource } from '../../../contracts';
-import { LOOK_N, LOOK_VOLUME, fillBlockLookKata, hasLook, initLooks, occludes } from '../../../proto/voxel/looks';
+import { LOOK_N, LOOK_VOLUME, fillBlockLookKata, hasLook, initLooks, kataOf, occludes } from '../../../proto/voxel/looks';
 import { newSample, sampleSurface, type ColumnSource, type SurfaceSample } from '../../micro/microSurface';
 import { scanColumn, type ColumnInfo } from '../../micro/worldColumns';
 import { BLOCK_TYPES, WATER, isLeafIndex, isOpaqueIndex } from '../../blocks/blockTypes';
@@ -94,6 +94,8 @@ function buildOcc(): Uint8Array {
   return t;
 }
 const OCC = buildOcc();
+/** はっぱの種類（#202: はっぱは 地下あつかいしない） */
+const LEAF = Uint8Array.from(BLOCK_TYPES, (_t, i) => (isLeafIndex(i) ? 1 : 0));
 /** 光を通さない（光の読みを まわりからかりる） */
 const OPAQUE_LIGHT = Uint8Array.from(OPACITY, (o) => (o >= 15 ? 1 : 0));
 
@@ -710,7 +712,7 @@ export class SectionMesher {
             if (n >= 0 && OCC[n] === 0) e |= 1 << f;
             if (n === WATER) wet = true;
           }
-          this.uniq[i] = e === 0 ? 0 : wet ? 1 : !isLeafIndex(k) && this.underground(bxi, byi, bzi, e) ? 2 : 0;
+          this.uniq[i] = e === 0 ? 0 : wet ? 1 : LEAF[k] === 0 && kataOf(k) > 0 && this.underground(bxi, byi, bzi, e) ? 2 : 0;
           if (e === 0 && terrain && OCC[k] === 1) {
             // 小ブロック地形の となりの列の てっぺんが 同じ高さ: 地形の へこみから この横の面が 見える（置いた ブロックの下の地面・
             // 崖の下の段。ここが 空くと 空の色が すきまに 見える。TEX-A 基準 9）。形は つまったまま（へこませない）で、
