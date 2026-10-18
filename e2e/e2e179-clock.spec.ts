@@ -82,9 +82,17 @@ test.describe('#179 テストの時計', () => {
       await openRaw(page, fine('?nosave=1'));
       await quietDown(page);
       await waitDoll(page);
+      // ready のあと テストが止めるまでの間は 本当の時間で コマが進む（そろうまで読みこみを続ける）。そこで差が出ないように、
+      // まず輪を全部そろえて（どの道すじでも同じ終わりの形）、そこから 決まった穴をほって 落ちつくまでのコマを数える（#203）
+      await page.evaluate(() => (window as any).__rikkun.world.settle({ full: true }));
       const r = await page.evaluate(() => {
         const h = (window as any).__rikkun;
+        const p = h.player.get().position;
+        const x = Math.floor(p.x);
+        const z = Math.floor(p.z);
+        const gy = h.world.groundHeight(x, z + 6);
         h.world.rebuildLog(true);
+        h.world.fill(x - 4, gy - 3, z + 3, x + 4, gy, z + 9, 'air');
         let n = 0;
         while (h.world.lightPending() > 0 || h.world.meshStats().pending > 0) {
           if (n >= 3000) throw new Error('QUIET_TIMEOUT');
