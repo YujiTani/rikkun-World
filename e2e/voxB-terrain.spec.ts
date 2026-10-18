@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { installAimHelpers } from './helpers/aim';
 import { installArena } from './helpers/arena';
+import { wide } from './helpers/fine';
 
 /**
  * VOX-B（docs/tickets/VOX-B.md）: どこまでも続く地形（高さ 352・海面 144）の E2E。
@@ -52,7 +53,7 @@ test.describe('VOX-B 地形（つないだ後）', () => {
   });
 
   test('AC16(VOX-D): 動かない起動で 読みこんだ列は 289（スタートの列から 8 以内）。仮の海のふちは無い（基準 22 は voxD-stream）', async ({ page }) => {
-    await open(page);
+    await open(page, wide('?nosave=1')); // 輪の大きさ（289 列）を見る（#203）
     const r = await page.evaluate(async () => {
       const h = (window as any).__rikkun;
       const w = h.world;

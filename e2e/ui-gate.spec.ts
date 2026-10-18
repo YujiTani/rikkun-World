@@ -4,6 +4,7 @@ import { standOnGround } from './helpers/aim';
 import { toStance } from './helpers/blade';
 import { waitSpritesReady } from './helpers/char';
 import { findLand, openBooting } from './helpers/stream';
+import { wide } from './helpers/fine';
 import { checkLayout } from './helpers/layoutRules';
 import { checkColors, checkComponents, checkContrast, checkFontSizes, snapshotUi } from './helpers/uiRules';
 
@@ -69,8 +70,8 @@ const toggleInventory = () => {
   h.step(3);
 };
 
-async function boot(page: Page, locked: boolean): Promise<void> {
-  await page.goto('/?nosave=1');
+async function boot(page: Page, locked: boolean, query = '?nosave=1'): Promise<void> {
+  await page.goto('/' + query);
   await page.waitForFunction(() => window.__rikkun?.ready === true);
   await page.evaluate((locked) => {
     const h = window.__rikkun! as any;
@@ -671,7 +672,8 @@ test('CHAR-2 AC34: 切りつめる前と後で 画面が ドット単位で 同�
 test('CHAR-4 AC13: ぼくとう と かたなの 画面の ちがいは キャラの板の 四角の 中だけ', async ({ page }) => {
   test.setTimeout(120_000);
   await page.setViewportSize({ width: 1280, height: 800 });
-  await boot(page, true);
+  // 小さい輪（E2E の既定）だと 1 回目と 2 回目で 地面の 1 ドットが ちがうことがある。地面も同じに 撮るため ふだんの輪で（#203）
+  await boot(page, true, wide('?nosave=1'));
   await page.addStyleTag({ content: '#hud{display:none !important}' });
   await page.evaluate(() => {
     const h = window.__rikkun! as any;
@@ -692,10 +694,11 @@ test('CHAR-4 AC13: ぼくとう と かたなの 画面の ちがいは キャ�
   await waitSpritesReady(page, CHAR2_KATANA);
 
   const shoot = async (slot: number): Promise<Buffer> => {
-    await page.evaluate((slot) => {
+    await page.evaluate(async (slot) => {
       const h = window.__rikkun! as any;
       h.inventory.select(slot);
       h.step(1);
+      await h.world.settle({ full: true }); // 輪の読みこみ（生成）も おわってから撮る。光とメッシュの pending だけだと 生成中の列が あとから 出る（#203）
       for (let n = 0; (h.world.lightPending() > 0 || h.world.meshStats().pending > 0) && n < 3000; n += 5) h.step(5);
       h.step(2);
       h.time.set(0);

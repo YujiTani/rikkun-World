@@ -136,6 +136,7 @@ import { START_PITCH_DEG } from './player/config';
 import { computeFarmPlacement, applyFarmPlacement } from './world/gen/farmPlacement';
 import { createFarmVisual } from './world/render/farmVisual';
 import { FarmFx } from './fx/farmFx';
+import { decideRing, setRing } from './world/stream/ring';
 import { FarmHint } from './ui/farmHint';
 import { FarmAimHud } from './ui/farmAim';
 import { itemIconPixels } from './ui/itemIcon';
@@ -226,6 +227,8 @@ if (restored === null) {
 // 小ブロックの半径（?microR=0|16|24|28。F3 を出して F4 でも切りかえる。VOX-E）。
 // E2E のサーバー（VITE_MICRO_DEFAULT=off）は 0 = 小ブロックなし。最初の列の段から効くよう 作るときに渡す（#180）
 // 1 コマの仕事を 時間で決めるか 数で決めるか（E2E のサーバー VITE_FRAME_CLOCK=count は数。#179）
+// 輪の大きさ（?ring=full|small。E2E のサーバーは VITE_RING_DEFAULT=small。#203）。WorldRenderer を作る前に 1 回だけ決める
+setRing(decideRing(location.search, import.meta.env.VITE_RING_DEFAULT as string | undefined));
 const frameClock = decideFrameClock(location.search, import.meta.env.VITE_FRAME_CLOCK as string | undefined);
 const renderer = new WorldRenderer(world, decideMicroR(location.search, import.meta.env.VITE_MICRO_DEFAULT as string | undefined), frameClock);
 renderer.enableStreaming();

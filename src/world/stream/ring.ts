@@ -2,15 +2,57 @@
  * 持つ範囲の輪（VOX-D R1〜R6）。距離は列のチェビシェフ距離 max(|cx − pcx|, |cz − pcz|)。three にも world にも依らない。
  */
 
-/** 描く / 光 / 生成 / 残す（これより外は捨てる） */
-export const R_DRAW = 6;
-export const R_LIGHT = 7;
-export const R_GEN = 8;
-export const R_KEEP = 10;
-/** 描く輪の外へ出たメッシュを捨てるのは、この半径より外（7 は残す） */
-export const R_DRAW_DROP = 7;
-/** 持つ列の最大（21×21） */
-export const MAX_COLUMNS = (2 * R_KEEP + 1) ** 2;
+/** 輪の大きさ一式。起動のときに 1 回だけ決める（#203） */
+export interface RingSpec {
+  /** 描く / 光 / 生成 / 残す（これより外は捨てる） */
+  readonly draw: number;
+  readonly light: number;
+  readonly gen: number;
+  readonly keep: number;
+  /** 描く輪の外へ出たメッシュを捨てるのは、この半径より外（full では 7 は残す） */
+  readonly drawDrop: number;
+  /** 持つ列の最大 */
+  readonly maxColumns: number;
+}
+
+const mk = (draw: number, light: number, gen: number, keep: number, drawDrop: number): RingSpec => ({
+  draw,
+  light,
+  gen,
+  keep,
+  drawDrop,
+  maxColumns: (2 * keep + 1) ** 2,
+});
+
+/** ふだんの輪（描く 6・光 7・生成 8・残す 10・捨てる 7） */
+export const RING_FULL: RingSpec = mk(6, 7, 8, 10, 7);
+/** E2E 用の小さい輪（開始の条件 K1 は半径 4 の 81 列なので 描く 4 より小さくしない） */
+export const RING_SMALL: RingSpec = mk(4, 5, 6, 8, 5);
+
+/**
+ * 決める順: URL `?ring=full|small` > 環境変数 `VITE_RING_DEFAULT=small` > full（shadowPref・decideMicroR と同じ形）。
+ */
+export function decideRing(search: string, envDefault: string | undefined): RingSpec {
+  const raw = new URLSearchParams(search).get('ring');
+  if (raw === 'full') return RING_FULL;
+  if (raw === 'small') return RING_SMALL;
+  return envDefault === 'small' ? RING_SMALL : RING_FULL;
+}
+
+let current: RingSpec = RING_FULL;
+/** main.ts が起動のとき 1 回だけ呼ぶ（WorldRenderer・ChunkStream を作る前） */
+export function setRing(r: RingSpec): void {
+  current = r;
+}
+export const getRing = (): RingSpec => current;
+
+/** full の値（ユニットテストの目安） */
+export const R_DRAW = RING_FULL.draw;
+export const R_LIGHT = RING_FULL.light;
+export const R_GEN = RING_FULL.gen;
+export const R_KEEP = RING_FULL.keep;
+export const R_DRAW_DROP = RING_FULL.drawDrop;
+export const MAX_COLUMNS = RING_FULL.maxColumns;
 
 export const cheb = (cx: number, cz: number, pcx: number, pcz: number): number => Math.max(Math.abs(cx - pcx), Math.abs(cz - pcz));
 
