@@ -32,8 +32,8 @@ export interface StreamMesh {
   pendingJobs(): number;
   /** 次の仕事の近さ（チェビシェフ。プレイヤーが変えた所は −1）。無ければ null */
   nextJobDist(): number | null;
-  /** 1 つ進める。進めたら true */
-  runJob(): boolean;
+  /** 1 つ進める。進めたら true。deadline（now() の値）があれば、小ブロックの 1 セクションは そこまで進めて 途中で止める（PERF-2。count の道・work 指定では 渡さない） */
+  runJob(deadline?: number): boolean;
   /** 'true' = その列の本当の段まで・'drawn' = 何かの絵を出している・'none' = まだ */
   columnState(cx: number, cz: number): 'none' | 'drawn' | 'true';
   /** 箱から小ブロックへの差しかえを してよいか（開始のあと） */
@@ -282,7 +282,7 @@ export class ChunkStream {
         streamUsed += this.now() - ts;
         ran = true;
       } else if (md !== null) {
-        ran = this.d.mesh.runJob();
+        ran = this.work === null && !count ? this.d.mesh.runJob(t0 + totalMs) : this.d.mesh.runJob();
         if (ran && count) {
           const j = this.d.mesh.lastJob?.() ?? { meshes: 1, micro: false };
           made += j.meshes;

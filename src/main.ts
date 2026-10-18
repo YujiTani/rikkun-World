@@ -236,6 +236,7 @@ if (restored === null) {
 setRing(decideRing(location.search, import.meta.env.VITE_RING_DEFAULT as string | undefined));
 const frameClock = decideFrameClock(location.search, import.meta.env.VITE_FRAME_CLOCK as string | undefined);
 const renderer = new WorldRenderer(world, decideMicroR(location.search, import.meta.env.VITE_MICRO_DEFAULT as string | undefined), frameClock);
+if (new URLSearchParams(location.search).get('meshSlice') === 'off') renderer.config.meshSlice = false; // 小ブロックを 分けずに 1 回で作る（見くらべ・perf 用）
 renderer.enableStreaming();
 renderer.setViewer(island.spawn().x, island.spawn().z);
 renderer.attach(game.scene);
