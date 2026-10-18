@@ -38,7 +38,8 @@ import { FARM_HINT_VIEW } from './ui/farmHintModel';
 import { ITEM_RARITY_SETTINGS, itemRarity, rarityIndex } from './drops/rarity';
 import { createRarityHook } from './drops/rarityHook';
 import { itemType } from './inventory/items';
-import { createGuideHook } from './ui/playOverlay';
+import { Book } from './ui/book/Book';
+import { playBook } from './fx/bookSounds';
 import { SEA_Y, WORLD_LIMIT, createM6Settings, createM7Settings, createW2Settings, SEED_ITEM, VEG_ITEM, CROP_KINDS, cropKindOfBlock, type FarmPlacement, type AchievementId, type CombatEvent, type DefeatWith, type DigEvent, type ItemId, type SwingAnim, type YokaiKind } from './contracts';
 import { ACHIEVEMENT_DEFS, AchievementSystem, AchievementsPageModel, createAchievementsHook, type StepContext } from './achievements';
 import { CelebrateUi } from './ui/celebrate';
@@ -251,7 +252,9 @@ const sky = new Sky({ scene: game.scene, time, timeSettings, lighting, light: re
 mountHud(hud);
 const lock = new LockController();
 const wheel = new WheelAccumulator(game.input, () => lock.playInputEnabled());
-bindKeyboardAndMouse(window, game.input, wheel);
+// 本（BOOK-1）が 出ている間だけ Backspace を 止める（ブラウザの「前のページへ」にならないように）
+let bookRef: Book | null = null;
+bindKeyboardAndMouse(window, game.input, wheel, { preventExtra: () => bookRef?.active() === true });
 const look = new MouseLook(lock);
 const pointerLock = bindPointerLock(document, window, game.renderer.domElement, lock, look, game.input);
 // SOUND-1: 音（ミキサー → BGM → 効果音の順に作る。AudioContext は ミキサーだけが作る）
@@ -278,7 +281,16 @@ const titleSound = createBrowserTitleSound(
   window.addEventListener('pointerdown', warm, true);
   window.addEventListener('keydown', warm, true);
 }
-const playOverlay = new PlayOverlay(hud, lock, () => pointerLock.request(), () => playCraft(fxSound, 'tab'));
+// BOOK-1: あそびかたの 3D の 本。出ている間は 世界が 止まり、景色は 描きなおさない
+const book = new Book({
+  parent: document.body,
+  sound: (name) => playBook(fxSound, name),
+  beforeOpen: () => game.flushRender(),
+});
+bookRef = book;
+game.setModal(book);
+game.input.onPress((action) => book.onAction(action));
+const playOverlay = new PlayOverlay(hud, lock, () => pointerLock.request(), () => book.open());
 const soundSettingsUi = createSoundSettings({ audio: audioSettings, fx: FX_SETTINGS, onChange: () => audioSync() }, playOverlay.el);
 // 最初のクリック・キーで音が使えるようになる（ブラウザのきまり）
 for (const ev of ['pointerdown', 'keydown'] as const) window.addEventListener(ev, () => mixer.unlock(), true);
@@ -1263,6 +1275,8 @@ achievements.syncSilently({ level: level.get().level, armor: [armor.equipped('he
 celebrate.setPending(achievements.pendingCount());
 lock.onChange((locked) => {
   if (!locked) save.saveIfChanged();
+  // あそびが はじまった・もちもの画面やおめでとう画面が 出る: 本は すぐ しまう（案内画面が 出ていない 間は 本も 出さない）
+  if (!lock.overlayVisible()) book.closeNow();
 });
 screen.onClose(() => {
   // できごと で とじたあと E で開いたら もちもの から（L で開いた画面は L で開き直す）
@@ -1661,7 +1675,6 @@ const achievementsHook = {
 };
 const facingTmp = { x: 0, y: 0, z: 0 };
 const hudHook = { toolHint: () => { const h = dig.toolHint(); return h ? { slot: h.slot, ticksLeft: h.ticksLeft } : null; }, actionHint: () => actionHint.current(), yokaiFocus: () => yokaiFocus.current(), yokaiFocusHulls: () => yokaiFocus.hullCount(), hpBar: (id: number) => yokaiManager?.hpBarInfo(id) ?? null, announce: () => yokaiManager?.announce() ?? null, nameplate: (id: number) => yokaiManager?.nameplateInfo(id) ?? null, staggerIcon: (id: number) => yokaiManager?.staggerIconInfo(id) ?? null };
-const guideHook = createGuideHook(playOverlay);
 const lockHook = createLockHook(lock);
 const combatHook = createCombatHook(combat);
 const shadowStore = saveOptions.nosave ? null : window.localStorage;
@@ -1823,8 +1836,20 @@ installTestHook(game, overlay, () => host.everReady, {
   },
   lock: {
     ...lockHook,
-    tab: guideHook.tab,
-    get: () => ({ ...lockHook.get(), ...guideHook.state() }),
+    /** ロックが はずれた ことに する。本物の ポインターロックも はなす（テストの クリックが ロック中の 要素へ 飛ばないように） */
+    simulate: (locked: boolean) => {
+      lockHook.simulate(locked);
+      if (!locked && document.pointerLockElement) document.exitPointerLock();
+    },
+    /** 本を 出して その章の ② へ（動きなし・音なし）。BOOK-1 §4.4 */
+    tab: (name: string) => {
+      if (book.model.data.chapters.some((c) => c.id === name)) book.jump(name);
+    },
+    /** 本を 出して 'toc'・章の id・項目の id の ページへ（動きなし・音なし） */
+    book: (target: string) => book.jump(target),
+    /** 本だけの 描画回数・三角形（前回の 描画。性能の 記録用） */
+    bookStats: () => book.renderInfo(),
+    get: () => ({ ...lockHook.get(), ...book.state() }),
   },
   input: createInputHook(game.input, look, wheel),
   audio: createAudioHook({

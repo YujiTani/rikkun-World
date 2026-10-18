@@ -1119,19 +1119,26 @@ test.describe('CRAFT-2 半透明', () => {
     expect(bad).toEqual([]);
   });
 
-  test('案内画面: つくる・やく に 2 行', async ({ page }) => {
+  test('案内画面: つくる・やく に 2 行（BOOK-1: 本の 項目 craft-log・craft-nearby）', async ({ page }) => {
     await open(page);
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
       h.lock.simulate(false);
       h.lock.tab('craft');
       h.step(2);
-      return h.lock.get();
+      const out: any = { g: h.lock.get(), cap: {} };
+      for (const id of ['craft-log', 'craft-nearby']) {
+        h.lock.book(id);
+        for (let i = 0; i < 1200 && h.lock.get().bookAnim !== 'none'; i++) h.step(1);
+        h.step(2);
+        out.cap[id] = h.lock.get().bookCaption;
+      }
+      return out;
     });
-    expect(r.guideItems).toBe(9);
-    const texts = await page.locator('.po-help[data-page="craft"] .po-caption').allTextContents();
-    expect(texts).toContain('L で できごと を みる');
-    expect(texts).toContain('ちかくの たんす の ものも つかえる');
+    expect(r.g.guideItems).toBe(9);
+    expect(r.g.bookChapters.find((c: any) => c.id === 'craft').itemIds).toContain('craft-log');
+    expect(r.cap['craft-log']).toContain('L で できごと を みる');
+    expect(r.cap['craft-nearby']).toContain('ちかくの たんす の ものも つかえる');
   });
 });
 
