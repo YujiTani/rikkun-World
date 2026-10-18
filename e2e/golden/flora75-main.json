@@ -1,0 +1,81 @@
+{
+ "start": {
+  "drawCalls": 87,
+  "triangles": 480422
+ },
+ "countries": {
+  "harappa": {
+   "drawCalls": 148,
+   "triangles": 651952,
+   "here": "harappa",
+   "spots": 5
+  },
+  "mori": {
+   "drawCalls": 158,
+   "triangles": 896116,
+   "here": "mori",
+   "spots": 4
+  },
+  "ookina": {
+   "drawCalls": 173,
+   "triangles": 354938,
+   "here": "ookina",
+   "spots": 4
+  },
+  "hana": {
+   "drawCalls": 170,
+   "triangles": 347486,
+   "here": "hana",
+   "spots": 4
+  },
+  "sunahama": {
+   "drawCalls": 168,
+   "triangles": 364302,
+   "here": "sunahama",
+   "spots": 4
+  },
+  "susuki": {
+   "drawCalls": 154,
+   "triangles": 512192,
+   "here": "susuki",
+   "spots": 5
+  },
+  "take": {
+   "drawCalls": 98,
+   "triangles": 742132,
+   "here": "take",
+   "spots": 4
+  },
+  "kappa": {
+   "drawCalls": 104,
+   "triangles": 653112,
+   "here": "kappa",
+   "spots": 4
+  },
+  "iwayama": {
+   "drawCalls": 137,
+   "triangles": 752512,
+   "here": "iwayama",
+   "spots": 5
+  },
+  "tengu": {
+   "drawCalls": 94,
+   "triangles": 532400,
+   "here": "tengu",
+   "spots": 5
+  },
+  "momiji": {
+   "drawCalls": 105,
+   "triangles": 988080,
+   "here": "momiji",
+   "spots": 5
+  },
+  "yuki": {
+   "drawCalls": 99,
+   "triangles": 707890,
+   "here": "yuki",
+   "spots": 5
+  }
+ },
+ "_": "今の main（FLORA-75 の前）。start = スタートで 北向き。countries = 国ごとに 5 か所（まん中＋ななめ 40）× 4 方向の 最大（helpers/flora.ts measureCountry）。momiji は 前から 903,036 超え（この取り方では）"
+}

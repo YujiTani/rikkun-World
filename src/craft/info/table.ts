@@ -127,7 +127,7 @@ export const ITEM_INFO: Readonly<Record<string, InfoRow>> = {
     buttons: ['1-9', 'left'],
     stats: 'blade',
   },
-  crystal_katana: { use: 'いちばん つよい かたな', how: KATANA_HOW, buttons: ['1-9', 'left'], stats: 'blade' },
+  crystal_katana: { use: 'れんぞく で ふると 3 だん わざ に なる かたな', how: `${KATANA_HOW}。ひだりクリック を つづけて おすと 3 だん わざ`, buttons: ['1-9', 'left'], stats: 'blade' },
   yumi: {
     use: 'や を とばして とおく の ようかい を たおす。や が いる',
     how: 'えらんで ひだりクリック を おしつづけて ながく ひく。はなすと とぶ',

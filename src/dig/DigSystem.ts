@@ -33,6 +33,7 @@ import type {
 import type { Action, ActionState } from '../input/actions';
 import { LIVE_SETTING_DEFAULTS, cropKindOfBlock, seedKindOfItem, vegKindOfItem } from '../contracts';
 import { itemType } from '../inventory/items';
+import { isFloraBlock } from '../world/blocks/flora';
 import { BODY_H, BODY_W, FARM_BREAK_DROP, NO_DROP_BLOCKS, createDigConfig, type DigConfig } from './config';
 import { createRng, randInt, type Rng } from '../world/gen/random';
 import type { PunchGate } from '../combat/PlayerCombat';
@@ -105,7 +106,7 @@ export interface DigM4Deps {
   /** M7-2: 出来事 の `tick`（なければ この 係 の 歩数） */
   nowTick?: () => number;
   /** WEAPON-2: 刀（ひだりクリックの ふりわけ §2.1-6 で わざを 渡す）。なければ 刀も ほるだけ */
-  blade?: Pick<BladeSystem, 'update' | 'state' | 'dropBuffer' | 'busyNext'>;
+  blade?: Pick<BladeSystem, 'update' | 'state' | 'dropBuffer' | 'busyNext' | 'nextStart' | 'yieldToParry'>;
   /** WEAPON-5: パリィ（刀の Shift＋クリック）。なければ 今のまま */
   parry?: Pick<Parry, 'state' | 'inWindow' | 'dropBuffer'>;
   /** WEAPON-2: たいきゅうの へる量（ほる・たがやす）。なければ へらさない */
@@ -362,11 +363,12 @@ export class DigSystemImpl implements DigSystem {
   parryInput(tick: number): ParryInput {
     const enabled = this.lock.playInputEnabled() && !this.gate?.blocksInput();
     const blade = this.m4.blade;
-    const nb = blade?.busyNext?.() ?? { busy: false, accepts: false };
     const pressed = enabled && this.actions.wasPressed('primary');
     const held = enabled && (this.actions.isHeld('primary') || pressed);
     const item = this.inventory.held()?.item ?? null;
     const run = this.actions.isHeld('run');
+    // WEAPON-6: つなぎの窓で パリィを 押した ステップは 刀は まだ 続く（始まるのは 次の ステップか C の おそい方）
+    const nb = blade?.busyNext?.(enabled && run && pressed && isBladeItem(item)) ?? { busy: false, accepts: false };
     if (enabled && run && pressed && isBladeItem(item) && nb.busy && nb.accepts) blade?.dropBuffer?.();
     return { tick, item, run, pressed, held, active: enabled, bladeBusy: nb.busy, bladeAccepts: nb.accepts };
   }
@@ -440,6 +442,8 @@ export class DigSystemImpl implements DigSystem {
         }
       }
       if (parryM && tech && primaryRaw && this.actions.wasPressed('primary') && blade.state().phase !== 'idle' && pstate?.buffered) parryM.dropBuffer();
+      // WEAPON-6: パリィが 始まったら つなぎの窓の わざは やめる
+      if (parryBusy && blade.state().combo) blade.yieldToParry?.();
       const body = this.bodyPoint(p, this.bodyScratch);
       blade.update({
         item: bladeItem,
@@ -625,6 +629,7 @@ export class DigSystemImpl implements DigSystem {
     this.world.setBlock(x, y, z, 'air');
     if (wasTansu) this.m4.storage?.broken(x, y, z);
     this.dropUnsupportedTorches(x, y, z);
+    this.liftFlora(x, y + 1, z); // FLORA-75: 下の ブロックを こわすと 上の くさ・のばな も 消える
     const farmDrop = FARM_BREAK_DROP[t.id] ?? null;
     const fixed = farmDrop ? farmDrop.count : (craft?.fixedDrop(t.id) ?? null);
     const dropItem: ItemId = farmDrop ? farmDrop.item : t.id;
@@ -650,6 +655,14 @@ export class DigSystemImpl implements DigSystem {
     this.clearMem();
     this.active = false;
     this.cooldown = this.config.digCooldown;
+  }
+
+  /** FLORA-75: (x, y, z) に くさ・のばな が あれば どける（のばな は 1 こ 持ち物へ。くさ は 何も出ない） */
+  private liftFlora(x: number, y: number, z: number): void {
+    const id = this.world.getBlock(x, y, z);
+    if (!isFloraBlock(id)) return;
+    this.world.setBlock(x, y, z, 'air');
+    if (id === 'nobana') this.giveStacks([{ item: 'nobana', count: 1 }], x, y, z);
   }
 
   /** ほった ブロックを こわした: 持っている 道具の たいきゅうを へらす（先に 効かせた あと。WEAPON-2 §4.6 (3)） */
@@ -918,16 +931,18 @@ export class DigSystemImpl implements DigSystem {
 
   private doTill(t: TargetInfo): void {
     const farm = this.m4.farm!;
-    const { x, y, z } = t.block;
+    const ground = this.groundOf(t);
+    const { x, y, z } = ground;
     const need = this.inventory.held() ? 1 : Math.max(1, farm.settings().farmHandTillPresses);
-    if (!this.tillBlock || !sameBlock(this.tillBlock, t.block) || this.tickCount - this.tillLast >= farm.settings().farmHandTillResetTicks) {
-      this.tillBlock = { ...t.block };
+    if (!this.tillBlock || !sameBlock(this.tillBlock, ground) || this.tickCount - this.tillLast >= farm.settings().farmHandTillResetTicks) {
+      this.tillBlock = { ...ground };
       this.tillCount = 0;
     }
     this.tillLast = this.tickCount;
     this.tillCount++;
     this.m4.tools?.pushSwing('dig');
     if (this.tillCount >= need) {
+      this.liftFlora(x, y + 1, z); // くさ・のばな を どけてから たがやす（FLORA-75 §2.1）
       farm.till(x, y, z);
       if (this.inventory.held()?.item === 'kuwa') {
         const n = this.m4.w2?.toolWear.kuwa.till ?? 0;
@@ -1122,10 +1137,20 @@ export class DigSystemImpl implements DigSystem {
   /** くわ か すで で、上が くうき の くさ・つち を ねらっている */
   private tillSpot(): boolean {
     const t = this.tgt;
-    if (!t || !this.m4.farm || (t.id !== 'grass' && t.id !== 'dirt')) return false;
+    if (!t || !this.m4.farm) return false;
+    const g = this.groundOf(t);
+    const id = this.world.getBlock(g.x, g.y, g.z);
+    if (id !== 'grass' && id !== 'dirt') return false;
     const h = this.inventory.held()?.item ?? null;
     if (h !== null && h !== 'kuwa') return false;
-    return this.world.getBlock(t.block.x, t.block.y + 1, t.block.z) === 'air';
+    const above = this.world.getBlock(g.x, g.y + 1, g.z);
+    return above === 'air' || isFloraBlock(above); // くさ・のばな は くうき と数える
+  }
+
+  /** FLORA-75: ねらった ブロックが くさ・のばな なら その下の ブロック（くさ・つち）、そうでなければ ねらったブロック */
+  private groundOf(t: TargetInfo): Vec3 {
+    const { x, y, z } = t.block;
+    return isFloraBlock(t.id) ? { x, y: y - 1, z } : { x, y, z };
   }
 
   /** たね を持って、上が くうき の はたけ を ねらっている */
@@ -1140,7 +1165,10 @@ export class DigSystemImpl implements DigSystem {
   private seedHintSpot(): boolean {
     const t = this.tgt;
     const h = this.inventory.held()?.item;
-    return !!t && !!h && !!this.m4.farm && seedKindOfItem(h) !== null && (t.id === 'grass' || t.id === 'dirt');
+    if (!t || !h || !this.m4.farm || seedKindOfItem(h) === null) return false;
+    const g = this.groundOf(t);
+    const id = this.world.getBlock(g.x, g.y, g.z);
+    return id === 'grass' || id === 'dirt';
   }
 
   // ---------------------------------------------------------------- WEAPON-3: 近接の 攻撃の 向き
@@ -1197,11 +1225,14 @@ export class DigSystemImpl implements DigSystem {
     const block: 'block' | 'crop' | null = tgt ? (this.m4.farm && cropKindOfBlock(tgt.id) ? 'crop' : 'block') : null;
     const before = tgt ? this.m4.yokai().raycast(o, d, tgt.distance) : null;
     const yokaiBeforeBlock = before !== null && before.distance < tgt!.distance;
+    // WEAPON-6: 次に 始まる わざ・何段目か（きらめく カタナだけ。ほかは かまえの わざ）
+    const nextBlade = hold === 'blade' ? this.m4.blade!.nextStart?.() : undefined;
     return decideAttack({
       settings: w2,
       hold,
       item: this.inventory.held()?.item ?? null,
-      tech: hold === 'blade' ? TECH_OF_STANCE[this.m4.blade!.state().stance] : 'thrust',
+      tech: nextBlade?.tech ?? (hold === 'blade' ? TECH_OF_STANCE[this.m4.blade!.state().stance] : 'thrust'),
+      step: nextBlade?.step,
       punchReach: this.m4.tools?.punchParams?.().reach ?? 3.5,
       yawDeg: p.yawDeg,
       facingDeg: p.facingDeg,
@@ -1285,9 +1316,15 @@ export class DigSystemImpl implements DigSystem {
     if (!t || !held) return null;
     const block = itemType(held.item)?.placeBlock;
     if (!block) return null;
-    const { x, y, z } = t.place;
+    // FLORA-75: くさ を ねらって 置くと、くさ の マスに 置ける（くさ は 消える）
+    const { x, y, z } = t.id === 'kusa' ? t.block : t.place;
     const cur = this.world.getBlock(x, y, z);
-    if (cur !== 'air' && cur !== 'water') return null; // 世界の外・ほかのブロック
+    if (cur !== 'air' && cur !== 'water' && !(cur === 'kusa' && t.id === 'kusa')) return null; // 世界の外・ほかのブロック
+    if (block === 'nobana') {
+      // のばな は くさ・つち の上だけ
+      const under = this.world.getBlock(x, y - 1, z);
+      if (under !== 'grass' && under !== 'dirt') return null;
+    }
     if (block === 'torch') {
       // たいまつ: 固くない（体と重なっても置ける）。下か横に固いブロックが要る
       if (!this.torchSupported(x, y, z)) return null;

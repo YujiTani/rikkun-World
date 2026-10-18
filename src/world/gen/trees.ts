@@ -3,6 +3,7 @@ import { defOf } from './biome';
 import { GEN_CONFIG as C } from './config';
 import { nearMouth } from './mouths';
 import { hash01, hashInts, subSeed } from './random';
+import { epochCache, inClearing, leafReach, treeGap, treeMinTrunkGap, treeOrder } from './spacing';
 import type { Terrain } from './terrain';
 
 /**
@@ -58,6 +59,9 @@ export function treeGround(T: Terrain, x: number, z: number, nearStart = true): 
   if (nearMouth(T, x, z, 3)) return -1;
   return h;
 }
+
+/** スタートの木どうしの みきの間: ふつうの木 2 ＋ 2 ＋ 1 ＋ g（ひろい・ほかの国は 2）= 7 */
+const START_TRUNK_GAP = 7;
 
 const starters = new WeakMap<Terrain, { trees: Tree[]; keys: Set<number> }>();
 const plotKey = (a: number, b: number): number => (a + 40000) * 80021 + (b + 40000);
@@ -128,11 +132,14 @@ function startInfo(T: Terrain): { trees: Tree[]; keys: Set<number> } {
     return false;
   };
   const picked: typeof cand = [];
+  // スタートの木 3 本どうしも ひろい の間を守る（FLORA-75 §5.1。スタートの近くは いつも ひろい → 国の g = 2）
+  const apart = (c: (typeof cand)[number]): boolean =>
+    picked.every((q) => Math.max(Math.abs(q.x - c.x), Math.abs(q.z - c.z)) >= START_TRUNK_GAP);
   const north = cand.find((c) => isNorth(c) && visible(c));
   if (north) picked.push(north);
   for (const c of cand) {
     if (picked.length >= K.startCount) break;
-    if (!picked.includes(c)) picked.push(c);
+    if (!picked.includes(c) && apart(c)) picked.push(c);
   }
   const trees = picked.map((c): Tree => ({ x: c.x, z: c.z, y: c.g, trunk: c.trunk, leaves: 'leaves' }));
   const keys = new Set(picked.map((c) => plotKey(c.a, c.b)));
@@ -166,10 +173,56 @@ function bigPotential(T: Terrain, sT: number, forced: Set<number>, a: number, b:
 }
 
 const chunkCache = new WeakMap<Terrain, Map<number, Tree[]>>();
-const MAX_CHUNKS = 600;
+const MAX_CHUNKS = 3000;
 
-/** 列 (cx, cz) の みきが ある木（上限のかけた後。plot の順 = b, a の順）。同じ (seed, cx, cz) なら いつも同じ */
+/**
+ * 間隔のきまり（FLORA-75 §5）の あとの 木。こうほ（treesRaw）のうち、あき地の中・近すぎる 早い木が ある物を 外す。
+ * 早い木が 別のことで消えていても やめる（となりの列を 読む順に 関係なく 同じ答え）。
+ */
+const finalStore = new WeakMap<Terrain, { epoch: number; map: Map<number, Tree[]> }>();
 export function treesOfChunk(T: Terrain, cx: number, cz: number): Tree[] {
+  const memo = epochCache(finalStore, T);
+  const key = (cx + 40000) * 80021 + (cz + 40000);
+  const hit = memo.get(key);
+  if (hit) return hit;
+  const mine = treesRaw(T, cx, cz);
+  const near: Tree[] = [];
+  if (mine.length > 0) for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) near.push(...treesRaw(T, cx + dx, cz + dz));
+  const out: Tree[] = [];
+  for (const t of mine) {
+    const o = treeOrder(T, t);
+    if (o >= 0) {
+      // あき地: みき（大木は 4 マス）が r ＋ はっぱの広がり 以内なら 置かない
+      if (inClearingTree(T, t)) continue;
+      const g = treeGap(T, t);
+      let lose = false;
+      for (const u of near) {
+        if (u === t || (u.x === t.x && u.z === t.z)) continue;
+        const ou = treeOrder(T, u);
+        if (ou > o || (ou === o && (u.x > t.x || (u.x === t.x && u.z > t.z)))) continue; // u は 遅い
+        if (Math.max(Math.abs(t.x - u.x), Math.abs(t.z - u.z)) < treeMinTrunkGap(t, u, g)) {
+          lose = true;
+          break;
+        }
+      }
+      if (lose) continue;
+    }
+    out.push(t);
+  }
+  if (memo.size >= MAX_CHUNKS * 4) memo.clear();
+  memo.set(key, out);
+  return out;
+}
+
+/** 木 t の みき（大木は 2×2 の 4 マス）の どれかが あき地の「r ＋ はっぱの広がり」以内か */
+function inClearingTree(T: Terrain, t: Tree): boolean {
+  const reach = leafReach(t);
+  if (!t.big) return inClearing(T, t.x, t.z, reach);
+  return inClearing(T, t.x, t.z, reach) || inClearing(T, t.x + 1, t.z, reach) || inClearing(T, t.x, t.z + 1, reach) || inClearing(T, t.x + 1, t.z + 1, reach);
+}
+
+/** 列 (cx, cz) の みきが ある木の こうほ（坂・水・1 列の上限 まで 見た あと。間隔のきまりの 前。plot の順 = b, a の順）。同じ (seed, cx, cz) なら いつも同じ */
+export function treesRaw(T: Terrain, cx: number, cz: number): Tree[] {
   let m = chunkCache.get(T);
   if (!m) {
     m = new Map();

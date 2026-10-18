@@ -38,8 +38,17 @@ describe('なかま・新品の 値 (AC25)', () => {
     for (const it of ['lantern', 'kite', 'futon', 'omamori', 'waraji', 'haniwa', 'tansu'] as const) expect(itemClassOf(it)).toBe('permanent');
     for (const it of ['dirt', 'ya', 'torch', 'iron_ingot', 'seed_onion', 'tomato'] as const) expect(itemClassOf(it)).toBe('consumable');
   });
+  it('WEAPON-6 AC11: 前の保存の きらめく カタナは へった量のまま 最大 400 で 読む（450 → のこり 1・100 → のこり 300）', () => {
+    for (const [wear, left] of [[450, 1], [100, 300]] as const) {
+      const inv = new InventoryImpl();
+      const slots = Array.from({ length: inv.size }, () => null) as unknown[];
+      slots[0] = { item: 'crystal_katana', count: 1, wear };
+      inv.deserialize({ slots, selected: 0 });
+      expect(inv.durability(0)).toEqual({ max: 400, left });
+    }
+  });
   it('maxDurability は 表を 読む', () => {
-    expect(maxDurability('crystal_katana', W2_SETTING_DEFAULTS.toolDurability)).toBe(500);
+    expect(maxDurability('crystal_katana', W2_SETTING_DEFAULTS.toolDurability)).toBe(400);
     expect(maxDurability('dirt', W2_SETTING_DEFAULTS.toolDurability)).toBeNull();
   });
 });

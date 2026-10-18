@@ -2,6 +2,7 @@ import { SEA_Y, WORLD_HEIGHT } from '../../contracts';
 import { GEN_CONFIG as C } from './config';
 import { mouthAirRange, mouthsNear } from './mouths';
 import { terrainFor, type Terrain } from './terrain';
+import { floraOfChunk } from './flora';
 import { plantsOfChunk } from './plants';
 import { treesInRect, type Tree } from './trees';
 
@@ -34,7 +35,8 @@ class SurfaceImpl implements Surface {
   private readonly treeCache = new Map<number, Tree[]>();
   private readonly plantCache = new Map<number, Map<number, number>>();
 
-  constructor(seed: number) {
+  /** flora = false: くさ・のばな を 数えない（ふるい はたけ・やせいの やさい の 場所を 決めるときの 答え。くさ・のばな は その場所を よけるので 循環しない） */
+  constructor(seed: number, private readonly flora: boolean) {
     this.T = terrainFor(seed);
     const sp = this.T.spawn();
     this.torch = { x: sp.x + C.startTorch.dx, y: sp.h + 1, z: sp.z + C.startTorch.dz };
@@ -55,7 +57,7 @@ class SurfaceImpl implements Surface {
     return t;
   }
 
-  /** (x, z) の はな・すすき・たけ の高さ（なければ 0）。列（16×16）ごとに覚える */
+  /** (x, z) の はな・すすき・たけ・くさ・のばな の高さ（なければ 0）。列（16×16）ごとに覚える */
   private plantHeight(x: number, z: number): number {
     const cx = x >> 4;
     const cz = z >> 4;
@@ -64,6 +66,7 @@ class SurfaceImpl implements Surface {
     if (m === undefined) {
       m = new Map();
       for (const p of plantsOfChunk(this.T, cx, cz)) m.set(p.x * 100003 + p.z, p.height);
+      if (this.flora) for (const p of floraOfChunk(this.T, cx, cz)) m.set(p.x * 100003 + p.z, p.height);
       if (this.plantCache.size > 400) this.plantCache.clear();
       this.plantCache.set(k, m);
     }
@@ -182,15 +185,17 @@ class SurfaceImpl implements Surface {
   }
 }
 
-const cache = new Map<number, Surface>();
+const cache = new Map<string, Surface>();
 
-/** シードごとに 覚えておく */
-export function surfaceFor(seed: number): Surface {
-  let s = cache.get(seed);
+/** シードごとに 覚えておく。opts.flora = false なら くさ・のばな を 数えない（farmPlacement 用） */
+export function surfaceFor(seed: number, opts: { flora?: boolean } = {}): Surface {
+  const flora = opts.flora !== false;
+  const key = `${seed}|${flora}`;
+  let s = cache.get(key);
   if (s === undefined) {
-    if (cache.size >= 6) cache.delete(cache.keys().next().value as number);
-    s = new SurfaceImpl(seed);
-    cache.set(seed, s);
+    if (cache.size >= 12) cache.delete(cache.keys().next().value as string);
+    s = new SurfaceImpl(seed, flora);
+    cache.set(key, s);
   }
   return s;
 }

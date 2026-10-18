@@ -33,6 +33,9 @@ export interface RockInfo {
   peakY: number;
 }
 
+const HWIN = 128;
+const H_EMPTY = -32768;
+
 /** 1 つの seed の地形の計算（国・高さ・スタート・岩山）。seed ごとに 1 つ作ってつかい回す */
 export class Terrain {
   /** 12 の国（VOX-I-1。biome.ts） */
@@ -40,6 +43,7 @@ export class Terrain {
   private readonly tmp: BiomeSample = newSample();
   private spawnCache: SpawnResult | null = null;
   private rockCache: RockInfo | null = null;
+  private hwin: Int16Array | null = null;
 
   constructor(readonly seed: number) {
     this.map = countryMapFor(seed);
@@ -173,6 +177,22 @@ export class Terrain {
 
   /** 生成する高さ H（広場・岩山をふくむ。仮の海のふちは まだかけない） */
   height(x: number, z: number): number {
+    // スタートのまわり 128×128 は 何度も 聞かれる（regions・ふるい はたけ・列を作る）ので おぼえておく
+    const sp = this.spawn();
+    const lx = x - (sp.x - HWIN / 2);
+    const lz = z - (sp.z - HWIN / 2);
+    if (lx < 0 || lz < 0 || lx >= HWIN || lz >= HWIN) return this.heightUncached(x, z);
+    const win = (this.hwin ??= new Int16Array(HWIN * HWIN).fill(H_EMPTY));
+    const i = lz * HWIN + lx;
+    let v = win[i]!;
+    if (v === H_EMPTY) {
+      v = this.heightUncached(x, z);
+      win[i] = v;
+    }
+    return v;
+  }
+
+  private heightUncached(x: number, z: number): number {
     // かっぱの ぬま の いけ（水の底・へり）
     const pd = this.map.pondAt(x, z);
     if (pd !== null) return pd.kind === 'inner' ? pd.level - pd.depth - 1 : pd.level;

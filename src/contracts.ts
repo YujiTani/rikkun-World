@@ -59,7 +59,9 @@ export type BlockId =
   | 'flower_o' // はな（だいだい）
   | 'flower_p' // はな（むらさき）
   | 'bamboo' // たけ
-  | 'susuki'; // すすき
+  | 'susuki' // すすき
+  | 'kusa' // くさ（せの たかい くさ。FLORA-75。こわすと 消えるだけ）
+  | 'nobana'; // のばな（あわい あおの 小さな はな。FLORA-75）
 
 export interface BlockType {
   id: BlockId;
@@ -822,6 +824,7 @@ export type StatKey =
   | 'defeatLow'
   | 'chain'
   | 'guard'
+  | 'bladeCombo3' // WEAPON-6: 3 段 ぜんぶ 当てた
   | 'wearAll'
   | 'death'
   | 'level'
@@ -1540,7 +1543,16 @@ export interface BladeState {
   switchFrom: BladeStance | null;
   /** CHAR-2: わざの あいだだけ ふみこみ（それ以外は null）。dirDeg = わざの向き u、origin = 始めた足もと O、target = A(f)、moved = 実際に u へ進んだ きょり */
   move: { dirDeg: number; origin: Vec3; target: number; moved: number; tiltDeg: number } | null;
+  /** WEAPON-6: 今の わざの 長さ（2・3 段目は 出だしが ちぢむ）。idle・かまえ変えは null */
+  lengths?: BladeTechFrames | null;
+  /**
+   * WEAPON-6: 3 段攻撃の ようす（つながる刀で わざの あいだだけ。ほかは null）。
+   * open = 今の F が つなぎの窓の 中、cancelAt = キャンセルできる F（C）、queued = つなぎを おぼえている
+   */
+  combo?: { step: 1 | 2 | 3; queued: boolean; open: boolean; cancelAt: number | null } | null;
 }
+
+export type BladeStep = 1 | 2 | 3;
 
 /** 今の 当たりの 形（世界の 座標。§6.1） */
 export type BladeShapeInfo =
@@ -1557,9 +1569,9 @@ export type BladeShapeInfo =
     };
 
 export type BladeEvent =
-  | { type: 'techStart'; tick: number; tech: BladeTech }
-  | { type: 'techHit'; tick: number; tech: BladeTech; yokaiId: number; damage: number; knock: number; up: number; position: Vec3 }
-  | { type: 'techMiss'; tick: number; tech: BladeTech }
+  | { type: 'techStart'; tick: number; tech: BladeTech; step?: BladeStep }
+  | { type: 'techHit'; tick: number; tech: BladeTech; yokaiId: number; damage: number; knock: number; up: number; position: Vec3; step?: BladeStep }
+  | { type: 'techMiss'; tick: number; tech: BladeTech; step?: BladeStep }
   | { type: 'stance'; tick: number; from: BladeStance; to: BladeStance }
   | { type: 'cancel'; tick: number };
 
@@ -1594,7 +1606,7 @@ export interface BladeDeps {
   world: VoxelWorld;
   yokai: () => YokaiWorld;
   settings: W2Settings;
-  /** 刀の 強さ（`weaponDamage`。ぼくとう 2・かたな 4・きらめく カタナ 6） */
+  /** 刀の 強さ（`weaponDamage`。ぼくとう 2・かたな 4・きらめく カタナ 4） */
   weaponDamage: (item: ItemId) => number;
   /** わざが 1 体 以上 に 当たった（1 回の わざで 1 回）。つなぎ込みが `inventory.wearHeld(settings.toolWear.blade.hit)` につなぐ */
   onHit: (info: { tech: BladeTech; count: number }) => void;
@@ -1620,7 +1632,11 @@ export interface BladeSystem {
   /** WEAPON-5: 先行入力を すてる（パリィが 勝った とき） */
   dropBuffer?(): void;
   /** WEAPON-5: 次の ステップを すすめたあとも わざ・かまえ替えが つづくか（パリィを すぐ 出せるか）・先行入力の 区間か */
-  busyNext?(): { busy: boolean; accepts: boolean };
+  busyNext?(parryPress?: boolean): { busy: boolean; accepts: boolean };
+  /** WEAPON-6: 次に わざが 始まるなら どの わざ・何段目か（向きの補助の 届く距離を 段ごとに 見る用） */
+  nextStart?(): { tech: BladeTech; step: BladeStep };
+  /** WEAPON-6: パリィが 始まった ステップに、つなぎの窓の わざを やめる（イベントは 出さない） */
+  yieldToParry?(): void;
 }
 
 // ---------------------------------------------------------------- 弓（B）
@@ -1736,6 +1752,18 @@ export interface BladeTechFrames {
   recovery: number;
 }
 
+/** WEAPON-6 §4.7 */
+export interface BladeComboSettings {
+  items: ItemId[];
+  order: Record<BladeStance, BladeTech[]>;
+  /** 2・3 段目の 出だし */
+  stepStartup: Record<BladeTech, number>;
+  /** ふりぬき（見せる ステップ） */
+  follow: Record<BladeTech, number>;
+  /** 2 段目の ふみこみの 線（あれば bladeAdvance の かわりに） */
+  step2Advance: Partial<Record<BladeTech, BladeAdvanceCurve>>;
+}
+
 export interface W2Settings {
   // 刀（§4.2・§4.3）
   bladeTech: Record<BladeTech, BladeTechFrames>;
@@ -1746,6 +1774,8 @@ export interface W2Settings {
   bladeMoveMul: { thrust: number; kesaStartupActive: number; kesaRecovery: number; kiriage: number };
   /** CHAR-2: わざの 絵の ふみこみ（初期値は art の atlas.json を 写す） */
   bladeAdvance: Record<BladeTech, BladeAdvanceCurve>;
+  /** WEAPON-6: 3 段攻撃（きらめく カタナだけ） */
+  bladeCombo: BladeComboSettings;
   /** 照準の 線で 妖怪を わざに ふりわける 距離 */
   bladeAimReach: number;
   /** WEAPON-4: 刀ごとの 射程 R（3 つのわざで 同じ）。表にない 刀は かたなの 値 */
@@ -1859,6 +1889,16 @@ export const W2_SETTING_DEFAULTS: Readonly<W2Settings> = {
     kesa: { ticks: [4, 4, 6, 5, 4, 5, 2, 2, 2, 5, 28, 8, 8, 8, 8, 7], advance: [0, 0, 0, 0.02, 0.04, 0.08, 0.4, 1.4, 2.4, 3.1, 3.1, 3.1, 3.1, 3.1, 3.1, 3.1], step: 3.1 },
     kiriage: { ticks: [3, 4, 6, 3, 3, 1, 2, 7, 6, 5, 4, 4, 4], advance: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], step: 0 },
   },
+  bladeCombo: {
+    items: ['crystal_katana'],
+    order: { chudan: ['thrust', 'kiriage', 'kesa'], gedan: ['kiriage', 'thrust', 'kesa'], jodan: ['kesa'] },
+    stepStartup: { thrust: 4, kiriage: 12, kesa: 20 },
+    follow: { thrust: 14, kiriage: 12, kesa: 12 },
+    step2Advance: {
+      kiriage: { ticks: [3, 4, 6, 3, 3, 1, 2, 7, 6, 5, 4, 4, 4], advance: [0, 0, 0, 0.1, 0.4, 1.0, 1.4, 1.4, 1.4, 1.4, 1.4, 1.4, 1.4], step: 1.4 },
+      thrust: { ticks: [2, 2, 1, 1, 3, 11, 4, 4, 4, 4, 5], advance: [0, 0.5, 1.1, 1.4, 1.4, 1.4, 1.4, 1.4, 1.4, 1.4, 1.4], step: 1.4 },
+    },
+  },
   bladeAimReach: 4.5,
   bladeReach: { bokuto: 2.2, katana: 2.2, crystal_katana: 2.2 },
   bladeShape: {
@@ -1890,7 +1930,7 @@ export const W2_SETTING_DEFAULTS: Readonly<W2Settings> = {
     bokuto: 59,
     katana: 250,
     naginata: 250,
-    crystal_katana: 500,
+    crystal_katana: 400,
     yumi: 384,
     kuwa: 131,
     kabuto: 165,
@@ -1956,6 +1996,15 @@ export function createW2Settings(): W2Settings {
       thrust: { ...d.bladeAdvance.thrust, ticks: [...d.bladeAdvance.thrust.ticks], advance: [...d.bladeAdvance.thrust.advance] },
       kesa: { ...d.bladeAdvance.kesa, ticks: [...d.bladeAdvance.kesa.ticks], advance: [...d.bladeAdvance.kesa.advance] },
       kiriage: { ...d.bladeAdvance.kiriage, ticks: [...d.bladeAdvance.kiriage.ticks], advance: [...d.bladeAdvance.kiriage.advance] },
+    },
+    bladeCombo: {
+      items: [...d.bladeCombo.items],
+      order: { chudan: [...d.bladeCombo.order.chudan], gedan: [...d.bladeCombo.order.gedan], jodan: [...d.bladeCombo.order.jodan] },
+      stepStartup: { ...d.bladeCombo.stepStartup },
+      follow: { ...d.bladeCombo.follow },
+      step2Advance: Object.fromEntries(
+        Object.entries(d.bladeCombo.step2Advance).map(([k, v]) => [k, { ...v, ticks: [...v.ticks], advance: [...v.advance] }]),
+      ) as BladeComboSettings['step2Advance'],
     },
     bladeAimReach: d.bladeAimReach,
     bladeReach: { ...d.bladeReach },

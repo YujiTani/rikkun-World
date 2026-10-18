@@ -229,7 +229,7 @@ test.describe('WEAPON-5 通し', () => {
     expect(tr[stagTicks + 1]!.icon).toEqual({ visible: false });
   });
 
-  test('AC16: ちょうちんの 火の玉を きらめく カタナで はね返す → ちょうちんに 当たって 5 → 3・よろけ。切り上げで 13.8 で 倒れる', async ({ page }) => {
+  test('AC16: ちょうちんの 火の玉を きらめく カタナで はね返す → ちょうちんに 当たって 5 → 3・よろけ。切り上げで 9.2 で 倒れる（WEAPON-6: 強さ 4）', async ({ page }) => {
     await parryWorld(page, 'crystal_katana', 'gedan');
     await needHook(page);
     const b = await bounds(page);
@@ -283,7 +283,7 @@ test.describe('WEAPON-5 通し', () => {
     expect(ev.some((e) => e.type === 'stagger' && e.yokaiId === id && e.by === 'reflect'), 'ちょうちんが よろける').toBe(true);
     expect(await hpOf(page), 'プレイヤーに 当たらない').toBe(hp0);
 
-    // 切り上げ（きらめく カタナ 6.9 × 2 = 13.8）
+    // 切り上げ（きらめく カタナ 4.6 × 2 = 9.2。WEAPON-6 で 強さ 6 → 4）
     await calmDown(page, 20);
     const chochin = (await yokaiInfo(page, id))!.position;
     await page.evaluate(
@@ -308,7 +308,7 @@ test.describe('WEAPON-5 通し', () => {
     const th = (await bladeEvents(page)).filter((e) => e.type === 'techHit');
     expect(th).toHaveLength(1);
     expect(th[0]!.tech).toBe('kiriage');
-    expect(th[0]!.damage).toBeCloseTo(13.8, 2);
+    expect(th[0]!.damage).toBeCloseTo(9.2, 2);
     await page.evaluate(() => (window.__rikkun! as any).step(120));
     const after = await yokaiInfo(page, id);
     expect(!after || after.state === 'dying' || after.hp <= 0, '倒れる').toBe(true);

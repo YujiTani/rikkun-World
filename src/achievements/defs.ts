@@ -275,6 +275,8 @@ function build(): AchievementDef[] {
   ] as const) {
     add({ series: `defeat.with.${w}`, category: 'fight', stat: `defeatWith:${w}`, tiers: [t(1)], name: () => text });
   }
+  // WEAPON-6: 3 段攻撃を ぜんぶ 当てた（小・なかま ぼうけん）
+  add({ series: 'blade.combo3', category: 'fight', stat: 'bladeCombo3', tiers: [t(1, true)], name: () => 'はじめて 3 だん わざ を ぜんぶ あてた！' });
   add({ series: 'defeat.chain', category: 'fight', stat: 'chain', tiers: [t(1)], name: () => 'つづけて 3 びき たおした！' });
   add({
     series: 'guard.all',

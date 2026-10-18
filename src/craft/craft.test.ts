@@ -68,13 +68,13 @@ describe('アイテムの種類表（AC1）', () => {
 });
 
 describe('きらめく カタナ（#68）', () => {
-  it('名前が かわり、すいしょう 2・てつの かたまり 3・き 1 で作る', () => {
+  it('名前が かわり、すいしょう 2・てつの かたまり 2・き 2 で作る（WEAPON-6）', () => {
     expect(ITEM_TYPES.find((x) => x.id === 'crystal_katana')!.name).toBe('きらめく カタナ');
     const rc = CRAFT_RECIPES.find((x) => x.id === 'crystal_katana')!;
     expect(rc.inputs).toEqual([
       { item: 'crystal', count: 2 },
-      { item: 'iron_ingot', count: 3 },
-      { item: 'log', count: 1 },
+      { item: 'iron_ingot', count: 2 },
+      { item: 'log', count: 2 },
     ]);
   });
 });

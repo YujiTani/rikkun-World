@@ -68,6 +68,11 @@ async function stand(page: Page, x: number, z: number, yaw: number, pitch: numbe
       h.world.fill(bx, g + 1, bz, bx, g + 8, bz, 'stone');
       h.player.set({ position: { x, y: g + 9, z }, velocity: { x: 0, y: 0, z: 0 }, yaw, pitch });
       h.step(30);
+      // FLORA-75: くさ・のばな の 板は 描かない（のばなの あお #8FC1F0 が 空の色の 判定に まぎれる。ここで見たいのは 境目の すき間）。
+      // 判定式は seethru と 共通で 空の色の はばを せまくできないので、この場面だけ 板を 空気にする。期待（25px・0 こ）は 変えない。
+      // 見る範囲（描く輪）の 板を 全部 消す。ブロックを 変えるだけなので 境目（小ブロックと 箱の段）の 作りは 同じ。
+      for (const p of h.biome.plants(bx - 140, bz - 140, bx + 140, bz + 140) as { type: string; x: number; y: number; z: number }[])
+        if (p.type === 'kusa' || p.type === 'nobana') h.world.setBlock(p.x, p.y, p.z, 'air');
       for (let i = 0; i < 600 && h.achievements.modal(); i++) if (!h.achievements.close().ok) h.step(1);
     },
     [x, z, yaw, pitch],

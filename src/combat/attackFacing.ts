@@ -26,6 +26,8 @@ export interface AttackInput {
   hold: AttackHold;
   /** 刀の 今の かまえの わざ（hold が blade の ときだけ 見る） */
   tech: BladeTech;
+  /** WEAPON-6: 何段目か（なければ 1 段目と 同じ）。2・3 段目は 出だしが 短く、2 段目は ふみこむ */
+  step?: 1 | 2 | 3;
   /** 持っている刀（射程 R を 引く。なければ かたなの R） */
   item?: ItemId | null;
   /** パンチの 届く距離（すで 3.5・なぎなた 5.0 など） */
@@ -199,6 +201,16 @@ export function inPunchFan(P: Vec3, uDeg: number, shape: { halfAngleDeg: number;
 const cTmp: Vec3 = { x: 0, y: 0, z: 0 };
 const dirTmp: Vec3 = { x: 0, y: 0, z: 0 };
 
+/** 当たりの おわりまでに 進む 量（大げさぎりは とびこみ・2 段目は ふみこみ。WEAPON-4 §4.2・WEAPON-6 §4.4） */
+function stepLunge(s: W2Settings, tech: BladeTech, step: 1 | 2 | 3 = 1): number {
+  const base = s.bladeTech[tech];
+  const f = step > 1 ? { startup: s.bladeCombo.stepStartup[tech], active: base.active, recovery: base.recovery } : base;
+  const curve = (step === 2 ? s.bladeCombo.step2Advance[tech] : undefined) ?? s.bladeAdvance[tech];
+  if (tech === 'thrust' && step !== 2) return 0;
+  if (tech === 'kiriage' && step !== 2) return 0;
+  return techAdvance(curve, TECH_PHASES[tech], f, f.startup + f.active);
+}
+
 /** 妖怪 y を その 中心の 向きに 攻撃したら 当たりの形に 入るか（条件 イ） */
 function reachable(inp: AttackInput, y: YokaiInfo, c: Vec3, bearing: number | null, a0: number): boolean {
   const s = inp.settings;
@@ -216,7 +228,7 @@ function reachable(inp: AttackInput, y: YokaiInfo, c: Vec3, bearing: number | nu
   }
   if (inp.tech === 'thrust') {
     const sh = s.bladeShape.thrust;
-    const R = bladeReachOf(s, inp.item);
+    const R = bladeReachOf(s, inp.item) + stepLunge(s, inp.tech, inp.step);
     const tilt = thrustTilt(inp.body, c, s.thrustTiltMaxDeg) * DEG;
     const ct = Math.cos(tilt);
     dirTmp.x = fx * ct;
@@ -226,11 +238,7 @@ function reachable(inp: AttackInput, y: YokaiInfo, c: Vec3, bearing: number | nu
   }
   const sh = inp.tech === 'kesa' ? s.bladeShape.kesa : s.bladeShape.kiriage;
   // WEAPON-4 §4.2: 刀の 射程 R。大けさぎりは とびこみで 当たりの おわり（F = 出だし + 当たり）までに 進む ぶんを 足す
-  let rMax = bladeReachOf(s, inp.item);
-  if (inp.tech === 'kesa') {
-    const f = s.bladeTech.kesa;
-    rMax += techAdvance(s.bladeAdvance.kesa, TECH_PHASES.kesa, f, f.startup + f.active);
-  }
+  const rMax = bladeReachOf(s, inp.item) + stepLunge(s, inp.tech, inp.step);
   return inFanColumn(P, fx, fz, sh.halfAngleDeg, rMax, sh.yMin, sh.yMax, y);
 }
 

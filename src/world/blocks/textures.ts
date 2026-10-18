@@ -32,8 +32,8 @@ export type TileName =
   | FarmTileName;
 
 /** VOX-I-1（12 の国）のふつうの絵（一ひねりの絵は #185） */
-export type VoxITileName = 'snow' | 'momiji_leaves' | 'matsu_leaves' | 'flower_y' | 'flower_o' | 'flower_p' | 'bamboo' | 'susuki';
-const VOX_I_TILES: readonly VoxITileName[] = ['snow', 'momiji_leaves', 'matsu_leaves', 'flower_y', 'flower_o', 'flower_p', 'bamboo', 'susuki'];
+export type VoxITileName = 'snow' | 'momiji_leaves' | 'matsu_leaves' | 'flower_y' | 'flower_o' | 'flower_p' | 'bamboo' | 'susuki' | 'kusa' | 'nobana';
+const VOX_I_TILES: readonly VoxITileName[] = ['snow', 'momiji_leaves', 'matsu_leaves', 'flower_y', 'flower_o', 'flower_p', 'bamboo', 'susuki', 'kusa', 'nobana'];
 
 /** M7 農業の絵の名前（`farm.texture` の name と同じ） */
 export type FarmTileName =
@@ -229,6 +229,33 @@ function susukiTile(): Tile {
   return t;
 }
 
+/** くさ（FLORA-75）: せの たかい くさ。はの先が 1 ブロックの 1/3〜5/9（絵の 上から 7〜10 ぎょう目から）。十字の板 */
+function kusaTile(): Tile {
+  const t = solid(hex('#000000', 0));
+  const blades: [number, number, number][] = [[2, 9, -1], [4, 7, 0], [6, 10, 1], [8, 8, 0], [10, 9, -1], [12, 7, 1], [14, 10, 0]];
+  for (const [x, top, lean] of blades) {
+    for (let y = top; y < 16; y++) {
+      const k = (y - top) / (16 - top);
+      const xx = x + (k < 0.4 ? lean : 0);
+      t[y * TILE_SIZE + xx] = hex(y === top ? '#B7D65A' : y < top + 2 ? '#8CC24A' : '#4E9A36');
+      if (y > 13) t[y * TILE_SIZE + xx + 1] = hex('#3E8B2F');
+    }
+  }
+  return t;
+}
+
+/** のばな（FLORA-75）: 小さな あわい あお 1 色の はな（背は 1 ブロックの 2/9〜4/9）。はなばたけの き・だいだい・うす紫、水、ゆき と 明るさが ちがう。ピンク・白は 使わない */
+function nobanaTile(): Tile {
+  const t = solid(hex('#000000', 0));
+  for (const [x, top] of [[3, 12], [8, 9], [12, 11]] as const) {
+    for (let y = top; y < 16; y++) t[y * TILE_SIZE + x] = hex('#3E8B2F');
+    fillRect(t, x - 1, top - 2, 3, 3, hex('#8FC1F0'));
+    t[(top - 1) * TILE_SIZE + x] = hex('#FFF3B0');
+  }
+  for (const x of [5, 6, 10, 14]) for (let y = 13; y < 16; y++) t[y * TILE_SIZE + x] = hex('#4CA332');
+  return t;
+}
+
 /** たけ: 緑の柱。ふしが入る */
 function bambooTile(): Tile {
   const t = speckle('#5DAA45', ['#52A03C', '#66B24D'], 94, 10);
@@ -337,6 +364,10 @@ function paintTile(name: TileName): Tile {
       return bambooTile();
     case 'susuki':
       return susukiTile();
+    case 'kusa':
+      return kusaTile();
+    case 'nobana':
+      return nobanaTile();
     default:
       return paintFarmTile(
         name,
@@ -393,6 +424,8 @@ export const BLOCK_TILES: Readonly<Partial<Record<BlockId, readonly [TileName, T
   flower_p: ['flower_p', 'flower_p', 'flower_p'],
   bamboo: ['bamboo', 'bamboo', 'bamboo'],
   susuki: ['susuki', 'susuki', 'susuki'],
+  kusa: ['kusa', 'kusa', 'kusa'],
+  nobana: ['nobana', 'nobana', 'nobana'],
 };
 
 /** タイルの UV の四角 [u0, v0, u1, v1]（v は下から。となりのタイルがにじまないよう少し内側） */
