@@ -34,6 +34,8 @@ type PlayerHook = {
   get(): unknown;
   set(v: { position?: object; velocity?: object; yaw?: number; pitch?: number }): void;
   doll: CameraHook['doll'];
+  /** WEAPON-5: 青白い光（visible・のこりステップ・強さ 0〜1） */
+  glow(): { visible: boolean; ticksLeft: number; level: number };
 };
 
 /**
@@ -65,7 +67,7 @@ export interface TestHook {
   /** CHAR-1 第 5.2 版 §4.9: ねらいの点 X・ねらい補助で えらんだ妖怪の id */
   aim: { point(): { x: number; y: number; z: number }; assist(): number | null };
   input: ReturnType<typeof createInputHook>;
-  lock: ReturnType<typeof createLockHook> & { tab(name: string): void };
+  lock: ReturnType<typeof createLockHook> & { tab(name: string): void; book(target: string): void; bookStats(): { calls: number; triangles: number } };
   settings: ReturnType<typeof createSettingsHook>;
   target: ReturnType<typeof createDigHook>['target'];
   dig: ReturnType<typeof createDigHook>['dig'];
@@ -83,13 +85,15 @@ export interface TestHook {
   bow: ReturnType<typeof createToolHook>['bow'];
   /** WEAPON-3 §4.8: 近接の 攻撃の 向き */
   attack: { preview(): unknown; last(): unknown };
+  /** WEAPON-5 §4.8: 刀のパリィ（状態・出来事。events は 読んでも 空にならない） */
+  parry: { state(): unknown; events(): unknown[] };
   /** M4 追加: 経験値とレベル */
   level: ReturnType<typeof createLevelHook>;
   yokai: ReturnType<typeof createYokaiHook>['yokai'];
   /** M6 §6.1: 実績・おめでとう画面 */
   achievements: ReturnType<typeof createAchievementsHook> & { modal(): unknown; close(): unknown; sounds(): string[]; mute(on: boolean): void };
   /** FIX-action-hint: 照準の下に出している 絵（アイテム名）と 1 語 */
-  hud: { /** あう道具のヒント（BAL-D）: 光っているホットバーのマス（0 はじまり）と のこりステップ。出ていなければ null */ toolHint(): { slot: number; ticksLeft: number } | null; /** ふちどりを付けている妖怪の id（なければ null） */ yokaiFocus(): number | null; /** ふちどりの複製の数 */ yokaiFocusHulls(): number; /** 妖怪の体力のバー（BALANCE.md §4.7）。いない id は null */ hpBar(yokaiId: number): { visible: boolean; bars: number; left: number; color: 'white' | 'yellow' | 'red'; icon: 'oyabun' | 'taisho' | 'nushi' | null } | null; /** 登場のおしらせ（たいしょう・ヌシ。180 ステップ）。出ていなければ null */ announce(): { text: string; icon: 'taisho' | 'nushi'; ticksLeft: number } | null; /** 頭の上の名前（二つ名の妖怪。16 ブロック以内で visible）。いない id は null */ nameplate(yokaiId: number): { visible: boolean; text: string } | null; actionHint(): { right?: { icon: string; word: string }; left?: { icon: string; word: string } } };
+  hud: { /** あう道具のヒント（BAL-D）: 光っているホットバーのマス（0 はじまり）と のこりステップ。出ていなければ null */ toolHint(): { slot: number; ticksLeft: number } | null; /** ふちどりを付けている妖怪の id（なければ null） */ yokaiFocus(): number | null; /** ふちどりの複製の数 */ yokaiFocusHulls(): number; /** 妖怪の体力のバー（BALANCE.md §4.7）。いない id は null */ hpBar(yokaiId: number): { visible: boolean; bars: number; left: number; color: 'white' | 'yellow' | 'red'; icon: 'oyabun' | 'taisho' | 'nushi' | null } | null; /** 登場のおしらせ（たいしょう・ヌシ。180 ステップ）。出ていなければ null */ announce(): { text: string; icon: 'taisho' | 'nushi'; ticksLeft: number } | null; /** 頭の上の名前（二つ名の妖怪。16 ブロック以内で visible）。いない id は null */ nameplate(yokaiId: number): { visible: boolean; text: string } | null; actionHint(): { right?: { icon: string; word: string }; left?: { icon: string; word: string } }; /** WEAPON-5: よろけアイコン（2 倍が のこっている あいだ visible）。いない id は null */ staggerIcon(yokaiId: number): { visible: boolean } | null };
   /** M6 §6.1: たんす */
   storage: ReturnType<typeof createStorageHook>;
   /** M7 §6.1: 農業 */
@@ -122,7 +126,7 @@ declare global {
   }
 }
 
-export type TestHookGroups = Pick<TestHook, 'shadow' | 'world' | 'biome' | 'render' | 'player' | 'camera' | 'aim' | 'input' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'attack' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm' | 'log' | 'ui' | 'audio' | 'rarity' | 'animals'>;
+export type TestHookGroups = Pick<TestHook, 'shadow' | 'world' | 'biome' | 'render' | 'player' | 'camera' | 'aim' | 'input' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'attack' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm' | 'log' | 'ui' | 'audio' | 'rarity' | 'animals' | 'parry'>;
 
 export function installTestHook(game: Game, overlay: PerfOverlay, isReady: () => boolean, groups: TestHookGroups, clock: FrameClock = 'time'): void {
   window.__rikkun = {

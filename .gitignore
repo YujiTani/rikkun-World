@@ -11,3 +11,4 @@ node_modules
 ui-gate-report/
 # テストが撮るスクショ（コミットしない。見せる分は project files の shots/<ID>/ へ。#157）
 test-shots/
+__pycache__/

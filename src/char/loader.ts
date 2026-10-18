@@ -20,7 +20,9 @@ export const KATANA_MOTIONS: readonly SpriteMotion[] = [
 ];
 /** 弓の組（読む順） */
 export const BOW_MOTIONS: readonly SpriteMotion[] = ['bow_shot', 'bow_hold_walk', 'bow_walk', 'bow_rapid'];
-export const MOTIONS: readonly SpriteMotion[] = [...BASE_MOTIONS, ...KATANA_MOTIONS, ...BOW_MOTIONS];
+/** WEAPON-5: 刀の パリィ（受け・すき / きめ）。刀を 持ったとき 刀の組の あとに 読む */
+export const PARRY_MOTIONS: readonly SpriteMotion[] = ['parry', 'parryKime'];
+export const MOTIONS: readonly SpriteMotion[] = [...BASE_MOTIONS, ...KATANA_MOTIONS, ...PARRY_MOTIONS, ...BOW_MOTIONS];
 /** atlas.json に modelH がないときの 背の高さ（試しの表示と同じ） */
 export const DEFAULT_MODEL_H = 1.7;
 export const SPAN = 2.0;

@@ -11,9 +11,13 @@ import { createCombatUi } from './fx/combatUi';
 import { PlayerCombatImpl, createCombatConfig, createCombatHook } from './combat';
 import { ArmorSystemImpl, CraftSystemImpl, createArmorHook, createCraftConfig, createCraftHook, createFurnaceHook, createPickupHook } from './craft';
 import { ToolSystemImpl, createToolConfig, createToolHook } from './tools';
-import { createBladeSystem } from './tools/blade/BladeSystem';
+import { createBladeSystem, isBladeItem } from './tools/blade/BladeSystem';
 import { createBladeHook } from './tools/blade/hook';
 import { WeaponFx } from './fx/weaponFx';
+import { createParry, parryGlowLevel } from './combat/parry';
+import { ParryFx, StaggerIcons, bladeMidInto } from './fx/parryFx';
+import { isParrySound, playParry } from './fx/parrySounds';
+import { parryCellOf } from './char/parryCells';
 import { bladeColorsOf } from './fx/bladeTrailModel';
 import { EventRelay } from './fx/eventRelay';
 import { BladeHud } from './ui/bladeHud';
@@ -34,7 +38,8 @@ import { FARM_HINT_VIEW } from './ui/farmHintModel';
 import { ITEM_RARITY_SETTINGS, itemRarity, rarityIndex } from './drops/rarity';
 import { createRarityHook } from './drops/rarityHook';
 import { itemType } from './inventory/items';
-import { createGuideHook } from './ui/playOverlay';
+import { Book } from './ui/book/Book';
+import { playBook } from './fx/bookSounds';
 import { SEA_Y, WORLD_LIMIT, createM6Settings, createM7Settings, createW2Settings, SEED_ITEM, VEG_ITEM, CROP_KINDS, cropKindOfBlock, type FarmPlacement, type AchievementId, type CombatEvent, type DefeatWith, type DigEvent, type ItemId, type SwingAnim, type YokaiKind } from './contracts';
 import { ACHIEVEMENT_DEFS, AchievementSystem, AchievementsPageModel, createAchievementsHook, type StepContext } from './achievements';
 import { CelebrateUi } from './ui/celebrate';
@@ -252,7 +257,9 @@ const sky = new Sky({ scene: game.scene, time, timeSettings, lighting, light: re
 mountHud(hud);
 const lock = new LockController();
 const wheel = new WheelAccumulator(game.input, () => lock.playInputEnabled());
-bindKeyboardAndMouse(window, game.input, wheel);
+// 本（BOOK-1）が 出ている間だけ Backspace を 止める（ブラウザの「前のページへ」にならないように）
+let bookRef: Book | null = null;
+bindKeyboardAndMouse(window, game.input, wheel, { preventExtra: () => bookRef?.active() === true });
 const look = new MouseLook(lock);
 const pointerLock = bindPointerLock(document, window, game.renderer.domElement, lock, look, game.input);
 // SOUND-1: 音（ミキサー → BGM → 効果音の順に作る。AudioContext は ミキサーだけが作る）
@@ -279,7 +286,16 @@ const titleSound = createBrowserTitleSound(
   window.addEventListener('pointerdown', warm, true);
   window.addEventListener('keydown', warm, true);
 }
-const playOverlay = new PlayOverlay(hud, lock, () => pointerLock.request(), () => playCraft(fxSound, 'tab'));
+// BOOK-1: あそびかたの 3D の 本。出ている間は 世界が 止まり、景色は 描きなおさない
+const book = new Book({
+  parent: document.body,
+  sound: (name) => playBook(fxSound, name),
+  beforeOpen: () => game.flushRender(),
+});
+bookRef = book;
+game.setModal(book);
+game.input.onPress((action) => book.onAction(action));
+const playOverlay = new PlayOverlay(hud, lock, () => pointerLock.request(), () => book.open());
 const soundSettingsUi = createSoundSettings({ audio: audioSettings, fx: FX_SETTINGS, onChange: () => audioSync() }, playOverlay.el);
 // 最初のクリック・キーで音が使えるようになる（ブラウザのきまり）
 for (const ev of ['pointerdown', 'keydown'] as const) window.addEventListener(ev, () => mixer.unlock(), true);
@@ -493,6 +509,11 @@ const blade = createBladeSystem({
   lunge: (dx, dz) => controller.lunge(dx, dz),
   tick: () => game.tick,
 });
+// WEAPON-5: 刀のパリィ（Shift＋クリック）。「動きを へらす」のときは スローにしない
+const reducedMotionMq = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
+const parry = createParry(w2, { reducedMotion: () => reducedMotionMq?.matches ?? false });
+const parryFx = new ParryFx({ scene: game.scene, camera: game.camera, basePath: '/models/fx/' });
+const sparkAt = { x: 0, y: 0, z: 0 };
 controller.lungeYokai = () => (yokaiManager ? yokaiManager.list() : []);
 const combat = new PlayerCombatImpl({
   config: combatCfg,
@@ -648,6 +669,7 @@ const dig = new DigSystemImpl(
     nowTick: () => game.tick,
     vitals: combat,
     blade,
+    parry,
     w2,
     yokai: () => yokaiManager!,
   },
@@ -728,6 +750,22 @@ yokaiManager = new YokaiManager({
   // 場所の倍率 M の はじまりの場所・海面の高さは、世界の設定から読む（数を書きこまない）
   origin: () => island.spawn(),
   seaY: () => SEA_Y,
+  settings: w2,
+  // WEAPON-5: 妖怪の 攻撃が 当たる所で パリィに 聞く
+  parry: {
+    hit: (h) => {
+      const r = parry.hit({ dirDeg: h.dirDeg, yawDeg: controller.state.yawDeg, by: h.by, yokaiId: h.yokaiId, amount: h.amount });
+      if (r.first) parryFx.spark(bladeMidInto(sparkAt, controller.state.position, controller.state.facingDeg), reducedMotionMq?.matches ?? false);
+      return { result: r.result, amount: r.amount };
+    },
+  },
+  onParryEvent: (e) => {
+    parry.note({ type: e.type, yokaiId: e.yokaiId, ...(e.by ? { by: e.by } : {}), ...(e.damage !== undefined ? { damage: e.damage } : {}) });
+    if (e.type === 'staggerDouble') {
+      staggerIcons.burstAt(e.yokaiId);
+      playParry(fxSound, 'staggerBreak');
+    }
+  },
   onDefeat: (kind, info) => {
     level.onDefeat(kind, info.xp);
     onDefeatAch(kind);
@@ -812,6 +850,8 @@ const hintSettings = { actionHint: true };
 const actionHint = new ActionHint(hud);
 const titleAnnounce = new TitleAnnounce(hud);
 const yokaiNameplates = new YokaiNameplates(hud);
+const staggerIcons = new StaggerIcons(hud, '/models/fx/');
+const stagIconBuf: { id: number; x: number; y: number; z: number; titled: boolean }[] = [];
 const NO_PLATES: { id: number; text: string; x: number; y: number; z: number; dist: number }[] = [];
 const plateBuf: { id: number; text: string; x: number; y: number; z: number; dist: number }[] = [];
 const yokaiFocus = new YokaiFocus((id) => yokaiManager.modelOf(id), () => game.camera.position);
@@ -1280,6 +1320,8 @@ achievements.syncSilently({ level: level.get().level, armor: [armor.equipped('he
 celebrate.setPending(achievements.pendingCount());
 lock.onChange((locked) => {
   if (!locked) save.saveIfChanged();
+  // あそびが はじまった・もちもの画面やおめでとう画面が 出る: 本は すぐ しまう（案内画面が 出ていない 間は 本も 出さない）
+  if (!lock.overlayVisible()) book.closeNow();
 });
 screen.onClose(() => {
   // できごと で とじたあと E で開いたら もちもの から（L で開いた画面は L で開き直す）
@@ -1400,15 +1442,24 @@ game.onUpdate((dt) => {
     return;
   }
   time.update();
+  // WEAPON-5: パリィの 入力は 妖怪の 更新の 前（このステップの 当たりが F1 になる）
+  const parryIn = dig.parryInput(game.tick + 1);
+  // Shift を 押した 時点で パリィの 絵を 先読みする（刀を 持っただけでは 読まない。初回から 受けの 絵が 出るように）
+  if (parryIn.run && parryIn.active && isBladeItem(parryIn.item)) sprite?.preloadParry();
+  parry.update(parryIn);
   // WEAPON-2: 刀・弓の 動きの 制限（歩く倍率・ジャンプ止め）を プレイヤーへ
   {
     const bm = blade.motion();
     const wm = tools.bow().motion();
-    controller.motion.speedMul = bm.speedMul * wm.speedMul;
-    controller.motion.jumpLocked = bm.jumpLocked || wm.jumpLocked;
+    const pm = parry.motion();
+    // 始めた ステップは まだ 走れる（刀のわざと 同じ）。そのあと 速さを 0 に して すべらせない
+    const pmOn = !parry.startedNow();
+    controller.motion.speedMul = bm.speedMul * wm.speedMul * (pmOn ? pm.speedMul : 1);
+    controller.motion.jumpLocked = bm.jumpLocked || wm.jumpLocked || pm.jumpLocked;
     // CHAR-2: わざのあいだは 向きを わざの向きに 固定（わざを始めたステップは あとで その場で）
     // WEAPON-3: 刀の わざ・パンチの あいだは 攻撃の向き u。攻撃・空ぶりは ＋マークへ 回らない（leftAims）
-    controller.motion.faceDeg = dig.attackFaceDeg();
+    // WEAPON-5: パリィの あいだは 今 向いている 方（カメラの 向き）を向く。始めた ステップは すべらず 止まる
+    controller.motion.faceDeg = pm.jumpLocked ? controller.state.yawDeg : dig.attackFaceDeg();
     controller.motion.leftAims = !['attack', 'whiff'].includes(dig.attackPreview().use);
     controller.motion.stopNow = false;
   }
@@ -1437,7 +1488,11 @@ game.onUpdate((dt) => {
     const faceU = dig.attackFaceDeg();
     if (faceU !== null) st.facingDeg = ((faceU % 360) + 360) % 360;
     rig.doll.setArcDir(st.facingDeg);
-    if (bs.move !== null && bs.frame === 1) st.velocity.x = st.velocity.z = 0;
+    // WEAPON-5: パリィの 絵と 青白い 光（からだの 色）
+    const ps = parry.state();
+    sprite?.setParry(parryCellOf(ps.phase, ps.frame));
+    sprite?.setGlow(parryGlowLevel(ps.glowLeft, w2));
+    if ((bs.move !== null && bs.frame === 1) || parry.startedNow()) st.velocity.x = st.velocity.z = 0;
     const bowPose = tools.bow().state();
     const held = inventory.held()?.item ?? null;
     const weapon = bs.item !== null ? 'katana' : held === 'yumi' ? 'bow' : 'none';
@@ -1547,11 +1602,17 @@ game.onUpdate((dt) => {
   stuckVisuals.syncStuck(tools.bow().stuck());
   wearNotice.step();
   weaponFx.step();
+  for (const n of parry.sounds()) if (isParrySound(n)) playParry(fxSound, n);
+  {
+    const ps = parry.state();
+    parryFx.step({ visible: ps.glowLeft > 0, level: parryGlowLevel(ps.glowLeft, w2), position: controller.state.position, reduced: reducedMotionMq?.matches ?? false });
+  }
   combatUi.hearts.setArmor(armor.snapshot().hudIcons);
   craftHud.update(dt);
   fx.update(dt);
   combatFx.update(dt);
   weaponFx.update(dt);
+  parryFx.update();
   for (const e of level.drainEvents()) {
     if (e.type === 'levelUp') {
       levelHud.celebrate();
@@ -1577,6 +1638,7 @@ game.onUpdate((dt) => {
   titleAnnounce.sync(yokaiM.announce());
   // 持ち物・メニューを開いている間は 名前を出さない
   yokaiNameplates.update(screen.mode() === 'play' ? yokaiM.nameplates(plateBuf) : NO_PLATES, game.camera);
+  staggerIcons.update(yokaiM.staggerIcons(stagIconBuf), game.camera, screen.mode() === 'play');
   actionHint.update(hintVisible() ? actionHintLines(dig.previewRightClick(), dig.previewLeftClick(), { held: tools.current().item, heldIsPickaxe: tools.current().kind === 'pickaxe', heldIsBlade: tools.current().kind === 'blade' }) : {});
   farmHint.step();
   {
@@ -1632,7 +1694,7 @@ game.onUpdate(() => {
 // ロックがないあいだは時間を止める。F3 だけは効く（M1-02 §2.4）
 game.setRealtimeGate(() => lock.realtimeAllowed());
 // おめでとう画面の中の時間は 実時間で進める（世界は上で止めてある）
-game.setTimeScale(() => (screen.mode() === 'celebrate' ? 1 : screen.timeScale()));
+game.setTimeScale(() => (screen.mode() === 'celebrate' ? 1 : screen.timeScale() * (screen.mode() === 'play' ? parry.state().timeScale : 1)));
 game.onIdle((dt) => overlay.update(dt));
 
 const cameraHook = createCameraHook(rig);
@@ -1665,8 +1727,7 @@ const achievementsHook = {
   },
 };
 const facingTmp = { x: 0, y: 0, z: 0 };
-const hudHook = { toolHint: () => { const h = dig.toolHint(); return h ? { slot: h.slot, ticksLeft: h.ticksLeft } : null; }, actionHint: () => actionHint.current(), yokaiFocus: () => yokaiFocus.current(), yokaiFocusHulls: () => yokaiFocus.hullCount(), hpBar: (id: number) => yokaiManager?.hpBarInfo(id) ?? null, announce: () => yokaiManager?.announce() ?? null, nameplate: (id: number) => yokaiManager?.nameplateInfo(id) ?? null };
-const guideHook = createGuideHook(playOverlay);
+const hudHook = { toolHint: () => { const h = dig.toolHint(); return h ? { slot: h.slot, ticksLeft: h.ticksLeft } : null; }, actionHint: () => actionHint.current(), yokaiFocus: () => yokaiFocus.current(), yokaiFocusHulls: () => yokaiFocus.hullCount(), hpBar: (id: number) => yokaiManager?.hpBarInfo(id) ?? null, announce: () => yokaiManager?.announce() ?? null, nameplate: (id: number) => yokaiManager?.nameplateInfo(id) ?? null, staggerIcon: (id: number) => yokaiManager?.staggerIconInfo(id) ?? null };
 const lockHook = createLockHook(lock);
 const combatHook = createCombatHook(combat);
 const shadowStore = saveOptions.nosave ? null : window.localStorage;
@@ -1740,7 +1801,11 @@ installTestHook(game, overlay, () => host.everReady, {
     blob: blobShadow,
     chunks: () => renderer.chunkStats(),
   }),
-  player: { ...createPlayerHook(controller), respawn: () => controller.respawn(), doll: withSpriteDoll(cameraHook.doll, sprite, rig.doll.group) } as unknown as TestHookGroups['player'],
+  parry: {
+    state: () => parry.state(),
+    events: () => parry.events(),
+  } as unknown as TestHookGroups['parry'],
+  player: { ...createPlayerHook(controller), glow: () => { const g = parry.state().glowLeft; return { visible: g > 0, ticksLeft: g, level: parryGlowLevel(g, w2) }; }, respawn: () => controller.respawn(), doll: withSpriteDoll(cameraHook.doll, sprite, rig.doll.group) } as unknown as TestHookGroups['player'],
   ...createDigHook(dig),
   hud: hudHook,
   inventory: createInventoryHook(inventory, screen, {
@@ -1839,8 +1904,20 @@ installTestHook(game, overlay, () => host.everReady, {
   },
   lock: {
     ...lockHook,
-    tab: guideHook.tab,
-    get: () => ({ ...lockHook.get(), ...guideHook.state() }),
+    /** ロックが はずれた ことに する。本物の ポインターロックも はなす（テストの クリックが ロック中の 要素へ 飛ばないように） */
+    simulate: (locked: boolean) => {
+      lockHook.simulate(locked);
+      if (!locked && document.pointerLockElement) document.exitPointerLock();
+    },
+    /** 本を 出して その章の ② へ（動きなし・音なし）。BOOK-1 §4.4 */
+    tab: (name: string) => {
+      if (book.model.data.chapters.some((c) => c.id === name)) book.jump(name);
+    },
+    /** 本を 出して 'toc'・章の id・項目の id の ページへ（動きなし・音なし） */
+    book: (target: string) => book.jump(target),
+    /** 本だけの 描画回数・三角形（前回の 描画。性能の 記録用） */
+    bookStats: () => book.renderInfo(),
+    get: () => ({ ...lockHook.get(), ...book.state() }),
   },
   input: createInputHook(game.input, look, wheel),
   audio: createAudioHook({

@@ -137,10 +137,11 @@ describe('案内画面の HTML', () => {
     }
   });
 
-  it('ボタンの文字と操作の説明 4 つが入る', () => {
+  it('ボタンの文字と「あそびかたの ほん」ボタンが入る（操作の説明は 本の中。BOOK-1）', () => {
     const html = buildOverlayHtml(INPUT_CONFIG.textFirst);
     expect(html).toContain('クリックして あそぼう！');
-    for (const c of ['あるく', 'ジャンプ', 'カメラ を まわす', 'シフトを おしながら あるくと はしる']) expect(html).toContain(c);
+    expect(html).toContain('あそびかたの ほん');
+    expect(html).toContain('data-book-open');
   });
 
   it('大きさの設定が仕様どおり（512 / 96 / 32 / 20）', () => {

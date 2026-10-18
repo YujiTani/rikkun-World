@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { GUIDE_TABS } from '../input/config';
 import { animalIconPixels } from './animalArt';
 import { ANIMAL_HINT_STEPS, ANIMAL_HINT_VIEW, AnimalHintModel } from './animalHintModel';
 import { findUnrubiedKanji } from './text';
@@ -20,19 +19,6 @@ describe('LIVE-1 合図（§3.1）', () => {
     expect(m.stepsLeft()).toBe(ANIMAL_HINT_STEPS);
     for (let i = 0; i < ANIMAL_HINT_STEPS; i++) m.step();
     expect(m.current()).toBeNull();
-  });
-});
-
-describe('LIVE-1 案内画面「そだてる」（§3.1）', () => {
-  it('今の 11 行 ＋ 2 行（にわとり に あげる・なでる と たまご）。漢字は ふりがな付き', () => {
-    const c = GUIDE_TABS.grow.captions;
-    expect(c.length).toBe(13);
-    for (const t of c) expect(findUnrubiedKanji(t), t).toEqual([]);
-    const plain = c.slice(11).map((t) => t.replace(/<[^>]+>/g, ''));
-    expect(plain[0]).toContain('にわとり');
-    expect(plain[0]).toContain('あげる');
-    expect(plain[1]).toContain('たまご');
-    expect(plain[1]).toContain('なでる');
   });
 });
 

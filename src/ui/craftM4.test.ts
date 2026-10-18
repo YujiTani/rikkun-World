@@ -4,7 +4,7 @@ import { CRAFT_SOUNDS, playCraft } from '../fx/craftSounds';
 import { CRAFT_UI_SETTINGS } from '../fx/craftConfig';
 import { SmokePool, crackleTarget, flameLevel, nextCrackleDelay, type FurnaceFxEntry } from '../fx/furnaceFxModel';
 import type { Tone } from '../fx/sound';
-import { GUIDE_TABS, GUIDE_TAB_IDS, GUIDE_TAB_STYLE } from '../input/config';
+
 import { BLOCK_TILES, getTilePixels } from '../world/blocks/textures';
 import { createRng } from '../world/gen/random';
 import { rarityTier } from '../drops/rarity';
@@ -16,6 +16,9 @@ import { PickupLogModel } from './pickupLogModel';
 import { buildOverlayHtml } from './playOverlay';
 import { findUnrubiedKanji } from './text';
 import { buildTooltip, rarityCss, type TooltipDeps } from './tooltipModel';
+const bookMod = (await import('./book/bookData')) as any;
+const BOOK_CHAPTERS: any[] = bookMod.BOOK_CHAPTERS;
+const BOOK_ITEMS: any[] = bookMod.BOOK_ITEMS;
 
 const R = (id: string, out: [ItemId, number], inputs: [ItemId, number][], works = true, station: 'craft' | 'furnace' = 'craft'): Recipe => ({
   id,
@@ -260,32 +263,19 @@ describe('拾ったときの ログ（AC27）', () => {
   });
 });
 
-describe('案内画面のタブ（AC22）', () => {
-  it('タブは 5 つで、中身の数が 4・5・5・7・7（M6: Q で すてる・たんす に しまう、M7: そだてる）', () => {
-    expect(GUIDE_TAB_IDS).toEqual(['move', 'dig', 'fight', 'craft', 'grow']);
-    expect(GUIDE_TAB_IDS.map((id) => GUIDE_TABS[id].label)).toEqual(['うごく', 'ほる・おく', 'たたかう', 'つくる・やく', 'そだてる']);
-    expect(GUIDE_TAB_IDS.map((id) => GUIDE_TABS[id].captions.length)).toEqual([4, 5, 5, 9, 13]);
-    expect(GUIDE_TAB_STYLE.heightPx).toBeGreaterThanOrEqual(64);
-    expect(GUIDE_TAB_STYLE.fontPx).toBeGreaterThanOrEqual(24);
-    expect(GUIDE_TAB_STYLE.selectedColor).toBe('#FFD54F');
+describe('案内画面の本（BOOK-1。旧 AC22 のタブ）', () => {
+  it('章は 5 つで、項目の数が 4・5・10・9・12（たたかう 8 → 10、そだてる 11 → 12）', () => {
+    expect(BOOK_CHAPTERS.map((c) => c.id)).toEqual(['move', 'dig', 'fight', 'craft', 'grow']);
+    expect(BOOK_CHAPTERS.map((c) => c.label)).toEqual(['うごく', 'ほる・おく', 'たたかう', 'つくる・やく', 'そだてる']);
+    expect(BOOK_CHAPTERS.map((c) => BOOK_ITEMS.filter((i) => i.chapter === c.id).length)).toEqual([4, 5, 10, 9, 12]);
   });
-  it('HTML: 5 ページぜんぶに漢字がなく、はじめは うごく のページだけ見える。ボタンはページの外', () => {
+  it('HTML: 「あそびかたの ほん」ボタンが 1 つ。タブ・カードは ない。漢字は ふりがな付き。ボタンは「あそぼう」の下', () => {
     const html = buildOverlayHtml('クリックして あそぼう！');
     expect(findUnrubiedKanji(html)).toEqual([]);
-    expect((html.match(/class="po-tab"/g) ?? []).length).toBe(5);
-    expect((html.match(/class="po-help"/g) ?? []).length).toBe(5);
-    expect((html.match(/data-page="\w+" hidden/g) ?? []).length).toBe(4);
-    expect(html.indexOf('po-button')).toBeLessThan(html.indexOf('po-pages'));
-    expect(html).toContain('あるく');
-    for (const id of GUIDE_TAB_IDS) {
-      const h = buildOverlayHtml('x', id);
-      expect(h).toContain(`data-tab="${id}" data-icon="${GUIDE_TABS[id].icon}" data-selected="true"`);
-    }
-  });
-  it('どのタブでも「あそぼう」ボタンのHTMLは同じ（ページの外）', () => {
-    const btn = (h: string) => h.match(/<button type="button" class="po-button">.*?<\/button>/)![0];
-    const a = btn(buildOverlayHtml('クリックして あそぼう！', 'move'));
-    for (const id of GUIDE_TAB_IDS) expect(btn(buildOverlayHtml('クリックして あそぼう！', id))).toBe(a);
+    expect((html.match(/data-book-open/g) ?? []).length).toBe(1);
+    expect(html).not.toContain('po-tab');
+    expect(html).not.toContain('po-help');
+    expect(html.indexOf('po-button')).toBeLessThan(html.indexOf('data-book-open'));
   });
 });
 

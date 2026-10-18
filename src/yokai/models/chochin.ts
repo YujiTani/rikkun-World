@@ -33,6 +33,10 @@ export const FIREBALL_SPEED = 5.0;
 export const FIREBALL_RANGE = 8;
 export const FIREBALL_BOX = 0.5;
 
+const NORMAL_MATS = { core: solid(0xffb020), tail1: solid(0xff8c1a), tail2: solid(0xffe14d) };
+/** はね返した 火の玉: 青白い（パリィの 光と 同じ 色）。十字の かざりも つく */
+const REFLECT_MATS = { core: solid(0x8fd8ff), tail1: solid(0x5fd3ff), tail2: solid(0xd6f4ff), edge: solid(0xffffff) };
+
 /** 火の玉（世界に置く）。設計書 5 章。速さ 5.0 ブロック/秒、8 ブロックで消える、当たり判定は 0.5 角 */
 export class Fireball {
   readonly group = new THREE.Group();
@@ -44,16 +48,53 @@ export class Fireball {
   readonly dir = new THREE.Vector3(0, 0, -1);
   traveled = 0;
   alive = true;
+  /** 速さ（ブロック/秒）・とどく きょり。はね返すと 変わる（WEAPON-5） */
+  speed = FIREBALL_SPEED;
+  range = FIREBALL_RANGE;
+  /** はね返した 火の玉か（青白い 色と 十字の かざり。色だけで 見分けない） */
+  reflected = false;
   private age = 0;
+  private readonly spikeA: THREE.Mesh;
+  private readonly spikeB: THREE.Mesh;
 
   constructor() {
-    this.core = new THREE.Mesh(boxGeo(0.3, 0.3, 0.3), solid(0xffb020));
-    this.tail1 = new THREE.Mesh(boxGeo(0.18, 0.18, 0.18), solid(0xff8c1a));
-    this.tail2 = new THREE.Mesh(boxGeo(0.1, 0.1, 0.1), solid(0xffe14d));
-    this.group.add(this.core, this.tail1, this.tail2);
+    this.core = new THREE.Mesh(boxGeo(0.3, 0.3, 0.3), NORMAL_MATS.core);
+    this.tail1 = new THREE.Mesh(boxGeo(0.18, 0.18, 0.18), NORMAL_MATS.tail1);
+    this.tail2 = new THREE.Mesh(boxGeo(0.1, 0.1, 0.1), NORMAL_MATS.tail2);
+    // はね返した 火の玉の 十字（ふだんは かくれている）
+    this.spikeA = new THREE.Mesh(boxGeo(0.62, 0.08, 0.08), REFLECT_MATS.edge);
+    this.spikeB = new THREE.Mesh(boxGeo(0.08, 0.62, 0.08), REFLECT_MATS.edge);
+    this.spikeA.visible = this.spikeB.visible = false;
+    this.group.add(this.core, this.tail1, this.tail2, this.spikeA, this.spikeB);
+  }
+
+  /** 火の玉を 出す（はね返しの 見た目を もとにもどす） */
+  private plain(): void {
+    this.speed = FIREBALL_SPEED;
+    this.range = FIREBALL_RANGE;
+    this.reflected = false;
+    this.core.material = NORMAL_MATS.core;
+    this.tail1.material = NORMAL_MATS.tail1;
+    this.tail2.material = NORMAL_MATS.tail2;
+    this.spikeA.visible = this.spikeB.visible = false;
+  }
+
+  /** はね返す: 向き・速さ・とどく きょりを かえ、いままで 飛んだ きょりを 0 に もどす */
+  reflect(dir: THREE.Vector3, speed: number, range: number): void {
+    this.dir.copy(dir).normalize();
+    this.speed = speed;
+    this.range = range;
+    this.traveled = 0;
+    this.reflected = true;
+    this.core.material = REFLECT_MATS.core;
+    this.tail1.material = REFLECT_MATS.tail1;
+    this.tail2.material = REFLECT_MATS.tail2;
+    this.spikeA.visible = this.spikeB.visible = true;
+    this.apply();
   }
 
   start(pos: THREE.Vector3, dir: THREE.Vector3): void {
+    this.plain();
     this.position.copy(pos);
     this.dir.copy(dir).normalize();
     this.traveled = 0;
@@ -70,11 +111,11 @@ export class Fireball {
 
   update(dt: number): void {
     if (!this.alive) return;
-    const step = FIREBALL_SPEED * dt;
+    const step = this.speed * dt;
     this.position.addScaledVector(this.dir, step);
     this.traveled += step;
     this.age += dt;
-    if (this.traveled >= FIREBALL_RANGE - 1e-6) {
+    if (this.traveled >= this.range - 1e-6) {
       this.alive = false;
       this.group.visible = false;
       return;
@@ -85,6 +126,9 @@ export class Fireball {
   private apply(): void {
     this.group.position.copy(this.position);
     this.core.rotation.set(Math.PI * 2 * (this.age / 0.5), Math.PI * 2 * (this.age / 0.5), 0); // 0.5 秒で 1 回転
+    if (this.reflected) {
+      this.spikeA.rotation.z = this.spikeB.rotation.z = Math.PI * 2 * (this.age / 0.8);
+    }
     this.tail1.position.copy(this.dir).multiplyScalar(-0.25);
     this.tail2.position.copy(this.dir).multiplyScalar(-0.45);
   }
