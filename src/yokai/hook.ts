@@ -18,6 +18,12 @@ export function createYokaiHook(m: YokaiManager) {
       palette: (id: number) => m.paletteInfo(id),
       /** 頭の印・ヌシの光（BAL-G。テスト用） */
       marks: (id: number) => m.marksInfo(id),
+      /** WEAPON-5: よろけの のこり。よろけて いなければ null */
+      stagger: (id: number) => m.stagger(id),
+      /** WEAPON-5: すぐ 攻撃を 始めさせる（ai が false でも）。hitInSteps = 当たりを 見るまで（火の玉は 投げるまで）。できなければ null */
+      attackNow: (id: number) => m.attackNow(id),
+      /** WEAPON-5: 飛んでいる 火の玉（はね返した分も） */
+      fireballList: () => m.fireballList(),
       /** 線にふれる妖怪（テスト用） */
       raycast: (origin: Vec3, dir: Vec3, max: number) => m.raycast(origin, dir, max),
     },

@@ -64,7 +64,7 @@ describe('AC33 引く位置の計算', () => {
 
 describe('AC33 readCell (Promise)', () => {
   const fileImage: LoadImage = async (url) => {
-    const name = /([a-z_]+)\.png$/.exec(url)![1]!;
+    const name = /([A-Za-z_]+)\.png$/.exec(url)![1]!;
     const p = decodePng(readFileSync(resolve(OUT, `${name}.png`)));
     return { width: p.width, height: p.height, data: new Uint8ClampedArray(p.data) } as unknown as ImageData;
   };

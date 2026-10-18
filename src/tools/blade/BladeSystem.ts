@@ -216,13 +216,14 @@ export function createBladeSystem(deps: BladeDeps): BladeSystem {
     const dmg = techDamage(base, S.bladeDamageMul[t]);
     const [dist, up] = S.bladeKnock[t];
     hitSet.add(y.id);
-    deps.yokai().damage(y.id, dmg, { ...ctx.position }, { dist, up });
+    const dealt = deps.yokai().damage(y.id, dmg, { ...ctx.position }, { dist, up });
+    const shown = typeof dealt === 'number' && dealt > 0 ? dealt : dmg; // よろけの 2 倍の あとの 数
     emit({
       type: 'techHit',
       tick: deps.tick(),
       tech: t,
       yokaiId: y.id,
-      damage: dmg,
+      damage: shown,
       knock: dist,
       up,
       position: { ...y.position },
@@ -351,6 +352,15 @@ export function createBladeSystem(deps: BladeDeps): BladeSystem {
       else if (tech === 'kiriage') motionOut.speedMul = m.kiriage;
       else motionOut.speedMul = phase === 'recovery' ? m.kesaRecovery : m.kesaStartupActive;
       return motionOut;
+    },
+    dropBuffer(): void {
+      buffered = null;
+    },
+    busyNext(): { busy: boolean; accepts: boolean } {
+      if (phase === 'idle') return { busy: false, accepts: false };
+      const f = frame + 1;
+      if (f > currentTotal()) return { busy: false, accepts: false };
+      return { busy: true, accepts: f >= windowStart() };
     },
     drainEvents(): BladeEvent[] {
       const out = drainQ;
