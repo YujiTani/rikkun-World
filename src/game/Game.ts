@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { ActionState } from '../input/actions';
 import { stableOpaqueSort, stableTransparentSort } from '../world/render/drawOrder';
 import { FrameStats } from '../debug/frameStats';
-import { createStepClock } from './stepClock';
+import { createStepClock, MAX_STEPS_PER_FRAME } from './stepClock';
 
 /** ゲームの更新は 1/60 秒きざみ（固定）。テストで同じ結果を再現しやすくするため。 */
 export const FIXED_DT = 1 / 60;
@@ -15,6 +15,18 @@ export interface RenderStats {
   triangles: number;
   geometries: number;
   textures: number;
+  /** 世界の renderer が 描いた 累計の 回数（three の info.render.frame。本が 出ている 間は ふえない） */
+  frames: number;
+}
+
+/**
+ * 世界の 上に のる 画面（BOOK-1 の 本）。active の 間は 世界の 更新も 描画も しない
+ * （景色は 最後の 1 まいが 残る。時間も 進まない）。tick は 1/60 秒で 呼ばれ、render は 本の 絵だけを 描く。
+ */
+export interface GameModal {
+  active(): boolean;
+  tick(): void;
+  render(): void;
 }
 
 export class Game {
@@ -43,6 +55,10 @@ export class Game {
   /** 止まっている間の絵がもう描いてあるか（変化がないコマは描き直さない） */
   private idleDrawn = false;
   private timeScale: () => number = () => 1;
+  private modal: GameModal | null = null;
+  private modalAcc = 0;
+  /** 本が 出ている 間に 画面の 大きさが かわって、世界の 絵が きえた */
+  private worldStale = false;
 
   constructor(private readonly container: HTMLElement) {
     this.renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
@@ -74,6 +90,11 @@ export class Game {
   /** 実時間の進む速さの倍率（もちもの画面で 0.25 など）。step() には関係しない */
   setTimeScale(fn: () => number): void {
     this.timeScale = fn;
+  }
+
+  /** 世界の 上に のる 画面（本）を 1 つ 決める */
+  setModal(m: GameModal): void {
+    this.modal = m;
   }
 
   /** 描く直前（renderer.render の前）に毎回呼ばれる処理（#144 影の試作） */
@@ -128,6 +149,7 @@ export class Game {
       triangles: info.render.triangles,
       geometries: info.memory.geometries,
       textures: info.memory.textures,
+      frames: info.render.frame,
     };
   }
 
@@ -139,6 +161,22 @@ export class Game {
       this.flushRender();
       return;
     }
+
+    if (this.modal?.active()) {
+      // 本: 世界は 止まる。本の 動きだけ 1/60 秒で 数える
+      this.modalAcc = Math.min(this.modalAcc + Math.min(elapsed, 100) / 1000, FIXED_DT * MAX_STEPS_PER_FRAME);
+      while (this.modalAcc >= FIXED_DT && this.modal.active()) {
+        this.modal.tick();
+        this.modalAcc -= FIXED_DT;
+      }
+      for (const fn of this.idleUpdaters) fn(Math.min(elapsed / 1000, 0.1));
+      this.input.endFrame();
+      this.render();
+      // 本が とじた: そのコマで 世界を 描いたので、止まっている 間の 絵は もう描いてある
+      if (!this.modal.active()) this.idleDrawn = true;
+      return;
+    }
+    this.modalAcc = 0;
 
     if (!this.realtimeGate()) {
       // ロックなし: 時間は止める。描画と F3 だけ続ける
@@ -162,6 +200,17 @@ export class Game {
   };
 
   private update(): void {
+    if (this.modal?.active()) {
+      // 本が 出ている 間: 世界の 更新は しない（時間も 進めない）。本の 動きだけ 1 コマ
+      this.modal.tick();
+      this.input.endFrame();
+      if (!this.modal.active()) {
+        // 本が とじた: 世界の 絵を 描きなおす
+        this.idleDrawn = false;
+        this.renderDirty = true;
+      }
+      return;
+    }
     for (const fn of this.updaters) fn(FIXED_DT);
     this.input.endFrame();
     this.tick++;
@@ -170,6 +219,16 @@ export class Game {
   private render(): void {
     this.renderDirty = false;
     if (this.renderSuspended) return;
+    if (this.modal?.active()) {
+      // 本: 世界は 描きなおさない（画面の 大きさが かわって きえたときだけ 1 まい）。本は 動きの 間だけ 描く
+      if (this.worldStale) {
+        this.worldStale = false;
+        for (const fn of this.preRenders) fn();
+        this.renderer.render(this.scene, this.camera);
+      }
+      this.modal.render();
+      return;
+    }
     for (const fn of this.preRenders) fn();
     this.renderer.render(this.scene, this.camera);
   }
@@ -180,5 +239,6 @@ export class Game {
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(w, h);
     this.idleDrawn = false;
+    this.worldStale = true;
   };
 }

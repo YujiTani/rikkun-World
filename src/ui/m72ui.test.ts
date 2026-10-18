@@ -3,31 +3,33 @@ import type { FarmEvent } from '../contracts';
 import { M6_SETTING_DEFAULTS } from '../contracts';
 import { AchievementSystem } from '../achievements/AchievementSystem';
 import { ACHIEVEMENT_DEFS } from '../achievements/defs';
-import { GUIDE_TABS } from '../input/config';
+
 import { FarmFx } from '../fx/farmFx';
 import { FARM_SOUNDS } from '../fx/farmSounds';
 import { actionHintLines } from './actionHintModel';
 import { WET_SOON_OPACITY, farmAimView } from './farmAimModel';
 import { FARM_HINT_STEPS, FARM_HINT_VIEW, FarmHintModel } from './farmHintModel';
 import { findUnrubiedKanji } from './text';
+const bookMod = (await import('./book/bookData')) as any;
+const BOOK_ITEMS: any[] = bookMod.BOOK_ITEMS;
 
 const at = { x: 1, y: 2, z: 3, tick: 5 };
 const ev = (e: Record<string, unknown>): FarmEvent => ({ ...at, ...e }) as FarmEvent;
 const mk = () => new AchievementSystem(() => ({ ...M6_SETTING_DEFAULTS, achieveCooldown: 0, achieveCooldownEarly: 0 }));
 
 describe('M7-2 実績（AC21・§4.7）', () => {
-  it('数の表: そだてる +8、つくる +3、ぜんぶ 225・小 80', () => {
+  it('数の表: そだてる +8、つくる +3、ぜんぶ 237・小 83（LIVE-1・WEAPON-6 込み）', () => {
     const cnt = (cat: string) => ACHIEVEMENT_DEFS.filter((d) => d.category === cat).length;
-    expect(cnt('farm')).toBe(26 + 8 + 1);
-    expect(ACHIEVEMENT_DEFS.length).toBe(225);
-    expect(ACHIEVEMENT_DEFS.filter((d) => d.small).length).toBe(80);
+    expect(cnt('farm')).toBe(26 + 8 + 1 + 12); // + LIVE-1 の 12
+    expect(ACHIEVEMENT_DEFS.length).toBe(237); // LIVE-1 §4.5 ＋ WEAPON-6 の 1
+    expect(ACHIEVEMENT_DEFS.filter((d) => d.small).length).toBe(83);
     for (const id of ['craft.watering_can.1', 'craft.long_watering_can.1', 'craft.sprinkler.1']) {
       expect(ACHIEVEMENT_DEFS.find((d) => d.id === id)).toMatchObject({ category: 'craft', small: true });
     }
   });
   it('そだてる の 並び: M7 の 行 の うしろ に water・sprinkler・pet・petHarvest の 順、名前 に 漢字 なし', () => {
     const farm = ACHIEVEMENT_DEFS.filter((d) => d.category === 'farm');
-    expect(farm.slice(-9, -1).map((d) => d.id)).toEqual([
+    expect(farm.slice(-21, -13).map((d) => d.id)).toEqual([
       'farm.water.1',
       'farm.water.10',
       'farm.water.100',
@@ -37,8 +39,8 @@ describe('M7-2 実績（AC21・§4.7）', () => {
       'farm.pet.100',
       'farm.petHarvest.1',
     ]);
-    expect(farm[farm.length - 1].id).toBe('farm.bucket.1');
-    expect(farm.slice(-9, -1).filter((d) => d.small).map((d) => d.id)).toEqual(['farm.water.1', 'farm.pet.1']);
+    expect(farm[farm.length - 13].id).toBe('farm.bucket.1');
+    expect(farm.slice(-21, -13).filter((d) => d.small).map((d) => d.id)).toEqual(['farm.water.1', 'farm.pet.1']);
     expect(farm.some((d) => /[一-鿿]/.test(d.name))).toBe(false);
     expect(ACHIEVEMENT_DEFS.find((d) => d.id === 'farm.water.10')?.name).toBe('10 かい みずやり した！');
     expect(ACHIEVEMENT_DEFS.find((d) => d.id === 'farm.pet.10')?.name).toBe('やさい を 10 かい なでた！');
@@ -138,15 +140,15 @@ describe('M7-2 HUD（AC17）と 案内画面（AC25）と 案内の絵（AC18）
     expect(farmAimView({ ...base, wet: false, wetSoon: true })).toMatchObject({ droplet: false, dropletFaint: false });
     expect(WET_SOON_OPACITY).toBe(0.45);
   });
-  it('そだてる タブ は 11 こ・漢字 は ふりがな付き', () => {
-    const c = GUIDE_TABS.grow.captions;
-    expect(c.length).toBe(11);
-    for (const t of c) expect(findUnrubiedKanji(t), t).toEqual([]);
-    const plain = c.slice(7, 10).map((t) => t.replace(/<[^>]+>/g, ''));
-    expect(plain[0]).toContain('じょうろ');
-    expect(plain[1]).toContain('スプリンクラー');
-    expect(plain[2]).toContain('なでる');
-    expect(c[10].replace(/<[^>]+>/g, '')).toContain('バケツ');
+  it('そだてる は 12 こ・漢字 は ふりがな付き', () => {
+    const items = BOOK_ITEMS.filter((i) => i.chapter === 'grow');
+    expect(items.length).toBe(12);
+    for (const t of items) expect(findUnrubiedKanji(t.caption), t.id).toEqual([]);
+    const plain = (id: string) => BOOK_ITEMS.find((i) => i.id === id)!.caption.replace(/<[^>]+>/g, '');
+    expect(plain('grow-can-fill')).toContain('じょうろ');
+    expect(plain('grow-sprinkler')).toContain('スプリンクラー');
+    expect(plain('grow-pet')).toContain('なでる');
+    expect(plain('grow-bucket')).toContain('バケツ');
   });
   it('照準の下: くむ・みずやり・くもう・なでる', () => {
     const c = { held: null, heldIsPickaxe: false, heldIsBlade: false };

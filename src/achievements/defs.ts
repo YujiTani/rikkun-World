@@ -437,6 +437,36 @@ function build(): AchievementDef[] {
   add({ series: 'farm.petHarvest', category: 'farm', stat: 'harvestPet', tiers: [t(1)], name: () => 'ごきげん の やさい を しゅうかく した！' });
   // BUCKET-1: そだてる の いちばん うしろ（小 では ない）
   add({ series: 'farm.bucket', category: 'farm', stat: 'bucketPlace', tiers: [t(1)], name: () => 'はじめて バケツ で みず を おいた！' });
+  // LIVE-1（§4.5）。そだてる の 今の 行 の うしろ に この 順（12 こ・小 3）
+  add({
+    series: 'animal.friend',
+    category: 'farm',
+    stat: 'friend:*',
+    tiers: [t(1), t(5)],
+    name: firstOrN('はじめて なかま が できた！', (g) => `なかま が ${g} わ に なった！`),
+  });
+  add({
+    series: 'animal.feed',
+    category: 'farm',
+    stat: 'feed:*',
+    tiers: [t(1, true), t(10), t(50)],
+    name: firstOrN('はじめて にわとり に やさい を あげた！', (g) => `やさい を ${g} かい あげた！`),
+  });
+  add({
+    series: 'animal.pet',
+    category: 'farm',
+    stat: 'petAnimal:*',
+    tiers: [t(1, true), t(10), t(100)],
+    name: firstOrN('はじめて なかま を なでた！', (g) => `なかま を ${g} かい なでた！`),
+  });
+  add({
+    series: 'animal.egg',
+    category: 'farm',
+    stat: 'egg:*',
+    tiers: [t(1), t(10), t(50)],
+    name: firstOrN('はじめて たまご を もらった！', (g) => `たまご を ${g} こ もらった！`),
+  });
+  add({ series: 'animal.eatEgg', category: 'farm', stat: 'eat:egg', tiers: [t(1, true)], name: () => 'はじめて たまご を たべた！' });
 
   const out: AchievementDef[] = [];
   for (const s of specs) {

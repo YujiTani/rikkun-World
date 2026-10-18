@@ -3,7 +3,7 @@ import type { FarmEvent, ItemId } from '../contracts';
 import { M6_SETTING_DEFAULTS } from '../contracts';
 import { AchievementSystem } from '../achievements/AchievementSystem';
 import { ACHIEVEMENT_DEFS, CRAFT_RECIPE_NAMES } from '../achievements/defs';
-import { GUIDE_TABS } from '../input/config';
+
 import { FarmFx } from '../fx/farmFx';
 import { FARM_SOUNDS } from '../fx/farmSounds';
 import { HELD_MODELS } from '../camera/heldTools';
@@ -86,11 +86,12 @@ describe('ねらった作物の しるし（§3.4）', () => {
   });
 });
 
-describe('案内画面の そだてる タブ（§3.7）', () => {
-  it('11 こ（M7-2 で 3 こ・BUCKET-1 で 1 こ ふえた）で 漢字は ふりがな付き', () => {
-    expect(GUIDE_TABS.grow.label).toBe('そだてる');
-    expect(GUIDE_TABS.grow.captions.length).toBe(11);
-    for (const c of GUIDE_TABS.grow.captions) expect(findUnrubiedKanji(c)).toEqual([]);
+describe('案内の本の そだてる 章（§3.7）', () => {
+  it('12 こ（M7-2 で 3 こ・BUCKET-1 で 1 こ・BOOK-1 で 分けて 12）で 漢字は ふりがな付き', () => {
+    expect(BOOK_CHAPTERS.find((c) => c.id === 'grow')!.label).toBe('そだてる');
+    const items = BOOK_ITEMS.filter((i) => i.chapter === 'grow');
+    expect(items.length).toBe(12);
+    for (const i of items) expect(findUnrubiedKanji(i.caption)).toEqual([]);
   });
 });
 
@@ -129,10 +130,10 @@ describe('農業の出来事 → 音・つぶ・合図・実績', () => {
 describe('実績 そだてる（§4.7）', () => {
   const mk = () => new AchievementSystem(() => ({ ...M6_SETTING_DEFAULTS, achieveCooldown: 0, achieveCooldownEarly: 0 }));
   const ev = (e: Record<string, unknown>): FarmEvent => ({ ...at, ...e }) as FarmEvent;
-  it('数: 分類そだてる 35・小 12、つくる に くわ（つくれる もの 28）', () => {
+  it('数: 分類そだてる 47・小 15（LIVE-1 で +12・+3）、つくる に くわ（つくれる もの 28）', () => {
     const farm = ACHIEVEMENT_DEFS.filter((d) => d.category === 'farm');
-    expect(farm.length).toBe(35);
-    expect(farm.filter((d) => d.small).length).toBe(12);
+    expect(farm.length).toBe(47); // LIVE-1 §4.5: 35 + 12
+    expect(farm.filter((d) => d.small).length).toBe(15); // 12 + 3
     expect(CRAFT_RECIPE_NAMES.length).toBe(28);
     expect(ACHIEVEMENT_DEFS.find((d) => d.id === 'craft.kuwa.1')).toMatchObject({ category: 'craft', small: true });
     expect(ACHIEVEMENT_DEFS.find((d) => d.id === 'craft.everything.28')).toBeTruthy();
@@ -171,6 +172,9 @@ describe('実績 そだてる（§4.7）', () => {
 });
 
 import { createDefaultItemInfo } from '../craft/info/build';
+const bookMod = (await import('./book/bookData')) as any;
+const BOOK_CHAPTERS: any[] = bookMod.BOOK_CHAPTERS;
+const BOOK_ITEMS: any[] = bookMod.BOOK_ITEMS;
 
 describe('説明の表 M7（どこで・そだつ はやさ）', () => {
   const info = createDefaultItemInfo((i) => i as string);

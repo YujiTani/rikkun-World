@@ -10,6 +10,7 @@ import type {
   DayPhase,
   DefeatWith,
   DigEvent,
+  AnimalEvent,
   FarmEvent,
   ItemId,
   M6Settings,
@@ -357,7 +358,8 @@ export class AchievementSystem implements AchievementShowSource {
             break;
           case 'eat':
             this.bump(`eat:${e.item}`, 1);
-            this.bump('eat:*', 1);
+            // LIVE-1 §4.5: `eat:*` は やさい だけ（たまご では ふやさない）
+            if (e.item !== 'egg') this.bump('eat:*', 1);
             break;
           case 'seedFound':
             this.bump(`seedFrom:${e.from}`, 1);
@@ -376,6 +378,40 @@ export class AchievementSystem implements AchievementShowSource {
           case 'pet':
             // ごきげん に した 回数（'again'・'wild' は 数えない）
             if (e.result === 'happy') this.bump('pet:*', 1);
+            break;
+          default:
+            break;
+        }
+      }
+    });
+  }
+
+  /**
+   * LIVE-1 畜産の出来事（§4.5）。つなぎ込みが `animals.events()` の列を わたす。
+   * feed = やさい を たべた、friend = なかま に なった、pet = なかま を なでた（やせい は 数えない）、egg = たまご を おとした
+   */
+  feedAnimals(events: readonly AnimalEvent[]): void {
+    if (events.length === 0) return;
+    this.run(() => {
+      for (const e of events) {
+        switch (e.type) {
+          case 'feed':
+            this.bump('feed:chicken', 1);
+            this.bump('feed:*', 1);
+            break;
+          case 'friend':
+            this.bump('friend:chicken', 1);
+            this.bump('friend:*', 1);
+            break;
+          case 'pet':
+            if (e.friend) {
+              this.bump('petAnimal:chicken', 1);
+              this.bump('petAnimal:*', 1);
+            }
+            break;
+          case 'egg':
+            this.bump('egg:chicken', 1);
+            this.bump('egg:*', 1);
             break;
           default:
             break;

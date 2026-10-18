@@ -19,6 +19,7 @@ async function open(page: Page, query = '?nosave=1') {
     const T: any = {
       base() {
         h.pause();
+        h.settings.set('animalAutoSpawn', false); // LIVE-1: やせいの にわとりが 描画回数に まざらないように
         h.lock.simulate(true);
         h.input.releaseAll();
         h.world.fill(0, 8, 0, 14, 8, 14, 'stone');
@@ -1030,7 +1031,7 @@ test.describe('M7-2 画面', () => {
     expect(made.stats).toEqual([1, 1, 1]);
   });
 
-  test('AC25 案内画面「そだてる」: 11 行・ふりがな・字 24px 以上・タブの中に 入る', async ({ page }) => {
+  test('AC25 本「そだてる」: 12 こ・ふりがな・字 24px 以上・本の中に 入る（BOOK-1 で 11 → 12）', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 720 });
     await open(page);
     await page.evaluate(() => {
@@ -1042,8 +1043,7 @@ test.describe('M7-2 画面', () => {
       h.step(3);
     });
     const r = await page.evaluate(() => {
-      const root = document.querySelector('[data-tab="grow"], .guide-panel, #play-overlay') as HTMLElement | null;
-      const rows = Array.from(document.querySelectorAll('.guide-row, .guide__row, [class*="guide"] li')) as HTMLElement[];
+      const h = (window as any).__rikkun;
       const re = /[一-鿿]/;
       const bad: string[] = [];
       const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
@@ -1051,34 +1051,27 @@ test.describe('M7-2 画面', () => {
       while ((n = w.nextNode())) {
         const t = n.textContent ?? '';
         const el = n.parentElement!;
-        if (el.closest('#farm-hint, #farm-aim, [class*="guide"], #play-overlay') && re.test(t) && !el.closest('ruby') && !el.closest('rt') ) bad.push(t);
+        if (el.closest('#farm-hint, #farm-aim, #play-overlay, [data-book]') && re.test(t) && !el.closest('ruby') && !el.closest('rt')) bad.push(t);
       }
-      const items = Array.from(document.querySelectorAll('.po-help[data-page="grow"] .po-help-item')) as HTMLElement[];
-      const help = document.querySelector('.po-help[data-page="grow"]') as HTMLElement;
-      const hb = help.getBoundingClientRect();
-      const fs = items.map((i) => {
-        const t = i.querySelector('.po-caption') as HTMLElement | null;
-        return parseFloat(getComputedStyle(t ?? i).fontSize);
-      });
-      const sc = help.scrollHeight > help.clientHeight + 1 && ['auto', 'scroll'].includes(getComputedStyle(help).overflowY);
-      return { has: !!root, rows: rows.length, bad, lock: (window as any).__rikkun.lock.get(), fs, helpBottom: hb.bottom, helpRight: hb.right, scroll: sc, vh: innerHeight, vw: innerWidth, visible: hb.height > 0, texts: items.map((i) => i.textContent) };
+      const links = Array.from(document.querySelectorAll('[data-book-link]:not([hidden])')) as HTMLElement[];
+      const fs = links.map((i) => parseFloat(getComputedStyle(i).fontSize));
+      const outside = links.filter((i) => { const b = i.getBoundingClientRect(); return b.right > innerWidth + 0.5 || b.bottom > innerHeight + 0.5 || b.left < -0.5 || b.top < -0.5; }).length;
+      return { lock: h.lock.get(), fs, outside, bad };
     });
     expect(r.lock.guideTab).toBe('grow');
-    expect(r.lock.guideItems).toBe(11);
-    expect(r.visible).toBe(true);
-    // 仕様は「24px 以上 のまま」だが、案内画面の 字は M6 の 文字サイズ表（--rk-fs-body）で 前から 20px。M7-2 で 変えていない → 台帳に 記録
-    expect(Math.min(...r.fs)).toBeGreaterThanOrEqual(20);
-    expect(r.helpBottom <= r.vh + 0.5 || r.scroll, JSON.stringify({ b: r.helpBottom, vh: r.vh })).toBe(true);
-    expect(r.helpRight).toBeLessThanOrEqual(r.vw + 0.5);
+    expect(r.lock.guideItems).toBe(12);
+    expect(r.lock.bookLinks.length).toBe(12);
+    expect(r.fs.length).toBe(12);
+    expect(Math.min(...r.fs)).toBeGreaterThanOrEqual(24);
+    expect(r.outside).toBe(0);
     expect(r.bad).toEqual([]);
     await page.screenshot({ path: `${OUT}/M7-2-guide-grow.png` });
   });
 });
 
 test.describe('M7-2 案内画面の 文が 切れない（AC25）', () => {
-  // NG（台帳 M7-2 参照）: そだてる タブの カードは 高さ 固定 + overflow:hidden で 文の 後ろが 切れる。
-  // 直ったら この test.fail を 外す。
-  test('AC25 そだてる タブ の カードの 文が 切れていない', async ({ page }) => {
+  // BOOK-1: カードは なくなった。いちばん長い説明（grow-seeds）が スクロールなしで 紙に 入ること
+  test('AC25 そだてる の いちばん長い説明が 切れていない', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 720 });
     await open(page);
     const cut = await page.evaluate(() => {
@@ -1086,12 +1079,14 @@ test.describe('M7-2 案内画面の 文が 切れない（AC25）', () => {
       (window as any).T.base();
       h.lock.simulate(false);
       h.step(2);
-      h.lock.tab('grow');
+      h.lock.book('grow-seeds');
+      for (let i = 0; i < 1200 && h.lock.get().bookAnim !== 'none'; i++) h.step(1);
       h.step(3);
-      const items = Array.from(document.querySelectorAll('.po-help[data-page="grow"] .po-help-item')) as HTMLElement[];
-      return items.map((i, n) => ({ n, cut: i.scrollHeight - i.clientHeight })).filter((x) => x.cut > 1);
+      const el = document.querySelector('[data-item-id="grow-seeds"]') as HTMLElement;
+      return { found: !!el, cut: el ? el.scrollHeight - el.clientHeight : 0 };
     });
-    expect(cut).toEqual([]);
+    expect(cut.found).toBe(true);
+    expect(cut.cut).toBeLessThanOrEqual(1);
   });
 });
 

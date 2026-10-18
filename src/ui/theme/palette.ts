@@ -103,10 +103,14 @@ export const SCALE_VARS = [
 
 export const ALL_RK_VARS: readonly string[] = [...Object.keys(PALETTE_HEX), ...SCALE_VARS];
 
+/** 3D の 本（BOOK-1 案 C「まほうの ずかん」）だけの 木・金・紙の 色。本の 外では 使わない */
+export const BOOK_HEX = ['#7a4c22', '#e0b545', '#efe2c4', '#fbfaf5', '#fffdf7', '#3a2614', '#a8743f', '#7fe3d4', '#2bb3a0', '#fff3cf'] as const;
+
 /** 使ってよい色（不透明度ちがいは同じ色。白・黒は 文字と 影の色としても入る） */
 export const ALLOWED_COLORS: readonly PaletteColor[] = [
   ...Object.entries(PALETTE_HEX).map(([name, h]) => ({ name, rgb: hex(h) })),
   ...RAINBOW_HEX.map((h) => ({ name: 'rainbow', rgb: hex(h) })),
+  ...BOOK_HEX.map((h) => ({ name: 'book', rgb: hex(h) })),
 ];
 
 /** 段階（§3.5 (3)(4)） */

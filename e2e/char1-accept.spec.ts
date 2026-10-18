@@ -327,19 +327,29 @@ test.describe('CHAR-1 テスト係の受け入れ', () => {
     expect(Math.abs(r.botY)).toBeLessThanOrEqual(0.04);
   });
 
-  test('AC33: 案内画面「うごく」タブは 4 つ、3 番・4 番の文、V・一人称の語なし', async ({ page }) => {
+  test('AC33: 案内の本「うごく」は 4 つ、3 番・4 番の文、V・一人称の語なし', async ({ page }) => {
     await open(page);
     const r = await page.evaluate(() => {
-      const pages = Array.from(document.querySelectorAll('.po-help')) as HTMLElement[];
-      const text = (el: Element) => (el.textContent ?? '').replace(/\s+/g, ' ');
-      const move = pages.find((p) => p.dataset.page === 'move');
-      const items = move ? Array.from(move.querySelectorAll('li, .po-item, p, .po-cap')).map(text) : [];
-      return { n: pages.length, moveText: move ? text(move) : null, moveHtmlItems: items, all: pages.map(text).join(' | '), moveHtml: move?.innerHTML.slice(0, 1500) };
+      const h = (window as any).__rikkun;
+      h.lock.simulate(false);
+      h.lock.tab('move');
+      h.step(2);
+      const g = h.lock.get();
+      const caps: Record<string, string> = {};
+      for (const id of g.bookItemIds as string[]) {
+        h.lock.book(id);
+        for (let i = 0; i < 1200 && h.lock.get().bookAnim !== 'none'; i++) h.step(1);
+        h.step(2);
+        caps[id] = h.lock.get().bookCaption;
+      }
+      const move = g.bookChapters.find((c: any) => c.id === 'move');
+      return { moveIds: move.itemIds as string[], caps };
     });
-    console.log('AC33', JSON.stringify(r));
-    expect(r.moveText).toContain('マウス で カメラ を まわす');
-    expect(r.moveText).toContain('シフトを おしながら あるくと はしる');
-    expect(r.all).not.toMatch(/一人称|いちにんしょう|\bV\b|ブイ/);
+    expect(r.moveIds.length).toBe(4);
+    const moveText = r.moveIds.map((id) => r.caps[id]).join(' | ');
+    expect(moveText).toContain('マウス で カメラ を まわす');
+    expect(moveText).toContain('シフトを おしながら あるくと はしる');
+    expect(Object.values(r.caps).join(' | ')).not.toMatch(/一人称|いちにんしょう|\bV\b|ブイ/);
   });
 
   test('AC30: もとの atlas.json と 4 つの PNG（art/char-sheets/。2048×6144・コマ 8×24・ふちから 2 ドット・色の数）', async ({ page }) => {

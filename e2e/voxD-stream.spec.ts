@@ -684,13 +684,20 @@ test.describe('VOX-D ストリーミング', () => {
       expect(s.done).toBe(Math.floor(s.progress * 5));
       expect(s.overlayVisible).toBe(true);
       if (!seen.includes(s.done)) seen.push(s.done);
-      // 半分すぎで 押す: ロックしない・タブは切りかわる
+      // 半分すぎで 押す: ロックしない・本が 開く
       if (i === 200) {
         await page.locator(PREP.button).click({ force: true });
         expect(await page.evaluate(() => (window.__rikkun! as any).lock.get().locked)).toBe(false);
-        await page.locator('.po-tab[data-tab="dig"]').click();
-        expect(await page.locator('.po-tab[data-tab="dig"]').getAttribute('data-selected')).toBe('true');
-        await page.locator('.po-tab[data-tab="move"]').click();
+        // BOOK-1: 本も 開ける（ロックしない）。しめて もどす
+        await page.locator('[data-book-open]').click({ force: true });
+        expect(await page.evaluate(() => (window.__rikkun! as any).lock.get().bookOpen)).toBe(true);
+        expect(await page.evaluate(() => (window.__rikkun! as any).lock.get().locked)).toBe(false);
+        await page.locator('[data-book-btn="close"]').dispatchEvent('click');
+        await page.evaluate(() => {
+          const h = window.__rikkun! as any;
+          for (let n = 0; n < 1200 && h.lock.get().bookOpen; n++) h.step(1);
+        });
+        expect(await page.evaluate(() => (window.__rikkun! as any).lock.get().bookOpen)).toBe(false);
       }
       // 速く進める（1 step ずつ見るのは 序盤と終盤だけ）
       if (i > 20 && i < 360 && i % 3 !== 0) await page.evaluate(() => (window.__rikkun! as any).step(2));

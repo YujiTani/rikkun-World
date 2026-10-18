@@ -178,12 +178,18 @@ export const ITEM_INFO: Readonly<Record<string, InfoRow>> = {
   bucket: { use: 'みず を くんで はこぶ', how: 'みず に みぎクリック で くむ', buttons: ['1-9', 'right'] },
   water_bucket: { use: 'はたけ の そば に みず を おく', how: 'もって みぎクリック で おく', buttons: ['1-9', 'right'] },
 
+  // ---- LIVE-1 たまご
+  egg: VEG_ROW(1),
+
   // ---- ようかいだま（§5。いまは 手に入らない。古い保存用）
   yokai_orb: { use: 'いまは つかえない よ', how: '', buttons: [] },
 };
 
 /** 「どこで」の ようかいだま だけの文（§5） */
 export const ORB_SOURCE = 'むかし の ようかい が おとした';
+
+/** 「どこで」の たまご の文（LIVE-1 §3.1） */
+export const EGG_SOURCE = 'なかま の にわとり が くれる';
 
 /** 妖怪の名前（ドロップ表の「〇〇 が おとす」） */
 export const YOKAI_NAME: Readonly<Record<YokaiKind, string>> = {
