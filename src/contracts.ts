@@ -2131,7 +2131,9 @@ export type AnimalEvent =
   | { type: 'carry'; id: number }
   | { type: 'putDown'; id: number; x: number; y: number; z: number }
   | { type: 'swing'; x: number; y: number; z: number; caught: boolean; reason: SwingReason }
-  | { type: 'bugCatch'; toInventory: boolean };
+  | { type: 'bugCatch'; toInventory: boolean }
+  /** 版 3.2: はじめて の お祝い が おわった（記録 `carry:*` が 0 の あいだ）。つなぎ込み が 合図 `carryHint` に する */
+  | { type: 'carryHint' };
 
 /** `animals.list()` の 1 行 */
 export interface AnimalInfo {
@@ -2143,8 +2145,6 @@ export interface AnimalInfo {
   yaw: number;
   friend: boolean;
   hearts: 0 | 1 | 2;
-  /** 版 2 だけ（A が 消す） */
-  eggDay: number | null;
   state: AnimalState;
   lookingAtPlayer: boolean;
   inWater: boolean;
@@ -2162,8 +2162,6 @@ export interface AnimalInfo {
 export interface AnimalSpawnOpts {
   friend?: boolean;
   hearts?: 0 | 1 | 2;
-  /** 版 2 だけ（A が 消す） */
-  eggDay?: number | null;
   // ---- 版 3.2（§6.1）
   follow?: number;
   fullLeft?: number;
@@ -2281,6 +2279,13 @@ export interface AnimalView {
   hearts: 0 | 1 | 2;
   /** 今 ねらわれて いる（しるし を 出す） */
   targeted: boolean;
+  // ---- 版 3.2（しるし・だっこ・パタパタ 用。A が 埋める）
+  /** ついてくる 残り ステップ（なかま） */
+  follow?: number;
+  /** おなかいっぱい の 残り ステップ */
+  fullLeft?: number;
+  carried?: boolean;
+  fluttering?: boolean;
 }
 
 /** A の口（C の ふりわけ・B の 描画・窓口 が 使う。§7 約束 2・3） */
@@ -2292,6 +2297,8 @@ export interface AnimalApi {
   /** 'ate' の とき だけ C が むし を 1 へらす。'full' = おなかいっぱい、'pet' = なでる に なった、'friendFull' = なかま が 8 わ */
   feed(id: number, item: ItemId): 'ate' | 'full' | 'pet' | 'friendFull' | null;
   pet(id: number): 'wild' | 'friend' | null;
+  /** 版 3.2: おなかいっぱい か（照準 の 下 の `まってね` 用。`preview` は むし を 持てば 'feed' の まま） */
+  isFull?(id: number): boolean;
   /** 版 3.2: あみ を ふる（block = ねらって いる ブロック）。くじ は A */
   swingNet(block: Vec3): SwingResult;
   /** 版 3.2: 押しつづけ（heldTicks）。'lifted' = だっこ した、'wait' = まだ、'wild' = やせい は だっこ できない、null = 何も しない */
@@ -2310,6 +2317,8 @@ export interface AnimalDeps {
   dropEgg(at: Vec3): void;
   /** 版 3.2: 持ち物 に 入れる。入らなければ 落として false（むし） */
   addItem(item: ItemId): boolean;
+  /** 版 3.2: もう だっこ した ことが ある か（記録 `carry:*` ＞ 0）。`carryHint` を 出すか の 判定 */
+  carriedBefore?(): boolean;
   day(): number;
   phase(): DayPhase;
   countryAt(seed: number, x: number, z: number): { kind: string };
