@@ -27,20 +27,12 @@ export async function openAnimals(page: Page, query = '?nosave=1'): Promise<void
   await installArena(page);
   await page.evaluate(() => {
     const h = (window as any).__rikkun;
-    // 実績の おめでとう画面は 世界を 止める（仕様 §4.5）。テストの 流れを 止めないよう、1 ステップごとに 開いていたら 閉じる
+    // 実績の おしらせは 画面の 上の 帯で、世界を 止めない・ロックも 外さない（WEAPON-7 O8）。出た ことだけ 記録する（AC6 が 見る）
     const rawStep = h.step.bind(h);
     h.step = (n = 1) => {
       for (let i = 0; i < n; i++) {
         rawStep(1);
-        if (h.achievements.modal().open) {
-          (window as any).__modalSeen = true; // 出た ことは 記録（AC6 が 見る）
-          // ボタンが 押せる ように なるまで 画面だけ 進めて 閉じる（世界は 止まったまま）
-          for (let k = 0; k < 600 && h.achievements.modal().open; k++) {
-            h.achievements.close();
-            if (h.achievements.modal().open) rawStep(1);
-          }
-          h.lock.simulate(true);
-        }
+        if (h.achievements.modal().open) (window as any).__modalSeen = true;
       }
     };
     const A: any = {

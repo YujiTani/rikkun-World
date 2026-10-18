@@ -43,7 +43,7 @@ async function settle(page: Page) {
     const pending = () => (h.world.lightPending() + h.world.meshStats().pending) as number;
     const stepOnce = (k: number) => {
       h.step(k);
-      for (let i = 0; i < 600 && h.achievements.modal(); i++) if (!h.achievements.close().ok) h.step(1);
+      for (let i = 0; i < 20 && h.achievements.modal().open; i++) h.step(Math.max(1, h.achievements.modal().leftSteps)); // 自動で きえる（WEAPON-7 O8）
     };
     while (pending() > 0 && n < max) {
       stepOnce(5);
@@ -68,7 +68,7 @@ async function stand(page: Page, x: number, z: number, yaw: number, pitch: numbe
       h.world.fill(bx, g + 1, bz, bx, g + 8, bz, 'stone');
       h.player.set({ position: { x, y: g + 9, z }, velocity: { x: 0, y: 0, z: 0 }, yaw, pitch });
       h.step(30);
-      for (let i = 0; i < 600 && h.achievements.modal(); i++) if (!h.achievements.close().ok) h.step(1);
+      for (let i = 0; i < 20 && h.achievements.modal().open; i++) h.step(Math.max(1, h.achievements.modal().leftSteps)); // 自動で きえる（WEAPON-7 O8）
     },
     [x, z, yaw, pitch],
   );

@@ -3,11 +3,11 @@ import { findUnrubiedKanji } from '../text';
 
 const { BOOK_CHAPTERS, BOOK_ITEMS } = (await import('./bookData')) as any;
 
-/** BOOK-1 §4.3 の 40 こ（章の じゅん・章の中の じゅん） */
+/** BOOK-1 §4.3 の 40 こ ＋ WEAPON-7 の fight-charge（章の じゅん・章の中の じゅん） */
 const EXPECTED: Record<string, string[]> = {
   move: ['move-walk', 'move-jump', 'move-look', 'move-run'],
   dig: ['dig-hold', 'dig-crack', 'dig-place', 'dig-select', 'dig-bag'],
-  fight: ['fight-swing', 'fight-stance', 'fight-chudan', 'fight-jodan', 'fight-gedan', 'fight-naginata', 'fight-yumi', 'fight-armor', 'fight-wear', 'fight-night'],
+  fight: ['fight-swing', 'fight-stance', 'fight-chudan', 'fight-jodan', 'fight-gedan', 'fight-charge', 'fight-naginata', 'fight-yumi', 'fight-armor', 'fight-wear', 'fight-night'],
   craft: ['craft-open', 'craft-glow', 'craft-hammer', 'craft-furnace', 'craft-fuel', 'craft-drop', 'craft-tansu', 'craft-log', 'craft-nearby'],
   grow: ['grow-till', 'grow-sow', 'grow-wet', 'grow-harvest', 'grow-eat', 'grow-seeds', 'grow-light', 'grow-can-fill', 'grow-can-water', 'grow-sprinkler', 'grow-pet', 'grow-bucket'],
 };
@@ -42,15 +42,31 @@ describe('BOOK-1 項目のデータ（AC2）', () => {
 });
 
 describe('BOOK-1 全項目の じゅん（AC3）', () => {
-  it('章の じゅん ＝ move・dig・fight・craft・grow。項目の id が §4.3 の 40 こと 同じ順', () => {
+  it('章の じゅん ＝ move・dig・fight・craft・grow。項目の id が §4.3 の 40 こ ＋ fight-charge と 同じ順', () => {
     expect(BOOK_CHAPTERS.map((c: any) => c.id)).toEqual(Object.keys(EXPECTED));
     expect(BOOK_CHAPTERS.map((c: any) => c.label)).toEqual(['うごく', 'ほる・おく', 'たたかう', 'つくる・やく', 'そだてる']);
     expect((BOOK_ITEMS as any[]).map((i) => i.id)).toEqual(Object.values(EXPECTED).flat());
-    expect((BOOK_ITEMS as any[]).length).toBe(40);
+    expect((BOOK_ITEMS as any[]).length).toBe(41);
   });
-  it('章ごとの 数が §4.2 と 同じ（4・5・10・9・12）', () => {
+  it('章ごとの 数が §4.2 と 同じ（4・5・11・9・12。WEAPON-7 で たたかうが +1）', () => {
     for (const [id, ids] of Object.entries(EXPECTED)) {
       expect((BOOK_ITEMS as any[]).filter((i) => i.chapter === id).map((i) => i.id)).toEqual(ids);
     }
+  });
+});
+
+describe('WEAPON-7 AC13: 本 fight-charge', () => {
+  it('fight-gedan の 次・説明 50 字 以内・漢字に ふりがな・ヌシの ことは 書かない', () => {
+    const ids = (BOOK_ITEMS as any[]).map((i) => i.id);
+    expect(ids.indexOf('fight-charge')).toBe(ids.indexOf('fight-gedan') + 1);
+    const it = (BOOK_ITEMS as any[]).find((i) => i.id === 'fight-charge');
+    expect(it, 'fight-charge').toBeDefined();
+    expect(it.chapter).toBe('fight');
+    expect(it.title).toBe('ためわざ');
+    expect(plain(it.caption)).toBe('レジェンダリーのぶきは左クリックをながくおしてはなすとためわざ');
+    expect(plain(it.caption).length).toBeLessThanOrEqual(50);
+    expect(findUnrubiedKanji(it.caption)).toEqual([]);
+    expect(it.caption).toContain('<ruby>左<rt>ひだり</rt></ruby>');
+    expect(plain(it.caption)).not.toMatch(/ヌシ|ぬし/);
   });
 });

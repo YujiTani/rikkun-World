@@ -79,40 +79,48 @@ describe('コンボ', () => {
   });
 });
 
-describe('おめでとう画面', () => {
-  it('59 では閉じない・60 で押せる（AC24）', () => {
-    const m = new ModalModel(cfg);
-    m.open(show(2));
-    for (let i = 0; i < 59; i++) m.step();
-    expect(m.press().result).toEqual({ ok: false, reason: 'notYet' });
-    expect(m.step()).toBe(true);
-    expect(m.buttonEnabled()).toBe(true);
-    expect(m.press().result.ok).toBe(true);
-    expect(m.press().result.reason).toBe('notOpen');
+// WEAPON-7 §2.6 (1)・O8: 実績の おしらせは 画面の 上の 帯。止めない・ボタンなし・240 ステップで 自動で きえる。
+// 前の「とじる」の テスト（M6 AC24: 59 では 閉じない・60 で 押せる／押して はなした ときだけ 閉じる／押せない 間の 押しは 無視）は
+// 理由「O8 で とじる を なくした」で 消した。ModalModel の 窓口（仕様の 名前）: open・step（きえた ステップで 見せた id を 返す）・view（age・leftSteps）。
+describe('実績の おしらせ（WEAPON-7 AC12b・O8）', () => {
+  it('設定 achieveToastTicks = 240（出る 30・きえる 30 を ふくむ）', () => {
+    expect((defaultCelebrateSettings() as unknown as Record<string, number>).achieveToastTicks).toBe(240);
   });
-  it('押して はなした ときだけ閉じる', () => {
+  it('出た ステップから 240 ステップで きえる（leftSteps 240 → 0）。きえた ステップで 見せた id を 返す', () => {
     const m = new ModalModel(cfg);
-    m.open(show(2));
-    for (let i = 0; i < 60; i++) m.step();
-    expect(m.pointerUp(true)).toBeNull(); // 出る前から押していた
-    m.buttonDown();
-    expect(m.pointerUp(false)).toBeNull();
-    m.buttonDown();
-    expect(m.pointerUp(true)).toEqual(['a0', 'a1']);
+    expect(m.open(show(2))).toBe(true);
+    const v0 = m.view([]) as unknown as { open: boolean; age: number; leftSteps: number };
+    expect(v0.open).toBe(true);
+    expect(v0.age).toBe(0);
+    expect(v0.leftSteps).toBe(240);
+    for (let i = 0; i < 239; i++) expect(m.step() as unknown, `${i + 1}`).toBeFalsy();
+    const v239 = m.view([]) as unknown as { leftSteps: number };
+    expect(v239.leftSteps).toBe(1);
+    expect(m.isOpen()).toBe(true);
+    expect(m.step() as unknown).toEqual(['a0', 'a1']);
+    expect(m.isOpen()).toBe(false);
+    expect((m.view([]) as unknown as { open: boolean }).open).toBe(false);
   });
-  it('押せない間の押しは 無視', () => {
-    const m = new ModalModel(cfg);
+  it('ボタンは ない: buttonEnabled はいつも false・waitLeft は いつも 0・press / buttonDown / pointerUp は ない', () => {
+    const m = new ModalModel(cfg) as unknown as Record<string, unknown> & ModalModel;
     m.open(show(1));
-    m.buttonDown();
-    for (let i = 0; i < 60; i++) m.step();
-    expect(m.pointerUp(true)).toBeNull();
+    for (let i = 0; i < 240; i++) {
+      const v = m.view([]);
+      expect(v.buttonEnabled).toBe(false);
+      expect(v.waitLeft).toBe(0);
+      m.step();
+    }
+    expect(m.press).toBeUndefined();
+    expect(m.buttonDown).toBeUndefined();
+    expect(m.pointerUp).toBeUndefined();
   });
-  it('7 こ → 行 5・ほか 1（AC23）', () => {
+  it('のこりは「ほか N こ」だけ（行の 一覧は 出さない）。出ている 間は 次を 出せない（AC23 の 直し）', () => {
     const m = new ModalModel(cfg);
-    m.open(show(7));
-    const v = m.view([]);
-    expect(v.rows).toBe(5);
-    expect(v.more).toBe(1);
+    m.open(show(3));
+    const v = m.view([]) as unknown as { more: number; mainId: string; rows?: number };
+    expect(v.mainId).toBe('a0');
+    expect(v.more).toBe(2);
+    expect(v.rows ?? 0).toBe(0);
     expect(m.open(show(1))).toBe(false);
   });
 });

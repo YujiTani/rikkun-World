@@ -16,3 +16,4 @@
 | 2 | design | design-reviewer | 【軽微】ヌシの表の抽選・虹の強さが今のドロップの乱数列をずらす可能性 | 乱数の分離が未記載 | G5 | 対応済み（2.1: §2.3 べつの乱数） |
 | 2 | design | design-reviewer | 【軽微】タスク票 `docs/tickets/WEAPON-7.md` が金の かたな・rarityAtLeast のまま古い（PO が直す） | 票が未更新 | G6 | 未対応 |
 | 2 | design | design-reviewer | 【軽微】§6 表の風神剣の回数は「波こみ」だが列の見出しは刀だけに読める。AC に雷/風/虹の「ふつうの わざ」ダメージ（P×倍率）の確認が雷の AC17 しかない | 書き方 | G7 | 未対応 |
+| 1 | dev | code-reviewer(テスト準備) | 【軽微】AC5〜AC11 など【ユニット】層の基準が E2E 側に寄っている。開発が実装と同時に src/ のユニット(窓口名は開発が決める)を足すこと。contracts.w7 に雷神剣の bladeTrail 行(thunder)の確認もあるとよい | 窓口名が実装前に未定 | G8 | 未対応 |
