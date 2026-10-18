@@ -51,7 +51,13 @@ export const setting = <T = any>(page: Page, key: string): Promise<T> =>
   page.evaluate((key) => (window.__rikkun! as any).settings.get(key), key) as Promise<T>;
 
 export const parryState = (page: Page) => page.evaluate(() => (window.__rikkun! as any).parry.state() as ParryState);
-export const parryEvents = (page: Page) => page.evaluate(() => JSON.parse(JSON.stringify((window.__rikkun! as any).parry.events())) as ParryEvent[]);
+/** `parry.events()` は 読んでも 空に ならない。`place()` の 時点より あとの 分だけ 返す（同じ ページで 何回も 置いても 数が 混ざらない） */
+export const parryEvents = (page: Page) =>
+  page.evaluate(() => {
+    const w = window as any;
+    const all = JSON.parse(JSON.stringify(w.__rikkun.parry.events())) as ParryEvent[];
+    return all.slice(w.__parryBase ?? 0);
+  });
 export const hpOf = (page: Page) => page.evaluate(() => (window.__rikkun! as any).combat.get().hp as number);
 export const playerPos = (page: Page) => page.evaluate(() => (window.__rikkun! as any).player.get().position as Vec3);
 export const yokaiInfo = (page: Page, id: number) =>
@@ -106,7 +112,7 @@ export async function place(page: Page, kind: ParryKind, d: number, o: { side?: 
       const id = h.yokai.spawn(kind, p.x + (o.side ?? 0), p.y + (o.up ?? 0), p.z + (o.back ? d : -d), { ai: false });
       h.yokai.setHp(id, o.hp ?? 400);
       h.yokai.events();
-      h.parry.events();
+      (window as any).__parryBase = h.parry.events().length; // 空には ならない: ここまでを 記録して 差で 見る
       h.combat.sounds();
       return id as number;
     },

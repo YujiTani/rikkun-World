@@ -80,7 +80,9 @@ test.describe('WEAPON-5 通し', () => {
     expect(slowIdx[0]!).toBeLessThanOrEqual(1);
     expect(scales[scales.length - 1]).toBe(1);
 
-    expect(tr[0]!.glow.visible, '青白い光').toBe(true);
+    // 光は「成功の 次のステップから」（§4.3）。成功した ステップの おわり（tr[0]）では まだ でも よい
+    expect(tr[1]!.glow.visible, '青白い光').toBe(true);
+    expect(tr[1]!.glow.ticksLeft).toBeGreaterThan(0);
     expect(tr[0]!.stagger, 'よろけ').not.toBeNull();
     expect(tr[0]!.stagger!.ticksLeft).toBeLessThanOrEqual(stagTicks);
     expect(tr[0]!.stagger!.ticksLeft).toBeGreaterThanOrEqual(stagTicks - 1);
