@@ -44,6 +44,10 @@ test.describe('#75 くさ・のばな・間隔のきまり', () => {
           h.step(1);
           n++;
         }
+        // DigSystem は MAX になった あと 押し直しで こわす（m2 AC4）
+        h.input.release('primary');
+        h.input.press('primary');
+        h.step(1);
         h.input.release('primary');
         h.step(10);
         return h.world.getBlock(p.x, p.y, p.z) === 'air';
@@ -129,12 +133,12 @@ test.describe('#75 くさ・のばな・間隔のきまり', () => {
     expect(r.k3Above, `上は くうき ${ctx}`).toBe('air');
   });
 
-  test('AC11: スタートの 描画回数が ゴールデンと 同じ・三角形の ふえ ≤ 36,864。12 の国の 三角形 ≤ 903,036（くさ・のばな の 窓口つき）', async ({ page }) => {
+  test('AC11: スタートの 描画回数 300 以内・+10 以下（国は +25 以下）・三角形の ふえ ≤ 36,864。12 の国の 三角形 ≤ 903,036（くさ・のばな の 窓口つき）', async ({ page }) => {
     test.setTimeout(580_000);
     // ゴールデン = 今の main（FLORA-75 の前）で 同じやり方で 記録した値（e2e/golden/flora75-main.json）
     const golden = JSON.parse(readFileSync('e2e/golden/flora75-main.json', 'utf8')) as {
       start: { drawCalls: number; triangles: number };
-      countries: Record<string, { triangles: number }>;
+      countries: Record<string, { triangles: number; drawCalls: number }>;
     };
     await openFlora(page, fine(wide('?nosave=1')));
     const start = await measureStart(page);
@@ -159,7 +163,9 @@ test.describe('#75 くさ・のばな・間隔のきまり', () => {
     expect(flora.kusa, JSON.stringify(flora)).toBeGreaterThan(0);
     expect(flora.nobana, JSON.stringify(flora)).toBeGreaterThan(0);
     expect(flora.maxTris, '1 列の くさ＋のばな の三角形').toBeLessThanOrEqual(256);
-    expect(start.drawCalls, `描画回数は ふえない（ゴールデン ${golden.start.drawCalls}）`).toBe(golden.start.drawCalls);
+    // 仕様 1.4 版 §6: 描画回数は スタートで 300 以内・ふえ +10 以下、どの国も ふえ +25 以下（十字の板は 区ごとの extras メッシュ）
+    expect(start.drawCalls, `描画回数 300 以内`).toBeLessThanOrEqual(300);
+    expect(start.drawCalls - golden.start.drawCalls, `描画回数の ふえ（ゴールデン ${golden.start.drawCalls}）`).toBeLessThanOrEqual(10);
     expect(start.triangles - golden.start.triangles, `三角形の ふえ（ゴールデン ${golden.start.triangles}）`).toBeLessThanOrEqual(36_864);
     const kinds = ['harappa', 'mori', 'ookina', 'hana', 'sunahama', 'susuki', 'take', 'kappa', 'iwayama', 'tengu', 'momiji', 'yuki'];
     const worst: Record<string, number> = {};
@@ -167,6 +173,7 @@ test.describe('#75 くさ・のばな・間隔のきまり', () => {
       const s = await measureCountry(page, k);
       expect(s.here, `${k}: 足もとの国`).toBe(k);
       worst[k] = s.triangles;
+      expect(s.drawCalls - golden.countries[k]!.drawCalls, `${k}: 描画回数の ふえ`).toBeLessThanOrEqual(25);
       const before = golden.countries[k]!.triangles;
       // ふえは 36,864 まで。上限 903,036 は 前から 超えていた国（momiji。この 5 か所の取り方で 988,080）をのぞいて 見る
       expect(s.triangles - before, `${k}: 三角形の ふえ（前 ${before}）`).toBeLessThanOrEqual(36_864);

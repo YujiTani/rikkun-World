@@ -506,7 +506,7 @@ describe('AC16: スタートの木', () => {
 
 // ------------------------------------------------------------------ AC17: 数
 
-/** 国ごとの 1 列の平均（§4.3）。[木, 草花1, 草花2] の 並びは 国ごと */
+/** 仕様 §4.3 の 見こみ（国ごとの 1 列の平均）。[木, 草花1, 草花2] の 並びは 国ごと */
 type Row = Record<string, number>;
 const TABLE: Partial<Record<CountryKind, Record<SpacingLevel | 'mix', Row>>> = {
   harappa: {
@@ -533,11 +533,10 @@ const TABLE: Partial<Record<CountryKind, Record<SpacingLevel | 'mix', Row>>> = {
 };
 
 /**
- * 仕様の数（§4.3）と 合わなかった所（designer へ 差し戻し済み）。§4.3 の数は「スタートに 近い 150 列」の 試作の実測で、
- * AC17 の取り方（8192 四方・3 シード・8 列おき）で 取り直すと もり（坂が 少ない もりが 多い）などが ちがった。
- * ここでは 仕様の数のかわりに「いまの実装の実測」の ±40% を 見張る（キー: 段|国|種類 → 実測）。
+ * 仕様 §4.3（1.4 版）の 見こみの うち、TABLE の 数と ちがう 所を 仕様の数に 置く（キー: 段|国|種類 → 仕様の数）。
+ * 1.4 版で §4.3 は AC17 の 取り方（8192 四方・3 シード・8 列おき）の 実測に なり、TABLE と 同じ数。±40% を 見張る。
  */
-const SPEC_OFF: Record<string, number> = {
+const SPEC_TARGET: Record<string, number> = {
   'wide|mori|tree': 0.77, 'wide|mori|kusa': 1.97, 'wide|ookina|kusa': 2.4,
   'normal|mori|tree': 1.22, 'normal|mori|kusa': 4.82, 'normal|mori|nobana': 0.63, 'normal|ookina|tree': 0.8,
   'normal|susuki|susuki': 7.47, 'normal|take|kusa': 1.68, 'normal|kappa|nobana': 1.48,
@@ -578,7 +577,7 @@ describe('AC17: 国ごとの 1 列の数（§4.3）', () => {
           expect(cols.length, `${kind} 列`).toBeGreaterThanOrEqual(100);
           const got = averages(cols);
           for (const [k, want] of Object.entries(TABLE[kind]![lvl])) {
-            const off = SPEC_OFF[`${lvl}|${kind}|${k}`];
+            const off = SPEC_TARGET[`${lvl}|${kind}|${k}`];
             if (!within(got[k] ?? 0, off ?? want, 0.4)) bad.push(`${lvl} ${kind} ${k}: 実測 ${(got[k] ?? 0).toFixed(2)} 見こみ ${want}`);
           }
         }
@@ -594,7 +593,7 @@ describe('AC17: 国ごとの 1 列の数（§4.3）', () => {
       expect(cols.length, `${kind} 列`).toBeGreaterThanOrEqual(300);
       const got = averages(cols);
       for (const [k, want] of Object.entries(TABLE[kind]!.mix)) {
-        const off = SPEC_OFF[`mix|${kind}|${k}`];
+        const off = SPEC_TARGET[`mix|${kind}|${k}`];
         if (!within(got[k] ?? 0, off ?? want, 0.5)) bad.push(`まぜた ${kind} ${k}: 実測 ${(got[k] ?? 0).toFixed(2)} 見こみ ${want}`);
       }
     }
