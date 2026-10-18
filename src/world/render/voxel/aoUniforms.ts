@@ -4,12 +4,18 @@ import { AO_FADE_BLOCKS } from '../config';
 /**
  * 角の暗がり（AO）の、全部の材料で 共有する 値。
  * - on: 1 = AO を かける、0 = 切る（テスト用 render.setAo）
- * - fade: 距離（カメラから水平に）で AO を 1.0 へ消す範囲 (近い端, 遠い端)。小ブロックの半径 r の 8 ブロック手前から r まで
+ * - fade: 距離（center = プレイヤーから水平に）で AO を 1.0 へ消す範囲 (近い端, 遠い端)。小ブロックの半径 r の 8 ブロック手前から r まで
  */
 export const aoUniforms = {
   on: { value: 1 },
-  fade: { value: new Vector2(24, 32) },
+  fade: { value: new Vector2(20, 28) },
+  /** プレイヤーの (x, z)。fade の距離はここから測る */
+  center: { value: new Vector2(0, 0) },
 };
+
+export function setAoCenter(x: number, z: number): void {
+  aoUniforms.center.value.set(x, z);
+}
 
 export function setAoRadius(r: number): void {
   aoUniforms.fade.value.set(r - AO_FADE_BLOCKS, r);

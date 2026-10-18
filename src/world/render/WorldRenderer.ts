@@ -27,7 +27,7 @@ import { CropSwayMesh, SWAY_POOL_MAX, type SwayItem } from './cropSway';
 import { meshChunkLod } from './lodMesh';
 import { crossTileName, RIPE_FLAG, type MeshData } from './meshChunk';
 import { pickEvictions } from './voxel/geometryBudget';
-import { setAoRadius } from './voxel/aoUniforms';
+import { setAoCenter, setAoRadius } from './voxel/aoUniforms';
 import { SectionMesher, type SectionMeshData, type VoxelPiece } from './voxel/sectionMesher';
 import { DEFAULT_MICRO_R, columnDistance, nextTier, normalizeMicroR, type Tier } from './voxel/tier';
 import { createOccupancyTexture, createVoxelMaterial, createVoxelShared, type VoxelShared } from './voxel/voxelMaterial';
@@ -455,6 +455,7 @@ export class WorldRenderer {
     const v = this.viewer;
     if (v && v.x === x && v.z === z) return;
     this.light.setViewer(x, z);
+    setAoCenter(x, z);
     if (v) {
       v.x = x;
       v.z = z;

@@ -454,7 +454,7 @@ test.describe('TEX-A', () => {
     await quiet(page);
     const means: Record<string, Rgb> = {};
     let fogRgb: Rgb = [143, 211, 255];
-    for (const [tier, x] of [['micro', 38], ['box', 66], ['lod', 82]] as const) {
+    for (const [tier, x] of [['micro', 38], ['box', 70], ['lod', 90]] as const) {
       await stage(page, { x: 27, y: FY + 15, z: 53 }, { dx: x - 27.5, dz: 0, py: FY + 13, pitch: 0, off: 30 });
       await page.evaluate(() => (window as any).__rikkun.step(1));
       const t = await page.evaluate((fy) => (window as any).__rikkun.world.sectionInfo(1, Math.floor((fy + 15) / 16), 3).tier as string, FY);
@@ -529,11 +529,11 @@ test.describe('TEX-A', () => {
     expect(near2).toBeGreaterThan(far8 * 1.3);
   });
 
-  test('AC12: 三角形が今より少ない（スタート ≤ 45 万・上空 ≤ 52 万）。描画回数は ＋2 / ＋1。r=32 のどこでも ≤ 120 万', async ({ page }) => {
+  test('AC12: 三角形が今より少ない（スタート ≤ 45 万・上空 ≤ 52 万）。描画回数は ＋2 / ＋1。r=28 のどこでも ≤ 120 万', async ({ page }) => {
     await openTex(page, wide('?nosave=1')); // 三角形の上限は ふだんの輪の大きさで見る（#203）
     expect(await missingHooks(page)).toEqual([]);
     const s = await page.evaluate(() => (window as any).__rikkun.world.sectionStats().microR);
-    expect(s).toBe(32);
+    expect(s).toBe(28);
     const got: Record<string, { drawCalls: number; triangles: number }> = {};
     for (const v of SCORE_VIEWS) {
       if (v.name === 'hill') continue;
@@ -550,6 +550,7 @@ test.describe('TEX-A', () => {
     for (const [dx, dz] of [[-34, -34], [34, -34], [34, 34]]) {
       await setPoseSettled(page, sp.x + dx, sp.y + 30, sp.z + dz, 45, -30);
       const t = await stats(page);
+      console.log('AC12 high', dx, dz, JSON.stringify(t));
       expect(t.triangles, `(${dx}, ${dz}) の三角形`).toBeLessThanOrEqual(1_200_000);
       expect(t.drawCalls, `(${dx}, ${dz}) の描画回数`).toBeLessThanOrEqual(700);
     }

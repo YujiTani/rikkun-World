@@ -7,8 +7,9 @@
 export type Tier = 'micro' | 'box' | 'lod';
 
 /** F3 の設定で選べる小ブロックの半径 */
-export const MICRO_RADII = [16, 24, 32] as const;
-export const DEFAULT_MICRO_R = 32;
+export const MICRO_RADII = [16, 24, 28] as const;
+/** 小ブロックの半径（プレイヤーから。2026-10-18 から 28） */
+export const DEFAULT_MICRO_R = 28;
 /** 箱の外側（これより遠くは LOD） */
 export const BOX_OUTER = 48;
 /** 段の境目のずらし */
@@ -34,7 +35,7 @@ export function normalizeMicroR(r: number): number {
 
 /**
  * はじめの小ブロックの半径（main.ts が `location.search` と `import.meta.env.VITE_MICRO_DEFAULT` を渡す。#180）。
- * 決める順: URL の `?microR=0|16|24|32`（許されない数は normalizeMicroR で近い値に直す）
+ * 決める順: URL の `?microR=0|16|24|28`（許されない数は normalizeMicroR で近い値に直す）
  *   > 環境変数 `off` なら 0（E2E のサーバー。小ブロックの細かいメッシュを作らない）> なし・ほかの値なら DEFAULT_MICRO_R。
  * 空・数でない・負の `?microR` は 無いのと同じ。
  */

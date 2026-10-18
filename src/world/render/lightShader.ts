@@ -45,6 +45,7 @@ export function applyLightShader(material: MeshBasicMaterial, cacheKey = 'rikkun
     shader.uniforms.uRipeMin = ripeMinBrightness;
     shader.uniforms.uAoOn = aoUniforms.on;
     shader.uniforms.uAoFade = aoUniforms.fade;
+    shader.uniforms.uAoCenter = aoUniforms.center;
     shader.vertexShader = shader.vertexShader
       .replace(
         '#include <common>',
@@ -55,6 +56,7 @@ uniform float uDarken;
 uniform float uRipeMin;
 uniform float uAoOn;
 uniform vec2 uAoFade;
+uniform vec2 uAoCenter;
 ${LIGHT_GLSL_FUNCS}`,
       )
       .replace(
@@ -69,7 +71,7 @@ ${LIGHT_GLSL_FUNCS}`,
   float w = clamp((bb - sb) * 3.0, 0.0, 1.0) * ${f(LC.warmTintStrength)};
   vec3 tint = mix(vec3(1.0), vec3(${f(LC.warmTint[0])}, ${f(LC.warmTint[1])}, ${f(LC.warmTint[2])}), w);
   // 角の暗がり（平らな箱の面。小ブロックの半径の外では 1.0 に消える）
-  float aoD = aDark * uAoOn * (1.0 - smoothstep(uAoFade.x, uAoFade.y, length((modelMatrix * vec4(position, 1.0)).xz - cameraPosition.xz)));
+  float aoD = aDark * uAoOn * (1.0 - smoothstep(uAoFade.x, uAoFade.y, length((modelMatrix * vec4(position, 1.0)).xz - uAoCenter)));
   vColor.rgb *= max(max(sb, bb), ripe * uRipeMin) * tint * (1.0 - aoD);
 }`,
       );

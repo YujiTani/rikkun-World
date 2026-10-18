@@ -18,7 +18,7 @@ export default defineConfig({
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'], launchOptions: { args: chromiumArgs } } }],
   webServer: {
     // 影は影の spec（?shadow=1）だけオン。ほかの spec は影を作らない（SwiftShader で 1 コマが 1.5〜2.5 倍になるため。SHADOW.md §6）
-    // 小ブロックの細かいメッシュも 見た目を見る spec（URL に microR=32。e2e/helpers/fine.ts）だけ作る（#180。起動が 8〜12 秒 → 1.4〜1.9 秒）
+    // 小ブロックの細かいメッシュも 見た目を見る spec（URL に microR=28。e2e/helpers/fine.ts）だけ作る（#180。起動が 8〜12 秒 → 1.4〜1.9 秒）
     // 持つ範囲の輪も 小さく（VITE_RING_DEFAULT=small: 描く 4・光 5・生成 6・残す 8。ふだんは 6・7・8・10）。輪の大きさを見る spec だけ URL に ring=full（wide()。#203）
     // 1 コマの仕事（メッシュ作り・光）は 本当の時間（ms）でなく 数で決める（VITE_FRAME_CLOCK=count。機械の速さで結果が ゆれない。#179）
     command: 'VITE_SHADOW_DEFAULT=off VITE_MICRO_DEFAULT=off VITE_FRAME_CLOCK=count VITE_RING_DEFAULT=small npx vite --port 5173 --strictPort',

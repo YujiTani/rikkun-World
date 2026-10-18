@@ -15,7 +15,7 @@ const CONFIGS: Cfg[] = [
   { mode: 'greedyShape', shots: true, close: true },
   { mode: 'hybrid', r: 16, shots: true, close: true },
   { mode: 'hybrid', r: 24, shots: false, close: false },
-  { mode: 'hybrid', r: 32, shots: false, close: false },
+  { mode: 'hybrid', r: 28, shots: false, close: false },
 ];
 const SHOT_DIR = 'test-shots/VOX-0';
 // スクショは最後にまとめて書く（docs/ に書くたびに vite が画面を作り直して window.__voxelProto が消えることがあった）
