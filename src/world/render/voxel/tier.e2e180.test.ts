@@ -7,12 +7,12 @@ import { BOX_OUTER, DEFAULT_MICRO_R, MICRO_RADII, nextTier, normalizeMicroR, typ
  * 実装の前に書いたテスト（落ちるのが正しい）。
  *
  * 決まり（ゲーム側）:
- *  - `normalizeMicroR(0)` は 0 のまま。F4 の切りかえ（MICRO_RADII）は 今のまま 16 → 24 → 32。
+ *  - `normalizeMicroR(0)` は 0 のまま。F4 の切りかえ（MICRO_RADII）は 今のまま 16 → 24 → 28。
  *  - 半径 0 の `nextTier` は micro を返さない（近くも 箱の段。箱の外側 48 の前後と LOD は 今のまま）。
  *  - はじめの半径は `decideMicroR(search, envDefault)`（tier.ts に作って export する。main.ts が `location.search` と
  *    `import.meta.env.VITE_MICRO_DEFAULT` を渡す。影の decideShadowStart と同じ形）:
- *      URL の `?microR=0|16|24|32` が いちばん強い（環境変数より強い。`?microR=0` も 0 として受けつける）
- *      > 環境変数 `off` なら 0（E2E のサーバー）> なし・ほかの値なら 今のまま 32。
+ *      URL の `?microR=0|16|24|28` が いちばん強い（環境変数より強い。`?microR=0` も 0 として受けつける）
+ *      > 環境変数 `off` なら 0（E2E のサーバー）> なし・ほかの値なら 28（2026-10-18 から）。
  */
 
 describe('#180 normalizeMicroR(0) と 切りかえ', () => {
@@ -20,7 +20,7 @@ describe('#180 normalizeMicroR(0) と 切りかえ', () => {
     expect(normalizeMicroR(0)).toBe(0);
   });
 
-  it('16 / 24 / 32 とほかの数の直しかたは 今のまま（0 を足しても かわらない）', () => {
+  it('16 / 24 / 28 とほかの数の直しかたは 今のまま（0 を足しても かわらない）', () => {
     expect(normalizeMicroR(16)).toBe(16);
     expect(normalizeMicroR(24)).toBe(24);
     expect(normalizeMicroR(32)).toBe(28);
@@ -29,7 +29,7 @@ describe('#180 normalizeMicroR(0) と 切りかえ', () => {
     expect(normalizeMicroR(1000)).toBe(28);
   });
 
-  it('F4 の切りかえは 16 → 24 → 32 のまま。ふつうに遊ぶときの既定は 32', () => {
+  it('F4 の切りかえは 16 → 24 → 28。ふつうに遊ぶときの既定は 28', () => {
     expect([...MICRO_RADII]).toEqual([16, 24, 28]);
     expect(DEFAULT_MICRO_R).toBe(28);
   });
@@ -62,7 +62,7 @@ describe('#180 nextTier: 半径 0 は 小ブロックなし（近くも箱の段
     expect(nextTier(46.01, 'lod', 0)).toBe('lod');
   });
 
-  it('半径 16 / 24 / 32 の段の決めかたは かわらない（近くは micro）', () => {
+  it('半径 16 / 24 / 28 の段の決めかたは かわらない（近くは micro）', () => {
     for (const r of MICRO_RADII) {
       expect(nextTier(0, null, r)).toBe('micro');
       expect(nextTier(r, null, r)).toBe('micro');
@@ -81,7 +81,7 @@ describe('#180 decideMicroR: はじめの小ブロックの半径の決め方', 
     return f(search, envDefault);
   };
 
-  it('環境変数も URL もなければ 今のまま 32', () => {
+  it('環境変数も URL もなければ 28', () => {
     expect(decide('', undefined)).toBe(28);
     expect(decide('?nosave=1', undefined)).toBe(28);
   });
@@ -91,13 +91,13 @@ describe('#180 decideMicroR: はじめの小ブロックの半径の決め方', 
     expect(decide('?nosave=1', 'off')).toBe(0);
   });
 
-  it('環境変数が off 以外（on・空・ほかの値）なら 今のまま 32', () => {
+  it('環境変数が off 以外（on・空・ほかの値）なら 28', () => {
     expect(decide('', 'on')).toBe(28);
     expect(decide('', '')).toBe(28);
     expect(decide('?nosave=1', 'foo')).toBe(28);
   });
 
-  it('URL の ?microR=16|24|32 は 環境変数より強い', () => {
+  it('URL の ?microR=16|24|28 は 環境変数より強い', () => {
     expect(decide('?microR=16', 'off')).toBe(16);
     expect(decide('?microR=24', 'off')).toBe(24);
     expect(decide('?microR=32', 'off')).toBe(28);
