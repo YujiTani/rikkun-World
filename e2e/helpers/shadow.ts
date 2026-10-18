@@ -28,7 +28,7 @@ export interface Shade { r: number; g: number; b: number; luma: number }
 export async function openShadow(page: Page, query = '?nosave=1&shadow=1'): Promise<void> {
   await page.goto('/' + fine(query)); // 影を見るので、細かいメッシュのまま（#180。E2E のサーバーは ?microR なしだと小ブロックを作らない）
   await page.waitForFunction(() => window.__rikkun?.ready === true);
-  await page.evaluate(() => {
+  await page.evaluate(async () => {
     const h = (window as any).__rikkun;
     h.achievements.mute(true);
     h.pause();
@@ -36,6 +36,8 @@ export async function openShadow(page: Page, query = '?nosave=1&shadow=1'): Prom
     h.settings.set('yokaiAutoSpawn', false);
     h.settings.set('yokaiWander', false);
     h.yokai.clear();
+    // VOX-D: ready の直後は 外がわの輪が まだ 読みこみ中。あとから来た列が 地図の描き直しや 描く回数に まざらないよう そろえる（#203）
+    await h.world.settle({ full: true });
   });
 }
 
@@ -68,7 +70,8 @@ export async function flatGrass(page: Page, x0 = -4, z0 = -4, x1 = 28, z1 = 28):
 export async function settleLight(page: Page): Promise<void> {
   await page.evaluate(() => {
     const h = (window as any).__rikkun;
-    for (let i = 0; i < 400 && h.world.lightPending() > 0; i++) h.step(1);
+    // VOX-D: 光のあとに メッシュも そろえる（そろう前の作り直しが 影の地図の描き直しに まざらないよう。#203）
+    for (let i = 0; i < 400 && (h.world.lightPending() > 0 || h.world.meshStats().pending > 0); i++) h.step(1);
     h.step(2);
   });
 }

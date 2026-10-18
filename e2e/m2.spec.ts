@@ -928,9 +928,14 @@ test.describe('M2 見た目', () => {
 
 test.describe('M2 自動セーブ', () => {
   test('AC28/AC29(c): 保存して読みこみ直す、?reset=1', async ({ page }) => {
+    // 世界ぜんたいの hash は「読みこんでいる列の集まり」にもよる（むかし立っていた所の列は 遠くなっても すぐには すてない）。
+    // 立っている所のまわり（列 -8..8）の 1 列ごとの hash をつないだものを くらべる
+    const ringFn = `(h) => { let s = ''; for (let cz = -8; cz <= 8; cz++) for (let cx = -8; cx <= 8; cx++) s += h.world.hash(cx, cz) + ','; return s; }`;
+    await page.addInitScript(`window.ringHash = ${ringFn};`);
     await open(page);
     const before = await page.evaluate(async () => {
       const h = (window as any).__rikkun;
+      const ringHash = (window as any).ringHash;
       (window as any).T.base();
       h.world.setBlock(4, 10, 6, 'log');
       h.inventory.setSlot(4, { item: 'sand', count: 9 });
@@ -938,15 +943,19 @@ test.describe('M2 自動セーブ', () => {
       h.player.set({ position: { x: 6.5, y: 9, z: 6.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 180, pitch: -20 });
       h.step(30);
       await h.save.now(); // 書き終わるまで まつ（VOX-F から Promise）
-      return { hash: h.world.hash(), p: h.player.get(), inv: h.inventory.get(), info: h.save.info() };
+      await h.world.settle({ full: true }); // hash は 読みこんだ列ぜんぶ。外がわの輪まで そろえてから 数える
+      return { hash: ringHash(h), p: h.player.get(), inv: h.inventory.get(), info: h.save.info() };
     });
     expect(before.info.enabled).toBe(true);
     await page.reload();
     await page.waitForFunction(() => window.__rikkun?.ready === true);
     await page.evaluate(() => window.__rikkun!.achievements.mute(true));
+    // hash は 読みこんだ列ぜんぶを 数える。そろった直後は 外がわの輪が まだなので、仕事が 0 になるまで ゲームに進めてもらう
+    await page.evaluate(() => (window as any).__rikkun.world.settle({ full: true }));
     const after = await page.evaluate(() => {
       const h = (window as any).__rikkun;
-      return { hash: h.world.hash(), p: h.player.get(), inv: h.inventory.get(), lock: h.lock.get() };
+      const ringHash = (window as any).ringHash;
+      return { hash: ringHash(h), p: h.player.get(), inv: h.inventory.get(), lock: h.lock.get() };
     });
     expect(after.hash).toBe(before.hash);
     expect(after.inv.slots[4]).toEqual({ item: 'sand', count: 9 });
@@ -966,14 +975,21 @@ test.describe('M2 自動セーブ', () => {
     await page.goto('/');
     await page.waitForFunction(() => window.__rikkun?.ready === true);
     await page.evaluate(() => window.__rikkun!.achievements.mute(true));
-    expect(await page.evaluate(() => (window as any).__rikkun.world.hash())).toBe(before.hash);
+    expect(
+      await page.evaluate(async () => {
+        const h = (window as any).__rikkun;
+        await h.world.settle({ full: true });
+        return (window as any).ringHash(h);
+      }),
+    ).toBe(before.hash);
 
     // ?reset=1
     await page.goto('/?reset=1');
     await page.waitForFunction(() => window.__rikkun?.ready === true);
     await page.evaluate(() => window.__rikkun!.achievements.mute(true));
-    const reset = await page.evaluate(() => {
+    const reset = await page.evaluate(async () => {
       const h = (window as any).__rikkun;
+      await h.world.settle({ full: true }); // hash は 読みこんだ列ぜんぶ。そろえてから 数える
       return { hash: h.world.hash(), inv: h.inventory.get().slots.filter((s: any) => s), p: h.player.get().position, spawn: h.world.spawn(), url: location.href };
     });
     expect(reset.hash).not.toBe(before.hash);
@@ -985,7 +1001,12 @@ test.describe('M2 自動セーブ', () => {
     await page.goto('/?nosave=1&seed=' + (await page.evaluate(() => (window as any).__rikkun.world.seed())));
     await page.waitForFunction(() => window.__rikkun?.ready === true);
     await page.evaluate(() => window.__rikkun!.achievements.mute(true));
-    expect(await page.evaluate(() => (window as any).__rikkun.world.hash())).toBe(reset.hash);
+    expect(
+      await page.evaluate(async () => {
+        await (window as any).__rikkun.world.settle({ full: true });
+        return (window as any).__rikkun.world.hash();
+      }),
+    ).toBe(reset.hash);
   });
 
   test('AC29(a)(b)(d): 保存の間隔と ?nosave=1', async ({ page }) => {
