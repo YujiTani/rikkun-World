@@ -16,6 +16,8 @@ const ALL_IDS: BlockId[] = [
   // M7
   'farmland', 'farmland_wet', 'crop_onion', 'crop_tomato', 'crop_pumpkin', 'crop_eggplant',
   'wild_onion', 'wild_tomato', 'wild_pumpkin', 'wild_eggplant', 'kakashi', 'kakashi_head', 'saku', 'sprinkler',
+  // #184 VOX-I-1（うしろに足す）
+  'snow', 'momiji_leaves', 'matsu_leaves', 'flower_y', 'flower_o', 'flower_p', 'bamboo', 'susuki',
 ];
 
 /** この試験は M1 の 64×32×64 の世界で書かれている */
@@ -42,7 +44,9 @@ describe('ドット絵', () => {
     expect(buildAtlasData()).toHaveLength(ATLAS_WIDTH * ATLAS_HEIGHT * 4);
     const hexOf = (c: readonly number[]) => c.slice(0, 3).map((v) => v.toString(16).padStart(2, '0')).join('');
     const has = (n: Parameters<typeof getTilePixels>[0], h: string) => getTilePixels(n).some((c) => hexOf(c) === h);
-    expect(has('grass_top', '5dbb3f')).toBe(true);
+    // CALM（#194）: calmColor(#5DBB3F, #5DBB3F) = (106,181,82)
+    expect(has('grass_top', '6ab552')).toBe(true);
+    expect(has('grass_top', '5dbb3f')).toBe(false);
     expect(has('coal_ore', '222222')).toBe(true);
     expect(has('iron_ore', 'e0a872')).toBe(true);
   });
@@ -242,7 +246,7 @@ describe('createWorldHook', () => {
       startTorch: () => ({ x: 34, y: 11, z: 31 }),
       startFeatures: () => ({ rock: { cx: 0, cz: 0, r: 4, peakY: 12 }, trees: [] }),
       caveMouths: () => [],
-      terrainAt: () => ({ h: 150, biome: 'grassland' as const, sea: false }),
+      terrainAt: () => ({ h: 150, biome: 'harappa' as const, sea: false }),
       genHash: () => 'x',
       genStats: () => ({ columns: 1, medianMs: 1, maxMs: 1, spawnSearchMs: 1 }),
       loadedChunks: () => [{ cx: 0, cz: 0 }],
@@ -271,8 +275,8 @@ describe('createWorldHook', () => {
     expect(h.isLoaded(1000, 1)).toBe(false);
     expect(h.loadedChunks()).toEqual([{ cx: 0, cz: 0 }]);
     expect(h.startTorch().x).toBe(34);
-    expect(h.terrainAt(0, 0).biome).toBe('grassland');
-    expect(h.blockTypes()).toHaveLength(31);
+    expect(h.terrainAt(0, 0).biome).toBe('harappa');
+    expect(h.blockTypes()).toHaveLength(BLOCK_TYPES.length); // #184: 新しいブロックが足されても数を決め打ちしない
     r.update();
     expect(h.rebuildStats().count).toBeGreaterThan(0);
   });

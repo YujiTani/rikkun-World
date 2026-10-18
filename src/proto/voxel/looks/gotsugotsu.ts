@@ -33,6 +33,10 @@ const IRON = [P('#C97E48'), P('#E8AC78')];
 const BARK = L('#76502F', '#6B482A', '#4E3320', '#3A2618');
 const RING = [P('#C99860'), P('#AE7E4A'), P('#8E6238')];
 const LEAF = L('#5DAA45', '#4F9A3C', '#3B7E33', '#2A6127');
+const MATSU = L('#2F7A4A', '#276B40', '#1F5634', '#17402A');
+const MOMIJI = L('#D9502B', '#C8431F', '#A33418', '#7A2812');
+const SNOW = L('#F4F8FB', '#E6EEF4', '#C9D6E2', '#A9BBCB');
+const BAMBOO = L('#6DB84F', '#5FA844', '#478A38', '#336B2B');
 const BEDROCK = L('#4D4843', '#45403B', '#36322E', '#292624');
 
 type Fill = KindSpec['fill'];
@@ -197,6 +201,36 @@ function terrainColor(kind: string, depth: number, fromTop: number, isRock: bool
   }
 }
 
+/** はっぱ: 3×3×3 の かたまり 27 こ。外がわの かたまりは ときどき ない（もこもこ）。上の面ほど明るい */
+function leafKind(c: Layers, saltN: number): KindSpec {
+  return {
+    base: c[0],
+    occludes: false,
+    fill: (bx, by, bz, _e, out) => {
+      const h = blockHash(saltN, bx, by, bz);
+      let i = 0;
+      for (let y = 0; y < N; y++) {
+        for (let z = 0; z < N; z++) {
+          for (let x = 0; x < N; x++, i++) {
+            const cx = (x / 3) | 0;
+            const cy = (y / 3) | 0;
+            const cz = (z / 3) | 0;
+            const outer = cx !== 1 || cy !== 1 || cz !== 1;
+            const r = mix(h, (cy * 3 + cz) * 3 + cx);
+            const corners = (cx !== 1 ? 1 : 0) + (cy !== 1 ? 1 : 0) + (cz !== 1 ? 1 : 0);
+            if (outer && r % 10 < (corners >= 2 ? 5 : 2)) {
+              out[i] = 0;
+              continue;
+            }
+            const ly = y % 3;
+            out[i] = ly === 2 ? (r % 3 === 0 ? c[1] : c[0]) : ly === 1 ? c[2] : c[3];
+          }
+        }
+      }
+    },
+  };
+}
+
 export const gotsugotsuLook: Look = {
   id: 'gotsugotsu',
   label: 'B ごつごつ',
@@ -273,33 +307,11 @@ export const gotsugotsuLook: Look = {
         return false;
       },
     ),
-    leaves: {
-      base: LEAF[0],
-      occludes: false,
-      // 3×3×3 の かたまり 27 こ。外がわの かたまりは ときどき ない（もこもこ）。上の面ほど明るい
-      fill: (bx, by, bz, _e, out) => {
-        const h = blockHash(LEAF_SALT, bx, by, bz);
-        let i = 0;
-        for (let y = 0; y < N; y++) {
-          for (let z = 0; z < N; z++) {
-            for (let x = 0; x < N; x++, i++) {
-              const cx = (x / 3) | 0;
-              const cy = (y / 3) | 0;
-              const cz = (z / 3) | 0;
-              const outer = cx !== 1 || cy !== 1 || cz !== 1;
-              const r = mix(h, (cy * 3 + cz) * 3 + cx);
-              const corners = (cx !== 1 ? 1 : 0) + (cy !== 1 ? 1 : 0) + (cz !== 1 ? 1 : 0);
-              if (outer && r % 10 < (corners >= 2 ? 5 : 2)) {
-                out[i] = 0;
-                continue;
-              }
-              const ly = y % 3;
-              out[i] = ly === 2 ? (r % 3 === 0 ? LEAF[1] : LEAF[0]) : ly === 1 ? LEAF[2] : LEAF[3];
-            }
-          }
-        }
-      },
-    },
+    leaves: leafKind(LEAF, LEAF_SALT),
+    matsu_leaves: leafKind(MATSU, LEAF_SALT + 1),
+    momiji_leaves: leafKind(MOMIJI, LEAF_SALT + 2),
+    snow: rock(SNOW, 3, 1, 4),
+    bamboo: rock(BAMBOO, 2, 1, 3),
     bedrock: rock(BEDROCK, 6, 3, 7),
     // かまど・たんす・スプリンクラー・レンガ・かわら・はたけ・ぬれたはたけ は 形を持たない（TEX-A: 平らな箱。docs/art/DESIGN.md 5.3）
   },

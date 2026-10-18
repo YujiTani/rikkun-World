@@ -1,159 +1,14 @@
-import { SEA_Y } from '../../contracts';
-import { GEN_CONFIG as C } from './config';
-import { hash01, subSeed, valueNoise } from './random';
+import { SEA_Y, type BlockId } from '../../contracts';
+import { clearCountryCache, countryMapFor, newSample, type BiomeSample, type CountryMap } from './biome';
+import { GEN_CONFIG as C, type CountryKind } from './config';
+import { hash01, subSeed } from './random';
 
 /**
  * 地形の「高さだけ」の計算（VOX-B。ブロックは作らない）。タスク票 H1〜H9・B1〜B5・P1〜P6。
  * すべて (seed, x, z) だけで決まる純粋な計算。作る順・ほかの列に関係しない。
  */
 
-export type BiomeKind = 'grassland' | 'forest';
-
-export interface BiomeSample {
-  /** いちばん近い点のバイオーム */
-  kind: BiomeKind;
-  /** 森の重み 0〜1（境目で 0〜1 のあいだ。MICRO_PARAMS・丘・木の割合をまぜる） */
-  forest: number;
-  /** いちばん近い点の しめり・でこぼこ（0〜1。でこぼこは VOX-I 用） */
-  moist: number;
-  bumpy: number;
-}
-
-export interface BiomeCell {
-  px: number;
-  pz: number;
-  kind: BiomeKind;
-  moist: number;
-  bumpy: number;
-}
-
 const clamp = (v: number, lo: number, hi: number): number => (v < lo ? lo : v > hi ? hi : v);
-const smoothstep = (a: number, b: number, x: number): number => {
-  const t = clamp((x - a) / (b - a), 0, 1);
-  return t * t * (3 - 2 * t);
-};
-const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
-
-/** 値ノイズ（0〜1）の分布を 0〜1 の一様な順位にならす表（崖の割合を「面積の割合」にするため） */
-let rankTable: Float32Array | null = null;
-function noiseRank(v: number): number {
-  if (rankTable === null) {
-    const n = 16384;
-    const t = new Float32Array(n);
-    for (let i = 0; i < n; i++) t[i] = valueNoise(777, (i % 128) * 61.3, Math.floor(i / 128) * 57.7, 96);
-    t.sort();
-    rankTable = t;
-  }
-  const t = rankTable;
-  let lo = 0;
-  let hi = t.length;
-  while (lo < hi) {
-    const mid = (lo + hi) >> 1;
-    if (t[mid]! < v) lo = mid + 1;
-    else hi = mid;
-  }
-  return lo / t.length;
-}
-
-/** バイオームの升目（点・種類） */
-class BiomeMap {
-  private readonly cells = new Map<number, BiomeCell>();
-  private readonly sPoint: number;
-  private readonly sMoist: number;
-  private readonly sBump: number;
-  private readonly sStart: number;
-  private startKinds: Map<number, BiomeKind> | null = null;
-
-  constructor(seed: number) {
-    this.sPoint = subSeed(seed, 101);
-    this.sMoist = subSeed(seed, 102);
-    this.sBump = subSeed(seed, 103);
-    this.sStart = subSeed(seed, 104);
-  }
-
-  private rawCell(i: number, j: number): BiomeCell {
-    const B = C.biome;
-    const px = C.anchor.x + B.cell * i + B.pointMin + Math.floor(hash01(this.sPoint, i, j, 1) * B.pointSpan);
-    const pz = C.anchor.z + B.cell * j + B.pointMin + Math.floor(hash01(this.sPoint, i, j, 2) * B.pointSpan);
-    const moist = valueNoise(this.sMoist, px, pz, B.noiseScale);
-    const bumpy = valueNoise(this.sBump, px, pz, B.noiseScale);
-    return { px, pz, kind: moist >= B.forestMoist ? 'forest' : 'grassland', moist, bumpy };
-  }
-
-  /** B4: (64,64) を角にもつ 4 つの升目。いちばん近い点 = 草原、のこり 3 つのうち 1 つ = 森 */
-  private startOverride(): Map<number, BiomeKind> {
-    if (this.startKinds) return this.startKinds;
-    const four: [number, number][] = [[-1, -1], [0, -1], [-1, 0], [0, 0]];
-    let best = 0;
-    let bestD = Infinity;
-    four.forEach(([i, j], k) => {
-      const c = this.rawCell(i, j);
-      const d = Math.hypot(c.px - C.anchor.x, c.pz - C.anchor.z);
-      if (d < bestD) {
-        bestD = d;
-        best = k;
-      }
-    });
-    const others = four.map((_, k) => k).filter((k) => k !== best);
-    const forestK = others[Math.floor(hash01(this.sStart, 0, 0, 1) * 3)]!;
-    const m = new Map<number, BiomeKind>();
-    m.set(cellKey(four[best]![0], four[best]![1]), 'grassland');
-    m.set(cellKey(four[forestK]![0], four[forestK]![1]), 'forest');
-    this.startKinds = m;
-    return m;
-  }
-
-  cell(i: number, j: number): BiomeCell {
-    const key = cellKey(i, j);
-    let c = this.cells.get(key);
-    if (c === undefined) {
-      c = this.rawCell(i, j);
-      if (i >= -1 && i <= 0 && j >= -1 && j <= 0) {
-        const o = this.startOverride().get(key);
-        if (o !== undefined) c.kind = o;
-      }
-      this.cells.set(key, c);
-    }
-    return c;
-  }
-
-  sample(x: number, z: number, out: BiomeSample): BiomeSample {
-    const B = C.biome;
-    const i0 = Math.floor((x - C.anchor.x) / B.cell);
-    const j0 = Math.floor((z - C.anchor.z) / B.cell);
-    let c1: BiomeCell | null = null;
-    let c2: BiomeCell | null = null;
-    let d1 = Infinity;
-    let d2 = Infinity;
-    for (let j = j0 - 1; j <= j0 + 1; j++) {
-      for (let i = i0 - 1; i <= i0 + 1; i++) {
-        const c = this.cell(i, j);
-        const d = Math.hypot(c.px - x, c.pz - z);
-        if (d < d1) {
-          c2 = c1;
-          d2 = d1;
-          c1 = c;
-          d1 = d;
-        } else if (d < d2) {
-          c2 = c;
-          d2 = d;
-        }
-      }
-    }
-    const u = clamp((d2 - d1) / B.blend, 0, 1);
-    const f1 = c1!.kind === 'forest' ? 1 : 0;
-    const f2 = c2!.kind === 'forest' ? 1 : 0;
-    out.kind = c1!.kind;
-    out.forest = f1 * (0.5 + 0.5 * u) + f2 * (0.5 - 0.5 * u);
-    out.moist = c1!.moist;
-    out.bumpy = c1!.bumpy;
-    return out;
-  }
-}
-
-function cellKey(i: number, j: number): number {
-  return (i + 50000) * 100003 + (j + 50000);
-}
 
 export interface SpawnResult {
   /** スタートの列 */
@@ -178,69 +33,32 @@ export interface RockInfo {
   peakY: number;
 }
 
-/** 1 つの seed の地形の計算（biome・高さ・スタート・岩山）。seed ごとに 1 つ作ってつかい回す */
+/** 1 つの seed の地形の計算（国・高さ・スタート・岩山）。seed ごとに 1 つ作ってつかい回す */
 export class Terrain {
-  readonly biomeMap: BiomeMap;
-  private readonly sC1: number;
-  private readonly sC2: number;
-  private readonly sMtn: number;
-  private readonly sHill: number[];
-  private readonly sBump: number;
-  private readonly sCliff: number;
-  private readonly tmp: BiomeSample = { kind: 'grassland', forest: 0, moist: 0, bumpy: 0 };
+  /** 12 の国（VOX-I-1。biome.ts） */
+  readonly map: CountryMap;
+  private readonly tmp: BiomeSample = newSample();
   private spawnCache: SpawnResult | null = null;
   private rockCache: RockInfo | null = null;
 
   constructor(readonly seed: number) {
-    this.biomeMap = new BiomeMap(seed);
-    this.sC1 = subSeed(seed, 1);
-    this.sC2 = subSeed(seed, 2);
-    this.sMtn = subSeed(seed, 3);
-    this.sHill = [subSeed(seed, 4), subSeed(seed, 5)];
-    this.sBump = subSeed(seed, 6);
-    this.sCliff = subSeed(seed, 7);
+    this.map = countryMapFor(seed);
   }
 
   biome(x: number, z: number, out: BiomeSample = this.tmp): BiomeSample {
-    return this.biomeMap.sample(x, z, out);
+    return this.map.sampleInto(x, z, out);
   }
 
-  /** H(x,z)（はじまりの広場・岩山をかける前） */
+  /** 地面のいちばん上のブロック。スタートの広場（plaza）のまわりは いつも くさ（スタートが 国の境目にあっても 広場が 砂にならない） */
+  topBlock(x: number, z: number, h: number): BlockId {
+    const sp = this.spawn();
+    if (Math.max(Math.abs(x - sp.x), Math.abs(z - sp.z)) <= C.plaza.ringMax && h >= SEA_Y + C.strata.landFrom) return 'grass';
+    return this.map.topBlock(x, z, h);
+  }
+
+  /** H(x,z)（はじまりの広場・岩山・いけ をかける前） */
   raw(x: number, z: number): number {
-    const H = C.height;
-    const b = this.biomeMap.sample(x, z, this.tmp);
-    const t = b.forest;
-    const c = valueNoise(this.sC1, x, z, H.continent.big) * H.continent.bigWeight + valueNoise(this.sC2, x, z, H.continent.small) * H.continent.smallWeight;
-    const hb0 = clamp(SEA_Y + (c - H.landCenter) * H.landScale, SEA_Y + H.minAbove, SEA_Y + H.maxAbove);
-    const d = Math.hypot(x - C.anchor.x, z - C.anchor.z);
-    const w = d <= H.startRadius ? 1 : d >= H.farRadius ? 0 : 1 - smoothstep(H.startRadius, H.farRadius, d);
-    const hb = hb0 * (1 - w) + (SEA_Y + H.startAbove) * w;
-    const L = clamp((hb - SEA_Y) / H.landRamp, 0, 1);
-    let v = hb;
-    if (L > 0) {
-      const gm = C.biomes.grassland;
-      const fm = C.biomes.forest;
-      if (w < 1) {
-        const nm = valueNoise(this.sMtn, x, z, H.mountain.scale);
-        v += smoothstep(H.mountain.from, H.mountain.to, nm) * H.mountain.peak * L * (1 - w);
-      }
-      let nh: number;
-      if (t <= 0) nh = valueNoise(this.sHill[0]!, x, z, gm.hillScale);
-      else if (t >= 1) nh = valueNoise(this.sHill[1]!, x, z, fm.hillScale);
-      else nh = lerp(valueNoise(this.sHill[0]!, x, z, gm.hillScale), valueNoise(this.sHill[1]!, x, z, fm.hillScale), t);
-      v += (nh - 0.5) * 2 * lerp(gm.hill, fm.hill, t) * L;
-      v += (valueNoise(this.sBump, x, z, H.bumpScale) - 0.5) * 2 * lerp(gm.bump, fm.bump, t) * (0.3 + 0.7 * L);
-    } else {
-      const gm = C.biomes.grassland;
-      const fm = C.biomes.forest;
-      v += (valueNoise(this.sBump, x, z, H.bumpScale) - 0.5) * 2 * lerp(gm.bump, fm.bump, t) * 0.3;
-    }
-    let h = Math.round(v);
-    if (L >= H.cliff.minL && w === 0) {
-      const frac = lerp(C.biomes.grassland.cliff, C.biomes.forest.cliff, t);
-      if (noiseRank(valueNoise(this.sCliff, x, z, H.cliff.scale)) > 1 - frac) h -= ((h % H.cliff.step) + H.cliff.step) % H.cliff.step;
-    }
-    return clamp(h, SEA_Y + H.minAbove2, H.max);
+    return this.map.height(x, z);
   }
 
   // ------------------------------------------------------------ スタート（P1〜P3）
@@ -261,7 +79,7 @@ export class Terrain {
     const ax = C.anchor.x;
     const az = C.anchor.z;
     const R = C.searchRadius;
-    const tmp: BiomeSample = { kind: 'grassland', forest: 0, moist: 0, bumpy: 0 };
+    const tmp: BiomeSample = newSample();
     const flatness = (x: number, z: number): number => {
       let lo = Infinity;
       let hi = -Infinity;
@@ -291,7 +109,7 @@ export class Terrain {
         const x = ax + dx;
         const z = az + dz;
         checked++;
-        if (this.biomeMap.sample(x, z, tmp).kind !== 'grassland') continue;
+        if (this.map.sampleInto(x, z, tmp).kind !== 'harappa') continue;
         const flat = flatness(x, z);
         const h = rawAt(x, z);
         if (h >= SEA_Y + C.spawnAbove.min && h <= SEA_Y + C.spawnAbove.max && flat <= C.spawnFlat) {
@@ -355,6 +173,9 @@ export class Terrain {
 
   /** 生成する高さ H（広場・岩山をふくむ。仮の海のふちは まだかけない） */
   height(x: number, z: number): number {
+    // かっぱの ぬま の いけ（水の底・へり）
+    const pd = this.map.pondAt(x, z);
+    if (pd !== null) return pd.kind === 'inner' ? pd.level - pd.depth - 1 : pd.level;
     const b = this.base(x, z);
     const k = this.rock();
     const d = Math.hypot(x - k.cx, z - k.cz);
@@ -386,18 +207,11 @@ export function terrainFor(seed: number): Terrain {
 /** テスト用: 覚えているものを全部すてる（作る順に頼っていないことを確かめるため） */
 export function clearTerrainCache(): void {
   terrains.clear();
-}
-
-export function biomeCell(seed: number, i: number, j: number): BiomeCell {
-  return { ...terrainFor(seed).biomeMap.cell(i, j) };
-}
-
-export function biomeAt(seed: number, x: number, z: number): BiomeSample {
-  return { ...terrainFor(seed).biome(x, z, { kind: 'grassland', forest: 0, moist: 0, bumpy: 0 }) };
+  clearCountryCache();
 }
 
 /** 生成の値 H(x,z)（広場・岩山をかける前）・バイオーム・海か */
-export function terrainAt(seed: number, x: number, z: number): { h: number; biome: BiomeKind; sea: boolean } {
+export function terrainAt(seed: number, x: number, z: number): { h: number; biome: CountryKind; sea: boolean } {
   const t = terrainFor(seed);
   const h = t.raw(x, z);
   return { h, biome: t.biome(x, z).kind, sea: h <= SEA_Y - 1 };

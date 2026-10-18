@@ -1,15 +1,15 @@
-import { AIR, BLOCK_INDEX, WATER, isCrossIndex, isTorchIndex } from '../blocks/blockTypes';
+import { AIR, BLOCK_INDEX, WATER, isCrossIndex, isLeafIndex, isTorchIndex } from '../blocks/blockTypes';
 import type { ArrayVoxelWorld } from '../VoxelWorld';
 import { MICRO_PARAMS, type ColumnSource } from './microSurface';
 
 /** 小ブロック地形の「地面」にする種類（建物・畑・たいまつ などは ふつうのブロックのまま） */
 const GROUND = new Set<number>(
-  ['grass', 'dirt', 'sand', 'stone', 'coal_ore', 'iron_ore', 'bedrock'].map((id) => (BLOCK_INDEX as Record<string, number>)[id]),
+  ['grass', 'dirt', 'sand', 'snow', 'stone', 'coal_ore', 'iron_ore', 'bedrock'].map((id) => (BLOCK_INDEX as Record<string, number>)[id]),
 );
 /** 岩をのせてよい地面 */
 const ROCKABLE = new Set<number>(['grass', 'dirt', 'stone'].map((id) => (BLOCK_INDEX as Record<string, number>)[id]));
-const LEAVES = BLOCK_INDEX.leaves;
 const LOG = BLOCK_INDEX.log;
+const BAMBOO = BLOCK_INDEX.bamboo;
 
 export interface ColumnInfo {
   /** 地面ブロックの y（無ければ -1） */
@@ -34,7 +34,7 @@ export function scanColumn(world: ArrayVoxelWorld, wx: number, wz: number, out: 
   for (let y = world.topY(wx, wz); y >= 0; y--) {
     const k = world.getIndex(wx, y, wz);
     if (k < 0) return;
-    if (k === AIR || k === WATER || k === LEAVES || k === LOG || isCrossIndex(k) || isTorchIndex(k)) continue;
+    if (k === AIR || k === WATER || isLeafIndex(k) || k === LOG || k === BAMBOO || isCrossIndex(k) || isTorchIndex(k)) continue;
     if (!GROUND.has(k)) return; // 建物・畑など
     out.ty = y;
     out.kind = k;

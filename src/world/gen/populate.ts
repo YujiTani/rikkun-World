@@ -1,6 +1,7 @@
 import { CHUNK_SIZE, SEA_Y } from '../../contracts';
 import type { ChunkedVoxelWorld } from '../VoxelWorld';
 import { generateChunk } from './chunk';
+import { installMicroCountries } from './microCountry';
 import { regionRect } from './region';
 import { createWorldInfo, type WorldGenInfo } from './worldInfo';
 
@@ -13,6 +14,7 @@ export { terrainTopOf } from './worldInfo';
  * 仮の海のふちは もう無い: どの列も generateChunk のそのままの形。
  */
 export function populateWorld(world: ChunkedVoxelWorld, seed: number): WorldGenInfo {
+  installMicroCountries(world, seed);
   world.edgeClosedBelow = SEA_Y - 8; // 読みこんでいない列の横は、海ゆかより下は ふさがっているとみなす（VOX-D の決まり: 値は今のまま）
   const info = createWorldInfo(seed, world);
   const R = regionRect(seed);

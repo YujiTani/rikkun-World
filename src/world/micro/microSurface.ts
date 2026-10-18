@@ -60,8 +60,15 @@ export const MICRO_FOREST = {
   soil: { threshold: 0.3 },
 } as const;
 
+/**
+ * VOX-I-1（12 の国）: forest() が 1 以上の整数を返すときは「国の組み合わせの番号」。microCountries.table[番号 − 1] を使う。
+ * 表は populate.ts が 国の組み合わせ（2 つの国 ＋ 重みを 8 段）ごとに 足していく。表が空なら 今までどおり 0〜1 の重み。
+ */
+export const microCountries: { table: { tuftThreshold: number; rockChance: number; soilThreshold: number }[] } = { table: [] };
+
 /** 森の重み w（0 = 草原 〜 1 = 森）でまぜた 数（草むらのしきい・岩の出る割合・土が見えるしきい） */
 export function microMix(w: number): { tuftThreshold: number; rockChance: number; soilThreshold: number } {
+  if (w >= 1 && microCountries.table.length > 0) return microCountries.table[Math.min(Math.round(w), microCountries.table.length) - 1]!;
   const t = w <= 0 ? 0 : w >= 1 ? 1 : w;
   return {
     tuftThreshold: MICRO_PARAMS.tuft.threshold + (MICRO_FOREST.tuft.threshold - MICRO_PARAMS.tuft.threshold) * t,
@@ -271,7 +278,20 @@ export function sampleSurface(mx: number, mz: number, src: ColumnSource, out: Su
 }
 
 /** 岩のマス (rcx, rcz) の まん中のブロックの森の重み */
+let rockMemoSrc: ColumnSource | null = null;
+let rockMemoX = NaN;
+let rockMemoZ = NaN;
+let rockMemoV = 0;
 function forestAtRock(src: ColumnSource, r: number, rcx: number, rcz: number): number {
+  if (src === rockMemoSrc && rcx === rockMemoX && rcz === rockMemoZ) return rockMemoV;
+  const v = forestAtRockRaw(src, r, rcx, rcz);
+  rockMemoSrc = src;
+  rockMemoX = rcx;
+  rockMemoZ = rcz;
+  rockMemoV = v;
+  return v;
+}
+function forestAtRockRaw(src: ColumnSource, r: number, rcx: number, rcz: number): number {
   const R = P.rock;
   const margin = Math.ceil(R.maxRadius) + 1;
   const span = R.cell - 2 * margin;
