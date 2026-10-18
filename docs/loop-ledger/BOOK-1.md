@@ -33,3 +33,6 @@ art | 軽微 | move-walk と move-run は 似ている（SHIFT キーと 土け�
 art | 軽微 | grow-sow: たねの つぶが 小さく ○ の ならびに 見え、何が 起きるか 弱い。畑に 落ちる たねを 大きく。
 art | 軽微 | grow-pet: なでる 手が なく、マウスと ハートだけ。手の 絵を 足す。
 | 2 | dev（テスト準備） | code-reviewer | T1・T2 直った（frames 必須化、unit を BOOK_CHAPTERS/BOOK_ITEMS に書きかえ）。AC2〜4 のユニットは §4.2/§4.3 の 40 こ・12 こ見開きどおり。→ 合格（軽微: 開発は bookData.ts / bookNav.ts の名前と renderStats().frames を約束どおりに作る） | | T1・T2 | 対応済み（f02e837） |
+| 1 | dev | code-reviewer | 【軽微】Book.ts:61 resize の リスナーが 外せない（Book は 1 つだけなので 実害なし。dispose を 作るなら 一緒に） | 後かたづけの 一貫性 | B1 | 未対応 |
+| 1 | dev | code-reviewer | 【軽微】Book3D は 2 つ目の WebGLRenderer を 作り、とじても renderer は のこす（紙・表紙は release で dispose 済み）。メモリは 小さいが、Mac で 1 回 F3 で 確認 | 性能の 落とし穴 | B2 | 未対応 |
+| 1 | dev | code-reviewer | 【軽微】check:fast は 負荷で SaveManager・WorldRenderer の 4 テストが 5 秒タイムアウト（本と 無関係。CI で 再確認） | 本の 変更の 失敗ではない | B3 | 未対応 |
