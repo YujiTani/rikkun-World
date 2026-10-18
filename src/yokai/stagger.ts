@@ -29,8 +29,11 @@ export interface StaggerBook {
 
 export function createStaggerBook(S: Pick<W2Settings, 'staggerTicks' | 'staggerDamageMul'>): StaggerBook {
   const map = new Map<number, { ticksLeft: number; double: boolean }>();
+  // ids() の 配列は 顔ぶれが 変わったときだけ つくり直す（毎コマ new しない）
+  let idCache: number[] | null = null;
   return {
     stagger(id) {
+      if (!map.has(id)) idCache = null;
       map.set(id, { ticksLeft: S.staggerTicks, double: true });
     },
     get(id) {
@@ -40,7 +43,10 @@ export function createStaggerBook(S: Pick<W2Settings, 'staggerTicks' | 'staggerD
     step() {
       for (const [id, e] of map) {
         e.ticksLeft--;
-        if (e.ticksLeft <= 0) map.delete(id);
+        if (e.ticksLeft <= 0) {
+          map.delete(id);
+          idCache = null;
+        }
       }
     },
     damage(id, amount) {
@@ -53,13 +59,14 @@ export function createStaggerBook(S: Pick<W2Settings, 'staggerTicks' | 'staggerD
       return map.get(id)?.double === true;
     },
     remove(id) {
-      map.delete(id);
+      if (map.delete(id)) idCache = null;
     },
     clear() {
       map.clear();
+      idCache = null;
     },
     ids() {
-      return [...map.keys()];
+      return (idCache ??= [...map.keys()]);
     },
   };
 }

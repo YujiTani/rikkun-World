@@ -11,7 +11,7 @@ import { createCombatUi } from './fx/combatUi';
 import { PlayerCombatImpl, createCombatConfig, createCombatHook } from './combat';
 import { ArmorSystemImpl, CraftSystemImpl, createArmorHook, createCraftConfig, createCraftHook, createFurnaceHook, createPickupHook } from './craft';
 import { ToolSystemImpl, createToolConfig, createToolHook } from './tools';
-import { createBladeSystem } from './tools/blade/BladeSystem';
+import { createBladeSystem, isBladeItem } from './tools/blade/BladeSystem';
 import { createBladeHook } from './tools/blade/hook';
 import { WeaponFx } from './fx/weaponFx';
 import { createParry, parryGlowLevel } from './combat/parry';
@@ -1384,7 +1384,10 @@ game.onUpdate((dt) => {
   }
   time.update();
   // WEAPON-5: パリィの 入力は 妖怪の 更新の 前（このステップの 当たりが F1 になる）
-  parry.update(dig.parryInput(game.tick + 1));
+  const parryIn = dig.parryInput(game.tick + 1);
+  // Shift を 押した 時点で パリィの 絵を 先読みする（刀を 持っただけでは 読まない。初回から 受けの 絵が 出るように）
+  if (parryIn.run && parryIn.active && isBladeItem(parryIn.item)) sprite?.preloadParry();
+  parry.update(parryIn);
   // WEAPON-2: 刀・弓の 動きの 制限（歩く倍率・ジャンプ止め）を プレイヤーへ
   {
     const bm = blade.motion();

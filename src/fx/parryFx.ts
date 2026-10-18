@@ -269,6 +269,11 @@ export interface StaggerIconItem {
 
 interface IconEl {
   el: HTMLDivElement;
+  /** 前に 書いた 値（かわったときだけ 書く） */
+  w: number;
+  pos: string;
+  alpha: number;
+  shown: boolean;
 }
 
 /** 名前の 板の 高さ（px）。`.yokai-nameplate` は 20px 以上の 字 × 行の 高さ */
@@ -319,13 +324,26 @@ export class StaggerIcons {
       const py = (-this.v.y * 0.5 + 0.5) * h - ICON_GAP_BLOCKS * pxPerBlock(dist) - (it.titled ? NAMEPLATE_PX : 0);
       const e = this.el(n++);
       const s = size * scale;
-      const st = e.style;
-      st.display = 'block';
-      st.width = `${s}px`;
-      st.height = `${s}px`;
-      st.backgroundSize = `${s * 8}px ${s * 2}px`;
-      st.backgroundPosition = `${-frameCol * s}px ${-row * s}px`;
-      st.opacity = String(alpha);
+      const st = e.el.style;
+      if (!e.shown) {
+        st.display = 'block';
+        e.shown = true;
+      }
+      if (e.w !== s) {
+        e.w = s;
+        st.width = `${s}px`;
+        st.height = `${s}px`;
+        st.backgroundSize = `${s * 8}px ${s * 2}px`;
+      }
+      const bp = `${-frameCol * s}px ${-row * s}px`;
+      if (e.pos !== bp) {
+        e.pos = bp;
+        st.backgroundPosition = bp;
+      }
+      if (e.alpha !== alpha) {
+        e.alpha = alpha;
+        st.opacity = String(alpha);
+      }
       st.transform = `translate(${(px - s / 2).toFixed(1)}px, ${(py - s).toFixed(1)}px)`;
     };
     if (visible) {
@@ -344,10 +362,16 @@ export class StaggerIcons {
       put({ id, x: b.x, y: b.y, z: b.z, titled: b.titled }, iconBurstFrame(b.age), 1, 1 + 0.5 * k, 1 - 0.6 * k);
       b.age++;
     }
-    for (let i = n; i < this.pool.length; i++) this.pool[i]!.el.style.display = 'none';
+    for (let i = n; i < this.pool.length; i++) {
+      const p = this.pool[i]!;
+      if (p.shown) {
+        p.el.style.display = 'none';
+        p.shown = false;
+      }
+    }
   }
 
-  private el(i: number): HTMLDivElement {
+  private el(i: number): IconEl {
     let e = this.pool[i];
     if (!e) {
       const el = document.createElement('div');
@@ -364,10 +388,10 @@ export class StaggerIcons {
       st.willChange = 'transform';
       st.display = 'none';
       this.parent.append(el);
-      e = { el };
+      e = { el, w: -1, pos: '', alpha: -1, shown: false };
       this.pool.push(e);
     }
-    return e.el;
+    return e;
   }
 
   dispose(): void {
