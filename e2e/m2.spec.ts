@@ -928,6 +928,8 @@ test.describe('M2 見た目', () => {
 
 test.describe('M2 自動セーブ', () => {
   test('AC28/AC29(c): 保存して読みこみ直す、?reset=1', async ({ page }) => {
+    // 4 回 起動して そのたびに 輪を そろえる（VOX-D）。CI（GPU なし）では 60 秒を こえることがある（#203）
+    test.setTimeout(180_000);
     // 世界ぜんたいの hash は「読みこんでいる列の集まり」にもよる（むかし立っていた所の列は 遠くなっても すぐには すてない）。
     // 立っている所のまわり（列 -8..8）の 1 列ごとの hash をつないだものを くらべる
     const ringFn = `(h) => { let s = ''; for (let cz = -8; cz <= 8; cz++) for (let cx = -8; cx <= 8; cx++) s += h.world.hash(cx, cz) + ','; return s; }`;
