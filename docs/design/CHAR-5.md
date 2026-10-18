@@ -148,7 +148,7 @@
 | ゲームが 読む 絵 | `public/models/char/girl/`（今の `public/models/char/` の 16 まいの PNG と `atlas.json` を そのまま 移す）・`public/models/char/boy/`（`idle`・`walk`・`run`・`jump` の 4 まいと `atlas.json`）。`public/models/char/` の すぐ下には PNG・`atlas.json` を 置かない |
 | もとの絵 | `art/char-sheets/girl/`（今の `art/char-sheets/` の もとの絵と `atlas.json` を 移す）・`art/char-sheets/boy/`（`/mnt/project-files/char-boy/sprites/` の 4 まいと `atlas.json`）。`blade_path.json` は 今の `art/char-sheets/blade_path.json` のまま（女の子の データ。動かさない） |
 | 男の子の `atlas.json` | 今の 項目（`cell` 256・`span` 2.0・`center` 0.95・`tiers`・`dirs` 8・4 つの `motions`、どれも 8 コマ）に `modelH: 1.63` を 足す（PO が 置くとき）。`pack:char` が `packed` と `palette` を 足す |
-| 切りつめ | `npm run pack:char` が 2 人 分を 書き出す（`art/char-sheets/<キャラ>/` → `public/models/char/<キャラ>/`。CHAR-2 §4.7 と 同じ 切り方。見た目は 1 ドットも 変えない）。もとの PNG の 形は CHAR-2 AC24 と 同じ（たて 6144・よこ = コマ数 × 256・ふちから 2 ドット・そのキャラの 色見本の 色だけ。男の子の `jump` が ふちに ふれるときは 女の子と 同じく 数えるだけ） |
+| 切りつめ | `npm run pack:char` が 2 人 分を 書き出す（`art/char-sheets/<キャラ>/` → `public/models/char/<キャラ>/`。CHAR-2 §4.7 と 同じ 切り方。見た目は 1 ドットも 変えない）。もとの PNG の 形は CHAR-2 AC24 と 同じ（たて 6144・よこ = コマ数 × 256・ふちから 2 ドット・そのキャラの 色見本の 色だけ。男の子の `idle`・`jump` が ふちに ふれるのは 女の子と 同じく 数えるだけ。`walk`・`run` は ふれない） |
 | テスト用の もとの絵 | `?charsheets=orig`（開発サーバーだけ）は そのキャラの `art/char-sheets/<キャラ>/` を 読む（`/__char-orig/<キャラ>/`） |
 
 **男の子の 重さ**（本当の値は `npm run pack:char` の あと PO が 書く。**テスト係に 頼む 前に**。§7 の 2）
@@ -219,8 +219,8 @@
 
 | # | 基準 | 層 |
 |---|---|---|
-| AC9 | 決まり方・おぼえる: localStorage を 空に して `/?char=boy` で 開く（E2E の サーバーは START-1 の メニューを 出さない）→ `char.get().kind` = `boy`、`sprite.status` の 4 つが `ready` に なるまで 待つ → `sprite.kind` `boy`・`loaded` true・`gpuBytes` = 男の子の 4 まいの `packed` の 合計、localStorage `rikkun.char.v1` = `boy`。そのまま `char.set('girl')` → ページの 読み直しが 起きず（同じ ページの 印が のこる）、女の子の たつ・あるく・はしる・ジャンプ が `ready` に なって `kind` `girl`・`gpuBytes` = 女の子の はじめの 4 つの 合計。`/`（URL なし）で 読み直す → `girl`。`/?char=boy` → `boy`、`/?char=girl&nosave=1` で 開いても おぼえた 値は 書きかわらない。スクショ: 男の子の 正面・うしろ・横（`docs/screenshots/CHAR-5/`） | 【E2E】 |
-| AC10 | 男の子で 遊ぶ: `?char=boy&nosave=1` で 始め、4 まいが `ready` まで 待つ。W で 30 ステップ → `walk`、かたなを 持って 上段へ R → 大けさぎりを 106 ステップ: どの ステップも `motion` `idle`、体が 0.800 ±0.01 進む、目の前 2 の 妖怪の 体力が 1 回ぶん へる、刃の 光（`blade.trail().visible`）が 女の子と 同じ ステップで 出る。弓と 矢 5 本で 45 ステップ 引いて はなす → 矢が 1 本 飛ぶ。この あいだ `gpuBytes` が 変わらず、`girl/` の 絵を 1 つも 読まない（ネットワークの 記録）。大けさぎり F30 の スクショ | 【E2E】 |
+| AC9 | 決まり方・おぼえる: localStorage を 空に して `/?char=boy` で 開く（E2E の サーバーは START-1 の メニューを 出さない）→ `char.get().kind` = `boy`、`sprite.status` の 4 つが `ready` に なるまで 待つ → `sprite.kind` `boy`・`loaded` true・`gpuBytes` = 男の子の 4 まいの `packed` の 合計、localStorage `rikkun.char.v1` = `boy`。そのまま `char.set('girl')` → ページの 読み直しが 起きず（同じ ページの 印が のこる）、女の子の たつ・あるく・はしる・ジャンプ が `ready` に なって `kind` `girl`・`gpuBytes` = 女の子の はじめの 4 つの 合計。`/`（URL なし）で 読み直す → `girl`。`/?char=boy` → `boy`、`/?char=girl&nosave=1` で 開いても おぼえた 値は 書きかわらない。スクショ: 男の子の 正面・うしろ・横（`test-shots/CHAR-5/`。git には 入れない） | 【E2E】 |
+| AC10 | 男の子で 遊ぶ: `?char=boy&nosave=1` で 始め、4 まいが `ready` まで 待つ。W で 30 ステップ → `walk`、かたなを 持って 上段へ R → 大けさぎりを 106 ステップ: どの ステップも `motion` `idle`、何もない 所で 体が 0.800 ±0.01 進む、べつに 目の前 2 に 置いた 妖怪の 体力が 1 回ぶん へる（手前で 止まるので 2 回に 分けて よい）、刃の 光（`blade.trail().visible`）が 女の子と 同じ ステップで 出る。弓と 矢 5 本で 45 ステップ 引いて はなす → 矢が 1 本 飛ぶ。この あいだ `gpuBytes` が 変わらず、`girl/` の 絵を 1 つも 読まない（ネットワークの 記録）。大けさぎり F30 の スクショ | 【E2E】 |
 
 ### 画面
 
@@ -286,3 +286,4 @@
 |---|---|
 | 1 | 初版（2026-10-18）。PO の 初めの値から: えらぶ場所を 案内画面の 左上に（P1）、男の子の わざは 案 B を おすすめ（P2）、切りかえは 前の キャラを 先に おろして 読みこみ中は 板を 出さない（P3。重さの 上限）。足した決まり: 顔の絵の ボタン、`?char=block` は 行を 出さない、おぼえた値の 読めない値、色見本は `atlas.json` の `palette`、刃の 光は 女の子の データのまま |
 | 2 | 2026-10-18 design-reviewer の 指摘（台帳 周 1）と PO 決定に 対応。**G2【重大】**: PO 決定で えらぶ 行（UI）を 作らない。§0 P1・遊び方の要点・§2.1・§3.1〜§3.3・§3.5・§4.4・§4.6・§5 を 直し、顔の絵（`face.png`）を START-1 へ 移した。AC2 を「URL と `char.set` で おぼえる」、AC9 を `?char=boy` で 開く E2E、AC11 を「URL なしでは 見た目が 変わらない」に 書き直し、AC15 から えらぶ 所を 消した。§4.1 の おぼえる時に「URL で 始めた とき」を 足した。§8 START-1 との つなぎ目を 足した。**G1【重大】**: §6.1 を grep の 全件の 表に（`src/main.ts`・`vite.config.ts`・`scripts/pack-char-atlas.mjs`・`techCurves.ts`・`bladeTrailModel.ts`・`e2e/helpers/blade.ts`・`e2e/char2.spec.ts`・`ui-gate.spec.ts`・`char1-accept` の 3 か所 など）。**G3【軽微】**: 2 秒・5 秒の 数を なくし、AC9 は `ready` 待ちに。§7 の 2 に テスト係への 依頼文の 決まりを 足した。**G4【軽微】**: §9 に 案 A/B を オーナー確認①で 聞くと 書いた |
+| 2.1 | 2026-10-18 テスト準備で 分かった 軽い 食い違いを PO が 直した: §4.5 ふちに ふれるのは `idle`・`jump`、AC10 の 進む きょりと 妖怪は 2 回に 分ける、スクショは `test-shots/`（#157） |
