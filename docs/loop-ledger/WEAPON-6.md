@@ -19,3 +19,6 @@
 | 2 | test | tester | 【軽微】AC14: mash(150) が次の周期の 1 段目（t0+145 の つき）まで見て techHit が [1,2,3,1] になった。テスト側の誤り → 1 周期（145 ステップ）だけ見る | テストの範囲 | T5 | 対応済み |
 | 2 | test | tester | 【軽微】AC14c: 毎ステップ押すと 3 段目が F28 から始まり、2 段目 F45 の距離が 1.4 でなく 1.477。テスト側の誤り → 2 段目の ふみこみは 押さずに（F5 に 1 回だけ）見る | テストの押し方 | T6 | 対応済み |
 | 2 | test | tester | 【軽微】AC19: `parry.events` の tick は game.tick+1、`blade.events` は game.tick。F21 の parryStart は blade の t0 に対し +21 が正しい（仕様の F21 と一致）。テスト側の期待を 20 → 21 | tick の数え方のずれ | T7 | 対応済み |
+| 3 | dev | code-reviewer(impl) | 【軽微】AC11 の「前の保存（へった量 400 以上 → のこり 1、400 以下はそのまま）」を見るユニットテストが ない（`Inventory.durability` の `Math.max(1, max - wear)` で 仕様どおりに 動くが 未確認）。`{item:'crystal_katana', wear:450}` → `{max:400,left:1}`、`wear:100` → left 300 を `src/inventory/wear.test.ts` に | 仕様 AC11 の確かめ抜け | T8 | 未対応 |
+| 3 | dev | code-reviewer(impl) | 【軽微】`BladeSystem.nextStart()`（`src/tools/blade/BladeSystem.ts`）は 出だし中（窓の外）に 押しても 次の段（stage+1）を 返す。向きの補助の とどくが 2 段目の ものになるが 実際には つながらない（空の 押し）。`frame > startup` も 条件に | 向きの補助の ずれ（小） | T9 | 未対応 |
+| 3 | dev | code-reviewer(impl) | 【軽微】`npm run check:fast` で 4 件 失敗（save/backend・noNegative・WorldRendererStream x2）は すべて 5 秒の タイムアウト（他の係と 同時実行の 負荷）。WEAPON-6 の コードとは 関係なし。単独で 再実行して 確認 | 負荷での タイムアウト | T10 | 確認待ち |
