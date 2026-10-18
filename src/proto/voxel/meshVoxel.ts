@@ -218,6 +218,7 @@ export class VoxelChunkMesher {
       const i = this.colIndex(bx, bz);
       return i < 0 ? false : this.colRock[i] === 1;
     },
+    forest: (bx, bz) => (this.world.microForest === null ? 0 : this.world.microForest(bx, bz)),
   };
 
   constructor(private readonly world: ArrayVoxelWorld) {

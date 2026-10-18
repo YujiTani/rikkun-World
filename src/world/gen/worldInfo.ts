@@ -6,7 +6,8 @@ import { GEN_CONFIG as C } from './config';
 import { startFeaturesOf, type StartFeatures } from './features';
 import { mouthsInRegion, regionRect, type Bounds, type MouthInfo } from './region';
 import { surfaceFor } from './surface';
-import { terrainAt, terrainFor, type BiomeKind } from './terrain';
+import type { CountryKind } from './config';
+import { terrainAt, terrainFor } from './terrain';
 import { treesInRect } from './trees';
 
 /**
@@ -21,7 +22,7 @@ export interface WorldGenInfo extends IslandInfo {
   startTorch(): { x: number; y: number; z: number };
   startFeatures(): StartFeatures;
   caveMouths(): MouthInfo[];
-  terrainAt(x: number, z: number): { h: number; biome: BiomeKind; sea: boolean };
+  terrainAt(x: number, z: number): { h: number; biome: CountryKind; sea: boolean };
   genHash(cx: number, cz: number): string;
   genStats(): { columns: number; medianMs: number; maxMs: number; spawnSearchMs: number };
   /** 読みこんでいる列 */
@@ -31,7 +32,7 @@ export interface WorldGenInfo extends IslandInfo {
 }
 
 /** 「一番上の地形」に数えないブロック（き・はっぱ・みず・たいまつ・M7 の やわらかい物） */
-const SOFT = new Set<string>(['air', 'water', 'log', 'leaves', 'torch', 'start_torch', 'kakashi', 'kakashi_head', 'saku']);
+const SOFT = new Set<string>(['air', 'water', 'log', 'leaves', 'torch', 'start_torch', 'kakashi', 'kakashi_head', 'saku', 'momiji_leaves', 'matsu_leaves', 'flower_y', 'flower_o', 'flower_p', 'susuki', 'bamboo']);
 function isSoft(id: BlockId | 'outside'): boolean {
   return SOFT.has(id) || (id !== 'outside' && (id.startsWith('wild_') || id.startsWith('crop_')));
 }

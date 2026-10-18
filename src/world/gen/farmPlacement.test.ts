@@ -37,7 +37,7 @@ describe.each(SEEDS)('置きもの seed=%i（F1〜F3・基準 23）', (seed) => 
 
   it('草原・森を さきに さがす（F2）', () => {
     const grassFirst = p.wild.filter((a) => a.kind === 'onion' || a.kind === 'tomato');
-    const inGrass = grassFirst.filter((a) => terrainAt(seed, a.x, a.z).biome === 'grassland').length;
+    const inGrass = grassFirst.filter((a) => terrainAt(seed, a.x, a.z).biome === 'harappa').length;
     expect(inGrass).toBeGreaterThan(0);
   });
 

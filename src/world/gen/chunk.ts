@@ -1,9 +1,11 @@
-import { CHUNK_SIZE, SEA_Y, SECTION_SIZE, WORLD_HEIGHT, type ChunkColumn, type SectionData } from '../../contracts';
+import { CHUNK_SIZE, SEA_Y, SECTION_SIZE, WORLD_HEIGHT, type BlockId, type ChunkColumn, type SectionData } from '../../contracts';
 import { BLOCK_INDEX } from '../blocks/blockTypes';
 import { SECTION_VOLUME, compactSection, sectionToArray, uniformSection } from '../sections';
 import { GEN_CONFIG as C } from './config';
 import { isRockCoal } from './features';
 import { mouthAirRange, mouthsNear } from './mouths';
+import { defOf } from './biome';
+import { plantsOfChunk } from './plants';
 import { createRng, hash01, hashInts, subSeed, valueNoise3 } from './random';
 import { Terrain, terrainFor } from './terrain';
 import { treesInRect } from './trees';
@@ -19,12 +21,13 @@ const DIRT = BLOCK_INDEX.dirt;
 const STONE = BLOCK_INDEX.stone;
 const SAND = BLOCK_INDEX.sand;
 const LOG = BLOCK_INDEX.log;
-const LEAVES = BLOCK_INDEX.leaves;
 const COAL = BLOCK_INDEX.coal_ore;
 const IRON = BLOCK_INDEX.iron_ore;
 const WATER = BLOCK_INDEX.water;
 const BEDROCK = BLOCK_INDEX.bedrock;
 const START_TORCH = BLOCK_INDEX.start_torch;
+const SNOW = BLOCK_INDEX.snow;
+const LEAF_BLOCK = { leaves: BLOCK_INDEX.leaves, momiji_leaves: BLOCK_INDEX.momiji_leaves, matsu_leaves: BLOCK_INDEX.matsu_leaves } as const;
 
 const N_SECTIONS = WORLD_HEIGHT / SECTION_SIZE;
 const COL_VOLUME = CHUNK_SIZE * WORLD_HEIGHT * CHUNK_SIZE;
@@ -217,12 +220,14 @@ function placeVisibleOres(out: Uint8Array, T: Terrain, x0: number, z0: number, H
       const h = H[i]!;
       if (h < SEA_Y) continue;
       const a = Math.min(airFrom(H[i - 1]!), airFrom(H[i + 1]!), airFrom(H[i - HW]!), airFrom(H[i + HW]!), airFrom(h));
+      let k = 0; // 国ごとの倍（いわやま 3 倍 など）。いしが 見えている列だけ しらべる
       for (let y = Math.max(1, a); y <= h; y++) {
         const o = y * LAYER + lz * CHUNK_SIZE + lx;
         if (out[o] !== STONE) continue;
+        if (k === 0) k = defOf(T.biome(x0 + lx, z0 + lz).kind).visibleOre ?? 1;
         const r = hash01(sV, x0 + lx, z0 + lz, y);
-        if (r < O.visibleCoal) out[o] = COAL;
-        else if (y >= O.visibleIronFrom && r < O.visibleCoal + O.visibleIron) out[o] = IRON;
+        if (r < O.visibleCoal * k) out[o] = COAL;
+        else if (y >= O.visibleIronFrom && r < (O.visibleCoal + O.visibleIron) * k) out[o] = IRON;
       }
     }
   }
@@ -231,31 +236,85 @@ function placeVisibleOres(out: Uint8Array, T: Terrain, x0: number, z0: number, H
 // ------------------------------------------------------------------ 木（T1〜T2）
 
 function placeTrees(out: Uint8Array, T: Terrain, x0: number, z0: number): void {
-  const trees = treesInRect(T, x0 - 2, z0 - 2, x0 + CHUNK_SIZE + 1, z0 + CHUNK_SIZE + 1);
+  // 大木のはっぱは みきから 4 マスまで出る
+  const trees = treesInRect(T, x0 - 5, z0 - 5, x0 + CHUNK_SIZE + 4, z0 + CHUNK_SIZE + 4);
   if (trees.length === 0) return;
   // みきを先に書く（はっぱは 空気のところだけ。みきの勝ち）
   for (const t of trees) {
-    const lx = t.x - x0;
-    const lz = t.z - z0;
-    if (lx < 0 || lx >= CHUNK_SIZE || lz < 0 || lz >= CHUNK_SIZE) continue;
-    for (let y = t.y + 1; y <= t.y + t.trunk; y++) out[y * LAYER + lz * CHUNK_SIZE + lx] = LOG;
+    const w = t.big ? 2 : 1;
+    for (let dz = 0; dz < w; dz++) {
+      for (let dx = 0; dx < w; dx++) {
+        const lx = t.x + dx - x0;
+        const lz = t.z + dz - z0;
+        if (lx < 0 || lx >= CHUNK_SIZE || lz < 0 || lz >= CHUNK_SIZE) continue;
+        for (let y = t.y + 1; y <= t.y + t.trunk; y++) out[y * LAYER + lz * CHUNK_SIZE + lx] = LOG;
+      }
+    }
   }
+  const put = (t: { x: number; z: number }, dx: number, dz: number, y: number, id: number): void => {
+    const lx = t.x + dx - x0;
+    const lz = t.z + dz - z0;
+    if (lx < 0 || lx >= CHUNK_SIZE || lz < 0 || lz >= CHUNK_SIZE) return;
+    const o = y * LAYER + lz * CHUNK_SIZE + lx;
+    if (out[o] === AIR) out[o] = id;
+  };
   for (const t of trees) {
     const top = t.y + t.trunk;
+    const leaf = LEAF_BLOCK[t.leaves];
+    if (t.big) {
+      // 太い みき（2×2）の まわりに まるい はっぱ（半径 3）
+      const R = 3;
+      for (let y = top - 3; y <= top + 2; y++) {
+        const rr = y >= top + 2 ? R - 2 : y >= top + 1 ? R - 1 : y <= top - 3 ? R - 1 : R;
+        for (let dz = -rr; dz <= rr + 1; dz++) {
+          for (let dx = -rr; dx <= rr + 1; dx++) {
+            const fx = dx - 0.5;
+            const fz = dz - 0.5;
+            if (fx * fx + fz * fz > (rr + 0.4) * (rr + 0.4)) continue;
+            put(t, dx, dz, y, leaf);
+          }
+        }
+      }
+      continue;
+    }
+    if (t.leaves === 'matsu_leaves') {
+      // まつ: 平たい はっぱの段が 3 つ（下が広く、上がせまい）
+      for (const [y, r] of [[top - 2, 3], [top, 2], [top + 1, 1]] as const) {
+        for (let dz = -r; dz <= r; dz++) {
+          for (let dx = -r; dx <= r; dx++) {
+            if (Math.abs(dx) + Math.abs(dz) > r + 1) continue;
+            put(t, dx, dz, y, leaf);
+          }
+        }
+      }
+      continue;
+    }
     for (let y = top - 1; y <= top + 2; y++) {
       const r = y <= top ? 2 : 1;
       for (let dz = -r; dz <= r; dz++) {
-        const lz = t.z + dz - z0;
-        if (lz < 0 || lz >= CHUNK_SIZE) continue;
         for (let dx = -r; dx <= r; dx++) {
-          const lx = t.x + dx - x0;
-          if (lx < 0 || lx >= CHUNK_SIZE) continue;
           if (y <= top && Math.abs(dx) === 2 && Math.abs(dz) === 2) continue;
           if (y === top + 2 && Math.abs(dx) + Math.abs(dz) > 1) continue;
-          const o = y * LAYER + lz * CHUNK_SIZE + lx;
-          if (out[o] === AIR) out[o] = LEAVES;
+          put(t, dx, dz, y, leaf);
         }
       }
+    }
+  }
+}
+
+/** 草の上の はな・すすき・たけ（木の後。空気のところだけ） */
+function placePlants(out: Uint8Array, T: Terrain, cx: number, cz: number, H: Int16Array): void {
+  const x0 = cx * CHUNK_SIZE;
+  const z0 = cz * CHUNK_SIZE;
+  for (const p of plantsOfChunk(T, cx, cz)) {
+    const lx = p.x - x0;
+    const lz = p.z - z0;
+    const h = H[(lz + 1) * HW + lx + 1]!;
+    const id = BLOCK_INDEX[p.id];
+    for (let k = 1; k <= p.height; k++) {
+      const o = (h + k) * LAYER + lz * CHUNK_SIZE + lx;
+      if (out[o] !== AIR) break;
+      out[o] = id;
     }
   }
 }
@@ -288,7 +347,12 @@ export function buildBlocks(seed: number, cx: number, cz: number): BuiltChunk {
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
       const h = H[(lz + 1) * HW + lx + 1]!;
       // 地層は solidTo より上から書けば足りる（下はもう いし）
-      writeStrata(out, lx, lz, h, T.inRock(x0 + lx, z0 + lz), solidTo + 1);
+      const x = x0 + lx;
+      const z = z0 + lz;
+      writeStrata(out, lx, lz, h, T.inRock(x, z), solidTo + 1, T.topBlock(x, z, h));
+      // かっぱの ぬま の いけ: 底から へりの高さの 1 つ下まで 水
+      const pd = T.map.pondAt(x, z);
+      if (pd !== null && pd.kind === 'inner') for (let y = h + 1; y < pd.level; y++) out[y * LAYER + lz * CHUNK_SIZE + lx] = WATER;
     }
   }
 
@@ -326,6 +390,7 @@ export function buildBlocks(seed: number, cx: number, cz: number): BuiltChunk {
   }
 
   placeTrees(out, T, x0, z0);
+  placePlants(out, T, cx, cz, H);
 
   // スタートの こわれない たいまつ（P5）
   const sp = T.spawn();
@@ -336,22 +401,24 @@ export function buildBlocks(seed: number, cx: number, cz: number): BuiltChunk {
   return { blocks: out, heights: H };
 }
 
-/** 地層（S2〜S5）。h = 高さ、rock = 岩山の列。y < from の分は もう いしなので書かない */
-export function writeStrata(out: Uint8Array, lx: number, lz: number, h: number, rock: boolean, from: number): void {
+/** 地層（S2〜S5）。h = 高さ、rock = 岩山の列。y < from の分は もう いしなので書かない。top = 陸の上のブロック（くさ・すな・ゆき・いし） */
+export function writeStrata(out: Uint8Array, lx: number, lz: number, h: number, rock: boolean, from: number, top: BlockId = 'grass'): void {
   const S = C.strata;
   const base = lz * CHUNK_SIZE + lx;
   const lo = Math.max(1, from);
   const fill = (y0: number, y1: number, b: number): void => {
     for (let y = Math.max(lo, y0); y <= y1; y++) out[y * LAYER + base] = b;
   };
-  if (rock || h >= SEA_Y + S.stoneTopFrom) {
+  if (rock || (h >= SEA_Y + S.landFrom && top === 'stone')) {
     fill(1, h, STONE);
     return;
   }
   if (h >= SEA_Y + S.landFrom) {
-    fill(h, h, GRASS);
-    fill(h - 1, h - 1, DIRT);
-    fill(h - 2, h - 2, h >= SEA_Y + S.dirt1From ? STONE : DIRT);
+    const sandy = top === 'sand';
+    const sub = sandy ? SAND : DIRT;
+    fill(h, h, top === 'snow' ? SNOW : sandy ? SAND : GRASS);
+    fill(h - 1, h - 1, sub);
+    fill(h - 2, h - 2, h >= SEA_Y + S.dirt1From ? STONE : sub);
     fill(1, h - 3, STONE);
     return;
   }
