@@ -31,7 +31,7 @@ import type {
 import type { Action, ActionState } from '../input/actions';
 import { cropKindOfBlock, seedKindOfItem, vegKindOfItem } from '../contracts';
 import { itemType } from '../inventory/items';
-import { BODY_H, BODY_W, FARM_BREAK_DROP, createDigConfig, type DigConfig } from './config';
+import { BODY_H, BODY_W, FARM_BREAK_DROP, NO_DROP_BLOCKS, createDigConfig, type DigConfig } from './config';
 import { createRng, randInt, type Rng } from '../world/gen/random';
 import type { PunchGate } from '../combat/PlayerCombat';
 import { centerOfYokai, decideAttack, type AttackDecision, type AttackHold } from '../combat/attackFacing';
@@ -553,7 +553,7 @@ export class DigSystemImpl implements DigSystem {
     const fixed = farmDrop ? farmDrop.count : (craft?.fixedDrop(t.id) ?? null);
     const dropItem: ItemId = farmDrop ? farmDrop.item : t.id;
     const max = Math.max(1, this.config.dropMax[this.config.rarity[t.id] ?? 'common'] ?? 1);
-    const n = fixed !== null ? fixed : randInt(this.rng, 1, max);
+    const n = NO_DROP_BLOCKS.has(t.id) ? 0 : fixed !== null ? fixed : randInt(this.rng, 1, max);
     const got = n - this.inventory.add(dropItem, n);
     if (got > 0) this.m4.onPickup?.(dropItem, got);
     // たんす は入らなければ 落とし物にする（なくさない。M6）

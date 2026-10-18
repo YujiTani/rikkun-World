@@ -50,7 +50,16 @@ export type BlockId =
   | 'kakashi_head' // かかし（上）
   | 'saku' // こわれた さく
   // M7-2（うしろに足す）
-  | 'sprinkler'; // スプリンクラー
+  | 'sprinkler' // スプリンクラー
+  // VOX-I-1（12 の国。うしろに足す）
+  | 'snow' // ゆき
+  | 'momiji_leaves' // もみじの はっぱ
+  | 'matsu_leaves' // まつの はっぱ
+  | 'flower_y' // はな（き）
+  | 'flower_o' // はな（だいだい）
+  | 'flower_p' // はな（むらさき）
+  | 'bamboo' // たけ
+  | 'susuki'; // すすき
 
 export interface BlockType {
   id: BlockId;

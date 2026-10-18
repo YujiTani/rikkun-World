@@ -268,8 +268,8 @@ function place(seed: number): FarmPlacement {
     if (reserved.has(`${x},${hh + 1},${z}`)) return null;
     return hh;
   };
-  /** たまねぎ・トマトは 草原、かぼちゃ・なすは 森 を さきに さがす */
-  const prefer: Record<CropKind, 'grassland' | 'forest'> = { onion: 'grassland', tomato: 'grassland', pumpkin: 'forest', eggplant: 'forest' };
+  /** たまねぎ・トマトは はらっぱ、かぼちゃ・なすは もり を さきに さがす */
+  const prefer: Record<CropKind, 'harappa' | 'mori'> = { onion: 'harappa', tomato: 'harappa', pumpkin: 'mori', eggplant: 'mori' };
 
   const taken: Array<{ x: number; z: number }> = [];
   const farEnough = (x: number, z: number) => taken.every((t) => Math.max(Math.abs(t.x - x), Math.abs(t.z - z)) >= 3);

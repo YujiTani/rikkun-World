@@ -106,6 +106,8 @@ import { mountHud } from './ui/hud';
 import { PlayOverlay } from './ui/playOverlay';
 import { ArrayVoxelWorld } from './world/VoxelWorld';
 import { GEN_CONFIG } from './world/gen/config';
+import { createBiomeHook } from './world/gen/biomeHook';
+import { installMicroCountries } from './world/gen/microCountry';
 import { createWorldHook } from './world/hook';
 import { WorldRenderer } from './world/render/WorldRenderer';
 import { decideFrameClock } from './world/frameClock';
@@ -194,6 +196,7 @@ const game = new Game(container);
 const world = new ArrayVoxelWorld({ x: 0, z: 0 });
 world.edgeClosedBelow = SEA_Y - 8; // 読みこんでいない列の横は、海ゆかより下は ふさがっているとみなす（地下の「見えない」印）
 const seed = readSeed();
+installMicroCountries(world, seed);
 const island = createWorldInfo(seed, world);
 // 保存（VOX-F）: IndexedDB から さわった列を 世界に入れる。描画の前に（光が 最初から 正しくなるように）
 const saveOptions = parseSaveOptions(location.search);
@@ -1650,6 +1653,7 @@ installTestHook(game, overlay, () => host.everReady, {
     renderNow: () => game.renderNow(),
     setEnabled: setShadow,
   }),
+  biome: createBiomeHook({ seed, player: () => controller.state.position }),
   world: createWorldHook(world, renderer, island, {
     teleport: (x, z) => host.goTo({ x, y: null, z }, true),
     stream: () => host.info(),

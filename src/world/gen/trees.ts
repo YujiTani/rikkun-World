@@ -1,4 +1,5 @@
-import { SEA_Y } from '../../contracts';
+import { CHUNK_SIZE, SEA_Y } from '../../contracts';
+import { defOf } from './biome';
 import { GEN_CONFIG as C } from './config';
 import { nearMouth } from './mouths';
 import { hash01, hashInts, subSeed } from './random';
@@ -16,8 +17,12 @@ export interface Tree {
   z: number;
   /** 地面の高さ（みきの いちばん下は y + 1） */
   y: number;
-  /** みきの高さ 4〜5 */
+  /** みきの高さ 4〜5（大木は 10〜14） */
   trunk: number;
+  /** はっぱのブロック（VOX-I-1: てんぐの やま = まつ、もみじやま = もみじ、ほか = はっぱ） */
+  leaves: 'leaves' | 'momiji_leaves' | 'matsu_leaves';
+  /** 2×2 の大木（x,z = 北西の みき） */
+  big?: boolean;
 }
 
 const PLOT = C.trees.plot;
@@ -43,7 +48,9 @@ export function treeGround(T: Terrain, x: number, z: number, nearStart = true): 
     if (Math.max(ax, az) <= C.trees.corridorWithin && Math.min(ax, az) < C.trees.corridor) return -1;
   }
   const h = T.height(x, z);
-  if (h < SEA_Y + C.strata.landFrom || h >= SEA_Y + C.strata.stoneTopFrom) return -1;
+  if (h < SEA_Y + C.strata.landFrom) return -1;
+  if (T.topBlock(x, z, h) === 'stone') return -1; // いしの山の上には 立てない
+  if (T.map.pondAt(x, z) !== null) return -1;
   if (T.inRock(x, z, 3.5)) return -1;
   const s = C.trees.maxSlope;
   if (Math.abs(T.height(x + 1, z) - h) >= s || Math.abs(T.height(x - 1, z) - h) >= s) return -1;
@@ -127,38 +134,132 @@ function startInfo(T: Terrain): { trees: Tree[]; keys: Set<number> } {
     if (picked.length >= K.startCount) break;
     if (!picked.includes(c)) picked.push(c);
   }
-  const trees = picked.map((c) => ({ x: c.x, z: c.z, y: c.g, trunk: c.trunk }));
+  const trees = picked.map((c): Tree => ({ x: c.x, z: c.z, y: c.g, trunk: c.trunk, leaves: 'leaves' }));
   const keys = new Set(picked.map((c) => plotKey(c.a, c.b)));
   const info = { trees, keys };
   starters.set(T, info);
   return info;
 }
 
-/** x,z の木になる割合（バイオームで変わる） */
+/** x,z の木になる割合（国で変わる。境目は まぜる） */
 function treeChance(T: Terrain, x: number, z: number): number {
-  const t = T.biome(x, z).forest;
-  const g = C.biomes.grassland.trees;
-  return g + (C.biomes.forest.trees - g) * t;
+  const b = T.biome(x, z);
+  return defOf(b.kind).trees * b.a + defOf(b.kind2).trees * (1 - b.a);
 }
 
-/** みきの列が [x0, x1] × [z0, z1] の中にある木（区画の順） */
-export function treesInRect(T: Terrain, x0: number, z0: number, x1: number, z1: number): Tree[] {
+interface BigPot {
+  x: number;
+  z: number;
+  order: number;
+}
+
+/** 区画 (a, b) に 大木（2×2）になれる木が あるか（上限は見ない。となりの列からも 同じ答えが出る） */
+function bigPotential(T: Terrain, sT: number, forced: Set<number>, a: number, b: number): BigPot | null {
+  const p = plotPoint(sT, a, b);
+  const def = defOf(T.biome(p.x, p.z).kind);
+  if (!def.bigTree) return null;
+  if (!forced.has(plotKey(a, b)) && hash01(sT, a, b, 2) >= treeChance(T, p.x, p.z)) return null;
+  const g = treeGround(T, p.x, p.z);
+  if (g < 0 || hash01(sT, a, b, 3) >= def.bigTree) return null;
+  if (treeGround(T, p.x + 1, p.z) !== g || treeGround(T, p.x, p.z + 1) !== g || treeGround(T, p.x + 1, p.z + 1) !== g) return null;
+  return { x: p.x, z: p.z, order: hash01(sT, a, b, 5) };
+}
+
+const chunkCache = new WeakMap<Terrain, Map<number, Tree[]>>();
+const MAX_CHUNKS = 600;
+
+/** 列 (cx, cz) の みきが ある木（上限のかけた後。plot の順 = b, a の順）。同じ (seed, cx, cz) なら いつも同じ */
+export function treesOfChunk(T: Terrain, cx: number, cz: number): Tree[] {
+  let m = chunkCache.get(T);
+  if (!m) {
+    m = new Map();
+    chunkCache.set(T, m);
+  }
+  const key = (cx + 40000) * 80021 + (cz + 40000);
+  const hit = m.get(key);
+  if (hit) return hit;
   const sT = subSeed(T.seed, 401);
   const forced = startInfo(T).keys;
-  const out: Tree[] = [];
-  const a0 = Math.floor((x0 - 1) / PLOT);
-  const a1 = Math.floor((x1 - 1) / PLOT);
-  const b0 = Math.floor((z0 - 1) / PLOT);
-  const b1 = Math.floor((z1 - 1) / PLOT);
-  for (let b = b0; b <= b1; b++) {
-    for (let a = a0; a <= a1; a++) {
+  const per = CHUNK_SIZE / PLOT;
+  const cand: { a: number; b: number; p: { x: number; z: number; trunk: number }; g: number; order: number }[] = [];
+  for (let b = cz * per; b < cz * per + per; b++) {
+    for (let a = cx * per; a < cx * per + per; a++) {
       const p = plotPoint(sT, a, b);
-      if (p.x < x0 || p.x > x1 || p.z < z0 || p.z > z1) continue;
       if (!forced.has(plotKey(a, b)) && hash01(sT, a, b, 2) >= treeChance(T, p.x, p.z)) continue;
       const g = treeGround(T, p.x, p.z);
       if (g < 0) continue;
-      out.push({ x: p.x, z: p.z, y: g, trunk: p.trunk });
+      cand.push({ a, b, p, g, order: hash01(sT, a, b, 5) });
     }
   }
+  // 1 列の上限: シード付きの順に見て、上限に来たら 大木は ふつうの木に、ふつうの木は それより後を置かない
+  const byOrder = cand.slice().sort((u, v) => u.order - v.order);
+  const keep = new Set<(typeof cand)[number]>();
+  const bigOf = new Map<(typeof cand)[number], number>(); // 大木にした候補 → みきの根もとの高さ
+  let nTrees = 0;
+  let nBig = 0;
+  for (const c of byOrder) {
+    const b = T.biome(c.p.x, c.p.z);
+    const def = defOf(b.kind);
+    if (def.cap?.trees !== undefined && nTrees >= def.cap.trees) continue;
+    keep.add(c);
+    nTrees++;
+    if (def.bigTree && hash01(sT, c.a, c.b, 3) < def.bigTree && (def.cap?.bigTrees === undefined || nBig < def.cap.bigTrees)) {
+      const g1 = treeGround(T, c.p.x + 1, c.p.z);
+      const g2 = treeGround(T, c.p.x, c.p.z + 1);
+      const g3 = treeGround(T, c.p.x + 1, c.p.z + 1);
+      // 太い みき（2×2）は 4 列の高さが ぴったり同じ所だけ（みきが 地面を つきぬけない）
+      if (g1 === c.g && g2 === c.g && g3 === c.g) {
+        bigOf.set(c, c.g);
+        nBig++;
+      }
+    }
+  }
+  // 大木の みき（2×2）にも ふつうの木と同じ間隔（みきの マスどうし チェビシェフ 3 以上）。近い木は置かない。
+  // 大木どうしは order の大きい方を やめる。となりの区画の大木は 上限に関係なく 同じ答えになるよう bigPotential で見る
+  const bigNear = (c: (typeof cand)[number], isBig: boolean): boolean => {
+    for (let db = -1; db <= 1; db++) {
+      for (let da = -1; da <= 1; da++) {
+        if (da === 0 && db === 0) continue;
+        const P = bigPotential(T, sT, forced, c.a + da, c.b + db);
+        if (P === null) continue;
+        if (isBig && P.order > c.order) continue;
+        const w = isBig ? 2 : 1;
+        // c の幅 w のかたまり と P の 2×2 のあいだの チェビシェフきょり（マスの番号の差）
+        const dx = Math.max(P.x - (c.p.x + w - 1), c.p.x - (P.x + 1));
+        const dz = Math.max(P.z - (c.p.z + w - 1), c.p.z - (P.z + 1));
+        if (Math.max(dx, dz) < 3) return true;
+      }
+    }
+    return false;
+  };
+  const out: Tree[] = [];
+  for (const c of cand) {
+    if (!keep.has(c)) continue;
+    if (bigNear(c, bigOf.has(c))) continue;
+    const def = defOf(T.biome(c.p.x, c.p.z).kind);
+    const leaves = def.leaves ?? 'leaves';
+    const g = bigOf.get(c);
+    if (g !== undefined) out.push({ x: c.p.x, z: c.p.z, y: g, trunk: 10 + Math.floor(hash01(sT, c.a, c.b, 4) * 5), leaves, big: true });
+    else out.push({ x: c.p.x, z: c.p.z, y: c.g, trunk: c.p.trunk, leaves });
+  }
+  if (m.size >= MAX_CHUNKS) m.delete(m.keys().next().value as number);
+  m.set(key, out);
+  return out;
+}
+
+/** みきの列が [x0, x1] × [z0, z1] の中にある木（plot の順） */
+export function treesInRect(T: Terrain, x0: number, z0: number, x1: number, z1: number): Tree[] {
+  const out: Tree[] = [];
+  const c0x = Math.floor(x0 / CHUNK_SIZE);
+  const c1x = Math.floor(x1 / CHUNK_SIZE);
+  const c0z = Math.floor(z0 / CHUNK_SIZE);
+  const c1z = Math.floor(z1 / CHUNK_SIZE);
+  for (let cz = c0z; cz <= c1z; cz++) {
+    for (let cx = c0x; cx <= c1x; cx++) {
+      for (const t of treesOfChunk(T, cx, cz)) if (t.x >= x0 && t.x <= x1 && t.z >= z0 && t.z <= z1) out.push(t);
+    }
+  }
+  // 木のはっぱが かさなるときの順が どの列から見ても同じになるよう、plot の順にそろえる
+  if (c1x > c0x || c1z > c0z) out.sort((u, v) => Math.floor(u.z / PLOT) - Math.floor(v.z / PLOT) || Math.floor(u.x / PLOT) - Math.floor(v.x / PLOT));
   return out;
 }

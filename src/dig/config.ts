@@ -56,6 +56,15 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     kakashi_head: null,
     saku: 1,
     sprinkler: 3,
+    // VOX-I-1（12 の国）
+    snow: 0.5,
+    momiji_leaves: 0.25,
+    matsu_leaves: 0.25,
+    flower_y: 0.05,
+    flower_o: 0.05,
+    flower_p: 0.05,
+    bamboo: 1.5,
+    susuki: 0.05,
   } satisfies Record<BlockId, number | null>,
   harvestLevel: {
     air: 0,
@@ -90,6 +99,14 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     kakashi_head: 0,
     saku: 0,
     sprinkler: 0,
+    snow: 0,
+    momiji_leaves: 0,
+    matsu_leaves: 0,
+    flower_y: 0,
+    flower_o: 0,
+    flower_p: 0,
+    bamboo: 0,
+    susuki: 0,
   },
   handPower: 1.0,
   handLevel: 0,
@@ -133,6 +150,15 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     kakashi_head: 'common',
     saku: 'common',
     sprinkler: 'uncommon',
+    // VOX-I-1（12 の国）
+    snow: 'common',
+    momiji_leaves: 'common',
+    matsu_leaves: 'common',
+    flower_y: 'common',
+    flower_o: 'common',
+    flower_p: 'common',
+    bamboo: 'common',
+    susuki: 'common',
   } satisfies Record<BlockId, Rarity>,
   dropMax: defaultDropMax(),
 };
@@ -154,6 +180,9 @@ export const FARM_BREAK_DROP: Readonly<Partial<Record<BlockId, { item: ItemId; c
   saku: { item: 'log', count: 1 },
   sprinkler: { item: 'sprinkler', count: 1 },
 };
+
+/** VOX-I-1: こわすと 持ち物がふえない ブロック（すすき。ふえるのは ひろえる物だけ） */
+export const NO_DROP_BLOCKS: ReadonlySet<BlockId> = new Set<BlockId>(['susuki']);
 
 /** 体の箱（M1-02 §4.1）。置く判定に使う */
 export const BODY_W = 0.6;

@@ -28,7 +28,12 @@ export type TileName =
   | 'start_torch'
   | 'tansu_front'
   | 'tansu_top'
+  | VoxITileName
   | FarmTileName;
+
+/** VOX-I-1（12 の国）のふつうの絵（一ひねりの絵は #185） */
+export type VoxITileName = 'snow' | 'momiji_leaves' | 'matsu_leaves' | 'flower_y' | 'flower_o' | 'flower_p' | 'bamboo' | 'susuki';
+const VOX_I_TILES: readonly VoxITileName[] = ['snow', 'momiji_leaves', 'matsu_leaves', 'flower_y', 'flower_o', 'flower_p', 'bamboo', 'susuki'];
 
 /** M7 農業の絵の名前（`farm.texture` の name と同じ） */
 export type FarmTileName =
@@ -60,6 +65,7 @@ export const TILE_NAMES: readonly TileName[] = [
   'tansu_front',
   'tansu_top',
   ...(FARM_TILE_NAMES as readonly FarmTileName[]),
+  ...VOX_I_TILES,
 ];
 export const ATLAS_ROWS = Math.ceil(TILE_NAMES.length / ATLAS_COLS);
 export const ATLAS_WIDTH = ATLAS_COLS * TILE_SIZE;
@@ -99,6 +105,26 @@ function speckle(base: string, dots: string[], seed: number, count = 40): Tile {
     tile[y * TILE_SIZE + x] = hex(dots[i % dots.length]);
   }
   return tile;
+}
+
+/**
+ * ざわざわをへらす（#194）: 自然のブロックの絵の中の明暗の差を 地の色へ近づけ（contrast）、
+ * 彩度を少しおさえる（saturation）。絵そのもの（点の場所・形）は変えない。
+ */
+export const TILE_CALM = { contrast: 0.5, saturation: 0.8 } as const;
+
+/** 1 色をおさえる（c = もとの色、base = 地の色）。透明度はそのまま */
+export function calmColor(c: Rgba, base: Rgba): Rgba {
+  const { contrast, saturation } = TILE_CALM;
+  const v = [0, 1, 2].map((i) => base[i] + (c[i] - base[i]) * contrast);
+  const l = 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2];
+  const o = v.map((x) => Math.max(0, Math.min(255, Math.round(l + (x - l) * saturation))));
+  return [o[0], o[1], o[2], c[3]];
+}
+
+function calm(tile: Tile, base: string): Tile {
+  const b = hex(base);
+  return tile.map((c) => calmColor(c, b));
 }
 
 function blobs(tile: Tile, color: string, seed: number, n: number): Tile {
@@ -176,6 +202,42 @@ function paintTorch(special: boolean): Tile {
   return t;
 }
 
+/** はな: くさの上の 小さな花（十字の板） */
+function flowerTile(c: string): Tile {
+  const t = solid(hex('#000000', 0));
+  for (let y = 9; y < 16; y++) {
+    t[y * TILE_SIZE + 7] = hex('#3E8B2F');
+    t[y * TILE_SIZE + 8] = hex('#4CA332');
+  }
+  for (let y = 12; y < 16; y++) {
+    t[y * TILE_SIZE + 5] = hex('#4CA332');
+    t[y * TILE_SIZE + 10] = hex('#4CA332');
+  }
+  fillRect(t, 5, 5, 6, 5, hex(c));
+  fillRect(t, 7, 6, 2, 3, hex('#FFF3B0'));
+  return t;
+}
+
+/** すすき: 金色の穂（十字の板） */
+function susukiTile(): Tile {
+  const t = solid(hex('#000000', 0));
+  for (const x of [3, 6, 9, 12]) {
+    for (let y = 4 + (x % 3); y < 16; y++) t[y * TILE_SIZE + x] = hex(y < 9 ? '#E3C25A' : '#B89A3C');
+    t[(3 + (x % 3)) * TILE_SIZE + x] = hex('#F5E39A');
+    t[(4 + (x % 3)) * TILE_SIZE + x + 1] = hex('#E3C25A');
+  }
+  return t;
+}
+
+/** たけ: 緑の柱。ふしが入る */
+function bambooTile(): Tile {
+  const t = speckle('#5DAA45', ['#52A03C', '#66B24D'], 94, 10);
+  for (let y = 0; y < TILE_SIZE; y++) {
+    if (y % 5 === 4) for (let x = 0; x < TILE_SIZE; x++) t[y * TILE_SIZE + x] = hex('#2E6B2A');
+  }
+  return t;
+}
+
 /** レンガ: 赤茶に、うすい灰色の目地 */
 function brickTile(): Tile {
   const t = solid(hex('#B5523B'));
@@ -197,21 +259,21 @@ function brickTile(): Tile {
 function paintTile(name: TileName): Tile {
   switch (name) {
     case 'grass_top':
-      return speckle('#5DBB3F', ['#4CA332', '#73CC52'], 11);
+      return calm(speckle('#5DBB3F', ['#4CA332', '#73CC52'], 11), '#5DBB3F');
     case 'dirt':
-      return speckle('#8B5A2B', ['#6F4520', '#A06A38'], 22);
+      return calm(speckle('#8B5A2B', ['#6F4520', '#A06A38'], 22), '#8B5A2B');
     case 'grass_side': {
-      const t = speckle('#8B5A2B', ['#6F4520', '#A06A38'], 22);
-      const g = speckle('#5DBB3F', ['#4CA332', '#73CC52'], 11);
+      const t = calm(speckle('#8B5A2B', ['#6F4520', '#A06A38'], 22), '#8B5A2B');
+      const g = calm(speckle('#5DBB3F', ['#4CA332', '#73CC52'], 11), '#5DBB3F');
       for (let y = 0; y < 4; y++) {
         for (let x = 0; x < TILE_SIZE; x++) t[y * TILE_SIZE + x] = g[y * TILE_SIZE + x];
       }
       return t;
     }
     case 'stone':
-      return speckle('#8E8E8E', ['#757575', '#A5A5A5'], 33);
+      return calm(speckle('#8E8E8E', ['#757575', '#A5A5A5'], 33), '#8E8E8E');
     case 'sand':
-      return speckle('#E8D9A0', ['#D6C487'], 44, 30);
+      return calm(speckle('#E8D9A0', ['#D6C487'], 44, 30), '#E8D9A0');
     case 'log_side': {
       const t = solid(hex('#8A5A2E'));
       for (let x = 0; x < TILE_SIZE; x++) {
@@ -219,7 +281,7 @@ function paintTile(name: TileName): Tile {
           for (let y = 0; y < TILE_SIZE; y++) t[y * TILE_SIZE + x] = hex('#6B4421');
         }
       }
-      return t;
+      return calm(t, '#8A5A2E');
     }
     case 'log_top': {
       const t = solid(hex('#8A5A2E'));
@@ -230,18 +292,19 @@ function paintTile(name: TileName): Tile {
           else if (Math.floor(d) % 2 === 0) t[y * TILE_SIZE + x] = hex('#B88A55');
         }
       }
-      return t;
+      return calm(t, '#8A5A2E');
     }
     case 'leaves':
-      return speckle('#3E9B2F', ['#2E7D22'], 55, 60);
+      return calm(speckle('#3E9B2F', ['#2E7D22'], 55, 60), '#3E9B2F');
     case 'coal_ore':
-      return blobs(speckle('#8E8E8E', ['#757575', '#A5A5A5'], 33), '#222222', 66, 5);
+      // 鉱石の つぶ は さがす目じるしなので そのまま（地の石だけ おさえる）
+      return blobs(calm(speckle('#8E8E8E', ['#757575', '#A5A5A5'], 33), '#8E8E8E'), '#222222', 66, 5);
     case 'iron_ore':
-      return blobs(speckle('#8E8E8E', ['#757575', '#A5A5A5'], 33), '#E0A872', 77, 5);
+      return blobs(calm(speckle('#8E8E8E', ['#757575', '#A5A5A5'], 33), '#8E8E8E'), '#E0A872', 77, 5);
     case 'water':
       return solid(hex('#3A7BD5', Math.round(WATER_ALPHA * 255)));
     case 'bedrock':
-      return speckle('#3A3A3A', ['#555555'], 88, 50);
+      return calm(speckle('#3A3A3A', ['#555555'], 88, 50), '#3A3A3A');
     case 'furnace_top':
       return furnaceTop();
     case 'furnace_side':
@@ -258,6 +321,22 @@ function paintTile(name: TileName): Tile {
       return tansuPixels('front').map((c) => hex(c));
     case 'tansu_top':
       return tansuPixels('top').map((c) => hex(c));
+    case 'snow':
+      return speckle('#D2E8F5', ['#C2DBEC', '#DDEFF9'], 91, 14);
+    case 'momiji_leaves':
+      return speckle('#DA7A35', ['#DE9A38', '#CC6A2C'], 92, 20);
+    case 'matsu_leaves':
+      return speckle('#32703E', ['#2A6236', '#397A46'], 93, 20);
+    case 'flower_y':
+      return flowerTile('#F5D63A');
+    case 'flower_o':
+      return flowerTile('#F28A2E');
+    case 'flower_p':
+      return flowerTile('#B79AE0');
+    case 'bamboo':
+      return bambooTile();
+    case 'susuki':
+      return susukiTile();
     default:
       return paintFarmTile(
         name,
@@ -305,6 +384,15 @@ export const BLOCK_TILES: Readonly<Partial<Record<BlockId, readonly [TileName, T
   kakashi_head: ['kakashi_head', 'kakashi_head', 'kakashi_head'],
   saku: ['saku', 'saku', 'saku'],
   sprinkler: ['sprinkler_top', 'sprinkler_bottom', 'sprinkler_side'],
+  // VOX-I-1（12 の国）。はな・すすき は 十字の板
+  snow: ['snow', 'snow', 'snow'],
+  momiji_leaves: ['momiji_leaves', 'momiji_leaves', 'momiji_leaves'],
+  matsu_leaves: ['matsu_leaves', 'matsu_leaves', 'matsu_leaves'],
+  flower_y: ['flower_y', 'flower_y', 'flower_y'],
+  flower_o: ['flower_o', 'flower_o', 'flower_o'],
+  flower_p: ['flower_p', 'flower_p', 'flower_p'],
+  bamboo: ['bamboo', 'bamboo', 'bamboo'],
+  susuki: ['susuki', 'susuki', 'susuki'],
 };
 
 /** タイルの UV の四角 [u0, v0, u1, v1]（v は下から。となりのタイルがにじまないよう少し内側） */

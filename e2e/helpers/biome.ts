@@ -1,0 +1,43 @@
+import type { Page } from '@playwright/test';
+
+/**
+ * 国（バイオーム。#184）の E2E の共通の準備。ページの中では `window.__biomeT` として使う（`openBiome(page)` を 1 回）。
+ *   __biomeT.goTo(kind)   biome.find(kind) の点へ キャラを運び、その列が読みこまれるまで step し、地面の上に立たせる。
+ *                         返すのは { point, loaded, here }（here = biome.here() の kind）。
+ * 場所・高さは ゲームに聞く（決め打ちしない）。待つのは step の数で、時間（ms）では待たない。
+ */
+export async function openBiome(page: Page, query = '?nosave=1'): Promise<void> {
+  await page.goto('/' + query);
+  await page.waitForFunction(() => window.__rikkun?.ready === true);
+  await page.evaluate(() => {
+    const h = (window as any).__rikkun;
+    h.achievements.mute(true);
+    h.pause();
+    h.lock.simulate(true);
+    h.input.releaseAll();
+    h.settings.set('yokaiAutoSpawn', false);
+    h.settings.set('yokaiWander', false);
+    h.yokai.clear();
+    (window as any).__biomeT = {
+      goTo(kind: string) {
+        const p = h.biome.find(kind);
+        const sea = h.world.seaY();
+        // まだ読みこまれていない所なので、まず高い所へ。読みこまれるのを step で待つ（上限つき）
+        h.player.set({ position: { x: p.x + 0.5, y: sea + 100, z: p.z + 0.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: 0 });
+        let n = 0;
+        while (!h.world.isLoaded(p.x, p.z) && n < 600) {
+          h.step(10);
+          h.player.set({ position: { x: p.x + 0.5, y: sea + 100, z: p.z + 0.5 }, velocity: { x: 0, y: 0, z: 0 } });
+          n++;
+        }
+        const loaded = h.world.isLoaded(p.x, p.z);
+        if (loaded) {
+          const gy = h.world.groundHeight(p.x, p.z);
+          h.player.set({ position: { x: p.x + 0.5, y: gy + 1, z: p.z + 0.5 }, velocity: { x: 0, y: 0, z: 0 } });
+          h.step(2);
+        }
+        return { point: p, loaded, here: h.biome.here().kind as string };
+      },
+    };
+  });
+}
