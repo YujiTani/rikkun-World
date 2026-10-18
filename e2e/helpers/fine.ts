@@ -17,10 +17,6 @@ export const FINE_MICRO_R = 32;
  *   fine('?nosave=1') → '?nosave=1&microR=32' / fine('') → '?microR=32'
  */
 export function fine(query = ''): string {
-  return wide(addMicro(query));
-}
-
-function addMicro(query: string): string {
   if (/[?&]microR=/.test(query)) return query;
   const q = query.replace(/^\?/, '');
   return q ? `?${q}&microR=${FINE_MICRO_R}` : `?microR=${FINE_MICRO_R}`;

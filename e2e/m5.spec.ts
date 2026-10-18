@@ -162,7 +162,7 @@ test.describe('M5 広い世界', () => {
 
   test('AC15: かすみ 40〜80・88 より遠いチャンクは描かない（スタートと 100 ブロックはなれた 3 か所）', async ({ page }) => {
     // VOX-D: 世界は 128×128 でなく 輪。メッシュのある列（meshed）の数を ゲームに聞いて 数え、かどは スタートから ±100 の 3 か所に した
-    await open(page, fine('?nosave=1')); // (b) 描く列の上限（メッシュの段）を見る（#180）
+    await open(page, wide(fine('?nosave=1'))); // (b) 描く列の上限（メッシュの段）を見る（#180）。描く輪 6 = 169 列を見る（#203）
     const r = await page.evaluate(async () => {
       const h = (window as any).__rikkun;
       h.pause();
