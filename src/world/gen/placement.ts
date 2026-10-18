@@ -1,5 +1,6 @@
 import { CHUNK_SIZE, SEA_Y } from '../../contracts';
-import { floraCounts, floraOfChunk } from './flora';
+import { floraOfChunk } from './flora';
+import { farmFloraCleared } from './farmPlacement';
 import { plantsOfChunk } from './plants';
 import { levelAt, type SpacingLevel } from './spacing';
 import { terrainFor, type Terrain } from './terrain';
@@ -28,6 +29,7 @@ const PLANT_TYPE = { susuki: 'susuki', bamboo: 'take', kusa: 'kusa', nobana: 'no
 export function plantsInRect(seed: number, x0: number, z0: number, x1: number, z1: number): PlacedPlant[] {
   const T = terrainFor(seed);
   const out: PlacedPlant[] = [];
+  const cleared = farmFloraCleared(seed);
   for (let cz = Math.floor(z0 / CHUNK_SIZE); cz <= Math.floor(z1 / CHUNK_SIZE); cz++) {
     for (let cx = Math.floor(x0 / CHUNK_SIZE); cx <= Math.floor(x1 / CHUNK_SIZE); cx++) {
       const inside = (p: { x: number; z: number }): boolean => p.x >= x0 && p.x <= x1 && p.z >= z0 && p.z <= z1;
@@ -42,7 +44,7 @@ export function plantsInRect(seed: number, x0: number, z0: number, x1: number, z
         out.push({ type: p.id.startsWith('flower_') ? 'flower' : PLANT_TYPE[p.id as keyof typeof PLANT_TYPE], x: p.x, y: ground(p.x, p.z) + 1, z: p.z });
       }
       for (const p of floraOfChunk(T, cx, cz)) {
-        if (!inside(p)) continue;
+        if (!inside(p) || cleared(p.x, p.z)) continue;
         out.push({ type: p.id === 'kusa' ? 'kusa' : 'nobana', x: p.x, y: ground(p.x, p.z) + 1, z: p.z });
       }
     }
@@ -52,7 +54,15 @@ export function plantsInRect(seed: number, x0: number, z0: number, x1: number, z
 
 /** 列 (cx, cz) の くさ・のばな の本数と 三角形 */
 export function floraOfColumn(seed: number, cx: number, cz: number): { kusa: number; nobana: number; tris: number } {
-  return floraCounts(terrainFor(seed), cx, cz);
+  const cleared = farmFloraCleared(seed);
+  let kusa = 0;
+  let nobana = 0;
+  for (const p of floraOfChunk(terrainFor(seed), cx, cz)) {
+    if (cleared(p.x, p.z)) continue;
+    if (p.id === 'kusa') kusa++;
+    else nobana++;
+  }
+  return { kusa, nobana, tris: (kusa + nobana) * 8 };
 }
 
 /**

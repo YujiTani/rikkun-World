@@ -310,6 +310,24 @@ function place(seed: number): FarmPlacement {
 
 /** 新しい世界に 置く（作った直後に 1 回。たんす の 中身は 置かない） */
 export const applyFarmPlacement: ApplyFarmPlacement = (world: VoxelWorld, placement) => {
+  // くさ・のばな(FLORA-75)は ふるい はたけ(8×8)と やせいの やさい の マスの 列には 置かない: 置く前に 消す
+  const clearFlora = (x: number, z: number, y0: number, y1: number): void => {
+    for (let y = y0; y <= y1; y++) {
+      const id = world.getBlock(x, y, z);
+      if (id === 'kusa' || id === 'nobana') world.setBlock(x, y, z, 'air');
+    }
+  };
+  const box = placement.oldFarm?.box;
+  if (box) for (let z = box.z0; z <= box.z1; z++) for (let x = box.x0; x <= box.x1; x++) clearFlora(x, z, box.y0, box.y1);
+  for (const w of placement.wild) clearFlora(w.x, w.z, w.y - 2, w.y + 7);
   for (const b of placement.oldFarm?.blocks ?? []) world.setBlock(b.x, b.y, b.z, b.id);
   for (const w of placement.wild) world.setBlock(w.x, w.y, w.z, WILD_BLOCK[w.kind]);
 };
+
+/** 世界に 置いた あとで 草が 消える マス（ふるい はたけ の 8×8・やせいの やさい の マス）の 判定。hook 用（生成には 使わない） */
+export function farmFloraCleared(seed: number): (x: number, z: number) => boolean {
+  const p = computeFarmPlacement(seed);
+  const box = p.oldFarm?.box ?? null;
+  const wild = new Set(p.wild.map((w) => w.z * 100003 + w.x));
+  return (x, z) => (box !== null && x >= box.x0 && x <= box.x1 && z >= box.z0 && z <= box.z1) || wild.has(z * 100003 + x);
+}

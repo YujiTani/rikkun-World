@@ -1,7 +1,6 @@
 import { CHUNK_SIZE, SEA_Y } from '../../contracts';
 import { newSample } from './biome';
 import { GEN_CONFIG as C } from './config';
-import { computeFarmPlacement } from './farmPlacement';
 import { nearMouth } from './mouths';
 import { plantsRaw, spacePlants, type Plant } from './plants';
 import { hash01, subSeed } from './random';
@@ -19,24 +18,10 @@ const TRIS_PER = 8;
 
 const rawStore = new WeakMap<Terrain, Map<number, Plant[]>>();
 const MAX_RAW = 4000;
-const farmStore = new WeakMap<Terrain, { box: { x0: number; z0: number; x1: number; z1: number } | null; wild: Set<number> }>();
 const tmp = newSample();
 /** どの国でも (くさ ＋ のばな) の こさは これ以下 */
 const MAX_RATE = Math.max(...Object.values(F.rate).map((v) => v[0] + v[1]));
-/** ふるい はたけ・やせいの やさい が スタートから 離れる いちばん遠い チェビシェフきょり（farmPlacement.ts: やせい 8〜56、はたけ 47 まで） */
-const FARM_REACH = 56;
 const k2 = (x: number, z: number): number => x * 100003 + z;
-
-/** ふるい はたけ の あと（かかしの 8×8）と やせいの やさい の マス。スタートの まわりの四角の外では 調べない */
-function farmSpots(T: Terrain): { box: { x0: number; z0: number; x1: number; z1: number } | null; wild: Set<number> } {
-  let s = farmStore.get(T);
-  if (!s) {
-    const p = computeFarmPlacement(T.seed);
-    s = { box: p.oldFarm ? { x0: p.oldFarm.box.x0, z0: p.oldFarm.box.z0, x1: p.oldFarm.box.x1, z1: p.oldFarm.box.z1 } : null, wild: new Set(p.wild.map((w) => k2(w.x, w.z))) };
-    farmStore.set(T, s);
-  }
-  return s;
-}
 
 /** 列 (cx, cz) の くさ・のばな の こうほ（上限をかけた後・間隔のきまりの 前） */
 export function floraRaw(T: Terrain, cx: number, cz: number): Plant[] {
@@ -61,7 +46,6 @@ function floraRawUncached(T: Terrain, cx: number, cz: number): Plant[] {
   const ks: { p: Plant; r: number }[] = [];
   const ns: { p: Plant; r: number }[] = [];
   let taken: Set<number> | null = null;
-  let farm: ReturnType<typeof farmSpots> | null = null;
   for (let lz = 0; lz < CHUNK_SIZE; lz++) {
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
       const x = x0 + lx;
@@ -84,12 +68,6 @@ function floraRawUncached(T: Terrain, cx: number, cz: number): Plant[] {
       if (h < SEA_Y + C.strata.landFrom || T.topBlock(x, z, h) !== 'grass' || T.map.pondAt(x, z) !== null) continue;
       if (taken === null) taken = occupied(T, cx, cz);
       if (taken.has(k2(x, z))) continue;
-      // ふるい はたけ は スタートから 47 まで、やせいの やさい は 56 まで。それより 遠い所は 調べない（ふるい はたけ の 計算は 重い）
-      if (Math.max(Math.abs(x - sp.x), Math.abs(z - sp.z)) <= FARM_REACH) {
-        farm ??= farmSpots(T);
-        if (farm.box && x >= farm.box.x0 && x <= farm.box.x1 && z >= farm.box.z0 && z <= farm.box.z1) continue;
-        if (farm.wild.has(k2(x, z))) continue;
-      }
       (isN ? ns : ks).push({ p: { x, z, id: isN ? 'nobana' : 'kusa', height: 1 }, r });
     }
   }
