@@ -136,6 +136,62 @@ export function createWorldInfo(seed: number, world: ChunkedVoxelWorld): WorldGe
 
 // ------------------------------------------------------------------ 仮の regions
 
+const flatCache = new Map<number, RegionRect>();
+
+/** 平ら: 24×20 で 高さの差がいちばん小さい所（スタートの 5×5・岩山・テスト場所と重ならない・陸）。ふるい はたけ の 場所決めも 使う（regions 全部を 作らずに 済むように 切りはなした） */
+export function flatOf(seed: number): RegionRect {
+  const hit = flatCache.get(seed);
+  if (hit !== undefined) return { ...hit };
+  const T = terrainFor(seed);
+  const sp = T.spawn();
+  const rock = startFeaturesOf(seed).rock;
+  const b = regionRect(seed);
+  const dSp = (x: number, z: number): number => Math.hypot(x - sp.x, z - sp.z);
+  const W = b.x1 - b.x0;
+  const D = b.z1 - b.z0;
+  const H = new Int16Array(W * D);
+  for (let z = b.z0; z < b.z1; z++) for (let x = b.x0; x < b.x1; x++) H[(z - b.z0) * W + (x - b.x0)] = T.height(x, z);
+  const h = (x: number, z: number): number => H[(z - b.z0) * W + (x - b.x0)]!;
+  const FW = 24;
+  const FD = 20;
+  const start5: RegionRect = { x0: sp.x - 2, x1: sp.x + 2, z0: sp.z - 2, z1: sp.z + 2 };
+  const rockBox: RegionRect = { x0: Math.floor(rock.cx - rock.r) - 1, x1: Math.ceil(rock.cx + rock.r) + 1, z0: Math.floor(rock.cz - rock.r) - 1, z1: Math.ceil(rock.cz + rock.r) + 1 };
+  const ta: RegionRect = { x0: C.testArea.x0, x1: C.testArea.x1, z0: C.testArea.z0, z1: C.testArea.z1 };
+  const findFlat = (minLand: number): RegionRect | null => {
+    let best: RegionRect | null = null;
+    let bestDiff = 1e9;
+    let bestDist = 1e9;
+    for (let z0 = b.z0 + 1; z0 + FD <= b.z1 - 1; z0++) {
+      for (let x0 = b.x0 + 1; x0 + FW <= b.x1 - 1; x0++) {
+        const r: RegionRect = { x0, x1: x0 + FW - 1, z0, z1: z0 + FD - 1 };
+        if (rectOverlap(r, start5) || rectOverlap(r, rockBox) || rectOverlap(r, ta)) continue;
+        let lo = 1e9;
+        let hi = -1e9;
+        for (let z = r.z0; z <= r.z1 && hi - lo < bestDiff + 1; z++) {
+          for (let x = r.x0; x <= r.x1; x++) {
+            const v = h(x, z);
+            if (v < lo) lo = v;
+            if (v > hi) hi = v;
+          }
+        }
+        if (lo < minLand) continue;
+        const diff = hi - lo;
+        const dist = dSp((r.x0 + r.x1) / 2, (r.z0 + r.z1) / 2);
+        if (diff < bestDiff || (diff === bestDiff && dist < bestDist)) {
+          best = r;
+          bestDiff = diff;
+          bestDist = dist;
+        }
+      }
+    }
+    return best;
+  };
+  const flat = findFlat(SEA_Y + 2) ?? findFlat(SEA_Y - 40) ?? { x0: b.x0 + 8, x1: b.x0 + 8 + FW - 1, z0: b.z0 + 8, z1: b.z0 + 8 + FD - 1 };
+  if (flatCache.size >= 8) flatCache.delete(flatCache.keys().next().value as number);
+  flatCache.set(seed, flat);
+  return { ...flat };
+}
+
 function makeRegions(seed: number, b: Bounds, features: StartFeatures): WorldRegions {
   const T = terrainFor(seed);
   const sp = T.spawn();
@@ -177,42 +233,7 @@ function makeRegions(seed: number, b: Bounds, features: StartFeatures): WorldReg
     }
   }
 
-  // 平ら: 24×20 で 高さの差がいちばん小さい所（スタートの 5×5・岩山・テスト場所と重ならない・陸）
-  const FW = 24;
-  const FD = 20;
-  const start5: RegionRect = { x0: sp.x - 2, x1: sp.x + 2, z0: sp.z - 2, z1: sp.z + 2 };
-  const rockBox: RegionRect = { x0: Math.floor(rock.cx - rock.r) - 1, x1: Math.ceil(rock.cx + rock.r) + 1, z0: Math.floor(rock.cz - rock.r) - 1, z1: Math.ceil(rock.cz + rock.r) + 1 };
-  const ta: RegionRect = { x0: C.testArea.x0, x1: C.testArea.x1, z0: C.testArea.z0, z1: C.testArea.z1 };
-  const findFlat = (minLand: number): RegionRect | null => {
-    let best: RegionRect | null = null;
-    let bestDiff = 1e9;
-    let bestDist = 1e9;
-    for (let z0 = b.z0 + 1; z0 + FD <= b.z1 - 1; z0++) {
-      for (let x0 = b.x0 + 1; x0 + FW <= b.x1 - 1; x0++) {
-        const r: RegionRect = { x0, x1: x0 + FW - 1, z0, z1: z0 + FD - 1 };
-        if (rectOverlap(r, start5) || rectOverlap(r, rockBox) || rectOverlap(r, ta)) continue;
-        let lo = 1e9;
-        let hi = -1e9;
-        for (let z = r.z0; z <= r.z1 && hi - lo < bestDiff + 1; z++) {
-          for (let x = r.x0; x <= r.x1; x++) {
-            const v = h(x, z);
-            if (v < lo) lo = v;
-            if (v > hi) hi = v;
-          }
-        }
-        if (lo < minLand) continue;
-        const diff = hi - lo;
-        const dist = dSp((r.x0 + r.x1) / 2, (r.z0 + r.z1) / 2);
-        if (diff < bestDiff || (diff === bestDiff && dist < bestDist)) {
-          best = r;
-          bestDiff = diff;
-          bestDist = dist;
-        }
-      }
-    }
-    return best;
-  };
-  const flat = findFlat(SEA_Y + 2) ?? findFlat(SEA_Y - 40) ?? { x0: b.x0 + 8, x1: b.x0 + 8 + FW - 1, z0: b.z0 + 8, z1: b.z0 + 8 + FD - 1 };
+  const flat = flatOf(seed);
 
   return {
     center: { x: sp.x, z: sp.z },

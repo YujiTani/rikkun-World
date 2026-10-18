@@ -5,7 +5,6 @@ import { computeFarmPlacement } from './farmPlacement';
 import { nearMouth } from './mouths';
 import { plantsRaw, spacePlants, type Plant } from './plants';
 import { hash01, subSeed } from './random';
-import { regionRect } from './region';
 import { epochCache } from './spacing';
 import type { Terrain } from './terrain';
 import { treesRaw } from './trees';
@@ -24,6 +23,8 @@ const farmStore = new WeakMap<Terrain, { box: { x0: number; z0: number; x1: numb
 const tmp = newSample();
 /** どの国でも (くさ ＋ のばな) の こさは これ以下 */
 const MAX_RATE = Math.max(...Object.values(F.rate).map((v) => v[0] + v[1]));
+/** ふるい はたけ・やせいの やさい が スタートから 離れる いちばん遠い チェビシェフきょり（farmPlacement.ts: やせい 8〜56、はたけ 47 まで） */
+const FARM_REACH = 56;
 const k2 = (x: number, z: number): number => x * 100003 + z;
 
 /** ふるい はたけ の あと（かかしの 8×8）と やせいの やさい の マス。スタートの まわりの四角の外では 調べない */
@@ -61,8 +62,6 @@ function floraRawUncached(T: Terrain, cx: number, cz: number): Plant[] {
   const ns: { p: Plant; r: number }[] = [];
   let taken: Set<number> | null = null;
   let farm: ReturnType<typeof farmSpots> | null = null;
-  const R = regionRect(T.seed);
-  const nearStartRegion = x0 + CHUNK_SIZE > R.x0 - 16 && x0 < R.x1 + 16 && z0 + CHUNK_SIZE > R.z0 - 16 && z0 < R.z1 + 16;
   for (let lz = 0; lz < CHUNK_SIZE; lz++) {
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
       const x = x0 + lx;
@@ -85,7 +84,8 @@ function floraRawUncached(T: Terrain, cx: number, cz: number): Plant[] {
       if (h < SEA_Y + C.strata.landFrom || T.topBlock(x, z, h) !== 'grass' || T.map.pondAt(x, z) !== null) continue;
       if (taken === null) taken = occupied(T, cx, cz);
       if (taken.has(k2(x, z))) continue;
-      if (nearStartRegion) {
+      // ふるい はたけ は スタートから 47 まで、やせいの やさい は 56 まで。それより 遠い所は 調べない（ふるい はたけ の 計算は 重い）
+      if (Math.max(Math.abs(x - sp.x), Math.abs(z - sp.z)) <= FARM_REACH) {
         farm ??= farmSpots(T);
         if (farm.box && x >= farm.box.x0 && x <= farm.box.x1 && z >= farm.box.z0 && z <= farm.box.z1) continue;
         if (farm.wild.has(k2(x, z))) continue;

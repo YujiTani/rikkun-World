@@ -13,7 +13,7 @@ import { inMouthFootprint, mouthOfChunk, type Mouth } from './mouths';
 import { createRng, randInt, shuffle } from './random';
 import { startFeaturesOf } from './features';
 import { regionRect } from './region';
-import { regionsOf } from './worldInfo';
+import { flatOf } from './worldInfo';
 import { surfaceFor } from './surface';
 import { spawnOf, terrainFor } from './terrain';
 
@@ -80,7 +80,7 @@ export const computeFarmPlacement: FarmPlacementFn = (seed) => {
 };
 
 function place(seed: number): FarmPlacement {
-  const R = regionsOf(seed);
+  const flat = flatOf(seed); // 平らな所（regions 全部は 作らない）
   const T = terrainFor(seed);
   const sp = spawnOf(seed);
   const S = surfaceFor(seed, { flora: false }); // くさ・のばな は この場所を よける（flora.ts）ので 数えない
@@ -172,7 +172,7 @@ function place(seed: number): FarmPlacement {
   function tryOldFarm(x0: number, z0: number, maxDeg: number, tier: number): FarmPlacement['oldFarm'] {
     const frame = { x0: x0 - 1, x1: x0 + 6, z0: z0 - 1, z1: z0 + 6 };
     if (frame.x0 < b.x0 + 8 || frame.z0 < b.z0 + 8 || frame.x1 > b.x1 - 9 || frame.z1 > b.z1 - 9) return null;
-    if (overlaps(frame, start5) || overlaps(frame, testArea) || overlaps(frame, R.flat)) return null;
+    if (overlaps(frame, start5) || overlaps(frame, testArea) || overlaps(frame, flat)) return null;
     // 8×8: 木・みず・岩・洞くつの口 なし、一番上は くさ、高さは h0 か h0+1
     let lo = 999;
     let hi = -999;
@@ -271,20 +271,30 @@ function place(seed: number): FarmPlacement {
   /** たまねぎ・トマトは はらっぱ、かぼちゃ・なすは もり を さきに さがす */
   const prefer: Record<CropKind, 'harappa' | 'mori'> = { onion: 'harappa', tomato: 'harappa', pumpkin: 'mori', eggplant: 'mori' };
 
+  // 国は 4 種の やさい で 何度も 聞くので 1 度だけ しらべる
+  const kindCache = new Map<number, string>();
+  const kindAt = (x: number, z: number): string => {
+    const k = z * 100003 + x;
+    let v = kindCache.get(k);
+    if (v === undefined) kindCache.set(k, (v = T.biome(x, z).kind));
+    return v;
+  };
   const taken: Array<{ x: number; z: number }> = [];
   const farEnough = (x: number, z: number) => taken.every((t) => Math.max(Math.abs(t.x - x), Math.abs(t.z - z)) >= 3);
   CROP_KINDS.forEach((kind, ki) => {
     const rng = createRng((seed ^ (0x9e3779b9 + ki * 0x632be5ab)) >>> 0);
     const want = randInt(rng, 4, 6);
-    const order: Array<{ x: number; z: number }> = [];
-    for (let z = b.z0 + 8; z < b.z1 - 8; z++) for (let x = b.x0 + 8; x < b.x1 - 8; x++) order.push({ x, z });
+    // マスは 数字ひとつ (z * W + x) で もつ（かたまりの 数が 多いので オブジェクトに しない）
+    const order: number[] = [];
+    for (let z = b.z0 + 8; z < b.z1 - 8; z++) for (let x = b.x0 + 8; x < b.x1 - 8; x++) order.push((z - b.z0) * W + (x - b.x0));
     shuffle(rng, order);
     let got = 0;
     for (let level = 0; level < 2; level++) {
       if (level === 1 && got >= 4) break;
-      for (const c of order) {
+      for (const code of order) {
         if (got >= want) break;
-        if (level === 0 && T.biome(c.x, c.z).kind !== prefer[kind]) continue;
+        const c = { x: b.x0 + (code % W), z: b.z0 + Math.floor(code / W) };
+        if (level === 0 && kindAt(c.x, c.z) !== prefer[kind]) continue;
         if (!farEnough(c.x, c.z)) continue;
         const hh = eligible(c.x, c.z);
         if (hh === null) continue;
