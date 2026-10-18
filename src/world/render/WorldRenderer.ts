@@ -1055,7 +1055,9 @@ export class WorldRenderer {
     if (col === undefined || col.tier === null || !col.meshable) return 'none';
     if (col.tier === 'lod') {
       if (col.dist > CHUNK_DRAW_DISTANCE) return 'true'; // 描くものが無い
-      return col.lodStale ? 'none' : 'true';
+      // 作り直し待ち（まわりのマスが変わった）でも、前の LOD を見せている間は 'drawn'（一瞬 絵なしと数えない。#214）
+      if (col.lodStale) return col.lodOpaque || col.lodWater ? 'drawn' : 'none';
+      return 'true';
     }
     let all = true;
     for (const st of col.secs) {
