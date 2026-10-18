@@ -1097,6 +1097,8 @@ test.describe('M7-2 案内画面の 文が 切れない（AC25）', () => {
 
 test.describe('M7-2 性能', () => {
   test('AC24 描画回数: 作物 480 ぜんぶ stage 3 + スプリンクラー 20（キラキラ・しぶき の あり/なし）', async ({ page }) => {
+    // 準備（41×41 を空気にして光とメッシュを済ませる・作物 480）は 細かいメッシュと ふだんの輪で 手元 約 20 秒。CI（GPU なし）は 2〜3 倍かかるので 120 秒（#203）
+    test.setTimeout(120_000);
     await open(page, wide(fine('?nosave=1'))); // (b) 描画回数・三角形の上限を見る（#180）。輪も ふだんの大きさ（#203）
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
