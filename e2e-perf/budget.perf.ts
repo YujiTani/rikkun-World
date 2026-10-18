@@ -542,7 +542,7 @@ if (PART === 'all' || PART === 'cost') {
       const P = (window as any).__prof;
       const sp = w.spawn();
       const out: any = {};
-      const st0 = await w.settle({ full: true, maxFrames: 6000 });
+      await w.settle({ full: true, maxFrames: 6000 });
       B.quiet();
       h.player.set({ position: { x: sp.x, y: sp.y, z: sp.z }, velocity: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: -5 });
       h.step(5);
@@ -653,7 +653,6 @@ if (PART === 'all' || PART === 'cost') {
       out.torch = {};
       const torchBatch = (name: string, from: number, count: number) => {
         const m = B.mark();
-        const meshBefore = P.mesh.length;
         const t0 = performance.now();
         let placed = 0;
         for (let i = from; placed < count && i < from + 600; i++) {
