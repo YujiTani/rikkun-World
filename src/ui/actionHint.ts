@@ -1,4 +1,5 @@
 import type { ActionHintItem, ActionHintLines } from './actionHintModel';
+import { animalIconUrl } from './animalArt';
 import { heartPixels } from './heartsModel';
 import { drawPixels, itemIconUrl } from './itemIcon';
 import './actionHint.css';
@@ -34,24 +35,49 @@ export class ActionHint {
   }
 
   update(lines: ActionHintLines): void {
-    if (same(lines.left, this.shown.left) && same(lines.right, this.shown.right)) return;
-    this.shown = { left: lines.left && { ...lines.left }, right: lines.right && { ...lines.right } };
+    if (lines.progress !== this.shown.progress) this.setRing(lines.progress);
+    if (same(lines.left, this.shown.left) && same(lines.right, this.shown.right)) {
+      this.shown.progress = lines.progress;
+      return;
+    }
+    this.shown = { left: lines.left && { ...lines.left }, right: lines.right && { ...lines.right }, progress: lines.progress };
     this.set(this.cells.left, lines.left);
     this.set(this.cells.right, lines.right);
     this.el.hidden = !lines.left && !lines.right;
   }
 
-  /** いま出している 絵と 語 */
+  /** 版 3.2: だっこ の わ の たまり（0〜1）。右 の 絵 の まわり に 1 しゅう する（CSS の `--p`）。無ければ わ を 消す */
+  private setRing(p: number | undefined): void {
+    const cell = this.cells.right;
+    if (p === undefined) {
+      cell.removeAttribute('data-ring');
+      cell.style.removeProperty('--p');
+    } else {
+      cell.dataset.ring = '1';
+      cell.style.setProperty('--p', p.toFixed(3));
+    }
+  }
+
+  /** いま出している 絵と 語（`progress` = だっこ の わ の たまり。わ が なければ 無い） */
   current(): ActionHintLines {
-    return { left: this.shown.left && { ...this.shown.left }, right: this.shown.right && { ...this.shown.right } };
+    const out: ActionHintLines = { left: this.shown.left && { ...this.shown.left }, right: this.shown.right && { ...this.shown.right } };
+    if (this.shown.progress !== undefined) out.progress = this.shown.progress;
+    return out;
   }
 
   private set(cell: HTMLDivElement, it: ActionHintItem | undefined): void {
     cell.hidden = !it;
     if (!it) return;
-    (cell.querySelector('.action-hint__art') as HTMLImageElement).src = it.icon === 'heart' ? heartUrl() : itemIconUrl(it.icon);
+    (cell.querySelector('.action-hint__art') as HTMLImageElement).src = iconUrl(it.icon);
     cell.querySelector('.action-hint__word')!.textContent = it.word;
   }
+}
+
+/** 'full'・'carry' の 専用 の 絵 が できるまで は にわとり の 絵（ひとめ で 分かる ように 語 を そえる） */
+function iconUrl(icon: ActionHintItem['icon']): string {
+  if (icon === 'heart') return heartUrl();
+  if (icon === 'chicken' || icon === 'carry' || icon === 'full') return animalIconUrl('chicken');
+  return itemIconUrl(icon);
 }
 
 let heartCache: string | undefined;

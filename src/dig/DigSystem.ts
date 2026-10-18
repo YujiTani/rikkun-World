@@ -6,6 +6,7 @@ import type {
   DigEvent,
   DigState,
   AnimalApi,
+  AnimalHintKind,
   DigSystem,
   Inventory,
   LockStatus,
@@ -94,6 +95,8 @@ export interface DigM4Deps {
   bucket?: BucketPort;
   /** LIVE-1: にわとり（A の `AnimalApi`。ふりわけ 0 は 口 を 呼ぶ だけ。なければ M7-2 のとおり） */
   animals?: AnimalApi;
+  /** LIVE-1 版 3.2: あみ を ふる 長さ・だっこ まで の 押しつづけ（設定 を すぐ 読む）。なければ 初期値 */
+  live?: () => { netSwingTicks: number; carryHoldTicks: number };
   /** LIVE-1: たまご の 回復（設定 animalEggHeal を すぐ 読む）。なければ 初期値 */
   eggHeal?: () => number;
   /** M7-2: なでる・ごきげん（`PetPort`。C の `farm/pet.ts`） */
@@ -179,6 +182,17 @@ export class DigSystemImpl implements DigSystem {
   private yokaiBlocks = false;
   /** secondary を押しつづけている歩数（押していなければ 0） */
   private secondaryTicks = 0;
+  /**
+   * LIVE-1 版 3.2 §2.3: 押した ステップ で きまる 右クリック の 動き。
+   * 'latch' = 00・0b・8b・やせい以外（押しつづけ で くりかえさない）、'hold' = なかま（はなす か 40 まで 待つ。§2.8）、
+   * 'wild' = やせい（押した ステップ に した。40 押しつづけ で 合図 carryWild だけ）
+   */
+  private rightMode: 'none' | 'latch' | 'hold' | 'wild' = 'none';
+  private holdId = -1;
+  private holdLifted = false;
+  private holdCancelled = false;
+  /** あみ を ふって いる 残り ステップ（この 間 は 押しても 何も しない。§2.3 の 0b） */
+  private netLock = 0;
 
   /** 空振りの合計回数 */
   private whiffs = 0;
@@ -379,8 +393,11 @@ export class DigSystemImpl implements DigSystem {
     this.tgt = this.aimBlock(p, o, d);
     this.animalHit = this.aimAnimal(o, d);
 
+    if (this.netLock > 0) this.netLock--;
+    // LIVE-1 版 3.2 §2.8: だっこ 中 は 手が ふさがる。左クリック（ほる・こうげき・弓）は 何も しない
+    const carrying = enabled && this.isCarrying();
     // 同じステップのうちに押してはなす短いタップも拾う（wasPressed）
-    const primaryAny = enabled && (this.actions.isHeld('primary') || this.actions.wasPressed('primary'));
+    const primaryAny = enabled && !carrying && (this.actions.isHeld('primary') || this.actions.wasPressed('primary'));
     // WEAPON-5: 刀＋Shift は パリィ（押した）か 何も出さない（押しつづけ）。ほる・わざは しない
     const parryM = this.m4.parry;
     const route = this.m4.blade && parryM ? routeAttackInput({ item: this.inventory.held()?.item, run: this.actions.isHeld('run'), pressed: this.actions.wasPressed('primary'), held: primaryAny }) : 'normal';
@@ -714,6 +731,7 @@ export class DigSystemImpl implements DigSystem {
 
   private updatePlace(secondary: boolean): void {
     if (!secondary) {
+      this.releaseRight();
       this.secondaryTicks = 0;
       return;
     }
@@ -722,8 +740,19 @@ export class DigSystemImpl implements DigSystem {
     const first = this.secondaryTicks === 0;
     const due = this.secondaryTicks % every === 0;
     const pourDue = this.secondaryTicks % Math.max(1, this.m4.farm?.settings().farmPourRepeatTicks ?? every) === 0;
-    if (first) this.pressStartedEmpty = this.inventory.held() === null;
+    if (first) {
+      this.pressStartedEmpty = this.inventory.held() === null;
+      this.rightMode = 'none';
+      this.holdId = -1;
+      this.holdLifted = false;
+      this.holdCancelled = false;
+    }
     this.secondaryTicks++;
+    // 00・0・0b・8b（LIVE-1 版 3.2 §2.3）。押した ステップ で きまり、押しつづけ の くりかえし では しない
+    if (first) this.rightFirst();
+    if (this.rightMode === 'latch') return;
+    if (this.rightMode === 'hold') return this.holdStep();
+    if (this.rightMode === 'wild') return this.wildStep();
     // たんす > かまど > 防具 > 置く（たんす・かまど・防具は押した瞬間だけ）。ヒントと同じ previewRightClick で決める
     const pv = this.previewRightClick(!first);
     if (!pv) {
@@ -760,11 +789,125 @@ export class DigSystemImpl implements DigSystem {
     else if (pv.kind === 'armor' && pv.item) this.m4.armor?.tryEquip(pv.item);
     else if (pv.kind === 'seedHint' && t) this.m4.farm?.noteHint('till', center(t.block));
     else if (pv.kind === 'eat' && pv.item) this.doEat(pv.item);
-    else if (pv.kind === 'feed') this.doFeed();
-    else if (pv.kind === 'animalPet') this.doAnimalPet();
   }
 
-  /** 0 あげる: A の 口 に 聞く。'ate' の とき だけ やさい を 1 へらす（C の しごと） */
+  private isCarrying(): boolean {
+    const a = this.m4.animals;
+    return !!a && a.carrying() != null;
+  }
+
+  private liveTicks(): { netSwingTicks: number; carryHoldTicks: number } {
+    return this.m4.live?.() ?? LIVE_SETTING_DEFAULTS;
+  }
+
+  private hint(h: AnimalHintKind): void {
+    this.m4.animals?.emitHint?.(h);
+  }
+
+  /** 押した ステップ の 00（おろす）・0（にわとり）・0b（あみ）・8b（あみ の 合図）。ここで 決めたら rightMode が 'none' 以外 */
+  private rightFirst(): void {
+    const a = this.m4.animals;
+    if (!a) return;
+    const pv = this.previewRightClick(false);
+    if (pv?.kind === 'putDown') {
+      this.rightMode = 'latch';
+      this.doPutDown();
+      return;
+    }
+    const h = this.animalHit;
+    if (h) {
+      this.holdId = h.id;
+      if (a.isFriend?.(h.id)) {
+        // なかま: はなす まで あげる／なでる を 待つ。40 押しつづけ で だっこ（§2.8）
+        this.rightMode = 'hold';
+      } else {
+        this.rightMode = 'wild';
+        a.carryHold?.(h.id, 0); // A の「合図 を 出した」印 を 新しい 押し ごと に もどす（2 回目 の 長おし でも carryWild）
+        if (pv) this.doAnimalKind(pv.kind);
+      }
+      return;
+    }
+    if (pv?.kind === 'net') {
+      this.rightMode = 'latch';
+      this.doNet();
+    } else if (pv?.kind === 'netHint') {
+      this.rightMode = 'latch';
+      this.hint('netHint');
+    }
+  }
+
+  /** なかま を 押している あいだ（押した ステップ から）。ねらい が はずれたら 何も しない */
+  private holdStep(): void {
+    if (this.holdLifted || this.holdCancelled) return;
+    const h = this.animalHit;
+    if (!h || h.id !== this.holdId) {
+      this.holdCancelled = true;
+      return;
+    }
+    if (this.m4.animals!.carryHold(h.id, this.secondaryTicks) === 'lifted') this.holdLifted = true;
+  }
+
+  /** やせい を 押している あいだ。40 ステップ ちょうど で 合図 carryWild（1 回 の 押し で 1 回） */
+  private wildStep(): void {
+    const hold = this.liveTicks().carryHoldTicks;
+    if (this.secondaryTicks !== hold) return;
+    const h = this.animalHit;
+    if (!h || h.id !== this.holdId) return;
+    if (this.m4.animals!.carryHold(h.id, this.secondaryTicks) === 'wild') this.hint('carryWild');
+  }
+
+  /** ボタン を はなした ステップ。なかま を 40 より 前 に はなした なら あげる／なでる（§2.3・§2.8） */
+  private releaseRight(): void {
+    const mode = this.rightMode;
+    this.rightMode = 'none';
+    if (mode !== 'hold' || this.holdLifted || this.holdCancelled) return;
+    if (!this.lock.playInputEnabled() || this.gate?.blocksInput()) return;
+    if (this.secondaryTicks >= this.liveTicks().carryHoldTicks) return;
+    const h = this.animalHit;
+    if (!h || h.id !== this.holdId) return;
+    const pv = this.previewRightClick(false);
+    if (pv) this.doAnimalKind(pv.kind);
+  }
+
+  /** 照準 の 下 の わ の たまり 0〜1（なかま を 押しつづけ て いる あいだ だけ。だっこ した ら 0） */
+  carryProgress(): number {
+    if (this.rightMode !== 'hold' || this.holdLifted || this.holdCancelled) return 0;
+    return Math.min(1, this.secondaryTicks / Math.max(1, this.liveTicks().carryHoldTicks));
+  }
+
+  private doAnimalKind(kind: string): void {
+    if (kind === 'feed' || kind === 'animalFull') this.doFeed();
+    else if (kind === 'animalPet') this.doAnimalPet();
+  }
+
+  /** 0b あみ を ふる。ふって いる 20 ステップ の 間 は 何も しない */
+  private doNet(): void {
+    const a = this.m4.animals;
+    const t = this.tgt;
+    if (!a || !t || this.netLock > 0) return;
+    this.netLock = this.liveTicks().netSwingTicks;
+    const r = a.swingNet({ x: t.block.x, y: t.block.y, z: t.block.z });
+    if (r.reason === 'empty') this.hint('treeEmpty');
+    this.m4.tools?.pushSwing('dig');
+  }
+
+  /** 00 おろす。ブロック を ねらって いれば その 置く マス、なければ 前 1.5 マス・足 の 高さ */
+  private doPutDown(): void {
+    const a = this.m4.animals;
+    if (!a) return;
+    const t = this.tgt;
+    let spot: Vec3;
+    if (t) spot = { x: t.place.x + 0.5, y: t.place.y, z: t.place.z + 0.5 };
+    else {
+      const p = this.player();
+      const d = lookDirection(p.yawDeg, 0, this.pvDir);
+      spot = { x: Math.floor(p.position.x + d.x * 1.5) + 0.5, y: Math.floor(p.position.y + 0.01), z: Math.floor(p.position.z + d.z * 1.5) + 0.5 };
+    }
+    if (a.putDown(spot)) this.m4.tools?.pushSwing('place');
+    else this.hint('cantPutHere');
+  }
+
+  /** 0 あげる: A の 口 に 聞く。'ate' の とき だけ むし を 1 へらす（C の しごと） */
   private doFeed(): void {
     const a = this.m4.animals;
     const h = this.animalHit;
@@ -772,14 +915,18 @@ export class DigSystemImpl implements DigSystem {
     if (!a || !h || !held) return;
     const r = a.feed(h.id, held.item);
     if (r === 'ate') this.inventory.consumeHeld();
+    else if (r === 'full') this.hint('fullHint');
+    else if (r === 'friendFull') this.hint('friendFull');
     if (r) this.m4.tools?.pushSwing('place');
   }
 
-  /** 0 なでる */
+  /** 0 なでる。やせい を なでた とき は 合図 feedHint（むし を あげよう） */
   private doAnimalPet(): void {
     const h = this.animalHit;
     if (!this.m4.animals || !h) return;
-    if (this.m4.animals.pet(h.id)) this.m4.tools?.pushSwing('place');
+    const r = this.m4.animals.pet(h.id);
+    if (r === 'wild') this.hint('feedHint');
+    if (r) this.m4.tools?.pushSwing('place');
   }
 
   private doTill(t: TargetInfo): void {
@@ -895,6 +1042,7 @@ export class DigSystemImpl implements DigSystem {
     return previewRightClick({
       target: this.tgt,
       animal: () => this.animalPreview(repeat),
+      carrying: () => this.isCarrying(),
       held: this.inventory.held()?.item ?? null,
       isTansu: (x, y, z) => st?.isTansu(x, y, z) ?? false,
       isFurnace: (x, y, z) => craft?.isFurnace(x, y, z) ?? false,
@@ -911,7 +1059,7 @@ export class DigSystemImpl implements DigSystem {
   }
 
   /** 0: にわとり。押しつづけ の ステップ・A が 'null'（動き の とちゅう）は 'idle' */
-  private animalPreview(repeat: boolean): 'feed' | 'animalPet' | 'idle' | null {
+  private animalPreview(repeat: boolean): 'feed' | 'animalFull' | 'animalPet' | 'idle' | null {
     const a = this.m4.animals;
     const h = this.animalHit;
     if (!a || !h) return null;

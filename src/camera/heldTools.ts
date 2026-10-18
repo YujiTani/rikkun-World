@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { ItemId } from '../contracts';
 import { AXE_HELD_PARTS } from './heldAxes';
+import { BUG_HELD_PARTS, NET_HELD_PARTS } from './heldLive';
 
 /**
  * 手に持つ道具・武器・M4 のアイテムの見た目（箱を組みあわせた小さな模型）。
@@ -54,6 +55,9 @@ export const HELD_MODELS: Partial<Record<ItemId, Part[]>> = {
   stone_pickaxe: pickaxe(0x9a9a9a),
   iron_pickaxe: pickaxe(0xd8dde3),
   ...AXE_HELD_PARTS,
+  // LIVE-1 版 3.2
+  mushi_ami: NET_HELD_PARTS,
+  mushi: BUG_HELD_PARTS,
   bokuto: [
     { size: [0.06, 0.06, 0.2], pos: [0, 0, 0], color: WOOD },
     { size: [0.14, 0.04, 0.04], pos: [0, 0, -0.12], color: WOOD },

@@ -191,6 +191,8 @@ function build(): AchievementDef[] {
     add({ series: `craft.${id}`, category: 'craft', stat: `craft:${id}`, tiers: [t(1, true)], name: () => `はじめて ${name} を つくった！` });
   }
   add({ series: 'craft.bucket', category: 'craft', stat: 'craft:bucket', tiers: [t(1, true)], name: () => `はじめて ${BUCKET_CRAFT_NAME} を つくった！` });
+  // LIVE-1 版 3.2（§4.5）: むしとりあみ。小 ＋1。craft.everything（28）には 入れない（BUCKET-1 と 同じ）
+  add({ series: 'craft.mushi_ami', category: 'craft', stat: 'craft:mushi_ami', tiers: [t(1, true)], name: () => 'はじめて むしとりあみ を つくった！' });
   add({ series: 'craft.all', category: 'craft', stat: 'craft:*', tiers: [t(10), t(50), t(100), t(500)], name: (g) => `${g} かい つくった！` });
   add({ series: 'craft.pickaxes', category: 'craft', stat: 'craft:pickaxes', tiers: [t(PICKAXE_RECIPES.length)], name: () => 'つるはし を ぜんぶ つくった！' });
   add({ series: 'craft.weapons', category: 'craft', stat: 'craft:weapons', tiers: [t(WEAPON_RECIPES.length)], name: () => 'ぶき を ぜんぶ つくった！' });
@@ -450,7 +452,7 @@ function build(): AchievementDef[] {
     category: 'farm',
     stat: 'feed:*',
     tiers: [t(1, true), t(10), t(50)],
-    name: firstOrN('はじめて にわとり に やさい を あげた！', (g) => `やさい を ${g} かい あげた！`),
+    name: firstOrN('はじめて にわとり に むし を あげた！', (g) => `むし を ${g} かい あげた！`),
   });
   add({
     series: 'animal.pet',
@@ -464,9 +466,24 @@ function build(): AchievementDef[] {
     category: 'farm',
     stat: 'egg:*',
     tiers: [t(1), t(10), t(50)],
-    name: firstOrN('はじめて たまご を もらった！', (g) => `たまご を ${g} こ もらった！`),
+    name: firstOrN('はじめて たまご が うまれた！', (g) => `たまご が ${g} こ うまれた！`),
   });
   add({ series: 'animal.eatEgg', category: 'farm', stat: 'eat:egg', tiers: [t(1, true)], name: () => 'はじめて たまご を たべた！' });
+  // 版 3.2（§4.5）: eatEgg の うしろ に bug・carry の 順（小 では ない）
+  add({
+    series: 'animal.bug',
+    category: 'farm',
+    stat: 'bug:*',
+    tiers: [t(1), t(10), t(50)],
+    name: firstOrN('はじめて むし を とった！', (g) => `むし を ${g} ひき とった！`),
+  });
+  add({
+    series: 'animal.carry',
+    category: 'farm',
+    stat: 'carry:*',
+    tiers: [t(1), t(10)],
+    name: firstOrN('はじめて だっこ した！', (g) => `${g} かい だっこ した！`),
+  });
 
   const out: AchievementDef[] = [];
   for (const s of specs) {

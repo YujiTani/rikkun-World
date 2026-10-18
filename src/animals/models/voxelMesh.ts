@@ -24,6 +24,7 @@ export interface BuiltModel {
 }
 
 function inPrim(p: Prim, x: number, y: number, z: number): boolean {
+  if (p.k === 'fn') return x >= p.a[0] && x <= p.b[0] && y >= p.a[1] && y <= p.b[1] && z >= p.a[2] && z <= p.b[2] && p.f(x, y, z) >= 0;
   if (p.k === 'ell') {
     const dx = Math.abs(x - p.c[0]) / p.r[0];
     const dy = Math.abs(y - p.c[1]) / p.r[1];
@@ -66,7 +67,10 @@ function meshPart(prims: Prim[], solid: ((x: number, y: number, z: number) => bo
     if (isPaint(p)) continue;
     let a: number[];
     let b: number[];
-    if (p.k === 'ell') {
+    if (p.k === 'fn') {
+      a = p.a;
+      b = p.b;
+    } else if (p.k === 'ell') {
       a = p.c.map((c, i) => c - p.r[i]);
       b = p.c.map((c, i) => c + p.r[i]);
     } else if (p.k === 'ring') {
@@ -95,7 +99,7 @@ function meshPart(prims: Prim[], solid: ((x: number, y: number, z: number) => bo
         let col = -1;
         for (const p of prims) {
           if (isPaint(p) && col < 0) continue; // 「ぬる」箱は すでに ある 所 の 色 だけ かえる
-          if (inPrim(p, cx, cy, cz)) col = p.col;
+          if (inPrim(p, cx, cy, cz)) col = p.k === 'fn' ? p.f(cx, cy, cz) : p.col;
         }
         if (col >= 0) grid[(x * n[1] + y) * n[2] + z] = col + 1;
       }

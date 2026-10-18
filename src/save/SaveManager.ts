@@ -96,7 +96,7 @@ export interface SaveDeps {
   achievements?: SaveExtra;
   /** M6: たんすの中身（ブロックの復元のあとに戻す） */
   storage?: SaveExtra;
-  /** LIVE-1: にわとり（`v: 1`） */
+  /** LIVE-1: にわとり（`v: 2` = `{ x, y, z, yaw, follow }`。`v: 1` も 読む。§4.4） */
   animals?: SaveExtra;
   /** M7: 作物・農業の乱数・「置きものを置いた」印。無い保存は 読んだあと 置きものを置く */
   farm?: SaveFarm;

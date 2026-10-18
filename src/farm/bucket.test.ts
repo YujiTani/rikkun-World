@@ -105,7 +105,7 @@ describe('BUCKET-1 アイテム・レシピ・説明・実績（AC1・2・11・1
     expect(b.some((c) => c[0] === 0x4f && c[1] === 0xc3 && c[2] === 0xf7 && c[3] === 255)).toBe(true);
   });
   it('AC2 レシピ: 29 まい目、てつの かたまり 3 → バケツ 1', () => {
-    expect(CRAFT_RECIPES).toHaveLength(33);
+    expect(CRAFT_RECIPES).toHaveLength(34);
     const r = CRAFT_RECIPES[28];
     expect(CRAFT_RECIPES[27].id).toBe('sprinkler');
     expect(r.id).toBe('bucket');

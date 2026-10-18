@@ -64,6 +64,10 @@ function rig(o: Opts) {
     feed: (id: number, item: ItemId) => (log.push(`feed ${id} ${item}`), o.feed === undefined ? 'ate' : o.feed),
     pet: (id: number) => (log.push(`pet ${id}`), 'friend'),
     forEachVisible: () => {},
+    swingNet: () => ({ caught: false, reason: 'miss' as const }),
+    carryHold: () => null,
+    putDown: () => false,
+    carrying: () => null,
   };
   let hp = o.hp ?? 5;
   const dig = new DigSystemImpl(world as never, () => player, actions, lock, inv, () => 1.62, createDigConfig(), () => 0, null, {

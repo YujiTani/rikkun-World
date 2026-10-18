@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import type { AnimalView } from '../../contracts';
-import { TILE, type AnimalFx, type ParticleOut } from '../../fx/animalFx';
+import { TILE, TILE_COUNT, type AnimalFx, type ParticleOut } from '../../fx/animalFx';
 import { getChickenModel } from './chickenModel';
-import { createPose, poseChicken, type PoseBuf } from './chickenPose';
+import { getBugModel } from './bugNetModel';
+import { LAND_TICKS, createPose, poseChicken, type PoseBuf } from './chickenPose';
 import { CHICKEN_SCALE, COL, V } from './chickenSpec';
 import type { BuiltModel } from './voxelMesh';
 
@@ -59,6 +60,8 @@ function blobTexture(): THREE.DataTexture {
 
 // ハート 7×6 点（DESIGN 16.6）。うまった = あか、ふち だけ = うすい 白
 const HEART_ROWS = ['.XX.XX.', 'XXXXXXX', 'XXXXXXX', '.XXXXX.', '..XXX..', '...X...'];
+/** とりの 足あと 7×7（3 本 の 指 ＋ かかと） */
+const FOOT_ROWS = ['.X.X.X.', '.X.X.X.', '..XXX..', '...X...', '...X...', '..XXX..', '.......'];
 const STAR_ROWS = [
   '...XX...',
   '...XX...',
@@ -73,7 +76,7 @@ const STAR_ROWS = [
 /** つぶの 絵の 並び（左から: 赤ハート・白ハート・星・四角）。1 まい 16×16 × 4 */
 function atlasTexture(): THREE.DataTexture {
   const T = 16;
-  const W = T * 4;
+  const W = T * TILE_COUNT;
   const data = new Uint8Array(W * T * 4);
   const put = (tile: number, x: number, y: number, rgb: number): void => {
     const o = (y * W + tile * T + x) * 4;
@@ -81,6 +84,22 @@ function atlasTexture(): THREE.DataTexture {
     data[o + 1] = (rgb >> 8) & 255;
     data[o + 2] = rgb & 255;
     data[o + 3] = 255;
+  };
+  const footprint = (tile: number, fill: number, edge: number): void => {
+    const ox = 1;
+    const oy = 1;
+    const cell = (cx: number, cy: number): boolean => cy >= 0 && cy < FOOT_ROWS.length && cx >= 0 && cx < 7 && FOOT_ROWS[cy][cx] === 'X';
+    for (let cy = -1; cy <= FOOT_ROWS.length; cy++) {
+      for (let cx = -1; cx <= 7; cx++) {
+        const edgeCell = !cell(cx, cy) && (cell(cx - 1, cy) || cell(cx + 1, cy) || cell(cx, cy - 1) || cell(cx, cy + 1));
+        if (!cell(cx, cy) && !edgeCell) continue;
+        for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) {
+          const px = ox + cx * 2 + dx;
+          const py = oy + cy * 2 + dy;
+          if (px >= 0 && px < T && py >= 0 && py < T) put(tile, px, py, cell(cx, cy) ? fill : edge);
+        }
+      }
+    }
   };
   const heart = (tile: number, fill: number): void => {
     // 1 点 = 2×2。まわり 1 点 の ふちを こい色で
@@ -101,6 +120,21 @@ function atlasTexture(): THREE.DataTexture {
   };
   heart(TILE.heartFull, 0xf0503c);
   heart(TILE.heartEmpty, 0xfff4e6);
+  // あしあと（とりの 足あと = 3 本 の 指）: うまった = 藍（なかま の 色）、から の わく = うすい 白（ハート と 形が ちがう）
+  footprint(TILE.footFull, 0x5b7bc4, 0x23325a);
+  footprint(TILE.footEmpty, 0xe9e3d3, 0x7a7f94);
+  // おなかいっぱい = まるい おなか（クリーム色。おこった 赤・× は 使わない）
+  for (let y = 0; y < T; y++) {
+    for (let x = 0; x < T; x++) {
+      const d = Math.hypot(x + 0.5 - 8, y + 0.5 - 8.5);
+      if (d > 6.4) continue;
+      let c = d > 5.2 ? 0x8a6a3a : 0xfff0cf;
+      if (c === 0xfff0cf && d > 3.2 && x + y > 17) c = 0xf0d9a8; // 右下 の かげ
+      if (c === 0xfff0cf && Math.hypot(x + 0.5 - 6, y + 0.5 - 6.5) < 1.6) c = 0xffffff; // つや
+      if (x >= 9 && x <= 11 && y === 10 && d < 5) c = 0xe3c690; // おへそ の せん
+      put(TILE.belly, x, y, c);
+    }
+  }
   for (let cy = 0; cy < 8; cy++) for (let cx = 0; cx < 8; cx++) if (STAR_ROWS[cy][cx] === 'X') for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) put(TILE.star, cx * 2 + dx, cy * 2 + dy, 0xffffff);
   for (let y = 2; y < 14; y++) for (let x = 2; x < 14; x++) put(TILE.dot, x, y, 0xffffff);
   const t = new THREE.DataTexture(data, W, T, THREE.RGBAFormat);
@@ -142,7 +176,7 @@ function makePoints(): { points: THREE.Points; out: ParticleOut; attrs: THREE.Bu
       .replace('void main() {', 'varying float vTile;\nvoid main() {')
       .replace(
         '#include <map_particle_fragment>',
-        `vec2 tileUv = vec2((gl_PointCoord.x + vTile) * 0.25, gl_PointCoord.y);
+        `vec2 tileUv = vec2((gl_PointCoord.x + vTile) / ${TILE_COUNT}.0, gl_PointCoord.y);
          diffuseColor *= texture2D( map, tileUv );`,
       );
   };
@@ -165,6 +199,10 @@ interface Entry {
   hull: THREE.SkinnedMesh;
   pose: PoseBuf;
   model: BuiltModel;
+  /** 版 3.2: パタパタ の はじまり・着地 の 時刻（ms） */
+  flutterOn: boolean;
+  flutterStart: number;
+  landStart: number;
 }
 
 /** 角度を −π〜π に */
@@ -189,6 +227,53 @@ export interface AnimalRendererOpts {
   fx: AnimalFx;
   /** 「動きの 強さ」0〜1。なければ 1 */
   motion?: () => number;
+  /** 時計（ミリ秒。パタパタ・着地 ぽよん の 経過に 使う。なければ performance.now） */
+  now?: () => number;
+  /**
+   * プレイヤー の 足もと（だっこ の 置き場所 を きめる）。カメラ が プレイヤー の 目 に 近ければ 1 人称（画面 の 下 25% に 顔 が 見える）、
+   * はなれて いれば 3 人称（プレイヤー の 胸 の 前）。なければ いつも カメラ の 前（1 人称）。
+   */
+  player?: () => { x: number; y: number; z: number } | null;
+}
+
+/** だっこ の 置きかた（DESIGN 16.16・LIVE-1 §2.8・AC28） */
+export const CARRY = {
+  /** だっこ中 の 大きさ（ふつう より 小さい） */
+  scale: 0.7,
+  /** にわとり の 高さ（ブロック。コーム まで） */
+  height: 0.8,
+  /** 1 人称: カメラ から の 前 の 距離 */
+  front: 1.2,
+  /** 1 人称: にわとり の 上の はし が 来る 画面 の 高さ（ndc。−1 = 下の はし。−0.5 = 下 25% の さかい） */
+  topNdc: -0.1,
+  /** 1 人称: だっこ中 の 大きさ（ステータス板 の 上 に おさまる ように 小さめ） */
+  firstScale: 0.45,
+  /** 3 人称: 胸 の 高さ・前 への 出し */
+  chestY: 1.0,
+  chestFront: 0.3,
+  /** 3 人称: カメラ から 見て 右 へ（プレイヤー の かげ に ならない） */
+  chestSide: 0.8,
+  /** プレイヤー の 目 の 高さ（足もと から） */
+  eyeY: 1.6,
+  /** カメラ が この 距離 より 近ければ 1 人称（`DOLL_HIDE_DISTANCE`） */
+  firstPersonDist: 1.2,
+} as const;
+
+/** `carryInfo()` の 中身（テスト・UI 検査用） */
+export interface CarryInfo {
+  firstPerson: boolean;
+  /** にわとり の 足もと の 位置（世界） */
+  x: number;
+  y: number;
+  z: number;
+  /** 上の はし の 画面 の 高さ（ndc。−1 = 下の はし） */
+  topNdcY: number;
+  /** 下の はし の 画面 の 高さ（ndc） */
+  bottomNdcY: number;
+  /** まん中 の 画面 の よこ（ndc） */
+  centerNdcX: number;
+  /** にわとり の 前（−z）と カメラ の ほう の 向きの 内積（1 = まっすぐ カメラ を 向く） */
+  faceToCamera: number;
 }
 
 export class AnimalRenderer {
@@ -209,6 +294,13 @@ export class AnimalRenderer {
   private readonly flat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2);
   private readonly up = new THREE.Vector3(0, 1, 0);
   private lastStats: AnimalRendererStats = { animals: 0, draws: 0, triangles: 0 };
+  /** とぶ むし の 入れ物（見えない ものは 隠して 使いまわす） */
+  private readonly bugs: THREE.Group[] = [];
+  private carry: CarryInfo | null = null;
+  private readonly v1 = new THREE.Vector3();
+  private readonly v2 = new THREE.Vector3();
+  private readonly v3 = new THREE.Vector3();
+  private readonly flipY = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
 
   constructor(private readonly o: AnimalRendererOpts) {
     this.hullMaterial.userData.noDim = true;
@@ -224,6 +316,10 @@ export class AnimalRenderer {
 
   private motion(): number {
     return this.o.motion ? this.o.motion() : 1;
+  }
+
+  private now(): number {
+    return this.o.now ? this.o.now() : performance.now();
   }
 
   private make(mark: boolean): Entry {
@@ -256,7 +352,7 @@ export class AnimalRenderer {
     hull.renderOrder = 1; // 地面の あと → ふちどり → 体
     hull.visible = false;
     rig.add(mesh, hull);
-    return { id: -1, mark, gen: 0, root, rig, bones, mesh, hull, pose: createPose(), model };
+    return { id: -1, mark, gen: 0, root, rig, bones, mesh, hull, pose: createPose(), model, flutterOn: false, flutterStart: 0, landStart: -1e12 };
   }
 
   private release(e: Entry): void {
@@ -273,6 +369,8 @@ export class AnimalRenderer {
     let tris = 0;
     let draws = 0;
     let n = 0;
+    this.carry = null;
+    camera.updateMatrixWorld();
     for (const v of views) {
       let e = this.entries.get(v.id);
       if (e && e.mark !== v.friend) {
@@ -286,14 +384,15 @@ export class AnimalRenderer {
         this.group.add(e.root);
       }
       e.gen = gen;
-      this.apply(e, v, motion);
+      this.apply(e, v, motion, camera);
       tris += e.model.tris;
       draws++;
-      if (v.targeted) {
+      const carried = v.carried === true;
+      if (v.targeted && !carried) {
         tris += e.model.hullTris;
         draws++;
       }
-      if (n < MAX_SHADOWS) this.shadow(n++, e, v);
+      if (!carried && n < MAX_SHADOWS) this.shadow(n++, e, v); // だっこ 中は かげ なし
     }
     // 見えなくなった にわとり を かたづける（ふだんは 通らない）
     if (this.entries.size > views.length) for (const e of [...this.entries.values()]) if (e.gen !== gen) this.release(e);
@@ -304,8 +403,21 @@ export class AnimalRenderer {
       draws++;
       tris += n * 2;
     }
-    // つぶ・頭の 上の ハート
-    camera.updateMatrixWorld();
+    // とぶ むし（1 ぴき 1 回）
+    const flights = this.o.fx.flights;
+    const bugModel = getBugModel();
+    for (let i = 0; i < flights.length; i++) {
+      const f = flights[i];
+      const g = this.bugs[i] ?? this.makeBug(i);
+      g.visible = true;
+      g.position.set(f.x, f.y, f.z);
+      g.rotation.set(f.pitch, f.yaw, 0);
+      g.scale.set(f.scale, f.scale * (1 + f.curl), f.scale * (1 - f.curl));
+      draws++;
+      tris += bugModel.tris;
+    }
+    for (let i = flights.length; i < this.bugs.length; i++) this.bugs[i].visible = false;
+    // つぶ・頭の 上の しるし
     const el = camera.matrixWorld.elements;
     const cnt = this.o.fx.write(this.pts.out, POINT_CAP, { x: el[0], z: el[2] });
     const pt = this.pts.points;
@@ -319,10 +431,32 @@ export class AnimalRenderer {
     this.lastStats = { animals: views.length, draws, triangles: tris };
   }
 
-  private apply(e: Entry, v: AnimalView, motion: number): void {
-    e.root.position.set(v.x, v.y, v.z);
-    e.root.rotation.y = -v.yaw; // ゲームの 向きは −yaw（妖怪と 同じ）
-    poseChicken(e.pose, { state: v.state, stateTicks: v.stateTicks, headRelYaw: wrapAngle(v.headYaw - v.yaw), motion });
+  private apply(e: Entry, v: AnimalView, motion: number, camera: THREE.Camera): void {
+    const carried = v.carried === true;
+    const now = this.now();
+    // パタパタ・着地 ぽよん の 経過（ステップ。1 ステップ = 1000/60 ミリ秒）
+    const fl = v.fluttering === true && !carried;
+    if (fl && !e.flutterOn) e.flutterStart = now;
+    if (!fl && e.flutterOn && !carried) e.landStart = now;
+    e.flutterOn = fl;
+    const flutterT = fl ? (now - e.flutterStart) * 0.06 : 0;
+    const landT = e.landStart > -1e11 && !fl && !carried ? (now - e.landStart) * 0.06 : -1;
+    if (carried) {
+      this.placeCarried(e, v, camera);
+    } else {
+      e.root.scale.set(1, 1, 1);
+      e.root.rotation.set(0, -v.yaw, 0); // ゲームの 向きは −yaw（妖怪と 同じ）
+      e.root.position.set(v.x, v.y, v.z);
+    }
+    poseChicken(e.pose, {
+      state: carried ? 'carried' : v.state,
+      stateTicks: v.stateTicks,
+      headRelYaw: carried ? 0 : wrapAngle(v.headYaw - v.yaw),
+      motion,
+      fluttering: fl,
+      flutterT,
+      landT: landT < LAND_TICKS ? landT : -1,
+    });
     const p = e.pose;
     const bones = e.bones;
     const rest = e.model.rest;
@@ -334,8 +468,89 @@ export class AnimalRenderer {
     }
     e.rig.position.y = p.rigY;
     e.rig.scale.set(p.scale[0], p.scale[1], p.scale[2]);
-    e.hull.visible = v.targeted;
+    e.hull.visible = v.targeted && !carried;
     e.root.updateMatrixWorld(true);
+    if (carried && !this.carry) this.measureCarry(e, camera);
+  }
+
+  /** だっこ 中の 置き場所（§2.8・AC28）。1 人称 = カメラ の 前 の 画面 の 下 25%、3 人称 = プレイヤー の 胸 の 前 */
+  private placeCarried(e: Entry, v: AnimalView, camera: THREE.Camera): void {
+    const cam = camera.getWorldPosition(this.v1);
+    const feet = this.o.player ? this.o.player() : null;
+    let first = true;
+    if (feet) {
+      const d = Math.hypot(cam.x - feet.x, cam.y - (feet.y + CARRY.eyeY), cam.z - feet.z);
+      first = d < CARRY.firstPersonDist;
+    }
+    e.root.scale.setScalar(first ? CARRY.firstScale : CARRY.scale);
+    if (first) {
+      const fov = camera instanceof THREE.PerspectiveCamera ? camera.fov : 75;
+      const tanHalf = Math.tan((fov * D) / 2);
+      const topY = CARRY.topNdc * CARRY.front * tanHalf;
+      this.v2.set(0, topY - CARRY.height * CARRY.firstScale, -CARRY.front).applyMatrix4(camera.matrixWorld);
+      e.root.position.copy(this.v2);
+      camera.getWorldQuaternion(this.tmpQ);
+      e.root.quaternion.copy(this.tmpQ).multiply(this.flipY); // 顔（−z）が カメラ の ほう
+    } else {
+      let fx = feet!.x - cam.x;
+      let fz = feet!.z - cam.z;
+      const len = Math.hypot(fx, fz);
+      if (len < 1e-4) {
+        fx = 0;
+        fz = -1;
+      } else {
+        fx /= len;
+        fz /= len;
+      }
+      // カメラ から 見て 右（fx,fz を 左 へ 90 度 まわした むき の 反対）
+      const px = feet!.x + fx * CARRY.chestFront - fz * CARRY.chestSide;
+      const pz = feet!.z + fz * CARRY.chestFront + fx * CARRY.chestSide;
+      e.root.position.set(px, feet!.y + CARRY.chestY, pz);
+      e.root.rotation.set(0, Math.atan2(-(cam.x - px), -(cam.z - pz)), 0); // 顔 が カメラ の ほう
+    }
+    void v;
+  }
+
+  private measureCarry(e: Entry, camera: THREE.Camera): void {
+    const pos = e.root.position;
+    const h = CARRY.height * e.root.scale.y;
+    const camPos = camera.getWorldPosition(this.v1);
+    this.v2.set(0, h, 0).applyMatrix4(e.root.matrixWorld).project(camera);
+    const topNdcY = this.v2.y;
+    this.v2.set(0, 0, 0).applyMatrix4(e.root.matrixWorld).project(camera);
+    const bottomNdcY = this.v2.y;
+    this.v2.set(0, h / 2, 0).applyMatrix4(e.root.matrixWorld).project(camera);
+    const centerNdcX = this.v2.x;
+    // 前（−z）の 向き と カメラ への 向き
+    this.v2.set(0, 0, -1).applyQuaternion(e.root.getWorldQuaternion(this.tmpQ)).normalize();
+    this.v3.set(camPos.x - pos.x, camPos.y - (pos.y + h / 2), camPos.z - pos.z).normalize();
+    const firstPerson = this.o.player ? (() => {
+      const feet = this.o.player!();
+      return !feet || Math.hypot(camPos.x - feet.x, camPos.y - (feet.y + CARRY.eyeY), camPos.z - feet.z) < CARRY.firstPersonDist;
+    })() : true;
+    this.carry = { firstPerson, x: pos.x, y: pos.y, z: pos.z, topNdcY, bottomNdcY, centerNdcX, faceToCamera: this.v2.dot(this.v3) };
+  }
+
+  /** だっこ して いる にわとり の 置き場所（なければ null。テスト・UI 検査用） */
+  carryInfo(): CarryInfo | null {
+    return this.carry;
+  }
+
+  private makeBug(i: number): THREE.Group {
+    const model = getBugModel();
+    const holder = new THREE.Group();
+    const bone = new THREE.Bone();
+    holder.add(bone);
+    const mesh = new THREE.SkinnedMesh(model.geo, this.bodyMaterial);
+    mesh.name = 'bug';
+    mesh.bind(new THREE.Skeleton([bone]), new THREE.Matrix4());
+    mesh.frustumCulled = false;
+    mesh.renderOrder = 3;
+    holder.add(mesh);
+    holder.visible = false;
+    this.group.add(holder);
+    this.bugs[i] = holder;
+    return holder;
   }
 
   private shadow(i: number, e: Entry, v: AnimalView): void {

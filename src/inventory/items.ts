@@ -104,7 +104,12 @@ const VOX_I_BLOCKS: readonly ItemType[] = (
 ).map((id): ItemType => ({ id, name: BLOCK_TYPES.find((b) => b.id === id)!.name, maxStack: BLOCK_MAX_STACK, placeBlock: id }));
 
 /** LIVE-1: たまご（なかま の にわとり が くれる。たべる。置けない） */
-const LIVE_ITEMS: readonly ItemType[] = [{ id: 'egg', name: 'たまご', maxStack: BLOCK_MAX_STACK, placeBlock: null }];
+const LIVE_ITEMS: readonly ItemType[] = [
+  { id: 'egg', name: 'たまご', maxStack: BLOCK_MAX_STACK, placeBlock: null },
+  // 版 3.2（§4.2）: むし（えさ。上限は やさい と 同じ）・むしとりあみ（1 本。こわれない）
+  { id: 'mushi', name: 'むし', maxStack: BLOCK_MAX_STACK, placeBlock: null },
+  { id: 'mushi_ami', name: 'むしとりあみ', maxStack: 1, placeBlock: null },
+];
 
 export const ITEM_TYPES: readonly ItemType[] = [
   ...PLACEABLE_TYPES,
