@@ -40,3 +40,8 @@
 | 1 | dev | code-reviewer | 【軽微】src/animals/AnimalManager.ts rayHit・follow・separate・warp: 毎ステップ `[lo,hi,o,dv]` や `[0,0.5,-0.5,…]` の 配列 を にわとり ごと に 作る（rayHit は dig が 毎ステップ 呼ぶ）。定数 の 配列 に する・スカラー で 書く | 毎フレームの new | G3 | 未対応 |
 | 1 | dev | code-reviewer | 【軽微】src/dig/DigSystem.ts doEat: たまご の 回復 に `LIVE_SETTING_DEFAULTS.animalEggHeal` を 使い、`live` 設定 を 変えても 効かない（設定 は すぐ 効く 約束）。設定 を 渡す | 設定 が 届いて いない | G4 | 未対応 |
 | 1 | dev | code-reviewer | 【軽微】AnimalManager.ts finishLock: 3 つ目 の やさい を 食べた あと ロック 中 に なかま が 上限 に なる と やさい だけ 減って なかま に ならない（ハート 2 の まま）。ほぼ 起きない ので あとで 直す | 境界 | G5 | 未対応 |
+| 6 | design | design-reviewer | 版 3.2／LIVE-2 版 3: 判定 合格（重大 0）。確かめた: たまご 1/4・7 回 はずれ で 8 回目 かならず（LIVE-1 §0・§2.10・§4.1・§4.3・AC21・AC22・§8、LIVE-2 §2.6・§4.3・AC12 が そろう。計算 3.6 こ・約 71 秒・0.278 は 合う）、金 の たまご → かならず マッチョ（`machoMiss` 不変、AC17）、金 の ひよこ・金 の にわとり・`goldBaseGold` は 注意書き 以外 に 残って いない、設定 17／46、実績 253／86、こたつ の 名前、子 が いる 小屋 は こわせない（AC14・AC29 が テストできる） | — | — | 対応済み |
+| 6 | design | design-reviewer | 【軽微】LIVE-1 §9: オーナー の 答え の 記号 (d) が 決定 `-spec-v3.md` の d（金 の たまご → マッチョ）と ちがう 意味 で 使われて いた。(d)(f) を 決定 どおり に 書き直した | 記号 の ずれ | G15 | 対応済み（直した） |
+| 6 | design | design-reviewer | 【軽微】LIVE-2 §2.3・AC29: 「押しつづけて いる あいだ チップ は 消えない」と 「しらせ は 押した ステップ に 1 回」が かみあわない（チップ は 120 ステップ で 消える）。押しつづけ の あいだ 毎ステップ チップ の のこり を 120 に もどす、音・`coopLocked` は 1 回 だけ、と 書いた | 長押し と 合図 の 寿命 | G16 | 対応済み（直した） |
+| 6 | design | design-reviewer | 【軽微】LIVE-2 AC12: 「初期値 0.25 で … `animalEggChance` 0 なら」と 読める 書きかた を、`animalEggPity` 7 の まま chance を 0 に する、に 直した | 言い回し | G17 | 対応済み（直した） |
+| 6 | design | design-reviewer | 【軽微】(残し) LIVE-2 画面 の 文 `こ が いる から こわせない よ` の「こ」は 6 歳 に 「子」と 伝わるか 分かりにくい かも。オーナー確認② で 見て もらい、必要 なら「ひよこ が いる から …」に | 6 歳 の 読み | G18 | 未対応 |
