@@ -5,6 +5,7 @@ import { WHIFF_TONES } from './sfxVoices';
 import type { SoundFx, Tone } from './sound';
 import { STORAGE_SOUNDS } from './storageSounds';
 import { WEAPON_SOUNDS } from './weaponSounds';
+import { PARRY_SOUNDS } from './parrySounds';
 
 export type SfxGroup = 'dig' | 'combat' | 'weapon' | 'craft' | 'farm' | 'storage';
 
@@ -75,6 +76,12 @@ export const SFX_CATALOG: readonly SfxCatalogEntry[] = [
     ['shoot3', 'とばす 3'],
     ['arrowHit', 'やが あたる'],
     ['arrowStick', 'やが ささる'],
+  ]),
+  ...fromTable('weapon', PARRY_SOUNDS, [
+    ['parrySwing', 'パリィを はじめる'],
+    ['parry', 'パリィ せいこう（パキィーン）'],
+    ['parryEarly', 'パリィ はやすぎ（カツッ）'],
+    ['staggerBreak', 'よろけに ヒット（ポンッ）'],
   ]),
   ...fromTable('weapon', CRAFT_SOUNDS, [
     ['slash', 'かたな（シュッ）'],

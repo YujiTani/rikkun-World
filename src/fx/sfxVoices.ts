@@ -90,3 +90,23 @@ export function powan(f0: number, f1: number, delay: number, dur: number, gain: 
 
 /** 空ぶりの小さな「ひゅ」（DigFx の WHIFF_SOUND） */
 export const WHIFF_TONES: readonly Tone[] = [shaka(0, 0.07, 0.1, 4500)];
+
+/** 鈴・鐘: sine ＋ ×2.76・×5.4 の小さな倍音（ゆうがたの bell と同じ考え。金属の「キン」にならない） */
+export function bellTone(f0: number, f1: number, delay: number, dur: number, gain: number, bright = 0.12): Tone[] {
+  return [
+    tone('sine', f0, f1, delay, dur, gain, {
+      attack: 0.002,
+      partials: [
+        { ratio: 2.76, gain: bright, durScale: 0.5 },
+        { ratio: 5.4, gain: bright * 0.4, durScale: 0.25 },
+      ],
+    }),
+  ];
+}
+
+/** 鈴の「シャリン」: 高いノイズの粒を n 個、少しずつ間をあけて（だんだん小さく・低く） */
+export function suzu(delay: number, n: number, gap: number, gain: number): Tone[] {
+  return Array.from({ length: n }, (_, i) =>
+    noise(delay + i * gap, 0.05, gain * (1 - i / (n + 1)), { type: 'bandpass', freq: 7000 - i * 300, q: 6 }, 0.002),
+  );
+}

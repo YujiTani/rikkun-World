@@ -13,6 +13,7 @@ import {
   BOW_MOTIONS,
   KATANA_MOTIONS,
   MOTIONS,
+  PARRY_MOTIONS,
   SPAN,
   defaultLoadImage,
   defaultLoadJson,
@@ -21,6 +22,7 @@ import {
   type AtlasInfo,
   type LoadImage,
 } from './loader';
+import type { ParryCell } from './parryCells';
 import { cellRectCrop, unpackCell, type Packed } from './packing';
 import { BODY_CENTER_Y, HIDE_DISTANCE, bearingDeg, dirIndex, tierFor } from './view';
 
@@ -67,6 +69,12 @@ export interface CharSprite {
   step(input: SpriteStepInput): void;
   render(): void;
   hurt(): void;
+  /** WEAPON-5: パリィの 絵を 見せる（null で 元に もどす。絵が 読めていなければ そのまま） */
+  setParry(cell: ParryCell | null): void;
+  /** WEAPON-5: パリィの 絵を 先に 読む（刀を 持ったとき。何度 呼んでもよい） */
+  preloadParry(): void;
+  /** WEAPON-5: 青白い 光（0〜1）で からだの 色を 水色へ まぜる */
+  setGlow(level: number): void;
   /** 動きの 数えを はじめにもどす（立つ・歩くの コマの数え）。テストで 待ったステップの数に よらず 同じコマにする */
   restartMotion(): void;
   info(): SpriteInfo;
@@ -99,6 +107,8 @@ uniform vec4 uCrop;
 uniform vec2 uSize;
 uniform vec3 uPalette[${PALETTE_SIZE + 1}];
 uniform vec3 uTint;
+uniform float uMix;
+uniform vec3 uMixColor;
 varying vec2 vUv;
 #include <fog_pars_fragment>
 void main() {
@@ -110,7 +120,7 @@ void main() {
   vec2 t = floor(uRect.xy * uSize + 0.5) + d;
   float idx = floor(texture2D(uMap, (t + 0.5) / uSize).r * 255.0 + 0.5);
   if (idx < 0.5) discard;
-  gl_FragColor = vec4(uPalette[int(idx)] * uTint, 1.0);
+  gl_FragColor = vec4(mix(uPalette[int(idx)], uMixColor, uMix) * uTint, 1.0);
   #include <colorspace_fragment>
   #include <fog_fragment>
 }`;
@@ -140,6 +150,8 @@ export function createCharSprite(deps: CharSpriteDeps): CharSprite {
       uSize: { value: new THREE.Vector2(1, 1) },
       uPalette: { value: palette },
       uTint: { value: new THREE.Vector3(1, 1, 1) },
+      uMix: { value: 0 },
+      uMixColor: { value: new THREE.Vector3(srgbToLinear(0xd6), srgbToLinear(0xf4), srgbToLinear(0xff)) },
     },
   ]);
   // CHAR-4: 色見本の 20・21 番（色番号 21・22）= 刃の地・ふちの光。武器の色に ぬりかえる
@@ -277,6 +289,9 @@ export function createCharSprite(deps: CharSpriteDeps): CharSprite {
     });
   };
   const requested = { katana: false, bow: false };
+  let parryCell: ParryCell | null = null;
+  let parryRequested = false;
+  const GLOW_MIX = 0.45;
 
   const loaded = (): boolean => status.idle === 'ready' && status.walk !== 'loading' && status.walk !== 'none' && atlasSettled;
 
@@ -360,6 +375,7 @@ export function createCharSprite(deps: CharSpriteDeps): CharSprite {
       scene = machine.alt.scene;
       w = { motion: machine.alt.motion, frame: machine.alt.frame };
     }
+    if (parryCell && ready(parryCell.motion)) return { scene: 'tech', motion: parryCell.motion, frame: parryCell.frame };
     const r = substitute(w);
     return { scene, motion: r.motion, frame: r.frame };
   };
@@ -449,6 +465,19 @@ export function createCharSprite(deps: CharSpriteDeps): CharSprite {
       hurtAge = Math.min(hurtAge + 1, Number.MAX_SAFE_INTEGER);
     },
     render,
+    preloadParry() {
+      if (parryRequested) return;
+      parryRequested = true;
+      enqueue(PARRY_MOTIONS);
+    },
+    setParry(cell) {
+      parryCell = cell;
+      // はじめて パリィを 出したとき 読む（刀を 持っただけでは 読まない。のこりの メモリが 少ないため）
+      if (cell && !parryRequested) this.preloadParry();
+    },
+    setGlow(level) {
+      uniforms.uMix!.value = Math.max(0, Math.min(1, level)) * GLOW_MIX;
+    },
     hurt() {
       hurtAge = 0;
     },

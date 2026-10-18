@@ -209,6 +209,9 @@ export abstract class YokaiBase {
   protected readonly rig = new THREE.Group();
   /** 落ちているときの かたむき（ラジアン。からかさのゆらゆら用。たたかれたゆれに足される） */
   fallTilt = 0;
+  /** よろけている ふらつき（ラジアン。WEAPON-5。たおれる動きには かけない） */
+  staggerTilt = 0;
+  staggerTwist = 0;
   /** みず で石になっていく度合い 0〜1（色を石の灰色へ近づける。applyDollBrightness が読む） */
   stoneness = 0;
   /** 色の段階 1〜3（applyDollBrightness が決める。ちょうちんの どうの色など、毎ステップ色を決めるモデルが読む） */
@@ -579,7 +582,8 @@ export abstract class YokaiBase {
     const hitK = t >= 0 ? Math.sin((Math.PI * t) / HIT_SECONDS) : 0;
     this.rig.position.z = this.knockback ? HIT_BACK_BLOCKS * hitK : 0;
     this.rig.rotation.x = (this.knockback ? HIT_TILT_DEG : 0) * DEG * hitK;
-    this.rig.rotation.z = (!this.knockback && t >= 0 ? 8 * DEG * Math.sin((Math.PI * 4 * t) / HIT_SECONDS) : 0) + this.fallTilt;
+    this.rig.rotation.z = (!this.knockback && t >= 0 ? 8 * DEG * Math.sin((Math.PI * 4 * t) / HIT_SECONDS) : 0) + this.fallTilt + (this.dying ? 0 : this.staggerTilt);
+    this.rig.rotation.y = this.dying ? 0 : this.staggerTwist;
 
     let dieP = -1;
     if (this.dying) {

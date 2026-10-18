@@ -27,7 +27,9 @@ import { Karakasa } from '../models/karakasa';
 import { Nurikabe } from '../models/nurikabe';
 import { Rokurokubi } from '../models/rokurokubi';
 import type { YokaiBase } from '../common';
-import { SEA_Y } from '../../contracts';
+import { SEA_Y, createW2Settings, type W2Settings } from '../../contracts';
+import { bearingOf } from '../../combat/parry';
+import { createStaggerBook, type StaggerBy, type StaggerInfo } from '../stagger';
 import { colorStage, locationMAt } from '../location';
 import { YOKAI_STATS, yokaiStrength } from '../stats';
 import { ANNOUNCE_TICKS, TITLE_RULES, isBigTitle, limitTitle, rollTitle, titleAnnounceText, titleLabel } from '../title';
@@ -95,6 +97,33 @@ export interface YokaiManagerOptions {
   seaY?: () => number;
   /** ブロックがこわれた・石になった（くだけるつぶ・音用。1 回の出来事ぶんをまとめて渡す） */
   onBlocks?: (cells: { x: number; y: number; z: number; from: BlockId; to: BlockId }[], why: 'crush' | 'stone') => void;
+  /** WEAPON-5: 設定の入れ物（よろけ・はね返し。なければ 初期値） */
+  settings?: W2Settings;
+  /** WEAPON-5: パリィ。妖怪の攻撃・火の玉が プレイヤーに当たる直前に聞く（なければ 今のまま） */
+  parry?: YokaiParryPort;
+  /** WEAPON-5: よろけ・2 倍・はね返しが当たった 出来事を パリィの 出来事の 列へ */
+  onParryEvent?: (e: { type: 'stagger' | 'staggerDouble' | 'reflectHit'; yokaiId: number; by?: StaggerBy; damage?: number }) => void;
+}
+
+/** パリィの 答え（`createParry().hit` と 同じ形のうち 使う分） */
+export interface YokaiParryVerdict {
+  result: 'success' | 'early' | 'fail' | 'none';
+  /** early のとき 半分にした 数 */
+  amount: number;
+}
+
+export interface YokaiParryPort {
+  /** dirDeg = プレイヤーの足もとから 来た向き（0 = 北。null = 真上・真下）。amount = 元のダメージ */
+  hit(h: { by: 'attack' | 'fireball'; yokaiId: number | null; dirDeg: number | null; amount: number }): YokaiParryVerdict;
+}
+
+/** 飛んでいる 火の玉の 見た目の 情報（テストの窓口 `yokai.fireballList()`） */
+export interface FireballView {
+  position: Vec3;
+  dir: Vec3;
+  speed: number;
+  reflected: boolean;
+  owner: number;
 }
 
 /** たおした妖怪の 経験値・二つ名（onDefeat に渡す） */
@@ -132,6 +161,8 @@ interface Ent {
   cool: number;
   attackSteps: number;
   vy: number;
+  /** AI を 止めた ちょうちんが 置かれた 高さ（これより 下へは おりない。WEAPON-5 のテスト用） */
+  homeY: number;
   wanderLeft: number;
   wandering: boolean;
   wanderYaw: number;
@@ -176,6 +207,10 @@ interface Ent {
   swayStep: number;
   /** ぬりかべ: みず でかたまった度合い 0〜1 */
   stone: number;
+  /** WEAPON-5: このステップは よろけている（ステップのはじめに 決める） */
+  stag: boolean;
+  /** WEAPON-5: よろけの ふらつきの 位相 */
+  stagPhase: number;
 }
 
 interface LiveFireball {
@@ -183,6 +218,8 @@ interface LiveFireball {
   owner: number;
   /** 出した妖怪の攻撃力（出した時点の数） */
   damage: number;
+  /** WEAPON-5: はね返した（プレイヤーには もう 当たらない） */
+  reflected: boolean;
 }
 
 /** 登場のおしらせ（画面の上のまん中） */
@@ -231,6 +268,8 @@ export class YokaiManager implements YokaiWorld {
   private announceNow: AnnounceInfo | null = null;
   private readonly burst = new BurstFx();
 
+  private readonly S: W2Settings;
+  private readonly stagBook;
   private ents: Ent[] = [];
   private fireballs: LiveFireball[] = [];
   private freeFireballs: Fireball[] = [];
@@ -257,6 +296,8 @@ export class YokaiManager implements YokaiWorld {
     this.inventory = opts.inventory;
     this.drops = opts.drops;
     this.tickFn = opts.tick ?? null;
+    this.S = opts.settings ?? createW2Settings();
+    this.stagBook = createStaggerBook(this.S);
     this.config = opts.config ?? createYokaiConfig();
     this.rng = createRng((opts.seed ?? 20240612) ^ 0x7a11);
     this.titleRng = createRng((opts.seed ?? 20240612) ^ 0x71713);
@@ -384,20 +425,35 @@ export class YokaiManager implements YokaiWorld {
   setHp(id: number, hp: number): boolean {
     const e = this.ents.find((q) => q.id === id);
     if (!e || e.state === 'dying' || e.state === 'leaving' || e.remove) return false;
-    e.hp = Math.max(1, hp);
+    if (hp <= 0) {
+      // 0 以下は たおす（経験値・ドロップなし。テストで「たおれかけ」を作る）
+      e.hp = 0;
+      this.showMarks(e);
+      this.defeat(e, false);
+      return true;
+    }
+    e.hp = hp;
     this.showMarks(e);
     return true;
   }
 
   /** knock（WEAPON-2）: 押す 距離（水平。省くと 1.0）・上への 初速（省くと 0）。ぬりかべ は 押されない */
-  damage(id: number, amount: number, from: Vec3, knock?: YokaiKnock): void {
+  damage(id: number, amount: number, from: Vec3, knock?: YokaiKnock): number {
+    return this.hurtYokai(id, amount, from, knock);
+  }
+
+  /** ダメージ。よろけ中の 最初の 1 回は 2 倍（WEAPON-5）。実際に 与えた 数を 返す（当たらなければ 0） */
+  private hurtYokai(id: number, amount: number, from: Vec3, knock?: YokaiKnock): number {
     const e = this.ents.find((q) => q.id === id);
-    if (!e || e.state === 'dying' || e.state === 'leaving' || e.remove) return;
+    if (!e || e.state === 'dying' || e.state === 'leaving' || e.remove) return 0;
+    const wasDouble = this.stagBook.hasDouble(id);
+    amount = this.stagBook.damage(id, amount);
+    if (wasDouble) this.opts.onParryEvent?.({ type: 'staggerDouble', yokaiId: id, damage: amount });
     e.hp = Math.max(0, Math.round((e.hp - amount) * 100 + 1e-7) / 100); // WEAPON-4: 0.01 の位に まるめる（小数の 誤差で のこさない）
     this.showMarks(e);
     if (e.hp <= 0) {
       this.defeat(e);
-      return;
+      return amount;
     }
     e.model.hit();
     this.emit({ type: 'hurt', tick: this.tick(), id: e.id, kind: e.kind, position: { x: e.x, y: e.y, z: e.z } });
@@ -418,6 +474,7 @@ export class YokaiManager implements YokaiWorld {
       e.knockStep = (knock ? Math.max(0, knock.dist) : this.config.knockback) / AI_CONST.knockbackTicks;
       e.knockUpV = knock && knock.up > 0 ? knock.up : 0;
     }
+    return amount;
   }
 
   occupies(x: number, y: number, z: number): boolean {
@@ -463,6 +520,7 @@ export class YokaiManager implements YokaiWorld {
     this.ents = [];
     for (const f of this.fireballs) this.killFireball(f, false);
     this.fireballs = [];
+    this.stagBook.clear();
   }
 
   private disposeEnt(e: Ent): void {
@@ -484,6 +542,9 @@ export class YokaiManager implements YokaiWorld {
 
   update(dt: number = DT): void {
     this.steps++;
+    // よろけ（WEAPON-5）: このステップに よろけている 妖怪を 決めてから のこりを へらす（90 ステップ ぶん 動かない）
+    for (const e of this.ents) e.stag = this.stagBook.get(e.id) !== null;
+    this.stagBook.step();
     if (this.announceNow && --this.announceNow.ticksLeft <= 0) this.announceNow = null;
     const p = this.getPlayer();
     this.px = p.position.x;
@@ -533,6 +594,7 @@ export class YokaiManager implements YokaiWorld {
       const keep: Ent[] = [];
       for (const e of this.ents) {
         if (e.remove) {
+          this.stagBook.remove(e.id);
           this.emit(
             { type: 'remove', tick: this.tick(), id: e.id, kind: e.kind, position: { x: e.x, y: e.y, z: e.z } },
             true,
@@ -593,6 +655,7 @@ export class YokaiManager implements YokaiWorld {
       cool: 0,
       attackSteps: 0,
       vy: 0,
+      homeY: y,
       wanderLeft: 30 + Math.floor(this.rng() * 90),
       wandering: false,
       wanderYaw: 0,
@@ -625,6 +688,8 @@ export class YokaiManager implements YokaiWorld {
       floating: false,
       swayStep: 0,
       stone: 0,
+      stag: false,
+      stagPhase: 0,
     };
     model.onHit = (ev) => this.onModelHit(e, ev.box);
     model.root.scale.setScalar(Math.max(e.appearScale, 1e-4));
@@ -742,7 +807,8 @@ export class YokaiManager implements YokaiWorld {
         const room = Math.max(1, this.config.yokaiLeaveTicks - 66 - attackTicks - 2);
         e.leaveAt = this.steps + Math.floor(this.rng() * room);
       }
-      if (e.leaveAt >= 0 && this.steps >= e.leaveAt && e.state !== 'attack' && e.state !== 'dying' && e.state !== 'leaving') {
+      // よろけている 間は 帰らない（よろけが おわってから）
+      if (e.leaveAt >= 0 && this.steps >= e.leaveAt && e.state !== 'attack' && e.state !== 'dying' && e.state !== 'leaving' && !this.stagBook.get(e.id)) {
         this.startLeave(e);
       }
     }
@@ -758,6 +824,7 @@ export class YokaiManager implements YokaiWorld {
 
   /** byPlayer が false（落下など）なら、ドロップも経験値もなし */
   private defeat(e: Ent, byPlayer = true): void {
+    this.stagBook.remove(e.id);
     e.state = 'dying';
     e.model.die();
     if (byPlayer) this.opts.onDefeat?.(e.kind, { xp: e.xp, title: e.title, m: e.m });
@@ -992,12 +1059,16 @@ export class YokaiManager implements YokaiWorld {
       e.appearScale = Math.min(1, e.age / AI_CONST.appearTicks);
       e.model.root.scale.setScalar(Math.max(e.appearScale, 1e-4) * e.bodyScale);
       if (e.age >= AI_CONST.appearTicks) e.state = 'idle';
-    } else if (e.ai) {
-      this.think(e, dt);
+    } else if (e.stag) {
+      this.staggerPose(e);
+    } else {
+      this.staggerClear(e);
+      if (e.ai) this.think(e, dt);
     }
     if (e.kind === 'nurikabe' && this.stoneTick(e)) return;
     this.applyKnock(e);
-    if (!this.rise(e, dt)) this.settle(e, dt);
+    // よろけ中の ちょうちんは その場で ふわふわ（高さも かえない）
+    if (!this.rise(e, dt) && !(e.stag && e.dims.flies)) this.settle(e, dt);
     if (e.y < AI_CONST.voidY) {
       e.remove = true;
       return;
@@ -1339,7 +1410,8 @@ export class YokaiManager implements YokaiWorld {
     if (ai.flies) {
       const s = flySurface(this.world, e.x, e.z, e.y);
       if (s === null) return;
-      const d = s - e.y;
+      // WEAPON-5: AI を 止めた ちょうちん（テスト用）は 置いた 高さより 下へは おりない
+      const d = (e.ai ? s : Math.max(s, e.homeY)) - e.y;
       const step = AI_CONST.hoverRate * dt;
       e.y += Math.abs(d) <= step ? d : Math.sign(d) * step;
       return;
@@ -1537,14 +1609,14 @@ export class YokaiManager implements YokaiWorld {
           dz /= d;
         }
         const push = Math.min(0.05, (min - d) / 2);
-        if (b.state !== 'attack') this.walk(b, dx, dz, push);
-        if (a.state !== 'attack') this.walk(a, -dx, -dz, push);
+        if (b.state !== 'attack' && !b.stag) this.walk(b, dx, dz, push);
+        if (a.state !== 'attack' && !a.stag) this.walk(a, -dx, -dz, push);
       }
       const dx = a.x - this.px;
       const dz = a.z - this.pz;
       const d = Math.hypot(dx, dz);
       const min = ra + AI_CONST.playerWidth / 2;
-      if (d < min && this.py < a.y + a.dims.height && this.py + AI_CONST.playerHeight > a.y + (KIND_AI[a.kind].flies ? 0.5 : 0)) {
+      if (!a.stag && d < min && this.py < a.y + a.dims.height && this.py + AI_CONST.playerHeight > a.y + (KIND_AI[a.kind].flies ? 0.5 : 0)) {
         const ux = d < 1e-6 ? 1 : dx / d;
         const uz = d < 1e-6 ? 0 : dz / d;
         this.walk(a, ux, uz, Math.min(0.08, min - d));
@@ -1560,7 +1632,7 @@ export class YokaiManager implements YokaiWorld {
     if (!(dmg > 0) || this.combat.dead()) return;
     const pb = this.playerBox(tmpBox);
     for (const e of this.ents) {
-      if (e.state === 'dying' || e.state === 'leaving' || e.state === 'appear' || e.state === 'attack') continue; // 攻撃中は攻撃のダメージだけ
+      if (e.state === 'dying' || e.state === 'leaving' || e.state === 'appear' || e.state === 'attack' || e.stag) continue; // 攻撃中は攻撃のダメージだけ。よろけ中は 体当たりしない
       for (const b of this.boxesOf(e, this.boxList)) {
         if (aabbOverlap(obbBounds(b, e.x, e.y, e.z, e.yaw, tmpBox2), pb) && this.localOverlap(e, b)) {
           if (this.combat.damage(e.kind === 'nurikabe' ? dmg * AI_CONST.nurikabeContactMul : dmg, e.kind, { x: e.x, y: e.y, z: e.z })) return;
@@ -1590,7 +1662,6 @@ export class YokaiManager implements YokaiWorld {
       this.emit({ type: 'fireball', tick: this.tick(), id: e.id, position: wpos });
       return;
     }
-    if (e.kind === 'nurikabe') this.crush(e);
     // 箱をワールドでの外わくにして、プレイヤーの体の箱と重なるか
     const bs = e.bodyScale;
     const ob: OBox = { cx: box.cx * bs, cy: box.cy * bs, cz: box.cz * bs, hx: (box.w / 2) * bs, hy: (box.h / 2) * bs, hz: (box.d / 2) * bs };
@@ -1599,8 +1670,28 @@ export class YokaiManager implements YokaiWorld {
     const hit =
       aabbOverlap(obbBounds(ob, e.x, e.y, e.z, e.yaw, tmpBox), this.playerBox(tmpBox2, padXZ, padY)) &&
       this.localOverlap(e, ob, padXZ, padY);
+    // WEAPON-5: パリィに 聞く（ろくろくびは 首の頭への 向き、ほかは 妖怪の足もとへの 向き）
+    let dmg = e.attack;
+    if (hit) {
+      const v = this.askParry('attack', e.id, e.kind === 'rokurokubi' ? wpos : { x: e.x, y: e.y, z: e.z }, e.attack);
+      if (v?.result === 'success') {
+        // 受けた: 攻撃は 取り消し（ダメージ 0・押されない・こわさない・attackHit なし）
+        this.applyStagger(e.id, 'parry');
+        return;
+      }
+      if (v?.result === 'early') dmg = v.amount;
+    }
+    if (e.kind === 'nurikabe') this.crush(e);
     this.emit({ type: 'attackHit', tick: this.tick(), id: e.id, kind: e.kind, hitPlayer: hit, position: wpos });
-    if (hit) this.combat.damage(e.attack, e.kind, { x: e.x, y: e.y, z: e.z });
+    if (hit) this.combat.damage(dmg, e.kind, { x: e.x, y: e.y, z: e.z });
+  }
+
+  /** パリィに 聞く。パリィの 窓口が なければ null（今のまま） */
+  private askParry(by: 'attack' | 'fireball', yokaiId: number | null, from: Vec3, amount: number): YokaiParryVerdict | null {
+    const port = this.opts.parry;
+    if (!port) return null;
+    const dirDeg = bearingOf({ x: this.px, y: this.py, z: this.pz }, from);
+    return port.hit({ by, yokaiId, dirDeg, amount });
   }
 
   /** 妖怪の向きで見た箱と、プレイヤーの箱の重なり（向きのついた箱のきちんとした判定） */
@@ -1625,7 +1716,7 @@ export class YokaiManager implements YokaiWorld {
     const idx = model.fireballs.findIndex((f) => f.alive && f.traveled === 0);
     if (idx < 0) return;
     const fb = model.fireballs.splice(idx, 1)[0]!;
-    this.fireballs.push({ fb, owner: e.id, damage: e.attack });
+    this.fireballs.push({ fb, owner: e.id, damage: e.attack, reflected: false });
     const spare = this.freeFireballs.pop();
     if (spare) model.fireballs.push(spare);
   }
@@ -1663,10 +1754,19 @@ export class YokaiManager implements YokaiWorld {
         tmpBox2.maxY = p.y + half;
         tmpBox2.minZ = p.z - half;
         tmpBox2.maxZ = p.z + half;
-        if (aabbOverlap(tmpBox2, pb)) {
-          hitPlayer = true;
-          end = true;
-          this.combat.damage(f.damage, kind, { x: p.x, y: p.y, z: p.z }, 'ball');
+        if (f.reflected) {
+          // はね返した 火の玉: 妖怪に 当たる（プレイヤーには もう 当たらない）
+          if (this.reflectedHit(f, tmpBox2)) end = true;
+        } else if (aabbOverlap(tmpBox2, pb)) {
+          // WEAPON-5: 受けの間なら はね返す（火の玉は のこる）。おしいは 半分で 消える
+          const v = this.askParry('fireball', f.owner, { x: p.x, y: p.y, z: p.z }, f.damage);
+          if (v?.result === 'success') {
+            this.reflectOne(f);
+          } else {
+            hitPlayer = true;
+            end = true;
+            this.combat.damage(v?.result === 'early' ? v.amount : f.damage, kind, { x: p.x, y: p.y, z: p.z }, 'ball');
+          }
         }
       }
       if (end) {
@@ -1679,8 +1779,152 @@ export class YokaiManager implements YokaiWorld {
     this.fireballs = keep;
   }
 
-  /** テスト用: いま飛んでいる火の玉の数 */
+  /** テスト用: いま飛んでいる火の玉の数（はね返した分も 数える） */
   fireballCount(): number {
     return this.fireballs.length;
+  }
+
+  // ---------------------------------------------------------------- WEAPON-5: 火の玉の はね返し・よろけ
+
+  /** テスト窓口 `yokai.fireballList()`: 飛んでいる 火の玉（コピー） */
+  fireballList(): FireballView[] {
+    return this.fireballs.map((f) => ({
+      position: { x: f.fb.position.x, y: f.fb.position.y, z: f.fb.position.z },
+      dir: { x: f.fb.dir.x, y: f.fb.dir.y, z: f.fb.dir.z },
+      speed: f.fb.speed,
+      reflected: f.reflected,
+      owner: f.owner,
+    }));
+  }
+
+  /** index 番めの 火の玉を はね返す。できたら true（もう はね返した・消えた 火の玉は false） */
+  reflectFireball(index: number): boolean {
+    const f = this.fireballs[index];
+    if (!f || f.reflected || !f.fb.alive) return false;
+    this.reflectOne(f);
+    return true;
+  }
+
+  /** 投げた ちょうちんの 当たりの箱の まん中へ（そのときの 位置。追いかけない）。いなければ 来た向きの 逆 */
+  private reflectOne(f: LiveFireball): void {
+    const fb = f.fb;
+    const owner = this.ents.find((q) => q.id === f.owner);
+    let dx = -fb.dir.x;
+    let dy = -fb.dir.y;
+    let dz = -fb.dir.z;
+    if (owner && owner.state !== 'dying' && owner.state !== 'leaving' && !owner.remove) {
+      const tx = owner.x - fb.position.x;
+      const ty = owner.y + owner.dims.height / 2 - fb.position.y;
+      const tz = owner.z - fb.position.z;
+      if (Math.hypot(tx, ty, tz) > 1e-6) {
+        dx = tx;
+        dy = ty;
+        dz = tz;
+      }
+    }
+    const rf = this.S.reflectFireball;
+    fb.reflect(tmpVec.set(dx, dy, dz), rf.speed, rf.range);
+    f.reflected = true;
+  }
+
+  /** はね返した 火の玉 f(box = 火の玉の 箱) が 妖怪に 当たったか。当たったら ダメージ・よろけ。 */
+  private reflectedHit(f: LiveFireball, fbBox: Aabb): boolean {
+    for (const e of this.ents) {
+      if (e.state === 'dying' || e.state === 'leaving' || e.state === 'appear' || e.remove) continue;
+      for (const b of this.boxesOf(e, this.boxList)) {
+        if (!aabbOverlap(obbBounds(b, e.x, e.y, e.z, e.yaw, tmpBox), fbBox)) continue;
+        const p = f.fb.position;
+        const amount = f.damage * this.S.reflectFireball.damageMul;
+        const dealt = this.hurtYokai(e.id, amount, { x: p.x, y: p.y, z: p.z });
+        this.opts.onParryEvent?.({ type: 'reflectHit', yokaiId: e.id, damage: dealt });
+        if ((e.state as YokaiState) !== 'dying') this.applyStagger(e.id, 'reflect');
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /** そのステップの 次の攻撃までの ステップ数 */
+  private coolTicks(kind: YokaiKind): number {
+    return Math.round(YOKAI_STATS[kind].cooldownSeconds * 60);
+  }
+
+  /** よろけの のこり（なければ null）。窓口 `yokai.stagger(id)` */
+  stagger(id: number): StaggerInfo | null {
+    return this.stagBook.get(id);
+  }
+
+  /** 画面の よろけアイコン用: 2 倍が のこっている 妖怪。頭の上の 位置（名前・バーより 上） */
+  staggerIcons(out: { id: number; x: number; y: number; z: number; titled: boolean }[] = []): typeof out {
+    out.length = 0;
+    for (const id of this.stagBook.ids()) {
+      const e = this.ents.find((q) => q.id === id);
+      if (!e || e.state === 'dying' || e.state === 'leaving' || e.remove || !this.stagBook.hasDouble(id)) continue;
+      out.push({ id, x: e.x, y: e.y + e.dims.marksHeight + HP_BAR.barHeight * 0.75 + 0.1, z: e.z, titled: e.title !== 'none' });
+    }
+    return out;
+  }
+
+  /** 窓口 `hud.staggerIcon(id)`: いない id は null。アイコンは 2 倍が のこっている あいだ 見える */
+  staggerIconInfo(id: number): { visible: boolean } | null {
+    const e = this.ents.find((q) => q.id === id);
+    if (!e || e.remove) return null;
+    return { visible: e.state !== 'dying' && e.state !== 'leaving' && this.stagBook.hasDouble(id) };
+  }
+
+  /** 攻撃を 取り消して よろける（パリィの 成功・はね返しが 当たった）。できたら true */
+  applyStagger(id: number, by: StaggerBy): boolean {
+    const e = this.ents.find((q) => q.id === id);
+    if (!e || e.state === 'dying' || e.state === 'leaving' || e.remove) return false;
+    if (e.state === 'attack') {
+      // 攻撃は 取り消し（このあと 当たらない）。つぎの 攻撃までを はかり直す
+      e.model.setMotion('wait');
+      e.motion = 'wait';
+      e.state = 'chase';
+      e.attackSteps = 0;
+      e.bestDist = Infinity;
+      e.lastProgress = this.steps;
+    } else if (e.motion === 'move') {
+      e.model.setMotion('wait');
+      e.motion = 'wait';
+    }
+    e.cool = this.coolTicks(e.kind);
+    this.stagBook.stagger(id, by);
+    e.stag = true;
+    e.stagPhase = 0;
+    this.opts.onParryEvent?.({ type: 'stagger', yokaiId: id, by });
+    return true;
+  }
+
+  /** よろけている 間の すがた（ふらふら）。歩かない・向きを かえない・攻撃しない。次の攻撃までを 数えはじめない */
+  private staggerPose(e: Ent): void {
+    e.cool = this.coolTicks(e.kind);
+    e.stagPhase++;
+    const t = e.stagPhase;
+    e.model.staggerTilt = Math.sin(t * 0.32) * 0.2;
+    e.model.staggerTwist = Math.sin(t * 0.21 + 1) * 0.3;
+  }
+
+  private staggerClear(e: Ent): void {
+    if (e.model.staggerTilt !== 0 || e.model.staggerTwist !== 0) {
+      e.model.staggerTilt = 0;
+      e.model.staggerTwist = 0;
+    }
+  }
+
+  /**
+   * テスト窓口 `yokai.attackNow(id)`: すぐ 攻撃を 始めさせる（ai が false でも。きょり・次の攻撃までは 見ない）。
+   * hitInSteps = 攻撃を 始めてから 当たりを 見るまで（ちょうちんは 火の玉を 投げるまで）。できない（倒れかけ など）は null。
+   */
+  attackNow(id: number): { hitInSteps: number } | null {
+    const e = this.ents.find((q) => q.id === id);
+    if (!e || e.state === 'dying' || e.state === 'leaving' || e.state === 'appear' || e.state === 'attack' || e.remove) return null;
+    const dx = this.px - e.x;
+    const dz = this.pz - e.z;
+    const d = Math.hypot(dx, dz);
+    if (d > 1e-6) e.yaw = yawToward(dx / d, dz / d); // プレイヤーの方を すぐ向く
+    if (e.kind === 'rokurokubi' && !this.planNeck(e)) return null;
+    this.startAttack(e);
+    return { hitInSteps: Math.round(YOKAI_STATS[e.kind].hitSeconds * 60) };
   }
 }
