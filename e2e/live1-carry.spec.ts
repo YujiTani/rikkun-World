@@ -336,7 +336,7 @@ test.describe('LIVE-1 だっこ・おろす・パタパタ', () => {
     expect(r.wildCarried, 'やせいは だっこしない').toBe(false);
     expect(r.wildHint).toBe('carryWild');
     expect(r.wildChip.bare).toEqual([]);
-    expect(r.wildMushi, 'やせいに 長おしでは あげない').toBe(2);
+    expect(r.wildMushi, 'やせいは 押した 瞬間に あげる（§2.8）。長おしでも むしは 1 つ へる').toBe(1);
   });
 
   test('AC20 パタパタ: 10 マス上の くうきに おろす → どの ステップも 下向き 2.0 マス/秒 以下・fluttering true・着地まで 285 ステップ以上・着地で false', async ({ page }) => {

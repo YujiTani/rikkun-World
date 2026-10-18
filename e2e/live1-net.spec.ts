@@ -76,6 +76,7 @@ test.describe('LIVE-1 むしとりあみ・むし', () => {
         if (i === 1) h.input.release('secondary');
         if (i === 6) {
           // ふっている 途中に もう 1 回 押す
+          out.counts[i] = h.inventory.count('mushi');
           h.input.press('secondary');
           h.step(1);
           h.input.release('secondary');
@@ -197,7 +198,7 @@ test.describe('LIVE-1 むしとりあみ・むし', () => {
     for (const [k, v] of Object.entries<any>(r.trees)) expect(v.swing, k).toBe(1);
   });
 
-  test('AC8 かならず: bugChance 0 でも 3 回目は かならず とれる（chance・chance・pity）。とれたら 数え直し', async ({ page }) => {
+  test('AC8 かならず: bugChance 0 でも 3 回目は かならず とれる（miss・miss・pity）。とれたら 数え直し', async ({ page }) => {
     await openAnimals(page);
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
@@ -217,10 +218,10 @@ test.describe('LIVE-1 むしとりあみ・むし', () => {
       }
       return rows;
     });
-    expect(r[0]).toMatchObject({ caught: false, reason: 'chance' });
-    expect(r[1]).toMatchObject({ caught: false, reason: 'chance' });
+    expect(r[0]).toMatchObject({ caught: false, reason: 'miss' });
+    expect(r[1]).toMatchObject({ caught: false, reason: 'miss' });
     expect(r[2], '3 回目は かならず').toMatchObject({ caught: true, reason: 'pity', swCaught: true });
-    expect(r[3], '数え直し').toMatchObject({ caught: false, reason: 'chance' });
+    expect(r[3], '数え直し').toMatchObject({ caught: false, reason: 'miss' });
   });
 
   test('AC9 おやすみ: とった き の 近く（水平 3）は とれない・treeEmpty・bug:* ふえない。6 はなれた き は とれる。1,800 後 また とれる', async ({ page }) => {
