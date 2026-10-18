@@ -11,3 +11,6 @@
 
 ## 絵（2026-10-18 09:00 yuzu、決定カード）
 案 B「頭上受け＋はでな火花」に、案 A の青白いうずまきアイコンを合わせる。見本 /mnt/project-files/weapon5/art-options/（火花の粒は DESIGN 15.3 に合わせて 20→12）。
+
+## 音（2026-10-18 09:00 yuzu、決定カード）
+案 A「木と鈴」（木のパキッ＋鈴のシャリン）。見本 /mnt/project-files/weapon5/sound-options/A/、作り方 make-parry-sounds.mjs・音量 levels.json。
