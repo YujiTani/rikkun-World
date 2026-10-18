@@ -17,3 +17,7 @@
 | 2 | design | design-reviewer | 【軽微】タスク票 `docs/tickets/WEAPON-7.md` が金の かたな・rarityAtLeast のまま古い（PO が直す） | 票が未更新 | G6 | 未対応 |
 | 2 | design | design-reviewer | 【軽微】§6 表の風神剣の回数は「波こみ」だが列の見出しは刀だけに読める。AC に雷/風/虹の「ふつうの わざ」ダメージ（P×倍率）の確認が雷の AC17 しかない | 書き方 | G7 | 未対応 |
 | 1 | dev | code-reviewer(テスト準備) | 【軽微】AC5〜AC11 など【ユニット】層の基準が E2E 側に寄っている。開発が実装と同時に src/ のユニット(窓口名は開発が決める)を足すこと。contracts.w7 に雷神剣の bladeTrail 行(thunder)の確認もあるとよい | 窓口名が実装前に未定 | G8 | 未対応 |
+| 3 | dev | code-reviewer(impl PR1) | 【軽微】`ThunderFx.dispose`（src/fx/thunderFx.ts:233）が 地面の 板・手の 板の ジオメトリ（`flat`・`PlaneGeometry`）と 3 つの 材質（glow/ring/aim/hand）、`boltMat` 以外を 捨てない。作りっぱなし（1 回しか 作らないので 実害は 小さい） | 後片付け漏れ | R1 | 未対応 |
+| 3 | dev | code-reviewer(impl PR1) | 【軽微】強さ 8 が `legendary[].power`（src/contracts.ts:1868）と `weaponDamage.raijin_ken`（src/tools/config.ts:32・src/fx/craftConfig.ts:66）の 2 か所。刀の 強さは `legendPowerOf` が 先に 読むので 後者は 死んだ データ。PR2 以降で 食いちがいやすい | 二重の 持ち方 | R2 | 未対応 |
+| 3 | dev | code-reviewer(impl PR1) | 【軽微】`legend.state()`/`view()`（src/main.ts の 雷の ブロック）が 毎ステップ オブジェクトを 作る。小さいが 持ち物が 雷神剣でない ときは 呼ばない 早期 return が あると よい | 毎コマの new | R3 | 未対応 |
+| 3 | dev | code-reviewer(impl PR1) | 【軽微】`npm run check:fast` で 5 件 失敗（WorldRenderer・WorldRendererStream の 5 秒 タイムアウト）。他の係と 同時実行の 負荷で、このコミットの コードとは 関係なし | 負荷での タイムアウト | R4 | 確認待ち |
