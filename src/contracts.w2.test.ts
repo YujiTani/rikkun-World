@@ -86,8 +86,10 @@ describe('WEAPON-2 contracts', () => {
       const ph = atlas.motions[name].phases as { startup: number; active: number; recovery: number };
       want[name] = ph.startup + ph.active + ph.recovery + 1;
     }
-    expect(Object.keys(data).sort()).toEqual(Object.keys(want).sort());
-    for (const [name, n] of Object.entries(want)) {
+    // WEAPON-5: パリィの 2 つ（parry・parryKime）の 刃先も 入る（長さは 形だけ見る）
+    expect(Object.keys(data).sort()).toEqual([...Object.keys(want), 'parry', 'parryKime'].sort());
+    for (const name of ['parry', 'parryKime']) expect(data[name]!.perTick.length).toBeGreaterThan(0);
+    for (const [name, n] of Object.entries({ ...want, parry: data.parry!.perTick.length, parryKime: data.parryKime!.perTick.length })) {
       const rows = data[name]!.perTick;
       expect(rows).toHaveLength(n);
       for (const r of rows) {
