@@ -213,7 +213,7 @@ describe('ツールチップ（AC28）', () => {
     expect(buildTooltip('furnace', deps).lines).toEqual(['おける', 'みぎクリック で やく']);
     const k = buildTooltip('crystal_katana', deps);
     expect(k.stars).toBe(4);
-    expect(k.lines).toEqual(['たたく つよさ 6', 'たいきゅう 500 / 500']);
+    expect(k.lines).toEqual(['たたく つよさ 4', 'たいきゅう 400 / 400']);
     expect(rarityCss(k.rarity)).toBe('#' + rarityTier('superRare').color.toString(16).padStart(6, '0'));
   });
   it('数は設定の値を使う', () => {

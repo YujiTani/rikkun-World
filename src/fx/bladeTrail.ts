@@ -82,6 +82,8 @@ export class BladeTrail {
   private tech: BladeTech | null = null;
   private item: ItemId | null = null;
   private style: BladeTrailStyle | null = null;
+  /** WEAPON-6: 何段目か（星の数）。段の情報が ない ときは 3 */
+  private comboStep = 3;
   private lengths: BladeTechFrames = { startup: 1, active: 1, recovery: 1 };
   private writing = false;
   /** いまの 時刻（わざを 始めた ステップの おわり = 1） */
@@ -167,9 +169,10 @@ export class BladeTrail {
       const tech = st.tech!;
       this.np = 0;
       this.tech = tech;
+      this.comboStep = st.combo?.step ?? 3;
       this.item = st.item;
       this.style = trailRow(s, st.item);
-      this.lengths = s.bladeTech[tech];
+      this.lengths = st.lengths ?? s.bladeTech[tech];
       const u = ((((st.move?.dirDeg ?? 0) % 360) + 360) % 360 * Math.PI) / 180;
       this.uSin = Math.sin(u);
       this.uCos = Math.cos(u);
@@ -369,7 +372,10 @@ export class BladeTrail {
     if (style.style === 'star' && this.shown) {
       this.c1.setHex(STAR_WHITE);
       this.c2.setHex(STAR_YELLOW);
-      for (const q of sh.starAt) {
+      // WEAPON-6: 星の 数 = 何段目か（1 段目 まん中の 1 こ・2 段目 はしの 2 こ・3 段目 3 こ）
+      for (let k = 0; k < sh.starAt.length; k++) {
+        if (this.comboStep === 1 ? k !== 1 : this.comboStep === 2 && k === 1) continue;
+        const q = sh.starAt[k]!;
         const j = Math.min(nseg, Math.floor(q * nseg));
         if (n - this.colT[j]! > sh.starMaxAge) continue;
         this.starAt[this.nStars] = j;

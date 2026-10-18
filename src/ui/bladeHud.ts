@@ -27,7 +27,7 @@ export class BladeHud {
 
   update(s: BladeState): void {
     const on = s.item !== null;
-    const f = this.settings().bladeTech.kesa;
+    const f = s.tech === 'kesa' && s.lengths ? s.lengths : this.settings().bladeTech.kesa;
     const lock = on && lockRingVisible(s, f.startup, f.active, f.recovery);
     if (lock !== this.lastLock) {
       this.lastLock = lock;

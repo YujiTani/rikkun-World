@@ -27,6 +27,8 @@ export interface WeaponFxDeps {
   /** CHAR-4: 体（当たり判定の 足もと）の いまの 位置。ふみこみの あとで 呼ぶ。`camera` と 両方 あるときだけ 刃の軌跡を 出す */
   body?: () => Vec3;
   camera?: THREE.Camera;
+  /** WEAPON-6: 刀の 出来事を 実績へ（3 段 ぜんぶ 当てた） */
+  onBlade?: (events: readonly BladeEvent[]) => void;
   /** たいきゅうの 出来事を 実績へ */
   onWear?: (events: readonly WearEvent[]) => void;
   /** こわれた（人形が 手を 見る 動きなど） */
@@ -84,7 +86,9 @@ export class WeaponFx {
   /** 1 ステップ: 出来事を 読んで 音・画面・演出を 出す */
   step(): void {
     const d = this.d;
-    for (const e of d.blade.drainEvents()) this.onBlade(e);
+    const be = d.blade.drainEvents();
+    for (const e of be) this.onBlade(e);
+    if (be.length) d.onBlade?.(be);
     d.bladeHud.update(d.blade.state());
     this.trailStep();
     for (const e of d.bow.drainEvents()) this.onBow(e);
@@ -100,6 +104,8 @@ export class WeaponFx {
       case 'techStart':
         this.d.bladeHud.techStarted(e.tech);
         playWeapon(s, e.tech);
+        if (e.step === 2) playWeapon(s, 'combo2');
+        else if (e.step === 3) playWeapon(s, 'combo3');
         break;
       case 'techHit':
         if (e.tech === 'kesa') {

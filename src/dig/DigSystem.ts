@@ -102,7 +102,7 @@ export interface DigM4Deps {
   /** M7-2: 出来事 の `tick`（なければ この 係 の 歩数） */
   nowTick?: () => number;
   /** WEAPON-2: 刀（ひだりクリックの ふりわけ §2.1-6 で わざを 渡す）。なければ 刀も ほるだけ */
-  blade?: Pick<BladeSystem, 'update' | 'state' | 'dropBuffer' | 'busyNext'>;
+  blade?: Pick<BladeSystem, 'update' | 'state' | 'dropBuffer' | 'busyNext' | 'nextStart' | 'yieldToParry'>;
   /** WEAPON-5: パリィ（刀の Shift＋クリック）。なければ 今のまま */
   parry?: Pick<Parry, 'state' | 'inWindow' | 'dropBuffer'>;
   /** WEAPON-2: たいきゅうの へる量（ほる・たがやす）。なければ へらさない */
@@ -348,11 +348,12 @@ export class DigSystemImpl implements DigSystem {
   parryInput(tick: number): ParryInput {
     const enabled = this.lock.playInputEnabled() && !this.gate?.blocksInput();
     const blade = this.m4.blade;
-    const nb = blade?.busyNext?.() ?? { busy: false, accepts: false };
     const pressed = enabled && this.actions.wasPressed('primary');
     const held = enabled && (this.actions.isHeld('primary') || pressed);
     const item = this.inventory.held()?.item ?? null;
     const run = this.actions.isHeld('run');
+    // WEAPON-6: つなぎの窓で パリィを 押した ステップは 刀は まだ 続く（始まるのは 次の ステップか C の おそい方）
+    const nb = blade?.busyNext?.(enabled && run && pressed && isBladeItem(item)) ?? { busy: false, accepts: false };
     if (enabled && run && pressed && isBladeItem(item) && nb.busy && nb.accepts) blade?.dropBuffer?.();
     return { tick, item, run, pressed, held, active: enabled, bladeBusy: nb.busy, bladeAccepts: nb.accepts };
   }
@@ -423,6 +424,8 @@ export class DigSystemImpl implements DigSystem {
         }
       }
       if (parryM && tech && primaryRaw && this.actions.wasPressed('primary') && blade.state().phase !== 'idle' && pstate?.buffered) parryM.dropBuffer();
+      // WEAPON-6: パリィが 始まったら つなぎの窓の わざは やめる
+      if (parryBusy && blade.state().combo) blade.yieldToParry?.();
       const body = this.bodyPoint(p, this.bodyScratch);
       blade.update({
         item: bladeItem,
@@ -1049,11 +1052,14 @@ export class DigSystemImpl implements DigSystem {
     const block: 'block' | 'crop' | null = tgt ? (this.m4.farm && cropKindOfBlock(tgt.id) ? 'crop' : 'block') : null;
     const before = tgt ? this.m4.yokai().raycast(o, d, tgt.distance) : null;
     const yokaiBeforeBlock = before !== null && before.distance < tgt!.distance;
+    // WEAPON-6: 次に 始まる わざ・何段目か（きらめく カタナだけ。ほかは かまえの わざ）
+    const nextBlade = hold === 'blade' ? this.m4.blade!.nextStart?.() : undefined;
     return decideAttack({
       settings: w2,
       hold,
       item: this.inventory.held()?.item ?? null,
-      tech: hold === 'blade' ? TECH_OF_STANCE[this.m4.blade!.state().stance] : 'thrust',
+      tech: nextBlade?.tech ?? (hold === 'blade' ? TECH_OF_STANCE[this.m4.blade!.state().stance] : 'thrust'),
+      step: nextBlade?.step,
       punchReach: this.m4.tools?.punchParams?.().reach ?? 3.5,
       yawDeg: p.yawDeg,
       facingDeg: p.facingDeg,

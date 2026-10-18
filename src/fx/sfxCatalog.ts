@@ -65,6 +65,8 @@ export const SFX_CATALOG: readonly SfxCatalogEntry[] = [
     ['kesa', 'おおぎり（ブォン）'],
     ['kesaHit', 'おおぎりの あたり'],
     ['kiriage', 'きりあげ'],
+    ['combo2', '3 だん わざ（2 だん め）'],
+    ['combo3', '3 だん わざ（3 だん め）'],
     ['wearLow', 'もうすぐ こわれる'],
     ['toolBreak', 'こわれた どうぐ'],
     ['drawStage1', 'ゆみ だん 1'],

@@ -127,6 +127,8 @@ export class AchievementSystem implements AchievementShowSource {
   private version_ = 0;
   private lastCloseAt: number | null = null;
   private lastHurtAt = -1e12;
+  /** WEAPON-6: 今の 3 段で 当たった 段（ビット 1・2・4） */
+  private comboHit = 0;
   private oldestSmallAt: number | null = null;
   private cond1Since: number | null = null;
   private calm = true;
@@ -431,6 +433,24 @@ export class AchievementSystem implements AchievementShowSource {
       for (const e of events) {
         if (e.type !== 'toolBreak') continue;
         this.bump(typeof e.slot === 'number' ? 'toolBroken' : 'armorBroken', 1);
+      }
+    });
+  }
+
+  /** WEAPON-6: 刀の 出来事。1 回の 3 段で 1・2・3 段目が どれも 当たったら `bladeCombo3` */
+  feedBlade(events: ReadonlyArray<{ type: string; step?: number }>): void {
+    if (events.length === 0) return;
+    this.run(() => {
+      for (const e of events) {
+        if (e.type === 'techStart') {
+          if (e.step === 1 || e.step === undefined) this.comboHit = 0;
+        } else if (e.type === 'techHit' && e.step && e.step >= 1 && e.step <= 3) {
+          this.comboHit |= 1 << (e.step - 1);
+          if (this.comboHit === 7) {
+            this.comboHit = 0;
+            this.bump('bladeCombo3', 1);
+          }
+        }
       }
     });
   }

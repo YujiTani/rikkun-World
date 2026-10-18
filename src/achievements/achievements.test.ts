@@ -55,10 +55,10 @@ const attach = (sys: AchievementSystem) => {
 };
 
 describe('実績の表', () => {
-  it('236 こ・id かぶりなし・小 82（LIVE-1 の 12・3 を 足した。M6 の 180・61 ＋ M7 の 27・11 ＋ WEAPON-2 の 4・1 ＋ M7-2 の 11・5 ＋ BUCKET-1 の 2・1）', () => {
-    expect(ACHIEVEMENT_DEFS.length).toBe(236);
-    expect(new Set(ACHIEVEMENT_DEFS.map((d) => d.id)).size).toBe(236);
-    expect(ACHIEVEMENT_DEFS.filter((d) => d.small).length).toBe(82);
+  it('237 こ・id かぶりなし・小 83（LIVE-1 の 12・3 を 足した。M6 の 180・61 ＋ M7 の 27・11 ＋ WEAPON-2 の 4・1 ＋ M7-2 の 11・5 ＋ BUCKET-1 の 2・1 ＋ WEAPON-6 の 1・1）', () => {
+    expect(ACHIEVEMENT_DEFS.length).toBe(237);
+    expect(new Set(ACHIEVEMENT_DEFS.map((d) => d.id)).size).toBe(237);
+    expect(ACHIEVEMENT_DEFS.filter((d) => d.small).length).toBe(83);
     expect(ACHIEVEMENT_DEFS.filter((d) => d.category === 'farm').length).toBe(47);
     expect(ACHIEVEMENT_DEFS.filter((d) => d.category === 'farm' && d.small).length).toBe(15);
   });
@@ -320,7 +320,7 @@ describe('じっせき ページの きまり', () => {
     p.setTab('achievements');
     let ui = p.ui(true);
     expect(ui.categories.length).toBe(9);
-    expect(ui.total).toBe(236);
+    expect(ui.total).toBe(237);
     expect(ui.tabDot).toBe(true);
     expect(ui.rows.some((r) => r.isNew)).toBe(true);
     expect(ui.rows.filter((r) => !r.shown).length).toBeGreaterThan(0);
@@ -353,5 +353,26 @@ describe('WEAPON-2 の 実績 4 こ', () => {
   it('名前に 漢字なし', () => {
     for (const id of ['tool.broken.1', 'tool.broken.10', 'tool.wearAll.1000', 'armor.broken.1'])
       expect(ACHIEVEMENT_DEFS.find((d) => d.id === id)?.name).toMatch(/^[^一-鿿]+$/);
+  });
+});
+
+
+describe('WEAPON-6 AC11b 実績 blade.combo3.1', () => {
+  const hit = (step: number) => ({ type: 'techHit', step });
+  const start = (step: number) => ({ type: 'techStart', step });
+  const got = (s: AchievementSystem) => s.list().find((r) => r.id === 'blade.combo3.1')!;
+  it('名前・小。1 回の 3 段で 1・2・3 段目が どれも 当たったら 手に入る', () => {
+    const s = mk();
+    expect(got(s).name).toBe('はじめて 3 だん わざ を ぜんぶ あてた！');
+    expect(ACHIEVEMENT_DEFS.find((d) => d.id === 'blade.combo3.1')!.small).toBe(true);
+    s.feedBlade([start(1), hit(1), start(2), hit(2), start(3), hit(3)]);
+    expect(got(s).unlocked).toBe(true);
+  });
+  it('3 段目だけ 外した・2 段目だけ 外した → 入らない。前の 段の 当たりは 持ちこさない', () => {
+    const s = mk();
+    s.feedBlade([start(1), hit(1), start(2), hit(2), start(3)]);
+    s.feedBlade([start(1), hit(1), start(2), start(3), hit(3)]);
+    s.feedBlade([start(1), start(2), hit(2), start(3), hit(3)]);
+    expect(got(s).unlocked).toBe(false);
   });
 });
