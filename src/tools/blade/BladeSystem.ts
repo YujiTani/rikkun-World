@@ -12,9 +12,9 @@ import type {
   Vec3,
   YokaiInfo,
 } from '../../contracts';
-import { W2_SETTING_DEFAULTS } from '../../contracts';
+import { TECH_PHASES } from '../../char/techCurves';
 import { boxOf, capsuleDist, normDeg, thrustTilt, wallBetween } from '../../combat/attackFacing';
-import { techAdvance } from './advance';
+import { bladeReachOf, techAdvance } from './advance';
 
 const DEG = Math.PI / 180;
 const MAX_QUEUE = 256;
@@ -22,9 +22,9 @@ const MAX_QUEUE = 256;
 /** 刀（わざ・かまえが ある もの）。なぎなたは 入れない（今の パンチのまま） */
 export const BLADE_ITEMS: ReadonlySet<ItemId> = new Set<ItemId>(['bokuto', 'katana', 'crystal_katana']);
 
-/** わざのダメージ = 刀の強さ × 倍率。四捨五入（0.5 は上）、最低 1（BALANCE §4.2） */
+/** わざのダメージ = 刀の強さ × 倍率。0.01 の位に まるめるだけ（四捨五入も 最低 1 も しない。WEAPON-4 §4.3） */
 export function techDamage(base: number, mul: number): number {
-  return Math.max(1, Math.floor(base * mul + 0.5 + 1e-9));
+  return Math.round(base * mul * 100 + 1e-7) / 100;
 }
 
 export function isBladeItem(item: ItemId | null | undefined): boolean {
@@ -32,7 +32,7 @@ export function isBladeItem(item: ItemId | null | undefined): boolean {
 }
 
 /** 絵の わざの 長さ（`atlas.json` の phases。初期値の bladeTech と 同じ）。設定の 長さが ちがうとき 比で のばす もとになる */
-const PICTURE_PHASES = W2_SETTING_DEFAULTS.bladeTech;
+const PICTURE_PHASES = TECH_PHASES;
 
 const TECH_OF_STANCE: Record<BladeStance, BladeTech> = { chudan: 'thrust', jodan: 'kesa', gedan: 'kiriage' };
 const NEXT_STANCE: Record<BladeStance, BladeStance> = { chudan: 'jodan', jodan: 'gedan', gedan: 'chudan' };
@@ -55,6 +55,8 @@ export function createBladeSystem(deps: BladeDeps): BladeSystem {
   /** WEAPON-3: 突きの 線の 向き（u と かたむき）と 出どころ B。始めたステップで 固定 */
   let aimDir: Vec3 = { x: 0, y: 0, z: -1 };
   const bodyStart: Vec3 = { x: 0, y: 0, z: 0 };
+  /** WEAPON-4: このわざの 射程 R（始めたステップの 刀で 固定） */
+  let reach = 2.2;
   let drainQ: BladeEvent[] = [];
   const peekQ: BladeEvent[] = [];
 
@@ -112,6 +114,7 @@ export function createBladeSystem(deps: BladeDeps): BladeSystem {
     switchFrom = null;
     hitSet = new Set<number>();
     hitReported = false;
+    reach = bladeReachOf(S, item);
     const u = normDeg(ctx.attackDirDeg);
     const tiltDeg = tech === 'thrust' && ctx.attackTarget ? thrustTilt(ctx.body, ctx.attackTarget, S.thrustTiltMaxDeg) : 0;
     move = { dirDeg: u, origin: { ...ctx.position }, target: 0, moved: 0, tiltDeg };
@@ -168,7 +171,7 @@ export function createBladeSystem(deps: BladeDeps): BladeSystem {
       return {
         kind: 'capsule',
         from: { ...bodyStart },
-        to: { x: bodyStart.x + aimDir.x * sh.length, y: bodyStart.y + aimDir.y * sh.length, z: bodyStart.z + aimDir.z * sh.length },
+        to: { x: bodyStart.x + aimDir.x * reach, y: bodyStart.y + aimDir.y * reach, z: bodyStart.z + aimDir.z * reach },
         radius: sh.radius,
       };
     }
@@ -179,7 +182,7 @@ export function createBladeSystem(deps: BladeDeps): BladeSystem {
       forward: { x: fx, y: 0, z: fz },
       halfAngleDeg: sh.halfAngleDeg,
       rMin: sh.rMin,
-      rMax: sh.rMax,
+      rMax: reach,
       yMin: ctx.position.y + sh.yMin,
       yMax: ctx.position.y + sh.yMax,
     };
@@ -200,7 +203,7 @@ export function createBladeSystem(deps: BladeDeps): BladeSystem {
     const dz = y.position.z - ctx.position.z;
     const d = Math.hypot(dx, dz);
     // rMin 側は 自分の 体の ぶん。近い 妖怪は 当てる
-    if (d > sh.rMax + r) return false;
+    if (d > reach + r) return false;
     if (d <= r) return true;
     const cos = (dx * fx + dz * fz) / d;
     const ang = Math.acos(Math.max(-1, Math.min(1, cos)));
@@ -232,13 +235,12 @@ export function createBladeSystem(deps: BladeDeps): BladeSystem {
     let count = 0;
     if (t === 'thrust') {
       if (hitSet.size > 0) return 0; // 1 体 だけ
-      const ray = yw.raycast(bodyStart, aimDir, S.bladeAimReach);
       let best: YokaiInfo | null = null;
       let bestD = Infinity;
       for (const y of list) {
         if (y.state === 'dying' || y.state === 'leaving') continue;
-        let d = capsuleDist(bodyStart, aimDir, S.bladeShape.thrust.length, S.bladeShape.thrust.radius, y);
-        if (ray && ray.id === y.id && (d < 0 || ray.distance < d)) d = ray.distance;
+        // WEAPON-4 §4.2: ＋マークの 線で 当てる近道は なくす（当たり判定の 箱が 絵の 半径より 広く R を こえて とどくため）。カプセルだけ
+        const d = capsuleDist(bodyStart, aimDir, reach, S.bladeShape.thrust.radius, y);
         if (d < 0) continue;
         const { h } = boxOf(y);
         if (blocked(ctx, y.position.x, y.position.y + h / 2, y.position.z)) continue;

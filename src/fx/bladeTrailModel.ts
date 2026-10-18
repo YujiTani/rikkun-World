@@ -1,5 +1,6 @@
 // CHAR-4: 刃の軌跡の 純粋な 決まり（three.js なし）。docs/design/CHAR-4.md §4.2〜§4.5
 import { W2_SETTING_DEFAULTS, type BladeTech, type BladeTechFrames, type BladeTrailStyle, type ItemId, type W2Settings } from '../contracts';
+import { TECH_PHASES } from '../char/techCurves';
 import pathJson from './bladePath.json';
 
 /** 軌跡を 出す 刀（`BLADE_ITEMS` と 同じ。fx から tools へ 依存しないよう ここにも 持つ） */
@@ -27,7 +28,7 @@ export const TRAIL_MODEL_H = 1.7;
 export const TRAIL_K = 1.8 / TRAIL_MODEL_H;
 
 /** 絵の わざの 長さ（初期の 設定と 同じ） */
-const PICTURE: Record<BladeTech, BladeTechFrames> = W2_SETTING_DEFAULTS.bladeTech;
+const PICTURE: Record<BladeTech, BladeTechFrames> = TECH_PHASES;
 
 /** 設定の 時刻 t（わざの ステップ f の おわり = f）→ 絵の 時 τ（§4.2）。出だし・当たり・もどりを 順に たどる（new しない） */
 export function timeToTau(tech: BladeTech, lengths: BladeTechFrames, t: number): number {

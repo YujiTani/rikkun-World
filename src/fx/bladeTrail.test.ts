@@ -19,9 +19,9 @@ function expectWorld(tech: BladeTech, tau: number, which: 'tip' | 'base', body: 
   return { x: body.x + K * (d[0]! * Math.cos(u) + d[2]! * Math.sin(u)), y: body.y + K * d[1]!, z: body.z + K * (d[0]! * Math.sin(u) - d[2]! * Math.cos(u)) };
 }
 
-const TICKS: Record<BladeTech, number> = { thrust: 41, kesa: 106, kiriage: 104 };
-const DRAW: Record<BladeTech, [number, number]> = { thrust: [2, 6], kesa: [28, 34], kiriage: [38, 43] };
-const VISIBLE: Record<BladeTech, [number, number]> = { thrust: [3, 14], kesa: [29, 42], kiriage: [39, 51] };
+const TICKS: Record<BladeTech, number> = { thrust: 41, kesa: 106, kiriage: 52 };
+const DRAW: Record<BladeTech, [number, number]> = { thrust: [2, 6], kesa: [28, 34], kiriage: [19, 22] };
+const VISIBLE: Record<BladeTech, [number, number]> = { thrust: [3, 14], kesa: [29, 42], kiriage: [20, 30] };
 
 describe('CHAR-4 AC2 書く時間と 見える時間', () => {
   for (const tech of TECHS) {
@@ -83,10 +83,11 @@ describe('CHAR-4 AC3 位置', () => {
   });
   it('仕様書 §4.3 の 表（yaw 0）: 刃先 − O が 表と ±0.01', () => {
     const table: Array<[BladeTech, number, [number, number, number]]> = [
-      ['kesa', 29, [0.418, 1.947, -0.315]],
-      ['kesa', 34, [-0.51, 0.33, -1.296]],
-      ['kiriage', 39, [0.502, 0.555, -1.663]],
-      ['kiriage', 43, [-0.376, 1.967, -1.604]],
+      // WEAPON-4: 体が 大けさぎりで 前へ 進む（A(29) = 0.4・A(34) = 2.6）ぶん 前へ。切り上げは その場（A = 0）で 窓は F19〜22
+      ['kesa', 29, [0.418, 1.947, -0.172]],
+      ['kesa', 34, [-0.51, 0.33, -3.242]],
+      ['kiriage', 19, [0.626, 0.291, -0.086]],
+      ['kiriage', 22, [-0.376, 1.967, -0.546]],
       ['thrust', 2, [0.041, 1.573, -0.53]],
       ['thrust', 6, [0.031, 1.281, -1.266]],
     ];
@@ -97,11 +98,11 @@ describe('CHAR-4 AC3 位置', () => {
       expect(near(rel(p.tip), want, 0.01), `${tech} F${f}: ${rel(p.tip).map((v) => v.toFixed(3))} と ${want}`).toBe(true);
     }
   });
-  it('yaw 90 の 大けさぎり F34 の 刃先 = (1.296, 0.330, −0.510) ±0.01', () => {
+  it('yaw 90 の 大けさぎり F34 の 刃先 = (3.242, 0.330, −0.510) ±0.01', () => {
     const rig = makeRig();
     const rec = fire(rig, 'kesa', 34, { dirDeg: 90 });
     const p = at(rec, 34).snap.points.find((x) => x.step === 34)!;
-    expect(near(rel(p.tip), [1.296, 0.33, -0.51], 0.01), rel(p.tip).join()).toBe(true);
+    expect(near(rel(p.tip), [3.242, 0.33, -0.51], 0.01), rel(p.tip).join()).toBe(true);
   });
   it('書いた 点は 世界に とどまる: F29 に 書いた 点は F33 でも 同じ 位置（±0.001）。体が 前へ すすんでも・カメラを 回しても 動かない', () => {
     const rig = makeRig();

@@ -1,6 +1,8 @@
-import type { BladeTech, Vec3, VoxelWorld, W2Settings, YokaiInfo } from '../contracts';
+import type { BladeTech, ItemId, Vec3, VoxelWorld, W2Settings, YokaiInfo } from '../contracts';
 import { raycastBlocks } from '../dig/raycast';
 import { KIND_AI } from '../yokai/ai/config';
+import { TECH_PHASES } from '../char/techCurves';
+import { bladeReachOf, techAdvance } from '../tools/blade/advance';
 
 /**
  * WEAPON-3 近接の 攻撃の 向きの 決まり（仕様書 §4.2〜§4.4）。純粋な 計算だけ（描画・入力に 触らない）。
@@ -24,6 +26,8 @@ export interface AttackInput {
   hold: AttackHold;
   /** 刀の 今の かまえの わざ（hold が blade の ときだけ 見る） */
   tech: BladeTech;
+  /** 持っている刀（射程 R を 引く。なければ かたなの R） */
+  item?: ItemId | null;
   /** パンチの 届く距離（すで 3.5・なぎなた 5.0 など） */
   punchReach: number;
   yawDeg: number;
@@ -212,15 +216,22 @@ function reachable(inp: AttackInput, y: YokaiInfo, c: Vec3, bearing: number | nu
   }
   if (inp.tech === 'thrust') {
     const sh = s.bladeShape.thrust;
+    const R = bladeReachOf(s, inp.item);
     const tilt = thrustTilt(inp.body, c, s.thrustTiltMaxDeg) * DEG;
     const ct = Math.cos(tilt);
     dirTmp.x = fx * ct;
     dirTmp.y = Math.sin(tilt);
     dirTmp.z = fz * ct;
-    return capsuleDist(inp.body, dirTmp, sh.length, sh.radius, y) >= 0;
+    return capsuleDist(inp.body, dirTmp, R, sh.radius, y) >= 0;
   }
   const sh = inp.tech === 'kesa' ? s.bladeShape.kesa : s.bladeShape.kiriage;
-  return inFanColumn(P, fx, fz, sh.halfAngleDeg, sh.rMax, sh.yMin, sh.yMax, y);
+  // WEAPON-4 §4.2: 刀の 射程 R。大けさぎりは とびこみで 当たりの おわり（F = 出だし + 当たり）までに 進む ぶんを 足す
+  let rMax = bladeReachOf(s, inp.item);
+  if (inp.tech === 'kesa') {
+    const f = s.bladeTech.kesa;
+    rMax += techAdvance(s.bladeAdvance.kesa, TECH_PHASES.kesa, f, f.startup + f.active);
+  }
+  return inFanColumn(P, fx, fz, sh.halfAngleDeg, rMax, sh.yMin, sh.yMax, y);
 }
 
 /** 向きの補助で えらぶ 妖怪（§4.3）。いなければ null */

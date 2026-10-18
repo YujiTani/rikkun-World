@@ -1717,6 +1717,8 @@ export interface W2Settings {
   bladeAdvance: Record<BladeTech, BladeAdvanceCurve>;
   /** 照準の 線で 妖怪を わざに ふりわける 距離 */
   bladeAimReach: number;
+  /** WEAPON-4: 刀ごとの 射程 R（3 つのわざで 同じ）。表にない 刀は かたなの 値 */
+  bladeReach: Partial<Record<ItemId, number>>;
   bladeShape: {
     thrust: { length: number; radius: number };
     kesa: { halfAngleDeg: number; rMin: number; rMax: number; yMin: number; yMax: number };
@@ -1794,24 +1796,25 @@ export const W2_SETTING_DEFAULTS: Readonly<W2Settings> = {
   bladeTech: {
     thrust: { startup: 4, active: 2, recovery: 35 },
     kesa: { startup: 28, active: 6, recovery: 72 },
-    kiriage: { startup: 38, active: 5, recovery: 61 },
+    kiriage: { startup: 19, active: 3, recovery: 30 },
   },
   stanceSwitchTicks: 8,
   bladeBufferTicks: 8,
   bladeMoveMul: { thrust: 0, kesaStartupActive: 0, kesaRecovery: 0, kiriage: 0 },
   bladeAdvance: {
     thrust: { ticks: [2, 2, 1, 1, 3, 11, 4, 4, 4, 4, 5], advance: [0, 0.08, 0.255, 0.26, 0.29, 0.32, 0.285, 0.241, 0.16, 0.073, 0.002], step: 0 },
-    kesa: { ticks: [8, 7, 4, 4, 5, 2, 2, 2, 5, 28, 8, 8, 8, 8, 7], advance: [0, 0.019, 0.088, 0.22, 0.351, 0.543, 0.62, 0.639, 0.691, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8], step: 0.8 },
-    kiriage: { ticks: [5, 5, 5, 5, 5, 5, 4, 4, 2, 1, 2, 8, 27, 6, 6, 6, 4, 4], advance: [0, 0.13, 0.26, 0.39, 0.52, 0.65, 0.78, 0.91, 1.016, 1.04, 1.059, 1.05, 1.04, 1.04, 1.04, 1.04, 1.04, 1.04], step: 1.04 },
+    kesa: { ticks: [8, 7, 4, 4, 5, 2, 2, 2, 5, 28, 8, 8, 8, 8, 7], advance: [0, 0, 0.02, 0.04, 0.08, 0.4, 1.4, 2.4, 3.1, 3.1, 3.1, 3.1, 3.1, 3.1, 3.1], step: 3.1 },
+    kiriage: { ticks: [5, 5, 5, 5, 5, 5, 4, 4, 2, 1, 2, 8, 27, 6, 6, 6, 4, 4], advance: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], step: 0 },
   },
   bladeAimReach: 4.5,
+  bladeReach: { bokuto: 2.2, katana: 2.2, crystal_katana: 2.2 },
   bladeShape: {
-    thrust: { length: 4.5, radius: 0.2 },
-    kesa: { halfAngleDeg: 75, rMin: 0.3, rMax: 3.2, yMin: -0.5, yMax: 2.6 },
-    kiriage: { halfAngleDeg: 45, rMin: 0.3, rMax: 3.0, yMin: -0.3, yMax: 4.2 },
+    thrust: { length: 2.2, radius: 0.2 },
+    kesa: { halfAngleDeg: 75, rMin: 0.3, rMax: 2.2, yMin: -0.5, yMax: 2.6 },
+    kiriage: { halfAngleDeg: 45, rMin: 0.3, rMax: 2.2, yMin: -0.3, yMax: 6.0 },
   },
-  bladeDamageMul: { thrust: 0.75, kiriage: 0.75, kesa: 2 },
-  bladeKnock: { thrust: [1.5, 0], kesa: [2.5, 2], kiriage: [1.0, 7] },
+  bladeDamageMul: { thrust: 0.75, kiriage: 1.15, kesa: 2.5 },
+  bladeKnock: { thrust: [0.8, 0], kesa: [6, 3], kiriage: [1.0, 7] },
   bowStageTicks: [10, 25, 40],
   bowSpeed: [12, 20, 28],
   bowDamage: [1, 2, 3],
@@ -1892,6 +1895,7 @@ export function createW2Settings(): W2Settings {
       kiriage: { ...d.bladeAdvance.kiriage, ticks: [...d.bladeAdvance.kiriage.ticks], advance: [...d.bladeAdvance.kiriage.advance] },
     },
     bladeAimReach: d.bladeAimReach,
+    bladeReach: { ...d.bladeReach },
     bladeShape: {
       thrust: { ...d.bladeShape.thrust },
       kesa: { ...d.bladeShape.kesa },

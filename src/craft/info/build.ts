@@ -45,6 +45,8 @@ export interface InfoNumbers {
   toolLevel: Partial<Record<string, number>>;
   weaponDamage: Partial<Record<string, number>>;
   weaponReach: Partial<Record<string, number>>;
+  /** WEAPON-4: 刀の 射程（なければ weaponReach・パンチの 届く距離） */
+  bladeReach?: Partial<Record<string, number>>;
   weaponTicks: Partial<Record<string, number>>;
   arrowDamage: number;
   arrowRange: number;
@@ -82,6 +84,7 @@ export function defaultInfoNumbers(): InfoNumbers {
     toolLevel: TOOL_DEFAULTS.toolLevel,
     weaponDamage: TOOL_DEFAULTS.weaponDamage,
     weaponReach: TOOL_DEFAULTS.weaponReach,
+    bladeReach: W2_SETTING_DEFAULTS.bladeReach,
     weaponTicks: TOOL_DEFAULTS.weaponTicks,
     arrowDamage: TOOL_DEFAULTS.arrowDamage,
     arrowRange: TOOL_DEFAULTS.arrowRange,
@@ -193,7 +196,7 @@ export function createItemInfo(d: InfoDeps): ItemInfoSource {
             max: STAT_MAX.damage,
             compare: `すで は ${numText(n.punchDamage)}`,
           },
-          { key: 'reach', label: 'とどく', value: n.weaponReach[item] ?? n.punchReach },
+          { key: 'reach', label: 'とどく', value: n.bladeReach?.[item] ?? n.weaponReach[item] ?? n.punchReach },
           { key: 'speed', label: 'はやさ', value: ticks <= 30 ? 'ふつう' : 'ゆっくり' },
           ...durRow(item, n),
         ];
