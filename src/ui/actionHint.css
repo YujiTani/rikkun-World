@@ -58,3 +58,11 @@
 .action-hint__mouse--right .action-hint__btn--r {
   background: var(--rk-accent, #ffd23f);
 }
+
+/* LIVE-1 版 3.2: なかま を 押しつづける あいだ、絵 の まわり に わ が たまる（40 ステップ で 1 しゅう） */
+.action-hint__cell[data-ring] .action-hint__art {
+  border-radius: 50%;
+  padding: 3px;
+  background: conic-gradient(var(--rk-accent, #ffd23f) calc(var(--p, 0) * 1turn), transparent 0);
+  box-sizing: content-box;
+}

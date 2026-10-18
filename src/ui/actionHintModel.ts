@@ -3,8 +3,11 @@ import type { LeftClickKind, RightClickPreview } from '../dig/rightClick';
 
 /** ヒント 1 つ: どのボタンで・どの絵で・どの 1 語か */
 export interface ActionHintItem {
-  /** すること の絵にする アイテム（'heart' = ハート。LIVE-1 の なでる） */
-  icon: ItemId | 'heart';
+  /**
+   * すること の絵にする アイテム（'heart' = ハート。LIVE-1 の なでる）。
+   * 版 3.2: 'full' = おなかいっぱい・'carry' = だっこ・'chicken' = おろす（専用 の 絵 が できるまで にわとり で かわり）
+   */
+  icon: ItemId | 'heart' | 'full' | 'carry' | 'chicken';
   /** ひらがなの 1 語 */
   word: string;
 }
@@ -12,6 +15,8 @@ export interface ActionHintItem {
 export interface ActionHintLines {
   right?: ActionHintItem;
   left?: ActionHintItem;
+  /** 版 3.2 §3.1: だっこ の わ の たまり 0〜1（なかま を 右クリック 押しつづけ。40 ステップ で 1 しゅう）。わ が なければ 無い */
+  progress?: number;
 }
 
 export interface ActionHintCtx {
@@ -20,6 +25,8 @@ export interface ActionHintCtx {
   heldIsPickaxe: boolean;
   /** 持っているものが 武器 か（たたく の絵に使う） */
   heldIsBlade: boolean;
+  /** 版 3.2: `DigSystem.carryProgress()`（0 = わ なし） */
+  carryProgress?: number;
 }
 
 /**
@@ -58,6 +65,16 @@ export function actionHintLines(right: RightClickPreview | null, left: LeftClick
       case 'animalPet':
         out.right = { icon: 'heart', word: 'なでる' };
         break;
+      // 版 3.2（§3.1）: おなかいっぱい = まってね、あみ = とる、だっこ中 = おろす。netHint は 合図 の チップ だけ（照準 の 下 には 出さない）
+      case 'animalFull':
+        out.right = { icon: 'full', word: 'まってね' };
+        break;
+      case 'net':
+        out.right = { icon: 'mushi_ami', word: 'とる' };
+        break;
+      case 'putDown':
+        out.right = { icon: 'chicken', word: 'おろす' };
+        break;
       // M7-2（§3.1）: 持っている じょうろ の 絵（ながい じょうろ なら その 絵）
       case 'fill':
         out.right = { icon: right.item!, word: 'くむ' };
@@ -85,6 +102,11 @@ export function actionHintLines(right: RightClickPreview | null, left: LeftClick
         out.right = { icon: right.item!, word: 'おく' };
         break;
     }
+  }
+  // 版 3.2: なかま を 押しつづけ て いる あいだ は 語 が だっこ・わ が たまる（あげる・なでる・まってね の かわり）
+  if (c.carryProgress && c.carryProgress > 0) {
+    out.right = { icon: 'carry', word: 'だっこ' };
+    out.progress = Math.min(1, c.carryProgress);
   }
   // 刀を 持っているとき: ほる・わざ も「きる」に そろえる（オーナー決定）
   if (c.heldIsBlade && c.held && (left === 'dig' || left === 'hit')) out.left = { icon: c.held, word: 'きる' };

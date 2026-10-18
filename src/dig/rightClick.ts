@@ -33,7 +33,9 @@ export interface RightClickCtx {
    * LIVE-1 §2.9 の 0: にわとり を ねらっている（線が ブロック より 手前 で ねらう 箱 に 当たる）。
    * 'feed' = あげる、'animalPet' = なでる、'idle' = 何も しない（動き の とちゅう・押しつづけ。ほかの 段 へ も 進まない）。ねらって いなければ null
    */
-  animal?(): 'feed' | 'animalPet' | 'idle' | null;
+  animal?(): 'feed' | 'animalFull' | 'animalPet' | 'idle' | null;
+  /** LIVE-1 版 3.2 の 00: だっこ して いる（おろす。ほか の 段 へ は 進まない） */
+  carrying?(): boolean;
   /** 持っているものを、ねらっている所の前に置けるか */
   canPlace(): boolean;
   /** M7: くわ か すで で、上が くうき の くさ・つち を ねらっている（§2.7 の 4） */
@@ -46,11 +48,16 @@ export interface RightClickCtx {
   isVeg?(item: ItemId): boolean;
 }
 
-/** にわとり（0。LIVE-1）→ たんす → かまど → 防具 → じょうろ（4a くむ・4b まく・4c 合図）→ なでる → たがやす → まく → 合図 → たべる → 置く の順（M7-2 §2.4）。何も起きないなら null */
+/** LIVE-1 版 3.2 §2.4: むしとりあみ で ふれる き の ブロック（人が 置いた はっぱ・き も 同じ） */
+export const NET_TREE_BLOCKS: ReadonlySet<BlockId> = new Set<BlockId>(['log', 'leaves', 'momiji_leaves', 'matsu_leaves']);
+
+/** だっこ（00）→ にわとり（0）→ あみ（0b）→ たんす → かまど → 防具 → じょうろ（4a くむ・4b まく・4c 合図）→ なでる → たがやす → まく → 合図 → たべる → 置く の順（M7-2 §2.4）。何も起きないなら null */
 export function previewRightClick(c: RightClickCtx): RightClickPreview | null {
   const t = c.target;
+  if (c.carrying?.()) return { kind: 'putDown', item: null };
   const an = c.animal?.();
   if (an) return an === 'idle' ? null : { kind: an, item: an === 'feed' ? c.held : null };
+  if (c.held === 'mushi_ami' && t && NET_TREE_BLOCKS.has(t.id)) return { kind: 'net', item: c.held };
   if (t && c.isTansu(t.block.x, t.block.y, t.block.z)) return { kind: 'storage', item: null };
   if (t && c.isFurnace(t.block.x, t.block.y, t.block.z)) return { kind: 'furnace', item: null };
   if (c.held && c.canEquip(c.held)) return { kind: 'armor', item: c.held };
@@ -63,6 +70,7 @@ export function previewRightClick(c: RightClickCtx): RightClickPreview | null {
   if (t && c.canTill?.()) return { kind: 'till', item: c.held };
   if (t && c.held && c.canPlant?.()) return { kind: 'plant', item: c.held };
   if (t && c.held && c.isSeedHintSpot?.()) return { kind: 'seedHint', item: c.held };
+  if (c.held === 'mushi_ami') return { kind: 'netHint', item: c.held }; // 8b: き で ない 所・何も ねらわない
   if (c.held && c.isVeg?.(c.held)) return { kind: 'eat', item: c.held };
   if (t && c.held && c.canPlace()) return { kind: 'place', item: c.held };
   return null;
