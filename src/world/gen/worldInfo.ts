@@ -32,7 +32,7 @@ export interface WorldGenInfo extends IslandInfo {
 }
 
 /** 「一番上の地形」に数えないブロック（き・はっぱ・みず・たいまつ・M7 の やわらかい物） */
-const SOFT = new Set<string>(['air', 'water', 'log', 'leaves', 'torch', 'start_torch', 'kakashi', 'kakashi_head', 'saku', 'momiji_leaves', 'matsu_leaves', 'flower_y', 'flower_o', 'flower_p', 'susuki', 'bamboo']);
+const SOFT = new Set<string>(['air', 'water', 'log', 'leaves', 'torch', 'start_torch', 'kakashi', 'kakashi_head', 'saku', 'momiji_leaves', 'matsu_leaves', 'flower_y', 'flower_o', 'flower_p', 'susuki', 'bamboo', 'kusa', 'nobana']);
 function isSoft(id: BlockId | 'outside'): boolean {
   return SOFT.has(id) || (id !== 'outside' && (id.startsWith('wild_') || id.startsWith('crop_')));
 }

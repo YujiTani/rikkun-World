@@ -46,6 +46,8 @@ export const BLOCK_TYPES: readonly BlockType[] = [
   { id: 'flower_p', name: 'はな', solid: false, breakable: true },
   { id: 'bamboo', name: 'たけ', solid: true, breakable: true },
   { id: 'susuki', name: 'すすき', solid: false, breakable: true },
+  { id: 'kusa', name: 'くさ', solid: false, breakable: true },
+  { id: 'nobana', name: 'のばな', solid: false, breakable: true },
 ];
 
 export const BLOCK_INDEX: Readonly<Record<BlockId, number>> = Object.fromEntries(
@@ -77,7 +79,7 @@ const CROSS_IDS: ReadonlySet<string> = new Set([
   'crop_onion', 'crop_tomato', 'crop_pumpkin', 'crop_eggplant',
   'wild_onion', 'wild_tomato', 'wild_pumpkin', 'wild_eggplant',
   'kakashi', 'kakashi_head', 'saku',
-  'flower_y', 'flower_o', 'flower_p', 'susuki',
+  'flower_y', 'flower_o', 'flower_p', 'susuki', 'kusa', 'nobana',
 ]);
 const CROSS = BLOCK_TYPES.map((t) => CROSS_IDS.has(t.id));
 /** 十字の板で描くブロックか（作物・やせいの やさい・かかし・さく）。固くない・光を通す・まわりの面を隠さない */

@@ -65,6 +65,8 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     flower_p: 0.05,
     bamboo: 1.5,
     susuki: 0.05,
+    kusa: 0.05,
+    nobana: 0.05,
   } satisfies Record<BlockId, number | null>,
   harvestLevel: {
     air: 0,
@@ -107,6 +109,8 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     flower_p: 0,
     bamboo: 0,
     susuki: 0,
+    kusa: 0,
+    nobana: 0,
   },
   handPower: 1.0,
   handLevel: 0,
@@ -159,6 +163,8 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     flower_p: 'common',
     bamboo: 'common',
     susuki: 'common',
+    kusa: 'common',
+    nobana: 'common',
   } satisfies Record<BlockId, Rarity>,
   dropMax: defaultDropMax(),
 };
@@ -179,10 +185,12 @@ export const FARM_BREAK_DROP: Readonly<Partial<Record<BlockId, { item: ItemId; c
   farmland_wet: { item: 'dirt', count: 1 },
   saku: { item: 'log', count: 1 },
   sprinkler: { item: 'sprinkler', count: 1 },
+  // FLORA-75: のばな は いつも 1 こ（ランダムな数にしない）
+  nobana: { item: 'nobana', count: 1 },
 };
 
-/** VOX-I-1: こわすと 持ち物がふえない ブロック（すすき。ふえるのは ひろえる物だけ） */
-export const NO_DROP_BLOCKS: ReadonlySet<BlockId> = new Set<BlockId>(['susuki']);
+/** VOX-I-1: こわすと 持ち物がふえない ブロック（すすき・FLORA-75 の くさ。ふえるのは ひろえる物だけ） */
+export const NO_DROP_BLOCKS: ReadonlySet<BlockId> = new Set<BlockId>(['susuki', 'kusa']);
 
 /** 体の箱（M1-02 §4.1）。置く判定に使う */
 export const BODY_W = 0.6;

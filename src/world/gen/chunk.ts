@@ -5,6 +5,7 @@ import { GEN_CONFIG as C } from './config';
 import { isRockCoal } from './features';
 import { mouthAirRange, mouthsNear } from './mouths';
 import { defOf } from './biome';
+import { floraOfChunk } from './flora';
 import { plantsOfChunk } from './plants';
 import { createRng, hash01, hashInts, subSeed, valueNoise3 } from './random';
 import { Terrain, terrainFor } from './terrain';
@@ -302,11 +303,12 @@ function placeTrees(out: Uint8Array, T: Terrain, x0: number, z0: number): void {
   }
 }
 
-/** 草の上の はな・すすき・たけ（木の後。空気のところだけ） */
+/** 草の上の はな・すすき・たけ・くさ・のばな（木の後。空気のところだけ） */
 function placePlants(out: Uint8Array, T: Terrain, cx: number, cz: number, H: Int16Array): void {
   const x0 = cx * CHUNK_SIZE;
   const z0 = cz * CHUNK_SIZE;
-  for (const p of plantsOfChunk(T, cx, cz)) {
+  // はな・すすき・たけ、そのあと くさ・のばな（先にある物が かち: 空気のところだけ）
+  for (const p of [...plantsOfChunk(T, cx, cz), ...floraOfChunk(T, cx, cz)]) {
     const lx = p.x - x0;
     const lz = p.z - z0;
     const h = H[(lz + 1) * HW + lx + 1]!;

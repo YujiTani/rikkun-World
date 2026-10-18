@@ -83,7 +83,7 @@ function place(seed: number): FarmPlacement {
   const R = regionsOf(seed);
   const T = terrainFor(seed);
   const sp = spawnOf(seed);
-  const S = surfaceFor(seed);
+  const S = surfaceFor(seed, { flora: false }); // くさ・のばな は この場所を よける（flora.ts）ので 数えない
   const b = regionRect(seed);
   const inside = (x: number, z: number) => x >= b.x0 && z >= b.z0 && x < b.x1 && z < b.z1;
   const W = b.x1 - b.x0;
