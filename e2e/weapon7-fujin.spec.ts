@@ -76,7 +76,9 @@ async function fillAhead(page: Page, floorY: number, cellZ: number, type: string
     ({ y, z, type }) => {
       const h = window.__rikkun as any;
       h.world.fill(20, y + 1, z, 20, y + 3, z, type);
-      h.step(1);
+      // ＋マークを 空へ（ブロックに 向けると 左クリックが 「ほる」に なって わざが 出ない。波は 水平に とぶ）
+      h.player.set({ pitch: 40 });
+      h.step(2);
     },
     { y: floorY, z: cellZ, type },
   );
