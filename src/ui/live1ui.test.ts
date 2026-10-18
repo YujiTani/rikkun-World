@@ -1,23 +1,43 @@
 import { describe, expect, it } from 'vitest';
+import type { AnimalWindowHint } from '../contracts';
 import { animalIconPixels } from './animalArt';
 import { ANIMAL_HINT_STEPS, ANIMAL_HINT_VIEW, AnimalHintModel } from './animalHintModel';
 import { findUnrubiedKanji } from './text';
 
-describe('LIVE-1 合図（§3.1）', () => {
-  it('feedHint・eggLater・friendFull の 文。漢字は ふりがな付き', () => {
-    for (const k of ['feedHint', 'eggLater', 'friendFull'] as const) expect(findUnrubiedKanji(ANIMAL_HINT_VIEW[k].html), k).toEqual([]);
-    expect(ANIMAL_HINT_VIEW.feedHint.html).toBe('やさい を もって <ruby>右<rt>みぎ</rt></ruby>クリック で あげよう');
-    expect(ANIMAL_HINT_VIEW.eggLater.html).toBe('たまご は また あした');
-    expect(ANIMAL_HINT_VIEW.friendFull.html).toBe('なかま は 8 わ まで');
+describe('LIVE-1 合図（§3.1。版 3.2 の 8 つ）', () => {
+  const R = '<ruby>右<rt>みぎ</rt></ruby>';
+  it('8 つの 文（仕様 §3.1 の とおり）。漢字は ふりがな付き。eggLater は 無い', () => {
+    const want: Record<AnimalWindowHint, string> = {
+      feedHint: `むし を もって ${R}クリック で あげよう`,
+      fullHint: 'おなか いっぱい。すこし まってね',
+      friendFull: 'なかま は 8 わ まで',
+      treeEmpty: 'むし は おやすみ。ほか の き を さがそう',
+      netHint: `あみ で き を ねらって ${R}クリック`,
+      carryHint: `${R}クリック を ながく おす と だっこ`,
+      carryWild: 'なかま に なったら だっこ できる よ',
+      cantPutHere: 'ここ には おろせない',
+    };
+    expect(Object.keys(ANIMAL_HINT_VIEW).sort()).toEqual(Object.keys(want).sort());
+    for (const k of Object.keys(want) as AnimalWindowHint[]) {
+      expect(ANIMAL_HINT_VIEW[k].html, k).toBe(want[k]);
+      expect(findUnrubiedKanji(ANIMAL_HINT_VIEW[k].html), k).toEqual([]);
+      expect(ANIMAL_HINT_VIEW[k].art.length, `${k} は 絵 が 先`).toBeGreaterThan(0);
+    }
+    expect(JSON.stringify(ANIMAL_HINT_VIEW)).not.toContain('また あした');
   });
   it('出来事の hint だけ 拾う・120 ステップで 消え・同じ合図は のこり時間を もどすだけ', () => {
     const m = new AnimalHintModel();
-    m.feed([{ type: 'pet', id: 1, friend: true }, { type: 'hint', hint: 'eggLater' }]);
-    expect(m.current()).toBe('eggLater');
+    m.feed([{ type: 'pet', id: 1, friend: true }, { type: 'hint', hint: 'fullHint' }]);
+    expect(m.current()).toBe('fullHint');
     for (let i = 0; i < 100; i++) m.step();
-    m.show('eggLater');
+    m.show('fullHint');
     expect(m.stepsLeft()).toBe(ANIMAL_HINT_STEPS);
     for (let i = 0; i < ANIMAL_HINT_STEPS; i++) m.step();
+    expect(m.current()).toBeNull();
+  });
+  it('版 2 の eggLater が 来ても 出さない', () => {
+    const m = new AnimalHintModel();
+    m.feed([{ type: 'hint', hint: 'eggLater' }]);
     expect(m.current()).toBeNull();
   });
 });

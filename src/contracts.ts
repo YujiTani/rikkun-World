@@ -2112,7 +2112,11 @@ export type AnimalKind = 'chicken';
 export type AnimalState = 'appear' | 'wander' | 'rest' | 'look' | 'eat' | 'pet' | 'lay' | 'cheer' | 'follow' | 'idle'
   // LIVE-1 版 3.2
   | 'full' | 'carried' | 'putDown';
-export type AnimalHintKind = 'feedHint' | 'eggLater' | 'friendFull';
+/**
+ * 合図（§3.1・§6.1）。窓口 `animals.lastHint()` の 型 と 同じ（`AnimalWindowHint` を 統合）。
+ * 'eggLater' は 版 2 の 名残（版 3.2 では 出さない。A が 出さなく なったら この 行 から 消す）
+ */
+export type AnimalHintKind = AnimalWindowHint | 'eggLater';
 export type AnimalRemoveReason = 'far' | 'void' | 'buried';
 
 /** `animals.events()` の出来事（§6.1） */
@@ -2167,7 +2171,7 @@ export interface AnimalSpawnOpts {
   fullLeft?: number;
 }
 
-/** `animals.lastHint()`（§6.1） */
+/** 版 3.2 の 合図 8 つ（§3.1。`animals.lastHint()` の 型） */
 export type AnimalWindowHint =
   | 'feedHint' | 'fullHint' | 'friendFull' | 'treeEmpty' | 'netHint' | 'carryHint' | 'carryWild' | 'cantPutHere';
 
@@ -2295,7 +2299,11 @@ export interface AnimalApi {
   /** ねらう 箱（横 0.8×0.8・高さ 1.0）との 当たり。C が ブロック の 当たり と くらべる */
   rayHit(origin: Vec3, dir: Vec3, maxDist: number): { id: number; distance: number } | null;
   /** null = 動き の とちゅう で 何も しない */
-  preview(id: number, held: ItemStack | null): 'feed' | 'animalPet' | null;
+  preview(id: number, held: ItemStack | null): 'feed' | 'animalFull' | 'animalPet' | null;
+  /** 版 3.2（C が 足した）: なかま か。なかま は 右クリック を はなす か 40 おしつづける まで 何も しない（§2.3・§2.8）。なければ やせい あつかい */
+  isFriend?(id: number): boolean;
+  /** 版 3.2（C が 足した）: C から の 合図（treeEmpty・netHint・cantPutHere・carryWild・fullHint・friendFull・feedHint）を 出来事 `hint` と `lastHint()` に 入れる */
+  emitHint?(h: AnimalHintKind): void;
   /** 'ate' の とき だけ C が むし を 1 へらす。'full' = おなかいっぱい、'pet' = なでる に なった、'friendFull' = なかま が 8 わ */
   feed(id: number, item: ItemId): 'ate' | 'full' | 'pet' | 'friendFull' | null;
   pet(id: number): 'wild' | 'friend' | null;
