@@ -46,3 +46,14 @@ describe('LIVE-1 小さな 絵', () => {
     expect(animalIconPixels('chickenRibbon').some(blue)).toBe(true);
   });
 });
+
+describe('版 3.2: だっこ中は 左の 案内 を 出さない', () => {
+  it('carrying の とき left は 無し・right（おろす）は のこる', async () => {
+    const { actionHintLines } = await import('./actionHintModel');
+    const ctx = { held: null, heldIsPickaxe: false, heldIsBlade: false, carrying: true };
+    const h = actionHintLines({ kind: 'putDown' } as never, 'dig', ctx);
+    expect(h.left).toBeUndefined();
+    expect(h.right?.word).toBe('おろす');
+    expect(actionHintLines(null, 'dig', { ...ctx, carrying: false }).left?.word).toBe('ほる');
+  });
+});

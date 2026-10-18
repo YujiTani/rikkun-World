@@ -27,6 +27,8 @@ export interface ActionHintCtx {
   heldIsBlade: boolean;
   /** 版 3.2: `DigSystem.carryProgress()`（0 = わ なし） */
   carryProgress?: number;
+  /** 版 3.2: だっこ中（左クリック は 止まって いる ので 左の 案内 を 出さない） */
+  carrying?: boolean;
 }
 
 /**
@@ -108,6 +110,7 @@ export function actionHintLines(right: RightClickPreview | null, left: LeftClick
     out.right = { icon: 'carry', word: 'だっこ' };
     out.progress = Math.min(1, c.carryProgress);
   }
+  if (c.carrying) return out;
   // 刀を 持っているとき: ほる・わざ も「きる」に そろえる（オーナー決定）
   if (c.heldIsBlade && c.held && (left === 'dig' || left === 'hit')) out.left = { icon: c.held, word: 'きる' };
   else if (left === 'dig') out.left = { icon: c.held && c.heldIsPickaxe ? c.held : 'wood_pickaxe', word: 'ほる' };

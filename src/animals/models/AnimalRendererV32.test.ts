@@ -128,8 +128,10 @@ describe('AC28 だっこ の 形（1 人称）', () => {
     const c = r.carryInfo();
     expect(c).not.toBeNull();
     expect(c!.firstPerson).toBe(true);
-    expect(c!.topNdcY).toBeLessThanOrEqual(-0.5);
-    expect(c!.topNdcY).toBeGreaterThan(-1);
+    // 3.2: ステータス板（上の はし ndc −0.4975）より 上に 出す（顔 が 見える）。照準（0）には かぶらない
+    expect(c!.topNdcY).toBeLessThanOrEqual(-0.08);
+    expect(c!.topNdcY).toBeGreaterThan(-0.4);
+    expect(c!.bottomNdcY).toBeGreaterThanOrEqual(-0.5);
     expect(Math.abs(c!.centerNdcX)).toBeLessThan(0.1);
     // 照準から 40px（1280×800 で ndc 0.0625・0.1）より 遠い: 上の はしが 下 25% より 下
     expect(c!.faceToCamera).toBeGreaterThan(0.7); // にわとりの 前（−z）と カメラへ の 向きの 内積
@@ -155,6 +157,14 @@ describe('AC28 だっこ の 形（1 人称）', () => {
     expect(c.y).toBeGreaterThan(9.3);
     expect(c.y).toBeLessThan(10.2);
     expect(Math.hypot(c.x, c.z)).toBeLessThan(1);
+  });
+  it('3 人称: プレイヤー の かげ に ならない（カメラ から 見て 横 ・ 上 に 出る）', () => {
+    const { r, cam } = setup({ player: () => ({ x: 0, y: 9, z: 0 }) });
+    r.update([carriedView({ z: 0 })], cam);
+    const c = r.carryInfo()!;
+    // カメラ（0, ?, 6 あたり）から プレイヤー を 見た とき、にわとり が プレイヤー（ndc x 0）から はなれて 見える
+    expect(Math.abs(c.centerNdcX)).toBeGreaterThan(0.08);
+    expect(c.y).toBeGreaterThan(9.8);
   });
   it('おろす と ふつう の 大きさ・かげ が もどる', () => {
     const { fx, r, cam } = setup({ player: () => ({ x: 0, y: 9, z: 6 }) });

@@ -243,12 +243,16 @@ export const CARRY = {
   /** にわとり の 高さ（ブロック。コーム まで） */
   height: 0.8,
   /** 1 人称: カメラ から の 前 の 距離 */
-  front: 0.75,
+  front: 1.2,
   /** 1 人称: にわとり の 上の はし が 来る 画面 の 高さ（ndc。−1 = 下の はし。−0.5 = 下 25% の さかい） */
-  topNdc: -0.56,
+  topNdc: -0.1,
+  /** 1 人称: だっこ中 の 大きさ（ステータス板 の 上 に おさまる ように 小さめ） */
+  firstScale: 0.45,
   /** 3 人称: 胸 の 高さ・前 への 出し */
-  chestY: 0.7,
-  chestFront: 0.5,
+  chestY: 1.0,
+  chestFront: 0.3,
+  /** 3 人称: カメラ から 見て 右 へ（プレイヤー の かげ に ならない） */
+  chestSide: 0.8,
   /** プレイヤー の 目 の 高さ（足もと から） */
   eyeY: 1.6,
   /** カメラ が この 距離 より 近ければ 1 人称（`DOLL_HIDE_DISTANCE`） */
@@ -264,6 +268,8 @@ export interface CarryInfo {
   z: number;
   /** 上の はし の 画面 の 高さ（ndc。−1 = 下の はし） */
   topNdcY: number;
+  /** 下の はし の 画面 の 高さ（ndc） */
+  bottomNdcY: number;
   /** まん中 の 画面 の よこ（ndc） */
   centerNdcX: number;
   /** にわとり の 前（−z）と カメラ の ほう の 向きの 内積（1 = まっすぐ カメラ を 向く） */
@@ -476,12 +482,12 @@ export class AnimalRenderer {
       const d = Math.hypot(cam.x - feet.x, cam.y - (feet.y + CARRY.eyeY), cam.z - feet.z);
       first = d < CARRY.firstPersonDist;
     }
-    e.root.scale.setScalar(CARRY.scale);
+    e.root.scale.setScalar(first ? CARRY.firstScale : CARRY.scale);
     if (first) {
       const fov = camera instanceof THREE.PerspectiveCamera ? camera.fov : 75;
       const tanHalf = Math.tan((fov * D) / 2);
       const topY = CARRY.topNdc * CARRY.front * tanHalf;
-      this.v2.set(0, topY - CARRY.height * CARRY.scale, -CARRY.front).applyMatrix4(camera.matrixWorld);
+      this.v2.set(0, topY - CARRY.height * CARRY.firstScale, -CARRY.front).applyMatrix4(camera.matrixWorld);
       e.root.position.copy(this.v2);
       camera.getWorldQuaternion(this.tmpQ);
       e.root.quaternion.copy(this.tmpQ).multiply(this.flipY); // 顔（−z）が カメラ の ほう
@@ -496,8 +502,9 @@ export class AnimalRenderer {
         fx /= len;
         fz /= len;
       }
-      const px = feet!.x + fx * CARRY.chestFront;
-      const pz = feet!.z + fz * CARRY.chestFront;
+      // カメラ から 見て 右（fx,fz を 左 へ 90 度 まわした むき の 反対）
+      const px = feet!.x + fx * CARRY.chestFront - fz * CARRY.chestSide;
+      const pz = feet!.z + fz * CARRY.chestFront + fx * CARRY.chestSide;
       e.root.position.set(px, feet!.y + CARRY.chestY, pz);
       e.root.rotation.set(0, Math.atan2(-(cam.x - px), -(cam.z - pz)), 0); // 顔 が カメラ の ほう
     }
@@ -506,10 +513,12 @@ export class AnimalRenderer {
 
   private measureCarry(e: Entry, camera: THREE.Camera): void {
     const pos = e.root.position;
-    const h = CARRY.height * CARRY.scale;
+    const h = CARRY.height * e.root.scale.y;
     const camPos = camera.getWorldPosition(this.v1);
     this.v2.set(0, h, 0).applyMatrix4(e.root.matrixWorld).project(camera);
     const topNdcY = this.v2.y;
+    this.v2.set(0, 0, 0).applyMatrix4(e.root.matrixWorld).project(camera);
+    const bottomNdcY = this.v2.y;
     this.v2.set(0, h / 2, 0).applyMatrix4(e.root.matrixWorld).project(camera);
     const centerNdcX = this.v2.x;
     // 前（−z）の 向き と カメラ への 向き
@@ -519,7 +528,7 @@ export class AnimalRenderer {
       const feet = this.o.player!();
       return !feet || Math.hypot(camPos.x - feet.x, camPos.y - (feet.y + CARRY.eyeY), camPos.z - feet.z) < CARRY.firstPersonDist;
     })() : true;
-    this.carry = { firstPerson, x: pos.x, y: pos.y, z: pos.z, topNdcY, centerNdcX, faceToCamera: this.v2.dot(this.v3) };
+    this.carry = { firstPerson, x: pos.x, y: pos.y, z: pos.z, topNdcY, bottomNdcY, centerNdcX, faceToCamera: this.v2.dot(this.v3) };
   }
 
   /** だっこ して いる にわとり の 置き場所（なければ null。テスト・UI 検査用） */
