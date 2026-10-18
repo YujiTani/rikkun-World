@@ -1,0 +1,34 @@
+{
+ "cell": 256,
+ "span": 2.0,
+ "center": 0.95,
+ "tiers": [
+  0,
+  75,
+  -75
+ ],
+ "dirs": 8,
+ "motions": {
+  "idle": {
+   "action": "Idle_5",
+   "frames": 8,
+   "fps": 4.36
+  },
+  "walk": {
+   "action": "Walking",
+   "frames": 8,
+   "fps": 7.68
+  },
+  "run": {
+   "action": "Running",
+   "frames": 8,
+   "fps": 12.0
+  },
+  "jump": {
+   "action": "Regular_Jump",
+   "frames": 8,
+   "fps": 4.27
+  }
+ },
+ "modelH": 1.63
+}
