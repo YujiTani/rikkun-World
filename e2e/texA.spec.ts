@@ -21,8 +21,8 @@ const SPOT_BLOCK = { x: SPOT.x, y: SPOT.y, z: SPOT.z };
 const VIEW_A = { dx: -3, dz: 3 };
 const VIEW_B = { dx: 3, dz: -3 };
 
-async function ready(page: Page, extra: string[] = []): Promise<void> {
-  await openTex(page);
+async function ready(page: Page, extra: string[] = [], query?: string): Promise<void> {
+  await openTex(page, query);
   const miss = await missingHooks(page, ['faceShade', 'flatBlocks', 'texelAt', 'aoAt', 'toScreen', 'pixel', 'blobShadow', 'aoStats', 'setAo', ...extra]);
   expect(miss, 'TEX-A の hook がない').toEqual([]);
   await buildArena(page);
@@ -59,7 +59,9 @@ async function faceScores(page: Page, id: string, view: { dx: number; dz: number
 
 test.describe('TEX-A', () => {
   test('AC1: 石・土・砂・草・木・はっぱの面の画素 = タイルの色 × 面の明るさ × 光（ブロックの面。場所と向きは AC4 の平らな箱で見る）', async ({ page }) => {
-    await ready(page);
+    // 見るのは 色のきまり。へこみの形は 場所のハッシュの 運で、ブロックの型（#202）では SPOT の形が 4〜8 通りの 1 つに変わり、
+    // 点が へこみ・けずった かどに 当たる数が変わる。色のきまりは 型なしでも同じなので、形が いままでと同じ 型なし（?kata=off）で見る
+    await ready(page, [], '?nosave=1&kata=off');
     await setAo(page, false);
     // 床の でこぼこの丘が ブロックの根もとをかくさないよう、地形の高さの でこぼこは切る（ブロックのへこみ 1〜3 マスは のこる）。ふつうの地形は AC1b
     await setTerrain(page, false);

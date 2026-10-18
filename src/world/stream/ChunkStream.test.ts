@@ -11,7 +11,7 @@ import {
 import { R_DRAW, R_DRAW_DROP, R_GEN, R_KEEP, R_LIGHT, canLight, canMesh, cheb, colKey, compareNear, ringColumns, ringCount } from './ring';
 
 /** 偽の世界・光・メッシュ・保存。three も本当の時間も使わない（rule #130） */
-function harness(opts: { saved?: Array<[number, number]>; broken?: Array<[number, number]>; async?: boolean; holdLight?: (cx: number, cz: number) => boolean; required?: () => Array<{ cx: number; cz: number }> } = {}) {
+function harness(opts: { saved?: Array<[number, number]>; broken?: Array<[number, number]>; async?: boolean; holdLight?: (cx: number, cz: number) => boolean; required?: () => Array<{ cx: number; cz: number }>; clock?: { t: number; cost: number; log: number[] } } = {}) {
   const cols = new Map<number, ChunkColumn>();
   const dirty = new Set<number>();
   const lit = new Set<number>();
@@ -41,6 +41,10 @@ function harness(opts: { saved?: Array<[number, number]>; broken?: Array<[number
   };
   const light: StreamLight = {
     lightColumn: (cx, cz) => {
+      if (opts.clock) {
+        opts.clock.log.push(opts.clock.t);
+        opts.clock.t += opts.clock.cost;
+      }
       lit.add(colKey(cx, cz));
       log.lightOrder.push([cx, cz]);
     },
@@ -73,6 +77,7 @@ function harness(opts: { saved?: Array<[number, number]>; broken?: Array<[number
     runJob: () => {
       const j = jobs()[0];
       if (j === undefined) return false;
+      if (opts.clock) opts.clock.t += opts.clock.cost;
       meshed.add(colKey(j.cx, j.cz));
       return true;
     },
@@ -80,6 +85,10 @@ function harness(opts: { saved?: Array<[number, number]>; broken?: Array<[number
   };
   const io: StreamIO = {
     generate: (cx, cz) => {
+      if (opts.clock) {
+        opts.clock.log.push(opts.clock.t);
+        opts.clock.t += opts.clock.cost;
+      }
       log.generated.push([cx, cz]);
       return { cx, cz, sections: [] };
     },
@@ -106,7 +115,7 @@ function harness(opts: { saved?: Array<[number, number]>; broken?: Array<[number
     saving: () => false,
   };
   let t = 0;
-  const stream = new ChunkStream({ world, light, mesh, io, now: () => (t += 0.01), holdLight: opts.holdLight, required: opts.required });
+  const stream = new ChunkStream({ world, light, mesh, io, now: opts.clock ? () => opts.clock!.t : () => (t += 0.01), holdLight: opts.holdLight, required: opts.required });
   return { stream, cols, dirty, lit, meshed, saved, log, state };
 }
 
@@ -330,5 +339,27 @@ describe('書けないときは捨てない（基準 12）', () => {
     expect(h.cols.has(colKey(-8, 0))).toBe(false);
     expect(h.saved.has(colKey(-8, 0))).toBe(true); // 書いてから 捨てた
     expect(h.dirty.size).toBe(0);
+  });
+});
+
+describe('コマの終わりに 光・生成を始めない（#202）', () => {
+  it('遊んでいる間、2 つ目からの 光・生成は 見こみが 8 ms - 予備 をこえるなら 始めない。コマのはじめは いつも始める', () => {
+    const clock = { t: 0, cost: 3.5, log: [] as number[] }; // 1 つの仕事が 3.5 ms
+    const h = harness({ clock });
+    settle(h);
+    h.stream.setWork(null);
+    let started = 0;
+    for (let f = 0; f < 60; f++) {
+      h.stream.setCenter(Math.floor(f / 2), 0);
+      clock.log.length = 0;
+      const t0 = clock.t;
+      h.stream.update();
+      for (const at of clock.log) {
+        const off = at - t0;
+        if (off > 0) expect(off + 3.5, `frame ${f}`).toBeLessThanOrEqual(6);
+      }
+      started += clock.log.length;
+    }
+    expect(started).toBeGreaterThan(10);
   });
 });

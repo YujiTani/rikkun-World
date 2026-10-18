@@ -275,9 +275,11 @@ export class ChunkStream {
         // count: 時間は見ない。メッシュ 8 個まで（小ブロックは 1 個で おしまい）・仕事は 64 こまで
         if (done >= COUNT_LIGHT_TOTAL_MAX || made > COUNT_MESH_MAX - 2 || madeMicro) break;
       } else if (done > 0 && this.now() - t0 >= totalMs) break;
-      const sj = this.work === null && !count && done > 0 && streamUsed >= streamMs ? null : this.pickStreamJob();
+      let sj = this.work === null && !count && done > 0 && streamUsed >= streamMs ? null : this.pickStreamJob();
       const md = this.d.mesh.nextJobDist();
       if (!prep) totalMs = BUDGET_TOTAL_MS - reserveFor(md);
+      // 光・生成は 分けられない 1 回の仕事。コマの終わりがけで 見こみが 予算をこえるなら 始めない（コマのはじめは いつも始める）
+      if (sj !== null && done > 0 && this.work === null && !count && (sj.kind === 'light' || sj.kind === 'gen') && this.now() - t0 + this.jobEstimate(sj.kind) > totalMs) sj = null;
       let ran = false;
       if (sj !== null && sj.kind === 'unload') {
         const ts = this.now();
@@ -286,7 +288,9 @@ export class ChunkStream {
       } else if (sj !== null && (md === null || sj.dist <= md)) {
         const ts = this.now();
         this.runStreamJob(sj);
-        streamUsed += this.now() - ts;
+        const spent = this.now() - ts;
+        streamUsed += spent;
+        if (sj.kind === 'light' || sj.kind === 'gen') this.learnJob(sj.kind, spent);
         ran = true;
       } else if (md !== null) {
         ran = this.work === null && !count ? this.d.mesh.runJob(t0 + totalMs) : this.d.mesh.runJob();
@@ -343,6 +347,18 @@ export class ChunkStream {
   }
 
   // ------------------------------------------------------------ 仕事えらび
+
+  /** 光・生成の 1 回の時間の動く平均（ms）。コマの終わりがけに 始めるかを決める */
+  private readonly jobAvg = { light: 0, gen: 0 };
+
+  private jobEstimate(kind: 'light' | 'gen'): number {
+    return this.jobAvg[kind];
+  }
+
+  private learnJob(kind: 'light' | 'gen', ms: number): void {
+    const a = this.jobAvg[kind];
+    this.jobAvg[kind] = a === 0 ? ms : a * 0.8 + ms * 0.2;
+  }
 
   private pickStreamJob(): StreamJob | null {
     const pcx = this.cx;
