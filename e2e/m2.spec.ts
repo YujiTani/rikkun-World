@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { installAimHelpers } from './helpers/aim';
-import { fine } from './helpers/fine';
+import { fine, wide } from './helpers/fine';
 import { findUnrubiedKanji } from '../src/ui/text';
 import { waitAnimationsDone, waitFrames } from './helpers/anim';
 
@@ -934,7 +934,7 @@ test.describe('M2 自動セーブ', () => {
     // 立っている所のまわり（列 -8..8）の 1 列ごとの hash をつないだものを くらべる
     const ringFn = `(h) => { let s = ''; for (let cz = -8; cz <= 8; cz++) for (let cx = -8; cx <= 8; cx++) s += h.world.hash(cx, cz) + ','; return s; }`;
     await page.addInitScript(`window.ringHash = ${ringFn};`);
-    await open(page);
+    await open(page, wide()); // 輪の列 -8..8 の hash をくらべるので 生成の輪 8 に戻す（#203）
     const before = await page.evaluate(async () => {
       const h = (window as any).__rikkun;
       const ringHash = (window as any).ringHash;
@@ -971,10 +971,10 @@ test.describe('M2 自動セーブ', () => {
     expect(after.lock.overlayVisible).toBe(true);
 
     // ?seed=2 で開いても、ふだんの島の保存は消えない
-    await page.goto('/?seed=2');
+    await page.goto('/' + wide('?seed=2'));
     await page.waitForFunction(() => window.__rikkun?.ready === true);
     await page.evaluate(() => window.__rikkun!.achievements.mute(true));
-    await page.goto('/');
+    await page.goto('/' + wide());
     await page.waitForFunction(() => window.__rikkun?.ready === true);
     await page.evaluate(() => window.__rikkun!.achievements.mute(true));
     expect(
@@ -986,7 +986,7 @@ test.describe('M2 自動セーブ', () => {
     ).toBe(before.hash);
 
     // ?reset=1
-    await page.goto('/?reset=1');
+    await page.goto('/' + wide('?reset=1'));
     await page.waitForFunction(() => window.__rikkun?.ready === true);
     await page.evaluate(() => window.__rikkun!.achievements.mute(true));
     const reset = await page.evaluate(async () => {
@@ -1000,7 +1000,7 @@ test.describe('M2 自動セーブ', () => {
     expect(reset.p.z).toBeCloseTo(reset.spawn.z, 1);
     expect(reset.url).not.toContain('reset');
     // 最初の島と同じ（nosave で作った島と比べる）
-    await page.goto('/?nosave=1&seed=' + (await page.evaluate(() => (window as any).__rikkun.world.seed())));
+    await page.goto('/' + wide('?nosave=1&seed=' + (await page.evaluate(() => (window as any).__rikkun.world.seed()))));
     await page.waitForFunction(() => window.__rikkun?.ready === true);
     await page.evaluate(() => window.__rikkun!.achievements.mute(true));
     expect(

@@ -1,6 +1,6 @@
 import type { ChunkColumn } from '../../contracts';
 import { COUNT_LIGHT_TOTAL_MAX, COUNT_MESH_MAX, type FrameClock } from '../frameClock';
-import { MAX_COLUMNS, R_DRAW, R_GEN, R_KEEP, R_LIGHT, canLight, cheb, colKey, compareNear, ringCount } from './ring';
+import { MAX_COLUMNS, R_DRAW, R_GEN, R_LIGHT, canLight, cheb, colKey, compareNear, getRing, ringCount } from './ring';
 
 /**
  * 列の読みこみ・捨て・光・メッシュの進め方（VOX-D §2・§8。docs/tickets/VOX-D.md）。three を使わない。
@@ -110,6 +110,8 @@ export interface StreamInfo {
 /** 保険の列を ready のあと捨てない コマ数 */
 const REQ_KEEP_FRAMES = 600;
 
+const START_GEN = 6;
+
 export class ChunkStream {
   private readonly cols = new Map<number, Col>();
   private readonly arrivals: { cx: number; cz: number; col: ChunkColumn | null }[] = [];
@@ -192,7 +194,7 @@ export class ChunkStream {
   stageOf(cx: number, cz: number): Stage {
     const c = this.cols.get(colKey(cx, cz));
     if (c === undefined) return 'none';
-    if (c.stage === 'lit' && cheb(cx, cz, this.cx, this.cz) <= R_DRAW && this.d.mesh.columnState(cx, cz) !== 'none') return 'meshed';
+    if (c.stage === 'lit' && cheb(cx, cz, this.cx, this.cz) <= getRing().draw && this.d.mesh.columnState(cx, cz) !== 'none') return 'meshed';
     return c.stage;
   }
 
@@ -224,11 +226,11 @@ export class ChunkStream {
 
   // ------------------------------------------------------------ 進み
 
-  /** 開始のすすみぐあいの数（K3。371 で そろい） */
+  /** 開始のすすみぐあいの数（K3。371 で そろい）。開始の半径は輪の大きさによらず 生成 6・光 5・メッシュ 4（small の輪でも ぎりぎり入る。#203） */
   private startCount(pcx: number, pcz: number): number {
     let n = 0;
-    for (let dz = -R_GEN + 2; dz <= R_GEN - 2; dz++) {
-      for (let dx = -R_GEN + 2; dx <= R_GEN - 2; dx++) {
+    for (let dz = -START_GEN; dz <= START_GEN; dz++) {
+      for (let dx = -START_GEN; dx <= START_GEN; dx++) {
         const cx = pcx + dx;
         const cz = pcz + dz;
         const r = Math.max(Math.abs(dx), Math.abs(dz));
@@ -346,7 +348,7 @@ export class ChunkStream {
     for (const c of this.cols.values()) {
       if (c.stage === 'loading') continue;
       const dd = cheb(c.cx, c.cz, pcx, pcz);
-      if (dd <= R_KEEP) continue;
+      if (dd <= getRing().keep) continue;
       if (!this.canDiscard(c.cx, c.cz) || this.isRequiredNow(c.cx, c.cz)) continue;
       if (dd > farD) {
         far = c;
@@ -364,8 +366,8 @@ export class ChunkStream {
     }
     // 3. 生成・光（近い順）
     let best: StreamJob | null = null;
-    for (let dz = -R_GEN; dz <= R_GEN; dz++) {
-      for (let dx = -R_GEN; dx <= R_GEN; dx++) {
+    for (let dz = -getRing().gen; dz <= getRing().gen; dz++) {
+      for (let dx = -getRing().gen; dx <= getRing().gen; dx++) {
         const cx = pcx + dx;
         const cz = pcz + dz;
         const dist = Math.max(Math.abs(dx), Math.abs(dz));
@@ -373,7 +375,7 @@ export class ChunkStream {
         let cand: StreamJob | null = null;
         if (c === undefined) {
           cand = { kind: 'gen', cx, cz, dist, col: cx, row: cz };
-        } else if (c.stage === 'generated' && dist <= R_LIGHT && !(this.d.holdLight?.(cx, cz) ?? false) && canLight((a, b) => this.isGenerated(a, b), cx, cz)) {
+        } else if (c.stage === 'generated' && dist <= getRing().light && !(this.d.holdLight?.(cx, cz) ?? false) && canLight((a, b) => this.isGenerated(a, b), cx, cz)) {
           cand = { kind: 'light', c, dist, col: cx, row: cz };
         }
         if (cand === null) continue;
@@ -446,7 +448,7 @@ export class ChunkStream {
       const k = colKey(a.cx, a.cz);
       const c = this.cols.get(k);
       if (c === undefined || c.stage !== 'loading') continue;
-      if (cheb(a.cx, a.cz, this.cx, this.cz) > R_KEEP && !this.isRequiredNow(a.cx, a.cz)) {
+      if (cheb(a.cx, a.cz, this.cx, this.cz) > getRing().keep && !this.isRequiredNow(a.cx, a.cz)) {
         this.cols.delete(k); // 輪の外になった: 取り消す
         continue;
       }
@@ -479,7 +481,7 @@ export class ChunkStream {
   }
 
   /**
-   * 輪の外（> R_KEEP）で まだ捨てていない列の数（unloadPending）。そのうち、保存の書き終わりを待って いま捨てられない列は
+   * 輪の外（> keep）で まだ捨てていない列の数（unloadPending）。そのうち、保存の書き終わりを待って いま捨てられない列は
    * 「待たせた列」として覚える。blocked = 待たせている列の数
    */
   private countUnloadWait(): void {
@@ -487,7 +489,7 @@ export class ChunkStream {
     let blocked = 0;
     for (const c of this.cols.values()) {
       if (c.stage === 'loading') continue;
-      if (cheb(c.cx, c.cz, this.cx, this.cz) <= R_KEEP) continue;
+      if (cheb(c.cx, c.cz, this.cx, this.cz) <= getRing().keep) continue;
       n++;
       if (!this.canDiscard(c.cx, c.cz)) {
         blocked++;
@@ -505,7 +507,7 @@ export class ChunkStream {
     for (const c of this.cols.values()) {
       if (c.stage === 'loading') columns.loading++;
       else if (c.stage === 'generated') columns.generated++;
-      else if (cheb(c.cx, c.cz, this.cx, this.cz) <= R_DRAW && this.d.mesh.columnState(c.cx, c.cz) !== 'none') columns.meshed++;
+      else if (cheb(c.cx, c.cz, this.cx, this.cz) <= getRing().draw && this.d.mesh.columnState(c.cx, c.cz) !== 'none') columns.meshed++;
       else columns.lit++;
     }
     return {
@@ -527,16 +529,16 @@ export class ChunkStream {
     let n = 0;
     const pcx = this.cx;
     const pcz = this.cz;
-    for (let dz = -R_GEN; dz <= R_GEN; dz++) {
-      for (let dx = -R_GEN; dx <= R_GEN; dx++) {
+    for (let dz = -getRing().gen; dz <= getRing().gen; dz++) {
+      for (let dx = -getRing().gen; dx <= getRing().gen; dx++) {
         const dist = Math.max(Math.abs(dx), Math.abs(dz));
         const c = this.cols.get(colKey(pcx + dx, pcz + dz));
         if (c === undefined) n++;
         else if (c.stage === 'loading') n++;
-        else if (c.stage === 'generated' && dist <= R_LIGHT) n++;
+        else if (c.stage === 'generated' && dist <= getRing().light) n++;
       }
     }
-    for (const c of this.cols.values()) if (c.stage !== 'loading' && cheb(c.cx, c.cz, pcx, pcz) > R_KEEP) n++;
+    for (const c of this.cols.values()) if (c.stage !== 'loading' && cheb(c.cx, c.cz, pcx, pcz) > getRing().keep) n++;
     return n + this.d.mesh.pendingJobs();
   }
 

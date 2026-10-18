@@ -4,7 +4,7 @@ import { WORLD_SIZE } from '../src/contracts';
 import { findUnrubiedKanji } from '../src/ui/text';
 import { waitCharLoaded } from './helpers/char';
 import { waitFrames } from './helpers/anim';
-import { fine } from './helpers/fine';
+import { fine, wide } from './helpers/fine';
 
 /**
  * M1 の受け入れ基準のうち、つないだ後の実際のゲームでしか確かめられないもの。
@@ -15,9 +15,13 @@ import { fine } from './helpers/fine';
 const SEEDS = [null, 1, 2, 3, 4, 5]; // null = ふだんのシード
 const ASSETS = 'test-shots/assets';
 
-/** microR32 = true: 細かいメッシュ（小ブロック）のまま開く。E2E のサーバーは ふつう 作らない（#180。docs/tickets/E2E-180.md） */
-async function open(page: Page, seed: number | null = null, microR32 = false) {
-  const q = seed === null ? '' : `?seed=${seed}`;
+/**
+ * microR32 = true: 細かいメッシュ（小ブロック）のまま開く。E2E のサーバーは ふつう 作らない（#180。docs/tickets/E2E-180.md）
+ * ringFull = true: 読みこむ輪も ふだんの大きさにする。描画回数・三角形の上限は ふだん遊ぶときの量で見る（#203）
+ */
+async function open(page: Page, seed: number | null = null, microR32 = false, ringFull = false) {
+  const q0 = seed === null ? '' : `?seed=${seed}`;
+  const q = ringFull ? wide(q0) : q0;
   await page.goto('/' + (microR32 ? fine(q) : q));
   await page.waitForFunction(() => window.__rikkun?.ready === true);
   await page.evaluate(() => window.__rikkun!.achievements.mute(true));
@@ -67,7 +71,7 @@ test.describe('M1-01 世界（つないだ後）', () => {
 
   for (const seed of SEEDS) {
     test(`AC10/11/17/18/20: スタート地点・立っている・生成時間・描画量（seed=${seed ?? '既定'}）`, async ({ page }) => {
-      await open(page, seed, true); // (b) 描画回数・三角形の上限を見る
+      await open(page, seed, true, true); // (b) 描画回数・三角形の上限を見る（輪も ふだんの大きさ。#203）
       const r = await page.evaluate(() => {
         const h = window.__rikkun! as any;
         h.pause();

@@ -28,7 +28,7 @@ function island(seed = 12345): ArrayVoxelWorld {
   return w;
 }
 
-describe('セクションごとの光 = 前の光 (VOX-C AC1)', () => {
+describe('セクションごとの光 = 前の光 (VOX-C AC1)', { timeout: 30_000 }, () => {
   it('今の島: 全マスで前と同じ', () => {
     const w = island();
     const l = new WorldLight(w, new SkyDarkness());

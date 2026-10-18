@@ -4,6 +4,7 @@ import {
   legibilityScore, lightTriple, lin, linLum, matches, matchesPalette, missingHooks, near, openTex, quadMean, quiet, sampleFace, saveShot, setBlock, tilePalette,
   setPose, setPoseSettled, shotPixels, stage, usable, type Face, type Rgb,
 } from './helpers/tex';
+import { wide } from './helpers/fine';
 
 /**
  * TEX-A（docs/tickets/TEX-A.md、issue #146）: 受け入れ基準 1・2・4〜13 の E2E。テストが先（実装前は赤）。
@@ -529,7 +530,7 @@ test.describe('TEX-A', () => {
   });
 
   test('AC12: 三角形が今より少ない（スタート ≤ 45 万・上空 ≤ 52 万）。描画回数は ＋2 / ＋1。r=32 のどこでも ≤ 120 万', async ({ page }) => {
-    await openTex(page);
+    await openTex(page, wide('?nosave=1')); // 三角形の上限は ふだんの輪の大きさで見る（#203）
     expect(await missingHooks(page)).toEqual([]);
     const s = await page.evaluate(() => (window as any).__rikkun.world.sectionStats().microR);
     expect(s).toBe(32);

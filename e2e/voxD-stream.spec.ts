@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { wide } from './helpers/fine';
 import { PREP, drainRebuilds, findLand, flatNearStart, openBooting, openStream, settleWorld } from './helpers/stream';
 
 /**
@@ -18,7 +19,7 @@ const q = (seed: number | null, extra = '') => `?nosave=1${seed === null ? '' : 
 test.describe('VOX-D ストリーミング', () => {
   for (const seed of SEEDS) {
     test(`基準 5: 起動 ready のとき 25 列は 小ブロックか箱の絵・81 列は meshed（${label(seed)}）`, async ({ page }) => {
-      await openStream(page, q(seed));
+      await openStream(page, wide(q(seed)));
       const r = await page.evaluate(() => {
         const h = window.__rikkun! as any;
         const w = h.world;
@@ -59,7 +60,7 @@ test.describe('VOX-D ストリーミング', () => {
   }
 
   test('基準 5(起動中): ?streamWork=1 で起動 → ready になるまで 1 step ずつ プレイヤーの位置が変わらない（落ちない）', async ({ page }) => {
-    await openBooting(page, '?nosave=1&streamWork=1');
+    await openBooting(page, wide('?nosave=1&streamWork=1'));
     const r = await page.evaluate(() => {
       const h = window.__rikkun! as any;
       const first = h.player.get().position;
@@ -91,7 +92,7 @@ test.describe('VOX-D ストリーミング', () => {
   });
 
   test('基準 6: 動かないままの起動 → settle({ full }) のあと 289 列・meshed 169・lit 以上 225', async ({ page }) => {
-    await openStream(page);
+    await openStream(page, wide('?nosave=1'));
     const s = await settleWorld(page, true);
     const r = await page.evaluate(() => {
       const w = (window.__rikkun! as any).world;
@@ -118,7 +119,7 @@ test.describe('VOX-D ストリーミング', () => {
 
   test('基準 7: 歩く: 北へ 1,200 step（setStreamWork(4)）毎 step 北 7 列先まで読みこみ済み・持つ列 441 以下・止まって 10 以内だけ', async ({ page }) => {
     test.setTimeout(300_000);
-    await openStream(page);
+    await openStream(page, wide('?nosave=1'));
     await settleWorld(page, true); // ready は半径 6 まで。歩く前に 輪を全部そろえる
     const r = await page.evaluate(() => {
       const h = window.__rikkun! as any;
@@ -169,7 +170,7 @@ test.describe('VOX-D ストリーミング', () => {
 
   for (const seed of [null, 2]) {
     test(`基準 8: テレポート: P へ → 60 step で onGround・足の高さ = groundHeight + 1。スタートの列は捨てる。さわっていない列は hash === genHash（${label(seed)}）`, async ({ page }) => {
-      await openStream(page, q(seed));
+      await openStream(page, wide(q(seed)));
       const P = await findLand(page);
       const r = await page.evaluate((P) => {
         const h = window.__rikkun! as any;
@@ -201,7 +202,7 @@ test.describe('VOX-D ストリーミング', () => {
   }
 
   test('基準 9: さわった列は保存してから捨てる: 3 マス置く → P へ → hasChunk・writes ふえる → スタートへ もどると hash が同じ', async ({ page }) => {
-    await openStream(page, '?');
+    await openStream(page, wide('?'));
     const P = await findLand(page);
     const b = await page.evaluate(() => {
       const h = window.__rikkun! as any;
@@ -234,7 +235,7 @@ test.describe('VOX-D ストリーミング', () => {
   });
 
   test('基準 10: P で 20 段たてに ほる → 穴のかべにメッシュ → 保存 → 読みなおし: 中心が P・位置と hash が同じ（畑も もどる）', async ({ page }) => {
-    await openStream(page, '?');
+    await openStream(page, wide('?'));
     const P = await findLand(page);
     await page.evaluate((P) => (window.__rikkun! as any).world.teleport(P.x, P.z), P);
     await settleWorld(page);
@@ -309,7 +310,7 @@ test.describe('VOX-D ストリーミング', () => {
   });
 
   test('基準 13: 保存できないとき（?nosave=1）: 基準 9 と同じ手順でもどったとき hash が同じ。読みなおすと genHash と同じ', async ({ page }) => {
-    await openStream(page);
+    await openStream(page, wide('?nosave=1'));
     const P = await findLand(page);
     const b = await page.evaluate(() => {
       const h = window.__rikkun! as any;
@@ -341,7 +342,7 @@ test.describe('VOX-D ストリーミング', () => {
 
   test('基準 15〜18（1 本の流れ）: 妖怪・ふくろ・たんす・かまど・畑 → P へ 捨てる → 15 → 1,200 step → もどる → 16〜18', async ({ page }) => {
     const W = 1200;
-    await openStream(page);
+    await openStream(page, wide('?nosave=1'));
     const P = await findLand(page);
     // ふくろ: 広場の すみで やられて ばらまく（もどり先の スタートから はなれた所。ひろわれない）
     const base = await flatNearStart(page);
@@ -466,7 +467,7 @@ test.describe('VOX-D ストリーミング', () => {
   });
 
   test('基準 15(出る場所): 妖怪は 描く輪（スタートの列から 6 以内の meshed）の外の列には出ない', async ({ page }) => {
-    await openStream(page);
+    await openStream(page, wide('?nosave=1'));
     await settleWorld(page, true);
     const r = await page.evaluate(() => {
       const h = window.__rikkun! as any;
@@ -494,7 +495,7 @@ test.describe('VOX-D ストリーミング', () => {
 
   for (const seed of SEEDS_20) {
     test(`基準 20: regions・置きもの・洞くつの口は 起動・テレポート・読みなおしのあとで同じ。どれも R の中（${label(seed)}）`, async ({ page }) => {
-      await openStream(page, q(seed));
+      await openStream(page, wide(q(seed)));
       const snap = () =>
         page.evaluate(() => {
           const h = window.__rikkun! as any;
@@ -552,7 +553,7 @@ test.describe('VOX-D ストリーミング', () => {
 
   for (const seed of [null, 1]) {
     test(`基準 21: 置きものは開始の前: ready で ふるい畑・やせいの やさい が全部ある。ready のあと置きもので作り直したセクションがない（${label(seed)}）`, async ({ page }) => {
-      await page.goto('/' + q(seed));
+      await page.goto('/' + wide(q(seed)));
       await page.waitForFunction(() => window.__rikkun?.ready === true);
       const r = await page.evaluate(async () => {
         const h = window.__rikkun! as any;
@@ -584,7 +585,7 @@ test.describe('VOX-D ストリーミング', () => {
   }
 
   test('基準 22: 仮の海のふちが無い: スタートから 4〜6 列の列（置きものの無い 10 列）で hash === genHash', async ({ page }) => {
-    await openStream(page);
+    await openStream(page, wide('?nosave=1'));
     await settleWorld(page, true);
     const r = await page.evaluate(() => {
       const h = window.__rikkun! as any;
@@ -613,7 +614,7 @@ test.describe('VOX-D ストリーミング', () => {
   });
 
   test('基準 23: 壁: x = 29,999.7 で止まり z には動ける。壁の外のマス（x = 30000）は ほれない・おけない', async ({ page }) => {
-    await openStream(page);
+    await openStream(page, wide('?nosave=1'));
     const wall = await page.evaluate(() => (window.__rikkun! as any).world.wall());
     expect(wall).toBe(30000);
     await page.evaluate(() => (window.__rikkun! as any).world.teleport(29990.5, 100.5));
@@ -653,7 +654,7 @@ test.describe('VOX-D ストリーミング', () => {
   });
 
   test('基準 24: じゅんびちゅう（起動）: ことば・ブロック 5 こ・できた数 = floor(progress × 5)。押してもロックしない・タブは切りかわる。ready の次のコマで字がもどる', async ({ page }) => {
-    await openBooting(page, '?nosave=1&streamWork=1');
+    await openBooting(page, wide('?nosave=1&streamWork=1'));
     const snapDom = () =>
       page.evaluate(
         (PREP) => {
@@ -712,7 +713,7 @@ test.describe('VOX-D ストリーミング', () => {
   });
 
   test('基準 25: じゅんびちゅう（遠くへもどる）: 29 step では カード無し・31 step では有り。待つ間 動かない・落ちない・ダメージ 0。そろったら スタートの地面の上。近くのもどりは カード無し', async ({ page }) => {
-    await openStream(page);
+    await openStream(page, wide('?nosave=1'));
     const P = await findLand(page);
     await page.evaluate((P) => (window.__rikkun! as any).world.teleport(P.x, P.z), P);
     await settleWorld(page);
