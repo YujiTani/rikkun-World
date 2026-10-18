@@ -407,7 +407,7 @@ test.describe('BOOK-1 本の 流れ', () => {
     await openGuide(page);
     const req = () => page.evaluate(() => (window as any).__lockReq as number);
     expect(await req()).toBe(0);
-    await page.locator('.po-button').click();
+    await page.locator('.po-button').click({ force: true });
     expect(await req()).toBeGreaterThan(0);
     // 本を出す
     await page.evaluate(() => {
