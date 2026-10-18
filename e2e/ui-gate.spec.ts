@@ -82,21 +82,37 @@ async function boot(page: Page, locked: boolean, query = '?nosave=1'): Promise<v
   }, locked);
 }
 
-const guideTab = (tab: string): Screen => ({
-  id: `guide-${tab}`,
+// BOOK-1: 案内画面 ＋ 本の 4 画面（① もくじ・② そだてる〔12 こ〕・③ 一番長い説明・③ 画面の絵が要る項目）。docs/design/BOOK-1.md AC16
+const guideHome: Screen = {
+  id: 'guide',
   roots: ['.play-overlay'],
   open: async (page) => {
     await boot(page, false);
-    await page.evaluate((tab) => {
+    await page.evaluate(() => (window.__rikkun! as any).step(2));
+  },
+};
+
+const bookPage = (id: string, target: string): Screen => ({
+  id,
+  roots: ['.play-overlay', '[data-book]'],
+  open: async (page) => {
+    await boot(page, false);
+    await page.evaluate((target) => {
       const h = window.__rikkun! as any;
-      h.lock.tab(tab);
+      h.lock.book(target);
+      let n = 0;
+      while (h.lock.get().bookAnim !== 'none' && n++ < 1200) h.step(1);
       h.step(2);
-    }, tab);
+    }, target);
   },
 });
 
 const SCREENS: Screen[] = [
-  ...['move', 'dig', 'fight', 'craft', 'grow'].map(guideTab),
+  guideHome,
+  bookPage('book-toc', 'toc'),
+  bookPage('book-chapter-grow', 'grow'),
+  bookPage('book-item-seeds', 'grow-seeds'),
+  bookPage('book-item-bag', 'dig-bag'),
   {
     id: 'hud',
     roots: ['#hud'],
