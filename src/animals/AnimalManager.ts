@@ -16,6 +16,7 @@ import type {
 } from '../contracts';
 import { createLiveSettings } from '../contracts';
 import { createRng, type Rng } from '../world/gen/random';
+import { BugNet, EGG_SALT, rollPity } from './lottery';
 import { bodyInWall } from '../world/wall';
 import { BODY, bodyFree, columnTop, supportTop, surfaceY, type AnimalWorld } from './terrain';
 
@@ -23,7 +24,6 @@ const DT = 1 / 60;
 const TAU = Math.PI * 2;
 /** 妖怪 とは べつ の 乱数 の 流れ（シード に まぜる 数） */
 const RNG_SALT = 0x11fe0001;
-const VEGGIES: ReadonlySet<string> = new Set(['onion', 'tomato', 'pumpkin', 'eggplant']);
 /** なかま どうし の 中心 の 最小 すき間（PO 2026-10-18: 0.5 → 0.8。重なって 1 わ しか 見えない ため） */
 const FRIEND_MIN_GAP = 0.8;
 /** 止まる 距離 の ばらつき（なかま に なった 順 で 0・0.5・1.0 を くり返す） */
@@ -32,8 +32,20 @@ const STOP_KINDS = 3;
 const APPEAR_TICKS = 30;
 const EVENT_CAP = 512;
 const FALL_G = 25;
+/** ハート 1 以上 の やせい が 消える 距離（§2.1。台帳 G4） */
+const HEART_REMOVE_DIST = 96;
+/** ついてくる 時間 が 0 の なかま が はなれない はんい（§2.7） */
+const HOME_RADIUS = 6;
+/** おなかいっぱい の 動き（§3.5） */
+const FULL_REACT_TICKS = 20;
+/** おろす 動き（§3.5） */
+const PUT_DOWN_TICKS = 20;
+/** あみ で とれた むし が 持ち物 に 入る まで。ふった ステップ を 1 と 数えて 30 ステップ 目（ふった あと の update は 29 回） */
+const BUG_CATCH_UPDATES = 29;
+/** パタパタ と みなす 下向き の 速さ（マス/秒） */
+const FLUTTER_MIN_VY = 0.3;
 
-type LockKind = 'appear' | 'eat' | 'pet' | 'cheer';
+type LockKind = 'appear' | 'eat' | 'pet' | 'cheer' | 'full' | 'putDown';
 
 interface Ent {
   id: number;
@@ -44,12 +56,23 @@ interface Ent {
   headYaw: number;
   friend: boolean;
   hearts: 0 | 1 | 2;
-  eggDay: number | null;
   state: AnimalState;
   stateTicks: number;
   look: boolean;
   inWater: boolean;
+  /** 上下 の 速さ（マス/秒。下 が 負） */
   vy: number;
+  /** ついてくる 残り ステップ（なかま） */
+  follow: number;
+  /** おなかいっぱい の 残り ステップ */
+  fullLeft: number;
+  carried: boolean;
+  fluttering: boolean;
+  /** たまご の くじ の「つづけて うまなかった 数」（保存 しない） */
+  eggMiss: number;
+  /** ついてくる 時間 が 0 の とき の まん中（うろうろ の はんい） */
+  homeX: number;
+  homeZ: number;
   /** うごき の ロック（のこり ステップ）と 種類 */
   lock: number;
   lockKind: LockKind;
@@ -132,8 +155,20 @@ export class AnimalManager implements AnimalApi {
   private spawnTimer = 0;
   private hint: AnimalHintKind | null = null;
   private targetId: number | null = null;
+  /** たまご の くじ（あみ・妖怪 と べつ の 流れ） */
+  private readonly eggRng: Rng;
+  private readonly net: BugNet;
+  private tick = 0;
+  /** とれた むし が 持ち物 に 入る まで の のこり update 回数 */
+  private catches: number[] = [];
+  private carriedId: number | null = null;
+  /** やせい を 長おし した とき の carryWild を 1 回 の 押し で 1 回 に する */
+  private wildAnnounced = false;
+  /** 深い 所 で だっこ した ことが ある（`carriedBefore` が 無い とき の かわり） */
+  private everCarried = false;
   private readonly view: AnimalView = {
     id: 0, x: 0, y: 0, z: 0, yaw: 0, headYaw: 0, state: 'idle', stateTicks: 0, friend: false, hearts: 0, targeted: false,
+    follow: 0, fullLeft: 0, carried: false, fluttering: false,
   };
 
   constructor(o: AnimalManagerOptions) {
@@ -142,6 +177,8 @@ export class AnimalManager implements AnimalApi {
     this.settings = o.deps.settings ?? createLiveSettings();
     this.getPlayer = o.getPlayer;
     this.rng = createRng((o.deps.seed ^ RNG_SALT) >>> 0);
+    this.eggRng = createRng((o.deps.seed ^ EGG_SALT) >>> 0);
+    this.net = new BugNet(o.deps.seed);
   }
 
   // ------------------------------------------------------------ 窓口(テスト・つなぎ込み)
@@ -149,7 +186,10 @@ export class AnimalManager implements AnimalApi {
   spawn(x: number, y: number, z: number, opts: AnimalSpawnOpts = {}): number | null {
     const friend = opts.friend === true;
     if (friend && this.friendCount() >= this.settings.animalFriendMax) return null;
-    const e = this.make(x, y, z, friend, friend ? 0 : (opts.hearts ?? 0), opts.eggDay ?? null);
+    const max = this.settings.animalFollowTicks;
+    const follow = friend ? Math.max(0, Math.min(max, Math.round(opts.follow ?? max))) : 0;
+    const e = this.make(x, y, z, friend, friend ? 0 : (opts.hearts ?? 0), follow);
+    e.fullLeft = Math.max(0, Math.round(opts.fullLeft ?? 0));
     this.ents.push(e);
     this.push({ type: 'spawn', id: e.id, x, y, z });
     return e.id;
@@ -166,16 +206,14 @@ export class AnimalManager implements AnimalApi {
       yaw: e.yaw,
       friend: e.friend,
       hearts: e.hearts,
-      eggDay: e.eggDay,
       state: e.state,
       lookingAtPlayer: this.lookingAt(e, p),
       inWater: e.inWater,
-      // 版 3.2: A が 埋める（仮）
-      follow: 0,
-      fullLeft: 0,
-      carried: false,
-      fluttering: false,
-      vy: 0,
+      follow: e.follow,
+      fullLeft: e.fullLeft,
+      carried: e.carried,
+      fluttering: e.fluttering,
+      vy: e.vy,
     }));
   }
 
@@ -183,6 +221,10 @@ export class AnimalManager implements AnimalApi {
     this.friendSeq = 0;
     this.ents.length = 0;
     this.targetId = null;
+    this.carriedId = null;
+    this.catches.length = 0;
+    this.wildAnnounced = false;
+    this.net.reset();
   }
 
   count(): number {
@@ -202,21 +244,85 @@ export class AnimalManager implements AnimalApi {
     return q;
   }
 
-  // ---- 版 3.2 のつなぎ目（A が 埋める。いまは 仮）
-  swingNet(_block: Vec3): SwingResult {
-    throw new Error('swingNet: A が 実装する');
+  // ------------------------------------------------------------ 版 3.2: あみ・だっこ
+
+  /** あみ を ふる（§2.4）。とれる か は ふった ステップ に きまり、むし は 30 ステップ 目 に 持ち物 へ */
+  swingNet(block: Vec3): SwingResult {
+    const r = this.net.swing(block, this.tick, this.settings);
+    this.push({ type: 'swing', x: block.x, y: block.y, z: block.z, caught: r.caught, reason: r.reason });
+    if (r.caught) this.catches.push(BUG_CATCH_UPDATES);
+    return r;
   }
 
-  carryHold(_id: number, _heldTicks: number): 'lifted' | 'wait' | 'wild' | null {
-    return null;
+  /** 右クリック の 押しつづけ（§2.8）。`heldTicks` = 押してから の ステップ 数 */
+  carryHold(id: number, heldTicks: number): 'lifted' | 'wait' | 'wild' | null {
+    const e = this.find(id);
+    if (!e || e.carried || this.carriedId !== null) return null;
+    const hold = this.settings.carryHoldTicks;
+    if (!e.friend) {
+      if (heldTicks < hold) {
+        this.wildAnnounced = false;
+        return 'wait';
+      }
+      if (this.wildAnnounced) return null;
+      this.wildAnnounced = true;
+      return 'wild';
+    }
+    if (heldTicks < hold || e.lock > 0) return 'wait';
+    const p = this.getPlayer().position;
+    e.carried = true;
+    e.following = false;
+    e.walking = false;
+    e.stuck = 0;
+    e.fluttering = false;
+    e.vy = 0;
+    e.x = p.x;
+    e.y = p.y;
+    e.z = p.z;
+    this.carriedId = id;
+    this.everCarried = true;
+    this.setState(e, 'carried');
+    this.push({ type: 'carry', id });
+    return 'lifted';
   }
 
-  putDown(_spot: Vec3): boolean {
-    return false;
+  /** おろす（§2.8）。`spot` = 足もと の 位置。固い マス・読みこんで いない 所 は false */
+  putDown(spot: Vec3): boolean {
+    const e = this.carriedId === null ? undefined : this.find(this.carriedId);
+    if (!e) return false;
+    const w = this.world;
+    const ix = Math.floor(spot.x);
+    const iz = Math.floor(spot.z);
+    const iy = Math.floor(spot.y + 1e-6);
+    if (!w.isLoaded(ix, iz) || iy < 0 || iy >= w.size.y) return false;
+    if (!bodyFree(w, spot.x, spot.z, spot.y)) return false;
+    e.carried = false;
+    this.carriedId = null;
+    e.x = spot.x;
+    e.y = spot.y;
+    e.z = spot.z;
+    e.vy = 0;
+    e.following = false;
+    e.walking = false;
+    e.stuck = 0;
+    e.bestDist = Infinity;
+    e.warpWait = 0;
+    e.homeX = e.x;
+    e.homeZ = e.z;
+    e.restLeft = 20 + Math.floor(this.rng() * 40);
+    this.push({ type: 'putDown', id: e.id, x: e.x, y: e.y, z: e.z });
+    this.setLock(e, 'putDown', PUT_DOWN_TICKS);
+    return true;
   }
 
   carrying(): number | null {
-    return null;
+    return this.carriedId;
+  }
+
+  /** おなかいっぱい か（照準 の 下 の `まってね`） */
+  isFull(id: number): boolean {
+    const e = this.find(id);
+    return !!e && e.fullLeft > 0;
   }
 
   lastHint(): AnimalHintKind | null {
@@ -251,7 +357,7 @@ export class AnimalManager implements AnimalApi {
       const sy = surfaceY(this.world, ix, iz);
       if (sy === null || this.world.getBlock(ix, sy, iz) !== 'grass') continue;
       if (this.clear2(ix, sy + 1, iz) === false) continue;
-      const e = this.make(cx, sy + 1, cz, false, 0, null);
+      const e = this.make(cx, sy + 1, cz, false, 0, 0);
       e.lock = APPEAR_TICKS;
       e.lockKind = 'appear';
       e.state = 'appear';
@@ -269,7 +375,7 @@ export class AnimalManager implements AnimalApi {
     let bestT = Infinity;
     const hw = 0.4;
     for (const e of this.ents) {
-      if (e.state === 'appear') continue;
+      if (e.state === 'appear' || e.carried) continue;
       const t = slab(origin.x, dir.x, e.x - hw, e.x + hw, 0, maxDist);
       if (t === null) continue;
       const ty = slab(origin.y, dir.y, e.y, e.y + 1.0, t[0], t[1]);
@@ -287,32 +393,42 @@ export class AnimalManager implements AnimalApi {
 
   preview(id: number, held: ItemStack | null): 'feed' | 'animalPet' | null {
     const e = this.find(id);
-    if (!e || e.lock > 0) return null;
-    if (held && VEGGIES.has(held.item)) {
-      if (e.friend && !this.eggDue(e)) return 'animalPet';
-      return 'feed';
-    }
+    if (!e || e.lock > 0 || e.carried) return null;
+    if (held && held.item === 'mushi') return 'feed';
     return 'animalPet';
   }
 
-  feed(id: number, item: ItemId): 'ate' | 'pet' | 'full' | null {
+  feed(id: number, item: ItemId): 'ate' | 'full' | 'pet' | 'friendFull' | null {
     const e = this.find(id);
-    if (!e || e.lock > 0 || !VEGGIES.has(item)) return null;
+    if (!e || e.lock > 0 || e.carried || item !== 'mushi') return null;
     const s = this.settings;
+    if (e.fullLeft > 0) {
+      this.push({ type: 'full', id });
+      this.setLock(e, 'full', FULL_REACT_TICKS);
+      return 'full';
+    }
+    if (!e.friend && e.hearts >= 2 && this.friendCount() + this.pendingFriends() >= s.animalFriendMax) {
+      this.hintOut('friendFull');
+      return 'friendFull';
+    }
+    e.fullLeft = s.animalFullTicks;
     if (e.friend) {
-      if (!this.eggDue(e)) {
-        this.petFriend(e);
-        return 'pet';
-      }
+      // ついてくる 時間 が まんたん に もどる（とまって いた なかま も また ついてくる）
+      e.follow = s.animalFollowTicks;
+      e.walking = false;
+      e.stuck = 0;
       this.push({ type: 'feed', id, item, hearts: 0, friend: true });
-      this.startEgg(e, 'eat');
+      const roll = rollPity(this.eggRng, s.animalEggChance, s.animalEggPity, e.eggMiss);
+      e.eggMiss = roll.misses;
+      if (roll.hit) {
+        e.egg = true;
+        this.setLock(e, 'eat', s.animalEggDelay);
+      } else {
+        this.setLock(e, 'eat', s.animalReactTicks);
+      }
       return 'ate';
     }
     if (e.hearts >= 2) {
-      if (this.friendCount() + this.pendingFriends() >= s.animalFriendMax) {
-        this.hintOut('friendFull');
-        return 'full';
-      }
       e.becomeFriend = true;
       this.push({ type: 'feed', id, item, hearts: 3, friend: false });
     } else {
@@ -336,14 +452,15 @@ export class AnimalManager implements AnimalApi {
 
   pet(id: number): 'wild' | 'friend' | null {
     const e = this.find(id);
-    if (!e || e.lock > 0) return null;
+    if (!e || e.lock > 0 || e.carried) return null;
     if (!e.friend) {
       this.push({ type: 'pet', id, friend: false });
       this.hintOut('feedHint');
       this.setLock(e, 'pet', this.settings.animalReactTicks);
       return 'wild';
     }
-    this.petFriend(e);
+    this.push({ type: 'pet', id, friend: true });
+    this.setLock(e, 'pet', this.settings.animalReactTicks);
     return 'friend';
   }
 
@@ -361,26 +478,32 @@ export class AnimalManager implements AnimalApi {
       v.friend = e.friend;
       v.hearts = e.hearts;
       v.targeted = e.id === this.targetId;
+      v.follow = e.follow;
+      v.fullLeft = e.fullLeft;
+      v.carried = e.carried;
+      v.fluttering = e.fluttering;
       fn(v);
     }
   }
 
   // ------------------------------------------------------------ 保存(SaveExtra)
 
-  serialize(): { v: 1; friends: { x: number; y: number; z: number; yaw: number; eggDay: number | null }[] } {
-    const friends: { x: number; y: number; z: number; yaw: number; eggDay: number | null }[] = [];
+  /** 保存（§4.4）。だっこ 中 は プレイヤー の 足もと の 位置 が そのまま 入る */
+  serialize(): { v: 2; friends: { x: number; y: number; z: number; yaw: number; follow: number }[] } {
+    const friends: { x: number; y: number; z: number; yaw: number; follow: number }[] = [];
     for (const e of this.ents) {
       if (!e.friend) continue;
-      friends.push({ x: round2(e.x), y: round2(e.y), z: round2(e.z), yaw: round2(e.yaw), eggDay: e.eggDay });
+      friends.push({ x: round2(e.x), y: round2(e.y), z: round2(e.z), yaw: round2(e.yaw), follow: Math.round(e.follow) });
     }
-    return { v: 1, friends };
+    return { v: 2, friends };
   }
 
+  /** 読みこみ。版 1（`eggDay` つき・`follow` なし）も 読む: `follow` は まんたん、`eggDay` は すてる */
   deserialize(data: unknown): void {
     this.clear();
     const rows = (data as { friends?: unknown } | null | undefined)?.friends;
     if (typeof data !== 'object' || data === null || !Array.isArray(rows)) return;
-    const today = this.d.day();
+    const max = this.settings.animalFollowTicks;
     for (const r of rows) {
       if (this.friendCount() >= this.settings.animalFriendMax) break;
       if (typeof r !== 'object' || r === null) continue;
@@ -391,9 +514,8 @@ export class AnimalManager implements AnimalApi {
       if (typeof x !== 'number' || typeof y !== 'number' || typeof z !== 'number') continue;
       if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) continue;
       const yaw = typeof o.yaw === 'number' && Number.isFinite(o.yaw) ? o.yaw : 0;
-      let eggDay: number | null = typeof o.eggDay === 'number' && Number.isInteger(o.eggDay) ? o.eggDay : null;
-      if (eggDay !== null && eggDay > today) eggDay = today;
-      const e = this.make(x, y, z, true, 0, eggDay);
+      const follow = typeof o.follow === 'number' && Number.isFinite(o.follow) ? Math.max(0, Math.min(max, Math.round(o.follow))) : max;
+      const e = this.make(x, y, z, true, 0, follow);
       e.yaw = yaw;
       e.headYaw = yaw;
       this.ents.push(e);
@@ -404,6 +526,12 @@ export class AnimalManager implements AnimalApi {
 
   update(): void {
     const s = this.settings;
+    this.tick++;
+    for (let i = this.catches.length - 1; i >= 0; i--) {
+      if (--this.catches[i]! > 0) continue;
+      this.catches.splice(i, 1);
+      this.push({ type: 'bugCatch', toInventory: this.d.addItem('mushi') });
+    }
     if (s.animalAutoSpawn) {
       this.spawnTimer++;
       if (this.spawnTimer >= s.animalSpawnInterval) {
@@ -417,12 +545,12 @@ export class AnimalManager implements AnimalApi {
       if (!this.step(e, p)) this.ents.splice(i, 1);
     }
     // かさならない: すわっている なかま を はなす
-    for (const e of this.ents) if (e.friend && !e.following && e.lock === 0) this.separate(e, p);
+    for (const e of this.ents) if (e.friend && !e.following && !e.carried && e.lock === 0) this.separate(e, p);
   }
 
   // ------------------------------------------------------------ 内部
 
-  private make(x: number, y: number, z: number, friend: boolean, hearts: 0 | 1 | 2, eggDay: number | null): Ent {
+  private make(x: number, y: number, z: number, friend: boolean, hearts: 0 | 1 | 2, follow: number): Ent {
     const stopOff = friend ? this.nextStopOff() : 0;
     const yaw = this.rng() * TAU - Math.PI;
     return {
@@ -434,12 +562,18 @@ export class AnimalManager implements AnimalApi {
       headYaw: yaw,
       friend,
       hearts,
-      eggDay,
-      state: friend ? 'idle' : 'rest',
+      state: friend && follow > 0 ? 'idle' : 'rest',
       stateTicks: 0,
       look: false,
       inWater: false,
       vy: 0,
+      follow,
+      fullLeft: 0,
+      carried: false,
+      fluttering: false,
+      eggMiss: 0,
+      homeX: x,
+      homeZ: z,
       lock: 0,
       lockKind: 'eat',
       egg: false,
@@ -491,29 +625,9 @@ export class AnimalManager implements AnimalApi {
     return e.lockKind;
   }
 
-  private eggDue(e: Ent): boolean {
-    return e.eggDay === null || e.eggDay < this.d.day();
-  }
-
-  private petFriend(e: Ent): void {
-    this.push({ type: 'pet', id: e.id, friend: true });
-    if (this.eggDue(e)) {
-      this.startEgg(e, 'pet');
-    } else {
-      this.hintOut('eggLater');
-      this.setLock(e, 'pet', this.settings.animalReactTicks);
-    }
-  }
-
-  private startEgg(e: Ent, kind: 'eat' | 'pet'): void {
-    e.eggDay = this.d.day();
-    e.egg = true;
-    this.setLock(e, kind, this.settings.animalEggDelay);
-  }
-
   private lookingAt(e: Ent, p: Vec3): boolean {
     if (e.lock > 0 || e.state === 'appear') return false;
-    return (e.friend ? e.state === 'idle' : e.look) && dist2d(e.x, e.z, p.x, p.z) <= this.settings.animalLookDist;
+    return (e.friend && e.follow > 0 ? e.state === 'idle' : e.look) && dist2d(e.x, e.z, p.x, p.z) <= this.settings.animalLookDist;
   }
 
   /** (ix, y, iz) に 立てる(上 2 マス くうき・みず でない) */
@@ -529,10 +643,22 @@ export class AnimalManager implements AnimalApi {
   private step(e: Ent, p: Vec3): boolean {
     const s = this.settings;
     e.stateTicks++;
+    if (e.fullLeft > 0) e.fullLeft--;
+    if (e.carried) {
+      // だっこ 中: プレイヤー の 足もと に いる。follow は へらない
+      e.x = p.x;
+      e.y = p.y;
+      e.z = p.z;
+      e.vy = 0;
+      e.fluttering = false;
+      e.inWater = false;
+      this.setState(e, 'carried');
+      return true;
+    }
     const d = dist2d(e.x, e.z, p.x, p.z);
 
     if (!e.friend) {
-      if (d > s.animalRemoveDist) return this.remove(e, 'far');
+      if (d > (e.hearts >= 1 ? Math.max(s.animalRemoveDist, HEART_REMOVE_DIST) : s.animalRemoveDist)) return this.remove(e, 'far');
       if (e.y < -10) return this.remove(e, 'void');
     }
     const loaded = this.world.isLoaded(Math.floor(e.x), Math.floor(e.z));
@@ -549,6 +675,7 @@ export class AnimalManager implements AnimalApi {
       }
     }
     if (e.friend && this.friendWarpChecks(e, p, d, false)) return true;
+    if (e.friend && e.follow > 0 && --e.follow === 0) this.endFollow(e);
 
     if (e.lock > 0) {
       e.lock--;
@@ -562,12 +689,27 @@ export class AnimalManager implements AnimalApi {
     return true;
   }
 
+  /** ついてくる 時間 が 0 に なった（§2.7）: その場 に とまり、そこ を 中心 に のんびり */
+  private endFollow(e: Ent): void {
+    e.following = false;
+    e.bestDist = Infinity;
+    e.stuck = 0;
+    e.warpWait = 0;
+    e.homeX = e.x;
+    e.homeZ = e.z;
+    e.walking = false;
+    e.restLeft = 20 + Math.floor(this.rng() * 40);
+    if (e.lock === 0) this.setState(e, 'rest');
+    this.push({ type: 'followEnd', id: e.id });
+  }
+
   private remove(e: Ent, reason: 'far' | 'void' | 'buried'): false {
     this.push({ type: 'remove', id: e.id, reason });
     return false;
   }
 
   private finishLock(e: Ent): void {
+    const kind = e.lockKind;
     if (e.egg) {
       e.egg = false;
       this.d.dropEgg({ x: e.x, y: e.y + 0.3, z: e.z });
@@ -578,7 +720,8 @@ export class AnimalManager implements AnimalApi {
       e.friend = true;
       e.stopOff = this.nextStopOff();
       e.hearts = 0;
-      e.eggDay = null;
+      e.eggMiss = 0;
+      e.follow = this.settings.animalFollowTicks;
       e.following = false;
       const count = this.friendCount();
       const first = count === 1;
@@ -587,16 +730,25 @@ export class AnimalManager implements AnimalApi {
       return;
     }
     e.becomeFriend = false;
-    this.setState(e, e.friend ? 'idle' : 'rest');
+    this.setState(e, this.restState(e));
+    // お祝い が おわった: まだ だっこ を して いない なら ながおし の ヒント（§2.6）
+    if (kind === 'cheer') {
+      const done = this.d.carriedBefore ? this.d.carriedBefore() : this.everCarried;
+      if (!done) this.push({ type: 'carryHint' });
+    }
+  }
+
+  private restState(e: Ent): AnimalState {
+    return e.friend && e.follow > 0 ? 'idle' : 'rest';
   }
 
   private behave(e: Ent, p: Vec3, d: number): void {
     const s = this.settings;
-    if (e.friend) {
+    if (e.friend && e.follow > 0) {
       this.follow(e, p, d);
       return;
     }
-    // やせい
+    // やせい（と ついてくる 時間 が 0 の なかま: とまった 所 から 6 マス 以内）
     e.look = d <= s.animalLookDist;
     if (e.look) {
       this.setState(e, 'look');
@@ -604,6 +756,7 @@ export class AnimalManager implements AnimalApi {
     }
     if (e.walking) {
       this.setState(e, 'wander');
+      if (e.friend && dist2d(e.x, e.z, e.homeX, e.homeZ) > HOME_RADIUS - 0.5) e.walkYaw = yawTo(e.homeX - e.x, e.homeZ - e.z);
       const ok = angleDiff(e.yaw, e.walkYaw) < 0.8 && angleDiff(e.yaw, e.walkYaw) > -0.8;
       if (ok) {
         const v = s.animalWanderSpeed * DT;
@@ -669,8 +822,10 @@ export class AnimalManager implements AnimalApi {
     const s = this.settings;
     if (e.warpWait > 0) e.warpWait--;
     if (e.lockKind === 'appear' && e.lock > 0) return false;
-    const far = d > s.animalWarpDist || Math.abs(e.y - p.y) > 6 || e.y < -10;
-    const stuck = !frozen && e.following && e.stuck >= s.animalStuckTicks;
+    // ついてくる 時間 が 0 の なかま は とおく に いても ワープ しない（世界 の 下 だけ）
+    const chasing = e.follow > 0;
+    const far = chasing ? d > s.animalWarpDist || Math.abs(e.y - p.y) > 6 || e.y < -10 : e.y < -10;
+    const stuck = chasing && !frozen && e.following && e.stuck >= s.animalStuckTicks;
     if (!far && !stuck) return false;
     if (e.warpWait > 0) return false;
     if (this.warp(e, p)) return true;
@@ -680,7 +835,7 @@ export class AnimalManager implements AnimalApi {
 
   private warp(e: Ent, p: Vec3): boolean {
     const w = this.world;
-    const others = this.ents.filter((o) => o !== e && o.friend);
+    const others = this.ents.filter((o) => o !== e && o.friend && !o.carried);
     for (let i = 0; i < 40; i++) {
       const ang = this.rng() * TAU;
       const r = 2 + this.rng();
@@ -701,10 +856,13 @@ export class AnimalManager implements AnimalApi {
         e.y = t;
         e.z = z;
         e.vy = 0;
+        e.fluttering = false;
         e.following = false;
         e.stuck = 0;
         e.bestDist = Infinity;
         e.warpWait = 0;
+        e.homeX = e.x;
+        e.homeZ = e.z;
         this.push({ type: 'warp', id: e.id, from, to: { x: e.x, y: e.y, z: e.z } });
         return true;
       }
@@ -758,20 +916,28 @@ export class AnimalManager implements AnimalApi {
       const target = cy + 1 - 0.45;
       e.y += Math.max(-0.08, Math.min(0.08, target - e.y));
       e.vy = 0;
+      e.fluttering = false;
       e.inWater = true;
       return;
     }
     e.inWater = false;
     const top = supportTop(w, e.x, e.z, e.y, w.size.y);
     if (top === null || e.y > top + 1e-4) {
+      // 空中: パタパタ して ゆっくり 落ちる（下向き の 速さ は animalFlutterFallSpeed まで。§2.9）
       e.vy -= FALL_G * DT;
+      const cap = this.settings.animalFlutterFallSpeed;
+      if (e.vy < -cap) e.vy = -cap;
       e.y += e.vy * DT;
       if (top !== null && e.y <= top) {
         e.y = top;
         e.vy = 0;
+        e.fluttering = false;
+      } else {
+        e.fluttering = e.vy <= -FLUTTER_MIN_VY;
       }
     } else {
       e.vy = 0;
+      e.fluttering = false;
       e.y = Math.min(top, e.y + 0.2);
     }
   }
@@ -780,7 +946,7 @@ export class AnimalManager implements AnimalApi {
     let want = e.yaw;
     const toP = yawTo(p.x - e.x, p.z - e.z);
     if (e.lock === 0) {
-      if (!e.friend) want = e.look ? toP : e.walking ? e.walkYaw : e.yaw;
+      if (!e.friend || e.follow <= 0) want = e.look ? toP : e.walking ? e.walkYaw : e.yaw;
       else if (e.following) want = e.walkYaw;
       else if (d <= this.settings.animalLookDist && d > 0.3) want = toP;
     }
@@ -794,7 +960,7 @@ export class AnimalManager implements AnimalApi {
     // 押されて プレイヤー に ぶつからない ように: 止まる 距離 より 内側 へは 押さない
     const keep = Math.min(dist2d(e.x, e.z, p.x, p.z), this.settings.animalFollowStop + e.stopOff);
     for (const o of this.ents) {
-      if (o === e || !o.friend) continue;
+      if (o === e || !o.friend || o.carried) continue;
       let dx = e.x - o.x;
       let dz = e.z - o.z;
       let dd = Math.hypot(dx, dz);
