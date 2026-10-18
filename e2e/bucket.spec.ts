@@ -82,7 +82,7 @@ async function open(page: Page, query = '?nosave=1') {
 }
 
 test.describe('BUCKET-1 バケツ', () => {
-  test('AC2 つくる: カード 34（LIVE-1 版 3 で mushi_ami が いちばん うしろに ふえた）・29 まい目 bucket（28 まい目 sprinkler）・てつ 3 で 1 こ・craft:bucket 1', async ({ page }) => {
+  test('AC2 つくる: カード 36（LIVE-1 版 3 で mushi_ami・LIVE-2 で nukunuku・toriya が いちばん うしろに ふえた）・29 まい目 bucket（28 まい目 sprinkler）・てつ 3 で 1 こ・craft:bucket 1', async ({ page }) => {
     await open(page);
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
@@ -108,11 +108,11 @@ test.describe('BUCKET-1 バケツ', () => {
         stat: h.achievements.stats()['craft:bucket'] ?? 0,
       };
     });
-    expect(r.cards).toBe(34);
+    expect(r.cards).toBe(36);
     expect(r.at29).toBe('bucket');
     expect(r.at28).toBe('sprinkler');
-    expect(r.after).toHaveLength(5);
-    expect(r.after[r.after.length - 1], 'いちばん うしろは むしとりあみ').toBe('mushi_ami');
+    expect(r.after).toHaveLength(7);
+    expect(r.after.slice(-3), 'いちばん うしろは むしとりあみ・こたつ・とりごや').toEqual(['mushi_ami', 'nukunuku', 'toriya']);
     expect(r.bucket).toBe(1);
     expect(r.iron).toBe(0);
     expect(r.stat).toBe(1);
