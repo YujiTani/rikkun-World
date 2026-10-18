@@ -2279,12 +2279,14 @@ export interface AnimalView {
   hearts: 0 | 1 | 2;
   /** 今 ねらわれて いる（しるし を 出す） */
   targeted: boolean;
-  // ---- 版 3.2（しるし・だっこ・パタパタ 用。A が 埋める）
+  // ---- 版 3.2（B が 描くために 読む。A が forEachVisible で 埋める。ない ときは 0／false）
   /** ついてくる 残り ステップ（なかま） */
   follow?: number;
   /** おなかいっぱい の 残り ステップ */
   fullLeft?: number;
+  /** だっこ されて いる（描く 位置 は B が プレイヤー の 前 に 置く） */
   carried?: boolean;
+  /** パタパタ おりて いる（空中 で 下 へ） */
   fluttering?: boolean;
 }
 

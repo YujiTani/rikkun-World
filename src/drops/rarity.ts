@@ -59,6 +59,8 @@ const ITEM_ONLY_RARITY: Record<string, Rarity> = {
   sprinkler: 'uncommon',
   // LIVE-1
   egg: 'common',
+  mushi: 'common',
+  mushi_ami: 'common',
   // BUCKET-1
   bucket: 'common',
   water_bucket: 'common',

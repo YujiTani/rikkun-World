@@ -180,6 +180,9 @@ export const ITEM_INFO: Readonly<Record<string, InfoRow>> = {
 
   // ---- LIVE-1 たまご
   egg: VEG_ROW(1),
+  // ---- LIVE-1 版 3.2（§3.1）
+  mushi: { use: 'にわとり に あげる と なかよく なる', how: 'もって にわとり に みぎクリック', buttons: ['1-9', 'right'] },
+  mushi_ami: { use: 'き から むし を とる', how: 'もって き に みぎクリック', buttons: ['1-9', 'right'] },
 
   // ---- ようかいだま（§5。いまは 手に入らない。古い保存用）
   yokai_orb: { use: 'いまは つかえない よ', how: '', buttons: [] },
@@ -189,7 +192,10 @@ export const ITEM_INFO: Readonly<Record<string, InfoRow>> = {
 export const ORB_SOURCE = 'むかし の ようかい が おとした';
 
 /** 「どこで」の たまご の文（LIVE-1 §3.1） */
-export const EGG_SOURCE = 'なかま の にわとり が くれる';
+export const EGG_SOURCE = 'なかま の にわとり が むし を たべて うむ';
+
+/** 「どこで」の むし の文（LIVE-1 版 3.2 §3.1） */
+export const MUSHI_SOURCE = 'むしとりあみ で き から とる';
 
 /** 妖怪の名前（ドロップ表の「〇〇 が おとす」） */
 export const YOKAI_NAME: Readonly<Record<YokaiKind, string>> = {
