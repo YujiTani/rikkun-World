@@ -1,6 +1,7 @@
 import { GUIDE_TABS, GUIDE_TAB_IDS, INPUT_CONFIG, type GuideTabId } from '../input/config';
 import type { LockController } from '../input/lockController';
 import { fillMouseSrc, mouseHtml } from './craftPanel.art';
+import { animalIconUrl } from './animalArt';
 import { anyIconUrl } from './itemIcon';
 import { escapeHtml } from './text';
 import { mountPrep, syncPrep } from './prep';
@@ -74,6 +75,9 @@ function tabArts(): Record<GuideTabId, string[]> {
       `${ICON('sprinkler')}${EMOJI('💦')}${ICON('farmland_wet')}`,
       `${ICON('tomato')}${RIGHT()}${EMOJI('❤')}`,
       `${ICON('bucket')}${EMOJI('💧')}${ICON('farmland_wet')}`,
+      // LIVE-1: にわとり に やさい／なかま と たまご
+      `${ICON('tomato')}${RIGHT()}${ICON('chicken')}`,
+      `${ICON('chickenRibbon')}${EMOJI('❤')}${ICON('egg')}`,
     ],
   };
 }
@@ -137,7 +141,8 @@ export class PlayOverlay {
     this.textEl = this.el.querySelector('.po-text') as HTMLElement;
     fillMouseSrc(this.el);
     for (const img of this.el.querySelectorAll<HTMLImageElement>('img[data-icon]')) {
-      img.src = anyIconUrl(img.dataset.icon as never);
+      const icon = img.dataset.icon as string;
+      img.src = icon === 'chicken' || icon === 'chickenRibbon' ? animalIconUrl(icon) : anyIconUrl(icon as never);
     }
     for (const img of this.el.querySelectorAll<HTMLImageElement>('img[data-scroll]')) img.src = scrollIconUrl();
     for (const b of this.el.querySelectorAll<HTMLButtonElement>('.po-tab')) {

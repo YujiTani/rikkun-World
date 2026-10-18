@@ -5,6 +5,7 @@ import type {
   DigBlockedReason,
   DigEvent,
   DigState,
+  AnimalApi,
   DigSystem,
   Inventory,
   LockStatus,
@@ -29,7 +30,7 @@ import type {
   YokaiWorld,
 } from '../contracts';
 import type { Action, ActionState } from '../input/actions';
-import { cropKindOfBlock, seedKindOfItem, vegKindOfItem } from '../contracts';
+import { LIVE_SETTING_DEFAULTS, cropKindOfBlock, seedKindOfItem, vegKindOfItem } from '../contracts';
 import { itemType } from '../inventory/items';
 import { BODY_H, BODY_W, FARM_BREAK_DROP, NO_DROP_BLOCKS, createDigConfig, type DigConfig } from './config';
 import { createRng, randInt, type Rng } from '../world/gen/random';
@@ -89,6 +90,8 @@ export interface DigM4Deps {
   water?: WateringPort;
   /** BUCKET-1: バケツ（`BucketPort`。`farm/bucket.ts`）。4d〜4g の 判定と 実行 */
   bucket?: BucketPort;
+  /** LIVE-1: にわとり（A の `AnimalApi`。ふりわけ 0 は 口 を 呼ぶ だけ。なければ M7-2 のとおり） */
+  animals?: AnimalApi;
   /** M7-2: なでる・ごきげん（`PetPort`。C の `farm/pet.ts`） */
   pet?: PetPort;
   /** M7-2: 農業 の 出来事 を 足す（A の `emit`。`pet` の 出来事 用）。なければ 出さない */
@@ -146,6 +149,8 @@ export function digSteps(
 export class DigSystemImpl implements DigSystem {
   private tickCount = 0;
   private tgt: TargetInfo | null = null;
+  /** LIVE-1: ブロック より 手前 の ねらう 箱 に 当たった にわとり（毎ステップ 決め直す） */
+  private animalHit: { id: number; distance: number } | null = null;
 
   // ほった量の記憶（最後の 1 こだけ）
   private memBlock: Vec3 | null = null;
@@ -223,6 +228,15 @@ export class DigSystemImpl implements DigSystem {
     const t = this.aimBlockRaw(p, o, d);
     // 見えない壁の外のマスは ほれない（VOX-D W4）。ブロックも おく所も 壁の中だけ
     return t && cellInWall(t.block.x, t.block.z) && cellInWall(t.place.x, t.place.z) ? t : null;
+  }
+
+  /** LIVE-1 §2.4: 目 から の 線 が ブロック に 当たる より 手前 で ねらう 箱 に 当たるか */
+  private aimAnimal(o: Vec3, d: Vec3): { id: number; distance: number } | null {
+    const a = this.m4.animals;
+    if (!a) return null;
+    const h = a.rayHit(o, d, this.config.reach);
+    if (!h || (this.tgt && h.distance >= this.tgt.distance)) return null;
+    return h;
   }
 
   private aimBlockRaw(p: PlayerState, o: Vec3, d: Vec3): TargetInfo | null {
@@ -338,6 +352,7 @@ export class DigSystemImpl implements DigSystem {
     const d = lookDirection(p.yawDeg, p.pitchDeg, this.dir);
     const o = this.origin(p, this.originScratch);
     this.tgt = this.aimBlock(p, o, d);
+    this.animalHit = this.aimAnimal(o, d);
 
     // 同じステップのうちに押してはなす短いタップも拾う（wasPressed）
     const primaryRaw = enabled && (this.actions.isHeld('primary') || this.actions.wasPressed('primary'));
@@ -688,6 +703,26 @@ export class DigSystemImpl implements DigSystem {
     else if (pv.kind === 'armor' && pv.item) this.m4.armor?.tryEquip(pv.item);
     else if (pv.kind === 'seedHint' && t) this.m4.farm?.noteHint('till', center(t.block));
     else if (pv.kind === 'eat' && pv.item) this.doEat(pv.item);
+    else if (pv.kind === 'feed') this.doFeed();
+    else if (pv.kind === 'animalPet') this.doAnimalPet();
+  }
+
+  /** 0 あげる: A の 口 に 聞く。'ate' の とき だけ やさい を 1 へらす（C の しごと） */
+  private doFeed(): void {
+    const a = this.m4.animals;
+    const h = this.animalHit;
+    const held = this.inventory.held();
+    if (!a || !h || !held) return;
+    const r = a.feed(h.id, held.item);
+    if (r === 'ate') this.inventory.consumeHeld();
+    if (r) this.m4.tools?.pushSwing('place');
+  }
+
+  /** 0 なでる */
+  private doAnimalPet(): void {
+    const h = this.animalHit;
+    if (!this.m4.animals || !h) return;
+    if (this.m4.animals.pet(h.id)) this.m4.tools?.pushSwing('place');
   }
 
   private doTill(t: TargetInfo): void {
@@ -783,7 +818,7 @@ export class DigSystemImpl implements DigSystem {
       farm.noteHint('full', at);
       return;
     }
-    const got = v.heal(farm.eatHeal(item));
+    const got = v.heal(farm.eatHeal(item) || (item === 'egg' ? LIVE_SETTING_DEFAULTS.animalEggHeal : 0));
     this.inventory.consumeHeld();
     this.m4.tools?.pushSwing('place');
     farm.noteEat(item, got, at);
@@ -800,6 +835,7 @@ export class DigSystemImpl implements DigSystem {
     const armor = this.m4.armor;
     return previewRightClick({
       target: this.tgt,
+      animal: () => this.animalPreview(repeat),
       held: this.inventory.held()?.item ?? null,
       isTansu: (x, y, z) => st?.isTansu(x, y, z) ?? false,
       isFurnace: (x, y, z) => craft?.isFurnace(x, y, z) ?? false,
@@ -811,8 +847,17 @@ export class DigSystemImpl implements DigSystem {
       canTill: () => this.tillSpot(),
       canPlant: () => this.plantSpot(),
       isSeedHintSpot: () => this.seedHintSpot(),
-      isVeg: (item) => !!this.m4.farm && !!this.m4.vitals && vegKindOfItem(item) !== null,
+      isVeg: (item) => !!this.m4.farm && !!this.m4.vitals && (vegKindOfItem(item) !== null || item === 'egg'),
     });
+  }
+
+  /** 0: にわとり。押しつづけ の ステップ・A が 'null'（動き の とちゅう）は 'idle' */
+  private animalPreview(repeat: boolean): 'feed' | 'animalPet' | 'idle' | null {
+    const a = this.m4.animals;
+    const h = this.animalHit;
+    if (!a || !h) return null;
+    if (repeat) return 'idle';
+    return a.preview(h.id, this.inventory.held()) ?? 'idle';
   }
 
   /** 4a〜4c: じょうろ を 持っているとき だけ、みず を 通る 線 を しらべて A の 口 に 聞く */

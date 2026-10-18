@@ -87,9 +87,9 @@ describe('ねらった作物の しるし（§3.4）', () => {
 });
 
 describe('案内画面の そだてる タブ（§3.7）', () => {
-  it('11 こ（M7-2 で 3 こ・BUCKET-1 で 1 こ ふえた）で 漢字は ふりがな付き', () => {
+  it('13 こ（LIVE-1 で 2 こ・M7-2 で 3 こ・BUCKET-1 で 1 こ ふえた）で 漢字は ふりがな付き', () => {
     expect(GUIDE_TABS.grow.label).toBe('そだてる');
-    expect(GUIDE_TABS.grow.captions.length).toBe(11);
+    expect(GUIDE_TABS.grow.captions.length).toBe(13);
     for (const c of GUIDE_TABS.grow.captions) expect(findUnrubiedKanji(c)).toEqual([]);
   });
 });

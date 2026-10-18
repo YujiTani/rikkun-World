@@ -29,6 +29,11 @@ export interface RightClickCtx {
   bucket?(): BucketPreview | null;
   /** M7-2: 5（なでる）。作物・やせいの やさい を ねらっていれば その やさい の 絵（アイテム）。防具・じょうろ を 持つ ときは null */
   petSpot?(): ItemId | null;
+  /**
+   * LIVE-1 §2.9 の 0: にわとり を ねらっている（線が ブロック より 手前 で ねらう 箱 に 当たる）。
+   * 'feed' = あげる、'animalPet' = なでる、'idle' = 何も しない（動き の とちゅう・押しつづけ。ほかの 段 へ も 進まない）。ねらって いなければ null
+   */
+  animal?(): 'feed' | 'animalPet' | 'idle' | null;
   /** 持っているものを、ねらっている所の前に置けるか */
   canPlace(): boolean;
   /** M7: くわ か すで で、上が くうき の くさ・つち を ねらっている（§2.7 の 4） */
@@ -37,13 +42,15 @@ export interface RightClickCtx {
   canPlant?(): boolean;
   /** M7: たね を持って、くさ・つち を ねらっている（6。合図） */
   isSeedHintSpot?(): boolean;
-  /** M7: やさい を持っている（7） */
+  /** M7: やさい を持っている（7）。LIVE-1: たまご も たべる（9） */
   isVeg?(item: ItemId): boolean;
 }
 
-/** たんす → かまど → 防具 → じょうろ（4a くむ・4b まく・4c 合図）→ なでる → たがやす → まく → 合図 → たべる → 置く の順（M7-2 §2.4）。何も起きないなら null */
+/** にわとり（0。LIVE-1）→ たんす → かまど → 防具 → じょうろ（4a くむ・4b まく・4c 合図）→ なでる → たがやす → まく → 合図 → たべる → 置く の順（M7-2 §2.4）。何も起きないなら null */
 export function previewRightClick(c: RightClickCtx): RightClickPreview | null {
   const t = c.target;
+  const an = c.animal?.();
+  if (an) return an === 'idle' ? null : { kind: an, item: an === 'feed' ? c.held : null };
   if (t && c.isTansu(t.block.x, t.block.y, t.block.z)) return { kind: 'storage', item: null };
   if (t && c.isFurnace(t.block.x, t.block.y, t.block.z)) return { kind: 'furnace', item: null };
   if (c.held && c.canEquip(c.held)) return { kind: 'armor', item: c.held };
