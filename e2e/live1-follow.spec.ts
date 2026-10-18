@@ -33,9 +33,9 @@ test.describe('LIVE-1 なかま（ついてくる・ワープ・保存）', () =
       // 東へ 12 マス 歩く
       h.player.set({ position: { x: 10.5, y: 9, z: 20.5 }, yaw: 90 });
       h.step(120);
-      h.input.press('forward');
+      h.input.press('moveForward');
       h.step(Math.round((12 / 4.0) * 60));
-      h.input.release('forward');
+      h.input.release('moveForward');
       h.step(2);
       out.walkedTo = h.player.get().position.x;
       h.step(300);
@@ -179,9 +179,9 @@ test.describe('LIVE-1 なかま（ついてくる・ワープ・保存）', () =
       for (let i = 0; i < max; i++) h.animals.spawn(3 + i * 0.1, 9, 6.5 + i * 0.1, { friend: true });
       h.player.set({ position: { x: 3, y: 9, z: 6.5 }, yaw: 90 });
       h.step(10);
-      h.input.press('forward');
+      h.input.press('moveForward');
       h.step(240);
-      h.input.release('forward');
+      h.input.release('moveForward');
       h.step(600);
       const l = h.animals.list().filter((a: any) => a.friend);
       const p = h.player.get().position;

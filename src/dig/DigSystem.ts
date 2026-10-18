@@ -1070,6 +1070,11 @@ export class DigSystemImpl implements DigSystem {
     return 'steps' in digSteps(this.config, t.id, tool?.level) ? 'dig' : null;
   }
 
+  /** LIVE-1: 今 ねらっている にわとり の id（なければ null） */
+  animalTarget(): number | null {
+    return this.animalHit ? this.animalHit.id : null;
+  }
+
   /** ねらっている（手前の・とどく距離内の）妖怪の id。たたく ヒントとふちどりが同じ判定を使う。遊べない間は null */
   aimedYokaiId(): number | null {
     if (!this.gate?.aimedYokai || !this.lock.playInputEnabled() || this.gate.blocksInput()) return null;

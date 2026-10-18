@@ -21,10 +21,27 @@ import { installArena } from './arena';
 export async function openAnimals(page: Page, query = '?nosave=1'): Promise<void> {
   await page.goto('/' + query);
   await page.waitForFunction(() => window.__rikkun?.ready === true);
+  // 最初のクリックで音が使えるようになる（unlock）。ないと audio.sfx() の記録が空のまま（SOUND-1 の openGame と同じ）
+  await page.mouse.click(0, 0);
   await installAimHelpers(page);
   await installArena(page);
   await page.evaluate(() => {
     const h = (window as any).__rikkun;
+    // 実績の おめでとう画面は 世界を 止める（仕様 §4.5）。テストの 流れを 止めないよう、1 ステップごとに 開いていたら 閉じる
+    const rawStep = h.step.bind(h);
+    h.step = (n = 1) => {
+      for (let i = 0; i < n; i++) {
+        rawStep(1);
+        if (h.achievements.modal().open) {
+          // ボタンが 押せる ように なるまで 画面だけ 進めて 閉じる（世界は 止まったまま）
+          for (let k = 0; k < 600 && h.achievements.modal().open; k++) {
+            h.achievements.close();
+            if (h.achievements.modal().open) rawStep(1);
+          }
+          h.lock.simulate(true);
+        }
+      }
+    };
     const A: any = {
       base(half = 24) {
         h.pause();

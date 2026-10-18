@@ -19,6 +19,7 @@ async function open(page: Page, query = '?nosave=1') {
     const T: any = {
       base() {
         h.pause();
+        h.settings.set('animalAutoSpawn', false); // LIVE-1: やせいの にわとりが 描画回数に まざらないように
         h.lock.simulate(true);
         h.input.releaseAll();
         h.world.fill(0, 8, 0, 14, 8, 14, 'stone');
@@ -1030,7 +1031,7 @@ test.describe('M7-2 画面', () => {
     expect(made.stats).toEqual([1, 1, 1]);
   });
 
-  test('AC25 案内画面「そだてる」: 11 行・ふりがな・字 24px 以上・タブの中に 入る', async ({ page }) => {
+  test('AC25 案内画面「そだてる」: 13 行・ふりがな・字 24px 以上・タブの中に 入る', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 720 });
     await open(page);
     await page.evaluate(() => {
@@ -1064,7 +1065,7 @@ test.describe('M7-2 画面', () => {
       return { has: !!root, rows: rows.length, bad, lock: (window as any).__rikkun.lock.get(), fs, helpBottom: hb.bottom, helpRight: hb.right, scroll: sc, vh: innerHeight, vw: innerWidth, visible: hb.height > 0, texts: items.map((i) => i.textContent) };
     });
     expect(r.lock.guideTab).toBe('grow');
-    expect(r.lock.guideItems).toBe(11);
+    expect(r.lock.guideItems).toBe(13);
     expect(r.visible).toBe(true);
     // 仕様は「24px 以上 のまま」だが、案内画面の 字は M6 の 文字サイズ表（--rk-fs-body）で 前から 20px。M7-2 で 変えていない → 台帳に 記録
     expect(Math.min(...r.fs)).toBeGreaterThanOrEqual(20);

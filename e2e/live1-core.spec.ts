@@ -167,9 +167,9 @@ test.describe('LIVE-1 にわとり（であう・あげる・たたけない）'
       A.base();
       const id = h.animals.spawn(6.5, 9, 6.5);
       h.player.set({ position: { x: 3.5, y: 9, z: 6.5 }, yaw: 90, pitch: 0 });
-      h.input.press('forward');
+      h.input.press('moveForward');
       h.step(90);
-      h.input.release('forward');
+      h.input.release('moveForward');
       const out: any = { px: h.player.get().position.x, cx: A.one(id).x };
       // 妖怪を にわとりの 横に（プレイヤーは はなれた 所）
       h.input.releaseAll();
