@@ -50,6 +50,8 @@ async function shoot(page: Page, query: string): Promise<Shot> {
   return page.evaluate(() => {
     const h = (window as any).__rikkun;
     h.time.set(6000); // ひる（空の暗さをそろえる）
+    // 見下ろしカメラ: プレイヤーの板（待機アニメ。settle のコマ数で位相がちがう）を 描かない。地形の絵だけを くらべる
+    h.camera.overview(true);
     h.yokai.clear();
     h.step(2);
     const digest = h.render.meshDigest();

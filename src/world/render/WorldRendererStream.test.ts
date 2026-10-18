@@ -263,7 +263,9 @@ describe('PERF-2 小ブロックの仕事を 分ける（clock=time・偽物の�
     expect(s.r.meshStats().pending, '作っている間も 順番待ちに のこる').toBeGreaterThan(0);
     runToEnd(s);
     expect(s.job().finished + s.job().cancelled, 'もう一度作られた').toBeGreaterThan(finishedBefore);
-    expect(s.r.meshStats().pending).toBe(0);
+    // 外がわの列は 光の輪のふち（meshable でない）で queue に残るので、meshStats().pending ではなく 作る仕事が のこっていないかで見る
+    expect(s.r.pendingJobs(), '作り直しが のこっていない').toBe(0);
+    expect(s.job().active).toBeNull();
     const fresh = makeSliced('time', false, (w) => w.setBlock(bx, 7, bz, 'stone'));
     runToEnd(fresh);
     expect(groupDigest(s.r)).toEqual(groupDigest(fresh.r));
