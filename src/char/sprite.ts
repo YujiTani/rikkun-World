@@ -125,6 +125,9 @@ void main() {
   #include <fog_fragment>
 }`;
 
+/** 影の差し込み（shadowPatch.patchSpriteMaterial）が この絵の シェーダーで 通るかを テストで 見る（#199） */
+export const SPRITE_SHADERS = { vertex: VERT, fragment: FRAG } as const;
+
 const srgbToLinear = (v8: number): number => {
   const c = v8 / 255;
   return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
