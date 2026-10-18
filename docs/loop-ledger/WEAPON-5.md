@@ -24,3 +24,7 @@
 | 1 | dev | code-reviewer | 【軽微】T4 src/combat/parry.test.ts `acceptsBuffer()` は 「次の ステップが F33〜40 か」の 意味（F32 の 状態で true）。ヘッダーに 書いてない。実装者が 迷うので 1 行 足すとよい | 文書不足 | | 未対応 |
 | 1 | dev | code-reviewer | 【軽微】T5 src/yokai/stagger.test.ts 「プレイヤーの 箱に 重なっても ダメージなし」は 投げた 直後に はね返すので プレイヤーの 箱に 重ならない。実装が 向きを 逆に しても 通る。AC11 の 「重なる」を 1 本 足すと よい。stepClock の `24 × (1/60 × 0.25)` は 浮動小数点で 1 ずれうる（実装は 小さな 余裕を 持つこと） | 弱い 確認 | | 未対応 |
 | 1 | dev | code-reviewer | 判定: 合格（重大 2 件は 直した）。AC 抜け・取りちがえなし（後ろ・F1〜2 半分・火の玉の強さ・境目 F2/3・20/21・32/33 とも 両側あり）。コマ数で 決定的。部品名は 実装しやすい形。赤は 確認（unit は モジュールなしで 落ちる） | | | 合格 |
+| 1 | dev-review | code-reviewer | 【軽微】src/char/sprite.ts setParry/preloadParry: パリィの絵を「はじめてのパリィ」で読むので、読み終わるまで（ready(motion) が false の間）受けの絵が出ず待機のまま。初回だけ AC31（押した次のコマで受けの形）が崩れうる。刀を持った後の空きや Shift 押下で先読みするなど、初回の出し遅れをなくす | メモリ節約の判断 | | 要確認（PO） |
+| 1 | dev-review | code-reviewer | 【軽微】src/yokai/ai/YokaiManager.ts reflectOne: ねらいは owner.y + dims.height/2（足もと基準）で当たりの箱の中心に近い。仕様は箱の中心なので、体型でずれるなら boxesOf の中心に合わせると AC11（0.5°以内）に安全 | 近似 | | 要確認（PO） |
+| 1 | dev-review | code-reviewer | 【軽微】src/fx/parryFx.ts StaggerIcons.update・yokai/stagger.ts ids(): よろけ中は毎コマ style 文字列の組み立てと ids() の配列を作る。数体なので実害なし。値が変わらないときだけ書く／ids をコールバック化すると無駄が減る | 実害小 | | 要確認（PO） |
+| 2026-10-18 | レビュー | 指摘 1・3 は 5391cca で直した。2（火の玉は 当たり箱の まん中へ）は、ユニットテストの期待が 高さ/2 なので 今のまま（AC11 は緑）。 |
