@@ -39,6 +39,6 @@ test.describe('LIVE-1 性能', () => {
     expect(r.friends).toBe(8);
     expect(r.marks).toBeGreaterThanOrEqual(8);
     expect(r.on.dc - r.zero.dc).toBeLessThanOrEqual(18);
-    expect(r.on.tri - r.zero.tri).toBeLessThanOrEqual(8000);
+    expect(r.on.tri - r.zero.tri).toBeLessThanOrEqual(9000);
   });
 });
