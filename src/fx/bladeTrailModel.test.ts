@@ -2,11 +2,13 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { W2_SETTING_DEFAULTS, createW2Settings, type BladeTech } from '../contracts';
+import { TECH_PHASES } from '../char/techCurves';
 import { BLADE_TRAIL_ITEMS, bladeColorsOf, TRAIL_K, bladePathData, fadeOfAge, pathPoint, tauToTime, timeToTau, trailRow } from './bladeTrailModel';
 
 const TECHS: BladeTech[] = ['thrust', 'kesa', 'kiriage'];
 const FILE_KEY = { thrust: 'katana_thrust', kesa: 'katana_kesa', kiriage: 'katana_kiriage' } as const;
-const P = W2_SETTING_DEFAULTS.bladeTech;
+// WEAPON-4: 絵の 長さは 設定の 初期値と べつ（切り上げの 設定は 19/3/30、絵は atlas.json の phases）
+const P = TECH_PHASES;
 const art = JSON.parse(readFileSync('art/char-sheets/blade_path.json', 'utf8')) as Record<string, { perTick: { base: number[]; tip: number[] }[] }>;
 const atlas = JSON.parse(readFileSync('public/models/char/atlas.json', 'utf8')) as { modelH: number; motions: Record<string, { ticks: number[] }> };
 
@@ -62,6 +64,20 @@ describe('時刻 ↔ 絵の時 τ（§4.2）', () => {
     const len = { startup: 14, active: 3, recovery: 36 };
     expect([14, 15, 16, 17].map((f) => timeToTau('kesa', len, f))).toEqual([28, 30, 32, 34]);
     expect([28, 30, 32, 34].map((x) => tauToTime('kesa', len, x))).toEqual([14, 15, 16, 17]);
+  });
+  it('WEAPON-4 AC8: 切り上げ 19/3/30（初期の 設定）: 書く時間 τ 38 → 時刻 19、τ 43 → 時刻 22（絵が 38/5/61 のとき）', () => {
+    const len = createW2Settings().bladeTech.kiriage;
+    expect(len).toEqual({ startup: 19, active: 3, recovery: 30 });
+    const window = createW2Settings().bladeTrailWindow.kiriage;
+    if (P.kiriage.startup === 38 && P.kiriage.active === 5 && P.kiriage.recovery === 61) {
+      expect(window).toEqual([38, 43]);
+      expect(tauToTime('kiriage', len, window[0])).toBe(19);
+      expect(tauToTime('kiriage', len, window[1])).toBeCloseTo(22, 9);
+    }
+    // 窓の 時刻は どの絵でも 設定の 長さの 中。大けさぎりは 28 → 28・34 → 34
+    const k = createW2Settings().bladeTech.kesa;
+    expect(tauToTime('kesa', k, 28)).toBe(28);
+    expect(tauToTime('kesa', k, 34)).toBe(34);
   });
   it('突き 2/1/2: 書く時間 τ 2〜6 = 時刻 1〜3', () => {
     const len = { startup: 2, active: 1, recovery: 2 };

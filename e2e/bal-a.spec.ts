@@ -92,7 +92,7 @@ test.describe('BAL-A 強さの数と式', () => {
     expect(r.defeat[7]).toBe(1);
   });
 
-  test('AC9: ぼくとう 中段 の つき で からかさ。3 回 当てて体力 2、4 回目で たおれる', async ({ page }) => {
+  test('AC9: ぼくとう 中段 の つき で からかさ。5 回 当てて体力 0.5、6 回目で たおれる（WEAPON-4: 1.5 ずつ）', async ({ page }) => {
     await open(page);
     const r = await page.evaluate(() => {
       const T = (window as any).T;
@@ -106,7 +106,7 @@ test.describe('BAL-A 強さの数と式', () => {
       const out: any = { aimed: [], hp: [], state: [], hits: [], defeat: [] };
       h.yokai.events();
       h.blade.events();
-      for (let n = 1; n <= 4; n++) {
+      for (let n = 1; n <= 6; n++) {
         out.aimed.push(T.faceTo(id));
         const n0 = h.blade.events().filter((e: any) => e.type === 'techHit').length;
         h.input.press('primary');
@@ -122,12 +122,12 @@ test.describe('BAL-A 強さの数と式', () => {
       return out;
     });
     expect(r.aimed.every((a: boolean) => a), JSON.stringify(r.aimed)).toBe(true);
-    expect(r.hits).toEqual([1, 1, 1, 1]);
-    expect(r.hp.slice(0, 3)).toEqual([6, 4, 2]);
-    expect(r.state.slice(0, 3).every((s: string) => s !== 'dying')).toBe(true);
-    expect(r.defeat.slice(0, 3)).toEqual([0, 0, 0]);
-    expect(r.state[3]).toBe('dying');
-    expect(r.defeat[3]).toBe(1);
+    expect(r.hits).toEqual([1, 1, 1, 1, 1, 1]);
+    expect(r.hp.slice(0, 5)).toEqual([6.5, 5, 3.5, 2, 0.5]);
+    expect(r.state.slice(0, 5).every((s: string) => s !== 'dying')).toBe(true);
+    expect(r.defeat.slice(0, 5)).toEqual([0, 0, 0, 0, 0]);
+    expect(r.state[5]).toBe('dying');
+    expect(r.defeat[5]).toBe(1);
   });
 
   for (const [name, armor, after, amount] of [

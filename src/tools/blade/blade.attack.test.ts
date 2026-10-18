@@ -184,19 +184,19 @@ describe('AC8 突きの 線（B から・かたむき）', () => {
     expect(Math.abs(sh.to.y - sh.from.y)).toBeLessThan(0.001);
     const dir = bearing(sh.to, sh.from);
     expect(angDiff(dir, 135)).toBeLessThan(0.01);
-    expect(Math.hypot(sh.to.x - sh.from.x, sh.to.z - sh.from.z)).toBeCloseTo(4.5, 2);
+    expect(Math.hypot(sh.to.x - sh.from.x, sh.to.z - sh.from.z)).toBeCloseTo(2.2, 2); // WEAPON-4: 射程 R = 2.2
   });
   it('うかぶ ちょうちん（中心が B より 上）が T → T の 中心の 向きへ かたむく。tiltDeg = atan(高さの差 ÷ 水平の距離)', () => {
     const r = rig('chudan');
-    // 箱の下 足もと + 2.0・高さ 1.7 → 中心 + 2.85。水平 3.0 先
-    const y = r.yokai.add('chochin', at(135, 3.0, P.y + 2.0));
+    // 箱の下 足もと + 2.0・高さ 1.7 → 中心 + 2.85。水平 2.0 先（WEAPON-4: 射程 2.2 に とどく 所）
+    const y = r.yokai.add('chochin', at(135, 2.0, P.y + 2.0));
     r.stepWith({ facing: 135, pressed: true });
     const sh = capsule(r)!;
     expect(sh).not.toBeNull();
     const c = centerOf(y);
     const dh = Math.hypot(c.x - sh.from.x, c.z - sh.from.z);
     const want = (Math.atan2(c.y - sh.from.y, dh) * 180) / Math.PI;
-    expect(want).toBeCloseTo(25.8, 0);
+    expect(want).toBeCloseTo(36, 0); // atan(1.45 ÷ 2.0)
     const vx = sh.to.x - sh.from.x;
     const vy = sh.to.y - sh.from.y;
     const vz = sh.to.z - sh.from.z;

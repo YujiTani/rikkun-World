@@ -148,14 +148,22 @@ describe('AC4 えらばない', () => {
     }
     expect(decide({ yokai: [yokaiAt('karakasa', at(0, 2), { state: 'wander' })] }).targetId).not.toBeNull();
   });
-  it('(c) 中段（突き）: 箱の いちばん近い所が 4.5 + 0.3 より 遠い → えらばない', () => {
-    // からかさ 半径 0.6: 近い所 = 中心 − 0.6
-    expect(decide({ tech: 'thrust', yokai: [yokaiAt('karakasa', at(0, 4.8 + 0.6 + 0.05))] }).targetId).toBeNull();
-    expect(decide({ tech: 'thrust', yokai: [yokaiAt('karakasa', at(0, 4.5 - 0.3 + 0.6))] }).targetId).not.toBeNull();
+  // WEAPON-4 AC9: 補助の 「とどく」も 射程 R（2.2）で 見る。大けさぎりだけ R + A(34) = 4.8（とびこんで とどく いちばん遠い所）
+  // からかさの 半径は コードの 値 0.6（§8-8）。突きの カプセルは 半径 0.2 ぶん ふくらむ
+  it('(c) 中段（突き）: R = 2.2。中心が R + 0.2 + 0.6 = 3.0 より 遠い → えらばない（前 3.6）、内なら えらぶ', () => {
+    expect(decide({ tech: 'thrust', yokai: [yokaiAt('karakasa', at(0, 3.6))] }).targetId).toBeNull();
+    expect(decide({ tech: 'thrust', yokai: [yokaiAt('karakasa', at(0, 3.1))] }).targetId).toBeNull();
+    expect(decide({ tech: 'thrust', yokai: [yokaiAt('karakasa', at(0, 2.9))] }).targetId).not.toBeNull();
   });
-  it('(c) 上段（大げさ斬り）: 3.2 + 0.3 より 遠い → えらばない', () => {
-    expect(decide({ tech: 'kesa', yokai: [yokaiAt('karakasa', at(0, 3.5 + 0.6 + 0.05))] }).targetId).toBeNull();
-    expect(decide({ tech: 'kesa', yokai: [yokaiAt('karakasa', at(0, 3.2 - 0.3 + 0.6))] }).targetId).not.toBeNull();
+  it('(c) 切り上げ（下段）: 扇の rMax = R。中心が R + 0.6 = 2.8 より 遠い → えらばない', () => {
+    expect(decide({ tech: 'kiriage', yokai: [yokaiAt('karakasa', at(0, 2.9))] }).targetId).toBeNull();
+    expect(decide({ tech: 'kiriage', yokai: [yokaiAt('karakasa', at(0, 2.7))] }).targetId).not.toBeNull();
+  });
+  it('(c) 上段（大けさぎり）: R + A(34) = 4.8。中心が 4.8 + 0.6 = 5.4 より 遠い → えらばない（前 5.7）。前 4.5 は えらぶ', () => {
+    expect(decide({ tech: 'kesa', yokai: [yokaiAt('karakasa', at(0, 4.5))] }).targetId).not.toBeNull();
+    expect(decide({ tech: 'kesa', yokai: [yokaiAt('karakasa', at(0, 5.3))] }).targetId).not.toBeNull();
+    expect(decide({ tech: 'kesa', yokai: [yokaiAt('karakasa', at(0, 5.5))] }).targetId).toBeNull();
+    expect(decide({ tech: 'kesa', yokai: [yokaiAt('karakasa', at(0, 5.7))] }).targetId).toBeNull();
   });
   it('(c) パンチ（すで）: 広げた箱（半径 + 0.3）が punchReach + 0.3 より 遠い → えらばない', () => {
     // 広げた箱 = 0.6 + 0.3
@@ -169,13 +177,13 @@ describe('AC4 えらばない', () => {
     const low = yokaiAt('chochin', at(0, 2.0, P.y + 2.7));
     expect(decide({ hold: 'punch', yokai: [low] }).targetId).toBe(low.id);
   });
-  it('かまえで 届く所が ちがう: 近い所まで 3.8 は 中段で えらび、上段で えらばない。2.5 に 寄せると 上段でも えらぶ', () => {
-    const y38 = yokaiAt('karakasa', at(0, 3.8 + 0.6));
-    expect(decide({ tech: 'thrust', yokai: [y38] }).targetId).toBe(y38.id);
-    expect(decide({ tech: 'kesa', yokai: [y38] }).targetId).toBeNull();
-    expect(decide({ tech: 'kiriage', yokai: [y38] }).targetId).toBeNull();
-    const y25 = yokaiAt('karakasa', at(0, 2.5 + 0.6));
-    expect(decide({ tech: 'kesa', yokai: [y25] }).targetId).toBe(y25.id);
+  it('かまえで 届く所が ちがう（WEAPON-4）: 中心 3.5 は 上段だけ えらぶ。2.7 は 3 つとも えらぶ', () => {
+    const y35 = yokaiAt('karakasa', at(0, 3.5));
+    expect(decide({ tech: 'thrust', yokai: [y35] }).targetId).toBeNull();
+    expect(decide({ tech: 'kiriage', yokai: [y35] }).targetId).toBeNull();
+    expect(decide({ tech: 'kesa', yokai: [y35] }).targetId).toBe(y35.id);
+    const y27 = yokaiAt('karakasa', at(0, 2.7));
+    for (const tech of ['thrust', 'kiriage', 'kesa'] as const) expect(decide({ tech, yokai: [y27] }).targetId, tech).toBe(y27.id);
   });
 });
 
@@ -206,6 +214,12 @@ describe('AC5 使いみちの 順（§4.4）', () => {
     const g = decide({ facingDeg: 180, keys: keys('right'), yokai: [y], aim: { yokaiId: y.id, block: 'block' } });
     expect(g.use).toBe('dig');
     expect(g.rule).toBe(3);
+  });
+  it('WEAPON-4: ＋マークで ねらった 妖怪は 4.0 先（射程の 外）でも わざに ふりわける（とどかず 空ぶり。ほらない）', () => {
+    const y = yokaiAt('karakasa', at(0, 4.0));
+    const d = decide({ tech: 'thrust', facingDeg: 0, yokai: [y], aim: { yokaiId: y.id, block: 'block' } });
+    expect(d.use).toBe('attack');
+    expect(d.rule).toBe(2);
   });
   it('#34: ＋マークの 線で ブロックより 手前に とどかない妖怪 → ほらずに whiff・rule 4（M3 AC18）', () => {
     const y = yokaiAt('karakasa', at(0, 4.6));

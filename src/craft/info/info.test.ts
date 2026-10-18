@@ -73,12 +73,20 @@ describe('つよさ は設定から（U7〜U10）', () => {
     const a = make().info('katana');
     expect(a.stats.map(({ key, value, max }) => ({ key, value, max }))).toEqual([
       { key: 'damage', value: 4, max: 6 },
-      { key: 'reach', value: defaultInfoNumbers().punchReach, max: undefined },
+      { key: 'reach', value: 2.2, max: undefined }, // WEAPON-4: 刀の 射程 bladeReach
       { key: 'speed', value: 'ふつう', max: undefined },
       { key: 'durability', value: 250, max: undefined },
     ]);
     const b = make({ weaponDamage: { ...defaultInfoNumbers().weaponDamage, katana: 5 } }).info('katana');
     expect(b.stats[0].value).toBe(5);
+  });
+  it('WEAPON-4 AC10: ぼくとう・かたな・きらめく カタナの「とどく」は 2.2。なぎなた 5.0 は 今のまま', () => {
+    for (const id of ['bokuto', 'katana', 'crystal_katana'] as const) {
+      const s = make().info(id).stats;
+      expect(s[1].key, id).toBe('reach');
+      expect(s[1].value, id).toBe(2.2);
+    }
+    expect(make().info('naginata').stats[1].value).toBe(5.0);
   });
   it('なぎなた: とどく（設定の値）・ゆっくり', () => {
     const s = make().info('naginata').stats;

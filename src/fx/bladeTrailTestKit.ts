@@ -1,7 +1,8 @@
 // CHAR-4 ユニットテスト用の 道具（本番の コードからは 使わない）。
 // 刀の 状態と 体の 位置を 「本物の BladeSystem と 同じ 決まり」で 作って 軌跡に わたす
 import * as THREE from 'three';
-import { W2_SETTING_DEFAULTS, createW2Settings, type BladeState, type BladeTech, type BladeTechFrames, type ItemId, type Vec3, type W2Settings } from '../contracts';
+import { createW2Settings, type BladeState, type BladeTech, type BladeTechFrames, type ItemId, type Vec3, type W2Settings } from '../contracts';
+import { TECH_PHASES } from '../char/techCurves';
 import { techAdvance } from '../tools/blade/advance';
 import { BladeTrail, type TrailSnapshot } from './bladeTrail';
 
@@ -39,7 +40,7 @@ const front = (dirDeg: number): Vec3 => ({ x: Math.sin((dirDeg * Math.PI) / 180)
 export function moveState(settings: W2Settings, item: ItemId, tech: BladeTech, f: number, dirDeg: number, origin: Vec3): BladeState {
   const len = settings.bladeTech[tech];
   const phase = f <= len.startup ? 'startup' : f <= len.startup + len.active ? 'active' : 'recovery';
-  const target = techAdvance(settings.bladeAdvance[tech], W2_SETTING_DEFAULTS.bladeTech[tech], len, f);
+  const target = techAdvance(settings.bladeAdvance[tech], TECH_PHASES[tech], len, f);
   return { item, stance: STANCE_OF[tech], tech, phase, frame: f, buffered: null, switchFrom: null, move: { dirDeg, origin, target, moved: target, tiltDeg: 0 } };
 }
 
@@ -49,7 +50,7 @@ export function idleState(item: ItemId | null, stance: BladeState['stance'] = 'c
 
 /** 平らな 地面で 体は O + 前 × A(f) */
 export function bodyOf(settings: W2Settings, tech: BladeTech, f: number, dirDeg: number, origin: Vec3): Vec3 {
-  const a = techAdvance(settings.bladeAdvance[tech], W2_SETTING_DEFAULTS.bladeTech[tech], settings.bladeTech[tech], f);
+  const a = techAdvance(settings.bladeAdvance[tech], TECH_PHASES[tech], settings.bladeTech[tech], f);
   const fw = front(dirDeg);
   return { x: origin.x + fw.x * a, y: origin.y, z: origin.z + fw.z * a };
 }

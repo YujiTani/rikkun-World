@@ -37,18 +37,21 @@ describe('BAL-A AC1: M=1・二つ名なしの 4 種', () => {
   });
 });
 
-describe('BAL-A AC5: わざのダメージ（四捨五入・最低 1）', () => {
+describe('BAL-A AC5 / WEAPON-4 AC2: わざのダメージ（四捨五入しない・0.01 の位）', () => {
   const mul = createW2Settings().bladeDamageMul;
-  it('刀', () => {
+  it('刀: 突き ×0.75・切り上げ ×1.15・大けさぎり ×2.5', () => {
     const f = (b: number) => [mul.thrust, mul.kiriage, mul.kesa].map((m) => techDamage(b, m));
-    expect(f(2)).toEqual([2, 2, 4]);
-    expect(f(4)).toEqual([3, 3, 8]);
-    expect(f(6)).toEqual([5, 5, 12]);
+    expect(f(2)).toEqual([1.5, 2.3, 5]);
+    expect(f(4)).toEqual([3, 4.6, 10]);
+    expect(f(6)).toEqual([4.5, 6.9, 15]);
   });
-  it('0.5 は上・最低 1', () => {
-    expect(techDamage(2, 0.25)).toBe(1);
-    expect(techDamage(1, 0.1)).toBe(1);
-    expect(techDamage(2, 1.25)).toBe(3);
+  it('四捨五入も 最低 1 も しない。0.01 の位に まるめる', () => {
+    expect(techDamage(2, 0.25)).toBe(0.5);
+    expect(techDamage(1, 0.1)).toBe(0.1);
+    expect(techDamage(2, 1.25)).toBe(2.5);
+    expect(techDamage(6, 1.15)).toBe(6.9);
+    expect(techDamage(3, 0.333)).toBe(1);
+    expect(techDamage(3, 0.3349)).toBe(1); // 小数第 3 位を 四捨五入（1.0047 → 1）
   });
   it('なぎなた 3・すで 1・ゆみ 1〜3 は変わらない', () => {
     expect(TOOL_DEFAULTS.weaponDamage.naginata).toBe(3);
@@ -58,43 +61,49 @@ describe('BAL-A AC5: わざのダメージ（四捨五入・最低 1）', () => 
 
 const dmgOf: Record<string, number> = {
   すで: 1,
-  'ぼくとう つき': 2,
-  'ぼくとう けさぎり': 4,
+  'ぼくとう つき': 1.5,
+  'ぼくとう きりあげ': 2.3,
+  'ぼくとう けさぎり': 5,
   'かたな つき': 3,
-  'かたな けさぎり': 8,
+  'かたな きりあげ': 4.6,
+  'かたな けさぎり': 10,
   なぎなた: 3,
-  'きらきら つき': 5,
-  'きらきら けさぎり': 12,
+  'きらきら つき': 4.5,
+  'きらきら きりあげ': 6.9,
+  'きらきら けさぎり': 15,
   '段1': 1,
   '段2': 2,
   '段3': 3,
 };
-// [からかさ, ちょうちん, ろくろくび, ぬりかべ]
+// [からかさ, ちょうちん, ろくろくび, ぬりかべ]（WEAPON-4 §4.3 の 表）
 const HITS: Record<string, number[]> = {
   すで: [8, 5, 12, 40],
-  'ぼくとう つき': [4, 3, 6, 20],
-  'ぼくとう けさぎり': [2, 2, 3, 10],
+  'ぼくとう つき': [6, 4, 8, 27],
+  'ぼくとう きりあげ': [4, 3, 6, 18],
+  'ぼくとう けさぎり': [2, 1, 3, 8],
   'かたな つき': [3, 2, 4, 14],
-  'かたな けさぎり': [1, 1, 2, 5],
+  'かたな きりあげ': [2, 2, 3, 9],
+  'かたな けさぎり': [1, 1, 2, 4],
   なぎなた: [3, 2, 4, 14],
-  'きらきら つき': [2, 1, 3, 8],
-  'きらきら けさぎり': [1, 1, 1, 4],
+  'きらきら つき': [2, 2, 3, 9],
+  'きらきら きりあげ': [2, 1, 2, 6],
+  'きらきら けさぎり': [1, 1, 1, 3],
   '段1': [8, 5, 12, 40],
   '段2': [4, 3, 6, 20],
   '段3': [3, 2, 4, 14],
 };
 
-describe('BAL-A AC6: たおす回数 44 こ・やられる回数 8 こ', () => {
+describe('BAL-A AC6: たおす回数 56 こ（WEAPON-4 で 切り上げの 3 行を 足した）・やられる回数 8 こ', () => {
   it('たおす回数', () => {
     const order: YokaiKind[] = ['karakasa', 'chochin', 'rokurokubi', 'nurikabe'];
     let n = 0;
     for (const [name, row] of Object.entries(HITS)) {
       order.forEach((k, i) => {
-        expect(Math.ceil(yokaiStrength(k).hp / dmgOf[name]), `${name} ${k}`).toBe(row[i]);
+        expect(Math.ceil(yokaiStrength(k).hp / dmgOf[name]! - 1e-9), `${name} ${k}`).toBe(row[i]);
         n++;
       });
     }
-    expect(n).toBe(44);
+    expect(n).toBe(56);
   });
   it('やられる回数', () => {
     const want: Record<YokaiKind, [number, number]> = {

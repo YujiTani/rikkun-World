@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { MotionMachine, type SpriteStepInput } from './motion';
 import { techCell } from '../tools/blade/advance';
 import { TECH_CURVES, TECH_PHASES } from './techCurves';
-import type { BladeStance, BladeTech, BladePhase } from '../contracts';
+import { createW2Settings, type BladeStance, type BladeTech, type BladePhase } from '../contracts';
 
 type BladeIn = NonNullable<SpriteStepInput['blade']>;
 type BowIn = NonNullable<SpriteStepInput['bow']>;
@@ -119,18 +119,19 @@ describe('AC3 歩きながら かまえ変え', () => {
   });
 });
 
-// §4.2 の 表（f → コマ）
-const RANGES: Record<BladeTech, [number, number, number][]> = {
-  thrust: [[1, 2, 0], [3, 4, 1], [5, 5, 2], [6, 6, 3], [7, 9, 4], [10, 20, 5], [21, 24, 6], [25, 28, 7], [29, 32, 8], [33, 36, 9], [37, 41, 10]],
-  kesa: [[1, 8, 0], [9, 15, 1], [16, 19, 2], [20, 23, 3], [24, 28, 4], [29, 30, 5], [31, 32, 6], [33, 34, 7], [35, 39, 8], [40, 67, 9], [68, 75, 10], [76, 83, 11], [84, 91, 12], [92, 99, 13], [100, 106, 14]],
-  kiriage: [[1, 5, 0], [6, 10, 1], [11, 15, 2], [16, 20, 3], [21, 25, 4], [26, 30, 5], [31, 34, 6], [35, 38, 7], [39, 40, 8], [41, 41, 9], [42, 43, 10], [44, 51, 11], [52, 78, 12], [79, 84, 13], [85, 90, 14], [91, 96, 15], [97, 100, 16], [101, 104, 17]],
-};
-const LEN: Record<BladeTech, { startup: number; active: number; recovery: number }> = {
-  thrust: { startup: 4, active: 2, recovery: 35 },
-  kesa: { startup: 28, active: 6, recovery: 72 },
-  kiriage: { startup: 38, active: 5, recovery: 61 },
-};
+// 絵の コマ割りは 作りなおし中。表を 決め打ちせず、絵の ticks（techCurves）から 数える
+function cellByTicks(ticks: number[], f: number): number {
+  let c = 0;
+  for (let k = 0; k < ticks.length; k++) {
+    c += ticks[k]!;
+    if (f - 1 < c) return k;
+  }
+  return ticks.length - 1;
+}
+// 絵の 長さ（atlas.json の phases）。WEAPON-4: 設定の 初期値（切り上げ 19/3/30）とは べつ
+const LEN: Record<BladeTech, { startup: number; active: number; recovery: number }> = TECH_PHASES;
 const phaseOf = (t: BladeTech, f: number): BladePhase => (f <= LEN[t].startup ? 'startup' : f <= LEN[t].startup + LEN[t].active ? 'active' : 'recovery');
+const phaseOf2 = (l: { startup: number; active: number }, f: number): BladePhase => (f <= l.startup ? 'startup' : f <= l.startup + l.active ? 'active' : 'recovery');
 const TECH_MOTION = { thrust: 'katana_thrust', kesa: 'katana_kesa', kiriage: 'katana_kiriage' } as const;
 
 describe('AC4 わざのコマ', () => {
@@ -141,7 +142,7 @@ describe('AC4 わざのコマ', () => {
       m.step(katana());
       for (let f = 1; f <= total; f++) {
         m.step(katana({ tech: t, phase: phaseOf(t, f), frame: f, vx: f % 2 ? 4 : 5.6, running: f % 3 === 0, lengths: LEN[t] }));
-        const want = RANGES[t].find(([a, b]) => f >= a && f <= b)![2];
+        const want = cellByTicks(TECH_CURVES[t].ticks, f);
         expect([f, m.scene, m.motion, m.frame]).toEqual([f, 'tech', TECH_MOTION[t], want]);
       }
       m.step(katana());
@@ -178,7 +179,19 @@ describe('AC5 設定の長さが ちがうとき', () => {
   });
   it('長さが 絵と同じなら 表と同じ', () => {
     for (const t of ['thrust', 'kesa', 'kiriage'] as const) {
-      for (const [a, b, k] of RANGES[t]) for (let f = a; f <= b; f++) expect(techCell(TECH_CURVES[t], TECH_PHASES[t], LEN[t], f)).toBe(k);
+      const n = LEN[t].startup + LEN[t].active + LEN[t].recovery;
+      for (let f = 1; f <= n; f++) expect(techCell(TECH_CURVES[t], TECH_PHASES[t], LEN[t], f)).toBe(cellByTicks(TECH_CURVES[t].ticks, f));
+    }
+  });
+  it('WEAPON-4 AC6: 設定の 初期値の 長さ（切り上げ 19/3/30）で わたしても 絵の 長さ（TECH_PHASES）で コマを 決める', () => {
+    const len = createW2Settings().bladeTech.kiriage;
+    expect(len).toEqual({ startup: 19, active: 3, recovery: 30 });
+    const n = len.startup + len.active + len.recovery;
+    const m = new MotionMachine();
+    m.step(katana());
+    for (let f = 1; f <= n; f++) {
+      m.step(katana({ tech: 'kiriage', phase: phaseOf2(len, f), frame: f, lengths: len }));
+      expect([f, m.motion, m.frame]).toEqual([f, 'katana_kiriage', techCell(TECH_CURVES.kiriage, TECH_PHASES.kiriage, len, f)]);
     }
   });
   it('おわりを こえたら さいごのコマ', () => {
