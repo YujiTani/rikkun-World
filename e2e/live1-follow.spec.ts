@@ -150,7 +150,7 @@ test.describe('LIVE-1 なかま（ついてくる・ワープ・保存）', () =
       const id = h.animals.spawn(4.5, 9, 6.5, { friend: true });
       // 立つ 所(40.5, 9, 40.5) の まわり 1 マス ぜんぶ 固い、上も ふさぐ
       (window as any).__arena.floor(30, 30, 50, 50);
-      h.world.fill(38, 9, 38, 42, 13, 42, 'stone');
+      h.world.fill(35, 9, 35, 45, 13, 45, 'stone');
       h.world.fill(40, 9, 40, 40, 11, 40, 'air');
       h.step(2);
       h.player.set({ position: { x: 40.5, y: 9, z: 40.5 }, velocity: { x: 0, y: 0, z: 0 } });
@@ -158,7 +158,7 @@ test.describe('LIVE-1 なかま（ついてくる・ワープ・保存）', () =
       h.step(150);
       const out: any = { warpsIn: A.events('warp').length, exists: !!A.one(id) };
       // 外へ
-      h.world.fill(38, 9, 38, 42, 13, 42, 'air');
+      h.world.fill(35, 9, 35, 45, 13, 45, 'air');
       h.step(2);
       h.step(60);
       out.warpsOut = A.events('warp').length;
@@ -200,9 +200,13 @@ test.describe('LIVE-1 なかま（ついてくる・ワープ・保存）', () =
       const h = (window as any).__rikkun;
       const A = (window as any).__A;
       A.base(24);
-      h.animals.spawn(4.5, 9, 6.5, { friend: true, eggDay: 3 });
-      h.animals.spawn(6.5, 9, 6.5, { friend: true, eggDay: 5 });
-      h.animals.spawn(8.5, 9, 6.5, { friend: true, eggDay: null });
+      for (let i = 0; i < 5; i++) A.nextDay(); // 今日 >= 5（eggDay が 今日より 先 だと 今日に される ため）
+      h.time.set(12000);
+      h.step(2);
+      h.animals.spawn(3.5, 9, 6.5, { friend: true, eggDay: 3 });
+      h.animals.spawn(4.5, 9, 7.5, { friend: true, eggDay: 5 });
+      h.animals.spawn(4.5, 9, 5.5, { friend: true, eggDay: null });
+      h.player.set({ position: { x: 3.5, y: 9, z: 6.5 }, yaw: 90 });
       h.animals.spawn(12.5, 9, 12.5, { hearts: 1 });
       h.animals.spawn(14.5, 9, 12.5, { hearts: 2 });
       h.step(10);
@@ -217,7 +221,6 @@ test.describe('LIVE-1 なかま（ついてくる・ワープ・保存）', () =
       h.pause();
       h.settings.set('animalAutoSpawn', false);
       await h.world.settle({ full: true });
-      h.step(5);
     });
     const after = await page.evaluate(() => {
       const h = (window as any).__rikkun;

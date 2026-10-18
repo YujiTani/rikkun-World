@@ -61,9 +61,9 @@ test.describe('LIVE-1 たまご・ふりわけ・案内・ハート', () => {
       h.animals.events();
       A.tap();
       out.pet2 = A.events('pet').length;
+      out.hint = h.animals.lastHint(); // 合図は 120 ステップで きえる ので すぐ 読む
       h.step(600);
       out.egg2 = A.events('egg').length;
-      out.hint = h.animals.lastHint();
       // 次の日
       out.nextDay = A.nextDay();
       h.step(2);
@@ -255,18 +255,18 @@ test.describe('LIVE-1 たまご・ふりわけ・案内・ハート', () => {
       h.input.press('secondary');
       h.step(2);
       const placed1 = 40 - h.inventory.count('dirt');
-      // 線の 前に にわとり（ねらう 箱の まんなかを 線の 上に）
-      const t = h.target.get();
+      // にわとりを 線の 上に のせる（ねらう 箱に 当たる 所へ 置いて、A.aim で 確かめる）
       const id = h.animals.spawn(3.5, 9, 6.5);
       h.step(1);
-      const aimed = h.animals.target() === id;
+      const aimed = A.aim(id);
       const c0 = h.inventory.count('dirt');
       h.step(90);
       h.input.release('secondary');
-      return { placed1, aimed, delta: c0 - h.inventory.count('dirt'), t: !!t };
+      return { placed1, aimed, delta: c0 - h.inventory.count('dirt') };
     });
     expect(r.placed1).toBeGreaterThanOrEqual(1);
-    if (r.aimed) expect(r.delta, 'にわとりが ねらいの 前に いる あいだは 置かない').toBe(0);
+    expect(r.aimed, 'にわとりが 線の 上').toBe(true);
+    expect(r.delta, 'にわとりが ねらいの 前に いる あいだは 置かない').toBe(0);
   });
 
   test('AC17 照準の 下の 案内: あげる(tomato)・なでる(heart)・たべる(egg)。実際に 起きる ことと 同じ', async ({ page }) => {
