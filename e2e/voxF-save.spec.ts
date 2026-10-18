@@ -176,7 +176,11 @@ test.describe('VOX-F 保存', () => {
       return { fx, fy, fz, pending: JSON.stringify(pending), spawn: { x: sp.x, z: sp.z } };
     });
     expect(JSON.parse(far.pending).cells.length).toBeGreaterThanOrEqual(4);
+    // runBeforeUnload: true の close は 閉じるのを待たない。閉じきる前に page2 が起動すると、page1 の pagehide が
+    // 置きなおした保険（中心がスタート）を テレポート先の形で 上書きしてしまう（CI でだけ起きた）。閉じきるまで待つ
+    const closed = page.waitForEvent('close');
     await page.close({ runBeforeUnload: true });
+    await closed;
     const page2 = await context.newPage();
     // 閉じるときの pagehide が 置きなおした保険を、中心がスタートの形に 置きかえてから 起動する
     await page2.addInitScript((p) => localStorage.setItem('rikkun-world-pending', p), far.pending);
