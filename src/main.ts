@@ -1544,7 +1544,8 @@ game.onUpdate((dt) => {
   updateAchievements();
   celebrate.step();
   notice.update(dt);
-  renderer.update({ x: game.camera.position.x, z: game.camera.position.z });
+  const pp = controller.state.position;
+  renderer.update({ x: pp.x, z: pp.z });
   save.update(game.tick + 1);
 });
 game.onUpdate((dt) => overlay.update(dt));
