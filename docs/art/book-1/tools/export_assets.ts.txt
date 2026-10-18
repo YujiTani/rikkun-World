@@ -1,0 +1,38 @@
+// BOOK-1 挿絵の 素材を 書き出す 道具（試作の作業場所だけ）
+import * as THREE from 'three';
+import { anyIconUrl } from './ui/itemIcon';
+import { getTilePixels, type TileName } from './world/blocks/textures';
+import { mouseUrl } from './ui/craftPanel.art';
+import { scrollIconUrl } from './ui/log/icons';
+import { Chochin, Karakasa, Nurikabe, Rokurokubi } from './yokai';
+
+const ICONS = ['katana','naginata','yumi','ya','kabuto','yoroi','kote','suneate','wood_pickaxe','kuwa','seed_tomato','seed_onion','seed_pumpkin','seed_eggplant','farmland','farmland_wet','tomato','onion','pumpkin','dirt','grass','stone','log','coal_ore','oil','furnace','tansu','hammer','bokuto','torch','watering_can','sprinkler','bucket','water_bucket','yokai_orb','paper','iron_ingot','leaves'];
+const TILES = ['grass_top','grass_side','dirt','stone','log_side','leaves','farmland_top','farmland_wet_top','farmland_side','farmland_wet_side','crop_tomato_0','crop_tomato_1','crop_tomato_2','crop_tomato_3','crop_onion_3','wild_tomato','wild_onion','kakashi','kakashi_head','saku','water','sprinkler_side','furnace_front','tansu_front','sand'];
+function tileUrl(name: string): string | null {
+  try {
+    const px = getTilePixels(name as TileName);
+    const c = document.createElement('canvas'); c.width = 16; c.height = 16;
+    const g = c.getContext('2d')!; const im = g.createImageData(16, 16);
+    px.forEach((p, i) => im.data.set(p, i * 4)); g.putImageData(im, 0, 0);
+    return c.toDataURL();
+  } catch { return null; }
+}
+function yokaiUrl(y: { root: THREE.Object3D }, yaw: number): string {
+  const r = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+  r.setSize(256, 256); r.setClearColor(0, 0);
+  const s = new THREE.Scene();
+  s.add(new THREE.HemisphereLight(0xffffff, 0x777788, 2.2));
+  const d = new THREE.DirectionalLight(0xffffff, 1.5); d.position.set(-2, 4, 5); s.add(d);
+  s.add(y.root); y.root.rotation.y = yaw; y.root.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(y.root); const c = box.getCenter(new THREE.Vector3()); const sz = box.getSize(new THREE.Vector3());
+  const m = Math.max(sz.x, sz.y) * 0.55;
+  const cam = new THREE.OrthographicCamera(-m, m, m, -m, 0.1, 100); cam.position.set(c.x, c.y, c.z + 20); cam.lookAt(c);
+  r.render(s, cam); const u = r.domElement.toDataURL(); r.dispose(); return u;
+}
+const out: Record<string, string> = {};
+for (const id of ICONS) { try { out['icon_' + id] = anyIconUrl(id as never); } catch (e) { console.log('noicon', id); } }
+for (const t of TILES) { const u = tileUrl(t); if (u) out['tile_' + t] = u; else console.log('notile', t); }
+out.mouse_left = mouseUrl('left'); out.mouse_right = mouseUrl('right'); out.scroll = scrollIconUrl();
+const Y: Record<string, () => { root: THREE.Object3D }> = { karakasa: () => new Karakasa(), chochin: () => new Chochin(), nurikabe: () => new Nurikabe(), rokurokubi: () => new Rokurokubi() };
+for (const [k, f] of Object.entries(Y)) { try { out['yokai_' + k] = yokaiUrl(f(), 0.5); } catch (e) { console.log('noyokai', k, String(e)); } }
+(window as unknown as { __assets: Record<string, string> }).__assets = out;
