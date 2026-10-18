@@ -35,6 +35,7 @@
 | 4 | design | design-reviewer | 【軽微】§0 の 表: 案内画面「そだてる」2 行 → 4 行・照準 の 下 の 案内 の 作りかえ・説明 の 表／ツールチップ・`AnimalInfo` の 項目 の 直し が 行 に 無い（§3.1・§6.1 には ある）。実装 の 直し もれ を 防ぐ ため 行 を 足す | §0 の 拾い もれ | G13 | 未対応 |
 | 4 | design | design-reviewer | 【軽微】§2.5・§2.10: 「LIVE-2 では 小屋 の 子 は ついてくる 時間 を 使わない」「ひよこ は たまご を うまない」の 前方 参照 が 無く、LIVE-1 だけ 読むと 食べさせた 小屋 の 子 が `follow` まんたん に 見える。一文 の 注 を 足す | LIVE-2 との つなぎ目 | G14 | 未対応 |
 | 4 | design | design-reviewer | 判定: 合格（重大 0）。確かめた: オーナー決定（里 の どうぶつ・おもち・むし・ついてくる・だっこ・たまご）と 一致、実績 242/83/52/15・設定 29 の 計算、確率 の 期待 値（9/19・4/7）、1 日 91,800、M7-2 の 順 との 整合、BALANCE に さわらない | — | — | 対応済み |
+| 5 | design | design-reviewer | 版 3.1: G11（長押し の 切り分け: 40 より 前 に はなす → あげる／なでる、40 押しつづけ → だっこ・むし へらない）が 直った。判定: 合格 | — | G11 | 対応済み |
 | 3 | dev | code-reviewer | 重大 5 件（G7・G8）は 120aac0 で 直った（day≥5・step なし・石 半径 5・合図を すぐ 読む・aimed を 断言）。軽微 は 未対応 の まま でよい。判定: 合格 | — | G7・G8 | 対応済み |
 | 1 | dev | code-reviewer | 【軽微】src/animals/AnimalManager.ts rayHit・follow・separate・warp: 毎ステップ `[lo,hi,o,dv]` や `[0,0.5,-0.5,…]` の 配列 を にわとり ごと に 作る（rayHit は dig が 毎ステップ 呼ぶ）。定数 の 配列 に する・スカラー で 書く | 毎フレームの new | G3 | 未対応 |
 | 1 | dev | code-reviewer | 【軽微】src/dig/DigSystem.ts doEat: たまご の 回復 に `LIVE_SETTING_DEFAULTS.animalEggHeal` を 使い、`live` 設定 を 変えても 効かない（設定 は すぐ 効く 約束）。設定 を 渡す | 設定 が 届いて いない | G4 | 未対応 |
