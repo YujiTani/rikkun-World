@@ -21,3 +21,14 @@ export function fine(query = ''): string {
   const q = query.replace(/^\?/, '');
   return q ? `?${q}&microR=${FINE_MICRO_R}` : `?microR=${FINE_MICRO_R}`;
 }
+
+/**
+ * 持つ範囲の輪をふだんの大きさ（描く 6・光 7・生成 8・残す 10）に戻す（#203）。
+ * E2E のサーバーは `VITE_RING_DEFAULT=small`（描く 4・光 5・生成 6・残す 8）で起動する。輪の列の数・外へ出たときの捨て方・遠くの景色を見る spec は
+ * URL に `ring=full` を足す。もう `ring=` があれば そのまま返す。 wide('?nosave=1') → '?nosave=1&ring=full'
+ */
+export function wide(query = ''): string {
+  if (/[?&]ring=/.test(query)) return query;
+  const q = query.replace(/^\?/, '');
+  return q ? `?${q}&ring=full` : '?ring=full';
+}

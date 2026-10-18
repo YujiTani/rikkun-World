@@ -1,6 +1,6 @@
 import { installAimHelpers } from './helpers/aim';
 import { installArena } from './helpers/arena';
-import { fine } from './helpers/fine';
+import { fine, wide } from './helpers/fine';
 import { expect, test, type Page } from '@playwright/test';
 
 /**
@@ -369,7 +369,8 @@ test.describe('M7 農業', () => {
   });
 
   test('保存: 作物と はたけ が 読み直しても 同じ。やせい を とったあとも もどらない（AC20）', async ({ page }) => {
-    await open(page, '?reset=1');
+    // やせいの やさいは 読みこんだ列の中だけ数える。読み直すと立つ場所が変わるので、輪を ふだんの大きさにして 全部を数える（#203）
+    await open(page, wide('?reset=1'));
     const before = await page.evaluate(async () => {
       const h = (window as any).__rikkun;
       const T = (window as any).T;
@@ -388,7 +389,7 @@ test.describe('M7 農業', () => {
       await h.save.now(); // 書き終わるまで まつ（VOX-F から Promise）
       return { crops: h.farm.crops(), wild: h.farm.wild().length, w };
     });
-    await page.goto('/');
+    await page.goto('/' + wide());
     await page.waitForFunction(() => window.__rikkun?.ready === true);
     const after = await page.evaluate(async () => {
       const h = (window as any).__rikkun;

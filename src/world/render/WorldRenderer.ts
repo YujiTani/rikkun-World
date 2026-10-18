@@ -19,7 +19,7 @@ import { sectionGet } from '../sections';
 import { lodSortKey, sectionSortKey } from './drawOrder';
 import { columnKey, CHUNK_SIZE, type ArrayVoxelWorld } from '../VoxelWorld';
 import type { StreamLight, StreamMesh } from '../stream/ChunkStream';
-import { R_DRAW, R_DRAW_DROP, cheb, colKey } from '../stream/ring';
+import { cheb, colKey, getRing } from '../stream/ring';
 import { CHUNK_DRAW_DISTANCE, RENDER_CONFIG } from './config';
 import { setRipeMinBrightness } from './cropLight';
 import { applyLightShader } from './lightShader';
@@ -940,7 +940,7 @@ export class WorldRenderer {
 
   private setRingOf(col: ColState): void {
     col.ring = cheb(col.cx, col.cz, this.ringC.cx, this.ringC.cz);
-    col.inDraw = col.ring <= R_DRAW;
+    col.inDraw = col.ring <= getRing().draw;
   }
 
   /** 描く輪の中心（プレイヤーのいる列）。輪の外（> R_DRAW_DROP）になった列の絵は捨てる */
@@ -949,7 +949,7 @@ export class WorldRenderer {
     for (const col of this.cols.values()) {
       const was = col.inDraw;
       this.setRingOf(col);
-      if (col.ring > R_DRAW_DROP) {
+      if (col.ring > getRing().drawDrop) {
         for (const st of col.secs) {
           if (st.built !== null || st.voxel || st.extras || st.water) this.dropMeshes(st);
           st.built = null;
