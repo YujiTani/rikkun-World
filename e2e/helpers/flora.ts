@@ -49,15 +49,19 @@ export async function openFlora(page: Page, query = '?nosave=1'): Promise<void> 
   });
 }
 
-/** メッシュと 光の 待ちが なくなるまで 進める（時間でなく step の数。上限つき） */
+/**
+ * 組み立ての 仕事が ぜんぶ 終わるまで step で 進める（時間では 待たない。上限つき）。
+ * 光・メッシュ・読みこみ（queued。分けて作る仕事 pendingJobs を ふくむ）が 0 で、いま 作っている途中の セクション（meshJob().active）が 無いこと。
+ */
 async function settleAll(page: Page): Promise<void> {
   await page.evaluate(async () => {
     const h = (window as any).__rikkun;
     await h.world.settle({ full: true });
-    // 読みこみの仕事（queued）・光・メッシュが ぜんぶ なくなるまで。足りないと 三角形が 少なく出る（ookina で 起きた）
-    for (let n = 0; (h.world.lightPending() > 0 || h.world.meshStats().pending > 0 || h.world.stream().queued > 0) && n < 6000; n += 5) h.step(5);
+    const busy = (): boolean =>
+      h.world.lightPending() > 0 || h.world.meshStats().pending > 0 || h.world.stream().queued > 0 || h.world.meshJob().active !== null;
+    for (let n = 0; busy() && n < 6000; n += 5) h.step(5);
     h.step(30);
-    for (let n = 0; (h.world.lightPending() > 0 || h.world.meshStats().pending > 0 || h.world.stream().queued > 0) && n < 6000; n += 5) h.step(5);
+    for (let n = 0; busy() && n < 6000; n += 5) h.step(5);
   });
 }
 
@@ -81,8 +85,9 @@ export async function measureStart(page: Page): Promise<Tris> {
  * 描画の いちばん多い値。1 か所だけだと 見る向き・高さで 三角形が 大きく ゆれる（おおきな きの もり の まん中は 約 16〜21 万、
  * 見こみ 約 83 万は ふだん遊ぶ とき の 最大側）ので、いちばん多い所を 国の値にする。
  */
-export async function measureCountry(page: Page, kind: string): Promise<Tris & { here: string; spots: number }> {
-  const offsets: [number, number][] = [[0, 0], [40, 40], [-40, 40], [40, -40], [-40, -40]];
+export async function measureCountry(page: Page, kind: string, opts: { spots?: 1 | 5 } = {}): Promise<Tris & { here: string; spots: number }> {
+  const all: [number, number][] = [[0, 0], [40, 40], [-40, 40], [40, -40], [-40, -40]];
+  const offsets = opts.spots === 1 ? all.slice(0, 1) : all; // 1 = まん中だけ（CI の E2E 用。5 か所は perf 用）
   let best: Tris & { here: string; spots: number } = { drawCalls: 0, triangles: 0, here: '', spots: 0 };
   for (const [dx, dz] of offsets) {
     const ok = await page.evaluate(

@@ -133,7 +133,7 @@ test.describe('#75 くさ・のばな・間隔のきまり', () => {
     expect(r.k3Above, `上は くうき ${ctx}`).toBe('air');
   });
 
-  test('AC11: スタートの 描画回数 300 以内・+10 以下（国は +25 以下）・三角形の ふえ ≤ 36,864。12 の国の 三角形 ≤ 903,036（くさ・のばな の 窓口つき）', async ({ page }) => {
+  test('AC11: スタートの 描画回数 300 以内・+10 以下（国は +25 以下）・三角形の ふえ ≤ 36,864。ふえの大きい 3 国（12 国ぜんぶは perf）', async ({ page }) => {
     test.setTimeout(580_000);
     // ゴールデン = 今の main（FLORA-75 の前）で 同じやり方で 記録した値（e2e/golden/flora75-main.json）
     const golden = JSON.parse(readFileSync('e2e/golden/flora75-main.json', 'utf8')) as {
@@ -167,17 +167,18 @@ test.describe('#75 くさ・のばな・間隔のきまり', () => {
     expect(start.drawCalls, `描画回数 300 以内`).toBeLessThanOrEqual(300);
     expect(start.drawCalls - golden.start.drawCalls, `描画回数の ふえ（ゴールデン ${golden.start.drawCalls}）`).toBeLessThanOrEqual(10);
     expect(start.triangles - golden.start.triangles, `三角形の ふえ（ゴールデン ${golden.start.triangles}）`).toBeLessThanOrEqual(36_864);
-    const kinds = ['harappa', 'mori', 'ookina', 'hana', 'sunahama', 'susuki', 'take', 'kappa', 'iwayama', 'tengu', 'momiji', 'yuki'];
+    // 国の測りは E2E では「ふえの大きい国 3 つ」を まん中 1 か所だけ（12 国 × 5 か所は CI の E2E に 重すぎた）。
+    // 12 国ぜんぶ・5 か所は e2e-perf/flora75.perf.ts（`npm run perf`）。ゴールデンは 5 か所の最大なので、ここは ゆるい側の くらべ。
+    const kinds = ['mori', 'momiji', 'kappa'];
     const worst: Record<string, number> = {};
     for (const k of kinds) {
-      const s = await measureCountry(page, k);
+      const s = await measureCountry(page, k, { spots: 1 });
       expect(s.here, `${k}: 足もとの国`).toBe(k);
       worst[k] = s.triangles;
       expect(s.drawCalls - golden.countries[k]!.drawCalls, `${k}: 描画回数の ふえ`).toBeLessThanOrEqual(25);
       const before = golden.countries[k]!.triangles;
-      // ふえは 36,864 まで。上限 903,036 は 前から 超えていた国（momiji。この 5 か所の取り方で 988,080）をのぞいて 見る
       expect(s.triangles - before, `${k}: 三角形の ふえ（前 ${before}）`).toBeLessThanOrEqual(36_864);
-      if (before <= 903_036) expect(s.triangles, `${k}: 1 コマの三角形（おおきな きの もり は とくに）${JSON.stringify(worst)}`).toBeLessThanOrEqual(903_036);
+      if (before <= 903_036) expect(s.triangles, `${k}: 1 コマの三角形 ${JSON.stringify(worst)}`).toBeLessThanOrEqual(903_036);
     }
   });
 
