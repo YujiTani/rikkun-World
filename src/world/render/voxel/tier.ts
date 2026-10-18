@@ -4,6 +4,8 @@
  * - 段は列（16×16）ごとに、プレイヤーから そのいちばん近い点までの水平の距離で決める。
  * - 境目は ±2 ずらす（チラつき防止）: いまの段を出るのは 境目+2、入るのは 境目−2。
  */
+import { DEFAULT_CAMERA_CONFIG } from '../../../camera/config';
+
 export type Tier = 'micro' | 'box' | 'lod';
 
 /** F3 の設定で選べる小ブロックの半径 */
@@ -11,8 +13,18 @@ export const MICRO_RADII = [16, 24, 32] as const;
 export const DEFAULT_MICRO_R = 32;
 /** 箱の外側（これより遠くは LOD） */
 export const BOX_OUTER = 48;
+/** カメラが プレイヤーのうしろに いる距離。段の中心は プレイヤーなので、小ブロックの半径はこのぶん小さくする */
+export const MICRO_BACK = DEFAULT_CAMERA_CONFIG.thirdPersonDistance;
 /** 段の境目のずらし */
 export const TIER_HYSTERESIS = 2;
+
+/**
+ * 小ブロックの段に使う半径（プレイヤーからの距離）。設定の半径 r（F4・microR）から MICRO_BACK を引く。
+ * 前に見える小ブロックの範囲が、カメラ中心だったときと同じになる。0 は 0 のまま。
+ */
+export function microTierRadius(r: number): number {
+  return r > 0 ? Math.max(0, r - MICRO_BACK) : 0;
+}
 
 /**
  * 許される半径に直す（知らない数は 近い許される値へ）。0 は 0 のまま = 小ブロックなし（近くも箱の段。#180）。

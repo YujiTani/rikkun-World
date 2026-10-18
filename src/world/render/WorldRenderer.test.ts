@@ -159,17 +159,17 @@ describe('セクションごとのメッシュ（VOX-E）', () => {
     // 列 (4,4)（x 64〜79, z 64〜79）。視点を (64, 64) から x 方向にずらして、列までの距離を変える
     const dist = (x: number) => r.sectionInfo(4, 0, 4).dist + 0 * x;
     expect(dist(0)).toBe(0);
-    r.update({ x: 64 - 33, z: 72 }); // 33 はなれる（r=32 より外、r+2 より内）
+    r.update({ x: 64 - 29, z: 72 }); // 29 はなれる（段の半径 28 より外、30 より内。段の半径 = 32 - カメラのうしろ 4）
     settle(r);
-    expect(r.sectionInfo(4, 0, 4).dist).toBeCloseTo(33, 5);
-    expect(r.sectionInfo(4, 0, 4).tier).toBe('micro'); // もと小ブロック: 34 まではそのまま
-    r.update({ x: 64 - 35, z: 72 });
-    settle(r);
-    expect(r.sectionInfo(4, 0, 4).tier).toBe('box');
+    expect(r.sectionInfo(4, 0, 4).dist).toBeCloseTo(29, 5);
+    expect(r.sectionInfo(4, 0, 4).tier).toBe('micro'); // もと小ブロック: 30 まではそのまま
     r.update({ x: 64 - 31, z: 72 });
     settle(r);
-    expect(r.sectionInfo(4, 0, 4).tier).toBe('box'); // 箱から入るのは 30 まで
-    r.update({ x: 64 - 29, z: 72 });
+    expect(r.sectionInfo(4, 0, 4).tier).toBe('box');
+    r.update({ x: 64 - 27, z: 72 });
+    settle(r);
+    expect(r.sectionInfo(4, 0, 4).tier).toBe('box'); // 箱から入るのは 26 まで
+    r.update({ x: 64 - 25, z: 72 });
     settle(r);
     expect(r.sectionInfo(4, 0, 4).tier).toBe('micro');
   });

@@ -29,7 +29,7 @@ import { crossTileName, RIPE_FLAG, type MeshData } from './meshChunk';
 import { pickEvictions } from './voxel/geometryBudget';
 import { setAoRadius } from './voxel/aoUniforms';
 import { SectionMesher, type SectionMeshData, type VoxelPiece } from './voxel/sectionMesher';
-import { DEFAULT_MICRO_R, columnDistance, nextTier, normalizeMicroR, type Tier } from './voxel/tier';
+import { DEFAULT_MICRO_R, columnDistance, microTierRadius, nextTier, normalizeMicroR, type Tier } from './voxel/tier';
 import { createOccupancyTexture, createVoxelMaterial, createVoxelShared, type VoxelShared } from './voxel/voxelMaterial';
 
 export interface RebuildStats {
@@ -418,7 +418,7 @@ export class WorldRenderer {
   private setTier(col: ColState): boolean {
     const v = this.viewer;
     col.dist = v ? columnDistance(col.cx, col.cz, v.x, v.z) : 0;
-    const next = nextTier(col.dist, col.tier, this.microR);
+    const next = nextTier(col.dist, col.tier, microTierRadius(this.microR));
     if (next === col.tier) return false;
     const was = col.tier;
     col.tier = next;
