@@ -1,12 +1,11 @@
 """BOOK-1 案 C「まほうの ずかん」の 挿絵を 組む 道具（ドットの 部品）。
 
 挿絵 1 まい = 100×75 ドット（4:3）。ゲームでは 整数倍（1024: ×3、1280・1440: ×4）で 拡大して 出す。
-キャラは 3D の コマの絵（public/models/char/*.png）を ドットに落として パレットに 合わせ、ふちを つける。
+キャラは 棒人間（ポーズは 関節の 角度の データ。デザインが かわっても 作りなおしが 安い）。
 アイテム・ブロックの絵は ゲームの 16×16 の 絵（src/ui/itemIcon.ts などを 書き出した PNG）を そのまま 1 倍で 使う。
 """
 from __future__ import annotations
 
-import json
 import math
 import random
 from pathlib import Path
@@ -44,10 +43,7 @@ P = {
     'clear': (0, 0, 0, 0),
 }
 # キャラを 落とす 色（この色の どれかに よせる）
-CHAR_PAL = ['#e0127f', '#b00d66', '#ff5aa8', '#fbf4f6', '#d9cfe0', '#a99bb8', '#2a2333', '#4a3f5c', '#ffd9c7', '#e8b3a3', '#7a2e5a']
 
-ROOT = Path(__file__).resolve().parents[4]
-CHAR_DIR = ROOT / 'public' / 'models' / 'char'
 ASSETS: Path | None = None  # 書き出した アイコン・タイル の 場所（compose が 入れる）
 
 
@@ -189,80 +185,6 @@ def tile(im, name, x, y, ol=False):
     if ol:
         s = outline(s)
     im.alpha_composite(s, (int(x), int(y)))
-
-
-# ---- キャラ（3D の コマ → ドット） ----
-_atlas = None
-_sheets: dict[str, Image.Image] = {}
-
-
-def _cell(motion: str, d: int, f: int) -> Image.Image:
-    global _atlas
-    if _atlas is None:
-        _atlas = json.loads((CHAR_DIR / 'atlas.json').read_text())
-    m = _atlas['motions'][motion]
-    fr = m['frames']
-    x, y, w, h, ox, oy = m['packed']['cells'][d * fr + f]
-    if motion not in _sheets:
-        _sheets[motion] = Image.open(CHAR_DIR / f'{motion}.png').convert('RGBA')
-    c = Image.new('RGBA', (256, 256), P['clear'])
-    c.paste(_sheets[motion].crop((x, y, x + w, y + h)), (ox, oy))
-    return c
-
-
-def _nearest(rgb, pal):
-    return min(pal, key=lambda p: (p[0] - rgb[0]) ** 2 * 3 + (p[1] - rgb[1]) ** 2 * 4 + (p[2] - rgb[2]) ** 2 * 2)
-
-
-_char_cache: dict = {}
-
-
-def char(motion='idle', d=0, f=0, h=40, flip=False) -> Image.Image:
-    """キャラ 1 コマを 高さ h（ふちを ふくむ）の ドット絵に。向き d: 0 前・1 ななめ前（右）・2 右向き・4 うしろ"""
-    key = (motion, d, f, h, flip)
-    if key in _char_cache:
-        return _char_cache[key]
-    src = _cell(motion, d, f)
-    src = src.crop(src.getbbox())
-    hh = h - 2
-    ww = max(1, round(src.width * hh / src.height))
-    # 高さの 1/4 まで ちぢめてから、もう 1 回 ちぢめる（細い線が 消えにくい）
-    mid = src.resize((ww * 4, hh * 4), Image.LANCZOS)
-    s = mid.resize((ww, hh), Image.BOX)
-    pal = [hx(c)[:3] for c in CHAR_PAL]
-    out = Image.new('RGBA', s.size, P['clear'])
-    for j in range(s.height):
-        for i in range(s.width):
-            r, g, b, a = s.getpixel((i, j))
-            if a < 100:
-                continue
-            k = a / 255
-            rgb = (int(r / k) if k else r, int(g / k) if k else g, int(b / k) if k else b)
-            out.putpixel((i, j), (*_nearest(rgb, pal), 255))
-    if flip:
-        out = out.transpose(Image.FLIP_LEFT_RIGHT)
-    out = outline(out, P['line'])
-    _char_cache[key] = out
-    return out
-
-
-def put(im, sprite: Image.Image, x, y_bottom):
-    """足もと（下の はし）を y_bottom に そろえて 置く"""
-    im.alpha_composite(sprite, (int(x), int(y_bottom - sprite.height)))
-    return sprite.size
-
-
-def front_point(sprite: Image.Image, x, y_bottom, f0=0.3, f1=0.6):
-    """キャラの 手の あたり: 高さ f0〜f1 の 帯で いちばん 右の ドット（刀を 描きたす 起点）"""
-    a = sprite.split()[3]
-    best = (0, 0)
-    for j in range(int(sprite.height * f0), int(sprite.height * f1)):
-        for i in range(sprite.width - 1, -1, -1):
-            if a.getpixel((i, j)):
-                if i > best[0]:
-                    best = (i, j)
-                break
-    return x + best[0], y_bottom - sprite.height + best[1]
 
 
 def yokai(name: str, h: int) -> Image.Image:
@@ -501,3 +423,285 @@ def finish(im: Image.Image) -> Image.Image:
     bg = Image.new('RGBA', im.size, hx('#f6efdd'))
     bg.alpha_composite(im)
     return bg
+
+
+# ---- 字を ぜんぶ（キーの 割り当てが かわっても 描ける） ----
+GLYPH.update({
+    'B': ['XXXX.', 'X...X', 'XXXX.', 'X...X', 'XXXX.'], 'G': ['.XXXX', 'X....', 'X..XX', 'X...X', '.XXX.'],
+    'J': ['..XXX', '...X.', '...X.', 'X..X.', '.XX..'], 'K': ['X...X', 'X..X.', 'XXX..', 'X..X.', 'X...X'],
+    'M': ['X...X', 'XX.XX', 'X.X.X', 'X...X', 'X...X'], 'N': ['X...X', 'XX..X', 'X.X.X', 'X..XX', 'X...X'],
+    'O': ['.XXX.', 'X...X', 'X...X', 'X...X', '.XXX.'], 'U': ['X...X', 'X...X', 'X...X', 'X...X', '.XXX.'],
+    'V': ['X...X', 'X...X', 'X...X', '.X.X.', '..X..'], 'X': ['X...X', '.X.X.', '..X..', '.X.X.', 'X...X'],
+    'Y': ['X...X', '.X.X.', '..X..', '..X..', '..X..'], 'Z': ['XXXXX', '...X.', '..X..', '.X...', 'XXXXX'],
+    '0': ['.XXX.', 'X..XX', 'X.X.X', 'XX..X', '.XXX.'], '4': ['X..X.', 'X..X.', 'XXXXX', '...X.', '...X.'],
+    '5': ['XXXXX', 'X....', 'XXXX.', '....X', 'XXXX.'], '6': ['.XXX.', 'X....', 'XXXX.', 'X...X', '.XXX.'],
+    '7': ['XXXXX', '...X.', '..X..', '.X...', '.X...'], '8': ['.XXX.', 'X...X', '.XXX.', 'X...X', '.XXX.'],
+})
+
+CODE_LABEL = {'Space': 'SPACE', 'ShiftLeft': 'SHIFT', 'ShiftRight': 'SHIFT', 'ArrowUp': '^', 'ArrowDown': 'v', 'ArrowLeft': '<', 'ArrowRight': '>',
+              'Escape': 'ESC', 'Tab': 'TAB', 'Enter': 'ENTER', 'ControlLeft': 'CTRL', 'AltLeft': 'ALT'}
+
+
+def code_label(code: str) -> str:
+    """KeyboardEvent.code → キーの 絵の 字"""
+    if code in CODE_LABEL:
+        return CODE_LABEL[code]
+    if code.startswith('Key'):
+        return code[3:]
+    if code.startswith('Digit'):
+        return code[5:]
+    return code.upper()[:5]
+
+
+# ---- 棒人間（ポーズ ＝ 関節の 角度。0° ＝ まっすぐ下、＋ ＝ 前へ） ----
+POSES = {
+    #          どう  うで前(上,下) うで後(上,下)  あし前(もも,すね) あし後(もも,すね)
+    'stand':   (0, (10, 0), (-10, 0), (8, 0), (-8, 0)),
+    'walk':    (4, (35, 20), (-35, 10), (30, -10), (-25, -30)),
+    'run':     (18, (70, 80), (-50, 30), (60, -20), (-45, -70)),
+    'jump':    (5, (150, 20), (140, -10), (70, -90), (20, -80)),
+    'thrust':  (8, (90, 0), (60, 30), (30, 0), (-25, 0)),
+    'raise':   (-4, (170, 10), (160, 10), (20, 0), (-20, 0)),
+    'swing':   (14, (60, 10), (40, 30), (35, 0), (-25, 0)),
+    'upswing': (-6, (140, 0), (120, 10), (15, 0), (-25, 0)),
+    'reach':   (6, (75, 10), (-20, 10), (15, 0), (-10, 0)),
+    'bow1':    (0, (90, 0), (85, 70), (15, 0), (-15, 0)),
+    'bow2':    (0, (90, 0), (90, 150), (15, 0), (-15, 0)),
+    'front':   (0, (25, 0), (-25, 0), (12, 0), (-12, 0)),
+}
+
+
+def figure(im, pose, x, y_bottom, h=36, face=1, held=None):
+    """棒人間を 足もと y_bottom、からだの まんなか x に。face: 1 右向き・-1 左向き。
+    held: 前の 手に 持つ 物 {'katana': 角度°（0 ＝ 前、＋ ＝ 下）, 'len': ドット} か {'icon': 名前}。
+    返す: 前の 手の 位置、刀の 先（あれば）"""
+    lean, af, ab, lf, lb = POSES[pose]
+    u = h / 36
+    head_r = round(4 * u)
+    seg_leg, seg_body, seg_arm = 8 * u, 12 * u, 6.5 * u
+    d = ImageDraw.Draw(im)
+
+    def to(p, ang, length):
+        t = math.radians(ang)
+        return (p[0] + face * math.sin(t) * length, p[1] + math.cos(t) * length)
+
+    # 足もとから 組む: こし の 高さ ＝ あしの 長さ（まげると 下がる）
+    hip = (x, y_bottom - 2 * seg_leg * max(0.6, math.cos(math.radians(max(abs(lf[0]), abs(lb[0])) * 0.5))))
+    neck = to(hip, 180 + lean, seg_body)
+    head = to(hip, 180 + lean, seg_body + head_r + 1)
+    limbs = []
+    for (a1, a2), base in ((lb, hip), (ab, neck), (lf, hip), (af, neck)):
+        l = seg_leg if base is hip else seg_arm
+        k = to(base, a1, l)
+        e = to(k, a1 + a2 if base is hip else a1 - a2, l)
+        limbs.append((base, k, e))
+    # ふち（こい むらさき）→ 中（パーカーの ピンク・あしは こい）
+    body_c, leg_c = hx('#e0127f'), hx('#4a3f5c')
+    for w, col in ((4, P['line']), (2, None)):
+        for n, (a, b, c) in enumerate(limbs):
+            cc = col or (leg_c if n in (0, 2) else body_c)
+            d.line([a, b, c], fill=cc, width=w, joint=None)
+        d.line([hip, neck], fill=col or body_c, width=w + 1)
+    d.ellipse((head[0] - head_r - 1, head[1] - head_r - 1, head[0] + head_r + 1, head[1] + head_r + 1), fill=P['line'])
+    d.ellipse((head[0] - head_r, head[1] - head_r, head[0] + head_r, head[1] + head_r), fill=P['white'])
+    if pose != 'front':
+        px(im, head[0] + face * (head_r - 2), head[1] - 1, P['line'])  # 目（向きが 分かる）
+    else:
+        px(im, head[0] - 2, head[1] - 1, P['line']); px(im, head[0] + 2, head[1] - 1, P['line'])
+    handp = limbs[3][2]
+    tip = None
+    if held and 'katana' in held:
+        t = math.radians(held['katana'])
+        tip = (handp[0] + face * math.cos(t) * held.get('len', 14), handp[1] + math.sin(t) * held.get('len', 14))
+        katana_line(im, round(handp[0]), round(handp[1]), round(tip[0]), round(tip[1]))
+    if held and 'icon' in held:
+        icon(im, held['icon'], handp[0] - 9 + face * 6, handp[1] - 14, rot=held.get('rot', 0))
+    if held and 'bow' in held:
+        # 弓: 前の 手に 弧、つるは 後ろの 手へ（引くほど 後ろ）
+        back = limbs[1][2]
+        r = 9
+        d.arc((handp[0] - r - face * 2, handp[1] - r, handp[0] + r - face * 2, handp[1] + r), -70 if face > 0 else 110, 70 if face > 0 else 250, fill=P['line'], width=3)
+        d.arc((handp[0] - r - face * 2, handp[1] - r, handp[0] + r - face * 2, handp[1] + r), -70 if face > 0 else 110, 70 if face > 0 else 250, fill=hx('#a8743f'), width=1)
+        top = (handp[0] - face * 2 + r * math.cos(math.radians(-70)) * face, handp[1] - r * math.sin(math.radians(70)))
+        bot = (top[0], handp[1] + r * math.sin(math.radians(70)))
+        d.line([top, back, bot], fill=P['white'], width=1)
+    return handp, tip
+
+
+# ---- 大きめの 部品 ----
+def house(im, x, gy=GY):
+    d = ImageDraw.Draw(im)
+    d.polygon([(x - 4, 30), (x + 18, 16), (x + 40, 30)], fill=hx('#5a6378'))
+    rect(im, x, 30, 36, gy - 30, hx('#c9a27a'))
+    rect(im, x + 10, 40, 10, gy - 40, hx('#6e4428'))
+    rect(im, x + 24, 36, 8, 7, P['yel'])
+
+
+def tansu_big(im, x, y, gy=GY):
+    rect(im, x, y, 40, gy - y, hx('#9c6a3c'))
+    rect(im, x, y, 40, 2, hx('#b98a55'))
+    for k in range(3):
+        rect(im, x + 3, y + 5 + k * 13, 34, 10, hx('#b98a55'))
+        rect(im, x + 17, y + 9 + k * 13, 6, 2, P['gold'])
+    rect(im, x - 4, y + 5, 38, 11, hx('#c9a06a'))
+    rect(im, x - 4, y + 5, 38, 2, hx('#6e4428'))
+
+
+def scroll_open(im, x, y, items):
+    rect(im, x + 2, y + 2, 58, 44, hx('#f6e7c1'))
+    rect(im, x, y, 4, 48, hx('#9c6a3c')); rect(im, x + 58, y, 4, 48, hx('#9c6a3c'))
+    for k, it in enumerate(items):
+        yy = y + 5 + k * 13
+        im.alpha_composite(asset('icon_' + it).resize((8, 8), Image.NEAREST), (x + 7, yy))
+        rect(im, x + 19, yy + 3, 34 - k * 6, 2, hx('#b9a27a'))
+
+
+def mini_block(im, x, y):
+    rect(im, x - 1, y - 1, 10, 10, P['ink'])
+    rect(im, x, y, 8, 8, P['d2']); rect(im, x, y, 8, 2, P['g2'])
+
+
+def seed(im, x, y):
+    for j, row in enumerate(['.XXX.', 'XYYYX', 'XYYZX', 'XYZZX', '.XXX.']):
+        for i, v in enumerate(row):
+            c = {'X': P['ink'], 'Y': hx('#f2e2a8'), 'Z': hx('#c9a46a')}.get(v)
+            if c:
+                px(im, x + i, y + j, c)
+
+
+def smile(im, x, y):
+    px(im, x, y, P['line']); px(im, x + 5, y, P['line'])
+    rect(im, x + 1, y + 3, 4, 1, P['line'])
+
+
+def hotbar(im, x, y, items, lit):
+    for i in range(9):
+        slot(im, x + i * 10, y, 10, lit=(i == lit))
+    for i, it in enumerate(items):
+        im.alpha_composite(asset('icon_' + it).resize((8, 8), Image.NEAREST), (x + 1 + i * 10, y + 1))
+
+
+def grid(im, x, y, items, cols=3, s=17, lit=None, frame=True):
+    rows = (len(items) + cols - 1) // cols
+    if frame:
+        panel(im, x, y, cols * (s + 1) + 5, rows * (s + 1) + 5)
+    for i, it in enumerate(items):
+        cx, cy = x + 3 + (i % cols) * (s + 1), y + 3 + (i // cols) * (s + 1)
+        slot(im, cx, cy, s, lit=(it == lit))
+        im.alpha_composite(asset('icon_' + it), (cx + (s - 16) // 2, cy + (s - 16) // 2))
+
+
+def wear_slot(im, x, y, frac, col):
+    slot(im, x, y, 26)
+    im.alpha_composite(outline(asset('icon_wood_pickaxe')), (x + 4, y + 2))
+    rect(im, x + 2, y + 24, 22, 4, P['panel2'])
+    rect(im, x + 3, y + 25, max(2, round(20 * frac)), 2, P[col])
+
+
+def target_frame(im, x, y):
+    for i in range(0, 18, 3):
+        rect(im, x + i, y, 2, 1, P['yel']); rect(im, x + i, y + 17, 2, 1, P['yel'])
+        rect(im, x, y + i, 1, 2, P['yel']); rect(im, x + 17, y + i, 1, 2, P['yel'])
+
+
+def grass_tuft(im, x, y):
+    for gx in range(x, x + 16, 3):
+        h = (gx % 5) + 6
+        rect(im, gx, y - h, 2, h, P['g2'] if gx % 2 else P['g3'])
+
+
+def fragments(im, pts):
+    for dx, dy, s in pts:
+        rect(im, dx, dy, s, s, P['d2']); rect(im, dx, dy, s, 1, P['d1'])
+
+
+# ---- 部品の ならびを 描く（scenes.py の データ → 絵） ----
+BINDINGS: dict = {'keys': {}, 'mouse': {}}
+
+
+def key_for(action, n=0):
+    codes = BINDINGS['keys'].get(action, [])
+    if not codes:
+        raise KeyError(f'キーの 割り当てが ない: {action}')
+    return code_label(codes[min(n, len(codes) - 1)])
+
+
+def draw(im, parts):
+    ctx = {}
+    for p in parts:
+        p = dict(p)
+        t = p.pop('t')
+        if t == 'bg':
+            k = p['kind']
+            if k == 'day':
+                BG_day(im, hills=p.get('hills', True))
+            else:
+                globals()['BG_' + k](im)
+        elif t == 'block':
+            block(im, p['x'], p.get('y', GY - 18), p.get('kind', 'grass'), crack=p.get('crack', 0), clip=p.get('clip'))
+        elif t == 'ground':
+            ground(im, GY, p.get('x0', 0), p.get('x1', W))
+        elif t == 'fig':
+            hand_, tip = figure(im, p['pose'], p['x'], p.get('y', GY), p.get('h', 36), p.get('face', 1), p.get('held'))
+            if tip and 'arc' in p:
+                r, a0, a1 = p['arc']
+                cx = tip[0] - r * math.cos(math.radians(a0))
+                cy = tip[1] - r * math.sin(math.radians(a0))
+                arc_arrow(im, cx, cy, r, a0, a1, w=p.get('w', 4))
+            ctx['hand'], ctx['tip'] = hand_, tip
+        elif t == 'icon':
+            icon(im, p['name'], p['x'], p['y'], ol=p.get('ol', True), flip=p.get('flip', False), rot=p.get('rot', 0))
+        elif t == 'tile':
+            tile(im, p['name'], p['x'], p['y'])
+        elif t == 'key':
+            key(im, p['x'], p['y'], key_for(p['action'], p.get('n', 0)), lit=p.get('lit', False))
+        elif t == 'move4':
+            n = p.get('n', 0)
+            x, y = p['x'], p['y']
+            key(im, x + 12, y, key_for('moveForward', n)); key(im, x, y + 12, key_for('moveLeft', n))
+            key(im, x + 12, y + 12, key_for('moveBack', n)); key(im, x + 24, y + 12, key_for('moveRight', n))
+        elif t == 'keyrange':  # 1〜9 の ような はばの ある キー
+            a = key_for(p['first']); b = key_for(p['last'])
+            w = key(im, p['x'], p['y'], a)
+            text(im, p['x'] + w + 3, p['y'] + 3, '~')
+            key(im, p['x'] + w + 11, p['y'], b)
+        elif t == 'mouse':
+            btn = None
+            if 'action' in p:
+                btn = {0: 'L', 2: 'R'}.get(BINDINGS['mouse'].get(p['action']))
+            mouse(im, p['x'], p['y'], btn, rings=p.get('rings', 0))
+            if p.get('wheel'):
+                rect(im, p['x'] + 4, p['y'] + 1, 4, 5, P['yel']); rect(im, p['x'] + 5, p['y'] + 2, 2, 3, P['yel2'])
+        elif t == 'arrow':
+            arrow(im, p['x0'], p['y0'], p['x1'], p['y1'], w=p.get('w', 3), head=p.get('head', 5))
+        elif t == 'arc':
+            arc_arrow(im, p['cx'], p['cy'], p['r'], p['a0'], p['a1'], w=p.get('w', 3))
+        elif t == 'yokai':
+            sp = yokai(p['name'], p['h'])
+            im.alpha_composite(sp, (int(p['x']), int(p.get('y', GY) - sp.height)))
+        elif t == 'cell':  # 小さな コマ（別の 絵を 切りぬいて はる）
+            sub = new()
+            if p.get('bg'):
+                draw(sub, [{'t': 'bg', **p['bg']}] if isinstance(p['bg'], dict) else [{'t': 'bg', 'kind': p['bg']}])
+            draw(sub, p.get('parts', []))
+            sx, sy = p.get('src', (0, 0))
+            im.alpha_composite(sub.crop((sx, sy, sx + p['w'], sy + p['h'])), (p['x'], p['y']))
+            if p.get('border'):
+                bx, by = p['x'] - 1, p['y'] - 1
+                d = ImageDraw.Draw(im)
+                d.rectangle((bx, by, bx + p['w'] + 1, by + p['h'] + 1), outline=P[p['border']])
+        else:
+            if isinstance(p.get('c'), str):
+                p['c'] = P.get(p['c']) or hx(p['c'])
+            globals()[t](im, **p)
+    return ctx
+
+
+def circle(im, x, y, w, h, c=None):
+    ImageDraw.Draw(im).ellipse((x, y, x + w, y + h), outline=c or P['gold2'])
+
+
+def spray(im, cx, cy):
+    d = ImageDraw.Draw(im)
+    for r in (14, 22):
+        d.arc((cx - r, cy - r, cx + r, cy + r), 200, 340, fill=P['water'], width=2)
