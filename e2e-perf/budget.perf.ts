@@ -12,6 +12,8 @@ test.setTimeout(1_800_000);
 const PART = process.env.PART ?? 'all';
 const ONLY = process.env.SCENE ?? '';
 const OUT = 'perf-results';
+const SLICE_OFF = process.env.MESH_SLICE === 'off'; // 前と同じ道（分けない）も測る
+const TAG = SLICE_OFF ? '-sliceoff' : '';
 
 // ---------------------------------------------------------------- 計測の書き足し（ブラウザ側）
 const MESHER_ADD = `
@@ -23,11 +25,52 @@ const MESHER_ADD = `
     const n0 = P.fblN, m0 = P.fblMs;
     P.cur = P.keys ? P.newSets() : null;
     const t = performance.now();
-    const d = ob.call(this, cx, sy, cz, tier, opts);
+    P.inBuild = true;
+    let d;
+    try { d = ob.call(this, cx, sy, cz, tier, opts); } finally { P.inBuild = false; }
     const ms = performance.now() - t;
+    (tier === 'box' ? (P.acc.box += ms) : (P.acc.one += ms));
     const e = { cx, sy, cz, tier, ms, full: d.pieces.length > 0 || d.extras.faceCount > 0 || d.water.faceCount > 0, tris: d.triangles, fblN: P.fblN - n0, fblMs: P.fblMs - m0, ctx: P.ctx, f: P.frame };
     if (P.cur) { const c = P.cur; e.sets = [c.base.size, c.k4.size, c.k8.size, c.k16.size, c.out.size]; P.cur = null; }
     P.mesh.push(e);
+    return d;
+  };
+  // PERF-2: 分けて作る道。build の中の start/resume は build 側で数えるので 数えない（P.inBuild）
+  const os = SectionMesher.prototype.start;
+  SectionMesher.prototype.start = function (cx, sy, cz, tier, opts) {
+    const P = window.__prof;
+    if (P && P.on && !P.inBuild) P.job = { cx, sy, cz, tier, ms: 0, n: 0, fblN: P.fblN, fblMs: P.fblMs };
+    return os.call(this, cx, sy, cz, tier, opts);
+  };
+  // 段ごとの 1 単位の時間（分ける道だけ）。どの段が 8 ms の締め切りを こえさせるか
+  const PHN = ['idle', 'box', 'read', 'light2', 'scan', 'sample', 'expose', 'fill', 'terrainFill', 'planes', 'finish', 'occupancy'];
+  const ost = SectionMesher.prototype.step;
+  SectionMesher.prototype.step = function () {
+    const P = window.__prof;
+    if (!P || !P.on || P.inBuild) return ost.call(this);
+    const k = PHN[this.phase] || String(this.phase);
+    const t = performance.now();
+    ost.call(this);
+    const ms = performance.now() - t;
+    const o = (P.ph[k] ||= { n: 0, sum: 0, max: 0 });
+    o.n++; o.sum += ms; if (ms > o.max) o.max = ms;
+  };
+  const or = SectionMesher.prototype.resume;
+  SectionMesher.prototype.resume = function (deadline, now) {
+    const P = window.__prof;
+    if (!P || !P.on || P.inBuild) return or.call(this, deadline, now);
+    const t = performance.now();
+    const d = or.call(this, deadline, now);
+    const ms = performance.now() - t;
+    P.acc.slice += ms;
+    P.slices.push(ms);
+    const j = P.job;
+    if (j) { j.ms += ms; j.n++; }
+    if (d && j) {
+      P.job = null;
+      P.sliced.push({ n: j.n, ms: j.ms });
+      P.mesh.push({ cx: j.cx, sy: j.sy, cz: j.cz, tier: j.tier, ms: j.ms, sliced: j.n, full: d.pieces.length > 0 || d.extras.faceCount > 0 || d.water.faceCount > 0, tris: d.triangles, fblN: P.fblN - j.fblN, fblMs: P.fblMs - j.fblMs, ctx: P.ctx, f: P.frame });
+    }
     return d;
   };
 }
@@ -36,10 +79,10 @@ const RENDERER_ADD = `
 ;{
   const P0 = () => window.__prof;
   const ob = WorldRenderer.prototype.build;
-  WorldRenderer.prototype.build = function (st, boxOnly) {
+  WorldRenderer.prototype.build = function (st, boxOnly, deadline) {
     const P = P0();
     if (P && P.on) P.ctx = { built: st.built, want: st.col.tier, dirty: st.dirty, player: st.player, cause: st.__c || 0, boxOnly, evicted: st.evicted };
-    const r = ob.call(this, st, boxOnly);
+    const r = ob.call(this, st, boxOnly, deadline);
     st.__c = 0;
     return r;
   };
@@ -49,6 +92,15 @@ const RENDERER_ADD = `
     return om.call(this, st, player);
   };
   WorldRenderer.prototype.markDirtyNb = function (st) { st.__nb = 1; this.markDirty(st, false); st.__nb = 0; };
+  const oi = WorldRenderer.prototype.install;
+  WorldRenderer.prototype.install = function (st, data, tier) {
+    const P = P0();
+    if (!P || !P.on) return oi.call(this, st, data, tier);
+    const t = performance.now();
+    const r = oi.call(this, st, data, tier);
+    P.acc.inst += performance.now() - t;
+    return r;
+  };
   const ou = WorldRenderer.prototype.update;
   WorldRenderer.prototype.update = function (v) { const P = P0(); if (P) P.frame++; return ou.call(this, v); };
 }
@@ -63,7 +115,9 @@ const LIGHT_ADD = `
       if (!P || !P.on) return o.apply(this, a);
       const t = performance.now();
       const r = o.apply(this, a);
-      P.light[bucket].push(performance.now() - t);
+      const dt = performance.now() - t;
+      P.light[bucket].push(dt);
+      if (bucket === 'cols') P.acc.light += dt;
       return r;
     };
   };
@@ -71,6 +125,19 @@ const LIGHT_ADD = `
   wrap('computeKey', 'keys');
   wrap('update', 'upd');
   wrap('flush', 'flush');
+}
+`;
+const STREAM_ADD = `
+;{
+  const oi = ChunkStream.prototype.install;
+  ChunkStream.prototype.install = function (cx, cz, col, fromSave) {
+    const P = window.__prof;
+    if (!P || !P.on) return oi.call(this, cx, cz, col, fromSave);
+    const t = performance.now();
+    const r = oi.call(this, cx, cz, col, fromSave);
+    P.acc.gen += performance.now() - t;
+    return r;
+  };
 }
 `;
 const LOOKS_PATCH = (src: string): string =>
@@ -107,6 +174,7 @@ async function instrument(page: Page): Promise<void> {
     const sets = () => ({ calls: 0, base: new Set<number>(), k4: new Set<number>(), k8: new Set<number>(), k16: new Set<number>(), out: new Set<string>(), pos: new Set<string>() });
     (window as any).__prof = {
       on: false, keys: false, frame: 0, ctx: null, cur: null, mesh: [], fblN: 0, fblMs: 0, kindN: {},
+      inBuild: false, job: null, slices: [], sliced: [], ph: {}, acc: { slice: 0, one: 0, box: 0, inst: 0, gen: 0, light: 0 },
       light: { cols: [], keys: [], upd: [], flush: [] },
       newSets: sets,
       cum: sets(),
@@ -123,6 +191,7 @@ async function instrument(page: Page): Promise<void> {
   await patch('**/src/world/render/voxel/sectionMesher.ts*', (s) => s + MESHER_ADD, 'SectionMesher.prototype');
   await patch('**/src/world/render/WorldRenderer.ts*', (s) => s.replace('this.markDirty(ns, false)', 'this.markDirtyNb(ns)') + RENDERER_ADD, 'markDirtyNb(ns)');
   await patch('**/src/world/light/WorldLight.ts*', (s) => s + LIGHT_ADD, 'WorldLight.prototype');
+  await patch('**/src/world/stream/ChunkStream.ts*', (s) => s + STREAM_ADD, 'ChunkStream.prototype');
   await patch('**/src/proto/voxel/looks/index.ts*', LOOKS_PATCH, 'function __fbl');
 }
 
@@ -137,7 +206,7 @@ const installHelpers = (): void => {
     return s[Math.min(s.length - 1, Math.floor(s.length * p))];
   };
   const sum = (a: number[]) => a.reduce((x, y) => x + y, 0);
-  const dist = (a: number[]) => ({ n: a.length, p50: q(a, 0.5), p95: q(a, 0.95), p99: q(a, 0.99), max: a.length ? Math.max(...a) : 0, sum: sum(a), over8: a.filter((x) => x > 8).length, over16: a.filter((x) => x > 16).length });
+  const dist = (a: number[]) => ({ n: a.length, p50: q(a, 0.5), p95: q(a, 0.95), p99: q(a, 0.99), max: a.length ? Math.max(...a) : 0, sum: sum(a), over8: a.filter((x) => x > 8).length, over10: a.filter((x) => x > 10).length, over12: a.filter((x) => x > 12).length, over16: a.filter((x) => x > 16).length });
   const heap = () => ((performance as any).memory?.usedJSHeapSize ?? 0) / 1048576;
   const r2 = (x: number) => Math.round(x * 100) / 100;
   const rd = (o: any): any => {
@@ -271,6 +340,8 @@ const installHelpers = (): void => {
     const rs: any[] = [];
     const p0 = h.player.get().position;
     let lastX = p0.x, lastZ = p0.z, dodge = 0, side = 1, dodges = 0, closes = 0;
+    const causes: Record<string, number> = {};
+    let maxCause: any = { ms: 0 };
     for (let i = 0; i < n; i++) {
       h.input.press('run');
       h.input.press('moveForward');
@@ -284,15 +355,26 @@ const installHelpers = (): void => {
       }
       h.input.release('moveLeft'); h.input.release('moveRight');
       if (dodge > 0) { dodge--; h.input.press(side > 0 ? 'moveRight' : 'moveLeft'); }
+      const a = P().acc;
+      a.slice = a.one = a.box = a.inst = a.gen = a.light = 0;
       const t = performance.now();
       h.step(1);
-      ms.push(performance.now() - t);
+      const dt = performance.now() - t;
+      ms.push(dt);
+      if (dt > 8) {
+        // 8 ms 超えの 原因: いちばん大きい部品（コマの半分に満たなければ「そのほか」）
+        const parts: Array<[string, number]> = [['meshSlice', a.slice], ['microOne', a.one], ['box', a.box], ['install', a.inst], ['lightColumn', a.light], ['generate', a.gen]];
+        parts.sort((x, y) => y[1] - x[1]);
+        const k = parts[0][1] >= dt * 0.5 ? parts[0][0] : 'other';
+        causes[k] = (causes[k] || 0) + 1;
+        if (dt > maxCause.ms) maxCause = { ms: dt, k, parts: Object.fromEntries(parts.map((p2) => [p2[0], p2[1]])) };
+      }
       if (i % sampleEvery === 0) rs.push(renderSample());
     }
     h.input.releaseAll();
     const pe = h.player.get().position;
     const slow = ms.map((v, i) => [i, v]).filter((a) => a[1] > 500).slice(0, 10);
-    return { step: dist(ms), render: renderSum(rs), walked: Math.hypot(pe.x - p0.x, pe.z - p0.z), dodges, closes, slow, yokaiAt: h.yokai.list().map((y: any) => [y.kind, y.state, Math.round(y.x), Math.round(y.z)]) };
+    return { step: dist(ms), causes, maxCause, render: renderSum(rs), walked: Math.hypot(pe.x - p0.x, pe.z - p0.z), dodges, closes, slow, yokaiAt: h.yokai.list().map((y: any) => [y.kind, y.state, Math.round(y.x), Math.round(y.z)]) };
   };
   /** 地面の起伏が小さい向き（段差 tol 以下・海より上）がいちばん長くつづく向き */
   const pickYawGround = (x: number, z: number, tol: number) => {
@@ -387,7 +469,8 @@ const scanScenes = (): any => {
     }
   }
   const landOnly = cand.filter((c) => c.land === 1);
-  const forest = [...landOnly].filter((c) => c.forest === 1 && c.rough <= 4).sort((a, b) => a.d - b.d)[0];
+  let forest = [...landOnly].filter((c) => c.forest === 1 && c.rough <= 4).sort((a, b) => a.d - b.d)[0];
+  if (!forest) forest = [...landOnly].filter((c) => c.rough <= 4).sort((a, b) => b.forest - a.forest || a.d - b.d)[0]; // main で森が 1 マスも全部森のタイルが無いときの代わり
   const maxRough = Math.max(...landOnly.map((c) => c.rough));
   const cliff = [...landOnly].filter((c) => c.rough >= maxRough * 0.8).sort((a, b) => a.d - b.d)[0];
   return { forest, cliff, maxRough };
@@ -400,7 +483,7 @@ const SCENES: SceneDef[] = [{ name: 'harappa' }, { name: 'mori' }, { name: 'gake
 async function boot(page: Page, shadow: 'on' | 'off' | 'none'): Promise<number> {
   await instrument(page);
   const t0 = Date.now();
-  await page.goto(shadow === 'none' ? '/?nosave=1&shadow=0' : '/?nosave=1&shadow=1');
+  await page.goto((shadow === 'none' ? '/?nosave=1&shadow=0' : '/?nosave=1&shadow=1') + (SLICE_OFF ? '&meshSlice=off' : ''));
   await page.waitForFunction(() => window.__rikkun?.ready === true, undefined, { timeout: 180_000 });
   const bootMs = Date.now() - t0;
   await page.evaluate(installHelpers);
@@ -414,7 +497,7 @@ async function boot(page: Page, shadow: 'on' | 'off' | 'none'): Promise<number> 
 
 function save(name: string, data: unknown): void {
   mkdirSync(OUT, { recursive: true });
-  writeFileSync(`${OUT}/budget-${name}.json`, JSON.stringify(data, null, 1));
+  writeFileSync(`${OUT}/budget-${name}${TAG}.json`, JSON.stringify(data, null, 1));
 }
 
 if (PART === 'all' || PART === 'scenes') {
@@ -501,10 +584,33 @@ if (PART === 'all' || PART === 'scenes') {
           info.memStand = B.mem();
           // まっすぐ 600 コマ
           m = B.mark();
+          P.slices.length = 0; P.sliced.length = 0; P.ph = {};
           const refill = scene === 'yoru';
           info.walk = B.walk(600, 20, refill);
           info.walkWork = B.summarize(m);
           info.memWalk = B.mem();
+          // 歩き終わり: 16 ブロック以内の 小ブロックの差しかえ状態・差しかえ待ち・分けた仕事
+          {
+            const pe = h.player.get().position;
+            const tiers: Record<string, number> = {};
+            const lag: any[] = [];
+            const s0x = Math.floor((pe.x - 16) / 16), s1x = Math.floor((pe.x + 16) / 16), s0z = Math.floor((pe.z - 16) / 16), s1z = Math.floor((pe.z + 16) / 16);
+            const s0y = Math.max(0, Math.floor((pe.y - 16) / 16)), s1y = Math.floor((pe.y + 16) / 16);
+            for (let sx = s0x; sx <= s1x; sx++) for (let sy = s0y; sy <= s1y; sy++) for (let sz = s0z; sz <= s1z; sz++) {
+              const dx = Math.max(sx * 16 - pe.x, 0, pe.x - (sx * 16 + 16)), dz = Math.max(sz * 16 - pe.z, 0, pe.z - (sz * 16 + 16)), dy = Math.max(sy * 16 - pe.y, 0, pe.y - (sy * 16 + 16));
+              if (Math.hypot(dx, dy, dz) > 16) continue;
+              const si = w.sectionInfo(sx, sy, sz);
+              if (si.meshes === 0) continue;
+              tiers[si.tier] = (tiers[si.tier] || 0) + 1;
+              if (si.tier !== 'micro') lag.push([sx, sy, sz, si.tier]);
+            }
+            info.endNear16 = { tiers, notMicro: lag.slice(0, 10), notMicroN: lag.length, pending: w.meshStats().pending, pendingJobs: w.stream().queued, meshJob: w.meshJob?.() };
+          }
+          {
+            const sl = P.slices as number[];
+            const sd = P.sliced as Array<{ n: number; ms: number }>;
+            info.sliceStats = { slices: B.dist(sl), sectionsSliced: sd.length, phases: P.ph, slicesPerSection: B.q(sd.map((x) => x.n), 0.5), sectionMsSum: B.dist(sd.map((x) => x.ms)) };
+          }
           info.shadowOn = h.shadow.enabled();
           info.sections = w.sectionStats();
           P.on = false;
@@ -523,6 +629,10 @@ if (PART === 'all' || PART === 'scenes') {
           const top = [...self.entries()].sort((a, b) => b[1] - a[1]).slice(0, 25);
           save(`prof-${sc.name}-${shadow}`, top);
         }
+        const gc = await page.context().newCDPSession(page);
+        await gc.send('HeapProfiler.collectGarbage');
+        const hu = await gc.send('Runtime.getHeapUsage'); // performance.memory は 粗い（段ごと）ので CDP の正確な値を GC のあとで読む
+        r.heapGcMB = Math.round((hu.usedSize / 1048576) * 100) / 100;
         save(`scene-${sc.name}-${shadow}`, { bootMs, ...r });
         console.log(`場面 ${sc.name} かげ${shadow}: ${JSON.stringify({ stand: r.stand.step, walk: r.walk.step, render: r.walk.render })}`);
       });
