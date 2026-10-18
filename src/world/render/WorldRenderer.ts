@@ -1113,8 +1113,9 @@ export class WorldRenderer {
           if (!st.evicted) this.dequeue(st);
           continue;
         }
-        const sp = st.player ? 0 : st.built === null || st.dirty ? 1 : 2;
-        if (sp === 2 && !this.upgradesOn) continue;
+        // 時間の時計のときだけ: 足もと（16 ブロック以内）の 箱 → 小ブロックの差しかえを、初めて作る箱・LOD より先に（PERF-2 続き）
+        const sp = st.player ? 0 : st.built === null || st.dirty ? 1 : this.clock === 'time' && col.dist <= NEAR_UPGRADE_DIST ? 0.5 : 2;
+        if ((sp === 2 || sp === 0.5) && !this.upgradesOn) continue;
         if (this.waitsForJob(st)) continue;
         if (sp < p || (sp === p && bs !== null && st.sy < bs.sy)) {
           p = sp;
@@ -1458,6 +1459,9 @@ export class WorldRenderer {
     this.swayMesh.set(this.swayItems);
   }
 }
+
+/** 時間の時計で 差しかえを先にする 足もとの距離（ブロック） */
+const NEAR_UPGRADE_DIST = 24;
 
 /** 同じ優先なら: 輪の距離 → 中心どうしの距離 → cz → cx（S3） */
 function jobBefore(col: ColState, e: number, bd: number, be: number, other: ColState): boolean {

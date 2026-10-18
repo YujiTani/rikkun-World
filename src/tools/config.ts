@@ -29,7 +29,7 @@ export interface ToolConfig {
 export const TOOL_DEFAULTS: Readonly<ToolConfig> = {
   toolPower: { wood_pickaxe: 2, stone_pickaxe: 4, iron_pickaxe: 6, wood_axe: 2, stone_axe: 4, iron_axe: 6, kuwa: 4 },
   toolLevel: { wood_pickaxe: 0, stone_pickaxe: 1, iron_pickaxe: 2, wood_axe: 0, stone_axe: 0, iron_axe: 0 },
-  weaponDamage: { bokuto: 2, katana: 4, naginata: 3, crystal_katana: 6 },
+  weaponDamage: { bokuto: 2, katana: 4, naginata: 3, crystal_katana: 4 },
   weaponReach: { naginata: 5.0 },
   weaponTicks: { naginata: 40 },
   naginataComboReset: 60,

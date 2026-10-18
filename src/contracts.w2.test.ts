@@ -40,8 +40,14 @@ describe('WEAPON-2 contracts', () => {
     expect(adv.kiriage!.advance).toHaveLength(13);
     expect(adv.kiriage!.advance.every((x) => x === 0)).toBe(true);
     expect(adv.kiriage!.step).toBe(0);
+    // WEAPON-6: 2 段目の ふみこみの 線の ticks も 絵と 同じ
+    const s2 = s.bladeCombo.step2Advance;
+    expect(s2.kiriage!.ticks).toEqual(atlas.motions.katana_kiriage.ticks);
+    expect(s2.thrust!.ticks).toEqual(atlas.motions.katana_thrust.ticks);
+    expect(s2.kiriage!.advance).toHaveLength(13);
+    expect(s2.thrust!.advance).toHaveLength(11);
     expect(s.bowSpeed).toEqual([12, 20, 28]);
-    expect(s.toolDurability.crystal_katana).toBe(500);
+    expect(s.toolDurability.crystal_katana).toBe(400);
     expect(s.toolDurability.kabuto).toBe(165);
     expect(s.wearLowRatio).toBe(0.1);
   });

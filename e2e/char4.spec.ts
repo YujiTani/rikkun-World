@@ -156,7 +156,7 @@ test.describe('CHAR-4 通し', () => {
     expect(hit.map((s) => s.trail.points.length)).toEqual(miss.map((s) => s.trail.points.length));
   });
 
-  test('AC17: 水晶の かたな・下段で 切り上げ（見える F20〜F30・F22 で 星 3 こ・F31 で 消える。WEAPON-4）', async ({ page }) => {
+  test('AC17: 水晶の かたな・下段で 切り上げ（見える F20〜F30・F22 で 星 1 こ・F31 で 消える。WEAPON-4・WEAPON-6: 1 段目は 星 1 こ）', async ({ page }) => {
     await openBladeWorld(page);
     await expectTrailHook(page);
     await holdItems(page, [{ item: 'crystal_katana' }]);
@@ -178,19 +178,18 @@ test.describe('CHAR-4 通し', () => {
       expect(s.trail.color).toBe(crystal.color);
       expect(s.trail.glow).toBe(crystal.glow);
     }
-    // 星は 3 こ。それぞれ 軌跡の 区切りの 点（刃先）の 上
+    // 星は 段の 数（WEAPON-6: 1 段目 = 1 こ。q = 0.55 の 区切りの 刃先の 上）
     const f42 = at(rec, 22).trail;
-    expect(f42.stars).toHaveLength(3);
-    // q = 0.25・0.55・0.85 の 区切り（番号 = ⌊q × 区切りの数⌋）の 刃先それぞれに 星が ある（順番は 決めない）
+    expect(f42.stars).toHaveLength(1);
     const cols42 = [...f42.columns].sort((a, b) => a.q - b.q);
-    for (const q of [0.25, 0.55, 0.85]) {
+    for (const q of [0.55]) {
       const tip = cols42[Math.floor(q * f42.segments)]!.tip;
       const near = Math.min(...f42.stars.map((st) => dist(tip, st)));
       expect(near, `q = ${q} の 区切りの 刃先から 0.05 以内に 星`).toBeLessThanOrEqual(0.05);
     }
     // 刃先・つばの 位置は 体 ＋ k × データ（新しい絵 kiriage2 で 復活。台帳 G7）
     expect(maxPointError(rec, 'kiriage', rec[0]!.dir!, await bladeScale(page)).err).toBeLessThanOrEqual(0.01);
-    // 星 3 こ込みで 物 2 以下・三角形 360 以下
+    // 星込みで 物 2 以下・三角形 360 以下
     expectCheap(rec, 2, 360);
     // 軌跡が 消えたら 星も ない
     expect(at(rec, 31).trail.stars).toHaveLength(0);
