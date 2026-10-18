@@ -134,6 +134,7 @@ test.describe('#75 くさ・のばな・間隔のきまり', () => {
     // ゴールデン = 今の main（FLORA-75 の前）で 同じやり方で 記録した値（e2e/golden/flora75-main.json）
     const golden = JSON.parse(readFileSync('e2e/golden/flora75-main.json', 'utf8')) as {
       start: { drawCalls: number; triangles: number };
+      countries: Record<string, { triangles: number }>;
     };
     await openFlora(page, fine(wide('?nosave=1')));
     const start = await measureStart(page);
@@ -166,7 +167,10 @@ test.describe('#75 くさ・のばな・間隔のきまり', () => {
       const s = await measureCountry(page, k);
       expect(s.here, `${k}: 足もとの国`).toBe(k);
       worst[k] = s.triangles;
-      expect(s.triangles, `${k}: 1 コマの三角形（おおきな きの もり は とくに）${JSON.stringify(worst)}`).toBeLessThanOrEqual(903_036);
+      const before = golden.countries[k]!.triangles;
+      // ふえは 36,864 まで。上限 903,036 は 前から 超えていた国（momiji。この 5 か所の取り方で 988,080）をのぞいて 見る
+      expect(s.triangles - before, `${k}: 三角形の ふえ（前 ${before}）`).toBeLessThanOrEqual(36_864);
+      if (before <= 903_036) expect(s.triangles, `${k}: 1 コマの三角形（おおきな きの もり は とくに）${JSON.stringify(worst)}`).toBeLessThanOrEqual(903_036);
     }
   });
 

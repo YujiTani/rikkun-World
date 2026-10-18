@@ -54,7 +54,10 @@ async function settleAll(page: Page): Promise<void> {
   await page.evaluate(async () => {
     const h = (window as any).__rikkun;
     await h.world.settle({ full: true });
-    for (let n = 0; (h.world.lightPending() > 0 || h.world.meshStats().pending > 0) && n < 3000; n += 5) h.step(5);
+    // 読みこみの仕事（queued）・光・メッシュが ぜんぶ なくなるまで。足りないと 三角形が 少なく出る（ookina で 起きた）
+    for (let n = 0; (h.world.lightPending() > 0 || h.world.meshStats().pending > 0 || h.world.stream().queued > 0) && n < 6000; n += 5) h.step(5);
+    h.step(30);
+    for (let n = 0; (h.world.lightPending() > 0 || h.world.meshStats().pending > 0 || h.world.stream().queued > 0) && n < 6000; n += 5) h.step(5);
   });
 }
 
@@ -73,21 +76,41 @@ export async function measureStart(page: Page): Promise<Tris> {
   });
 }
 
-/** その国の まん中へ 行き、4 方向（yaw 0・90・180・270）の 描画の いちばん多い値 */
-export async function measureCountry(page: Page, kind: string): Promise<Tris & { here: string }> {
-  await page.evaluate((k) => (window as any).__biomeT.goTo(k), kind);
-  await settleAll(page);
-  return page.evaluate(() => {
-    const h = (window as any).__rikkun;
-    let drawCalls = 0;
-    let triangles = 0;
-    for (const yaw of [0, 90, 180, 270]) {
-      h.player.set({ yaw, pitch: 0, velocity: { x: 0, y: 0, z: 0 } });
-      h.step(3);
-      const s = h.renderStats();
-      drawCalls = Math.max(drawCalls, s.drawCalls);
-      triangles = Math.max(triangles, s.triangles);
-    }
-    return { drawCalls, triangles, here: h.biome.here().kind as string };
-  });
+/**
+ * その国で 5 か所（まん中と、ななめ 4 方向に 40 はなれた所のうち 同じ国の所）に 立ち、4 方向（yaw 0・90・180・270）の
+ * 描画の いちばん多い値。1 か所だけだと 見る向き・高さで 三角形が 大きく ゆれる（おおきな きの もり の まん中は 約 16〜21 万、
+ * 見こみ 約 83 万は ふだん遊ぶ とき の 最大側）ので、いちばん多い所を 国の値にする。
+ */
+export async function measureCountry(page: Page, kind: string): Promise<Tris & { here: string; spots: number }> {
+  const offsets: [number, number][] = [[0, 0], [40, 40], [-40, 40], [40, -40], [-40, -40]];
+  let best: Tris & { here: string; spots: number } = { drawCalls: 0, triangles: 0, here: '', spots: 0 };
+  for (const [dx, dz] of offsets) {
+    const ok = await page.evaluate(
+      ([k, dx, dz]) => {
+        const h = (window as any).__rikkun;
+        const p = h.biome.find(k);
+        const q = { x: p.x + (dx as number), z: p.z + (dz as number) };
+        if (h.biome.at(q.x, q.z).kind !== k) return false;
+        return (window as any).__biomeT.goToPoint(q).loaded as boolean;
+      },
+      [kind, dx, dz] as [string, number, number],
+    );
+    if (!ok) continue;
+    await settleAll(page);
+    const m = await page.evaluate(() => {
+      const h = (window as any).__rikkun;
+      let drawCalls = 0;
+      let triangles = 0;
+      for (const yaw of [0, 90, 180, 270]) {
+        h.player.set({ yaw, pitch: 0, velocity: { x: 0, y: 0, z: 0 } });
+        h.step(3);
+        const s = h.renderStats();
+        drawCalls = Math.max(drawCalls, s.drawCalls);
+        triangles = Math.max(triangles, s.triangles);
+      }
+      return { drawCalls, triangles, here: h.biome.here().kind as string };
+    });
+    best = { drawCalls: Math.max(best.drawCalls, m.drawCalls), triangles: Math.max(best.triangles, m.triangles), here: m.here, spots: best.spots + 1 };
+  }
+  return best;
 }
