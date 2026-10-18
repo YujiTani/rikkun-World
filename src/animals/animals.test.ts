@@ -22,6 +22,7 @@ function setup(opts: { floor?: BlockId; kind?: string; phase?: DayPhase; px?: nu
       seed: opts.seed ?? 7,
       settings,
       dropEgg: (at) => eggs.push({ ...at }),
+      addItem: () => false,
       day: () => st.day,
       phase: () => st.phase,
       countryAt: () => ({ kind: st.kind }),

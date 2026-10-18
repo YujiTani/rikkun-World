@@ -5,6 +5,7 @@ import type {
   AnimalHintKind,
   AnimalInfo,
   AnimalSpawnOpts,
+  SwingResult,
   AnimalState,
   AnimalView,
   ItemId,
@@ -169,6 +170,12 @@ export class AnimalManager implements AnimalApi {
       state: e.state,
       lookingAtPlayer: this.lookingAt(e, p),
       inWater: e.inWater,
+      // 版 3.2: A が 埋める（仮）
+      follow: 0,
+      fullLeft: 0,
+      carried: false,
+      fluttering: false,
+      vy: 0,
     }));
   }
 
@@ -193,6 +200,23 @@ export class AnimalManager implements AnimalApi {
     const q = this.queue;
     this.queue = [];
     return q;
+  }
+
+  // ---- 版 3.2 のつなぎ目（A が 埋める。いまは 仮）
+  swingNet(_block: Vec3): SwingResult {
+    throw new Error('swingNet: A が 実装する');
+  }
+
+  carryHold(_id: number, _heldTicks: number): 'lifted' | 'wait' | 'wild' | null {
+    return null;
+  }
+
+  putDown(_spot: Vec3): boolean {
+    return false;
+  }
+
+  carrying(): number | null {
+    return null;
   }
 
   lastHint(): AnimalHintKind | null {

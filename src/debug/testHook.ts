@@ -14,7 +14,7 @@ import type { createBladeHook } from '../tools/blade/hook';
 import type { createLevelHook } from '../level';
 import type { createAchievementsHook } from '../achievements';
 import type { createLogHook } from '../ui/log';
-import type { UiAlpha, AnimalEvent, AnimalHintKind, AnimalInfo, AnimalSpawnOpts } from '../contracts';
+import type { UiAlpha, AnimalEvent, AnimalHintKind, AnimalInfo, AnimalSpawnOpts, AnimalWindowHint } from '../contracts';
 import type { createRarityHook } from '../drops/rarityHook';
 import type { createStorageHook } from '../storage/hook';
 import type { createYokaiHook } from '../yokai';
@@ -112,9 +112,11 @@ export interface TestHook {
     trySpawn(): number | null;
     target(): number | null;
     events(): AnimalEvent[];
-    fx(): unknown;
+    fx(): unknown; // 実体 は AnimalFxRecord（contracts）
     fxReset(): void;
-    lastHint(): AnimalHintKind | null;
+    lastHint(): AnimalHintKind | AnimalWindowHint | null;
+    /** 版 3.2: だっこ している id か null */
+    carrying(): number | null;
   };
   /** CRAFT-2 §6.1: 画面の不透明度 */
   ui: { alpha(): UiAlpha };

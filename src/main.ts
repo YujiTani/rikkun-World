@@ -475,6 +475,8 @@ const animals = createAnimalManager({
     dropEgg: (at) => {
       drops.scatter(at, [{ item: 'egg', count: 1 }], { speedMin: 0.3, speedMax: 0.8, upMin: 3, upMax: 3.5 });
     },
+    // 版 3.2 のつなぎ目（仮。つなぎ込みが 持ち物 へ つなぐ）
+    addItem: () => false,
     day: () => time.day(),
     phase: () => time.phase(),
     countryAt,
@@ -1891,6 +1893,7 @@ installTestHook(game, overlay, () => host.everReady, {
     fxReset: () => animalFx.fxReset(),
     // 今 チップに出ている合図（120 ステップで消える。消えたら null）
     lastHint: () => animalHint.model.current(),
+    carrying: () => animals.carrying(),
   },
   attack: { preview: () => dig.attackPreview(), last: () => dig.attackLast() },
   camera: cameraHook.camera,
