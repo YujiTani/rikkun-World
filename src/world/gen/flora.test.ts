@@ -4,7 +4,10 @@ import { BLOCK_INDEX } from '../blocks/blockTypes';
 import { countryAt, takePath, type CountryKind } from './biome';
 import { generateChunk } from './chunk';
 import { GEN_CONFIG as C } from './config';
-import { computeFarmPlacement } from './farmPlacement';
+import { ArrayVoxelWorld } from '../VoxelWorld';
+import { WILD_BLOCK } from '../../contracts';
+import { applyFarmPlacement, computeFarmPlacement } from './farmPlacement';
+import { populateWorld } from './populate';
 import { nearMouth } from './mouths';
 import { floraOfColumn, plantsInRect, type PlacedPlant } from './placement';
 import { plantsRaw } from './plants';
@@ -90,9 +93,29 @@ describe('AC2・AC3: くさ・のばな を 置かない所', () => {
     for (const seed of SEEDS) {
       const T = terrainFor(seed);
       const sp = T.spawn();
+      // ふるい はたけ・やせいの やさい は「世界を作って applyFarmPlacement で 置いた あとの ブロック」で見る（生成データではなく 世界の結果）
+      const world = new ArrayVoxelWorld({ x: 0, z: 0 });
+      populateWorld(world, seed);
       const placement = computeFarmPlacement(seed);
+      applyFarmPlacement(world, placement);
+      const isFlora = (x: number, y: number, z: number): boolean => {
+        const b = world.getBlock(x, y, z);
+        return b === 'kusa' || b === 'nobana';
+      };
+      const floraInColumn = (x: number, z: number): number => {
+        const h = T.height(x, z);
+        let n = 0;
+        for (let y = h - 1; y <= h + 8; y++) if (isFlora(x, y, z)) n++;
+        return n;
+      };
       const box = placement.oldFarm?.box ?? null;
-      const wild = new Set(placement.wild.map((w) => `${w.x},${w.z}`));
+      if (box) {
+        for (let z = box.z0; z <= box.z1; z++) for (let x = box.x0; x <= box.x1; x++) expect(floraInColumn(x, z), `seed ${seed} ふるい はたけ (${x},${z}) に くさ・のばな`).toBe(0);
+      }
+      for (const w of placement.wild) {
+        expect(world.getBlock(w.x, w.y, w.z), `seed ${seed} やせいの やさい (${w.x},${w.z})`).toBe(WILD_BLOCK[w.kind]);
+        expect(floraInColumn(w.x, w.z), `seed ${seed} やせいの やさい (${w.x},${w.z}) の上下に くさ・のばな`).toBe(0);
+      }
       let seen = 0;
       const check = (x0: number, z0: number, x1: number, z1: number): void => {
         const all = plantsInRect(seed, x0 - 8, z0 - 8, x1 + 8, z1 + 8);
@@ -117,8 +140,6 @@ describe('AC2・AC3: くさ・のばな を 置かない所', () => {
           const s = T.biome(x, z);
           expect(T.map.onTakePath(x, z, s), `${ctx} たけやぶの道`).toBe(false);
           expect(nearMouth(T, x, z, 2), `${ctx} 洞くつの口`).toBe(false);
-          if (box) expect(x >= box.x0 && x <= box.x1 && z >= box.z0 && z <= box.z1, `${ctx} ふるい はたけ`).toBe(false);
-          expect(wild.has(`${x},${z}`), `${ctx} やせいの やさい`).toBe(false);
           const h = T.height(x, z);
           expect(h, `${ctx} 陸`).toBeGreaterThanOrEqual(SEA_Y + C.strata.landFrom);
           expect(T.topBlock(x, z, h), `${ctx} くさ の地面`).toBe('grass');
