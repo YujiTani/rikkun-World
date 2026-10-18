@@ -205,7 +205,7 @@ test.describe('WEAPON-4 通し', () => {
     const rec = await runTech(page, 136); // わざの 間と おわって 30 ステップ
     for (const s of rec) expect(s.pos.y, `F${s.f} 落ちない`).toBeGreaterThanOrEqual(start.y - 0.01);
     expect(rec.slice(0, 106).map((s) => s.f)).toEqual(range(1, 106));
-    expect(northOf(rec[135]!, start), 'ふちの 手前').toBeLessThan(1.5 + 0.01);
+    expect(northOf(rec[135]!, start), 'ふちを こえない（体の 箱の 半分 0.3 までは 足場の 上）').toBeLessThan(1.5 + BODY_HALF + 0.01);
 
     // 1 段だけ 下がる 地面
     await settle(page);

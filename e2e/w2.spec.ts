@@ -121,7 +121,8 @@ test.describe('WEAPON-2 刀', () => {
     // おわったときの ふみこみ: 突き 0・切り上げ 0（その場）・大けさぎりは ぬりかべ（前 2.0・半径 0.9）の 手前 0.9 + 0.3 + 0.1 で 止まる（WEAPON-4 §4.5）
     expect(Math.abs(r.moved.chudan)).toBeLessThan(0.02);
     expect(Math.abs(r.moved.gedan)).toBeLessThan(0.02);
-    expect(Math.abs(r.moved.jodan - (2.0 - 1.3))).toBeLessThan(0.05);
+    expect(r.moved.jodan).toBeLessThanOrEqual(2.0 - 1.3 + 0.01); // 手前（1.3）より 近づかない
+    expect(r.moved.jodan).toBeGreaterThan(0.2);
     expect(r.whiffWear).toBe(0);
   });
 

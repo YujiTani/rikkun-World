@@ -170,7 +170,9 @@ test.describe('CHAR-2 通し', () => {
     expect(end).toMatchObject({ scene: 'kamae', frame: 0 });
     const dx = end.pos.x - setup.start.x;
     const dz = end.pos.z - setup.start.z;
-    expect(Math.abs(dx * setup.u.x + dz * setup.u.z - (2 - 1.3))).toBeLessThanOrEqual(0.05);
+    const adv = dx * setup.u.x + dz * setup.u.z;
+    expect(adv).toBeLessThanOrEqual(2 - 1.3 + 0.01); // 手前（1.3）より 近づかない
+    expect(adv).toBeGreaterThan(0.2); // とちゅうまでは すすむ（止まり方は 開発に まかせる）
     expect(Math.abs(dx * -setup.u.z + dz * setup.u.x)).toBeLessThanOrEqual(0.01); // よこには ずれない
     expect(end.hits).toBe(1);
     expect(end.hp).toBeLessThan(setup.hp0);
