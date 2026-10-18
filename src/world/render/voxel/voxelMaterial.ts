@@ -78,6 +78,7 @@ uniform highp usampler3D uAo;
 uniform float uHasAo;
 uniform float uAoOn;
 uniform vec2 uAoFade;
+uniform vec2 uAoCenter;
 const vec3 NRM_F[6] = vec3[6](
   vec3(0.0, 1.0, 0.0), vec3(0.0, -1.0, 0.0), vec3(1.0, 0.0, 0.0),
   vec3(-1.0, 0.0, 0.0), vec3(0.0, 0.0, 1.0), vec3(0.0, 0.0, -1.0));
@@ -125,7 +126,7 @@ const FRAG_BODY = `
   // 角の暗がり（AO）
   float ao = 1.0;
   if (uHasAo > 0.5 && uAoOn > 0.5) {
-    float fk = 1.0 - smoothstep(uAoFade.x, uAoFade.y, vDist);
+    float fk = 1.0 - smoothstep(uAoFade.x, uAoFade.y, length(vWorld.xz - uAoCenter));
     if (fk > 0.0) {
       vec3 lp = vLocal;
       ivec3 cell = ivec3(floor(lp - 0.5 * nrm + 0.001));
@@ -205,6 +206,7 @@ export function createVoxelMaterial(shared: VoxelShared, ao: Data3DTexture | nul
     shader.uniforms.uHasAo = { value: ao ? 1 : 0 };
     shader.uniforms.uAoOn = aoUniforms.on;
     shader.uniforms.uAoFade = aoUniforms.fade;
+    shader.uniforms.uAoCenter = aoUniforms.center;
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', `#include <common>\n${VERT_DECL}`)
       .replace('#include <color_vertex>', `#include <color_vertex>\n${VERT_BODY}`)

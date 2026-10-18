@@ -23,15 +23,15 @@ describe('#180 normalizeMicroR(0) と 切りかえ', () => {
   it('16 / 24 / 32 とほかの数の直しかたは 今のまま（0 を足しても かわらない）', () => {
     expect(normalizeMicroR(16)).toBe(16);
     expect(normalizeMicroR(24)).toBe(24);
-    expect(normalizeMicroR(32)).toBe(32);
+    expect(normalizeMicroR(32)).toBe(28);
     expect(normalizeMicroR(10)).toBe(16);
-    expect(normalizeMicroR(27)).toBe(24);
-    expect(normalizeMicroR(1000)).toBe(32);
+    expect(normalizeMicroR(21)).toBe(24);
+    expect(normalizeMicroR(1000)).toBe(28);
   });
 
   it('F4 の切りかえは 16 → 24 → 32 のまま。ふつうに遊ぶときの既定は 32', () => {
-    expect([...MICRO_RADII]).toEqual([16, 24, 32]);
-    expect(DEFAULT_MICRO_R).toBe(32);
+    expect([...MICRO_RADII]).toEqual([16, 24, 28]);
+    expect(DEFAULT_MICRO_R).toBe(28);
   });
 });
 
@@ -82,8 +82,8 @@ describe('#180 decideMicroR: はじめの小ブロックの半径の決め方', 
   };
 
   it('環境変数も URL もなければ 今のまま 32', () => {
-    expect(decide('', undefined)).toBe(32);
-    expect(decide('?nosave=1', undefined)).toBe(32);
+    expect(decide('', undefined)).toBe(28);
+    expect(decide('?nosave=1', undefined)).toBe(28);
   });
 
   it('環境変数 VITE_MICRO_DEFAULT=off なら 0（E2E のサーバー）', () => {
@@ -92,16 +92,16 @@ describe('#180 decideMicroR: はじめの小ブロックの半径の決め方', 
   });
 
   it('環境変数が off 以外（on・空・ほかの値）なら 今のまま 32', () => {
-    expect(decide('', 'on')).toBe(32);
-    expect(decide('', '')).toBe(32);
-    expect(decide('?nosave=1', 'foo')).toBe(32);
+    expect(decide('', 'on')).toBe(28);
+    expect(decide('', '')).toBe(28);
+    expect(decide('?nosave=1', 'foo')).toBe(28);
   });
 
   it('URL の ?microR=16|24|32 は 環境変数より強い', () => {
     expect(decide('?microR=16', 'off')).toBe(16);
     expect(decide('?microR=24', 'off')).toBe(24);
-    expect(decide('?microR=32', 'off')).toBe(32);
-    expect(decide('?nosave=1&microR=32', 'off')).toBe(32);
+    expect(decide('?microR=32', 'off')).toBe(28);
+    expect(decide('?nosave=1&microR=32', 'off')).toBe(28);
     expect(decide('?microR=16', undefined)).toBe(16);
     expect(decide('?microR=24&nosave=1', undefined)).toBe(24);
   });
@@ -114,25 +114,25 @@ describe('#180 decideMicroR: はじめの小ブロックの半径の決め方', 
   });
 
   it('数でない ?microR は 無いのと同じ（環境変数・既定に従う）', () => {
-    expect(decide('?microR=abc', undefined)).toBe(32);
+    expect(decide('?microR=abc', undefined)).toBe(28);
     expect(decide('?microR=abc', 'off')).toBe(0);
   });
 
   // 台帳 E2E-180 の指摘 2: 空の ?microR=（Number('') は 0 になるので ?microR=0 と取りちがえやすい）は 無いのと同じ
   it('空の ?microR= は 無いのと同じ（0 と取りちがえない）', () => {
-    expect(decide('?microR=', undefined)).toBe(32);
+    expect(decide('?microR=', undefined)).toBe(28);
     expect(decide('?microR=', 'off')).toBe(0);
-    expect(decide('?microR=&nosave=1', undefined)).toBe(32);
+    expect(decide('?microR=&nosave=1', undefined)).toBe(28);
     expect(decide('?nosave=1&microR=', 'off')).toBe(0);
-    expect(decide('?microR=%20', undefined)).toBe(32);
+    expect(decide('?microR=%20', undefined)).toBe(28);
   });
 
   // 許されない数は 近い許される値に直して返す（normalizeMicroR と同じ。renderer も同じ直しをする）。負の数は 無いのと同じ
   it('許されない数は 近い許される値に直す。負の数は 無いのと同じ', () => {
     expect(decide('?microR=20', undefined)).toBe(16);
-    expect(decide('?microR=27', 'off')).toBe(24);
-    expect(decide('?microR=1000', 'off')).toBe(32);
-    expect(decide('?microR=-1', undefined)).toBe(32);
+    expect(decide('?microR=21', 'off')).toBe(24);
+    expect(decide('?microR=1000', 'off')).toBe(28);
+    expect(decide('?microR=-1', undefined)).toBe(28);
     expect(decide('?microR=-1', 'off')).toBe(0);
   });
 });
