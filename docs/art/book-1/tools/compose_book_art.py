@@ -28,7 +28,7 @@ def move_walk(im):
     B.BG_day(im)
     B.dust(im, 20, GY - 2)
     B.put(im, C('walk', 1, 2, h=34), 30, GY)
-    B.arrow(im, 58, 44, 92, 44)
+    B.arrow(im, 60, 44, 80, 44, w=3, head=5)
     B.speed_lines(im, 18, 38, 3, 6)
     B.wasd(im, 4, 1)
     B.text(im, 44, 13, '~', P['keyl'])
@@ -72,9 +72,11 @@ def move_run(im):
     B.BG_day(im)
     B.dust(im, 6, GY - 1, 4)
     B.dust(im, 14, GY - 4, 2)
-    B.put(im, C('run', 2, 2), 24, GY)
-    B.arrow(im, 52, 38, 96, 38)
-    B.speed_lines(im, 10, 26, 4, 10)
+    sp = C('run', 2, 2).rotate(-12, resample=B.Image.NEAREST, expand=True)
+    B.put(im, sp, 20, GY + 2)
+    B.arrow(im, 46, 40, 98, 40, w=5, head=7)
+    B.arrow(im, 50, 50, 90, 50, w=2, head=3)
+    B.speed_lines(im, 4, 24, 5, 12)
     B.key(im, 4, 3, 'SHIFT', lit=True)
     B.wasd(im, 62, 3)
 
@@ -167,9 +169,9 @@ def fight_swing(im):
     B.put(im, sp, 14, GY)
     hx_, hy = B.front_point(sp, 14, GY, 0.35, 0.65)
     B.katana_line(im, hx_ - 1, hy, hx_ + 13, hy + 10)
-    yk = B.yokai('karakasa', 34)
-    B.put(im, yk, 64, GY)
-    B.star(im, 58, 26, big=True); B.star(im, 70, 18); B.star(im, 54, 40)
+    yk = B.yokai('chochin', 30)
+    B.put(im, yk, 58, GY - 4)
+    B.star(im, 50, 30, big=True); B.star(im, 84, 16); B.star(im, 86, 40)
     B.mouse(im, 4, 4, 'L')
 
 
@@ -200,7 +202,7 @@ def fight_chudan(im):
     hx_, hy = B.front_point(sp, 10, GY, 0.35, 0.6)
     B.katana_line(im, hx_ - 1, hy, hx_ + 18, hy)
     B.speed_lines(im, 4, 30, 3, 8)
-    B.arrow(im, 62, 37, 94, 37)
+    B.arrow(im, 62, 37, 96, 37, w=5, head=7)
     B.mouse(im, 4, 4, 'L')
 
 
@@ -210,8 +212,12 @@ def fight_jodan(im):
     sp = C('katana_kesa', 2, 5)
     B.put(im, sp, 18, GY)
     hx_, hy = B.front_point(sp, 18, GY, 0.0, 0.45)
-    B.katana_line(im, hx_ - 1, hy, hx_ - 8, hy - 12)
-    B.arc_arrow(im, 42, 40, 30, 250, 400)
+    tx, ty = hx_ - 8, hy - 12
+    B.katana_line(im, hx_ - 1, hy, tx, ty)
+    r, a0 = 26, 235
+    cx = tx - r * B.math.cos(B.math.radians(a0)) + 2
+    cy = ty - r * B.math.sin(B.math.radians(a0)) + 2
+    B.arc_arrow(im, cx, cy, r, a0, 420, w=4)
     B.mouse(im, 4, 4, 'L')
 
 
@@ -222,7 +228,7 @@ def fight_gedan(im):
     B.put(im, sp, 22, GY)
     hx_, hy = B.front_point(sp, 22, GY, 0.0, 0.35)
     B.katana_line(im, hx_ - 1, hy, hx_ + 9, hy - 10)
-    B.arrow(im, 60, 56, 90, 14)
+    B.arrow(im, 62, 56, 92, 12, w=5, head=7)
     B.mouse(im, 4, 4, 'L')
 
 
@@ -444,10 +450,17 @@ def grow_sow(im):
     B.icon(im, 'seed_tomato', 4, 4)
     B.mouse(im, 24, 5, 'R')
     B.block(im, 48, GY - 18, 'farm')
-    for x in (51, 57, 63):
-        B.rect(im, x - 1, GY - 22, 5, 4, P['ink'])
-        B.rect(im, x, GY - 21, 3, 2, B.hx('#f2e2a8'))
-    B.arrow(im, 30, 26, 50, 36, w=2, head=3)
+    def seed(x, y):
+        for j, row in enumerate(['.XXX.', 'XYYYX', 'XYYZX', 'XYZZX', '.XXX.']):
+            for i, v in enumerate(row):
+                c = {'X': P['ink'], 'Y': B.hx('#f2e2a8'), 'Z': B.hx('#c9a46a')}.get(v)
+                if c:
+                    B.px(im, x + i, y + j, c)
+    for x, y in ((50, GY - 23), (57, GY - 22), (62, GY - 23), (54, 26), (60, 32)):
+        seed(x, y)
+    for x in (55, 61):
+        B.rect(im, x + 1, 20 if x == 55 else 26, 1, 4, P['white'])
+    B.arrow(im, 30, 22, 48, 28, w=2, head=3)
 
 
 @scene
@@ -508,7 +521,7 @@ def grow_seeds(im):
             B.crack_lines(sub, 6, 30, 1)
             B.icon(sub, 'seed_onion', 28, 8)
         else:
-            yk = B.yokai('karakasa', 24)
+            yk = B.yokai('chochin', 22)
             B.put(sub, yk, 4, 54)
             B.icon(sub, 'seed_pumpkin', 26, 18)
         im.alpha_composite(sub.crop((0, 18, 48, 54)), (x, y))
@@ -578,8 +591,8 @@ def grow_pet(im):
     # にっこり（目 ＋ くち）
     B.px(im, 46, GY - 24, P['line']); B.px(im, 51, GY - 24, P['line'])
     B.rect(im, 47, GY - 21, 4, 1, P['line'])
-    B.hand(im, 46, 14, point=False)
-    B.arc_arrow(im, 50, 18, 10, 200, 340)
+    B.big_hand(im, 43, GY - 46)
+    B.arc_arrow(im, 49, GY - 40, 13, 200, 340, w=2)
     B.mouse(im, 4, 4, 'R')
     B.heart(im, 70, 18); B.heart(im, 80, 28)
 

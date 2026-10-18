@@ -435,6 +435,19 @@ def hand(im, x, y, point=True):
                 px(im, x + i, y + j, P['skin'])
 
 
+def big_hand(im, x, y):
+    """なでる 手（12×11、てのひらを 下に）"""
+    rows = ['..XXXXXXX...', '.XYYYYYYYXX.', 'XYYYYYYYYYYX', 'XYYYYYYYYYYX', 'XYYYYYYYYYYX', 'XYZYZYZYZYYX', 'XYZYZYZYZYX.', '.XZXZXZXZX..', '..X.X.X.X...']
+    for j, row in enumerate(rows):
+        for i, v in enumerate(row):
+            if v == 'X':
+                px(im, x + i, y + j, P['line'])
+            elif v == 'Y':
+                px(im, x + i, y + j, P['skin'])
+            elif v == 'Z':
+                px(im, x + i, y + j, P['skin2'])
+
+
 def rings(im, x, y, n):
     """「n かい」を 小さな わ の ならびで"""
     d = ImageDraw.Draw(im)
@@ -477,8 +490,8 @@ def dust(im, x, y, n=3):
 def katana_line(im, x0, y0, x1, y1):
     """刀（細い絵が ドットで 消えるので 描きたす）: 白い 刃 ＋ こい ふち ＋ 金の つば"""
     d = ImageDraw.Draw(im)
-    d.line((x0, y0, x1, y1), fill=P['line'], width=3)
-    d.line((x0, y0, x1, y1), fill=hx('#eef2f8'), width=1)
+    d.line((x0, y0, x1, y1), fill=P['line'], width=4)
+    d.line((x0, y0, x1, y1), fill=hx('#dfe6f0'), width=2)
     px(im, x0, y0, P['gold'])
     px(im, x0 + (1 if x1 > x0 else -1), y0, P['gold'])
 
