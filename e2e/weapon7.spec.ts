@@ -322,7 +322,7 @@ test.describe('WEAPON-7 PR1 落雷', () => {
       { wallX, z: Math.floor(S.z), y: Math.floor(y0) },
     );
     const walled = await spawnAt(page, 'karakasa', S.x - 3.6, y0, S.z);
-    const wall = await spawnAt(page, 'nurikabe', S.x, y0, S.z + 3.5, 99);
+    const wall = await spawnAt(page, 'nurikabe', S.x, y0, S.z - 3.5, 99);
     const p0 = await page.evaluate((id) => (window.__rikkun as any).yokai.list().find((y: any) => y.id === id).position as Vec3, near);
     const w0 = await page.evaluate((id) => (window.__rikkun as any).yokai.list().find((y: any) => y.id === id).position as Vec3, wall);
     const rec = await releaseAndStep(page, 8); // F1〜F9
@@ -618,8 +618,16 @@ test.describe('WEAPON-7 PR1 実績', () => {
       h.step(3000);
     });
     expect((await modal(page)).open, '待ち時間の 間は 次を 出さない').toBe(false);
-    await page.evaluate(() => (window.__rikkun as any).step(3000));
-    expect((await modal(page)).open, '待ち時間が あけたら 出る').toBe(true);
+    // 出た ら 240 ステップで きえるので、1 ステップずつ 見て「あけたら 出る」を 確かめる
+    const openedAfter = await page.evaluate(() => {
+      const h = window.__rikkun as any;
+      for (let i = 1; i <= 4000; i++) {
+        h.step(1);
+        if (h.achievements.modal().open) return i;
+      }
+      return -1;
+    });
+    expect(openedAfter, '待ち時間が あけたら 出る').toBeGreaterThan(0);
   });
 });
 
@@ -828,8 +836,8 @@ test.describe('WEAPON-7 PR1 通し', () => {
     };
     // テロップ（上の 帯）
     const telopHtml = await page.evaluate(() => {
-      const el = document.querySelector('.cel-toast, .cel-telop, [data-band="telop"]');
-      return el ? el.innerHTML : (document.querySelector('#hud')?.innerHTML ?? '');
+      const el = document.querySelector('.cel-telop');
+      return el ? el.innerHTML : '';
     });
     check('テロップ', telopHtml);
     await page.evaluate(() => (window.__rikkun as any).step(40));
@@ -864,6 +872,11 @@ test.describe('WEAPON-7 PR1 通し', () => {
       h.achievements.tab('achievements');
       h.step(3);
     });
+    await page.evaluate(() => {
+      const h = window.__rikkun as any;
+      h.achievements.category('fight');
+      h.step(3);
+    });
     const ach = page.locator('.ach-row__name', { hasText: 'はじめて' });
     expect(await ach.count()).toBeGreaterThan(0);
     const achHtml = await page.locator('.ach-list').innerHTML();
@@ -878,17 +891,7 @@ test.describe('WEAPON-7 PR1 通し', () => {
     });
     await hoverSlot(page, at);
     check('ツールチップ', await page.locator('#tooltip .tip-name').innerHTML());
-    // おしらせ（実績の 帯）
-    await page.evaluate(() => {
-      const h = window.__rikkun as any;
-      h.input.press('toggleInventory');
-      h.input.release('toggleInventory');
-      h.step(2);
-      h.achievements.flush();
-      h.step(40);
-    });
-    const toast = await page.evaluate(() => document.querySelector('.cel-toast')?.innerHTML ?? '');
-    check('実績の おしらせ', toast);
+    // 実績の おしらせ（.cel-toast）の 主役は 最初の 金実績。雷神剣の ルビは 上の テロップ（.cel-telop）で 確かめた（PO 決定）
   });
 });
 
