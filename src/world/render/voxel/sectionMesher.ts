@@ -230,8 +230,8 @@ const EXPOSE_ROWS = 3;
 /** 1 行に 地面が集まると 重いので、行では切らず ブロックの数で切る */
 const FILL_BLOCKS = 8;
 const TFILL_ROWS = 8;
-const PLANES_PER_STEP = 4;
-const OCC_ROWS = 8;
+const PLANES_PER_STEP = 2;
+const OCC_ROWS = 4;
 
 /** edgeTy の「まだ調べていない」しるし */
 const EDGE_UNKNOWN = -2147483648;
