@@ -154,70 +154,162 @@
   height: var(--rk-sp-3);
 }
 
-/* ---- おめでとう画面 ---- */
-.cel-scrim {
-  pointer-events: auto;
-  z-index: 60;
+/* ---- 上の 帯（実績の おしらせ・テロップ。WEAPON-7 §2.6）---- */
+.cel-layer--band {
+  pointer-events: none;
+  z-index: 45;
 }
-.cel-scrim[hidden] {
+.cel-layer--band[hidden],
+.cel-band[hidden] {
   display: none;
 }
-.cel-modal {
-  min-width: calc(640 / 12.8 * 1vw);
-  min-height: calc(440 / 12.8 * 1vw);
-  padding-top: var(--rk-sp-6);
+.cel-band {
+  position: fixed;
+  left: 50%;
+  top: 24px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 24px;
+  color: var(--rk-text);
+  background: var(--rk-bg-900);
+  border: var(--rk-bw-sel) solid var(--rk-accent);
+  border-radius: var(--rk-r-l);
+  box-shadow: var(--rk-shadow-2);
+  will-change: transform, opacity;
 }
-.cel-title {
-  font-size: var(--rk-fs-display);
-  font-weight: 800;
-  color: var(--rk-accent);
-  text-shadow: var(--rk-text-outline);
-}
-.cel-main {
+.cel-band__pic {
   position: relative;
+  flex: none;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: calc(224 / 12.8 * 1vw);
-  height: calc(144 / 12.8 * 1vw);
+  width: 88px;
+  height: 88px;
+  perspective: 600px;
 }
-.cel-main .rk-medal {
+.cel-band__text {
   position: relative;
-}
-.cel-main .cel-star {
-  position: absolute;
-}
-.cel-main-name {
-  font-size: var(--rk-fs-title);
-  font-weight: 800;
-}
-.cel-rows {
   display: flex;
   flex-direction: column;
-  gap: var(--rk-sp-2);
-  align-self: stretch;
-  padding: 0 var(--rk-sp-6);
+  min-width: 0;
+  white-space: nowrap;
+  line-height: 1.6;
 }
-.cel-row {
-  display: flex;
-  align-items: center;
-  gap: var(--rk-sp-3);
-  font-size: var(--rk-fs-body);
+.cel-band__head {
+  font-weight: 800;
 }
-.cel-more {
-  font-size: var(--rk-fs-body);
+.cel-band__name {
+  font-weight: 800;
+  color: var(--rk-accent);
+}
+.cel-band__more {
   color: var(--rk-text-sub);
 }
-.cel-close-wrap {
-  position: relative;
-  padding: var(--rk-sp-1);
-  border-radius: var(--rk-r-m);
-  background: conic-gradient(var(--rk-accent) calc(var(--p, 0) * 360deg), var(--rk-line) 0);
+.cel-band__sub[hidden],
+.cel-band__name[hidden] {
+  display: none;
 }
-.cel-close {
-  width: calc(240 / 12.8 * 1vw);
-  min-height: calc(72 / 12.8 * 1vw);
-  font-size: var(--rk-fs-head);
+.cel-toast {
+  width: 560px;
+  height: 136px;
+}
+.cel-toast .cel-band__head {
+  font-size: 32px; /* UI 検査の 字の 大きさ（16/20/24/32/48）に そろえる。仕様の 28px は 32px に */
+  line-height: 36px;
+  color: var(--rk-accent);
+  text-shadow: var(--rk-text-outline);
+}
+.cel-toast .cel-band__name {
+  font-size: 20px;
+}
+.cel-toast .cel-band__more {
+  font-size: 16px;
+  line-height: 20px;
+}
+.cel-telop {
+  width: 640px;
+  height: 152px;
+  background: transparent;
+  border-color: transparent;
+}
+.cel-telop .cel-band__head {
+  font-size: 32px;
+}
+.cel-band__item {
+  color: var(--rk-accent);
+}
+.cel-band__stars {
+  font-size: 24px;
+  line-height: 28px;
+  color: var(--rk-accent);
+  letter-spacing: 2px;
+}
+.cel-band__disc {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 88px;
+  height: 88px;
+  background: var(--rk-rarity, var(--rk-rarity-0));
+  border: var(--rk-bw-sel) solid var(--rk-bg-900);
+  border-radius: var(--rk-r-pill);
+}
+.cel-band__icon {
+  width: 64px;
+  height: 64px;
+}
+/* テロップの ふち: にじ色が ゆっくり 流れる（6 秒で 1 回り。点滅しない） */
+.cel-band__rainbow {
+  display: none;
+}
+.cel-telop .cel-band__rainbow {
+  display: block;
+  position: absolute;
+  inset: 0;
+  border-radius: var(--rk-r-l);
+  background: linear-gradient(90deg, #ff6b6b, #ffd93d, #6bff95, #4dd2ff, #b36bff, #ff6b6b, #ffd93d);
+  background-size: 200% 100%;
+  animation: cel-rainbow-flow 6s linear infinite;
+}
+.cel-telop .cel-band__rainbow::after {
+  content: '';
+  position: absolute;
+  inset: 6px;
+  border-radius: calc(var(--rk-r-l) - 4px);
+  background: var(--rk-bg-900);
+}
+@keyframes cel-rainbow-flow {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cel-telop .cel-band__rainbow {
+    animation: none;
+  }
+}
+@media (max-width: 1100px) {
+  .cel-telop {
+    width: 560px;
+  }
+  .cel-telop .cel-band__head {
+    font-size: 24px;
+  }
+}
+@media (min-width: 1400px) {
+  .cel-toast {
+    width: 600px;
+    height: 144px;
+  }
+  .cel-telop {
+    width: 680px;
+    height: 160px;
+  }
 }
 
 /* ---- メダルの印 ---- */
@@ -234,17 +326,4 @@
 .cel-badge img {
   width: var(--rk-icon-chip);
   height: var(--rk-icon-chip);
-}
-
-/* ---- ロックかけ直しの札 ---- */
-.cel-lock-tag {
-  position: fixed;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 70;
-  pointer-events: auto;
-}
-.cel-lock-tag[hidden] {
-  display: none;
 }

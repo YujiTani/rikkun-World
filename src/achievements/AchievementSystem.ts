@@ -465,6 +465,14 @@ export class AchievementSystem implements AchievementShowSource {
     this.run(() => this.bump(kind === 'shot' ? 'arrowShot' : 'arrowHit', 1));
   }
 
+  /** WEAPON-7: レジェンダリーが もちものに 入った（`get:<item>` と しゅるいの 数 `legendKinds`） */
+  feedLegend(item: string, kinds: number): void {
+    this.run(() => {
+      this.bump(`get:${item}`, 1);
+      this.setMax('legendKinds', kinds);
+    });
+  }
+
   /** 「もちもの が いっぱい」の合図が出た */
   feedFull(): void {
     this.run(() => this.bump('full', 1));

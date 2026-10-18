@@ -224,7 +224,9 @@ export type ItemOnlyId =
   | 'bucket' // バケツ（から）
   | 'water_bucket' // みずの バケツ
   // LIVE-1（うしろに足す）
-  | 'egg'; // たまご
+  | 'egg' // たまご
+  // WEAPON-7（うしろに足す。レジェンダリー）
+  | 'raijin_ken'; // 雷神剣（ヌシが おとす）
 
 /** アイテムの種類。ブロックとアイテムだけのもの */
 export type ItemId = BlockId | ItemOnlyId;
@@ -339,7 +341,7 @@ export interface DigSystem {
 }
 
 /** 画面の状態。担当 D が作る */
-/** M6: 'celebrate' = おめでとう画面（ゲームの時間を止めて、案内画面は出さない。`ModalScreenState`） */
+/** M6: 'celebrate' = おめでとう画面。WEAPON-7 で なくなり、この 値は もう 出ない（BGM の 表の ために 型だけ 残す） */
 export type ScreenMode = 'play' | 'inventory' | 'guide' | 'celebrate';
 
 export interface ScreenState {
@@ -739,25 +741,7 @@ export interface WorldRegions {
 // ================================================================ M6（作る画面・実績・UI 作り直し）
 // 担当の割り振り: docs/tickets/M6-dev-split.md。仕様: docs/design/M6-ui-achievements.md
 
-/** 時間を止める画面（おめでとう画面）の状態。`ScreenController` が持つ。B（開く・閉じる）とつなぎ込みが使う（M6 §2.6 (3)） */
-export interface ModalScreenState {
-  /** おめでとう画面が出ているか（mode() === 'celebrate'） */
-  modalOpen(): boolean;
-  /**
-   * 出す: ゲームの時間を止める（timeScale 0）・ポインターロックを外す・案内画面は出さない・押していたキーとボタンをはなす。
-   * もちもの画面が開いていたら おぼえておく。すでに出ていれば何もしない。
-   */
-  openModal(): void;
-  /**
-   * 閉じる: おぼえていた もちもの画面があれば そこにもどる（ロックはかけない）。なければ ロックをかけ直して時間を動かす
-   * （本物のブラウザでロックがことわられたら 案内画面でなく `lockDenied` を true にする。小さな札 `クリック で つづける` 用）。
-   */
-  closeModal(): void;
-  /** 閉じたあと ロックをかけ直せなかった（札を出す。クリックで `relock()`） */
-  lockDenied(): boolean;
-  /** 札のクリックで ロックをかけ直す */
-  relock(): void;
-}
+// WEAPON-7 O8: 実績の おめでとう画面（時間を止める `ModalScreenState`）は なくなった。実績は 画面の 上の 帯に 出し、ゲームは 止めない
 
 /** 実績の id: `<シリーズ>.<段階の数>`（例 `break.dirt.10`。§4.2） */
 export type AchievementId = string;
@@ -817,6 +801,8 @@ export type StatKey =
   | 'chain'
   | 'guard'
   | 'bladeCombo3' // WEAPON-6: 3 段 ぜんぶ 当てた
+  | `get:${string}` // WEAPON-7: レジェンダリーを はじめて 手に 入れた（`get:raijin_ken`）
+  | 'legendKinds' // WEAPON-7: 手に 入れた ことの ある レジェンダリーの しゅるいの 数
   | 'wearAll'
   | 'death'
   | 'level'
@@ -863,10 +849,10 @@ export interface AchievementShow {
 
 /** B が持つ おめでとう画面の口（C が使う） */
 export interface AchievementModalPort {
-  /** 出す（`ModalScreenState.openModal()` も呼ぶ）。すでに出ていれば false */
+  /** 出す（上の 帯。ゲームは 止めない）。すでに出ている・テロップが 先なら false（C が 毎ステップ やりなおす） */
   open(show: AchievementShow): boolean;
   isOpen(): boolean;
-  /** とじる が押されて 閉じたとき（見せた id の列）。C が「見せた」にして 待ち時間を数えはじめる */
+  /** きえたとき（見せた id の列。240 ステップで 自動）。C が「見せた」にして 待ち時間を数えはじめる */
   onClosed(fn: (shown: AchievementId[]) => void): void;
 }
 
@@ -921,7 +907,10 @@ export interface M6Settings {
   achieveCalmHurtTicks: number;
   achieveCalmYokaiDist: number;
   achieveCalmMaxWait: number;
-  achieveCloseDelay: number;
+  /** WEAPON-7 §2.6 (1): 実績の おしらせ（上の 帯）が 自動で きえる ステップ（出る 30・きえる 30 を ふくむ）。前の `achieveCloseDelay`（とじる が 押せる まで）は なくなった */
+  achieveToastTicks: number;
+  /** WEAPON-7 §2.6 (2): レジェンダリーの テロップの ステップ（出る 36・きえる 30 を ふくむ） */
+  legendTelopTicks: number;
   achieveModalRows: number;
   achieveLowHp: number;
   achieveChainTicks: number;
@@ -948,7 +937,8 @@ export const M6_SETTING_DEFAULTS: Readonly<M6Settings> = {
   achieveCalmHurtTicks: 120,
   achieveCalmYokaiDist: 8,
   achieveCalmMaxWait: 1800,
-  achieveCloseDelay: 60,
+  achieveToastTicks: 240,
+  legendTelopTicks: 300,
   achieveModalRows: 5,
   achieveLowHp: 3,
   achieveChainTicks: 600,
@@ -1804,6 +1794,12 @@ export interface W2Settings {
   };
   /** のこり わずか（のこり ÷ 新品 が これ 以下。切り上げで 数える） */
   wearLowRatio: number;
+  /** WEAPON-7 §2.1: レジェンダリー武器の データ（1 つ 足すと 武器が ふえる）。ためわざ・ふつうの わざに 足す 効果・持っている 間の 効果 */
+  legendary: LegendaryDef[];
+  /** WEAPON-7 §2.3: ヌシの ドロップ表（weight で ランダムに 1 本。初期値 = legendary の ぜんぶ・weight 1） */
+  nushiDrops: NushiDropRow[];
+  /** WEAPON-7 §2.2: ため中の 歩く 倍率 */
+  legendaryChargeWalk: number;
   /** 刀を ふった ときの きせき（武器ごとの 個性。オーナー決定）。style: plain=ふつう・star=星が まじる・long=長い 弧 */
   bladeTrail: Partial<Record<ItemId, BladeTrailStyle>>;
   // WEAPON-3（§4.7）
@@ -1839,6 +1835,58 @@ export interface W2Settings {
   reflectFireball: { speed: number; range: number; damageMul: number };
 }
 
+// ---------------------------------------------------------------- WEAPON-7（レジェンダリー武器）
+
+/** ためわざ。`kind` で 中身を 差しかえる（§2.1）。新しい ためわざは `kind` を 1 つ 足す。`shining` は PR3 で 作る */
+export type LegendaryCharge =
+  | { kind: 'lightning'; chargeTicks: number; range: number; radius: number; damageMul: number; knock: [number, number]; strikeF: number; boltSteps: number; recovery: number }
+  | { kind: 'shining'; chargeTicks: number; rise: number; riseSteps: number; holdSteps: number; fallSteps: number; radius: number; damageMul: number; hitEvery: number; push: [number, number]; cooldown: number };
+/** ふつうの わざに 足す 効果（見た目・音・弾）。`wave` は PR2 で 作る */
+export type LegendaryAttackFx =
+  | { kind: 'trail'; style: 'thunder' | 'rainbow' }
+  | { kind: 'wave'; speed: number; range: number; radius: number; damageMul: number; knock: [number, number] };
+/** 手に 持っている 間の 効果。`moveMul` は PR2 で 作る */
+export type LegendaryPassive = { kind: 'moveMul'; mul: number };
+
+export interface LegendaryDef {
+  item: ItemId;
+  /** 強さ P。[最小, 最大] なら 落ちた ときに 整数で 決めて その 1 本に 保存（PR3） */
+  power: number | [number, number];
+  /** ためわざ（null = ためない。押しつづけは 今どおり くり返す） */
+  charge: LegendaryCharge | null;
+  onAttack: LegendaryAttackFx[];
+  passive: LegendaryPassive[];
+}
+
+export interface NushiDropRow {
+  item: ItemId;
+  weight: number;
+}
+
+export const LEGENDARY_DEFAULTS: readonly LegendaryDef[] = [
+  {
+    item: 'raijin_ken',
+    power: 8,
+    charge: { kind: 'lightning', chargeTicks: 60, range: 20, radius: 5, damageMul: 2.0, knock: [2, 4], strikeF: 8, boltSteps: 12, recovery: 40 },
+    onAttack: [{ kind: 'trail', style: 'thunder' }],
+    passive: [],
+  },
+];
+
+export function cloneLegendary(d: LegendaryDef): LegendaryDef {
+  return {
+    item: d.item,
+    power: Array.isArray(d.power) ? ([...d.power] as [number, number]) : d.power,
+    charge: d.charge
+      ? d.charge.kind === 'lightning'
+        ? { ...d.charge, knock: [...d.charge.knock] as [number, number] }
+        : { ...d.charge, push: [...d.charge.push] as [number, number] }
+      : null,
+    onAttack: d.onAttack.map((a) => (a.kind === 'wave' ? { ...a, knock: [...a.knock] as [number, number] } : { ...a })),
+    passive: d.passive.map((p) => ({ ...p })),
+  };
+}
+
 export interface BladeTrailStyle {
   /** 軌跡の色 */
   color: number;
@@ -1848,7 +1896,8 @@ export interface BladeTrailStyle {
   blade: number;
   /** 刃の ふちの光（21 番を これに） */
   bladeShine: number;
-  style: 'plain' | 'star' | 'long';
+  /** plain=ふつう・star=星が まじる・long=長い 弧・thunder=ふちに 小さな いなずま（雷神剣） */
+  style: 'plain' | 'star' | 'long' | 'thunder';
 }
 
 /** CHAR-4 §4.4: 軌跡の 形・だん・消え方 */
@@ -1890,7 +1939,7 @@ export const W2_SETTING_DEFAULTS: Readonly<W2Settings> = {
     },
   },
   bladeAimReach: 4.5,
-  bladeReach: { bokuto: 2.2, katana: 2.2, crystal_katana: 2.2 },
+  bladeReach: { bokuto: 2.2, katana: 2.2, crystal_katana: 2.2, raijin_ken: 2.2 },
   bladeShape: {
     thrust: { length: 2.2, radius: 0.2 },
     kesa: { halfAngleDeg: 75, rMin: 0.3, rMax: 2.2, yMin: -0.5, yMax: 2.6 },
@@ -1927,6 +1976,7 @@ export const W2_SETTING_DEFAULTS: Readonly<W2Settings> = {
     yoroi: 240,
     kote: 225,
     suneate: 195,
+    raijin_ken: 10000, // WEAPON-7 §2.4: つくれず ヌシでしか 手に 入らない 武器だけの 例外
   },
   toolWear: {
     pickaxe: { block: 1, hit: 2 },
@@ -1936,11 +1986,16 @@ export const W2_SETTING_DEFAULTS: Readonly<W2Settings> = {
     armorDiv: 4,
   },
   wearLowRatio: 0.1,
+  legendary: LEGENDARY_DEFAULTS as LegendaryDef[],
+  nushiDrops: LEGENDARY_DEFAULTS.map((d) => ({ item: d.item, weight: 1 })),
+  legendaryChargeWalk: 0.5,
   bladeTrail: {
     bokuto: { color: 0x9c6b3a, glow: 0xe8c08a, blade: 0xb98b54, bladeShine: 0xe0bc86, style: 'plain' },
     katana: { color: 0xe8f1fa, glow: 0xffffff, blade: 0xc8cdd8, bladeShine: 0xffffff, style: 'plain' },
     crystal_katana: { color: 0x7fdcff, glow: 0xe6faff, blade: 0x6fcdf5, bladeShine: 0xe6faff, style: 'star' },
     naginata: { color: 0xcfe8ff, glow: 0xffffff, blade: 0xb8cce0, bladeShine: 0xeef6ff, style: 'long' },
+    // WEAPON-7: 雷神剣。刃は むらさき（0xb070ff 系）、軌跡は 白〜うすい 黄（雷 v4 の 色）
+    raijin_ken: { color: 0xfff6c0, glow: 0xffffff, blade: 0xb070ff, bladeShine: 0xe6d2ff, style: 'thunder' },
   },
   bladeFaceAssistDeg: 30,
   thrustTiltMaxDeg: 45,
@@ -2026,6 +2081,9 @@ export function createW2Settings(): W2Settings {
       armorDiv: d.toolWear.armorDiv,
     },
     wearLowRatio: d.wearLowRatio,
+    legendary: d.legendary.map(cloneLegendary),
+    nushiDrops: d.nushiDrops.map((r) => ({ ...r })),
+    legendaryChargeWalk: d.legendaryChargeWalk,
     bladeTrail: Object.fromEntries(Object.entries(d.bladeTrail).map(([k, v]) => [k, { ...v }])) as W2Settings['bladeTrail'],
     bladeFaceAssistDeg: d.bladeFaceAssistDeg,
     thrustTiltMaxDeg: d.thrustTiltMaxDeg,

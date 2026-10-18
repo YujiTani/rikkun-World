@@ -39,6 +39,7 @@ import { centerOfYokai, decideAttack, type AttackDecision, type AttackHold } fro
 import { cellInWall } from '../world/wall';
 import { lookDirection, raycastBlocks } from './raycast';
 import { isBladeItem } from '../tools/blade/BladeSystem';
+import type { LegendSystem } from '../legend/LegendSystem';
 import { routeAttackInput, type ParryInput, type Parry } from '../combat/parry';
 import { blockFamily, effectivePower, toolFamily, toolRank } from './toolFamily';
 import { ToolHintModel, bestHotbarSlot, type ToolHintState } from './toolHint';
@@ -103,6 +104,8 @@ export interface DigM4Deps {
   nowTick?: () => number;
   /** WEAPON-2: 刀（ひだりクリックの ふりわけ §2.1-6 で わざを 渡す）。なければ 刀も ほるだけ */
   blade?: Pick<BladeSystem, 'update' | 'state' | 'dropBuffer' | 'busyNext' | 'nextStart' | 'yieldToParry'>;
+  /** WEAPON-7: レジェンダリー武器の ため・ためわざ。なければ 今のまま（レジェンダリーは ふつうの 刀と 同じ） */
+  legend?: Pick<LegendSystem, 'step' | 'busyNext' | 'dropBuffer' | 'chargeable'>;
   /** WEAPON-5: パリィ（刀の Shift＋クリック）。なければ 今のまま */
   parry?: Pick<Parry, 'state' | 'inWindow' | 'dropBuffer'>;
   /** WEAPON-2: たいきゅうの へる量（ほる・たがやす）。なければ へらさない */
@@ -353,8 +356,14 @@ export class DigSystemImpl implements DigSystem {
     const item = this.inventory.held()?.item ?? null;
     const run = this.actions.isHeld('run');
     // WEAPON-6: つなぎの窓で パリィを 押した ステップは 刀は まだ 続く（始まるのは 次の ステップか C の おそい方）
-    const nb = blade?.busyNext?.(enabled && run && pressed && isBladeItem(item)) ?? { busy: false, accepts: false };
-    if (enabled && run && pressed && isBladeItem(item) && nb.busy && nb.accepts) blade?.dropBuffer?.();
+    let nb = blade?.busyNext?.(enabled && run && pressed && isBladeItem(item)) ?? { busy: false, accepts: false };
+    // WEAPON-7: ため中・ためわざ中も 「刀が いそがしい」(さいご 8F は 先行入力)
+    const lnb = this.m4.legend?.busyNext();
+    if (lnb && lnb.busy) nb = lnb;
+    if (enabled && run && pressed && isBladeItem(item) && nb.busy && nb.accepts) {
+      blade?.dropBuffer?.();
+      this.m4.legend?.dropBuffer();
+    }
     return { tick, item, run, pressed, held, active: enabled, bladeBusy: nb.busy, bladeAccepts: nb.accepts };
   }
 
@@ -411,6 +420,8 @@ export class DigSystemImpl implements DigSystem {
       const held = this.inventory.held()?.item ?? null;
       const bladeItem = isBladeItem(held) ? held : null;
       let tech = false;
+      /** ふりわけが わざ（ほるでは ない）か */
+      let furiTech = false;
       if (bladeItem && enabled) {
         if (parryBusy) tech = false;
         else if (pendingNow) tech = true;
@@ -422,6 +433,36 @@ export class DigSystemImpl implements DigSystem {
             tech = y !== null || !this.tgt;
           }
         }
+        if (primaryRaw) furiTech = pendingNow || tech;
+      }
+      // WEAPON-7: ためわざの ある 武器は ため・はなすを この 係に まかせる（刀の 先行入力・くり返しは 使わない）
+      const lg = this.m4.legend;
+      let legendOwns = false;
+      let legendFire = false;
+      let legendBusy = false;
+      if (lg) {
+        const bs0 = blade.state();
+        const bladeBusy = bs0.phase !== 'idle';
+        const res = lg.step({
+          item: bladeItem,
+          active: enabled && bladeItem !== null && !parryBusy,
+          pressed: (primaryRaw && this.actions.wasPressed('primary')) || pendingNow,
+          // Shift を 押しても ためは 続く（生の 押している）
+          held: primaryAny && !parryBusy,
+          startOk: furiTech || pendingNow,
+          bladeBusy,
+          bladeAccepts: bladeBusy ? (blade.busyNext?.().accepts ?? false) : false,
+          eye,
+          dir: d,
+          position: p.position,
+          yawDeg: p.yawDeg,
+          inWater: p.inWater,
+        });
+        legendOwns = lg.chargeable(bladeItem);
+        legendFire = res.fireTech;
+        legendBusy = res.busy;
+        if (res.busy) tech = true;
+        else if (legendFire) tech = true;
       }
       if (parryM && tech && primaryRaw && this.actions.wasPressed('primary') && blade.state().phase !== 'idle' && pstate?.buffered) parryM.dropBuffer();
       // WEAPON-6: パリィが 始まったら つなぎの窓の わざは やめる
@@ -429,9 +470,9 @@ export class DigSystemImpl implements DigSystem {
       const body = this.bodyPoint(p, this.bodyScratch);
       blade.update({
         item: bladeItem,
-        techPressed: tech && ((primaryRaw && (!this.prevPrimaryRaw || this.actions.wasPressed('primary'))) || pendingNow),
-        techHeld: tech && primaryRaw,
-        stancePressed: enabled && !parryBusy && this.actions.wasPressed('stanceNext' as Action),
+        techPressed: legendOwns ? legendFire : tech && ((primaryRaw && (!this.prevPrimaryRaw || this.actions.wasPressed('primary'))) || pendingNow),
+        techHeld: legendOwns ? false : tech && primaryRaw,
+        stancePressed: enabled && !parryBusy && !legendBusy && this.actions.wasPressed('stanceNext' as Action),
         eye,
         dir: d,
         position: p.position,

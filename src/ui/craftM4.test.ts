@@ -264,10 +264,10 @@ describe('拾ったときの ログ（AC27）', () => {
 });
 
 describe('案内画面の本（BOOK-1。旧 AC22 のタブ）', () => {
-  it('章は 5 つで、項目の数が 4・5・10・9・12（たたかう 8 → 10、そだてる 11 → 12）', () => {
+  it('章は 5 つで、項目の数が 4・5・10・9・12（たたかう 8 → 10 → 11（WEAPON-7 の fight-charge）、そだてる 11 → 12）', () => {
     expect(BOOK_CHAPTERS.map((c) => c.id)).toEqual(['move', 'dig', 'fight', 'craft', 'grow']);
     expect(BOOK_CHAPTERS.map((c) => c.label)).toEqual(['うごく', 'ほる・おく', 'たたかう', 'つくる・やく', 'そだてる']);
-    expect(BOOK_CHAPTERS.map((c) => BOOK_ITEMS.filter((i) => i.chapter === c.id).length)).toEqual([4, 5, 10, 9, 12]);
+    expect(BOOK_CHAPTERS.map((c) => BOOK_ITEMS.filter((i) => i.chapter === c.id).length)).toEqual([4, 5, 11, 9, 12]);
   });
   it('HTML: 「あそびかたの ほん」ボタンが 1 つ。タブ・カードは ない。漢字は ふりがな付き。ボタンは「あそぼう」の下', () => {
     const html = buildOverlayHtml('クリックして あそぼう！');

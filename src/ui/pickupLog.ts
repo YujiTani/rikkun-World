@@ -1,4 +1,5 @@
 import type { ItemId, Rarity } from '../contracts';
+import { withRuby } from './text';
 import { PickupLogModel, liveRowText, type PickupRow } from './pickupLogModel';
 import { createCategoryMark } from './log/icons';
 import { itemArt, tansuBadge } from './log/logPage';
@@ -25,7 +26,7 @@ export interface PickupLogDeps {
 export class PickupLog {
   readonly model: PickupLogModel;
   readonly el: HTMLDivElement;
-  private readonly rowEls = new Map<string, { root: HTMLDivElement; text: HTMLSpanElement; bump: number }>();
+  private readonly rowEls = new Map<string, { root: HTMLDivElement; text: HTMLSpanElement; bump: number; label: string }>();
 
   constructor(
     parent: HTMLElement,
@@ -69,14 +70,17 @@ export class PickupLog {
         text.className = 'pickup-text';
         root.append(createCategoryMark(r.kind === 'fromTansu' ? 'craft' : 'pickup'), itemArt(r.item), text);
         if (r.kind === 'fromTansu') root.append(tansuBadge());
-        e = { root, text, bump: 0 };
+        e = { root, text, bump: 0, label: '' };
         this.rowEls.set(key, e);
         if (typeof root.animate === 'function') {
           root.animate([{ transform: 'translateY(16px)', opacity: 0 }, { transform: 'translateY(0)', opacity: 1 }], { duration: 160 });
         }
       }
       const label = liveRowText(r.kind, this.d.nameOf(r.item), r.count);
-      if (e.text.textContent !== label) e.text.textContent = label;
+      if (e.label !== label) {
+        e.label = label;
+        e.text.innerHTML = withRuby(label); // 名前は ［漢字｜よみ］ → ふりがなつき（WEAPON-7 §2.7）
+      }
       if (e.bump !== r.bump) {
         e.bump = r.bump;
         if (typeof e.root.animate === 'function') {

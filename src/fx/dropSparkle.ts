@@ -65,6 +65,14 @@ export function rainbowHue(time: number, offset = 0): number {
   return h < 0 ? h + 1 : h;
 }
 
+/**
+ * WEAPON-7 §2.3: 7 段目（legendary）の 袋 そのものの 色の 色相 0〜1。にじ色に ゆっくり 変わる（光の柱・わ と 同じ 流れ。点滅なし）。
+ * 柱とは 少し ずらして 袋が 柱に とけない ように する
+ */
+export function bagBodyHue(time: number): number {
+  return rainbowHue(time, 0.5);
+}
+
 function makeTexture(star: boolean): THREE.DataTexture {
   const N = 16;
   const data = new Uint8Array(N * N * 4);

@@ -5,6 +5,7 @@ import { mouseEl, questionUrl, fingerUrl } from './craftPanel.art';
 import { rarityIndex } from '../drops/rarityTable';
 import { createChip, createMeter, createButton, setButtonKind, setRarity, } from './theme';
 import { starText } from './tooltipModel';
+import { withRuby } from './text';
 
 /** せつめい パネル（M6 §2.1 (2)）の DOM。1 度だけ作り、`renderDetail` で中身を入れかえる */
 export interface DetailEls {
@@ -149,16 +150,16 @@ export function renderDetail(e: DetailEls, d: DetailView | null, iconOf: (item: 
   if (!d) return;
   setRarity(e.root, rarityIndex(d.rarity));
   e.headArt.src = iconOf(d.item);
-  e.name.textContent = d.name;
+  e.name.innerHTML = withRuby(d.name); // 名前は ［漢字｜よみ］ → ふりがなつき（WEAPON-7 §2.7）
   e.stars.textContent = starText(d.stars);
   e.word.textContent = d.rarityWord;
   e.root.dataset.id = d.id;
 
-  e.useText.textContent = d.use;
+  e.useText.innerHTML = withRuby(d.use);
   e.useRow.dataset.later = String(d.later !== null);
   e.howButtons.replaceChildren();
   for (const b of d.buttons) buttonPicture(b, e.howButtons);
-  e.howText.textContent = d.how;
+  e.howText.innerHTML = withRuby(d.how);
   e.howRow.hidden = d.how === '';
 
   e.classEl.textContent = d.classText;

@@ -84,7 +84,7 @@ export function pickShardColors(item: ItemId, n: number, r: () => number): numbe
   return out;
 }
 
-/** 「のこり わずか」の チップ・こわれた ログの 文（HTML。漢字は 使わない） */
+/** 「のこり わずか」の チップ・こわれた ログの 文。名前は ［漢字｜よみ］ の まま（出す ときに `withRuby` で ふりがなつきの HTML に する。WEAPON-7 §2.7） */
 export function lowChipText(name: string): string {
   return `${name} が もうすぐ こわれるよ`;
 }

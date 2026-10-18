@@ -1,6 +1,7 @@
 import type { FxSettings } from '../fx/config';
 import { drawPixels, signalIconPixels, type SignalKind } from './itemIcon';
 import { NoticeModel, signalText } from './noticeModel';
+import { withRuby } from './text';
 import './notice.css';
 
 /**
@@ -68,7 +69,7 @@ export class Notice {
     const name = this.model.name;
     this.nameEl.hidden = !name;
     if (name && name.text !== this.shownName) {
-      this.nameEl.textContent = name.text;
+      this.nameEl.innerHTML = withRuby(name.text); // 名前は ［漢字｜よみ］ → ふりがなつき（WEAPON-7 §2.7）
       this.shownName = name.text;
     }
     if (!name) this.shownName = '';

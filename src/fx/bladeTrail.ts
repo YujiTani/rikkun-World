@@ -64,6 +64,15 @@ const STAR_RECTS: ReadonlyArray<readonly [number, number, number, number, 0 | 1]
   [-STAR_CORE, STAR_CORE, -STAR_CORE, STAR_CORE, 1],
 ];
 
+/** WEAPON-7: 雷神剣の 軌跡の ふちの 小さな いなずま（ぎざぎざ。白〜白っぽい 黄色。カメラの 向きの 面） */
+const THUNDER_RECTS: ReadonlyArray<readonly [number, number, number, number, 0 | 1]> = [
+  [0.01, 0.034, 0.04, 0.09, 0],
+  [-0.03, 0.034, 0.024, 0.044, 1],
+  [-0.034, -0.01, -0.02, 0.03, 0],
+  [-0.034, 0.03, -0.036, -0.016, 1],
+  [0.006, 0.03, -0.09, -0.03, 0],
+];
+
 /**
  * 刃の軌跡（いつも 1 本 以下）。1 ステップに 1 回 `step()`（ふみこみの あと）。
  * 物・頂点の 入れ物は はじめに 1 回だけ 作って 使いまわす（毎ステップ new しない）。
@@ -369,7 +378,7 @@ export class BladeTrail {
 
     // 星（きらきらの かたな だけ）: q = 0.25・0.55・0.85 の 区切りの 点の そとの へり
     this.nStars = 0;
-    if (style.style === 'star' && this.shown) {
+    if ((style.style === 'star' || style.style === 'thunder') && this.shown) {
       this.c1.setHex(STAR_WHITE);
       this.c2.setHex(STAR_YELLOW);
       // WEAPON-6: 星の 数 = 何段目か（1 段目 まん中の 1 こ・2 段目 はしの 2 こ・3 段目 3 こ）
@@ -392,7 +401,7 @@ export class BladeTrail {
   /** 小さな 十字（カメラの 向きの 面。うでは 白、まん中は 黄） */
   private writeStar(i: number, x: number, y: number, z: number): void {
     for (let q = 0; q < STAR_QUADS; q++) {
-      const [x0, x1, y0, y1, ci] = STAR_RECTS[q]!;
+      const [x0, x1, y0, y1, ci] = (this.style?.style === 'thunder' ? THUNDER_RECTS : STAR_RECTS)[q]!;
       const col = ci === 0 ? this.c1 : this.c2;
       for (let c = 0; c < 4; c++) {
         const v = (i * STAR_QUADS + q) * 4 + c;

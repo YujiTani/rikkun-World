@@ -3,27 +3,30 @@ import type { CelebrateSettings } from './config';
 
 export interface ModalView {
   open: boolean;
+  /** 出てからの ステップ */
+  age: number;
+  /** きえるまでの ステップ（出た ときは achieveToastTicks） */
+  leftSteps: number;
   mainId: AchievementId | null;
   ids: AchievementId[];
+  /** 行の 一覧は 出さない */
   rows: number;
+  /** のこりの 実績の 数（`ほか N こ`） */
   more: number;
-  buttonEnabled: boolean;
-  waitLeft: number;
+  /** ボタンは ない（O8） */
+  buttonEnabled: false;
+  waitLeft: 0;
   flashPeriods: number[];
 }
 
-export type ModalCloseResult = { ok: boolean; reason: null | 'notYet' | 'notOpen' };
-
 /**
- * おめでとう画面の中の時間と、とじる のきまり（§2.6 (3)）。DOM を知らない。
- * - 中の時間は おめでとう画面のあいだだけ 1 ステップで 1 進む。
- * - 閉じるのは とじる ボタンを「押して はなした」ときだけ（押せる前の押しは 無視。出る前から押していたマウスは はなしても閉じない）。
+ * 実績の おしらせ（画面の 上の 帯。WEAPON-7 §2.6 (1)）の 中の 時間。DOM を知らない。
+ * - ゲームを 止めない・ボタンなし。`achieveToastTicks`（240）ステップで 自動で きえる。
+ * - `step` は きえた ステップに 見せた id を 返す（それ以外は null）。
  */
 export class ModalModel {
   private show: AchievementShow | null = null;
   private age = 0;
-  private armed = false;
-  private readyFired = false;
 
   constructor(private readonly cfg: () => CelebrateSettings) {}
 
@@ -31,9 +34,12 @@ export class ModalModel {
     if (this.show) return false;
     this.show = { ids: [...show.ids], mainId: show.mainId, more: show.more };
     this.age = 0;
-    this.armed = false;
-    this.readyFired = false;
     return true;
+  }
+
+  /** テストの 準備用: 出している おしらせを 出しなおす（時間を 0 に もどす） */
+  restart(): void {
+    this.age = 0;
   }
 
   isOpen(): boolean {
@@ -44,67 +50,34 @@ export class ModalModel {
     return this.age;
   }
 
-  /** 1 ステップ進める。「押せるようになった」瞬間に true */
-  step(): boolean {
-    if (!this.show) return false;
-    this.age += 1;
-    if (!this.readyFired && this.age >= this.cfg().achieveCloseDelay) {
-      this.readyFired = true;
-      return true;
+  total(): number {
+    return this.cfg().achieveToastTicks;
+  }
+
+  /** 1 ステップ進める（amount = 画面ステップ）。きえた ステップに 見せた id の列を返す */
+  step(amount = 1): AchievementId[] | null {
+    if (!this.show) return null;
+    this.age += amount;
+    if (this.age >= this.total() - 1e-9) {
+      const ids = [...this.show.ids];
+      this.show = null;
+      return ids;
     }
-    return false;
-  }
-
-  buttonEnabled(): boolean {
-    return this.show !== null && this.age >= this.cfg().achieveCloseDelay;
-  }
-
-  /** とじる ボタンの上で マウスを押した（押せるときだけ「押した」と覚える） */
-  buttonDown(): void {
-    this.armed = this.buttonEnabled();
-  }
-
-  /** マウスをはなした。onButton = ボタンの上か。閉じるなら、見せた id を返す */
-  pointerUp(onButton: boolean): AchievementId[] | null {
-    const was = this.armed;
-    this.armed = false;
-    if (!was || !onButton || !this.buttonEnabled()) return null;
-    return this.finish();
-  }
-
-  /** テストの窓口 `achievements.close()` */
-  press(): { result: ModalCloseResult; shown: AchievementId[] | null } {
-    if (!this.show) return { result: { ok: false, reason: 'notOpen' }, shown: null };
-    if (!this.buttonEnabled()) return { result: { ok: false, reason: 'notYet' }, shown: null };
-    return { result: { ok: true, reason: null }, shown: this.finish() };
-  }
-
-  private finish(): AchievementId[] {
-    const ids = this.show ? [...this.show.ids] : [];
-    this.show = null;
-    this.armed = false;
-    return ids;
-  }
-
-  /** 行に出す id（のこりの実績を行の上限まで。主役はのぞく） */
-  rowIds(): AchievementId[] {
-    if (!this.show) return [];
-    const rows = this.cfg().achieveModalRows;
-    const rest = this.show.ids.filter((i) => i !== this.show!.mainId);
-    return rest.slice(0, rows);
+    return null;
   }
 
   view(flashPeriods: number[]): ModalView {
     const s = this.show;
-    const rows = this.rowIds().length;
     return {
       open: s !== null,
+      age: s ? Math.floor(this.age + 1e-9) : 0,
+      leftSteps: s ? Math.max(0, this.total() - Math.floor(this.age + 1e-9)) : 0,
       mainId: s ? s.mainId : null,
       ids: s ? [...s.ids] : [],
-      rows,
-      more: s ? Math.max(0, s.more, s.ids.length - 1 - rows) : 0,
-      buttonEnabled: this.buttonEnabled(),
-      waitLeft: s ? Math.max(0, this.cfg().achieveCloseDelay - this.age) : 0,
+      rows: 0,
+      more: s ? Math.max(0, s.more, s.ids.length - 1) : 0,
+      buttonEnabled: false,
+      waitLeft: 0,
       flashPeriods,
     };
   }

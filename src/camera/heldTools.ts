@@ -61,6 +61,8 @@ export const HELD_MODELS: Partial<Record<ItemId, Part[]>> = {
   ],
   katana: sword(STEEL, 0x2a2a3a, GOLD),
   crystal_katana: sword(0x9be8ff, 0x2a2a3a, 0xb28cff, 0xffffff),
+  // WEAPON-7: 雷神剣（刃は むらさき 0xb070ff 系・芯は うすい むらさき・柄は こん色・つばは 金。そりは 箱では 作らない）
+  raijin_ken: sword(0xb070ff, 0x24336e, GOLD, 0xe8d8ff),
   naginata: [
     stick(1.4, 0.05, WOOD, -0.25),
     { size: [0.04, 0.1, 0.42], pos: [0, 0, -1.35], color: STEEL },
