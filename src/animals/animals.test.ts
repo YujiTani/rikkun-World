@@ -417,6 +417,30 @@ describe('AC10・AC11・AC12 ついてくる・ワープ・重ならない', () 
     expect(s.ev().some((e) => e.type === 'warp')).toBe(false);
   });
 
+  it('止まる 距離 は なかま ごと: なかま に なった 順 で 2.5・3.0・3.5 を くり返す（PO 2026-10-18）', () => {
+    const s = setup();
+    const ids = [0, 1, 2, 3].map((i) => s.m.spawn(50.5 - i, 9, 50.5, { friend: true })!);
+    s.step(10);
+    s.player.position.x = 62.5;
+    s.step(400);
+    const stops = [2.5, 3.0, 3.5, 2.5];
+    ids.forEach((id, i) => {
+      const d = hd(s.one(id), s.player.position);
+      expect(d).toBeLessThanOrEqual(stops[i]! + 0.1);
+      expect(d).toBeGreaterThan(stops[i]! - 0.6);
+    });
+    expect(s.ev().some((e) => e.type === 'warp')).toBe(false);
+  });
+
+  it('3 わ が ついて きても 中心 0.8 以上 はなれる', () => {
+    const s = setup();
+    for (let i = 0; i < 3; i++) s.m.spawn(50.5 - i * 0.2, 9, 50.5 + i * 0.1, { friend: true });
+    s.player.position.x = 62.5;
+    s.step(400);
+    const l = s.m.list();
+    for (let i = 0; i < l.length; i++) for (let j = i + 1; j < l.length; j++) expect(hd(l[i]!, l[j]!)).toBeGreaterThanOrEqual(0.75);
+  });
+
   it('1 段 の 上へ ついてくる(ワープなし)', () => {
     const s = setup();
     for (let x = 56; x <= 70; x++) for (let z = 40; z <= 60; z++) s.world.setBlock(x, 9, z, 'stone');
@@ -483,7 +507,7 @@ describe('AC10・AC11・AC12 ついてくる・ワープ・重ならない', () 
     const l = s.m.list();
     for (let i = 0; i < l.length; i++) {
       expect(hd(l[i]!, s.player.position)).toBeLessThanOrEqual(5);
-      for (let j = i + 1; j < l.length; j++) expect(hd(l[i]!, l[j]!)).toBeGreaterThanOrEqual(0.5);
+      for (let j = i + 1; j < l.length; j++) expect(hd(l[i]!, l[j]!)).toBeGreaterThanOrEqual(0.75);
     }
   });
 });

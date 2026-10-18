@@ -23,7 +23,11 @@ const TAU = Math.PI * 2;
 /** 妖怪 とは べつ の 乱数 の 流れ（シード に まぜる 数） */
 const RNG_SALT = 0x11fe0001;
 const VEGGIES: ReadonlySet<string> = new Set(['onion', 'tomato', 'pumpkin', 'eggplant']);
-const FRIEND_MIN_GAP = 0.5;
+/** なかま どうし の 中心 の 最小 すき間（PO 2026-10-18: 0.5 → 0.8。重なって 1 わ しか 見えない ため） */
+const FRIEND_MIN_GAP = 0.8;
+/** 止まる 距離 の ばらつき（なかま に なった 順 で 0・0.5・1.0 を くり返す） */
+const STOP_STEP = 0.5;
+const STOP_KINDS = 3;
 const APPEAR_TICKS = 30;
 const EVENT_CAP = 512;
 const FALL_G = 25;
@@ -61,6 +65,8 @@ interface Ent {
   bestDist: number;
   stuck: number;
   warpWait: number;
+  /** 止まる 距離 に 足す 分（なかま の 順番 で 決まる） */
+  stopOff: number;
 }
 
 export interface AnimalManagerOptions {
@@ -120,6 +126,8 @@ export class AnimalManager implements AnimalApi {
   private readonly ents: Ent[] = [];
   private queue: AnimalEvent[] = [];
   private nextId = 1;
+  /** なかま に なった 数（止まる 距離 の 順番） */
+  private friendSeq = 0;
   private spawnTimer = 0;
   private hint: AnimalHintKind | null = null;
   private targetId: number | null = null;
@@ -165,6 +173,7 @@ export class AnimalManager implements AnimalApi {
   }
 
   clear(): void {
+    this.friendSeq = 0;
     this.ents.length = 0;
     this.targetId = null;
   }
@@ -290,6 +299,10 @@ export class AnimalManager implements AnimalApi {
     return 'ate';
   }
 
+  private nextStopOff(): number {
+    return (this.friendSeq++ % STOP_KINDS) * STOP_STEP;
+  }
+
   /** 3 つ目 の やさい を たべて ロック中 の（まもなく なかま に なる）数 */
   private pendingFriends(): number {
     let n = 0;
@@ -380,12 +393,13 @@ export class AnimalManager implements AnimalApi {
       if (!this.step(e, p)) this.ents.splice(i, 1);
     }
     // かさならない: すわっている なかま を はなす
-    for (const e of this.ents) if (e.friend && !e.following && e.lock === 0) this.separate(e);
+    for (const e of this.ents) if (e.friend && !e.following && e.lock === 0) this.separate(e, p);
   }
 
   // ------------------------------------------------------------ 内部
 
   private make(x: number, y: number, z: number, friend: boolean, hearts: 0 | 1 | 2, eggDay: number | null): Ent {
+    const stopOff = friend ? this.nextStopOff() : 0;
     const yaw = this.rng() * TAU - Math.PI;
     return {
       id: this.nextId++,
@@ -415,6 +429,7 @@ export class AnimalManager implements AnimalApi {
       bestDist: Infinity,
       stuck: 0,
       warpWait: 0,
+      stopOff,
     };
   }
 
@@ -537,6 +552,7 @@ export class AnimalManager implements AnimalApi {
     if (e.becomeFriend && this.friendCount() < this.settings.animalFriendMax) {
       e.becomeFriend = false;
       e.friend = true;
+      e.stopOff = this.nextStopOff();
       e.hearts = 0;
       e.eggDay = null;
       e.following = false;
@@ -598,7 +614,7 @@ export class AnimalManager implements AnimalApi {
       e.following = true;
       e.bestDist = d;
       e.stuck = 0;
-    } else if (e.following && d <= s.animalFollowStop) {
+    } else if (e.following && d <= s.animalFollowStop + e.stopOff) {
       e.following = false;
     }
     if (!e.following) {
@@ -750,7 +766,9 @@ export class AnimalManager implements AnimalApi {
     e.headYaw += Math.max(-0.2, Math.min(0.2, angleDiff(e.headYaw, headWant)));
   }
 
-  private separate(e: Ent): void {
+  private separate(e: Ent, p: Vec3): void {
+    // 押されて プレイヤー に ぶつからない ように: 止まる 距離 より 内側 へは 押さない
+    const keep = Math.min(dist2d(e.x, e.z, p.x, p.z), this.settings.animalFollowStop + e.stopOff);
     for (const o of this.ents) {
       if (o === e || !o.friend) continue;
       let dx = e.x - o.x;
@@ -769,7 +787,10 @@ export class AnimalManager implements AnimalApi {
       for (const off of SEP_OFFS) {
         const c = Math.cos(off);
         const sn = Math.sin(off);
-        if (this.tryMove(e, (ux * c - uz * sn) * push, (ux * sn + uz * c) * push, this.world.size.y, true)) break;
+        const mx = (ux * c - uz * sn) * push;
+        const mz = (ux * sn + uz * c) * push;
+        if (dist2d(e.x + mx, e.z + mz, p.x, p.z) < keep - 1e-6) continue;
+        if (this.tryMove(e, mx, mz, this.world.size.y, true)) break;
       }
     }
   }
