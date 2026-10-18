@@ -11,7 +11,7 @@ import { BOLT, SPARKS, boltFrameOf, groundGlow, landingRing, makeSparks, sparkAt
  * 絵は `public/models/fx/thunder_sheet.png`（256×1024）・`thunder_ground.png`（128×128）。NearestFilter。毎フレーム new しない。
  */
 
-const BASE = '/models/fx/';
+const BASE = './models/fx/';
 const PALE = 0xfff6d0;
 const WHITE = 0xffffff;
 

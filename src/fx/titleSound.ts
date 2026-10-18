@@ -11,9 +11,9 @@ export type NickTitle = Exclude<YokaiTitle, 'none'>;
 
 /** 音ファイルの場所（Vite が public/ を そのまま配る） */
 export const TITLE_SOUND_URLS: Record<NickTitle, string> = {
-  oyabun: '/sound/nick/appear_oyabun.mp3',
-  taisho: '/sound/nick/appear_taisho.mp3',
-  nushi: '/sound/nick/appear_nushi.mp3',
+  oyabun: './sound/nick/appear_oyabun.mp3',
+  taisho: './sound/nick/appear_taisho.mp3',
+  nushi: './sound/nick/appear_nushi.mp3',
 };
 
 /** 音量の設定（0〜1）にかける 倍率（1 以下）。オーナーが 試聴ページ（音量 0.5）で 聞いて 決めた大きさのまま（大きくしない） */

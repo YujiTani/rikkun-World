@@ -33,7 +33,7 @@ import { ThunderFx } from './fx/thunderFx';
 import { LegendBook } from './legend/LegendBook';
 import { legendPowerOf, trailStyleOf } from './legend/defs';
 import { lightningPoseFrame } from './legend/pose';
-import { CRAFT_UI_SETTINGS, type CraftUiSettings } from './fx/craftConfig';
+import { CRAFT_UI_SETTINGS, type CraftUiSettings, type ToolNumbers } from './fx/craftConfig';
 import { playCraft } from './fx/craftSounds';
 import { CraftUiHud, createCraftUiHook, handleCraftEvents, handleGuardEvents, playSwing } from './ui/craftUi';
 import { PickupLog } from './ui/pickupLog';
@@ -425,6 +425,18 @@ const combatCfg = createCombatConfig();
 const digCfg = createDigConfig();
 const craftConfig = createCraftConfig();
 const toolConfig = createToolConfig();
+/** 画面（ツールチップ・図鑑）用の 道具の数: 刀の 強さに レジェンダリーの P を 足す（WEAPON-7 §2.1。設定を 変えると 追従） */
+const uiWeaponDamage = (): Record<string, number> => {
+  const out: Record<string, number> = { ...toolConfig.weaponDamage };
+  for (const d of w2.legendary) out[d.item] = legendPowerOf(w2, d.item) ?? out[d.item] ?? 1;
+  return out;
+};
+const uiTools: ToolNumbers = {
+  ...toolConfig,
+  get weaponDamage() {
+    return uiWeaponDamage();
+  },
+};
 // 画面の数値。焼く時間・ログの数は つくる側の設定と同じものを見る
 const craftUi: CraftUiSettings = { ...CRAFT_UI_SETTINGS, fuelOrder: craftConfig.fuelOrder };
 for (const n of ['bakeTicks', 'pickupLogTicks', 'pickupLogMax'] as const) {
@@ -545,7 +557,7 @@ const legend = createLegendSystem({
 // WEAPON-5: 刀のパリィ（Shift＋クリック）。「動きを へらす」のときは スローにしない
 const reducedMotionMq = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
 const parry = createParry(w2, { reducedMotion: () => reducedMotionMq?.matches ?? false });
-const parryFx = new ParryFx({ scene: game.scene, camera: game.camera, basePath: '/models/fx/' });
+const parryFx = new ParryFx({ scene: game.scene, camera: game.camera, basePath: './models/fx/' });
 const sparkAt = { x: 0, y: 0, z: 0 };
 // WEAPON-7: 雷の 見た目（十字の ドット絵・着地の 光・光の つぶ）
 const IDLE_THUNDER_LOOK = { charging: false, ready: false, hand: { x: 0, y: 0, z: 0 }, aimS: null };
@@ -894,7 +906,7 @@ const hintSettings = { actionHint: true };
 const actionHint = new ActionHint(hud);
 const titleAnnounce = new TitleAnnounce(hud);
 const yokaiNameplates = new YokaiNameplates(hud);
-const staggerIcons = new StaggerIcons(hud, '/models/fx/');
+const staggerIcons = new StaggerIcons(hud, './models/fx/');
 const stagIconBuf: { id: number; x: number; y: number; z: number; titled: boolean }[] = [];
 const NO_PLATES: { id: number; text: string; x: number; y: number; z: number; dist: number }[] = [];
 const plateBuf: { id: number; text: string; x: number; y: number; z: number; dist: number }[] = [];
@@ -909,7 +921,7 @@ const inventoryScreen = new InventoryScreen(hud, inventory, screen, () => screen
   rarityOf: itemRarity,
   placeable: (item) => itemType(item)?.placeBlock != null,
   onFull: () => notice.showSignal('full'),
-  tools: toolConfig,
+  tools: uiTools,
   ui: craftUi,
   materials: {
     count: (item) => craft.total(item),
@@ -1169,7 +1181,7 @@ madeTracker.onMade((e) => celebrate.made(e));
 const infoNumbers = (): InfoNumbers => ({
   toolPower: toolConfig.toolPower,
   toolLevel: toolConfig.toolLevel,
-  weaponDamage: toolConfig.weaponDamage,
+  weaponDamage: uiWeaponDamage(),
   weaponReach: toolConfig.weaponReach,
   bladeReach: w2.bladeReach,
   weaponTicks: toolConfig.weaponTicks,

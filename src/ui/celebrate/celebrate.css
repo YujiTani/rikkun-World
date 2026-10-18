@@ -330,7 +330,9 @@
 
 /* テロップの ★ 7 つは にじ色（yuzu 2026-10-18）。ふちと 同じ にじが ゆっくり 流れる。点滅しない */
 .cel-telop .cel-band__stars {
-  background: linear-gradient(90deg, #ff6b6b, #ffd93d, #6bff95, #4dd2ff, #b36bff, #ff6b6b, #ffd93d);
+  /* 星 7 つの はばに にじ 1 まわりが 入る（下地は 星の はばだけ。2 まわり分を ならべて 200% で 流す） */
+  width: max-content;
+  background: linear-gradient(90deg, #ff6b6b, #ffd93d, #6bff95, #4dd2ff, #b36bff, #ff6b6b, #ffd93d, #6bff95, #4dd2ff, #b36bff, #ff6b6b);
   background-size: 200% 100%;
   -webkit-background-clip: text;
   background-clip: text;
