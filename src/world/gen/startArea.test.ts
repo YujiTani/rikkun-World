@@ -39,8 +39,8 @@ function loaded(seed: number) {
     const a = chunk(x >> 4, z >> 4);
     return a === null ? -1 : a[(y * 16 + (z & 15)) * 16 + (x & 15)]!;
   };
-  // #184: 木・草の上の物（もみじ・まつ の はっぱ、はな、すすき、たけ）は 地面ではない
-  const ABOVE = new Set<number>(['air', 'water', 'log', 'leaves', 'start_torch', 'momiji_leaves', 'matsu_leaves', 'flower_y', 'flower_o', 'flower_p', 'susuki', 'bamboo'].map((id) => (BLOCK_INDEX as Record<string, number>)[id]!));
+  // FLORA-75: くさ・のばな（kusa・nobana。ブロックの id は 仮）も 地面ではない。#184: 木・草の上の物（もみじ・まつ の はっぱ、はな、すすき、たけ）は 地面ではない
+  const ABOVE = new Set<number>(['air', 'water', 'log', 'leaves', 'start_torch', 'momiji_leaves', 'matsu_leaves', 'flower_y', 'flower_o', 'flower_p', 'susuki', 'bamboo', 'kusa', 'nobana'].map((id) => (BLOCK_INDEX as Record<string, number>)[id]!));
   const top = (x: number, z: number): number => {
     for (let y = WORLD_HEIGHT - 1; y >= 0; y--) {
       if (!ABOVE.has(get(x, y, z))) return y;

@@ -2,6 +2,7 @@ import type { Page } from '@playwright/test';
 
 /**
  * 国（バイオーム。#184）の E2E の共通の準備。ページの中では `window.__biomeT` として使う（`openBiome(page)` を 1 回）。
+ *   __biomeT.goToPoint({x,z})  同じことを 点で（FLORA-75）。
  *   __biomeT.goTo(kind)   biome.find(kind) の点へ キャラを運び、その列が読みこまれるまで step し、地面の上に立たせる。
  *                         返すのは { point, loaded, here }（here = biome.here() の kind）。
  * 場所・高さは ゲームに聞く（決め打ちしない）。待つのは step の数で、時間（ms）では待たない。
@@ -20,7 +21,10 @@ export async function openBiome(page: Page, query = '?nosave=1'): Promise<void> 
     h.yokai.clear();
     (window as any).__biomeT = {
       goTo(kind: string) {
-        const p = h.biome.find(kind);
+        return (window as any).__biomeT.goToPoint(h.biome.find(kind));
+      },
+      /** (x, z) へ運ぶ（kind でなく 点でもよい版。FLORA-75 で足した）。返すのは { point, loaded, here } */
+      goToPoint(p: { x: number; z: number }) {
         const sea = h.world.seaY();
         // まだ読みこまれていない所なので、まず高い所へ。読みこまれるのを step で待つ（上限つき）
         h.player.set({ position: { x: p.x + 0.5, y: sea + 100, z: p.z + 0.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: 0 });

@@ -389,15 +389,15 @@ describe('基準 3・4・6・7・9: 作った列のブロック（10 シード �
     // 海の列は y ≤ H−10 だけ: 上の st.caveAbove が見る
   });
 
-  it('基準 9: 木は 草原の陸 1 列 0.8〜2.0 本、森 平均 6.5〜14 本（6 版）。みきどうしは チェビシェフ 3 以上', () => {
+  it('基準 9: 木は 草原の陸 1 列 0.3〜2.0 本、森 平均 0.15〜3 本（FLORA-75 §4.3 の実測 0.4〜0.6 に置きかえ）。みきどうしは チェビシェフ 3 以上', () => {
     const avg = (a: number[]): number => a.reduce((p, c) => p + c, 0) / a.length;
     expect(st.grassTrees.length).toBeGreaterThan(20);
     expect(st.forestTrees.length).toBeGreaterThan(10);
-    expect(avg(st.grassTrees)).toBeGreaterThanOrEqual(0.8);
+    expect(avg(st.grassTrees)).toBeGreaterThanOrEqual(0.3); // FLORA-75: 間隔のきまりで 前の 1.0 から へる（はらっぱ 実測 0.6）
     expect(avg(st.grassTrees)).toBeLessThanOrEqual(2.0);
-    expect(avg(st.forestTrees)).toBeGreaterThanOrEqual(6.5);
-    expect(avg(st.forestTrees)).toBeLessThanOrEqual(14);
-    expect(st.trunks).toBeGreaterThan(300);
+    expect(avg(st.forestTrees)).toBeGreaterThanOrEqual(0.15); // FLORA-75 §4.3: もり 0.4・おおきな 0.5。前の 6.5 は #184-AC9 の置きかえ
+    expect(avg(st.forestTrees)).toBeLessThanOrEqual(3);
+    expect(st.trunks).toBeGreaterThan(150); // FLORA-75: 木が へる（前は 841 本）
     expect(st.trunkClose).toBe(0);
   });
 });

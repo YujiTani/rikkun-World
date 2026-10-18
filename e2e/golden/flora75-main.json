@@ -1,0 +1,68 @@
+{
+ "start": {
+  "drawCalls": 87,
+  "triangles": 480422
+ },
+ "countries": {
+  "harappa": {
+   "drawCalls": 99,
+   "triangles": 482444,
+   "here": "harappa"
+  },
+  "mori": {
+   "drawCalls": 116,
+   "triangles": 738624,
+   "here": "mori"
+  },
+  "ookina": {
+   "drawCalls": 169,
+   "triangles": 213482,
+   "here": "ookina"
+  },
+  "hana": {
+   "drawCalls": 170,
+   "triangles": 347486,
+   "here": "hana"
+  },
+  "sunahama": {
+   "drawCalls": 164,
+   "triangles": 266188,
+   "here": "sunahama"
+  },
+  "susuki": {
+   "drawCalls": 115,
+   "triangles": 434292,
+   "here": "susuki"
+  },
+  "take": {
+   "drawCalls": 98,
+   "triangles": 656994,
+   "here": "take"
+  },
+  "kappa": {
+   "drawCalls": 99,
+   "triangles": 365020,
+   "here": "kappa"
+  },
+  "iwayama": {
+   "drawCalls": 70,
+   "triangles": 534474,
+   "here": "iwayama"
+  },
+  "tengu": {
+   "drawCalls": 66,
+   "triangles": 506960,
+   "here": "tengu"
+  },
+  "momiji": {
+   "drawCalls": 79,
+   "triangles": 884908,
+   "here": "momiji"
+  },
+  "yuki": {
+   "drawCalls": 67,
+   "triangles": 616474,
+   "here": "yuki"
+  }
+ }
+}
