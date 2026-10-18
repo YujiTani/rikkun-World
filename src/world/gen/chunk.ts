@@ -308,7 +308,8 @@ function placePlants(out: Uint8Array, T: Terrain, cx: number, cz: number, H: Int
   const x0 = cx * CHUNK_SIZE;
   const z0 = cz * CHUNK_SIZE;
   // はな・すすき・たけ、そのあと くさ・のばな（先にある物が かち: 空気のところだけ）
-  for (const p of [...plantsOfChunk(T, cx, cz), ...floraOfChunk(T, cx, cz)]) {
+  for (const list of [plantsOfChunk(T, cx, cz), floraOfChunk(T, cx, cz)]) {
+  for (const p of list) {
     const lx = p.x - x0;
     const lz = p.z - z0;
     const h = H[(lz + 1) * HW + lx + 1]!;
@@ -318,6 +319,7 @@ function placePlants(out: Uint8Array, T: Terrain, cx: number, cz: number, H: Int
       if (out[o] !== AIR) break;
       out[o] = id;
     }
+  }
   }
 }
 

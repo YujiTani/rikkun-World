@@ -53,8 +53,9 @@ export function spacePlants(T: Terrain, mine: readonly Plant[], near: () => read
   for (const p of mine) {
     if (inClearing(T, p.x, p.z)) continue;
     const take = p.id === 'bamboo';
-    if (thinned(T, p.x, p.z, take)) continue;
-    const a = (take ? GAP_TAKE : GAP_SQUARE)[levelAt(T, p.x, p.z)];
+    const lv = levelAt(T, p.x, p.z);
+    if (thinned(T, p.x, p.z, take, lv)) continue;
+    const a = (take ? GAP_TAKE : GAP_SQUARE)[lv];
     if (a > 0) {
       const g = plantGroup(p);
       all ??= near();

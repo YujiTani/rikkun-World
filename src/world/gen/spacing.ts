@@ -227,8 +227,7 @@ export function clearingsInRect(seed: number, x0: number, z0: number, x1: number
 // ------------------------------------------------------------------ むら
 
 /** むら: (x, z) が「うすい所」に 入って 置かない（同じ位置なら いつも 同じ）。木には かけない */
-export function thinned(T: Terrain, x: number, z: number, isTake: boolean): boolean {
-  const lv = levelAt(T, x, z);
+export function thinned(T: Terrain, x: number, z: number, isTake: boolean, lv: SpacingLevel = levelAt(T, x, z)): boolean {
   if (lv === 'narrow') return false;
   if (lv === 'normal' && isTake) return false;
   const sM = subSeed(T.seed, 1405);

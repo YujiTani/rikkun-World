@@ -22,6 +22,8 @@ const rawStore = new WeakMap<Terrain, Map<number, Plant[]>>();
 const MAX_RAW = 4000;
 const farmStore = new WeakMap<Terrain, { box: { x0: number; z0: number; x1: number; z1: number } | null; wild: Set<number> }>();
 const tmp = newSample();
+/** どの国でも (くさ ＋ のばな) の こさは これ以下 */
+const MAX_RATE = Math.max(...Object.values(F.rate).map((v) => v[0] + v[1]));
 const k2 = (x: number, z: number): number => x * 100003 + z;
 
 /** ふるい はたけ の あと（かかしの 8×8）と やせいの やさい の マス。スタートの まわりの四角の外では 調べない */
@@ -65,13 +67,14 @@ function floraRawUncached(T: Terrain, cx: number, cz: number): Plant[] {
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
       const x = x0 + lx;
       const z = z0 + lz;
+      const r = hash01(sF, x, z, 1);
+      if (r >= MAX_RATE) continue; // どの国の こさ（くさ＋のばな）より 大きい → 当たらない。国を 調べずに とばす
       const s = T.map.sampleInto(x, z, tmp);
       const ra = F.rate[s.kind];
       const rb = F.rate[s.kind2];
       const rk = ra[0] * s.a + rb[0] * (1 - s.a);
       const rn = ra[1] * s.a + rb[1] * (1 - s.a);
       if (rk + rn <= 0) continue;
-      const r = hash01(sF, x, z, 1);
       const isN = r < rn;
       if (!isN && r >= rn + rk) continue;
       if (Math.max(Math.abs(x - sp.x), Math.abs(z - sp.z)) <= F.startClear) continue;
