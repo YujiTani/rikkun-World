@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { AO_LEVELS, FACE_NAMES, FACE_SHADE_BY_INDEX, faceShadeTable } from '../config';
 import { OCC_BYTES, OCC_NZ, OCC_W, aoAtCell, aoLevel, occGet, occIndex, packOccupancy } from './ao';
-import { aoFadeFactor } from './aoUniforms';
+import { readFileSync } from 'node:fs';
+import { aoFadeFactor, aoUniforms, setAoCenter, setAoRadius } from './aoUniforms';
 
 /** うまりを 小ブロック座標の集まりから 作る */
 function occOf(cells: [number, number, number][]): Uint8Array {
@@ -120,5 +121,35 @@ describe('面の明るさ（TEX-A 基準 6）', () => {
     expect(faceShadeTable()).toEqual({ top: 1, bottom: 0.5, north: 0.8, south: 0.8, east: 0.6, west: 0.6 });
     expect([...FACE_SHADE_BY_INDEX]).toEqual([1, 0.5, 0.6, 0.6, 0.8, 0.8]);
     expect(FACE_NAMES.length).toBe(6);
+  });
+});
+
+/**
+ * AO が消える距離は プレイヤーから測る（半径 28 の決め。docs の RADIUS-28）。
+ * 段の中心がプレイヤーなので、横・うしろの小ブロックのはし（プレイヤーから r）でも AO が消えて、箱の段と段差が出ない。
+ * 名前（テストで決めた）: aoUniforms.center（Vector2 の x,z）・setAoCenter(x, z)・シェーダーの uniform uAoCenter。
+ */
+describe('AO の消える距離の中心 = プレイヤー（RADIUS-28）', () => {
+  it('setAoCenter でプレイヤーの xz が aoUniforms.center に入る。半径は r−8〜r のまま', () => {
+    setAoRadius(28);
+    setAoCenter(12.5, -3);
+    expect(aoUniforms.center.value.x).toBe(12.5);
+    expect(aoUniforms.center.value.y).toBe(-3); // Vector2 の y = z
+    expect(aoUniforms.fade.value.x).toBe(20);
+    expect(aoUniforms.fade.value.y).toBe(28);
+  });
+
+  it('2 つのシェーダー（lightShader・voxelMaterial）は AO の fade を uAoCenter から測り、cameraPosition からは測らない', () => {
+    for (const f of ['../lightShader.ts', './voxelMaterial.ts']) {
+      const src = readFileSync(new URL(f, import.meta.url), 'utf8');
+      expect(src, f).toContain('uAoCenter');
+      expect(src, f).toContain('aoUniforms.center');
+      for (const line of src.split('\n')) {
+        if (line.includes('uAoFade')) {
+          expect(line, `${f}: ${line}`).not.toContain('cameraPosition');
+          expect(line, `${f}: ${line}`).not.toContain('vDist'); // カメラからの距離
+        }
+      }
+    }
   });
 });

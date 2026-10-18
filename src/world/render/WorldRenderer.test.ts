@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ArrayVoxelWorld } from '../VoxelWorld';
 import { WorldRenderer } from './WorldRenderer';
 import { CHUNK_DRAW_DISTANCE } from './config';
+import { aoUniforms } from './voxel/aoUniforms';
 
 /** 128×48×128 の平らな石の島（高さ 1〜6）。上のセクションは空気、下は岩 */
 function setup(stoneTop = 6) {
@@ -25,6 +26,18 @@ function settle(r: WorldRenderer): number {
   r.update();
   return n;
 }
+
+describe('AO の中心（RADIUS-28）', () => {
+  it('setViewer / update(viewer) で AO の消える距離の中心がプレイヤーの xz になる', () => {
+    const { r } = setup();
+    r.setViewer(40, 90);
+    expect(aoUniforms.center.value.x).toBe(40);
+    expect(aoUniforms.center.value.y).toBe(90);
+    r.update({ x: 11, z: 22 });
+    expect(aoUniforms.center.value.x).toBe(11);
+    expect(aoUniforms.center.value.y).toBe(22);
+  });
+});
 
 describe('小ブロックの半径 0（#180: 小ブロックなし。近くも箱の段）', () => {
   function setup0() {
@@ -66,14 +79,14 @@ describe('小ブロックの半径 0（#180: 小ブロックなし。近くも�
     expect(r.rebuildLog().filter((e) => e.kind === 'micro')).toHaveLength(0);
   });
 
-  it('あとから 16 → 32 に切りかえると 小ブロックが出る。0 にもどせる', () => {
+  it('あとから 16 → 28 に切りかえると 小ブロックが出る。0 にもどせる', () => {
     const { r } = setup0();
     r.setViewer(64, 64);
     r.attach(new Scene());
     settle(r);
-    r.config.microRadius = 32;
+    r.config.microRadius = 28;
     settle(r);
-    expect(r.sectionStats().microR).toBe(32);
+    expect(r.sectionStats().microR).toBe(28);
     expect(r.sectionStats().micro).toBeGreaterThan(0);
     r.config.microRadius = 0;
     settle(r);
@@ -81,9 +94,9 @@ describe('小ブロックの半径 0（#180: 小ブロックなし。近くも�
     expect(r.sectionStats().micro).toBe(0);
   });
 
-  it('作るときの半径を 渡さなければ 今のまま 32', () => {
+  it('作るときの半径を 渡さなければ 今のまま 28', () => {
     const w = new ArrayVoxelWorld({ x: 128, y: 48, z: 128 });
-    expect(new WorldRenderer(w).microRadiusNow).toBe(32);
+    expect(new WorldRenderer(w).microRadiusNow).toBe(28);
   });
 });
 
@@ -93,7 +106,7 @@ describe('セクションごとのメッシュ（VOX-E）', () => {
     settle(r);
     const s = r.sectionStats();
     expect(s.total).toBe(192);
-    expect(s.microR).toBe(32);
+    expect(s.microR).toBe(28);
     expect(s.micro + s.box + s.lod + s.none).toBe(192);
     expect(s.noneBy.empty + s.noneBy.hidden + s.noneBy.unlit).toBe(s.none);
     expect(s.micro).toBeGreaterThan(0);
@@ -128,16 +141,16 @@ describe('セクションごとのメッシュ（VOX-E）', () => {
     expect(near.meshes).toBeGreaterThan(0);
   });
 
-  it('r を 16 に下げると 小ブロックのセクションが減る（切りかえ）。24・32 にも戻せる', () => {
+  it('r を 16 に下げると 小ブロックのセクションが減る（切りかえ）。24・28 にも戻せる', () => {
     const { r } = setup();
     r.setViewer(60, 60); // 列までの距離が 0, 4, 12, 20, 28, … になる場所
     settle(r);
-    const m32 = r.sectionStats().micro;
+    const m28 = r.sectionStats().micro;
     r.config.microRadius = 16;
     settle(r);
     const s16 = r.sectionStats();
     expect(s16.microR).toBe(16);
-    expect(s16.micro).toBeLessThan(m32);
+    expect(s16.micro).toBeLessThan(m28);
     expect(s16.microMaxDist).toBeLessThanOrEqual(18);
     r.config.microRadius = 24;
     settle(r);
@@ -145,12 +158,12 @@ describe('セクションごとのメッシュ（VOX-E）', () => {
     expect(s24.microR).toBe(24);
     expect(s24.micro).toBeGreaterThan(s16.micro);
     expect(s24.microMaxDist).toBeLessThanOrEqual(26);
-    r.config.microRadius = 32;
+    r.config.microRadius = 28;
     settle(r);
-    const s32 = r.sectionStats();
-    expect(s32.microR).toBe(32);
-    expect(s32.micro).toBeGreaterThan(s24.micro);
-    expect(s32.micro).toBeLessThanOrEqual(m32);
+    const s28 = r.sectionStats();
+    expect(s28.microR).toBe(28);
+    expect(s28.micro).toBeGreaterThan(s24.micro);
+    expect(s28.micro).toBeLessThanOrEqual(m28);
   });
 
   it('段の境目は ±2 ずらす: 小ブロックから r+2 まで出ない・箱から r−2 まで入らない', () => {
@@ -159,7 +172,7 @@ describe('セクションごとのメッシュ（VOX-E）', () => {
     // 列 (4,4)（x 64〜79, z 64〜79）。視点を (64, 64) から x 方向にずらして、列までの距離を変える
     const dist = (x: number) => r.sectionInfo(4, 0, 4).dist + 0 * x;
     expect(dist(0)).toBe(0);
-    r.update({ x: 64 - 29, z: 72 }); // 29 はなれる（段の半径 28 より外、30 より内。段の半径 = 32 - カメラのうしろ 4）
+    r.update({ x: 64 - 29, z: 72 }); // 29 はなれる（半径 28 より外、30 より内。半径はプレイヤーから）
     settle(r);
     expect(r.sectionInfo(4, 0, 4).dist).toBeCloseTo(29, 5);
     expect(r.sectionInfo(4, 0, 4).tier).toBe('micro'); // もと小ブロック: 30 まではそのまま
@@ -294,7 +307,7 @@ describe('距離でチャンクを描く／描かない (M5 AC15 の意味を �
 describe('時計 count（#179: 1 コマの仕事を数で決める）', () => {
   afterEach(() => vi.restoreAllMocks());
 
-  function island(clock?: 'time' | 'count', microR = 32) {
+  function island(clock?: 'time' | 'count', microR = 28) {
     const w = new ArrayVoxelWorld({ x: 128, y: 48, z: 128 });
     w.fill(0, 0, 0, 127, 0, 127, 'bedrock');
     w.fill(0, 1, 0, 127, 6, 127, 'stone');

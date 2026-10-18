@@ -16,7 +16,7 @@ import { fine } from './helpers/fine';
  *    dist: number,         // プレイヤーから、そのセクションの水平のいちばん近い所までの距離
  *  }
  *  world.sectionStats(): {
- *    microR: number,                            // いまの小ブロックの半径（既定 32）
+ *    microR: number,                            // いまの小ブロックの半径（既定 28）
  *    total: number,                             // 読みこんだセクションの数
  *    micro: number, box: number, lod: number, none: number,   // 段ごとの数（合計 === total）
  *    noneBy: { empty: number, hidden: number, unlit: number }, // none の中身（合計 === none）
@@ -81,15 +81,15 @@ test.describe('VOX-E メッシュ', () => {
       return { s, spawn: h.world.spawn() };
     });
     console.log('AC1', JSON.stringify(r.s));
-    expect(r.s.microR).toBe(32);
+    expect(r.s.microR).toBe(28);
     // 3 つの段が、すべて「ある」
     expect(r.s.micro).toBeGreaterThan(0);
     expect(r.s.box).toBeGreaterThan(0);
     expect(r.s.lod).toBeGreaterThan(0);
     expect(r.s.micro + r.s.box + r.s.lod + r.s.none).toBe(r.s.total);
     // 段の境目: 小ブロックは r+2 以内、箱は r-2 より外〜48+2、LOD は箱より外
-    expect(r.s.microMaxDist).toBeLessThanOrEqual(32 + 2);
-    expect(r.s.boxMinDist).toBeGreaterThanOrEqual(32 - 2);
+    expect(r.s.microMaxDist).toBeLessThanOrEqual(28 + 2);
+    expect(r.s.boxMinDist).toBeGreaterThanOrEqual(28 - 2);
     expect(r.s.boxMaxDist).toBeLessThanOrEqual(48 + 2);
     // 近くの 1 つは小ブロックで、同じ大きさの箱より三角形が多い（ごつごつの形がある）
     const tri = await page.evaluate(() => {

@@ -528,11 +528,11 @@ test.describe('TEX-A', () => {
     expect(near2).toBeGreaterThan(far8 * 1.3);
   });
 
-  test('AC12: 三角形が今より少ない（スタート ≤ 45 万・上空 ≤ 52 万）。描画回数は ＋2 / ＋1。r=32 のどこでも ≤ 120 万', async ({ page }) => {
+  test('AC12: 三角形が今より少ない（スタート ≤ 45 万・上空 ≤ 52 万）。描画回数は ＋2 / ＋1。r=28 のどこでも ≤ 120 万', async ({ page }) => {
     await openTex(page);
     expect(await missingHooks(page)).toEqual([]);
     const s = await page.evaluate(() => (window as any).__rikkun.world.sectionStats().microR);
-    expect(s).toBe(32);
+    expect(s).toBe(28);
     const got: Record<string, { drawCalls: number; triangles: number }> = {};
     for (const v of SCORE_VIEWS) {
       if (v.name === 'hill') continue;

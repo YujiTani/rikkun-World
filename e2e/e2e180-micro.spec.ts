@@ -6,7 +6,7 @@ import { fine } from './helpers/fine';
  *
  * E2E の開発サーバーは `VITE_MICRO_DEFAULT=off` で起動する（playwright.config.ts。影の `VITE_SHADOW_DEFAULT=off` と同じ所）。
  *   - URL に `?microR` を付けない → 小ブロックの半径 0。近くも 箱の段（micro の段が 1 つもない）。起動が 8〜12 秒はやい
- *   - `?microR=32` を付ける → 32。近くは micro（ふつうに遊ぶときと同じ。環境変数より URL が強い）
+ *   - `?microR=28` を付ける → 28。近くは micro（ふつうに遊ぶときと同じ。環境変数より URL が強い）
  *   - `?microR=0` → 0 として受けつける（環境変数がなくても 0）
  * 実装の前は赤（半径 0 が まだ無い・設定にまだ VITE_MICRO_DEFAULT が無い）。
  *
@@ -14,7 +14,7 @@ import { fine } from './helpers/fine';
  * 近いかどうかは 座標を決め打ちせず、ゲームが答える `dist`（プレイヤーのいる列までの水平の距離）で決める。
  */
 
-const NEAR = 20; // この距離（ブロック）より近いセクションは、半径 32 なら小ブロックの段、半径 0 なら箱の段
+const NEAR = 20; // この距離（ブロック）より近いセクションは、半径 28 なら小ブロックの段、半径 0 なら箱の段
 
 interface Probe {
   s: {
@@ -86,12 +86,12 @@ test.describe('E2E-180 細かいメッシュ（小ブロック）のあり・な
     expectBoxOnly(r, 'E2E のサーバーが VITE_MICRO_DEFAULT=off で起動していない（npm run dev が動いていると それを使うので、止めてから）');
   });
 
-  test('?microR=32: 小ブロックあり。microR 32・近くは micro（ふつうに遊ぶときと同じ）', async ({ page }) => {
+  test('?microR=28: 小ブロックあり。microR 28・近くは micro（ふつうに遊ぶときと同じ）', async ({ page }) => {
     const r = await probe(page, fine('?nosave=1'));
-    console.log('E2E-180 microR=32', JSON.stringify(r));
-    expect(r.s.microR).toBe(32);
+    console.log('E2E-180 microR=28', JSON.stringify(r));
+    expect(r.s.microR).toBe(28);
     expect(r.s.micro).toBeGreaterThan(0);
-    expect(r.s.microMaxDist, '小ブロックは r+2 以内').toBeLessThanOrEqual(32 + 2);
+    expect(r.s.microMaxDist, '小ブロックは r+2 以内').toBeLessThanOrEqual(28 + 2);
     expect(r.here.tier, 'プレイヤーのいるセクションの段').toBe('micro');
     expect(r.here.meshes).toBeGreaterThan(0);
     expect(r.nearTiers.micro, `近く（${NEAR} 以内）の micro のセクション`).toBeGreaterThan(0);
