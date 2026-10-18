@@ -13,7 +13,10 @@ const PART = process.env.PART ?? 'all';
 const ONLY = process.env.SCENE ?? '';
 const OUT = 'perf-results';
 const SLICE_OFF = process.env.MESH_SLICE === 'off'; // 前と同じ道（分けない）も測る
-const TAG = SLICE_OFF ? '-sliceoff' : '';
+const KATA = process.env.KATA ?? ''; // #202 ブロックの型の見くらべ（?kata=off|table|4|8|16）
+const SHOT = process.env.SHOT === '1'; // #202: 場面を作ったら スクショだけ撮って 歩かない
+const SHADOWS = (process.env.SHADOWS ?? 'off,on').split(',') as ('off' | 'on')[];
+const TAG = (SLICE_OFF ? '-sliceoff' : '') + (KATA ? `-kata${KATA.replace(/[&=]/g, '_')}` : '');
 
 // ---------------------------------------------------------------- 計測の書き足し（ブラウザ側）
 const MESHER_ADD = `
@@ -483,7 +486,7 @@ const SCENES: SceneDef[] = [{ name: 'harappa' }, { name: 'mori' }, { name: 'gake
 async function boot(page: Page, shadow: 'on' | 'off' | 'none'): Promise<number> {
   await instrument(page);
   const t0 = Date.now();
-  await page.goto((shadow === 'none' ? '/?nosave=1&shadow=0' : '/?nosave=1&shadow=1') + (SLICE_OFF ? '&meshSlice=off' : ''));
+  await page.goto((shadow === 'none' ? '/?nosave=1&shadow=0' : '/?nosave=1&shadow=1') + (SLICE_OFF ? '&meshSlice=off' : '') + (KATA ? `&kata=${KATA}` : ''));
   await page.waitForFunction(() => window.__rikkun?.ready === true, undefined, { timeout: 180_000 });
   const bootMs = Date.now() - t0;
   await page.evaluate(installHelpers);
@@ -503,12 +506,12 @@ function save(name: string, data: unknown): void {
 if (PART === 'all' || PART === 'scenes') {
   for (const sc of SCENES) {
     if (ONLY && ONLY !== sc.name) continue;
-    for (const shadow of ['off', 'on'] as const) {
+    for (const shadow of SHADOWS) {
       test(`場面 ${sc.name} かげ${shadow}`, async ({ page }) => {
         const bootMs = await boot(page, shadow);
         const cdp = process.env.PROF ? await page.context().newCDPSession(page) : null;
         if (cdp) { await cdp.send('Profiler.enable'); await cdp.send('Profiler.setSamplingInterval', { interval: 2000 }); await cdp.send('Profiler.start'); }
-        const r = await page.evaluate(async ({ scene, scan }) => {
+        const r = await page.evaluate(async ({ scene, scan, shot }) => {
           const h = (window as any).__rikkun;
           const w = h.world;
           const B = (window as any).__b;
@@ -572,6 +575,7 @@ if (PART === 'all' || PART === 'scenes') {
           h.player.set({ yaw, pitch: 0, velocity: { x: 0, y: 0, z: 0 } });
           h.step(3);
           B.quiet(); // 向きを変えると カメラの位置が かわり 小ブロックの輪が ずれるので、落ちつくまで待つ
+          if (shot) { h.player.set({ pitch: scene === 'horaana' ? 0 : -12 }); h.step(2); B.quiet(); info.shot = true; info.kataN = h.world.kataCacheSize?.(); return B.rd(info); }
           info.trees = B.countTrees(pos.x, pos.z, 48);
           info.treesNear = B.countTrees(pos.x, pos.z, 24);
           // 立ったまま 300 コマ
@@ -615,7 +619,12 @@ if (PART === 'all' || PART === 'scenes') {
           info.sections = w.sectionStats();
           P.on = false;
           return B.rd(info);
-        }, { scene: sc.name, scan: scanScenes.toString() });
+        }, { scene: sc.name, scan: scanScenes.toString(), shot: SHOT });
+        if (SHOT) {
+          await page.screenshot({ path: `${OUT}/kata202/${sc.name}${TAG}.png` });
+          console.log(`スクショ ${sc.name}${TAG}: ${JSON.stringify(r.yawPick)}`);
+          return;
+        }
         if (cdp) {
           const { profile } = await cdp.send('Profiler.stop');
           const self = new Map<string, number>();

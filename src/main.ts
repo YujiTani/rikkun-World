@@ -122,6 +122,8 @@ import { createWorldHook } from './world/hook';
 import { WorldRenderer } from './world/render/WorldRenderer';
 import { decideFrameClock } from './world/frameClock';
 import { MICRO_RADII, decideMicroR } from './world/render/voxel/tier';
+import { setKataTable } from './proto/voxel/looks';
+import { decideKata } from './proto/voxel/looks/kata';
 import { createRenderHook } from './world/render/renderHook';
 import { BlobShadow, BLOB, groundBelow } from './fx/blobShadow';
 import { WATER, isSolidIndex } from './world/blocks/blockTypes';
@@ -238,6 +240,8 @@ if (restored === null) {
 // E2E のサーバー（VITE_MICRO_DEFAULT=off）は 0 = 小ブロックなし。最初の列の段から効くよう 作るときに渡す（#180）
 // 1 コマの仕事を 時間で決めるか 数で決めるか（E2E のサーバー VITE_FRAME_CLOCK=count は数。#179）
 // 輪の大きさ（?ring=full|small。E2E のサーバーは VITE_RING_DEFAULT=small。#203）。WorldRenderer を作る前に 1 回だけ決める
+// ブロックの型（?kata=off|4|8|16 と &kataUnder=K。#202）。メッシュを作る前に決める
+setKataTable(decideKata(location.search));
 setRing(decideRing(location.search, import.meta.env.VITE_RING_DEFAULT as string | undefined));
 const frameClock = decideFrameClock(location.search, import.meta.env.VITE_FRAME_CLOCK as string | undefined);
 const renderer = new WorldRenderer(world, decideMicroR(location.search, import.meta.env.VITE_MICRO_DEFAULT as string | undefined), frameClock);

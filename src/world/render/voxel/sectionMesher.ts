@@ -1,8 +1,8 @@
 import type { CropStageSource } from '../../../contracts';
-import { LOOK_N, LOOK_VOLUME, fillBlockLook, hasLook, initLooks, occludes } from '../../../proto/voxel/looks';
+import { LOOK_N, LOOK_VOLUME, fillBlockLookKata, hasLook, initLooks, kataOf, occludes } from '../../../proto/voxel/looks';
 import { newSample, sampleSurface, type ColumnSource, type SurfaceSample } from '../../micro/microSurface';
 import { scanColumn, type ColumnInfo } from '../../micro/worldColumns';
-import { BLOCK_TYPES, isOpaqueIndex } from '../../blocks/blockTypes';
+import { BLOCK_TYPES, WATER, isLeafIndex, isOpaqueIndex } from '../../blocks/blockTypes';
 import { OCC_BYTES, OCC_NY, packOccupancy } from './ao';
 import { ROW_NONE, rowCodeOf, terrainKindOf } from './projection';
 import { OPACITY } from '../../light/opacity';
@@ -94,6 +94,8 @@ function buildOcc(): Uint8Array {
   return t;
 }
 const OCC = buildOcc();
+/** はっぱの種類（#202: はっぱは 地下あつかいしない） */
+const LEAF = Uint8Array.from(BLOCK_TYPES, (_t, i) => (isLeafIndex(i) ? 1 : 0));
 /** 光を通さない（光の読みを まわりからかりる） */
 const OPAQUE_LIGHT = Uint8Array.from(OPACITY, (o) => (o >= 15 ? 1 : 0));
 
@@ -247,6 +249,8 @@ export class SectionMesher {
   private readonly expo = new Uint8Array(CUBE);
   /** 1 = 地形のとなりで 面を作る つまった ブロック（地形のへこみから 横の面が 見える） */
   private readonly gap = new Uint8Array(CUBE);
+  /** #202: 1 = 水のそば（型を使わず 毎回計算）、2 = 地下・ほらあな（表の @under） */
+  private readonly uniq = new Uint8Array(CUBE);
   /** ブロックごとの光（空 << 4 | ブロック）。光を通さないマスは まわりの光を かりる */
   private readonly lg = new Uint8Array(CUBE);
   private readonly lsky = new Uint8Array(CUBE);
@@ -682,6 +686,7 @@ export class SectionMesher {
   private beginExpose(): void {
     this.clearGrid();
     this.gap.fill(0);
+    this.uniq.fill(0);
   }
 
   /** 見える面の印（fillGrid の 1.）: ブロックの行 byi0 〜 byi1 の手前 */
@@ -701,10 +706,13 @@ export class SectionMesher {
           }
           if (!hasLook(k)) continue;
           let e = 0;
+          let wet = false;
           for (let f = 0; f < 6; f++) {
             const n = this.kindNear(bxi, byi, bzi, f);
             if (n >= 0 && OCC[n] === 0) e |= 1 << f;
+            if (n === WATER) wet = true;
           }
+          this.uniq[i] = e === 0 ? 0 : wet ? 1 : LEAF[k] === 0 && kataOf(k) > 0 && this.underground(bxi, byi, bzi, e) ? 2 : 0;
           if (e === 0 && terrain && OCC[k] === 1) {
             // 小ブロック地形の となりの列の てっぺんが 同じ高さ: 地形の へこみから この横の面が 見える（置いた ブロックの下の地面・
             // 崖の下の段。ここが 空くと 空の色が すきまに 見える。TEX-A 基準 9）。形は つまったまま（へこませない）で、
@@ -724,6 +732,25 @@ export class SectionMesher {
         }
       }
     }
+  }
+
+  /**
+   * 見える面の前の 空気が 地面の下か（#202 ほらあな・地下）: その列の地面（小ブロック地形の列は colTy、ほかは topY）が
+   * 空気より上にあれば、空から見えない 地下の面。崖の横の面は となりの列の地面が低いので ちがう。
+   */
+  private underground(bxi: number, byi: number, bzi: number, e: number): boolean {
+    const wy = this.oy + byi - 1;
+    for (let f = 0; f < 6; f++) {
+      if (!(e & (1 << f))) continue;
+      const nx = bxi + DIR[f][0];
+      const nz = bzi + DIR[f][2];
+      const ay = wy + DIR[f][1];
+      let top: number;
+      if (this.terrain) top = this.colTy[(nz - 1 + 2) * BW + (nx - 1 + 2)];
+      else top = this.world.topY(this.ox + nx - 1, this.oz + nz - 1);
+      if (top > ay) return true;
+    }
+    return false;
   }
 
   /** 形をうめる（fillGrid の 2.）: ブロック i0 〜 i1 の手前（番号 = (byi * BL + bzi) * BL + bxi） */
@@ -770,7 +797,7 @@ export class SectionMesher {
       const wx = this.ox + bxi - 1;
       const wy = this.oy + byi - 1;
       const wz = this.oz + bzi - 1;
-      fillBlockLook(k, wx, wy, wz, e, scratch);
+      fillBlockLookKata(k, wx, wy, wz, e, this.uniq[i] !== 0, scratch, this.uniq[i] === 2);
       this.copyBlock(scratch, gx, gy, gz);
       this.markRows(byi, byi);
       if (bxi >= 1 && bxi <= 16 && byi >= 1 && byi <= 16 && bzi >= 1 && bzi <= 16) {
