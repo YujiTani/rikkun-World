@@ -7,6 +7,9 @@ import { openShadow, flatGrass, FLOOR_Y, settleLight, frames, shadowDir, type Sh
  * 決まり（rule #130）: 一時停止・tick を指定・ゲームに聞く。画素は同じコマで「オン」と「オフ」を並べて比べる。
  * 数: 影の中の明るさ 0.55（オーナーの決定）・夜の外の明るさ 0.25・はじまり tick 9000。
  */
+// VOX-D のあと、光に加えて メッシュも そろうまで進めるので、CI（GPU なし）では 1 本 60 秒を こえることがある（#203）
+test.describe.configure({ timeout: 180_000 });
+
 const DAY = 14000; // 太陽 41°
 const MOON = 67400; // 月 43°
 const SHOT = 'test-shots/assets/';
@@ -173,6 +176,8 @@ test.describe('SHADOW-1 太陽と月の影', () => {
       const page = await (await browser.newContext({ viewport: { width: 1280, height: 800 } })).newPage();
       await openShadow(page, query);
       await pillarScene(page, DAY);
+      // VOX-D: 2 つのページで 読みこんだ列が ちがうと 描く回数が 1 ずれる。外がわの輪まで そろえてから くらべる（#203）
+      await page.evaluate(() => (window as any).__rikkun.world.settle({ full: true }));
       if (off) {
         await page.evaluate(() => (window as any).__rikkun.shadow.set(false));
         await frames(page, 3); // tick は進めない（光の向きをかえない）

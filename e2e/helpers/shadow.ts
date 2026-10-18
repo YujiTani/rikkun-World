@@ -68,7 +68,8 @@ export async function flatGrass(page: Page, x0 = -4, z0 = -4, x1 = 28, z1 = 28):
 export async function settleLight(page: Page): Promise<void> {
   await page.evaluate(() => {
     const h = (window as any).__rikkun;
-    for (let i = 0; i < 400 && h.world.lightPending() > 0; i++) h.step(1);
+    // VOX-D: 光のあとに メッシュも そろえる（そろう前の作り直しが 影の地図の描き直しに まざらないよう。#203）
+    for (let i = 0; i < 400 && (h.world.lightPending() > 0 || h.world.meshStats().pending > 0); i++) h.step(1);
     h.step(2);
   });
 }
