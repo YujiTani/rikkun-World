@@ -3,7 +3,7 @@ import { LOOK_N, LOOK_VOLUME, fillBlockLook, hasLook, initLooks, occludes } from
 import { newSample, sampleSurface, type ColumnSource, type SurfaceSample } from '../../micro/microSurface';
 import { scanColumn, type ColumnInfo } from '../../micro/worldColumns';
 import { BLOCK_TYPES, isOpaqueIndex } from '../../blocks/blockTypes';
-import { OCC_BYTES, packOccupancy } from './ao';
+import { OCC_BYTES, OCC_NY, packOccupancy } from './ao';
 import { ROW_NONE, rowCodeOf, terrainKindOf } from './projection';
 import { OPACITY } from '../../light/opacity';
 import type { WorldLight } from '../../light/WorldLight';
@@ -204,6 +204,35 @@ export interface BuildOptions {
   hide?: (x: number, y: number, z: number) => boolean;
 }
 
+/** 面ごとの層の数（上下 = 17 ブロック、ほかは 16 ブロック。小ブロック数） */
+const NBLOCKS = [16, 17, 16];
+const LAYERS = [0, 1, 2, 3, 4, 5].map((f) => NBLOCKS[AXIS_OF[f]] * N);
+const G_BASE = N + N * S + N * SS;
+const perfNow = (): number => performance.now();
+
+// 段（続きから再開できる仕事。PERF-2）と、止めてよい 1 単位の大きさ
+const PH_IDLE = 0;
+const PH_BOX = 1;
+const PH_READ = 2;
+const PH_LIGHT2 = 3;
+const PH_SCAN = 4;
+const PH_SAMPLE = 5;
+const PH_EXPOSE = 6;
+const PH_FILL = 7;
+const PH_TFILL = 8;
+const PH_PLANES = 9;
+const PH_FINISH = 10;
+const PH_OCC = 11;
+const READ_ROWS = 3;
+const SCAN_ROWS = 2;
+const SAMPLE_ROWS = 8;
+const EXPOSE_ROWS = 3;
+/** 1 行に 地面が集まると 重いので、行では切らず ブロックの数で切る */
+const FILL_BLOCKS = 8;
+const TFILL_ROWS = 8;
+const PLANES_PER_STEP = 4;
+const OCC_ROWS = 8;
+
 /** edgeTy の「まだ調べていない」しるし */
 const EDGE_UNKNOWN = -2147483648;
 
@@ -258,6 +287,24 @@ export class SectionMesher {
     },
   };
 
+  // 続きから再開する仕事の状態（PERF-2）。途中の状態は インスタンスの中に持つ
+  private phase = PH_IDLE;
+  /** 段の中の続きの印（行・ブロックの番号・層・うまりの行） */
+  private cur = 0;
+  /** planes 段の面（0〜5）。層は cur */
+  private pf = 0;
+  private jcx = 0;
+  private jsy = 0;
+  private jcz = 0;
+  private jtier: MeshTier = 'micro';
+  private jopts: BuildOptions = {};
+  /** このセクションの高さに 小ブロック地形があるか（terrainScan で決まる） */
+  private terrain = false;
+  private scanAny = false;
+  /** できあがり（うまりを書いている途中のもの）と、返す前のもの */
+  private fin: SectionMeshData | null = null;
+  private out: SectionMeshData | null = null;
+
   constructor(
     private readonly world: ArrayVoxelWorld,
     private readonly light?: WorldLight,
@@ -270,97 +317,270 @@ export class SectionMesher {
     return i < 0 || j < 0 || i >= BW || j >= BW ? -1 : j * BW + i;
   }
 
+  // ------------------------------------------------------------ 続きから再開できる作り方（PERF-2）
+
+  /** 今までどおり（= start のあと 締め切りなしで 最後まで）。作る道は これ 1 本 */
   build(cx: number, sy: number, cz: number, tier: MeshTier, opts: BuildOptions = {}): SectionMeshData {
+    this.start(cx, sy, cz, tier, opts);
+    return this.resume(Infinity) as SectionMeshData;
+  }
+
+  /** 作り直しを始める（前の仕事が残っていれば 捨てる） */
+  start(cx: number, sy: number, cz: number, tier: MeshTier, opts: BuildOptions = {}): void {
     this.ox = cx * 16;
     this.oy = sy * 16;
     this.oz = cz * 16;
-    this.readBlocks();
-    this.readLight();
-    const b = this.builder;
-    b.reset();
-    if (tier === 'box') this.meshBox();
-    else this.meshMicro();
-    const pieces = b.finish();
-    const faces = b.faces;
-    const ex = meshSectionExtras(this.world, cx, sy, cz, this.light, opts.crops, opts.hide, tier === 'micro');
-    let triangles = ex.opaque.indices.length / 3 + ex.water.indices.length / 3;
-    for (const p of pieces) triangles += p.indices.length / 3;
-    let occupancy: Uint8Array | null = null;
-    if (tier === 'micro' && pieces.length > 0 && this.useMax >= 0) {
-      occupancy = new Uint8Array(OCC_BYTES);
-      packOccupancy(this.grid, S, N, this.useMin * N, (this.useMax + 1) * N, occupancy);
-    }
-    return { pieces, faces, extras: ex.opaque, water: ex.water, triangles, occupancy };
+    this.jcx = cx;
+    this.jsy = sy;
+    this.jcz = cz;
+    this.jtier = tier;
+    this.jopts = opts;
+    this.builder.reset();
+    this.cur = 0;
+    this.pf = 0;
+    this.terrain = false;
+    this.scanAny = false;
+    this.out = null;
+    this.fin = null;
+    this.phase = tier === 'box' ? PH_BOX : PH_READ;
   }
 
-  /** まわり 1 ブロックをふくむ 18³ のブロックの種類を写す（読みこんでいない・世界の底の下 = -1、世界の上 = 空気） */
-  private readBlocks(): void {
+  /** 途中の仕事を捨てる */
+  cancel(): void {
+    this.phase = PH_IDLE;
+    this.out = null;
+    this.fin = null;
+    this.jopts = {};
+  }
+
+  get busy(): boolean {
+    return this.phase !== PH_IDLE;
+  }
+
+  /**
+   * 締め切り（now() の値）まで進める。できたらデータ、まだなら null。少なくとも 1 単位は進める。
+   * 止める所は 各段の 数単位ごと（どこで止めても 出力は同じ）。box の段は 分けず 1 回で最後まで進む。deadline が Infinity なら 時計は見ない。
+   */
+  resume(deadline: number, now: () => number = perfNow): SectionMeshData | null {
+    if (this.phase === PH_IDLE) return null;
+    const timed = deadline !== Infinity;
+    for (;;) {
+      this.step();
+      if (this.phase === PH_IDLE) {
+        const o = this.out as SectionMeshData;
+        this.out = null;
+        return o;
+      }
+      if (timed && now() >= deadline) return null;
+    }
+  }
+
+  private step(): void {
+    switch (this.phase) {
+      case PH_BOX: {
+        for (let r = 0; r < BL; r++) this.readRow(r);
+        if (this.light) for (let r = 0; r < BL; r++) this.lightRow2(r);
+        else this.lightNone();
+        this.meshBox();
+        this.stepFinish();
+        break;
+      }
+      case PH_READ: {
+        const r1 = Math.min(this.cur + READ_ROWS, BL);
+        for (let r = this.cur; r < r1; r++) this.readRow(r);
+        this.cur = r1;
+        if (r1 < BL) break;
+        this.cur = 0;
+        if (this.light) this.phase = PH_LIGHT2;
+        else {
+          this.lightNone();
+          this.phase = PH_SCAN;
+        }
+        break;
+      }
+      case PH_LIGHT2: {
+        const r1 = Math.min(this.cur + READ_ROWS, BL);
+        for (let r = this.cur; r < r1; r++) this.lightRow2(r);
+        this.cur = r1;
+        if (r1 >= BL) {
+          this.cur = 0;
+          this.phase = PH_SCAN;
+        }
+        break;
+      }
+      case PH_SCAN: {
+        const j1 = Math.min(this.cur + SCAN_ROWS, BW);
+        this.scanRows(this.cur, j1);
+        this.cur = j1;
+        if (j1 < BW) break;
+        this.terrain = this.scanAny;
+        if (this.terrain) {
+          this.colH.fill(-1);
+          this.cur = N - 2;
+          this.phase = PH_SAMPLE;
+        } else {
+          this.beginExpose();
+          this.cur = 0;
+          this.phase = PH_EXPOSE;
+        }
+        break;
+      }
+      case PH_SAMPLE: {
+        const end = S - N + 2;
+        const g1 = Math.min(this.cur + SAMPLE_ROWS, end);
+        this.sampleRows(this.cur, g1);
+        this.cur = g1;
+        if (g1 >= end) {
+          this.beginExpose();
+          this.cur = 0;
+          this.phase = PH_EXPOSE;
+        }
+        break;
+      }
+      case PH_EXPOSE: {
+        const r1 = Math.min(this.cur + EXPOSE_ROWS, BL);
+        this.exposeRows(this.cur, r1);
+        this.cur = r1;
+        if (r1 >= BL) {
+          this.cur = 0;
+          this.phase = PH_FILL;
+        }
+        break;
+      }
+      case PH_FILL: {
+        const i1 = Math.min(this.cur + FILL_BLOCKS, CUBE);
+        this.fillBlocks(this.cur, i1);
+        this.cur = i1;
+        if (i1 >= CUBE) {
+          this.cur = 0;
+          this.phase = this.terrain ? PH_TFILL : PH_PLANES;
+        }
+        break;
+      }
+      case PH_TFILL: {
+        const g1 = Math.min(this.cur + TFILL_ROWS, S);
+        this.fillTerrainRows(this.cur, g1);
+        this.cur = g1;
+        if (g1 >= S) {
+          this.cur = 0;
+          this.phase = PH_PLANES;
+        }
+        break;
+      }
+      case PH_PLANES: {
+        for (let n = 0; n < PLANES_PER_STEP && this.pf < 6; n++) {
+          this.meshPlane(this.pf, this.cur);
+          if (++this.cur >= LAYERS[this.pf]) {
+            this.cur = 0;
+            this.pf++;
+          }
+        }
+        if (this.pf >= 6) this.phase = PH_FINISH;
+        break;
+      }
+      case PH_FINISH:
+        this.stepFinish();
+        break;
+      case PH_OCC: {
+        const t1 = Math.min(this.cur + OCC_ROWS, OCC_NY);
+        const fin = this.fin as SectionMeshData;
+        packOccupancy(this.grid, S, N, this.useMin * N, (this.useMax + 1) * N, fin.occupancy as Uint8Array, this.cur, t1);
+        this.cur = t1;
+        if (t1 >= OCC_NY) this.done(fin);
+        break;
+      }
+    }
+  }
+
+  private done(d: SectionMeshData): void {
+    this.out = d;
+    this.fin = null;
+    this.phase = PH_IDLE;
+  }
+
+  /** 四角を まとめ終え、絵・水を作る。小ブロックで面があれば「うまり」の段へ */
+  private stepFinish(): void {
+    const b = this.builder;
+    const o = this.jopts;
+    const micro = this.jtier === 'micro';
+    const pieces = b.finish();
+    const faces = b.faces;
+    const ex = meshSectionExtras(this.world, this.jcx, this.jsy, this.jcz, this.light, o.crops, o.hide, micro);
+    let triangles = ex.opaque.indices.length / 3 + ex.water.indices.length / 3;
+    for (const p of pieces) triangles += p.indices.length / 3;
+    const d: SectionMeshData = { pieces, faces, extras: ex.opaque, water: ex.water, triangles, occupancy: null };
+    if (micro && pieces.length > 0 && this.useMax >= 0) {
+      d.occupancy = new Uint8Array(OCC_BYTES);
+      this.fin = d;
+      this.cur = 0;
+      this.phase = PH_OCC;
+    } else this.done(d);
+  }
+
+  /** まわり 1 ブロックをふくむ 18³ のブロックの種類（行 byi。読みこんでいない・世界の底の下 = -1、世界の上 = 空気）と、ブロックごとの光の 1 まわり目 */
+  private readRow(byi: number): void {
     const w = this.world;
     const H = w.size.y;
     const bk = this.bk;
-    let i = 0;
-    for (let byi = 0; byi < BL; byi++) {
-      const wy = this.oy + byi - 1;
-      for (let bzi = 0; bzi < BL; bzi++) {
-        const wz = this.oz + bzi - 1;
-        for (let bxi = 0; bxi < BL; bxi++) {
-          bk[i++] = wy >= H ? 0 : w.getIndex(this.ox + bxi - 1, wy, wz);
+    const wy = this.oy + byi - 1;
+    const row0 = byi * BL * BL;
+    let i = row0;
+    for (let bzi = 0; bzi < BL; bzi++) {
+      const wz = this.oz + bzi - 1;
+      for (let bxi = 0; bxi < BL; bxi++) {
+        bk[i++] = wy >= H ? 0 : w.getIndex(this.ox + bxi - 1, wy, wz);
+      }
+    }
+    const { lg, lsky, lblk, light } = this;
+    if (!light) return;
+    i = row0;
+    for (let bzi = 0; bzi < BL; bzi++) {
+      const wz = this.oz + bzi - 1;
+      for (let bxi = 0; bxi < BL; bxi++, i++) {
+        const k = bk[i];
+        if (k < 0 || OPAQUE_LIGHT[k] === 1) {
+          lsky[i] = 0;
+          lblk[i] = 0;
+          lg[i] = 0;
+          continue;
         }
+        const v = light.packedAt(this.ox + bxi - 1, wy, wz);
+        lg[i] = v;
+        lsky[i] = v >> 4;
+        lblk[i] = v & 15;
       }
     }
   }
 
-  /** ブロックごとの光（面の前で読む）。光なしは 空 15・ブロック 0 */
-  private readLight(): void {
-    const { bk, lg, lsky, lblk, light } = this;
-    if (!light) {
-      lg.fill(0xf0);
-      lsky.fill(15);
-      lblk.fill(0);
-      return;
-    }
-    let i = 0;
-    for (let byi = 0; byi < BL; byi++) {
-      const wy = this.oy + byi - 1;
-      for (let bzi = 0; bzi < BL; bzi++) {
-        const wz = this.oz + bzi - 1;
-        for (let bxi = 0; bxi < BL; bxi++, i++) {
-          const k = bk[i];
-          if (k < 0 || OPAQUE_LIGHT[k] === 1) {
-            lsky[i] = 0;
-            lblk[i] = 0;
-            lg[i] = 0;
-            continue;
-          }
-          const v = light.packedAt(this.ox + bxi - 1, wy, wz);
-          lg[i] = v;
-          lsky[i] = v >> 4;
-          lblk[i] = v & 15;
+  /** 光なしは 空 15・ブロック 0 */
+  private lightNone(): void {
+    this.lg.fill(0xf0);
+    this.lsky.fill(15);
+    this.lblk.fill(0);
+  }
+
+  /** 光を通さないマス（行 byi）: まわり 6 つのうち光のあるマスの 空・ブロックそれぞれの大きいほう（光の 1 まわり目が ぜんぶ終わってから） */
+  private lightRow2(byi: number): void {
+    const { bk, lg, lsky, lblk } = this;
+    let i = byi * BL * BL;
+    for (let bzi = 0; bzi < BL; bzi++) {
+      for (let bxi = 0; bxi < BL; bxi++, i++) {
+        const k = bk[i];
+        if (k >= 0 && OPAQUE_LIGHT[k] === 0) continue;
+        let s = 0;
+        let bl = 0;
+        for (let f = 0; f < 6; f++) {
+          const nx = bxi + DIR[f][0];
+          const ny = byi + DIR[f][1];
+          const nz = bzi + DIR[f][2];
+          if (nx < 0 || ny < 0 || nz < 0 || nx >= BL || ny >= BL || nz >= BL) continue;
+          const j = (ny * BL + nz) * BL + nx;
+          const nk = bk[j];
+          if (nk < 0 || OPAQUE_LIGHT[nk] === 1) continue;
+          if (lsky[j] > s) s = lsky[j];
+          if (lblk[j] > bl) bl = lblk[j];
         }
-      }
-    }
-    // 光を通さないマス: まわり 6 つのうち光のあるマスの 空・ブロックそれぞれの大きいほう
-    i = 0;
-    for (let byi = 0; byi < BL; byi++) {
-      for (let bzi = 0; bzi < BL; bzi++) {
-        for (let bxi = 0; bxi < BL; bxi++, i++) {
-          const k = bk[i];
-          if (k >= 0 && OPAQUE_LIGHT[k] === 0) continue;
-          let s = 0;
-          let bl = 0;
-          for (let f = 0; f < 6; f++) {
-            const nx = bxi + DIR[f][0];
-            const ny = byi + DIR[f][1];
-            const nz = bzi + DIR[f][2];
-            if (nx < 0 || ny < 0 || nz < 0 || nx >= BL || ny >= BL || nz >= BL) continue;
-            const j = (ny * BL + nz) * BL + nx;
-            const nk = bk[j];
-            if (nk < 0 || OPAQUE_LIGHT[nk] === 1) continue;
-            if (lsky[j] > s) s = lsky[j];
-            if (lblk[j] > bl) bl = lblk[j];
-          }
-          lg[i] = (s << 4) | bl;
-        }
+        lg[i] = (s << 4) | bl;
       }
     }
   }
@@ -458,15 +678,18 @@ export class SectionMesher {
     this.kinds[ai] = k;
   }
 
-  /** 小ブロックの形で 格子と active をうめる（micro）。terrain: 地面の列を調べたか */
-  private fillGrid(terrain: boolean): void {
+  /** 見える面の印（fillGrid の 1.）の はじめ: 前の格子を消す */
+  private beginExpose(): void {
     this.clearGrid();
-    const { bk, expo } = this;
-    const scratch = this.scratch;
-    // 1. 見える面の印
     this.gap.fill(0);
-    let i = 0;
-    for (let byi = 0; byi < BL; byi++) {
+  }
+
+  /** 見える面の印（fillGrid の 1.）: ブロックの行 byi0 〜 byi1 の手前 */
+  private exposeRows(byi0: number, byi1: number): void {
+    const { bk, expo } = this;
+    const terrain = this.terrain;
+    let i = byi0 * BL * BL;
+    for (let byi = byi0; byi < byi1; byi++) {
       for (let bzi = 0; bzi < BL; bzi++) {
         for (let bxi = 0; bxi < BL; bxi++, i++) {
           const k = bk[i];
@@ -501,68 +724,71 @@ export class SectionMesher {
         }
       }
     }
-    // 2. 形をうめる
-    i = 0;
-    for (let byi = 0; byi < BL; byi++) {
-      for (let bzi = 0; bzi < BL; bzi++) {
-        for (let bxi = 0; bxi < BL; bxi++, i++) {
-          const k = bk[i];
-          if (k === 0) continue;
-          const gx = bxi * N;
-          const gy = byi * N;
-          const gz = bzi * N;
-          if (k < 0) {
-            if (this.adjacentActive(bxi, byi, bzi)) {
-              this.fillSolid(gx, gy, gz);
-              this.markRows(byi, byi);
-            }
-            continue;
-          }
-          if (terrain && this.colTy[(bzi - 1 + 2) * BW + (bxi - 1 + 2)] === this.oy + byi - 1) continue;
-          const e = expo[i];
-          if (this.gap[i] === 1) {
-            this.fillSolid(gx, gy, gz);
-            this.markRows(byi, byi);
-            if (bxi >= 1 && bxi <= 16 && byi >= 1 && byi <= 16 && bzi >= 1 && bzi <= 16) {
-              const ai = ((byi - 1) * 16 + (bzi - 1)) * 16 + (bxi - 1);
-              this.active[ai] = 1;
-              this.kinds[ai] = k;
-            }
-            continue;
-          }
-          if (!hasLook(k) || e === 0) {
-            if (OCC[k] === 1 && this.adjacentActive(bxi, byi, bzi)) {
-              this.fillSolid(gx, gy, gz);
-              this.markRows(byi, byi);
-              if (terrain && this.besideSurface(bxi, byi, bzi)) this.flatActive(bxi, byi, bzi, k);
-            }
-            continue;
-          }
-          const wx = this.ox + bxi - 1;
-          const wy = this.oy + byi - 1;
-          const wz = this.oz + bzi - 1;
-          fillBlockLook(k, wx, wy, wz, e, scratch);
-          this.copyBlock(scratch, gx, gy, gz);
+  }
+
+  /** 形をうめる（fillGrid の 2.）: ブロック i0 〜 i1 の手前（番号 = (byi * BL + bzi) * BL + bxi） */
+  private fillBlocks(i0: number, i1: number): void {
+    const { bk, expo } = this;
+    const terrain = this.terrain;
+    const scratch = this.scratch;
+    for (let i = i0; i < i1; i++) {
+      const k = bk[i];
+      if (k === 0) continue;
+      const bxi = i % BL;
+      const bzi = ((i / BL) | 0) % BL;
+      const byi = (i / (BL * BL)) | 0;
+      const gx = bxi * N;
+      const gy = byi * N;
+      const gz = bzi * N;
+      if (k < 0) {
+        if (this.adjacentActive(bxi, byi, bzi)) {
+          this.fillSolid(gx, gy, gz);
           this.markRows(byi, byi);
-          if (bxi >= 1 && bxi <= 16 && byi >= 1 && byi <= 16 && bzi >= 1 && bzi <= 16) {
-            const ai = ((byi - 1) * 16 + (bzi - 1)) * 16 + (bxi - 1);
-            this.active[ai] = 1;
-            this.kinds[ai] = k;
-          }
         }
+        continue;
+      }
+      if (terrain && this.colTy[(bzi - 1 + 2) * BW + (bxi - 1 + 2)] === this.oy + byi - 1) continue;
+      const e = expo[i];
+      if (this.gap[i] === 1) {
+        this.fillSolid(gx, gy, gz);
+        this.markRows(byi, byi);
+        if (bxi >= 1 && bxi <= 16 && byi >= 1 && byi <= 16 && bzi >= 1 && bzi <= 16) {
+          const ai = ((byi - 1) * 16 + (bzi - 1)) * 16 + (bxi - 1);
+          this.active[ai] = 1;
+          this.kinds[ai] = k;
+        }
+        continue;
+      }
+      if (!hasLook(k) || e === 0) {
+        if (OCC[k] === 1 && this.adjacentActive(bxi, byi, bzi)) {
+          this.fillSolid(gx, gy, gz);
+          this.markRows(byi, byi);
+          if (terrain && this.besideSurface(bxi, byi, bzi)) this.flatActive(bxi, byi, bzi, k);
+        }
+        continue;
+      }
+      const wx = this.ox + bxi - 1;
+      const wy = this.oy + byi - 1;
+      const wz = this.oz + bzi - 1;
+      fillBlockLook(k, wx, wy, wz, e, scratch);
+      this.copyBlock(scratch, gx, gy, gz);
+      this.markRows(byi, byi);
+      if (bxi >= 1 && bxi <= 16 && byi >= 1 && byi <= 16 && bzi >= 1 && bzi <= 16) {
+        const ai = ((byi - 1) * 16 + (bzi - 1)) * 16 + (bxi - 1);
+        this.active[ai] = 1;
+        this.kinds[ai] = k;
       }
     }
   }
 
   // ------------------------------------------------------------ 小ブロック地形
 
-  /** まわりの列を調べる。このセクションの高さ（上下 1 ブロック）に 地面があれば true */
-  private prepareTerrain(): boolean {
+  /** まわりの列を調べる（行 j0 〜 j1 の手前）。このセクションの高さ（上下 1 ブロック）に 地面があれば scanAny が true になる */
+  private scanRows(j0: number, j1: number): void {
     const info = this.colInfo;
-    let any = false;
     const lo = this.oy - 1;
     const hi = this.oy + 16;
-    for (let j = 0; j < BW; j++) {
+    for (let j = j0; j < j1; j++) {
       for (let i = 0; i < BW; i++) {
         scanColumn(this.world, this.ox + i - 2, this.oz + j - 2, info);
         const k = j * BW + i;
@@ -570,19 +796,17 @@ export class SectionMesher {
         this.colKind[k] = info.kind;
         this.colReach[k] = info.reach;
         this.colRock[k] = info.rockOk ? 1 : 0;
-        if (info.ty >= lo && info.ty <= hi && i >= 1 && i < BW - 1 && j >= 1 && j < BW - 1) any = true;
+        if (info.ty >= lo && info.ty <= hi && i >= 1 && i < BW - 1 && j >= 1 && j < BW - 1) this.scanAny = true;
       }
     }
-    return any;
   }
 
-  private sampleTerrain(): void {
+  /** 面を作るのは 自分の 144×144 と、そのまわり 1 マス（となりの有無）。高さの比べは 2 マス先まで読む。行 gz0 〜 gz1 の手前 */
+  private sampleRows(gz0: number, gz1: number): void {
     const s = this.sample;
     const mx0 = this.ox * N - N;
     const mz0 = this.oz * N - N;
-    this.colH.fill(-1);
-    // 面を作るのは 自分の 144×144 と、そのまわり 1 マス（となりの有無）。高さの比べは 2 マス先まで読む
-    for (let gz = N - 2; gz < S - N + 2; gz++) {
+    for (let gz = gz0; gz < gz1; gz++) {
       for (let gx = N - 2; gx < S - N + 2; gx++) {
         sampleSurface(mx0 + gx, mz0 + gz, this.colSrc, s);
         const gi = gz * S + gx;
@@ -609,14 +833,14 @@ export class SectionMesher {
   }
 
   /** 小ブロック地形を格子に書く。自分の列で 地面が このセクションにあるものだけ 面を作る（flag つき） */
-  private fillTerrain(): void {
+  private fillTerrainRows(gz0: number, gz1: number): void {
     const grid = this.grid;
     const tf = this.tflag;
     const mx0 = this.ox * N - N;
     const mz0 = this.oz * N - N;
     const colH = this.colH;
     const rowBase = (this.oy - 1) * N;
-    for (let gz = 0; gz < S; gz++) {
+    for (let gz = gz0; gz < gz1; gz++) {
       const bzl = Math.floor(gz / N) - 1;
       for (let gx = 0; gx < S; gx++) {
         const bxl = Math.floor(gx / N) - 1;
@@ -678,132 +902,121 @@ export class SectionMesher {
 
   // ------------------------------------------------------------ micro（greedyShape）
 
-  private meshMicro(): void {
-    const terrain = this.prepareTerrain();
-    if (terrain) this.sampleTerrain();
-    this.fillGrid(terrain);
-    if (terrain) this.fillTerrain();
+  /** 面 f・層 l の 1 平面を 四角にまとめて builder に足す。mask は 使い切って 0 に戻るので 平面どうしは 独立 */
+  private meshPlane(f: number, l: number): void {
     const g = this.grid;
     const tf = this.tflag;
     const b = this.builder;
     const mask = this.mask;
     const lg = this.lg;
-    const gBase = N + N * S + N * SS;
-    const nBlocks = [16, 17, 16];
-    const origin = [0, 0, 0];
-    for (let f = 0; f < 6; f++) {
-      const ax = AXIS_OF[f];
-      const plus = (f & 1) === 0;
-      const uAx = ax === 0 ? 2 : 0;
-      const vAx = ax === 1 ? 2 : 1;
-      const nUb = nBlocks[uAx];
-      const nVb = nBlocks[vAx];
-      const L = nBlocks[ax] * N;
-      const uStep = GSTRIDE[uAx];
-      const vStep = GSTRIDE[vAx];
-      const lStep = GSTRIDE[ax];
-      const off = NEIGHBOR_OFF[f];
-      const widthU = nUb * N;
-      const sizeV = nVb * N;
-      const dx = DIR[f][0];
-      const dy = DIR[f][1];
-      const dz = DIR[f][2];
-      for (let l = 0; l < L; l++) {
-        const lb = (l / N) | 0;
-        const li = l - lb * N;
-        const edge = plus ? li === N - 1 : li === 0;
-        let minU = 99;
-        let maxU = -1;
-        let minV = 99;
-        let maxV = -1;
-        for (let vb = 0; vb < nVb; vb++) {
-          for (let ub = 0; ub < nUb; ub++) {
-            let bX: number;
-            let bY: number;
-            let bZ: number;
-            if (ax === 1) {
-              bX = ub;
-              bY = lb;
-              bZ = vb;
-            } else if (ax === 0) {
-              bX = lb;
-              bY = vb;
-              bZ = ub;
-            } else {
-              bX = ub;
-              bY = vb;
-              bZ = lb;
-            }
-            const bi = (bY * 16 + bZ) * 16 + bX;
-            if (!this.active[bi]) continue;
-            const key = this.kinds[bi];
-            const ci = ((bY + 1) * BL + (bZ + 1)) * BL + (bX + 1);
-            let lightB = lg[ci];
-            if (edge) {
-              const nx = bX + 1 + dx;
-              const ny = Math.min(bY + 1 + dy, BL - 1);
-              const nz = bZ + 1 + dz;
-              lightB = lg[(ny * BL + nz) * BL + nx];
-            }
-            const lk = lightB << 14;
-            let touched = false;
-            for (let vi = 0; vi < N; vi++) {
-              const lv = vb * N + vi;
-              for (let ui = 0; ui < N; ui++) {
-                const lu = ub * N + ui;
-                const idx = gBase + lu * uStep + lv * vStep + l * lStep;
-                if (g[idx] === 0) continue;
-                if (f === 0) {
-                  if (l + 1 < ROWS_ALL && g[idx + off] !== 0) continue;
-                } else if (g[idx + off] !== 0) continue;
-                const t = tf[idx];
-                // 地形のマス: 種類 + 行の符号（上下の面は 行を使わない）。形のマス: ブロックの種類
-                mask[lv * widthU + lu] = (t !== 0 ? (t & 63) | ((f < 2 ? ROW_NONE : t >> 6) << 6) : key | (ROW_NONE << 6)) | lk;
-                touched = true;
-              }
-            }
-            if (touched) {
-              if (ub < minU) minU = ub;
-              if (ub > maxU) maxU = ub;
-              if (vb < minV) minV = vb;
-              if (vb > maxV) maxV = vb;
-            }
+    const ax = AXIS_OF[f];
+    const plus = (f & 1) === 0;
+    const uAx = ax === 0 ? 2 : 0;
+    const vAx = ax === 1 ? 2 : 1;
+    const nUb = NBLOCKS[uAx];
+    const nVb = NBLOCKS[vAx];
+    const uStep = GSTRIDE[uAx];
+    const vStep = GSTRIDE[vAx];
+    const lStep = GSTRIDE[ax];
+    const off = NEIGHBOR_OFF[f];
+    const widthU = nUb * N;
+    const sizeV = nVb * N;
+    const dx = DIR[f][0];
+    const dy = DIR[f][1];
+    const dz = DIR[f][2];
+    const lb = (l / N) | 0;
+    const li = l - lb * N;
+    const edge = plus ? li === N - 1 : li === 0;
+    let minU = 99;
+    let maxU = -1;
+    let minV = 99;
+    let maxV = -1;
+    for (let vb = 0; vb < nVb; vb++) {
+      for (let ub = 0; ub < nUb; ub++) {
+        let bX: number;
+        let bY: number;
+        let bZ: number;
+        if (ax === 1) {
+          bX = ub;
+          bY = lb;
+          bZ = vb;
+        } else if (ax === 0) {
+          bX = lb;
+          bY = vb;
+          bZ = ub;
+        } else {
+          bX = ub;
+          bY = vb;
+          bZ = lb;
+        }
+        const bi = (bY * 16 + bZ) * 16 + bX;
+        if (!this.active[bi]) continue;
+        const key = this.kinds[bi];
+        const ci = ((bY + 1) * BL + (bZ + 1)) * BL + (bX + 1);
+        let lightB = lg[ci];
+        if (edge) {
+          const nx = bX + 1 + dx;
+          const ny = Math.min(bY + 1 + dy, BL - 1);
+          const nz = bZ + 1 + dz;
+          lightB = lg[(ny * BL + nz) * BL + nx];
+        }
+        const lk = lightB << 14;
+        let touched = false;
+        for (let vi = 0; vi < N; vi++) {
+          const lv = vb * N + vi;
+          for (let ui = 0; ui < N; ui++) {
+            const lu = ub * N + ui;
+            const idx = G_BASE + lu * uStep + lv * vStep + l * lStep;
+            if (g[idx] === 0) continue;
+            if (f === 0) {
+              if (l + 1 < ROWS_ALL && g[idx + off] !== 0) continue;
+            } else if (g[idx + off] !== 0) continue;
+            const t = tf[idx];
+            // 地形のマス: 種類 + 行の符号（上下の面は 行を使わない）。形のマス: ブロックの種類
+            mask[lv * widthU + lu] = (t !== 0 ? (t & 63) | ((f < 2 ? ROW_NONE : t >> 6) << 6) : key | (ROW_NONE << 6)) | lk;
+            touched = true;
           }
         }
-        if (maxU < 0) continue;
-        const uLo = minU * N;
-        const uHi = (maxU + 1) * N;
-        const vLo = minV * N;
-        const vHi = Math.min((maxV + 1) * N, sizeV);
-        const plane = origin[ax] + l + (plus ? 1 : 0);
-        for (let v = vLo; v < vHi; v++) {
-          for (let u = uLo; u < uHi; u++) {
-            const k = mask[v * widthU + u];
-            if (k === 0) continue;
-            let w = 1;
-            while (u + w < uHi && mask[v * widthU + u + w] === k) w++;
-            let h = 1;
-            outer: while (v + h < vHi) {
-              const row = (v + h) * widthU + u;
-              for (let i = 0; i < w; i++) if (mask[row + i] !== k) break outer;
-              h++;
-            }
-            for (let dv = 0; dv < h; dv++) mask.fill(0, (v + dv) * widthU + u, (v + dv) * widthU + u + w);
-            const lo = [0, 0, 0];
-            const hi = [0, 0, 0];
-            lo[ax] = plane;
-            hi[ax] = plane;
-            lo[uAx] = origin[uAx] + u;
-            hi[uAx] = origin[uAx] + u + w;
-            lo[vAx] = origin[vAx] + v;
-            hi[vAx] = origin[vAx] + v + h;
-            const lbyte = (k >> 14) & 255;
-            const sky = (lbyte >> 4) * 17;
-            const blk = (lbyte & 15) * 17;
-            const base = k & 0x3fff;
-            b.quad(f, lo[0], hi[0], lo[1], hi[1], lo[2], hi[2], base & 63, base >> 6, 0, 0, sky, blk, null);
-          }
+        if (touched) {
+          if (ub < minU) minU = ub;
+          if (ub > maxU) maxU = ub;
+          if (vb < minV) minV = vb;
+          if (vb > maxV) maxV = vb;
         }
+      }
+    }
+    if (maxU < 0) return;
+    const uLo = minU * N;
+    const uHi = (maxU + 1) * N;
+    const vLo = minV * N;
+    const vHi = Math.min((maxV + 1) * N, sizeV);
+    const plane = l + (plus ? 1 : 0);
+    for (let v = vLo; v < vHi; v++) {
+      for (let u = uLo; u < uHi; u++) {
+        const k = mask[v * widthU + u];
+        if (k === 0) continue;
+        let w = 1;
+        while (u + w < uHi && mask[v * widthU + u + w] === k) w++;
+        let h = 1;
+        outer: while (v + h < vHi) {
+          const row = (v + h) * widthU + u;
+          for (let i = 0; i < w; i++) if (mask[row + i] !== k) break outer;
+          h++;
+        }
+        for (let dv = 0; dv < h; dv++) mask.fill(0, (v + dv) * widthU + u, (v + dv) * widthU + u + w);
+        const lo = [0, 0, 0];
+        const hi = [0, 0, 0];
+        lo[ax] = plane;
+        hi[ax] = plane;
+        lo[uAx] = u;
+        hi[uAx] = u + w;
+        lo[vAx] = v;
+        hi[vAx] = v + h;
+        const lbyte = (k >> 14) & 255;
+        const sky = (lbyte >> 4) * 17;
+        const blk = (lbyte & 15) * 17;
+        const base = k & 0x3fff;
+        b.quad(f, lo[0], hi[0], lo[1], hi[1], lo[2], hi[2], base & 63, base >> 6, 0, 0, sky, blk, null);
       }
     }
   }
