@@ -453,7 +453,7 @@ test.describe('TEX-A', () => {
     await quiet(page);
     const means: Record<string, Rgb> = {};
     let fogRgb: Rgb = [143, 211, 255];
-    for (const [tier, x] of [['micro', 38], ['box', 66], ['lod', 82]] as const) {
+    for (const [tier, x] of [['micro', 38], ['box', 70], ['lod', 90]] as const) {
       await stage(page, { x: 27, y: FY + 15, z: 53 }, { dx: x - 27.5, dz: 0, py: FY + 13, pitch: 0, off: 30 });
       await page.evaluate(() => (window as any).__rikkun.step(1));
       const t = await page.evaluate((fy) => (window as any).__rikkun.world.sectionInfo(1, Math.floor((fy + 15) / 16), 3).tier as string, FY);
@@ -549,6 +549,7 @@ test.describe('TEX-A', () => {
     for (const [dx, dz] of [[-34, -34], [34, -34], [34, 34]]) {
       await setPoseSettled(page, sp.x + dx, sp.y + 30, sp.z + dz, 45, -30);
       const t = await stats(page);
+      console.log('AC12 high', dx, dz, JSON.stringify(t));
       expect(t.triangles, `(${dx}, ${dz}) の三角形`).toBeLessThanOrEqual(1_200_000);
       expect(t.drawCalls, `(${dx}, ${dz}) の描画回数`).toBeLessThanOrEqual(700);
     }

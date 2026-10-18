@@ -194,8 +194,8 @@ test.describe('M5 広い世界', () => {
         h.step(2);
       };
       await settle();
-      // 描く距離は 見ている人 = カメラの位置から（三人称だけになり、カメラは キャラの 4 うしろ）
-      const cam = () => h.camera.get().position;
+      // 描く距離は プレイヤー（キャラ）の位置から測る（PERF-1, #200）
+      const cam = () => h.player.get().position;
       out.start = { stats: h.render.chunks(), calc: calc(cam().x, cam().z), at: h.player.get().position };
       for (const [name, dx, dz] of [['nw', -100, -100], ['se', 100, 100], ['ne', 100, -100]] as const) {
         const x = Math.floor(spawn.x) + dx + 0.5;
