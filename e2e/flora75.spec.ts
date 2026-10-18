@@ -178,7 +178,8 @@ test.describe('#75 くさ・のばな・間隔のきまり', () => {
       expect(s.drawCalls - golden.countries[k]!.drawCalls, `${k}: 描画回数の ふえ`).toBeLessThanOrEqual(25);
       const before = golden.countries[k]!.triangles;
       expect(s.triangles - before, `${k}: 三角形の ふえ（前 ${before}）`).toBeLessThanOrEqual(36_864);
-      if (before <= 903_036) expect(s.triangles, `${k}: 1 コマの三角形 ${JSON.stringify(worst)}`).toBeLessThanOrEqual(903_036);
+      // #219: もみじやま も 上限の中に入ったので、3 国とも 903,036 を見る
+      expect(s.triangles, `${k}: 1 コマの三角形 ${JSON.stringify(worst)}`).toBeLessThanOrEqual(903_036);
     }
   });
 
