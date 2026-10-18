@@ -14,9 +14,9 @@ const KATANA_SET = ['katana_thrust', 'katana_kesa', 'katana_kiriage', 'katana_wa
 const BOW_SET = ['bow_shot', 'bow_hold_walk', 'bow_walk', 'bow_rapid'];
 // 仕様書 第 2 版 §4.7 の「本当の値」（切りつめた PNG の よこ × たて の合計）。上限 64 MiB
 const BASE_BYTES = 12_863_488; // はじめの 4 つ
-const KATANA_BYTES = 31_672_320; // 刀の組 6 まい（はじめ ＋ 刀 = 44,535,808）
+const KATANA_BYTES = 30_404_608; // 刀の組 6 まい（新しい絵 kesa2・kiriage2。はじめ ＋ 刀 = 43,268,096）
 const BOW_BYTES = 18_585_600; // 弓の組 4 まい（はじめ ＋ 弓 = 31,449,088）
-const ALL_BYTES = 63_121_408; // ぜんぶ 14 まい
+const ALL_BYTES = 61_853_696; // ぜんぶ 14 まい
 const LIMIT_BYTES = 67_108_864;
 
 /** 絵の 時間割（仕様書 §4.2・§4.3 の `ticks`）。大けさぎりの 絵は 作りなおし中なので、決め打ちせず atlas.json から 読む */

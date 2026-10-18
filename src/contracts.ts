@@ -1804,8 +1804,8 @@ export const W2_SETTING_DEFAULTS: Readonly<W2Settings> = {
   bladeMoveMul: { thrust: 0, kesaStartupActive: 0, kesaRecovery: 0, kiriage: 0 },
   bladeAdvance: {
     thrust: { ticks: [2, 2, 1, 1, 3, 11, 4, 4, 4, 4, 5], advance: [0, 0.08, 0.255, 0.26, 0.29, 0.32, 0.285, 0.241, 0.16, 0.073, 0.002], step: 0 },
-    kesa: { ticks: [8, 7, 4, 4, 5, 2, 2, 2, 5, 28, 8, 8, 8, 8, 7], advance: [0, 0, 0.02, 0.04, 0.08, 0.4, 1.4, 2.4, 3.1, 3.1, 3.1, 3.1, 3.1, 3.1, 3.1], step: 3.1 },
-    kiriage: { ticks: [5, 5, 5, 5, 5, 5, 4, 4, 2, 1, 2, 8, 27, 6, 6, 6, 4, 4], advance: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], step: 0 },
+    kesa: { ticks: [4, 4, 6, 5, 4, 5, 2, 2, 2, 5, 28, 8, 8, 8, 8, 7], advance: [0, 0, 0, 0.02, 0.04, 0.08, 0.4, 1.4, 2.4, 3.1, 3.1, 3.1, 3.1, 3.1, 3.1, 3.1], step: 3.1 },
+    kiriage: { ticks: [3, 4, 6, 3, 3, 1, 2, 7, 6, 5, 4, 4, 4], advance: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], step: 0 },
   },
   bladeAimReach: 4.5,
   bladeReach: { bokuto: 2.2, katana: 2.2, crystal_katana: 2.2 },
@@ -1875,7 +1875,7 @@ export const W2_SETTING_DEFAULTS: Readonly<W2Settings> = {
     starAt: [0.25, 0.55, 0.85],
     starMaxAge: 8.55,
   },
-  bladeTrailWindow: { thrust: [2, 6], kesa: [28, 34], kiriage: [38, 43] },
+  bladeTrailWindow: { thrust: [2, 6], kesa: [28, 34], kiriage: [19, 22] },
 };
 
 /** 設定の 入れ物を作る（毎回 ふかい コピー。つなぎ込みが `createSettingsHook` の extras に渡す） */

@@ -331,5 +331,8 @@ test.describe('WEAPON-4 通し', () => {
     await toStance(page, 'jodan');
     const s = await fire(page, 34);
     expect(s[33]!.trail.points.map((p) => p.step)).toEqual(range(28, 34));
+    // 後半: さいごの 点の 刃先は 1 つ目より u（北 = −z）の方へ 2.0 以上 前（とびこみの 残像）
+    const pts = s[33]!.trail.points;
+    expect(pts[0]!.tip.z - pts[6]!.tip.z).toBeGreaterThanOrEqual(2.0);
   });
 });

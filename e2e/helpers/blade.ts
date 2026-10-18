@@ -60,7 +60,7 @@ const PATH = JSON.parse(readFileSync('art/char-sheets/blade_path.json', 'utf8'))
 const PATH_KEY: Record<BladeTechName, string> = { thrust: 'katana_thrust', kesa: 'katana_kesa', kiriage: 'katana_kiriage' };
 
 /** 書く時間（絵の時 τ。仕様書 §4.2） */
-export const DRAW_TAU: Record<BladeTechName, [number, number]> = { thrust: [2, 6], kesa: [28, 34], kiriage: [38, 43] };
+export const DRAW_TAU: Record<BladeTechName, [number, number]> = { thrust: [2, 6], kesa: [28, 34], kiriage: [19, 22] };
 
 export const range = (a: number, b: number): number[] => Array.from({ length: b - a + 1 }, (_, i) => a + i);
 

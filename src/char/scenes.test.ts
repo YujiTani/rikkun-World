@@ -157,17 +157,17 @@ describe('AC4 わざのコマ', () => {
 });
 
 describe('AC5 設定の長さが ちがうとき', () => {
-  it('切り上げ 2/1/3: 出だし 0〜7・当たり 8〜10・もどり 11〜17 で 前以上', () => {
+  it('切り上げ 2/1/3: 出だし 0〜4・当たり 5〜6・もどり 7〜12（新しい絵 13 コマ） で 前以上', () => {
     const lengths = { startup: 2, active: 1, recovery: 3 };
     const cells: number[] = [];
     for (let f = 1; f <= 6; f++) cells.push(techCell(TECH_CURVES.kiriage, TECH_PHASES.kiriage, lengths, f));
     expect(cells[0]).toBeGreaterThanOrEqual(0);
-    expect(cells[1]).toBeLessThanOrEqual(7);
-    expect(cells[2]).toBeGreaterThanOrEqual(8);
-    expect(cells[2]).toBeLessThanOrEqual(10);
+    expect(cells[1]).toBeLessThanOrEqual(4);
+    expect(cells[2]).toBeGreaterThanOrEqual(5);
+    expect(cells[2]).toBeLessThanOrEqual(6);
     for (const c of cells.slice(3)) {
-      expect(c).toBeGreaterThanOrEqual(11);
-      expect(c).toBeLessThanOrEqual(17);
+      expect(c).toBeGreaterThanOrEqual(7);
+      expect(c).toBeLessThanOrEqual(12);
     }
     for (let i = 1; i < cells.length; i++) expect(cells[i]!).toBeGreaterThanOrEqual(cells[i - 1]!);
     // MotionMachine も 同じ

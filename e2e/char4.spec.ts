@@ -90,7 +90,8 @@ test.describe('CHAR-4 通し', () => {
     expect(f34.points).toHaveLength(7);
     expect(f34.points.map((p) => p.step)).toEqual(range(28, 34));
     expect(f34.points.map((p) => p.tau)).toEqual(range(28, 34));
-    // （各点の 刃先・つばが 「体の 位置 ＋ k × データ」かは、大けさぎりの 絵が 作りなおされたあとで 確かめる。台帳 WEAPON-4）
+    // 各点の 刃先・つばは 「そのステップの 体の 位置 ＋ k × データ」（新しい絵 kesa2 で 復活。台帳 G7）
+    expect(maxPointError(rec, 'kesa', rec[0]!.dir!, await bladeScale(page)).err).toBeLessThanOrEqual(0.01);
     // WEAPON-4: 体が とびこむので、点は そのステップの 体の 位置に 置かれて 前へ のびる
     expect(f34.points.every((p) => Number.isFinite(p.tip.x) && Number.isFinite(p.tip.z))).toBe(true);
     // 軌跡は 1 本・三角形 288 以下
@@ -187,7 +188,8 @@ test.describe('CHAR-4 通し', () => {
       const near = Math.min(...f42.stars.map((st) => dist(tip, st)));
       expect(near, `q = ${q} の 区切りの 刃先から 0.05 以内に 星`).toBeLessThanOrEqual(0.05);
     }
-    // （刃先の 位置の くらべは 切り上げの 絵が 作りなおされたあとで）
+    // 刃先・つばの 位置は 体 ＋ k × データ（新しい絵 kiriage2 で 復活。台帳 G7）
+    expect(maxPointError(rec, 'kiriage', rec[0]!.dir!, await bladeScale(page)).err).toBeLessThanOrEqual(0.01);
     // 星 3 こ込みで 物 2 以下・三角形 360 以下
     expectCheap(rec, 2, 360);
     // 軌跡が 消えたら 星も ない

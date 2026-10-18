@@ -45,12 +45,13 @@ describe('techCell（§4.2 の コマ）', () => {
     expect(cells[n - 1]).toBeGreaterThan(cells[len.startup + len.active - 1]!); // もどりの おわりは 当たりより あと
     for (let i = 1; i < n; i++) expect(cells[i]).toBeGreaterThanOrEqual(cells[i - 1]!);
   });
-  // 仕様書 §4.6 の 表。今の 絵（38/5/61・18 コマ）を 前提に した 数なので、切り上げの 絵が 作りなおされたら 外す（絵の あとで）
-  const oldArt = P.kiriage.startup === 38 && P.kiriage.active === 5 && P.kiriage.recovery === 61;
-  it.runIf(oldArt)('WEAPON-4 AC6: 切り上げ 19/3/30 → F1→0・F19→7・F20→8・F22→10・F23→11・F52→17（今の絵）', () => {
+  // 仕様書 §4.6 の 表は 旧い絵（18 コマ）の 数。新しい絵（13 コマ・ticks 3,4,6,3,3,1,2,7,6,5,4,4,4・長さ 19/3/30）では 長さが 設定と 同じなので コマ = ticks の 区切り
+  it('WEAPON-4 AC6: 切り上げ（新しい絵 13 コマ）→ F1→0・F19→4・F20→5・F22→6・F23→7・F52→12', () => {
     const len = { startup: 19, active: 3, recovery: 30 };
+    expect(P.kiriage).toEqual(len);
+    expect(S.bladeAdvance.kiriage.ticks).toHaveLength(13);
     const c = (f: number) => techCell(S.bladeAdvance.kiriage, P.kiriage, len, f);
-    expect([c(1), c(19), c(20), c(22), c(23), c(52)]).toEqual([0, 7, 8, 10, 11, 17]);
+    expect([c(1), c(19), c(20), c(22), c(23), c(52)]).toEqual([0, 4, 5, 6, 7, 12]);
   });
 });
 

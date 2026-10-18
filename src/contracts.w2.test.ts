@@ -35,9 +35,9 @@ describe('WEAPON-2 contracts', () => {
       expect(adv[t]!.ticks, `${t} の ticks は 絵と 同じ`).toEqual(atlas.motions[motionOf[t]].ticks);
     }
     expect(adv.thrust).toMatchObject({ advance: atlas.motions.katana_thrust.advance, step: atlas.motions.katana_thrust.step });
-    expect(adv.kesa!.advance).toEqual([0, 0, 0.02, 0.04, 0.08, 0.4, 1.4, 2.4, 3.1, 3.1, 3.1, 3.1, 3.1, 3.1, 3.1]);
+    expect(adv.kesa!.advance).toEqual([0, 0, 0, 0.02, 0.04, 0.08, 0.4, 1.4, 2.4, 3.1, 3.1, 3.1, 3.1, 3.1, 3.1, 3.1]);
     expect(adv.kesa!.step).toBe(3.1);
-    expect(adv.kiriage!.advance).toHaveLength(18);
+    expect(adv.kiriage!.advance).toHaveLength(13);
     expect(adv.kiriage!.advance.every((x) => x === 0)).toBe(true);
     expect(adv.kiriage!.step).toBe(0);
     expect(s.bowSpeed).toEqual([12, 20, 28]);
@@ -55,7 +55,7 @@ describe('WEAPON-2 contracts', () => {
     };
     expect(s.bladeTrail).toEqual(rows);
     for (const r of Object.values(s.bladeTrail as Record<string, object>)) expect('width' in r).toBe(false);
-    expect(s.bladeTrailWindow).toEqual({ thrust: [2, 6], kesa: [28, 34], kiriage: [38, 43] });
+    expect(s.bladeTrailWindow).toEqual({ thrust: [2, 6], kesa: [28, 34], kiriage: [19, 22] });
     expect(s.bladeTrailShape).toEqual({
       widthRatio: 0.45,
       minWidth: 0.1,

@@ -84,10 +84,10 @@ describe('CHAR-4 AC3 位置', () => {
   it('仕様書 §4.3 の 表（yaw 0）: 刃先 − O が 表と ±0.01', () => {
     const table: Array<[BladeTech, number, [number, number, number]]> = [
       // WEAPON-4: 体が 大けさぎりで 前へ 進む（A(29) = 0.4・A(34) = 2.6）ぶん 前へ。切り上げは その場（A = 0）で 窓は F19〜22
-      ['kesa', 29, [0.418, 1.947, -0.172]],
-      ['kesa', 34, [-0.51, 0.33, -3.242]],
-      ['kiriage', 19, [0.626, 0.291, -0.086]],
-      ['kiriage', 22, [-0.376, 1.967, -0.546]],
+      ['kesa', 29, [0.409, 2.001, -0.196]],
+      ['kesa', 34, [-0.725, 0.429, -3.035]],
+      ['kiriage', 19, [0.006, 1.591, -0.877]],
+      ['kiriage', 22, [-0.126, 1.969, -0.626]],
       ['thrust', 2, [0.041, 1.573, -0.53]],
       ['thrust', 6, [0.031, 1.281, -1.266]],
     ];
@@ -98,11 +98,17 @@ describe('CHAR-4 AC3 位置', () => {
       expect(near(rel(p.tip), want, 0.01), `${tech} F${f}: ${rel(p.tip).map((v) => v.toFixed(3))} と ${want}`).toBe(true);
     }
   });
-  it('yaw 90 の 大けさぎり F34 の 刃先 = (3.242, 0.330, −0.510) ±0.01', () => {
+  it('yaw 90 の 大けさぎり F34 の 刃先 = (3.035, 0.429, −0.725) ±0.01', () => {
     const rig = makeRig();
     const rec = fire(rig, 'kesa', 34, { dirDeg: 90 });
     const p = at(rec, 34).snap.points.find((x) => x.step === 34)!;
-    expect(near(rel(p.tip), [3.242, 0.33, -0.51], 0.01), rel(p.tip).join()).toBe(true);
+    expect(near(rel(p.tip), [3.035, 0.429, -0.725], 0.01), rel(p.tip).join()).toBe(true);
+  });
+  it('WEAPON-4 AC22 後半: 大けさぎりの さいごの 点（F34）の 刃先は 1 つ目（F28）より u の方へ 2.0 以上 前（とびこみの 残像）', () => {
+    const rec = fire(makeRig(), 'kesa', 34, { dirDeg: 0 });
+    const pts = at(rec, 34).snap.points;
+    expect(pts).toHaveLength(7);
+    expect(pts[0]!.tip.z - pts[6]!.tip.z).toBeGreaterThanOrEqual(2.0); // u = 北（−z）
   });
   it('書いた 点は 世界に とどまる: F29 に 書いた 点は F33 でも 同じ 位置（±0.001）。体が 前へ すすんでも・カメラを 回しても 動かない', () => {
     const rig = makeRig();
