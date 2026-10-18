@@ -2,6 +2,7 @@ import type { AchievementDef, ItemId } from '../contracts';
 import { ACHIEVEMENT_DEFS, CATEGORY_LABEL, CATEGORY_ORDER } from '../achievements/defs';
 import type { AchievementSystem } from '../achievements/AchievementSystem';
 import type { AchievementsPageModel } from '../achievements/pageModel';
+import { animalIconUrl } from './animalArt';
 import { heartPixels } from './heartsModel';
 import { anyIconUrl, drawPixels } from './itemIcon';
 import { createBar, createChip, createMedal, createTab, createTooltip, setBar, setTabState } from './theme';
@@ -27,7 +28,7 @@ const CATEGORY_ICON: Record<string, ItemId | 'clock'> = {
 };
 
 /** メダルの中の絵になる アイテム（なければ 絵なし） */
-function artOf(d: AchievementDef): ItemId | 'droplet' | 'heart' | null {
+function artOf(d: AchievementDef): ItemId | 'droplet' | 'heart' | 'chicken' | null {
   const s = d.stat;
   const fm = farmArt(s);
   if (fm) return fm;
@@ -47,7 +48,7 @@ function artOf(d: AchievementDef): ItemId | 'droplet' | 'heart' | null {
 }
 
 /** そだてる の メダルの絵（はたけ は上の面、みず は しずく） */
-function farmArt(s: string): ItemId | 'droplet' | 'heart' | null {
+function farmArt(s: string): ItemId | 'droplet' | 'heart' | 'chicken' | null {
   const h = /^(?:harvest|wild):(onion|tomato|pumpkin|eggplant)$/.exec(s);
   if (h) return h[1] as ItemId;
   switch (s) {
@@ -60,6 +61,9 @@ function farmArt(s: string): ItemId | 'droplet' | 'heart' | null {
     case 'place:sprinkler': return 'sprinkler';
     case 'bucketPlace': return 'water_bucket';
     case 'pet:*': case 'harvestPet': return 'heart';
+    // LIVE-1: にわとり（friend・feed・petAnimal）・たまご（egg・eat:egg）
+    case 'friend:*': case 'feed:*': case 'petAnimal:*': return 'chicken';
+    case 'egg:*': case 'eat:egg': return 'egg';
     case 'visit:oldfarm': return 'farmland';
     case 'seedFrom:oldfarm': case 'seedFrom:grass': case 'seedFrom:yokai': case 'seedFrom:all': return 'seed_onion';
     default: return null;
@@ -79,7 +83,7 @@ function heartIconUrl(): string {
 function mark(def: AchievementDef): string | undefined {
   const a = artOf(def);
   if (!a) return undefined;
-  return a === 'heart' ? heartIconUrl() : anyIconUrl(a);
+  return a === 'heart' ? heartIconUrl() : a === 'chicken' ? animalIconUrl('chicken') : anyIconUrl(a);
 }
 
 /** その実績の メダルの中の絵（アイテムの絵。なければ undefined）。おめでとう画面も同じものを使う */

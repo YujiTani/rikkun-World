@@ -14,7 +14,7 @@ import type { createBladeHook } from '../tools/blade/hook';
 import type { createLevelHook } from '../level';
 import type { createAchievementsHook } from '../achievements';
 import type { createLogHook } from '../ui/log';
-import type { UiAlpha } from '../contracts';
+import type { UiAlpha, AnimalEvent, AnimalHintKind, AnimalInfo, AnimalSpawnOpts } from '../contracts';
 import type { createRarityHook } from '../drops/rarityHook';
 import type { createStorageHook } from '../storage/hook';
 import type { createYokaiHook } from '../yokai';
@@ -104,6 +104,18 @@ export interface TestHook {
   audio: AudioHook;
   /** RARITY-7 §4.4: めずらしさの表と当てはめ */
   rarity: ReturnType<typeof createRarityHook>;
+  /** LIVE-1 §6.1: にわとり */
+  animals: {
+    spawn(x: number, y: number, z: number, opts?: AnimalSpawnOpts): number | null;
+    list(): AnimalInfo[];
+    clear(): void;
+    trySpawn(): number | null;
+    target(): number | null;
+    events(): AnimalEvent[];
+    fx(): unknown;
+    fxReset(): void;
+    lastHint(): AnimalHintKind | null;
+  };
   /** CRAFT-2 §6.1: 画面の不透明度 */
   ui: { alpha(): UiAlpha };
 }
@@ -114,7 +126,7 @@ declare global {
   }
 }
 
-export type TestHookGroups = Pick<TestHook, 'shadow' | 'world' | 'biome' | 'render' | 'player' | 'camera' | 'aim' | 'input' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'attack' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm' | 'log' | 'ui' | 'audio' | 'rarity' | 'parry'>;
+export type TestHookGroups = Pick<TestHook, 'shadow' | 'world' | 'biome' | 'render' | 'player' | 'camera' | 'aim' | 'input' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'attack' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm' | 'log' | 'ui' | 'audio' | 'rarity' | 'animals' | 'parry'>;
 
 export function installTestHook(game: Game, overlay: PerfOverlay, isReady: () => boolean, groups: TestHookGroups, clock: FrameClock = 'time'): void {
   window.__rikkun = {

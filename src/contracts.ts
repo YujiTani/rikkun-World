@@ -222,7 +222,9 @@ export type ItemOnlyId =
   | 'long_watering_can'
   // BUCKET-1（うしろに足す）
   | 'bucket' // バケツ（から）
-  | 'water_bucket'; // みずの バケツ
+  | 'water_bucket' // みずの バケツ
+  // LIVE-1（うしろに足す）
+  | 'egg'; // たまご
 
 /** アイテムの種類。ブロックとアイテムだけのもの */
 export type ItemId = BlockId | ItemOnlyId;
@@ -790,6 +792,11 @@ export type StatKey =
   | `visit:${string}`
   | `drop:${string}`
   | `store:${string}`
+  // LIVE-1 畜産（`<kind>` は 'chicken'、`*` は ぜんぶ）
+  | `feed:${string}`
+  | `friend:${string}`
+  | `petAnimal:${string}`
+  | `egg:${string}`
   // M7 農業（`visit:oldfarm` は上の `visit:` の形）
   | 'till'
   | `plant:${string}` // `plant:<kind>`・`plant:*`
@@ -1357,7 +1364,9 @@ export interface BucketPort {
 export type RightClickKind =
   | 'storage' | 'furnace' | 'armor' | 'till' | 'plant' | 'seedHint' | 'eat' | 'place'
   | 'fill' | 'pour' | 'fillHint' | 'pet'
-  | 'bucketFill' | 'bucketPlace' | 'bucketHint' | 'bucketNo';
+  | 'bucketFill' | 'bucketPlace' | 'bucketHint' | 'bucketNo'
+  // LIVE-1
+  | 'feed' | 'animalPet';
 
 // ---------------------------------------------------------------- 設定（§4.3・§4.4・§4.5）
 
@@ -2086,4 +2095,130 @@ export const CRAFT2_SETTING_DEFAULTS: Readonly<Craft2Settings> = {
 
 export function createCraft2Settings(): Craft2Settings {
   return { ...CRAFT2_SETTING_DEFAULTS };
+}
+
+// ================================================================ LIVE-1（にわとり）
+// 仕様: docs/design/LIVE-1.md。担当の割り振り: docs/tickets/LIVE-1-dev-split.md
+
+export type AnimalKind = 'chicken';
+export type AnimalState = 'appear' | 'wander' | 'rest' | 'look' | 'eat' | 'pet' | 'lay' | 'cheer' | 'follow' | 'idle';
+export type AnimalHintKind = 'feedHint' | 'eggLater' | 'friendFull';
+export type AnimalRemoveReason = 'far' | 'void' | 'buried';
+
+/** `animals.events()` の出来事（§6.1） */
+export type AnimalEvent =
+  | { type: 'spawn'; id: number; x: number; y: number; z: number }
+  | { type: 'remove'; id: number; reason: AnimalRemoveReason }
+  | { type: 'feed'; id: number; item: ItemId; hearts: number; friend: boolean }
+  | { type: 'friend'; id: number; first: boolean; count: number }
+  | { type: 'pet'; id: number; friend: boolean }
+  | { type: 'egg'; id: number; x: number; y: number; z: number }
+  | { type: 'warp'; id: number; from: Vec3; to: Vec3 }
+  | { type: 'hint'; hint: AnimalHintKind };
+
+/** `animals.list()` の 1 行 */
+export interface AnimalInfo {
+  id: number;
+  kind: AnimalKind;
+  x: number;
+  y: number;
+  z: number;
+  yaw: number;
+  friend: boolean;
+  hearts: 0 | 1 | 2;
+  eggDay: number | null;
+  state: AnimalState;
+  lookingAtPlayer: boolean;
+  inWater: boolean;
+}
+
+export interface AnimalSpawnOpts {
+  friend?: boolean;
+  hearts?: 0 | 1 | 2;
+  eggDay?: number | null;
+}
+
+/** §4.1 の設定（`settings.get/set` の名前そのまま）。初期値は `LIVE_SETTING_DEFAULTS` */
+export interface LiveSettings {
+  animalAutoSpawn: boolean;
+  animalSpawnInterval: number;
+  animalWildMax: number;
+  animalSpawnMinDist: number;
+  animalSpawnMaxDist: number;
+  animalRemoveDist: number;
+  animalWanderSpeed: number;
+  animalLookDist: number;
+  animalFriendFeeds: number;
+  animalFriendMax: number;
+  animalReactTicks: number;
+  animalEggDelay: number;
+  animalEggHeal: number;
+  animalFollowStart: number;
+  animalFollowStop: number;
+  animalFollowSpeed: number;
+  animalWarpDist: number;
+  animalStuckTicks: number;
+}
+
+export const LIVE_SETTING_DEFAULTS: Readonly<LiveSettings> = {
+  animalAutoSpawn: true,
+  animalSpawnInterval: 600,
+  animalWildMax: 3,
+  animalSpawnMinDist: 16,
+  animalSpawnMaxDist: 40,
+  animalRemoveDist: 64,
+  animalWanderSpeed: 1.0,
+  animalLookDist: 6,
+  animalFriendFeeds: 3,
+  animalFriendMax: 8,
+  animalReactTicks: 30,
+  animalEggDelay: 60,
+  animalEggHeal: 2,
+  animalFollowStart: 4,
+  animalFollowStop: 2.5,
+  animalFollowSpeed: 4.0,
+  animalWarpDist: 16,
+  animalStuckTicks: 120,
+};
+
+export function createLiveSettings(): LiveSettings {
+  return { ...LIVE_SETTING_DEFAULTS };
+}
+
+/** A -> B: 描く 1 わ ぶん（§7 約束 3。B は A を import しない） */
+export interface AnimalView {
+  id: number;
+  x: number;
+  y: number;
+  z: number;
+  yaw: number;
+  headYaw: number;
+  state: AnimalState;
+  stateTicks: number;
+  friend: boolean;
+  hearts: 0 | 1 | 2;
+  /** 今 ねらわれて いる（しるし を 出す） */
+  targeted: boolean;
+}
+
+/** A の口（C の ふりわけ・B の 描画・窓口 が 使う。§7 約束 2・3） */
+export interface AnimalApi {
+  /** ねらう 箱（横 0.8×0.8・高さ 1.0）との 当たり。C が ブロック の 当たり と くらべる */
+  rayHit(origin: Vec3, dir: Vec3, maxDist: number): { id: number; distance: number } | null;
+  /** null = 動き の とちゅう で 何も しない */
+  preview(id: number, held: ItemStack | null): 'feed' | 'animalPet' | null;
+  /** 'ate' の とき だけ C が やさい を 1 へらす。'pet' = たまご を くれた 日 で なでる に なった */
+  feed(id: number, item: ItemId): 'ate' | 'pet' | 'full' | null;
+  pet(id: number): 'wild' | 'friend' | null;
+  forEachVisible(fn: (v: AnimalView) => void): void;
+}
+
+/** A が 外から 受け取る 物（にせ の 世界・時刻・dropEgg で ユニット できる。§7 約束 4・5） */
+export interface AnimalDeps {
+  seed: number;
+  settings?: LiveSettings;
+  dropEgg(at: Vec3): void;
+  day(): number;
+  phase(): DayPhase;
+  countryAt(seed: number, x: number, z: number): { kind: string };
 }

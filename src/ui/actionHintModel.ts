@@ -3,8 +3,8 @@ import type { LeftClickKind, RightClickPreview } from '../dig/rightClick';
 
 /** ヒント 1 つ: どのボタンで・どの絵で・どの 1 語か */
 export interface ActionHintItem {
-  /** すること の絵にする アイテム */
-  icon: ItemId;
+  /** すること の絵にする アイテム（'heart' = ハート。LIVE-1 の なでる） */
+  icon: ItemId | 'heart';
   /** ひらがなの 1 語 */
   word: string;
 }
@@ -50,6 +50,13 @@ export function actionHintLines(right: RightClickPreview | null, left: LeftClick
         break;
       case 'eat':
         out.right = { icon: right.item!, word: 'たべる' };
+        break;
+      // LIVE-1（§3.1）: あげる = 持っている やさい の 絵、なでる = ハート
+      case 'feed':
+        out.right = { icon: right.item!, word: 'あげる' };
+        break;
+      case 'animalPet':
+        out.right = { icon: 'heart', word: 'なでる' };
         break;
       // M7-2（§3.1）: 持っている じょうろ の 絵（ながい じょうろ なら その 絵）
       case 'fill':

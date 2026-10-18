@@ -1,5 +1,6 @@
 import type { ActionHintItem, ActionHintLines } from './actionHintModel';
-import { itemIconUrl } from './itemIcon';
+import { heartPixels } from './heartsModel';
+import { drawPixels, itemIconUrl } from './itemIcon';
 import './actionHint.css';
 
 /**
@@ -48,9 +49,19 @@ export class ActionHint {
   private set(cell: HTMLDivElement, it: ActionHintItem | undefined): void {
     cell.hidden = !it;
     if (!it) return;
-    (cell.querySelector('.action-hint__art') as HTMLImageElement).src = itemIconUrl(it.icon);
+    (cell.querySelector('.action-hint__art') as HTMLImageElement).src = it.icon === 'heart' ? heartUrl() : itemIconUrl(it.icon);
     cell.querySelector('.action-hint__word')!.textContent = it.word;
   }
+}
+
+let heartCache: string | undefined;
+function heartUrl(): string {
+  if (!heartCache) {
+    const c = document.createElement('canvas');
+    drawPixels(c, heartPixels('full'));
+    heartCache = c.toDataURL();
+  }
+  return heartCache;
 }
 
 function same(a: ActionHintItem | undefined, b: ActionHintItem | undefined): boolean {

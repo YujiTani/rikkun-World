@@ -1,0 +1,13 @@
+/* にわとり の 合図: 画面の 上の方 まん中（農業の 合図と 同じ 位置。同時には 出ない） */
+#animal-hint {
+  position: fixed;
+  left: 50%;
+  top: 24%;
+  transform: translateX(-50%);
+  pointer-events: none;
+  z-index: 7;
+  max-width: min(90vw, 760px);
+}
+#animal-hint[hidden] {
+  display: none;
+}
