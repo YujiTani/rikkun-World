@@ -3,7 +3,7 @@ import type { FarmEvent, ItemId } from '../contracts';
 import { M6_SETTING_DEFAULTS } from '../contracts';
 import { AchievementSystem } from '../achievements/AchievementSystem';
 import { ACHIEVEMENT_DEFS, CRAFT_RECIPE_NAMES } from '../achievements/defs';
-import { GUIDE_TABS } from '../input/config';
+
 import { FarmFx } from '../fx/farmFx';
 import { FARM_SOUNDS } from '../fx/farmSounds';
 import { HELD_MODELS } from '../camera/heldTools';
@@ -86,11 +86,12 @@ describe('ねらった作物の しるし（§3.4）', () => {
   });
 });
 
-describe('案内画面の そだてる タブ（§3.7）', () => {
-  it('11 こ（M7-2 で 3 こ・BUCKET-1 で 1 こ ふえた）で 漢字は ふりがな付き', () => {
-    expect(GUIDE_TABS.grow.label).toBe('そだてる');
-    expect(GUIDE_TABS.grow.captions.length).toBe(11);
-    for (const c of GUIDE_TABS.grow.captions) expect(findUnrubiedKanji(c)).toEqual([]);
+describe('案内の本の そだてる 章（§3.7）', () => {
+  it('12 こ（M7-2 で 3 こ・BUCKET-1 で 1 こ・BOOK-1 で 分けて 12）で 漢字は ふりがな付き', () => {
+    expect(BOOK_CHAPTERS.find((c) => c.id === 'grow')!.label).toBe('そだてる');
+    const items = BOOK_ITEMS.filter((i) => i.chapter === 'grow');
+    expect(items.length).toBe(12);
+    for (const i of items) expect(findUnrubiedKanji(i.caption)).toEqual([]);
   });
 });
 
@@ -171,6 +172,10 @@ describe('実績 そだてる（§4.7）', () => {
 });
 
 import { createDefaultItemInfo } from '../craft/info/build';
+// @ts-ignore 実装前は ファイルが ない（BOOK-1。bookData.ts ができたら 型も 付く）
+const bookMod = (await import('./book/bookData')) as any;
+const BOOK_CHAPTERS: any[] = bookMod.BOOK_CHAPTERS;
+const BOOK_ITEMS: any[] = bookMod.BOOK_ITEMS;
 
 describe('説明の表 M7（どこで・そだつ はやさ）', () => {
   const info = createDefaultItemInfo((i) => i as string);

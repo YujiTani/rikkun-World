@@ -126,11 +126,16 @@ export const SIZES = [
 /** 本の外の 見えなくなる べき もの（§2.2b）の 見えている 数 */
 export function visibleBehind(page: Page): Promise<string[]> {
   return page.evaluate(() => {
-    const sels = ['#hud', '#clock', '.po-button', '.po-adult', '[data-book-open]', 'button[aria-label="おと"]'];
+    const sels = ['#hud', '#clock', '.clock-word', '.hearts', '.hotbar', '#hotbar', '.po-button', '.po-adult', '[data-book-open]', 'button[aria-label="おと"]'];
     const vis = (el: Element) => {
       const r = el.getBoundingClientRect();
-      const s = getComputedStyle(el);
-      return r.width > 0 && r.height > 0 && s.visibility !== 'hidden' && s.display !== 'none' && Number(s.opacity) > 0.01;
+      if (!(r.width > 0 && r.height > 0)) return false;
+      // 親を かくすだけの 実装も 見つける: 先祖の display・opacity・hidden も 見る
+      for (let e: Element | null = el; e; e = e.parentElement) {
+        const s = getComputedStyle(e);
+        if (s.display === 'none' || s.visibility === 'hidden' || Number(s.opacity) <= 0.01 || (e as HTMLElement).hidden) return false;
+      }
+      return true;
     };
     const out: string[] = [];
     for (const sel of sels) for (const el of document.querySelectorAll(sel)) if (vis(el)) out.push(sel);

@@ -294,6 +294,27 @@ test.describe('BOOK-1 本の 流れ', () => {
     expect((await state(page)).bookOpen).toBe(false);
   });
 
+  test('AC8: ① ② ③ の Backspace は ブラウザの「前のページへ」を 止める（defaultPrevented）。遊び中は 止めない', async ({ page }) => {
+    await openGuide(page);
+    const prevented = () =>
+      page.evaluate(() => {
+        const ev = new KeyboardEvent('keydown', { key: 'Backspace', code: 'Backspace', bubbles: true, cancelable: true });
+        document.body.dispatchEvent(ev);
+        return ev.defaultPrevented;
+      });
+    await bookAt(page, 'toc');
+    expect(await prevented()).toBe(true);
+    await page.evaluate(() => (window.__rikkun as any).lock.simulate(true));
+    await bookAt(page, 'toc'); // lock.book は ロックを はずして 本を出す
+    await page.evaluate(() => {
+      const h = window.__rikkun as any;
+      h.lock.simulate(true);
+      h.step(2);
+    });
+    expect((await state(page)).bookOpen).toBe(false);
+    expect(await prevented()).toBe(false);
+  });
+
   test('AC11: 遊んでいる間（ロック中）の → ← Esc Backspace では 本が 出ない・変わらない', async ({ page }) => {
     await openGuide(page);
     await page.evaluate(() => {
@@ -395,8 +416,9 @@ test.describe('BOOK-1 本の 流れ', () => {
     });
     await openBookByButton(page);
     const r0 = await req();
+    const vp = page.viewportSize()!;
     await page.mouse.click(2, 2); // 本の外（うすい黒の所）
-    await page.mouse.click(1278, 798);
+    await page.mouse.click(vp.width - 2, vp.height - 2);
     await step(page, 2);
     const s = await state(page);
     expect(await req()).toBe(r0);
@@ -515,8 +537,9 @@ test.describe('BOOK-1 画面', () => {
       const b = await page.evaluate(() => (window.__rikkun as any).renderStats());
       expect(b.drawCalls, t).toBe(a.drawCalls);
       expect(b.triangles, t).toBe(a.triangles);
-      // 描き直した回数の数え（three の info.render.frame）。窓口に あるときだけ見る
-      if (a.frames !== undefined) expect(b.frames, `${t} 描き直し`).toBe(a.frames);
+      // 描き直した累計（three の info.render.frame）。必須: 窓口に なければ ここで 落ちる（毎コマ描く実装を 見つけるため）
+      expect(typeof a.frames, 'renderStats().frames').toBe('number');
+      expect(b.frames, `${t} 描き直し`).toBe(a.frames);
     }
     const time1 = await page.evaluate(() => JSON.stringify((window.__rikkun as any).time.get?.() ?? null));
     expect(time1).toBe(time0);

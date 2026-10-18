@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { contrastRatio, parseCssColor } from './theme/colorMath';
-import { FIGHT_CAPTIONS_W2 } from './weapon2Guide';
+
 import { buildTooltip } from './tooltipModel';
 import { findUnrubiedKanji } from './text';
 import { isWearLow, wearSignature, wearTier, wearView } from './wearGauge';
@@ -19,6 +19,9 @@ import {
 import { WEAPON_SOUNDS, weaponSoundLogNames } from '../fx/weaponSounds';
 import { COMBAT_SOUNDS } from '../fx/combatSounds';
 import { drainSounds, logSound } from '../fx/soundLog';
+// @ts-ignore 実装前は ファイルが ない（BOOK-1。bookData.ts ができたら 型も 付く）
+const bookMod = (await import('./book/bookData')) as any;
+const BOOK_ITEMS: any[] = bookMod.BOOK_ITEMS;
 
 describe('たいきゅう ゲージ（AC29）', () => {
   it('色の 段: 60% 以上 ok・30% 以上 mid・30% 未満 low', () => {
@@ -73,8 +76,10 @@ describe('ツールチップ・説明（AC31）', () => {
 
 describe('案内画面・文字', () => {
   it('たたかう の 文に 漢字の ふりがな もれ なし', () => {
-    for (const c of FIGHT_CAPTIONS_W2) expect(findUnrubiedKanji(c)).toEqual([]);
-    expect(FIGHT_CAPTIONS_W2.some((c) => c.includes('R で かまえ'))).toBe(true);
+    const fight = BOOK_ITEMS.filter((i) => i.chapter === 'fight');
+    expect(fight.length).toBe(10);
+    for (const i of fight) expect(findUnrubiedKanji(i.caption)).toEqual([]);
+    expect(fight.some((i) => i.caption.includes('R で かまえ'))).toBe(true);
   });
   it('わざの 名前・チップ・ログは 漢字なし', () => {
     for (const n of Object.values(TECH_NAME)) expect(findUnrubiedKanji(n)).toEqual([]);
