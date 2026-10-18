@@ -420,7 +420,9 @@ test.describe('WEAPON-5 通し', () => {
     let target = await wall();
     expect(target, 'かべを ねらっている').not.toBeNull();
     await hold(180);
-    expect(await blockAt(target!), 'ツルハシ: ほれる').toBe('air');
+    // M2 AC4/AC8: ひびは MAX で止まる。はなして 押し直すと こわれる
+    await hold(2);
+    expect(await blockAt(target!), 'ツルハシ: 押し直しで ほれる').toBe('air');
     expect(count(await parryEvents(page), 'parryStart'), 'ツルハシ: parryStart 0').toBe(0);
 
     await calmDown(page, 10);
