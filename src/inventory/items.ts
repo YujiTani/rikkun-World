@@ -111,6 +111,9 @@ const LIVE_ITEMS: readonly ItemType[] = [
   { id: 'mushi_ami', name: 'むしとりあみ', maxStack: 1, placeBlock: null },
 ];
 
+/** WEAPON-7: レジェンダリー武器（ヌシが おとす。名前は ［漢字｜よみ］ — src/ui/text.ts の withRuby で 画面に 出す） */
+const WEAPON7_ITEMS: readonly ItemType[] = [{ id: 'raijin_ken', name: '［雷神剣｜らいじんけん］', maxStack: 1, placeBlock: null }];
+
 export const ITEM_TYPES: readonly ItemType[] = [
   ...PLACEABLE_TYPES,
   ...ITEM_ONLY,
@@ -121,6 +124,7 @@ export const ITEM_TYPES: readonly ItemType[] = [
   ...BUCKET_ITEMS,
   ...VOX_I_BLOCKS,
   ...LIVE_ITEMS,
+  ...WEAPON7_ITEMS,
 ];
 
 const BY_ID = new Map<string, ItemType>(ITEM_TYPES.map((t) => [t.id, t]));

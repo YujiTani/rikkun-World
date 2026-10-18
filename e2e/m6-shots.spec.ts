@@ -93,8 +93,13 @@ test.describe('M6 つなぎ込み', () => {
     console.log('modal', JSON.stringify(modal));
     await page.screenshot({ path: `${OUT}/m6-congrats.png` });
     if (modal.open) {
-      const r = await page.evaluate(() => (window.__rikkun as any).achievements.close());
-      expect(r.ok).toBe(true);
+      // 自動で きえる（WEAPON-7 O8。とじる は ない）: leftSteps ぶん 進めると きえる
+      const gone = await page.evaluate(() => {
+        const h = window.__rikkun as any;
+        h.step(h.achievements.modal().leftSteps);
+        return h.achievements.modal().open as boolean;
+      });
+      expect(gone).toBe(false);
     }
     // じっせきページ
     await page.evaluate(() => {

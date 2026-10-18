@@ -1,9 +1,9 @@
-import { ruby } from '../text';
+import { withRuby } from '../text';
 import type { ChapterDef } from './bookNav';
 
 /**
  * BOOK-1 §4.2・§4.3: 本の 章と 項目（データだけ）。新しい わざは BOOK_ITEMS に 1 つ 足すだけで 本にのる。
- * 説明の ［漢字｜よみ］ は ruby() で ふりがなを つける（`m()`）。
+ * 説明の ［漢字｜よみ］ は ruby() で ふりがなを つける（`withRuby()`。ほかの 字は エスケープ。WEAPON-7 §2.7）。
  */
 export interface BookItem {
   id: string;
@@ -16,12 +16,7 @@ export interface BookItem {
   art: string;
 }
 
-/** ［漢字｜よみ］ → ruby() */
-function m(s: string): string {
-  return s.replace(/［([^｜］]+)｜([^］]+)］/g, (_, k: string, y: string) => ruby(k, y));
-}
-
-const item = (chapter: string, id: string, title: string, caption: string): BookItem => ({ id, chapter, title, caption: m(caption), art: `book/${id}.png` });
+const item = (chapter: string, id: string, title: string, caption: string): BookItem => ({ id, chapter, title, caption: withRuby(caption), art: `book/${id}.png` });
 
 export const BOOK_CHAPTERS: readonly ChapterDef[] = [
   { id: 'move', label: 'うごく', icon: '🏃' },
@@ -48,6 +43,8 @@ export const BOOK_ITEMS: readonly BookItem[] = [
   item('fight', 'fight-chudan', 'つき', '［中段｜ちゅうだん］は ［突｜つ］き'),
   item('fight', 'fight-jodan', 'おおげさぎり', '［上段｜じょうだん］は ［大｜おお］げさ［斬｜ぎ］り'),
   item('fight', 'fight-gedan', 'きりあげ', '［下段｜げだん］は ［切｜き］り［上｜あ］げ'),
+  // WEAPON-7: ためわざ（ヌシから 出る ことは 書かない。見つけた おどろきを のこす）
+  item('fight', 'fight-charge', 'ためわざ', 'レジェンダリー の ぶき は ［左｜ひだり］クリック を ながく おして はなすと ためわざ'),
   item('fight', 'fight-naginata', 'なぎなた', 'なぎなた は とおくまで とどく'),
   item('fight', 'fight-yumi', 'ゆみ', 'ゆみ は ながく ひくほど とおくへ'),
   item('fight', 'fight-armor', 'ぼうぐ', '［防具｜ぼうぐ］は ダブルクリック で ［着｜き］る・ぬぐ'),

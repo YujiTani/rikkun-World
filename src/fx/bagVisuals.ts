@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import type { ItemId, Rarity, Vec3 } from '../contracts';
 import { itemIconPixels } from '../ui/itemIcon';
 import { RARITY_COLOR, RARITY_ORDER } from '../drops/rarity';
-import { SPARKLE, SparkleLayer, pillarOpacity, rainbowHue } from './dropSparkle';
+import { SPARKLE, SparkleLayer, bagBodyHue, pillarOpacity, rainbowHue } from './dropSparkle';
 import { COMBAT_FX, bagPose } from './combatFxModel';
 
 /** 落ちたアイテム 1 つ（`combat.bags()` の 1 件。slots は 1 つ） */
@@ -62,6 +62,8 @@ interface Visual {
   wasResting: boolean;
   restT: number;
   rarity: Rarity;
+  /** 7 段目の 袋だけ: 袋そのものの 色が にじ色に 変わる（WEAPON-7 §2.3）。この 袋だけの 材料（絵は 使いまわし） */
+  tint: THREE.MeshBasicMaterial | null;
 }
 
 function pillarMaterial(color: number): THREE.MeshBasicMaterial {
@@ -168,6 +170,7 @@ export class BagVisuals {
       const rar = bag.rarity ?? 'common';
       v.root.position.set(bag.position.x, bag.position.y, bag.position.z);
       v.rarity = rar;
+      this.tintBody(v, rar);
       if (resting) {
         // 着地: 地面から うかんで ゆっくり回る・ふわふわ
         v.spinner.position.y = pose.y;
@@ -213,6 +216,7 @@ export class BagVisuals {
     }
     for (const [id, v] of this.visuals) {
       if (seen.has(id)) continue;
+      v.tint?.dispose();
       this.group.remove(v.root);
       this.visuals.delete(id);
     }
@@ -254,14 +258,32 @@ export class BagVisuals {
     const root = new THREE.Group();
     const spinner = new THREE.Group();
     root.add(spinner);
-    const v: Visual = { root, spinner, item, layers: 0, wasResting: true, restT: 1, rarity: 'common' };
+    const v: Visual = { root, spinner, item, layers: 0, wasResting: true, restT: 1, rarity: 'common', tint: null };
     this.setLayers(v, 1);
     return v;
   }
 
+  /** 7 段目（legendary）の 袋の 色: 絵の 色に にじ色を ゆっくり かける（明るめ。点滅なし）。ほかの 段は 絵のまま */
+  private tintBody(v: Visual, rar: Rarity): void {
+    if (rar !== 'legendary') {
+      if (v.tint) {
+        v.tint.dispose();
+        v.tint = null;
+        this.setLayers(v, v.layers);
+      }
+      return;
+    }
+    if (!v.tint) {
+      v.tint = iconMaterial(v.item).clone();
+      v.tint.userData.noDim = true;
+      this.setLayers(v, v.layers);
+    }
+    v.tint.color.setHSL(bagBodyHue(this.time), 1, 0.78);
+  }
+
   private setLayers(v: Visual, n: number): void {
     v.spinner.clear();
-    const mat = iconMaterial(v.item);
+    const mat = v.tint ?? iconMaterial(v.item);
     for (let i = 0; i < n; i++) {
       const m = new THREE.Mesh(PLANE_GEO, mat);
       m.position.set((i - (n - 1) / 2) * B.stackGap, 0, (i - (n - 1) / 2) * B.stackGap);

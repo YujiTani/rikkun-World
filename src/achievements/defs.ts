@@ -1,7 +1,7 @@
 import { CROP_KINDS, type AchievementCategory, type AchievementDef, type CropKind, type MedalTier, type StatKey } from '../contracts';
 
 /**
- * 実績の表 180 こ（M6 §4.2）。表の順に並べる。名前はひらがな・カタカナだけ（漢字なし）。
+ * 実績の表 180 こ（M6 §4.2）。表の順に並べる。名前はひらがな・カタカナ。漢字を書くなら ［漢字｜よみ］（WEAPON-7 §2.7。画面に出すときは `withRuby()`）。
  * id は `<シリーズ>.<段階の数>`（例 `break.dirt.10`）。
  */
 
@@ -64,6 +64,9 @@ export const BAKE_RECIPE_NAMES: ReadonlyArray<readonly [string, string]> = [
 
 export const AXE_RECIPES = ['wood_axe', 'stone_axe', 'iron_axe'] as const;
 export const PICKAXE_RECIPES = ['wood_pickaxe', 'stone_pickaxe', 'iron_pickaxe'] as const;
+/** WEAPON-7: レジェンダリー武器の 名前（［漢字｜よみ］）。順番 = 実績の 段の 順。PR2 で 風神剣・PR3 で 虹を 足す */
+export const LEGEND_NAMES: ReadonlyArray<readonly [string, string]> = [['raijin_ken', '［雷神剣｜らいじんけん］']];
+
 export const WEAPON_RECIPES = ['bokuto', 'katana', 'naginata', 'crystal_katana', 'yumi'] as const;
 export const ARMOR_RECIPES = ['kabuto', 'yoroi', 'kote', 'suneate'] as const;
 export const ARMOR_ITEMS = ARMOR_RECIPES;
@@ -309,6 +312,18 @@ function build(): AchievementDef[] {
     name: firstOrN('はじめて や を とばした！', (g) => `や を ${g} ぽん とばした！`),
   });
   add({ series: 'arrow.hit', category: 'fight', stat: 'arrowHit', tiers: [t(10)], name: (g) => `や を ${g} かい あてた！` });
+  // WEAPON-7 §2.5: レジェンダリー。1 本ごと（はじめて 手に 入れた）と しゅるいの 数。どれも 大きい 実績（小でない）。
+  // 名前の 漢字は ［漢字｜よみ］。武器を 足す PR で `get.*` と `legend.kinds` の 段を 1 つずつ 足す
+  for (const [id, name] of LEGEND_NAMES) {
+    add({ series: `get.${id}`, category: 'fight', stat: `get:${id}`, tiers: [t(1)], name: () => `はじめて ${name} を てにいれた！` });
+  }
+  add({
+    series: 'legend.kinds',
+    category: 'fight',
+    stat: 'legendKinds',
+    tiers: LEGEND_NAMES.map((_, i) => t(i + 1)),
+    name: firstOrN('レジェンダリー を てにいれた！', (g) => `レジェンダリー を ${g} つ あつめた！`),
+  });
 
   // H. レベル
   add({

@@ -3,7 +3,7 @@ import type { YokaiKind } from '../../contracts';
 /**
  * 全アイテムの説明の表（M6 §2.2）。文はここ 1 か所だけに書く。
  * 画面（せつめい パネル）・ツールチップ・`craft.info()` は、この表と設定から作った同じデータを読む。
- * 字はすべて ひらがな・カタカナ・数字（漢字は使わない）。
+ * 字は ひらがな・カタカナ・数字。漢字は 名前の ［漢字｜よみ］ だけ（出す ときに `withRuby`。WEAPON-7 §2.7）。
  * 「どこで」「つかいみち」「つよさ」の数は、ここには書かない（レシピ・ドロップ表・設定から `build.ts` が作る）。
  */
 
@@ -128,6 +128,8 @@ export const ITEM_INFO: Readonly<Record<string, InfoRow>> = {
     stats: 'blade',
   },
   crystal_katana: { use: 'れんぞく で ふると 3 だん わざ に なる かたな', how: `${KATANA_HOW}。ひだりクリック を つづけて おすと 3 だん わざ`, buttons: ['1-9', 'left'], stats: 'blade' },
+  // WEAPON-7 §3.1・§2.5: ためて はなすと そら から かみなり が おちる（つかいかたは 刀の 文 ＋ ながおし）
+  raijin_ken: { use: 'ためて はなすと そら から かみなり が おちる', how: `${KATANA_HOW}。ながおし して はなすと ためわざ`, buttons: ['1-9', 'left'], stats: 'blade' },
   yumi: {
     use: 'や を とばして とおく の ようかい を たおす。や が いる',
     how: 'えらんで ひだりクリック を おしつづけて ながく ひく。はなすと とぶ',

@@ -1,4 +1,4 @@
-import type { Inventory, ModalScreenState, ScreenMode, ScreenSettings, ScreenState } from '../contracts';
+import type { Inventory, ScreenMode, ScreenSettings, ScreenState } from '../contracts';
 import type { ActionState } from '../input/actions';
 import type { LockController } from '../input/lockController';
 
@@ -14,14 +14,8 @@ export interface LockPlatform {
  * 画面の状態（あそぶ・もちもの・案内）。M2 §2.5。
  * toggleInventory / closeMenu は「押された瞬間」に効く（時間が止まっていても 0.2 秒以内）。
  */
-export class ScreenController implements ScreenState, ModalScreenState {
+export class ScreenController implements ScreenState {
   private open = false;
-  /** M6: おめでとう画面が出ている */
-  private modal = false;
-  /** おめでとう画面を出す前から もちもの画面が開いていた */
-  private modalFromInventory = false;
-  /** おめでとう画面を閉じてロックをかけ直しているところ（ことわられたら lockDenied） */
-  private relockAfterModal = false;
   private closeListeners: Array<() => void> = [];
 
   constructor(
@@ -32,14 +26,12 @@ export class ScreenController implements ScreenState, ModalScreenState {
     private readonly platform: LockPlatform,
   ) {
     actions.onPress((action) => {
-      if (this.modal) return; // おめでとう画面のあいだは キーを無視する（§2.6 (3)）
       if (action === 'toggleInventory') this.toggle();
       else if (action === 'closeMenu') this.closeToGuide();
     });
   }
 
   mode(): ScreenMode {
-    if (this.modal) return 'celebrate';
     if (this.lock.overlayVisible()) return 'guide';
     return this.open ? 'inventory' : 'play';
   }
@@ -50,7 +42,6 @@ export class ScreenController implements ScreenState, ModalScreenState {
 
   timeScale(): number {
     switch (this.mode()) {
-      case 'celebrate':
       case 'guide':
         return 0;
       case 'inventory':
@@ -65,62 +56,15 @@ export class ScreenController implements ScreenState, ModalScreenState {
     this.closeListeners.push(fn);
   }
 
-  modalOpen(): boolean {
-    return this.modal;
-  }
-
-  openModal(): void {
-    if (this.modal) return;
-    this.modal = true;
-    this.relockAfterModal = false;
-    this.modalFromInventory = this.open;
-    // 先に「開いた」と伝えてから外す（案内画面が一瞬出ないように。もちもの画面と同じ）
-    this.lock.setInventoryOpen(true);
-    this.actions.releaseAll();
-    if (this.lock.isSimulated()) this.lock.simulate(false);
-    this.platform.release();
-  }
-
-  closeModal(): void {
-    if (!this.modal) return;
-    this.modal = false;
-    this.actions.releaseAll();
-    if (this.modalFromInventory) {
-      this.modalFromInventory = false;
-      return; // もちもの画面にもどる（ロックはかけない）
-    }
-    this.relockAfterModal = true;
-    if (this.lock.isSimulated()) {
-      this.lock.simulate(true);
-      this.lock.setInventoryOpen(false);
-    } else {
-      this.lock.beginRelock();
-      this.lock.setInventoryOpen(false);
-      this.platform.request();
-    }
-  }
-
-  lockDenied(): boolean {
-    if (this.relockAfterModal && this.lock.locked()) this.relockAfterModal = false;
-    return this.relockAfterModal && this.lock.overlayVisible();
-  }
-
-  relock(): void {
-    if (this.modal || this.open) return;
-    this.lock.beginRelock();
-    this.platform.request();
-  }
-
   /** E と「とじる」ボタン用 */
   toggle(): void {
-    if (this.modal) return;
     if (this.open) this.closeAndRelock();
     else this.openInventory();
   }
 
   /** Esc: 閉じて案内画面を出す（ロックはかけ直さない。Esc ではかけ直せないブラウザの決まり） */
   closeToGuide(): void {
-    if (this.modal || !this.open) return;
+    if (!this.open) return;
     this.inventory.returnCursor();
     this.open = false;
     if (this.lock.isSimulated()) this.lock.simulate(false);

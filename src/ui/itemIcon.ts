@@ -4,6 +4,7 @@ import { clockPixels, hammerPixels, isM4Item, m4ItemPixels } from './itemArtM4';
 import { farmExtraPixels, isM7Item, m7ItemPixels, type FarmExtraIcon } from './itemArtM7';
 import { isM72Item, m72ItemPixels } from './itemArtM72';
 import { eggPixels, mushiAmiPixels, mushiPixels } from './itemArtLive1';
+import { isW7Item, w7ItemPixels } from './itemArtW7';
 import { bucketItemPixels, isBucketItem } from './bucketArt';
 import { axeItemPixels, isAxeItem } from './itemArtBal';
 import { tansuPixels } from '../storage/tansuArt';
@@ -25,6 +26,7 @@ export function itemIconPixels(item: ItemId): Pixels {
   if (item === 'egg') return eggPixels();
   if (item === 'mushi') return mushiPixels();
   if (item === 'mushi_ami') return mushiAmiPixels();
+  if (isW7Item(item)) return w7ItemPixels(item);
   if (isM7Item(item)) return m7ItemPixels(item);
   if (isM72Item(item)) return m72ItemPixels(item);
   if (isBucketItem(item)) return bucketItemPixels(item);

@@ -4,7 +4,7 @@ import { M6_SETTING_DEFAULTS } from '../../contracts';
 /** B が読む設定（settings の名前と同じ。つなぎ込みで settings とつなぐ） */
 export type CelebrateSettings = Pick<
   M6Settings,
-  'craftComboTicks' | 'craftComboMax' | 'bannerTicks' | 'bannerInTicks' | 'bannerOutTicks' | 'achieveCloseDelay' | 'achieveModalRows'
+  'craftComboTicks' | 'craftComboMax' | 'bannerTicks' | 'bannerInTicks' | 'bannerOutTicks' | 'achieveToastTicks' | 'legendTelopTicks'
 >;
 
 export function defaultCelebrateSettings(): CelebrateSettings {
@@ -15,8 +15,8 @@ export function defaultCelebrateSettings(): CelebrateSettings {
     bannerTicks: d.bannerTicks,
     bannerInTicks: d.bannerInTicks,
     bannerOutTicks: d.bannerOutTicks,
-    achieveCloseDelay: d.achieveCloseDelay,
-    achieveModalRows: d.achieveModalRows,
+    achieveToastTicks: d.achieveToastTicks,
+    legendTelopTicks: d.legendTelopTicks,
   };
 }
 
@@ -50,6 +50,9 @@ export const CELEBRATE = {
   /** 横断幕の じゅんばん: いま出ているもの + 待ち 2 つ まで（4 こ目からは出さない） */
   bannerQueueMax: 2,
 } as const;
+
+/** 上の 帯（WEAPON-7 §2.6）: 出る・きえるの 長さ（ステップ）。実績 30/30、テロップ 36/30 */
+export const TOP_BAND = { toastIn: 30, toastOut: 30, telopIn: 36, telopOut: 30 } as const;
 
 /** 点滅のきまり用: 光の間（画面ステップ）。どれも 24 以上 */
 export function flashPeriods(): number[] {

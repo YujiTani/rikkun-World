@@ -20,7 +20,7 @@ describe('WEAPON-2 contracts', () => {
     expect(s.bladeDamageMul).toEqual({ thrust: 0.75, kesa: 2.5, kiriage: 1.15 });
     expect(s.bladeKnock).toEqual({ thrust: [0.8, 0], kesa: [6, 3], kiriage: [1, 7] });
     const reach = (s as unknown as { bladeReach: Record<string, number> }).bladeReach;
-    expect(reach).toEqual({ bokuto: 2.2, katana: 2.2, crystal_katana: 2.2 });
+    expect(reach).toMatchObject({ bokuto: 2.2, katana: 2.2, crystal_katana: 2.2 }); // WEAPON-7: 刀の なかま（雷神剣）が ふえても よい。射程は 2.2（contracts.w7.test.ts）
     expect(s.bladeShape.kiriage.yMax).toBe(6.0);
     expect(s.bladeAimReach).toBe(4.5);
     expect(s.bowStageTicks).toEqual([10, 25, 40]);
@@ -59,7 +59,7 @@ describe('WEAPON-2 contracts', () => {
       crystal_katana: { color: 0x7fdcff, glow: 0xe6faff, blade: 0x6fcdf5, bladeShine: 0xe6faff, style: 'star' },
       naginata: { color: 0xcfe8ff, glow: 0xffffff, blade: 0xb8cce0, bladeShine: 0xeef6ff, style: 'long' },
     };
-    expect(s.bladeTrail).toEqual(rows);
+    expect(s.bladeTrail).toMatchObject(rows); // WEAPON-7: 雷神剣の 行が 足されても よい(数を ふやす のは 刀の なかま)
     for (const r of Object.values(s.bladeTrail as Record<string, object>)) expect('width' in r).toBe(false);
     expect(s.bladeTrailWindow).toEqual({ thrust: [2, 6], kesa: [28, 34], kiriage: [19, 22] });
     expect(s.bladeTrailShape).toEqual({

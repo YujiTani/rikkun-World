@@ -1,4 +1,4 @@
-import type { AchievementId, AchievementModalPort, AchievementShow, CelebrateBusyPort, CraftMadeEvent, ModalScreenState, ScreenState } from '../../contracts';
+import type { AchievementId, AchievementModalPort, AchievementShow, CelebrateBusyPort, CraftMadeEvent, ItemId, ScreenState } from '../../contracts';
 import { CRAFT_SOUNDS, type CraftSoundName } from '../../fx/craftSounds';
 import type { SoundFx, Tone } from '../../fx/sound';
 import { createBadge, popAnimation, type MedalTier, type RarityIndex } from '../theme';
@@ -6,10 +6,9 @@ import { markUrl } from '../medalArt';
 import { BannerModel } from './bannerModel';
 import { ComboModel } from './comboModel';
 import { flashPeriods, flashPerSecond, type CelebrateSettings, CELEBRATE } from './config';
-import { ModalModel, type ModalCloseResult } from './modalModel';
+import { TopBandModel, type TopBandInfo } from './bandModel';
 import { SparkPool } from './sparkModel';
-import { BannerView, createLockTag, EffectsView, ModalView, type ModalRowInfo } from './views';
-import { starLights } from './bannerModel';
+import { BandView, BannerView, EffectsView } from './views';
 import './celebrate.css';
 
 export interface SoundEntry {
@@ -17,7 +16,7 @@ export interface SoundEntry {
   pitch: number;
 }
 
-/** 実績 1 つの見た目（C が出す。メダルの中の絵は アイテムの絵か medalArt の印） */
+/** 実績 1 つの見た目（C が出す。メダルの中の絵は アイテムの絵か medalArt の印）。name は ［漢字｜よみ］ の まま */
 export interface AchievementLook {
   name: string;
   tier: MedalTier;
@@ -30,7 +29,7 @@ export interface CelebrateDeps {
   /** メダルの印を置く所（S2 の B おしらせ のかたまり。なければ hud） */
   badgeParent?: HTMLElement;
   sound: Pick<SoundFx, 'playTones'>;
-  screen: ScreenState & ModalScreenState;
+  screen: ScreenState;
   settings: () => CelebrateSettings;
   /** 作る画面の そのレシピの マスの要素（見えていなければ null） */
   tileEl(recipe: string): HTMLElement | null;
@@ -41,6 +40,12 @@ export interface CelebrateDeps {
   achievement(id: AchievementId): AchievementLook;
   /** M4 の ばんざい・レベルアップの演出が出ているか */
   levelUpShowing(): boolean;
+  /** WEAPON-7: ヌシの「あらわれた！」(TitleAnnounce)。出ている間は 上の帯の 他のものを 待たせる */
+  appear?(): { ticksLeft: number } | null;
+  /** WEAPON-7: テロップが 出始めた（音 `legendDrop` など） */
+  onTelopStart?(item: ItemId): void;
+  /** 「動きを減らす」 */
+  reducedMotion?(): boolean;
 }
 
 const MAIN_TIER_GOLD = new Set<MedalTier>(['gold', 'rainbow']);
@@ -53,14 +58,13 @@ const MAIN_TIER_GOLD = new Set<MedalTier>(['gold', 'rainbow']);
 export class CelebrateUi {
   readonly banner: BannerModel;
   readonly combo: ComboModel;
-  readonly modalModel: ModalModel;
+  readonly bandModel: TopBandModel;
   readonly modal: AchievementModalPort;
   readonly busy: CelebrateBusyPort;
 
   private readonly fx: EffectsView;
   private readonly bannerView: BannerView;
-  private readonly modalView: ModalView;
-  private readonly lockTag: HTMLElement;
+  private readonly bandView: BandView;
   private readonly badgeEl: HTMLElement;
   private readonly badgeNum: HTMLElement;
   private craftSounds: SoundEntry[] = [];
@@ -68,16 +72,14 @@ export class CelebrateUi {
   private pending = 0;
   private closedFns: ((shown: AchievementId[]) => void)[] = [];
   private readonly sparks = new SparkPool();
-  private guard = (e: Event): void => this.blockKey(e);
 
   constructor(private readonly d: CelebrateDeps) {
     this.banner = new BannerModel(d.settings);
     this.combo = new ComboModel(d.settings);
-    this.modalModel = new ModalModel(d.settings);
+    this.bandModel = new TopBandModel(d.settings);
     this.fx = new EffectsView(d.hud, this.sparks);
     this.bannerView = new BannerView(d.hud);
-    this.modalView = new ModalView(d.hud);
-    this.lockTag = createLockTag(d.hud, () => d.screen.relock());
+    this.bandView = new BandView(d.hud);
 
     this.badgeEl = document.createElement('div');
     this.badgeEl.className = 'cel-badge';
@@ -91,21 +93,10 @@ export class CelebrateUi {
     this.badgeEl.hidden = true;
     (d.badgeParent ?? d.hud).append(this.badgeEl);
 
-    const mv = this.modalView;
-    mv.parts.scrim.addEventListener('mousedown', (e) => {
-      e.stopPropagation();
-      if (mv.isOnButton(e.target)) this.modalModel.buttonDown();
-    });
-    mv.parts.scrim.addEventListener('mouseup', (e) => {
-      e.stopPropagation();
-      this.finish(this.modalModel.pointerUp(mv.isOnButton(e.target)));
-    });
-    mv.parts.scrim.addEventListener('click', (e) => e.stopPropagation());
-
     const self = this;
     this.modal = {
       open: (show) => self.openModal(show),
-      isOpen: () => self.modalModel.isOpen(),
+      isOpen: () => self.bandModel.toast.isOpen(),
       onClosed: (fn) => void self.closedFns.push(fn),
     };
     this.busy = { bannerShowing: () => self.banner.showing(), levelUpShowing: () => d.levelUpShowing() };
@@ -171,42 +162,36 @@ export class CelebrateUi {
     return { visible: this.pending > 0, count: this.pending };
   }
 
-  // ---------------------------------------------------------------- おめでとう画面
+  // ---------------------------------------------------------------- 上の 帯（実績の おしらせ・テロップ）
 
+  private appearing(): boolean {
+    return (this.d.appear?.() ?? null) !== null;
+  }
+
+  /** 実績の おしらせを 出す。テロップ・あらわれたが 先なら 出さない（C が 毎ステップ 出しなおす） */
   private openModal(show: AchievementShow): boolean {
-    if (!this.modalModel.open(show)) return false;
-    this.d.screen.openModal();
+    if (!this.bandModel.canOpenToast(this.appearing())) return false;
+    if (!this.bandModel.toast.open(show)) return false;
     const main = this.d.achievement(show.mainId);
-    const rows: ModalRowInfo[] = this.modalModel.rowIds().map((id) => this.d.achievement(id));
-    const more = Math.max(show.more, show.ids.length - 1 - rows.length);
-    this.modalView.show(main, rows, more);
+    this.bandView.showToast(main, Math.max(show.more, show.ids.length - 1));
     this.achSound('modal');
     if (MAIN_TIER_GOLD.has(main.tier)) this.achSound('modalSparkle');
-    window.addEventListener('keydown', this.guard, true);
     return true;
   }
 
-  // keyup は止めない: 止めると 画面が出ている間に はなしたキーが「おしたまま」になり、あとで効かなくなる（D が動かない原因）
-  private blockKey(e: Event): void {
-    e.preventDefault();
-    e.stopImmediatePropagation();
+  /** ヌシが 武器を おとした（テロップの 列に 入れる） */
+  enqueueTelop(item: ItemId): void {
+    this.bandModel.enqueueTelop(item);
   }
 
-  private finish(shown: AchievementId[] | null): boolean {
-    if (!shown) return false;
-    this.modalView.hide();
-    window.removeEventListener('keydown', this.guard, true);
-    this.achSound('close');
-    this.d.screen.closeModal();
-    for (const f of this.closedFns) f(shown);
-    return true;
+  /** テストの 準備用: 出ている テロップを すてる（`achievements.flush()` が 今すぐ 出せるように） */
+  preempt(): void {
+    this.bandModel.preempt();
   }
 
-  /** テストの窓口 `achievements.close()` */
-  close(): { ok: boolean; reason: ModalCloseResult['reason'] } {
-    const r = this.modalModel.press();
-    if (r.result.ok) this.finish(r.shown);
-    return r.result;
+  /** `ui.topBand()` */
+  topBand(): TopBandInfo {
+    return this.bandModel.info(this.d.appear?.() ?? null);
   }
 
   // ---------------------------------------------------------------- 毎ステップ
@@ -214,12 +199,6 @@ export class CelebrateUi {
   /** 毎ステップ（Game.onUpdate）。画面ステップは 1 ÷ timeScale 進む。時間が止まっているあいだは進まない */
   step(): void {
     const mode = this.d.screen.mode();
-    if (mode === 'celebrate') {
-      if (this.modalModel.step()) this.achSound('closeReady');
-      const age = this.modalModel.ageSteps();
-      this.modalView.paint(age, this.modalModel.buttonEnabled(), this.d.settings().achieveCloseDelay, starLights(age - 36, age >= 36));
-      return;
-    }
     const ts = mode === 'guide' ? 0 : this.d.screen.timeScale();
     const amount = ts > 0 ? 1 / ts : 0;
     if (amount > 0) {
@@ -231,7 +210,16 @@ export class CelebrateUi {
     }
     this.fx.step(amount, this.combo.label());
     this.bannerView.paint(this.banner.look(), this.bannerInfo());
-    this.lockTag.hidden = !this.d.screen.lockDenied();
+    // 上の 帯: 実績の おしらせ・テロップ（ゲームは 止めない。案内画面の 間だけ 止まる）
+    const appearing = this.appearing();
+    const r = this.bandModel.step(amount, appearing);
+    if (r.telopStarted) {
+      const item = r.telopStarted;
+      this.bandView.showTelop(this.d.itemName(item), this.d.itemIconUrl(item), this.d.itemRarity(item) + 1);
+      this.d.onTelopStart?.(item);
+    }
+    if (r.toastEnded) for (const f of this.closedFns) f(r.toastEnded);
+    this.bandView.paint(appearing ? null : this.bandModel.ease(), this.d.reducedMotion?.() ?? false);
   }
 
   private bannerSound(name: 'fanfare' | 'bannerSpin'): void {
@@ -246,9 +234,9 @@ export class CelebrateUi {
     return { name: this.d.itemName(i.item), iconUrl: this.d.itemIconUrl(i.item), rarity: r, stars: r + 1 };
   }
 
-  private achSound(name: 'badge' | 'modal' | 'modalSparkle' | 'closeReady' | 'close'): void {
+  private achSound(name: 'badge' | 'modal' | 'modalSparkle'): void {
     this.achSounds.push({ name, pitch: 0 });
-    const tones = name === 'close' ? CRAFT_SOUNDS.tab : name === 'modal' ? CRAFT_SOUNDS.modal : CRAFT_SOUNDS[name];
+    const tones = name === 'modal' ? CRAFT_SOUNDS.modal : CRAFT_SOUNDS[name];
     this.d.sound.playTones(tones as readonly Tone[]);
   }
 
@@ -273,7 +261,7 @@ export class CelebrateUi {
     return o;
   }
 
-  /** `achievements.sounds()`（呼ぶと空）。名前は badge・modal・modalSparkle・closeReady・close */
+  /** `achievements.sounds()`（呼ぶと空）。名前は badge・modal・modalSparkle */
   drainAchievementSounds(): string[] {
     const o = this.achSounds.map((s) => s.name);
     this.achSounds = [];
@@ -282,15 +270,13 @@ export class CelebrateUi {
 
   /** `achievements.modal()` の B の分 */
   modalInfo() {
-    return this.modalModel.view(flashPeriods());
+    return this.bandModel.toast.view(flashPeriods());
   }
 
   dispose(): void {
-    window.removeEventListener('keydown', this.guard, true);
     this.fx.dispose();
     this.bannerView.dispose();
-    this.modalView.parts.scrim.remove();
-    this.lockTag.remove();
+    this.bandView.dispose();
     this.badgeEl.remove();
   }
 }

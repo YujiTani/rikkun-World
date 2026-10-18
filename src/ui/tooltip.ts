@@ -2,6 +2,7 @@ import type { ItemId, ItemStack } from '../contracts';
 import { rarityTier } from '../drops/rarity';
 import { gemUrl } from './gemArt';
 import { anyIconUrl, itemIconUrl } from './itemIcon';
+import { withRuby } from './text';
 import { buildTooltip, rarityCss, starText, type TooltipData, type TooltipDeps } from './tooltipModel';
 import './tooltip.css';
 
@@ -126,7 +127,7 @@ export class Tooltip {
       const col = rarityCss(t.rarity);
       this.el.style.borderColor = col;
       this.headIcon.src = itemIconUrl(t.item);
-      this.nameEl.textContent = t.name;
+      this.nameEl.innerHTML = withRuby(t.name); // 名前は ［漢字｜よみ］ → ふりがなつき（WEAPON-7 §2.7）
       this.nameEl.style.color = col; // 7 段目は 下で はずす
       this.starsEl.textContent = starText(t.stars);
       this.starsEl.style.color = col;
@@ -137,7 +138,7 @@ export class Tooltip {
       // 7 段目は 名前を にじ色に（案 A）
       this.nameEl.classList.toggle('tip-name--rainbow', tier.index === 6);
       if (tier.index === 6) this.nameEl.style.removeProperty('color');
-      this.descEl.textContent = t.desc;
+      this.descEl.innerHTML = withRuby(t.desc);
       this.descEl.hidden = t.desc === '';
       this.body.replaceChildren();
       t.lines.forEach((text, i) => {
@@ -147,7 +148,7 @@ export class Tooltip {
         img.alt = '';
         img.src = anyIconUrl(t.icons[i]);
         const span = document.createElement('span');
-        span.textContent = text;
+        span.innerHTML = withRuby(text);
         row.append(img, span);
         this.body.append(row);
       });

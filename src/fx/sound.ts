@@ -1,5 +1,6 @@
 import { ANIMAL_SOUNDS } from './animalSounds';
 import { COMBAT_SOUNDS } from './combatSounds';
+import { LEGEND_SOUNDS } from './legendSounds';
 import { FX_SETTINGS, type FxSettings } from './config';
 import { CRAFT_SOUNDS } from './craftSounds';
 import { FARM_SOUNDS } from './farmSounds';
@@ -170,7 +171,7 @@ function register(name: string, tones: readonly Tone[]): void {
   ALL.set(name, tones);
   NAME_OF.set(tones, name);
 }
-for (const table of [SOUNDS, COMBAT_SOUNDS, CRAFT_SOUNDS, FARM_SOUNDS, STORAGE_SOUNDS, WEAPON_SOUNDS, ANIMAL_SOUNDS, PARRY_SOUNDS] as const) {
+for (const table of [SOUNDS, COMBAT_SOUNDS, CRAFT_SOUNDS, FARM_SOUNDS, STORAGE_SOUNDS, WEAPON_SOUNDS, ANIMAL_SOUNDS, PARRY_SOUNDS, LEGEND_SOUNDS] as const) {
   for (const [name, tones] of Object.entries(table)) register(name, tones as readonly Tone[]);
 }
 register('whiff', WHIFF_TONES);

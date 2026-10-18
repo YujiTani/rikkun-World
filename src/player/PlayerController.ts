@@ -53,7 +53,7 @@ export class PlayerController {
   readonly state: PlayerState;
   readonly settings: PlayerSettings;
   /** WEAPON-2: 刀・弓が かける 歩く倍率と ジャンプ止め（つなぎ込みが 毎ステップ 書く） */
-  readonly motion: { speedMul: number; jumpLocked: boolean; faceDeg: number | null; stopNow: boolean; leftAims: boolean } = {
+  readonly motion: { speedMul: number; jumpLocked: boolean; faceDeg: number | null; stopNow: boolean; leftAims: boolean; noRun: boolean } = {
     speedMul: 1,
     jumpLocked: false,
     /** CHAR-2: null でない あいだ facing は これ（わざの向き）。回らない */
@@ -62,6 +62,8 @@ export class PlayerController {
     stopNow: false,
     /** WEAPON-3: false の ステップは 左クリックを「ねらう行動」にしない（刀・パンチの 攻撃・空ぶり） */
     leftAims: true,
+    /** WEAPON-7: true の あいだは はしらない（ため中） */
+    noRun: false,
   };
   /** WEAPON-4: ふみこみが 手前で 止まる 妖怪の 一覧（つなぎ込みが わたす） */
   lungeYokai: (() => ReadonlyArray<YokaiInfo>) | null = null;
@@ -237,7 +239,7 @@ export class PlayerController {
     // 水平の速さ: 目標へ一定の割合で近づける（先に速さを変えてから位置を動かす）
     const waterMul = st.inWater ? cfg.waterSpeedMul : 1;
     const walkSpeed = cfg.walkSpeed * waterMul;
-    const running = runHeld && wlen > 0;
+    const running = runHeld && wlen > 0 && !this.motion.noRun;
     const topSpeed = (running ? cfg.runSpeed : cfg.walkSpeed) * waterMul;
     const mul = this.motion.speedMul;
     const tx = wx * topSpeed * mul;

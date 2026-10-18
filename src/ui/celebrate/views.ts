@@ -1,4 +1,5 @@
-import { createButton, createChip, createMedal, createModal, popAnimation, setRarity, type MedalTier, type RarityIndex } from '../theme';
+import { createMedal, popAnimation, setRarity, type MedalTier, type RarityIndex } from '../theme';
+import { withRuby } from '../text';
 import { CELEBRATE } from './config';
 import type { BannerLook } from './bannerModel';
 import { makeRng, poyonScale, type SparkPool } from './sparkModel';
@@ -162,7 +163,7 @@ export class BannerView {
     if (this.shownRecipe !== look.recipe + look.kind) {
       this.shownRecipe = look.recipe + look.kind;
       this.head.textContent = look.kind === 'bake' ? 'はじめて やいた！' : 'はじめて つくった！';
-      this.name.textContent = `${info.name} `;
+      this.name.innerHTML = `${withRuby(info.name)} `;
       const st = document.createElement('span');
       st.className = 'cel-banner__stars';
       st.textContent = '★'.repeat(info.stars);
@@ -205,84 +206,90 @@ export interface ModalRowInfo {
   artUrl: string;
 }
 
-/** おめでとう画面 */
-export class ModalView {
-  readonly parts = createModal();
-  private readonly title = el('div', 'cel-title');
-  private readonly main = el('div', 'cel-main');
-  private readonly mainName = el('div', 'cel-main-name');
-  private readonly rows = el('div', 'cel-rows');
-  private readonly more = el('div', 'cel-more');
-  private readonly closeWrap = el('div', 'cel-close-wrap');
-  readonly button = createButton({ text: 'とじる', kind: 'primary', disabled: true });
-  private stars: HTMLElement[] = [];
+/**
+ * 画面の 上の 帯（WEAPON-7 §2.6）: 実績の おしらせ（`.cel-toast`）と 武器の テロップ（`.cel-telop`）。
+ * 部品は 1 つ。出している 間だけ そのクラスが つく（`.cel-toast, .cel-telop` で 今の 帯を 探せる）。
+ * 名前は 〔漢字｜よみ〕の まま 受け取り、`withRuby` で ふりがなつきの HTML にして 入れる（textContent に 名前を 入れない）。
+ */
+export class BandView {
+  readonly root = el('div', 'cel-layer cel-layer--band');
+  readonly band = el('div', 'cel-band', this.root);
+  private readonly pic = el('div', 'cel-band__pic', this.band);
+  private readonly text = el('div', 'cel-band__text', this.band);
+  private readonly head = el('div', 'cel-band__head', this.text);
+  private readonly name = el('div', 'cel-band__name', this.text);
+  private readonly sub = el('div', 'cel-band__sub', this.text);
+  private kind: 'achieve' | 'telop' | null = null;
+  private medal: HTMLElement | null = null;
 
   constructor(parent: HTMLElement) {
-    this.parts.scrim.classList.add('cel-scrim');
-    this.parts.modal.classList.add('cel-modal');
-    this.title.textContent = 'おめでとう！';
-    this.button.classList.add('cel-close');
-    this.closeWrap.append(this.button);
-    this.parts.modal.append(this.title, this.main, this.mainName, this.rows, this.more, this.closeWrap);
-    this.parts.scrim.hidden = true;
-    parent.append(this.parts.scrim);
+    el('div', 'cel-band__rainbow', this.band);
+    this.band.prepend(this.band.lastElementChild!);
+    this.root.hidden = true;
+    this.band.hidden = true;
+    parent.append(this.root);
   }
 
-  show(main: ModalRowInfo, rows: readonly ModalRowInfo[], more: number): void {
-    this.parts.scrim.hidden = false;
-    this.main.replaceChildren(createMedal(main.tier, 128, main.artUrl));
-    this.stars = makeStars(this.main, 224, 144);
-    this.main.append(...this.stars);
-    this.mainName.textContent = main.name;
-    this.rows.replaceChildren(
-      ...rows.map((r) => {
-        const row = el('div', 'cel-row');
-        const t = document.createElement('span');
-        t.textContent = r.name;
-        row.append(createMedal(r.tier, 40, r.artUrl), t);
-        return row;
-      }),
-    );
-    this.more.hidden = more <= 0;
-    this.more.textContent = more > 0 ? `ほか ${more} こ` : '';
-    this.rotateMain(0);
-    popAnimation(this.title);
+  /** 実績の おしらせを 出し始める */
+  showToast(main: ModalRowInfo, more: number): void {
+    this.kind = 'achieve';
+    this.band.className = 'cel-band cel-toast';
+    this.band.dataset.band = 'achieve';
+    this.pic.replaceChildren((this.medal = createMedal(main.tier, 88, main.artUrl)));
+    this.head.textContent = 'おめでとう！';
+    this.name.innerHTML = withRuby(main.name);
+    this.name.hidden = false;
+    this.sub.hidden = more <= 0;
+    this.sub.textContent = more > 0 ? `ほか ${more} こ` : '';
+    this.sub.className = 'cel-band__sub cel-band__more';
+    this.band.hidden = false;
+    this.root.hidden = false;
   }
 
-  hide(): void {
-    this.parts.scrim.hidden = true;
+  /** 武器の テロップを 出し始める（`ヌシ が 〔武器〕 を おとした！` ＋ ★） */
+  showTelop(itemName: string, iconUrl: string, stars: number): void {
+    this.kind = 'telop';
+    this.band.className = 'cel-band cel-telop';
+    this.band.dataset.band = 'telop';
+    const img = document.createElement('img');
+    img.className = 'cel-band__icon rk-art';
+    img.alt = '';
+    img.src = iconUrl;
+    const disc = el('div', 'cel-band__disc');
+    disc.append(img);
+    this.pic.replaceChildren((this.medal = disc));
+    this.head.innerHTML = `ヌシ が <span class="cel-band__item">${withRuby(itemName)}</span> を おとした！`;
+    this.name.hidden = true;
+    this.name.textContent = '';
+    this.sub.hidden = false;
+    this.sub.className = 'cel-band__sub cel-band__stars';
+    this.sub.textContent = '★'.repeat(stars);
+    this.band.hidden = false;
+    this.root.hidden = false;
   }
 
-  rotateMain(age: number): void {
-    const m = this.main.firstElementChild as HTMLElement | null;
-    if (!m) return;
-    const t = Math.min(1, age / 36);
-    const e = 1 - (1 - t) ** 3;
-    m.style.transform = `rotateY(${720 * e}deg) scale(${0.3 + 0.7 * e})`;
-  }
-
-  paint(age: number, enabled: boolean, delay: number, starLight: readonly number[]): void {
-    this.rotateMain(age);
-    paintStars(this.stars, starLight);
-    const p = Math.min(1, age / Math.max(1, delay));
-    this.closeWrap.style.setProperty('--p', String(enabled ? 1 : p));
-    if (this.button.disabled === enabled) {
-      this.button.disabled = !enabled;
-      this.button.classList.toggle('is-disabled', !enabled);
+  /** 毎ステップ: ease が null なら 隠す */
+  paint(ease: { kind: 'telop' | 'achieve'; opacity: number; slide: number; age: number } | null, reducedMotion: boolean): void {
+    if (!ease) {
+      if (this.kind !== null) {
+        this.kind = null;
+        this.band.hidden = true;
+        this.root.hidden = true;
+        this.band.className = 'cel-band';
+        delete this.band.dataset.band;
+      }
+      return;
+    }
+    this.band.style.opacity = String(ease.opacity);
+    this.band.style.transform = `translate(-50%, ${-ease.slide * 40}px)`;
+    if (this.medal) {
+      const t = reducedMotion ? 1 : Math.min(1, ease.age / 36);
+      const e = 1 - (1 - t) ** 3;
+      this.medal.style.transform = `rotateY(${720 * e}deg) scale(${0.3 + 0.7 * e})`;
     }
   }
 
-  isOnButton(target: EventTarget | null): boolean {
-    return target instanceof Node && this.button.contains(target);
+  dispose(): void {
+    this.root.remove();
   }
-}
-
-/** ロックがかけ直せなかったときの札 */
-export function createLockTag(parent: HTMLElement, onClick: () => void): HTMLElement {
-  const tag = createChip({ text: 'クリック で つづける' });
-  tag.classList.add('cel-lock-tag');
-  tag.hidden = true;
-  tag.addEventListener('click', onClick);
-  parent.append(tag);
-  return tag;
 }
