@@ -422,7 +422,7 @@ export function createBladeSystem(deps: BladeDeps): BladeSystem {
     nextStart(): { tech: BladeTech; step: BladeStep } {
       const combo = isComboItem();
       let st: BladeStep = 1;
-      if (chainable() && (frame < totalOf(tech!) || queued)) st = (stage + 1) as BladeStep;
+      if (chainable() && (queued || (frame < totalOf(tech!) && frame + 1 > curLen.startup))) st = (stage + 1) as BladeStep;
       const t = (combo ? S.bladeCombo.order[stance][st - 1] : undefined) ?? TECH_OF_STANCE[stance];
       return { tech: t, step: st };
     },

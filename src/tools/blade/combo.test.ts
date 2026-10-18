@@ -360,6 +360,12 @@ describe('nextStart（向きの 補助用）', () => {
     expect(r.blade.nextStart!()).toEqual({ tech: 'thrust', step: 1 });
     r.run(10, (i) => i === 0);
     expect(r.blade.nextStart!()).toEqual({ tech: 'kiriage', step: 2 });
+    // 出だし中（窓の外）に 押しても つながらない → 次の 始まりは 1 段目
+    const e = rig();
+    e.run(3, (i) => i === 0);
+    expect(e.blade.nextStart!()).toEqual({ tech: 'thrust', step: 1 });
+    e.run(2, () => false); // F5 = 窓の中
+    expect(e.blade.nextStart!()).toEqual({ tech: 'kiriage', step: 2 });
     const k = rig('katana');
     expect(k.blade.nextStart!()).toEqual({ tech: 'thrust', step: 1 });
   });
