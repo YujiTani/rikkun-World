@@ -85,7 +85,7 @@ export const BUDGET_TOTAL_MS = 8;
 /** 遊んでいる間、ここの仕事は 8 ms から これだけ引いた所で止める（そのほかの仕事＋1 単位のはみ出しの見こみ。PERF-2 続き） */
 export const BUDGET_RESERVE_MS = 3;
 /** 足もと（列の輪 ≤ NEAR_RING）の仕事が待っているときは 引く量を これに減らす（足もとの差しかえを遅らせない） */
-export const BUDGET_RESERVE_NEAR_MS = 2.5;
+export const BUDGET_RESERVE_NEAR_MS = 2;
 const NEAR_RING = 1;
 export const BUDGET_PREP_MS = 30;
 /** K3 */
