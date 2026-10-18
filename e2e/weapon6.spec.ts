@@ -46,7 +46,7 @@ test.describe('WEAPON-6 通し', () => {
     await comboWorld(page, 'chudan');
     const id = await spawnAhead(page, 'nurikabe', 1.5, { hp: 99 });
     const P = await weaponPower(page, 'crystal_katana');
-    const rec = await mash(page, 150);
+    const rec = await mash(page, 145) // 1 周期（t0〜t0+144）。t0+145 から 次の周期の 1 段目;
     const hits = hitsOf(rec);
     expect(hits.map((e) => e.step)).toEqual([1, 2, 3]);
     expect(sumDamage(rec)).toBeCloseTo(P * 4.4, 2);
@@ -86,7 +86,10 @@ test.describe('WEAPON-6 通し', () => {
 
   test('AC14c: 2 段目の ふみこみ 1.4（きりあげ F14〜F45・つき F6〜）。2 段の かべ・3 段の がけで 止まる', async ({ page }) => {
     const floorY = await comboWorld(page, 'chudan');
-    let rec = await mash(page, 120);
+    // 2 段目の ふみこみは 押さずに 見る（毎ステップ 押すと 3 段目が F28 から 始まり ふみこみが 足される）
+    await markNow0(page);
+    const once = '(h, i) => { if (i === 0 || i === 4) h.input.press("primary"); if (i === 1 || i === 5) h.input.release("primary"); }';
+    let rec = await run(page, 120, { before: once });
     let i2 = idxOfStart(rec, 2);
     expect(i2, '2 段目が 出た').toBeGreaterThan(0);
     const adv = (k: number) => flat(rec[i2 + k]!.pos, rec[i2]!.pos);
@@ -95,7 +98,10 @@ test.describe('WEAPON-6 通し', () => {
     expect(Math.abs(adv(44) - 1.4), 'F45').toBeLessThanOrEqual(0.01);
 
     await comboWorld(page, 'gedan');
-    rec = await mash(page, 120);
+    await markNow0(page);
+    // 下段の 1 段目 きりあげは 窓が F20 から
+    const onceG = '(h, i) => { if (i === 0 || i === 19) h.input.press("primary"); if (i === 1 || i === 20) h.input.release("primary"); }';
+    rec = await run(page, 120, { before: onceG });
     i2 = idxOfStart(rec, 2);
     expect(i2).toBeGreaterThan(0);
     expect(Math.abs(flat(rec[i2 + 5]!.pos, rec[i2]!.pos) - 1.4), 'つき 2 段目 F6').toBeLessThanOrEqual(0.01);
@@ -201,7 +207,8 @@ test.describe('WEAPON-6 通し', () => {
     expect(starts(rec), '2 段目は 出ない').toHaveLength(1);
     const ps = await page.evaluate((base) => (window.__rikkun! as any).parry.events().slice(base).filter((e: any) => e.type === 'parryStart') as { tick: number }[], base);
     expect(ps).toHaveLength(1);
-    expect(ps[0]!.tick - t0, 'F21 に parryStart').toBe(20);
+    // parry.events の tick は game.tick + 1、blade.events は game.tick（F21 = blade の t0 + 20 = parry の t0 + 21）
+    expect(ps[0]!.tick - t0, 'F21 に parryStart').toBe(21);
     await page.evaluate(() => {
       const h = window.__rikkun! as any;
       h.input.releaseAll();
