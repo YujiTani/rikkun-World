@@ -536,6 +536,7 @@ const parry = createParry(w2, { reducedMotion: () => reducedMotionMq?.matches ??
 const parryFx = new ParryFx({ scene: game.scene, camera: game.camera, basePath: '/models/fx/' });
 const sparkAt = { x: 0, y: 0, z: 0 };
 // WEAPON-7: 雷の 見た目（十字の ドット絵・着地の 光・光の つぶ）
+const IDLE_THUNDER_LOOK = { charging: false, ready: false, hand: { x: 0, y: 0, z: 0 }, aimS: null };
 const thunderFx = new ThunderFx({ scene: game.scene, camera: game.camera, seed });
 controller.lungeYokai = () => (yokaiManager ? yokaiManager.list() : []);
 const combat = new PlayerCombatImpl({
@@ -1645,7 +1646,9 @@ game.onUpdate((dt) => {
   weaponFx.step();
   // WEAPON-7: 雷・ための 光（出来事は ここで 1 回 取り出す）
   {
-    for (const e of legend.drainEvents()) {
+    const evs = legend.drainEvents();
+    const holdingLegend = legend.chargeable(inventory.held()?.item ?? null);
+    for (const e of evs) {
       thunderFx.onEvent(e);
       if (e.type === 'lightningStrike') {
         for (const id of e.hits) {
@@ -1654,11 +1657,13 @@ game.onUpdate((dt) => {
         }
       }
     }
-    const lv = legend.view();
-    const st = legend.state();
+    const lv = holdingLegend ? legend.view() : null;
+    const st = lv && lv.ready ? legend.state() : null;
     const cp = controller.state.position;
     thunderFx.step(
-      { charging: lv.charging, ready: lv.ready, hand: { x: cp.x, y: cp.y + 2.3, z: cp.z }, aimS: lv.ready && st.aim && st.aim.skyVisible ? st.aim.S : null },
+      lv
+        ? { charging: lv.charging, ready: lv.ready, hand: { x: cp.x, y: cp.y + 2.3, z: cp.z }, aimS: st && st.aim && st.aim.skyVisible ? st.aim.S : null }
+        : IDLE_THUNDER_LOOK,
       reducedMotionMq?.matches ?? false,
     );
   }

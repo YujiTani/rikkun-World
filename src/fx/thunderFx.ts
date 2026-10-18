@@ -236,6 +236,12 @@ export class ThunderFx {
     this.glowTex.dispose();
     this.ringTex.dispose();
     this.boltMat.dispose();
+    this.group.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (!m.isMesh) return;
+      m.geometry.dispose();
+      for (const mat of Array.isArray(m.material) ? m.material : [m.material]) mat.dispose();
+    });
     this.bits.geometry.dispose();
     (this.bits.material as THREE.Material).dispose();
     this.bits.dispose();
