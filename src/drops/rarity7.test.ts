@@ -81,14 +81,14 @@ describe('RARITY-7 当てはめ・設定', () => {
     }
   });
 
-  it('AC7 案 A: 5〜6 段目は 0 こ、7 段目は 1 こ（WEAPON-7 PR1: 雷神剣。PR2・PR3 で ＋1 ずつ）、各段のこ数', () => {
+  it('AC7 案 A: 5〜6 段目は 0 こ、7 段目は 2 こ（WEAPON-7 PR2 まで: 雷神剣・風神剣。PR3 で ＋1）、各段のこ数', () => {
     const n: Record<string, number> = {};
     for (const it of ITEM_TYPES) {
       const r = itemRarity(it.id);
       expect(isRarity(r)).toBe(true);
       n[r] = (n[r] ?? 0) + 1;
     }
-    expect(n).toEqual({ common: 39, uncommon: 16, rare: 10, superRare: 3, legendary: 1 }); // 雷神剣（WEAPON-7）が legendary
+    expect(n).toEqual({ common: 39, uncommon: 16, rare: 10, superRare: 3, legendary: 2 }); // 雷神剣・風神剣（WEAPON-7 PR1・PR2）が legendary
     expect(itemRarity('crystal_katana')).toBe('superRare');
   });
 

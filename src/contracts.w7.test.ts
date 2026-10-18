@@ -6,6 +6,7 @@ import { ACHIEVEMENT_DEFS } from './achievements/defs';
 import { BLADE_ITEMS } from './tools/blade/BladeSystem';
 import { bladeReachOf } from './tools/blade/advance';
 import { findUnrubiedKanji, ruby } from './ui/text';
+import { ITEM_INFO } from './craft/info/table';
 
 /**
  * WEAPON-7 PR1（docs/design/WEAPON-7.md）の データの 初期値。実装の 前は 名前が ないので 赤になる。
@@ -23,10 +24,10 @@ const S = () => createW2Settings() as unknown as Record<string, unknown> & { too
 const legendary = (): Def[] => (S().legendary ?? []) as Def[];
 const NAME = '［雷神剣｜らいじんけん］';
 
-describe('WEAPON-7 AC1: legendary の 初期値（PR1 は 雷神剣 だけ）', () => {
+describe('WEAPON-7 AC1: legendary の 初期値（雷神剣 ＋ PR2 の 風神剣）', () => {
   it('雷神剣が §3.1 どおり', () => {
     const defs = legendary();
-    expect(defs.map((d) => d.item)).toEqual(['raijin_ken']);
+    expect(defs.map((d) => d.item)).toEqual(['raijin_ken', 'fujin_ken']); // PR2 で 風神剣が 1 つ 足される
     const d = defs[0]!;
     expect(d.power).toBe(8);
     expect(d.charge).toEqual({ kind: 'lightning', chargeTicks: 60, range: 20, radius: 5, damageMul: 2.0, knock: [2, 4], strikeF: 8, boltSteps: 12, recovery: 40 });
@@ -34,7 +35,7 @@ describe('WEAPON-7 AC1: legendary の 初期値（PR1 は 雷神剣 だけ）', 
     expect(d.passive).toEqual([]);
   });
   it('nushiDrops の 初期値 = legendary の ぜんぶ・weight 1', () => {
-    expect(S().nushiDrops).toEqual([{ item: 'raijin_ken', weight: 1 }]);
+    expect(S().nushiDrops).toEqual([{ item: 'raijin_ken', weight: 1 }, { item: 'fujin_ken', weight: 1 }]); // PR2: 表に 風神剣も
   });
   it('そのほかの 設定 §9', () => {
     expect(S().legendaryChargeWalk).toBe(0.5);
@@ -50,6 +51,35 @@ describe('WEAPON-7 AC1: legendary の 初期値（PR1 は 雷神剣 だけ）', 
     expect(b.legendary[0]!.power).toBe(8);
     expect(b.nushiDrops[0]!.weight).toBe(1);
     expect((W2_SETTING_DEFAULTS as unknown as { legendary: Def[] }).legendary[0]!.power).toBe(8);
+  });
+});
+
+describe('WEAPON-7 AC21: 風神剣の データ（PR2・§4.1）', () => {
+  it('legendary の 風神剣: power 6・ためない・真空波・足 1.2 倍', () => {
+    const d = legendary().find((x) => x.item === 'fujin_ken');
+    expect(d, 'legendary に fujin_ken').toBeDefined();
+    expect(d!.power).toBe(6);
+    expect(d!.charge).toBeNull();
+    expect(d!.onAttack).toEqual([{ kind: 'wave', speed: 15, range: 5, radius: 0.5, damageMul: 0.3, knock: [0.5, 0] }]);
+    expect(d!.passive).toEqual([{ kind: 'moveMul', mul: 1.2 }]);
+  });
+  it('たいきゅう 10000（のこり わずか 1000）', () => {
+    expect(S().toolDurability.fujin_ken).toBe(10000);
+  });
+  it('アイテムの 表: 名前は ［漢字｜よみ］・1 つ だけ・めずらしさ legendary', () => {
+    const t = ITEM_TYPES.find((x) => x.id === ('fujin_ken' as never));
+    expect(t, 'ITEM_TYPES に fujin_ken').toBeDefined();
+    expect(t!.name).toBe('［風神剣｜ふうじんけん］');
+    expect(t!.maxStack).toBe(1);
+    expect(itemRarity('fujin_ken' as never)).toBe('legendary');
+  });
+  it('刀の なかま: BLADE_ITEMS に 入る・射程 2.2・3 段攻撃（bladeCombo）には 入らない', () => {
+    expect(BLADE_ITEMS.has('fujin_ken' as never)).toBe(true);
+    expect(bladeReachOf(createW2Settings(), 'fujin_ken' as never)).toBe(2.2);
+    expect(createW2Settings().bladeCombo.items as string[]).not.toContain('fujin_ken');
+  });
+  it('名前の 漢字は ruby() で ふりがなが つく', () => {
+    expect(findUnrubiedKanji(ruby('風神剣', 'ふうじんけん'))).toEqual([]);
   });
 });
 
@@ -93,9 +123,37 @@ describe('WEAPON-7 AC12: 実績', () => {
     expect(a!.small).toBe(false);
     expect(b!.small).toBe(false);
   });
-  it('PR1 では 2 つだけ（get.* は 雷神剣、legend.kinds は 1 だけ）', () => {
-    expect(ACHIEVEMENT_DEFS.filter((d) => d.id.startsWith('get.')).map((d) => d.id)).toEqual(['get.raijin_ken.1']);
-    expect(ACHIEVEMENT_DEFS.filter((d) => d.id.startsWith('legend.kinds.')).map((d) => d.id)).toEqual(['legend.kinds.1']);
+  it('PR2 まで（get.* は 雷神剣・風神剣、legend.kinds は 1・2 の 段）。PR3 の niji・kinds.3 は まだ ない', () => {
+    expect(ACHIEVEMENT_DEFS.filter((d) => d.id.startsWith('get.')).map((d) => d.id)).toEqual(['get.raijin_ken.1', 'get.fujin_ken.1']);
+    expect(ACHIEVEMENT_DEFS.filter((d) => d.id.startsWith('legend.kinds.')).map((d) => d.id)).toEqual(['legend.kinds.1', 'legend.kinds.2']);
+  });
+  it('AC26: get.fujin_ken.1 と legend.kinds.2 の 名前・分類・小で ない・はば（§2.5）', () => {
+    const a = def('get.fujin_ken.1');
+    const b = def('legend.kinds.2');
+    expect(a, 'get.fujin_ken.1').toBeDefined();
+    expect(b, 'legend.kinds.2').toBeDefined();
+    expect(a!.name).toBe('はじめて ［風神剣｜ふうじんけん］ を てにいれた！');
+    expect(b!.name).toBe('レジェンダリー を 2 つ あつめた！');
+    for (const x of [a!, b!]) {
+      expect(x.category).toBe('fight');
+      expect(x.small).toBe(false);
+    }
+    const width = (name: string) => {
+      const plain = name.replace(/［([^｜］]+)｜([^］]+)］/g, (_, k: string, y: string) => (y.length * 0.5 <= k.length ? k : y));
+      return [...plain].reduce((w, c) => w + (c === ' ' ? 0.5 : /[0-9]/.test(c) ? 0.5 : 1), 0);
+    };
+    expect(width(a!.name)).toBeCloseTo(15.5, 5);
+    expect(width(b!.name)).toBeCloseTo(16.5, 5);
+  });
+  it('AC26: 説明の 文（なにに つかう・つかいかた）。風神剣は ためわざが ない ので「ながおし」を 足さない', () => {
+    const info = ITEM_INFO as Record<string, { use: string; how: string; buttons: string[]; stats: string }>;
+    const f = info.fujin_ken;
+    expect(f, 'ITEM_INFO に fujin_ken').toBeDefined();
+    expect(f!.use).toBe('てに もつと はやく はしれる。ふると かぜ が とぶ');
+    expect(f!.how).toBe(info.katana!.how); // 今の 刀の 文のまま
+    expect(f!.how).not.toContain('ためわざ');
+    expect(f!.stats).toBe('blade');
+    expect(findUnrubiedKanji(f!.use)).toEqual([]);
   });
   it('名前の はば（空白 0.5・ルビは 漢字の 字数）が いちばん 広い 実績 20 字ぶん 以下', () => {
     const width = (name: string) => {

@@ -13,6 +13,7 @@ import {
   indexOfEvent,
   legendState,
   legendWorld,
+  pinNushiTable,
   markLegend,
   releaseAndStep,
   resetStage,
@@ -463,6 +464,7 @@ test.describe('WEAPON-7 PR1 手に 入れた（AC7）', () => {
     await page.evaluate(() => (window.__rikkun as any).achievements.mute(false));
     // 袋が 出ただけでは 入らない（まだ ひろっていない）
     await holdItems(page, [{ item: 'katana' }]);
+    await pinNushiTable(page); // PR2 で 表が 2 本に なった ので 雷神剣に 固定
     await spawnNushiAhead(page, 1.5, 1);
     await page.evaluate(() => (window.__rikkun as any).step(190));
     await runTech(page, 12);
@@ -641,6 +643,7 @@ test.describe('WEAPON-7 PR1 テロップ', () => {
     await legendWorld(page);
     await holdItems(page, [{ item: 'katana' }]);
     expect(await hooks(page), 'ui.topBand() が まだ ない（仕様書 §9）').toBe(true);
+    await pinNushiTable(page); // PR2 で 表が 2 本に なった ので 雷神剣に 固定
     const id = await spawnNushiAhead(page, 1.5, 1);
     await page.evaluate((w) => {
       const h = window.__rikkun as any;
@@ -700,6 +703,7 @@ test.describe('WEAPON-7 PR1 テロップ', () => {
   test('AC12c: ヌシの「あらわれた」と 重ならない（列）。おわってから テロップ', async ({ page }) => {
     await legendWorld(page);
     await holdItems(page, [{ item: 'katana' }]);
+    await pinNushiTable(page); // PR2 で 表が 2 本に なった ので 雷神剣に 固定
     await spawnNushiAhead(page, 1.5, 1);
     await page.evaluate(() => {
       const h = window.__rikkun as any;
@@ -759,6 +763,7 @@ test.describe('WEAPON-7 PR1 通し', () => {
   async function getRaijinFromNushi(page: Page) {
     await legendWorld(page);
     await holdItems(page, [{ item: 'katana' }]);
+    await pinNushiTable(page); // PR2 で 表が 2 本に なった ので 雷神剣に 固定
     await spawnNushiAhead(page, 1.5, 1);
     await page.evaluate(() => {
       const h = window.__rikkun as any;
