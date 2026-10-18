@@ -111,6 +111,17 @@ describe('基準 2: 切りかえ（?kata=）', () => {
     });
   }
 
+  for (const n of [4, 8, 16]) {
+    it(`?kata=${n} は 地下も ${n} 通り（&kataUnder が あれば そちらが勝つ）`, () => {
+      expect(decideKata(`?kata=${n}`)[KATA_UNDER]).toBe(n);
+      expect(decideKata(`?kata=${n}&kataUnder=2`)[KATA_UNDER]).toBe(2);
+    });
+  }
+
+  it('?kata=off は 地下も 型なし', () => {
+    expect(decideKata('?kata=off')[KATA_UNDER] ?? 0).toBe(0);
+  });
+
   it('&kataUnder=K で 地下の数を上書き（?kata の指定があっても）', () => {
     expect(decideKata('?kataUnder=3')[KATA_UNDER]).toBe(3);
     expect(decideKata('?kataUnder=0')[KATA_UNDER]).toBe(0);

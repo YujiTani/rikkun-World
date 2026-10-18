@@ -52,7 +52,7 @@ export function kataOf(kind: number): number {
   return kataK[kind] ?? 0;
 }
 
-/** 数え（試作）: [毎回計算（地下・水）, 型なしの種類, 型] */
+/** 数え（テストと計測用）: [毎回計算（水のそば）, 型なしの種類, 型, 地下の型] */
 export const kataStats = [0, 0, 0, 0];
 
 /** 作った型の数（メモリの目安） */
@@ -114,12 +114,15 @@ export function fillBlockLook(kind: number, bx: number, by: number, bz: number, 
 }
 
 /**
- * fillBlockLook の 型つき（#202）。unique = 地下・ほらあな・水のそば など 毎回計算する所。
+ * fillBlockLook の 型つき（#202）。unique = 水のそば など 毎回計算する所。under = 地下・ほらあな（地下用の数の型を使う。
+ * 地下の数が 0 のときは unique の指定にしたがう）。
  * 型を使う種類は 場所のハッシュで 型の番号を選び、とっておいた型を写すだけ。
  */
 export function fillBlockLookKata(kind: number, bx: number, by: number, bz: number, exposed: number, unique: boolean, out: Uint8Array, under = false): void {
-  const k = under && kataUnder > 0 && (kataK[kind] ?? 0) > 0 ? kataUnder : (kataK[kind] ?? 0);
-  if (under && kataUnder > 0) unique = false;
+  const own = kataK[kind] ?? 0;
+  const useUnder = under && kataUnder > 0;
+  const k = useUnder && own > 0 ? kataUnder : own;
+  if (useUnder) unique = false;
   const s = specs[kind];
   kataStats[unique ? 0 : k === 0 ? 1 : under ? 3 : 2]++;
   if (unique || k === 0 || !s) {
