@@ -1719,6 +1719,7 @@ export interface W2Settings {
   bladeAimReach: number;
   /** WEAPON-4: 刀ごとの 射程 R（3 つのわざで 同じ）。表にない 刀は かたなの 値 */
   bladeReach: Partial<Record<ItemId, number>>;
+  /** 注意（WEAPON-4）: thrust.length・kesa/kiriage.rMax は もう 使わない（射程は bladeReach）。半径・角・高さ・rMin だけ 効く */
   bladeShape: {
     thrust: { length: number; radius: number };
     kesa: { halfAngleDeg: number; rMin: number; rMax: number; yMin: number; yMax: number };
