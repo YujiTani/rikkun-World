@@ -27,6 +27,8 @@ test.describe('WEAPON-6 通し', () => {
     const snd = allSounds(rec);
     expect(snd.filter((s) => s === 'combo2')).toHaveLength(1);
     expect(snd.filter((s) => s === 'combo3')).toHaveLength(1);
+    expect(rec.findIndex((s) => s.sounds.includes('combo2')), 'combo2 は 2 段目を 始めた ステップ').toBe(idxOfStart(rec, 2));
+    expect(rec.findIndex((s) => s.sounds.includes('combo3')), 'combo3 は 3 段目を 始めた ステップ').toBe(idxOfStart(rec, 3));
   });
 
   test('AC13: 下段 3 段。kiriage → thrust(+34) → kesa(+54) → kiriage(+152)', async ({ page }) => {
@@ -98,19 +100,20 @@ test.describe('WEAPON-6 通し', () => {
     expect(i2).toBeGreaterThan(0);
     expect(Math.abs(flat(rec[i2 + 5]!.pos, rec[i2]!.pos) - 1.4), 'つき 2 段目 F6').toBeLessThanOrEqual(0.01);
 
-    // かべ: 前の 2 段（x は 横に ひろく）。かべの 面は 立つ 場所から 1.5 先
-    await comboWorld(page, 'chudan');
-    const wallFace = await page.evaluate((floorY) => {
+    // かべ: 前 1.0 の 面に 2 段（立つ場所を 21.0 に して かべは z 19 の 列 = 面 z 20.0）
+    await stage(page, { floorY, z: 21.0 });
+    const wallFace = 20.0;
+    await page.evaluate((floorY) => {
       const h = window.__rikkun! as any;
-      const p = h.player.get().position;
-      const zi = Math.floor(p.z) - 2;
-      h.world.fill(Math.floor(p.x) - 6, floorY + 1, zi, Math.floor(p.x) + 6, floorY + 2, zi, 'stone');
-      h.step(1);
-      return zi + 1;
+      h.world.fill(14, floorY + 1, 19, 26, floorY + 2, 19, 'stone');
+      // ＋マークを 空へ（かべに 向けると 左クリックが「ほる」に なる）
+      h.player.set({ pitch: 40 });
+      h.step(2);
     }, floorY);
     rec = await mash(page, 120);
     expect(idxOfStart(rec, 2), '2 段目が 出た').toBeGreaterThan(0);
     expect(Math.min(...rec.map((s) => s.pos.z)), 'かべの 中に 入らない').toBeGreaterThanOrEqual(wallFace + 0.3 - 0.01);
+    expect(rec[rec.length - 1]!.pos.z, 'かべの 手前で 止まった').toBeLessThanOrEqual(wallFace + 0.3 + 0.1);
 
     // がけ: 前の 3 段を 空気に
     await comboWorld(page, 'chudan');
@@ -149,11 +152,13 @@ test.describe('WEAPON-6 通し', () => {
   test('AC17: 窓を すぎたら 1 段目。つき 1 段目だけ → F41 で おわり・F42 から 何も出ない。そのあと 押すと step 1', async ({ page }) => {
     await comboWorld(page, 'chudan');
     const rec = await run(page, 60, { before: '(h, i) => { if (i === 0) h.input.press("primary"); if (i === 1) h.input.release("primary"); }' });
+    expect(rec[4]!.combo?.open, 'F5 から 窓が ひらく').toBe(true);
+    expect(rec[40]!.combo?.open, 'F41 まで ひらいている').toBe(true);
     expect(rec[40]!.f, 'F41').toBe(41);
     expect(rec[41]!.f, 'F42 は idle').toBe(0);
     expect(rec[41]!.tech).toBeNull();
     expect(starts(rec)).toHaveLength(1);
-    expect(rec.every((s) => s.combo === null || s.combo === undefined || s.f > 0)).toBe(true);
+    expect(rec[41]!.combo, 'F42 は combo なし').toBeNull();
     const again = await mash(page, 3);
     expect(starts(again)[0]!.step).toBe(1);
   });
@@ -253,6 +258,7 @@ test.describe('WEAPON-6 通し', () => {
     const d1 = rec[0]!.dirDeg!;
     const d2 = rec[i2]!.dirDeg!;
     expect(Math.abs(d2 - d1), '右の 向き').toBeGreaterThan(5);
+    const rightSign = Math.sign(d2 - d1);
 
     await comboWorld(page, 'chudan');
     await markNow0(page);
@@ -268,7 +274,10 @@ test.describe('WEAPON-6 通し', () => {
     rec = await mash(page, 70, assist);
     const i3 = idxOfStart(rec, 3);
     expect(i3, '3 段目が 出た').toBeGreaterThan(0);
-    expect(Math.abs(rec[i3]!.dirDeg! - rec[0]!.dirDeg!), '妖怪の ほうへ むく').toBeGreaterThan(3);
+    const turn = rec[i3]!.dirDeg! - rec[0]!.dirDeg!;
+    expect(Math.sign(turn), '右の 妖怪の ほうへ（右キーと 同じ 側）').toBe(rightSign);
+    const want = (Math.atan2(1.5, 4.0) * 180) / Math.PI; // 妖怪への 角度
+    expect(Math.abs(Math.abs(turn) - want), '妖怪の ほうを むく').toBeLessThanOrEqual(8);
   });
 
   test('AC22: 見直し。てつ 2・き 2・すいしょう 2 で つくれる（材料 0）・てつ 1 本 たりないと つくれない・たいきゅう 400', async ({ page }) => {
