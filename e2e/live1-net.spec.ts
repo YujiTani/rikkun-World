@@ -132,6 +132,25 @@ test.describe('LIVE-1 むしとりあみ・むし', () => {
     expect(r.mushi).toBe(1);
   });
 
+  test('AC13 あみの 案内: leaves を ねらう → 絵 mushi_ami・語 とる。右クリックで 実際に swing が 起きる', async ({ page }) => {
+    await openAnimals(page);
+    const r = await page.evaluate(() => {
+      const h = (window as any).__rikkun;
+      const A = (window as any).__A;
+      A.base();
+      h.settings.set('bugChance', 1);
+      A.tree(5, 10, 6, 'leaves');
+      A.hold('mushi_ami', 1);
+      const out: any = { aimed: A.aimBlock(5, 10, 6) };
+      out.hint = h.hud.actionHint().right;
+      out.swings = A.swing().filter((e: any) => e.type === 'swing').length;
+      return out;
+    });
+    expect(r.aimed).toBe(true);
+    expect(r.hint).toMatchObject({ icon: 'mushi_ami', word: 'とる' });
+    expect(r.swings, '案内どおり 起きる').toBe(1);
+  });
+
   test('AC7c き で ない 所（bamboo・stone・くさ）は swing なし・netHint。きの ブロック（momiji_leaves・matsu_leaves）は ふれる', async ({ page }) => {
     await openAnimals(page);
     const r = await page.evaluate(() => {

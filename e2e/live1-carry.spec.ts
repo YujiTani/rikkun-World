@@ -88,7 +88,7 @@ test.describe('LIVE-1 だっこ・おろす・パタパタ', () => {
       const id = A.friend(4.5, 6.5);
       const id2 = A.friend(4.5, 12.5);
       A.hold('mushi', 5);
-      A.aim(id);
+      const aimed0 = A.aim(id);
       h.animals.events();
       h.input.press('secondary');
       h.step(20);
@@ -96,7 +96,7 @@ test.describe('LIVE-1 だっこ・おろす・パタパタ', () => {
       h.step(40);
       h.input.release('secondary');
       h.step(2);
-      const out: any = { carried: A.one(id).carried, mushi: h.inventory.count('mushi'), feed: A.events('feed').length };
+      const out: any = { aimed0, carried: A.one(id).carried, mushi: h.inventory.count('mushi'), feed: A.events('feed').length };
       // 1 わ だけ
       (window as any).__aim.standForS(2.5, 6.5, 90, -20, 9);
       h.step(1);
@@ -110,6 +110,7 @@ test.describe('LIVE-1 だっこ・おろす・パタパタ', () => {
       h.input.release('secondary');
       return out;
     });
+    expect(r.aimed0, '最初は ねらえて いた').toBe(true);
     expect(r.carried).toBe(false);
     expect(r.mushi).toBe(5);
     expect(r.feed).toBe(0);
@@ -180,7 +181,7 @@ test.describe('LIVE-1 だっこ・おろす・パタパタ', () => {
       h.world.setBlock(5, 9, 6, 'dirt');
       h.step(2);
       A.hold('wood_pickaxe', 1);
-      A.aimBlock(5, 9, 6); // 西の 面を ねらう（おろす 所は その 手前の 床）
+      out.aimedDirt = A.aimBlock(5, 9, 6); // 西の 面を ねらう（おろす 所は その 手前の 床）
       h.yokai.events();
       h.yokai.spawn('karakasa', 4.5, 9, 6.5, {}); // ねらいの 線の 上
       h.input.press('primary');
@@ -227,6 +228,7 @@ test.describe('LIVE-1 だっこ・おろす・パタパタ', () => {
       return out;
     });
     expect(r.lifted).toBe(true);
+    expect(r.aimedDirt, 'ねらえて いる（でないと こわれない のは あたりまえ）').toBe(true);
     expect(r.dirt, '左クリックを 押しつづけても ほれない').toBe('dirt');
     expect(r.hurt).toBe(0);
     expect(r.stillCarried).toBe(true);
@@ -344,7 +346,8 @@ test.describe('LIVE-1 だっこ・おろす・パタパタ', () => {
       const A = (window as any).__A;
       A.base(30);
       const speed = h.settings.get('animalFlutterFallSpeed');
-      const id = A.friend(4.5, 6.5);
+      // follow 0: ついてくる なかま は 高さ の 差 6 より 大 で ワープ する（§2.7）ので、落ちる ところ を 見る ため ついてこない なかま に する
+      const id = A.friend(4.5, 6.5, { follow: 0 });
       const out: any = { speed, lifted: A.lift(id) };
       // y=18 の だい（x 0..1, z 4..9）の 上に 立って、東の くうきに おろす
       h.world.fill(0, 18, 4, 1, 18, 9, 'stone');
