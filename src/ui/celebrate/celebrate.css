@@ -327,3 +327,19 @@
   width: var(--rk-icon-chip);
   height: var(--rk-icon-chip);
 }
+
+/* テロップの ★ 7 つは にじ色（yuzu 2026-10-18）。ふちと 同じ にじが ゆっくり 流れる。点滅しない */
+.cel-telop .cel-band__stars {
+  background: linear-gradient(90deg, #ff6b6b, #ffd93d, #6bff95, #4dd2ff, #b36bff, #ff6b6b, #ffd93d);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  animation: cel-rainbow-flow 6s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cel-telop .cel-band__stars {
+    animation: none;
+  }
+}
