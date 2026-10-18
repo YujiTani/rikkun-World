@@ -49,7 +49,7 @@ describe('#184-AC10: 新しいブロックの役わり', () => {
     expect(itemType('susuki')?.placeBlock ?? null).toBeNull();
   });
 
-  it('ほかのブロックは 持ち物がふえる（NO_DROP_BLOCKS は すすき だけ）', () => {
-    expect([...NO_DROP_BLOCKS]).toEqual(['susuki']);
+  it('ほかのブロックは 持ち物がふえる（NO_DROP_BLOCKS は すすき と くさ だけ。FLORA-75）', () => {
+    expect([...NO_DROP_BLOCKS]).toEqual(['susuki', 'kusa']);
   });
 });

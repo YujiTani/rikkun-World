@@ -533,6 +533,7 @@ export class AnimalManager implements AnimalApi {
     }
     if (e.lock === 0) this.behave(e, p, d);
 
+    if (!e.walking) this.unstraddle(e);
     this.settle(e);
     this.turn(e, p, d);
     return true;
@@ -721,6 +722,23 @@ export class AnimalManager implements AnimalApi {
     e.x = nx;
     e.z = nz;
     return true;
+  }
+
+  /** 段の ふち に またがって 止まった とき、体の まんなか を 高い 方へ そっと よせる（足もとが くうき に ならない ように） */
+  private unstraddle(e: Ent): void {
+    const w = this.world;
+    const ix = Math.floor(e.x);
+    const iz = Math.floor(e.z);
+    const startY = Math.floor(e.y + BODY.stepUp + 1e-6) - 1;
+    const c = columnTop(w, ix, iz, startY, BODY.stepUp + 3);
+    if (c === null || e.y - c < 0.5) return;
+    for (const [ox, oz] of [[-1, 0], [1, 0], [0, -1], [0, 1]] as const) {
+      const t = columnTop(w, ix + ox, iz + oz, startY, BODY.stepUp + 3);
+      if (t !== null && t >= e.y - 1e-6) {
+        this.tryMove(e, ox * 0.04, oz * 0.04, 3, false);
+        return;
+      }
+    }
   }
 
   /** 足もと を 地面 に あわせる(落ちる・のぼる・みず に うく) */

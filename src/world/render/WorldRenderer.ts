@@ -1277,6 +1277,15 @@ export class WorldRenderer {
       boxMaxDist: 0,
     };
     let boxMin = Infinity;
+    // 読みこんだ列のうち まだ 描く輪の外（renderer が 列を持たない）の セクションは「なにも 作らない（empty）」。
+    // 数え落とすと、木などが へって 上のほうの 空気が ふえたとき total・empty が 空気の数に 足りなくなる（FLORA-75）
+    const nSec = Math.ceil(this.world.size.y / 16);
+    for (const { cx, cz } of this.world.loadedColumns()) {
+      if (this.cols.has(columnKey(cx, cz))) continue;
+      out.total += nSec;
+      out.none += nSec;
+      out.noneBy.empty += nSec;
+    }
     for (const col of this.cols.values()) {
       for (let sy = 0; sy < col.secs.length; sy++) {
         const i = this.sectionInfo(col.cx, sy, col.cz);
