@@ -301,6 +301,11 @@ export class SaveManager {
       this.d.farm?.deserialize(data.farm === undefined || data.farm === null ? null : {});
     }
     this.restoreTime(data.time);
+    try {
+      this.d.animals?.deserialize(data.animals);
+    } catch {
+      this.d.animals?.deserialize(null);
+    }
   }
 
   /** すぐ保存する。書き終わると解決する（失敗しても 解決する） */
@@ -489,6 +494,7 @@ export class SaveManager {
       level: this.d.level?.serialize() ?? null,
       storage: this.d.storage?.serialize() ?? null,
       achievements: this.d.achievements?.serialize() ?? null,
+      animals: this.d.animals?.serialize() ?? null,
       farm,
     });
     // inventory などは 2 回 serialize しない: 比べる側の meta から 取りだす
