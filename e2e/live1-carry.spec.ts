@@ -7,6 +7,8 @@ import { openAnimals } from './helpers/animals';
  * 押しつづけの 長さは 設定 `carryHoldTicks` から 読む。なかまは (4.5, 9, 6.5)、プレイヤーは 2 マス 西から ねらう。
  */
 test.describe('LIVE-1 だっこ・おろす・パタパタ', () => {
+  // 3 並列の SwiftShader で 30〜60 秒かかる テストが あり、60 秒だと 時間切れに なる（期待は 変えない）
+  test.describe.configure({ timeout: 150_000 });
   test('AC17 だっこ: 39 ステップ目は まだ・40 ステップ目に carried・carry・carry:* 1・animal.carry.1。むしは へらない・たまごなし', async ({ page }) => {
     await openAnimals(page);
     const r = await page.evaluate(() => {

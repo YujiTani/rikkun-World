@@ -7,6 +7,8 @@ import { openAnimals } from './helpers/animals';
  * 距離・時間は 設定（animalFollow* / animalWarpDist / animalStuckTicks）から 読む。
  */
 test.describe('LIVE-1 なかま（ついてくる・ワープ・保存）', () => {
+  // 3 並列の SwiftShader で 30〜60 秒かかる テストが あり、60 秒だと 時間切れに なる（期待は 変えない）
+  test.describe.configure({ timeout: 150_000 });
   test('AC10 ついてくる: 近い うちは 歩かない・はなれると ついてきて 止まる・1 段は のぼる', async ({ page }) => {
     await openAnimals(page);
     const r = await page.evaluate(() => {

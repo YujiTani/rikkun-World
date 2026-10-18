@@ -9,6 +9,8 @@ import { openAnimals } from './helpers/animals';
  * 台帳 G6 の 決め: 出てくる 30 ステップ（`appear`）の あいだは ねらえない（`target()` null）・右クリックは 何も 起きない。
  */
 test.describe('LIVE-1 にわとり（であう・あげる・たたけない）', () => {
+  // 3 並列の SwiftShader で 30〜60 秒かかる テストが あり、60 秒だと 時間切れに なる（期待は 変えない）
+  test.describe.configure({ timeout: 150_000 });
   test('AC2 であう: ひる・はじまりの 場所で 3,600 ステップ → くさの 上の やせい（3 わ 以下・出てくる 30 ステップ）', async ({ page }) => {
     await openAnimals(page); // ?nosave=1 の まま = 毎回 同じ シード・はじまりの 場所（はらっぱ）
     const r = await page.evaluate(() => {

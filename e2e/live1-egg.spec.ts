@@ -7,6 +7,8 @@ import { openAnimals } from './helpers/animals';
  * 版 2 の「なでると 1 日 1 回 たまご」（旧 AC13）・「やさいで たまご／今日 もう くれた」（旧 AC14）・eggLater は 版 3 で なくなったので 消した。
  */
 test.describe('LIVE-1 たまご・ふりわけ・案内・ハート', () => {
+  // 3 並列の SwiftShader で 30〜60 秒かかる テストが あり、60 秒だと 時間切れに なる（期待は 変えない）
+  test.describe.configure({ timeout: 150_000 });
   test('AC21 たまご: animalEggChance 1 で なかま+むし（押して 5 ステップ後に はなす）→ はなして 60 ステップ目に egg・egg:* 1・animal.egg.1。600 後 もう 1 回 → また egg（1 日の 上限 なし）', async ({ page }) => {
     await openAnimals(page);
     const r = await page.evaluate(() => {

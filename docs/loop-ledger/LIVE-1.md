@@ -53,3 +53,7 @@
 | 8 | dev | code-reviewer | 【軽微】(直した) src/dig/DigSystem.ts rightFirst・AnimalManager.carryHold: やせい の 長おし の 合図 carryWild は A の `wildAnnounced` が 戻らず、実機 では 1 回 目 しか 出ない（DigSystem は 40 ちょうど でしか 呼ばない ため）。やせい を 押した ステップ に `carryHold(id, 0)` で 印 を もどす | 新しい 押し ごと の 初期化 | G23 | 対応済み（直した） |
 | 8 | dev | code-reviewer | 【軽微】(残し) AnimalManager warp の `ents.filter`・rayHit/follow の 小さな 配列: 毎ステップ の new（G3 の まま） | 毎フレームの new | G3 | 未対応 |
 | 8 | dev | code-reviewer | 版 3.2 実装: 判定 合格（重大 0）。確かめた: 保存 v1→v2・だっこ中 の 保存 位置・やられた 時 dropCarried・くじ の 乱数 1 回／別シード・だっこ中 は 当たり判定／ワープ／ついてくる 減り から 外れる・文 の ruby。check:fast OK（exit 0） | — | — | 対応済み |
+| 9 | test | tester | 【軽微】AC30 性能: にわとり 11 わ（なかま 8・やせい 3・ぜんぶ しるし つき）で 描画回数 +18（上限 18 ちょうど OK）、三角形 +8,612（上限 8,000 を 612 こえる。1 わ 約 530・最初の 1 わ だけ +1,820）。DESIGN 16.8 の 見積り 約 7,300 より 多い（しるし・ふちどり ぶん）。`e2e/live1-perf.spec.ts` が 赤 | 実装（見積り が あまい。または 仕様の 上限 を 9,000 に 上げる 判断） | AC30 | 未対応（PO 判断） |
+| 9 | test | tester | 【軽微】v32-flutter.png: にわとり が ステータス板 の うしろ に 小さく しか 写らず、羽 が 横に ひろがる 形 が 見えない。v32-net-swing.png: あみ が 手 に 見えない（うしろ姿 だけ）。撮り直し 推奨 | スクショ | §3.2 | 未対応 |
+| 9 | test | tester | 【軽微】だっこ 1 人称: にわとり が 画面 の 下 25% ではなく 中ほど（y 54〜73%）に 出て、「おろす」チップ が 頭に かぶる。照準 とは 重ならない・ホットバー は かくさない | 見た目（§3.4 は 照準 と かさならない のは OK） | §3.4 | 未対応 |
+| 9 | test | tester | 【軽微】(直した) live1 の 5 spec: 3 並列で 60 秒 タイムアウト（net AC8・AC13、carry AC27、follow AC11・AC24 ほか）。describe に timeout 150 秒 を 足した。期待は 変えて いない | テスト の 待ち時間 | G24 | 対応済み（直した） |

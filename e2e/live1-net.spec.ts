@@ -7,6 +7,8 @@ import { openAnimals } from './helpers/animals';
  * 乱数は `bugChance` を 0 か 1 に して きめる。き は (5, 10, z) に 置き、プレイヤーは 2.5 マス 西から ねらう。
  */
 test.describe('LIVE-1 むしとりあみ・むし', () => {
+  // 3 並列の SwiftShader で 30〜60 秒かかる テストが あり、60 秒だと 時間切れに なる（期待は 変えない）
+  test.describe.configure({ timeout: 150_000 });
   test('AC6 あみを つくる: き 1・いと 2 → mushi_ami 1・craft.mushi_ami.1・カードの いちばん うしろ・こわれない', async ({ page }) => {
     await openAnimals(page);
     const r = await page.evaluate(() => {
