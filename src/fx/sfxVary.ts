@@ -37,6 +37,11 @@ export const VARY: Readonly<Record<string, Vary>> = {
   pickup: tones({ cents: 0, gain: 0.08, dur: 0 }),
   levelUp: root({ cents: 0, gain: 0, dur: 0, big: true }),
   whiff: plain({ cents: 60, gain: 0.15 }),
+  // WEAPON-5: パリィ（案 A）。成功は 3 つの高さ（ド・ミ・ソ）から 直前と ちがう物。big にしない
+  parry: tones({ cents: 0, gain: 0.05, dur: 0 }),
+  parryEarly: plain(),
+  staggerBreak: plain(),
+  parrySwing: plain({ cents: 60, gain: 0.15 }),
   // たたかう・妖怪・時間
   hit: plain({ cents: 80, gain: 0.15 }),
   defeat: root(),
@@ -108,7 +113,7 @@ export const LEVEL: Readonly<Record<string, number>> = {
   closeReady: 0.87, till: 0.87, tillPress: 2.04, plant: 0.87, harvest: 0.81, wild: 0.81,
   notRipe: 0.52, seedFound: 1.08, eat: 1.21, fill: 1.15, fullCan: 1.52, pour: 0.47,
   empty: 1.22, sprinklerPlace: 0.45, pet: 1.15, petAgain: 1.22, throw: 1.02, drawerOpen: 1.53,
-  drawerClose: 0.9,
+  drawerClose: 0.9, parrySwing: 1.43, parry: 0.73, parryEarly: 1.16, staggerBreak: 0.69,
 };
 
 export function levelOf(name: string): number {

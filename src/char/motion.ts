@@ -18,7 +18,9 @@ export type SpriteMotion =
   | 'katana_kiriage'
   | 'katana_walk_chudan'
   | 'katana_walk_jodan'
-  | 'katana_walk_gedan';
+  | 'katana_walk_gedan'
+  | 'parry'
+  | 'parryKime';
 
 export type SpriteScene =
   | 'stand'

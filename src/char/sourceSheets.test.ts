@@ -4,18 +4,18 @@ import { decodePng } from '../../scripts/pack-char-atlas.mjs';
 import { PALETTE_RGB, quantizeRgba } from './palette';
 
 /**
- * CHAR-2 AC24・CHAR-4 AC10・AC11: もとの 14 まい（art/char-sheets/）と もとの atlas.json（実物のファイルを読む）。
+ * CHAR-2 AC24・CHAR-4 AC10・AC11: もとの 16 まい（art/char-sheets/）と もとの atlas.json（実物のファイルを読む）。
  * 切りつめた絵（public/models/char/）は packAtlas.test.ts（AC32）が見る。
  */
 const DIR = 'art/char-sheets';
 const OLD = ['idle', 'walk', 'run', 'jump'];
-const NEW = ['bow_shot', 'bow_walk', 'bow_hold_walk', 'bow_rapid', 'katana_thrust', 'katana_kesa', 'katana_kiriage', 'katana_walk_chudan', 'katana_walk_jodan', 'katana_walk_gedan'];
+const NEW = ['bow_shot', 'bow_walk', 'bow_hold_walk', 'bow_rapid', 'katana_thrust', 'katana_kesa', 'katana_kiriage', 'katana_walk_chudan', 'katana_walk_jodan', 'katana_walk_gedan', 'parry', 'parryKime'];
 const WALKS = ['bow_walk', 'bow_hold_walk', 'katana_walk_chudan', 'katana_walk_jodan', 'katana_walk_gedan'];
 const atlas = JSON.parse(readFileSync(`${DIR}/atlas.json`, 'utf8'));
 const COLORS = new Set(PALETTE_RGB.map((c) => (c[0] << 16) | (c[1] << 8) | c[2]));
 
-describe('AC24 もとの 14 まい', () => {
-  it('atlas.json は 14 の動き。naginata_sweep は どこにもない', () => {
+describe('AC24 もとの 16 まい', () => {
+  it('atlas.json は 16 の動き。naginata_sweep は どこにもない', () => {
     expect(Object.keys(atlas.motions).sort()).toEqual([...OLD, ...NEW].sort());
     expect(existsSync(`${DIR}/naginata_sweep.png`)).toBe(false);
     expect(existsSync('public/models/char/naginata_sweep.png')).toBe(false);

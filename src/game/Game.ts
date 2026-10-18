@@ -2,11 +2,10 @@ import * as THREE from 'three';
 import { ActionState } from '../input/actions';
 import { stableOpaqueSort, stableTransparentSort } from '../world/render/drawOrder';
 import { FrameStats } from '../debug/frameStats';
+import { createStepClock, MAX_STEPS_PER_FRAME } from './stepClock';
 
 /** ゲームの更新は 1/60 秒きざみ（固定）。テストで同じ結果を再現しやすくするため。 */
 export const FIXED_DT = 1 / 60;
-/** 処理落ちしても 1 フレームで追いつく更新回数の上限 */
-const MAX_STEPS_PER_FRAME = 5;
 
 export interface RenderStats {
   fps: number;
@@ -45,7 +44,7 @@ export class Game {
   renderSuspended = false;
   private renderDirty = false;
 
-  private accumulator = 0;
+  private readonly clock = createStepClock();
   private lastTime = 0;
   private rafId = 0;
   private readonly updaters: Array<(dt: number) => void> = [];
@@ -181,7 +180,7 @@ export class Game {
 
     if (!this.realtimeGate()) {
       // ロックなし: 時間は止める。描画と F3 だけ続ける
-      this.accumulator = 0;
+      this.clock.reset();
       for (const fn of this.idleUpdaters) fn(Math.min(elapsed / 1000, 0.1));
       this.input.endFrame();
       if (!this.idleDrawn) {
@@ -193,11 +192,9 @@ export class Game {
     this.idleDrawn = false;
 
     const start = performance.now();
-    this.accumulator = Math.min(this.accumulator + (elapsed / 1000) * this.timeScale(), FIXED_DT * MAX_STEPS_PER_FRAME);
-    while (this.accumulator >= FIXED_DT) {
-      this.update();
-      this.accumulator -= FIXED_DT;
-    }
+    // 何ステップ進めるかは 時計が決める（スローの倍率も かけ算で入る。WEAPON-5 AC8）
+    const n = this.clock.advance(elapsed / 1000, this.timeScale());
+    for (let i = 0; i < n; i++) this.update();
     this.render();
     this.frameStats.add(Math.max(elapsed, performance.now() - start));
   };
