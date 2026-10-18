@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { BladeStepContext, ItemId, Vec3, YokaiInfo, YokaiKind, YokaiKnock, YokaiRayHit, YokaiWorld } from '../../contracts';
 import { createW2Settings } from '../../contracts';
 import { ArrayVoxelWorld } from '../../world/VoxelWorld';
-import { createBladeSystem } from './BladeSystem';
+import { createBladeSystem, techDamage } from './BladeSystem';
 
 const R: Record<YokaiKind, [number, number]> = { karakasa: [0.6, 1.6], chochin: [0.4, 1.7], nurikabe: [0.9, 3.0], rokurokubi: [0.4, 2.9] };
 
@@ -164,10 +164,10 @@ describe('フレーム表（AC2）', () => {
     r.blade.setStance('jodan');
     expectPhases(r.phases(107, { techPressed: true }), 28, 6, 72);
   });
-  it('切り上げ 38/5/61。設定を かえると かわる', () => {
+  it('切り上げ 19/3/30（WEAPON-4）。設定を かえると かわる', () => {
     const d = rig();
     d.blade.setStance('gedan');
-    expectPhases(d.phases(105, { techPressed: true }), 38, 5, 61);
+    expectPhases(d.phases(54, { techPressed: true }), 19, 3, 30);
     const r = rig();
     r.blade.setStance('gedan');
     r.settings.bladeTech.kiriage = { startup: 2, active: 1, recovery: 3 };
@@ -175,7 +175,7 @@ describe('フレーム表（AC2）', () => {
   });
 });
 
-describe('当たる F・ダメージ（AC3・AC4）', () => {
+describe('当たる F・ダメージ（AC3・AC4。WEAPON-4 §4.1・§4.3）', () => {
   it('突き は F5、かたな 3', () => {
     const r = rig();
     const id = r.yokai.add('karakasa', ...(Object.values(r.front(2)) as [number, number, number]));
@@ -184,14 +184,14 @@ describe('当たる F・ダメージ（AC3・AC4）', () => {
     expect(r.yokai.calls.length).toBe(0);
     r.step();
     expect(r.yokai.calls).toHaveLength(1);
-    expect(r.yokai.calls[0]).toMatchObject({ id, amount: 3, knock: { dist: 1.5, up: 0 } });
+    expect(r.yokai.calls[0]).toMatchObject({ id, amount: 3, knock: { dist: 0.8, up: 0 } });
     const ev = r.blade.peekEvents().find((e) => e.type === 'techHit');
     expect(ev).toBeTruthy();
     r.steps(10);
     expect(r.yokai.calls).toHaveLength(1);
     expect(r.hits).toEqual([{ tech: 'thrust', count: 1 }]);
   });
-  it('大げさ斬り F29 に 8、切り上げ F39 に 3', () => {
+  it('大げさ斬り F29 に 10（ノックバック 6・上 3）、切り上げ F20 に 4.6（ノックバック 1・上 7）', () => {
     const r = rig();
     r.blade.setStance('jodan');
     r.yokai.add('karakasa', ...(Object.values(r.front(2)) as [number, number, number]));
@@ -199,18 +199,20 @@ describe('当たる F・ダメージ（AC3・AC4）', () => {
     r.steps(27);
     expect(r.yokai.calls).toHaveLength(0);
     r.step();
-    expect(r.yokai.calls[0]).toMatchObject({ amount: 8, knock: { dist: 2.5, up: 2 } });
+    expect(r.yokai.calls[0]).toMatchObject({ amount: 10, knock: { dist: 6, up: 3 } });
     const k = rig();
     k.blade.setStance('gedan');
     k.yokai.add('karakasa', ...(Object.values(k.front(2)) as [number, number, number]));
     k.step({ techPressed: true });
-    k.steps(37); // F38
+    k.steps(18); // F19
     expect(k.yokai.calls).toHaveLength(0);
-    k.step(); // F39
-    expect(k.yokai.calls[0]).toMatchObject({ amount: 3, knock: { dist: 1.0, up: 7 } });
+    k.step(); // F20
+    expect(k.yokai.calls[0]).toMatchObject({ knock: { dist: 1.0, up: 7 } });
+    expect(k.yokai.calls[0]!.amount).toBeCloseTo(4.6, 6);
   });
-  it('3 しゅるい x 3 わざの ダメージ表', () => {
-    const exp: Record<string, number[]> = { bokuto: [2, 2, 4], katana: [3, 3, 8], crystal_katana: [5, 5, 12] };
+  it('AC2: 3 しゅるい x 3 わざの ダメージ表（§4.3。四捨五入しない・0.01 の位）', () => {
+    // [突き, 切り上げ, 大けさぎり] の 順（かまえ: 中段・下段・上段）
+    const exp: Record<string, number[]> = { bokuto: [1.5, 2.3, 5], katana: [3, 4.6, 10], crystal_katana: [4.5, 6.9, 15] };
     for (const it of Object.keys(exp)) {
       (['chudan', 'gedan', 'jodan'] as const).forEach((st, i) => {
         const r = rig(it as ItemId);
@@ -218,9 +220,18 @@ describe('当たる F・ダメージ（AC3・AC4）', () => {
         r.yokai.add('nurikabe', ...(Object.values(r.front(2)) as [number, number, number]));
         r.step({ techPressed: true });
         r.steps(42);
-        expect(r.yokai.calls[0].amount).toBe(exp[it][i]);
+        expect(r.yokai.calls[0].amount).toBeCloseTo(exp[it][i], 3);
       });
     }
+  });
+  it('AC2: techDamage は 四捨五入も 最低 1 も しない。1.15 × 6 は 6.9（6.8999… でない）', () => {
+    expect(techDamage(6, 1.15)).toBe(6.9);
+    expect(techDamage(4, 1.15)).toBe(4.6);
+    expect(techDamage(2, 1.15)).toBe(2.3);
+    expect(techDamage(2, 0.75)).toBe(1.5);
+    expect(techDamage(6, 0.75)).toBe(4.5);
+    expect(techDamage(2, 0.25)).toBe(0.5); // 最低 1 に しない
+    expect(techDamage(1, 0.1)).toBe(0.1);
   });
   it('bladeDamageMul で かわる', () => {
     const r = rig();
@@ -232,7 +243,9 @@ describe('当たる F・ダメージ（AC3・AC4）', () => {
   });
 });
 
-describe('突きの 形（AC5）', () => {
+const reachOf = (r: { settings: unknown }) => (r.settings as unknown as { bladeReach: Record<string, number> }).bladeReach;
+
+describe('突きの 形（AC5。WEAPON-4: 射程は R = 2.2）', () => {
   const run = (setup: (r: ReturnType<typeof rig>) => void) => {
     const r = rig();
     setup(r);
@@ -253,10 +266,55 @@ describe('突きの 形（AC5）', () => {
   });
   it('2 体 は 手前だけ', () => {
     const r = run((r) => {
-      r.yokai.add('karakasa', r.front(4).x, 9, r.front(4).z);
+      r.yokai.add('karakasa', r.front(2.6).x, 9, r.front(2.6).z);
       r.yokai.add('karakasa', r.front(2).x, 9, r.front(2).z);
     });
     expect(r.yokai.calls.map((c) => c.id)).toEqual([2]);
+  });
+  it('AC11: 射程 R。からかさ（半径 0.6）は 中心 2.5 で 当たり、R + 0.2 + 0.6 を こえる 3.1 では 当たらない', () => {
+    const near = run((r) => r.yokai.add('karakasa', r.front(2.5).x, 9, r.front(2.5).z));
+    expect(near.yokai.calls).toHaveLength(1);
+    const far = run((r) => r.yokai.add('karakasa', r.front(3.1).x, 9, r.front(3.1).z));
+    expect(far.yokai.calls).toHaveLength(0);
+    expect(far.blade.peekEvents().some((e) => e.type === 'techMiss')).toBe(true);
+  });
+  it('AC11: ＋マークの 線（bladeAimReach 4.5）に 入る 4.0 先でも 当たらない（線で 当てる 近道は R まで）', () => {
+    const r = run((r) => r.yokai.add('karakasa', r.front(4).x, 9, r.front(4).z));
+    expect(r.yokai.calls).toHaveLength(0);
+    expect(r.blade.peekEvents().some((e) => e.type === 'techMiss')).toBe(true);
+    // 線は 4.5 のまま（ふりわけ用）
+    expect(r.settings.bladeAimReach).toBe(4.5);
+  });
+  it('AC12: bladeReach.katana = 3.0 → つぎの 突きの カプセルの 長さが 3.0。ぼくとうは 2.2 のまま', () => {
+    const r = rig();
+    reachOf(r).katana = 3.0;
+    r.step({ techPressed: true });
+    r.steps(4);
+    const sh = r.blade.shape() as { from: Vec3; to: Vec3 };
+    expect(Math.hypot(sh.to.x - sh.from.x, sh.to.y - sh.from.y, sh.to.z - sh.from.z)).toBeCloseTo(3.0, 6);
+    const b = rig('bokuto');
+    reachOf(b).katana = 3.0;
+    b.step({ techPressed: true });
+    b.steps(4);
+    const sb = b.blade.shape() as { from: Vec3; to: Vec3 };
+    expect(Math.hypot(sb.to.x - sb.from.x, sb.to.y - sb.from.y, sb.to.z - sb.from.z)).toBeCloseTo(2.2, 6);
+  });
+  it('AC3: 表にない 刀の R は かたなの R', () => {
+    const r = rig('bokuto');
+    reachOf(r).katana = 3.0;
+    delete reachOf(r).bokuto;
+    r.step({ techPressed: true });
+    r.steps(4);
+    const sh = r.blade.shape() as { from: Vec3; to: Vec3 };
+    expect(Math.hypot(sh.to.x - sh.from.x, sh.to.y - sh.from.y, sh.to.z - sh.from.z)).toBeCloseTo(3.0, 6);
+  });
+  it('§5: わざの とちゅうで bladeReach を かえても 始めた ときの R のまま', () => {
+    const r = rig();
+    r.step({ techPressed: true });
+    reachOf(r).katana = 5;
+    r.steps(4);
+    const sh = r.blade.shape() as { from: Vec3; to: Vec3 };
+    expect(Math.hypot(sh.to.x - sh.from.x, sh.to.y - sh.from.y, sh.to.z - sh.from.z)).toBeCloseTo(2.2, 6);
   });
   it('shape() は 持続 だけ カプセル', () => {
     const r = rig();
@@ -273,7 +331,7 @@ describe('大げさ斬り・切り上げの 形（AC6・AC7）', () => {
     r.blade.setStance(stance);
     setup(r);
     r.step({ techPressed: true });
-    r.steps(42); // 切り上げの 当たり F39〜43 も ふくむ
+    r.steps(42); // 切り上げの 当たり F20〜22 も ふくむ
     return r;
   };
   it('0°・60° は 当たり、120° と 4.5 は 当たらない', () => {
@@ -285,6 +343,38 @@ describe('大げさ斬り・切り上げの 形（AC6・AC7）', () => {
     expect(q.yokai.calls).toHaveLength(0);
     const w = runKesa((r) => r.yokai.add('karakasa', r.front(4.5).x, 9, r.front(4.5).z));
     expect(w.yokai.calls).toHaveLength(0);
+  });
+  it('AC12: 扇の 外がわ rMax = R。中心 2.7（半径 0.6 + R 2.2 の 内）は 当たり、3.0 は 当たらない（大けさぎり・切り上げ）', () => {
+    for (const st of ['jodan', 'gedan'] as const) {
+      expect(runKesa((r) => r.yokai.add('karakasa', r.front(2.7).x, 9, r.front(2.7).z), st).yokai.calls, st).toHaveLength(1);
+      expect(runKesa((r) => r.yokai.add('karakasa', r.front(3.0).x, 9, r.front(3.0).z), st).yokai.calls, st).toHaveLength(0);
+    }
+  });
+  it('AC12: bladeReach.katana = 3.0 → 扇の rMax が 3.0（大けさぎり・切り上げ）', () => {
+    for (const st of ['jodan', 'gedan'] as const) {
+      const r = rig();
+      reachOf(r).katana = 3.0;
+      r.blade.setStance(st);
+      r.step({ techPressed: true });
+      let seen = false;
+      for (let i = 0; i < 40 && !seen; i++) {
+        r.step();
+        const sh = r.blade.shape();
+        if (sh && sh.kind === 'fan') {
+          seen = true;
+          expect(sh.rMax, st).toBeCloseTo(3.0, 6);
+        }
+      }
+      expect(seen, st).toBe(true);
+    }
+  });
+  it('AC14: 切り上げは 高い 所まで とどく。足もと +4.9 の ちょうちんに 当たり（yMax 6.0）、大けさぎりは 当たらない', () => {
+    const put = (r: ReturnType<typeof rig>) => r.yokai.add('chochin', r.front(1.5).x, 9 + 4.9, r.front(1.5).z);
+    expect(runKesa(put, 'gedan').yokai.calls).toHaveLength(1);
+    expect(runKesa(put, 'jodan').yokai.calls).toHaveLength(0);
+    // うかぶ ちょうちん（足もと +4.0、水平 1.5 先）
+    const hover = (r: ReturnType<typeof rig>) => r.yokai.add('chochin', r.front(1.5).x, 9 + 4.0, r.front(1.5).z);
+    expect(runKesa(hover, 'gedan').yokai.calls).toHaveLength(1);
   });
   it('同じ 妖怪に 1 わざ 1 回、onHit も 1 回', () => {
     const r = runKesa((r) => {
@@ -334,14 +424,14 @@ describe('かべごし（AC8）', () => {
 });
 
 describe('動き・ふみこみ（AC14・AC17）', () => {
-  // 仕様書 §4.5 の「計算の確認」にある 値（ひらけた所・北向き）
+  // 仕様書 §4.5 の「計算の確認」にある 値（ひらけた所・北向き）。WEAPON-4: 大けさぎり 3.1・切り上げ その場
   const A: Record<string, Array<[number, number]>> = {
     thrust: [[4, 0.197], [6, 0.2675], [41, 0]],
-    kesa: [[29, 0.543], [34, 0.654], [53, 0.8], [106, 0.8]],
-    kiriage: [[39, 1.016], [104, 1.04]],
+    kesa: [[28, 0.309], [29, 0.4], [33, 2.4], [34, 2.6], [36, 3.0], [37, 3.1], [106, 3.1]],
+    kiriage: [[1, 0], [20, 0], [22, 0], [52, 0]],
   };
   const stanceOf = { thrust: 'chudan', kesa: 'jodan', kiriage: 'gedan' } as const;
-  const lenOf = { thrust: 41, kesa: 106, kiriage: 104 } as const;
+  const lenOf = { thrust: 41, kesa: 106, kiriage: 52 } as const;
   for (const tech of ['thrust', 'kesa', 'kiriage'] as const) {
     it(`${tech}: ぜんぶの F で 歩けず ジャンプできず、ふみこみの合計が A(f)`, () => {
       const r = rig();
@@ -360,13 +450,13 @@ describe('動き・ふみこみ（AC14・AC17）', () => {
       expect(r.blade.motion()).toEqual({ speedMul: 1, jumpLocked: false });
     });
   }
-  it('どのわざも 1 ステップの ふみこみは 0.12 以下', () => {
+  it('1 ステップの ふみこみ: 突き・切り上げ 0.12 以下、大けさぎり 0.5 以下（WEAPON-4）', () => {
     for (const tech of ['thrust', 'kesa', 'kiriage'] as const) {
       const r = rig();
       r.blade.setStance(stanceOf[tech]);
       r.step({ techPressed: true });
       r.steps(lenOf[tech]);
-      for (const l of r.lunges) expect(Math.hypot(l[0], l[1])).toBeLessThanOrEqual(0.12);
+      for (const l of r.lunges) expect(Math.hypot(l[0], l[1])).toBeLessThanOrEqual(tech === 'kesa' ? 0.501 : 0.12);
     }
   });
   it('かまえ変え（switch）の あいだは 歩ける・ジャンプできる', () => {

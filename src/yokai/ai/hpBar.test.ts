@@ -20,6 +20,12 @@ describe('BAL-C 体力のバー（BALANCE.md §4.7 AC12）', () => {
     expect(hpBarModel(hp, max)).toEqual({ bars, left, color });
   });
 
+  it('WEAPON-4 AC5: 体力が 小数でも 正しい。最大 8・6.5 → 8 本中 7 本、最大 8・0.01 → 1 本（赤）', () => {
+    expect(hpBarModel(6.5, 8)).toEqual({ bars: 8, left: 7, color: 'white' });
+    expect(hpBarModel(0.01, 8)).toEqual({ bars: 8, left: 1, color: 'red' });
+    expect(hpBarModel(4, 8).left).toBe(4);
+    expect(hpBarModel(4.5, 8).left).toBe(5);
+  });
   it('最大 5 残り 5 → 5 本 白。本数は 20 以下。体力が 0 より大きければ 1 本以上', () => {
     expect(hpBarModel(5, 5)).toEqual({ bars: 5, left: 5, color: 'white' });
     for (const max of [1, 5, 8, 20, 21, 40, 72, 500]) {

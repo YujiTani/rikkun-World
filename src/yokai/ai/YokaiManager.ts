@@ -393,7 +393,7 @@ export class YokaiManager implements YokaiWorld {
   damage(id: number, amount: number, from: Vec3, knock?: YokaiKnock): void {
     const e = this.ents.find((q) => q.id === id);
     if (!e || e.state === 'dying' || e.state === 'leaving' || e.remove) return;
-    e.hp = Math.max(0, e.hp - amount);
+    e.hp = Math.max(0, Math.round((e.hp - amount) * 100 + 1e-7) / 100); // WEAPON-4: 0.01 の位に まるめる（小数の 誤差で のこさない）
     this.showMarks(e);
     if (e.hp <= 0) {
       this.defeat(e);

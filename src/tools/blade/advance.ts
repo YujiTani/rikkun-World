@@ -1,4 +1,4 @@
-import type { BladeAdvanceCurve, BladeTechFrames } from '../../contracts';
+import type { BladeAdvanceCurve, BladeTechFrames, ItemId, W2Settings } from '../../contracts';
 
 /**
  * 刀の わざの 絵の 時間（CHAR-2 §4.2・§4.5）。純粋な 関数。
@@ -54,4 +54,10 @@ export function techAdvance(curve: BladeAdvanceCurve, phases: BladeTechFrames, l
   }
   if (tau >= c || c === px) return curve.step;
   return py + ((curve.step - py) * (tau - px)) / (c - px);
+}
+
+/** WEAPON-4 §4.2: 持っている刀の 射程 R。表にない 刀は かたなの 値 */
+export function bladeReachOf(settings: Pick<W2Settings, 'bladeReach'>, item: ItemId | null | undefined): number {
+  const t = settings.bladeReach;
+  return (item ? t[item] : undefined) ?? t.katana ?? 2.2;
 }

@@ -85,7 +85,7 @@ describe('AC15 かべ', () => {
     r.step({ techPressed: true });
     r.steps(60);
     const m = r.blade.state().move!;
-    expect(m.target).toBeCloseTo(0.8, 3);
+    expect(m.target).toBeCloseTo(3.1, 3); // WEAPON-4: 大けさぎりの ふみこみ 3.1
     expect(m.moved).toBeCloseTo(0.1, 3);
   });
 });

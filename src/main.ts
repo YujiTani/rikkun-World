@@ -471,6 +471,7 @@ const blade = createBladeSystem({
   lunge: (dx, dz) => controller.lunge(dx, dz),
   tick: () => game.tick,
 });
+controller.lungeYokai = () => (yokaiManager ? yokaiManager.list() : []);
 const combat = new PlayerCombatImpl({
   config: combatCfg,
   tool: tools,
@@ -1024,6 +1025,7 @@ const infoNumbers = (): InfoNumbers => ({
   toolLevel: toolConfig.toolLevel,
   weaponDamage: toolConfig.weaponDamage,
   weaponReach: toolConfig.weaponReach,
+  bladeReach: w2.bladeReach,
   weaponTicks: toolConfig.weaponTicks,
   arrowDamage: toolConfig.arrowDamage,
   arrowRange: toolConfig.arrowRange,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { BlockId, LockStatus, LookSource, SpawnPoint, VoxelWorld } from '../contracts';
+import type { BlockId, LockStatus, LookSource, SpawnPoint, VoxelWorld, YokaiInfo } from '../contracts';
 import { ActionState, type Action } from '../input/actions';
 import { PlayerController } from './PlayerController';
 import { createPlayerHook } from './hook';
@@ -489,6 +489,47 @@ describe('CHAR-2: lunge の戻り値・向きの指定・すぐ止まる', () =>
     const g2 = r.player.lunge(3, 0);
     expect(g2.x).toBeCloseTo(1.7, 6);
     expect(r.s.position.x).toBeCloseTo(4.7, 6);
+  });
+  it('WEAPON-4: がけ（足場が 2 段 ない所）の 手前で 止まる。1 段 下がる 所と 水は すすむ', () => {
+    const r = new Rig();
+    r.floor({ x: 2.5, y: 9, z: 6.5 }, 90);
+    r.world.fill(5, 7, 0, 12, 8, 12, 'air'); // x >= 5: 足もとの 1 段下・2 段下が くうき
+    const got = r.player.lunge(3, 0);
+    expect(r.s.position.x).toBeLessThan(5.3 + 1e-6); // 箱の 半分 0.3 までは 足場の 上
+    expect(r.s.position.x).toBeGreaterThan(5.0);
+    expect(got.x).toBeCloseTo(r.s.position.x - 2.5, 9);
+    // 1 段 下がるだけ（y=8 は くうき、y=7 に ブロック）→ 進む
+    const r2 = new Rig();
+    r2.floor({ x: 2.5, y: 9, z: 6.5 }, 90);
+    r2.world.fill(5, 8, 0, 12, 8, 12, 'air');
+    r2.world.fill(5, 7, 0, 12, 7, 12, 'stone');
+    r2.player.lunge(3, 0);
+    expect(r2.s.position.x).toBeCloseTo(5.5, 6);
+    // 水は 足場
+    const r3 = new Rig();
+    r3.floor({ x: 2.5, y: 9, z: 6.5 }, 90);
+    r3.world.fill(5, 8, 0, 12, 8, 12, 'water');
+    r3.player.lunge(3, 0);
+    expect(r3.s.position.x).toBeCloseTo(5.5, 6);
+  });
+  it('WEAPON-4: 妖怪の 手前（半径 + 0.3 + 0.1）で 止まる。どいたら のこりを すすむ', () => {
+    const r = new Rig();
+    r.floor({ x: 2.5, y: 9, z: 6.5 }, 90);
+    const y = { id: 1, kind: 'nurikabe', position: { x: 5.5, y: 9, z: 6.5 }, scale: 1, state: 'idle' } as unknown as YokaiInfo;
+    let list: YokaiInfo[] = [y];
+    r.player.lungeYokai = () => list;
+    r.player.lunge(3, 0);
+    expect(r.s.position.x).toBeGreaterThanOrEqual(5.5 - 1.3 - 1e-9);
+    expect(r.s.position.x).toBeLessThan(5.5 - 1.3 + 0.06);
+    list = [];
+    r.player.lunge(1, 0);
+    expect(r.s.position.x).toBeGreaterThan(4.9);
+    // 消えかけは 止めない
+    const r2 = new Rig();
+    r2.floor({ x: 2.5, y: 9, z: 6.5 }, 90);
+    r2.player.lungeYokai = () => [{ ...y, state: 'dying' } as YokaiInfo];
+    r2.player.lunge(3, 0);
+    expect(r2.s.position.x).toBeCloseTo(5.5, 6);
   });
   it('faceDeg が あるあいだ facing は それ（歩く向き・ねらう向きでは かわらない）', () => {
     const r = new Rig();

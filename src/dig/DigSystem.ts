@@ -963,6 +963,7 @@ export class DigSystemImpl implements DigSystem {
     return decideAttack({
       settings: w2,
       hold,
+      item: this.inventory.held()?.item ?? null,
       tech: hold === 'blade' ? TECH_OF_STANCE[this.m4.blade!.state().stance] : 'thrust',
       punchReach: this.m4.tools?.punchParams?.().reach ?? 3.5,
       yawDeg: p.yawDeg,

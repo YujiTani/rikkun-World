@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { findUnrubiedKanji } from '../src/ui/text';
 import { fine } from './helpers/fine';
+import { openBladeWorld, runTech, settle, stage, takeKatana, toStance } from './helpers/blade';
 
 async function open(page: Page) {
   await page.goto('/');
@@ -69,4 +70,25 @@ test('画面の文字にふりがなのない漢字がない', async ({ page }) 
   // 性能表示は開発者向けなので対象外
   const withoutDebug = html.replace(/<div id="perf-overlay"[\s\S]*?<\/div>/, '');
   expect(findUnrubiedKanji(withoutDebug)).toEqual([]);
+});
+
+/** WEAPON-4 AC24: 刀を 持って 3 つのわざを 1 回ずつ 出しても エラーが 出ない（突き・大けさぎり・切り上げ） */
+test('刀の 3 つのわざを 1 回ずつ 出して、エラーが出ない', async ({ page }) => {
+  test.setTimeout(120_000);
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
+  await openBladeWorld(page);
+  await takeKatana(page, 'chudan');
+  const { floorY } = await stage(page);
+  const techs: string[] = [];
+  for (const st of ['chudan', 'jodan', 'gedan'] as const) {
+    await toStance(page, st);
+    const rec = await runTech(page, 110);
+    techs.push(...rec.flatMap((r) => r.events.filter((e) => e.type === 'techStart').map((e) => e.tech!)));
+    await settle(page, 10);
+    await stage(page, { floorY });
+  }
+  expect(techs).toEqual(['thrust', 'kesa', 'kiriage']);
+  expect(errors).toEqual([]);
 });

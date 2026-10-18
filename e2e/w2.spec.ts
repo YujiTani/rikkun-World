@@ -86,7 +86,7 @@ test.describe('WEAPON-2 刀', () => {
       const out: any = { hits: {}, dur: [], moved: {} };
       const id = h.yokai.spawn('nurikabe', 4.5, 9, 6.5, { ai: false, yawDeg: 270 });
       for (const st of ['chudan', 'jodan', 'gedan']) {
-        // CHAR-2: わざごとに 体が 前へ進む（大けさぎり 0.80・切り上げ 1.04）ので、毎回 同じ場所から始める
+        // 大けさぎりは 前へ とびこむ（WEAPON-4）ので、毎回 同じ場所から始める
         (window as any).__aim.standForS(2.5, 6.5, 90, 0, 9);
         h.step(1);
         const p0 = h.player.get().position;
@@ -100,6 +100,7 @@ test.describe('WEAPON-2 刀', () => {
         h.step(110); // 大けさぎり 106 が おわってから 次を押す
         const p1 = h.player.get().position;
         out.moved[st] = Math.hypot(p1.x - p0.x, p1.z - p0.z);
+        out.gap = Math.hypot(p1.x - 4.5, p1.z - 6.5); // ぬりかべの 中心との 水平の きょり
         const ev = h.blade.events().filter((e: any) => e.type === 'techHit');
         out.hits[st] = ev.length - n0;
         out.dur.push(h.inventory.durability(0).left);
@@ -118,10 +119,13 @@ test.describe('WEAPON-2 刀', () => {
     });
     expect(r.hits).toEqual({ chudan: 1, jodan: 1, gedan: 1 });
     expect(r.dur).toEqual([249, 248, 247]);
-    // おわったときの ふみこみ: 突き 0・大けさぎり 0.80・切り上げ 1.04（仕様書 §4.5）
+    // おわったときの ふみこみ: 突き 0・切り上げ 0（その場）・大けさぎりは ぬりかべ（前 2.0・半径 0.9）の 手前 0.9 + 0.3 + 0.1 で 止まる（WEAPON-4 §4.5）
     expect(Math.abs(r.moved.chudan)).toBeLessThan(0.02);
-    expect(Math.abs(r.moved.jodan - 0.8)).toBeLessThan(0.02);
-    expect(Math.abs(r.moved.gedan - 1.04)).toBeLessThan(0.02);
+    expect(Math.abs(r.moved.gedan)).toBeLessThan(0.02);
+    // 立ち位置が ぬりかべの 中心から よこに ずれていても、中心との きょりが 0.9 + 0.3 + 0.1 − 0.01 以上で 手前で 止まる（3.1 は すすまない）
+    expect(r.gap).toBeGreaterThanOrEqual(1.29);
+    expect(r.moved.jodan).toBeGreaterThan(0.2);
+    expect(r.moved.jodan).toBeLessThan(2.5);
     expect(r.whiffWear).toBe(0);
   });
 

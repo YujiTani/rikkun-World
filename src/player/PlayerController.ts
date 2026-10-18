@@ -1,4 +1,5 @@
-import type { LockStatus, LookSource, PlayerState, SpawnPoint, VoxelWorld } from '../contracts';
+import type { LockStatus, LookSource, PlayerState, SpawnPoint, VoxelWorld, YokaiInfo } from '../contracts';
+import { KIND_AI } from '../yokai/ai/config';
 import { WORLD_LIMIT } from '../contracts';
 import type { ActionState } from '../input/actions';
 import {
@@ -17,6 +18,8 @@ import {
 } from './config';
 
 const DEG = Math.PI / 180;
+/** ふみこみを 区切る 長さ（がけ・妖怪の 手前で 止める 細かさ） */
+const LUNGE_SUBSTEP = 0.05;
 
 /** 箱の各軸の足もとからの範囲 [下, 上] */
 const LO = [-BODY_HALF, 0, -BODY_HALF] as const;
@@ -60,6 +63,8 @@ export class PlayerController {
     /** WEAPON-3: false の ステップは 左クリックを「ねらう行動」にしない（刀・パンチの 攻撃・空ぶり） */
     leftAims: true,
   };
+  /** WEAPON-4: ふみこみが 手前で 止まる 妖怪の 一覧（つなぎ込みが わたす） */
+  lungeYokai: (() => ReadonlyArray<YokaiInfo>) | null = null;
   private readonly p = [0, 0, 0]; // 作業用: 位置
   private readonly idx = [0, 0, 0];
   /** ねらう行動のあと、向きをねらいに合わせつづける残りステップ */
@@ -120,7 +125,11 @@ export class PlayerController {
     this.updateWater();
   }
 
-  /** わざの ふみこみ: 水平に dx, dz だけ 動かす（かべで 止まる）。実際に 動いた量を 返す */
+  /**
+   * わざの ふみこみ: 水平に dx, dz だけ 動かす。実際に 動いた量を 返す。
+   * 止まるもの（WEAPON-4 §4.5）: かべ・1 段の段差（`sweep`）、がけ（体の箱の下 2 段に 足場が 1 つも ない所）、
+   * 妖怪（体の半分 + 妖怪の半径 + 0.1 より 近づく所）。水は 足場。
+   */
   lunge(dx: number, dz: number): { x: number; z: number } {
     const st = this.state;
     const p = this.p;
@@ -129,11 +138,57 @@ export class PlayerController {
     p[0] = x0;
     p[1] = st.position.y;
     p[2] = z0;
-    this.sweep(0, dx);
-    this.sweep(2, dz);
+    const len = Math.hypot(dx, dz);
+    const n = Math.max(1, Math.ceil(len / LUNGE_SUBSTEP));
+    const sx = dx / n;
+    const sz = dz / n;
+    const yl = len > 0 ? this.lungeYokai?.() : undefined;
+    for (let i = 0; i < n; i++) {
+      const px = p[0];
+      const pz = p[2];
+      this.sweep(0, sx);
+      this.sweep(2, sz);
+      if (p[0] === px && p[2] === pz) continue;
+      if (!this.hasSupport(p[0], p[1], p[2]) || (yl !== undefined && this.nearYokai(yl, px, pz, p[0], p[1], p[2]))) {
+        p[0] = px;
+        p[2] = pz;
+        break;
+      }
+    }
     st.position.x = p[0];
     st.position.z = p[2];
     return { x: p[0] - x0, z: p[2] - z0 };
+  }
+
+  /** 体の箱の 下（足もとの 1 段下・2 段下）に 固いブロックか 水が 1 つでも あるか。読みこんでいない列は あるとする */
+  private hasSupport(x: number, y: number, z: number): boolean {
+    const w = this.world;
+    const i0 = Math.floor(x - BODY_HALF + EPS);
+    const i1 = Math.floor(x + BODY_HALF - EPS);
+    const k0 = Math.floor(z - BODY_HALF + EPS);
+    const k1 = Math.floor(z + BODY_HALF - EPS);
+    const j1 = Math.floor(y + EPS) - 1;
+    for (let i = i0; i <= i1; i++) {
+      for (let k = k0; k <= k1; k++) {
+        if (!w.isLoaded(i, k)) return true;
+        for (let j = j1; j >= j1 - 1; j--) if (w.isSolid(i, j, k) || w.getBlock(i, j, k) === 'water') return true;
+      }
+    }
+    return false;
+  }
+
+  /** (nx, nz) が 高さの かさなる 妖怪の 手前の きょりより 近く、しかも 今より 近づくか */
+  private nearYokai(list: ReadonlyArray<YokaiInfo>, ox: number, oz: number, nx: number, y: number, nz: number): boolean {
+    for (const e of list) {
+      if (e.state === 'dying' || e.state === 'leaving') continue;
+      const ai = KIND_AI[e.kind];
+      if (e.position.y + ai.height * e.scale <= y || e.position.y >= y + BODY_HEIGHT) continue;
+      const lim = ai.radius * e.scale + BODY_HALF + 0.1;
+      const dn = Math.hypot(nx - e.position.x, nz - e.position.z);
+      if (dn >= lim) continue;
+      if (dn < Math.hypot(ox - e.position.x, oz - e.position.z) - 1e-9) return true;
+    }
+    return false;
   }
 
   /** 1 ステップ進める（通常 1/60 秒） */

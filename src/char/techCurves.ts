@@ -9,14 +9,14 @@ export const TECH_CURVES: Record<BladeTech, BladeAdvanceCurve> = {
     step: 0,
   },
   kesa: {
-    ticks: [8, 7, 4, 4, 5, 2, 2, 2, 5, 28, 8, 8, 8, 8, 7],
-    advance: [0, 0.019, 0.088, 0.22, 0.351, 0.543, 0.62, 0.639, 0.691, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8],
+    ticks: [4, 4, 6, 5, 4, 5, 2, 2, 2, 5, 28, 8, 8, 8, 8, 7],
+    advance: [0.014, 0.016, 0.02, 0.061, 0.121, 0.343, 0.543, 0.62, 0.64, 0.691, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8],
     step: 0.8,
   },
   kiriage: {
-    ticks: [5, 5, 5, 5, 5, 5, 4, 4, 2, 1, 2, 8, 27, 6, 6, 6, 4, 4],
-    advance: [0, 0.13, 0.26, 0.39, 0.52, 0.65, 0.78, 0.91, 1.016, 1.04, 1.059, 1.05, 1.04, 1.04, 1.04, 1.04, 1.04, 1.04],
-    step: 1.04,
+    ticks: [3, 4, 6, 3, 3, 1, 2, 7, 6, 5, 4, 4, 4],
+    advance: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    step: 0,
   },
 };
 
@@ -24,7 +24,7 @@ export const TECH_CURVES: Record<BladeTech, BladeAdvanceCurve> = {
 export const TECH_PHASES: Record<BladeTech, BladeTechFrames> = {
   thrust: { startup: 4, active: 2, recovery: 35 },
   kesa: { startup: 28, active: 6, recovery: 72 },
-  kiriage: { startup: 38, active: 5, recovery: 61 },
+  kiriage: { startup: 19, active: 3, recovery: 30 },
 };
 
 /** `bow_shot`（12 コマ）: 引く 0〜7、はなす 8〜11 */

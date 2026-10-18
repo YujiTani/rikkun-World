@@ -2,7 +2,7 @@
 import type { BladePhase, BladeStance, BladeTech, BladeTechFrames, Vec3 } from '../contracts';
 import { W2_SETTING_DEFAULTS } from '../contracts';
 import { techCell } from '../tools/blade/advance';
-import { BOW_RAPID_TICKS, BOW_SHOT_TICKS } from './techCurves';
+import { BOW_RAPID_TICKS, BOW_SHOT_TICKS, TECH_CURVES, TECH_PHASES } from './techCurves';
 
 export type SpriteMotion =
   | 'idle'
@@ -211,7 +211,7 @@ export class MotionMachine {
     // K1: わざ
     if (b && b.tech && (b.phase === 'startup' || b.phase === 'active' || b.phase === 'recovery')) {
       const t = b.tech;
-      this.setStill('tech', TECH_MOTION[t], techCell(W2_SETTING_DEFAULTS.bladeAdvance[t], W2_SETTING_DEFAULTS.bladeTech[t], b.lengths ?? W2_SETTING_DEFAULTS.bladeTech[t], b.frame));
+      this.setStill('tech', TECH_MOTION[t], techCell(TECH_CURVES[t], TECH_PHASES[t], b.lengths ?? W2_SETTING_DEFAULTS.bladeTech[t], b.frame));
       return;
     }
     // K3: かまえ歩き（K2 空中・K4 立つ は かまえの 1 コマ目）

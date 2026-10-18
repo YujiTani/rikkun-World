@@ -20,12 +20,12 @@ const outAtlas = JSON.parse(readFileSync(resolve(OUT, 'atlas.json'), 'utf8'));
 const names = Object.keys(srcAtlas.motions);
 
 describe('AC32 切りつめた絵', () => {
-  it('14 の動き・3,336 コマ（139 列 × 24 行）', () => {
+  it('14 の動き・3,240 コマ（135 列 × 24 行）', () => {
     expect(names).toHaveLength(14);
     let cols = 0;
     for (const n of names) cols += (srcAtlas.motions[n] as MotionInfo).frames;
-    expect(cols).toBe(139);
-    expect(cols * 24).toBe(3336);
+    expect(cols).toBe(135);
+    expect(cols * 24).toBe(3240);
   });
 
   it('atlas.json は もとの中身 ＋ packed', () => {

@@ -14,13 +14,12 @@ const KATANA_SET = ['katana_thrust', 'katana_kesa', 'katana_kiriage', 'katana_wa
 const BOW_SET = ['bow_shot', 'bow_hold_walk', 'bow_walk', 'bow_rapid'];
 // 仕様書 第 2 版 §4.7 の「本当の値」（切りつめた PNG の よこ × たて の合計）。上限 64 MiB
 const BASE_BYTES = 12_863_488; // はじめの 4 つ
-const KATANA_BYTES = 31_672_320; // 刀の組 6 まい（はじめ ＋ 刀 = 44,535,808）
+const KATANA_BYTES = 30_404_608; // 刀の組 6 まい（新しい絵 kesa2・kiriage2。はじめ ＋ 刀 = 43,268,096）
 const BOW_BYTES = 18_585_600; // 弓の組 4 まい（はじめ ＋ 弓 = 31,449,088）
-const ALL_BYTES = 63_121_408; // ぜんぶ 14 まい
+const ALL_BYTES = 61_853_696; // ぜんぶ 14 まい
 const LIMIT_BYTES = 67_108_864;
 
-/** 絵の 時間割（仕様書 §4.2・§4.3 の `ticks`） */
-const KESA_TICKS = [8, 7, 4, 4, 5, 2, 2, 2, 5, 28, 8, 8, 8, 8, 7];
+/** 絵の 時間割（仕様書 §4.2・§4.3 の `ticks`）。大けさぎりの 絵は 作りなおし中なので、決め打ちせず atlas.json から 読む */
 const BOW_SHOT_TICKS = [6, 6, 6, 6, 6, 5, 5, 9999]; // 引く 0〜7（c_7 = 40 で 7 コマめ。7 より大きくしない）
 const cellAt = (ticks: number[], t: number): number => {
   let c = 0;
@@ -136,26 +135,23 @@ test.describe('CHAR-2 通し', () => {
       h.input.release('primary');
     });
 
-    let prevCam: { x: number; y: number; z: number } | null = null;
-    let maxCamMove = 0;
+    const KESA_TICKS: number[] = await page.evaluate(async () => (await (await fetch('./models/char/atlas.json')).json()).motions.katana_kesa.ticks);
     for (let f = 1; f <= 106; f++) {
       if (f > 1) await page.evaluate(() => (window.__rikkun! as any).step(1));
       const s = await page.evaluate(() => {
         const h = window.__rikkun! as any;
         const sp = h.player.doll().sprite;
-        return { frame: h.blade.state().frame, scene: sp.scene, cell: sp.frame, motion: sp.motion, cam: h.camera.get().position };
+        return { frame: h.blade.state().frame, scene: sp.scene, cell: sp.frame, motion: sp.motion };
       });
       expect(s.frame, `F${f}`).toBe(f);
       expect(s.scene, `F${f}`).toBe('tech');
       expect(s.motion, `F${f}`).toBe('katana_kesa');
       expect(s.cell, `F${f} の コマ`).toBe(cellAt(KESA_TICKS, f - 1));
-      if (prevCam) maxCamMove = Math.max(maxCamMove, Math.hypot(s.cam.x - prevCam.x, s.cam.y - prevCam.y, s.cam.z - prevCam.z));
-      prevCam = s.cam;
       if (f === 20 || f === 30 || f === 60) await page.screenshot({ path: `${SHOTS}/AC20-kesa-F${f}.png` });
     }
-    expect(maxCamMove).toBeLessThanOrEqual(0.12);
+    // WEAPON-4: カメラの 1 ステップの 動きの 上限（0.12）は 大けさぎりだけ やめた。見た目は オーナー確認（AC27）
 
-    // おわったあと: かまえの 0 コマめ・体は u へ 0.800
+    // おわったあと: かまえの 0 コマめ・体は u へ。ぬりかべ（前 2）の 手前で 止まる（WEAPON-4 §4.5: 半径 0.9 + 0.3 + 0.1 まで）
     await page.evaluate(() => (window.__rikkun! as any).step(1));
     const end = await page.evaluate(
       ({ id }) => {
@@ -174,7 +170,9 @@ test.describe('CHAR-2 通し', () => {
     expect(end).toMatchObject({ scene: 'kamae', frame: 0 });
     const dx = end.pos.x - setup.start.x;
     const dz = end.pos.z - setup.start.z;
-    expect(Math.abs(dx * setup.u.x + dz * setup.u.z - 0.8)).toBeLessThanOrEqual(0.01);
+    const adv = dx * setup.u.x + dz * setup.u.z;
+    expect(adv).toBeLessThanOrEqual(2 - 1.3 + 0.01); // 手前（1.3）より 近づかない
+    expect(adv).toBeGreaterThan(0.2); // とちゅうまでは すすむ（止まり方は 開発に まかせる）
     expect(Math.abs(dx * -setup.u.z + dz * setup.u.x)).toBeLessThanOrEqual(0.01); // よこには ずれない
     expect(end.hits).toBe(1);
     expect(end.hp).toBeLessThan(setup.hp0);

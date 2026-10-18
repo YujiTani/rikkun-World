@@ -424,7 +424,7 @@ SCREENS.push(...VOXD_SCREENS);
 
 /**
  * CHAR-4 AC18: 刀の軌跡が 出ている 場面で HUD の はみ出し・重なりが 0。
- * 大けさぎり F31（ぼくとう・かたな・きらきらの かたな）・切り上げ F41（きらきらの かたな）・突き F5（かたな）。
+ * 大けさぎり F31（ぼくとう・かたな・きらきらの かたな）・切り上げ F21（きらきらの かたな）・突き F5（かたな）。
  * スクショ（ui-gate-report/char4-*-<大きさ>.png）は ui-reviewer が 見る。
  */
 const char4Scene = (id: string, item: string, stance: 'chudan' | 'jodan' | 'gedan', frame: number): Screen => ({
@@ -450,7 +450,7 @@ SCREENS.push(
   char4Scene('char4-kesa-bokuto-F31', 'bokuto', 'jodan', 31),
   char4Scene('char4-kesa-katana-F31', 'katana', 'jodan', 31),
   char4Scene('char4-kesa-crystal-F31', 'crystal_katana', 'jodan', 31),
-  char4Scene('char4-kiriage-crystal-F41', 'crystal_katana', 'gedan', 41),
+  char4Scene('char4-kiriage-crystal-F21', 'crystal_katana', 'gedan', 21),
   char4Scene('char4-thrust-katana-F5', 'katana', 'chudan', 5),
 );
 

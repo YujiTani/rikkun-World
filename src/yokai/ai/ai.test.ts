@@ -115,6 +115,38 @@ describe('パンチの窓口（raycast / damage / occupies）', () => {
     step(66);
     expect(m.list()).toHaveLength(0);
   });
+  it('WEAPON-4 AC4: 体力 23 に 2.3 を 10 回 → 10 回目で 0 になって たおれる（小数の 誤差で のこらない）', () => {
+    const { m } = setup();
+    const id = m.spawn('karakasa', 4.5, 9, 6.5, { ai: false });
+    m.setHp(id, 23);
+    const from = { x: 2.5, y: 9, z: 6.5 };
+    for (let i = 1; i <= 9; i++) {
+      m.damage(id, 2.3, from);
+      expect(m.list()[0]!.state, `${i} 回目`).not.toBe('dying');
+    }
+    expect(m.list()[0]!.hp).toBeCloseTo(2.3, 3);
+    m.damage(id, 2.3, from);
+    expect(m.list()[0]!.state).toBe('dying');
+    expect(m.drainEvents().filter((e) => e.type === 'defeat')).toHaveLength(1);
+  });
+  it('WEAPON-4 AC4: 体力 8 に 1.5 を 1 回 → 6.5。たたいた あとの 体力は いつも 0.01 の位まで', () => {
+    const { m } = setup();
+    const id = m.spawn('karakasa', 4.5, 9, 6.5, { ai: false });
+    const from = { x: 2.5, y: 9, z: 6.5 };
+    m.damage(id, 1.5, from);
+    expect(m.list()[0]!.hp).toBeCloseTo(6.5, 3);
+    const id2 = m.spawn('karakasa', 7.5, 9, 6.5, { ai: false });
+    m.damage(id2, 2.3, from);
+    m.damage(id2, 2.3, from);
+    expect(m.list().find((y) => y.id === id2)!.hp).toBe(3.4); // 8 − 2.3 − 2.3 = 3.4000000000000004 を そのまま のこさない
+    m.damage(id, 0.8, from);
+    m.damage(id, 0.8, from);
+    m.damage(id, 2.3, from);
+    m.damage(id, 2.3, from); // 8 − 1.5 − 0.8 − 0.8 − 2.3 − 2.3 = 0.3
+    const hp = m.list()[0]!.hp;
+    expect(hp).toBe(0.3);
+    expect(Math.abs(hp * 100 - Math.round(hp * 100))).toBeLessThan(1e-9);
+  });
   it('ぬりかべは押されない', () => {
     const { m, step } = setup();
     const id = m.spawn('nurikabe', 6.5, 9, 6.5, { ai: false });

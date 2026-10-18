@@ -81,6 +81,22 @@ describe('ストリーミングのメッシュ', () => {
     expect(r.sectionInfo(8, 0, 0).meshes).toBe(0);
   });
 
+  it('LOD の列は、まわりのマスが変わって作り直し待ちの間も 前の LOD を見せていて、絵なしと数えない（VOX-D 基準 5 のゆれ）', () => {
+    const { w, r, stream, view, run } = make();
+    view(0, 0);
+    stream.restart(0, 0, 'boot');
+    run();
+    // 列 4 は 距離 56（LOD）
+    expect(r.sectionInfo(4, 0, 0).tier).toBe('lod');
+    expect(r.streamMesh().columnState(4, 0)).toBe('true');
+    w.setBlock(4 * 16 + 3, 6, 3, 'stone');
+    r.update(); // 変わったマスを受けとる（LOD は ChunkStream の仕事で作り直す）
+    expect(r.streamMesh().columnState(4, 0)).toBe('drawn');
+    expect(stream.stageOf(4, 0)).toBe('meshed');
+    run();
+    expect(r.streamMesh().columnState(4, 0)).toBe('true');
+  });
+
   it('同じ n なら 同じコマ数でそろう（機械の速さにたよらない）', () => {
     const a = make();
     a.view(0, 0);

@@ -60,7 +60,7 @@ const PATH = JSON.parse(readFileSync('art/char-sheets/blade_path.json', 'utf8'))
 const PATH_KEY: Record<BladeTechName, string> = { thrust: 'katana_thrust', kesa: 'katana_kesa', kiriage: 'katana_kiriage' };
 
 /** 書く時間（絵の時 τ。仕様書 §4.2） */
-export const DRAW_TAU: Record<BladeTechName, [number, number]> = { thrust: [2, 6], kesa: [28, 34], kiriage: [38, 43] };
+export const DRAW_TAU: Record<BladeTechName, [number, number]> = { thrust: [2, 6], kesa: [28, 34], kiriage: [19, 22] };
 
 export const range = (a: number, b: number): number[] => Array.from({ length: b - a + 1 }, (_, i) => a + i);
 
@@ -236,3 +236,134 @@ export function maxPointError(rec: Snap[], tech: BladeTechName, dirDeg: number, 
   }
   return { err, n };
 }
+
+// ───────────────────────────────────────────────────────────────
+// WEAPON-4（射程・突き・大けさぎりの とびこみ・その場の切り上げ）の 道具
+// ───────────────────────────────────────────────────────────────
+
+/** 立つ場所の 北向き（yaw 0 = −z）。前 d の 点は (x, z − d) */
+export const ORIGIN = { x: 20.5, z: 20.5 } as const;
+
+export interface TechEvent {
+  type: string;
+  tech?: string;
+  yokaiId?: number;
+  damage?: number;
+  knock?: number;
+  up?: number;
+}
+
+/** 1 ステップぶんの きろく（F = 刀の frame。わざの 外は 0） */
+export interface TechStep {
+  f: number;
+  tech: string | null;
+  pos: Vec3;
+  /** この ステップの おわりに `blade.shape()` が あるか（当たりの F だけ true） */
+  shape: boolean;
+  /** このステップで 新しく 出た 出来事（techStart・techHit・techMiss など） */
+  events: TechEvent[];
+}
+
+/** 立つ。ひらけた 平らな 地面（床 floorY）。前 = 北。壁・がけを 作る 前の かたづけも かねる */
+export async function stage(page: Page, o: { x?: number; z?: number; floorY?: number } = {}): Promise<{ floorY: number }> {
+  const x = o.x ?? ORIGIN.x;
+  const z = o.z ?? ORIGIN.z;
+  const floorY = o.floorY ?? (await page.evaluate(({ x, z }) => (window.__rikkun! as any).world.groundHeight(Math.floor(x), Math.floor(z)), { x, z }));
+  // 前の テストで 掘った 穴・水を 元に もどす（床の 下 6 段まで 石）
+  await page.evaluate(
+    ({ x, z, fy }) => {
+      const h = window.__rikkun! as any;
+      h.world.fill(Math.floor(x) - 12, fy - 6, Math.floor(z) - 12, Math.floor(x) + 12, fy, Math.floor(z) + 12, 'stone');
+    },
+    { x, z, fy: floorY },
+  );
+  const r = await standOnGround(page, x, z, { floorY, yaw: 0, pitch: 0 });
+  await page.evaluate(() => {
+    const h = window.__rikkun! as any;
+    h.yokai.clear();
+    h.blade.events(); // peek: 空には ならない（数は 差で 見る）
+    h.step(1);
+  });
+  return r;
+}
+
+/** 前 d・横 side の 地面に 妖怪を 置く（止める = ai:false）。体力は 多め。戻りは id */
+export async function spawnAhead(
+  page: Page,
+  kind: 'karakasa' | 'chochin' | 'nurikabe' | 'rokurokubi',
+  d: number,
+  o: { side?: number; up?: number; hp?: number } = {},
+): Promise<number> {
+  return page.evaluate(
+    ({ kind, d, o }) => {
+      const h = window.__rikkun! as any;
+      const p = h.player.get().position;
+      const id = h.yokai.spawn(kind, p.x + (o.side ?? 0), p.y + (o.up ?? 0), p.z - d, { ai: false });
+      h.yokai.setHp(id, o.hp ?? 400);
+      h.yokai.events();
+      return id as number;
+    },
+    { kind, d, o },
+  );
+}
+
+/**
+ * 左クリックで わざを 始め（F1）、F(n) まで 1 ステップずつ きろくする。i 番目 = F(i + 1) の おわり。
+ * hold = true なら 押したまま（おしつづけ）。false なら F1 の あとで はなす。
+ */
+export async function runTech(page: Page, n: number, o: { hold?: boolean } = {}): Promise<TechStep[]> {
+  return page.evaluate(
+    ({ n, hold }) => {
+      const h = window.__rikkun! as any;
+      const out: any[] = [];
+      let seen = h.blade.events().length;
+      const snap = () => {
+        const st = h.blade.state();
+        const p = h.player.get().position;
+        const ev = h.blade.events();
+        const fresh = ev.slice(seen);
+        seen = ev.length;
+        out.push({
+          f: st.frame,
+          tech: st.tech,
+          pos: { x: p.x, y: p.y, z: p.z },
+          shape: h.blade.shape() !== null,
+          events: fresh.map((e: any) => ({ type: e.type, tech: e.tech, yokaiId: e.yokaiId, damage: e.damage, knock: e.knock, up: e.up })),
+        });
+      };
+      h.input.press('primary');
+      h.step(1);
+      if (!hold) h.input.release('primary');
+      snap();
+      for (let i = 1; i < n; i++) {
+        h.step(1);
+        snap();
+      }
+      if (hold) h.input.release('primary');
+      return out;
+    },
+    { n, hold: !!o.hold },
+  ) as Promise<TechStep[]>;
+}
+
+/** わざを おわらせて 落ちつくまで 進める（おしつづけは はなしてから） */
+export async function settle(page: Page, n = 130): Promise<void> {
+  await page.evaluate((n) => {
+    const h = window.__rikkun! as any;
+    h.input.releaseAll();
+    h.step(n);
+  }, n);
+}
+
+/** 刀を 持って 絵を 読み、かまえを そろえる（openBladeWorld の あと） */
+export async function takeKatana(page: Page, stance: 'chudan' | 'jodan' | 'gedan', item = 'katana'): Promise<void> {
+  await holdItems(page, [{ item }]);
+  await waitReady(page, KATANA_SET);
+  await toStance(page, stance);
+}
+
+/** 進んだ 距離（北向き: 始めた 所から −z の 向き） */
+export const northOf = (s: TechStep, start: Vec3): number => start.z - s.pos.z;
+
+/** 水平の きょり */
+export const flat = (a: Vec3, b: Vec3): number => Math.hypot(a.x - b.x, a.z - b.z);
