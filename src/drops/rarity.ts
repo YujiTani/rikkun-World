@@ -59,6 +59,8 @@ const ITEM_ONLY_RARITY: Record<string, Rarity> = {
   sprinkler: 'uncommon',
   // LIVE-1
   egg: 'common',
+  mushi: 'common',
+  mushi_ami: 'common',
   // WEAPON-7（ヌシが おとす。7 段目）
   raijin_ken: 'legendary',
   // BUCKET-1

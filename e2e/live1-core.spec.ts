@@ -2,12 +2,15 @@ import { expect, test } from '@playwright/test';
 import { openAnimals } from './helpers/animals';
 
 /**
- * LIVE-1 畜産（にわとり）の E2E その 1（docs/design/LIVE-1.md §6）: AC2 であう・AC4 見る・AC5 たたけない・
- * AC6 あげる・AC7 お祝い・AC8 失敗・AC9 なかま いっぱい。
+ * LIVE-1 畜産（にわとり）の E2E その 1（docs/design/LIVE-1.md 版 3.2 §6）: AC1 出てくる 30 ステップ・AC2 であう・AC4 見る・AC5 たたけない・
+ * AC11 むしを あげる／おなかいっぱい／なかまに なる・AC12 やさいは あげられない／なかまの はなした 瞬間・AC14 なかま いっぱい・AC27 合図の 文字。
+ * （版 2 の AC6〜AC9 は やさいで なかよく なる 動きなので、むしの AC11・AC12・AC14 に おきかえた）
  * 数は 設定（`settings.get`）から 読み、ねらいは `animals.target()` に 聞いて 確かめる。
  * 台帳 G6 の 決め: 出てくる 30 ステップ（`appear`）の あいだは ねらえない（`target()` null）・右クリックは 何も 起きない。
  */
 test.describe('LIVE-1 にわとり（であう・あげる・たたけない）', () => {
+  // 3 並列の SwiftShader で 30〜60 秒かかる テストが あり、60 秒だと 時間切れに なる（期待は 変えない）
+  test.describe.configure({ timeout: 150_000 });
   test('AC2 であう: ひる・はじまりの 場所で 3,600 ステップ → くさの 上の やせい（3 わ 以下・出てくる 30 ステップ）', async ({ page }) => {
     await openAnimals(page); // ?nosave=1 の まま = 毎回 同じ シード・はじまりの 場所（はらっぱ）
     const r = await page.evaluate(() => {
@@ -49,7 +52,7 @@ test.describe('LIVE-1 にわとり（であう・あげる・たたけない）'
     expect(r.appear, '出た ばかりは appear').toBe('appear');
   });
 
-  test('AC2b 出てくる 30 ステップの あいだは ねらえない・30 ステップで appear が おわる（G6）', async ({ page }) => {
+  test('AC1 AC2b 出てくる 30 ステップの あいだは ねらえない・30 ステップで appear が おわる（G6）', async ({ page }) => {
     await openAnimals(page);
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
@@ -63,10 +66,10 @@ test.describe('LIVE-1 にわとり（であう・あげる・たたけない）'
       const out: any = { id, state0: A.one(id).state };
       A.aim(id);
       out.targetDuring = h.animals.target();
-      A.hold('tomato', 3);
+      A.hold('mushi', 3);
       A.tap();
       out.heartsDuring = A.one(id).hearts;
-      out.tomatoDuring = h.inventory.count('tomato');
+      out.mushiDuring = h.inventory.count('mushi');
       h.step(40);
       out.stateAfter = A.one(id).state;
       return out;
@@ -75,7 +78,7 @@ test.describe('LIVE-1 にわとり（であう・あげる・たたけない）'
     expect(r.state0).toBe('appear');
     expect(r.targetDuring, 'appear の あいだは ねらえない').toBeNull();
     expect(r.heartsDuring).toBe(0);
-    expect(r.tomatoDuring, 'やさいは へらない').toBe(3);
+    expect(r.mushiDuring, 'むしは へらない（ねらえず うしろへ 通る）').toBe(3);
     expect(r.stateAfter).not.toBe('appear');
   });
 
@@ -191,7 +194,7 @@ test.describe('LIVE-1 にわとり（であう・あげる・たたけない）'
     expect(r.removed).toBe(0);
   });
 
-  test('AC6 あげる: トマト 5 → 4・ハート 1 … 3 かいめ 30 ステップ目に なかま（first）', async ({ page }) => {
+  test('AC11 あげる: やせい+むし 5 → 4・ハート 1・feed(mushi)・fullLeft。おなかいっぱいは fullHint・animalFull・むし 4 のまま。600 後 ハート 2。3 つ目で なかま(follow まんたん)', async ({ page }) => {
     await openAnimals(page);
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
@@ -199,69 +202,87 @@ test.describe('LIVE-1 にわとり（であう・あげる・たたけない）'
       A.base();
       const id = A.chicken(4.5, 6.5);
       const react = h.settings.get('animalReactTicks');
-      const feeds = h.settings.get('animalFriendFeeds');
-      const out: any = { react, feeds, aimed: A.aim(id) };
-      A.hold('tomato', 5);
+      const fullTicks = h.settings.get('animalFullTicks');
+      const out: any = { react, fullTicks, aimed: A.aim(id) };
+      A.hold('mushi', 5);
       const f0 = A.stat('feed:*');
       A.aim(id);
+      // やせいは 押した 瞬間に あげる
       h.input.press('secondary');
       h.step(1);
       h.input.release('secondary');
-      out.tomato1 = h.inventory.count('tomato');
+      out.mushi1 = h.inventory.count('mushi');
       out.hearts1 = A.one(id).hearts;
-      out.ev1 = A.events('feed').length;
+      out.feedEv = A.events('feed');
+      out.fullLeft1 = A.one(id).fullLeft;
       out.feedStat = A.stat('feed:*') - f0;
       out.unlockFeed = A.unlocked('animal.feed.1');
-      h.step(react - 5);
-      A.tap(); // ついばんでいる あいだ
-      out.tomatoMid = h.inventory.count('tomato');
-      out.heartsMid = A.one(id).hearts;
-      h.step(react);
-      // 押しつづけ 120 ステップでも 1 こ
-      h.input.press('secondary');
-      h.step(120);
-      h.input.release('secondary');
-      out.tomatoHold = h.inventory.count('tomato');
-      h.step(react + 2);
-      out.hearts2 = A.one(id).hearts;
-      h.animals.events();
-      // 3 かいめ
+      // 押して 40 ステップ目（ついばむ 30 のあと）に もう 1 回 → おなかいっぱい
+      h.step(38);
+      A.aim(id);
+      h.audio.sfx();
       A.tap();
-      out.ateStateId = A.one(id).state;
-      h.step(react - 3);
-      out.friendEarly = A.one(id).friend;
-      h.step(3);
-      out.friend = A.one(id).friend;
-      const ev = h.animals.events();
-      out.friendEv = ev.filter((e: any) => e.type === 'friend');
+      out.mushiFull = h.inventory.count('mushi');
+      out.heartsFull = A.one(id).hearts;
+      out.hintFull = h.animals.lastHint();
+      out.fullEv = A.events('full').length;
+      out.sfxFull = A.sfx().includes('animalFull');
+      // 600 ステップ たってから → ハート 2
+      h.step(fullTicks + 5);
+      A.aim(id);
+      A.tap();
+      out.mushi2 = h.inventory.count('mushi');
+      out.hearts2 = A.one(id).hearts;
+      // 3 つ目: 押して 30 目に なかま
+      h.step(fullTicks + 5);
+      A.aim(id);
+      h.animals.events();
+      h.input.press('secondary');
+      h.step(1);
+      h.input.release('secondary');
+      let at = -1;
+      for (let i = 2; i <= react + 5 && at < 0; i++) {
+        h.step(1);
+        if (A.one(id).friend) at = i;
+      }
+      out.friendAt = at;
+      const c = A.one(id);
+      out.friend = c.friend;
+      out.follow = c.follow;
+      out.friendEv = A.events('friend');
       out.friendStat = A.stat('friend:*');
       out.unlockFriend = A.unlocked('animal.friend.1');
-      out.tomatoEnd = h.inventory.count('tomato');
       out.modalSeen = !!(window as any).__modalSeen;
       return out;
     });
     expect(r.aimed).toBe(true);
-    expect(r.tomato1).toBe(4);
+    expect(r.mushi1, 'むしは 押した ステップに へる').toBe(4);
     expect(r.hearts1).toBe(1);
-    expect(r.ev1).toBe(1);
+    expect(r.feedEv).toHaveLength(1);
+    expect(r.feedEv[0]).toMatchObject({ item: 'mushi' });
+    expect(r.fullLeft1).toBeGreaterThanOrEqual(r.fullTicks - 2);
+    expect(r.fullLeft1).toBeLessThanOrEqual(r.fullTicks);
     expect(r.feedStat).toBe(1);
     expect(r.unlockFeed).toBe(true);
-    expect(r.tomatoMid, '30 ステップ以内の 押しは 何も 起きない').toBe(4);
-    expect(r.heartsMid).toBe(1);
-    expect(r.tomatoHold, '押しつづけても 1 こ だけ').toBe(3);
+    expect(r.mushiFull, 'おなかいっぱいの あいだは むしが へらない').toBe(4);
+    expect(r.heartsFull).toBe(1);
+    expect(r.hintFull).toBe('fullHint');
+    expect(r.fullEv).toBe(1);
+    expect(r.sfxFull).toBe(true);
+    expect(r.mushi2).toBe(3);
     expect(r.hearts2).toBe(2);
-    expect(r.ateStateId).toBe('eat');
-    expect(r.friendEarly).toBe(false);
+    expect(r.friendAt, '3 つ目を たべおわる 30 ステップ目').toBeGreaterThanOrEqual(r.react - 2);
+    expect(r.friendAt).toBeLessThanOrEqual(r.react + 2);
     expect(r.friend).toBe(true);
+    expect(r.follow, 'なかまに なると ついてくる 時間は まんたん').toBeGreaterThanOrEqual(18000 - 5);
     expect(r.friendEv).toHaveLength(1);
     expect(r.friendEv[0]).toMatchObject({ first: true });
     expect(r.friendStat).toBe(1);
     expect(r.unlockFriend).toBe(true);
     expect(r.modalSeen, 'おめでとう画面が 出た').toBe(true);
-    expect(r.tomatoEnd).toBe(2);
   });
 
-  test('AC7 お祝いの 大きさ: はじめては confetti・burst 8・friendFirst、2 わ目は confetti 0・burst 5・friend', async ({ page }) => {
+  test('AC11b お祝い: はじめては confetti・burst 8・friendFirst・carryHint、2 わ目は confetti 0・burst 5・friend', async ({ page }) => {
     await openAnimals(page);
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
@@ -272,7 +293,7 @@ test.describe('LIVE-1 にわとり（であう・あげる・たたけない）'
         const id = h.animals.spawn(x, 9, z, { hearts: 2 });
         h.step(35);
         A.aim(id);
-        A.hold('tomato', 3);
+        A.hold('mushi', 3);
         h.animals.fxReset();
         h.audio.sfx();
         A.tap();
@@ -281,16 +302,17 @@ test.describe('LIVE-1 にわとり（であう・あげる・たたけない）'
       };
       const first = one(4.5, 6.5);
       h.step(60);
+      const carryHint = A.events('hint').some((e: any) => e.hint === 'carryHint');
       h.player.set({ position: { x: 2.5, y: 9, z: 14.5 } });
       (window as any).__aim.standForS(2.5, 14.5, 90, -20, 9);
       const second = one(4.5, 14.5);
-      return { first, second };
+      return { first, second, carryHint };
     });
     expect(r.first.friend).toBe(true);
     expect(r.first.fx.confetti).toBeGreaterThan(0);
     expect(r.first.fx.burst).toBe(8);
-    expect(r.first.fx.hearts).toBeGreaterThanOrEqual(1);
     expect(r.first.sfx).toContain('friendFirst');
+    expect(r.carryHint, 'はじめての お祝いが おわると carryHint').toBe(true);
     expect(r.second.friend).toBe(true);
     expect(r.second.fx.confetti).toBe(0);
     expect(r.second.fx.burst).toBe(5);
@@ -298,94 +320,179 @@ test.describe('LIVE-1 にわとり（であう・あげる・たたけない）'
     expect(r.second.sfx).not.toContain('friendFirst');
   });
 
-  test.fixme('AC7b 動きの 強さ 0 で はじめて → confetti 0・ハート 1 と 音（「動きの強さ」設定が まだ ない。できたら 書く）', async () => {});
+  test.fixme('AC11c 動きの 強さ 0 で はじめて → confetti 0・ハート 1 と 音（「動きの強さ」設定が まだ ない。できたら 書く）', async () => {});
 
-  test('AC8 失敗の 返し: すで・たね・たまご・つち・防具 → ハート 変わらず・feedHint・チップ・animalHint', async ({ page }) => {
+  test('AC12 やさいは あげられない: やせい+トマト → pet・feedHint（むしの 文）。なかまは はなした 瞬間に pet／feed', async ({ page }) => {
     await openAnimals(page);
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
       const A = (window as any).__A;
       A.base();
-      const id = A.chicken(4.5, 6.5);
-      A.aim(id);
-      const out: any = { rows: {} };
-      const cases: [string, string | null, number][] = [
-        ['hand', null, 0],
-        ['seed', 'seed_tomato', 3],
-        ['egg', 'egg', 3],
-        ['dirt', 'dirt', 3],
-        ['kabuto', 'kabuto', 1],
-      ];
-      for (const [name, item, n] of cases) {
-        if (item) A.hold(item, n);
-        else h.inventory.clear();
-        A.aim(id);
-        h.animals.events();
-        h.audio.sfx();
-        A.tap();
-        out.rows[name] = {
-          hearts: A.one(id).hearts,
-          count: item ? h.inventory.count(item) : 0,
-          want: n,
-          hint: h.animals.lastHint(),
-          sfx: A.sfx(),
-          armor: JSON.stringify(h.armor.get()),
-        };
-        out.dom = document.body.innerText;
-        out.domRuby = Array.from(document.querySelectorAll('ruby')).map((r) => r.textContent);
-        h.step(125); // チップが きえるまで
-        out.after = h.animals.lastHint();
-      }
-      out.blocks = h.world.getBlock(3, 9, 6) + h.world.getBlock(5, 9, 6);
+      const out: any = {};
+      // やせい + トマト
+      const w = A.chicken(4.5, 6.5);
+      A.hold('tomato', 3);
+      A.aim(w);
+      h.animals.events();
+      h.audio.sfx();
+      A.tap();
+      out.wildTomato = h.inventory.count('tomato');
+      out.wildHearts = A.one(w).hearts;
+      out.wildPet = A.events('pet').length;
+      out.wildHint = h.animals.lastHint();
+      out.chip = A.chip();
+      out.dom = document.body.innerText;
+      h.animals.clear();
+      // なかま + トマト: 押して 5 ステップ後に はなす
+      const f = A.friend(4.5, 6.5);
+      A.hold('tomato', 3);
+      A.aim(f);
+      h.animals.events();
+      h.input.press('secondary');
+      h.step(5);
+      out.holdPet = A.events('pet').length;
+      h.input.release('secondary');
+      h.step(1);
+      out.relPet = A.events('pet').length;
+      out.tomatoFriend = h.inventory.count('tomato');
+      h.step(125);
+      out.eggFromPet = A.events('egg').length;
+      // なかま + むし: 押して 5 ステップ後に はなす
+      A.hold('mushi', 3);
+      A.aim(f);
+      h.animals.events();
+      h.input.press('secondary');
+      h.step(5);
+      out.holdMushi = h.inventory.count('mushi');
+      out.holdFeed = A.events('feed').length;
+      h.input.release('secondary');
+      h.step(1);
+      out.relMushi = h.inventory.count('mushi');
+      out.relFeed = A.events('feed').length;
       return out;
     });
-    for (const [k, v] of Object.entries<any>(r.rows)) {
-      expect(v.hearts, k).toBe(0);
-      expect(v.count, k).toBe(v.want);
-      expect(v.hint, k).toBe('feedHint');
-      expect(v.sfx, k).toContain('animalHint');
-    }
-    expect(r.rows.kabuto.armor, '防具を きない').not.toContain('kabuto');
-    expect(r.dom).toContain('やさい');
+    expect(r.wildTomato, 'トマトは へらない').toBe(3);
+    expect(r.wildHearts).toBe(0);
+    expect(r.wildPet).toBe(1);
+    expect(r.wildHint).toBe('feedHint');
+    expect(r.chip.bare, 'チップの 漢字は ルビの 中').toEqual([]);
+    expect(r.dom).toContain('むし');
     expect(r.dom).toContain('あげよう');
-    expect(r.domRuby.join('|')).toContain('右');
-    expect(r.after, '120 ステップで チップが きえる').not.toBe('feedHint');
+    expect(r.dom).not.toContain('やさい を もって');
+    expect(r.holdPet, '押している あいだは まだ 何も 起きない').toBe(0);
+    expect(r.relPet, 'はなした ステップに pet').toBe(1);
+    expect(r.tomatoFriend).toBe(3);
+    expect(r.eggFromPet, 'なでても たまごは 出ない').toBe(0);
+    expect(r.holdMushi, '押した ステップでは むしは へらない').toBe(3);
+    expect(r.holdFeed).toBe(0);
+    expect(r.relMushi, 'はなした ステップに むし −1').toBe(2);
+    expect(r.relFeed).toBe(1);
   });
 
-  test('AC9 なかま いっぱい: 8 わ・ハート 2 → たべない・friendFull。ハート 0 は ふつうに たべる', async ({ page }) => {
+  test('AC13 照準の 下の 案内: やせい+むし=あげる、おなかいっぱい=まってね、なかま+すで=なでる。実際に 起きる ことと 同じ', async ({ page }) => {
+    await openAnimals(page);
+    const r = await page.evaluate(() => {
+      const h = (window as any).__rikkun;
+      const A = (window as any).__A;
+      A.base();
+      const wild = A.chicken(4.5, 6.5);
+      const out: any = {};
+      A.hold('mushi', 5);
+      A.aim(wild);
+      out.feed = h.hud.actionHint().right;
+      A.tap();
+      out.fedHearts = A.one(wild).hearts;
+      // おなかいっぱい
+      h.step(40);
+      A.aim(wild);
+      out.full = h.hud.actionHint().right;
+      A.tap();
+      out.mushiAfterFull = h.inventory.count('mushi');
+      h.animals.clear();
+      const fr = A.friend(4.5, 6.5);
+      h.inventory.clear();
+      A.aim(fr);
+      out.petHand = h.hud.actionHint().right;
+      h.animals.events();
+      A.tap();
+      out.petEv = A.events('pet').length;
+      return out;
+    });
+    expect(r.feed).toMatchObject({ icon: 'mushi', word: 'あげる' });
+    expect(r.fedHearts).toBe(1);
+    expect(r.full).toMatchObject({ word: 'まってね' });
+    expect(r.full.icon, 'あげる の 絵 ではない').not.toBe('mushi');
+    expect(r.mushiAfterFull, 'まってね の とき むしは へらない').toBe(4);
+    expect(r.petHand).toMatchObject({ icon: 'heart', word: 'なでる' });
+    expect(r.petEv).toBe(1);
+  });
+
+  test('AC14 なかま いっぱい: 8 わ・ハート 2 + むし → たべない・むし へらず・fullLeft 0・friendFull。ハート 0 は ふつうに たべる', async ({ page }) => {
     await openAnimals(page);
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
       const A = (window as any).__A;
       A.base(30);
       const max = h.settings.get('animalFriendMax');
-      for (let i = 0; i < max; i++) h.animals.spawn(2 + (i % 4), 9, 14 + Math.floor(i / 4) * 2, { friend: true });
+      for (let i = 0; i < max; i++) h.animals.spawn(2 + (i % 4), 9, 14 + Math.floor(i / 4) * 2, { friend: true, follow: 0 });
       const w = h.animals.spawn(4.5, 9, 6.5, { hearts: 2 });
       const w0 = h.animals.spawn(4.5, 9, 10.5, { hearts: 0 });
       h.step(35);
       const out: any = { max, friends: h.animals.list().filter((a: any) => a.friend).length };
-      A.hold('tomato', 3);
+      A.hold('mushi', 3);
       A.aim(w);
       h.animals.events();
       A.tap();
       h.step(35);
-      out.tomato = h.inventory.count('tomato');
+      out.mushi = h.inventory.count('mushi');
       out.hearts = A.one(w).hearts;
       out.friend = A.one(w).friend;
+      out.fullLeft = A.one(w).fullLeft;
       out.hint = h.animals.lastHint();
       (window as any).__aim.standForS(2.5, 10.5, 90, -20, 9);
       h.step(35);
-      A.hold('tomato', 3);
+      A.hold('mushi', 3);
       A.aim(w0);
       A.tap();
       out.h0 = A.one(w0).hearts;
       return out;
     });
     expect(r.friends).toBe(r.max);
-    expect(r.tomato).toBe(3);
+    expect(r.mushi).toBe(3);
     expect(r.hearts).toBe(2);
     expect(r.friend).toBe(false);
+    expect(r.fullLeft).toBe(0);
     expect(r.hint).toBe('friendFull');
     expect(r.h0).toBe(1);
+  });
+
+  test('AC27 おなかいっぱいの チップ: 漢字は ふりがな つき・3 つの 大きさで はみ出し 0px・eggLater の 文は どこにも 無い', async ({ page }) => {
+    await openAnimals(page);
+    const sizes = [[1280, 800], [1440, 900], [1024, 700]] as const;
+    for (const [w, hgt] of sizes) {
+      await page.setViewportSize({ width: w, height: hgt });
+      const r = await page.evaluate(() => {
+        const h = (window as any).__rikkun;
+        const A = (window as any).__A;
+        A.base();
+        const id = A.chicken(4.5, 6.5, { fullLeft: 600 });
+        A.hold('mushi', 3);
+        A.aim(id);
+        A.tap();
+        h.step(2);
+        const el = document.querySelector('#animal-hint') as HTMLElement | null;
+        const b = el?.getBoundingClientRect();
+        return {
+          hint: h.animals.lastHint(),
+          chip: A.chip(),
+          over: b ? Math.max(0, b.right - innerWidth, b.bottom - innerHeight, -b.left, -b.top) : 999,
+          eggLater: document.body.innerText.includes('また あした'),
+        };
+      });
+      expect(r.hint, `${w}x${hgt}`).toBe('fullHint');
+      expect(r.chip.bare).toEqual([]);
+      expect(r.over, `${w}x${hgt} はみ出し`).toBeLessThanOrEqual(0.5);
+      expect(r.eggLater).toBe(false);
+    }
   });
 });

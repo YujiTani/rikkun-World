@@ -128,6 +128,8 @@ import { createWorldHook } from './world/hook';
 import { WorldRenderer } from './world/render/WorldRenderer';
 import { decideFrameClock } from './world/frameClock';
 import { MICRO_RADII, decideMicroR } from './world/render/voxel/tier';
+import { setKataTable } from './proto/voxel/looks';
+import { decideKata } from './proto/voxel/looks/kata';
 import { createRenderHook } from './world/render/renderHook';
 import { BlobShadow, BLOB, groundBelow } from './fx/blobShadow';
 import { WATER, isSolidIndex } from './world/blocks/blockTypes';
@@ -244,6 +246,8 @@ if (restored === null) {
 // E2E のサーバー（VITE_MICRO_DEFAULT=off）は 0 = 小ブロックなし。最初の列の段から効くよう 作るときに渡す（#180）
 // 1 コマの仕事を 時間で決めるか 数で決めるか（E2E のサーバー VITE_FRAME_CLOCK=count は数。#179）
 // 輪の大きさ（?ring=full|small。E2E のサーバーは VITE_RING_DEFAULT=small。#203）。WorldRenderer を作る前に 1 回だけ決める
+// ブロックの型（?kata=off|4|8|16 と &kataUnder=K。#202）。メッシュを作る前に決める
+setKataTable(decideKata(location.search));
 setRing(decideRing(location.search, import.meta.env.VITE_RING_DEFAULT as string | undefined));
 const frameClock = decideFrameClock(location.search, import.meta.env.VITE_FRAME_CLOCK as string | undefined);
 const renderer = new WorldRenderer(world, decideMicroR(location.search, import.meta.env.VITE_MICRO_DEFAULT as string | undefined), frameClock);
@@ -482,6 +486,14 @@ const animals = createAnimalManager({
     dropEgg: (at) => {
       drops.scatter(at, [{ item: 'egg', count: 1 }], { speedMin: 0.3, speedMax: 0.8, upMin: 3, upMax: 3.5 });
     },
+    // 版 3.2: あみで とれた むし。持ち物 が いっぱい なら 足もと に 落として false
+    addItem: (item) => {
+      if (inventory.add(item, 1) === 0) return true;
+      const p = controller.state.position;
+      drops.scatter({ x: p.x, y: p.y + 0.5, z: p.z }, [{ item, count: 1 }], { speedMin: 0.3, speedMax: 0.8, upMin: 3, upMax: 3.5 });
+      return false;
+    },
+    carriedBefore: () => (achievements.stats()['carry:*'] ?? 0) > 0,
     day: () => time.day(),
     phase: () => time.phase(),
     countryAt,
@@ -689,6 +701,7 @@ const dig = new DigSystemImpl(
     pet,
     animals,
     eggHeal: () => live.animalEggHeal,
+    live: () => ({ netSwingTicks: live.netSwingTicks, carryHoldTicks: live.carryHoldTicks }),
     emitFarm: (e) => farm.emit(e),
     nowTick: () => game.tick,
     vitals: combat,
@@ -807,8 +820,8 @@ game.scene.add(yokaiManager.group);
 const yokaiM = yokaiManager;
 // LIVE-1: にわとり の 見た目・音（動きの強さの 設定は まだ ない。できたら ここで つなぐ）
 const animalMotion = (): number => 1;
-const animalFx = new AnimalFx({ sound: fxSound, motion: animalMotion, lookDist: () => live.animalLookDist, seed });
-const animalRenderer = new AnimalRenderer({ fx: animalFx, motion: animalMotion });
+const animalFx = new AnimalFx({ sound: fxSound, motion: animalMotion, lookDist: () => live.animalLookDist, fullTicks: () => live.animalFullTicks, seed });
+const animalRenderer = new AnimalRenderer({ fx: animalFx, motion: animalMotion, player: () => controller.state.position });
 const animalViews = new ViewBuffer();
 const animalEvents: import('./contracts').AnimalEvent[] = [];
 game.scene.add(animalRenderer.group);
@@ -817,6 +830,10 @@ lighting.register(animalRenderer.bodyMaterial, 'doll');
 function deliverAnimalEvents(): void {
   const ev = animals.events();
   if (ev.length === 0) return;
+  // はじめての お祝いの あと: A の carryHint 出来事を、ほかの 合図と 同じ hint 出来事に する
+  for (let i = 0; i < ev.length; i++) {
+    if (ev[i].type === 'carryHint') ev[i] = { type: 'hint', hint: 'carryHint' };
+  }
   animalFx.onEvents(ev);
   animalHint.feed(ev);
   achievements.feedAnimals(ev);
@@ -1635,6 +1652,8 @@ game.onUpdate((dt) => {
       rig.onCombatEvent(e);
       if ((e.type === 'playerHit' && e.amount > 0 && (e as { blocked?: boolean }).blocked !== true) || e.type === 'fallHurt') sprite?.hurt();
       if (e.type === 'respawn') log.home();
+      // やられた: だっこ中の にわとりは その場に おろす（A の putDown が 足もとに 置く）
+      if (e.type === 'death' && animals.carrying() !== null) animals.dropCarried({ x: controller.state.position.x, y: controller.state.position.y, z: controller.state.position.z });
     }
     handleGuardEvents(combatEvents, fxSound);
     combatBuf = combatEvents;
@@ -1704,7 +1723,7 @@ game.onUpdate((dt) => {
   // 持ち物・メニューを開いている間は 名前を出さない
   yokaiNameplates.update(screen.mode() === 'play' ? yokaiM.nameplates(plateBuf) : NO_PLATES, game.camera);
   staggerIcons.update(yokaiM.staggerIcons(stagIconBuf), game.camera, screen.mode() === 'play');
-  actionHint.update(hintVisible() ? actionHintLines(dig.previewRightClick(), dig.previewLeftClick(), { held: tools.current().item, heldIsPickaxe: tools.current().kind === 'pickaxe', heldIsBlade: tools.current().kind === 'blade' }) : {});
+  actionHint.update(hintVisible() ? actionHintLines(dig.previewRightClick(), dig.previewLeftClick(), { carryProgress: dig.carryProgress(), carrying: animals.carrying() !== null, held: tools.current().item, heldIsPickaxe: tools.current().kind === 'pickaxe', heldIsBlade: tools.current().kind === 'blade' }) : {});
   farmHint.step();
   {
     // 農業の合図: 出ていない状態から 出たとき 1 件（見た目の文は ふりがなを 読みに直す）
@@ -1964,6 +1983,7 @@ installTestHook(game, overlay, () => host.everReady, {
     fxReset: () => animalFx.fxReset(),
     // 今 チップに出ている合図（120 ステップで消える。消えたら null）
     lastHint: () => animalHint.model.current(),
+    carrying: () => animals.carrying(),
   },
   attack: { preview: () => dig.attackPreview(), last: () => dig.attackLast() },
   camera: cameraHook.camera,

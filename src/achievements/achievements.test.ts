@@ -55,11 +55,11 @@ const attach = (sys: AchievementSystem) => {
 };
 
 describe('実績の表', () => {
-  it('239 こ・id かぶりなし・小 83（LIVE-1 の 12・3 を 足した。M6 の 180・61 ＋ M7 の 27・11 ＋ WEAPON-2 の 4・1 ＋ M7-2 の 11・5 ＋ BUCKET-1 の 2・1 ＋ WEAPON-6 の 1・1 ＋ WEAPON-7 PR1 の 2・0〈get.raijin_ken.1・legend.kinds.1。どちらも 小で ない〉）', () => {
-    expect(ACHIEVEMENT_DEFS.length).toBe(239);
-    expect(new Set(ACHIEVEMENT_DEFS.map((d) => d.id)).size).toBe(239);
-    expect(ACHIEVEMENT_DEFS.filter((d) => d.small).length).toBe(83);
-    expect(ACHIEVEMENT_DEFS.filter((d) => d.category === 'farm').length).toBe(47);
+  it('245 こ・id かぶりなし・小 84（LIVE-1 版 3.2 で ＋6・小 ＋1。LIVE-1 の 12・3 を 足した。M6 の 180・61 ＋ M7 の 27・11 ＋ WEAPON-2 の 4・1 ＋ M7-2 の 11・5 ＋ BUCKET-1 の 2・1 ＋ WEAPON-6 の 1・1 ＋ WEAPON-7 PR1 の 2・0）', () => {
+    expect(ACHIEVEMENT_DEFS.length).toBe(245);
+    expect(new Set(ACHIEVEMENT_DEFS.map((d) => d.id)).size).toBe(245);
+    expect(ACHIEVEMENT_DEFS.filter((d) => d.small).length).toBe(84);
+    expect(ACHIEVEMENT_DEFS.filter((d) => d.category === 'farm').length).toBe(52);
     expect(ACHIEVEMENT_DEFS.filter((d) => d.category === 'farm' && d.small).length).toBe(15);
   });
   it('メダルと名前', () => {
@@ -321,7 +321,7 @@ describe('じっせき ページの きまり', () => {
     p.setTab('achievements');
     let ui = p.ui(true);
     expect(ui.categories.length).toBe(9);
-    expect(ui.total).toBe(239);
+    expect(ui.total).toBe(245);
     expect(ui.tabDot).toBe(true);
     expect(ui.rows.some((r) => r.isNew)).toBe(true);
     expect(ui.rows.filter((r) => !r.shown).length).toBeGreaterThan(0);

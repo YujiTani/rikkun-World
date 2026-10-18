@@ -67,7 +67,7 @@ describe('AC7 お祝いの 大きさ', () => {
     fx.step([view(1)], eye);
     fx.onEvents(ev({ type: 'friend', id: 1, first: true, count: 1 }));
     fx.fxReset();
-    expect(fx.fx()).toMatchObject({ hearts: 0, burst: 0, confetti: 0, puff: 0, sparkle: 0 });
+    expect(fx.fx()).toMatchObject({ hearts: 0, burst: 0, confetti: 0, puff: 0, sparkle: 0, leaf: 0 });
   });
 });
 
@@ -93,7 +93,7 @@ describe('出来事 → 音・つぶ（§3.6・§3.7）', () => {
   });
   it('合図 hint = animalHint', () => {
     expect(run({ type: 'hint', hint: 'feedHint' }).played).toEqual(['animalHint']);
-    expect(run({ type: 'hint', hint: 'eggLater' }).played).toEqual(['animalHint']);
+    expect(run({ type: 'hint', hint: 'carryHint' }).played).toEqual(['animalHint']);
   });
   it('たまご = egg の音 と キラッ 4 つぶ', () => {
     const f = run({ type: 'egg', id: 1, x: 3, y: 9, z: 4 });
@@ -166,12 +166,12 @@ describe('AC18 頭の 上の ハート', () => {
     const p = headHeartProgress(vs, { x: 0, y: 9, z: 0 }, 6);
     expect(p.map((q) => q.id)).toEqual([4, 5, 6]);
   });
-  it('step で progress が 窓口に 出て、遠ざかると 消える', () => {
+  it('step で marks が 窓口に 出て、遠ざかると 消える（版 3.2: progress → marks）', () => {
     const { fx } = make();
     fx.step([view(1, { hearts: 2, x: 5 })], { x: 0, y: 9, z: 0 });
-    expect(fx.fx().progress).toEqual([{ id: 1, filled: 2, empty: 1 }]);
+    expect(fx.fx().marks).toEqual([{ id: 1, hearts: 2, full: false }]);
     fx.step([view(1, { hearts: 2, x: 8 })], { x: 0, y: 9, z: 0 });
-    expect(fx.fx().progress).toEqual([]);
+    expect(fx.fx().marks).toEqual([]);
   });
 });
 
@@ -214,9 +214,12 @@ describe('つぶの 数・動き', () => {
 });
 
 describe('音の 表（案 B）', () => {
-  it('名前が 8 つ あり、SoundFx の 表に 登録 されている（鳴らすと その 名前の 記録が 残る）', () => {
+  it('名前が 18 こ あり、SoundFx の 表に 登録 されている（鳴らすと その 名前の 記録が 残る）', () => {
     const names = Object.keys(ANIMAL_SOUNDS) as AnimalSoundName[];
-    expect(names.sort()).toEqual(['animalHint', 'cluck', 'egg', 'feed', 'friend', 'friendFirst', 'petAnimal', 'warp']);
+    expect(names.sort()).toEqual([
+      'animalFull', 'animalHint', 'bugCatch', 'carryDown', 'carryUp', 'cluck', 'egg', 'feed', 'flutter', 'followEnd',
+      'friend', 'friendFirst', 'netSwing', 'petAnimal', 'rustle', 'rustle2', 'rustle3', 'warp',
+    ]);
     for (const n of names) expect(tonesOf(n)).toBe(ANIMAL_SOUNDS[n]);
   });
   it('どの 音も 小さく 短い（1.2 秒以内・1 つの 大きさ 0.5 以下・立ち上がり 0.002 秒 以上）', () => {

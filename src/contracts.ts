@@ -227,6 +227,9 @@ export type ItemOnlyId =
   | 'water_bucket' // みずの バケツ
   // LIVE-1（うしろに足す）
   | 'egg' // たまご
+  // LIVE-1 版 3.2（§4.2。egg の うしろ）
+  | 'mushi' // むし
+  | 'mushi_ami' // むしとりあみ
   // WEAPON-7（うしろに足す。レジェンダリー）
   | 'raijin_ken'; // 雷神剣（ヌシが おとす）
 
@@ -783,6 +786,9 @@ export type StatKey =
   | `friend:${string}`
   | `petAnimal:${string}`
   | `egg:${string}`
+  // LIVE-1 版 3.2（§4.5）
+  | `bug:${string}` // `bug:catch`・`bug:*` など
+  | `carry:${string}` // `carry:chicken`・`carry:*` など
   // M7 農業（`visit:oldfarm` は上の `visit:` の形）
   | 'till'
   | `plant:${string}` // `plant:<kind>`・`plant:*`
@@ -1359,7 +1365,9 @@ export type RightClickKind =
   | 'fill' | 'pour' | 'fillHint' | 'pet'
   | 'bucketFill' | 'bucketPlace' | 'bucketHint' | 'bucketNo'
   // LIVE-1
-  | 'feed' | 'animalPet';
+  | 'feed' | 'animalPet'
+  // LIVE-1 版 3.2（§2.3）
+  | 'animalFull' | 'net' | 'netHint' | 'putDown';
 
 // ---------------------------------------------------------------- 設定（§4.3・§4.4・§4.5）
 
@@ -2208,8 +2216,13 @@ export function createCraft2Settings(): Craft2Settings {
 // 仕様: docs/design/LIVE-1.md。担当の割り振り: docs/tickets/LIVE-1-dev-split.md
 
 export type AnimalKind = 'chicken';
-export type AnimalState = 'appear' | 'wander' | 'rest' | 'look' | 'eat' | 'pet' | 'lay' | 'cheer' | 'follow' | 'idle';
-export type AnimalHintKind = 'feedHint' | 'eggLater' | 'friendFull';
+export type AnimalState = 'appear' | 'wander' | 'rest' | 'look' | 'eat' | 'pet' | 'lay' | 'cheer' | 'follow' | 'idle'
+  // LIVE-1 版 3.2
+  | 'full' | 'carried' | 'putDown';
+/**
+ * 合図（§3.1・§6.1）。窓口 `animals.lastHint()` の 型 と 同じ（`AnimalWindowHint` を 統合）。
+ */
+export type AnimalHintKind = AnimalWindowHint;
 export type AnimalRemoveReason = 'far' | 'void' | 'buried';
 
 /** `animals.events()` の出来事（§6.1） */
@@ -2221,7 +2234,16 @@ export type AnimalEvent =
   | { type: 'pet'; id: number; friend: boolean }
   | { type: 'egg'; id: number; x: number; y: number; z: number }
   | { type: 'warp'; id: number; from: Vec3; to: Vec3 }
-  | { type: 'hint'; hint: AnimalHintKind };
+  | { type: 'hint'; hint: AnimalHintKind }
+  // 版 3.2（§6.1）
+  | { type: 'full'; id: number }
+  | { type: 'followEnd'; id: number }
+  | { type: 'carry'; id: number }
+  | { type: 'putDown'; id: number; x: number; y: number; z: number }
+  | { type: 'swing'; x: number; y: number; z: number; caught: boolean; reason: SwingReason }
+  | { type: 'bugCatch'; toInventory: boolean }
+  /** 版 3.2: はじめて の お祝い が おわった（記録 `carry:*` が 0 の あいだ）。つなぎ込み が 合図 `carryHint` に する */
+  | { type: 'carryHint' };
 
 /** `animals.list()` の 1 行 */
 export interface AnimalInfo {
@@ -2233,16 +2255,54 @@ export interface AnimalInfo {
   yaw: number;
   friend: boolean;
   hearts: 0 | 1 | 2;
-  eggDay: number | null;
   state: AnimalState;
   lookingAtPlayer: boolean;
   inWater: boolean;
+  // ---- 版 3.2（§6.1）
+  /** ついてくる 残り ステップ（なかま） */
+  follow: number;
+  /** おなかいっぱい の 残り ステップ */
+  fullLeft: number;
+  carried: boolean;
+  fluttering: boolean;
+  /** 上下 の 速さ（下 が 負、マス/秒） */
+  vy: number;
 }
 
 export interface AnimalSpawnOpts {
   friend?: boolean;
   hearts?: 0 | 1 | 2;
-  eggDay?: number | null;
+  // ---- 版 3.2（§6.1）
+  follow?: number;
+  fullLeft?: number;
+}
+
+/** 版 3.2 の 合図 8 つ（§3.1。`animals.lastHint()` の 型） */
+export type AnimalWindowHint =
+  | 'feedHint' | 'fullHint' | 'friendFull' | 'treeEmpty' | 'netHint' | 'carryHint' | 'carryWild' | 'cantPutHere';
+
+/** あみ の 結果 の わけ（§6.1 `swing`） */
+export type SwingReason = 'chance' | 'pity' | 'empty' | 'miss';
+export interface SwingResult {
+  caught: boolean;
+  reason: SwingReason;
+}
+
+/** `animals.fx()` の 1 わ ぶん の しるし（§6.1。版 2 の `progress` を おきかえる） */
+export interface AnimalMark {
+  id: number;
+  hearts?: number;
+  steps?: number;
+  full: boolean;
+}
+export interface AnimalFxRecord {
+  hearts: number;
+  burst: number;
+  confetti: number;
+  puff: number;
+  sparkle: number;
+  leaf: number;
+  marks: AnimalMark[];
 }
 
 /** §4.1 の設定（`settings.get/set` の名前そのまま）。初期値は `LIVE_SETTING_DEFAULTS` */
@@ -2265,6 +2325,18 @@ export interface LiveSettings {
   animalFollowSpeed: number;
   animalWarpDist: number;
   animalStuckTicks: number;
+  // ---- 版 3.2 の 11 こ（§4.1）
+  animalFollowTicks: number;
+  animalFullTicks: number;
+  animalEggChance: number;
+  animalEggPity: number;
+  bugChance: number;
+  bugPity: number;
+  bugTreeCooldown: number;
+  bugTreeRadius: number;
+  netSwingTicks: number;
+  carryHoldTicks: number;
+  animalFlutterFallSpeed: number;
 }
 
 export const LIVE_SETTING_DEFAULTS: Readonly<LiveSettings> = {
@@ -2286,6 +2358,17 @@ export const LIVE_SETTING_DEFAULTS: Readonly<LiveSettings> = {
   animalFollowSpeed: 4.0,
   animalWarpDist: 16,
   animalStuckTicks: 120,
+  animalFollowTicks: 18000,
+  animalFullTicks: 600,
+  animalEggChance: 0.25,
+  animalEggPity: 7,
+  bugChance: 1 / 3,
+  bugPity: 2,
+  bugTreeCooldown: 1800,
+  bugTreeRadius: 4,
+  netSwingTicks: 20,
+  carryHoldTicks: 40,
+  animalFlutterFallSpeed: 2.0,
 };
 
 export function createLiveSettings(): LiveSettings {
@@ -2306,6 +2389,15 @@ export interface AnimalView {
   hearts: 0 | 1 | 2;
   /** 今 ねらわれて いる（しるし を 出す） */
   targeted: boolean;
+  // ---- 版 3.2（B が 描くために 読む。A が forEachVisible で 埋める。ない ときは 0／false）
+  /** ついてくる 残り ステップ（なかま） */
+  follow?: number;
+  /** おなかいっぱい の 残り ステップ */
+  fullLeft?: number;
+  /** だっこ されて いる（描く 位置 は B が プレイヤー の 前 に 置く） */
+  carried?: boolean;
+  /** パタパタ おりて いる（空中 で 下 へ） */
+  fluttering?: boolean;
 }
 
 /** A の口（C の ふりわけ・B の 描画・窓口 が 使う。§7 約束 2・3） */
@@ -2313,10 +2405,24 @@ export interface AnimalApi {
   /** ねらう 箱（横 0.8×0.8・高さ 1.0）との 当たり。C が ブロック の 当たり と くらべる */
   rayHit(origin: Vec3, dir: Vec3, maxDist: number): { id: number; distance: number } | null;
   /** null = 動き の とちゅう で 何も しない */
-  preview(id: number, held: ItemStack | null): 'feed' | 'animalPet' | null;
-  /** 'ate' の とき だけ C が やさい を 1 へらす。'pet' = たまご を くれた 日 で なでる に なった */
-  feed(id: number, item: ItemId): 'ate' | 'pet' | 'full' | null;
+  preview(id: number, held: ItemStack | null): 'feed' | 'animalFull' | 'animalPet' | null;
+  /** 版 3.2（C が 足した）: なかま か。なかま は 右クリック を はなす か 40 おしつづける まで 何も しない（§2.3・§2.8）。なければ やせい あつかい */
+  isFriend?(id: number): boolean;
+  /** 版 3.2（C が 足した）: C から の 合図（treeEmpty・netHint・cantPutHere・carryWild・fullHint・friendFull・feedHint）を 出来事 `hint` と `lastHint()` に 入れる */
+  emitHint?(h: AnimalHintKind): void;
+  /** 'ate' の とき だけ C が むし を 1 へらす。'full' = おなかいっぱい、'pet' = なでる に なった、'friendFull' = なかま が 8 わ */
+  feed(id: number, item: ItemId): 'ate' | 'full' | 'pet' | 'friendFull' | null;
   pet(id: number): 'wild' | 'friend' | null;
+  /** 版 3.2: おなかいっぱい か（テスト・確認用。照準 の 下 の `まってね` は `preview` が 'animalFull' を 返す） */
+  isFull?(id: number): boolean;
+  /** 版 3.2: あみ を ふる（block = ねらって いる ブロック）。くじ は A */
+  swingNet(block: Vec3): SwingResult;
+  /** 版 3.2: 押しつづけ（heldTicks）。'lifted' = だっこ した、'wait' = まだ、'wild' = やせい は だっこ できない、null = 何も しない */
+  carryHold(id: number, heldTicks: number): 'lifted' | 'wait' | 'wild' | null;
+  /** 版 3.2: おろす（spot = 足もと の 位置）。おろせたら true */
+  putDown(spot: Vec3): boolean;
+  /** だっこ している id か null */
+  carrying(): number | null;
   forEachVisible(fn: (v: AnimalView) => void): void;
 }
 
@@ -2325,6 +2431,10 @@ export interface AnimalDeps {
   seed: number;
   settings?: LiveSettings;
   dropEgg(at: Vec3): void;
+  /** 版 3.2: 持ち物 に 入れる。入らなければ 落として false（むし） */
+  addItem(item: ItemId): boolean;
+  /** 版 3.2: もう だっこ した ことが ある か（記録 `carry:*` ＞ 0）。`carryHint` を 出すか の 判定 */
+  carriedBefore?(): boolean;
   day(): number;
   phase(): DayPhase;
   countryAt(seed: number, x: number, z: number): { kind: string };

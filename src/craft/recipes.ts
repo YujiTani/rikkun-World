@@ -15,7 +15,7 @@ const r = (
   station,
 });
 
-/** つくる 32 こ（M4 §4.1 の 22 こ + BAL-D の おの 3 こ + M7-2 の 3 こ + #63 の たね 4 こ。カードの順） */
+/** つくる 34 こ（M4 §4.1 の 22 こ + BAL-D の おの 3 こ + M7-2 の 3 こ + #63 の たね 4 こ + むしとりあみ。カードの順） */
 export const CRAFT_RECIPES: readonly Recipe[] = [
   r('wood_pickaxe', 1, [['log', 3]], true),
   r('stone_pickaxe', 1, [['stone', 3], ['log', 2]], true),
@@ -53,6 +53,8 @@ export const CRAFT_RECIPES: readonly Recipe[] = [
   r('bucket', 1, [['iron_ingot', 3]], true),
   // #63: やさい 1 こ → たね 4 こ（いちばん うしろ）
   ...CROP_KINDS.map((k) => r(SEED_ITEM[k], 4, [[VEG_ITEM[k], 1]], true)),
+  // LIVE-1 版 3.2: むしとりあみ（き 1・いと 2。カードの いちばん うしろ。こわれない）
+  r('mushi_ami', 1, [['log', 1], ['string', 2]], true),
 ];
 
 /** やく 4 こ（M4 §4.2。かまど で。ねんりょう 1 こ・60 ステップ） */

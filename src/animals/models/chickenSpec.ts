@@ -10,7 +10,9 @@ export type Prim =
   | { k: 'ell'; c: V3; r: V3; col: number; p?: number }
   | { k: 'box'; a: V3; b: V3; col: number; paint?: boolean }
   /** わ（首の リボン）。ro = そとの 半径、ri = 中の あな の 半径（水平） */
-  | { k: 'ring'; c: V3; ro: V3; ri: number; col: number };
+  | { k: 'ring'; c: V3; ro: V3; ri: number; col: number }
+  /** はこ の 中で 場所ごとに 色（0xRRGGBB）か −1（あなた）を 返す。あみ の わ・ふくろ 用（LIVE-1 版 3.2） */
+  | { k: 'fn'; a: V3; b: V3; f: (x: number, y: number, z: number) => number };
 
 export interface Part {
   name: string;
@@ -53,6 +55,7 @@ const ell = (c: V3, r: V3, col: number, p?: number): Prim => ({ k: 'ell', c, r, 
 
 /** 左右 そろえて 作る ための 鏡うつし（x を 反転） */
 function mirror(p: Prim): Prim {
+  if (p.k === 'fn') return p;
   if (p.k === 'ell' || p.k === 'ring') return { ...p, c: [-p.c[0], p.c[1], p.c[2]] };
   return { ...p, a: [-p.b[0], p.a[1], p.a[2]], b: [-p.a[0], p.b[1], p.b[2]] };
 }

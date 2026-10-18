@@ -17,6 +17,17 @@ import { installArena } from './arena';
  *   __A.one(id)              animals.list() の 1 行
  *   __A.sfx()                audio.sfx() を 読んで 名前の 配列
  *   __A.dist(a, b)           水平距離
+ *
+ * 版 3.2 で足した もの（docs/design/LIVE-1.md §6・§6.1）:
+ *   __A.full()               ついてくる 時間の まんたん（設定 `animalFollowTicks`。まだ 無ければ 18000）
+ *   __A.friend(x, z, opts?)  なかま（follow まんたん）を (x, 9, z) に 置き、35 コマ 進めて id を 返す
+ *   __A.stand(id)            その にわとりの 2 マス 西（-x）に 立って ねらう。ねらえたら true
+ *   __A.press(n, a?)         ボタンを 押して n ステップ 進める（はなさない）。はなす のは __A.release(a?)（1 ステップ 進める）
+ *   __A.tree(x, y, z, kind?) き の ブロック（既定 leaves）を 置いて 2 ステップ 進める
+ *   __A.aimBlock(x, y, z)    そのブロックの まん中 を ねらう。`target.get()` の ブロックが 同じなら true
+ *   __A.swing()              あみ を 1 回 ふる（押して はなし、30 ステップ 進める）。その間の `swing` `bugCatch` の 出来事 を 返す
+ *   __A.chip()               合図の チップ `#animal-hint` の 文字 と ルビの 外に ある 漢字
+ *   __A.lift(id)             なかま を 40 ステップ 押して だっこ（はなして 1 ステップ）。だっこ できたら true
  */
 export async function openAnimals(page: Page, query = '?nosave=1'): Promise<void> {
   await page.goto('/' + query);
@@ -107,6 +118,68 @@ export async function openAnimals(page: Page, query = '?nosave=1'): Promise<void
       },
       unlocked(id: string) {
         return !!h.achievements.list().find((a: any) => a.id === id)?.unlocked;
+      },
+      full() {
+        try {
+          return h.settings.get('animalFollowTicks') as number;
+        } catch {
+          return 18000;
+        }
+      },
+      friend(x: number, z: number, opts: any = {}) {
+        return A.chicken(x, z, { friend: true, follow: A.full(), ...opts });
+      },
+      stand(id: number) {
+        const c = h.animals.list().find((a: any) => a.id === id);
+        (window as any).__aim.standForS(c.x - 2, c.z, 90, -20, 9);
+        h.step(1);
+        return A.aim(id);
+      },
+      press(n: number, a = 'secondary') {
+        h.input.press(a);
+        h.step(n);
+      },
+      release(a = 'secondary') {
+        h.input.release(a);
+        h.step(1);
+      },
+      tree(x: number, y: number, z: number, kind = 'leaves') {
+        h.world.setBlock(x, y, z, kind);
+        h.step(2);
+      },
+      aimBlock(x: number, y: number, z: number) {
+        (window as any).__aim.solve(x, y, z, 0.5);
+        h.step(1);
+        const t = h.target.get();
+        return !!t && t.block.x === x && t.block.y === y && t.block.z === z;
+      },
+      swing() {
+        h.animals.events();
+        h.input.press('secondary');
+        h.step(1);
+        h.input.release('secondary');
+        h.step(29);
+        return h.animals.events().filter((e: any) => e.type === 'swing' || e.type === 'bugCatch');
+      },
+      chip() {
+        const el = document.querySelector('#animal-hint');
+        const bare: string[] = [];
+        if (el) {
+          const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+          let n: Node | null;
+          while ((n = w.nextNode())) {
+            if (/[一-鿿]/.test(n.textContent ?? '') && !n.parentElement?.closest('ruby')) bare.push(n.textContent!);
+          }
+        }
+        return { text: (el as HTMLElement | null)?.innerText ?? '', hidden: !el || (el as HTMLElement).hidden, bare };
+      },
+      lift(id: number) {
+        A.aim(id);
+        h.input.press('secondary');
+        h.step(41);
+        h.input.release('secondary');
+        h.step(1);
+        return A.one(id).carried === true;
       },
     };
     (window as any).__A = A;

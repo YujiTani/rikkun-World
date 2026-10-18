@@ -82,6 +82,8 @@ export function buildTooltip(item: ItemId, d: TooltipDeps, stack?: ItemStack | n
   if (item === 'water_bucket') add('みず を おく', item);
   if (item === 'sprinkler') add('まわり の はたけ を しめらせる', item);
   if (seedKindOfItem(item) !== null) add('はたけ に まく', item);
+  if (item === 'mushi') add('にわとり に あげる', item);
+  if (item === 'mushi_ami') add('き から むし を とる', item);
   if (vegKindOfItem(item) !== null || item === 'egg') add('たべると ハート が もどる', item);
   // WEAPON-2 §4.6 (8): たいきゅうで へる 道具は 「たいきゅう のこり / 新品」（へった 量が 分からない ときは 新品）
   const wv = wearView(stack && stack.item === item ? stack : { item, count: 1 });

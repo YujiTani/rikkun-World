@@ -14,6 +14,8 @@ const PERMANENT: ReadonlySet<ItemId> = new Set<ItemId>([
   'long_watering_can',
   'bucket',
   'water_bucket',
+  // LIVE-1 版 3.2: むしとりあみ（こわれない。6 歳が なくして 泣かない）
+  'mushi_ami',
 ]);
 
 /** たいきゅうで へる もの（§4.6 (2) の 表の 道具・防具）。新品の 値の 表と 同じ 名前 */

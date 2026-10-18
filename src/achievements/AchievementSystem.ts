@@ -413,6 +413,14 @@ export class AchievementSystem implements AchievementShowSource {
             this.bump('egg:chicken', 1);
             this.bump('egg:*', 1);
             break;
+          // 版 3.2: 持ち物 に 入った か 足もと に おちた むし の 数 / だっこ した 回数
+          case 'bugCatch':
+            this.bump('bug:*', 1);
+            break;
+          case 'carry':
+            this.bump('carry:chicken', 1);
+            this.bump('carry:*', 1);
+            break;
           default:
             break;
         }

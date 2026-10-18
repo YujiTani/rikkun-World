@@ -1,4 +1,94 @@
-# LIVE-1 テストレポート（第 1 回）
+# LIVE-1 テストレポート
+
+## 版 3.2（テストの準備。実装の前。tester）
+
+- 対象: `docs/design/LIVE-1.md` 版 3.2 §6。この節は「実装の前に書いた E2E と、落ちる（赤）の確認」。実装のあとの合否は、実装が終わってから下の表に書き足す。
+- 実行: `npx playwright test e2e/live1-core.spec.ts e2e/live1-follow.spec.ts e2e/live1-egg.spec.ts e2e/live1-net.spec.ts e2e/live1-carry.spec.ts e2e/smoke.spec.ts`（`--workers` なし）→ **56 本中 34 本が赤・21 本が緑・1 本 fixme**。緑 21 は smoke と、版 2 から意味が変わらない既存テスト（下の「のこした」）。赤の理由は全部「設定・窓口・アイテムが まだ無い」か「やさいを あげられる／なかまを押した瞬間に あげる」などの版 2 の動き。
+- 新しい spec: `e2e/live1-net.spec.ts`（あみ・むし）、`e2e/live1-carry.spec.ts`（だっこ・おろす・パタパタ）。ヘルパー: `e2e/helpers/animals.ts` に `full / friend / stand / press / release / tree / aimBlock / swing / chip / lift` を足した。
+
+### AC → E2E テスト（赤の理由）
+
+| AC | テスト（spec） | 赤の理由 |
+|---|---|---|
+| AC1（E2E の分） | `live1-core` AC1 AC2b（出てくる 30 ステップは ねらえない。むしを持って押しても あげない） | 道具 `mushi` が無く、むしが へらない のを確かめる所で落ちる |
+| AC2 | `live1-core` AC2 | **のこした**（緑） |
+| AC4 | `live1-core` AC4 | **のこした**（緑） |
+| AC5 | `live1-core` AC5・AC5b | **のこした**（緑） |
+| AC6 | `live1-net` AC6（つくる・いちばん うしろ・こわれない） | `mushi_ami` のレシピが無い（カードの うしろ は seed_eggplant） |
+| AC7 | `live1-net` AC7（30 ステップ目・き は のこる・bug:*・animal.bug.1）、AC7b（swing は 1 回・log）、AC7c（bamboo・stone・くさ は netHint・もみじ／まつ は ふれる） | 設定 `bugChance`・アイテム `mushi_ami` が無い |
+| AC8（E2E の分） | `live1-net` AC8（`bugChance` 0 でも 3 回目は pity） | 設定 `bugChance` が無い |
+| AC9 | `live1-net` AC9（おやすみ・treeEmpty・6 はなれる・1,800 後） | 設定 `bugTreeCooldown` が無い |
+| AC10 | `live1-net` AC10（いっぱいで 足もと→あけて ひろう） | 設定 `bugChance` が無い |
+| AC11 | `live1-core` AC11（あげる・fullHint・animalFull・600 後 ハート 2・3 つ目で なかま・follow まんたん）、AC11b（お祝い・carryHint）。AC11c は fixme のまま（動きの強さ設定が まだ無い） | 設定 `animalFullTicks` が無い／`fullLeft`・`follow` が無い |
+| AC12 | `live1-core` AC12（やせい＋トマトは pet・feedHint・DOM に「むし」。なかまは はなした 瞬間に pet／feed） | トマトが あげられて しまう（feedHint の文が やさい）・押した瞬間に あげる |
+| AC13 | `live1-core` AC13（あげる／まってね／なでる）、`live1-carry` AC19（おろす）、`live1-egg` AC25b（egg の たべる は のこす） | 窓口の絵 `mushi` が無い |
+| AC14 | `live1-core` AC14（なかま 8＋むし） | `fullLeft` が無い・むしが へらない確認で落ちる |
+| AC15 | `live1-follow` AC15（follow 600・followEnd・warp なし・むしで もどる・30 マス先は warp） | 設定 `animalFollowTicks` が無い |
+| AC16 | `live1-follow` AC16（あしあと 3/2/1/なし・full・9 マス・だっこ中）、`live1-egg` AC18（ハート → `marks.hearts`） | `fx().marks` が無い |
+| AC17 | `live1-carry` AC17（39/40・むし 5 のまま・egg なし）、AC17b（わ）、AC17c（ねらい はずし・1 わ だけ）、AC17d（ついばみ・たまごの 動きが おわってから だっこ・300 歩く） | 設定 `carryHoldTicks`・`carrying()` が無い |
+| AC18 | `live1-carry` AC18（左クリック・つち・トマト・弓） | `carried` が無い |
+| AC19 | `live1-carry` AC19（おろす 20 ステップ・putDown）、AC19b（cantPutHere・carryWild） | `carrying()`・`carried` が無い |
+| AC20 | `live1-carry` AC20（10 マス・2.0 以下・285 以上）、AC20b（足場を こわす・みず） | 設定 `animalFlutterFallSpeed` が無い |
+| AC21 | `live1-egg` AC21（chance 1 で 60 ステップ目・上限なし）、AC21b（chance 0 で 8 回目 かならず・9 回目 なし）、AC21c（なでる・やせい） | 設定 `animalEggChance` が無い |
+| AC23 | `live1-egg` AC23（たまごを たべる） | **のこした**（緑。番号を AC15 → AC23 に付け直した） |
+| AC24 | `live1-follow` AC24（3 わ・follow・fullLeft 0）、AC24b（だっこ中に 保存） | `follow`・`fullLeft`・`carried` が無い |
+| AC25（E2E の分） | `live1-net` AC25（むしは たべられない・置けない） | `mushi` が無い |
+| AC27 | `live1-core` AC27（fullHint）、`live1-net` AC27（netHint・treeEmpty）、`live1-carry` AC27（carryWild・carryHint）。3 サイズで はみ出し 0px・ルビの外に 漢字 なし | 合図の 種類が まだ無い |
+| ふりわけ（版 2 の AC16 を のこす） | `live1-egg` AC16・16b・16c（あみ・トマトも なでる に 足した） | **のこした**（緑） |
+| 版 2 の 12 の AC | `live1-follow` AC10・10b・11・11b・11c・12 | **のこした**（緑。`follow: まんたん` を 明示して 渡す） |
+
+### こわれる 既存テストの 直し・消したもの
+
+| テスト | したこと | 理由 |
+|---|---|---|
+| `live1-core` 旧 AC6（トマトで なかま）・旧 AC8（失敗の返し・やさい）・旧 AC9（トマトで 8 わ） | むし版の AC11・AC12・AC14 に **おきかえ** | 版 3 は やさいを あげられない／ずっと…でなく むし |
+| `live1-egg` 旧 AC13（なでて たまご・1 日 1 回・`eggLater`）・旧 AC14（トマトで たまご・今日もう くれた） | **消した**。AC21 に おきかえ | 仕様 §0 の 7・8 行。なでても うまない／1 日の 上限 なし／`eggLater` を 消す |
+| `live1-egg` 旧 AC17（案内: トマト あげる／今日もう → なでる） | **消した**。`live1-core` AC13 に おきかえ（egg の「たべる」は AC25b） | 絵が `mushi`・おなかいっぱいは `まってね` |
+| `live1-egg` 旧 AC18（ハート `fx().progress`） | `marks.hearts` に **直した** | §0 の 22 行 |
+| `live1-follow` 旧 AC19（`eggDay` の 保存） | **消した**。AC24 に おきかえ | `eggDay` を すてる／`follow` を 保存 |
+| `e2e/bucket.spec.ts` AC2・`e2e/m72.spec.ts` カード 33 | 34 に **直した**（`mushi_ami` が いちばん うしろ、尾の 3 つは `long_watering_can`・`sprinkler`・`bucket`） | §4.2 レシピは いちばん うしろ |
+| `e2e/m72.spec.ts` AC25 本「そだてる」12 こ | **12 のまま**（一度 16 に した が 戻した） | PO 決定: 本は この PR で 変えない（週一の 更新で 足す）。仕様 LIVE-1 の 案内画面 4 行 も 直した |
+
+### ユニットの AC（実装係が書く。どこで 見るか）
+
+| AC | ファイル・関数 |
+|---|---|
+| AC1 (1)〜(5) | `src/animals/animals.test.ts`: `trySpawn`（にせの 世界）— 距離・上 2 マス・空が見える／すな・くさ以外・`mori`／`dusk` `night` `dawn` 100 回 0 わ／やせい 3 わで 0／同じ シードで 同じ 場所 |
+| AC3 | 同上: うろうろ（速さ・1 段・2 段・4 マスの がけ・みず・y<−10 の `remove 'void'`）、ハート 0 は 70 で `'far'`、**ハート 1 は 70 で 消えず 100 で 消える** |
+| AC6（表の 分） | `src/craft/` のレシピのテスト（`CRAFT_RECIPES` の いちばん うしろ・`craft.everything` に 入れない）、`src/tools/durability` のテスト（`mushi_ami` は たいきゅうなし・上限 1・置けない） |
+| AC8 | `src/animals/animals.test.ts`: あみの くじ — 1,000 回で 0.40〜0.55／どの 3 回つづきでも 1 回以上（おやすみを のぞく）／同じ シード・同じ 操作で 同じ |
+| AC22 | 同上: たまごの くじ — 0.25・pity 7 で 1,000 回 → 0.24〜0.32／8 回つづけて うまない が 0 回／同じ シード／設定の 初期値（`animalEggChance` 0.25・`animalEggPity` 7） |
+| AC24（v1・おかしい行） | `src/animals/animals.test.ts` か `src/save/SaveManager.test.ts`: `{v:1, friends:[{…eggDay:3}]}` → `follow` まんたん／`follow:'a'` は まんたん・`-5` は 0／8 わで 1,000 文字以下／`SAVE_GEN`・`SAVE_VERSION` が 変わらない |
+| AC25（ユニット） | `src/ui/m72ui.test.ts`・`src/ui/book/bookData.test.ts`（grow に 4 つ足す）・アイテム表／rarity／カテゴリーの テスト（`mushi`・`mushi_ami`）・`src/ui/itemIcon` の 絵が ちがう テスト |
+| AC26 | `src/achievements/live1.test.ts`（242・小 83・そだてる 52・小 15・並び・`animal.feed`／`animal.egg` の id が 同じ） |
+| AC29 | `src/yokai/` の 既存ユニットが 変わらず 通る＋「あみ・たまごの 乱数を 使っても 妖怪の 出る数・場所が 同じ シードで 同じ」を 足す |
+
+### 仮に きめた 名前（実装係は これに あわせる。仕様書に 無い もの）
+
+仕様書 §6.1 の 名前（`animals.carrying()`・`events()` の `swing`／`bugCatch`／`full`／`followEnd`／`carry`／`putDown`・`fx().marks`・`lastHint()` の 8 つ・`list()` の `follow`／`fullLeft`／`carried`／`fluttering`／`vy`／`state`・`spawn` の `follow`／`fullLeft`・設定 11 こ）は そのまま 使った。仕様書に 書いて 無く、テストが 仮に 決めた もの:
+
+| 名前 | 使い方 |
+|---|---|
+| `craft.make('mushi_ami')` | 既存の窓口（AC6 の 文に ある）。カード一覧は `craft.ui().cards` |
+| 合図の チップ `#animal-hint` | 既存の DOM（AC27 の ルビ・はみ出し） |
+| `hud.actionHint().progress` | 0〜1（§6.1 の 文の とおり）。`right.word` は `だっこ`／`おろす`／`まってね`。`right.icon` は `mushi`／`mushi_ami`／`heart` |
+| `events()` の `hint` | 既存（`{type:'hint', hint}`）。`carryHint` を この形で 流す |
+| `events()` の `swing` の 項目 | `{ caught: boolean, reason: 'chance'|'pity'|'empty'|'miss' }`（§6.1）。`bugCatch` に `toInventory: boolean` |
+| 状態名 | `state` の `'eat'` は のこす。たまごの 動きの 名前は テストで 使わない |
+| `fx().marks` の 行 | `{ id, hearts?, steps?, full }`。ハートも あしあとも 無い 時は 行が 無くても よい（テストは `?.` で 読む） |
+
+### 仕様で 分からなかった 所
+
+1. （解決）案内画面「そだてる」: PO 決定で 本は 変えない。12 こ のまま。
+2. **だっこの 押しつづけ と おろし**: 「だっこ中に 別の 1 わを ねらって 押す」は 00（おろす）が 先なので、テストは「2 わ目は だっこされない」だけ 確かめる（1 わ目が おろされる のは 仕様どおり）。
+3. **なかまへの 右クリック（押して 40 未満で はなす）の 時刻**: 「はなした ステップ」を 押した ステップ + 押した 長さ と 読んだ。ステップの 数え方（±1〜2）は テストが ゆるめに とって いる（AC11 の 30 目は ±2、AC21 の 60 目は ±2、AC7 の 30 目は 29〜31）。
+4. **`follow` の 減り始め**: スポーンした 次の ステップに 1 へる か 同じステップか 仕様に 無い。AC16 は 窓口が 返す `follow` の 値から 期待を 出す。AC24 の 保存は ±3 まで ゆるす。
+5. **パタパタの 「着地」**: `y ≤ 9.05` かつ `vy > -0.01` を 着地と みなす（AC20）。実装で `vy` が 着地の ステップに 0 に ならない 場合は 直す。
+6. **だっこ中の `fullLeft`**: 仕様は「へる」。AC17d は 300 ステップ歩いて 前より 小さい ことだけ 見る。
+
+---
+
+## 版 2 のときの レポート（第 1 回。参考）
 
 - 判定: 合格（重大 0。AC24 の描画回数の実測と AC25 は未実施・下記）
 - 対象の仕様書: `docs/design/LIVE-1.md`
@@ -45,3 +135,56 @@
 
 ## 見つけた問題
 - 重大: なし。軽微: テスト側の AC5 の壁の位置・AC11 の床の作り方（直した）。smoke の刀のわざが負荷で 1 回落ちた。
+
+## 版 3.2 つなぎ込みのあとの合否（つなぎ込み担当）
+
+- 実行: `npx playwright test e2e/live1-core e2e/live1-follow e2e/live1-egg e2e/live1-net e2e/live1-carry e2e/m7*.spec.ts e2e/m72.spec.ts e2e/bucket.spec.ts`（`--workers` なし）→ 87 本中 **81 緑・3 赤・1 fixme（AC11c）**。はじめの 1 回は 6 本 赤 だったが、うち 3 本（live1-carry AC27・live1-follow AC11・AC24）は 3 並列の 60 秒タイムアウト（`setViewportSize`・`reload` で時間切れ）で、1 本ずつ 回し直すと 緑。
+- `npm run test:e2e:fast`（smoke ほか）→ 12 本 緑。`npm run check:ui` → 37 本 緑。`npm run check:fast` → 緑（ユニット 2,679）。
+
+| 合否 | テスト | 理由（実装は 仕様どおり。テスト側の疑い） |
+|---|---|---|
+| 直した・緑 | `live1-net` AC7（むしが とれる） | テストの数え方の まちがい: 6 ステップ目に 押し直すとき `i++` して `counts[6]` が とばされ `undefined`。`counts[1..28]` が 0 かを 見る所で 落ちる。ゲーム側は 30 ステップ目に +1 で 合っている |（PO 決定: テスト側を直した。押し直す前に `counts[6]` を 記録）
+| 直した・緑 | `live1-net` AC8（かならず） | テストは 外れの `swing.reason` を `'chance'` と 見るが、契約（`SwingReason`）・A/B/C の ユニットは 外れ = `'miss'`。仕様 §6.1 は 列挙だけ で 外れの 名前を きめていない。どちらかに そろえる（PO 判断） |（PO 決定: 外れは `miss` に そろえた）
+| 直した・緑 | `live1-carry` AC19b の 後半（やせいを 長おし） | テストは「やせいを 50 ステップ 押しつづけても むし 2 のまま」と 見るが、仕様 §2.8 は ふつうの やせい は 押した ステップに あげる（むしが 1 へる）。長おしで あげない のは なかま だけ。やせいも 長おしで へらさない 仕様なら 仕様書の 直しが いる（PO 判断） |（PO 決定: やせいは 押した 瞬間に あげる。長おしでも むし 2→1 に 直した）
+
+### スクショ（`docs/screenshots/LIVE-1/`）
+
+`v32-feed.png`（むしを あげる）・`v32-footprints.png`（あしあと）・`v32-full.png`（おなかいっぱい・まってね）・`v32-carry-third.png`（だっこ 3 人称）・`v32-carry-first-person.png`（だっこ 1 人称）・`v32-flutter.png`（パタパタ）・`v32-net-swing.png`（あみを ふる）・`v32-bug-fly.png`（むしが 飛ぶ）。見えた 気になる点: だっこ 1 人称で にわとりが 画面下の ステータス板に かぶって 見える・だっこ 3 人称で 左クリックの「ほる」案内が 残る（右の「おろす」は 出る）。
+
+
+### 直したあとの確認
+
+`live1-net`・`live1-carry` の 2 spec を 回し、上の 3 本は 緑。並列で 3 本（net AC8・AC13、carry AC27）が 60 秒タイムアウトしたが、1 本ずつ 回し直すと 緑（前と 同じ 負荷の 時間切れ）。
+
+
+## 版 3.2 検証（tester・実装のあと）
+
+- 判定: **合格**（重大 0。軽微 3 件は台帳）。ただし AC30 の三角形が上限を 612 こえている（下）。
+- 実行: `npx playwright test e2e/live1-*.spec.ts`（`--workers` なし）。1 回目は 前の実行の残りと重なり 8 本が時間切れ。単独で回すと 7 本は緑、AC11（follow）だけ 60 秒を こえた。5 つの spec の describe に `timeout 150_000` を 足した（期待は 変えていない）。足したあと follow・carry・net の 30 本 緑。core・egg は 単独で 緑（AC27・AC21b・21c・16b・16c）。
+- 時間切れの 原因: SwiftShader 3 並列で 重い テスト（200 マス先の 列の 読み込み・600 ステップ × 8 回）が 30〜60 秒。60 秒だと CI（4 コア・3 並列）でも ぎりぎり。150 秒で 余裕が できる。
+
+### 見た目（`docs/screenshots/LIVE-1/v32-*.png` を 1 枚ずつ）
+
+| 画像 | 見えたこと | 判定 |
+|---|---|---|
+| v32-feed | 照準の にわとり に「あげる」（むし 絵）。頭の 上に ハート 3 つ（1 うまり）＋ おなかいっぱい の しるし。ほる の 案内も 出る（手 に むし を もって いる ので 左は 道具） | OK |
+| v32-full | チップ「おなか いっぱい。すこし まってね」（絵つき・ルビ 不要）。頭の 上 に あしあと 3 つ ＋ しるし。怒って 見えない | OK |
+| v32-footprints | あしあと 3 つ（藍）。ハート と 形が ちがう。案内「あげる」 | OK |
+| v32-carry-first-person | にわとり の 顔 が 見える・照準 と 重ならない・ホットバー は かくさない・ステータス板 の 上。ただし 画面の 中ほど に 出て、「おろす」チップ が 頭に かぶる | 軽微 |
+| v32-carry-third | にわとり が プレイヤー の 横・上。「ほる」は 出ず「おろす」だけ | OK |
+| v32-net-swing | あみ の 案内「とる」・葉の ブロック・とび出す むし。あみ が 手に 見えない（うしろ姿） | 軽微（撮り直し） |
+| v32-bug-fly | むし（生成り の まる）が 葉から とぶ・持ち物 2 に むし | OK |
+| v32-flutter | にわとり が ステータス板 の うしろ で 羽の 形 が 見えない | 軽微（撮り直し） |
+
+### 性能（AC30・`e2e/live1-perf.spec.ts` を 足した）
+
+| 項目 | 上限 | 実測（0 わ → 11 わ） | 判定 |
+|---|---|---|---|
+| 描画回数の ふえ | 18 以下 | 32 → 50（+18） | OK（ちょうど） |
+| 三角形の ふえ | 8,000 以下 | 6,426 → 15,038（+8,612） | **NG（軽微）** 612 多い |
+| 1 ステップ | 0.2 ms（中央値。参考） | 約 0.79 ms（11 わ・3 並列で 記録だけ。合否に しない） | 記録 |
+
+1 わ 目 +1,820（ふちどり・影・しるし の 準備）、2 わ目 以降 +530 ずつ。DESIGN 16.8 の 見積り 約 7,300 より 多い。PO 判断: 上限 を 9,000 に 上げる か、しるし・ふちどり を 軽くする。`live1-perf` は 上限どおりの 期待で 赤 のまま（期待は 変えない）。`npm run perf` は 回していない。
+
+### 一覧
+- 準備した テストの 結果: そろった（赤は live1-perf の 三角形 だけ）。AC11c は fixme のまま。

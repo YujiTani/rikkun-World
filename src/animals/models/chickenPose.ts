@@ -15,6 +15,13 @@ export interface PoseInput {
   headRelYaw: number;
   /** 「動きの 強さ」0〜1。0 で ジャンプの 高さ と とさかの ゆれを 止める（頭の 向き・つつく・目を とじる は のこす） */
   motion: number;
+  // ---- 版 3.2（§2.9・§3.5）
+  /** パタパタ おりて いる（空中 で 下 へ。どの 状態 の 上にも 重なる） */
+  fluttering?: boolean;
+  /** パタパタ を 始めて から の ステップ（羽ばたき 8 ステップ で 1 往復） */
+  flutterT?: number;
+  /** 着地 して から の ステップ（0〜5 の 間 ぽよん。なければ・負 なら なし） */
+  landT?: number;
 }
 
 export interface PoseBuf {
@@ -60,6 +67,12 @@ export const PET_TICKS = 30;
 export const LAY_TICKS = 30;
 export const JUMP_TICKS = 20;
 export const WALK_STEP_TICKS = 12;
+/** 版 3.2 */
+export const FULL_TICKS = 20;
+export const CARRY_LIFT_TICKS = 16;
+export const PUT_DOWN_TICKS = 20;
+export const FLUTTER_TICKS = 8;
+export const LAND_TICKS = 6;
 
 const clamp01 = (x: number): number => (x < 0 ? 0 : x > 1 ? 1 : x);
 const smooth = (x: number): number => {
@@ -150,7 +163,7 @@ export function poseChicken(out: PoseBuf, inp: PoseInput): void {
       const ph = (2 * Math.PI * t) / WALK_STEP_TICKS;
       off(I.head, 0, 0, -1.0 * Math.sin(ph));
       off(I.neck, 0, 0, -0.5 * Math.sin(ph));
-      legs(28 * Math.sin(ph / 2));
+      if (!inp.fluttering) legs(28 * Math.sin(ph / 2)); // 空中 では 歩かない
       rot(I.body, 0, 0, 2 * Math.sin(ph / 2));
       break;
     }
@@ -248,5 +261,73 @@ export function poseChicken(out: PoseBuf, inp: PoseInput): void {
       }
       break;
     }
+    case 'full': {
+      // おなかいっぱい 20 コマ: おなかを ふくらます 6 → 首を ふる 10 → もどる 4（「ぷうっ」）
+      let k = 0;
+      if (t < 6) k = smooth(t / 6);
+      else if (t < 16) k = 1;
+      else if (t < 20) k = 1 - (t - 16) / 4;
+      const b = I.body;
+      const sx = 1 + 0.22 * k;
+      const sy = 1 + 0.06 * k;
+      const sz = 1 + 0.2 * k;
+      out.sc[b * 3] = sx;
+      out.sc[b * 3 + 1] = sy;
+      out.sc[b * 3 + 2] = sz;
+      // 体の 子（首・羽・しっぽ）は 自分の 大きさを まもる（ふくらむ のは おなか だけ）
+      for (const c of [I.neck, I.wingL, I.wingR, I.tail]) {
+        out.sc[c * 3] = 1 / sx;
+        out.sc[c * 3 + 1] = 1 / sy;
+        out.sc[c * 3 + 2] = 1 / sz;
+      }
+      wing(8 * k);
+      if (t >= 6 && t < 16) {
+        const env = Math.min(1, (t - 6) / 1.5, (16 - t) / 1.5);
+        rot(I.head, 0, 18 * Math.sin((2 * Math.PI * (t - 6)) / 5) * Math.max(0, env), 0);
+      }
+      break;
+    }
+    case 'carried': {
+      // だっこ: 足を ちぢめる 6 → もちあがる 10 → あとは 目を ほそめて すこし ゆれる
+      const k = smooth(t / 6);
+      for (const l of [I.legL, I.legR]) rot(l, 45 * k);
+      eyes(0.7 * k);
+      out.rigY = 0.04 * smooth((t - 6) / 10);
+      rot(I.body, 0, 0, 3 * Math.sin((2 * Math.PI * t) / 50) * smooth((t - 10) / 10));
+      rot(I.head, 0, 0, 4 * k);
+      break;
+    }
+    case 'putDown': {
+      // おろされる 20 コマ: かがむ 8 → はなす 6 → 羽を ふる 6（「そっと」）
+      let c = 0;
+      if (t < 8) c = smooth(t / 8);
+      else if (t < 14) c = 1 - smooth((t - 8) / 6);
+      setScale(1 + 0.12 * c, 1 - 0.18 * c, 1 + 0.12 * c);
+      eyes(0.6 * c);
+      const tuck = 45 * (1 - smooth(t / 14)); // だっこの ちぢめた 足が のびる
+      for (const l of [I.legL, I.legR]) rot(l, tuck);
+      if (t >= 14 && t < 20) wing(40 * Math.sin((Math.PI * (t - 14)) / 6));
+      break;
+    }
+  }
+
+  // ---- 重ねる もの（どの 状態の 上にも）
+  if (inp.fluttering) {
+    // パタパタ: 羽を 横に ひろげて 8 ステップ で 1 往復。足は ぶらさがって 小さく ふれる
+    const ft = inp.flutterT ?? 0;
+    const ph = (2 * Math.PI * ft) / FLUTTER_TICKS;
+    wing(62 + 28 * Math.sin(ph));
+    legs(16 * Math.sin(ph));
+    rot(I.tail, -22);
+    rot(I.body, 6);
+    off(I.head, 0, 0.4 * Math.sin(ph + 1.5), 0);
+  }
+  const landT = inp.landT;
+  if (landT !== undefined && landT >= 0 && landT < LAND_TICKS) {
+    // 着地 ぽよん 6 ステップ: たて に つぶれ 横 に ひろがる（体積 ほぼ そのまま）
+    const q = Math.sin((Math.PI * landT) / LAND_TICKS);
+    out.scale[0] *= 1 + 0.18 * q;
+    out.scale[1] *= 1 - 0.25 * q;
+    out.scale[2] *= 1 + 0.18 * q;
   }
 }

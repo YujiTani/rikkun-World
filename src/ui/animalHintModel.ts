@@ -1,25 +1,29 @@
-import type { AnimalEvent, AnimalHintKind, ItemId } from '../contracts';
+import type { AnimalEvent, AnimalHintKind, AnimalWindowHint, ItemId } from '../contracts';
 import { ruby } from './text';
 
 /** 合図（LIVE-1 §3.1）。チップは 120 ステップで消える。同じ合図は のこり時間を もどすだけ（M7 §3.3 と 同じ） */
 export const ANIMAL_HINT_STEPS = 120;
 
-/** チップに そえる 絵 */
+/** チップに そえる 絵（'full' = おなかいっぱい・'carry' = だっこ。専用 の 絵 が できるまで にわとり で かわり） */
 export type AnimalHintArt = ItemId | 'heart' | 'chicken' | 'chickenRibbon' | 'sun';
 
-/** 文（漢字は ふりがな付き。HTML）と 添える絵（左から）。数 8 は 設定 `animalFriendMax` の 初期値 */
-export const ANIMAL_HINT_VIEW: Readonly<Record<AnimalHintKind, { html: string; art: ReadonlyArray<AnimalHintArt> }>> = {
-  feedHint: {
-    html: `やさい を もって ${ruby('右', 'みぎ')}クリック で あげよう`,
-    art: ['tomato', 'chicken'],
-  },
-  eggLater: { html: 'たまご は また あした', art: ['egg', 'sun'] },
+const R = ruby('右', 'みぎ');
+
+/** 文（漢字は ふりがな付き。HTML）と 添える絵（左から）。仕様 §3.1。数 8 は 設定 `animalFriendMax` の 初期値 */
+export const ANIMAL_HINT_VIEW: Readonly<Record<AnimalWindowHint, { html: string; art: ReadonlyArray<AnimalHintArt> }>> = {
+  feedHint: { html: `むし を もって ${R}クリック で あげよう`, art: ['mushi', 'chicken'] },
+  fullHint: { html: 'おなか いっぱい。すこし まってね', art: ['chicken', 'sun'] },
   friendFull: { html: 'なかま は 8 わ まで', art: ['chickenRibbon'] },
+  treeEmpty: { html: 'むし は おやすみ。ほか の き を さがそう', art: ['leaves', 'log'] },
+  netHint: { html: `あみ で き を ねらって ${R}クリック`, art: ['mushi_ami', 'leaves'] },
+  carryHint: { html: `${R}クリック を ながく おす と だっこ`, art: ['chickenRibbon'] },
+  carryWild: { html: 'なかま に なったら だっこ できる よ', art: ['chickenRibbon'] },
+  cantPutHere: { html: 'ここ には おろせない', art: ['chicken', 'stone'] },
 };
 
 /** 出ている合図を持つ（DOM なしでテストできる） */
 export class AnimalHintModel {
-  private hint: AnimalHintKind | null = null;
+  private hint: AnimalWindowHint | null = null;
   private left = 0;
   shown = 0;
 
@@ -39,7 +43,7 @@ export class AnimalHintModel {
     if (--this.left <= 0) this.hint = null;
   }
 
-  current(): AnimalHintKind | null {
+  current(): AnimalWindowHint | null {
     return this.hint;
   }
   stepsLeft(): number {

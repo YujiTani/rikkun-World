@@ -96,7 +96,7 @@ export interface SaveDeps {
   achievements?: SaveExtra;
   /** M6: たんすの中身（ブロックの復元のあとに戻す） */
   storage?: SaveExtra;
-  /** LIVE-1: にわとり（`v: 1`） */
+  /** LIVE-1: にわとり（`v: 2` = `{ x, y, z, yaw, follow }`。`v: 1` も 読む。§4.4） */
   animals?: SaveExtra;
   /** WEAPON-7: 手に 入れた ことの ある レジェンダリー（`legendGot`）。前の 保存に ない ときは 空 */
   legend?: SaveExtra;
