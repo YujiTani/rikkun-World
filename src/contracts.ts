@@ -59,7 +59,9 @@ export type BlockId =
   | 'flower_o' // はな（だいだい）
   | 'flower_p' // はな（むらさき）
   | 'bamboo' // たけ
-  | 'susuki'; // すすき
+  | 'susuki' // すすき
+  | 'kusa' // くさ（せの たかい くさ。FLORA-75。こわすと 消えるだけ）
+  | 'nobana'; // のばな（あわい あおの 小さな はな。FLORA-75）
 
 export interface BlockType {
   id: BlockId;

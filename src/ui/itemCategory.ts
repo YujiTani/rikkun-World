@@ -39,7 +39,7 @@ export const ITEM_CATEGORIES: readonly ItemCategory[] = [
 export const CATEGORY_ITEMS: Readonly<Record<ItemCategory, readonly string[]>> = {
   soil: ['dirt', 'sand', 'snow'],
   stone: ['stone'],
-  plant: ['grass', 'log', 'leaves', 'seed_onion', 'seed_tomato', 'seed_pumpkin', 'seed_eggplant', 'momiji_leaves', 'matsu_leaves', 'flower_y', 'flower_o', 'flower_p', 'bamboo'],
+  plant: ['grass', 'log', 'leaves', 'seed_onion', 'seed_tomato', 'seed_pumpkin', 'seed_eggplant', 'momiji_leaves', 'matsu_leaves', 'flower_y', 'flower_o', 'flower_p', 'bamboo', 'nobana'],
   ore: ['coal_ore', 'iron_ore'],
   build: ['kawara', 'brick'],
   material: ['paper', 'string', 'cloth', 'oil', 'clay', 'yokai_orb'],

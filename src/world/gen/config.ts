@@ -63,6 +63,22 @@ const COUNTRIES: Readonly<Record<CountryKind, CountryDef>> = {
   yuki: { hillScale: 40, hill: 8, bump: 2, cliff: 0.04, trees: 0.03, snowFrom: 40, visibleOre: 2, mountain: { top: 80, k: 0.85, plateau: 3 }, micro: { tuft: 0.9, rock: 0.7, soil: 0.05 } },
 };
 
+/** くさ・のばな の こさ（FLORA-75 §4.1。1 マスに 当たる わりあい。間隔のきまり の 前）: [くさ, のばな] */
+const FLORA_RATE: Readonly<Record<CountryKind, readonly [number, number]>> = {
+  harappa: [0.06, 0.02],
+  mori: [0.08, 0.01],
+  ookina: [0.06, 0.01],
+  hana: [0.03, 0],
+  sunahama: [0, 0],
+  susuki: [0.02, 0],
+  take: [0.03, 0],
+  kappa: [0.08, 0.02],
+  iwayama: [0.03, 0.01],
+  tengu: [0.03, 0.01],
+  momiji: [0.04, 0.01],
+  yuki: [0.01, 0],
+};
+
 /**
  * 世界生成の数値（VOX-B。docs/tickets/VOX-B.md の「数の表」）。ここだけで変えられるようにする。
  * 高さは SEA_Y（海面）からの相対で書く。
@@ -128,6 +144,25 @@ export const GEN_CONFIG = {
   },
   /** 国ごとの数（B の表） */
   countries: COUNTRIES,
+
+  /** くさ・のばな（FLORA-75）。こさ（国ごと）と 1 列の上限 */
+  flora: { rate: FLORA_RATE, capKusa: 24, capNobana: 8, startClear: 8, mouthClear: 2, rockClear: 2 },
+
+  /**
+   * 間隔のきまり（FLORA-75 §5）。割合と 大きさは ここだけ。
+   * share = 場所ごとの 段（ひろい／ふつう／せまい）の 割合。noiseScale = 段を 決める ゆっくりした ノイズの 大きさ（ブロック）。
+   * startWide〜startRamp = スタートから この チェビシェフきょりまでは いつも ひろい、そこから startRamp まで だんだん もとの順位に もどる
+   */
+  spacing: {
+    share: { wide: 0.7, normal: 0.25, narrow: 0.05 },
+    noiseScale: 96,
+    startWide: 64,
+    startRamp: 96,
+    /** あき地: 区の大きさ・まん中を ふちから おく はば・段ごとの 半径 */
+    clearing: { cell: 32, edge: 6, radius: { wide: 6, normal: 5, narrow: 4 } },
+    /** むら（うすい所を へらす）の ノイズの大きさ */
+    patchScale: 12,
+  },
 
   /** 地層 */
   strata: {

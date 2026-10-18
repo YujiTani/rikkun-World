@@ -1,5 +1,7 @@
 import { COUNTRY_KINDS, countryAt, countryCell, takePath, type CountryKind } from './biome';
 import { GEN_CONFIG as C } from './config';
+import { findSpacing, floraOfColumn, plantsInRect, type PlacedPlant } from './placement';
+import { clearingsInRect, spacingAt, type Clearing, type SpacingLevel } from './spacing';
 import { spawnOf } from './terrain';
 
 /**
@@ -8,12 +10,23 @@ import { spawnOf } from './terrain';
  *   here()                 → キャラの足もとの at
  *   find(kind, from?)      → from（なければ スタート）から いちばん近い その国の点 { x, z }
  *   take.path(cx, cz)      → たけやぶ の升目の 道のマス { x, z }[]
+ * FLORA-75 §9（くさ・のばな・間隔のきまり）:
+ *   plants(x0, z0, x1, z1) → 四角の中の 木・はな・すすき・たけ・くさ・のばな { type, x, y, z }[]（間隔のきまりの あと）
+ *   flora(cx, cz)          → その列の { kusa, nobana, tris }
+ *   clearings(x0, z0, x1, z1) → あき地の まん中と 半径 { x, z, r }[]
+ *   spacing(x, z)          → { level: 'wide' | 'normal' | 'narrow', v }
+ *   findSpacing(level, { from?, kind? }) → その段の 場所（まわり 3×3 列が ぜんぶ その段）。4096 以内に なければ null
  */
 export interface BiomeHook {
   at(x: number, z: number): ReturnType<typeof countryAt>;
   here(): ReturnType<typeof countryAt>;
   find(kind: CountryKind, from?: { x: number; z: number }): { x: number; z: number };
   take: { path(cx: number, cz: number): { x: number; z: number }[] };
+  plants(x0: number, z0: number, x1: number, z1: number): PlacedPlant[];
+  flora(cx: number, cz: number): { kusa: number; nobana: number; tris: number };
+  clearings(x0: number, z0: number, x1: number, z1: number): Clearing[];
+  spacing(x: number, z: number): { level: SpacingLevel; v: number };
+  findSpacing(level: SpacingLevel, opts?: { from?: { x: number; z: number }; kind?: CountryKind }): { x: number; z: number } | null;
 }
 
 /** 升目を渦まきに ひろげて いちばん近い点をさがす（山は 1 つの点を 4 升目が 分けあう） */
@@ -57,5 +70,10 @@ export function createBiomeHook(opts: { seed: number; player: () => { x: number;
       return findCountry(seed, kind, from ?? { x: sp.x, z: sp.z });
     },
     take: { path: (cx, cz) => takePath(seed, cx, cz) },
+    plants: (x0, z0, x1, z1) => plantsInRect(seed, x0, z0, x1, z1),
+    flora: (cx, cz) => floraOfColumn(seed, cx, cz),
+    clearings: (x0, z0, x1, z1) => clearingsInRect(seed, x0, z0, x1, z1),
+    spacing: (x, z) => spacingAt(seed, x, z),
+    findSpacing: (level, o) => findSpacing(seed, level, o),
   };
 }

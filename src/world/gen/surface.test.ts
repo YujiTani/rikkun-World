@@ -12,7 +12,9 @@ import { surfaceFor } from './surface';
  */
 
 const SEEDS = [20261012, 1, 2];
-const PLANTS = [BLOCK_INDEX.flower_y, BLOCK_INDEX.flower_o, BLOCK_INDEX.flower_p, BLOCK_INDEX.susuki, BLOCK_INDEX.bamboo];
+// FLORA-75: くさ・のばな（id は 仮。ブロックが 入るまでは undefined なので のぞく）も 草花の なかま
+const FLORA = ['kusa', 'nobana'].map((id) => (BLOCK_INDEX as Record<string, number | undefined>)[id]).filter((i): i is number => i !== undefined);
+const PLANTS = [BLOCK_INDEX.flower_y, BLOCK_INDEX.flower_o, BLOCK_INDEX.flower_p, BLOCK_INDEX.susuki, BLOCK_INDEX.bamboo, ...FLORA];
 const LEAVES = [BLOCK_INDEX.leaves, BLOCK_INDEX.momiji_leaves, BLOCK_INDEX.matsu_leaves];
 const SOFT = new Set<number>([BLOCK_INDEX.air, BLOCK_INDEX.water, BLOCK_INDEX.log, BLOCK_INDEX.start_torch, ...LEAVES, ...PLANTS]);
 

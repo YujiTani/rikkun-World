@@ -1075,7 +1075,8 @@ test.describe('M2 性能（記録）', () => {
         // 一番上のブロック（log でない）
         while (top < h.world.size().y - 2 && h.world.getBlock(x, top + 1, z) !== 'air') top++;
         const id = h.world.getBlock(x, top, z);
-        if (id === 'log' || id === 'water' || id === 'bedrock' || id === 'iron_ore') continue;
+        // FLORA-75: くさ・のばな（板。1 回で消える）は ほる時間の くらべに ならないので とばす
+        if (id === 'log' || id === 'water' || id === 'bedrock' || id === 'iron_ore' || id === 'kusa' || id === 'nobana') continue;
         h.inventory.clear();
         h.player.set({ position: { x: x + 0.5, y: top + 1, z: z + 3.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 180, pitch: -50 });
         h.step(2);

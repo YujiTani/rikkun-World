@@ -98,9 +98,9 @@ const BUCKET_ITEMS: readonly ItemType[] = [
   { id: 'water_bucket', name: 'みずの バケツ', maxStack: 1, placeBlock: null },
 ];
 
-/** VOX-I-1: 12 の国のブロック（置ける）。すすき は こわすと 消えるので 持ち物にならない */
+/** VOX-I-1: 12 の国のブロック（置ける）。すすき・くさ は こわすと 消えるので 持ち物にならない（のばな は 持てる。FLORA-75） */
 const VOX_I_BLOCKS: readonly ItemType[] = (
-  ['snow', 'momiji_leaves', 'matsu_leaves', 'flower_y', 'flower_o', 'flower_p', 'bamboo'] as const
+  ['snow', 'momiji_leaves', 'matsu_leaves', 'flower_y', 'flower_o', 'flower_p', 'bamboo', 'nobana'] as const
 ).map((id): ItemType => ({ id, name: BLOCK_TYPES.find((b) => b.id === id)!.name, maxStack: BLOCK_MAX_STACK, placeBlock: id }));
 
 /** LIVE-1: たまご（なかま の にわとり が くれる。たべる。置けない） */
