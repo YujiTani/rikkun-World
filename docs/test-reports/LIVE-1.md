@@ -135,3 +135,18 @@
 
 ## 見つけた問題
 - 重大: なし。軽微: テスト側の AC5 の壁の位置・AC11 の床の作り方（直した）。smoke の刀のわざが負荷で 1 回落ちた。
+
+## 版 3.2 つなぎ込みのあとの合否（つなぎ込み担当）
+
+- 実行: `npx playwright test e2e/live1-core e2e/live1-follow e2e/live1-egg e2e/live1-net e2e/live1-carry e2e/m7*.spec.ts e2e/m72.spec.ts e2e/bucket.spec.ts`（`--workers` なし）→ 87 本中 **81 緑・3 赤・1 fixme（AC11c）**。はじめの 1 回は 6 本 赤 だったが、うち 3 本（live1-carry AC27・live1-follow AC11・AC24）は 3 並列の 60 秒タイムアウト（`setViewportSize`・`reload` で時間切れ）で、1 本ずつ 回し直すと 緑。
+- `npm run test:e2e:fast`（smoke ほか）→ 12 本 緑。`npm run check:ui` → 37 本 緑。`npm run check:fast` → 緑（ユニット 2,679）。
+
+| 合否 | テスト | 理由（実装は 仕様どおり。テスト側の疑い） |
+|---|---|---|
+| 赤 | `live1-net` AC7（むしが とれる） | テストの数え方の まちがい: 6 ステップ目に 押し直すとき `i++` して `counts[6]` が とばされ `undefined`。`counts[1..28]` が 0 かを 見る所で 落ちる。ゲーム側は 30 ステップ目に +1 で 合っている |
+| 赤 | `live1-net` AC8（かならず） | テストは 外れの `swing.reason` を `'chance'` と 見るが、契約（`SwingReason`）・A/B/C の ユニットは 外れ = `'miss'`。仕様 §6.1 は 列挙だけ で 外れの 名前を きめていない。どちらかに そろえる（PO 判断） |
+| 赤 | `live1-carry` AC19b の 後半（やせいを 長おし） | テストは「やせいを 50 ステップ 押しつづけても むし 2 のまま」と 見るが、仕様 §2.8 は ふつうの やせい は 押した ステップに あげる（むしが 1 へる）。長おしで あげない のは なかま だけ。やせいも 長おしで へらさない 仕様なら 仕様書の 直しが いる（PO 判断） |
+
+### スクショ（`docs/screenshots/LIVE-1/`）
+
+`v32-feed.png`（むしを あげる）・`v32-footprints.png`（あしあと）・`v32-full.png`（おなかいっぱい・まってね）・`v32-carry-third.png`（だっこ 3 人称）・`v32-carry-first-person.png`（だっこ 1 人称）・`v32-flutter.png`（パタパタ）・`v32-net-swing.png`（あみを ふる）・`v32-bug-fly.png`（むしが 飛ぶ）。見えた 気になる点: だっこ 1 人称で にわとりが 画面下の ステータス板に かぶって 見える・だっこ 3 人称で 左クリックの「ほる」案内が 残る（右の「おろす」は 出る）。

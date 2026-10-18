@@ -35,11 +35,6 @@ describe('LIVE-1 合図（§3.1。版 3.2 の 8 つ）', () => {
     for (let i = 0; i < ANIMAL_HINT_STEPS; i++) m.step();
     expect(m.current()).toBeNull();
   });
-  it('版 2 の eggLater が 来ても 出さない', () => {
-    const m = new AnimalHintModel();
-    m.feed([{ type: 'hint', hint: 'eggLater' }]);
-    expect(m.current()).toBeNull();
-  });
 });
 
 describe('LIVE-1 小さな 絵', () => {

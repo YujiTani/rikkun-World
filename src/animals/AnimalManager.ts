@@ -315,6 +315,25 @@ export class AnimalManager implements AnimalApi {
     return true;
   }
 
+  /** やられた とき: だっこ中 を その場に おろす（地面 の 検査 は しない。出来事 putDown は 出す） */
+  dropCarried(spot: Vec3): void {
+    if (this.putDown(spot)) return;
+    const e = this.carriedId === null ? undefined : this.find(this.carriedId);
+    if (!e) return;
+    e.carried = false;
+    this.carriedId = null;
+    e.x = spot.x;
+    e.y = spot.y;
+    e.z = spot.z;
+    e.vy = 0;
+    e.following = false;
+    e.walking = false;
+    e.homeX = e.x;
+    e.homeZ = e.z;
+    this.push({ type: 'putDown', id: e.id, x: e.x, y: e.y, z: e.z });
+    this.setLock(e, 'putDown', PUT_DOWN_TICKS);
+  }
+
   carrying(): number | null {
     return this.carriedId;
   }
@@ -323,6 +342,15 @@ export class AnimalManager implements AnimalApi {
   isFull(id: number): boolean {
     const e = this.find(id);
     return !!e && e.fullLeft > 0;
+  }
+
+  isFriend(id: number): boolean {
+    return !!this.find(id)?.friend;
+  }
+
+  /** つなぎ込み から の 合図（あみ の ヒント など）。出来事 と lastHint に 出す */
+  emitHint(h: AnimalHintKind): void {
+    this.hintOut(h);
   }
 
   lastHint(): AnimalHintKind | null {
@@ -391,10 +419,10 @@ export class AnimalManager implements AnimalApi {
     return { id: bestId, distance: bestT };
   }
 
-  preview(id: number, held: ItemStack | null): 'feed' | 'animalPet' | null {
+  preview(id: number, held: ItemStack | null): 'feed' | 'animalFull' | 'animalPet' | null {
     const e = this.find(id);
     if (!e || e.lock > 0 || e.carried) return null;
-    if (held && held.item === 'mushi') return 'feed';
+    if (held && held.item === 'mushi') return e.fullLeft > 0 ? 'animalFull' : 'feed';
     return 'animalPet';
   }
 

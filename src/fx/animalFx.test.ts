@@ -93,7 +93,7 @@ describe('出来事 → 音・つぶ（§3.6・§3.7）', () => {
   });
   it('合図 hint = animalHint', () => {
     expect(run({ type: 'hint', hint: 'feedHint' }).played).toEqual(['animalHint']);
-    expect(run({ type: 'hint', hint: 'eggLater' }).played).toEqual(['animalHint']);
+    expect(run({ type: 'hint', hint: 'carryHint' }).played).toEqual(['animalHint']);
   });
   it('たまご = egg の音 と キラッ 4 つぶ', () => {
     const f = run({ type: 'egg', id: 1, x: 3, y: 9, z: 4 });

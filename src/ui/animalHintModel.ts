@@ -28,7 +28,6 @@ export class AnimalHintModel {
   shown = 0;
 
   show(kind: AnimalHintKind): void {
-    if (kind === 'eggLater') return; // 版 2 の 名残。版 3.2 では 出さない（仕様 §0 の 9 行）
     this.hint = kind;
     this.left = ANIMAL_HINT_STEPS;
     this.shown++;

@@ -2114,9 +2114,8 @@ export type AnimalState = 'appear' | 'wander' | 'rest' | 'look' | 'eat' | 'pet' 
   | 'full' | 'carried' | 'putDown';
 /**
  * 合図（§3.1・§6.1）。窓口 `animals.lastHint()` の 型 と 同じ（`AnimalWindowHint` を 統合）。
- * 'eggLater' は 版 2 の 名残（版 3.2 では 出さない。A が 出さなく なったら この 行 から 消す）
  */
-export type AnimalHintKind = AnimalWindowHint | 'eggLater';
+export type AnimalHintKind = AnimalWindowHint;
 export type AnimalRemoveReason = 'far' | 'void' | 'buried';
 
 /** `animals.events()` の出来事（§6.1） */
@@ -2307,7 +2306,7 @@ export interface AnimalApi {
   /** 'ate' の とき だけ C が むし を 1 へらす。'full' = おなかいっぱい、'pet' = なでる に なった、'friendFull' = なかま が 8 わ */
   feed(id: number, item: ItemId): 'ate' | 'full' | 'pet' | 'friendFull' | null;
   pet(id: number): 'wild' | 'friend' | null;
-  /** 版 3.2: おなかいっぱい か（照準 の 下 の `まってね` 用。`preview` は むし を 持てば 'feed' の まま） */
+  /** 版 3.2: おなかいっぱい か（テスト・確認用。照準 の 下 の `まってね` は `preview` が 'animalFull' を 返す） */
   isFull?(id: number): boolean;
   /** 版 3.2: あみ を ふる（block = ねらって いる ブロック）。くじ は A */
   swingNet(block: Vec3): SwingResult;
