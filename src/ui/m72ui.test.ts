@@ -10,7 +10,6 @@ import { actionHintLines } from './actionHintModel';
 import { WET_SOON_OPACITY, farmAimView } from './farmAimModel';
 import { FARM_HINT_STEPS, FARM_HINT_VIEW, FarmHintModel } from './farmHintModel';
 import { findUnrubiedKanji } from './text';
-// @ts-ignore 実装前は ファイルが ない（BOOK-1。bookData.ts ができたら 型も 付く）
 const bookMod = (await import('./book/bookData')) as any;
 const BOOK_ITEMS: any[] = bookMod.BOOK_ITEMS;
 

@@ -9,7 +9,6 @@ import { describe, expect, it } from 'vitest';
  *   listSpreads(itemIds) → string[][]                 章の一覧を 12 こずつの 見開きに 分ける（0 こなら []）
  *   neighbors(itemIds, id) → { prev: string | null, next: string | null }   ◀ ▶ の となり（はしは null。ぐるっと しない）
  */
-// @ts-ignore 実装前は ファイルが ない
 const nav = (await import('./bookNav')) as any;
 
 const chapters = [

@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { findUnrubiedKanji } from '../text';
 
-// @ts-ignore 実装前は ファイルが ない（BOOK-1。bookData.ts ができたら 型も 付く）
 const { BOOK_CHAPTERS, BOOK_ITEMS } = (await import('./bookData')) as any;
 
 /** BOOK-1 §4.3 の 40 こ（章の じゅん・章の中の じゅん） */

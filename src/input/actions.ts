@@ -35,6 +35,9 @@ export const ACTIONS = [
   'dropStack', // そのマスの ぜんぶ をすてる（Shift＋Q。M6）
   'stanceNext', // 刀の かまえを かえる（R。WEAPON-2）
   'openLog', // できごと を ひらく・とじる（L。CRAFT-2）
+  'pagePrev', // 本の ◀（←。BOOK-1。遊びの moveLeft にも なる）
+  'pageNext', // 本の ▶（→。BOOK-1。遊びの moveRight にも なる）
+  'bookBack', // 本の もどる（Backspace。BOOK-1）
 ] as const;
 
 export type Action = (typeof ACTIONS)[number];
@@ -68,6 +71,16 @@ export const DEFAULT_KEY_BINDINGS: Readonly<Record<string, Action>> = {
   KeyQ: 'drop',
   KeyR: 'stanceNext',
   KeyL: 'openLog',
+};
+
+/**
+ * 本（BOOK-1）の キー。主な Action に くわえて、同じ キーで もう 1 つ Action が 押される。
+ * 本が 出ていない ときは 受けとる 側（Book.onAction）が 何もしない。
+ */
+export const EXTRA_KEY_BINDINGS: Readonly<Record<string, Action>> = {
+  ArrowLeft: 'pagePrev',
+  ArrowRight: 'pageNext',
+  Backspace: 'bookBack',
 };
 
 /**
@@ -145,22 +158,29 @@ export class ActionState {
 }
 
 /** キーボードとマウスを ActionState につなぐ。戻り値で解除できる。 */
-export function bindKeyboardAndMouse(target: Window, state: ActionState, wheel?: WheelAccumulator): () => void {
+export interface KeyboardBindOptions {
+  /** 主な Action の ない キー（Backspace など）で、ブラウザの 動き（前のページへ）を 止めるか。ふだんは 止めない */
+  preventExtra?: (action: Action) => boolean;
+}
+
+export function bindKeyboardAndMouse(target: Window, state: ActionState, wheel?: WheelAccumulator, opts: KeyboardBindOptions = {}): () => void {
   // 押しているキー → 押したときに決めた Action（Shift を先にはなしても、同じ Action をはなす）
-  const downKeys = new Map<string, Action>();
+  const downKeys = new Map<string, Action[]>();
   const onKeyDown = (e: KeyboardEvent) => {
-    const action = actionForKey(e.code, e.shiftKey);
-    if (!action) return;
-    e.preventDefault();
-    if (downKeys.has(e.code)) return; // キーリピートは無視
-    downKeys.set(e.code, action);
-    state.press(action);
+    const main = actionForKey(e.code, e.shiftKey);
+    const extra = EXTRA_KEY_BINDINGS[e.code];
+    if (!main && !extra) return;
+    if (main || (extra && opts.preventExtra?.(extra))) e.preventDefault();
+    if (e.repeat || downKeys.has(e.code)) return; // キーリピートは無視
+    const list = [main, extra].filter((a): a is Action => !!a);
+    downKeys.set(e.code, list);
+    for (const a of list) state.press(a);
   };
   const onKeyUp = (e: KeyboardEvent) => {
-    const action = downKeys.get(e.code);
-    if (!action) return;
+    const list = downKeys.get(e.code);
+    if (!list) return;
     downKeys.delete(e.code);
-    state.release(action);
+    for (const a of list) state.release(a);
   };
   const onMouseDown = (e: MouseEvent) => {
     const action = DEFAULT_MOUSE_BINDINGS[e.button];

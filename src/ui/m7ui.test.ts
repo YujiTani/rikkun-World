@@ -172,7 +172,6 @@ describe('実績 そだてる（§4.7）', () => {
 });
 
 import { createDefaultItemInfo } from '../craft/info/build';
-// @ts-ignore 実装前は ファイルが ない（BOOK-1。bookData.ts ができたら 型も 付く）
 const bookMod = (await import('./book/bookData')) as any;
 const BOOK_CHAPTERS: any[] = bookMod.BOOK_CHAPTERS;
 const BOOK_ITEMS: any[] = bookMod.BOOK_ITEMS;

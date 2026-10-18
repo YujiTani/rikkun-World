@@ -65,7 +65,7 @@ export interface TestHook {
   /** CHAR-1 第 5.2 版 §4.9: ねらいの点 X・ねらい補助で えらんだ妖怪の id */
   aim: { point(): { x: number; y: number; z: number }; assist(): number | null };
   input: ReturnType<typeof createInputHook>;
-  lock: ReturnType<typeof createLockHook> & { tab(name: string): void };
+  lock: ReturnType<typeof createLockHook> & { tab(name: string): void; book(target: string): void; bookStats(): { calls: number; triangles: number } };
   settings: ReturnType<typeof createSettingsHook>;
   target: ReturnType<typeof createDigHook>['target'];
   dig: ReturnType<typeof createDigHook>['dig'];
