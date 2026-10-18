@@ -60,7 +60,7 @@ describe('実績の表', () => {
     expect(new Set(ACHIEVEMENT_DEFS.map((d) => d.id)).size).toBe(236);
     expect(ACHIEVEMENT_DEFS.filter((d) => d.small).length).toBe(82);
     expect(ACHIEVEMENT_DEFS.filter((d) => d.category === 'farm').length).toBe(47);
-    expect(ACHIEVEMENT_DEFS.filter((d) => d.category === 'farm' && d.small).length).toBe(12);
+    expect(ACHIEVEMENT_DEFS.filter((d) => d.category === 'farm' && d.small).length).toBe(15);
   });
   it('メダルと名前', () => {
     const med = (id: string) => ACHIEVEMENT_DEFS.find((d) => d.id === id)?.medal;

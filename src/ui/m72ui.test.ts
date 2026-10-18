@@ -27,7 +27,7 @@ describe('M7-2 実績（AC21・§4.7）', () => {
   });
   it('そだてる の 並び: M7 の 行 の うしろ に water・sprinkler・pet・petHarvest の 順、名前 に 漢字 なし', () => {
     const farm = ACHIEVEMENT_DEFS.filter((d) => d.category === 'farm');
-    expect(farm.slice(-9, -1).map((d) => d.id)).toEqual([
+    expect(farm.slice(-21, -13).map((d) => d.id)).toEqual([
       'farm.water.1',
       'farm.water.10',
       'farm.water.100',
@@ -37,8 +37,8 @@ describe('M7-2 実績（AC21・§4.7）', () => {
       'farm.pet.100',
       'farm.petHarvest.1',
     ]);
-    expect(farm[farm.length - 1].id).toBe('farm.bucket.1');
-    expect(farm.slice(-9, -1).filter((d) => d.small).map((d) => d.id)).toEqual(['farm.water.1', 'farm.pet.1']);
+    expect(farm[farm.length - 13].id).toBe('farm.bucket.1');
+    expect(farm.slice(-21, -13).filter((d) => d.small).map((d) => d.id)).toEqual(['farm.water.1', 'farm.pet.1']);
     expect(farm.some((d) => /[一-鿿]/.test(d.name))).toBe(false);
     expect(ACHIEVEMENT_DEFS.find((d) => d.id === 'farm.water.10')?.name).toBe('10 かい みずやり した！');
     expect(ACHIEVEMENT_DEFS.find((d) => d.id === 'farm.pet.10')?.name).toBe('やさい を 10 かい なでた！');
@@ -138,9 +138,9 @@ describe('M7-2 HUD（AC17）と 案内画面（AC25）と 案内の絵（AC18）
     expect(farmAimView({ ...base, wet: false, wetSoon: true })).toMatchObject({ droplet: false, dropletFaint: false });
     expect(WET_SOON_OPACITY).toBe(0.45);
   });
-  it('そだてる タブ は 11 こ・漢字 は ふりがな付き', () => {
+  it('そだてる タブ は 13 こ（LIVE-1 で 2 こ）・漢字 は ふりがな付き', () => {
     const c = GUIDE_TABS.grow.captions;
-    expect(c.length).toBe(11);
+    expect(c.length).toBe(13);
     for (const t of c) expect(findUnrubiedKanji(t), t).toEqual([]);
     const plain = c.slice(7, 10).map((t) => t.replace(/<[^>]+>/g, ''));
     expect(plain[0]).toContain('じょうろ');
