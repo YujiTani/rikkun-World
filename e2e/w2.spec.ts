@@ -100,6 +100,7 @@ test.describe('WEAPON-2 刀', () => {
         h.step(110); // 大けさぎり 106 が おわってから 次を押す
         const p1 = h.player.get().position;
         out.moved[st] = Math.hypot(p1.x - p0.x, p1.z - p0.z);
+        out.gap = Math.hypot(p1.x - 4.5, p1.z - 6.5); // ぬりかべの 中心との 水平の きょり
         const ev = h.blade.events().filter((e: any) => e.type === 'techHit');
         out.hits[st] = ev.length - n0;
         out.dur.push(h.inventory.durability(0).left);
@@ -121,8 +122,10 @@ test.describe('WEAPON-2 刀', () => {
     // おわったときの ふみこみ: 突き 0・切り上げ 0（その場）・大けさぎりは ぬりかべ（前 2.0・半径 0.9）の 手前 0.9 + 0.3 + 0.1 で 止まる（WEAPON-4 §4.5）
     expect(Math.abs(r.moved.chudan)).toBeLessThan(0.02);
     expect(Math.abs(r.moved.gedan)).toBeLessThan(0.02);
-    expect(r.moved.jodan).toBeLessThanOrEqual(2.0 - 1.3 + 0.01); // 手前（1.3）より 近づかない
+    // 立ち位置が ぬりかべの 中心から よこに ずれていても、中心との きょりが 0.9 + 0.3 + 0.1 − 0.01 以上で 手前で 止まる（3.1 は すすまない）
+    expect(r.gap).toBeGreaterThanOrEqual(1.29);
     expect(r.moved.jodan).toBeGreaterThan(0.2);
+    expect(r.moved.jodan).toBeLessThan(2.5);
     expect(r.whiffWear).toBe(0);
   });
 
