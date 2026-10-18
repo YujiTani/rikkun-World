@@ -404,6 +404,18 @@ describe('CHAR-4 AC6 星', () => {
     expect(dist(s.stars[0]!, s.stars[1]!)).toBeGreaterThan(0.05);
     expect(dist(s.stars[1]!, s.stars[2]!)).toBeGreaterThan(0.05);
   });
+  it('WEAPON-6: 段の 数と 同じ（1 段目 1 こ・2 段目 2 こ・3 段目 3 こ）。たしかめるのは 星が いちばん 多い ステップ', () => {
+    for (const n of [1, 2, 3] as const) {
+      const rig = makeRig();
+      const rec: number[] = [];
+      for (let f = 1; f <= 40; f++) {
+        const st = { ...moveState(rig.settings, 'crystal_katana', 'kesa', f, 0, { x: 20.5, y: 5, z: 20.5 }), combo: { step: n, queued: false, open: false, cancelAt: null } };
+        rig.trail.step(st, bodyOf(rig.settings, 'kesa', f, 0, { x: 20.5, y: 5, z: 20.5 }));
+        rec.push(rig.trail.snapshot().stars.length);
+      }
+      expect(Math.max(...rec), `${n} 段目`).toBe(n);
+    }
+  });
   it('ぼくとう・かたなは 星 0 こ（3 わざ ぜんぶ）', () => {
     for (const item of ['bokuto', 'katana'] as ItemId[]) {
       for (const tech of TECHS) {

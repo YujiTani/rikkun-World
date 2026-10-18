@@ -88,6 +88,18 @@ describe('つよさ は設定から（U7〜U10）', () => {
     }
     expect(make().info('naginata').stats[1].value).toBe(5.0);
   });
+  it('WEAPON-6 AC10: きらめく カタナの 説明（つよさ 4・たいきゅう 400・3 だん わざ）。かたな・ぼくとうは 今のまま', () => {
+    const k = make().info('crystal_katana');
+    expect(k.stats.find((x) => x.key === 'damage')!.value).toBe(4);
+    expect(k.stats.find((x) => x.key === 'durability')!.value).toBe(400);
+    expect(k.stats).toHaveLength(4);
+    expect(k.use).toBe('れんぞく で ふると 3 だん わざ に なる かたな');
+    expect(k.how).toContain('3 だん わざ');
+    expect(findUnrubiedKanji(`${k.use}${k.how}`)).toEqual([]);
+    expect(make().info('katana').use).toBe('ようかい を つよく たたく');
+    expect(make().info('katana').how).not.toContain('3 だん');
+    expect(make().info('bokuto').how).not.toContain('3 だん');
+  });
   it('なぎなた: とどく（設定の値）・ゆっくり', () => {
     const s = make().info('naginata').stats;
     expect(s[1].value).toBe(defaultInfoNumbers().weaponReach.naginata);

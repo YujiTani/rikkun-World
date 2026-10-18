@@ -39,7 +39,7 @@ describe('なかま・新品の 値 (AC25)', () => {
     for (const it of ['dirt', 'ya', 'torch', 'iron_ingot', 'seed_onion', 'tomato'] as const) expect(itemClassOf(it)).toBe('consumable');
   });
   it('maxDurability は 表を 読む', () => {
-    expect(maxDurability('crystal_katana', W2_SETTING_DEFAULTS.toolDurability)).toBe(500);
+    expect(maxDurability('crystal_katana', W2_SETTING_DEFAULTS.toolDurability)).toBe(400);
     expect(maxDurability('dirt', W2_SETTING_DEFAULTS.toolDurability)).toBeNull();
   });
 });

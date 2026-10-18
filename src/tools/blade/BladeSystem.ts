@@ -1,8 +1,11 @@
 import type {
+  BladeAdvanceCurve,
   BladeDeps,
   BladeEvent,
   BladeShapeInfo,
   BladeStance,
+  BladeStep,
+  BladeTechFrames,
   BladeState,
   BladeStepContext,
   BladeSystem,
@@ -57,6 +60,12 @@ export function createBladeSystem(deps: BladeDeps): BladeSystem {
   const bodyStart: Vec3 = { x: 0, y: 0, z: 0 };
   /** WEAPON-4: このわざの 射程 R（始めたステップの 刀で 固定） */
   let reach = 2.2;
+  /** WEAPON-6: 何段目か・つなぎを おぼえているか・この段の 長さ・ふりぬき・ふみこみの 線（始めたステップの 値を その段の間 使う） */
+  let stage: BladeStep = 1;
+  let queued = false;
+  let curLen: BladeTechFrames = { ...S.bladeTech.thrust };
+  let curFollow = 0;
+  let curCurve: BladeAdvanceCurve = S.bladeAdvance.thrust;
   let drainQ: BladeEvent[] = [];
   const peekQ: BladeEvent[] = [];
 
@@ -67,16 +76,30 @@ export function createBladeSystem(deps: BladeDeps): BladeSystem {
     if (peekQ.length > MAX_QUEUE) peekQ.shift();
   }
 
-  function totalOf(t: BladeTech): number {
-    const f = S.bladeTech[t];
-    return f.startup + f.active + f.recovery;
+  function totalOf(_t: BladeTech): number {
+    return curLen.startup + curLen.active + curLen.recovery;
+  }
+
+  /** この 刀は 3 段攻撃の 刀か */
+  function isComboItem(): boolean {
+    return !!item && S.bladeCombo.items.includes(item);
+  }
+
+  /** いまの 段から 次の 段へ つなげるか（1・2 段目で、かまえの 順に 次が ある） */
+  function chainable(): boolean {
+    return phase !== 'idle' && phase !== 'switch' && !!tech && isComboItem() && stage < 3 && S.bladeCombo.order[stance][stage] !== undefined;
+  }
+
+  /** キャンセルできる F（C） */
+  function cancelAt(): number {
+    return curLen.startup + curLen.active + curFollow + 1;
   }
 
   /** 先行入力を 受け始める F */
   function windowStart(): number {
     if (phase === 'switch') return 1;
     if (!tech) return 1;
-    const f = S.bladeTech[tech];
+    const f = curLen;
     const total = totalOf(tech);
     if (f.recovery <= S.bladeBufferTicks) return f.startup + 1;
     return total - S.bladeBufferTicks + 1;
@@ -91,6 +114,8 @@ export function createBladeSystem(deps: BladeDeps): BladeSystem {
     buffered = null;
     hitSet = new Set<number>();
     move = null;
+    queued = false;
+    stage = 1;
   }
 
   function cancelAll(): void {
@@ -108,8 +133,16 @@ export function createBladeSystem(deps: BladeDeps): BladeSystem {
     emit({ type: 'stance', tick: deps.tick(), from, to: stance });
   }
 
-  function startTech(ctx: BladeStepContext): void {
-    tech = TECH_OF_STANCE[stance];
+  function startTech(ctx: BladeStepContext, st: BladeStep = 1): void {
+    const combo = isComboItem();
+    tech = (combo ? S.bladeCombo.order[stance][st - 1] : undefined) ?? TECH_OF_STANCE[stance];
+    stage = st;
+    queued = false;
+    buffered = null;
+    const base = S.bladeTech[tech];
+    curLen = st > 1 ? { startup: S.bladeCombo.stepStartup[tech], active: base.active, recovery: base.recovery } : { ...base };
+    curFollow = S.bladeCombo.follow[tech] ?? 0;
+    curCurve = (st === 2 ? S.bladeCombo.step2Advance[tech] : undefined) ?? S.bladeAdvance[tech];
     frame = 1;
     switchFrom = null;
     hitSet = new Set<number>();
@@ -124,12 +157,12 @@ export function createBladeSystem(deps: BladeDeps): BladeSystem {
     bodyStart.x = ctx.body.x;
     bodyStart.y = ctx.body.y;
     bodyStart.z = ctx.body.z;
-    emit({ type: 'techStart', tick: deps.tick(), tech });
+    emit({ type: 'techStart', tick: deps.tick(), tech, step: stage });
     processFrame(ctx);
   }
 
-  function phaseOfFrame(t: BladeTech, f: number): BladeState['phase'] {
-    const c = S.bladeTech[t];
+  function phaseOfFrame(_t: BladeTech, f: number): BladeState['phase'] {
+    const c = curLen;
     if (f <= c.startup) return 'startup';
     if (f <= c.startup + c.active) return 'active';
     return 'recovery';
@@ -145,7 +178,7 @@ export function createBladeSystem(deps: BladeDeps): BladeSystem {
     const fx = Math.sin(yawR);
     const fz = -Math.cos(yawR);
     if (move) {
-      move.target = techAdvance(S.bladeAdvance[tech], PICTURE_PHASES[tech], S.bladeTech[tech], frame);
+      move.target = techAdvance(curCurve, PICTURE_PHASES[tech], curLen, frame);
       const want = move.target - move.moved; // かべで 止まった ぶんも 押しつづける（とおりぬけない）
       if (deps.lunge) {
         const got = deps.lunge(fx * want, fz * want);
@@ -153,7 +186,7 @@ export function createBladeSystem(deps: BladeDeps): BladeSystem {
       } else move.moved = move.target;
     }
     if (phase !== 'active') return;
-    const c = S.bladeTech[tech];
+    const c = curLen;
     shapeInfo = makeShape(tech, ctx, fx, fz);
     const hits = evalHits(tech, ctx, fx, fz);
     if (hits > 0 && !hitReported) {
@@ -161,7 +194,7 @@ export function createBladeSystem(deps: BladeDeps): BladeSystem {
       deps.onHit({ tech, count: hits });
     }
     if (hitSet.size === 0 && frame === c.startup + c.active) {
-      emit({ type: 'techMiss', tick: deps.tick(), tech });
+      emit({ type: 'techMiss', tick: deps.tick(), tech, step: stage });
     }
   }
 
@@ -227,6 +260,7 @@ export function createBladeSystem(deps: BladeDeps): BladeSystem {
       knock: dist,
       up,
       position: { ...y.position },
+      step: stage,
     });
   }
 
@@ -277,7 +311,14 @@ export function createBladeSystem(deps: BladeDeps): BladeSystem {
 
   return {
     state(): BladeState {
-      return { item, stance, tech, phase, frame, buffered, switchFrom, move: move ? { ...move, origin: { ...move.origin } } : null };
+      let combo: BladeState['combo'] = null;
+      if (tech && phase !== 'idle' && phase !== 'switch' && isComboItem()) {
+        combo = chainable()
+          ? { step: stage, queued, open: frame > curLen.startup && frame <= totalOf(tech), cancelAt: cancelAt() }
+          : { step: stage, queued: false, open: false, cancelAt: null };
+      }
+      const lengths = tech && phase !== 'idle' && phase !== 'switch' ? curLen : null;
+      return { item, stance, tech, phase, frame, buffered, switchFrom, move: move ? { ...move, origin: { ...move.origin } } : null, lengths, combo };
     },
     setStance(s: BladeStance): void {
       stance = s;
@@ -307,6 +348,12 @@ export function createBladeSystem(deps: BladeDeps): BladeSystem {
       }
       shapeInfo = null;
 
+      // WEAPON-6: おぼえた つなぎを 出す（キャンセルできる F から）
+      if (queued && chainable() && frame + 1 >= cancelAt()) {
+        startTech(ctx, (stage + 1) as BladeStep);
+        return;
+      }
+
       // すすめる
       if (phase !== 'idle') {
         frame++;
@@ -316,6 +363,8 @@ export function createBladeSystem(deps: BladeDeps): BladeSystem {
           frame = 0;
           switchFrom = null;
           move = null;
+          queued = false;
+          stage = 1;
         }
       }
 
@@ -325,6 +374,8 @@ export function createBladeSystem(deps: BladeDeps): BladeSystem {
           if (ctx.stancePressed) buffered = 'stance';
           if (ctx.techPressed) buffered = 'tech';
         }
+        // WEAPON-6: つなぎの窓（当たりの はじめ〜わざの おわり）。おぼえて、C か 押した F ＋ 1 の おそい方で 次の段
+        if (ctx.techPressed && chainable() && frame > curLen.startup) queued = true;
         if (phase === 'active' || phase === 'startup' || phase === 'recovery') processFrame(ctx);
         return;
       }
@@ -355,12 +406,25 @@ export function createBladeSystem(deps: BladeDeps): BladeSystem {
     },
     dropBuffer(): void {
       buffered = null;
+      queued = false;
     },
-    busyNext(): { busy: boolean; accepts: boolean } {
+    busyNext(parryPress = false): { busy: boolean; accepts: boolean } {
       if (phase === 'idle') return { busy: false, accepts: false };
       const f = frame + 1;
       if (f > currentTotal()) return { busy: false, accepts: false };
+      // WEAPON-6: つなぎの窓では パリィも 押せる。始まるのは C か 押した F ＋ 1 の おそい方
+      if (chainable() && f > curLen.startup) return { busy: parryPress || f < cancelAt(), accepts: true };
       return { busy: true, accepts: f >= windowStart() };
+    },
+    yieldToParry(): void {
+      if (phase !== 'idle' && phase !== 'switch') resetIdle();
+    },
+    nextStart(): { tech: BladeTech; step: BladeStep } {
+      const combo = isComboItem();
+      let st: BladeStep = 1;
+      if (chainable() && (frame < totalOf(tech!) || queued)) st = (stage + 1) as BladeStep;
+      const t = (combo ? S.bladeCombo.order[stance][st - 1] : undefined) ?? TECH_OF_STANCE[stance];
+      return { tech: t, step: st };
     },
     drainEvents(): BladeEvent[] {
       const out = drainQ;

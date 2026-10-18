@@ -921,6 +921,7 @@ const weaponFx = new WeaponFx({
   camera: game.camera,
   shakeEl: game.renderer.domElement,
   onWear: (e) => achievements.feedWear(e),
+  onBlade: (e) => achievements.feedBlade(e),
   onArrowPickup: () => hotbar.pickup('ya', 1),
 });
 
@@ -1441,7 +1442,7 @@ game.onUpdate((dt) => {
       bladeColors: weapon === 'katana' ? bladeColorsOf(w2, bs.item) : null,
       blade:
         weapon === 'katana'
-          ? { stance: bs.stance, tech: bs.tech, phase: bs.phase, frame: bs.frame, lengths: bs.tech ? w2.bladeTech[bs.tech] : null }
+          ? { stance: bs.stance, tech: bs.tech, phase: bs.phase, frame: bs.frame, lengths: bs.tech ? (bs.lengths ?? w2.bladeTech[bs.tech]) : null }
           : null,
       bow:
         weapon === 'bow'

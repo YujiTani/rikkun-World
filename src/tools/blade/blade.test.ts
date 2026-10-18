@@ -56,7 +56,7 @@ function rig(item: ItemId = 'katana') {
   let tick = 0;
   const hits: Array<{ tech: string; count: number }> = [];
   const lunges: number[][] = [];
-  const dmg: Record<string, number> = { bokuto: 2, katana: 4, crystal_katana: 6 };
+  const dmg: Record<string, number> = { bokuto: 2, katana: 4, crystal_katana: 4 };
   const blade = createBladeSystem({
     world,
     yokai: () => yokai,
@@ -212,7 +212,7 @@ describe('当たる F・ダメージ（AC3・AC4。WEAPON-4 §4.1・§4.3）', (
   });
   it('AC2: 3 しゅるい x 3 わざの ダメージ表（§4.3。四捨五入しない・0.01 の位）', () => {
     // [突き, 切り上げ, 大けさぎり] の 順（かまえ: 中段・下段・上段）
-    const exp: Record<string, number[]> = { bokuto: [1.5, 2.3, 5], katana: [3, 4.6, 10], crystal_katana: [4.5, 6.9, 15] };
+    const exp: Record<string, number[]> = { bokuto: [1.5, 2.3, 5], katana: [3, 4.6, 10], crystal_katana: [3, 4.6, 10] };
     for (const it of Object.keys(exp)) {
       (['chudan', 'gedan', 'jodan'] as const).forEach((st, i) => {
         const r = rig(it as ItemId);

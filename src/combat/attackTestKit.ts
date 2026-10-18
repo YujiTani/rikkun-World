@@ -3,7 +3,7 @@
  * 向きの決まり `attackFacing`（担当 A）の 入力・出力の 形は ここで 決めた（仕様書 §4.2〜§4.4・§4.8）。
  * 名前だけ 実装に 合わせて 直すときは、このファイルの 1 か所だけ 直す。
  */
-import type { BladeTech, Vec3, VoxelWorld, W2Settings, YokaiEvent, YokaiInfo, YokaiKind, YokaiRayHit, YokaiState, YokaiWorld } from '../contracts';
+import type { BladeTech, ItemId, Vec3, VoxelWorld, W2Settings, YokaiEvent, YokaiInfo, YokaiKind, YokaiRayHit, YokaiState, YokaiWorld } from '../contracts';
 import { createW2Settings } from '../contracts';
 import { ArrayVoxelWorld } from '../world/VoxelWorld';
 import { KIND_AI } from '../yokai/ai/config';
@@ -83,6 +83,7 @@ export function centerOf(y: YokaiInfo): Vec3 {
 export interface DecideOpts {
   hold?: AttackHold;
   tech?: BladeTech;
+  step?: 1 | 2 | 3;
   punchReach?: number;
   yawDeg?: number;
   facingDeg?: number;
@@ -91,6 +92,7 @@ export interface DecideOpts {
   yokai?: YokaiInfo[];
   world?: VoxelWorld;
   settings?: W3Settings;
+  item?: ItemId;
   aim?: AttackInput['aim'];
 }
 
@@ -101,6 +103,8 @@ export function decide(o: DecideOpts = {}): AttackDecision {
     settings: o.settings ?? settingsW3(),
     hold: o.hold ?? 'blade',
     tech: o.tech ?? 'thrust',
+    step: o.step,
+    item: o.item,
     punchReach: o.punchReach ?? 3.5,
     yawDeg: o.yawDeg ?? 0,
     facingDeg: o.facingDeg ?? 0,

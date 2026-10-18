@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { flat, openBladeWorld, spawnAhead } from './helpers/blade';
+import { flat, openBladeWorld, spawnAhead, stage } from './helpers/blade';
 import { allSounds, comboWorld, hitsOf, holdDown, idle, mash, run, startList, starts, weaponPower, type ComboStep } from './helpers/combo';
 
 /**

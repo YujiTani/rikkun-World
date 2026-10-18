@@ -16,11 +16,11 @@ const ev = (e: Record<string, unknown>): FarmEvent => ({ ...at, ...e }) as FarmE
 const mk = () => new AchievementSystem(() => ({ ...M6_SETTING_DEFAULTS, achieveCooldown: 0, achieveCooldownEarly: 0 }));
 
 describe('M7-2 実績（AC21・§4.7）', () => {
-  it('数の表: そだてる +8、つくる +3、ぜんぶ 224・小 79', () => {
+  it('数の表: そだてる +8、つくる +3、ぜんぶ 225・小 80', () => {
     const cnt = (cat: string) => ACHIEVEMENT_DEFS.filter((d) => d.category === cat).length;
     expect(cnt('farm')).toBe(26 + 8 + 1);
-    expect(ACHIEVEMENT_DEFS.length).toBe(224);
-    expect(ACHIEVEMENT_DEFS.filter((d) => d.small).length).toBe(79);
+    expect(ACHIEVEMENT_DEFS.length).toBe(225);
+    expect(ACHIEVEMENT_DEFS.filter((d) => d.small).length).toBe(80);
     for (const id of ['craft.watering_can.1', 'craft.long_watering_can.1', 'craft.sprinkler.1']) {
       expect(ACHIEVEMENT_DEFS.find((d) => d.id === id)).toMatchObject({ category: 'craft', small: true });
     }
