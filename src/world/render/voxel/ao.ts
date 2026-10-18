@@ -71,10 +71,19 @@ export function faceAxes(face: number): { a: 0 | 1 | 2; b: 0 | 1 | 2 } {
  * 小ブロックの格子（grid: 1 辺 gs。0 でないマスが うまり。原点の余白 margin マス）から うまりを つめる。
  * rowLo, rowHi = 格子の中で 中身のある y の行（rowHi は含まない）。そのほかは 空。out は 0 でうめて渡す。
  */
-export function packOccupancy(grid: Uint8Array, gs: number, margin: number, rowLo: number, rowHi: number, out: Uint8Array): void {
-  // うまりの y 番号 ty (0..154) ↔ 格子の y = ty - 1 + margin
-  const tyLo = Math.max(0, rowLo - margin + 1);
-  const tyHi = Math.min(OCC_NY, rowHi - margin + 1, gs - margin + 1);
+export function packOccupancy(
+  grid: Uint8Array,
+  gs: number,
+  margin: number,
+  rowLo: number,
+  rowHi: number,
+  out: Uint8Array,
+  tyFrom = 0,
+  tyTo: number = OCC_NY,
+): void {
+  // うまりの y 番号 ty (0..154) ↔ 格子の y = ty - 1 + margin。tyFrom〜tyTo（含まない）の行だけ書く（途中で止める仕事の分け方。PERF-2）
+  const tyLo = Math.max(0, tyFrom, rowLo - margin + 1);
+  const tyHi = Math.min(OCC_NY, tyTo, rowHi - margin + 1, gs - margin + 1);
   const gx0 = margin - 1; // 小ブロック座標 -1 の 格子の x
   for (let ty = tyLo; ty < tyHi; ty++) {
     const gy = ty - 1 + margin;

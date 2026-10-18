@@ -100,6 +100,22 @@ export interface RebuildLogEntry {
 export interface WorldRenderConfig {
   /** 小ブロックの半径（16 / 24 / 32。ほかは近い値になる） */
   microRadius: number;
+  /** 小ブロックの 1 セクションを 途中で止められる仕事に分けて作るか（既定 true。?meshSlice=off で false。見くらべと perf 用。PERF-2） */
+  meshSlice?: boolean;
+}
+
+/** 分けて作る小ブロックの仕事の様子（window.__rikkun.world.meshJob。PERF-2） */
+export interface MeshJobStats {
+  /** いま作っている途中のセクション（無ければ null） */
+  active: { cx: number; sy: number; cz: number } | null;
+  /** 分けて作りおえた数 */
+  finished: number;
+  /** 途中で捨てた数 */
+  cancelled: number;
+  /** resume を呼んだ回数の合計 */
+  slices: number;
+  /** 1 回の resume にかかった いちばん長いミリ秒 */
+  maxSliceMs: number;
 }
 
 /** 1 コマの作り直しの予算（ミリ秒）。VOX-E §5 */
@@ -131,6 +147,8 @@ interface SecState {
   player: boolean;
   /** ブロックや光の変化による作り直し（rebuildStats の count に入れる） */
   byChange: boolean;
+  /** markDirty のたびに 1 増える（分けて作っている間に 中身が変わったかを見る。PERF-2） */
+  gen: number;
   /** 作ったが 見える面が 0 だった */
   faceless: boolean;
   evicted: boolean;
@@ -243,7 +261,12 @@ export class WorldRenderer {
   /** LOD 用: テクスチャなし（頂点の色だけ） */
   private readonly lodOpaqueMaterial: MeshBasicMaterial;
   private readonly lodWaterMaterial: MeshBasicMaterial;
+  /** 1 回で作る（箱・プレイヤーが変えた所・count の時計・attach の一気） */
   private readonly mesher: SectionMesher;
+  /** 分けて作る小ブロックの仕事 1 つ（はじめて使うときに作る。約 13 MB） */
+  private sliceMesher: SectionMesher | null = null;
+  private job: { st: SecState; gen: number; cpuMs: number; slices: number } | null = null;
+  private jobStats: MeshJobStats = { active: null, finished: 0, cancelled: 0, slices: 0, maxSliceMs: 0 };
   private readonly nSections: number;
   private attached = false;
   /** ストリーミング（VOX-D）: 列は ChunkStream が光を計算した順に足し、メッシュは 描く輪の中だけ、1 つずつ stream が進める */
@@ -291,6 +314,7 @@ export class WorldRenderer {
     private readonly world: ArrayVoxelWorld,
     microRadius: number = DEFAULT_MICRO_R,
     private readonly clock: FrameClock = 'time',
+    private readonly now: () => number = () => performance.now(),
   ) {
     this.microR = normalizeMicroR(microRadius);
     this.config.microRadius = this.microR;
@@ -353,6 +377,7 @@ export class WorldRenderer {
         dirty: true,
         player: false,
         byChange: false,
+        gen: 0,
         faceless: false,
         evicted: false,
         queued: false,
@@ -512,6 +537,7 @@ export class WorldRenderer {
 
   private markDirty(st: SecState, player: boolean): void {
     st.dirty = true;
+    st.gen++;
     st.byChange = true;
     if (player) st.player = true;
     st.col.lodStale = true;
@@ -597,6 +623,7 @@ export class WorldRenderer {
 
   /** 次に作るセクション: プレイヤーが変えた所 → はじめて作る・変わった所（近い順）→ 箱から小ブロックへの差しかえ（近い順） */
   private pickNext(maxPrio: number): SecState | null {
+    this.checkJob();
     let best: SecState | null = null;
     let bp = Infinity;
     let bd = Infinity;
@@ -608,6 +635,7 @@ export class WorldRenderer {
         continue;
       }
       if (!this.light.isColumnLit(st.cx, st.cz)) continue; // 光ができてから（光が計算されると dirty でもう一度来る）
+      if (this.waitsForJob(st)) continue;
       const p = st.player ? 0 : st.built === null || st.dirty ? 1 : 2;
       if (p > maxPrio) continue;
       const d = st.col.dist;
@@ -628,13 +656,13 @@ export class WorldRenderer {
       this.processCount(boxOnly);
       return;
     }
-    const t0 = performance.now();
+    const t0 = this.now();
     let did = 0;
     for (;;) {
-      if (did > 0 && performance.now() - t0 >= budgetMs) break;
+      if (did > 0 && this.now() - t0 >= budgetMs) break;
       const st = this.pickNext(boxOnly ? 1 : 2);
       if (!st) break;
-      this.build(st, boxOnly);
+      this.build(st, boxOnly, t0 + budgetMs);
       did++;
     }
   }
@@ -655,13 +683,18 @@ export class WorldRenderer {
     }
   }
 
-  private build(st: SecState, boxOnly: boolean): void {
+  /**
+   * セクション 1 つを作る。deadline が有限で 小ブロックなら、分けて作る（sliceMesher）: 締め切りまで進めて、できたら取りつける。
+   * dirty は できたときに「始めてから markDirty が来たか」で決める（作っている間も 待ちに のこる）。
+   */
+  private build(st: SecState, boxOnly: boolean, deadline?: number): void {
     const col = st.col;
     const want = col.tier as 'micro' | 'box';
     const cls = this.classify(st);
     st.cls = cls;
     if (cls !== CLS_NORMAL) {
       // 全部空気・見えない: メッシュは作らない
+      if (this.job?.st === st) this.cancelJob();
       this.dropMeshes(st);
       st.built = want;
       st.dirty = false;
@@ -672,19 +705,93 @@ export class WorldRenderer {
     }
     // 小ブロックが間に合わない（まだ何も無い）所は 先に箱で出す。プレイヤーが変えた所は すぐ本番
     const tier: 'micro' | 'box' = want === 'micro' && (boxOnly || (st.built === null && !st.player)) ? 'box' : want;
-    const t = performance.now();
-    const data = this.mesher.build(st.cx, st.sy, st.cz, tier, {
+    const opts = {
       crops: this.crops,
       hide: this.swayHidden.size > 0 ? this.hideFn : undefined,
-    });
+    };
+    const slice =
+      this.clock === 'time' &&
+      deadline !== undefined &&
+      Number.isFinite(deadline) &&
+      tier === 'micro' &&
+      !st.player &&
+      this.config.meshSlice !== false &&
+      (this.job === null || this.job.st === st);
+    if (slice) {
+      this.buildSliced(st, opts, deadline);
+      return;
+    }
+    if (this.job?.st === st) this.cancelJob();
+    const t = this.now();
+    const data = this.mesher.build(st.cx, st.sy, st.cz, tier, opts);
     this.install(st, data, tier);
-    const ms = performance.now() - t;
+    const ms = this.now() - t;
     st.built = tier;
     st.dirty = false;
     st.player = false;
     this.stats = { lastMs: ms, count: this.stats.count + (st.byChange ? 1 : 0) };
     st.byChange = false;
     this.finishItem(st);
+  }
+
+  private buildSliced(st: SecState, opts: { crops: CropStageSource | undefined; hide: ((x: number, y: number, z: number) => boolean) | undefined }, deadline: number): void {
+    let mesher = this.sliceMesher;
+    if (mesher === null) mesher = this.sliceMesher = new SectionMesher(this.world, this.light);
+    let job = this.job;
+    if (job === null) {
+      mesher.start(st.cx, st.sy, st.cz, 'micro', opts);
+      job = this.job = { st, gen: st.gen, cpuMs: 0, slices: 0 };
+    }
+    const t = this.now();
+    const data = mesher.resume(deadline, this.now);
+    const ms = this.now() - t;
+    job.cpuMs += ms;
+    job.slices++;
+    this.jobStats.slices++;
+    if (ms > this.jobStats.maxSliceMs) this.jobStats.maxSliceMs = ms;
+    if (data === null) return; // 続きは 次のコマ
+    const t2 = this.now();
+    this.install(st, data, 'micro');
+    this.jobStats.finished++;
+    this.job = null;
+    st.built = 'micro';
+    st.dirty = st.gen !== job.gen; // 作っている間に 中身が変わったら もう一度
+    st.player = false;
+    this.stats = { lastMs: job.cpuMs + (this.now() - t2), count: this.stats.count + (st.byChange ? 1 : 0) };
+    st.byChange = st.dirty;
+    this.finishItem(st);
+  }
+
+  /** この仕事は まだ作ってよいか（列が無い・段が変わった・輪の外・捨てた・プレイヤーが変えた なら捨てる） */
+  private jobValid(st: SecState): boolean {
+    if (this.cols.get(columnKey(st.cx, st.cz)) !== st.col) return false;
+    if (st.col.tier !== 'micro') return false;
+    if (this.streaming && !st.col.inDraw) return false;
+    return !st.evicted && !st.player;
+  }
+
+  private checkJob(): void {
+    if (this.job !== null && !this.jobValid(this.job.st)) this.cancelJob();
+  }
+
+  private cancelJob(): void {
+    if (this.job === null) return;
+    this.sliceMesher?.cancel();
+    this.job = null;
+    this.jobStats.cancelled++;
+  }
+
+  /** 分けて作る仕事が ほかのセクションで 動いている間は、小ブロックで作るものは 待つ（箱の段・プレイヤーが変えた所は 先に 1 回で作る） */
+  private waitsForJob(st: SecState): boolean {
+    const j = this.job;
+    if (j === null || j.st === st) return false;
+    return !st.player && st.col.tier === 'micro' && st.built !== null && this.config.meshSlice !== false;
+  }
+
+  /** 分けて作る仕事の様子（hook world.meshJob） */
+  meshJobStats(): MeshJobStats {
+    const j = this.job;
+    return { ...this.jobStats, active: j === null ? null : { cx: j.st.cx, sy: j.st.sy, cz: j.st.cz } };
   }
 
   private finishItem(st: SecState): void {
@@ -887,7 +994,7 @@ export class WorldRenderer {
       setRing: (cx, cz) => this.setRing(cx, cz),
       pendingJobs: () => this.pendingJobs(),
       nextJobDist: () => this.nextJobDist(),
-      runJob: () => this.runJob(),
+      runJob: (deadline) => this.runJob(deadline),
       columnState: (cx, cz) => this.columnState(cx, cz),
       allowUpgrades: (on) => {
         this.upgradesOn = on;
@@ -992,6 +1099,7 @@ export class WorldRenderer {
   }
 
   private pickJob(): { col: ColState; st: SecState | null; p: number } | null {
+    this.checkJob();
     let best: { col: ColState; st: SecState | null; p: number } | null = null;
     let bd = Infinity;
     let be = Infinity;
@@ -1007,6 +1115,7 @@ export class WorldRenderer {
         }
         const sp = st.player ? 0 : st.built === null || st.dirty ? 1 : 2;
         if (sp === 2 && !this.upgradesOn) continue;
+        if (this.waitsForJob(st)) continue;
         if (sp < p || (sp === p && bs !== null && st.sy < bs.sy)) {
           p = sp;
           bs = st;
@@ -1036,12 +1145,12 @@ export class WorldRenderer {
   }
 
   /** 仕事を 1 つ進める（セクション 1 つのメッシュ、または 列 1 つの LOD）。進めたら true */
-  runJob(): boolean {
+  runJob(deadline?: number): boolean {
     const j = this.pickJob();
     if (j === null) return false;
     this.logged = 0;
     this.loggedMicro = false;
-    if (j.st !== null) this.build(j.st, false);
+    if (j.st !== null) this.build(j.st, false, deadline);
     else {
       this.logged = 1;
       this.rebuildLod(j.col);
@@ -1090,6 +1199,42 @@ export class WorldRenderer {
     }
     const tier = meshes > 0 && st.built ? st.built : (col.tier ?? 'micro');
     return { tier, reason: null, meshes, triangles: st.tris, dist };
+  }
+
+  /** 見えているセクションのメッシュ（voxel・extras・water の全部の attribute と index のバイト、うまり）を、セクションの鍵の順に FNV-1a でまとめた値（hook render.meshDigest。PERF-2） */
+  meshDigest(): { sections: number; hash: string } {
+    const all: SecState[] = [];
+    for (const col of this.cols.values()) for (const st of col.secs) if (st.voxel || st.extras || st.water) all.push(st);
+    all.sort((a, b) => a.cx - b.cx || a.cz - b.cz || a.sy - b.sy);
+    let a = 0x811c9dc5;
+    const num = (n: number): void => {
+      a = Math.imul(a ^ (n & 255), 0x01000193);
+      a = Math.imul(a ^ ((n >>> 8) & 255), 0x01000193);
+      a = Math.imul(a ^ ((n >>> 16) & 255), 0x01000193);
+      a = Math.imul(a ^ ((n >>> 24) & 255), 0x01000193);
+    };
+    const bytes = (arr: ArrayBufferView): void => {
+      const u = new Uint8Array(arr.buffer, arr.byteOffset, arr.byteLength);
+      for (let i = 0; i < u.length; i++) a = Math.imul(a ^ u[i], 0x01000193);
+      num(u.length);
+    };
+    for (const st of all) {
+      num(st.cx);
+      num(st.sy);
+      num(st.cz);
+      for (const m of [st.voxel, st.extras, st.water]) {
+        if (!m) {
+          num(-1);
+          continue;
+        }
+        const g = m.geometry;
+        for (const name of Object.keys(g.attributes).sort()) bytes((g.attributes[name] as BufferAttribute).array);
+        if (g.index) bytes(g.index.array);
+      }
+      if (st.occ) bytes(st.occ);
+      else num(-2);
+    }
+    return { sections: all.length, hash: (a >>> 0).toString(16).padStart(8, '0') };
   }
 
   /** 角の暗がり（AO）の 作り方・小ブロックの半径・うまりのメモリ・持っているセクションの数（hook render.aoStats） */
@@ -1205,6 +1350,8 @@ export class WorldRenderer {
   }
 
   dispose(): void {
+    this.sliceMesher?.cancel();
+    this.job = null;
     this.group.removeFromParent();
     for (const col of this.cols.values()) {
       for (const st of col.secs) {

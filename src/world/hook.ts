@@ -5,7 +5,7 @@ import type { MouthInfo } from './gen/region';
 import type { CountryKind } from './gen/config';
 import { BLOCK_TYPES } from './blocks/blockTypes';
 import { skyDarkness } from './light/skyDarkness';
-import type { WorldRenderer, RebuildStats, SectionInfo, SectionStats, MeshStats, RebuildLogEntry } from './render/WorldRenderer';
+import type { WorldRenderer, MeshJobStats, RebuildStats, SectionInfo, SectionStats, MeshStats, RebuildLogEntry } from './render/WorldRenderer';
 import type { StreamInfo, Stage } from './stream/ChunkStream';
 import type { ArrayVoxelWorld } from './VoxelWorld';
 
@@ -41,6 +41,8 @@ export interface WorldHook {
   sectionStats(): SectionStats;
   /** VOX-E: ジオメトリの合計バイトと上限・メッシュの数・dispose の累計・作り直し待ちの数（0 で落ちついた） */
   meshStats(): MeshStats;
+  /** PERF-2: 分けて作る小ブロックの仕事の様子（作っている途中のセクション・作りおえた数・捨てた数・resume の回数・1 回の最長ミリ秒） */
+  meshJob(): MeshJobStats;
   /** VOX-E: セクションのメッシュを作り直した記録（古い順）。clear === true は返してから空にする */
   rebuildLog(clear?: boolean): RebuildLogEntry[];
   /** VOX-B: 海面の高さ（SEA_Y） */
@@ -107,6 +109,7 @@ export function createWorldHook(world: ArrayVoxelWorld, renderer: WorldRenderer,
     sectionInfo: (sx, sy, sz) => renderer.sectionInfo(sx, sy, sz),
     sectionStats: () => renderer.sectionStats(),
     meshStats: () => renderer.meshStats(),
+    meshJob: () => renderer.meshJobStats(),
     rebuildLog: (clear) => renderer.rebuildLog(clear === true),
     seaY: () => island.seaY(),
     isLoaded: (x, z) => world.isLoaded(x, z),
