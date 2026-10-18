@@ -738,7 +738,7 @@ test('CHAR-4 AC13: ぼくとう と かたなの 画面の ちがいは キャ�
     const p = h.player.get();
     const cam = h.camera.get();
     const fovDeg = h.camera.fov() as number;
-    const modelH = (await (await fetch('./models/char/atlas.json')).json()).modelH as number;
+    const modelH = (await (await fetch('./models/char/girl/atlas.json')).json()).modelH as number;
     const k = 1.8 / modelH;
     const sprite = h.player.doll().sprite;
     const yaw = (p.yaw * Math.PI) / 180;

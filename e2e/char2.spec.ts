@@ -59,7 +59,7 @@ async function waitReady(page: Page, names: string[]): Promise<void> {
 /** `atlas.json` の `packed` の よこ × たて の合計（ちょうど `gpuBytes` になる） */
 const packedBytes = (page: Page, names: string[]) =>
   page.evaluate(async (ns) => {
-    const atlas = await (await fetch('./models/char/atlas.json')).json();
+    const atlas = await (await fetch('./models/char/girl/atlas.json')).json();
     return ns.reduce((a: number, n: string) => a + atlas.motions[n].packed.width * atlas.motions[n].packed.height, 0);
   }, names);
 const BASE_SET = ['idle', 'walk', 'run', 'jump'];
@@ -135,7 +135,7 @@ test.describe('CHAR-2 通し', () => {
       h.input.release('primary');
     });
 
-    const KESA_TICKS: number[] = await page.evaluate(async () => (await (await fetch('./models/char/atlas.json')).json()).motions.katana_kesa.ticks);
+    const KESA_TICKS: number[] = await page.evaluate(async () => (await (await fetch('./models/char/girl/atlas.json')).json()).motions.katana_kesa.ticks);
     for (let f = 1; f <= 106; f++) {
       if (f > 1) await page.evaluate(() => (window.__rikkun! as any).step(1));
       const s = await page.evaluate(() => {

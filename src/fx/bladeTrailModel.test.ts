@@ -10,7 +10,7 @@ const FILE_KEY = { thrust: 'katana_thrust', kesa: 'katana_kesa', kiriage: 'katan
 // WEAPON-4: 絵の 長さは 設定の 初期値と べつ（切り上げの 設定は 19/3/30、絵は atlas.json の phases）
 const P = TECH_PHASES;
 const art = JSON.parse(readFileSync('art/char-sheets/blade_path.json', 'utf8')) as Record<string, { perTick: { base: number[]; tip: number[] }[] }>;
-const atlas = JSON.parse(readFileSync('public/models/char/atlas.json', 'utf8')) as { modelH: number; motions: Record<string, { ticks: number[] }> };
+const atlas = JSON.parse(readFileSync('public/models/char/girl/atlas.json', 'utf8')) as { modelH: number; motions: Record<string, { ticks: number[] }> };
 
 describe('CHAR-4 AC1 データ', () => {
   it('ゲームに 組みこんだ 刃先の データは art/char-sheets/blade_path.json と 同じ（3 わざ・perTick の 数・base と tip の 3 つの 数）', () => {

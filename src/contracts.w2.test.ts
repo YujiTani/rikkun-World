@@ -29,7 +29,7 @@ describe('WEAPON-2 contracts', () => {
     expect('thrustLunge' in s).toBe(false);
     // WEAPON-4 AC1: ふみこみの線。ticks は 絵（atlas.json）と 同じ。advance・step は 大けさぎり・切り上げが 絵と ちがう
     const adv = (s as unknown as { bladeAdvance: Record<string, { ticks: number[]; advance: number[]; step: number }> }).bladeAdvance;
-    const atlas = JSON.parse(readFileSync('public/models/char/atlas.json', 'utf8'));
+    const atlas = JSON.parse(readFileSync('public/models/char/girl/atlas.json', 'utf8'));
     const motionOf = { thrust: 'katana_thrust', kesa: 'katana_kesa', kiriage: 'katana_kiriage' } as const;
     for (const t of ['thrust', 'kesa', 'kiriage'] as const) {
       expect(adv[t]!.ticks, `${t} の ticks は 絵と 同じ`).toEqual(atlas.motions[motionOf[t]].ticks);
@@ -86,7 +86,7 @@ describe('WEAPON-2 contracts', () => {
   it('CHAR-4 AC1: 刃先の データ（art/char-sheets/blade_path.json）は 3 わざ・perTick の 数 = 絵の 長さ（phases の 合計）+ 1・各点に base・tip の 3 つの 数', () => {
     const data = JSON.parse(readFileSync('art/char-sheets/blade_path.json', 'utf8')) as Record<string, { perTick: { base: number[]; tip: number[] }[] }>;
     // WEAPON-4: 絵の 長さは 設定と べつ（切り上げは 設定 52、絵は atlas.json の phases）
-    const atlas = JSON.parse(readFileSync('public/models/char/atlas.json', 'utf8'));
+    const atlas = JSON.parse(readFileSync('public/models/char/girl/atlas.json', 'utf8'));
     const want: Record<string, number> = {};
     for (const name of ['katana_thrust', 'katana_kesa', 'katana_kiriage']) {
       const ph = atlas.motions[name].phases as { startup: number; active: number; recovery: number };

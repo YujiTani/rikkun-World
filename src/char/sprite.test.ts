@@ -64,7 +64,7 @@ function make(loadImage: LoadImage, extra: { initTexture?: (t: THREE.Texture) =>
     parent,
     camera: new THREE.PerspectiveCamera(),
     lighting: new Lighting(),
-    basePath: './models/char/',
+    basePath: './models/char/girl/',
     loadJson: async () => ({ modelH: 1.7 }),
     loadImage,
     // 本物の renderer.initTexture は 上げたあとに onUpdate を呼ぶ
@@ -323,7 +323,7 @@ describe('影の板が 使う cardCell（段・向きを 指定して いまの�
       parent,
       camera: new THREE.PerspectiveCamera(),
       lighting: new Lighting(),
-      basePath: './models/char/',
+      basePath: './models/char/girl/',
       loadJson: async () => ({ modelH: 1.7, motions: { idle: { frames: 1, fps: 0, packed: { width: PW, height: 240, cells } } } }),
       loadImage,
       initTexture: (t) => t.onUpdate?.(t as never),
