@@ -198,6 +198,9 @@ describe('CALM 基準 5: 変えない絵は 1 画素も変わらない', () => {
     wild_onion: '48c6e2c9', wild_tomato: '7990001f', wild_pumpkin: '3008fd95', wild_eggplant: '97bb96f9',
     kakashi: '4f4901a7', kakashi_head: '4a0dda11', saku: '4424eef9',
     sprinkler_top: '443e0c11', sprinkler_side: 'cb9ab32d', sprinkler_bottom: '6c49f3c5',
+    // VOX-I-1（#184・PR #197）で足した 12 の国の絵。CALM のあとにできたので、ここでは今の絵を守るだけ（おさえるかは #185 で決める）
+    bamboo: 'ef3e0bda', flower_o: '2fbe135', flower_p: '7f48c5f5', flower_y: 'e647bd15',
+    matsu_leaves: '999c00a4', momiji_leaves: '2d272416', snow: 'b5d0ee8f', susuki: '58e578b5',
   };
   const fnv = (px: readonly Rgba[]) => {
     let x = 2166136261;
