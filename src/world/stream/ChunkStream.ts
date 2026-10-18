@@ -82,6 +82,11 @@ export interface StreamDeps {
 /** B1・B2 */
 export const BUDGET_STREAM_MS = 4;
 export const BUDGET_TOTAL_MS = 8;
+/** 遊んでいる間、ここの仕事は 8 ms から これだけ引いた所で止める（そのほかの仕事＋1 単位のはみ出しの見こみ。PERF-2 続き） */
+export const BUDGET_RESERVE_MS = 3;
+/** 足もと（列の輪 ≤ NEAR_RING）の仕事が待っているときは 引く量を これに減らす（足もとの差しかえを遅らせない） */
+export const BUDGET_RESERVE_NEAR_MS = 2.5;
+const NEAR_RING = 1;
 export const BUDGET_PREP_MS = 30;
 /** K3 */
 /** 捨てる前の保存を また始めるまでの、最小の update の回数 */
@@ -253,7 +258,8 @@ export class ChunkStream {
     this.drainArrivals();
     this.d.mesh.allowUpgrades?.(this._ready);
     const prep = this._phase !== 'play';
-    const totalMs = prep ? BUDGET_PREP_MS : BUDGET_TOTAL_MS;
+    const reserveFor = (md: number | null): number => (md !== null && md <= NEAR_RING ? BUDGET_RESERVE_NEAR_MS : BUDGET_RESERVE_MS);
+    let totalMs = prep ? BUDGET_PREP_MS : BUDGET_TOTAL_MS - reserveFor(this.d.mesh.nextJobDist());
     const streamMs = prep ? BUDGET_PREP_MS : BUDGET_STREAM_MS;
     let done = 0;
     let streamUsed = 0;
@@ -271,6 +277,7 @@ export class ChunkStream {
       } else if (done > 0 && this.now() - t0 >= totalMs) break;
       const sj = this.work === null && !count && done > 0 && streamUsed >= streamMs ? null : this.pickStreamJob();
       const md = this.d.mesh.nextJobDist();
+      if (!prep) totalMs = BUDGET_TOTAL_MS - reserveFor(md);
       let ran = false;
       if (sj !== null && sj.kind === 'unload') {
         const ts = this.now();
