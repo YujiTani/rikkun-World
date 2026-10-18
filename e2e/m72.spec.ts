@@ -19,6 +19,7 @@ async function open(page: Page, query = '?nosave=1') {
     const T: any = {
       base() {
         h.pause();
+        h.settings.set('animalAutoSpawn', false); // LIVE-1: やせいの にわとりが 描画回数に まざらないように
         h.lock.simulate(true);
         h.input.releaseAll();
         h.world.fill(0, 8, 0, 14, 8, 14, 'stone');

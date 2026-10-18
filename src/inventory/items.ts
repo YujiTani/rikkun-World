@@ -103,6 +103,9 @@ const VOX_I_BLOCKS: readonly ItemType[] = (
   ['snow', 'momiji_leaves', 'matsu_leaves', 'flower_y', 'flower_o', 'flower_p', 'bamboo', 'nobana'] as const
 ).map((id): ItemType => ({ id, name: BLOCK_TYPES.find((b) => b.id === id)!.name, maxStack: BLOCK_MAX_STACK, placeBlock: id }));
 
+/** LIVE-1: たまご（なかま の にわとり が くれる。たべる。置けない） */
+const LIVE_ITEMS: readonly ItemType[] = [{ id: 'egg', name: 'たまご', maxStack: BLOCK_MAX_STACK, placeBlock: null }];
+
 export const ITEM_TYPES: readonly ItemType[] = [
   ...PLACEABLE_TYPES,
   ...ITEM_ONLY,
@@ -112,6 +115,7 @@ export const ITEM_TYPES: readonly ItemType[] = [
   ...M72_ITEMS,
   ...BUCKET_ITEMS,
   ...VOX_I_BLOCKS,
+  ...LIVE_ITEMS,
 ];
 
 const BY_ID = new Map<string, ItemType>(ITEM_TYPES.map((t) => [t.id, t]));

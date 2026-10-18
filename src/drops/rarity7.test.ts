@@ -72,7 +72,7 @@ describe('RARITY-7 表', () => {
 
 describe('RARITY-7 当てはめ・設定', () => {
   it('AC6 rarityAtLeast は全アイテム × 7 段で式と同じ', () => {
-    expect(ITEM_TYPES).toHaveLength(65); // FLORA-75: のばな +1（64 から） // #184: 12 の国の 7 こ（ゆき・もみじ・まつ・はな 3・たけ）が ふえた
+    expect(ITEM_TYPES).toHaveLength(66); // FLORA-75: のばな +1・LIVE-1: たまご +1（64 から）。#184: 12 の国の 7 こ（ゆき・もみじ・まつ・はな 3・たけ）が ふえた
     for (const it of ITEM_TYPES) {
       for (const t of ids) {
         expect(rarityAtLeast(it.id, t), `${it.id}/${t}`).toBe(rarityIndex(itemRarity(it.id)) >= rarityIndex(t));
@@ -88,7 +88,7 @@ describe('RARITY-7 当てはめ・設定', () => {
       expect(isRarity(r)).toBe(true);
       n[r] = (n[r] ?? 0) + 1;
     }
-    expect(n).toEqual({ common: 36, uncommon: 16, rare: 10, superRare: 3 });
+    expect(n).toEqual({ common: 37, uncommon: 16, rare: 10, superRare: 3 }); // のばな（FLORA-75）・たまご（LIVE-1）が common
     expect(itemRarity('crystal_katana')).toBe('superRare');
   });
 
