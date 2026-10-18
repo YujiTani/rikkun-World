@@ -14,3 +14,6 @@
 
 ## 音（2026-10-18 09:00 yuzu、決定カード）
 案 A「木と鈴」（木のパキッ＋鈴のシャリン）。見本 /mnt/project-files/weapon5/sound-options/A/、作り方 make-parry-sounds.mjs・音量 levels.json。
+
+## ゲーム内の試作（2026-10-18 09:42 yuzu、決定カード）
+「このまま進む」。光の強さ・アイコンの大きさ（0.5 ブロック固定）は試作のまま。スクショ /mnt/project-files/weapon5/proto/compare.png。
