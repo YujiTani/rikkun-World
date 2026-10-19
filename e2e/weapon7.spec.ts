@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { findUnrubiedKanji } from '../src/ui/text';
 import { aimAtBlock } from './helpers/aim';
+import { comboWorld, markNow, run, startList } from './helpers/combo';
 import { holdItems, runTech, settle, spawnAhead, toStance, type Vec3 } from './helpers/blade';
 import {
   RAIJIN,
@@ -971,5 +972,38 @@ test.describe('WEAPON-7 PR1 今のまま', () => {
     const rec = await releaseAndStep(page, 50);
     expect(types(rec)).toContain('lightningStrike');
     expect(errors).toEqual([]);
+  });
+});
+
+test.describe('WEAPON-7 雷神剣の 3 段攻撃', () => {
+  const chargeOf = (page: Page) => page.evaluate(() => (window.__rikkun as any).legend.state().charge);
+
+  test('毎ステップ 押す → 3 段（AC12 と 同じ 数）・そのあいだ ためは 始まらない・3 段目の あと 押しつづけると ためが 始まる', async ({ page }) => {
+    await comboWorld(page, 'chudan', RAIJIN);
+    // ためわざの ある 刀は はなして はじめて わざが 出る: 1 ステップ 押して、はなす
+    await markNow(page);
+    await page.evaluate(() => { const h = window.__rikkun as any; h.input.press('primary'); h.step(1); h.input.release('primary'); h.step(1); });
+    const rec = await run(page, 60, { mash: true, before: `(h) => { (window.__ch = window.__ch || []).push(h.legend.state().charge); }` });
+    expect(startList(rec).slice(0, 3)).toEqual([
+      [0, 1, 'thrust'],
+      [20, 2, 'kiriage'],
+      [47, 3, 'kesa'],
+    ]);
+    const log = await page.evaluate(() => (window as any).__ch as unknown[]);
+    expect(log.every((c) => c === null), 'ためは 始まらない').toBe(true);
+    await page.evaluate(() => (window.__rikkun as any).input.press('primary'));
+    let charged = false;
+    for (let i = 0; i < 120 && !charged; i++) {
+      await page.evaluate(() => (window.__rikkun as any).step(1));
+      charged = (await chargeOf(page)) !== null;
+    }
+    expect(charged, '3 段目の あと 押しつづけると ためが 始まる').toBe(true);
+  });
+
+  test('つなぎの 窓の 外（1 段目 F2）の 押しでは 2 段目は 出ない', async ({ page }) => {
+    await comboWorld(page, 'chudan', RAIJIN);
+    const rec = await run(page, 18, { before: `(h, i) => { h.input.release('primary'); if (i === 0 || i === 2) h.input.press('primary'); }` });
+    expect(startList(rec).map((e) => e[1])).toEqual([1]);
+    expect(await chargeOf(page)).toBeNull();
   });
 });

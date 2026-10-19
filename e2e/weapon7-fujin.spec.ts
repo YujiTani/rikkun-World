@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { aimAtBlock } from './helpers/aim';
 import { holdItems, settle, spawnAhead, toStance, type Vec3 } from './helpers/blade';
 import { FUJIN, RAIJIN, chargeRun, legendState, legendWorld, markLegend, pinNushiTable, resetStage, spawnNushiAhead, types } from './helpers/legend';
+import { comboWorld, mash, startList } from './helpers/combo';
 import { pressParry } from './helpers/parry';
 
 /**
@@ -402,5 +403,20 @@ test.describe('WEAPON-7 PR2 風神剣 実績・ヌシ（AC26）', () => {
     expect(r.found, 'ヌシから 風神剣の 袋').toBe(true);
     expect(r.band.kind).toBe('telop');
     expect(r.band.item).toBe(FUJIN);
+  });
+});
+
+test.describe('WEAPON-7 風神剣の 3 段攻撃', () => {
+  test('毎ステップ 押す → 3 段（AC12 と 同じ 数）・段ごとに waveStart 1 つ（3 回）', async ({ page }) => {
+    await comboWorld(page, 'chudan', FUJIN);
+    await markLegend(page);
+    const rec = await mash(page, 80, `(h) => { (window.__ev = window.__ev || []).push(0); }`);
+    expect(startList(rec).slice(0, 3)).toEqual([
+      [0, 1, 'thrust'],
+      [20, 2, 'kiriage'],
+      [47, 3, 'kesa'],
+    ]);
+    const waves = await page.evaluate(() => (window.__rikkun as any).legend.events().filter((e: any) => e.type === 'waveStart').length);
+    expect(waves).toBe(3);
   });
 });

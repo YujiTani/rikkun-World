@@ -49,6 +49,7 @@ function setup(list: YokaiInfo[] = []) {
     startOk: true,
     bladeBusy: false,
     bladeAccepts: false,
+    bladeChainOpen: false,
     eye: EYE,
     dir: dirTo(GROUND8),
     position: POS,
@@ -365,6 +366,28 @@ describe('先行入力（刀の わざの あと）', () => {
     const r = t2.step({ bladeBusy: false });
     expect(r.busy).toBe(true);
     expect(t2.sys.state().charge?.ticks).toBe(1);
+  });
+});
+
+describe('3 段攻撃の つなぎの 窓（WEAPON-7）', () => {
+  it('窓が 開いている 間の 押しは fireTech: true・ためは 始まらない', () => {
+    const t = setup();
+    const r = t.step({ bladeBusy: true, bladeChainOpen: true, bladeAccepts: true, pressed: true, held: true });
+    expect(r).toEqual({ busy: false, fireTech: true });
+    expect(t.sys.state().charge).toBeNull();
+    t.step({ bladeBusy: true, bladeChainOpen: true, held: true });
+    const r2 = t.step({ bladeBusy: false, held: false });
+    expect(r2.busy).toBe(false);
+    expect(t.sys.state().charge).toBeNull();
+  });
+  it('窓の 外の 押しは 今までどおり 先行入力（刀が おわったら ためが 始まる）', () => {
+    const t = setup();
+    const r = t.step({ bladeBusy: true, bladeChainOpen: false, bladeAccepts: true, pressed: true, held: true });
+    expect(r.fireTech).toBe(false);
+    t.step({ bladeBusy: true, bladeChainOpen: false, bladeAccepts: true });
+    const r2 = t.step({ bladeBusy: false });
+    expect(r2.busy).toBe(true);
+    expect(t.sys.state().charge?.ticks).toBe(1);
   });
 });
 
