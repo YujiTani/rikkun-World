@@ -90,7 +90,7 @@ describe('案内の本の そだてる 章（§3.7）', () => {
   it('12 こ（M7-2 で 3 こ・BUCKET-1 で 1 こ・BOOK-1 で 分けて 12）で 漢字は ふりがな付き', () => {
     expect(BOOK_CHAPTERS.find((c) => c.id === 'grow')!.label).toBe('そだてる');
     const items = BOOK_ITEMS.filter((i) => i.chapter === 'grow');
-    expect(items.length).toBe(12);
+    expect(items.length).toBe(15);
     for (const i of items) expect(findUnrubiedKanji(i.caption)).toEqual([]);
   });
 });

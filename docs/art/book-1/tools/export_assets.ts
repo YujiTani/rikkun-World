@@ -6,9 +6,10 @@ import { getTilePixels, type TileName } from '../../../../src/world/blocks/textu
 import { mouseUrl } from '../../../../src/ui/craftPanel.art';
 import { scrollIconUrl } from '../../../../src/ui/log/icons';
 import { Chochin, Karakasa } from '../../../../src/yokai';
+import { getChickenModel } from '../../../../src/animals/models/chickenModel';
 import { DEFAULT_KEY_BINDINGS, DEFAULT_MOUSE_BINDINGS } from '../../../../src/input/actions';
 
-const ICONS = ['katana', 'naginata', 'yumi', 'ya', 'kabuto', 'yoroi', 'kote', 'suneate', 'wood_pickaxe', 'kuwa', 'seed_tomato', 'seed_onion', 'seed_pumpkin', 'farmland', 'farmland_wet', 'tomato', 'onion', 'dirt', 'stone', 'log', 'coal_ore', 'oil', 'furnace', 'tansu', 'hammer', 'bokuto', 'torch', 'watering_can', 'sprinkler', 'bucket', 'water_bucket'];
+const ICONS = ['katana', 'naginata', 'yumi', 'ya', 'kabuto', 'yoroi', 'kote', 'suneate', 'wood_pickaxe', 'kuwa', 'seed_tomato', 'seed_onion', 'seed_pumpkin', 'farmland', 'farmland_wet', 'tomato', 'onion', 'dirt', 'stone', 'log', 'coal_ore', 'oil', 'furnace', 'tansu', 'hammer', 'bokuto', 'torch', 'watering_can', 'sprinkler', 'bucket', 'water_bucket', 'mushi', 'mushi_ami'];
 const TILES = ['log_side', 'leaves', 'crop_tomato_0', 'crop_tomato_1', 'crop_tomato_2', 'crop_tomato_3', 'wild_tomato', 'wild_onion', 'kakashi', 'kakashi_head'];
 
 function tileUrl(name: string): string {
@@ -24,6 +25,12 @@ function tileUrl(name: string): string {
 }
 
 /** 妖怪の 3D の 形を とうめいの 背景に 1 まい（正面 ななめ） */
+/** にわとり（リボンつき = なかま）の 形 */
+function chickenRoot(mark: boolean): { root: THREE.Object3D } {
+  const mat = new THREE.MeshBasicMaterial({ vertexColors: true });
+  return { root: new THREE.Mesh(getChickenModel(mark).geo, mat) };
+}
+
 function yokaiUrl(y: { root: THREE.Object3D }, yaw: number): string {
   const r = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
   r.setSize(256, 256);
@@ -56,6 +63,7 @@ png.mouse_left = mouseUrl('left');
 png.mouse_right = mouseUrl('right');
 png.scroll = scrollIconUrl();
 png.yokai_chochin = yokaiUrl(new Chochin(), 0);
+png.yokai_chicken = yokaiUrl(chickenRoot(true), 0.6);
 png.yokai_karakasa = yokaiUrl(new Karakasa(), 0.5);
 
 // 行動 → キーの code の ならび（書いてある じゅん）。マウスは 行動 → ボタンの 番号

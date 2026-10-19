@@ -140,9 +140,9 @@ describe('M7-2 HUD（AC17）と 案内画面（AC25）と 案内の絵（AC18）
     expect(farmAimView({ ...base, wet: false, wetSoon: true })).toMatchObject({ droplet: false, dropletFaint: false });
     expect(WET_SOON_OPACITY).toBe(0.45);
   });
-  it('そだてる は 12 こ・漢字 は ふりがな付き', () => {
+  it('そだてる は 15 こ・漢字 は ふりがな付き', () => {
     const items = BOOK_ITEMS.filter((i) => i.chapter === 'grow');
-    expect(items.length).toBe(12);
+    expect(items.length).toBe(15);
     for (const t of items) expect(findUnrubiedKanji(t.caption), t.id).toEqual([]);
     const plain = (id: string) => BOOK_ITEMS.find((i) => i.id === id)!.caption.replace(/<[^>]+>/g, '');
     expect(plain('grow-can-fill')).toContain('じょうろ');
