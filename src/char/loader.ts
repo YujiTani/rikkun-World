@@ -1,5 +1,5 @@
 // コマ表（PNG）と atlas.json の読みこみ。PNG は 色番号 1 バイトのドットにして持つ（仕様 §4.8 ①）。
-import { quantizeRgba } from './palette';
+import { PALETTE_SIZE, quantizeRgba, type PaletteRgb } from './palette';
 import type { SpriteMotion } from './motion';
 import { GRID_ROWS, parsePacked, validatePacked, type Packed } from './packing';
 
@@ -38,6 +38,8 @@ export interface AtlasInfo {
   tiers: number[];
   modelH: number;
   motions: Record<string, { frames: number; fps: number; packed?: Packed }>;
+  /** CHAR-5: そのキャラの色見本 22 色（0〜255）。なければ undefined（= 女の子の色見本） */
+  palette?: PaletteRgb;
 }
 
 /** 色番号にした 1 つの動きのコマ表 */
@@ -61,7 +63,17 @@ export function parseAtlasJson(raw: unknown): AtlasInfo {
     motions[k] = { frames: Number(v?.frames) || 8, fps: Number(v?.fps) || 0, ...(packed ? { packed } : {}) };
   }
   const h = Number(o.modelH);
+  let palette: PaletteRgb | undefined;
+  const rawPal = o.palette;
+  if (
+    Array.isArray(rawPal) &&
+    rawPal.length === PALETTE_SIZE &&
+    rawPal.every((c) => Array.isArray(c) && c.length === 3 && c.every((v) => Number.isInteger(v) && v >= 0 && v <= 255))
+  ) {
+    palette = rawPal.map((c) => [c[0], c[1], c[2]] as [number, number, number]);
+  }
   return {
+    ...(palette ? { palette } : {}),
     cell: Number(o.cell) || CELL,
     dirs: Number(o.dirs) || DIRS,
     tiers: Array.isArray(o.tiers) ? (o.tiers as number[]) : [0, 75, -75],
@@ -102,7 +114,7 @@ export const defaultLoadJson = async (url: string): Promise<unknown> => {
 };
 
 /** 読んだ絵を 色番号にする。packed があれば 切りつめた形、なければ 格子の形。決まりと ちがえば 失敗（Error） */
-export function indexImage(url: string, img: ImageData, packed?: Packed, frames?: number): IndexedAtlas {
+export function indexImage(url: string, img: ImageData, packed?: Packed, frames?: number, palette?: PaletteRgb): IndexedAtlas {
   const { width, height } = img;
   if (packed) {
     try {
@@ -110,12 +122,12 @@ export function indexImage(url: string, img: ImageData, packed?: Packed, frames?
     } catch (e) {
       throw new Error(`${url}: ${(e as Error).message}`);
     }
-    return { width, height, cols: frames ?? packed.cells.length / ROWS, rows: ROWS, indices: quantizeRgba(img.data, width, height), packed };
+    return { width, height, cols: frames ?? packed.cells.length / ROWS, rows: ROWS, indices: quantizeRgba(img.data, width, height, palette), packed };
   }
   if (width % CELL !== 0 || height !== CELL * ROWS || width / CELL > 32) {
     throw new Error(`${url}: 絵の大きさが ちがいます（${width}×${height}）`);
   }
-  return { width, height, cols: width / CELL, rows: ROWS, indices: quantizeRgba(img.data, width, height) };
+  return { width, height, cols: width / CELL, rows: ROWS, indices: quantizeRgba(img.data, width, height, palette) };
 }
 
 /** 絵を読んで 色番号にする */

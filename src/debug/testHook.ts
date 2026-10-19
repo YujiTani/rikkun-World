@@ -60,6 +60,8 @@ export interface TestHook {
   biome: BiomeHook;
   /** SHADOW-1: 光の位置から計算する影（docs/design/SHADOW.md §8.1） */
   shadow: ShadowHook;
+  /** CHAR-5 §4.6: キャラ（girl|boy|block）を 聞く・切りかえる */
+  char: { get(): { kind: 'girl' | 'boy' | 'block' }; set(kind: 'girl' | 'boy'): void };
   /** M5: 距離で描くチャンクの数 */
   render: ReturnType<typeof createRenderHook>;
   player: PlayerHook;
@@ -128,7 +130,7 @@ declare global {
   }
 }
 
-export type TestHookGroups = Pick<TestHook, 'shadow' | 'world' | 'biome' | 'render' | 'player' | 'camera' | 'aim' | 'input' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'attack' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm' | 'log' | 'ui' | 'audio' | 'rarity' | 'animals' | 'parry'>;
+export type TestHookGroups = Pick<TestHook, 'shadow' | 'char' | 'world' | 'biome' | 'render' | 'player' | 'camera' | 'aim' | 'input' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'attack' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm' | 'log' | 'ui' | 'audio' | 'rarity' | 'animals' | 'parry'>;
 
 export function installTestHook(game: Game, overlay: PerfOverlay, isReady: () => boolean, groups: TestHookGroups, clock: FrameClock = 'time'): void {
   window.__rikkun = {
@@ -169,7 +171,7 @@ export function withSpriteDoll(base: () => object, sprite: CharSprite | null, gr
         ...(info ?? {
           visible: false, motion: 'idle', frame: 0, dir: 0, tier: 0, elevDeg: 0, tiltDeg: 0, upDeg: 0,
           tint: { r: 1, g: 1, b: 1 }, loaded: false, gpuBytes: 0,
-          scene: 'stand', want: { motion: 'idle', frame: 0 }, status: {}, cpuBytes: 0, bladeColors: null,
+          scene: 'stand', want: { motion: 'idle', frame: 0 }, status: {}, cpuBytes: 0, bladeColors: null, kind: 'girl', palette: [],
         }),
         visible: !!info && info.visible && group.visible,
         restartMotion: () => sprite?.restartMotion(),

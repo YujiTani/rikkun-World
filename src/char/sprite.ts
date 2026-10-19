@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import type { Lighting } from '../sky/lighting';
 import { levelToLinear } from '../sky/lighting';
-import { PALETTE_RGB, PALETTE_SIZE } from './palette';
+import { PALETTE_RGB, PALETTE_SIZE, type PaletteRgb } from './palette';
 import { MotionMachine, type SpriteMotion, type SpriteScene, type SpriteStepInput, type Want } from './motion';
 import {
   CELL,
@@ -26,8 +26,12 @@ import type { ParryCell } from './parryCells';
 import { cellRectCrop, unpackCell, type Packed } from './packing';
 import { BODY_CENTER_Y, HIDE_DISTANCE, bearingDeg, dirIndex, tierFor } from './view';
 
+export type CharKind = 'girl' | 'boy';
+
 export interface CharSpriteDeps {
   parent: THREE.Object3D;
+  /** CHAR-5: 板が 出すキャラ（なければ girl） */
+  kind?: CharKind;
   camera: THREE.Camera;
   lighting: Lighting;
   basePath: string;
@@ -63,6 +67,10 @@ export interface SpriteInfo {
   cpuBytes: number;
   /** CHAR-4: いま 板が 使っている 刃の色（なければ null） */
   bladeColors: { body: number; shine: number } | null;
+  /** CHAR-5: 板が 今 出している キャラ */
+  kind: CharKind;
+  /** CHAR-5: 板の 色見本 22 色（0〜255。刃の色の ぬりかえ前） */
+  palette: number[][];
 }
 
 export interface CharSprite {
@@ -80,6 +88,8 @@ export interface CharSprite {
   info(): SpriteInfo;
   /** もとの 256 × 256 の コマ（RGBA）。そのたびに 切りつめた PNG を 読みなおして もどす（テスト用） */
   readCell(motion: SpriteMotion, tier: 0 | 1 | 2, dir: number, frame: number): Promise<Uint8ClampedArray>;
+  /** CHAR-5: キャラを 切りかえる。前の キャラの 絵を ぜんぶ おろし、新しい キャラの はじめの 4 つを 読む。同じ キャラなら 何もしない */
+  setChar(kind: CharKind, basePath: string): void;
   needsBoxDoll(): boolean;
   dispose(): void;
 }
@@ -137,7 +147,13 @@ const RAD = 180 / Math.PI;
 
 export function createCharSprite(deps: CharSpriteDeps): CharSprite {
   const { parent, camera, lighting } = deps;
-  const base = deps.basePath.endsWith('/') ? deps.basePath : `${deps.basePath}/`;
+  const withSlash = (p: string): string => (p.endsWith('/') ? p : `${p}/`);
+  let base = withSlash(deps.basePath);
+  let kind: CharKind = deps.kind ?? 'girl';
+  /** 切りかえのたびに ふえる。古い読みこみは これが ちがえば すてる */
+  let gen = 0;
+  /** そのキャラの 色見本（atlas.json の palette。なければ 女の子） */
+  let curPalette: PaletteRgb = PALETTE_RGB;
   const loadImage = deps.loadImage ?? defaultLoadImage;
   const loadJson = deps.loadJson ?? defaultLoadJson;
 
@@ -163,11 +179,21 @@ export function createCharSprite(deps: CharSpriteDeps): CharSprite {
     if (bc?.body === bladeColors?.body && bc?.shine === bladeColors?.shine) return;
     bladeColors = bc ? { body: bc.body, shine: bc.shine } : null;
     const set = (i: number, hex: number | null): void => {
-      const c = hex === null ? PALETTE_RGB[i]! : [(hex >> 16) & 255, (hex >> 8) & 255, hex & 255];
+      const c = hex === null ? curPalette[i]! : [(hex >> 16) & 255, (hex >> 8) & 255, hex & 255];
       (uniforms.uPalette!.value as THREE.Vector3[])[i + 1]!.set(srgbToLinear(c[0]!), srgbToLinear(c[1]!), srgbToLinear(c[2]!));
     };
     set(20, bc ? bc.body : null);
     set(21, bc ? bc.shine : null);
+  };
+  /** 色見本を 板の 表に 書く（刃の色の ぬりかえが 出ていれば 20・21 番は それを 残す） */
+  const applyPalette = (): void => {
+    const u = uniforms.uPalette!.value as THREE.Vector3[];
+    curPalette.forEach((c, i) => u[i + 1]!.set(srgbToLinear(c[0]), srgbToLinear(c[1]), srgbToLinear(c[2])));
+    if (bladeColors) {
+      const bc = bladeColors;
+      bladeColors = null;
+      setBladeColors(bc);
+    }
   };
   const material = new THREE.ShaderMaterial({
     uniforms,
@@ -225,28 +251,41 @@ export function createCharSprite(deps: CharSpriteDeps): CharSprite {
   let gpuBytes = 0;
   /** GPU へ まだ上がっていない 色番号の写しの バイト */
   let cpuPending = 0;
+  let atlasP: Promise<void> = Promise.resolve();
+  let chain: Promise<void> = Promise.resolve();
 
-  const atlasP: Promise<void> = loadJson(`${base}atlas.json`)
-    .then((raw) => {
-      atlasInfo = parseAtlasJson(raw);
-      if (!disposed) {
+  const startAtlas = (): void => {
+    const g = gen;
+    const url = `${base}atlas.json`;
+    atlasInfo = null;
+    atlasSettled = false;
+    atlasP = loadJson(url)
+      .then((raw) => {
+        if (g !== gen || disposed) return;
+        atlasInfo = parseAtlasJson(raw);
         modelH = atlasInfo.modelH;
+        curPalette = atlasInfo.palette ?? PALETTE_RGB;
+        applyPalette();
         applySize();
-      }
-    })
-    .catch(() => undefined)
-    .then(() => {
-      atlasSettled = true;
-    });
+      })
+      .catch(() => undefined)
+      .then(() => {
+        if (g === gen) atlasSettled = true;
+      });
+  };
 
-  /** 1 まい読む（失敗しても 投げない）。読んだ色番号は GPU へ渡して すてる */
-  const loadMotion = async (m: SpriteMotion): Promise<void> => {
+  /** 1 まい読む（失敗しても 投げない）。読んだ色番号は GPU へ渡して すてる。g が 今の世代と ちがえば 何もしない */
+  const loadMotion = async (m: SpriteMotion, g: number): Promise<void> => {
+    if (g !== gen || disposed) return;
     status[m] = 'loading';
+    const myBase = base;
+    const myAtlasP = atlasP;
     try {
-      const [img] = await Promise.all([loadImage(`${base}${m}.png`), atlasP]);
-      if (disposed) return;
+      const [img] = await Promise.all([loadImage(`${myBase}${m}.png`), myAtlasP]);
+      if (disposed || g !== gen) return; // 切りかえの 前に 始めた読みこみ: すてる
+      if (kind === 'boy' && !atlasInfo) throw new Error('男の子の atlas.json を 読めません');
       const mi = atlasInfo?.motions[m];
-      const a = indexImage(`${base}${m}.png`, img, mi?.packed, mi?.frames);
+      const a = indexImage(`${myBase}${m}.png`, img, mi?.packed, mi?.frames, curPalette);
       const tex = new THREE.DataTexture(a.indices, a.width, a.height, THREE.RedFormat, THREE.UnsignedByteType);
       tex.magFilter = THREE.NearestFilter;
       tex.minFilter = THREE.NearestFilter;
@@ -272,28 +311,37 @@ export function createCharSprite(deps: CharSpriteDeps): CharSprite {
         /* 先に上げられなくても 使うときに上がる */
       }
     } catch (e) {
+      if (g !== gen) return;
       status[m] = 'failed';
       console.warn(`[char] ${m} の絵を読めませんでした。代わりの絵を使います`, e);
     }
   };
 
   // 読む順（1 まいずつ）。はじめの組 → 刀・弓の組
-  let chain: Promise<void> = (async () => {
-    await Promise.all([loadMotion('idle'), loadMotion('walk'), atlasP]);
-    // はしる・ジャンプは あとから（始めの読みこみを軽くする）
-    await Promise.all([loadMotion('run'), loadMotion('jump')]);
-  })();
+  const startBase = (): void => {
+    const g = gen;
+    // 同じステップの おわりには まだ 'none'（切りかえの 約束）。次の 順番から 始める
+    chain = Promise.resolve().then(async () => {
+      await Promise.all([loadMotion('idle', g), loadMotion('walk', g), atlasP]);
+      // はしる・ジャンプは あとから（始めの読みこみを軽くする）
+      await Promise.all([loadMotion('run', g), loadMotion('jump', g)]);
+    });
+  };
   const enqueue = (list: readonly SpriteMotion[]): void => {
+    const g = gen;
     chain = chain.then(async () => {
       for (const m of list) {
-        if (disposed) return;
-        await loadMotion(m);
+        if (disposed || g !== gen) return;
+        await loadMotion(m, g);
       }
     });
   };
+  startAtlas();
+  startBase();
   const requested = { katana: false, bow: false };
   let parryCell: ParryCell | null = null;
   let parryRequested = false;
+  let lastWeapon: SpriteStepInput['weapon'] = 'none';
   const GLOW_MIX = 0.45;
 
   const loaded = (): boolean => status.idle === 'ready' && status.walk !== 'loading' && status.walk !== 'none' && atlasSettled;
@@ -378,7 +426,10 @@ export function createCharSprite(deps: CharSpriteDeps): CharSprite {
       scene = machine.alt.scene;
       w = { motion: machine.alt.motion, frame: machine.alt.frame };
     }
-    if (parryCell && ready(parryCell.motion)) return { scene: 'tech', motion: parryCell.motion, frame: parryCell.frame };
+    if (kind === 'boy') {
+      // G0: パリィの あいだは たつ（わざの あいだは step が 入力を たつに している）
+      if (parryCell) return { scene: 'stand', motion: 'idle', frame: machine.scene === 'stand' ? machine.frame : 0 };
+    } else if (parryCell && ready(parryCell.motion)) return { scene: 'tech', motion: parryCell.motion, frame: parryCell.frame };
     const r = substitute(w);
     return { scene, motion: r.motion, frame: r.frame };
   };
@@ -447,6 +498,7 @@ export function createCharSprite(deps: CharSpriteDeps): CharSprite {
   }
 
   const startWeaponLoads = (weapon: SpriteStepInput['weapon']): void => {
+    if (kind === 'boy') return; // 男の子は 刀・弓の絵を 読まない（案 B）
     if (weapon === 'katana' && !requested.katana) {
       requested.katana = true;
       enqueue(KATANA_MOTIONS);
@@ -456,20 +508,47 @@ export function createCharSprite(deps: CharSpriteDeps): CharSprite {
     }
   };
 
+  // CHAR-5 案 B: 男の子は 刀・弓を 持っていても 素手と 同じ決まり。わざ・パリィの あいだは たつ（G0）
+  const ZERO_V = { x: 0, y: 0, z: 0 };
+  const scratch: SpriteStepInput = {
+    position: ZERO_V,
+    velocity: ZERO_V,
+    onGround: true,
+    inWater: false,
+    running: false,
+    facingDeg: 0,
+    weapon: 'none',
+    blade: null,
+    bow: null,
+  };
+  const boyInput = (input: SpriteStepInput): SpriteStepInput => {
+    const b = input.weapon === 'katana' ? input.blade : null;
+    const tech = !!b && !!b.tech && (b.phase === 'startup' || b.phase === 'active' || b.phase === 'recovery');
+    const still = tech || parryCell !== null;
+    scratch.position = input.position;
+    scratch.velocity = still ? ZERO_V : input.velocity;
+    scratch.onGround = still ? true : input.onGround;
+    scratch.inWater = still ? false : input.inWater;
+    scratch.running = input.running;
+    scratch.facingDeg = input.facingDeg;
+    return scratch;
+  };
+
   const transparentCell = (): Uint8ClampedArray => new Uint8ClampedArray(CELL * CELL * 4);
 
   return {
     step(input) {
+      lastWeapon = input.weapon;
       startWeaponLoads(input.weapon);
       setBladeColors(input.weapon === 'katana' ? (input.bladeColors ?? null) : null);
-      machine.step(input);
+      machine.step(kind === 'boy' ? boyInput(input) : input);
       lastRunning = input.running;
       facing = input.facingDeg;
       hurtAge = Math.min(hurtAge + 1, Number.MAX_SAFE_INTEGER);
     },
     render,
     preloadParry() {
-      if (parryRequested) return;
+      if (parryRequested || kind === 'boy') return; // 男の子は パリィの 絵を 読まない（案 B）
       parryRequested = true;
       enqueue(PARRY_MOTIONS);
     },
@@ -506,6 +585,8 @@ export function createCharSprite(deps: CharSpriteDeps): CharSprite {
         status: { ...status },
         cpuBytes: cpuPending,
         bladeColors: bladeColors ? { ...bladeColors } : null,
+        kind,
+        palette: curPalette.map((c) => [c[0], c[1], c[2]]),
       };
     },
     async readCell(motion, t, d, frame) {
@@ -514,7 +595,7 @@ export function createCharSprite(deps: CharSpriteDeps): CharSprite {
         const url = `${base}${motion}.png`;
         const [img] = await Promise.all([loadImage(url), atlasP]);
         const mi = atlasInfo?.motions[motion];
-        const a = indexImage(url, img, mi?.packed, mi?.frames);
+        const a = indexImage(url, img, mi?.packed, mi?.frames, curPalette);
         const row = t * 8 + d;
         let idx: Uint8Array;
         if (a.packed) {
@@ -531,7 +612,7 @@ export function createCharSprite(deps: CharSpriteDeps): CharSprite {
         for (let i = 0; i < CELL * CELL; i++) {
           const k = idx[i]!;
           if (k === 0) continue;
-          const c = PALETTE_RGB[k - 1]!;
+          const c = curPalette[k - 1]!;
           const o = i * 4;
           out[o] = c[0];
           out[o + 1] = c[1];
@@ -543,6 +624,41 @@ export function createCharSprite(deps: CharSpriteDeps): CharSprite {
       }
       return out;
     },
+    setChar(next, basePath) {
+      if (next === kind || disposed) return;
+      gen++; // 前の キャラの 読みこみは ぜんぶ すてる
+      kind = next;
+      base = withSlash(basePath);
+      for (const m of MOTIONS) {
+        const tex = textures[m];
+        if (tex) {
+          const img = tex.image as { data: Uint8Array | null };
+          if (img.data !== null) {
+            cpuPending -= img.data.byteLength;
+            img.data = null;
+          }
+          tex.dispose();
+        }
+        textures[m] = undefined;
+        loadedInfo[m] = undefined;
+        status[m] = 'none';
+      }
+      gpuBytes = 0;
+      uniforms.uMap!.value = null;
+      mesh.visible = false;
+      curPalette = PALETTE_RGB;
+      applyPalette();
+      modelH = DEFAULT_MODEL_H;
+      applySize();
+      requested.katana = false;
+      requested.bow = false;
+      parryRequested = false;
+      startAtlas();
+      startBase();
+      // 今 刀・弓・パリィを 持って(出して)いる 女の子なら はじめの組の あとに その組も 読む
+      startWeaponLoads(lastWeapon);
+      if (parryCell && kind === 'girl') this.preloadParry();
+    },
     needsBoxDoll() {
       return status.idle === 'failed';
     },
@@ -552,6 +668,7 @@ export function createCharSprite(deps: CharSpriteDeps): CharSprite {
       geometry.dispose();
       material.dispose();
       for (const m of MOTIONS) textures[m]?.dispose();
+      gen++;
     },
   };
 }

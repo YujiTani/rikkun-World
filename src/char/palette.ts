@@ -28,18 +28,29 @@ export const PALETTE_RGB: readonly (readonly [number, number, number])[] = [
 
 export const PALETTE_SIZE = PALETTE_RGB.length;
 
-const pack = (r: number, g: number, b: number): number => (r << 16) | (g << 8) | b;
-const EXACT = new Map<number, number>();
-PALETTE_RGB.forEach((c, i) => EXACT.set(pack(c[0], c[1], c[2]), i + 1));
+export type PaletteRgb = readonly (readonly [number, number, number])[];
 
-/** 1 ドットの色を 色番号（1〜22）にする。ぴったりの色がなければ いちばん近い色 */
-export function nearestIndex(r: number, g: number, b: number): number {
-  const hit = EXACT.get(pack(r, g, b));
+const pack = (r: number, g: number, b: number): number => (r << 16) | (g << 8) | b;
+// 色見本ごとの「ぴったりの色 -> 色番号」の表（CHAR-5: キャラごとの色見本）
+const EXACT_BY = new WeakMap<object, Map<number, number>>();
+const exactOf = (palette: PaletteRgb): Map<number, number> => {
+  let m = EXACT_BY.get(palette);
+  if (!m) {
+    m = new Map<number, number>();
+    palette.forEach((c, i) => m!.set(pack(c[0], c[1], c[2]), i + 1));
+    EXACT_BY.set(palette, m);
+  }
+  return m;
+};
+
+/** 1 ドットの色を 色番号（1〜22）にする。ぴったりの色がなければ いちばん近い色。palette がなければ 女の子の色見本 */
+export function nearestIndex(r: number, g: number, b: number, palette: PaletteRgb = PALETTE_RGB): number {
+  const hit = exactOf(palette).get(pack(r, g, b));
   if (hit !== undefined) return hit;
   let best = 1;
   let bestD = Infinity;
-  for (let i = 0; i < PALETTE_RGB.length; i++) {
-    const c = PALETTE_RGB[i]!;
+  for (let i = 0; i < palette.length; i++) {
+    const c = palette[i]!;
     const d = (c[0] - r) ** 2 + (c[1] - g) ** 2 + (c[2] - b) ** 2;
     if (d < bestD) {
       bestD = d;
@@ -50,7 +61,7 @@ export function nearestIndex(r: number, g: number, b: number): number {
 }
 
 /** RGBA のドットを 色番号 1 バイトにする（alpha が 128 未満はとうめい = 0）。半とうめいは作らない */
-export function quantizeRgba(data: ArrayLike<number>, width: number, height: number): Uint8Array {
+export function quantizeRgba(data: ArrayLike<number>, width: number, height: number, palette: PaletteRgb = PALETTE_RGB): Uint8Array {
   const n = width * height;
   const out = new Uint8Array(n);
   let lastKey = -1;
@@ -61,7 +72,7 @@ export function quantizeRgba(data: ArrayLike<number>, width: number, height: num
     const key = pack(data[o]!, data[o + 1]!, data[o + 2]!);
     if (key !== lastKey) {
       lastKey = key;
-      lastIdx = nearestIndex(data[o]!, data[o + 1]!, data[o + 2]!);
+      lastIdx = nearestIndex(data[o]!, data[o + 1]!, data[o + 2]!, palette);
     }
     out[i] = lastIdx;
   }
