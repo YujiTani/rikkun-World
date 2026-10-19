@@ -58,7 +58,7 @@ test.describe('CHAR-5 通し', () => {
       page.evaluate(() => {
         const h = window.__rikkun! as any;
         const p = h.player.get();
-        return { p: JSON.parse(JSON.stringify(p)), cam: JSON.parse(JSON.stringify(h.camera.get())), blade: JSON.parse(JSON.stringify(h.blade.state())), parry: JSON.parse(JSON.stringify(h.parry.state())), hp: h.combat.get().hp };
+        return { p: JSON.parse(JSON.stringify(p)), cam: JSON.parse(JSON.stringify(h.camera.get())), blade: JSON.parse(JSON.stringify(h.blade.state())), parry: JSON.parse(JSON.stringify(h.parry.state())), hp: h.combat.get().hp, held: h.player.doll().heldItem, facing: h.player.get().facing };
       });
     const before = await body();
     const sync = await page.evaluate(() => {
@@ -80,6 +80,8 @@ test.describe('CHAR-5 通し', () => {
     expect(after.blade).toEqual(before.blade);
     expect(after.parry).toEqual(before.parry);
     expect(after.hp).toBe(before.hp);
+    expect(after.held).toEqual(before.held);
+    expect(after.facing).toBe(before.facing);
     for (const k of ['x', 'y', 'z'] as const) expect(Math.abs(after.p.position[k] - before.p.position[k])).toBeLessThanOrEqual(1e-4);
     expect(JSON.stringify(after.cam)).toBe(JSON.stringify(before.cam));
 
@@ -166,7 +168,8 @@ test.describe('CHAR-5 通し', () => {
       expect(r.gpu, `F${i + 1}`).toBe(bytes0);
     }
     expect(runA.some((r) => r.trail)).toBe(true);
-    expect(Math.abs(z0 - runA[105]!.z - 0.8)).toBeLessThanOrEqual(0.01);
+    const distBoy = z0 - runA[105]!.z; // 女の子と 同じ 3.1（WEAPON-4 §2。あとで 女の子で はかって くらべる）
+    expect(Math.abs(distBoy - 3.1)).toBeLessThanOrEqual(0.01);
     await settle(page);
 
     // (b) 目の前 2 の 妖怪: 1 回ぶん へる
@@ -229,7 +232,9 @@ test.describe('CHAR-5 通し', () => {
     const gz0 = (await page.evaluate(() => (window.__rikkun! as any).player.get().position.z)) as number;
     const runG = await rec(1, 106);
     expect(runG.map((r) => r.trail)).toEqual(runA.map((r) => r.trail));
-    expect(Math.abs(gz0 - runG[105]!.z - 0.8)).toBeLessThanOrEqual(0.01);
+    const distGirl = gz0 - runG[105]!.z;
+    expect(Math.abs(distGirl - 3.1)).toBeLessThanOrEqual(0.01);
+    expect(Math.abs(distGirl - distBoy)).toBeLessThanOrEqual(0.01);
     expect(runG.some((r) => r.motion !== 'idle')).toBe(true); // 女の子は わざの絵
   });
 });
