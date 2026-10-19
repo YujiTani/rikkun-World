@@ -72,7 +72,7 @@ describe('RARITY-7 表', () => {
 
 describe('RARITY-7 当てはめ・設定', () => {
   it('AC6 rarityAtLeast は全アイテム × 7 段で式と同じ', () => {
-    expect(ITEM_TYPES).toHaveLength(69); // WEAPON-7 PR1: 雷神剣 +1。 FLORA-75: のばな +1・LIVE-1: たまご +1・むし・むしとりあみ +2。#184: 12 の国の 7 こ（ゆき・もみじ・まつ・はな 3・たけ）が ふえた
+    expect(ITEM_TYPES).toHaveLength(70); // WEAPON-7 PR1: 雷神剣 +1・PR2: 風神剣 +1。 FLORA-75: のばな +1・LIVE-1: たまご +1・むし・むしとりあみ +2。#184: 12 の国の 7 こ（ゆき・もみじ・まつ・はな 3・たけ）が ふえた
     for (const it of ITEM_TYPES) {
       for (const t of ids) {
         expect(rarityAtLeast(it.id, t), `${it.id}/${t}`).toBe(rarityIndex(itemRarity(it.id)) >= rarityIndex(t));

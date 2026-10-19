@@ -29,9 +29,11 @@ import type { FurnaceFxEntry } from './fx/furnaceFxModel';
 import { playCombat } from './fx/combatSounds';
 import { playLegend } from './fx/legendSounds';
 import { createLegendSystem } from './legend/LegendSystem';
+import { createWaveSystem } from './legend/WaveSystem';
+import { WindWaveFx } from './fx/windWaveFx';
 import { ThunderFx } from './fx/thunderFx';
 import { LegendBook } from './legend/LegendBook';
-import { legendPowerOf, trailStyleOf } from './legend/defs';
+import { legendMoveMulOf, legendPowerOf, trailStyleOf } from './legend/defs';
 import { lightningPoseFrame } from './legend/pose';
 import { CRAFT_UI_SETTINGS, type CraftUiSettings, type ToolNumbers } from './fx/craftConfig';
 import { playCraft } from './fx/craftSounds';
@@ -554,6 +556,16 @@ const legend = createLegendSystem({
   sound: (n) => playLegend(fxSound, n),
   seed,
 });
+// WEAPON-7 PR2: 風神剣の 真空波（ふつうの わざの 当たりの はじめの F に 1 つ。たいきゅうは へらさない）
+const waveSys = createWaveSystem({
+  world,
+  yokai: () => yokaiManager!,
+  settings: w2,
+  tick: () => game.tick,
+  emit: (e) => legend.emit(e),
+  sound: (v) => playLegend(fxSound, 'windWave', v),
+  seed,
+});
 // WEAPON-5: 刀のパリィ（Shift＋クリック）。「動きを へらす」のときは スローにしない
 const reducedMotionMq = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
 const parry = createParry(w2, { reducedMotion: () => reducedMotionMq?.matches ?? false });
@@ -562,6 +574,7 @@ const sparkAt = { x: 0, y: 0, z: 0 };
 // WEAPON-7: 雷の 見た目（十字の ドット絵・着地の 光・光の つぶ）
 const IDLE_THUNDER_LOOK = { charging: false, ready: false, hand: { x: 0, y: 0, z: 0 }, aimS: null };
 const thunderFx = new ThunderFx({ scene: game.scene, camera: game.camera, seed });
+const windWaveFx = new WindWaveFx({ scene: game.scene, camera: game.camera });
 controller.lungeYokai = () => (yokaiManager ? yokaiManager.list() : []);
 const combat = new PlayerCombatImpl({
   config: combatCfg,
@@ -1232,7 +1245,7 @@ time.onPhaseChange((p) => achievements.feedPhase(p));
 const defeatWith = (): DefeatWith => {
   const h = inventory.held()?.item;
   if (h === 'bokuto' || h === 'katana' || h === 'naginata' || h === 'crystal_katana' || h === 'yumi') return h;
-  if (h === 'raijin_ken') return 'katana'; // WEAPON-7: 雷神剣で たおした ときは「かたな」と 同じ あつかい（実績の 表に 武器別の 行は 足さない）
+  if (h === 'raijin_ken' || h === 'fujin_ken') return 'katana'; // WEAPON-7: 雷神剣で たおした ときは「かたな」と 同じ あつかい（実績の 表に 武器別の 行は 足さない）
   if (h === 'wood_pickaxe' || h === 'stone_pickaxe' || h === 'iron_pickaxe' || h === 'wood_axe' || h === 'stone_axe' || h === 'iron_axe') return 'pickaxe';
   return 'hand';
 };
@@ -1520,7 +1533,7 @@ game.onUpdate((dt) => {
     // 始めた ステップは まだ 走れる（刀のわざと 同じ）。そのあと 速さを 0 に して すべらせない
     const pmOn = !parry.startedNow();
     const lm = legend.motion();
-    controller.motion.speedMul = bm.speedMul * wm.speedMul * (pmOn ? pm.speedMul : 1) * lm.speedMul;
+    controller.motion.speedMul = bm.speedMul * wm.speedMul * (pmOn ? pm.speedMul : 1) * lm.speedMul * legendMoveMulOf(w2, inventory.held()?.item ?? null);
     controller.motion.jumpLocked = bm.jumpLocked || wm.jumpLocked || pm.jumpLocked || lm.jumpLocked;
     controller.motion.noRun = lm.noRun;
     // CHAR-2: わざのあいだは 向きを わざの向きに 固定（わざを始めたステップは あとで その場で）
@@ -1538,6 +1551,20 @@ game.onUpdate((dt) => {
   if (worldReady()) yokaiM.update();
   if (worldReady()) animals.update();
   dig.update();
+  // WEAPON-7 PR2: 真空波（刀が きまった あと。体は ふみこんだ あとの 位置）
+  {
+    const bs = blade.state();
+    const cp0 = controller.state.position;
+    waveSys.step({
+      item: bs.item,
+      tech: bs.tech,
+      phase: bs.phase,
+      frame: bs.frame,
+      startup: bs.lengths?.startup ?? 0,
+      dirDeg: bs.move?.dirDeg ?? controller.state.yawDeg,
+      body: { x: cp0.x, y: cp0.y + 1.4, z: cp0.z },
+    });
+  }
   // LIVE-1: ねらっている にわとり（しるし）。出来事は ここで 1 回だけ 取り出して 音・つぶ・実績・合図に 同じ物を流す
   animals.setTargeted(dig.animalTarget());
   {
@@ -1681,6 +1708,7 @@ game.onUpdate((dt) => {
     const holdingLegend = legend.chargeable(inventory.held()?.item ?? null);
     for (const e of evs) {
       thunderFx.onEvent(e);
+      windWaveFx.onEvent(e);
       if (e.type === 'lightningStrike') {
         for (const id of e.hits) {
           const y = yokaiM.list().find((q) => q.id === id);
@@ -1688,6 +1716,7 @@ game.onUpdate((dt) => {
         }
       }
     }
+    windWaveFx.step(waveSys.list(), reducedMotionMq?.matches ?? false);
     const lv = holdingLegend ? legend.view() : null;
     const st = lv && lv.ready ? legend.state() : null;
     const cp = controller.state.position;
@@ -1908,7 +1937,7 @@ installTestHook(game, overlay, () => host.everReady, {
   legend: {
     state: () => ({ ...legend.state(), got: legendBook.got() }),
     events: () => legend.peekEvents(),
-    waves: () => [],
+    waves: () => waveSys.list().map((w) => ({ id: w.id, position: { ...w.position }, dir: { ...w.dir }, traveled: w.traveled })),
   } as unknown as TestHookGroups['legend'],
   player: { ...createPlayerHook(controller), glow: () => { const g = parry.state().glowLeft; return { visible: g > 0, ticksLeft: g, level: parryGlowLevel(g, w2) }; }, respawn: () => controller.respawn(), doll: withSpriteDoll(cameraHook.doll, sprite, rig.doll.group) } as unknown as TestHookGroups['player'],
   ...createDigHook(dig),
