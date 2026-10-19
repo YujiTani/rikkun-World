@@ -238,8 +238,8 @@ test.describe('WEAPON-7 PR2 風神剣 真空波（AC23）', () => {
     }, floorY);
     await aimAtBlock(page, 20, floorY + 1, 18, 0.5);
     await markLegend(page);
-    const rec = await stepW(page, 30, `(h, i) => { if (i === 0) h.input.press('primary'); if (i === 20) h.input.release('primary'); }`);
-    const dug = await page.evaluate((y) => (window.__rikkun as any).world.getBlock(20, y + 1, 18), floorY);
+    const rec = await stepW(page, 305, `(h, i) => { if (i === 0 || i === 302) h.input.press('primary'); if (i === 300 || i === 303) h.input.release('primary'); }`);
+    const dug = await page.evaluate(() => (window.__rikkun as any).world.getBlock(20, (window.__rikkun as any).player.get().position.y, 18));
     expect(dug, 'ほれた').toBe('air');
     expect(count(rec, 'waveStart'), 'ほる では 波が 出ない').toBe(0);
   });
