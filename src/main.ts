@@ -2,6 +2,7 @@ import { CameraRig } from './camera/CameraRig';
 import { useBlockDoll } from './debug/glbDoll';
 import { aimPivot } from './camera/pivot';
 import { createCharSprite } from './char';
+import { createCharController } from './char/charPref';
 import { AimMarks } from './ui/aimMarks';
 import { createCrosshair } from './camera/crosshair';
 import { createCameraHook } from './camera/hook';
@@ -361,16 +362,28 @@ const rig = new CameraRig(game.camera, game.scene, world, () => controller.state
 lighting.registerTree(rig.doll.group, 'doll');
 // キャラは 8 方向のドット絵の板。?char=block のときだけ 箱人形（描画回数を比べるため）
 const blockDollOnly = useBlockDoll(location.search);
-const sprite = blockDollOnly
-  ? null
-  : createCharSprite({
-      parent: rig.doll.group,
-      camera: game.camera,
-      lighting,
-      // ?charsheets=orig（開発サーバーだけ）: 切りつめる前の 格子の絵を 読む（AC34 の くらべ用）
-      basePath: import.meta.env.DEV && new URLSearchParams(location.search).get('charsheets') === 'orig' ? './__char-orig/' : './models/char/',
-      initTexture: (t) => game.renderer.initTexture(t),
-    });
+// CHAR-5: キャラの 決め方（?char=・おぼえた値）と 窓口 char.get / char.set
+// ?charsheets=orig（開発サーバーだけ）: 切りつめる前の 格子の絵を 読む（AC34 の くらべ用）
+const charBase = (kind: 'girl' | 'boy'): string =>
+  `${import.meta.env.DEV && new URLSearchParams(location.search).get('charsheets') === 'orig' ? './__char-orig/' : './models/char/'}${kind}/`;
+let sprite: ReturnType<typeof createCharSprite> | null = null;
+const charCtl = createCharController({
+  search: location.search,
+  store: window.localStorage,
+  onSwitch: (kind) => sprite?.setChar(kind, charBase(kind)),
+});
+const startKind = charCtl.get().kind;
+sprite =
+  blockDollOnly || startKind === 'block'
+    ? null
+    : createCharSprite({
+        parent: rig.doll.group,
+        camera: game.camera,
+        lighting,
+        kind: startKind,
+        basePath: charBase(startKind),
+        initTexture: (t) => game.renderer.initTexture(t),
+      });
 rig.doll.setBoxBody(blockDollOnly);
 // TEX-A: キャラの足もとの丸い影。影（renderOrder 1）の あとに キャラの板（renderOrder 2）を描く
 const blobShadow = new BlobShadow();
@@ -1889,6 +1902,7 @@ const setShadow = (on: boolean): void => {
 };
 shadowSettingUi.bind(shadowSystem !== null, shadowStart.on, setShadow);
 installTestHook(game, overlay, () => host.everReady, {
+  char: charCtl,
   shadow: createShadowHook({
     system: shadowSystem,
     renderer: game.renderer,

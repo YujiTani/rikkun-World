@@ -163,7 +163,7 @@ function make(opts: { img?: LoadImage; perMotion?: Record<string, LoadImage> } =
     parent,
     camera,
     lighting,
-    basePath: './models/char/',
+    basePath: './models/char/girl/',
     loadJson: async () => ({ modelH: 1.7 }),
     loadImage: async (url) => {
       const key = /([a-z_]+)\.png$/.exec(url)![1]!;
