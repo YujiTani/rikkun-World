@@ -23,3 +23,5 @@
 | 3 | dev | code-reviewer(impl PR1) | 【軽微】`npm run check:fast` で 5 件 失敗（WorldRenderer・WorldRendererStream の 5 秒 タイムアウト）。他の係と 同時実行の 負荷で、このコミットの コードとは 関係なし | 負荷での タイムアウト | R4 | 確認待ち |
 | 4 | dev | code-reviewer(test PR2) | 【重大】e2e/weapon7-fujin.spec.ts AC24 の fillAhead: ブロックを 前 1.5 に 置くと ＋マークが ブロックに 向いて 左クリックが「ほる」に なり、わざも 波も 出ない（weapon4.spec.ts:185 と 同じ 落とし穴）。pitch 40 で 空へ 向ける 直しを 入れた | ほると わざの 取りちがえ | R5 | 対応済み |
 | 4 | dev | code-reviewer(test PR2) | 【軽微】AC22（歩き・はしり）は 仕様では ユニット だが E2E だけ。実装後に 速さの 計算を ユニットでも 見ると よい。AC24 の 刀 4.5（つき P6×0.75）は 設定の 決め打ち。windWave の 高さ 3 つ 切りかえ（§4.3）は 未確認 | AC の 層・取りこぼし | R6 | 確認待ち |
+| 5 | dev | code-reviewer(impl PR2) | 【軽微】src/legend/WaveSystem.ts:107 `blockedAt({x,y,z})` が 波 1 つ・1 ステップごとに 小さな 物を new（最大 2 つ同時で 実害なし）。使い回しの 作業用 Vec3 に すると きれい | 毎ステップの new | R7 | 確認待ち |
+| 5 | dev | code-reviewer(impl PR2) | 【軽微】波は リスポーン・ワールド入れかえで 消えない（20 ステップで 自然に 消える）。`yokai: () => yokaiManager!` は null だと sweep で 落ちる（波が 出る 時は 作成済みのはず） | 後片付け | R8 | 確認待ち |
