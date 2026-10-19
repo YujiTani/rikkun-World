@@ -46,6 +46,8 @@ export interface LegendStepCtx {
   bladeBusy: boolean;
   /** 刀の 先行入力を 受ける 区間 */
   bladeAccepts: boolean;
+  /** 刀の 3 段攻撃の つなぎの 窓が 開いている（押しは 先行入力でなく 次の 段に なる） */
+  bladeChainOpen: boolean;
   eye: Vec3;
   dir: Vec3;
   position: Vec3;
@@ -239,6 +241,8 @@ export function createLegendSystem(deps: LegendDeps): LegendSystem {
 
       // ためて いない: 刀が わざ中なら 先行入力だけ おぼえる
       if (ctx.bladeBusy) {
+        // WEAPON-7: つなぎの 窓が 開いている 間の 押しは 刀の 次の 段（ためは 始めない）
+        if (ctx.pressed && ctx.startOk && ctx.bladeChainOpen) return { busy: false, fireTech: true };
         if (ctx.pressed && ctx.startOk && ctx.bladeAccepts) buffered = true;
         return { busy: false, fireTech: false };
       }

@@ -73,10 +73,10 @@ describe('WEAPON-7 AC21: 風神剣の データ（PR2・§4.1）', () => {
     expect(t!.maxStack).toBe(1);
     expect(itemRarity('fujin_ken' as never)).toBe('legendary');
   });
-  it('刀の なかま: BLADE_ITEMS に 入る・射程 2.2・3 段攻撃（bladeCombo）には 入らない', () => {
+  it('刀の なかま: BLADE_ITEMS に 入る・射程 2.2・3 段攻撃（bladeCombo）にも 入る', () => {
     expect(BLADE_ITEMS.has('fujin_ken' as never)).toBe(true);
     expect(bladeReachOf(createW2Settings(), 'fujin_ken' as never)).toBe(2.2);
-    expect(createW2Settings().bladeCombo.items as string[]).not.toContain('fujin_ken');
+    expect(createW2Settings().bladeCombo.items as string[]).toContain('fujin_ken');
   });
   it('名前の 漢字は ruby() で ふりがなが つく', () => {
     expect(findUnrubiedKanji(ruby('風神剣', 'ふうじんけん'))).toEqual([]);
@@ -91,10 +91,10 @@ describe('WEAPON-7 アイテム（雷神剣）', () => {
     expect(t!.maxStack).toBe(1);
     expect(itemRarity('raijin_ken' as never)).toBe('legendary');
   });
-  it('刀の なかま: BLADE_ITEMS に 入る・射程 2.2・3 段攻撃（bladeCombo）には 入らない', () => {
+  it('刀の なかま: BLADE_ITEMS に 入る・射程 2.2・3 段攻撃（bladeCombo）にも 入る', () => {
     expect(BLADE_ITEMS.has('raijin_ken' as never)).toBe(true);
     expect(bladeReachOf(createW2Settings(), 'raijin_ken' as never)).toBe(2.2);
-    expect(createW2Settings().bladeCombo.items as string[]).not.toContain('raijin_ken');
+    expect(createW2Settings().bladeCombo.items as string[]).toContain('raijin_ken');
   });
   it('名前の 漢字は ruby() で ふりがなが つく（§2.7 (1)）', () => {
     expect(ruby('雷神剣', 'らいじんけん')).toBe('<ruby>雷神剣<rt>らいじんけん</rt></ruby>');

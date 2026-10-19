@@ -1947,7 +1947,7 @@ export const W2_SETTING_DEFAULTS: Readonly<W2Settings> = {
     kiriage: { ticks: [3, 4, 6, 3, 3, 1, 2, 7, 6, 5, 4, 4, 4], advance: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], step: 0 },
   },
   bladeCombo: {
-    items: ['crystal_katana'],
+    items: ['crystal_katana', 'raijin_ken', 'fujin_ken'],
     order: { chudan: ['thrust', 'kiriage', 'kesa'], gedan: ['kiriage', 'thrust', 'kesa'], jodan: ['kesa'] },
     stepStartup: { thrust: 4, kiriage: 12, kesa: 20 },
     follow: { thrust: 14, kiriage: 12, kesa: 12 },
