@@ -216,7 +216,10 @@ test('実キーで W A S D と Shift ながら の D が効く', async ({ page }
   for (const [k, axis, sign] of dirs) await movesWhileHeld([k], axis, sign, k);
   await movesWhileHeld(['Shift', 'KeyD'], 'x', 1, 'Shift+KeyD');
   // おめでとう画面が出ている間に D をはなしても、あとで D が効く
-  await page.evaluate(() => (window.__rikkun as any).achievements.close?.());
+  await page.evaluate(() => {
+    const h = window.__rikkun as any;
+    if (h.achievements.modal().open) h.step(h.achievements.modal().leftSteps); // おしらせ(帯)は 自動で きえる。ゲームは 止まらないので 待つだけ（O8）
+  });
   await page.keyboard.down('KeyD');
   await page.keyboard.up('KeyD');
   await movesWhileHeld(['KeyD'], 'x', 1, 'KeyD（おめでとう画面のあと）');
@@ -404,7 +407,7 @@ test('防具のマスを ダブルクリックで きる・そうびのマスを
     const hk = window.__rikkun as any;
     for (let i = 0; i < 6; i++) {
       hk.step(20);
-      hk.achievements.close(); // 着たごほうびの おめでとう画面を とじる
+      if (hk.achievements.modal().open) hk.step(hk.achievements.modal().leftSteps); // 着たごほうびの おしらせ(帯)が きえるまで 進める（O8）
     }
   });
   await waitAnimationsDone(page);

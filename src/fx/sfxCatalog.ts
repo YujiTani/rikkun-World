@@ -6,6 +6,7 @@ import type { SoundFx, Tone } from './sound';
 import { STORAGE_SOUNDS } from './storageSounds';
 import { WEAPON_SOUNDS } from './weaponSounds';
 import { PARRY_SOUNDS } from './parrySounds';
+import { LEGEND_SOUNDS } from './legendSounds';
 
 export type SfxGroup = 'dig' | 'combat' | 'weapon' | 'craft' | 'farm' | 'storage';
 
@@ -84,6 +85,14 @@ export const SFX_CATALOG: readonly SfxCatalogEntry[] = [
     ['parry', 'パリィ せいこう（パキィーン）'],
     ['parryEarly', 'パリィ はやすぎ（カツッ）'],
     ['staggerBreak', 'よろけに ヒット（ポンッ）'],
+  ]),
+  ...fromTable('weapon', LEGEND_SOUNDS, [
+    ['chargeReady', 'ため いっぱい（ピキーン）'],
+    ['lightning', 'かみなり（ゴロ ドーン）'],
+    ['lightningFar', 'かみなり（とおく）'],
+    ['thunderSlash', 'かみなりの きりつけ（ビシューン）'],
+    ['legendDrop', 'ヌシが おとした（キラキラ）'],
+    ['windWave', 'しんくうは（ヒュオッ）'],
   ]),
   ...fromTable('weapon', CRAFT_SOUNDS, [
     ['slash', 'かたな（シュッ）'],

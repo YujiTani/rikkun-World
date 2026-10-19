@@ -374,10 +374,15 @@ test.describe('半透明（足し分）', () => {
     expect(r.guide).toBeCloseTo(0.2, 1);
     await settleForShot(page); // やられた画面の ふわっと出る 動きが おわるのを まつ
     const death = await page.evaluate(() => {
-      const d = document.querySelector('.rk-scrim') as HTMLElement;
+      // WEAPON-7 O8: 実績の おしらせは 上の帯になり、ゲームの中に モーダル（.rk-scrim）は 無い。うしろの 幕の 色（トークン）を 見るため、同じ クラスの 要素を 1 つ 作って はかる
+      const d = document.createElement('div');
+      d.className = 'rk-root rk-scrim';
+      document.body.append(d);
       const m = getComputedStyle(d).backgroundColor.match(/rgba?\(([^)]+)\)/)!;
       const p = m[1].split(/[,/ ]+/).filter(Boolean).map(parseFloat);
-      return { visible: !d.hidden, alpha: p.length >= 4 ? p[3] : 1, op: getComputedStyle(d).opacity, bg: getComputedStyle(d).backgroundColor };
+      const out = { visible: !d.hidden, alpha: p.length >= 4 ? p[3] : 1, op: getComputedStyle(d).opacity, bg: getComputedStyle(d).backgroundColor };
+      d.remove();
+      return out;
     });
     // やられた画面には 暗いうしろが 無く（白いフラッシュ + カード）、モーダルの うしろ（.rk-scrim）が 0.50 のまま
     expect(death.alpha * parseFloat(death.op), JSON.stringify(death)).toBeCloseTo(0.5, 1);

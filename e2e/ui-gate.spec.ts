@@ -264,7 +264,7 @@ const SCREENS: Screen[] = [
   },
   {
     id: 'congrats',
-    roots: ['.cel-scrim'],
+    roots: ['.cel-toast'], // WEAPON-7 O8: 実績の おしらせは 上の 帯（クラス名は 仮。開発が 決めたら ここだけ 直す）
     open: async (page) => {
       await boot(page, true);
       await page.evaluate(() => {

@@ -43,7 +43,7 @@ async function settle(page: Page) {
     const pending = () => (h.world.lightPending() + h.world.meshStats().pending) as number;
     const stepOnce = (k: number) => {
       h.step(k);
-      for (let i = 0; i < 600 && h.achievements.modal(); i++) if (!h.achievements.close().ok) h.step(1);
+      for (let i = 0; i < 20 && h.achievements.modal().open; i++) h.step(Math.max(1, h.achievements.modal().leftSteps)); // 自動で きえる（WEAPON-7 O8）
     };
     while (pending() > 0 && n < max) {
       stepOnce(5);
@@ -73,7 +73,7 @@ async function stand(page: Page, x: number, z: number, yaw: number, pitch: numbe
       // 見る範囲（描く輪）の 板を 全部 消す。ブロックを 変えるだけなので 境目（小ブロックと 箱の段）の 作りは 同じ。
       for (const p of h.biome.plants(bx - 140, bz - 140, bx + 140, bz + 140) as { type: string; x: number; y: number; z: number }[])
         if (p.type === 'kusa' || p.type === 'nobana') h.world.setBlock(p.x, p.y, p.z, 'air');
-      for (let i = 0; i < 600 && h.achievements.modal(); i++) if (!h.achievements.close().ok) h.step(1);
+      for (let i = 0; i < 20 && h.achievements.modal().open; i++) h.step(Math.max(1, h.achievements.modal().leftSteps)); // 自動で きえる（WEAPON-7 O8）
     },
     [x, z, yaw, pitch],
   );

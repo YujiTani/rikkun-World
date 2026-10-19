@@ -28,7 +28,15 @@ import { ArrowVisuals } from './fx/arrowVisuals';
 import { FurnaceFx } from './fx/furnaceFx';
 import type { FurnaceFxEntry } from './fx/furnaceFxModel';
 import { playCombat } from './fx/combatSounds';
-import { CRAFT_UI_SETTINGS, type CraftUiSettings } from './fx/craftConfig';
+import { playLegend } from './fx/legendSounds';
+import { createLegendSystem } from './legend/LegendSystem';
+import { createWaveSystem } from './legend/WaveSystem';
+import { WindWaveFx } from './fx/windWaveFx';
+import { ThunderFx } from './fx/thunderFx';
+import { LegendBook } from './legend/LegendBook';
+import { legendMoveMulOf, legendPowerOf, trailStyleOf } from './legend/defs';
+import { lightningPoseFrame } from './legend/pose';
+import { CRAFT_UI_SETTINGS, type CraftUiSettings, type ToolNumbers } from './fx/craftConfig';
 import { playCraft } from './fx/craftSounds';
 import { CraftUiHud, createCraftUiHook, handleCraftEvents, handleGuardEvents, playSwing } from './ui/craftUi';
 import { PickupLog } from './ui/pickupLog';
@@ -326,7 +334,8 @@ function audioStep(): void {
   bgm.play(bgmScene.update({ tick: game.tick, phase: time.phase(), player: controller.state.position, yokai: audioYokai, dead }));
   const mode = screen.mode();
   mixer.setScreenLevel(screenLevel(mode, dead));
-  mixer.holdDuck(mode === 'celebrate');
+  // 実績の おしらせ（上の 帯）が 出ている 間は BGM を さげる（ファンファーレを 聞かせる）
+  mixer.holdDuck(celebrate.bandModel.toast.isOpen());
   if (mode !== 'guide' && soundSettingsUi.isOpen()) soundSettingsUi.close();
 }
 
@@ -422,7 +431,7 @@ game.input.onPress((action) => {
   if (action === 'toggleInventory' && !modalIsOpen()) tryOpenTansu();
 });
 const screen = new ScreenController(lock, inventory, game.input, screenSettings, pointerLock);
-modalIsOpen = () => screen.modalOpen() || screen.inventoryOpen();
+modalIsOpen = () => screen.inventoryOpen();
 // 保存の要求は、あとで作る SaveManager へ（循環をさけるため関数でつなぐ）
 let requestSave: () => void = () => {};
 const hudSignal: { full: () => void } = { full: () => {} };
@@ -431,6 +440,18 @@ const combatCfg = createCombatConfig();
 const digCfg = createDigConfig();
 const craftConfig = createCraftConfig();
 const toolConfig = createToolConfig();
+/** 画面（ツールチップ・図鑑）用の 道具の数: 刀の 強さに レジェンダリーの P を 足す（WEAPON-7 §2.1。設定を 変えると 追従） */
+const uiWeaponDamage = (): Record<string, number> => {
+  const out: Record<string, number> = { ...toolConfig.weaponDamage };
+  for (const d of w2.legendary) out[d.item] = legendPowerOf(w2, d.item) ?? out[d.item] ?? 1;
+  return out;
+};
+const uiTools: ToolNumbers = {
+  ...toolConfig,
+  get weaponDamage() {
+    return uiWeaponDamage();
+  },
+};
 // 画面の数値。焼く時間・ログの数は つくる側の設定と同じものを見る
 const craftUi: CraftUiSettings = { ...CRAFT_UI_SETTINGS, fuelOrder: craftConfig.fuelOrder };
 for (const n of ['bakeTicks', 'pickupLogTicks', 'pickupLogMax'] as const) {
@@ -528,18 +549,45 @@ const blade = createBladeSystem({
   world,
   yokai: () => yokaiManager!,
   settings: w2,
-  weaponDamage: (item) => toolConfig.weaponDamage[item] ?? 1,
+  // WEAPON-7: レジェンダリーの 強さは 設定 `legendary` の power（ふつうの 刀は 今の 表）
+  weaponDamage: (item) => legendPowerOf(w2, item) ?? toolConfig.weaponDamage[item] ?? 1,
   onHit: () => {
     inventory.wearHeld(w2.toolWear.blade.hit);
   },
   lunge: (dx, dz) => controller.lunge(dx, dz),
   tick: () => game.tick,
 });
+// WEAPON-7: レジェンダリー武器の ため・ためわざ（落雷）。たいきゅうは 1 体 以上に 当たった ときだけ 1
+const legend = createLegendSystem({
+  world,
+  yokai: () => yokaiManager!,
+  settings: w2,
+  tick: () => game.tick,
+  onWear: () => {
+    inventory.wearHeld(1);
+  },
+  sound: (n) => playLegend(fxSound, n),
+  seed,
+});
+// WEAPON-7 PR2: 風神剣の 真空波（ふつうの わざの 当たりの はじめの F に 1 つ。たいきゅうは へらさない）
+const waveSys = createWaveSystem({
+  world,
+  yokai: () => yokaiManager!,
+  settings: w2,
+  tick: () => game.tick,
+  emit: (e) => legend.emit(e),
+  sound: (v) => playLegend(fxSound, 'windWave', v),
+  seed,
+});
 // WEAPON-5: 刀のパリィ（Shift＋クリック）。「動きを へらす」のときは スローにしない
 const reducedMotionMq = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
 const parry = createParry(w2, { reducedMotion: () => reducedMotionMq?.matches ?? false });
-const parryFx = new ParryFx({ scene: game.scene, camera: game.camera, basePath: '/models/fx/' });
+const parryFx = new ParryFx({ scene: game.scene, camera: game.camera, basePath: './models/fx/' });
 const sparkAt = { x: 0, y: 0, z: 0 };
+// WEAPON-7: 雷の 見た目（十字の ドット絵・着地の 光・光の つぶ）
+const IDLE_THUNDER_LOOK = { charging: false, ready: false, hand: { x: 0, y: 0, z: 0 }, aimS: null };
+const thunderFx = new ThunderFx({ scene: game.scene, camera: game.camera, seed });
+const windWaveFx = new WindWaveFx({ scene: game.scene, camera: game.camera });
 controller.lungeYokai = () => (yokaiManager ? yokaiManager.list() : []);
 const combat = new PlayerCombatImpl({
   config: combatCfg,
@@ -696,6 +744,7 @@ const dig = new DigSystemImpl(
     nowTick: () => game.tick,
     vitals: combat,
     blade,
+    legend,
     parry,
     w2,
     yokai: () => yokaiManager!,
@@ -778,6 +827,8 @@ yokaiManager = new YokaiManager({
   origin: () => island.spawn(),
   seaY: () => SEA_Y,
   settings: w2,
+  // WEAPON-7: ヌシが レジェンダリーを おとした → 上の 帯の テロップ
+  onLegendDrop: (info) => celebrate.enqueueTelop(info.item),
   // WEAPON-5: 妖怪の 攻撃が 当たる所で パリィに 聞く
   parry: {
     hit: (h) => {
@@ -881,7 +932,7 @@ const hintSettings = { actionHint: true };
 const actionHint = new ActionHint(hud);
 const titleAnnounce = new TitleAnnounce(hud);
 const yokaiNameplates = new YokaiNameplates(hud);
-const staggerIcons = new StaggerIcons(hud, '/models/fx/');
+const staggerIcons = new StaggerIcons(hud, './models/fx/');
 const stagIconBuf: { id: number; x: number; y: number; z: number; titled: boolean }[] = [];
 const NO_PLATES: { id: number; text: string; x: number; y: number; z: number; dist: number }[] = [];
 const plateBuf: { id: number; text: string; x: number; y: number; z: number; dist: number }[] = [];
@@ -896,7 +947,7 @@ const inventoryScreen = new InventoryScreen(hud, inventory, screen, () => screen
   rarityOf: itemRarity,
   placeable: (item) => itemType(item)?.placeBlock != null,
   onFull: () => notice.showSignal('full'),
-  tools: toolConfig,
+  tools: uiTools,
   ui: craftUi,
   materials: {
     count: (item) => craft.total(item),
@@ -1009,12 +1060,22 @@ const weaponFx = new WeaponFx({
   shakeEl: game.renderer.domElement,
   onWear: (e) => achievements.feedWear(e),
   onBlade: (e) => achievements.feedBlade(e),
+  // WEAPON-7: ふつうの わざに 雷の「ビシューン」を 重ねる（ダメージは かえない）
+  onTechItem: (item) => {
+    if (trailStyleOf(w2, item) === 'thunder') playLegend(fxSound, 'thunderSlash');
+  },
   onArrowPickup: () => hotbar.pickup('ya', 1),
 });
 
 // ---- M6: 実績・演出・たんす画面・説明 ----
 const achievements = new AchievementSystem(() => m6);
 achievementsRef = achievements;
+// WEAPON-7: 手に 入れた ことの ある レジェンダリー（もちものに 入った とき。袋を ひろう・テストの add も）。実績 get.* と legend.kinds へ
+const legendBook = new LegendBook((item) => w2.legendary.some((d) => d.item === item));
+inventory.onAdded = (item) => {
+  const r = legendBook.add(item);
+  if (r) achievements.feedLegend(item, r.kinds);
+};
 // M7-2: キラキラ・ハート（C）・しずく（A）・しぶき（B）
 const eyePos = { x: 0, y: 0, z: 0 };
 const sparkle = new FarmSparkle({
@@ -1071,7 +1132,7 @@ const achievementsPage = new AchievementsPage(achievements, pageModel, inventory
 // ---- CRAFT-2: できごと タブ・L キー
 /** もちもの画面を できごと タブにする（閉じていれば 開く）。開けない場面（おめでとう・案内・やられた）では 何もしない */
 function openLogTab(): void {
-  if (screen.modalOpen() || combat.dead()) return;
+  if (combat.dead()) return;
   if (!screen.inventoryOpen()) {
     if (screen.mode() !== 'play') return;
     screen.toggle();
@@ -1099,7 +1160,7 @@ log.bindHost({ isOpen: () => screen.inventoryOpen(), tab: () => inventoryScreen.
 game.input.onPress((action) => {
   if (action !== 'openLog') return;
   // おめでとう画面・案内画面・やられた画面・たんす画面のあいだは 何もしない
-  if (screen.modalOpen() || screen.mode() === 'guide' || combat.dead() || storage.ui().open) return;
+  if (screen.mode() === 'guide' || combat.dead() || storage.ui().open) return;
   if (screen.inventoryOpen() && inventoryScreen.tab() === 'log') screen.toggle();
   else openLogTab();
 });
@@ -1123,6 +1184,13 @@ const celebrate = new CelebrateUi({
     return { name: d.name, tier: d.medal, artUrl: achievementArtUrl(d) ?? markUrl('medal') };
   },
   levelUpShowing: () => levelHud.celebrating(),
+  // WEAPON-7: ヌシの「あらわれた！」が 出ている 間は 上の 帯の ほかの ものを 待たせる
+  appear: () => {
+    const a = yokaiM.announce();
+    return a ? { ticksLeft: a.ticksLeft } : null;
+  },
+  onTelopStart: () => playLegend(fxSound, 'legendDrop'),
+  reducedMotion: () => reducedMotionMq?.matches ?? false,
 });
 achievements.attach(celebrate.modal, celebrate.busy);
 // 設定を変えたらすぐ効くよう、毎回 m6 を読む
@@ -1139,7 +1207,7 @@ madeTracker.onMade((e) => celebrate.made(e));
 const infoNumbers = (): InfoNumbers => ({
   toolPower: toolConfig.toolPower,
   toolLevel: toolConfig.toolLevel,
-  weaponDamage: toolConfig.weaponDamage,
+  weaponDamage: uiWeaponDamage(),
   weaponReach: toolConfig.weaponReach,
   bladeReach: w2.bladeReach,
   weaponTicks: toolConfig.weaponTicks,
@@ -1190,6 +1258,7 @@ time.onPhaseChange((p) => achievements.feedPhase(p));
 const defeatWith = (): DefeatWith => {
   const h = inventory.held()?.item;
   if (h === 'bokuto' || h === 'katana' || h === 'naginata' || h === 'crystal_katana' || h === 'yumi') return h;
+  if (h === 'raijin_ken' || h === 'fujin_ken') return 'katana'; // WEAPON-7: 雷神剣で たおした ときは「かたな」と 同じ あつかい（実績の 表に 武器別の 行は 足さない）
   if (h === 'wood_pickaxe' || h === 'stone_pickaxe' || h === 'iron_pickaxe' || h === 'wood_axe' || h === 'stone_axe' || h === 'iron_axe') return 'pickaxe';
   return 'hand';
 };
@@ -1224,6 +1293,7 @@ const save = new SaveManager({
   storage: { serialize: () => storage.serialize(), deserialize: (d) => storage.deserialize(d) },
   achievements: { serialize: () => achievements.serialize(), deserialize: (d) => achievements.deserialize(d) },
   animals: { serialize: () => animals.serialize(), deserialize: (d) => animals.deserialize(d) },
+  legend: { serialize: () => legendBook.serialize(), deserialize: (d) => legendBook.deserialize(d) },
   // 農業: 作物・印。前の保存（印なし）には 読んだあとに 置きものを置く
   farm,
   // VOX-D: 列は stream が読みこむ。保険から戻したときの最初の保存は ready のあと
@@ -1462,17 +1532,6 @@ game.onUpdate((dt) => {
   streamFrame();
   audioStep();
   applyUiAlpha(craft2Settings);
-  // おめでとう画面のあいだ: 世界・妖怪・時刻・プレイヤーは進まない（画面の時間だけ進む。§2.6 (3)）
-  if (screen.mode() === 'celebrate') {
-    crosshair.setVisible(false);
-    celebrate.step();
-    updateAchievements();
-    inventoryScreen.update();
-    storageScreen.update();
-    achievementsPage.update();
-    logPage.update(screen.inventoryOpen() && inventoryScreen.tab() === 'log');
-    return;
-  }
   time.update();
   // WEAPON-5: パリィの 入力は 妖怪の 更新の 前（このステップの 当たりが F1 になる）
   const parryIn = dig.parryInput(game.tick + 1);
@@ -1486,12 +1545,14 @@ game.onUpdate((dt) => {
     const pm = parry.motion();
     // 始めた ステップは まだ 走れる（刀のわざと 同じ）。そのあと 速さを 0 に して すべらせない
     const pmOn = !parry.startedNow();
-    controller.motion.speedMul = bm.speedMul * wm.speedMul * (pmOn ? pm.speedMul : 1);
-    controller.motion.jumpLocked = bm.jumpLocked || wm.jumpLocked || pm.jumpLocked;
+    const lm = legend.motion();
+    controller.motion.speedMul = bm.speedMul * wm.speedMul * (pmOn ? pm.speedMul : 1) * lm.speedMul * legendMoveMulOf(w2, inventory.held()?.item ?? null);
+    controller.motion.jumpLocked = bm.jumpLocked || wm.jumpLocked || pm.jumpLocked || lm.jumpLocked;
+    controller.motion.noRun = lm.noRun;
     // CHAR-2: わざのあいだは 向きを わざの向きに 固定（わざを始めたステップは あとで その場で）
     // WEAPON-3: 刀の わざ・パンチの あいだは 攻撃の向き u。攻撃・空ぶりは ＋マークへ 回らない（leftAims）
     // WEAPON-5: パリィの あいだは 今 向いている 方（カメラの 向き）を向く。始めた ステップは すべらず 止まる
-    controller.motion.faceDeg = pm.jumpLocked ? controller.state.yawDeg : dig.attackFaceDeg();
+    controller.motion.faceDeg = pm.jumpLocked ? controller.state.yawDeg : (lm.faceDeg ?? dig.attackFaceDeg());
     controller.motion.leftAims = !['attack', 'whiff'].includes(dig.attackPreview().use);
     controller.motion.stopNow = false;
   }
@@ -1503,6 +1564,20 @@ game.onUpdate((dt) => {
   if (worldReady()) yokaiM.update();
   if (worldReady()) animals.update();
   dig.update();
+  // WEAPON-7 PR2: 真空波（刀が きまった あと。体は ふみこんだ あとの 位置）
+  {
+    const bs = blade.state();
+    const cp0 = controller.state.position;
+    waveSys.step({
+      item: bs.item,
+      tech: bs.tech,
+      phase: bs.phase,
+      frame: bs.frame,
+      startup: bs.lengths?.startup ?? 0,
+      dirDeg: bs.move?.dirDeg ?? controller.state.yawDeg,
+      body: { x: cp0.x, y: cp0.y + 1.4, z: cp0.z },
+    });
+  }
   // LIVE-1: ねらっている にわとり（しるし）。出来事は ここで 1 回だけ 取り出して 音・つぶ・実績・合図に 同じ物を流す
   animals.setTargeted(dig.animalTarget());
   {
@@ -1517,14 +1592,15 @@ game.onUpdate((dt) => {
     const st = controller.state;
     const bs = blade.state();
     // わざを始めた ステップ: その場で わざの向きを向き、水平の速さを 0 に
-    const faceU = dig.attackFaceDeg();
+    const lstrike = legend.strike();
+    const faceU = legend.faceDeg() ?? dig.attackFaceDeg();
     if (faceU !== null) st.facingDeg = ((faceU % 360) + 360) % 360;
     rig.doll.setArcDir(st.facingDeg);
     // WEAPON-5: パリィの 絵と 青白い 光（からだの 色）
     const ps = parry.state();
     sprite?.setParry(parryCellOf(ps.phase, ps.frame));
     sprite?.setGlow(parryGlowLevel(ps.glowLeft, w2));
-    if ((bs.move !== null && bs.frame === 1) || parry.startedNow()) st.velocity.x = st.velocity.z = 0;
+    if ((bs.move !== null && bs.frame === 1) || parry.startedNow() || lstrike?.F === 1) st.velocity.x = st.velocity.z = 0;
     const bowPose = tools.bow().state();
     const held = inventory.held()?.item ?? null;
     const weapon = bs.item !== null ? 'katana' : held === 'yumi' ? 'bow' : 'none';
@@ -1538,9 +1614,12 @@ game.onUpdate((dt) => {
       weapon,
       // CHAR-4: 持っている 刀の 色（20・21 番を この 色に）。表に ない 刀は かたなの 行
       bladeColors: weapon === 'katana' ? bladeColorsOf(w2, bs.item) : null,
+      legendCharge: weapon === 'katana' && legend.view().charging,
       blade:
         weapon === 'katana'
-          ? { stance: bs.stance, tech: bs.tech, phase: bs.phase, frame: bs.frame, lengths: bs.tech ? (bs.lengths ?? w2.bladeTech[bs.tech]) : null }
+          ? lstrike
+            ? { stance: bs.stance, tech: 'kesa' as const, ...lightningPoseFrame(lstrike.F, lstrike.total), lengths: null }
+            : { stance: bs.stance, tech: bs.tech, phase: bs.phase, frame: bs.frame, lengths: bs.tech ? (bs.lengths ?? w2.bladeTech[bs.tech]) : null }
           : null,
       bow:
         weapon === 'bow'
@@ -1636,6 +1715,31 @@ game.onUpdate((dt) => {
   stuckVisuals.syncStuck(tools.bow().stuck());
   wearNotice.step();
   weaponFx.step();
+  // WEAPON-7: 雷・ための 光（出来事は ここで 1 回 取り出す）
+  {
+    const evs = legend.drainEvents();
+    const holdingLegend = legend.chargeable(inventory.held()?.item ?? null);
+    for (const e of evs) {
+      thunderFx.onEvent(e);
+      windWaveFx.onEvent(e);
+      if (e.type === 'lightningStrike') {
+        for (const id of e.hits) {
+          const y = yokaiM.list().find((q) => q.id === id);
+          if (y) weaponFx.hitStarsAt({ x: y.position.x, y: y.position.y + 0.7, z: y.position.z });
+        }
+      }
+    }
+    windWaveFx.step(waveSys.list(), reducedMotionMq?.matches ?? false);
+    const lv = holdingLegend ? legend.view() : null;
+    const st = lv && lv.ready ? legend.state() : null;
+    const cp = controller.state.position;
+    thunderFx.step(
+      lv
+        ? { charging: lv.charging, ready: lv.ready, hand: { x: cp.x, y: cp.y + 2.3, z: cp.z }, aimS: st && st.aim && st.aim.skyVisible ? st.aim.S : null }
+        : IDLE_THUNDER_LOOK,
+      reducedMotionMq?.matches ?? false,
+    );
+  }
   for (const n of parry.sounds()) if (isParrySound(n)) playParry(fxSound, n);
   {
     const ps = parry.state();
@@ -1728,7 +1832,7 @@ game.onUpdate(() => {
 // ロックがないあいだは時間を止める。F3 だけは効く（M1-02 §2.4）
 game.setRealtimeGate(() => lock.realtimeAllowed());
 // おめでとう画面の中の時間は 実時間で進める（世界は上で止めてある）
-game.setTimeScale(() => (screen.mode() === 'celebrate' ? 1 : screen.timeScale() * (screen.mode() === 'play' ? parry.state().timeScale : 1)));
+game.setTimeScale(() => screen.timeScale() * (screen.mode() === 'play' ? parry.state().timeScale : 1));
 game.onIdle((dt) => overlay.update(dt));
 
 const cameraHook = createCameraHook(rig);
@@ -1753,7 +1857,11 @@ const achievementsHook = {
     },
   }),
   modal: () => celebrate.modalInfo(),
-  close: () => celebrate.close(),
+  /** 今すぐ 出す（準備用）。出ている テロップは すてる */
+  flush: () => {
+    celebrate.preempt();
+    achievements.flush();
+  },
   sounds: () => celebrate.drainAchievementSounds(),
   /** テスト用: true のあいだ 実績の画面（おめでとう画面）を出さない（古いテストが世界を止められないように） */
   mute: (on: boolean) => {
@@ -1840,6 +1948,11 @@ installTestHook(game, overlay, () => host.everReady, {
     state: () => parry.state(),
     events: () => parry.events(),
   } as unknown as TestHookGroups['parry'],
+  legend: {
+    state: () => ({ ...legend.state(), got: legendBook.got() }),
+    events: () => legend.peekEvents(),
+    waves: () => waveSys.list().map((w) => ({ id: w.id, position: { ...w.position }, dir: { ...w.dir }, traveled: w.traveled })),
+  } as unknown as TestHookGroups['legend'],
   player: { ...createPlayerHook(controller), glow: () => { const g = parry.state().glowLeft; return { visible: g > 0, ticksLeft: g, level: parryGlowLevel(g, w2) }; }, respawn: () => controller.respawn(), doll: withSpriteDoll(cameraHook.doll, sprite, rig.doll.group) } as unknown as TestHookGroups['player'],
   ...createDigHook(dig),
   hud: hudHook,
@@ -1858,7 +1971,7 @@ installTestHook(game, overlay, () => host.everReady, {
     events: () => [...combatHook.events(), ...toolHook.arrowEvents()],
   } as unknown as TestHookGroups['combat'],
   ...logHook,
-  ui: { alpha: () => uiAlpha() },
+  ui: { alpha: () => uiAlpha(), topBand: () => celebrate.topBand() },
   craft: {
     ...craftHook,
     ...craftUiHook.craft,

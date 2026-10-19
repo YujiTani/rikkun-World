@@ -39,7 +39,7 @@ export function rarityCss(r: Rarity): string {
 
 const PICKAXES = ['wood_pickaxe', 'stone_pickaxe', 'iron_pickaxe'];
 const AXES = ['wood_axe', 'stone_axe', 'iron_axe'];
-const BLADES = ['bokuto', 'katana', 'naginata', 'crystal_katana'];
+const BLADES = ['bokuto', 'katana', 'naginata', 'crystal_katana', 'raijin_ken', 'fujin_ken'];
 
 /** ツールチップの中身（M4 §2.13 の表の順。当てはまるものだけ） */
 export function buildTooltip(item: ItemId, d: TooltipDeps, stack?: ItemStack | null): TooltipData {

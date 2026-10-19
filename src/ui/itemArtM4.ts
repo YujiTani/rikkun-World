@@ -58,7 +58,7 @@ class Canvas16 {
   }
 }
 
-function fromRows(rows: readonly string[], palette: Record<string, number>): Rgba[] {
+export function fromRows(rows: readonly string[], palette: Record<string, number>): Rgba[] {
   const out: Rgba[] = [];
   for (const row of rows) {
     for (const ch of row) {

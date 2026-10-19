@@ -120,7 +120,11 @@ test.describe('SOUND-1 場面と BGM', () => {
     });
     expect(await page.evaluate(() => (window.__rikkun as any).achievements.modal().open)).toBe(true);
     expect((await audioState(page)).ducking).toBe(true);
-    await page.evaluate(() => (window.__rikkun as any).achievements.close());
+    // おしらせは 240 ステップで 自動で きえる（WEAPON-7 O8。とじる は ない）
+    await page.evaluate(() => {
+      const h = window.__rikkun as any;
+      h.step(h.achievements.modal().leftSteps);
+    });
     await step(page, 5);
     expect((await audioState(page)).ducking).toBe(false);
   });

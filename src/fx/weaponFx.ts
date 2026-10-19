@@ -29,6 +29,8 @@ export interface WeaponFxDeps {
   camera?: THREE.Camera;
   /** WEAPON-6: 刀の 出来事を 実績へ（3 段 ぜんぶ 当てた） */
   onBlade?: (events: readonly BladeEvent[]) => void;
+  /** WEAPON-7: わざを 始めた とき、持っている 武器の 追加の 音・見た目（レジェンダリーの きせき） */
+  onTechItem?: (item: ItemId | null) => void;
   /** たいきゅうの 出来事を 実績へ */
   onWear?: (events: readonly WearEvent[]) => void;
   /** こわれた（人形が 手を 見る 動きなど） */
@@ -104,6 +106,7 @@ export class WeaponFx {
       case 'techStart':
         this.d.bladeHud.techStarted(e.tech);
         playWeapon(s, e.tech);
+        this.d.onTechItem?.(this.d.blade.state().item);
         if (e.step === 2) playWeapon(s, 'combo2');
         else if (e.step === 3) playWeapon(s, 'combo3');
         break;
@@ -181,6 +184,11 @@ export class WeaponFx {
       const sp = 1.2 + this.rand() * 1.6;
       p.spawn(at, Math.cos(a) * sp, up * (gravity ? 2.2 : 1.5), Math.sin(a) * sp, seconds, size, Array.isArray(color) ? color[i % color.length] : color, gravity ? 9 : 0);
     }
+  }
+
+  /** WEAPON-7: 落雷が 当たった 妖怪に 今の 星（白）を まぜる */
+  hitStarsAt(at: Vec3): void {
+    this.burst(at, WEAPON_FX.starCount, 0xffffff, WEAPON_FX.starSeconds, 0.12, false);
   }
 
   // ---- きせき（CHAR-4: 刃先の 通り道の 半月。ふみこみの あと = main の dig.update の あと に 呼ばれる）

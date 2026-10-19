@@ -1,5 +1,6 @@
 import type { ItemId } from '../../contracts';
 import { itemIconUrl } from '../itemIcon';
+import { withRuby } from '../text';
 import { createButton, createTab, setButtonDisabled } from '../theme';
 import { createCategoryMark, createLogTabIcon, scrollIconUrl } from './icons';
 import { LOG_VISIBLE_ROWS, type LogSystem } from './LogSystem';
@@ -118,7 +119,7 @@ export class LogPage {
       if (e.item) row.append(itemArt(e.item));
       const text = document.createElement('span');
       text.className = 'log-text';
-      text.textContent = e.text;
+      text.innerHTML = withRuby(e.text); // 文の 中の 名前は ［漢字｜よみ］ のまま 保存して いる（WEAPON-7 §2.7）
       row.append(text);
       if (e.kind === 'fromTansu') row.append(tansuBadge());
       frag.append(row);

@@ -46,6 +46,8 @@ export class InventoryImpl implements Inventory {
   /** 持ち上げたマス（なければ -1） */
   private lifted = -1;
   private listeners: Array<() => void> = [];
+  /** WEAPON-7: `add` で もちものに 入った（入った 数 > 0）。「手に 入れた」の 記録に つなぐ */
+  onAdded: ((item: ItemId, n: number) => void) | null = null;
 
   slots(): ReadonlyArray<ItemStack | null> {
     return this.arr;
@@ -146,7 +148,10 @@ export class InventoryImpl implements Inventory {
     const n = Math.floor(count);
     if (!(n > 0)) return 0; // 0 以下は なにもしない（「入った数 = n − 返り値」が マイナスにならないように）
     const left = addInto(this.arr, item, n);
-    if (left !== n) this.notify();
+    if (left !== n) {
+      this.notify();
+      this.onAdded?.(item, n - left);
+    }
     return left;
   }
   count(item: ItemId): number {
