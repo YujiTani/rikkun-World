@@ -231,7 +231,8 @@ export type ItemOnlyId =
   | 'mushi' // むし
   | 'mushi_ami' // むしとりあみ
   // WEAPON-7（うしろに足す。レジェンダリー）
-  | 'raijin_ken'; // 雷神剣（ヌシが おとす）
+  | 'raijin_ken' // 雷神剣（ヌシが おとす）
+  | 'fujin_ken'; // 風神剣（ヌシが おとす。WEAPON-7 PR2）
 
 /** アイテムの種類。ブロックとアイテムだけのもの */
 export type ItemId = BlockId | ItemOnlyId;
@@ -1881,6 +1882,13 @@ export const LEGENDARY_DEFAULTS: readonly LegendaryDef[] = [
     onAttack: [{ kind: 'trail', style: 'thunder' }],
     passive: [],
   },
+  {
+    item: 'fujin_ken',
+    power: 6,
+    charge: null,
+    onAttack: [{ kind: 'wave', speed: 15, range: 5, radius: 0.5, damageMul: 0.3, knock: [0.5, 0] }],
+    passive: [{ kind: 'moveMul', mul: 1.2 }],
+  },
 ];
 
 export function cloneLegendary(d: LegendaryDef): LegendaryDef {
@@ -1949,7 +1957,7 @@ export const W2_SETTING_DEFAULTS: Readonly<W2Settings> = {
     },
   },
   bladeAimReach: 4.5,
-  bladeReach: { bokuto: 2.2, katana: 2.2, crystal_katana: 2.2, raijin_ken: 2.2 },
+  bladeReach: { bokuto: 2.2, katana: 2.2, crystal_katana: 2.2, raijin_ken: 2.2, fujin_ken: 2.2 },
   bladeShape: {
     thrust: { length: 2.2, radius: 0.2 },
     kesa: { halfAngleDeg: 75, rMin: 0.3, rMax: 2.2, yMin: -0.5, yMax: 2.6 },
@@ -1987,6 +1995,7 @@ export const W2_SETTING_DEFAULTS: Readonly<W2Settings> = {
     kote: 225,
     suneate: 195,
     raijin_ken: 10000, // WEAPON-7 §2.4: つくれず ヌシでしか 手に 入らない 武器だけの 例外
+    fujin_ken: 10000,
   },
   toolWear: {
     pickaxe: { block: 1, hit: 2 },
@@ -2006,6 +2015,8 @@ export const W2_SETTING_DEFAULTS: Readonly<W2Settings> = {
     naginata: { color: 0xcfe8ff, glow: 0xffffff, blade: 0xb8cce0, bladeShine: 0xeef6ff, style: 'long' },
     // WEAPON-7: 雷神剣。刃は むらさき（0xb070ff 系）、軌跡は 白〜うすい 黄（雷 v4 の 色）
     raijin_ken: { color: 0xfff6c0, glow: 0xffffff, blade: 0xb070ff, bladeShine: 0xe6d2ff, style: 'thunder' },
+    // WEAPON-7 PR2: 風神剣。ふつうの 斬撃の 形（plain）で 白〜みずいろ
+    fujin_ken: { color: 0xe6f8ff, glow: 0xffffff, blade: 0xcfefff, bladeShine: 0xffffff, style: 'plain' },
   },
   bladeFaceAssistDeg: 30,
   thrustTiltMaxDeg: 45,

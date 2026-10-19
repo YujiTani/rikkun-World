@@ -60,8 +60,9 @@
   image-rendering: pixelated;
 }
 /* 7 段目の名前: にじ色（8 秒で 1 周）。「うごきを へらす」では 止める */
-.tip-name--rainbow {
-  /* 字は にじ色の下地を 切りぬいて 見せる（fill は とうめい）。color は 字の色の検査用に、にじ色の上で 読める くらい色にしておく */
+.tip-name--rainbow,
+.tip-stars--rainbow {
+  /* 字は にじ色の下地を 切りぬいて 見せる（fill は とうめい）。color は 字の色の検査用に、にじ色の上で 読める くらい色にしておく。7 段目は 星も にじ色 */
   color: var(--rk-bg-900);
   background: var(--rk-rarity-rainbow);
   -webkit-background-clip: text;
@@ -69,8 +70,12 @@
   -webkit-text-fill-color: transparent;
   animation: rainbow-spin 8s linear infinite;
 }
+.tip-stars--rainbow {
+  width: max-content; /* 下地の にじは 星の はばだけ（左に よっても 全部の 色が 見える） */
+}
 @media (prefers-reduced-motion: reduce) {
-  .tip-name--rainbow {
+  .tip-name--rainbow,
+  .tip-stars--rainbow {
     animation: none;
   }
 }

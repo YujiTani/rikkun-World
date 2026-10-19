@@ -1,5 +1,6 @@
 import type { ItemId, LegendaryCharge, PlayerMotionMod, Vec3, VoxelWorld, W2Settings, YokaiWorld } from '../contracts';
 import { legendDefOf, legendPowerOf } from './defs';
+import type { WaveEvent } from './WaveSystem';
 import { aimThunder, thunderTargets, type ThunderAim } from './aim';
 
 /**
@@ -14,7 +15,8 @@ export type LegendEvent =
   | { type: 'chargeCancel'; tick: number }
   | { type: 'lightningStart'; tick: number; S: Vec3 | null; skyVisible: boolean; variant: number }
   | { type: 'lightningStrike'; tick: number; S: Vec3; hits: number[]; skyVisible: boolean; variant: number }
-  | { type: 'lightningMiss'; tick: number };
+  | { type: 'lightningMiss'; tick: number }
+  | WaveEvent;
 
 export type LegendSoundName = 'chargeReady' | 'lightning' | 'lightningFar';
 
@@ -94,6 +96,8 @@ export interface LegendSystem {
   /** 今の ためわざの 向き・S（光・雷の 見た目用） */
   strike(): { S: Vec3 | null; skyVisible: boolean; variant: number; F: number; total: number } | null;
   drainEvents(): LegendEvent[];
+  /** 真空波など ほかの 係の 出来事を 同じ 列に 入れる */
+  emit(e: LegendEvent): void;
   peekEvents(): LegendEvent[];
   /** 入力を もっているか（次の ステップも）。パリィの 先行入力に 使う */
   busyNext(): { busy: boolean; accepts: boolean };
@@ -305,6 +309,8 @@ export function createLegendSystem(deps: LegendDeps): LegendSystem {
     strike() {
       return move ? { S: move.S ? { ...move.S } : null, skyVisible: move.skyVisible, variant: move.variant, F: move.F, total: move.total } : null;
     },
+
+    emit,
 
     drainEvents(): LegendEvent[] {
       const out = drainQ;

@@ -149,6 +149,7 @@ export function renderDetail(e: DetailEls, d: DetailView | null, iconOf: (item: 
   delete e.root.dataset.empty;
   if (!d) return;
   setRarity(e.root, rarityIndex(d.rarity));
+  e.root.classList.toggle('cp-detail--legendary', rarityIndex(d.rarity) === 6);
   e.headArt.src = iconOf(d.item);
   e.name.innerHTML = withRuby(d.name); // 名前は ［漢字｜よみ］ → ふりがなつき（WEAPON-7 §2.7）
   e.stars.textContent = starText(d.stars);

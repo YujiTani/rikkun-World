@@ -12,7 +12,7 @@ describe('雷神剣の アイコン（v3-A）', () => {
     expect(itemIconPixels('raijin_ken')).toEqual(px);
     expect(isW7Item('raijin_ken')).toBe(true);
     expect(isW7Item('katana')).toBe(false);
-    expect(W7_ITEMS).toEqual(['raijin_ken']);
+    expect(W7_ITEMS).toContain('raijin_ken'); // PR2 で 風神剣の 絵が 足されても よい
     for (const it of ['katana', 'crystal_katana', 'bokuto'] as const) expect(itemIconPixels(it)).not.toEqual(px);
   });
   it('そった むらさきの 刃・金の 小さな つば・こん色の 柄（柄なし・大きな 丸い つばは NG）', () => {

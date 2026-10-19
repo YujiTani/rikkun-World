@@ -137,7 +137,11 @@ export class Tooltip {
       this.wordEl.style.color = col;
       // 7 段目は 名前を にじ色に（案 A）
       this.nameEl.classList.toggle('tip-name--rainbow', tier.index === 6);
-      if (tier.index === 6) this.nameEl.style.removeProperty('color');
+      this.starsEl.classList.toggle('tip-stars--rainbow', tier.index === 6);
+      if (tier.index === 6) {
+        this.nameEl.style.removeProperty('color');
+        this.starsEl.style.removeProperty('color');
+      }
       this.descEl.innerHTML = withRuby(t.desc);
       this.descEl.hidden = t.desc === '';
       this.body.replaceChildren();

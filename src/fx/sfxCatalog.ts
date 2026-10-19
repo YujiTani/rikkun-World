@@ -92,6 +92,7 @@ export const SFX_CATALOG: readonly SfxCatalogEntry[] = [
     ['lightningFar', 'かみなり（とおく）'],
     ['thunderSlash', 'かみなりの きりつけ（ビシューン）'],
     ['legendDrop', 'ヌシが おとした（キラキラ）'],
+    ['windWave', 'しんくうは（ヒュオッ）'],
   ]),
   ...fromTable('weapon', CRAFT_SOUNDS, [
     ['slash', 'かたな（シュッ）'],

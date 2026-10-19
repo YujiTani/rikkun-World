@@ -6,7 +6,16 @@ import { logSound } from './soundLog';
  * WEAPON-7 §3.5・§2.6 の 音（レジェンダリー武器）。コードで 作る。こわすぎない・急な 大音量に しない（どれも gain 0.6 以下・1.2 秒以内）。
  * 名前は `combat.sounds()` の 名前と 同じ（`lightningFar` は 『lightning』 として きろくする）。
  */
+/** 風神剣の 真空波「ヒュオッ」: 高さの ちがう 3 つ（前と ちがう 物を えらぶ。小さく 短く） */
+export const WIND_WAVE_VARIANTS: readonly (readonly Tone[])[] = [
+  [swish(1500, 3000, 0, 0.14, 0.12, 1.2), shaka(0.02, 0.06, 0.05, 5500)],
+  [swish(1900, 3800, 0, 0.13, 0.12, 1.2), shaka(0.02, 0.06, 0.05, 6000)],
+  [swish(1200, 2400, 0, 0.15, 0.12, 1.2), shaka(0.02, 0.06, 0.05, 5000)],
+];
+
 export const LEGEND_SOUNDS = {
+  /** 真空波「ヒュオッ」（くり返す 行動なので 小さく 短く。高さは playLegend の variant で 3 つから） */
+  windWave: WIND_WAVE_VARIANTS[0]!,
   /** ため いっぱい「ピキーン」: 高い 2 音 ＋ 鈴の つぶ（小さく 明るく） */
   chargeReady: [...box(hz('G6'), hz('G6') * 1.01, 0, 0.09, 0.3), ...box(hz('D7'), hz('D7') * 1.01, 0.07, 0.2, 0.28), ...suzu(0.1, 3, 0.04, 0.1)],
   /** 雷「ビシッ… ゴロゴロ ドーン」: 高い ひび割れ ＋ 低い うなり（だんだん 小さく）＋ 低い ドン。うなりは ゆっくり 入る */
@@ -35,7 +44,7 @@ export const LEGEND_SOUNDS = {
 
 export type LegendSoundName = keyof typeof LEGEND_SOUNDS;
 
-export function playLegend(sound: Pick<SoundFx, 'playTones'>, name: LegendSoundName): void {
-  sound.playTones(LEGEND_SOUNDS[name] as readonly Tone[]);
+export function playLegend(sound: Pick<SoundFx, 'playTones'>, name: LegendSoundName, variant = 0): void {
+  sound.playTones((name === 'windWave' ? WIND_WAVE_VARIANTS[variant % WIND_WAVE_VARIANTS.length]! : LEGEND_SOUNDS[name]) as readonly Tone[]);
   logSound(name === 'lightningFar' ? 'lightning' : name);
 }

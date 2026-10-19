@@ -205,3 +205,10 @@ export async function hoverSlot(page: Page, i: number): Promise<void> {
   await page.mouse.move(b.x + b.width / 2 + 1, b.y + b.height / 2 + 1);
   await page.evaluate(() => (window.__rikkun as any).step(1));
 }
+
+/** ヌシの 表を 1 本に 固定する（PR2 で 表が 2 本以上に なったので、特定の 武器が 出る 前提の テスト用）。ステップは 進めない */
+export async function pinNushiTable(page: Page, item: string = RAIJIN): Promise<void> {
+  await page.evaluate((it) => (window.__rikkun as any).settings.set('nushiDrops', [{ item: it, weight: 1 }]), item);
+}
+
+export const FUJIN = 'fujin_ken';
