@@ -25,3 +25,4 @@
 | 4 | dev | code-reviewer(test PR2) | 【軽微】AC22（歩き・はしり）は 仕様では ユニット だが E2E だけ。実装後に 速さの 計算を ユニットでも 見ると よい。AC24 の 刀 4.5（つき P6×0.75）は 設定の 決め打ち。windWave の 高さ 3 つ 切りかえ（§4.3）は 未確認 | AC の 層・取りこぼし | R6 | 確認待ち |
 | 5 | dev | code-reviewer(impl PR2) | 【軽微】src/legend/WaveSystem.ts:107 `blockedAt({x,y,z})` が 波 1 つ・1 ステップごとに 小さな 物を new（最大 2 つ同時で 実害なし）。使い回しの 作業用 Vec3 に すると きれい | 毎ステップの new | R7 | 確認待ち |
 | 5 | dev | code-reviewer(impl PR2) | 【軽微】波は リスポーン・ワールド入れかえで 消えない（20 ステップで 自然に 消える）。`yokai: () => yokaiManager!` は null だと sweep で 落ちる（波が 出る 時は 作成済みのはず） | 後片付け | R8 | 確認待ち |
+| 6 | dev | code-reviewer(3段攻撃) | 【軽微】src/legend/LegendSystem.ts:246 窓の 1F 手前（frame===startup）の 押しは busyNext.accepts が 真・chainOpen が 偽で buffered が 立つ。そのあと 窓で 押して つなぐと、はなしても 3 段目の あと ためが 始まる（仕様は 押しつづけた ときだけ）。窓の 押しで buffered=false に すると よい | 境界 | R9 | 確認待ち |

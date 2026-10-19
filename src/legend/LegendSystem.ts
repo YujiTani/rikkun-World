@@ -242,7 +242,10 @@ export function createLegendSystem(deps: LegendDeps): LegendSystem {
       // ためて いない: 刀が わざ中なら 先行入力だけ おぼえる
       if (ctx.bladeBusy) {
         // WEAPON-7: つなぎの 窓が 開いている 間の 押しは 刀の 次の 段（ためは 始めない）
-        if (ctx.pressed && ctx.startOk && ctx.bladeChainOpen) return { busy: false, fireTech: true };
+        if (ctx.pressed && ctx.startOk && ctx.bladeChainOpen) {
+          buffered = false; // 窓の 1F 手前の 押しが のこっていても、段を つないだら ための 先行入力には しない
+          return { busy: false, fireTech: true };
+        }
         if (ctx.pressed && ctx.startOk && ctx.bladeAccepts) buffered = true;
         return { busy: false, fireTech: false };
       }
