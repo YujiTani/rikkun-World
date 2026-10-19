@@ -1,5 +1,5 @@
 // CHAR-2 §4.7: キャラの絵を 1 コマずつ 切りつめて 動きごとに 棚づめする。
-//   使い方: npm run pack:char   （art/char-sheets/ -> public/models/char/）
+//   使い方: npm run pack:char   （art/char-sheets/<キャラ>/ -> public/models/char/<キャラ>/）
 // PNG の読み書きは node の zlib だけで やる（RGBA 8 ビットのみ）。同じ入力から 同じ出力になる。
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
@@ -182,7 +182,9 @@ export function buildAll(srcDir, { encode = true } = {}) {
     report[name] = { width: png.width, height: png.height, bytes: encode ? files[`${name}.png`].length : 0 };
     motions[name] = { ...m, packed };
   }
-  const out = { ...atlas, motions };
+  const pal = JSON.parse(readFileSync(resolve(srcDir, 'palette.json'), 'utf8')).colors;
+  const palette = pal.map((c) => c.map((v) => Math.round(v * 255)));
+  const out = { ...atlas, motions, palette };
   files['atlas.json'] = Buffer.from(stringifyAtlas(out), 'utf8');
   return { atlas: out, pngs, files, report };
 }
@@ -190,8 +192,10 @@ export function buildAll(srcDir, { encode = true } = {}) {
 const here = dirname(fileURLToPath(import.meta.url));
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const root = resolve(here, '..');
-  const outDir = resolve(root, 'public/models/char');
-  const { files, report } = buildAll(resolve(root, 'art/char-sheets'));
+  for (const kind of ['girl', 'boy']) {
+  console.log(`== ${kind} ==`);
+  const outDir = resolve(root, 'public/models/char', kind);
+  const { files, report } = buildAll(resolve(root, 'art/char-sheets', kind));
   mkdirSync(outDir, { recursive: true });
   for (const [n, b] of Object.entries(files)) writeFileSync(resolve(outDir, n), b);
   const gpu = (names) => names.reduce((s, n) => s + report[n].width * report[n].height, 0);
@@ -199,10 +203,13 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   for (const n of names) console.log(`${n}: ${report[n].width}x${report[n].height} (GPU ${report[n].width * report[n].height} B, file ${report[n].bytes} B)`);
   const groups = {
     'はじめの 4': ['idle', 'walk', 'run', 'jump'],
+    ...(kind === 'girl' ? {
     '刀の組 6': names.filter((n) => n.startsWith('katana_')),
     '弓の組 4': names.filter((n) => n.startsWith('bow_')),
+    } : {}),
     'ぜんぶ': names,
   };
   for (const [g, ns] of Object.entries(groups)) console.log(`${g}: ${gpu(ns)} B`);
   if (gpu(names) > 67108864) { console.error('64 MiB を こえた'); process.exit(1); }
+  }
 }
