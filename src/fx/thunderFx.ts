@@ -75,7 +75,9 @@ export class ThunderFx {
   private readonly glowMesh: THREE.Mesh;
   private readonly ringMesh: THREE.Mesh;
   private readonly aimMesh: THREE.Mesh;
-  private readonly handMesh: THREE.Mesh;
+  /** ため中の 手の 光: 十字の 板（たて 2 枚。DESIGN §17）。カメラには 向けない */
+  private readonly handMesh = new THREE.Group();
+  private readonly handMat: THREE.MeshBasicMaterial;
   // つぶ
   private readonly bits: THREE.InstancedMesh;
   private readonly sparks: Spark[];
@@ -112,13 +114,20 @@ export class ThunderFx {
     this.glowMesh = new THREE.Mesh(flat, additive(this.glowTex));
     this.ringMesh = new THREE.Mesh(flat, additive(this.ringTex));
     this.aimMesh = new THREE.Mesh(flat, additive(this.ringTex));
-    this.handMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), additive(this.glowTex, { depthTest: false }));
+    this.handMat = additive(this.glowTex, { depthTest: false });
+    const handGeo = new THREE.PlaneGeometry(1, 1);
+    for (const ry of [0, Math.PI / 2]) {
+      const hm = new THREE.Mesh(handGeo, this.handMat);
+      hm.rotation.y = ry;
+      hm.frustumCulled = false;
+      hm.renderOrder = 3;
+      this.handMesh.add(hm);
+    }
     for (const m of [this.glowMesh, this.ringMesh, this.aimMesh, this.handMesh]) {
       m.visible = false;
       m.frustumCulled = false;
       this.group.add(m);
     }
-    this.handMesh.renderOrder = 3;
 
     // 光の つぶ（足し算の 小さな 四角。カメラへ 向ける）
     this.bits = new THREE.InstancedMesh(
@@ -150,9 +159,8 @@ export class ThunderFx {
     if (cl.charging) {
       const s = cl.ready ? 1.5 : 0.8;
       this.handMesh.position.set(cl.hand.x, cl.hand.y, cl.hand.z);
-      this.handMesh.quaternion.copy(this.cam.quaternion);
-      this.handMesh.scale.set(s, s, 1);
-      (this.handMesh.material as THREE.MeshBasicMaterial).color.setHex(cl.ready ? WHITE : PALE);
+      this.handMesh.scale.set(s, s, s);
+      this.handMat.color.setHex(cl.ready ? WHITE : PALE);
     }
     this.aimMesh.visible = cl.ready && cl.aimS !== null;
     if (this.aimMesh.visible && cl.aimS) {
