@@ -30,7 +30,7 @@ function setup(list: YokaiInfo[]) {
   const stops: number[] = [];
   const sys = createLegendSystem({
     world, yokai: () => yokai, settings: createW2Settings(), tick: () => tick, sound: (n) => sounds.push(n),
-    loop: (n) => { loops.push(n); return { stop: () => stops.push(tick) }; },
+    loop: (n) => { loops.push(n); return { stop: () => { if (n === 'domePull') stops.push(tick); } }; },
   });
   const ctx: LegendStepCtx = { item: 'niji', power: 10, active: true, pressed: false, held: false, startOk: true, bladeBusy: false, bladeAccepts: false, bladeChainOpen: false, eye: POS, dir: { x: 0, y: 0, z: -1 }, position: POS, yawDeg: 0, inWater: false };
   const step = (o: Partial<LegendStepCtx> = {}) => { tick += 1; F = sys.state().move === 'shining' ? sys.state().moveF + 1 : 1; return sys.step({ ...ctx, ...o }); };
@@ -94,14 +94,14 @@ describe('AC58 音 domePull', () => {
     expect(t.stops.length).toBe(1);
   });
   it('shiningHit は 同じ ステップに 何体 はじいても 1 つ', () => {
-    const t = setup([yk(1, 6), yk(2, 6.2), yk(3, 6.4)]);
+    const t = setup([yk(1, 6), yk(2, 6), yk(3, 6)]);
     t.step(60);
     expect(t.sounds.filter((s) => s === 'shiningHit')).toHaveLength(1);
   });
   it('あとで: だれも すわれて いない シャイニングでは domePull は 鳴らない', () => {
     const t = setup([]);
     t.step(100);
-    expect(t.loops).toHaveLength(0);
+    expect(t.loops.filter((n) => n === 'domePull')).toHaveLength(0);
   });
 });
 

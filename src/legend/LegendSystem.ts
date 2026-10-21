@@ -39,7 +39,7 @@ export type LegendSoundState = 'off' | 'on' | 'fading';
 
 export interface LegendDeps {
   world: VoxelWorld;
-  yokai: () => Pick<YokaiWorld, 'list' | 'raycast' | 'damage'>;
+  yokai: () => Pick<YokaiWorld, 'list' | 'raycast' | 'damage' | 'pull'>;
   settings: Pick<W2Settings, 'legendary' | 'legendaryChargeWalk' | 'shiningCamDistance'>;
   tick: () => number;
   /** 落雷が 1 体 以上に 当たった（1 回の 落雷で 1 回）。つなぎ込みが たいきゅうを 1 へらす */

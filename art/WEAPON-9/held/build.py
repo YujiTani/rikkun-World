@@ -46,7 +46,7 @@ def niji(u, v, L, s):
     A = 0.13 * L  # そりを はっきり（決定 2026-10-21）
     c = A * np.abs(np.sin(np.pi * np.clip(u / L, 0, 1))) ** 0.85
     r = u / L
-    h = np.maximum(np.where(r < 0.86, 2.4 - 0.5 * r, lerp(2.4 - 0.43, 0.5, (r - 0.86) / 0.14)) * s, 1.3)
+    h = np.maximum(np.where(r < 0.86, 2.4 - 0.5 * r, lerp(2.4 - 0.43, 0.5, (r - 0.86) / 0.14)) * s, 1.5)
     vv = v - c
     blade = (u >= 0) & (u <= L) & (np.abs(vv) <= h)
     t = vv / np.maximum(h, 0.5)
@@ -207,6 +207,19 @@ def line_inliers(m, full=None, retry=True):
     return out
 
 
+def fits(base, a, L):
+    """つば・柄・刃（そりと はば こみ）が コマの ふち 1 点 内に 入るか"""
+    nrm = np.array([-a[1], a[0]], np.float32)
+    u = np.linspace(-(max(6, 0.2 * L) + 4), L, 90)
+    cu = 0.13 * L * np.abs(np.sin(np.pi * np.clip(u / L, 0, 1))) ** 0.85
+    for side in (-4.0, 0.0, 4.0):
+        x = base[0] + a[0] * u + nrm[0] * (cu + side)
+        y = base[1] + a[1] * u + nrm[1] * (cu + side)
+        if x.min() < 2 or y.min() < 2 or x.max() > 253 or y.max() > 253:
+            return False
+    return True
+
+
 def do_cell(c, shape):
     """c: (256,256,4) → 新しい コマ"""
     rgb = c[..., :3]
@@ -253,8 +266,26 @@ def do_cell(c, shape):
             out[y, x, :3] = cyc[int(((x - base[0]) * a[0] + (y - base[1]) * a[1]) / 2.5 + 8) % len(cyc)]
             out[y, x, 3] = 255
         return out
+    L0 = L
     if shape == "niji":
-        L *= 1.12  # 今の かたなより 1 割 以上 長く（根もとは そのまま、刃先を のばす）
+        # 今の かたなより 1 割 以上 長く。コマの ふちで 切れる 時は 刃先を 少し みじかく（1.1 倍まで）、
+        # それでも 切れる 時は 向きを 内へ まわす
+        a0 = a
+        done = False
+        for ang in [0] + [sg * d for d in range(2, 40, 2) for sg in (1, -1)]:
+            ca, sa = math.cos(math.radians(ang)), math.sin(math.radians(ang))
+            aa = np.array([a0[0] * ca - a0[1] * sa, a0[0] * sa + a0[1] * ca], np.float32)
+            for k in (1.12, 1.11, 1.10):
+                if fits(base, aa, L0 * k):
+                    a, L, done = aa, L0 * k, True
+                    break
+            if done:
+                break
+        if not done:
+            a, L = a0, L0 * 1.1
+        nrm = np.array([-a[1], a[0]], np.float32)
+        if nrm @ np.array([-1, -1], np.float32) < 0:
+            nrm = -nrm
     s = float(np.clip(L / 45.0, 0.8, 1.15))
     dx = XX - base[0]
     dy = YY - base[1]
