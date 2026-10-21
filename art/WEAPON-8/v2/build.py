@@ -24,7 +24,7 @@ from w8kit import Sheet, criteria_rows, CRITERIA_NAMES, MOTION_NAMES  # noqa: E4
 import scene as SC  # noqa: E402
 import spiral as SP  # noqa: E402
 import blade as BL  # noqa: E402
-import charge as CH  # noqa: E402
+import handcharge as CH  # noqa: E402
 
 OUT = os.path.join(K.ROOT, "docs", "art", "WEAPON-8", "v2")
 PROTO = os.path.join(K.ROOT, "docs", "art", "WEAPON-8", "proto")
