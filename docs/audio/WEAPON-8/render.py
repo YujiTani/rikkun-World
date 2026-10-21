@@ -73,32 +73,35 @@ def note(name, target_hz, dur, a=0.003, r=None, t0=0.0):
 def glock(f, dur=0.5): return note('glock_C6', f, dur, 0.002, dur * 0.6)
 
 # ---- 風神・雷神の 味（どの 案にも 重ねられる 層）----
+SOFT = {'on': False}
 def flavor_charge(kind, T, rng):
     n = N(T); out = np.zeros(n)
+    sg = 0.35 if SOFT['on'] else 1.0
     if kind == 'fujin':   # 回りながら 近づく 風「ひゅるるる」
         w = rng.standard_normal(n); t = np.arange(n) / SR
         fc = ramp(n, 500, 2600, 1.3); y = svf_bp(w, fc, 4.0)
         spin = 0.55 + 0.45 * np.sin(2 * np.pi * np.cumsum(ramp(n, 3, 11)) / SR)
-        out = y * spin * ramp(n, 0.0, 1.0, 1.5) * 0.16
+        out = y * spin * ramp(n, 0.0, 1.0, 1.5) * 0.16 * (0.45 if SOFT['on'] else 1.0)
     elif kind == 'raijin':  # 小さな 光の パチ（だんだん 多く）
         t = 0.0
         while t < T:
             rate = 6 + 30 * (t / T) ** 1.5; t += rng.exponential(1 / rate)
             if t >= T: break
             c = svf_bp(rng.standard_normal(N(0.014)), 3600 + 1500 * rng.random(), 4.0); c /= np.abs(c).max()
-            add(out, fade(c, 0.002, 0.01), t, 0.15 + 0.30 * t / T)
+            add(out, onepole_lp(fade(c, 0.004, 0.012), 3500) if SOFT['on'] else fade(c, 0.002, 0.01), t, sg * (0.15 + 0.30 * t / T))
     return out
 
 def flavor_loop(kind, L, rng):
     n = N(L + 0.2); out = np.zeros(n)
+    sg = 0.35 if SOFT['on'] else 1.0
     if kind == 'fujin':
         w = rng.standard_normal(n); t = np.arange(n) / SR
         y = svf_bp(w, 1300 + 700 * np.sin(2 * np.pi * t / (L + 0.2) * 2), 4.0)
-        out = y * (0.6 + 0.4 * np.sin(2 * np.pi * t * 4)) * 0.10
+        out = y * (0.6 + 0.4 * np.sin(2 * np.pi * t * 4)) * 0.10 * (0.5 if SOFT['on'] else 1.0)
     elif kind == 'raijin':
         for t in np.sort(rng.random(int(5 * L)) * L):
             c = svf_bp(rng.standard_normal(N(0.014)), 3800 + 1500 * rng.random(), 4.0); c /= np.abs(c).max()
-            add(out, fade(c, 0.002, 0.01), t, 0.22)
+            add(out, onepole_lp(fade(c, 0.004, 0.012), 3500) if SOFT['on'] else fade(c, 0.002, 0.01), t, 0.22 * sg)
     return loopify(out, 0.2)
 
 # ================= 案 A: すずの かいだん（風鈴・鈴・グロッケン）=================
@@ -201,6 +204,35 @@ def planC(rng):
     lp = wl * 0.20 + oc * 0.07
     return ch, rd, loopify(lp, 0.3)
 
+
+# ================= 案 C2: かぜの ふえ（しずか版。オーナー 2026-10-21「どれも うるさい。C が いい」）=================
+def planC2(rng):
+    T = 1.0; n = N(T)
+    ch = np.zeros(N(T + 0.5))
+    w = rng.standard_normal(n)
+    wind = svf_bp(w, ramp(n, 300, 1300, 1.4), ramp(n, 1.5, 3.0))  # 高く しすぎない（上は 1.3 kHz まで）
+    add(ch, fade(wind * ramp(n, 0.15, 1.0, 1.4), 0.15, 0.04), 0, 0.22)
+    steps = ['C5','D5','E5','G5','A5','C6']; times = [0.0, 0.30, 0.52, 0.68, 0.80, 0.90]
+    for i, (nm, tt) in enumerate(zip(steps, times)):
+        d = (times[i + 1] - tt + 0.10) if i + 1 < len(times) else 0.2
+        x = note('ocarina_C5', hz(nm), d, 0.035, 0.06, t0=0.4)  # 息の ように ゆっくり 入る（木の「コッ」は やめる）
+        add(ch, x, tt, 0.15 + 0.06 * i / 5)
+    ch = onepole_lp(onepole_lp(ch[:n], 2400), 2400)  # 高い 音を 2 段で けずる
+    # いっぱい: おりん「チーン」を やわらかく（高い 倍音を けずる）＋ ごく 軽い 太鼓「とん」＋ 笛の ソ
+    rd = np.zeros(N(2.0)); m = N(0.35); tt = np.arange(m) / SR
+    don = np.sin(2 * np.pi * np.cumsum(110 * (75 / 110) ** (tt / 0.35)) / SR) * np.exp(-tt / 0.09)
+    add(rd, fade(don, 0.008, 0.08), 0.0, 0.18)
+    rin = onepole_lp(onepole_lp(note('handbell1', hz('C6'), 1.9, 0.006, 1.4), 1800), 1800)
+    add(rd, rin / np.abs(rin).max(), 0.02, 0.45)
+    add(rd, note('ocarina_C5', hz('G5'), 0.45, 0.03, 0.3, t0=0.4), 0.04, 0.10)
+    # ため続け: 背景に なじむ 風 ＋ ごく うすい 笛
+    L = 1.5; m = N(L + 0.3); t = np.arange(m) / SR
+    w = rng.standard_normal(m)
+    wl = svf_bp(w, 800 + 250 * np.sin(2 * np.pi * t * (2 / (L + 0.3))), 3.0) * (0.8 + 0.2 * np.sin(2 * np.pi * t * 2 / (L + 0.3) * 3))
+    oc = seg(SMP['ocarina_C5'], 0.6, L + 0.3) * (0.85 + 0.15 * np.sin(2 * np.pi * t / (L + 0.3)))
+    lp = onepole_lp(onepole_lp(wl * 0.10 + oc * 0.035, 2000), 2000)
+    return ch, rd, loopify(lp, 0.3)
+
 def assemble(plan, flavor, seed):
     rng = rng0(seed)
     ch, rd, lp = plan(rng)
@@ -239,3 +271,8 @@ if __name__ == '__main__':
             x, _ = assemble(fn, fl, 7)
             write(f'{OUT}/{names[key]}_{fl}.wav', x * g)
         print(key, info, 'gain %.3f' % g)
+    # C2: C と 同じ 倍率で 書き出す（下げた 分が そのまま 比べられる）
+    SOFT['on'] = True
+    for fl in [None, 'fujin', 'raijin']:
+        x, _ = assemble(planC2, fl, 7)
+        write(f'{OUT}/C2_kaze-fue-shizuka' + (f'_{fl}' if fl else '') + '.wav', x * gains['C'])
