@@ -1,5 +1,4 @@
 import { expect, type Page } from '@playwright/test';
-import { measure } from './thunder';
 import type { Vec3 } from './blade';
 
 /**
@@ -39,24 +38,39 @@ export async function holdNiji(page: Page, power = 10): Promise<void> {
   }, power);
 }
 
-/** 一人称に する: 体の うしろに 石の かべを 立てて、カメラを 体に 近づける（doll が 見えなく なる まで） */
+/** 立てた かべ（あとで 消す）*/
+let wall: { x0: number; y0: number; z0: number; x1: number; y1: number; z1: number } | null = null;
+
+/** 一人称に する: カメラの ある 側（体の うしろ）に 石の かべを 立てて、カメラを 体に 近づける（doll が 見えなく なる まで） */
 export async function pushCameraIn(page: Page): Promise<void> {
-  const ok = await page.evaluate(() => {
+  const r = await page.evaluate(() => {
     const h = window.__rikkun as any;
     const p = h.player.get().position;
-    const x = Math.floor(p.x);
-    const z = Math.floor(p.z) + 1; // 北向き。うしろ = +z
+    const c = h.camera.get().position;
+    const dx = c.x - p.x, dz = c.z - p.z;
+    const m = Math.hypot(dx, dz) || 1;
+    const bx = Math.floor(p.x + (dx / m) * 1.0), bz = Math.floor(p.z + (dz / m) * 1.0);
     const y = Math.floor(p.y);
-    h.world.fill(x - 2, y, z, x + 2, y + 6, z, 'stone');
+    const w = { x0: bx - 2, y0: y, z0: bz - 2, x1: bx + 2, y1: y + 6, z1: bz + 2 };
+    h.world.fill(w.x0, w.y0, w.z0, w.x1, w.y1, w.z1, 'stone');
     h.step(30);
-    return h.player.doll().visible === false;
+    return { w, ok: h.player.doll().visible === false };
   });
-  expect(ok, 'うしろに かべを 立てても doll が 消えない（一人称に ならない）').toBe(true);
+  wall = r.w;
+  expect(r.ok, 'うしろに かべを 立てても doll が 消えない（一人称に ならない）').toBe(true);
 }
 
-/** 画面の 平均の 色（0〜255）。measure と 同じく 画面を 撮って 読む */
-export async function meanRgb(page: Page): Promise<{ r: number; g: number; b: number }> {
-  const buf = await page.screenshot();
+/** 立てた かべを 消す（空気に もどす） */
+export async function removeWall(page: Page): Promise<void> {
+  if (!wall) return;
+  await page.evaluate((w) => (window.__rikkun as any).world.fill(w.x0, w.y0, w.z0, w.x1, w.y1, w.z1, 'air'), wall);
+  wall = null;
+}
+
+/** 画面を 1 枚 撮って、平均の 明るさ・3 色とも 245 以上の 点の わり・平均の 色を 読む（save があれば 保存） */
+export async function shotStats(page: Page, save?: string): Promise<{ mean: number; white: number; r: number; g: number; b: number }> {
+  await page.evaluate(() => (window.__rikkun as any).renderStats());
+  const buf = await page.screenshot(save ? { path: `test-shots/${save}.png` } : {});
   return page.evaluate(async (b64) => {
     const blob = await (await fetch(`data:image/png;base64,${b64}`)).blob();
     const bmp = await createImageBitmap(blob);
@@ -64,12 +78,16 @@ export async function meanRgb(page: Page): Promise<{ r: number; g: number; b: nu
     const cx = cv.getContext('2d')!;
     cx.drawImage(bmp, 0, 0);
     const d = cx.getImageData(0, 0, bmp.width, bmp.height).data;
-    let r = 0, g = 0, b = 0;
+    let r = 0, g = 0, b = 0, white = 0;
     const n = bmp.width * bmp.height;
-    for (let i = 0; i < n * 4; i += 4) (r += d[i]!), (g += d[i + 1]!), (b += d[i + 2]!);
-    return { r: r / n, g: g / n, b: b / n };
+    for (let i = 0; i < n * 4; i += 4) {
+      r += d[i]!; g += d[i + 1]!; b += d[i + 2]!;
+      if (d[i]! >= 245 && d[i + 1]! >= 245 && d[i + 2]! >= 245) white++;
+    }
+    return { mean: (0.299 * r + 0.587 * g + 0.114 * b) / n, white: white / n, r: r / n, g: g / n, b: b / n };
   }, buf.toString('base64'));
 }
+export const meanRgb = shotStats;
 
 /** 画面の 明るさ・色を 読みながら か（shots）、読まずに か、1 ステップずつ 進めた きろく */
 async function snap(page: Page, F: number, shots: boolean, rgb: boolean): Promise<ShiningStep> {
@@ -95,8 +113,12 @@ async function snap(page: Page, F: number, shots: boolean, rgb: boolean): Promis
     };
   });
   let mean = NaN, white = NaN;
-  if (shots) ({ mean, white } = await measure(page, [], F === 100 ? `niji-F100-${s.dollVisible ? 'third' : 'first'}` : undefined));
-  const c = rgb ? await meanRgb(page) : null;
+  let c: { r: number; g: number; b: number } | null = null;
+  if (shots || rgb) {
+    const st = await shotStats(page, F === 100 ? `niji-F100-${s.dollVisible ? 'third' : 'first'}` : undefined);
+    mean = st.mean; white = st.white;
+    if (rgb) c = { r: st.r, g: st.g, b: st.b };
+  }
   return { F, ...s, mean, white, rgb: c };
 }
 

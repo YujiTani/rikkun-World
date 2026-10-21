@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { legendWorld, spawnAt } from './helpers/legend';
-import { countRises, holdNiji, meanRgb, NIJI, pushCameraIn, runShining, type ShiningStep } from './helpers/niji';
+import { countRises, holdNiji, meanRgb, removeWall, NIJI, pushCameraIn, runShining, type ShiningStep } from './helpers/niji';
 
 /**
  * WEAPON-9 PR-2（虹）の E2E（docs/design/WEAPON-7.md 版 2.5 §11）。AC33（通し）と AC41・AC42・AC43（シャイニングの コマ送りを 記録して 判定）の 2 本。
@@ -95,8 +95,12 @@ test('AC33: 通し（強さ 10・前 5 の からかさ 体力 99）: F1 shining
   // 実績: 虹を はじめて 手に 入れた ステップ（やり直して たしかめる）
   const ach = await page.evaluate(() => {
     const h = window.__rikkun as any;
+    // 3 しゅるい目で legend.kinds.3（LegendBook は reset() で 消えない ので、先に 雷神剣・風神剣を 手に 入れる）
     h.inventory.clear();
     h.achievements.reset();
+    h.step(1);
+    h.inventory.add('raijin_ken', 1);
+    h.inventory.add('fujin_ken', 1);
     h.step(1);
     h.inventory.add('niji', 1, { power: 7 });
     h.step(1);
@@ -158,4 +162,5 @@ test('AC43: まぶしすぎない: 上がり 1 回 以下・3 色とも 245 以�
     for (const k of ['r', 'g', 'b'] as const) expect(Math.abs(c[k] - beforeRgb[k]), `一人称 F${F} の ${k}（前 ${beforeRgb[k].toFixed(0)}）`).toBeLessThanOrEqual(12);
   }
   expect(errors).toEqual([]);
+  await removeWall(page);
 });
