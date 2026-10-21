@@ -2,6 +2,8 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import { standOnGround } from './helpers/aim';
 import { toStance } from './helpers/blade';
+import { aimGroundAhead, chargeUntilReady, legendWorld, releaseAndStep } from './helpers/legend';
+import { expectThunderHook } from './helpers/thunder';
 import { waitSpritesReady } from './helpers/char';
 import { findLand, openBooting } from './helpers/stream';
 import { wide } from './helpers/fine';
@@ -37,6 +39,8 @@ interface Screen {
   roots: string[];
   /** true なら くずれ（はみ出し・重なり）だけ しらべる（色・字の きまりは ほかの画面で見ている） */
   layoutOnly?: boolean;
+  /** true なら 大きさを かえるときに ステップを 進めない（見た目を 落雷の F に 止めて 3 つの 大きさで 撮る。ART-PIPE-1 AC7） */
+  freeze?: boolean;
   /** ゲームを開いたあと、この画面を出す */
   open(page: Page): Promise<void>;
 }
@@ -470,6 +474,92 @@ SCREENS.push(
   char4Scene('char4-thrust-katana-F5', 'katana', 'chudan', 5),
 );
 
+/**
+ * ART-PIPE-1 AC7: 雷 B の ささる 所（平地 / 板を よこぎる 高さ 3 の 石の かべ）の F9・F12 を 3 つの 大きさで 撮る（ui-reviewer が 切れ目の 線を 見る）。
+ *   今の 雷は この ブランチに ない ので、同じ 場面を main で 撮って ならべる（スクショは ui-gate-report/artpipe1-*.png）。
+ *   かべは S から よこへ 1 ブロック の ところに、板を よこぎる 向き（カメラの 奥ゆき）で 立てる。窓口 `__rikkun.thunder` が ないと 赤。
+ * ART-PIPE-1 AC18: 雷神剣の アイコン（ホットバー・もちもの・ツールチップ。いちばん 多い とき = 全部の マスが 雷神剣）。ちがいが 出るのは 雷神剣の 絵の 所だけ。
+ */
+const thunderScene = (id: string, wall: boolean, F: number): Screen => ({
+  id,
+  roots: ['#hud'],
+  layoutOnly: true,
+  freeze: true,
+  open: async (page) => {
+    const floorY = await legendWorld(page);
+    await expectThunderHook(page);
+    await aimGroundAhead(page, floorY, 8);
+    const ready = await chargeUntilReady(page, 60);
+    const S = ready[ready.length - 1]!.aim!.S!;
+    if (wall) {
+      await page.evaluate(
+        ({ S, fy }) => {
+          const h = window.__rikkun as any;
+          const x = Math.floor(S.x) + 1;
+          h.world.fill(x, fy + 1, Math.floor(S.z) - 3, x, fy + 3, Math.floor(S.z) + 3, 'stone');
+        },
+        { S, fy: floorY },
+      );
+    }
+    await releaseAndStep(page, F - 1);
+    const shown = await page.evaluate(() => (window.__rikkun as any).thunder.info());
+    expect({ F: shown.F, bolt: shown.bolt.visible }, `${id}: 雷が F${F} で 出ている 場面に なっていない`).toEqual({ F, bolt: true });
+  },
+});
+SCREENS.push(
+  thunderScene('artpipe1-flat-F9', false, 9),
+  thunderScene('artpipe1-flat-F12', false, 12),
+  thunderScene('artpipe1-wall-F9', true, 9),
+  thunderScene('artpipe1-wall-F12', true, 12),
+);
+
+const allRaijin = () => {
+  const h = window.__rikkun! as any;
+  h.inventory.clear();
+  for (let i = 0; i < 45; i++) {
+    try {
+      h.inventory.setSlot(i, { item: 'raijin_ken', count: 1 });
+    } catch {
+      break;
+    }
+  }
+  h.inventory.select(0);
+  h.step(2);
+};
+SCREENS.push(
+  {
+    id: 'artpipe1-icon-hud',
+    roots: ['#hud'],
+    layoutOnly: true, // 色・字の きまりは 'hud'・'inventory' の 画面で 見ている。ここは 絵の はみ出し・重なり
+    open: async (page) => {
+      await boot(page, true);
+      await page.evaluate(allRaijin);
+    },
+  },
+  {
+    id: 'artpipe1-icon-inventory',
+    roots: ['#inventory-screen', '#hud'],
+    layoutOnly: true, // 色・字の きまりは 'hud'・'inventory' の 画面で 見ている。ここは 絵の はみ出し・重なり
+    open: async (page) => {
+      await boot(page, true);
+      await page.evaluate(allRaijin);
+      await page.evaluate(toggleInventory);
+    },
+  },
+  {
+    id: 'artpipe1-icon-tooltip',
+    roots: ['#tooltip'],
+    layoutOnly: true, // 色・字の きまりは 'hud'・'inventory' の 画面で 見ている。ここは 絵の はみ出し・重なり
+    open: async (page) => {
+      await boot(page, true);
+      await page.evaluate(allRaijin);
+      await page.evaluate(toggleInventory);
+      await page.locator('#inventory-screen .slot[data-item="raijin_ken"]').first().hover();
+      await page.evaluate(() => (window.__rikkun as any).step(3));
+    },
+  },
+);
+
 interface Issue {
   kind: string;
   /** 数字を ふくまない 目印（known.json と くらべる） */
@@ -538,10 +628,10 @@ test.describe('UI 検査ゲート', () => {
       let rootsSeen = 0;
       for (const s of SIZES) {
         await page.setViewportSize({ width: s.w, height: s.h });
-        await page.evaluate(() => {
-          (window.__rikkun as any).step(2);
+        await page.evaluate((freeze) => {
+          (window.__rikkun as any).step(freeze ? 0 : 2); // step(0) は 進めずに 描きなおす
           return new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-        });
+        }, !!screen.freeze);
         rootsSeen += await page.evaluate((sels) => sels.filter((q) => document.querySelector(q)).length, screen.roots);
         for (const issue of await inspect(page, screen.roots, s === SIZES[0] && !screen.layoutOnly)) {
           const k = key(screen.id, issue);

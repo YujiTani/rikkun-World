@@ -1,0 +1,11 @@
+{
+  "issue": "ART-PIPE-1",
+  "api": "v2 REST (Authorization: Bearer dummy, クラウドの 通信で 自動認証)",
+  "balance_start": {"generations": 40, "usd": 0.0},
+  "calls": [
+    {"n": 1, "endpoint": "POST /v2/vfx", "artist": "lite", "job": "588cdc46-75d6-42e2-8080-5ef213ac3bde", "effect_id": "9cf2b075-9f16-4e3e-8600-50da62e550fe", "charged_generations": 1, "usd": 0.0, "out": "raijin-thunder-sketch.png/.gif/.json", "balance_after": 39},
+    {"n": 2, "endpoint": "POST /v2/create-image-pro-flash", "size": "32x32", "job": "ab3373d2-612c-4edf-bf2e-dbe530170ed9", "charged_generations": 5, "usd": 0.0, "out": "raijin-icon-sketch-32.png", "balance_after": 34}
+  ],
+  "balance_end": {"generations": 34, "usd": 0.0},
+  "use": "下絵だけ（ゲームには 入れない）。規約の たしかめは 本番の 前に PO"
+}

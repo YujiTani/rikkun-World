@@ -26,6 +26,7 @@ import type { AudioHook } from '../fx/bgm/hook';
 import type { ShadowHook } from '../world/render/shadow/shadowHook';
 import type { FrameClock } from '../world/frameClock';
 import type { PerfOverlay } from './perfOverlay';
+import type { ThunderHook } from '../fx/thunderFx';
 import type { CharSprite, SpriteInfo } from '../char';
 import type { SpriteMotion } from '../char';
 
@@ -124,6 +125,8 @@ export interface TestHook {
   ui: { alpha(): UiAlpha; /** WEAPON-7 §9: 画面の 上の 帯 */ topBand(): { kind: 'achieve' | 'telop' | 'appear' | null; item: string | null; age: number; leftSteps: number; queue: string[] } };
   /** WEAPON-7 §9: レジェンダリー武器（ため・ためわざ） */
   legend: { state(): unknown; events(): unknown[]; waves(): unknown[] };
+  /** ART-PIPE-1: 雷 B の 見た目（コマ・板の 向き・輪・つぶ・まわりの 明るさ・絵の 読み方）。型は e2e/helpers/thunder.ts */
+  thunder: ThunderHook;
 }
 
 declare global {
@@ -132,7 +135,7 @@ declare global {
   }
 }
 
-export type TestHookGroups = Pick<TestHook, 'shadow' | 'char' | 'world' | 'biome' | 'render' | 'player' | 'camera' | 'aim' | 'input' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'attack' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm' | 'log' | 'ui' | 'audio' | 'rarity' | 'animals' | 'parry' | 'legend'>;
+export type TestHookGroups = Pick<TestHook, 'shadow' | 'char' | 'world' | 'biome' | 'render' | 'player' | 'camera' | 'aim' | 'input' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'attack' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm' | 'log' | 'ui' | 'audio' | 'rarity' | 'animals' | 'parry' | 'legend' | 'thunder'>;
 
 export function installTestHook(game: Game, overlay: PerfOverlay, isReady: () => boolean, groups: TestHookGroups, clock: FrameClock = 'time'): void {
   window.__rikkun = {

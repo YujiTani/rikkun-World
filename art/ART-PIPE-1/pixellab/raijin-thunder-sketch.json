@@ -1,0 +1,287 @@
+{
+ "frames": [
+  {
+   "filename": "raijin-thunder-sketch 0.png",
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 128
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 128
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 128
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.5
+   },
+   "duration": 71
+  },
+  {
+   "filename": "raijin-thunder-sketch 1.png",
+   "frame": {
+    "x": 96,
+    "y": 0,
+    "w": 96,
+    "h": 128
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 128
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 128
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.5
+   },
+   "duration": 71
+  },
+  {
+   "filename": "raijin-thunder-sketch 2.png",
+   "frame": {
+    "x": 192,
+    "y": 0,
+    "w": 96,
+    "h": 128
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 128
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 128
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.5
+   },
+   "duration": 71
+  },
+  {
+   "filename": "raijin-thunder-sketch 3.png",
+   "frame": {
+    "x": 288,
+    "y": 0,
+    "w": 96,
+    "h": 128
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 128
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 128
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.5
+   },
+   "duration": 71
+  },
+  {
+   "filename": "raijin-thunder-sketch 4.png",
+   "frame": {
+    "x": 0,
+    "y": 128,
+    "w": 96,
+    "h": 128
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 128
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 128
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.5
+   },
+   "duration": 71
+  },
+  {
+   "filename": "raijin-thunder-sketch 5.png",
+   "frame": {
+    "x": 96,
+    "y": 128,
+    "w": 96,
+    "h": 128
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 128
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 128
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.5
+   },
+   "duration": 71
+  },
+  {
+   "filename": "raijin-thunder-sketch 6.png",
+   "frame": {
+    "x": 192,
+    "y": 128,
+    "w": 96,
+    "h": 128
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 128
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 128
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.5
+   },
+   "duration": 71
+  },
+  {
+   "filename": "raijin-thunder-sketch 7.png",
+   "frame": {
+    "x": 288,
+    "y": 128,
+    "w": 96,
+    "h": 128
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 128
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 128
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.5
+   },
+   "duration": 71
+  },
+  {
+   "filename": "raijin-thunder-sketch 8.png",
+   "frame": {
+    "x": 0,
+    "y": 256,
+    "w": 96,
+    "h": 128
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 128
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 128
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.5
+   },
+   "duration": 71
+  },
+  {
+   "filename": "raijin-thunder-sketch 9.png",
+   "frame": {
+    "x": 96,
+    "y": 256,
+    "w": 96,
+    "h": 128
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 96,
+    "h": 128
+   },
+   "sourceSize": {
+    "w": 96,
+    "h": 128
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.5
+   },
+   "duration": 71
+  }
+ ],
+ "meta": {
+  "app": "PixelLab VFX Creator",
+  "image": "raijin-thunder-sketch.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 384,
+   "h": 384
+  },
+  "scale": "1",
+  "anchor": {
+   "kind": "origin",
+   "x": 48,
+   "y": 64
+  },
+  "frameTags": [
+   {
+    "name": "raijin-thunder-sketch",
+    "from": 0,
+    "to": 9,
+    "direction": "forward"
+   }
+  ]
+ }
+}

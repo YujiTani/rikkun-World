@@ -1,0 +1,1 @@
+gamezxz/pixel-art-studio @ f8c2466（2026-07-11）。PO が中身を読んで 入れた（Pillow と 標準ライブラリだけ。通信なし）。2026-10-21 ART-PIPE-1
