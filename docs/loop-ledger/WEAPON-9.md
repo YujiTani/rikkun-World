@@ -38,3 +38,5 @@ dev / code-review(テスト準備 PR-2) | 【軽微】 | e2e/helpers/niji.ts:43-
 dev / code-review(テスト準備 PR-2) | 【軽微】 | src/tools/blade/combo.test.ts:95 `]) // ...(§5.5);` の 末尾 `;` が コメントの 中に 入って いる（動くが 読みにくい）。`]);` に 直す
 dev / code-review(再レビュー) | 【解消】 | 前の 重大(kinds.3)・軽微3(撮り1枚・yaw・combo の `;`) は 直った
 dev / code-review(再レビュー) | 【重大】 | e2e/helpers/niji.ts pushCameraIn: かべを x±2 × z(bz-2〜bz+2) の 5×5 の 箱で 埋めている。bz = floor(p.z + 1) なので 体の いる マス（p.z）も 箱に 入り、体が 石の 中に うまる（y〜y+6）。カメラも 石の 中で doll が 消えるだけに なり、一人称の 画面（AC43 の 明るさ・平均色）が 正しく はかれない。体の マスを のぞいて カメラ側の 1 まいの かべ（bz 1 マスぶんの 厚さ・横 ±2）だけ にする（z0=z1=bz）
+dev / code-review(再々レビュー) | 【解消】 | pushCameraIn は 体の マスを のぞいた 1 まいの かべに なった。getBlock は 型が `BlockId | 'outside'`（air は 'air'）で、`=== 'air'` で 足りる
+dev / code-review(再々レビュー) | 【軽微】 | e2e/helpers/niji.ts:60 bodyAir の `=== 0`・`== null` は 型に ない 値で 不要（'air' だけで よい）。害は ない
