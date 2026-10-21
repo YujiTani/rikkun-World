@@ -81,7 +81,7 @@ def model_a(H, st, cam):
     toward = norm(sub(cam.pos, H))
     if fade < 0.95:
         for layer, off in ((0, -0.3), (1, 0.0), (2, 0.3)):
-            items.append(("spr", add(H, mul(toward, off)), vortex_sprite(R, phi, layer, key), PX))
+            items.append(("spr", add(H, mul(toward, off)), vortex_sprite(R, phi, layer, key), PX, 1))  # 玉は 尾より あと
     # 尾: 2 本の らせん（ほんとうの 3D の 位置。見る 向きで 形が かわる）
     N = 14
     L = 3.0 * s
@@ -89,7 +89,7 @@ def model_a(H, st, cam):
         for i in range(1, N + 1):
             u = i / N
             sd = u * L
-            r = (0.7 * (1 - 0.45 * u)) * s * (1 + 0.8 * fade)
+            r = (0.95 * (1 - 0.5 * u)) * s * (1 + 0.8 * fade)  # 玉より 外を 回る → うしろから 見ると 渦の 腕
             a = phi + strand * math.pi + sd * (2 * math.pi / 1.4)
             pos = add(sub(H, mul(X, sd)), mul(_ax(a), r))
             kind = 0 if u < 0.3 else (1 if u < 0.6 else (2 if u < 0.85 else 3))
@@ -149,7 +149,7 @@ def model_c(H, st, cam):
     s, phi, fade, key = st["s"], st["phi"], st["fade"], st["key"]
     items = []
     rings = 4
-    tilt = math.radians(28)
+    tilt = math.radians(20)
     for i in range(rings):
         sd = i * 0.75 * s
         R = (0.78 - 0.13 * i) * s * (1 + 0.5 * fade)
@@ -173,10 +173,10 @@ def model_c(H, st, cam):
             head = g > 2 * math.pi - 1.2  # 切れ目の 前 = 風の 先（明るい）
             if front:
                 col = C["W1"] if (head or (key and i == 0)) else (C["W2"] if i < 2 else C["B1"])
-                size = PX * (2.2 if i == 0 else 1.7)
+                size = PX * (2.2 if i == 0 else 1.5)
             else:
                 col = C["B2"] if i < 2 else C["B3"]
-                size = PX * 1.2
+                size = PX * 1.0
             items.append(("dot", p, col, size))
     return items
 
@@ -187,12 +187,12 @@ MODELS = {"A": model_a, "B": model_b, "C": model_c}
 # 区間: 出る → のびる → 決め★ → とぶ（くり返し）→ ほどける
 TIMELINE = [
     {"name": "出る", "F": "F1-2", "steps": 2, "s": 0.35, "fade": 0.0, "key": False, "d": 0.6},
-    {"name": "のびる", "F": "F3-4", "steps": 2, "s": 0.75, "fade": 0.0, "key": False, "d": 1.1},
-    {"name": "★決め", "F": "F5-10", "steps": 6, "s": 1.0, "fade": 0.0, "key": True, "d": 2.2},
-    {"name": "とぶ 1", "F": "F11-", "steps": 3, "s": 1.0, "fade": 0.0, "key": False, "d": 3.6},
-    {"name": "とぶ 2", "F": "", "steps": 3, "s": 1.0, "fade": 0.0, "key": False, "d": 4.4},
-    {"name": "ほどける 1", "F": "おわり", "steps": 3, "s": 1.0, "fade": 0.4, "key": False, "d": 5.6},
-    {"name": "ほどける 2", "F": "", "steps": 3, "s": 1.0, "fade": 0.8, "key": False, "d": 6.2},
+    {"name": "のびる", "F": "F3-4", "steps": 2, "s": 0.75, "fade": 0.0, "key": False, "d": 1.3},
+    {"name": "★決め", "F": "F5-10", "steps": 6, "s": 1.0, "fade": 0.0, "key": True, "d": 3.0},
+    {"name": "とぶ 1", "F": "F11-", "steps": 3, "s": 1.0, "fade": 0.0, "key": False, "d": 4.2},
+    {"name": "とぶ 2", "F": "", "steps": 3, "s": 1.0, "fade": 0.0, "key": False, "d": 5.0},
+    {"name": "ほどける 1", "F": "おわり", "steps": 3, "s": 1.0, "fade": 0.4, "key": False, "d": 6.0},
+    {"name": "ほどける 2", "F": "", "steps": 3, "s": 1.0, "fade": 0.8, "key": False, "d": 6.6},
 ]
 SPIN = 2 * math.pi / 12  # 1 ステップの 回り（12 ステップで 1 回り = 1 秒に 5 回り）
 

@@ -124,7 +124,8 @@ def render(items, cam, bg=None, outline=None):
         if pr is None:
             continue
         rec.append((pr[2], pr, it))
-    rec.sort(key=lambda r: -r[0])
+    # 5 つ目の 値 = 描く 順（大きい ほど あと。ゲームの renderOrder。深さは 書かない ので 順で 決まる）
+    rec.sort(key=lambda r: (r[2][4] if len(r[2]) > 4 else 0, -r[0]))
     for zc, (sx, sy, _), it in rec:
         if it[0] == "dot":
             col, size = it[2], it[3]
