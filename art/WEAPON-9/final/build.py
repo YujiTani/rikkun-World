@@ -78,6 +78,22 @@ def make_slash():
     return res
 
 
+
+def count_tris(seg=16, rings=6, R=7.0, cy=0.9):
+    """球 seg×rings の 三角形を 数える。地面（中心の cy 下）より 上に 点が ある 面だけ（地面で 切る）"""
+    import itertools
+    n = 0
+    for r in range(rings):
+        la0, la1 = -math.pi / 2 + math.pi * r / rings, -math.pi / 2 + math.pi * (r + 1) / rings
+        top = R * math.sin(la1)
+        if top < -cy:
+            continue
+        n += seg if r in (0, rings - 1) else 2 * seg
+    return n
+
+
+SPH = count_tris()
+
 ORB, RING, BAND = make_orb(), make_ring(), make_band_tile()
 ORB_I, RING_I = ORB.composite(1), RING.composite(1)
 HUE = [C["G"], C["B"], C["M"]]
@@ -96,6 +112,7 @@ def render(fr, st, t, first):
         bx, by = ilon % 4, ilat % 4
         bay = B[by, bx]
         ov = np.zeros(N, bool)
+        m_old = np.zeros(N, bool)
         dk_all = np.zeros(N, bool)
         if front and not first:
             rim = 1 - ndv
@@ -103,9 +120,13 @@ def render(fr, st, t, first):
             w = (rim > 0.82) & ~dk
             y1 = (rim > 0.7) & ~w & ~dk & (bay < 0.8)
             y2 = (rim > 0.55) & ~w & ~dk & (rim <= 0.7) & (bay < 0.5)
-            fill = (rim <= 0.55) & (bay < 0.13)  # まく ぜんたいに うすい 光の 網
+            fill = np.zeros(N, bool)
+            fr_ = (rim <= 0.7)  # くもりガラス: やわらかい 白（足し算・3 段・中ほど 白い）
+            lvl = np.where(rim < 0.25, 3, np.where(rim < 0.5, 2, 1))
+            fro = fr_ & (lvl > 0)
             col[dk], col[w], col[y1], col[y2], col[fill] = C["D"], C["W"], C["Y1"], C["Y2"], C["Y1"]
             m |= w | y1 | y2 | fill | dk
+            FROST = (fro, lvl)
             ov |= w | y1 | dk | fill | y2
             dk_all = dk | w
         # にじの しま（両面。中から も 見える）
@@ -119,11 +140,11 @@ def render(fr, st, t, first):
         ln = (lat_px + nlat / 2) / nlat  # 0 = 下 … 1 = 上
         for pass_ in (0,):
             u = ((lon - rot - ln * 1.9 * math.pi) / (2 * math.pi) * 4) % 1.0
-            wdt = 0.27 * np.clip(1.0 - 0.75 * np.clip(ln - 0.15, 0, 1), 0.12, 1)
+            wdt = 0.30 * np.clip(1.0 - 0.75 * np.clip(ln - 0.15, 0, 1), 0.12, 1)
             if not front and not first:
                 inb = (u < wdt) & (np.abs(u - wdt / 2) < 0.04) & (bay < 0.5)
             else:
-                inb = (u < wdt) & ((ln > 0.28) | (bay < (ln + 0.05) * 3.4))
+                inb = (u < wdt) & ((ln > 0.12) | (bay < (ln + 0.04) * 8))
             jj = (np.floor((lon - rot - ln * 1.9 * math.pi) / (2 * math.pi) * 4)).astype(int)
             hue = (jj + np.floor(ln * 3 + t * 0.6).astype(int)) % 3
             hc = np.array(HUE)[hue]
@@ -135,6 +156,11 @@ def render(fr, st, t, first):
             col[sel] = add[sel]
             m |= sel
             ov |= sel
+        if front and not first:
+            fro, lvl = FROST
+            fz = fro & ~m
+            col[fz] = np.array([0.30, 0.29, 0.27])[None, :] * 255 * (lvl[fz, None] / 3.0)
+            m |= fz
         col[~ov] *= q
         if q < 1:  # 出る・消える は 網で 点を ぬく（明るさの 点滅 なし）
             ov &= bay < q
@@ -177,7 +203,7 @@ P = dict(
     ],
     data=[
         ["描画回数", "4（まく＋しま 1・輪 1・玉 1・かけら〈点〉1）"],
-        ["三角形", "148（球 16×6 の 下 1/4 を けずる 144・輪 2・玉 2・点 0）"],
+        ["三角形", f"{SPH + 4}（球 16×6 を 地面で 切る {SPH}・輪 2・玉 2・点 0。切らないと {16*10 + 4}）"],
         ["絵の 大きさ", "まくの しま 48×24 を くり返し・輪 112×112・玉 32×32"],
         ["色の 数", "9（白金 5 ＋ にじ 3 ＋ 網 1）"],
         ["一人称", "まく と 玉 を 出さない（しま・輪・かけら）"],
