@@ -55,7 +55,7 @@ export async function pushCameraIn(page: Page): Promise<void> {
 }
 
 /** 画面の 平均の 色（0〜255）。measure と 同じく 画面を 撮って 読む */
-async function meanRgb(page: Page): Promise<{ r: number; g: number; b: number }> {
+export async function meanRgb(page: Page): Promise<{ r: number; g: number; b: number }> {
   const buf = await page.screenshot();
   return page.evaluate(async (b64) => {
     const blob = await (await fetch(`data:image/png;base64,${b64}`)).blob();
@@ -104,18 +104,24 @@ async function snap(page: Page, F: number, shots: boolean, rgb: boolean): Promis
  * ためて（ticks 押す）→ はなす（そのステップ = F1）→ F260 まで 1 ステップずつ きろく。戻りは [F1 … F260]。
  * shots = 毎ステップ 画面を 撮る（明るさ）。rgbFrom〜rgbTo の F は 平均の 色も 読む。
  */
-export async function runShining(page: Page, o: { ticks: number; shots: boolean; rgbFrom?: number; rgbTo?: number }): Promise<ShiningStep[]> {
-  await page.evaluate((ticks) => {
+export async function runShining(
+  page: Page,
+  o: { ticks: number; shots: boolean; rgbFrom?: number; rgbTo?: number },
+): Promise<{ steps: ShiningStep[]; programsBefore: number }> {
+  const programsBefore = await page.evaluate((ticks) => {
     const h = window.__rikkun as any;
     h.combat.sounds();
     (window as any).__niSeen = h.legend.events().length;
     h.input.press('primary');
     h.step(ticks);
+    h.renderStats(); // たまった 描画を 流して から 数える
+    const n = h.thunder.programs() as number;
     h.input.release('primary');
+    return n;
   }, o.ticks);
-  const out: ShiningStep[] = [];
-  for (let F = 1; F <= 260; F++) out.push(await snap(page, F, o.shots, F >= (o.rgbFrom ?? 1e9) && F <= (o.rgbTo ?? -1)));
-  return out;
+  const steps: ShiningStep[] = [];
+  for (let F = 1; F <= 260; F++) steps.push(await snap(page, F, o.shots, F >= (o.rgbFrom ?? 1e9) && F <= (o.rgbTo ?? -1)));
+  return { steps, programsBefore };
 }
 
 /** ART-PIPE-1 AC16 と 同じ 数え方: 明るさの 上がり 回数 */
