@@ -587,6 +587,8 @@ const sparkAt = { x: 0, y: 0, z: 0 };
 // WEAPON-7: 雷の 見た目（十字の ドット絵・着地の 光・光の つぶ）
 const IDLE_THUNDER_LOOK = { charging: false, ready: false, hand: { x: 0, y: 0, z: 0 }, aimS: null };
 const thunderFx = new ThunderFx({ scene: game.scene, camera: game.camera, seed });
+// ART-PIPE-1: 落雷の 間だけ 世界を 絵に 描く 道（深さを 読む 雷・まわりを 明るく）
+game.setWorldPass(thunderFx);
 const windWaveFx = new WindWaveFx({ scene: game.scene, camera: game.camera });
 controller.lungeYokai = () => (yokaiManager ? yokaiManager.list() : []);
 const combat = new PlayerCombatImpl({
@@ -1948,6 +1950,7 @@ installTestHook(game, overlay, () => host.everReady, {
     state: () => parry.state(),
     events: () => parry.events(),
   } as unknown as TestHookGroups['parry'],
+  thunder: thunderFx.hook(game),
   legend: {
     state: () => ({ ...legend.state(), got: legendBook.got() }),
     events: () => legend.peekEvents(),

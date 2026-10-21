@@ -2,6 +2,7 @@ import type { ItemId, LegendaryCharge, PlayerMotionMod, Vec3, VoxelWorld, W2Sett
 import { legendDefOf, legendPowerOf } from './defs';
 import type { WaveEvent } from './WaveSystem';
 import { aimThunder, thunderTargets, type ThunderAim } from './aim';
+import { boltVariantOf } from './thunderModel';
 
 /**
  * WEAPON-7 §2.2・§3: レジェンダリー武器の ため・はなす・ためわざ（落雷）の 状態の しくみ。
@@ -137,13 +138,6 @@ export function createLegendSystem(deps: LegendDeps): LegendSystem {
   const seed = deps.seed ?? 0;
   const motionOut: PlayerMotionMod & { noRun: boolean } = { speedMul: 1, jumpLocked: false, faceDeg: null, stopNow: false, noRun: false };
 
-  function variantOf(n: number): number {
-    // シード付きの ならび（0〜3）。同じ 順で 同じ 形
-    let x = (Math.imul(n + 1, 0x9e3779b1) ^ Math.imul(seed | 0, 0x85ebca6b)) >>> 0;
-    x = Math.imul(x ^ (x >>> 15), 0x2c1b3c6d) >>> 0;
-    return (x >>> 7) % 4;
-  }
-
   function cancelCharge(held: boolean): void {
     if (charge) emit({ type: 'chargeCancel', tick: deps.tick() });
     charge = null;
@@ -233,7 +227,7 @@ export function createLegendSystem(deps: LegendDeps): LegendSystem {
         buffered = false;
         if (!ready) return { busy: false, fireTech: true };
         const a = aimThunder(deps.world, deps.yokai(), ctx.eye, ctx.dir, L.range);
-        const variant = variantOf(strikes++);
+        const variant = boltVariantOf(seed, strikes++);
         move = { F: 1, S: a.S ? { ...a.S } : null, skyVisible: a.skyVisible, variant, yaw: ctx.yawDeg, total: 5 + L.recovery, strikeF: L.strikeF };
         emit({ type: 'lightningStart', tick: deps.tick(), S: move.S ? { ...move.S } : null, skyVisible: a.skyVisible, variant });
         return { busy: true, fireTech: false };
