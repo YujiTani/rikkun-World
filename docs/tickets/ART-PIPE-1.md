@@ -53,3 +53,4 @@
 | 2026-10-21 | 0 | 3 案 | art-director: 雷 A/B/C ＋ アイコン ＋ PIPELINE.md。PixelLab 6 generations（40→34）。オーナーが 選ぶ 待ち |
 | 2026-10-21 | 0 | 選択 | yuzu: 雷は B・板は カメラ正面・PIPELINE の 数 OK（`docs/decisions/2026-10-21-thunder-b-billboard.md`）。アイコンは 新しい 案を 採用（同じ 日） |
 | 2026-10-21 | 1 | art-reviewer 合格 | 直す物 0。つなぎ目の 表を 1024×1024 に 合わせた（PO）。あとで: アイコンの 稲妻は ゲームで 見る・+35% は 試作スクショで |
+| 2026-10-21 | 1 | design-reviewer 合格 | 重大 0・軽微 7 → designer に まとめて 直してもらう |
