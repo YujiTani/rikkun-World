@@ -30,6 +30,7 @@ function rig(spec: Spec = {}) {
   const hits: { id: number; amount: number; from: Vec3; knock?: { dist: number; up: number } }[] = [];
   const events: LegendEvent[] = [];
   const sounds: string[] = [];
+  const stops: number[] = [];
   let tick = 100;
   let wear = 0;
   const S = createW2Settings();
@@ -40,7 +41,7 @@ function rig(spec: Spec = {}) {
     tick: () => tick,
     emit: (e) => events.push(e as LegendEvent),
     sound: (v) => sounds.push(`windWave${v}`),
-    spiralSound: () => sounds.push('spiralWind'),
+    spiralSound: () => (sounds.push('spiralWind'), { stop: (f: number) => void stops.push(f) }),
     onSpiralHit: () => (wear += 1),
     reducedMotion: () => spec.reduced ?? false,
     seed: 3,
@@ -61,7 +62,7 @@ function rig(spec: Spec = {}) {
     return rows;
   };
   const ev = (type: string) => events.filter((e) => e.type === type);
-  return { w, world, events, hits, sounds, ev, fire, advance, wear: () => wear, tick: () => tick, bumpTick: () => (tick += 1) };
+  return { w, world, events, hits, sounds, stops, ev, fire, advance, wear: () => wear, tick: () => tick, bumpTick: () => (tick += 1) };
 }
 
 describe('AC5: とび方（a の 数え方）', () => {
@@ -198,6 +199,25 @@ describe('AC8: ブロック', () => {
     expect(r.ev('spiralStart')).toHaveLength(1);
     expect((r.ev('spiralEnd') as { reason: string }[]).map((e) => e.reason)).toEqual(['block']);
     expect(r.w.list().filter((x) => x.kind === 'spiral')).toHaveLength(0);
+  });
+});
+
+describe('AC36: かべで 消えたら 音を 0.2 秒で 止める', () => {
+  it('block のとき stop(0.2) が 1 回。range では 止めない', () => {
+    const wall = rig({ blocks: [{ x0: 15, y0: FLOOR + 1, z0: 25, x1: 25, y1: FLOOR + 2, z1: 25, id: 'stone' }] });
+    wall.fire();
+    expect(wall.stops).toEqual([]);
+    wall.advance(30);
+    expect(wall.stops).toEqual([0.2]);
+    const open = rig();
+    open.fire();
+    open.advance(65);
+    expect(open.stops).toEqual([]);
+  });
+  it('目の前が かべ（F6 で block）でも 止める', () => {
+    const r = rig({ blocks: [{ x0: 15, y0: FLOOR + 1, z0: 29, x1: 25, y1: FLOOR + 3, z1: 29, id: 'stone' }] });
+    r.fire();
+    expect(r.stops).toEqual([0.2]);
   });
 });
 
@@ -345,7 +365,7 @@ describe('LegendSystem と つなぐ: F6 に かぜが 出る', () => {
       tick: () => tick,
       launchSpiral: (a) => waves.launchSpiral({ ...a, body: B }),
     });
-    const waves = createWaveSystem({ world, yokai: () => yw, settings: S, tick: () => tick, emit: (e) => (legend.emit(e as LegendEvent), out.push(e as LegendEvent)), spiralSound: () => sounds.push('spiralWind') });
+    const waves = createWaveSystem({ world, yokai: () => yw, settings: S, tick: () => tick, emit: (e) => (legend.emit(e as LegendEvent), out.push(e as LegendEvent)), spiralSound: () => void sounds.push('spiralWind') });
     const ctx = { item: FUJIN, active: true, pressed: false, held: false, startOk: true, bladeBusy: false, bladeAccepts: false, bladeChainOpen: false, eye: B, dir: { x: 0, y: 0, z: -1 }, position: { x: B.x, y: FLOOR + 1, z: B.z }, yawDeg: 0, inWater: false };
     const run = (o: object) => {
       tick += 1;

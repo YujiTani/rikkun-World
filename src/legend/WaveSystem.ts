@@ -36,7 +36,7 @@ export interface WaveDeps {
   /** 「ヒュオッ」。variant = 高さ（0〜2。前と ちがう 物） */
   sound?: (variant: number) => void;
   /** らせんの かぜの 音（F6 に 1 回） */
-  spiralSound?: () => void;
+  spiralSound?: () => { stop(fadeSec: number): void } | void;
   /** らせんの かぜが 1 体 以上に 当たった（1 つの かぜで 1 回）。たいきゅうを 1 へらす */
   onSpiralHit?: () => void;
   /** 「動きを減らす」（らせんを 回さない） */
@@ -88,6 +88,8 @@ interface Wave extends WaveView {
   origin: Vec3;
   bornTick: number;
   worn: boolean;
+  /** らせんの 音（かべで 消えたら 止める） */
+  sound: { stop(fadeSec: number): void } | null;
 }
 
 const round2 = (v: number): number => Math.round(v * 100 + 1e-7) / 100;
@@ -149,6 +151,7 @@ export function createWaveSystem(deps: WaveDeps): WaveSystem {
 
   function remove(list: Wave[], i: number, reason: 'range' | 'block'): void {
     const [w] = list.splice(i, 1);
+    if (reason === 'block') w!.sound?.stop(0.2);
     if (w!.kind === 'spiral') deps.emit({ type: 'spiralEnd', tick: deps.tick(), id: w!.id, reason, position: { ...w!.position }, traveled: w!.traveled });
     else deps.emit({ type: 'waveEnd', tick: deps.tick(), id: w!.id, reason, position: { ...w!.position } });
   }
@@ -218,6 +221,7 @@ export function createWaveSystem(deps: WaveDeps): WaveSystem {
       origin: { x: 0, y: 0, z: 0 },
       bornTick: -1,
       worn: false,
+      sound: null,
     };
   }
 
@@ -319,8 +323,9 @@ export function createWaveSystem(deps: WaveDeps): WaveSystem {
       spiralPoint(w, 0, w.position);
       look(w);
       deps.emit({ type: 'spiralStart', tick: deps.tick(), id: w.id, position: { ...w.position }, dir: { ...w.dir } });
-      deps.spiralSound?.();
+      w.sound = deps.spiralSound?.() ?? null;
       if (blockedAt(w.position)) {
+        w.sound?.stop(0.2);
         deps.emit({ type: 'spiralEnd', tick: deps.tick(), id: w.id, reason: 'block', position: { ...w.position }, traveled: 0 });
         rebuild();
         return;

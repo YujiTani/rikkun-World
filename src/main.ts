@@ -28,7 +28,7 @@ import { ArrowVisuals } from './fx/arrowVisuals';
 import { FurnaceFx } from './fx/furnaceFx';
 import type { FurnaceFxEntry } from './fx/furnaceFxModel';
 import { playCombat } from './fx/combatSounds';
-import { playLegend, preloadLegendSounds, startLegendLoop } from './fx/legendSounds';
+import { playLegend, preloadLegendSounds, startLegendLoop, startLegendOneShot } from './fx/legendSounds';
 import { createLegendSystem } from './legend/LegendSystem';
 import { createWaveSystem } from './legend/WaveSystem';
 import { createSpiralDebris } from './legend/spiralDebris';
@@ -594,7 +594,7 @@ const waveSys = createWaveSystem({
   tick: () => game.tick,
   emit: (e) => legend.emit(e),
   sound: (v) => playLegend(fxSound, 'windWave', v),
-  spiralSound: () => playLegend(fxSound, 'spiralWind'),
+  spiralSound: () => startLegendOneShot(fxSound, 'spiralWind'),
   onSpiralHit: () => inventory.wearHeld(1),
   reducedMotion: () => reducedMotionMq?.matches ?? false,
   view: () => waveView3d.view(),
