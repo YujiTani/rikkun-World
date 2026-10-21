@@ -40,7 +40,7 @@ def p2_uzu(rng):
         y = svf_bp(rng.standard_normal(n), f0 * (f1 / f0) ** u, 1.8 + 4.5 * u); y /= np.abs(y).max()
         out += y * (0.5 + 0.5 * np.sin(2 * np.pi * rot + ph))
     b = lp(svf_bp(rng.standard_normal(n), 200, 1.2), 450); b /= np.abs(b).max()
-    ch = fade((out * 0.6 + b * 0.35 * u) * (0.2 + 0.8 * u ** 1.5), 0.08, 0.01)
+    ch = fade(lp(lp((out * 0.6 + b * 0.35 * u) * (0.2 + 0.8 * u ** 1.5), 3500), 3500), 0.08, 0.01)  # 高い ザーッを けずる
     # いっぱい: うずが 閉じる「ふぉっ」（低い 胴が 入る）。ループは 回る 速さが そろった 一定の うず
     m = N(0.4); tt = np.arange(m) / SR
     puff = lp(svf_bp(rng.standard_normal(m), 600 * (300 / 600) ** (tt / 0.4), 2.0), 1200); puff /= np.abs(puff).max()
@@ -51,7 +51,7 @@ def p2_uzu(rng):
         y = svf_bp(rng.standard_normal(m), fc + 120 * np.sin(2 * np.pi * tt * 2 / (L + 0.3)), 5.0); y /= np.abs(y).max()
         lpx += y * (0.5 + 0.5 * np.sin(2 * np.pi * 22 * tt + ph))
     bb = lp(svf_bp(rng.standard_normal(m), 200, 1.2), 450); bb /= np.abs(bb).max()
-    return ch, rd, loopify((lpx * 0.4 + bb * 0.25) * 0.7, 0.3)
+    return ch, rd, loopify(lp(lp((lpx * 0.4 + bb * 0.25) * 0.5, 3000), 3000), 0.3)  # ループは ためより 小さく
 
 # ③ 低い「ゴゴゴ」が 力を ためて、いっぱいで「ドゥン」と 一段 かわる
 def p3_gogogo(rng):
@@ -69,7 +69,7 @@ def p3_gogogo(rng):
     h2 = osc(np.full(m, 240.0), ((1, 1.0), (2, 0.4), (3, 0.15))) + 0.5 * osc(np.full(m, 360.0), ((1, 1.0), (2, 0.3)))
     gg = lp(lp(rng.standard_normal(m), 300), 300); gg /= np.abs(gg).max()
     lpx = (lp(h2, 1200) * 0.35 + gg * 0.3) * (0.75 + 0.25 * np.sin(2 * np.pi * 8 * tt))
-    return ch, rd, loopify(lpx, 0.3)
+    return ch, rd, loopify(lpx * 0.7, 0.3)  # ループは ためより 小さく
 
 # ④ こどう「トクン…トクトク」が 速く なり、いっぱいで あたたかい 光の うなりに かわる
 def beat(f=95, g=1.0):
