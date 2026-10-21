@@ -13,6 +13,8 @@ export interface RenderStats {
   frameMsWorst: number;
   drawCalls: number;
   triangles: number;
+  /** 点の 描画の 数（three の info.render.points。土と 草の つぶ・手もとの 光） */
+  points: number;
   geometries: number;
   textures: number;
   /** 世界の renderer が 描いた 累計の 回数（three の info.render.frame。本が 出ている 間は ふえない） */
@@ -159,6 +161,7 @@ export class Game {
       frameMsWorst: this.frameStats.worstMs,
       drawCalls: info.render.calls,
       triangles: info.render.triangles,
+      points: info.render.points,
       geometries: info.memory.geometries,
       textures: info.memory.textures,
       frames: info.render.frame,

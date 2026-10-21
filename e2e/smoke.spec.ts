@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { findUnrubiedKanji } from '../src/ui/text';
 import { fine } from './helpers/fine';
 import { openBladeWorld, runTech, settle, stage, takeKatana, toStance } from './helpers/blade';
+import { FUJIN, chargeRun, legendWorld, types } from './helpers/legend';
 
 async function open(page: Page) {
   await page.goto('/');
@@ -90,5 +91,18 @@ test('刀の 3 つのわざを 1 回ずつ 出して、エラーが出ない', a
     await stage(page, { floorY });
   }
   expect(techs).toEqual(['thrust', 'kesa', 'kiriage']);
+  expect(errors).toEqual([]);
+});
+
+/** WEAPON-8 AC15: 風神剣で ためわざ「らせんの かぜ」を 1 回 出しても エラーが 出ない（仕様書 docs/design/WEAPON-8.md） */
+test('風神剣で らせんの かぜを 1 回 出して、エラーが出ない', async ({ page }) => {
+  test.setTimeout(120_000);
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
+  await legendWorld(page, FUJIN);
+  const rec = await chargeRun(page, 60, 110);
+  expect(types(rec), 'らせんが 出た').toContain('spiralStart');
+  expect(types(rec)).toContain('spiralEnd');
   expect(errors).toEqual([]);
 });

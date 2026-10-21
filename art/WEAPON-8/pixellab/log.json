@@ -1,0 +1,10 @@
+{
+  "issue": "WEAPON-8 (#239)",
+  "api": "v2 REST (Authorization: Bearer dummy)",
+  "balance_start": {"generations": 34, "usd": 0.0},
+  "calls": [
+    {"n": 1, "endpoint": "POST /v2/vfx", "artist": "lite", "job": "48067cd8-df88-4945-b197-b39eca3ce8f3", "effect_id": "c555460d-5f5f-4ce0-a974-261811ca0eb4", "quoted_generations": 1, "charged_generations": 1, "usd": 0.0, "out": "fujin-spiral-wind-sketch.png/.gif/.json, sketch_grid_x3.png", "balance_after": 33}
+  ],
+  "balance_end": {"generations": 33, "usd": 0.0},
+  "use": "下絵だけ（よこから 見た 二重らせんの 形と、のびる 4・まわる 4・ほどける 3 の 時間の 割りふり）。絵は 使わない"
+}

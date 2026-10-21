@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { aimAtBlock } from './helpers/aim';
 import { holdItems, settle, spawnAhead, toStance, type Vec3 } from './helpers/blade';
 import { FUJIN, RAIJIN, chargeRun, legendState, legendWorld, markLegend, pinNushiTable, resetStage, spawnNushiAhead, types } from './helpers/legend';
-import { comboWorld, mash, startList } from './helpers/combo';
+import { comboWorld, markNow, run, startList } from './helpers/combo';
 import { pressParry } from './helpers/parry';
 
 /**
@@ -63,7 +63,10 @@ async function stepW(page: Page, n: number, before: string): Promise<WStep[]> {
   ) as Promise<WStep[]>;
 }
 
-/** 左クリックを 1 ステップだけ 押して わざを 出し（F1 = i 0）、n ステップ きろくする */
+/**
+ * 左クリックを 1 ステップだけ 押して はなし、n ステップ きろくする。
+ * WEAPON-8 で 変わった: 風神剣も ためわざが ある ので、ふつうの わざは「はなした ステップ」が F1（= i 1）。
+ */
 const swing = (page: Page, n: number) => stepW(page, n, `(h, i) => { if (i === 0) h.input.press('primary'); if (i === 1) h.input.release('primary'); }`);
 
 const idx = (rec: WStep[], type: string): number => rec.findIndex((s) => s.events.some((e) => e.type === type));
@@ -95,19 +98,21 @@ test.describe('WEAPON-7 PR2 風神剣 しくみ（AC21）', () => {
     const d = legendary.find((x) => x.item === FUJIN);
     expect(d, 'legendary に fujin_ken').toBeDefined();
     expect(d.power).toBe(6);
-    expect(d.charge).toBeNull();
+    // WEAPON-8 で 期待が 変わった（理由: 風神剣に ためわざ「らせんの かぜ」。docs/design/WEAPON-8.md §4・AC1）
+    expect(d.charge).toEqual({ kind: 'spiral', chargeTicks: 60, launchF: 6, recovery: 40, speed: 12, range: 12, radius: 1.0, damageMul: 2.0, knock: [3, 1] });
     expect(d.onAttack).toEqual([{ kind: 'wave', speed: 15, range: 5, radius: 0.5, damageMul: 0.3, knock: [0.5, 0] }]);
     expect(d.passive).toEqual([{ kind: 'moveMul', mul: 1.2 }]);
     expect(drops.map((x) => x.item)).toContain(FUJIN);
     expect(dur).toEqual({ max: 10000, left: 10000 });
   });
 
-  test('AC21: ためない（chargeStart なし）・押しつづけで わざを くり返す', async ({ page }) => {
+  // WEAPON-8 で 期待が 変わった（理由: オーナーの ことば Y1「風神剣にも チャージ」。仕様 §2.1「押しつづけ = ため」・§9）
+  test('AC21（WEAPON-8 で 直し）: 押しつづけは ため（chargeStart あり）・ふつうの わざを くり返さない', async ({ page }) => {
     await legendWorld(page, FUJIN);
     const rec = await chargeRun(page, 100, 0);
-    expect(types(rec)).not.toContain('chargeStart');
-    expect(rec.every((s) => s.charge === null && s.move === null)).toBe(true);
-    expect(rec.filter((s) => s.bladeF === 1).length, '押しつづけで くり返す').toBeGreaterThanOrEqual(2);
+    expect(types(rec.slice(0, 100))).toContain('chargeStart');
+    expect(rec.slice(0, 100).every((s) => s.bladeTech === null), '押している 間は ふつうの わざを 出さない').toBe(true);
+    expect(rec.slice(0, 100).filter((s) => s.bladeF === 1), '押しつづけで くり返さない').toHaveLength(0);
   });
 });
 
@@ -195,11 +200,11 @@ test.describe('WEAPON-7 PR2 風神剣 真空波（AC23）', () => {
       await toStance(page, c.stance);
       await markLegend(page);
       const rec = await swing(page, 70);
-      expect(rec[0].tech).toBe(c.tech);
-      expect(rec[0].f, 'F1').toBe(1);
+      expect(rec[1].tech).toBe(c.tech);
+      expect(rec[1].f, 'F1（はなした ステップ。WEAPON-8 で 直し）').toBe(1);
       expect(count(rec, 'waveStart'), 'waveStart は 1 つ').toBe(1);
       const at = idx(rec, 'waveStart');
-      expect(at + 1, `F${c.F}`).toBe(c.F);
+      expect(at, `F${c.F}（F1 = i 1 なので i = F）`).toBe(c.F);
       expect(rec[at].waves, 'その ステップに 1 つ とんでいる').toHaveLength(1);
       // 進み方: 1 ステップ 0.25（前の ステップとの 位置の 差）・向きは 水平
       const pos = (k: number) => rec[k].waves[0]!.position;
@@ -339,7 +344,8 @@ test.describe('WEAPON-7 PR2 風神剣 通し（AC25）', () => {
     page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
     await legendWorld(page, FUJIN);
     await markLegend(page);
-    const rec = await stepW(page, 100, `(h, i) => { if (i === 0) { h.input.press('primary'); h.input.press('moveForward'); } }`);
+    // WEAPON-8 で 直し: 押しつづけは ため。何度も 押して はなす 形に する（30 ステップごと）
+    const rec = await stepW(page, 100, `(h, i) => { if (i === 0) h.input.press('moveForward'); if (i % 30 === 0) h.input.press('primary'); if (i % 30 === 1) h.input.release('primary'); }`);
     expect(count(rec, 'waveStart')).toBeGreaterThanOrEqual(2);
     expect(errors).toEqual([]);
   });
@@ -407,10 +413,13 @@ test.describe('WEAPON-7 PR2 風神剣 実績・ヌシ（AC26）', () => {
 });
 
 test.describe('WEAPON-7 風神剣の 3 段攻撃', () => {
-  test('毎ステップ 押す → 3 段（AC12 と 同じ 数）・段ごとに waveStart 1 つ（3 回）', async ({ page }) => {
+  // WEAPON-8: 風神剣は 押しつづけ = ため（仕様 §9）。毎ステップ 押しつづけず、押す・はなす を くり返す（1 ステップ 押して 1 ステップ はなす）
+  test('押す・はなすを くり返す → 3 段（AC12 と 同じ 数）・段ごとに waveStart 1 つ（3 回）', async ({ page }) => {
     await comboWorld(page, 'chudan', FUJIN);
     await markLegend(page);
-    const rec = await mash(page, 80, `(h) => { (window.__ev = window.__ev || []).push(0); }`);
+    await markNow(page);
+    const rec = await run(page, 80, { before: `(h, i) => { if (i % 2 === 0) h.input.press('primary'); else h.input.release('primary'); }` });
+    await page.evaluate(() => (window.__rikkun as any).input.releaseAll());
     expect(startList(rec).slice(0, 3)).toEqual([
       [0, 1, 'thrust'],
       [20, 2, 'kiriage'],

@@ -22,7 +22,7 @@ import {
  * - 地面の 輪: 寝かせた 板 1 まい。つぶ: 32 こ まとめて 1 回。
  * - まわりを 明るく: 落雷の 間（F1〜F88）だけ 世界を 1 回「絵（色 ＋ 深さ）」に 描き、画面に うつす とき 光を 足す。
  *   世界は 2 回 描かない。ふだんは 今まで どおり 画面へ じかに 描く。うつす 板は 深さも 書きもどす ので、輪・つぶ・雷は ふつうの 深さテストで ブロックに かくれる。
- * - ため中の 手の 光・ため いっぱいの わは 今の まま（thunder_ground.png。雷 B の 数には ふくめない）。
+ * - ため中の 手の 光は WEAPON-8 で 手もとの 光（`ChargeLightFx`）に かわった。ため いっぱいの 地面の わ（ねらいの 印）は 今の まま（thunder_ground.png。雷 B の 数には ふくめない）。
  */
 
 const BASE = './models/fx/';
@@ -63,8 +63,6 @@ export interface ThunderFxDeps {
 export interface ChargeLook {
   charging: boolean;
   ready: boolean;
-  /** 刀を かかげた 点（足もと + 上） */
-  hand: Vec3;
   /** ため いっぱいの わ（S）。見えない ときは null */
   aimS: Vec3 | null;
 }
@@ -258,11 +256,8 @@ export class ThunderFx {
     uNearFar: { value: new THREE.Vector2(0.1, 500) },
   };
 
-  // ため中（今の まま）
+  // ため いっぱいの 地面の ねらいの わ（今の まま）
   private readonly aimMesh: THREE.Mesh;
-  private readonly handMesh = new THREE.Group();
-  private readonly handMat: THREE.MeshBasicMaterial;
-  private readonly glowTex: THREE.Texture;
   private readonly aimTex: THREE.Texture;
 
   // 世界の 絵（落雷の 間だけ 使う）
@@ -360,28 +355,15 @@ export class ThunderFx {
     this.bits.setColorAt(0, _c.setHex(WHITE)); // instanceColor を 作る
     this.fxScene.add(this.bits);
 
-    // ため中の 手の 光・ため いっぱいの わ（今の まま。thunder_ground.png の 128×128 版）
-    this.glowTex = loadTexture(`${base}thunder_ground.png`, 0.5, 0.5);
-    this.glowTex.offset.set(0, 0.5);
+    // ため いっぱいの 地面の わ（thunder_ground.png の 128×128 版）
     this.aimTex = loadTexture(`${base}thunder_ground.png`, 0.5, 0.5);
     this.aimTex.offset.set(0.5, 0.5);
     const flat2 = new THREE.PlaneGeometry(1, 1);
     flat2.rotateX(-Math.PI / 2);
     this.aimMesh = new THREE.Mesh(flat2, additive(this.aimTex));
-    this.handMat = additive(this.glowTex, { depthTest: false });
-    const handGeo = new THREE.PlaneGeometry(1, 1);
-    for (const ry of [0, Math.PI / 2]) {
-      const hm = new THREE.Mesh(handGeo, this.handMat);
-      hm.rotation.y = ry;
-      hm.frustumCulled = false;
-      hm.renderOrder = 3;
-      this.handMesh.add(hm);
-    }
-    for (const m of [this.aimMesh, this.handMesh]) {
-      m.visible = false;
-      m.frustumCulled = false;
-      this.group.add(m);
-    }
+    this.aimMesh.visible = false;
+    this.aimMesh.frustumCulled = false;
+    this.group.add(this.aimMesh);
     deps.scene.add(this.group);
 
     // 画面に うつす 板（深さも 書きもどす）
@@ -419,15 +401,8 @@ export class ThunderFx {
     this.shown = v;
     this.timeline.step();
 
-    // ため中の 光は 落雷が 始まったら（F1〜8）消す。描画回数に のこさない
+    // ねらいの わは 落雷が 始まったら（F1〜8）消す。描画回数に のこさない
     const falling = v.active && v.F <= 8;
-    this.handMesh.visible = look.charging && !falling;
-    if (this.handMesh.visible) {
-      const s = look.ready ? 1.5 : 0.8;
-      this.handMesh.position.set(look.hand.x, look.hand.y, look.hand.z);
-      this.handMesh.scale.set(s, s, s);
-      this.handMat.color.setHex(look.ready ? WHITE : PALE);
-    }
     this.aimMesh.visible = look.ready && look.aimS !== null && !falling;
     if (this.aimMesh.visible && look.aimS) {
       this.aimMesh.position.set(look.aimS.x, look.aimS.y + 0.04, look.aimS.z);
@@ -676,7 +651,7 @@ export class ThunderFx {
 
   dispose(): void {
     this.group.removeFromParent();
-    for (const t of [this.sheet, this.ringTex, this.sparkTex, this.glowTex, this.aimTex]) t.dispose();
+    for (const t of [this.sheet, this.ringTex, this.sparkTex, this.aimTex]) t.dispose();
     this.disposeRt();
     for (const root of [this.group, this.fxScene, this.blitScene]) {
       root.traverse((o) => {

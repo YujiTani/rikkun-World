@@ -1,0 +1,552 @@
+{
+ "floorY": 149,
+ "bg_back": {
+  "cam": {
+   "view": "third",
+   "overview": false,
+   "position": {
+    "x": 21.2,
+    "y": 151.4,
+    "z": 24.5
+   },
+   "eye": {
+    "x": 20.5,
+    "y": 151.62,
+    "z": 20.5
+   },
+   "pivot": {
+    "x": 20.5,
+    "y": 152.12,
+    "z": 20.5
+   },
+   "shoulder": {
+    "x": 21.2,
+    "y": 151.4,
+    "z": 20.5
+   },
+   "shoulderOffset": 0.7,
+   "distanceToEye": 4.06674316867933,
+   "distanceToPivot": 4.124124149440703,
+   "distanceToBody": 4.080441152620633,
+   "hideChar": false
+  },
+  "fov": 75,
+  "player": {
+   "position": {
+    "x": 20.5,
+    "y": 150,
+    "z": 20.5
+   },
+   "velocity": {
+    "x": 0,
+    "y": 0,
+    "z": 0
+   },
+   "yaw": 0,
+   "pitch": 0,
+   "forward": {
+    "x": 0,
+    "z": -1
+   },
+   "onGround": true,
+   "facing": 0,
+   "running": false
+  },
+  "waves": [],
+  "w": 1280,
+  "hh": 800
+ },
+ "ww_back_a": {
+  "cam": {
+   "view": "third",
+   "overview": false,
+   "position": {
+    "x": 21.2,
+    "y": 151.4,
+    "z": 24.303333333333338
+   },
+   "eye": {
+    "x": 20.5,
+    "y": 151.62,
+    "z": 20.303333333333338
+   },
+   "pivot": {
+    "x": 20.5,
+    "y": 152.12,
+    "z": 20.303333333333338
+   },
+   "shoulder": {
+    "x": 21.2,
+    "y": 151.4,
+    "z": 20.303333333333338
+   },
+   "shoulderOffset": 0.7,
+   "distanceToEye": 4.06674316867933,
+   "distanceToPivot": 4.124124149440703,
+   "distanceToBody": 4.080441152620633,
+   "hideChar": false
+  },
+  "fov": 75,
+  "player": {
+   "position": {
+    "x": 20.5,
+    "y": 150,
+    "z": 20.242500000000003
+   },
+   "velocity": {
+    "x": 0,
+    "y": 0,
+    "z": 0
+   },
+   "yaw": 0,
+   "pitch": 0,
+   "forward": {
+    "x": 0,
+    "z": -1
+   },
+   "onGround": true,
+   "facing": 0,
+   "running": false
+  },
+  "waves": [
+   {
+    "id": 1,
+    "position": {
+     "x": 20.5,
+     "y": 151.4,
+     "z": 20.242500000000003
+    },
+    "dir": {
+     "x": 0,
+     "y": 0,
+     "z": -1
+    },
+    "traveled": 0
+   }
+  ],
+  "w": 1280,
+  "hh": 800
+ },
+ "ww_back_b": {
+  "cam": {
+   "view": "third",
+   "overview": false,
+   "position": {
+    "x": 21.2,
+    "y": 151.4,
+    "z": 24.199285714285715
+   },
+   "eye": {
+    "x": 20.5,
+    "y": 151.62,
+    "z": 20.199285714285715
+   },
+   "pivot": {
+    "x": 20.5,
+    "y": 152.12,
+    "z": 20.199285714285715
+   },
+   "shoulder": {
+    "x": 21.2,
+    "y": 151.4,
+    "z": 20.199285714285715
+   },
+   "shoulderOffset": 0.7,
+   "distanceToEye": 4.06674316867933,
+   "distanceToPivot": 4.124124149440703,
+   "distanceToBody": 4.080441152620633,
+   "hideChar": false
+  },
+  "fov": 75,
+  "player": {
+   "position": {
+    "x": 20.5,
+    "y": 150,
+    "z": 20.195
+   },
+   "velocity": {
+    "x": 0,
+    "y": 0,
+    "z": 0
+   },
+   "yaw": 0,
+   "pitch": 0,
+   "forward": {
+    "x": 0,
+    "z": -1
+   },
+   "onGround": true,
+   "facing": 0,
+   "running": false
+  },
+  "waves": [
+   {
+    "id": 1,
+    "position": {
+     "x": 20.5,
+     "y": 151.4,
+     "z": 18.742500000000003
+    },
+    "dir": {
+     "x": 0,
+     "y": 0,
+     "z": -1
+    },
+    "traveled": 1.5
+   }
+  ],
+  "w": 1280,
+  "hh": 800
+ },
+ "bg_side": {
+  "cam": {
+   "view": "third",
+   "overview": false,
+   "position": {
+    "x": 24.544876636728038,
+    "y": 151.4,
+    "z": 20.85912810200773
+   },
+   "eye": {
+    "x": 20.5,
+    "y": 151.62,
+    "z": 20.5
+   },
+   "pivot": {
+    "x": 20.5,
+    "y": 152.12,
+    "z": 20.5
+   },
+   "shoulder": {
+    "x": 20.681173331571763,
+    "y": 151.4,
+    "z": 19.82385192159765
+   },
+   "shoulderOffset": 0.7,
+   "distanceToEye": 4.06674316867933,
+   "distanceToPivot": 4.124124149440702,
+   "distanceToBody": 4.080441152620633,
+   "hideChar": false
+  },
+  "fov": 75,
+  "player": {
+   "position": {
+    "x": 20.5,
+    "y": 150,
+    "z": 20.5
+   },
+   "velocity": {
+    "x": 0,
+    "y": 0,
+    "z": 0
+   },
+   "yaw": 285,
+   "pitch": 0,
+   "forward": {
+    "x": -0.9659258262890684,
+    "z": -0.2588190451025203
+   },
+   "onGround": true,
+   "facing": 0,
+   "running": false
+  },
+  "waves": [],
+  "w": 1280,
+  "hh": 800
+ },
+ "ww_side": {
+  "cam": {
+   "view": "third",
+   "overview": false,
+   "position": {
+    "x": 24.544876636728038,
+    "y": 151.4,
+    "z": 20.591628102007732
+   },
+   "eye": {
+    "x": 20.5,
+    "y": 151.62,
+    "z": 20.2325
+   },
+   "pivot": {
+    "x": 20.5,
+    "y": 152.12,
+    "z": 20.2325
+   },
+   "shoulder": {
+    "x": 20.681173331571763,
+    "y": 151.4,
+    "z": 19.556351921597653
+   },
+   "shoulderOffset": 0.7,
+   "distanceToEye": 4.06674316867933,
+   "distanceToPivot": 4.124124149440702,
+   "distanceToBody": 4.080441152620633,
+   "hideChar": false
+  },
+  "fov": 75,
+  "player": {
+   "position": {
+    "x": 20.5,
+    "y": 150,
+    "z": 20.2175
+   },
+   "velocity": {
+    "x": 0,
+    "y": 0,
+    "z": 0
+   },
+   "yaw": 285,
+   "pitch": 0,
+   "forward": {
+    "x": -0.9659258262890684,
+    "z": -0.2588190451025203
+   },
+   "onGround": true,
+   "facing": 0,
+   "running": false
+  },
+  "waves": [
+   {
+    "id": 2,
+    "position": {
+     "x": 20.5,
+     "y": 151.4,
+     "z": 19.742500000000003
+    },
+    "dir": {
+     "x": 0,
+     "y": 0,
+     "z": -1
+    },
+    "traveled": 0.5
+   }
+  ],
+  "w": 1280,
+  "hh": 800
+ },
+ "ch_back_F30": {
+  "cam": {
+   "view": "third",
+   "overview": false,
+   "position": {
+    "x": 21.2,
+    "y": 151.4,
+    "z": 24.5
+   },
+   "eye": {
+    "x": 20.5,
+    "y": 151.62,
+    "z": 20.5
+   },
+   "pivot": {
+    "x": 20.5,
+    "y": 152.12,
+    "z": 20.5
+   },
+   "shoulder": {
+    "x": 21.2,
+    "y": 151.4,
+    "z": 20.5
+   },
+   "shoulderOffset": 0.7,
+   "distanceToEye": 4.06674316867933,
+   "distanceToPivot": 4.124124149440703,
+   "distanceToBody": 4.080441152620633,
+   "hideChar": false
+  },
+  "fov": 75,
+  "player": {
+   "position": {
+    "x": 20.5,
+    "y": 150,
+    "z": 20.5
+   },
+   "velocity": {
+    "x": 0,
+    "y": 0,
+    "z": 0
+   },
+   "yaw": 0,
+   "pitch": 0,
+   "forward": {
+    "x": 0,
+    "z": -1
+   },
+   "onGround": true,
+   "facing": 0,
+   "running": false
+  },
+  "waves": [],
+  "w": 1280,
+  "hh": 800
+ },
+ "ch_back_F62": {
+  "cam": {
+   "view": "third",
+   "overview": false,
+   "position": {
+    "x": 21.2,
+    "y": 151.4,
+    "z": 24.5
+   },
+   "eye": {
+    "x": 20.5,
+    "y": 151.62,
+    "z": 20.5
+   },
+   "pivot": {
+    "x": 20.5,
+    "y": 152.12,
+    "z": 20.5
+   },
+   "shoulder": {
+    "x": 21.2,
+    "y": 151.4,
+    "z": 20.5
+   },
+   "shoulderOffset": 0.7,
+   "distanceToEye": 4.06674316867933,
+   "distanceToPivot": 4.124124149440703,
+   "distanceToBody": 4.080441152620633,
+   "hideChar": false
+  },
+  "fov": 75,
+  "player": {
+   "position": {
+    "x": 20.5,
+    "y": 150,
+    "z": 20.5
+   },
+   "velocity": {
+    "x": 0,
+    "y": 0,
+    "z": 0
+   },
+   "yaw": 0,
+   "pitch": 0,
+   "forward": {
+    "x": 0,
+    "z": -1
+   },
+   "onGround": true,
+   "facing": 0,
+   "running": false
+  },
+  "waves": [],
+  "w": 1280,
+  "hh": 800
+ },
+ "ch_back_F90": {
+  "cam": {
+   "view": "third",
+   "overview": false,
+   "position": {
+    "x": 21.2,
+    "y": 151.4,
+    "z": 24.5
+   },
+   "eye": {
+    "x": 20.5,
+    "y": 151.62,
+    "z": 20.5
+   },
+   "pivot": {
+    "x": 20.5,
+    "y": 152.12,
+    "z": 20.5
+   },
+   "shoulder": {
+    "x": 21.2,
+    "y": 151.4,
+    "z": 20.5
+   },
+   "shoulderOffset": 0.7,
+   "distanceToEye": 4.06674316867933,
+   "distanceToPivot": 4.124124149440703,
+   "distanceToBody": 4.080441152620633,
+   "hideChar": false
+  },
+  "fov": 75,
+  "player": {
+   "position": {
+    "x": 20.5,
+    "y": 150,
+    "z": 20.5
+   },
+   "velocity": {
+    "x": 0,
+    "y": 0,
+    "z": 0
+   },
+   "yaw": 0,
+   "pitch": 0,
+   "forward": {
+    "x": 0,
+    "z": -1
+   },
+   "onGround": true,
+   "facing": 0,
+   "running": false
+  },
+  "waves": [],
+  "w": 1280,
+  "hh": 800
+ },
+ "ch_side_F90": {
+  "cam": {
+   "view": "third",
+   "overview": false,
+   "position": {
+    "x": 24.544876636728038,
+    "y": 151.4,
+    "z": 20.85912810200773
+   },
+   "eye": {
+    "x": 20.5,
+    "y": 151.62,
+    "z": 20.5
+   },
+   "pivot": {
+    "x": 20.5,
+    "y": 152.12,
+    "z": 20.5
+   },
+   "shoulder": {
+    "x": 20.681173331571763,
+    "y": 151.4,
+    "z": 19.82385192159765
+   },
+   "shoulderOffset": 0.7,
+   "distanceToEye": 4.06674316867933,
+   "distanceToPivot": 4.124124149440702,
+   "distanceToBody": 4.080441152620633,
+   "hideChar": false
+  },
+  "fov": 75,
+  "player": {
+   "position": {
+    "x": 20.5,
+    "y": 150,
+    "z": 20.5
+   },
+   "velocity": {
+    "x": 0,
+    "y": 0,
+    "z": 0
+   },
+   "yaw": 285,
+   "pitch": 0,
+   "forward": {
+    "x": -0.9659258262890684,
+    "z": -0.2588190451025203
+   },
+   "onGround": true,
+   "facing": 0,
+   "running": false
+  },
+  "waves": [],
+  "w": 1280,
+  "hh": 800
+ }
+}

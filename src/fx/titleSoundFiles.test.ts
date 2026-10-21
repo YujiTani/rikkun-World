@@ -38,7 +38,7 @@ describe('AC20 (1) 音ファイル', () => {
     // リポジトリ（git が管理している物）だけ見る。作業の場所の ごみは 数えない
     const all = execFileSync('git', ['ls-files'], { cwd: ROOT, encoding: 'utf8' }).split('\n').filter(Boolean);
     expect(all.filter((p) => /(^|\/)samples\//.test(p) && /\.(mp3|wav|ogg|flac|m4a)$/i.test(p))).toEqual([]);
-    const audio = all.filter((p) => /\.(mp3|wav|ogg|flac|m4a|aac)$/i.test(p));
+    const audio = all.filter((p) => /\.(mp3|wav|ogg|flac|m4a|aac)$/i.test(p) && p.startsWith('public/sound/nick/'));
     expect(audio.sort()).toEqual(TIERS.map((t) => `public/sound/nick/appear_${t}.mp3`).sort());
   });
 

@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { createW2Settings, type ItemId, type YokaiInfo } from '../contracts';
-import { createWaveSystem, type WaveEvent, type WaveStepCtx } from './WaveSystem';
+import { createWaveSystem, type SpiralEvent, type WaveEvent, type WaveStepCtx } from './WaveSystem';
 
 const ITEM = 'fujin_ken' as ItemId;
 const ctx = (over: Partial<WaveStepCtx> = {}): WaveStepCtx => ({ item: ITEM, tech: 'thrust', phase: 'active', frame: 5, startup: 4, dirDeg: 0, body: { x: 0.5, y: 1.4, z: 0.5 }, ...over });
 const idle = ctx({ phase: 'idle', tech: null, frame: 0 });
 
 function rig(solid: (x: number, y: number, z: number) => boolean = () => false, yokai: Partial<YokaiInfo>[] = []) {
-  const events: WaveEvent[] = [];
+  const events: (WaveEvent | SpiralEvent)[] = [];
   const dmg: number[] = [];
   const sounds: number[] = [];
   const list = yokai.map((y, i) => ({ id: i + 1, kind: 'karakasa', scale: 1, state: 'idle', position: { x: 0.5, y: 0, z: -3 }, ...y })) as unknown as YokaiInfo[];
