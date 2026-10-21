@@ -1,0 +1,20 @@
+const PAL = { K: 0x1b1240, d: 0x33268a, D: 0x6a3fc8, M: 0xa57cff, L: 0xf1e4ff, Y: 0xfff0a8, G: 0xf2c230, g: 0xb8860b, N: 0x24336e, n: 0x3f56a8 };
+
+const RAIJIN_KEN = [
+  '..............K.',
+  '......Y......KLK',
+  '.....Y......KLdK',
+  '....YYY....KLMdK',
+  '.....Y.....KLDdK',
+  '....Y.....KLMDdK',
+  '..........KLLdK.',
+  '.........KLMDdK.',
+  '........KLLDdK..',
+  '.....K.KLMDdK...',
+  '....KGKLLDdK....',
+  '....KGLMdKK.....',
+  '...KnNgKK.......',
+  '..KNnKK.........',
+  '.KnNK...........',
+  'KGKK............',
+];

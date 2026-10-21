@@ -483,15 +483,16 @@ def make_sheet(P):
     sh.text((24, y3), "よこから 見た 動き（コマ と ステップ。1 ステップ = 1/60 秒。★ = 決めの コマ）", 18, (255, 226, 150))
     x = 24
     frames_gif = []
+    n_tl = len(tl)
+    cw = min(120, (W - 48) // n_tl // 2 - 4)  # コマが 多い ときは はばを せまく
+    step = cw * 2 + 8
     for i, e in enumerate(tl):
         sc = scene_at(P, e)
         frames_gif.append((sc, e["steps"]))
-        crop = sc.crop((40, 110, 160, 300))
+        crop = sc.crop((100 - cw // 2 - 14, 110, 100 + cw // 2 - 14 + (cw % 2), 300))
         lab = ("★" if i == P["key_i"] else "") + f"{e['name']} ×{e['steps']}"
         sh.label_img((x, y3 + 30), up(crop, 2), lab, 14, INK)
-        x += 240 + 8
-        if x > W - 240:
-            break
+        x += step
     total = sum(e["steps"] for e in tl)
     sh.text((24, y3 + 30 + 20 + 380 + 6), f"合計 {total} ステップ（{total / 60:.2f} 秒）。今の 雷は 雷 16 ＋ つぶ〜80 ステップ", 14, SUB)
 

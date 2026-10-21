@@ -159,5 +159,25 @@ def compare(new16):
     sh.save(out)
 
 
+def write_rows(s):
+    """src/ui/itemArtW7.ts の RAIJIN_KEN と 同じ 形（16 行 ＋ PAL）。developer が 差しかえる"""
+    inv = {v.lower(): k for k, v in PAL.items()}
+    im = s.composite(1)
+    rows = []
+    for y in range(16):
+        r = ""
+        for x in range(16):
+            p = im.getpixel((x, y))
+            r += "." if p[3] == 0 else inv["#%02x%02x%02x" % p[:3]]
+        rows.append(r)
+    pal = ", ".join("%s: 0x%s" % (k, v[1:].lower()) for k, v in PAL.items())
+    with open(os.path.join(HERE, "raijin_ken_rows.txt"), "w", encoding="utf-8") as f:
+        f.write("const PAL = { %s };\n\nconst RAIJIN_KEN = [\n" % pal)
+        for r in rows:
+            f.write("  '%s',\n" % r)
+        f.write("];\n")
+
+
 if __name__ == "__main__" and True:
+    write_rows(build())
     compare(Image.open(os.path.join(HERE, "raijin_ken_16.png")).convert("RGBA"))
