@@ -124,9 +124,9 @@ describe('WEAPON-7 AC12: 実績', () => {
     expect(a!.small).toBe(false);
     expect(b!.small).toBe(false);
   });
-  it('PR2 まで（get.* は 雷神剣・風神剣、legend.kinds は 1・2 の 段）。PR3 の niji・kinds.3 は まだ ない', () => {
-    expect(ACHIEVEMENT_DEFS.filter((d) => d.id.startsWith('get.')).map((d) => d.id)).toEqual(['get.raijin_ken.1', 'get.fujin_ken.1']);
-    expect(ACHIEVEMENT_DEFS.filter((d) => d.id.startsWith('legend.kinds.')).map((d) => d.id)).toEqual(['legend.kinds.1', 'legend.kinds.2']);
+  it('PR3 まで（get.* は 雷神剣・風神剣・虹、legend.kinds は 1・2・3 の 段）', () => {
+    expect(ACHIEVEMENT_DEFS.filter((d) => d.id.startsWith('get.')).map((d) => d.id)).toEqual(['get.raijin_ken.1', 'get.fujin_ken.1', 'get.niji.1']);
+    expect(ACHIEVEMENT_DEFS.filter((d) => d.id.startsWith('legend.kinds.')).map((d) => d.id)).toEqual(['legend.kinds.1', 'legend.kinds.2', 'legend.kinds.3']);
   });
   it('AC26: get.fujin_ken.1 と legend.kinds.2 の 名前・分類・小で ない・はば（§2.5）', () => {
     const a = def('get.fujin_ken.1');
