@@ -16,6 +16,8 @@ CELL = 256
 pal = json.load(open(os.path.join(SRC, "palette.json")))["colors"]
 C20 = tuple(round(x * 255) for x in pal[20])
 C21 = tuple(round(x * 255) for x in pal[21])
+C6 = tuple(round(x * 255) for x in pal[6])  # 絵では 刃が 6・18 番の 色で 出ている（20・21 とほぼ同じ）
+C18 = tuple(round(x * 255) for x in pal[18])
 
 
 def hx(s):
@@ -158,11 +160,63 @@ def dilate(m):
     return o
 
 
+def line_inliers(m, full=None, retry=True):
+    """同じ 色の 髪・くつ下の かたまりが まざるので、ふとい 所（5x5 で 55% 以上）を のぞき、
+    つながりの うち いちばん 長い ほそい 線を 刃と みなす"""
+    from scipy import ndimage
+    mf = m.astype(np.float32)
+    dens = ndimage.uniform_filter(mf, 5, mode="constant")
+    thin = m & (dens < 0.72)
+    ys, xs = np.nonzero(thin)
+    if len(xs) < 4:
+        return np.zeros_like(m)
+    P = np.stack([xs, ys], 1).astype(np.float32)
+    rng = np.random.RandomState(7)
+    best, bs = None, 0
+    for _ in range(400):
+        i, j = rng.randint(0, len(P), 2)
+        d = P[j] - P[i]
+        l = float(np.linalg.norm(d))
+        if l < 8:
+            continue
+        a = d / l
+        nn = np.array([-a[1], a[0]], np.float32)
+        ok = np.abs((P - P[i]) @ nn) <= 1.5
+        t = (P[ok] - P[i]) @ a
+        order = np.sort(t)
+        # 切れ目（4 点より 大きい すきま）の ない いちばん 長い 区間
+        gaps = np.nonzero(np.diff(order) > 4)[0]
+        starts = np.r_[0, gaps + 1]
+        ends = np.r_[gaps, len(order) - 1]
+        k = int(np.argmax(order[ends] - order[starts]))
+        lo, hi = order[starts[k]], order[ends[k]]
+        run = hi - lo
+        cnt = int(((t >= lo) & (t <= hi)).sum())
+        sc = cnt if (cnt >= 0.7 * run and run >= 8) else 0
+        if sc > bs:
+            bs, best = sc, (P[i], a, nn, lo, hi)
+    if (best is None or bs < 24) and retry and full is not None:
+        return line_inliers(full, None, False)
+    if best is None:
+        return np.zeros_like(m)
+    o, a, nn, lo, hi = best
+    d = P - o
+    keep = (np.abs(d @ nn) <= 2.2) & ((d @ a) >= lo - 2) & ((d @ a) <= hi + 2)
+    out = np.zeros_like(m)
+    out[ys[keep], xs[keep]] = True
+    return out
+
+
 def do_cell(c, shape):
     """c: (256,256,4) → 新しい コマ"""
     rgb = c[..., :3]
     opaque = c[..., 3] > 0
-    m = opaque & ((rgb == C20).all(-1) | (rgb == C21).all(-1))
+    m = opaque & ((rgb == C20).all(-1) | (rgb == C21).all(-1) | (rgb == C6).all(-1))
+    n = int(m.sum())
+    if n < 4:
+        return c
+    full = opaque & ((rgb == C20).all(-1) | (rgb == C21).all(-1) | (rgb == C6).all(-1) | (rgb == C18).all(-1))
+    m = line_inliers(m, full)
     n = int(m.sum())
     if n < 4:
         return c
