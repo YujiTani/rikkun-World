@@ -7,7 +7,7 @@ from kit9 import kit  # noqa: E402
 from PIL import Image  # noqa: E402
 
 sh = kit.Sheet(1320, 900)
-sh.text((24, 14), "虹（にじ）最終: ドーム A・にじの 斬撃 A・そった 長い 太刀", 28, sheet9.GOLD)
+sh.text((24, 14), "虹（にじ）最終: ドーム B「にじの おび」（中は 白い 玉・うすい 光）・にじの 斬撃 A・そった 長い 太刀", 28, sheet9.GOLD)
 key = Image.open(os.path.join(HERE, "key_outside.png"))
 sh.label_img((24, 60), key, "シャイニング 外から（カメラ 12）。球の りんかく・まくの うすい 光・まん中の 白い 玉・地面の 輪", 14)
 sl = Image.open(os.path.join(HERE, "slash_1x.png")).convert("RGBA").crop((64, 0, 128, 44))

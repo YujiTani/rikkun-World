@@ -1,4 +1,4 @@
-"""WEAPON-9 最終（選ばれた 案 A「ひかりの まく」の 仕上げ）: 外から「光の 球の 中に いる」と 分かる。ふちの 外に こい 紺の 縁、まくに うすい 光の 網、まん中に 白い 玉。
+"""WEAPON-9 最終（選ばれた 案 B「にじの おび」＋ A の 仕上げの 中）: 外から「光の 球の 中に いる」と 分かる。ふちの 外に こい 紺の 縁、まくに うすい 光の 網、まん中に 白い 玉。
 実行: python3 art/WEAPON-9/dome-a/build.py
 """
 import math
@@ -96,6 +96,7 @@ def render(fr, st, t, first):
         bx, by = ilon % 4, ilat % 4
         bay = B[by, bx]
         ov = np.zeros(N, bool)
+        dk_all = np.zeros(N, bool)
         if front and not first:
             rim = 1 - ndv
             dk = (rim > 0.925)  # いちばん 外: こい 紺の 縁（昼の 空でも りんかくが 出る）
@@ -106,21 +107,31 @@ def render(fr, st, t, first):
             col[dk], col[w], col[y1], col[y2], col[fill] = C["D"], C["W"], C["Y1"], C["Y2"], C["Y1"]
             m |= w | y1 | y2 | fill | dk
             ov |= w | y1 | dk | fill | y2
+            dk_all = dk | w
         # にじの しま（両面。中から も 見える）
         lon = (ilon + 0.5) / nlon * 2 * math.pi
         lat_px = ilat - nlat / 2
+        lon = (ilon + 0.5) / nlon * 2 * math.pi
+        lat_px = ilat - nlat / 2
         rot = t * 2 * math.pi / 6.0  # 6 秒で 1 まわり
-        for la, wd in BANDS:
-            c0 = la * nlat / math.pi + 1.6 * np.sin(lon + rot + la * 3)
-            dd = np.abs(lat_px - c0)
-            inb = dd < wd
-            core = dd < 0.8
-            hue = ((np.floor((lon - rot * 0.5 + la) / (2 * math.pi) * 6)).astype(int)) % 3
+        # にじの おび 4 本（B）: うずを まく ならせん。5 秒で 1 まわり。上へ 行くほど 細く とがる
+        rot = t * 2 * math.pi / 5.0
+        ln = (lat_px + nlat / 2) / nlat  # 0 = 下 … 1 = 上
+        for pass_ in (0,):
+            u = ((lon - rot - ln * 1.9 * math.pi) / (2 * math.pi) * 4) % 1.0
+            wdt = 0.27 * np.clip(1.0 - 0.75 * np.clip(ln - 0.15, 0, 1), 0.12, 1)
+            if not front and not first:
+                inb = (u < wdt) & (np.abs(u - wdt / 2) < 0.04) & (bay < 0.5)
+            else:
+                inb = (u < wdt) & ((ln > 0.28) | (bay < (ln + 0.05) * 3.4))
+            jj = (np.floor((lon - rot - ln * 1.9 * math.pi) / (2 * math.pi) * 4)).astype(int)
+            hue = (jj + np.floor(ln * 3 + t * 0.6).astype(int)) % 3
             hc = np.array(HUE)[hue]
-            if not front and not first:  # 外から: 奥の しまは しんの 線だけ（すけて 見える）
-                inb = core & (bay < 0.5)
+            if not front and not first:
+                hc = np.array([C["G"], C["B"], C["M"]])[hue] * 0.8
+            core = np.abs(u - wdt * 0.45) < wdt * 0.12
             add = np.where(core[:, None], C["W"], hc)
-            sel = inb & ~(m & ov)
+            sel = inb & ~(m & ov & ~dk_all)
             col[sel] = add[sel]
             m |= sel
             ov |= sel
