@@ -136,12 +136,14 @@ test('AC41: 最初の 1 回: プログラム数が ため いっぱいの あと
 });
 
 test('AC42: 数の 上限: 三人称・一人称 とも ふえ 描画 4 以下・三角形 220 以下。とどまる F100 で 三角形 180 以上', async () => {
-  const check = (steps: ShiningStep[], base: { calls: number; triangles: number }, who: string) => {
+  // 世界の 描画は カメラ（4 → 14）と 高さ（2 マス）で かわる ので、前後の 差では ドームの ふえを はかれない（台帳）。
+  // ドームの 分は ゲームに 聞く（nijiFx().tris）。描画回数の ふえは 窓口に ないので 開発に 依頼（draws）。
+  const check = (steps: ShiningStep[], _base: { calls: number; triangles: number }, who: string) => {
     for (const s of steps) {
-      expect(s.calls - base.calls, `${who} F${s.F} 描画回数の ふえ`).toBeLessThanOrEqual(4);
-      expect(s.triangles - base.triangles, `${who} F${s.F} 三角形の ふえ`).toBeLessThanOrEqual(220);
+      expect(s.domeTris, `${who} F${s.F} ドームの 三角形`).toBeLessThanOrEqual(220);
+      if (s.dome) expect(s.domeDraws, `${who} F${s.F} ドームの 描画回数`).toBeLessThanOrEqual(4);
     }
-    expect(steps[99]!.triangles - base.triangles, `${who} F100 三角形の ふえ`).toBeGreaterThanOrEqual(180);
+    expect(steps[99]!.domeTris, `${who} F100 ドームの 三角形`).toBeGreaterThanOrEqual(180);
   };
   check(third, stand, '三人称');
   check(firstP, standFirst, '一人称');

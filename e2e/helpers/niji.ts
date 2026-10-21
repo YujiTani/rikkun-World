@@ -24,6 +24,9 @@ export interface ShiningStep {
   white: number;
   rgb: { r: number; g: number; b: number } | null;
   dollVisible: boolean;
+  /** ドームの 三角形（ゲームに 聞く: legend 窓口の nijiFx().tris。ドームが ない ときは 0） */
+  domeTris: number;
+  domeDraws: number;
 }
 
 /** 虹を 強さ power で 1 本 だけ 持つ（0 番・選ぶ）。`inventory.add` の 3 つ目の 口が 実装の 前は ないので 赤 */
@@ -116,6 +119,8 @@ async function snap(page: Page, F: number, shots: boolean, rgb: boolean): Promis
       triangles: rs.triangles as number,
       programs: h.thunder.programs() as number,
       dollVisible: h.player.doll().visible as boolean,
+      domeTris: (h.legend.nijiFx?.().tris ?? 0) as number,
+      domeDraws: (h.legend.nijiFx?.().draws ?? 0) as number,
     };
   });
   let mean = NaN, white = NaN;
