@@ -50,10 +50,19 @@ export const LEGEND_SOUNDS = {
     ...box(hz('G7'), hz('G7') * 1.0, 0.35, 0.5, 0.18),
     ...suzu(0.3, 4, 0.05, 0.12),
   ],
+  // ---- WEAPON-9 虹（B 案「はがねの にじ」。音の ファイルが 読めない ときの 代わりの 合成音。小さく 短く）
+  shiningStart: [...box(hz('C6'), hz('C6') * 1.01, 0, 0.2, 0.2), ...box(hz('E6'), hz('E6') * 1.01, 0.15, 0.2, 0.2), ...box(hz('G6'), hz('G6') * 1.01, 0.3, 0.25, 0.2), ...box(hz('C7'), hz('C7') * 1.0, 0.45, 0.6, 0.18), ...suzu(0.3, 4, 0.05, 0.1)],
+  shiningHit: [...box(hz('G6'), hz('G6') * 1.01, 0, 0.1, 0.18), swish(2400, 1200, 0, 0.1, 0.06, 1.2)],
+  shiningEnd: [...box(hz('G6'), hz('G6') * 1.01, 0, 0.2, 0.18), ...box(hz('E6'), hz('E6') * 1.01, 0.18, 0.2, 0.18), ...box(hz('C6'), hz('C6') * 1.0, 0.36, 0.5, 0.16)],
+  shiningReady: [...box(hz('G6'), hz('G6') * 1.01, 0, 0.12, 0.18), ...box(hz('C7'), hz('C7') * 1.0, 0.1, 0.35, 0.18)],
+  domeErase: [swish(3000, 900, 0, 0.18, 0.1, 1.2), ...suzu(0.04, 2, 0.04, 0.06)],
+  nijiSlash: [swish(1800, 4200, 0, 0.1, 0.14, 1.3), shaka(0.02, 0.05, 0.08, 6000), ...box(hz('C7'), hz('C7') * 1.0, 0.04, 0.12, 0.08)],
+  /** すいこみ中「すぅー」: ファイルが 読めない ときは 鳴らさない（ループは 合成音で 代わりに できない） */
+  domePull: [],
 } as const satisfies Record<string, readonly Tone[]>;
 
 export type LegendSoundName = keyof typeof LEGEND_SOUNDS;
-export type LegendLoopName = 'chargeRise' | 'chargeHold';
+export type LegendLoopName = 'chargeRise' | 'chargeHold' | 'domePull';
 /** 剣ごとの 味（ため音の 風・ばちばちの 層）。なければ 味なし */
 export type LegendFlavor = 'fujin' | 'raijin' | null | undefined;
 
@@ -71,6 +80,15 @@ export const LEGEND_FILES = {
   /** 味なし / 風神 / 雷神 */
   chargeRise: { none: u('chargeRise'), fujin: u('chargeRise_fujin'), raijin: u('chargeRise_raijin') },
   chargeHold: { none: u('chargeHold'), fujin: u('chargeHold_fujin'), raijin: u('chargeHold_raijin') },
+  // WEAPON-9 虹（出どころ: docs/audio/WEAPON-9/。nijiSlash は on-jin の 見本を 切りはりした C3 → 配る 前に 差しかえか 規約の 確認）
+  shiningStart: [u('shiningStart')],
+  shiningEnd: [u('shiningEnd')],
+  shiningReady: [u('shiningReady')],
+  shiningHit: [u('shiningHit_0'), u('shiningHit_1'), u('shiningHit_2')],
+  domeErase: [u('domeErase_0'), u('domeErase_1'), u('domeErase_2')],
+  /** 段(1〜3) × 3 とおり */
+  nijiSlash: [[u('nijiSlash_1_0'), u('nijiSlash_1_1'), u('nijiSlash_1_2')], [u('nijiSlash_2_0'), u('nijiSlash_2_1'), u('nijiSlash_2_2')], [u('nijiSlash_3_0'), u('nijiSlash_3_1'), u('nijiSlash_3_2')]],
+  domePull: { none: u('domePull') },
 } as const;
 
 /** ファイルは ミキサーの 前（0.6 倍の master の 前）の 大きさに そろえて ある。fxVolume 0.5 の とき 倍率 1 */
@@ -124,6 +142,7 @@ export function resetLegendFiles(load?: (url: string) => Promise<ArrayBuffer>): 
   states = new WeakMap();
   rotate.windWave = 0;
   rotate.thunderSlash = 0;
+  rotate.shiningHit = rotate.domeErase = rotate.nijiSlash = 0;
   for (const k of Object.keys(playing)) delete playing[k];
 }
 
@@ -132,7 +151,7 @@ interface CtxState {
   loading: Promise<void> | null;
 }
 let states = new WeakMap<object, CtxState>();
-const rotate = { windWave: 0, thunderSlash: 0 };
+const rotate = { windWave: 0, thunderSlash: 0, shiningHit: 0, domeErase: 0, nijiSlash: 0 };
 /** 名前ごとの 鳴っている 数 */
 const playing: Record<string, number> = {};
 
@@ -144,6 +163,13 @@ function allUrls(): string[] {
     ...LEGEND_FILES.chargeReady,
     ...Object.values(LEGEND_FILES.chargeRise),
     ...Object.values(LEGEND_FILES.chargeHold),
+    ...LEGEND_FILES.shiningStart,
+    ...LEGEND_FILES.shiningEnd,
+    ...LEGEND_FILES.shiningReady,
+    ...LEGEND_FILES.shiningHit,
+    ...LEGEND_FILES.domeErase,
+    ...LEGEND_FILES.nijiSlash.flat(),
+    LEGEND_FILES.domePull.none,
   ];
 }
 
@@ -253,8 +279,17 @@ export function playLegend(sound: Pick<SoundFx, 'playTones'>, name: LegendSoundN
     const list = LEGEND_FILES[name];
     const i = variant === undefined ? rotate[name]++ : variant;
     played = playFile(sound, name, list[((i % list.length) + list.length) % list.length]!);
-  } else if (name === 'spiralWind' || name === 'chargeReady') {
+  } else if (name === 'spiralWind' || name === 'chargeReady' || name === 'shiningStart' || name === 'shiningEnd' || name === 'shiningReady') {
     played = playFile(sound, name, LEGEND_FILES[name][0]);
+  } else if (name === 'shiningHit' || name === 'domeErase') {
+    const list = LEGEND_FILES[name];
+    const i = variant === undefined ? rotate[name]++ : variant; // 前と ちがう 物
+    played = playFile(sound, name, list[((i % list.length) + list.length) % list.length]!);
+  } else if (name === 'nijiSlash') {
+    // variant = 段(0〜2)。段ごとに 3 とおりから 前と ちがう 物
+    const step = Math.max(0, Math.min(2, variant ?? 0));
+    const v = rotate.nijiSlash++ % 3;
+    played = playFile(sound, name, LEGEND_FILES.nijiSlash[step]![v]!);
   }
   if (!played) {
     const v = variant ?? 0;
@@ -271,7 +306,7 @@ export function playLegend(sound: Pick<SoundFx, 'playTones'>, name: LegendSoundN
 export function startLegendLoop(sound: Pick<SoundFx, 'playTones'>, name: LegendLoopName, flavor?: LegendFlavor): { stop(fadeSec: number): void } {
   logSound(name);
   const o = outputOf(sound);
-  const url = LEGEND_FILES[name][flavor ?? 'none'];
+  const url = name === 'domePull' ? LEGEND_FILES.domePull.none : LEGEND_FILES[name][flavor ?? 'none'];
   const buf = o ? bufferFor(o, url) : null;
   const vol = volume();
   if (!o || buf === null) {
@@ -279,7 +314,8 @@ export function startLegendLoop(sound: Pick<SoundFx, 'playTones'>, name: LegendL
     return { stop() {} };
   }
   if (!(vol > 0)) return { stop() {} };
-  const s = start(o, buf, vol, name === 'chargeHold', name === 'chargeHold' ? LEGEND_HOLD_FADE_IN : 0);
+  const looping = name === 'chargeHold' || name === 'domePull';
+  const s = start(o, buf, vol, looping, looping ? LEGEND_HOLD_FADE_IN : 0);
   if (!s) return { stop() {} };
   let stopped = false;
   const cleanup = (): void => {

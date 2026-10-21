@@ -34,6 +34,8 @@ const STAR: readonly number[] = [22, 38, 7, 7];
 export const CHARGE_PALETTES: Record<ChargePalette, readonly string[]> = {
   fujin: ['#F4FCFF', '#CDEFFC', '#8FD6F2', '#4FA8D8', '#2B6699'],
   raijin: ['#FFF8DC', '#FFE98A', '#F0C24A', '#9A7430', '#4E3C1A'],
+  // WEAPON-9: 虹（にじ色）。白 → 緑 → 青 → 赤むらさき → こい むらさき
+  niji: ['#FBF6FF', '#9FF0C4', '#8EC4FF', '#E39CF0', '#5A4496'],
 };
 
 const VERT = `
@@ -86,6 +88,7 @@ export class ChargeLightFx {
   private readonly pal: Record<ChargePalette, THREE.Color[]> = {
     fujin: CHARGE_PALETTES.fujin.map((c) => new THREE.Color(c)),
     raijin: CHARGE_PALETTES.raijin.map((c) => new THREE.Color(c)),
+    niji: CHARGE_PALETTES.niji.map((c) => new THREE.Color(c)),
   };
   private readonly camR = new THREE.Vector3();
   private readonly camU = new THREE.Vector3();
