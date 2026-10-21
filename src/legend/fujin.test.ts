@@ -26,10 +26,11 @@ describe('AC21: 風神剣の データを defs から 引く', () => {
       const it = defs.pickNushiDrop(S.nushiDrops, rng)!;
       n[it as string] = (n[it as string] ?? 0) + 1;
     }
-    expect(n.raijin_ken).toBeGreaterThanOrEqual(1300);
-    expect(n.raijin_ken).toBeLessThanOrEqual(1700);
-    expect(n.fujin_ken).toBeGreaterThanOrEqual(1300);
-    expect(n.fujin_ken).toBeLessThanOrEqual(1700);
+    // WEAPON-9 で 期待が 変わった（理由: 虹が 表に 入って 3 本。weight 1 ずつ → 3,000 回で 900〜1,100 ずつ。AC6 と 同じ）
+    for (const k of ['raijin_ken', 'fujin_ken', 'niji']) {
+      expect(n[k]).toBeGreaterThanOrEqual(850);
+      expect(n[k]).toBeLessThanOrEqual(1150);
+    }
   });
 });
 

@@ -91,7 +91,7 @@ describe('AC29 ため・区間', () => {
     expect(at[259]!.hover).toBeNull();
     expect(t.types().filter((x) => x === 'shiningEnd')).toHaveLength(1);
     expect(t.sounds).toContain('shiningEnd');
-    // 動けない
+    t.step();
     expect(t.sys.state().move).toBeNull();
   });
 

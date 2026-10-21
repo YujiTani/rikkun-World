@@ -1514,6 +1514,8 @@ export interface PlayerMotionMod {
   faceDeg?: number | null;
   /** CHAR-2: true の ステップは 水平の速さを 0 に する */
   stopNow?: boolean;
+  /** WEAPON-9: null でない あいだ 足もとの 高さを これに 向けて うごかす（シャイニングで うかぶ。重力を 使わない） */
+  hoverY?: number | null;
 }
 
 // ---------------------------------------------------------------- 刀（A）

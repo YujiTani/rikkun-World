@@ -206,6 +206,7 @@ export function createLegendSystem(deps: LegendDeps): LegendSystem {
   let camBack: { from: number; left: number } | null = null;
   const centerNow: Vec3 = { x: 0, y: 0, z: 0 };
   const domeOut = { x: 0, y: 0, z: 0, r: 0 };
+  const domeRadiusNow = (): number => (sh && move ? (move.F >= sh.def.riseSteps + sh.def.holdSteps + sh.def.fallSteps ? 0 : shiningRadiusAt(move.F, sh.def.radius, sh.def.riseSteps, sh.def.holdSteps, sh.def.fallSteps)) : 0);
   const lastDist = { v: 4 };
   let buffered = false;
   /** やめた あと 押しつづけでは 始めない */
@@ -475,9 +476,9 @@ export function createLegendSystem(deps: LegendDeps): LegendSystem {
         charge: charge ? { ticks: charge.ticks, ready: charge.ready } : null,
         move: move ? move.kind : null,
         moveF: move ? move.F : 0,
-        cooldownLeft: 0,
+        cooldownLeft,
         aim: aim ? { T: { ...aim.T }, S: aim.S ? { ...aim.S } : null, skyVisible: aim.skyVisible } : null,
-        dome: null,
+        dome: domeRadiusNow() > 0 ? { radius: domeRadiusNow() } : null,
       };
     },
 
@@ -491,10 +492,16 @@ export function createLegendSystem(deps: LegendDeps): LegendSystem {
         readyAge: charge?.readyAge ?? 0,
         chargeRatio: charge && L ? Math.min(1, charge.ticks / L.chargeTicks) : 0,
         moveF: move ? move.F : 0,
+        dome: domeRadiusNow(),
+        groundY: sh ? sh.baseY : 0,
       };
     },
 
     motion(): PlayerMotionMod & { noRun: boolean } {
+      motionOut.hoverY = null;
+      if (sh && move && move.F < sh.def.riseSteps + sh.def.holdSteps + sh.def.fallSteps) {
+        motionOut.hoverY = sh.baseY + shiningHeightAt(move.F, sh.def.rise, sh.def.riseSteps, sh.def.holdSteps, sh.def.fallSteps);
+      }
       motionOut.speedMul = 1;
       motionOut.jumpLocked = false;
       motionOut.noRun = false;
@@ -557,6 +564,34 @@ export function createLegendSystem(deps: LegendDeps): LegendSystem {
 
     spiralSound(): LegendSoundState {
       return snd.spiral;
+    },
+
+    takenMul(): number {
+      return sh && move && move.F <= sh.def.riseSteps + sh.def.holdSteps + sh.def.fallSteps ? sh.def.takenMul : 1;
+    },
+
+    dome() {
+      const r = domeRadiusNow();
+      if (!(r > 0)) return null;
+      domeOut.x = centerNow.x;
+      domeOut.y = centerNow.y;
+      domeOut.z = centerNow.z;
+      domeOut.r = r;
+      return domeOut;
+    },
+
+    noFall(): boolean {
+      return sh !== null || fallGrace;
+    },
+
+    locked(): boolean {
+      return sh !== null && move !== null && move.F <= sh.def.riseSteps + sh.def.holdSteps + sh.def.fallSteps;
+    },
+
+    camDistance(): number | null {
+      if (sh && move) return lastDist.v;
+      if (camBack) return 4 + (camBack.from - 4) * (1 - easeInOut(1 - camBack.left / BACK_STEPS));
+      return null;
     },
   };
 }
