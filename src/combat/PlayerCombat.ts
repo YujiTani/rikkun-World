@@ -16,6 +16,7 @@ import type {
 } from '../contracts';
 import { createW2Settings } from '../contracts';
 import { isBladeItem } from '../tools/blade';
+import { copyStack } from '../tools/durability';
 import { DropField, type DropView } from '../drops';
 import { createRng, type Rng } from '../world/gen/random';
 import { centerOfYokai, inPunchFan, wallBetween, type AttackDecision } from './attackFacing';
@@ -573,7 +574,7 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
       if (i === sel || !s) continue;
       if (this.rng() < this.config.dropChance) {
         dropped.push(i);
-        stacks.push(s.wear ? { item: s.item, count: s.count, wear: s.wear } : { item: s.item, count: s.count });
+        stacks.push(copyStack({ item: s.item, count: s.count, wear: s.wear, power: s.power }));
       }
     }
     for (const i of dropped) inv.setSlot(i, null);
