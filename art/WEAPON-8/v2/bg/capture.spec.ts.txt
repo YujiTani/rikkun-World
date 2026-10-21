@@ -1,0 +1,63 @@
+import { test } from '@playwright/test';
+import * as fs from 'fs';
+import { legendWorld, FUJIN, RAIJIN } from './helpers/legend';
+
+const OUT = process.env.W8OUT!;
+test.setTimeout(600_000);
+const EMPTY_PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAIAAAAAgCAYAAADaInAlAAAAJ0lEQVR4nO3BMQEAAADCoPVPbQ0PoAAAAAAAAAAAAAAAAAAAAIB3A0AgAAEfd/QVAAAAAElFTkSuQmCC', 'base64');
+
+test('w8 v2 clean shots', async ({ page }) => {
+  await page.route('**/windwave_sheet.png', (r) => r.fulfill({ status: 200, contentType: 'image/png', body: EMPTY_PNG }));
+  const meta: Record<string, unknown> = {};
+  const floorY = await legendWorld(page, FUJIN);
+  await page.evaluate((fy) => {
+    const h = window.__rikkun as any;
+    const p = h.player.get().position;
+    const x = Math.floor(p.x), z = Math.floor(p.z);
+    h.world.fill(x - 12, fy, z - 20, x + 12, fy, z + 6, 'grass');
+    h.world.fill(x - 1, fy, z - 16, x + 1, fy, z - 9, 'dirt');
+    h.step(30);
+  }, floorY);
+  const info = () => page.evaluate(() => {
+    const h = window.__rikkun as any;
+    return { cam: h.camera.get(), fov: h.camera.fov(), player: h.player.get(), waves: h.legend.waves(), w: innerWidth, hh: innerHeight };
+  });
+  const shot = async (name: string) => {
+    await page.evaluate(() => (window.__rikkun as any).step(1));
+    meta[name] = await info();
+    await page.screenshot({ path: `${OUT}/${name}.png` });
+  };
+  const hold = (item: string) => page.evaluate((item) => { const h = window.__rikkun as any; h.input.releaseAll(); h.step(120); h.inventory.setSlot(0, { item, count: 1 }); h.inventory.select(0); h.step(5); }, item);
+  const yaw = (y: number) => page.evaluate((y) => { const h = window.__rikkun as any; h.player.set({ yaw: y }); h.step(40); }, y);
+
+  meta.floorY = floorY;
+  await hold(FUJIN);
+  await yaw(0);
+  await shot('bg_back');
+  // ふつうの わざ（真空波は 透明に した）
+  await page.evaluate(() => { const h = window.__rikkun as any; h.input.press('primary'); h.step(1); h.input.release('primary'); h.step(3); });
+  await shot('ww_back_a');
+  await page.evaluate(() => (window.__rikkun as any).step(5));
+  await shot('ww_back_b');
+  await page.evaluate(() => { const h = window.__rikkun as any; h.input.releaseAll(); h.step(60); });
+  await yaw(-75);
+  await shot('bg_side');
+  await page.evaluate(() => { const h = window.__rikkun as any; h.input.press('primary'); h.step(1); h.input.release('primary'); h.step(5); });
+  await shot('ww_side');
+  await page.evaluate(() => { const h = window.__rikkun as any; h.input.releaseAll(); h.step(60); });
+  await yaw(0);
+
+  // ため（雷神剣の ためポーズを かりる。古い 手の 光は かくす）
+  await hold(RAIJIN);
+  await page.evaluate(() => { (window as any).__w8HideOld = true; });
+  for (const F of [30, 62, 90]) {
+    await page.evaluate((F) => { const h = window.__rikkun as any; h.input.releaseAll(); h.step(100); h.input.press('primary'); h.step(F - 1); }, F);
+    await shot(`ch_back_F${F}`);
+  }
+  await page.evaluate(() => { const h = window.__rikkun as any; h.input.releaseAll(); h.step(100); });
+  await yaw(-75);
+  await page.evaluate(() => { const h = window.__rikkun as any; h.input.press('primary'); h.step(89); });
+  await shot('ch_side_F90');
+  await page.evaluate(() => { const h = window.__rikkun as any; h.input.releaseAll(); h.step(100); });
+  fs.writeFileSync(`${OUT}/meta.json`, JSON.stringify(meta, null, 1));
+});
