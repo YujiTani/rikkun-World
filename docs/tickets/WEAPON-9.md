@@ -67,7 +67,7 @@ WEAPON-8 が 大きく さわっている: `src/legend/LegendSystem.ts`（ため
 ## 引きつぎ（2026-10-21 PO。止まっても ここから 動ける ように）
 - 決まった こと: `docs/decisions/2026-10-21-niji-*.md`（3 案・見た目・音・カメラ・ダメージ・試作の 直し・すいこみ）。仕様 `docs/design/WEAPON-7.md` 版 2.6（合格）。
 - PR の 分け方: **PR-2 = 虹（この ブランチ、先）**、PR-1 = 共通の 直し（ための 光 3 本・雷神剣と 風神剣の 手持ち・真空波の 向き。あとで 別ブランチ）。男の子の 手持ちは #242。
-- 絵: ドーム・斬撃・アイコン OK（`docs/art/WEAPON-9/final.png`）。手持ち（女の子）は 刃を 長く した 版を オーナー確認中（`held_and_slash.png`）。
+- 絵: ドーム・斬撃・アイコン OK（`docs/art/WEAPON-9/final.png`）。手持ち（女の子・刃を 長く した 版）も OK。
 - 音: 斬撃 C3（見本 切りはり・配らない前提）、弾 消し・シャイニング 4 つ・domePull は B。すべて OK。
 - テスト: `e2e/weapon9-niji.spec.ts`（赤→ 実装待ち）・ユニットの 期待直し。code-reviewer 合格。
 - 次の 1 手: developer が PR-2 を 実装中（すいこみ AC53〜58 も）。終わったら code-reviewer ＋ 検証（UI 検査・tester）→ ゲーム内の スクショで オーナー確認（AC34・47・52・59）→ PR は オーナーが「作って いい」と 言ってから。
