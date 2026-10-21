@@ -10,14 +10,14 @@ import kit9, parts9  # noqa
 from kit9 import Sprite
 
 PAL = {"W": "#FFF8E2", "G": "#5FD98E", "B": "#4FA3F0", "M": "#D16BE6", "D": "#3A3270"}
-KY = 0.5  # うしろから 見た 上下の つぶれ
+KY = 0.6  # うしろから 見た 上下の つぶれ
 BAY = parts9.BAY
 
 
 def slash_lying(tail, head, sc, thin):
     s = Sprite(64, 44)
-    cx, cy, R = 32, 36.5, 30
-    Tmax = 12 * sc
+    cx, cy, R = 32, 40.5, 30
+    Tmax = 17 * sc  # 上下に つぶれる ぶん 太く（見た目の 太さを 今と 同じ くらいに）
     for y in range(44):
         for x in range(64):
             dx, dy = x + 0.5 - cx, (cy - (y + 0.5)) / KY
