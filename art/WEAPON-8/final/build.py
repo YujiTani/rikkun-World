@@ -38,6 +38,8 @@ LEN = 2.8           # 軸の 長さ（ブロック）
 RM = 0.72           # らせんの 半径
 TURN = 1.5          # 軸 1.5 ブロックで 1 回り
 OM = 2 * math.pi / TURN
+SPIN_STEPS = 24      # 仕様 §3.1: 1 回り 24 ステップ（15 より ゆっくり。15 度/ステップ。おびが 2 本なので 12 ステップで 同じ 形）
+RADIAL_SCALE = 1.25  # ゲームで 半径を 大きく する 倍（直径 1.44 → 1.8。仕様 §3.1 の 1.6〜2.0）。素材の JSON に 入れた（開発の 拡大 では ない）
 TILT = 0.4          # 帯の うしろがわの ふちを 半径の 40% 内がわへ（円すいの はね）
 WIDTH_DOTS = 9      # 帯の はば（点）= ふち 1 + ふち 1 + からだ 5 + ふち 1 + ふち 1
 BAND_H = WIDTH_DOTS
@@ -59,6 +61,9 @@ def ribbon_geometry():
         a = sd * OM
         rings.append((sd, nose, r, a))
     return rings
+
+
+M.SPIN = 2 * math.pi / SPIN_STEPS  # 案の 12 ステップ → 仕様の 24 ステップ
 
 
 def _path_total():
@@ -155,7 +160,7 @@ class Mesh:
 def transform(mesh, s, phi, fade, H):
     """頭 H・大きさ s・回り phi・ほどける fade。半径だけ 1 + 0.5 fade 倍。"""
     p = mesh.v[:, :3] * s
-    ys, zs = p[:, 1] * (1 + 0.5 * fade), p[:, 2] * (1 + 0.5 * fade)
+    ys, zs = p[:, 1] * (1 + 0.5 * fade) * RADIAL_SCALE, p[:, 2] * (1 + 0.5 * fade) * RADIAL_SCALE
     c, sn = math.cos(phi), math.sin(phi)
     y2, z2 = ys * c - zs * sn, ys * sn + zs * c
     return np.stack([p[:, 0] + H[0], y2 + H[1], z2 + H[2]], axis=1)
@@ -245,11 +250,12 @@ def build_ribbon():
         "triangles": {"ribbon": len(tris), "tip": 2, "total": len(tris) + 2},
         "drawCalls": {"ribbon": 1, "tip": 1, "note": "先の 光を リボンの 描画に まぜれば 1 回（板 2 まいを 同じ メッシュに）"},
         "motion": {
-            "spinPerStep": "2π/12（1 ステップ 1/60 秒。12 ステップで 1 回り = 1 秒に 5 回り）。x 軸の まわりに メッシュを 回す だけ（形は 作りなおさない）",
+            "spinPerStep": "2π/24 = 15 度（仕様 §3.1・AC20 の 24 度 以下）。24 ステップで 1 回り（おびが 2 本なので 12 ステップで 同じ 形に 見える）。x 軸の まわりに メッシュを 回す だけ。「動きを減らす」では a 0〜60 ずっと 0 度（回さない。絵は 止まった まま）",
+        "gameScale": {"radius": RADIAL_SCALE, "length": 1.0, "diameterBlocks": round(2 * RM * RADIAL_SCALE, 2), "rule": "メッシュを (s, s*(1+0.5*fade)*1.25, s*(1+0.5*fade)*1.25) 倍。直径 1.44 → 1.8 マス（仕様 1.6〜2.0）。長さは 約 3 マスの まま。この 倍は 素材の 約束（開発が 足さない）。点の 大きさは 横だけ 1.25 倍に なる"},
             "timeline": [{"name": e["name"], "F": e["F"], "steps": e["steps"], "s": e["s"], "fade": e["fade"], "key": e["key"], "d": e["d"]} for e in M.TIMELINE],
             "scale": "メッシュを (s, s*(1+0.5*fade), s*(1+0.5*fade)) 倍（長さは そのまま・半径だけ ひろがる）",
             "fade": "ほどける ときは シェーダーで 網で ぬく: texel の ((u点 + v点) % 4) < floor(fade * 3) なら 捨てる（点滅しない・4 段）。fade 0 / 0.4 / 0.8",
-            "key": "決め（F5-10）の 6 ステップは frontKey の 帯と tip.big。ほかは front と tip.small",
+            "key": "決め（a 4〜9）の 6 ステップは frontKey の 帯と tip.big。ほかは front と tip.small",
         },
         "mesh": {"vertices": verts, "triangles": tris},
     }
@@ -334,7 +340,7 @@ def build_charge():
 
     # 1 段目 y=0: 輪（ぱっと ひろがる 4 コマ）
     x = 0
-    for name, r, th in (("ring26", 26, 1), ("ring19", 19, 1), ("ring12", 12, 2)):
+    for name, r, th in (("ring19", 19, 1), ("ring16", 16, 1), ("ring12", 12, 2)):
         im = ring_img(r, th)
         put(name, im, x, 0)
         x += im.width
@@ -344,10 +350,9 @@ def build_charge():
     im = ring_img(7, 2)
     put("ring7", im, x, y)
     x += im.width + 1
-    for r in (2, 3, 4, 5, 6):
-        im = disc_img(r)
-        put(f"core{r}", im, x, y)
-        x += im.width + 1
+    im = disc_img(6)
+    put("core", im, x, y)  # 芯は この 1 まいを 連続で 拡大（0.3 + 0.7 × ためF / 60）
+    x += im.width + 1
     y2 = 74
     x = 0
     for name, im in (("sparkSmall", sparkle_img(False)), ("sparkBig", sparkle_img(True)),
@@ -359,15 +364,16 @@ def build_charge():
         "_about": "ため中 T1「すいこまれる 光」。白黒の 1 まい 128×128（Nearest・ミップなし・半透明の 点 なし・alphaTest 0.5）。灰色の 段 = 色の 段（シェーダーで 5 色の 表に 引きなおす）。雷神剣・風神剣 共通。1 点 = 1/16 ブロック。",
         "texture": "charge_light.png",
         "textureSize": [128, 128],
+        "reducedMotion": "「動きを減らす」: つぶ 0 こ・輪 なし・きらり 4 つは 出る（出る ステップ = ためF 60）が 回さない（角度 固定 = 出た ときの 位置）。芯の 大きさ・区間・fade は 同じ",
         "levels": {"gray": LEVELS, "rule": "段 = round((255 - 灰色) / 51)・0〜4。色 = palette[min(4, 段 + shift)]。shift は 板ごとの uniform（ふつう 0。輪の 後半は 1）"},
         "palettes": {"fujin": CH.WIND, "raijin": CH.THUNDER, "note": "表の 順 = 段 0（芯）〜 4（いちばん 暗い）。ほかの 武器は 5 色の 表を 足すだけ"},
         "sprites": SPRITES,
         "blocksPerDot": PX,
         "use": {
             "tsubu": "つぶ: 胸から 半径 1.2〜1.6 ブロックの 球の 上の 向き（下 半分 少なめ）。寿命 18 ステップ・u = 年れい/18・はじめ ゆっくり 中で 速い（半径 = r0 (1 - u²)、0.12 より 小さく なったら 消す）。1 つぶ = tsubuHead 1 ＋ tsubuMid 1 ＋ tsubuTail 1（u > 0.35 から。胸と 反対 = 外がわへ 3 点ずつ ならべる）。カメラに 向く 板（各 3×3）。2 ステップに 1 つぶ（いっぱいの あとは 4 ステップに 1）",
-            "core": "芯: ため に あわせて 大きく。core2（0 %）→ core5（100 %）= 2 + round(3 * F/60)。いっぱい（F ≥ 60）は core6。カメラに 向く 板",
-            "ring": "いっぱいの しゅんかん 1 回だけ: a = F - 60（0〜9）で ring7（a=0〜1）→ ring12（2〜4）→ ring19（5〜6）→ ring26（7〜9）。段は a < 5 が shift 0・a ≥ 5 が shift 1（うすく なる）。a ≥ 10 で 消える。点滅しない",
-            "spark": "きらり 4 つ: 胸の まわり 半径 0.75 ブロック・1 秒で 半回り・sparkBig と sparkSmall を 交互。いっぱいの 間 出つづける。「うごきを へらす」では つぶ・きらりを 出さず 芯と 輪だけ",
+            "core": "芯: 絵は core 1 まい（直径 13 点・0.81 マス）。大きさ = 0.3 + 0.7 × ためF / 60 の 連続（ためF 60 で 1.0・へらない）を 板の 大きさ 倍で 表す（Nearest のまま。非整数倍に なる のは 仕様の 連続を とった ため）。明るさ = 色に 0.7 + 0.3 × ためF / 60 を かける（上がる だけ・下がらない）。ためF 60〜 は 1.0 で 止まる。カメラに 向く 板",
+            "ring": "いっぱいの しゅんかん 1 回だけ（仕様 §3.5: ためF 60〜71 の 12 ステップ）: a = ためF - 60（0〜11）で ring7（a=0〜2）→ ring12（3〜5）→ ring16（6〜8）→ ring19（9〜11）。ring19 の 半径 = 1.19 マス（仕様の 1.2 マス）。うすく なる: shift = a // 3（0,1,2,3）。a ≥ 12 で 消える。点滅しない",
+            "spark": "きらり 4 つ: 胸の まわり 半径 0.75 ブロック・出る のは ためF 60・1 回り 120 ステップ（1 秒で 半回り）・sparkBig と sparkSmall を 交互。いっぱいの 間 出つづける",
         },
         "counts": {"drawCalls": 2, "drawCallsNote": "つぶ・きらり 1 ／ 芯・輪 1（同じ 1 まいの 絵）", "quads": "__Q__", "triangles": "__T__"},
     }
@@ -391,12 +397,12 @@ def cell(atlas, name, pal, shift=0):
     return Image.fromarray(out, "RGBA")
 
 
-def t1_items(atlas, F, pal, chest, seed=5):
+def t1_items(atlas, F, pal, chest, seed=5, reduced=False):
     import random
     items = []
     full = F >= CH.FULL
     life = 18
-    for born in range(1, F + 1):
+    for born in range(1, (0 if reduced else F) + 1):
         # 2 ステップに 1 つぶ（いっぱいの あとは 4 ステップに 1 つぶ）。乱数の 順番は 案と そろえる
         r = random.Random(seed * 1000 + born)
         d = CH._dir(r)
@@ -416,15 +422,17 @@ def t1_items(atlas, F, pal, chest, seed=5):
             p = add(pos, mul(inward, -k * PX * 3))
             items.append(("spr", p, cell(atlas, nm, pal), PX))
     k = min(1.0, F / CH.FULL)
-    rc = 2 + int(round(3 * k)) + (1 if full else 0)
-    items.append(("spr", chest, cell(atlas, f"core{min(6, rc)}", pal), PX, 2))
+    sc = 0.3 + 0.7 * k  # 芯の 大きさ（連続）
+    br = 0.7 + 0.3 * k   # 明るさ
+    core = cell(atlas, "core", [tuple(int(c * br) for c in col) for col in pal])
+    items.append(("spr", chest, core, PX * sc, 2))
     if full:
         a = F - CH.FULL
-        if a < 10:
-            nm = "ring7" if a < 2 else ("ring12" if a < 5 else ("ring19" if a < 7 else "ring26"))
-            items.append(("spr", chest, cell(atlas, nm, pal, 0 if a < 5 else 1), PX, 3))
+        if a < 12:
+            nm = ("ring7", "ring12", "ring16", "ring19")[a // 3]
+            items.append(("spr", chest, cell(atlas, nm, pal, a // 3), PX, 3))
         for i in range(4):
-            ang = i * math.pi / 2 + a * math.pi / 60
+            ang = i * math.pi / 2 + (0 if reduced else a * math.pi / 60)
             p = add(chest, (0.75 * math.cos(ang), 0.15 * math.sin(ang * 2), 0.75 * math.sin(ang)))
             items.append(("spr", p, cell(atlas, "sparkBig" if i % 2 == 0 else "sparkSmall", pal), PX, 1))
     return items
@@ -583,9 +591,9 @@ def charge_sheet(atlas, spec, SP):
         x += cw - 30 + 8
     y += 26 + 18 + ch + 14
     # 輪の ひろがり（a = 0..9）と きらり
-    sh.text((24, y), "いっぱいの しゅんかん: 輪の ひろがり（a = 0〜9 ステップ。1 回だけ）", 18, K.HEAD)
+    sh.text((24, y), "いっぱいの しゅんかん: 輪の ひろがり（a = 0〜11 の 12 ステップ。1 回だけ）", 18, K.HEAD)
     x = 24
-    for a in (0, 2, 5, 7, 9, 10):
+    for a in (0, 3, 6, 9, 11, 12):
         sh.img((x, y + 28), scene(60 + a, pal_w).crop((60, 70, cw - 60, ch - 70)), f"a={a}", 12)
         x += cw - 120 + 8
     y += 28 + 18 + ch - 140 + 14
