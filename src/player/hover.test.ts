@@ -55,6 +55,16 @@ describe('hoverY', () => {
     expect(p.state.position.y).toBeLessThan(8.3);
     expect(p.state.position.y).toBeGreaterThan(8.0);
   });
+  it('天井が 3 上(y=11)なら 頭が ぶつかる 9.2 の 手前で 止まる', () => {
+    const { world, p } = rig();
+    world.setBlock(16, 11, 16, 'stone');
+    for (let i = 0; i < 80; i++) {
+      p.motion.hoverY = 11;
+      p.update(1 / 60);
+    }
+    expect(p.state.position.y).toBeGreaterThan(9.0);
+    expect(p.state.position.y).toBeLessThanOrEqual(9.2 + 1e-3);
+  });
   it('null に もどすと 落ちる', () => {
     const { p } = rig();
     for (let i = 0; i < 30; i++) {

@@ -41,6 +41,8 @@ export interface CharSpriteDeps {
   loadJson?: (url: string) => Promise<unknown>;
   /** 読みこんだ絵を 先に GPU へ上げる口（S が renderer.initTexture を わたす。なくても動く） */
   initTexture?: (tex: THREE.Texture) => void;
+  /** 絵の 重さの 上限（バイト）。なければ 64 MiB（テストで 小さく できる） */
+  gpuLimit?: number;
 }
 
 export interface SpriteInfo {
@@ -308,7 +310,14 @@ export function createCharSprite(deps: CharSpriteDeps): CharSprite {
       });
   };
 
-  const GPU_LIMIT = 67_108_864;
+  const GPU_LIMIT = deps.gpuLimit ?? 67_108_864;
+  /** 弓の組を おろした あと 弓を 持ち直すまで、読みおえた 弓の絵は すてる */
+  let bowBanned = false;
+  const BOW_SET: ReadonlySet<SpriteMotion> = new Set(BOW_MOTIONS);
+  /** 虹の 絵の 読みこみに 失敗した 動き（しばらく して 読みなおす） */
+  const skinFailed = new Set<SpriteMotion>();
+  let skinRetryAt = 0;
+  let stepCount = 0;
   const dropBow = (): void => {
     for (const bm of BOW_MOTIONS) {
       const t = textures[bm];
@@ -326,6 +335,7 @@ export function createCharSprite(deps: CharSpriteDeps): CharSprite {
       status[bm] = 'none';
     }
     requested.bow = false;
+    bowBanned = true;
   };
 
   /** 1 まい読む（失敗しても 投げない）。読んだ色番号は GPU へ渡して すてる。g が 今の世代と ちがえば 何もしない。
@@ -347,6 +357,11 @@ export function createCharSprite(deps: CharSpriteDeps): CharSprite {
         // 読んでいる 間に 持ちかえた: すてて 今の 絵を 読みなおす
         if (!had) status[m] = 'none';
         enqueue([m]);
+        return;
+      }
+      if (BOW_SET.has(m) && bowBanned) {
+        // 読んでいる 間に 弓の組を おろした: すてる
+        if (!had) status[m] = 'none';
         return;
       }
       if (kind === 'boy' && !atlasInfo) throw new Error('男の子の atlas.json を 読めません');
@@ -394,7 +409,12 @@ export function createCharSprite(deps: CharSpriteDeps): CharSprite {
       }
     } catch (e) {
       if (g !== gen) return;
-      if (!had) status[m] = 'failed';
+      if (sk) {
+        // 虹の 絵: あとで 読みなおす（失敗の まま にしない）
+        if (!had) status[m] = 'none';
+        skinFailed.add(m);
+        skinRetryAt = stepCount + 120;
+      } else if (!had) status[m] = 'failed';
       console.warn(`[char] ${m} の絵を読めませんでした。代わりの絵を使います`, e);
     }
   };
@@ -595,6 +615,7 @@ export function createCharSprite(deps: CharSpriteDeps): CharSprite {
       enqueue(KATANA_MOTIONS);
     } else if (weapon === 'bow' && !requested.bow) {
       requested.bow = true;
+      bowBanned = false;
       enqueue(BOW_MOTIONS);
     }
   };
@@ -630,7 +651,13 @@ export function createCharSprite(deps: CharSpriteDeps): CharSprite {
   return {
     step(input) {
       lastWeapon = input.weapon;
+      stepCount++;
       if (input.weapon === 'katana') setSkin(input.weaponSkin ?? null);
+      if (skinFailed.size > 0 && stepCount >= skinRetryAt && wantSkin) {
+        const again = [...skinFailed];
+        skinFailed.clear();
+        enqueue(again);
+      }
       startWeaponLoads(input.weapon);
       // 手に 持つ 絵が 差しかわって いる 刀は 自分の 色を 持つので ぬりかえない
       setBladeColors(input.weapon === 'katana' && !wantSkin ? (input.bladeColors ?? null) : null);

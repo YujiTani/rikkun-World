@@ -94,3 +94,55 @@ describe('手に 持つ 絵の 差しかえ', () => {
     expect(urls.some((u) => u.includes('niji'))).toBe(false);
   });
 });
+
+describe('弓の 読みこみ中に おろした / 虹の 読みこみ失敗', () => {
+  const BOW = ['bow_shot', 'bow_hold_walk', 'bow_walk', 'bow_rapid'];
+  function rig(o: { gpuLimit?: number; failSkinOnce?: boolean; gateBow?: boolean }) {
+    const gates: (() => void)[] = [];
+    let failed = false;
+    const loadImage: LoadImage = (url) => {
+      const name = /([a-z_]+)\.png$/.exec(url)![1]!;
+      if (o.failSkinOnce && url.includes('niji/') && !failed) {
+        failed = true;
+        return Promise.reject(new Error('net'));
+      }
+      if (o.gateBow && BOW.includes(name)) return new Promise((res) => gates.push(() => res(img())));
+      return Promise.resolve(img());
+    };
+    const sprite = createCharSprite({
+      parent: new THREE.Group(), camera: new THREE.PerspectiveCamera(), lighting: new Lighting(), basePath: './models/char/girl/',
+      loadJson: async (url) => (url.endsWith('niji/atlas.json') ? { extras: [], motions: Object.fromEntries(KATANA.map((m) => [m, { frames: 2 }])) } : { modelH: 1.7 }),
+      loadImage, initTexture: (t) => t.onUpdate?.(t as never), ...(o.gpuLimit ? { gpuLimit: o.gpuLimit } : {}),
+    });
+    return { sprite, gates };
+  }
+  const stepW = (s: ReturnType<typeof rig>['sprite'], weapon: 'bow' | 'katana', skin: string | null): void =>
+    s.step({
+      position: { x: 0, y: 0, z: 0 }, velocity: { x: 0, y: 0, z: 0 }, onGround: true, inWater: false, running: false, facingDeg: 0, weapon,
+      blade: weapon === 'katana' ? { stance: 'chudan', tech: null, phase: 'idle', frame: 0, lengths: null } : null,
+      bow: weapon === 'bow' ? { drawing: false, drawTicks: 0, shot: false } : null, weaponSkin: skin,
+    } as SpriteStepInput);
+
+  it('上限を こえたら 弓の組を おろす。弓を 持ち直せば また 読む（読みおえた 弓は ふっかつしない）', async () => {
+    const { sprite } = rig({ gpuLimit: 1 });
+    await flush();
+    stepW(sprite, 'bow', null);
+    await flush();
+    expect(sprite.info().status.bow_shot).toBe('ready');
+    stepW(sprite, 'katana', 'niji'); // 上限(1 バイト)を こえる → 弓の組を おろす
+    await flush();
+    for (const m of BOW) expect(sprite.info().status[m as 'idle'], m).toBe('none');
+    stepW(sprite, 'bow', null);
+    await flush();
+    expect(sprite.info().status.bow_shot).toBe('ready');
+  });
+  it('虹の 絵の 読みこみが 失敗しても あとで 読みなおす（failed の まま にしない）', async () => {
+    const { sprite } = rig({ failSkinOnce: true });
+    await flush();
+    stepW(sprite, 'katana', 'niji');
+    await flush();
+    for (let i = 0; i < 130; i++) stepW(sprite, 'katana', 'niji');
+    await flush();
+    for (const m of KATANA) expect(sprite.info().status[m as 'idle'], m).toBe('ready');
+  });
+});

@@ -217,6 +217,7 @@ export function createLegendSystem(deps: LegendDeps): LegendSystem {
   const lastDist = { v: 4 };
   // すいこみ（§5.3.1）: すわれて いる 妖怪の 位置（つぶ用）・すいこみの 音
   const pulledNow: Vec3[] = [];
+  const pulledPool: Vec3[] = [];
   let pulledCount = 0;
   let pullSnd: LegendSoundState = 'off';
   let pullIdle = 0;
@@ -370,8 +371,12 @@ export function createLegendSystem(deps: LegendDeps): LegendSystem {
         const dist = Math.hypot(y.position.x - c.x, y.position.z - c.z);
         if (dist > d.pullRange) continue;
         yw.pull(y.id, c.x, c.z, (d.pullSpeed / 60) * ramp);
+        const q = (pulledPool[pulledCount] ??= { x: 0, y: 0, z: 0 });
+        q.x = y.position.x;
+        q.y = y.position.y;
+        q.z = y.position.z;
+        pulledNow.push(q);
         pulledCount++;
-        pulledNow.push({ x: y.position.x, y: y.position.y, z: y.position.z });
       }
     }
     if (hitSound) {

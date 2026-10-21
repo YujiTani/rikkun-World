@@ -162,6 +162,8 @@ export class NijiFx {
   private slashAngle = 0;
   private lastView: SlashView | null = null;
 
+  private readonly scene: THREE.Scene;
+
   constructor(
     scene: THREE.Scene,
     private readonly camera: THREE.Camera,
@@ -222,6 +224,18 @@ export class NijiFx {
       this.group.add(o);
     }
     scene.add(this.group);
+    this.scene = scene;
+  }
+
+  /** シーンから はずして 形・材質・絵を すてる */
+  dispose(): void {
+    this.scene.remove(this.group);
+    for (const o of [this.dome, this.ring, this.orb, this.points, this.slashMesh]) {
+      o.geometry.dispose();
+      const m = o.material as THREE.Material & { map?: THREE.Texture | null };
+      m.map?.dispose();
+      m.dispose();
+    }
   }
 
   /** 読みこみ中に 材質（描画の プログラム）を ぜんぶ 作る。最初の シャイニング・斬撃で 作りなおさない */
