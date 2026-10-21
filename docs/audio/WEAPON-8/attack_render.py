@@ -49,7 +49,7 @@ def write(path, x):
     y = np.clip(np.round(x * 32767), -32768, 32767).astype('<i2')
     with wave.open(path, 'wb') as w: w.setnchannels(1); w.setsampwidth(2); w.setframerate(SR); w.writeframes(y.tobytes())
 
-GAIN = {'wind': 0.085, 'thunder': 0.075}  # ものさしに 合わせた 大きさ（今の 音と 比べた 差は directions.md §8）
+GAIN = {'wind': 0.186, 'thunder': 0.138}  # ものさしに 合わせた 大きさ（今の 音と 比べた 差は directions.md §8）
 if __name__ == '__main__':
     out = sys.argv[1]; rng = np.random.default_rng(11)
     seq_w = np.zeros(N(2.6)); seq_t = np.zeros(N(2.6))
