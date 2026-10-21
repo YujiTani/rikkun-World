@@ -21,7 +21,7 @@ describe('M7-2 実績（AC21・§4.7）', () => {
   it('数の表: そだてる +8、つくる +3、ぜんぶ 247・小 84（LIVE-1 版 3.2・WEAPON-6・WEAPON-7 PR1・PR2 込み）', () => {
     const cnt = (cat: string) => ACHIEVEMENT_DEFS.filter((d) => d.category === cat).length;
     expect(cnt('farm')).toBe(26 + 8 + 1 + 12 + 5); // + LIVE-1 の 12 + 版 3.2 の 5
-    expect(ACHIEVEMENT_DEFS.length).toBe(247); // LIVE-1 §4.5 ＋ WEAPON-7 PR1・PR2 の 4
+    expect(ACHIEVEMENT_DEFS.length).toBe(249); // LIVE-1 §4.5 ＋ WEAPON-7 PR1・PR2 の 4
     expect(ACHIEVEMENT_DEFS.filter((d) => d.small).length).toBe(84);
     for (const id of ['craft.watering_can.1', 'craft.long_watering_can.1', 'craft.sprinkler.1']) {
       expect(ACHIEVEMENT_DEFS.find((d) => d.id === id)).toMatchObject({ category: 'craft', small: true });

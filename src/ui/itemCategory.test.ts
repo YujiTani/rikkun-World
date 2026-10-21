@@ -12,8 +12,8 @@ describe('マスの カテゴリー（§3.5 (7)）', () => {
   it('13 カテゴリーで 70 こ（WEAPON-7: 雷神剣・風神剣・FLORA-75: のばな・LIVE-1: たまご・むし・あみ 込み）（ようかいだま 込み。#184: 12 の国の 7 こ をふくむ）。同じ id が 2 つの カテゴリーに無い', () => {
     expect(ITEM_CATEGORIES.length).toBe(13);
     const all = ITEM_CATEGORIES.flatMap((c) => CATEGORY_ITEMS[c]);
-    expect(all.length).toBe(70);
-    expect(new Set(all).size).toBe(70);
+    expect(all.length).toBe(71);
+    expect(new Set(all).size).toBe(71);
   });
   it('今ある全アイテムが 表にある（たんす は D が足す）。表に無いものは そざい', () => {
     for (const t of ITEM_TYPES) expect(CATEGORY_ITEMS[itemCategory(t.id)], t.id).toContain(t.id);

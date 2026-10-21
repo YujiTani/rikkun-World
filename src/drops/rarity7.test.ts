@@ -88,7 +88,7 @@ describe('RARITY-7 当てはめ・設定', () => {
       expect(isRarity(r)).toBe(true);
       n[r] = (n[r] ?? 0) + 1;
     }
-    expect(n).toEqual({ common: 39, uncommon: 16, rare: 10, superRare: 3, legendary: 2 }); // 雷神剣・風神剣（WEAPON-7 PR1・PR2）が legendary
+    expect(n).toEqual({ common: 39, uncommon: 16, rare: 10, superRare: 3, legendary: 3 }); // 雷神剣・風神剣・虹（WEAPON-7 PR1・PR2・WEAPON-9）が legendary
     expect(itemRarity('crystal_katana')).toBe('superRare');
   });
 

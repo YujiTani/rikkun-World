@@ -54,7 +54,8 @@ function kill(r: Rig, kind: YokaiKind, title: 'none' | 'oyabun' | 'taisho' | 'nu
 }
 
 /** PR2 で 表が 2 本（雷神剣・風神剣）に なった ので、「レジェンダリーが 1 本」は どちらかで 数える */
-const LEGENDS = ['raijin_ken', 'fujin_ken'] as ItemId[];
+// WEAPON-9 で 虹も 表に 入った（3 本）
+const LEGENDS = ['raijin_ken', 'fujin_ken', 'niji'] as ItemId[];
 const isLegend = (x: ItemId) => LEGENDS.includes(x);
 
 describe('WEAPON-7 AC5: ヌシの 表（かならず 1 本）', () => {
@@ -163,9 +164,10 @@ describe('WEAPON-7 PR2 AC21: ヌシの 表に 風神剣（初期値は 雷神剣
       expect(got, `${i} 回目`).toHaveLength(1);
       n[got[0]!] = (n[got[0]!] ?? 0) + 1;
     }
-    expect(n.raijin_ken).toBeGreaterThanOrEqual(900);
-    expect(n.raijin_ken).toBeLessThanOrEqual(1100);
-    expect(n.fujin_ken).toBeGreaterThanOrEqual(900);
-    expect(n.fujin_ken).toBeLessThanOrEqual(1100);
+    // WEAPON-9 で 期待が 変わった（理由: 虹が 表に 入って 3 本 → 2,000 回で 約 667 ずつ）
+    for (const k of ['raijin_ken', 'fujin_ken', 'niji']) {
+      expect(n[k]).toBeGreaterThanOrEqual(580);
+      expect(n[k]).toBeLessThanOrEqual(760);
+    }
   });
 });
