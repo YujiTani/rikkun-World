@@ -45,7 +45,7 @@ describe('AC14: 絵の 読み方', () => {
       expect(Math.log2(f.h) % 1).toBe(0);
     }
   });
-  it('thunder_sheet.png は 読みこまない（コードに 名前が ない）。thunder_ground.png は ため中の 手の 光・ためいっぱいの わが 使う ので のこす', () => {
+  it('thunder_sheet.png は 読みこまない（コードに 名前が ない）。thunder_ground.png は 雷の ねらいの 地面の わ（aimMesh）が まだ 使う ので のこす（WEAPON-8 §3.5 で 手の 光は なくなった。理由の 文だけ 直し）', () => {
     const src = readFileSync('src/fx/thunderFx.ts', 'utf8');
     expect(src).not.toContain('thunder_sheet.png');
     expect(src).toContain('thunder_ground.png');

@@ -8,10 +8,11 @@ import * as defs from './defs';
  * 既存の `legendDefOf`・`chargeOf`・`legendPowerOf`・`pickNushiDrop` は PR1 の まま 使う。
  */
 describe('AC21: 風神剣の データを defs から 引く', () => {
-  it('power 6・ためない（chargeOf = null）・onAttack に 真空波 1 つ', () => {
+  // WEAPON-8 で 期待が 変わった（理由: 風神剣に ためわざ「らせんの かぜ」。docs/design/WEAPON-8.md AC1・§9）
+  it('power 6・ためわざ あり（chargeOf = kind spiral）・onAttack に 真空波 1 つ', () => {
     const S = createW2Settings();
     expect(defs.legendPowerOf(S, 'fujin_ken' as never)).toBe(6);
-    expect(defs.chargeOf(S, 'fujin_ken' as never)).toBeNull();
+    expect(defs.chargeOf(S, 'fujin_ken' as never)).toEqual({ kind: 'spiral', chargeTicks: 60, launchF: 6, recovery: 40, speed: 12, range: 12, radius: 1.0, damageMul: 2.0, knock: [3, 1] });
     const d = defs.legendDefOf(S, 'fujin_ken' as never);
     expect(d?.item as string).toBe('fujin_ken');
     expect(d?.onAttack.map((x) => x.kind)).toEqual(['wave']);
