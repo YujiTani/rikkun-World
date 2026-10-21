@@ -252,6 +252,8 @@ def render(shot, a, mode="S1", arcs=True, ground=True, yaw_dir=0.0, kind="grass"
         spr = tex.crop((r[0], r[1], r[0] + r[2], r[1] + r[3]))
         lay.sprite(to_world(np.array([0.03, 0, 0]), a, B, u), spr, dot_blocks=2 / 16)
     img = SC.composite(SC.bg(shot), lay, cam, SC.char_depth(cam), SC.char_mask(SC.bg(shot), cam))
+    global LAST
+    LAST = lay
     return img, n_pts
 
 

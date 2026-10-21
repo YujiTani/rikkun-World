@@ -153,6 +153,8 @@ def render(shot, kind, traveled=None, frame=0, scale=1.0):
     spr = KINDS[kind](th, frame)
     lay = SC.Layer(cam)
     lay.sprite(pos, spr, dot_blocks=scale / 16)
+    global LAST
+    LAST = lay
     img = SC.composite(SC.bg(shot), lay, cam, SC.char_depth(cam), SC.char_mask(SC.bg(shot), cam))
     s, _ = cam.proj(pos)
     return img, s, math.degrees(th)
