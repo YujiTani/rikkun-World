@@ -18,7 +18,8 @@ def lufs_int(y):
     z = z[-0.691 + 10*np.log10(z) > rel]
     return -0.691 + 10*np.log10(z.mean())
 def part(y, a, b): return -0.691 + 10*np.log10(np.mean(y[int(a*SR):int(b*SR)]**2) + 1e-20)
-for p in sys.argv[1:]:
+if __name__ == '__main__':
+  for p in sys.argv[1:]:
     with wave.open(p) as f: x = np.frombuffer(f.readframes(f.getnframes()), '<i2') / 32768
     y = kw(x)
     print(f"{p.split('/')[-1]:32s} 通し {lufs_int(y):6.1f} LUFS  ため {part(y,0.15,1.15):6.1f}  合図 {part(y,1.15,1.65):6.1f}  ため続け {part(y,1.9,len(x)/SR-0.8):6.1f}")
