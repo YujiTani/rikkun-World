@@ -65,7 +65,7 @@ export interface TestHook {
   char: { get(): { kind: 'girl' | 'boy' | 'block' }; set(kind: 'girl' | 'boy'): void };
   /** M5: 距離で描くチャンクの数 */
   render: ReturnType<typeof createRenderHook>;
-  player: PlayerHook;
+  player: PlayerHook & { /** WEAPON-8 §7: 剣を 持つ 手の 位置 */ handPos(): unknown };
   camera: CameraHook['camera'];
   /** CHAR-1 第 5.2 版 §4.9: ねらいの点 X・ねらい補助で えらんだ妖怪の id */
   aim: { point(): { x: number; y: number; z: number }; assist(): number | null };
@@ -122,9 +122,18 @@ export interface TestHook {
     carrying(): number | null;
   };
   /** CRAFT-2 §6.1: 画面の不透明度 */
-  ui: { alpha(): UiAlpha; /** WEAPON-7 §9: 画面の 上の 帯 */ topBand(): { kind: 'achieve' | 'telop' | 'appear' | null; item: string | null; age: number; leftSteps: number; queue: string[] } };
+  ui: { alpha(): UiAlpha; /** WEAPON-7 §9: 画面の 上の 帯 */ topBand(): { kind: 'achieve' | 'telop' | 'appear' | null; item: string | null; age: number; leftSteps: number; queue: string[] }; /** WEAPON-8 §7: 速さバフの アイコン */ buffs(): unknown[] };
   /** WEAPON-7 §9: レジェンダリー武器（ため・ためわざ） */
-  legend: { state(): unknown; events(): unknown[]; waves(): unknown[] };
+  legend: {
+    state(): unknown;
+    events(): unknown[];
+    waves(): unknown[];
+    /** WEAPON-8 §7 */
+    debris(): unknown;
+    chargeFx(): unknown;
+    chargeSound(): unknown;
+    spiralSound(): unknown;
+  };
   /** ART-PIPE-1: 雷 B の 見た目（コマ・板の 向き・輪・つぶ・まわりの 明るさ・絵の 読み方）。型は e2e/helpers/thunder.ts */
   thunder: ThunderHook;
 }

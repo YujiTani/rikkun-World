@@ -146,13 +146,14 @@ describe('WEAPON-7 AC12: 実績', () => {
     expect(width(a!.name)).toBeCloseTo(15.5, 5);
     expect(width(b!.name)).toBeCloseTo(16.5, 5);
   });
-  it('AC26: 説明の 文（なにに つかう・つかいかた）。風神剣は ためわざが ない ので「ながおし」を 足さない', () => {
+  // WEAPON-8 で 期待が 変わった（理由: 風神剣に ためわざ「らせんの かぜ」。docs/design/WEAPON-8.md AC12・§4・§9）
+  it('AC26: 説明の 文（なにに つかう・つかいかた）。風神剣も ためわざが ある ので「ながおし して はなすと ためわざ」が つく', () => {
     const info = ITEM_INFO as Record<string, { use: string; how: string; buttons: string[]; stats: string }>;
     const f = info.fujin_ken;
     expect(f, 'ITEM_INFO に fujin_ken').toBeDefined();
-    expect(f!.use).toBe('てに もつと はやく はしれる。ふると かぜ が とぶ');
-    expect(f!.how).toBe(info.katana!.how); // 今の 刀の 文のまま
-    expect(f!.how).not.toContain('ためわざ');
+    expect(f!.use).toBe('てに もつと はやく はしれる。ためて はなすと かぜ が とぶ');
+    expect(f!.how).toBe(info.raijin_ken!.how); // 雷神剣と 同じ
+    expect(f!.how).toContain('ためわざ');
     expect(f!.stats).toBe('blade');
     expect(findUnrubiedKanji(f!.use)).toEqual([]);
   });

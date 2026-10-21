@@ -146,7 +146,7 @@ describe('AC4: 区間', () => {
       expect(t.sys.faceDeg(), `F${F}`).toBe(30);
       expect(t.sys.state().moveF).toBe(F);
       if (t.launches.length > before) seen.push(F);
-      expect(nb.accepts, `F${F} の 前の busyNext`).toBe(F > 38 - 1 + 0 && F >= 38);
+      expect(nb.accepts, `F${F} の 前の busyNext`).toBe(F >= 38);
     }
     expect(seen).toEqual([6]);
     expect(t.launches[0]).toMatchObject({ item: FUJIN, dirDeg: 30 });
