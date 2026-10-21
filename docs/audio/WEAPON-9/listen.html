@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><title>WEAPON-9 虹（にじ）の 音 3 案（試聴）</title>
+<style>body{font-family:-apple-system,"Hiragino Sans",sans-serif;background:#f6f3ea;max-width:960px;margin:20px auto;padding:0 14px}
+.card{background:#fffdf7;border:1px solid #e2dccb;border-radius:10px;padding:10px 16px;margin:12px 0}h2{font-size:18px;margin:4px 0}p{margin:4px 0;font-size:14px;color:#555}
+table{border-collapse:collapse;width:100%}td{padding:4px 6px;vertical-align:middle;font-size:14px}td:first-child{width:38%}audio{width:100%;height:32px}
+.a{border:3px solid #c6a}.b{border:3px solid #678}.c{border:3px solid #6a8}</style></head>
+<body><h1>虹（にじ）の 音 3 案</h1>
+<p>はじめの 音量は 小さめで 聞いてください（ゲームの はじめの 設定と 同じ 大きさ。くらべる 用に 今の「ひろう」と 雷神剣の 斬撃も 下に あります）。</p>
+<p>いちばん 聞いて ほしいのは 各案の <b>「3 段攻撃 2 回」</b> と <b>「弾を かき消す ×3」</b>。</p>
+<script>
+const OPT = [
+  ['a', 'A にじの すず刃（おすすめ）', 'A_nijisuzu', '刃の 風「シャッ」＋ 本物の 鉄琴の「キン」。段ごとに 鉄琴が 1・2・4 つ と ふえて 高く なる。3 段目は ウィンドチャイムが キラキラ。かき消す 音は「シュワッ… キラ」'],
+  ['b', 'B はがねの にじ（見本に いちばん 近い）', 'B_hagane', '鋭い「シャキン」を 段ごとに 2・3・6 回 切りきざむ。はがねの 鳴り（金床の 録音 ＋ 合成）。3 段目の おわりに ハンドチャイムの 和音が うすく 光る。かき消す 音は「パシュン… シャラ」'],
+  ['c', 'C ひかりの オルゴール（いちばん やさしい）', 'C_orgel', 'やわらかい「ひゅん」＋ ハンドチャイムの まるい 音（ド → ミソ → 高い ド）。3 段目は ベルツリーが のぼる。かき消す 音は「ぽわん…」（しゃぼん玉が はじける ような）'],
+];
+const ROWS = [
+  ['3 段攻撃 2 回（つき → きりあげ → けさ。2 回目は 高さが ちがう）', 'slash_combo'],
+  ['1 段目（つき）', 'slash1'], ['2 段目（きりあげ）', 'slash2'], ['3 段目（けさ）', 'slash3'],
+  ['弾を かき消す ×3（火の玉が つづけて 3 つ 消える。毎回 高さが ちがう）', 'erase_x3'],
+  ['shiningStart シャイニング はじまり', 'shiningStart'], ['shiningHit ドームが はじく ×3（小さく）', 'shiningHit_x3'],
+  ['shiningEnd シャイニング おわり', 'shiningEnd'], ['shiningReady 休みが あけた', 'shiningReady'],
+];
+for (const [cls, title, pre, desc] of OPT) {
+  document.write(`<div class="card ${cls}"><h2>${title}</h2><p>${desc}</p><table>`);
+  for (const [label, f] of ROWS) document.write(`<tr><td>${label}</td><td><audio controls preload="none" src="${pre}_${f}.wav"></audio></td></tr>`);
+  document.write('</table></div>');
+}
+</script>
+<div class="card"><h2>くらべる（今の 音・同じ ものさし）</h2><table>
+<tr><td>今の「ひろう」pickup</td><td><audio controls preload="none" src="ref_now_pickup.wav"></audio></td></tr>
+<tr><td>雷神剣の 斬撃の 雷（WEAPON-8 の 2 版 ×3）</td><td><audio controls preload="none" src="ref_raijin_thunderSlash_x3.wav"></audio></td></tr>
+</table></div>
+</body></html>
