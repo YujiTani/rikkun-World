@@ -272,7 +272,7 @@ if __name__ == '__main__':
             write(f'{OUT}/{names[key]}_{fl}.wav', x * g)
         print(key, info, 'gain %.3f' % g)
     # C2: C と 同じ 倍率で 書き出す（下げた 分が そのまま 比べられる）
-    SOFT['on'] = True
+    SOFT['on'] = False  # オーナー: 風と ばちばちは よかった → 味の 層は C と 同じ 大きさ・同じ 音のまま
     for fl in [None, 'fujin', 'raijin']:
         x, _ = assemble(planC2, fl, 7)
         write(f'{OUT}/C2_kaze-fue-shizuka' + (f'_{fl}' if fl else '') + '.wav', x * gains['C'])
