@@ -30,7 +30,7 @@
 
 ## 進め方（CLAUDE.md「1 つの issue の進め方」）
 1. デザイン: designer（版 2.3）→ design-reviewer → オーナー確認①（足した 所だけ）。
-2. アート: 刀の アイコン・手に 持つ 絵・にじの 斬撃・ドーム（帯・かけら）。art-director → pixel-artist → art-reviewer → オーナー。見本が あるので 方向の 3 案は オーナーに 聞く。PixelLab は lite だけ（呼ぶ 前後の 残りを `art/WEAPON-9/pixellab/` に 記録。上限 3 回）。体の 動き（GLB → スプライト）は GLB しだい。
+2. アート: 刀の アイコン・手に 持つ 絵・にじの 斬撃・ドーム（帯・かけら）。art-director → pixel-artist → art-reviewer → オーナー。**方向の 3 案 → yuzu が 選ぶ**（決定 `2026-10-21-niji-three-options.md`）。PixelLab は lite だけ（呼ぶ 前後の 残りを `art/WEAPON-9/pixellab/` に 記録。上限 3 回）。体の 動き（GLB → スプライト）は GLB しだい。
 3. サウンド: `shiningStart`・`shiningHit`・`shiningEnd`・`shiningReady`（sound-director → sfx-designer → audio-reviewer → オーナー試聴）。
 4. ゲームに 入れた 試作の スクショで オーナーの OK（テストの 準備の 前）。
 5. tester が AC28〜AC34 ＋ 版 2.3 の 基準の E2E（赤）→ code-reviewer。ブランチの 最初の コミット。
@@ -57,4 +57,4 @@ WEAPON-8 が 大きく さわっている: `src/legend/LegendSystem.ts`（ため
 | 日付 | ループ | 結果 | メモ |
 |---|---|---|---|
 | 2026-10-21 | 準備 | タスク票を 作った | 仕様は WEAPON-7 §5 が ある（確認① すみ）。足す 所を 版 2.3 で |
-| 2026-10-21 | 質問 | yuzu: GLB と 見本の 絵は チャットに 送る。マージは **WEAPON-8 の あと**。絵の 3 案は「3案なしになったっけ？」→ 確かめ中 | 実装は WEAPON-8 マージ後に main を 取りこんでから |
+| 2026-10-21 | 質問 | yuzu: GLB と 見本の 絵は チャットに 送る。マージは **WEAPON-8 の あと**。絵の 3 案は「3案なしになったっけ？」→ 「3案から選びたい」（決定 `2026-10-21-niji-three-options.md`） | 実装は WEAPON-8 マージ後に main を 取りこんでから |
