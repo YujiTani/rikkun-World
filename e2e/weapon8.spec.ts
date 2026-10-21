@@ -157,18 +157,21 @@ test.describe('WEAPON-8 AC16 性能', () => {
     await page.evaluate(() => {
       const h = window.__rikkun as any;
       const leg = JSON.parse(JSON.stringify(h.settings.get('legendary')));
-      leg.find((x: any) => x.item === 'fujin_ken').onAttack[0].range = 120; // 約 480 ステップ とびつづける
+      // ゆっくり 長く とばして（速さ 1.5・range 20 = 約 800 ステップ）8 つ 同時に する。見た目の 数を はかる ための 設定で、遊びの 数の 確かめでは ない
+      const a = leg.find((x: any) => x.item === 'fujin_ken').onAttack[0];
+      a.speed = 1.5;
+      a.range = 20;
       h.settings.set('legendary', leg);
     });
-    // 真空波が 8 つ 同時に なるまで 25 ステップごとに 振る
+    // 真空波が 8 つ 同時に なるまで 21 ステップごとに 振る（つき → 切り上げ → 大けさぎりの 3 段が つながる）
     const launch = await rec8(
       page,
       400,
       `(h, i) => {
         const n = h.legend.waves().filter((w) => w.kind === 'wave').length;
         if (n >= 8) { h.input.release('primary'); return; }
-        if (i % 25 === 0) h.input.press('primary');
-        if (i % 25 === 1) h.input.release('primary');
+        if (i % 21 === 0) h.input.press('primary');
+        if (i % 21 === 1) h.input.release('primary');
       }`,
     );
     const eight = launch.findIndex((s) => s.waves.filter((w) => w.kind === 'wave').length >= 8);
@@ -192,7 +195,7 @@ test.describe('WEAPON-8 AC16 性能', () => {
     expect(errors).toEqual([]);
 
     // K1 だけの ふえ: 8 つが ぜんぶ きえた あとと くらべる
-    await settle8(page, 700);
+    await settle8(page, 900);
     const none = await rec8(page, 1, undefined, true);
     expect(none[0]!.waves, '真空波は ぜんぶ きえた').toHaveLength(0);
     expect(withoutSpiralCalls - none[0]!.calls!, '8 つ 同時の 描画回数の ふえ').toBeLessThanOrEqual(2);
