@@ -7,7 +7,7 @@ import { fromRows } from './itemArtM4';
  * 雷神剣は オーナー決定 v3-A（2026-10-18 18:22）: そった むらさきの 刃 ＋ 金の 小さな つば ＋ 短い こん色の 柄。ART-PIPE-1 で 稲妻の 刃文を 足した。
  * 柄なし・大きな 丸い つばは NG。もとの 絵は 共有フォルダ `weapon7/art/raijin_ken_icon_v3_A.png`（`tools/icon3.py` の `A3()`・`tools/icon2.py` の PAL）。
  */
-export const W7_ITEMS = ['raijin_ken', 'fujin_ken'] as const;
+export const W7_ITEMS = ['raijin_ken', 'fujin_ken', 'niji_tachi'] as const;
 export type W7ItemId = (typeof W7_ITEMS)[number];
 
 export function isW7Item(item: ItemId): item is W7ItemId {
@@ -58,11 +58,35 @@ const FUJIN_KEN = [
   'KGgK...KK.......',
 ];
 
+
+/** WEAPON-9 試作: 虹の 太刀（art/WEAPON-9/icon-tachi の 16x16 から） */
+export const PAL_NIJI = { K: 0x241a44, L: 0xf4f7ff, M: 0xc3cee2, D: 0xd16be6, d: 0x4fa3f0, G: 0x5fd98e, g: 0xf6cb45, Y: 0xb8860b, W: 0xd2283c, N: 0xb9772f, n: 0x7c4a1e };
+export const NIJI_TACHI = [
+  '............KLMK',
+  '...........KLMK.',
+  '..........KLDDK.',
+  '.........KLMDK..',
+  '.........KLddK..',
+  '........KLMdK...',
+  '.......KLGGK....',
+  '.....KKLMGK.....',
+  '....KgggYK......',
+  '...KgKgKK.......',
+  '..KgKgKYK.......',
+  '..KKgKYK........',
+  '.KWNnYK.........',
+  'KKWWKK..........',
+  'gNWK............',
+  'gYK.............',
+];
+
 export function w7ItemPixels(item: W7ItemId): Rgba[] {
   switch (item) {
     case 'raijin_ken':
       return fromRows(RAIJIN_KEN, PAL);
     case 'fujin_ken':
       return fromRows(FUJIN_KEN, PAL_FUJIN);
+    case 'niji_tachi':
+      return fromRows(NIJI_TACHI, PAL_NIJI);
   }
 }

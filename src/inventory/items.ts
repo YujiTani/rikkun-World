@@ -115,6 +115,7 @@ const LIVE_ITEMS: readonly ItemType[] = [
 const WEAPON7_ITEMS: readonly ItemType[] = [
   { id: 'raijin_ken', name: '［雷神剣｜らいじんけん］', maxStack: 1, placeBlock: null },
   { id: 'fujin_ken', name: '［風神剣｜ふうじんけん］', maxStack: 1, placeBlock: null },
+  { id: 'niji_tachi', name: '［虹の太刀｜にじのたち］', maxStack: 1, placeBlock: null },
 ];
 
 export const ITEM_TYPES: readonly ItemType[] = [

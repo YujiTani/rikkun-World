@@ -1,0 +1,28 @@
+{
+ "base12": {
+  "calls": 97,
+  "triangles": 22790
+ },
+ "base4": {
+  "calls": 85,
+  "triangles": 20050
+ },
+ "dome12": {
+  "calls": 101,
+  "triangles": 22906
+ },
+ "domeInfo": {
+  "dome": true,
+  "groundY": 150,
+  "tris": 116,
+  "slash": false
+ },
+ "domeSlash": {
+  "calls": 103,
+  "triangles": 22910
+ },
+ "domeFirst": {
+  "calls": 78,
+  "triangles": 18470
+ }
+}

@@ -127,6 +127,7 @@ export interface TestHook {
   legend: { state(): unknown; events(): unknown[]; waves(): unknown[] };
   /** ART-PIPE-1: 雷 B の 見た目（コマ・板の 向き・輪・つぶ・まわりの 明るさ・絵の 読み方）。型は e2e/helpers/thunder.ts */
   thunder: ThunderHook;
+  nijiProto: { dome(on: boolean, o?: { lift?: number }): void; slash(frame?: number): void; info(): { dome: boolean; groundY: number; tris: number; slash: boolean } };
 }
 
 declare global {
@@ -135,7 +136,7 @@ declare global {
   }
 }
 
-export type TestHookGroups = Pick<TestHook, 'shadow' | 'char' | 'world' | 'biome' | 'render' | 'player' | 'camera' | 'aim' | 'input' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'attack' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm' | 'log' | 'ui' | 'audio' | 'rarity' | 'animals' | 'parry' | 'legend' | 'thunder'>;
+export type TestHookGroups = Pick<TestHook, 'shadow' | 'char' | 'world' | 'biome' | 'render' | 'player' | 'camera' | 'aim' | 'input' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'attack' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm' | 'log' | 'ui' | 'audio' | 'rarity' | 'animals' | 'parry' | 'legend' | 'thunder' | 'nijiProto'>;
 
 export function installTestHook(game: Game, overlay: PerfOverlay, isReady: () => boolean, groups: TestHookGroups, clock: FrameClock = 'time'): void {
   window.__rikkun = {

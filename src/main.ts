@@ -33,6 +33,7 @@ import { createLegendSystem } from './legend/LegendSystem';
 import { createWaveSystem } from './legend/WaveSystem';
 import { WindWaveFx } from './fx/windWaveFx';
 import { ThunderFx } from './fx/thunderFx';
+import { NijiProtoFx } from './fx/nijiProtoFx';
 import { LegendBook } from './legend/LegendBook';
 import { legendMoveMulOf, legendPowerOf, trailStyleOf } from './legend/defs';
 import { lightningPoseFrame } from './legend/pose';
@@ -590,6 +591,7 @@ const thunderFx = new ThunderFx({ scene: game.scene, camera: game.camera, seed }
 // ART-PIPE-1: 落雷の 間だけ 世界を 絵に 描く 道（深さを 読む 雷・まわりを 明るく）
 game.setWorldPass(thunderFx);
 thunderFx.warmUp(game.renderer, game.camera); // 読みこみ中に 雷 B の プログラムを 作る
+const nijiProto = new NijiProtoFx(game.scene, game.camera); // WEAPON-9 試作
 const windWaveFx = new WindWaveFx({ scene: game.scene, camera: game.camera });
 controller.lungeYokai = () => (yokaiManager ? yokaiManager.list() : []);
 const combat = new PlayerCombatImpl({
@@ -1743,6 +1745,7 @@ game.onUpdate((dt) => {
       reducedMotionMq?.matches ?? false,
     );
   }
+  nijiProto.step({ x: controller.state.position.x, y: controller.state.position.y + 0.9, z: controller.state.position.z }, controller.state.yawDeg);
   for (const n of parry.sounds()) if (isParrySound(n)) playParry(fxSound, n);
   {
     const ps = parry.state();
@@ -1952,6 +1955,20 @@ installTestHook(game, overlay, () => host.everReady, {
     events: () => parry.events(),
   } as unknown as TestHookGroups['parry'],
   thunder: thunderFx.hook(game),
+  /** WEAPON-9 試作の 窓口（見た目の 確かめ だけ） */
+  nijiProto: {
+    dome: (on: boolean, o: { lift?: number } = {}) => {
+      const p = controller.state.position;
+      if (on) {
+        const lift = o.lift ?? 2;
+        const groundY = p.y;
+        controller.set({ position: { y: p.y + lift }, velocity: { x: 0, y: 0, z: 0 } });
+        nijiProto.show(true, groundY, lift + 0.9);
+      } else nijiProto.show(false, 0, 0);
+    },
+    slash: (frame?: number) => nijiProto.slash(frame),
+    info: () => nijiProto.info(),
+  },
   legend: {
     state: () => ({ ...legend.state(), got: legendBook.got() }),
     events: () => legend.peekEvents(),

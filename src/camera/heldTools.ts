@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { ItemId } from '../contracts';
 import { AXE_HELD_PARTS } from './heldAxes';
+import { NIJI_TACHI, PAL_NIJI } from '../ui/itemArtW7';
 import { BUG_HELD_PARTS, NET_HELD_PARTS } from './heldLive';
 
 /**
@@ -50,6 +51,23 @@ function sword(bladeColor: number, handle: number, guard: number, core?: number)
   return parts;
 }
 
+/** WEAPON-9 試作: 16x16 の 絵を 1 点 = 1 つの 箱に（絵の 左下 → 柄・右上 → 刃先を -Z へ。45 度） */
+function nijiHeld(): Part[] {
+  const s = 0.05;
+  const out: Part[] = [];
+  NIJI_TACHI.forEach((row, ry) => {
+    for (let cx = 0; cx < 16; cx++) {
+      const k = row[cx]!;
+      if (k === '.') continue;
+      const y = 15 - ry;
+      const along = (cx + y - 15) * Math.SQRT1_2 * s;
+      const side = (cx - y) * Math.SQRT1_2 * s;
+      out.push({ size: [s, 0.03, s], pos: [side, 0, -0.45 - along], color: PAL_NIJI[k as keyof typeof PAL_NIJI], rotY: Math.PI / 4 });
+    }
+  });
+  return out;
+}
+
 export const HELD_MODELS: Partial<Record<ItemId, Part[]>> = {
   wood_pickaxe: pickaxe(LIGHT_WOOD),
   stone_pickaxe: pickaxe(0x9a9a9a),
@@ -68,6 +86,7 @@ export const HELD_MODELS: Partial<Record<ItemId, Part[]>> = {
   // WEAPON-7: 雷神剣（刃は むらさき 0xb070ff 系・芯は うすい むらさき・柄は こん色・つばは 金。そりは 箱では 作らない）
   raijin_ken: sword(0xb070ff, 0x24336e, GOLD, 0xe8d8ff),
   fujin_ken: sword(0xcfefff, 0x1d5a6e, 0x2b2b3a, 0xffffff),
+  niji_tachi: nijiHeld(),
   naginata: [
     stick(1.4, 0.05, WOOD, -0.25),
     { size: [0.04, 0.1, 0.42], pos: [0, 0, -1.35], color: STEEL },
