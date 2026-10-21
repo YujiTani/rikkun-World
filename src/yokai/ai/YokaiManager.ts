@@ -107,6 +107,10 @@ export interface YokaiManagerOptions {
   onLegendDrop?: (info: { item: ItemId; yokaiId: number; kind: YokaiKind; position: Vec3 }) => void;
   /** WEAPON-5: パリィ。妖怪の攻撃・火の玉が プレイヤーに当たる直前に聞く（なければ 今のまま） */
   parry?: YokaiParryPort;
+  /** WEAPON-9: シャイニングの ドームの 球（なければ null）。火の玉などの 弾は ふれた ステップに 消える */
+  dome?: () => { x: number; y: number; z: number; r: number } | null;
+  /** WEAPON-9: 弾が ドームで 消えた（弾の id） */
+  onDomeErase?: (projectileId: number) => void;
   /** WEAPON-5: よろけ・2 倍・はね返しが当たった 出来事を パリィの 出来事の 列へ */
   onParryEvent?: (e: { type: 'stagger' | 'staggerDouble' | 'reflectHit'; yokaiId: number; by?: StaggerBy; damage?: number }) => void;
 }
@@ -220,6 +224,7 @@ interface Ent {
 }
 
 interface LiveFireball {
+  id: number;
   fb: Fireball;
   owner: number;
   /** 出した妖怪の攻撃力（出した時点の数） */
@@ -279,6 +284,7 @@ export class YokaiManager implements YokaiWorld {
   private readonly stagBook;
   private ents: Ent[] = [];
   private fireballs: LiveFireball[] = [];
+  private fireballSeq = 0;
   private freeFireballs: Fireball[] = [];
   private nextId = 1;
   private steps = 0;
@@ -1740,7 +1746,7 @@ export class YokaiManager implements YokaiWorld {
     const idx = model.fireballs.findIndex((f) => f.alive && f.traveled === 0);
     if (idx < 0) return;
     const fb = model.fireballs.splice(idx, 1)[0]!;
-    this.fireballs.push({ fb, owner: e.id, damage: e.attack, reflected: false });
+    this.fireballs.push({ id: ++this.fireballSeq, fb, owner: e.id, damage: e.attack, reflected: false });
     const spare = this.freeFireballs.pop();
     if (spare) model.fireballs.push(spare);
   }
@@ -1757,6 +1763,7 @@ export class YokaiManager implements YokaiWorld {
     const pb = this.playerBox(tmpBox);
     const keep: LiveFireball[] = [];
     const half = AI_CONST.fireballBox / 2;
+    const dome = this.opts.dome?.() ?? null;
     for (const f of this.fireballs) {
       f.fb.update(dt);
       const p = f.fb.position;
@@ -1771,6 +1778,10 @@ export class YokaiManager implements YokaiWorld {
         end = true;
       } else if (this.world.isSolid(Math.floor(p.x), Math.floor(p.y), Math.floor(p.z))) {
         end = true;
+      } else if (dome && !f.reflected && Math.hypot(p.x - dome.x, p.y - dome.y, p.z - dome.z) <= dome.r) {
+        // WEAPON-9: ドームに ふれた 弾は 消える（ダメージ 0）
+        end = true;
+        this.opts.onDomeErase?.(f.id);
       } else {
         tmpBox2.minX = p.x - half;
         tmpBox2.maxX = p.x + half;
