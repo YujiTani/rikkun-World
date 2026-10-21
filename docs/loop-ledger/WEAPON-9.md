@@ -40,3 +40,4 @@ dev / code-review(再レビュー) | 【解消】 | 前の 重大(kinds.3)・軽
 dev / code-review(再レビュー) | 【重大】 | e2e/helpers/niji.ts pushCameraIn: かべを x±2 × z(bz-2〜bz+2) の 5×5 の 箱で 埋めている。bz = floor(p.z + 1) なので 体の いる マス（p.z）も 箱に 入り、体が 石の 中に うまる（y〜y+6）。カメラも 石の 中で doll が 消えるだけに なり、一人称の 画面（AC43 の 明るさ・平均色）が 正しく はかれない。体の マスを のぞいて カメラ側の 1 まいの かべ（bz 1 マスぶんの 厚さ・横 ±2）だけ にする（z0=z1=bz）
 dev / code-review(再々レビュー) | 【解消】 | pushCameraIn は 体の マスを のぞいた 1 まいの かべに なった。getBlock は 型が `BlockId | 'outside'`（air は 'air'）で、`=== 'air'` で 足りる
 dev / code-review(再々レビュー) | 【軽微】 | e2e/helpers/niji.ts:60 bodyAir の `=== 0`・`== null` は 型に ない 値で 不要（'air' だけで よい）。害は ない
+design 2.6 | 対応 | 仕様に 入れた 軽微 5 件: 手持ちの 刃 1 割 長く・そり（§5.7.2）、虹の シート 31 色は にじの 例外（§5.7.2）、ゲーム内の 大きさで 8 コマ 以上 撮る（AC52）、C3 の 3 kHz 上の 試聴（AC47）、`sources.txt` に 出どころ（§5.5。サウンドが 書く）。済
