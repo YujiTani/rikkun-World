@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { aimAtBlock } from './helpers/aim';
 import { holdItems, settle, spawnAhead, toStance, type Vec3 } from './helpers/blade';
 import { FUJIN, RAIJIN, chargeRun, legendState, legendWorld, markLegend, pinNushiTable, resetStage, spawnNushiAhead, types } from './helpers/legend';
-import { comboWorld, mash, startList } from './helpers/combo';
+import { comboWorld, markNow, run, startList } from './helpers/combo';
 import { pressParry } from './helpers/parry';
 
 /**
@@ -413,10 +413,13 @@ test.describe('WEAPON-7 PR2 風神剣 実績・ヌシ（AC26）', () => {
 });
 
 test.describe('WEAPON-7 風神剣の 3 段攻撃', () => {
-  test('毎ステップ 押す → 3 段（AC12 と 同じ 数）・段ごとに waveStart 1 つ（3 回）', async ({ page }) => {
+  // WEAPON-8: 風神剣は 押しつづけ = ため（仕様 §9）。毎ステップ 押しつづけず、押す・はなす を くり返す（1 ステップ 押して 1 ステップ はなす）
+  test('押す・はなすを くり返す → 3 段（AC12 と 同じ 数）・段ごとに waveStart 1 つ（3 回）', async ({ page }) => {
     await comboWorld(page, 'chudan', FUJIN);
     await markLegend(page);
-    const rec = await mash(page, 80, `(h) => { (window.__ev = window.__ev || []).push(0); }`);
+    await markNow(page);
+    const rec = await run(page, 80, { before: `(h, i) => { if (i % 2 === 0) h.input.press('primary'); else h.input.release('primary'); }` });
+    await page.evaluate(() => (window.__rikkun as any).input.releaseAll());
     expect(startList(rec).slice(0, 3)).toEqual([
       [0, 1, 'thrust'],
       [20, 2, 'kiriage'],

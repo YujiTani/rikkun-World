@@ -111,6 +111,8 @@ export async function rec8(page: Page, n: number, before?: string, perf = false)
       const out: any[] = [];
       for (let i = 0; i < n; i++) {
         if (b) b(h, i);
+        // はかる とき（perf）は 時刻を 固定（空の 太陽・星・高い 所の 動きものが 揺れて 描画の 基準が ぶれない ように）
+        if (perf && (window as any).__w8Time != null) h.time.set((window as any).__w8Time);
         h.step(1);
         const st = h.legend.state();
         const ev = h.legend.events();
@@ -194,9 +196,13 @@ export async function baseStats(page: Page): Promise<{ calls: number; triangles:
   await markLegend(page);
   return page.evaluate(() => {
     const h = window.__rikkun as any;
+    (window as any).__w8Time = 20000; // 昼の まんなか（rec8 の perf も 同じ 時刻に 固定）
+    h.time.set(20000);
     h.step(1);
     for (let n = 0; (h.world.lightPending() > 0 || h.world.meshStats().pending > 0) && n < 3000; n++) h.step(1);
+    h.time.set(20000);
     h.step(60);
+    h.time.set(20000);
     const rs = h.renderStats();
     return { calls: rs.drawCalls, triangles: rs.triangles, points: rs.points ?? NaN, geometries: rs.geometries, textures: rs.textures };
   });

@@ -154,6 +154,7 @@ test.describe('WEAPON-8 AC16 性能', () => {
     await expectW8Hook(page);
     await grassFloor(page, floorY);
     await settle8(page, 5);
+    await page.evaluate(() => ((window as any).__w8Time = 20000)); // はかる ときは 時刻を 固定（rec8 perf）
     await page.evaluate(() => {
       const h = window.__rikkun as any;
       const leg = JSON.parse(JSON.stringify(h.settings.get('legendary')));
