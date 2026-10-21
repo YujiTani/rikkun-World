@@ -610,6 +610,7 @@ const IDLE_THUNDER_LOOK = { charging: false, ready: false, aimS: null };
 const thunderFx = new ThunderFx({ scene: game.scene, camera: game.camera, seed });
 // ART-PIPE-1: 落雷の 間だけ 世界を 絵に 描く 道（深さを 読む 雷・まわりを 明るく）
 game.setWorldPass(thunderFx);
+thunderFx.warmUp(game.renderer, game.camera); // 読みこみ中に 雷 B の プログラムを 作る
 const windWaveFx = new WindWaveFx({ scene: game.scene, camera: game.camera });
 // WEAPON-8: らせんの かぜ（S2）・土と 草の つぶ・手もとの 光・速さバフの アイコン
 const spiralFx = new SpiralFx({ scene: game.scene, camera: game.camera });
