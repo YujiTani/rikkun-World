@@ -57,4 +57,6 @@ WEAPON-8 が 大きく さわっている: `src/legend/LegendSystem.ts`（ため
 | 日付 | ループ | 結果 | メモ |
 |---|---|---|---|
 | 2026-10-21 | 準備 | タスク票を 作った | 仕様は WEAPON-7 §5 が ある（確認① すみ）。足す 所を 版 2.3 で |
+| 2026-10-21 | 素材 | yuzu が 男の子 GLB（`Meshy_AI_Silver_Maple_Shrine_A_All_Animations_1.glb`、26.5MB、17 モーション。Wall_Flip 2.0 秒・Triple_Combo_Attack・Weapon_Combo_1・Skill_02 など）を チャットで くれた。リポジトリに 入れない（PO の 作業フォルダ）。「この GLB は 手足が 短いので、実際には 直している」→ CHAR-5 の 撮り方（頭 −20 度・腕 1.6 倍、`render_boy.py`）と 同じ 直しを して 撮る | |
+| 2026-10-21 | デザイン | 仕様 2.3（§5.4〜5.9・AC34〜AC47）→ design-reviewer 合格（重大 0・軽微 7） | |
 | 2026-10-21 | 質問 | yuzu: GLB と 見本の 絵は チャットに 送る。マージは **WEAPON-8 の あと**。絵の 3 案は「3案なしになったっけ？」→ 「3案から選びたい」（決定 `2026-10-21-niji-three-options.md`） | 実装は WEAPON-8 マージ後に main を 取りこんでから |
