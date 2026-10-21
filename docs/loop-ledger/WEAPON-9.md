@@ -24,3 +24,7 @@ sound / sound-review | 【軽微】 | B2_hagane2_slash1/2/3/combo: 立ち上が�
 sound / sound-review | 【軽微】 | B_hagane_erase_x3: 3kHz より上が -2.1 dB（他の B は -3.4 以下、見本 -20）。耳にささらないか試聴で確認。
 sound / sound-review | 【軽微】 | B_hagane_slash_combo: 終わりの 10ms が 0.034（約 -29 dB）で、ぷつっと切れる。最後を 20ms ほどなめらかに消す。
 sound / sound-review | 【軽微】 | B_hagane_erase_x3: 1 発めへの急な上がり +10.6 dB（前の音の消えぎわとの差。1 発ごとの大きさは -12.3 dB ピーク以下で問題なし）。ゲームでは同じ名前の重なり 3 つまでを守る。
+
+sound / sound-review | 判定 | C3_cut_slash 合格（重大 0・軽微 2）。音割れなし（4 倍ピーク -17.5〜-19.5 dB、clip 0）、400ms 最大 -29.3〜-31.0 で B2 と同じ（pickup -27.8 との差 3.2 dB 以内）、頭と終わりは 0 でぷつっなし、急な上がり +2.0 dB 以下、combo も 1 発ごとと同じ大きさ。長さ 0.6〜0.85 秒、シャッという刃の音でこわくない。最終はオーナーが試聴。
+sound / sound-review | 【軽微】 | C3 の元は on-jin の見本（個人利用・配らない前提で決定済み）。公開・配布の前に規約確認か差しかえが必要（決定 2026-10-21 の「直し」に記載済み）。sources.txt にも出どころと条件を 1 行足す。
+sound / sound-review | 【軽微】 | 3 kHz より上が -5.0〜-7.4 dB（B2 の -17 より多い、見本 B より少ない）。耳にささらないか試聴で確認。

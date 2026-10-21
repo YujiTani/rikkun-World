@@ -42,3 +42,5 @@ https://raw.githubusercontent.com/sgossner/VCSL/master/Idiophones/Struck%20Idiop
 https://raw.githubusercontent.com/sgossner/VCSL/master/Idiophones/Struck%20Idiophones/Suspended%20Cymbal%201/susCymb1_bow_13.wav sus_cymbal__0.wav
 https://raw.githubusercontent.com/sgossner/VCSL/master/Idiophones/Struck%20Idiophones/Suspended%20Cymbal%201/susCymb1_bow_17.wav sus_cymbal__1.wav
 https://raw.githubusercontent.com/sgossner/VCSL/master/Idiophones/Struck%20Idiophones/Suspended%20Cymbal%201/susCymb1_bow_20.wav sus_cymbal__2.wav
+
+# C3_cut_slash*: オーナーの見本 on-jin「sen_ka_katana_kirikizamu02.mp3」(https://on-jin.com) を切りはり。配らない前提（2026-10-21 yuzu）。公開する前に規約確認か差しかえ。元の mp3 はリポジトリに入れない。
