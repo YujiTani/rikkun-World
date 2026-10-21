@@ -56,3 +56,4 @@
 | 2026-10-21 | 1 | design-reviewer 合格 | 重大 0・軽微 7 → designer に まとめて 直してもらう |
 | 2026-10-21 | 0 | 試作 | developer の 見立て: ささる所は A 案（深さで 薄く）で 描画 4 以内（blit 1 ＋ 雷 3）に 入る。試作の スクショ `docs/art/ART-PIPE-1/proto/`（試作の コードは worktree ブランチ worktree-agent-abd7ef263c04b1994 b102134、push なし）。気になる: 落雷中だけ 画面大の RT（Retina で 約 40 MB）→ 性能の 係。オーナー確認 待ち |
 | 2026-10-21 | 0 | オーナー確認 | yuzu が 試作の スクショで OK（見た目・アイコン）。ささる所は A 案（深さで 薄く）に PO が 決定（blit を 入れて 描画 4）。性能の 係で 落雷中の RT（約 40 MB）を 見る |
+| 2026-10-21 | 1 | テスト準備 合格 | code-reviewer: 重大 0・軽微 4（1〜3 は tester が 直す、4 は developer へ） |
