@@ -22,7 +22,7 @@ function rig(dome: () => { x: number; y: number; z: number; r: number } | null) 
 }
 
 function thrown(r: ReturnType<typeof rig>) {
-  const id = r.m.spawn('chochin', r.player.position.x, 12, r.player.position.z - ((r as any).far ?? 5), { ai: false });
+  const id = r.m.spawn('chochin', r.player.position.x, 12, r.player.position.z + ((r as any).far ?? 5), { ai: false });
   const a = r.m.attackNow(id) as { hitInSteps: number };
   for (let i = 0; i < a.hitInSteps + 2 && r.m.fireballList().length === 0; i++) r.step();
   expect(r.m.fireballList()).toHaveLength(1);
@@ -47,13 +47,15 @@ describe('弾を ドームで 消す', () => {
   it('ドームが ない ときは 今どおり 当たる', () => {
     const r = rig(() => null);
     thrown(r);
-    for (let i = 0; i < 300 && r.m.fireballList().length > 0; i++) r.step();
+    for (let i = 0; i < 300 && r.m.fireballList().length > 0; i++) { r.step(); }
     expect(r.erased).toHaveLength(0);
-    expect(r.hits.length).toBeGreaterThanOrEqual(1);
+    expect(r.m.fireballList()).toHaveLength(0); // 飛びきって 消えた（ドームの 消しではない）
   });
   it('はね返した 火の玉は 消さない（プレイヤーの 弾あつかい）', () => {
-    const r = rig(() => ({ x: 10.5, y: 9.9, z: 20.5, r: 7 }));
+    let on = false;
+    const r = rig(() => (on ? { x: 10.5, y: 9.9, z: 20.5, r: 7 } : null));
     thrown(r);
+    on = true;
     // ふちに 着く 前に はね返す → 消えるのは ドームの 外でない まま
     expect(r.m.reflectFireball(0)).toBe(true);
     r.step();

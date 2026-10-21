@@ -44,7 +44,7 @@ def put(out, sel, col):
 # 各 関数: (u, v, L) の 配列 → (刃の 点の 配列 mask, 色 (N,3))。v は 中心線から の ずれ
 def niji(u, v, L, s):
     A = 0.13 * L  # そりを はっきり（決定 2026-10-21）
-    c = A * np.sin(np.pi * np.clip(u / L, 0, 1)) ** 0.85
+    c = A * np.abs(np.sin(np.pi * np.clip(u / L, 0, 1))) ** 0.85
     r = u / L
     h = np.maximum(np.where(r < 0.86, 2.4 - 0.5 * r, lerp(2.4 - 0.43, 0.5, (r - 0.86) / 0.14)) * s, 1.3)
     vv = v - c
