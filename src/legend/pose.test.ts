@@ -29,3 +29,11 @@ describe('落雷の 体の 絵（kesa の コマ列を 使い回す）', () => {
     expect(techCell(TECH_CURVES.kesa, k, k, 29)).toBeGreaterThan(CHARGE_CELL);
   });
 });
+
+describe('シャイニングの 体の 絵（女の子・§5.4）', () => {
+  it('F1〜F240 は ため の 形、F241 以後は 待機', async () => {
+    const { shiningBodyPose } = await import('./pose');
+    for (const F of [1, 40, 100, 200, 240]) expect(shiningBodyPose(F), `F${F}`).toBe('charge');
+    for (const F of [241, 250, 260]) expect(shiningBodyPose(F), `F${F}`).toBe('idle');
+  });
+});

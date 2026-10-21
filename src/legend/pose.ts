@@ -16,5 +16,10 @@ export function lightningPoseFrame(F: number, total: number): { frame: number; p
   return { frame: Math.min(full, f), phase: 'recovery' };
 }
 
+/** WEAPON-9 §5.4: シャイニングの 体の 絵（女の子）。うかぶ F1〜おりる F240 は ため の 形を 止める。もどり F241〜 は 待機へ */
+export function shiningBodyPose(F: number): 'charge' | 'idle' {
+  return F >= 1 && F <= 240 ? 'charge' : 'idle';
+}
+
 /** ため中の 絵の コマ（おおげさぎり コマ 5。かまえに よらず） */
 export const CHARGE_CELL = 5;

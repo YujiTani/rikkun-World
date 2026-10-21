@@ -176,7 +176,7 @@ describe('色見本（キャラごと。atlas.json の palette）', () => {
     const { sprite, mesh } = make(makeIO(), 'boy');
     await flush();
     expect(sprite.info().palette).toEqual(BOY_PALETTE);
-    expect(uni(mesh)).toHaveLength(23);
+    expect(uni(mesh)).toHaveLength(32); // WEAPON-9: 0 番 ＋ 22 色 ＋ 手に 持つ 絵の ための 9 席
     BOY_PALETTE.forEach((c, i) => expect(same(uni(mesh)[i + 1]!, c)).toBe(true));
   });
   it('女の子: palette のない atlas.json は 今の PALETTE_RGB', async () => {

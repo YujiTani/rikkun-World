@@ -53,6 +53,8 @@ export interface SpriteStepInput {
   legendCharge?: boolean;
   /** CHAR-4: 持っている刀の 刃の色（20・21 番に する）。刀でなければ null */
   bladeColors?: { body: number; shine: number } | null;
+  /** WEAPON-9: 手に 持つ 絵の 差しかえ（'niji' = 虹の 太刀。女の子の 刀の組 6 まいを 入れかえる）。刀を 持っていない ときは 見ない */
+  weaponSkin?: string | null;
 }
 
 /** 場面が 見たい絵（読みこみの 代わりの絵にする前） */

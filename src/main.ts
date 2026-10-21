@@ -45,7 +45,7 @@ import { buffsOfHeld, createBuffModel } from './ui/buffIconsModel';
 import { ThunderFx } from './fx/thunderFx';
 import { LegendBook } from './legend/LegendBook';
 import { chargeOf, legendMoveMulOf, legendPowerOf, trailStyleOf } from './legend/defs';
-import { lightningPoseFrame } from './legend/pose';
+import { lightningPoseFrame, shiningBodyPose } from './legend/pose';
 import { CRAFT_UI_SETTINGS, type CraftUiSettings, type ToolNumbers } from './fx/craftConfig';
 import { playCraft } from './fx/craftSounds';
 import { CraftUiHud, createCraftUiHook, handleCraftEvents, handleGuardEvents, playSwing } from './ui/craftUi';
@@ -1677,6 +1677,8 @@ game.onUpdate((dt) => {
     const bs = blade.state();
     // わざを始めた ステップ: その場で わざの向きを向き、水平の速さを 0 に
     const lstrike = legend.strike();
+    const shiningNow = legend.state().move === 'shining';
+    const shiningBody = shiningNow && shiningBodyPose(legend.state().moveF) === 'charge';
     const faceU = legend.faceDeg() ?? dig.attackFaceDeg();
     if (faceU !== null) st.facingDeg = ((faceU % 360) + 360) % 360;
     rig.doll.setArcDir(st.facingDeg);
@@ -1698,10 +1700,12 @@ game.onUpdate((dt) => {
       weapon,
       // CHAR-4: 持っている 刀の 色（20・21 番を この 色に）。表に ない 刀は かたなの 行
       bladeColors: weapon === 'katana' ? bladeColorsOf(w2, bs.item) : null,
-      legendCharge: weapon === 'katana' && legend.view().charging,
+      // WEAPON-9: 手に 持つ 絵は 虹だけ 専用。シャイニング F1〜240 は ため の 形（おおげさぎり コマ 5）を 止める
+      weaponSkin: held === 'niji' ? 'niji' : null,
+      legendCharge: weapon === 'katana' && (legend.view().charging || shiningBody),
       blade:
         weapon === 'katana'
-          ? lstrike
+          ? lstrike && !shiningNow
             ? { stance: bs.stance, tech: 'kesa' as const, ...lightningPoseFrame(lstrike.F, lstrike.total), lengths: null }
             : { stance: bs.stance, tech: bs.tech, phase: bs.phase, frame: bs.frame, lengths: bs.tech ? (bs.lengths ?? w2.bladeTech[bs.tech]) : null }
           : null,

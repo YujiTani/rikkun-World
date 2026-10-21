@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { ItemId } from '../contracts';
 import { AXE_HELD_PARTS } from './heldAxes';
+import { NIJI_TACHI, PAL_NIJI } from '../ui/itemArtW7';
 import { BUG_HELD_PARTS, NET_HELD_PARTS } from './heldLive';
 
 /**
@@ -50,6 +51,23 @@ function sword(bladeColor: number, handle: number, guard: number, core?: number)
   return parts;
 }
 
+/** WEAPON-9: 虹の 太刀。16x16 の アイコンの 1 点 = 1 つの 箱（絵の 左下 → 柄・右上 → 刃先を -Z へ。45 度）。そった 長い 太刀・にじ色の 刃文 */
+function nijiHeld(): Part[] {
+  const s = 0.05;
+  const out: Part[] = [];
+  NIJI_TACHI.forEach((row, ry) => {
+    for (let cx = 0; cx < 16; cx++) {
+      const k = row[cx]!;
+      if (k === '.') continue;
+      const y = 15 - ry;
+      const along = (cx + y - 15) * Math.SQRT1_2 * s;
+      const side = (cx - y) * Math.SQRT1_2 * s;
+      out.push({ size: [s, 0.03, s], pos: [side, 0, -0.45 - along], color: PAL_NIJI[k as keyof typeof PAL_NIJI], rotY: Math.PI / 4 });
+    }
+  });
+  return out;
+}
+
 export const HELD_MODELS: Partial<Record<ItemId, Part[]>> = {
   wood_pickaxe: pickaxe(LIGHT_WOOD),
   stone_pickaxe: pickaxe(0x9a9a9a),
@@ -66,6 +84,7 @@ export const HELD_MODELS: Partial<Record<ItemId, Part[]>> = {
   katana: sword(STEEL, 0x2a2a3a, GOLD),
   crystal_katana: sword(0x9be8ff, 0x2a2a3a, 0xb28cff, 0xffffff),
   // WEAPON-7: 雷神剣（刃は むらさき 0xb070ff 系・芯は うすい むらさき・柄は こん色・つばは 金。そりは 箱では 作らない）
+  niji: nijiHeld(),
   raijin_ken: sword(0xb070ff, 0x24336e, GOLD, 0xe8d8ff),
   fujin_ken: sword(0xcfefff, 0x1d5a6e, 0x2b2b3a, 0xffffff),
   naginata: [
@@ -258,11 +277,53 @@ function sharedMaterial(color: number): THREE.MeshBasicMaterial {
   return m;
 }
 
+let mergedMat: THREE.MeshBasicMaterial | null = null;
+function mergedMaterial(): THREE.MeshBasicMaterial {
+  return (mergedMat ??= new THREE.MeshBasicMaterial({ vertexColors: true }));
+}
+const mergedCache = new Map<readonly Part[], THREE.BufferGeometry>();
+/** 箱を 色つきで 1 つの 形に まとめる（回転は rotY だけ） */
+function mergedGeometry(parts: readonly Part[]): THREE.BufferGeometry {
+  const hit = mergedCache.get(parts);
+  if (hit) return hit;
+  const pos: number[] = [];
+  const col: number[] = [];
+  const idx: number[] = [];
+  const c = new THREE.Color();
+  for (const p of parts) {
+    const b = new THREE.BoxGeometry(p.size[0], p.size[1], p.size[2]);
+    if (p.rotY) b.rotateY(p.rotY);
+    b.translate(p.pos[0], p.pos[1], p.pos[2]);
+    const base = pos.length / 3;
+    const bp = b.getAttribute('position');
+    c.setHex(p.color);
+    for (let i = 0; i < bp.count; i++) {
+      pos.push(bp.getX(i), bp.getY(i), bp.getZ(i));
+      col.push(c.r, c.g, c.b);
+    }
+    for (const i of b.getIndex()!.array) idx.push(base + i);
+    b.dispose();
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  g.setIndex(idx);
+  mergedCache.set(parts, g);
+  return g;
+}
+
 /** 模型を作る（なければ null）。形と材料は使いまわし。1 つの人形が 1 回だけ作ってとっておく */
 export function buildHeldModel(item: ItemId): THREE.Group | null {
   const parts = HELD_MODELS[item];
   if (!parts) return null;
   const g = new THREE.Group();
+  // 点が 多い 絵の 太刀（虹）は 1 つの メッシュに まとめる（描画 1 回）
+  if (parts.length > 24) {
+    const m = new THREE.Mesh(mergedGeometry(parts), mergedMaterial());
+    m.userData.shared = true;
+    g.add(m);
+    return g;
+  }
   for (const p of parts) {
     const m = new THREE.Mesh(sharedGeometry(p.size[0], p.size[1], p.size[2]), sharedMaterial(p.color));
     m.position.set(p.pos[0], p.pos[1], p.pos[2]);
