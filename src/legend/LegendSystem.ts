@@ -4,6 +4,7 @@ import type { WaveEvent } from './WaveSystem';
 import { aimThunder, thunderTargets, type ThunderAim } from './aim';
 import { boltVariantOf } from './thunderModel';
 import type { SpiralEvent } from './WaveSystem';
+import { easeInOut, shiningCamDistanceAt, shiningHeightAt, shiningRadiusAt, sphereTouchesYokai } from './shining';
 
 /**
  * WEAPON-7 §2.2・§3: レジェンダリー武器の ため・はなす・ためわざ（落雷）の 状態の しくみ。
@@ -19,9 +20,15 @@ export type LegendEvent =
   | { type: 'lightningStrike'; tick: number; S: Vec3; hits: number[]; skyVisible: boolean; variant: number }
   | { type: 'lightningMiss'; tick: number }
   | WaveEvent
-  | SpiralEvent;
+  | SpiralEvent
+  // WEAPON-9: 虹の シャイニング
+  | { type: 'shiningStart'; tick: number }
+  | { type: 'domeHit'; tick: number; yokaiId: number; damage: number }
+  | { type: 'shiningEnd'; tick: number }
+  | { type: 'shiningReady'; tick: number }
+  | { type: 'domeErase'; tick: number; projectileId: number };
 
-export type LegendSoundName = 'chargeReady' | 'lightning' | 'lightningFar' | 'spiralWind';
+export type LegendSoundName = 'chargeReady' | 'lightning' | 'lightningFar' | 'spiralWind' | 'shiningStart' | 'shiningHit' | 'shiningEnd' | 'shiningReady' | 'domeErase';
 /** 続く 音（ため・ため続け）。WEAPON-8 §3.6 */
 export type LegendLoopName = 'chargeRise' | 'chargeHold';
 export interface LegendLoopHandle {
@@ -33,7 +40,7 @@ export type LegendSoundState = 'off' | 'on' | 'fading';
 export interface LegendDeps {
   world: VoxelWorld;
   yokai: () => Pick<YokaiWorld, 'list' | 'raycast' | 'damage'>;
-  settings: Pick<W2Settings, 'legendary' | 'legendaryChargeWalk'>;
+  settings: Pick<W2Settings, 'legendary' | 'legendaryChargeWalk' | 'shiningCamDistance'>;
   tick: () => number;
   /** 落雷が 1 体 以上に 当たった（1 回の 落雷で 1 回）。つなぎ込みが たいきゅうを 1 へらす */
   onWear?: () => void;
@@ -67,6 +74,10 @@ export interface LegendStepCtx {
   position: Vec3;
   yawDeg: number;
   inWater: boolean;
+  /** WEAPON-9: 手に 持つ 虹の 強さ（1 本ごと。なければ 設定の まん中） */
+  power?: number | null;
+  /** WEAPON-9: 足が 地面に ついている（シャイニングの あと 着地するまで 落下ダメージを 出さない） */
+  onGround?: boolean;
 }
 
 export interface LegendStepResult {
@@ -82,6 +93,7 @@ export interface LegendStateView {
   charge: { ticks: number; ready: boolean } | null;
   move: 'lightning' | 'spiral' | 'shining' | null;
   moveF: number;
+  /** 休みの のこり（シャイニングの あと 600） */
   cooldownLeft: number;
   aim: { T: Vec3; S: Vec3 | null; skyVisible: boolean } | null;
   dome: { radius: number } | null;
@@ -99,7 +111,10 @@ export interface LegendView {
   /** 落雷中の F（なければ 0） */
   moveF: number;
   /** 持っている 武器の ためわざの しゅるい（ためわざが なければ null）。手もとの 光の 色を えらぶ */
-  kind: 'lightning' | 'spiral' | null;
+  kind: 'lightning' | 'spiral' | 'shining' | null;
+  /** WEAPON-9: シャイニング中の ドームの 半径（なければ 0）と もとの 足もとの 高さ */
+  dome: number;
+  groundY: number;
   /** ためF（ためて いなければ null。いっぱいでも 数えつづける） */
   chargeTicks: number | null;
 }
@@ -128,9 +143,25 @@ export interface LegendSystem {
   chargeSound(): { rise: LegendSoundState; hold: LegendSoundState };
   /** WEAPON-8 §3.7: らせんの 音の ようす（窓口 `legend.spiralSound()`） */
   spiralSound(): LegendSoundState;
+  /** WEAPON-9: 受ける ダメージの 倍率（シャイニング F1〜240 は 1/3。それ以外 1） */
+  takenMul(): number;
+  /** WEAPON-9: ドームの 球（弾を 消す 当たり用）。なければ null。毎回 同じ 入れ物を 返す */
+  dome(): { x: number; y: number; z: number; r: number } | null;
+  /** WEAPON-9: 落下ダメージを 出さない（シャイニング中と、おわって 着地するまで） */
+  noFall(): boolean;
+  /** WEAPON-9: 持ちかえ・もちもの画面を 出せない（F1〜240） */
+  locked(): boolean;
+  /** WEAPON-9: 三人称の カメラの きょり（引いて いない ときは null） */
+  camDistance(): number | null;
 }
 
-type Charged = Extract<LegendaryCharge, { kind: 'lightning' | 'spiral' }>;
+/** もどり（手を おろす）の ステップ数 */
+const SHINING_RECOVER = 20;
+/** ドームが 消える ステップ（F240） */
+const BACK_STEPS = 40;
+
+type Charged = LegendaryCharge;
+type ShiningDef = Extract<LegendaryCharge, { kind: 'shining' }>;
 
 /** ため音を 止める ときの 長さ（ステップ）。仕様 §3.6: ため 6 以内・ため続け 15 以内 */
 const RISE_FADE_STEPS = 5;
@@ -140,7 +171,7 @@ const SPIRAL_BLOCK_FADE_STEPS = 10;
 const SPIRAL_SOUND_STEPS = 119;
 
 function chargedOf(c: LegendaryCharge | null): Charged | null {
-  return c && (c.kind === 'lightning' || c.kind === 'spiral') ? c : null;
+  return c ?? null;
 }
 
 const round2 = (v: number): number => Math.round(v * 100 + 1e-7) / 100;
@@ -167,7 +198,15 @@ export function createLegendSystem(deps: LegendDeps): LegendSystem {
   let charge: { ticks: number; ready: boolean; readyAge: number } | null = null;
   let aim: ThunderAim | null = null;
   /** 落雷（F1 から） */
-  let move: { kind: 'lightning' | 'spiral'; F: number; S: Vec3 | null; skyVisible: boolean; variant: number; yaw: number; total: number; strikeF: number } | null = null;
+  let move: { kind: 'lightning' | 'spiral' | 'shining'; F: number; S: Vec3 | null; skyVisible: boolean; variant: number; yaw: number; total: number; strikeF: number } | null = null;
+  // ---- WEAPON-9: シャイニング
+  let sh: { baseY: number; power: number; lastHit: Map<number, number>; def: ShiningDef } | null = null;
+  let cooldownLeft = 0;
+  let fallGrace = false;
+  let camBack: { from: number; left: number } | null = null;
+  const centerNow: Vec3 = { x: 0, y: 0, z: 0 };
+  const domeOut = { x: 0, y: 0, z: 0, r: 0 };
+  const lastDist = { v: 4 };
   let buffered = false;
   /** やめた あと 押しつづけでは 始めない */
   let needRelease = false;
@@ -255,13 +294,58 @@ export function createLegendSystem(deps: LegendDeps): LegendSystem {
     if (hits.length > 0) deps.onWear?.();
   }
 
+  /** シャイニングを おわる（F260・やられた・持ちかえ）。休み 600 が 始まる */
+  function endShining(early: boolean): void {
+    if (!sh) return;
+    emit({ type: 'shiningEnd', tick: deps.tick() });
+    deps.sound?.('shiningEnd');
+    cooldownLeft = sh.def.cooldown;
+    fallGrace = true;
+    if (early && move) camBack = { from: lastDist.v, left: BACK_STEPS };
+    sh = null;
+    move = null;
+  }
+
+  /** ドームの 当たり（1 ステップに 1 回）。はじく 強さ・当たる 間かくは データ（settings.legendary）から。「すいこみ」は ここへ 足す */
+  function domeStep(F: number): void {
+    if (!sh || !move) return;
+    const d = sh.def;
+    const r = shiningRadiusAt(F, d.radius, d.riseSteps, d.holdSteps, d.fallSteps);
+    if (F >= d.riseSteps + d.holdSteps + d.fallSteps || !(r > 0)) return;
+    const c = centerNow;
+    const dmg = round2(sh.power * d.damageMul);
+    let hitSound = false;
+    for (const y of deps.yokai().list()) {
+      if (y.state === 'dying' || y.state === 'leaving') continue;
+      if (!sphereTouchesYokai(c, r, y)) continue;
+      const last = sh.lastHit.get(y.id);
+      if (last !== undefined && F - last < d.hitEvery) continue;
+      sh.lastHit.set(y.id, F);
+      deps.yokai().damage(y.id, dmg, { x: c.x, y: c.y, z: c.z }, { dist: d.push[0], up: d.push[1] });
+      emit({ type: 'domeHit', tick: deps.tick(), yokaiId: y.id, damage: dmg });
+      hitSound = true;
+    }
+    if (hitSound) deps.sound?.('shiningHit');
+  }
+
   return {
     step(ctx: LegendStepCtx): LegendStepResult {
       tickSounds();
+      // WEAPON-9: 休み（プレイヤーに 1 つ。何を 持っていても 進む）と 落下ダメージの 見のがし
+      if (cooldownLeft > 0 && --cooldownLeft === 0) {
+        emit({ type: 'shiningReady', tick: deps.tick() });
+        deps.sound?.('shiningReady');
+      }
+      if (fallGrace && !sh && ctx.onGround) fallGrace = false;
+      if (camBack && --camBack.left <= 0) camBack = null;
+      centerNow.x = ctx.position.x;
+      centerNow.y = ctx.position.y + 0.9;
+      centerNow.z = ctx.position.z;
       const def = legendDefOf(deps.settings, ctx.item);
       const L = chargedOf(def?.charge ?? null);
       heldItem = L ? ctx.item : null;
       inWaterNow = ctx.inWater;
+      if (sh && (!L || !ctx.item || !ctx.active)) endShining(true);
       if (!L || !ctx.item) {
         // 持ちかえ・刀でなくなった: ためも 落雷も 消える（音なし。何も へらない）
         if (charge) cancelCharge(ctx.held);
@@ -290,6 +374,16 @@ export function createLegendSystem(deps: LegendDeps): LegendSystem {
           if (move.F === move.strikeF) {
             if (move.kind === 'lightning' && L.kind === 'lightning') strikeNow(L, ctx.item);
             else if (move.kind === 'spiral') deps.launchSpiral?.({ item: ctx.item, dirDeg: move.yaw });
+          }
+          if (move.kind === 'shining' && sh) {
+            if (move.F === 1) {
+              emit({ type: 'shiningStart', tick: deps.tick() });
+              deps.sound?.('shiningStart');
+            }
+            domeStep(move.F);
+            const d = sh.def;
+            lastDist.v = shiningCamDistanceAt(move.F, deps.settings.shiningCamDistance, d.riseSteps, d.holdSteps, d.fallSteps);
+            if (move.F === move.total) endShining(false);
           }
           // 先行入力: さいご 8F
           if (ctx.pressed && ctx.startOk && move.F > move.total - 8) buffered = true;
