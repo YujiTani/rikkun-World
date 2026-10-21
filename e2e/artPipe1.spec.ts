@@ -45,6 +45,7 @@ interface Dir {
 }
 const dirs: Dir[] = [];
 let real: { cam: Vec3; info: ThunderInfo } | null = null;
+const programsAtFall: Record<number, number> = {}; // 最初の 落雷の F12・F89 の プログラム数
 let programsBeforeSecond = -1; // 2 回目の 落雷の 前（記録だけ。妖怪・柱が 初めて 雷の 絵の 先で 描かれる 分が 2 回目で ふえる）
 let programsAfterSecond = -1;
 
@@ -88,11 +89,22 @@ test('準備: 窓口 __rikkun.thunder が ある。落雷の ない ときは �
 
 test('記録: 平地で 雷神剣を 60 ステップ ためて はなし、F1〜90 を コマ送りで 読む（F12 で 8 方向 × 2 の カメラ）', async () => {
   await chargeUntilReady(page, 60);
+  // 落雷の 前（ためた あと・まだ 1 回も 打たない）。ため中の 絵の 材質は ここまでに 出きる
+  programsAtFall[0] = await page.evaluate(() => {
+    (window.__rikkun as any).renderStats();
+    return (window.__rikkun as any).thunder.programs() as number;
+  });
   await markThunder(page);
   await page.evaluate(() => (window.__rikkun as any).input.release('primary'));
   for (let F = 1; F <= FALL_STEPS; F++) {
     const s = await stepOne(page);
     fall.push(s);
+    if (F === 12 || F === 89) {
+      programsAtFall[F] = await page.evaluate(() => {
+        (window.__rikkun as any).renderStats(); // たまった 描画を 流して から
+        return (window.__rikkun as any).thunder.programs() as number;
+      });
+    }
     if (F <= 40) {
       const m = await measure(page, [], F === 8 || F === 12 ? `artpipe1-normal-F${F}` : undefined);
       luma.push({ mean: m.mean, white: m.white });
@@ -112,6 +124,12 @@ test('記録: 平地で 雷神剣を 60 ステップ ためて はなし、F1〜
     }
   }
   expect(fall).toHaveLength(FALL_STEPS);
+});
+
+test('PERF-thunder-warmup: 最初の 落雷の F12・F89 で プログラムが ふえない（three を 上げて RT の 共有が 切れたら 赤）', () => {
+  expect(programsAtFall[0], '落雷の 前の 数').toBeGreaterThan(0);
+  expect(programsAtFall[12], 'F12').toBe(programsAtFall[0]);
+  expect(programsAtFall[89], 'F89').toBe(programsAtFall[0]);
 });
 
 test('AC2: 通し（ふつう）: strike の ステップに 着地・輪・つぶ、F12 に 玉、F33 に 板なし、F89 に ぜんぶ なし。エラー 0', async () => {
