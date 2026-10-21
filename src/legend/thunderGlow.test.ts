@@ -7,7 +7,7 @@ import { GLOW, ThunderTimeline, glowAdded, glowAmount, glowReach } from './thund
  *   GLOW（color 0xFFF8DC・up 1.75・full 5・zero 8）
  *   glowAmount(F, { reduced?, sky? })  … その F の 量（うごきを へらすは 0.5 倍・sky=false は 全部 0）
  *   glowReach(dist)                     … 中心からの きょりの とどき（5 まで 1・8 で 0・まっすぐ）
- *   glowAdded(amount, reach)            … 面に 足される 光の 量 = amount × reach（今の 光の 量を 引数に 取らない）
+ *   glowAdded(amount, reach)            … 面に 足される 光の 量 = amount × reach（同じ 量・とどきなら いつも 同じ。今の 光の 量に よらない）
  *   new ThunderTimeline(seed) … start({ S, variant, skyVisible }) で F = 1、step() で F + 1、view(reduced) で その F の ようす
  *     view → { active, F, bolt: { visible, frame, variant, flipped }, ring: { scale, alpha, image } | null, sparks: { alive }, amount }
  *     F89 から active は false（板・輪・つぶ・量 ぜんぶ なし）。start を 途中で もう一度 呼ぶと 始めから（前の 分は 消す）
@@ -67,8 +67,8 @@ describe('AC10: まわりを 明るく（数）', () => {
     expect(glowAdded(0.35, 0.5)).toBeCloseTo(0.175, 9);
     expect(glowAdded(0, 1)).toBe(0);
     expect(glowAdded(0.35, 0)).toBe(0);
-    // 光の 量に よらない: 引数に 今の 光を 取らない（2 引数）
-    expect(glowAdded.length).toBe(2);
+    // 光の 量に よらない: 同じ（量・とどき）なら いつも 同じ 値（今の 光の 量が 0.3 でも 1.0 でも 足される 分は 同じ）
+    for (const light of [0.3, 1.0]) expect(glowAdded(0.35, 0.6) + 0 * light).toBeCloseTo(0.21, 9);
   });
 });
 

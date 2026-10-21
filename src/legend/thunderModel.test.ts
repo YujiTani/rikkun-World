@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { BOLT, RING, SPARKS, boltCell, boltFrameOf, landingRing, makeSparks, sparkAt, sparkShape } from './thunderModel';
+import { BOLT, RING, SPARKS, boltCell, boltFrameOf, boltVariantOf, landingRing, makeSparks, sparkAt, sparkShape } from './thunderModel';
 
 /**
  * ART-PIPE-1（docs/design/ART-PIPE-1.md 1.1）: 雷 B の コマ・形・輪・光の つぶ（コードで 動かす）。
  * 前の WEAPON-7 §3.5 の テスト（8 コマ × 2 ステップ・光の たまり・つぶ 36）は この 仕様で 置きかえ（台帳・テストレポート参照）。
  * 光の たまり（groundGlow）の テストは 消した: 雷 B では 決めの 玉が かわりに なる（仕様 §4）。
  * このファイルが 要る 名前（developer が `src/legend/thunderModel.ts` に 作る）:
+ *   boltVariantOf(seed, n)（n 回目の 落雷の 形 0〜3。シード付き。LegendSystem の variantOf を ここへ 移す）
  *   BOLT・RING・SPARKS（定数）、boltFrameOf(F)、boltCell(variant, frame, layer)、landingRing(F)、makeSparks(seed)、sparkAt(s, t)、sparkShape(s, t)
  */
 
@@ -174,5 +175,22 @@ describe('AC9: 光の つぶ（32 こ・F8 から・寿命 50〜80）', () => {
   it('つぶの いちばん 長い 寿命は 80 以下 → F8 + 80 = F88 が さいご', () => {
     expect(Math.max(...sparks.map((s) => s.life))).toBeLessThanOrEqual(80);
     expect(SPARKS.lifeMax).toBe(80);
+  });
+});
+
+describe('AC3: 形は 落雷ごとに 1 つ（シード付き）', () => {
+  it('どの 落雷も 0〜3 の 整数 1 つ。同じ シード・同じ 順で 同じ 形', () => {
+    const seq = (seed: number) => Array.from({ length: 64 }, (_, n) => boltVariantOf(seed, n));
+    for (const v of seq(1234)) {
+      expect(Number.isInteger(v)).toBe(true);
+      expect(v).toBeGreaterThanOrEqual(0);
+      expect(v).toBeLessThanOrEqual(3);
+    }
+    expect(seq(1234)).toEqual(seq(1234));
+    expect(seq(99)).not.toEqual(seq(1234));
+  });
+  it('形 4 通りが ぜんぶ 出る（かたよらない）', () => {
+    const seen = new Set(Array.from({ length: 64 }, (_, n) => boltVariantOf(7, n)));
+    expect([...seen].sort()).toEqual([0, 1, 2, 3]);
   });
 });

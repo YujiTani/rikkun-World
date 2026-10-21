@@ -327,6 +327,31 @@ test('AC13: 2 回目の 落雷の あとも シェーダーの 数が 同じ', a
   expect(p).toBe(programsAfterFirst);
 });
 
+test('AC12: 屋根の 下（空が 見えない）の 落雷: 量は ずっと 0・雷は 地上の S に 出る・エラー 0', async () => {
+  await resetStage(page, floorY);
+  await page.evaluate((y) => {
+    const h = window.__rikkun as any;
+    h.world.fill(8, y + 4, 4, 32, y + 4, 28, 'stone'); // やね（地下）
+    h.step(2);
+  }, floorY);
+  await aimGroundAhead(page, floorY, 8);
+  const ready = await chargeUntilReady(page, 60);
+  expect(ready[ready.length - 1]!.aim!.skyVisible, '屋根の 下は skyVisible false').toBe(false);
+  await markThunder(page);
+  await page.evaluate(() => (window.__rikkun as any).input.release('primary'));
+  let bolt = false;
+  for (let F = 1; F <= FALL_STEPS; F++) {
+    const s = await stepOne(page);
+    expect(s.info.glow.amount, `F${F} の 量`).toBe(0);
+    if (F === 12) {
+      bolt = s.info.bolt.visible;
+      expect(s.info.S, 'S').not.toBeNull();
+    }
+  }
+  expect(bolt, 'F12 に 板は 出る（ブロックで かくれても 窓口では 出ている）').toBe(true);
+  expect(errors).toEqual([]);
+});
+
 test('AC2・AC15: 通し（うごきを へらす）: つぶは F1〜F89 ずっと 0・F8 の 量は ふつうの 0.5 倍・板の コマと 輪は ふつうと 同じ', async ({ browser }) => {
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, reducedMotion: 'reduce' });
   const p2 = await ctx.newPage();
