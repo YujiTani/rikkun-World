@@ -3,7 +3,7 @@
 | 項目 | 内容 |
 |---|---|
 | issue | #239 |
-| ブランチ | `claude/weapon-8-fujin`（元 `claude/sharp-heisenberg-4r3ba6` = #238。#238 がマージされたら main を取りこむ） |
+| ブランチ | `claude/weapon-8-fujin`（main から。#238 はマージずみで取りこみずみ） |
 | 状態 | デザイン（案出し） |
 | 周回数（全ループ合計） | 0 / 10 |
 
