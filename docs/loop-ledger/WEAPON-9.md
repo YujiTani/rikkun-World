@@ -66,3 +66,4 @@ dev / code-review PR-2 しくみ | 【軽微】 | Q（drop）で シャイニン
 dev / code-review PR-2 しくみ | 【軽微】 | LegendSystem.domeStep の pulledNow.push({...}) が すわれる 妖怪ごと 毎ステップ 新しい オブジェクトを 作る（コメントは「毎回 同じ 配列」）。数体なので 実害は 小さい。使い回しの 入れ物に する
 dev / code-review PR-2 しくみ | 【軽微】 | 移動の hover は 1 ステップ 0.5 までで 天井の 下では 止まる（意図どおり）が、その 場合 F240 後の 着地まで fallGrace で 落下ダメージなし。テストが ないので hover.test に 天井の 例を 1 つ 足すと よい
 dev / code-review(見た目・音) | 【軽微】 | src/camera/heldTools.ts mergedGeometry: mergedCache は 解放しない（共有で 1 回だけなので 実害なし）。pack-niji-held.mjs・chargeLight(full/cut)・distanceOverride は 問題なし
+test | 軽微 | 【軽微】AC42 の ふえの はかり方: 世界の 描画が カメラ（4/9/14）・高さで かわり 前後の 差では ドームの ふえが はかれない。三角形は legend.nijiFx().tris（ドームの 分）で 見る形に直した（期待の 数は 同じ）。描画回数（draws）は 窓口に なく、E2E は 0 で 通る（実質 見ていない）→ nijiFx().draws を 開発に 依頼。仕様 AC42 の「ふえ」の 書き方も 直す（デザイン） | 実装・仕様

@@ -1,4 +1,5 @@
 import { test } from '@playwright/test';
+import { appendFileSync, writeFileSync } from 'node:fs';
 import { legendWorld } from './helpers/legend';
 import { holdNiji, pushCameraIn, removeWall } from './helpers/niji';
 
@@ -8,6 +9,7 @@ const OUT = 'docs/art/WEAPON-9/verify';
 const run = (page: import('@playwright/test').Page, n: number) => page.evaluate((n) => (window.__rikkun as any).step(n), n);
 
 test('スクショ: ドーム・すいこみ・一人称・斬撃 8 方向・手持ち 8 コマ', async ({ page }) => {
+  writeFileSync(`${OUT}/slash-views.txt`, '');
   await legendWorld(page, 'niji');
   await page.setViewportSize({ width: 1280, height: 800 });
   await holdNiji(page, 10);
@@ -53,7 +55,7 @@ test('スクショ: ドーム・すいこみ・一人称・斬撃 8 方向・手
     }, k);
     const v = await page.evaluate(() => JSON.stringify((window.__rikkun as any).legend.slashes?.() ?? []));
     await page.screenshot({ path: `${OUT}/slash-dir${k * 45}.png` });
-    require('fs').appendFileSync(`${OUT}/slash-views.txt`, `dir${k * 45} ${v}\n`);
+    appendFileSync(`${OUT}/slash-views.txt`, `dir${k * 45} ${v}\n`);
     await run(page, 60);
   }
   // 手持ち 8 コマ（1 回 ふる 間を 3 ステップごと）

@@ -1,0 +1,8 @@
+dir0 [{"view":"flat","angle":6.441600099335062,"age":4}]
+dir45 [{"view":"flat","angle":6.441600099335062,"age":4}]
+dir90 [{"view":"flat","angle":6.441600099335062,"age":4}]
+dir135 [{"view":"flat","angle":6.441600099335062,"age":4}]
+dir180 [{"view":"flat","angle":6.441600099335062,"age":4}]
+dir225 [{"view":"flat","angle":6.441600099335062,"age":4}]
+dir270 [{"view":"flat","angle":6.441600099335062,"age":4}]
+dir315 [{"view":"flat","angle":6.441600099335062,"age":4}]
