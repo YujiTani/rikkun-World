@@ -112,8 +112,12 @@ export async function rec8(page: Page, n: number, before?: string, perf = false)
       for (let i = 0; i < n; i++) {
         if (b) b(h, i);
         // はかる とき（perf）は 時刻を 固定（空の 太陽・星・高い 所の 動きものが 揺れて 描画の 基準が ぶれない ように）
-        if (perf && (window as any).__w8Time != null) h.time.set((window as any).__w8Time);
+        if (perf && (window as any).__w8Time != null) {
+          h.time.set((window as any).__w8Time);
+        }
         h.step(1);
+        // 空の 鳥や どうぶつ（SkinnedMesh・Points）が 出入りして 描画の 基準が ぶれない ように、描く 直前に かたづける
+        if (perf) h.animals.clear();
         const st = h.legend.state();
         const ev = h.legend.events();
         const seen = (window as any).__legendSeen ?? 0;
@@ -198,10 +202,10 @@ export async function baseStats(page: Page): Promise<{ calls: number; triangles:
     const h = window.__rikkun as any;
     (window as any).__w8Time = 20000; // 昼の まんなか（rec8 の perf も 同じ 時刻に 固定）
     h.time.set(20000);
+    h.animals.clear();
     h.step(1);
     for (let n = 0; (h.world.lightPending() > 0 || h.world.meshStats().pending > 0) && n < 3000; n++) h.step(1);
-    h.time.set(20000);
-    h.step(60);
+    for (let i = 0; i < 60; i++) { h.time.set(20000); h.step(1); h.animals.clear(); }
     h.time.set(20000);
     const rs = h.renderStats();
     return { calls: rs.drawCalls, triangles: rs.triangles, points: rs.points ?? NaN, geometries: rs.geometries, textures: rs.textures };
@@ -213,7 +217,9 @@ export async function settle8(page: Page, n = 130): Promise<void> {
   await page.evaluate((n) => {
     const h = window.__rikkun! as any;
     h.input.releaseAll();
-    h.step(n);
+    const t = (window as any).__w8Time;
+    if (t == null) h.step(n);
+    else for (let i = 0; i < n; i++) { h.time.set(t); h.step(1); h.animals.clear(); } // はかる 場面では 時刻を 固定したまま 落ちつかせる
   }, n);
   await markLegend(page);
 }
