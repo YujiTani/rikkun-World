@@ -63,8 +63,8 @@ def A_slash(k, rng, stage, v):
 def A_erase(k, rng, v):
     """弾を かき消す「シュワッ… キラ」: 下がって とける 風 ＋ 小さな シンバル（フィンガーシンバル）の 光"""
     out = np.zeros(N(1.2)); sh = [0, 2, -2][v % 3]
-    add(out, swish(rng, 0.28, 6500, 1400, q=1.8, a=0.006, curve=0.5), 0.0, 0.7)
-    add(out, fade(pitch(k.s('fingercymbal__0', 0, 0.9), 5 + sh), 0.002, 0.4), 0.02, 0.35)
+    add(out, swish(rng, 0.28, 4800, 1100, q=1.8, a=0.006, curve=0.5), 0.0, 0.7)
+    add(out, fade(lp(pitch(k.s('fingercymbal__0', 0, 0.9), -3 + sh), 5000), 0.002, 0.4), 0.02, 0.35)
     add(out, k.bell(penta(4 + sh // 2, 6), 0.5), 0.09, 0.22)
     return finish(hall(out, 0.8, 0.2), 0.004, 0.25)
 
@@ -126,8 +126,8 @@ def B_slash(k, rng, stage, v):
 def B_erase(k, rng, v):
     """弾を かき消す「パシュン… シャラ」: 刃で 切る「パシッ」＋ 弓で こすった シンバルが 一しゅん 光って 消える"""
     out = np.zeros(N(1.2)); sh = [0, 2, -2][v % 3]
-    add(out, swish(rng, 0.12, 7000, 2200, q=1.6, a=0.003, curve=0.4), 0.0, 0.7)
-    cy = pitch(k.s(f'sus_cymbal__{v % 3}', 1.0, 0.8), 4 + sh); add(out, fade(cy * env_exp(len(cy), 0.02, 0.15), 0.02, 0.3), 0.01, 0.55)
+    add(out, swish(rng, 0.12, 5000, 1500, q=1.6, a=0.003, curve=0.4), 0.0, 0.7)
+    cy = lp(pitch(k.s(f'sus_cymbal__{v % 3}', 1.0, 0.8), -2 + sh), 6000); add(out, fade(cy * env_exp(len(cy), 0.02, 0.15), 0.02, 0.3), 0.01, 0.55)
     add(out, kin_comb(rng, penta(7 + sh // 2, 6), 0.18), 0.01, 0.25)
     return finish(hall(out, 0.7, 0.16), 0.003, 0.25)
 
