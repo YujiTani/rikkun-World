@@ -65,3 +65,4 @@ dev / code-review PR-2 しくみ | 判定 | 合格（重大 0・軽微 3）。ty
 dev / code-review PR-2 しくみ | 【軽微】 | Q（drop）で シャイニング中に 虹を すてられる（locked() は 持ちかえ・もちもの画面だけ）。すてると 次の ステップに endShining(early) で 休み 600。AC に Q が 書いて ないので 仕様に 書くか、locked 中は drop を 無視する
 dev / code-review PR-2 しくみ | 【軽微】 | LegendSystem.domeStep の pulledNow.push({...}) が すわれる 妖怪ごと 毎ステップ 新しい オブジェクトを 作る（コメントは「毎回 同じ 配列」）。数体なので 実害は 小さい。使い回しの 入れ物に する
 dev / code-review PR-2 しくみ | 【軽微】 | 移動の hover は 1 ステップ 0.5 までで 天井の 下では 止まる（意図どおり）が、その 場合 F240 後の 着地まで fallGrace で 落下ダメージなし。テストが ないので hover.test に 天井の 例を 1 つ 足すと よい
+dev / code-review(見た目・音) | 【軽微】 | src/camera/heldTools.ts mergedGeometry: mergedCache は 解放しない（共有で 1 回だけなので 実害なし）。pack-niji-held.mjs・chargeLight(full/cut)・distanceOverride は 問題なし

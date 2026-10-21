@@ -712,6 +712,7 @@ const dropper = new ItemDropper({
 });
 let dragOut: DragOut | null = null;
 const dropController = new DropController({
+  blocked: () => legend.locked(),
   actions: game.input,
   dropper,
   playEnabled: () => lock.playInputEnabled() && !screen.inventoryOpen(),
