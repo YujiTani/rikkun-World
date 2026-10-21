@@ -12,8 +12,10 @@ import { slashAngleDeg, slashViewFor, type SlashView } from '../legend/slashView
  */
 export const DOME_R = 7;
 const BASE = './models/fx/';
-const W = 18;
-const H = 8;
+/** まくの 形: 経 24 本・緯度の 輪 5 本（北極 90° から 南 −25° まで。地面に とどく 手前で 切る）= 216 三角形（極 24 ＋ おび 4 × 48） */
+const SEG = 24;
+const LAT_BOTTOM = -25;
+const BANDS = 4;
 const MAX_POINTS = 64;
 
 const VERT = `
@@ -118,19 +120,37 @@ export interface NijiSlashInfo {
   age: number;
 }
 
+/** まくの 三角形（経 SEG 本・北極から LAT_BOTTOM まで BANDS+1 区間）。法線は 位置から シェーダーで 出す */
+function domeTriangles(): Float32Array {
+  const rings: number[] = [];
+  for (let i = 0; i <= BANDS + 1; i++) rings.push(90 + ((LAT_BOTTOM - 90) * i) / (BANDS + 1));
+  const P = (lat: number, k: number): [number, number, number] => {
+    const la = (lat * Math.PI) / 180;
+    const lo = (k / SEG) * Math.PI * 2;
+    return [Math.cos(la) * Math.cos(lo) * DOME_R, Math.sin(la) * DOME_R, Math.cos(la) * Math.sin(lo) * DOME_R];
+  };
+  const out: number[] = [];
+  const tri = (a: number[], b: number[], c: number[]): void => void out.push(...a, ...b, ...c);
+  for (let k = 0; k < SEG; k++) tri(P(rings[0]!, k), P(rings[1]!, k + 1), P(rings[1]!, k)); // 極（外がわが 表）
+  for (let r = 1; r <= BANDS; r++) {
+    for (let k = 0; k < SEG; k++) {
+      const a = P(rings[r]!, k), b = P(rings[r]!, k + 1), c = P(rings[r + 1]!, k), d = P(rings[r + 1]!, k + 1);
+      tri(a, b, c);
+      tri(b, d, c);
+    }
+  }
+  return new Float32Array(out);
+}
+
 export class NijiFx {
   private readonly group = new THREE.Group();
   private readonly mat: THREE.ShaderMaterial;
   private readonly dome: THREE.Mesh;
-  private readonly domePos: THREE.BufferAttribute;
   private readonly ring: THREE.Mesh;
   private readonly orb: THREE.Mesh;
   private readonly points: THREE.Points;
   private readonly pointPos: THREE.BufferAttribute;
   private readonly pointCol: THREE.BufferAttribute;
-  private readonly fullPos: Float32Array;
-  private readonly triTop: Float32Array;
-  private readonly triCount: number;
   private readonly slashTex: THREE.Texture;
   private readonly slashMesh: THREE.Mesh;
   private readonly tmp = new THREE.Vector3();
@@ -154,21 +174,14 @@ export class NijiFx {
       transparent: true,
       depthWrite: false,
       side: THREE.DoubleSide,
+      // 描画を 1 回に（DoubleSide の 半透明は ふつう 裏・表の 2 回に 分かれる）
+      forceSinglePass: true,
       fog: false,
     });
-    // 球 18×8 を 作って おき、地面で 切った 三角形だけを つめて 使う（毎ステップ new しない）
-    const sg = new THREE.SphereGeometry(DOME_R, W, H).toNonIndexed();
-    const p = sg.getAttribute('position') as THREE.BufferAttribute;
-    this.fullPos = new Float32Array(p.array as Float32Array);
-    this.triCount = p.count / 3;
-    this.triTop = new Float32Array(this.triCount);
-    for (let i = 0; i < this.triCount; i++) this.triTop[i] = Math.max(p.getY(i * 3), p.getY(i * 3 + 1), p.getY(i * 3 + 2));
-    sg.dispose();
+    // まくの 形(北極から −25° まで)。毎ステップ 作らない（大きさは scale だけ）
     const g = new THREE.BufferGeometry();
-    this.domePos = new THREE.BufferAttribute(new Float32Array(this.fullPos.length), 3);
-    this.domePos.setUsage(THREE.DynamicDrawUsage);
-    g.setAttribute('position', this.domePos);
-    g.setDrawRange(0, 0);
+    g.setAttribute('position', new THREE.BufferAttribute(domeTriangles(), 3));
+    this.tris = (SEG + SEG * 2 * BANDS) + 4; // まく ＋ 輪 2 ＋ 玉 2
     this.dome = new THREE.Mesh(g, this.mat);
     this.dome.frustumCulled = false;
     this.dome.renderOrder = 2;
@@ -213,34 +226,15 @@ export class NijiFx {
 
   /** 読みこみ中に 材質（描画の プログラム）を ぜんぶ 作る。最初の シャイニング・斬撃で 作りなおさない */
   warmUp(renderer: THREE.WebGLRenderer, camera: THREE.Camera, scene: THREE.Scene): void {
-    this.rebuild(1, 1);
     const all = [this.dome, this.ring, this.orb, this.points, this.slashMesh];
     const was = all.map((o) => o.visible);
     for (const o of all) o.visible = true;
-    this.dome.geometry.setDrawRange(0, 3);
     this.points.geometry.setDrawRange(0, 1);
     renderer.compile(scene, camera);
     // 絵(テクスチャ)も 先に GPU へ
     for (const t of [this.slashTex, (this.ring.material as THREE.MeshBasicMaterial).map, (this.orb.material as THREE.MeshBasicMaterial).map]) if (t) renderer.initTexture(t);
     all.forEach((o, i) => (o.visible = was[i]!));
-    this.dome.geometry.setDrawRange(0, 0);
     this.points.geometry.setDrawRange(0, 0);
-  }
-
-  /** 球を 地面で 切って つめる。scale = 半径 ÷ 7、above = 中心の 地面からの 高さ */
-  private rebuild(scale: number, above: number): void {
-    const cut = -above / Math.max(scale, 1e-4);
-    const out = this.domePos.array as Float32Array;
-    let n = 0;
-    for (let i = 0; i < this.triCount; i++) {
-      if (this.triTop[i]! < cut - 1e-4) continue;
-      const s = i * 9;
-      for (let k = 0; k < 9; k++) out[n * 9 + k] = this.fullPos[s + k]!;
-      n++;
-    }
-    this.domePos.needsUpdate = true;
-    this.dome.geometry.setDrawRange(0, n * 3);
-    this.tris = n + 4; // 球（地面で 切る）＋ 輪 2 ＋ 玉 2
   }
 
   /** 1 ステップ ごと */
@@ -258,7 +252,6 @@ export class NijiFx {
       const above = c.y - show.groundY;
       this.dome.position.set(c.x, c.y, c.z);
       this.dome.scale.setScalar(scale);
-      this.rebuild(scale, above);
       const rr = Math.sqrt(Math.max(0, show.radius * show.radius - above * above));
       const s = (14 * rr) / 6.4;
       this.ring.scale.set(Math.max(s, 1e-3), 1, Math.max(s, 1e-3));

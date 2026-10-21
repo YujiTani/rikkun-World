@@ -28,7 +28,8 @@ function setup(list: YokaiInfo[] = []) {
   const S = createW2Settings();
   let tick = 0;
   const sounds: string[] = [];
-  const sys = createLegendSystem({ world, yokai: () => yokai, settings: S, tick: () => tick, sound: (n) => sounds.push(n) });
+  let wearN = 0;
+  const sys = createLegendSystem({ world, yokai: () => yokai, settings: S, tick: () => tick, sound: (n) => sounds.push(n), onWear: () => (wearN += 1) });
   const ctx: LegendStepCtx = {
     item: 'niji', power: 10, active: true, pressed: false, held: false, startOk: true, bladeBusy: false, bladeAccepts: false, bladeChainOpen: false,
     eye: { x: 20.5, y: FLOOR + 2.4, z: 20.5 }, dir: { x: 0, y: 0, z: -1 }, position: POS, yawDeg: 0, inWater: false,
@@ -38,7 +39,7 @@ function setup(list: YokaiInfo[] = []) {
     return sys.step({ ...ctx, ...o });
   };
   const types = () => sys.peekEvents().map((e) => e.type);
-  return { sys, step, S, hits, types, sounds, list };
+  return { sys, step, S, hits, types, sounds, list, wear: () => wearN };
 }
 type T = ReturnType<typeof setup>;
 
@@ -243,5 +244,22 @@ describe('ドームの 球と 妖怪の 箱', () => {
     const y = karakasa(1, { x: 10, y: 0, z: 0 });
     expect(sphereTouchesYokai({ x: 0, y: 1, z: 0 }, 7, y)).toBe(false);
     expect(sphereTouchesYokai({ x: 0, y: 1, z: 0 }, 10, y)).toBe(true);
+  });
+});
+
+describe('たいきゅう', () => {
+  it('1 体 以上に 当たると 1 回の シャイニングで 1 だけ へる。だれにも 当たらなければ へらない', () => {
+    const a = setup([karakasa(1, { x: POS.x + 3, y: POS.y, z: POS.z }), karakasa(2, { x: POS.x - 3, y: POS.y, z: POS.z })]);
+    let n = 0;
+    const sys = a.sys;
+    void sys;
+    start(a);
+    for (let F = 2; F <= 260; F++) a.step();
+    n = a.wear();
+    expect(n).toBe(1);
+    const b = setup([]);
+    start(b);
+    for (let F = 2; F <= 260; F++) b.step();
+    expect(b.wear()).toBe(0);
   });
 });

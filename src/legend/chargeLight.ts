@@ -33,6 +33,8 @@ export interface ChargeLightIn {
   reduced: boolean;
   /** いっぱいに なる ためF（武器の chargeTicks。省くと 60） */
   full?: number;
+  /** true なら はなした ステップに すぐ 消す（シャイニングに うつる とき。うすく なる 4 ステップを 作らない） */
+  cut?: boolean;
 }
 
 export interface ChargeLight {
@@ -83,6 +85,7 @@ export function createChargeLight(): ChargeLight {
         shape(i.ticks, i.reduced, lastFull);
         return v;
       }
+      if (active && i.cut) active = false;
       if (active) {
         // はなした・やめた ステップから 4 ステップ うすく なる
         fade += 1;

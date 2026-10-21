@@ -207,7 +207,7 @@ export function createLegendSystem(deps: LegendDeps): LegendSystem {
   /** 落雷（F1 から） */
   let move: { kind: 'lightning' | 'spiral' | 'shining'; F: number; S: Vec3 | null; skyVisible: boolean; variant: number; yaw: number; total: number; strikeF: number } | null = null;
   // ---- WEAPON-9: シャイニング
-  let sh: { baseY: number; power: number; lastHit: Map<number, number>; def: ShiningDef } | null = null;
+  let sh: { baseY: number; power: number; lastHit: Map<number, number>; def: ShiningDef; worn: boolean } | null = null;
   let cooldownLeft = 0;
   let fallGrace = false;
   let camBack: { from: number; left: number } | null = null;
@@ -374,7 +374,14 @@ export function createLegendSystem(deps: LegendDeps): LegendSystem {
         pulledNow.push({ x: y.position.x, y: y.position.y, z: y.position.z });
       }
     }
-    if (hitSound) deps.sound?.('shiningHit');
+    if (hitSound) {
+      deps.sound?.('shiningHit');
+      // たいきゅうは 1 回の シャイニングで 1（1 体 以上に 当てた とき）
+      if (!sh.worn) {
+        sh.worn = true;
+        deps.onWear?.();
+      }
+    }
     pullSoundTick();
   }
 
@@ -475,7 +482,7 @@ export function createLegendSystem(deps: LegendDeps): LegendSystem {
         if (!ready) return { busy: false, fireTech: true };
         if (L.kind === 'shining') {
           // WEAPON-9: シャイニング。はなした ステップが F1（ドームは 小さく 出はじめる）
-          sh = { baseY: ctx.position.y, power: legendPowerOf(deps.settings, ctx.item, ctx.power) ?? 1, lastHit: new Map(), def: L };
+          sh = { baseY: ctx.position.y, power: legendPowerOf(deps.settings, ctx.item, ctx.power) ?? 1, lastHit: new Map(), def: L, worn: false };
           move = { kind: 'shining', F: 1, S: null, skyVisible: true, variant: 0, yaw: ctx.yawDeg, total: L.riseSteps + L.holdSteps + L.fallSteps + SHINING_RECOVER, strikeF: 0 };
           camBack = null;
           shiningTick(1);

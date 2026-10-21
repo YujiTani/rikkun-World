@@ -1825,7 +1825,7 @@ game.onUpdate((dt) => {
     thunderFx.step(lv && lv.kind !== 'shining' ? { charging: lv.charging, ready: lv.ready, aimS: st && st.aim && st.aim.skyVisible ? st.aim.S : null } : IDLE_THUNDER_LOOK, reducedNow);
     // WEAPON-8 §3.5: ため中の 手もとの 光（雷神剣も 風神剣も）。手は 三人称は 体から、一人称は 画面の 右下の にぎり
     const cp = controller.state.position;
-    const cl = chargeLight.step({ ticks: lv ? lv.chargeTicks : null, kind: lv ? lv.kind : null, reduced: reducedNow, full: chargeOf(w2, inventory.held()?.item ?? null)?.chargeTicks });
+    const cl = chargeLight.step({ ticks: lv ? lv.chargeTicks : null, kind: lv ? lv.kind : null, reduced: reducedNow, full: chargeOf(w2, inventory.held()?.item ?? null)?.chargeTicks, cut: legend.state().move === 'shining' });
     if (cl.phase !== 'off') {
       handNow();
       chargeLightFx.step(cl, handInfo, handInfo.first ? null : { x: cp.x, y: cp.y + 1.1, z: cp.z });
