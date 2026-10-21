@@ -39,10 +39,20 @@ export function chargeOf(S: Pick<W2Settings, 'legendary'>, item: ItemId | null |
  * 強さ P（`weaponDamage` の かわり）。レジェンダリーでない 物は null。
  * `[最小, 最大]` は 落ちた ときに 1 本ごとに 決める（PR3）。それまでは 整数の まん中
  */
-export function legendPowerOf(S: Pick<W2Settings, 'legendary'>, item: ItemId | null | undefined): number | null {
+export function legendPowerOf(S: Pick<W2Settings, 'legendary'>, item: ItemId | null | undefined, stackPower?: number | null): number | null {
   const d = legendDefOf(S, item);
   if (!d) return null;
-  return typeof d.power === 'number' ? d.power : Math.round((d.power[0] + d.power[1]) / 2);
+  if (typeof d.power === 'number') return d.power;
+  if (typeof stackPower === 'number' && stackPower > 0) return stackPower; // WEAPON-9: 1 本ごとの 強さ
+  return Math.round((d.power[0] + d.power[1]) / 2);
+}
+
+/** 落ちた 1 本の 強さを 決める（[最小, 最大] なら 整数を 同じ 重さで。数字ひとつ・レジェンダリーでない 物は null）。乱数を 1 つ 使う（範囲の ときだけ） */
+export function rollPower(S: Pick<W2Settings, 'legendary'>, item: ItemId, rng: () => number): number | null {
+  const d = legendDefOf(S, item);
+  if (!d || typeof d.power === 'number') return null;
+  const [lo, hi] = d.power;
+  return Math.min(hi, lo + Math.floor(rng() * (hi - lo + 1)));
 }
 
 /**

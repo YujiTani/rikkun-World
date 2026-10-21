@@ -35,7 +35,7 @@ import { YOKAI_STATS, yokaiStrength } from '../stats';
 import { ANNOUNCE_TICKS, TITLE_RULES, isBigTitle, limitTitle, rollTitle, titleAnnounceText, titleLabel } from '../title';
 import { fallDamage } from '../../combat/config';
 import { createRng, type Rng } from '../../world/gen/random';
-import { pickNushiDrop } from '../../legend/defs';
+import { pickNushiDrop, rollPower } from '../../legend/defs';
 import { applyDollBrightness } from './brightness';
 import { AI_CONST, KIND_AI, YOKAI_DROPS, createYokaiConfig, type KindAi, type YokaiConfig } from './config';
 import { BurstFx } from './effects';
@@ -870,7 +870,9 @@ export class YokaiManager implements YokaiWorld {
     const item = pickNushiDrop(this.S.nushiDrops, this.nushiRng);
     if (item === null) return;
     const at = { x: e.x, y: e.y, z: e.z };
-    const left = this.drops ? 1 - this.drops.scatter(at, [{ item, count: 1 }], { kind: 'yokai' }) : this.inventory.add(item, 1);
+    // WEAPON-9 §5.1: 虹は 落ちる たびに 強さ 4〜10（1 本ごと。表の 乱数と 同じ 列から 1 つ）
+    const power = rollPower(this.S, item, this.nushiRng) ?? undefined;
+    const left = this.drops ? 1 - this.drops.scatter(at, [{ item, count: 1, ...(power ? { power } : {}) }], { kind: 'yokai' }) : this.inventory.add(item, 1, { power });
     this.emit({ type: 'drop', tick: this.tick(), id: e.id, kind: e.kind, item, count: 1, added: 1 - left }, true);
     this.opts.onLegendDrop?.({ item, yokaiId: e.id, kind: e.kind, position: at });
   }
