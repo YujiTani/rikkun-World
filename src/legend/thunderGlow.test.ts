@@ -127,7 +127,7 @@ describe('AC2・AC12・AC15: 時間どおりに 出る・きえる', () => {
     let last = 0;
     for (let F = 1; F <= 89; F++) {
       const n = tl.view().sparks.alive;
-      if (F >= 8) expect(n).toBeLessThanOrEqual(last);
+      if (F >= 9) expect(n).toBeLessThanOrEqual(last); // F8 に 32 こ 出る（F7 の 0 とは くらべない）
       last = n;
       tl.step();
     }

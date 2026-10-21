@@ -45,7 +45,8 @@ interface Dir {
 }
 const dirs: Dir[] = [];
 let real: { cam: Vec3; info: ThunderInfo } | null = null;
-let programsAfterFirst = -1;
+let programsBeforeSecond = -1; // 2 回目の 落雷の 前（記録だけ。妖怪・柱が 初めて 雷の 絵の 先で 描かれる 分が 2 回目で ふえる）
+let programsAfterSecond = -1;
 
 test.beforeAll(async ({ browser }) => {
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
@@ -66,7 +67,10 @@ test('準備: 窓口 __rikkun.thunder が ある。落雷の ない ときは �
   await aimGroundAhead(page, floorY, 8);
   const r = await page.evaluate(() => {
     const h = window.__rikkun as any;
+    // 世界の メッシュの 読みこみが 落ちつくまで 進めてから はかる（読みこみ中は 描画回数が 少ない）
     h.step(1);
+    for (let n = 0; (h.world.lightPending() > 0 || h.world.meshStats().pending > 0) && n < 3000; n++) h.step(1);
+    h.step(60);
     const rs = h.renderStats();
     return { calls: rs.drawCalls as number, triangles: rs.triangles as number, programs: h.thunder.programs() as number };
   });
@@ -107,7 +111,6 @@ test('記録: 平地で 雷神剣を 60 ステップ ためて はなし、F1〜
       }
     }
   }
-  programsAfterFirst = await page.evaluate(() => (window.__rikkun as any).thunder.programs());
   expect(fall).toHaveLength(FALL_STEPS);
 });
 
@@ -277,8 +280,9 @@ test('AC11: まわりを 明るく（見た目）: 柱の 2・3 段目と 妖怪
       const fx = sx + 11;
       const fz = sz - 13;
       h.world.fill(fx - 1, fy, fz - 1, fx + 1, fy, fz + 1, 'stone');
-      h.world.fill(fx - 1, fy + 1, fz - 1, fx + 1, fy + 8, fz + 1, 'air');
-      h.world.fill(fx, fy + 1, fz, fx, fy + 3, fz, 'stone');
+      h.world.fill(fx - 1, fy + 1, fz - 1, fx + 1, fy + 12, fz + 1, 'air');
+      // 高い 柱（8）: 近い 柱・妖怪の うしろに かくれない 高さを 測る
+      h.world.fill(fx, fy + 1, fz, fx, fy + 8, fz, 'stone');
       h.time.set(0);
       for (let n = 0; (h.world.lightPending() > 0 || h.world.meshStats().pending > 0) && n < 3000; n++) h.step(1);
     },
@@ -287,6 +291,11 @@ test('AC11: まわりを 明るく（見た目）: 柱の 2・3 段目と 妖怪
   await spawnAt(page, 'karakasa', S0.x - 6, S0.y, S0.z, 99);
   await aimGroundAhead(page, floorY, 8);
   await chargeUntilReady(page, 60);
+  // 妖怪・柱の 材質が 出きってから「前」を はかる（妖怪が 初めて 出た 分を 雷 B の せいに しない）
+  programsBeforeSecond = await page.evaluate(() => {
+    (window.__rikkun as any).renderStats(); // たまった 描画を 流して から（描くまで シェーダーは できない）
+    return (window.__rikkun as any).thunder.programs();
+  });
   await markThunder(page);
   await page.evaluate(() => (window.__rikkun as any).input.release('primary'));
   const f1 = await stepOne(page);
@@ -296,7 +305,7 @@ test('AC11: まわりを 明るく（見た目）: 柱の 2・3 段目と 妖怪
   const pts = {
     pillar: { x: sx + 6.5, y: floorY + 3, z: sz + 1 }, // 2・3 段目の まんなか（カメラ側の 面）
     yokai: { x: S0.x - 6, y: S0.y + 0.7, z: S0.z },
-    far: { x: sx + 11.5, y: floorY + 3, z: sz - 13 + 1 },
+    far: { x: sx + 11.5, y: floorY + 7, z: sz - 13 + 1 }, // 高い ところ（近い 柱・妖怪より 画面の 上）
   };
   const rect = async (p: Vec3, half = 8) => {
     const q = await project(page, p);
@@ -318,13 +327,11 @@ test('AC11: まわりを 明るく（見た目）: 柱の 2・3 段目と 妖怪
   expect(Math.abs(ratio(b.rects[3]!, a.rects[3]!) - 1), '空').toBeLessThanOrEqual(0.02);
   expect(Math.abs(ratio(c.rects[0]!, a.rects[0]!) - 1), 'F30 の 柱').toBeLessThanOrEqual(0.02);
   for (let i = 0; i < 70; i++) await stepOne(page);
+  programsAfterSecond = await page.evaluate(() => {
+    (window.__rikkun as any).renderStats();
+    return (window.__rikkun as any).thunder.programs();
+  });
   expect(errors).toEqual([]);
-});
-
-test('AC13: 2 回目の 落雷の あとも シェーダーの 数が 同じ', async () => {
-  expect(programsAfterFirst).toBeGreaterThan(0);
-  const p = await page.evaluate(() => (window.__rikkun as any).thunder.programs() as number);
-  expect(p).toBe(programsAfterFirst);
 });
 
 test('AC12: 屋根の 下（空が 見えない）の 落雷: 量は ずっと 0・雷は 地上の S に 出る・エラー 0', async () => {
@@ -384,4 +391,24 @@ test('AC2・AC15: 通し（うごきを へらす）: つぶは F1〜F89 ずっ�
   } finally {
     await ctx.close();
   }
+});
+
+// 最後に 置く（落ちても ほかの 基準の 判定を 止めない。serial の ため）
+test('AC13: 同じ 場面で もう 1 回 落としても シェーダーの 数が 同じ（2 回目の あと = 3 回目の あと）', async () => {
+  // 材質が 初めて 雷の 絵の 先で 描かれる とき（妖怪・柱）は 1 回だけ 数が ふえる（2 回目の 落雷で ふえた 分。台帳）。
+  // ふえつづけない ことを 見る: 同じ 場面の 3 回目の ため（ためた あと）と 落雷の あとで 同じ
+  expect(programsAfterSecond).toBeGreaterThanOrEqual(programsBeforeSecond);
+  await aimGroundAhead(page, floorY, 8);
+  await chargeUntilReady(page, 60);
+  const before = await page.evaluate(() => {
+    (window.__rikkun as any).renderStats();
+    return (window.__rikkun as any).thunder.programs() as number;
+  });
+  await page.evaluate(() => (window.__rikkun as any).input.release('primary'));
+  for (let F = 1; F <= FALL_STEPS; F++) await stepOne(page);
+  const after = await page.evaluate(() => {
+    (window.__rikkun as any).renderStats();
+    return (window.__rikkun as any).thunder.programs() as number;
+  });
+  expect(after, '3 回目の あと').toBe(before);
 });
