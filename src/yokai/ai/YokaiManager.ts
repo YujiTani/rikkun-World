@@ -190,6 +190,9 @@ interface Ent {
   knockUpV: number;
   knockDx: number;
   knockDz: number;
+  /** WEAPON-9: 長い はじきの 全部の 距離・全部の ステップ(0 = 一定の 速さ) */
+  knockTotal: number;
+  knockT: number;
   motion: 'wait' | 'move';
   leaveAt: number;
   marks: HpBar | null;
@@ -471,7 +474,7 @@ export class YokaiManager implements YokaiWorld {
     }
     e.model.hit();
     this.emit({ type: 'hurt', tick: this.tick(), id: e.id, kind: e.kind, position: { x: e.x, y: e.y, z: e.z } });
-    if (e.kind !== 'nurikabe') {
+    if (e.kind !== 'nurikabe' || knock?.heavy) {
       let dx = e.x - from.x;
       let dz = e.z - from.z;
       const d = Math.hypot(dx, dz);
@@ -484,11 +487,27 @@ export class YokaiManager implements YokaiWorld {
       }
       e.knockDx = dx;
       e.knockDz = dz;
-      e.knockLeft = AI_CONST.knockbackTicks;
-      e.knockStep = (knock ? Math.max(0, knock.dist) : this.config.knockback) / AI_CONST.knockbackTicks;
+      const T = knock?.ticks && knock.ticks > 0 ? Math.floor(knock.ticks) : AI_CONST.knockbackTicks;
+      e.knockLeft = T;
+      e.knockStep = (knock ? Math.max(0, knock.dist) : this.config.knockback) / T;
+      // 長い はじきは はじめ 速く・おわり ゆっくり（1 ステップ目 ≒ 2 × 平均）
+      e.knockTotal = knock?.ticks && knock.ticks > 0 ? Math.max(0, knock.dist) : 0;
+      e.knockT = knock?.ticks && knock.ticks > 0 ? T : 0;
       e.knockUpV = knock && knock.up > 0 ? knock.up : 0;
     }
     return amount;
+  }
+
+  /** WEAPON-9 §5.3.1: (x, z) の ほうへ 水平に dist だけ すいよせる。ふだんの 当たり判定の 中で 動く（かべで 止まる）。上下は かえない */
+  pull(id: number, x: number, z: number, dist: number): void {
+    const e = this.ents.find((q) => q.id === id);
+    if (!e || e.state === 'dying' || e.state === 'leaving' || e.remove || e.knockLeft > 0) return;
+    const dx = x - e.x;
+    const dz = z - e.z;
+    const d = Math.hypot(dx, dz);
+    if (d < 1e-6 || !(dist > 0)) return;
+    this.walk(e, dx / d, dz / d, Math.min(dist, d));
+    this.syncTransform(e);
   }
 
   occupies(x: number, y: number, z: number): boolean {
@@ -683,6 +702,8 @@ export class YokaiManager implements YokaiWorld {
       knockUpV: 0,
       knockDx: 0,
       knockDz: 0,
+      knockTotal: 0,
+      knockT: 0,
       motion: 'wait',
       leaveAt: -1,
       marks: null,
@@ -1611,7 +1632,8 @@ export class YokaiManager implements YokaiWorld {
 
   private applyKnock(e: Ent): void {
     if (e.knockLeft <= 0) return;
-    if (this.walk(e, e.knockDx, e.knockDz, e.knockStep) <= 0) e.knockLeft = 0;
+    const step = e.knockT > 0 ? (e.knockTotal * 2 * e.knockLeft) / (e.knockT * (e.knockT + 1)) : e.knockStep;
+    if (this.walk(e, e.knockDx, e.knockDz, step) <= 0) e.knockLeft = 0;
     else e.knockLeft--;
   }
 

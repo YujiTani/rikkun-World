@@ -17,7 +17,7 @@ function rig(mul: () => number, noFall: () => boolean = () => false) {
   const player = { position: { x: 5, y: 20, z: 5 }, velocity: { x: 0, y: 0, z: 0 }, yawDeg: 0, pitchDeg: 0, onGround: true, inWater: false, moving: false, facingDeg: 0, running: false };
   const combat = new PlayerCombatImpl({
     world: new W(),
-    player: { get: () => player, set: (v) => Object.assign(player.position, v.position ?? {}) },
+    player: { get: () => player, set: (v: any) => Object.assign(player.position, v.position ?? {}) },
     inventory: new InventoryImpl(),
     yokai: () => ({ occupies: () => false }) as never,
     spawn: () => ({ x: 1, y: 20, z: 1, yawDeg: 0, pitchDeg: 0 }),

@@ -482,6 +482,8 @@ export interface YokaiWorld {
   damage(id: number, amount: number, from: Vec3, knock?: YokaiKnock): number | void;
   /** そのマスに妖怪の当たりの箱が重なっているか（ブロックを置けない） */
   occupies(x: number, y: number, z: number): boolean;
+  /** WEAPON-9: (x, z) の ほうへ 水平に dist だけ すいよせる（ふだんの 当たり判定の 中で。上下は かえない） */
+  pull?(id: number, x: number, z: number, dist: number): void;
   /** 画面と音用（呼ぶと空になる）。テストの窓口用の列は別に持つ */
   drainEvents(): YokaiEvent[];
 }
@@ -1474,6 +1476,10 @@ export interface YokaiKnock {
   dist: number;
   /** 上への 初速（ブロック/秒。0 = 上げない） */
   up: number;
+  /** WEAPON-9: 押す ステップ数（省くと 10）。長い ときは はじめ 速く・おわり ゆっくり */
+  ticks?: number;
+  /** WEAPON-9: true なら ぬりかべも 押す（虹の はじき） */
+  heavy?: boolean;
 }
 
 // ---------------------------------------------------------------- たいきゅう（F）
@@ -1861,7 +1867,7 @@ export interface W2Settings {
 export type LegendaryCharge =
   | { kind: 'lightning'; chargeTicks: number; range: number; radius: number; damageMul: number; knock: [number, number]; strikeF: number; boltSteps: number; recovery: number }
   | { kind: 'spiral'; chargeTicks: number; launchF: number; recovery: number; speed: number; range: number; radius: number; damageMul: number; knock: [number, number] }
-  | { kind: 'shining'; chargeTicks: number; rise: number; riseSteps: number; holdSteps: number; fallSteps: number; radius: number; damageMul: number; hitEvery: number; push: [number, number]; cooldown: number; takenMul: number };
+  | { kind: 'shining'; chargeTicks: number; rise: number; riseSteps: number; holdSteps: number; fallSteps: number; radius: number; damageMul: number; hitEvery: number; push: [number, number]; cooldown: number; takenMul: number; pullRange: number; pullSpeed: number };
 /** ふつうの わざに 足す 効果（見た目・音・弾）。`wave` は PR2 で 作る */
 export type LegendaryAttackFx =
   | { kind: 'trail'; style: 'thunder' | 'rainbow' }
@@ -1904,7 +1910,7 @@ export const LEGENDARY_DEFAULTS: readonly LegendaryDef[] = [
     item: 'niji',
     power: [4, 10],
     // WEAPON-9 §5.1: 虹。ため 2.5 秒 → シャイニング（うかぶ 40・とどまる 160・おりる 40・もどり 20）。休み 600
-    charge: { kind: 'shining', chargeTicks: 150, rise: 2.0, riseSteps: 40, holdSteps: 160, fallSteps: 40, radius: 7, damageMul: 2.5, hitEvery: 60, push: [3, 2], cooldown: 600, takenMul: 1 / 3 },
+    charge: { kind: 'shining', chargeTicks: 150, rise: 2.0, riseSteps: 40, holdSteps: 160, fallSteps: 40, radius: 7, damageMul: 2.5, hitEvery: 60, push: [9, 6], cooldown: 600, takenMul: 1 / 3, pullRange: 12, pullSpeed: 3 },
     onAttack: [{ kind: 'trail', style: 'rainbow' }],
     passive: [],
   },

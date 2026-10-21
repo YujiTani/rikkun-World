@@ -133,7 +133,7 @@ describe('AC29 ため・区間', () => {
 });
 
 describe('AC30 ドームの 当たり', () => {
-  it('中心から 6.5 の からかさ → damage 25（P10）・はじく push [3,2]。8.5 外 → 当たらない', () => {
+  it('中心から 6.5 の からかさ → damage 25（P10）・はじく push [9,6]。8.5 外 → 当たらない', () => {
     const near = karakasa(1, { x: POS.x + 6.5, y: POS.y, z: POS.z });
     const far = karakasa(2, { x: POS.x - 8.5, y: POS.y, z: POS.z });
     const t = setup([near, far]);
@@ -142,7 +142,7 @@ describe('AC30 ドームの 当たり', () => {
     const mine = t.hits.filter((h) => h.id === 1);
     expect(mine.length).toBeGreaterThanOrEqual(1);
     expect(mine[0]!.amount).toBe(25);
-    expect(mine[0]!.knock).toEqual({ dist: 3, up: 2 });
+    expect(mine[0]!.knock).toEqual({ dist: 9, up: 6, ticks: 24, heavy: true });
     expect(t.hits.some((h) => h.id === 2)).toBe(false);
     const ev = t.sys.peekEvents().find((e) => e.type === 'domeHit') as { yokaiId: number; damage: number };
     expect(ev.yokaiId).toBe(1);
