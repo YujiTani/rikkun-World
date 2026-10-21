@@ -3,7 +3,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { FX_SETTINGS } from './config';
-import { LEGEND_FILES, LEGEND_MAX_SAME, playLegend, preloadLegendSounds, resetLegendFiles, startLegendLoop } from './legendSounds';
+import { LEGEND_FILES, LEGEND_MAX_SAME, playLegend, preloadLegendSounds, resetLegendFiles, startLegendLoop, startLegendOneShot } from './legendSounds';
 import { drainSounds } from './soundLog';
 import { SFX_CATALOG } from './sfxCatalog';
 import { FFMPEG } from './titleSoundMeasure.testutil';
@@ -192,6 +192,37 @@ describe('ため音 startLegendLoop', () => {
     const h = startLegendLoop(f.sound, 'chargeRise');
     expect(() => h.stop(0.1)).not.toThrow();
     expect(f.rec.starts).toBe(0);
+  });
+});
+
+describe('止められる spiralWind startLegendOneShot', () => {
+  it('1 回 鳴らして 記録 spiralWind。stop(0.2) で 0.2 秒かけて 小さく し、2 回 呼んでも 1 回', async () => {
+    const f = fake();
+    await preloadLegendSounds(f.sound);
+    const h = startLegendOneShot(f.sound, 'spiralWind');
+    expect(f.rec.urls).toEqual([LEGEND_FILES.spiralWind[0]]);
+    expect(f.rec.loops).toEqual([false]);
+    h.stop(0.2);
+    h.stop(0.2);
+    expect(f.rec.stops).toHaveLength(1);
+    expect(f.rec.stops[0]!).toBeCloseTo(1.22, 5);
+    expect(f.rec.ramps).toEqual([[0.0001, 1.2]]);
+    expect(drainSounds()).toEqual(['spiralWind']);
+  });
+  it('読みこみ前は 合成音で 代わり、音量 0 は 無音。stop は 安全', async () => {
+    const f = fake();
+    expect(() => startLegendOneShot(f.sound, 'spiralWind').stop(0.2)).not.toThrow();
+    expect(f.rec.tones).toBe(1);
+    await preloadLegendSounds(f.sound);
+    FX_SETTINGS.fxVolume = 0;
+    startLegendOneShot(f.sound, 'spiralWind').stop(0.2);
+    expect(f.rec.starts).toBe(0);
+  });
+  it('同時 3 つの 上限を playLegend と 分けあう', async () => {
+    const f = fake();
+    await preloadLegendSounds(f.sound);
+    for (let i = 0; i < 4; i++) startLegendOneShot(f.sound, 'spiralWind');
+    expect(f.rec.starts).toBe(LEGEND_MAX_SAME);
   });
 });
 

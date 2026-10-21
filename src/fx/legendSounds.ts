@@ -306,3 +306,48 @@ export function startLegendLoop(sound: Pick<SoundFx, 'playTones'>, name: LegendL
     },
   };
 }
+
+/**
+ * 止められる 1 回きりの 音。いまは `spiralWind` だけ（かべで 消えたら stop(0.2) で 0.2 秒 いかいに 小さく して 止める）。
+ * 記録は 'spiralWind'。読みこみ前は 合成音で 代わり（止められない）。音量 0・同時 3 つの 上限は playLegend と 同じ。
+ */
+export function startLegendOneShot(sound: Pick<SoundFx, 'playTones'>, name: 'spiralWind'): { stop(fadeSec: number): void } {
+  logSound(name);
+  const none = { stop(): void {} };
+  const o = outputOf(sound);
+  const buf = o ? bufferFor(o, LEGEND_FILES[name][0]) : null;
+  if (!o || buf === null) {
+    sound.playTones(LEGEND_SOUNDS[name]);
+    return none;
+  }
+  const vol = volume();
+  if (!(vol > 0) || (playing[name] ?? 0) >= LEGEND_MAX_SAME) return none;
+  const s = start(o, buf, vol, false, 0);
+  if (!s) return none;
+  playing[name] = (playing[name] ?? 0) + 1;
+  let stopped = false;
+  s.src.onended = () => {
+    playing[name] = Math.max(0, (playing[name] ?? 1) - 1);
+    s.src.disconnect();
+    s.gain.disconnect();
+  };
+  return {
+    stop(fadeSec: number): void {
+      if (stopped) return;
+      stopped = true;
+      try {
+        const t = o.ctx.currentTime;
+        const f = Math.max(0, fadeSec);
+        if (f > 0) {
+          s.gain.gain.cancelScheduledValues?.(t);
+          s.gain.gain.setValueAtTime(vol, t);
+          s.gain.gain.linearRampToValueAtTime(0.0001, t + f);
+        }
+        s.src.stop(t + f + 0.02);
+      } catch {
+        s.src.disconnect();
+        s.gain.disconnect();
+      }
+    },
+  };
+}
