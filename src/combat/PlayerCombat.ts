@@ -111,6 +111,10 @@ export interface CombatDeps {
   bodyPoint?: (out: Vec3) => Vec3;
   /** CHAR-1 第 5.2 版 §4.5: S からの線が 妖怪に当たらないときの「やさしい ねらい補助」。えらんだ妖怪の id か null */
   assist?: (eye: Vec3, dir: Vec3, reach: number) => number | null;
+  /** WEAPON-9: 受ける ダメージの 倍率（シャイニング中 1/3。防具の あとに かけて 切り上げ）。なければ 1 */
+  takenMul?: () => number;
+  /** WEAPON-9: true の あいだ 落下ダメージを 出さない（シャイニング中・おわって 着地するまで） */
+  noFall?: () => boolean;
 }
 
 export interface CombatHookState {
@@ -479,7 +483,7 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
     // 1 ステップで大きく動いたら置き直し（復活・テレポート）。落ちる速さは 1 ステップ 0.5 まで
     if (Math.abs(y - this.fallPrevY) > 1.5) this.fallPeak = y;
     this.fallPrevY = y;
-    if (st.inWater) {
+    if (st.inWater || this.d.noFall?.()) {
       this.fallPeak = y;
       return;
     }
@@ -511,12 +515,15 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
     // normal / ball は へらしても最低 1。fall は 0 まで へる（0 ならダメージなし）
     const taken = blocked ? Math.max(kind === 'fall' ? 0 : 1, amount - cutBy) : amount;
     if (!(taken > 0)) return false;
-    this.hpNow = Math.max(0, this.hpNow - taken);
+    // WEAPON-9: シャイニング中は × 1/3 を 切り上げ（1 → 1・4 → 2。0 は 0）。落下は もともと なし
+    const mul = kind === 'fall' ? 1 : (this.d.takenMul?.() ?? 1);
+    const takenFinal = mul < 1 ? Math.ceil(taken * mul - 1e-9) : taken;
+    this.hpNow = Math.max(0, this.hpNow - takenFinal);
     this.sinceDamage = 0;
     this.lastDamageTick = this.tickCount;
     this.invincible = cfg.hurtInvincibleTicks;
     if (by !== null) {
-      const ev: PlayerHitEvent = { type: 'playerHit', tick: this.tickCount, by, amount: taken };
+      const ev: PlayerHitEvent = { type: 'playerHit', tick: this.tickCount, by, amount: takenFinal };
       if (blocked) ev.blocked = true;
       this.emit(ev);
     }
