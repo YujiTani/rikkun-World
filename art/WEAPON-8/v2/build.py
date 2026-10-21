@@ -67,7 +67,7 @@ def checks(sh, x, y, img, lay, box, w, now_img, now_label, extra=None):
 # ====================================================================== 1. らせん
 def build_spiral():
     W = 1660
-    sh = Sheet(W, 2330)
+    sh = Sheet(W, 2920)
     sh.text((20, 14), "WEAPON-8 v2 ① らせんの かぜ の 直し（ゲームの スクショに 重ねた 見本・まだ 決まりでは ない）", 22, HEAD)
     sh.text((20, 46), "オーナー:「半透明に できる？」「回転しながら 飛んでいって ほしい」「地面にも 風で 土を 吹き飛ばしながら 進んでいる ような 演出」", 14)
     sh.text((20, 66), "形は 今の B「らせんの おび」の まま。変えるのは ① 帯の 色の 置き方（半透明） ② 回りの すじ 4 本（回って 見える） ③ 地面の 土・草の つぶ と 土けむり（通った あと）。", 14, K.SUB)
@@ -83,7 +83,7 @@ def build_spiral():
         for shot, a, box, lab in shots:
             img, n = SP.render(shot, a, mode)
             keep[(mode, shot, a)] = (img, SP.LAST)
-            yy = sh.img((x, y), crop(img, box, 520), f"{lab}  つぶ {n} こ", 12)
+            yy = max(yy if x > 20 else 0, sh.img((x, y), crop(img, box, 520), f"{lab}  つぶ {n} こ", 12))
             x += 540
         y = yy + 14
     # 今（試作）
@@ -91,7 +91,7 @@ def build_spiral():
     y += 24
     x = 20
     for f, box in (("1a_spiral_just_back.png", (230, 150, 870, 630)), ("1b_spiral_flying_back.png", (230, 150, 870, 630)), ("1c_spiral_flying_side.png", (380, 200, 1180, 700))):
-        yy = sh.img((x, y), crop(Image.open(os.path.join(PROTO, f)).convert("RGB"), box, 520), f, 12)
+        yy = max(yy if x > 20 else 0, sh.img((x, y), crop(Image.open(os.path.join(PROTO, f)).convert("RGB"), box, 520), f, 12))
         x += 540
     y = yy + 16
     # 横から 見た 動き（S2）
@@ -179,20 +179,24 @@ def blade_crop(img, s, w=300):
     return crop(img, (x - 180, y - 130, x + 180, y + 130), w)
 
 
-def sprite_row(sh, x, y, kind, k=5):
+def sprite_row(sh, x, y, kind, k=5, maxx=1650):
+    x0 = x
     for th in (0, 45, 90):
         for f in range(BL.FRAMES[kind]):
             im = BL.KINDS[kind](math.radians(th), f)
             big = im.resize((im.width * k, im.height * k), Image.NEAREST)
+            if x + big.width > maxx:
+                x = x0
+                y += big.height + 24
             bg = Image.new("RGB", big.size, (60, 64, 80))
             bg.paste(big, (0, 0), big)
-            sh.img((x, y), bg, f"{th}° コマ{f + 1}", 11)
-            x += big.width + 8
+            sh.img((x, y), bg, f"{th}° {f + 1}", 11)
+            x += big.width + 6
     return x
 
 
 def build_blades():
-    sh = Sheet(1660, 1530)
+    sh = Sheet(1660, 1240)
     sh.text((20, 14), "WEAPON-8 v2 ② ふつうの 攻撃の 真空波を「小さな 風の 刃」に（3 案。オーナーが 選ぶ）", 22, HEAD)
     sh.text((20, 46), "オーナー:「通常攻撃の 衝撃波は どうなりますか？ もっと 小さな 風の 刃が 飛んでいく イメージです」。3 案とも カメラに 正面の 板 1 まい・1 点 = 1/16 ブロック・らせんと 同じ 5 色。", 14)
     sh.text((20, 66), "絵の 向き: うしろから（はなれて いく）は アーチ（上向き）、横は 進む 向き。8 向きに まるめて、向きごとに 点で 描いた 絵（0・45・90° を 描き 反転）を えらぶ。見た目だけ 剣の 側へ 0.4 ずらす（頭で かくれない・当たり 0.5 の 中）。", 13, K.SUB)
@@ -203,7 +207,7 @@ def build_blades():
     sh.img((20, y + 22), crop(now, (330, 250, 730, 530), 300), "今 うしろ（F16）", 12)
     sp_img, _ = SP.render("bg_side", 14, "S2")
     sh.img((340, y + 22), crop(sp_img, (380, 200, 1180, 700), 300), "らせんの かぜ（S2・ためわざ）: 大きい・青い 帯・回る", 12)
-    y += 22 + 18 + 190
+    y += 22 + 18 + 220
     for kind in ("K1", "K2", "K3"):
         name, desc = BLADE_INFO[kind]
         sh.text((20, y), f"{name}: {desc}", 16, HEAD)
@@ -213,7 +217,7 @@ def build_blades():
             img, s, th = BL.render(shot, kind, t)
             sh.img((x, y), blade_crop(img, s), f"{lab}（絵の 向き {th:.0f}°）", 12)
             x += 312
-        sprite_row(sh, x, y, kind, 3)
+        sprite_row(sh, x, y, kind, 2)
         y += 18 + 216 + 20
     sh.text((20, y), "3 案とも: 出る 2 ステップ（0.6 倍）→ とぶ（コマは 3 ステップごと）→ さいご 4 ステップ 網で うすく。とぶ 長さ・速さ・当たりは 今の まま（5 マス・15 マス/秒・半径 0.5）。", 13, K.SUB)
     sh.text((20, y + 20), "数: 8 つ 同時でも 1 回の 描画（インスタンス）・三角形 16。今は 十字 2 まい × 8 = 16 メッシュ（描画 最大 16 回・32 三角形）なので 軽く なる。絵 = K1 132×22・K2 144×24・K3 240×20（1 まいに ならべる）。", 13, K.SUB)
@@ -238,7 +242,7 @@ def build_blades():
     }
     for kind in ("K1", "K2", "K3"):
         name, desc = BLADE_INFO[kind]
-        s2 = Sheet(1660, 1500)
+        s2 = Sheet(1660, 1960)
         s2.text((20, 14), f"WEAPON-8 v2 ② {name}", 22, HEAD)
         s2.text((20, 46), desc, 14)
         y = 76
@@ -266,7 +270,7 @@ def build_blades():
                 lay.a[m] = 0
                 cam = SC.Cam("ww_side")
                 img = SC.composite(SC.bg("ww_side"), lay, cam, SC.char_depth(cam), SC.char_mask(SC.bg("ww_side"), cam))
-            s2.img((x, y), crop(img, (560, 280, 1100, 560), 262), f"{t} マス", 12)
+            s2.img((x, y), crop(img, (560, 280, 1240, 600), 262), f"{t} マス", 12)
             x += 272
         y += 18 + 136 + 14
         # 8 方向（カメラを 回した とき えらばれる 絵）
@@ -283,7 +287,7 @@ def build_blades():
             nb = Image.new("RGB", (32 * 3, 32 * 3), (60, 64, 80))
             sq = nw.resize((w * 3, 96), Image.NEAREST)
             nb.paste(sq, ((96 - w * 3) // 2, 0), sq)
-            s2.img((x, y), nb, f"{ang}°", 11)
+            s2.img((x, y), nb, f"{ang}°" + ("（上: 今 / 下: 案）" if ang == 0 else ""), 11)
             # 案
             if ang in (0, 180):
                 th = math.pi / 2 if ang == 0 else -math.pi / 2
@@ -303,22 +307,20 @@ def build_blades():
         lay = BL.LAST
         box = (int(s[0]) - 200, int(s[1]) - 140, int(s[0]) + 200, int(s[1]) + 140)
         # 今と らせんと ならべる
-        tri = Image.new("RGB", (400, 280), (60, 64, 80))
-        nowc = crop(now, (330, 250, 730, 530), 133)
-        tri.paste(nowc, (0, 60))
-        tri.paste(crop(img, box, 133), (133, 60))
-        tri.paste(crop(sp_img, (380, 200, 1180, 700), 134), (266, 60))
-        d = ImageDraw.Draw(tri)
-        d.text((4, 4), "今 / 案 / らせん", font=K.font(14), fill=(236, 232, 220))
+        tri = Image.new("RGB", (1220, 290), (60, 64, 80))
+        tri.paste(crop(now, (330, 250, 730, 530), 400), (0, 0))
+        tri.paste(crop(img, box, 400), (410, 0))
+        tri.paste(crop(sp_img, (380, 200, 1180, 700), 400), (820, 0))
         sh2y = y
         s2.text((20, y), "確かめの 絵（CRITERIA 4 まい）", 15, HEAD)
         y += 22
         xx = 20
         for lab, t in (("① シルエット（エフェクト だけ）", eff_silhouette(lay, box, 300)), ("② 白黒", K.gray(crop(img, box, 300))),
-                       ("③ ぼかし", crop(img, box, 300).filter(ImageFilter.GaussianBlur(4))), ("④ 今の 三日月・案・らせん", tri.resize((300, 210)))):
+                       ("③ ぼかし", crop(img, box, 300).filter(ImageFilter.GaussianBlur(4)))):
             s2.img((xx, y), t, lab, 12)
             xx += 312
-        y += 18 + 210 + 16
+        y += 18 + 210 + 12
+        y = s2.img((20, y), tri, "④ ならべる: 今の 三日月（うしろ）/ この 案（ななめ横）/ らせんの かぜ（ためわざ）", 12) + 16
         _ = sh2y
         s2.text((20, y), "ものさし表 CRITERIA 1〜17", 15, HEAD)
         s2.text((840, y), "ものさし表 MOTION 1〜18（体の 動きは 今の まま。― = かかわらない）", 15, HEAD)
@@ -330,7 +332,7 @@ def build_blades():
 
 # ====================================================================== 3. ため（手もと）
 def build_charge():
-    sh = Sheet(1660, 1500)
+    sh = Sheet(1660, 1820)
     sh.text((20, 14), "WEAPON-8 v2 ③ ため中の 光を「剣を 持つ 手」へ（T1 の 直し H1「手もとの 光」）", 22, HEAD)
     sh.text((20, 46), "オーナー:「体を 隠すは やりすぎかも 剣を 持ってる 手の あたりが 光る とかで いいかも」。T1 の 区間・音・色の 表は そのまま、集まる 所と 大きさを 変える。", 14)
     sh.text((20, 66), "芯は 手（にぎり）に 直径 4 点（0.25 ブロック）まで。つぶは 体の 方からは 来ない。いっぱい: 手もとに 小さな 輪 1 回 ＋ 刃を 光が 1 回 走る → 剣先に きらり（止まった まま）。", 13, K.SUB)
