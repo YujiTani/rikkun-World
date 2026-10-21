@@ -65,16 +65,17 @@ describe('AC53 すう 区間と 所', () => {
 
 describe('AC55 はじいた あと 30 ステップは すわない', () => {
   it('domeHit の あと 30 ステップ すわず、31 ステップ目から また すう', () => {
-    const y = yk(1, 6.5); // 止まって いる → ドームが 広がって F? で ふれる
+    const y = yk(1, 9);
     const t = setup([y]);
-    t.step(100);
+    t.step(59); // F60 まで
+    y.position.x = POS.x + 6; // ふれる
+    t.step(1);
     const hitF = t.hits[0]!.F;
-    // はじかれた ことに して 外へ 動かす（12 以内）
-    y.position.x = POS.x + 9;
-    t.step(130);
+    y.position.x = POS.x + 9; // はじかれて 外へ
+    t.step(80);
     const after = t.pulls.filter((p) => p.F > hitF);
     expect(after.length).toBeGreaterThan(0);
-    expect(Math.min(...after.map((p) => p.F))).toBeGreaterThanOrEqual(hitF + 31);
+    expect(Math.min(...after.map((p) => p.F))).toBe(hitF + 31);
   });
 });
 

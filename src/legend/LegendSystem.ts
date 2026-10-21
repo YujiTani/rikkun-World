@@ -30,7 +30,7 @@ export type LegendEvent =
 
 export type LegendSoundName = 'chargeReady' | 'lightning' | 'lightningFar' | 'spiralWind' | 'shiningStart' | 'shiningHit' | 'shiningEnd' | 'shiningReady' | 'domeErase';
 /** 続く 音（ため・ため続け）。WEAPON-8 §3.6 */
-export type LegendLoopName = 'chargeRise' | 'chargeHold';
+export type LegendLoopName = 'chargeRise' | 'chargeHold' | 'domePull';
 export interface LegendLoopHandle {
   stop(fadeSec: number): void;
 }
@@ -145,6 +145,10 @@ export interface LegendSystem {
   spiralSound(): LegendSoundState;
   /** WEAPON-9: 受ける ダメージの 倍率（シャイニング F1〜240 は 1/3。それ以外 1） */
   takenMul(): number;
+  /** WEAPON-9 §5.3.1: すいこみの 音の ようす（窓口 `legend.pullSound()`） */
+  pullSound(): LegendSoundState;
+  /** WEAPON-9: このステップに すわれて いる 妖怪の 位置（すいよせの つぶ用。毎回 同じ 配列） */
+  pullers(): readonly Vec3[];
   /** WEAPON-9: ドームの 球（弾を 消す 当たり用）。なければ null。毎回 同じ 入れ物を 返す */
   dome(): { x: number; y: number; z: number; r: number } | null;
   /** WEAPON-9: 落下ダメージを 出さない（シャイニング中と、おわって 着地するまで） */
@@ -159,6 +163,9 @@ export interface LegendSystem {
 const SHINING_RECOVER = 20;
 /** ドームが 消える ステップ（F240） */
 const BACK_STEPS = 40;
+/** 虹の はじきの 長さ（0.4 秒。10 だと 9 マスが ワープに 見える）・はじかれたあと すわない ステップ */
+const PUSH_STEPS = 24;
+const PULL_REST = 30;
 
 type Charged = LegendaryCharge;
 type ShiningDef = Extract<LegendaryCharge, { kind: 'shining' }>;
@@ -208,6 +215,12 @@ export function createLegendSystem(deps: LegendDeps): LegendSystem {
   const domeOut = { x: 0, y: 0, z: 0, r: 0 };
   const domeRadiusNow = (): number => (sh && move ? (move.F >= sh.def.riseSteps + sh.def.holdSteps + sh.def.fallSteps ? 0 : shiningRadiusAt(move.F, sh.def.radius, sh.def.riseSteps, sh.def.holdSteps, sh.def.fallSteps)) : 0);
   const lastDist = { v: 4 };
+  // すいこみ（§5.3.1）: すわれて いる 妖怪の 位置（つぶ用）・すいこみの 音
+  const pulledNow: Vec3[] = [];
+  let pulledCount = 0;
+  let pullSnd: LegendSoundState = 'off';
+  let pullIdle = 0;
+  let pullH: LegendLoopHandle | null = null;
   let buffered = false;
   /** やめた あと 押しつづけでは 始めない */
   let needRelease = false;
@@ -302,6 +315,9 @@ export function createLegendSystem(deps: LegendDeps): LegendSystem {
     deps.sound?.('shiningEnd');
     cooldownLeft = sh.def.cooldown;
     fallGrace = true;
+    pullStop();
+    pulledCount = 0;
+    pulledNow.length = 0;
     if (early && move) camBack = { from: lastDist.v, left: BACK_STEPS };
     sh = null;
     move = null;
@@ -320,26 +336,64 @@ export function createLegendSystem(deps: LegendDeps): LegendSystem {
     if (F === move.total) endShining(false);
   }
 
-  /** ドームの 当たり（1 ステップに 1 回）。はじく 強さ・当たる 間かくは データ（settings.legendary）から。「すいこみ」は ここへ 足す */
+  /**
+   * ドームの 当たり ＋ すいこみ（1 ステップに 1 回）。はじく 強さ・当たる 間かく・すう 範囲と 速さは データ（settings.legendary）から。
+   * ふれた → ダメージと はじき。ふれて いなくて 範囲 内（とどまる F41〜200）→ すいよせる
+   */
   function domeStep(F: number): void {
+    pulledCount = 0;
+    pulledNow.length = 0;
     if (!sh || !move) return;
     const d = sh.def;
     const r = shiningRadiusAt(F, d.radius, d.riseSteps, d.holdSteps, d.fallSteps);
-    if (F >= d.riseSteps + d.holdSteps + d.fallSteps || !(r > 0)) return;
+    const over = F >= d.riseSteps + d.holdSteps + d.fallSteps || !(r > 0);
+    const pulling = F > d.riseSteps && F <= d.riseSteps + d.holdSteps;
+    if (over) {
+      pullSoundTick();
+      return;
+    }
     const c = centerNow;
     const dmg = round2(sh.power * d.damageMul);
+    const ramp = Math.min(1, (F - d.riseSteps) / 10);
     let hitSound = false;
-    for (const y of deps.yokai().list()) {
+    const yw = deps.yokai();
+    for (const y of yw.list()) {
       if (y.state === 'dying' || y.state === 'leaving') continue;
-      if (!sphereTouchesYokai(c, r, y)) continue;
       const last = sh.lastHit.get(y.id);
-      if (last !== undefined && F - last < d.hitEvery) continue;
-      sh.lastHit.set(y.id, F);
-      deps.yokai().damage(y.id, dmg, { x: c.x, y: c.y, z: c.z }, { dist: d.push[0], up: d.push[1] });
-      emit({ type: 'domeHit', tick: deps.tick(), yokaiId: y.id, damage: dmg });
-      hitSound = true;
+      if (sphereTouchesYokai(c, r, y)) {
+        if (last !== undefined && F - last < d.hitEvery) continue;
+        sh.lastHit.set(y.id, F);
+        yw.damage(y.id, dmg, { x: c.x, y: c.y, z: c.z }, { dist: d.push[0], up: d.push[1], ticks: PUSH_STEPS, heavy: true });
+        emit({ type: 'domeHit', tick: deps.tick(), yokaiId: y.id, damage: dmg });
+        hitSound = true;
+      } else if (pulling && (last === undefined || F - last > PULL_REST) && yw.pull) {
+        const dist = Math.hypot(y.position.x - c.x, y.position.z - c.z);
+        if (dist > d.pullRange) continue;
+        yw.pull(y.id, c.x, c.z, (d.pullSpeed / 60) * ramp);
+        pulledCount++;
+        pulledNow.push({ x: y.position.x, y: y.position.y, z: y.position.z });
+      }
     }
     if (hitSound) deps.sound?.('shiningHit');
+    pullSoundTick();
+  }
+
+  /** すいこみの 音: 1 体 以上 すわれて いる 間 1 つ。だれも すわれなく なって 10 ステップで 止まる */
+  function pullSoundTick(): void {
+    if (pulledCount > 0) {
+      pullIdle = 0;
+      if (pullSnd !== 'on') {
+        pullSnd = 'on';
+        pullH = deps.loop?.('domePull') ?? null;
+      }
+    } else if (pullSnd === 'on' && ++pullIdle >= 10) pullStop();
+    else if (pullSnd === 'fading') pullSnd = 'off';
+  }
+  function pullStop(): void {
+    if (pullSnd !== 'on') return;
+    pullH?.stop(0.15);
+    pullH = null;
+    pullSnd = 'fading';
   }
 
   return {
@@ -564,6 +618,14 @@ export function createLegendSystem(deps: LegendDeps): LegendSystem {
 
     spiralSound(): LegendSoundState {
       return snd.spiral;
+    },
+
+    pullSound(): LegendSoundState {
+      return pullSnd;
+    },
+
+    pullers(): readonly Vec3[] {
+      return pulledNow;
     },
 
     takenMul(): number {
