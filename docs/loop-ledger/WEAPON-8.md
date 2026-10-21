@@ -74,3 +74,5 @@
 - 【軽微】src/main.ts ~1771 `waveSys.list().find(...)`・`sp ? {...}`・`buffsOfHeld(..., 無名関数)` が毎ステップ小さな確保。
 - 確認: 期待の変更は contracts.w7 AC26・AC1 相当・fujin.test・windWaveFx.test（AC19 置きかえ）・e2e weapon7-fujin で、いずれも理由コメントあり。固定ステップ内・シード付き・dispose 揃い・描画 2/点 48 上限どおり・RT は drawingBuffer サイズと一致。
 - 判定: 重大 0 件 → 合格。npm run check:fast: typecheck OK、npm test は並走時に 9 件落ちたが（負荷の時間切れ）単独で再実行して全緑。
+- 【軽微】（test・実装）`#buff-plate` の 背景 #4fa8d8 が UI 検査の 決まりの色に ない。`hud-fujin` は layoutOnly で 通した。決まりの 表に 足すか 色を 合わせる。
+- test 判定: 合格（E2E 88 本緑・AC17 緑・check:fast は WorldRendererStream の 1 本が 負荷で 時間切れ）。テスト側の 揺れの 原因は 空の どうぶつ（SkinnedMesh・Points）。

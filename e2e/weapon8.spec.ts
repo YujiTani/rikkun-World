@@ -206,6 +206,7 @@ test.describe('WEAPON-8 AC16 性能', () => {
 
   for (const item of [FUJIN, RAIJIN]) {
     test(`AC16: T1（${item}）: ため中の どの ステップも ふえ 描画 4・三角形 150 以下。off で ふえ 0。10 回 ためて はなしても ふえつづけない`, async ({ page }) => {
+      test.setTimeout(600_000); // 雷神剣は 落雷が 重く、10 回 くり返すと 1 回 約 13 秒（SwiftShader）
       await legendWorld(page, item);
       await expectW8Hook(page);
       // 空を 向く（雷神剣の ねらいの わ・落雷を 出さない。T1 だけ はかる）
