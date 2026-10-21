@@ -364,15 +364,17 @@ def build_charge():
         "sprites": SPRITES,
         "blocksPerDot": PX,
         "use": {
-            "tsubu": "つぶ: 胸から 半径 1.2〜1.6 ブロックの 球の 上の 向き（下 半分 少なめ）。寿命 18 ステップ・はじめ ゆっくり 中で 速い（r = r0 (1 - u²)）。1 つぶ = tsubuHead 1 ＋ tsubuMid 1〜2 ＋ tsubuTail 1〜2（胸の 向きの うしろへ 1.3 点ずつ・速い ほど 長い 2〜6 こ）。カメラに 向く 板（各 3×3）。2 ステップに 1 つぶ（いっぱい 後は 4 ステップに 1）",
+            "tsubu": "つぶ: 胸から 半径 1.2〜1.6 ブロックの 球の 上の 向き（下 半分 少なめ）。寿命 18 ステップ・u = 年れい/18・はじめ ゆっくり 中で 速い（半径 = r0 (1 - u²)、0.12 より 小さく なったら 消す）。1 つぶ = tsubuHead 1 ＋ tsubuMid 1 ＋ tsubuTail 1（u > 0.35 から。胸と 反対 = 外がわへ 3 点ずつ ならべる）。カメラに 向く 板（各 3×3）。2 ステップに 1 つぶ（いっぱいの あとは 4 ステップに 1）",
             "core": "芯: ため に あわせて 大きく。core2（0 %）→ core5（100 %）= 2 + round(3 * F/60)。いっぱい（F ≥ 60）は core6。カメラに 向く 板",
             "ring": "いっぱいの しゅんかん 1 回だけ: a = F - 60（0〜9）で ring7（a=0〜1）→ ring12（2〜4）→ ring19（5〜6）→ ring26（7〜9）。段は a < 5 が shift 0・a ≥ 5 が shift 1（うすく なる）。a ≥ 10 で 消える。点滅しない",
             "spark": "きらり 4 つ: 胸の まわり 半径 0.75 ブロック・1 秒で 半回り・sparkBig と sparkSmall を 交互。いっぱいの 間 出つづける。「うごきを へらす」では つぶ・きらりを 出さず 芯と 輪だけ",
         },
-        "counts": {"drawCalls": 2, "drawCallsNote": "つぶ・きらり 1 ／ 芯・輪 1（1 まいの 絵）",
-                   "quads": "つぶ 最大 18 × 4 + きらり 4 + 芯 1 + 輪 1 = 約 80 まい（実際に 見える のは 約 60）",
-                   "trianglesNote": "案の 見積もりは 約 52（つぶの 尾を 1 まいの 絵で のばす 前提）。この 絵の まま つぶを 3 まいの 点で 作ると 約 120〜160 に なる → 尾を 1 つ 板に まとめるか 数を 絞る（上限 150）"},
+        "counts": {"drawCalls": 2, "drawCallsNote": "つぶ・きらり 1 ／ 芯・輪 1（同じ 1 まいの 絵）", "quads": "__Q__", "triangles": "__T__"},
     }
+    qmax = max(len(t1_items(atlas, F, CH.P(CH.WIND), (0, 0.9, 0))) for F in range(1, 140))
+    spec["counts"]["quads"] = qmax
+    spec["counts"]["triangles"] = qmax * 2
+    spec["counts"]["note"] = "同時に 出る 板の 最大（F = 1〜139 を 数えた）。三角形 = 板 × 2。上限 150 の 中"
     with open(os.path.join(FX, "charge_light.json"), "w", encoding="utf-8") as f:
         json.dump(spec, f, ensure_ascii=False, indent=1)
     return atlas, spec
@@ -391,18 +393,16 @@ def cell(atlas, name, pal, shift=0):
 
 def t1_items(atlas, F, pal, chest, seed=5):
     import random
-    cols = pal
     items = []
     full = F >= CH.FULL
     life = 18
     for born in range(1, F + 1):
+        # 2 ステップに 1 つぶ（いっぱいの あとは 4 ステップに 1 つぶ）。乱数の 順番は 案と そろえる
         r = random.Random(seed * 1000 + born)
-        d = CH._dir(r)  # 乱数の 順番を 案と そろえる
+        d = CH._dir(r)
         r0 = 1.2 + 0.4 * r.random()
-        if full and born >= CH.FULL and born % 2:
+        if born % (4 if born >= CH.FULL else 2):
             continue
-        if born % 2 and not full or (full and born < CH.FULL and born % 2):
-            pass
         u = (F - born) / life
         if u < 0 or u >= 1:
             continue
@@ -410,12 +410,10 @@ def t1_items(atlas, F, pal, chest, seed=5):
         if rr < 0.12:
             continue
         inward = mul(d, -1)
-        speed = 2 * u * r0 / life
-        n = 2 + min(4, int(speed * 30))
         pos = add(chest, mul(d, rr))
-        for k in range(n):
-            p = add(pos, mul(inward, -k * PX * 1.3 * 1.0))
-            nm = "tsubuHead" if k == 0 else ("tsubuMid" if k < 3 else "tsubuTail")
+        pieces = ["tsubuHead", "tsubuMid"] + (["tsubuTail"] if u > 0.35 else [])  # 速い ほど 尾が 長い
+        for k, nm in enumerate(pieces):
+            p = add(pos, mul(inward, -k * PX * 3))
             items.append(("spr", p, cell(atlas, nm, pal), PX))
     k = min(1.0, F / CH.FULL)
     rc = 2 + int(round(3 * k)) + (1 if full else 0)
@@ -607,8 +605,8 @@ def charge_sheet(atlas, spec, SP):
     rows = [["かず", "値"],
             ["絵", "128×128（2 の 累乗）・白黒 5 段 ＋ すきとおり"],
             ["描画回数", "2（つぶ・きらり 1 ／ 芯・輪 1）"],
-            ["板の 数", "つぶ 最大 18 つぶ × 最大 6 点 ＋ 芯 1 ＋ 輪 1 ＋ きらり 4"],
-            ["三角形", "案の 見積もり 約 52。つぶの 点を 1 点ずつ 板に すると 増える → JSON の counts"],
+            ["板の 数", f"最大 {spec['counts']['quads']} まい（つぶ 9 × 3 ＋ 芯 1 ＋ 輪 1 ＋ きらり 4）"],
+            ["三角形", f"{spec['counts']['triangles']}（上限 150。案の 見積もり 約 52 より 多い: つぶの 尾を 3 つの 点で 作った ため）"],
             ["1 点", "1/16 ブロック（案どおり）"]]
     sh.table((px0, y + 160), rows, [110, 560], 13, 24)
     sh.im = sh.im.crop((0, 0, 1800, y + 28 + 520))
@@ -616,7 +614,7 @@ def charge_sheet(atlas, spec, SP):
 
 
 def icon_sheet(ic):
-    sh = Sheet(1400, 900)
+    sh = Sheet(1700, 900)
     sh.text((24, 14), "速さバフの アイコン I1「はやい くつ」16×16（字なし）", 28, K.HEAD)
     sh.text((24, 54), f"ふち 1 点 #12304A・光は 左上・色 {len({ic.getpixel((x, y)) for x in range(16) for y in range(16) if ic.getpixel((x, y))[3]})} 色（上限 12）・半透明 なし", 15, K.SUB)
 
@@ -650,6 +648,13 @@ def icon_sheet(ic):
     hud.alpha_composite(p, (322, 548))
     sh.img((24, 520), hud.crop((300, 520, 780, 700)), "HUD 原寸: ① 体力（ハート）の 上・左はし。2 倍・HUD の 板 ふち B1", 13)
     sh.img((24 + 500, 520), up(hud.crop((310, 540, 400, 600)), 4), "4 倍", 13)
+    # 板の 色の ていあん: 暗い 板だと ふち（#12304A）が 沈む → 中くらいの 青の 板（#4FA8D8）に すると ふちが はっきり 出る
+    alt = Image.new("RGBA", (72, 72), (0, 0, 0, 0))
+    ImageDraw.Draw(alt).rounded_rectangle([0, 0, 71, 71], radius=8, fill=(79, 168, 216, 255), outline=(244, 252, 255, 255), width=2)
+    alt.alpha_composite(up(ic, 2), (20, 20) if False else (20, 20))
+    cur = bm.plate(ic)
+    sh.img((24 + 500, 820 - 160), up(cur, 3), "いまの 案の 板（暗い）3 倍", 13) if False else None
+    sh.img((24 + 500 + 400, 520), up(alt, 4), "ていあん: 中くらいの 青い 板（#4FA8D8・ふち 白）4 倍。ふちが 沈まない", 13)
     sh.save(os.path.join(OUT, "buff-icon-i1-final.png"))
 
 
