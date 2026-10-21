@@ -539,6 +539,9 @@ export class ThunderFx {
     renderer.compile(this.fxScene, camera);
     renderer.compile(this.blitScene, this.blitCam);
     for (const o of hidden) o.visible = false;
+    // 世界の 絵の 入れ物も 先に 確保（最初の 落雷で 作ると ひっかかる）。大きさが 変われば render で 作りなおす
+    renderer.getDrawingBufferSize(_size);
+    if (!this.rt) this.rt = this.makeRt(renderer, _size.x, _size.y);
   }
 
   /** 今 落雷の 見た目が あって、世界を 絵に 描く 道を 通る か */
