@@ -1851,6 +1851,7 @@ export interface W2Settings {
 /** ためわざ。`kind` で 中身を 差しかえる（§2.1）。新しい ためわざは `kind` を 1 つ 足す。`shining` は PR3 で 作る */
 export type LegendaryCharge =
   | { kind: 'lightning'; chargeTicks: number; range: number; radius: number; damageMul: number; knock: [number, number]; strikeF: number; boltSteps: number; recovery: number }
+  | { kind: 'spiral'; chargeTicks: number; launchF: number; recovery: number; speed: number; range: number; radius: number; damageMul: number; knock: [number, number] }
   | { kind: 'shining'; chargeTicks: number; rise: number; riseSteps: number; holdSteps: number; fallSteps: number; radius: number; damageMul: number; hitEvery: number; push: [number, number]; cooldown: number };
 /** ふつうの わざに 足す 効果（見た目・音・弾）。`wave` は PR2 で 作る */
 export type LegendaryAttackFx =
@@ -1885,7 +1886,8 @@ export const LEGENDARY_DEFAULTS: readonly LegendaryDef[] = [
   {
     item: 'fujin_ken',
     power: 6,
-    charge: null,
+    // WEAPON-8: 風神剣の ためわざ「らせんの かぜ」（前へ まっすぐ 12 マス・つらぬく・12 ダメージ）
+    charge: { kind: 'spiral', chargeTicks: 60, launchF: 6, recovery: 40, speed: 12, range: 12, radius: 1.0, damageMul: 2.0, knock: [3, 1] },
     onAttack: [{ kind: 'wave', speed: 15, range: 5, radius: 0.5, damageMul: 0.3, knock: [0.5, 0] }],
     passive: [{ kind: 'moveMul', mul: 1.2 }],
   },
@@ -1896,7 +1898,7 @@ export function cloneLegendary(d: LegendaryDef): LegendaryDef {
     item: d.item,
     power: Array.isArray(d.power) ? ([...d.power] as [number, number]) : d.power,
     charge: d.charge
-      ? d.charge.kind === 'lightning'
+      ? d.charge.kind === 'lightning' || d.charge.kind === 'spiral'
         ? { ...d.charge, knock: [...d.charge.knock] as [number, number] }
         : { ...d.charge, push: [...d.charge.push] as [number, number] }
       : null,
