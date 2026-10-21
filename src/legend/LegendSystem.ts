@@ -306,6 +306,19 @@ export function createLegendSystem(deps: LegendDeps): LegendSystem {
     move = null;
   }
 
+  /** シャイニングの F ごとの しごと（F1 = はなした ステップ） */
+  function shiningTick(F: number): void {
+    if (!sh || !move) return;
+    const d = sh.def;
+    if (F === 1) {
+      emit({ type: 'shiningStart', tick: deps.tick() });
+      deps.sound?.('shiningStart');
+    }
+    domeStep(F);
+    lastDist.v = shiningCamDistanceAt(F, deps.settings.shiningCamDistance, d.riseSteps, d.holdSteps, d.fallSteps);
+    if (F === move.total) endShining(false);
+  }
+
   /** ドームの 当たり（1 ステップに 1 回）。はじく 強さ・当たる 間かくは データ（settings.legendary）から。「すいこみ」は ここへ 足す */
   function domeStep(F: number): void {
     if (!sh || !move) return;
@@ -375,18 +388,9 @@ export function createLegendSystem(deps: LegendDeps): LegendSystem {
             if (move.kind === 'lightning' && L.kind === 'lightning') strikeNow(L, ctx.item);
             else if (move.kind === 'spiral') deps.launchSpiral?.({ item: ctx.item, dirDeg: move.yaw });
           }
-          if (move.kind === 'shining' && sh) {
-            if (move.F === 1) {
-              emit({ type: 'shiningStart', tick: deps.tick() });
-              deps.sound?.('shiningStart');
-            }
-            domeStep(move.F);
-            const d = sh.def;
-            lastDist.v = shiningCamDistanceAt(move.F, deps.settings.shiningCamDistance, d.riseSteps, d.holdSteps, d.fallSteps);
-            if (move.F === move.total) endShining(false);
-          }
+          if (move.kind === 'shining') shiningTick(move.F);
           // 先行入力: さいご 8F
-          if (ctx.pressed && ctx.startOk && move.F > move.total - 8) buffered = true;
+          if (move && ctx.pressed && ctx.startOk && move.F > move.total - 8) buffered = true;
           return { busy: true, fireTech: false };
         }
       }
@@ -395,7 +399,7 @@ export function createLegendSystem(deps: LegendDeps): LegendSystem {
       if (charge) {
         if (ctx.held) {
           charge.ticks += 1;
-          if (!charge.ready && charge.ticks >= L.chargeTicks) {
+          if (!charge.ready && charge.ticks >= L.chargeTicks && cooldownLeft === 0) {
             charge.ready = true;
             charge.readyAge = 0;
             emit({ type: 'chargeReady', tick: deps.tick() });
@@ -414,6 +418,14 @@ export function createLegendSystem(deps: LegendDeps): LegendSystem {
         buffered = false;
         chargeSoundsStop();
         if (!ready) return { busy: false, fireTech: true };
+        if (L.kind === 'shining') {
+          // WEAPON-9: シャイニング。はなした ステップが F1（ドームは 小さく 出はじめる）
+          sh = { baseY: ctx.position.y, power: legendPowerOf(deps.settings, ctx.item, ctx.power) ?? 1, lastHit: new Map(), def: L };
+          move = { kind: 'shining', F: 1, S: null, skyVisible: true, variant: 0, yaw: ctx.yawDeg, total: L.riseSteps + L.holdSteps + L.fallSteps + SHINING_RECOVER, strikeF: 0 };
+          camBack = null;
+          shiningTick(1);
+          return { busy: true, fireTech: false };
+        }
         if (L.kind === 'spiral') {
           // 向きは F1 に 決める。F6 に かぜが 出る
           move = { kind: 'spiral', F: 1, S: null, skyVisible: true, variant: 0, yaw: ctx.yawDeg, total: 5 + L.recovery, strikeF: L.launchF };
@@ -445,7 +457,7 @@ export function createLegendSystem(deps: LegendDeps): LegendSystem {
       charge = { ticks: 1, ready: false, readyAge: 0 };
       emit({ type: 'chargeStart', tick: deps.tick() });
       riseStart();
-      if (charge.ticks >= L.chargeTicks) {
+      if (charge.ticks >= L.chargeTicks && cooldownLeft === 0) {
         charge.ready = true;
         emit({ type: 'chargeReady', tick: deps.tick() });
         deps.sound?.('chargeReady');
