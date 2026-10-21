@@ -71,3 +71,4 @@ WEAPON-8 が 大きく さわっている: `src/legend/LegendSystem.ts`（ため
 - 音: 斬撃 C3（見本 切りはり・配らない前提）、弾 消し・シャイニング 4 つ・domePull は B。すべて OK。
 - テスト: `e2e/weapon9-niji.spec.ts`（赤→ 実装待ち）・ユニットの 期待直し。code-reviewer 合格。
 - 次の 1 手: developer が PR-2 を 実装中（すいこみ AC53〜58 も）。終わったら code-reviewer ＋ 検証（UI 検査・tester）→ ゲーム内の スクショで オーナー確認（AC34・47・52・59）→ PR は オーナーが「作って いい」と 言ってから。
+| 2026-10-21 | PR | yuzu「PR もあなたの判断で作って」→ PO が 検証 合格の あとに PR を 作って よい（マージは オーナー） | |

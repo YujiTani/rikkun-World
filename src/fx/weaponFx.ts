@@ -31,6 +31,8 @@ export interface WeaponFxDeps {
   onBlade?: (events: readonly BladeEvent[]) => void;
   /** WEAPON-7: わざを 始めた とき、持っている 武器の 追加の 音・見た目（レジェンダリーの きせき） */
   onTechItem?: (item: ItemId | null) => void;
+  /** WEAPON-9: true を 返すと 今の 刀の 斬撃音(と 段の 音)を 鳴らさない（虹の nijiSlash に 入れかえ）。step = 3 段の 何段目(1〜3) */
+  replaceTechSound?: (item: ItemId | null, step: number) => boolean;
   /** たいきゅうの 出来事を 実績へ */
   onWear?: (events: readonly WearEvent[]) => void;
   /** こわれた（人形が 手を 見る 動きなど） */
@@ -105,6 +107,10 @@ export class WeaponFx {
     switch (e.type) {
       case 'techStart':
         this.d.bladeHud.techStarted(e.tech);
+        if (this.d.replaceTechSound?.(this.d.blade.state().item, e.step ?? 1)) {
+          this.d.onTechItem?.(this.d.blade.state().item);
+          break;
+        }
         playWeapon(s, e.tech);
         this.d.onTechItem?.(this.d.blade.state().item);
         if (e.step === 2) playWeapon(s, 'combo2');

@@ -61,7 +61,7 @@ export function buildTooltip(item: ItemId, d: TooltipDeps, stack?: ItemStack | n
     add('き に つよい', item);
   }
   if (BLADES.includes(item)) {
-    add(`たたく つよさ ${tools.weaponDamage[item] ?? 1}`, item);
+    add(`たたく つよさ ${item === 'niji' && stack?.power ? stack.power : (tools.weaponDamage[item] ?? 1)}`, item);
     if (item === 'naginata') add('とおくまで とどく', item);
   }
   if (item === 'yumi') {

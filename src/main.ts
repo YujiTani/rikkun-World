@@ -38,6 +38,8 @@ import { WindWaveFx } from './fx/windWaveFx';
 import { SpiralFx } from './fx/spiralFx';
 import { createWaveView3D } from './legend/waveView';
 import { ChargeLightFx } from './fx/chargeLightFx';
+import { NijiFx } from './fx/nijiFx';
+import { createDomeGrains } from './legend/domeGrains';
 import { BuffIcons } from './ui/buffIcons';
 import { buffsOfHeld, createBuffModel } from './ui/buffIconsModel';
 import { ThunderFx } from './fx/thunderFx';
@@ -559,7 +561,8 @@ const blade = createBladeSystem({
   yokai: () => yokaiManager!,
   settings: w2,
   // WEAPON-7: レジェンダリーの 強さは 設定 `legendary` の power（ふつうの 刀は 今の 表）
-  weaponDamage: (item) => legendPowerOf(w2, item) ?? toolConfig.weaponDamage[item] ?? 1,
+  // 虹は 1 本ごとの 強さ（手に 持っている 1 本）
+  weaponDamage: (item) => legendPowerOf(w2, item, item === 'niji' ? (inventory.held()?.power ?? null) : null) ?? toolConfig.weaponDamage[item] ?? 1,
   onHit: () => {
     inventory.wearHeld(w2.toolWear.blade.hit);
   },
@@ -567,6 +570,8 @@ const blade = createBladeSystem({
   tick: () => game.tick,
 });
 // WEAPON-7: レジェンダリー武器の ため・ためわざ（落雷）。たいきゅうは 1 体 以上に 当たった ときだけ 1
+let domeEraseThisStep = false;
+let nijiLockSel = -1;
 const legend = createLegendSystem({
   world,
   yokai: () => yokaiManager!,
@@ -577,7 +582,7 @@ const legend = createLegendSystem({
   },
   sound: (n) => playLegend(fxSound, n),
   // WEAPON-8 §3.6: ため音は 続く 音。剣ごとの 味（風神 / 雷神）は ためわざの しゅるいで えらぶ
-  loop: (name) => startLegendLoop(fxSound, name, chargeOf(w2, inventory.held()?.item ?? null)?.kind === 'spiral' ? 'fujin' : 'raijin'),
+  loop: (name) => (name === 'domePull' ? startLegendLoop(fxSound, name) : startLegendLoop(fxSound, name, chargeOf(w2, inventory.held()?.item ?? null)?.kind === 'spiral' ? 'fujin' : chargeOf(w2, inventory.held()?.item ?? null)?.kind === 'shining' ? null : 'raijin')),
   // WEAPON-8: らせんの かぜは F6 に 体の 点 B（足もと + 1.4）から
   launchSpiral: (a) => {
     const p = controller.state.position;
@@ -585,6 +590,14 @@ const legend = createLegendSystem({
   },
   seed,
 });
+const nijiC = { x: 0, y: 0, z: 0 };
+const nijiCenter = (p: { x: number; y: number; z: number }) => {
+  nijiC.x = p.x;
+  nijiC.y = p.y + 0.9;
+  nijiC.z = p.z;
+  return nijiC;
+};
+screen.canOpen = () => !legend.locked();
 const waveView3d = createWaveView3D(game.camera);
 // WEAPON-7 PR2: 風神剣の 真空波（ふつうの わざの 当たりの はじめの F に 1 つ。たいきゅうは へらさない）
 const waveSys = createWaveSystem({
@@ -614,6 +627,10 @@ thunderFx.warmUp(game.renderer, game.camera); // 読みこみ中に 雷 B の �
 const windWaveFx = new WindWaveFx({ scene: game.scene, camera: game.camera });
 // WEAPON-8: らせんの かぜ（S2）・土と 草の つぶ・手もとの 光・速さバフの アイコン
 const spiralFx = new SpiralFx({ scene: game.scene, camera: game.camera });
+// WEAPON-9: 虹の ドーム・かけら・すいよせの つぶ・斬撃（材質は 読みこみ中に ぜんぶ 作る）
+const nijiFx = new NijiFx(game.scene, game.camera);
+const domeGrains = createDomeGrains();
+nijiFx.warmUp(game.renderer, game.camera, game.scene);
 const spiralDebris = createSpiralDebris({ world, seed });
 const chargeLight = createChargeLight();
 const chargeLightFx = new ChargeLightFx({ scene: game.scene, camera: game.camera });
@@ -638,6 +655,9 @@ const combat = new PlayerCombatImpl({
   inventory,
   yokai: () => yokaiManager!,
   spawn: startPoint,
+  // WEAPON-9: シャイニング中は 受ける ダメージ 1/3・落下ダメージなし
+  takenMul: () => legend.takenMul(),
+  noFall: () => legend.noFall(),
   // 妖怪のねらい（CHAR-1 第 5.2 版 §4.5）: 届く距離は P から。S からの線で当たらないときは やさしい ねらい補助
   reachOrigin: (out) => aimPivot(world, controller.state.position, out),
   assist: (eye, dir, reach) => aimAssistPick(eye, dir, reach),
@@ -863,6 +883,12 @@ yokaiManager = new YokaiManager({
   origin: () => island.spawn(),
   seaY: () => SEA_Y,
   settings: w2,
+  // WEAPON-9: 弾は ドームの 球に ふれた ステップに 消える（音は 1 ステップに 1 つ）
+  dome: () => legend.dome(),
+  onDomeErase: (id) => {
+    legend.emit({ type: 'domeErase', tick: game.tick, projectileId: id });
+    domeEraseThisStep = true;
+  },
   // WEAPON-7: ヌシが レジェンダリーを おとした → 上の 帯の テロップ
   onLegendDrop: (info) => celebrate.enqueueTelop(info.item),
   // WEAPON-5: 妖怪の 攻撃が 当たる所で パリィに 聞く
@@ -1100,6 +1126,19 @@ const weaponFx = new WeaponFx({
   // WEAPON-7: ふつうの わざに 雷の「ビシューン」を 重ねる（ダメージは かえない）
   onTechItem: (item) => {
     if (trailStyleOf(w2, item) === 'thunder') playLegend(fxSound, 'thunderSlash');
+    // WEAPON-9: 虹の にじ色の 斬撃（カメラの 向きで 絵を きめる）。ダメージは かえない
+    if (trailStyleOf(w2, item) === 'rainbow') {
+      const p = controller.state.position;
+      const u = blade.state().move?.dirDeg ?? controller.state.yawDeg;
+      const r = (u * Math.PI) / 180;
+      nijiFx.slash({ x: p.x + Math.sin(r) * 2.2, y: p.y + 1.4, z: p.z - Math.cos(r) * 2.2 }, u);
+    }
+  },
+  // WEAPON-9: 虹の つき・きりあげ・けさ は 今の 刀の 音の 代わりに nijiSlash（1 振りに 1 回。段ごとに 3 とおり）
+  replaceTechSound: (item, step) => {
+    if (trailStyleOf(w2, item) !== 'rainbow') return false;
+    playLegend(fxSound, 'nijiSlash', step - 1);
+    return true;
   },
   onArrowPickup: () => hotbar.pickup('ya', 1),
 });
@@ -1586,6 +1625,9 @@ game.onUpdate((dt) => {
     controller.motion.speedMul = bm.speedMul * wm.speedMul * (pmOn ? pm.speedMul : 1) * lm.speedMul * legendMoveMulOf(w2, inventory.held()?.item ?? null);
     controller.motion.jumpLocked = bm.jumpLocked || wm.jumpLocked || pm.jumpLocked || lm.jumpLocked;
     controller.motion.noRun = lm.noRun;
+    // WEAPON-9: シャイニングの うかぶ（重力を 使わず 目標の 高さへ）と カメラを 引く
+    controller.motion.hoverY = lm.hoverY ?? null;
+    rig.distanceOverride = legend.camDistance();
     // CHAR-2: わざのあいだは 向きを わざの向きに 固定（わざを始めたステップは あとで その場で）
     // WEAPON-3: 刀の わざ・パンチの あいだは 攻撃の向き u。攻撃・空ぶりは ＋マークへ 回らない（leftAims）
     // WEAPON-5: パリィの あいだは 今 向いている 方（カメラの 向き）を向く。始めた ステップは すべらず 止まる
@@ -1600,6 +1642,11 @@ game.onUpdate((dt) => {
   rig.update(dt);
   if (worldReady()) yokaiM.update();
   if (worldReady()) animals.update();
+  // WEAPON-9: シャイニング F1〜240 は 持ちかえ・もちもの画面を 出せない
+  if (legend.locked()) {
+    if (nijiLockSel < 0) nijiLockSel = inventory.selected();
+    else if (inventory.selected() !== nijiLockSel) inventory.select(nijiLockSel);
+  } else nijiLockSel = -1;
   dig.update();
   // WEAPON-7 PR2: 真空波（刀が きまった あと。体は ふみこんだ あとの 位置）
   {
@@ -1775,14 +1822,25 @@ game.onUpdate((dt) => {
     spiralFx.step(sp, spiralDebris);
     const lv = holdingLegend ? legend.view() : null;
     const st = lv && lv.ready ? legend.state() : null;
-    thunderFx.step(lv ? { charging: lv.charging, ready: lv.ready, aimS: st && st.aim && st.aim.skyVisible ? st.aim.S : null } : IDLE_THUNDER_LOOK, reducedNow);
+    thunderFx.step(lv && lv.kind !== 'shining' ? { charging: lv.charging, ready: lv.ready, aimS: st && st.aim && st.aim.skyVisible ? st.aim.S : null } : IDLE_THUNDER_LOOK, reducedNow);
     // WEAPON-8 §3.5: ため中の 手もとの 光（雷神剣も 風神剣も）。手は 三人称は 体から、一人称は 画面の 右下の にぎり
     const cp = controller.state.position;
-    const cl = chargeLight.step({ ticks: lv ? lv.chargeTicks : null, kind: lv ? lv.kind : null, reduced: reducedNow });
+    const cl = chargeLight.step({ ticks: lv ? lv.chargeTicks : null, kind: lv ? lv.kind : null, reduced: reducedNow, full: chargeOf(w2, inventory.held()?.item ?? null)?.chargeTicks });
     if (cl.phase !== 'off') {
       handNow();
       chargeLightFx.step(cl, handInfo, handInfo.first ? null : { x: cp.x, y: cp.y + 1.1, z: cp.z });
     } else chargeLightFx.step(cl, handInfo, null);
+    // WEAPON-9: 虹の ドーム（シャイニング中）。音: 弾が 消えた ステップに domeErase を 1 つ
+    {
+      const dv = legend.view();
+      const mv = legend.state();
+      domeGrains.step({ F: mv.move === 'shining' ? mv.moveF : 0, center: nijiCenter(cp), radius: dv.dome, pulled: legend.pullers(), reduced: reducedNow });
+      nijiFx.step(dv.dome > 0 ? { radius: dv.dome, center: nijiCenter(cp), groundY: dv.groundY, F: mv.moveF } : null, domeGrains, reducedNow, rig.getInfo().hideChar);
+      if (domeEraseThisStep) {
+        playLegend(fxSound, 'domeErase');
+        domeEraseThisStep = false;
+      }
+    }
     // WEAPON-8 §2.4: 速さバフの アイコン（手に 持つ 物の 速さの 倍率が 1 より 大きい 間）
     const heldNow = inventory.held()?.item ?? null;
     buffIcons.sync(buffModel.step(buffsOfHeld(heldNow, (i) => legendMoveMulOf(w2, i)), reducedNow));
@@ -2022,6 +2080,10 @@ installTestHook(game, overlay, () => host.everReady, {
     },
     chargeSound: () => ({ ...legend.chargeSound() }),
     spiralSound: () => legend.spiralSound(),
+    pullSound: () => legend.pullSound(),
+    slashes: () => nijiFx.slashes(),
+    nijiFx: () => nijiFx.info(),
+    grains: () => ({ ...domeGrains.counts() }),
   } as unknown as TestHookGroups['legend'],
   player: { ...createPlayerHook(controller), handPos: () => { const h = handNow(); return { world: { ...h.world }, screen: h.screen ? { ...h.screen } : null }; }, glow: () => { const g = parry.state().glowLeft; return { visible: g > 0, ticksLeft: g, level: parryGlowLevel(g, w2) }; }, respawn: () => controller.respawn(), doll: withSpriteDoll(cameraHook.doll, sprite, rig.doll.group) } as unknown as TestHookGroups['player'],
   ...createDigHook(dig),

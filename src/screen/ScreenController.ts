@@ -16,6 +16,8 @@ export interface LockPlatform {
  */
 export class ScreenController implements ScreenState {
   private open = false;
+  /** WEAPON-9: false の あいだ もちもの画面を 開けない（シャイニング F1〜240） */
+  canOpen: () => boolean = () => true;
   private closeListeners: Array<() => void> = [];
 
   constructor(
@@ -75,7 +77,7 @@ export class ScreenController implements ScreenState {
 
   private openInventory(): void {
     // 案内画面が出ているあいだ・ロックがないときは無視
-    if (this.open || !this.lock.playInputEnabled()) return;
+    if (this.open || !this.lock.playInputEnabled() || !this.canOpen()) return;
     this.open = true;
     // 先に「開いた」と伝えてから外す（案内画面が一瞬出ないように）
     this.lock.setInventoryOpen(true);

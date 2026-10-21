@@ -353,13 +353,17 @@ export class CameraRig {
     this.shoulder.z = P.z + rz * sOff;
   }
 
+  /** WEAPON-9: シャイニング中の 三人称の きょり（null = ふだんの thirdPersonDistance）。壁の ときは 今の きまりどおり 手前で 止まる */
+  distanceOverride: number | null = null;
+
   private placeThird(dt: number): void {
     const cfg = this.config;
     const P = this.shoulder;
     // カメラ = S - 距離 × D（真ん中の線は いつも S を通る）
-    const dx = -cfg.thirdPersonDistance * this.dir.x;
-    const dy = -cfg.thirdPersonDistance * this.dir.y;
-    const dz = -cfg.thirdPersonDistance * this.dir.z;
+    const dist = this.distanceOverride ?? cfg.thirdPersonDistance;
+    const dx = -dist * this.dir.x;
+    const dy = -dist * this.dir.y;
+    const dz = -dist * this.dir.z;
     const full = Math.hypot(dx, dy, dz);
 
     // S からカメラへの線分で最初にぶつかるブロック

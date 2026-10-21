@@ -476,6 +476,8 @@ export class DigSystemImpl implements DigSystem {
           position: p.position,
           yawDeg: p.yawDeg,
           inWater: p.inWater,
+          power: this.inventory.held()?.power ?? null,
+          onGround: p.onGround,
         });
         legendOwns = lg.chargeable(bladeItem);
         legendFire = res.fireTech;
