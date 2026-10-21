@@ -43,10 +43,10 @@ def put(out, sel, col):
 
 # 各 関数: (u, v, L) の 配列 → (刃の 点の 配列 mask, 色 (N,3))。v は 中心線から の ずれ
 def niji(u, v, L, s):
-    A = 0.075 * L
-    c = A * np.sin(np.pi * np.clip(u / L, 0, 1))
+    A = 0.13 * L  # そりを はっきり（決定 2026-10-21）
+    c = A * np.sin(np.pi * np.clip(u / L, 0, 1)) ** 0.85
     r = u / L
-    h = np.where(r < 0.86, 2.4 - 0.5 * r, lerp(2.4 - 0.43, 0.5, (r - 0.86) / 0.14)) * s
+    h = np.maximum(np.where(r < 0.86, 2.4 - 0.5 * r, lerp(2.4 - 0.43, 0.5, (r - 0.86) / 0.14)) * s, 1.3)
     vv = v - c
     blade = (u >= 0) & (u <= L) & (np.abs(vv) <= h)
     t = vv / np.maximum(h, 0.5)
@@ -246,12 +246,16 @@ def do_cell(c, shape):
     if nrm @ np.array([-1, -1], np.float32) < 0:
         nrm = -nrm
     blade_f, hilt_f = WEAPONS[shape]
-    if L < 14:  # 刃が 点みたいに みじかい（正面向き）→ 同じ 場所を その 武器の 主の 色で
-        mainc = {"niji": NIJI["blue"], "raijin": RAIJIN["D"], "fujin": FUJIN["C"]}[shape]
-        out[m, :3] = mainc
-        out[m, 3] = 255
+    if L < 14:  # 刃が 点みたいに みじかい（正面向き）→ 同じ 場所を にじ色の しまで
+        cyc = {"niji": [NIJI["green"], NIJI["blue"], NIJI["purple"], NIJI["magenta"]], "raijin": [RAIJIN["D"], RAIJIN["M"]], "fujin": [FUJIN["C"], FUJIN["L"]]}[shape]
+        yy, xx = np.nonzero(m)
+        for k, (y, x) in enumerate(zip(yy, xx)):
+            out[y, x, :3] = cyc[int(((x - base[0]) * a[0] + (y - base[1]) * a[1]) / 2.5 + 8) % len(cyc)]
+            out[y, x, 3] = 255
         return out
-    s = float(np.clip(L / 45.0, 0.62, 1.15))
+    if shape == "niji":
+        L *= 1.12  # 今の かたなより 1 割 以上 長く（根もとは そのまま、刃先を のばす）
+    s = float(np.clip(L / 45.0, 0.8, 1.15))
     dx = XX - base[0]
     dy = YY - base[1]
     u = dx * a[0] + dy * a[1]
