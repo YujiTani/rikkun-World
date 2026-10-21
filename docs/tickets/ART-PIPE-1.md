@@ -51,3 +51,4 @@
 | 2026-10-21 | 0 | 進め方 | yuzu「このセッションで全部やりましょう」→ ENV-1 と ART-PIPE-1 を 同じブランチ `claude/sharp-heisenberg-4r3ba6` で 進める（1 issue = 1 ブランチ の 例外。オーナー決定） |
 | 2026-10-21 | 0 | 順番 | 作り方の 試作なので アート（3 案）を デザインの 前に。仕様は 3 案が 選ばれてから |
 | 2026-10-21 | 0 | 3 案 | art-director: 雷 A/B/C ＋ アイコン ＋ PIPELINE.md。PixelLab 6 generations（40→34）。オーナーが 選ぶ 待ち |
+| 2026-10-21 | 0 | 選択 | yuzu: 雷は B・板は カメラ正面・PIPELINE の 数 OK（`docs/decisions/2026-10-21-thunder-b-billboard.md`）。アイコンは 確認中 |
