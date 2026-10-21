@@ -22,7 +22,7 @@ function rig(dome: () => { x: number; y: number; z: number; r: number } | null) 
 }
 
 function thrown(r: ReturnType<typeof rig>) {
-  const id = r.m.spawn('chochin', r.player.position.x, 12, r.player.position.z - 9, { ai: false });
+  const id = r.m.spawn('chochin', r.player.position.x, 12, r.player.position.z - ((r as any).far ?? 5), { ai: false });
   const a = r.m.attackNow(id) as { hitInSteps: number };
   for (let i = 0; i < a.hitInSteps + 2 && r.m.fireballList().length === 0; i++) r.step();
   expect(r.m.fireballList()).toHaveLength(1);
@@ -32,6 +32,7 @@ describe('弾を ドームで 消す', () => {
   it('ドームの ふちに ふれた ステップに 消える・ダメージ 0・消えた 出来事 1 つ', () => {
     let on = true;
     const r = rig(() => (on ? { x: 10.5, y: 9.9, z: 20.5, r: 7 } : null));
+    (r as any).far = 9;
     thrown(r);
     let steps = 0;
     while (r.m.fireballList().length > 0 && steps < 200) {
