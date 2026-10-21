@@ -7,9 +7,9 @@ for k,fn in MODELS.items():
     H=(0,1.1,0)
     row=[]
     for yaw in (90,0,45,135):
-        cam=orbit_cam(add(H,(-1.2,0,0)),yaw,20,10,96,56)
-        lay=render(fn(H,state(TIMELINE[2],3),cam),cam,bg=Image.new('RGBA',(96,56),(150,205,245,255)),outline=C['B3'])
-        row.append(up(lay,4))
+        cam=orbit_cam(add(H,(-1.2,0,0)),yaw,20,10,110,64,ppb=16)
+        lay=render(fn(H,state(TIMELINE[2],3),cam),cam,bg=Image.new('RGBA',(110,64),(150,205,245,255)),outline=C['B3'])
+        row.append(up(lay,3))
     outs.append(row)
 W=sum(r.width+4 for r in outs[0]); Hh=len(outs)*(outs[0][0].height+4)
 sh=Image.new('RGB',(W,Hh))

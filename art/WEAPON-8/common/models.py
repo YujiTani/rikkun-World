@@ -12,7 +12,7 @@ from PIL import Image
 from w8kit import C, add, mul, sub, dot, norm, cross
 
 X = (1.0, 0.0, 0.0)
-PX = 1 / 8  # 1 点 = 1/8 ブロック
+PX = 1 / 16  # 1 点 = 1/16 ブロック（タイルと 同じ。今の 真空波 1.3 ブロック 32 点に 近い）
 
 
 def _ax(a):
@@ -36,7 +36,7 @@ def vortex_sprite(R, phi, layer, key=False):
                 continue
             th = math.atan2(dy, dx)
             # うで: 角が r と ともに ずれる（渦）。2 本
-            w = (th - phi - 0.55 * r) % math.pi
+            w = (th - phi - 0.28 * r) % math.pi
             arm = min(w, math.pi - w) < (0.62 if r < R * 0.7 else 0.45)
             col = None
             if layer == 0:
@@ -48,7 +48,7 @@ def vortex_sprite(R, phi, layer, key=False):
                 if arm and r <= R + 0.2:
                     col = C["W1"] if r < R * 0.45 else (C["W2"] if r < R * 0.8 else C["B1"])
             else:
-                rc = 1.6 if not key else 2.4
+                rc = 2.6 if not key else 3.6
                 if r <= rc:
                     col = C["W1"]
                 elif key and arm and r < R * 0.5:
@@ -59,31 +59,31 @@ def vortex_sprite(R, phi, layer, key=False):
 
 
 def tail_sprite(kind):
-    if kind == 0:  # 小さな 三日月（4×4）
-        im = Image.new("RGBA", (4, 4), (0, 0, 0, 0))
-        for (x, y) in [(1, 0), (2, 0), (0, 1), (0, 2), (1, 3), (2, 3)]:
-            im.putpixel((x, y), C["W1"] + (255,))
-        for (x, y) in [(1, 1), (1, 2), (3, 0), (3, 3)]:
-            im.putpixel((x, y), C["B1"] + (255,))
-        return im
-    if kind == 1:  # 2×2
-        im = Image.new("RGBA", (2, 2), C["W2"] + (255,))
-        im.putpixel((1, 1), C["B1"] + (255,))
-        return im
-    im = Image.new("RGBA", (1, 1), (C["B1"] if kind == 2 else C["B2"]) + (255,))
+    """尾の つぶ: 0 = 直径 6・1 = 4・2 = 3・3 = 2（芯は 白、ふちは 水色）"""
+    n = {0: 6, 1: 4, 2: 3, 3: 2}[kind]
+    im = Image.new("RGBA", (n, n), (0, 0, 0, 0))
+    c = (n - 1) / 2
+    for y in range(n):
+        for x in range(n):
+            r = math.hypot(x - c, y - c)
+            if r <= n / 2:
+                col = C["W1"] if (r < n / 2 - 1.2 and kind < 2) else (C["B1"] if kind < 3 else C["B2"])
+                if kind == 2 and r < 0.8:
+                    col = C["W2"]
+                im.putpixel((x, y), col + (255,))
     return im
 
 
 def model_a(H, st, cam):
     s, phi, fade, key = st["s"], st["phi"], st["fade"], st["key"]
     items = []
-    R = max(2, int(round(6 * s * (1 - 0.5 * fade))))
+    R = max(3, int(round(12 * s * (1 - 0.5 * fade))))
     toward = norm(sub(cam.pos, H))
     if fade < 0.95:
         for layer, off in ((0, -0.3), (1, 0.0), (2, 0.3)):
             items.append(("spr", add(H, mul(toward, off)), vortex_sprite(R, phi, layer, key), PX))
     # 尾: 2 本の らせん（ほんとうの 3D の 位置。見る 向きで 形が かわる）
-    N = 10
+    N = 14
     L = 3.0 * s
     for strand in (0, 1):
         for i in range(1, N + 1):
@@ -109,30 +109,34 @@ def model_b(H, st, cam):
     L = 2.8 * s
     Rm = 0.72 * s * (1 + 0.5 * fade)
     wid = 0.42 * s
-    ds = PX / 2
+    om = 2 * math.pi / 1.5
+    ds = PX / 2 / math.sqrt(1 + (Rm * om) ** 2)
     n = int(L / ds)
+    nw = int(wid / PX) + 2
     for strand in (0, 1):
         for k in range(n):
             sd = k * ds
             u = sd / L
             nose = min(1.0, sd / (0.9 * s)) ** 0.8
             r = Rm * nose * (1 - 0.3 * u)
-            a = phi + strand * math.pi + sd * (2 * math.pi / 1.5)
+            a = phi + strand * math.pi + sd * om
             nrm = _ax(a)
-            for j, wv in enumerate((-0.5, -0.17, 0.17, 0.5)):
-                # おびは 軸の 向きに はばを 持つ（たて に まく らせんの 帯）
+            # しっぽと ほどける ときは 網で ぬく（4 段。進む 向きに 1 点 ごと）
+            cut = max(0.0, (u - 0.72) / 0.28) * 0.75 + fade * 0.75
+            ks = int(sd / PX)
+            for j in range(nw):
+                wv = j / (nw - 1) - 0.5
+                # おびは 軸の 向きに はばを 持つ（ねじった リボン）
                 pos = add(sub(H, mul(X, sd + wv * wid * nose)), mul(nrm, r))
                 front = dot(nrm, sub(cam.pos, pos)) > 0
-                edge = j in (0, 3)
+                edge = j in (0, nw - 1)
+                if cut > 0 and ((ks + j) % 4) < int(cut * 4 + 0.001):
+                    continue
                 if front:
-                    col = C["B1"] if edge else (C["W1"] if (key and u < 0.5) or u < 0.2 else C["W2"])
+                    col = C["B1"] if edge else (C["W1"] if (key and u < 0.45) or u < 0.15 else C["W2"])
                 else:
                     col = C["B2"] if edge else C["B1"]
-                # しっぽと ほどける ときは 網で ぬく（4 段）
-                cut = max(0.0, (u - 0.7) / 0.3) * 0.75 + fade * 0.75
-                if cut > 0 and ((k + j * 2) % 4) < int(cut * 4 + 0.001):
-                    continue
-                items.append(("dot", pos, col, PX * 1.05))
+                items.append(("dot", pos, col, PX))
     # 先の 光（ドリルの 先）
     if fade < 0.5:
         items.append(("dot", add(H, mul(X, 0.02)), C["W1"], PX * (2 if key else 1)))
