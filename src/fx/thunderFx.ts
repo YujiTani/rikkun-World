@@ -209,7 +209,8 @@ uniform vec3 uCenter;
 uniform float uAmount;
 varying vec2 vUv;
 void main() {
-  vec3 col = texture2D(tColor, vUv).rgb;
+  // 絵は 画面と 同じ sRGB の まま 入って いる ので、足し算の 前に リニアへ もどす
+  vec3 col = sRGBTransferEOTF(texture2D(tColor, vUv)).rgb;
   float d = texture2D(tDepth, vUv).x;
   if (uAmount > 0.0 && d < 0.99999) {
     vec4 v = uInvProj * vec4(vUv * 2.0 - 1.0, d * 2.0 - 1.0, 1.0);
@@ -501,6 +502,45 @@ export class ThunderFx {
     this.bolt.rotation.y = bb.yaw;
   }
 
+  /**
+   * 世界の 絵の 入れ物。出力の 設定を 画面と 同じ（sRGB・トーンマップ なし）に そろえる ので、
+   * 世界の 材質の プログラムを 画面へ 描く 版と 共有できる（作りなおしの 約 500 ms が なくなる）。
+   * three は 「XR の 入れ物」だけ 画面と 同じ 出力に する ので、その 印を 使う。色は 色空間を 変えない 8 ビット
+   * （プログラムが 0〜1 の sRGB で 書く）。入れ物の 実体は 色空間 リニア で 作ってから 印を 付ける（SRGB8 に すると 二重に 変換される）。
+   */
+  private makeRt(renderer: THREE.WebGLRenderer, w: number, h: number): THREE.WebGLRenderTarget {
+    const rt = new THREE.WebGLRenderTarget(w, h, { depthBuffer: true, depthTexture: new THREE.DepthTexture(w, h), samples: 0 });
+    rt.texture.minFilter = rt.texture.magFilter = THREE.NearestFilter;
+    rt.texture.colorSpace = THREE.LinearSRGBColorSpace;
+    renderer.initRenderTarget(rt);
+    rt.texture.colorSpace = THREE.SRGBColorSpace;
+    (rt as unknown as { isXRRenderTarget: boolean }).isXRRenderTarget = true;
+    return rt;
+  }
+
+  private disposeRt(): void {
+    this.rt?.dispose();
+    this.rt?.depthTexture?.dispose();
+    this.rt = null;
+  }
+
+  /**
+   * 雷 B 自身の プログラム 4 つ（雷・輪・つぶ・うつす 板）を 読みこみ中に 作っておく。
+   * 最初の 落雷の ひっかかりを 消す（遊んで いる 間には 止めない）。
+   */
+  warmUp(renderer: THREE.WebGLRenderer, camera: THREE.Camera): void {
+    const hidden: THREE.Object3D[] = [];
+    for (const o of [this.bolt, this.ringMesh, this.bits]) {
+      if (!o.visible) {
+        hidden.push(o);
+        o.visible = true;
+      }
+    }
+    renderer.compile(this.fxScene, camera);
+    renderer.compile(this.blitScene, this.blitCam);
+    for (const o of hidden) o.visible = false;
+  }
+
   /** 今 落雷の 見た目が あって、世界を 絵に 描く 道を 通る か */
   active(): boolean {
     return this.shown.active;
@@ -512,12 +552,9 @@ export class ThunderFx {
    */
   render(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.PerspectiveCamera): void {
     renderer.getDrawingBufferSize(_size);
-    if (!this.rt) {
-      this.rt = new THREE.WebGLRenderTarget(_size.x, _size.y, { depthBuffer: true, depthTexture: new THREE.DepthTexture(_size.x, _size.y), samples: 0 });
-      this.rt.texture.colorSpace = THREE.SRGBColorSpace;
-      this.rt.texture.minFilter = this.rt.texture.magFilter = THREE.NearestFilter;
-    } else if (this.rt.width !== _size.x || this.rt.height !== _size.y) {
-      this.rt.setSize(_size.x, _size.y);
+    if (!this.rt || this.rt.width !== _size.x || this.rt.height !== _size.y) {
+      this.disposeRt();
+      this.rt = this.makeRt(renderer, _size.x, _size.y);
     }
     const rt = this.rt;
     const info = renderer.info;
@@ -637,8 +674,7 @@ export class ThunderFx {
   dispose(): void {
     this.group.removeFromParent();
     for (const t of [this.sheet, this.ringTex, this.sparkTex, this.glowTex, this.aimTex]) t.dispose();
-    this.rt?.dispose();
-    this.rt?.depthTexture?.dispose();
+    this.disposeRt();
     for (const root of [this.group, this.fxScene, this.blitScene]) {
       root.traverse((o) => {
         const m = o as THREE.Mesh;
