@@ -55,11 +55,12 @@ describe('WEAPON-7 AC1: legendary の 初期値（雷神剣 ＋ PR2 の 風神�
 });
 
 describe('WEAPON-7 AC21: 風神剣の データ（PR2・§4.1）', () => {
-  it('legendary の 風神剣: power 6・ためない・真空波・足 1.2 倍', () => {
+  // WEAPON-8 で 期待が 変わった（理由: 風神剣に ためわざ「らせんの かぜ」。docs/design/WEAPON-8.md AC1・§4・§9）
+  it('legendary の 風神剣: power 6・ためわざ spiral・真空波・足 1.2 倍', () => {
     const d = legendary().find((x) => x.item === 'fujin_ken');
     expect(d, 'legendary に fujin_ken').toBeDefined();
     expect(d!.power).toBe(6);
-    expect(d!.charge).toBeNull();
+    expect(d!.charge).toEqual({ kind: 'spiral', chargeTicks: 60, launchF: 6, recovery: 40, speed: 12, range: 12, radius: 1.0, damageMul: 2.0, knock: [3, 1] });
     expect(d!.onAttack).toEqual([{ kind: 'wave', speed: 15, range: 5, radius: 0.5, damageMul: 0.3, knock: [0.5, 0] }]);
     expect(d!.passive).toEqual([{ kind: 'moveMul', mul: 1.2 }]);
   });
@@ -145,13 +146,14 @@ describe('WEAPON-7 AC12: 実績', () => {
     expect(width(a!.name)).toBeCloseTo(15.5, 5);
     expect(width(b!.name)).toBeCloseTo(16.5, 5);
   });
-  it('AC26: 説明の 文（なにに つかう・つかいかた）。風神剣は ためわざが ない ので「ながおし」を 足さない', () => {
+  // WEAPON-8 で 期待が 変わった（理由: 風神剣に ためわざ「らせんの かぜ」。docs/design/WEAPON-8.md AC12・§4・§9）
+  it('AC26: 説明の 文（なにに つかう・つかいかた）。風神剣も ためわざが ある ので「ながおし して はなすと ためわざ」が つく', () => {
     const info = ITEM_INFO as Record<string, { use: string; how: string; buttons: string[]; stats: string }>;
     const f = info.fujin_ken;
     expect(f, 'ITEM_INFO に fujin_ken').toBeDefined();
-    expect(f!.use).toBe('てに もつと はやく はしれる。ふると かぜ が とぶ');
-    expect(f!.how).toBe(info.katana!.how); // 今の 刀の 文のまま
-    expect(f!.how).not.toContain('ためわざ');
+    expect(f!.use).toBe('てに もつと はやく はしれる。ためて はなすと かぜ が とぶ');
+    expect(f!.how).toBe(info.raijin_ken!.how); // 雷神剣と 同じ
+    expect(f!.how).toContain('ためわざ');
     expect(f!.stats).toBe('blade');
     expect(findUnrubiedKanji(f!.use)).toEqual([]);
   });

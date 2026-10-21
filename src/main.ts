@@ -28,13 +28,21 @@ import { ArrowVisuals } from './fx/arrowVisuals';
 import { FurnaceFx } from './fx/furnaceFx';
 import type { FurnaceFxEntry } from './fx/furnaceFxModel';
 import { playCombat } from './fx/combatSounds';
-import { playLegend } from './fx/legendSounds';
+import { playLegend, preloadLegendSounds, startLegendLoop, startLegendOneShot } from './fx/legendSounds';
 import { createLegendSystem } from './legend/LegendSystem';
 import { createWaveSystem } from './legend/WaveSystem';
+import { createSpiralDebris } from './legend/spiralDebris';
+import { createChargeLight } from './legend/chargeLight';
+import { computeHand, newHandInfo } from './legend/handPos';
 import { WindWaveFx } from './fx/windWaveFx';
+import { SpiralFx } from './fx/spiralFx';
+import { createWaveView3D } from './legend/waveView';
+import { ChargeLightFx } from './fx/chargeLightFx';
+import { BuffIcons } from './ui/buffIcons';
+import { buffsOfHeld, createBuffModel } from './ui/buffIconsModel';
 import { ThunderFx } from './fx/thunderFx';
 import { LegendBook } from './legend/LegendBook';
-import { legendMoveMulOf, legendPowerOf, trailStyleOf } from './legend/defs';
+import { chargeOf, legendMoveMulOf, legendPowerOf, trailStyleOf } from './legend/defs';
 import { lightningPoseFrame } from './legend/pose';
 import { CRAFT_UI_SETTINGS, type CraftUiSettings, type ToolNumbers } from './fx/craftConfig';
 import { playCraft } from './fx/craftSounds';
@@ -296,6 +304,7 @@ const titleSound = createBrowserTitleSound(
     window.removeEventListener('keydown', warm, true);
     mixer.unlock(); // 先に AudioContext を作ってから読む（下の unlock と同じ。何度呼んでもよい）
     void titleSound.preload();
+    void preloadLegendSounds(fxSound); // 風神剣・雷神剣の ため音・攻撃音（最初の 操作の あとに 1 回）
   };
   window.addEventListener('pointerdown', warm, true);
   window.addEventListener('keydown', warm, true);
@@ -567,8 +576,16 @@ const legend = createLegendSystem({
     inventory.wearHeld(1);
   },
   sound: (n) => playLegend(fxSound, n),
+  // WEAPON-8 §3.6: ため音は 続く 音。剣ごとの 味（風神 / 雷神）は ためわざの しゅるいで えらぶ
+  loop: (name) => startLegendLoop(fxSound, name, chargeOf(w2, inventory.held()?.item ?? null)?.kind === 'spiral' ? 'fujin' : 'raijin'),
+  // WEAPON-8: らせんの かぜは F6 に 体の 点 B（足もと + 1.4）から
+  launchSpiral: (a) => {
+    const p = controller.state.position;
+    waveSys.launchSpiral({ item: a.item, dirDeg: a.dirDeg, body: { x: p.x, y: p.y + 1.4, z: p.z } });
+  },
   seed,
 });
+const waveView3d = createWaveView3D(game.camera);
 // WEAPON-7 PR2: 風神剣の 真空波（ふつうの わざの 当たりの はじめの F に 1 つ。たいきゅうは へらさない）
 const waveSys = createWaveSystem({
   world,
@@ -577,6 +594,10 @@ const waveSys = createWaveSystem({
   tick: () => game.tick,
   emit: (e) => legend.emit(e),
   sound: (v) => playLegend(fxSound, 'windWave', v),
+  spiralSound: () => startLegendOneShot(fxSound, 'spiralWind'),
+  onSpiralHit: () => inventory.wearHeld(1),
+  reducedMotion: () => reducedMotionMq?.matches ?? false,
+  view: () => waveView3d.view(),
   seed,
 });
 // WEAPON-5: 刀のパリィ（Shift＋クリック）。「動きを へらす」のときは スローにしない
@@ -585,12 +606,24 @@ const parry = createParry(w2, { reducedMotion: () => reducedMotionMq?.matches ??
 const parryFx = new ParryFx({ scene: game.scene, camera: game.camera, basePath: './models/fx/' });
 const sparkAt = { x: 0, y: 0, z: 0 };
 // WEAPON-7: 雷の 見た目（十字の ドット絵・着地の 光・光の つぶ）
-const IDLE_THUNDER_LOOK = { charging: false, ready: false, hand: { x: 0, y: 0, z: 0 }, aimS: null };
+const IDLE_THUNDER_LOOK = { charging: false, ready: false, aimS: null };
 const thunderFx = new ThunderFx({ scene: game.scene, camera: game.camera, seed });
 // ART-PIPE-1: 落雷の 間だけ 世界を 絵に 描く 道（深さを 読む 雷・まわりを 明るく）
 game.setWorldPass(thunderFx);
 thunderFx.warmUp(game.renderer, game.camera); // 読みこみ中に 雷 B の プログラムを 作る
 const windWaveFx = new WindWaveFx({ scene: game.scene, camera: game.camera });
+// WEAPON-8: らせんの かぜ（S2）・土と 草の つぶ・手もとの 光・速さバフの アイコン
+const spiralFx = new SpiralFx({ scene: game.scene, camera: game.camera });
+const spiralDebris = createSpiralDebris({ world, seed });
+const chargeLight = createChargeLight();
+const chargeLightFx = new ChargeLightFx({ scene: game.scene, camera: game.camera });
+const handInfo = newHandInfo();
+/** 今の 剣を 持つ 手の 位置（三人称は 体から、一人称〈カメラが 体に 近く 人形が 見えない〉は 画面の 右下の にぎり） */
+const handNow = (): typeof handInfo => {
+  game.camera.updateMatrixWorld();
+  return computeHand({ first: rig.getInfo().hideChar, pos: controller.state.position, yawDeg: controller.state.yawDeg, camera: game.camera }, handInfo);
+};
+const buffModel = createBuffModel();
 controller.lungeYokai = () => (yokaiManager ? yokaiManager.list() : []);
 const combat = new PlayerCombatImpl({
   config: combatCfg,
@@ -929,6 +962,7 @@ wearNotice.onBroken = (item) => log.wearBroken(item);
 const clockPhases: ClockPhases = { ...CLOCK_PHASES };
 const combatUi = createCombatUi(hud, clockPhases);
 const levelHud = new LevelHud(hud);
+const buffIcons = new BuffIcons(hud);
 const hotbar = new Hotbar(hud, inventory, notice);
 // ねらっている所の ヒント（設定 actionHint で消せる）
 const hintSettings = { actionHint: true };
@@ -1732,16 +1766,26 @@ game.onUpdate((dt) => {
         }
       }
     }
-    windWaveFx.step(waveSys.list(), reducedMotionMq?.matches ?? false);
+    const reducedNow = reducedMotionMq?.matches ?? false;
+    windWaveFx.step(waveSys.list(), reducedNow);
+    // WEAPON-8: らせんの かぜ（見た目は 当たりの P(a)）と 土と 草の つぶ
+    const sp = waveSys.list().find((w) => w.kind === 'spiral');
+    for (const e of evs) spiralFx.onEvent(e);
+    spiralDebris.step(sp ? { id: sp.id, age: sp.age, position: sp.position, dir: sp.dir } : null, reducedNow);
+    spiralFx.step(sp, spiralDebris);
     const lv = holdingLegend ? legend.view() : null;
     const st = lv && lv.ready ? legend.state() : null;
+    thunderFx.step(lv ? { charging: lv.charging, ready: lv.ready, aimS: st && st.aim && st.aim.skyVisible ? st.aim.S : null } : IDLE_THUNDER_LOOK, reducedNow);
+    // WEAPON-8 §3.5: ため中の 手もとの 光（雷神剣も 風神剣も）。手は 三人称は 体から、一人称は 画面の 右下の にぎり
     const cp = controller.state.position;
-    thunderFx.step(
-      lv
-        ? { charging: lv.charging, ready: lv.ready, hand: { x: cp.x, y: cp.y + 2.3, z: cp.z }, aimS: st && st.aim && st.aim.skyVisible ? st.aim.S : null }
-        : IDLE_THUNDER_LOOK,
-      reducedMotionMq?.matches ?? false,
-    );
+    const cl = chargeLight.step({ ticks: lv ? lv.chargeTicks : null, kind: lv ? lv.kind : null, reduced: reducedNow });
+    if (cl.phase !== 'off') {
+      handNow();
+      chargeLightFx.step(cl, handInfo, handInfo.first ? null : { x: cp.x, y: cp.y + 1.1, z: cp.z });
+    } else chargeLightFx.step(cl, handInfo, null);
+    // WEAPON-8 §2.4: 速さバフの アイコン（手に 持つ 物の 速さの 倍率が 1 より 大きい 間）
+    const heldNow = inventory.held()?.item ?? null;
+    buffIcons.sync(buffModel.step(buffsOfHeld(heldNow, (i) => legendMoveMulOf(w2, i)), reducedNow));
   }
   for (const n of parry.sounds()) if (isParrySound(n)) playParry(fxSound, n);
   {
@@ -1955,9 +1999,31 @@ installTestHook(game, overlay, () => host.everReady, {
   legend: {
     state: () => ({ ...legend.state(), got: legendBook.got() }),
     events: () => legend.peekEvents(),
-    waves: () => waveSys.list().map((w) => ({ id: w.id, position: { ...w.position }, dir: { ...w.dir }, traveled: w.traveled })),
+    waves: () => waveSys.list().map((w) => ({ id: w.id, kind: w.kind, position: { ...w.position }, dir: { ...w.dir }, traveled: w.traveled, age: w.age, spin: w.spin, drawPos: { ...w.drawPos }, face: w.face, bodyAlpha: w.bodyAlpha, backAlpha: w.backAlpha })),
+    debris: () => ({ ...spiralDebris.view() }),
+    chargeFx: () => {
+      const v = chargeLight.view();
+      const on = v.phase !== 'off';
+      const h = on ? handNow() : null;
+      return {
+        phase: v.phase,
+        palette: v.palette,
+        core: v.core,
+        alpha: v.alpha,
+        particles: v.particles,
+        ring: v.ring,
+        sweep: v.sweep,
+        sparkles: v.sparkles,
+        orbit: v.orbit,
+        orbitAngle: v.orbitAngle,
+        center: h ? { ...h.world } : null,
+        screen: h && h.screen ? { ...h.screen } : null,
+      };
+    },
+    chargeSound: () => ({ ...legend.chargeSound() }),
+    spiralSound: () => legend.spiralSound(),
   } as unknown as TestHookGroups['legend'],
-  player: { ...createPlayerHook(controller), glow: () => { const g = parry.state().glowLeft; return { visible: g > 0, ticksLeft: g, level: parryGlowLevel(g, w2) }; }, respawn: () => controller.respawn(), doll: withSpriteDoll(cameraHook.doll, sprite, rig.doll.group) } as unknown as TestHookGroups['player'],
+  player: { ...createPlayerHook(controller), handPos: () => { const h = handNow(); return { world: { ...h.world }, screen: h.screen ? { ...h.screen } : null }; }, glow: () => { const g = parry.state().glowLeft; return { visible: g > 0, ticksLeft: g, level: parryGlowLevel(g, w2) }; }, respawn: () => controller.respawn(), doll: withSpriteDoll(cameraHook.doll, sprite, rig.doll.group) } as unknown as TestHookGroups['player'],
   ...createDigHook(dig),
   hud: hudHook,
   inventory: createInventoryHook(inventory, screen, {
@@ -1975,7 +2041,7 @@ installTestHook(game, overlay, () => host.everReady, {
     events: () => [...combatHook.events(), ...toolHook.arrowEvents()],
   } as unknown as TestHookGroups['combat'],
   ...logHook,
-  ui: { alpha: () => uiAlpha(), topBand: () => celebrate.topBand() },
+  ui: { alpha: () => uiAlpha(), topBand: () => celebrate.topBand(), buffs: () => buffModel.list().map((b) => ({ ...b })) },
   craft: {
     ...craftHook,
     ...craftUiHook.craft,

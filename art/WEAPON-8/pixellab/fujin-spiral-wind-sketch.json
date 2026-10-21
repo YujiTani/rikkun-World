@@ -1,0 +1,339 @@
+{
+ "frames": [
+  {
+   "filename": "fujin-spiral-wind-sketch 0.png",
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 120,
+    "h": 64
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 120,
+    "h": 64
+   },
+   "sourceSize": {
+    "w": 120,
+    "h": 64
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.5
+   },
+   "duration": 83
+  },
+  {
+   "filename": "fujin-spiral-wind-sketch 1.png",
+   "frame": {
+    "x": 120,
+    "y": 0,
+    "w": 120,
+    "h": 64
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 120,
+    "h": 64
+   },
+   "sourceSize": {
+    "w": 120,
+    "h": 64
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.5
+   },
+   "duration": 83
+  },
+  {
+   "filename": "fujin-spiral-wind-sketch 2.png",
+   "frame": {
+    "x": 240,
+    "y": 0,
+    "w": 120,
+    "h": 64
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 120,
+    "h": 64
+   },
+   "sourceSize": {
+    "w": 120,
+    "h": 64
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.5
+   },
+   "duration": 83
+  },
+  {
+   "filename": "fujin-spiral-wind-sketch 3.png",
+   "frame": {
+    "x": 360,
+    "y": 0,
+    "w": 120,
+    "h": 64
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 120,
+    "h": 64
+   },
+   "sourceSize": {
+    "w": 120,
+    "h": 64
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.5
+   },
+   "duration": 83
+  },
+  {
+   "filename": "fujin-spiral-wind-sketch 4.png",
+   "frame": {
+    "x": 0,
+    "y": 64,
+    "w": 120,
+    "h": 64
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 120,
+    "h": 64
+   },
+   "sourceSize": {
+    "w": 120,
+    "h": 64
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.5
+   },
+   "duration": 83
+  },
+  {
+   "filename": "fujin-spiral-wind-sketch 5.png",
+   "frame": {
+    "x": 120,
+    "y": 64,
+    "w": 120,
+    "h": 64
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 120,
+    "h": 64
+   },
+   "sourceSize": {
+    "w": 120,
+    "h": 64
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.5
+   },
+   "duration": 83
+  },
+  {
+   "filename": "fujin-spiral-wind-sketch 6.png",
+   "frame": {
+    "x": 240,
+    "y": 64,
+    "w": 120,
+    "h": 64
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 120,
+    "h": 64
+   },
+   "sourceSize": {
+    "w": 120,
+    "h": 64
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.5
+   },
+   "duration": 83
+  },
+  {
+   "filename": "fujin-spiral-wind-sketch 7.png",
+   "frame": {
+    "x": 360,
+    "y": 64,
+    "w": 120,
+    "h": 64
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 120,
+    "h": 64
+   },
+   "sourceSize": {
+    "w": 120,
+    "h": 64
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.5
+   },
+   "duration": 83
+  },
+  {
+   "filename": "fujin-spiral-wind-sketch 8.png",
+   "frame": {
+    "x": 0,
+    "y": 128,
+    "w": 120,
+    "h": 64
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 120,
+    "h": 64
+   },
+   "sourceSize": {
+    "w": 120,
+    "h": 64
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.5
+   },
+   "duration": 83
+  },
+  {
+   "filename": "fujin-spiral-wind-sketch 9.png",
+   "frame": {
+    "x": 120,
+    "y": 128,
+    "w": 120,
+    "h": 64
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 120,
+    "h": 64
+   },
+   "sourceSize": {
+    "w": 120,
+    "h": 64
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.5
+   },
+   "duration": 83
+  },
+  {
+   "filename": "fujin-spiral-wind-sketch 10.png",
+   "frame": {
+    "x": 240,
+    "y": 128,
+    "w": 120,
+    "h": 64
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 120,
+    "h": 64
+   },
+   "sourceSize": {
+    "w": 120,
+    "h": 64
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.5
+   },
+   "duration": 83
+  },
+  {
+   "filename": "fujin-spiral-wind-sketch 11.png",
+   "frame": {
+    "x": 360,
+    "y": 128,
+    "w": 120,
+    "h": 64
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 120,
+    "h": 64
+   },
+   "sourceSize": {
+    "w": 120,
+    "h": 64
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.5
+   },
+   "duration": 83
+  }
+ ],
+ "meta": {
+  "app": "PixelLab VFX Creator",
+  "image": "fujin-spiral-wind-sketch.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 480,
+   "h": 192
+  },
+  "scale": "1",
+  "anchor": {
+   "kind": "origin",
+   "x": 60,
+   "y": 32
+  },
+  "frameTags": [
+   {
+    "name": "fujin-spiral-wind-sketch",
+    "from": 0,
+    "to": 11,
+    "direction": "forward"
+   }
+  ]
+ }
+}

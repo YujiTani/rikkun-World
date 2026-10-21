@@ -3,6 +3,7 @@ import { legendDefOf, legendPowerOf } from './defs';
 import type { WaveEvent } from './WaveSystem';
 import { aimThunder, thunderTargets, type ThunderAim } from './aim';
 import { boltVariantOf } from './thunderModel';
+import type { SpiralEvent } from './WaveSystem';
 
 /**
  * WEAPON-7 §2.2・§3: レジェンダリー武器の ため・はなす・ためわざ（落雷）の 状態の しくみ。
@@ -17,9 +18,17 @@ export type LegendEvent =
   | { type: 'lightningStart'; tick: number; S: Vec3 | null; skyVisible: boolean; variant: number }
   | { type: 'lightningStrike'; tick: number; S: Vec3; hits: number[]; skyVisible: boolean; variant: number }
   | { type: 'lightningMiss'; tick: number }
-  | WaveEvent;
+  | WaveEvent
+  | SpiralEvent;
 
-export type LegendSoundName = 'chargeReady' | 'lightning' | 'lightningFar';
+export type LegendSoundName = 'chargeReady' | 'lightning' | 'lightningFar' | 'spiralWind';
+/** 続く 音（ため・ため続け）。WEAPON-8 §3.6 */
+export type LegendLoopName = 'chargeRise' | 'chargeHold';
+export interface LegendLoopHandle {
+  stop(fadeSec: number): void;
+}
+/** `legend.chargeSound()` の 答え（§3.6）と `legend.spiralSound()` */
+export type LegendSoundState = 'off' | 'on' | 'fading';
 
 export interface LegendDeps {
   world: VoxelWorld;
@@ -29,6 +38,10 @@ export interface LegendDeps {
   /** 落雷が 1 体 以上に 当たった（1 回の 落雷で 1 回）。つなぎ込みが たいきゅうを 1 へらす */
   onWear?: () => void;
   sound?: (name: LegendSoundName) => void;
+  /** WEAPON-8: 続く 音を 始める（止める 手は 返す）。ため `chargeRise`（ためF 1）・ため続け `chargeHold`（ためF 60） */
+  loop?: (name: LegendLoopName) => LegendLoopHandle | void;
+  /** WEAPON-8: らせんの かぜを 出す（F6）。つなぎ込みが 体の 点 B から `WaveSystem.launchSpiral` を 呼ぶ */
+  launchSpiral?: (a: { item: ItemId; dirDeg: number }) => void;
   /** 雷の 形（4 通り）を えらぶ 乱数の もと（シード付き） */
   seed?: number;
 }
@@ -67,7 +80,7 @@ export interface LegendStateView {
   item: ItemId | null;
   power: number | null;
   charge: { ticks: number; ready: boolean } | null;
-  move: 'lightning' | 'shining' | null;
+  move: 'lightning' | 'spiral' | 'shining' | null;
   moveF: number;
   cooldownLeft: number;
   aim: { T: Vec3; S: Vec3 | null; skyVisible: boolean } | null;
@@ -85,6 +98,10 @@ export interface LegendView {
   chargeRatio: number;
   /** 落雷中の F（なければ 0） */
   moveF: number;
+  /** 持っている 武器の ためわざの しゅるい（ためわざが なければ null）。手もとの 光の 色を えらぶ */
+  kind: 'lightning' | 'spiral' | null;
+  /** ためF（ためて いなければ null。いっぱいでも 数えつづける） */
+  chargeTicks: number | null;
 }
 
 const MAX_QUEUE = 256;
@@ -107,10 +124,23 @@ export interface LegendSystem {
   dropBuffer(): void;
   /** その 武器は ためわざが ある（ふつうの 刀の 先行入力・くり返しを 使わず この 係に まかせる） */
   chargeable(item: ItemId | null): boolean;
+  /** WEAPON-8 §3.6: ため音の 区間（窓口 `legend.chargeSound()`） */
+  chargeSound(): { rise: LegendSoundState; hold: LegendSoundState };
+  /** WEAPON-8 §3.7: らせんの 音の ようす（窓口 `legend.spiralSound()`） */
+  spiralSound(): LegendSoundState;
 }
 
-function lightningOf(c: LegendaryCharge | null): Extract<LegendaryCharge, { kind: 'lightning' }> | null {
-  return c && c.kind === 'lightning' ? c : null;
+type Charged = Extract<LegendaryCharge, { kind: 'lightning' | 'spiral' }>;
+
+/** ため音を 止める ときの 長さ（ステップ）。仕様 §3.6: ため 6 以内・ため続け 15 以内 */
+const RISE_FADE_STEPS = 5;
+const HOLD_FADE_STEPS = 12;
+/** らせんの 音: かべで 消えた ときの 止まる 長さ（12 以内）・とどいた ときに 鳴りつづける 長さ（120 以内） */
+const SPIRAL_BLOCK_FADE_STEPS = 10;
+const SPIRAL_SOUND_STEPS = 119;
+
+function chargedOf(c: LegendaryCharge | null): Charged | null {
+  return c && (c.kind === 'lightning' || c.kind === 'spiral') ? c : null;
 }
 
 const round2 = (v: number): number => Math.round(v * 100 + 1e-7) / 100;
@@ -119,6 +149,14 @@ export function createLegendSystem(deps: LegendDeps): LegendSystem {
   const events: LegendEvent[] = [];
   let drainQ: LegendEvent[] = [];
   const emit = (e: LegendEvent): void => {
+    // らせんの 音: 出た ステップに on。かべで すぐ 消えたら 小さく して 止める（§3.7）
+    if (e.type === 'spiralStart') {
+      snd.spiral = 'on';
+      snd.spiralLeft = SPIRAL_SOUND_STEPS;
+    } else if (e.type === 'spiralEnd' && e.reason === 'block' && snd.spiral === 'on') {
+      snd.spiral = 'fading';
+      snd.spiralLeft = SPIRAL_BLOCK_FADE_STEPS;
+    }
     drainQ.push(e);
     events.push(e);
     if (drainQ.length > MAX_QUEUE) drainQ.shift();
@@ -129,7 +167,7 @@ export function createLegendSystem(deps: LegendDeps): LegendSystem {
   let charge: { ticks: number; ready: boolean; readyAge: number } | null = null;
   let aim: ThunderAim | null = null;
   /** 落雷（F1 から） */
-  let move: { F: number; S: Vec3 | null; skyVisible: boolean; variant: number; yaw: number; total: number; strikeF: number } | null = null;
+  let move: { kind: 'lightning' | 'spiral'; F: number; S: Vec3 | null; skyVisible: boolean; variant: number; yaw: number; total: number; strikeF: number } | null = null;
   let buffered = false;
   /** やめた あと 押しつづけでは 始めない */
   let needRelease = false;
@@ -138,8 +176,56 @@ export function createLegendSystem(deps: LegendDeps): LegendSystem {
   const seed = deps.seed ?? 0;
   const motionOut: PlayerMotionMod & { noRun: boolean } = { speedMul: 1, jumpLocked: false, faceDeg: null, stopNow: false, noRun: false };
 
+  // ---- ため音（§3.6）・らせんの 音（§3.7）の 区間
+  const snd = {
+    rise: 'off' as LegendSoundState,
+    riseLeft: 0,
+    riseH: null as LegendLoopHandle | null,
+    hold: 'off' as LegendSoundState,
+    holdLeft: 0,
+    holdH: null as LegendLoopHandle | null,
+    spiral: 'off' as LegendSoundState,
+    spiralLeft: 0,
+  };
+  const chargeSoundOut = { rise: 'off' as LegendSoundState, hold: 'off' as LegendSoundState };
+
+  /** 1 ステップに 1 回: 止まっていく 音を すすめる */
+  function tickSounds(): void {
+    if (snd.rise === 'fading' && --snd.riseLeft <= 0) snd.rise = 'off';
+    if (snd.hold === 'fading' && --snd.holdLeft <= 0) snd.hold = 'off';
+    if (snd.spiral !== 'off' && --snd.spiralLeft <= 0) snd.spiral = 'off';
+  }
+  function riseStart(): void {
+    snd.rise = 'on';
+    snd.riseH = deps.loop?.('chargeRise') ?? null;
+  }
+  function riseStop(fadeSteps: number, state: LegendSoundState): void {
+    if (snd.rise !== 'on') return;
+    snd.riseH?.stop(fadeSteps / 60);
+    snd.riseH = null;
+    snd.rise = state;
+    snd.riseLeft = fadeSteps;
+  }
+  function holdStart(): void {
+    snd.hold = 'on';
+    snd.holdH = deps.loop?.('chargeHold') ?? null;
+  }
+  function holdStop(): void {
+    if (snd.hold !== 'on') return;
+    snd.holdH?.stop(HOLD_FADE_STEPS / 60);
+    snd.holdH = null;
+    snd.hold = 'fading';
+    snd.holdLeft = HOLD_FADE_STEPS;
+  }
+  /** ためが おわった（はなした・やめた）: 鳴っている ため音を 止める */
+  function chargeSoundsStop(): void {
+    riseStop(RISE_FADE_STEPS, 'fading');
+    holdStop();
+  }
+
   function cancelCharge(held: boolean): void {
     if (charge) emit({ type: 'chargeCancel', tick: deps.tick() });
+    if (charge) chargeSoundsStop();
     charge = null;
     aim = null;
     buffered = false;
@@ -171,8 +257,9 @@ export function createLegendSystem(deps: LegendDeps): LegendSystem {
 
   return {
     step(ctx: LegendStepCtx): LegendStepResult {
+      tickSounds();
       const def = legendDefOf(deps.settings, ctx.item);
-      const L = lightningOf(def?.charge ?? null);
+      const L = chargedOf(def?.charge ?? null);
       heldItem = L ? ctx.item : null;
       inWaterNow = ctx.inWater;
       if (!L || !ctx.item) {
@@ -200,7 +287,10 @@ export function createLegendSystem(deps: LegendDeps): LegendSystem {
         if (move.F > move.total) {
           move = null;
         } else {
-          if (move.F === move.strikeF) strikeNow(L, ctx.item);
+          if (move.F === move.strikeF) {
+            if (move.kind === 'lightning' && L.kind === 'lightning') strikeNow(L, ctx.item);
+            else if (move.kind === 'spiral') deps.launchSpiral?.({ item: ctx.item, dirDeg: move.yaw });
+          }
           // 先行入力: さいご 8F
           if (ctx.pressed && ctx.startOk && move.F > move.total - 8) buffered = true;
           return { busy: true, fireTech: false };
@@ -216,8 +306,11 @@ export function createLegendSystem(deps: LegendDeps): LegendSystem {
             charge.readyAge = 0;
             emit({ type: 'chargeReady', tick: deps.tick() });
             deps.sound?.('chargeReady');
+            riseStop(2, 'off');
+            holdStart();
           } else if (charge.ready) charge.readyAge += 1;
-          aim = charge.ready ? aimThunder(deps.world, deps.yokai(), ctx.eye, ctx.dir, L.range) : null;
+          // ねらいの 地面の わは 雷神剣だけ（風神剣は まっすぐ 前に とぶ ので 印は 出さない）
+          aim = charge.ready && L.kind === 'lightning' ? aimThunder(deps.world, deps.yokai(), ctx.eye, ctx.dir, L.range) : null;
           return { busy: true, fireTech: false };
         }
         // はなした
@@ -225,10 +318,16 @@ export function createLegendSystem(deps: LegendDeps): LegendSystem {
         charge = null;
         aim = null;
         buffered = false;
+        chargeSoundsStop();
         if (!ready) return { busy: false, fireTech: true };
+        if (L.kind === 'spiral') {
+          // 向きは F1 に 決める。F6 に かぜが 出る
+          move = { kind: 'spiral', F: 1, S: null, skyVisible: true, variant: 0, yaw: ctx.yawDeg, total: 5 + L.recovery, strikeF: L.launchF };
+          return { busy: true, fireTech: false };
+        }
         const a = aimThunder(deps.world, deps.yokai(), ctx.eye, ctx.dir, L.range);
         const variant = boltVariantOf(seed, strikes++);
-        move = { F: 1, S: a.S ? { ...a.S } : null, skyVisible: a.skyVisible, variant, yaw: ctx.yawDeg, total: 5 + L.recovery, strikeF: L.strikeF };
+        move = { kind: 'lightning', F: 1, S: a.S ? { ...a.S } : null, skyVisible: a.skyVisible, variant, yaw: ctx.yawDeg, total: 5 + L.recovery, strikeF: L.strikeF };
         emit({ type: 'lightningStart', tick: deps.tick(), S: move.S ? { ...move.S } : null, skyVisible: a.skyVisible, variant });
         return { busy: true, fireTech: false };
       }
@@ -251,10 +350,13 @@ export function createLegendSystem(deps: LegendDeps): LegendSystem {
       buffered = false;
       charge = { ticks: 1, ready: false, readyAge: 0 };
       emit({ type: 'chargeStart', tick: deps.tick() });
+      riseStart();
       if (charge.ticks >= L.chargeTicks) {
         charge.ready = true;
         emit({ type: 'chargeReady', tick: deps.tick() });
         deps.sound?.('chargeReady');
+        riseStop(2, 'off');
+        holdStart();
       }
       return { busy: true, fireTech: false };
     },
@@ -265,7 +367,7 @@ export function createLegendSystem(deps: LegendDeps): LegendSystem {
         item: heldItem && def ? heldItem : null,
         power: heldItem ? legendPowerOf(deps.settings, heldItem) : null,
         charge: charge ? { ticks: charge.ticks, ready: charge.ready } : null,
-        move: move ? 'lightning' : null,
+        move: move ? move.kind : null,
         moveF: move ? move.F : 0,
         cooldownLeft: 0,
         aim: aim ? { T: { ...aim.T }, S: aim.S ? { ...aim.S } : null, skyVisible: aim.skyVisible } : null,
@@ -274,8 +376,10 @@ export function createLegendSystem(deps: LegendDeps): LegendSystem {
     },
 
     view(): LegendView {
-      const L = lightningOf(legendDefOf(deps.settings, heldItem)?.charge ?? null);
+      const L = chargedOf(legendDefOf(deps.settings, heldItem)?.charge ?? null);
       return {
+        kind: L ? L.kind : null,
+        chargeTicks: charge ? charge.ticks : null,
         charging: charge !== null,
         ready: !!charge?.ready,
         readyAge: charge?.readyAge ?? 0,
@@ -336,7 +440,17 @@ export function createLegendSystem(deps: LegendDeps): LegendSystem {
     },
 
     chargeable(item: ItemId | null): boolean {
-      return !!item && lightningOf(legendDefOf(deps.settings, item)?.charge ?? null) !== null;
+      return !!item && chargedOf(legendDefOf(deps.settings, item)?.charge ?? null) !== null;
+    },
+
+    chargeSound() {
+      chargeSoundOut.rise = snd.rise;
+      chargeSoundOut.hold = snd.hold;
+      return chargeSoundOut;
+    },
+
+    spiralSound(): LegendSoundState {
+      return snd.spiral;
     },
   };
 }

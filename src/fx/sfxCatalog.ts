@@ -6,7 +6,7 @@ import type { SoundFx, Tone } from './sound';
 import { STORAGE_SOUNDS } from './storageSounds';
 import { WEAPON_SOUNDS } from './weaponSounds';
 import { PARRY_SOUNDS } from './parrySounds';
-import { LEGEND_SOUNDS } from './legendSounds';
+import { playLegend, startLegendLoop } from './legendSounds';
 
 export type SfxGroup = 'dig' | 'combat' | 'weapon' | 'craft' | 'farm' | 'storage';
 
@@ -86,14 +86,35 @@ export const SFX_CATALOG: readonly SfxCatalogEntry[] = [
     ['parryEarly', 'パリィ はやすぎ（カツッ）'],
     ['staggerBreak', 'よろけに ヒット（ポンッ）'],
   ]),
-  ...fromTable('weapon', LEGEND_SOUNDS, [
-    ['chargeReady', 'ため いっぱい（ピキーン）'],
-    ['lightning', 'かみなり（ゴロ ドーン）'],
-    ['lightningFar', 'かみなり（とおく）'],
-    ['thunderSlash', 'かみなりの きりつけ（ビシューン）'],
-    ['legendDrop', 'ヌシが おとした（キラキラ）'],
-    ['windWave', 'しんくうは（ヒュオッ）'],
-  ]),
+  // 風神剣・雷神剣（WEAPON-8）。新しい 音は 音の ファイル（public/sound/legend/）。読めない ときは 合成音
+  ...(
+    [
+      ['chargeReady', 'ため いっぱい（ふぉん）'],
+      ['lightning', 'かみなり（ゴロ ドーン）'],
+      ['lightningFar', 'かみなり（とおく）'],
+      ['thunderSlash', 'かみなりの きりつけ（バチバチ）'],
+      ['legendDrop', 'ヌシが おとした（キラキラ）'],
+      ['windWave', 'しんくうは（ヒュッ）'],
+      ['spiralWind', 'らせんの かぜ（ゴゴゴ）'],
+    ] as const
+  ).map(([name, label]): SfxCatalogEntry => ({ group: 'weapon', name, label, play: (s) => playLegend(s, name) })),
+  // ため音（風神剣・雷神剣）。ため中の 1 秒 → いっぱいで ため続けの ループ（約 2.5 秒 鳴らして 止める）
+  ...(
+    [
+      ['chargeRise', 'ためる（ひかりの うた）'],
+      ['chargeHold', 'ため つづけ（ふわん ふわん）'],
+    ] as const
+  ).flatMap(([name, label]): SfxCatalogEntry[] =>
+    ([[null, ''], ['fujin', '・ふうじん'], ['raijin', '・らいじん']] as const).map(([flavor, tag]) => ({
+      group: 'weapon',
+      name,
+      label: label + tag,
+      play: (s) => {
+        const h = startLegendLoop(s, name, flavor);
+        setTimeout(() => h.stop(0.3), 2500);
+      },
+    })),
+  ),
   ...fromTable('weapon', CRAFT_SOUNDS, [
     ['slash', 'かたな（シュッ）'],
     ['naginata', 'なぎなた'],
