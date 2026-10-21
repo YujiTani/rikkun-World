@@ -57,7 +57,7 @@ export async function pushCameraIn(page: Page): Promise<void> {
     const w = alongX ? { x0: bx, y0: y, z0: bz - 2, x1: bx, y1: y + 6, z1: bz + 2 } : { x0: bx - 2, y0: y, z0: bz, x1: bx + 2, y1: y + 6, z1: bz };
     if (bx === px && bz === pz) throw new Error('かべが 体の マスに かさなる');
     h.world.fill(w.x0, w.y0, w.z0, w.x1, w.y1, w.z1, 'stone');
-    const bodyAir = [y, y + 1].every((yy) => h.world.getBlock(px, yy, pz) === 'air' || h.world.getBlock(px, yy, pz) === 0);
+    const bodyAir = [y, y + 1].every((yy) => h.world.getBlock(px, yy, pz) === 'air' || h.world.getBlock(px, yy, pz) === 0 || h.world.getBlock(px, yy, pz) == null);
     if (!bodyAir) throw new Error('体の マスが 空気で ない');
     h.step(30);
     return { w, ok: h.player.doll().visible === false };
