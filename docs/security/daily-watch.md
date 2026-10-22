@@ -19,6 +19,7 @@ Node.js はビルド・CI・開発だけ。PHP・Java・Go・Rust・.NET・Docke
 | 4 | npm の依存 | `npm audit --json`（GitHub Advisory のデータ）、GitHub の Dependabot alerts | 0 でない |
 | 5 | CI のランナー | 最新の CI のログの OS（`ubuntu-latest` が何を指すか）と警告 | OS・警告がかわった |
 | 6 | Playwright | https://github.com/microsoft/playwright/releases | セキュリティの修正がある |
+| 6b | Mac で固定した Node | main の `package.json` の `volta.node`（Volta の固定） | 2 の 22 系の最新より古い（`volta pin node@22` で上げる） |
 | 7 | 大きなニュースの見落とし | ウェブ検索「Node.js vulnerability」「npm supply chain」（その日の分） | 1〜6 で拾えていない物 |
 
 ## 報告のしかた
