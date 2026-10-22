@@ -35,3 +35,4 @@
 | 1 | code-review | code-reviewer | 【軽微】`src/start/lastWorld.ts:10` と `src/main.ts`（`SAVE_BOOT_TIMEOUT_MS` 3000）で 同じ 定数が 2 か所。`src/main.ts:265` は lastWorld の を import して 1 本に | 重複 | — | 未対応 |
 | 1 | code-review | code-reviewer | 【軽微】`src/char/charPref.ts:61` `initial` が あると `?menu=1&char=boy` の URL 指定を おぼえない（CHAR-5 §4.1 は URL で 始めても おぼえる）。メニューで 押せば `saveChar` するので 実害は ほぼ なし。仕様に 書いて 割り切るか、model 初期化で `saveChar` | 仕様の すきま | — | 未対応 |
 | 1 | code-review | code-reviewer | 【軽微】`src/yokai/strengthPref.ts:22-24` 保存の meta が あって `strength` が ない（古い保存 または メニューの 調べが 3 秒で 時間切れ・`fromPending` のみ）とき、メニューで えらんだ つよさは 黙って ふつうに なる。仕様の「保存が 先」どおりで 正しいが、時間切れの ときだけ 画面と ちがう | 例外 | — | 未対応 |
+| 1 | code-review | PO | 軽微の 対応: Enter は フォーカスの ボタン（E2E 1 本 追加）・3 秒タイマーの 解除・3000 の 定数を 1 つに・store の 重複を なくした（cbbb937）。起動時の 保存の キー一覧の 二重読みと charPref の URL 指定・時間切れの つよさ表示は そのまま（害が 小さい） | — | — | 対応済み |
