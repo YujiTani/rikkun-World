@@ -341,14 +341,20 @@ test.describe('LIVE-2 金の たまご・保存・文字・性能', () => {
       o.n = h.animals.list().length;
       const b = h.renderStats();
       o.on = { dc: b.drawCalls, tri: b.triangles };
-      const t0 = performance.now();
-      h.step(120);
-      o.stepMs = (performance.now() - t0) / 120;
+      const ms: number[] = [];
+      for (let i = 0; i < 9; i++) {
+        const t0 = performance.now();
+        h.step(40);
+        ms.push((performance.now() - t0) / 40);
+      }
+      ms.sort((a, b) => a - b);
+      o.stepMs = ms[4]; // 中央値
       return o;
     });
     console.log('LIVE2 AC27 perf', JSON.stringify(r));
     expect(r.n).toBe(29);
     expect(r.on.dc - r.zero.dc).toBeLessThanOrEqual(36);
     expect(r.on.tri - r.zero.tri).toBeLessThanOrEqual(20000);
+    expect(r.stepMs, '1 ステップの 計算（中央値。§4.6）').toBeLessThanOrEqual(0.4);
   });
 });
