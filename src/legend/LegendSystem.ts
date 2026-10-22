@@ -389,9 +389,13 @@ export function createLegendSystem(deps: LegendDeps): LegendSystem {
   }
   const lastPos: Vec3 = { x: 0, y: 0, z: 0 };
   /** 持ちかえ・やられた で とちゅうで おわる（休みは なし） */
+  let shiningCooldown = 0;
   function shiningAbort(): void {
-    if (move?.kind === 'shining') emit({ type: 'shiningEnd', tick: deps.tick() });
-    if (move?.kind === 'shining') lastDome = null;
+    if (move?.kind === 'shining') {
+      emit({ type: 'shiningEnd', tick: deps.tick() });
+      lastDome = null;
+      cooldown = shiningCooldown; // 途中で おわっても 休みは はじまる（持ちかえで 休みを さけられない）
+    }
   }
   function shiningFinish(): void {
     emit({ type: 'shiningEnd', tick: deps.tick() });
@@ -485,6 +489,7 @@ export function createLegendSystem(deps: LegendDeps): LegendSystem {
         if (L.kind === 'shining') {
           // WEAPON-7 PR3: うかぶ 40 → とどまる 160 → おりる 40 → もどり 20（ぜんぶ 260）。見る向きは 自由
           move = newMove('shining', { yaw: ctx.yawDeg, total: shiningEndF(L) + SHINING_RECOVERY, strikeF: shiningEndF(L), baseY: ctx.position.y, holdY: ctx.position.y });
+          shiningCooldown = L.cooldown;
           emit({ type: 'shiningStart', tick: deps.tick(), power: powerOf(ctx.item) });
           deps.sound?.('shiningStart');
           shiningFrame(L, ctx.item, ctx);

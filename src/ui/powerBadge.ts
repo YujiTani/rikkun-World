@@ -7,8 +7,14 @@ import './powerBadge.css';
  */
 const els = new WeakMap<HTMLElement, HTMLSpanElement>();
 
+/** [最小, 最大] の つよさを もつ 武器で 1 本ごとの つよさが ない とき 出す 既定（`legendPowerOf`）。main が 入れる */
+let powerFallback: ((item: string) => number | null) | null = null;
+export function setPowerFallback(fn: ((item: string) => number | null) | null): void {
+  powerFallback = fn;
+}
+
 export function paintPower(root: HTMLElement, stack: ItemStack | null): void {
-  const p = stack && stack.count > 0 && typeof stack.power === 'number' ? stack.power : null;
+  const p = stack && stack.count > 0 ? (typeof stack.power === 'number' ? stack.power : (powerFallback?.(stack.item) ?? null)) : null;
   let el = els.get(root);
   if (p === null) {
     el?.remove();

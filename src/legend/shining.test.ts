@@ -281,7 +281,20 @@ describe('AC31 安全・見た目用の 状態', () => {
     expect(t.sys.dome()).toBeNull();
   });
 
-  it('持ちかえ・やられた（active false）で シャイニングは おわる（休みは ない）', () => {
+  it('とちゅうで おわっても（持ちかえ・画面を 開く）休み 600 が はじまる。持ちかえでは さけられない', () => {
+    for (const o of [{ item: 'katana' as const }, { active: false }]) {
+      const t = setup();
+      t.fire();
+      for (let i = 0; i < 50; i++) t.step();
+      t.step(o);
+      expect(t.sys.state().cooldownLeft).toBeGreaterThanOrEqual(599);
+      t.step({ item: 'katana' });
+      for (let i = 0; i < 30; i++) t.step({ item: 'katana' });
+      expect(t.sys.state().cooldownLeft).toBeGreaterThan(500);
+    }
+  });
+
+  it('持ちかえ・やられた（active false）で シャイニングは おわる', () => {
     const t = setup();
     t.fire();
     for (let i = 0; i < 50; i++) t.step();

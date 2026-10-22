@@ -58,8 +58,27 @@ const FUJIN_KEN = [
   'KGgK...KK.......',
 ];
 
-/** 虹（PR3・仮の 絵）: 風神剣の 形で 刃を にじ色に。本物の 絵は あとで 差しかえる。R/O/Y/E/B/V = にじの 6 色 */
-const PAL_NIJI = { ...PAL_FUJIN, L: 0xfff0f8, W: 0xffffff, C: 0xff8fb0, c: 0xffd35a, B: 0x7a6cf0, K: 0x3a1f5a, T: 0xb04a8a, t: 0x6e2a5c };
+/** 虹（PR3）。H 白っぽい つや・r/y/g/b/p = にじの 5 色・S/N/n = 柄。もとは art/WEAPON-7/icon-niji/niji_rows.txt */
+const PAL_NIJI = { K: 0x241a4a, H: 0xeef2ff, r: 0xff8c94, y: 0xffe585, g: 0x86eba8, b: 0x82c6ff, p: 0xc79cff, S: 0x8c93ae, N: 0x2b3a78, n: 0x5a6a9e };
+
+const NIJI = [
+  '................',
+  '............K...',
+  '...........KpK..',
+  '..........KppK..',
+  '.........KbbbK..',
+  '........KHbbK...',
+  '.......KgggK....',
+  '......KHyyK.....',
+  '.....KyyyK......',
+  '.....KHrrK......',
+  '....KrrrK.......',
+  '...KSSSSSK......',
+  '....KnNKK.......',
+  '...KnNK.........',
+  '...KNK..........',
+  '....K...........',
+];
 
 export function w7ItemPixels(item: W7ItemId): Rgba[] {
   switch (item) {
@@ -68,6 +87,6 @@ export function w7ItemPixels(item: W7ItemId): Rgba[] {
     case 'fujin_ken':
       return fromRows(FUJIN_KEN, PAL_FUJIN);
     case 'niji':
-      return fromRows(FUJIN_KEN, PAL_NIJI);
+      return fromRows(NIJI, PAL_NIJI);
   }
 }

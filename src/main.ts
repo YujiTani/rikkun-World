@@ -38,11 +38,13 @@ import { WindWaveFx } from './fx/windWaveFx';
 import { SpiralFx } from './fx/spiralFx';
 import { createWaveView3D } from './legend/waveView';
 import { ChargeLightFx } from './fx/chargeLightFx';
+import { ShiningFx } from './fx/shiningFx';
 import { BuffIcons } from './ui/buffIcons';
 import { buffsOfHeld, createBuffModel } from './ui/buffIconsModel';
 import { ThunderFx } from './fx/thunderFx';
 import { LegendBook } from './legend/LegendBook';
-import { chargeOf, legendMoveMulOf, legendPowerOf, trailStyleOf } from './legend/defs';
+import { chargeOf, hasPowerRange, legendMoveMulOf, legendPowerOf, trailStyleOf } from './legend/defs';
+import { setPowerFallback } from './ui/powerBadge';
 import { lightningPoseFrame } from './legend/pose';
 import { CRAFT_UI_SETTINGS, type CraftUiSettings, type ToolNumbers } from './fx/craftConfig';
 import { playCraft } from './fx/craftSounds';
@@ -449,6 +451,7 @@ const combatCfg = createCombatConfig();
 const digCfg = createDigConfig();
 const craftConfig = createCraftConfig();
 const toolConfig = createToolConfig();
+setPowerFallback((item) => (hasPowerRange(w2, item as never) ? legendPowerOf(w2, item as never) : null));
 /** 画面（ツールチップ・図鑑）用の 道具の数: 刀の 強さに レジェンダリーの P を 足す（WEAPON-7 §2.1。設定を 変えると 追従） */
 const uiWeaponDamage = (): Record<string, number> => {
   const out: Record<string, number> = { ...toolConfig.weaponDamage };
@@ -623,6 +626,7 @@ const spiralFx = new SpiralFx({ scene: game.scene, camera: game.camera });
 const spiralDebris = createSpiralDebris({ world, seed });
 const chargeLight = createChargeLight();
 const chargeLightFx = new ChargeLightFx({ scene: game.scene, camera: game.camera });
+const shiningFx = new ShiningFx({ scene: game.scene, camera: game.camera });
 const handInfo = newHandInfo();
 /** 今の 剣を 持つ 手の 位置（三人称は 体から、一人称〈カメラが 体に 近く 人形が 見えない〉は 画面の 右下の にぎり） */
 const handNow = (): typeof handInfo => {
@@ -1663,7 +1667,8 @@ game.onUpdate((dt) => {
       weapon,
       // CHAR-4: 持っている 刀の 色（20・21 番を この 色に）。表に ない 刀は かたなの 行
       bladeColors: weapon === 'katana' ? bladeColorsOf(w2, bs.item) : null,
-      legendCharge: weapon === 'katana' && legend.view().charging,
+      // 虹の シャイニング中（うかぶ〜おりる）も 両手を 頭の上（ため中と 同じ 絵）
+      legendCharge: weapon === 'katana' && (legend.view().charging || legend.shield()),
       blade:
         weapon === 'katana'
           ? lstrike
@@ -1777,6 +1782,11 @@ game.onUpdate((dt) => {
           if (y) weaponFx.hitStarsAt({ x: y.position.x, y: y.position.y + 0.7, z: y.position.z });
         }
       }
+      // 虹: ドームが 当たった 妖怪に 小さな 光の つぶ
+      if (e.type === 'domeHit') {
+        const y = yokaiM.list().find((q) => q.id === e.yokaiId);
+        if (y) weaponFx.hitStarsAt({ x: y.position.x, y: y.position.y + 0.7, z: y.position.z });
+      }
     }
     const reducedNow = reducedMotionMq?.matches ?? false;
     windWaveFx.step(waveSys.list(), reducedNow);
@@ -1790,11 +1800,16 @@ game.onUpdate((dt) => {
     thunderFx.step(lv ? { charging: lv.charging, ready: lv.ready, aimS: st && st.aim && st.aim.skyVisible ? st.aim.S : null } : IDLE_THUNDER_LOOK, reducedNow);
     // WEAPON-8 §3.5: ため中の 手もとの 光（雷神剣も 風神剣も）。手は 三人称は 体から、一人称は 画面の 右下の にぎり
     const cp = controller.state.position;
-    const cl = chargeLight.step({ ticks: lv ? lv.chargeTicks : null, kind: lv && lv.kind !== 'shining' ? lv.kind : null, reduced: reducedNow });
+    const cl = chargeLight.step({ ticks: lv ? lv.chargeTicks : null, kind: lv ? lv.kind : null, full: lv && lv.kind === 'shining' ? 90 : 60, reduced: reducedNow });
     if (cl.phase !== 'off') {
       handNow();
       chargeLightFx.step(cl, handInfo, handInfo.first ? null : { x: cp.x, y: cp.y + 1.1, z: cp.z });
     } else chargeLightFx.step(cl, handInfo, null);
+    // WEAPON-7 PR3 §5.3: 虹の ドーム（見た目は legend.state().dome。一人称では まん中の 光と まくを 出さない）
+    {
+      const dm = legend.dome();
+      shiningFx.step({ dome: dm ? legend.state().dome : null, x: dm ? dm.x : 0, z: dm ? dm.z : 0, firstPerson: rig.getInfo().hideChar, reduced: reducedNow });
+    }
     // WEAPON-8 §2.4: 速さバフの アイコン（手に 持つ 物の 速さの 倍率が 1 より 大きい 間）
     const heldNow = inventory.held()?.item ?? null;
     buffIcons.sync(buffModel.step(buffsOfHeld(heldNow, (i) => legendMoveMulOf(w2, i)), reducedNow));
@@ -2011,6 +2026,7 @@ installTestHook(game, overlay, () => host.everReady, {
   legend: {
     state: () => ({ ...legend.state(), got: legendBook.got() }),
     events: () => legend.peekEvents(),
+    shiningFx: () => ({ ...shiningFx.look(), ...shiningFx.stats() }),
     waves: () => waveSys.list().map((w) => ({ id: w.id, kind: w.kind, position: { ...w.position }, dir: { ...w.dir }, traveled: w.traveled, age: w.age, spin: w.spin, drawPos: { ...w.drawPos }, face: w.face, bodyAlpha: w.bodyAlpha, backAlpha: w.backAlpha })),
     debris: () => ({ ...spiralDebris.view() }),
     chargeFx: () => {
