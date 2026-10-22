@@ -15,6 +15,7 @@ test.describe('LIVE-2 文字（合図 5 つ）', () => {
     const sizes = [[1280, 800], [1440, 900], [1024, 700]] as const;
     for (const [w, hgt] of sizes) {
       await page.setViewportSize({ width: w, height: hgt });
+      await openAnimals(page); // 小屋・こたつは clear() で 消えない ので 大きさごとに 読み直す
       const rows = await page.evaluate(() => {
         const h = (window as any).__rikkun;
         const A = (window as any).__A;
@@ -25,7 +26,23 @@ test.describe('LIVE-2 文字（合図 5 つ）', () => {
           const el = document.querySelector('#animal-hint') as HTMLElement | null;
           const b = el?.getBoundingClientRect();
           const cs = el ? getComputedStyle(el) : null;
-          const lines = el && cs ? Math.round(el.getBoundingClientRect().height / (parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.3)) : 0;
+          // 行の 数は、文字の 箱（ふりがな rt は のぞく）の 上の 位置が はなれて いる 数で 数える（line-height: normal は 数に ならない）
+          let lines = 0;
+          if (el && cs) {
+            const tops: number[] = [];
+            const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+            let n: Node | null;
+            while ((n = w.nextNode())) {
+              if (!(n.textContent ?? '').trim() || n.parentElement?.closest('rt')) continue;
+              const rg = document.createRange();
+              rg.selectNodeContents(n);
+              for (const r of Array.from(rg.getClientRects())) if (r.width > 0) tops.push(r.top);
+            }
+            tops.sort((x, y) => x - y);
+            const gap = parseFloat(cs.fontSize) * 0.6;
+            lines = tops.length ? 1 : 0;
+            for (let i = 1; i < tops.length; i++) if (tops[i] - tops[i - 1] > gap) lines++;
+          }
           out.push({
             name,
             hint: h.animals.lastHint(),
@@ -47,7 +64,7 @@ test.describe('LIVE-2 文字（合図 5 つ）', () => {
         // coopMax（3 つ 置いて 4 つ目）
         for (const z of [8, 20, 32]) A.coop(30, z);
         A.hold('toriya', 1);
-        (window as any).__aim.standForS(50.5, 20.5, 90, 0, 9);
+        (window as any).__aim.standForS(52.5, 20.5, 90, 0, 9);
         h.step(1);
         (window as any).__aim.solve(56, 8, 20, 1);
         h.step(1);
@@ -55,19 +72,20 @@ test.describe('LIVE-2 文字（合図 5 つ）', () => {
         grab('coopMax');
         // coopFull（6 わの 小屋に だっこで おろす）
         h.animals.clear();
-        const cid = A.coop(20, 46);
+        // clear() は 小屋を 消さない（すでに 3 つ）ので、1 つ目を つかう
+        const cid = h.animals.coops()[0].id;
         const c = A.cinfo(cid);
         for (let i = 0; i < 6; i++) A.kid(A.cinfo(cid), { stage: 'adult' }, (i % 3) - 1, Math.floor(i / 3) - 1);
         const id = A.friend(c.x + 6.5, c.z + 6.5);
         A.stand(id);
         A.lift(id);
-        h.player.set({ position: { x: c.x + 0.5, y: 9, z: c.z + 0.5 }, yaw: 90, pitch: 30 });
+        h.player.set({ position: { x: c.x + 0.5, y: 9, z: c.z + 0.5 }, yaw: 90, pitch: -30 });
         h.step(2);
         A.tap();
         grab('coopFull');
         // sleepHint（夜 小屋の 子に むし）
         h.animals.clear();
-        const c2 = A.cinfo(A.coop(40, 8));
+        const c2 = A.cinfo(h.animals.coops()[1].id);
         const kid = A.kid(c2, { stage: 'adult' });
         h.player.set({ position: { x: c2.x + 0.5 - 1.5, y: 9, z: c2.z + 0.5 }, yaw: 90 });
         A.night();

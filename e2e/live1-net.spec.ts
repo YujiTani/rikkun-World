@@ -49,7 +49,7 @@ test.describe('LIVE-1 むしとりあみ・むし', () => {
       out.durability = h.inventory.durability(0);
       return out;
     });
-    expect(r.last, '作るカードの いちばん うしろ').toBe('mushi_ami');
+    expect(r.last, '作るカードの いちばん うしろ（LIVE-2 で toriya が ふえた）').toBe('toriya');
     expect(r.ok).toBe(true);
     expect(r.net).toBe(1);
     expect(r.log).toBe(0);

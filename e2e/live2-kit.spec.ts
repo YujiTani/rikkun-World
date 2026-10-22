@@ -23,6 +23,7 @@ test.describe('LIVE-2 こたつ（たまご を あたためる）', () => {
       h.inventory.add('log', 2);
       h.inventory.add('torch', 1);
       out.make = h.craft.make('nukunuku');
+      h.step(3);
       out.nuku = h.inventory.count('nukunuku');
       out.left = [h.inventory.count('grass'), h.inventory.count('log'), h.inventory.count('torch')];
       out.stat = A.stat('craft:nukunuku');
@@ -44,9 +45,13 @@ test.describe('LIVE-2 こたつ（たまご を あたためる）', () => {
       if (t) {
         (window as any).__aim.solve(t.place.x, t.place.y, t.place.z, 0.5);
         h.step(1);
-        h.input.press('primary');
-        h.step(600);
-        h.input.release('primary');
+        // ほりの 段が MAX で とまる ので、押し直しながら こわれるまで（DigSystem の きまり）
+        for (let i = 0; i < 20 && h.world.getBlock(t.place.x, t.place.y, t.place.z) !== 'air'; i++) {
+          h.input.press('primary');
+          h.step(60);
+          h.input.release('primary');
+          h.step(1);
+        }
         h.step(2);
         out.broken = h.world.getBlock(t.place.x, t.place.y, t.place.z);
         out.nukuAfterBreak = h.inventory.count('nukunuku');

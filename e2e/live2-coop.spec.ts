@@ -22,11 +22,12 @@ test.describe('LIVE-2 とりごや', () => {
       h.inventory.add('log', 8);
       h.inventory.add('grass', 4);
       out.make = h.craft.make('toriya');
+      h.step(3);
       out.have = h.inventory.count('toriya');
       out.craftUnlock = A.unlocked('craft.toriya.1');
       // 置く: プレイヤーは 西、もんは 西（プレイヤーの 方）を 向く
       A.hold('toriya', 2);
-      (window as any).__aim.standForS(2.5, 20.5, 90, 0, 9);
+      (window as any).__aim.standForS(10.5, 20.5, 90, 0, 9);
       h.step(1);
       (window as any).__aim.solve(14, 8, 20, 1);
       h.step(1);
@@ -93,7 +94,7 @@ test.describe('LIVE-2 とりごや', () => {
       h.world.setBlock(45, 8, 46, 'air');
       h.step(2);
       A.hold('toriya', 5);
-      (window as any).__aim.standForS(40.5, 45.5, 90, 0, 9);
+      (window as any).__aim.standForS(42.5, 45.5, 90, 0, 9);
       h.step(1);
       (window as any).__aim.solve(45, 8, 45, 1);
       h.step(1);
@@ -123,7 +124,7 @@ test.describe('LIVE-2 とりごや', () => {
       for (const z of [8, 20, 32, 44]) out.ids.push(A.coop(20, z));
       out.n = h.animals.coops().length;
       A.hold('toriya', 1);
-      (window as any).__aim.standForS(40.5, 20.5, 90, 0, 9);
+      (window as any).__aim.standForS(46.5, 20.5, 90, 0, 9);
       h.step(1);
       (window as any).__aim.solve(50, 8, 20, 1);
       h.step(1);
@@ -313,7 +314,7 @@ test.describe('LIVE-2 とりごや', () => {
       h.player.set({ position: { x: cx + 6 - 2, y: 9, z: cz + 6 }, yaw: 90 });
       A.stand(id);
       out.lift = A.lift(id);
-      h.player.set({ position: { x: cx, y: 9, z: cz }, yaw: 90, pitch: 30 });
+      h.player.set({ position: { x: cx, y: 9, z: cz }, yaw: 90, pitch: -30 });
       h.step(2);
       A.tap(); // おろす
       h.step(5);
@@ -324,7 +325,7 @@ test.describe('LIVE-2 とりごや', () => {
       const id7 = A.friend(cx + 6, cz + 6);
       A.stand(id7);
       A.lift(id7);
-      h.player.set({ position: { x: cx, y: 9, z: cz }, yaw: 90, pitch: 30 });
+      h.player.set({ position: { x: cx, y: 9, z: cz }, yaw: 90, pitch: -30 });
       h.step(2);
       h.animals.events();
       A.tap();
@@ -589,9 +590,14 @@ test.describe('LIVE-2 とりごや', () => {
       const sx = c.x - f.fx * 2;
       const sz = c.z - f.fz * 2;
       A.aimBlock(sx, c.y, sz);
-      h.input.press('primary');
-      h.step(600);
-      h.input.release('primary');
+      // ほりの 段が MAX で とまる ので 押し直す（DigSystem の きまり）。さくを ほったら 次の さくも ねらい直す
+      for (let i = 0; i < 40; i++) {
+        h.input.press('primary');
+        h.step(60);
+        h.input.release('primary');
+        h.step(1);
+        if (h.world.getBlock(sx, c.y, sz) === 'air') break;
+      }
       h.step(30);
       out.left = 0;
       for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) for (let dy = 0; dy < 4; dy++) {
@@ -701,8 +707,8 @@ test.describe('LIVE-2 とりごや', () => {
         }
         return null;
       };
-      // 中の 手前の 列（もんの 内がわ）に 立って、ブロックを ねらう
-      const inside = () => h.player.set({ position: { x: cx + f.fx * 1, y: 9, z: cz + f.fz * 1 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: 0 });
+      // 中の まん中に 立って（もんの 手前だと 上の 段を ねらって しまう）、ブロックを ねらう
+      const inside = () => h.player.set({ position: { x: cx, y: 9, z: cz }, velocity: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: 0 });
       for (const [name, id] of [['gate', 'toriya_gate'], ['nest', 'toriya_nest'], ['box', 'toriya_box']] as const) {
         const p = find(id);
         out.found[name] = !!p;
@@ -767,9 +773,13 @@ test.describe('LIVE-2 とりごや', () => {
       A.aimBlock(c.x - f.fx * 2, c.y, c.z - f.fz * 2);
       h.inventory.clear();
       h.animals.events();
-      h.input.press('primary');
-      h.step(600);
-      h.input.release('primary');
+      // ほりの 段が MAX で とまる ので 押し直す（DigSystem の きまり）
+      for (let i = 0; i < 40 && h.animals.coops().length > 0; i++) {
+        h.input.press('primary');
+        h.step(60);
+        h.input.release('primary');
+        h.step(1);
+      }
       h.step(30);
       out.locked = A.events('coopLocked').length;
       out.coops = h.animals.coops().length;
@@ -845,7 +855,7 @@ test.describe('LIVE-2 とりごや', () => {
       const out: any = {};
       // toriya ＋ 地面（入る）
       A.hold('toriya', 1);
-      (window as any).__aim.standForS(2.5, 20.5, 90, 0, 9);
+      (window as any).__aim.standForS(10.5, 20.5, 90, 0, 9);
       h.step(1);
       (window as any).__aim.solve(14, 8, 20, 1);
       h.step(2);
@@ -853,13 +863,18 @@ test.describe('LIVE-2 とりごや', () => {
       // 入らない: 5×5 の 上に 高い 柱を 立てる
       for (let y = 9; y < 14; y++) for (const [x, z] of [[24, 34], [26, 34], [28, 34], [24, 36], [28, 36], [26, 36], [24, 38], [26, 38], [28, 38]]) h.world.setBlock(x, y, z, 'stone');
       h.step(2);
-      (window as any).__aim.standForS(20.5, 36.5, 90, 0, 9);
+      (window as any).__aim.standForS(21.5, 36.5, 90, 0, 9);
       h.step(1);
       (window as any).__aim.solve(25, 8, 36, 1);
       h.step(2);
       out.ng = A.hintRight();
       // 小屋
       const cid = A.coop(12, 12);
+      // 「あつめる」は すばこに たまごが 1 こ 以上 の とき だけ（§2.11 1b）。保存の 形で すばこに 2 こ 入れる
+      const sv = h.animals.serialize();
+      for (const cc of sv.coops) if (cc.id === cid) cc.nest = { egg: 2, gold: 0 };
+      h.animals.deserialize(sv);
+      h.step(2);
       const c = A.cinfo(cid);
       A.kid(c, { stage: 'adult', raised: true });
       A.hold('mushi', 1);
