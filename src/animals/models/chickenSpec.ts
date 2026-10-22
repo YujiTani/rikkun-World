@@ -46,8 +46,12 @@ export const CHICKEN_TRI_LIMIT = 600;
 /** 高さ 0.81 → 0.80 に そろえる 倍率 */
 export const CHICKEN_SCALE = 0.985;
 
-/** 骨の 並び（しるし の `mark` は 最後。なかまで ない にわとり は `mark` を 作らない） */
-export const CHICKEN_BONES = ['body', 'legL', 'legR', 'neck', 'head', 'comb', 'eyes', 'wingL', 'wingR', 'tail', 'mark'] as const;
+/**
+ * 骨の 並び（しるし の `mark` は 最後。なかまで ない にわとり は `mark` を 作らない）。
+ * LIVE-2: ひよこ は 首・とさか・しっぽ が 無い、マッチョ は まゆ `brow` が ある。うごき（`PoseBuf`）は この 名前の 番号で 持ち、
+ * 形に ない 骨 は 描く 側が 名前で 引いて とばす（`AnimalRenderer` の `poseIndex`）。
+ */
+export const CHICKEN_BONES = ['body', 'legL', 'legR', 'neck', 'head', 'comb', 'eyes', 'wingL', 'wingR', 'tail', 'mark', 'brow'] as const;
 export type ChickenBone = (typeof CHICKEN_BONES)[number];
 
 const box = (a: V3, b: V3, col: number): Prim => ({ k: 'box', a, b, col });

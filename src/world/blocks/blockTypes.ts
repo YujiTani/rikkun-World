@@ -48,7 +48,7 @@ export const BLOCK_TYPES: readonly BlockType[] = [
   { id: 'susuki', name: 'すすき', solid: false, breakable: true },
   { id: 'kusa', name: 'くさ', solid: false, breakable: true },
   { id: 'nobana', name: 'のばな', solid: false, breakable: true },
-  // LIVE-2 仮（B が 絵・名前 を 決める。ブロック id は contracts の BlockId）
+  // LIVE-2（名前 は 画面 の 呼び名。こたつ は ブロック と アイテム の id が `nukunuku`。小屋 の 4 ブロック は 持ち物 に 入らない）
   { id: 'nukunuku', name: 'こたつ', solid: true, breakable: true },
   { id: 'toriya_fence', name: 'とりごや', solid: true, breakable: true },
   { id: 'toriya_gate', name: 'とりごや', solid: false, breakable: true },

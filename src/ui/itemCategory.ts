@@ -42,13 +42,13 @@ export const CATEGORY_ITEMS: Readonly<Record<ItemCategory, readonly string[]>> =
   plant: ['grass', 'log', 'leaves', 'seed_onion', 'seed_tomato', 'seed_pumpkin', 'seed_eggplant', 'momiji_leaves', 'matsu_leaves', 'flower_y', 'flower_o', 'flower_p', 'bamboo', 'mushi', 'nobana'],
   ore: ['coal_ore', 'iron_ore'],
   build: ['kawara', 'brick'],
-  material: ['paper', 'string', 'cloth', 'oil', 'clay', 'yokai_orb'],
+  material: ['paper', 'string', 'cloth', 'oil', 'clay', 'yokai_orb', 'kin_tamago'],
   metal: ['iron_ingot', 'crystal'],
   tool: ['wood_pickaxe', 'stone_pickaxe', 'iron_pickaxe', 'wood_axe', 'stone_axe', 'iron_axe', 'kuwa', 'watering_can', 'long_watering_can', 'bucket', 'water_bucket', 'mushi_ami'],
   weapon: ['bokuto', 'katana', 'naginata', 'crystal_katana', 'raijin_ken', 'fujin_ken', 'yumi', 'ya'],
   armor: ['kabuto', 'yoroi', 'kote', 'suneate'],
   light: ['torch', 'lantern'],
-  home: ['furnace', 'tansu', 'futon', 'haniwa', 'kite', 'waraji', 'omamori', 'sprinkler'],
+  home: ['furnace', 'tansu', 'futon', 'haniwa', 'kite', 'waraji', 'omamori', 'sprinkler', 'nukunuku', 'toriya'],
   food: ['onion', 'tomato', 'pumpkin', 'eggplant', 'egg'],
 };
 

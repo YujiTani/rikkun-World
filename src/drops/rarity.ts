@@ -61,6 +61,10 @@ const ITEM_ONLY_RARITY: Record<string, Rarity> = {
   egg: 'common',
   mushi: 'common',
   mushi_ami: 'common',
+  // LIVE-2（§4.2）。こたつ は たんす・かまど と 同じ 段、きん の たまご は 7 段中 5 つ目（ほし 5・RARITY-7）
+  nukunuku: 'uncommon',
+  toriya: 'uncommon',
+  kin_tamago: 'epic',
   // WEAPON-7（ヌシが おとす。7 段目）
   raijin_ken: 'legendary',
   fujin_ken: 'legendary',
