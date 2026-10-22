@@ -95,12 +95,12 @@ export class PlayerController {
     this.respawn();
   }
 
-  /** スタート地点に戻す（速さ 0、向きはスタートの向き） */
   /** 体 の 当たり 用 の 固さ（LIVE-2: とりごやの さく は 高さ 2） */
   private solid(w: VoxelWorld, x: number, y: number, z: number): boolean {
     return w.isSolidForPlayer ? w.isSolidForPlayer(x, y, z) : w.isSolid(x, y, z);
   }
 
+  /** スタート地点に戻す（速さ 0、向きはスタートの向き） */
   respawn(): void {
     const s = this.spawn();
     const st = this.state;

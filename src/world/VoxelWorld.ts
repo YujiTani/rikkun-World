@@ -24,9 +24,9 @@ export function columnKey(cx: number, cz: number): number {
   return (cx + 32768) * 65536 + (cz + 32768);
 }
 
-/** 光も通さない 本当に ふさがったブロック（「見えない」印の判定用） */
 /** LIVE-2: さく（当たりの 高さ 2 の もと） */
 const FENCE_INDEX = blockIndexOf('toriya_fence');
+/** 光も通さない 本当に ふさがったブロック（「見えない」印の判定用） */
 const SEALS: Uint8Array = Uint8Array.from(BLOCK_TYPES, (_, i) => (isOpaqueIndex(i) && isSolidIndex(i) && OPACITY[i] === 15 ? 1 : 0));
 
 /** 1 列（16×WORLD_HEIGHT×16）。ChunkColumn の形で持つ */

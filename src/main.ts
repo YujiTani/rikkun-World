@@ -1648,10 +1648,12 @@ game.onUpdate((dt) => {
   animals.setTargeted(dig.animalTarget());
   {
     deliverAnimalEvents();
-    animalFx.step(animalViews.fill(animals), controller.state.position, animals.kits(), animals.coops());
+    const kitRows = animals.kits();
+    const coopRows = animals.coops();
+    animalFx.step(animalViews.fill(animals), controller.state.position, kitRows, coopRows);
     // こたつ に たまご を 入れた・小屋 を 置いた 音（数 が ふえた とき）
-    const nKit = animals.kits().length;
-    const nCoop = animals.coops().length;
+    const nKit = kitRows.length;
+    const nCoop = coopRows.length;
     if (nKit > prevKits && prevKits >= 0) animalFx.play('kitPut');
     if (nCoop > prevCoops && prevCoops >= 0) animalFx.play('coopPlace');
     prevKits = nKit;

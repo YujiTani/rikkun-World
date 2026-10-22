@@ -1653,6 +1653,8 @@ export class AnimalManager implements AnimalApi {
     const top = supportTop(w, nx, nz, e.y, maxDrop);
     if (top === null) return false;
     if (top - e.y > BODY.stepUp + 1e-6) return false;
+    // さく（高さ 1）には のぼらない: ついてくる なかま も もん から 入る（§2.3）
+    if (this.coopList.length > 0 && top - e.y > 0.5 && w.getBlock(ix, Math.round(top) - 1, iz) === 'toriya_fence') return false;
     if (!bodyFree(w, nx, nz, top)) return false;
     if (!allowWater) {
       const tc = columnTop(w, ix, iz, Math.floor(e.y + BODY.stepUp + 1e-6) - 1, BODY.stepUp + maxDrop + 1);
