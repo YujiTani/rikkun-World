@@ -41,8 +41,8 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     brick: 6,
     // M6
     tansu: 5,
-    // LIVE-2 仮（A が 決める。小屋 の ブロック は たんす と 同じ 時間、§2.3）
-    nukunuku: 1,
+    // LIVE-2（§2.3）: こたつ は ふとん で やわらかい（手 で 2 秒）。小屋 の ブロック は たんす と 同じ 時間
+    nukunuku: 2,
     toriya_fence: 5,
     toriya_gate: 5,
     toriya_nest: 5,

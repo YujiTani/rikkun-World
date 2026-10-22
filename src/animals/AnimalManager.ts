@@ -1,16 +1,19 @@
 import type {
   AnimalApi,
+  AnimalBirdSave,
+  AnimalBreed,
   AnimalDeps,
   AnimalEvent,
   AnimalHintKind,
   AnimalInfo,
-  AnimalSaveV2,
   AnimalSaveV3,
   AnimalSpawnOpts,
+  AnimalStage,
   CoopBreakResult,
   CoopInfo,
   CoopPlacePreview,
   CoopPlaceResult,
+  KitEgg,
   KitInfo,
   KitUseResult,
   SwingResult,
@@ -27,6 +30,11 @@ import { createRng, type Rng } from '../world/gen/random';
 import { BugNet, EGG_SALT, rollPity } from './lottery';
 import { bodyInWall } from '../world/wall';
 import { BODY, bodyFree, columnTop, supportTop, surfaceY, type AnimalWorld } from './terrain';
+import { COOP_HALF, COOP_HEIGHT, COOP_SHIFTS, coopFits, coopsOverlap, gateCell, inFootprint, inInterior, type CoopDir } from './coop';
+import { rollGold } from './gold';
+import { rollBreed } from './hatch';
+import { aimBox, bodySize } from './size';
+import { parseAnimalSave, type ParsedBird } from './saveV3';
 
 const DT = 1 / 60;
 const TAU = Math.PI * 2;
@@ -53,7 +61,54 @@ const BUG_CATCH_UPDATES = 29;
 /** パタパタ と みなす 下向き の 速さ（マス/秒） */
 const FLUTTER_MIN_VY = 0.3;
 
-type LockKind = 'appear' | 'eat' | 'pet' | 'cheer' | 'full' | 'putDown';
+type LockKind = 'appear' | 'eat' | 'pet' | 'cheer' | 'full' | 'putDown' | 'hatch' | 'grow';
+
+/** かえる 動き（ふつう 60・マッチョ は ポーズ 20 を 足して 80）と 大人 に なる 動き の ステップ（§3.5） */
+const HATCH_TICKS = 60;
+const HATCH_MACHO_TICKS = 80;
+const GROW_TICKS = 60;
+/** 着地 の コロン（§2.9）と、コロン に なる 落ちた 高さ（これ より 低い 段差 では ころがらない） */
+const ROLL_TICKS = 12;
+const ROLL_MIN_DROP = 1.5;
+/** 小屋 の ブロック が まだ ある か 見る 間かく（ステップ） */
+const COOP_CHECK_EVERY = 30;
+/** 小屋 の 子 の 動ける はんい（中 3×3 の ふち から の よゆう） */
+const KID_MARGIN = 0.25;
+/** こたつ の 友だち いっぱい の 合図 を くり返す 間（§2.1） */
+const FRIEND_FULL_REPEAT = 600;
+/** こたつ の かえる 場所 が 無い とき の さがし直し */
+const SPOT_RETRY = 60;
+const BREED_SALT = 0x11fe0004;
+const GOLD_SALT = 0x11fe0005;
+const BLOCK_NUKUNUKU = 'nukunuku';
+
+/** こたつ 1 つ（たまご が 入った もの だけ） */
+interface Kit {
+  x: number;
+  y: number;
+  z: number;
+  egg: KitEgg;
+  left: number;
+  /** 入れた ときの あたためる 時間（ゆれ の 段階 の 分母） */
+  total: number;
+  /** かえる 動き 中 の ひよこ の id（0 = まだ） */
+  chick: number;
+  /** `friendFull` を 次 に 出す まで */
+  fullWait: number;
+  /** かえる 場所 を さがし直す まで */
+  retry: number;
+}
+
+/** とりごや 1 つ（子 は ents の `home` で 数える） */
+interface Coop {
+  id: number;
+  x: number;
+  y: number;
+  z: number;
+  dir: CoopDir;
+  egg: number;
+  gold: number;
+}
 
 interface Ent {
   id: number;
@@ -99,6 +154,25 @@ interface Ent {
   warpWait: number;
   /** 止まる 距離 に 足す 分（なかま の 順番 で 決まる） */
   stopOff: number;
+  // ---- LIVE-2
+  stage: AnimalStage;
+  breed: AnimalBreed;
+  /** 小屋 の 子 なら 小屋 id */
+  home: number | null;
+  raised: boolean;
+  bugs: number;
+  goldMiss: number;
+  grow: number;
+  /** 小屋 の 中 に いた ステップ（coopEnterTicks で 小屋 の 子） */
+  enterT: number;
+  /** ロック の 全ステップ（かえる・大人 に なる の 進み 0〜1 の 分母） */
+  lockTotal: number;
+  /** かえる 動き が 金 の たまご から か */
+  fromGold: boolean;
+  /** 着地 の コロン の のこり */
+  rollLeft: number;
+  /** 空中 に 出た 高さ（-1 = 空中 で ない） */
+  airFrom: number;
 }
 
 export interface AnimalManagerOptions {
@@ -131,6 +205,11 @@ function slab(o: number, d: number, lo: number, hi: number, t0: number, t1: numb
 }
 const FOLLOW_OFFS: readonly number[] = [0, 0.5, -0.5, 1.0, -1.0, 1.6, -1.6];
 const SEP_OFFS: readonly number[] = [0, 0.8, -0.8, 1.6, -1.6];
+
+function inFootprintAny(coops: readonly { x: number; z: number }[], px: number, pz: number): boolean {
+  for (const c of coops) if (inFootprint(c, px, pz)) return true;
+  return false;
+}
 
 const dist2d = (ax: number, az: number, bx: number, bz: number) => Math.hypot(ax - bx, az - bz);
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -178,6 +257,21 @@ export class AnimalManager implements AnimalApi {
     id: 0, x: 0, y: 0, z: 0, yaw: 0, headYaw: 0, state: 'idle', stateTicks: 0, friend: false, hearts: 0, targeted: false,
     follow: 0, fullLeft: 0, carried: false, fluttering: false,
   };
+  // ---- LIVE-2
+  private kitList: Kit[] = [];
+  private coopList: Coop[] = [];
+  private nextCoopId = 1;
+  private readonly breedState = { machoMiss: 0 };
+  private readonly breedRng: Rng;
+  private readonly goldRng: Rng;
+  private lastDay: number | null = null;
+  /** 大人 に なった ことが ある（`grewBefore` が 無い とき の かわり。保存 しない） */
+  private everGrew = false;
+  private night = false;
+  /** 直前 の putDown が 失敗 して、自分 の 合図 を 出した か */
+  private putWhy: AnimalHintKind | null = null;
+  private coopCheckT = 0;
+  private readonly kitScratch: KitInfo & { hatchT: number } = { x: 0, y: 0, z: 0, egg: null, left: 0, wobble: 0, hatchT: 0 };
 
   constructor(o: AnimalManagerOptions) {
     this.world = o.world;
@@ -186,18 +280,33 @@ export class AnimalManager implements AnimalApi {
     this.getPlayer = o.getPlayer;
     this.rng = createRng((o.deps.seed ^ RNG_SALT) >>> 0);
     this.eggRng = createRng((o.deps.seed ^ EGG_SALT) >>> 0);
+    this.breedRng = createRng((o.deps.seed ^ BREED_SALT) >>> 0);
+    this.goldRng = createRng((o.deps.seed ^ GOLD_SALT) >>> 0);
     this.net = new BugNet(o.deps.seed);
   }
 
   // ------------------------------------------------------------ 窓口(テスト・つなぎ込み)
 
   spawn(x: number, y: number, z: number, opts: AnimalSpawnOpts = {}): number | null {
-    const friend = opts.friend === true;
-    if (friend && this.friendCount() >= this.settings.animalFriendMax) return null;
+    // 小屋 の 子 として 置く（`home`）: 小屋 が 無い・6 わ いる → null
+    let coop: Coop | undefined;
+    if (opts.home !== undefined && opts.home !== null) {
+      coop = this.coopById(opts.home);
+      if (!coop || this.kidCount(coop.id) >= this.settings.coopMax) return null;
+    }
+    const friend = opts.friend === true || coop !== undefined;
+    if (friend && !coop && this.friendCount() >= this.settings.animalFriendMax) return null;
     const max = this.settings.animalFollowTicks;
-    const follow = friend ? Math.max(0, Math.min(max, Math.round(opts.follow ?? max))) : 0;
+    const follow = friend && !coop ? Math.max(0, Math.min(max, Math.round(opts.follow ?? max))) : 0;
     const e = this.make(x, y, z, friend, friend ? 0 : (opts.hearts ?? 0), follow);
     e.fullLeft = Math.max(0, Math.round(opts.fullLeft ?? 0));
+    e.stage = opts.stage === 'chick' ? 'chick' : 'adult';
+    e.breed = opts.breed === 'macho' ? 'macho' : 'normal';
+    e.raised = opts.raised === true;
+    e.bugs = Math.max(0, Math.round(opts.bugs ?? 0));
+    e.goldMiss = Math.max(0, Math.round(opts.goldMiss ?? 0));
+    e.grow = Math.max(0, Math.round(opts.grow ?? 0));
+    if (coop) this.makeKid(e, coop);
     this.ents.push(e);
     this.push({ type: 'spawn', id: e.id, x, y, z });
     return e.id;
@@ -222,15 +331,14 @@ export class AnimalManager implements AnimalApi {
       carried: e.carried,
       fluttering: e.fluttering,
       vy: e.vy,
-      // LIVE-2 仮（A が Ent の 持ち物 に して 埋める。いまは 野原 の 大人 の 値）
-      stage: 'adult' as const,
-      breed: 'normal' as const,
-      home: null,
-      raised: false,
-      bugs: 0,
-      goldMiss: 0,
-      grow: 0,
-      size: { h: 0.8, w: 0.6, l: 0.6 },
+      stage: e.stage,
+      breed: e.breed,
+      home: e.home,
+      raised: e.raised,
+      bugs: e.bugs,
+      goldMiss: e.goldMiss,
+      grow: e.grow,
+      size: bodySize(e.stage, e.breed),
     }));
   }
 
@@ -248,9 +356,10 @@ export class AnimalManager implements AnimalApi {
     return this.ents.length;
   }
 
+  /** なかま の 数（小屋 の 子 は 数えない。小屋 ごと に 6 わ） */
   friendCount(): number {
     let n = 0;
-    for (const e of this.ents) if (e.friend) n++;
+    for (const e of this.ents) if (e.friend && e.home === null) n++;
     return n;
   }
 
@@ -311,8 +420,22 @@ export class AnimalManager implements AnimalApi {
     const ix = Math.floor(spot.x);
     const iz = Math.floor(spot.z);
     const iy = Math.floor(spot.y + 1e-6);
+    this.putWhy = null;
     if (!w.isLoaded(ix, iz) || iy < 0 || iy >= w.size.y) return false;
     if (!bodyFree(w, spot.x, spot.z, spot.y)) return false;
+    // 小屋 の 中 に おろす → 小屋 の 子（6 わ なら おろさない）。小屋 の 子 を 外 に おろす → なかま（8 わ なら おろさない）
+    const into = this.coopAtSpot(spot);
+    if (into) {
+      if (this.kidCount(into.id, e) >= this.settings.coopMax) {
+        this.hintOut('coopFull');
+        this.putWhy = 'coopFull';
+        return false;
+      }
+    } else if (e.home !== null && this.friendCount() >= this.settings.animalFriendMax) {
+      this.hintOut('friendFull');
+      this.putWhy = 'friendFull';
+      return false;
+    }
     e.carried = false;
     this.carriedId = null;
     e.x = spot.x;
@@ -327,9 +450,20 @@ export class AnimalManager implements AnimalApi {
     e.homeX = e.x;
     e.homeZ = e.z;
     e.restLeft = 20 + Math.floor(this.rng() * 40);
+    if (into) {
+      if (e.home !== into.id) this.joinCoop(e, into);
+    } else if (e.home !== null) {
+      e.home = null;
+      e.follow = 0;
+    }
     this.push({ type: 'putDown', id: e.id, x: e.x, y: e.y, z: e.z });
     this.setLock(e, 'putDown', PUT_DOWN_TICKS);
     return true;
+  }
+
+  /** 直前 の `putDown` が 失敗 した わけ（`coopFull`・`friendFull`）。A が その 合図 を 出して いる。ほか は null（C は null の とき だけ `cantPutHere`） */
+  putDownWhy(): AnimalHintKind | null {
+    return this.putWhy;
   }
 
   /** やられた とき: だっこ中 を その場に おろす（地面 の 検査 は しない。出来事 putDown は 出す） */
@@ -399,6 +533,7 @@ export class AnimalManager implements AnimalApi {
       if (!this.world.isLoaded(ix, iz) || !bodyInWall(cx, cz, BODY.radius, 1)) continue;
       const k = this.d.countryAt(this.d.seed, cx, cz).kind;
       if (k !== 'harappa' && k !== 'hana') continue;
+      if (inFootprintAny(this.coopList, cx, cz)) continue;
       const sy = surfaceY(this.world, ix, iz);
       if (sy === null || this.world.getBlock(ix, sy, iz) !== 'grass') continue;
       if (this.clear2(ix, sy + 1, iz) === false) continue;
@@ -418,12 +553,13 @@ export class AnimalManager implements AnimalApi {
   rayHit(origin: Vec3, dir: Vec3, maxDist: number): { id: number; distance: number } | null {
     let bestId = -1;
     let bestT = Infinity;
-    const hw = 0.4;
     for (const e of this.ents) {
       if (e.state === 'appear' || e.carried) continue;
+      const box = aimBox(e.stage, e.breed);
+      const hw = box.hw;
       const t = slab(origin.x, dir.x, e.x - hw, e.x + hw, 0, maxDist);
       if (t === null) continue;
-      const ty = slab(origin.y, dir.y, e.y, e.y + 1.0, t[0], t[1]);
+      const ty = slab(origin.y, dir.y, e.y, e.y + box.h, t[0], t[1]);
       if (ty === null) continue;
       const tz = slab(origin.z, dir.z, e.z - hw, e.z + hw, ty[0], ty[1]);
       if (tz === null) continue;
@@ -439,14 +575,19 @@ export class AnimalManager implements AnimalApi {
   preview(id: number, held: ItemStack | null): 'feed' | 'animalFull' | 'animalPet' | null {
     const e = this.find(id);
     if (!e || e.lock > 0 || e.carried) return null;
-    if (held && held.item === 'mushi') return e.fullLeft > 0 ? 'animalFull' : 'feed';
+    if (held && held.item === 'mushi') return e.state === 'sleep' ? 'animalPet' : e.fullLeft > 0 ? 'animalFull' : 'feed';
     return 'animalPet';
   }
 
-  feed(id: number, item: ItemId): 'ate' | 'full' | 'pet' | 'friendFull' | null {
+  feed(id: number, item: ItemId): 'ate' | 'full' | 'pet' | 'friendFull' | 'sleep' | null {
     const e = this.find(id);
     if (!e || e.lock > 0 || e.carried || item !== 'mushi') return null;
     const s = this.settings;
+    // ねて いる 子: たべない（むし は へらない）。あさ に あげよう（§2.7）
+    if (e.state === 'sleep') {
+      this.hintOut('sleepHint');
+      return 'sleep';
+    }
     if (e.fullLeft > 0) {
       this.push({ type: 'full', id });
       this.setLock(e, 'full', FULL_REACT_TICKS);
@@ -457,13 +598,17 @@ export class AnimalManager implements AnimalApi {
       return 'friendFull';
     }
     e.fullLeft = s.animalFullTicks;
+    e.bugs++;
     if (e.friend) {
-      // ついてくる 時間 が まんたん に もどる（とまって いた なかま も また ついてくる）
-      e.follow = s.animalFollowTicks;
-      e.walking = false;
-      e.stuck = 0;
+      // ついてくる 時間 が まんたん に もどる（とまって いた なかま も また ついてくる）。小屋 の 子 は ついてこない
+      if (e.home === null) {
+        e.follow = s.animalFollowTicks;
+        e.walking = false;
+        e.stuck = 0;
+      }
       this.push({ type: 'feed', id, item, hearts: 0, friend: true });
-      const roll = rollPity(this.eggRng, s.animalEggChance, s.animalEggPity, e.eggMiss);
+      // ひよこ は たまご を うまない（§2.2）
+      const roll = e.stage === 'chick' ? { hit: false, misses: e.eggMiss } : rollPity(this.eggRng, s.animalEggChance, s.animalEggPity, e.eggMiss);
       e.eggMiss = roll.misses;
       if (roll.hit) {
         e.egg = true;
@@ -523,86 +668,269 @@ export class AnimalManager implements AnimalApi {
       v.friend = e.friend;
       v.hearts = e.hearts;
       v.targeted = e.id === this.targetId;
-      v.follow = e.follow;
+      v.follow = e.home !== null ? 0 : e.follow;
       v.fullLeft = e.fullLeft;
       v.carried = e.carried;
       v.fluttering = e.fluttering;
+      v.stage = e.stage;
+      v.breed = e.breed;
+      v.home = e.home;
+      v.homeFill = e.home === null && e.enterT > 0 ? Math.min(1, e.enterT / Math.max(1, this.settings.coopEnterTicks)) : undefined;
+      v.hatchT = e.lock > 0 && e.lockKind === 'hatch' ? 1 - e.lock / Math.max(1, e.lockTotal) : undefined;
+      v.growT = e.lock > 0 && e.lockKind === 'grow' ? 1 - e.lock / Math.max(1, e.lockTotal) : undefined;
+      v.rollT = e.rollLeft > 0 ? 1 - e.rollLeft / ROLL_TICKS : undefined;
       fn(v);
     }
   }
 
-  // ------------------------------------------------------------ LIVE-2 仮実装（担当 A が 埋める。窓口 の 形 は contracts の `AnimalApi`）
+  // ------------------------------------------------------------ LIVE-2: こたつ・とりごや（窓口 の 形 は contracts の `AnimalApi`）
 
-  placeCoop(_x: number, _y: number, _z: number, _dir: 0 | 1 | 2 | 3 = 0): CoopPlaceResult {
-    return 'noRoom';
+  /** 小屋 を 置く（ゲーム の 置く と 同じ 判定。ねらった 所 が だめ なら まわり 8 か所）。x・z は 5×5 の まん中、y は いちばん 下 の 空気 の 高さ */
+  placeCoop(x: number, y: number, z: number, dir: CoopDir = 0): CoopPlaceResult {
+    if (!this.d.placeCoopBlocks) return 'noRoom';
+    if (this.coopList.length >= this.settings.coopCountMax) {
+      this.hintOut('coopMax');
+      return 'max';
+    }
+    const at = this.findCoopSpot(x, y, z);
+    if (!at || !this.d.placeCoopBlocks(at.x, y, at.z, dir)) {
+      this.hintOut('coopNoRoom');
+      return 'noRoom';
+    }
+    const c: Coop = { id: this.nextCoopId++, x: at.x, y, z: at.z, dir, egg: 0, gold: 0 };
+    this.coopList.push(c);
+    return c.id;
   }
-  previewCoop(x: number, y: number, z: number, dir: 0 | 1 | 2 | 3 = 0): CoopPlacePreview {
-    return { x, y, z, dir, ok: false };
+
+  previewCoop(x: number, y: number, z: number, dir: CoopDir = 0): CoopPlacePreview {
+    const at = this.d.placeCoopBlocks && this.coopList.length < this.settings.coopCountMax ? this.findCoopSpot(x, y, z) : null;
+    return at ? { x: at.x, y, z: at.z, dir, ok: true } : { x, y, z, dir, ok: false };
   }
+
   kits(): KitInfo[] {
-    return [];
+    return this.kitList.map((k) => this.kitInfo(k, { x: 0, y: 0, z: 0, egg: null, left: 0, wobble: 0 }));
   }
+
   coops(): CoopInfo[] {
-    return [];
+    return this.coopList.map((c) => this.coopInfo(c));
   }
-  kitAt(_x: number, _y: number, _z: number): KitInfo | null {
+
+  /** その マス の こたつ（たまご が 入って いる もの だけ） */
+  kitAt(x: number, y: number, z: number): KitInfo | null {
+    const k = this.kitList.find((o) => o.x === Math.floor(x) && o.y === Math.floor(y) && o.z === Math.floor(z));
+    return k ? this.kitInfo(k, { x: 0, y: 0, z: 0, egg: null, left: 0, wobble: 0 }) : null;
+  }
+
+  /** その ブロック を 持つ 小屋（まわり の わ。さく・もん・ねぐら・すばこ） */
+  coopAt(x: number, y: number, z: number): CoopInfo | null {
+    const ix = Math.floor(x);
+    const iy = Math.floor(y);
+    const iz = Math.floor(z);
+    for (const c of this.coopList) {
+      const dx = Math.abs(ix - c.x);
+      const dz = Math.abs(iz - c.z);
+      if (dx > COOP_HALF || dz > COOP_HALF || (dx !== COOP_HALF && dz !== COOP_HALF)) continue;
+      if (iy < c.y || iy >= c.y + COOP_HEIGHT) continue;
+      return this.coopInfo(c);
+    }
     return null;
   }
-  coopAt(_x: number, _y: number, _z: number): CoopInfo | null {
-    return null;
+
+  /**
+   * 右クリック: こたつ を ねらった（§2.1）。`held` = 持って いる もの。入れた → 'put'（C が 1 つ へらす）。
+   * 入って いる → 'wait'・から で たまご じゃ ない → 'needEgg'・6 つ あたため 中 → 'max'（どれ も 合図 は A が 出す）。
+   * 置ける 物 を 持って いる とき の「となり に 置く」は C が 決めて、この 口 は 呼ばない。
+   */
+  useKit(x: number, y: number, z: number, held: ItemId | null): KitUseResult {
+    const ix = Math.floor(x);
+    const iy = Math.floor(y);
+    const iz = Math.floor(z);
+    if (this.kitList.some((k) => k.x === ix && k.y === iy && k.z === iz)) {
+      this.hintOut('kitWait');
+      return 'wait';
+    }
+    const egg: KitEgg | null = held === 'egg' ? 'egg' : held === 'kin_tamago' ? 'gold' : null;
+    if (!egg || String(this.world.getBlock(ix, iy, iz)) !== BLOCK_NUKUNUKU) {
+      this.hintOut('kitNeedEgg');
+      return 'needEgg';
+    }
+    if (this.kitList.length >= this.settings.kitActiveMax) {
+      this.hintOut('kitMax');
+      return 'max';
+    }
+    const total = Math.max(1, Math.round(this.settings.kitHatchTicks));
+    this.kitList.push({ x: ix, y: iy, z: iz, egg, left: total, total, chick: 0, fullWait: 0, retry: 0 });
+    return 'put';
   }
-  useKit(_x: number, _y: number, _z: number, _held: ItemId | null): KitUseResult {
-    throw new Error('LIVE-2 A: useKit は 未実装');
+
+  /** 右クリック: 小屋 の すばこ の たまご を ぜんぶ 持ち物 へ（入らない 分 は のこる）。あつめた 数 */
+  collectCoop(coopId: number): { egg: number; gold: number } {
+    const c = this.coopById(coopId);
+    if (!c) return { egg: 0, gold: 0 };
+    let egg = 0;
+    let gold = 0;
+    while (c.gold > 0 && this.d.addItem('kin_tamago')) {
+      c.gold--;
+      gold++;
+    }
+    while (c.egg > 0 && this.d.addItem('egg')) {
+      c.egg--;
+      egg++;
+    }
+    if (egg + gold > 0) this.push({ type: 'coopCollect', egg, gold });
+    return { egg, gold };
   }
-  collectCoop(_coopId: number): { egg: number; gold: number } {
-    return { egg: 0, gold: 0 };
+
+  /** 左クリック を 押した: 中 に 子 が いれば 'locked'（押した ステップ だけ 合図 と 出来事。だっこ 中 の 子 も 数える） */
+  breakCoop(coopId: number, firstPress: boolean): CoopBreakResult {
+    const c = this.coopById(coopId);
+    if (!c || this.kidCount(c.id) === 0) return 'ok';
+    if (firstPress) {
+      this.hintOut('coopNotEmpty');
+      this.push({ type: 'coopLocked', coop: c.id });
+    }
+    return 'locked';
   }
-  breakCoop(_coopId: number, _firstPress: boolean): CoopBreakResult {
-    return 'ok';
+
+  /** 小屋 を 消す（子 0 の とき だけ。いれば false）。すばこ の たまご を おとし、ブロック は `removeCoopBlocks` で ぜんぶ 消す */
+  removeCoop(coopId: number): boolean {
+    const i = this.coopList.findIndex((c) => c.id === coopId);
+    if (i < 0) return false;
+    const c = this.coopList[i]!;
+    if (this.kidCount(c.id) > 0) return false;
+    this.coopList.splice(i, 1);
+    const at = { x: c.x + 0.5, y: c.y + 0.3, z: c.z + 0.5 };
+    // toriya 1 は C が 持ち物 に わたす。すばこ の たまご は ここ で おとす
+    for (let n = 0; n < c.egg; n++) {
+      if (this.d.dropItem) this.d.dropItem(at, 'egg');
+      else this.d.dropEgg(at);
+    }
+    for (let n = 0; n < c.gold; n++) this.dropGold(at);
+    this.d.removeCoopBlocks?.(c.x, c.y, c.z, c.dir);
+    return true;
   }
-  removeCoop(_coopId: number): boolean {
-    return false;
+
+  /** ひよこ から 数えて 種類 の くじ の はずれ 数（保存 される）。`n` を 渡す と 設定 */
+  machoMiss(n?: number): number {
+    if (n !== undefined && Number.isFinite(n)) this.breedState.machoMiss = Math.max(0, Math.round(n));
+    return this.breedState.machoMiss;
   }
-  machoMiss(_n?: number): number {
-    return 0;
+
+  /** B が 描く: こたつ（たまご が 入って いる もの）。`hatchT` = かえる 動き の 進み 0〜1（動き 中 で ない とき 0）。同じ 行 を 使いまわす */
+  forEachKit(fn: (k: KitInfo & { hatchT: number }) => void): void {
+    const r = this.kitScratch;
+    for (const k of this.kitList) {
+      this.kitInfo(k, r);
+      const c = k.chick !== 0 ? this.find(k.chick) : undefined;
+      r.hatchT = c && c.lock > 0 && c.lockKind === 'hatch' ? 1 - c.lock / Math.max(1, c.lockTotal) : 0;
+      fn(r);
+    }
   }
-  forEachKit(_fn: (k: KitInfo & { hatchT: number }) => void): void {}
-  forEachCoop(_fn: (c: CoopInfo) => void): void {}
+
+  /** B が 描く: 小屋（すばこ の 数 と 子 の 数） */
+  forEachCoop(fn: (c: CoopInfo) => void): void {
+    for (const c of this.coopList) fn(this.coopInfo(c));
+  }
 
   // ------------------------------------------------------------ 保存(SaveExtra)
 
-  /** 保存（§4.4）。だっこ 中 は プレイヤー の 足もと の 位置 が そのまま 入る */
-  serialize(): AnimalSaveV3 | AnimalSaveV2 {
-    const friends: { x: number; y: number; z: number; yaw: number; follow: number }[] = [];
+  /** 保存（§4.4・v 3）。だっこ 中 は プレイヤー の 足もと の 位置 が そのまま 入る。かえる 動き 中 の ひよこ は こたつ に 戻して 入れる（読み直す と また かえる） */
+  serialize(): AnimalSaveV3 {
+    const bird = (e: Ent): AnimalBirdSave => ({
+      x: round2(e.x),
+      y: round2(e.y),
+      z: round2(e.z),
+      yaw: round2(e.yaw),
+      follow: e.home !== null ? 0 : Math.round(e.follow),
+      stage: e.stage,
+      breed: e.breed,
+      raised: e.raised,
+      bugs: e.bugs,
+      goldMiss: e.goldMiss,
+      grow: e.grow,
+    });
+    const friends: AnimalBirdSave[] = [];
     for (const e of this.ents) {
-      if (!e.friend) continue;
-      friends.push({ x: round2(e.x), y: round2(e.y), z: round2(e.z), yaw: round2(e.yaw), follow: Math.round(e.follow) });
+      if (!e.friend || e.home !== null) continue;
+      if (e.lock > 0 && e.lockKind === 'hatch') continue;
+      friends.push(bird(e));
     }
-    return { v: 2, friends };
+    const coops = this.coopList.map((c) => ({
+      id: c.id,
+      x: c.x,
+      y: c.y,
+      z: c.z,
+      dir: c.dir,
+      kids: this.ents.filter((e) => e.home === c.id).map(bird),
+      nest: { egg: c.egg, gold: c.gold },
+    }));
+    const kits = this.kitList.map((k) => ({ x: k.x, y: k.y, z: k.z, egg: k.egg, left: k.chick !== 0 ? 0 : k.left }));
+    return { v: 3, friends, coops, kits, machoMiss: this.breedState.machoMiss };
   }
 
-  /** 読みこみ。版 1（`eggDay` つき・`follow` なし）も 読む: `follow` は まんたん、`eggDay` は すてる */
+  /** 読みこみ。版 1（`eggDay` つき・`follow` なし）→ 版 2 → 版 3 の 順 に 直す（台帳 G8） */
   deserialize(data: unknown): void {
     this.clear();
-    const rows = (data as { friends?: unknown } | null | undefined)?.friends;
-    if (typeof data !== 'object' || data === null || !Array.isArray(rows)) return;
-    const max = this.settings.animalFollowTicks;
-    for (const r of rows) {
-      if (this.friendCount() >= this.settings.animalFriendMax) break;
-      if (typeof r !== 'object' || r === null) continue;
-      const o = r as Record<string, unknown>;
-      const x = o.x;
-      const y = o.y;
-      const z = o.z;
-      if (typeof x !== 'number' || typeof y !== 'number' || typeof z !== 'number') continue;
-      if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) continue;
-      const yaw = typeof o.yaw === 'number' && Number.isFinite(o.yaw) ? o.yaw : 0;
-      const follow = typeof o.follow === 'number' && Number.isFinite(o.follow) ? Math.max(0, Math.min(max, Math.round(o.follow))) : max;
-      const e = this.make(x, y, z, true, 0, follow);
-      e.yaw = yaw;
-      e.headYaw = yaw;
+    this.resetLive();
+    const s = this.settings;
+    const p = parseAnimalSave(data, {
+      followMax: s.animalFollowTicks,
+      friendMax: s.animalFriendMax,
+      coopMax: s.coopMax,
+      coopCountMax: s.coopCountMax,
+      kitMax: s.kitActiveMax,
+    });
+    if (!p) return;
+    for (const b of p.friends) {
+      const e = this.make(b.x, b.y, b.z, true, 0, b.follow);
+      this.applyBird(e, b);
       this.ents.push(e);
     }
+    for (const r of p.coops) {
+      let id = r.id;
+      if (id === null || id < 1 || this.coopList.some((c) => c.id === id)) id = Math.max(this.nextCoopId, ...this.coopList.map((c) => c.id + 1));
+      const c: Coop = { id, x: r.x, y: r.y, z: r.z, dir: r.dir, egg: r.egg, gold: r.gold };
+      if (c.egg + c.gold > s.coopNestMax) {
+        c.gold = Math.min(c.gold, s.coopNestMax);
+        c.egg = Math.max(0, s.coopNestMax - c.gold);
+      }
+      this.coopList.push(c);
+      this.nextCoopId = Math.max(this.nextCoopId, id + 1);
+      for (const b of r.kids) {
+        const inside = inInterior(c, b.x, b.z, KID_MARGIN);
+        const e = this.make(inside ? b.x : c.x + 0.5, inside ? b.y : c.y, inside ? b.z : c.z + 0.5, true, 0, 0);
+        this.applyBird(e, b);
+        this.makeKid(e, c);
+        this.ents.push(e);
+      }
+    }
+    for (const k of p.kits) {
+      // こたつ の ブロック が 無い 行 は すてる（読みこんで いない 所 は あとで 見る）
+      if (this.world.isLoaded(k.x, k.z) && String(this.world.getBlock(k.x, k.y, k.z)) !== BLOCK_NUKUNUKU) continue;
+      const total = Math.max(1, Math.round(s.kitHatchTicks));
+      this.kitList.push({ x: k.x, y: k.y, z: k.z, egg: k.egg, left: k.left, total: Math.max(total, k.left), chick: 0, fullWait: 0, retry: 0 });
+    }
+    this.breedState.machoMiss = p.machoMiss;
+  }
+
+  private applyBird(e: Ent, b: ParsedBird): void {
+    e.yaw = b.yaw;
+    e.headYaw = b.yaw;
+    e.stage = b.stage;
+    e.breed = b.breed;
+    e.raised = b.raised;
+    e.bugs = b.bugs;
+    e.goldMiss = b.goldMiss;
+    e.grow = b.grow;
+  }
+
+  /** 小屋・こたつ・くじ を ぜんぶ 空 に する（読みこみ の まえ） */
+  private resetLive(): void {
+    this.kitList = [];
+    this.coopList = [];
+    this.nextCoopId = 1;
+    this.breedState.machoMiss = 0;
+    this.lastDay = null;
   }
 
   // ------------------------------------------------------------ 1 ステップ
@@ -623,12 +951,291 @@ export class AnimalManager implements AnimalApi {
       }
     }
     const p = this.getPlayer().position;
+    this.night = this.d.phase() === 'night';
+    this.checkMorning();
     for (let i = this.ents.length - 1; i >= 0; i--) {
       const e = this.ents[i]!;
       if (!this.step(e, p)) this.ents.splice(i, 1);
     }
-    // かさならない: すわっている なかま を はなす
-    for (const e of this.ents) if (e.friend && !e.following && !e.carried && e.lock === 0) this.separate(e, p);
+    // かさならない: すわっている なかま を はなす（小屋 の 子 は 中 3×3 だけ なので はなさない）
+    for (const e of this.ents) if (e.friend && e.home === null && !e.following && !e.carried && e.lock === 0) this.separate(e, p);
+    if (this.kitList.length > 0) this.updateKits(p);
+    if (this.coopList.length > 0 && ++this.coopCheckT >= COOP_CHECK_EVERY) {
+      this.coopCheckT = 0;
+      this.checkCoopBlocks();
+    }
+  }
+
+  // ------------------------------------------------------------ 内部 (LIVE-2)
+
+  private coopById(id: number): Coop | undefined {
+    for (const c of this.coopList) if (c.id === id) return c;
+    return undefined;
+  }
+
+  /** 小屋 の 子 の 数（`except` は 数えない = 自分 が 戻る 時） */
+  private kidCount(id: number, except?: Ent): number {
+    let n = 0;
+    for (const e of this.ents) if (e.home === id && e !== except) n++;
+    return n;
+  }
+
+  /** その 位置 が ある 小屋 の 中 3×3（足 の 高さ も 合う）なら その 小屋 */
+  private coopAtSpot(p: Vec3, margin = 0): Coop | undefined {
+    for (const c of this.coopList) if (inInterior(c, p.x, p.z, margin) && p.y > c.y - 1.5 && p.y < c.y + 2) return c;
+    return undefined;
+  }
+
+  private coopInfo(c: Coop): CoopInfo {
+    const kids: number[] = [];
+    for (const e of this.ents) if (e.home === c.id) kids.push(e.id);
+    return { id: c.id, x: c.x, y: c.y, z: c.z, dir: c.dir, gate: gateCell(c.x, c.z, c.dir), kids, nest: { egg: c.egg, gold: c.gold } };
+  }
+
+  private kitInfo(k: Kit, out: KitInfo): KitInfo {
+    out.x = k.x;
+    out.y = k.y;
+    out.z = k.z;
+    out.egg = k.egg;
+    out.left = k.left;
+    // のこり 2/3 以上 = じっと・1/3 以上 = ときどき・それ より 少ない = よく ゆれる（§2.1）
+    out.wobble = k.left * 3 >= k.total * 2 ? 0 : k.left * 3 >= k.total ? 1 : 2;
+    return out;
+  }
+
+  /** ねらった 所 → まわり 8 か所 の 順 に ためして、入る 5×5×4 の まん中（他の 小屋 と かさならない） */
+  private findCoopSpot(x: number, y: number, z: number): { x: number; z: number } | null {
+    for (const [sx, sz] of COOP_SHIFTS) {
+      const cx = x + sx;
+      const cz = z + sz;
+      if (!coopFits(this.world, cx, y, cz)) continue;
+      const at = { x: cx, y, z: cz };
+      if (this.coopList.some((c) => coopsOverlap(c, at))) continue;
+      return { x: cx, z: cz };
+    }
+    return null;
+  }
+
+  /** 小屋 の 子 に する（`announce` = 出来事 `home` を 出す） */
+  private joinCoop(e: Ent, c: Coop, announce = true): void {
+    e.home = c.id;
+    e.follow = 0;
+    e.following = false;
+    e.walking = false;
+    e.stuck = 0;
+    e.bestDist = Infinity;
+    e.warpWait = 0;
+    e.enterT = 0;
+    e.homeX = c.x + 0.5;
+    e.homeZ = c.z + 0.5;
+    e.restLeft = 20 + Math.floor(this.rng() * 40);
+    if (announce) this.push({ type: 'home', id: e.id, coop: c.id });
+  }
+
+  private makeKid(e: Ent, c: Coop): void {
+    this.joinCoop(e, c, false);
+  }
+
+  private dropGold(at: Vec3): void {
+    if (this.d.dropItem) this.d.dropItem(at, 'kin_tamago');
+    else this.d.dropEgg(at);
+  }
+
+  /** あさ（`day()` が ふえた 時）: 小屋 の ひよこ の そだつ 日 ＋1（上限 chickGrowDays） */
+  private checkMorning(): void {
+    const day = this.d.day();
+    if (this.lastDay === null || day < this.lastDay) {
+      this.lastDay = day;
+      return;
+    }
+    if (day === this.lastDay) return;
+    const n = day - this.lastDay;
+    this.lastDay = day;
+    const max = this.settings.chickGrowDays;
+    for (const e of this.ents) if (e.home !== null && e.stage === 'chick') e.grow = Math.min(max, e.grow + n);
+  }
+
+  /** 小屋 の 子 の ひよこ が 大人 に なれる か（あさ 2 回 むかえた・プレイヤー が 小屋 から 近い） */
+  private growCheck(e: Ent, p: Vec3): void {
+    if (e.home === null || e.stage !== 'chick' || e.grow < this.settings.chickGrowDays) return;
+    const c = this.coopById(e.home);
+    if (!c) return;
+    const s = this.settings;
+    if (dist2d(c.x + 0.5, c.z + 0.5, p.x, p.z) > s.kitHatchDist || Math.abs(p.y - c.y) > 8) return;
+    this.push({ type: 'growStart', id: e.id });
+    e.lockTotal = GROW_TICKS;
+    this.setLock(e, 'grow', GROW_TICKS);
+  }
+
+  /** 小屋 の 中 3×3 に ついてきて 入った なかま: coopEnterTicks で 小屋 の 子 */
+  private enterCheck(e: Ent): void {
+    if (e.home !== null || !e.friend || e.carried || e.follow <= 0 || this.coopList.length === 0) {
+      e.enterT = 0;
+      return;
+    }
+    const c = this.coopAtSpot(e);
+    if (!c || this.kidCount(c.id) >= this.settings.coopMax) {
+      e.enterT = 0;
+      return;
+    }
+    if (++e.enterT < this.settings.coopEnterTicks) return;
+    this.joinCoop(e, c);
+    this.setLock(e, 'cheer', 20);
+  }
+
+  /** 夜: 小屋 の 子 は 中 で すわって ねる */
+  private sleep(e: Ent): void {
+    e.walking = false;
+    e.look = false;
+    e.following = false;
+    this.setState(e, 'sleep');
+  }
+
+  /** 小屋 の 子 が 外 に 出て いたら 中 の まん中 へ（落とされた・ブロック が 動いた とき） */
+  private kidKeepInside(e: Ent): void {
+    const c = e.home === null ? undefined : this.coopById(e.home);
+    if (!c) {
+      // 小屋 が 無く なった: なかま に もどる
+      e.home = null;
+      e.follow = 0;
+      return;
+    }
+    if (inInterior(c, e.x, e.z, 0)) return;
+    e.x = c.x + 0.5;
+    e.z = c.z + 0.5;
+    e.y = c.y;
+    e.vy = 0;
+    e.walking = false;
+    e.homeX = e.x;
+    e.homeZ = e.z;
+  }
+
+  /** 金 かどうか きめて、小屋 の すばこ か 足もと に たまご を 出す（§2.6・§2.8） */
+  private layEgg(e: Ent): void {
+    const roll = rollGold(this.goldRng, e, this.settings);
+    e.goldMiss = roll.goldMiss;
+    const gold = roll.gold;
+    const coop = e.home === null ? undefined : this.coopById(e.home);
+    if (coop && coop.egg + coop.gold < this.settings.coopNestMax) {
+      if (gold) coop.gold++;
+      else coop.egg++;
+      this.push(gold ? { type: 'egg', id: e.id, x: e.x, y: e.y, z: e.z, gold: true, coop: coop.id } : { type: 'egg', id: e.id, x: e.x, y: e.y, z: e.z, coop: coop.id });
+      return;
+    }
+    const at = { x: e.x, y: e.y + 0.3, z: e.z };
+    if (gold) this.dropGold(at);
+    else this.d.dropEgg(at);
+    this.push(gold ? { type: 'egg', id: e.id, x: e.x, y: e.y, z: e.z, gold: true } : { type: 'egg', id: e.id, x: e.x, y: e.y, z: e.z });
+  }
+
+  /** 毎ステップ の こたつ（§2.1）。時間 は 世界 の 時計 で すすむ（はなれて いても） */
+  private updateKits(p: Vec3): void {
+    const s = this.settings;
+    for (let i = this.kitList.length - 1; i >= 0; i--) {
+      const k = this.kitList[i]!;
+      if (k.chick !== 0) {
+        // かえる 動き 中: おわったら（ひよこ の ロック が とけた）こたつ は から
+        const c = this.find(k.chick);
+        if (!c) k.chick = 0;
+        else if (c.lock === 0 || c.lockKind !== 'hatch') this.kitList.splice(i, 1);
+        continue;
+      }
+      // こたつ を こわした: たまご は もどる（あたため は 0）
+      if (this.world.isLoaded(k.x, k.z) && String(this.world.getBlock(k.x, k.y, k.z)) !== BLOCK_NUKUNUKU) {
+        this.kitList.splice(i, 1);
+        const at = { x: k.x + 0.5, y: k.y + 0.5, z: k.z + 0.5 };
+        if (k.egg === 'gold') this.dropGold(at);
+        else this.d.dropEgg(at);
+        continue;
+      }
+      if (k.left > 0) k.left--;
+      if (k.left > 0) continue;
+      // あたため おわり: 近く に いて、なかま が 8 わ より 少ない とき に かえる
+      if (dist2d(k.x + 0.5, k.z + 0.5, p.x, p.z) > s.kitHatchDist || Math.abs(p.y - k.y) > 8) {
+        k.fullWait = 0;
+        continue;
+      }
+      if (this.friendCount() >= s.animalFriendMax) {
+        if (k.fullWait <= 0) {
+          this.hintOut('friendFull');
+          k.fullWait = FRIEND_FULL_REPEAT;
+        } else k.fullWait--;
+        continue;
+      }
+      k.fullWait = 0;
+      if (k.retry > 0) {
+        k.retry--;
+        continue;
+      }
+      this.startHatch(k, p);
+    }
+  }
+
+  private startHatch(k: Kit, p: Vec3): void {
+    const spot = this.findHatchSpot(k, p);
+    if (!spot) {
+      k.retry = SPOT_RETRY;
+      return;
+    }
+    const breed = rollBreed(k.egg, this.settings, this.breedState, this.breedRng);
+    const e = this.make(spot.x, spot.y, spot.z, true, 0, this.settings.animalFollowTicks);
+    e.stage = 'chick';
+    e.breed = breed;
+    e.fromGold = k.egg === 'gold';
+    const ticks = breed === 'macho' ? HATCH_MACHO_TICKS : HATCH_TICKS;
+    e.lockTotal = ticks;
+    e.lock = ticks;
+    e.lockKind = 'hatch';
+    e.state = 'hatch';
+    this.ents.push(e);
+    k.chick = e.id;
+    this.push({ type: 'hatchStart', x: k.x, y: k.y, z: k.z });
+  }
+
+  /** こたつ の となり の 地面（プレイヤー に 近い 方 から）。無ければ こたつ の 上。それ も だめ なら null */
+  private findHatchSpot(k: Kit, p: Vec3): Vec3 | null {
+    const w = this.world;
+    const sides: [number, number][] = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+    const dd = (a: [number, number]) => (k.x + 0.5 + a[0] - p.x) ** 2 + (k.z + 0.5 + a[1] - p.z) ** 2;
+    sides.sort((a, b) => dd(a) - dd(b));
+    for (const [dx, dz] of sides) {
+      const ix = k.x + dx;
+      const iz = k.z + dz;
+      if (!w.isLoaded(ix, iz)) continue;
+      if (!w.isSolid(ix, k.y - 1, iz) || w.isSolid(ix, k.y, iz) || w.isSolid(ix, k.y + 1, iz)) continue;
+      if (w.getBlock(ix, k.y, iz) === 'water') continue;
+      if (inFootprintAny(this.coopList, ix + 0.5, iz + 0.5)) continue;
+      return { x: ix + 0.5, y: k.y, z: iz + 0.5 };
+    }
+    if (!w.isSolid(k.x, k.y + 1, k.z) && !w.isSolid(k.x, k.y + 2, k.z)) return { x: k.x + 0.5, y: k.y + 1, z: k.z + 0.5 };
+    return null;
+  }
+
+  /** 小屋 の ブロック が 世界 から 消えて いたら（ほかの しかた で こわれた）小屋 の きろく を すてる。子 は なかま に もどる */
+  private checkCoopBlocks(): void {
+    for (let i = this.coopList.length - 1; i >= 0; i--) {
+      const c = this.coopList[i]!;
+      if (!this.world.isLoaded(c.x, c.z) || this.coopHasBlocks(c)) continue;
+      this.coopList.splice(i, 1);
+      for (const e of this.ents) {
+        if (e.home !== c.id) continue;
+        e.home = null;
+        e.follow = 0;
+        e.homeX = e.x;
+        e.homeZ = e.z;
+      }
+    }
+  }
+
+  private coopHasBlocks(c: Coop): boolean {
+    const w = this.world;
+    for (let a = -COOP_HALF; a <= COOP_HALF; a++) {
+      for (let b = -COOP_HALF; b <= COOP_HALF; b++) {
+        if (Math.abs(a) !== COOP_HALF && Math.abs(b) !== COOP_HALF) continue;
+        for (let dy = 0; dy < 3; dy++) if (String(w.getBlock(c.x + a, c.y + dy, c.z + b)).startsWith('toriya_')) return true;
+      }
+    }
+    return false;
   }
 
   // ------------------------------------------------------------ 内部
@@ -671,6 +1278,18 @@ export class AnimalManager implements AnimalApi {
       stuck: 0,
       warpWait: 0,
       stopOff,
+      stage: 'adult',
+      breed: 'normal',
+      home: null,
+      raised: false,
+      bugs: 0,
+      goldMiss: 0,
+      grow: 0,
+      enterT: 0,
+      lockTotal: 0,
+      fromGold: false,
+      rollLeft: 0,
+      airFrom: -1,
     };
   }
 
@@ -713,6 +1332,20 @@ export class AnimalManager implements AnimalApi {
     return (e.friend && e.follow > 0 ? e.state === 'idle' : e.look) && dist2d(e.x, e.z, p.x, p.z) <= this.settings.animalLookDist;
   }
 
+  /**
+   * 小屋 の きまり（§2.3）: 小屋 の 子 は 中 3×3 から 出ない。やせい・ついてくる 時間 が 0 の なかま は 5×5 に 外 から 入らない
+   * （もん を 通れる の は ついてくる なかま と プレイヤー だけ）。
+   */
+  private coopAllows(e: Ent, nx: number, nz: number): boolean {
+    if (e.home !== null) {
+      const c = this.coopById(e.home);
+      return !c || inInterior(c, nx, nz, KID_MARGIN);
+    }
+    if (e.friend && e.follow > 0) return true;
+    for (const c of this.coopList) if (inFootprint(c, nx, nz) && !inFootprint(c, e.x, e.z)) return false;
+    return true;
+  }
+
   /** (ix, y, iz) に 立てる(上 2 マス くうき・みず でない) */
   private clear2(ix: number, y: number, iz: number): boolean {
     const w = this.world;
@@ -735,9 +1368,12 @@ export class AnimalManager implements AnimalApi {
       e.vy = 0;
       e.fluttering = false;
       e.inWater = false;
+      e.enterT = 0;
+      e.airFrom = -1;
       this.setState(e, 'carried');
       return true;
     }
+    if (e.rollLeft > 0) e.rollLeft--;
     const d = dist2d(e.x, e.z, p.x, p.z);
 
     if (!e.friend) {
@@ -746,26 +1382,36 @@ export class AnimalManager implements AnimalApi {
     }
     const loaded = this.world.isLoaded(Math.floor(e.x), Math.floor(e.z));
     if (!loaded) {
-      if (e.friend) this.friendWarpChecks(e, p, d, true);
+      if (e.friend && e.home === null) this.friendWarpChecks(e, p, d, true);
       return true;
     }
     // うまった
     if (this.world.isSolid(Math.floor(e.x), Math.floor(e.y + 0.4), Math.floor(e.z))) {
       if (!this.unbury(e)) {
-        if (!e.friend) return this.remove(e, 'buried');
-        if (this.warp(e, p)) return true;
-        e.warpWait = 60;
+        if (e.home !== null) this.kidRespawn(e, p);
+        else if (!e.friend) return this.remove(e, 'buried');
+        else if (this.warp(e, p)) return true;
+        else e.warpWait = 60;
       }
     }
-    if (e.friend && this.friendWarpChecks(e, p, d, false)) return true;
-    if (e.friend && e.follow > 0 && --e.follow === 0) this.endFollow(e);
+    // かえる 動き の あいだ は ついてくる 時間 を へらさず、ワープ も しない（かえった とき まんたん）
+    const hatching = e.lock > 0 && e.lockKind === 'hatch';
+    if (e.home !== null) this.kidKeepInside(e);
+    else if (e.friend && !hatching && this.friendWarpChecks(e, p, d, false)) return true;
+    if (e.friend && e.follow > 0 && !hatching && --e.follow === 0) this.endFollow(e);
 
     if (e.lock > 0) {
       e.lock--;
       if (e.lock === 0) this.finishLock(e);
       else this.setState(e, this.lockState(e));
     }
-    if (e.lock === 0) this.behave(e, p, d);
+    if (e.lock === 0) {
+      if (e.home !== null && this.night) this.sleep(e);
+      else this.behave(e, p, d);
+    }
+    if (e.home !== null) {
+      if (e.lock === 0) this.growCheck(e, p);
+    } else if (e.friend) this.enterCheck(e);
 
     if (!e.walking) this.unstraddle(e);
     this.settle(e);
@@ -796,8 +1442,19 @@ export class AnimalManager implements AnimalApi {
     const kind = e.lockKind;
     if (e.egg) {
       e.egg = false;
-      this.d.dropEgg({ x: e.x, y: e.y + 0.3, z: e.z });
-      this.push({ type: 'egg', id: e.id, x: e.x, y: e.y, z: e.z });
+      this.layEgg(e);
+    }
+    if (kind === 'hatch') {
+      // かえった: すぐ なかま・ついてくる 時間 まんたん（§2.1）
+      e.follow = this.settings.animalFollowTicks;
+      this.push({ type: 'hatch', id: e.id, breed: e.breed, gold: e.fromGold });
+    } else if (kind === 'grow') {
+      const first = this.d.grewBefore ? !this.d.grewBefore() : !this.everGrew;
+      this.everGrew = true;
+      e.stage = 'adult';
+      e.raised = true;
+      e.grow = 0;
+      this.push({ type: 'grow', id: e.id, first, breed: e.breed });
     }
     if (e.becomeFriend && this.friendCount() < this.settings.animalFriendMax) {
       e.becomeFriend = false;
@@ -816,7 +1473,7 @@ export class AnimalManager implements AnimalApi {
     e.becomeFriend = false;
     this.setState(e, this.restState(e));
     // お祝い が おわった: まだ だっこ を して いない なら ながおし の ヒント（§2.6）
-    if (kind === 'cheer') {
+    if (kind === 'cheer' && e.home === null) {
       const done = this.d.carriedBefore ? this.d.carriedBefore() : this.everCarried;
       if (!done) this.push({ type: 'carryHint' });
     }
@@ -976,6 +1633,7 @@ export class AnimalManager implements AnimalApi {
     const ix = Math.floor(nx);
     const iz = Math.floor(nz);
     if (!bodyInWall(nx, nz, BODY.radius, 0.5) || !w.isLoaded(ix, iz)) return false;
+    if (this.coopList.length > 0 && !this.coopAllows(e, nx, nz)) return false;
     const top = supportTop(w, nx, nz, e.y, maxDrop);
     if (top === null) return false;
     if (top - e.y > BODY.stepUp + 1e-6) return false;
@@ -1019,20 +1677,23 @@ export class AnimalManager implements AnimalApi {
       e.vy = 0;
       e.fluttering = false;
       e.inWater = true;
+      e.airFrom = -1;
       return;
     }
     e.inWater = false;
     const top = supportTop(w, e.x, e.z, e.y, w.size.y);
     if (top === null || e.y > top + 1e-4) {
-      // 空中: パタパタ して ゆっくり 落ちる（下向き の 速さ は animalFlutterFallSpeed まで。§2.9）
+      // 空中: パタパタ して ゆっくり 落ちる（下向き の 速さ は animalFlutterFallSpeed まで。ひよこ は chickFlutterFallSpeed。§2.9）
+      if (e.airFrom < 0) e.airFrom = e.y;
       e.vy -= FALL_G * DT;
-      const cap = this.settings.animalFlutterFallSpeed;
+      const cap = e.stage === 'chick' ? this.settings.chickFlutterFallSpeed : this.settings.animalFlutterFallSpeed;
       if (e.vy < -cap) e.vy = -cap;
       e.y += e.vy * DT;
       if (top !== null && e.y <= top) {
         e.y = top;
         e.vy = 0;
         e.fluttering = false;
+        this.landed(e, top);
       } else {
         e.fluttering = e.vy <= -FLUTTER_MIN_VY;
       }
@@ -1040,7 +1701,43 @@ export class AnimalManager implements AnimalApi {
       e.vy = 0;
       e.fluttering = false;
       e.y = Math.min(top, e.y + 0.2);
+      e.airFrom = -1;
     }
+  }
+
+  /** 着地: ひよこ が 高い 所 から おりた ときは コロン（前 に ころがって 起きる。§2.9） */
+  private landed(e: Ent, top: number): void {
+    const from = e.airFrom;
+    e.airFrom = -1;
+    if (e.stage !== 'chick' || from - top < ROLL_MIN_DROP) return;
+    e.rollLeft = ROLL_TICKS;
+    this.push({ type: 'roll', id: e.id });
+  }
+
+  /** 小屋 の 子 が うまった: 中 の あいた マス へ。無ければ プレイヤー の そば で なかま に もどる（8 わ を こえて も ゆるす） */
+  private kidRespawn(e: Ent, p: Vec3): void {
+    const c = e.home === null ? undefined : this.coopById(e.home);
+    if (c) {
+      const w = this.world;
+      for (const [dx, dz] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]] as const) {
+        const ix = c.x + dx;
+        const iz = c.z + dz;
+        if (w.isSolid(ix, c.y, iz) || w.isSolid(ix, c.y + 1, iz) || !w.isSolid(ix, c.y - 1, iz)) continue;
+        e.x = ix + 0.5;
+        e.y = c.y;
+        e.z = iz + 0.5;
+        e.vy = 0;
+        return;
+      }
+    }
+    e.home = null;
+    e.follow = 0;
+    e.x = p.x;
+    e.y = p.y;
+    e.z = p.z;
+    e.vy = 0;
+    e.homeX = e.x;
+    e.homeZ = e.z;
   }
 
   private turn(e: Ent, p: Vec3, d: number): void {
