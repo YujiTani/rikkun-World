@@ -18,6 +18,7 @@
 | 検証 | — | UI 検査（自動）→ `ui-reviewer`、`tester` |
 | 性能（呼ばれたときだけ） | `perf-engineer` | `perf-analyst` |
 | 週次の提案 | `producer` | オーナー |
+| 毎朝の脆弱性の見張り（`docs/security/daily-watch.md`） | — | `security-engineer` ＋ オーナー |
 
 ## 1 つの issue の進め方
 

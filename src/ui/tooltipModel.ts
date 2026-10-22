@@ -39,7 +39,7 @@ export function rarityCss(r: Rarity): string {
 
 const PICKAXES = ['wood_pickaxe', 'stone_pickaxe', 'iron_pickaxe'];
 const AXES = ['wood_axe', 'stone_axe', 'iron_axe'];
-const BLADES = ['bokuto', 'katana', 'naginata', 'crystal_katana', 'raijin_ken', 'fujin_ken'];
+const BLADES = ['bokuto', 'katana', 'naginata', 'crystal_katana', 'raijin_ken', 'fujin_ken', 'niji'];
 
 /** ツールチップの中身（M4 §2.13 の表の順。当てはまるものだけ） */
 export function buildTooltip(item: ItemId, d: TooltipDeps, stack?: ItemStack | null): TooltipData {
@@ -61,7 +61,9 @@ export function buildTooltip(item: ItemId, d: TooltipDeps, stack?: ItemStack | n
     add('き に つよい', item);
   }
   if (BLADES.includes(item)) {
-    add(`たたく つよさ ${tools.weaponDamage[item] ?? 1}`, item);
+    // WEAPON-7 PR3: 虹は その 1 本の つよさ（ヌシが おとした ときに 決まる）
+    const own = stack && stack.item === item && typeof stack.power === 'number' ? stack.power : null;
+    add(`たたく つよさ ${own ?? tools.weaponDamage[item] ?? 1}`, item);
     if (item === 'naginata') add('とおくまで とどく', item);
   }
   if (item === 'yumi') {

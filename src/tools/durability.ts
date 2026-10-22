@@ -58,7 +58,21 @@ export function copyStack(s: ItemStack): ItemStack {
   const out: ItemStack = { item: s.item, count: s.count };
   if (s.wear && s.wear > 0) out.wear = s.wear;
   if (s.water && s.water > 0) out.water = s.water;
+  if (s.power && s.power > 0) out.power = s.power;
   return out;
+}
+
+/** 保存から 読んだ 強さ（WEAPON-7 PR3）。設定の [最小, 最大] の 整数に おさめる。強さを 持たない 物・おかしい 値 = 0（なし） */
+export function readPower(raw: unknown, item: ItemId): number {
+  const r = powerRangeOf(item);
+  if (!r || typeof raw !== 'number' || !Number.isFinite(raw)) return 0;
+  return Math.max(r[0], Math.min(r[1], Math.round(raw)));
+}
+
+/** 強さが 1 本ごとに ちがう 武器の 範囲（初期値の 表から。虹だけ） */
+export function powerRangeOf(item: ItemId): [number, number] | null {
+  const d = W2_SETTING_DEFAULTS.legendary.find((x) => x.item === item);
+  return d && Array.isArray(d.power) ? [d.power[0], d.power[1]] : null;
 }
 
 /** 保存から 読んだ へった 量（おかしい 値・なし = 0 = 新品）。max が あれば max − 1 まで */
@@ -77,7 +91,7 @@ export function isLow(left: number, max: number, ratio: number): boolean {
  * 入らなかった 数を 返す
  */
 export function addStack(inv: Inventory, st: ItemStack): number {
-  if (!((st.wear && st.wear > 0) || (st.water && st.water > 0)) || st.count !== 1) return inv.add(st.item, st.count);
+  if (!((st.wear && st.wear > 0) || (st.water && st.water > 0) || (st.power && st.power > 0)) || st.count !== 1) return inv.add(st.item, st.count);
   const slots = inv.slots();
   for (let i = 0; i < inv.size; i++) {
     if (!slots[i]) {

@@ -16,6 +16,7 @@ import type {
 } from '../contracts';
 import { createW2Settings } from '../contracts';
 import { isBladeItem } from '../tools/blade';
+import { copyStack } from '../tools/durability';
 import { DropField, type DropView } from '../drops';
 import { createRng, type Rng } from '../world/gen/random';
 import { centerOfYokai, inPunchFan, wallBetween, type AttackDecision } from './attackFacing';
@@ -108,6 +109,10 @@ export interface CombatDeps {
   reachOrigin?: (out: Vec3) => Vec3;
   /** WEAPON-3: 体の点 B を `out` に入れる（かべごしの 線の 出どころ。なければ 足もと + 1.40） */
   bodyPoint?: (out: Vec3) => Vec3;
+  /** WEAPON-7 PR3: true の 間（虹の シャイニング）は ダメージを 受けない・落下ダメージも なし */
+  shielded?: () => boolean;
+  /** WEAPON-7 PR3: true の 間は 落ちた 高さを 数えない（おりた あとの 落下ダメージなし） */
+  fallSafe?: () => boolean;
   /** CHAR-1 第 5.2 版 §4.5: S からの線が 妖怪に当たらないときの「やさしい ねらい補助」。えらんだ妖怪の id か null */
   assist?: (eye: Vec3, dir: Vec3, reach: number) => number | null;
 }
@@ -475,6 +480,11 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
   private fallTick(): void {
     const st = this.d.player.get();
     const y = st.position.y;
+    if (this.d.fallSafe?.() || this.d.shielded?.()) {
+      this.fallPeak = y;
+      this.fallPrevY = y;
+      return;
+    }
     // 1 ステップで大きく動いたら置き直し（復活・テレポート）。落ちる速さは 1 ステップ 0.5 まで
     if (Math.abs(y - this.fallPrevY) > 1.5) this.fallPeak = y;
     this.fallPrevY = y;
@@ -502,6 +512,7 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
 
   private hurt(amount: number, by: YokaiKind | null, from: Vec3 | null, ignoreInvincible = false, kind: DamageKind = 'normal'): boolean {
     if (this.isDead || (this.invincible > 0 && !ignoreInvincible) || !(amount > 0)) return false;
+    if (this.d.shielded?.()) return false; // WEAPON-7 PR3: シャイニング中は 当たらない
     const cfg = this.config;
     // 防具でふせぐ（M4 §2.7）: 妖怪の攻撃だけ。ふせいだ回も むてき・押されるは ふつうどおり
     // 受けるダメージ = max(体力 1〈ハート半分〉, 元 − カット)。カットが 1 以上ならカキン（blocked）
@@ -573,7 +584,7 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
       if (i === sel || !s) continue;
       if (this.rng() < this.config.dropChance) {
         dropped.push(i);
-        stacks.push(s.wear ? { item: s.item, count: s.count, wear: s.wear } : { item: s.item, count: s.count });
+        stacks.push(copyStack(s));
       }
     }
     for (const i of dropped) inv.setSlot(i, null);

@@ -92,7 +92,7 @@ const startOffsets = (r: ReturnType<typeof rig>) => {
 describe('AC1 設定の 初期値', () => {
   it('bladeCombo が §4.7 の 表どおり・step2Advance の ticks は 絵と 同じ', () => {
     const c = createW2Settings().bladeCombo;
-    expect(c.items).toEqual(['crystal_katana', 'raijin_ken', 'fujin_ken']);
+    expect(c.items).toEqual(['crystal_katana', 'raijin_ken', 'fujin_ken', 'niji']);
     expect(c.order).toEqual({ chudan: ['thrust', 'kiriage', 'kesa'], gedan: ['kiriage', 'thrust', 'kesa'], jodan: ['kesa'] });
     expect(c.stepStartup).toEqual({ thrust: 4, kiriage: 12, kesa: 20 });
     expect(c.follow).toEqual({ thrust: 14, kiriage: 12, kesa: 12 });
