@@ -13,7 +13,7 @@ export default defineConfig({
   timeout: 600_000,
   use: { ...base.use, baseURL: `http://localhost:${PORT}` },
   webServer: {
-    command: `npx vite --port ${PORT} --strictPort`,
+    command: `VITE_START_MENU=off npx vite --port ${PORT} --strictPort`,
     url: `http://localhost:${PORT}`,
     reuseExistingServer: true,
     timeout: 60_000,
