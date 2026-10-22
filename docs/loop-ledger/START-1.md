@@ -21,3 +21,4 @@
 | 1 | test-prep | tester | 【軽微】保存の meta は あるが 列が 1 つも ない 世界（さわらずに 保存だけ された）を「つづきから」に 出すか 書いていない（§4.1 は「読める」とだけ） | 書き漏れ | T5 | ユニットは 列があり gen・size が 合う 保存だけを「読める」と した（meta だけの 保存は 確かめない）。決まったら 足す |
 | 1 | test-prep | tester | 【軽微】【ユニット】と 書かれた AC8〜AC11 は DOM が 要る（vitest は node 環境で jsdom なし）。画面の 状態を 純粋な 状態機械（`src/start/startModel.ts`）に 切り出し、DOM との つなぎは E2E（`e2e/start1.spec.ts`）で 見ることに した | 層の 割りふり | T6 | 開発は startModel を 先に 作り、DOM は その 見え方にする（窓口の 名前は `src/start/startModel.test.ts` の 先頭に 書いた） |
 | 1 | test-prep | tester | 【軽微】`?strength=` で 始めた 新しい 世界（保存なし）の 最初の 保存に どの つよさを 書くか（URL の 値か ふつう か）が 書いていない（§4.3 は「保存の 値は 書きかえない」とだけ） | 書き漏れ | T7 | ユニットは `SaveDeps.strength` に 渡した 値を 書く とだけ 決めた（main.ts が 何を 渡すかは 開発が 決める） |
+| 1 | test-prep | PO | T1〜T7 を 仕様 2.2 に 反映（T1 は AC13 を 直す、T2〜T7 は tester の 仮の 決め方を 決まりに） | — | T1〜T7 | 対応済み |
