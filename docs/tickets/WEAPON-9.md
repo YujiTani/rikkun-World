@@ -72,3 +72,14 @@ WEAPON-8 が 大きく さわっている: `src/legend/LegendSystem.ts`（ため
 - テスト: `e2e/weapon9-niji.spec.ts`（赤→ 実装待ち）・ユニットの 期待直し。code-reviewer 合格。
 - 次の 1 手: developer が PR-2 を 実装中（すいこみ AC53〜58 も）。終わったら code-reviewer ＋ 検証（UI 検査・tester）→ ゲーム内の スクショで オーナー確認（AC34・47・52・59）→ PR は オーナーが「作って いい」と 言ってから。
 | 2026-10-21 | PR | yuzu「PR もあなたの判断で作って」→ PO が 検証 合格の あとに PR を 作って よい（マージは オーナー） | |
+
+## 引きつぎ 2（2026-10-22 PO。週の 利用上限で 止まった。解除 2026-10-22 21:00 UTC）
+**どこまで**: PR-2（虹）の 実装・ユニット・E2E（weapon9-niji 6 本 緑）・コードレビュー 2 人 合格（重大 0）・軽微 6 件の 直し（6b03284）まで。ブランチ `claude/weapon-9-niji` に push ずみ。PR は まだ（オーナー「PR も PO の 判断で 作って よい」。見た目が 変わるので マージは オーナー）。
+
+**のこり（この 順）**
+1. developer: (a) `legend.nijiFx().info()` に `draws` を 足す（AC42 が 描画回数を 見て いない）。(b) testHook に「カメラだけ 体の 向きから ずらす」口（例 `camera.yawOffset(deg)`）か 向きを 決めて 斬撃を 出す 口（side/flat を 撮り分ける ため。遊びは 変えない）。(c) **ドームの りんかくが まだ 多角形**（`docs/art/WEAPON-9/verify/dome-third-F100.png`）→ 三角形 220 以内で 経度を 多く・緯度を 少なく／シェーダーで ふちを 丸く。heldTools の mergedCache の 解放（軽微）も。
+2. tester: `e2e/weapon9-verify-shots.spec.ts` は 重い（600 秒）ので CI が 回さない 所へ 移す（試作の `art/WEAPON-9/proto-shoot.spec.ts` と 同じ）。撮り直し: ドーム（なめらか）・**妖怪を 置いた すいこみ中**（今の 4 枚は 妖怪も ドームも 映って いない）・斬撃 side/flat・手持ち（刃が 見える コマ）。`npm run check:ui` を もう 1 回（congrats・craft-detail・rarity-7 の 落ちた 記録が 同じ 実行か 不明）。
+3. code-reviewer（同じ 観点）で 1・2 を 見る → PO が draft PR（`Closes #70`。本文に AC ごとの 層・スクショ・性能の 前後・on-jin の 音は 配らない 前提）→ スクショを オーナーへ（SendUserFile）→ CI 緑 ＋ オーナー OK で ready。
+4. あとで: PR-1（ための 光 3 本・雷神剣と 風神剣の 手持ち〈絵の 関数は `art/WEAPON-9/held/build.py` に ある〉・真空波の 向き）を 別ブランチで。男の子は #242。
+
+**依頼文（1 の developer へ）**: 「issue #70 / docs/tickets/WEAPON-9.md の『引きつぎ 2』の のこり 1 を やって。仕様 docs/design/WEAPON-7.md 版 2.6。e2e/ は さわらない。npm run check:fast と e2e/weapon9-niji.spec.ts。コミットして push。返事は 短く（直した 所・ドームの スクショの パス）」
