@@ -46,6 +46,8 @@ export interface CharController {
 export interface CharControllerDeps {
   search: string;
   store: KeyValueStore | null;
+  /** START-1: スタートメニューで えらんだ キャラ（あれば URL・おぼえた値より 先。メニューが すでに 書いて いる） */
+  initial?: CharMode;
   /** 切りかえの 読みこみ口（始めるときは 呼ばない） */
   onSwitch: (kind: CharChoice) => void;
 }
@@ -54,9 +56,9 @@ export function createCharController(deps: CharControllerDeps): CharController {
   const q = new URLSearchParams(deps.search);
   const nosave = q.get('nosave') === '1';
   const store = nosave ? null : deps.store;
-  let kind = decideChar(deps.search, store);
+  let kind = deps.initial ?? decideChar(deps.search, store);
   const param = q.get('char');
-  if (isChoice(param)) saveChar(store, param); // URL で 始めたときも おぼえる
+  if (deps.initial === undefined && isChoice(param)) saveChar(store, param); // URL で 始めたときも おぼえる
   return {
     get: () => ({ kind }),
     set(next) {

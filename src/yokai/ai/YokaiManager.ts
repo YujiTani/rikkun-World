@@ -31,7 +31,7 @@ import { SEA_Y, createW2Settings, type W2Settings } from '../../contracts';
 import { bearingOf } from '../../combat/parry';
 import { createStaggerBook, type StaggerBy, type StaggerInfo } from '../stagger';
 import { colorStage, locationMAt } from '../location';
-import { YOKAI_STATS, yokaiStrength } from '../stats';
+import { YOKAI_STATS, yokaiStrength, type StrengthLevel } from '../stats';
 import { ANNOUNCE_TICKS, TITLE_RULES, isBigTitle, limitTitle, rollTitle, titleAnnounceText, titleLabel } from '../title';
 import { fallDamage } from '../../combat/config';
 import { createRng, type Rng } from '../../world/gen/random';
@@ -80,6 +80,8 @@ export interface YokaiManagerOptions {
   /** 出来事に付ける「ゲームの何ステップ目か」。なければ update を呼んだ回数 */
   tick?: () => number;
   seed?: number;
+  /** START-1: つよさ（その 世界の 妖怪の 体力・攻撃力に かける。なければ ふつう） */
+  strength?: StrengthLevel;
   config?: YokaiConfig;
   /** 光（M4）。あれば 出現は「暗い所」、明るさは足もとの光。なければ 時刻だけで決める */
   light?: Pick<LightField, 'level'> & {
@@ -1013,7 +1015,7 @@ export class YokaiManager implements YokaiWorld {
 
   /** M と二つ名から 体力・攻撃力・経験値・大きさ・色を決める */
   private applyStats(e: Ent, title: YokaiTitle): void {
-    const st = yokaiStrength(e.kind, e.m, title);
+    const st = yokaiStrength(e.kind, e.m, title, this.opts.strength ?? 'normal');
     const t = TITLE_RULES[title];
     const full = e.hp >= e.maxHp;
     const ratio = e.maxHp > 0 ? e.hp / e.maxHp : 1;
