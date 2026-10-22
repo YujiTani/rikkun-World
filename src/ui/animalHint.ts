@@ -48,7 +48,6 @@ export class AnimalHint {
     if (k === null) return;
     this.el.dataset.hint = k;
     const view = ANIMAL_HINT_VIEW[k];
-    if (!view) return; // LIVE-2 の 合図 の 文 は C が 足す まで 無い
     const chip = createChip({ html: view.html, tone: 'info', head: true });
     const text = chip.querySelector('.rk-chip__text')!;
     for (const a of view.art) {
@@ -59,7 +58,7 @@ export class AnimalHint {
         const c = document.createElement('canvas');
         drawPixels(c, heartPixels('full'));
         img.src = c.toDataURL();
-      } else if (a === 'chicken' || a === 'chickenRibbon' || a === 'sun') {
+      } else if (a === 'chicken' || a === 'chickenRibbon' || a === 'sun' || a === 'chick' || a === 'zzz' || a === 'hourglass' || a === 'hand') {
         img.src = animalIconUrl(a);
       } else {
         img.src = itemIconUrl(a);

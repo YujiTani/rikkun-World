@@ -339,6 +339,7 @@ export interface DigState {
 export type DigEvent =
   /** count: 手に入った数（ドロップ数はランダム。入りきらなかった分はふくまない） */
   | { type: 'break'; tick: number; block: Vec3; id: BlockId; gotItem: boolean; count: number }
+  /** LIVE-2: 小屋 を 置いた とき は `id` が `toriya_fence`（C が 出す。実績 `place:toriya` に なる） */
   | { type: 'place'; tick: number; block: Vec3; id: BlockId }
   /** ひびが MAX になった（あとひと押しでこわれる。オーナー決定 B） */
   | { type: 'ready'; tick: number; block: Vec3; id: BlockId }
@@ -800,6 +801,11 @@ export type StatKey =
   // LIVE-1 版 3.2（§4.5）
   | `bug:${string}` // `bug:catch`・`bug:*` など
   | `carry:${string}` // `carry:chicken`・`carry:*` など
+  // LIVE-2 版 3（§4.5）
+  | `hatch:${string}` // `hatch:*`・`hatch:chicken`・`hatch:macho`
+  | `home:${string}` // `home:*`（小屋 の 子 に なった）
+  | `grow:${string}` // `grow:*`（大人 に なった）
+  | `goldenEgg:${string}` // `goldenEgg:*`（金 の たまご を うんだ）
   // M7 農業（`visit:oldfarm` は上の `visit:` の形）
   | 'till'
   | `plant:${string}` // `plant:<kind>`・`plant:*`
@@ -2620,7 +2626,7 @@ export interface AnimalApi {
   /** 版 3.2（C が 足した）: C から の 合図（treeEmpty・netHint・cantPutHere・carryWild・fullHint・friendFull・feedHint）を 出来事 `hint` と `lastHint()` に 入れる */
   emitHint?(h: AnimalHintKind): void;
   /** 'ate' の とき だけ C が むし を 1 へらす。'full' = おなかいっぱい、'pet' = なでる に なった、'friendFull' = なかま が 8 わ */
-  feed(id: number, item: ItemId): 'ate' | 'full' | 'pet' | 'friendFull' | null;
+  feed(id: number, item: ItemId): 'ate' | 'full' | 'pet' | 'friendFull' | 'sleep' | null;
   pet(id: number): 'wild' | 'friend' | null;
   /** 版 3.2: おなかいっぱい か（テスト・確認用。照準 の 下 の `まってね` は `preview` が 'animalFull' を 返す） */
   isFull?(id: number): boolean;
@@ -2630,6 +2636,8 @@ export interface AnimalApi {
   carryHold(id: number, heldTicks: number): 'lifted' | 'wait' | 'wild' | null;
   /** 版 3.2: おろす（spot = 足もと の 位置）。おろせたら true */
   putDown(spot: Vec3): boolean;
+  /** LIVE-2（C が 足した）: `putDown` が false の 直後 に 呼ぶ。A が 理由 を 持って いれば その 合図（`coopFull`＝6 わ の 小屋・`friendFull`＝なかま 8 わ）。なければ C は 小屋 の 中 の 数 を 自分 で 見て、それ でも なければ `cantPutHere` */
+  putDownWhy?(): AnimalWindowHint | null;
   /** だっこ している id か null */
   carrying(): number | null;
   forEachVisible(fn: (v: AnimalView) => void): void;

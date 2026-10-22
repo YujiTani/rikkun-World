@@ -258,6 +258,8 @@ export class AchievementSystem implements AchievementShowSource {
         } else if (e.type === 'place') {
           this.bump(`place:${e.id}`, 1);
           this.bump('place:*', 1);
+          // LIVE-2: 小屋 を 置く と DigSystem が さく の ブロック で 出す。ブロック 1 こ ではなく toriya を 1 回 置いた 数
+          if (e.id === 'toriya_fence') this.bump('place:toriya', 1);
         }
       }
     });
@@ -421,8 +423,26 @@ export class AchievementSystem implements AchievementShowSource {
             this.bump('carry:chicken', 1);
             this.bump('carry:*', 1);
             break;
+          // LIVE-2（§4.5）: かえった（マッチョ は 別の 記録）・小屋 の 子 に なった・大人 に なった・金 の たまご
+          case 'hatch':
+            this.bump('hatch:chicken', 1);
+            this.bump('hatch:*', 1);
+            if (e.breed === 'macho') this.bump('hatch:macho', 1);
+            break;
+          case 'home':
+            this.bump('home:chicken', 1);
+            this.bump('home:*', 1);
+            break;
+          case 'grow':
+            this.bump('grow:chicken', 1);
+            this.bump('grow:*', 1);
+            break;
           default:
             break;
+        }
+        if (e.type === 'egg' && e.gold) {
+          this.bump('goldenEgg:chicken', 1);
+          this.bump('goldenEgg:*', 1);
         }
       }
     });
