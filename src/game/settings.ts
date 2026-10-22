@@ -24,7 +24,7 @@ export function createSettingsHook(player: PlayerSettings, camera: CameraConfig,
   };
   const names = (): string[] => bags.flatMap((b) => Object.keys(b));
   const copy = (v: SettingValue): SettingValue =>
-    isRecord(v) ? (Object.fromEntries(Object.entries(v).map(([k, x]) => [k, typeof x === 'object' && x !== null ? deepCopy(x) : x])) as SettingValue) : v;
+    Array.isArray(v) ? (deepCopy(v as unknown as object) as unknown as SettingValue) : isRecord(v) ? (Object.fromEntries(Object.entries(v).map(([k, x]) => [k, typeof x === 'object' && x !== null ? deepCopy(x) : x])) as SettingValue) : v;
   return {
     get: (name: string): SettingValue => {
       const bag = find(name);
@@ -33,6 +33,14 @@ export function createSettingsHook(player: PlayerSettings, camera: CameraConfig,
     set: (name: string, value: SettingValue): void => {
       const bag = find(name);
       const cur = bag[name];
+      // WEAPON-7: 表（legendary・nushiDrops）は 配列。まるごと 入れかえる（長さが かわっても よい）
+      if (Array.isArray(cur)) {
+        if (!Array.isArray(value)) throw new Error(`設定 ${name} の型がちがう`);
+        const next = deepCopy(value as unknown as object[]);
+        cur.length = 0;
+        cur.push(...next);
+        return;
+      }
       if (isRecord(cur)) {
         if (!isRecord(value)) throw new Error(`設定 ${name} の型がちがう`);
         for (const k of Object.keys(value)) {

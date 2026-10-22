@@ -1,0 +1,135 @@
+{
+ "_about": "ふつうの 攻撃の 風の 刃 K1「みかづきの 刃」（オーナー決定 2026-10-21）。カメラに 正面の 板 1 まい（ビルボード）。絵は 22×22 の 板（= 1.375 ブロック。三日月の 長さは 約 0.75 ブロック）。1 点 = 1/16 ブロック。Nearest・ミップなし・sRGB・半透明の 点 なし（alphaTest 0.5）。",
+ "texture": "fujin_blade.png",
+ "textureSize": [
+  128,
+  64
+ ],
+ "blocksPerDot": 0.0625,
+ "quadBlocks": 1.375,
+ "sprites": {
+  "0_0": [
+   0,
+   0,
+   22,
+   22
+  ],
+  "0_1": [
+   0,
+   22,
+   22,
+   22
+  ],
+  "45_0": [
+   22,
+   0,
+   22,
+   22
+  ],
+  "45_1": [
+   22,
+   22,
+   22,
+   22
+  ],
+  "90_0": [
+   44,
+   0,
+   22,
+   22
+  ],
+  "90_1": [
+   44,
+   22,
+   22,
+   22
+  ]
+ },
+ "directions": {
+  "_rule": "絵の 向き θ = 画面の 上で 進む 向きを 45° ずつに まるめた 角（度。右 = 0・上 = 90）。うしろへ はなれる（進む 向きと カメラの 前が 0.7 以上 そろう）は 90（アーチ）・近づく（-0.7 以下）は -90。板は 回さない。表の 'src' の 絵を flipX / flipY で 使う（点は ずれない）",
+  "table": {
+   "0": {
+    "sprite": "0",
+    "flipX": false,
+    "flipY": false
+   },
+   "45": {
+    "sprite": "45",
+    "flipX": false,
+    "flipY": false
+   },
+   "90": {
+    "sprite": "90",
+    "flipX": false,
+    "flipY": false
+   },
+   "135": {
+    "sprite": "45",
+    "flipX": true,
+    "flipY": false
+   },
+   "180": {
+    "sprite": "0",
+    "flipX": true,
+    "flipY": false
+   },
+   "-135": {
+    "sprite": "45",
+    "flipX": true,
+    "flipY": true
+   },
+   "-90": {
+    "sprite": "90",
+    "flipX": false,
+    "flipY": true
+   },
+   "-45": {
+    "sprite": "45",
+    "flipX": false,
+    "flipY": true
+   }
+  },
+  "flipCheckMismatchPixels": 0
+ },
+ "frames": {
+  "count": 2,
+  "stepsPerFrame": 3,
+  "rule": "コマ（_0 と _1）は 3 ステップごとに 入れかえ。ちがう のは うしろの すじの 点の 位置だけ"
+ },
+ "timeline": {
+  "appear": {
+   "steps": 2,
+   "scale": 0.6,
+   "rule": "出る 2 ステップは 0.6 倍（そのあと 1.0 倍）"
+  },
+  "fly": {
+   "steps": 14
+  },
+  "fade": {
+   "steps": 4,
+   "ditherLevels": [
+    0,
+    1,
+    2,
+    3
+   ],
+   "rule": "さいご 4 ステップは 網で 捨てる: texel の ((x + y) % 4) < レベル。点滅しない。合計 20 ステップ（5 マス・0.25 マス/ステップ）"
+  },
+  "reducedMotion": "「動きを減らす」でも 同じ（回らない・点滅しない ので 変えない）"
+ },
+ "visualOffset": "見た目だけ 進む 向きの 右（剣の 手の 側）へ 0.4 ブロック ずらす（当たりの 半径 0.5 の 中。頭で かくれない ため）",
+ "colors": {
+  "W1": "#F4FCFF",
+  "W2": "#CDEFFC",
+  "B1": "#8FD6F2",
+  "B2": "#4FA8D8",
+  "B3": "#2B6699"
+ },
+ "counts": {
+  "drawCalls": 1,
+  "drawCallsNote": "8 つ 同時でも 1 回（InstancedMesh）。今の 十字 2 まい × 8 = 最大 16 回より 軽い",
+  "triangles": 16,
+  "trianglesNote": "板 8 まい × 2。同時に 出る 数は 真空波の 上限 8",
+  "colors": 4
+ }
+}

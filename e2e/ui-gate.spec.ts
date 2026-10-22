@@ -2,6 +2,8 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import { standOnGround } from './helpers/aim';
 import { toStance } from './helpers/blade';
+import { aimGroundAhead, chargeUntilReady, legendWorld, releaseAndStep } from './helpers/legend';
+import { expectThunderHook } from './helpers/thunder';
 import { waitSpritesReady } from './helpers/char';
 import { findLand, openBooting } from './helpers/stream';
 import { wide } from './helpers/fine';
@@ -37,6 +39,8 @@ interface Screen {
   roots: string[];
   /** true なら くずれ（はみ出し・重なり）だけ しらべる（色・字の きまりは ほかの画面で見ている） */
   layoutOnly?: boolean;
+  /** true なら 大きさを かえるときに ステップを 進めない（見た目を 落雷の F に 止めて 3 つの 大きさで 撮る。ART-PIPE-1 AC7） */
+  freeze?: boolean;
   /** ゲームを開いたあと、この画面を出す */
   open(page: Page): Promise<void>;
 }
@@ -107,6 +111,18 @@ const bookPage = (id: string, target: string): Screen => ({
   },
 });
 
+/** 風神剣を ホットバーの 1 つ目に 持たせ、アイコンが 出きる（12 ステップ）まで 進める */
+async function openFujinHud(page: Page): Promise<void> {
+  await boot(page, true);
+  await page.evaluate(fillInventory);
+  await page.evaluate(() => {
+    const h = window.__rikkun! as any;
+    h.inventory.setSlot(0, { item: 'fujin_ken', count: 1 });
+    h.inventory.select(0);
+    h.step(20);
+  });
+}
+
 const SCREENS: Screen[] = [
   guideHome,
   bookPage('book-toc', 'toc'),
@@ -120,6 +136,13 @@ const SCREENS: Screen[] = [
       await boot(page, true);
       await page.evaluate(fillInventory);
     },
+  },
+  {
+    // WEAPON-8 AC17: 風神剣を 持った HUD（速さの アイコンの 板が 体力の かたまりの 上・左はし）
+    id: 'hud-fujin',
+    roots: ['#hud'],
+    layoutOnly: true, // 重なり・はみ出しだけ（色・字の 既知の くずれ #57 は 'hud' で 見ている。板の 色は 下の 報告）
+    open: openFujinHud,
   },
   {
     id: 'inventory',
@@ -264,7 +287,7 @@ const SCREENS: Screen[] = [
   },
   {
     id: 'congrats',
-    roots: ['.cel-scrim'],
+    roots: ['.cel-toast'], // WEAPON-7 O8: 実績の おしらせは 上の 帯（クラス名は 仮。開発が 決めたら ここだけ 直す）
     open: async (page) => {
       await boot(page, true);
       await page.evaluate(() => {
@@ -470,6 +493,92 @@ SCREENS.push(
   char4Scene('char4-thrust-katana-F5', 'katana', 'chudan', 5),
 );
 
+/**
+ * ART-PIPE-1 AC7: 雷 B の ささる 所（平地 / 板を よこぎる 高さ 3 の 石の かべ）の F9・F12 を 3 つの 大きさで 撮る（ui-reviewer が 切れ目の 線を 見る）。
+ *   今の 雷は この ブランチに ない ので、同じ 場面を main で 撮って ならべる（スクショは ui-gate-report/artpipe1-*.png）。
+ *   かべは S から よこへ 1 ブロック の ところに、板を よこぎる 向き（カメラの 奥ゆき）で 立てる。窓口 `__rikkun.thunder` が ないと 赤。
+ * ART-PIPE-1 AC18: 雷神剣の アイコン（ホットバー・もちもの・ツールチップ。いちばん 多い とき = 全部の マスが 雷神剣）。ちがいが 出るのは 雷神剣の 絵の 所だけ。
+ */
+const thunderScene = (id: string, wall: boolean, F: number): Screen => ({
+  id,
+  roots: ['#hud'],
+  layoutOnly: true,
+  freeze: true,
+  open: async (page) => {
+    const floorY = await legendWorld(page);
+    await expectThunderHook(page);
+    await aimGroundAhead(page, floorY, 8);
+    const ready = await chargeUntilReady(page, 60);
+    const S = ready[ready.length - 1]!.aim!.S!;
+    if (wall) {
+      await page.evaluate(
+        ({ S, fy }) => {
+          const h = window.__rikkun as any;
+          const x = Math.floor(S.x) + 1;
+          h.world.fill(x, fy + 1, Math.floor(S.z) - 3, x, fy + 3, Math.floor(S.z) + 3, 'stone');
+        },
+        { S, fy: floorY },
+      );
+    }
+    await releaseAndStep(page, F - 1);
+    const shown = await page.evaluate(() => (window.__rikkun as any).thunder.info());
+    expect({ F: shown.F, bolt: shown.bolt.visible }, `${id}: 雷が F${F} で 出ている 場面に なっていない`).toEqual({ F, bolt: true });
+  },
+});
+SCREENS.push(
+  thunderScene('artpipe1-flat-F9', false, 9),
+  thunderScene('artpipe1-flat-F12', false, 12),
+  thunderScene('artpipe1-wall-F9', true, 9),
+  thunderScene('artpipe1-wall-F12', true, 12),
+);
+
+const allRaijin = () => {
+  const h = window.__rikkun! as any;
+  h.inventory.clear();
+  for (let i = 0; i < 45; i++) {
+    try {
+      h.inventory.setSlot(i, { item: 'raijin_ken', count: 1 });
+    } catch {
+      break;
+    }
+  }
+  h.inventory.select(0);
+  h.step(2);
+};
+SCREENS.push(
+  {
+    id: 'artpipe1-icon-hud',
+    roots: ['#hud'],
+    layoutOnly: true, // 色・字の きまりは 'hud'・'inventory' の 画面で 見ている。ここは 絵の はみ出し・重なり
+    open: async (page) => {
+      await boot(page, true);
+      await page.evaluate(allRaijin);
+    },
+  },
+  {
+    id: 'artpipe1-icon-inventory',
+    roots: ['#inventory-screen', '#hud'],
+    layoutOnly: true, // 色・字の きまりは 'hud'・'inventory' の 画面で 見ている。ここは 絵の はみ出し・重なり
+    open: async (page) => {
+      await boot(page, true);
+      await page.evaluate(allRaijin);
+      await page.evaluate(toggleInventory);
+    },
+  },
+  {
+    id: 'artpipe1-icon-tooltip',
+    roots: ['#tooltip'],
+    layoutOnly: true, // 色・字の きまりは 'hud'・'inventory' の 画面で 見ている。ここは 絵の はみ出し・重なり
+    open: async (page) => {
+      await boot(page, true);
+      await page.evaluate(allRaijin);
+      await page.evaluate(toggleInventory);
+      await page.locator('#inventory-screen .slot[data-item="raijin_ken"]').first().hover();
+      await page.evaluate(() => (window.__rikkun as any).step(3));
+    },
+  },
+);
+
 interface Issue {
   kind: string;
   /** 数字を ふくまない 目印（known.json と くらべる） */
@@ -538,10 +647,10 @@ test.describe('UI 検査ゲート', () => {
       let rootsSeen = 0;
       for (const s of SIZES) {
         await page.setViewportSize({ width: s.w, height: s.h });
-        await page.evaluate(() => {
-          (window.__rikkun as any).step(2);
+        await page.evaluate((freeze) => {
+          (window.__rikkun as any).step(freeze ? 0 : 2); // step(0) は 進めずに 描きなおす
           return new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-        });
+        }, !!screen.freeze);
         rootsSeen += await page.evaluate((sels) => sels.filter((q) => document.querySelector(q)).length, screen.roots);
         for (const issue of await inspect(page, screen.roots, s === SIZES[0] && !screen.layoutOnly)) {
           const k = key(screen.id, issue);
@@ -564,6 +673,45 @@ test.describe('UI 検査ゲート', () => {
         `新しい くずれ。直すか、直せない理由があれば issue にして ${KNOWN_FILE} に足す`,
       ).toEqual([]);
     });
+  }
+});
+
+/** WEAPON-8 AC17: 風神剣を 持つと 速さの アイコンの 板が ハートの かたまりの すぐ上・左はし・字なし。3 つの 大きさで */
+test('WEAPON-8 AC17: 速さアイコンの 板の 位置・大きさ（3 つの 大きさ）', async ({ page }) => {
+  mkdirSync(OUT, { recursive: true });
+  await page.setViewportSize({ width: SIZES[0].w, height: SIZES[0].h });
+  await openFujinHud(page);
+  const want = { '1280x800': { gap: 8, size: 43 }, '1440x900': { gap: 9, size: 48 }, '1024x700': { gap: 6.8, size: 36.8 } } as const;
+  for (const s of SIZES) {
+    await page.setViewportSize({ width: s.w, height: s.h });
+    await page.evaluate(() => {
+      (window.__rikkun as any).step(2);
+      return new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    });
+    const m = await page.evaluate(() => {
+      const r = (q: string) => {
+        const e = document.querySelector(q) as HTMLElement | null;
+        if (!e) return null;
+        const b = e.getBoundingClientRect();
+        return { l: b.left, t: b.top, r: b.right, b: b.bottom, w: b.width, h: b.height, text: e.textContent ?? '' };
+      };
+      const cl = document.querySelector('#hud-self')!.getBoundingClientRect(); // ハートと レベルの かたまり
+      const top = cl.top;
+      const left = cl.left;
+      const hot = document.querySelector('#hotbar, .hotbar') as HTMLElement | null;
+      return { plate: r('#buff-plate'), icons: document.querySelectorAll('[data-buff="speed"]').length, top, left, hot: hot ? hot.getBoundingClientRect().left : null, vw: innerWidth, vh: innerHeight };
+    });
+    const w = want[`${s.w}x${s.h}` as keyof typeof want];
+    expect(m.plate, `${s.w}x${s.h} 板が ある`).not.toBeNull();
+    const pl = m.plate!;
+    expect(m.icons, '速さの 絵は 1 つ').toBe(1);
+    expect(pl.text.trim(), '板の 中に 字が ない').toBe('');
+    expect(Math.abs(m.top - pl.b - w.gap), `${s.w}x${s.h} すき間 ${w.gap}±1（実際 ${(m.top - pl.b).toFixed(1)}）`).toBeLessThanOrEqual(1);
+    expect(Math.abs(pl.l - m.left), `${s.w}x${s.h} 左はし そろい ±1（実際 ${(pl.l - m.left).toFixed(1)}）`).toBeLessThanOrEqual(1);
+    expect(Math.abs(pl.w - w.size), `${s.w}x${s.h} はば ${w.size}±4（実際 ${pl.w.toFixed(1)}）`).toBeLessThanOrEqual(4);
+    expect(Math.abs(pl.h - w.size), `${s.w}x${s.h} 高さ ${w.size}±4（実際 ${pl.h.toFixed(1)}）`).toBeLessThanOrEqual(4);
+    expect(pl.l >= 0 && pl.t >= 0 && pl.r <= m.vw && pl.b <= m.vh, '画面から はみ出さない').toBe(true);
+    await page.screenshot({ path: `${OUT}/ac17-hud-fujin-${s.w}x${s.h}.png` });
   }
 });
 
@@ -738,7 +886,7 @@ test('CHAR-4 AC13: ぼくとう と かたなの 画面の ちがいは キャ�
     const p = h.player.get();
     const cam = h.camera.get();
     const fovDeg = h.camera.fov() as number;
-    const modelH = (await (await fetch('./models/char/atlas.json')).json()).modelH as number;
+    const modelH = (await (await fetch('./models/char/girl/atlas.json')).json()).modelH as number;
     const k = 1.8 / modelH;
     const sprite = h.player.doll().sprite;
     const yaw = (p.yaw * Math.PI) / 180;

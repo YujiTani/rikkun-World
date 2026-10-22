@@ -3,6 +3,7 @@ import { ACHIEVEMENT_DEFS, CATEGORY_LABEL, CATEGORY_ORDER } from '../achievement
 import type { AchievementSystem } from '../achievements/AchievementSystem';
 import type { AchievementsPageModel } from '../achievements/pageModel';
 import { animalIconUrl } from './animalArt';
+import { withRuby } from './text';
 import { heartPixels } from './heartsModel';
 import { anyIconUrl, drawPixels } from './itemIcon';
 import { createBar, createChip, createMedal, createTab, createTooltip, setBar, setTabState } from './theme';
@@ -191,7 +192,7 @@ export class AchievementsPage {
       text.className = 'ach-row__text';
       const name = document.createElement('div');
       name.className = 'ach-row__name';
-      name.textContent = r.unlocked ? def.name : '？？？';
+      name.innerHTML = r.unlocked ? withRuby(def.name) : '？？？'; // 名前は ［漢字｜よみ］ → ふりがなつき（WEAPON-7 §2.7）
       text.append(name);
       if (r.unlocked) {
         const day = document.createElement('div');
@@ -216,7 +217,9 @@ export class AchievementsPage {
 
   private showTip(row: HTMLElement, def: AchievementDef, unlocked: boolean): void {
     const t = this.tip;
-    t.name.replaceChildren(unlocked ? createMedal(def.medal, 96, mark(def)) : createMedal('locked', 96), document.createTextNode(unlocked ? def.name : '？？？'));
+    const nameSpan = document.createElement('span');
+    nameSpan.innerHTML = unlocked ? withRuby(def.name) : '？？？';
+    t.name.replaceChildren(unlocked ? createMedal(def.medal, 96, mark(def)) : createMedal('locked', 96), nameSpan);
     t.desc.textContent = '';
     t.root.hidden = false;
     // パネルは 小さい画面で縮めてあるので、画面の座標 → パネルの中の座標 に直す

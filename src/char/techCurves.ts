@@ -1,4 +1,4 @@
-// わざの絵・弓の絵の 時間割（public/models/char/atlas.json の ticks・advance・step・phases の写し）。
+// わざの絵・弓の絵の 時間割（public/models/char/girl/atlas.json の ticks・advance・step・phases の写し）。
 // 絵が読めなくても コマを決められるように コードにも持つ。atlas.json と同じことは techCurves.test.ts で確かめる。
 import type { BladeAdvanceCurve, BladeTech, BladeTechFrames } from '../contracts';
 

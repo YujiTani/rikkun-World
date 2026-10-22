@@ -35,6 +35,7 @@ import { YOKAI_STATS, yokaiStrength } from '../stats';
 import { ANNOUNCE_TICKS, TITLE_RULES, isBigTitle, limitTitle, rollTitle, titleAnnounceText, titleLabel } from '../title';
 import { fallDamage } from '../../combat/config';
 import { createRng, type Rng } from '../../world/gen/random';
+import { pickNushiDrop } from '../../legend/defs';
 import { applyDollBrightness } from './brightness';
 import { AI_CONST, KIND_AI, YOKAI_DROPS, createYokaiConfig, type KindAi, type YokaiConfig } from './config';
 import { BurstFx } from './effects';
@@ -97,8 +98,13 @@ export interface YokaiManagerOptions {
   seaY?: () => number;
   /** ブロックがこわれた・石になった（くだけるつぶ・音用。1 回の出来事ぶんをまとめて渡す） */
   onBlocks?: (cells: { x: number; y: number; z: number; from: BlockId; to: BlockId }[], why: 'crush' | 'stone') => void;
-  /** WEAPON-5: 設定の入れ物（よろけ・はね返し。なければ 初期値） */
+  /** WEAPON-5: 設定の入れ物（よろけ・はね返し。WEAPON-7: ヌシの ドロップ表 `nushiDrops`。なければ 初期値） */
   settings?: W2Settings;
+  /**
+   * WEAPON-7 §2.3・§2.6 (2): ヌシから レジェンダリーの 袋が 出た（テロップ・音の 合図。袋を 出した ステップに 呼ぶ）。
+   * `added` = 持ち物に 入った 数（`drops` が ないとき）
+   */
+  onLegendDrop?: (info: { item: ItemId; yokaiId: number; kind: YokaiKind; position: Vec3 }) => void;
   /** WEAPON-5: パリィ。妖怪の攻撃・火の玉が プレイヤーに当たる直前に聞く（なければ 今のまま） */
   parry?: YokaiParryPort;
   /** WEAPON-5: よろけ・2 倍・はね返しが当たった 出来事を パリィの 出来事の 列へ */
@@ -263,6 +269,7 @@ export class YokaiManager implements YokaiWorld {
   private readonly drops: YokaiManagerOptions['drops'];
   private readonly tickFn: (() => number) | null;
   private readonly rng: Rng;
+  private readonly nushiRng: Rng;
   /** 二つ名の抽選（出現の乱数の並びを変えないように別に持つ） */
   private readonly titleRng: Rng;
   private announceNow: AnnounceInfo | null = null;
@@ -301,6 +308,7 @@ export class YokaiManager implements YokaiWorld {
     this.config = opts.config ?? createYokaiConfig();
     this.rng = createRng((opts.seed ?? 20240612) ^ 0x7a11);
     this.titleRng = createRng((opts.seed ?? 20240612) ^ 0x71713);
+    this.nushiRng = createRng((opts.seed ?? 20240612) ^ 0x1e6e17d); // WEAPON-7 §2.3: ヌシの 表は べつの 乱数（ほかの ドロップの 列を ずらさない）
     this.group.add(this.burst.group);
   }
 
@@ -842,6 +850,7 @@ export class YokaiManager implements YokaiWorld {
         this.emit({ type: 'drop', tick: this.tick(), id: e.id, kind: e.kind, item: row.item, count, added }, true);
       }
     }
+    if (byPlayer && e.title === 'nushi' && e.kind !== 'nurikabe') this.dropLegendary(e);
     this.emit({
       type: 'defeat',
       tick: this.tick(),
@@ -851,6 +860,19 @@ export class YokaiManager implements YokaiWorld {
       reward: total,
       title: e.title,
     });
+  }
+
+  /**
+   * WEAPON-7 §2.3: ヌシを プレイヤーが たおした → 今の ドロップの あとに、ヌシの 表（設定 `nushiDrops`）から かならず 1 本。
+   * weight で ランダム（持っている か・前に 何が 出たかは 見ない）。表が 空なら 何も 出さない
+   */
+  private dropLegendary(e: Ent): void {
+    const item = pickNushiDrop(this.S.nushiDrops, this.nushiRng);
+    if (item === null) return;
+    const at = { x: e.x, y: e.y, z: e.z };
+    const left = this.drops ? 1 - this.drops.scatter(at, [{ item, count: 1 }], { kind: 'yokai' }) : this.inventory.add(item, 1);
+    this.emit({ type: 'drop', tick: this.tick(), id: e.id, kind: e.kind, item, count: 1, added: 1 - left }, true);
+    this.opts.onLegendDrop?.({ item, yokaiId: e.id, kind: e.kind, position: at });
   }
 
   private showMarks(e: Ent): void {

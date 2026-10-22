@@ -20,7 +20,7 @@ describe('WEAPON-2 contracts', () => {
     expect(s.bladeDamageMul).toEqual({ thrust: 0.75, kesa: 2.5, kiriage: 1.15 });
     expect(s.bladeKnock).toEqual({ thrust: [0.8, 0], kesa: [6, 3], kiriage: [1, 7] });
     const reach = (s as unknown as { bladeReach: Record<string, number> }).bladeReach;
-    expect(reach).toEqual({ bokuto: 2.2, katana: 2.2, crystal_katana: 2.2 });
+    expect(reach).toMatchObject({ bokuto: 2.2, katana: 2.2, crystal_katana: 2.2 }); // WEAPON-7: 刀の なかま（雷神剣）が ふえても よい。射程は 2.2（contracts.w7.test.ts）
     expect(s.bladeShape.kiriage.yMax).toBe(6.0);
     expect(s.bladeAimReach).toBe(4.5);
     expect(s.bowStageTicks).toEqual([10, 25, 40]);
@@ -29,7 +29,7 @@ describe('WEAPON-2 contracts', () => {
     expect('thrustLunge' in s).toBe(false);
     // WEAPON-4 AC1: ふみこみの線。ticks は 絵（atlas.json）と 同じ。advance・step は 大けさぎり・切り上げが 絵と ちがう
     const adv = (s as unknown as { bladeAdvance: Record<string, { ticks: number[]; advance: number[]; step: number }> }).bladeAdvance;
-    const atlas = JSON.parse(readFileSync('public/models/char/atlas.json', 'utf8'));
+    const atlas = JSON.parse(readFileSync('public/models/char/girl/atlas.json', 'utf8'));
     const motionOf = { thrust: 'katana_thrust', kesa: 'katana_kesa', kiriage: 'katana_kiriage' } as const;
     for (const t of ['thrust', 'kesa', 'kiriage'] as const) {
       expect(adv[t]!.ticks, `${t} の ticks は 絵と 同じ`).toEqual(atlas.motions[motionOf[t]].ticks);
@@ -59,7 +59,7 @@ describe('WEAPON-2 contracts', () => {
       crystal_katana: { color: 0x7fdcff, glow: 0xe6faff, blade: 0x6fcdf5, bladeShine: 0xe6faff, style: 'star' },
       naginata: { color: 0xcfe8ff, glow: 0xffffff, blade: 0xb8cce0, bladeShine: 0xeef6ff, style: 'long' },
     };
-    expect(s.bladeTrail).toEqual(rows);
+    expect(s.bladeTrail).toMatchObject(rows); // WEAPON-7: 雷神剣の 行が 足されても よい(数を ふやす のは 刀の なかま)
     for (const r of Object.values(s.bladeTrail as Record<string, object>)) expect('width' in r).toBe(false);
     expect(s.bladeTrailWindow).toEqual({ thrust: [2, 6], kesa: [28, 34], kiriage: [19, 22] });
     expect(s.bladeTrailShape).toEqual({
@@ -86,7 +86,7 @@ describe('WEAPON-2 contracts', () => {
   it('CHAR-4 AC1: 刃先の データ（art/char-sheets/blade_path.json）は 3 わざ・perTick の 数 = 絵の 長さ（phases の 合計）+ 1・各点に base・tip の 3 つの 数', () => {
     const data = JSON.parse(readFileSync('art/char-sheets/blade_path.json', 'utf8')) as Record<string, { perTick: { base: number[]; tip: number[] }[] }>;
     // WEAPON-4: 絵の 長さは 設定と べつ（切り上げは 設定 52、絵は atlas.json の phases）
-    const atlas = JSON.parse(readFileSync('public/models/char/atlas.json', 'utf8'));
+    const atlas = JSON.parse(readFileSync('public/models/char/girl/atlas.json', 'utf8'));
     const want: Record<string, number> = {};
     for (const name of ['katana_thrust', 'katana_kesa', 'katana_kiriage']) {
       const ph = atlas.motions[name].phases as { startup: number; active: number; recovery: number };

@@ -55,9 +55,9 @@ const attach = (sys: AchievementSystem) => {
 };
 
 describe('実績の表', () => {
-  it('254 こ・id かぶりなし・小 87（LIVE-2 版 3 で ＋11・小 ＋3。LIVE-1 版 3.2 で ＋6・小 ＋1。LIVE-1 の 12・3 を 足した。M6 の 180・61 ＋ M7 の 27・11 ＋ WEAPON-2 の 4・1 ＋ M7-2 の 11・5 ＋ BUCKET-1 の 2・1 ＋ WEAPON-6 の 1・1）', () => {
-    expect(ACHIEVEMENT_DEFS.length).toBe(254);
-    expect(new Set(ACHIEVEMENT_DEFS.map((d) => d.id)).size).toBe(254);
+  it('258 こ・id かぶりなし・小 87（WEAPON-7 の 4 を 足した。LIVE-2 版 3 で ＋11・小 ＋3。LIVE-1 版 3.2 で ＋6・小 ＋1。LIVE-1 の 12・3 を 足した。M6 の 180・61 ＋ M7 の 27・11 ＋ WEAPON-2 の 4・1 ＋ M7-2 の 11・5 ＋ BUCKET-1 の 2・1 ＋ WEAPON-6 の 1・1）', () => {
+    expect(ACHIEVEMENT_DEFS.length).toBe(258);
+    expect(new Set(ACHIEVEMENT_DEFS.map((d) => d.id)).size).toBe(258);
     expect(ACHIEVEMENT_DEFS.filter((d) => d.small).length).toBe(87);
     expect(ACHIEVEMENT_DEFS.filter((d) => d.category === 'farm').length).toBe(61);
     expect(ACHIEVEMENT_DEFS.filter((d) => d.category === 'farm' && d.small).length).toBe(16);
@@ -71,7 +71,8 @@ describe('実績の表', () => {
     expect(med('place.furnace.1')).toBe('gold');
     expect(ACHIEVEMENT_DEFS.find((d) => d.id === 'break.dirt.1')?.name).toBe('はじめて つち ブロック を こわした！');
     expect(ACHIEVEMENT_DEFS.find((d) => d.id === 'break.dirt.10')?.name).toBe('つち ブロック を 10 こ こわした！');
-    expect(ACHIEVEMENT_DEFS.some((d) => /[一-鿿]/.test(d.name))).toBe(false);
+    // WEAPON-7 §2.7: 名前に 漢字を 書くなら ［漢字｜よみ］。ふりがなの ない 漢字は 0（前は「漢字なし」）
+    expect(ACHIEVEMENT_DEFS.filter((d) => /[一-鿿]/.test(d.name.replace(/［[^｜］]*｜[^］]*］/g, ''))).map((d) => d.id)).toEqual([]);
   });
 });
 
@@ -320,7 +321,7 @@ describe('じっせき ページの きまり', () => {
     p.setTab('achievements');
     let ui = p.ui(true);
     expect(ui.categories.length).toBe(9);
-    expect(ui.total).toBe(254);
+    expect(ui.total).toBe(258);
     expect(ui.tabDot).toBe(true);
     expect(ui.rows.some((r) => r.isNew)).toBe(true);
     expect(ui.rows.filter((r) => !r.shown).length).toBeGreaterThan(0);

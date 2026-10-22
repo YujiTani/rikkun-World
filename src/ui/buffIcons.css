@@ -1,0 +1,34 @@
+/*
+ * WEAPON-8 §3.3: 速さバフの アイコン。「じぶん」のかたまり（#hud-self）の すぐ上・左はし（すき間 sp-2）。
+ * かたまりの 子で 絶対位置なので、出ても 消えても 今の HUD は 1 つも 動かない。字は 出さない。
+ */
+#buff-plate {
+  --heart: clamp(23.8px, 2.1875vw, 42px);
+  position: absolute;
+  left: 0;
+  bottom: 100%;
+  margin-bottom: var(--rk-sp-2);
+  display: flex;
+  align-items: center;
+  gap: var(--rk-sp-1);
+  padding: var(--rk-sp-1);
+  background: #4fa8d8;
+  box-shadow: 0 0 0 2px #fff;
+  border-radius: var(--rk-r-m);
+  pointer-events: none;
+}
+#buff-plate[hidden] {
+  display: none;
+}
+#buff-plate .buff-icon {
+  display: block;
+  width: calc(var(--heart) * 1.25);
+  height: calc(var(--heart) * 1.25);
+  transform-origin: center;
+}
+#buff-plate .buff-icon img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+}

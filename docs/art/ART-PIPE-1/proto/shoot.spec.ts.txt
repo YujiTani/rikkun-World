@@ -1,0 +1,76 @@
+import { test } from '@playwright/test';
+import { installAimHelpers } from './helpers/aim';
+import { KATANA_SET, holdItems, openBladeWorld, stage, waitReady } from './helpers/blade';
+import { chargeUntilReady, releaseAndStep, spawnAt } from './helpers/legend';
+
+test.describe.configure({ timeout: 300_000 });
+const OUT = process.env.PROTO_OUT ?? 'docs/art/ART-PIPE-1/proto';
+
+for (const mode of ['old', 'new'] as const) {
+  test(`proto ${mode}`, async ({ page }) => {
+    if (mode === 'old') {
+      const orig = page.goto.bind(page);
+      (page as any).goto = (u: string, o?: any) => orig(u + '&thunder=old', o);
+    }
+    await openBladeWorld(page);
+    await installAimHelpers(page);
+    const { floorY } = await stage(page);
+    await holdItems(page, [{ item: 'raijin_ken' }]);
+    await waitReady(page, KATANA_SET);
+    const SX = 20, SZ = 12;
+    const shots: { name: string; F: number; theta: number; D: number; high: number; night?: boolean }[] = [
+      { name: 'key', F: 12, theta: 0, D: 8, high: 0 },
+      { name: 'land', F: 8, theta: 0, D: 8, high: 0 },
+      { name: 'diag45', F: 12, theta: 45, D: 8, high: 0 },
+      { name: 'top', F: 12, theta: 0, D: 7, high: 7 },
+      { name: 'night', F: 12, theta: 0, D: 8, high: 0, night: true },
+    ];
+    for (const s of shots) {
+      const info = await page.evaluate(
+        ({ SX, SZ, floorY, s }) => {
+          const h = (window as any).__rikkun;
+          h.input.releaseAll();
+          h.yokai.clear();
+          h.world.fill(8, floorY + 1, 8, 32, floorY + 12, 32, 'air');
+          // かべ（板が ささる）と 柱
+          h.world.fill(SX + 2, floorY + 1, SZ - 1, SX + 3, floorY + 3, SZ, 'stone');
+          h.world.fill(SX - 4, floorY + 1, SZ - 3, SX + 4, floorY + 2, SZ - 3, 'stone');
+          const th = (s.theta * Math.PI) / 180;
+          const px = SX + 0.5 + s.D * Math.sin(th);
+          const pz = SZ + 0.5 + s.D * Math.cos(th);
+          if (s.high > 0) h.world.fill(Math.floor(px), floorY + 1, Math.floor(pz), Math.floor(px), floorY + s.high, Math.floor(pz), 'stone');
+          h.time.set(s.night ? 70000 : 0);
+          for (let n = 0; (h.world.lightPending() > 0 || h.world.meshStats().pending > 0) && n < 3000; n++) h.step(1);
+          h.player.set({ position: { x: px, y: floorY + 1 + s.high, z: pz }, velocity: { x: 0, y: 0, z: 0 } });
+          (window as any).__aim.solve(SX, floorY, SZ, 1);
+          h.step(2);
+          return { phase: h.time.get().phase };
+        },
+        { SX, SZ, floorY, s },
+      );
+      await spawnAt(page, 'karakasa', SX - 1.5, floorY + 1, SZ + 1.5, 99, {});
+      await page.evaluate(() => (window as any).__rikkun.step(2));
+      await chargeUntilReady(page, 60);
+      console.log('state', s.name, JSON.stringify(await page.evaluate(() => { const h = (window as any).__rikkun; return { l: h.legend.state(), p: h.player.get() }; })).slice(0, 600));
+      await releaseAndStep(page, s.F - 1);
+      const st = await page.evaluate(() => {
+        const h = (window as any).__rikkun;
+        const rs = h.renderStats();
+        const fx = (window as any).__thunderFx;
+        return { rs, fx: fx.info?.(), draw: fx.drawStats?.() };
+      });
+      console.log(mode, s.name, info.phase, JSON.stringify(st));
+      await page.screenshot({ path: `${OUT}/${mode === 'old' ? 'now' : 'new'}_${s.name}.png` });
+      const base = await page.evaluate(() => { const h = (window as any).__rikkun; h.step(100); const r = h.renderStats(); return [r.drawCalls, r.triangles]; });
+      console.log(mode, s.name, 'after', JSON.stringify(base));
+    }
+    if (mode === 'new') {
+      await page.evaluate(() => {
+        const h = (window as any).__rikkun;
+        h.time.set(0);
+        h.step(2);
+      });
+      await page.locator('#hotbar').screenshot({ path: `${OUT}/hotbar_icon.png` });
+    }
+  });
+}

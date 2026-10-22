@@ -12,8 +12,8 @@ import { Lighting } from '../sky/lighting';
 import { TECH_CURVES, TECH_PHASES, BOW_SHOT_TICKS, BOW_RAPID_TICKS } from './techCurves';
 
 const ROOT = resolve(__dirname, '../..');
-const SRC = resolve(ROOT, 'art/char-sheets');
-const OUT = resolve(ROOT, 'public/models/char');
+const SRC = resolve(ROOT, 'art/char-sheets/girl');
+const OUT = resolve(ROOT, 'public/models/char/girl');
 const atlas = JSON.parse(readFileSync(resolve(OUT, 'atlas.json'), 'utf8'));
 const srcAtlas = JSON.parse(readFileSync(resolve(SRC, 'atlas.json'), 'utf8'));
 const names = Object.keys(atlas.motions);
@@ -73,7 +73,7 @@ describe('AC33 readCell (Promise)', () => {
       parent: new THREE.Group(),
       camera: new THREE.PerspectiveCamera(),
       lighting: new Lighting(),
-      basePath: './models/char/',
+      basePath: './models/char/girl/',
       loadJson: async () => atlas,
       loadImage: fileImage,
     });

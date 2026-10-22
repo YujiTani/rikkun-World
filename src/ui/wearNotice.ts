@@ -2,6 +2,7 @@ import type { ItemId } from '../contracts';
 import { WEAPON_FX, brokenLogText, lowChipText } from '../fx/weaponFxModel';
 import { itemIconUrl } from './itemIcon';
 import { createChip } from './theme';
+import { withRuby } from './text';
 import { createCategoryMark } from './log/icons';
 import './wearNotice.css';
 
@@ -37,7 +38,7 @@ export class WearNotice {
   low(item: ItemId, name: string): void {
     this.lowShown++;
     this.hintEl.replaceChildren();
-    const chip = createChip({ art: itemIconUrl(item), text: lowChipText(name), tone: 'info', head: true });
+    const chip = createChip({ art: itemIconUrl(item), html: withRuby(lowChipText(name)), tone: 'info', head: true });
     chip.dataset.item = item;
     this.hintEl.append(chip);
     this.hintEl.dataset.item = item;
@@ -51,7 +52,7 @@ export class WearNotice {
     const row = document.createElement('div');
     row.className = 'wear-row';
     row.dataset.item = item;
-    const chip = createChip({ art: itemIconUrl(item), text: brokenLogText(name), tone: 'info' });
+    const chip = createChip({ art: itemIconUrl(item), html: withRuby(brokenLogText(name)), tone: 'info' });
     // CRAFT-2 §2.5: 左のログと 同じく カテゴリーの印（おしらせ）を 左に付ける
     row.style.display = 'flex';
     row.style.alignItems = 'center';

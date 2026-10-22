@@ -143,8 +143,8 @@ async function look(page: Page, wallX: number, zs: number[], shot: string): Prom
           h.player.set({ position: { x, y: top + 1, z }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: -40 });
           h.step(40);
           // はじめて来た場所（島の z 40〜47 は「やま」）だと おめでとう画面が出て ロックが外れる（#145）。
-          // 「とじる」が押せるまで進めて とじれば、ロックにもどる
-          for (let i = 0; i < 600 && h.achievements.modal(); i++) if (!h.achievements.close().ok) h.step(1);
+          // 実績の おしらせ(帯)が きえるまで 進める（ロックは 外れない）
+          for (let i = 0; i < 20 && h.achievements.modal().open; i++) h.step(Math.max(1, h.achievements.modal().leftSteps)); // 自動で きえる（WEAPON-7 O8）
           return h.lock.get().locked as boolean;
         },
         [wallX + dx, z + 0.5, TOP],

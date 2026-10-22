@@ -98,6 +98,8 @@ export interface SaveDeps {
   storage?: SaveExtra;
   /** LIVE-1: にわとり（`v: 2` = `{ x, y, z, yaw, follow }`。`v: 1` も 読む。§4.4） */
   animals?: SaveExtra;
+  /** WEAPON-7: 手に 入れた ことの ある レジェンダリー（`legendGot`）。前の 保存に ない ときは 空 */
+  legend?: SaveExtra;
   /** M7: 作物・農業の乱数・「置きものを置いた」印。無い保存は 読んだあと 置きものを置く */
   farm?: SaveFarm;
   /** 時刻と何日目。なければ保存しない */
@@ -302,6 +304,11 @@ export class SaveManager {
     }
     this.restoreTime(data.time);
     try {
+      this.d.legend?.deserialize(data.legend);
+    } catch {
+      this.d.legend?.deserialize(null);
+    }
+    try {
       this.d.animals?.deserialize(data.animals);
     } catch {
       this.d.animals?.deserialize(null);
@@ -495,6 +502,7 @@ export class SaveManager {
       storage: this.d.storage?.serialize() ?? null,
       achievements: this.d.achievements?.serialize() ?? null,
       animals: this.d.animals?.serialize() ?? null,
+      legend: this.d.legend?.serialize() ?? null,
       farm,
     });
     // inventory などは 2 回 serialize しない: 比べる側の meta から 取りだす

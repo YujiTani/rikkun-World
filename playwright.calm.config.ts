@@ -1,3 +1,4 @@
+// 使い道: #194 ざわざわをへらす試作のスクショ用（npm run test:e2e:calm）。ふだんの E2E・CI では使わない。
 import { defineConfig } from '@playwright/test';
 import base from './playwright.config';
 

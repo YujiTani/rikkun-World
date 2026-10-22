@@ -2,6 +2,7 @@
 import type { BladePhase, BladeStance, BladeTech, BladeTechFrames, Vec3 } from '../contracts';
 import { W2_SETTING_DEFAULTS } from '../contracts';
 import { techCell } from '../tools/blade/advance';
+import { CHARGE_CELL } from '../legend/pose';
 import { BOW_RAPID_TICKS, BOW_SHOT_TICKS, TECH_CURVES, TECH_PHASES } from './techCurves';
 
 export type SpriteMotion =
@@ -48,6 +49,8 @@ export interface SpriteStepInput {
   blade: { stance: BladeStance; tech: BladeTech | null; phase: BladePhase; frame: number; lengths: BladeTechFrames | null } | null;
   /** shot = このステップに 矢をうった（arrowShot） */
   bow: { drawing: boolean; drawTicks: number; shot: boolean } | null;
+  /** WEAPON-7: ため中（レジェンダリーの ためわざ）。おおげさぎりの ふりかぶりの コマで 止める。歩く間は かまえ歩き */
+  legendCharge?: boolean;
   /** CHAR-4: 持っている刀の 刃の色（20・21 番に する）。刀でなければ null */
   bladeColors?: { body: number; shine: number } | null;
 }
@@ -210,6 +213,12 @@ export class MotionMachine {
     const stance: BladeStance = b?.stance ?? 'chudan';
     const v = Math.hypot(input.velocity.x, input.velocity.z);
     const grounded = input.onGround || input.inWater;
+    // WEAPON-7: ため中は かまえに よらず おおげさぎりの コマ 5（刀を 頭の上へ）。歩く間は かまえ歩き
+    if (input.legendCharge && !(b && b.tech)) {
+      if (grounded && v >= MOVE_MIN_SPEED) this.stepWalking('kamaeWalk', KAMAE_WALK[stance], input, v);
+      else this.setStill('tech', TECH_MOTION.kesa, CHARGE_CELL);
+      return;
+    }
     // K1: わざ
     if (b && b.tech && (b.phase === 'startup' || b.phase === 'active' || b.phase === 'recovery')) {
       const t = b.tech;

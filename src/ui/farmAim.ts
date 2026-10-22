@@ -1,5 +1,6 @@
 import type { FarmAim } from '../contracts';
 import { heartPixels } from './heartsModel';
+import { withRuby } from './text';
 import { drawPixels, extraIconUrl } from './itemIcon';
 import { WET_SOON_OPACITY, farmAimView } from './farmAimModel';
 import './farmAim.css';
@@ -64,7 +65,7 @@ export class FarmAimHud {
     this.key = key;
     this.el.hidden = !v;
     if (!v) return;
-    this.name.textContent = label;
+    this.name.innerHTML = withRuby(label);
     this.name.hidden = label === '';
     this.el.dataset.dim = String(v.dim);
     this.dots.forEach((d, i) => {

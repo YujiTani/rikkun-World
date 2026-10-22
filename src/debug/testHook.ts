@@ -26,6 +26,7 @@ import type { AudioHook } from '../fx/bgm/hook';
 import type { ShadowHook } from '../world/render/shadow/shadowHook';
 import type { FrameClock } from '../world/frameClock';
 import type { PerfOverlay } from './perfOverlay';
+import type { ThunderHook } from '../fx/thunderFx';
 import type { CharSprite, SpriteInfo } from '../char';
 import type { SpriteMotion } from '../char';
 
@@ -60,9 +61,11 @@ export interface TestHook {
   biome: BiomeHook;
   /** SHADOW-1: 光の位置から計算する影（docs/design/SHADOW.md §8.1） */
   shadow: ShadowHook;
+  /** CHAR-5 §4.6: キャラ（girl|boy|block）を 聞く・切りかえる */
+  char: { get(): { kind: 'girl' | 'boy' | 'block' }; set(kind: 'girl' | 'boy'): void };
   /** M5: 距離で描くチャンクの数 */
   render: ReturnType<typeof createRenderHook>;
-  player: PlayerHook;
+  player: PlayerHook & { /** WEAPON-8 §7: 剣を 持つ 手の 位置 */ handPos(): unknown };
   camera: CameraHook['camera'];
   /** CHAR-1 第 5.2 版 §4.9: ねらいの点 X・ねらい補助で えらんだ妖怪の id */
   aim: { point(): { x: number; y: number; z: number }; assist(): number | null };
@@ -91,7 +94,7 @@ export interface TestHook {
   level: ReturnType<typeof createLevelHook>;
   yokai: ReturnType<typeof createYokaiHook>['yokai'];
   /** M6 §6.1: 実績・おめでとう画面 */
-  achievements: ReturnType<typeof createAchievementsHook> & { modal(): unknown; close(): unknown; sounds(): string[]; mute(on: boolean): void };
+  achievements: ReturnType<typeof createAchievementsHook> & { modal(): unknown; sounds(): string[]; mute(on: boolean): void };
   /** FIX-action-hint: 照準の下に出している 絵（アイテム名）と 1 語 */
   hud: { /** あう道具のヒント（BAL-D）: 光っているホットバーのマス（0 はじまり）と のこりステップ。出ていなければ null */ toolHint(): { slot: number; ticksLeft: number } | null; /** ふちどりを付けている妖怪の id（なければ null） */ yokaiFocus(): number | null; /** ふちどりの複製の数 */ yokaiFocusHulls(): number; /** 妖怪の体力のバー（BALANCE.md §4.7）。いない id は null */ hpBar(yokaiId: number): { visible: boolean; bars: number; left: number; color: 'white' | 'yellow' | 'red'; icon: 'oyabun' | 'taisho' | 'nushi' | null } | null; /** 登場のおしらせ（たいしょう・ヌシ。180 ステップ）。出ていなければ null */ announce(): { text: string; icon: 'taisho' | 'nushi'; ticksLeft: number } | null; /** 頭の上の名前（二つ名の妖怪。16 ブロック以内で visible）。いない id は null */ nameplate(yokaiId: number): { visible: boolean; text: string } | null; actionHint(): { right?: { icon: string; word: string }; left?: { icon: string; word: string } }; /** WEAPON-5: よろけアイコン（2 倍が のこっている あいだ visible）。いない id は null */ staggerIcon(yokaiId: number): { visible: boolean } | null };
   /** M6 §6.1: たんす */
@@ -119,7 +122,20 @@ export interface TestHook {
     carrying(): number | null;
   };
   /** CRAFT-2 §6.1: 画面の不透明度 */
-  ui: { alpha(): UiAlpha };
+  ui: { alpha(): UiAlpha; /** WEAPON-7 §9: 画面の 上の 帯 */ topBand(): { kind: 'achieve' | 'telop' | 'appear' | null; item: string | null; age: number; leftSteps: number; queue: string[] }; /** WEAPON-8 §7: 速さバフの アイコン */ buffs(): unknown[] };
+  /** WEAPON-7 §9: レジェンダリー武器（ため・ためわざ） */
+  legend: {
+    state(): unknown;
+    events(): unknown[];
+    waves(): unknown[];
+    /** WEAPON-8 §7 */
+    debris(): unknown;
+    chargeFx(): unknown;
+    chargeSound(): unknown;
+    spiralSound(): unknown;
+  };
+  /** ART-PIPE-1: 雷 B の 見た目（コマ・板の 向き・輪・つぶ・まわりの 明るさ・絵の 読み方）。型は e2e/helpers/thunder.ts */
+  thunder: ThunderHook;
 }
 
 declare global {
@@ -128,7 +144,7 @@ declare global {
   }
 }
 
-export type TestHookGroups = Pick<TestHook, 'shadow' | 'world' | 'biome' | 'render' | 'player' | 'camera' | 'aim' | 'input' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'attack' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm' | 'log' | 'ui' | 'audio' | 'rarity' | 'animals' | 'parry'>;
+export type TestHookGroups = Pick<TestHook, 'shadow' | 'char' | 'world' | 'biome' | 'render' | 'player' | 'camera' | 'aim' | 'input' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'attack' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm' | 'log' | 'ui' | 'audio' | 'rarity' | 'animals' | 'parry' | 'legend' | 'thunder'>;
 
 export function installTestHook(game: Game, overlay: PerfOverlay, isReady: () => boolean, groups: TestHookGroups, clock: FrameClock = 'time'): void {
   window.__rikkun = {
@@ -169,7 +185,7 @@ export function withSpriteDoll(base: () => object, sprite: CharSprite | null, gr
         ...(info ?? {
           visible: false, motion: 'idle', frame: 0, dir: 0, tier: 0, elevDeg: 0, tiltDeg: 0, upDeg: 0,
           tint: { r: 1, g: 1, b: 1 }, loaded: false, gpuBytes: 0,
-          scene: 'stand', want: { motion: 'idle', frame: 0 }, status: {}, cpuBytes: 0, bladeColors: null,
+          scene: 'stand', want: { motion: 'idle', frame: 0 }, status: {}, cpuBytes: 0, bladeColors: null, kind: 'girl', palette: [],
         }),
         visible: !!info && info.visible && group.visible,
         restartMotion: () => sprite?.restartMotion(),

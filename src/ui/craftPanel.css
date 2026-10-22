@@ -330,6 +330,20 @@
 .cp-stars {
   white-space: nowrap; /* 星の列は ★ と ★ の間で折り返さない */
 }
+/* 7 段目（レジェンダリー）: 星は にじ色（ツールチップの 名前と 同じ 見せ方） */
+.cp-detail.cp-detail--legendary .cp-stars {
+  color: var(--rk-bg-900);
+  background: var(--rk-rarity-rainbow);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: rainbow-spin 8s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cp-detail.cp-detail--legendary .cp-stars {
+    animation: none;
+  }
+}
 .cp-rarity {
   display: flex;
   flex-wrap: wrap; /* 星 7 つ ＋ ことばが 1 行に入らないときは、ことばを星の下の行へ */

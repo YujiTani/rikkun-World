@@ -6,8 +6,8 @@ import { buildAll, decodePng, type Cell } from '../../scripts/pack-char-atlas.mj
 import { quantizeRgba } from './palette';
 
 const ROOT = resolve(__dirname, '../..');
-const SRC = resolve(ROOT, 'art/char-sheets');
-const OUT = resolve(ROOT, 'public/models/char');
+const SRC = resolve(ROOT, 'art/char-sheets/girl');
+const OUT = resolve(ROOT, 'public/models/char/girl');
 const CELL = 256;
 const PAD = 2;
 
