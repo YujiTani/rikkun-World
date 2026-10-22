@@ -2284,7 +2284,8 @@ export type AnimalEvent =
   /** かえる 動き が はじまった（x・y・z は こたつ の マス） */
   | { type: 'hatchStart'; x: number; y: number; z: number }
   /** かえった（`gold` = 金 の たまご から） */
-  | { type: 'hatch'; id: number; breed: AnimalBreed; gold: boolean }
+  /** `first` = はじめて かえった（B の 音・紙ふぶき の 大きさ。省略 なら B が この 遊び の 中 で 数える） */
+  | { type: 'hatch'; id: number; breed: AnimalBreed; gold: boolean; first?: boolean }
   /** 小屋 の 子 に なった */
   | { type: 'home'; id: number; coop: number }
   /** 大人 に なる 動き が はじまった */

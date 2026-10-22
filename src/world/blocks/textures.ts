@@ -2,6 +2,7 @@ import { DataTexture, NearestFilter, RGBAFormat, SRGBColorSpace, UnsignedByteTyp
 import type { BlockId } from '../../contracts';
 import { tansuPixels } from '../../storage/tansuArt';
 import { FARM_TILE_NAMES, paintFarmTile } from './farmTextures';
+import { LIVE_TILE_NAMES, paintLiveTile, type LiveTileName } from './liveTextures';
 
 /** 16x16 ドット絵をコードで描く（M1-01 4-2 の色）。 */
 export const TILE_SIZE = 16;
@@ -29,7 +30,8 @@ export type TileName =
   | 'tansu_front'
   | 'tansu_top'
   | VoxITileName
-  | FarmTileName;
+  | FarmTileName
+  | LiveTileName;
 
 /** VOX-I-1（12 の国）のふつうの絵（一ひねりの絵は #185） */
 export type VoxITileName = 'snow' | 'momiji_leaves' | 'matsu_leaves' | 'flower_y' | 'flower_o' | 'flower_p' | 'bamboo' | 'susuki' | 'kusa' | 'nobana';
@@ -66,6 +68,8 @@ export const TILE_NAMES: readonly TileName[] = [
   'tansu_top',
   ...(FARM_TILE_NAMES as readonly FarmTileName[]),
   ...VOX_I_TILES,
+  // LIVE-2（こたつ・とりごや。うしろに 足す）
+  ...(LIVE_TILE_NAMES as readonly LiveTileName[]),
 ];
 export const ATLAS_ROWS = Math.ceil(TILE_NAMES.length / ATLAS_COLS);
 export const ATLAS_WIDTH = ATLAS_COLS * TILE_SIZE;
@@ -348,6 +352,16 @@ function paintTile(name: TileName): Tile {
       return tansuPixels('front').map((c) => hex(c));
     case 'tansu_top':
       return tansuPixels('top').map((c) => hex(c));
+    case 'kotatsu_top':
+    case 'kotatsu_side':
+    case 'toriya_fence_top':
+    case 'toriya_fence_side':
+    case 'toriya_gate':
+    case 'toriya_nest_roof':
+    case 'toriya_nest_side':
+    case 'toriya_box_top':
+    case 'toriya_box_side':
+      return paintLiveTile(name).slice();
     case 'snow':
       return speckle('#D2E8F5', ['#C2DBEC', '#DDEFF9'], 91, 14);
     case 'momiji_leaves':
@@ -400,12 +414,12 @@ export const BLOCK_TILES: Readonly<Partial<Record<BlockId, readonly [TileName, T
   start_torch: ['start_torch', 'start_torch', 'start_torch'],
   // M6: 世界に向きのしかけは作らない（PO 決定）ので 4 面とも 前の面。向きは storage に記録する
   tansu: ['tansu_top', 'tansu_top', 'tansu_front'],
-  // LIVE-2 仮（B が 専用 の 絵 に かえる。いまは 既存 の 絵 を かりる）
-  nukunuku: ['tansu_top', 'tansu_top', 'tansu_front'],
-  toriya_fence: ['log_top', 'log_top', 'log_side'],
-  toriya_gate: ['log_top', 'log_top', 'log_side'],
-  toriya_nest: ['log_top', 'log_top', 'log_side'],
-  toriya_box: ['log_top', 'log_top', 'log_side'],
+  // LIVE-2（`liveTextures.ts`）。こたつ = 天板 + みかん / 藍の ふとん、小屋 = さく・のれん・藍の やね・すばこ
+  nukunuku: ['kotatsu_top', 'kotatsu_side', 'kotatsu_side'],
+  toriya_fence: ['toriya_fence_top', 'toriya_fence_top', 'toriya_fence_side'],
+  toriya_gate: ['toriya_fence_top', 'toriya_fence_top', 'toriya_gate'],
+  toriya_nest: ['toriya_nest_roof', 'toriya_fence_top', 'toriya_nest_side'],
+  toriya_box: ['toriya_box_top', 'toriya_fence_top', 'toriya_box_side'],
   // M7 農業。作物・やせい・かかし・さく は 十字の板（全部の面が同じ絵）。作物の絵は 3 だんかい（みのった）
   farmland: ['farmland_top', 'dirt', 'farmland_side'],
   farmland_wet: ['farmland_wet_top', 'dirt', 'farmland_wet_side'],

@@ -188,6 +188,11 @@ export const ITEM_INFO: Readonly<Record<string, InfoRow>> = {
   mushi: { use: 'にわとり に あげる と なかよく なる', how: 'もって にわとり に みぎクリック', buttons: ['1-9', 'right'] },
   mushi_ami: { use: 'き から むし を とる', how: 'もって き に みぎクリック', buttons: ['1-9', 'right'] },
 
+  // ---- LIVE-2（§3.1）。名前は こたつ・とりごや・きん の たまご（画面に ぬくぬく・育成 は 出さない）
+  nukunuku: { use: 'たまご を あたためる', how: 'おいて、たまご を もって みぎクリック', buttons: ['1-9', 'right'] },
+  toriya: { use: 'にわとり の いえ', how: 'おいて、ひよこ を つれて いく', buttons: ['1-9', 'right'] },
+  kin_tamago: { use: 'だいじ な たから。こたつ で あたためる と マッチョ ひよこ', how: 'こたつ に いれる', buttons: ['1-9', 'right'] },
+
   // ---- ようかいだま（§5。いまは 手に入らない。古い保存用）
   yokai_orb: { use: 'いまは つかえない よ', how: '', buttons: [] },
 };
@@ -197,6 +202,9 @@ export const ORB_SOURCE = 'むかし の ようかい が おとした';
 
 /** 「どこで」の たまご の文（LIVE-1 §3.1） */
 export const EGG_SOURCE = 'なかま の にわとり が むし を たべて うむ';
+
+/** 「どこで」の きん の たまご の文（LIVE-2 §3.1） */
+export const KIN_TAMAGO_SOURCE = 'にわとり が ときどき うむ';
 
 /** 「どこで」の むし の文（LIVE-1 版 3.2 §3.1） */
 export const MUSHI_SOURCE = 'むしとりあみ で き から とる';
