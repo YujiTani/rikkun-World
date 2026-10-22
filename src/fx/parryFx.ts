@@ -69,6 +69,16 @@ export interface GlowInput {
   position: Vec3;
   /** 『動きを へらす』: 粒を 止める */
   reduced: boolean;
+  /** プレイヤーの 向き（度。十字の 板の 向きの もと。なければ 0） */
+  facingDeg?: number;
+}
+
+/**
+ * 十字の 板の 向き（yaw・ラジアン）。草木と 同じ たて板 2 まいを 直角に 重ねる。
+ * 1 まいめの 法線 = 攻撃の 向き（前 = (sin a, -cos a)）、2 まいめ = それに 直交（右）。カメラには 向けない。
+ */
+export function crossYaw(facingDeg: number): number {
+  return Math.PI - (facingDeg * Math.PI) / 180;
 }
 
 const _q = new THREE.Quaternion();
@@ -86,13 +96,27 @@ function loadTexture(url: string): THREE.Texture {
   return tex;
 }
 
+/** 同じ 形・同じ 材料の たて板を 2 まい、同じ まん中で 90 度 ちがえて 重ねる */
+function crossOf(geo: THREE.BufferGeometry, mat: THREE.Material): THREE.Group {
+  const g = new THREE.Group();
+  const a = new THREE.Mesh(geo, mat);
+  const b = new THREE.Mesh(geo, mat);
+  b.rotation.y = Math.PI / 2;
+  for (const m of [a, b]) {
+    m.frustumCulled = false;
+    g.add(m);
+  }
+  return g;
+}
+
 export class ParryFx {
   private readonly deps: ParryFxDeps;
   private readonly rng: () => number;
 
   // 火花
   private readonly sparkTex: THREE.Texture;
-  private readonly sparkMesh: THREE.Mesh;
+  /** 火花の 十字（たて板 2 まい。2 まいめは 1 まいめに 直交） */
+  private readonly sparkMesh: THREE.Group;
   private readonly bits: THREE.InstancedMesh;
   private readonly bitVel: Float32Array;
   private readonly bitPos: Float32Array;
@@ -100,7 +124,13 @@ export class ParryFx {
   private readonly sparkAt = new THREE.Vector3();
 
   // 青白い光
-  private readonly aura: THREE.Mesh;
+  /** 青白い 光の 十字（たて板 2 まい） */
+  private readonly aura: THREE.Group;
+  private readonly auraMat: THREE.MeshBasicMaterial;
+  /** 光の 十字の 向き（毎ステップ プレイヤーに そろえる） */
+  private facingDeg = 0;
+  /** 火花の 十字の 向き（成功した ときの 攻撃の 向きで 止める） */
+  private sparkFacingDeg = 0;
   private readonly rise: THREE.InstancedMesh;
   private readonly risePhase = [0.0, 0.17, 0.33, 0.5, 0.67, 0.83];
   private auraLevel = 0;
@@ -115,8 +145,9 @@ export class ParryFx {
 
     this.sparkTex = loadTexture(`${base}parry_spark.png`);
     this.sparkTex.repeat.set(1 / 4, 1);
-    const sparkMat = new THREE.MeshBasicMaterial({ map: this.sparkTex, transparent: true, depthTest: false, depthWrite: false, fog: false });
-    this.sparkMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), sparkMat);
+    const sparkMat = new THREE.MeshBasicMaterial({ map: this.sparkTex, transparent: true, side: THREE.DoubleSide, depthTest: false, depthWrite: false, fog: false });
+    const sparkGeo = new THREE.PlaneGeometry(1, 1);
+    this.sparkMesh = crossOf(sparkGeo, sparkMat);
     this.sparkMesh.visible = false;
     this.sparkMesh.renderOrder = 20;
     this.sparkMesh.frustumCulled = false;
@@ -132,8 +163,9 @@ export class ParryFx {
     this.bitVel = new Float32Array(SPARK_PARTICLES * 3);
     this.bitPos = new Float32Array(SPARK_PARTICLES * 3);
 
-    const auraMat = new THREE.MeshBasicMaterial({ color: GLOW_COLORS.aura, transparent: true, opacity: 0, depthWrite: false, fog: false });
-    this.aura = new THREE.Mesh(new THREE.CircleGeometry(0.5, 28), auraMat);
+    const auraMat = new THREE.MeshBasicMaterial({ color: GLOW_COLORS.aura, transparent: true, side: THREE.DoubleSide, opacity: 0, depthWrite: false, fog: false });
+    this.auraMat = auraMat;
+    this.aura = crossOf(new THREE.CircleGeometry(0.5, 28), auraMat);
     this.aura.scale.set(1.3, 2.3, 1);
     this.aura.visible = false;
     this.aura.renderOrder = -1;
@@ -154,8 +186,9 @@ export class ParryFx {
   }
 
   /** 成功: 受けの 刀の まん中で 火花（12 こ） */
-  spark(at: Vec3, reduced = false): void {
+  spark(at: Vec3, reduced = false, facingDeg = 0): void {
     this.sparkAge = 0;
+    this.sparkFacingDeg = facingDeg;
     this.sparkAt.set(at.x, at.y, at.z);
     const n = reduced ? SPARK_PARTICLES / 2 : SPARK_PARTICLES;
     this.bits.count = n;
@@ -192,9 +225,10 @@ export class ParryFx {
       }
     }
     this.auraLevel = g.visible ? g.level : 0;
+    if (g.facingDeg !== undefined) this.facingDeg = g.facingDeg;
     this.aura.visible = this.auraLevel > 0;
     if (this.aura.visible) {
-      (this.aura.material as THREE.MeshBasicMaterial).opacity = AURA_MAX_ALPHA * this.auraLevel;
+      this.auraMat.opacity = AURA_MAX_ALPHA * this.auraLevel;
     }
     const risen = this.aura.visible && !g.reduced;
     this.rise.count = risen ? 6 : 0;
@@ -211,7 +245,7 @@ export class ParryFx {
     cam.getWorldQuaternion(_q);
     if (this.sparkMesh.visible) {
       this.sparkMesh.position.copy(this.sparkAt);
-      this.sparkMesh.quaternion.copy(_q);
+      this.sparkMesh.rotation.y = crossYaw(this.sparkFacingDeg);
       const s = this.sparkAge < 8 ? 1 : 0.9; // 少し 小さくして 消える
       this.sparkMesh.scale.set(s, s, 1);
       for (let i = 0; i < this.bits.count; i++) {
@@ -223,12 +257,9 @@ export class ParryFx {
       if (this.bits.instanceColor) this.bits.instanceColor.needsUpdate = true;
     }
     if (this.aura.visible) {
-      // カメラの 少し 向こう側（キャラの 板の うしろ）に 置く
-      _v.set(this.feet.x, this.feet.y + 0.9, this.feet.z);
-      cam.getWorldPosition(_s);
-      _s.sub(_v).normalize().multiplyScalar(-0.15);
-      this.aura.position.copy(_v).add(_s);
-      this.aura.quaternion.copy(_q);
+      // 十字（カメラには 向けない）。体の まん中に 置く
+      this.aura.position.set(this.feet.x, this.feet.y + 0.9, this.feet.z);
+      this.aura.rotation.y = crossYaw(this.facingDeg);
     }
     if (this.rise.count > 0) {
       cam.getWorldPosition(_s);
@@ -249,8 +280,11 @@ export class ParryFx {
   dispose(): void {
     for (const o of [this.sparkMesh, this.bits, this.aura, this.rise]) {
       this.deps.scene.remove(o);
-      o.geometry.dispose();
-      (o.material as THREE.Material).dispose();
+      o.traverse((c) => {
+        const m = c as THREE.Mesh;
+        if (m.geometry) m.geometry.dispose();
+        if (m.material) (m.material as THREE.Material).dispose();
+      });
     }
     this.sparkTex.dispose();
   }
