@@ -271,7 +271,11 @@ test.describe('START-1 通し', () => {
     await openMenu(page, '?menu=1');
     expect(await startState(page)).toMatchObject({ shown: true, screen: 'menu', continue: { seed: 42, strength: 'easy' }, checking: false });
     expect(await isDisabled(page, 'start-continue')).toBe(false);
-    expect(await focusedTestId(page)).toBe('start-continue');
+    await expect.poll(() => focusedTestId(page), { message: '調べおわったら フォーカスが つづきから へ 移る' }).toBe('start-continue');
+    // カードの 中に その 世界の シード（§3.1「シード 1234」の 形）と つよさの 印
+    const cardText = noSpace((await tid(page, 'start-continue').textContent()) ?? '');
+    expect(cardText).toContain('つづきから');
+    expect(cardText).toContain('シード42');
     // 前に えらんだ キャラ・おもさは そのまま
     expect(await startState(page)).toMatchObject({ char: 'boy', weight: 'light' });
     expect(await ls(page, KEY_START)).not.toBeNull();
@@ -288,6 +292,7 @@ test.describe('START-1 通し', () => {
     await pressDigits(page, '42');
     await expect(tid(page, 'start-existing')).toBeVisible();
     expect(await startState(page)).toMatchObject({ seedText: '42', existing: true, strength: 'easy' });
+    expect(noSpace((await tid(page, 'start-existing').textContent()) ?? ''), '§3.1 の おしらせ').toContain('このシードのせかいはもうあるよ。つづきからあそぶよ');
     for (const s of ['easy', 'normal', 'hard']) expect(await isDisabled(page, `start-strength-${s}`), s).toBe(true);
     expect(await isPressed(page, 'start-strength-easy')).toBe(true);
     // ほかの 数に すると おしらせは きえて つよさは えらべる

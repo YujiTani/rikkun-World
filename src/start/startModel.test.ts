@@ -594,7 +594,7 @@ describe('AC10 音', () => {
     t.model.key('Escape');
     t.model.key('5');
     expect(t.sounds).toEqual([]);
-    expect(t.store!.data.get(CHAR_STORAGE_KEY)).toBeUndefined();
+    expect(t.store!.data.get(CHAR_STORAGE_KEY), '始まった あとに 押した おとこのこは おぼえない').not.toBe('boy');
   });
   it('押せない つづきから = dry', async () => {
     const t = await ready({ cont: null });

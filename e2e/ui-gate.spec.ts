@@ -676,6 +676,7 @@ test.describe('UI 検査ゲート', () => {
 
   for (const screen of SCREENS) {
     test(screen.id, async ({ page }) => {
+      if (screen.id.startsWith('start-')) test.setTimeout(240_000); // START-1: 保存の ある 世界を まず 作る 場面がある
       const known = loadKnown();
       mkdirSync(OUT, { recursive: true });
       await page.setViewportSize({ width: SIZES[0].w, height: SIZES[0].h });

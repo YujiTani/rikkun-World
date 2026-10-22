@@ -22,3 +22,9 @@
 | 1 | test-prep | tester | 【軽微】【ユニット】と 書かれた AC8〜AC11 は DOM が 要る（vitest は node 環境で jsdom なし）。画面の 状態を 純粋な 状態機械（`src/start/startModel.ts`）に 切り出し、DOM との つなぎは E2E（`e2e/start1.spec.ts`）で 見ることに した | 層の 割りふり | T6 | 開発は startModel を 先に 作り、DOM は その 見え方にする（窓口の 名前は `src/start/startModel.test.ts` の 先頭に 書いた） |
 | 1 | test-prep | tester | 【軽微】`?strength=` で 始めた 新しい 世界（保存なし）の 最初の 保存に どの つよさを 書くか（URL の 値か ふつう か）が 書いていない（§4.3 は「保存の 値は 書きかえない」とだけ） | 書き漏れ | T7 | ユニットは `SaveDeps.strength` に 渡した 値を 書く とだけ 決めた（main.ts が 何を 渡すかは 開発が 決める） |
 | 1 | test-prep | PO | T1〜T7 を 仕様 2.2 に 反映（T1 は AC13 を 直す、T2〜T7 は tester の 仮の 決め方を 決まりに） | — | T1〜T7 | 対応済み |
+| 1 | test-review | code-reviewer | 【軽微】`src/start/startModel.test.ts` 「始まった あとは なにも 受けつけない」が `rikkun.char.v1` を `undefined` と決めていた（スタートで キャラを 書く 作りも AC7 では 許されるので 基準より きびしい） | 基準にない ことを 確かめていた | R1 | 対応済み（押した おとこのこ = `boy` が 書かれていない、に ゆるめた） |
+| 1 | test-review | code-reviewer | 【軽微】AC14 の `focusedTestId` が `checking=false` の 直後の 1 回読み（フォーカスを 移すのが 少し あとなら ゆれる） | 待ちが 足りない | R2 | 対応済み（`expect.poll` に） |
+| 1 | test-review | code-reviewer | 【軽微】AC14/§3.1: 「つづきから」カードの シード・「おしらせ」の 文言が E2E で 確かめられていなかった | 基準の 抜け | R3 | 対応済み（カードに `シード42`、`start-existing` に §3.1 の 文を 足した） |
+| 1 | test-review | code-reviewer | 【軽微】`e2e/ui-gate.spec.ts` の 保存ありの 3 場面（世界を 先に 作る）が 既定 60 秒 | 時間の 見積もり | R4 | 対応済み（`start-` の 画面だけ 240 秒） |
+| 1 | test-review | code-reviewer | 【軽微】「調べている あいだ `start-continue` が `disabled`」は 画面で 直接は 見ていない（E2E は 調べおわりを 待つ。ユニットは `continue = null` と Enter 無効まで）。窓口に 調べ中の 同じ シード（existingChecking）が ないので 画面では 確かめにくい | 窓口の 不足（許容） | R5 | 許容（ユニットの 状態機械で 見ている） |
+| 1 | test-review | code-reviewer | 判定: 重大 0 件 → **合格**（AC1〜AC15 の 非オーナー分を 網羅。6.1 の 直しは 正しく 無関係の 削除なし。ユニットは 実装なしで 赤、型は 未実装の 名前だけ 赤） | — | — | — |
