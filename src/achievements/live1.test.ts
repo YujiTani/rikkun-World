@@ -37,9 +37,9 @@ describe('LIVE-1 畜産の 記録（§4.5）', () => {
   });
   it('実績の 並び（版 3.2 §4.5）: 17 こ、小 は feed.1・pet.1・eatEgg.1 だけ。bug・carry は eatEgg の うしろ', () => {
     const l = ACHIEVEMENT_DEFS.filter((d) => d.series.startsWith('animal.'));
-    expect(l.length).toBe(17);
-    expect(l.filter((d) => d.small).map((d) => d.id)).toEqual(['animal.feed.1', 'animal.pet.1', 'animal.eatEgg.1']);
-    expect(l.slice(-6).map((d) => d.id)).toEqual(['animal.eatEgg.1', 'animal.bug.1', 'animal.bug.10', 'animal.bug.50', 'animal.carry.1', 'animal.carry.10']);
+    expect(l.length).toBe(26); // LIVE-2 で ＋9（17 → 26）。並び は live2.test.ts
+    expect(l.filter((d) => d.small).map((d) => d.id)).toEqual(['animal.feed.1', 'animal.pet.1', 'animal.eatEgg.1', 'animal.home.1']);
+    expect(l.slice(-15, -9).map((d) => d.id)).toEqual(['animal.eatEgg.1', 'animal.bug.1', 'animal.bug.10', 'animal.bug.50', 'animal.carry.1', 'animal.carry.10']);
     expect(l.find((d) => d.id === 'animal.friend.1')!.name).toBe('はじめて なかま が できた！');
     expect(l.find((d) => d.id === 'animal.friend.5')!.name).toBe('なかま が 5 わ に なった！');
   });

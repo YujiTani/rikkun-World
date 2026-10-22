@@ -67,6 +67,7 @@ export class ActionHint {
 
   private set(cell: HTMLDivElement, it: ActionHintItem | undefined): void {
     cell.hidden = !it;
+    cell.classList.toggle('action-hint__cell--disabled', !!it?.disabled);
     if (!it) return;
     (cell.querySelector('.action-hint__art') as HTMLImageElement).src = iconUrl(it.icon);
     cell.querySelector('.action-hint__word')!.textContent = it.word;
@@ -91,5 +92,5 @@ function heartUrl(): string {
 }
 
 function same(a: ActionHintItem | undefined, b: ActionHintItem | undefined): boolean {
-  return a?.icon === b?.icon && a?.word === b?.word;
+  return a?.icon === b?.icon && a?.word === b?.word && !!a?.disabled === !!b?.disabled;
 }

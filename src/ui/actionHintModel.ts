@@ -10,6 +10,8 @@ export interface ActionHintItem {
   icon: ItemId | 'heart' | 'full' | 'carry' | 'chicken';
   /** ひらがなの 1 語 */
   word: string;
+  /** LIVE-2: 入らない 所 など（絵 を うすく する。押しても 合図 だけ） */
+  disabled?: boolean;
 }
 
 export interface ActionHintLines {
@@ -76,6 +78,24 @@ export function actionHintLines(right: RightClickPreview | null, left: LeftClick
         break;
       case 'putDown':
         out.right = { icon: 'chicken', word: 'おろす' };
+        break;
+      // LIVE-2（§2.11）: こたつ = egg／kin_tamago ＋ いれる、入って いる = こたつ ＋ まってね。小屋 = あつめる、置く = toriya ＋ おく（入らない 所 は うすく）
+      // kitNeedEgg・kitMax・coopNoEgg は 照準 の 下 に 出さず、クリック した ときの 合図 の チップ だけ
+      case 'kitPut':
+        out.right = { icon: right.item!, word: 'いれる' };
+        break;
+      case 'kitWait':
+        out.right = { icon: 'nukunuku', word: 'まってね' };
+        break;
+      case 'coopCollect':
+        out.right = { icon: 'egg', word: 'あつめる' };
+        break;
+      case 'coopPlace':
+        out.right = { icon: 'toriya', word: 'おく' };
+        break;
+      case 'coopNoRoom':
+      case 'coopMax':
+        out.right = { icon: 'toriya', word: 'おく', disabled: true };
         break;
       // M7-2（§3.1）: 持っている じょうろ の 絵（ながい じょうろ なら その 絵）
       case 'fill':

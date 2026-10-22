@@ -17,7 +17,7 @@ describe('LIVE-1 合図（§3.1。版 3.2 の 8 つ）', () => {
       carryWild: 'なかま に なったら だっこ できる よ',
       cantPutHere: 'ここ には おろせない',
     };
-    expect(Object.keys(ANIMAL_HINT_VIEW).sort()).toEqual(Object.keys(want).sort());
+    expect(Object.keys(ANIMAL_HINT_VIEW).filter((k) => k in want).sort()).toEqual(Object.keys(want).sort()); // LIVE-2 の 9 つ は live2ui.test.ts
     for (const k of Object.keys(want) as AnimalLive1Hint[]) {
       expect(ANIMAL_HINT_VIEW[k].html, k).toBe(want[k]);
       expect(findUnrubiedKanji(ANIMAL_HINT_VIEW[k].html), k).toEqual([]);

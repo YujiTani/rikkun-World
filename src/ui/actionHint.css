@@ -66,3 +66,9 @@
   background: conic-gradient(var(--rk-accent, #ffd23f) calc(var(--p, 0) * 1turn), transparent 0);
   box-sizing: content-box;
 }
+
+/* LIVE-2: 小屋 を 置けない 所（絵 を うすく する） */
+.action-hint__cell--disabled .action-hint__art {
+  opacity: 0.4;
+  filter: grayscale(0.8);
+}
