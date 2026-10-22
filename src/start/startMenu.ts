@@ -159,6 +159,15 @@ export function mountStartMenu(model: () => StartModel, parent: HTMLElement = do
     if (/^[0-9]$/.test(e.key) || e.key === 'Backspace' || e.key === 'Escape' || e.key === 'Enter') {
       e.preventDefault();
       e.stopPropagation();
+      // Enter は フォーカスの ある ボタンを 押す（Tab で 移した ときも）。数字・⌫ の ボタンでは スタートの 意味
+      const target = (e.target as HTMLElement | null)?.closest<HTMLElement>('[data-press]');
+      const press = target?.dataset.press as StartButton | undefined;
+      if (e.key === 'Enter' && press && !press.startsWith('key-')) {
+        const st = model().state();
+        if (st.screen === 'menu' && st.checking) return; // 調べている あいだは Enter が きかない
+        model().press(press);
+        return;
+      }
       model().key(e.key);
     }
   };

@@ -170,6 +170,7 @@ import { FarmHint } from './ui/farmHint';
 import { FarmAimHud } from './ui/farmAim';
 import { itemIconPixels } from './ui/itemIcon';
 import { createStartBoot } from './start/startBoot';
+import { SAVE_BOOT_TIMEOUT_MS } from './start/lastWorld';
 import { decideWeightedStart } from './start/weightPref';
 import { decideStrength, strengthToSave } from './yokai/strengthPref';
 import { playWeapon } from './fx/weaponSounds';
@@ -260,14 +261,13 @@ try {
   store = null;
 }
 // IndexedDB が 開かない・返事がないときも ゲームは始める（3 秒でやめて 保存なしで遊ぶ）
-const SAVE_BOOT_TIMEOUT_MS = 3000;
 const sleepNull = () => new Promise<null>((ok) => setTimeout(() => ok(null), SAVE_BOOT_TIMEOUT_MS));
 const idbOpening = store && compressionAvailable() ? Promise.race([openIdb(), sleepNull()]) : Promise.resolve(null);
 const startBoot = createStartBoot();
 window.__rikkun = { start: startBoot.hook } as unknown as NonNullable<typeof window.__rikkun>; // メニューの あいだは 窓口 start だけ
 const startPlan = await startBoot.run({
   search: location.search,
-  store: saveOptions.nosave ? null : (() => { try { return window.localStorage; } catch { return null; } })(),
+  store,
   db: idbOpening,
   envStartMenu: import.meta.env.VITE_START_MENU as string | undefined,
   nSections: Math.ceil(WORLD_HEIGHT / 16),

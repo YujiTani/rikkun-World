@@ -4,7 +4,7 @@ import type { CharMode } from '../char/charPref';
 import type { PersistBackend } from '../save/backend';
 import type { StrengthLevel } from '../yokai/stats';
 import { RING_SMALL, type RingSpec } from '../world/stream/ring';
-import { findContinue, findSavedWorld, saveLastSeed, SAVE_BOOT_TIMEOUT_MS } from './lastWorld';
+import { findContinue, findSavedWorld, saveLastSeed, SAVE_BOOT_TIMEOUT_MS, within } from './lastWorld';
 import { mountStartMenu, type StartMenuView } from './startMenu';
 import { shouldShowStartMenu } from './startMenuPolicy';
 import { createStartModel, type StartChoice, type StartModel } from './startModel';
@@ -106,8 +106,7 @@ export function createStartBoot(): StartBoot {
       return { from: 'url', seed, strength: null, char: null, weight, close() {} };
     }
     // 保存を 調べる（最長 3 秒。IndexedDB を 開く 時間も ふくむ）
-    const timed = <T>(p: Promise<T>): Promise<T | null> =>
-      Promise.race([p, new Promise<null>((ok) => setTimeout(() => ok(null), SAVE_BOOT_TIMEOUT_MS))]).catch(() => null);
+    const timed = <T>(p: Promise<T>): Promise<T | null> => within(p, SAVE_BOOT_TIMEOUT_MS);
     let view: StartMenuView | null = null;
     const chosen = new Promise<StartChoice>((resolve) => {
       model = createStartModel({

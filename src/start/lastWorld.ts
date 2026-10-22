@@ -44,7 +44,7 @@ export function saveLastSeed(store: Store | null, seed: number): void {
 const TIMED_OUT = Symbol('timeout');
 
 /** promise を timeoutMs まで 待つ。時間切れ・例外 → null */
-async function within<T>(p: Promise<T>, timeoutMs: number): Promise<T | null> {
+export async function within<T>(p: Promise<T>, timeoutMs: number): Promise<T | null> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     const r = await Promise.race([p, new Promise<typeof TIMED_OUT>((ok) => (timer = setTimeout(() => ok(TIMED_OUT), timeoutMs)))]);

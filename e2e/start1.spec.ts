@@ -156,6 +156,15 @@ test.describe('START-1 画面の つなぎ（AC8・AC9）', () => {
   });
 });
 
+test.describe('START-1 キーボード（Enter は フォーカスの ボタン）', () => {
+  test('Tab で おとこのこ に 移して Enter → おとこのこ が えらばれ、2 枚目へは 行かない', async ({ page }) => {
+    await openMenu(page, '?menu=1', { waitChecked: true });
+    await tid(page, 'start-char-boy').focus();
+    await page.keyboard.press('Enter');
+    expect(await startState(page)).toMatchObject({ screen: 'menu', char: 'boy' });
+  });
+});
+
 test.describe('START-1 おぼえる（AC7 を 画面から）', () => {
   test('メニューで 押した とき すぐ localStorage に 書く。読み直すと そのまま えらばれている', async ({ page }) => {
     await openMenu(page, '?menu=1');
