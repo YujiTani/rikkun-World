@@ -84,6 +84,9 @@ test.describe('LIVE-2 とりごや', () => {
       const r1 = A.coop(14, 14);
       out.shifted = typeof r1 === 'number' ? 'id' : r1;
       out.n1 = h.animals.coops().length;
+      const c1 = h.animals.coops()[0];
+      // 柱 (12, 12) が 5×5 の 中に 入って いない（ずらして 置かれた）
+      out.avoids = !!c1 && (Math.abs(c1.x - 12) > 2 || Math.abs(c1.z - 12) > 2);
       // でこぼこ: 別の 場所の 5×5 の 下に 穴 3
       h.world.setBlock(44, 8, 44, 'air');
       h.world.setBlock(46, 8, 44, 'air');
@@ -104,6 +107,7 @@ test.describe('LIVE-2 とりごや', () => {
     });
     expect(r.shifted, 'ずれても 置ける').toBe('id');
     expect(r.n1).toBe(1);
+    expect(r.avoids, '柱を さけて ずらして 置く').toBe(true);
     expect(r.hint, 'でこぼこ').toBe('coopNoRoom');
     expect(r.after).toBe(0);
     expect(r.left).toBe(5);
@@ -189,6 +193,7 @@ test.describe('LIVE-2 とりごや', () => {
         if (a && A.inside(c, a)) wildIn = true;
       }
       out.wildIn = wildIn;
+      out.wildAlive = !!A.one(w); // きえて いたら「入らない」が ただの みかけに なる
       // 小屋の 子 は さくに 向かって 歩いても 出ない
       h.animals.clear();
       const kid = A.kid(c, { stage: 'chick' });
@@ -207,6 +212,7 @@ test.describe('LIVE-2 とりごや', () => {
     expect(r.gateInside, 'もんから 入れる').toBe(true);
     expect(r.fenceInside, 'さくを こえて 入れない').toBe(false);
     expect(r.fenceTop, 'さくの 上に のらない').toBe(false);
+    expect(r.wildAlive, 'やせいは 1,200 ステップ たっても いる').toBe(true);
     expect(r.wildIn, 'やせいは 入らない').toBe(false);
     expect(r.kidOut, '小屋の 子は 出ない').toBe(false);
   });
@@ -273,7 +279,7 @@ test.describe('LIVE-2 とりごや', () => {
       const id2 = h.animals.spawn(cx + 0.8, 9, cz, { friend: true, follow: A.full() });
       h.step(120);
       h.player.set({ position: { x: cx + f.fx * 5, y: 9, z: cz + f.fz * 5 } });
-      h.step(60);
+      h.step(150); // もんまで あるいて 出る のを 待つ（60 だと まだ 中の ことが ある）
       out.out = { home: A.one(id2).home ?? null, follow: A.one(id2).follow, mark: mark(id2)?.home ?? null };
       return out;
     });
@@ -434,6 +440,7 @@ test.describe('LIVE-2 とりごや', () => {
     });
     expect(r.nestMax).toBe(12);
     expect(r.at59, '59 ステップ目 は まだ').toBe(0);
+    expect(r.at61, '60 ステップ 目 を すぎれば 1').toBe(1);
     expect(r.final).toBe(1);
     expect(r.drops, 'すばこに 入る').toBe(0);
   });
@@ -673,28 +680,36 @@ test.describe('LIVE-2 とりごや', () => {
     expect(r.kidsAfter, 'だっこで 外に おろすと 子 0').toBe(0);
   });
 
-  test('AC29b もん・ねぐら・すばこ でも 同じ。だっこ中は 小屋は のこる。いえの しるしの とちゅうの なかま だけなら こわれる', async ({ page }) => {
+  test('AC29b もん・ねぐら・すばこ でも 同じ（中から ねらう）。だっこ中に 押しても 小屋は のこる', async ({ page }) => {
     await openAnimals(page);
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
       const A = (window as any).__A;
       A.base(40);
-      const out: any = { hints: {} };
+      const out: any = { hints: {}, aimed: {}, found: {} };
       const cid = A.coop(20, 20);
       const c = A.cinfo(cid);
       const f = A.face(c);
-      A.kid(c, { stage: 'chick' });
-      h.inventory.clear();
       const cx = c.x + 0.5;
       const cz = c.z + 0.5;
-      const spots: Record<string, [number, number]> = {
-        gate: [c.gate.x, c.gate.z],
-        nest: [c.x - f.fx * 2, c.z - f.fz * 2], // うしろの まん中（ねぐら）の 近く
+      // 子は 中の すみ に（ねらいの 線から はずす）
+      const kid = A.kid(c, { stage: 'chick' }, -f.fz, f.fx);
+      h.inventory.clear();
+      const find = (id: string) => {
+        for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) for (let dy = 0; dy < 4; dy++) {
+          if (h.world.getBlock(c.x + dx, c.y + dy, c.z + dz) === id) return { x: c.x + dx, y: c.y + dy, z: c.z + dz };
+        }
+        return null;
       };
-      for (const [name, [bx, bz]] of Object.entries(spots)) {
-        h.player.set({ position: { x: cx + f.fx * 6, y: 9, z: cz + f.fz * 6 }, yaw: A.yawTo(-f.fx, -f.fz), pitch: 0 });
+      // 中の 手前の 列（もんの 内がわ）に 立って、ブロックを ねらう
+      const inside = () => h.player.set({ position: { x: cx + f.fx * 1, y: 9, z: cz + f.fz * 1 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: 0 });
+      for (const [name, id] of [['gate', 'toriya_gate'], ['nest', 'toriya_nest'], ['box', 'toriya_box']] as const) {
+        const p = find(id);
+        out.found[name] = !!p;
+        if (!p) continue;
+        inside();
         h.step(2);
-        A.aimBlock(bx, c.y, bz);
+        out.aimed[name] = A.aimBlock(p.x, p.y, p.z);
         h.animals.events();
         h.input.press('primary');
         h.step(5);
@@ -703,13 +718,72 @@ test.describe('LIVE-2 とりごや', () => {
         h.step(2);
       }
       out.stillThere = h.animals.coops().length;
+      // だっこ中に 押しても のこる（だっこ中の 子も 数える。左クリックは 何も しない）
+      inside();
+      h.step(2);
+      out.lift = A.lift(kid);
+      const back = { x: c.x - f.fx * 2, y: c.y, z: c.z - f.fz * 2 };
+      out.aimedCarry = A.aimBlock(back.x, back.y, back.z);
+      h.input.press('primary');
+      h.step(300);
+      h.input.release('primary');
+      h.step(2);
+      out.carry = { coops: h.animals.coops().length, kids: h.animals.coops()[0]?.kids.length ?? -1, crack: h.dig.get().crackStage, carried: A.one(kid)?.carried };
       return out;
     });
-    for (const k of Object.keys(r.hints)) {
+    for (const k of ['gate', 'nest', 'box']) {
+      expect(r.found[k], `${k} の ブロックが 小屋に ある`).toBe(true);
+      expect(r.aimed[k], `${k} を ねらえた`).toBe(true);
       expect(r.hints[k].hint, k).toBe('coopNotEmpty');
       expect(r.hints[k].crack, k).toBe(0);
     }
     expect(r.stillThere).toBe(1);
+    expect(r.lift).toBe(true);
+    expect(r.aimedCarry).toBe(true);
+    expect(r.carry.carried, 'だっこ したまま').toBe(true);
+    expect(r.carry.coops, 'だっこ中は 小屋は のこる').toBe(1);
+    expect(r.carry.kids, 'だっこ中の 子も 数える').toBe(1);
+    expect(r.carry.crack).toBe(0);
+  });
+
+  test('AC29c いえの しるしの とちゅうの なかま だけが 中に いる 小屋は こわれる（子 0）', async ({ page }) => {
+    await openAnimals(page);
+    const r = await page.evaluate((blocks) => {
+      const h = (window as any).__rikkun;
+      const A = (window as any).__A;
+      A.base(40);
+      // 3 秒（180）の うちに ほり おわる のは むずかしい ので、小屋の 子に なる のを 十分 おそく する
+      h.settings.set('coopEnterTicks', 1_000_000);
+      const cid = A.coop(20, 20);
+      const c = A.cinfo(cid);
+      const f = A.face(c);
+      const cx = c.x + 0.5;
+      const cz = c.z + 0.5;
+      const id = h.animals.spawn(cx, 9, cz, { friend: true, follow: A.full() });
+      h.step(30);
+      const out: any = { mark: h.animals.fx().marks.find((m: any) => m.id === id)?.home ?? null, kids0: A.cinfo(cid).kids.length };
+      h.player.set({ position: { x: c.x + 0.5 - f.fx * 4.5, y: 9, z: c.z + 0.5 - f.fz * 4.5 }, yaw: A.yawTo(f.fx, f.fz), pitch: 0 });
+      h.step(2);
+      A.aimBlock(c.x - f.fx * 2, c.y, c.z - f.fz * 2);
+      h.inventory.clear();
+      h.animals.events();
+      h.input.press('primary');
+      h.step(600);
+      h.input.release('primary');
+      h.step(30);
+      out.locked = A.events('coopLocked').length;
+      out.coops = h.animals.coops().length;
+      out.left = 0;
+      for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) for (let dy = 0; dy < 4; dy++) if (blocks.includes(h.world.getBlock(c.x + dx, c.y + dy, c.z + dz))) out.left++;
+      const row = A.one(id);
+      out.friend = !!row && row.friend === true && !row.home;
+      return out;
+    }, COOP_BLOCKS);
+    expect(r.kids0, 'まだ 小屋の 子 ではない').toBe(0);
+    expect(r.locked, 'こわせない しらせは 出ない').toBe(0);
+    expect(r.coops).toBe(0);
+    expect(r.left).toBe(0);
+    expect(r.friend, 'なかまの まま').toBe(true);
   });
 
   test('AC19(小屋) ふりわけ: 小屋の すばこを ねらって つち → 置かず あつめる。だっこ中に 小屋を ねらう → おろす だけ', async ({ page }) => {
@@ -739,12 +813,27 @@ test.describe('LIVE-2 とりごや', () => {
       out.dirt = h.inventory.count('dirt');
       out.egg = h.inventory.count('egg');
       out.nestAfter = A.cinfo(cid).nest.egg;
+      // だっこ中に 小屋を ねらう → おろす だけ（つち は 置かず、あつめ も しない）
+      const w = h.animals.spawn(c.x + 0.5 - f.fx * 3.5, 9, c.z + 0.5 - f.fz * 3.5, { friend: true, follow: A.full(), stage: 'chick' });
+      h.step(3);
+      A.hold('dirt', 3);
+      out.lift = A.lift(w);
+      A.aimBlock(c.x - f.fx * 2, c.y, c.z - f.fz * 2);
+      h.animals.events();
+      A.tap();
+      out.dropped = A.one(w)?.carried === false;
+      out.dirt2 = h.inventory.count('dirt');
+      out.collect2 = A.events('coopCollect').length;
       return out;
     });
     expect(r.nest).toBe(1);
     expect(r.dirt, '置かない').toBe(3);
     expect(r.egg, 'あつめる').toBe(1);
     expect(r.nestAfter).toBe(0);
+    expect(r.lift).toBe(true);
+    expect(r.dropped, 'おろす').toBe(true);
+    expect(r.dirt2, 'だっこ中は つち を 置かない').toBe(3);
+    expect(r.collect2, 'だっこ中は あつめない').toBe(0);
   });
 
   test('AC20(小屋) 照準の 下: 小屋 → あつめる、toriya + 地面 → おく（入らない 所 は disabled true）', async ({ page }) => {
@@ -791,7 +880,6 @@ test.describe('LIVE-2 とりごや', () => {
   test('AC22(窓口) list() の 行に stage・breed・home・raised、coops() に kids（id の 配列）', async ({ page }) => {
     await openAnimals(page);
     const r = await page.evaluate(() => {
-      const h = (window as any).__rikkun;
       const A = (window as any).__A;
       A.base(40);
       const cid = A.coop(20, 20);

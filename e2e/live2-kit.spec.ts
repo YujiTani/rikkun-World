@@ -107,7 +107,11 @@ test.describe('LIVE-2 こたつ（たまご を あたためる）', () => {
     expect(r.bare.hint).toBe('kitNeedEgg');
     expect(r.bare.kits).toBe(0);
     expect(r.egg1.left, 'egg が 1 つ へる').toBe(2);
-    expect(r.egg1.kits).toEqual([{ x: 8, y: 9, z: 6, egg: 'egg', left: r.total }]);
+    // left は 入れた ステップから 数ステップ 進んで いる ことが ある（ぴったり 決め打ちしない）
+    expect(r.egg1.kits).toHaveLength(1);
+    expect(r.egg1.kits[0]).toMatchObject({ x: 8, y: 9, z: 6, egg: 'egg' });
+    expect(r.egg1.kits[0].left).toBeLessThanOrEqual(r.total);
+    expect(r.egg1.kits[0].left).toBeGreaterThanOrEqual(r.total - 10);
     expect(r.egg1.sfx).toContain('kitPut');
     expect(r.egg2.left, '入って いる こたつ には 入れない').toBe(2);
     expect(r.egg2.hint).toBe('kitWait');
@@ -183,7 +187,8 @@ test.describe('LIVE-2 こたつ（たまご を あたためる）', () => {
     expect(r.block).toBe('nukunuku');
     expect(r.stat).toBe(1);
     expect(r.unlock).toBe(true);
-    expect(r.sfx).toContain('hatch');
+    // はじめて の かえる は hatchFirst（§3.6）。2 わ目 いこうは hatch
+    expect(r.sfx.some((n: string) => n === 'hatch' || n === 'hatchFirst')).toBe(true);
     expect(r.shell, 'から の かけら').toBeGreaterThan(0);
     expect(r.farHatch, '30 マス はなれて いると かえらない').toBe(0);
     expect(r.nearStart, '5 マス に もどる と 60 ステップ 以内').toBeGreaterThan(0);

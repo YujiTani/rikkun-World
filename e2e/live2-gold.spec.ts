@@ -110,7 +110,7 @@ test.describe('LIVE-2 金の たまご・保存・文字・性能', () => {
       const A = (window as any).__A;
       A.base(60);
       const c1 = A.cinfo(A.coop(14, 14));
-      const c2 = A.cinfo(A.coop(34, 14));
+      A.cinfo(A.coop(34, 14));
       A.kid(c1, { stage: 'chick', grow: 1, bugs: 5 });
       A.kid(c1, { stage: 'adult', breed: 'macho', raised: true }, 1, 0);
       A.kid(c1, { stage: 'adult', raised: true, bugs: 40, goldMiss: 12 }, -1, 0);
@@ -200,6 +200,10 @@ test.describe('LIVE-2 金の たまご・保存・文字・性能', () => {
       h.step(2);
       out.coops = h.animals.coops().length;
       out.kits = h.animals.kits().length;
+      // ブロックが 無い 位置の 行は すてる
+      h.animals.deserialize({ v: 3, friends: [], coops: [], kits: [{ x: 90, y: 9, z: 90, egg: 'egg', left: 1000 }], machoMiss: 0 });
+      h.step(2);
+      out.noBlock = h.animals.kits().length;
       out.full = full;
       return out;
     });
@@ -211,6 +215,7 @@ test.describe('LIVE-2 金の たまご・保存・文字・性能', () => {
     expect(r.gold).toEqual([{ breed: 'normal', stage: 'adult' }]);
     expect(r.coops).toBe(3);
     expect(r.kits).toBe(6);
+    expect(r.noBlock, 'こたつの ブロックが 無い 行は すてる').toBe(0);
   });
 
   test('AC21c 大きさ: なかま 8・小屋 3 × 6・あたため中 6 の とき animals の 保存が 4,000 文字 以下', async ({ page }) => {
@@ -303,6 +308,7 @@ test.describe('LIVE-2 金の たまご・保存・文字・性能', () => {
       for (const row of rows) {
         const tag = `${w}x${hgt} ${row.name}`;
         expect(row.hint, tag).toBe(want[row.name]);
+        expect(row.chip.text.length, `${tag} チップに 文（空だと 漢字 0 が ただの みかけに なる）`).toBeGreaterThan(0);
         expect(row.chip.bare, `${tag} 漢字`).toEqual([]);
         expect(row.over, `${tag} はみ出し`).toBeLessThanOrEqual(0.5);
         expect(row.lines, `${tag} 2 行まで`).toBeLessThanOrEqual(2);
@@ -329,7 +335,7 @@ test.describe('LIVE-2 金の たまご・保存・文字・性能', () => {
         for (let i = 0; i < 6; i++) A.kid(c, { stage: i < 3 ? 'adult' : 'chick', breed: i === 0 ? 'macho' : 'normal', raised: true }, (i % 3) - 1, Math.floor(i / 3) - 1 || 1);
       }
       const full = A.full();
-      for (let i = 0; i < 8; i++) h.animals.spawn(5 + (i % 4) * 1.5, 9, 26 + Math.floor(i / 4) * 2 + 0.5, { friend: true, follow: full, breed: i < 2 ? 'macho' : 'normal', stage: i < 4 ? 'adult' : 'chick' });
+      for (let i = 0; i < 8; i++) h.animals.spawn(5 + (i % 4) * 1.5, 9, 26 + Math.floor(i / 4) * 2 + 0.5, { friend: true, follow: full, breed: 'normal', stage: i < 4 ? 'adult' : 'chick' }); // マッチョ にわとり は 小屋の 3 わ だけ（AC27）
       for (let i = 0; i < 3; i++) h.animals.spawn(5 + i * 1.5, 9, 36.5, { hearts: 2 });
       h.settings.set('kitHatchTicks', 7200);
       for (let i = 0; i < 6; i++) {

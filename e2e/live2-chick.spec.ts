@@ -77,6 +77,10 @@ test.describe('LIVE-2 ひよこ・大人に なる', () => {
       return out;
     });
     expect(r.mushi).toBe(2);
+    // むし → おなかいっぱい 600（animalFullTicks）。70 ステップ たった あとなので 600 − 70 くらい
+    expect(r.fullTicks).toBe(600);
+    expect(r.full).toBeGreaterThan(r.fullTicks - 90);
+    expect(r.full).toBeLessThanOrEqual(r.fullTicks);
     expect(r.follow, 'ついてくる 時間 まんたん').toBeGreaterThan(100);
     expect(r.egg, 'ひよこは たまごを うまない').toBe(0);
     expect(r.drops).toBe(0);
@@ -198,9 +202,14 @@ test.describe('LIVE-2 ひよこ・大人に なる', () => {
       h.animals.fxReset();
       h.audio.sfx();
       A.nextDay();
-      h.step(150);
+      // 紙ふぶきは 消えて しまう ので、進めながら いちばん 多い 値を 見る（0 のままで あることを 確かめる）
+      let confetti = 0;
+      for (let i = 0; i < 150; i++) {
+        h.step(1);
+        confetti = Math.max(confetti, h.animals.fx().confetti);
+      }
       out.bStage = A.one(b).stage;
-      out.confetti = h.animals.fx().confetti;
+      out.confetti = confetti;
       out.sfx = A.sfx();
       out.grow = A.events('grow');
       // 遠く
@@ -223,6 +232,8 @@ test.describe('LIVE-2 ひよこ・大人に なる', () => {
     });
     expect(r.aStage).toBe('adult');
     expect(r.bStage).toBe('adult');
+    expect(r.grow.length, 'grow の 出来事').toBeGreaterThanOrEqual(1);
+    expect(r.grow[0], '2 わ目は first false').toMatchObject({ first: false });
     expect(r.confetti, '2 わ目は 紙ふぶき 0').toBe(0);
     expect(r.sfx).toContain('grow');
     expect(r.sfx).not.toContain('growFirst');
