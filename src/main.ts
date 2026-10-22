@@ -882,7 +882,7 @@ yokaiManager = new YokaiManager({
   parry: {
     hit: (h) => {
       const r = parry.hit({ dirDeg: h.dirDeg, yawDeg: controller.state.yawDeg, by: h.by, yokaiId: h.yokaiId, amount: h.amount });
-      if (r.first) parryFx.spark(bladeMidInto(sparkAt, controller.state.position, controller.state.facingDeg), reducedMotionMq?.matches ?? false);
+      if (r.first) parryFx.spark(bladeMidInto(sparkAt, controller.state.position, controller.state.facingDeg), reducedMotionMq?.matches ?? false, controller.state.facingDeg);
       return { result: r.result, amount: r.amount };
     },
   },
@@ -1817,7 +1817,7 @@ game.onUpdate((dt) => {
   for (const n of parry.sounds()) if (isParrySound(n)) playParry(fxSound, n);
   {
     const ps = parry.state();
-    parryFx.step({ visible: ps.glowLeft > 0, level: parryGlowLevel(ps.glowLeft, w2), position: controller.state.position, reduced: reducedMotionMq?.matches ?? false });
+    parryFx.step({ visible: ps.glowLeft > 0, level: parryGlowLevel(ps.glowLeft, w2), position: controller.state.position, reduced: reducedMotionMq?.matches ?? false, facingDeg: controller.state.facingDeg });
   }
   combatUi.hearts.setArmor(armor.snapshot().hudIcons);
   craftHud.update(dt);
