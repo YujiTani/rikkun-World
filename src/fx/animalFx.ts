@@ -845,7 +845,10 @@ export class AnimalFx {
         break;
       }
       case 'coopCollect':
-        if (e.egg + e.gold > 0) this.snd(e.egg + e.gold >= ANIMAL_FX.collectMany ? 'collectMany' : 'collect');
+        if (e.egg + e.gold > 0) {
+          this.snd('collect'); // 音の 名前は いつも collect（仕様）。多い とき は ころころ の つづき を 重ねる
+          if (e.egg + e.gold >= ANIMAL_FX.collectMany) this.snd('collectMany');
+        }
         break;
       case 'growStart': // 動き だけ（音・つぶ は 大人 に なった とき）
       case 'roll': // ころん: 音は なし（ひよこ の パタパタ の 着地。からだ の うごき で 見せる）

@@ -122,10 +122,10 @@ describe('小屋・大人・金・あつめる', () => {
     expect(fx.fx().confetti).toBe(0);
   });
 
-  it('あつめる: 4 こ まで = collect、5 こ 以上 = collectMany、0 こ = なし', () => {
+  it('あつめる: いつも collect、5 こ 以上 は つづき collectMany を 重ねる、0 こ = なし', () => {
     const { fx } = make();
     fx.onEvents(ev({ type: 'coopCollect', egg: 2, gold: 1 }, { type: 'coopCollect', egg: 4, gold: 1 }, { type: 'coopCollect', egg: 0, gold: 0 }));
-    expect(fx.played).toEqual(['collect', 'collectMany']);
+    expect(fx.played).toEqual(['collect', 'collect', 'collectMany']);
   });
 
   it('play(): こたつ に 入れた・小屋 を 置いた は つなぎ込み が 呼ぶ', () => {

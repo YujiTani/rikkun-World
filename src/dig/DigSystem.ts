@@ -1,6 +1,7 @@
 import type {
   ArmorSystem,
   BlockId,
+  CoopPlacePreview,
   CraftSystem,
   DigBlockedReason,
   DigEvent,
@@ -691,10 +692,10 @@ export class DigSystemImpl implements DigSystem {
     }
     const { x, y, z } = t.block;
     this.world.setBlock(x, y, z, 'air');
-    const got = 1 - this.inventory.add('toriya', 1);
-    if (got > 0) this.m4.onPickup?.('toriya', got);
-    else this.m4.scatterItem?.({ x: x + 0.5, y, z: z + 0.5 }, 'toriya', 1);
-    this.emit({ type: 'break', tick: this.tickCount, block: { x, y, z }, id: t.id, gotItem: got > 0, count: got });
+    // 仕様（AC14）: toriya 1 は すばこ の たまご と いっしょに 足もと に おちる（拾うと 持ち物 へ）
+    if (this.m4.scatterItem) this.m4.scatterItem({ x: x + 0.5, y, z: z + 0.5 }, 'toriya', 1);
+    else if (this.inventory.add('toriya', 1) === 0) this.m4.onPickup?.('toriya', 1);
+    this.emit({ type: 'break', tick: this.tickCount, block: { x, y, z }, id: t.id, gotItem: false, count: 0 });
     this.wearForBlock();
     this.toolHintModel.forget(`${x},${y},${z}`);
     this.clearMem();
@@ -963,7 +964,11 @@ export class DigSystemImpl implements DigSystem {
 
   private doAnimalKind(kind: string): void {
     if (kind === 'feed' || kind === 'animalFull') this.doFeed();
-    else if (kind === 'animalPet') this.doAnimalPet();
+    else if (kind === 'animalPet') {
+      // LIVE-2: ねて いる 子 に むし → なでず に sleepHint（feed() が 'sleep' を 返す。むし は へらない）
+      if (this.inventory.held()?.item === 'mushi') this.doFeed();
+      else this.doAnimalPet();
+    }
   }
 
   /** 0b あみ を ふる。ふって いる 20 ステップ の 間 は 何も しない */
@@ -1049,14 +1054,9 @@ export class DigSystemImpl implements DigSystem {
     const a = this.m4.animals;
     const c = t ? a?.coopAt(t.block.x, t.block.y, t.block.z) : null;
     if (!a || !c) return;
+    // 持ち物 へ 入れる のは A（collectCoop。入らない 分 は すばこ に のこる）。ここ は 取った 知らせ だけ
     const r = a.collectCoop(c.id);
-    const p = this.player().position;
-    for (const [item, n] of [['egg', r.egg], ['kin_tamago', r.gold]] as const) {
-      if (n <= 0) continue;
-      const left = this.inventory.add(item, n);
-      if (n - left > 0) this.m4.onPickup?.(item, n - left);
-      if (left > 0) this.m4.scatterItem?.({ x: p.x, y: p.y, z: p.z }, item, left);
-    }
+    for (const [item, n] of [['egg', r.egg], ['kin_tamago', r.gold]] as const) if (n > 0) this.m4.onPickup?.(item, n);
     this.m4.tools?.pushSwing('place');
   }
 
@@ -1099,6 +1099,15 @@ export class DigSystemImpl implements DigSystem {
     if (!a || !t || !COOP_BLOCKS.has(t.id)) return null;
     const c = a.coopAt(t.block.x, t.block.y, t.block.z);
     return c ? { eggs: c.nest.egg + c.nest.gold } : null;
+  }
+
+  /** 置く 前 の すけた 小屋（toriya を 持って 地面 を ねらって いる とき だけ。毎フレーム 描く 側 が 読む） */
+  coopGhost(): CoopPlacePreview | null {
+    const a = this.m4.animals;
+    const t = this.tgt;
+    if (!a || !t || this.inventory.held()?.item !== 'toriya') return null;
+    const { x, y, z } = t.place;
+    return a.previewCoop(x, y, z, this.coopDir(x, z));
   }
 
   /** 10a の 答え: toriya を 持って 地面 を ねらって いる とき だけ */

@@ -92,6 +92,8 @@ export interface VoxelWorld {
   setBlock(x: number, y: number, z: number, id: BlockId): boolean;
   /** 固いブロックなら true。範囲外は false（世界の端は T3 が面で止める） */
   isSolid(x: number, y: number, z: number): boolean;
+  /** LIVE-2: プレイヤー の 体 の 当たり 用。`isSolid` に 足して、とりごやの さく の すぐ 上 の 1 マス も 固い（さく の 当たり は 高さ 2。見た目 は 12/9）。なければ `isSolid` を 使う */
+  isSolidForPlayer?(x: number, y: number, z: number): boolean;
   /**
    * M7: ブロックの id は同じまま、見た目だけ作り直させる（作物の段階が変わったとき）。光の計算し直しは起こさない。
    * 範囲外は何もしない。持たない VoxelWorld（テスト用の仮のもの）では呼ばない（`world.touch?.()`）
@@ -2700,6 +2702,8 @@ export interface AnimalDeps {
   addItem(item: ItemId): boolean;
   /** 版 3.2: もう だっこ した ことが ある か（記録 `carry:*` ＞ 0）。`carryHint` を 出すか の 判定 */
   carriedBefore?(): boolean;
+  /** LIVE-2: 入る なら 持ち物 へ。入らなければ 何も せず false（足もと に 落とさない）。すばこ の たまご を あつめる とき に 使う。なければ `addItem` */
+  tryAddItem?(item: ItemId): boolean;
   day(): number;
   phase(): DayPhase;
   countryAt(seed: number, x: number, z: number): { kind: string };
@@ -2711,4 +2715,6 @@ export interface AnimalDeps {
   dropItem?(at: Vec3, item: ItemId): void;
   /** 大人 に なった ことが ある か（実績 `grow:*` が 1 以上。ない とき は A が 今 の 起動 の あいだ だけ 覚える） */
   grewBefore?(): boolean;
+  /** かえった ことが ある か（実績 `hatch:*` が 1 以上）。`hatch` 出来事 の `first` の もと */
+  hatchedBefore?(): boolean;
 }

@@ -267,6 +267,10 @@ export class AnimalManager implements AnimalApi {
   private lastDay: number | null = null;
   /** 大人 に なった ことが ある（`grewBefore` が 無い とき の かわり。保存 しない） */
   private everGrew = false;
+  /** かえった ことが ある（`hatchedBefore` が 無い とき の かわり。保存 しない） */
+  private everHatched = false;
+  /** 小屋 の「こわせない」合図 を 最後 に 出した ステップ（押し つづけ の 出し直し 用） */
+  private lockHintAt = -1000;
   private night = false;
   /** 直前 の putDown が 失敗 して、自分 の 合図 を 出した か */
   private putWhy: AnimalHintKind | null = null;
@@ -763,17 +767,22 @@ export class AnimalManager implements AnimalApi {
     return 'put';
   }
 
+  /** 入る なら 持ち物 へ（入らなければ 足もと に 落とさず false）。`tryAddItem` が なければ `addItem` */
+  private tryAdd(item: ItemId): boolean {
+    return this.d.tryAddItem ? this.d.tryAddItem(item) : this.d.addItem(item);
+  }
+
   /** 右クリック: 小屋 の すばこ の たまご を ぜんぶ 持ち物 へ（入らない 分 は のこる）。あつめた 数 */
   collectCoop(coopId: number): { egg: number; gold: number } {
     const c = this.coopById(coopId);
     if (!c) return { egg: 0, gold: 0 };
     let egg = 0;
     let gold = 0;
-    while (c.gold > 0 && this.d.addItem('kin_tamago')) {
+    while (c.gold > 0 && this.tryAdd('kin_tamago')) {
       c.gold--;
       gold++;
     }
-    while (c.egg > 0 && this.d.addItem('egg')) {
+    while (c.egg > 0 && this.tryAdd('egg')) {
       c.egg--;
       egg++;
     }
@@ -787,7 +796,12 @@ export class AnimalManager implements AnimalApi {
     if (!c || this.kidCount(c.id) === 0) return 'ok';
     if (firstPress) {
       this.hintOut('coopNotEmpty');
+      this.lockHintAt = this.tick;
       this.push({ type: 'coopLocked', coop: c.id });
+    } else if (this.tick - this.lockHintAt >= 100) {
+      // 押し つづけて いる あいだ は 合図 の チップ が 消えない よう 100 ステップ ごと に 出し直す（出来事 coopLocked は 出さない）
+      this.hintOut('coopNotEmpty');
+      this.lockHintAt = this.tick;
     }
     return 'locked';
   }
@@ -897,7 +911,7 @@ export class AnimalManager implements AnimalApi {
       this.coopList.push(c);
       this.nextCoopId = Math.max(this.nextCoopId, id + 1);
       for (const b of r.kids) {
-        const inside = inInterior(c, b.x, b.z, KID_MARGIN);
+        const inside = inInterior(c, b.x, b.z, 0);
         const e = this.make(inside ? b.x : c.x + 0.5, inside ? b.y : c.y, inside ? b.z : c.z + 0.5, true, 0, 0);
         this.applyBird(e, b);
         this.makeKid(e, c);
@@ -1447,7 +1461,9 @@ export class AnimalManager implements AnimalApi {
     if (kind === 'hatch') {
       // かえった: すぐ なかま・ついてくる 時間 まんたん（§2.1）
       e.follow = this.settings.animalFollowTicks;
-      this.push({ type: 'hatch', id: e.id, breed: e.breed, gold: e.fromGold });
+      const firstHatch = this.d.hatchedBefore ? !this.d.hatchedBefore() : !this.everHatched;
+      this.everHatched = true;
+      this.push({ type: 'hatch', id: e.id, breed: e.breed, gold: e.fromGold, first: firstHatch });
     } else if (kind === 'grow') {
       const first = this.d.grewBefore ? !this.d.grewBefore() : !this.everGrew;
       this.everGrew = true;

@@ -261,7 +261,7 @@ describe('DigSystem 右クリック（LIVE-2）', () => {
     expect(r.dig.previewRightClick()?.kind).toBe('coopCollect');
     r.tap();
     expect(r.log).toContain('collect 3');
-    expect(r.added).toEqual([['egg', 2], ['kin_tamago', 1]]);
+    expect(r.added).toEqual([]); // 持ち物 へ 入れる のは A（collectCoop）。ここ は 知らせ だけ
     expect(r.picked).toEqual([['egg', 2], ['kin_tamago', 1]]);
     expect(r.blocks.get('4,10,6')).toBeUndefined(); // つち は 置かない
     expect(r.fake!.count).toBe(3);
@@ -275,14 +275,6 @@ describe('DigSystem 右クリック（LIVE-2）', () => {
     b.step(2);
     b.tap();
     expect(b.blocks.get('4,10,6')).toBe('dirt');
-  });
-  it('1b: 入りきらない たまご は 足もと に おとす', () => {
-    const r = rig({ held: null, target: 'toriya_box', coop: { nest: { egg: 2, gold: 0 }, kids: [] }, collected: { egg: 2, gold: 0 } });
-    r.inv.add = ((item: ItemId, n: number) => (r.added.push([item, n]), 1)) as never;
-    r.step(2);
-    r.tap();
-    expect(r.log).toContain('scatter egg 1');
-    expect(r.picked).toEqual([['egg', 1]]);
   });
   it('10a: toriya で 置く → placeCoop（もん は プレイヤー の 西 → dir 3）・toriya 1 へる・place 出来事（実績）', () => {
     const r = rig({ held: 'toriya', target: 'stone', count: 2 });
@@ -362,7 +354,7 @@ describe('DigSystem 左クリック（LIVE-2 小屋 を ほる）', () => {
     r.actions.release('primary');
     r.step(2);
     expect(r.log).toContain('removeCoop 3');
-    expect(r.added).toContainEqual(['toriya', 1]);
+    expect(r.log).toContain('scatter toriya 1'); // toriya 1 は 足もと に おちる（仕様 AC14）
     expect(r.events.some((e) => e.type === 'break' && e.id === 'toriya_fence')).toBe(true);
     expect(r.blocks.get('5,10,6')).toBe('air');
   });
