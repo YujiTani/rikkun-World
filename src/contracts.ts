@@ -2620,7 +2620,7 @@ export interface AnimalApi {
   /** 版 3.2（C が 足した）: C から の 合図（treeEmpty・netHint・cantPutHere・carryWild・fullHint・friendFull・feedHint）を 出来事 `hint` と `lastHint()` に 入れる */
   emitHint?(h: AnimalHintKind): void;
   /** 'ate' の とき だけ C が むし を 1 へらす。'full' = おなかいっぱい、'pet' = なでる に なった、'friendFull' = なかま が 8 わ */
-  feed(id: number, item: ItemId): 'ate' | 'full' | 'pet' | 'friendFull' | null;
+  feed(id: number, item: ItemId): 'ate' | 'full' | 'pet' | 'friendFull' | 'sleep' | null;
   pet(id: number): 'wild' | 'friend' | null;
   /** 版 3.2: おなかいっぱい か（テスト・確認用。照準 の 下 の `まってね` は `preview` が 'animalFull' を 返す） */
   isFull?(id: number): boolean;
@@ -2661,6 +2661,8 @@ export interface AnimalApi {
   forEachKit(fn: (k: KitInfo & { hatchT: number }) => void): void;
   /** B が 描く: 小屋（すばこ の 数 と 子 の 数） */
   forEachCoop(fn: (c: CoopInfo) => void): void;
+  /** 直前 の `putDown` が 失敗 した わけ（`coopFull`・`friendFull`。A が 合図 を 出して いる）。ほか は null */
+  putDownWhy?(): AnimalHintKind | null;
 }
 
 // ---- LIVE-2: ふつう の 計算 の 型（A が `src/animals/` で 書く。ユニット の 仮の 名前: docs/test-reports/LIVE-2.md）
@@ -2698,4 +2700,6 @@ export interface AnimalDeps {
   removeCoopBlocks?(x: number, y: number, z: number, dir: 0 | 1 | 2 | 3): void;
   /** すばこ 12 こ いっぱい など で 足もと に おとす（`kin_tamago` も） */
   dropItem?(at: Vec3, item: ItemId): void;
+  /** 大人 に なった ことが ある か（実績 `grow:*` が 1 以上。ない とき は A が 今 の 起動 の あいだ だけ 覚える） */
+  grewBefore?(): boolean;
 }

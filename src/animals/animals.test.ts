@@ -1080,7 +1080,7 @@ describe('AC24 保存 v 2', () => {
     s.m.spawn(60.5, 9, 60.5, { hearts: 1 });
     s.m.spawn(62.5, 9, 60.5, { hearts: 2 });
     const data = JSON.parse(JSON.stringify(s.m.serialize()));
-    expect(data.v).toBe(2);
+    expect(data.v).toBe(3); // LIVE-2: 保存 v 3
     expect(data.friends[0]).not.toHaveProperty('eggDay');
     const t = setup();
     t.m.spawn(70.5, 9, 70.5);
@@ -1134,10 +1134,10 @@ describe('AC24 保存 v 2', () => {
     expect(s.m.list()).toHaveLength(8);
   });
 
-  it('なかま 8 わ で 1,000 文字 以下', () => {
+  it('なかま 8 わ で 1,400 文字 以下（v 3 は 1 わ 行 が 増えた。いちばん 多い とき の 全体 は 4,000 以下: live2.test.ts）', () => {
     const s = setup();
     for (let i = 0; i < 8; i++) s.m.spawn(-1234.56 + i, 123.45, -9876.54, { friend: true, follow: 17999 });
-    expect(JSON.stringify(s.m.serialize()).length).toBeLessThanOrEqual(1000);
+    expect(JSON.stringify(s.m.serialize()).length).toBeLessThanOrEqual(1400);
   });
 
   it('石で うまっている → 60 ステップ 以内 に warp', () => {
