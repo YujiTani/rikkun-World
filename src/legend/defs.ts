@@ -1,4 +1,4 @@
-import type { ItemId, LegendaryCharge, LegendaryDef, NushiDropRow, W2Settings } from '../contracts';
+import type { ItemId, LegendaryAttackFx, LegendaryCharge, LegendaryDef, NushiDropRow, W2Settings } from '../contracts';
 
 /**
  * WEAPON-7 §2.1: レジェンダリー武器の データを 引く 口。武器を 足すときは 設定 `legendary` に 1 つ 足すだけ
@@ -17,6 +17,19 @@ export function trailStyleOf(S: Pick<W2Settings, 'legendary'>, item: ItemId | nu
   return t && t.kind === 'trail' ? t.style : null;
 }
 
+/** 手に 持っている 間の 速さの 倍率（passive moveMul の 積。レジェンダリーでない 物・手が 空 は 1）。WEAPON-7 §4.2 */
+export function legendMoveMulOf(S: Pick<W2Settings, 'legendary'>, item: ItemId | null | undefined): number {
+  let m = 1;
+  for (const p of legendDefOf(S, item)?.passive ?? []) if (p.kind === 'moveMul') m *= p.mul;
+  return m;
+}
+
+/** ふつうの わざに 足す 真空波（なければ null） */
+export function waveOf(S: Pick<W2Settings, 'legendary'>, item: ItemId | null | undefined): Extract<LegendaryAttackFx, { kind: 'wave' }> | null {
+  const a = legendDefOf(S, item)?.onAttack.find((x) => x.kind === 'wave');
+  return a && a.kind === 'wave' ? a : null;
+}
+
 /** その 武器の ためわざ（ためない 武器・レジェンダリーでない 物は null） */
 export function chargeOf(S: Pick<W2Settings, 'legendary'>, item: ItemId | null | undefined): LegendaryCharge | null {
   return legendDefOf(S, item)?.charge ?? null;
@@ -26,10 +39,27 @@ export function chargeOf(S: Pick<W2Settings, 'legendary'>, item: ItemId | null |
  * 強さ P（`weaponDamage` の かわり）。レジェンダリーでない 物は null。
  * `[最小, 最大]` は 落ちた ときに 1 本ごとに 決める（PR3）。それまでは 整数の まん中
  */
-export function legendPowerOf(S: Pick<W2Settings, 'legendary'>, item: ItemId | null | undefined): number | null {
+export function legendPowerOf(S: Pick<W2Settings, 'legendary'>, item: ItemId | null | undefined, stackPower?: number | null): number | null {
   const d = legendDefOf(S, item);
   if (!d) return null;
-  return typeof d.power === 'number' ? d.power : Math.round((d.power[0] + d.power[1]) / 2);
+  if (typeof d.power === 'number') return d.power;
+  // [最小, 最大]: 持っている 1 本の 強さ（PR3）。なければ 整数の まん中
+  if (typeof stackPower === 'number' && Number.isFinite(stackPower)) return Math.max(d.power[0], Math.min(d.power[1], Math.round(stackPower)));
+  return Math.round((d.power[0] + d.power[1]) / 2);
+}
+
+/** 1 本ごとに 強さが ちがう（[最小, 最大]）武器か */
+export function hasPowerRange(S: Pick<W2Settings, 'legendary'>, item: ItemId | null | undefined): boolean {
+  const d = legendDefOf(S, item);
+  return !!d && Array.isArray(d.power);
+}
+
+/** ヌシから 出る 1 本の 強さ（[最小, 最大] の 整数を 同じ 重さで。強さが 1 つに 決まっている 武器は null = 保存しない） */
+export function rollLegendPower(S: Pick<W2Settings, 'legendary'>, item: ItemId, rng: () => number): number | null {
+  const d = legendDefOf(S, item);
+  if (!d || typeof d.power === 'number') return null;
+  const [lo, hi] = d.power;
+  return lo + Math.min(hi - lo, Math.floor(rng() * (hi - lo + 1)));
 }
 
 /**

@@ -6,6 +6,7 @@ import { gemShape, gemUrl } from './gemArt';
 import { itemIconUrl } from './itemIcon';
 import { itemCategory, rarityIndex } from './itemCategory';
 import { paintWear, wearSignature } from './wearGauge';
+import { paintPower } from './powerBadge';
 import { paintWater } from './waterGauge';
 import './hotbar.css';
 
@@ -73,6 +74,7 @@ export function paintSlot(els: SlotEls, stack: ItemStack | null, durability?: Du
   // WEAPON-2 §3.6: たいきゅうで へる 道具の マスには ゲージを いつも 出す
   paintWear(els.root, stack, durability);
   paintWater(els.root, stack); // M7-2: じょうろ の みず の 棒
+  paintPower(els.root, stack); // WEAPON-7 PR3: 虹の つよさの 数
 }
 
 /** ぽよん（Web Animations。使えない環境では何もしない） */

@@ -95,9 +95,13 @@ describe('BagVisuals', () => {
     for (let i = 0; i < 120; i++) v.update(1 / 60, [it1(1, 1, 1, 'dirt', 1, 'superRare')]);
     expect((pillar().material as THREE.MeshBasicMaterial).color.getHex()).toBe(h0);
     v.update(1 / 60, [it1(1, 1, 1, 'dirt', 1, 'legendary')]);
-    const l0 = (pillar().material as THREE.MeshBasicMaterial).color.getHex();
+    // 7 段目の柱は たてに 7 色ならんだ にじのグラデーション（map）。ゆっくり上へ流れる（offset が 動く）
+    const lm = pillar().material as THREE.MeshBasicMaterial;
+    expect(lm.map).not.toBeNull();
+    expect(lm.color.getHex()).toBe(0xffffff);
+    const l0 = lm.map!.offset.y;
     for (let i = 0; i < 120; i++) v.update(1 / 60, [it1(1, 1, 1, 'dirt', 1, 'legendary')]);
-    expect((pillar().material as THREE.MeshBasicMaterial).color.getHex()).not.toBe(l0);
+    expect(lm.map!.offset.y).not.toBe(l0);
     v.update(1 / 60, [it1(1, 1, 1, 'dirt', 1, 'common')]);
     expect(drawn(1)).toBe(0);
     expect(drawn(0)).toBe(sparkleCount('common'));

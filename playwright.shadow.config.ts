@@ -1,3 +1,4 @@
+// 使い道: #144 影の試作の計測・スクショ用（npm run test:e2e:shadow）。ふだんの E2E・CI では使わない。
 import { defineConfig } from '@playwright/test';
 import base from './playwright.config';
 

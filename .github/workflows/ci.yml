@@ -16,7 +16,7 @@ permissions:
 jobs:
   check-fast:
     name: 型チェックとユニットテスト
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -28,7 +28,7 @@ jobs:
 
   e2e:
     name: E2E（${{ matrix.shard }}/4）
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -39,6 +39,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          check-latest: true
           cache: npm
       - run: npm ci
       - name: Playwright の Chromium を入れる
@@ -70,7 +71,7 @@ jobs:
     name: E2E（全部）
     needs: e2e
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: 3 つの結果をたしかめる
         run: test "${{ needs.e2e.result }}" = "success"

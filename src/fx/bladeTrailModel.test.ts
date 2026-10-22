@@ -10,7 +10,7 @@ const FILE_KEY = { thrust: 'katana_thrust', kesa: 'katana_kesa', kiriage: 'katan
 // WEAPON-4: 絵の 長さは 設定の 初期値と べつ（切り上げの 設定は 19/3/30、絵は atlas.json の phases）
 const P = TECH_PHASES;
 const art = JSON.parse(readFileSync('art/char-sheets/blade_path.json', 'utf8')) as Record<string, { perTick: { base: number[]; tip: number[] }[] }>;
-const atlas = JSON.parse(readFileSync('public/models/char/atlas.json', 'utf8')) as { modelH: number; motions: Record<string, { ticks: number[] }> };
+const atlas = JSON.parse(readFileSync('public/models/char/girl/atlas.json', 'utf8')) as { modelH: number; motions: Record<string, { ticks: number[] }> };
 
 describe('CHAR-4 AC1 データ', () => {
   it('ゲームに 組みこんだ 刃先の データは art/char-sheets/blade_path.json と 同じ（3 わざ・perTick の 数・base と tip の 3 つの 数）', () => {
@@ -33,7 +33,7 @@ describe('CHAR-4 AC1 データ', () => {
     expect(TRAIL_K).toBeCloseTo(1.0588, 4);
   });
   it('刀は ぼくとう・かたな・きらきらの かたな・雷神剣（WEAPON-7）だけ。表に ない 刀は かたなの 行', () => {
-    expect([...BLADE_TRAIL_ITEMS].sort()).toEqual(['bokuto', 'crystal_katana', 'katana', 'raijin_ken']);
+    expect([...BLADE_TRAIL_ITEMS].sort()).toEqual(['bokuto', 'crystal_katana', 'fujin_ken', 'katana', 'niji', 'raijin_ken']);
     const s = createW2Settings();
     expect(trailRow(s, 'raijin_ken')).toBe(s.bladeTrail.raijin_ken); // WEAPON-7 G8: 雷神剣の 行は 表に ある（刃は むらさき）
     expect(s.bladeTrail.raijin_ken!.blade).toBe(0xb070ff);

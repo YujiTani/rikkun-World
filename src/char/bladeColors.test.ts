@@ -31,7 +31,7 @@ function make(loadImage: () => Promise<ImageData> = () => new Promise(() => unde
     parent,
     camera: new THREE.PerspectiveCamera(),
     lighting: new Lighting(),
-    basePath: './models/char/',
+    basePath: './models/char/girl/',
     loadJson: async () => ({ modelH: 1.7 }),
     loadImage,
     initTexture: (t) => t.onUpdate?.(t as never),

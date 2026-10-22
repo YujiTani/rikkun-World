@@ -19,5 +19,12 @@ npm run dev
 
 | コマンド | 内容 |
 |---|---|
-| `npm run check` | 型チェック＋ユニットテスト＋E2E テスト |
-| `npm run perf` | 性能の数値を記録 |
+| `npm run dev` | 遊ぶ（開発サーバー） |
+| `npm run typecheck` | 型チェック |
+| `npm test` | ユニットテスト |
+| `npm run check:fast` | 速いチェック（型＋ユニット） |
+| `npm run test:e2e` | E2E テスト（ふだんは `npx playwright test e2e/<spec>`） |
+| `npm run test:e2e:fast` | 速い E2E（smoke など） |
+| `npm run check:ui` | UI 検査（全画面×3 つの大きさ） |
+| `npm run perf` | 性能の数値を記録（`perf-results/latest.json`） |
+| `npm run check` | 全部（型＋ユニット＋E2E） |

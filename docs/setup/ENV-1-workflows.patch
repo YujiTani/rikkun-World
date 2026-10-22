@@ -1,0 +1,70 @@
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index e808533..c9d1c10 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -21,7 +21,7 @@ jobs:
+       - uses: actions/checkout@v4
+       - uses: actions/setup-node@v4
+         with:
+-          node-version: 22
++          node-version-file: .nvmrc
+           cache: npm
+       - run: npm ci
+       - run: npm run check:fast
+@@ -38,11 +38,24 @@ jobs:
+       - uses: actions/checkout@v4
+       - uses: actions/setup-node@v4
+         with:
+-          node-version: 22
++          node-version-file: .nvmrc
+           cache: npm
+       - run: npm ci
++      - name: Playwright の版をしらべる
++        id: pw
++        run: echo "version=$(node -p "require('./node_modules/@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
++      - name: Playwright のブラウザのキャッシュ
++        id: pw-cache
++        uses: actions/cache@v4
++        with:
++          path: ~/.cache/ms-playwright
++          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
+       - name: Playwright の Chromium を入れる
++        if: steps.pw-cache.outputs.cache-hit != 'true'
+         run: npx playwright install --with-deps chromium
++      - name: Playwright の OS 部品だけ入れる（ブラウザはキャッシュ）
++        if: steps.pw-cache.outputs.cache-hit == 'true'
++        run: npx playwright install-deps chromium
+       - name: E2E（4 つに分けた ${{ matrix.shard }} つ目）
+         run: npx playwright test --shard=${{ matrix.shard }}/4 --reporter=list,html
+         env:
+@@ -65,12 +78,12 @@ jobs:
+           if-no-files-found: ignore
+           retention-days: 7
+ 
+-  # 3 つ全部が通ったかを、前と同じ名前の 1 つのチェックにまとめる（必須チェックの名前を変えないため）
++  # 4 つ全部が通ったかを、前と同じ名前の 1 つのチェックにまとめる（必須チェックの名前を変えないため）
+   e2e-all:
+     name: E2E（全部）
+     needs: e2e
+     if: always()
+     runs-on: ubuntu-latest
+     steps:
+-      - name: 3 つの結果をたしかめる
++      - name: 4 つの結果をたしかめる
+         run: test "${{ needs.e2e.result }}" = "success"
+diff --git a/.github/workflows/pages.yml b/.github/workflows/pages.yml
+index 7884c63..957fea9 100644
+--- a/.github/workflows/pages.yml
++++ b/.github/workflows/pages.yml
+@@ -24,9 +24,10 @@ jobs:
+       - uses: actions/checkout@v4
+       - uses: actions/setup-node@v4
+         with:
+-          node-version: 22
++          node-version-file: .nvmrc
+           cache: npm
+       - run: npm ci
++      - run: npm run check:fast
+       - run: npm run build
+       - uses: actions/configure-pages@v5
+       - uses: actions/upload-pages-artifact@v3

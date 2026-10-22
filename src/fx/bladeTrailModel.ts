@@ -4,7 +4,7 @@ import { TECH_PHASES } from '../char/techCurves';
 import pathJson from './bladePath.json';
 
 /** 軌跡を 出す 刀（`BLADE_ITEMS` と 同じ。fx から tools へ 依存しないよう ここにも 持つ） */
-export const BLADE_TRAIL_ITEMS: ReadonlySet<ItemId> = new Set<ItemId>(['bokuto', 'katana', 'crystal_katana', 'raijin_ken']);
+export const BLADE_TRAIL_ITEMS: ReadonlySet<ItemId> = new Set<ItemId>(['bokuto', 'katana', 'crystal_katana', 'raijin_ken', 'fujin_ken', 'niji']);
 
 export type PathVec = readonly [number, number, number];
 export interface PathPoint {

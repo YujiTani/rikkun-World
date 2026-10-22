@@ -73,6 +73,31 @@ function pillarMaterial(color: number): THREE.MeshBasicMaterial {
 }
 // 7 段ぶん（RARITY-7）。5〜7 段目の柱は 段の色のまま（にじ色に流すのは 7 段目だけ）
 const PILLAR_MATS = Object.fromEntries(RARITY_ORDER.map((r) => [r, pillarMaterial(RARITY_COLOR[r])])) as Record<Rarity, THREE.MeshBasicMaterial>;
+/** 7 段目の柱: たてに 7 色ならんだ にじのグラデーション（1 色ずつ変わるのではなく、柱 1 本に全部の色が見える）。ゆっくり上へ流れる */
+const RAINBOW_ROWS = 64;
+const PILLAR_RAINBOW_TEX = (() => {
+  const data = new Uint8Array(RAINBOW_ROWS * 4);
+  const c = new THREE.Color();
+  for (let i = 0; i < RAINBOW_ROWS; i++) {
+    c.setHSL(i / RAINBOW_ROWS, 0.85, 0.72);
+    data[i * 4] = Math.round(c.r * 255);
+    data[i * 4 + 1] = Math.round(c.g * 255);
+    data[i * 4 + 2] = Math.round(c.b * 255);
+    data[i * 4 + 3] = 255;
+  }
+  const tex = new THREE.DataTexture(data, 1, RAINBOW_ROWS, THREE.RGBAFormat);
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.magFilter = THREE.LinearFilter;
+  tex.minFilter = THREE.LinearFilter;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.generateMipmaps = false;
+  tex.needsUpdate = true;
+  return tex;
+})();
+PILLAR_MATS.legendary.map = PILLAR_RAINBOW_TEX;
+PILLAR_MATS.legendary.color.set(0xffffff);
+PILLAR_MATS.legendary.needsUpdate = true;
 const RING_GEO = new THREE.RingGeometry(0.34, 0.44, 32).rotateX(-Math.PI / 2);
 const RING_MAX = 400;
 const RING_GROW_SECONDS = 0.5;
@@ -246,9 +271,9 @@ export class BagVisuals {
       p.mesh.position.set(x, this.cy[k]! + B.pillarSize[1] / 2, z);
       this.sparkle.addPillar(x, this.cy[k]!, z, rar, this.time, (this.ck[k]! * 0.37) % 1);
     }
-    // 柱の濃さ（めずらしい: ゆっくりゆれる）・とても めずらしい: にじ色がゆっくり流れる
+    // 柱の濃さ（めずらしい: ゆっくりゆれる）・7 段目: 7 色のグラデーションがゆっくり上へ流れる（点滅なし）
     for (const r of RARITY_ORDER) PILLAR_MATS[r].opacity = pillarOpacity(r, this.time);
-    PILLAR_MATS.legendary.color.setHSL(rainbowHue(this.time), 0.7, 0.7);
+    PILLAR_RAINBOW_TEX.offset.y = -rainbowHue(this.time);
     this.sparkle.addFlashes();
     this.sparkle.end();
     if (landed >= 0) this.onLand?.(RARITY_ORDER[landed]!);

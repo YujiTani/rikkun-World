@@ -231,7 +231,9 @@ export type ItemOnlyId =
   | 'mushi' // むし
   | 'mushi_ami' // むしとりあみ
   // WEAPON-7（うしろに足す。レジェンダリー）
-  | 'raijin_ken'; // 雷神剣（ヌシが おとす）
+  | 'raijin_ken' // 雷神剣（ヌシが おとす）
+  | 'fujin_ken' // 風神剣（ヌシが おとす。WEAPON-7 PR2）
+  | 'niji'; // 虹（ヌシが おとす。強さは 1 本ごと。WEAPON-7 PR3）
 
 /** アイテムの種類。ブロックとアイテムだけのもの */
 export type ItemId = BlockId | ItemOnlyId;
@@ -243,6 +245,8 @@ export interface ItemStack {
   wear?: number;
   /** M7-2: じょうろ の みず の 量（1〜入る回数。なし・0 = からっぽ）。じょうろ 2 しゅるい だけが 持つ */
   water?: number;
+  /** WEAPON-7 PR3: 虹の つよさ（その 1 本に 保存。4〜10 の 整数。なし = 7）。虹だけが 持つ */
+  power?: number;
 }
 
 export interface ItemType {
@@ -265,7 +269,7 @@ export interface Inventory {
   setSlot(index: number, stack: ItemStack | null): void;
   clear(): void;
   /** 入らなかった数を返す */
-  add(item: ItemId, count: number): number;
+  add(item: ItemId, count: number, opts?: { power?: number }): number;
   count(item: ItemId): number;
   /** 取り出せた数を返す */
   remove(item: ItemId, count: number): number;
@@ -1850,6 +1854,7 @@ export interface W2Settings {
 /** ためわざ。`kind` で 中身を 差しかえる（§2.1）。新しい ためわざは `kind` を 1 つ 足す。`shining` は PR3 で 作る */
 export type LegendaryCharge =
   | { kind: 'lightning'; chargeTicks: number; range: number; radius: number; damageMul: number; knock: [number, number]; strikeF: number; boltSteps: number; recovery: number }
+  | { kind: 'spiral'; chargeTicks: number; launchF: number; recovery: number; speed: number; range: number; radius: number; damageMul: number; knock: [number, number] }
   | { kind: 'shining'; chargeTicks: number; rise: number; riseSteps: number; holdSteps: number; fallSteps: number; radius: number; damageMul: number; hitEvery: number; push: [number, number]; cooldown: number };
 /** ふつうの わざに 足す 効果（見た目・音・弾）。`wave` は PR2 で 作る */
 export type LegendaryAttackFx =
@@ -1881,6 +1886,22 @@ export const LEGENDARY_DEFAULTS: readonly LegendaryDef[] = [
     onAttack: [{ kind: 'trail', style: 'thunder' }],
     passive: [],
   },
+  {
+    item: 'fujin_ken',
+    power: 6,
+    // WEAPON-8: 風神剣の ためわざ「らせんの かぜ」（前へ まっすぐ 12 マス・つらぬく・12 ダメージ）
+    charge: { kind: 'spiral', chargeTicks: 60, launchF: 6, recovery: 40, speed: 12, range: 12, radius: 1.0, damageMul: 2.0, knock: [3, 1] },
+    onAttack: [{ kind: 'wave', speed: 15, range: 5, radius: 0.5, damageMul: 0.3, knock: [0.5, 0] }],
+    passive: [{ kind: 'moveMul', mul: 1.2 }],
+  },
+  {
+    item: 'niji',
+    // WEAPON-7 PR3: 強さは 落ちた ときに 4〜10 の 整数を 1 本ごとに 決めて その 1 本に 保存（なし = 7）
+    power: [4, 10],
+    charge: { kind: 'shining', chargeTicks: 90, rise: 2.0, riseSteps: 40, holdSteps: 160, fallSteps: 40, radius: 7, damageMul: 2.5, hitEvery: 60, push: [3, 2], cooldown: 600 },
+    onAttack: [{ kind: 'trail', style: 'rainbow' }],
+    passive: [],
+  },
 ];
 
 export function cloneLegendary(d: LegendaryDef): LegendaryDef {
@@ -1888,7 +1909,7 @@ export function cloneLegendary(d: LegendaryDef): LegendaryDef {
     item: d.item,
     power: Array.isArray(d.power) ? ([...d.power] as [number, number]) : d.power,
     charge: d.charge
-      ? d.charge.kind === 'lightning'
+      ? d.charge.kind === 'lightning' || d.charge.kind === 'spiral'
         ? { ...d.charge, knock: [...d.charge.knock] as [number, number] }
         : { ...d.charge, push: [...d.charge.push] as [number, number] }
       : null,
@@ -1907,7 +1928,7 @@ export interface BladeTrailStyle {
   /** 刃の ふちの光（21 番を これに） */
   bladeShine: number;
   /** plain=ふつう・star=星が まじる・long=長い 弧・thunder=ふちに 小さな いなずま（雷神剣） */
-  style: 'plain' | 'star' | 'long' | 'thunder';
+  style: 'plain' | 'star' | 'long' | 'thunder' | 'rainbow';
 }
 
 /** CHAR-4 §4.4: 軌跡の 形・だん・消え方 */
@@ -1939,7 +1960,7 @@ export const W2_SETTING_DEFAULTS: Readonly<W2Settings> = {
     kiriage: { ticks: [3, 4, 6, 3, 3, 1, 2, 7, 6, 5, 4, 4, 4], advance: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], step: 0 },
   },
   bladeCombo: {
-    items: ['crystal_katana'],
+    items: ['crystal_katana', 'raijin_ken', 'fujin_ken', 'niji'],
     order: { chudan: ['thrust', 'kiriage', 'kesa'], gedan: ['kiriage', 'thrust', 'kesa'], jodan: ['kesa'] },
     stepStartup: { thrust: 4, kiriage: 12, kesa: 20 },
     follow: { thrust: 14, kiriage: 12, kesa: 12 },
@@ -1949,7 +1970,7 @@ export const W2_SETTING_DEFAULTS: Readonly<W2Settings> = {
     },
   },
   bladeAimReach: 4.5,
-  bladeReach: { bokuto: 2.2, katana: 2.2, crystal_katana: 2.2, raijin_ken: 2.2 },
+  bladeReach: { bokuto: 2.2, katana: 2.2, crystal_katana: 2.2, raijin_ken: 2.2, fujin_ken: 2.2, niji: 2.2 },
   bladeShape: {
     thrust: { length: 2.2, radius: 0.2 },
     kesa: { halfAngleDeg: 75, rMin: 0.3, rMax: 2.2, yMin: -0.5, yMax: 2.6 },
@@ -1987,6 +2008,8 @@ export const W2_SETTING_DEFAULTS: Readonly<W2Settings> = {
     kote: 225,
     suneate: 195,
     raijin_ken: 10000, // WEAPON-7 §2.4: つくれず ヌシでしか 手に 入らない 武器だけの 例外
+    fujin_ken: 10000,
+    niji: 10000,
   },
   toolWear: {
     pickaxe: { block: 1, hit: 2 },
@@ -2006,6 +2029,10 @@ export const W2_SETTING_DEFAULTS: Readonly<W2Settings> = {
     naginata: { color: 0xcfe8ff, glow: 0xffffff, blade: 0xb8cce0, bladeShine: 0xeef6ff, style: 'long' },
     // WEAPON-7: 雷神剣。刃は むらさき（0xb070ff 系）、軌跡は 白〜うすい 黄（雷 v4 の 色）
     raijin_ken: { color: 0xfff6c0, glow: 0xffffff, blade: 0xb070ff, bladeShine: 0xe6d2ff, style: 'thunder' },
+    // WEAPON-7 PR2: 風神剣。ふつうの 斬撃の 形（plain）で 白〜みずいろ
+    fujin_ken: { color: 0xe6f8ff, glow: 0xffffff, blade: 0xcfefff, bladeShine: 0xffffff, style: 'plain' },
+    // WEAPON-7 PR3: 虹。軌跡は 弧に そって 色相が 流れる にじ色（style 'rainbow'）
+    niji: { color: 0xffd6f0, glow: 0xffffff, blade: 0xff9ad0, bladeShine: 0xfff0f8, style: 'rainbow' },
   },
   bladeFaceAssistDeg: 30,
   thrustTiltMaxDeg: 45,

@@ -470,6 +470,7 @@ export class DigSystemImpl implements DigSystem {
           startOk: furiTech || pendingNow,
           bladeBusy,
           bladeAccepts: bladeBusy ? (blade.busyNext?.().accepts ?? false) : false,
+          bladeChainOpen: bs0.combo?.open ?? false,
           eye,
           dir: d,
           position: p.position,

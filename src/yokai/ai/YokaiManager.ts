@@ -35,7 +35,7 @@ import { YOKAI_STATS, yokaiStrength } from '../stats';
 import { ANNOUNCE_TICKS, TITLE_RULES, isBigTitle, limitTitle, rollTitle, titleAnnounceText, titleLabel } from '../title';
 import { fallDamage } from '../../combat/config';
 import { createRng, type Rng } from '../../world/gen/random';
-import { pickNushiDrop } from '../../legend/defs';
+import { pickNushiDrop, rollLegendPower } from '../../legend/defs';
 import { applyDollBrightness } from './brightness';
 import { AI_CONST, KIND_AI, YOKAI_DROPS, createYokaiConfig, type KindAi, type YokaiConfig } from './config';
 import { BurstFx } from './effects';
@@ -270,6 +270,10 @@ export class YokaiManager implements YokaiWorld {
   private readonly tickFn: (() => number) | null;
   private readonly rng: Rng;
   private readonly nushiRng: Rng;
+  /** WEAPON-7 PR3: 虹の 強さ（4〜10）を 決める 乱数（ヌシの 表の 列を ずらさない よう べつ） */
+  private readonly powerRng: Rng;
+  /** WEAPON-7 PR3: シャイニングの ドーム（中心と 半径）。ふれた 火の玉は 消える。つなぎ込みが 渡す */
+  domeSource: (() => { x: number; y: number; z: number; r: number } | null) | null = null;
   /** 二つ名の抽選（出現の乱数の並びを変えないように別に持つ） */
   private readonly titleRng: Rng;
   private announceNow: AnnounceInfo | null = null;
@@ -308,6 +312,7 @@ export class YokaiManager implements YokaiWorld {
     this.config = opts.config ?? createYokaiConfig();
     this.rng = createRng((opts.seed ?? 20240612) ^ 0x7a11);
     this.titleRng = createRng((opts.seed ?? 20240612) ^ 0x71713);
+    this.powerRng = createRng((opts.seed ?? 20240612) ^ 0x7a11b0);
     this.nushiRng = createRng((opts.seed ?? 20240612) ^ 0x1e6e17d); // WEAPON-7 §2.3: ヌシの 表は べつの 乱数（ほかの ドロップの 列を ずらさない）
     this.group.add(this.burst.group);
   }
@@ -870,7 +875,10 @@ export class YokaiManager implements YokaiWorld {
     const item = pickNushiDrop(this.S.nushiDrops, this.nushiRng);
     if (item === null) return;
     const at = { x: e.x, y: e.y, z: e.z };
-    const left = this.drops ? 1 - this.drops.scatter(at, [{ item, count: 1 }], { kind: 'yokai' }) : this.inventory.add(item, 1);
+    // WEAPON-7 PR3: 強さが [最小, 最大] の 武器（虹）は 1 本ごとに 整数で 決めて その 1 本に 保存
+    const power = rollLegendPower(this.S, item, this.powerRng);
+    const stack = power === null ? { item, count: 1 } : { item, count: 1, power };
+    const left = this.drops ? 1 - this.drops.scatter(at, [stack], { kind: 'yokai' }) : this.inventory.add(item, 1, power === null ? undefined : { power });
     this.emit({ type: 'drop', tick: this.tick(), id: e.id, kind: e.kind, item, count: 1, added: 1 - left }, true);
     this.opts.onLegendDrop?.({ item, yokaiId: e.id, kind: e.kind, position: at });
   }
@@ -1761,7 +1769,10 @@ export class YokaiManager implements YokaiWorld {
       const kind: YokaiKind = 'chochin';
       let end = false;
       let hitPlayer = false;
-      if (!f.fb.alive) {
+      const dome = this.domeSource?.() ?? null;
+      if (dome && !f.reflected && Math.hypot(p.x - dome.x, p.y - dome.y, p.z - dome.z) <= dome.r + half) {
+        end = true; // WEAPON-7 PR3: ドームに ふれたら 消える（小さな 光の つぶ）
+      } else if (!f.fb.alive) {
         end = true; // 8 ブロックで消えた
       } else if (
         !this.world.isLoaded(p.x, p.z) || p.y < 0 || p.y >= this.world.size.y

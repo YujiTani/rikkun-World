@@ -65,7 +65,11 @@ export const BAKE_RECIPE_NAMES: ReadonlyArray<readonly [string, string]> = [
 export const AXE_RECIPES = ['wood_axe', 'stone_axe', 'iron_axe'] as const;
 export const PICKAXE_RECIPES = ['wood_pickaxe', 'stone_pickaxe', 'iron_pickaxe'] as const;
 /** WEAPON-7: レジェンダリー武器の 名前（［漢字｜よみ］）。順番 = 実績の 段の 順。PR2 で 風神剣・PR3 で 虹を 足す */
-export const LEGEND_NAMES: ReadonlyArray<readonly [string, string]> = [['raijin_ken', '［雷神剣｜らいじんけん］']];
+export const LEGEND_NAMES: ReadonlyArray<readonly [string, string]> = [
+  ['raijin_ken', '［雷神剣｜らいじんけん］'],
+  ['fujin_ken', '［風神剣｜ふうじんけん］'],
+  ['niji', '［虹｜にじ］'],
+];
 
 export const WEAPON_RECIPES = ['bokuto', 'katana', 'naginata', 'crystal_katana', 'yumi'] as const;
 export const ARMOR_RECIPES = ['kabuto', 'yoroi', 'kote', 'suneate'] as const;

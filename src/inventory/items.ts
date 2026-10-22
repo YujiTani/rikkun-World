@@ -112,7 +112,11 @@ const LIVE_ITEMS: readonly ItemType[] = [
 ];
 
 /** WEAPON-7: レジェンダリー武器（ヌシが おとす。名前は ［漢字｜よみ］ — src/ui/text.ts の withRuby で 画面に 出す） */
-const WEAPON7_ITEMS: readonly ItemType[] = [{ id: 'raijin_ken', name: '［雷神剣｜らいじんけん］', maxStack: 1, placeBlock: null }];
+const WEAPON7_ITEMS: readonly ItemType[] = [
+  { id: 'raijin_ken', name: '［雷神剣｜らいじんけん］', maxStack: 1, placeBlock: null },
+  { id: 'fujin_ken', name: '［風神剣｜ふうじんけん］', maxStack: 1, placeBlock: null },
+  { id: 'niji', name: '［虹｜にじ］', maxStack: 1, placeBlock: null },
+];
 
 export const ITEM_TYPES: readonly ItemType[] = [
   ...PLACEABLE_TYPES,

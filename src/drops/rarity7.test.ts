@@ -72,7 +72,7 @@ describe('RARITY-7 表', () => {
 
 describe('RARITY-7 当てはめ・設定', () => {
   it('AC6 rarityAtLeast は全アイテム × 7 段で式と同じ', () => {
-    expect(ITEM_TYPES).toHaveLength(69); // WEAPON-7 PR1: 雷神剣 +1。 FLORA-75: のばな +1・LIVE-1: たまご +1・むし・むしとりあみ +2。#184: 12 の国の 7 こ（ゆき・もみじ・まつ・はな 3・たけ）が ふえた
+    expect(ITEM_TYPES).toHaveLength(71); // WEAPON-7 PR1: 雷神剣 +1・PR2: 風神剣 +1。 FLORA-75: のばな +1・LIVE-1: たまご +1・むし・むしとりあみ +2。#184: 12 の国の 7 こ（ゆき・もみじ・まつ・はな 3・たけ）が ふえた
     for (const it of ITEM_TYPES) {
       for (const t of ids) {
         expect(rarityAtLeast(it.id, t), `${it.id}/${t}`).toBe(rarityIndex(itemRarity(it.id)) >= rarityIndex(t));
@@ -81,14 +81,14 @@ describe('RARITY-7 当てはめ・設定', () => {
     }
   });
 
-  it('AC7 案 A: 5〜6 段目は 0 こ、7 段目は 1 こ（WEAPON-7 PR1: 雷神剣。PR2・PR3 で ＋1 ずつ）、各段のこ数', () => {
+  it('AC7 案 A: 5〜6 段目は 0 こ、7 段目は 2 こ（WEAPON-7 PR2 まで: 雷神剣・風神剣。PR3 で ＋1）、各段のこ数', () => {
     const n: Record<string, number> = {};
     for (const it of ITEM_TYPES) {
       const r = itemRarity(it.id);
       expect(isRarity(r)).toBe(true);
       n[r] = (n[r] ?? 0) + 1;
     }
-    expect(n).toEqual({ common: 39, uncommon: 16, rare: 10, superRare: 3, legendary: 1 }); // 雷神剣（WEAPON-7）が legendary
+    expect(n).toEqual({ common: 39, uncommon: 16, rare: 10, superRare: 3, legendary: 3 }); // 雷神剣・風神剣・虹（WEAPON-7 PR1・PR2・PR3）が legendary
     expect(itemRarity('crystal_katana')).toBe('superRare');
   });
 

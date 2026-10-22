@@ -7,7 +7,7 @@ import { PALETTE_RGB, quantizeRgba } from './palette';
  * CHAR-2 AC24・CHAR-4 AC10・AC11: もとの 16 まい（art/char-sheets/）と もとの atlas.json（実物のファイルを読む）。
  * 切りつめた絵（public/models/char/）は packAtlas.test.ts（AC32）が見る。
  */
-const DIR = 'art/char-sheets';
+const DIR = 'art/char-sheets/girl';
 const OLD = ['idle', 'walk', 'run', 'jump'];
 const NEW = ['bow_shot', 'bow_walk', 'bow_hold_walk', 'bow_rapid', 'katana_thrust', 'katana_kesa', 'katana_kiriage', 'katana_walk_chudan', 'katana_walk_jodan', 'katana_walk_gedan', 'parry', 'parryKime'];
 const WALKS = ['bow_walk', 'bow_hold_walk', 'katana_walk_chudan', 'katana_walk_jodan', 'katana_walk_gedan'];
@@ -18,7 +18,7 @@ describe('AC24 もとの 16 まい', () => {
   it('atlas.json は 16 の動き。naginata_sweep は どこにもない', () => {
     expect(Object.keys(atlas.motions).sort()).toEqual([...OLD, ...NEW].sort());
     expect(existsSync(`${DIR}/naginata_sweep.png`)).toBe(false);
-    expect(existsSync('public/models/char/naginata_sweep.png')).toBe(false);
+    expect(existsSync('public/models/char/girl/naginata_sweep.png')).toBe(false);
     expect(atlas.motions.naginata_sweep).toBeUndefined();
   });
   for (const m of [...OLD, ...NEW]) {
@@ -122,7 +122,7 @@ function countBladeDots(file: string): { base: number; shine: number; bad: numbe
 }
 
 describe('CHAR-4 AC11 実物の 絵の 刃の色', () => {
-  for (const dir of [DIR, 'public/models/char']) {
+  for (const dir of [DIR, 'public/models/char/girl']) {
     for (const m of [...KATANA_6, ...OTHER_8]) {
       it(`${dir}/${m}: ${KATANA_6.includes(m) ? '20 番・21 番の ドットが ある' : '20 番・21 番は 1 つも ない'}・色は 22 色だけ`, () => {
         const r = countBladeDots(`${dir}/${m}.png`);

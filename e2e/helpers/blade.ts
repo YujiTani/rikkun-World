@@ -207,7 +207,7 @@ export async function advance(page: Page, n: number): Promise<Snap[]> {
 
 /** k = 1.8 ÷ modelH（atlas.json から） */
 export async function bladeScale(page: Page): Promise<number> {
-  const modelH = await page.evaluate(async () => (await (await fetch('./models/char/atlas.json')).json()).modelH as number);
+  const modelH = await page.evaluate(async () => (await (await fetch('./models/char/girl/atlas.json')).json()).modelH as number);
   return 1.8 / modelH;
 }
 

@@ -13,6 +13,8 @@ export interface RenderStats {
   frameMsWorst: number;
   drawCalls: number;
   triangles: number;
+  /** 点の 描画の 数（three の info.render.points。土と 草の つぶ・手もとの 光） */
+  points: number;
   geometries: number;
   textures: number;
   /** 世界の renderer が 描いた 累計の 回数（three の info.render.frame。本が 出ている 間は ふえない） */
@@ -59,6 +61,7 @@ export class Game {
   private modalAcc = 0;
   /** 本が 出ている 間に 画面の 大きさが かわって、世界の 絵が きえた */
   private worldStale = false;
+  private worldPass: { active(): boolean; render(r: THREE.WebGLRenderer, s: THREE.Scene, c: THREE.PerspectiveCamera): void } | null = null;
 
   constructor(private readonly container: HTMLElement) {
     this.renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
@@ -95,6 +98,17 @@ export class Game {
   /** 世界の 上に のる 画面（本）を 1 つ 決める */
   setModal(m: GameModal): void {
     this.modal = m;
+  }
+
+  /** ART-PIPE-1（試作）: 落雷の 間だけ 世界を 絵に 描く 道（深さを 読む 雷・まわりを 明るく） */
+  setWorldPass(p: { active(): boolean; render(r: THREE.WebGLRenderer, s: THREE.Scene, c: THREE.PerspectiveCamera): void }): void {
+    this.worldPass = p;
+  }
+
+  private drawWorld(): void {
+    const wp = this.worldPass;
+    if (wp && wp.active()) wp.render(this.renderer, this.scene, this.camera);
+    else this.renderer.render(this.scene, this.camera);
   }
 
   /** 描く直前（renderer.render の前）に毎回呼ばれる処理（#144 影の試作） */
@@ -147,6 +161,7 @@ export class Game {
       frameMsWorst: this.frameStats.worstMs,
       drawCalls: info.render.calls,
       triangles: info.render.triangles,
+      points: info.render.points,
       geometries: info.memory.geometries,
       textures: info.memory.textures,
       frames: info.render.frame,
@@ -224,13 +239,13 @@ export class Game {
       if (this.worldStale) {
         this.worldStale = false;
         for (const fn of this.preRenders) fn();
-        this.renderer.render(this.scene, this.camera);
+        this.drawWorld();
       }
       this.modal.render();
       return;
     }
     for (const fn of this.preRenders) fn();
-    this.renderer.render(this.scene, this.camera);
+    this.drawWorld();
   }
 
   private readonly onResize = () => {
