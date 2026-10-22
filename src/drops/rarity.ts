@@ -64,6 +64,7 @@ const ITEM_ONLY_RARITY: Record<string, Rarity> = {
   // WEAPON-7（ヌシが おとす。7 段目）
   raijin_ken: 'legendary',
   fujin_ken: 'legendary',
+  niji: 'legendary',
   // BUCKET-1
   bucket: 'common',
   water_bucket: 'common',

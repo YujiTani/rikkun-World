@@ -34,6 +34,8 @@ const STAR: readonly number[] = [22, 38, 7, 7];
 export const CHARGE_PALETTES: Record<ChargePalette, readonly string[]> = {
   fujin: ['#F4FCFF', '#CDEFFC', '#8FD6F2', '#4FA8D8', '#2B6699'],
   raijin: ['#FFF8DC', '#FFE98A', '#F0C24A', '#9A7430', '#4E3C1A'],
+  // 虹: にじの 5 色（明るい 黄 → 赤 → みどり → 青 → むらさき）
+  niji: ['#FFE585', '#FF8C94', '#86EBA8', '#82C6FF', '#C79CFF'],
 };
 
 const VERT = `
@@ -86,6 +88,7 @@ export class ChargeLightFx {
   private readonly pal: Record<ChargePalette, THREE.Color[]> = {
     fujin: CHARGE_PALETTES.fujin.map((c) => new THREE.Color(c)),
     raijin: CHARGE_PALETTES.raijin.map((c) => new THREE.Color(c)),
+    niji: CHARGE_PALETTES.niji.map((c) => new THREE.Color(c)),
   };
   private readonly camR = new THREE.Vector3();
   private readonly camU = new THREE.Vector3();
@@ -194,7 +197,7 @@ export class ChargeLightFx {
         phiB = Math.atan2(this.body.dot(this.camU), this.body.dot(this.camR));
       }
       for (let t = Math.max(1, F - 17); t <= F; t++) {
-        if (t >= 60 && t % 2 === 0) continue;
+        if (t >= v.full && t % 2 === 0) continue;
         const u = (F - t) / 18;
         const r0 = (0.8 + 0.3 * hash(t * 5 + 1)) * k;
         const ang = phiB + ((70 + 220 * hash(t * 5 + 2)) * Math.PI) / 180;

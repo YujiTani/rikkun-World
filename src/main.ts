@@ -38,11 +38,13 @@ import { WindWaveFx } from './fx/windWaveFx';
 import { SpiralFx } from './fx/spiralFx';
 import { createWaveView3D } from './legend/waveView';
 import { ChargeLightFx } from './fx/chargeLightFx';
+import { ShiningFx } from './fx/shiningFx';
 import { BuffIcons } from './ui/buffIcons';
 import { buffsOfHeld, createBuffModel } from './ui/buffIconsModel';
 import { ThunderFx } from './fx/thunderFx';
 import { LegendBook } from './legend/LegendBook';
-import { chargeOf, legendMoveMulOf, legendPowerOf, trailStyleOf } from './legend/defs';
+import { chargeOf, hasPowerRange, legendMoveMulOf, legendPowerOf, trailStyleOf } from './legend/defs';
+import { setPowerFallback } from './ui/powerBadge';
 import { lightningPoseFrame } from './legend/pose';
 import { CRAFT_UI_SETTINGS, type CraftUiSettings, type ToolNumbers } from './fx/craftConfig';
 import { playCraft } from './fx/craftSounds';
@@ -449,11 +451,17 @@ const combatCfg = createCombatConfig();
 const digCfg = createDigConfig();
 const craftConfig = createCraftConfig();
 const toolConfig = createToolConfig();
+setPowerFallback((item) => (hasPowerRange(w2, item as never) ? legendPowerOf(w2, item as never) : null));
 /** 画面（ツールチップ・図鑑）用の 道具の数: 刀の 強さに レジェンダリーの P を 足す（WEAPON-7 §2.1。設定を 変えると 追従） */
 const uiWeaponDamage = (): Record<string, number> => {
   const out: Record<string, number> = { ...toolConfig.weaponDamage };
   for (const d of w2.legendary) out[d.item] = legendPowerOf(w2, d.item) ?? out[d.item] ?? 1;
   return out;
+};
+/** WEAPON-7 PR3: 手に 持っている 1 本の 強さ（虹）。同じ 武器を 持っていなければ undefined */
+const heldPowerOf = (item: string): number | undefined => {
+  const s = inventory.held();
+  return s && s.item === item ? s.power : undefined;
 };
 const uiTools: ToolNumbers = {
   ...toolConfig,
@@ -559,7 +567,7 @@ const blade = createBladeSystem({
   yokai: () => yokaiManager!,
   settings: w2,
   // WEAPON-7: レジェンダリーの 強さは 設定 `legendary` の power（ふつうの 刀は 今の 表）
-  weaponDamage: (item) => legendPowerOf(w2, item) ?? toolConfig.weaponDamage[item] ?? 1,
+  weaponDamage: (item) => legendPowerOf(w2, item, heldPowerOf(item)) ?? toolConfig.weaponDamage[item] ?? 1,
   onHit: () => {
     inventory.wearHeld(w2.toolWear.blade.hit);
   },
@@ -575,6 +583,7 @@ const legend = createLegendSystem({
   onWear: () => {
     inventory.wearHeld(1);
   },
+  power: (item) => legendPowerOf(w2, item, heldPowerOf(item)),
   sound: (n) => playLegend(fxSound, n),
   // WEAPON-8 §3.6: ため音は 続く 音。剣ごとの 味（風神 / 雷神）は ためわざの しゅるいで えらぶ
   loop: (name) => startLegendLoop(fxSound, name, chargeOf(w2, inventory.held()?.item ?? null)?.kind === 'spiral' ? 'fujin' : 'raijin'),
@@ -617,6 +626,7 @@ const spiralFx = new SpiralFx({ scene: game.scene, camera: game.camera });
 const spiralDebris = createSpiralDebris({ world, seed });
 const chargeLight = createChargeLight();
 const chargeLightFx = new ChargeLightFx({ scene: game.scene, camera: game.camera });
+const shiningFx = new ShiningFx({ scene: game.scene, camera: game.camera });
 const handInfo = newHandInfo();
 /** 今の 剣を 持つ 手の 位置（三人称は 体から、一人称〈カメラが 体に 近く 人形が 見えない〉は 画面の 右下の にぎり） */
 const handNow = (): typeof handInfo => {
@@ -646,6 +656,9 @@ const combat = new PlayerCombatImpl({
   },
   requestSave: () => requestSave(),
   drops,
+  // WEAPON-7 PR3: 虹の シャイニング中は ダメージなし・落下ダメージなし
+  shielded: () => legend.shield(),
+  fallSafe: () => legend.fallSafe(),
 });
 // たんす（M6 §2.9）と すてる（§2.8）
 const storage = new StorageSystem({
@@ -890,6 +903,8 @@ yokaiManager = new YokaiManager({
     fxSound.play('break');
   },
 });
+// WEAPON-7 PR3: シャイニングの ドームに ふれた 火の玉は 消える
+yokaiManager.domeSource = () => legend.dome();
 game.scene.add(yokaiManager.group);
 const yokaiM = yokaiManager;
 // LIVE-1: にわとり の 見た目・音（動きの強さの 設定は まだ ない。できたら ここで つなぐ）
@@ -1295,7 +1310,7 @@ time.onPhaseChange((p) => achievements.feedPhase(p));
 const defeatWith = (): DefeatWith => {
   const h = inventory.held()?.item;
   if (h === 'bokuto' || h === 'katana' || h === 'naginata' || h === 'crystal_katana' || h === 'yumi') return h;
-  if (h === 'raijin_ken' || h === 'fujin_ken') return 'katana'; // WEAPON-7: 雷神剣で たおした ときは「かたな」と 同じ あつかい（実績の 表に 武器別の 行は 足さない）
+  if (h === 'raijin_ken' || h === 'fujin_ken' || h === 'niji') return 'katana'; // WEAPON-7: 雷神剣で たおした ときは「かたな」と 同じ あつかい（実績の 表に 武器別の 行は 足さない）
   if (h === 'wood_pickaxe' || h === 'stone_pickaxe' || h === 'iron_pickaxe' || h === 'wood_axe' || h === 'stone_axe' || h === 'iron_axe') return 'pickaxe';
   return 'hand';
 };
@@ -1586,6 +1601,7 @@ game.onUpdate((dt) => {
     controller.motion.speedMul = bm.speedMul * wm.speedMul * (pmOn ? pm.speedMul : 1) * lm.speedMul * legendMoveMulOf(w2, inventory.held()?.item ?? null);
     controller.motion.jumpLocked = bm.jumpLocked || wm.jumpLocked || pm.jumpLocked || lm.jumpLocked;
     controller.motion.noRun = lm.noRun;
+    controller.motion.hoverDy = lm.hoverDy; // WEAPON-7 PR3: シャイニングで うかぶ・おりる
     // CHAR-2: わざのあいだは 向きを わざの向きに 固定（わざを始めたステップは あとで その場で）
     // WEAPON-3: 刀の わざ・パンチの あいだは 攻撃の向き u。攻撃・空ぶりは ＋マークへ 回らない（leftAims）
     // WEAPON-5: パリィの あいだは 今 向いている 方（カメラの 向き）を向く。始めた ステップは すべらず 止まる
@@ -1651,7 +1667,8 @@ game.onUpdate((dt) => {
       weapon,
       // CHAR-4: 持っている 刀の 色（20・21 番を この 色に）。表に ない 刀は かたなの 行
       bladeColors: weapon === 'katana' ? bladeColorsOf(w2, bs.item) : null,
-      legendCharge: weapon === 'katana' && legend.view().charging,
+      // 虹の シャイニング中（うかぶ〜おりる）も 両手を 頭の上（ため中と 同じ 絵）
+      legendCharge: weapon === 'katana' && (legend.view().charging || legend.shield()),
       blade:
         weapon === 'katana'
           ? lstrike
@@ -1765,6 +1782,11 @@ game.onUpdate((dt) => {
           if (y) weaponFx.hitStarsAt({ x: y.position.x, y: y.position.y + 0.7, z: y.position.z });
         }
       }
+      // 虹: ドームが 当たった 妖怪に 小さな 光の つぶ
+      if (e.type === 'domeHit') {
+        const y = yokaiM.list().find((q) => q.id === e.yokaiId);
+        if (y) weaponFx.hitStarsAt({ x: y.position.x, y: y.position.y + 0.7, z: y.position.z });
+      }
     }
     const reducedNow = reducedMotionMq?.matches ?? false;
     windWaveFx.step(waveSys.list(), reducedNow);
@@ -1778,11 +1800,16 @@ game.onUpdate((dt) => {
     thunderFx.step(lv ? { charging: lv.charging, ready: lv.ready, aimS: st && st.aim && st.aim.skyVisible ? st.aim.S : null } : IDLE_THUNDER_LOOK, reducedNow);
     // WEAPON-8 §3.5: ため中の 手もとの 光（雷神剣も 風神剣も）。手は 三人称は 体から、一人称は 画面の 右下の にぎり
     const cp = controller.state.position;
-    const cl = chargeLight.step({ ticks: lv ? lv.chargeTicks : null, kind: lv ? lv.kind : null, reduced: reducedNow });
+    const cl = chargeLight.step({ ticks: lv ? lv.chargeTicks : null, kind: lv ? lv.kind : null, full: lv && lv.kind === 'shining' ? 90 : 60, reduced: reducedNow });
     if (cl.phase !== 'off') {
       handNow();
       chargeLightFx.step(cl, handInfo, handInfo.first ? null : { x: cp.x, y: cp.y + 1.1, z: cp.z });
     } else chargeLightFx.step(cl, handInfo, null);
+    // WEAPON-7 PR3 §5.3: 虹の ドーム（見た目は legend.state().dome。一人称では まん中の 光と まくを 出さない）
+    {
+      const dm = legend.dome();
+      shiningFx.step({ dome: dm ? legend.state().dome : null, x: dm ? dm.x : 0, z: dm ? dm.z : 0, firstPerson: rig.getInfo().hideChar, reduced: reducedNow });
+    }
     // WEAPON-8 §2.4: 速さバフの アイコン（手に 持つ 物の 速さの 倍率が 1 より 大きい 間）
     const heldNow = inventory.held()?.item ?? null;
     buffIcons.sync(buffModel.step(buffsOfHeld(heldNow, (i) => legendMoveMulOf(w2, i)), reducedNow));
@@ -1999,6 +2026,7 @@ installTestHook(game, overlay, () => host.everReady, {
   legend: {
     state: () => ({ ...legend.state(), got: legendBook.got() }),
     events: () => legend.peekEvents(),
+    shiningFx: () => ({ ...shiningFx.look(), ...shiningFx.stats() }),
     waves: () => waveSys.list().map((w) => ({ id: w.id, kind: w.kind, position: { ...w.position }, dir: { ...w.dir }, traveled: w.traveled, age: w.age, spin: w.spin, drawPos: { ...w.drawPos }, face: w.face, bodyAlpha: w.bodyAlpha, backAlpha: w.backAlpha })),
     debris: () => ({ ...spiralDebris.view() }),
     chargeFx: () => {

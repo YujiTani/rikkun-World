@@ -27,7 +27,7 @@ const NAME = '［雷神剣｜らいじんけん］';
 describe('WEAPON-7 AC1: legendary の 初期値（雷神剣 ＋ PR2 の 風神剣）', () => {
   it('雷神剣が §3.1 どおり', () => {
     const defs = legendary();
-    expect(defs.map((d) => d.item)).toEqual(['raijin_ken', 'fujin_ken']); // PR2 で 風神剣が 1 つ 足される
+    expect(defs.map((d) => d.item)).toEqual(['raijin_ken', 'fujin_ken', 'niji']); // PR2 で 風神剣・PR3 で 虹が 足される
     const d = defs[0]!;
     expect(d.power).toBe(8);
     expect(d.charge).toEqual({ kind: 'lightning', chargeTicks: 60, range: 20, radius: 5, damageMul: 2.0, knock: [2, 4], strikeF: 8, boltSteps: 12, recovery: 40 });
@@ -35,7 +35,7 @@ describe('WEAPON-7 AC1: legendary の 初期値（雷神剣 ＋ PR2 の 風神�
     expect(d.passive).toEqual([]);
   });
   it('nushiDrops の 初期値 = legendary の ぜんぶ・weight 1', () => {
-    expect(S().nushiDrops).toEqual([{ item: 'raijin_ken', weight: 1 }, { item: 'fujin_ken', weight: 1 }]); // PR2: 表に 風神剣も
+    expect(S().nushiDrops).toEqual([{ item: 'raijin_ken', weight: 1 }, { item: 'fujin_ken', weight: 1 }, { item: 'niji', weight: 1 }]); // PR2: 表に 風神剣も・PR3: 虹も
   });
   it('そのほかの 設定 §9', () => {
     expect(S().legendaryChargeWalk).toBe(0.5);
@@ -124,9 +124,9 @@ describe('WEAPON-7 AC12: 実績', () => {
     expect(a!.small).toBe(false);
     expect(b!.small).toBe(false);
   });
-  it('PR2 まで（get.* は 雷神剣・風神剣、legend.kinds は 1・2 の 段）。PR3 の niji・kinds.3 は まだ ない', () => {
-    expect(ACHIEVEMENT_DEFS.filter((d) => d.id.startsWith('get.')).map((d) => d.id)).toEqual(['get.raijin_ken.1', 'get.fujin_ken.1']);
-    expect(ACHIEVEMENT_DEFS.filter((d) => d.id.startsWith('legend.kinds.')).map((d) => d.id)).toEqual(['legend.kinds.1', 'legend.kinds.2']);
+  it('PR3 まで（get.* は 雷神剣・風神剣・虹、legend.kinds は 1・2・3 の 段）', () => {
+    expect(ACHIEVEMENT_DEFS.filter((d) => d.id.startsWith('get.')).map((d) => d.id)).toEqual(['get.raijin_ken.1', 'get.fujin_ken.1', 'get.niji.1']);
+    expect(ACHIEVEMENT_DEFS.filter((d) => d.id.startsWith('legend.kinds.')).map((d) => d.id)).toEqual(['legend.kinds.1', 'legend.kinds.2', 'legend.kinds.3']);
   });
   it('AC26: get.fujin_ken.1 と legend.kinds.2 の 名前・分類・小で ない・はば（§2.5）', () => {
     const a = def('get.fujin_ken.1');

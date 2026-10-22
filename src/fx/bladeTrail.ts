@@ -125,6 +125,8 @@ export class BladeTrail {
   private readonly body = [0, 0, 0];
   private readonly c1 = new THREE.Color();
   private readonly c2 = new THREE.Color();
+  /** WEAPON-7 PR3: 虹の 軌跡の 色（弧に そって 色相が ながれる） */
+  private readonly cRb = new THREE.Color();
   private readonly camPos = new THREE.Vector3();
   private readonly camR = new THREE.Vector3();
   private readonly camU = new THREE.Vector3();
@@ -346,7 +348,11 @@ export class BladeTrail {
       this.stripFade[strips] = fade;
       strips++;
       for (let b = 0; b < BANDS; b++) {
-        const col = b === 0 ? this.c1 : this.c2;
+        let col = b === 0 ? this.c1 : this.c2;
+        if (style.style === 'rainbow') {
+          // 弧の はじめ → おわりで 赤 → むらさき。いちばん そとの だんは うすく（白っぽく）
+          col = this.cRb.setHSL((0.85 * (j + 0.5)) / nseg, 0.9, b === 0 ? 0.85 : 0.65);
+        }
         const al = sh.bandAlpha[b]! * fade;
         const f0 = b === 0 ? 0 : b === 1 ? e1 : b === 2 ? e2 : e3;
         const f1 = b === 0 ? e1 : b === 1 ? e2 : b === 2 ? e3 : 1;
