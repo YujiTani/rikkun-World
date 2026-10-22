@@ -2,6 +2,7 @@ import { itemRarity, rarityIndex } from '../drops/rarity';
 import type { StorageSystem } from '../storage/StorageSystem';
 import { tansuPixels } from '../storage/tansuArt';
 import { paintWear } from './wearGauge';
+import { paintPower } from './powerBadge';
 import { paintWater } from './waterGauge';
 import { createButton, createSlot, paintSlot, type SlotParts } from './theme';
 import { drawPixels, itemIconUrl } from './itemIcon';
@@ -122,6 +123,7 @@ export class StorageScreen {
       if (s) this.cells[i].root.dataset.rarity = String(rarityIndex(itemRarity(s.item)));
       else delete this.cells[i].root.dataset.rarity;
       paintWear(this.cells[i].root, s);
+      paintPower(this.cells[i].root, s);
       paintWater(this.cells[i].root, s);
     }
   }

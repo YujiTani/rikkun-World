@@ -7,7 +7,7 @@ import { fromRows } from './itemArtM4';
  * 雷神剣は オーナー決定 v3-A（2026-10-18 18:22）: そった むらさきの 刃 ＋ 金の 小さな つば ＋ 短い こん色の 柄。ART-PIPE-1 で 稲妻の 刃文を 足した。
  * 柄なし・大きな 丸い つばは NG。もとの 絵は 共有フォルダ `weapon7/art/raijin_ken_icon_v3_A.png`（`tools/icon3.py` の `A3()`・`tools/icon2.py` の PAL）。
  */
-export const W7_ITEMS = ['raijin_ken', 'fujin_ken'] as const;
+export const W7_ITEMS = ['raijin_ken', 'fujin_ken', 'niji'] as const;
 export type W7ItemId = (typeof W7_ITEMS)[number];
 
 export function isW7Item(item: ItemId): item is W7ItemId {
@@ -58,11 +58,16 @@ const FUJIN_KEN = [
   'KGgK...KK.......',
 ];
 
+/** 虹（PR3・仮の 絵）: 風神剣の 形で 刃を にじ色に。本物の 絵は あとで 差しかえる。R/O/Y/E/B/V = にじの 6 色 */
+const PAL_NIJI = { ...PAL_FUJIN, L: 0xfff0f8, W: 0xffffff, C: 0xff8fb0, c: 0xffd35a, B: 0x7a6cf0, K: 0x3a1f5a, T: 0xb04a8a, t: 0x6e2a5c };
+
 export function w7ItemPixels(item: W7ItemId): Rgba[] {
   switch (item) {
     case 'raijin_ken':
       return fromRows(RAIJIN_KEN, PAL);
     case 'fujin_ken':
       return fromRows(FUJIN_KEN, PAL_FUJIN);
+    case 'niji':
+      return fromRows(FUJIN_KEN, PAL_NIJI);
   }
 }

@@ -50,7 +50,7 @@ export interface ToolDeps {
   onBowShot?: () => void;
 }
 
-const BLADES: ReadonlySet<string> = new Set(['bokuto', 'katana', 'naginata', 'crystal_katana', 'raijin_ken', 'fujin_ken']);
+const BLADES: ReadonlySet<string> = new Set(['bokuto', 'katana', 'naginata', 'crystal_katana', 'raijin_ken', 'fujin_ken', 'niji']);
 
 /** 手に持っているものの働き（M4 §2.4〜§2.6・§4.3）。`DigSystem` が毎ステップ step() を呼ぶ */
 export class ToolSystemImpl implements ToolSystem {

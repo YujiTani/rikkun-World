@@ -1,0 +1,19 @@
+/* つよさの 数: 右下の 小さな まる（たいきゅうゲージの 上）。10 でも はみ出さない */
+.slot-power {
+  position: absolute;
+  right: 3px;
+  bottom: 9px;
+  min-width: 16px;
+  padding: 0 3px;
+  box-sizing: border-box;
+  border-radius: 8px;
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 800;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  color: var(--rk-text);
+  background: var(--rk-bg-900);
+  text-shadow: var(--rk-text-outline);
+  pointer-events: none;
+}

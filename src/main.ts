@@ -455,6 +455,11 @@ const uiWeaponDamage = (): Record<string, number> => {
   for (const d of w2.legendary) out[d.item] = legendPowerOf(w2, d.item) ?? out[d.item] ?? 1;
   return out;
 };
+/** WEAPON-7 PR3: 手に 持っている 1 本の 強さ（虹）。同じ 武器を 持っていなければ undefined */
+const heldPowerOf = (item: string): number | undefined => {
+  const s = inventory.held();
+  return s && s.item === item ? s.power : undefined;
+};
 const uiTools: ToolNumbers = {
   ...toolConfig,
   get weaponDamage() {
@@ -559,7 +564,7 @@ const blade = createBladeSystem({
   yokai: () => yokaiManager!,
   settings: w2,
   // WEAPON-7: レジェンダリーの 強さは 設定 `legendary` の power（ふつうの 刀は 今の 表）
-  weaponDamage: (item) => legendPowerOf(w2, item) ?? toolConfig.weaponDamage[item] ?? 1,
+  weaponDamage: (item) => legendPowerOf(w2, item, heldPowerOf(item)) ?? toolConfig.weaponDamage[item] ?? 1,
   onHit: () => {
     inventory.wearHeld(w2.toolWear.blade.hit);
   },
@@ -575,6 +580,7 @@ const legend = createLegendSystem({
   onWear: () => {
     inventory.wearHeld(1);
   },
+  power: (item) => legendPowerOf(w2, item, heldPowerOf(item)),
   sound: (n) => playLegend(fxSound, n),
   // WEAPON-8 §3.6: ため音は 続く 音。剣ごとの 味（風神 / 雷神）は ためわざの しゅるいで えらぶ
   loop: (name) => startLegendLoop(fxSound, name, chargeOf(w2, inventory.held()?.item ?? null)?.kind === 'spiral' ? 'fujin' : 'raijin'),
@@ -646,6 +652,9 @@ const combat = new PlayerCombatImpl({
   },
   requestSave: () => requestSave(),
   drops,
+  // WEAPON-7 PR3: 虹の シャイニング中は ダメージなし・落下ダメージなし
+  shielded: () => legend.shield(),
+  fallSafe: () => legend.fallSafe(),
 });
 // たんす（M6 §2.9）と すてる（§2.8）
 const storage = new StorageSystem({
@@ -890,6 +899,8 @@ yokaiManager = new YokaiManager({
     fxSound.play('break');
   },
 });
+// WEAPON-7 PR3: シャイニングの ドームに ふれた 火の玉は 消える
+yokaiManager.domeSource = () => legend.dome();
 game.scene.add(yokaiManager.group);
 const yokaiM = yokaiManager;
 // LIVE-1: にわとり の 見た目・音（動きの強さの 設定は まだ ない。できたら ここで つなぐ）
@@ -1295,7 +1306,7 @@ time.onPhaseChange((p) => achievements.feedPhase(p));
 const defeatWith = (): DefeatWith => {
   const h = inventory.held()?.item;
   if (h === 'bokuto' || h === 'katana' || h === 'naginata' || h === 'crystal_katana' || h === 'yumi') return h;
-  if (h === 'raijin_ken' || h === 'fujin_ken') return 'katana'; // WEAPON-7: 雷神剣で たおした ときは「かたな」と 同じ あつかい（実績の 表に 武器別の 行は 足さない）
+  if (h === 'raijin_ken' || h === 'fujin_ken' || h === 'niji') return 'katana'; // WEAPON-7: 雷神剣で たおした ときは「かたな」と 同じ あつかい（実績の 表に 武器別の 行は 足さない）
   if (h === 'wood_pickaxe' || h === 'stone_pickaxe' || h === 'iron_pickaxe' || h === 'wood_axe' || h === 'stone_axe' || h === 'iron_axe') return 'pickaxe';
   return 'hand';
 };
@@ -1586,6 +1597,7 @@ game.onUpdate((dt) => {
     controller.motion.speedMul = bm.speedMul * wm.speedMul * (pmOn ? pm.speedMul : 1) * lm.speedMul * legendMoveMulOf(w2, inventory.held()?.item ?? null);
     controller.motion.jumpLocked = bm.jumpLocked || wm.jumpLocked || pm.jumpLocked || lm.jumpLocked;
     controller.motion.noRun = lm.noRun;
+    controller.motion.hoverDy = lm.hoverDy; // WEAPON-7 PR3: シャイニングで うかぶ・おりる
     // CHAR-2: わざのあいだは 向きを わざの向きに 固定（わざを始めたステップは あとで その場で）
     // WEAPON-3: 刀の わざ・パンチの あいだは 攻撃の向き u。攻撃・空ぶりは ＋マークへ 回らない（leftAims）
     // WEAPON-5: パリィの あいだは 今 向いている 方（カメラの 向き）を向く。始めた ステップは すべらず 止まる
@@ -1778,7 +1790,7 @@ game.onUpdate((dt) => {
     thunderFx.step(lv ? { charging: lv.charging, ready: lv.ready, aimS: st && st.aim && st.aim.skyVisible ? st.aim.S : null } : IDLE_THUNDER_LOOK, reducedNow);
     // WEAPON-8 §3.5: ため中の 手もとの 光（雷神剣も 風神剣も）。手は 三人称は 体から、一人称は 画面の 右下の にぎり
     const cp = controller.state.position;
-    const cl = chargeLight.step({ ticks: lv ? lv.chargeTicks : null, kind: lv ? lv.kind : null, reduced: reducedNow });
+    const cl = chargeLight.step({ ticks: lv ? lv.chargeTicks : null, kind: lv && lv.kind !== 'shining' ? lv.kind : null, reduced: reducedNow });
     if (cl.phase !== 'off') {
       handNow();
       chargeLightFx.step(cl, handInfo, handInfo.first ? null : { x: cp.x, y: cp.y + 1.1, z: cp.z });
