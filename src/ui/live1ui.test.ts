@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { AnimalWindowHint } from '../contracts';
+import type { AnimalLive1Hint } from '../contracts';
 import { animalIconPixels } from './animalArt';
 import { ANIMAL_HINT_STEPS, ANIMAL_HINT_VIEW, AnimalHintModel } from './animalHintModel';
 import { findUnrubiedKanji } from './text';
@@ -7,7 +7,7 @@ import { findUnrubiedKanji } from './text';
 describe('LIVE-1 合図（§3.1。版 3.2 の 8 つ）', () => {
   const R = '<ruby>右<rt>みぎ</rt></ruby>';
   it('8 つの 文（仕様 §3.1 の とおり）。漢字は ふりがな付き。eggLater は 無い', () => {
-    const want: Record<AnimalWindowHint, string> = {
+    const want: Record<AnimalLive1Hint, string> = {
       feedHint: `むし を もって ${R}クリック で あげよう`,
       fullHint: 'おなか いっぱい。すこし まってね',
       friendFull: 'なかま は 8 わ まで',
@@ -18,7 +18,7 @@ describe('LIVE-1 合図（§3.1。版 3.2 の 8 つ）', () => {
       cantPutHere: 'ここ には おろせない',
     };
     expect(Object.keys(ANIMAL_HINT_VIEW).sort()).toEqual(Object.keys(want).sort());
-    for (const k of Object.keys(want) as AnimalWindowHint[]) {
+    for (const k of Object.keys(want) as AnimalLive1Hint[]) {
       expect(ANIMAL_HINT_VIEW[k].html, k).toBe(want[k]);
       expect(findUnrubiedKanji(ANIMAL_HINT_VIEW[k].html), k).toEqual([]);
       expect(ANIMAL_HINT_VIEW[k].art.length, `${k} は 絵 が 先`).toBeGreaterThan(0);

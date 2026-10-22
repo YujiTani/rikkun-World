@@ -4,7 +4,15 @@ import type {
   AnimalEvent,
   AnimalHintKind,
   AnimalInfo,
+  AnimalSaveV2,
+  AnimalSaveV3,
   AnimalSpawnOpts,
+  CoopBreakResult,
+  CoopInfo,
+  CoopPlacePreview,
+  CoopPlaceResult,
+  KitInfo,
+  KitUseResult,
   SwingResult,
   AnimalState,
   AnimalView,
@@ -214,6 +222,15 @@ export class AnimalManager implements AnimalApi {
       carried: e.carried,
       fluttering: e.fluttering,
       vy: e.vy,
+      // LIVE-2 仮（A が Ent の 持ち物 に して 埋める。いまは 野原 の 大人 の 値）
+      stage: 'adult' as const,
+      breed: 'normal' as const,
+      home: null,
+      raised: false,
+      bugs: 0,
+      goldMiss: 0,
+      grow: 0,
+      size: { h: 0.8, w: 0.6, l: 0.6 },
     }));
   }
 
@@ -514,10 +531,48 @@ export class AnimalManager implements AnimalApi {
     }
   }
 
+  // ------------------------------------------------------------ LIVE-2 仮実装（担当 A が 埋める。窓口 の 形 は contracts の `AnimalApi`）
+
+  placeCoop(_x: number, _y: number, _z: number, _dir: 0 | 1 | 2 | 3 = 0): CoopPlaceResult {
+    return 'noRoom';
+  }
+  previewCoop(x: number, y: number, z: number, dir: 0 | 1 | 2 | 3 = 0): CoopPlacePreview {
+    return { x, y, z, dir, ok: false };
+  }
+  kits(): KitInfo[] {
+    return [];
+  }
+  coops(): CoopInfo[] {
+    return [];
+  }
+  kitAt(_x: number, _y: number, _z: number): KitInfo | null {
+    return null;
+  }
+  coopAt(_x: number, _y: number, _z: number): CoopInfo | null {
+    return null;
+  }
+  useKit(_x: number, _y: number, _z: number, _held: ItemId | null): KitUseResult {
+    throw new Error('LIVE-2 A: useKit は 未実装');
+  }
+  collectCoop(_coopId: number): { egg: number; gold: number } {
+    return { egg: 0, gold: 0 };
+  }
+  breakCoop(_coopId: number, _firstPress: boolean): CoopBreakResult {
+    return 'ok';
+  }
+  removeCoop(_coopId: number): boolean {
+    return false;
+  }
+  machoMiss(_n?: number): number {
+    return 0;
+  }
+  forEachKit(_fn: (k: KitInfo & { hatchT: number }) => void): void {}
+  forEachCoop(_fn: (c: CoopInfo) => void): void {}
+
   // ------------------------------------------------------------ 保存(SaveExtra)
 
   /** 保存（§4.4）。だっこ 中 は プレイヤー の 足もと の 位置 が そのまま 入る */
-  serialize(): { v: 2; friends: { x: number; y: number; z: number; yaw: number; follow: number }[] } {
+  serialize(): AnimalSaveV3 | AnimalSaveV2 {
     const friends: { x: number; y: number; z: number; yaw: number; follow: number }[] = [];
     for (const e of this.ents) {
       if (!e.friend) continue;

@@ -61,7 +61,14 @@ export type BlockId =
   | 'bamboo' // たけ
   | 'susuki' // すすき
   | 'kusa' // くさ（せの たかい くさ。FLORA-75。こわすと 消えるだけ）
-  | 'nobana'; // のばな（あわい あおの 小さな はな。FLORA-75）
+  | 'nobana' // のばな（あわい あおの 小さな はな。FLORA-75）
+  // LIVE-2（§4.2）
+  | 'nukunuku' // こたつ（たまご を あたためる。置ける ブロック。持ち物 の id も 同じ）
+  // 小屋 の ブロック（持ち物 に 入らない。置く と 一度 に 5×5×4、こわす と toriya 1）
+  | 'toriya_fence' // さく（見た目 12/9 マス、当たり 高さ 2）
+  | 'toriya_gate' // もん（のれん。はば 1・高さ 2）
+  | 'toriya_nest' // ねぐら
+  | 'toriya_box'; // すばこ（ねぐら の ゆか）
 
 export interface BlockType {
   id: BlockId;
@@ -230,6 +237,9 @@ export type ItemOnlyId =
   // LIVE-1 版 3.2（§4.2。egg の うしろ）
   | 'mushi' // むし
   | 'mushi_ami' // むしとりあみ
+  // LIVE-2（§4.2。mushi_ami の うしろ。こたつ は ブロック `nukunuku`）
+  | 'toriya' // とりごや（持って 右クリック で 5×5 の 小屋 を 置く。ブロック では ない）
+  | 'kin_tamago' // きん の たまご（epic。たべられない）
   // WEAPON-7（うしろに足す。レジェンダリー）
   | 'raijin_ken' // 雷神剣（ヌシが おとす）
   | 'fujin_ken'; // 風神剣（ヌシが おとす。WEAPON-7 PR2）
@@ -1368,7 +1378,10 @@ export type RightClickKind =
   // LIVE-1
   | 'feed' | 'animalPet'
   // LIVE-1 版 3.2（§2.3）
-  | 'animalFull' | 'net' | 'netHint' | 'putDown';
+  | 'animalFull' | 'net' | 'netHint' | 'putDown'
+  // LIVE-2（§2.11）: 1a こたつ（入れる／たまご が いる／まってね／6 つ まで）・1b 小屋 の あつめる（なし = coopNoEgg）・10a 小屋 を 置く
+  | 'kitPut' | 'kitNeedEgg' | 'kitWait' | 'kitMax'
+  | 'coopCollect' | 'coopNoEgg' | 'coopPlace' | 'coopNoRoom' | 'coopMax';
 
 // ---------------------------------------------------------------- 設定（§4.3・§4.4・§4.5）
 
@@ -2231,7 +2244,16 @@ export function createCraft2Settings(): Craft2Settings {
 export type AnimalKind = 'chicken';
 export type AnimalState = 'appear' | 'wander' | 'rest' | 'look' | 'eat' | 'pet' | 'lay' | 'cheer' | 'follow' | 'idle'
   // LIVE-1 版 3.2
-  | 'full' | 'carried' | 'putDown';
+  | 'full' | 'carried' | 'putDown'
+  // LIVE-2（§6.1）: ねる・こたつ から かえる 動き・大人 に なる 動き
+  | 'sleep' | 'hatch' | 'grow';
+
+/** LIVE-2: 育ち（§2.12）。ひよこ → 大人 */
+export type AnimalStage = 'chick' | 'adult';
+/** LIVE-2: しゅるい（§2.10）。`'gold'` は 無い（読む とき は `normal` に 直す） */
+export type AnimalBreed = 'normal' | 'macho';
+/** LIVE-2: こたつ に 入って いる たまご。`'gold'` = `kin_tamago`（かならず マッチョ） */
+export type KitEgg = 'egg' | 'gold';
 /**
  * 合図（§3.1・§6.1）。窓口 `animals.lastHint()` の 型 と 同じ（`AnimalWindowHint` を 統合）。
  */
@@ -2245,7 +2267,8 @@ export type AnimalEvent =
   | { type: 'feed'; id: number; item: ItemId; hearts: number; friend: boolean }
   | { type: 'friend'; id: number; first: boolean; count: number }
   | { type: 'pet'; id: number; friend: boolean }
-  | { type: 'egg'; id: number; x: number; y: number; z: number }
+  /** LIVE-2: `gold`（金 の たまご か）・`coop`（小屋 の すばこ に 入る とき の 小屋 id。足もと なら null）。省略 = false／null */
+  | { type: 'egg'; id: number; x: number; y: number; z: number; gold?: boolean; coop?: number | null }
   | { type: 'warp'; id: number; from: Vec3; to: Vec3 }
   | { type: 'hint'; hint: AnimalHintKind }
   // 版 3.2（§6.1）
@@ -2256,7 +2279,24 @@ export type AnimalEvent =
   | { type: 'swing'; x: number; y: number; z: number; caught: boolean; reason: SwingReason }
   | { type: 'bugCatch'; toInventory: boolean }
   /** 版 3.2: はじめて の お祝い が おわった（記録 `carry:*` が 0 の あいだ）。つなぎ込み が 合図 `carryHint` に する */
-  | { type: 'carryHint' };
+  | { type: 'carryHint' }
+  // ---- LIVE-2（§6.1）
+  /** かえる 動き が はじまった（x・y・z は こたつ の マス） */
+  | { type: 'hatchStart'; x: number; y: number; z: number }
+  /** かえった（`gold` = 金 の たまご から） */
+  | { type: 'hatch'; id: number; breed: AnimalBreed; gold: boolean }
+  /** 小屋 の 子 に なった */
+  | { type: 'home'; id: number; coop: number }
+  /** 大人 に なる 動き が はじまった */
+  | { type: 'growStart'; id: number }
+  /** 大人 に なった（`first` = はじめて） */
+  | { type: 'grow'; id: number; first: boolean; breed: AnimalBreed }
+  /** 小屋 の すばこ から あつめた（たまご の 数） */
+  | { type: 'coopCollect'; egg: number; gold: number }
+  /** パタパタ おりて 着地 の コロン（ひよこ） */
+  | { type: 'roll'; id: number }
+  /** 中 に 子 が いて 小屋 を こわせなかった 押し（1 回 に 1 つ） */
+  | { type: 'coopLocked'; coop: number };
 
 /** `animals.list()` の 1 行 */
 export interface AnimalInfo {
@@ -2280,6 +2320,21 @@ export interface AnimalInfo {
   fluttering: boolean;
   /** 上下 の 速さ（下 が 負、マス/秒） */
   vy: number;
+  // ---- LIVE-2（§2.12・§6.1）
+  stage: AnimalStage;
+  breed: AnimalBreed;
+  /** 小屋 の 子 なら 小屋 id、でなければ null */
+  home: number | null;
+  /** ひよこ から 小屋 で そだって 大人 に なった か */
+  raised: boolean;
+  /** これまで に たべた むし の 数 */
+  bugs: number;
+  /** 金 で ない たまご を つづけて うんだ 数 */
+  goldMiss: number;
+  /** 小屋 で そだった 日（大人 は 0） */
+  grow: number;
+  /** 体 の 当たり の 大きさ（高さ・はば・長さ。§2.2・§2.10） */
+  size: { h: number; w: number; l: number };
 }
 
 export interface AnimalSpawnOpts {
@@ -2288,11 +2343,24 @@ export interface AnimalSpawnOpts {
   // ---- 版 3.2（§6.1）
   follow?: number;
   fullLeft?: number;
+  // ---- LIVE-2（§6.1）
+  stage?: AnimalStage;
+  breed?: AnimalBreed;
+  /** 小屋 id（その 小屋 の 子 として 置く） */
+  home?: number;
+  raised?: boolean;
+  bugs?: number;
+  goldMiss?: number;
+  grow?: number;
 }
 
 /** 版 3.2 の 合図 8 つ（§3.1。`animals.lastHint()` の 型） */
-export type AnimalWindowHint =
+export type AnimalLive1Hint =
   | 'feedHint' | 'fullHint' | 'friendFull' | 'treeEmpty' | 'netHint' | 'carryHint' | 'carryWild' | 'cantPutHere';
+/** LIVE-2 の 合図 9 つ（§3.1。文・絵 は C が `ANIMAL_HINT_VIEW` に 足す） */
+export type AnimalLive2Hint =
+  | 'kitMax' | 'kitNeedEgg' | 'kitWait' | 'coopNoRoom' | 'coopMax' | 'coopFull' | 'coopNotEmpty' | 'coopNoEgg' | 'sleepHint';
+export type AnimalWindowHint = AnimalLive1Hint | AnimalLive2Hint;
 
 /** あみ の 結果 の わけ（§6.1 `swing`） */
 export type SwingReason = 'chance' | 'pity' | 'empty' | 'miss';
@@ -2307,6 +2375,8 @@ export interface AnimalMark {
   hearts?: number;
   steps?: number;
   full: boolean;
+  /** LIVE-2: いえ の しるし の うまり 0〜1（小屋 に 入る とちゅう だけ） */
+  home?: number;
 }
 export interface AnimalFxRecord {
   hearts: number;
@@ -2315,6 +2385,9 @@ export interface AnimalFxRecord {
   puff: number;
   sparkle: number;
   leaf: number;
+  /** LIVE-2: から の かけら（かえる）・Z（ねて いる 子 の 数） */
+  shell: number;
+  zzz: number;
   marks: AnimalMark[];
 }
 
@@ -2350,6 +2423,24 @@ export interface LiveSettings {
   netSwingTicks: number;
   carryHoldTicks: number;
   animalFlutterFallSpeed: number;
+  // ---- LIVE-2 の 17 こ（§4.1）
+  kitHatchTicks: number;
+  kitHatchDist: number;
+  chickGrowDays: number;
+  chickFlutterFallSpeed: number;
+  coopMax: number;
+  coopCountMax: number;
+  coopEnterTicks: number;
+  kitActiveMax: number;
+  coopNestMax: number;
+  machoChance: number;
+  machoPity: number;
+  goldBaseWild: number;
+  goldBaseRaised: number;
+  goldPerBug: number;
+  goldBugMax: number;
+  goldCap: number;
+  goldPity: number;
 }
 
 export const LIVE_SETTING_DEFAULTS: Readonly<LiveSettings> = {
@@ -2382,6 +2473,23 @@ export const LIVE_SETTING_DEFAULTS: Readonly<LiveSettings> = {
   netSwingTicks: 20,
   carryHoldTicks: 40,
   animalFlutterFallSpeed: 2.0,
+  kitHatchTicks: 7200,
+  kitHatchDist: 16,
+  chickGrowDays: 2,
+  chickFlutterFallSpeed: 2.5,
+  coopMax: 6,
+  coopCountMax: 3,
+  coopEnterTicks: 180,
+  kitActiveMax: 6,
+  coopNestMax: 12,
+  machoChance: 0.05,
+  machoPity: 19,
+  goldBaseWild: 0.01,
+  goldBaseRaised: 0.04,
+  goldPerBug: 0.0005,
+  goldBugMax: 0.04,
+  goldCap: 0.08,
+  goldPity: 30,
 };
 
 export function createLiveSettings(): LiveSettings {
@@ -2411,6 +2519,94 @@ export interface AnimalView {
   carried?: boolean;
   /** パタパタ おりて いる（空中 で 下 へ） */
   fluttering?: boolean;
+  // ---- LIVE-2（B が 描くために 読む。A が forEachVisible で 埋める）
+  stage?: AnimalStage;
+  breed?: AnimalBreed;
+  /** 小屋 の 子 の 小屋 id（なければ null／省略） */
+  home?: number | null;
+  /** いえ の しるし の うまり 0〜1（小屋 に 入る とちゅう だけ） */
+  homeFill?: number;
+  /** 'hatch' 動き の 経過 0〜1（ピキッ → ぽんっ → ぷるぷる、マッチョ は ポーズ まで） */
+  hatchT?: number;
+  /** 'grow' 動き の 経過 0〜1（ぷるぷる → 光 → ばさっ） */
+  growT?: number;
+  /** 着地 の コロン の 経過 0〜1（なければ 省略） */
+  rollT?: number;
+}
+
+// ---- LIVE-2: こたつ・小屋（§6.1。A が 持つ。C・B・つなぎ込み は これ を 読む）
+
+/** `animals.kits()` の 1 行（たまご が 入って いる こたつ だけ。から は 世界 の ブロック と して だけ） */
+export interface KitInfo {
+  x: number;
+  y: number;
+  z: number;
+  egg: KitEgg | null;
+  /** あたため の のこり ステップ */
+  left: number;
+  /** ゆれ: 0 じっと／1 ときどき／2 よく ゆれる＋ひび（§2.1・AC4） */
+  wobble: 0 | 1 | 2;
+}
+
+/** `animals.coops()` の 1 行 */
+export interface CoopInfo {
+  id: number;
+  /** 5×5 の まん中 の マス（x・z）と いちばん 下 の 空気 の 高さ y */
+  x: number;
+  y: number;
+  z: number;
+  /** もん の むき（0 北(-z)・1 東(+x)・2 南(+z)・3 西(-x)） */
+  dir: 0 | 1 | 2 | 3;
+  /** もん の マス */
+  gate: { x: number; z: number };
+  /** 小屋 の 子（animal id。だっこ 中 も 数える） */
+  kids: number[];
+  nest: { egg: number; gold: number };
+}
+
+/** `animals.placeCoop` の 答え: 小屋 id か 理由 */
+export type CoopPlaceResult = number | 'noRoom' | 'max';
+
+/** 置く 前 の すけた 形 の 答え（§2.3 10a。入る 所 は 白、入らない 所 は ななめ の しま） */
+export interface CoopPlacePreview {
+  /** 実際 に 置く 5×5 の まん中 と いちばん 下 の 高さ（1 マス ずらし 後）。入らない なら ねらった 所 */
+  x: number;
+  y: number;
+  z: number;
+  dir: 0 | 1 | 2 | 3;
+  ok: boolean;
+}
+
+/** 右クリック で こたつ を ねらった 答え（C の ふりわけ 1a） */
+export type KitUseResult = 'put' | 'wait' | 'needEgg' | 'max';
+/** 小屋 の ブロック を ねらって 左クリック した 答え（C の こわせない しらせ、§2.3） */
+export type CoopBreakResult = 'ok' | 'locked';
+
+/** 保存 v 3（§4.4）。窓口 `animals.serialize()` の 形 */
+export interface AnimalBirdSave {
+  x: number;
+  y: number;
+  z: number;
+  yaw: number;
+  follow: number;
+  stage: AnimalStage;
+  breed: AnimalBreed;
+  raised: boolean;
+  bugs: number;
+  goldMiss: number;
+  grow: number;
+}
+export interface AnimalSaveV3 {
+  v: 3;
+  friends: AnimalBirdSave[];
+  coops: { id: number; x: number; y: number; z: number; dir: number; kids: AnimalBirdSave[]; nest: { egg: number; gold: number } }[];
+  kits: { x: number; y: number; z: number; egg: KitEgg; left: number }[];
+  machoMiss: number;
+}
+/** 版 2（LIVE-1 版 3.2。v 3 へ 直して 読む）。A が v 3 に 置きかえる まで は これ も 返る */
+export interface AnimalSaveV2 {
+  v: 2;
+  friends: { x: number; y: number; z: number; yaw: number; follow: number }[];
 }
 
 /** A の口（C の ふりわけ・B の 描画・窓口 が 使う。§7 約束 2・3） */
@@ -2437,7 +2633,52 @@ export interface AnimalApi {
   /** だっこ している id か null */
   carrying(): number | null;
   forEachVisible(fn: (v: AnimalView) => void): void;
+
+  // ---- LIVE-2（§6.1・§7）。A が 実装。C（ふりわけ・画面）・B（描画）・つなぎ込み が 使う
+  /** 小屋 を 置く（ゲーム の 置く と 同じ 判定。1 マス ずらし 8 か所 を 含む）。y は 5×5×4 の いちばん 下 の 空気 の 高さ */
+  placeCoop(x: number, y: number, z: number, dir?: 0 | 1 | 2 | 3): CoopPlaceResult;
+  /** 置く 前 の すけた 形（入る か・ずらし 後 の 場所） */
+  previewCoop(x: number, y: number, z: number, dir?: 0 | 1 | 2 | 3): CoopPlacePreview;
+  kits(): KitInfo[];
+  coops(): CoopInfo[];
+  /** その マス が こたつ に たまご が 入って いる か（照準 の 下 `まってね`） */
+  kitAt(x: number, y: number, z: number): KitInfo | null;
+  /** その ブロック を 持つ 小屋（さく・もん・ねぐら・すばこ。なければ null） */
+  coopAt(x: number, y: number, z: number): CoopInfo | null;
+  /** 右クリック: `held` を 持って こたつ を ねらった。入れた なら 'put'（A が 持ち物 を へらす 口 は 無い。C が `held` を 1 へらす） */
+  useKit(x: number, y: number, z: number, held: ItemId | null): KitUseResult;
+  /** 右クリック: 小屋 の すばこ の たまご を ぜんぶ あつめる（入らない 分 は のこる）。あつめた 数 */
+  collectCoop(coopId: number): { egg: number; gold: number };
+  /** 左クリック の 押した ステップ: 小屋 の ブロック を こわして よい か。'locked' なら 出来事 `coopLocked`・合図 `coopNotEmpty`・音 `animalHint` は A が 出す */
+  breakCoop(coopId: number, firstPress: boolean): CoopBreakResult;
+  /** 小屋 を 消す（子 0 の とき だけ。ブロック を 消すのは つなぎ込み〈`AnimalDeps.removeCoopBlocks`〉）。すばこ の たまご を おとす */
+  removeCoop(coopId: number): boolean;
+  /** ひよこ から 数えて 種類 の くじ の 数（保存 される。引数 で 設定） */
+  machoMiss(n?: number): number;
+  serialize(): AnimalSaveV3 | AnimalSaveV2;
+  deserialize(data: unknown): void;
+  /** B が 描く: こたつ（たまご が 入って いる もの だけ） */
+  forEachKit(fn: (k: KitInfo & { hatchT: number }) => void): void;
+  /** B が 描く: 小屋（すばこ の 数 と 子 の 数） */
+  forEachCoop(fn: (c: CoopInfo) => void): void;
 }
+
+// ---- LIVE-2: ふつう の 計算 の 型（A が `src/animals/` で 書く。ユニット の 仮の 名前: docs/test-reports/LIVE-2.md）
+
+/** 金 の 確率 の もと（AC15 `goldChance(bird, settings)`） */
+export interface GoldBird {
+  raised: boolean;
+  bugs: number;
+  goldMiss: number;
+}
+/** かえす くじ の 状態（AC17 `rollBreed(item, settings, state, rng)`） */
+export interface BreedLotteryState {
+  machoMiss: number;
+}
+/** 体 の 当たり の 大きさ（AC18 `bodySize(stage, breed)`） */
+export type BodySize = { h: number; w: number; l: number };
+/** LIVE-3 用: お肉 に えらべる 子（AC22 `meatEligible(bird)`） */
+export type MeatBird = Pick<AnimalInfo, 'stage' | 'home' | 'raised'>;
 
 /** A が 外から 受け取る 物（にせ の 世界・時刻・dropEgg で ユニット できる。§7 約束 4・5） */
 export interface AnimalDeps {
@@ -2451,4 +2692,10 @@ export interface AnimalDeps {
   day(): number;
   phase(): DayPhase;
   countryAt(seed: number, x: number, z: number): { kind: string };
+  // ---- LIVE-2（つなぎ込み が 渡す。ない とき は 小屋 を 置けない・おとしもの を 出さない）
+  /** 小屋 の ブロック を 一度 に 置く／消す（`src/world/`。x・z は 5×5 の まん中、y は いちばん 下 の 空気 の 高さ）。置けたら true */
+  placeCoopBlocks?(x: number, y: number, z: number, dir: 0 | 1 | 2 | 3): boolean;
+  removeCoopBlocks?(x: number, y: number, z: number, dir: 0 | 1 | 2 | 3): void;
+  /** すばこ 12 こ いっぱい など で 足もと に おとす（`kin_tamago` も） */
+  dropItem?(at: Vec3, item: ItemId): void;
 }

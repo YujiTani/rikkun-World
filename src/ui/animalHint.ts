@@ -48,6 +48,7 @@ export class AnimalHint {
     if (k === null) return;
     this.el.dataset.hint = k;
     const view = ANIMAL_HINT_VIEW[k];
+    if (!view) return; // LIVE-2 の 合図 の 文 は C が 足す まで 無い
     const chip = createChip({ html: view.html, tone: 'info', head: true });
     const text = chip.querySelector('.rk-chip__text')!;
     for (const a of view.art) {

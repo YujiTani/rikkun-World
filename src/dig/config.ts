@@ -41,6 +41,12 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     brick: 6,
     // M6
     tansu: 5,
+    // LIVE-2 仮（A が 決める。小屋 の ブロック は たんす と 同じ 時間、§2.3）
+    nukunuku: 1,
+    toriya_fence: 5,
+    toriya_gate: 5,
+    toriya_nest: 5,
+    toriya_box: 5,
     // M7（仮。C が §4.1 のとおりに直す: 作物・やせいの やさい は ほれない〈しゅうかく〉、かかし は こわれない）
     farmland: 0.5,
     farmland_wet: 0.5,
@@ -87,6 +93,11 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     kawara: 0,
     brick: 0,
     tansu: 0,
+    nukunuku: 0,
+    toriya_fence: 0,
+    toriya_gate: 0,
+    toriya_nest: 0,
+    toriya_box: 0,
     farmland: 0,
     farmland_wet: 0,
     crop_onion: 0,
@@ -139,6 +150,11 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     kawara: 'uncommon',
     brick: 'uncommon',
     tansu: 'uncommon',
+    nukunuku: 'uncommon',
+    toriya_fence: 'uncommon',
+    toriya_gate: 'uncommon',
+    toriya_nest: 'uncommon',
+    toriya_box: 'uncommon',
     // M7（仮。C が決める）
     farmland: 'common',
     farmland_wet: 'common',

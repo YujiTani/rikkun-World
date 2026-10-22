@@ -2109,6 +2109,12 @@ installTestHook(game, overlay, () => host.everReady, {
     // 今 チップに出ている合図（120 ステップで消える。消えたら null）
     lastHint: () => animalHint.model.current(),
     carrying: () => animals.carrying(),
+    placeCoop: (x, y, z, dir) => animals.placeCoop(x, y, z, dir),
+    coops: () => animals.coops(),
+    kits: () => animals.kits(),
+    machoMiss: (n) => animals.machoMiss(n),
+    serialize: () => animals.serialize(),
+    deserialize: (d) => animals.deserialize(d),
   },
   attack: { preview: () => dig.attackPreview(), last: () => dig.attackLast() },
   camera: cameraHook.camera,

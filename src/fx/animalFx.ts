@@ -662,7 +662,8 @@ export class AnimalFx {
       if (m.steps > 0) row.steps = m.steps;
       marks.push(row);
     }
-    return { ...this.counts, marks };
+    // LIVE-2: から の かけら・Z は B が 数える（いまは 0）
+    return { ...this.counts, shell: 0, zzz: 0, marks };
   }
 
   /** `animals.fxReset()` */

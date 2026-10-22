@@ -14,7 +14,7 @@ import type { createBladeHook } from '../tools/blade/hook';
 import type { createLevelHook } from '../level';
 import type { createAchievementsHook } from '../achievements';
 import type { createLogHook } from '../ui/log';
-import type { UiAlpha, AnimalEvent, AnimalHintKind, AnimalInfo, AnimalSpawnOpts, AnimalWindowHint } from '../contracts';
+import type { UiAlpha, AnimalEvent, AnimalHintKind, AnimalInfo, AnimalSpawnOpts, AnimalWindowHint, AnimalSaveV2, AnimalSaveV3, CoopInfo, CoopPlaceResult, KitInfo } from '../contracts';
 import type { createRarityHook } from '../drops/rarityHook';
 import type { createStorageHook } from '../storage/hook';
 import type { createYokaiHook } from '../yokai';
@@ -120,6 +120,16 @@ export interface TestHook {
     lastHint(): AnimalHintKind | AnimalWindowHint | null;
     /** 版 3.2: だっこ している id か null */
     carrying(): number | null;
+    // ---- LIVE-2（§6.1）
+    /** 小屋 を 置く（ゲーム の 置く と 同じ 判定）。x・z は 5×5 の まん中、y は いちばん 下 の 空気 の 高さ。小屋 id か 理由 */
+    placeCoop(x: number, y: number, z: number, dir?: 0 | 1 | 2 | 3): CoopPlaceResult;
+    coops(): CoopInfo[];
+    kits(): KitInfo[];
+    /** かえす くじ の はずれ 数（`n` を 渡す と 設定） */
+    machoMiss(n?: number): number;
+    /** 保存 v 3 の 形 を 取り出す・流しこむ */
+    serialize(): AnimalSaveV3 | AnimalSaveV2;
+    deserialize(data: unknown): void;
   };
   /** CRAFT-2 §6.1: 画面の不透明度 */
   ui: { alpha(): UiAlpha; /** WEAPON-7 §9: 画面の 上の 帯 */ topBand(): { kind: 'achieve' | 'telop' | 'appear' | null; item: string | null; age: number; leftSteps: number; queue: string[] }; /** WEAPON-8 §7: 速さバフの アイコン */ buffs(): unknown[] };

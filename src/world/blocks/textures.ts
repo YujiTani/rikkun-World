@@ -400,6 +400,12 @@ export const BLOCK_TILES: Readonly<Partial<Record<BlockId, readonly [TileName, T
   start_torch: ['start_torch', 'start_torch', 'start_torch'],
   // M6: 世界に向きのしかけは作らない（PO 決定）ので 4 面とも 前の面。向きは storage に記録する
   tansu: ['tansu_top', 'tansu_top', 'tansu_front'],
+  // LIVE-2 仮（B が 専用 の 絵 に かえる。いまは 既存 の 絵 を かりる）
+  nukunuku: ['tansu_top', 'tansu_top', 'tansu_front'],
+  toriya_fence: ['log_top', 'log_top', 'log_side'],
+  toriya_gate: ['log_top', 'log_top', 'log_side'],
+  toriya_nest: ['log_top', 'log_top', 'log_side'],
+  toriya_box: ['log_top', 'log_top', 'log_side'],
   // M7 農業。作物・やせい・かかし・さく は 十字の板（全部の面が同じ絵）。作物の絵は 3 だんかい（みのった）
   farmland: ['farmland_top', 'dirt', 'farmland_side'],
   farmland_wet: ['farmland_wet_top', 'dirt', 'farmland_wet_side'],
