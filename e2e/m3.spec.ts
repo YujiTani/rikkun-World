@@ -548,8 +548,12 @@ test.describe('M3 プレイヤーの攻撃（パンチ）', () => {
         let removeAt = -1;
         let dropEv: any[] = [];
         let size36: number | null = null;
-        for (let i = 1; i <= 1700; i++) {
+        const t0 = h.tick();
+        let lastStand = 0;
+        // #276 ヒットストップで tick が 止まる ので、ステップの 数でなく tick（h.tick() - t0）で 数える
+        for (let s = 1; s <= 2600; s++) {
           h.step(1);
+          const i = h.tick() - t0;
           for (const e of h.combat.events()) if (e.type === 'punchHit') hits.push(i);
           for (const e of h.yokai.events()) {
             if (e.type === 'defeat') defeatAt = i;
@@ -559,7 +563,10 @@ test.describe('M3 プレイヤーの攻撃（パンチ）', () => {
           if (defeatAt > 0 && i === defeatAt + 36) size36 = T.one(y)?.scale ?? 0;
           // たたくたびに押されるので、P を 2 ブロック西に置き直す
           const yy = T.one(y);
-          if (yy && i % 30 === 0) (window as any).__aim.standForS(yy.position.x - 2, yy.position.z, 90, 0, 9);
+          if (yy && i % 30 === 0 && i !== lastStand) {
+            lastStand = i;
+            (window as any).__aim.standForS(yy.position.x - 2, yy.position.z, 90, 0, 9);
+          }
           if (removeAt > 0) break;
         }
         h.input.release('primary');
