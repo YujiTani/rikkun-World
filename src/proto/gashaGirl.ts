@@ -253,6 +253,8 @@ export interface GashaGirlHandle {
   figures: Group[];
   labels(riky: { x: number; y: number; z: number }, w: number, h: number): { x: number; y: number }[];
   phase(): string;
+  /** 立ち姿の 数えなおし（撮影用） */
+  standNow(): void;
   setSeed(n: number): void;
   warpNow(spell?: number): void;
   camera(mode: 'overview' | 'default'): void;
@@ -348,7 +350,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
   const ER = { root: new Group(), t: -1, ring: null as unknown as Mesh, flash: null as unknown as Mesh,
     blades: [] as { outer: Group; inner: Group; h: number; w: number; start: number; lean: number; ph: number }[], count: 6, x: 0, y: 0, z: 0 };
   scene.add(ER.root);
-  const ringMat = basic(ringTex, 0xa040ff, 0), flashMat = basic(glowTex, 0xe8c8ff, 0), bladeMat = basic(bladeTex, 0xffffff, 1);
+  const ringMat = basic(ringTex, 0xa040ff, 0), flashMat = basic(glowTex, 0xe8c8ff, 0), bladeMat = basic(bladeTex, 0xb890ff, 0.9);
   ER.ring = flat(ringMat, ER.root); ER.flash = flat(flashMat, ER.root);
   for (let i = 0; i < 7; i++) {
     const outer = new Group(); const inner = crossed(bladeMat, outer); outer.add(inner); ER.root.add(outer); outer.visible = false;
@@ -359,7 +361,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
     ER.root.position.set(x, ER.y, z); ER.t = 0;
     ER.count = 5 + Math.floor(vrng() * 3);
     ER.blades.forEach((b, i) => {
-      b.h = vr(1.7, 3.1); b.w = vr(0.45, 0.65); b.start = 0.9 + i * 0.025 + vr(0, 0.05); b.lean = vr(0.18, 0.4); b.ph = vr(0, 6);
+      b.h = vr(1.7, 3.1); b.w = vr(0.45, 0.65); b.start = 0.9 + i * 0.025 + vr(0, 0.05); b.lean = vr(0.12, 0.3); b.ph = vr(0, 6);
       const ph = (i / ER.count) * Math.PI * 2 + vr(-0.3, 0.3), r = vr(0.1, 0.75);
       b.outer.position.set(Math.cos(ph) * r, 0, -Math.sin(ph) * r);
       b.outer.rotation.y = ph;
@@ -645,7 +647,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
     const gp = pivot.position, f = fwdOf(p);
     const mx = (p.x + gp.x) / 2, mz = (p.z + gp.z) / 2, my = p.y + 1;
     const sep = Math.hypot(p.x - gp.x, p.z - gp.z);
-    const tp = new Vector3(mx + f.rx * (5 + 0.35 * sep) + f.fx * (3 + 0.25 * sep), my + 8 + 0.2 * sep, mz + f.rz * (5 + 0.35 * sep) + f.fz * (3 + 0.25 * sep));
+    const tp = new Vector3(mx + f.rx * (2 + 0.25 * sep) + f.fx * (1.5 + 0.15 * sep), my + 5 + 0.3 * sep, mz + f.rz * (2 + 0.25 * sep) + f.fz * (1.5 + 0.15 * sep));
     const tl = new Vector3(mx, my, mz);
     if (!camTarget.init) { camTarget.pos.copy(tp); camTarget.look.copy(tl); camTarget.init = true; }
     else { camTarget.pos.lerp(tp, 0.15); camTarget.look.lerp(tl, 0.15); }
@@ -676,7 +678,8 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
     phase: () => phase,
     setSeed: (n) => { rs = n >>> 0; vs = (Math.imul(n, 7919) + 13) >>> 0; },
     warpNow: (s) => { if (s !== undefined) forced = (s - 1 + SPELLS) % SPELLS; if (phase === 'stand') pt = 2.0; },
-    camera: (m) => { camMode = m; },
+    camera: (m) => { camMode = m; camTarget.init = false; },
+    standNow: () => { if (phase === 'stand') pt = 0; },
     nextSpell: (n) => { forced = (n - 1 + SPELLS) % SPELLS; },
     predictSide: () => (mulberry(rs)[1] < 0.5 ? 'left' : 'back'),
     info: () => ({

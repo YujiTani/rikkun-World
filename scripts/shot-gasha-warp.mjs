@@ -42,6 +42,7 @@ const floorY = await page.evaluate(([x, z]) => {
 }, [X0, Z0]);
 await page.evaluate(() => window.__rikkun.step(60));
 
+await page.addStyleTag({ content: '#hud{display:none !important}' });
 const info = () => page.evaluate(() => window.__gashaGirl.info());
 const step = (n) => page.evaluate((n) => window.__rikkun.step(n), n);
 let frameNo = 0;
@@ -55,7 +56,7 @@ function gif(dir, frames, out, fps = 30) {
   writeFileSync(list, frames.map((f) => `file '${f}'\nduration ${1 / fps}`).join('\n') + '\n');
   const pal = join(dir, 'pal.png');
   const vf = 'scale=640:-1:flags=lanczos';
-  execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', list, '-vf', `${vf},palettegen=stats_mode=diff`, pal]);
+  execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', list, '-vf', `${vf},palettegen=stats_mode=diff:max_colors=160`, pal]);
   execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', list, '-i', pal, '-lavfi', `${vf}[x];[x][1:v]paletteuse=dither=bayer:bayer_scale=4`, '-r', String(fps), join(OUT, out)]);
 }
 
@@ -65,6 +66,9 @@ async function cycle(n) {
   const player = await page.evaluate(() => window.__rikkun.player.get().position);
   await page.evaluate(([x, y, z]) => window.__rikkun.player.set({ position: { x, y, z }, velocity: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: 0 }), [X0, floorY + 1, Z0]);
   await page.evaluate(() => window.__gashaGirl.camera('overview'));
+  await step(90);
+  // 前の 魔法の のこりを 消す
+  for (let i = 0; i < 400; i++) { const k = await info(); if (k.phase === 'stand' && k.eruptionT < 0 && k.vortexT < 0 && k.fireballs === 0 && k.waves === 0) break; await step(6); }
   let seed = 100 + n;
   if (n === 1) { // 左横に 出る シード
     for (seed = 1; seed < 200; seed++) {
@@ -72,12 +76,10 @@ async function cycle(n) {
       if (ok) break;
     }
   }
+  await page.evaluate(() => window.__gashaGirl.standNow());
+  await step(50); // 前の 爆発の のこりを 消す
+  await page.evaluate(() => window.__gashaGirl.standNow());
   await page.evaluate(([n, s]) => { window.__gashaGirl.setSeed(s); window.__gashaGirl.nextSpell(n); }, [n, seed]);
-  // 前の 魔法の のこりを 消す
-  for (let i = 0; i < 400; i++) { const k = await info(); if (k.phase === 'stand' && k.eruptionT < 0 && k.vortexT < 0 && k.fireballs === 0 && k.waves === 0) break; await step(6); }
-  await step(60); // りっくんと 少女が 落ち着く
-  await page.evaluate(() => window.__gashaGirl.nextSpell(0)); // 取り消しは しない（下で もう 一度 決める）
-  await page.evaluate((n) => window.__gashaGirl.nextSpell(n), n);
   const norm = [], slow = [];
   let slowing = false, slowDone = false, shotsFiredAt = -1;
   const peak = { eruption: null, vortex: null, wave: null };
@@ -86,10 +88,12 @@ async function cycle(n) {
   for (let i = 0; i < 100; i++) { // ふだんの 立ち姿 約 0.5 秒
     await step(2); fast.push(await shot(dir)); if (i === 14) break;
   }
+  console.log('before warp', JSON.stringify(await info()));
   await page.evaluate(() => window.__gashaGirl.warpNow());
   warped = true;
   const allNorm = [...fast];
   const stats0 = await info();
+  let sawCast = false;
   for (let g = 0; g < 1200; g++) {
     const k = await info();
     const slowWin = (n === 1 && k.phase === 'cast' && k.castT >= 1.5 && k.eruptionT >= 0) || (n === 1 && k.eruptionT > 0)
@@ -111,6 +115,8 @@ async function cycle(n) {
       if (n === 4 && k.waves > 0 && k.castT >= 1.6 + 1.3 && !peak.wave) peak.wave = f;
     }
     const e = await info();
+    if (e.phase === 'cast') sawCast = true;
+    if (sawCast && (e.phase === 'vanish' || e.phase === 'appear')) break; // 次の ワープが はじまる前に おわる
     if (g > 30 && e.phase === 'stand' && e.eruptionT < 0 && e.vortexT < 0 && e.fireballs === 0 && e.waves === 0) { await step(2); allNorm.push(await shot(dir)); break; }
     void warped; void ticks; void slowing; void slowDone;
   }
