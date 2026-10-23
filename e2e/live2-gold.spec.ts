@@ -384,6 +384,7 @@ test.describe('LIVE-2 金の たまご・保存・文字・性能', () => {
     expect(r.n).toBe(29);
     expect(r.on.dc - r.zero.dc).toBeLessThanOrEqual(48);
     expect(r.on.tri - r.zero.tri).toBeLessThanOrEqual(20000);
-    expect(r.addMs, '動物 なしからの 1 ステップの ふえ（中央値。§4.6）').toBeLessThanOrEqual(0.2);
+    // 計算の ふえ は 同じ マシンの 動物 なしの 1 ステップに くらべる（CI は 手元より 約 3 倍 おそい。§4.6）
+    expect(r.addMs / r.baseMs, '動物 なしからの 1 ステップの ふえ の 割合（中央値。§4.6）').toBeLessThanOrEqual(0.5);
   });
 });
