@@ -27,7 +27,9 @@ function setup() {
   const calls: { step: number; id: number; amount: number; knock: { dist: number; up: number }; from: Vec3 }[] = [];
   let now = 0;
   const blade = { ...W2_SETTING_DEFAULTS.bladeTech, kiriageMul: W2_SETTING_DEFAULTS.bladeDamageMul.kiriage };
+  const flags = { dead: false };
   const port: AnimalFightPort = {
+    playerDead: () => flags.dead,
     yokai: (id) => {
       const y = ys.get(id);
       return y ? { x: y.x, y: y.y, z: y.z, radius: 0.6, height: 1.6, state: y.state } : null;
@@ -76,7 +78,7 @@ function setup() {
   const yokai = (id: number, x: number, z: number, hp = 99) => ys.set(id, { x, y: 9, z, hp, state: 'alive' });
   const one = (id: number) => m.list().find((a) => a.id === id)!;
   const of = <T extends AnimalEvent['type']>(t: T) => evs.filter((e): e is Extract<AnimalEvent, { type: T }> => e.type === t);
-  return { m, settings, step, macho, yokai, one, of, evs, ys, calls, player, states, views, blade, now: () => now };
+  return { m, settings, step, macho, yokai, one, of, evs, ys, calls, player, states, views, blade, flags, now: () => now };
 }
 
 describe('AC2 きっかけ 1/2 → ねらう', () => {
@@ -256,6 +258,22 @@ describe('AC8 やめる', () => {
     s.ys.delete(77);
     s.step(1);
     expect(s.of('machoGiveUp').map((e) => e.reason)).toEqual(['far', 'gone']);
+  });
+  it('りっくん が たおれた ら その ステップ に stop（おいかけ ない）・fighters は 空', () => {
+    const s = setup();
+    const a = s.macho(0, -2);
+    s.yokai(77, 30.5, 28.5, 99999);
+    s.step(35);
+    s.m.fightCue!({ hit: [77], hurt: [] });
+    s.step(20);
+    expect(s.one(a).target).toBe(77);
+    s.flags.dead = true;
+    s.step(1);
+    expect(s.one(a).target).toBeNull();
+    expect(s.m.fighters!()).toEqual([]);
+    expect(s.of('machoGiveUp').map((e) => e.reason)).toEqual(['stop']);
+    s.m.fightCue!({ hit: [77], hurt: [] });
+    expect(s.one(a).target).toBeNull();
   });
   it('follow が 0 に なった ステップ に stop', () => {
     const s = setup();

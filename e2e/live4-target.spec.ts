@@ -20,10 +20,10 @@ test.describe('LIVE-4 ねらい', () => {
       const M = (window as any).__M;
       M.base();
       const o: any = { hasFighters: typeof h.animals.fighters === 'function' };
-      const a = M.macho(3.5 - 2, 6.5, { follow: 18000 });
-      const b = M.macho(3.5 - 2, 7.5, { follow: 1 }); // 35 コマ の あいだ に follow 0
-      const c = M.macho(3.5 - 2, 8.5, { stage: 'chick' });
-      const d = M.macho(3.5 - 2, 9.5, { breed: 'normal' });
+      const a = M.macho(9.5, 6.5, { follow: 18000 });
+      const b = M.macho(9.5, 7.5, { follow: 1 }); // 35 コマ の あいだ に follow 0
+      const c = M.macho(9.5, 8.5, { stage: 'chick' });
+      const d = M.macho(9.5, 9.5, { breed: 'normal' });
       o.ids = { a, b, c, d };
       o.fighters = o.hasFighters ? h.animals.fighters() : null;
       o.b = A.one(b)?.follow;
@@ -51,7 +51,7 @@ test.describe('LIVE-4 ねらい', () => {
       const M = (window as any).__M;
       M.base();
       const o: any = {};
-      const ids = [M.macho(1.5, 4.5, { follow: 18000 }), M.macho(1.5, 6.5, { follow: 18000 }), M.macho(1.5, 8.5, { follow: 18000 })];
+      const ids = [M.macho(9.5, 4.5, { follow: 18000 }), M.macho(9.5, 6.5, { follow: 18000 }), M.macho(9.5, 8.5, { follow: 18000 })];
       o.ids = ids;
       o.first = h.animals.fighters();
       A.stand(ids[0]);
@@ -209,31 +209,37 @@ test.describe('LIVE-4 ねらい', () => {
       const o: any = { forget: setting };
       // 1) なにも しない
       M.base();
-      let mid = M.macho(11.5, 6.5);
+      let mid = M.macho(0.5, 6.5);
       let yid = M.yokai('karakasa', 6.5, 6.5, { hp: 9999 });
       M.faceTo(yid, 2);
       let hit = M.hit(yid, { m: mid });
       o.k = hit.k;
       let rows = M.rec(forget + 5, { m: mid, y: yid });
-      o.t599 = rows[forget - 2]?.m?.target ?? 'none';
-      o.t600 = rows[forget - 1]?.m?.target ?? 'none';
+      o.t599 = rows[forget - 2] ? (rows[forget - 2].m?.target ?? null) : 'none';
+      o.t600 = rows[forget - 1] ? (rows[forget - 1].m?.target ?? null) : 'none';
       o.giveUp = rows.map((x: any, i: number) => ({ i, ev: x.aev.filter((e: any) => e.type === 'machoGiveUp') })).filter((x: any) => x.ev.length).map((x: any) => ({ i: x.i, reason: x.ev[0].reason, id: x.ev[0].id }));
       o.mid = mid;
-      // 2) 300 ステップ 目 に たたかれる → そこ から 600
+      // 2) ちょうちん の 火の玉 で たたかれて ねらい → 300 ステップ 目 に また たたかれる → そこ から 600（ちょうちん は うごかない・高い ので マッチョ とは 接触 しない）
       M.base();
-      mid = M.macho(11.5, 6.5);
-      yid = M.yokai('karakasa', 6.5, 6.5, { hp: 9999 });
-      M.faceTo(yid, 2);
-      hit = M.hit(yid, { m: mid });
-      const first = M.rec(299, { m: mid, y: yid });
+      mid = M.macho(0.5, 6.5);
+      yid = M.yokai('chochin', M.PX + 5, 6.5, { y: 13, hp: 9999 });
+      const stand = () => {
+        h.player.set({ position: { x: M.PX, y: 9, z: 6.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: 0 });
+        h.step(1);
+      };
+      stand();
+      const hit1 = M.hurtMe(yid, { m: mid }, 400);
+      o.hurt1 = hit1.k;
+      const wait = 300 - hit1.rows.length + hit1.k + 1;
+      const first = M.rec(Math.max(1, wait), { m: mid, y: yid });
       o.stillAt300 = first[first.length - 1].m.target;
-      M.faceTo(yid, 1.0);
-      const hurt = M.hurtMe(yid, { m: mid }, 300);
+      stand();
+      const hurt = M.hurtMe(yid, { m: mid }, 400);
       o.hurtK = hurt.k;
-      o.targetAtHurt = hurt.rows[hurt.k]?.m?.target ?? 'none';
+      o.targetAtHurt = hurt.rows[hurt.k] ? (hurt.rows[hurt.k].m?.target ?? null) : 'none';
       const after = M.rec(forget + 5, { m: mid, y: yid });
-      o.b599 = after[forget - 2]?.m?.target ?? 'none';
-      o.b600 = after[forget - 1]?.m?.target ?? 'none';
+      o.b599 = after[forget - 2] ? (after[forget - 2].m?.target ?? null) : 'none';
+      o.b600 = after[forget - 1] ? (after[forget - 1].m?.target ?? null) : 'none';
       o.yid2 = yid;
       o.giveUp2 = after.map((x: any, i: number) => ({ i, ev: x.aev.filter((e: any) => e.type === 'machoGiveUp') })).filter((x: any) => x.ev.length).map((x: any) => ({ i: x.i, reason: x.ev[0].reason }));
       return o;

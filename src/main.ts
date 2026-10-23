@@ -617,6 +617,7 @@ const animals = createAnimalManager({
     countryAt,
     // LIVE-4: いっしょ に たたかう マッチョ が 妖怪 に さわる 口（体力 を へらす・押す・うかす は 刀 の 切り上げ と 同じ 口〈`YokaiManager.damage`〉）
     fight: {
+      playerDead: () => combat.dead(),
       yokai: (id) => yokaiManager?.fightBody(id) ?? null,
       hit: (id, amount, from, knock) => yokaiManager?.damage(id, amount, from, knock, 'macho') ?? 0,
       blade: () => ({ thrust: w2.bladeTech.thrust, kiriageMul: w2.bladeDamageMul.kiriage, kiriageKnock: w2.bladeKnock.kiriage }),

@@ -4,6 +4,7 @@ import { createLiveSettings, W2_SETTING_DEFAULTS } from '../contracts';
 import { SAVE_GEN } from '../save/SaveManager';
 import { ArrayVoxelWorld } from '../world/VoxelWorld';
 import { AnimalManager } from './AnimalManager';
+import { coopBlocks } from './coop';
 
 /**
  * LIVE-4 A（docs/design/LIVE-4.md 版 2 §2.1・§4.1・§4.3・AC1・AC16・AC17）: たたかえる マッチョ・設定 6 こ・保存 は v 4 の まま。
@@ -29,6 +30,12 @@ function setup() {
       day: () => 0,
       phase: () => 'day' as DayPhase,
       countryAt: () => ({ kind: 'harappa' }),
+      placeCoopBlocks: (x: number, y: number, z: number, dir: 0 | 1 | 2 | 3) => {
+        for (const b of coopBlocks(x, y, z, dir)) world.setBlock(b.x, b.y, b.z, b.block);
+        return true;
+      },
+      removeCoopBlocks: () => {},
+      dropItem: () => {},
     },
   });
   const step = (n: number) => {

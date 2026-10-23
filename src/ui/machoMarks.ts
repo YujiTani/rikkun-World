@@ -85,9 +85,11 @@ export class MachoMarks {
     camera.updateMatrixWorld();
     const w = window.innerWidth;
     const h = window.innerHeight;
-    const place = (el: HTMLElement, x: number, y: number, z: number, lift: number, scale: number): boolean => {
+    const place = (el: HTMLElement, x: number, y: number, z: number, lift: number, scale: number, clip = false): boolean => {
       v.set(x, y, z).project(camera);
       if (v.z > 1 || v.z < -1) return false;
+      // 画面 の そと の 妖怪 の しるし は 出さない（はしに はりつけ ない）
+      if (clip && (Math.abs(v.x) > 1 || Math.abs(v.y) > 1)) return false;
       const ew = el.offsetWidth || 36;
       const eh = el.offsetHeight || 44;
       const px = Math.min(Math.max((v.x * 0.5 + 0.5) * w, ew / 2 + 4), w - ew / 2 - 4);
@@ -97,7 +99,7 @@ export class MachoMarks {
       return true;
     };
     const f = visible ? input.face : null;
-    this.faceEl.hidden = !(f && place(this.faceEl, f.x, f.y, f.z, f.titled ? FACE_LIFT_TITLED : FACE_LIFT, 1));
+    this.faceEl.hidden = !(f && place(this.faceEl, f.x, f.y, f.z, f.titled ? FACE_LIFT_TITLED : FACE_LIFT, 1, true));
     const b = visible ? input.bang : null;
     const sc = b ? bangScale(b.age) : 0;
     this.bangEl.hidden = !(b && sc > 0 && place(this.bangEl, b.x, b.y + 1.55, b.z, 0, sc));

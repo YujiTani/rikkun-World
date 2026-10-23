@@ -20,3 +20,4 @@
 | 3 | test-review | code-reviewer | 【重大】AC12 で `machoFighters` 0 の とき fighters() 空・target なし を 見て いない | テスト 不足 | G9 | 対応済（AC12b・ユニット） |
 | 3 | test-review | code-reviewer | 【重大】AC1 (g) いただきます 中 と「1 番目 を だっこ → 次 の ステップ に 2 番目」が 無い | テスト 不足 | G9 | 対応済（AC1 追加・ユニット） |
 | 3 | test-review | code-reviewer | 【軽微】AC2 の k2 が プレイヤー の 一撃 か 不明／AC5b は 3 回 以上／AC7 の ドロップ は 確率／AC15 に や／AC13 ユニット と 火の玉／AC11 の 窓 は 180 | テスト の ゆるさ | G9 | 対応済 |
+| 4 | code-review | code-reviewer | 【軽微】りっくん が たおれた とき の stop・cheerStep の sliding・しるし の 画面 の そと・fighters 1 わ の 並べかえ | 書きもれ・無駄 | G9 | 対応済（playerDead 窓口・ユニット・sliding と 1.2 マス の 落下 は 仕様書 §2.1 に 1 行） |

@@ -369,6 +369,7 @@ export class AnimalManager implements AnimalApi {
   private joinSeq = 0;
   /** この ステップ の たたかう 子 の id（`update` の はじめ に きめる） */
   private fighterIds: number[] = NO_FIGHT;
+  private readonly oneFighter: number[] = [0];
   private readonly fightCands: { id: number; joinNo: number }[] = [];
   private spawnTimer = 0;
   private hint: AnimalHintKind | null = null;
@@ -2595,6 +2596,18 @@ export class AnimalManager implements AnimalApi {
 
   /** たたかう 子 の id（なかま に なった 順 に `machoFighters` わ まで）。毎 ステップ の はじめ に 1 回 */
   private pickFightersNow(): number[] {
+    if (this.d.fight?.playerDead?.()) return NO_FIGHT; // りっくん が たおれた: たたかいを やめる（'stop'）
+    const max = this.settings.machoFighters;
+    if (max === 1) {
+      // 1 わ だけ: 並べかえ せず に いちばん 早い 子（joinNo、同じ なら id）を さがす
+      let best: Ent | null = null;
+      for (const e of this.ents) {
+        if (e.joinNo > 0 && this.canFight(e) && (best === null || e.joinNo < best.joinNo || (e.joinNo === best.joinNo && e.id < best.id))) best = e;
+      }
+      if (best === null) return NO_FIGHT;
+      this.oneFighter[0] = best.id;
+      return this.oneFighter;
+    }
     const c = this.fightCands;
     c.length = 0;
     for (const e of this.ents) if (e.joinNo > 0 && this.canFight(e)) c.push({ id: e.id, joinNo: e.joinNo });
@@ -2797,7 +2810,7 @@ export class AnimalManager implements AnimalApi {
   /** おうえん: プレイヤー の そば で 力こぶ。ねらい は のこす。妖怪 が とどく 所 に 来たら また たたく */
   private cheerStep(e: Ent, t: { x: number; y: number; z: number; radius: number }, p: Vec3, d: number): void {
     e.ft++;
-    if (this.reachOf(e, t)) {
+    if (this.reachOf(e, t) && !(t as { sliding?: boolean }).sliding) {
       this.beginPunch(e);
       return;
     }

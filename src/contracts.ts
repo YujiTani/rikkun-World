@@ -2996,6 +2996,8 @@ export interface AnimalFightPort {
   yokai(id: number): FightYokai | null;
   /** 体力 を へらす・押す・うかす（刀 の 切り上げ と 同じ 口。`by` は 'macho'）。実際 に 与えた 数 */
   hit(id: number, amount: number, from: Vec3, knock: { dist: number; up: number }): number;
+  /** りっくん が たおれて いる か（たおれて いる あいだ は たたかわない） */
+  playerDead?(): boolean;
   /** 刀 の 設定（突き の フレーム・切り上げ の 倍率〈ダメージ〉と 押す／うく） */
   blade(): { thrust: { startup: number; active: number; recovery: number }; kiriageMul: number; kiriageKnock: readonly [number, number] };
 }
