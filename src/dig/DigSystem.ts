@@ -107,6 +107,10 @@ export interface DigM4Deps {
   animals?: AnimalApi;
   /** LIVE-1 版 3.2: あみ を ふる 長さ・だっこ まで の 押しつづけ（設定 を すぐ 読む）。なければ 初期値 */
   live?: () => { netSwingTicks: number; carryHoldTicks: number; /** LIVE-2: 小屋 の 数 の 上限（なければ 初期値 3） */ coopCountMax?: number; /** LIVE-2: 1 つ の 小屋 の 子 の 上限（なければ 初期値 6） */ coopMax?: number; /** LIVE-2.1: こたつ 1 台 の たまご の 上限（なければ 初期値 3） */ kitEggMax?: number; /** LIVE-2.1: 置き物 で けずる・うめる 高さ の 上限（なければ 2） */ placeStepMax?: number };
+  /** LIVE-3: とりごや の メニュー を ひらく（小屋 id）。なければ 何も しない */
+  coopMenu?: (coopId: number) => void;
+  /** LIVE-3: やいた もも にく の 回復（設定 meatHeal を すぐ 読む）。なければ 初期値 */
+  meatHeal?: () => number;
   /** LIVE-1: たまご の 回復（設定 animalEggHeal を すぐ 読む）。なければ 初期値 */
   eggHeal?: () => number;
   /** M7-2: なでる・ごきげん（`PetPort`。C の `farm/pet.ts`） */
@@ -892,7 +896,9 @@ export class DigSystemImpl implements DigSystem {
     else if (pv.kind === 'bucketHint') this.m4.farm?.noteHint('bucket', this.playerChest());
     else if (pv.kind === 'bucketNo' && t) this.m4.bucket?.no({ x: t.place.x, y: t.place.y, z: t.place.z });
     if (pv.kind === 'kitPut' || pv.kind === 'kitWait' || pv.kind === 'kitNeedEgg' || pv.kind === 'kitMax' || pv.kind === 'kitFull') this.doKit(t);
+    else if (pv.kind === 'coopMenu') this.doCoopMenu(t);
     else if (pv.kind === 'coopCollect') this.doCoopCollect(t);
+    else if (pv.kind === 'rawMeat') this.hint('rawMeat');
     else if (pv.kind === 'coopNoEgg') this.hint('coopNoEgg');
     else if (pv.kind === 'coopPlace' || pv.kind === 'coopNoRoom' || pv.kind === 'coopMax') this.doCoopPlace(t);
     if (pv.kind === 'fill') this.doFill();
@@ -1118,6 +1124,14 @@ export class DigSystemImpl implements DigSystem {
     else if (r === 'max') this.hint('kitMax');
   }
 
+  /** 1b（LIVE-3）: えらべる 子 が いる 小屋 → とりごや の メニュー を ひらく */
+  private doCoopMenu(t: TargetInfo | null): void {
+    const a = this.m4.animals;
+    const c = t ? a?.coopAt(t.block.x, t.block.y, t.block.z) : null;
+    if (!c) return;
+    this.m4.coopMenu?.(c.id);
+  }
+
   /** 1b: 小屋 の すばこ の たまご を あつめる（持ち物 に 入らない 分 は 足もと に おとす） */
   private doCoopCollect(t: TargetInfo | null): void {
     const a = this.m4.animals;
@@ -1163,14 +1177,20 @@ export class DigSystemImpl implements DigSystem {
     return { occupied: k != null, full: k != null && (k.eggs?.length ?? 1) >= max };
   }
 
-  /** 1b の ようす: ねらって いる の が 小屋 の ブロック か（すばこ の たまご の 数） */
-  private coopState(): { eggs: number } | null {
+  /** 1b の ようす: ねらって いる の が 小屋 の ブロック か（すばこ の たまご の 数・LIVE-3: えらべる 子 が いる か） */
+  private coopState(): { eggs: number; menu: boolean } | null {
     const a = this.m4.animals;
     const t = this.tgt;
     if (!a || !t || !COOP_BLOCKS.has(t.id)) return null;
     const c = a.coopAt(t.block.x, t.block.y, t.block.z);
-    return c ? { eggs: c.nest.egg + c.nest.gold } : null;
+    if (!c) return null;
+    // えらべる 子 の 一覧 は 1 ステップ に 1 回 だけ さがす（照準 の 下 の 表示 と 実行 で 同じ 答え）
+    if (this.menuCache.tick !== this.tickCount || this.menuCache.coop !== c.id) {
+      this.menuCache = { tick: this.tickCount, coop: c.id, menu: (a.meatList?.(c.id).length ?? 0) > 0 };
+    }
+    return { eggs: c.nest.egg + c.nest.gold, menu: this.menuCache.menu };
   }
+  private menuCache = { tick: -1, coop: -1, menu: false };
 
   /** 置く 前 の すけた 小屋（toriya を 持って 地面 を ねらって いる とき だけ。毎フレーム 描く 側 が 読む） */
   coopGhost(): CoopPlacePreview | null {
@@ -1287,7 +1307,7 @@ export class DigSystemImpl implements DigSystem {
       farm.noteHint('full', at);
       return;
     }
-    const got = v.heal(farm.eatHeal(item) || (item === 'egg' ? (this.m4.eggHeal?.() ?? LIVE_SETTING_DEFAULTS.animalEggHeal) : 0));
+    const got = v.heal(farm.eatHeal(item) || (item === 'egg' ? (this.m4.eggHeal?.() ?? LIVE_SETTING_DEFAULTS.animalEggHeal) : item === 'momo_yaki' ? (this.m4.meatHeal?.() ?? LIVE_SETTING_DEFAULTS.meatHeal) : 0));
     this.inventory.consumeHeld();
     this.m4.tools?.pushSwing('place');
     farm.noteEat(item, got, at);
@@ -1321,7 +1341,7 @@ export class DigSystemImpl implements DigSystem {
       canTill: () => this.tillSpot(),
       canPlant: () => this.plantSpot(),
       isSeedHintSpot: () => this.seedHintSpot(),
-      isVeg: (item) => !!this.m4.farm && !!this.m4.vitals && (vegKindOfItem(item) !== null || item === 'egg'),
+      isVeg: (item) => !!this.m4.farm && !!this.m4.vitals && (vegKindOfItem(item) !== null || item === 'egg' || item === 'momo_yaki'),
     });
   }
 

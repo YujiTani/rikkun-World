@@ -65,6 +65,8 @@ const ITEM_ONLY_RARITY: Record<string, Rarity> = {
   nukunuku: 'uncommon',
   toriya: 'uncommon',
   kin_tamago: 'epic',
+  momo_nama: 'common', // LIVE-3 仮
+  momo_yaki: 'common',
   // WEAPON-7（ヌシが おとす。7 段目）
   raijin_ken: 'legendary',
   fujin_ken: 'legendary',

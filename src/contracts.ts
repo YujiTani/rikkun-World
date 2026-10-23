@@ -246,6 +246,9 @@ export type ItemOnlyId =
   // LIVE-2（§4.2。mushi_ami の うしろ。こたつ は ブロック `nukunuku`）
   | 'toriya' // とりごや（持って 右クリック で 5×5 の 小屋 を 置く。ブロック では ない）
   | 'kin_tamago' // きん の たまご（epic。たべられない）
+  // LIVE-3（§4.2）: もも にく
+  | 'momo_nama' // なま もも にく（たべられない。かまど で やく）
+  | 'momo_yaki' // やいた もも にく（たべる と 体力 meatHeal）
   // WEAPON-7（うしろに足す。レジェンダリー）
   | 'raijin_ken' // 雷神剣（ヌシが おとす）
   | 'fujin_ken' // 風神剣（ヌシが おとす。WEAPON-7 PR2）
@@ -830,6 +833,8 @@ export type StatKey =
   | `goldenEgg:${string}` // `goldenEgg:*`（金 の たまご を うんだ）
   // GOLD-1（§4.8）
   | `obtainRarity:${string}` // `obtainRarity:epic`（めずらしさ ちょうど ほし 5 の 物 が 持ち物 に 入った 回数）
+  // LIVE-3（§4.4）
+  | `meat:${string}` // `meat:*`（いただいた 数。実績 は 作らない）
   // M7 農業（`visit:oldfarm` は上の `visit:` の形）
   | 'till'
   | `plant:${string}` // `plant:<kind>`・`plant:*`
@@ -1413,7 +1418,9 @@ export type RightClickKind =
   | 'kitPut' | 'kitNeedEgg' | 'kitWait' | 'kitMax'
   | 'coopCollect' | 'coopNoEgg' | 'coopPlace' | 'coopNoRoom' | 'coopMax'
   // LIVE-2.1（§2.2・§2.4）: だっこ 中 の なげる（'throwNo' = なげられない 所。うすく）・こたつ いっぱい
-  | 'throw' | 'throwNo' | 'kitFull';
+  | 'throw' | 'throwNo' | 'kitFull'
+  // LIVE-3（§2.6）: 1b えらべる 子 が いる 小屋 = メニュー を ひらく・9 なま もも にく = 合図 rawMeat（照準 の 下 は うすく）
+  | 'coopMenu' | 'rawMeat';
 
 // ---------------------------------------------------------------- 設定（§4.3・§4.4・§4.5）
 
@@ -2317,7 +2324,9 @@ export type AnimalState = 'appear' | 'wander' | 'rest' | 'look' | 'eat' | 'pet' 
   // LIVE-2（§6.1）: ねる・こたつ から かえる 動き・大人 に なる 動き
   | 'sleep' | 'hatch' | 'grow'
   // LIVE-2.1（§6.2）: なげられて とんで いる あいだ
-  | 'thrown';
+  | 'thrown'
+  // LIVE-3（§2.4）: いただきます の 演出 中（ねぐら へ 歩く〜いなく なる まで）
+  | 'meat';
 
 /** LIVE-2: 育ち（§2.12）。ひよこ → 大人 */
 export type AnimalStage = 'chick' | 'adult';
@@ -2378,6 +2387,15 @@ export type AnimalEvent =
   | { type: 'natsukiGold'; id: number }
   /** まち中 に むし・なでる を しよう と した（こっち を 見て くび を かしげる） */
   | { type: 'natsukiWait'; id: number; which: 'bug' | 'pet' }
+  // ---- LIVE-3（§6.1）
+  /** いただきます の 演出 が はじまった（0 ステップ） */
+  | { type: 'meatStart'; id: number; coop: number }
+  /** とびら が しまりきった（closed true）／あがりきった（false）。音 `coopDoor` */
+  | { type: 'meatDoor'; coop: number; closed: boolean }
+  /** 80 ステップ 目: 一言 が 出る。音 `itadakimasu` */
+  | { type: 'meatSay'; id: number; coop: number }
+  /** 200 ステップ 目: 子 が いなく なり にく が 入った（`dropped` = 足もと に おちた 数） */
+  | { type: 'meat'; id: number; coop: number; count: number; dropped: number }
   // ---- LIVE-2.1（§6.2）
   /** なげる: 手 から はなれた（`to` = 着地点 の 足もと） */
   | { type: 'toss'; id: number; to: Vec3 }
@@ -2478,7 +2496,9 @@ export type AnimalLive2Hint =
 export type AnimalLive21Hint = 'kitFull';
 /** GOLD-1 の 合図 3 つ（§3.1）: まち中・なかよし 100 の 子 に はらぱん・やせい／ひよこ に はらぱん */
 export type AnimalGold1Hint = 'natsukiWait' | 'harapanFull' | 'harapanFriend';
-export type AnimalWindowHint = AnimalLive1Hint | AnimalLive2Hint | AnimalLive21Hint | AnimalGold1Hint;
+/** LIVE-3 の 合図 1 つ（§3.1）: なま は たべられない */
+export type AnimalLive3Hint = 'rawMeat';
+export type AnimalWindowHint = AnimalLive1Hint | AnimalLive2Hint | AnimalLive21Hint | AnimalGold1Hint | AnimalLive3Hint;
 
 /** あみ の 結果 の わけ（§6.1 `swing`） */
 export type SwingReason = 'chance' | 'pity' | 'empty' | 'miss';
@@ -2495,6 +2515,8 @@ export interface AnimalMark {
   full: boolean;
   /** LIVE-2: いえ の しるし の うまり 0〜1（小屋 に 入る とちゅう だけ） */
   home?: number;
+  /** LIVE-3: メニュー ページ 2 で えらんで いる 子（世界 の 頭 の 上 に ▼） */
+  pick?: boolean;
 }
 export interface AnimalFxRecord {
   hearts: number;
@@ -2607,6 +2629,13 @@ export interface LiveSettings {
   harapanLog: number;
   /** 地下 = 高さ y が これ より 下（初期値 `SEA_Y`） */
   harapanUnderY: number;
+  // ---- LIVE-3 の 3 こ（§4.1）
+  /** 1 わ で とれる `momo_nama` */
+  meatPerBird: number;
+  /** `momo_yaki` で もどる 体力（10 = ハート 5 こ） */
+  meatHeal: number;
+  /** いただきます の 演出 の ながさ（にく が 入る の は meatTicks − 20） */
+  meatTicks: number;
 }
 
 export const LIVE_SETTING_DEFAULTS: Readonly<LiveSettings> = {
@@ -2673,6 +2702,9 @@ export const LIVE_SETTING_DEFAULTS: Readonly<LiveSettings> = {
   harapanBlock: 0.005,
   harapanLog: 0.002,
   harapanUnderY: SEA_Y,
+  meatPerBird: 2,
+  meatHeal: 10,
+  meatTicks: 220,
 };
 
 export function createLiveSettings(): LiveSettings {
@@ -2762,6 +2794,12 @@ export interface CoopInfo {
   /** 小屋 の 子（animal id。だっこ 中 も 数える） */
   kids: number[];
   nest: { egg: number; gold: number };
+  /** LIVE-3: ねぐら の とびら（'moving' = おりて／あがって いる とちゅう）。いつも 'open' が ふつう */
+  door?: 'open' | 'closed' | 'moving';
+  /** LIVE-3: とびら の しまり ぐあい 0（あいて いる）〜1（しまりきった） */
+  doorT?: number;
+  /** LIVE-3: 演出 中 の 子 の id（なければ null）。1 つ の 小屋 で 同時 に 1 わ */
+  meatBusy?: number | null;
 }
 
 /** `animals.placeCoop` の 答え: 小屋 id か 理由 */
@@ -2915,6 +2953,15 @@ export interface AnimalApi {
   throwTo?(x: number, y: number, z: number): boolean;
   /** 小屋 の 子 に なった しゅんかん の 大きな しるし の 段 0〜1（いちばん あたらしい 子。なければ 0） */
   homePop?(): number;
+  // ---- LIVE-3（§6.1）
+  /** その 小屋 の えらべる 子 の id（§2.1） */
+  meatList?(coopId: number): number[];
+  /** いただきます を はじめる。`notEligible` = えらべない 子（演出 中 の 小屋 より 先 に 見る）・`busy` = その 小屋 で 演出 中 */
+  meat?(coopId: number, id: number): { ok: boolean; reason: null | 'notEligible' | 'busy' };
+  /** 演出 の 一言 の ふわっと 度 0〜1（出て いない とき は null） */
+  meatSay?(): number | null;
+  /** 保存 の 前: 演出 中 の 子 を その場 で おわらせる（にく は 持ち物 へ） */
+  finishMeat?(): void;
   /** 天板 の 上 の たまご の 3 わく（プレイヤー 8 マス 以内、または たまご を 持って ねらって いる こたつ） */
   kitIcons?(aimedKit: { x: number; y: number; z: number } | null, holdingEgg: boolean): KitIcon[];
 }

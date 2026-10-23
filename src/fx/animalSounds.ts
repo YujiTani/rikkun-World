@@ -129,6 +129,11 @@ export const ANIMAL_SOUNDS = {
     ...bellTone(hz('C7'), hz('C7'), 0.3, 0.45, 0.16),
     ...suzu(0.3, 4, 0.07, 0.12),
   ],
+  // ---- LIVE-3（SOUND.md 案 A。オーナー が えらんだ。もと = audio/live3/render.mjs）
+  /** いただきます: オルゴール 1 音「ぽーん」（E5）＋ ひくい ハミング。1 回だけ・しずか */
+  itadakimasu: [...box(hz('E5'), hz('E5'), 0, 1.8, 0.26, true), powan(hz('C4'), hz('C4'), 0.02, 1.6, 0.1, 0.25)],
+  /** ねぐら の とびら「こと・ん」: 木 2 打 ＋ 小さな 低い 息（しめる・あける 同じ） */
+  coopDoor: [...wood(420, 330, 0, 0.05, 0.22), ...wood(250, 175, 0.075, 0.1, 0.3), noise(0.075, 0.06, 0.04, { type: 'lowpass', freq: 700, q: 0.7 })],
 } as const satisfies Record<string, readonly Tone[]>;
 
 export type AnimalSoundName = keyof typeof ANIMAL_SOUNDS;

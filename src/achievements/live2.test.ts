@@ -10,12 +10,12 @@ const mk = () => {
 };
 
 describe('LIVE-2 実績（§4.5）', () => {
-  it('数（AC24）: 264・小 87・そだてる 62・小 16', () => {
-    expect(ACHIEVEMENT_DEFS.length).toBe(264);
-    expect(ACHIEVEMENT_DEFS.filter((d) => d.small).length).toBe(87);
+  it('数（AC24。LIVE-3 で ＋1 ふえた）: 265・小 88・そだてる 63・小 17', () => {
+    expect(ACHIEVEMENT_DEFS.length).toBe(265);
+    expect(ACHIEVEMENT_DEFS.filter((d) => d.small).length).toBe(88);
     const farm = ACHIEVEMENT_DEFS.filter((d) => d.category === 'farm');
-    expect(farm.length).toBe(62);
-    expect(farm.filter((d) => d.small).length).toBe(16);
+    expect(farm.length).toBe(63);
+    expect(farm.filter((d) => d.small).length).toBe(17);
   });
 
   it('そだてる の 並び: animal.carry の うしろ に coop・home・hatch・grow・goldenEgg・macho の 順（9 こ・小 は home.1 だけ）', () => {

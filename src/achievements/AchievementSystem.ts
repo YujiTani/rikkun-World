@@ -362,8 +362,8 @@ export class AchievementSystem implements AchievementShowSource {
             break;
           case 'eat':
             this.bump(`eat:${e.item}`, 1);
-            // LIVE-1 §4.5: `eat:*` は やさい だけ（たまご では ふやさない）
-            if (e.item !== 'egg') this.bump('eat:*', 1);
+            // LIVE-1 §4.5: `eat:*` は やさい だけ（たまご では ふやさない）。LIVE-3: やいた もも にく も ふやさない
+            if (e.item !== 'egg' && e.item !== 'momo_yaki') this.bump('eat:*', 1);
             break;
           case 'seedFound':
             this.bump(`seedFrom:${e.from}`, 1);
@@ -438,6 +438,11 @@ export class AchievementSystem implements AchievementShowSource {
           case 'grow':
             this.bump('grow:chicken', 1);
             this.bump('grow:*', 1);
+            break;
+          // LIVE-3（§4.4）: いただいた 数 を 数える だけ（実績 は 作らない。命 を ごほうび に しない）
+          case 'meat':
+            this.bump('meat:chicken', 1);
+            this.bump('meat:*', 1);
             break;
           default:
             break;

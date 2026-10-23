@@ -86,7 +86,7 @@ describe('つくる（AC1〜AC4）', () => {
     expect(l).toHaveLength(46); // CRAFT-PAGE: たいまつの 作り方が 2 つ ふえた（カードは 44 枚）。GOLD-1: きんの そうび 8 こ
     expect(l.every((c) => !c.craftable && c.missing.length === c.inputs.length)).toBe(true);
     expect(l[0].id).toBe('wood_pickaxe');
-    expect(craft.bakeList().map((b) => b.id)).toEqual(['iron_ingot', 'kawara', 'brick', 'haniwa', 'kin']); // GOLD-1: きん が いちばん うしろ
+    expect(craft.bakeList().map((b) => b.id)).toEqual(['iron_ingot', 'kawara', 'brick', 'haniwa', 'kin', 'momo_yaki']); // GOLD-1: きん ＋ LIVE-3: momo_yaki が いちばん うしろ
   });
 
   it('き 2 で bokuto が true、wood_pickaxe は き 1 足りない', () => {

@@ -498,6 +498,8 @@ function build(): AchievementDef[] {
     name: firstOrN('はじめて たまご が うまれた！', (g) => `たまご が ${g} こ うまれた！`),
   });
   add({ series: 'animal.eatEgg', category: 'farm', stat: 'eat:egg', tiers: [t(1, true)], name: () => 'はじめて たまご を たべた！' });
+  // LIVE-3（§4.5）: eatEgg の すぐ うしろ。「いただきます」その もの の 実績 は 作らない（命 を ごほうび に しない）
+  add({ series: 'animal.eatMeat', category: 'farm', stat: 'eat:momo_yaki', tiers: [t(1, true)], name: () => 'はじめて やいた もも にく を たべた！' });
   // 版 3.2（§4.5）: eatEgg の うしろ に bug・carry の 順（小 では ない）
   add({
     series: 'animal.bug',

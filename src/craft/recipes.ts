@@ -77,7 +77,7 @@ export const CRAFT_RECIPES: readonly Recipe[] = [
   { ...r('torch', 1, [['log', 3]], true), id: TORCH_LOG },
 ];
 
-/** やく 5 こ（M4 §4.2 の 4 こ ＋ GOLD-1 の きん。かまど で。ねんりょう 1 こ・60 ステップ。きん は いちばん うしろ） */
+/** やく 6 こ（M4 §4.2 の 4 こ ＋ LIVE-3 の やいた もも にく ＋ GOLD-1 の きん。かまど で。ねんりょう 1 こ・60 ステップ。やいた もも にく は いちばん うしろ） */
 export const BAKE_RECIPES: readonly Recipe[] = [
   r('iron_ingot', 1, [['iron_ore', 1]], true, 'furnace'),
   r('kawara', 2, [['clay', 1]], true, 'furnace'),
@@ -85,6 +85,8 @@ export const BAKE_RECIPES: readonly Recipe[] = [
   r('haniwa', 1, [['clay', 2]], false, 'furnace'),
   // GOLD-1（§4.2）: きん の たまご を やく と きん 1（てつ と 同じ 60 ステップ）
   r('kin', 1, [['kin_tamago', 1]], true, 'furnace'),
+  // LIVE-3（§4.2）: なま もも にく → やいた もも にく（ねんりょう 1・60 ステップ）
+  r('momo_yaki', 1, [['momo_nama', 1]], true, 'furnace'),
 ];
 
 export const ALL_RECIPES: readonly Recipe[] = [...CRAFT_RECIPES, ...BAKE_RECIPES];

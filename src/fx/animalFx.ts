@@ -346,6 +346,8 @@ interface MarkRow {
   headY: number;
   /** LIVE-2.1: 小屋 の 子 に なって から の ステップ（-1 = 出さない） */
   pop: number;
+  /** LIVE-3: メニュー ページ 2 で えらんで いる 子（▼ は 描く 側 が 3D で 出す。ここ は 数 だけ） */
+  pick: boolean;
 }
 
 /** ねて いる 子 の Z 1 つ ぶん */
@@ -410,6 +412,7 @@ export class AnimalFx {
   private headN = 0;
   private readonly marks: MarkRow[] = [];
   private markN = 0;
+  private pickId: number | null = null;
   private readonly zzzRows: ZzzRow[] = [];
   private zzzN = 0;
   /** 最後に かえる 動き が はじまった こたつ の 場所と ステップ（かえった 子 が まだ 見えない とき の つぶ の 場所） */
@@ -560,10 +563,12 @@ export class AnimalFx {
       const full = near && fullLeft > 0;
       const home = near && (v.homeFill ?? 0) > 0 ? Math.min(1, v.homeFill ?? 0) : 0;
       const popAge = near ? this.popAge(v.id) : -1;
-      if (hearts === 0 && steps === 0 && !full && home === 0 && popAge < 0) continue;
+      const pick = this.pickId !== null && v.id === this.pickId;
+      if (hearts === 0 && steps === 0 && !full && home === 0 && popAge < 0 && !pick) continue;
       let m = this.marks[n];
-      if (!m) m = this.marks[n] = { id: 0, x: 0, y: 0, z: 0, hearts: 0, steps: 0, follow: 0, fullLeft: 0, home: 0, headY: ANIMAL_FX.headHeartY, pop: -1 };
+      if (!m) m = this.marks[n] = { id: 0, x: 0, y: 0, z: 0, hearts: 0, steps: 0, follow: 0, fullLeft: 0, home: 0, headY: ANIMAL_FX.headHeartY, pop: -1, pick: false };
       n++;
+      m.pick = pick;
       m.id = v.id;
       m.x = v.x;
       m.y = v.y;
@@ -947,7 +952,16 @@ export class AnimalFx {
       case 'natsukiReady':
         this.snd('natsukiReady');
         break;
+      // ---- LIVE-3: とびら の 音 `coopDoor`（しまりきった・あがりきった）・一言 の 音 `itadakimasu`（1 回）。つぶ・紙ふぶき・ハート は 出さない
+      case 'meatDoor':
+        this.snd('coopDoor');
+        break;
+      case 'meatSay':
+        this.snd('itadakimasu');
+        break;
       case 'natsukiWait': // 合図 の 音 は `hint`（今 の animalHint）。こっち を 見て くび を かしげる のは A
+      case 'meatStart':
+      case 'meat':
         break;
       case 'growStart': // 動き だけ（音・つぶ は 大人 に なった とき）
       case 'roll': // ころん: 音は なし（ひよこ の パタパタ の 着地。からだ の うごき で 見せる）
@@ -970,9 +984,20 @@ export class AnimalFx {
       if (m.hearts > 0) row.hearts = m.hearts;
       if (m.steps > 0) row.steps = m.steps;
       if (m.home > 0) row.home = m.home;
+      if (this.pickId !== null && m.id === this.pickId) row.pick = true;
       marks.push(row);
     }
     return { ...this.counts, zzz: this.zzzN, marks, homePop: this.homePop() } as AnimalFxRecord;
+  }
+
+  /** LIVE-3: メニュー ページ 2 で えらんで いる 子（世界 の 頭 の 上 に ▼。null で 消す） */
+  setPick(id: number | null): void {
+    this.pickId = id;
+  }
+
+  /** いま ▼ を 出す 子 の id（描く 側 が 位置 を 探す） */
+  pick(): number | null {
+    return this.pickId;
   }
 
   /** `animals.fxReset()` */

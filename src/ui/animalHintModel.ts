@@ -37,6 +37,8 @@ export const ANIMAL_HINT_VIEW: Readonly<Record<AnimalWindowHint | 'kitFull', Hin
   natsukiWait: { html: 'もう すこし まってね', art: ['hourglass', 'chicken'] },
   harapanFull: { html: 'もう なかよし いっぱい だよ', art: ['heart', 'chicken'] },
   harapanFriend: { html: 'なかま の おとな に あげよう', art: ['harapan_mimizu', 'chickenRibbon'] },
+  // LIVE-3（§3.1）: なま は たべられない（絵: にく → かまど → こんがり にく）
+  rawMeat: { html: 'なま は たべられない よ。かまど で やこう', art: ['momo_nama', 'furnace', 'momo_yaki'] },
 };
 
 /** 出ている合図を持つ（DOM なしでテストできる） */

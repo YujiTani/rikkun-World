@@ -49,7 +49,7 @@ export const CATEGORY_ITEMS: Readonly<Record<ItemCategory, readonly string[]>> =
   armor: ['kabuto', 'yoroi', 'kote', 'suneate', 'kin_kabuto', 'kin_yoroi', 'kin_kote', 'kin_suneate'],
   light: ['torch', 'lantern'],
   home: ['furnace', 'tansu', 'futon', 'haniwa', 'kite', 'waraji', 'omamori', 'sprinkler', 'nukunuku', 'toriya'],
-  food: ['onion', 'tomato', 'pumpkin', 'eggplant', 'egg'],
+  food: ['onion', 'tomato', 'pumpkin', 'eggplant', 'egg', 'momo_nama', 'momo_yaki'],
 };
 
 const BY_ITEM = new Map<string, ItemCategory>();

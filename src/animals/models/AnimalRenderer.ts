@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import type { AnimalView, CoopInfo, CoopPlacePreview, KitInfo } from '../../contracts';
-import { TILE, TILE_COUNT, type AnimalFx, type ParticleOut } from '../../fx/animalFx';
+import { ANIMAL_FX, TILE, TILE_COUNT, type AnimalFx, type ParticleOut } from '../../fx/animalFx';
 import { MODEL_SCALE, getAnimalModel, modelKindOf, type AnimalModelKind } from './chickenModel';
-import { NEST_EGG_SCALE, getCoopModel, getNestEggsModel } from './coopSpec';
+import { NEST_EGG_SCALE, getCoopDoorModel, getCoopModel, getNestEggsModel } from './coopSpec';
 import { ICON_H, ICON_PER_BLOCK, ICON_W, kitIconKey, rasterKitIcon, type KitIconRow } from './kitIcons';
 import { RING_TEX, rasterRing, ringState, type RingState, type ThrowSpotLike } from './throwRing';
 import { getBugModel } from './bugNetModel';
@@ -24,6 +24,10 @@ const MAX_SHADOWS = 64;
 const POINT_CAP = 480;
 /** こたつ の 天板 の たまご の 表示 を 描く 数の 上限（`kitActiveMax` の 6 こ = 1 こ ずつ の こたつ 6 台） */
 const MAX_KIT_ICONS = 6;
+/** LIVE-3: ▼（4 かく すい。底 4 ＋ 側 4） */
+const ARROW_TRIS = 8;
+/** LIVE-3: とびら の 上 の ふち の 高さ（ブロック。モデル の 16/9）。のびる とき の 動かない 線 */
+const DOOR_TOP = 16 / 9;
 /** 小屋 の 形 は 1/9 点 で 組んだ ので 1/16 で 作った 面 に かける */
 const COOP_SCALE = 16 / 9;
 const KIND_INDEX: Readonly<Record<AnimalModelKind, number>> = { chicken: 0, chick: 1, machoChick: 2, macho: 3 };
@@ -296,6 +300,7 @@ interface CoopProp {
   root: THREE.Group;
   coop: THREE.Group;
   nest: THREE.Group;
+  door: THREE.Group;
   nestMesh: THREE.SkinnedMesh;
   nestKey: string;
 }
@@ -365,6 +370,8 @@ export class AnimalRenderer {
   private readonly v2 = new THREE.Vector3();
   private readonly v3 = new THREE.Vector3();
   private readonly flipY = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
+  // ---- LIVE-3: メニュー で えらんで いる 子 の 頭 の 上 の ▼（1 つ。点滅 しない）
+  private arrow: THREE.Mesh | null = null;
   // ---- LIVE-2
   private readonly coopProps: CoopProp[] = [];
   private coopUsed = 0;
@@ -385,6 +392,19 @@ export class AnimalRenderer {
     this.shadows.count = 0;
     this.shadows.visible = false;
     this.group.add(this.shadows, this.pts.points);
+  }
+
+  private makeArrow(): THREE.Mesh {
+    const geo = new THREE.ConeGeometry(0.24, 0.42, 4);
+    geo.rotateX(Math.PI); // 先 を 下 に
+    const mat = new THREE.MeshBasicMaterial({ color: 0xffd54f, fog: false, depthTest: false });
+    mat.userData.noDim = true;
+    const m = new THREE.Mesh(geo, mat);
+    m.renderOrder = 999;
+    m.frustumCulled = false;
+    m.visible = false;
+    this.group.add(m);
+    return m;
   }
 
   private motion(): number {
@@ -452,6 +472,8 @@ export class AnimalRenderer {
     let n = 0;
     this.carry = null;
     camera.updateMatrixWorld();
+    const pickId = this.o.fx.pick();
+    let arrowAt: AnimalView | null = null;
     for (const v of views) {
       let e = this.entries.get(v.id);
       const kind = this.kindOf(v);
@@ -481,6 +503,9 @@ export class AnimalRenderer {
       this.apply(e, v, motion, camera);
       tris += e.model.tris;
       draws++;
+      if (v.id === pickId && !v.carried) {
+        arrowAt = v;
+      }
       const carried = v.carried === true;
       if (v.targeted && !carried) {
         tris += e.model.hullTris;
@@ -488,6 +513,16 @@ export class AnimalRenderer {
       }
       if (!carried && n < MAX_SHADOWS) this.shadow(n++, e, v); // だっこ 中は かげ なし
     }
+    // LIVE-3: ▼（えらんで いる 子 の 頭 の 上）。点滅 しない・1 回 の 描画
+    if (arrowAt) {
+      const a = (this.arrow ??= this.makeArrow());
+      const macho = arrowAt.breed === 'macho';
+      const headY = arrowAt.stage === 'chick' ? (macho ? ANIMAL_FX.machoChickHeadY : ANIMAL_FX.chickHeadY) : macho ? ANIMAL_FX.machoHeadY : ANIMAL_FX.headHeartY;
+      a.position.set(arrowAt.x, arrowAt.y + headY + 0.35, arrowAt.z);
+      a.visible = true;
+      draws++;
+      tris += ARROW_TRIS;
+    } else if (this.arrow) this.arrow.visible = false;
     // 見えなくなった にわとり を かたづける（ふだんは 通らない）
     if (this.entries.size > views.length) for (const e of [...this.entries.values()]) if (e.gen !== gen) this.release(e);
     this.shadows.count = n;
@@ -617,7 +652,10 @@ export class AnimalRenderer {
   private drawCoop(c: CoopInfo): void {
     const total = c.nest.egg + c.nest.gold;
     const drawBody = this.o.drawCoops === true;
-    if (!drawBody && total <= 0) return;
+    // LIVE-3: とびら（おりて いる とちゅう も 含む）。`doorT` 0 = あいて いる（描かない）
+    const doorT = c.doorT ?? 0;
+    const door = c.door !== 'open' && doorT > 0;
+    if (!drawBody && total <= 0 && !door) return;
     let prop = this.coopProps[this.coopUsed];
     if (!prop) {
       const root = new THREE.Group();
@@ -625,9 +663,11 @@ export class AnimalRenderer {
       coop.root.scale.setScalar(COOP_SCALE);
       const nest = this.staticMesh(getNestEggsModel(1, 0), this.bodyMaterial);
       nest.root.scale.setScalar(NEST_EGG_SCALE);
-      root.add(coop.root, nest.root);
+      const doorM = this.staticMesh(getCoopDoorModel(), this.bodyMaterial);
+      doorM.root.scale.setScalar(COOP_SCALE);
+      root.add(coop.root, nest.root, doorM.root);
       this.group.add(root);
-      prop = { root, coop: coop.root, nest: nest.root, nestMesh: nest.mesh, nestKey: '' };
+      prop = { root, coop: coop.root, nest: nest.root, door: doorM.root, nestMesh: nest.mesh, nestKey: '' };
       this.coopProps.push(prop);
     }
     this.coopUsed++;
@@ -635,6 +675,14 @@ export class AnimalRenderer {
     prop.root.position.set(c.x + 0.5, c.y, c.z + 0.5);
     prop.root.rotation.set(0, COOP_YAW[c.dir], 0);
     prop.coop.visible = drawBody;
+    prop.door.visible = door;
+    if (door) {
+      // 上 の ふち を 動かさず、下 へ のびて くる（ひらく とき は 上 へ ちぢむ）。1 = しまりきった
+      prop.door.scale.set(COOP_SCALE, COOP_SCALE * doorT, COOP_SCALE);
+      prop.door.position.y = DOOR_TOP * (1 - doorT);
+      this.extraDraws++;
+      this.extraTris += getCoopDoorModel().tris;
+    }
     if (drawBody) {
       this.extraDraws++;
       this.extraTris += getCoopModel().tris;

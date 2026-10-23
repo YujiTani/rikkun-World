@@ -55,6 +55,8 @@ export interface SaveBags {
 export interface SaveExtra {
   serialize(): unknown;
   deserialize(data: unknown): void;
+  /** LIVE-3: 保存 の 材料 を 集める 前 に 呼ぶ（いただきます の 演出 中 の 子 を その場 で おわらせて、にく を 持ち物 へ 入れる） */
+  prepare?(): void;
 }
 
 /** M7: 農業 */
@@ -325,7 +327,7 @@ export class SaveManager {
 
   /** 前の保存から何か変わっていれば保存する（ロックが外れたとき・画面を閉じたとき・ページを閉じるとき） */
   saveIfChanged(): void {
-    void this.write(false);
+    void this.write(false, false, false);
   }
 
   /** 毎ステップ呼ぶ。`currentTick` はこのステップが終わったあとの tick */
@@ -336,7 +338,7 @@ export class SaveManager {
     const bigLog = w.changeLogCount() > PENDING_MAX_CELLS && this.inFlight === 0 && !this.lastFailed;
     if (currentTick - this.lastCheckTick < this.d.settings.saveIntervalTicks && !bigLog) return;
     this.lastCheckTick = currentTick;
-    void this.write(false);
+    void this.write(false, false, false);
   }
 
   /** 今のセーブを消す（遊んでいる世界はそのまま。そのあとの保存で 今の世界を丸ごと書きなおす） */
@@ -384,7 +386,7 @@ export class SaveManager {
 
   /** 捨てる前の保存を すぐ始める（600 ステップを待たない。書いている最中なら 終わってから 次の 1 回） */
   flushNow(): void {
-    void this.write(false);
+    void this.write(false, false, false);
   }
 
   /** 書いている最中のものが 全部終わるまで待つ */
@@ -394,17 +396,19 @@ export class SaveManager {
 
   /** ページを閉じる・かくれるときに保存する。戻り値で解除 */
   bindPageEvents(win: Window, doc: Document): () => void {
-    const onHide = () => {
-      void this.write(false, true);
-      this.writePending();
+    // LIVE-3: いただきます は ページ を 本当に 閉じる（pagehide）ときだけ おわらせる。タブ の きりかえ は 演出 を とめない
+    const onHide = (settle: boolean) => {
+      void this.write(false, true, settle);
+      this.writePending(settle);
     };
+    const onPageHide = () => onHide(true);
     const onVisibility = () => {
-      if (doc.hidden) onHide();
+      if (doc.hidden) onHide(false);
     };
-    win.addEventListener('pagehide', onHide);
+    win.addEventListener('pagehide', onPageHide);
     doc.addEventListener('visibilitychange', onVisibility);
     return () => {
-      win.removeEventListener('pagehide', onHide);
+      win.removeEventListener('pagehide', onPageHide);
       doc.removeEventListener('visibilitychange', onVisibility);
     };
   }
@@ -413,14 +417,14 @@ export class SaveManager {
    * pagehide の保険: まだ IndexedDB に書けていない変更（変えたマスの一覧 + meta）を、同期で localStorage に小さく置く。
    * 次の起動で当てて IndexedDB に書き、消す。入りきらないほど多いときは 置かない（ふつうの保存にたよる）。
    */
-  private writePending(): void {
+  private writePending(settle = true): void {
     const { store, world } = this.d;
     if (!this.on || !store) return;
     try {
       const n = world.changeLogCount();
       if (n === 0 && this.inFlight === 0) return;
       if (n > PENDING_MAX_CELLS || world.changeLogOverflowed()) return;
-      const metaNow = this.makeMeta().meta;
+      const metaNow = this.makeMeta(settle).meta;
       const c = this.d.clock;
       const meta: StoredMeta = { ...metaNow, ...(c ? { time: { day: c.day(), dayTick: c.dayTick() } } : {}), tick: this.d.tick() };
       store.setItem(PENDING_KEY, JSON.stringify({ saveId: this.saveId, ids: BLOCK_TYPES.map((t) => t.id), cells: world.changeLogCells(), meta }));
@@ -472,7 +476,9 @@ export class SaveManager {
    * meta（今の JSON の blocks 以外。time・tick なし）と、変わったか比べる文字。
    * 比べる文字には のこりステップを入れない（毎ステップ変わるため）。JSON.stringify は 1 回だけ。
    */
-  private makeMeta(): { meta: StoredMeta; key: string } {
+  /** `settle` = 保存 の 前 に 動き の とちゅう の もの を おわらせる（LIVE-3: いただきます）。時間 おきの 保存 や 比べる だけ の とき は false */
+  private makeMeta(settle = false): { meta: StoredMeta; key: string } {
+    if (settle) this.d.animals?.prepare?.();
     const st = this.d.player.get();
     const bagsFull = this.d.bags?.serialize() ?? [];
     const bagsKey = bagsFull.map((b) => ({ ...b, ticksLeft: 0 }));
@@ -517,7 +523,7 @@ export class SaveManager {
   }
 
   /** 保存を始める。同期の部分（比べる・さわった列を縮める前のバイト列にする）はここ。書き終わると解決する */
-  private write(force: boolean, flushTime = false): Promise<void> {
+  private write(force: boolean, flushTime = false, settle = true): Promise<void> {
     const db = this.d.db;
     if (!this.on || !db) return Promise.resolve();
     const t0 = performance.now();
@@ -525,7 +531,7 @@ export class SaveManager {
     this.lastCheckTick = this.d.tick(); // 「前の保存から 600 ステップ」の数え始め
     let taken: ChunkColumn[] = [];
     try {
-      const { meta, key } = this.makeMeta();
+      const { meta, key } = this.makeMeta(settle);
       const timeKey = this.timeKey();
       const dirty = w.saveDirtyCount();
       if (!force && !this.forceNext && dirty === 0 && key === this.lastKey && !(flushTime && timeKey !== this.lastTimeKey)) return Promise.resolve();

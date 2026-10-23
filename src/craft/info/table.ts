@@ -215,6 +215,9 @@ export const ITEM_INFO: Readonly<Record<string, InfoRow>> = {
   kin_kote: { use: 'ようかい の こうげき を へらす（うで）', how: WEAR_HOW, buttons: ['1-9', 'right'], stats: 'armor' },
   kin_suneate: { use: 'たかい ところ から おちた いたみ を へらす（あし）', how: WEAR_HOW, buttons: ['1-9', 'right'], stats: 'armor' },
   harapan_mimizu: { use: 'なかま の にわとり に あげる と なかよし が いっぱい に なる', how: 'もって なかま の おとな の にわとり に みぎクリック', buttons: ['1-9', 'right'] },
+  // ---- LIVE-3（§3.1）: もも にく
+  momo_nama: { use: 'かまど で やく と たべられる', how: 'かまど に みぎクリック して やく', buttons: ['right'] },
+  momo_yaki: { use: 'たべると ハート が 5 こ もどる', how: 'もって みぎクリック', buttons: ['1-9', 'right'] },
 
   // ---- ようかいだま（§5。いまは 手に入らない。古い保存用）
   yokai_orb: { use: 'いまは つかえない よ', how: '', buttons: [] },
@@ -231,6 +234,9 @@ export const KIN_TAMAGO_SOURCE = 'なかよし の にわとり が ときどき
 
 /** 「どこで」の はらぱんみみず の文（GOLD-1 §4.7）。ちか が いちばん でやすい */
 export const HARAPAN_SOURCE = 'ちか で ようかい を たおす・ブロック を こわす と ときどき でる';
+
+/** LIVE-3: なま もも にく の 手に入れかた */
+export const MOMO_NAMA_SOURCE = 'とりごや で そだった おとな から';
 
 /** 「どこで」の むし の文（LIVE-1 版 3.2 §3.1） */
 export const MUSHI_SOURCE = 'むしとりあみ で き から とる';

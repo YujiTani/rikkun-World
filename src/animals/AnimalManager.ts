@@ -35,7 +35,8 @@ import { createRng, type Rng } from '../world/gen/random';
 import { BugNet, EGG_SALT, rollPity } from './lottery';
 import { bodyInWall } from '../world/wall';
 import { BODY, bodyFree, columnTop, supportTop, surfaceY, type AnimalWorld } from './terrain';
-import { COOP_HALF, COOP_HEIGHT, COOP_SHIFTS, coopFits, coopsOverlap, gateCell, inFootprint, inInterior, type CoopDir } from './coop';
+import { COOP_HALF, COOP_HEIGHT, COOP_SHIFTS, DIR_VEC, coopFits, coopsOverlap, gateCell, inFootprint, inInterior, type CoopDir } from './coop';
+import { meatEligible } from './meat';
 import { rollGold } from './gold';
 import { rollBreed } from './hatch';
 import { aimBox, bodySize } from './size';
@@ -110,6 +111,14 @@ const GOLD_SALT = 0x11fe0005;
 /** GOLD-1 §3.4: 合図 natsukiWait は 600 ステップ に 1 回 まで */
 const NATSUKI_HINT_GAP = 600;
 const BLOCK_NUKUNUKU = 'nukunuku';
+/** LIVE-3 §2.4: ねぐら へ 歩く（この ステップ で 着く）・とびら が おりる 区間・一言 が 出る・とびら の 上下 の ながさ */
+const MEAT_WALK = 60;
+const MEAT_DOOR_FROM = 60;
+const MEAT_DOOR_TICKS = 20;
+const MEAT_SAY_AT = 80;
+const MEAT_SAY_FADE = 20;
+/** ねぐら の 中: 小屋 の まん中 から うしろ へ この きょり（中 3×3 の 中。AC6 の「ねぐら の 中」） */
+const MEAT_NEST_DIST = 1.3;
 
 
 /** なげる の とびかた（山なり。乱数 なし） */
@@ -169,6 +178,17 @@ interface Coop {
   dir: CoopDir;
   egg: number;
   gold: number;
+  /** LIVE-3: いただきます の 演出（1 つ の 小屋 で 同時 に 1 わ）。保存 しない */
+  meat: MeatJob | null;
+}
+
+/** いただきます の 演出 1 つ（`t` = 押してから の ステップ） */
+interface MeatJob {
+  id: number;
+  t: number;
+  /** はじめ の 位置（ねぐら へ 歩く 出だし） */
+  sx: number;
+  sz: number;
 }
 
 interface Ent {
@@ -252,6 +272,9 @@ interface Ent {
   natsukiBugWait: number;
   natsukiPetWait: number;
   natsukiDecayLeft: number;
+  // ---- LIVE-3
+  /** いただきます の 演出 中（ねらえない・なでる／むし／だっこ できない） */
+  meat: boolean;
 }
 
 export interface AnimalManagerOptions {
@@ -479,7 +502,7 @@ export class AnimalManager implements AnimalApi {
   /** 右クリック の 押しつづけ（§2.8）。`heldTicks` = 押してから の ステップ 数 */
   carryHold(id: number, heldTicks: number): 'lifted' | 'wait' | 'wild' | null {
     const e = this.find(id);
-    if (!e || e.carried || this.carriedId !== null) return null;
+    if (!e || e.carried || e.meat || this.carriedId !== null) return null;
     const hold = this.settings.carryHoldTicks;
     if (!e.friend) {
       if (heldTicks < hold) {
@@ -987,7 +1010,7 @@ export class AnimalManager implements AnimalApi {
     let bestId = -1;
     let bestT = Infinity;
     for (const e of this.ents) {
-      if (e.state === 'appear' || e.carried || e.flight) continue;
+      if (e.state === 'appear' || e.carried || e.flight || e.meat) continue;
       const box = aimBox(e.stage, e.breed);
       const hw = box.hw;
       const t = slab(origin.x, dir.x, e.x - hw, e.x + hw, 0, maxDist);
@@ -1012,7 +1035,7 @@ export class AnimalManager implements AnimalApi {
 
   preview(id: number, held: ItemStack | null): 'feed' | 'animalFull' | 'animalPet' | null {
     const e = this.find(id);
-    if (!e || e.carried) return null;
+    if (!e || e.carried || e.meat) return null;
     // まち中 の むし は ロック中 でも「まってね」を 返す（feed と おなじ）
     if (e.lock > 0 && held && held.item === 'harapan_mimizu' && this.hasNatsuki(e) && e.state !== 'sleep') return 'feed';
     if (e.lock > 0) return held && held.item === 'mushi' && e.state !== 'sleep' && this.hasNatsuki(e) && e.natsukiBugWait > 0 ? 'animalFull' : null;
@@ -1049,7 +1072,7 @@ export class AnimalManager implements AnimalApi {
 
   feed(id: number, item: ItemId): 'ate' | 'full' | 'pet' | 'friendFull' | 'sleep' | 'wait' | 'harapan' | 'harapanNo' | null {
     const e = this.find(id);
-    if (!e || e.carried) return null;
+    if (!e || e.carried || e.meat) return null;
     // まち中 の 合図 は 動きの 最中（ロック中）でも 返す（くび を かしげる は つづけて 出さない）
     if (e.lock > 0 && item === 'mushi' && e.state !== 'sleep' && this.hasNatsuki(e) && e.natsukiBugWait > 0) {
       this.push({ type: 'natsukiWait', id: e.id, which: 'bug' });
@@ -1178,7 +1201,7 @@ export class AnimalManager implements AnimalApi {
 
   pet(id: number): 'wild' | 'friend' | 'wait' | null {
     const e = this.find(id);
-    if (!e || e.lock > 0 || e.carried) return null;
+    if (!e || e.lock > 0 || e.carried || e.meat) return null;
     if (!e.friend) {
       this.push({ type: 'pet', id, friend: false });
       this.hintOut('feedHint');
@@ -1227,6 +1250,7 @@ export class AnimalManager implements AnimalApi {
       v.homePop = e.popAge >= 0 && e.popAge < POP_TICKS ? 1 - e.popAge / POP_TICKS : 0;
       v.liftT = e.liftLeft > 0 ? 1 - e.liftLeft / THROW_LIFT_TICKS : undefined;
       v.thrown = e.flight !== null;
+      if (e.meat) this.meatDraw(e, v);
       fn(v);
     }
   }
@@ -1245,7 +1269,7 @@ export class AnimalManager implements AnimalApi {
       this.hintOut('coopNoRoom');
       return 'noRoom';
     }
-    const c: Coop = { id: this.nextCoopId++, x: at.x, y, z: at.z, dir, egg: 0, gold: 0 };
+    const c: Coop = { id: this.nextCoopId++, x: at.x, y, z: at.z, dir, egg: 0, gold: 0, meat: null };
     this.coopList.push(c);
     return c.id;
   }
@@ -1448,6 +1472,167 @@ export class AnimalManager implements AnimalApi {
     for (const c of this.coopList) fn(this.coopInfo(c));
   }
 
+  // ------------------------------------------------------------ LIVE-3: えらべる 子・いただきます（docs/design/LIVE-3.md §2.1・§2.4）
+
+  /** その 小屋 の えらべる 子 の id（§2.1）: `meatEligible` で、だっこ 中・演出 中・とんで いる 子 は のぞく */
+  meatList(coopId: number): number[] {
+    const out: number[] = [];
+    for (const e of this.ents) if (e.home === coopId && this.canMeat(e)) out.push(e.id);
+    return out;
+  }
+
+  private canMeat(e: Ent): boolean {
+    return meatEligible(e) && !e.carried && !e.meat && !e.flight && !e.glide;
+  }
+
+  /**
+   * いただきます を はじめる（メニュー の 「いただきます」と 同じ）。えらべない 子 は `notEligible`（演出 中 の 小屋 でも 先 に 見る）、
+   * その 小屋 で すでに 演出 中 なら `busy`
+   */
+  meat(coopId: number, id: number): { ok: boolean; reason: null | 'notEligible' | 'busy' } {
+    const c = this.coopById(coopId);
+    const e = this.find(id);
+    if (!c || !e || e.home !== c.id || !this.canMeat(e)) return { ok: false, reason: 'notEligible' };
+    if (c.meat) return { ok: false, reason: 'busy' };
+    c.meat = { id: e.id, t: 0, sx: e.x, sz: e.z };
+    e.meat = true;
+    e.lock = 0;
+    e.egg = false;
+    e.walking = false;
+    e.following = false;
+    e.look = false;
+    this.setState(e, 'meat');
+    this.push({ type: 'meatStart', id: e.id, coop: c.id });
+    return { ok: true, reason: null };
+  }
+
+  /** ねぐら の 中 の 場所（小屋 の まん中 から もん の 反対 がわ） */
+  private nestSpot(c: Coop): { x: number; z: number } {
+    const [fx, fz] = DIR_VEC[c.dir]!;
+    return { x: c.x + 0.5 - fx * MEAT_NEST_DIST, z: c.z + 0.5 - fz * MEAT_NEST_DIST };
+  }
+
+  /** とびら の ようす（演出 の ステップ `t` から）。60 まで あいて いる・60〜80 おりる・80〜(meatTicks−20) しまって いる・そのあと あがる */
+  private doorOf(c: Coop): { door: 'open' | 'closed' | 'moving'; t: number } {
+    const job = c.meat;
+    if (!job) return { door: 'open', t: 0 };
+    const t = job.t;
+    const give = this.settings.meatTicks - MEAT_DOOR_TICKS;
+    if (t <= MEAT_DOOR_FROM) return { door: 'open', t: 0 };
+    if (t < MEAT_DOOR_FROM + MEAT_DOOR_TICKS) return { door: 'moving', t: (t - MEAT_DOOR_FROM) / MEAT_DOOR_TICKS };
+    if (t < give) return { door: 'closed', t: 1 };
+    if (t < this.settings.meatTicks) return { door: 'moving', t: 1 - (t - give) / MEAT_DOOR_TICKS };
+    return { door: 'open', t: 0 };
+  }
+
+  /** 演出 の 一言 の ふわっと 度（0〜1。出て いなければ null）。複数 の 小屋 なら いちばん 濃い もの */
+  meatSay(): number | null {
+    let best: number | null = null;
+    const give = this.settings.meatTicks - MEAT_DOOR_TICKS;
+    for (const c of this.coopList) {
+      const job = c.meat;
+      if (!job || job.t < MEAT_SAY_AT) continue;
+      const t = job.t;
+      const a = t < MEAT_SAY_AT + MEAT_SAY_FADE ? (t - MEAT_SAY_AT) / MEAT_SAY_FADE : t < give ? 1 : 1 - (t - give) / MEAT_SAY_FADE;
+      const v = Math.max(0, Math.min(1, a));
+      if (best === null || v > best) best = v;
+    }
+    return best;
+  }
+
+  /** 保存 の 前: 演出 中 の 子 を その場 で おわらせる（にく は 持ち物 か 足もと。読み直し に 演出 の 続き は 出ない） */
+  finishMeat(): void {
+    for (const c of this.coopList) if (c.meat) this.finishJob(c);
+  }
+
+  /** 毎ステップ（子 の 前）: 時計 を すすめ、とびら・一言・にく の とき を 出す */
+  private meatTick(c: Coop): void {
+    const job = c.meat!;
+    const give = this.settings.meatTicks - MEAT_DOOR_TICKS;
+    const e = this.find(job.id);
+    // 読みこまない 所 に なった・子 が いなく なった（にく が 入る 前）: その場 で おわらせる
+    if (job.t < give && (!e || !this.world.isLoaded(Math.floor(c.x), Math.floor(c.z)))) {
+      this.finishJob(c);
+      return;
+    }
+    job.t++;
+    const t = job.t;
+    if (t === MEAT_DOOR_FROM + MEAT_DOOR_TICKS) this.push({ type: 'meatDoor', coop: c.id, closed: true });
+    if (t === MEAT_SAY_AT && e) this.push({ type: 'meatSay', id: e.id, coop: c.id });
+    if (t === give && e) this.giveMeat(c, e);
+    if (t >= this.settings.meatTicks) {
+      this.push({ type: 'meatDoor', coop: c.id, closed: false });
+      c.meat = null;
+    }
+  }
+
+  /** 演出 を いま おわらせる（子 は いなく なり、にく が 入る。とびら は ひらく） */
+  private finishJob(c: Coop): void {
+    const job = c.meat;
+    if (!job) return;
+    const e = this.find(job.id);
+    c.meat = null;
+    if (e) this.giveMeat(c, e);
+  }
+
+  /** 子 を 消して、にく を 持ち物 へ（入らない 分 は プレイヤー の 足もと に おとしもの） */
+  private giveMeat(c: Coop, e: Ent): void {
+    const n = Math.max(0, Math.round(this.settings.meatPerBird));
+    let dropped = 0;
+    const p = this.getPlayer().position;
+    for (let i = 0; i < n; i++) {
+      if (this.tryAdd('momo_nama')) continue;
+      dropped++;
+      const at = { x: p.x, y: p.y + 0.5, z: p.z };
+      if (this.d.dropItem) this.d.dropItem(at, 'momo_nama');
+      else this.d.addItem('momo_nama');
+    }
+    const i = this.ents.indexOf(e);
+    if (i >= 0) this.ents.splice(i, 1);
+    if (this.targetId === e.id) this.targetId = null;
+    this.push({ type: 'meat', id: e.id, coop: c.id, count: n, dropped });
+  }
+
+  /** 演出 中 の 子 の 1 ステップ: ねぐら の 中 へ とことこ 歩き、そのあと は ねぐら の 中 で じっと */
+  private meatBird(e: Ent): void {
+    const c = e.home === null ? undefined : this.coopById(e.home);
+    const job = c?.meat;
+    if (!c || !job || job.id !== e.id) {
+      e.meat = false;
+      this.setState(e, 'rest');
+      return;
+    }
+    this.setState(e, 'meat');
+    const to = this.nestSpot(c);
+    const k = Math.min(1, job.t / (MEAT_WALK - 5));
+    const nx = job.sx + (to.x - job.sx) * k;
+    const nz = job.sz + (to.z - job.sz) * k;
+    if (k < 1) {
+      const dx = nx - e.x;
+      const dz = nz - e.z;
+      if (Math.hypot(dx, dz) > 1e-4) {
+        e.yaw = yawTo(dx, dz);
+        e.headYaw = e.yaw;
+      }
+    }
+    e.x = nx;
+    e.z = nz;
+    e.y = c.y;
+    e.vy = 0;
+  }
+
+  /** 描く 側 に わたす 場所: ねぐら に 着く ころ、ねぐら の ゆか（とびら の うしろ）へ そっと のぼる */
+  private meatDraw(e: Ent, v: AnimalView): void {
+    const c = e.home === null ? undefined : this.coopById(e.home);
+    const job = c?.meat;
+    if (!c || !job) return;
+    const k = Math.max(0, Math.min(1, (job.t - (MEAT_WALK - 15)) / 15));
+    const [fx, fz] = DIR_VEC[c.dir]!;
+    v.x = e.x - fx * 0.7 * k;
+    v.z = e.z - fz * 0.7 * k;
+    v.y = e.y + 0.9 * k;
+  }
+
   // ------------------------------------------------------------ 保存(SaveExtra)
 
   /**
@@ -1542,7 +1727,7 @@ export class AnimalManager implements AnimalApi {
     for (const r of p.coops) {
       let id = r.id;
       if (id === null || id < 1 || this.coopList.some((c) => c.id === id)) id = Math.max(this.nextCoopId, ...this.coopList.map((c) => c.id + 1));
-      const c: Coop = { id, x: r.x, y: r.y, z: r.z, dir: r.dir, egg: r.egg, gold: r.gold };
+      const c: Coop = { id, x: r.x, y: r.y, z: r.z, dir: r.dir, egg: r.egg, gold: r.gold, meat: null };
       if (c.egg + c.gold > s.coopNestMax) {
         c.gold = Math.min(c.gold, s.coopNestMax);
         c.egg = Math.max(0, s.coopNestMax - c.gold);
@@ -1611,6 +1796,7 @@ export class AnimalManager implements AnimalApi {
     const p = this.getPlayer().position;
     this.night = this.d.phase() === 'night';
     this.checkMorning();
+    for (const c of this.coopList) if (c.meat) this.meatTick(c);
     for (let i = this.ents.length - 1; i >= 0; i--) {
       const e = this.ents[i]!;
       if (e.friend && e.stage === 'adult') this.natsukiTick(e);
@@ -1660,7 +1846,20 @@ export class AnimalManager implements AnimalApi {
   private coopInfo(c: Coop): CoopInfo {
     const kids: number[] = [];
     for (const e of this.ents) if (e.home === c.id) kids.push(e.id);
-    return { id: c.id, x: c.x, y: c.y, z: c.z, dir: c.dir, gate: gateCell(c.x, c.z, c.dir), kids, nest: { egg: c.egg, gold: c.gold } };
+    const door = this.doorOf(c);
+    return {
+      id: c.id,
+      x: c.x,
+      y: c.y,
+      z: c.z,
+      dir: c.dir,
+      gate: gateCell(c.x, c.z, c.dir),
+      kids,
+      nest: { egg: c.egg, gold: c.gold },
+      door: door.door,
+      doorT: door.t,
+      meatBusy: c.meat ? c.meat.id : null,
+    };
   }
 
   /** のこり 2/3 以上 = じっと・1/3 以上 = ときどき・それ より 少ない = よく ゆれる（LIVE-2 §2.1。LIVE-2.1: たまご ごと） */
@@ -2015,6 +2214,7 @@ export class AnimalManager implements AnimalApi {
       natsukiBugWait: 0,
       natsukiPetWait: 0,
       natsukiDecayLeft: this.settings.natsukiDecayTicks,
+      meat: false,
     };
   }
 
@@ -2086,6 +2286,10 @@ export class AnimalManager implements AnimalApi {
     e.stateTicks++;
     if (e.fullLeft > 0) e.fullLeft--;
     if (e.popAge >= 0 && e.popAge < POP_TICKS) e.popAge++;
+    if (e.meat) {
+      this.meatBird(e);
+      return true;
+    }
     if (e.carried) {
       // だっこ 中: プレイヤー の 足もと に いる。follow は へらない
       e.x = p.x;

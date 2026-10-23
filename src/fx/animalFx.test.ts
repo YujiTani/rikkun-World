@@ -214,12 +214,12 @@ describe('つぶの 数・動き', () => {
 });
 
 describe('音の 表（案 B）', () => {
-  it('名前が 37 こ（LIVE-1 の 18 ＋ LIVE-2 の 14 ＋ LIVE-2.1 の 2 ＋ GOLD-1 の 3）あり、SoundFx の 表に 登録 されている（鳴らすと その 名前の 記録が 残る）', () => {
+  it('名前が 39 こ（LIVE-3 の 2 ＋ LIVE-1 の 18 ＋ LIVE-2 の 14 ＋ LIVE-2.1 の 2 ＋ GOLD-1 の 3）あり、SoundFx の 表に 登録 されている（鳴らすと その 名前の 記録が 残る）', () => {
     const names = Object.keys(ANIMAL_SOUNDS) as AnimalSoundName[];
     expect(names.sort()).toEqual([
-      'animalFull', 'animalHint', 'bonk', 'bugCatch', 'carryDown', 'carryUp', 'cluck', 'collect', 'collectMany', 'coopPlace', 'egg',
+      'animalFull', 'animalHint', 'bonk', 'bugCatch', 'carryDown', 'carryUp', 'cluck', 'collect', 'collectMany', 'coopDoor', 'coopPlace', 'egg',
       'feed', 'flutter', 'followEnd', 'friend', 'friendFirst', 'goldenEgg', 'grow', 'growFirst', 'harapanFeed', 'hatch', 'hatchFirst',
-      'hatchMacho', 'home', 'kitPut', 'kitWobble', 'natsukiGold', 'natsukiReady', 'netSwing', 'peep', 'petAnimal', 'rustle', 'rustle2',
+      'hatchMacho', 'home', 'itadakimasu', 'kitPut', 'kitWobble', 'natsukiGold', 'natsukiReady', 'netSwing', 'peep', 'petAnimal', 'rustle', 'rustle2',
       'rustle3', 'sleep', 'toss', 'warp',
     ]);
     for (const n of names) expect(tonesOf(n)).toBe(ANIMAL_SOUNDS[n]);
@@ -227,7 +227,7 @@ describe('音の 表（案 B）', () => {
   it('どの 音も 小さく 短い（1.2 秒以内・1 つの 大きさ 0.5 以下・立ち上がり 0.002 秒 以上）', () => {
     for (const [n, tones] of Object.entries(ANIMAL_SOUNDS)) {
       for (const t of tones as readonly Tone[]) {
-        expect(t.delay + t.dur, n).toBeLessThanOrEqual(1.2);
+        expect(t.delay + t.dur, n).toBeLessThanOrEqual(n === 'itadakimasu' ? 1.8 : 1.2); // いただきます は 1 回 だけ の 長い 音（SOUND 案 A）
         expect(t.gain, n).toBeLessThanOrEqual(0.5);
         expect(t.attack ?? 0.004, n).toBeGreaterThanOrEqual(0.002);
       }

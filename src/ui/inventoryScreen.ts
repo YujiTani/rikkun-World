@@ -23,6 +23,8 @@ export interface InventoryM4 {
   onFull?(): void;
   tools?: ToolNumbers;
   ui?: CraftUiSettings;
+  /** LIVE-3: やいた もも にく で もどる 体力 */
+  meatHeal?: () => number;
   /** CRAFT-2: たんす の素材（つくる・やく の数え方） */
   materials?: PanelMaterials;
 }
@@ -188,6 +190,7 @@ export class InventoryScreen {
         recipes: () => m4.craft.recipes(),
         tools: m4.tools,
         ui: m4.ui,
+        meatHeal: m4.meatHeal,
         isOpen: () => this.open,
         cursorHeld: () => this.inv.cursor() !== null,
         resolve: (t) => this.resolveHover(t),
