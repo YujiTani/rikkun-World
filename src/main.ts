@@ -62,7 +62,7 @@ import { createRarityHook } from './drops/rarityHook';
 import { itemType } from './inventory/items';
 import { Book } from './ui/book/Book';
 import { playBook } from './fx/bookSounds';
-import { SEA_Y, WORLD_LIMIT, createM6Settings, createM7Settings, createW2Settings, SEED_ITEM, VEG_ITEM, CROP_KINDS, cropKindOfBlock, type FarmPlacement, type AchievementId, type CombatEvent, type DefeatWith, type DigEvent, type ItemId, type SwingAnim, type YokaiKind } from './contracts';
+import { SEA_Y, WORLD_HEIGHT, WORLD_LIMIT, createM6Settings, createM7Settings, createW2Settings, SEED_ITEM, VEG_ITEM, CROP_KINDS, cropKindOfBlock, type FarmPlacement, type AchievementId, type CombatEvent, type DefeatWith, type DigEvent, type ItemId, type SwingAnim, type YokaiKind } from './contracts';
 import { ACHIEVEMENT_DEFS, AchievementSystem, AchievementsPageModel, createAchievementsHook, type StepContext } from './achievements';
 import { CelebrateUi } from './ui/celebrate';
 import { AchievementsPage, achievementArtUrl } from './ui/achievementsPage';
@@ -82,6 +82,7 @@ import { markUrl } from './ui/medalArt';
 import { itemIconUrl } from './ui/itemIcon';
 import { DropField } from './drops';
 import { createAnimalManager } from './animals';
+import { coopBlocks } from './animals/coop';
 import { AnimalFx } from './fx/animalFx';
 import { AnimalRenderer, ViewBuffer } from './animals/models/AnimalRenderer';
 import { AnimalHint } from './ui/animalHint';
@@ -126,6 +127,7 @@ import { Hotbar } from './ui/hotbar';
 import { InventoryScreen } from './ui/inventoryScreen';
 import { Notice } from './ui/notice';
 import { PerfOverlay } from './debug/perfOverlay';
+import { createWorkHook } from './debug/workHook';
 import { installTestHook, withSpriteDoll, type TestHookGroups } from './debug/testHook';
 import { Game } from './game/Game';
 import { buildScenery, followScenery } from './game/scenery';
@@ -143,7 +145,7 @@ import { installMicroCountries } from './world/gen/microCountry';
 import { createWorldHook } from './world/hook';
 import { WorldRenderer } from './world/render/WorldRenderer';
 import { decideFrameClock } from './world/frameClock';
-import { MICRO_RADII, decideMicroR } from './world/render/voxel/tier';
+import { MICRO_RADII } from './world/render/voxel/tier';
 import { setKataTable } from './proto/voxel/looks';
 import { decideKata } from './proto/voxel/looks/kata';
 import { createRenderHook } from './world/render/renderHook';
@@ -151,7 +153,7 @@ import { BlobShadow, BLOB, groundBelow } from './fx/blobShadow';
 import { WATER, isSolidIndex } from './world/blocks/blockTypes';
 import { ShadowSystem } from './world/render/shadow/ShadowSystem';
 import { createShadowHook } from './world/render/shadow/shadowHook';
-import { decideShadowStart, saveShadowPref } from './world/render/shadow/shadowPref';
+import { saveShadowPref } from './world/render/shadow/shadowPref';
 import { createShadowSetting } from './ui/shadowSetting';
 import { darkenFromBrightness, skyDarkness } from './world/light';
 import { createFarmSystem, createFarmHook } from './farm';
@@ -170,10 +172,15 @@ import { START_PITCH_DEG } from './player/config';
 import { computeFarmPlacement, applyFarmPlacement } from './world/gen/farmPlacement';
 import { createFarmVisual } from './world/render/farmVisual';
 import { FarmFx } from './fx/farmFx';
-import { decideRing, setRing } from './world/stream/ring';
+import { setRing } from './world/stream/ring';
 import { FarmHint } from './ui/farmHint';
 import { FarmAimHud } from './ui/farmAim';
 import { itemIconPixels } from './ui/itemIcon';
+import { createStartBoot } from './start/startBoot';
+import { SAVE_BOOT_TIMEOUT_MS } from './start/lastWorld';
+import { decideWeightedStart } from './start/weightPref';
+import { decideStrength, strengthToSave } from './yokai/strengthPref';
+import { playWeapon } from './fx/weaponSounds';
 
 const container = document.getElementById('game')!;
 const hud = document.getElementById('hud')!;
@@ -227,68 +234,6 @@ function digSettingsView(cfg: DigSystemImpl['config']): object {
 
 const game = new Game(container);
 
-// 世界: 入れ物（空）→ 列は ChunkStream が プレイヤーのまわりから 近い順に 読みこむ・捨てる（VOX-D）
-const world = new ArrayVoxelWorld({ x: 0, z: 0 });
-world.edgeClosedBelow = SEA_Y - 8; // 読みこんでいない列の横は、海ゆかより下は ふさがっているとみなす（地下の「見えない」印）
-const seed = readSeed();
-installMicroCountries(world, seed);
-const island = createWorldInfo(seed, world);
-// 保存（VOX-F）: IndexedDB から さわった列を 世界に入れる。描画の前に（光が 最初から 正しくなるように）
-const saveOptions = parseSaveOptions(location.search);
-let store: Storage | null = null;
-try {
-  store = saveOptions.nosave ? null : window.localStorage;
-} catch {
-  store = null;
-}
-// 前の世界（'main'・'seed-N'）とは別の名前。前の世界は読まず、消さない（VOX-B）
-const saveId = seed === GEN_CONFIG.defaultSeed ? SAVE_ID : `vox-seed-${seed}`;
-// IndexedDB が 開かない・返事がないときも ゲームは始める（3 秒でやめて 保存なしで遊ぶ）
-const SAVE_BOOT_TIMEOUT_MS = 3000;
-const sleepNull = () => new Promise<null>((ok) => setTimeout(() => ok(null), SAVE_BOOT_TIMEOUT_MS));
-let idb = store && compressionAvailable() ? await Promise.race([openIdb(), sleepNull()]) : null;
-if (idb) requestPersist();
-const bootSignal = { aborted: false };
-// 公開したゲームの ?reset=1 は 何もしない（いたずらのリンクで 世界が消えないように。#169）
-const doReset = shouldReset(saveOptions.reset, import.meta.env.DEV);
-// 起動で読むのは meta と 列のキーの一覧だけ（列の中身は いるときに 1 列ずつ。VOX-D D1）
-let restored = await Promise.race([openStoredKeys({ db: idb, store, seed, saveId, reset: doReset, signal: bootSignal }), sleepNull()]);
-if (restored === null) {
-  bootSignal.aborted = true;
-  idb = null;
-  restored = emptyStreamRestore();
-}
-// 小ブロックの半径（?microR=0|16|24|28。F3 を出して F4 でも切りかえる。VOX-E）。
-// E2E のサーバー（VITE_MICRO_DEFAULT=off）は 0 = 小ブロックなし。最初の列の段から効くよう 作るときに渡す（#180）
-// 1 コマの仕事を 時間で決めるか 数で決めるか（E2E のサーバー VITE_FRAME_CLOCK=count は数。#179）
-// 輪の大きさ（?ring=full|small。E2E のサーバーは VITE_RING_DEFAULT=small。#203）。WorldRenderer を作る前に 1 回だけ決める
-// ブロックの型（?kata=off|4|8|16 と &kataUnder=K。#202）。メッシュを作る前に決める
-setKataTable(decideKata(location.search));
-setRing(decideRing(location.search, import.meta.env.VITE_RING_DEFAULT as string | undefined));
-const frameClock = decideFrameClock(location.search, import.meta.env.VITE_FRAME_CLOCK as string | undefined);
-const renderer = new WorldRenderer(world, decideMicroR(location.search, import.meta.env.VITE_MICRO_DEFAULT as string | undefined), frameClock);
-if (new URLSearchParams(location.search).get('meshSlice') === 'off') renderer.config.meshSlice = false; // 小ブロックを 分けずに 1 回で作る（見くらべ・perf 用）
-renderer.enableStreaming();
-renderer.setViewer(island.spawn().x, island.spawn().z);
-renderer.attach(game.scene);
-const lighting = new Lighting();
-const sceneBefore = new Set(game.scene.children);
-buildScenery(game.scene);
-for (const child of game.scene.children) if (!sceneBefore.has(child)) lighting.registerTree(child, 'block');
-for (const m of renderer.materials()) lighting.register(m, 'block');
-const time = new TimeOfDayImpl();
-const timeSettings = time.settings;
-const sky = new Sky({ scene: game.scene, time, timeSettings, lighting, light: renderer.light, focus: () => controller.state.position });
-
-// 入力・スタート画面
-mountHud(hud);
-const lock = new LockController();
-const wheel = new WheelAccumulator(game.input, () => lock.playInputEnabled());
-// 本（BOOK-1）が 出ている間だけ Backspace を 止める（ブラウザの「前のページへ」にならないように）
-let bookRef: Book | null = null;
-bindKeyboardAndMouse(window, game.input, wheel, { preventExtra: () => bookRef?.active() === true });
-const look = new MouseLook(lock);
-const pointerLock = bindPointerLock(document, window, game.renderer.domElement, lock, look, game.input);
 // SOUND-1: 音（ミキサー → BGM → 効果音の順に作る。AudioContext は ミキサーだけが作る）
 const audioSettings = createAudioSettings();
 const audioPersist = createAudioPersistence(window.localStorage, audioSettings, FX_SETTINGS); // ?nosave=1 でも音の設定は保存する
@@ -314,6 +259,95 @@ const titleSound = createBrowserTitleSound(
   window.addEventListener('pointerdown', warm, true);
   window.addEventListener('keydown', warm, true);
 }
+// START-1: 世界を 作る 前に スタートメニュー（URL に 指定が あるときは 出さない。仕様 §4.1）
+const saveOptions = parseSaveOptions(location.search);
+let store: Storage | null = null;
+try {
+  store = saveOptions.nosave ? null : window.localStorage;
+} catch {
+  store = null;
+}
+// IndexedDB が 開かない・返事がないときも ゲームは始める（3 秒でやめて 保存なしで遊ぶ）
+const sleepNull = () => new Promise<null>((ok) => setTimeout(() => ok(null), SAVE_BOOT_TIMEOUT_MS));
+const idbOpening = store && compressionAvailable() ? Promise.race([openIdb(), sleepNull()]) : Promise.resolve(null);
+const startBoot = createStartBoot();
+window.__rikkun = { start: startBoot.hook } as unknown as NonNullable<typeof window.__rikkun>; // メニューの あいだは 窓口 start だけ
+const startPlan = await startBoot.run({
+  search: location.search,
+  store,
+  db: idbOpening,
+  envStartMenu: import.meta.env.VITE_START_MENU as string | undefined,
+  nSections: Math.ceil(WORLD_HEIGHT / 16),
+  sound: (name) => (name === 'dry' ? playWeapon(fxSound, 'dry') : playCraft(fxSound, name)), // tab・sparkle = 作る音、dry = ゆみの ぽよん
+  readSeed,
+});
+
+// 世界: 入れ物（空）→ 列は ChunkStream が プレイヤーのまわりから 近い順に 読みこむ・捨てる（VOX-D）
+const world = new ArrayVoxelWorld({ x: 0, z: 0 });
+world.edgeClosedBelow = SEA_Y - 8; // 読みこんでいない列の横は、海ゆかより下は ふさがっているとみなす（地下の「見えない」印）
+const seed = startPlan.seed;
+installMicroCountries(world, seed);
+const island = createWorldInfo(seed, world);
+// 保存（VOX-F）: IndexedDB から さわった列を 世界に入れる。描画の前に（光が 最初から 正しくなるように）
+// 前の世界（'main'・'seed-N'）とは別の名前。前の世界は読まず、消さない（VOX-B）
+const saveId = seed === GEN_CONFIG.defaultSeed ? SAVE_ID : `vox-seed-${seed}`;
+let idb = await idbOpening;
+if (idb) requestPersist();
+const bootSignal = { aborted: false };
+// 公開したゲームの ?reset=1 は 何もしない（いたずらのリンクで 世界が消えないように。#169）
+const doReset = shouldReset(saveOptions.reset, import.meta.env.DEV);
+// 起動で読むのは meta と 列のキーの一覧だけ（列の中身は いるときに 1 列ずつ。VOX-D D1）
+let restored = await Promise.race([openStoredKeys({ db: idb, store, seed, saveId, reset: doReset, signal: bootSignal }), sleepNull()]);
+if (restored === null) {
+  bootSignal.aborted = true;
+  idb = null;
+  restored = emptyStreamRestore();
+}
+// 小ブロックの半径（?microR=0|16|24|28。F3 を出して F4 でも切りかえる。VOX-E）。
+// E2E のサーバー（VITE_MICRO_DEFAULT=off）は 0 = 小ブロックなし。最初の列の段から効くよう 作るときに渡す（#180）
+// 1 コマの仕事を 時間で決めるか 数で決めるか（E2E のサーバー VITE_FRAME_CLOCK=count は数。#179）
+// 輪の大きさ（?ring=full|small。E2E のサーバーは VITE_RING_DEFAULT=small。#203）。WorldRenderer を作る前に 1 回だけ決める
+// ブロックの型（?kata=off|4|8|16 と &kataUnder=K。#202）。メッシュを作る前に決める
+setKataTable(decideKata(location.search));
+// START-1 §4.4: おもさ（かるい・ふつう・きれい）→ 小ブロックの半径・輪・かげ。URL ＞ E2E の 環境変数 ＞ おもさ ＞ 今の きまり
+const weighted = decideWeightedStart({
+  search: location.search,
+  weight: startPlan.weight,
+  env: {
+    shadow: import.meta.env.VITE_SHADOW_DEFAULT as string | undefined,
+    micro: import.meta.env.VITE_MICRO_DEFAULT as string | undefined,
+    ring: import.meta.env.VITE_RING_DEFAULT as string | undefined,
+  },
+  shadowStore: store,
+});
+setRing(weighted.ring);
+// START-1 §4.3: つよさ（URL ＞ 保存 ＞ メニューで えらんだ 物 ＞ ふつう）。保存に 書く 値は 保存の 値（URL では 書きかえない）
+const strengthLevel = decideStrength(location.search, restored.meta, startPlan.strength);
+const strengthToWrite = strengthToSave(location.search, restored.meta, startPlan.strength);
+const frameClock = decideFrameClock(location.search, import.meta.env.VITE_FRAME_CLOCK as string | undefined);
+const renderer = new WorldRenderer(world, weighted.microR, frameClock);
+if (new URLSearchParams(location.search).get('meshSlice') === 'off') renderer.config.meshSlice = false; // 小ブロックを 分けずに 1 回で作る（見くらべ・perf 用）
+renderer.enableStreaming();
+renderer.setViewer(island.spawn().x, island.spawn().z);
+renderer.attach(game.scene);
+const lighting = new Lighting();
+const sceneBefore = new Set(game.scene.children);
+buildScenery(game.scene);
+for (const child of game.scene.children) if (!sceneBefore.has(child)) lighting.registerTree(child, 'block');
+for (const m of renderer.materials()) lighting.register(m, 'block');
+const time = new TimeOfDayImpl();
+const timeSettings = time.settings;
+const sky = new Sky({ scene: game.scene, time, timeSettings, lighting, light: renderer.light, focus: () => controller.state.position });
+
+// 入力・スタート画面
+mountHud(hud);
+const lock = new LockController();
+const wheel = new WheelAccumulator(game.input, () => lock.playInputEnabled());
+// 本（BOOK-1）が 出ている間だけ Backspace を 止める（ブラウザの「前のページへ」にならないように）
+let bookRef: Book | null = null;
+bindKeyboardAndMouse(window, game.input, wheel, { preventExtra: () => bookRef?.active() === true });
+const look = new MouseLook(lock);
+const pointerLock = bindPointerLock(document, window, game.renderer.domElement, lock, look, game.input);
 // BOOK-1: あそびかたの 3D の 本。出ている間は 世界が 止まり、景色は 描きなおさない
 const book = new Book({
   parent: document.body,
@@ -324,6 +358,7 @@ bookRef = book;
 game.setModal(book);
 game.input.onPress((action) => book.onAction(action));
 const playOverlay = new PlayOverlay(hud, lock, () => pointerLock.request(), () => book.open());
+startPlan.close(); // スタートメニューを 消す（今の「じゅんびちゅう」→「あそぼう」の 案内画面へ）
 const soundSettingsUi = createSoundSettings({ audio: audioSettings, fx: FX_SETTINGS, onChange: () => audioSync() }, playOverlay.el);
 // 最初のクリック・キーで音が使えるようになる（ブラウザのきまり）
 for (const ev of ['pointerdown', 'keydown'] as const) window.addEventListener(ev, () => mixer.unlock(), true);
@@ -384,6 +419,7 @@ let sprite: ReturnType<typeof createCharSprite> | null = null;
 const charCtl = createCharController({
   search: location.search,
   store: window.localStorage,
+  initial: startPlan.char ?? undefined, // メニューで えらんだ キャラ（START-1。URL で 始めたときは CHAR-5 の 決め方）
   onSwitch: (kind) => sprite?.setChar(kind, charBase(kind)),
 });
 const startKind = charCtl.get().kind;
@@ -535,7 +571,23 @@ const animals = createAnimalManager({
       drops.scatter({ x: p.x, y: p.y + 0.5, z: p.z }, [{ item, count: 1 }], { speedMin: 0.3, speedMax: 0.8, upMin: 3, upMax: 3.5 });
       return false;
     },
+    tryAddItem: (item) => inventory.add(item, 1) === 0,
     carriedBefore: () => (achievements.stats()['carry:*'] ?? 0) > 0,
+    // LIVE-2: 小屋 の ブロック は A の coopBlocks() の 一覧 どおり 置く／消す。おとしもの・はじめて の 判定
+    placeCoopBlocks: (x, y, z, dir) => {
+      const list = coopBlocks(x, y, z, dir);
+      for (const b of list) if (!world.isLoaded(b.x, b.z)) return false;
+      for (const b of list) world.setBlock(b.x, b.y, b.z, b.block);
+      return true;
+    },
+    removeCoopBlocks: (x, y, z, dir) => {
+      for (const b of coopBlocks(x, y, z, dir)) if (world.getBlock(b.x, b.y, b.z) === b.block) world.setBlock(b.x, b.y, b.z, 'air');
+    },
+    dropItem: (at, item) => {
+      drops.scatter(at, [{ item, count: 1 }], { speedMin: 0.3, speedMax: 0.8, upMin: 3, upMax: 3.5 });
+    },
+    grewBefore: () => (achievements.stats()['grow:*'] ?? 0) > 0,
+    hatchedBefore: () => (achievements.stats()['hatch:*'] ?? 0) > 0,
     day: () => time.day(),
     phase: () => time.phase(),
     countryAt,
@@ -800,7 +852,7 @@ const dig = new DigSystemImpl(
     pet,
     animals,
     eggHeal: () => live.animalEggHeal,
-    live: () => ({ netSwingTicks: live.netSwingTicks, carryHoldTicks: live.carryHoldTicks }),
+    live: () => ({ netSwingTicks: live.netSwingTicks, carryHoldTicks: live.carryHoldTicks, coopCountMax: live.coopCountMax, coopMax: live.coopMax }),
     emitFarm: (e) => farm.emit(e),
     nowTick: () => game.tick,
     vitals: combat,
@@ -881,6 +933,7 @@ yokaiManager = new YokaiManager({
   drops,
   tick: () => game.tick + 1,
   seed,
+  strength: strengthLevel,
   light: renderer.light,
   // 出る場所は 描く輪の メッシュずみの列だけ（VOX-D）
   canSpawnAt: (x, z) => streamHost?.stream.isDrawn(Math.floor(x) >> 4, Math.floor(z) >> 4) ?? true,
@@ -926,8 +979,10 @@ const yokaiM = yokaiManager;
 // LIVE-1: にわとり の 見た目・音（動きの強さの 設定は まだ ない。できたら ここで つなぐ）
 const animalMotion = (): number => 1;
 const animalFx = new AnimalFx({ sound: fxSound, motion: animalMotion, lookDist: () => live.animalLookDist, fullTicks: () => live.animalFullTicks, seed });
-const animalRenderer = new AnimalRenderer({ fx: animalFx, motion: animalMotion, player: () => controller.state.position });
+const animalRenderer = new AnimalRenderer({ fx: animalFx, motion: animalMotion, player: () => controller.state.position, source: animals });
 const animalViews = new ViewBuffer();
+let prevKits = -1;
+let prevCoops = -1;
 const animalEvents: import('./contracts').AnimalEvent[] = [];
 game.scene.add(animalRenderer.group);
 lighting.register(animalRenderer.bodyMaterial, 'doll');
@@ -945,7 +1000,11 @@ function deliverAnimalEvents(): void {
   for (const e of ev) animalEvents.push(e);
   if (animalEvents.length > 512) animalEvents.splice(0, animalEvents.length - 512);
 }
-game.onBeforeRender(() => animalRenderer.update(animalViews.fill(animals), game.camera));
+game.onBeforeRender(() => {
+  animalRenderer.setCoopGhost(dig.coopGhost());
+  animalRenderer.setKitGhost(dig.kotatsuGhost());
+  animalRenderer.update(animalViews.fill(animals), game.camera);
+});
 rig.setHeldProvider(() => inventory.held()?.item ?? null);
 rig.setWeaponSource({ blade: () => blade.state(), bowPose: () => tools.bow().pose() });
 
@@ -1371,6 +1430,7 @@ const save = new SaveManager({
   spawn: spawnPlain, // 保存の meta に 書くだけ（スタートへ もどす動きは しない）
   store,
   tick: () => game.tick,
+  strength: strengthToWrite,
   settings: screenSettings,
   bags: { serialize: () => combat.serializeBags(), deserialize: (d) => combat.deserializeBags(d) },
   clock: time,
@@ -1380,7 +1440,14 @@ const save = new SaveManager({
   // たんすは ブロックの復元のあとに（SaveManager が その順で呼ぶ）
   storage: { serialize: () => storage.serialize(), deserialize: (d) => storage.deserialize(d) },
   achievements: { serialize: () => achievements.serialize(), deserialize: (d) => achievements.deserialize(d) },
-  animals: { serialize: () => animals.serialize(), deserialize: (d) => animals.deserialize(d) },
+  animals: {
+    serialize: () => animals.serialize(),
+    deserialize: (d) => {
+      animals.deserialize(d);
+      prevKits = -1;
+      prevCoops = -1;
+    },
+  },
   legend: { serialize: () => legendBook.serialize(), deserialize: (d) => legendBook.deserialize(d) },
   // 農業: 作物・印。前の保存（印なし）には 読んだあとに 置きものを置く
   farm,
@@ -1678,7 +1745,16 @@ game.onUpdate((dt) => {
   animals.setTargeted(dig.animalTarget());
   {
     deliverAnimalEvents();
-    animalFx.step(animalViews.fill(animals), controller.state.position);
+    const kitRows = animals.kits();
+    const coopRows = animals.coops();
+    animalFx.step(animalViews.fill(animals), controller.state.position, kitRows, coopRows);
+    // こたつ に たまご を 入れた・小屋 を 置いた 音（数 が ふえた とき）
+    const nKit = kitRows.length;
+    const nCoop = coopRows.length;
+    if (nKit > prevKits && prevKits >= 0) animalFx.play('kitPut');
+    if (nCoop > prevCoops && prevCoops >= 0) animalFx.play('coopPlace');
+    prevKits = nKit;
+    prevCoops = nCoop;
     animalHint.step();
   }
   // CHAR-2 §4.6: 刀・弓が 決まったあとで 板のコマを決める。矢の出来事は ここで 取り出して 配る
@@ -1998,8 +2074,9 @@ const facingTmp = { x: 0, y: 0, z: 0 };
 const hudHook = { toolHint: () => { const h = dig.toolHint(); return h ? { slot: h.slot, ticksLeft: h.ticksLeft } : null; }, actionHint: () => actionHint.current(), yokaiFocus: () => yokaiFocus.current(), yokaiFocusHulls: () => yokaiFocus.hullCount(), hpBar: (id: number) => yokaiManager?.hpBarInfo(id) ?? null, announce: () => yokaiManager?.announce() ?? null, nameplate: (id: number) => yokaiManager?.nameplateInfo(id) ?? null, staggerIcon: (id: number) => yokaiManager?.staggerIconInfo(id) ?? null };
 const lockHook = createLockHook(lock);
 const combatHook = createCombatHook(combat);
-const shadowStore = saveOptions.nosave ? null : window.localStorage;
-const shadowStart = decideShadowStart(location.search, import.meta.env.VITE_SHADOW_DEFAULT as string | undefined, shadowStore);
+const shadowStore = store;
+const shadowStart = weighted.shadow;
+startBoot.setInfo({ strength: strengthLevel, microR: weighted.microR, ring: weighted.ring, shadowBuilt: shadowStart.build });
 const shadowSettingUi = createShadowSetting(soundSettingsUi.el);
 if (shadowStart.build) {
   ShadowSystem.activate();
@@ -2028,6 +2105,8 @@ const setShadow = (on: boolean): void => {
 };
 shadowSettingUi.bind(shadowSystem !== null, shadowStart.on, setShadow);
 installTestHook(game, overlay, () => host.everReady, {
+  start: startBoot.hook,
+  work: createWorkHook(() => game.tick, world),
   char: charCtl,
   shadow: createShadowHook({
     system: shadowSystem,
@@ -2192,6 +2271,12 @@ installTestHook(game, overlay, () => host.everReady, {
     // 今 チップに出ている合図（120 ステップで消える。消えたら null）
     lastHint: () => animalHint.model.current(),
     carrying: () => animals.carrying(),
+    placeCoop: (x, y, z, dir) => animals.placeCoop(x, y, z, dir),
+    coops: () => animals.coops(),
+    kits: () => animals.kits(),
+    machoMiss: (n) => animals.machoMiss(n),
+    serialize: () => animals.serialize(),
+    deserialize: (d) => animals.deserialize(d),
   },
   attack: { preview: () => dig.attackPreview(), last: () => dig.attackLast() },
   camera: cameraHook.camera,

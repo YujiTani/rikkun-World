@@ -80,7 +80,8 @@ describe('AC4 ファイル', () => {
       expect(a.motions[n].packed).toBeTruthy();
       expect(existsSync(`${OUT('boy')}/${n}.png`)).toBe(true);
     }
-    expect(readdirSync(OUT('boy')).filter((f) => f.endsWith('.png')).sort()).toEqual(BASE4.map((n) => `${n}.png`).sort());
+    // face.png は START-1（§3.2）で 入った 顔の 絵。うごきの 絵ではない ので 数えない
+    expect(readdirSync(OUT('boy')).filter((f) => f.endsWith('.png') && f !== 'face.png').sort()).toEqual(BASE4.map((n) => `${n}.png`).sort());
     expect(a.palette).toHaveLength(22);
     const sa = json(`${SRC('boy')}/atlas.json`);
     expect(sa.modelH).toBe(1.63);

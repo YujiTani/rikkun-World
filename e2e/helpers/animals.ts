@@ -28,6 +28,8 @@ import { installArena } from './arena';
  *   __A.swing()              あみ を 1 回 ふる（押して はなし、30 ステップ 進める）。その間の `swing` `bugCatch` の 出来事 を 返す
  *   __A.chip()               合図の チップ `#animal-hint` の 文字 と ルビの 外に ある 漢字
  *   __A.lift(id)             なかま を 40 ステップ 押して だっこ（はなして 1 ステップ）。だっこ できたら true
+ *
+ * LIVE-2 で足した もの: kit / putEgg / coop / cinfo / face / kid / yawTo / inside / dayLen / night / bags / hintRight（下の 定義の コメントを 見る）
  */
 export async function openAnimals(page: Page, query = '?nosave=1'): Promise<void> {
   await page.goto('/' + query);
@@ -180,6 +182,80 @@ export async function openAnimals(page: Page, query = '?nosave=1'): Promise<void
         h.input.release('secondary');
         h.step(1);
         return A.one(id).carried === true;
+      },
+
+      // ---- LIVE-2（docs/design/LIVE-2.md §6・§6.1）で足した もの。窓口の 仮の 名前は docs/test-reports/LIVE-2.md の「仮の 窓口」
+      /** (x, y, z) を 本体（北西 の マス）に して こたつ 2×2（`nukunuku`＋のこり 3 マス）を 置いて 2 ステップ 進める。返す {x, y, z} は 本体 */
+      kit(x: number, z: number, y = 9) {
+        h.world.setBlock(x, y, z, 'nukunuku');
+        h.world.setBlock(x + 1, y, z, 'nukunuku_e');
+        h.world.setBlock(x, y, z + 1, 'nukunuku_s');
+        h.world.setBlock(x + 1, y, z + 1, 'nukunuku_se');
+        h.step(2);
+        return { x, y, z };
+      },
+      /** 古い セーブ の 1 マス こたつ（まわり に 3 マス が 無い `nukunuku`）。1 マス の まま こたつ として 動く */
+      kit1(x: number, z: number, y = 9) {
+        h.world.setBlock(x, y, z, 'nukunuku');
+        h.step(2);
+        return { x, y, z };
+      },
+      /** こたつ k の 2 マス 西に 立って まん中を ねらい、`item` を n こ 持って 右クリック 1 回。出来事と 合図を 返す */
+      putEgg(k: any, item = 'egg', n = 1) {
+        A.hold(item, n);
+        (window as any).__aim.standForS(k.x - 1.5, k.z + 0.5, 90, 0, k.y);
+        h.step(1);
+        const aimed = A.aimBlock(k.x, k.y, k.z);
+        h.animals.events();
+        A.tap();
+        const ev = h.animals.events();
+        const hints = ev.filter((e: any) => e.type === 'hint').map((e: any) => e.hint);
+        return { aimed, ev, hint: hints.length ? hints[hints.length - 1] : null, left: h.inventory.count(item) };
+      },
+      /** 小屋を 置く（placeCoop は x・z が 5×5 の まん中、y が いちばん 下の 空気の 高さ）。小屋 id か 理由 を 返す */
+      coop(x: number, z: number, dir = 0, y = 9) {
+        const r = h.animals.placeCoop(x, y, z, dir);
+        h.step(3);
+        return r;
+      },
+      cinfo(id: number) {
+        return h.animals.coops().find((c: any) => c.id === id) ?? null;
+      },
+      /** もん の むき（まん中から もん への ほうこう。-1/0/1 の 組） */
+      face(c: any) {
+        return { fx: Math.sign(c.gate.x - c.x), fz: Math.sign(c.gate.z - c.z) };
+      },
+      /** 小屋 c の 中 3×3 の 中（まん中が 0,0）の 場所 に 子を 置く */
+      kid(c: any, opts: any = {}, dx = 0, dz = 0) {
+        const id = h.animals.spawn(c.x + 0.5 + dx, c.y, c.z + 0.5 + dz, { friend: true, home: c.id, ...opts });
+        h.step(3);
+        return id;
+      },
+      yawTo(dx: number, dz: number) {
+        return (Math.atan2(dx, -dz) * 180) / Math.PI;
+      },
+      /** 小屋 の 中 3×3 に 足が はいって いるか */
+      inside(c: any, p: { x: number; z: number }) {
+        return Math.abs(p.x - (c.x + 0.5)) < 1.5 && Math.abs(p.z - (c.z + 0.5)) < 1.5;
+      },
+      /** 1 日の 長さ（設定の 4 つの 合計） */
+      dayLen() {
+        const s = h.settings;
+        return s.get('dayTicks') + s.get('duskTicks') + s.get('nightTicks') + s.get('dawnTicks');
+      },
+      /** 夜に する（night の まんなか） */
+      night() {
+        const s = h.settings;
+        h.time.set(s.get('dayTicks') + s.get('duskTicks') + 100);
+        h.step(2);
+      },
+      bags(item?: string) {
+        const b = h.combat.bags();
+        return item ? b.filter((x: any) => x.slots.some((s: any) => s.item === item)) : b;
+      },
+      /** 照準の 下の 右がわ（`hud.actionHint().right`） */
+      hintRight() {
+        return h.hud.actionHint().right ?? null;
       },
     };
     (window as any).__A = A;

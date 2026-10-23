@@ -17,7 +17,7 @@ export default defineConfig({
   workers: 1,
   use: { ...base.use, baseURL: `http://localhost:${PORT}` },
   webServer: {
-    command: `VITE_SHADOW_DEFAULT=off npx vite --port ${PORT} --strictPort`,
+    command: `VITE_START_MENU=off VITE_SHADOW_DEFAULT=off npx vite --port ${PORT} --strictPort`,
     url: `http://localhost:${PORT}`,
     reuseExistingServer: true,
     timeout: 60_000,

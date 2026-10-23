@@ -69,6 +69,7 @@ function rig(o: Opts) {
   const log: string[] = [];
   const hints: AnimalHintKind[] = [];
   const st = { hit: o.hitDistance === undefined ? 1.5 : o.hitDistance, carrying: o.carrying ?? false, holdCalls: [] as number[], putSpots: [] as Vec3[], swingBlocks: [] as Vec3[] };
+  // LIVE-2 の 窓口 は このテスト では 使わない（C が 必要に なったら 足す）
   const animals: AnimalApi = {
     rayHit: () => (st.hit === null ? null : { id: 7, distance: st.hit }),
     preview: (_id, held) => (o.preview !== undefined ? o.preview : held?.item === 'mushi' ? 'feed' : 'animalPet'),
@@ -96,6 +97,7 @@ function rig(o: Opts) {
       return ok;
     },
     carrying: () => (st.carrying ? 7 : null),
+    ...({} as Omit<AnimalApi, 'rayHit' | 'preview' | 'isFriend' | 'emitHint' | 'feed' | 'pet' | 'isFull' | 'swingNet' | 'carryHold' | 'putDown' | 'carrying' | 'forEachVisible'>),
   };
   const dig = new DigSystemImpl(world as never, () => player, actions, lock, inv, () => 1.62, createDigConfig(), () => 0, null, {
     animals,

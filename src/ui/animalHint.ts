@@ -58,7 +58,7 @@ export class AnimalHint {
         const c = document.createElement('canvas');
         drawPixels(c, heartPixels('full'));
         img.src = c.toDataURL();
-      } else if (a === 'chicken' || a === 'chickenRibbon' || a === 'sun') {
+      } else if (a === 'chicken' || a === 'chickenRibbon' || a === 'sun' || a === 'chick' || a === 'zzz' || a === 'hourglass' || a === 'hand') {
         img.src = animalIconUrl(a);
       } else {
         img.src = itemIconUrl(a);

@@ -14,7 +14,7 @@ import type { createBladeHook } from '../tools/blade/hook';
 import type { createLevelHook } from '../level';
 import type { createAchievementsHook } from '../achievements';
 import type { createLogHook } from '../ui/log';
-import type { UiAlpha, AnimalEvent, AnimalHintKind, AnimalInfo, AnimalSpawnOpts, AnimalWindowHint } from '../contracts';
+import type { UiAlpha, AnimalEvent, AnimalHintKind, AnimalInfo, AnimalSpawnOpts, AnimalWindowHint, AnimalSaveV2, AnimalSaveV3, CoopInfo, CoopPlaceResult, KitInfo } from '../contracts';
 import type { createRarityHook } from '../drops/rarityHook';
 import type { createStorageHook } from '../storage/hook';
 import type { createYokaiHook } from '../yokai';
@@ -29,6 +29,8 @@ import type { PerfOverlay } from './perfOverlay';
 import type { ThunderHook } from '../fx/thunderFx';
 import type { CharSprite, SpriteInfo } from '../char';
 import type { SpriteMotion } from '../char';
+import type { StartHook } from '../start/startBoot';
+import type { WorkHook } from './workHook';
 
 type CameraHook = ReturnType<typeof createCameraHook>;
 type PlayerHook = {
@@ -46,6 +48,8 @@ type PlayerHook = {
  */
 export interface TestHook {
   ready: boolean;
+  /** START-1 §4.7: スタートメニュー（メニューの あいだも 出さない ときも ある） */
+  start: StartHook;
   tick(): number;
   pause(): void;
   /** 描画を止める／再開（再開すると次の 1 回を描く） */
@@ -56,6 +60,8 @@ export interface TestHook {
   /** #179: 1 コマの仕事を 時間（ms）で決めるか 数で決めるか（E2E のサーバーは 'count'） */
   clock(): FrameClock;
   perfOverlayVisible(): boolean;
+  /** #255: 重さを 仕事の数で 見る（start → step → read → stop。docs/tickets/PERF-255.md） */
+  work: WorkHook;
   world: WorldHook;
   /** VOX-I-1 §8.1: 12 の国（at・here・find・take.path） */
   biome: BiomeHook;
@@ -120,6 +126,16 @@ export interface TestHook {
     lastHint(): AnimalHintKind | AnimalWindowHint | null;
     /** 版 3.2: だっこ している id か null */
     carrying(): number | null;
+    // ---- LIVE-2（§6.1）
+    /** 小屋 を 置く（ゲーム の 置く と 同じ 判定）。x・z は 5×5 の まん中、y は いちばん 下 の 空気 の 高さ。小屋 id か 理由 */
+    placeCoop(x: number, y: number, z: number, dir?: 0 | 1 | 2 | 3): CoopPlaceResult;
+    coops(): CoopInfo[];
+    kits(): KitInfo[];
+    /** かえす くじ の はずれ 数（`n` を 渡す と 設定） */
+    machoMiss(n?: number): number;
+    /** 保存 v 3 の 形 を 取り出す・流しこむ */
+    serialize(): AnimalSaveV3 | AnimalSaveV2;
+    deserialize(data: unknown): void;
   };
   /** CRAFT-2 §6.1: 画面の不透明度 */
   ui: { alpha(): UiAlpha; /** WEAPON-7 §9: 画面の 上の 帯 */ topBand(): { kind: 'achieve' | 'telop' | 'appear' | null; item: string | null; age: number; leftSteps: number; queue: string[] }; /** WEAPON-8 §7: 速さバフの アイコン */ buffs(): unknown[] };
@@ -144,7 +160,7 @@ declare global {
   }
 }
 
-export type TestHookGroups = Pick<TestHook, 'shadow' | 'char' | 'world' | 'biome' | 'render' | 'player' | 'camera' | 'aim' | 'input' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'attack' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm' | 'log' | 'ui' | 'audio' | 'rarity' | 'animals' | 'parry' | 'legend' | 'thunder'>;
+export type TestHookGroups = Pick<TestHook, 'start' | 'work' | 'shadow' | 'char' | 'world' | 'biome' | 'render' | 'player' | 'camera' | 'aim' | 'input' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'attack' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm' | 'log' | 'ui' | 'audio' | 'rarity' | 'animals' | 'parry' | 'legend' | 'thunder'>;
 
 export function installTestHook(game: Game, overlay: PerfOverlay, isReady: () => boolean, groups: TestHookGroups, clock: FrameClock = 'time'): void {
   window.__rikkun = {

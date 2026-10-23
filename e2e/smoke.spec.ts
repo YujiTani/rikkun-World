@@ -106,3 +106,22 @@ test('風神剣で らせんの かぜを 1 回 出して、エラーが出な�
   expect(types(rec)).toContain('spiralEnd');
   expect(errors).toEqual([]);
 });
+
+/**
+ * START-1 AC15: E2E の サーバー（VITE_START_MENU=off）では、`/`・`/?nosave=1`・`/?seed=3`・`/?char=boy` を 開いても
+ * スタートメニューが 出ず、今と 同じに 遊べる（窓口 start は あるが shown = false、info().from = 'url'）。
+ */
+test('E2E のサーバーでは スタートメニューが 出ない（/・?nosave=1・?seed=3・?char=boy）', async ({ page }) => {
+  test.setTimeout(240_000);
+  for (const q of ['', '?nosave=1', '?seed=3', '?char=boy']) {
+    await page.goto('/' + q);
+    await page.waitForFunction(() => window.__rikkun?.ready === true);
+    const st = await page.evaluate(() => (window.__rikkun as any).start.state());
+    expect(st.shown, `/${q}: メニューが 出ていない`).toBe(false);
+    expect(await page.evaluate(() => (window.__rikkun as any).start.info().from), `/${q}`).toBe('url');
+    await expect(page.getByTestId('start-menu')).toHaveCount(0);
+    await expect(page.locator('#game canvas')).toBeVisible();
+    // 今の 案内画面（クリックして あそぼう）が 出る
+    await expect(page.locator('.play-overlay')).toBeVisible();
+  }
+});

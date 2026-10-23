@@ -1,10 +1,11 @@
 import * as THREE from 'three';
-import type { AnimalView } from '../../contracts';
+import type { AnimalView, CoopInfo, CoopPlacePreview, KitInfo } from '../../contracts';
 import { TILE, TILE_COUNT, type AnimalFx, type ParticleOut } from '../../fx/animalFx';
-import { getChickenModel } from './chickenModel';
+import { MODEL_SCALE, getAnimalModel, modelKindOf, type AnimalModelKind } from './chickenModel';
+import { NEST_EGG_SCALE, getCoopModel, getEggModel, getNestEggsModel } from './coopSpec';
 import { getBugModel } from './bugNetModel';
 import { LAND_TICKS, createPose, poseChicken, type PoseBuf } from './chickenPose';
-import { CHICKEN_SCALE, COL, V } from './chickenSpec';
+import { CHICKEN_BONES, CHICKEN_SCALE, COL, V } from './chickenSpec';
 import type { BuiltModel } from './voxelMesh';
 
 /**
@@ -18,7 +19,18 @@ import type { BuiltModel } from './voxelMesh';
 const D = Math.PI / 180;
 /** 影が 出る にわとり の 数の 上限（InstancedMesh の 大きさ） */
 const MAX_SHADOWS = 64;
-const POINT_CAP = 320;
+const POINT_CAP = 480;
+/** こたつ の たまご を 描く 数の 上限（`kitActiveMax` の 6） */
+const MAX_KIT_EGGS = 6;
+/** 小屋 の 形 は 1/9 点 で 組んだ ので 1/16 で 作った 面 に かける */
+const COOP_SCALE = 16 / 9;
+const KIND_INDEX: Readonly<Record<AnimalModelKind, number>> = { chicken: 0, chick: 1, machoChick: 2, macho: 3 };
+/** 小屋 の むき（0 北 −z・1 東 +x・2 南 +z・3 西 −x）の 回転（もん = −z が その むき） */
+/** こたつ の 中心 から たまご の 中心 まで（ふとん の はし 0.5 の すこし 内がわ。たまご の 前 1/3 が のぞく） */
+const KIT_EGG_OUT = 0.46;
+/** 2×2 の こたつ: 中心 から すそ の たまご まで（すそ は 中心 から 1.0。すこし 内がわ） */
+const KIT_EGG_OUT_BIG = 0.96;
+const COOP_YAW = [0, -Math.PI / 2, Math.PI, Math.PI / 2] as const;
 
 /** 面の 明るさ（動いた あとの 向き: 上 1.0・南北 0.8・東西 0.6・下 0.5）を かける 材料 */
 function shadeMat(): THREE.MeshBasicMaterial {
@@ -72,6 +84,10 @@ const STAR_ROWS = [
   '...XX...',
   '...XX...',
 ];
+
+/** Z（ねて いる）5×6 点・いえ の しるし 6×6 点（屋根 ＋ 家） */
+const Z_ROWS = ['XXXXXX', '...XX.', '..XX..', '.XX...', 'XXXXXX'];
+const HOUSE_ROWS = ['..XX..', '.XXXX.', 'XXXXXX', '.XXXX.', '.XXXX.', '.XXXX.'];
 
 /** つぶの 絵の 並び（左から: 赤ハート・白ハート・星・四角）。1 まい 16×16 × 4 */
 function atlasTexture(): THREE.DataTexture {
@@ -135,6 +151,28 @@ function atlasTexture(): THREE.DataTexture {
       put(TILE.belly, x, y, c);
     }
   }
+  // 1 点 = 2×2。まわり 1 点 の ふち。`fillAt(cy)` = その 行 の 中 の 色
+  const glyph = (tile: number, rows: readonly string[], ox: number, oy: number, fillAt: (cy: number) => number, edge: number): void => {
+    const cell = (cx: number, cy: number): boolean => cy >= 0 && cy < rows.length && cx >= 0 && cx < rows[cy].length && rows[cy][cx] === 'X';
+    for (let cy = -1; cy <= rows.length; cy++) {
+      for (let cx = -1; cx <= 6; cx++) {
+        const isCell = cell(cx, cy);
+        if (!isCell && !(cell(cx - 1, cy) || cell(cx + 1, cy) || cell(cx, cy - 1) || cell(cx, cy + 1))) continue;
+        for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) {
+          const px = ox + cx * 2 + dx;
+          const py = oy + cy * 2 + dy;
+          if (px >= 0 && px < T && py >= 0 && py < T) put(tile, px, py, isCell ? fillAt(cy) : edge);
+        }
+      }
+    }
+  };
+  glyph(TILE.zzz, Z_ROWS, 2, 3, () => 0xeaf2ff, 0x3b4a7a);
+  // いえ の しるし: 下から 1/3・2/3・ぜんぶ うまる（おび の 色 = 木）。うまって いない ぶん は 白
+  const houseFill = (rowsFilled: number) => (cy: number): number => (cy >= HOUSE_ROWS.length - rowsFilled ? 0xe0a050 : 0xfff4e6);
+  glyph(TILE.houseEmpty, HOUSE_ROWS, 2, 2, houseFill(0), 0x5a3a24);
+  glyph(TILE.house1, HOUSE_ROWS, 2, 2, houseFill(2), 0x5a3a24);
+  glyph(TILE.house2, HOUSE_ROWS, 2, 2, houseFill(4), 0x5a3a24);
+  glyph(TILE.house3, HOUSE_ROWS, 2, 2, houseFill(6), 0x5a3a24);
   for (let cy = 0; cy < 8; cy++) for (let cx = 0; cx < 8; cx++) if (STAR_ROWS[cy][cx] === 'X') for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) put(TILE.star, cx * 2 + dx, cy * 2 + dy, 0xffffff);
   for (let y = 2; y < 14; y++) for (let x = 2; x < 14; x++) put(TILE.dot, x, y, 0xffffff);
   const t = new THREE.DataTexture(data, W, T, THREE.RGBAFormat);
@@ -190,7 +228,11 @@ function makePoints(): { points: THREE.Points; out: ParticleOut; attrs: THREE.Bu
 
 interface Entry {
   id: number;
-  mark: boolean;
+  /** 形の 種類 × リボン の ある なし（`kindIndex * 2 + mark`） */
+  key: number;
+  kind: AnimalModelKind;
+  /** 形の 骨 → 動き の 骨 番号 */
+  bmap: Int16Array;
   gen: number;
   root: THREE.Group;
   rig: THREE.Group;
@@ -234,6 +276,33 @@ export interface AnimalRendererOpts {
    * はなれて いれば 3 人称（プレイヤー の 胸 の 前）。なければ いつも カメラ の 前（1 人称）。
    */
   player?: () => { x: number; y: number; z: number } | null;
+  /**
+   * LIVE-2: こたつ の たまご（`forEachKit`）・小屋（`forEachCoop`）の もと。`animals` を そのまま わたす。
+   * なければ こたつ の たまご・小屋 は 描かない。
+   */
+  source?: {
+    forEachKit(fn: (k: KitInfo & { hatchT: number }) => void): void;
+    forEachCoop(fn: (c: CoopInfo) => void): void;
+  };
+  /**
+   * LIVE-2: 小屋 を ここで 描く（1 つ 2 回: 小屋 ＋ すばこ の たまご）。ふだん は false（小屋 は ブロック の 面で 描く。
+   * その ときは すばこ の たまご だけ 描く）。
+   */
+  drawCoops?: boolean;
+}
+
+/** こたつ の たまご 1 つ（根もと で かたむく 入れ物） */
+interface EggProp {
+  root: THREE.Group;
+  tilt: THREE.Group;
+}
+/** 小屋 1 つ */
+interface CoopProp {
+  root: THREE.Group;
+  coop: THREE.Group;
+  nest: THREE.Group;
+  nestMesh: THREE.SkinnedMesh;
+  nestKey: string;
 }
 
 /** だっこ の 置きかた（DESIGN 16.16・LIVE-1 §2.8・AC28） */
@@ -301,6 +370,20 @@ export class AnimalRenderer {
   private readonly v2 = new THREE.Vector3();
   private readonly v3 = new THREE.Vector3();
   private readonly flipY = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
+  // ---- LIVE-2
+  private readonly eggPool: EggProp[][] = [[], [], [], []];
+  private readonly eggUsed = [0, 0, 0, 0];
+  private eggTotal = 0;
+  private readonly coopProps: CoopProp[] = [];
+  private coopUsed = 0;
+  private extraDraws = 0;
+  private extraTris = 0;
+  private motionNow = 1;
+  private readonly camPos = new THREE.Vector3();
+  private ghost: { root: THREE.Group; mat: THREE.MeshBasicMaterial; bad: { value: number } } | null = null;
+  private ghostShown = false;
+  private readonly kitFn = (k: KitInfo & { hatchT: number }): void => this.drawKit(k);
+  private readonly coopFn = (c: CoopInfo): void => this.drawCoop(c);
 
   constructor(private readonly o: AnimalRendererOpts) {
     this.hullMaterial.userData.noDim = true;
@@ -322,10 +405,8 @@ export class AnimalRenderer {
     return this.o.now ? this.o.now() : performance.now();
   }
 
-  private make(mark: boolean): Entry {
-    const pooled = this.pool.findIndex((e) => e.mark === mark);
-    if (pooled >= 0) return this.pool.splice(pooled, 1)[0];
-    const model = getChickenModel(mark);
+  /** 骨つき の 形 を 組む（描く もの は `root` の 中）。小屋・たまご も これ */
+  private rigOf(model: BuiltModel, material: THREE.Material): { root: THREE.Group; rig: THREE.Group; bones: THREE.Bone[]; mesh: THREE.SkinnedMesh; skel: THREE.Skeleton } {
     const root = new THREE.Group();
     const rig = new THREE.Group();
     root.add(rig);
@@ -342,17 +423,27 @@ export class AnimalRenderer {
     });
     rig.updateMatrixWorld(true);
     const skel = new THREE.Skeleton(bones);
-    const mesh = new THREE.SkinnedMesh(model.geo, this.bodyMaterial);
+    const mesh = new THREE.SkinnedMesh(model.geo, material);
     mesh.bind(skel, new THREE.Matrix4());
     mesh.frustumCulled = false;
     mesh.renderOrder = 2;
+    return { root, rig, bones, mesh, skel };
+  }
+
+  private make(kind: AnimalModelKind, mark: boolean): Entry {
+    const key = KIND_INDEX[kind] * 2 + (mark ? 1 : 0);
+    const pooled = this.pool.findIndex((e) => e.key === key);
+    if (pooled >= 0) return this.pool.splice(pooled, 1)[0];
+    const model = getAnimalModel(kind, mark);
+    const { root, rig, bones, mesh, skel } = this.rigOf(model, this.bodyMaterial);
     const hull = new THREE.SkinnedMesh(model.hull, this.hullMaterial);
     hull.bind(skel, new THREE.Matrix4());
     hull.frustumCulled = false;
     hull.renderOrder = 1; // 地面の あと → ふちどり → 体
     hull.visible = false;
     rig.add(mesh, hull);
-    return { id: -1, mark, gen: 0, root, rig, bones, mesh, hull, pose: createPose(), model, flutterOn: false, flutterStart: 0, landStart: -1e12 };
+    const bmap = Int16Array.from(model.names, (n) => (CHICKEN_BONES as readonly string[]).indexOf(n));
+    return { id: -1, key, kind, bmap, gen: 0, root, rig, bones, mesh, hull, pose: createPose(MODEL_SCALE[kind]), model, flutterOn: false, flutterStart: 0, landStart: -1e12 };
   }
 
   private release(e: Entry): void {
@@ -373,13 +464,26 @@ export class AnimalRenderer {
     camera.updateMatrixWorld();
     for (const v of views) {
       let e = this.entries.get(v.id);
-      if (e && e.mark !== v.friend) {
-        this.release(e);
+      const kind = this.kindOf(v);
+      const mark = v.friend || v.home != null || v.stage === 'chick' || v.breed === 'macho';
+      const key = KIND_INDEX[kind] * 2 + (mark ? 1 : 0);
+      let keep: Entry | null = null;
+      if (e && e.key !== key) {
+        keep = e; // パタパタ・着地 の 経過 は ひき つぐ
+        this.entries.delete(v.id);
+        e.root.removeFromParent();
         e = undefined;
       }
       if (!e) {
-        e = this.make(v.friend);
+        e = this.make(kind, mark);
         e.id = v.id;
+        if (keep) {
+          e.flutterOn = keep.flutterOn;
+          e.flutterStart = keep.flutterStart;
+          e.landStart = keep.landStart;
+          keep.id = -1;
+          if (this.pool.length < 16) this.pool.push(keep);
+        }
         this.entries.set(v.id, e);
         this.group.add(e.root);
       }
@@ -403,6 +507,26 @@ export class AnimalRenderer {
       draws++;
       tris += n * 2;
     }
+    // LIVE-2: こたつ の たまご・小屋 の すばこ（ひとつ 1 回）
+    this.extraDraws = 0;
+    this.extraTris = 0;
+    this.motionNow = motion;
+    camera.getWorldPosition(this.camPos);
+    this.eggUsed.fill(0);
+    this.eggTotal = 0;
+    this.coopUsed = 0;
+    if (this.o.source) {
+      this.o.source.forEachKit(this.kitFn);
+      this.o.source.forEachCoop(this.coopFn);
+    }
+    for (let v = 0; v < 4; v++) for (let i = this.eggUsed[v]; i < this.eggPool[v].length; i++) this.eggPool[v][i].root.visible = false;
+    for (let i = this.coopUsed; i < this.coopProps.length; i++) this.coopProps[i].root.visible = false;
+    if (this.ghostShown && this.ghost) {
+      this.extraDraws++;
+      this.extraTris += getCoopModel().tris;
+    }
+    draws += this.extraDraws;
+    tris += this.extraTris;
     // とぶ むし（1 ぴき 1 回）
     const flights = this.o.fx.flights;
     const bugModel = getBugModel();
@@ -448,7 +572,13 @@ export class AnimalRenderer {
       e.root.rotation.set(0, -v.yaw, 0); // ゲームの 向きは −yaw（妖怪と 同じ）
       e.root.position.set(v.x, v.y, v.z);
     }
+    const grow = v.state === 'grow';
     poseChicken(e.pose, {
+      kind: e.kind,
+      hatchT: v.hatchT,
+      growT: v.growT,
+      growFromScale: grow ? MODEL_SCALE[v.breed === 'macho' ? 'machoChick' : 'chick'] : undefined,
+      rollT: v.rollT !== undefined && v.rollT >= 0 && v.rollT < 1 ? v.rollT : undefined,
       state: carried ? 'carried' : v.state,
       stateTicks: v.stateTicks,
       headRelYaw: carried ? 0 : wrapAngle(v.headYaw - v.yaw),
@@ -456,21 +586,210 @@ export class AnimalRenderer {
       fluttering: fl,
       flutterT,
       landT: landT < LAND_TICKS ? landT : -1,
-    });
+    }, MODEL_SCALE[e.kind]);
     const p = e.pose;
     const bones = e.bones;
     const rest = e.model.rest;
+    const bm = e.bmap;
     for (let i = 0; i < bones.length; i++) {
       const b = bones[i];
-      b.position.set(rest[i][0] + p.off[i * 3] * V, rest[i][1] + p.off[i * 3 + 1] * V, rest[i][2] + p.off[i * 3 + 2] * V);
-      b.rotation.set(p.rot[i * 3] * D, p.rot[i * 3 + 1] * D, p.rot[i * 3 + 2] * D);
-      b.scale.set(p.sc[i * 3], p.sc[i * 3 + 1], p.sc[i * 3 + 2]);
+      const j = bm[i] * 3;
+      b.position.set(rest[i][0] + p.off[j] * V, rest[i][1] + p.off[j + 1] * V, rest[i][2] + p.off[j + 2] * V);
+      b.rotation.set(p.rot[j] * D, p.rot[j + 1] * D, p.rot[j + 2] * D);
+      b.scale.set(p.sc[j], p.sc[j + 1], p.sc[j + 2]);
     }
     e.rig.position.y = p.rigY;
     e.rig.scale.set(p.scale[0], p.scale[1], p.scale[2]);
     e.hull.visible = v.targeted && !carried;
     e.root.updateMatrixWorld(true);
     if (carried && !this.carry) this.measureCarry(e, camera);
+  }
+
+  /** 見た目 の 形。大人 に なる 動き の 前半 は ひよこ の 形、半分 を すぎたら 大人 の 形（つなぎめ は ポーズ が そろえる） */
+  private kindOf(v: AnimalView): AnimalModelKind {
+    if (v.state === 'grow') {
+      const t = v.growT ?? v.stateTicks / 60;
+      const macho = v.breed === 'macho';
+      return t >= 0.5 ? (macho ? 'macho' : 'chicken') : macho ? 'machoChick' : 'chick';
+    }
+    return modelKindOf(v.stage, v.breed);
+  }
+
+  /** 静かな 入れ物（たまご・小屋）。骨 1 本 の 形を そのまま 置く */
+  private staticMesh(model: BuiltModel, material: THREE.Material): { root: THREE.Group; mesh: THREE.SkinnedMesh } {
+    const { root, rig, mesh } = this.rigOf(model, material);
+    rig.add(mesh);
+    return { root, mesh };
+  }
+
+  /** こたつ の たまご 1 つ。前（ひび の ある 面）を カメラ に 向け、すそ から のぞく。ゆれ = `left` から（ときどき 600・よく 180 ごと の 12 ステップ） */
+  private drawKit(k: KitInfo & { hatchT: number }): void {
+    if (k.egg === null || this.eggTotal >= MAX_KIT_EGGS) return;
+    const hatching = k.hatchT > 0;
+    if (hatching && k.hatchT >= 20 / 60) return; // ぽんっ で たまご は われて ひよこ に なる
+    const gold = k.egg === 'gold';
+    const cracked = k.wobble === 2;
+    const variant = (gold ? 2 : 0) + (cracked ? 1 : 0);
+    const pool = this.eggPool[variant];
+    let prop = pool[this.eggUsed[variant]];
+    if (!prop) {
+      const m = this.staticMesh(getEggModel(gold, cracked), this.bodyMaterial);
+      const root = new THREE.Group();
+      const tilt = new THREE.Group();
+      tilt.add(m.root);
+      root.add(tilt);
+      this.group.add(root);
+      prop = { root, tilt };
+      pool.push(prop);
+    }
+    this.eggUsed[variant]++;
+    this.eggTotal++;
+    const big = k.size === 2;
+    const cx = k.x + (big ? 1 : 0.5);
+    const cz = k.z + (big ? 1 : 0.5);
+    let ux = this.camPos.x - cx;
+    let uz = this.camPos.z - cz;
+    const len = Math.hypot(ux, uz) || 1;
+    ux /= len;
+    uz /= len;
+    let ex = ux * KIT_EGG_OUT;
+    let ez = uz * KIT_EGG_OUT;
+    if (big) {
+      // 2×2: カメラ に いちばん 向いた 辺 の すそ から のぞく（辺 に そって すこし ずれる）
+      const out = KIT_EGG_OUT_BIG;
+      if (Math.abs(ux) >= Math.abs(uz)) {
+        ex = Math.sign(ux || 1) * out;
+        ez = Math.max(-0.6, Math.min(0.6, (uz / Math.abs(ux || 1)) * out));
+      } else {
+        ez = Math.sign(uz || 1) * out;
+        ex = Math.max(-0.6, Math.min(0.6, (ux / Math.abs(uz || 1)) * out));
+      }
+    }
+    prop.root.visible = true;
+    prop.root.position.set(cx + ex, k.y, cz + ez);
+    prop.root.rotation.set(0, Math.atan2(-ux, -uz), 0);
+    prop.root.scale.setScalar(V * 16);
+    // かたむき
+    let tilt = 0;
+    if (this.motionNow > 0) {
+      if (hatching) tilt = 14 * Math.sin(k.hatchT * 60 * 1.4);
+      else if (k.wobble > 0) {
+        const period = k.wobble === 2 ? 180 : 600;
+        const u = 11 - (k.left % period);
+        if (u >= 0 && u < 12) tilt = (k.wobble === 2 ? 7 : 10) * Math.sin((2 * Math.PI * u * (k.wobble === 2 ? 2 : 1)) / 12);
+      }
+    }
+    prop.tilt.rotation.set(0, 0, tilt * D);
+    this.extraDraws++;
+    this.extraTris += getEggModel(gold, cracked).tris;
+  }
+
+  /** 小屋 1 つ。すばこ の たまご は いつも、小屋 の 形 は `drawCoops` の とき だけ */
+  private drawCoop(c: CoopInfo): void {
+    const total = c.nest.egg + c.nest.gold;
+    const drawBody = this.o.drawCoops === true;
+    if (!drawBody && total <= 0) return;
+    let prop = this.coopProps[this.coopUsed];
+    if (!prop) {
+      const root = new THREE.Group();
+      const coop = this.staticMesh(getCoopModel(), this.bodyMaterial);
+      coop.root.scale.setScalar(COOP_SCALE);
+      const nest = this.staticMesh(getNestEggsModel(1, 0), this.bodyMaterial);
+      nest.root.scale.setScalar(NEST_EGG_SCALE);
+      root.add(coop.root, nest.root);
+      this.group.add(root);
+      prop = { root, coop: coop.root, nest: nest.root, nestMesh: nest.mesh, nestKey: '' };
+      this.coopProps.push(prop);
+    }
+    this.coopUsed++;
+    prop.root.visible = true;
+    prop.root.position.set(c.x + 0.5, c.y, c.z + 0.5);
+    prop.root.rotation.set(0, COOP_YAW[c.dir], 0);
+    prop.coop.visible = drawBody;
+    if (drawBody) {
+      this.extraDraws++;
+      this.extraTris += getCoopModel().tris;
+    }
+    prop.nest.visible = total > 0;
+    if (total > 0) {
+      const nm = getNestEggsModel(c.nest.egg, c.nest.gold);
+      const key = `${c.nest.egg}:${c.nest.gold}`;
+      if (prop.nestKey !== key) {
+        prop.nestMesh.geometry = nm.geo;
+        prop.nestKey = key;
+      }
+      this.extraDraws++;
+      this.extraTris += nm.tris;
+    }
+  }
+
+  /** 置く 前 の すけた 形 の 材料（入る = 白、入らない = 赤 の ななめ しま）。小屋 と こたつ で 同じ */
+  private makeGhostMat(skinned = true): { mat: THREE.MeshBasicMaterial; bad: { value: number } } {
+      const bad = { value: 0 };
+      const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.4, depthWrite: false, fog: false });
+      mat.userData.noDim = true;
+      mat.onBeforeCompile = (sh) => {
+        sh.uniforms.uBad = bad;
+        sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vGhostW;\nvarying float vGhostS;').replace('#include <project_vertex>', '#include <project_vertex>\nvGhostW = (modelMatrix * vec4(transformed, 1.0)).xyz;\nvGhostS = 0.7 + 0.3 * normalize(mat3(modelMatrix) * ' + (skinned ? 'objectNormal' : 'normal') + ').y;');
+        sh.fragmentShader = sh.fragmentShader
+          .replace('#include <common>', '#include <common>\nvarying vec3 vGhostW;\nvarying float vGhostS;\nuniform float uBad;')
+          .replace('#include <color_fragment>', '#include <color_fragment>\n diffuseColor.rgb *= vGhostS;\n if (uBad > 0.5 && fract((vGhostW.x + vGhostW.z - vGhostW.y) * 3.0) < 0.5) discard;');
+      };
+    return { mat, bad };
+  }
+
+  private kitGhost: { mesh: THREE.Mesh; mat: THREE.MeshBasicMaterial; bad: { value: number } } | null = null;
+
+  /** 置く 前 の すけた こたつ（2×2×1 の 箱）。毎フレーム 呼ぶ（`null` で 消える）。(x, z) = 北西 の マス */
+  setKitGhost(pv: { x: number; y: number; z: number; ok: boolean } | null): void {
+    if (!pv) {
+      if (this.kitGhost) this.kitGhost.mesh.visible = false;
+      return;
+    }
+    if (!this.kitGhost) {
+      const { mat, bad } = this.makeGhostMat(false); // 骨 の ない 箱 は objectNormal が 無い ので normal を 使う
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(2, 1, 2), mat);
+      mesh.renderOrder = 5;
+      mesh.frustumCulled = false;
+      this.group.add(mesh);
+      this.kitGhost = { mesh, mat, bad };
+    }
+    const g = this.kitGhost;
+    g.bad.value = pv.ok ? 0 : 1;
+    g.mat.color.setHex(pv.ok ? 0xffffff : 0xe8554a);
+    g.mat.opacity = pv.ok ? 0.4 : 0.35;
+    g.mesh.visible = true;
+    g.mesh.position.set(pv.x + 1, pv.y + 0.5, pv.z + 1);
+  }
+
+  /**
+   * 置く 前 の すけた 小屋（§2.3 10a）。毎フレーム 呼ぶ（`null` で 消える）。入る = 白 40%、入らない = 赤 35% の ななめ しま。
+   * 位置 は `previewCoop()` の 答え（ずらし 後）。
+   */
+  setCoopGhost(pv: CoopPlacePreview | null): void {
+    if (!pv) {
+      this.ghostShown = false;
+      if (this.ghost) this.ghost.root.visible = false;
+      return;
+    }
+    if (!this.ghost) {
+      const { mat, bad } = this.makeGhostMat();
+      const root = new THREE.Group();
+      const m = this.staticMesh(getCoopModel(), mat);
+      m.root.scale.setScalar(COOP_SCALE);
+      m.mesh.renderOrder = 5;
+      root.add(m.root);
+      this.group.add(root);
+      this.ghost = { root, mat, bad };
+    }
+    const g = this.ghost;
+    g.bad.value = pv.ok ? 0 : 1;
+    g.mat.color.setHex(pv.ok ? 0xffffff : 0xe8554a);
+    g.mat.opacity = pv.ok ? 0.4 : 0.35;
+    g.root.visible = true;
+    g.root.position.set(pv.x + 0.5, pv.y, pv.z + 0.5);
+    g.root.rotation.set(0, COOP_YAW[pv.dir], 0);
+    this.ghostShown = true;
   }
 
   /** だっこ 中の 置き場所（§2.8・AC28）。1 人称 = カメラ の 前 の 画面 の 下 25%、3 人称 = プレイヤー の 胸 の 前 */
@@ -579,6 +898,11 @@ export class AnimalRenderer {
     (this.pts.points.material as THREE.Material).dispose();
     this.bodyMaterial.dispose();
     this.hullMaterial.dispose();
+    this.ghost?.mat.dispose();
+    if (this.kitGhost) {
+      this.kitGhost.mat.dispose();
+      this.kitGhost.mesh.geometry.dispose();
+    }
     this.group.removeFromParent();
   }
 }

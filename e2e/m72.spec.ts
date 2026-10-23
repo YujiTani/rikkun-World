@@ -987,7 +987,7 @@ test.describe('M7-2 画面', () => {
         return {
           open: ui.panelVisible,
           cards: ids.length,
-          tail: ids.slice(-8, -5),
+          tail: ids.slice(-10, -7),
           tiles: ui.tiles.length,
           cols: new Set(Object.values(ui.tileRects).map((r: any) => Math.round(r.x))).size,
           over,
@@ -997,7 +997,7 @@ test.describe('M7-2 画面', () => {
         };
       });
       expect(r.open).toBe(true);
-      expect(r.cards).toBe(34); // LIVE-1 版 3: mushi_ami が いちばん うしろに ふえた
+      expect(r.cards).toBe(36); // LIVE-1 版 3: mushi_ami、LIVE-2: nukunuku・toriya が いちばん うしろに ふえた
       expect(r.tail).toEqual(['long_watering_can', 'sprinkler', 'bucket']);
       expect(r.over).toBe(0);
       expect(r.sw).toBeLessThanOrEqual(0);
@@ -1031,7 +1031,7 @@ test.describe('M7-2 画面', () => {
     expect(made.stats).toEqual([1, 1, 1]);
   });
 
-  test('AC25 本「そだてる」: 12 こ・ふりがな・字 24px 以上・本の中に 入る（BOOK-1 で 11 → 12）', async ({ page }) => {
+  test('AC25 本「そだてる」: 1 見開き 12 こ・ふりがな・字 24px 以上・本の中に 入る（BOOK-1 で 11 → 12）', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 720 });
     await open(page);
     await page.evaluate(() => {
@@ -1059,9 +1059,11 @@ test.describe('M7-2 画面', () => {
       return { lock: h.lock.get(), fs, outside, bad };
     });
     expect(r.lock.guideTab).toBe('grow');
-    expect(r.lock.guideItems).toBe(12);
-    expect(r.lock.bookLinks.length).toBe(12);
-    expect(r.fs.length).toBe(12);
+    // 項目は 週ごとに ふえる（10/19 で 15）。1 見開きに 出るのは 12 こまで（BOOK-1 §2.6）
+    expect(r.lock.guideItems).toBeGreaterThanOrEqual(12);
+    const shown = Math.min(r.lock.guideItems, 12);
+    expect(r.lock.bookLinks.length).toBe(shown);
+    expect(r.fs.length).toBe(shown);
     expect(Math.min(...r.fs)).toBeGreaterThanOrEqual(24);
     expect(r.outside).toBe(0);
     expect(r.bad).toEqual([]);

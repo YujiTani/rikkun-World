@@ -203,6 +203,9 @@ describe('CALM 基準 5: 変えない絵は 1 画素も変わらない', () => {
     // VOX-I-1（#184・PR #197）で足した 12 の国の絵。CALM のあとにできたので、ここでは今の絵を守るだけ（おさえるかは #185 で決める）
     bamboo: 'ef3e0bda', flower_o: '2fbe135', flower_p: '7f48c5f5', flower_y: 'e647bd15',
     matsu_leaves: '999c00a4', momiji_leaves: '2d272416', snow: 'b5d0ee8f', susuki: '58e578b5',
+    // LIVE-2（こたつ・とりごや。ふつうの 絵。今の 絵を 守るだけ）
+    kotatsu_top: '578c39f9', kotatsu_side: '35a80286', toriya_fence_top: 'cf2081e5', toriya_fence_side: 'fb229365', toriya_gate: '211cc5d6',
+    toriya_nest_roof: '640edfc5', toriya_nest_side: 'dd4aaae5', toriya_box_top: 'ff2119f1', toriya_box_side: '435e773b',
   };
   const fnv = (px: readonly Rgba[]) => {
     let x = 2166136261;
@@ -211,7 +214,9 @@ describe('CALM 基準 5: 変えない絵は 1 画素も変わらない', () => {
   };
   it('おさえる絵と farmland の横 4 枚以外は、全部この表にある', () => {
     const skip = new Set([...Object.keys(CALMED), 'farmland_side', 'farmland_wet_side']);
-    expect(TILE_NAMES.filter((n) => !skip.has(n)).sort()).toEqual(Object.keys(HASH).sort());
+    // こたつ 2×2 の 新しい 絵（ふとん・角・天板 の 切れ はし・すきま）は kotatsu.test.ts で 調べる
+    const kotatsuNew = (n: string) => /^kotatsu_(slope|corner|top_|pad)/.test(n);
+    expect(TILE_NAMES.filter((n) => !skip.has(n) && !kotatsuNew(n)).sort()).toEqual(Object.keys(HASH).sort());
   });
   for (const [name, h] of Object.entries(HASH)) {
     it(name, () => expect(fnv(getTilePixels(name as TileName))).toBe(h));

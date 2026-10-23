@@ -5,6 +5,8 @@ import { AIR, BLOCK_TYPES, WATER, isCrossIndex, isOpaqueIndex, isTorchIndex, isW
 import type { TileName } from '../../blocks/textures';
 import type { WorldLight } from '../../light/WorldLight';
 import type { ArrayVoxelWorld } from '../../VoxelWorld';
+import { isKotatsuBlock } from '../../blocks/kotatsu';
+import { pushKotatsuCell } from '../kotatsuMesh';
 import { FACES, LIGHT_MAX, RIPE_FLAG, TILE_UV, crossTileName, emptyMesh, pushCross, pushFace, pushTorch, type MeshData } from '../meshChunk';
 
 /**
@@ -56,6 +58,7 @@ export function meshSectionExtras(
           );
           continue;
         }
+        if (isKotatsuBlock(BLOCK_TYPES[b].id) && pushKotatsuCell(opaque, world, light, x, y, z, BLOCK_TYPES[b].id)) continue;
         const isWater = b === WATER;
         if (!isWater && hasLook(b)) continue; // 小ブロックの形で描く
         const uv = TILE_UV[b];

@@ -9,6 +9,8 @@ import { findLand, openBooting } from './helpers/stream';
 import { wide } from './helpers/fine';
 import { checkLayout } from './helpers/layoutRules';
 import { checkColors, checkComponents, checkContrast, checkFontSizes, snapshotUi } from './helpers/uiRules';
+import { findUnrubiedKanji } from '../src/ui/text';
+import { makeSavedWorld, openMenu as openStartMenu, pressDigits, tid as startTid, toNewScreen } from './helpers/start';
 
 /**
  * UI 検査ゲート（`npm run check:ui`）。
@@ -579,6 +581,41 @@ SCREENS.push(
   },
 );
 
+/**
+ * START-1 AC12（docs/design/START-1.md §6.1）: スタートメニュー 1 枚目（保存あり・なし）と 2 枚目（おしらせあり・シード 9 けた）。
+ * 世界が まだ ないので `__rikkun.step` は ない（上の 描きなおしは step?.() で とばす）。
+ * 保存の ある 場面は まず メニューの 通しで 保存の ある 世界（seed 1234・やさしい）を 作ってから 読み直す。
+ */
+const START_ROOT1 = '[data-testid="start-menu"]';
+const START_ROOT2 = '[data-testid="start-new-screen"]';
+const startSaved = async (page: Page): Promise<void> => {
+  await makeSavedWorld(page, { digits: '1234', strength: 'easy' });
+  await openStartMenu(page, '?menu=1');
+};
+SCREENS.push(
+  { id: 'start-menu-save', roots: [START_ROOT1], open: startSaved },
+  { id: 'start-menu-nosave', roots: [START_ROOT1], open: (page) => openStartMenu(page, '?menu=1') },
+  {
+    id: 'start-new-existing',
+    roots: [START_ROOT2],
+    open: async (page) => {
+      await startSaved(page);
+      await toNewScreen(page);
+      await pressDigits(page, '1234');
+      await expect(startTid(page, 'start-existing')).toBeVisible();
+    },
+  },
+  {
+    id: 'start-new-nine',
+    roots: [START_ROOT2],
+    open: async (page) => {
+      await openStartMenu(page, '?menu=1');
+      await toNewScreen(page);
+      await pressDigits(page, '999999999');
+    },
+  },
+);
+
 interface Issue {
   kind: string;
   /** 数字を ふくまない 目印（known.json と くらべる） */
@@ -639,6 +676,7 @@ test.describe('UI 検査ゲート', () => {
 
   for (const screen of SCREENS) {
     test(screen.id, async ({ page }) => {
+      if (screen.id.startsWith('start-')) test.setTimeout(240_000); // START-1: 保存の ある 世界を まず 作る 場面がある
       const known = loadKnown();
       mkdirSync(OUT, { recursive: true });
       await page.setViewportSize({ width: SIZES[0].w, height: SIZES[0].h });
@@ -648,7 +686,7 @@ test.describe('UI 検査ゲート', () => {
       for (const s of SIZES) {
         await page.setViewportSize({ width: s.w, height: s.h });
         await page.evaluate((freeze) => {
-          (window.__rikkun as any).step(freeze ? 0 : 2); // step(0) は 進めずに 描きなおす
+          (window.__rikkun as any).step?.(freeze ? 0 : 2); // step(0) は 進めずに 描きなおす（START-1: スタートメニューは 世界が まだ なく step が ない）
           return new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
         }, !!screen.freeze);
         rootsSeen += await page.evaluate((sels) => sels.filter((q) => document.querySelector(q)).length, screen.roots);
@@ -1007,4 +1045,83 @@ test('道具が わるい例を 見つける', async ({ page }) => {
   has(/^small button#small/);
   has(/^wrap button#wrap/);
   expect(kinds.filter((k) => k.includes('した') || k.includes('スクロール')), 'スクロールで見られる物は 出さない').toEqual([]);
+});
+
+/**
+ * START-1 AC12: パネルの はば 648 ±4・上下 まん中 ±4・はみ出さない・押せる物は 高さ 64 以上・字は ひらがな・カタカナ・数字だけ・
+ * えらんだ物と ほかの物の 地の 色が ちがう（3 つの 大きさ）。パネル = data-testid の 要素そのもの（仕様 §3.3）。
+ * 高さは §3.3 の 536（1 枚目）・588（2 枚目）に ±8（絵文字の 行の 高さで ゆれる 分）。
+ */
+test('START-1 AC12: スタートメニューの 位置・大きさ・字・えらんだ物の 色（3 つの 大きさ）', async ({ page }) => {
+  test.setTimeout(300_000);
+  mkdirSync(OUT, { recursive: true });
+  await page.setViewportSize({ width: SIZES[0].w, height: SIZES[0].h });
+  await makeSavedWorld(page, { digits: '1234', strength: 'easy' });
+  await openStartMenu(page, '?menu=1');
+
+  const SYMBOLS = /[\p{Extended_Pictographic}\uFE0F\u200D▶◀⌫✦✨]/gu;
+  const OK_TEXT = /^[ぁ-ゟ゠-ヿー0-9、。！？・,.\s]*$/;
+  const groups = ['start-char-', 'start-weight-', 'start-strength-'];
+
+  const measure = (panelId: string, wantH: number) => async (size: { w: number; h: number }) => {
+    await page.setViewportSize({ width: size.w, height: size.h });
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    const m = await page.evaluate(
+      ({ panelId, groups }) => {
+        const panel = document.querySelector(`[data-testid="${panelId}"]`) as HTMLElement;
+        const b = panel.getBoundingClientRect();
+        const small = [...panel.querySelectorAll<HTMLElement>('button')]
+          .filter((e) => e.getBoundingClientRect().width > 0)
+          .map((e) => ({ id: e.getAttribute('data-testid') ?? e.textContent ?? '', h: e.getBoundingClientRect().height }))
+          .filter((e) => e.h < 64);
+        const outside = [...panel.querySelectorAll<HTMLElement>('button, [data-testid]')]
+          .map((e) => ({ id: e.getAttribute('data-testid') ?? '', r: e.getBoundingClientRect() }))
+          .filter(({ r }) => r.width > 0 && (r.left < -0.5 || r.top < -0.5 || r.right > innerWidth + 0.5 || r.bottom > innerHeight + 0.5))
+          .map((e) => e.id);
+        const sig = (e: Element) => {
+          const c = getComputedStyle(e);
+          return [c.backgroundColor, c.backgroundImage, c.borderTopColor].join('|');
+        };
+        const diffs: string[] = [];
+        for (const g of groups) {
+          const els = [...panel.querySelectorAll<HTMLElement>(`[data-testid^="${g}"]`)].filter((e) => e.getAttribute('aria-pressed') !== null);
+          const on = els.filter((e) => e.getAttribute('aria-pressed') === 'true');
+          const off = els.filter((e) => e.getAttribute('aria-pressed') === 'false');
+          if (els.length && on.length !== 1) diffs.push(`${g}: aria-pressed=true が ${on.length} こ`);
+          for (const o of off) if (on[0] && sig(o) === sig(on[0])) diffs.push(`${g}: ${o.getAttribute('data-testid')} の 地の 色が えらんだ物と 同じ`);
+        }
+        return { left: b.left, top: b.top, w: b.width, h: b.height, vw: innerWidth, vh: innerHeight, small, outside, diffs, text: panel.textContent ?? '', html: panel.innerHTML, scrollW: panel.scrollWidth, clientW: panel.clientWidth };
+      },
+      { panelId, groups },
+    );
+    const where = `${panelId} ${size.w}×${size.h}`;
+    expect(Math.abs(m.w - 648), `${where}: パネルの はば ${m.w}`).toBeLessThanOrEqual(4);
+    expect(Math.abs(m.left - (m.vw - m.w) / 2), `${where}: 左右 まん中 (left ${m.left})`).toBeLessThanOrEqual(4);
+    expect(Math.abs(m.top - (m.vh - m.h) / 2), `${where}: 上下 まん中 (top ${m.top}, h ${m.h})`).toBeLessThanOrEqual(4);
+    expect(Math.abs(m.h - wantH), `${where}: 高さ ${m.h}（${wantH} のはず）`).toBeLessThanOrEqual(8);
+    expect(m.small, `${where}: 高さ 64 未満の ボタン`).toEqual([]);
+    expect(m.outside, `${where}: 画面から はみ出す`).toEqual([]);
+    expect(m.diffs, `${where}: えらんだ物の 色`).toEqual([]);
+    expect(findUnrubiedKanji(m.html), `${where}: 漢字`).toEqual([]);
+    expect(m.text.replace(SYMBOLS, '').replace(/\s+/g, ' '), `${where}: ひらがな・カタカナ・数字 いがいの 字`).toMatch(OK_TEXT);
+  };
+
+  const first = measure('start-menu', 536);
+  for (const s of SIZES) await first(s);
+
+  await page.setViewportSize({ width: SIZES[0].w, height: SIZES[0].h });
+  await toNewScreen(page);
+  await pressDigits(page, '1234');
+  await expect(startTid(page, 'start-existing')).toBeVisible();
+  const second = measure('start-new-screen', 588);
+  for (const s of SIZES) await second(s);
+
+  // シード 9 けた: まどに 入りきり、パネルも かわらない
+  for (let i = 0; i < 4; i++) await startTid(page, 'start-key-back').click();
+  await pressDigits(page, '999999999');
+  for (const s of SIZES) {
+    await second(s);
+    const fits = await startTid(page, 'start-seed').evaluate((el) => el.scrollWidth <= el.clientWidth + 1);
+    expect(fits, `${s.w}×${s.h}: シード 9 けたが まどに 入る`).toBe(true);
+  }
 });

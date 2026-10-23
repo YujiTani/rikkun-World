@@ -20,6 +20,7 @@ model: sonnet
    - `window.__rikkun` で一時停止・コマ送り（`step`）して、結果がぶれないようにする。
    - 見た目に関わる基準はスクショを撮って画像を見て確かめる。スクショは `test-shots/`（git に入らない）に保存し、コミットしない（#157）。
    - オーナーに見せるスクショは project files の `shots/<ID>/` に写し、レポートと PR にはそのパスを書く。
+   - **E2E は時間（ms）で合否を決めない**（#255・#130）。測るなら記録だけ（console・annotation）。重さは「仕事の数」と「その機能なしとくらべた描画回数・三角形のふえ」で見る。仕様に ms の上限があったらデザインへ差し戻す。`check:fast` の `src/debug/e2eNoTime.test.ts` が見張る（ゲームの中の時間で ms を見るときだけ、その行に `// 時間でない` を書く）。
    - 必要な操作口が `window.__rikkun` にない場合は、不具合チケットとして開発に依頼する（自分で `src/` を直さない）。
 3. 回すのは **新しい受け入れ基準の spec と smoke だけ**。全部の E2E は PR の CI（GitHub Actions）が回すので、自分では回さない。CI が落ちたら、落ちたテストの名前とログだけ読む。性能に関係する変更なら `npm run perf` も回す。
 4. レポートを `docs/test-reports/<ID>.md` に書く（テンプレート: `docs/test-reports/_template.md`）。

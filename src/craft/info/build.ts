@@ -8,7 +8,7 @@ import { itemClassOf } from '../../tools/durability';
 import { YOKAI_DROPS } from '../../yokai/ai/config';
 import { CRAFT_DEFAULTS } from '../config';
 import { ALL_RECIPES } from '../recipes';
-import { ARMOR_KIND, CLASS_TEXT, EGG_SOURCE, ITEM_INFO, MUSHI_SOURCE, ORB_SOURCE, STAT_MAX, YOKAI_NAME, type ButtonKey } from './table';
+import { ARMOR_KIND, CLASS_TEXT, EGG_SOURCE, ITEM_INFO, KIN_TAMAGO_SOURCE, MUSHI_SOURCE, ORB_SOURCE, STAT_MAX, YOKAI_NAME, type ButtonKey } from './table';
 
 export interface StatRow {
   key: string;
@@ -125,6 +125,7 @@ export function createItemInfo(d: InfoDeps): ItemInfoSource {
   const sourceText = (item: ItemId, n: InfoNumbers): string => {
     if (item === 'yokai_orb') return ORB_SOURCE;
     if (item === 'egg') return EGG_SOURCE;
+    if (item === 'kin_tamago') return KIN_TAMAGO_SOURCE;
     if (item === 'mushi') return MUSHI_SOURCE;
     const parts: string[] = [];
     const row = ITEM_INFO[item];

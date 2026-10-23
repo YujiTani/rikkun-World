@@ -109,6 +109,10 @@ const LIVE_ITEMS: readonly ItemType[] = [
   // 版 3.2（§4.2）: むし（えさ。上限は やさい と 同じ）・むしとりあみ（1 本。こわれない）
   { id: 'mushi', name: 'むし', maxStack: BLOCK_MAX_STACK, placeBlock: null },
   { id: 'mushi_ami', name: 'むしとりあみ', maxStack: 1, placeBlock: null },
+  // LIVE-2（§4.2。mushi_ami の うしろ）: こたつ（ブロック。id は nukunuku のまま）・とりごや（5×5 の 小屋 を 置く。ブロック では ない）・きん の たまご
+  { id: 'nukunuku', name: 'こたつ', maxStack: BLOCK_MAX_STACK, placeBlock: 'nukunuku' },
+  { id: 'toriya', name: 'とりごや', maxStack: 1, placeBlock: null },
+  { id: 'kin_tamago', name: 'きん の たまご', maxStack: BLOCK_MAX_STACK, placeBlock: null },
 ];
 
 /** WEAPON-7: レジェンダリー武器（ヌシが おとす。名前は ［漢字｜よみ］ — src/ui/text.ts の withRuby で 画面に 出す） */
