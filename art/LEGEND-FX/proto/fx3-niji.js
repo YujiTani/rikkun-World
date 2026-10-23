@@ -18,7 +18,7 @@ function prism(P, pts, wf, a = 1, alphaFn = null, halo = false) {
 }
 const dotRound = (P, p, r, hex, a = 1) => { P.disc(p, r + DOT * .5, EDGE, a * .8, false, 8); P.disc(p, r, hex, a, false, 8); };
 export const makeNJ = (glow) => ({
-  life: 24, pre: 8,
+  life: 36, pre: 8,
   draw(P, E, T, i) {
     const L = E.L, A = T - L, idx = E.idx, st = idx + 1, C = V(0, 1.1, lunge(i) + .15);
     // ① 刀身が プリズムの にじ色に 光る
@@ -29,12 +29,17 @@ export const makeNJ = (glow) => ({
       P.sprite(starTex('#FFE66B', 2), end, .5, a0);
       for (let q = 0; q < 4; q++) { const f = (H(q, 8) + T * .09 * (1 + q * .2)) % 1, p = base.clone().lerp(end, f); P.sprite(starTex(q % 2 ? '#FFFFFF' : SPEC[(q * 2 + T) % 7 | 0], 1 + (q + T) % 2), p, .16 + .08 * H(q, 9), a0); }
     }
-    // ② わざの終わり: 刀の先に 太陽の フレア（白い 玉＋放射状の すじ＋光の輪＋ 一直線に ならぶ 丸い 光）
-    const t = T - L;
-    if (t >= -1 && t <= 15) {
-      const sw = swordWorld(Math.max(0, i - (T - L))), dd = sw.tip.clone().sub(sw.base).normalize(), O = sw.tip.clone().addScaledVector(dd, .25);
-      const S = [.5, .75, 1.05][idx], grow = easeOut(clamp((t + 1) / 5)), fade = t > 7 ? 1 - (t - 7) / 8 : 1, g = grow * S;
-      const nr = [12, 20, 34][idx];
+    // ② わざの終わり: 刀の通り道に フレアが 順に 1・2・3 つ（ずらして、大きさも ばらばら）
+    const nF = idx + 1, mult = [[1], [1, .65], [.5, .85, .65]][idx], perm = (idx === 2 ? [[0, 2, 1], [1, 0, 2], [2, 1, 0], [1, 2, 0]][Math.floor(H(E.seed, 31) * 4)] : idx === 1 ? (H(E.seed, 32) > .5 ? [0, 1] : [1, 0]) : [0]);
+    let dly = 0;
+    for (let f = 0; f < nF; f++) {
+      if (f > 0) dly += 4 + Math.floor(H(E.seed, f, 33 + idx) * 5);
+      const t = T - L - dly, m = mult[perm[f]];
+      if (t < -1 || t > 15) continue;
+      const back = f === 0 ? 0 : 3 + Math.floor(H(E.seed, f, 35 + idx) * 7), sw = swordWorld(Math.max(0, i - (T - L) - back)), dd = sw.tip.clone().sub(sw.base).normalize();
+      const O = sw.tip.clone().addScaledVector(dd, .25).addScaledVector(P.camR, (H(E.seed, f, 36) - .5) * .3 * (f > 0)).addScaledVector(P.camU, (H(E.seed, f, 37) - .5) * .3 * (f > 0));
+      const S = [.6, .85, .95][idx] * m * clamp(O.distanceTo(P.eye) / 3.3, .4, 1) * (f === 0 && idx === 0 ? .85 : 1), grow = easeOut(clamp((t + 1) / 5)), fade = t > 7 ? 1 - (t - 7) / 8 : 1, g = grow * S;
+      const nr = Math.round([12, 18, 26][idx] * (.6 + .4 * m));
       for (let q = 0; q < nr; q++) {
         const th = q / nr * 6.283 + H(q, 1) * .12, d = camDir(P, th), long = q % 2 === 0, len = (long ? 1.0 + .6 * H(q, 2) : .45 + .25 * H(q, 3)) * g, r0 = .08 * S, hue = SPEC[q % 7];
         const pts = [O.clone().addScaledVector(d, r0), O.clone().addScaledVector(d, r0 + len * .5), O.clone().addScaledVector(d, r0 + len)];
@@ -45,23 +50,23 @@ export const makeNJ = (glow) => ({
       if (glow) { P.add(true); P.disc(O, 1.0 * g, '#FFFFFF', .28 * fade, true, 20); for (let j = 0; j < 7; j++) P.disc(O, (.5 + j * .1) * g * 1.15, SPEC[j], .2 * fade, true, 18); P.disc(O, .45 * g, '#FFFFFF', .7 * fade, true, 18); P.add(false); }
       P.add(true); P.disc(O, .22 * g + .03, '#FFFFFF', .95 * fade, true, 16); P.disc(O, .55 * g, '#BFD8FF', .35 * fade, true, 18); P.add(false);
       // 光の輪（にじ色）
-      const nrg = idx === 2 ? 2 : idx === 1 ? 1 : 0;
+      const nrg = idx === 0 ? 0 : m > 1 ? 2 : 1;
       for (let k = 0; k < nrg; k++) {
         const R = (.4 + k * .3) * g, pts = []; for (let q = 0; q <= 40; q++) pts.push(O.clone().addScaledVector(camDir(P, q / 40 * 6.283), R));
         P.ribbon(pts, DOT * 3.2, EDGE, .6 * fade * (1 - k * .2));
         for (let j = 0; j < 7; j++) { const rr = R + (j - 3) * DOT * .9, pp = []; for (let q = 0; q <= 40; q++) pp.push(O.clone().addScaledVector(camDir(P, q / 40 * 6.283), rr)); P.ribbon(pp, DOT * 1.1, SPEC[j], .9 * fade); }
       }
       // レンズフレア: 画面の 一直線に ならぶ 丸い 光
-      const ld = camDir(P, -.55 + idx * .1), no = [3, 5, 8][idx];
+      const ld = camDir(P, -.55 + idx * .1), no = Math.round([3, 4, 6][idx] * (.7 + .3 * m));
       for (let q = 0; q < no; q++) {
         const off = (q - 1) * (.35 + .2 * H(q, 4)) * g * 1.3, rr = (.05 + .09 * H(q, 5)) * (.6 + S * .5);
         dotRound(P, O.clone().addScaledVector(ld, off), rr, SPEC[(q * 2 + 1) % 7], .8 * fade);
         if (q % 2) { P.add(true); P.disc(O.clone().addScaledVector(ld, off), rr * 1.8, '#BFD8FF', .22 * fade, true, 10); P.add(false); }
       }
       // 星くず
-      const nd = [10, 22, 56][idx];
+      const nd = [10, 14, 24][idx];
       for (let q = 0; q < nd; q++) {
-        const th = H(q, 3, E.seed) * 6.283, v = (.3 + 1.1 * H(q, 5)) * S, p = O.clone().addScaledVector(camDir(P, th), v * (1 - Math.exp(-(t + 1) * .3)) + .05).add(V(0, -.02 * t, 0)), a = fade * (.6 + .4 * Math.sin(t + q));
+        const th = H(q, 3, E.seed, f) * 6.283, v = (.3 + 1.1 * H(q, 5)) * S, p = O.clone().addScaledVector(camDir(P, th), v * (1 - Math.exp(-(t + 1) * .3)) + .05).add(V(0, -.02 * t, 0)), a = fade * (.6 + .4 * Math.sin(t + q));
         if (q % 3 === 0) P.sprite(starTex(q % 2 ? '#FFFFFF' : SPEC[q % 7], [0, 1, 2, 1][(Math.floor(t / 2) + q) % 4]), p, .1 + .09 * H(q, 6), a);
         else dotRound(P, p, DOT * (.7 + H(q, 7) * .7), q % 3 ? SPEC[q % 7] : '#FFFFFF', a);
       }
