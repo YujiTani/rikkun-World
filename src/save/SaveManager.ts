@@ -327,7 +327,7 @@ export class SaveManager {
 
   /** 前の保存から何か変わっていれば保存する（ロックが外れたとき・画面を閉じたとき・ページを閉じるとき） */
   saveIfChanged(): void {
-    void this.write(false);
+    void this.write(false, false, false);
   }
 
   /** 毎ステップ呼ぶ。`currentTick` はこのステップが終わったあとの tick */
@@ -386,7 +386,7 @@ export class SaveManager {
 
   /** 捨てる前の保存を すぐ始める（600 ステップを待たない。書いている最中なら 終わってから 次の 1 回） */
   flushNow(): void {
-    void this.write(false);
+    void this.write(false, false, false);
   }
 
   /** 書いている最中のものが 全部終わるまで待つ */
@@ -396,17 +396,19 @@ export class SaveManager {
 
   /** ページを閉じる・かくれるときに保存する。戻り値で解除 */
   bindPageEvents(win: Window, doc: Document): () => void {
-    const onHide = () => {
-      void this.write(false, true);
-      this.writePending();
+    // LIVE-3: いただきます は ページ を 本当に 閉じる（pagehide）ときだけ おわらせる。タブ の きりかえ は 演出 を とめない
+    const onHide = (settle: boolean) => {
+      void this.write(false, true, settle);
+      this.writePending(settle);
     };
+    const onPageHide = () => onHide(true);
     const onVisibility = () => {
-      if (doc.hidden) onHide();
+      if (doc.hidden) onHide(false);
     };
-    win.addEventListener('pagehide', onHide);
+    win.addEventListener('pagehide', onPageHide);
     doc.addEventListener('visibilitychange', onVisibility);
     return () => {
-      win.removeEventListener('pagehide', onHide);
+      win.removeEventListener('pagehide', onPageHide);
       doc.removeEventListener('visibilitychange', onVisibility);
     };
   }
@@ -415,14 +417,14 @@ export class SaveManager {
    * pagehide の保険: まだ IndexedDB に書けていない変更（変えたマスの一覧 + meta）を、同期で localStorage に小さく置く。
    * 次の起動で当てて IndexedDB に書き、消す。入りきらないほど多いときは 置かない（ふつうの保存にたよる）。
    */
-  private writePending(): void {
+  private writePending(settle = true): void {
     const { store, world } = this.d;
     if (!this.on || !store) return;
     try {
       const n = world.changeLogCount();
       if (n === 0 && this.inFlight === 0) return;
       if (n > PENDING_MAX_CELLS || world.changeLogOverflowed()) return;
-      const metaNow = this.makeMeta(true).meta;
+      const metaNow = this.makeMeta(settle).meta;
       const c = this.d.clock;
       const meta: StoredMeta = { ...metaNow, ...(c ? { time: { day: c.day(), dayTick: c.dayTick() } } : {}), tick: this.d.tick() };
       store.setItem(PENDING_KEY, JSON.stringify({ saveId: this.saveId, ids: BLOCK_TYPES.map((t) => t.id), cells: world.changeLogCells(), meta }));

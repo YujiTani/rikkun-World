@@ -1140,6 +1140,7 @@ const inventoryScreen = new InventoryScreen(hud, inventory, screen, () => screen
   onFull: () => notice.showSignal('full'),
   tools: uiTools,
   ui: craftUi,
+  meatHeal: () => live.meatHeal,
   materials: {
     count: (item) => craft.total(item),
     inTansu: (item) => craft.inTansuCount(item),

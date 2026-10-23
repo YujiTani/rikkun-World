@@ -119,6 +119,19 @@ export class CoopMenuModel {
     const eggs = this.eggs;
     const busy = this.busy;
     this.refresh();
+    if (this.page === 'pick' || this.page === 'confirm') {
+      // えらべる 子 は 毎ステップ 読み直す（いなく なった・ふえた 子 を カード に 合わせる）
+      const kids = this.d.meatList(this.coop);
+      if (kids.join(',') !== this.kids.join(',')) {
+        this.kids = kids;
+        if (this.hovered !== null && !kids.includes(this.hovered)) this.hovered = null;
+        if (this.page === 'confirm' && (this.selected === null || !kids.includes(this.selected))) {
+          this.selected = null;
+          this.page = kids.length > 0 ? 'pick' : 'top';
+        } else if (this.page === 'pick' && kids.length === 0) this.page = 'top';
+        this.version++;
+      }
+    }
     if (eggs !== this.eggs || busy !== this.busy) this.version++;
   }
 

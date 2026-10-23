@@ -212,9 +212,10 @@ export const EGG_SOURCE = 'なかま の にわとり が むし を たべて �
 /** 「どこで」の きん の たまご の文（LIVE-2 §3.1） */
 export const KIN_TAMAGO_SOURCE = 'にわとり が ときどき うむ';
 
-/** 「どこで」の むし の文（LIVE-1 版 3.2 §3.1） */
 /** LIVE-3: なま もも にく の 手に入れかた */
 export const MOMO_NAMA_SOURCE = 'とりごや で そだった おとな から';
+
+/** 「どこで」の むし の文（LIVE-1 版 3.2 §3.1） */
 export const MUSHI_SOURCE = 'むしとりあみ で き から とる';
 
 /** 妖怪の名前（ドロップ表の「〇〇 が おとす」） */
