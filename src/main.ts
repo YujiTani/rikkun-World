@@ -69,6 +69,7 @@ import { Book } from './ui/book/Book';
 import { playBook } from './fx/bookSounds';
 import { SEA_Y, WORLD_HEIGHT, WORLD_LIMIT, createM6Settings, createM7Settings, createW2Settings, SEED_ITEM, VEG_ITEM, CROP_KINDS, cropKindOfBlock, type FarmPlacement, type AchievementId, type CombatEvent, type DefeatWith, type DigEvent, type ItemId, type SwingAnim, type YokaiKind } from './contracts';
 import { ACHIEVEMENT_DEFS, AchievementSystem, AchievementsPageModel, createAchievementsHook, type StepContext } from './achievements';
+import { CountryWatch } from './achievements/countryWatch';
 import { CelebrateUi } from './ui/celebrate';
 import { AchievementsPage, achievementArtUrl } from './ui/achievementsPage';
 import { StorageSystem } from './storage/StorageSystem';
@@ -154,6 +155,8 @@ import { PlayOverlay } from './ui/playOverlay';
 import { ArrayVoxelWorld } from './world/VoxelWorld';
 import { GEN_CONFIG } from './world/gen/config';
 import { createBiomeHook } from './world/gen/biomeHook';
+import { heightAt as genHeightAt } from './world/gen/terrain';
+import { peakNear } from './world/gen/peak';
 import { installMicroCountries } from './world/gen/microCountry';
 import { createWorldHook } from './world/hook';
 import { WorldRenderer } from './world/render/WorldRenderer';
@@ -996,6 +999,8 @@ yokaiManager = new YokaiManager({
   drops,
   tick: () => game.tick + 1,
   seed,
+  // COUNTRY-1 §3.3: 妖怪の 種類は その場所の 国の行で えらぶ
+  countryOf: (x, z) => countryAt(seed, Math.floor(x), Math.floor(z)).kind,
   strength: strengthLevel,
   light: renderer.light,
   // 出る場所は 描く輪の メッシュずみの列だけ（VOX-D）
@@ -1379,6 +1384,15 @@ const weaponFx = new WeaponFx({
 // ---- M6: 実績・演出・たんす画面・説明 ----
 const achievements = new AchievementSystem(() => m6);
 achievementsRef = achievements;
+// COUNTRY-1 §4.1: 「国に入った」の 判定（まん中寄りに 180 コマ・地下は 数えない）。入ったら 実績の係へ
+const countryWatch = new CountryWatch({
+  at: (x, z) => countryAt(seed, x, z),
+  heightAt: (x, z) => genHeightAt(seed, x, z),
+  blend: GEN_CONFIG.biome.blend,
+  onEnter: (kind) => {
+    achievements.enterCountry(kind, false);
+  },
+});
 // WEAPON-7: 手に 入れた ことの ある レジェンダリー（もちものに 入った とき。袋を ひろう・テストの add も）。実績 get.* と legend.kinds へ
 const legendBook = new LegendBook((item) => w2.legendary.some((d) => d.item === item));
 inventory.onAdded = (item) => {
@@ -1601,7 +1615,13 @@ const save = new SaveManager({
   level: { serialize: () => level.serialize(), deserialize: (d) => level.deserialize(d) },
   // たんすは ブロックの復元のあとに（SaveManager が その順で呼ぶ）
   storage: { serialize: () => storage.serialize(), deserialize: (d) => storage.deserialize(d) },
-  achievements: { serialize: () => achievements.serialize(), deserialize: (d) => achievements.deserialize(d) },
+  achievements: {
+    serialize: () => achievements.serialize(),
+    deserialize: (d) => {
+      achievements.deserialize(d);
+      countryWatch.reset(); // ロードした直後は 今の国 なし（もう一度 180 コマで 決まる）
+    },
+  },
   animals: {
     // LIVE-3 §4.4: 演出 中 の 子 は その場 で おわらせて から 保存（にく は 持ち物 へ。出来事 は すぐ 配る）
     prepare: () => {
@@ -1818,7 +1838,9 @@ const ctx: StepContext = {
   level: 1,
   armor: [null, null, null, null],
   regions: null,
+  peak: null,
 };
+let peakKey = NaN;
 let yokaiSample: StepContext['yokai'] = [];
 const regions = island.regions();
 const armorNow: (ItemId | null)[] = [null, null, null, null];
@@ -1846,7 +1868,17 @@ function updateAchievements(): void {
   armorNow[3] = armor.equipped('legs');
   ctx.armor = armorNow;
   ctx.regions = regions;
-  if (!achMuted) achievements.update(ctx);
+  // COUNTRY-1 §5.2: てっぺん の 判定の もと（16 ブロックの 升目が かわったときだけ 計算しなおす）
+  const pk = Math.floor(st.position.x / 16) * 100003 + Math.floor(st.position.z / 16);
+  if (pk !== peakKey) {
+    peakKey = pk;
+    ctx.peak = peakNear(seed, Math.floor(st.position.x), Math.floor(st.position.z));
+  }
+  if (!achMuted) {
+    achievements.update(ctx);
+    // COUNTRY-1 §4.1: やられた画面の 間は 数えない（止まっている 間は screenSteps = 0）
+    countryWatch.step(st.position, ctx.dead ? 0 : ctx.screenSteps);
+  }
   celebrate.setPending(achievements.pendingCount());
 }
 
@@ -2315,7 +2347,16 @@ installTestHook(game, overlay, () => host.everReady, {
     renderNow: () => game.renderNow(),
     setEnabled: setShadow,
   }),
-  biome: createBiomeHook({ seed, player: () => controller.state.position }),
+  biome: createBiomeHook({
+    seed,
+    player: () => controller.state.position,
+    countries: {
+      found: () => achievements.found(),
+      setFound: (kinds) => achievements.setFound(kinds),
+      current: () => countryWatch.current(),
+      quiet: (on) => countryWatch.quiet(on),
+    },
+  }),
   world: createWorldHook(world, renderer, island, {
     teleport: (x, z) => host.goTo({ x, y: null, z }, true),
     stream: () => host.info(),

@@ -36,6 +36,8 @@ import { YOKAI_STATS, yokaiStrength, type StrengthLevel } from '../stats';
 import { ANNOUNCE_TICKS, TITLE_RULES, isBigTitle, limitTitle, rollTitle, titleAnnounceText, titleLabel } from '../title';
 import { fallDamage } from '../../combat/config';
 import { createRng, type Rng } from '../../world/gen/random';
+import { COUNTRY_TABLE } from '../../world/gen/countryTable';
+import { YOKAI_ORDER, effectiveRow, pickYokaiKind, weightOf, type YokaiRow } from '../countryPick';
 import { pickNushiDrop, rollPower } from '../../legend/defs';
 import { applyDollBrightness } from './brightness';
 import { AI_CONST, KIND_AI, YOKAI_DROPS, createYokaiConfig, type KindAi, type YokaiConfig } from './config';
@@ -114,6 +116,10 @@ export interface YokaiManagerOptions {
   dome?: () => { x: number; y: number; z: number; r: number } | null;
   /** WEAPON-9: 弾が ドームで 消えた（弾の id） */
   onDomeErase?: (projectileId: number) => void;
+  /** COUNTRY-1 §3.3: (x, z) の 国の kind を 聞く（つなぎ込みは countryAt を わたす。なければ いつも はらっぱ） */
+  countryOf?: (x: number, z: number) => string;
+  /** COUNTRY-1 §3.3: 国の表（kind と 妖怪の重み）。なければ 12 国の表 */
+  countryTable?: readonly { kind: string; yokai: YokaiRow }[];
   /** WEAPON-5: よろけ・2 倍・はね返しが当たった 出来事を パリィの 出来事の 列へ */
   onParryEvent?: (e: { type: 'stagger' | 'staggerDouble' | 'reflectHit'; yokaiId: number; by?: StaggerBy; damage?: number }) => void;
 }
@@ -756,31 +762,31 @@ export class YokaiManager implements YokaiWorld {
     this.trySpawn();
   }
 
-  private pickKind(): YokaiKind | null {
-    const nuri = this.ents.filter((e) => e.kind === 'nurikabe').length;
-    const kinds: YokaiKind[] = ['karakasa', 'chochin', 'rokurokubi', 'nurikabe'];
-    let total = 0;
-    const w: number[] = [];
-    for (const k of kinds) {
-      let v = this.config.yokaiWeights[k] ?? 0;
-      if (k === 'nurikabe' && nuri >= this.config.nurikabeMax) v = 0;
-      w.push(Math.max(0, v));
-      total += Math.max(0, v);
-    }
-    if (total <= 0) return null;
-    let r = this.rng() * total;
-    for (let i = 0; i < kinds.length; i++) {
-      if (r < w[i]!) return kinds[i]!;
-      r -= w[i]!;
-    }
-    return kinds[kinds.length - 1]!;
+  /** COUNTRY-1: その場所の 国の行（行 × 倍率の 合計が 0 なら ものさしの行 = はらっぱ） */
+  private rowAt(x: number, z: number): { country: string; row: YokaiRow } {
+    const table = this.opts.countryTable ?? COUNTRY_TABLE;
+    const country = this.opts.countryOf ? this.opts.countryOf(x, z) : 'harappa';
+    const base = table.find((r) => r.kind === 'harappa')?.yokai ?? {};
+    const row = table.find((r) => r.kind === country)?.yokai ?? {};
+    return { country, row: effectiveRow(row, this.config.yokaiWeights, base) };
+  }
+
+  /** テストの窓口 `yokai.spawnWeights(x, z)`: その場所で 使う 行 × 全体の倍率（ぬりかべ の 同時の数は 入れない） */
+  spawnWeights(x: number, z: number): { country: string; weights: Record<string, number> } {
+    const { country, row } = this.rowAt(x, z);
+    const weights: Record<string, number> = {};
+    for (const k of YOKAI_ORDER) weights[k] = weightOf(row, this.config.yokaiWeights, k);
+    return { country, weights };
+  }
+
+  private countKind(kind: YokaiKind): number {
+    let n = 0;
+    for (const e of this.ents) if (e.kind === kind) n++;
+    return n;
   }
 
   private trySpawn(): void {
     if (this.ents.length >= this.config.yokaiMax) return;
-    const kind = this.pickKind();
-    if (!kind) return;
-    const ai = KIND_AI[kind];
     const night = this.time.phase() === 'night';
     const minD = Math.max(this.config.yokaiSpawnMinDist, this.config.yokaiSpawnNearExclude);
     const maxD = Math.max(minD, this.config.yokaiSpawnMaxDist);
@@ -812,6 +818,11 @@ export class YokaiManager implements YokaiWorld {
       // M5: みず の列（うみ・かわ・いずみ・いけ）には出ない
       if (waterColumn || floors.length === 0) continue;
       const top = floors[Math.floor(this.rng() * floors.length)]!;
+      // COUNTRY-1 §3.3: 場所 → 国 → 種類。種類は その場所の 国の行で えらぶ（だめなら この ためしは しっぱい）
+      const nurikabeFull = this.countKind('nurikabe') >= this.config.nurikabeMax;
+      const kind = pickYokaiKind(this.rowAt(x, z).row, this.config.yokaiWeights, nurikabeFull, this.rng());
+      if (!kind) continue;
+      const ai = KIND_AI[kind];
       const T = groundSupport(this.world, x, z, top, ai);
       if (Number.isNaN(T)) continue;
       // 光の少ない場所だけ: 屋根の下、またはよる

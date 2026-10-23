@@ -20,6 +20,8 @@ export function createAchievementsHook(
       sys.flush();
     },
     reset: () => sys.reset(),
+    /** COUNTRY-1 §8: 古い セーブで 取ってあった ことに する（legacy の 実績だけ。しずかに） */
+    restoreLegacy: (ids: string[]) => sys.restoreLegacy(ids),
     markViewed: (ids: string[]) => sys.markViewed(ids as never),
     ui: () => page.ui(host.inventoryOpen()),
     tab: (name: 'items' | 'achievements' | 'log') => {

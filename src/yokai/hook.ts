@@ -24,6 +24,8 @@ export function createYokaiHook(m: YokaiManager) {
       attackNow: (id: number) => m.attackNow(id),
       /** WEAPON-5: 飛んでいる 火の玉（はね返した分も） */
       fireballList: () => m.fireballList(),
+      /** COUNTRY-1 §8: その場所で 使う 国の行 × 全体の倍率 */
+      spawnWeights: (x: number, z: number) => m.spawnWeights(x, z),
       /** 線にふれる妖怪（テスト用） */
       raycast: (origin: Vec3, dir: Vec3, max: number) => m.raycast(origin, dir, max),
     },
