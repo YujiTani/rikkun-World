@@ -257,8 +257,8 @@ test.describe('LIVE-3 いただきます', () => {
       const { c, f, ids } = L.farm(1);
       const o: any = {};
       L.choose(c, f, ids[0]);
-      L.fill();
-      L.go(199);
+      L.fill(); // 1 ステップ 進む ので 残り 198 で 199 ステップ 目
+      L.go(198);
       o.inv199 = h.inventory.count('momo_nama');
       o.bags199 = A.bags('momo_nama').length;
       L.go(1);

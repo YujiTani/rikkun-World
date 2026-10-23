@@ -63,6 +63,9 @@ test.describe('LIVE-3 やいて たべる', () => {
       h.inventory.add('momo_nama', 1);
       h.inventory.add('coal_ore', 1);
       h.craft.openFurnace(11, 9, 12);
+      h.input.press('toggleInventory'); // 持ち物 を ひらく（craft2 AC7 の openInv と 同じ。ひらかないと click は closed）
+      h.input.release('toggleInventory');
+      h.step(2);
       const o: any = {};
       const list = h.furnace.list();
       o.ids = list.map((c: any) => c.id);
