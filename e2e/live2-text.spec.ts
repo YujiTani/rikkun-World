@@ -3,6 +3,7 @@ import { openAnimals } from './helpers/animals';
 
 /**
  * LIVE-2 文字（docs/design/LIVE-2.md §6 AC25）の 残り 5 つ: 合図 kitMax・kitWait・coopMax・coopFull・sleepHint。
+ * （LIVE-2.1 で kitFull を 足した。合図 10 の 文の 中身は live21-text.spec.ts）
  * （kitNeedEgg・coopNoRoom・coopNoEgg・coopNotEmpty は live2-gold.spec.ts の AC25。合わせて 9 つ）
  * チップ `#animal-hint` が 漢字 0（ルビの 外）・禁止語 0・3 つの 大きさで はみ出し 0px・2 行まで。
  * 案内画面（本）の 3 行・説明の 表は この PR では 作らない（指示: 本の 中身は 別 PR）ので ここでは 見ない。
@@ -10,7 +11,7 @@ import { openAnimals } from './helpers/animals';
 test.describe('LIVE-2 文字（合図 5 つ）', () => {
   test.describe.configure({ timeout: 150_000 });
 
-  test('AC25b 合図 kitMax・kitWait・coopMax・coopFull・sleepHint: 漢字 0・禁止語 0・はみ出し 0px・2 行まで（3 つの 大きさ）', async ({ page }) => {
+  test('AC25b 合図 kitFull・kitMax・kitWait・coopMax・coopFull・sleepHint: 漢字 0・禁止語 0・はみ出し 0px・2 行まで（3 つの 大きさ）', async ({ page }) => {
     await openAnimals(page);
     const sizes = [[1280, 800], [1440, 900], [1024, 700]] as const;
     for (const [w, hgt] of sizes) {
@@ -52,12 +53,20 @@ test.describe('LIVE-2 文字（合図 5 つ）', () => {
             body: document.body.innerText,
           });
         };
-        // kitWait / kitMax
+        // kitFull（LIVE-2.1: 1 台 に 3 こ。4 こ目）
+        const kf = A.kit(8, 2);
+        A.putEgg(kf, 'egg', 1);
+        A.putEgg(kf, 'egg', 1);
+        A.putEgg(kf, 'egg', 1);
+        A.putEgg(kf, 'egg', 1);
+        grab('kitFull');
+        // kitWait（LIVE-2.1: 入って いる 台 に トマト）/ kitMax（たまご 6 こ。ここまで 3 こ）
         const k1 = A.kit(8, 6);
         A.putEgg(k1, 'egg', 1);
-        A.putEgg(k1, 'egg', 1);
+        A.putEgg(k1, 'tomato', 1);
         grab('kitWait');
-        for (const z of [10, 14, 18, 22, 26]) A.putEgg(A.kit(8, z), 'egg', 1);
+        A.putEgg(A.kit(8, 10), 'egg', 2);
+        A.putEgg(A.kit(8, 14), 'egg', 1);
         const k7 = A.kit(8, 30);
         A.putEgg(k7, 'egg', 2);
         grab('kitMax');
@@ -79,7 +88,7 @@ test.describe('LIVE-2 文字（合図 5 つ）', () => {
         const id = A.friend(c.x + 6.5, c.z + 6.5);
         A.stand(id);
         A.lift(id);
-        h.player.set({ position: { x: c.x + 0.5, y: 9, z: c.z + 0.5 }, yaw: 90, pitch: -30 });
+        h.player.set({ position: { x: c.x - 0.5, y: 9, z: c.z + 0.5 }, yaw: 90, pitch: -30 });
         h.step(2);
         A.tap();
         grab('coopFull');
@@ -109,6 +118,7 @@ test.describe('LIVE-2 文字（合図 5 つ）', () => {
       }
       const byName = Object.fromEntries(rows.map((r: any) => [r.name, r.chip.text as string]));
       expect(byName.kitMax).toContain('あたためる');
+      expect(byName.kitFull, 'LIVE-2.1 の 新しい 合図').toContain('いっぱい');
       expect(byName.kitWait).toContain('まってね');
       expect(byName.coopMax).toContain('とりごや');
       expect(byName.coopFull).toContain('いっぱい');
