@@ -35,8 +35,8 @@ export interface WeaponFxDeps {
   onTechHit?: (item: ItemId | null, e: Extract<BladeEvent, { type: 'techHit' }>) => void;
   /** WEAPON-9: わざが やめに なった */
   onBladeCancel?: () => void;
-  /** true なら 刀の 半月の 帯（BladeTrail）を 出さない（白い 斬撃と 置きかえ。2026-10-23） */
-  hideBandTrail?: boolean;
+  /** true を 返す 武器は 刀の 半月の 帯（BladeTrail）を 出さない（レジェンダリーは 白い 斬撃と 置きかえ。2026-10-23） */
+  hideBandTrail?: (item: ItemId | null) => boolean;
   /** WEAPON-9: true を 返すと 今の 刀の 斬撃音(と 段の 音)を 鳴らさない（虹の nijiSlash に 入れかえ）。step = 3 段の 何段目(1〜3) */
   replaceTechSound?: (item: ItemId | null, step: number) => boolean;
   /** たいきゅうの 出来事を 実績へ */
@@ -207,7 +207,7 @@ export class WeaponFx {
 
   // ---- きせき（CHAR-4: 刃先の 通り道の 半月。ふみこみの あと = main の dig.update の あと に 呼ばれる）
   private trailStep(): void {
-    if (this.bladeTrail && this.d.body && !this.d.hideBandTrail) this.bladeTrail.step(this.d.blade.state(), this.d.body());
+    if (this.bladeTrail && this.d.body && !this.d.hideBandTrail?.(this.d.blade.state().item)) this.bladeTrail.step(this.d.blade.state(), this.d.body());
   }
 
   /** 軌跡の ようす（`window.__rikkun.blade.trail()` 用）。体・カメラが なければ null */

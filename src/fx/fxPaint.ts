@@ -56,6 +56,8 @@ export interface BatchOptions {
   maxVerts: number;
   /** 絵の 無地（白）の よこの 位置（0〜1）。絵が ある ときだけ */
   plainU?: number;
+  /** 両面を 1 回で 描く（ふつうは 半透明の 両面は うら・おもての 2 回 描かれる） */
+  singlePass?: boolean;
 }
 
 /** 点列（x, y, z を ならべた 配列）から カメラへ 向く 帯を 作る 時の 入れ物 */
@@ -97,6 +99,7 @@ export class FxBatch {
         blending: o.additive ? THREE.AdditiveBlending : THREE.NormalBlending,
         fog: false,
         toneMapped: false,
+        forceSinglePass: o.singlePass ?? false,
       }),
     );
     this.mesh.frustumCulled = false;

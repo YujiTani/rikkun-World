@@ -147,7 +147,7 @@ test.describe('WEAPON-8 AC16 性能', () => {
     expect(end.points! - base.points, 'ぜんぶ 消えたら 点 0（±1 の ゆれ）').toBeLessThanOrEqual(1);
   });
 
-  test('AC16: K1 の 真空波 8 つの ふえ 描画 2・三角形 32 以下。8 つ ＋ らせん 1 つで エラーなし・らせんの ふえは 同じ・らせんは 8 に 数えない', async ({ page }) => {
+  test('AC16: K1 の 真空波 8 つの ふえ 描画 2 以下・三角形は 風の すじ 8 つぶん（1 つ 400 以下）。8 つ ＋ らせん 1 つで エラーなし・らせんの ふえは 同じ・らせんは 8 に 数えない', async ({ page }) => {
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(e.message));
     page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
@@ -201,7 +201,9 @@ test.describe('WEAPON-8 AC16 性能', () => {
     const none = await rec8(page, 1, undefined, true);
     expect(none[0]!.waves, '真空波は ぜんぶ きえた').toHaveLength(0);
     expect(withoutSpiralCalls - none[0]!.calls!, '8 つ 同時の 描画回数の ふえ').toBeLessThanOrEqual(2);
-    expect(withoutSpiralTri - none[0]!.triangles!, '8 つ 同時の 三角形の ふえ').toBeLessThanOrEqual(32);
+    // 追記 6: 真空波は 風の すじ（旧: みかづきの 板 1 まい = 16）。1 つ 400 以下 × 8
+    expect(withoutSpiralTri - none[0]!.triangles!, '8 つ 同時の 三角形の ふえ').toBeLessThanOrEqual(400 * 8);
+    expect(withoutSpiralTri - none[0]!.triangles!, '風の すじ 8 つぶんの 厚み（板では ない）').toBeGreaterThan(300);
   });
 
   for (const item of [FUJIN, RAIJIN]) {
