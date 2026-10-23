@@ -189,13 +189,13 @@ test.describe('BAL-G 頭の印・ヌシの光（DESIGN 13.2）', () => {
       expect(ta.mark).toBe('hachimaki');
       expect(ta.markOnHead).toBe(true);
       expect(new Set(ta.markColors)).toEqual(new Set([0xfff6e0, 0x3d5a9e]));
-      expect(ta.glow.flames).toBe(3); // たいしょう = 赤い ひとだま
+      expect(ta.glow.flames).toBe(2); // たいしょう = 赤い ひとだま
       const nu = r[`${k}_nushi`];
       expect(nu.mark).toBe('crown');
       expect(nu.markOnHead).toBe(true);
       expect(new Set(nu.markColors)).toEqual(new Set([0xffd23f, 0xd9a520, 0x5fd3ff]));
       expect(nu.glow).not.toBeNull();
-      expect(nu.glow.flames).toBe(3); // 青い ひとだま 3 つ（PROTOTYPE。光の箱は やめた）
+      expect(nu.glow.flames).toBe(2); // 青い ひとだま 3 つ（PROTOTYPE。光の箱は やめた）
     }
     expect(r.nurikabe_nushi.mark).toBe('crown');
     expect(r.nurikabe_nushi.markOnHead).toBe(true);
@@ -218,7 +218,7 @@ test.describe('BAL-G 頭の印・ヌシの光（DESIGN 13.2）', () => {
       const night = h.yokai.marks(id);
       return { day, night };
     });
-    expect(r.night.glow.flames).toBe(3);
+    expect(r.night.glow.flames).toBe(2);
     expect(r.night.glow.color).toBe(0xffffff);
     expect(r.night.markColors.join()).not.toBe(r.day.markColors.join());
   });

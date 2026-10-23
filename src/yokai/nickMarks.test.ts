@@ -53,11 +53,14 @@ describe('頭の印', () => {
 });
 
 describe('ヌシの 青い ひとだま（PROTOTYPE）', () => {
-  it('3 つ・十字の板 2 まいずつ・夜も 暗くしない・うしろを 書かない。固定ステップの 時間だけで 動く', () => {
+  it('2 つ（頭の 左右）・十字の板 2 まいずつ・夜も 暗くしない・うしろを 書かない。固定ステップの 時間だけで 動く', () => {
     const g = createNushiFlames({ width: 2, height: 3, depth: 2 });
     expect(g.children.length).toBe(NUSHI_FLAME.count);
     const mat = (g.children[0]!.children[0] as THREE.Mesh).material as THREE.MeshBasicMaterial;
     expect(g.children[0]!.children.length).toBe(2);
+    expect(g.children[0]!.position.x).toBeLessThan(0); // 左
+    expect(g.children[1]!.position.x).toBeGreaterThan(0); // 右
+    expect(g.children[0]!.position.y).toBeGreaterThan(g.children[1]!.position.y);
     expect(mat.depthWrite).toBe(false);
     expect(mat.transparent).toBe(true);
     expect(mat.userData.skip).toBe(true);

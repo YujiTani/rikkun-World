@@ -83,74 +83,104 @@ export function buildNickMarks(kind: string, title: YokaiTitle): NickMarks | nul
 }
 
 /**
- * ヌシの 青い ひとだま（青い焔）。#270 の つづき（PROTOTYPE）。からだの まわりを 3 つ ゆっくり まわる。
- * ドット絵（12×16）を 十字の板（たて板 2 まい）に はる。ゆれ・まわりは 妖怪の clock（固定ステップの 積み）だけで 決める。
+ * ヌシ（青）・たいしょう（赤）の ひとだま（PROTOTYPE v2）。頭の 左右に 1 つずつ（高さは ちがう）。
+ * ドット絵は 6 コマ（しっぽが 左右に ゆれ、からだが 少し ふくらむ）を 約 9 コマ/秒で まわす。
+ * ゆれ・ういては 妖怪の clock（固定ステップの 積み）だけで 決める。1 つ = 十字（たて板 2 まい）。
  */
 export const NUSHI_FLAME = {
-  count: 3,
-  texW: 12,
-  texH: 16, // FLAME_ROWS の 行数
-  /** 1 周の 秒 */
-  orbitPeriod: 12,
+  count: 2,
+  texW: 14,
+  texH: 20,
+  frames: 6,
+  /** 1 秒に すすむ コマの数 */
+  fps: 9,
   /** うかぶ 上下の 周期（秒） */
-  bobPeriod: 2.4,
-  /** ゆらぎ（ひらべったく のびちぢみ）の 周期（秒） */
-  swayPeriod: 1.7,
+  bobPeriod: 2.6,
 } as const;
 
-// 外ぶち O（こい 青）・うえ a → した d（水色 → あかるい 水色）・渦 s
-const FLAME_ROWS = [
-  '....OO......',
-  '...OaaO.....',
-  '....OaaO....',
-  '.....OaaO...',
-  '.....OabO...',
-  '....OabbO...',
-  '...OabbbbO..',
-  '..ObbbbbbbO.',
-  '.ObbbbbbbbbO',
-  'ObbbbOOObbbO',
-  'ObbbOcccObbO',
-  'ObbcOcOOcOdO',
-  'ObcdOcOcOOdO',
-  'OccdcOcccOdO',
-  '.OddddOOOdO.',
-  '..OOOOOOOO..',
-];
 /** ヌシ = 青、たいしょう = 赤（同じ形。ひと目で ちがいが わかる） */
 export type FlameColor = 'blue' | 'red';
+// O 外ぶち・a 上 → d 下（あかるく）
 const FLAME_PALS: Record<FlameColor, Record<string, number>> = {
   blue: { O: 0x1a7fc0, a: 0x5bc0e0, b: 0x5ccbe8, c: 0x5fd9f0, d: 0x5fe8f5 },
   red: { O: 0xb01e1e, a: 0xe8452a, b: 0xf06a2a, c: 0xf89a30, d: 0xffd04a },
 };
-const flameTex: Partial<Record<FlameColor, THREE.DataTexture>> = {};
-function flameTexture(c: FlameColor): THREE.DataTexture {
-  return (flameTex[c] ??= makePixelTexture(FLAME_ROWS, FLAME_PALS[c]));
+// 渦（からだの 下の まきこみ）の 外ぶち 色の マス（x, y）
+const SWIRL: readonly (readonly [number, number])[] = [
+  [5, 13], [6, 13], [7, 13], [8, 13],
+  [4, 14], [9, 14],
+  [4, 15], [6, 15], [7, 15], [9, 15],
+  [4, 16], [6, 16], [9, 16],
+  [5, 17], [6, 17], [7, 17], [8, 17],
+];
+
+/** ひとだまの ドット絵 1 コマ。細い しっぽが 左右に ゆれる（上ほど 大きく）。しるしは サンプル画像（ほそ長い・うねる しっぽ・下に 渦） */
+export function flameRows(frame: number): string[] {
+  const W = NUSHI_FLAME.texW;
+  const H = NUSHI_FLAME.texH;
+  const ph = (frame / NUSHI_FLAME.frames) * Math.PI * 2;
+  const breath = 0.45 * Math.sin(ph);
+  const g: string[][] = Array.from({ length: H }, () => Array<string>(W).fill('.'));
+  const fillCh = (y: number) => (y < 7 ? 'a' : y < 11 ? 'b' : y < 15 ? 'c' : 'd');
+  for (let y = 1; y <= 18; y++) {
+    let hw: number;
+    let c = 7;
+    if (y <= 10) {
+      const t = (y - 1) / 9; // 0 = 先、1 = くびれの 下
+      hw = 0.55 + 1.9 * t * t;
+      const k = Math.pow(1 - t, 1.3);
+      c += 2.2 * k * Math.sin(ph + y * 0.55) + 1.0 * (1 - t) * (1 - t);
+    } else {
+      const yc = 14.8;
+      const ry = 4.4;
+      const dy = (y - yc) / ry;
+      hw = (5.0 + breath) * Math.sqrt(Math.max(0, 1 - dy * dy));
+      hw = Math.max(hw, y === 11 ? 2.4 : 0);
+    }
+    for (let x = 0; x < W; x++) if (Math.abs(x + 0.5 - c) <= hw) g[y]![x] = fillCh(y);
+  }
+  for (const [x, y] of SWIRL) if (g[y]![x] !== '.') g[y]![x] = 'O';
+  const out = g.map((r) => r.slice());
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      if (g[y]![x] !== '.') continue;
+      const n = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => (g[y! + dy!]?.[x! + dx!] ?? '.') !== '.' && g[y! + dy!]![x! + dx!] !== 'O');
+      if (n) out[y]![x] = 'O';
+    }
+  return out.map((r) => r.join(''));
+}
+
+const flameTex: Partial<Record<string, THREE.DataTexture>> = {};
+function flameTexture(c: FlameColor, frame: number): THREE.DataTexture {
+  const k = `${c}${frame}`;
+  return (flameTex[k] ??= makePixelTexture(flameRows(frame), FLAME_PALS[c]));
 }
 const flameGeo = new THREE.PlaneGeometry(1, 1);
 
-/** ひとだま 1 つ = 十字（たて板 + 90°まわした たて板）。夜も 暗くしない・うしろを 書かない */
+/** ひとだま 1 つ = 十字（たて板 + 90°まわした たて板。ぜんたいを 45°まわして、どの 向きからも 細く 見えすぎない）。夜も 暗くしない */
 function createFlame(h: number, color: FlameColor): THREE.Group {
   const g = new THREE.Group();
-  const mat = new THREE.MeshBasicMaterial({ map: flameTexture(color), transparent: true, alphaTest: 0.5, depthWrite: false, side: THREE.DoubleSide });
+  const mat = new THREE.MeshBasicMaterial({ map: flameTexture(color, 0), transparent: true, alphaTest: 0.5, depthWrite: false, side: THREE.DoubleSide });
   mat.userData = { base: 0xffffff, skip: true };
-  const w = (h * NUSHI_FLAME.texW) / NUSHI_FLAME.texH;
-  for (const ry of [0, Math.PI / 2]) {
+  const w = (h * NUSHI_FLAME.texW * 1.2) / NUSHI_FLAME.texH;
+  for (const ry of [Math.PI / 4, -Math.PI / 4]) {
     const m = new THREE.Mesh(flameGeo, mat);
     m.scale.set(w, h, 1);
     m.rotation.y = ry;
     m.renderOrder = 2;
     g.add(m);
   }
+  g.userData = { mat, color };
   return g;
 }
 
-/** からだの まわりを まわる 青い ひとだま 3 つ（グループ 1 つ。まわりは updateNushiFlames で）。 */
+/** 頭の 左右の ひとだま 2 つ（左が 高い）。ぐるぐる まわらない。うごきは updateNushiFlames で */
 export function createNushiFlames(size: { width: number; height: number; depth: number }, color: FlameColor = 'blue'): THREE.Group {
   const root = new THREE.Group();
   root.name = 'nushiFlames';
-  const fh = Math.max(0.4, Math.min(1.3, size.height * 0.42));
-  root.userData = { radius: Math.max(size.width, size.depth) * 0.5 + fh * 0.7, height: size.height, fh };
+  const fh = Math.max(0.45, Math.min(1.4, size.height * 0.5));
+  const side = size.width * 0.5 + fh * 0.45;
+  root.userData = { height: size.height, fh, side };
   for (let i = 0; i < NUSHI_FLAME.count; i++) {
     const f = createFlame(fh, color);
     f.name = 'nushiFlame';
@@ -160,18 +190,15 @@ export function createNushiFlames(size: { width: number; height: number; depth: 
   return root;
 }
 
-/** t 秒（固定ステップの 積み）の ひとだまの ならび。まわる・上下に うかぶ・ゆらぐ（点滅しない） */
+/** t 秒（固定ステップの 積み）の ようす。コマを まわし、少し 上下に うかぶ（点滅しない） */
 export function updateNushiFlames(root: THREE.Group, t: number): void {
-  const { radius, height, fh } = root.userData as { radius: number; height: number; fh: number };
-  const n = root.children.length;
+  const { height, fh, side } = root.userData as { height: number; fh: number; side: number };
   root.children.forEach((f, i) => {
-    const ph = (i / n) * Math.PI * 2;
-    const a = (t / NUSHI_FLAME.orbitPeriod) * Math.PI * 2 + ph;
-    const bob = Math.sin((t / NUSHI_FLAME.bobPeriod) * Math.PI * 2 + ph * 1.7);
-    f.position.set(Math.cos(a) * radius, height * (0.62 + 0.14 * (i % 2)) + bob * height * 0.05, Math.sin(a) * radius);
-    const sw = Math.sin((t / NUSHI_FLAME.swayPeriod) * Math.PI * 2 + ph * 2.3);
-    f.scale.set(1 - 0.07 * sw, 1 + 0.1 * sw, 1 - 0.07 * sw);
-    f.rotation.y = Math.sin(t * 1.3 + ph) * 0.25;
-    f.position.y += fh * 0.1 * sw;
+    const left = i === 0;
+    const bob = Math.sin((t / NUSHI_FLAME.bobPeriod) * Math.PI * 2 + i * 2.1);
+    f.position.set(left ? -side : side, height * (left ? 0.88 : 0.68) + bob * fh * 0.08, 0);
+    const frame = (Math.floor(t * NUSHI_FLAME.fps) + i * 3) % NUSHI_FLAME.frames;
+    const { mat, color } = f.userData as { mat: THREE.MeshBasicMaterial; color: FlameColor };
+    mat.map = flameTexture(color, frame);
   });
 }
