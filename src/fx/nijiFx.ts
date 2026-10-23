@@ -40,6 +40,8 @@ const SLASH_BACK = 2.5;
 const SPARK_SIZE_K = 1.8;
 const FLASH_SIZE_K = 1.6;
 const SPARK_TOWARD = 1.8;
+const QX = [-1, 1, -1, 1];
+const QY = [1, 1, -1, -1];
 const MAX_QUADS = MAX_HITS * 9;
 /** まくの もよう（B）の 1 まい（88×112。経 352 を 4 回 くりかえす）・2 コマ。ふちは 16 段 */
 const TILE_W = 88;
@@ -381,10 +383,10 @@ export class NijiFx {
       m.map?.dispose();
       m.dispose();
     }
+    // 板の 絵は ふたつを 入れかえるので、今 つながって いない 方も ここで 捨てる
+    this.slashTex.dispose();
     this.slashTexReduced.dispose();
     for (const u of [this.mat.uniforms.uSurf!, this.mat.uniforms.uRim!]) (u.value as THREE.Texture).dispose();
-    {
-    }
   }
 
   /** 読みこみ中に 材質（描画の プログラム）を ぜんぶ 作る。最初の シャイニング・斬撃で 作りなおさない */
@@ -578,12 +580,10 @@ export class NijiFx {
     const quad = (cx: number, cy: number, cz: number, half: number, u0: number, v0: number, u1: number, v1: number): void => {
       if (n >= MAX_QUADS) return;
       const o = n * 12;
-      const sx = [-1, 1, -1, 1];
-      const sy = [1, 1, -1, -1];
       for (let k = 0; k < 4; k++) {
-        pa[o + k * 3] = cx + (rx * sx[k]! + ux * sy[k]!) * half;
-        pa[o + k * 3 + 1] = cy + (ry * sx[k]! + uy * sy[k]!) * half;
-        pa[o + k * 3 + 2] = cz + (rz * sx[k]! + uz * sy[k]!) * half;
+        pa[o + k * 3] = cx + (rx * QX[k]! + ux * QY[k]!) * half;
+        pa[o + k * 3 + 1] = cy + (ry * QX[k]! + uy * QY[k]!) * half;
+        pa[o + k * 3 + 2] = cz + (rz * QX[k]! + uz * QY[k]!) * half;
       }
       const w = n * 8;
       ua[w] = u0; ua[w + 1] = v1; ua[w + 2] = u1; ua[w + 3] = v1;
