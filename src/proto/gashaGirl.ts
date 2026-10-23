@@ -52,10 +52,7 @@ function poseZombie(root: Object3D, front: Vector3): void {
   const left = new Vector3().crossVectors(new Vector3(0, 1, 0), front); // 向かって 左（model の 左）
   root.updateMatrixWorld(true);
   // 右うで: 肩の 高さで まっすぐ 前（手首は 少し 下）
-  const q = new URLSearchParams(location.search).get('pose');
-  aimBone(b('RightArm'), b('RightForeArm'), q === 'side' ? left.clone().negate() : q === 'diag' ? front.clone().addScaledVector(left, -0.8) : front.clone());
-  const tw = Number(new URLSearchParams(location.search).get('twist') ?? 0);
-  if (tw) { rotateWorld(b('RightArm'), front, (tw * Math.PI) / 180); rotateWorld(b('RightForeArm'), front, (tw * Math.PI) / 180); }
+  aimBone(b('RightArm'), b('RightForeArm'), front.clone());
   aimBone(b('RightForeArm'), b('RightHand'), front.clone().multiplyScalar(0.96).addScaledVector(down, 0.28));
   // 左うで: 体の よこに だらん
   aimBone(b('LeftArm'), b('LeftForeArm'), down.clone().addScaledVector(left, 0.12));
@@ -82,7 +79,7 @@ export function startGashaGirl(deps: GashaGirlDeps): void {
       void import('three/examples/jsm/utils/SkeletonUtils.js').then(({ clone }) => {
         GIRL_HEIGHTS.forEach((h) => {
           const model = clone(gltf.scene);
-          if (new URLSearchParams(location.search).get('pose') !== 'rest') poseZombie(model, front);
+          poseZombie(model, front);
           model.updateMatrixWorld(true);
           const box = new Box3().setFromObject(model, true);
           const s = h / (box.max.y - box.min.y);
