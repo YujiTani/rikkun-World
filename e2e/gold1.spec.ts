@@ -223,11 +223,16 @@ test.describe('GOLD-1 金の そうび・なかよし・はらぱんみみず', 
     expect(r.aimed).toBe(true);
     expect(r.view0).toMatchObject({ shown: true, hearts: 0, gold: false, bugReady: true, petReady: true });
     expect(r.html0, 'パネルの DOM #natsuki-panel が 出ている（仮の 名前。ui-gate と 同じ）').toBe(false);
-    expect(r.afterBug).toEqual({ natsuki: 15, bugWait: 18000, petWait: 0 });
+    expect(r.afterBug.natsuki).toBe(15);
+    expect(r.afterBug.petWait).toBe(0);
+    // まちは 18,000 ステップ。あげた ステップから すぐ へりはじめる（5 ステップ ほど 経った ぶん）
+    expect(r.afterBug.bugWait).toBeLessThanOrEqual(18000);
+    expect(r.afterBug.bugWait).toBeGreaterThanOrEqual(18000 - 20);
     expect(r.viewBug).toMatchObject({ shown: true, hearts: 1, bugReady: false, petReady: true });
     expect(r.mushi1).toBe(4);
     expect(r.afterPet.natsuki).toBe(25);
-    expect(r.afterPet.petWait).toBe(18000);
+    expect(r.afterPet.petWait).toBeLessThanOrEqual(18000);
+    expect(r.afterPet.petWait).toBeGreaterThanOrEqual(18000 - 20);
     expect(r.viewPet).toMatchObject({ hearts: 2, bugReady: false, petReady: false });
     expect(r.waitHint, 'まち中に むし').toBe('natsukiWait');
     expect(r.mushiWait, 'むしは へらない').toBe(5);
@@ -320,6 +325,7 @@ test.describe('GOLD-1 金の そうび・なかよし・はらぱんみみず', 
       h.settings.set('animalEggChance', 1);
       h.settings.set('goldBaseWild', 1);
       h.settings.set('goldCap', 1);
+      h.settings.set('natsukiBug', 0); // むしの ふえ分を 0 に: 金の くじは たまごを うむ ときの 値（0・70・71）で ひく（仕様 §4.5）
       const delay = h.settings.get('animalEggDelay');
       const rows: any[] = [];
       for (const natsuki of [0, 70, 71]) {
