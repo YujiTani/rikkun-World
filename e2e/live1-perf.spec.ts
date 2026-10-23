@@ -52,6 +52,8 @@ test.describe('LIVE-1 性能', () => {
         A.base(30);
         (window as any).__aim.standForS(2.5, 6.5, 90, -20, 9);
         h.step(30);
+        // なかまの 上限（8）が あるので、2N わの ときは 上限を あげて 数を そろえる
+        h.settings.set('animalFriendMax', 16);
         const full = A.full();
         for (let i = 0; i < n; i++) {
           if (i % 11 < 8) h.animals.spawn(5 + (i % 4) * 1.5, 9, 4 + (Math.floor(i / 4) % 6) * 1.5 + 0.5, { friend: true, follow: full, fullLeft: 1800 });

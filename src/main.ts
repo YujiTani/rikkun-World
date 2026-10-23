@@ -123,6 +123,7 @@ import { Hotbar } from './ui/hotbar';
 import { InventoryScreen } from './ui/inventoryScreen';
 import { Notice } from './ui/notice';
 import { PerfOverlay } from './debug/perfOverlay';
+import { createWorkHook } from './debug/workHook';
 import { installTestHook, withSpriteDoll, type TestHookGroups } from './debug/testHook';
 import { Game } from './game/Game';
 import { buildScenery, followScenery } from './game/scenery';
@@ -2014,6 +2015,7 @@ const setShadow = (on: boolean): void => {
 shadowSettingUi.bind(shadowSystem !== null, shadowStart.on, setShadow);
 installTestHook(game, overlay, () => host.everReady, {
   start: startBoot.hook,
+  work: createWorkHook(() => game.tick, world),
   char: charCtl,
   shadow: createShadowHook({
     system: shadowSystem,
