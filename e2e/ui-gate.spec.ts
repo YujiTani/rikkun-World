@@ -10,6 +10,7 @@ import { wide } from './helpers/fine';
 import { checkLayout } from './helpers/layoutRules';
 import { checkColors, checkComponents, checkContrast, checkFontSizes, snapshotUi } from './helpers/uiRules';
 import { findUnrubiedKanji } from '../src/ui/text';
+import { openLive3 } from './helpers/live3';
 import { makeSavedWorld, openMenu as openStartMenu, pressDigits, tid as startTid, toNewScreen } from './helpers/start';
 
 /**
@@ -462,6 +463,25 @@ const VOXD_SCREENS: Screen[] = [
   },
 ];
 SCREENS.push(...VOXD_SCREENS);
+
+/** LIVE-3: 小屋の メニュー 3 ページ（ページ 2 は いちばん多い 6 まい） */
+const coopMenuScreen = (id: string, page: 1 | 2 | 3): Screen => ({
+  id,
+  roots: ['[data-testid="coop-menu"]'],
+  open: async (pg) => {
+    await openLive3(pg);
+    await pg.evaluate((n) => {
+      const h = (window as any).__rikkun;
+      const L = (window as any).__L;
+      const { c, f, ids } = L.farm(6, { macho: [1, 4] });
+      L.rc(c, f);
+      if (n >= 2) L.press('meat');
+      if (n === 3) L.press('card', ids[1]);
+      h.step(3);
+    }, page);
+  },
+});
+SCREENS.push(coopMenuScreen('coop-menu-1', 1), coopMenuScreen('coop-menu-2', 2), coopMenuScreen('coop-menu-3', 3));
 
 /**
  * CHAR-4 AC18: 刀の軌跡（LEGEND-FX から 白い 斬撃）が 出ている 場面で HUD の はみ出し・重なりが 0。
