@@ -47,7 +47,7 @@ export interface RightClickCtx {
    */
   kit?(): { occupied: boolean; full?: boolean } | null;
   /** LIVE-2 §2.11 の 1b: ねらって いる ブロック が 小屋（さく・もん・ねぐら・すばこ）の とき の すばこ の たまご の 数（`egg`＋`kin_tamago`）。小屋 で なければ null */
-  coop?(): { eggs: number } | null;
+  coop?(): { eggs: number; /** LIVE-3: えらべる 子 が 1 わ 以上 いる（メニュー を ひらく） */ menu?: boolean } | null;
   /** LIVE-2 §2.11 の 10a: `toriya` を 持って 地面 を ねらって いる とき の 答え。'ok' = 置ける、'noRoom' = どこ も 入らない、'max' = 3 つ まで。ねらって いなければ null */
   coopSpot?(): 'ok' | 'noRoom' | 'max' | null;
   /** 持っているものを、ねらっている所の前に置けるか */
@@ -82,8 +82,9 @@ export function previewRightClick(c: RightClickCtx): RightClickPreview | null {
   // LIVE-2.1: 3 こ まで 1 こ ずつ（full が 無い とき は 前 の きまり = 入って いれば まってね）
   const kitFull = kit ? (kit.full ?? kit.occupied) : false;
   if (kit && isKitEgg(c.held) && !kitFull) return { kind: 'kitPut', item: c.held };
-  // LIVE-2 1b: 小屋 の ブロック。すばこ に たまご が あれば あつめる
+  // LIVE-2 1b: 小屋 の ブロック。すばこ に たまご が あれば あつめる。LIVE-3: えらべる 子 が いれば メニュー（置ける 物 を 持って いても ひらく）
   const coop = t ? c.coop?.() : null;
+  if (coop && coop.menu === true) return { kind: 'coopMenu', item: null };
   if (coop && coop.eggs >= 1) return { kind: 'coopCollect', item: null };
   if (t && c.isTansu(t.block.x, t.block.y, t.block.z)) return { kind: 'storage', item: null };
   if (t && c.isFurnace(t.block.x, t.block.y, t.block.z)) return { kind: 'furnace', item: null };
@@ -105,6 +106,8 @@ export function previewRightClick(c: RightClickCtx): RightClickPreview | null {
     return { kind: kit.occupied ? 'kitWait' : 'kitNeedEgg', item: null };
   }
   if (coop && !placing) return { kind: 'coopNoEgg', item: null };
+  // LIVE-3 9: なま もも にく は たべられない（合図 rawMeat）。やいた もも にく は isVeg で たべる
+  if (c.held === 'momo_nama') return { kind: 'rawMeat', item: c.held };
   if (c.held && c.isVeg?.(c.held)) return { kind: 'eat', item: c.held };
   // LIVE-2 10a: toriya を 持って 地面 を ねらう → 小屋 を 置く（入らない 所 は うすく）
   if (t && c.held === 'toriya') {

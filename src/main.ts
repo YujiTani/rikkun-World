@@ -94,8 +94,9 @@ import { kitIconsFor, type KitIconRow } from './animals/models/kitIcons';
 import { AnimalFx } from './fx/animalFx';
 import { AnimalRenderer, ViewBuffer } from './animals/models/AnimalRenderer';
 import { AnimalHint } from './ui/animalHint';
-import { playAnimal } from './fx/animalSounds';
 import { Itadakimasu } from './ui/itadakimasu';
+import { CoopMenu } from './ui/coopMenu';
+import { coopMenuReach } from './ui/coopMenuModel';
 import { countryAt } from './world/gen/biome';
 import { Lighting, Sky } from './sky';
 import { TimeOfDayImpl, createTimeHook } from './time';
@@ -487,11 +488,15 @@ const m7 = createM7Settings();
 // E でたんす: ScreenController より先に押しを聞く（画面は ScreenController が開く）
 let tryOpenTansu: () => boolean = () => false;
 let modalIsOpen: () => boolean = () => false;
+/** LIVE-3: とりごや の メニュー が ひらいて いる か（E の たんす が かさならない ように） */
+let coopMenuIsOpen: () => boolean = () => false;
+/** LIVE-3: 右クリック で とりごや の メニュー を ひらく（メニュー は あとで 作る） */
+let openCoopMenu: (coopId: number) => void = () => {};
 game.input.onPress((action) => {
   if (action === 'toggleInventory' && !modalIsOpen()) tryOpenTansu();
 });
 const screen = new ScreenController(lock, inventory, game.input, screenSettings, pointerLock);
-modalIsOpen = () => screen.inventoryOpen();
+modalIsOpen = () => screen.inventoryOpen() || coopMenuIsOpen();
 // 保存の要求は、あとで作る SaveManager へ（循環をさけるため関数でつなぐ）
 let requestSave: () => void = () => {};
 const hudSignal: { full: () => void } = { full: () => {} };
@@ -885,6 +890,8 @@ const dig = new DigSystemImpl(
     pet,
     animals,
     eggHeal: () => live.animalEggHeal,
+    meatHeal: () => live.meatHeal,
+    coopMenu: (id) => openCoopMenu(id),
     live: () => ({ netSwingTicks: live.netSwingTicks, carryHoldTicks: live.carryHoldTicks, coopCountMax: live.coopCountMax, coopMax: live.coopMax, kitEggMax: live.kitEggMax }),
     emitFarm: (e) => farm.emit(e),
     nowTick: () => game.tick,
@@ -1030,6 +1037,8 @@ function deliverAnimalEvents(): void {
   animalFx.onEvents(ev);
   animalHint.feed(ev);
   achievements.feedAnimals(ev);
+  // LIVE-3: 持ち物 に 入った なま もも にく を 拾った ログ に（足もと に おちた 分 は おとしもの として 拾った とき に）
+  for (const e of ev) if (e.type === 'meat' && e.count - e.dropped > 0) onDropPicked('momo_nama', e.count - e.dropped, false);
   for (const e of ev) animalEvents.push(e);
   if (animalEvents.length > 512) animalEvents.splice(0, animalEvents.length - 512);
 }
@@ -1191,7 +1200,56 @@ const fx = new DigFx({
 });
 const farmHint = new FarmHint(hud);
 const animalHint = new AnimalHint(hud);
-const itadakimasu = new Itadakimasu(hud); // LIVE-3 仮（見た目 の 確かめ）
+// LIVE-3: いのち を いただきます の 一言 と、とりごや の メニュー（3 ページ）
+const itadakimasu = new Itadakimasu(hud);
+const coopMenu = new CoopMenu(hud, {
+  meatList: (c) => animals.meatList(c),
+  eggs: (c) => {
+    const r = animals.coops().find((x) => x.id === c);
+    return r ? r.nest.egg + r.nest.gold : 0;
+  },
+  busy: (c) => animals.coops().find((x) => x.id === c)?.meatBusy ?? null,
+  exists: (c) => animals.coops().some((x) => x.id === c),
+  // M2 の とどく きょり 5.0（小屋 の ふち から）
+  inReach: (c) => {
+    const r = animals.coops().find((x) => x.id === c);
+    const p = controller.state.position;
+    return !!r && coopMenuReach(r, p.x, p.z, 5.0);
+  },
+  collect: (c) => {
+    const r = animals.collectCoop(c);
+    if (r.egg > 0) craft.notifyPickup('egg', r.egg);
+    if (r.gold > 0) craft.notifyPickup('kin_tamago', r.gold);
+  },
+  startMeat: (c, id) => animals.meat(c, id).ok,
+  // たんす と おなじ あつかい: マウス が 出る・時計 は 止めない。とじる と ロック を かけ直す
+  onOpen: () => {
+    lock.setInventoryOpen(true);
+    game.input.releaseAll();
+    if (lock.isSimulated()) lock.simulate(false);
+    pointerLock.release();
+  },
+  onClose: () => {
+    if (lock.isSimulated()) {
+      lock.simulate(true);
+      lock.setInventoryOpen(false);
+    } else {
+      lock.beginRelock();
+      lock.setInventoryOpen(false);
+      pointerLock.request();
+    }
+    game.input.releaseAll();
+  },
+  kidInfo: (id) => ({ id, macho: animals.list().find((a) => a.id === id)?.breed === 'macho' }),
+  tick: () => playCraft(fxSound, 'tab'),
+  onPick: (id) => animalFx.setPick(id),
+});
+coopMenuIsOpen = () => coopMenu.model.info().open;
+openCoopMenu = (id) => void coopMenu.open(id);
+// Esc・E でも とじる（もちもの画面 は 開かない: ScreenController は ロック中 でない と 開かない）
+game.input.onPress((action) => {
+  if ((action === 'closeMenu' || action === 'toggleInventory') && coopMenu.model.info().open) coopMenu.press('close');
+});
 const farmAimHud = new FarmAimHud(hud);
 const combatFx = new CombatFx({
   scene: game.scene,
@@ -1512,6 +1570,11 @@ const save = new SaveManager({
   storage: { serialize: () => storage.serialize(), deserialize: (d) => storage.deserialize(d) },
   achievements: { serialize: () => achievements.serialize(), deserialize: (d) => achievements.deserialize(d) },
   animals: {
+    // LIVE-3 §4.4: 演出 中 の 子 は その場 で おわらせて から 保存（にく は 持ち物 へ。出来事 は すぐ 配る）
+    prepare: () => {
+      animals.finishMeat();
+      deliverAnimalEvents();
+    },
     serialize: () => animals.serialize(),
     deserialize: (d) => {
       animals.deserialize(d);
@@ -1815,6 +1878,9 @@ game.onUpdate((dt) => {
   // LIVE-1: ねらっている にわとり（しるし）。出来事は ここで 1 回だけ 取り出して 音・つぶ・実績・合図に 同じ物を流す
   animals.setTargeted(dig.animalTarget());
   {
+    // LIVE-3: メニュー（はなれたら とじる）と 一言（ふわっと）
+    coopMenu.update();
+    itadakimasu.update(animals.meatSay());
     deliverAnimalEvents();
     const kitRows = animals.kits();
     const coopRows = animals.coops();
@@ -2293,7 +2359,7 @@ installTestHook(game, overlay, () => host.everReady, {
     events: () => [...combatHook.events(), ...toolHook.arrowEvents()],
   } as unknown as TestHookGroups['combat'],
   ...logHook,
-  ui: { alpha: () => uiAlpha(), topBand: () => celebrate.topBand(), buffs: () => buffModel.list().map((b) => ({ ...b })) },
+  ui: { coopMenu: () => coopMenu.model.info(), coopMenuPress: (button: string, id?: number) => coopMenu.press(button as never, id), meatText: () => itadakimasu.text(), alpha: () => uiAlpha(), topBand: () => celebrate.topBand(), buffs: () => buffModel.list().map((b) => ({ ...b })) },
   craft: {
     ...craftHook,
     ...craftUiHook.craft,
@@ -2370,18 +2436,9 @@ installTestHook(game, overlay, () => host.everReady, {
     coops: () => animals.coops(),
     kits: () => animals.kits(),
     machoMiss: (n) => animals.machoMiss(n),
-    // LIVE-3 仮: 見た目 の 確かめ だけ（とびら を しめて 見せる・いただきます の 画面 を 出す）
-    live3Proto: (o) => {
-      if (o.door !== undefined) {
-        if (o.door !== animalRenderer.doorClosed) playAnimal(fxSound, 'coopDoor');
-        animalRenderer.doorClosed = o.door;
-      }
-      if (o.overlay !== undefined) {
-        if (o.overlay && !itadakimasu.visible) playAnimal(fxSound, 'itadakimasu');
-        itadakimasu.setVisible(o.overlay);
-      }
-      return { door: animalRenderer.doorClosed, overlay: itadakimasu.visible };
-    },
+    // LIVE-3 §6.1: えらべる 子 の 一覧・いただきます（メニュー の ボタン と 同じ）
+    meatList: (coopId) => animals.meatList(coopId),
+    meat: (coopId, id) => animals.meat(coopId, id),
     serialize: () => animals.serialize(),
     deserialize: (d) => animals.deserialize(d),
   },

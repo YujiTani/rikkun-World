@@ -1,0 +1,190 @@
+/* LIVE-3 とりごや の メニュー: 画面 の 下 がわ（高さ 45% まで）。上 に 小屋 と ▼ が 見える */
+.coop-menu {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9;
+  box-sizing: border-box;
+  width: min(100vw, 920px);
+  max-height: 45vh;
+  margin: 0 auto;
+  padding: 10px 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: var(--rk-text);
+  background: var(--rk-panel-bg);
+  border: var(--rk-bw) solid var(--rk-line);
+  border-bottom: 0;
+  border-radius: var(--rk-r-l) var(--rk-r-l) 0 0;
+  box-shadow: var(--rk-shadow-2);
+  pointer-events: auto;
+}
+.coop-menu[hidden] {
+  display: none;
+}
+.coop-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 64px;
+}
+.coop-title {
+  flex: 1;
+  margin: 0;
+  font-size: 30px;
+  line-height: 1.2;
+  font-weight: 800;
+  text-align: center;
+  text-shadow: var(--rk-text-outline);
+}
+.coop-close {
+  width: 56px;
+  height: 56px;
+  flex: none;
+  padding: 0;
+  font-family: inherit;
+  font-size: 32px;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--rk-text);
+  background: var(--rk-bg-700);
+  border: var(--rk-bw) solid var(--rk-line);
+  border-radius: var(--rk-r-m);
+  cursor: pointer;
+}
+.coop-close:hover {
+  filter: brightness(1.12);
+}
+.coop-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  box-sizing: border-box;
+  min-height: 64px;
+  padding: 8px 22px;
+  margin: 0;
+  font-family: inherit;
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1.2;
+  color: var(--rk-text);
+  background: var(--rk-bg-700);
+  border: var(--rk-bw) solid var(--rk-line);
+  border-radius: var(--rk-r-m);
+  box-shadow: var(--rk-shadow-1);
+  cursor: pointer;
+}
+.coop-btn:hover {
+  filter: brightness(1.12);
+}
+.coop-btn:disabled,
+.coop-btn.is-disabled {
+  color: var(--rk-text-sub);
+  border-style: dashed;
+  box-shadow: none;
+  cursor: default;
+  filter: none;
+}
+.coop-btn:disabled .coop-ico {
+  opacity: 0.45;
+}
+.coop-ico {
+  width: 48px;
+  height: 48px;
+  image-rendering: pixelated;
+}
+.coop-ico--hands {
+  width: 44px;
+  height: 46px;
+}
+.coop-count {
+  font-size: 26px;
+}
+.coop-body--top {
+  display: flex;
+  gap: 16px;
+}
+.coop-body--top .coop-btn {
+  flex: 1;
+  min-height: 96px;
+  font-size: 30px;
+}
+.coop-body--top .coop-ico {
+  width: 64px;
+  height: 64px;
+}
+.coop-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.coop-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  height: 72px;
+  padding: 0;
+  font-family: inherit;
+  font-size: 24px;
+  color: var(--rk-text);
+  background: var(--rk-bg-700);
+  border: var(--rk-bw) solid var(--rk-line);
+  border-radius: var(--rk-r-m);
+  box-shadow: var(--rk-shadow-1);
+  cursor: pointer;
+}
+.coop-card:hover,
+.coop-card:focus-visible {
+  border-color: var(--rk-accent);
+  filter: brightness(1.15);
+}
+.coop-kid {
+  width: 56px;
+  height: 56px;
+  image-rendering: pixelated;
+}
+/* マッチョ は ひとまわり 大きく（影 で ふつう と 分かる） */
+.coop-card[data-breed='macho'] .coop-kid,
+.coop-kid[data-breed='macho'] {
+  transform: scale(1.22);
+  filter: saturate(1.3) drop-shadow(0 0 3px #ffb347);
+}
+.coop-kid--big {
+  width: 96px;
+  height: 96px;
+}
+.coop-body--confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.coop-who {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+.coop-sentence {
+  flex: 1;
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+.coop-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 120px;
+}
+.coop-row .coop-btn {
+  min-width: 220px;
+  flex: none;
+}
+.coop-ok {
+  background: var(--rk-accent-grad);
+  border-color: var(--rk-accent);
+  color: var(--rk-ink);
+}

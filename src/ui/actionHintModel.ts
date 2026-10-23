@@ -110,6 +110,13 @@ export function actionHintLines(right: RightClickPreview | null, left: LeftClick
       case 'coopCollect':
         out.right = { icon: 'egg', word: 'あつめる' };
         break;
+      // LIVE-3（§2.6）: えらべる 子 が いる 小屋 = とりごや ＋ ひらく。なま もも にく = かまど で やこう（うすく）
+      case 'coopMenu':
+        out.right = { icon: 'toriya', word: 'ひらく' };
+        break;
+      case 'rawMeat':
+        out.right = { icon: 'momo_nama', word: 'かまど で やこう', disabled: true };
+        break;
       case 'coopPlace':
         out.right = { icon: 'toriya', word: 'おく' };
         break;

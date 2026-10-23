@@ -114,7 +114,7 @@ const LIVE_ITEMS: readonly ItemType[] = [
   { id: 'toriya', name: 'とりごや', maxStack: 1, placeBlock: null },
   { id: 'kin_tamago', name: 'きん の たまご', maxStack: BLOCK_MAX_STACK, placeBlock: null },
   // LIVE-3（仮）: もも にく（なま・やいた）
-  { id: 'momo_nama', name: 'なま の もも にく', maxStack: BLOCK_MAX_STACK, placeBlock: null },
+  { id: 'momo_nama', name: 'なま もも にく', maxStack: BLOCK_MAX_STACK, placeBlock: null },
   { id: 'momo_yaki', name: 'やいた もも にく', maxStack: BLOCK_MAX_STACK, placeBlock: null },
 ];
 

@@ -177,6 +177,17 @@ export function poseChicken(out: PoseBuf, inp: PoseInput, base: number = CHICKEN
       setScale(s, s, s);
       break;
     }
+    case 'meat': {
+      // LIVE-3: ねぐら へ とことこ（55 ステップ）→ じっと。落ちついた 立ち姿
+      if (t < 55) {
+        const ph = (2 * Math.PI * t) / WALK_STEP_TICKS;
+        off(I.head, 0, 0, -1.0 * Math.sin(ph));
+        off(I.neck, 0, 0, -0.5 * Math.sin(ph));
+        legs(28 * Math.sin(ph / 2));
+        rot(I.body, 0, 0, 2 * Math.sin(ph / 2));
+      } else rot(I.head, 0, 10, 4);
+      break;
+    }
     case 'wander':
     case 'follow': {
       // 歩く: 1 歩 12 ステップ。頭を 前後 に ふる、足を ふる

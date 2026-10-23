@@ -55,6 +55,8 @@ export interface SaveBags {
 export interface SaveExtra {
   serialize(): unknown;
   deserialize(data: unknown): void;
+  /** LIVE-3: 保存 の 材料 を 集める 前 に 呼ぶ（いただきます の 演出 中 の 子 を その場 で おわらせて、にく を 持ち物 へ 入れる） */
+  prepare?(): void;
 }
 
 /** M7: 農業 */
@@ -336,7 +338,7 @@ export class SaveManager {
     const bigLog = w.changeLogCount() > PENDING_MAX_CELLS && this.inFlight === 0 && !this.lastFailed;
     if (currentTick - this.lastCheckTick < this.d.settings.saveIntervalTicks && !bigLog) return;
     this.lastCheckTick = currentTick;
-    void this.write(false);
+    void this.write(false, false, false);
   }
 
   /** 今のセーブを消す（遊んでいる世界はそのまま。そのあとの保存で 今の世界を丸ごと書きなおす） */
@@ -420,7 +422,7 @@ export class SaveManager {
       const n = world.changeLogCount();
       if (n === 0 && this.inFlight === 0) return;
       if (n > PENDING_MAX_CELLS || world.changeLogOverflowed()) return;
-      const metaNow = this.makeMeta().meta;
+      const metaNow = this.makeMeta(true).meta;
       const c = this.d.clock;
       const meta: StoredMeta = { ...metaNow, ...(c ? { time: { day: c.day(), dayTick: c.dayTick() } } : {}), tick: this.d.tick() };
       store.setItem(PENDING_KEY, JSON.stringify({ saveId: this.saveId, ids: BLOCK_TYPES.map((t) => t.id), cells: world.changeLogCells(), meta }));
@@ -472,7 +474,9 @@ export class SaveManager {
    * meta（今の JSON の blocks 以外。time・tick なし）と、変わったか比べる文字。
    * 比べる文字には のこりステップを入れない（毎ステップ変わるため）。JSON.stringify は 1 回だけ。
    */
-  private makeMeta(): { meta: StoredMeta; key: string } {
+  /** `settle` = 保存 の 前 に 動き の とちゅう の もの を おわらせる（LIVE-3: いただきます）。時間 おきの 保存 や 比べる だけ の とき は false */
+  private makeMeta(settle = false): { meta: StoredMeta; key: string } {
+    if (settle) this.d.animals?.prepare?.();
     const st = this.d.player.get();
     const bagsFull = this.d.bags?.serialize() ?? [];
     const bagsKey = bagsFull.map((b) => ({ ...b, ticksLeft: 0 }));
@@ -517,7 +521,7 @@ export class SaveManager {
   }
 
   /** 保存を始める。同期の部分（比べる・さわった列を縮める前のバイト列にする）はここ。書き終わると解決する */
-  private write(force: boolean, flushTime = false): Promise<void> {
+  private write(force: boolean, flushTime = false, settle = true): Promise<void> {
     const db = this.d.db;
     if (!this.on || !db) return Promise.resolve();
     const t0 = performance.now();
@@ -525,7 +529,7 @@ export class SaveManager {
     this.lastCheckTick = this.d.tick(); // 「前の保存から 600 ステップ」の数え始め
     let taken: ChunkColumn[] = [];
     try {
-      const { meta, key } = this.makeMeta();
+      const { meta, key } = this.makeMeta(settle);
       const timeKey = this.timeKey();
       const dirty = w.saveDirtyCount();
       if (!force && !this.forceNext && dirty === 0 && key === this.lastKey && !(flushTime && timeKey !== this.lastTimeKey)) return Promise.resolve();
