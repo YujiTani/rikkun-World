@@ -119,6 +119,9 @@ export class SlashFx {
   private slashScale = 1;
   private lastView: SlashView | null = null;
   private sparkQuads = 0;
+  private qn = 0;
+  /** 火花の 板を 書く 時の カメラの 右・上（毎ステップ 作らない） */
+  private readonly qv = new Float32Array(6);
   private readonly scene: THREE.Scene;
 
   constructor(
@@ -311,22 +314,9 @@ export class SlashFx {
     const rx = right.x, ry = right.y, rz = right.z;
     const up = this.tmp2.set(0, 1, 0).applyQuaternion(cam.quaternion);
     const ux = up.x, uy = up.y, uz = up.z;
-    const pa = this.sparkPos.array as Float32Array;
-    const ua = this.sparkUv.array as Float32Array;
-    let n = 0;
-    const quad = (cx: number, cy: number, cz: number, half: number, u0: number, v0: number, u1: number, v1: number): void => {
-      if (n >= MAX_QUADS) return;
-      const o = n * 12;
-      for (let k = 0; k < 4; k++) {
-        pa[o + k * 3] = cx + (rx * QX[k]! + ux * QY[k]!) * half;
-        pa[o + k * 3 + 1] = cy + (ry * QX[k]! + uy * QY[k]!) * half;
-        pa[o + k * 3 + 2] = cz + (rz * QX[k]! + uz * QY[k]!) * half;
-      }
-      const w = n * 8;
-      ua[w] = u0; ua[w + 1] = v1; ua[w + 2] = u1; ua[w + 3] = v1;
-      ua[w + 4] = u0; ua[w + 5] = v0; ua[w + 6] = u1; ua[w + 7] = v0;
-      n++;
-    };
+    this.qn = 0;
+    const qv = this.qv;
+    qv[0] = rx; qv[1] = ry; qv[2] = rz; qv[3] = ux; qv[4] = uy; qv[5] = uz;
     const IW = 64, IH = 96, CELL = 8;
     const SP = SLASH3.spark;
     for (const h of this.hits) {
@@ -337,22 +327,46 @@ export class SlashFx {
       if (ff >= 0) {
         const fy = SP.flashCells.y;
         const fs = SP.flashCells.size;
-        quad(ax, ay, az, (SP.flashBlocks * FLASH_SIZE_K) / 2, (ff * fs) / IW, 1 - (fy + fs) / IH, ((ff + 1) * fs) / IW, 1 - fy / IH);
+        this.pushQuad(ax, ay, az, (SP.flashBlocks * FLASH_SIZE_K) / 2, (ff * fs) / IW, 1 - (fy + fs) / IH, ((ff + 1) * fs) / IW, 1 - fy / IH);
       }
       for (const s of h.burst.sparks) {
         if (s.age >= s.life) continue;
         const r = s.color * 2 + (s.short ? 1 : 0);
         const sx = s.x * SPARK_TRAVEL, sy = s.y * SPARK_TRAVEL;
-        quad(ax + rx * sx + ux * sy, ay + ry * sx + uy * sy, az + rz * sx + uz * sy, (SP.streakBlocks * SPARK_SIZE_K) / 2, (s.cell * CELL) / IW, 1 - ((r + 1) * CELL) / IH, ((s.cell + 1) * CELL) / IW, 1 - (r * CELL) / IH);
+        this.pushQuad(ax + rx * sx + ux * sy, ay + ry * sx + uy * sy, az + rz * sx + uz * sy, (SP.streakBlocks * SPARK_SIZE_K) / 2, (s.cell * CELL) / IW, 1 - ((r + 1) * CELL) / IH, ((s.cell + 1) * CELL) / IW, 1 - (r * CELL) / IH);
       }
       stepHit(h.burst);
     }
-    this.hits = this.hits.filter((h) => hitAlive(h.burst));
+    let keep = 0;
+    for (let i = 0; i < this.hits.length; i++) {
+      const h = this.hits[i]!;
+      if (hitAlive(h.burst)) this.hits[keep++] = h;
+    }
+    this.hits.length = keep;
+    const n = this.qn;
     this.sparkMesh.visible = n > 0;
     geo.setDrawRange(0, n * 6);
     this.sparkPos.needsUpdate = true;
     this.sparkUv.needsUpdate = true;
     this.sparkQuads = n;
+  }
+
+  private pushQuad(cx: number, cy: number, cz: number, half: number, u0: number, v0: number, u1: number, v1: number): void {
+    if (this.qn >= MAX_QUADS) return;
+    const qv = this.qv;
+    const rx = qv[0]!, ry = qv[1]!, rz = qv[2]!, ux = qv[3]!, uy = qv[4]!, uz = qv[5]!;
+    const pa = this.sparkPos.array as Float32Array;
+    const ua = this.sparkUv.array as Float32Array;
+    const o = this.qn * 12;
+    for (let k = 0; k < 4; k++) {
+      pa[o + k * 3] = cx + (rx * QX[k]! + ux * QY[k]!) * half;
+      pa[o + k * 3 + 1] = cy + (ry * QX[k]! + uy * QY[k]!) * half;
+      pa[o + k * 3 + 2] = cz + (rz * QX[k]! + uz * QY[k]!) * half;
+    }
+    const w = this.qn * 8;
+    ua[w] = u0; ua[w + 1] = v1; ua[w + 2] = u1; ua[w + 3] = v1;
+    ua[w + 4] = u0; ua[w + 5] = v0; ua[w + 6] = u1; ua[w + 7] = v0;
+    this.qn++;
   }
 
   /** 出ている 斬撃の 絵（窓口用） */

@@ -181,6 +181,17 @@ describe('AC9: 描画 2 以下・三角形 2200 以下・何も していない 
     expect(d).toBeLessThanOrEqual(2);
     expect(t).toBeLessThanOrEqual(2200);
   });
+  it('けさ ＋ 8 体に 当てても 集まる 稲妻は 近い 2 体ぶん = 2200 以下', () => {
+    const { fx } = make();
+    let t = 0;
+    queue(fx, 'kesa');
+    for (let i = 0; i < 90; i++) {
+      if (i === 33) for (let q = 0; q < 8; q++) fx.hit({ x: q - 4, y: 1, z: -3 });
+      fx.step();
+      t = Math.max(t, fx.info().tris);
+    }
+    expect(t).toBeLessThanOrEqual(2200);
+  });
   it('cancel: まだ はじまって いない 雷は 出ない', () => {
     const { fx } = make();
     queue(fx, 'kesa');

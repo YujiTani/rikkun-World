@@ -22,6 +22,8 @@ const N = 20; // 帯の 点の 数（試作は 44。三角形を へらす）
 const DUST = 3;
 const LIFE = 24;
 const MAX_INST = 3;
+/** 風の 三角形の 上限（段が 重なっても） */
+const MAX_TRIS = 400;
 
 interface Pal {
   row: number;
@@ -112,6 +114,8 @@ interface Inst {
   seed: number;
   active: boolean;
   pos: () => Vec3;
+  /** 予算の 数えおわり（capBudget の 作業用） */
+  counted: boolean;
 }
 
 export interface FujinRequest {
@@ -135,6 +139,8 @@ export class FujinOrbitFx {
   private readonly atlas: THREE.CanvasTexture;
   private readonly insts: Inst[] = [];
   private seedN = 0;
+  /** 動きを へらす 設定（ちりの 数を 半分に） */
+  private reducedNow = false;
   private readonly f: LocalFrame = newFrame();
   private readonly eul = new THREE.Euler();
   private readonly mat = new THREE.Matrix4();
@@ -156,7 +162,7 @@ export class FujinOrbitFx {
     this.atlas = makeAtlas();
     // 体の むこうがわの 帯は キャラに かくれる（深さを 見る）。書きこみは しない
     this.batch = new FxBatch(scene, { additive: false, map: this.atlas, depthTest: true, renderOrder: 8, maxVerts: 9 * 6 * (N - 1) * 3 + 9 * DUST * 12 + 600 });
-    for (let i = 0; i < MAX_INST; i++) this.insts.push({ idx: 0, uDeg: 0, reach: 2.2, wait: 0, T: 0, seed: 0, active: false, pos: () => ({ x: 0, y: 0, z: 0 }) });
+    for (let i = 0; i < MAX_INST; i++) this.insts.push({ idx: 0, uDeg: 0, reach: 2.2, wait: 0, T: 0, seed: 0, active: false, pos: () => ({ x: 0, y: 0, z: 0 }), counted: false });
   }
 
   /** 注文（techStart で 呼ぶ）。白い 斬撃の 決めの コマと 同じ ステップに はじまる */
@@ -178,9 +184,11 @@ export class FujinOrbitFx {
   }
 
   /** 1 ステップ ごと（カメラが 動いた あと） */
-  step(): void {
+  step(reduced = false): void {
+    this.reducedNow = reduced;
     this.view.update(this.camera);
     this.batch.begin();
+    this.capBudget();
     for (const s of this.insts) {
       if (!s.active) continue;
       if (s.wait > 0) {
@@ -192,6 +200,23 @@ export class FujinOrbitFx {
       if (s.T > LIFE) s.active = false;
     }
     this.batch.end();
+  }
+
+  /** 段が 重なって 三角形が 400 を こえそうなら、古い 方から 消す（新しい 段を のこす） */
+  private capBudget(): void {
+    const per = (N - 1) * 6 + (this.reducedNow ? Math.ceil(DUST / 2) : DUST) * 4;
+    let used = 0;
+    // 新しい（T が 小さい）順に 予算を 配る。まだ はじまって いない 物（wait > 0）は 数えない
+    for (;;) {
+      let best: Inst | null = null;
+      for (const s of this.insts) if (s.active && s.wait <= 0 && !s.counted && (!best || s.T < best.T)) best = s;
+      if (!best) break;
+      best.counted = true;
+      const cost = (best.idx + 1) * per;
+      if (used + cost > MAX_TRIS) best.active = false;
+      else used += cost;
+    }
+    for (const s of this.insts) s.counted = false;
   }
 
   private draw(s: Inst): void {
@@ -209,28 +234,28 @@ export class FujinOrbitFx {
     const eye = this.view.eye;
     for (let j = 0; j < 3; j++) this.bandOn[j] = false;
     for (let j = 0; j < n; j++) {
-      const o = { k: 1 - j * 0.1, wk: 1 - j * 0.08, off: (j * 6.283185) / n, rot: j, dy: j * 0.06 };
-      this.eul.set(t.psi + o.rot * 0.3, 0, t.phi + o.rot * 0.25, 'ZXY');
+      const ok = 1 - j * 0.1, owk = 1 - j * 0.08, ooff = (j * 6.283185) / n, orot = j, ody = j * 0.06;
+      this.eul.set(t.psi + orot * 0.3, 0, t.phi + orot * 0.25, 'ZXY');
       this.mat.makeRotationFromEuler(this.eul);
       this.e1.set(1, 0, 0).applyMatrix4(this.mat);
       this.e2.set(0, 0, 1).applyMatrix4(this.mat);
-      const ra = RA[idx]! * o.k * (s.reach / 2.2), rb = ra * 0.72;
-      const cy = 1.0 + o.dy, cz = 0.15;
-      const head = t.th0 + o.off + 6.283185 * 1.3 * prog;
+      const ra = RA[idx]! * ok * (s.reach / 2.2), rb = ra * 0.72;
+      const cy = 1.0 + ody, cz = 0.15;
+      const head = t.th0 + ooff + 6.283185 * 1.3 * prog;
       const P = this.pts[j]!, Wd = this.wid[j]!, Al = this.alp[j]!;
       // 帯の 中心の 世界の 位置（かくれ・うすくする 目安）
       toWorld(f, 0, cy, cz, P, 0);
       const dC = Math.hypot(P[0]! - eye.x, P[1]! - eye.y, P[2]! - eye.z);
-      const wmax = 0.42 * o.wk * (idx === 2 ? 1.15 : 1);
+      const wmax = 0.42 * owk * (idx === 2 ? 1.15 : 1);
       for (let k = 0; k < N; k++) {
         const th = head - S * (1 - k / (N - 1));
-        const r = 1 + 0.06 * Math.sin(th * 2 + o.off);
+        const r = 1 + 0.06 * Math.sin(th * 2 + ooff);
         const lx = (this.e1.x * Math.cos(th) * ra + this.e2.x * Math.sin(th) * rb) * r;
         const ly = cy + (this.e1.y * Math.cos(th) * ra + this.e2.y * Math.sin(th) * rb) * r;
         const lz = cz + (this.e1.z * Math.cos(th) * ra + this.e2.z * Math.sin(th) * rb) * r;
         toWorld(f, lx, ly, lz, P, k);
         const u = k / (N - 1);
-        Wd[k] = wmax * 1.25 * Math.max(0.03, Math.pow(Math.sin(Math.PI * Math.pow(u, 0.75)), 0.9)) * (1 + 0.1 * Math.sin(k * 1.9 + o.off));
+        Wd[k] = wmax * 1.25 * Math.max(0.03, Math.pow(Math.sin(Math.PI * Math.pow(u, 0.75)), 0.9)) * (1 + 0.1 * Math.sin(k * 1.9 + ooff));
         const far = Math.hypot(P[k * 3]! - eye.x, P[k * 3 + 1]! - eye.y, P[k * 3 + 2]! - eye.z) > dC + 0.15 ? 0.6 : 1;
         Al[k] = far * fade;
       }
@@ -240,6 +265,7 @@ export class FujinOrbitFx {
     }
     const b = this.batch;
     const white = WHITE_Y + 1;
+    const dust = this.reducedNow ? Math.ceil(DUST / 2) : DUST;
     for (let pass = 0; pass < 4; pass++) {
       for (let j = 0; j < n; j++) {
         if (!this.bandOn[j]) continue;
@@ -257,7 +283,7 @@ export class FujinOrbitFx {
           b.strip(this.view, P, N, this.core, this.scaled(Al, 0.9), pal.core, vOf(white), vOf(white), 1, 0);
         } else {
           // ちり（こい ふち ＋ 色）
-          for (let q = 0; q < DUST; q++) {
+          for (let q = 0; q < dust; q++) {
             const k = Math.floor(hash(q, s.seed + j, idx) * (N - 4)) + 2;
             const dy = 0.1 * Math.sin(q + tt * 0.3);
             const a = Al[k]!;
@@ -273,6 +299,12 @@ export class FujinOrbitFx {
   private scaled(a: Float32Array, m: number): Float32Array {
     for (let k = 0; k < N; k++) this.tmpA[k] = a[k]! * m;
     return this.tmpA;
+  }
+
+  /** 読みこみ中に 材質と 絵を 先に 作る */
+  warmUp(renderer: THREE.WebGLRenderer, camera: THREE.Camera, scene: THREE.Scene): void {
+    this.batch.warmUp(renderer, camera, scene);
+    renderer.initTexture(this.atlas);
   }
 
   info(): { draws: number; tris: number; active: number } {

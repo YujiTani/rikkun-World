@@ -65,6 +65,8 @@ export class RainbowFx {
   private readonly insts: Inst[] = [];
   private readonly hits: Hit[] = [];
   private seedN = 0;
+  /** 動きを へらす 設定（粒の 数を 半分・ブルームを 弱めに） */
+  private reducedNow = false;
   private readonly tmp: number[] = [0, 0, 0];
   private readonly tip = new Float32Array(3);
   private readonly base = new Float32Array(3);
@@ -88,7 +90,7 @@ export class RainbowFx {
     this.bloom = new RainbowBloom();
   }
 
-  /** 虹が 出ている（描画・ブルームを 回す 必要が ある） */
+  /** 虹が 出ている（描画・ブルームを 回す 必要が ある）。形は step の 最後で きまる ので、その あと（描画の 前）に 読む */
   active(): boolean {
     return this.nrm.visible() || this.add.visible();
   }
@@ -96,7 +98,7 @@ export class RainbowFx {
   /** 世界を 描く（虹が 出て いる 間だけ ブルーム つき）。Game の worldPass から 呼ぶ */
   renderWorld(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.PerspectiveCamera): void {
     renderer.render(scene, camera);
-    this.bloom.apply(renderer, scene, camera);
+    this.bloom.apply(renderer, scene, camera, this.reducedNow);
   }
 
   /** 注文（techStart で 呼ぶ）。窓の はじまり = 白い 斬撃の 決めの コマ */
@@ -126,7 +128,8 @@ export class RainbowFx {
   }
 
   /** 1 ステップ ごと（カメラが 動いた あと） */
-  step(): void {
+  step(reduced = false): void {
+    this.reducedNow = reduced;
     this.view.update(this.camera);
     this.nrm.begin();
     this.add.begin();
@@ -192,7 +195,8 @@ export class RainbowFx {
     dx = (ex - bx); dy = (ey - by); dz = (ez - bz);
     const ul = Math.hypot(dx, dy, dz) || 1, ux = dx / ul, uy = dy / ul, uz = dz / ul;
     const v = this.view;
-    for (let q = 0; q < 12; q++) {
+    const nDot = this.reducedNow ? 6 : 12, nStr = this.reducedNow ? 4 : 8;
+    for (let q = 0; q < nDot; q++) {
       const fr = (hash(q, s.seed, 8) + (T + 20) * 0.1 * (0.8 + 0.5 * hash(q, 9))) % 1;
       const o = (hash(q, s.seed, 10) - 0.5) * 0.09 * K * 2;
       const ang = hash(q, 11) * 6.283;
@@ -201,7 +205,7 @@ export class RainbowFx {
       const pz = bz + dz * fr + (v.right.z * Math.cos(ang) + v.up.z * Math.sin(ang)) * o;
       this.dot(px, py, pz, DOT * (1.3 + 1.6 * hash(q, 12)), a * (0.55 + 0.45 * Math.sin(fr * 3.14)), s.seed + q);
     }
-    for (let q = 0; q < 8; q++) {
+    for (let q = 0; q < nStr; q++) {
       const fr = (hash(q, s.seed, 13) + (T + 20) * 0.07) % 1;
       const o = (hash(q, 14) - 0.5) * 0.05;
       this.streak(bx + dx * fr + v.up.x * o, by + dy * fr + v.up.y * o, bz + dz * fr + v.up.z * o, ux, uy, uz, 0.1 + 0.08 * hash(q, 15), a * 0.9, s.seed + 40 + q);
@@ -250,7 +254,7 @@ export class RainbowFx {
     if (fade <= 0) return;
     const tt = Math.max(0, t + 1);
     // 線の 粒: 速く はじけて 止まる
-    const ns = Math.round([10, 12, 14][idx]! * (0.7 + 0.3 * m));
+    const ns = Math.round([10, 12, 14][idx]! * (0.7 + 0.3 * m) * (this.reducedNow ? 0.5 : 1));
     const head = 1 - Math.exp(-tt * 0.45);
     for (let q = 0; q < ns; q++) {
       const th = (q / ns) * 6.283 + hash(q, s.seed, fl, 1) * 0.4;
@@ -260,7 +264,7 @@ export class RainbowFx {
       this.streak(ox + dx * (d1 - len), oy + dy * (d1 - len), oz + dz * (d1 - len), dx, dy, dz, len, fade, hash(q, s.seed, fl, 3) * 1000);
     }
     // 円の 粒: ふわっと 広がり、小さく なって 消える
-    const nd = Math.round([12, 16, 20][idx]! * (0.7 + 0.3 * m));
+    const nd = Math.round([12, 16, 20][idx]! * (0.7 + 0.3 * m) * (this.reducedNow ? 0.5 : 1));
     const spread = 1 - Math.exp(-tt * 0.22);
     for (let q = 0; q < nd; q++) {
       const th = hash(q, s.seed, fl, 4) * 6.283, reach = (0.2 + 0.9 * hash(q, s.seed, fl, 5)) * S;
@@ -278,6 +282,14 @@ export class RainbowFx {
       if (q % 2) this.streak(h.x + dx * D, h.y + dy * D, h.z + dz * D, dx, dy, dz, 0.06, f, hash(q, h.seed, 81) * 1000);
       else this.dot(h.x + dx * D, h.y + dy * D, h.z + dz * D, DOT * (1.8 + hash(q, 5)), f, hash(q, h.seed, 81) * 1000);
     }
+  }
+
+  /** 読みこみ中に 材質・ブルームの 作業用の 絵と プログラムを 先に 作る（最初の 虹で かくつかない） */
+  warmUp(renderer: THREE.WebGLRenderer, camera: THREE.PerspectiveCamera, scene: THREE.Scene): void {
+    this.nrm.warmUp(renderer, camera, scene);
+    this.add.warmUp(renderer, camera, scene);
+    this.bloom.ensure(renderer);
+    this.bloom.apply(renderer, scene, camera, false);
   }
 
   /** 窓口用 */
@@ -309,10 +321,11 @@ class RainbowBloom {
   private w = 0;
   private h = 0;
   private readonly bg = new THREE.Color();
-  lastPasses = 0;
+  private readonly copyScene = new THREE.Scene();
+  private readonly copyMat: THREE.ShaderMaterial;
+  lastPasses = 1 + 1 + 12 + 1;
 
-  constructor(
-  ) {
+  constructor() {
     this.mat = new THREE.ShaderMaterial({
       uniforms: { tB: { value: null }, tF: { value: null }, gain: { value: BLOOM.gain } },
       vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position.xy,0.,1.); }',
@@ -324,9 +337,18 @@ class RainbowBloom {
       depthWrite: false,
     });
     this.quadScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.mat));
+    this.copyMat = new THREE.ShaderMaterial({
+      uniforms: { tF: { value: null } },
+      vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position.xy,0.,1.); }',
+      fragmentShader: 'uniform sampler2D tF; varying vec2 vUv; void main(){ gl_FragColor=texture2D(tF,vUv); }',
+      blending: THREE.NoBlending,
+      depthTest: false,
+      depthWrite: false,
+    });
+    this.copyScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.copyMat));
   }
 
-  private ensure(renderer: THREE.WebGLRenderer): void {
+  ensure(renderer: THREE.WebGLRenderer): void {
     renderer.getDrawingBufferSize(this.size);
     const w = Math.max(2, Math.round(this.size.x * 0.5)), h = Math.max(2, Math.round(this.size.y * 0.5));
     if (this.rtFx && w === this.w && h === this.h) return;
@@ -340,11 +362,13 @@ class RainbowBloom {
     this.pass = new UnrealBloomPass(new THREE.Vector2(w, h), BLOOM.strength, BLOOM.radius, BLOOM.threshold);
     this.mat.uniforms.tB!.value = this.rtB.texture;
     this.mat.uniforms.tF!.value = this.rtFx.texture;
+    this.copyMat.uniforms.tF!.value = this.rtFx.texture;
   }
 
-  /** 本描きの あとに 呼ぶ: 虹だけ（レイヤー 1）を 半分の 大きさに 2 回 描き、にじみを 足した 絵との 差を 画面に 足す */
-  apply(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.PerspectiveCamera): void {
+  /** 本描きの あとに 呼ぶ: 虹だけ（レイヤー 1）を 半分の 大きさに 1 回 描いて コピーし、にじみを 足した 絵との 差を 画面に 足す */
+  apply(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.PerspectiveCamera, reduced: boolean): void {
     this.ensure(renderer);
+    this.pass!.strength = reduced ? BLOOM.strength * 0.5 : BLOOM.strength;
     const rtFx = this.rtFx!, rtB = this.rtB!;
     const prevBg = scene.background;
     const prevTarget = renderer.getRenderTarget();
@@ -357,9 +381,12 @@ class RainbowBloom {
     renderer.setRenderTarget(rtFx);
     renderer.clear();
     renderer.render(scene, camera);
+    // 同じ 絵を もう 1 まい（ブルームの 作業用）。シーンを もう 1 回 描かず コピーする
+    const ac0 = renderer.autoClear;
+    renderer.autoClear = false;
     renderer.setRenderTarget(rtB);
-    renderer.clear();
-    renderer.render(scene, camera);
+    renderer.render(this.copyScene, this.quadCam);
+    renderer.autoClear = ac0;
     camera.layers.mask = prevMask;
     scene.background = prevBg;
     renderer.setClearColor(prevClear, prevAlpha);
@@ -370,7 +397,7 @@ class RainbowBloom {
     renderer.render(this.quadScene, this.quadCam);
     renderer.autoClear = ac;
     renderer.setRenderTarget(prevTarget);
-    this.lastPasses = 2 + 12 + 1;
+    this.lastPasses = 1 + 1 + 12 + 1;
   }
 
   dispose(): void {
@@ -378,5 +405,6 @@ class RainbowBloom {
     this.rtB?.dispose();
     this.pass?.dispose();
     this.mat.dispose();
+    this.copyMat.dispose();
   }
 }

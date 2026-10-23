@@ -704,6 +704,9 @@ slashFx.warmUp(game.renderer, game.camera, game.scene);
 // 白い 斬撃の 上の 層（武器ごとの エフェクト）: 雷神剣 = 段ごとに 強くなる 黄色い 雷・風神剣 = 体の まわりを まわる 風の 帯
 const raijinFx = new RaijinStormFx(game.scene, game.camera, (tech) => w2.bladeTech[tech]);
 const fujinFx = new FujinOrbitFx(game.scene, game.camera);
+raijinFx.warmUp(game.renderer, game.camera, game.scene);
+fujinFx.warmUp(game.renderer, game.camera, game.scene);
+rainbowFx.warmUp(game.renderer, game.camera, game.scene); // ブルームの 作業用の 絵と プログラムも 読みこみ中に
 const spiralDebris = createSpiralDebris({ world, seed });
 const chargeLight = createChargeLight();
 const chargeLightFx = new ChargeLightFx({ scene: game.scene, camera: game.camera });
@@ -1966,9 +1969,9 @@ game.onUpdate((dt) => {
       domeGrains.step({ F: mv.move === 'shining' ? mv.moveF : 0, center: nijiCenter(cp), radius: dv.dome, pulled: legend.pullers(), reduced: reducedNow });
       nijiFx.step(dv.dome > 0 ? { radius: dv.dome, center: nijiCenter(cp), groundY: dv.groundY, F: mv.moveF } : null, domeGrains, reducedNow, rig.getInfo().hideChar);
       slashFx.step(reducedNow);
-      fujinFx.step();
-      raijinFx.step();
-      rainbowFx.step();
+      fujinFx.step(reducedNow);
+      raijinFx.step(reducedNow);
+      rainbowFx.step(reducedNow);
       if (domeEraseThisStep) {
         playLegend(fxSound, 'domeErase');
         domeEraseThisStep = false;

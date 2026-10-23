@@ -26,7 +26,8 @@ function spyKinds() {
   const calls: Record<string, number> = {};
   for (const name of ['disc', 'band', 'quad', 'ribbon', 'strip', 'bandG', 'discG'] as const) {
     const proto = FxBatch.prototype as unknown as Record<string, (...a: unknown[]) => void>;
-    const orig = proto[name]!;
+    const orig = proto[name];
+    if (!orig) continue; // 使われなく なって 消えた 描き方（bandG・discG）
     vi.spyOn(proto, name).mockImplementation(function (this: unknown, ...a: unknown[]) {
       calls[name] = (calls[name] ?? 0) + 1;
       return orig.apply(this, a);

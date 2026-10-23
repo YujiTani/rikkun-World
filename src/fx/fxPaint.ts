@@ -6,20 +6,6 @@ import * as THREE from 'three';
  */
 export const DOT = 1 / 32;
 
-/** 虹の 向き（粒ごとに きめる）: 0 中心から 外・1 ななめ・2 横・3 たて */
-export interface Grad {
-  mode: number;
-  cx: number;
-  cy: number;
-  cz: number;
-  ext: number;
-}
-/** 虹の 絵（よこ 64 点）の 虹の はんい（0〜0.875）。のこりは 無地の 白 */
-export const RAIN_LO = 0.004;
-export const RAIN_SPAN = 0.86;
-const WHITE3 = [1, 1, 1];
-const clamp01 = (x: number): number => Math.max(0, Math.min(1, x));
-
 /** 16 進（#RRGGBB）→ 線形の [r, g, b]（頂点の 色。画面では 元の 16 進に なる） */
 export function rgbOf(hex: string): [number, number, number] {
   const c = new THREE.Color(hex);
@@ -27,16 +13,23 @@ export function rgbOf(hex: string): [number, number, number] {
 }
 
 /** 同じ 入力に 同じ 値を 返す 乱数（0 以上 1 未満。シード付き）。試作の H と 同じ 式 */
-export function hash(...v: number[]): number {
-  let h = 2166136261;
-  for (const x of v) {
-    h ^= Math.imul(Math.round(x * 997) + 12345, 2654435761);
-    h = Math.imul(h ^ (h >>> 15), 2246822519);
-    h ^= h >>> 13;
-    h = Math.imul(h, 3266489917);
-    h ^= h >>> 16;
-  }
+export function hash(a: number, b?: number, c?: number, d?: number, e?: number, f?: number): number {
+  // 引数は 先頭から 順に 混ぜる（rest 引数の 配列を 毎回 作らない）
+  let h = mix(2166136261, a);
+  if (b !== undefined) h = mix(h, b);
+  if (c !== undefined) h = mix(h, c);
+  if (d !== undefined) h = mix(h, d);
+  if (e !== undefined) h = mix(h, e);
+  if (f !== undefined) h = mix(h, f);
   return ((h >>> 0) % 100003) / 100003;
+}
+function mix(h: number, x: number): number {
+  h ^= Math.imul(Math.round(x * 997) + 12345, 2654435761);
+  h = Math.imul(h ^ (h >>> 15), 2246822519);
+  h ^= h >>> 13;
+  h = Math.imul(h, 3266489917);
+  h ^= h >>> 16;
+  return h;
 }
 
 /** カメラの 向き（毎ステップ 1 回 更新） */
@@ -267,56 +260,17 @@ export class FxBatch {
     }
   }
 
-  /** 虹の 向き（0 中心から 外・1 ななめ・2 横・3 たて）。c = 粒の 中心、ext = 粒の 半分の 大きさ */
-  private gu(g: Grad, x: number, y: number, z: number, t: number): number {
-    if (g.mode === 0) return RAIN_LO + t * RAIN_SPAN;
-    const dx = x - g.cx, dy = y - g.cy, dz = z - g.cz;
-    const sx = dx * this.gRight[0]! + dy * this.gRight[1]! + dz * this.gRight[2]!;
-    const sy = dx * this.gUp[0]! + dy * this.gUp[1]! + dz * this.gUp[2]!;
-    const q = g.mode === 1 ? (sx + sy) * 0.7071 : g.mode === 2 ? sx : sy;
-    return RAIN_LO + clamp01(0.5 + q / (2 * Math.max(1e-4, g.ext))) * RAIN_SPAN;
-  }
-  private readonly gRight = [1, 0, 0];
-  private readonly gUp = [0, 1, 0];
-
-  /** 虹の 絵を つかう 帯（1 色ずつ ではなく、粒ごとの 向きで 絵を うつす）。色は 白（絵の 色が そのまま 出る） */
-  bandG(view: FxView, p: Float32Array, n: number, w: number | Float32Array, a: number, g: Grad): void {
-    if (n < 2) return;
-    this.gRight[0] = view.right.x; this.gRight[1] = view.right.y; this.gRight[2] = view.right.z;
-    this.gUp[0] = view.up.x; this.gUp[1] = view.up.y; this.gUp[2] = view.up.z;
-    this.sides(view, p, n);
-    const c = WHITE3;
-    for (let k = 0; k < n - 1; k++) {
-      const k1 = k + 1;
-      const h0 = (typeof w === 'number' ? w : w[k]!) / 2, h1 = (typeof w === 'number' ? w : w[k1]!) / 2;
-      const l0 = [p[k * 3]! - this.sx[k]! * h0, p[k * 3 + 1]! - this.sy[k]! * h0, p[k * 3 + 2]! - this.sz[k]! * h0];
-      const r0 = [p[k * 3]! + this.sx[k]! * h0, p[k * 3 + 1]! + this.sy[k]! * h0, p[k * 3 + 2]! + this.sz[k]! * h0];
-      const l1 = [p[k1 * 3]! - this.sx[k1]! * h1, p[k1 * 3 + 1]! - this.sy[k1]! * h1, p[k1 * 3 + 2]! - this.sz[k1]! * h1];
-      const r1 = [p[k1 * 3]! + this.sx[k1]! * h1, p[k1 * 3 + 1]! + this.sy[k1]! * h1, p[k1 * 3 + 2]! + this.sz[k1]! * h1];
-      const t0 = k / (n - 1), t1 = k1 / (n - 1);
-      this.v(l0[0]!, l0[1]!, l0[2]!, c, a, this.gu(g, l0[0]!, l0[1]!, l0[2]!, t0), 0.5);
-      this.v(r0[0]!, r0[1]!, r0[2]!, c, a, this.gu(g, r0[0]!, r0[1]!, r0[2]!, t0), 0.5);
-      this.v(l1[0]!, l1[1]!, l1[2]!, c, a, this.gu(g, l1[0]!, l1[1]!, l1[2]!, t1), 0.5);
-      this.v(r0[0]!, r0[1]!, r0[2]!, c, a, this.gu(g, r0[0]!, r0[1]!, r0[2]!, t0), 0.5);
-      this.v(r1[0]!, r1[1]!, r1[2]!, c, a, this.gu(g, r1[0]!, r1[1]!, r1[2]!, t1), 0.5);
-      this.v(l1[0]!, l1[1]!, l1[2]!, c, a, this.gu(g, l1[0]!, l1[1]!, l1[2]!, t1), 0.5);
-    }
-  }
-
-  /** 虹の 絵を つかう 円（mode 0 = 中心が 白で 外へ 赤〜むらさき） */
-  discG(view: FxView, x: number, y: number, z: number, r: number, a: number, g: Grad, n = 8): void {
-    this.gRight[0] = view.right.x; this.gRight[1] = view.right.y; this.gRight[2] = view.right.z;
-    this.gUp[0] = view.up.x; this.gUp[1] = view.up.y; this.gUp[2] = view.up.z;
-    const c = WHITE3;
-    for (let k = 0; k < n; k++) {
-      const t0 = (k / n) * 6.2832, t1 = ((k + 1) / n) * 6.2832;
-      const c0 = Math.cos(t0) * r, s0 = Math.sin(t0) * r, c1 = Math.cos(t1) * r, s1 = Math.sin(t1) * r;
-      const ax = x + view.right.x * c0 + view.up.x * s0, ay = y + view.right.y * c0 + view.up.y * s0, az = z + view.right.z * c0 + view.up.z * s0;
-      const bx = x + view.right.x * c1 + view.up.x * s1, by = y + view.right.y * c1 + view.up.y * s1, bz = z + view.right.z * c1 + view.up.z * s1;
-      this.v(x, y, z, c, a, this.gu(g, x, y, z, 0), 0.5);
-      this.v(ax, ay, az, c, a, this.gu(g, ax, ay, az, 1), 0.5);
-      this.v(bx, by, bz, c, a, this.gu(g, bx, by, bz, 1), 0.5);
-    }
+  /**
+   * 読みこみ中に 材質（描画の プログラム）を 先に 作る。最初の 描画で かくつかない。
+   * 一瞬 見える 形に して compile して もどす（slashFx.warmUp と 同じ やり方）
+   */
+  warmUp(renderer: THREE.WebGLRenderer, camera: THREE.Camera, scene: THREE.Scene): void {
+    const was = this.mesh.visible;
+    this.mesh.visible = true;
+    renderer.compile(scene, camera);
+    const m = this.mesh.material as THREE.MeshBasicMaterial;
+    if (m.map) renderer.initTexture(m.map);
+    this.mesh.visible = was;
   }
 
   dispose(scene: THREE.Scene): void {

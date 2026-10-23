@@ -31,12 +31,16 @@ interface Conv {
   z: number;
   age: number;
   seed: number;
+  shown: boolean;
+  dist: number;
 }
 const MAX_CONV = 8;
 /** 集まる 稲妻: のびる ステップ・きえる までの ステップ・本数・とおい 半径 */
 const CONV_GROW = 4;
 const CONV_LIFE = 8;
 const CONV_BOLTS = 6;
+/** 同時に 出す 集まる 稲妻の 妖怪の 数（近い 順。3 体以上に 当てても 2 体ぶん = 三角形 2200 以下） */
+const CONV_MAX_SHOWN = 2;
 
 interface Inst {
   idx: number;
@@ -71,6 +75,8 @@ export class RaijinStormFx {
   private readonly glow: FxBatch;
   private readonly insts: Inst[] = [];
   private seedN = 0;
+  /** 動きを へらす 設定（折れ方の きりかえを 4 ステップごとに） */
+  private reducedNow = false;
   private readonly conv: Conv[] = [];
   private readonly tmp: number[] = [0, 0, 0];
   private readonly coarse = makePts(10);
@@ -119,7 +125,7 @@ export class RaijinStormFx {
    */
   hit(center: Vec3): void {
     if (this.conv.length >= MAX_CONV) this.conv.shift();
-    this.conv.push({ x: center.x, y: center.y, z: center.z, age: 0, seed: ++this.seedN * 23 });
+    this.conv.push({ x: center.x, y: center.y, z: center.z, age: 0, seed: ++this.seedN * 23, shown: false, dist: 0 });
   }
 
   /** わざが やめに なった（出ている 雷は ふつうに 消える） */
@@ -128,7 +134,8 @@ export class RaijinStormFx {
   }
 
   /** 1 ステップ ごと（カメラが 動いた あと） */
-  step(): void {
+  step(reduced = false): void {
+    this.reducedNow = reduced;
     this.view.update(this.camera);
     this.under.begin();
     this.glow.begin();
@@ -138,20 +145,44 @@ export class RaijinStormFx {
       s.T++;
       if (s.T - WINDOW[s.tech] > FADE + 10) s.active = false;
     }
+    this.rankConv();
     for (let k = this.conv.length - 1; k >= 0; k--) {
       const c = this.conv[k]!;
-      this.drawConv(c);
+      if (c.shown) this.drawConv(c);
       if (++c.age >= CONV_LIFE) this.conv.splice(k, 1);
     }
     this.under.end();
     this.glow.end();
   }
 
+  /** 体の 近くの 妖怪から 2 体だけ 集まる 稲妻を 出す（ほかは 年れいだけ すすむ） */
+  private rankConv(): void {
+    let ref: Inst | null = null;
+    for (const i of this.insts) if (i.active && (!ref || i.T > ref.T)) ref = i;
+    let rx: number, rz: number;
+    if (ref) {
+      const p = ref.pos();
+      rx = p.x; rz = p.z;
+    } else {
+      rx = this.view.eye.x; rz = this.view.eye.z;
+    }
+    for (const c of this.conv) {
+      c.shown = false;
+      c.dist = Math.hypot(c.x - rx, c.z - rz);
+    }
+    for (let n = 0; n < CONV_MAX_SHOWN; n++) {
+      let best: Conv | null = null;
+      for (const c of this.conv) if (!c.shown && (!best || c.dist < best.dist)) best = c;
+      if (!best) break;
+      best.shown = true;
+    }
+  }
+
   private drawConv(c: Conv): void {
     const age = c.age;
     const grow = Math.min(1, (age + 1) / CONV_GROW);
     const fade = age >= CONV_GROW + 1 ? 1 - (age - CONV_GROW - 1) / (CONV_LIFE - CONV_GROW) : 1;
-    const half = Math.floor(age / 2); // 折れ方は 2 ステップごと
+    const half = Math.floor(age / (this.reducedNow ? 4 : 2)); // 折れ方は 2 ステップごと（動きを へらす 時は 4）
     for (let q = 0; q < CONV_BOLTS; q++) {
       const ang = ((q * 60 + (hash(q, c.seed) - 0.5) * 24) * Math.PI) / 180;
       const rad = 1.5 + 0.5 * hash(q, c.seed, 2);
@@ -240,6 +271,7 @@ export class RaijinStormFx {
     const T = s.T, idx = s.idx, st = idx + 1;
     const L = WINDOW[s.tech];
     const A = T - L;
+    const jt = this.reducedNow ? Math.floor(T / 4) * 4 : T; // 折れ方の きりかえ
     const f = T + s.startup + 1; // わざの ステップ（techStart = 1）
     const p = s.pos();
     // ① 刀身に まとわりつく 電気と パチパチ 火花
@@ -253,7 +285,7 @@ export class RaijinStormFx {
       const a0 = smooth((T + 6) / 3) * (1 - smooth((T - L) / 3));
       const bx = this.base[0]! + dx * 0.1, by = this.base[1]! + dy * 0.1, bz = this.base[2]! + dz * 0.1;
       for (let q = 0; q < 1 + st; q++) {
-        const n = this.fine(this.bolt1, bx, by, bz, ex, ey, ez, 5, 0.05 + 0.02 * q, s.seed + T * 7 + q * 31);
+        const n = this.fine(this.bolt1, bx, by, bz, ex, ey, ez, 5, 0.05 + 0.02 * q, s.seed + jt * 7 + q * 31);
         this.bolt(this.bolt1, n, 0.5 + 0.1 * st, a0, false);
       }
       for (let q = 0; q < 5 + 3 * st; q++) {
@@ -286,7 +318,7 @@ export class RaijinStormFx {
       for (let k = 0; k < m; k++) this.trailW[k] = 0.07 * Math.max(0.12, Math.sin(Math.PI * clamp01((k / (m - 1)) * 0.9 + 0.08)));
       this.glow.ribbon(this.view, this.trailP, m, this.trailW, W, fade);
       // ③ 軌跡から 外へ はしる 枝（きりあげ 3・けさ 5）
-      const nb = BRANCHES[idx]!, ps = Math.floor(Math.min(T, L + 6) / 2);
+      const nb = BRANCHES[idx]!, ps = Math.floor(Math.min(T, L + 6) / (this.reducedNow ? 4 : 2));
       const known = (s.nTips - 1) / L;
       for (let b = 0; b < nb; b++) {
         const u = ((b + 0.6) / nb) * 0.85 + 0.08;
@@ -371,7 +403,7 @@ export class RaijinStormFx {
     for (let k = 0; k < m; k++) this.ringW[k] = 0.06 * prof(k);
     this.glow.ribbon(this.view, this.ringP, m, this.ringW, W, fade);
     // 輪に そって 走る 細い 稲妻（1 つ おきに ふる）と 枝 3 本
-    const half = Math.floor(T / 2);
+    const half = Math.floor(T / (this.reducedNow ? 4 : 2));
     for (let k = 1; k < n; k += 2) {
       const a = k - 1, b = k + 1;
       const tx = this.ringP[b * 3]! - this.ringP[a * 3]!, ty = this.ringP[b * 3 + 1]! - this.ringP[a * 3 + 1]!, tz = this.ringP[b * 3 + 2]! - this.ringP[a * 3 + 2]!;
@@ -397,6 +429,12 @@ export class RaijinStormFx {
       const age = (t + q * 3) % 9;
       this.dot(cx + Math.cos(q * 1.7) * 0.5, p.y + 0.04 + age * 0.05, cz + Math.sin(q * 2.3) * 0.5, DOT * 2, fade * (1 - age / 10));
     }
+  }
+
+  /** 読みこみ中に 材質を 先に 作る */
+  warmUp(renderer: THREE.WebGLRenderer, camera: THREE.Camera, scene: THREE.Scene): void {
+    this.under.warmUp(renderer, camera, scene);
+    this.glow.warmUp(renderer, camera, scene);
   }
 
   info(): { draws: number; tris: number; active: number } {

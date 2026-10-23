@@ -14,11 +14,11 @@ export function createCameraHook(rig: CameraRig) {
       fov: () => rig.fov(),
       bowPose: () => rig.bowPose(),
       bowHand: () => rig.bowHand(),
-      /** WEAPON-9: カメラだけ 体の 向きから ずらす（度。0 でもどる） */
       /** スクショ用: カメラの 体からの きょり（マス）。null で もどる */
       distance: (m: number | null) => {
         rig.testDistance = m;
       },
+      /** WEAPON-9: カメラだけ 体の 向きから ずらす（度。0 でもどる） */
       yawOffset: (deg: number) => {
         rig.testYawOffsetDeg = Number.isFinite(deg) ? deg : 0;
       },
