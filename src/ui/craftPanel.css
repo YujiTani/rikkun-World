@@ -352,20 +352,100 @@
   font-size: var(--rk-fs-body);
   color: var(--rk-rarity, var(--rk-text));
 }
-.cp-scroll {
+.cp-pagebody {
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--rk-sp-3);
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--rk-line) transparent;
+  overflow: hidden; /* ページに 入る分だけ 出す（スクロールしない。入りきらない物は ページを 分ける） */
+}
+.cp-pg {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rk-sp-2);
+}
+.cp-pg[hidden] {
+  display: none;
+}
+/* ◀ ページ名（その下に ●○） ▶ */
+.cp-pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--rk-sp-2);
+}
+.cp-pagemid {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.cp-pagename {
+  font-size: var(--rk-fs-body);
+  font-weight: 800;
+  line-height: var(--rk-lh);
+  white-space: nowrap;
+}
+.cp-pagedots {
+  font-size: var(--rk-fs-small);
+  line-height: 1;
+  letter-spacing: 0.08em;
+  color: var(--rk-accent);
+  white-space: nowrap;
+}
+.cp-pagedots[hidden],
+.cp-pager .rk-btn[hidden] {
+  display: none;
+}
+/* 押せる当たりは ボタンの四角（44px 以上）。見える矢印の絵は 小さく */
+.cp-pager .rk-btn {
+  flex: none;
+  box-sizing: border-box;
+  min-width: max(var(--rk-h-btn), calc(45px / var(--rk-fit, 1)));
+  min-height: max(calc(var(--rk-h-btn) / var(--rk-fit, 1)), calc(46px / var(--rk-fit, 1))); /* 画面を ちぢめても 見た目の高さが 部品の きまり（56）を 下回らない */
+  padding: 0;
+}
+.cp-pager .rk-btn.is-disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.cp-arrow {
+  display: block;
+  width: 0;
+  height: 0;
+  border-top: calc(var(--rk-sp-2) * 0.8) solid transparent;
+  border-bottom: calc(var(--rk-sp-2) * 0.8) solid transparent;
+}
+.cp-arrow[data-dir='prev'] {
+  border-right: var(--rk-sp-2) solid var(--rk-text);
+  margin-right: calc(var(--rk-sp-1) * 0.5);
+}
+.cp-arrow[data-dir='next'] {
+  border-left: var(--rk-sp-2) solid var(--rk-text);
+  margin-left: calc(var(--rk-sp-1) * 0.5);
+}
+.cp-to {
+  align-self: center;
+  font-size: var(--rk-fs-body);
+  font-weight: 800;
+}
+.cp-out {
+  display: flex;
+  align-items: center;
+  gap: var(--rk-sp-2);
+}
+.cp-out-art {
+  width: var(--rk-icon-chip);
+  height: var(--rk-icon-chip);
+  image-rendering: pixelated;
+  flex: none;
 }
 .cp-detail > .cp-head,
 .cp-detail > .cp-rarity,
+.cp-detail > .cp-pager,
 .cp-detail > .cp-hint,
-.cp-detail > .cp-more,
 .cp-detail > .cp-press {
   flex: none;
 }
@@ -498,31 +578,6 @@
 .cp-count {
   font-size: var(--rk-fs-body);
   font-weight: 800;
-}
-.cp-more {
-  align-self: center;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: max(var(--rk-h-btn), calc(44px / var(--rk-fit, 1)));
-  margin: 0;
-  padding: 0 var(--rk-sp-3);
-  font-family: inherit;
-  font-size: var(--rk-fs-small);
-  color: var(--rk-text);
-  background: transparent;
-  border: 0;
-  cursor: pointer;
-  animation: cp-nudge 1.5s ease-in-out infinite;
-}
-@keyframes cp-nudge {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(2px);
-  }
 }
 .cp-hint {
   text-align: center;

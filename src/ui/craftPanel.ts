@@ -2,13 +2,16 @@ import type { CraftSystem, Inventory, ItemId, Recipe, Vec3 } from '../contracts'
 import { createDefaultItemInfo, type ItemInfoSource } from '../craft/info';
 import { CRAFT_UI_SETTINGS, type CraftUiSettings } from '../fx/craftConfig';
 import { FURNACE_MOUTH } from '../world/blocks/textures';
+import { baseRecipeId, groupRecipes } from '../craft/recipes';
 import {
+  buildPageDefs,
   buildCards,
   buildDetail,
   buildTiles,
   nextFuel,
   visibleCards,
   pickSelection,
+  pageStart,
   type CardView,
   type DetailView,
   type TileView,
@@ -36,6 +39,16 @@ export interface FurnaceView {
 }
 
 export type CraftTab = 'craft' | 'bake';
+
+/** CRAFT-PAGE: 窓口 `craft.page()` の 形 */
+export interface PageInfo {
+  names: string[];
+  index: number;
+  recipe: string | null;
+  prevEnabled: boolean;
+  nextEnabled: boolean;
+  dots: number;
+}
 
 export interface Rect {
   x: number;
@@ -176,8 +189,15 @@ export class CraftPanel {
   private readonly furnaceCanvas: HTMLCanvasElement;
   private readonly detailEls: DetailEls;
   private readonly finger: HTMLSpanElement;
+  /** カードに なる（作り方が いくつか あれば 先頭の）レシピ */
   private readonly craftRecipes: Recipe[];
   private readonly bakeRecipes: Recipe[];
+  /** 作り方ぜんぶ（たいまつ は 3 つ）と、カードの id → 作り方の id たち */
+  private readonly craftAll: Recipe[];
+  private readonly bakeAll: Recipe[];
+  private readonly groups: Map<string, string[]>;
+  /** CRAFT-PAGE: えらんでいるマスの ページ（ちがうマスに うつる・画面を開くと 作れる いちばん前に もどる） */
+  private pageSel: { id: string; index: number; recipe: string } | null = null;
   private readonly tileEls = new Map<string, TileEls>();
   private readonly cfg: CraftUiSettings;
   private d: CraftPanelDeps;
@@ -201,8 +221,11 @@ export class CraftPanel {
     this.cfg = deps.cfg ?? CRAFT_UI_SETTINGS;
     this.info_ = deps.info ?? createDefaultItemInfo((i) => deps.nameOf(i));
     const all = deps.craft.recipes();
-    this.craftRecipes = all.filter((r) => r.station === 'craft');
-    this.bakeRecipes = all.filter((r) => r.station === 'furnace');
+    this.craftAll = all.filter((r) => r.station === 'craft');
+    this.bakeAll = all.filter((r) => r.station === 'furnace');
+    this.groups = groupRecipes(all);
+    this.craftRecipes = this.craftAll.filter((r) => this.groups.has(r.id));
+    this.bakeRecipes = this.bakeAll.filter((r) => this.groups.has(r.id));
 
     this.el = el('div', 'craft-panel');
     this.el.hidden = true;
@@ -246,6 +269,7 @@ export class CraftPanel {
     this.detailEls = createDetailEls(this.el, {
       onPress: () => void this.detailPress(),
       onEnter: () => this.hover(null),
+      onPage: (d) => void this.pageGo(d),
     });
 
     // ゆびの印（つくれる えらんでいるマスにだけ付ける。ひとつを使いまわす）
@@ -337,12 +361,36 @@ export class CraftPanel {
     return queued;
   }
 
+  /** カードごとの 作り方のカード（たいまつ は 3 つ。ほかは 1 つ） */
+  private variantViews = new Map<string, CardView[]>();
+
   private views(): { craft: CardView[]; bake: CardView[] } {
     const st = this.furnaceState();
-    return {
-      craft: buildCards(this.craftRecipes, this.d.craft, this.counter(), this.cardOpt()),
-      bake: buildCards(this.bakeRecipes, this.d.craft, this.counter(), { ...this.cardOpt(), bake: true, queued: this.bakeQueued(st), cfg: this.cfg }),
+    const craftAll = buildCards(this.craftAll, this.d.craft, this.counter(), this.cardOpt());
+    const bakeAll = buildCards(this.bakeAll, this.d.craft, this.counter(), { ...this.cardOpt(), bake: true, queued: this.bakeQueued(st), cfg: this.cfg });
+    const variants = new Map<string, CardView[]>();
+    const merge = (list: CardView[]): CardView[] => {
+      const byId = new Map(list.map((c) => [c.id, c]));
+      const out: CardView[] = [];
+      for (const [primary, ids] of this.groups) {
+        const vs = ids.map((id) => byId.get(id)).filter((c): c is CardView => !!c);
+        if (vs.length === 0) continue;
+        variants.set(primary, vs);
+        const first = vs[0];
+        if (vs.length === 1) {
+          out.push(first);
+          continue;
+        }
+        // 3 つの どれかが 作れれば「作れる」。材料の赤・まるは 作れる作り方（無ければ 材料を もっている いちばん前の作り方）で見る
+        const def = vs.find((v) => v.glowing) ?? vs.find((v) => v.materials.some((m) => m.have > 0)) ?? first;
+        out.push({ ...def, id: first.id, output: first.output, countLabel: first.countLabel, glowing: vs.some((v) => v.glowing) });
+      }
+      return out;
     };
+    const craft = merge(craftAll);
+    const bake = merge(bakeAll);
+    this.variantViews = variants;
+    return { craft, bake };
   }
 
   private currentTab(): CraftTab {
@@ -350,13 +398,14 @@ export class CraftPanel {
   }
 
   private stationOf(id: string): CraftTab | null {
-    if (this.craftRecipes.some((r) => r.id === id)) return 'craft';
-    if (this.bakeRecipes.some((r) => r.id === id)) return 'bake';
+    if (this.craftAll.some((r) => r.id === id)) return 'craft';
+    if (this.bakeAll.some((r) => r.id === id)) return 'bake';
     return null;
   }
 
   private made(kind: 'craft' | 'bake', id: string): boolean {
-    return this.madeLocal.has(`${kind}:${id}`) || (this.d.isMade?.(kind, id) ?? false);
+    const base = baseRecipeId(id);
+    return this.madeLocal.has(`${kind}:${base}`) || (this.d.isMade?.(kind, base) ?? false);
   }
 
   /** 材料の数え方（たんす もふくむ）。なければ もちもの だけ */
@@ -381,6 +430,7 @@ export class CraftPanel {
         this.matVer = this.d.materials?.version() ?? 0;
         this.tab_ = this.furnacePos() ? 'bake' : 'craft';
         this.hovered_ = null;
+        this.pageSel = null;
         this.ensureSelection();
       } else this.hovered_ = null;
       this.dirty = true;
@@ -519,6 +569,11 @@ export class CraftPanel {
     if (!sel) return null;
     const hov = this.hovered_ && !this.d.cursorHeld?.() ? views.find((c) => c.id === this.hovered_) : undefined;
     const shown = hov ?? sel;
+    const selVariants = this.variantViews.get(sel.id) ?? [sel];
+    const selPage = this.pageFor(sel.id, selVariants);
+    const shownVariants = this.variantViews.get(shown.id) ?? [shown];
+    // 合わせただけの マスは 開いたときの ページ。えらんでいるマスは おぼえている ページ
+    const shownPage = shown.id === sel.id ? selPage : undefined;
     const countOf = (i: ItemId) => this.counter().count(i);
     const fuelCounts: Record<string, number> = {};
     for (const f of this.cfg.fuelOrder) fuelCounts[f] = countOf(f as ItemId);
@@ -530,7 +585,67 @@ export class CraftPanel {
       fuelCounts: tab === 'bake' ? fuelCounts : null,
       fuelNext: this.currentFuel(),
       fuelInTansu: this.d.materials ? this.d.materials.fuelInTansu() : undefined,
+      variants: shownVariants,
+      page: shownPage,
+      selectedCard: selVariants.find((v) => v.id === selPage.recipe) ?? sel,
     });
+  }
+
+  // ---- ページ（CRAFT-PAGE）
+
+  /** えらんでいるマスの ページ。ちがうマスに うつったら（画面を開いても）作れる いちばん前から */
+  private pageFor(id: string, variants: readonly CardView[]): { index: number; recipe: string } {
+    if (this.pageSel?.id === id) return this.pageSel;
+    const ids = variants.map((v) => v.id);
+    const info = this.info_.info(variants[0]?.output.item ?? ('log' as ItemId));
+    const pages = buildPageDefs({ recipes: ids, statCount: info.stats.length, use: info.use, how: info.how });
+    this.pageSel = { id, ...pageStart(pages, variants) };
+    return this.pageSel;
+  }
+
+  private selectedId(): string | null {
+    const tab = this.currentTab();
+    return pickSelection(visibleCards(this.views()[tab]), this.selected_[tab]);
+  }
+
+  /** 「つくる」が 今 使う 作り方（作り方のページを見ていれば そのページ、せつめい・つよさ なら さいごに見た作り方） */
+  private currentRecipe(id: string): string {
+    const v = this.variantViews.get(id) ?? [];
+    return this.pageSel?.id === id ? this.pageSel.recipe : this.pageFor(id, v).recipe;
+  }
+
+  /** ◀ ▶ を 押したのと同じ。はしで 動かなければ false */
+  pageGo(delta: -1 | 1): boolean {
+    if (!this.d.isOpen()) return false;
+    const id = this.selectedId();
+    if (!id) return false;
+    const views = this.views();
+    const sel = (this.currentTab() === 'bake' ? views.bake : views.craft).find((c) => c.id === id);
+    if (!sel) return false;
+    const variants = this.variantViews.get(id) ?? [sel];
+    const cur = this.pageFor(id, variants);
+    const d = this.detail();
+    if (!d) return false;
+    const next = cur.index + delta;
+    if (next < 0 || next >= d.pages.length) return false;
+    const pg = d.pages[next];
+    this.pageSel = { id, index: next, recipe: pg.kind === 'make' && pg.recipe ? pg.recipe : cur.recipe };
+    this.paintDetail();
+    return true;
+  }
+
+  /** `craft.page()`（テスト用）。中身が 出ていなければ null */
+  page(): PageInfo | null {
+    const d = this.detail();
+    if (!d) return null;
+    return {
+      names: d.pages.map((p) => p.name),
+      index: d.page,
+      recipe: d.recipe,
+      prevEnabled: d.page > 0,
+      nextEnabled: d.page < d.pages.length - 1,
+      dots: d.pages.length > 1 ? d.pages.length : 0,
+    };
   }
 
   private paintDetail(): void {
@@ -563,7 +678,7 @@ export class CraftPanel {
       this.sync();
       return { action: 'select', ok: true, reason: null };
     }
-    const r = this.click(id);
+    const r = this.click(this.currentRecipe(id));
     return { action: 'make', ok: r.ok, reason: r.reason };
   }
 
@@ -573,7 +688,7 @@ export class CraftPanel {
     const tab = this.currentTab();
     const id = pickSelection(visibleCards(this.views()[tab]), this.selected_[tab]);
     if (!id) return { ok: false, reason: 'unknown' };
-    return this.click(id);
+    return this.click(this.currentRecipe(id));
   }
 
   /** つくる のカードを押したのと同じ（すぐ つくる。えらぶ も そのマスに替わる）。閉じていれば `{ok:false, reason:'closed'}` */
@@ -581,12 +696,13 @@ export class CraftPanel {
     if (!this.d.isOpen()) return { ok: false, reason: 'closed' };
     const station = this.stationOf(id);
     const isBake = station === 'bake';
-    const tile = this.tileEls.get(id);
-    if (station) this.selected_[station] = id;
+    const base = baseRecipeId(id); // 足した作り方も カードは 元のマス
+    const tile = this.tileEls.get(base);
+    if (station) this.selected_[station] = base;
     const r = this.d.craft.make(id);
     this.dirty = true;
     if (r.ok) {
-      this.madeLocal.add(`${isBake ? 'bake' : 'craft'}:${id}`);
+      this.madeLocal.add(`${isBake ? 'bake' : 'craft'}:${base}`);
       if (tile && !isBake) this.flyEffects(id, tile);
     } else if (tile) {
       if (r.reason === 'full') this.d.onFull?.();
@@ -600,7 +716,7 @@ export class CraftPanel {
 
   /** できたものが入ったマスへ飛ぶ（0.4 秒） */
   private flyEffects(id: string, t: TileEls): void {
-    const recipe = this.craftRecipes.find((r) => r.id === id);
+    const recipe = this.craftAll.find((r) => r.id === id);
     if (!recipe) return;
     const slot = this.d.slotElFor?.(recipe.output.item);
     const root = this.el.parentElement ?? this.el;
@@ -609,7 +725,7 @@ export class CraftPanel {
 
   /** そのレシピの マスの DOM（B の演出の出どころ） */
   tileElFor(recipe: string): HTMLElement | null {
-    return this.tileEls.get(recipe)?.root ?? null;
+    return this.tileEls.get(baseRecipeId(recipe))?.root ?? null;
   }
 
   /** せつめい パネルの つくる ボタンの DOM（B の「できた！」ハンコの場所） */

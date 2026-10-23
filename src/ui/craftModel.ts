@@ -213,6 +213,107 @@ export interface DetailView {
   /** いつも えらんでいるマスのもの */
   button: { enabled: boolean; label: string };
   hint: string | null;
+  /** CRAFT-PAGE: ページの 一覧（順に ◀ ▶ で めくる） */
+  pages: PageDef[];
+  /** 今のページ（`pages` の 何番目か） */
+  page: number;
+  /** 「つくる」が 使う 作り方（`materials`・`count` は この作り方の もの） */
+  recipe: string;
+}
+
+// ================================================================ CRAFT-PAGE（#277）せつめい欄の ページめくり
+
+export type PageKind = 'make' | 'desc' | 'stats';
+
+export interface PageDef {
+  kind: PageKind;
+  /** ページ名（「つくりかた ②」「せつめい」「つよさ 1/2」） */
+  name: string;
+  /** make: この ページの 作り方（レシピ id） */
+  recipe?: string;
+  /** desc: このページに 出す 文（なにに つかうか / つかいかた）。ふりがな記号つき。長いときは 文で 区切って 何ページかに 分ける */
+  use?: string;
+  how?: string;
+  /** desc: つかいかたの ボタンの絵を このページに 出す（つかいかたの 最初の ページ） */
+  buttons?: boolean;
+  /** stats: 出す stats の 範囲 [from, to) */
+  from?: number;
+  to?: number;
+}
+
+/** つよさ 1 ページに 出す 数（2 列 × 1 行。メーターつきで どの大きさの画面でも 1 ページに 収まる数） */
+export const STATS_PER_PAGE = 2;
+
+const CIRCLED = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨'];
+
+/**
+ * ページの 順: つくりかた（1 つなら「ざいりょう」、ふたつ 以上なら「つくりかた ①②…」）→ せつめい → つよさ（ある物だけ。多ければ 分ける）。
+ * ねんりょう（かまど）は ざいりょうの ページに 入る。
+ */
+/** せつめい 1 ページに 入れる 文字の数（いちばん小さい画面でも はみ出さない 長さ。ふりがなの ［漢字｜よみ］ は 漢字だけ数える） */
+export const DESC_PAGE_CHARS = 68;
+
+/** 文字の数（ふりがなの ［漢字｜よみ］ は 漢字だけ数える） */
+export function plainLength(t: string): number {
+  return t.replace(/［([^｜］]*)｜[^］]*］/g, '$1').length;
+}
+
+/**
+ * せつめい（なにに つかう → つかいかた）を ページに 分ける。1 ページの 文字が `DESC_PAGE_CHARS` を こえそうなら 次のページへ
+ * （つかいかたは「。」で 区切った 文の 単位で 動かす）。入りきるなら 1 ページ。
+ */
+export function splitDesc(use: string, how: string, limit: number = DESC_PAGE_CHARS): { use: string; how: string; buttons: boolean }[] {
+  const sentences = how === '' ? [] : (how.match(/[^。]+。?/g) ?? [how]);
+  const pages: { use: string; how: string; buttons: boolean }[] = [{ use, how: '', buttons: false }];
+  let len = plainLength(use);
+  let firstHow = true;
+  for (const sen of sentences) {
+    const n = plainLength(sen);
+    const cur = pages[pages.length - 1];
+    if (len + n > limit && (cur.use !== '' || cur.how !== '')) {
+      pages.push({ use: '', how: sen, buttons: firstHow });
+      len = n;
+    } else {
+      cur.how += sen;
+      if (firstHow) cur.buttons = true;
+      len += n;
+    }
+    firstHow = false;
+  }
+  return pages;
+}
+
+export function buildPageDefs(o: { recipes: readonly string[]; statCount: number; use?: string; how?: string; perPage?: number }): PageDef[] {
+  const per = o.perPage ?? STATS_PER_PAGE;
+  const out: PageDef[] = o.recipes.map((recipe, i) => ({
+    kind: 'make' as const,
+    name: o.recipes.length === 1 ? 'ざいりょう' : `つくりかた ${CIRCLED[i] ?? String(i + 1)}`,
+    recipe,
+  }));
+  const desc = splitDesc(o.use ?? '', o.how ?? '');
+  desc.forEach((d, i) => out.push({ kind: 'desc', name: desc.length === 1 ? 'せつめい' : `せつめい ${i + 1}/${desc.length}`, use: d.use, how: d.how, buttons: d.buttons }));
+  // つよさ は 数が ある物だけ（分類の 文は つよさの 1 ページ目に。数が 無い物は せつめい に出す）
+  if (o.statCount > 0) {
+    const n = Math.ceil(o.statCount / per);
+    for (let i = 0; i < n; i++) {
+      out.push({ kind: 'stats', name: n === 1 ? 'つよさ' : `つよさ ${i + 1}/${n}`, from: i * per, to: Math.min(o.statCount, (i + 1) * per) });
+    }
+  }
+  return out;
+}
+
+/** 今の材料で 作れる いちばん前の 作り方（無ければ null） */
+export function firstCraftableVariant(variants: readonly CardView[]): string | null {
+  return variants.find((v) => v.glowing)?.id ?? null;
+}
+
+/** 説明欄を 開いたとき（ちがうカードに うつったとき）の ページと 「つくる」の作り方: 作れる いちばん前、無ければ 1 ページ目 */
+export function pageStart(pages: readonly PageDef[], variants: readonly CardView[]): { index: number; recipe: string } {
+  const first = pages.find((p) => p.kind === 'make')?.recipe ?? variants[0]?.id ?? '';
+  const c = firstCraftableVariant(variants);
+  if (c === null) return { index: 0, recipe: first };
+  const index = Math.max(0, pages.findIndex((p) => p.kind === 'make' && p.recipe === c));
+  return { index, recipe: c };
 }
 
 export const HINT_SELECT = 'クリック で えらぶ';
@@ -234,8 +335,18 @@ export function buildDetail(o: {
   fuelNext: ItemIdM6 | null;
   /** CRAFT-2: ねんりょうごとの たんす の数 */
   fuelInTansu?: Record<string, number>;
+  /** CRAFT-PAGE: shown の 作り方ごとの カード（無ければ shown だけ） */
+  variants?: readonly CardView[];
+  /** CRAFT-PAGE: 今の ページ と 「つくる」の作り方（無ければ 開いたときの ページ） */
+  page?: { index: number; recipe: string };
+  /** CRAFT-PAGE: selected の「つくる」が 使う 作り方のカード（無ければ selected） */
+  selectedCard?: CardView;
 }): DetailView {
   const { shown, selected, info } = o;
+  const variants = o.variants && o.variants.length > 0 ? o.variants : [shown];
+  const pages = buildPageDefs({ recipes: variants.map((v) => v.id), statCount: info.stats.length, use: info.use, how: info.how });
+  const pg = o.page ?? pageStart(pages, variants);
+  const cur = variants.find((v) => v.id === pg.recipe) ?? variants[0];
   return {
     id: shown.id,
     item: shown.output.item,
@@ -249,11 +360,14 @@ export function buildDetail(o: {
     later: info.later,
     stats: info.stats,
     classText: info.classText,
-    materials: shown.materials.map((m) => ({ item: m.item, have: m.have, need: m.need, ok: !m.red, inTansu: m.inTansu })),
+    materials: cur.materials.map((m) => ({ item: m.item, have: m.have, need: m.need, ok: !m.red, inTansu: m.inTansu })),
     fuel: o.bake && o.fuelCounts ? { next: o.fuelNext, counts: o.fuelCounts, inTansu: o.fuelInTansu ?? {} } : null,
-    count: shown.output.count,
-    button: buttonState(selected, o.bake, o.fuelNext),
+    count: cur.output.count,
+    button: buttonState(o.selectedCard ?? selected, o.bake, o.fuelNext),
     hint: shown.id !== selected.id ? HINT_SELECT : null,
+    pages,
+    page: Math.max(0, Math.min(pages.length - 1, pg.index)),
+    recipe: cur.id,
   };
 }
 

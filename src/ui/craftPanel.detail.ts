@@ -3,7 +3,7 @@ import type { ButtonKey } from '../craft/info';
 import { materialDotSources, type DetailView } from './craftModel';
 import { mouseEl, questionUrl, fingerUrl } from './craftPanel.art';
 import { rarityIndex } from '../drops/rarityTable';
-import { createChip, createMeter, createButton, setButtonKind, setRarity, } from './theme';
+import { createChip, createMeter, createButton, setButtonDisabled, setButtonKind, setRarity } from './theme';
 import { starText } from './tooltipModel';
 import { withRuby } from './text';
 
@@ -14,7 +14,17 @@ export interface DetailEls {
   name: HTMLDivElement;
   stars: HTMLSpanElement;
   word: HTMLSpanElement;
-  scroll: HTMLDivElement;
+  /** CRAFT-PAGE: ページの 中身を 入れる 欄（スクロールしない） */
+  body: HTMLDivElement;
+  pageMake: HTMLDivElement;
+  pageDesc: HTMLDivElement;
+  pageStats: HTMLDivElement;
+  /** ◀ ▶ とページ名・● の 行 */
+  pager: HTMLDivElement;
+  prev: HTMLButtonElement;
+  next: HTMLButtonElement;
+  pageName: HTMLDivElement;
+  pageDots: HTMLDivElement;
   useRow: HTMLDivElement;
   useText: HTMLElement;
   howRow: HTMLDivElement;
@@ -24,8 +34,10 @@ export interface DetailEls {
   classEl: HTMLDivElement;
   mats: HTMLDivElement;
   fuel: HTMLDivElement;
+  /** 出来る物の 行（絵と できる かず） */
+  out: HTMLDivElement;
+  outArt: HTMLImageElement;
   count: HTMLDivElement;
-  more: HTMLButtonElement;
   hint: HTMLDivElement;
   button: HTMLButtonElement;
   /** 材料が 1 つも無いときの 大きな文と絵 */
@@ -43,7 +55,7 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, parent?:
 export const EMPTY_TEXT = 'ざいりょう を あつめよう！';
 
 
-export function createDetailEls(parent: HTMLElement, h: { onPress(): void; onEnter(): void }): DetailEls {
+export function createDetailEls(parent: HTMLElement, h: { onPress(): void; onEnter(): void; onPage(delta: -1 | 1): void }): DetailEls {
   const root = el('div', 'rk-card cp-detail', parent);
   root.addEventListener('mouseenter', h.onEnter);
   const head = el('div', 'cp-head', root);
@@ -54,35 +66,54 @@ export function createDetailEls(parent: HTMLElement, h: { onPress(): void; onEnt
   const stars = el('span', 'cp-stars', rarity);
   const word = el('span', 'cp-word', rarity);
 
-  const scroll = el('div', 'cp-scroll', root);
-  const useRow = el('div', 'cp-row cp-use', scroll);
+  // ◀ ページ名（その下に ●○） ▶
+  const pager = el('div', 'cp-pager', root);
+  const arrowBtn = (cls: string, delta: -1 | 1): HTMLButtonElement => {
+    const b = createButton({ text: '' });
+    b.classList.add(cls);
+    b.setAttribute('aria-label', delta < 0 ? 'まえの ページ' : 'つぎの ページ');
+    const arrow = el('span', 'cp-arrow', b); // 小さな ▲ の絵（当たりは ボタンの四角）
+    arrow.dataset.dir = delta < 0 ? 'prev' : 'next';
+    b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      h.onPage(delta);
+    });
+    return b;
+  };
+  const prev = arrowBtn('cp-prev', -1);
+  const mid = el('div', 'cp-pagemid');
+  const pageName = el('div', 'cp-pagename', mid);
+  const pageDots = el('div', 'cp-pagedots', mid);
+  pager.append(prev, mid);
+  const next = arrowBtn('cp-next', 1);
+  pager.append(next);
+
+  const body = el('div', 'cp-pagebody', root);
+  const pageMake = el('div', 'cp-pg cp-pg-make', body);
+  const mats = el('div', 'cp-mats', pageMake);
+  const fuel = el('div', 'cp-fuelrow', pageMake);
+  const out = el('div', 'cp-out', pageMake);
+  const outArt = el('img', 'cp-out-art rk-art', out);
+  outArt.alt = '';
+  const count = el('div', 'cp-count', out);
+
+  const pageDesc = el('div', 'cp-pg cp-pg-desc', body);
+  const useRow = el('div', 'cp-row cp-use', pageDesc);
   const q = el('img', 'cp-mark-ico rk-art', useRow);
   q.alt = '';
   q.src = questionUrl();
   const useText = el('div', 'cp-text', useRow);
-  const howRow = el('div', 'cp-row cp-how', scroll);
+  const howRow = el('div', 'cp-row cp-how', pageDesc);
   const hand = el('img', 'cp-mark-ico cp-hand rk-art', howRow);
   hand.alt = '';
   hand.src = fingerUrl();
   const howBody = el('div', 'cp-text', howRow);
   const howButtons = el('span', 'cp-btns', howBody);
   const howText = el('span', 'cp-howtext', howBody);
-  const classEl = el('div', 'cp-class rk-sub', scroll);
-  const stats = el('div', 'cp-stats', scroll);
-  const mats = el('div', 'cp-mats', scroll);
-  const fuel = el('div', 'cp-fuelrow', scroll);
-  const count = el('div', 'cp-count', scroll);
 
-  const more = el('button', 'cp-more', root);
-  more.type = 'button';
-  more.textContent = '▼ つづき';
-  more.hidden = true;
-  more.addEventListener('click', (e) => {
-    e.stopPropagation();
-    scroll.scrollBy({ top: scroll.clientHeight * 0.8 });
-    updateMore({ scroll, more });
-  });
-  scroll.addEventListener('scroll', () => updateMore({ scroll, more }));
+  const pageStats = el('div', 'cp-pg cp-pg-stats', body);
+  const classEl = el('div', 'cp-class rk-sub', pageStats);
+  const stats = el('div', 'cp-stats', pageStats);
 
   const empty = el('div', 'cp-empty', root);
   empty.hidden = true;
@@ -99,13 +130,10 @@ export function createDetailEls(parent: HTMLElement, h: { onPress(): void; onEnt
     h.onPress();
   });
   root.append(button);
-  return { root, headArt, name, stars, word, scroll, useRow, useText, howRow, howButtons, howText, stats, classEl, mats, fuel, count, more, hint, button, empty, emptyArt };
-}
-
-/** ▼ つづき: はみ出していて、まだ いちばん下でないとき だけ出す */
-export function updateMore(e: Pick<DetailEls, 'scroll' | 'more'>): void {
-  const s = e.scroll;
-  e.more.hidden = !(s.scrollHeight - s.clientHeight > 1 && s.scrollTop + s.clientHeight < s.scrollHeight - 1);
+  return {
+    root, headArt, name, stars, word, body, pageMake, pageDesc, pageStats, pager, prev, next, pageName, pageDots,
+    useRow, useText, howRow, howButtons, howText, stats, classEl, mats, fuel, out, outArt, count, hint, button, empty, emptyArt,
+  };
 }
 
 function buttonPicture(key: ButtonKey, into: HTMLElement): void {
@@ -156,18 +184,41 @@ export function renderDetail(e: DetailEls, d: DetailView | null, iconOf: (item: 
   e.word.textContent = d.rarityWord;
   e.root.dataset.id = d.id;
 
-  e.useText.innerHTML = withRuby(d.use);
+  const pg = d.pages[d.page] ?? d.pages[0];
+  // せつめいの ページ: 長い せつめいは 文で 区切って 何ページかに 分けてある（このページの 分だけ 出す）
+  const dp = pg.kind === 'desc' ? pg : undefined;
+  e.useText.innerHTML = withRuby(dp?.use ?? d.use);
   e.useRow.dataset.later = String(d.later !== null);
+  e.useRow.hidden = dp ? dp.use === '' : false;
   e.howButtons.replaceChildren();
-  for (const b of d.buttons) buttonPicture(b, e.howButtons);
-  e.howText.innerHTML = withRuby(d.how);
-  e.howRow.hidden = d.how === '';
+  if (!dp || dp.buttons) for (const b of d.buttons) buttonPicture(b, e.howButtons);
+  e.howText.innerHTML = withRuby(dp?.how ?? d.how);
+  e.howRow.hidden = dp ? dp.how === '' && !dp.buttons : d.how === '';
+  // ---- ページ（CRAFT-PAGE）: 今のページの 部品だけ 出す
+  const many = d.pages.length > 1;
+  e.pageMake.hidden = pg.kind !== 'make';
+  e.pageDesc.hidden = pg.kind !== 'desc';
+  e.pageStats.hidden = pg.kind !== 'stats';
+  e.pageName.textContent = pg.name;
+  e.pageDots.textContent = d.pages.map((_, i) => (i === d.page ? '●' : '○')).join(' ');
+  e.pageDots.hidden = !many;
+  e.prev.hidden = !many;
+  e.next.hidden = !many;
+  setButtonDisabled(e.prev, d.page <= 0);
+  setButtonDisabled(e.next, d.page >= d.pages.length - 1);
+  e.root.dataset.page = pg.kind;
 
+  // 分類の文: つよさ の 1 ページ目に。つよさ が 無い物は せつめい の さいごに
+  const hasStatsPage = d.pages.some((p) => p.kind === 'stats');
+  const classHome = hasStatsPage ? e.pageStats : e.pageDesc;
+  if (e.classEl.parentElement !== classHome) hasStatsPage ? classHome.prepend(e.classEl) : classHome.append(e.classEl);
+  const classHere = hasStatsPage ? pg.kind === 'stats' && (pg.from ?? 0) === 0 : pg.kind === 'desc';
   e.classEl.textContent = d.classText;
-  e.classEl.hidden = d.classText === '';
+  e.classEl.hidden = d.classText === '' || !classHere;
   e.stats.replaceChildren();
-  e.stats.hidden = d.stats.length === 0;
-  for (const s of d.stats) {
+  const shownStats = pg.kind === 'stats' ? d.stats.slice(pg.from ?? 0, pg.to ?? d.stats.length) : [];
+  e.stats.hidden = shownStats.length === 0;
+  for (const s of shownStats) {
     const row = el('div', 'cp-stat', e.stats);
     row.dataset.key = s.key;
     const label = el('span', 'cp-stat-label', row);
@@ -203,6 +254,10 @@ export function renderDetail(e: DetailEls, d: DetailView | null, iconOf: (item: 
     if ((m.inTansu ?? 0) > 0) addTansuMini(chip, iconOf);
     e.mats.append(chip);
   }
+  if (d.materials.length > 0) {
+    const to = el('span', 'cp-to', e.mats); // 材料 → 出来る物
+    to.textContent = '→';
+  }
 
   e.fuel.replaceChildren();
   e.fuel.hidden = d.fuel === null;
@@ -226,7 +281,7 @@ export function renderDetail(e: DetailEls, d: DetailView | null, iconOf: (item: 
     }
   }
 
-  e.count.hidden = d.count < 2;
+  e.outArt.src = iconOf(d.item);
   e.count.textContent = `できる かず ×${d.count}`;
 
   e.hint.textContent = d.hint ?? '';
@@ -235,7 +290,6 @@ export function renderDetail(e: DetailEls, d: DetailView | null, iconOf: (item: 
   setButtonKind(e.button, d.button.enabled ? 'primary' : 'normal');
   e.button.classList.toggle('is-disabled', !d.button.enabled);
   e.button.setAttribute('aria-disabled', String(!d.button.enabled));
-  updateMore(e);
 }
 
 /** 作れる物が 1 つも無いとき: 真ん中に大きな文と木の絵、「つくる」は灰色で押せない */
@@ -247,7 +301,6 @@ export function renderDetailEmpty(e: DetailEls, iconUrl: string): void {
   e.empty.hidden = false;
   e.emptyArt.src = iconUrl;
   e.hint.hidden = true;
-  e.more.hidden = true;
   e.button.textContent = 'つくる';
   setButtonKind(e.button, 'normal');
   e.button.classList.add('is-disabled');

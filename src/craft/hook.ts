@@ -62,6 +62,8 @@ export function createCraftPanelHook(
     tileClick(id: string): { action: 'select' | 'make'; ok: boolean; reason: string | null };
     detailPress(): { ok: boolean; reason: string | null };
     info(): { info(item: ItemId): unknown };
+    page(): unknown;
+    pageGo(delta: -1 | 1): boolean;
   },
 ) {
   return {
@@ -69,5 +71,9 @@ export function createCraftPanelHook(
     tileClick: (id: string) => panel.tileClick(id),
     detailPress: () => panel.detailPress(),
     info: (item: ItemId) => panel.info().info(item),
+    /** CRAFT-PAGE: えらんでいるマスの 説明欄のページ `{ names, index, recipe, prevEnabled, nextEnabled, dots }` */
+    page: () => panel.page(),
+    /** CRAFT-PAGE: ◀ ▶ を 押したのと 同じ。はしで 動かなければ false */
+    pageGo: (delta: -1 | 1) => panel.pageGo(delta),
   };
 }
