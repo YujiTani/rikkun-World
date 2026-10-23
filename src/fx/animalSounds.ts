@@ -118,6 +118,17 @@ export const ANIMAL_SOUNDS = {
     ...bellTone(hz('C7'), hz('C7'), 0.55, 0.5, 0.16),
     ...suzu(0.5, 5, 0.07, 0.14),
   ],
+  // ---- GOLD-1（§3.4）。くり返す の で 小さく 短く。かなしい 音・こわい 音は 使わない
+  /** まち時計 が うまった「ぽん」: 木 1 つ ＋ 木琴 1 音（パネル が 出て いる とき だけ。小さく 1 回） */
+  natsukiReady: [...wood(520, 700, 0, 0.07, 0.14), ...xylo(hz('G6'), hz('G6') * 1.01, 0.04, 0.09, 0.1)],
+  /** なかよし が 70 → 71 以上「キラッ」: オルゴール 3 音 上がり（中 の お祝い） */
+  natsukiGold: boxRun([hz('E6'), hz('G6'), hz('C7')], 0.1, 0.2, 0.26),
+  /** はらぱんみみず を あげた: ほし 5 らしい きらきら（オルゴール 4 音 ＋ 鈴。中 の お祝い・毎回） */
+  harapanFeed: [
+    ...boxRun([hz('C6'), hz('E6'), hz('G6'), hz('C7')], 0.07, 0.18, 0.28),
+    ...bellTone(hz('C7'), hz('C7'), 0.3, 0.45, 0.16),
+    ...suzu(0.3, 4, 0.07, 0.12),
+  ],
 } as const satisfies Record<string, readonly Tone[]>;
 
 export type AnimalSoundName = keyof typeof ANIMAL_SOUNDS;

@@ -33,6 +33,10 @@ export const ANIMAL_HINT_VIEW: Readonly<Record<AnimalWindowHint | 'kitFull', Hin
   coopNotEmpty: { html: 'こ が いる から こわせない よ。だっこ で そと へ', art: ['toriya', 'chick', 'hand'] },
   coopNoEgg: { html: 'むし を あげる と たまご を うむ よ', art: ['mushi', 'chicken', 'egg'] },
   sleepHint: { html: 'ねてる よ。あさ に あげよう', art: ['zzz', 'sun'] },
+  // GOLD-1（§3.1）。まち中（まち時計 の 絵）・なかよし いっぱい・なかま の 大人 に
+  natsukiWait: { html: 'もう すこし まってね', art: ['hourglass', 'chicken'] },
+  harapanFull: { html: 'もう なかよし いっぱい だよ', art: ['heart', 'chicken'] },
+  harapanFriend: { html: 'なかま の おとな に あげよう', art: ['harapan_mimizu', 'chickenRibbon'] },
 };
 
 /** 出ている合図を持つ（DOM なしでテストできる） */

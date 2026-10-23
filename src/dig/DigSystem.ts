@@ -91,6 +91,8 @@ export interface DigM4Deps {
   onPickup?: (item: ItemId, count: number) => void;
   /** 支えをなくした たいまつ を地面に落とす（なければ 持ち物へ直接入れる） */
   scatterItem?: (pos: Vec3, item: ItemId, count: number) => void;
+  /** GOLD-1 §4.7: こわした ブロック から はらぱんみみず が おちる くじ（`createHarapanRoll().block`）。当たれば true */
+  harapan?: (id: string, y: number) => boolean;
   /** M6: たんす（`StorageSystem` が合う） */
   storage?: DigStoragePort;
   /** M7: 農業（`FarmSystem` が合う。なければ M6 のとおり） */
@@ -733,6 +735,8 @@ export class DigSystemImpl implements DigSystem {
     // たんす は入らなければ 落とし物にする（なくさない。M6）
     if (wasTansu && got < n) this.m4.scatterItem?.({ x: x + 0.5, y, z: z + 0.5 }, t.id, n - got);
     if (wasFurnace) craft!.furnaceBroken(x, y, z);
+    // GOLD-1 §4.7: はらぱんみみず（べつ の 乱数。地下 の ブロック 0.5%・き 0.2%）。地面 に おちる
+    if (this.m4.harapan?.(t.id, y)) this.m4.scatterItem?.({ x: x + 0.5, y, z: z + 0.5 }, 'harapan_mimizu', 1);
     // M7: はたけ の 上の作物・くさ の 上の やせいの やさい、くさ から たね
     const farm = this.m4.farm;
     if (farm) {
@@ -986,10 +990,16 @@ export class DigSystemImpl implements DigSystem {
   }
 
   private doAnimalKind(kind: string): void {
-    if (kind === 'feed' || kind === 'animalFull') this.doFeed();
-    else if (kind === 'animalPet') {
+    // GOLD-1: まち中（'animalFull'）は むし なら あげる ふり（feed() が 'wait'）、それ いがい は なでる ふり（pet() が 'wait'）
+    const held = this.inventory.held()?.item;
+    if (kind === 'feed') this.doFeed();
+    else if (kind === 'animalFull') {
+      if (held === 'mushi' || held === 'harapan_mimizu') this.doFeed();
+      else this.doAnimalPet();
+    } else if (kind === 'animalPet') {
       // LIVE-2: ねて いる 子 に むし → なでず に sleepHint（feed() が 'sleep' を 返す。むし は へらない）
-      if (this.inventory.held()?.item === 'mushi') this.doFeed();
+      // GOLD-1: はらぱんみみず を やせい・ひよこ・ねて いる 子 に → 合図 だけ（へらない）
+      if (held === 'mushi' || held === 'harapan_mimizu') this.doFeed();
       else this.doAnimalPet();
     }
   }
@@ -1078,7 +1088,7 @@ export class DigSystemImpl implements DigSystem {
     const held = this.inventory.held();
     if (!a || !h || !held) return;
     const r = a.feed(h.id, held.item);
-    if (r === 'ate') this.inventory.consumeHeld();
+    if (r === 'ate' || r === 'harapan') this.inventory.consumeHeld();
     else if (r === 'full') this.hint('fullHint');
     else if (r === 'friendFull') this.hint('friendFull');
     else if (r === 'sleep') this.hint('sleepHint'); // LIVE-2: ねて いる 子 には あげられない（むし は へらない）

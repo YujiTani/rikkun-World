@@ -14,7 +14,7 @@ import type { createBladeHook } from '../tools/blade/hook';
 import type { createLevelHook } from '../level';
 import type { createAchievementsHook } from '../achievements';
 import type { createLogHook } from '../ui/log';
-import type { UiAlpha, AnimalEvent, AnimalHintKind, AnimalInfo, AnimalSpawnOpts, AnimalWindowHint, AnimalSaveV2, AnimalSaveV3, AnimalSaveV4, CoopInfo, CoopPlaceResult, KitInfo, ThrowSpot } from '../contracts';
+import type { UiAlpha, AnimalEvent, AnimalHintKind, AnimalInfo, AnimalSpawnOpts, AnimalWindowHint, AnimalSaveV2, AnimalSaveV3, AnimalSaveV4, CoopInfo, CoopPlaceResult, KitInfo, NatsukiView, ThrowSpot } from '../contracts';
 import type { createRarityHook } from '../drops/rarityHook';
 import type { createStorageHook } from '../storage/hook';
 import type { createYokaiHook } from '../yokai';
@@ -117,6 +117,8 @@ export interface TestHook {
   animals: {
     spawn(x: number, y: number, z: number, opts?: AnimalSpawnOpts): number | null;
     list(): AnimalInfo[];
+    /** GOLD-1 §6: なかよし パネル の 状態。いない id は null */
+    natsukiView(id: number): NatsukiView | null;
     clear(): void;
     trySpawn(): number | null;
     target(): number | null;

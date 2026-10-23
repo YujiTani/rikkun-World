@@ -214,12 +214,13 @@ describe('つぶの 数・動き', () => {
 });
 
 describe('音の 表（案 B）', () => {
-  it('名前が 34 こ（LIVE-1 の 18 ＋ LIVE-2 の 14 ＋ LIVE-2.1 の 2）あり、SoundFx の 表に 登録 されている（鳴らすと その 名前の 記録が 残る）', () => {
+  it('名前が 37 こ（LIVE-1 の 18 ＋ LIVE-2 の 14 ＋ LIVE-2.1 の 2 ＋ GOLD-1 の 3）あり、SoundFx の 表に 登録 されている（鳴らすと その 名前の 記録が 残る）', () => {
     const names = Object.keys(ANIMAL_SOUNDS) as AnimalSoundName[];
     expect(names.sort()).toEqual([
-      'animalFull', 'animalHint', 'bonk', 'bugCatch', 'carryDown', 'carryUp', 'cluck', 'collect', 'collectMany', 'coopPlace', 'egg', 'feed',
-      'flutter', 'followEnd', 'friend', 'friendFirst', 'goldenEgg', 'grow', 'growFirst', 'hatch', 'hatchFirst', 'hatchMacho', 'home',
-      'kitPut', 'kitWobble', 'netSwing', 'peep', 'petAnimal', 'rustle', 'rustle2', 'rustle3', 'sleep', 'toss', 'warp',
+      'animalFull', 'animalHint', 'bonk', 'bugCatch', 'carryDown', 'carryUp', 'cluck', 'collect', 'collectMany', 'coopPlace', 'egg',
+      'feed', 'flutter', 'followEnd', 'friend', 'friendFirst', 'goldenEgg', 'grow', 'growFirst', 'harapanFeed', 'hatch', 'hatchFirst',
+      'hatchMacho', 'home', 'kitPut', 'kitWobble', 'natsukiGold', 'natsukiReady', 'netSwing', 'peep', 'petAnimal', 'rustle', 'rustle2',
+      'rustle3', 'sleep', 'toss', 'warp',
     ]);
     for (const n of names) expect(tonesOf(n)).toBe(ANIMAL_SOUNDS[n]);
   });
