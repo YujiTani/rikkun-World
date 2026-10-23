@@ -85,7 +85,7 @@ export class WindWaveFx {
 
   constructor(private readonly deps: WindWaveFxDeps) {
     this.atlas = makeFujinAtlas();
-    this.batch = new FxBatch(deps.scene, { additive: false, map: this.atlas, depthTest: true, renderOrder: 9, maxVerts: MAX_WAVES * 3 * (3 * (N - 1) * 6 + 3 * 12) + 600 });
+    this.batch = new FxBatch(deps.scene, { additive: false, map: this.atlas, depthTest: true, renderOrder: 9, singlePass: true, maxVerts: MAX_WAVES * 3 * (3 * (N - 1) * 6 + 3 * 12) + 600 });
     const puffMat = new THREE.MeshBasicMaterial({ color: 0xe6f8ff, transparent: true, opacity: 0.6, depthWrite: false, side: THREE.DoubleSide, fog: false });
     const pg = new THREE.PlaneGeometry(1, 1);
     for (let i = 0; i < MAX_PUFFS; i++) {
