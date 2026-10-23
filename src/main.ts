@@ -2529,4 +2529,8 @@ installTestHook(game, overlay, () => host.everReady, {
       renderer.config,
     ]),
 }, frameClock);
+// #293 試作（開発サーバーだけ）: ?proto=gashaGirl で 少女の 大きさくらべ
+if (import.meta.env.DEV && new URLSearchParams(location.search).get('proto') === 'gashaGirl') {
+  void import('./proto/gashaGirl').then((m) => m.startGashaGirl({ scene: game.scene, camera: game.camera, onUpdate: (fn) => game.onUpdate(fn), player: () => ({ ...controller.state.position, yawDeg: controller.state.yawDeg }), groundY: (x, z) => island.groundHeight(x, z) }));
+}
 game.start();
