@@ -83,17 +83,17 @@ export class Painter {
       m.frustumCulled = false; m.renderOrder = ro; scene.add(m);
       this.bufs[name] = { pos, colr, n: 0, g };
     }
-    this.mode = 'n'; this.pool = []; this.pi = 0; this.scene = scene;
+    this.mode = 'n'; this.pool = []; this.pi = 0; this.bpool = []; this.bi = 0; this.scene = scene;
     this.camR = V(1, 0, 0); this.camU = V(0, 1, 0); this.eye = V();
   }
   begin() {
-    this.bufs.n.n = 0; this.bufs.a.n = 0; this.pi = 0; this.camera.updateMatrixWorld();
+    this.bufs.n.n = 0; this.bufs.a.n = 0; this.pi = 0; this.bi = 0; this.camera.updateMatrixWorld();
     const e = this.camera.matrixWorld.elements; this.camR.set(e[0], e[1], e[2]); this.camU.set(e[4], e[5], e[6]); this.eye.set(e[12], e[13], e[14]);
     this.mode = 'n';
   }
   end() {
     for (const b of Object.values(this.bufs)) { b.g.setDrawRange(0, b.n); b.g.attributes.position.needsUpdate = true; b.g.attributes.color.needsUpdate = true; }
-    for (let k = this.pi; k < this.pool.length; k++) this.pool[k].visible = false;
+    for (let k = this.pi; k < this.pool.length; k++) this.pool[k].visible = false; for (let k = this.bi; k < this.bpool.length; k++) this.bpool[k].mesh.visible = false;
   }
   add(on) { this.mode = on ? 'a' : 'n'; return this; }
   _v(p, c, a) { const b = this.bufs[this.mode], i = b.n++; b.pos[i * 3] = p.x; b.pos[i * 3 + 1] = p.y; b.pos[i * 3 + 2] = p.z; b.colr[i * 4] = c[0]; b.colr[i * 4 + 1] = c[1]; b.colr[i * 4 + 2] = c[2]; b.colr[i * 4 + 3] = a; }
@@ -157,11 +157,32 @@ export class Painter {
       this.tri(q(t0, r - wd / 2), q(t0, r + wd / 2), q(t1, r + wd / 2), cc, cc, cc, a, a, a); this.tri(q(t0, r - wd / 2), q(t1, r + wd / 2), q(t1, r - wd / 2), cc, cc, cc, a, a, a);
     }
   }
-  sprite(tex, p, size, a = 1) {
+  sprite(tex, p, size, a = 1, o = {}) {
     let m = this.pool[this.pi];
-    if (!m) { m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, depthTest: false })); m.renderOrder = 11; this.scene.add(m); this.pool.push(m); }
-    this.pi++; m.visible = true; m.material.map = tex; m.material.opacity = a; m.material.needsUpdate = false;
-    m.position.copy(p); m.quaternion.copy(this.camera.quaternion); m.scale.set(size, size, 1);
+    if (!m) { m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, depthTest: false })); this.scene.add(m); this.pool.push(m); }
+    this.pi++; m.visible = true; m.material.map = tex; m.material.opacity = a;
+    const bl = o.add ? THREE.AdditiveBlending : THREE.NormalBlending; if (m.material.blending !== bl) { m.material.blending = bl; m.material.needsUpdate = true; }
+    m.renderOrder = o.add ? 13 : 11;
+    m.position.copy(p); m.quaternion.copy(this.camera.quaternion); if (o.rot) m.rotateZ(o.rot); const [w, h] = Array.isArray(size) ? size : [size, size]; m.scale.set(w, h, 1);
+  }
+  // 絵つきの 帯（筆・かすれ）。w: 関数(0..1)。tex は よこ ながれ。rep: 絵を くりかえす 回数。ro: 描く 順
+  brush(pts, w, tex, o = {}) {
+    const n = pts.length; if (n < 2) return;
+    let it = this.bpool[this.bi];
+    if (!it) { const M = 64, g = new THREE.BufferGeometry(); const pos = new Float32Array(M * 2 * 3), uv = new Float32Array(M * 2 * 2), c = new Float32Array(M * 2 * 4), idx = []; for (let k = 0; k < M - 1; k++) { const a = k * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
+      g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); g.setAttribute('color', new THREE.BufferAttribute(c, 4)); g.setIndex(idx);
+      const mesh = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, depthTest: false, side: THREE.DoubleSide })); mesh.frustumCulled = false; this.scene.add(mesh); it = { mesh, pos, uv, c, g, M }; this.bpool.push(it); }
+    this.bi++; const m = it.mesh; m.visible = true; m.material.map = tex;
+    const bl = o.add ? THREE.AdditiveBlending : THREE.NormalBlending; if (m.material.blending !== bl) { m.material.blending = bl; m.material.needsUpdate = true; }
+    m.renderOrder = o.ro ?? (o.add ? 12 : 9);
+    const N = Math.min(n, it.M); const rep = o.rep || 1; const al = o.a ?? 1;
+    for (let k = 0; k < N; k++) {
+      const t = k === 0 ? pts[1].clone().sub(pts[0]) : k === N - 1 ? pts[N - 1].clone().sub(pts[N - 2]) : pts[k + 1].clone().sub(pts[k - 1]);
+      const vd = pts[k].clone().sub(this.eye).normalize(); let s = t.cross(vd); if (s.length() < 1e-6) s = this.camR.clone(); s.normalize();
+      const u = k / (N - 1), ww = w(u, k) / 2, ak = typeof al === 'function' ? al(u, k) : al;
+      for (let q = 0; q < 2; q++) { const p = pts[k].clone().addScaledVector(s, (q ? 1 : -1) * ww), i = k * 2 + q; it.pos[i * 3] = p.x; it.pos[i * 3 + 1] = p.y; it.pos[i * 3 + 2] = p.z; it.uv[i * 2] = u * rep + (o.scroll || 0); it.uv[i * 2 + 1] = q; const cc = o.tint ? col(o.tint) : [1, 1, 1]; it.c[i * 4] = cc[0]; it.c[i * 4 + 1] = cc[1]; it.c[i * 4 + 2] = cc[2]; it.c[i * 4 + 3] = ak; }
+    }
+    it.g.setDrawRange(0, (N - 1) * 6); it.g.attributes.position.needsUpdate = true; it.g.attributes.uv.needsUpdate = true; it.g.attributes.color.needsUpdate = true;
   }
 }
 // 顔: cam の向きに そった ベクトル
@@ -194,12 +215,12 @@ const zAxis = V(0, 0, 1);
 function between(m, a, b, wx, wy) { const d = b.clone().sub(a), len = d.length(); m.position.copy(a).add(b).multiplyScalar(.5); m.quaternion.setFromUnitVectors(zAxis, d.normalize()); m.scale.set(wx, wy, len); }
 const unit = (c) => { const m = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshLambertMaterial({ color: c })); return m; };
 
-export function makePanel(canvas, size = 300, dpr = 2) {
+export function makePanel(canvas, size = 300, dpr = 2, hgt = size) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
-  renderer.setPixelRatio(dpr); renderer.setSize(size, size, false); canvas.style.width = size + 'px'; canvas.style.height = size + 'px';
+  renderer.setPixelRatio(dpr); renderer.setSize(size, hgt, false); canvas.style.width = size + 'px'; canvas.style.height = hgt + 'px';
   const scene = new THREE.Scene(); scene.background = skyTexture();
-  const camera = new THREE.PerspectiveCamera(46, 1, .1, 100);
-  camera.position.set(-3.3, 1.6, -0.9); camera.lookAt(0.1, 1.1, 1.25);
+  const camera = new THREE.PerspectiveCamera(46, size / hgt, .1, 100);
+  camera.position.set(-2.95, 1.5, -0.8); camera.lookAt(0.45, 1.15, 1.3);
   scene.add(new THREE.AmbientLight(0xffffff, 1.6)); const dl = new THREE.DirectionalLight(0xffffff, 1.6); dl.position.set(-1, 3, -1.5); scene.add(dl);
   const gnd = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.MeshBasicMaterial({ map: groundTexture() })); gnd.rotation.x = -Math.PI / 2; scene.add(gnd);
   // 人
@@ -217,8 +238,8 @@ export function makePanel(canvas, size = 300, dpr = 2) {
   addM(box(.16, .16, .05, 0xffffff), -.17, 1.6, -.26); addM(box(.16, .16, .05, 0xffffff), .17, 1.6, -.26);
   addM(box(.07, .1, .05, 0x222222), -.17, 1.58, -.28); addM(box(.07, .1, .05, 0x222222), .17, 1.58, -.28);
   addM(box(.3, .08, .05, 0x601810), 0, 1.4, -.26); addM(box(.28, .5, .2, 0xc9452e), -.6, .95, 0); addM(box(.28, .5, .2, 0xc9452e), .6, .95, 0);
-  const slashTex = new THREE.TextureLoader().load('/art/LEGEND-FX/proto/slash3_white.png'); slashTex.magFilter = THREE.NearestFilter; slashTex.minFilter = THREE.NearestFilter; slashTex.colorSpace = THREE.SRGBColorSpace; slashTex.repeat.set(1 / 6, 1 / 6);
-  const slashMesh = new THREE.Mesh(new THREE.PlaneGeometry(SLASH.plateBlocks, SLASH.plateBlocks * 44 / 64), new THREE.MeshBasicMaterial({ map: slashTex, transparent: true, alphaTest: .5, depthWrite: false, depthTest: false, side: THREE.DoubleSide }));
+  const slashTex = new THREE.TextureLoader().load('/art/LEGEND-FX/proto/slash3_white_hi.png'); slashTex.magFilter = THREE.NearestFilter; slashTex.minFilter = THREE.NearestFilter; slashTex.colorSpace = THREE.SRGBColorSpace; slashTex.repeat.set(1 / 6, 1 / 6);
+  const slashMesh = new THREE.Mesh(new THREE.PlaneGeometry(SLASH.plateBlocks, SLASH.plateBlocks * 132 / 192), new THREE.MeshBasicMaterial({ map: slashTex, transparent: true, alphaTest: .5, depthWrite: false, depthTest: false, side: THREE.DoubleSide }));
   slashMesh.renderOrder = 5; slashMesh.visible = false; scene.add(slashMesh);
   const painter = new Painter(scene, camera);
   const jolts = HIT_FRAMES();
@@ -262,9 +283,9 @@ function updateSlash(i, mesh, tex, camera) {
     const sn = Math.sin(ang * Math.PI / 180), dist = 2.2 - .9 * sn, scale = 1 - .45 * sn, kk = dist / 2.2;
     const tip = V(base.x + (at.x - base.x) * kk, base.y - .1, base.z + (at.z - base.z) * kk);
     const row = SLASH.rows[NAMES[k]][view], ce = SLASH.techs[NAMES[k]].centroid[view][f];
-    const u = SLASH.plateBlocks / 64 * scale, ccx = mirror ? 64 - ce[0] : ce[0];
+    const u = SLASH.plateBlocks / 192 * scale, ccx = mirror ? 192 - 3 * ce[0] : 3 * ce[0];
     camera.updateMatrixWorld(); const e = camera.matrixWorld.elements;
-    const pos = tip.clone().addScaledVector(V(e[0], e[1], e[2]), -(ccx - 32) * u).addScaledVector(V(e[4], e[5], e[6]), (ce[1] - 22) * u);
+    const pos = tip.clone().addScaledVector(V(e[0], e[1], e[2]), -(ccx - 96) * u).addScaledVector(V(e[4], e[5], e[6]), (3 * ce[1] - 66) * u);
     const d = pos.distanceTo(cam), kb = (d + 2.5) / d;
     mesh.position.copy(cam).addScaledVector(pos.sub(cam), kb); mesh.scale.setScalar(scale * kb);
     mesh.quaternion.copy(camera.quaternion);
