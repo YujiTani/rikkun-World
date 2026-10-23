@@ -26,6 +26,14 @@ PAL = {"W": "#FFFDF4", "T": "#BFEFFF", "G": "#4CC57E", "Bl": "#5AB4FF", "M": "#A
 B = tex9.B
 FW, FH = 64, 44
 
+# 白い 斬撃（2026-10-23 オーナーの 決定: 土台は ぜんぶの 武器で 白。武器ごとの 色は 上の 層）。
+# 同じ 形・コマで 色だけ 入れかえる。実行: ... python art/WEAPON-9/slash-niji/build.py --white
+WHITE = "--white" in sys.argv
+if WHITE:
+    PAL.update({"G": "#F3FAFF", "Bl": "#E2F1FD", "M": "#CFE4F8", "T": "#DCEFFF", "Y": "#F7F9FF", "A": "#B9BDC9", "N": "#6F7488"})
+PURPLE = "#8A82A8" if WHITE else PAL["M"]  # 後半「もう 当たらない」色（白版は 灰色）
+SUF = "white" if WHITE else "niji"
+
 # ---------------------------------------------------------------- 形（よこから 見た 背骨の 線。q = 0 もと → 1 先）
 
 def spine(tech, view, n=240):
@@ -88,6 +96,8 @@ def width(u):
 
 def draw(tech, view, tail, head, sc, core, thin, mode, tip):
     q, sx, sy, nx, ny = spine(tech, view)
+    if WHITE and mode == "purple":
+        sc *= 0.7  # 白版の 後半（もう 当たらない）は 細く
     T = TMAX[tech] * sc * (1.0 if view == "side" or tech == "thrust" else 1.3)
     ys, xs = np.mgrid[0:FH, 0:FW]
     px, py = xs + 0.5, ys + 0.5
@@ -114,7 +124,7 @@ def draw(tech, view, tail, head, sc, core, thin, mode, tip):
             if mode == "white":
                 c = PAL["W"]
             elif mode == "purple":
-                c = PAL["M"]
+                c = PURPLE
             else:
                 if ff < core:
                     c = PAL["W"]
@@ -203,8 +213,8 @@ def build_slash():
                 yy, xx = np.nonzero(al)
                 c.append([round(float(xx.mean()) + 0.5, 1), round(float(yy.mean()) + 0.5, 1)] if len(xx) else [32.0, 22.0])
             cent[(tech, view)] = c
-    atlas.save(os.path.join(HERE, "niji_slash3_1x.png"))
-    reduced.save(os.path.join(HERE, "niji_slash3_reduced_1x.png"))
+    atlas.save(os.path.join(HERE, f"{SUF}_slash3_1x.png"))
+    reduced.save(os.path.join(HERE, f"{SUF}_slash3_reduced_1x.png"))
     return atlas, frames, cent
 
 
@@ -254,7 +264,7 @@ def build_hit():
                     d = math.hypot(x + 0.5 - 8, y + 0.5 - 8)
                     if 4.5 <= d <= 6 and B[y % 4][x % 4] < 0.5:
                         im.px(ox + x, base + y, PAL["T"])
-    im.save_png(os.path.join(HERE, "niji_hit_1x.png"))
+    im.save_png(os.path.join(HERE, f"{SUF}_hit_1x.png"))
     return im.composite(1)
 
 
@@ -308,10 +318,127 @@ def write_json(cent):
     return data
 
 
+# ---------------------------------------------------------------- 高い 細かさ版（192×132・1 点 = 1/32 ブロック。2026-10-23 オーナー: ドットを 倍以上）
+
+def build_hi():
+    """白い 斬撃を 192×132 で 描き直す（元: art/LEGEND-FX/proto/make_slash_hi.py）。形・コマは 64×44 版の まま、
+    りんかくを なめらかに・外に こい ふち 2 点・水色の 網 2 段（にじみ）。火花は hit_hi() で 描き直す（細い すじ・小さな 光。fx2-common.js baseHit と 同じ 考え）。
+    先に `--white` で white_*_1x.png を 作ってから 回す。出す 物: white_slash3_hi.png・white_slash3_reduced_hi.png・white_hit_hi.png"""
+    from scipy import ndimage as ndi  # noqa: E402
+
+    FW, FH = 192, 132
+
+    def sheet(src_path, out_path):
+        src = Image.open(src_path).convert("RGBA")
+        out = Image.new('RGBA', (FW * 6, FH * 6), (0, 0, 0, 0))
+        for row in range(6):
+            for fr in range(6):
+                t = src.crop((fr * 64, row * 44, fr * 64 + 64, row * 44 + 44))
+                a = np.array(t).astype(float)
+                al = a[..., 3] / 255
+                # 内側の 色（段）= 最近傍で ×3。明るさは 4 段に まとめる
+                nn = np.array(t.resize((FW, FH), Image.NEAREST)).astype(float)
+                # なめらかな りんかく: 元の 暗いふち（紺）も ふくめた 形を ぼかして しきい値
+                shape = np.array(Image.fromarray((al * 255).astype(np.uint8)).resize((FW, FH), Image.BICUBIC)).astype(float) / 255
+                shape = ndi.gaussian_filter(shape, 1.6)
+                S = shape > 0.45
+                S = ndi.binary_opening(S, iterations=1)
+                er = ndi.binary_erosion(S, iterations=2)          # こい ふち 2 点
+                body = er
+                # 内側の 色: 元の 色（暗いふちは 白に おきかえ）
+                lum = (nn[..., 0] * .3 + nn[..., 1] * .59 + nn[..., 2] * .11) / 255
+                dark = lum < 0.4
+                late = (lum >= 0.4) & (lum < 0.68)  # 後半の 灰むらさき: そのまま 使う
+                col = np.zeros((FH, FW, 4))
+                base = np.where(dark[..., None], np.array([250, 252, 255, 255.]), nn)
+                # 4 段に まとめる（白・うすい 灰・うす水色）
+                q = np.clip(np.round((base[..., 0] - 200) / 18), 0, 3) / 3
+                tone = np.stack([200 + 55 * q, 214 + 41 * q, 235 + 20 * q, np.full_like(q, 255)], -1)
+                col[body] = tone[body]
+                col[body & late] = nn[body & late]
+                # 刃先（板の 右はじ・さいごの 3 割）は うすい 水色へ
+                ys, xs = np.nonzero(body)
+                if len(xs):
+                    x0, x1 = xs.min(), xs.max()
+                    tipmask = body & (np.arange(FW)[None, :] > x0 + (x1 - x0) * 0.82)
+                    col[tipmask] = np.array([205, 232, 250, 255.])
+                ring = S & ~er
+                col[ring] = np.array([0x1B, 0x2A, 0x4A, 255.])
+                # にじみ（暗い 水色の 網 2 段）
+                d1 = ndi.binary_dilation(S, iterations=4) & ~S
+                d2 = ndi.binary_dilation(S, iterations=8) & ~ndi.binary_dilation(S, iterations=4)
+                yy, xx = np.mgrid[0:FH, 0:FW]
+                chk = ((xx + yy) % 2 == 0)
+                sparse = (xx % 2 == 0) & (yy % 2 == 0)
+                col[d1 & chk] = np.array([0x4F, 0x86, 0xC8, 255.])
+                col[d2 & sparse] = np.array([0x4F, 0x86, 0xC8, 255.])
+                im = Image.fromarray(col.astype(np.uint8), 'RGBA')
+                out.paste(im, (fr * FW, row * FH))
+        out.save(out_path)
+        return out
+        out.save(out_path)
+
+    sheet(os.path.join(HERE, "white_slash3_1x.png"), os.path.join(HERE, "white_slash3_hi.png"))
+    sheet(os.path.join(HERE, "white_slash3_reduced_1x.png"), os.path.join(HERE, "white_slash3_reduced_hi.png"))
+    hit_hi()
+
+
+def hit_hi():
+    """火花（192×288。1 点 = 1/32 ブロック）。64×96 版と 同じ ならび（升 24×24・たて 行 = 色 × 2 +（長い／短い）・y 240〜287 = まん中の 光 48×48 × 3 コマ）。
+    すじは 細く（1〜2 点）・先が 白・うしろへ 水色。まん中の 光は 小さく（0.6 ブロック 以下）。半透明は 使わない（網で 光を 出す）"""
+    im = Sprite(192, 288)
+    W, T, DK, GL = "#FFFFFF", "#BFE4FF", "#1B2A4A", "#7FB8F0"
+    tails = [T, T, "#D5ECFF", "#A9D3F7", "#C8C2EA"]  # 色の 行ごとに うしろの 色を 少し かえる
+    for ci in range(5):
+        for li, L in enumerate((16, 7)):
+            row = ci * 2 + li
+            for di in range(8):
+                ang = math.radians(di * 45)
+                dx, dy = math.cos(ang), -math.sin(ang)
+                ox, oy = di * 24 + 11.5, row * 24 + 11.5
+                n = int(L * 2)
+                for k in range(n + 1):
+                    t = k / n  # 0 = 先（進む 向き）→ 1 = しっぽ
+                    x = ox + dx * (L / 2 - t * L)
+                    y = oy + dy * (L / 2 - t * L)
+                    px, py = int(math.floor(x)), int(math.floor(y))
+                    c = W if t < 0.45 else tails[ci]
+                    wd = 1 if t > 0.55 else 2  # 先は 2 点の 太さ
+                    for ex in range(wd):
+                        for ey in range(wd):
+                            im.px(px + ex, py + ey, c)
+    base = 240
+    for f in range(3):
+        ox = f * 48
+        cx, cy = ox + 23.5, base + 23.5
+        r = (13, 9, 6)[f]
+        for y in range(48):
+            for x in range(48):
+                d = math.hypot(x + 0.5 - 24, y + 0.5 - 24)
+                if f < 2:
+                    if d <= r * 0.45:
+                        im.px(ox + x, base + y, W)
+                    elif d <= r and (x + y) % 2 == 0:
+                        im.px(ox + x, base + y, T)
+                    elif d <= r * 1.15 and (x % 2 == 0 and y % 2 == 0):
+                        im.px(ox + x, base + y, GL)
+                else:  # 網の 輪（小さく）
+                    if r - 1.5 <= d <= r and (x + y) % 2 == 0:
+                        im.px(ox + x, base + y, T)
+        if f == 0:  # 4 ほうの 小さな 星
+            for k in range(3, 15):
+                for sx, sy in ((k, 0), (-k, 0), (0, k), (0, -k)):
+                    im.px(ox + 23 + sx, base + 23 + sy, W if k < 9 else T)
+    im.save_png(os.path.join(HERE, "white_hit_hi.png"))
+
+
 def main():
+    if "--white-hi" in sys.argv:
+        build_hi()
+        return None
     atlas, frames, cent = build_slash()
     hit = build_hit()
-    data = write_json(cent)
+    data = None if WHITE else write_json(cent)  # 白版は 同じ slash3.json を 使う
     print("colors slash", tex9.kit9.count_colors([atlas]), "hit", tex9.kit9.count_colors([hit]), "semi", tex9.kit9.semi_alpha([atlas, hit]))
     return atlas, frames, cent, hit, data
 

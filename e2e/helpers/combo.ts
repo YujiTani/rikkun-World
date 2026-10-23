@@ -30,6 +30,8 @@ export interface ComboStep {
   pos: Vec3;
   trailVisible: boolean;
   stars: number;
+  /** 出ている 白い 斬撃の 段（LEGEND-FX。出ていなければ 0） */
+  slashStep: number;
   /** このステップで 新しく 出た 出来事 */
   events: ComboEvent[];
   /** このステップで 新しく 出た 音 */
@@ -54,6 +56,7 @@ const REC = `(() => {
     dirDeg: st.move ? st.move.dirDeg : null,
     pos: { x: p.x, y: p.y, z: p.z },
     trailVisible: !!tr.visible, stars: tr.stars ? tr.stars.length : 0,
+    slashStep: (h.legend.slashes()[0] || { step: 0 }).step,
     events: JSON.parse(JSON.stringify(ev.slice(seen))),
     sounds: h.combat.sounds(),
     yokai: y,

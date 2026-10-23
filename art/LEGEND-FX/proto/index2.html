@@ -1,0 +1,37 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>LEGEND-FX 見本 v2</title>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script>
+<style>
+body{margin:0;background:#fff;font-family:"WenQuanYi Zen Hei","IPAGothic",sans-serif}
+.row{display:flex}.lab{height:34px;line-height:34px;text-align:center;font-size:19px;font-weight:bold;background:#fff3c8;color:#333;border-right:2px solid #fff}
+canvas{display:block}.foot{height:26px;line-height:26px;font-size:16px;background:#333;color:#fff;padding:0 10px;display:flex;justify-content:space-between}
+</style></head><body>
+<div class="row" id="row"></div><div class="foot"><span id="fl"></span><span id="fr"></span></div>
+<script type="module">
+import { makePanel, runVariant, TOTAL, stageName } from './lib.js';
+import { raijinC } from './fx2-raijin.js'; import { F1, F2, F3 } from './fx2-fujin.js'; import { N1, N2, N3 } from './fx2-niji.js'; import { W } from './fx3-fujin.js'; import { makeR, PALS as RP } from './fx3-raijin.js'; import { NJ, makeNJ } from './fx3-niji.js'; import { addBloom } from './bloom.js';
+const q = new URLSearchParams(location.search), w = q.get('w') || 'raijin-c';
+const DEF = {
+  'raijin-c': ['らいじんけん', ['C ばちばちの あみ'], [raijinC], [750, 600]],
+  fujin: ['ふうじんけん', ['F1 ひとふでの かぜ', 'F2 ちいさな たつまき', 'F3 はねと ちりの つむじ'], [F1, F2, F3], [300, 270]],
+  niji: ['にじ', ['N1 ひかりの はなび', 'N2 プリズムの ひかり', 'N3 ひかりの たまと ほしの うず'], [N1, N2, N3], [300, 270]],
+  fujin3: ['ふうじんけん', ['かぜの おび（つき 1ぽん・きりあげ 2ほん・けさ 3ぼん）'], [W], [750, 600]],
+  raijin3: ['らいじんけん', ['R1 あおじろい いなずま', 'R2 きいろい いなずま'], [makeR(RP.blue), makeR(RP.yellow)], [450, 420]],
+  niji3: ['にじ', ['にじの ひかり（つるぎが にじいろ・おわりに フレア）'], [NJ], [750, 600]],
+  niji4: ['にじ', ['G1 かるい はっこう（ハロー）', 'G2 がめんの はっこう（ブルーム）'], [makeNJ(true), makeNJ(false)], [450, 420]],
+  niji5: ['にじ', ['にじの ひかり（フレア 1・2・3 つ、ブルーム）'], [makeNJ(false)], [750, 600]],
+  white: ['ふつうの かたな（しろい ざんげき）', ['しろい ざんげき（どだい）'], [null], [750, 600]],
+};
+const [name, labels, vars, [size, hgt]] = DEF[w];
+document.body.style.width = (size * labels.length) + 'px';
+const { baseHit } = await import('./fx2-common.js');
+if (w === 'white') vars[0] = { life: 14, draw(P, E, T) { baseHit(P, E, T); } };
+const panels = vars.map((v, n) => {
+  const cell = document.createElement('div'); cell.style.width = size + 'px';
+  cell.innerHTML = `<div class="lab">${labels[n]}</div><canvas></canvas>`; document.getElementById('row').appendChild(cell);
+  const p = makePanel(cell.querySelector('canvas'), size, 2, hgt); if (w === 'niji4' && n === 1) addBloom(p, size, hgt, 2, 1); if (w === 'niji5') addBloom(p, size, hgt, 2, +(q.get('bs') || .5));
+  return { p, run: runVariant(v, n + 1) };
+});
+document.getElementById('fl').textContent = name; window.TOTAL = TOTAL;
+window.frame = i => { for (const { p, run } of panels) p.render(i, run); document.getElementById('fr').textContent = stageName(i); };
+window.frame(0); window.READY = true;
+</script></body></html>

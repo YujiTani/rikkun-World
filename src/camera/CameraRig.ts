@@ -363,12 +363,14 @@ export class CameraRig {
   distanceOverride: number | null = null;
   /** テスト用: カメラだけ 体の 向きから この 角度 ずらす（遊びでは 0 のまま。斬撃の 横・うしろの 絵を 撮り分ける） */
   testYawOffsetDeg = 0;
+  /** テスト用: 三人称の きょりを きめうちに する（null = きめない。スクショ用） */
+  testDistance: number | null = null;
 
   private placeThird(dt: number): void {
     const cfg = this.config;
     const P = this.shoulder;
     // カメラ = S - 距離 × D（真ん中の線は いつも S を通る）
-    const dist = this.distanceOverride ?? cfg.thirdPersonDistance;
+    const dist = this.testDistance ?? this.distanceOverride ?? cfg.thirdPersonDistance;
     const dx = -dist * this.dir.x;
     const dy = -dist * this.dir.y;
     const dz = -dist * this.dir.z;

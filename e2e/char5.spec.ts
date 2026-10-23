@@ -152,7 +152,7 @@ test.describe('CHAR-5 通し', () => {
             } else h.step(1);
             const sp = h.player.doll().sprite;
             const p = h.player.get().position;
-            out.push({ f: h.blade.state().frame, motion: sp.motion, scene: sp.scene, gpu: sp.gpuBytes, trail: h.blade.trail().visible, z: p.z, x: p.x });
+            out.push({ f: h.blade.state().frame, motion: sp.motion, scene: sp.scene, gpu: sp.gpuBytes, trail: h.legend.slashes().length > 0, band: h.blade.trail().visible, z: p.z, x: p.x });
           }
           return out;
         },
@@ -167,7 +167,9 @@ test.describe('CHAR-5 通し', () => {
       expect(r.motion, `F${i + 1}`).toBe('idle');
       expect(r.gpu, `F${i + 1}`).toBe(bytes0);
     }
+    // LEGEND-FX（#257）: 半月の 帯は 白い 斬撃に おきかえ。白い 斬撃が 出て、帯は 出ない
     expect(runA.some((r) => r.trail)).toBe(true);
+    expect(runA.some((r) => r.band)).toBe(false);
     const distBoy = z0 - runA[105]!.z; // 女の子と 同じ 3.1（WEAPON-4 §2。あとで 女の子で はかって くらべる）
     expect(Math.abs(distBoy - 3.1)).toBeLessThanOrEqual(0.01);
     await settle(page);
@@ -231,7 +233,9 @@ test.describe('CHAR-5 通し', () => {
     await settle(page, 30);
     const gz0 = (await page.evaluate(() => (window.__rikkun! as any).player.get().position.z)) as number;
     const runG = await rec(1, 106);
-    expect(runG.map((r) => r.trail)).toEqual(runA.map((r) => r.trail));
+    // LEGEND-FX: 白い 斬撃の 出はじめは 同じ ステップ（長さは 振るごとに シード付きで ばらつく）。帯は どちらも 出ない
+    expect(runG.findIndex((r) => r.trail)).toBe(runA.findIndex((r) => r.trail));
+    expect(runG.some((r) => r.band)).toBe(false);
     const distGirl = gz0 - runG[105]!.z;
     expect(Math.abs(distGirl - 3.1)).toBeLessThanOrEqual(0.01);
     expect(Math.abs(distGirl - distBoy)).toBeLessThanOrEqual(0.01);
