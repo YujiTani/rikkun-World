@@ -53,10 +53,11 @@ test.describe('LIVE-2.1 こたつ に 3 こ', () => {
     expect(r.eggs.map((e: any) => e.egg)).toEqual(['egg', 'egg', 'egg']);
     expect(r.eggs[2].left, '3 こ目 が いちばん あたらしい').toBeLessThanOrEqual(r.total);
     expect(r.eggs[2].left).toBeGreaterThanOrEqual(r.total - 10);
-    expect(r.eggs[0].left - r.eggs[1].left, '60 ステップ ごと').toBeGreaterThanOrEqual(57);
-    expect(r.eggs[0].left - r.eggs[1].left).toBeLessThanOrEqual(63);
-    expect(r.eggs[1].left - r.eggs[2].left).toBeGreaterThanOrEqual(57);
-    expect(r.eggs[1].left - r.eggs[2].left).toBeLessThanOrEqual(63);
+    // 入れた 順。さき に 入れた ほう が 時計 が すすんで いる（left が 小さい）
+    expect(r.eggs[1].left - r.eggs[0].left, '60 ステップ ごと').toBeGreaterThanOrEqual(57);
+    expect(r.eggs[1].left - r.eggs[0].left).toBeLessThanOrEqual(63);
+    expect(r.eggs[2].left - r.eggs[1].left).toBeGreaterThanOrEqual(57);
+    expect(r.eggs[2].left - r.eggs[1].left).toBeLessThanOrEqual(63);
     expect(r.legacy, '前の 形（先頭 の たまご）').toMatchObject({ egg: 'egg', left: r.eggs[0].left, wobble: r.eggs[0].wobble });
     expect(r.left3, 'egg −3').toBe(1);
     expect(r.hint4).toBe('kitFull');
@@ -119,7 +120,7 @@ test.describe('LIVE-2.1 こたつ に 3 こ', () => {
     expect(r.tomato.hint).toBe('kitWait');
     expect(r.tomato.left, 'トマト は たべない').toBe(2);
     expect(r.dirt.left, 'つち は となり に 置く').toBe(2);
-    expect(r.dirt.rows).toBe(1);
+    expect(r.dirt.rows, 'つち は となり に 置く ので たまご は そのまま（さきに egg を 1 こ 入れた ので 2）').toBe(2);
     expect(r.egg.hint, '1 こ 入って いても 入れる（kitWait に ならない）').not.toBe('kitWait');
     expect(r.egg.left).toBe(1);
     expect(r.egg.rows).toBe(2);

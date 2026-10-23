@@ -71,7 +71,7 @@ test.describe('LIVE-2.1 なげる', () => {
     });
   }
 
-  test('AC5 なげる きょり: 6 マス 先 → 着地点 は 水平 4(±0.5) に よせる。着地 は throwSpot と 同じ マス(±0.5)', async ({ page }) => {
+  test('AC5 なげる きょり: 5 マス 先（とどく 5 の きわ） → 着地点 は 水平 4(±0.5) に よせる。着地 は throwSpot と 同じ マス(±0.5)', async ({ page }) => {
     await openAnimals(page);
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
@@ -80,8 +80,8 @@ test.describe('LIVE-2.1 なげる', () => {
       const out: any = {};
       const got = A.carryOne(10.5, 20.5, 'chick');
       out.lifted = got.ok;
-      h.player.set({ position: { x: 10.5, y: 9, z: 20.5 }, yaw: 90, pitch: 0 });
-      (window as any).__aim.solve(16, 8, 20, 1);
+      h.player.set({ position: { x: 11, y: 9, z: 20.5 }, yaw: 90, pitch: 0 }); // 照準 の とどく 5 の 内
+      (window as any).__aim.solve(15, 8, 20, 1); // とどく きょり 5 の 内で、水平 4 より 遠い
       h.step(1);
       const p = h.player.get().position;
       out.aim = h.target.get()?.place ?? null;
@@ -94,7 +94,7 @@ test.describe('LIVE-2.1 なげる', () => {
       return out;
     });
     expect(r.lifted).toBe(true);
-    expect(r.aim).toMatchObject({ x: 16, y: 9, z: 20 });
+    expect(r.aim).toMatchObject({ x: 15, y: 9, z: 20 });
     expect(r.spot).toMatchObject({ ok: true, toss: true });
     expect(r.d, '水平 4（throwRange）').toBeGreaterThanOrEqual(3.5);
     expect(r.d).toBeLessThanOrEqual(4.5);

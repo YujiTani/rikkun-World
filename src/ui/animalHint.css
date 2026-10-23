@@ -7,6 +7,10 @@
   pointer-events: none;
   z-index: 7;
   max-width: min(90vw, 760px);
+  width: max-content; /* left:50% だと 幅 が 画面の 半分 に つまって 折り返す ので、中身 の 幅 まで ひろげる */
+}
+#animal-hint .rk-chip__text {
+  white-space: nowrap;
 }
 #animal-hint[hidden] {
   display: none;

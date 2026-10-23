@@ -153,7 +153,7 @@ test.describe('LIVE-2.1 置くと たいら', () => {
       const inv0 = [h.inventory.count('grass'), h.inventory.count('dirt')];
       const bags0 = h.combat.bags().length;
       A.hold('toriya', 2);
-      (window as any).__aim.standForS(14.5, 20.5, 90, 0, 9);
+      (window as any).__aim.standForS(16.5, 20.5, 90, 0, 9); // 照準 の とどく きょり 5 の 内
       h.step(1);
       (window as any).__aim.solve(20, 8, 20, 1);
       h.step(1);
@@ -170,12 +170,13 @@ test.describe('LIVE-2.1 置くと たいら', () => {
       for (const [x, z] of [[43, 19], [45, 19], [44, 21]]) for (const y of [9, 10, 11]) h.world.setBlock(x, y, z, 'dirt');
       h.step(2);
       const before = A.snap(38, 3, 14, 50, 14, 26);
-      (window as any).__aim.standForS(38.5, 20.5, 90, 0, 9);
+      (window as any).__aim.standForS(40.5, 20.5, 90, 0, 9);
       h.step(1);
       (window as any).__aim.solve(44, 8, 20, 1);
       h.step(1);
       h.animals.events();
       const n0 = h.animals.coops().length;
+      A.hold('toriya', 1);
       const left0 = h.inventory.count('toriya');
       A.tap();
       const hints = h.animals.events().filter((e: any) => e.type === 'hint').map((e: any) => e.hint);
