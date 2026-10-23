@@ -93,7 +93,7 @@ async function cycle(n) {
   warped = true;
   const allNorm = [...fast];
   const stats0 = await info();
-  let sawCast = false;
+  let sawCast = false, waveFrames = 0;
   for (let g = 0; g < 1200; g++) {
     const k = await info();
     const slowWin = (n === 1 && k.phase === 'cast' && k.castT >= 1.5 && k.eruptionT >= 0) || (n === 1 && k.eruptionT > 0)
@@ -112,7 +112,7 @@ async function cycle(n) {
       if (slow.length % 2 === 0) allNorm.push(f);
     } else {
       await step(2); const f = await shot(dir); allNorm.push(f);
-      if (n === 4 && k.waves > 0 && k.castT >= 1.6 + 1.3 && !peak.wave) peak.wave = f;
+      if (n === 4 && k.waves > 0) { waveFrames++; if (waveFrames === 36 && !peak.wave) peak.wave = f; } // 出てから 約 1.2 秒（扇が いちばん ひろがる ころ）
     }
     const e = await info();
     if (e.phase === 'cast') sawCast = true;
