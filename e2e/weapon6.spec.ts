@@ -4,7 +4,7 @@ import { allSounds, comboWorld, hitsOf, holdDown, idle, mash, run, startList, st
 
 /**
  * WEAPON-6（docs/design/WEAPON-6.md §6 通し）: AC12〜AC22・AC24（AC23 は 既存 spec が §6.1 の直しだけで 通ること）。
- * 数は ゲーム（window.__rikkun）に 聞く: 押す ステップは `blade.state().combo`、段は `blade.events()` の `step`、星は `blade.trail().stars`、
+ * 数は ゲーム（window.__rikkun）に 聞く: 押す ステップは `blade.state().combo`、段は `blade.events()` の `step`、白い 斬撃は `legend.slashes()`、
  * 強さは `settings.weaponDamage`、妖怪は `yokai.list()`。角度・座標は 決め打ちしない（前 = 北、立つ場所は 地面の高さを 聞く）。
  * 実装の 前は `combo`・`step`・`combo2`/`combo3` の 音・実績・新しい レシピが ないので 赤になる。
  */
@@ -218,30 +218,24 @@ test.describe('WEAPON-6 通し', () => {
     expect(starts(next)[0]!.step, 'パリィの あとは step 1').toBe(1);
   });
 
-  test('AC20: 段の印。中段 3 段の 軌跡の 星が 1・2・3 こ。上段の おおげさぎりは 1 こ。かたなは 0', async ({ page }) => {
-    const starsPerStep = (rec: ComboStep[]) => {
-      let cur = 0;
-      const byStep: Record<number, number[]> = { 1: [], 2: [], 3: [] };
-      for (const s of rec) {
-        const e = s.events.filter((x) => x.type === 'techStart').pop();
-        if (e) cur = e.step ?? 0;
-        if (s.trailVisible && cur) (byStep[cur] ??= []).push(s.stars);
-      }
-      return byStep;
+  test('AC20（LEGEND-FX で 直し）: 段の印。中段 3 段は 白い 斬撃が 1・2・3 段目と 出る。上段の おおげさぎりは 1 段だけ。半月の 帯と 星は 出ない', async ({ page }) => {
+    // LEGEND-FX（#257・2026-10-23 オーナー決定）: 半月の 帯（と 帯の 星）は 白い 斬撃に おきかえ。段は 斬撃の 形（槍・三日月・く）で 見せる
+    const slashSteps = (rec: ComboStep[]) => new Set(rec.map((s) => s.slashStep).filter((n) => n > 0));
+    const noBand = (rec: ComboStep[], what: string) => {
+      expect(rec.some((s) => s.trailVisible), `${what}: 帯は 出ない`).toBe(false);
+      expect(Math.max(...rec.map((s) => s.stars)), `${what}: 星は 出ない`).toBe(0);
     };
     await comboWorld(page, 'chudan');
-    let by = starsPerStep(await mash(page, 140));
-    for (const n of [1, 2, 3]) {
-      expect(by[n]!.length, `${n} 段目の 軌跡が 見える`).toBeGreaterThan(0);
-      expect(Math.max(...by[n]!), `${n} 段目の 星の 数`).toBe(n);
-    }
+    let rec = await mash(page, 140);
+    expect([...slashSteps(rec)].sort(), '中段 3 段の 白い 斬撃').toEqual([1, 2, 3]);
+    noBand(rec, '中段');
     await comboWorld(page, 'jodan');
-    by = starsPerStep(await mash(page, 110));
-    expect(Math.max(...by[1]!), '上段の 1 発').toBe(1);
-    expect(by[2]!.length, '上段は つながらない').toBe(0);
+    rec = await mash(page, 110);
+    expect([...slashSteps(rec)], '上段は つながらない（1 段だけ）').toEqual([1]);
+    noBand(rec, '上段');
     await comboWorld(page, 'chudan', 'katana');
-    const rec = await mash(page, 100);
-    expect(Math.max(...rec.map((s) => s.stars)), 'かたなは 星なし').toBe(0);
+    rec = await mash(page, 100);
+    noBand(rec, 'かたな');
   });
 
   test('AC21: 向きは 段ごと。2 段目を 始める ステップに 右キー → 2 段目の dirDeg が 1 段目と ちがう。3 段目は 少し 斜めの 妖怪へ むく', async ({ page }) => {
