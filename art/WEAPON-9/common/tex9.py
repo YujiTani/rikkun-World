@@ -236,12 +236,23 @@ def make_render(O):
                     col[wv] = rgb(O["window"])
                     m |= wv
                     ov |= wv
+                if O.get("spiral"):
+                    sp_col, sp_m = spiral(O["spiral"], t, ilat, ilon, nlat, nlon, bay, True)
+                    sel = sp_m & ~on
+                    col[sel] = sp_col[sel]
+                    m |= sel
+                    ov |= sel
                 lvl = np.where(rim < 0.25, 3, np.where(rim < 0.5, 2, 1))
                 fz = ~m
                 col[fz] = frost[None, :] * (lvl[fz, None] / 3.0)
                 m |= fz
             else:
                 # 中から（うら面）: もようだけ 暗く・網で 半分（画面を 白く しない）
+                if O.get("spiral"):
+                    sp_col, sp_m = spiral(O["spiral"], t, ilat, ilon, nlat, nlon, bay, False)
+                    col[sp_m] = sp_col[sp_m] * 0.8
+                    m |= sp_m
+                    mot = mot & ~sp_m
                 sel = mot & (bay < O.get("inner", 0.5))
                 col[sel] = px[sel, :3] * O.get("inner_k", 0.8)
                 m |= sel
@@ -265,6 +276,34 @@ def make_render(O):
         fr.dots(pts, cols, size_b=0.25, over=True)
 
     return render
+
+
+def spiral(S, t, ilat, ilon, nlat, nlon, bay, front):
+    """今の ゲームの にじの らせん（nijiFx の FRAG と 同じ 式）。S: hues（3 色）・core・edge（紺の へり）・period（秒/1 まわり）"""
+    lon = (ilon + 0.5) / nlon * 2 * math.pi
+    ln = ilat / nlat
+    rot = t * 2 * math.pi / S.get("period", 5.0)
+    qq = (lon - rot - ln * 1.9 * math.pi) / (2 * math.pi) * 4
+    u = qq % 1.0
+    wdt = 0.30 * np.clip(1.0 - 0.75 * np.clip(ln - 0.15, 0, 1), 0.12, 1)
+    N = len(ilat)
+    col = np.zeros((N, 3))
+    if front:
+        inb = (u < wdt) & ((ln > 0.12) | (bay < (ln + 0.04) * 8))
+    else:
+        inb = (u < wdt) & (np.abs(u - wdt * 0.5) < 0.04) & (bay < 0.5)
+    hue = (np.floor(qq).astype(int) + np.floor(ln * 3 + t * 0.6).astype(int)) % 3
+    hc = np.array([rgb(c) for c in S["hues"]])[hue]
+    core = np.abs(u - wdt * 0.45) < wdt * 0.12
+    col[:] = hc
+    col[core] = rgb(S["core"])
+    m = inb.copy()
+    if front and S.get("edge"):
+        e = 0.022
+        ed = (((u >= wdt) & (u < wdt + e)) | (u > 1 - e)) & ((ln > 0.12)) & (bay < 0.5)
+        col[ed] = rgb(S["edge"])
+        m |= ed
+    return col, m
 
 
 def ring_img(c_out, c_mid, c_core, c_in):
