@@ -31,7 +31,7 @@ export const TUNE = {
     holdSec: 1.5, // はずかしくて 止まる 時間
     bangSwapSec: 0.4, // 「！」から 頬染め「////」に かわる 秒
     bigTextSec: 1.0, // 「大きな姿にもどる」を 出す 秒
-    bigWaitSec: 1.0, // そのあと 何も いない 秒
+    bigWaitSec: 120, // 大きな姿に もどって 休む 秒（yuzu 2026-10-23: 2 分くらい。試すときは ?tune={"eye":{"bigWaitSec":5}} で 短く）
   },
   /** パリィ（少女の 魔法） */
   parry: {
