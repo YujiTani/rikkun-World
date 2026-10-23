@@ -6,13 +6,14 @@ import type { Rgba } from '../../world/blocks/textures';
 import type { YokaiTitle } from '../../contracts';
 
 export type { YokaiTitle };
-export type HpBarColor = 'white' | 'yellow' | 'red';
 export type HpBarIcon = 'oyabun' | 'taisho' | 'nushi';
 
 /** BALANCE.md §4.7 */
 export const HP_BAR = {
   /** 本数の上限 */
   maxBars: 20,
+  /** 重ねる大きな塊の上限（6 段以上のこっていても 5 枚） */
+  maxBig: 5,
   /** ふつうの妖怪: たたかれてから出す ステップ */
   ticks: 180,
   /** 二つ名の妖怪: この距離（ブロック）以内ならいつも出す */
@@ -37,19 +38,47 @@ export interface HpBarState {
   visible: boolean;
   bars: number;
   left: number;
-  color: HpBarColor;
+  /** 大きな塊の数（のこりの段の数。見せるのは min(big, maxBig) 枚） */
+  big: number;
   icon: HpBarIcon | null;
 }
 
-/** 本数・残りの本数・色（体力が 0 より大きい間は 残り 1 本以上） */
-export function hpBarModel(hp: number, maxHp: number): { bars: number; left: number; color: HpBarColor } {
+/** 細いバー・大きな塊の色（decisions/2026-10-23-hp-bar-chunks.md） */
+export const HP_BAR_COLORS = {
+  bar: 0xffd54f,
+  empty: 0x555555,
+  big: [0x43a047, 0x9ccc3c, 0xffd54f, 0xff9800, 0xe53935],
+} as const;
+
+/** 大きな塊の寸法とずらし方（トランプのように重ねる） */
+const BIG_CHUNK = { size: 0.27, gap: 0.08, step: 0.05, rise: 0.025 } as const;
+/** 縁どり（内: ほぼ黒の紺、外: 白っぽい） */
+const EDGE = { inner: 0x0b1030, outer: 0xf4f4ff, innerPad: 0.012, outerPad: 0.026 } as const;
+
+/**
+ * 細いバーの本数・残り・大きな塊の数。
+ * 最大 20 以下: 細いバーだけ。21 以上: 20 ずつの段（はしたは いちばん最後の段）。
+ * 細いバーは今の段、塊は今の段より後ろにのこっている段の数。
+ */
+export function hpBarModel(hp: number, maxHp: number): { bars: number; left: number; big: number } {
   const max = Math.max(1, maxHp);
   const h = Math.min(Math.max(hp, 0), max);
-  const bars = Math.min(max, HP_BAR.maxBars);
-  let left = Math.ceil((bars * h) / max);
-  if (h > 0 && left < 1) left = 1;
-  const color: HpBarColor = h * 3 < max ? 'red' : h * 2 < max ? 'yellow' : 'white';
-  return { bars, left, color };
+  if (max <= HP_BAR.maxBars) {
+    const bars = Math.min(max, HP_BAR.maxBars);
+    let left = Math.ceil((bars * h) / max);
+    if (h > 0 && left < 1) left = 1;
+    return { bars, left, big: 0 };
+  }
+  const size = HP_BAR.maxBars;
+  const m = Math.round(max);
+  const hc = Math.min(Math.max(Math.ceil(h), 0), m);
+  const stages = Math.ceil(m / size);
+  const rest = m - size * (stages - 1); // いちばん最後の段の大きさ
+  const j = Math.min(stages - 1, Math.floor((m - hc) / size));
+  const last = j === stages - 1;
+  const bars = last ? rest : size;
+  const left = last ? hc : hc - (m - size * (j + 1));
+  return { bars, left: Math.max(hc > 0 ? 1 : 0, left), big: stages - 1 - j };
 }
 
 /** 出すか・アイコンは何か。dist = プレイヤーまでの水平の距離、ticksLeft = たたかれてからの 残り ステップ */
@@ -67,15 +96,21 @@ export function hpBarLayout(bars: number): { pitch: number; width: number; total
   return { pitch, width, total: (bars - 1) * pitch + width };
 }
 
-const COLORS: Record<HpBarColor | 'gray', number> = { white: 0xffffff, yellow: 0xffd54f, red: 0xe53935, gray: 0x555555 };
-const mats = new Map<string, THREE.MeshBasicMaterial>();
-function mat(c: HpBarColor | 'gray'): THREE.MeshBasicMaterial {
+const mats = new Map<number, THREE.MeshBasicMaterial>();
+/** 色ごとに 1 つを みんなで使う */
+function mat(c: number): THREE.MeshBasicMaterial {
   let m = mats.get(c);
   if (!m) {
-    m = new THREE.MeshBasicMaterial({ color: COLORS[c] });
+    m = new THREE.MeshBasicMaterial({ color: c });
     mats.set(c, m);
   }
   return m;
+}
+
+let unitPlane: THREE.PlaneGeometry | null = null;
+/** 縁の板の形（1×1 を みんなで使う） */
+function edgeGeo(): THREE.PlaneGeometry {
+  return (unitPlane ??= new THREE.PlaneGeometry(1, 1));
 }
 
 /** アイコンの 絵（16×16 の丸いバッジ。★ の文字ではない） */
@@ -124,6 +159,8 @@ function underlayMat(): THREE.MeshBasicMaterial {
 export function disposeHpBarMaterials(): void {
   for (const m of mats.values()) m.dispose();
   mats.clear();
+  unitPlane?.dispose();
+  unitPlane = null;
   for (const t of iconTex.values()) t.dispose();
   iconTex.clear();
   underlayMaterial?.dispose();
@@ -144,6 +181,9 @@ export interface HpBarIconInfo {
 export class HpBar {
   readonly group = new THREE.Group();
   private readonly rects: THREE.Mesh[] = [];
+  private readonly cards: THREE.Mesh[] = [];
+  /** 縁の板: [0,1] = 細いバー全体の 外・内、[2+2k, 3+2k] = 大きな塊 k 枚目の 外・内 */
+  private readonly edges: THREE.Mesh[] = [];
   private iconMesh: THREE.Mesh | null = null;
   private under: THREE.Mesh | null = null;
   private info: HpBarIconInfo | null = null;
@@ -154,29 +194,72 @@ export class HpBar {
   }
 
   show(s: HpBarState): void {
-    const key = `${s.bars}|${s.left}|${s.color}|${s.icon}`;
+    const key = `${s.bars}|${s.left}|${s.big}|${s.icon}`;
     this.group.visible = true;
     if (key === this.key) return;
     this.key = key;
-    const { pitch, width, total } = hpBarLayout(s.bars);
+    const { pitch, width, total: barW } = hpBarLayout(s.bars);
+    const nCards = Math.min(Math.max(s.big, 0), HP_BAR.maxBig);
+    const stackW = nCards > 0 ? BIG_CHUNK.size + (nCards - 1) * BIG_CHUNK.step : 0;
+    const stackH = nCards > 0 ? BIG_CHUNK.size + (nCards - 1) * BIG_CHUNK.rise : 0;
+    const total = barW + (nCards > 0 ? BIG_CHUNK.gap + stackW : 0);
+    const x0 = -total / 2;
     while (this.rects.length < s.bars) {
-      const m = new THREE.Mesh(boxGeo(1, HP_BAR.barHeight, 0.04), mat('white'));
+      const m = new THREE.Mesh(boxGeo(1, HP_BAR.barHeight, 0.04), mat(HP_BAR_COLORS.bar));
       this.rects.push(m);
       this.group.add(m);
     }
     for (let i = 0; i < this.rects.length; i++) {
       const m = this.rects[i]!;
       m.visible = i < s.bars;
-      m.material = mat(i < s.left ? s.color : 'gray');
+      m.material = mat(i < s.left ? HP_BAR_COLORS.bar : HP_BAR_COLORS.empty);
       m.scale.x = width;
-      m.position.set(-total / 2 + width / 2 + i * pitch, 0, 0);
+      m.position.set(x0 + width / 2 + i * pitch, 0, 0);
     }
+    // 大きな塊（トランプのように ずらして 重ねる。手前ほど 大きい番号の色）
+    while (this.cards.length < nCards) {
+      const c = new THREE.Mesh(boxGeo(BIG_CHUNK.size, BIG_CHUNK.size, 0.04), mat(HP_BAR_COLORS.bar));
+      this.cards.push(c);
+      this.group.add(c);
+    }
+    for (let i = 0; i < this.cards.length; i++) {
+      const c = this.cards[i]!;
+      c.visible = i < nCards;
+      if (i >= nCards) continue;
+      const back = nCards - 1 - i; // 0 = 手前
+      c.material = mat(HP_BAR_COLORS.big[i]!);
+      const right = x0 + total - BIG_CHUNK.size / 2;
+      c.position.set(right - back * BIG_CHUNK.step, back * BIG_CHUNK.rise - (stackH - BIG_CHUNK.size) / 2, -back * 0.03);
+    }
+    // 縁（外 → 内の順に うしろから）。細いバーは 20 本まとめて 1 まいずつ（すきまは 内の縁で うまる）
+    const edge = (idx: number, k: 'inner' | 'outer', cx: number, cy: number, w: number, h: number, z: number) => {
+      let m = this.edges[idx];
+      if (!m) {
+        m = new THREE.Mesh(edgeGeo(), mat(EDGE[k]));
+        this.edges[idx] = m;
+        this.group.add(m);
+      }
+      m.visible = true;
+      m.scale.set(w, h, 1);
+      m.position.set(cx, cy, z);
+    };
+    for (const k of ['outer', 'inner'] as const) {
+      const pad = k === 'outer' ? EDGE.outerPad : EDGE.innerPad;
+      const z = k === 'outer' ? -0.004 : -0.002;
+      const o = k === 'outer' ? 0 : 1;
+      edge(o, k, x0 + barW / 2, 0, barW + pad * 2, HP_BAR.barHeight + pad * 2, z);
+      for (let i = 0; i < nCards; i++) {
+        const c = this.cards[i]!;
+        edge(2 + i * 2 + o, k, c.position.x, c.position.y, BIG_CHUNK.size + pad * 2, BIG_CHUNK.size + pad * 2, c.position.z + z);
+      }
+    }
+    for (let i = 2 + nCards * 2; i < this.edges.length; i++) this.edges[i]!.visible = false;
     // 下じき（バー ＋ アイコンの うしろ）
     const iconH = HP_BAR.iconHeight;
     const pad = HP_BAR.underlayPad;
-    const left = -total / 2 - (s.icon ? iconH + HP_BAR.iconGap : 0) - pad;
+    const left = x0 - (s.icon ? iconH + HP_BAR.iconGap : 0) - pad;
     const right = total / 2 + pad;
-    const h = (s.icon ? Math.max(iconH, HP_BAR.barHeight) : HP_BAR.barHeight) + pad * 2;
+    const h = Math.max(s.icon ? iconH : 0, HP_BAR.barHeight, stackH) + pad * 2;
     if (!this.under) {
       this.under = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), underlayMat());
       this.under.renderOrder = -1;
@@ -204,7 +287,7 @@ export class HpBar {
         m.needsUpdate = true;
       }
       im.scale.set(iconH, iconH, 1);
-      im.position.set(-total / 2 - HP_BAR.iconGap - iconH / 2, 0, 0.03);
+      im.position.set(x0 - HP_BAR.iconGap - iconH / 2, 0, 0.03);
       im.visible = true;
       this.info = { tier: s.icon, nearest: tex.magFilter === THREE.NearestFilter, width: iconH, height: iconH, gap: HP_BAR.iconGap };
     }
@@ -242,6 +325,11 @@ export class HpBar {
 
   get shown(): boolean {
     return this.group.visible;
+  }
+
+  /** 見えている 大きな塊の色（うしろ → 手前）（テスト用） */
+  get bigCards(): number[] {
+    return this.cards.filter((c) => c.visible).map((c) => (c.material as THREE.MeshBasicMaterial).color.getHex());
   }
 
   /** 見えている 長方形の数 */
