@@ -262,35 +262,51 @@ export function plainLength(t: string): number {
  * せつめい（なにに つかう → つかいかた）を ページに 分ける。1 ページの 文字が `DESC_PAGE_CHARS` を こえそうなら 次のページへ
  * （つかいかたは「。」で 区切った 文の 単位で 動かす）。入りきるなら 1 ページ。
  */
-export function splitDesc(use: string, how: string, limit: number = DESC_PAGE_CHARS): { use: string; how: string; buttons: boolean }[] {
+export interface DescPage {
+  use: string;
+  how: string;
+  buttons: boolean;
+}
+
+/**
+ * せつめいを 「入るか」を 返す関数 `fits` で ページに 詰める（先頭から 順に 足して、入らなくなったら 次のページ）。
+ * 文の 区切りは 使う分 →「。」ごとの つかいかた。何も入れなくても 1 ページは 必ず 出す。
+ */
+export function packDesc(use: string, how: string, fits: (page: DescPage) => boolean): DescPage[] {
   const sentences = how === '' ? [] : (how.match(/[^。]+。?/g) ?? [how]);
-  const pages: { use: string; how: string; buttons: boolean }[] = [{ use, how: '', buttons: false }];
-  let len = plainLength(use);
-  let firstHow = true;
-  for (const sen of sentences) {
-    const n = plainLength(sen);
-    const cur = pages[pages.length - 1];
-    if (len + n > limit && (cur.use !== '' || cur.how !== '')) {
-      pages.push({ use: '', how: sen, buttons: firstHow });
-      len = n;
+  const segs: { use?: string; how?: string; first?: boolean }[] = [];
+  if (use !== '') segs.push({ use });
+  sentences.forEach((sen, i) => segs.push({ how: sen, first: i === 0 }));
+  const pages: DescPage[] = [];
+  let cur: DescPage = { use: '', how: '', buttons: false };
+  let empty = true;
+  for (const seg of segs) {
+    const cand: DescPage = { use: cur.use + (seg.use ?? ''), how: cur.how + (seg.how ?? ''), buttons: cur.buttons || !!seg.first };
+    if (empty || fits(cand)) {
+      cur = cand;
     } else {
-      cur.how += sen;
-      if (firstHow) cur.buttons = true;
-      len += n;
+      pages.push(cur);
+      cur = { use: seg.use ?? '', how: seg.how ?? '', buttons: !!seg.first };
     }
-    firstHow = false;
+    empty = false;
   }
+  pages.push(cur);
   return pages;
 }
 
-export function buildPageDefs(o: { recipes: readonly string[]; statCount: number; use?: string; how?: string; perPage?: number }): PageDef[] {
+/** 文字の数だけで 分ける（画面で 測る前の 仮の ページ分け。1 ページに `DESC_PAGE_CHARS` まで） */
+export function splitDesc(use: string, how: string, limit: number = DESC_PAGE_CHARS): DescPage[] {
+  return packDesc(use, how, (p) => plainLength(p.use) + plainLength(p.how) <= limit);
+}
+
+export function buildPageDefs(o: { recipes: readonly string[]; statCount: number; use?: string; how?: string; /** 画面で 測って 決めた せつめいの ページ（無ければ 文字の数で 仮に 分ける） */ desc?: readonly DescPage[]; perPage?: number }): PageDef[] {
   const per = o.perPage ?? STATS_PER_PAGE;
   const out: PageDef[] = o.recipes.map((recipe, i) => ({
     kind: 'make' as const,
     name: o.recipes.length === 1 ? 'ざいりょう' : `つくりかた ${CIRCLED[i] ?? String(i + 1)}`,
     recipe,
   }));
-  const desc = splitDesc(o.use ?? '', o.how ?? '');
+  const desc = o.desc ?? splitDesc(o.use ?? '', o.how ?? '');
   desc.forEach((d, i) => out.push({ kind: 'desc', name: desc.length === 1 ? 'せつめい' : `せつめい ${i + 1}/${desc.length}`, use: d.use, how: d.how, buttons: d.buttons }));
   // つよさ は 数が ある物だけ（分類の 文は つよさの 1 ページ目に。数が 無い物は せつめい に出す）
   if (o.statCount > 0) {
@@ -341,10 +357,12 @@ export function buildDetail(o: {
   page?: { index: number; recipe: string };
   /** CRAFT-PAGE: selected の「つくる」が 使う 作り方のカード（無ければ selected） */
   selectedCard?: CardView;
+  /** CRAFT-PAGE: 画面で 測った せつめいの ページ分け */
+  desc?: readonly DescPage[];
 }): DetailView {
   const { shown, selected, info } = o;
   const variants = o.variants && o.variants.length > 0 ? o.variants : [shown];
-  const pages = buildPageDefs({ recipes: variants.map((v) => v.id), statCount: info.stats.length, use: info.use, how: info.how });
+  const pages = buildPageDefs({ recipes: variants.map((v) => v.id), statCount: info.stats.length, use: info.use, how: info.how, desc: o.desc });
   const pg = o.page ?? pageStart(pages, variants);
   const cur = variants.find((v) => v.id === pg.recipe) ?? variants[0];
   return {

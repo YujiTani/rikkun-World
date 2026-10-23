@@ -5,6 +5,8 @@ import { FURNACE_MOUTH } from '../world/blocks/textures';
 import { baseRecipeId, groupRecipes } from '../craft/recipes';
 import {
   buildPageDefs,
+  packDesc,
+  type DescPage,
   buildCards,
   buildDetail,
   buildTiles,
@@ -197,6 +199,8 @@ export class CraftPanel {
   private readonly bakeAll: Recipe[];
   private readonly groups: Map<string, string[]>;
   /** CRAFT-PAGE: えらんでいるマスの ページ（ちがうマスに うつる・画面を開くと 作れる いちばん前に もどる） */
+  /** 画面で 測った せつめいの ページ分け（物 × 画面の大きさ ごと）。字の幅が 環境で ちがっても はみ出さない */
+  private readonly descPlans = new Map<string, DescPage[]>();
   private pageSel: { id: string; index: number; recipe: string } | null = null;
   private readonly tileEls = new Map<string, TileEls>();
   private readonly cfg: CraftUiSettings;
@@ -588,6 +592,7 @@ export class CraftPanel {
       variants: shownVariants,
       page: shownPage,
       selectedCard: selVariants.find((v) => v.id === selPage.recipe) ?? sel,
+      desc: this.descPlans.get(this.descKey(shown.output.item)),
     });
   }
 
@@ -598,7 +603,7 @@ export class CraftPanel {
     if (this.pageSel?.id === id) return this.pageSel;
     const ids = variants.map((v) => v.id);
     const info = this.info_.info(variants[0]?.output.item ?? ('log' as ItemId));
-    const pages = buildPageDefs({ recipes: ids, statCount: info.stats.length, use: info.use, how: info.how });
+    const pages = buildPageDefs({ recipes: ids, statCount: info.stats.length, use: info.use, how: info.how, desc: this.descPlans.get(this.descKey(info.item)) });
     this.pageSel = { id, ...pageStart(pages, variants) };
     return this.pageSel;
   }
@@ -655,6 +660,40 @@ export class CraftPanel {
     this.detailKey = key;
     if (d || !this.d.isOpen()) renderDetail(this.detailEls, d, (i) => itemIconUrl(i), (i) => this.chooseFuel(i));
     else renderDetailEmpty(this.detailEls, itemIconUrl('log' as ItemId));
+    // せつめいが 入りきるか 実際の 大きさで 測る（初めて 見る 物・大きさ のときだけ）。ページ分けが かわったら 描きなおす
+    if (d && this.fitDesc(d)) {
+      this.detailKey = '';
+      this.paintDetail();
+    }
+  }
+
+  private descKey(item: ItemId): string {
+    const r = this.detailEls.root;
+    return `${item}|${innerWidth}x${innerHeight}|${r.offsetWidth}x${r.offsetHeight}`;
+  }
+
+  /** せつめいを 1 ページずつ 画面に 入れて はみ出さないか 測り、入る 分け方を 決める。決めた分け方が 仮と ちがえば true */
+  private fitDesc(d: DetailView): boolean {
+    const root = this.detailEls.root;
+    if (root.hidden || root.offsetHeight === 0 || !d.pages.some((p) => p.kind === 'desc')) return false;
+    const item = d.item;
+    const key = this.descKey(item);
+    if (this.descPlans.has(key)) return false;
+    const info = this.info_.info(item);
+    const body = this.detailEls.body;
+    const dummy = { kind: 'desc' as const, name: 'せつめい' };
+    const fits = (p: DescPage): boolean => {
+      const probe: DetailView = { ...d, pages: [{ ...dummy, use: p.use, how: p.how, buttons: p.buttons }, dummy], page: 0 };
+      renderDetail(this.detailEls, probe, (i) => itemIconUrl(i));
+      return body.scrollHeight - body.clientHeight <= 1;
+    };
+    const plan = packDesc(info.use, info.how, fits);
+    this.descPlans.set(key, plan);
+    const before = d.pages.filter((p) => p.kind === 'desc');
+    const same = before.length === plan.length && before.every((p, i) => p.use === plan[i].use && p.how === plan[i].how && p.buttons === plan[i].buttons);
+    if (!same) return true;
+    renderDetail(this.detailEls, d, (i) => itemIconUrl(i), (i) => this.chooseFuel(i)); // 測りで 変えた 中身を もどす
+    return false;
   }
 
   /** マスにマウスを合わせた／外した（パネルの中は null と同じ）。同じステップで中身が替わる */

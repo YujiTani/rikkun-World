@@ -307,8 +307,8 @@
   overflow: hidden;
   width: var(--cp-detail-w);
   flex: none;
-  gap: var(--rk-sp-3);
-  padding: var(--rk-sp-4);
+  gap: var(--rk-sp-2);
+  padding: var(--rk-sp-3);
   border: var(--rk-bw-rarity) solid var(--rk-rarity, var(--rk-line));
 }
 .cp-head {
@@ -471,6 +471,9 @@
 .cp-text {
   font-size: var(--rk-fs-body);
   line-height: var(--rk-lh);
+}
+.cp-pg-desc .cp-text {
+  font-size: var(--rk-fs-small); /* 1 ページに 入る行を ふやす（CI と 手元で 字の幅が ちがっても 余白が のこる） */
 }
 .cp-btns {
   display: inline-flex;
