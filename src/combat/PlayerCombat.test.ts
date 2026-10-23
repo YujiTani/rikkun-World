@@ -15,6 +15,7 @@ import { InventoryImpl } from '../inventory/Inventory';
 import { setCanCapacitySource } from '../tools/durability';
 import { createRng } from '../world/gen/random';
 import { createCombatHook } from './hook';
+import { COMBAT_DEFAULTS, createCombatConfig, type CombatConfig } from './config';
 import { PlayerCombatImpl } from './PlayerCombat';
 
 class FakeWorld implements VoxelWorld {
@@ -62,7 +63,7 @@ class FakeYokai implements YokaiWorld {
   }
 }
 
-function rig(opts: { rng?: () => number } = {}) {
+function rig(opts: { rng?: () => number; config?: Partial<CombatConfig> } = {}) {
   const world = new FakeWorld();
   for (let x = 0; x <= 12; x++) for (let z = 0; z <= 12; z++) world.setBlock(x, 8, z, 'stone');
   const player: PlayerState = {
@@ -95,6 +96,7 @@ function rig(opts: { rng?: () => number } = {}) {
     closeInventory: () => closed++,
     requestSave: () => saves++,
     rng: opts.rng ?? createRng(7),
+    config: opts.config ? { ...createCombatConfig(), ...opts.config } : undefined,
   });
   const step = (n = 1) => {
     for (let i = 0; i < n; i++) combat.update();
@@ -106,12 +108,13 @@ const EYE: Vec3 = { x: 2.5, y: 10.62, z: 6.5 };
 const EAST: Vec3 = { x: 1, y: 0, z: 0 };
 
 describe('体力・ダメージ・むてき・回復', () => {
-  it('ダメージで体力がへり、30 ステップは むてき', () => {
+  it('ダメージで体力がへり、hurtInvincibleTicks（既定 90）ステップは むてき', () => {
+    const inv = COMBAT_DEFAULTS.hurtInvincibleTicks;
     const r = rig();
     expect(r.combat.damage(1, 'karakasa', { x: 0, y: 9, z: 6.5 })).toBe(true);
     expect(r.combat.hp()).toBe(19);
     expect(r.combat.damage(1, 'karakasa', { x: 0, y: 9, z: 6.5 })).toBe(false);
-    r.step(29);
+    r.step(inv - 1);
     expect(r.combat.damage(1, 'karakasa', { x: 0, y: 9, z: 6.5 })).toBe(false);
     r.step(1);
     expect(r.combat.damage(1, 'karakasa', { x: 0, y: 9, z: 6.5 })).toBe(true);
@@ -180,6 +183,132 @@ describe('体力・ダメージ・むてき・回復', () => {
     r.combat.damage(2, 'nurikabe', { x: 0, y: 9, z: 6.5 });
     expect(r.combat.drainEvents()).toEqual([{ type: 'playerHit', tick: 0, by: 'nurikabe', amount: 2 }]);
     expect(r.combat.drainEvents()).toEqual([]);
+  });
+});
+
+describe('HURT-1 怯み（#296）', () => {
+  const FROM: Vec3 = { x: 0, y: 9, z: 6.5 };
+
+  it('既定: 怯み 24・無敵 90（config.ts の 1 か所の表）', () => {
+    expect(COMBAT_DEFAULTS.hurtFlinchTicks).toBe(24);
+    expect(COMBAT_DEFAULTS.hurtInvincibleTicks).toBe(90);
+  });
+
+  it('A5/A1: ダメージを受けたステップから flinchTicks が 24 → 1 ステップごとに 1 へり、24 ステップ blocksInput() が true', () => {
+    const r = rig();
+    expect(r.combat.flinchTicks()).toBe(0);
+    expect(r.combat.blocksInput()).toBe(false);
+    r.combat.damage(1, 'karakasa', FROM);
+    expect(r.combat.flinchTicks()).toBe(24);
+    expect(r.combat.blocksInput()).toBe(true);
+    r.step(23);
+    expect(r.combat.flinchTicks()).toBe(1);
+    expect(r.combat.blocksInput()).toBe(true);
+    r.step(1);
+    expect(r.combat.flinchTicks()).toBe(0);
+    expect(r.combat.blocksInput()).toBe(false);
+  });
+
+  it('A5: hookState().flinchTicks にも 出る', () => {
+    const r = rig();
+    r.combat.damage(1, 'karakasa', FROM);
+    expect(r.combat.hookState().flinchTicks).toBe(24);
+  });
+
+  it('A1/A3: 怯みが終わっても 無敵はのこる（3: 怯みのあとも 無敵 66 ステップ）', () => {
+    const r = rig();
+    r.combat.damage(1, 'karakasa', FROM);
+    r.step(24);
+    expect(r.combat.blocksInput()).toBe(false);
+    expect(r.combat.invincibleTicks()).toBe(90 - 24);
+    expect(r.combat.damage(1, 'karakasa', FROM)).toBe(false);
+  });
+
+  it('A4: 無敵は 90 ステップ。89 ステップ後の 2 発目は へらず、90 ステップ後はへる。2 発目で 怯みも やりなおし', () => {
+    const r = rig();
+    r.combat.damage(1, 'karakasa', FROM);
+    expect(r.combat.invincibleTicks()).toBe(90);
+    r.step(89);
+    expect(r.combat.damage(1, 'karakasa', FROM)).toBe(false);
+    expect(r.combat.hp()).toBe(19);
+    expect(r.combat.flinchTicks()).toBe(0);
+    r.step(1);
+    expect(r.combat.damage(1, 'karakasa', FROM)).toBe(true);
+    expect(r.combat.hp()).toBe(18);
+    expect(r.combat.flinchTicks()).toBe(24);
+  });
+
+  it('ダメージを受けなかった（むてき・0 ダメージ）ときは 怯まない', () => {
+    const r = rig();
+    r.combat.damage(1, 'karakasa', FROM);
+    r.step(30);
+    expect(r.combat.damage(1, 'karakasa', FROM)).toBe(false);
+    expect(r.combat.flinchTicks()).toBe(0);
+    const q = rig();
+    expect(q.combat.damage(0, 'karakasa', FROM)).toBe(false);
+    expect(q.combat.flinchTicks()).toBe(0);
+  });
+
+  it('A6: hurtFlinchTicks を変えると 怯みの長さが変わる', () => {
+    const r = rig({ config: { hurtFlinchTicks: 10 } });
+    r.combat.damage(1, 'karakasa', FROM);
+    expect(r.combat.flinchTicks()).toBe(10);
+    r.step(9);
+    expect(r.combat.blocksInput()).toBe(true);
+    r.step(1);
+    expect(r.combat.blocksInput()).toBe(false);
+    // 無敵の長さは そのまま（90）
+    expect(r.combat.invincibleTicks()).toBe(80);
+  });
+
+  it('A6: hurtInvincibleTicks を変えると 無敵の長さが変わる（怯みはそのまま 24）', () => {
+    const r = rig({ config: { hurtInvincibleTicks: 40 } });
+    r.combat.damage(1, 'karakasa', FROM);
+    expect(r.combat.invincibleTicks()).toBe(40);
+    expect(r.combat.flinchTicks()).toBe(24);
+    r.step(39);
+    expect(r.combat.damage(1, 'karakasa', FROM)).toBe(false);
+    r.step(1);
+    expect(r.combat.damage(1, 'karakasa', FROM)).toBe(true);
+  });
+
+  it('A1: debugDamage（E2E の combat.damage）でも 怯む。落下ダメージも 怯む', () => {
+    const r = rig();
+    r.combat.debugDamage(1);
+    expect(r.combat.flinchTicks()).toBe(24);
+  });
+
+  it('A3: パンチの とちゅうで ダメージを受けると とぎれる（当たりは 出ない）', () => {
+    const r = rig();
+    r.yokai.box = { id: 1, x0: 3.75, x1: 5.25 };
+    r.combat.primaryStep(true, EYE, EAST, null);
+    for (let i = 2; i <= 10; i++) r.combat.primaryStep(false, EYE, EAST, null);
+    expect(r.combat.hookState().punching).toBe(true);
+    r.combat.damage(1, 'karakasa', FROM);
+    expect(r.combat.hookState().punching).toBe(false);
+    for (let i = 0; i < 40; i++) {
+      r.combat.update();
+      r.combat.primaryStep(false, EYE, EAST, null);
+    }
+    expect(r.yokai.damaged).toHaveLength(0);
+    expect(r.combat.takeHookEvents().map((e) => e.type)).not.toContain('punchHit');
+  });
+
+  it('復活したら 怯みは のこらない（復活の無敵 180 は そのまま）', () => {
+    const r = rig();
+    r.combat.debugDamage(20);
+    r.step(120);
+    expect(r.combat.dead()).toBe(false);
+    expect(r.combat.flinchTicks()).toBe(0);
+    expect(r.combat.blocksInput()).toBe(false);
+    expect(r.combat.invincibleTicks()).toBe(180);
+  });
+
+  it('やられている間も blocksInput() は true（今までどおり）', () => {
+    const r = rig();
+    r.combat.debugDamage(20);
+    expect(r.combat.dead()).toBe(true);
+    expect(r.combat.blocksInput()).toBe(true);
   });
 });
 
@@ -264,6 +393,18 @@ describe('DigSystem の入口', () => {
     };
     return { ...r, actions, dig, step };
   }
+
+  it('HURT-1 A2: 怯み中は 左クリックしても パンチが始まらない・ほれない。怯みが終われば 始まる', () => {
+    const r = digRig();
+    r.yokai.box = { id: 1, x0: 3.75, x1: 5.25 };
+    r.combat.debugDamage(1); // 押されない（妖怪の前から動かない）
+    r.actions.press('primary');
+    r.step(23); // 怯み 24 ステップの 23 ステップ目まで
+    expect(r.combat.hookState().punching).toBe(false);
+    expect(r.combat.takeHookEvents().map((e) => e.type)).not.toContain('punchStart');
+    r.step(2);
+    expect(r.combat.hookState().punching).toBe(true);
+  });
 
   it('前 1.5 に ブロック・その先に妖怪 → ほる', () => {
     const r = digRig();

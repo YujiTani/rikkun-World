@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { BlockId, ItemStack, Vec3 } from '../contracts';
 import { PlayerCombatImpl } from '../combat/PlayerCombat';
-import { createCombatConfig } from '../combat/config';
+import { COMBAT_DEFAULTS, createCombatConfig } from '../combat/config';
 import { CRAFT_DEFAULTS } from './config';
 import { CRAFT_RECIPES } from './recipes';
 import { DropField } from '../drops';
@@ -464,9 +464,9 @@ describe('PlayerCombat と防具（AC18・AC19）', () => {
     const r = combatRig();
     r.armor.set(null, 'yoroi');
     r.combat.damage(2, 'karakasa', { x: 0, y: 9, z: 6.5 });
-    expect(r.combat.invincibleTicks()).toBe(30);
+    expect(r.combat.invincibleTicks()).toBe(COMBAT_DEFAULTS.hurtInvincibleTicks);
     expect(r.combat.hp()).toBe(19);
-    r.step(31);
+    r.step(COMBAT_DEFAULTS.hurtInvincibleTicks + 1);
     r.combat.damage(4, 'nurikabe', { x: 0, y: 9, z: 6.5 });
     expect(r.combat.hp()).toBe(17);
     const ev = r.combat.drainEvents().filter((e) => e.type === 'playerHit') as Array<{ amount: number; blocked?: boolean }>;
@@ -478,7 +478,7 @@ describe('PlayerCombat と防具（AC18・AC19）', () => {
     r.armor.set('kabuto', 'yoroi');
     r.combat.damage(2, 'karakasa', { x: 0, y: 9, z: 6.5 });
     expect(r.combat.hp()).toBe(19);
-    r.step(31);
+    r.step(COMBAT_DEFAULTS.hurtInvincibleTicks + 1);
     r.armor.set(null, null);
     r.combat.damage(2, 'karakasa', { x: 0, y: 9, z: 6.5 });
     expect(r.combat.hp()).toBe(17);
