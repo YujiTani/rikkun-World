@@ -121,7 +121,7 @@ async function cycle(n) {
     void warped; void ticks; void slowing; void slowDone;
   }
   const end = await info();
-  console.log(`spell ${n}: frames ${allNorm.length} slow ${slow.length} seed ${seed} side ${end.side} dist ${end.dist.toFixed(1)} fbHit ${end.fbHit} fbMiss ${end.fbMiss} waveHit ${end.waveHit} waveMiss ${end.waveMiss}`);
+  console.log(`spell ${n}: frames ${allNorm.length} slow ${slow.length} seed ${seed} side ${end.side} dist ${end.dist.toFixed(1)} fbHit ${end.fbHit - stats0.fbHit} fbMiss ${end.fbMiss - stats0.fbMiss} waveHit ${end.waveHit} waveMiss ${end.waveMiss}`);
   return { dir, allNorm, slow, peak, player };
 }
 
