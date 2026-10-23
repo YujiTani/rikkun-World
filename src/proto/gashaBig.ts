@@ -399,8 +399,6 @@ export interface BigModel {
   groundPts: Vector3[];
   /** 頭の 位置（もとの 座標） */
   head: Vector3;
-  /** 雲の はしごの はじめの 段の 場所（もとの 座標）。この まわりの 地面も ならす */
-  stairPts: Vector3[];
   meshes: number;
 }
 
@@ -690,14 +688,11 @@ export function buildBig(): BigModel {
   const topY = vec(0, 20.4, -0.2).applyMatrix4(hm).y;
   const scale = T.size.height / topY;
   KW = 1 / scale;
-  const stairPts: Vector3[] = [];
   // --- 雲の はしご（地面 → こし → 肩 → リボン → 頭の 上）と、こしの もくもく雲。上の 面が そのまま 当たり
   {
     const Ld = T.ladder, rr = makeRnd(Ld.seed);
     const routes: { key: string; pts: number[][]; skipFirst: boolean; len?: readonly [number, number] }[] = [
-      { key: 'climb', pts: Ld.climb, skipFirst: false },
-      { key: 'link', pts: Ld.link, skipFirst: true, len: Ld.linkLength },
-      { key: 'ramp', pts: Ld.ramp, skipFirst: true, len: Ld.rampLength },
+      { key: 'ramp', pts: Ld.ramp, skipFirst: false, len: Ld.rampLength },
       { key: 'head', pts: Ld.head, skipFirst: true, len: Ld.headLength },
     ];
     for (const s of [-1, 1]) {
@@ -705,7 +700,6 @@ export function buildBig(): BigModel {
       for (const r of routes) {
         const pts = r.pts.map((p) => (p.length > 2 ? [s * p[0]!, p[1]!, p[2]!] : [s * p[0]!, p[1]!]));
         pathPoints(pts, Ld.spacing * KW, r.skipFirst).forEach((q, i) => {
-          if (r.key === 'climb' && i < T.place.stairPadRungs) stairPts.push(vec(q.x, 0, q.z));
           rung(b, { joint: jointForY(q.y), c: vec(q.x, q.y, q.z), tx: q.tx, tz: q.tz, f: Math.min(1, q.y / Ld.topY), len: r.len, name: `${r.key}${sd}${i}`, rnd: rr });
         });
       }
@@ -714,7 +708,7 @@ export function buildBig(): BigModel {
     for (let i = 0; i < K.count; i++) {
       let x = 0, z = 0, rad = 2;
       while (rad > 1) { x = (rb() * 2 - 1); z = (rb() * 2 - 1); rad = Math.hypot(x, z); }
-      const top = Math.max(1.6 * KW, K.height * (1 - Math.pow(rad, 1.6)) + (rb() - 0.5) * 3);
+      const top = Math.max(1.6 * KW, K.height * (1 - Math.pow(rad, 1.6)) + (rb() - 0.5) * K.jitter);
       puff(b, { joint: 'Hips', cx: x * K.radiusX, top, cz: K.z + z * K.radiusZ, w: lerpA(K.size, rb()), yaw: rb() * Math.PI, lobes: K.lobes, name: `bank${i}`, rnd: rb });
     }
   }
@@ -762,7 +756,7 @@ export function buildBig(): BigModel {
   }
 
   return {
-    group, joints, rest, hits: b.hits, eyes: matOf('eyes'), eyeHalo: matOf('eyeHalo'), brow: brow ?? new Mesh(), scale, groundPts, head: headPos, stairPts, meshes: meshes.length,
+    group, joints, rest, hits: b.hits, eyes: matOf('eyes'), eyeHalo: matOf('eyeHalo'), brow: brow ?? new Mesh(), scale, groundPts, head: headPos, meshes: meshes.length,
   };
 }
 
@@ -892,17 +886,6 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
         const xs: number[] = [], zs: number[] = [];
         for (const [lx, lz] of [[pm.x - P.padHalfWidth, pm.z - P.padBack], [pm.x + P.padHalfWidth, pt.z + P.padFront]] as const) {
           const w = vec(lx, 0, lz).multiplyScalar(s).applyQuaternion(R);
-          xs.push(mx + w.x); zs.push(mz + w.z);
-        }
-        const x0 = Math.floor(Math.min(...xs)), x1 = Math.ceil(Math.max(...xs)), z0 = Math.floor(Math.min(...zs)), z1 = Math.ceil(Math.max(...zs));
-        deps.fillBlocks(x0, base - P.padDepth, z0, x1, base - 1, z1, 'grass');
-        deps.fillBlocks(x0, base, z0, x1, base + P.padHeight, z1, 'air');
-      }
-      // 雲の はしごの はじめの 数段の まわりも ならす（1 段目が 地面から 1 だんで 乗れるように）
-      for (const q of model.stairPts) {
-        const xs: number[] = [], zs: number[] = [];
-        for (const [lx, lz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]] as const) {
-          const w = vec(q.x + lx * P.stairPadHalf, 0, q.z + lz * P.stairPadHalf).multiplyScalar(s).applyQuaternion(R);
           xs.push(mx + w.x); zs.push(mz + w.z);
         }
         const x0 = Math.floor(Math.min(...xs)), x1 = Math.ceil(Math.max(...xs)), z0 = Math.floor(Math.min(...zs)), z1 = Math.ceil(Math.max(...zs));
