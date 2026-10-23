@@ -80,8 +80,8 @@ const hits = await page.evaluate(() => window.__gashaBig.colliders().filter((c) 
 const sh = hits[0];
 const topY = sh.c[1] + sh.h[1];
 const px = sh.c[0] + sh.a[0][0] * sh.h[0] * 0.2, pz = sh.c[2] + sh.a[0][2] * sh.h[0] * 0.2;
-await page.evaluate((d) => window.__rikkun.settings.set('thirdPersonDistance', d), Number(process.env.CAM2 ?? 20));
-await put(px, topY + 0.05, pz, Number(process.env.YAW2 ?? 0), Number(process.env.PITCH2 ?? -10));
+await page.evaluate((d) => window.__rikkun.settings.set('thirdPersonDistance', d), Number(process.env.CAM2 ?? 9));
+await put(px, topY + 0.05, pz, Number(process.env.YAW2 ?? 0), Number(process.env.PITCH2 ?? -14));
 await step(120);
 await page.screenshot({ path: join(OUT, 'gasha-big-shoulder.png') });
 console.log('shot2 player at', px.toFixed(1), topY.toFixed(1), pz.toFixed(1), 'state', JSON.stringify(await page.evaluate(() => window.__rikkun.player.get().position)));
