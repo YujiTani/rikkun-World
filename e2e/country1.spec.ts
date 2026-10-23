@@ -25,11 +25,12 @@ const goQuiet = (page: Page, kind: string) =>
     return { loaded: g.loaded as boolean, here: g.here as string };
   }, kind);
 
+/** 国の実績だけ（visit.country.* と visit.countries.12）。peak・sea・古い visit.* は 混ぜない */
 const visitIds = (page: Page) =>
   page.evaluate(() =>
     (window as any).__rikkun.achievements
       .list()
-      .filter((a: any) => a.unlocked && a.id.startsWith('visit.'))
+      .filter((a: any) => a.unlocked && (a.id.startsWith('visit.country.') || a.id === 'visit.countries.12'))
       .map((a: any) => a.id as string)
       .sort(),
   );
@@ -40,6 +41,7 @@ test.describe('#291 COUNTRY-1 国の土台', () => {
     await openBiome(page);
     const start = await page.evaluate(() => {
       const h = (window as any).__rikkun;
+      h.achievements.mute(false); // 実績の係が 動く（mute 中は update が 呼ばれない）
       h.step(2);
       return {
         found: h.biome.found() as string[],
@@ -59,9 +61,11 @@ test.describe('#291 COUNTRY-1 国の土台', () => {
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
       h.biome.quiet(false);
+      h.achievements.mute(false);
       h.achievements.sounds(); // 運んだ間の音を すてる
       h.step(179);
       const at179 = {
+        sounds: h.achievements.sounds() as string[],
         found: h.biome.found() as string[],
         mori: !!h.achievements.list().find((a: any) => a.id === 'visit.country.mori.1')?.unlocked,
       };
@@ -71,9 +75,10 @@ test.describe('#291 COUNTRY-1 国の土台', () => {
         found: h.biome.found() as string[],
         current: h.biome.current() as string | null,
         mori: !!h.achievements.list().find((a: any) => a.id === 'visit.country.mori.1')?.unlocked,
-        pending: h.achievements.pending() as string[],
+        pending: [...h.achievements.pending(), ...h.achievements.modal().ids] as string[],
       };
     });
+    expect(r.at179.sounds).toHaveLength(0);
     expect(r.at179.found).toEqual(['harappa']);
     expect(r.at179.mori).toBe(false);
     expect(r.found).toEqual(['harappa', 'mori']);
@@ -107,6 +112,7 @@ test.describe('#291 COUNTRY-1 国の土台', () => {
     const before = await page.evaluate(() => {
       const h = (window as any).__rikkun;
       h.biome.quiet(false);
+      h.achievements.mute(false);
       h.step(179);
       return h.biome.found().length as number;
     });
@@ -115,8 +121,7 @@ test.describe('#291 COUNTRY-1 国の土台', () => {
       const h = (window as any).__rikkun;
       h.step(1);
       const found = h.biome.found() as string[];
-      const pending = h.achievements.pending() as string[];
-      h.achievements.mute(false);
+      const pending = [...h.achievements.pending(), ...h.achievements.modal().ids] as string[];
       h.achievements.flush();
       const m = h.achievements.modal();
       return { found, pending, modal: { open: m.open as boolean, ids: m.ids as string[], mainId: m.mainId as string | null, more: m.more as number } };
@@ -126,8 +131,9 @@ test.describe('#291 COUNTRY-1 国の土台', () => {
     expect(r.pending).toEqual(expect.arrayContaining([`visit.country.${last}.1`, 'visit.countries.12']));
     expect(r.modal.open).toBe(true);
     expect(r.modal.ids).toEqual(expect.arrayContaining([`visit.country.${last}.1`, 'visit.countries.12']));
-    expect(r.modal.ids).toHaveLength(2);
-    expect(r.modal.more).toBe(1);
+    const mine = r.modal.ids.filter((id) => id.startsWith('visit.country.') || id === 'visit.countries.12');
+    expect(mine).toHaveLength(2); // 国の 2 つ（ほかの visit.* が 混ざっても ゆれない）
+    expect(r.modal.more).toBe(r.modal.ids.length - 1);
     expect(r.modal.ids).toContain(r.modal.mainId);
     await waitToastGone(page);
 
@@ -140,7 +146,7 @@ test.describe('#291 COUNTRY-1 国の土台', () => {
       const h = (window as any).__rikkun;
       h.biome.quiet(false);
       h.step(200);
-      return { found: h.biome.found() as string[], pending: h.achievements.pending() as string[] };
+      return { found: h.biome.found() as string[], pending: [...h.achievements.pending(), ...h.achievements.modal().ids] as string[] };
     });
     expect(again.found).toHaveLength(12);
     expect(again.pending).toHaveLength(0);
