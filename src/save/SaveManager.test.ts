@@ -43,6 +43,7 @@ interface Opts {
   reset?: boolean;
   noDb?: boolean;
   streaming?: boolean;
+  animals?: { serialize(): unknown; deserialize(d: unknown): void; prepare?(): void };
 }
 
 /** 1 回のページ表示に当たるもの（世界・持ち物・プレイヤー・保存係）を作る。main.ts と同じ順 */
@@ -94,6 +95,7 @@ async function session(store: KeyValueStore | null, db: MemoryBackend | null, o:
     settings: { saveIntervalTicks: 600 },
     bags: o.bags,
     streaming: o.streaming,
+    animals: o.animals,
     clock: clock && {
       dayTick: () => clock.t,
       day: () => clock.d,
@@ -130,6 +132,35 @@ function legacyText(edits: Array<[number, number, number, 'log' | 'sand' | 'ston
     tick: 99,
   });
 }
+
+describe('SaveManager LIVE-3（いただきます を とちゅう で おわらせない）', () => {
+  it('saveIfChanged・flushNow・visibilitychange・自動 は prepare を 呼ばない。now と pagehide は 呼ぶ', async () => {
+    let n = 0;
+    const animals = { serialize: () => null, deserialize: () => {}, prepare: () => void n++ };
+    const s = await session(new MemoryStore(), new MemoryBackend(), { animals });
+    await s.save.now();
+    expect(n).toBe(1);
+    s.state.yawDeg = 90;
+    s.ticks.n = 10;
+    s.save.saveIfChanged();
+    s.state.yawDeg = 120;
+    s.save.flushNow();
+    s.state.yawDeg = 150;
+    s.ticks.n = 700;
+    s.save.update(700);
+    expect(n).toBe(1);
+    const doc = new EventTarget() as unknown as Document;
+    Object.defineProperty(doc, 'hidden', { value: true });
+    const win = new EventTarget() as unknown as Window;
+    const off = s.save.bindPageEvents(win, doc);
+    doc.dispatchEvent(new Event('visibilitychange'));
+    expect(n).toBe(1);
+    win.dispatchEvent(new Event('pagehide'));
+    expect(n).toBeGreaterThanOrEqual(2);
+    off();
+    await s.save.idle();
+  });
+});
 
 describe('SaveManager（さわった列だけ丸ごと保存）', () => {
   it('保存して開き直すと、世界・持ち物・位置・向きが同じに戻る（AC1）', async () => {

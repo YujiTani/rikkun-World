@@ -86,7 +86,7 @@ describe('つくる（AC1〜AC4）', () => {
     expect(l).toHaveLength(38); // CRAFT-PAGE: たいまつの 作り方が 2 つ ふえた（カードは 36 枚のまま）
     expect(l.every((c) => !c.craftable && c.missing.length === c.inputs.length)).toBe(true);
     expect(l[0].id).toBe('wood_pickaxe');
-    expect(craft.bakeList().map((b) => b.id)).toEqual(['iron_ingot', 'kawara', 'brick', 'haniwa']);
+    expect(craft.bakeList().map((b) => b.id)).toEqual(['iron_ingot', 'kawara', 'brick', 'haniwa', 'momo_yaki']); // LIVE-3: やく 5 こ目
   });
 
   it('き 2 で bokuto が true、wood_pickaxe は き 1 足りない', () => {

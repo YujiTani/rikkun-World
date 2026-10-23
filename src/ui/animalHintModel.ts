@@ -33,6 +33,8 @@ export const ANIMAL_HINT_VIEW: Readonly<Record<AnimalWindowHint | 'kitFull', Hin
   coopNotEmpty: { html: 'こ が いる から こわせない よ。だっこ で そと へ', art: ['toriya', 'chick', 'hand'] },
   coopNoEgg: { html: 'むし を あげる と たまご を うむ よ', art: ['mushi', 'chicken', 'egg'] },
   sleepHint: { html: 'ねてる よ。あさ に あげよう', art: ['zzz', 'sun'] },
+  // LIVE-3（§3.1）: なま は たべられない（絵: にく → かまど → こんがり にく）
+  rawMeat: { html: 'なま は たべられない よ。かまど で やこう', art: ['momo_nama', 'furnace', 'momo_yaki'] },
 };
 
 /** 出ている合図を持つ（DOM なしでテストできる） */

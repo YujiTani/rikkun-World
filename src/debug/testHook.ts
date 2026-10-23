@@ -138,12 +138,16 @@ export interface TestHook {
     kits(): KitInfo[];
     /** かえす くじ の はずれ 数（`n` を 渡す と 設定） */
     machoMiss(n?: number): number;
+    /** LIVE-3（§6.1）: その 小屋 の えらべる 子 の id */
+    meatList(coopId: number): number[];
+    /** LIVE-3（§6.1）: いただきます を 押した の と 同じ（準備 用） */
+    meat(coopId: number, id: number): { ok: boolean; reason: null | 'notEligible' | 'busy' };
     /** 保存 v 3 の 形 を 取り出す・流しこむ */
     serialize(): AnimalSaveV4 | AnimalSaveV3 | AnimalSaveV2;
     deserialize(data: unknown): void;
   };
   /** CRAFT-2 §6.1: 画面の不透明度 */
-  ui: { alpha(): UiAlpha; /** WEAPON-7 §9: 画面の 上の 帯 */ topBand(): { kind: 'achieve' | 'telop' | 'appear' | null; item: string | null; age: number; leftSteps: number; queue: string[] }; /** WEAPON-8 §7: 速さバフの アイコン */ buffs(): unknown[] };
+  ui: { /** LIVE-3: とりごや の メニュー の ようす */ coopMenu(): { open: boolean; coop: number | null; page: 'top' | 'pick' | 'confirm'; kids: number[]; selected: number | null; eggs: number; meatDisabled: boolean }; /** LIVE-3: メニュー の ボタン を 押す（'collect'｜'meat'｜'back'｜'cancel'｜'ok'｜'close'｜'card'｜'hover'） */ coopMenuPress(button: string, id?: number): void; /** LIVE-3: いただきます の 一言（出て いなければ 空） */ meatText(): string; alpha(): UiAlpha; /** WEAPON-7 §9: 画面の 上の 帯 */ topBand(): { kind: 'achieve' | 'telop' | 'appear' | null; item: string | null; age: number; leftSteps: number; queue: string[] }; /** WEAPON-8 §7: 速さバフの アイコン */ buffs(): unknown[] };
   /** WEAPON-7 §9: レジェンダリー武器（ため・ためわざ） */
   legend: {
     state(): unknown;
