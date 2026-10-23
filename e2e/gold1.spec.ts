@@ -35,7 +35,12 @@ test.describe('GOLD-1 金の そうび・なかよし・はらぱんみみず', 
       h.animals.events();
       A.aim(id);
       A.tap();
-      h.step(out.delay + 3);
+      let goldAt = -1;
+      for (let i = 1; i <= out.delay + 3; i++) {
+        h.step(1);
+        if (goldAt < 0 && A.cinfo(cid).nest.gold >= 1) goldAt = i;
+      }
+      out.goldAt = goldAt;
       out.eggEv = A.events('egg').map((e: any) => ({ gold: e.gold }));
       out.nest = { ...A.cinfo(cid).nest };
       // あつめる（さくを 外から 右クリック）
@@ -90,6 +95,9 @@ test.describe('GOLD-1 金の そうび・なかよし・はらぱんみみず', 
     });
     expect(r.mul, '上限の あとに かける 倍（goldMachoMul）').toBe(2);
     expect(r.row).toEqual({ natsuki: 71, breed: 'macho', raised: true });
+    expect(r.delay, 'たまごを うむまで 60 ステップ').toBe(60);
+    expect(r.goldAt, 'あげて 60 ステップ目ごろ（右クリックの 2 ステップぶん まえ）に すばこへ 金').toBeGreaterThanOrEqual(r.delay - 4);
+    expect(r.goldAt).toBeLessThanOrEqual(r.delay + 2);
     expect(r.eggEv, 'goldChance が 1（0.5 × 2）なので 金').toEqual([{ gold: true }]);
     expect(r.nest).toMatchObject({ egg: 0, gold: 1 });
     expect(r.tamago).toBe(1);
@@ -138,7 +146,7 @@ test.describe('GOLD-1 金の そうび・なかよし・はらぱんみみず', 
       out.gold71 = A.view(a71);
       h.animals.clear();
       // ---- 通し
-      const id = A.friend(4.5, 6.5, { natsuki: 0 });
+      const id = A.friend(4.5, 6.5, { natsuki: 0, follow: A.full() * 4 }); // 18,000 ステップ すすめても follow が 切れない ように 多めに
       out.start = (() => {
         const a = A.one(id);
         return { natsuki: a.natsuki, bugWait: a.natsukiBugWait, petWait: a.natsukiPetWait, decayLeft: a.natsukiDecayLeft };
@@ -189,6 +197,7 @@ test.describe('GOLD-1 金の そうび・なかよし・はらぱんみみず', 
       A.stand(id);
       A.tap();
       h.step(5);
+      out.followLeft = A.one(id).follow;
       out.afterBug2 = A.one(id).natsuki;
       out.mushi2 = h.inventory.count('mushi');
       // はらぱんみみず
@@ -225,6 +234,7 @@ test.describe('GOLD-1 金の そうび・なかよし・はらぱんみみず', 
     expect(r.natsukiWait, 'まち中は ふえない').toBe(25);
     expect(r.bugWaitEnd, 'まちが あけた').toBe(0);
     expect(r.viewReady.bugReady).toBe(true);
+    expect(r.followLeft, '18,000 ステップ後も ついてくる（follow が のこっている）').toBeGreaterThan(0);
     expect(r.afterBug2, '25 + 15。へる（−5）は まだ（のこり 36,000 から 18,060 へる だけ）').toBe(40);
     expect(r.mushi2).toBe(4);
     expect(r.harapan, 'はらぱんみみず 1 へる').toBe(1);
