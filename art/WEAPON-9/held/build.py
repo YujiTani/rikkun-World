@@ -6,6 +6,7 @@ art/char-sheets/girl/katana_*.png（6 まい。256 のコマ・たて 24 段 = 3
 """
 import os, json, math
 import numpy as np
+from scipy.ndimage import label as ndlabel
 from PIL import Image
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -30,7 +31,7 @@ NIJI = dict(steel=C20, edge=C21, dark=hx("#8A92B0"), green=hx("#4FD68F"), blue=h
 RAIJIN = dict(d=hx("#33268A"), D=hx("#6A3FC8"), M=hx("#A57CFF"), L=hx("#F1E4FF"), Y=hx("#FFF0A8"), G=hx("#F2C230"),
               g=hx("#B8860B"), N=hx("#24336E"), n=hx("#3F56A8"))
 FUJIN = dict(W=C21, L=hx("#E6F8FF"), C=hx("#A6E4F7"), c=hx("#62BDE6"), B=hx("#3A86B8"), G=hx("#F2C230"), g=hx("#B8860B"),
-             T=hx("#2F8F9C"), t=hx("#1D5A6E"), X=hx("#2B2B3A"), x=hx("#8A8AA8"))
+             T=hx("#2F8F9C"), t=hx("#1D5A6E"), X=hx("#2B2B3A"), x=hx("#2F8F9C"))  # 色の 席は 9 色まで（EXTRA_COLORS_MAX）。x は T と 同じ色に して 数を へらす
 
 
 def lerp(a, b, k):
@@ -43,23 +44,23 @@ def put(out, sel, col):
 
 # 各 関数: (u, v, L) の 配列 → (刃の 点の 配列 mask, 色 (N,3))。v は 中心線から の ずれ
 def niji(u, v, L, s):
-    A = 0.13 * L  # そりを はっきり（決定 2026-10-21）
+    """虹の 太刀: アイコンどおり、刃元の 銀 → 緑 → 青 → むらさき → 刃先の 白。はばを ふとく・そりは ゆるやかに"""
+    A = 0.085 * L
     c = A * np.abs(np.sin(np.pi * np.clip(u / L, 0, 1))) ** 0.85
     r = u / L
-    h = np.maximum(np.where(r < 0.86, 2.4 - 0.5 * r, lerp(2.4 - 0.43, 0.5, (r - 0.86) / 0.14)) * s, 1.5)
+    h = np.maximum(np.where(r < 0.88, 3.4 - 0.7 * r, lerp(3.4 - 0.62, 0.6, (r - 0.88) / 0.12)) * s, 1.8)
     vv = v - c
     blade = (u >= 0) & (u <= L) & (np.abs(vv) <= h)
     t = vv / np.maximum(h, 0.5)
     col = np.zeros(u.shape + (3,), np.uint8)
-    band = ((L - u) / 5.5).astype(int) % 4  # 刃先から 白 → 緑 → 青 → むらさき → 赤むらさき
-    cyc = np.array([NIJI["green"], NIJI["blue"], NIJI["purple"], NIJI["magenta"]], np.uint8)
-    wave = 0.22 * np.sin(u * 0.45)
-    mid = (t + wave > -0.5) & (t + wave <= 0.5)
     col[:] = NIJI["steel"]
-    col[t < -0.78] = NIJI["dark"]
-    col[mid] = cyc[band][mid]
-    col[t > 0.5] = NIJI["edge"]
-    col[(u > L - 3.5)] = NIJI["edge"]
+    col[r >= 0.12] = NIJI["green"]
+    col[r >= 0.36] = NIJI["blue"]
+    col[r >= 0.62] = NIJI["purple"]
+    col[t > 0.55] = NIJI["edge"]  # 上の ふち（はがね）
+    col[t < -0.62] = NIJI["dark"]  # 下の ふち（かげ）
+    col[(u > L - 4.0)] = NIJI["edge"]
+    col[(r < 0.12) & (t >= -0.62)] = NIJI["steel"]
     return blade, col
 
 
@@ -207,9 +208,19 @@ def line_inliers(m, full=None, retry=True):
     return out
 
 
-def fits(base, a, L):
+def edge_normal(a, base, bc):
+    """刃（は）の がわの 向き。体の 中心 bc から はなれる がわ（= 前）。
+    刀の そりは 峰（むね）がわへ まがる ので、前の 刃が ふくらみ、刃先は 体の がわ（うしろ）へ 反る。
+    （前は (-1,-1) ぐらいの 固定の 向きで 決めて いたので、向きに よって 反りと 刃の がわが 逆に なった）"""
+    n = np.array([-a[1], a[0]], np.float32)
+    if n @ (np.asarray(bc, np.float32) - np.asarray(base, np.float32)) > 0:
+        n = -n
+    return n
+
+
+def fits(base, a, L, bc=None):
     """つば・柄・刃（そりと はば こみ）が コマの ふち 1 点 内に 入るか"""
-    nrm = np.array([-a[1], a[0]], np.float32)
+    nrm = np.array([-a[1], a[0]], np.float32) if bc is None else edge_normal(a, base, bc)
     u = np.linspace(-(max(6, 0.2 * L) + 4), L, 90)
     cu = 0.13 * L * np.abs(np.sin(np.pi * np.clip(u / L, 0, 1))) ** 0.85
     for side in (-4.0, 0.0, 4.0):
@@ -220,13 +231,16 @@ def fits(base, a, L):
     return True
 
 
-def do_cell(c, shape):
+def do_cell(c, shape, row=0):
     """c: (256,256,4) → 新しい コマ"""
     rgb = c[..., :3]
     opaque = c[..., 3] > 0
     m = opaque & ((rgb == C20).all(-1) | (rgb == C21).all(-1) | (rgb == C6).all(-1))
     n = int(m.sum())
     if n < 4:
+        return c
+    # 後ろ向き（コマ 4 番目の 向き）で 刃が 体の かげに かくれて いる コマ: 髪の ぽつぽつを 刃と 見まちがえない
+    if row < 16 and row % 8 == 4 and int(line_inliers(m, None, False).sum()) < 40:
         return c
     full = opaque & ((rgb == C20).all(-1) | (rgb == C21).all(-1) | (rgb == C6).all(-1) | (rgb == C18).all(-1))
     m = line_inliers(m, full)
@@ -255,6 +269,21 @@ def do_cell(c, shape):
     if L < 1:
         return c
     a = d / L
+    # 元の 刃の ふちの うすい 色（影・ぼかし）も けす。刃の まわり 5 点 の 白っぽい 点で、刃に つながる ものだけ
+    # （のこすと 新しい 刃の となりに 古い 刃が ゴーストで 残る）
+    uu = (XX - base[0]) * a[0] + (YY - base[1]) * a[1]
+    vv0 = np.abs((XX - base[0]) * (-a[1]) + (YY - base[1]) * a[0])
+    mx = rgb.max(-1).astype(int)
+    mn = rgb.min(-1).astype(int)
+    cand = opaque & (vv0 <= 5.0) & (uu >= 3) & (uu <= L + 3) & (mn >= 170) & (mx - mn <= 40)
+    near = dilate(dilate(cand | m))  # 1〜2 点 とびの ぽつぽつも つなげる
+    lab, nl = ndlabel(near, structure=np.ones((3, 3), int))
+    touch = np.unique(lab[m])
+    ghost = cand & np.isin(lab, touch[touch > 0]) & ~m
+    if ghost.any():
+        m = m | ghost
+        out[ghost] = 0
+        body = opaque & ~m
     nrm = np.array([-a[1], a[0]], np.float32)
     if nrm @ np.array([-1, -1], np.float32) < 0:
         nrm = -nrm
@@ -276,7 +305,7 @@ def do_cell(c, shape):
             ca, sa = math.cos(math.radians(ang)), math.sin(math.radians(ang))
             aa = np.array([a0[0] * ca - a0[1] * sa, a0[0] * sa + a0[1] * ca], np.float32)
             for k in (1.12, 1.11, 1.10):
-                if fits(base, aa, L0 * k):
+                if fits(base, aa, L0 * k, bc):
                     a, L, done = aa, L0 * k, True
                     break
             if done:
@@ -286,6 +315,8 @@ def do_cell(c, shape):
         nrm = np.array([-a[1], a[0]], np.float32)
         if nrm @ np.array([-1, -1], np.float32) < 0:
             nrm = -nrm
+    if shape in ("niji", "raijin"):
+        nrm = edge_normal(a, base, bc)
     s = float(np.clip(L / 45.0, 0.8, 1.15))
     dx = XX - base[0]
     dy = YY - base[1]
@@ -316,7 +347,7 @@ def main(only=None):
             res = im.copy()
             for r in range(H // CELL):
                 for f in range(W // CELL):
-                    res[r * CELL:(r + 1) * CELL, f * CELL:(f + 1) * CELL] = do_cell(im[r * CELL:(r + 1) * CELL, f * CELL:(f + 1) * CELL], shape)
+                    res[r * CELL:(r + 1) * CELL, f * CELL:(f + 1) * CELL] = do_cell(im[r * CELL:(r + 1) * CELL, f * CELL:(f + 1) * CELL], shape, r)
             Image.fromarray(res).save(os.path.join(od, mo + ".png"), optimize=True)
             print(shape, mo, "ok")
     extra = {"niji": [k for k in NIJI if k not in ("steel", "edge")], "raijin": list(RAIJIN), "fujin": [k for k in FUJIN if k != "W"]}

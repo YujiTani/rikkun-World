@@ -13,17 +13,17 @@ import type { Vec3 } from './blade';
  */
 
 export interface ChargeFx {
-  phase: 'off' | 'gather' | 'burst' | 'full' | 'fade';
-  palette: 'fujin' | 'raijin' | null;
-  core: number;
+  phase: 'off' | 'gather' | 'full';
+  palette: 'fujin' | 'raijin' | 'niji' | null;
   alpha: number;
   particles: number;
-  ring: number;
-  sweep: number;
-  sparkles: number;
-  orbit: number;
-  orbitAngle: number;
+  /** 0 なし・2 光りはじめの 1 ステップ・1 そのあと（またたく） */
+  hand: number;
+  handCore: number;
+  handRing: number;
+  F: number;
   center: Vec3 | null;
+  chest: Vec3 | null;
   screen: { x: number; y: number } | null;
 }
 

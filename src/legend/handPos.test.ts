@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
-import { FIRST_PERSON_HAND, computeHand, newHandInfo } from './handPos';
+import { CHEST_UP, FIRST_PERSON_HAND, THIRD_HAND, computeHand, newHandInfo } from './handPos';
 
 /** WEAPON-8 §3.5: 剣を 持つ 手の 位置（三人称は 体から・一人称は 画面の 右下の 剣の にぎり）。 */
 const cam = () => {
@@ -17,7 +17,8 @@ describe('三人称', () => {
     const a = computeHand({ first: false, pos: { x: 10, y: 9, z: 8 }, yawDeg: 0, camera: c }, newHandInfo());
     expect(a.first).toBe(false);
     expect(a.world.x).toBeGreaterThan(10.2);
-    expect(a.world.y - 9).toBeGreaterThan(1.5);
+    expect(a.world.y - 9).toBeGreaterThanOrEqual(THIRD_HAND.up);
+    expect(a.world.y - 9).toBeGreaterThan(CHEST_UP + 0.3);
     expect(Math.abs(a.world.y - 9 - 1.1)).toBeGreaterThan(0.1);
     const b = computeHand({ first: false, pos: { x: 10, y: 9, z: 6 }, yawDeg: 0, camera: c }, newHandInfo());
     expect(a.world.z - b.world.z).toBeCloseTo(2, 5);
