@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { ItemId } from '../contracts';
 import { itemType } from '../inventory/items';
 import { CRAFT_RECIPES } from '../craft/recipes';
+const BASE_RECIPES = CRAFT_RECIPES.filter((r) => r.output.item !== 'torch' || r.id === 'torch'); // CRAFT-PAGE: たいまつの 足した作り方（2 つ）をのぞいた 元の 36 こ
 import { itemRarity } from '../drops/rarity';
 import { BLOCK_TILES, getTilePixels } from '../world/blocks/textures';
 import { DIG_DEFAULTS } from '../dig/config';
@@ -48,11 +49,11 @@ describe('M7-2 アイテム（AC19）', () => {
 
 describe('M7-2 レシピ（AC20 の ユニット部分）', () => {
   it('おの 3 つは てつの つるはし のすぐ後ろ（BAL-D AC17。id の ならびを 直接）', () => {
-    expect(CRAFT_RECIPES.slice(2, 6).map((r) => r.id)).toEqual(['iron_pickaxe', 'wood_axe', 'stone_axe', 'iron_axe']);
-    expect(CRAFT_RECIPES.slice(3, 6).map((r) => r.inputs.map((i) => `${i.item}${i.count}`).join(','))).toEqual(['log3', 'stone3,log2', 'iron_ingot3,log2']);
+    expect(BASE_RECIPES.slice(2, 6).map((r) => r.id)).toEqual(['iron_pickaxe', 'wood_axe', 'stone_axe', 'iron_axe']);
+    expect(BASE_RECIPES.slice(3, 6).map((r) => r.inputs.map((i) => `${i.item}${i.count}`).join(','))).toEqual(['log3', 'stone3,log2', 'iron_ingot3,log2']);
   });
   it('30〜33 こ目は やさい 1 こ → たね 4 こ', () => {
-    expect(CRAFT_RECIPES.slice(29, 33).map((r) => [r.id, r.output.count, r.inputs.map((i) => `${i.item}${i.count}`).join(','), r.works])).toEqual([
+    expect(BASE_RECIPES.slice(29, 33).map((r) => [r.id, r.output.count, r.inputs.map((i) => `${i.item}${i.count}`).join(','), r.works])).toEqual([
       ['seed_onion', 4, 'onion1', true],
       ['seed_tomato', 4, 'tomato1', true],
       ['seed_pumpkin', 4, 'pumpkin1', true],
@@ -60,8 +61,8 @@ describe('M7-2 レシピ（AC20 の ユニット部分）', () => {
     ]);
   });
   it('26・27・28 こ目（おの 3 つが 4〜6 こ目に入って、うしろが 3 つずれる）', () => {
-    expect(CRAFT_RECIPES).toHaveLength(44);
-    expect(CRAFT_RECIPES.slice(25, 28).map((r) => [r.id, r.output.count, r.inputs.map((i) => `${i.item}${i.count}`).join(','), r.works])).toEqual([
+    expect(BASE_RECIPES).toHaveLength(44);
+    expect(BASE_RECIPES.slice(25, 28).map((r) => [r.id, r.output.count, r.inputs.map((i) => `${i.item}${i.count}`).join(','), r.works])).toEqual([
       ['watering_can', 1, 'iron_ingot1,stone2', true],
       ['long_watering_can', 1, 'iron_ingot3,log1', true],
       ['sprinkler', 1, 'iron_ingot4,stone2', true],

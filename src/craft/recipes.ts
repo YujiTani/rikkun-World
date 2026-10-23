@@ -15,7 +15,11 @@ const r = (
   station,
 });
 
-/** つくる 36 こ（M4 §4.1 の 22 こ + BAL-D の おの 3 こ + M7-2 の 3 こ + #63 の たね 4 こ + むしとりあみ + こたつ・とりごや。カードの順） */
+/** たいまつの 足した作り方の id（もとの `torch` は き 1・あぶら 1 → 4） */
+export const TORCH_COAL = 'torch_coal';
+export const TORCH_LOG = 'torch_log';
+
+/** つくる 38 こ（カードは 36 枚。たいまつの 作り方が 3 つ）（M4 §4.1 の 22 こ + BAL-D の おの 3 こ + M7-2 の 3 こ + #63 の たね 4 こ + むしとりあみ + こたつ・とりごや。カードの順） */
 export const CRAFT_RECIPES: readonly Recipe[] = [
   r('wood_pickaxe', 1, [['log', 3]], true),
   r('stone_pickaxe', 1, [['stone', 3], ['log', 2]], true),
@@ -67,6 +71,10 @@ export const CRAFT_RECIPES: readonly Recipe[] = [
   r('kin_yoroi', 1, [['kin', 3], ['string', 2], ['cloth', 2]], true),
   r('kin_kote', 1, [['kin', 1], ['cloth', 1]], true),
   r('kin_suneate', 1, [['kin', 2], ['string', 1]], true),
+  // CRAFT-PAGE（#277）: たいまつの 足した作り方 2 つ（いちばん うしろ。番号を ずらさない）。カードは 元の torch の 1 枚のまま
+  // （作り方は せつめい欄のページで えらぶ）。出来る物は どれも torch
+  { ...r('torch', 4, [['log', 1], ['coal_ore', 1]], true), id: TORCH_COAL },
+  { ...r('torch', 1, [['log', 3]], true), id: TORCH_LOG },
 ];
 
 /** やく 5 こ（M4 §4.2 の 4 こ ＋ GOLD-1 の きん。かまど で。ねんりょう 1 こ・60 ステップ。きん は いちばん うしろ） */
@@ -80,3 +88,23 @@ export const BAKE_RECIPES: readonly Recipe[] = [
 ];
 
 export const ALL_RECIPES: readonly Recipe[] = [...CRAFT_RECIPES, ...BAKE_RECIPES];
+
+/** カード 1 枚に まとまる作り方の グループ（同じ台・同じ出来る物）。先頭の id（カードの id）→ 作り方の id（先頭が元の作り方、あとは足した順） */
+export function groupRecipes(recipes: readonly Recipe[]): Map<string, string[]> {
+  const byKey = new Map<string, string[]>();
+  for (const r of recipes) {
+    const key = `${r.station}:${r.output.item}`;
+    const g = byKey.get(key);
+    if (g) g.push(r.id);
+    else byKey.set(key, [r.id]);
+  }
+  const out = new Map<string, string[]>();
+  for (const ids of byKey.values()) out.set(ids[0], ids);
+  return out;
+}
+
+const PRIMARY_OF = new Map<string, string>();
+for (const [primary, ids] of groupRecipes(ALL_RECIPES)) for (const id of ids) PRIMARY_OF.set(id, primary);
+
+/** 作り方の id → カードの id（足した作り方は 元の id。実績・「つくった」の記録で 同じ物として数える） */
+export const baseRecipeId = (id: string): string => PRIMARY_OF.get(id) ?? id;

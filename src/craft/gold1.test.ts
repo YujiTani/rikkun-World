@@ -30,8 +30,8 @@ describe('GOLD-1 アイテム・めずらしさ（AC1・AC2）', () => {
 });
 
 describe('GOLD-1 レシピ（AC3）', () => {
-  it('つくる 44・やく 5。きん の やきかた は かまど で kin_tamago 1 → kin 1', () => {
-    expect(CRAFT_RECIPES).toHaveLength(44);
+  it('つくる 46（カード 44）・やく 5。きん の やきかた は かまど で kin_tamago 1 → kin 1', () => {
+    expect(CRAFT_RECIPES).toHaveLength(46); // CRAFT-PAGE の たいまつ 2 つ ＋ GOLD-1 の 8 こ
     expect(BAKE_RECIPES).toHaveLength(5);
     const k = BAKE_RECIPES.find((r) => r.id === 'kin')!;
     expect(k.station).toBe('furnace');
