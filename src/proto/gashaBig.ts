@@ -300,7 +300,7 @@ interface RungOpts { joint: JointName; c: Vector3; tx: number; tz: number; f: nu
 function rung(b: Builder, o: RungOpts): void {
   const Ld = T.ladder, rnd = o.rnd;
   const D = lerpA(Ld.depth, o.f), L = lerpA(o.len ?? Ld.length, o.f) * (0.92 + 0.16 * rnd());
-  const a = ((rnd() - 0.5) * Ld.tiltDeg * Math.PI) / 90; // ±tilt/2 ... ではなく 全はば tilt
+  const a = ((rnd() - 0.5) * Ld.tiltDeg * Math.PI) / 180; // 道と 直角から の かたむき（全はば tiltDeg）
   const lx = -o.tz, lz = o.tx;
   const u = vec(lx * Math.cos(a) + lz * Math.sin(a), 0, -lx * Math.sin(a) + lz * Math.cos(a)).normalize();
   const c = o.c.clone().addScaledVector(vec(lx, 0, lz), (rnd() - 0.5) * 2 * Ld.stagger * L);
@@ -680,8 +680,8 @@ export function buildBig(): BigModel {
     const Ld = T.ladder, rr = makeRnd(Ld.seed);
     const routes: { key: string; pts: number[][]; skipFirst: boolean; len?: readonly [number, number] }[] = [
       { key: 'climb', pts: Ld.climb, skipFirst: false },
-      { key: 'link', pts: Ld.link, skipFirst: true },
-      { key: 'ramp', pts: Ld.ramp, skipFirst: true },
+      { key: 'link', pts: Ld.link, skipFirst: true, len: Ld.linkLength },
+      { key: 'ramp', pts: Ld.ramp, skipFirst: true, len: Ld.rampLength },
       { key: 'head', pts: Ld.head, skipFirst: true, len: Ld.headLength },
     ];
     for (const s of [-1, 1]) {
