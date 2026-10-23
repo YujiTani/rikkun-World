@@ -1,0 +1,8 @@
+kesa-hit-0 t=0 frame=-1
+kesa-hit-1 t=1 frame=-1
+kesa-hit-2 t=20 frame=1
+kesa-hit-3 t=21 frame=1
+kesa-hit-4 t=22 frame=1
+kesa-hit-5 t=23 frame=2
+kesa-hit-6 t=24 frame=2
+kesa-hit-7 t=25 frame=3

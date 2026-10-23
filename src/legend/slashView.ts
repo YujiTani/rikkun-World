@@ -23,3 +23,16 @@ export function slashViewFor(angleDeg: number, prev: SlashView | null): SlashVie
   if (angleDeg >= 55 && angleDeg <= 125) return 'side';
   return prev ?? 'side';
 }
+
+/**
+ * 左右の 符号: カメラから 見て 右へ 振る = 1・左へ 振る = −1（左なら 板の 絵を 左右 反転する）。
+ * `slashAngleDeg` は 0〜180° で 符号が ない ので、別に 出す。
+ */
+export function slashSwingSign(uDeg: number, camToSlash: Pick<Vec3, 'x' | 'z'>): 1 | -1 {
+  const ux = Math.sin((uDeg * Math.PI) / 180);
+  const uz = -Math.cos((uDeg * Math.PI) / 180);
+  const l = Math.hypot(camToSlash.x, camToSlash.z);
+  if (l < 1e-6) return 1;
+  // カメラの 右 = (−fz, fx)
+  return (ux * -camToSlash.z + uz * camToSlash.x) / l >= 0 ? 1 : -1;
+}

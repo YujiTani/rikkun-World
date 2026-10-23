@@ -40,6 +40,7 @@ import { SpiralFx } from './fx/spiralFx';
 import { createWaveView3D } from './legend/waveView';
 import { ChargeLightFx } from './fx/chargeLightFx';
 import { NijiFx } from './fx/nijiFx';
+import { boxOf } from './combat/attackFacing';
 import { createDomeGrains } from './legend/domeGrains';
 import { BuffIcons } from './ui/buffIcons';
 import { buffsOfHeld, createBuffModel } from './ui/buffIconsModel';
@@ -1128,16 +1129,23 @@ const weaponFx = new WeaponFx({
   onWear: (e) => achievements.feedWear(e),
   onBlade: (e) => achievements.feedBlade(e),
   // WEAPON-7: ふつうの わざに 雷の「ビシューン」を 重ねる（ダメージは かえない）
-  onTechItem: (item) => {
+  onTechItem: (item, tech, step) => {
     if (trailStyleOf(w2, item) === 'thunder') playLegend(fxSound, 'thunderSlash');
-    // WEAPON-9: 虹の にじ色の 斬撃（カメラの 向きで 絵を きめる）。ダメージは かえない
-    if (trailStyleOf(w2, item) === 'rainbow') {
-      const p = controller.state.position;
+    // WEAPON-9: 虹の にじ色の 斬撃（わざごとの 絵・決めが 当たりに 重なる よう まって 出す。カメラの 向きで 絵を きめる）。ダメージは かえない
+    if (trailStyleOf(w2, item) === 'rainbow' && tech) {
       const u = blade.state().move?.dirDeg ?? controller.state.yawDeg;
-      const r = (u * Math.PI) / 180;
-      nijiFx.slash({ x: p.x + Math.sin(r) * 2.2, y: p.y + 1.4, z: p.z - Math.cos(r) * 2.2 }, u, { x: p.x, y: p.y + 1.4, z: p.z });
+      nijiFx.queueSlash({ tech, step: step ?? 1, uDeg: u, pos: () => controller.state.position });
     }
   },
+  // WEAPON-9: 当たった 妖怪 1 体ごとに 虹の 火花
+  onTechHit: (item, e) => {
+    if (trailStyleOf(w2, item) !== 'rainbow') return;
+    // 当たった 妖怪の 胸（足もと + 背の 6 割）に 火花を 出す
+    const yk = yokaiManager?.list().find((q) => q.id === e.yokaiId);
+    const chest = yk ? boxOf(yk).h * 0.6 : 0.8;
+    nijiFx.hit({ x: e.position.x, y: e.position.y + chest, z: e.position.z }, e.tech, blade.state().move?.dirDeg ?? controller.state.yawDeg);
+  },
+  onBladeCancel: () => nijiFx.cancelSlash(),
   // WEAPON-9: 虹の つき・きりあげ・けさ は 今の 刀の 音の 代わりに nijiSlash（1 振りに 1 回。段ごとに 3 とおり）
   replaceTechSound: (item, step) => {
     if (trailStyleOf(w2, item) !== 'rainbow') return false;
