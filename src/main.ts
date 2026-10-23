@@ -20,7 +20,7 @@ import { createParry, parryGlowLevel } from './combat/parry';
 import { ParryFx, StaggerIcons, bladeMidInto } from './fx/parryFx';
 import { isParrySound, playParry } from './fx/parrySounds';
 import { parryCellOf } from './char/parryCells';
-import { bladeColorsOf } from './fx/bladeTrailModel';
+import { BLADE_TRAIL_ITEMS, bladeColorsOf } from './fx/bladeTrailModel';
 import { EventRelay } from './fx/eventRelay';
 import { BladeHud } from './ui/bladeHud';
 import { WearNotice } from './ui/wearNotice';
@@ -40,6 +40,7 @@ import { SpiralFx } from './fx/spiralFx';
 import { createWaveView3D } from './legend/waveView';
 import { ChargeLightFx } from './fx/chargeLightFx';
 import { NijiFx } from './fx/nijiFx';
+import { SlashFx } from './fx/slashFx';
 import { boxOf } from './combat/attackFacing';
 import { createDomeGrains } from './legend/domeGrains';
 import { BuffIcons } from './ui/buffIcons';
@@ -687,6 +688,8 @@ const spiralFx = new SpiralFx({ scene: game.scene, camera: game.camera });
 const nijiFx = new NijiFx(game.scene, game.camera);
 const domeGrains = createDomeGrains();
 nijiFx.warmUp(game.renderer, game.camera, game.scene);
+const slashFx = new SlashFx(game.scene, game.camera);
+slashFx.warmUp(game.renderer, game.camera, game.scene);
 const spiralDebris = createSpiralDebris({ world, seed });
 const chargeLight = createChargeLight();
 const chargeLightFx = new ChargeLightFx({ scene: game.scene, camera: game.camera });
@@ -1190,21 +1193,23 @@ const weaponFx = new WeaponFx({
   // WEAPON-7: ふつうの わざに 雷の「ビシューン」を 重ねる（ダメージは かえない）
   onTechItem: (item, tech, step) => {
     if (trailStyleOf(w2, item) === 'thunder') playLegend(fxSound, 'thunderSlash');
-    // WEAPON-9: 虹の にじ色の 斬撃（わざごとの 絵・決めが 当たりに 重なる よう まって 出す。カメラの 向きで 絵を きめる）。ダメージは かえない
-    if (trailStyleOf(w2, item) === 'rainbow' && tech) {
+    // 白い 斬撃（刀の 武器ぜんぶの 土台。わざごとの 絵・決めが 当たりに 重なる よう まって 出す。カメラの 向きで 絵を きめる）。ダメージは かえない
+    if (item && BLADE_TRAIL_ITEMS.has(item) && tech) {
       const u = blade.state().move?.dirDeg ?? controller.state.yawDeg;
-      nijiFx.queueSlash({ tech, step: step ?? 1, uDeg: u, pos: () => controller.state.position });
+      slashFx.queueSlash({ tech, step: step ?? 1, uDeg: u, pos: () => controller.state.position, reach: w2.bladeReach[item] });
     }
   },
-  // WEAPON-9: 当たった 妖怪 1 体ごとに 虹の 火花
+  // 当たった 妖怪 1 体ごとに 白い 火花
   onTechHit: (item, e) => {
-    if (trailStyleOf(w2, item) !== 'rainbow') return;
+    if (!item || !BLADE_TRAIL_ITEMS.has(item)) return;
     // 当たった 妖怪の 胸（足もと + 背の 6 割）に 火花を 出す
     const yk = yokaiManager?.list().find((q) => q.id === e.yokaiId);
     const chest = yk ? boxOf(yk).h * 0.6 : 0.8;
-    nijiFx.hit({ x: e.position.x, y: e.position.y + chest, z: e.position.z }, e.tech, blade.state().move?.dirDeg ?? controller.state.yawDeg);
+    slashFx.hit({ x: e.position.x, y: e.position.y + chest, z: e.position.z }, e.tech, blade.state().move?.dirDeg ?? controller.state.yawDeg);
   },
-  onBladeCancel: () => nijiFx.cancelSlash(),
+  onBladeCancel: () => slashFx.cancelSlash(),
+  // 刀の 半月の 帯は 白い 斬撃と 置きかえ（全部の 刀）
+  hideBandTrail: true,
   // WEAPON-9: 虹の つき・きりあげ・けさ は 今の 刀の 音の 代わりに nijiSlash（1 振りに 1 回。段ごとに 3 とおり）
   replaceTechSound: (item, step) => {
     if (trailStyleOf(w2, item) !== 'rainbow') return false;
@@ -1933,6 +1938,7 @@ game.onUpdate((dt) => {
       const mv = legend.state();
       domeGrains.step({ F: mv.move === 'shining' ? mv.moveF : 0, center: nijiCenter(cp), radius: dv.dome, pulled: legend.pullers(), reduced: reducedNow });
       nijiFx.step(dv.dome > 0 ? { radius: dv.dome, center: nijiCenter(cp), groundY: dv.groundY, F: mv.moveF } : null, domeGrains, reducedNow, rig.getInfo().hideChar);
+      slashFx.step(reducedNow);
       if (domeEraseThisStep) {
         playLegend(fxSound, 'domeErase');
         domeEraseThisStep = false;
@@ -2181,8 +2187,8 @@ installTestHook(game, overlay, () => host.everReady, {
     chargeSound: () => ({ ...legend.chargeSound() }),
     spiralSound: () => legend.spiralSound(),
     pullSound: () => legend.pullSound(),
-    slashes: () => nijiFx.slashes(),
-    nijiFx: () => nijiFx.info(),
+    slashes: () => slashFx.slashes(),
+    nijiFx: () => ({ ...nijiFx.info(), ...slashFx.info() }),
     grains: () => ({ ...domeGrains.counts() }),
   } as unknown as TestHookGroups['legend'],
   player: { ...createPlayerHook(controller), handPos: () => { const h = handNow(); return { world: { ...h.world }, screen: h.screen ? { ...h.screen } : null }; }, glow: () => { const g = parry.state().glowLeft; return { visible: g > 0, ticksLeft: g, level: parryGlowLevel(g, w2) }; }, respawn: () => controller.respawn(), doll: withSpriteDoll(cameraHook.doll, sprite, rig.doll.group) } as unknown as TestHookGroups['player'],

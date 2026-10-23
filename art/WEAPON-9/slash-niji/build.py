@@ -26,6 +26,14 @@ PAL = {"W": "#FFFDF4", "T": "#BFEFFF", "G": "#4CC57E", "Bl": "#5AB4FF", "M": "#A
 B = tex9.B
 FW, FH = 64, 44
 
+# 白い 斬撃（2026-10-23 オーナーの 決定: 土台は ぜんぶの 武器で 白。武器ごとの 色は 上の 層）。
+# 同じ 形・コマで 色だけ 入れかえる。実行: ... python art/WEAPON-9/slash-niji/build.py --white
+WHITE = "--white" in sys.argv
+if WHITE:
+    PAL.update({"G": "#F3FAFF", "Bl": "#E2F1FD", "M": "#CFE4F8", "T": "#DCEFFF", "Y": "#F7F9FF", "A": "#B9BDC9", "N": "#6F7488"})
+PURPLE = "#9097A6" if WHITE else PAL["M"]  # 後半「もう 当たらない」色（白版は 灰色）
+SUF = "white" if WHITE else "niji"
+
 # ---------------------------------------------------------------- 形（よこから 見た 背骨の 線。q = 0 もと → 1 先）
 
 def spine(tech, view, n=240):
@@ -114,7 +122,7 @@ def draw(tech, view, tail, head, sc, core, thin, mode, tip):
             if mode == "white":
                 c = PAL["W"]
             elif mode == "purple":
-                c = PAL["M"]
+                c = PURPLE
             else:
                 if ff < core:
                     c = PAL["W"]
@@ -203,8 +211,8 @@ def build_slash():
                 yy, xx = np.nonzero(al)
                 c.append([round(float(xx.mean()) + 0.5, 1), round(float(yy.mean()) + 0.5, 1)] if len(xx) else [32.0, 22.0])
             cent[(tech, view)] = c
-    atlas.save(os.path.join(HERE, "niji_slash3_1x.png"))
-    reduced.save(os.path.join(HERE, "niji_slash3_reduced_1x.png"))
+    atlas.save(os.path.join(HERE, f"{SUF}_slash3_1x.png"))
+    reduced.save(os.path.join(HERE, f"{SUF}_slash3_reduced_1x.png"))
     return atlas, frames, cent
 
 
@@ -254,7 +262,7 @@ def build_hit():
                     d = math.hypot(x + 0.5 - 8, y + 0.5 - 8)
                     if 4.5 <= d <= 6 and B[y % 4][x % 4] < 0.5:
                         im.px(ox + x, base + y, PAL["T"])
-    im.save_png(os.path.join(HERE, "niji_hit_1x.png"))
+    im.save_png(os.path.join(HERE, f"{SUF}_hit_1x.png"))
     return im.composite(1)
 
 
@@ -311,7 +319,7 @@ def write_json(cent):
 def main():
     atlas, frames, cent = build_slash()
     hit = build_hit()
-    data = write_json(cent)
+    data = None if WHITE else write_json(cent)  # 白版は 同じ slash3.json を 使う
     print("colors slash", tex9.kit9.count_colors([atlas]), "hit", tex9.kit9.count_colors([hit]), "semi", tex9.kit9.semi_alpha([atlas, hit]))
     return atlas, frames, cent, hit, data
 
