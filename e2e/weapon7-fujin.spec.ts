@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { aimAtBlock } from './helpers/aim';
 import { holdItems, settle, spawnAhead, toStance, type Vec3 } from './helpers/blade';
-import { FUJIN, RAIJIN, chargeRun, legendState, legendWorld, markLegend, pinNushiTable, resetStage, spawnNushiAhead, types } from './helpers/legend';
+import { FUJIN, RAIJIN, chargeRun, legendState, legendWorld, markLegend, pinNushiTable, resetStage, spawnNushiAhead, tapUntil, types } from './helpers/legend';
 import { comboWorld, markNow, run, startList } from './helpers/combo';
 import { pressParry } from './helpers/parry';
 
@@ -395,18 +395,14 @@ test.describe('WEAPON-7 PR2 風神剣 実績・ヌシ（AC26）', () => {
     await holdItems(page, [{ item: 'katana' }]);
     await pinNushiTable(page, FUJIN);
     await spawnNushiAhead(page, 1.5, 1);
-    const r = await page.evaluate(() => {
+    await page.evaluate(() => {
       const h = window.__rikkun as any;
       h.achievements.mute(false);
       h.step(190);
-      h.input.press('primary');
-      for (let i = 0; i < 40; i++) {
-        h.step(1);
-        if (i === 0) h.input.release('primary');
-        if (h.combat.bags().some((b: any) => b.slots.some((s: any) => s.item === 'fujin_ken'))) return { found: true, band: h.ui.topBand() };
-      }
-      return { found: false, band: null };
     });
+    // HURT-1: 怯みで わざが とぎれるので、怯みが おわるのを 待って たたき直す
+    const t = await tapUntil(page, `(h) => h.combat.bags().some((b) => b.slots.some((s) => s.item === 'fujin_ken')) ? { band: h.ui.topBand() } : null`);
+    const r = { found: t.found, band: t.value?.band };
     expect(r.found, 'ヌシから 風神剣の 袋').toBe(true);
     expect(r.band.kind).toBe('telop');
     expect(r.band.item).toBe(FUJIN);
