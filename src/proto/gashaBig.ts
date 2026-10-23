@@ -16,8 +16,9 @@ import {
 import { TUNE as T, applyTune, applyTuneFromUrl } from './gashaBigTuning';
 import { BigActor, type ActorClips } from './gashaBigActor';
 import { sharedGashaBgm } from './gashaBgm';
-import climbL from './gashaBigClips/climbL.json';
-import climbR from './gashaBigClips/climbR.json';
+import { BigHit, type HitSources } from './gashaBigHit';
+import climbUp from './gashaBigClips/climbUp.json';
+import climbDown from './gashaBigClips/climbDown.json';
 import lookBackClip from './gashaBigClips/lookBack.json';
 
 export interface GashaBigDeps {
@@ -39,6 +40,8 @@ export interface GashaBigDeps {
   suppressBgm?(on: boolean): void;
   /** 手の まわりの 地面を ならす 用（ワールドの ブロックを 箱で おきかえる。読みこんで いない 所は 変わらない）。なければ ならさない */
   fillBlocks?(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, id: 'grass' | 'air'): void;
+  /** プレイヤーの 攻撃を 受ける 口（刀・弓・波・雷など。つなぎは gashaBigHitWire.ts）。なければ 本物の 攻撃は 当たらない（`__gashaBig.damage` だけ 効く） */
+  hit?: HitSources;
 }
 
 // ---------------------------------------------------------------- 色と 面の 明るさ
@@ -815,12 +818,18 @@ export interface GashaBigHandle {
   angry(on: boolean): void;
   /** プレイヤーの 攻撃が 当たった ことに する（怒る。20 秒 カウントを はじめから）。段 4 で 本物の 攻撃に つなぐ */
   hit(): void;
+  /** いまの 体力 */
+  hp(): number;
+  /** 部位（hand・foreArm・upperArm・head・core など）に ダメージ（武器の 強さ amount × 部位の 倍率）。与えた 数を 返す。テスト用 */
+  damage(part: string, amount: number): number;
   /** さまよう（はって あるく）のを はじめる / 止める */
   walk(on: boolean): void;
   /** その 場所（ブロックの 座標）へ はって 行く（さまよう とき の 目的地を 上書き） */
   goTo(x: number, z: number): void;
   /** 止まって ふり返る（Crawl and Look Back） */
   lookBack(): void;
+  /** 後ろへ さがる（climbing down wall を 倒した 動き）を はじめる / 止める */
+  back(on: boolean): void;
   /** 長い 休みに はいる（その場で 体を 動かさない。首を ふる くらい）。sec を 書かなければ 調整表の wander.restSec */
   rest(sec?: number): void;
   /** うごきの 中身（モード・速さ・手の ついた 数・1 コマの 仕事の 数 など） */
@@ -841,8 +850,10 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
   applyTuneFromUrl(location.search);
   let model: BigModel | null = null;
   let actor: BigActor | null = null;
-  const CLIPS: ActorClips = { climbL, climbR, lookBack: lookBackClip };
+  const CLIPS: ActorClips = { climbUp, climbDown, lookBack: lookBackClip };
   let isAngry = false;
+  // プレイヤーの 攻撃を 受ける（体力・部位の 倍率・怒る・火花・体力ゲージ。gashaBigHit.ts）
+  const bh = new BigHit({ scene: deps.scene, angry: () => { isAngry = true; actor?.hit(); }, sources: deps.hit });
   let pos = new Vector3(), yaw = 0;
   const fwdOf = (p: { yawDeg: number }) => { const y = (p.yawDeg * Math.PI) / 180; return { fx: Math.sin(y), fz: -Math.cos(y) }; };
 
@@ -902,6 +913,7 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
     actor.place(pos.x, pos.y, pos.z, yaw);
     actor.walk(T.wander.enabledAtStart);
     if (isAngry) actor.hit();
+    bh.bind(actor.boxList, model);
   };
 
   deps.addPlayerSolid((x, y, z) => actor !== null && actor.solid(x, y, z));
@@ -911,6 +923,7 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
   deps.onUpdate?.((dt) => {
     if (!actor) return;
     actor.update(dt);
+    bh.step(dt);
     pos = actor.pos; yaw = actor.yaw;
     if (bgm) {
       const w = actor.angryLeft > 0;
@@ -922,15 +935,18 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
 
   const handle: GashaBigHandle = {
     tune: (o) => applyTune(o),
-    place,
+    place: () => { place(); bh.reset(); },
+    hp: () => bh.hp,
+    damage: (part, amount) => bh.damage(part, amount),
     angry: (on) => { isAngry = on; actor?.angry(on); },
     hit: () => { isAngry = true; actor?.hit(); },
     walk: (on) => actor?.walk(on),
     goTo: (x, z) => actor?.goTo(x, z),
     lookBack: () => actor?.lookBack(),
+    back: (on) => actor?.back(on),
     rest: (sec) => actor?.rest(sec),
     motion: () => (actor ? {
-      mode: actor.mode, speedNow: actor.speedNow, crawlSpeed: actor.crawlSpeed, crawlRate: actor.crawlRate, target: actor.target, wander: actor.wanderOn,
+      mode: actor.mode, speedNow: actor.speedNow, crawlSpeed: actor.crawlSpeed, crawlRate: actor.crawlRate, strideScale: actor.strideScale, backOn: actor.backOn, target: actor.target, wander: actor.wanderOn,
       angryLeft: actor.angryLeft, eyeMix: actor.eyeMix, walkLeft: actor.walkLeft, restLeft: actor.restLeft, work: actor.work, plant: actor.plant,
     } : {}),
     colliders: () => (model ? worldHits(model) : []),
@@ -938,7 +954,7 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
     joints: () => (model ? { ...model.joints } : {}),
     solidAt: (x, y, z) => actor?.solid(x, y, z) ?? false,
     info: () => ({
-      scale: model?.scale, pos: [pos.x, pos.y, pos.z], yawDeg: (yaw * 180) / Math.PI, drawCalls: model?.meshes, hitBoxes: model?.hits.length, angry: (actor?.angryLeft ?? 0) > 0,
+      scale: model?.scale, pos: [pos.x, pos.y, pos.z], yawDeg: (yaw * 180) / Math.PI, drawCalls: model?.meshes, hitBoxes: model?.hits.length, angry: (actor?.angryLeft ?? 0) > 0, hp: bh.hp, maxHp: bh.maxHp, lastHit: bh.last,
       head: model ? model.head.clone().multiplyScalar(model.scale).applyQuaternion(new Quaternion().setFromAxisAngle(UP, yaw)).add(pos).toArray() : null,
       rest: model ? Object.fromEntries(JOINT_NAMES.map((j) => [j, model!.rest[j].toArray()])) : null,
     }),

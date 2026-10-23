@@ -19,8 +19,10 @@ export interface PlantOpts {
   tol: number;
   /** 手首の 横の 位置: 休みの 位置から ついた 位置までの 何割を 使うか（0 = 休みの 位置、1 = ついた 位置） */
   spread: number;
-  /** からだが 進む 速さ（もとの 座標 / クリップの 秒） */
+  /** からだが 進む 速さ（もとの 座標 / クリップの 秒）。クリップに root（体の 前進）が あれば そちらを 使う */
   speed: number;
+  /** はなれて いる 手を 地面から 上げる 高さ（もとの 座標。手首が これ より 低い ときだけ 上げる。0 = 上げない） */
+  lift?: number;
 }
 
 export interface PlantReport {
@@ -78,7 +80,8 @@ export function plantHands(model: BigModel, clips: BakedClip[], o: PlantOpts): P
     const t = Math.max(0, Math.min(1, 1 - (y - low - o.tol) / Math.max(1e-6, 2 * o.tol)));
     return t * t * (3 - 2 * t);
   };
-  for (const inf of infos) for (const s of SIDES) inf.w[s] = inf.wrist[s].map((v) => weight(v.y));
+  // クリップに「つかんで いる」重み（素材の 手首が 止まって いる コマ）が あれば それを 使う
+  infos.forEach((inf, ci) => { for (const s of SIDES) inf.w[s] = clips[ci]!.contact ? Array.from(clips[ci]!.contact![s]) : inf.wrist[s].map((v) => weight(v.y)); });
 
   const reports: PlantReport[] = [];
   const S = new Vector3(), E = new Vector3(), Wr = new Vector3(), u = new Vector3(), pole = new Vector3(), tmp = new Vector3(), dirA = new Vector3(), dirF = new Vector3();
@@ -97,6 +100,15 @@ export function plantHands(model: BigModel, clips: BakedClip[], o: PlantOpts): P
       clip.q[k] = A.x; clip.q[k + 1] = A.y; clip.q[k + 2] = A.z; clip.q[k + 3] = A.w;
     };
     const planted = { Left: 0, Right: 0 };
+    // [この クリップ, 前の クリップ, この クリップ] を つないだ 列での 体の 前進（root が あれば それ、なければ 一定の 速さ）
+    const adv: number[] = [];
+    {
+      let base = 0;
+      for (const c of [clip, clips[prev]!, clip]) {
+        for (let f = 0; f < c.frames; f++) adv.push(base + (c.root ? c.root[f]! : (o.speed * f) / c.fps));
+        base += c.root && c.stride !== undefined ? c.stride : (o.speed * c.frames) / c.fps;
+      }
+    }
     // 2. 目標（ついた しゅんかんの 位置から、からだが 進む ぶん うしろへ）。前の クリップの つづきに なる 期間も 前の ついた 位置から
     const target: Record<Side, (Vector3 | null)[]> = { Left: [], Right: [] };
     for (const s of SIDES) {
@@ -117,7 +129,7 @@ export function plantHands(model: BigModel, clips: BakedClip[], o: PlantOpts): P
         if (sc < 0) { target[s].push(null); continue; }
         const w0 = ws[sc]!;
         // クリップの 長さは どれも おなじ fps。前の クリップの コマ数が ちがう ときも 列の 位置で 数える
-        target[s].push(new Vector3(rest.x + (w0.x - rest.x) * o.spread, rest.y, w0.z - (o.speed * (i - sc)) / clip.fps));
+        target[s].push(new Vector3(rest.x + (w0.x - rest.x) * o.spread, rest.y, w0.z - (adv[i]! - adv[sc]!)));
       }
     }
 
@@ -127,10 +139,14 @@ export function plantHands(model: BigModel, clips: BakedClip[], o: PlantOpts): P
       setFrame(clip, fk, f);
       for (const s of SIDES) {
         const T0 = target[s][f];
-        const w = infos[ci]!.w[s][f]!;
-        if (!T0 || w <= 0) continue;
-        // 目標 = うつした 手首と ついた 位置を 重みで まぜた 点（重み 0 では うつした 姿勢と おなじ → つなぎ目に 段が 出ない）
-        const T = infos[ci]!.wrist[s][f]!.clone().lerp(T0, w);
+        const w = T0 ? infos[ci]!.w[s][f]! : 0;
+        // はなれて いる 手: 手首が 地面に もぐらない ように 上げる（つかむ 重みが へる ほど 高く）
+        const free = infos[ci]!.wrist[s][f]!.clone();
+        const liftY = model.rest[`${s}Hand`].y + (o.lift ?? 0) * (1 - w);
+        if (free.y < liftY) free.y = liftY;
+        if ((!T0 || w <= 0) && free.distanceToSquared(infos[ci]!.wrist[s][f]!) < 1e-8) continue;
+        // 目標 = 上げた 手首と ついた 位置を 重みで まぜた 点（重み 0 では うつした 姿勢（上げた だけ）→ つなぎ目に 段が 出ない）
+        const T = T0 && w > 0 ? free.lerp(T0, w) : free;
         const A = J[`${s}Arm`], Fa = J[`${s}ForeArm`], H = J[`${s}Hand`];
         const L1 = model.rest[`${s}ForeArm`].distanceTo(model.rest[`${s}Arm`]);
         const L2 = model.rest[`${s}Hand`].distanceTo(model.rest[`${s}ForeArm`]);
@@ -177,7 +193,7 @@ export function plantHands(model: BigModel, clips: BakedClip[], o: PlantOpts): P
         qh.copy(Wf).invert();
         put(f, `${s}Arm`, qa, 1);
         put(f, `${s}ForeArm`, qf, 1);
-        put(f, `${s}Hand`, qh, w);
+        if (w > 0) put(f, `${s}Hand`, qh, w);
       }
     }
     reports.push({ planted, overreach, overreachMax });
@@ -187,4 +203,41 @@ export function plantHands(model: BigModel, clips: BakedClip[], o: PlantOpts): P
   g.position.copy(keepPos); g.rotation.y = keepRot; g.scale.setScalar(keepScale);
   g.updateMatrixWorld(true);
   return reports;
+}
+
+/**
+ * 手が すべらない 歩幅の 倍率を 決める（素材の 長さ → 箱の もとの 座標）。
+ * うつした 姿勢（FK）で 手が ついている コマ（重み 0.5 以上）の 間、手首は からだの 座標で うしろへ 動く。
+ * その 動き（前後）と 素材の 体の 前進の 比を 最小二乗で 出す。体を この 倍率で 進めると、ついている 手は ほぼ そのままで 止まる（IK の 直しが 小さい）。
+ * clip.q は 書きかえない。model は 一時的に 使い、終わると 休みの 姿勢に もどす。
+ */
+export function fitStride(model: BigModel, clip: BakedClip, rootSrc: Float32Array, strideSrc: number, tol: number): number {
+  const g = model.group;
+  const keepPos = g.position.clone(), keepRot = g.rotation.y, keepScale = g.scale.x;
+  g.position.set(0, 0, 0); g.rotation.y = 0; g.scale.setScalar(1);
+  const NAMES = Object.keys(model.joints) as JointName[];
+  const N = NAMES.length, F = clip.frames, J = model.joints;
+  const p = new Vector3();
+  const wr: Record<Side, Vector3[]> = { Left: [], Right: [] };
+  for (let f = 0; f < F; f++) {
+    for (let j = 0; j < N; j++) { const k = (f * N + j) * 4; J[NAMES[j]!].quaternion.set(clip.q[k]!, clip.q[k + 1]!, clip.q[k + 2]!, clip.q[k + 3]!); }
+    g.updateMatrixWorld(true);
+    for (const s of SIDES) wr[s].push(J[`${s}Hand`].getWorldPosition(p).clone());
+  }
+  let low = Infinity;
+  for (const s of SIDES) for (const v of wr[s]) low = Math.min(low, v.y);
+  let num = 0, den = 0;
+  for (const s of SIDES) {
+    for (let f = 0; f < F; f++) {
+      const f1 = (f + 1) % F;
+      if (clip.contact ? clip.contact[s][f]! < 0.5 || clip.contact[s][f1]! < 0.5 : wr[s][f]!.y - low > tol || wr[s][f1]!.y - low > tol) continue;
+      const dz = wr[s][f1]!.z - wr[s][f]!.z;
+      const dr = (f1 === 0 ? strideSrc : rootSrc[f1]!) - rootSrc[f]!;
+      num += -dz * dr; den += dr * dr;
+    }
+  }
+  for (const n of NAMES) J[n].quaternion.set(0, 0, 0, 1);
+  g.position.copy(keepPos); g.rotation.y = keepRot; g.scale.setScalar(keepScale);
+  g.updateMatrixWorld(true);
+  return den > 1e-9 ? num / den : 0;
 }

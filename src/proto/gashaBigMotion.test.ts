@@ -1,13 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { Quaternion } from 'three';
+import { Quaternion, Vector3 } from 'three';
 import climbL from './gashaBigClips/climbL.json';
 import climbR from './gashaBigClips/climbR.json';
+import climbUp from './gashaBigClips/climbUp.json';
+import climbDown from './gashaBigClips/climbDown.json';
 import { buildBig } from './gashaBig';
-import { skeletonOf, retargetOpts } from './gashaBigActor';
-import { bakeClip, MotionPlayer, qpow, sampleClip, type BakedClip, type RetargetOpts } from './gashaBigMotion';
+import { aimOpts, skeletonOf, retargetOpts } from './gashaBigActor';
+import { aimClip, bakeClip, clipProgress, MotionPlayer, qpow, sampleClip, type BakedClip, type RetargetOpts } from './gashaBigMotion';
 import { TUNE as T } from './gashaBigTuning';
 
-const sk = skeletonOf(buildBig());
+const model = buildBig();
+const sk = skeletonOf(model);
 const N = sk.names.length;
 const ALL1 = Object.fromEntries(sk.names.map((n) => [n, 1]));
 const opts = (o: Partial<RetargetOpts> = {}): RetargetOpts => ({ pitchDeg: 90, ref: 'first', mirror: false, strength: ALL1, ...o });
@@ -117,10 +120,87 @@ describe('gashaBigMotion（Meshy の モーション → 箱の 関節）', () =
   });
 
   it('調整表の 既定で はぎれる（強さは ぜんぶ 0〜1.5、はんいの 外の 関節名が ない）', () => {
-    for (const c of [T.clips.climb, T.clips.lookBack]) {
+    for (const c of [T.clips.lookBack]) {
       for (const [n, s] of Object.entries(c.strength)) { expect(sk.names).toContain(n); expect(s).toBeGreaterThanOrEqual(0); expect(s).toBeLessThanOrEqual(1.5); }
       const o = retargetOpts(c);
       expect(bakeClip(climbL, o, sk).frames).toBe(37);
+    }
+  });
+
+  // ------------------------------------------------ 骨の 向きを そのまま 向ける（はう 作りなおし）
+  /** 箱の 関節の 世界の 回転（local を 親から かける） */
+  const worldOf = (b: BakedClip, f: number): Map<string, Quaternion> => {
+    const W = new Map<string, Quaternion>();
+    for (const n of sk.names) {
+      const p = sk.parent[n];
+      const w = q(b, f, n);
+      W.set(n, p ? W.get(p)!.clone().multiply(w) : w);
+    }
+    return W;
+  };
+  const deg = (a: Vector3, b: Vector3): number => (Math.acos(Math.max(-1, Math.min(1, a.clone().normalize().dot(b.clone().normalize())))) * 180) / Math.PI;
+
+  it('aimClip: follow 1 なら 箱の 骨の 軸は どの コマでも 素材の（倒した）骨の 向きを 向く（差では なく 向きそのもの）', () => {
+    const o = aimOpts(model, { ...T.clips.crawl, follow: Object.fromEntries(sk.names.map((n) => [n, n === 'Hips' ? 0 : 1])) });
+    const b = aimClip(climbUp, o, sk);
+    expect(b.frames).toBe(climbUp.frames - 1); // ループ: 最後の コマ = 最初の コマ なので 1 つ へらす
+    let worst = 0;
+    for (let f = 0; f < b.frames; f += 5) {
+      const W = worldOf(b, f);
+      for (const n of ['Spine01', 'Spine02', 'Head', 'LeftArm', 'LeftForeArm', 'LeftHand', 'RightArm', 'RightForeArm', 'RightHand', 'LeftShoulder']) {
+        const j = sk.names.indexOf(n);
+        const want = new Vector3(b.dirs[(f * N + j) * 3], b.dirs[(f * N + j) * 3 + 1], b.dirs[(f * N + j) * 3 + 2]);
+        const got = o.axis[n]!.clone().applyQuaternion(W.get(n)!);
+        worst = Math.max(worst, deg(got, want));
+      }
+    }
+    expect(worst).toBeLessThan(0.5);
+  });
+
+  it('aimClip: 倒す 角 90 度で、かべを 上へ のばした 腕が 地面の 前へ のびる（上わん・前わんの 向きが 大きく 動く）', () => {
+    const o = aimOpts(model, T.clips.crawl);
+    const b = aimClip(climbUp, o, sk);
+    let maxFwd = -1, minFwd = 1, maxSwing = 0;
+    for (const side of ['Left', 'Right']) {
+      const j = sk.names.indexOf(`${side}ForeArm`);
+      const z = Array.from({ length: b.frames }, (_, f) => b.dirs[(f * N + j) * 3 + 2]!);
+      maxFwd = Math.max(maxFwd, ...z); minFwd = Math.min(minFwd, ...z);
+      for (let f = 0; f < b.frames; f++) {
+        const W = worldOf(b, f);
+        maxSwing = Math.max(maxSwing, angle(W.get(`${side}Arm`)!));
+      }
+    }
+    expect(maxFwd).toBeGreaterThan(0.7); // 前わんが 前へ（+z）大きく のびる コマが ある
+    expect(minFwd).toBeLessThan(0); // 体の 方へ 引きよせる コマも ある
+    expect(maxSwing).toBeGreaterThan(0.8); // 上わんが 休みから 45 度 いじょう 動く（前の しくみは ゆれる だけだった）
+  });
+
+  it('aimClip: follow 0 なら 動かない。ループの つなぎ目で 姿勢が とばない', () => {
+    const o0 = aimOpts(model, { ...T.clips.crawl, follow: {} });
+    const b0 = aimClip(climbUp, o0, sk);
+    for (let f = 0; f < b0.frames; f += 7) for (const n of sk.names) expect(angle(q(b0, f, n))).toBeLessThan(1e-6);
+    const b = aimClip(climbUp, aimOpts(model, T.clips.crawl), sk);
+    // 最後の コマ → 最初の コマ の 動きは ふつうの 1 コマ の 動きと おなじ くらい
+    const step = (f0: number, f1: number): number => Math.max(...sk.names.map((n) => angle(q(b, f0, n).clone().invert().multiply(q(b, f1, n)))));
+    let typical = 0;
+    for (let f = 0; f + 1 < b.frames; f++) typical = Math.max(typical, step(f, f + 1));
+    expect(step(b.frames - 1, 0)).toBeLessThanOrEqual(typical * 1.05 + 1e-6);
+  });
+
+  it('aimClip: 体の 前進は 登る クリップで 前（+）、下りる クリップで 後ろ（−）。clipProgress は ループ ごとに stride ずつ ふえる', () => {
+    const o = aimOpts(model, T.clips.crawl);
+    const up = aimClip(climbUp, o, sk), down = aimClip(climbDown, o, sk);
+    expect(up.strideSrc).toBeGreaterThan(50);
+    expect(down.strideSrc).toBeLessThan(-50);
+    up.root = up.rootSrc; up.stride = up.strideSrc;
+    expect(clipProgress(up, 0)).toBe(0);
+    expect(clipProgress(up, up.duration)).toBeCloseTo(up.stride, 4);
+    expect(clipProgress(up, up.duration * 2.5)).toBeCloseTo(2 * up.stride + clipProgress(up, up.duration * 0.5), 3);
+    // つかんで いる コマ（素材の 手首が かべで 止まって いる）が 左右とも ある
+    for (const s of ['Left', 'Right'] as const) {
+      const n = Array.from(up.contact![s]).filter((w) => w >= 0.5).length;
+      expect(n).toBeGreaterThan(10);
+      expect(n).toBeLessThan(up.frames);
     }
   });
 });

@@ -42,9 +42,11 @@ const result = await page.evaluate(async ([side, START]) => {
   add('手', [hand.center[0], 0, hand.center[2]]);
   const fp = lowFirst(fore, 2);
   add('前わんの 下はし（手首）', fp[0]);
-  add('前わんの 上はし（ひじ）', fp[1]);
+  // うでは はばが せまい ので、中心の 線に そって 3 ブロックごとに 道しるべを おく（まっすぐ ねらうと はしから 落ちる）
+  const along = (name, a, b) => { const n = Math.max(1, Math.round(Math.hypot(b[0] - a[0], b[2] - a[2]) / 3)); for (let i = 1; i <= n; i++) add(`${name} ${i}/${n}`, [0, 1, 2].map((d) => a[d] + ((b[d] - a[d]) * i) / n)); };
+  along('前わん', fp[0], fp[1]);
   const up = lowFirst(upper, 2);
-  add('上わんの 下はし（ひじ）', up[0]);
+  along('上わん', up[0], up[1]);
   ramp.forEach((c, i) => add(`リボンへ ${i}`, c.center));
   head.forEach((c, i) => add(`頭の 横 ${i}`, c.center));
   add('頭の 上', [sk.center[0], sk.center[1] + sk.half[1], sk.center[2]]);
@@ -95,6 +97,18 @@ const result = await page.evaluate(async ([side, START]) => {
       }
       log.push('当たりの 名前\n' + nrows.join('\n'));
       log.push(`とまった まわり（足の マスからの 高さ。x ${px - 4}〜${px + 4}）\n` + rows.join('\n'));
+      if (false) { const q = [];
+        for (let y = py + 3; y >= py - 3; y--) { let r = `y${y}: `; for (const [x, z] of [[px, pz], [px + 1, pz], [px, pz + 1], [px + 1, pz + 1], [px, pz - 1], [px + 1, pz - 1]]) r += `(${x},${z})=${h.world.isSolidForPlayer(x, y, z) ? '#' : '.'} `; q.push(r); }
+        log.push('固い マス\n' + q.join('\n')); }
+      // 1 つ 前の 道しるべの まわり（そこから 先へ すすめなかった 場所）
+      const pv = W[wi - 1], qx = Math.floor(pv.x), qz = Math.floor(pv.z), qy = Math.floor(pv.y < 10 ? h.world.groundHeight(qx, qz) + 1 : pv.y);
+      const rows2 = [];
+      for (let z = qz - 6; z <= qz + 6; z++) {
+        let r = `z${z}: `;
+        for (let x = qx - 5; x <= qx + 5; x++) { let top = '.'; for (let y = qy + 8; y >= qy - 8; y--) if (g.solidAt(x, y, z)) { top = String(y - qy); break; } r += top.padStart(3); }
+        rows2.push(r);
+      }
+      log.push(`1 つ 前（${pv.name}）の まわり（足の マスからの 高さ。x ${qx - 5}〜${qx + 5}、足は ${qy}）\n` + rows2.join('\n'));
       break;
     }
   }
