@@ -1009,7 +1009,10 @@ export class DigSystemImpl implements DigSystem {
     const d = lookDirection(p.yawDeg, 0, this.pvDir);
     const o = this.origin(p, this.pvOrigin);
     const t = this.tgt;
-    return { place: t ? { x: t.place.x, y: t.place.y, z: t.place.z } : null, eye: { x: o.x, y: o.y, z: o.z }, dirX: d.x, dirZ: d.z };
+    const dirX = d.x;
+    const dirZ = d.z;
+    const d3 = lookDirection(p.yawDeg, p.pitchDeg, this.pvDir); // pvDir は 同じ 入れもの なので d は ここ で こわれる
+    return { place: t ? { x: t.place.x, y: t.place.y, z: t.place.z } : null, eye: { x: o.x, y: o.y, z: o.z }, dirX, dirZ, dir3: { x: d3.x, y: d3.y, z: d3.z }, hitId: t?.id };
   }
 
   /** LIVE-2.1 §3.2: いま ねらって いる こたつ の 本体 の マス（こたつ で なければ null）と、たまご を 持って いる か（天板 の 3 わく を 出す わけ） */

@@ -18,6 +18,8 @@ export const RING_DIAMETER = 0.8;
 /** 地面 から うかせる 高さ（重なり の ちらつき よけ） */
 export const RING_LIFT = 0.03;
 export const RING_TEX = 32;
+/** 輪 の ふち の はじまり（半径 の 割合。これ より 外 が 明るい 輪） */
+export const RING_EDGE = 0.66;
 
 export interface RingState {
   x: number;
@@ -43,12 +45,18 @@ export function rasterRing(home: boolean): Uint8Array {
       const r = Math.hypot(x + 0.5 - N / 2, y + 0.5 - N / 2) / (N / 2);
       if (r > 1) continue;
       const i = (y * N + x) * 4;
-      // 中 = 48、ふち（0.82〜1）= 120 の 暗い 色 の かげ
-      const a = r > 0.82 ? 120 : 48;
-      px[i] = 20;
-      px[i + 1] = 24;
-      px[i + 2] = 30;
-      px[i + 3] = a;
+      // 中 = 48 の 暗い かげ、ふち（0.66〜1）= 明るい 白 の 太い 輪（家 の しるし と 同じ くらい 目立つ。光らない・点滅 しない）
+      if (r > RING_EDGE) {
+        px[i] = 255;
+        px[i + 1] = 250;
+        px[i + 2] = 235;
+        px[i + 3] = 235;
+      } else {
+        px[i] = 20;
+        px[i + 1] = 24;
+        px[i + 2] = 30;
+        px[i + 3] = 48;
+      }
     }
   }
   if (home) {
@@ -58,7 +66,7 @@ export function rasterRing(home: boolean): Uint8Array {
       px[i] = 255;
       px[i + 1] = 250;
       px[i + 2] = 235;
-      px[i + 3] = 128;
+      px[i + 3] = 235;
     };
     const cx = N / 2;
     for (let row = 0; row < 5; row++) for (let x = cx - row - 1; x <= cx + row; x++) put(x, 9 + row); // やね

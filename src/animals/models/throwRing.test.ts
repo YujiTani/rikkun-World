@@ -37,9 +37,11 @@ describe('LIVE-2.1 着地点 の 丸（§2.2・§3.2）', () => {
     expect(Array.from(plain).join() === Array.from(home).join()).toBe(false);
     // 四すみ は すきとおる（丸）
     expect(plain[3]).toBe(0);
-    // 最大の 濃さ は 控えめ（0.5 以下）
-    let amax = 0;
-    for (let i = 3; i < plain.length; i += 4) amax = Math.max(amax, plain[i]!);
-    expect(amax).toBeLessThanOrEqual(128);
+    // 輪 は 太く 明るい（家 の しるし と 同じ 濃さ・白）。光らない・点滅 しない（絵 は 1 枚 だけ）
+    const N = RING_TEX;
+    const edge = (x: number) => ((x * N + N / 2) * 4);
+    let wide = 0;
+    for (let x = 0; x < N / 2; x++) if (plain[edge(x) + 3]! >= 200 && plain[edge(x)]! >= 240) wide++;
+    expect(wide).toBeGreaterThanOrEqual(4);
   });
 });

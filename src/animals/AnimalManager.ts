@@ -71,6 +71,8 @@ const THROW_LAND_Y = 2.0;
 const THROW_APEX_UP = 0.5;
 const THROW_BASE_TICKS = 20;
 const THROW_TICKS_PER_M = 5;
+/** さく ごし の ねらい: さく に 入って から この きょり 以内 の 床 */
+const THROW_THROUGH = 4;
 /** 何も ねらわない とき の 前 の きょり・下 へ 見る 高さ */
 const THROW_FRONT = 3;
 const THROW_SCAN_DOWN = 8;
@@ -581,6 +583,35 @@ export class AnimalManager implements AnimalApi {
     return !w.isSolid(ix, y, iz) && !w.isSolid(ix, y + 1, iz) && w.isSolid(ix, y - 1, iz) && bodyFree(w, ix + 0.5, iz + 0.5, y);
   }
 
+  /**
+   * ねらった の が とりごや の さく・もん なら、線 を 通して その 先 の 床（さく に 入って から 4 マス 以内）の 上 の 空き マス を 返す。
+   * 無ければ null（今まで どおり さく の 上 へ よせる）。左クリック の 照準 は かわらない（さく に 当たる）
+   */
+  private throughFence(aim: ThrowAim): Vec3 | null {
+    const d = aim.dir3;
+    if (!d || (aim.hitId !== 'toriya_fence' && aim.hitId !== 'toriya_gate')) return null;
+    const w = this.world;
+    const isFence = (id: string) => id === 'toriya_fence' || id === 'toriya_gate';
+    let enter = -1;
+    let prev: Vec3 | null = null;
+    for (let t = 0; t <= 16; t += 0.05) {
+      const ix = Math.floor(aim.eye.x + d.x * t);
+      const iy = Math.floor(aim.eye.y + d.y * t);
+      const iz = Math.floor(aim.eye.z + d.z * t);
+      if (!w.isLoaded(ix, iz) || iy < 0 || iy >= w.size.y) return null;
+      const id = String(w.getBlock(ix, iy, iz));
+      if (isFence(id)) {
+        if (enter < 0) enter = t;
+        continue;
+      }
+      if (enter < 0) continue;
+      if (t - enter > THROW_THROUGH) return null;
+      if (w.isSolid(ix, iy, iz)) return prev && !(prev.x === ix && prev.y === iy && prev.z === iz) ? prev : null;
+      prev = { x: ix, y: iy, z: iz };
+    }
+    return null;
+  }
+
   /** 着地点 の 答え。`pt` = テスト 用（足もと の 点 を そのまま 使う） */
   private planThrow(e: Ent, aim: ThrowAim | null, pt?: Vec3): ThrowSpot {
     const w = this.world;
@@ -596,12 +627,14 @@ export class AnimalManager implements AnimalApi {
       z = pt.z;
       if (!w.isLoaded(Math.floor(x), Math.floor(z)) || w.isSolid(Math.floor(x), Math.floor(y + 1e-6), Math.floor(z))) return bad(x, y, z);
     } else if (aim && aim.place) {
-      const cx = aim.place.x + 0.5;
-      const cz = aim.place.z + 0.5;
+      const through = this.throughFence(aim);
+      const pl = through ?? aim.place;
+      const cx = pl.x + 0.5;
+      const cz = pl.z + 0.5;
       const dd = dist2d(p.x, p.z, cx, cz);
       if (dd <= range) {
         x = cx;
-        y = aim.place.y;
+        y = pl.y;
         z = cz;
       } else {
         // とおい: プレイヤー → その マス の 向き で range の 所 の 列。同じ 高さ ±1 で 立てる マス
@@ -609,12 +642,12 @@ export class AnimalManager implements AnimalApi {
         const iz = Math.floor(p.z + ((cz - p.z) / dd) * range);
         let found: number | null = null;
         for (const dy of [0, 1, -1]) {
-          if (this.standable(ix, aim.place.y + dy, iz)) {
-            found = aim.place.y + dy;
+          if (this.standable(ix, pl.y + dy, iz)) {
+            found = pl.y + dy;
             break;
           }
         }
-        if (found === null) return bad(ix + 0.5, aim.place.y, iz + 0.5);
+        if (found === null) return bad(ix + 0.5, pl.y, iz + 0.5);
         x = ix + 0.5;
         y = found;
         z = iz + 0.5;

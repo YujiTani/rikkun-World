@@ -2715,6 +2715,9 @@ export interface ThrowAim {
   eye: Vec3;
   dirX: number;
   dirZ: number;
+  /** ねらいの 線 の 向き（上下 も ふくむ）と、ねらった ブロック の 名前。とりごや の さく・もん なら 線 を 通して その 先 の 床 を ねらう（なくても よい） */
+  dir3?: Vec3;
+  hitId?: string;
 }
 /** 着地点 の 答え（窓口 `animals.throwSpot()`・丸 の 場所）。`toss` false = d＜1 で そっと おろす。`why` = なげられない わけ の 合図 */
 export interface ThrowSpot {

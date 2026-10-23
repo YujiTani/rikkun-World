@@ -303,6 +303,24 @@ describe('さく の 上 に 着く', () => {
     expect(inInterior(c, r.x, r.z, 0)).toBe(true);
     expect(Math.hypot(r.x - 49.5, r.z - 50.5)).toBeLessThanOrEqual(1.2);
   });
+  it('さく ごし: さく に 当たった ねらい でも 線 が さく を 通りぬけ、その 先 の 床（4 マス 以内）が 着地点（中 3×3）', () => {
+    const s = setup({ px: 46.5, pz: 50.5 });
+    const c = place(s, 50, 50, 0);
+    carry(s, 46.5, 50.5);
+    const n = Math.hypot(1, 0.3);
+    const aim: ThrowAim = { place: { x: 48, y: 11, z: 50 }, eye: { x: 46.5, y: 10.6, z: 50.5 }, dirX: 1, dirZ: 0, dir3: { x: 1 / n, y: -0.3 / n, z: 0 }, hitId: 'toriya_fence' };
+    const sp = s.m.throwSpot(aim)!;
+    expect(sp.ok).toBe(true);
+    expect(sp.y).toBe(9);
+    expect(sp.x).toBeGreaterThan(48.9);
+    expect(sp.home).toBe(c.id);
+    // dir3 / hitId が なければ（さく 以外 を ねらった とき）今 まで どおり さく の 上
+    const old = s.m.throwSpot({ ...aim, hitId: 'dirt' })!;
+    expect(old.y).toBe(11);
+    // 4 マス を こえて 先 に 床 が 無い（ずっと 下 を 見ない 空）→ 今 まで どおり
+    const sky = s.m.throwSpot({ ...aim, dir3: { x: 1, y: 0.5, z: 0 } })!;
+    expect(sky.y).toBe(11);
+  });
   it('6 わ の 小屋 → よせる 先 は 外（プレイヤー がわ）・なかま', () => {
     const s = setup({ px: 46.5, pz: 50.5 });
     const c = place(s, 50, 50, 0);
