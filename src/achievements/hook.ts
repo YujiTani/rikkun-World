@@ -20,6 +20,7 @@ export function createAchievementsHook(
       sys.flush();
     },
     reset: () => sys.reset(),
+    markViewed: (ids: string[]) => sys.markViewed(ids as never),
     ui: () => page.ui(host.inventoryOpen()),
     tab: (name: 'items' | 'achievements' | 'log') => {
       page.setTab(name);

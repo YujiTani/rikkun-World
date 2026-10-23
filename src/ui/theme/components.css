@@ -360,6 +360,12 @@
 .rk-chip--info {
   border-left: var(--rk-bw-sel) solid var(--rk-info);
 }
+.rk-chip--ok {
+  border-left: var(--rk-bw-sel) solid var(--rk-ok);
+}
+.rk-chip--mute {
+  border-left: var(--rk-bw-sel) solid var(--rk-text-sub);
+}
 /* 「もちもの が いっぱい！」など 見出しの大きさの合図 */
 .rk-chip--head {
   font-size: var(--rk-fs-head);

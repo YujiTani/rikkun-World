@@ -192,7 +192,7 @@ export class AchievementsPage {
       text.className = 'ach-row__text';
       const name = document.createElement('div');
       name.className = 'ach-row__name';
-      name.innerHTML = r.unlocked ? withRuby(def.name) : '？？？'; // 名前は ［漢字｜よみ］ → ふりがなつき（WEAPON-7 §2.7）
+      name.innerHTML = r.shown ? withRuby(def.name) : '？？？'; // 名前は ［漢字｜よみ］ → ふりがなつき（WEAPON-7 §2.7）
       text.append(name);
       if (r.unlocked) {
         const day = document.createElement('div');
@@ -201,12 +201,28 @@ export class AchievementsPage {
         text.append(day);
       }
       row.append(medal, text);
-      if (r.isNew) {
-        const chip = createChip({ text: 'あたらしい', tone: 'info' });
-        chip.classList.add('ach-new');
-        row.append(chip);
+      if (r.shown) {
+        const tag = r.isNew
+          ? createChip({ text: 'NEW', tone: 'info' })
+          : r.unlocked
+            ? createChip({ html: withRuby('［達成｜たっせい］'), tone: 'ok' })
+            : createChip({ html: withRuby('［未達成｜みたっせい］'), tone: 'mute' });
+        tag.classList.add('ach-tag', r.isNew ? 'ach-new' : r.unlocked ? 'ach-tag--ok' : 'ach-tag--mute');
+        row.append(tag);
       }
-      row.addEventListener('mouseenter', () => this.showTip(row, def, r.unlocked));
+      if (r.next) {
+        row.classList.add('ach-row--next');
+        if (r.progress) {
+          const { now, goal } = r.progress;
+          const bar = createBar('xp', now / goal);
+          bar.root.classList.add('ach-row__bar');
+          const cap = document.createElement('div');
+          cap.className = 'ach-row__cap';
+          cap.textContent = `いま ${now} / ${goal}`;
+          text.append(bar.root, cap);
+        }
+      }
+      row.addEventListener('mouseenter', () => this.showTip(row, def, r.unlocked, r.shown));
       row.addEventListener('mouseleave', () => {
         this.tip.root.hidden = true;
       });
@@ -215,10 +231,10 @@ export class AchievementsPage {
     this.list.scrollTop = keep;
   }
 
-  private showTip(row: HTMLElement, def: AchievementDef, unlocked: boolean): void {
+  private showTip(row: HTMLElement, def: AchievementDef, unlocked: boolean, shown = unlocked): void {
     const t = this.tip;
     const nameSpan = document.createElement('span');
-    nameSpan.innerHTML = unlocked ? withRuby(def.name) : '？？？';
+    nameSpan.innerHTML = shown ? withRuby(def.name) : '？？？';
     t.name.replaceChildren(unlocked ? createMedal(def.medal, 96, mark(def)) : createMedal('locked', 96), nameSpan);
     t.desc.textContent = '';
     t.root.hidden = false;
