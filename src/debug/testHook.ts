@@ -138,6 +138,8 @@ export interface TestHook {
     kits(): KitInfo[];
     /** かえす くじ の はずれ 数（`n` を 渡す と 設定） */
     machoMiss(n?: number): number;
+    /** LIVE-3 仮（見た目 の 確かめ だけ）: ねぐら の とびら を しめて 見せる・いただきます の 画面 を 出す。いまの 状態 を 返す */
+    live3Proto(o: { door?: boolean; overlay?: boolean }): { door: boolean; overlay: boolean };
     /** 保存 v 3 の 形 を 取り出す・流しこむ */
     serialize(): AnimalSaveV4 | AnimalSaveV3 | AnimalSaveV2;
     deserialize(data: unknown): void;

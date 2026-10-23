@@ -94,6 +94,7 @@ import { kitIconsFor, type KitIconRow } from './animals/models/kitIcons';
 import { AnimalFx } from './fx/animalFx';
 import { AnimalRenderer, ViewBuffer } from './animals/models/AnimalRenderer';
 import { AnimalHint } from './ui/animalHint';
+import { Itadakimasu } from './ui/itadakimasu';
 import { countryAt } from './world/gen/biome';
 import { Lighting, Sky } from './sky';
 import { TimeOfDayImpl, createTimeHook } from './time';
@@ -1189,6 +1190,7 @@ const fx = new DigFx({
 });
 const farmHint = new FarmHint(hud);
 const animalHint = new AnimalHint(hud);
+const itadakimasu = new Itadakimasu(hud); // LIVE-3 仮（見た目 の 確かめ）
 const farmAimHud = new FarmAimHud(hud);
 const combatFx = new CombatFx({
   scene: game.scene,
@@ -2367,6 +2369,12 @@ installTestHook(game, overlay, () => host.everReady, {
     coops: () => animals.coops(),
     kits: () => animals.kits(),
     machoMiss: (n) => animals.machoMiss(n),
+    // LIVE-3 仮: 見た目 の 確かめ だけ（とびら を しめて 見せる・いただきます の 画面 を 出す）
+    live3Proto: (o) => {
+      if (o.door !== undefined) animalRenderer.doorClosed = o.door;
+      if (o.overlay !== undefined) itadakimasu.setVisible(o.overlay);
+      return { door: animalRenderer.doorClosed, overlay: itadakimasu.visible };
+    },
     serialize: () => animals.serialize(),
     deserialize: (d) => animals.deserialize(d),
   },

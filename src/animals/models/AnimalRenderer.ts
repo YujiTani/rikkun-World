@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import type { AnimalView, CoopInfo, CoopPlacePreview, KitInfo } from '../../contracts';
 import { TILE, TILE_COUNT, type AnimalFx, type ParticleOut } from '../../fx/animalFx';
 import { MODEL_SCALE, getAnimalModel, modelKindOf, type AnimalModelKind } from './chickenModel';
-import { NEST_EGG_SCALE, getCoopModel, getNestEggsModel } from './coopSpec';
+import { NEST_EGG_SCALE, getCoopDoorModel, getCoopModel, getNestEggsModel } from './coopSpec';
 import { ICON_H, ICON_PER_BLOCK, ICON_W, kitIconKey, rasterKitIcon, type KitIconRow } from './kitIcons';
 import { RING_TEX, rasterRing, ringState, type RingState, type ThrowSpotLike } from './throwRing';
 import { getBugModel } from './bugNetModel';
@@ -296,6 +296,7 @@ interface CoopProp {
   root: THREE.Group;
   coop: THREE.Group;
   nest: THREE.Group;
+  door: THREE.Group;
   nestMesh: THREE.SkinnedMesh;
   nestKey: string;
 }
@@ -366,6 +367,8 @@ export class AnimalRenderer {
   private readonly v3 = new THREE.Vector3();
   private readonly flipY = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
   // ---- LIVE-2
+  /** LIVE-3 仮: ねぐら の とびら を しめて 見せる（テストの 窓口 から。ほんもの の 開け閉め は これから） */
+  doorClosed = false;
   private readonly coopProps: CoopProp[] = [];
   private coopUsed = 0;
   private extraDraws = 0;
@@ -617,7 +620,8 @@ export class AnimalRenderer {
   private drawCoop(c: CoopInfo): void {
     const total = c.nest.egg + c.nest.gold;
     const drawBody = this.o.drawCoops === true;
-    if (!drawBody && total <= 0) return;
+    const door = this.doorClosed;
+    if (!drawBody && total <= 0 && !door) return;
     let prop = this.coopProps[this.coopUsed];
     if (!prop) {
       const root = new THREE.Group();
@@ -625,9 +629,11 @@ export class AnimalRenderer {
       coop.root.scale.setScalar(COOP_SCALE);
       const nest = this.staticMesh(getNestEggsModel(1, 0), this.bodyMaterial);
       nest.root.scale.setScalar(NEST_EGG_SCALE);
-      root.add(coop.root, nest.root);
+      const doorM = this.staticMesh(getCoopDoorModel(), this.bodyMaterial);
+      doorM.root.scale.setScalar(COOP_SCALE);
+      root.add(coop.root, nest.root, doorM.root);
       this.group.add(root);
-      prop = { root, coop: coop.root, nest: nest.root, nestMesh: nest.mesh, nestKey: '' };
+      prop = { root, coop: coop.root, nest: nest.root, door: doorM.root, nestMesh: nest.mesh, nestKey: '' };
       this.coopProps.push(prop);
     }
     this.coopUsed++;
@@ -635,6 +641,7 @@ export class AnimalRenderer {
     prop.root.position.set(c.x + 0.5, c.y, c.z + 0.5);
     prop.root.rotation.set(0, COOP_YAW[c.dir], 0);
     prop.coop.visible = drawBody;
+    prop.door.visible = door;
     if (drawBody) {
       this.extraDraws++;
       this.extraTris += getCoopModel().tris;

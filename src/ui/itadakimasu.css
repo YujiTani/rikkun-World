@@ -1,0 +1,29 @@
+/* いのち を いただきます（LIVE-3 仮）: 世界 の 上 に しずか に ならべる。点滅 なし */
+#itadakimasu {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--rk-sp-4, 24px);
+  background: rgb(20 14 8 / 45%);
+  pointer-events: none;
+  z-index: 8;
+}
+#itadakimasu[hidden] {
+  display: none;
+}
+#itadakimasu .itadakimasu-hands {
+  width: 264px;
+  height: 276px;
+  image-rendering: pixelated;
+}
+#itadakimasu .itadakimasu-text {
+  font-size: 56px;
+  font-weight: 800;
+  line-height: 1.3;
+  color: var(--rk-text);
+  text-shadow: var(--rk-text-outline);
+  white-space: nowrap;
+}

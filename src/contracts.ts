@@ -246,6 +246,9 @@ export type ItemOnlyId =
   // LIVE-2（§4.2。mushi_ami の うしろ。こたつ は ブロック `nukunuku`）
   | 'toriya' // とりごや（持って 右クリック で 5×5 の 小屋 を 置く。ブロック では ない）
   | 'kin_tamago' // きん の たまご（epic。たべられない）
+  // LIVE-3（仮。もも にく）
+  | 'momo_nama' // なま の もも にく
+  | 'momo_yaki' // やいた もも にく
   // WEAPON-7（うしろに足す。レジェンダリー）
   | 'raijin_ken' // 雷神剣（ヌシが おとす）
   | 'fujin_ken' // 風神剣（ヌシが おとす。WEAPON-7 PR2）
