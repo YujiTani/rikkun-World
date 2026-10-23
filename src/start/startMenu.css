@@ -1,0 +1,56 @@
+/* START-1: スタートメニュー（仕様 docs/design/START-1.md §3。試作 OK の 見た目） */
+.sm-root{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(ellipse at 50% 30%,#1c2744 0%,#0b0f1a 75%);color:var(--rk-text,#fff);
+  font-family:inherit;font-size:24px;font-weight:800;word-break:keep-all;}
+.sm-panel{box-sizing:border-box;width:648px;padding:24px;background:var(--rk-panel-bg,rgb(16 20 31/.8));
+  border-radius:var(--rk-r-l,24px);box-shadow:var(--rk-shadow-2,0 8px 32px #0008);text-shadow:var(--rk-text-outline,0 0 3px #000);
+  display:flex;flex-direction:column;}
+.sm-panel[hidden]{display:none}
+.sm-title{height:64px;line-height:64px;font-size:48px;text-align:center;margin:0;white-space:nowrap}
+.sm-head{height:48px;line-height:48px;font-size:32px;text-align:center;margin:0;white-space:nowrap}
+.sm-btn{box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  min-height:72px;padding:0 16px;border:2px solid var(--rk-accent,#ffc83d);border-radius:999px;
+  background:var(--rk-bg-900,#10141f);color:var(--rk-text,#fff);text-shadow:var(--rk-text-outline,0 0 3px #000);
+  font:inherit;font-variant-numeric:tabular-nums;cursor:pointer;white-space:nowrap}
+.sm-btn[aria-pressed='true']{background-color:#ffc83d;background-image:var(--rk-accent-grad,linear-gradient(180deg,#ffc83d,#ff8a1f));
+  color:var(--rk-ink,#141414);text-shadow:none}
+.sm-btn:focus-visible{outline:4px solid var(--rk-info,#4fc3f7);outline-offset:2px}
+.sm-btn:hover:not(:disabled){filter:brightness(1.12)}
+.sm-btn:disabled,.sm-dim{opacity:.5;cursor:default}
+.sm-main{width:100%;border-radius:var(--rk-r-m,16px);background-color:#ffc83d;background-image:var(--rk-accent-grad,linear-gradient(180deg,#ffc83d,#ff8a1f));
+  color:var(--rk-ink,#141414);text-shadow:none;box-shadow:var(--rk-shadow-1,0 2px 8px #0006)}
+.sm-sub{width:100%;border-radius:var(--rk-r-m,16px);background:var(--rk-bg-800,#1a2132);justify-content:flex-start;padding:0 24px}
+.sm-sub[aria-pressed='true']{}
+.sm-card{height:112px;font-size:32px;justify-content:space-between;padding:0 24px}
+.sm-card .l,.sm-card .r{display:flex;align-items:center;gap:8px}
+.sm-card .r{font-size:24px}
+.sm-card .sm-mk{width:28px;height:28px}
+.sm-begin{height:96px;font-size:32px}
+.sm-ico{font-size:32px;line-height:1;min-width:32px;text-align:center}
+.sm-row{display:flex;align-items:center;gap:12px;height:72px}
+.sm-lab{min-width:72px;flex:none;white-space:nowrap;letter-spacing:-1px}
+.sm-face{width:40px;height:40px;object-fit:contain;image-rendering:auto}
+.sm-mk{width:20px;height:20px;image-rendering:pixelated;margin-right:-2px}
+.sm-btn[data-g="w"],.sm-btn[data-g="s"]{padding:0 12px;gap:8px}
+.sm-w{font-size:20px;letter-spacing:0}
+.sm-seed{box-sizing:border-box;width:240px;height:72px;line-height:68px;border:2px solid var(--rk-accent,#ffc83d);border-radius:var(--rk-r-m,16px);
+  background:var(--rk-bg-800,#1a2132);text-align:center;font-size:32px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.sm-seed.ph{color:#ffffff66}
+.sm-pad{margin-left:84px;display:grid;grid-template-columns:repeat(6,64px);gap:8px}
+.sm-key{width:64px;min-height:64px;padding:0;border-radius:var(--rk-r-m,16px)}
+.sm-notice{height:40px;display:flex;align-items:center;gap:8px;font-size:20px;white-space:nowrap}
+.sm-notice[hidden]{display:flex;visibility:hidden}
+.sm-actions{display:flex;gap:24px;height:96px;align-items:stretch}
+.sm-actions .sm-main{flex:1;height:96px;font-size:32px}
+.sm-actions .back{width:148px;flex:none;height:96px;border-radius:var(--rk-r-m,16px)}
+@keyframes sm-shake{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.sm-shake{animation:sm-shake .25s}
+.sm-main:disabled{background:var(--rk-bg-800,#1a2132);color:var(--rk-text,#fff);border-color:var(--rk-line,#3a4766);opacity:.5;box-shadow:none}
+
+/* 押せない 物（disabled）は クリックを 下の 行で 受けて「ぽよん」（dry）を 鳴らす */
+.sm-btn:disabled{pointer-events:none}
+.sm-btn[aria-disabled='true']{opacity:.5;cursor:default}
+.sm-btn.sm-main[aria-disabled='true']{background-color:var(--rk-bg-800,#1a2132);background-image:none;color:var(--rk-text,#fff);border-color:var(--rk-line,#3a4766);box-shadow:none}
+.sm-btn.sm-sub[aria-pressed='true']{}
+.sm-card .r[hidden]{display:flex;visibility:hidden}
+@media (prefers-reduced-motion:reduce){.sm-shake{animation:none}}

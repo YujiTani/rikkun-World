@@ -90,13 +90,22 @@ export interface StrengthResult {
   dropRolls: number;
 }
 
+/** START-1: つよさ（妖怪の 体力・攻撃力に かけ算。その 世界では 変えない。仕様 §4.3） */
+export type StrengthLevel = 'easy' | 'normal' | 'hard';
+export const STRENGTH_LEVELS: readonly StrengthLevel[] = ['easy', 'normal', 'hard'];
+export const STRENGTH_MUL: Record<StrengthLevel, { hp: number; attack: number }> = {
+  easy: { hp: 0.5, attack: 0.5 },
+  normal: { hp: 1, attack: 1 },
+  hard: { hp: 1.5, attack: 1.25 },
+};
+
 /**
- * (種類, 場所の倍率 M, 二つ名) → 体力・攻撃力・経験値（BALANCE §2.2・§2.3・§2.5・§4.5）。
+ * (種類, 場所の倍率 M, 二つ名, つよさ) → 体力・攻撃力・経験値（BALANCE §2.2・§2.3・§2.5・§4.5）。
  * - 体力 = 切り上げ（元の体力 × M × 二つ名の倍率）
  * - 攻撃力 = 小さい方（16、切り上げ（元 × （1 ＋ （M − 1）÷ 2）） ＋ 二つ名の足し）。攻撃力の式は ここの 1 か所だけ
  * - 経験値 = 切り上げ（元 × M × 二つ名の倍率）
  */
-export function yokaiStrength(kind: YokaiKind, m = 1, title: YokaiTitle = 'none'): StrengthResult {
+export function yokaiStrength(kind: YokaiKind, m = 1, title: YokaiTitle = 'none', level: StrengthLevel = 'normal'): StrengthResult {
   const b = BASIS[kind];
   const mo = MOTION[kind];
   const t = TITLE_RULES[title];
@@ -106,10 +115,11 @@ export function yokaiStrength(kind: YokaiKind, m = 1, title: YokaiTitle = 'none'
   if (b.frontOnly) fear *= FEAR_RULES.frontOnlyMul;
   if (mo.hitSeconds >= FEAR_RULES.longWindupSeconds) fear *= FEAR_RULES.longWindupMul;
   const baseHp = ceilEps((STRENGTH_SCALE.hp * b.target) / fear);
-  const attack = Math.min(ATTACK_CAP, ceilEps(b.attack * (1 + (m - 1) * ATTACK_M_RATE)) + t.attackAdd);
+  const mul = STRENGTH_MUL[level];
+  const attack = Math.max(1, Math.min(ATTACK_CAP, ceilEps(b.attack * (1 + (m - 1) * ATTACK_M_RATE) * mul.attack) + t.attackAdd));
   return {
     fear,
-    hp: ceilEps(baseHp * m * t.hpMul),
+    hp: Math.max(1, ceilEps(baseHp * m * t.hpMul * mul.hp)),
     attack,
     xp: ceilEps(b.xp * m * t.xpMul),
     strength: (baseHp / STRENGTH_SCALE.hp) * fear,

@@ -29,6 +29,7 @@ import type { PerfOverlay } from './perfOverlay';
 import type { ThunderHook } from '../fx/thunderFx';
 import type { CharSprite, SpriteInfo } from '../char';
 import type { SpriteMotion } from '../char';
+import type { StartHook } from '../start/startBoot';
 
 type CameraHook = ReturnType<typeof createCameraHook>;
 type PlayerHook = {
@@ -46,6 +47,8 @@ type PlayerHook = {
  */
 export interface TestHook {
   ready: boolean;
+  /** START-1 §4.7: スタートメニュー（メニューの あいだも 出さない ときも ある） */
+  start: StartHook;
   tick(): number;
   pause(): void;
   /** 描画を止める／再開（再開すると次の 1 回を描く） */
@@ -144,7 +147,7 @@ declare global {
   }
 }
 
-export type TestHookGroups = Pick<TestHook, 'shadow' | 'char' | 'world' | 'biome' | 'render' | 'player' | 'camera' | 'aim' | 'input' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'attack' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm' | 'log' | 'ui' | 'audio' | 'rarity' | 'animals' | 'parry' | 'legend' | 'thunder'>;
+export type TestHookGroups = Pick<TestHook, 'start' | 'shadow' | 'char' | 'world' | 'biome' | 'render' | 'player' | 'camera' | 'aim' | 'input' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'attack' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm' | 'log' | 'ui' | 'audio' | 'rarity' | 'animals' | 'parry' | 'legend' | 'thunder'>;
 
 export function installTestHook(game: Game, overlay: PerfOverlay, isReady: () => boolean, groups: TestHookGroups, clock: FrameClock = 'time'): void {
   window.__rikkun = {

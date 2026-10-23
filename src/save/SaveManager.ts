@@ -4,6 +4,7 @@ import { BLOCK_TYPES } from '../world/blocks/blockTypes';
 import { encodeSections } from './chunkCodec';
 import { colKey } from '../world/stream/ring';
 import { bodyInWall } from '../world/wall';
+import type { StrengthLevel } from '../yokai/stats';
 import { NO_SAVE, PENDING_KEY, PENDING_MAX_CELLS, removePendingOf, type RestoredSave } from './restore';
 
 /** localStorage と同じ形（テストでは偽物を渡す） */
@@ -104,6 +105,8 @@ export interface SaveDeps {
   farm?: SaveFarm;
   /** 時刻と何日目。なければ保存しない */
   clock?: SaveClock;
+  /** START-1: この 世界の つよさ（meta の `strength` に 書く。なければ 書かない = 古い 保存と 同じ） */
+  strength?: StrengthLevel;
   /** VOX-D: 列は stream が読みこむ。保険から戻したときの最初の保存は、保険を当てたあとに main が now() で始める（load では書かない） */
   streaming?: boolean;
   /** VOX-D: 列を書けたとき（キーの一覧に足す） */
@@ -504,6 +507,7 @@ export class SaveManager {
       animals: this.d.animals?.serialize() ?? null,
       legend: this.d.legend?.serialize() ?? null,
       farm,
+      ...(this.d.strength ? { strength: this.d.strength } : {}),
     });
     // inventory などは 2 回 serialize しない: 比べる側の meta から 取りだす
     const keyObj = make(bagsKey, farmKey);
