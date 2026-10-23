@@ -350,7 +350,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
   const ER = { root: new Group(), t: -1, ring: null as unknown as Mesh, flash: null as unknown as Mesh,
     blades: [] as { outer: Group; inner: Group; h: number; w: number; start: number; lean: number; ph: number }[], count: 6, x: 0, y: 0, z: 0 };
   scene.add(ER.root);
-  const ringMat = basic(ringTex, 0xa040ff, 0), flashMat = basic(glowTex, 0xe8c8ff, 0), bladeMat = basic(bladeTex, 0xf0e4ff, 0.95);
+  const ringMat = basic(ringTex, 0xa040ff, 0), flashMat = basic(glowTex, 0xe8c8ff, 0), bladeMat = basic(bladeTex, 0xc8a0ff, 0.6);
   ER.ring = flat(ringMat, ER.root); ER.flash = flat(flashMat, ER.root);
   for (let i = 0; i < 9; i++) {
     const outer = new Group(); const inner = crossed(bladeMat, outer); outer.add(inner); ER.root.add(outer); outer.visible = false;
@@ -361,7 +361,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
     ER.root.position.set(x, ER.y, z); ER.t = 0;
     ER.count = 7 + Math.floor(vrng() * 3);
     ER.blades.forEach((b, i) => {
-      b.h = vr(3.0, 4.0); b.w = vr(0.7, 0.95); b.start = 0.9 + i * 0.025 + vr(0, 0.05); b.lean = vr(0.05, 0.14); b.ph = vr(0, 6);
+      b.h = vr(3.0, 4.0); b.w = vr(0.7, 0.9); b.start = 0.9 + i * 0.025 + vr(0, 0.05); b.lean = vr(0.05, 0.14); b.ph = vr(0, 6);
       const ph = (i / ER.count) * Math.PI * 2 + vr(-0.3, 0.3), r = vr(0.15, 0.9);
       b.outer.position.set(Math.cos(ph) * r, 0, -Math.sin(ph) * r);
       b.outer.rotation.y = ph;
@@ -647,7 +647,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
     const gp = pivot.position, f = fwdOf(p);
     const mx = (p.x + gp.x) / 2, mz = (p.z + gp.z) / 2, my = p.y + 1;
     const sep = Math.hypot(p.x - gp.x, p.z - gp.z), ex = Math.max(0, sep - 5);
-    const tp = new Vector3(mx + f.rx * (3 + 0.3 * ex) + f.fx * (2 + 0.2 * ex), my + 3.5 + 0.35 * ex, mz + f.rz * (3 + 0.3 * ex) + f.fz * (2 + 0.2 * ex));
+    const tp = new Vector3(mx + f.rx * (3.6 + 0.3 * ex) + f.fx * (2 + 0.2 * ex), my + 4.5 + 0.35 * ex, mz + f.rz * (3.6 + 0.3 * ex) + f.fz * (2 + 0.2 * ex));
     const tl = new Vector3(mx, my, mz);
     if (!camTarget.init) { camTarget.pos.copy(tp); camTarget.look.copy(tl); camTarget.init = true; }
     else { camTarget.pos.lerp(tp, 0.15); camTarget.look.lerp(tl, 0.15); }
