@@ -245,7 +245,7 @@ export function makePanel(canvas, size = 300, dpr = 2, hgt = size) {
   const painter = new Painter(scene, camera);
   const jolts = HIT_FRAMES();
   return {
-    scene, camera, painter, renderer,
+    scene, camera, painter, renderer, nonFx: [gnd, hero, mon, slashMesh],
     render(i, drawFx) {
       const ps = poseAt(i), l = ps.lunge; hero.position.set(0, 0, l);
       const tip = wv(ps.tip, 0), base = wv(ps.base, 0), dir = tip.clone().sub(base).normalize();
