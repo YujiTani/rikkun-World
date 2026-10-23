@@ -37,6 +37,9 @@ export interface CombatFxDeps {
   /** アイテムが入った（ホットバーの飛ぶ絵）。ようかいだまが入ったとき */
   onPickup?: (item: ItemId, count: number) => void;
   settings?: FxSettings;
+  /** #276 手ごたえ: 妖怪を たおした・パンチが 当たった（強さの 段は 呼ぶ 側が 決める） */
+  onDefeat?: () => void;
+  onPunchHit?: (yokaiId: number) => void;
 }
 
 /**
@@ -97,6 +100,7 @@ export class CombatFx {
           break;
         case 'punchHit':
           playCombat(sound, 'hit');
+          d.onPunchHit?.(ev.yokaiId);
           break;
         case 'punchMiss':
           playCombat(sound, 'miss');
@@ -132,6 +136,7 @@ export class CombatFx {
         playCombat(sound, 'spawn');
       } else if (ev.type === 'defeat') {
         playCombat(sound, 'defeat');
+        d.onDefeat?.();
       } else if (ev.type === 'titleSound') {
         this.playTitleSound(ev.title);
       }

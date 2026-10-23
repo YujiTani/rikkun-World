@@ -40,6 +40,7 @@ async function stepW(page: Page, n: number, before: string): Promise<WStep[]> {
       for (let i = 0; i < n; i++) {
         b(h, i);
         h.step(1);
+        while (h.impact && h.impact.stopLeft() > 0) h.step(1); // #276 ヒットストップの 止まりは 1 ステップに 数えない
         const ev = h.legend.events();
         const seen = (window as any).__legendSeen ?? 0;
         (window as any).__legendSeen = ev.length;

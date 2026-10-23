@@ -245,6 +245,7 @@ export async function fightKarakasa(page: Page, punches: number): Promise<FightR
       h.step(1);
       h.input.release('primary');
       h.step(29); // 押してから 30 ステップ目に 当たる
+      while (h.impact && h.impact.stopLeft() > 0) h.step(1); // #276 ヒットストップの 止まりは 数えない
       const z = one();
       out.hp.push(z?.hp ?? 0);
       out.state.push(z?.state ?? 'gone');

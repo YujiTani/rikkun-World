@@ -137,7 +137,7 @@ test.describe('CHAR-2 通し', () => {
 
     const KESA_TICKS: number[] = await page.evaluate(async () => (await (await fetch('./models/char/girl/atlas.json')).json()).motions.katana_kesa.ticks);
     for (let f = 1; f <= 106; f++) {
-      if (f > 1) await page.evaluate(() => (window.__rikkun! as any).step(1));
+      if (f > 1) await page.evaluate(() => { const h = window.__rikkun! as any; h.step(1); while (h.impact && h.impact.stopLeft() > 0) h.step(1); }); // #276 止まりは 1 ステップに 数えない
       const s = await page.evaluate(() => {
         const h = window.__rikkun! as any;
         const sp = h.player.doll().sprite;
@@ -152,7 +152,7 @@ test.describe('CHAR-2 通し', () => {
     // WEAPON-4: カメラの 1 ステップの 動きの 上限（0.12）は 大けさぎりだけ やめた。見た目は オーナー確認（AC27）
 
     // おわったあと: かまえの 0 コマめ・体は u へ。ぬりかべ（前 2）の 手前で 止まる（WEAPON-4 §4.5: 半径 0.9 + 0.3 + 0.1 まで）
-    await page.evaluate(() => (window.__rikkun! as any).step(1));
+    await page.evaluate(() => { const h = window.__rikkun! as any; h.step(1); while (h.impact && h.impact.stopLeft() > 0) h.step(1); });
     const end = await page.evaluate(
       ({ id }) => {
         const h = window.__rikkun! as any;
