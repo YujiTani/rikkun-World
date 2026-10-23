@@ -106,7 +106,7 @@ test.describe('SHADOW-2 たいまつの影', () => {
     await openShadow(page);
     const near = { x: 46.5, z: 46.5 };
     await caveScene(page, [[44, 41], [46, 41], [48, 41]], near);
-    await advance(page, 40, 1); // たいまつをさがし直す（30 コマごと）
+    await advance(page, 40, 4); // たいまつをさがし直す（30 コマごと）
     expect((await torchStats(page)).count, '3 本おいても 2 本まで').toBe(2);
 
     // 遠くへ（たいまつは 16 以内で見つかるが、動く物は 半径 11 の外）。1 回は「動く物がいた」ぶんの描き直しが入るので 少し進めてから数える
@@ -115,9 +115,9 @@ test.describe('SHADOW-2 たいまつの影', () => {
       const h = (window as any).__rikkun;
       h.player.set({ position: { x: f.x, y: fy + 1, z: f.z }, velocity: { x: 0, y: 0, z: 0 } });
     }, [far, FLOOR_Y] as const);
-    await advance(page, 70, 1);
+    await advance(page, 70, 4);
     await page.evaluate(() => (window as any).__rikkun.shadow.resetStats());
-    await advance(page, 600, 5);
+    await advance(page, 600, 30);
     const still = await torchStats(page);
     expect(still.count, '地図は使っている（空でない）').toBe(2);
     expect(still.redraws, '動く物がいない 600 tick の描き直し').toBe(0);
@@ -140,13 +140,16 @@ test.describe('SHADOW-2 たいまつの影', () => {
       const h = (window as any).__rikkun;
       for (let i = 0; i < 10; i++) h.yokai.spawn('karakasa', 44 + (i % 5) * 2, fy + 1, 44 + Math.floor(i / 5) * 2.5, { ai: false });
     }, FLOOR_Y);
-    await advance(page, 40, 1);
+    await advance(page, 40, 4);
     const worst = await page.evaluate(() => {
       const h = (window as any).__rikkun;
       let draws = 0;
       let redrawn = 0;
       let count = 0;
+      const base = h.player.get().position;
       for (let i = 0; i < 60; i++) {
+        // 止まっていると 同じ絵は描き直さないので、毎コマ プレイヤーを少し動かす
+        h.player.set({ position: { x: base.x + (i % 2) * 0.3, y: base.y, z: base.z }, velocity: { x: 0, y: 0, z: 0 } });
         h.shadow.advance(1, 1);
         const t = h.shadow.stats().torch;
         draws = Math.max(draws, t.frameDraws);
