@@ -9,8 +9,9 @@
 import {
   AdditiveBlending, Box3, BufferGeometry, CanvasTexture, CircleGeometry, Color, DoubleSide, Float32BufferAttribute, Group, LoopOnce,
   AnimationClip, AnimationMixer, Mesh, MeshBasicMaterial, NormalBlending, Object3D, PerspectiveCamera, PlaneGeometry, Points, Quaternion,
-  Scene, ShaderMaterial, SRGBColorSpace, Vector3, type Camera, type Material, type MeshStandardMaterial, type SkinnedMesh, type Bone,
+  Scene, ShaderMaterial, SRGBColorSpace, Sprite, SpriteMaterial, Vector3, type Camera, type Material, type MeshStandardMaterial, type SkinnedMesh, type Bone,
 } from 'three';
+import { ruby } from '../ui/text';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 export interface GashaGirlDeps {
@@ -257,7 +258,9 @@ export interface GashaGirlHandle {
   standNow(): void;
   setSeed(n: number): void;
   warpNow(spell?: number): void;
-  camera(mode: 'overview' | 'default'): void;
+  camera(mode: 'overview' | 'default' | 'look'): void;
+  /** 回数・止めた回数の 数えなおし（撮影用） */
+  resetTurns(): void;
   /** 次に 使う 魔法を 決める（1〜4。撮影用） */
   nextSpell(n: number): void;
   /** 次の 魔法 1 の ワープ先が 左横か（シードの さきよみ） */
@@ -529,10 +532,94 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
     q.perp.set(-q.dir.z, 0, q.dir.x).normalize(); q.amp = amp; q.ph = ph; stats.fired++;
   };
 
+  // ---- 目が合った ときの 演出（赤面・！・ピピン） ----
+  const headBone = model.getObjectByName('Head')!;
+  const headTop = model.getObjectByName('head_end') ?? headBone;
+  const cheekMat = new MeshBasicMaterial({ map: glowTex, color: 0xff6f90, transparent: true, opacity: 0.0, depthWrite: false });
+  const cheekGeo = new PlaneGeometry(0.2, 0.12);
+  const cheeks = [new Mesh(cheekGeo, cheekMat), new Mesh(cheekGeo, cheekMat)];
+  cheeks.forEach((c) => { c.visible = false; c.renderOrder = 6; scene.add(c); });
+  const bangTex = canvasTex(128, 128, (c) => {
+    c.font = 'bold 120px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.lineJoin = 'round'; c.lineWidth = 16; c.strokeStyle = '#fff'; c.strokeText('！', 64, 70);
+    const g = c.createLinearGradient(0, 10, 0, 118); g.addColorStop(0, '#ff3030'); g.addColorStop(1, '#ffd020');
+    c.fillStyle = g; c.fillText('！', 64, 70);
+  });
+  const bang = new Sprite(new SpriteMaterial({ map: bangTex, transparent: true, depthTest: false, depthWrite: false }));
+  bang.visible = false; bang.renderOrder = 10; scene.add(bang);
+  let shyT = -1; // 目が 合ってから の 秒
+  const headC = new Vector3(), headT = new Vector3();
+  const headCenter = (out: Vector3) => { headBone.getWorldPosition(out); headTop.getWorldPosition(headT); return out.lerp(headT, 0.5); };
+  const beep = () => { // 仮の「ピピン！」(本番の 音は サウンド係)
+    soundCount++; lastSoundT = t;
+    try {
+      const AC = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      audio ??= new AC();
+      const t0 = audio.currentTime + 0.01;
+      [[1320, 0], [1760, 0.1]].forEach(([f, d]) => {
+        const o = audio!.createOscillator(), g = audio!.createGain();
+        o.type = 'triangle'; o.frequency.value = f!;
+        g.gain.setValueAtTime(0, t0 + d!); g.gain.linearRampToValueAtTime(0.18, t0 + d! + 0.008); g.gain.exponentialRampToValueAtTime(0.001, t0 + d! + 0.06);
+        o.connect(g).connect(audio!.destination); o.start(t0 + d!); o.stop(t0 + d! + 0.07);
+      });
+    } catch { /* 音が 出せない 所でも 動く */ }
+  };
+  let audio: AudioContext | null = null;
+  const setShy = (on: boolean) => {
+    cheeks.forEach((c) => (c.visible = on)); bang.visible = on; cheekMat.opacity = on ? 0.6 : 0;
+    mats.forEach((m) => m.color.setHex(on ? 0xffd8dc : 0xffffff));
+    if (!on) shyT = -1;
+  };
+  const updateShy = (dt: number) => {
+    if (shyT < 0) return;
+    shyT += dt;
+    headCenter(headC);
+    const yaw = pivot.rotation.y, fx = Math.sin(yaw), fz = Math.cos(yaw), rx = Math.cos(yaw), rz = -Math.sin(yaw);
+    cheeks.forEach((c, i) => {
+      const sd = i === 0 ? -0.2 : 0.2;
+      c.position.set(headC.x + fx * 0.24 + rx * sd, headC.y - 0.1, headC.z + fz * 0.24 + rz * sd);
+      c.rotation.y = yaw;
+    });
+    const k = shyT < 0.08 ? shyT / 0.08 * 1.3 : shyT < 0.18 ? 1.3 - 0.3 * ((shyT - 0.08) / 0.1) : 1; // ぴょこん
+    bang.position.set(headC.x + rx * 0.55, headC.y + 0.75, headC.z + rz * 0.55);
+    bang.scale.setScalar(0.9 * k);
+  };
+  const viewPos = new Vector3(), viewDir = new Vector3();
+  const checkEye = (): boolean => { // 少女の 頭が カメラの 向きの 約 12° 以内 かつ 間に ブロックが ない
+    if (camMode === 'overview' || !pivot.visible) return false;
+    headCenter(headC);
+    const p = deps.player();
+    if (camMode === 'look') viewPos.set(p.x, p.y + 1.6, p.z);
+    else deps.camera.getWorldPosition(viewPos);
+    const to = tmpV.copy(headC).sub(viewPos); const d = to.length(); to.divideScalar(d || 1);
+    if (camMode === 'look') viewDir.copy(to); else deps.camera.getWorldDirection(viewDir);
+    if (Math.acos(Math.min(1, viewDir.dot(to))) > 12 * D2R) return false;
+    for (let s = 0.5; s < d - 0.5; s += 0.25) if (deps.solid(Math.floor(viewPos.x + to.x * s), Math.floor(viewPos.y + to.y * s), Math.floor(viewPos.z + to.z * s))) return false;
+    return true;
+  };
+  let bigEl: HTMLDivElement | null = null;
+  const showBig = (on: boolean) => {
+    if (!bigEl) {
+      bigEl = document.createElement('div');
+      bigEl.style.cssText = 'position:fixed;left:0;right:0;top:40%;text-align:center;z-index:99999;pointer-events:none;font:bold 56px/1.4 IPAGothic,sans-serif;color:#fff;text-shadow:0 0 10px #a040ff,0 0 4px #000,2px 2px 0 #000';
+      bigEl.innerHTML = `${ruby('大', 'おお')}きな${ruby('姿', 'すがた')}にもどる`;
+      document.body.appendChild(bigEl);
+    }
+    bigEl.style.display = on ? 'block' : 'none';
+  };
+  const nextWarp = () => { chooseWarp(); phase = 'vanish'; pt = 0; purpleBurst(10); lineBurst(); };
+  /** 1 回の 出番が おわった とき。5 回分 おわったら 大きな 姿に もどる（試作） */
+  const turnDone = (viaCancel: boolean) => {
+    setShy(false);
+    if (turn >= 5) { phase = 'bigvanish'; pt = 0; purpleBurst(10); lineBurst(); return; }
+    if (viaCancel) nextWarp(); else { phase = 'stand'; pt = 0; }
+  };
+
   // ---- 少女の 流れ ----
-  type Phase = 'stand' | 'vanish' | 'gone' | 'appear' | 'cast';
+  type Phase = 'stand' | 'vanish' | 'gone' | 'appear' | 'cast' | 'shy' | 'bigvanish' | 'bigtext' | 'bigwait';
   let phase: Phase = 'stand', pt = 0, spell = 0;
   let side: 'left' | 'back' = 'back', dist = 4.5, ang = 0;
+  let turn = 0, cancels = 0, eyeNow = false, soundCount = 0, lastSoundT = -1, bigCount = 0;
   let fbShots = 0, fired = false, mixerLeft = 0, castLen = CLIP_DUR, forced = -1;
   let t = 0;
   const tele = new Vector3();
@@ -572,7 +659,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
   const endCast = () => {
     action.fadeOut(0.15);
     mixerLeft = 0.2;
-    phase = 'stand'; pt = 0; 
+    turnDone(false);
   };
   const handPos = (out: Vector3) => hand.getWorldPosition(out);
   const hp = new Vector3(), dirV = new Vector3();
@@ -608,23 +695,34 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
   };
 
   // ---- 毎ステップ ----
+  let camMode: 'overview' | 'default' | 'look' = 'default';
   const camTarget = { pos: new Vector3(), look: new Vector3(), init: false };
-  let camMode: 'overview' | 'default' = 'default';
+  
   deps.onUpdate((dt) => {
     t += dt; pt += dt;
     const p = deps.player();
     if (phase === 'stand') {
       model.position.y = y0 + Math.sin(t * 1.6) * 0.02; model.position.x = Math.sin(t * 0.9) * 0.03;
       faceTo(p);
-      if (pt >= 2.0) { chooseWarp(); phase = 'vanish'; pt = 0; purpleBurst(10); lineBurst(); }
+      if (pt >= 2.0) nextWarp();
     } else if (phase === 'vanish') {
       fade(clamp01(pt / VANISH));
       if (pt >= VANISH) { phase = 'gone'; pt = 0; fade(1); pivot.visible = false; }
     } else if (phase === 'gone') { // 何も いない 時間（「どこいった？」）
-      if (pt >= GONE) { teleport(); pivot.visible = true; phase = 'appear'; pt = 0; fade(1); purpleBurst(24); }
+      if (pt >= GONE) { teleport(); pivot.visible = true; phase = 'appear'; pt = 0; turn++; fade(1); purpleBurst(24); }
     } else if (phase === 'appear') {
       faceTo(p); fade(1 - clamp01(pt / 0.4));
       if (pt >= 0.4) { fade(0); startCast(); }
+    } else if (phase === 'shy') {
+      faceTo(p);
+      if (pt >= 0.3) turnDone(true);
+    } else if (phase === 'bigvanish') {
+      fade(clamp01(pt / VANISH));
+      if (pt >= VANISH) { pivot.visible = false; phase = 'bigtext'; pt = 0; showBig(true); }
+    } else if (phase === 'bigtext') {
+      if (pt >= 1.0) { showBig(false); phase = 'bigwait'; pt = 0; }
+    } else if (phase === 'bigwait') {
+      if (pt >= 1.0) { turn = 0; cancels = 0; bigCount++; chooseWarp(); phase = 'gone'; pt = GONE; }
     } else {
       faceTo(p);
       if (spell === 2) castLen = Math.max(CLIP_DUR, CLIP_FIRE * CLIP_DUR + FB_COUNT * FB_GAP + 0.4);
@@ -652,6 +750,14 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
       if (mixerLeft <= 0) { action.stop(); mixer.stopAllAction(); restorePose(); }
     }
     pivot.updateMatrixWorld(true);
+    // 目が 合った？（出てから 0.5 秒いない。止められるのは 2 回まで）
+    eyeNow = checkEye();
+    if (eyeNow && cancels < 2 && (phase === 'appear' || (phase === 'cast' && pt < 0.1))) {
+      cancels++;
+      if (phase === 'cast') { action.fadeOut(0.1); mixerLeft = 0.2; }
+      phase = 'shy'; pt = 0; fade(0); shyT = 0; setShy(true); shyT = 0; beep();
+    }
+    updateShy(dt);
     updateEruption(dt); updateVortex(dt); updateProjs(dt);
     add.update(dt); smoke.update(dt);
     // 俯瞰カメラの 目標（ふたりの まんなかを 見る）
@@ -667,6 +773,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
     const cam = deps.camera as PerspectiveCamera;
     const px = (window.innerHeight * Math.min(window.devicePixelRatio, 2)) / (2 * Math.tan(((cam.fov ?? 70) * D2R) / 2));
     add.mat.uniforms.uPx!.value = px; smoke.mat.uniforms.uPx!.value = px;
+    if (camMode === 'look' && pivot.visible) { const p = deps.player(); cam.position.set(p.x, p.y + 1.6, p.z); cam.lookAt(headCenter(headC)); cam.updateMatrixWorld(true); }
     if (camMode === 'overview') { cam.position.copy(camTarget.pos); cam.lookAt(camTarget.look); cam.updateMatrixWorld(true); }
   });
 
@@ -690,11 +797,12 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
     setSeed: (n) => { rs = n >>> 0; vs = (Math.imul(n, 7919) + 13) >>> 0; },
     warpNow: (s) => { if (s !== undefined) forced = (s - 1 + SPELLS) % SPELLS; if (phase === 'stand') pt = 2.0; },
     camera: (m) => { camMode = m; camTarget.init = false; },
+    resetTurns: () => { turn = 0; cancels = 0; bigCount = 0; setShy(false); showBig(false); },
     standNow: () => { if (phase === 'stand') pt = 0; },
     nextSpell: (n) => { forced = (n - 1 + SPELLS) % SPELLS; },
     predictSide: () => (mulberry(rs)[1] < 0.5 ? 'left' : 'back'),
     info: () => ({
-      hitActive: ER.t >= 0 && ER.t < erHitEnd, eruptionR: ER.t >= 0 ? ER.rad : 0, eruptionMaxR: ER_R, phase, spell: spell + 1, forced, castT: pt, side, dist, eruptionT: ER.t, vortexT: VX.t,
+      turn, cancels, eyeContact: eyeNow, soundCount, lastSoundT, bigCount, shy: shyT >= 0, hitActive: ER.t >= 0 && ER.t < erHitEnd, eruptionR: ER.t >= 0 ? ER.rad : 0, eruptionMaxR: ER_R, phase, spell: spell + 1, forced, castT: pt, side, dist, eruptionT: ER.t, vortexT: VX.t,
       fireballs: projs.filter((q) => q.on && q.kind === 0).length, waves: projs.filter((q) => q.on && q.kind === 1).length,
       ...stats, girlX: pivot.position.x, girlZ: pivot.position.z,
     }),
