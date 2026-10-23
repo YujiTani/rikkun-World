@@ -191,7 +191,7 @@ test.describe('LIVE-3 文字', () => {
         h.input.release('toggleInventory');
         h.step(3);
       });
-      await page.locator('.craft-tabs .rk-tab').nth(1).click();
+      await page.locator('.craft-tabs .rk-tab', { hasText: 'やく' }).click();
       const n = await page.evaluate(() => {
         const h = (window as any).__rikkun;
         h.step(3);

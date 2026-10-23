@@ -99,20 +99,13 @@ export async function openLive3(page: Page, query = '?nosave=1'): Promise<void> 
           const q = e.getBoundingClientRect();
           return { l: q.left, r: q.right, t: q.top, b: q.bottom, w: q.width, h: q.height };
         };
-        const bare = (root: Element) => {
-          const out: string[] = [];
-          const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-          let n: Node | null;
-          while ((n = w.nextNode())) if (/[一-鿿]/.test(n.textContent ?? '') && !n.parentElement?.closest('ruby')) out.push(n.textContent!);
-          return out;
-        };
         const buttons = Array.from(el.querySelectorAll('button'))
           .filter((b) => !b.matches('[data-testid="coop-close"]') && (b as HTMLElement).offsetParent !== null)
           .map((b) => ({ text: (b as HTMLElement).innerText.replace(/\s+/g, ''), ...rc(b), fs: parseFloat(getComputedStyle(b).fontSize), disabled: (b as HTMLButtonElement).disabled || b.getAttribute('aria-disabled') === 'true' }));
         const cards = Array.from(el.querySelectorAll('[data-testid="coop-card"]')).map((c) => rc(c));
         return {
           text: el.innerText.replace(/\s+/g, ''),
-          bare: bare(el),
+          bare: L.bare(el),
           panel: rc(el),
           vw: innerWidth,
           vh: innerHeight,
@@ -122,6 +115,14 @@ export async function openLive3(page: Page, query = '?nosave=1'): Promise<void> 
           cards,
           lines: L.lines(el),
         };
+      },
+      /** ルビ の 外 に ある 漢字 の 文字列 */
+      bare(root: Element) {
+        const out: string[] = [];
+        const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+        let n: Node | null;
+        while ((n = w.nextNode())) if (/[一-鿿]/.test(n.textContent ?? '') && !n.parentElement?.closest('ruby')) out.push(n.textContent!);
+        return out;
       },
       /** 文字の 箱 の 上の 位置が はなれて いる 数（ふりがな rt は のぞく）で 行を 数える */
       lines(el: Element) {
@@ -146,13 +147,9 @@ export async function openLive3(page: Page, query = '?nosave=1'): Promise<void> 
         const el = document.querySelector(sel) as HTMLElement | null;
         if (!el || el.hidden) return null;
         const q = el.getBoundingClientRect();
-        const bare: string[] = [];
-        const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
-        let n: Node | null;
-        while ((n = w.nextNode())) if (/[一-鿿]/.test(n.textContent ?? '') && !n.parentElement?.closest('ruby')) bare.push(n.textContent!);
         return {
           text: el.innerText.replace(/\s+/g, ''),
-          bare,
+          bare: L.bare(el),
           lines: L.lines(el),
           over: Math.max(0, q.right - innerWidth, q.bottom - innerHeight, -q.left, -q.top),
           pe: getComputedStyle(el).pointerEvents,

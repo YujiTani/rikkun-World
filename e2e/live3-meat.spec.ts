@@ -177,6 +177,13 @@ test.describe('LIVE-3 いただきます', () => {
       (window as any).__aim.solve(Math.floor(cur.x), Math.floor(cur.y), Math.floor(cur.z), 0.5);
       h.step(1);
       o.target = h.animals.target();
+      // 同じ ねらい 方 で ほか の 子 は ねらえる（ねらい 自体 は 当たって いる）
+      const oc = A.one(other);
+      (window as any).__aim.solve(Math.floor(oc.x), Math.floor(oc.y), Math.floor(oc.z), 0.5);
+      h.step(1);
+      o.targetOther = h.animals.target();
+      (window as any).__aim.solve(Math.floor(cur.x), Math.floor(cur.y), Math.floor(cur.z), 0.5);
+      h.step(1);
       A.hold('mushi', 3);
       h.animals.events();
       A.tap();
@@ -221,6 +228,7 @@ test.describe('LIVE-3 いただきます', () => {
       o.locked2 = A.events('coopLocked').length;
       return o;
     });
+    expect(r.targetOther, '同じ ねらい 方 で ほか の 子 は ねらえる').toBe(r.ids.other);
     expect(r.target, 'ねらえない').not.toBe(r.ids.pick);
     expect(r.afterTap, 'むし・なでる・だっこ なし').toBe(0);
     expect(r.mushi).toBe(3);

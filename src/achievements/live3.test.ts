@@ -7,6 +7,14 @@ import { AchievementSystem } from './AchievementSystem';
 const mk = () => new AchievementSystem(() => ({ ...M6_SETTING_DEFAULTS, achieveCooldown: 0, achieveCooldownEarly: 0 }));
 const at = { tick: 0, x: 0, y: 0, z: 0 };
 
+import { SAVE_GEN } from '../save/SaveManager';
+
+describe('LIVE-3 保存（AC10）', () => {
+  it('SAVE_GEN は かえない（3 の まま）', () => {
+    expect(SAVE_GEN).toBe(3);
+  });
+});
+
 describe('LIVE-3 実績（§4.5・AC15）', () => {
   it('数: 261・小 88・そだてる 62・小 17（260＋1・87＋1・61＋1・16＋1）', () => {
     expect(ACHIEVEMENT_DEFS.length).toBe(261);
