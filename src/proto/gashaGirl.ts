@@ -319,7 +319,8 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
   const mixer = new AnimationMixer(model);
   const action = mixer.clipAction(clip);
   action.setLoop(LoopOnce, 1); action.clampWhenFinished = true;
-  const CLIP_DUR = clip.duration;
+  const CLIP_SPEED = 1.28; // 詠唱の 動きを はやく（約 2.3 秒 → 約 1.8 秒）
+  const CLIP_DUR = clip.duration / CLIP_SPEED;
   const hand = model.getObjectByName('RightHand')!;
   const y0 = model.position.y;
 
@@ -655,7 +656,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
   };
   const startCast = () => {
     phase = 'cast'; pt = 0; fired = false; fbShots = 0; castLen = CLIP_DUR;
-    action.reset(); action.setLoop(LoopOnce, 1); action.clampWhenFinished = true; action.fadeIn(0.15).play();
+    action.reset(); action.timeScale = CLIP_SPEED; action.setLoop(LoopOnce, 1); action.clampWhenFinished = true; action.fadeIn(0.15).play();
     mixerLeft = 1e9;
   };
   const endCast = () => {
