@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import type { TimeOfDay } from '../contracts';
 import type { TimeSettings } from '../time/config';
-import { darkenFromBrightness, lightBrightness, skyDarkness, LIGHT_CONFIG } from '../world/light';
+import { darkenFromBrightness, skyBrightness, skyDarkness, LIGHT_CONFIG } from '../world/light';
 import type { WorldLight } from '../world/light/WorldLight';
+import { SCENERY_CONFIG } from '../game/config';
 import { SKY_VIEW } from './config';
 import type { Lighting } from './lighting';
 import { skyDirection, sunMoonPose } from './sunMoon';
@@ -26,6 +27,8 @@ export class Sky {
   readonly sun: THREE.Mesh;
   readonly moon: THREE.Mesh;
   private readonly bg = new THREE.Color();
+  /** いま 人形にかけている明るさ（テスト窓口 render.env 用） */
+  lastDoll = 1;
   private readonly dir = { x: 0, y: 0, z: 0 };
 
   constructor(private readonly d: SkyDeps) {
@@ -50,19 +53,30 @@ export class Sky {
     const { time, scene, lighting, timeSettings } = this.d;
     const color = time.skyColorValue ? time.skyColorValue() : parseInt(time.skyColor().slice(1), 16);
     this.bg.setHex(color);
-    (scene.background as THREE.Color).copy(this.bg);
-    if (scene.fog) scene.fog.color.copy(this.bg);
     // 空の光を弱める段数（ブロックの材料の uniform と LightField.level が読む。メッシュは作り直さない）
     const darken = darkenFromBrightness(time.brightness(), timeSettings.nightBrightness);
     skyDarkness.value = darken;
-    // ブロック以外の景色（海など）は、空の下の明るさ。人形は足もとの光
-    const outdoor = lightBrightness(LIGHT_CONFIG.maxLevel - darken);
+    // #76 夜空とかすみの色は 夜の度合い nt で 0.4 倍へ（線形の色にかける）。かすみの近さも 1/3 へ
+    const nt = skyDarkness.night;
+    this.bg.multiplyScalar(1 + (SCENERY_CONFIG.nightSkyColorMul - 1) * nt);
+    (scene.background as THREE.Color).copy(this.bg);
+    if (scene.fog) {
+      scene.fog.color.copy(this.bg);
+      if (scene.fog instanceof THREE.Fog) {
+        const k = 1 + (SCENERY_CONFIG.nightFogMul - 1) * nt;
+        scene.fog.near = SCENERY_CONFIG.fogNear * k;
+        scene.fog.far = SCENERY_CONFIG.fogFar * k;
+      }
+    }
+    // ブロック以外の景色（海など）は、空の下の明るさ（夜の倍率つき）。人形は足もとの光
+    const outdoor = skyBrightness(LIGHT_CONFIG.maxLevel, darken);
     let doll = time.dollBrightness();
     const { light, focus } = this.d;
     if (light && focus) {
       const p = focus();
       doll = Math.max(LIGHT_CONFIG.dollMin, light.brightness(p.x, p.y + 0.5, p.z));
     }
+    this.lastDoll = doll;
     lighting.setLevels(outdoor, doll);
 
     const pose = sunMoonPose(time.dayTick(), timeSettings);

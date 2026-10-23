@@ -12,6 +12,10 @@ export const LIGHT_CONFIG = {
   torchDimBrightness: 0.5,
   /** 昼から夜へ、空の光が弱まる最大の段数（夜の空の下は 15 - 11 = 4） */
   nightDarken: 11,
+  /** #76 夜の外の空の光の曲線に かける倍率（夜の外 0.125 → 0.02）。昼は 1。夕方・明け方は 夜の度合い nt でなめらかに */
+  nightSkyMul: 0.16,
+  /** #76 夜の倍率を かけきる空の光の下限段（空の光 ÷ これ を 0〜1 に切る = w。どうくつの入り口をなめらかに、空の光 0 は かけない） */
+  nightSkyFullLevel: 4,
   /** 明るさ 0 のときの見え方（真っ黒にしない、ごくわずかな下限） */
   minBrightness: 0.045,
   /** ブロックの光が空の光より強いとき、少しだけ暖かい色にする */
@@ -19,6 +23,8 @@ export const LIGHT_CONFIG = {
   warmTintStrength: 0.85,
   /** 妖怪・人形・落とし物の明るさの下限（見えなくなりすぎないように） */
   dollMin: 0.3,
+  /** 妖怪の明るさの下限（#76 で 0.3 → 0: 足もとと同じ暗さ。YokaiManager の lightMin の既定） */
+  yokaiMin: 0,
   /** 妖怪が出る「暗い所」の明るさ（マイクラと同じ 7 以下） */
   spawnMaxLevel: 7,
 } as const;

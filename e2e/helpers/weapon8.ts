@@ -102,10 +102,14 @@ export async function expectW8Hook(page: Page): Promise<void> {
   expect(miss, `window.__rikkun に まだ ない 窓口（仕様書 WEAPON-8 §7）: ${miss.join('、')}`).toEqual([]);
 }
 
-/** n ステップ 1 ステップずつ きろくする。before は 各ステップの「前」の 動き（文字の 関数 `(h, i) => {}`）。perf = true で 描画回数も */
-export async function rec8(page: Page, n: number, before?: string, perf = false): Promise<W8Step[]> {
+/**
+ * n ステップ 1 ステップずつ きろくする。before は 各ステップの「前」の 動き（文字の 関数 `(h, i) => {}`）。perf = true で 描画回数も。
+ * every = k なら 描いて 数えるのは k ステップに 1 回と 最後だけ（描くのは SwiftShader で 重い。#269）。
+ * 出ては 消える物も 1 回は 描かれるので、捨てわすれ（ジオメトリの ふえ）は 見のがさない。数が 入るのは 描いた ステップだけ。
+ */
+export async function rec8(page: Page, n: number, before?: string, perf = false, every = 1): Promise<W8Step[]> {
   return page.evaluate(
-    ({ n, before, perf }) => {
+    ({ n, before, perf, every }) => {
       const h = window.__rikkun! as any;
       const b = before ? (0, eval)(before) : null;
       const out: any[] = [];
@@ -145,7 +149,7 @@ export async function rec8(page: Page, n: number, before?: string, perf = false)
           bladeF: bl.frame,
           bladeTech: bl.tech,
         };
-        if (perf) {
+        if (perf && (i % every === 0 || i === n - 1)) {
           const rs = h.renderStats();
           row.calls = rs.drawCalls;
           row.triangles = rs.triangles;
@@ -157,7 +161,7 @@ export async function rec8(page: Page, n: number, before?: string, perf = false)
       }
       return out;
     },
-    { n, before, perf },
+    { n, before, perf, every },
   ) as Promise<W8Step[]>;
 }
 
@@ -165,8 +169,8 @@ export async function rec8(page: Page, n: number, before?: string, perf = false)
  * 左クリックを 押して down ステップ 押しつづけ、i = down に はなし（= わざの F1）、さらに after ステップ きろくする。戻りは down + 1 + after こ。
  * `extra` は 各ステップの 前に 足す 文（h・i が 使える）。
  */
-export function chargeRun8(page: Page, down: number, after = 0, extra = '', perf = false): Promise<W8Step[]> {
-  return rec8(page, down + 1 + after, `(h, i) => { if (i === 0) h.input.press('primary'); if (i === ${down}) h.input.release('primary'); ${extra} }`, perf);
+export function chargeRun8(page: Page, down: number, after = 0, extra = '', perf = false, every = 1): Promise<W8Step[]> {
+  return rec8(page, down + 1 + after, `(h, i) => { if (i === 0) h.input.press('primary'); if (i === ${down}) h.input.release('primary'); ${extra} }`, perf, every);
 }
 
 /** 押した ステップから down ステップ 押しつづける（はなさない）。戻りは down こ（i = ためF − 1） */

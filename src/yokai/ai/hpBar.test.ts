@@ -36,19 +36,22 @@ describe('HP-CHUNK 体力のバー（decisions/2026-10-23-hp-bar-chunks.md, #259
   });
 
   it('最大 1〜500 のどの体力でも 本数は 20 以下・残りは 1〜本数・塊は 0 以上。最大 20 以下は 塊なし', () => {
+    // 12 万通り × 7 つを expect で 1 つずつ見ると 5 秒を こえるので、外れた物を 集めて 最後に 1 回 見る（きまりは 同じ）
+    const bad: string[] = [];
     for (let max = 1; max <= 500; max++) {
       for (let hp = 1; hp <= max; hp++) {
         const m = hpBarModel(hp, max);
-        expect(m.bars, `${max}/${hp}`).toBeLessThanOrEqual(20);
-        expect(m.bars, `${max}/${hp}`).toBeGreaterThanOrEqual(1);
-        expect(m.left, `${max}/${hp}`).toBeGreaterThanOrEqual(1);
-        expect(m.left, `${max}/${hp}`).toBeLessThanOrEqual(m.bars);
-        expect(m.big, `${max}/${hp}`).toBeGreaterThanOrEqual(0);
-        if (max <= 20) expect(m.big).toBe(0);
+        if (m.bars > 20) bad.push(`${max}/${hp} 本数 ${m.bars} > 20`);
+        if (m.bars < 1) bad.push(`${max}/${hp} 本数 ${m.bars} < 1`);
+        if (m.left < 1) bad.push(`${max}/${hp} 残り ${m.left} < 1`);
+        if (m.left > m.bars) bad.push(`${max}/${hp} 残り ${m.left} > 本数 ${m.bars}`);
+        if (m.big < 0) bad.push(`${max}/${hp} 塊 ${m.big} < 0`);
+        if (max <= 20 && m.big !== 0) bad.push(`${max}/${hp} 最大 20 以下なのに 塊 ${m.big}`);
         // 塊は 5 で切らない: 残りの段の数
-        expect(m.big, `${max}/${hp}`).toBeLessThanOrEqual(Math.ceil(max / 20) - 1);
+        if (m.big > Math.ceil(max / 20) - 1) bad.push(`${max}/${hp} 塊 ${m.big} > ${Math.ceil(max / 20) - 1}`);
       }
     }
+    expect(bad.slice(0, 20)).toEqual([]);
     expect(hpBarModel(500, 500)).toEqual({ bars: 20, left: 20, big: 24 });
   });
 

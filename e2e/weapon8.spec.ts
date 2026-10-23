@@ -207,7 +207,7 @@ test.describe('WEAPON-8 AC16 性能', () => {
 
   for (const item of [FUJIN, RAIJIN]) {
     test(`AC16: T1（${item}）: ため中の どの ステップも ふえ 描画 4・三角形 150 以下。off で ふえ 0。10 回 ためて はなしても ふえつづけない`, async ({ page }) => {
-      test.setTimeout(600_000); // 雷神剣は 落雷が 重く、10 回 くり返すと 1 回 約 13 秒（SwiftShader）
+      test.setTimeout(600_000); // 雷神剣は 落雷を 描くのが 重い（SwiftShader）。10 回の くり返しは 4 ステップに 1 回だけ 描く（#269）
       await legendWorld(page, item);
       await expectW8Hook(page);
       // 空を 向く（雷神剣の ねらいの わ・落雷を 出さない。T1 だけ はかる）
@@ -238,7 +238,7 @@ test.describe('WEAPON-8 AC16 性能', () => {
       const idle: { calls: number; geometries: number; textures: number }[] = [];
       for (let k = 0; k < 10; k++) {
         await settle8(page, 140);
-        const r = await chargeRun8(page, DOWN, 110, '', true);
+        const r = await chargeRun8(page, DOWN, 110, '', true, 4); // 見るのは 最後の 数。描くのは 4 ステップに 1 回（#269）
         const e = r[r.length - 1]!;
         idle.push({ calls: e.calls! - base.calls, geometries: e.geometries!, textures: e.textures! });
       }
