@@ -427,14 +427,18 @@
   margin-left: calc(var(--rk-sp-1) * 0.5);
 }
 .cp-to {
-  align-self: center;
   font-size: var(--rk-fs-body);
   font-weight: 800;
 }
 .cp-out {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: var(--rk-sp-2);
+  white-space: nowrap; /* → 絵 ×数 は 折り返しても ばらばらに ならない */
+}
+.cp-out-num {
+  font-weight: 800;
+  font-size: var(--rk-fs-body);
 }
 .cp-out-art {
   width: var(--rk-icon-chip);

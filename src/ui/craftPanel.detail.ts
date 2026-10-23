@@ -35,7 +35,8 @@ export interface DetailEls {
   mats: HTMLDivElement;
   fuel: HTMLDivElement;
   /** 出来る物の 行（絵と できる かず） */
-  out: HTMLDivElement;
+  out: HTMLSpanElement;
+  outNum: HTMLSpanElement;
   outArt: HTMLImageElement;
   count: HTMLDivElement;
   hint: HTMLDivElement;
@@ -92,10 +93,14 @@ export function createDetailEls(parent: HTMLElement, h: { onPress(): void; onEnt
   const pageMake = el('div', 'cp-pg cp-pg-make', body);
   const mats = el('div', 'cp-mats', pageMake);
   const fuel = el('div', 'cp-fuelrow', pageMake);
-  const out = el('div', 'cp-out', pageMake);
+  // 「→ 出来る物の絵 ×数」は ひとかたまり（材料の行の さいごに 付け、折り返すときも いっしょに 動く）
+  const out = el('span', 'cp-out');
+  const to = el('span', 'cp-to', out);
+  to.textContent = '→';
   const outArt = el('img', 'cp-out-art rk-art', out);
   outArt.alt = '';
-  const count = el('div', 'cp-count', out);
+  const outNum = el('span', 'cp-out-num', out);
+  const count = el('div', 'cp-count', pageMake); // できる かず = 今の材料で 作れる回数
 
   const pageDesc = el('div', 'cp-pg cp-pg-desc', body);
   const useRow = el('div', 'cp-row cp-use', pageDesc);
@@ -132,7 +137,7 @@ export function createDetailEls(parent: HTMLElement, h: { onPress(): void; onEnt
   root.append(button);
   return {
     root, headArt, name, stars, word, body, pageMake, pageDesc, pageStats, pager, prev, next, pageName, pageDots,
-    useRow, useText, howRow, howButtons, howText, stats, classEl, mats, fuel, out, outArt, count, hint, button, empty, emptyArt,
+    useRow, useText, howRow, howButtons, howText, stats, classEl, mats, fuel, out, outNum, outArt, count, hint, button, empty, emptyArt,
   };
 }
 
@@ -237,7 +242,7 @@ export function renderDetail(e: DetailEls, d: DetailView | null, iconOf: (item: 
   }
 
   e.mats.replaceChildren();
-  e.mats.hidden = d.materials.length === 0;
+  e.mats.hidden = false;
   for (const m of d.materials) {
     const chip = createChip({ art: iconOf(m.item), html: `<span class="cp-have">${m.have}</span> / ${m.need}`, tone: m.ok ? undefined : 'ng' });
     chip.classList.add('cp-mat');
@@ -254,10 +259,7 @@ export function renderDetail(e: DetailEls, d: DetailView | null, iconOf: (item: 
     if ((m.inTansu ?? 0) > 0) addTansuMini(chip, iconOf);
     e.mats.append(chip);
   }
-  if (d.materials.length > 0) {
-    const to = el('span', 'cp-to', e.mats); // 材料 → 出来る物
-    to.textContent = '→';
-  }
+  e.mats.append(e.out);
 
   e.fuel.replaceChildren();
   e.fuel.hidden = d.fuel === null;
@@ -282,7 +284,9 @@ export function renderDetail(e: DetailEls, d: DetailView | null, iconOf: (item: 
   }
 
   e.outArt.src = iconOf(d.item);
-  e.count.textContent = `できる かず ×${d.count}`;
+  e.outNum.textContent = `×${d.count}`;
+  const times = d.materials.length === 0 ? 0 : Math.min(...d.materials.map((m) => Math.floor(m.have / Math.max(1, m.need))));
+  e.count.textContent = `できる かず ×${times}`;
 
   e.hint.textContent = d.hint ?? '';
   e.hint.hidden = d.hint === null;

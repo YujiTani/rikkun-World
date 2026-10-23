@@ -40,7 +40,8 @@ const select = (page: Page, id: string) =>
   page.evaluate((id) => {
     const h = window.__rikkun as any;
     h.craft.hover(null);
-    const r = h.craft.tileClick(id);
+    // すでに えらばれていれば 押さない（もう 1 回押すと「つくる」になる）
+    const r = h.craft.ui().selected === id ? { action: 'keep', ok: true } : h.craft.tileClick(id);
     h.step(2);
     return { action: r.action, ok: r.ok, selected: h.craft.ui().selected };
   }, id);
@@ -113,12 +114,13 @@ test.describe('CRAFT-PAGE たいまつの作り方', () => {
     const r = await page.evaluate(() => {
       const h = window.__rikkun as any;
       const tiles = h.craft.ui().tiles as { id: string }[];
+      const cards = h.craft.ui().cards as { id: string }[]; // tiles は 材料を持つ物だけ。カード数は cards で見る
       const list = h.craft.list() as { id: string; output: { item: string } }[];
-      return { torchTiles: tiles.filter((t) => t.id === 'torch' || t.id.startsWith('torch')).length, tiles: tiles.length, recipes: list.length, torchRecipes: list.filter((c) => c.output.item === 'torch').length };
+      return { torchTiles: tiles.filter((t) => t.id === 'torch' || t.id.startsWith('torch')).length, cards: cards.length, recipes: list.length, torchRecipes: list.filter((c) => c.output.item === 'torch').length };
     });
     expect(r.torchRecipes).toBe(3);
     expect(r.torchTiles).toBe(1);
-    expect(r.tiles).toBe(r.recipes - 2); // レシピは 38 こ、カードは 36 枚
+    expect(r.cards).toBe(r.recipes - 2); // レシピは 38 こ、カードは 36 枚
     // 材料が き 1 + せきたん 1 だけでも カードは 「作れる」（3 つのどれかが 作れれば）
     await open(page, [['log', 1], ['coal_ore', 1]]);
     const glow = await page.evaluate(() => (window.__rikkun as any).craft.ui().cards.find((c: any) => c.id === 'torch'));
@@ -209,11 +211,14 @@ test.describe('CRAFT-PAGE 説明欄のページ', () => {
     expect(s.recipe).not.toBe('torch'); // ② は あぶら の作り方ではない
 
     // せつめい のページへ行っても、「つくる」は さいごに見た作り方（②）
+    // ② → ▶ ③ → ▶ せつめい: 「さいごに見た作り方」は ③
     await go(page, 1);
+    const third = await pageState(page);
+    expect(third.names[third.index]).toBe('つくりかた ③');
     await go(page, 1);
     const desc = await pageState(page);
     expect(desc.names[desc.index]).toBe('せつめい');
-    expect(desc.recipe).toBe(s.recipe);
+    expect(desc.recipe).toBe(third.recipe);
     for (let i = 0; i < 2; i++) await go(page, -1);
     expect((await pageState(page)).index).toBe(1);
 
@@ -249,13 +254,14 @@ test.describe('CRAFT-PAGE 説明欄のページ', () => {
     await select(page, 'torch');
     s = await pageState(page);
     expect(s.names[s.index]).toBe('つくりかた ③'); // 前に ◀ したことは おぼえない
-    await open(page, [['dirt', 1]]); // 何も作れない
+    await open(page, [['oil', 1]]); // 何も作れない（材料が 1 つだけ ある → たいまつは 一覧に 出る）
     await select(page, 'torch');
     s = await pageState(page);
     expect(s.index).toBe(0);
   });
 
   test('AC6: 矢印の当たりは 44×44px 以上（3 つの大きさ）。1 ページ目の ◀・さいごの ▶ は うすくて押せない', async ({ page }) => {
+    test.setTimeout(120_000); // 3 つの大きさで 開き直す
     for (const [w, h] of [[1280, 800], [1440, 900], [1024, 700]] as const) {
       await page.setViewportSize({ width: w, height: h });
       await open(page, [['log', 9], ['coal_ore', 3], ['oil', 3]]);
