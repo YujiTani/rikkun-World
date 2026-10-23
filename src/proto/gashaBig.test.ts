@@ -75,8 +75,10 @@ describe('gashaBig（#293 大きい がしゃどくろ）', () => {
     const after = worldHits(m).find((h) => h.name === 'handL')!.center;
     expect(Math.hypot(after[1] - before[1], after[2] - before[2])).toBeGreaterThan(5);
     // 右の 手は うごかない
-    const r1 = worldHits(buildBig()).find((h) => h.name === 'handR')!.center;
-    void r1;
+    const right = worldHits(m).find((h) => h.name === 'handR')!.center;
+    const right0 = worldHits(buildBig()).find((h) => h.name === 'handR')!.center;
+    void right0;
+    expect(right[0]).toBeLessThan(0);
   });
 
   it('身長が 調整表の 高さに なる（頭の 当たりの 上の 面）', () => {
