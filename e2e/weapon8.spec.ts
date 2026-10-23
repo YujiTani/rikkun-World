@@ -319,3 +319,50 @@ test.describe('WEAPON-8 AC24 手もとの 光の 位置', () => {
     expect(seen, '光が 出ていた').toBeGreaterThanOrEqual(60);
   });
 });
+
+// ---------------------------------------------------------------------------------------------
+// WEAPON-9 PR-1 AC40（§5.8）: ためる 光（つぶ 14 こ・体の 中心・完了後も つづく・手の 光の ドットアニメ）
+// ---------------------------------------------------------------------------------------------
+test.describe('WEAPON-9 AC40 ための光', () => {
+  for (const item of [FUJIN, RAIJIN]) {
+    test(`AC40（${item}）: つぶ 14 こ（ため中も 完了後も 同じ）・体の 中心へ・完了後の 手の 光は コマが 切りかわる・はなすと すぐ off`, async ({ page }) => {
+      test.setTimeout(300_000);
+      const floorY = await legendWorld(page, item);
+      await expectW8Hook(page);
+      if (item === RAIJIN) await aimGroundAhead(page, floorY, 8);
+      await markLegend(page);
+      const down = 120;
+      const rec = await chargeRun8(page, down, 3);
+      const held = rec.slice(0, down);
+      const gather = held.filter((s) => s.fx.phase === 'gather');
+      const full = held.filter((s) => s.fx.phase === 'full');
+      expect(gather.length, 'ため中の ステップが ある').toBeGreaterThan(10);
+      expect(full.length, '完了後の ステップが 十分 ある').toBeGreaterThan(40);
+      // 数は ずっと 一定（14）。完了後も 消えない
+      const counts = new Set(held.filter((s) => s.fx.phase !== 'off').map((s) => s.fx.particles));
+      expect([...counts], 'つぶの 数は 1 通り').toHaveLength(1);
+      expect([...counts][0], 'つぶ 14 こ').toBe(14);
+      expect(full[full.length - 1]!.fx.particles, '完了後も 14').toBe(14);
+      // 集まる 先は 体の 中心（足もと + 1.1）。手ではない
+      for (const s of held.filter((s) => s.fx.phase !== 'off')) {
+        expect(s.fx.chest, '体の 中心が ある').not.toBeNull();
+        expect(Math.abs(s.fx.chest!.y - (s.pos.y + 1.1)), '足もと + 1.1').toBeLessThan(0.05);
+      }
+      // 手の 光: ため中は なし。完了後は ある。絵（芯・輪）が 切りかわる
+      expect(new Set(gather.map((s) => s.fx.hand)), 'ため中は 手の 光なし').toEqual(new Set([0]));
+      expect(full[0]!.fx.hand, '光りはじめ').toBe(2);
+      expect(new Set(full.slice(1).map((s) => s.fx.hand)), '光りはじめの あとは 1').toEqual(new Set([1]));
+      const frames = new Set(full.map((s) => `${s.fx.handCore}/${s.fx.handRing}`));
+      expect(frames.size, '手の 光の 絵が 切りかわる（同じ 絵のまま ではない）').toBeGreaterThanOrEqual(3);
+      // すぐ 切りかわる 動き: 18 ステップ 見ると 芯が 2 回以上 変わる
+      let changes = 0;
+      for (let i = 2; i < Math.min(full.length, 20); i++) if (full[i]!.fx.handCore !== full[i - 1]!.fx.handCore) changes++;
+      expect(changes, '芯が 切りかわった 回数').toBeGreaterThanOrEqual(2);
+      // はなすと すぐ off
+      const rel = rec[fIndex(down, 1)]!;
+      expect(rel.fx.phase, 'はなして すぐ off').toBe('off');
+      expect(rel.fx.particles).toBe(0);
+      expect(rel.fx.hand).toBe(0);
+    });
+  }
+});
