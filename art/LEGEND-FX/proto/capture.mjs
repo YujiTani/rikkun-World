@@ -9,7 +9,7 @@ const srv = http.createServer((q, r) => { const f = path.join(root, decodeURICom
 const port = srv.address().port;
 const out = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'frames2', name); fs.rmSync(out, { recursive: true, force: true }); fs.mkdirSync(out, { recursive: true });
 const b = await chromium.launch({ args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
-const pg = await (await b.newContext({ deviceScaleFactor: 2, viewport: { width: (w === "fujin" || w === "niji") ? 900 : 750, height: 700 } })).newPage();
+const pg = await (await b.newContext({ deviceScaleFactor: 2, viewport: { width: (w === "fujin" || w === "niji" || w === "raijin3") ? 900 : 750, height: 700 } })).newPage();
 pg.on('console', m => { if (m.type() === 'error') console.log('console:', m.text()); }); pg.on('pageerror', e => console.log('pageerror:', e.message));
 await pg.goto(`http://localhost:${port}/art/LEGEND-FX/proto/index2.html?w=${w}&pal=${pal}`); await pg.waitForFunction('window.READY', null, { timeout: 60000 });
 await pg.waitForTimeout(500);

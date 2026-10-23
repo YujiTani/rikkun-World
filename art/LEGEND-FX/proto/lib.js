@@ -26,6 +26,7 @@ export function lunge(f) {
   return 0;
 }
 export const MON_FRONT = 2.0;
+export function swordWorld(i) { const ps = poseAt(i); return { tip: wv(ps.tip, ps.lunge), base: wv(ps.base, ps.lunge) }; }
 export function stageName(i) { return i < SEGS[1].g0 ? '1 つき' : i < SEGS[2].g0 ? '2 きりあげ' : '3 けさ'; }
 
 function tickPose(seg, tau) {
@@ -262,7 +263,7 @@ export function makePanel(canvas, size = 300, dpr = 2, hgt = size) {
 // 各わざの 環境を つくって、わざごとに fx(P, E, T) を呼ぶ
 export function runVariant(variant, seed) {
   const envs = SEGS.map((_, k) => buildEnv(k, seed));
-  return (P, i) => { for (const E of envs) { const T = envT(E, i); if (T >= -1 && T <= E.L + (variant.life || 14)) variant.draw(P, E, T, i); } };
+  return (P, i) => { for (const E of envs) { const T = envT(E, i); if (T >= -(variant.pre || 1) && T <= E.L + (variant.life || 14)) variant.draw(P, E, T, i); } };
 }
 
 // ---- 白い 斬撃の 土台（虹の 斬撃 v3 を 白に。nijiFx.ts の slashStep と 同じ 出し方）
