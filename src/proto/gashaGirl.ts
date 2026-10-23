@@ -111,7 +111,7 @@ function makeFlameTex(outer: string, mid: string, core: string, seed: number): C
   return canvasTex(64, 256, (c) => {
     let rs = seed;
     const layers: [string, number][] = [[outer, 1], [mid, 0.62], [core, 0.28]];
-    const curve = 5 + seed % 4;
+    const curve = 9 + seed % 3;
     for (const [col, w] of layers) {
       c.shadowColor = col; c.shadowBlur = 8;
       const g = c.createLinearGradient(0, 256, 0, 0);
@@ -350,19 +350,19 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
   const ER = { root: new Group(), t: -1, ring: null as unknown as Mesh, flash: null as unknown as Mesh,
     blades: [] as { outer: Group; inner: Group; h: number; w: number; start: number; lean: number; ph: number }[], count: 6, x: 0, y: 0, z: 0 };
   scene.add(ER.root);
-  const ringMat = basic(ringTex, 0xa040ff, 0), flashMat = basic(glowTex, 0xe8c8ff, 0), bladeMat = basic(bladeTex, 0xb890ff, 0.9);
+  const ringMat = basic(ringTex, 0xa040ff, 0), flashMat = basic(glowTex, 0xe8c8ff, 0), bladeMat = basic(bladeTex, 0xf0e4ff, 0.95);
   ER.ring = flat(ringMat, ER.root); ER.flash = flat(flashMat, ER.root);
-  for (let i = 0; i < 7; i++) {
+  for (let i = 0; i < 9; i++) {
     const outer = new Group(); const inner = crossed(bladeMat, outer); outer.add(inner); ER.root.add(outer); outer.visible = false;
     ER.blades.push({ outer, inner, h: 2, w: 0.5, start: 0.9, lean: 0.3, ph: 0 });
   }
   const fireEruption = (x: number, z: number) => {
     ER.x = x; ER.z = z; ER.y = deps.groundY(Math.floor(x), Math.floor(z)) + 1.04;
     ER.root.position.set(x, ER.y, z); ER.t = 0;
-    ER.count = 5 + Math.floor(vrng() * 3);
+    ER.count = 7 + Math.floor(vrng() * 3);
     ER.blades.forEach((b, i) => {
-      b.h = vr(1.7, 3.1); b.w = vr(0.45, 0.65); b.start = 0.9 + i * 0.025 + vr(0, 0.05); b.lean = vr(0.12, 0.3); b.ph = vr(0, 6);
-      const ph = (i / ER.count) * Math.PI * 2 + vr(-0.3, 0.3), r = vr(0.1, 0.75);
+      b.h = vr(3.0, 4.0); b.w = vr(0.7, 0.95); b.start = 0.9 + i * 0.025 + vr(0, 0.05); b.lean = vr(0.05, 0.14); b.ph = vr(0, 6);
+      const ph = (i / ER.count) * Math.PI * 2 + vr(-0.3, 0.3), r = vr(0.15, 0.9);
       b.outer.position.set(Math.cos(ph) * r, 0, -Math.sin(ph) * r);
       b.outer.rotation.y = ph;
     });
@@ -646,8 +646,8 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
     // 俯瞰カメラの 目標（ふたりの まんなかを 見る）
     const gp = pivot.position, f = fwdOf(p);
     const mx = (p.x + gp.x) / 2, mz = (p.z + gp.z) / 2, my = p.y + 1;
-    const sep = Math.hypot(p.x - gp.x, p.z - gp.z);
-    const tp = new Vector3(mx + f.rx * (2 + 0.25 * sep) + f.fx * (1.5 + 0.15 * sep), my + 5 + 0.3 * sep, mz + f.rz * (2 + 0.25 * sep) + f.fz * (1.5 + 0.15 * sep));
+    const sep = Math.hypot(p.x - gp.x, p.z - gp.z), ex = Math.max(0, sep - 5);
+    const tp = new Vector3(mx + f.rx * (3 + 0.3 * ex) + f.fx * (2 + 0.2 * ex), my + 3.5 + 0.35 * ex, mz + f.rz * (3 + 0.3 * ex) + f.fz * (2 + 0.2 * ex));
     const tl = new Vector3(mx, my, mz);
     if (!camTarget.init) { camTarget.pos.copy(tp); camTarget.look.copy(tl); camTarget.init = true; }
     else { camTarget.pos.lerp(tp, 0.15); camTarget.look.lerp(tl, 0.15); }
