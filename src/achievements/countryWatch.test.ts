@@ -13,8 +13,9 @@ function make() {
     blend: BLEND,
     onEnter: (k) => entered.push(k),
   });
+  let tick = 0;
   const run = (n: number, y = spot.ground + 1) => {
-    for (let i = 0; i < n; i++) w.step({ x: 0, y, z: 0 }, 1);
+    for (let i = 0; i < n; i++) w.step({ x: tick++ % 2, y, z: 0 }, 1); // 偽の at は 位置を 見ない。列を かえて 毎コマ 聞かせる
   };
   return { spot, entered, w, run };
 }
@@ -90,11 +91,23 @@ describe('国に入った判定', () => {
   });
   it('止まっている間（steps 0）は 数えない。1/4 の速さの間は 1/4 ずつ', () => {
     const { w, entered, spot } = make();
-    for (let i = 0; i < 1000; i++) w.step({ x: 0, y: spot.ground + 1, z: 0 }, 0);
+    for (let i = 0; i < 1000; i++) w.step({ x: i % 2, y: spot.ground + 1, z: 0 }, 0);
     expect(entered).toEqual([]);
-    for (let i = 0; i < 719; i++) w.step({ x: 0, y: spot.ground + 1, z: 0 }, 0.25);
+    for (let i = 0; i < 719; i++) w.step({ x: i % 2, y: spot.ground + 1, z: 0 }, 0.25);
     expect(entered).toEqual([]);
-    w.step({ x: 0, y: spot.ground + 1, z: 0 }, 0.25);
+    w.step({ x: 1, y: spot.ground + 1, z: 0 }, 0.25);
     expect(entered).toEqual(['mori']);
+  });
+  it('同じ列にいる間は at・heightAt を 呼びなおさない（地下の比べは 毎コマ）', () => {
+    let at = 0;
+    let hh = 0;
+    const entered: string[] = [];
+    const w = new CountryWatch({ at: () => (at++, { kind: 'mori', e: 50 }), heightAt: () => (hh++, 20), blend: BLEND, onEnter: (k) => entered.push(k) });
+    for (let i = 0; i < 100; i++) w.step({ x: 5.2, y: 21, z: 5.7 }, 1);
+    expect([at, hh]).toEqual([1, 1]);
+    w.step({ x: 6.2, y: 21, z: 5.7 }, 1);
+    expect([at, hh]).toEqual([2, 2]);
+    for (let i = 0; i < 300; i++) w.step({ x: 6.2, y: 12, z: 5.7 }, 1); // 同じ列でも 地下なら 数えない
+    expect(entered).toEqual([]);
   });
 });

@@ -20,6 +20,12 @@ export class CountryWatch {
   private cand: string | null = null;
   private count = 0;
   private quiet_ = false;
+  /** 前のコマと同じ列なら 国と地面の高さを 使いまわす */
+  private lastX = NaN;
+  private lastZ = NaN;
+  private lastKind = '';
+  private lastE = 0;
+  private lastH = 0;
 
   constructor(private readonly o: CountryWatchOptions) {}
 
@@ -51,8 +57,16 @@ export class CountryWatch {
     if (this.quiet_ || !(steps > 0)) return;
     const x = Math.floor(pos.x);
     const z = Math.floor(pos.z);
-    const a = this.o.at(x, z);
-    if (a.e < this.o.blend || pos.y <= this.o.heightAt(x, z) - COUNTRY_UNDERGROUND) {
+    if (x !== this.lastX || z !== this.lastZ) {
+      const q = this.o.at(x, z);
+      this.lastX = x;
+      this.lastZ = z;
+      this.lastKind = q.kind;
+      this.lastE = q.e;
+      this.lastH = this.o.heightAt(x, z);
+    }
+    const a = { kind: this.lastKind, e: this.lastE };
+    if (a.e < this.o.blend || pos.y <= this.lastH - COUNTRY_UNDERGROUND) {
       this.cand = null;
       this.count = 0;
       return;
