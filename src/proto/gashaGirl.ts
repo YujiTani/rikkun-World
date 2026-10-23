@@ -540,12 +540,6 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
   // ---- 目が合った ときの 演出（赤面・！・ピピン） ----
   const headBone = model.getObjectByName('Head')!;
   const headTop = model.getObjectByName('head_end') ?? headBone;
-  const faceBone = model.getObjectByName('headfront') ?? headBone;
-  const faceP = new Vector3();
-  const cheekMat = new MeshBasicMaterial({ map: glowTex, color: 0xff6f90, transparent: true, opacity: 0.0, depthWrite: false });
-  const cheekGeo = new PlaneGeometry(0.26, 0.15);
-  const cheeks = [new Mesh(cheekGeo, cheekMat), new Mesh(cheekGeo, cheekMat)];
-  cheeks.forEach((c) => { c.visible = false; c.renderOrder = 6; scene.add(c); });
   const bangTex = canvasTex(128, 128, (c) => {
     c.font = 'bold 120px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
     c.lineJoin = 'round'; c.lineWidth = 16; c.strokeStyle = '#fff'; c.strokeText('！', 64, 70);
@@ -554,6 +548,15 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
   });
   const bang = new Sprite(new SpriteMaterial({ map: bangTex, transparent: true, depthTest: false, depthWrite: false }));
   bang.visible = false; bang.renderOrder = 10; scene.add(bang);
+  const hatchTex = canvasTex(128, 128, (c) => { // 頬染めの 斜線「////」
+    c.lineCap = 'round';
+    for (const [w, col] of [[22, '#fff'], [11, '#ff5a8a']] as const) {
+      c.lineWidth = w; c.strokeStyle = col;
+      for (let i = 0; i < 4; i++) { const x = 24 + i * 26; c.beginPath(); c.moveTo(x, 104); c.lineTo(x + 22, 24); c.stroke(); }
+    }
+  });
+  const hatch = new Sprite(new SpriteMaterial({ map: hatchTex, transparent: true, depthTest: false, depthWrite: false }));
+  hatch.visible = false; hatch.renderOrder = 10; scene.add(hatch);
   let shyT = -1; // 目が 合ってから の 秒
   const headC = new Vector3(), headT = new Vector3();
   const headCenter = (out: Vector3) => { headBone.getWorldPosition(out); headTop.getWorldPosition(headT); return out.lerp(headT, 0.5); };
@@ -573,24 +576,22 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
   };
   let audio: AudioContext | null = null;
   const setShy = (on: boolean) => {
-    cheeks.forEach((c) => (c.visible = on)); bang.visible = on; cheekMat.opacity = on ? 0.6 : 0;
-    mats.forEach((m) => m.color.setHex(on ? 0xffb0c0 : 0xffffff));
+    bang.visible = on; hatch.visible = false;
     if (!on) shyT = -1;
   };
   const updateShy = (dt: number) => {
     if (shyT < 0) return;
     shyT += dt;
     headCenter(headC);
-    const yaw = pivot.rotation.y, fx = Math.sin(yaw), fz = Math.cos(yaw), rx = Math.cos(yaw), rz = -Math.sin(yaw);
-    faceBone.getWorldPosition(faceP);
-    cheeks.forEach((c, i) => {
-      const sd = i === 0 ? -0.17 : 0.17;
-      c.position.set(faceP.x + fx * 0.06 + rx * sd, faceP.y - 0.08, faceP.z + fz * 0.06 + rz * sd);
-      c.rotation.y = yaw;
-    });
+    const yaw = pivot.rotation.y, rx = Math.cos(yaw), rz = -Math.sin(yaw);
     const k = shyT < 0.08 ? shyT / 0.08 * 1.3 : shyT < 0.18 ? 1.3 - 0.3 * ((shyT - 0.08) / 0.1) : 1; // ぴょこん
-    bang.position.set(headC.x + rx * 0.5, headC.y + 0.5, headC.z + rz * 0.5);
-    bang.scale.setScalar(0.7 * k);
+    const px = headC.x + rx * 0.5, py = headC.y + 0.4, pz = headC.z + rz * 0.5;
+    if (shyT < 0.4) { bang.visible = true; hatch.visible = false; bang.position.set(px, py + 0.1, pz); bang.scale.setScalar(0.7 * k); }
+    else { // 0.4 秒 あとに「！」と 入れかわりで 頬染めの 斜線（ぷるぷる ふるえる）
+      bang.visible = false; hatch.visible = true;
+      const u = shyT - 0.4, pop = u < 0.08 ? u / 0.08 * 1.3 : u < 0.18 ? 1.3 - 0.3 * ((u - 0.08) / 0.1) : 1;
+      hatch.position.set(px + Math.sin(shyT * 70) * 0.025, py + Math.cos(shyT * 83) * 0.02, pz); hatch.scale.setScalar(0.8 * pop);
+    }
   };
   const viewPos = new Vector3(), viewDir = new Vector3();
   const checkEye = (): boolean => { // 少女の 頭が カメラの 向きの 約 12° 以内 かつ 間に ブロックが ない
