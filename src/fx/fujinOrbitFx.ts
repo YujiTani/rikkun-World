@@ -25,7 +25,7 @@ const MAX_INST = 3;
 /** 風の 三角形の 上限（段が 重なっても） */
 const MAX_TRIS = 400;
 
-interface Pal {
+export interface Pal {
   row: number;
   core: [number, number, number];
   edge: [number, number, number];
@@ -33,18 +33,18 @@ interface Pal {
   /** 絵の 色（からだ 4 段 + ふち） */
   tone: string[];
 }
-const PALS: Pal[] = [
+export const PALS: Pal[] = [
   { row: 0, core: rgbOf('#F4FFFB'), edge: rgbOf('#14675C'), dust: rgbOf('#7FE0C0'), tone: ['#F4FFFB', '#BFF5E3', '#7FE0C0', '#2BB39A', '#14675C'] },
   { row: 1, core: rgbOf('#FFFFFF'), edge: rgbOf('#3A2578'), dust: rgbOf('#C9B0FF'), tone: ['#FFFFFF', '#EDE3FF', '#C9B0FF', '#8E6BE0', '#3A2578'] },
   { row: 2, core: rgbOf('#FFFFFF'), edge: rgbOf('#1E5E9A'), dust: rgbOf('#A9E2FF'), tone: ['#FFFFFF', '#E3F6FF', '#A9E2FF', '#4FB4F0', '#1E5E9A'] },
 ];
 const TW = 128;
-const TH = 24;
+export const TH = 24;
 const ROWS = 3 * 2 * TH + 4; // 3 色 × [からだ・ふち] + 白 4 行
-const WHITE_Y = 3 * 2 * TH;
+export const WHITE_Y = 3 * 2 * TH;
 
 /** 絵（Canvas）を 作る。Nearest・1/32 の 点 */
-function makeAtlas(): THREE.CanvasTexture {
+export function makeFujinAtlas(): THREE.CanvasTexture {
   const c = document.createElement('canvas');
   c.width = TW;
   c.height = ROWS;
@@ -103,7 +103,7 @@ function makeAtlas(): THREE.CanvasTexture {
   return t;
 }
 /** 行 y0（上から）〜 y0 + TH の 絵の たての 範囲（v）。ふちの 1/2 点 内がわ */
-const vOf = (y: number): number => 1 - (y + 0.5) / ROWS;
+export const vOf = (y: number): number => 1 - (y + 0.5) / ROWS;
 
 interface Inst {
   idx: number;
@@ -159,7 +159,7 @@ export class FujinOrbitFx {
     private readonly scene: THREE.Scene,
     private readonly camera: THREE.Camera,
   ) {
-    this.atlas = makeAtlas();
+    this.atlas = makeFujinAtlas();
     // 体の むこうがわの 帯は キャラに かくれる（深さを 見る）。書きこみは しない
     this.batch = new FxBatch(scene, { additive: false, map: this.atlas, depthTest: true, renderOrder: 8, maxVerts: 9 * 6 * (N - 1) * 3 + 9 * DUST * 12 + 600 });
     for (let i = 0; i < MAX_INST; i++) this.insts.push({ idx: 0, uDeg: 0, reach: 2.2, wait: 0, T: 0, seed: 0, active: false, pos: () => ({ x: 0, y: 0, z: 0 }), counted: false });

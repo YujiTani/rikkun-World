@@ -2223,6 +2223,7 @@ installTestHook(game, overlay, () => host.everReady, {
     slashes: () => slashFx.slashes(),
     nijiFx: () => ({ ...nijiFx.info(), ...slashFx.info() }),
     fujinFx: () => fujinFx.info(),
+    windWaveFx: () => windWaveFx.info(),
     raijinFx: () => raijinFx.info(),
     rainbowFx: () => rainbowFx.info(),
     grains: () => ({ ...domeGrains.counts() }),
