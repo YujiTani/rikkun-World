@@ -13,7 +13,8 @@ type P = import('@playwright/test').Page;
 const GIF = process.env.SLASH_GIF_DIR ?? '/tmp/slash-white-gif';
 const FRAMES = process.env.SLASH_FRAMES_DIR ?? '/tmp/slash-white-frames';
 mkdirSync(GIF, { recursive: true });
-const CLIP = { x: 240, y: 120, width: 800, height: 520 };
+// よこ（side）は 体と 妖怪の 真ん中が 画面の 左よりに 来るので、枠を 左へ ずらす
+const CLIPS = { back: { x: 240, y: 120, width: 800, height: 520 }, side: { x: 0, y: 120, width: 800, height: 520 } };
 const PRESS = [0, 16, 40];
 
 function encode(name: string, dir: string) {
@@ -38,9 +39,11 @@ async function ready(page: P) {
 
 const swing = (page: P) => page.evaluate(() => { const h = (window as any).__rikkun; h.input.press('primary'); h.step(1); h.input.release('primary'); });
 
-for (const [short, item] of [['katana', 'katana'], ['bokuto', 'bokuto'], ['raijin', 'raijin_ken']] as const) {
+const ITEMS = (process.env.SLASH_ITEMS ?? 'katana,bokuto,raijin_ken').split(',');
+for (const item of ITEMS) {
+  const short = item === 'raijin_ken' ? 'raijin' : item;
   test(`白い 斬撃 3 段: ${item}`, async ({ page }) => {
-    console.log("start", item); await legendWorld(page, item); console.log("world ok");
+    await legendWorld(page, item);
     await page.setViewportSize({ width: 1280, height: 800 });
     for (const [label, deg] of [['back', 0], ['side', 100]] as const) {
       await ready(page);
@@ -55,7 +58,7 @@ for (const [short, item] of [['katana', 'katana'], ['bokuto', 'bokuto'], ['raiji
       for (let i = 0; i < 96; i++) {
         if (PRESS.includes(i)) await swing(page);
         await page.evaluate(() => (window as any).__rikkun.step(1));
-        await page.screenshot({ path: `${dir}/${String(i + 1).padStart(4, '0')}.png`, clip: CLIP });
+        await page.screenshot({ path: `${dir}/${String(i + 1).padStart(4, '0')}.png`, clip: CLIPS[label] });
       }
       encode(name, dir);
     }
