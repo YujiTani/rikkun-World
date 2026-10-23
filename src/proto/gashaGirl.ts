@@ -828,7 +828,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
     const gp = pivot.position, f = fwdOf(p);
     const wMid = Math.hypot(p.x - gp.x, p.z - gp.z) > 8 ? 0.46 : 0.5; // 遠い ときは プレイヤー寄り（扇が ひろがって くるのが 見える）
     const mx = p.x + (gp.x - p.x) * wMid, mz = p.z + (gp.z - p.z) * wMid, my = p.y + 1;
-    const sep = Math.hypot(p.x - gp.x, p.z - gp.z), ex = Math.max(0, sep - 5);
+    const sep = Math.hypot(p.x - gp.x, p.z - gp.z), ex = Math.max(0, sep - 5) * (spell === 3 ? 1.7 : 1); // 180° の 扇は ひろいので 引く
     const tp = new Vector3(mx + f.rx * (3.6 + 0.3 * ex) + f.fx * (2 + 0.2 * ex), my + 4.5 + 0.4 * ex, mz + f.rz * (3.6 + 0.3 * ex) + f.fz * (2 + 0.2 * ex));
     const tl = new Vector3(mx, my, mz);
     if (!camTarget.init) { camTarget.pos.copy(tp); camTarget.look.copy(tl); camTarget.init = true; }
