@@ -18,6 +18,7 @@ const DEF = {
   raijin3: ['らいじんけん', ['R1 あおじろい いなずま', 'R2 きいろい いなずま'], [makeR(RP.blue), makeR(RP.yellow)], [450, 420]],
   niji3: ['にじ', ['にじの ひかり（つるぎが にじいろ・おわりに フレア）'], [NJ], [750, 600]],
   niji4: ['にじ', ['G1 かるい はっこう（ハロー）', 'G2 がめんの はっこう（ブルーム）'], [makeNJ(true), makeNJ(false)], [450, 420]],
+  niji5: ['にじ', ['にじの ひかり（フレア 1・2・3 つ、ブルーム）'], [makeNJ(false)], [750, 600]],
   white: ['ふつうの かたな（しろい ざんげき）', ['しろい ざんげき（どだい）'], [null], [750, 600]],
 };
 const [name, labels, vars, [size, hgt]] = DEF[w];
@@ -27,7 +28,7 @@ if (w === 'white') vars[0] = { life: 14, draw(P, E, T) { baseHit(P, E, T); } };
 const panels = vars.map((v, n) => {
   const cell = document.createElement('div'); cell.style.width = size + 'px';
   cell.innerHTML = `<div class="lab">${labels[n]}</div><canvas></canvas>`; document.getElementById('row').appendChild(cell);
-  const p = makePanel(cell.querySelector('canvas'), size, 2, hgt); if (w === 'niji4' && n === 1) addBloom(p, size, hgt, 2);
+  const p = makePanel(cell.querySelector('canvas'), size, 2, hgt); if (w === 'niji4' && n === 1) addBloom(p, size, hgt, 2, 1); if (w === 'niji5') addBloom(p, size, hgt, 2, +(q.get('bs') || .5));
   return { p, run: runVariant(v, n + 1) };
 });
 document.getElementById('fl').textContent = name; window.TOTAL = TOTAL;

@@ -16,7 +16,19 @@ function prism(P, pts, wf, a = 1, alphaFn = null, halo = false) {
   }
   P.add(true); P.ribbon(pts, (u, k) => wf(u, k) * .3, '#FFFFFF', .95 * a, {}); P.ribbon(pts, (u, k) => wf(u, k) * 1.9, '#BFD8FF', .22 * a, { soft: true }); P.add(false);
 }
-const dotRound = (P, p, r, hex, a = 1) => { P.disc(p, r + DOT * .5, EDGE, a * .8, false, 8); P.disc(p, r, hex, a, false, 8); };
+// 1 つの 粒の 中に 虹: 中心が 白、外へ 赤→だいだい→黄→緑→青→むらさきの 同心の しま
+const RING = ['#B030FF', '#2E5CFF', '#00B4FF', '#00E060', '#FFE600', '#FF8A00', '#FF1F3D', '#FFFFFF'], RF = [1, .86, .72, .58, .44, .32, .2, .09];
+const dotRB = (P, p, r, a = 1) => { r = Math.max(r, DOT * 2.5); P.disc(p, r + DOT * .6, EDGE, a * .85, false, 12); for (let j = 0; j < 8; j++) P.disc(p, r * RF[j], RING[j], a, false, 12); };
+// 十字の 星: 芯が 白、4 本の 腕に そって 白→赤→黄→緑→青→むらさき
+const ARM = ['#FFFFFF', '#FF1F3D', '#FFE600', '#00E060', '#2E5CFF', '#B030FF'];
+function crossStar(P, p, sz, a = 1, rot = 0) {
+  for (let k = 0; k < 4; k++) {
+    const d = camDir(P, rot + k * Math.PI / 2), pts = [0, .2, .4, .65, .85, 1].map(f => p.clone().addScaledVector(d, sz * f * (k % 2 ? .75 : 1)));
+    P.ribbon(pts, [DOT * 2.2, DOT * 2, DOT * 1.7, DOT * 1.2, DOT * .8, DOT * .3], EDGE, .8 * a);
+    P.ribbon(pts, [DOT * 1.4, DOT * 1.3, DOT * 1.1, DOT * .8, DOT * .5, DOT * .15], ARM, a);
+  }
+  dotRB(P, p, DOT * 2.5, a);
+}
 export const makeNJ = (glow) => ({
   life: 36, pre: 8,
   draw(P, E, T, i) {
@@ -26,8 +38,8 @@ export const makeNJ = (glow) => ({
       const { tip, base } = swordWorld(i), d = tip.clone().sub(base).normalize(), end = tip.clone().addScaledVector(d, .3), a0 = smooth((T + 6) / 3) * (1 - smooth((T - L) / 3));
       const pts = [0, .25, .5, .75, 1].map(f => base.clone().lerp(end, f));
       prism(P, pts, (u) => .2 * Math.max(.3, Math.sin(Math.PI * clamp(u * .92 + .04))), a0, null, glow);
-      P.sprite(starTex('#FFE66B', 2), end, .5, a0);
-      for (let q = 0; q < 4; q++) { const f = (H(q, 8) + T * .09 * (1 + q * .2)) % 1, p = base.clone().lerp(end, f); P.sprite(starTex(q % 2 ? '#FFFFFF' : SPEC[(q * 2 + T) % 7 | 0], 1 + (q + T) % 2), p, .16 + .08 * H(q, 9), a0); }
+      crossStar(P, end, .22, a0, T * .1);
+      for (let q = 0; q < 4; q++) { const f = (H(q, 8) + T * .09 * (1 + q * .2)) % 1, p = base.clone().lerp(end, f); crossStar(P, p, .08 + .05 * H(q, 9), a0, q + T * .05); }
     }
     // ② わざの終わり: 刀の通り道に フレアが 順に 1・2・3 つ（ずらして、大きさも ばらばら）
     const nF = idx + 1, mult = [[1], [1, .65], [.5, .85, .65]][idx], perm = (idx === 2 ? [[0, 2, 1], [1, 0, 2], [2, 1, 0], [1, 2, 0]][Math.floor(H(E.seed, 31) * 4)] : idx === 1 ? (H(E.seed, 32) > .5 ? [0, 1] : [1, 0]) : [0]);
@@ -42,10 +54,10 @@ export const makeNJ = (glow) => ({
       const nr = Math.round([12, 18, 26][idx] * (.6 + .4 * m));
       for (let q = 0; q < nr; q++) {
         const th = q / nr * 6.283 + H(q, 1) * .12, d = camDir(P, th), long = q % 2 === 0, len = (long ? 1.0 + .6 * H(q, 2) : .45 + .25 * H(q, 3)) * g, r0 = .08 * S, hue = SPEC[q % 7];
-        const pts = [O.clone().addScaledVector(d, r0), O.clone().addScaledVector(d, r0 + len * .5), O.clone().addScaledVector(d, r0 + len)];
+        const pts = [0, .25, .5, .75, 1].map(f => O.clone().addScaledVector(d, r0 + len * f));
         const w = long ? 1 : .7;
-        P.ribbon(pts, [DOT * 1.2 * w, DOT * 3 * w, DOT * .6], EDGE, .7 * fade);
-        P.ribbon(pts, [DOT * .6 * w, DOT * 2.2 * w, DOT * .3], ['#FFFFFF', hue, hue], fade);
+        P.ribbon(pts, [DOT * 1.6 * w, DOT * 3.1 * w, DOT * 4.2 * w, DOT * 2.8 * w, DOT * .8], EDGE, .7 * fade);
+        P.ribbon(pts, [DOT * 1 * w, DOT * 2.3 * w, DOT * 3.2 * w, DOT * 2 * w, DOT * .4], ['#FFFFFF', SPEC[0], SPEC[2], SPEC[4], SPEC[6]], fade);
       }
       if (glow) { P.add(true); P.disc(O, 1.0 * g, '#FFFFFF', .28 * fade, true, 20); for (let j = 0; j < 7; j++) P.disc(O, (.5 + j * .1) * g * 1.15, SPEC[j], .2 * fade, true, 18); P.disc(O, .45 * g, '#FFFFFF', .7 * fade, true, 18); P.add(false); }
       P.add(true); P.disc(O, .22 * g + .03, '#FFFFFF', .95 * fade, true, 16); P.disc(O, .55 * g, '#BFD8FF', .35 * fade, true, 18); P.add(false);
@@ -57,23 +69,23 @@ export const makeNJ = (glow) => ({
         for (let j = 0; j < 7; j++) { const rr = R + (j - 3) * DOT * .9, pp = []; for (let q = 0; q <= 40; q++) pp.push(O.clone().addScaledVector(camDir(P, q / 40 * 6.283), rr)); P.ribbon(pp, DOT * 1.1, SPEC[j], .9 * fade); }
       }
       // レンズフレア: 画面の 一直線に ならぶ 丸い 光
-      const ld = camDir(P, -.55 + idx * .1), no = Math.round([3, 4, 6][idx] * (.7 + .3 * m));
+      const ld = camDir(P, -.55 + idx * .1), no = Math.round([2, 3, 4][idx] * (.7 + .3 * m));
       for (let q = 0; q < no; q++) {
         const off = (q - 1) * (.35 + .2 * H(q, 4)) * g * 1.3, rr = (.05 + .09 * H(q, 5)) * (.6 + S * .5);
-        dotRound(P, O.clone().addScaledVector(ld, off), rr, SPEC[(q * 2 + 1) % 7], .8 * fade);
+        dotRB(P, O.clone().addScaledVector(ld, off), rr, .9 * fade);
         if (q % 2) { P.add(true); P.disc(O.clone().addScaledVector(ld, off), rr * 1.8, '#BFD8FF', .22 * fade, true, 10); P.add(false); }
       }
       // 星くず
-      const nd = [10, 14, 24][idx];
+      const nd = [5, 7, 11][idx];
       for (let q = 0; q < nd; q++) {
         const th = H(q, 3, E.seed, f) * 6.283, v = (.3 + 1.1 * H(q, 5)) * S, p = O.clone().addScaledVector(camDir(P, th), v * (1 - Math.exp(-(t + 1) * .3)) + .05).add(V(0, -.02 * t, 0)), a = fade * (.6 + .4 * Math.sin(t + q));
-        if (q % 3 === 0) P.sprite(starTex(q % 2 ? '#FFFFFF' : SPEC[q % 7], [0, 1, 2, 1][(Math.floor(t / 2) + q) % 4]), p, .1 + .09 * H(q, 6), a);
-        else dotRound(P, p, DOT * (.7 + H(q, 7) * .7), q % 3 ? SPEC[q % 7] : '#FFFFFF', a);
+        if (q % 3 === 0) crossStar(P, p, .09 + .06 * H(q, 6), a, q * .7 + t * .08);
+        else dotRB(P, p, DOT * (2.5 + H(q, 7) * 1.6), a);
       }
     }
     // 当てた とき: 丸い にじ色の 点
     const h = T - E.hitT;
-    if (h >= 0 && h < 12) for (let q = 0; q < 26; q++) { const d = camDir(P, H(q, 9, E.idx) * 6.28), D = (.3 + .6 * H(q, 3)) * (1 - Math.exp(-h * .4)); dotRound(P, E.hitPos.clone().addScaledVector(d, D), DOT * (.9 + .7 * H(q, 5)), SPEC[q % 7], 1 - h / 12); }
+    if (h >= 0 && h < 12) for (let q = 0; q < 9; q++) { const d = camDir(P, H(q, 9, E.idx) * 6.28), D = (.3 + .6 * H(q, 3)) * (1 - Math.exp(-h * .4)); dotRB(P, E.hitPos.clone().addScaledVector(d, D), DOT * (2.5 + 1.5 * H(q, 5)), 1 - h / 12); }
     baseHit(P, E, T);
   },
 });

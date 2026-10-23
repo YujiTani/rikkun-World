@@ -11,7 +11,7 @@ const out = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'frames2'
 const b = await chromium.launch({ args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 const pg = await (await b.newContext({ deviceScaleFactor: 2, viewport: { width: (w === "fujin" || w === "niji" || w === "raijin3" || w === "niji4") ? 900 : 750, height: 700 } })).newPage();
 pg.on('console', m => { if (m.type() === 'error') console.log('console:', m.text()); }); pg.on('pageerror', e => console.log('pageerror:', e.message));
-await pg.goto(`http://localhost:${port}/art/LEGEND-FX/proto/index2.html?w=${w}&pal=${pal}`); await pg.waitForFunction('window.READY', null, { timeout: 60000 });
+await pg.goto(`http://localhost:${port}/art/LEGEND-FX/proto/index2.html?w=${w}&pal=${pal}&bs=${process.env.BS||.5}`); await pg.waitForFunction('window.READY', null, { timeout: 60000 });
 await pg.waitForTimeout(500);
 const total = await pg.evaluate('window.TOTAL'); const list = only ? only.split(',').map(Number) : [...Array(total).keys()];
 for (const i of list) { await pg.evaluate(i => window.frame(i), i); await pg.locator('body').screenshot({ path: path.join(out, String(i).padStart(4, '0') + '.png') }); }

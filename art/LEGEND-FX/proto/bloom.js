@@ -1,10 +1,10 @@
 // 虹だけに 効かせる ブルーム（選んだ 物だけ 光らせる）。キャラ・地面・空・白い斬撃は にじませない
-// パス数: 本描き 1 ＋ 虹だけ 2（元の絵と にじみ入りの絵）＋ UnrealBloom（明るい所 1・ぼかし 5 段 × 2・合成 1 ≒ 12）＋ 足し合わせ 1 ≒ 16
+// scale=.5 で 半分の 解像度の バッファ（横縦 1/2 ＝ 画素数 1/4）。パス数: 本描き 1 ＋ 虹だけ 2（元の絵と にじみ入りの絵）＋ UnrealBloom（明るい所 1・ぼかし 5 段 × 2・合成 1 ≒ 12）＋ 足し合わせ 1 ≒ 16
 import * as THREE from 'three';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
-export const BLOOM = { strength: .45, radius: .2, threshold: .4, gain: .7 };
-export function addBloom(panel, w, h, dpr) {
-  const { renderer, scene, camera, nonFx } = panel, W = w * dpr, Hh = h * dpr;
+export const BLOOM = { strength: .35, radius: .2, threshold: .5, gain: .55 };
+export function addBloom(panel, w, h, dpr, scale = .5) {
+  const { renderer, scene, camera, nonFx } = panel, W = Math.round(w * dpr * scale), Hh = Math.round(h * dpr * scale);
   const mk = () => new THREE.WebGLRenderTarget(W, Hh, { type: THREE.HalfFloatType });
   const rtFx = mk(), rtB = mk();
   const pass = new UnrealBloomPass(new THREE.Vector2(W, Hh), BLOOM.strength, BLOOM.radius, BLOOM.threshold);
