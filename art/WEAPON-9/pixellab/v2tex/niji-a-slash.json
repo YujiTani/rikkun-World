@@ -1,0 +1,157 @@
+{
+ "frames": [
+  {
+   "filename": "niji-a-slash 0.png",
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 44,
+    "h": 60
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 44,
+    "h": 60
+   },
+   "sourceSize": {
+    "w": 44,
+    "h": 60
+   },
+   "pivot": {
+    "x": 0.29545454545454547,
+    "y": 0.5
+   },
+   "duration": 63
+  },
+  {
+   "filename": "niji-a-slash 1.png",
+   "frame": {
+    "x": 44,
+    "y": 0,
+    "w": 44,
+    "h": 60
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 44,
+    "h": 60
+   },
+   "sourceSize": {
+    "w": 44,
+    "h": 60
+   },
+   "pivot": {
+    "x": 0.29545454545454547,
+    "y": 0.5
+   },
+   "duration": 63
+  },
+  {
+   "filename": "niji-a-slash 2.png",
+   "frame": {
+    "x": 88,
+    "y": 0,
+    "w": 44,
+    "h": 60
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 44,
+    "h": 60
+   },
+   "sourceSize": {
+    "w": 44,
+    "h": 60
+   },
+   "pivot": {
+    "x": 0.29545454545454547,
+    "y": 0.5
+   },
+   "duration": 63
+  },
+  {
+   "filename": "niji-a-slash 3.png",
+   "frame": {
+    "x": 0,
+    "y": 60,
+    "w": 44,
+    "h": 60
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 44,
+    "h": 60
+   },
+   "sourceSize": {
+    "w": 44,
+    "h": 60
+   },
+   "pivot": {
+    "x": 0.29545454545454547,
+    "y": 0.5
+   },
+   "duration": 63
+  },
+  {
+   "filename": "niji-a-slash 4.png",
+   "frame": {
+    "x": 44,
+    "y": 60,
+    "w": 44,
+    "h": 60
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 44,
+    "h": 60
+   },
+   "sourceSize": {
+    "w": 44,
+    "h": 60
+   },
+   "pivot": {
+    "x": 0.29545454545454547,
+    "y": 0.5
+   },
+   "duration": 63
+  }
+ ],
+ "meta": {
+  "app": "PixelLab VFX Creator",
+  "image": "niji-a-slash.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 132,
+   "h": 120
+  },
+  "scale": "1",
+  "anchor": {
+   "kind": "origin",
+   "x": 13,
+   "y": 30
+  },
+  "frameTags": [
+   {
+    "name": "niji-a-slash",
+    "from": 0,
+    "to": 4,
+    "direction": "forward"
+   }
+  ]
+ }
+}
