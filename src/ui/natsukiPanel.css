@@ -21,8 +21,8 @@
   --np-gold: #ebb840;
   --np-gold-edge: #8c5a16;
   --np-empty: rgb(255 255 255 / 0.18);
-  --np-ring: #6b7280;
-  --np-ready: #4ade80;
+  --np-ring: var(--rk-text-sub);
+  --np-ready: var(--rk-ok);
 }
 #natsuki-panel[hidden] {
   display: none;
@@ -40,7 +40,7 @@
 }
 .np-hearts {
   display: flex;
-  gap: 2px;
+  gap: var(--rk-sp-1);
 }
 .np-heart {
   width: var(--rk-sp-4);
@@ -93,7 +93,7 @@
   position: relative;
   width: calc(var(--rk-icon-chip) + var(--rk-sp-1));
   height: calc(var(--rk-icon-chip) + var(--rk-sp-1));
-  border-radius: 50%;
+  border-radius: var(--rk-r-pill);
   display: grid;
   place-items: center;
   background: conic-gradient(var(--np-ring) calc(var(--p) * 360deg), rgb(255 255 255 / 0.14) 0);
@@ -105,7 +105,7 @@
   content: '';
   position: absolute;
   inset: 3px;
-  border-radius: 50%;
+  border-radius: var(--rk-r-pill);
   background: rgb(16 20 31 / 0.92);
 }
 .np-clock__art {
