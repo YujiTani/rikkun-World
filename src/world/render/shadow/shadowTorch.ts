@@ -67,3 +67,30 @@ export function mixTorchOcclusion(items: readonly { weight: number; occ: number 
   }
   return num / Math.max(den, minDen);
 }
+
+export interface SlotState {
+  key: number;
+  active: boolean;
+}
+
+/**
+ * 見つかった たいまつ（印 found）を 入れ物へ割り当てる。
+ * 続けて見つかるものは 同じ入れ物のまま（fresh = false）。見つからなくなった入れ物は 印を捨てて 非 active（もどったときは 新しく割り当てる）。
+ * あたらしく入るものは あいた入れ物へ（fresh = true。地図を 描き直す）。
+ */
+export function assignTorchSlots(prev: readonly SlotState[], found: readonly number[]): { key: number; active: boolean; fresh: boolean }[] {
+  const out = prev.map((s) => (s.active && found.includes(s.key) ? { key: s.key, active: true, fresh: false } : { key: -1, active: false, fresh: false }));
+  for (const k of found) {
+    if (out.some((s) => s.active && s.key === k)) continue;
+    const slot = out.find((s) => !s.active) ?? out[0]!;
+    slot.key = k;
+    slot.active = true;
+    slot.fresh = true;
+  }
+  return out;
+}
+
+/** 動く物の 位置・絵のコマを まとめて 比べるための 数のまぜ方（0.001 より 小さいゆれは 同じ） */
+export function hashStep(h: number, v: number): number {
+  return Math.imul(h ^ Math.round(v * 1000), 16777619) | 0;
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mixTorchOcclusion, pickNearestTorches, shouldRedrawTorch, torchCenter, torchKey, torchWeight } from './shadowTorch';
+import { assignTorchSlots, hashStep, mixTorchOcclusion, pickNearestTorches, shouldRedrawTorch, torchCenter, torchKey, torchWeight } from './shadowTorch';
 
 const P = { x: 0.5, y: 0.82, z: 0.5 };
 
@@ -62,5 +62,42 @@ describe('torchWeight / mixTorchOcclusion', () => {
   it('重み 0 は 数えない・何もなければ 0', () => {
     expect(mixTorchOcclusion([{ weight: 0, occ: 1 }])).toBe(0);
     expect(mixTorchOcclusion([])).toBe(0);
+  });
+});
+
+describe('assignTorchSlots', () => {
+  const mk = (key: number, active: boolean) => ({ key, active });
+  it('はじめて見つけたものは あいた入れ物へ（新しい印つき）', () => {
+    const r = assignTorchSlots([mk(-1, false), mk(-1, false)], [7, 8]);
+    expect(r.map((s) => [s.key, s.active, s.fresh])).toEqual([[7, true, true], [8, true, true]]);
+  });
+  it('続けて見つかるものは 同じ入れ物のまま（新しくない）', () => {
+    const r = assignTorchSlots([mk(7, true), mk(8, true)], [8, 7]);
+    expect(r.map((s) => [s.key, s.active, s.fresh])).toEqual([[7, true, false], [8, true, false]]);
+  });
+  it('はなれて 見つからなくなった入れ物は 印を捨てる（もどると 新しく割り当てる）', () => {
+    const away = assignTorchSlots([mk(7, true), mk(-1, false)], []);
+    expect(away[0]).toMatchObject({ key: -1, active: false });
+    const back = assignTorchSlots(away, [7]);
+    expect(back[0]).toMatchObject({ key: 7, active: true, fresh: true });
+  });
+  it('1 本が 入れかわると あいた方へ', () => {
+    const r = assignTorchSlots([mk(7, true), mk(8, true)], [8, 9]);
+    expect(r[1]).toMatchObject({ key: 8, fresh: false });
+    expect(r[0]).toMatchObject({ key: 9, active: true, fresh: true });
+  });
+  it('もとの入れ物が 非 active で印だけ のこっていても 見つかったら 新しく割り当てる', () => {
+    const r = assignTorchSlots([mk(7, false), mk(-1, false)], [7]);
+    expect(r.some((s) => s.key === 7 && s.active && s.fresh)).toBe(true);
+  });
+});
+
+describe('hashStep', () => {
+  it('同じ並びなら 同じ、ちがうと ちがう（0.001 より小さい ゆれは 同じ）', () => {
+    const h = (...v: number[]) => v.reduce((a, x) => hashStep(a, x), 0);
+    expect(h(1, 2.5, -3)).toBe(h(1, 2.5, -3));
+    expect(h(1, 2.5, -3)).not.toBe(h(1, 2.5, -3.01));
+    expect(h(1, 2)).not.toBe(h(2, 1));
+    expect(h(1.00001)).toBe(h(1));
   });
 });

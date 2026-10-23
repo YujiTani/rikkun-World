@@ -13,7 +13,7 @@ import type { WorldRenderer } from '../WorldRenderer';
 import { snapMapCenter, lightAxes } from './shadowCamera';
 import { shadowLight, type ShadowLightInfo } from './shadowLight';
 import { patchSpriteMaterial, shadowPatch } from './shadowPatch';
-import { pickNearestTorches, shouldRedrawTorch, torchCenter, torchKey, type TorchCandidate } from './shadowTorch';
+import { assignTorchSlots, hashStep, pickNearestTorches, shouldRedrawTorch, torchCenter, torchKey, type TorchCandidate } from './shadowTorch';
 
 /** 影の中の明るさ（オーナーの決定 0.55） */
 export const SHADOW_DARKNESS = 0.55;
@@ -53,6 +53,8 @@ interface TorchSlot {
   active: boolean;
   hadMovers: boolean;
   needsDraw: boolean;
+  /** 最後に描いたときの 動く物の 位置・絵のコマの まぜた数（同じなら 描き直さない） */
+  sig: number;
 }
 
 interface Cascade {
@@ -82,6 +84,7 @@ const BIAS = new THREE.Matrix4().set(0.5, 0, 0, 0.5, 0, 0.5, 0, 0.5, 0, 0, 0.5, 
 const RAD2DEG = 180 / Math.PI;
 const TORCH_RADIUS = 10; // 光の とどく半径（ブロック）
 const TORCH_NEAR_MOVER = 11; // この中に動く物がいるコマだけ 描き直す
+const TORCH_FAR_MARGIN = 1; // 半径 11 + これより 遠い妖怪は 地図に描かない
 const TORCH_FIND = 16; // プレイヤーから これ以内の たいまつを さがす
 const TORCH_FIND_EVERY = 30;
 const TORCH_ENC = 12; // 地図に書く距離の 1.0 = 12 ブロック
@@ -137,7 +140,7 @@ export class ShadowSystem {
   private maxStatic = 0;
   private frameInfo = { staticRedrawn: [] as ('near' | 'far')[], draws: 0, triangles: 0 };
   // ---- たいまつ（段 2）
-  private readonly torches: TorchSlot[] = [0, 1].map(() => ({ rt: null, cam: null, pos: new THREE.Vector3(), key: -1, active: false, hadMovers: false, needsDraw: false }));
+  private readonly torches: TorchSlot[] = [0, 1].map(() => ({ rt: null, cam: null, pos: new THREE.Vector3(), key: -1, active: false, hadMovers: false, needsDraw: false, sig: 0 }));
   private torchDirty = true;
   private torchFrame = 0;
   private torchRedraws = 0;
@@ -145,6 +148,9 @@ export class ShadowSystem {
   private readonly torchDist: THREE.ShaderMaterial;
   private cardDist: THREE.Mesh | null = null;
   private readonly tmpMovers: THREE.Vector3[] = [];
+  /** 1 本の たいまつから 動く物（キャラ・妖怪）までの 距離（毎コマ使い回す） */
+  private readonly moverDist: number[] = [];
+  private readonly tmpColor = new THREE.Color();
   /** 影の強さを 0 にしたい（shadeAt の 1 回だけ影なし） */
   private forceOff = false;
 
@@ -466,6 +472,7 @@ void main() {
       this.findTorches(p, world);
     }
     let any = false;
+    let matricesFresh = false;
     const mv = this.collectMovers(p);
     for (let i = 0; i < 2; i++) {
       const t = this.torches[i]!;
@@ -475,14 +482,60 @@ void main() {
         continue;
       }
       any = true;
-      const dec = shouldRedrawTorch({ moverDistances: mv.map((m) => m.distanceTo(t.pos)), near: TORCH_NEAR_MOVER, hadMovers: t.hadMovers, needsDraw: t.needsDraw });
-      if (dec.redraw) this.drawTorch(t, p, force);
+      const md = this.moverDist;
+      md.length = mv.length;
+      for (let k = 0; k < mv.length; k++) md[k] = mv[k]!.distanceTo(t.pos);
+      const dec = shouldRedrawTorch({ moverDistances: md, near: TORCH_NEAR_MOVER, hadMovers: t.hadMovers, needsDraw: t.needsDraw });
+      let sig = 0;
+      if (dec.hasMovers) {
+        if (!matricesFresh) {
+          this.d.yokaiGroup.updateMatrixWorld(true);
+          matricesFresh = true;
+        }
+        sig = this.moverSignature(t, p, md);
+      }
+      // 動く物の 位置・絵のコマが 前に描いたときと同じなら 描き直さない
+      if (dec.redraw && (t.needsDraw || !dec.hasMovers || sig !== t.sig || !t.hadMovers)) {
+        this.drawTorch(t, p, force);
+        t.sig = sig;
+      }
       t.hadMovers = dec.hasMovers;
       t.needsDraw = false;
       uv.set(t.pos.x, t.pos.y, t.pos.z, 1);
       (i === 0 ? u.uShCubeA : u.uShCubeB).value = t.rt!.texture;
     }
     u.uShT.value.x = any ? 1 : 0;
+  }
+
+  /** 半径 11 以内の 動く物の 位置・向き・絵のコマを まぜた数（描き直すかの 見分け） */
+  private moverSignature(t: TorchSlot, p: { x: number; y: number; z: number }, dist: readonly number[]): number {
+    let h = 0;
+    h = hashStep(h, p.x);
+    h = hashStep(h, p.y);
+    h = hashStep(h, p.z);
+    h = hashStep(h, this.d.facing());
+    const sm = this.spriteMesh;
+    if (sm) {
+      const u = (sm.material as THREE.ShaderMaterial).uniforms;
+      const rect = u.uRect?.value as THREE.Vector4 | undefined;
+      const crop = u.uCrop?.value as THREE.Vector4 | undefined;
+      if (rect) h = hashStep(hashStep(hashStep(hashStep(h, rect.x), rect.y), rect.z), rect.w);
+      if (crop) h = hashStep(hashStep(hashStep(hashStep(h, crop.x), crop.y), crop.z), crop.w);
+    }
+    const kids = this.d.yokaiGroup.children;
+    for (let i = 0; i < kids.length; i++) {
+      if ((dist[i + 1] ?? Infinity) >= TORCH_NEAR_MOVER + TORCH_FAR_MARGIN) continue;
+      h = this.hashMatrices(kids[i]!, h);
+    }
+    void t;
+    return h;
+  }
+
+  private hashMatrices(o: THREE.Object3D, h: number): number {
+    const e = o.matrixWorld.elements;
+    for (let i = 0; i < 16; i++) h = hashStep(h, e[i]!);
+    for (let i = 0; i < o.children.length; i++) h = this.hashMatrices(o.children[i]!, h);
+    return h;
   }
 
   /** 動く物の位置: キャラと妖怪（いちばん上の子の位置） */
@@ -509,20 +562,16 @@ void main() {
         }
       }
     }
-    const found = pickNearestTorches(cands, p, TORCH_FIND).map((q) => ({ key: torchKey(q), x: q.x, y: q.y, z: q.z }));
-    // いまの場所に あるものは 同じ入れ物のまま、あいた入れ物に 新しいものを入れる
+    const found = pickNearestTorches(cands, p, TORCH_FIND);
     const slots = this.torches;
-    const taken = new Set<number>();
-    for (const t of slots) {
-      const f = found.find((q) => q.key === t.key);
-      if (f) taken.add(f.key);
-      else t.active = false;
-    }
-    for (const f of found) {
-      if (taken.has(f.key)) continue;
-      const t = slots.find((s) => !s.active) ?? slots[0]!;
-      t.key = f.key;
-      t.active = true;
+    const res = assignTorchSlots(slots, found.map((q) => torchKey(q)));
+    for (let i = 0; i < slots.length; i++) {
+      const t = slots[i]!;
+      const r = res[i]!;
+      t.key = r.key;
+      t.active = r.active;
+      if (!r.fresh) continue;
+      const f = found.find((q) => torchKey(q) === r.key)!;
       const c = torchCenter(f);
       t.pos.set(c.x, c.y, c.z);
       t.needsDraw = true;
@@ -534,13 +583,25 @@ void main() {
     }
   }
 
+  /** 妖怪 1 体ぶん: 光からの距離を書く材料にかえる（透明・うら面・光る部品は 描かない）。もとは yokaiSwap に のこす */
+  private swapForTorch(o: THREE.Object3D): void {
+    const m = o as THREE.Mesh;
+    if (m.isMesh) {
+      const mat = m.material as THREE.Material;
+      this.yokaiSwap.push([m, m.material, m.visible]);
+      if (Array.isArray(m.material) || mat.transparent || mat.side === THREE.BackSide || (mat as THREE.MeshBasicMaterial).fog === false) m.visible = false;
+      else m.material = this.torchDist;
+    }
+    for (let i = 0; i < o.children.length; i++) this.swapForTorch(o.children[i]!);
+  }
+
   /** 1 本の たいまつの キューブ地図を 描く: 光からの距離を 赤に（からは 1.0 = とても遠い） */
   private drawTorch(t: TorchSlot, p: { x: number; y: number; z: number }, force: boolean): void {
     const r = this.d.renderer;
     const cc = t.cam!;
     const prevTarget = r.getRenderTarget();
     const prevAuto = r.autoClear;
-    const prevClear = r.getClearColor(new THREE.Color());
+    const prevClear = r.getClearColor(this.tmpColor).getHex();
     const prevAlpha = r.getClearAlpha();
     cc.position.copy(t.pos);
     if (cc.coordinateSystem !== r.coordinateSystem) {
@@ -568,14 +629,18 @@ void main() {
     }
     const swapped = this.yokaiSwap;
     swapped.length = 0;
-    this.d.yokaiGroup.traverse((o) => {
-      const m = o as THREE.Mesh;
-      if (!m.isMesh) return;
-      const mat = m.material as THREE.Material;
-      swapped.push([m, m.material, m.visible]);
-      if (Array.isArray(m.material) || mat.transparent || mat.side === THREE.BackSide || (mat as THREE.MeshBasicMaterial).fog === false) m.visible = false;
-      else m.material = this.torchDist;
-    });
+    // 光から遠い妖怪は 描かない（moverDist[i + 1] = 子 i までの距離）
+    const kids = this.d.yokaiGroup.children;
+    for (let i = 0; i < kids.length; i++) {
+      const far = (this.moverDist[i + 1] ?? 0) >= TORCH_NEAR_MOVER + TORCH_FAR_MARGIN;
+      if (!far) this.swapForTorch(kids[i]!);
+    }
+    for (let i = 0; i < kids.length; i++) {
+      if ((this.moverDist[i + 1] ?? 0) >= TORCH_NEAR_MOVER + TORCH_FAR_MARGIN) {
+        swapped.push([kids[i] as THREE.Mesh, null as unknown as THREE.Material, kids[i]!.visible]);
+        kids[i]!.visible = false;
+      }
+    }
     let calls = 0;
     let triangles = 0;
     try {
@@ -596,7 +661,7 @@ void main() {
       }
     } finally {
       for (const [m, mat, vis] of swapped) {
-        m.material = mat;
+        if (mat) m.material = mat;
         m.visible = vis;
       }
       swapped.length = 0;
