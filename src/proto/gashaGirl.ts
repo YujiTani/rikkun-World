@@ -337,10 +337,14 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
   const smoke = new ParticlePool(400, false);
   scene.add(add.points, smoke.points);
   const glowTex = makeGlowTex(), ringTex = makeRingTex(), vortexTex = makeVortexTex();
-  const bladeTex = makeFlameTex('rgba(150,50,230,1)', 'rgba(220,130,255,1)', 'rgba(255,245,255,1)', 3);
+  const bladeTex = makeFlameTex('rgba(160,80,255,1)', 'rgba(200,150,255,1)', 'rgba(240,216,255,1)', 3);
   const flameTex = makeFlameTex('rgba(255,90,10,1)', 'rgba(255,200,60,1)', 'rgba(255,255,230,1)', 7);
   const basic = (map: CanvasTexture, color = 0xffffff, opacity = 1): MeshBasicMaterial => new MeshBasicMaterial({
     map, color, transparent: true, opacity, blending: AdditiveBlending, depthWrite: false, side: DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
+  });
+  /** 通常合成（重なっても 飽和しない） */
+  const basicN = (map: CanvasTexture, color = 0xffffff, opacity = 1): MeshBasicMaterial => new MeshBasicMaterial({
+    map, color, transparent: true, opacity, blending: NormalBlending, depthWrite: false, side: DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
   });
   const disc = new CircleGeometry(1, 48).rotateX(-Math.PI / 2);
   const plane = new PlaneGeometry(1, 1).translate(0, 0.5, 0);
@@ -363,12 +367,12 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
   const hurtPlayer = (from: { x: number; y: number; z: number }): boolean => { const ok = deps.hurt(T.damage.heart, from); if (ok) stats.hits++; return ok; };
 
   // ---- 魔法 1: 噴き出す（紫の 輪 → 炎の 刃）。輪は 3 つ ----
-  const bladeMat = basic(bladeTex, 0xc8a0ff, 0.35);
+  const bladeMat = basic(bladeTex, 0xffffff, 0.4);
   const makeEruption = () => {
     const E = { root: new Group(), t: -1, rad: 0, hitEnd: 0, count: 6, x: 0, y: 0, z: 0,
       blades: [] as { outer: Group; inner: Group; h: number; w: number; start: number; lean: number; ph: number }[] };
     scene.add(E.root);
-    const ringMat = basic(ringTex, 0xa040ff, 0), flashMat = basic(glowTex, 0xe8c8ff, 0);
+    const ringMat = basicN(ringTex, 0xa040ff, 0), flashMat = basicN(glowTex, 0xd0a0ff, 0); // 輪の 塗りと 閃光は 通常合成（3 つ 重なっても むらさきが 見える）
     const ring = flat(ringMat, E.root), flash = flat(flashMat, E.root);
     for (let i = 0; i < 12; i++) {
       const outer = new Group(); const inner = crossed(bladeMat, outer); outer.add(inner); E.root.add(outer); outer.visible = false;
@@ -396,10 +400,10 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
       E.rad = rad;
       ring.visible = true; ring.scale.set(rad, 1, rad);
       const hitOn = t < E.hitEnd; // 魔法陣が 出てから 炎が おわるまで 輪の 中は あぶない（ふちを 明るく ゆらす）
-      ringMat.opacity = Math.min(1, t / 0.25) * (hitOn ? 0.95 + 0.05 * Math.sin(t * 25) : 0.9) * (t > 1.4 ? 1 - (t - 1.4) / 0.8 : 1);
+      ringMat.opacity = 0.5 * Math.min(1, t / 0.25) * (hitOn ? 0.95 + 0.05 * Math.sin(t * 25) : 0.9) * (t > 1.4 ? 1 - (t - 1.4) / 0.8 : 1);
       ringMat.color.setHex(hitOn ? 0xe098ff : 0xa040ff);
       const fl = clamp01(1 - Math.abs(t - (T.s1.delaySec - 0.05)) / 0.2);
-      flash.visible = fl > 0; flash.scale.setScalar(1 + 3 * easeOut((t - 0.25) / 0.4)); flashMat.opacity = fl * 1.3;
+      flash.visible = fl > 0; flash.scale.setScalar(1 + 3 * easeOut((t - 0.25) / 0.4)); flashMat.opacity = fl * 0.5 / Math.max(1, T.s1.rings); // 閃光の 強さは 輪の 数で わる
       if (t < T.s1.delaySec) for (let k = 0; k < 4; k++) { // 火の粉が 内向きに あつまる
         const a = vr(0, Math.PI * 2), r = vr(T.s1.radius * 1.1, T.s1.radius * 1.3);
         add.emit(E.x + Math.cos(a) * r, E.y + vr(0, 0.5), E.z + Math.sin(a) * r, -Math.cos(a) * 8, 0.3, -Math.sin(a) * 8, 0.45, 0.14, 0.06, 0xf0e0ff, 0x9040e0);
