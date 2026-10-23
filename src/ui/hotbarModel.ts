@@ -45,3 +45,30 @@ export function gainedSlots(
 export function snapshotSlots(slots: ReadonlyArray<ItemStack | null>): Array<ItemStack | null> {
   return slots.map((s) => (s ? { item: s.item, count: s.count } : null));
 }
+
+/** #264: 休みの おおいを 出す マス（ratio = のこりの わり 0〜1、seconds = のこりの 秒。切り上げ） */
+export interface CooldownCell {
+  index: number;
+  ratio: number;
+  seconds: number;
+}
+
+/**
+ * #264: シャイニングの 休みの のこり（0〜1）を 出す マス。休みは プレイヤーに 1 つ なので、
+ * LoL の ように アイコンの 上に 円の おおい（時計まわりに へる）と のこりの 秒を 出す（yuzu 2026-10-23）。
+ * 休みの ある ためわざの 武器（cooldownOf が 数を 返す）が 入って いる マス 全部に 出す。休みでなければ 空。
+ */
+export function cooldownCells(
+  slots: ReadonlyArray<ItemStack | null>,
+  cooldownOf: (item: ItemId) => number | null | undefined,
+  left: number,
+): CooldownCell[] {
+  const out: CooldownCell[] = [];
+  if (!(left > 0)) return out;
+  for (let i = 0; i < HOTBAR_SIZE; i++) {
+    const s = slots[i];
+    const total = s && s.count > 0 ? cooldownOf(s.item) : null;
+    if (total && total > 0) out.push({ index: i, ratio: Math.min(1, left / total), seconds: Math.ceil(left / 60) });
+  }
+  return out;
+}
