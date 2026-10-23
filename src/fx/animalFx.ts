@@ -786,16 +786,14 @@ export class AnimalFx {
   }
 
   private one(e: AnimalEvent): void {
-    // LIVE-2.1: なげる／当たる（出来事 の 型 は 窓口 の 仕上げ で 契約 に 入る まで 文字 で 見る）
-    const kind = (e as { type: string }).type;
-    if (kind === 'toss') {
+    // LIVE-2.1: なげる／当たる
+    if (e.type === 'toss') {
       this.snd('toss');
       return;
     }
-    if (kind === 'bonk') {
+    if (e.type === 'bonk') {
       this.snd('bonk');
-      const b = e as unknown as { x: number; y: number; z: number };
-      if (this.motion() > 0) this.puff({ x: b.x, y: b.y - 0.2, z: b.z }, 2);
+      if (this.motion() > 0) this.puff({ x: e.x, y: e.y - 0.2, z: e.z }, 2);
       else this.counts.puff += 2;
       return;
     }

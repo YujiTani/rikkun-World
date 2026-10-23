@@ -1018,7 +1018,8 @@ export class DigSystemImpl implements DigSystem {
     const held = this.inventory.held()?.item ?? null;
     const holdingEgg = held === 'egg' || held === 'kin_tamago';
     if (!t || !isKotatsuBlock(t.id)) return { kit: null, holdingEgg };
-    return { kit: { x: t.block.x, y: t.block.y, z: t.block.z }, holdingEgg };
+    const a = kotatsuAnchorOf(t.id, t.block.x, t.block.z);
+    return { kit: { x: a.x, y: t.block.y, z: a.z }, holdingEgg };
   }
 
   /** 00 の 答え（照準 の 下 の 語・実行 が 同じ 判定）: なげる／なげられない／そっと おろす */

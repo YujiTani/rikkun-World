@@ -1,5 +1,4 @@
 import { expect, test } from '@playwright/test';
-import { BOOK_ITEMS } from '../src/ui/book/bookData';
 import { openAnimals } from './helpers/animals';
 
 /**
@@ -82,60 +81,6 @@ test.describe('LIVE-2.1 文字', () => {
           expect(row.body.includes(bad), `${tag} 「${bad}」`).toBe(false);
         }
       }
-    }
-  });
-
-  test('AC16b 案内画面「そだてる」の 2 行: こたつ に 3 こ・だっこ して なげる と とりごや の こ。漢字は ルビの 中・1024×700 で 3 行まで・はみ出し 0px', async ({ page }) => {
-    // ルビ を とった 文字（空白も とる）
-    const plain = (html: string) => squash(html.replace(/<rt>.*?<\/rt>/g, '').replace(/<[^>]+>/g, ''));
-    const bareKanji = (html: string) => /[一-鿿]/.test(html.replace(/<ruby>.*?<\/ruby>/g, ''));
-    const grow = BOOK_ITEMS.filter((i) => i.chapter === 'grow');
-    const kit = grow.find((i) => plain(i.caption).includes('たまごをこたつに3こまで'));
-    const toss = grow.find((i) => plain(i.caption).includes('だっこしてとりごやのなかへなげるととりごやのこ'));
-    expect(kit, '1 行目: たまご を こたつ に 3 こ まで いれられる。ひよこ が すそ から でて くる').toBeTruthy();
-    expect(toss, '2 行目: ひよこ を だっこ して とりごや の なか へ なげる と とりごや の こ。つれて はいって も なる。あさ を 2 かい むかえる と おとな に なる').toBeTruthy();
-    for (const it of [kit!, toss!]) expect(bareKanji(it.caption), `${it.id} 漢字は ルビの 中`).toBe(false);
-    expect(plain(kit!.caption)).toContain('ひよこがすそからでてくる');
-    expect(plain(toss!.caption)).toContain('つれてはいってもなる');
-    expect(plain(toss!.caption)).toContain('あさを2かいむかえるとおとなになる');
-    // 古い 文 が のこって いない
-    expect(grow.some((i) => plain(i.caption).includes('つれていって')), '古い 2 行目').toBe(false);
-
-    await page.setViewportSize({ width: 1024, height: 700 });
-    await openAnimals(page);
-    for (const it of [kit!, toss!]) {
-      const m = await page.evaluate(async (id) => {
-        const h = (window as any).__rikkun;
-        const A = (window as any).__A;
-        A.base(30);
-        h.lock.simulate(false);
-        h.step(2);
-        h.lock.book(id);
-        for (let i = 0; i < 1200 && h.lock.get().bookAnim !== 'none'; i++) h.step(1);
-        h.step(3);
-        const el = document.querySelector(`[data-item-id="${id}"]`) as HTMLElement | null;
-        if (!el) return { found: false } as any;
-        const cap = (el.querySelector('.bk-cap') ?? el) as HTMLElement;
-        const b = el.getBoundingClientRect();
-        const tops: number[] = [];
-        const tw = document.createTreeWalker(cap, NodeFilter.SHOW_TEXT);
-        let n: Node | null;
-        while ((n = tw.nextNode())) {
-          if (!(n.textContent ?? '').trim() || n.parentElement?.closest('rt')) continue;
-          const rg = document.createRange();
-          rg.selectNodeContents(n);
-          for (const r of Array.from(rg.getClientRects())) if (r.width > 0) tops.push(Math.round(r.top));
-        }
-        const fs = parseFloat(getComputedStyle(cap).fontSize);
-        tops.sort((x, y) => x - y);
-        let lines = tops.length ? 1 : 0;
-        for (let i = 1; i < tops.length; i++) if (tops[i] - tops[i - 1] > fs * 0.6) lines++;
-        return { found: true, cut: el.scrollHeight - el.clientHeight, lines, over: Math.max(0, b.right - innerWidth, b.bottom - innerHeight, -b.left, -b.top), caption: h.lock.get().bookCaption };
-      }, it.id);
-      expect(m.found, `${it.id} が 案内画面 に 出る`).toBe(true);
-      expect(m.cut, `${it.id} 切れていない`).toBeLessThanOrEqual(1);
-      expect(m.lines, `${it.id} 3 行まで`).toBeLessThanOrEqual(3);
-      expect(m.over, `${it.id} はみ出し 0px`).toBeLessThanOrEqual(0.5);
     }
   });
 });

@@ -79,7 +79,9 @@ import { markUrl } from './ui/medalArt';
 import { itemIconUrl } from './ui/itemIcon';
 import { DropField } from './drops';
 import { createAnimalManager } from './animals';
-import { coopBlocks } from './animals/coop';
+import { coopBlocks, coopPlan } from './animals/coop';
+import { applyFlatten } from './world/flatten';
+import { kitIconsFor, type KitIconRow } from './animals/models/kitIcons';
 import { AnimalFx } from './fx/animalFx';
 import { AnimalRenderer, ViewBuffer } from './animals/models/AnimalRenderer';
 import { AnimalHint } from './ui/animalHint';
@@ -554,6 +556,8 @@ const drops = new DropField({
   onPickup: (item, count, fromYokai) => onDropPicked(item, count, fromYokai),
 });
 let yokaiManager: YokaiManager | null = null;
+/** 置いて たいら に した 足もと の 列（土けむり。次 の ステップ で AnimalFx へ） */
+const pendingDust: Array<{ x: number; y: number; z: number }> = [];
 // LIVE-1（にわとり）: 設定 18 こ（settings から変えたら すぐ効く）としくみ。たまごは 落ちた アイテム にする
 const live = createLiveSettings();
 const animals = createAnimalManager({
@@ -579,7 +583,12 @@ const animals = createAnimalManager({
     placeCoopBlocks: (x, y, z, dir) => {
       const list = coopBlocks(x, y, z, dir);
       for (const b of list) if (!world.isLoaded(b.x, b.z)) return false;
+      // LIVE-2.1 §2.1: 足もと を たいら に（消す・うめる）してから 小屋 を 置く
+      const plan = coopPlan(world, x, y, z);
+      if (!plan) return false;
+      applyFlatten(plan, (px, py, pz, block) => world.setBlock(px, py, pz, block));
       for (const b of list) world.setBlock(b.x, b.y, b.z, b.block);
+      pendingDust.push(...plan.dust);
       return true;
     },
     removeCoopBlocks: (x, y, z, dir) => {
@@ -984,7 +993,19 @@ function deliverAnimalEvents(): void {
   for (const e of ev) animalEvents.push(e);
   if (animalEvents.length > 512) animalEvents.splice(0, animalEvents.length - 512);
 }
+/** こたつ の 天板 の 3 わく（描く のも 窓口 fx().kitIcons も 同じ 物） */
+function currentKitRows(): KitIconRow[] {
+  const aim = dig.aimedKit();
+  const rows = animals.kits() as unknown as Array<{ x: number; y: number; z: number; size?: 1 | 2; eggs: Array<{ egg: 'egg' | 'gold'; left: number }> }>;
+  if (aim.kit && aim.holdingEgg && !rows.some((k) => k.x === aim.kit!.x && k.y === aim.kit!.y && k.z === aim.kit!.z) && String(world.getBlock(aim.kit.x, aim.kit.y, aim.kit.z)) === 'nukunuku') {
+    rows.push({ x: aim.kit.x, y: aim.kit.y, z: aim.kit.z, size: world.getBlock(aim.kit.x + 1, aim.kit.y, aim.kit.z) === 'nukunuku_e' ? 2 : 1, eggs: [] });
+  }
+  const p = controller.state.position;
+  return kitIconsFor(rows, { eye: { x: p.x, z: p.z }, total: live.kitHatchTicks, aim: aim.kit ? { x: aim.kit.x, z: aim.kit.z, holdingEgg: aim.holdingEgg } : null });
+}
 game.onBeforeRender(() => {
+  animalRenderer.setKitIcons(currentKitRows());
+  animalRenderer.setThrowSpot(animals.throwSpot(dig.throwAim()));
   animalRenderer.setCoopGhost(dig.coopGhost());
   animalRenderer.setKitGhost(dig.kotatsuGhost());
   animalRenderer.update(animalViews.fill(animals), game.camera);
@@ -1705,6 +1726,13 @@ game.onUpdate((dt) => {
     const kitRows = animals.kits();
     const coopRows = animals.coops();
     animalFx.step(animalViews.fill(animals), controller.state.position, kitRows, coopRows);
+    // 置いて たいら に した 足もと の 土けむり（とりごや は placeCoopBlocks、こたつ は DigSystem が ためる）
+    const dust = dig.takeFlattenDust();
+    if (pendingDust.length > 0) {
+      dust.push(...pendingDust);
+      pendingDust.length = 0;
+    }
+    if (dust.length > 0) animalFx.flattenDust(dust);
     // こたつ に たまご を 入れた・小屋 を 置いた 音（数 が ふえた とき）
     const nKit = kitRows.length;
     const nCoop = coopRows.length;
@@ -2213,8 +2241,7 @@ installTestHook(game, overlay, () => host.everReady, {
     },
     // LIVE-2.1 §6.2: こたつ の 3 わく・小屋 の 子 の 大きな しるし・こたつ の 中 の たまご の 3D の 物（いつも 0）・土けむり。絵 を 描く 側 が 同じ 名前 で 持って いれば そちら が 優先
     fx: () => {
-      const aim = dig.aimedKit();
-      return { kitIcons: animals.kitIcons(aim.kit, aim.holdingEgg), kitEggMeshes: 0, homePop: animals.homePop(), dust: 0, ...animalFx.fx() };
+      return { kitIcons: currentKitRows(), kitEggMeshes: 0, homePop: animals.homePop(), dust: 0, ...animalFx.fx() };
     },
     fxReset: () => animalFx.fxReset(),
     // 今 チップに出ている合図（120 ステップで消える。消えたら null）
