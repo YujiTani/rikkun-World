@@ -274,6 +274,7 @@ test.describe('WEAPON-4 通し', () => {
         if (e) hit = { f: h.blade.state().frame, damage: e.damage, knock: e.knock, up: e.up, pos: { ...get().position } };
         else {
           h.step(1);
+          while (h.impact && h.impact.stopLeft() > 0) h.step(1); // #276 止まりは 数えない
           f++;
         }
       }

@@ -42,6 +42,8 @@ function artOf(d: AchievementDef): ItemId | 'droplet' | 'heart' | 'chicken' | nu
   if (s === 'craft:weapons') return 'katana';
   if (s === 'craft:armors') return 'yoroi';
   if (s === 'craft:everything') return 'furnace';
+  if (s === 'craft:kinKinds') return 'kin_katana';
+  if (s === 'obtainRarity:epic') return 'kin';
   if (s === 'wearAll') return 'kabuto';
   if (s === 'arrowShot' || s === 'arrowHit') return 'ya';
   if (s === 'bagBack') return 'cloth';
@@ -181,8 +183,17 @@ export class AchievementsPage {
     this.renderedCategory = ui.category;
     this.list.replaceChildren();
     const byId = new Map(ACHIEVEMENT_DEFS.map((d) => [d.id, d]));
+    let legacyHead = false;
     for (const r of ui.rows) {
       const def = byId.get(r.id)!;
+      if (r.legacy && !legacyHead) {
+        // COUNTRY-1 §5.2: 取った むかしの ばしょ（いちばん下）
+        legacyHead = true;
+        const head = document.createElement('div');
+        head.className = 'ach-legacy-head';
+        head.textContent = 'むかしの ばしょ';
+        this.list.append(head);
+      }
       const row = document.createElement('div');
       row.className = 'rk-card ach-row';
       row.dataset.id = r.id;

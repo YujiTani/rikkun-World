@@ -136,3 +136,12 @@
   top: 0;
   left: var(--rk-sp-2);
 }
+
+/* COUNTRY-1 §5.2: 取った むかしの ばしょ（いちばん下。2 列を またぐ 見出し） */
+.ach-legacy-head {
+  grid-column: 1 / -1;
+  font-size: var(--rk-fs-small);
+  font-weight: 800;
+  color: var(--rk-text-sub);
+  padding-top: var(--rk-sp-2);
+}

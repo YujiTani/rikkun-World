@@ -5,6 +5,7 @@ import type { Page } from '@playwright/test';
  *   __biomeT.goToPoint({x,z})  同じことを 点で（FLORA-75）。
  *   __biomeT.goTo(kind)   biome.find(kind) の点へ キャラを運び、その列が読みこまれるまで step し、地面の上に立たせる。
  *                         返すのは { point, loaded, here }（here = biome.here() の kind）。
+ * COUNTRY-1（#291）: 準備で `biome.quiet(true)`（しずかモード）にする。「入った」の判定を 見る テストは 自分で `quiet(false)` に もどす。
  * 場所・高さは ゲームに聞く（決め打ちしない）。待つのは step の数で、時間（ms）では待たない。
  */
 export async function openBiome(page: Page, query = '?nosave=1'): Promise<void> {
@@ -13,6 +14,8 @@ export async function openBiome(page: Page, query = '?nosave=1'): Promise<void> 
   await page.evaluate(() => {
     const h = (window as any).__rikkun;
     h.achievements.mute(true);
+    // COUNTRY-1 §4.3: 国へ運んでも「入った」の判定をしない（実績・音・おしらせが ふえない）。実装の前は 口が無いので ?. で読む
+    h.biome.quiet?.(true);
     h.pause();
     h.lock.simulate(true);
     h.input.releaseAll();

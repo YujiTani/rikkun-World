@@ -69,6 +69,7 @@ import { Book } from './ui/book/Book';
 import { playBook } from './fx/bookSounds';
 import { SEA_Y, WORLD_HEIGHT, WORLD_LIMIT, createM6Settings, createM7Settings, createW2Settings, SEED_ITEM, VEG_ITEM, CROP_KINDS, cropKindOfBlock, type FarmPlacement, type AchievementId, type CombatEvent, type DefeatWith, type DigEvent, type ItemId, type SwingAnim, type YokaiKind } from './contracts';
 import { ACHIEVEMENT_DEFS, AchievementSystem, AchievementsPageModel, createAchievementsHook, type StepContext } from './achievements';
+import { CountryWatch } from './achievements/countryWatch';
 import { CelebrateUi } from './ui/celebrate';
 import { AchievementsPage, achievementArtUrl } from './ui/achievementsPage';
 import { StorageSystem } from './storage/StorageSystem';
@@ -86,6 +87,7 @@ import { CLOCK_PHASES, type ClockPhases } from './ui/clockModel';
 import { markUrl } from './ui/medalArt';
 import { itemIconUrl } from './ui/itemIcon';
 import { DropField } from './drops';
+import { createHarapanRoll } from './drops/harapan';
 import { createAnimalManager } from './animals';
 import { coopBlocks, coopPlan } from './animals/coop';
 import { ringSeen } from './animals/models/throwRing';
@@ -93,6 +95,7 @@ import { applyFlatten } from './world/flatten';
 import { kitIconsFor, type KitIconRow } from './animals/models/kitIcons';
 import { AnimalFx } from './fx/animalFx';
 import { AnimalRenderer, ViewBuffer } from './animals/models/AnimalRenderer';
+import { NatsukiPanel } from './ui/natsukiPanel';
 import { AnimalHint } from './ui/animalHint';
 import { Itadakimasu } from './ui/itadakimasu';
 import { CoopMenu } from './ui/coopMenu';
@@ -111,6 +114,7 @@ import { MachoMarks } from './ui/machoMarks';
 import { actionHintLines } from './ui/actionHintModel';
 import { createRng } from './world/gen/random';
 import { FX_SETTINGS } from './fx/config';
+import { ImpactBus, impactOf } from './fx/impact';
 import { drainSounds } from './fx/soundLog';
 import { createBrowserTitleSound } from './fx/titleSound';
 import { SoundFx } from './fx/sound';
@@ -154,6 +158,8 @@ import { PlayOverlay } from './ui/playOverlay';
 import { ArrayVoxelWorld } from './world/VoxelWorld';
 import { GEN_CONFIG } from './world/gen/config';
 import { createBiomeHook } from './world/gen/biomeHook';
+import { heightAt as genHeightAt } from './world/gen/terrain';
+import { peakNear } from './world/gen/peak';
 import { installMicroCountries } from './world/gen/microCountry';
 import { createWorldHook } from './world/hook';
 import { WorldRenderer } from './world/render/WorldRenderer';
@@ -420,6 +426,17 @@ const startPoint = () => {
 };
 const controller = new PlayerController(world, game.input, look, lock, startPoint);
 // CHAR-1 第 5 版: 一人称（V）はなくなった。CameraRig は受け取るだけの ActionState を使う
+// #276 手ごたえ: ヒットストップと 画面の ゆれ（ゆれは FX_SETTINGS.fxShake が 0 なら なし）
+const impactBus = new ImpactBus({
+  stop: (n) => game.hitStop(n),
+  shake: (a) => {
+    if (FX_SETTINGS.fxShake) rig.addTrauma(a);
+  },
+  tick: () => game.tick,
+});
+/** シャイニングの ドーム: 始めてから まだ 当たって いない（最初の 当たりだけ 大） */
+let domeFirstHit = true;
+const titleOfYokai = (id: number) => yokaiManager?.list().find((q) => q.id === id)?.title ?? 'none';
 const rig = new CameraRig(game.camera, game.scene, world, () => controller.state, game.input);
 lighting.registerTree(rig.doll.group, 'doll');
 // キャラは 8 方向のドット絵の板。?char=block のときだけ 箱人形（描画回数を比べるため）
@@ -573,6 +590,8 @@ let yokaiManager: YokaiManager | null = null;
 const pendingDust: Array<{ x: number; y: number; z: number }> = [];
 // LIVE-1（にわとり）: 設定 18 こ（settings から変えたら すぐ効く）としくみ。たまごは 落ちた アイテム にする
 const live = createLiveSettings();
+// GOLD-1 §4.7: はらぱんみみず の おとしもの の くじ（シード 付き・べつ の 流れ）
+const harapanRoll = createHarapanRoll(seed, () => live);
 const animals = createAnimalManager({
   world,
   getPlayer: () => controller.state,
@@ -903,6 +922,7 @@ const dig = new DigSystemImpl(
     scatterItem: (pos, item, count) => {
       drops.scatter(pos, [{ item, count }]);
     },
+    harapan: (id, y) => harapanRoll.block(id, y),
     farm,
     water: createWatering({ farm, inventory, settings: m7, tick: () => game.tick }),
     bucket: createBucket({ inventory, emit: (e) => farm.emit(e), tick: () => game.tick }),
@@ -992,6 +1012,9 @@ yokaiManager = new YokaiManager({
   drops,
   tick: () => game.tick + 1,
   seed,
+  // COUNTRY-1 §3.3: 妖怪の 種類は その場所の 国の行で えらぶ
+  countryOf: (x, z) => countryAt(seed, Math.floor(x), Math.floor(z)).kind,
+  harapan: (y) => harapanRoll.yokai(y),
   strength: strengthLevel,
   light: renderer.light,
   // 出る場所は 描く輪の メッシュずみの列だけ（VOX-D）
@@ -1058,6 +1081,7 @@ function deliverAnimalEvents(): void {
   }
   animalFx.onEvents(ev);
   animalHint.feed(ev);
+  natsukiPanel.onEvents(ev, dig.animalTarget());
   achievements.feedAnimals(ev);
   // LIVE-3: 持ち物 に 入った なま もも にく を 拾った ログ に（足もと に おちた 分 は おとしもの として 拾った とき に）
   for (const e of ev) if (e.type === 'meat' && e.count - e.dropped > 0) onDropPicked('momo_nama', e.count - e.dropped, false);
@@ -1228,6 +1252,7 @@ const fx = new DigFx({
 });
 const farmHint = new FarmHint(hud);
 const animalHint = new AnimalHint(hud);
+const natsukiPanel = new NatsukiPanel(hud);
 // LIVE-3: いのち を いただきます の 一言 と、とりごや の メニュー（3 ページ）
 const itadakimasu = new Itadakimasu(hud);
 const coopMenu = new CoopMenu(hud, {
@@ -1306,6 +1331,9 @@ const combatFx = new CombatFx({
   clock: combatUi.clock,
   titleSound,
   onPickup: (item, count) => hotbar.pickup(item, count),
+  // #276: パンチが 当たった・妖怪を たおした
+  onPunchHit: (id) => impactBus.hit(impactOf({ kind: 'punch', title: titleOfYokai(id) })),
+  onDefeat: () => impactBus.hit(impactOf({ kind: 'defeat' })),
 });
 
 const arrowRelay = new EventRelay<import('./contracts').BowEvent>();
@@ -1326,7 +1354,6 @@ const weaponFx = new WeaponFx({
   // CHAR-4: 刃の軌跡は 体（当たり判定の 足もと）の そのステップの おわりの 位置と カメラから 作る
   body: () => controller.state.position,
   camera: game.camera,
-  shakeEl: game.renderer.domElement,
   onWear: (e) => achievements.feedWear(e),
   onBlade: (e) => achievements.feedBlade(e),
   // WEAPON-7: ふつうの わざに 雷の「ビシューン」を 重ねる（ダメージは かえない）
@@ -1344,6 +1371,8 @@ const weaponFx = new WeaponFx({
   },
   // 当たった 妖怪 1 体ごとに 白い 火花
   onTechHit: (item, e) => {
+    // #276 ヒットストップ・画面の ゆれ（1 ステップに 一番 強い 1 回）
+    impactBus.hit(impactOf({ kind: 'tech', tech: e.tech, step: e.step, title: titleOfYokai(e.yokaiId) }));
     if (!item || !LEGEND_FX_ITEMS.has(item)) return;
     // 当たった 妖怪の 胸（足もと + 背の 6 割）に 火花を 出す
     const yk = yokaiManager?.list().find((q) => q.id === e.yokaiId);
@@ -1374,11 +1403,21 @@ const weaponFx = new WeaponFx({
 // ---- M6: 実績・演出・たんす画面・説明 ----
 const achievements = new AchievementSystem(() => m6);
 achievementsRef = achievements;
+// COUNTRY-1 §4.1: 「国に入った」の 判定（まん中寄りに 180 コマ・地下は 数えない）。入ったら 実績の係へ
+const countryWatch = new CountryWatch({
+  at: (x, z) => countryAt(seed, x, z),
+  heightAt: (x, z) => genHeightAt(seed, x, z),
+  blend: GEN_CONFIG.biome.blend,
+  onEnter: (kind) => {
+    achievements.enterCountry(kind, false);
+  },
+});
 // WEAPON-7: 手に 入れた ことの ある レジェンダリー（もちものに 入った とき。袋を ひろう・テストの add も）。実績 get.* と legend.kinds へ
 const legendBook = new LegendBook((item) => w2.legendary.some((d) => d.item === item));
 inventory.onAdded = (item) => {
   const r = legendBook.add(item);
   if (r) achievements.feedLegend(item, r.kinds);
+  achievements.feedRarity(itemRarity(item));
 };
 // M7-2: キラキラ・ハート（C）・しずく（A）・しぶき（B）
 const eyePos = { x: 0, y: 0, z: 0 };
@@ -1562,6 +1601,9 @@ time.onPhaseChange((p) => achievements.feedPhase(p));
 const defeatWith = (): DefeatWith => {
   const h = inventory.held()?.item;
   if (h === 'bokuto' || h === 'katana' || h === 'naginata' || h === 'crystal_katana' || h === 'yumi') return h;
+  if (h === 'kin_yumi') return 'yumi'; // GOLD-1: きんの 装備 は 実績 の 表 に 武器別 の 行 を 足さず、てつ と 同じ あつかい
+  if (h === 'kin_katana') return 'katana';
+  if (h === 'kin_pickaxe' || h === 'kin_axe') return 'pickaxe';
   if (h === 'raijin_ken' || h === 'fujin_ken' || h === 'niji') return 'katana'; // WEAPON-7: 雷神剣で たおした ときは「かたな」と 同じ あつかい（実績の 表に 武器別の 行は 足さない）
   if (h === 'wood_pickaxe' || h === 'stone_pickaxe' || h === 'iron_pickaxe' || h === 'wood_axe' || h === 'stone_axe' || h === 'iron_axe') return 'pickaxe';
   return 'hand';
@@ -1596,7 +1638,13 @@ const save = new SaveManager({
   level: { serialize: () => level.serialize(), deserialize: (d) => level.deserialize(d) },
   // たんすは ブロックの復元のあとに（SaveManager が その順で呼ぶ）
   storage: { serialize: () => storage.serialize(), deserialize: (d) => storage.deserialize(d) },
-  achievements: { serialize: () => achievements.serialize(), deserialize: (d) => achievements.deserialize(d) },
+  achievements: {
+    serialize: () => achievements.serialize(),
+    deserialize: (d) => {
+      achievements.deserialize(d);
+      countryWatch.reset(); // ロードした直後は 今の国 なし（もう一度 180 コマで 決まる）
+    },
+  },
   animals: {
     // LIVE-3 §4.4: 演出 中 の 子 は その場 で おわらせて から 保存（にく は 持ち物 へ。出来事 は すぐ 配る）
     prepare: () => {
@@ -1813,7 +1861,9 @@ const ctx: StepContext = {
   level: 1,
   armor: [null, null, null, null],
   regions: null,
+  peak: null,
 };
+let peakKey = NaN;
 let yokaiSample: StepContext['yokai'] = [];
 const regions = island.regions();
 const armorNow: (ItemId | null)[] = [null, null, null, null];
@@ -1841,7 +1891,17 @@ function updateAchievements(): void {
   armorNow[3] = armor.equipped('legs');
   ctx.armor = armorNow;
   ctx.regions = regions;
-  if (!achMuted) achievements.update(ctx);
+  // COUNTRY-1 §5.2: てっぺん の 判定の もと（16 ブロックの 升目が かわったときだけ 計算しなおす）
+  const pk = Math.floor(st.position.x / 16) * 100003 + Math.floor(st.position.z / 16);
+  if (pk !== peakKey) {
+    peakKey = pk;
+    ctx.peak = peakNear(seed, Math.floor(st.position.x), Math.floor(st.position.z));
+  }
+  if (!achMuted) {
+    achievements.update(ctx);
+    // COUNTRY-1 §4.1: やられた画面の 間は 数えない（止まっている 間は screenSteps = 0）
+    countryWatch.step(st.position, ctx.dead ? 0 : ctx.screenSteps);
+  }
   celebrate.setPending(achievements.pendingCount());
 }
 
@@ -1950,7 +2010,7 @@ game.onUpdate((dt) => {
     if ((bs.move !== null && bs.frame === 1) || parry.startedNow() || lstrike?.F === 1) st.velocity.x = st.velocity.z = 0;
     const bowPose = tools.bow().state();
     const held = inventory.held()?.item ?? null;
-    const weapon = bs.item !== null ? 'katana' : held === 'yumi' ? 'bow' : 'none';
+    const weapon = bs.item !== null ? 'katana' : held === 'yumi' || held === 'kin_yumi' ? 'bow' : 'none';
     sprite?.step({
       position: st.position,
       velocity: st.velocity,
@@ -2043,6 +2103,7 @@ game.onUpdate((dt) => {
   for (const e of arrowEvents) {
     if (e.type === 'noArrow') notice.showSignal('noArrow');
     else if (e.type === 'arrowHit') {
+      impactBus.hit(impactOf({ kind: 'arrow', title: titleOfYokai(e.yokaiId) }));
       playCombat(fxSound, 'hit');
       achievements.feedArrow('hit');
     } else if (e.type === 'arrowShot') achievements.feedArrow('shot');
@@ -2071,6 +2132,14 @@ game.onUpdate((dt) => {
     for (const e of evs) {
       thunderFx.onEvent(e);
       windWaveFx.onEvent(e);
+      if (e.type === 'lightningStrike' && e.hits.length > 0) impactBus.hit(impactOf({ kind: 'charged' }));
+      // シャイニングの ドーム: 始めてから 最初の 当たりだけ 大。2 回目からは 止めなし（ゆれは 中の 量）
+      if (e.type === 'waveHit' || e.type === 'spiralHit') impactBus.hit(impactOf({ kind: 'repeat' })); // 真空波・らせん: 止めなし
+      if (e.type === 'shiningStart') domeFirstHit = true;
+      if (e.type === 'domeHit') {
+        impactBus.hit(impactOf({ kind: domeFirstHit ? 'charged' : 'repeat' }));
+        domeFirstHit = false;
+      }
       if (e.type === 'lightningStrike') {
         for (const id of e.hits) {
           const y = yokaiM.list().find((q) => q.id === id);
@@ -2163,6 +2232,11 @@ game.onUpdate((dt) => {
   }
   yokaiNameplates.update(screen.mode() === 'play' ? yokaiM.nameplates(plateBuf) : NO_PLATES, game.camera);
   staggerIcons.update(yokaiM.staggerIcons(stagIconBuf), game.camera, screen.mode() === 'play');
+  {
+    // GOLD-1: なかよし パネル（なかま の 大人 を ねらって いる あいだ。案内 と 同じ とき）
+    const tid = hintVisible() ? dig.animalTarget() : null;
+    natsukiPanel.update(tid === null ? null : animals.natsukiView(tid));
+  }
   actionHint.update(hintVisible() ? actionHintLines(dig.previewRightClick(), dig.previewLeftClick(), { carryProgress: dig.carryProgress(), carrying: animals.carrying() !== null, held: tools.current().item, heldIsPickaxe: tools.current().kind === 'pickaxe', heldIsBlade: tools.current().kind === 'blade' }) : {});
   farmHint.step();
   {
@@ -2195,7 +2269,11 @@ game.onUpdate((dt) => {
   const pp = controller.state.position;
   renderer.update({ x: pp.x, z: pp.z });
   save.update(game.tick + 1);
+  // #276: このステップの 当たりを まとめて 1 回（ヒットストップ・画面の ゆれ）
+  impactBus.flush();
 });
+// ヒットストップで 世界が 止まっている 間も カメラの ゆれだけは 動く
+game.onFrozenUpdate((dt) => rig.updateFrozen(dt));
 game.onUpdate((dt) => overlay.update(dt));
 // 案内画面で止まっている間も 読みこみは進める（B3）
 // count の時計（E2E のサーバー）: そろって いまの中心のまわりも そろったら、止めている間は進めない
@@ -2305,7 +2383,16 @@ installTestHook(game, overlay, () => host.everReady, {
     renderNow: () => game.renderNow(),
     setEnabled: setShadow,
   }),
-  biome: createBiomeHook({ seed, player: () => controller.state.position }),
+  biome: createBiomeHook({
+    seed,
+    player: () => controller.state.position,
+    countries: {
+      found: () => achievements.found(),
+      setFound: (kinds) => achievements.setFound(kinds),
+      current: () => countryWatch.current(),
+      quiet: (on) => countryWatch.quiet(on),
+    },
+  }),
   world: createWorldHook(world, renderer, island, {
     teleport: (x, z) => host.goTo({ x, y: null, z }, true),
     stream: () => host.info(),
@@ -2397,6 +2484,11 @@ installTestHook(game, overlay, () => host.everReady, {
     events: () => [...combatHook.events(), ...toolHook.arrowEvents()],
   } as unknown as TestHookGroups['combat'],
   ...logHook,
+  impact: {
+    stopLeft: () => game.hitStopLeft(),
+    trauma: () => rig.traumaNow(),
+    log: () => impactBus.log.map((l) => ({ ...l })),
+  },
   ui: { coopMenu: () => coopMenu.model.info(), coopMenuPress: (button: string, id?: number) => coopMenu.press(button as never, id), meatText: () => itadakimasu.text(), alpha: () => uiAlpha(), topBand: () => celebrate.topBand(), buffs: () => buffModel.list().map((b) => ({ ...b })) },
   craft: {
     ...craftHook,
@@ -2453,6 +2545,8 @@ installTestHook(game, overlay, () => host.everReady, {
   animals: {
     spawn: (x, y, z, opts) => animals.spawn(x, y, z, opts),
     list: () => animals.list(),
+    // GOLD-1 §6: なかよし パネル の 状態（`shown`・`hearts`・`gold`・`bugReady`・`petReady`）
+    natsukiView: (id) => animals.natsukiView(id),
     clear: () => animals.clear(),
     trySpawn: () => animals.trySpawn(),
     target: () => dig.animalTarget(),

@@ -82,7 +82,7 @@ async function open(page: Page, query = '?nosave=1') {
 }
 
 test.describe('BUCKET-1 バケツ', () => {
-  test('AC2 つくる: カード 36（LIVE-1 版 3 で mushi_ami・LIVE-2 で nukunuku・toriya が いちばん うしろに ふえた）・29 まい目 bucket（28 まい目 sprinkler）・てつ 3 で 1 こ・craft:bucket 1', async ({ page }) => {
+  test('AC2 つくる: カード 44（LIVE-1 版 3 で mushi_ami・LIVE-2 で nukunuku・toriya が ふえ、GOLD-1 で きんの そうび 8 こが いちばん うしろに ふえた）・29 まい目 bucket（28 まい目 sprinkler）・てつ 3 で 1 こ・craft:bucket 1', async ({ page }) => {
     await open(page);
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
@@ -108,11 +108,12 @@ test.describe('BUCKET-1 バケツ', () => {
         stat: h.achievements.stats()['craft:bucket'] ?? 0,
       };
     });
-    expect(r.cards).toBe(36);
+    expect(r.cards).toBe(44);
     expect(r.at29).toBe('bucket');
     expect(r.at28).toBe('sprinkler');
-    expect(r.after).toHaveLength(7);
-    expect(r.after.slice(-3), 'いちばん うしろは むしとりあみ・こたつ・とりごや').toEqual(['mushi_ami', 'nukunuku', 'toriya']);
+    expect(r.after).toHaveLength(15);
+    expect(r.after.slice(-11, -8), 'きんの そうびの まえは むしとりあみ・こたつ・とりごや').toEqual(['mushi_ami', 'nukunuku', 'toriya']);
+    expect(r.after.slice(-8), 'いちばん うしろは きんの そうび 8 こ（GOLD-1 §4.2 の 順）').toEqual(['kin_katana', 'kin_yumi', 'kin_pickaxe', 'kin_axe', 'kin_kabuto', 'kin_yoroi', 'kin_kote', 'kin_suneate']);
     expect(r.bucket).toBe(1);
     expect(r.iron).toBe(0);
     expect(r.stat).toBe(1);

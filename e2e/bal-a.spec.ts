@@ -76,6 +76,7 @@ test.describe('BAL-A 強さの数と式', () => {
         h.step(1);
         h.input.release('primary');
         h.step(29); // 押してから 30 ステップ目に当たる
+        while (h.impact && h.impact.stopLeft() > 0) h.step(1); // #276 ヒットストップの 止まりは 数えない
         const y = T.one(id);
         out.hp.push(y?.hp);
         out.state.push(y?.state);

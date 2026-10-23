@@ -122,7 +122,11 @@ export class BlockDoll {
   private weaponBow: BowPose | null = null;
   private readonly bladeTmp: BladePose = newBladePose();
   private readonly bowTmp: BowDollPose = { rx: 0, rz: 0, lx: 0, lz: 0, twist: 0 };
-  private bowModel: BendableBow | null = null;
+  /** しなる ゆみ（ゆみ・きんの ゆみ ごと。持って いる ほう だけ しなる） */
+  private readonly bowModels = new Map<string, BendableBow>();
+  private get bowModel(): BendableBow | null {
+    return this.held !== null ? (this.bowModels.get(this.held) ?? null) : null;
+  }
   /** 一人称で道具を置く「カメラの座標」の入れ物（行列は毎回 camera から作る） */
   private readonly fpRoot = new THREE.Group();
   private readonly fpHandL = new THREE.Mesh(UNIT_BOX, mat(DOLL_COLORS.skin));
@@ -318,9 +322,10 @@ export class BlockDoll {
     if (hasHeldModel(item)) {
       let m = this.heldModels.get(item);
       if (!m) {
-        if (item === 'yumi') {
-          this.bowModel = createBendableBow();
-          m = this.bowModel.group;
+        if (item === 'yumi' || item === 'kin_yumi') {
+          const bow = createBendableBow(item === 'kin_yumi');
+          this.bowModels.set(item, bow);
+          m = bow.group;
         } else m = buildHeldModel(item)!;
         m.position.copy(this.heldMesh.position);
         m.position.y += 0.04;
@@ -509,7 +514,7 @@ export class BlockDoll {
     const body = this.animator.bodyPose(this.bodyPoseTmp);
     const free = !LOCKING_ANIMS.includes(this.animator.armAnim);
     const bladeOn = free && this.weaponBlade !== null && this.weaponBlade.item !== null;
-    const bowOn = !bladeOn && free && this.weaponBow !== null && this.held === 'yumi' && bowActive(this.weaponBow);
+    const bowOn = !bladeOn && free && this.weaponBow !== null && (this.held === 'yumi' || this.held === 'kin_yumi') && bowActive(this.weaponBow);
     const third = this.mode !== 'first';
     const lh = DOLL_SIZES.leg[1];
 
@@ -558,7 +563,7 @@ export class BlockDoll {
       rBase = (this.held !== null ? HELD_ARM_RAISE_FIRST_DEG : HELD_ARM_RAISE_FIRST_DEG * 0.6) + pitchDeg;
     } else {
       rBase = swing * (this.held !== null ? 0.3 : 1) + (this.held !== null ? HELD_ARM_RAISE_THIRD_DEG : 0);
-      if (this.held === 'yumi') lBase = DOLL_ANIM.bowLeftRaiseDeg;
+      if (this.held === 'yumi' || this.held === 'kin_yumi') lBase = DOLL_ANIM.bowLeftRaiseDeg;
     }
     const addSign = first ? -1 : 1;
     const drop = first ? body.firstDrop : 0;
@@ -633,7 +638,7 @@ export class BlockDoll {
     }
     this.lastBowStage = this.weaponBow ? this.weaponBow.stage : 0;
     // 弓のしなり（三人称。一人称は placeFirstPerson）
-    if (this.bowModel && this.held === 'yumi') {
+    if (this.bowModel && (this.held === 'yumi' || this.held === 'kin_yumi')) {
       const w = this.weaponBow;
       if (this.bowTwitch > 0) this.bowTwitch = Math.max(0, this.bowTwitch - dt * 60);
       const bend = w ? w.bendDeg + (this.bowTwitch > 0 ? 2 : 0) : 0;

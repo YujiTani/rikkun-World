@@ -31,6 +31,11 @@ export const CRAFT_DEFAULTS: Readonly<CraftConfig> = {
     yoroi: { normal: 2, ball: 0, fall: 0 },
     kote: { normal: 1, ball: 0, fall: 0 },
     suneate: { normal: 0, ball: 0, fall: 2 },
+    // GOLD-1 §4.3: てつ より 1 多く ふせぐ（てつ で 0 の 種類 は 0 の まま）
+    kin_kabuto: { normal: 0, ball: 3, fall: 0 },
+    kin_yoroi: { normal: 3, ball: 0, fall: 0 },
+    kin_kote: { normal: 2, ball: 0, fall: 0 },
+    kin_suneate: { normal: 0, ball: 0, fall: 3 },
   },
   pickupLogTicks: 180,
   pickupLogMax: 5,
@@ -46,7 +51,17 @@ export function createCraftConfig(): CraftConfig {
 }
 
 /** そうびのマスに入れられるアイテム */
-export const ARMOR_SLOT_OF: Readonly<Record<string, ArmorSlot>> = { kabuto: 'head', yoroi: 'body', kote: 'arms', suneate: 'legs' };
+export const ARMOR_SLOT_OF: Readonly<Record<string, ArmorSlot>> = {
+  kabuto: 'head',
+  yoroi: 'body',
+  kote: 'arms',
+  suneate: 'legs',
+  // GOLD-1: てつ と 同じ マス
+  kin_kabuto: 'head',
+  kin_yoroi: 'body',
+  kin_kote: 'arms',
+  kin_suneate: 'legs',
+};
 
 /** そうびの部位の順（画面・保存・落とす順） */
 export const ARMOR_SLOTS: readonly ArmorSlot[] = ['head', 'body', 'arms', 'legs'];

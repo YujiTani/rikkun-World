@@ -50,7 +50,7 @@ export interface ToolDeps {
   onBowShot?: () => void;
 }
 
-const BLADES: ReadonlySet<string> = new Set(['bokuto', 'katana', 'naginata', 'crystal_katana', 'raijin_ken', 'fujin_ken', 'niji']);
+const BLADES: ReadonlySet<string> = new Set(['bokuto', 'katana', 'naginata', 'crystal_katana', 'raijin_ken', 'fujin_ken', 'niji', 'kin_katana']);
 
 /** 手に持っているものの働き（M4 §2.4〜§2.6・§4.3）。`DigSystem` が毎ステップ step() を呼ぶ */
 export class ToolSystemImpl implements ToolSystem {
@@ -256,10 +256,12 @@ const NO_YOKAI = {
 
 function kindOf(item: ItemId | null, c: ToolConfig): ToolKind {
   if (item === null) return 'hand';
-  if (item === 'yumi') return 'bow';
-  if (BLADES.has(item) || c.weaponDamage[item] !== undefined) return 'blade';
+  if (item === 'yumi' || item === 'kin_yumi') return 'bow';
+  if (BLADES.has(item)) return 'blade';
   // おの・つるはし は 「ほる道具」。くわ は toolPower を 持つが たがやす 道具なので 今までどおり 'other'
+  // （GOLD-1: きんの つるはし・おの は たたく つよさ 5 を もつ ので、weaponDamage より 先 に 見る）
   if (item.endsWith('_pickaxe') || item.endsWith('_axe')) return 'pickaxe';
+  if (c.weaponDamage[item] !== undefined) return 'blade';
   if (c.toolPower[item] !== undefined && item !== 'kuwa') return 'pickaxe';
   return 'other';
 }

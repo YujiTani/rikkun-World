@@ -18,10 +18,10 @@ const ev = (e: Record<string, unknown>): FarmEvent => ({ ...at, ...e }) as FarmE
 const mk = () => new AchievementSystem(() => ({ ...M6_SETTING_DEFAULTS, achieveCooldown: 0, achieveCooldownEarly: 0 }));
 
 describe('M7-2 実績（AC21・§4.7）', () => {
-  it('数の表: そだてる +8、つくる +3、ぜんぶ 262・小 89（LIVE-4 の ＋1・小 ＋1 と LIVE-3 込み。LIVE-1 版 3.2・LIVE-2 版 3 の ＋11・小 ＋3・WEAPON-6・WEAPON-7 込み）', () => {
+  it('数の表: そだてる +8、つくる +3、ぜんぶ 278（GOLD-1 ＋4・COUNTRY-1 ＋13）・小 88（LIVE-3 込み。LIVE-1 版 3.2・LIVE-2 版 3 の ＋11・小 ＋3・WEAPON-6・WEAPON-7 込み）', () => {
     const cnt = (cat: string) => ACHIEVEMENT_DEFS.filter((d) => d.category === cat).length;
-    expect(cnt('farm')).toBe(26 + 8 + 1 + 12 + 5 + 9 + 1 + 1); // + LIVE-1 の 12 + 版 3.2 の 5 + LIVE-2 の 9 + LIVE-3 の 1（eatMeat）+ LIVE-4 の 1（machoKO）
-    expect(ACHIEVEMENT_DEFS.length).toBe(262); // LIVE-3 の ＋1（eatMeat）込み。 LIVE-1 §4.5 ＋ WEAPON-7 の 4 ＋ PR3 の 2 ＋ LIVE-2 §4.5 の 11
+    expect(cnt('farm')).toBe(26 + 8 + 1 + 12 + 5 + 9 + 1 + 1 + 1); // + LIVE-1 の 12 + 版 3.2 の 5 + LIVE-2 の 9 + LIVE-3 の 1（eatMeat）
+    expect(ACHIEVEMENT_DEFS.length).toBe(279); // COUNTRY-1 の ＋13（国 12 ＋ ぜんぶの くに）込み。LIVE-3 の ＋1（eatMeat）込み。 LIVE-1 §4.5 ＋ WEAPON-7 の 4 ＋ PR3 の 2 ＋ LIVE-2 §4.5 の 11
     expect(ACHIEVEMENT_DEFS.filter((d) => d.small).length).toBe(89);
     for (const id of ['craft.watering_can.1', 'craft.long_watering_can.1', 'craft.sprinkler.1']) {
       expect(ACHIEVEMENT_DEFS.find((d) => d.id === id)).toMatchObject({ category: 'craft', small: true });
@@ -29,7 +29,7 @@ describe('M7-2 実績（AC21・§4.7）', () => {
   });
   it('そだてる の 並び: M7 の 行 の うしろ に water・sprinkler・pet・petHarvest の 順、名前 に 漢字 なし', () => {
     const farm = ACHIEVEMENT_DEFS.filter((d) => d.category === 'farm');
-    expect(farm.slice(-37, -29).map((d) => d.id)).toEqual([
+    expect(farm.slice(-38, -30).map((d) => d.id)).toEqual([
       'farm.water.1',
       'farm.water.10',
       'farm.water.100',
@@ -39,8 +39,8 @@ describe('M7-2 実績（AC21・§4.7）', () => {
       'farm.pet.100',
       'farm.petHarvest.1',
     ]);
-    expect(farm[farm.length - 29].id).toBe('farm.bucket.1');
-    expect(farm.slice(-37, -29).filter((d) => d.small).map((d) => d.id)).toEqual(['farm.water.1', 'farm.pet.1']);
+    expect(farm[farm.length - 30].id).toBe('farm.bucket.1');
+    expect(farm.slice(-38, -30).filter((d) => d.small).map((d) => d.id)).toEqual(['farm.water.1', 'farm.pet.1']);
     expect(farm.some((d) => /[一-鿿]/.test(d.name))).toBe(false);
     expect(ACHIEVEMENT_DEFS.find((d) => d.id === 'farm.water.10')?.name).toBe('10 かい みずやり した！');
     expect(ACHIEVEMENT_DEFS.find((d) => d.id === 'farm.pet.10')?.name).toBe('やさい を 10 かい なでた！');

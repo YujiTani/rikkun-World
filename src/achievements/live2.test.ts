@@ -10,11 +10,11 @@ const mk = () => {
 };
 
 describe('LIVE-2 実績（§4.5）', () => {
-  it('数（AC24。LIVE-3・LIVE-4 で ＋1 ずつ ふえた）: 262・小 89・そだてる 63・小 18', () => {
-    expect(ACHIEVEMENT_DEFS.length).toBe(262);
+  it('数（AC24。LIVE-3 で ＋1 ふえた）: 278（COUNTRY-1 で ＋13）・小 88・そだてる 63・小 17', () => {
+    expect(ACHIEVEMENT_DEFS.length).toBe(279);
     expect(ACHIEVEMENT_DEFS.filter((d) => d.small).length).toBe(89);
     const farm = ACHIEVEMENT_DEFS.filter((d) => d.category === 'farm');
-    expect(farm.length).toBe(63);
+    expect(farm.length).toBe(64);
     expect(farm.filter((d) => d.small).length).toBe(18);
   });
 
