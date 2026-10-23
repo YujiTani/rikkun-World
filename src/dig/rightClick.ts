@@ -37,10 +37,15 @@ export interface RightClickCtx {
   /** LIVE-1 版 3.2 の 00: だっこ して いる（おろす。ほか の 段 へ は 進まない） */
   carrying?(): boolean;
   /**
-   * LIVE-2 §2.11 の 1a: ねらって いる ブロック が こたつ（`nukunuku`）の とき の ようす。こたつ で なければ null。
-   * occupied = たまご が 入って いる
+   * LIVE-2.1 §2.2 の 00: だっこ 中 の 答え。'throw' = なげる、'throwNo' = なげられない 所（うすく）、'putDown' = d＜1 で そっと おろす。
+   * なければ（古い つなぎ）'putDown'
    */
-  kit?(): { occupied: boolean } | null;
+  throwKind?(): 'throw' | 'throwNo' | 'putDown';
+  /**
+   * LIVE-2 §2.11 の 1a: ねらって いる ブロック が こたつ（`nukunuku`）の とき の ようす。こたつ で なければ null。
+   * occupied = たまご が 入って いる。LIVE-2.1: full = 3 こ いっぱい（なければ occupied と 同じ = 前 の きまり）
+   */
+  kit?(): { occupied: boolean; full?: boolean } | null;
   /** LIVE-2 §2.11 の 1b: ねらって いる ブロック が 小屋（さく・もん・ねぐら・すばこ）の とき の すばこ の たまご の 数（`egg`＋`kin_tamago`）。小屋 で なければ null */
   coop?(): { eggs: number } | null;
   /** LIVE-2 §2.11 の 10a: `toriya` を 持って 地面 を ねらって いる とき の 答え。'ok' = 置ける、'noRoom' = どこ も 入らない、'max' = 3 つ まで。ねらって いなければ null */
@@ -68,13 +73,15 @@ export function isKitEgg(item: ItemId | null): boolean {
 /** だっこ（00）→ にわとり（0）→ あみ（0b）→ こたつ（1a）→ 小屋（1b）→ たんす → かまど → 防具 → じょうろ（4a くむ・4b まく・4c 合図）→ なでる → たがやす → まく → 合図 → たべる → 置く の順（M7-2 §2.4）。何も起きないなら null */
 export function previewRightClick(c: RightClickCtx): RightClickPreview | null {
   const t = c.target;
-  if (c.carrying?.()) return { kind: 'putDown', item: null };
+  if (c.carrying?.()) return { kind: c.throwKind?.() ?? 'putDown', item: null };
   const an = c.animal?.();
   if (an) return an === 'idle' ? null : { kind: an, item: an === 'feed' ? c.held : null };
   if (c.held === 'mushi_ami' && t && NET_TREE_BLOCKS.has(t.id)) return { kind: 'net', item: c.held };
   // LIVE-2 1a: こたつ。たまご を 持って から → 入れる（ほか の 答え は 「たべる」の 前 に 下 で）
   const kit = t ? c.kit?.() : null;
-  if (kit && isKitEgg(c.held) && !kit.occupied) return { kind: 'kitPut', item: c.held };
+  // LIVE-2.1: 3 こ まで 1 こ ずつ（full が 無い とき は 前 の きまり = 入って いれば まってね）
+  const kitFull = kit ? (kit.full ?? kit.occupied) : false;
+  if (kit && isKitEgg(c.held) && !kitFull) return { kind: 'kitPut', item: c.held };
   // LIVE-2 1b: 小屋 の ブロック。すばこ に たまご が あれば あつめる
   const coop = t ? c.coop?.() : null;
   if (coop && coop.eggs >= 1) return { kind: 'coopCollect', item: null };
@@ -93,7 +100,10 @@ export function previewRightClick(c: RightClickCtx): RightClickPreview | null {
   if (c.held === 'mushi_ami') return { kind: 'netHint', item: c.held }; // 8b: き で ない 所・何も ねらわない
   // LIVE-2 1a・1b の ほか: 置ける 物（と toriya）は 10 へ。それ いがい は 合図（こたつ: まってね／たまご が いる、小屋: むし を あげて）。たべる（9）より 先
   const placing = c.held !== null && (c.held === 'toriya' || c.canPlace());
-  if (kit && !placing) return { kind: kit.occupied ? 'kitWait' : 'kitNeedEgg', item: null };
+  if (kit && !placing) {
+    if (kit.full === true && isKitEgg(c.held)) return { kind: 'kitFull', item: c.held };
+    return { kind: kit.occupied ? 'kitWait' : 'kitNeedEgg', item: null };
+  }
   if (coop && !placing) return { kind: 'coopNoEgg', item: null };
   if (c.held && c.isVeg?.(c.held)) return { kind: 'eat', item: c.held };
   // LIVE-2 10a: toriya を 持って 地面 を ねらう → 小屋 を 置く（入らない 所 は うすく）

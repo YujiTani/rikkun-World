@@ -170,7 +170,7 @@ export function poseChicken(out: PoseBuf, inp: PoseInput, base: number = CHICKEN
     rot(I.body, 0, 8 * bd, 0);
   };
 
-  switch (inp.state) {
+  switch (inp.state as AnimalState | 'thrown') {
     case 'appear': {
       const e = smooth(t / APPEAR_TICKS);
       const s = Math.max(e, 0.001);
@@ -385,6 +385,16 @@ export function poseChicken(out: PoseBuf, inp: PoseInput, base: number = CHICKEN
         else wing(85 * Math.sin(Math.PI * Math.min(1, u * 1.6))); // ばさっ
         eyes(Math.max(0, 1 - u * 3));
       }
+      break;
+    }
+    case 'thrown': {
+      // LIVE-2.1: なげられて いる 子。羽 を ひろげて 目 を まるく（たのしい 顔）、足 は ちぢめる。山なり の あいだ ずっと
+      const k = smooth(t / 4);
+      wing(34 + 42 * k + 6 * Math.sin((2 * Math.PI * t) / 10) * calm);
+      legs(24);
+      rot(I.tail, -16);
+      rot(I.head, -6, 0, 0);
+      if (I.eyes >= 0) out.sc[I.eyes * 3 + 1] = 1.12;
       break;
     }
     case 'putDown': {

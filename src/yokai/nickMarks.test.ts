@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
-import { NUSHI_GLOW, buildNickMarks, createNushiGlow, nushiGlowOpacity } from './nickMarks';
+import { NUSHI_FLAME, buildNickMarks, createNushiFlames, updateNushiFlames } from './nickMarks';
 
 /**
  * BAL-G 頭の印・ヌシの光（DESIGN 13.2、BALANCE §2.5、AC19 の点滅・AC21）。
@@ -17,16 +17,14 @@ function meshes(g: THREE.Object3D): THREE.Mesh[] {
 }
 const colorsOf = (g: THREE.Object3D) => new Set(meshes(g).map((m) => (m.material as THREE.MeshBasicMaterial).color.getHex()));
 const tris = (g: THREE.Object3D) => meshes(g).reduce((n, m) => n + (m.geometry.index ? m.geometry.index.count / 3 : m.geometry.attributes.position!.count / 3), 0);
-const KINDS = ['karakasa', 'chochin', 'rokurokubi'] as const;
+const KINDS = ['karakasa', 'chochin', 'rokurokubi', 'nurikabe'] as const;
 
 describe('頭の印', () => {
-  it('おやぶん・二つ名なし・ぬりかべ は 印なし', () => {
-    for (const k of [...KINDS, 'nurikabe'] as const) {
+  it('おやぶん・二つ名なし は 印なし（ぬりかべ も。#270）', () => {
+    for (const k of KINDS) {
       expect(buildNickMarks(k, 'none')).toBeNull();
       expect(buildNickMarks(k, 'oyabun')).toBeNull();
     }
-    expect(buildNickMarks('nurikabe', 'taisho')).toBeNull();
-    expect(buildNickMarks('nurikabe', 'nushi')).toBeNull();
   });
   it('たいしょう = はちまき: きなり #FFF6E0 と あい #3D5A9E の 4 つ（帯・結び目・はし 2 本）、48 三角形以下', () => {
     for (const k of KINDS) {
@@ -54,42 +52,22 @@ describe('頭の印', () => {
   });
 });
 
-describe('ヌシの ふんわり光', () => {
-  it('光の箱 1 枚: #FFF0B0・たし算・すけ・うしろを 書かない。地面から 高さの 1 割 うかす', () => {
-    const g = createNushiGlow({ width: 2, height: 3, depth: 2 });
-    const mat = g.material as THREE.MeshBasicMaterial;
-    expect(mat.color.getHex()).toBe(0xfff0b0);
-    expect(mat.blending).toBe(THREE.AdditiveBlending);
-    expect(mat.transparent).toBe(true);
+describe('ヌシの 青い ひとだま（PROTOTYPE）', () => {
+  it('2 つ（頭の 左右）・十字の板 2 まいずつ・夜も 暗くしない・うしろを 書かない。固定ステップの 時間だけで 動く', () => {
+    const g = createNushiFlames({ width: 2, height: 3, depth: 2 });
+    expect(g.children.length).toBe(NUSHI_FLAME.count);
+    const mat = (g.children[0]!.children[0] as THREE.Mesh).material as THREE.MeshBasicMaterial;
+    expect(g.children[0]!.children.length).toBe(2);
+    expect(g.children[0]!.position.x).toBeLessThan(0); // 左
+    expect(g.children[1]!.position.x).toBeGreaterThan(0); // 右
+    expect(g.children[0]!.position.y).toBeGreaterThan(g.children[1]!.position.y);
     expect(mat.depthWrite).toBe(false);
-    expect(mat.opacity).toBeGreaterThanOrEqual(0.06);
-    expect(mat.opacity).toBeLessThanOrEqual(0.12);
-    const box = new THREE.Box3().setFromObject(g);
-    expect(box.min.y).toBeCloseTo(0.3, 6);
-    expect(box.max.y - box.min.y).toBeGreaterThanOrEqual(3 * 0.9);
-    expect(box.max.x - box.min.x).toBeGreaterThanOrEqual(2);
-  });
-  it('明るさ: すけ 6%〜12% の間を なめらかに、周期 2.5 秒。点滅しない', () => {
-    expect(NUSHI_GLOW).toMatchObject({ color: 0xfff0b0, period: 2.5, minOpacity: 0.06, maxOpacity: 0.12, liftRatio: 0.1 });
-    let lo = 1;
-    let hi = 0;
-    let prev = nushiGlowOpacity(0);
-    let maxStep = 0;
-    for (let i = 1; i <= 60 * 10; i++) {
-      const t = i / 60;
-      const v = nushiGlowOpacity(t);
-      lo = Math.min(lo, v);
-      hi = Math.max(hi, v);
-      maxStep = Math.max(maxStep, Math.abs(v - prev));
-      prev = v;
-      expect(Math.abs(v - nushiGlowOpacity(t + 2.5))).toBeLessThan(1e-9);
-    }
-    expect(lo).toBeGreaterThanOrEqual(0.06 - 1e-9);
-    expect(hi).toBeLessThanOrEqual(0.12 + 1e-9);
-    expect(lo).toBeLessThan(0.065); // 幅を つかいきる
-    expect(hi).toBeGreaterThan(0.115);
-    // 1 ステップ（1/60 秒）の変わりは 幅の 1/10 以下（なめらか）。1 秒に 1 回より 速くは 明暗がかわらない（周期 2.5 秒）
-    expect(maxStep).toBeLessThanOrEqual(0.06 / 10);
+    expect(mat.transparent).toBe(true);
+    expect(mat.userData.skip).toBe(true);
+    updateNushiFlames(g, 1.25);
+    const a = g.children.map((c) => c.position.toArray().join());
+    updateNushiFlames(g, 1.25);
+    expect(g.children.map((c) => c.position.toArray().join())).toEqual(a);
   });
 });
 

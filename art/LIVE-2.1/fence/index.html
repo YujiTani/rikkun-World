@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8">
+<style>
+  body { margin: 0; background: #F3EEE2; font-family: 'IPAPGothic', 'IPAGothic', sans-serif; color: #2E2438; }
+  h1 { font-size: 22px; margin: 14px 20px 4px; }
+  .sub { margin: 0 20px 10px; font-size: 14px; color: #5a5060; }
+  .row { display: flex; gap: 14px; padding: 0 20px 18px; }
+  .col { width: 620px; background: #fff; border-radius: 10px; padding: 10px; box-sizing: border-box; }
+  .col h2 { font-size: 19px; margin: 4px 2px 6px; }
+  .views { display: flex; gap: 6px; }
+  canvas.v { display: block; border-radius: 6px; }
+  .info { display: flex; gap: 10px; margin-top: 8px; align-items: flex-start; }
+  .tiles { display: flex; gap: 6px; align-items: flex-end; background: #cfe7f5; padding: 6px; border-radius: 6px; }
+  .tiles canvas { image-rendering: pixelated; }
+  .txt { font-size: 13.5px; line-height: 1.55; }
+  .rec { background: #3D5A9E; color: #fff; border-radius: 4px; padding: 1px 6px; font-size: 13px; }
+</style></head>
+<body>
+<h1>とりごや の さく・もん を「板」に ― 3 案（LIVE-2.1 E）</h1>
+<div class="sub">5×5 の とりごや を ななめ 上 から（左: ふだん の 高さ、右: 近く）。当たり は 今 の ブロック の まま（高さ 2）。ねぐら・すばこ は 今 の まま。1 ブロック = 16 点 の 絵（草花 と 同じ）。</div>
+<div class="row" id="row"></div>
+<script type="module">
+import * as THREE from './three.module.js';
+import * as T from './tiles.js';
+
+const OPTS = [
+  { key: 'A', title: 'A ＋十字 の 板さく', tex: { rail: T.aRail, gate: T.aGate }, mode: 'plus',
+    txt: 'よこ木 3 本 ＋ まん中 の くい を、さく の 線 に そう 板 と 直角 の 板 の「＋」で。今 の K3 の 形 を そのまま 板 に。すみ は ＋ の 2 本 が よこ木 に なる。木 7・藍 2 の 色 の まま。' },
+  { key: 'B', title: 'B X十字 の よつめがき（たけ）', tex: { rail: T.bLattice, gate: T.bGate }, mode: 'x',
+    txt: 'たけ の こうし を 草花 と 同じ ななめ の「X」で。むすび目 が 藍。ジグザグ の 立体感 で 遠く でも かこい に 見える。たけ の 色 を 2 つ 足す。線 が 多く なり やすい（たて 2・よこ 3 まで に しぼった）。' },
+  { key: 'C', title: 'C X十字 の 花がき（しげみ＋なわ）', tex: { rail: T.cHedge, gate: T.cGate }, mode: 'x',
+    txt: 'ひくい しげみ に き・だいだい の 花、くい と 生成り の なわ。「花 と 同じ」に いちばん 近く、中 の 子 が いちばん 見える。もん は 花 の アーチ ＋ のれん。' },
+];
+
+function texOf(tile) {
+  const t = new THREE.CanvasTexture(T.toCanvas(tile));
+  t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+const matCache = new Map();
+function panelMat(tile) {
+  return new THREE.MeshBasicMaterial({ map: texOf(tile), alphaTest: 0.5, side: THREE.DoubleSide, color: 0xf2f2f2 });
+}
+// 板 1 まい: 中心 (cx,cz)、u の 向き = 角度 a（ラジアン、0 = +x）、はば wB（ブロック）、高さ 2
+function panel(scene, mat, cx, cz, a, wB, hB = 2) {
+  const g = new THREE.PlaneGeometry(wB, hB);
+  const m = new THREE.Mesh(g, mat);
+  m.position.set(cx, hB / 2, cz);
+  m.rotation.y = -a;
+  scene.add(m);
+}
+function lambert(c) { return new THREE.MeshLambertMaterial({ color: c, flatShading: true }); }
+function box(scene, a, b, c) {
+  const g = new THREE.BoxGeometry(b[0] - a[0], b[1] - a[1], b[2] - a[2]);
+  const m = new THREE.Mesh(g, lambert(c));
+  m.position.set((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2);
+  scene.add(m); return m;
+}
+const u = 1 / 9;
+function nest(scene) {
+  const X = 1.5, Z0 = 1.5, H = 2.5;
+  for (const x of [-X, X - 1.5 * u]) for (const z of [Z0, H - 1.5 * u]) box(scene, [x, 0, z], [x + 1.5 * u, 5 * u, z + 1.5 * u], 0x9e7c50);
+  box(scene, [-X, 5 * u, Z0], [X, 6 * u, H], 0xc9a574);
+  box(scene, [-X, 6 * u, H - 1.5 * u], [X, 16 * u, H], 0xc9a574);
+  box(scene, [-X, 6 * u, Z0], [-X + 1.5 * u, 16 * u, H], 0xb8955f);
+  box(scene, [X - 1.5 * u, 6 * u, Z0], [X, 16 * u, H], 0xb8955f);
+  // すばこ
+  box(scene, [-1.0, 6 * u, 2.05], [1.0, 8 * u, 2.3], 0xa87b4f);
+  box(scene, [-0.95, 8 * u, 2.07], [0.95, 8.6 * u, 2.28], 0xd9b65c);
+  // 三角やね（むね は 左右）
+  const sh = new THREE.Shape();
+  const zc = (Z0 + H) / 2;
+  sh.moveTo(-1.05, 0); sh.lineTo(1.05, 0); sh.lineTo(0, 11 * u); sh.lineTo(-1.05, 0);
+  const g = new THREE.ExtrudeGeometry(sh, { depth: 2 * X + 2 * u, bevelEnabled: false });
+  const roof = new THREE.Mesh(g, lambert(0x4f6690));
+  roof.rotation.y = Math.PI / 2;
+  roof.position.set(-X - u, 16 * u, zc);
+  scene.add(roof);
+  // やね の すじ
+  for (let x = -X; x <= X; x += 3 * u) {
+    const sg = new THREE.ExtrudeGeometry(sh, { depth: 0.6 * u, bevelEnabled: false });
+    const s = new THREE.Mesh(sg, lambert(0x3d5a9e)); s.scale.set(1.01, 1.01, 1); s.rotation.y = Math.PI / 2; s.position.set(x, 16 * u + 0.002, zc); scene.add(s);
+  }
+  // さか（4 段）
+  for (let i = 0; i < 4; i++) box(scene, [-1.5 + i * 0.0, 0, 1.5 - (i + 1) * 0.2], [-1.0, (i + 1) * 1.4 * u, 1.5 - i * 0.2], 0x9e7c50);
+}
+function chicken(scene, x, z, yaw, chick = false) {
+  const gp = new THREE.Group();
+  const s = chick ? 0.55 : 1;
+  const W = lambert(chick ? 0xf2d86a : 0xf5f1e6);
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.26, 8, 6), W); body.scale.set(0.95, 0.85, 1.15); body.position.y = 0.26; gp.add(body);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.15, 8, 6), W); head.position.set(0, 0.52, 0.2); gp.add(head);
+  const beak = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.05, 0.09), lambert(0xf2b33d)); beak.position.set(0, 0.5, 0.36); gp.add(beak);
+  if (!chick) {
+    for (let i = 0; i < 3; i++) { const c = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.08 + (i === 1 ? 0.04 : 0), 0.06), lambert(0xe8553d)); c.position.set(0, 0.69, 0.12 + i * 0.07); gp.add(c); }
+    const wat = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.08, 0.04), lambert(0xe8553d)); wat.position.set(0, 0.42, 0.32); gp.add(wat);
+    const tail = new THREE.Mesh(new THREE.SphereGeometry(0.12, 6, 4), W); tail.position.set(0, 0.42, -0.3); tail.scale.set(0.6, 1.2, 0.8); gp.add(tail);
+    const rib = new THREE.Mesh(new THREE.TorusGeometry(0.11, 0.025, 4, 10), lambert(0x3d5a9e)); rib.rotation.x = Math.PI / 2; rib.position.set(0, 0.42, 0.18); gp.add(rib);
+  }
+  for (const sx of [-1, 1]) { const e = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.05, 0.03), lambert(0x2e2438)); e.position.set(sx * 0.15, 0.55, 0.26); gp.add(e); }
+  for (const sx of [-1, 1]) { const l = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.1, 0.05), lambert(0xe8962e)); l.position.set(sx * 0.1, 0.03, 0); gp.add(l); }
+  gp.scale.setScalar(s * 0.85); gp.position.set(x, 0, z); gp.rotation.y = yaw; scene.add(gp);
+}
+function buildScene(opt) {
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x9fd3f5);
+  scene.fog = new THREE.Fog(0x9fd3f5, 14, 30);
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x7a9a66, 1.6));
+  const d = new THREE.DirectionalLight(0xffffff, 1.4); d.position.set(-3, 8, -5); scene.add(d);
+  // じめん
+  const gt = texOf(T.grassTop()); gt.wrapS = gt.wrapT = THREE.RepeatWrapping; gt.repeat.set(24, 24);
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(24, 24), new THREE.MeshBasicMaterial({ map: gt, color: 0xe6e6e6 }));
+  ground.rotation.x = -Math.PI / 2; ground.position.set(0.5, 0, 0.5); scene.add(ground);
+  // 草花（くらべ）
+  const km = panelMat(T.kusa()), fm = panelMat(T.flower());
+  for (const [x, z, f] of [[-4, -3, 0], [-3, -4, 1], [3, -4, 0], [4, -3, 1], [-4, 1, 0], [4, 0, 1], [-2, -5, 0], [1, -5, 1], [5, -1, 0], [-5, -1, 1]]) {
+    for (const a of [Math.PI / 4, -Math.PI / 4]) panel(scene, f ? fm : km, x, z, a, Math.SQRT2, 1);
+  }
+  nest(scene);
+  // さく
+  const cells = [];
+  for (let x = -2; x <= 2; x++) { if (x !== 0) cells.push([x, -2]); }
+  for (const x of [-2, 2]) for (let z = -1; z <= 2; z++) cells.push([x, z]);
+  if (opt.mode === 'x') {
+    const m = panelMat(opt.tex.rail());
+    for (const [x, z] of cells) for (const a of [Math.PI / 4, -Math.PI / 4]) panel(scene, m, x, z, a, Math.SQRT2);
+  } else {
+    const M = (l, r) => { const k = 'A' + l + r; if (!matCache.has(k)) matCache.set(k, panelMat(T.aRail(l, r))); return matCache.get(k); };
+    for (const [x, z] of cells) {
+      const corner = Math.abs(x) === 2 && (z === -2 || z === 2);
+      if (z === -2) { // 前 の 列: よこ木 は x 方向
+        panel(scene, M(x !== -2, x !== 2), x, z, 0, 1);
+        panel(scene, corner ? M(false, true) : M(false, false), x, z, Math.PI / 2, 1);
+      } else if (z === 2) { // うしろ の すみ
+        panel(scene, M(x === 2, x === -2), x, z, 0, 1);
+        panel(scene, M(true, false), x, z, Math.PI / 2, 1);
+      } else {
+        panel(scene, M(true, true), x, z, Math.PI / 2, 1);
+        panel(scene, M(false, false), x, z, 0, 1);
+      }
+    }
+  }
+  // もん（前 の まん中）: さく の 線 の 板 ＋ くい の 横 の 板 2 まい
+  const gm = panelMat(opt.tex.gate());
+  panel(scene, gm, 0, -2, 0, 1.5);
+  const pm = panelMat(T.postOnly(3, 28));
+  for (const sx of [-0.5, 0.5]) panel(scene, pm, sx * 0.94 + (sx < 0 ? 0.02 : -0.02), -2, Math.PI / 2, 3 / 16);
+  // どうぶつ
+  chicken(scene, -0.7, -0.6, 0.6); chicken(scene, 0.75, 0.3, -2.2); chicken(scene, 0.25, -1.05, 0.2); chicken(scene, -0.4, 0.6, 2.8, true);
+  // そと に 1 わ（大きさ くらべ）
+  chicken(scene, 1.2, -3.4, 2.6);
+  return scene;
+}
+function render(scene, w, h, pos, look, fov) {
+  const r = new THREE.WebGLRenderer({ antialias: false, preserveDrawingBuffer: true });
+  r.setPixelRatio(1); r.setSize(w, h); r.outputColorSpace = THREE.SRGBColorSpace;
+  const cam = new THREE.PerspectiveCamera(fov, w / h, 0.1, 100);
+  cam.position.set(...pos); cam.lookAt(...look);
+  r.render(scene, cam);
+  r.domElement.className = 'v';
+  return { el: r.domElement, info: { calls: r.info.render.calls, tris: r.info.render.triangles } };
+}
+const row = document.getElementById('row');
+const stats = [];
+for (const opt of OPTS) {
+  const col = document.createElement('div'); col.className = 'col';
+  col.innerHTML = `<h2>${opt.title}${opt.key === 'A' ? '' : ''}</h2>`;
+  const views = document.createElement('div'); views.className = 'views';
+  const scene = buildScene(opt);
+  const a = render(scene, 600, 400, [-3.7, 4.5, -5.7], [0.25, 0.35, 0.3], 60);
+  views.appendChild(a.el); col.appendChild(views);
+  const b = render(scene, 600, 300, [-1.9, 2.3, -4.2], [0.2, 0.7, -0.6], 60);
+  b.el.style.marginTop = '6px';
+  col.appendChild(b.el);
+  const info = document.createElement('div'); info.className = 'info';
+  const tiles = document.createElement('div'); tiles.className = 'tiles';
+  const list = opt.key === 'A' ? [T.aRail(true, true), opt.tex.gate()] : [opt.tex.rail(), opt.tex.gate()];
+  for (const t of list) { const c = T.toCanvas(t, 3); tiles.appendChild(c); }
+  const k = T.toCanvas(T.kusa(), 3); tiles.appendChild(k);
+  info.appendChild(tiles);
+  const tx = document.createElement('div'); tx.className = 'txt'; tx.textContent = opt.txt; info.appendChild(tx);
+  col.appendChild(info);
+  row.appendChild(col);
+  stats.push(a.info);
+}
+window.__stats = stats; window.__done = true;
+</script>
+</body></html>

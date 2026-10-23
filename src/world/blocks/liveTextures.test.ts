@@ -10,8 +10,8 @@ const has = (name: (typeof LIVE_TILE_NAMES)[number], hexColor: string): boolean 
 };
 
 describe('LIVE-2 ブロックの 絵（こたつ・とりごや）', () => {
-  it('9 まい の タイルが アトラス に ある（うしろに 足した ので 前の 番号は そのまま）', () => {
-    expect(LIVE_TILE_NAMES).toHaveLength(9);
+  it('11 まい の タイルが アトラス に ある（うしろに 足した ので 前の 番号は そのまま）', () => {
+    expect(LIVE_TILE_NAMES).toHaveLength(11);
     for (const n of LIVE_TILE_NAMES) expect(TILE_NAMES, n).toContain(n);
     expect(TILE_NAMES.indexOf('grass_top')).toBe(0);
     expect(TILE_NAMES.indexOf('tansu_top')).toBe(19);
@@ -23,7 +23,8 @@ describe('LIVE-2 ブロックの 絵（こたつ・とりごや）', () => {
     for (const n of LIVE_TILE_NAMES) {
       const px = getTilePixels(n);
       expect(px, n).toHaveLength(256);
-      expect(px.every((c) => c[3] === 255), n).toBe(true);
+      if (n.endsWith('_x')) expect(px.some((c) => c[3] === 0) && px.some((c) => c[3] === 255), n).toBe(true); // LIVE-2.1 の 十字の板 は すきとおる
+      else expect(px.every((c) => c[3] === 255), n).toBe(true);
       const key = JSON.stringify(px);
       expect(seen.has(key), n).toBe(false);
       seen.add(key);

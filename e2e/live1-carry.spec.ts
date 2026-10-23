@@ -171,7 +171,7 @@ test.describe('LIVE-1 だっこ・おろす・パタパタ', () => {
     expect(r.full1, 'おなかいっぱいは へる').toBeLessThan(r.full0);
   });
 
-  test('AC18 だっこ中の 手: 左クリックで ほれない・たたけない。つち・トマト・弓は 右クリックで おろすだけ', async ({ page }) => {
+  test('AC18 だっこ中の 手: 左クリックで ほれない・たたけない。つち・トマト・弓は 右クリックで なげる（おろす）だけ', async ({ page }) => {
     await openAnimals(page);
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
@@ -200,21 +200,24 @@ test.describe('LIVE-1 だっこ・おろす・パタパタ', () => {
       A.hold('dirt', 5);
       A.aimBlock(5, 9, 6);
       A.tap();
-      h.step(22);
+      // LIVE-2.1: おろす は なげる（10 ステップで 手が あく）。着地(putDown)まで すすめる
+      h.step(160);
       out.dirtCount = h.inventory.count('dirt');
       out.afterDirt = A.one(id).carried;
       out.putEv = A.events('putDown').length;
       out.noPlace = h.world.getBlock(4, 9, 6);
       // トマト: たべず に おろす
+      A.stand(id);
       out.lift2 = A.lift(id);
       h.combat.setHp(10);
       A.hold('tomato', 3);
       A.tap();
-      h.step(22);
+      h.step(160);
       out.tomato = h.inventory.count('tomato');
       out.hp = h.combat.get().hp;
       out.afterTomato = A.one(id).carried;
       // 弓: 引けない
+      A.stand(id);
       out.lift3 = A.lift(id);
       A.hold('yumi', 1);
       h.inventory.add('ya', 10);
@@ -248,7 +251,7 @@ test.describe('LIVE-1 だっこ・おろす・パタパタ', () => {
     expect(r.afterBow).toBe(false);
   });
 
-  test('AC19 おろす: 2 マス先の 地面を ねらって 押す → 20 ステップで carried false・putDown・そのマス(±0.5)。照準の 下は おろす', async ({ page }) => {
+  test('AC19 なげる（LIVE-2.1: 前は おろす）: 3 マス先の 地面を ねらって 押す → 10 ステップで carried false・出来事 toss・着地(putDown)で そのマス(±0.5)。照準の 下は なげる', async ({ page }) => {
     await openAnimals(page);
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
@@ -260,15 +263,13 @@ test.describe('LIVE-1 だっこ・おろす・パタパタ', () => {
       (window as any).__aim.solve(5, 8, 6, 1); // 床の ブロックの 上の 面（x=5.5, z=6.5）
       h.step(1);
       out.hint = h.hud.actionHint().right;
-      h.animals.events();
-      h.input.press('secondary');
-      h.step(1);
-      h.input.release('secondary');
-      h.step(21);
-      const c = A.one(id);
-      out.carried = c.carried;
+      h.audio.sfx();
+      const f = A.flight(id, { max: 400 });
+      out.tossAt = f.tossAt;
+      out.carriedAfterToss = f.tossAt >= 0 ? f.rows[Math.min(f.tossAt + 1, f.rows.length - 1)].carried : null;
       out.carrying = h.animals.carrying();
-      out.put = A.events('putDown');
+      out.put = f.ev.filter((e: any) => e.type === 'putDown');
+      const c = A.one(id);
       out.dx = Math.abs(c.x - 5.5);
       out.dz = Math.abs(c.z - 6.5);
       out.dy = Math.abs(c.y - 9);
@@ -276,14 +277,17 @@ test.describe('LIVE-1 だっこ・おろす・パタパタ', () => {
       return out;
     });
     expect(r.lifted).toBe(true);
-    expect(r.hint).toMatchObject({ word: 'おろす' });
-    expect(r.carried).toBe(false);
+    expect(r.hint).toMatchObject({ word: 'なげる' });
+    expect(r.tossAt, '押して 10 ステップで 手が あく').toBeGreaterThanOrEqual(8);
+    expect(r.tossAt).toBeLessThanOrEqual(12);
+    expect(r.carriedAfterToss).toBe(false);
     expect(r.carrying).toBeNull();
     expect(r.put).toHaveLength(1);
     expect(r.dx).toBeLessThanOrEqual(0.5);
     expect(r.dz).toBeLessThanOrEqual(0.5);
     expect(r.dy).toBeLessThanOrEqual(0.5);
-    expect(r.sfx).toContain('carryDown');
+    expect(r.sfx, '手から はなれる 音（§3.5）').toContain('toss');
+    expect(r.sfx, 'おろす 音 は のこす（§6.1 に かわる と 書いて ない）').toContain('carryDown');
   });
 
   test('AC19b おろせない: まわりが 固い 所で 何も ねらわず 押す → おろさない・cantPutHere。やせいを 長おし → carryWild', async ({ page }) => {
@@ -341,7 +345,7 @@ test.describe('LIVE-1 だっこ・おろす・パタパタ', () => {
     expect(r.wildMushi, 'やせいは 押した 瞬間に あげる（§2.8）。長おしでも むしは 1 つ へる').toBe(1);
   });
 
-  test('AC20 パタパタ: 10 マス上の くうきに おろす → どの ステップも 下向き 2.0 マス/秒 以下・fluttering true・着地まで 285 ステップ以上・着地で false', async ({ page }) => {
+  test('AC20 パタパタ: 高い だい の 上 から なげた あと の パタパタ → fluttering の あいだ ずっと 下向き 2.0 マス/秒 以下・そこから 着地 まで 速さ で わった ステップ 以上・着地で false（LIVE-2.1: なげた あと も 同じ 速さ の 上限）', async ({ page }) => {
     await openAnimals(page);
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
@@ -351,50 +355,37 @@ test.describe('LIVE-1 だっこ・おろす・パタパタ', () => {
       // follow 0: ついてくる なかま は 高さ の 差 6 より 大 で ワープ する（§2.7）ので、落ちる ところ を 見る ため ついてこない なかま に する
       const id = A.friend(4.5, 6.5, { follow: 0 });
       const out: any = { speed, lifted: A.lift(id) };
-      // y=18 の だい（x 0..1, z 4..9）の 上に 立って、東の くうきに おろす
+      // y=18 の だい（x 0..1, z 4..9）の 上に 立って、東へ なげる（何も ねらわない: 前 3 マス の 先 は 8 マス 下 まで 地面 が 無い → 空中 から パタパタ）
       h.world.fill(0, 18, 4, 1, 18, 9, 'stone');
       h.step(2);
       (window as any).__aim.standForS(2.0, 6.5, 90, 0, 19);
       h.step(1);
       h.inventory.clear();
-      h.input.press('secondary');
-      h.step(1);
-      h.input.release('secondary');
-      let startFall = -1;
+      A.tap(); // なげる（何も ねらって いない）
+      const flut: any[] = [];
       let land = -1;
-      let minVy = 0;
-      let flutterSteps = 0;
-      let landedFlutter: boolean | null = null;
-      for (let i = 1; i <= 800 && land < 0; i++) {
+      for (let i = 1; i <= 900 && land < 0; i++) {
         h.step(1);
         const c = A.one(id);
-        if (startFall < 0 && c.y < 18.9) startFall = i;
-        if (startFall >= 0) {
-          minVy = Math.min(minVy, c.vy);
-          if (c.fluttering) flutterSteps++;
-          if (c.y <= 9.05 && c.vy > -0.01) {
-            land = i;
-            landedFlutter = c.fluttering;
-          }
-        }
+        if (c.fluttering) flut.push({ y: c.y, vy: c.vy });
+        else if (flut.length > 0 && c.y <= 9.05) land = i;
       }
-      out.startFall = startFall;
+      out.flutterSteps = flut.length;
+      out.minVy = flut.length ? Math.min(...flut.map((q: any) => q.vy)) : 0;
+      out.fallDist = flut.length ? flut[0].y - 9 : 0;
       out.land = land;
-      out.fallSteps = land - startFall;
-      out.minVy = minVy;
-      out.flutterSteps = flutterSteps;
       h.step(10);
       out.afterLand = A.one(id).fluttering;
-      out.landedFlutter = landedFlutter;
       out.carried = A.one(id).carried;
       return out;
     });
     expect(r.lifted).toBe(true);
-    expect(r.startFall, 'おちはじめた').toBeGreaterThan(0);
+    expect(r.flutterSteps, 'パタパタ した').toBeGreaterThan(0);
     expect(r.land, '着地した').toBeGreaterThan(0);
     expect(r.minVy, '下向きの 速さ').toBeGreaterThanOrEqual(-(r.speed + 0.05));
-    expect(r.flutterSteps, '落ちている あいだ ずっと').toBeGreaterThanOrEqual(r.fallSteps - 15);
-    expect(r.fallSteps, '10 マス ÷ 2.0 = 5 秒').toBeGreaterThanOrEqual(285);
+    // fallDist マス ÷ speed マス/秒 × 60 ステップ（はかる ぶん 15 の ゆとり）
+    expect(r.flutterSteps, '落ちている あいだ ずっと').toBeGreaterThanOrEqual((r.fallDist / r.speed) * 60 - 15);
+    expect(r.fallDist, '高い 所 から おちた').toBeGreaterThanOrEqual(5);
     expect(r.afterLand).toBe(false);
   });
 

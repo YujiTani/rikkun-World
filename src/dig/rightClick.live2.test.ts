@@ -236,7 +236,7 @@ describe('DigSystem 右クリック（LIVE-2）', () => {
     a.step(2);
     a.tap();
     expect(a.hints).toEqual(['kitNeedEgg']);
-    const b = rig({ held: 'egg', target: 'nukunuku', kitEgg: true, useKit: 'wait' });
+    const b = rig({ held: 'tomato', target: 'nukunuku', kitEgg: true, useKit: 'wait' }); // LIVE-2.1: egg は 2 こ目 も 入る ので、まってね は トマト で
     b.step(2);
     expect(b.dig.previewRightClick()?.kind).toBe('kitWait');
     b.tap();

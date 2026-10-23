@@ -1,4 +1,5 @@
 import type { BlockId } from '../contracts';
+import { planFlatten, type FlattenPlan, type FlattenWorld } from '../world/flatten';
 import type { AnimalWorld } from './terrain';
 
 /**
@@ -84,25 +85,18 @@ export function inInterior(c: { x: number; z: number }, px: number, pz: number, 
   return Math.abs(px - (c.x + 0.5)) < INTERIOR_HALF - margin && Math.abs(pz - (c.z + 0.5)) < INTERIOR_HALF - margin;
 }
 
-/** 置いた とき に 消える 草花（§2.3。それ以外 の ブロック が あれば 入らない） */
-const FLORA = new Set<string>(['flower_y', 'flower_o', 'flower_p', 'susuki', 'kusa', 'nobana']);
+/**
+ * 5×5×4 の たいら の 計画（LIVE-2.1 §2.1）。置けない なら null。
+ * 変える マス（消す・うめる）は `plan.edits`。置く 側 が `applyFlatten(plan, setBlock)` を してから `coopBlocks()` を 置く。
+ * 世界 は 変えない（すけた 形・`previewCoop` からも 呼べる）
+ */
+export function coopPlan(w: FlattenWorld, x: number, y: number, z: number): FlattenPlan | null {
+  return planFlatten(w, { x0: x - COOP_HALF, z0: z - COOP_HALF, w: 2 * COOP_HALF + 1, d: 2 * COOP_HALF + 1, y, h: COOP_HEIGHT });
+}
 
-/** 5×5×4 が ぜんぶ くうき か 草花、その 下 の 5×5 が ぜんぶ 固い なら true */
+/** 置ける か（`coopPlan` が ある か） */
 export function coopFits(w: AnimalWorld, x: number, y: number, z: number): boolean {
-  if (y < 1 || y + COOP_HEIGHT > w.size.y) return false;
-  for (let dx = -COOP_HALF; dx <= COOP_HALF; dx++) {
-    for (let dz = -COOP_HALF; dz <= COOP_HALF; dz++) {
-      const ix = x + dx;
-      const iz = z + dz;
-      if (!w.isLoaded(ix, iz)) return false;
-      if (!w.isSolid(ix, y - 1, iz)) return false;
-      for (let dy = 0; dy < COOP_HEIGHT; dy++) {
-        const b = String(w.getBlock(ix, y + dy, iz));
-        if (b !== 'air' && !FLORA.has(b)) return false;
-      }
-    }
-  }
-  return true;
+  return coopPlan(w, x, y, z) !== null;
 }
 
 /** ずらし の 順（ねらった 所 → まわり 8 か所。§2.3） */
