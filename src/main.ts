@@ -1135,7 +1135,7 @@ const weaponFx = new WeaponFx({
       const p = controller.state.position;
       const u = blade.state().move?.dirDeg ?? controller.state.yawDeg;
       const r = (u * Math.PI) / 180;
-      nijiFx.slash({ x: p.x + Math.sin(r) * 2.2, y: p.y + 1.4, z: p.z - Math.cos(r) * 2.2 }, u);
+      nijiFx.slash({ x: p.x + Math.sin(r) * 2.2, y: p.y + 1.4, z: p.z - Math.cos(r) * 2.2 }, u, { x: p.x, y: p.y + 1.4, z: p.z });
     }
   },
   // WEAPON-9: 虹の つき・きりあげ・けさ は 今の 刀の 音の 代わりに nijiSlash（1 振りに 1 回。段ごとに 3 とおり）

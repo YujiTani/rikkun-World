@@ -17,6 +17,16 @@ const SEG = 18;
 const LAT_BOTTOM = -25;
 const BANDS = 5;
 const MAX_POINTS = 64;
+/** 横の 斬撃の 板の 大きさ（1 = 6 マス）。弧の 見た目の まん中（絵の 中の px。板の まん中は 32・22）は コマごと。niji_slash.png から */
+const SLASH_CENTROID: Record<SlashView, readonly (readonly [number, number])[]> = {
+  side: [[19.5, 19], [32.5, 19.5], [45, 19.5], [55, 22.5]],
+  flat: [[19.5, 29.5], [32, 30], [45.5, 30], [55, 31]],
+};
+/** うしろ・正面（角 0°・180°）= 体の 前 2.2 マス・等倍 → 真横（90°）= 前 1.3 マス・0.55 倍。角に ついて なめらかに かえる */
+const slashReach = (angleDeg: number): { dist: number; scale: number } => {
+  const s = Math.sin((angleDeg * Math.PI) / 180);
+  return { dist: 2.2 - 0.9 * s, scale: 1 - 0.45 * s };
+};
 
 const VERT = `
 varying vec3 vP;
@@ -172,6 +182,8 @@ export class NijiFx {
   private slashAge = -1;
   private slashView: SlashView = 'side';
   private slashAngle = 0;
+  private readonly slashTip = new THREE.Vector3();
+  private slashScale = 1;
   private lastView: SlashView | null = null;
 
   private readonly scene: THREE.Scene;
@@ -311,14 +323,20 @@ export class NijiFx {
   }
 
   /** にじの 斬撃を 出す。絵(よこ・ねかせ)は 出た ステップに 1 回だけ きめる（§5.7.1） */
-  slash(at: Vec3, uDeg: number): void {
+  slash(at: Vec3, uDeg: number, base: Vec3 = at): void {
     const cam = this.camera.position;
     this.slashAngle = slashAngleDeg(uDeg, { x: at.x - cam.x, z: at.z - cam.z });
     this.slashView = slashViewFor(this.slashAngle, this.lastView);
     this.lastView = this.slashView;
     this.slashAge = 0;
-    // 絵の 中で 刃の 弧は よこ = 板の まん中より 上・ねかせ = 下に ある ので、見た目の まん中が 体の 高さに なるよう ずらす
-    this.slashMesh.position.set(at.x, at.y + (this.slashView === 'side' ? -0.45 : 0.7), at.z);
+    // 弧の 見た目の まん中（コマごとに 絵の 中の 位置が ちがう）を 刀の さき（体の 前・胸の 高さ）に 合わせる。
+    // 板の まん中を 前 2.2 マスに 置くと、弧が 左へ 流れる 絵なので 横から 見た とき 画面の はしへ はなれる
+    const reach = slashReach(this.slashAngle);
+    this.slashScale = reach.scale;
+    this.slashMesh.scale.setScalar(reach.scale);
+    const k = reach.dist / 2.2;
+    this.slashTip.set(base.x + (at.x - base.x) * k, base.y - 0.1, base.z + (at.z - base.z) * k);
+    this.slashMesh.position.copy(this.slashTip);
     this.slashTex.offset.y = this.slashView === 'side' ? 0.5 : 0;
   }
 
@@ -335,6 +353,15 @@ export class NijiFx {
     }
     this.slashMesh.visible = true;
     this.slashMesh.quaternion.copy(this.camera.quaternion);
+    {
+      // 弧の まん中が いつも 刀の さきに 来るよう 板を ずらす（右・上 = カメラの 向き）
+      const u = (6 / 64) * this.slashScale;
+      const [cx, cy] = SLASH_CENTROID[this.slashView][f]!;
+      this.tmp.set(1, 0, 0).applyQuaternion(this.camera.quaternion).multiplyScalar(-(cx - 32) * u);
+      this.slashMesh.position.copy(this.slashTip).add(this.tmp);
+      this.tmp.set(0, 1, 0).applyQuaternion(this.camera.quaternion).multiplyScalar((cy - 22) * u);
+      this.slashMesh.position.add(this.tmp);
+    }
     this.slashTex.offset.x = f * 0.25;
     this.slashAge++;
   }

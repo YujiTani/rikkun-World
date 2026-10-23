@@ -92,7 +92,7 @@ test('ドーム ②: ぬりかべ', async ({ page }) => {
 test('斬撃: ふつうの 3 段攻撃 × カメラ（うしろ・横）', async ({ page }) => {
   await legendWorld(page, 'niji');
   await page.setViewportSize({ width: 1280, height: 800 });
-  for (const [label, deg] of [['back', 0], ['side', 110]] as const) {
+  for (const [label, deg] of [['back', 0], ['side45', 45], ['side90', 90], ['side', 110], ['side135', 135], ['front', 180]] as const) {
     await ready(page);
     const p = await page.evaluate(() => (window as any).__rikkun.player.get().position as { x: number; y: number; z: number });
     await spawnAt(page, 'karakasa', p.x, p.y, p.z - 3, 999);
