@@ -424,6 +424,8 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
     g.position.set(Math.cos(a), 0, Math.sin(a));
   }
   const VR = 5.5;
+  const warnMat = basic(ringTex, 0xff9040, 0.3), warnRing = flat(warnMat, scene);
+  warnRing.scale.set(VR, 1, VR);
   const fireVortex = (x: number, z: number) => {
     VX.x = x; VX.z = z; VX.y = deps.groundY(Math.floor(x), Math.floor(z)) + 1.05;
     VX.root.position.set(x, VX.y, z); VX.t = 0;
@@ -638,7 +640,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
   const chooseWarp = () => {
     spell = forced >= 0 ? forced : Math.floor(rng() * SPELLS); forced = -1;
     if (spell === 0) { side = rng() < 0.5 ? 'left' : 'back'; dist = 4 + rng(); }
-    else if (spell === 1) { side = 'back'; dist = 4 + rng(); }
+    else if (spell === 1) { side = 'back'; dist = 1.5 + 0.5 * rng(); } // すぐ うしろ（急いで 前へ はしらないと 当たる）
     else { ang = (rng() * 2 - 1) * 60 * D2R; dist = 10 + 2 * rng(); }
   };
   const teleport = () => {
@@ -758,6 +760,10 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
       phase = 'shy'; pt = 0; fade(0); shyT = 0; setShy(true); shyT = 0; beep();
     }
     updateShy(dt);
+    // 詠唱が はじまったら 足もとに うすい 予告の 輪（どこまで にげれば いいか）
+    const warn = phase === 'cast' && spell === 1 && !fired;
+    warnRing.visible = warn;
+    if (warn) { warnRing.position.set(pivot.position.x, deps.groundY(Math.floor(pivot.position.x), Math.floor(pivot.position.z)) + 1.05, pivot.position.z); warnMat.opacity = 0.3 + 0.1 * Math.sin(t * 8); }
     updateEruption(dt); updateVortex(dt); updateProjs(dt);
     add.update(dt); smoke.update(dt);
     // 俯瞰カメラの 目標（ふたりの まんなかを 見る）
@@ -802,7 +808,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
     nextSpell: (n) => { forced = (n - 1 + SPELLS) % SPELLS; },
     predictSide: () => (mulberry(rs)[1] < 0.5 ? 'left' : 'back'),
     info: () => ({
-      turn, cancels, eyeContact: eyeNow, soundCount, lastSoundT, bigCount, shy: shyT >= 0, hitActive: ER.t >= 0 && ER.t < erHitEnd, eruptionR: ER.t >= 0 ? ER.rad : 0, eruptionMaxR: ER_R, phase, spell: spell + 1, forced, castT: pt, side, dist, eruptionT: ER.t, vortexT: VX.t,
+      turn, cancels, eyeContact: eyeNow, soundCount, lastSoundT, bigCount, shy: shyT >= 0, warnRing: warnRing.visible, hitActive: ER.t >= 0 && ER.t < erHitEnd, eruptionR: ER.t >= 0 ? ER.rad : 0, eruptionMaxR: ER_R, phase, spell: spell + 1, forced, castT: pt, side, dist, eruptionT: ER.t, vortexT: VX.t,
       fireballs: projs.filter((q) => q.on && q.kind === 0).length, waves: projs.filter((q) => q.on && q.kind === 1).length,
       ...stats, girlX: pivot.position.x, girlZ: pivot.position.z,
     }),

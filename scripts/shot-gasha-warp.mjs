@@ -56,7 +56,7 @@ function gif(dir, frames, out, fps = 30) {
   writeFileSync(list, frames.map((f) => `file '${f}'\nduration ${1 / fps}`).join('\n') + '\n');
   const pal = join(dir, 'pal.png');
   const vf = 'scale=640:-1:flags=lanczos';
-  execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', list, '-vf', `${vf},palettegen=stats_mode=diff:max_colors=160`, pal]);
+  execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', list, '-vf', `${vf},palettegen=stats_mode=diff:max_colors=128`, pal]);
   execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', list, '-i', pal, '-lavfi', `${vf}[x];[x][1:v]paletteuse=dither=bayer:bayer_scale=4`, '-r', String(fps), join(OUT, out)]);
 }
 
@@ -125,6 +125,47 @@ async function cycle(n) {
   return { dir, allNorm, slow, peak, player };
 }
 
+
+/** 目が合う回（eye-contact.gif）と、5 回分で 大きな姿にもどる（テキストの スクショ）を 確かめる */
+async function eyeContact() {
+  const dir = join(work, 'eye'); mkdirSync(dir, { recursive: true });
+  const put = () => page.evaluate(([x, y, z]) => window.__rikkun.player.set({ position: { x, y, z }, velocity: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: 0 }), [X0, floorY + 1, Z0]);
+  await put();
+  await page.evaluate(() => { window.__gashaGirl.resetTurns(); window.__gashaGirl.camera('overview'); });
+  await step(90);
+  for (let i = 0; i < 400; i++) { const k = await info(); if (k.phase === 'stand' && k.eruptionT < 0 && k.vortexT < 0 && k.fireballs === 0 && k.waves === 0) break; await step(6); }
+  // --- 5 回分 → 大きな姿にもどる（目が合わない カメラ = overview。魔法は 1 と 2 だけ）
+  await page.evaluate(() => { window.__gashaGirl.resetTurns(); window.__gashaGirl.setSeed(5); });
+  let sawBig = false, bigShot = null, maxTurn = 0, log = [];
+  for (let g = 0; g < 6000; g++) {
+    const k = await info();
+    maxTurn = Math.max(maxTurn, k.turn);
+    if (log.at(-1) !== k.phase) log.push(k.phase);
+    if (k.phase === 'bigtext' && !bigShot) { await step(10); bigShot = await shot(dir); sawBig = true; }
+    if (sawBig && k.phase === 'gone') break;
+    if (k.phase === 'cast' && (k.spell === 3 || k.spell === 4)) await page.evaluate(() => window.__gashaGirl.nextSpell(1)); // 速く
+    await step(k.phase === 'gone' || k.phase === 'stand' ? 20 : 6);
+  }
+  if (bigShot) copyFileSync(bigShot, join(OUT, 'big-form-text.png'));
+  console.log('big form: seen', sawBig, 'maxTurn', maxTurn, 'turn after', (await info()).turn, 'phases', log.slice(0, 40).join('>'));
+  // --- 目が合う 2 回
+  for (let i = 0; i < 400; i++) { const k = await info(); if (k.phase === 'stand' && k.eruptionT < 0 && k.vortexT < 0) break; await step(6); }
+  await page.evaluate(() => { window.__gashaGirl.resetTurns(); window.__gashaGirl.camera('look'); window.__gashaGirl.setSeed(11); window.__gashaGirl.nextSpell(1); window.__gashaGirl.standNow(); });
+  await put();
+  const frames = [];
+  frameNo = 0;
+  for (let i = 0; i < 12; i++) { await step(2); frames.push(await shot(dir)); }
+  for (let g = 0; g < 3000; g++) {
+    const k = await info();
+    const fastFwd = k.phase === 'gone' || k.phase === 'stand';
+    await step(fastFwd ? 4 : 2); frames.push(await shot(dir));
+    if (k.cancels >= 2 && k.phase === 'gone') break;
+  }
+  const e = await info();
+  console.log(`eye: cancels ${e.cancels} turn ${e.turn} sounds ${e.soundCount} lastSoundT ${e.lastSoundT} frames ${frames.length}`);
+  gif(dir, frames, 'eye-contact.gif');
+}
+if (process.env.EYE) { await eyeContact(); await browser.close(); process.exit(0); }
 for (const n of ONLY) {
   const r = await cycle(n);
   gif(r.dir, r.allNorm, `warp-cast-${n}.gif`);
