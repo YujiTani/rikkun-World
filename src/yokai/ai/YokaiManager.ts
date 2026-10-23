@@ -266,6 +266,9 @@ function scaledDims(kind: YokaiKind, s: number): KindAi {
 }
 
 /** 妖怪たち（出現・AI・攻撃・火の玉・たおれる・帰る）。仕様 M3-combat §2.3〜§2.5・§2.9・§4.2〜§4.4 */
+/** 虹の はじき中だけの 重力（g=2h/t²: 高さ 6・0.4 秒 → 75） */
+const HEAVY_G = 75;
+
 export class YokaiManager implements YokaiWorld {
   readonly config: YokaiConfig;
   /** シーンに入れる */
@@ -495,8 +498,8 @@ export class YokaiManager implements YokaiWorld {
       // 長い はじきは はじめ 速く・おわり ゆっくり（1 ステップ目 ≒ 2 × 平均）
       e.knockTotal = knock?.ticks && knock.ticks > 0 ? Math.max(0, knock.dist) : 0;
       e.knockT = knock?.ticks && knock.ticks > 0 ? T : 0;
-      // heavy（虹の はじき）の 上は「とぶ 高さ」（重力 25 で いちばん 高い 所が up マス → 初速 √(2·25·up)）。ふつうの 押しは 今までどおり 初速
-      e.knockUpV = knock && knock.up > 0 ? (knock.heavy ? Math.sqrt(2 * 25 * knock.up) : knock.up) : 0;
+      // heavy（虹の はじき）の 上は「とぶ 高さ」（重力 HEAVY_G=75 で 上 6 に 24 ステップ（0.4 秒）で とどく）。いちばん 高い 所が up マス → 初速 √(2·HEAVY_G·up)。ふつうの 押しは 今までどおり 初速
+      e.knockUpV = knock && knock.up > 0 ? (knock.heavy ? Math.sqrt(2 * HEAVY_G * knock.up) : knock.up) : 0;
       if (knock?.heavy) e.airSafe = true;
     }
     return amount;
@@ -1490,11 +1493,14 @@ export class YokaiManager implements YokaiWorld {
     } else if (e.y > t + 1e-6) {
       if (Number.isNaN(e.fallFrom)) {
         e.fallFrom = e.y;
-        e.floating = e.kind === 'karakasa' && e.y - t >= AI_CONST.floatMinDrop - 1e-6;
+        // 虹の はじき中は ふわふわ せず（ゆれて 横へ ずれない）いきおいよく 落ちる
+        e.floating = !e.airSafe && e.kind === 'karakasa' && e.y - t >= AI_CONST.floatMinDrop - 1e-6;
         e.swayStep = 0;
       }
       if (e.floating) this.sway(e, dt);
-      e.vy = Math.min(e.floating ? AI_CONST.floatFallSpeed : 25, e.vy + 25 * dt);
+      // 虹の はじき中（airSafe）は 上がりと おなじ 重力で はやく 落ちる
+      const g = e.airSafe ? HEAVY_G : 25;
+      e.vy = Math.min(e.floating ? AI_CONST.floatFallSpeed : e.airSafe ? 2 * HEAVY_G : 25, e.vy + g * dt);
       e.y = Math.max(t, e.y - e.vy * dt);
       if (e.y <= t) {
         e.vy = 0;
@@ -1643,7 +1649,7 @@ export class YokaiManager implements YokaiWorld {
   private rise(e: Ent, dt: number): boolean {
     if (e.knockUpV <= 0) return false;
     const ny = e.y + e.knockUpV * dt;
-    e.knockUpV -= 25 * dt;
+    e.knockUpV -= (e.airSafe ? HEAVY_G : 25) * dt;
     const r = e.dims.radius;
     const blocked = !this.boxFreeAt(e.x - r, ny + e.dims.height - 0.05, e.z - r, e.x + r, ny + e.dims.height, e.z + r);
     if (e.knockUpV <= 0 || blocked) {

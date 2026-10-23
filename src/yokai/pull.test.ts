@@ -114,6 +114,22 @@ describe('大きな はじき（ticks 24・水平 9・上 6）', () => {
       expect(hp1).toBeLessThan(hp0);
     }
   });
+  it('上 6 の いちばん 高い 所へ 24±2 ステップで とどく（水平と おなじ いきおい）', () => {
+    for (const kind of ['karakasa', 'nurikabe'] as const) {
+      const { m, step, pos } = rig();
+      const id = m.spawn(kind, 36.5, 9, 30.5, { ai: false });
+      const y0 = pos(id).y;
+      m.damage(id, 1, { x: 30.5, y: 10, z: 30.5 }, { dist: 9, up: 6, ticks: 24, heavy: true });
+      let top = y0;
+      let topStep = 0;
+      for (let i = 1; i <= 120; i++) {
+        step();
+        if (pos(id).y > top + 1e-9) { top = pos(id).y; topStep = i; }
+      }
+      expect(topStep, `${kind} の 頂点の ステップ`).toBeGreaterThanOrEqual(22);
+      expect(topStep, `${kind} の 頂点の ステップ`).toBeLessThanOrEqual(26);
+    }
+  });
   describe('airSafe は はじきが おわったら 必ず もどる', () => {
     const safe = (m: any, id: number): boolean => m.ents.find((q: any) => q.id === id).airSafe;
     it('天井で 上へ とべない（足場も かわらない）', () => {
