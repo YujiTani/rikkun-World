@@ -200,6 +200,9 @@ function build(): AchievementDef[] {
   add({ series: 'craft.bucket', category: 'craft', stat: 'craft:bucket', tiers: [t(1, true)], name: () => `はじめて ${BUCKET_CRAFT_NAME} を つくった！` });
   // LIVE-1 版 3.2（§4.5）: むしとりあみ。小 ＋1。craft.everything（28）には 入れない（BUCKET-1 と 同じ）
   add({ series: 'craft.mushi_ami', category: 'craft', stat: 'craft:mushi_ami', tiers: [t(1, true)], name: () => 'はじめて むしとりあみ を つくった！' });
+  // LIVE-2 版 3（§4.5）: こたつ・とりごや。小 ＋2。craft.everything（28）には 入れない（mushi_ami と 同じ）
+  add({ series: 'craft.nukunuku', category: 'craft', stat: 'craft:nukunuku', tiers: [t(1, true)], name: () => 'はじめて こたつ を つくった！' });
+  add({ series: 'craft.toriya', category: 'craft', stat: 'craft:toriya', tiers: [t(1, true)], name: () => 'はじめて とりごや を つくった！' });
   add({ series: 'craft.all', category: 'craft', stat: 'craft:*', tiers: [t(10), t(50), t(100), t(500)], name: (g) => `${g} かい つくった！` });
   add({ series: 'craft.pickaxes', category: 'craft', stat: 'craft:pickaxes', tiers: [t(PICKAXE_RECIPES.length)], name: () => 'つるはし を ぜんぶ つくった！' });
   add({ series: 'craft.weapons', category: 'craft', stat: 'craft:weapons', tiers: [t(WEAPON_RECIPES.length)], name: () => 'ぶき を ぜんぶ つくった！' });
@@ -503,6 +506,31 @@ function build(): AchievementDef[] {
     tiers: [t(1), t(10)],
     name: firstOrN('はじめて だっこ した！', (g) => `${g} かい だっこ した！`),
   });
+  // LIVE-2 版 3（§4.5）: animal.carry の うしろ に この 順（9 こ・小 1）
+  add({ series: 'animal.coop', category: 'farm', stat: 'place:toriya', tiers: [t(1)], name: () => 'はじめて とりごや を たてた！' });
+  add({ series: 'animal.home', category: 'farm', stat: 'home:*', tiers: [t(1, true)], name: () => 'はじめて とりごや の こ が できた！' });
+  add({
+    series: 'animal.hatch',
+    category: 'farm',
+    stat: 'hatch:*',
+    tiers: [t(1), t(5)],
+    name: firstOrN('はじめて ひよこ が かえった！', (g) => `ひよこ が ${g} わ かえった！`),
+  });
+  add({
+    series: 'animal.grow',
+    category: 'farm',
+    stat: 'grow:*',
+    tiers: [t(1), t(5)],
+    name: firstOrN('はじめて おとな に なった！', (g) => `${g} わ おとな に なった！`),
+  });
+  add({
+    series: 'animal.goldenEgg',
+    category: 'farm',
+    stat: 'goldenEgg:*',
+    tiers: [t(1), t(5)],
+    name: firstOrN('はじめて きん の たまご！', (g) => `きん の たまご を ${g} こ！`),
+  });
+  add({ series: 'animal.macho', category: 'farm', stat: 'hatch:macho', tiers: [t(1)], name: () => 'マッチョ ひよこ が かえった！' });
 
   const out: AchievementDef[] = [];
   for (const s of specs) {

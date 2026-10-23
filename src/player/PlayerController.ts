@@ -97,6 +97,11 @@ export class PlayerController {
     this.respawn();
   }
 
+  /** 体 の 当たり 用 の 固さ（LIVE-2: とりごやの さく は 高さ 2） */
+  private solid(w: VoxelWorld, x: number, y: number, z: number): boolean {
+    return w.isSolidForPlayer ? w.isSolidForPlayer(x, y, z) : w.isSolid(x, y, z);
+  }
+
   /** スタート地点に戻す（速さ 0、向きはスタートの向き） */
   respawn(): void {
     const s = this.spawn();
@@ -175,7 +180,7 @@ export class PlayerController {
     for (let i = i0; i <= i1; i++) {
       for (let k = k0; k <= k1; k++) {
         if (!w.isLoaded(i, k)) return true;
-        for (let j = j1; j >= j1 - 1; j--) if (w.isSolid(i, j, k) || w.getBlock(i, j, k) === 'water') return true;
+        for (let j = j1; j >= j1 - 1; j--) if (this.solid(w, i, j, k) || w.getBlock(i, j, k) === 'water') return true;
       }
     }
     return false;
@@ -368,7 +373,7 @@ export class PlayerController {
         idx[b] = i;
         idx[e] = j;
         // 読みこんでいない列は 固い（'outside'。VOX-D: 世界のはしの面のかわり）
-        if (!this.world.isLoaded(idx[0], idx[2]) || this.world.isSolid(idx[0], idx[1], idx[2])) return true;
+        if (!this.world.isLoaded(idx[0], idx[2]) || this.solid(this.world, idx[0], idx[1], idx[2])) return true;
       }
     }
     return false;
@@ -393,10 +398,10 @@ export class PlayerController {
     for (let i = x0; i <= x1; i++) {
       for (let k = z0; k <= z1; k++) {
         let foot = false;
-        for (let j = f0; j <= f1; j++) if (w.isSolid(i, j, k)) foot = true;
+        for (let j = f0; j <= f1; j++) if (this.solid(w, i, j, k)) foot = true;
         if (!foot) continue;
         hit = true;
-        for (let j = c0; j <= c1; j++) if (w.isSolid(i, j, k)) return false; // 段の上に体が入らない
+        for (let j = c0; j <= c1; j++) if (this.solid(w, i, j, k)) return false; // 段の上に体が入らない
       }
     }
     if (!hit) return false;
@@ -409,7 +414,7 @@ export class PlayerController {
     const h1 = Math.floor(y + AUTOJUMP_HEAD_TOP - EPS);
     for (let i = hx0; i <= hx1; i++)
       for (let k = hz0; k <= hz1; k++)
-        for (let j = h0; j <= h1; j++) if (w.isSolid(i, j, k)) return false;
+        for (let j = h0; j <= h1; j++) if (this.solid(w, i, j, k)) return false;
     return true;
   }
 

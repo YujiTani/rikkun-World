@@ -1,11 +1,11 @@
-import type { AnimalEvent, AnimalFxRecord, AnimalMark, AnimalView, SwingReason, Vec3 } from '../contracts';
+import type { AnimalEvent, AnimalFxRecord, AnimalMark, AnimalView, CoopInfo, KitInfo, SwingReason, Vec3 } from '../contracts';
 import { playAnimal, type AnimalSoundName } from './animalSounds';
 import type { SoundFx } from './sound';
 
 /**
  * LIVE-1（にわとり）の 音・つぶ・頭の 上の ハート（仕様 §3.3・§3.6・§3.7）。Three.js なし の 計算の 係。
  * 描くのは `src/animals/models/AnimalRenderer.ts`（`write()` で 1 つの Points に 書く）。
- * つなぎ込みは 毎ステップ: `fx.onEvents(animals.events())` → `fx.step(views, eye)`。
+ * つなぎ込みは 毎ステップ: `fx.onEvents(animals.events())` → `fx.step(views, eye, animals.kits(), animals.coops())`（LIVE-2: こたつ・小屋 は 省略 できる）。
  * 乱数は シード つき（同じ 操作なら 同じ つぶ）。毎ステップ new しない。
  */
 export const ANIMAL_FX = {
@@ -51,17 +51,38 @@ export const ANIMAL_FX = {
   /** パタパタ の 音の 間（ステップ） */
   flutterGap: 16,
   flutterRange: 16,
+  // ---- LIVE-2（§3.6・§3.7）
+  /** こたつ の ゆれ の 音・ねる 音・ひよこ の 声 が 聞こえる 近さ */
+  kitRange: 8,
+  sleepRange: 8,
+  /** ねる 音 の 間（ステップ。いき の 1 しゅう 90 と そろえる） */
+  snoreGap: 90,
+  /** ひよこ（頭 の 上 の しるし の 高さ） */
+  chickHeadY: 0.35 + 0.3,
+  machoChickHeadY: 0.4 + 0.3,
+  machoHeadY: 0.8 * 1.15 + 0.3,
+  /** から の かけら: かえる 動き の 20 ステップ 目（ぽんっ）に 6 つ */
+  shell: 6,
+  shellAt: 20,
+  /** 小屋 の 子 に なる ハート 3・大人 の キラッ 8・金 の たまご の キラッ 8 */
+  homeHearts: 3,
+  growSparkle: 8,
+  goldSparkle: 8,
+  /** 金 の たまご が すばこ に ある 小屋 の キラッ（ステップ ごと） */
+  goldCoopGap: 45,
+  /** あつめた 数 が これ 以上 なら 長い ころころ */
+  collectMany: 5,
 } as const;
 
 /** つぶの 絵の 番号（描く 側の 絵の 並びと そろえる。8 まい 並び） */
-export const TILE = { heartFull: 0, heartEmpty: 1, star: 2, dot: 3, footFull: 4, footEmpty: 5, belly: 6 } as const;
+export const TILE = { heartFull: 0, heartEmpty: 1, star: 2, dot: 3, footFull: 4, footEmpty: 5, belly: 6, zzz: 7, houseEmpty: 8, house1: 9, house2: 10, house3: 11 } as const;
 /** 描く 側 の 絵 の 数（`atlasTexture` の 横の 枚数） */
-export const TILE_COUNT = 8;
+export const TILE_COUNT = 12;
 
 const CAP = 256;
 const DT = 1 / 60;
 
-type Kind = 1 | 2 | 3 | 4 | 5; // 1 ハート 2 紙ふぶき 3 けむり 4 キラッ 5 はっぱ
+type Kind = 1 | 2 | 3 | 4 | 5 | 6; // 1 ハート 2 紙ふぶき 3 けむり 4 キラッ 5 はっぱ 6 から の かけら
 
 const CONFETTI_COLORS = [0xe8553d, 0xf2b33d, 0x5fbf6a, 0x4a90d9, 0xf08fb4, 0xf28a2e] as const;
 
@@ -116,8 +137,9 @@ export class AnimalParticles {
       const k = this.kind[i];
       if (k === 2) this.vy[i] -= 7 * DT; // 紙ふぶき: 落ちる
       if (k === 5) this.vy[i] -= 4 * DT; // はっぱ: ひらひら 落ちる
-      if (k === 2 || k === 1 || k === 5) {
-        const d = k === 2 ? 0.985 : k === 5 ? 0.95 : 0.97; // 空気の ていこう
+      if (k === 6) this.vy[i] -= 9 * DT; // から の かけら: ころんと 落ちる
+      if (k === 2 || k === 1 || k === 5 || k === 6) {
+        const d = k === 2 ? 0.985 : k === 5 ? 0.95 : k === 6 ? 0.93 : 0.97; // 空気の ていこう
         this.vx[i] *= d;
         this.vz[i] *= d;
       }
@@ -154,7 +176,7 @@ export class AnimalParticles {
         if (t > 0.75) s *= 1 - (t - 0.75) / 0.25;
       } else if (k === 3) {
         s *= 0.6 + 1.2 * Math.sin(Math.PI * Math.min(1, t * 0.8 + 0.1));
-      } else if (k === 5) {
+      } else if (k === 5 || k === 6) {
         if (t > 0.6) s *= 1 - (t - 0.6) / 0.4;
       } else {
         tile = TILE.star;
@@ -283,6 +305,8 @@ export interface AnimalFxCounts {
   sparkle: number;
   /** 版 3.2: あみ を ふった ときの はっぱ の つぶ */
   leaf: number;
+  /** LIVE-2: から の かけら（かえる たび 6） */
+  shell: number;
 }
 
 interface Seen {
@@ -306,6 +330,18 @@ interface MarkRow {
   steps: number;
   follow: number;
   fullLeft: number;
+  /** LIVE-2: いえ の しるし の うまり（0 = なし） */
+  home: number;
+  /** 頭 の 上 の しるし の 高さ（ひよこ は ひくい） */
+  headY: number;
+}
+
+/** ねて いる 子 の Z 1 つ ぶん */
+interface ZzzRow {
+  id: number;
+  x: number;
+  y: number;
+  z: number;
 }
 
 /** とんで くる むし 1 ぴき（§2.4。ふって 10 ステップ 目 から 20 ステップ） */
@@ -334,6 +370,8 @@ interface Pending {
   z: number;
   caught: boolean;
   reason: SwingReason;
+  /** なにを 流すか（なければ あみ） */
+  act?: 'shell' | 'hatchSnd';
 }
 
 const RUSTLES = ['rustle', 'rustle2', 'rustle3'] as const;
@@ -341,18 +379,33 @@ const FLIGHT_SLOTS = 4;
 
 const ease = (t: number): number => t * t * (3 - 2 * t);
 
+/** 頭 の 上の しるし の 高さ（足もと から）。ひよこ は ひくく、マッチョ の 大人 は たかく */
+function headYOf(v: AnimalView): number {
+  const macho = v.breed === 'macho';
+  if (v.stage === 'chick') return macho ? ANIMAL_FX.machoChickHeadY : ANIMAL_FX.chickHeadY;
+  return macho ? ANIMAL_FX.machoHeadY : ANIMAL_FX.headHeartY;
+}
+
 export class AnimalFx {
   /** 鳴らした 音の 名前（テスト用。長くなりすぎない） */
   readonly played: AnimalSoundName[] = [];
   readonly particles = new AnimalParticles();
   /** とんで いる むし（描く 側が 読む。あみ を ふって 10〜30 ステップ） */
   readonly flights: BugFlight[] = [];
-  private readonly counts: AnimalFxCounts = { hearts: 0, burst: 0, confetti: 0, puff: 0, sparkle: 0, leaf: 0 };
+  private readonly counts: AnimalFxCounts = { hearts: 0, burst: 0, confetti: 0, puff: 0, sparkle: 0, leaf: 0, shell: 0 };
   private readonly rnd: () => number;
   private readonly heads: HeadHeart[] = [];
   private headN = 0;
   private readonly marks: MarkRow[] = [];
   private markN = 0;
+  private readonly zzzRows: ZzzRow[] = [];
+  private zzzN = 0;
+  /** 最後に かえる 動き が はじまった こたつ の 場所と ステップ（かえった 子 が まだ 見えない とき の つぶ の 場所） */
+  private hatchAt = { x: 0, y: 0, z: 0, tick: -1e9 };
+  /** 「かえる」の 音を 鳴らした ステップ（二重に ならさない） */
+  private hatchDefaultAt = -1e9;
+  private hatchedBefore = false;
+  private machoBefore = false;
   private readonly seen = new Map<number, Seen>();
   private readonly pending: Pending[] = [];
   private gen = 0;
@@ -378,7 +431,7 @@ export class AnimalFx {
   // ---------------------------------------------------------------- 毎ステップ
 
   /** 1 ステップ。`views` = 今 見えている にわとり（`animals.forEachVisible`）、`eye` = プレイヤー の 位置 */
-  step(views: readonly AnimalView[], eye: Vec3): void {
+  step(views: readonly AnimalView[], eye: Vec3, kits: readonly KitInfo[] = [], coops: readonly CoopInfo[] = []): void {
     this.tick++;
     this.gen++;
     this.eye.x = eye.x;
@@ -406,6 +459,17 @@ export class AnimalFx {
         const off = mix(v.id, 23) % period;
         if ((this.tick + off) % period === 0) this.snd('cluck');
       }
+      // ぴよぴよ（LIVE-2）: ひよこ。`cluck` と 同じ 間隔 の きまり（ずらし かたは ちがう）
+      if (v.stage === 'chick' && dx * dx + dz * dz <= r2) {
+        const period = ANIMAL_FX.cluckMin + (mix(v.id, 37) % ANIMAL_FX.cluckSpan);
+        const off = mix(v.id, 41) % period;
+        if ((this.tick + off) % period === 0) this.snd('peep');
+      }
+      // すやすや（LIVE-2）: 近く で ねて いる 子 の いびき。いきの 1 しゅう（90）に 1 回
+      if (v.state === 'sleep' && !v.carried && dx * dx + dz * dz <= ANIMAL_FX.sleepRange * ANIMAL_FX.sleepRange) {
+        const off = mix(v.id, 53) % ANIMAL_FX.snoreGap;
+        if ((this.tick + off) % ANIMAL_FX.snoreGap === 0) this.snd('sleep');
+      }
       // パタパタ: おちる あいだ 16 ステップ に 1 回、近い とき だけ。1 ステップ に 1 回 まで。着地で 止まる
       if (v.fluttering && !v.carried) {
         if (!this.flutterThisStep && dx * dx + dz * dz <= fr2 && this.tick - s.flutterAt >= ANIMAL_FX.flutterGap) {
@@ -419,17 +483,58 @@ export class AnimalFx {
     const dist = this.d.lookDist ? this.d.lookDist() : ANIMAL_FX.lookDist;
     this.headN = headHeartsInto(this.heads, views, eye, dist);
     this.collectMarks(views, eye);
+    this.stepKits(kits, eye);
+    this.stepCoops(coops, eye);
     this.stepFlights();
     this.runPending(); // とび出した ステップ の 経過は 0（次の ステップ から 動く）
     this.particles.step();
   }
 
+  /** こたつ の ゆれ の 音（近く 8 マス だけ。じっと = なし、ときどき = 600 ステップ ごと、よく = 180 ごと の 頭 の 12 ステップ 目 から） */
+  private stepKits(kits: readonly KitInfo[], eye: Vec3): void {
+    const r2 = ANIMAL_FX.kitRange * ANIMAL_FX.kitRange;
+    for (const k of kits) {
+      if (k.egg === null || k.wobble === 0) continue;
+      const dx = k.x + 0.5 - eye.x;
+      const dz = k.z + 0.5 - eye.z;
+      if (dx * dx + dz * dz > r2) continue;
+      const period = k.wobble === 2 ? 180 : 600;
+      if (k.left % period === 11) {
+        this.snd('kitWobble');
+        break; // 1 ステップ に 1 回 まで
+      }
+    }
+  }
+
+  /** 小屋: 金 の たまご が すばこ に ある あいだ、ときどき キラッ（ふんいき。数えない） */
+  private stepCoops(coops: readonly CoopInfo[], eye: Vec3): void {
+    if (this.motion() <= 0 || this.tick % ANIMAL_FX.goldCoopGap !== 0) return;
+    for (const c of coops) {
+      if (c.nest.gold <= 0) continue;
+      const dx = c.x + 0.5 - eye.x;
+      const dz = c.z + 0.5 - eye.z;
+      if (dx * dx + dz * dz > ANIMAL_FX.cluckRange * ANIMAL_FX.cluckRange) continue;
+      const a = this.rnd() * Math.PI * 2;
+      this.particles.spawn(4, c.x + 0.5 + Math.cos(a) * 0.6, c.y + 0.6, c.z + 0.5 + Math.sin(a) * 0.6, 0, 0.35, 0, 30, 0.14, 0xffe27a);
+    }
+  }
+
   /** 頭の 上の しるし の 組（ハート／あしあと・おなかいっぱい）を 集める（§3.3） */
   private collectMarks(views: readonly AnimalView[], eye: Vec3): void {
     let n = 0;
+    let z = 0;
     const md2 = ANIMAL_FX.markDist * ANIMAL_FX.markDist;
     for (const v of views) {
       if (v.carried) continue; // だっこ 中は 出さない（手の 中に ある）
+      if (v.state === 'sleep') {
+        let r = this.zzzRows[z];
+        if (!r) r = this.zzzRows[z] = { id: 0, x: 0, y: 0, z: 0 };
+        z++;
+        r.id = v.id;
+        r.x = v.x;
+        r.y = v.y + headYOf(v);
+        r.z = v.z;
+      }
       let hearts = 0;
       for (let h = 0; h < this.headN; h++) if (this.heads[h].id === v.id) hearts = this.heads[h].filled;
       const dx = v.x - eye.x;
@@ -439,9 +544,10 @@ export class AnimalFx {
       const fullLeft = v.fullLeft ?? 0;
       const steps = v.friend && near && follow > 0 ? (follow > ANIMAL_FX.stepsHigh ? 3 : follow > ANIMAL_FX.stepsMid ? 2 : 1) : 0;
       const full = near && fullLeft > 0;
-      if (hearts === 0 && steps === 0 && !full) continue;
+      const home = near && (v.homeFill ?? 0) > 0 ? Math.min(1, v.homeFill ?? 0) : 0;
+      if (hearts === 0 && steps === 0 && !full && home === 0) continue;
       let m = this.marks[n];
-      if (!m) m = this.marks[n] = { id: 0, x: 0, y: 0, z: 0, hearts: 0, steps: 0, follow: 0, fullLeft: 0 };
+      if (!m) m = this.marks[n] = { id: 0, x: 0, y: 0, z: 0, hearts: 0, steps: 0, follow: 0, fullLeft: 0, home: 0, headY: ANIMAL_FX.headHeartY };
       n++;
       m.id = v.id;
       m.x = v.x;
@@ -451,8 +557,11 @@ export class AnimalFx {
       m.steps = steps;
       m.follow = follow;
       m.fullLeft = full ? fullLeft : 0;
+      m.home = home;
+      m.headY = headYOf(v);
     }
     this.markN = n;
+    this.zzzN = z;
   }
 
   /** 少し あとで 起きる もの（あみ を ふって 10 ステップ 目）を 流す */
@@ -461,7 +570,11 @@ export class AnimalFx {
       const p = this.pending[i];
       if (p.at > this.tick) continue;
       this.pending.splice(i, 1);
-      this.swingDone(p);
+      if (p.act === 'shell') this.shells(p);
+      else if (p.act === 'hatchSnd') {
+        this.snd('hatch');
+        this.hatchDefaultAt = this.tick;
+      } else this.swingDone(p);
     }
   }
 
@@ -488,6 +601,17 @@ export class AnimalFx {
     this.rustleLast = k;
     this.snd(RUSTLES[k]);
     if (p.reason === 'empty') this.snd('animalHint'); // おやすみ の き は「おしい」
+  }
+
+  /** から の かけら 6（かえる 動き の ぽんっ で こたつ の 足もと に ころがる） */
+  private shells(p: Pending): void {
+    this.counts.shell += ANIMAL_FX.shell;
+    if (this.motion() <= 0) return;
+    for (let i = 0; i < ANIMAL_FX.shell; i++) {
+      const a = (i / ANIMAL_FX.shell) * Math.PI * 2 + this.rnd();
+      const sp = 0.8 + this.rnd() * 0.8;
+      this.particles.spawn(6, p.x, p.y + 0.25, p.z, Math.cos(a) * sp, 1.6 + this.rnd(), Math.sin(a) * sp, 36 + Math.floor(this.rnd() * 10), 0.1, i % 3 === 2 ? 0xe2d6b8 : 0xf5ecd8);
+    }
   }
 
   private startFlight(cx: number, cy: number, cz: number): void {
@@ -557,11 +681,22 @@ export class AnimalFx {
     }
   }
 
+  /** 子 の いる 場所（見えて いれば その 子、まだ なら かえる こたつ） */
+  private whereIs(id: number): Vec3 | null {
+    const s = this.seen.get(id);
+    if (s) return s;
+    return this.tick - this.hatchAt.tick <= 120 ? this.hatchAt : null;
+  }
+
   private confetti(id: number): void {
+    const s = this.whereIs(id);
+    this.confettiAt(s);
+  }
+
+  private confettiAt(s: Vec3 | null): void {
     if (this.motion() <= 0) return;
     const n = ANIMAL_FX.confetti;
     this.counts.confetti += n;
-    const s = this.seen.get(id);
     if (!s) return;
     for (let i = 0; i < n; i++) {
       const a = this.rnd() * Math.PI * 2;
@@ -570,6 +705,19 @@ export class AnimalFx {
       const c = CONFETTI_COLORS[Math.floor(this.rnd() * CONFETTI_COLORS.length)];
       this.particles.spawn(2, s.x, s.y + 0.6, s.z, Math.cos(a) * sp, up, Math.sin(a) * sp, 60 + Math.floor(this.rnd() * 30), 0.09, c);
     }
+  }
+
+  private sparkleAt(x: number, y: number, z: number, n: number): void {
+    this.counts.sparkle += n;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2 + this.rnd();
+      this.particles.spawn(4, x + Math.cos(a) * 0.3, y, z + Math.sin(a) * 0.3, 0, 0.5, 0, 30, 0.16, 0xffe27a);
+    }
+  }
+
+  /** 音 を 1 つ 鳴らす（出来事 に ならない もの: こたつ に 入れた〈`kitPut`〉・小屋 を 置いた〈`coopPlace`〉。つなぎ込み が 呼ぶ） */
+  play(name: AnimalSoundName): void {
+    this.snd(name);
   }
 
   private puff(p: Vec3, n: number = ANIMAL_FX.puffEach): void {
@@ -599,6 +747,13 @@ export class AnimalFx {
         }
         break;
       case 'egg':
+        if (e.gold === true) {
+          // 金 の たまご: 毎回 おおきく（きらきら ＋ ファンファーレ・紙ふぶき 60・キラッ 8）
+          this.snd('goldenEgg');
+          this.confettiAt({ x: e.x, y: e.y - 0.1, z: e.z });
+          this.sparkleAt(e.x, e.y + 0.35, e.z, ANIMAL_FX.goldSparkle);
+          break;
+        }
         this.snd('egg');
         this.counts.sparkle += ANIMAL_FX.sparkle;
         for (let i = 0; i < ANIMAL_FX.sparkle; i++) {
@@ -644,6 +799,61 @@ export class AnimalFx {
           this.particles.spawn(4, this.eye.x + Math.cos(a) * 0.3, this.eye.y - 0.45, this.eye.z + Math.sin(a) * 0.3, 0, 0.4, 0, 26, 0.12, 0xffe27a);
         }
         break;
+      // ---- LIVE-2
+      case 'hatchStart':
+        // ぽんっ の 20 ステップ 目 に から の かけら。音は 次の ステップ（同じ ステップ の `hatch` が 先に 決めて いたら それ）
+        this.hatchAt = { x: e.x + 0.5, y: e.y, z: e.z + 0.5, tick: this.tick };
+        this.pending.push({ at: this.tick + ANIMAL_FX.shellAt, x: e.x + 0.5, y: e.y, z: e.z + 0.5, caught: false, reason: 'miss', act: 'shell' });
+        this.pending.push({ at: this.tick + 1, x: 0, y: 0, z: 0, caught: false, reason: 'miss', act: 'hatchSnd' });
+        break;
+      case 'hatch': {
+        const first = e.first ?? !this.hatchedBefore;
+        const firstMacho = e.breed === 'macho' && !this.machoBefore;
+        this.hatchedBefore = true;
+        if (e.breed === 'macho') this.machoBefore = true;
+        // 予約 して いた ふつう の 音 は とりけす
+        for (let i = this.pending.length - 1; i >= 0; i--) if (this.pending[i].act === 'hatchSnd') this.pending.splice(i, 1);
+        const alreadyNormal = this.tick - this.hatchDefaultAt <= 90;
+        if (first) this.snd('hatchFirst');
+        else if (e.breed === 'macho') this.snd('hatchMacho');
+        else if (!alreadyNormal) this.snd('hatch');
+        if (first || firstMacho) this.confetti(e.id);
+        if (e.gold) this.sparkleAt(this.hatchAt.x, this.hatchAt.y + 0.4, this.hatchAt.z, ANIMAL_FX.goldSparkle);
+        break;
+      }
+      case 'home': {
+        this.snd('home');
+        this.counts.hearts += ANIMAL_FX.homeHearts;
+        const s = this.seen.get(e.id);
+        if (s) {
+          for (let i = 0; i < ANIMAL_FX.homeHearts; i++) {
+            const a = (i / ANIMAL_FX.homeHearts) * Math.PI * 2 + this.rnd();
+            this.particles.spawn(1, s.x + Math.cos(a) * 0.2, s.y + 0.55, s.z + Math.sin(a) * 0.2, Math.cos(a) * 0.3, 0.9, Math.sin(a) * 0.3, 40, 0.22, 0xffffff);
+          }
+        }
+        break;
+      }
+      case 'grow': {
+        // はじめて: ファンファーレ ＋ 紙ふぶき。2 わ目 から: オルゴール 3 音 ＋ キラッ 8
+        this.snd(e.first ? 'growFirst' : 'grow');
+        if (e.first) this.confetti(e.id);
+        else {
+          const s = this.seen.get(e.id);
+          if (s) this.sparkleAt(s.x, s.y + 0.6, s.z, ANIMAL_FX.growSparkle);
+          else this.counts.sparkle += ANIMAL_FX.growSparkle;
+        }
+        break;
+      }
+      case 'coopCollect':
+        if (e.egg + e.gold > 0) {
+          this.snd('collect'); // 音の 名前は いつも collect（仕様）。多い とき は ころころ の つづき を 重ねる
+          if (e.egg + e.gold >= ANIMAL_FX.collectMany) this.snd('collectMany');
+        }
+        break;
+      case 'growStart': // 動き だけ（音・つぶ は 大人 に なった とき）
+      case 'roll': // ころん: 音は なし（ひよこ の パタパタ の 着地。からだ の うごき で 見せる）
+      case 'coopLocked': // 音 `animalHint` は A が 合図 と いっしょに 出す
+      case 'carryHint':
       case 'spawn':
       case 'remove':
         break;
@@ -660,9 +870,10 @@ export class AnimalFx {
       const row: AnimalMark = { id: m.id, full: m.fullLeft > 0 };
       if (m.hearts > 0) row.hearts = m.hearts;
       if (m.steps > 0) row.steps = m.steps;
+      if (m.home > 0) row.home = m.home;
       marks.push(row);
     }
-    return { ...this.counts, marks };
+    return { ...this.counts, zzz: this.zzzN, marks };
   }
 
   /** `animals.fxReset()` */
@@ -673,6 +884,7 @@ export class AnimalFx {
     this.counts.puff = 0;
     this.counts.sparkle = 0;
     this.counts.leaf = 0;
+    this.counts.shell = 0;
   }
 
   /**
@@ -689,7 +901,7 @@ export class AnimalFx {
     const put = (m: MarkRow, off: number, tile: number, size: number, shade: number): void => {
       const j = n * 3;
       out.pos[j] = m.x + rx * off;
-      out.pos[j + 1] = m.y + ANIMAL_FX.headHeartY;
+      out.pos[j + 1] = m.y + m.headY;
       out.pos[j + 2] = m.z + rz * off;
       out.col[j] = out.col[j + 1] = out.col[j + 2] = shade;
       out.size[n] = size;
@@ -700,7 +912,7 @@ export class AnimalFx {
     const wave = 0.78 + 0.22 * Math.sin((2 * Math.PI * this.tick) / ANIMAL_FX.fadePeriod);
     for (let h = 0; h < this.markN; h++) {
       const m = this.marks[h];
-      if (n + 4 > cap) break;
+      if (n + 5 > cap) break;
       const hasMain = m.hearts > 0 || m.steps > 0;
       if (m.hearts > 0) {
         for (let i = 0; i < ANIMAL_FX.headHearts; i++) put(m, (i - 1) * gap, i < m.hearts ? TILE.heartFull : TILE.heartEmpty, ANIMAL_FX.headHeartSize, 1);
@@ -712,6 +924,24 @@ export class AnimalFx {
         const k = Math.max(0, Math.min(1, m.fullLeft / fullTicks));
         put(m, hasMain ? 2 * gap : 0, TILE.belly, ANIMAL_FX.headHeartSize * (0.55 + 0.45 * k), 1);
       }
+      if (m.home > 0) {
+        // いえ の しるし: 小屋 に 入る とちゅう。3 だんかい（1/3・2/3・ぜんぶ）で うまる
+        const tile = m.home >= 1 ? TILE.house3 : m.home >= 2 / 3 ? TILE.house2 : m.home >= 1 / 3 ? TILE.house1 : TILE.houseEmpty;
+        put(m, hasMain || m.fullLeft > 0 ? -2 * gap : 0, tile, ANIMAL_FX.headHeartSize, 1);
+      }
+    }
+    // Z: ねて いる あいだ 1 わ 1 つ。ゆっくり 上へ のぼって ちいさく きえる（80 ステップ で 1 しゅう）
+    for (let i = 0; i < this.zzzN && n < cap; i++) {
+      const r = this.zzzRows[i];
+      const ph = ((this.tick + (r.id % 7) * 11) % 80) / 80;
+      const j = n * 3;
+      out.pos[j] = r.x + rx * (0.12 + 0.12 * ph);
+      out.pos[j + 1] = r.y + 0.05 + 0.3 * ph;
+      out.pos[j + 2] = r.z + rz * (0.12 + 0.12 * ph);
+      out.col[j] = out.col[j + 1] = out.col[j + 2] = 1;
+      out.size[n] = ANIMAL_FX.headHeartSize * 0.9 * Math.min(1, 0.4 + 2 * ph) * (ph > 0.7 ? 1 - (ph - 0.7) / 0.3 : 1);
+      out.tile[n] = TILE.zzz;
+      n++;
     }
     return this.particles.write(out, n, cap);
   }

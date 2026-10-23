@@ -1,6 +1,7 @@
 import type {
   ArmorSystem,
   BlockId,
+  CoopPlacePreview,
   CraftSystem,
   DigBlockedReason,
   DigEvent,
@@ -34,6 +35,7 @@ import type { Action, ActionState } from '../input/actions';
 import { LIVE_SETTING_DEFAULTS, cropKindOfBlock, seedKindOfItem, vegKindOfItem } from '../contracts';
 import { itemType } from '../inventory/items';
 import { isFloraBlock } from '../world/blocks/flora';
+import { KOTATSU_CELLS, isKotatsuBlock, kotatsuAnchorOf } from '../world/blocks/kotatsu';
 import { BODY_H, BODY_W, FARM_BREAK_DROP, NO_DROP_BLOCKS, createDigConfig, type DigConfig } from './config';
 import { createRng, randInt, type Rng } from '../world/gen/random';
 import type { PunchGate } from '../combat/PlayerCombat';
@@ -46,6 +48,9 @@ import { routeAttackInput, type ParryInput, type Parry } from '../combat/parry';
 import { blockFamily, effectivePower, toolFamily, toolRank } from './toolFamily';
 import { ToolHintModel, bestHotbarSlot, type ToolHintState } from './toolHint';
 import { computeWaterRay, createWaterRay, previewRightClick, type LeftClickKind, type RightClickPreview } from './rightClick';
+
+/** LIVE-2: 小屋 の ブロック（持ち物 に 入らない。こわすと 小屋 ぜんぶ が 消えて `toriya` 1） */
+const COOP_BLOCKS: ReadonlySet<BlockId> = new Set<BlockId>(['toriya_fence', 'toriya_gate', 'toriya_nest', 'toriya_box']);
 
 /** 出来事の列が読まれずにたまりすぎないように */
 const MAX_QUEUE = 256;
@@ -97,7 +102,7 @@ export interface DigM4Deps {
   /** LIVE-1: にわとり（A の `AnimalApi`。ふりわけ 0 は 口 を 呼ぶ だけ。なければ M7-2 のとおり） */
   animals?: AnimalApi;
   /** LIVE-1 版 3.2: あみ を ふる 長さ・だっこ まで の 押しつづけ（設定 を すぐ 読む）。なければ 初期値 */
-  live?: () => { netSwingTicks: number; carryHoldTicks: number };
+  live?: () => { netSwingTicks: number; carryHoldTicks: number; /** LIVE-2: 小屋 の 数 の 上限（なければ 初期値 3） */ coopCountMax?: number; /** LIVE-2: 1 つ の 小屋 の 子 の 上限（なければ 初期値 6） */ coopMax?: number };
   /** LIVE-1: たまご の 回復（設定 animalEggHeal を すぐ 読む）。なければ 初期値 */
   eggHeal?: () => number;
   /** M7-2: なでる・ごきげん（`PetPort`。C の `farm/pet.ts`） */
@@ -573,6 +578,12 @@ export class DigSystemImpl implements DigSystem {
     const t = this.tgt;
     if (!primary) this.unripeBlock = null;
     if (primary && t && this.tryHarvest(t)) return;
+    // LIVE-2 §2.3: 中 に 子 が いる 小屋 は こわせない。ほる 段 を 進めず（ひび 0）、押した ステップ に しらせ（A が 合図・音・出来事 を 出す）
+    if (primary && t && COOP_BLOCKS.has(t.id) && this.coopLocked(t)) {
+      this.clearMem();
+      this.active = false;
+      return;
+    }
     if (primary && t) {
       const tool = this.m4.tools?.current();
       const r = digSteps(cfg, t.id, tool?.level);
@@ -663,8 +674,42 @@ export class DigSystemImpl implements DigSystem {
     this.ready = false;
   }
 
-  private breakBlock(t: TargetInfo): void {
+  /** 小屋 の ブロック を ねらって いる ステップ ごと に A に 聞く。'locked' なら true（押した ステップ だけ firstPress） */
+  private coopLocked(t: TargetInfo): boolean {
+    const a = this.m4.animals;
+    const c = a?.coopAt(t.block.x, t.block.y, t.block.z);
+    if (!a || !c) return false;
+    return a.breakCoop(c.id, this.justPressed()) === 'locked';
+  }
+
+  /** 小屋 を こわす: A が 小屋 ぜんぶ（ブロック・すばこ の たまご）を 消す。`toriya` 1 を わたす */
+  private breakCoopBlock(t: TargetInfo): void {
+    const a = this.m4.animals;
+    const c = a?.coopAt(t.block.x, t.block.y, t.block.z);
+    if (!a || !c || !a.removeCoop(c.id)) {
+      this.clearMem();
+      this.active = false;
+      return;
+    }
     const { x, y, z } = t.block;
+    this.world.setBlock(x, y, z, 'air');
+    // 仕様（AC14）: toriya 1 は すばこ の たまご と いっしょに 足もと に おちる（拾うと 持ち物 へ）
+    if (this.m4.scatterItem) this.m4.scatterItem({ x: x + 0.5, y, z: z + 0.5 }, 'toriya', 1);
+    else if (this.inventory.add('toriya', 1) === 0) this.m4.onPickup?.('toriya', 1);
+    this.emit({ type: 'break', tick: this.tickCount, block: { x, y, z }, id: t.id, gotItem: false, count: 0 });
+    this.wearForBlock();
+    this.toolHintModel.forget(`${x},${y},${z}`);
+    this.clearMem();
+    this.active = false;
+    this.cooldown = this.config.digCooldown;
+  }
+
+  private breakBlock(t: TargetInfo): void {
+    if (COOP_BLOCKS.has(t.id)) return this.breakCoopBlock(t);
+    const { x, y, z } = t.block;
+    // こたつ 2×2: どの マス を こわして も 4 マス ぜんぶ 消える（`nukunuku` 1 と 中 の たまご は 1 回 だけ）
+    if (isKotatsuBlock(t.id)) this.clearKotatsuCells(t);
+    const dropId: BlockId = isKotatsuBlock(t.id) ? 'nukunuku' : t.id;
     const craft = this.m4.craft;
     const wasFurnace = craft?.isFurnace(x, y, z) ?? false;
     const wasTansu = t.id === 'tansu';
@@ -673,10 +718,10 @@ export class DigSystemImpl implements DigSystem {
     this.dropUnsupportedTorches(x, y, z);
     this.liftFlora(x, y + 1, z); // FLORA-75: 下の ブロックを こわすと 上の くさ・のばな も 消える
     const farmDrop = FARM_BREAK_DROP[t.id] ?? null;
-    const fixed = farmDrop ? farmDrop.count : (craft?.fixedDrop(t.id) ?? null);
-    const dropItem: ItemId = farmDrop ? farmDrop.item : t.id;
-    const max = Math.max(1, this.config.dropMax[this.config.rarity[t.id] ?? 'common'] ?? 1);
-    const n = NO_DROP_BLOCKS.has(t.id) ? 0 : fixed !== null ? fixed : randInt(this.rng, 1, max);
+    const fixed = farmDrop ? farmDrop.count : (craft?.fixedDrop(dropId) ?? null);
+    const dropItem: ItemId = farmDrop ? farmDrop.item : dropId;
+    const max = Math.max(1, this.config.dropMax[this.config.rarity[dropId] ?? 'common'] ?? 1);
+    const n = NO_DROP_BLOCKS.has(dropId) ? 0 : fixed !== null ? fixed : randInt(this.rng, 1, max);
     const got = n - this.inventory.add(dropItem, n);
     if (got > 0) this.m4.onPickup?.(dropItem, got);
     // たんす は入らなければ 落とし物にする（なくさない。M6）
@@ -697,6 +742,18 @@ export class DigSystemImpl implements DigSystem {
     this.clearMem();
     this.active = false;
     this.cooldown = this.config.digCooldown;
+  }
+
+  /** こたつ 2×2 の 4 マス（ねらった マス いがい。ねらった マス は 呼んだ 側 が 消す）を 空気 に する。本体 が 無い 古い 1 マス は 何も しない */
+  private clearKotatsuCells(t: TargetInfo): void {
+    const { x, y, z } = t.block;
+    const a = kotatsuAnchorOf(t.id, x, z);
+    for (const c of KOTATSU_CELLS) {
+      const cx = a.x + c.dx;
+      const cz = a.z + c.dz;
+      if ((cx === x && cz === z) || this.world.getBlock(cx, y, cz) !== c.block) continue;
+      this.world.setBlock(cx, y, cz, 'air');
+    }
   }
 
   /** FLORA-75: (x, y, z) に くさ・のばな が あれば どける（のばな は 1 こ 持ち物へ。くさ は 何も出ない） */
@@ -823,6 +880,10 @@ export class DigSystemImpl implements DigSystem {
     else if (pv.kind === 'bucketPlace') this.doBucketPlace();
     else if (pv.kind === 'bucketHint') this.m4.farm?.noteHint('bucket', this.playerChest());
     else if (pv.kind === 'bucketNo' && t) this.m4.bucket?.no({ x: t.place.x, y: t.place.y, z: t.place.z });
+    if (pv.kind === 'kitPut' || pv.kind === 'kitWait' || pv.kind === 'kitNeedEgg' || pv.kind === 'kitMax') this.doKit(t);
+    else if (pv.kind === 'coopCollect') this.doCoopCollect(t);
+    else if (pv.kind === 'coopNoEgg') this.hint('coopNoEgg');
+    else if (pv.kind === 'coopPlace' || pv.kind === 'coopNoRoom' || pv.kind === 'coopMax') this.doCoopPlace(t);
     if (pv.kind === 'fill') this.doFill();
     else if (pv.kind === 'fillHint') this.m4.farm?.noteHint('fill', this.playerChest());
     else if (pv.kind === 'pet' && t) this.doPet(t);
@@ -919,7 +980,11 @@ export class DigSystemImpl implements DigSystem {
 
   private doAnimalKind(kind: string): void {
     if (kind === 'feed' || kind === 'animalFull') this.doFeed();
-    else if (kind === 'animalPet') this.doAnimalPet();
+    else if (kind === 'animalPet') {
+      // LIVE-2: ねて いる 子 に むし → なでず に sleepHint（feed() が 'sleep' を 返す。むし は へらない）
+      if (this.inventory.held()?.item === 'mushi') this.doFeed();
+      else this.doAnimalPet();
+    }
   }
 
   /** 0b あみ を ふる。ふって いる 20 ステップ の 間 は 何も しない */
@@ -946,7 +1011,21 @@ export class DigSystemImpl implements DigSystem {
       spot = { x: Math.floor(p.position.x + d.x * 1.5) + 0.5, y: Math.floor(p.position.y + 0.01), z: Math.floor(p.position.z + d.z * 1.5) + 0.5 };
     }
     if (a.putDown(spot)) this.m4.tools?.pushSwing('place');
-    else this.hint('cantPutHere');
+    else this.hint(this.putDownWhy(spot));
+  }
+
+  /** おろせない 理由 の 合図。LIVE-2: いっぱい の 小屋（coopFull）・なかま 8 わ（friendFull）は A の 答え、なければ 小屋 の 中 の 数 を 見る。ほか は cantPutHere */
+  private putDownWhy(spot: Vec3): AnimalHintKind {
+    const a = this.m4.animals;
+    const why = a?.putDownWhy?.();
+    if (why) return why;
+    const max = this.m4.live?.().coopMax ?? LIVE_SETTING_DEFAULTS.coopMax;
+    const ix = Math.floor(spot.x);
+    const iz = Math.floor(spot.z);
+    for (const c of a?.coops?.() ?? []) {
+      if (Math.abs(ix - c.x) <= 2 && Math.abs(iz - c.z) <= 2 && c.kids.length >= max) return 'coopFull';
+    }
+    return 'cantPutHere';
   }
 
   /** 0 あげる: A の 口 に 聞く。'ate' の とき だけ むし を 1 へらす（C の しごと） */
@@ -959,6 +1038,7 @@ export class DigSystemImpl implements DigSystem {
     if (r === 'ate') this.inventory.consumeHeld();
     else if (r === 'full') this.hint('fullHint');
     else if (r === 'friendFull') this.hint('friendFull');
+    else if (r === 'sleep') this.hint('sleepHint'); // LIVE-2: ねて いる 子 には あげられない（むし は へらない）
     if (r) this.m4.tools?.pushSwing('place');
   }
 
@@ -969,6 +1049,92 @@ export class DigSystemImpl implements DigSystem {
     const r = this.m4.animals.pet(h.id);
     if (r === 'wild') this.hint('feedHint');
     if (r) this.m4.tools?.pushSwing('place');
+  }
+
+  /** 1a: こたつ に たまご を 入れる／まってね／たまご が いる／6 つ まで。答え は A（`useKit`）。'put' の とき だけ 持ち物 を 1 へらす（C の しごと） */
+  private doKit(t: TargetInfo | null): void {
+    const a = this.m4.animals;
+    if (!a || !t) return;
+    const held = this.inventory.held()?.item ?? null;
+    const r = a.useKit(t.block.x, t.block.y, t.block.z, held);
+    if (r === 'put') {
+      this.inventory.consumeHeld();
+      this.m4.tools?.pushSwing('place');
+    } else if (r === 'wait') this.hint('kitWait');
+    else if (r === 'needEgg') this.hint('kitNeedEgg');
+    else if (r === 'max') this.hint('kitMax');
+  }
+
+  /** 1b: 小屋 の すばこ の たまご を あつめる（持ち物 に 入らない 分 は 足もと に おとす） */
+  private doCoopCollect(t: TargetInfo | null): void {
+    const a = this.m4.animals;
+    const c = t ? a?.coopAt(t.block.x, t.block.y, t.block.z) : null;
+    if (!a || !c) return;
+    // 持ち物 へ 入れる のは A（collectCoop。入らない 分 は すばこ に のこる）。ここ は 取った 知らせ だけ
+    const r = a.collectCoop(c.id);
+    for (const [item, n] of [['egg', r.egg], ['kin_tamago', r.gold]] as const) if (n > 0) this.m4.onPickup?.(item, n);
+    this.m4.tools?.pushSwing('place');
+  }
+
+  /** 小屋 の もん は プレイヤー の 方（4 方向 の 近い 方）。0 北（-z）・1 東（+x）・2 南（+z）・3 西（-x） */
+  private coopDir(cx: number, cz: number): 0 | 1 | 2 | 3 {
+    const p = this.player().position;
+    const dx = p.x - (cx + 0.5);
+    const dz = p.z - (cz + 0.5);
+    if (Math.abs(dx) >= Math.abs(dz)) return dx >= 0 ? 1 : 3;
+    return dz >= 0 ? 2 : 0;
+  }
+
+  /** 10a: toriya を 置く。入らない → coopNoRoom、3 つ → coopMax、置けたら toriya 1 へる */
+  private doCoopPlace(t: TargetInfo | null): void {
+    const a = this.m4.animals;
+    if (!a || !t) return;
+    const { x, y, z } = t.place;
+    const r = a.placeCoop(x, y, z, this.coopDir(x, z));
+    if (r === 'noRoom') this.hint('coopNoRoom');
+    else if (r === 'max') this.hint('coopMax');
+    else {
+      this.inventory.consumeHeld();
+      this.m4.tools?.pushSwing('place');
+      this.emit({ type: 'place', tick: this.tickCount, block: { x, y, z }, id: 'toriya_fence' }); // 実績 place:toriya と 置く 音・つぶ（DigFx）の ため
+    }
+  }
+
+  /** 1a の ようす: ねらって いる の が こたつ か（たまご が 入って いる か） */
+  private kitState(): { occupied: boolean } | null {
+    const a = this.m4.animals;
+    const t = this.tgt;
+    if (!a || !t || !isKotatsuBlock(t.id)) return null;
+    return { occupied: a.kitAt(t.block.x, t.block.y, t.block.z) != null };
+  }
+
+  /** 1b の ようす: ねらって いる の が 小屋 の ブロック か（すばこ の たまご の 数） */
+  private coopState(): { eggs: number } | null {
+    const a = this.m4.animals;
+    const t = this.tgt;
+    if (!a || !t || !COOP_BLOCKS.has(t.id)) return null;
+    const c = a.coopAt(t.block.x, t.block.y, t.block.z);
+    return c ? { eggs: c.nest.egg + c.nest.gold } : null;
+  }
+
+  /** 置く 前 の すけた 小屋（toriya を 持って 地面 を ねらって いる とき だけ。毎フレーム 描く 側 が 読む） */
+  coopGhost(): CoopPlacePreview | null {
+    const a = this.m4.animals;
+    const t = this.tgt;
+    if (!a || !t || this.inventory.held()?.item !== 'toriya') return null;
+    const { x, y, z } = t.place;
+    return a.previewCoop(x, y, z, this.coopDir(x, z));
+  }
+
+  /** 10a の 答え: toriya を 持って 地面 を ねらって いる とき だけ */
+  private coopSpot(): 'ok' | 'noRoom' | 'max' | null {
+    const a = this.m4.animals;
+    const t = this.tgt;
+    if (!a || !t || this.inventory.held()?.item !== 'toriya') return null;
+    const max = this.m4.live?.().coopCountMax ?? LIVE_SETTING_DEFAULTS.coopCountMax;
+    if (a.coops().length >= max) return 'max';
+    const { x, y, z } = t.place;
+    return a.previewCoop(x, y, z, this.coopDir(x, z)).ok ? 'ok' : 'noRoom';
   }
 
   private doTill(t: TargetInfo): void {
@@ -1085,6 +1251,9 @@ export class DigSystemImpl implements DigSystem {
       target: this.tgt,
       animal: () => this.animalPreview(repeat),
       carrying: () => this.isCarrying(),
+      kit: () => this.kitState(),
+      coop: () => this.coopState(),
+      coopSpot: () => this.coopSpot(),
       held: this.inventory.held()?.item ?? null,
       isTansu: (x, y, z) => st?.isTansu(x, y, z) ?? false,
       isFurnace: (x, y, z) => craft?.isFurnace(x, y, z) ?? false,
@@ -1352,7 +1521,7 @@ export class DigSystemImpl implements DigSystem {
   }
 
   /** 置く場所とブロック（置けないなら null）。tryPlace とヒントが同じ判定を使う */
-  private placeSpot(): { x: number; y: number; z: number; block: BlockId } | null {
+  private placeSpot(): { x: number; y: number; z: number; block: BlockId; cells?: ReadonlyArray<{ x: number; z: number; block: BlockId }> } | null {
     const t = this.tgt;
     const held = this.inventory.held();
     if (!t || !held) return null;
@@ -1362,6 +1531,10 @@ export class DigSystemImpl implements DigSystem {
     const { x, y, z } = t.id === 'kusa' ? t.block : t.place;
     const cur = this.world.getBlock(x, y, z);
     if (cur !== 'air' && cur !== 'water' && !(cur === 'kusa' && t.id === 'kusa')) return null; // 世界の外・ほかのブロック
+    if (block === 'nukunuku') {
+      const k = this.kotatsuSpot(x, y, z);
+      return k ? { x: k.x, y, z: k.z, block, cells: k.cells } : null;
+    }
     if (block === 'nobana') {
       // のばな は くさ・つち の上だけ
       const under = this.world.getBlock(x, y - 1, z);
@@ -1386,11 +1559,50 @@ export class DigSystemImpl implements DigSystem {
     return st.open(t.block.x, t.block.y, t.block.z, { screenOpens: true });
   }
 
+  /**
+   * こたつ 2×2 を 置く 場所。ねらった マス (x, y, z) を かど に して、プレイヤー から 見て おく がわ（むこう）に 2×2。
+   * ふさがって いたら ほか の 3 つ の むき も ためす。4 マス とも 空気（か 草花）で、体 と 重ならない とき だけ。
+   * 本体 は 北西 の マス。見つからなければ null
+   */
+  private kotatsuSpot(x: number, y: number, z: number): { x: number; z: number; cells: Array<{ x: number; z: number; block: BlockId }> } | null {
+    const p = this.player().position;
+    const ex = x + 0.5 >= p.x ? 1 : -1;
+    const ez = z + 0.5 >= p.z ? 1 : -1;
+    for (const [sx, sz] of [[ex, ez], [-ex, ez], [ex, -ez], [-ex, -ez]] as const) {
+      const ax = sx > 0 ? x : x - 1;
+      const az = sz > 0 ? z : z - 1;
+      let ok = true;
+      for (const c of KOTATSU_CELLS) {
+        const cx = ax + c.dx;
+        const cz = az + c.dz;
+        const cur = this.world.getBlock(cx, y, cz);
+        if ((cur !== 'air' && cur !== 'water' && !isFloraBlock(cur)) || this.overlapsBody(cx, y, cz) || this.gate?.placeBlocked(cx, y, cz)) {
+          ok = false;
+          break;
+        }
+      }
+      if (ok) return { x: ax, z: az, cells: KOTATSU_CELLS.map((c) => ({ x: ax + c.dx, z: az + c.dz, block: c.block })) };
+    }
+    return null;
+  }
+
+  /** 置く 前 の すけた こたつ（`nukunuku` を 持って ブロック を ねらって いる とき だけ。置けない 所 は ok=false で 赤）。毎フレーム 描く 側 が 読む */
+  kotatsuGhost(): { x: number; y: number; z: number; ok: boolean } | null {
+    const t = this.tgt;
+    if (!t || this.inventory.held()?.item !== 'nukunuku') return null;
+    const { x, y, z } = t.id === 'kusa' ? t.block : t.place;
+    const k = this.placeSpot();
+    if (k) return { x: k.x, y: k.y, z: k.z, ok: true };
+    return { x, y, z, ok: false };
+  }
+
   private tryPlace(): void {
     const spot = this.placeSpot();
     if (!spot) return;
     const { x, y, z, block } = spot;
-    if (!this.world.setBlock(x, y, z, block)) return;
+    if (spot.cells) {
+      for (const c of spot.cells) this.world.setBlock(c.x, y, c.z, c.block);
+    } else if (!this.world.setBlock(x, y, z, block)) return;
     this.inventory.consumeHeld();
     if (block === 'tansu') this.m4.storage?.placed(x, y, z, this.player().yawDeg);
     this.m4.tools?.pushSwing('place');

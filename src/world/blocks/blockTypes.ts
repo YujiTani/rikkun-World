@@ -48,6 +48,16 @@ export const BLOCK_TYPES: readonly BlockType[] = [
   { id: 'susuki', name: 'すすき', solid: false, breakable: true },
   { id: 'kusa', name: 'くさ', solid: false, breakable: true },
   { id: 'nobana', name: 'のばな', solid: false, breakable: true },
+  // LIVE-2（名前 は 画面 の 呼び名。こたつ は ブロック と アイテム の id が `nukunuku`。小屋 の 4 ブロック は 持ち物 に 入らない）
+  { id: 'nukunuku', name: 'こたつ', solid: true, breakable: true },
+  { id: 'toriya_fence', name: 'とりごや', solid: true, breakable: true },
+  { id: 'toriya_gate', name: 'とりごや', solid: false, breakable: true },
+  { id: 'toriya_nest', name: 'とりごや', solid: true, breakable: true },
+  { id: 'toriya_box', name: 'とりごや', solid: true, breakable: true },
+  // こたつ 2×2 の のこり 3 マス（本体 は かど の `nukunuku`）
+  { id: 'nukunuku_e', name: 'こたつ', solid: true, breakable: true },
+  { id: 'nukunuku_s', name: 'こたつ', solid: true, breakable: true },
+  { id: 'nukunuku_se', name: 'こたつ', solid: true, breakable: true },
 ];
 
 export const BLOCK_INDEX: Readonly<Record<BlockId, number>> = Object.fromEntries(

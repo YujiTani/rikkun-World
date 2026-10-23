@@ -24,6 +24,8 @@ export function columnKey(cx: number, cz: number): number {
   return (cx + 32768) * 65536 + (cz + 32768);
 }
 
+/** LIVE-2: さく（当たりの 高さ 2 の もと） */
+const FENCE_INDEX = blockIndexOf('toriya_fence');
 /** 光も通さない 本当に ふさがったブロック（「見えない」印の判定用） */
 const SEALS: Uint8Array = Uint8Array.from(BLOCK_TYPES, (_, i) => (isOpaqueIndex(i) && isSolidIndex(i) && OPACITY[i] === 15 ? 1 : 0));
 
@@ -568,6 +570,13 @@ export class ChunkedVoxelWorld implements VoxelWorld {
   isSolid(x: number, y: number, z: number): boolean {
     const i = this.getIndex(x, y, z);
     return i >= 0 && isSolidIndex(i);
+  }
+
+  /** LIVE-2: プレイヤー用。さく（とりごや）の すぐ上の 1 マスも 固い（当たりの 高さ 2） */
+  isSolidForPlayer(x: number, y: number, z: number): boolean {
+    const i = this.getIndex(x, y, z);
+    if (i >= 0 && isSolidIndex(i)) return true;
+    return i >= 0 && y > 0 && this.getIndex(x, y - 1, z) === FENCE_INDEX;
   }
 
   /** 2 つの角をふくむ箱の中をすべて id にする。変えたブロックの数を返す（読みこんでいない所・高さの外は変えない） */

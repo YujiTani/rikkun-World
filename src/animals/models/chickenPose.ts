@@ -1,4 +1,5 @@
 import type { AnimalState } from '../../contracts';
+import type { AnimalModelKind } from './chickenModel';
 import { CHICKEN_BONES, CHICKEN_SCALE } from './chickenSpec';
 
 /**
@@ -22,6 +23,17 @@ export interface PoseInput {
   flutterT?: number;
   /** 着地 して から の ステップ（0〜5 の 間 ぽよん。なければ・負 なら なし） */
   landT?: number;
+  // ---- LIVE-2（§3.5）
+  /** 形 の 種類。マッチョ は 羽 が うで（上へ たつ）なので 「ひろげる」の むきが 逆。なければ ふつう の 大人 */
+  kind?: AnimalModelKind;
+  /** 'hatch' 動き の 経過 0〜1（なければ `stateTicks` から。ふつう 60・マッチョ 80 ステップ） */
+  hatchT?: number;
+  /** 'grow' 動き の 経過 0〜1（なければ `stateTicks` から。60 ステップ） */
+  growT?: number;
+  /** 'grow' の とちゅう で 大人 の 形 に かわった とき、ひよこ の 形 の 見た目 の 倍率（つなぎめ を そろえる） */
+  growFromScale?: number;
+  /** ひよこ の コロン（着地）の 経過 0〜1（12 ステップ。なければ・負 なら なし） */
+  rollT?: number;
 }
 
 export interface PoseBuf {
@@ -40,11 +52,10 @@ export function boneIndex(name: (typeof CHICKEN_BONES)[number]): number {
   return D2(name);
 }
 
-export function createPose(): PoseBuf {
-  return { rigY: 0, scale: [CHICKEN_SCALE, CHICKEN_SCALE, CHICKEN_SCALE], off: new Float32Array(NB * 3), rot: new Float32Array(NB * 3), sc: new Float32Array(NB * 3).fill(1) };
+export function createPose(base: number = CHICKEN_SCALE): PoseBuf {
+  return { rigY: 0, scale: [base, base, base], off: new Float32Array(NB * 3), rot: new Float32Array(NB * 3), sc: new Float32Array(NB * 3).fill(1) };
 }
 
-const K = CHICKEN_SCALE;
 const I = {
   body: D2('body'),
   legL: D2('legL'),
@@ -56,6 +67,7 @@ const I = {
   wingL: D2('wingL'),
   wingR: D2('wingR'),
   tail: D2('tail'),
+  brow: D2('brow'),
 };
 
 /** 頭の ひねりの 上限（度） */
@@ -80,7 +92,11 @@ const smooth = (x: number): number => {
   return t * t * (3 - 2 * t);
 };
 
-export function poseChicken(out: PoseBuf, inp: PoseInput): void {
+export function poseChicken(out: PoseBuf, inp: PoseInput, base: number = CHICKEN_SCALE): void {
+  const K = base;
+  const kind = inp.kind ?? 'chicken';
+  const macho = kind === 'macho' || kind === 'machoChick';
+  const adultForm = kind === 'chicken' || kind === 'macho';
   out.off.fill(0);
   out.rot.fill(0);
   out.sc.fill(1);
@@ -90,18 +106,22 @@ export function poseChicken(out: PoseBuf, inp: PoseInput): void {
   const t = inp.stateTicks < 0 ? 0 : inp.stateTicks;
 
   const off = (b: number, x: number, y: number, z: number): void => {
+    if (b < 0) return; // この 形に 無い 骨（ひよこ の 首・とさか・しっぽ）
     out.off[b * 3] += x;
     out.off[b * 3 + 1] += y;
     out.off[b * 3 + 2] += z;
   };
   const rot = (b: number, x: number, y = 0, z = 0): void => {
+    if (b < 0) return;
     out.rot[b * 3] += x;
     out.rot[b * 3 + 1] += y;
     out.rot[b * 3 + 2] += z;
   };
+  // マッチョ の うで は 上へ たつので 「ひろげる」は 逆 まわり（外へ・上へ ひらく）
+  const wsign = macho ? -1 : 1;
   const wing = (deg: number): void => {
-    rot(I.wingL, 0, 0, -deg);
-    rot(I.wingR, 0, 0, deg);
+    rot(I.wingL, 0, 0, -deg * wsign);
+    rot(I.wingR, 0, 0, deg * wsign);
   };
   const legs = (deg: number): void => {
     rot(I.legL, deg);
@@ -276,6 +296,7 @@ export function poseChicken(out: PoseBuf, inp: PoseInput): void {
       out.sc[b * 3 + 2] = sz;
       // 体の 子（首・羽・しっぽ）は 自分の 大きさを まもる（ふくらむ のは おなか だけ）
       for (const c of [I.neck, I.wingL, I.wingR, I.tail]) {
+        if (c < 0) continue;
         out.sc[c * 3] = 1 / sx;
         out.sc[c * 3 + 1] = 1 / sy;
         out.sc[c * 3 + 2] = 1 / sz;
@@ -295,6 +316,75 @@ export function poseChicken(out: PoseBuf, inp: PoseInput): void {
       out.rigY = 0.04 * smooth((t - 6) / 10);
       rot(I.body, 0, 0, 3 * Math.sin((2 * Math.PI * t) / 50) * smooth((t - 10) / 10));
       rot(I.head, 0, 0, 4 * k);
+      break;
+    }
+    case 'sleep': {
+      // ねる: すわる 10 → 目を とじる → ゆっくり いきを する（すやすや。うごきの 強さ 0 でも のこす）
+      const k = smooth(t / 10);
+      setScale(1 + 0.12 * k, 1 - 0.22 * k, 1 + 0.12 * k);
+      eyes(0.9 * k);
+      wing(6 * k);
+      rot(I.head, 6 * k, 0, 5 * k);
+      out.scale[1] += 0.015 * k * Math.sin((2 * Math.PI * t) / 90) * K;
+      break;
+    }
+    case 'hatch': {
+      // かえる: ピキッ 20（かの なかで ぷるぷる）→ ぽんっ 20（とび出す）→ ぷるぷる 20（から を ぬぐ）。マッチョ は ＋20 で 力こぶ
+      const total = macho ? 80 : 60;
+      const tt = inp.hatchT !== undefined ? inp.hatchT * total : t;
+      if (tt < 20) {
+        const k = clamp01(tt / 20);
+        setScale(0.55, 0.55 + 0.04 * Math.sin(tt * 0.9), 0.55);
+        rot(I.body, 0, 0, 8 * k * Math.sin(tt * 1.3));
+        eyes(1);
+      } else if (tt < 40) {
+        const k = (tt - 20) / 20;
+        const pop = 1 + 2.2 * (k - 1) ** 3 + 1.2 * (k - 1) ** 2; // 行きすぎて もどる（easeOutBack）
+        const s = 0.55 + 0.45 * pop;
+        const st = 1 + 0.18 * Math.sin(Math.PI * Math.min(1, k * 1.3));
+        setScale(s / Math.sqrt(st), s * st, s / Math.sqrt(st));
+        out.rigY = 0.5 * Math.sin(Math.PI * k) * calm;
+        wing(50 * Math.sin(Math.PI * k));
+        legs(-18 * Math.sin(Math.PI * k));
+        eyes(Math.max(0, 1 - k * 4));
+      } else if (tt < 60) {
+        const u = (tt - 40) / 20;
+        rot(I.body, 0, 0, 7 * (1 - u) * Math.sin(u * Math.PI * 6));
+        const q = Math.sin(Math.PI * u);
+        setScale(1 + 0.05 * q, 1 - 0.07 * q, 1 + 0.05 * q);
+        wing(10 * (1 - u));
+      } else {
+        // マッチョ だけ: 力こぶ の ポーズ（うで を もう 15° 上げて とめる）
+        const u = clamp01((tt - 60) / 20);
+        const hold = smooth(Math.min(1, u * 2));
+        setScale(1 + 0.04 * hold, 1 + 0.02 * hold, 1 + 0.04 * hold);
+        wing(15 * hold);
+      }
+      break;
+    }
+    case 'grow': {
+      // 大人 に なる: ぷるぷる 20 → 光 20 → ばさっ 20。とちゅう（30）で 大人 の 形 に かわる（描く 側）
+      const tt = inp.growT !== undefined ? inp.growT * 60 : t;
+      if (!adultForm) {
+        if (tt < 20) {
+          rot(I.body, 0, 0, 6 * (tt / 20) * Math.sin(tt * 1.5));
+          wing(6 * (tt / 20));
+        } else {
+          const u = clamp01((tt - 20) / 10);
+          const g = 1 + 0.25 * smooth(u);
+          setScale(g, g, g);
+          eyes(0.8 * u);
+          wing(12 * u);
+        }
+      } else {
+        const u = clamp01((tt - 30) / 30);
+        const from = ((inp.growFromScale ?? K) * 1.25) / K;
+        const m = from + (1 - from) * smooth(Math.min(1, u * 1.3)) + 0.06 * Math.sin(Math.PI * u);
+        setScale(m, m, m);
+        if (macho) wing(25 * Math.sin(Math.PI * Math.min(1, u * 1.5)));
+        else wing(85 * Math.sin(Math.PI * Math.min(1, u * 1.6))); // ばさっ
+        eyes(Math.max(0, 1 - u * 3));
+      }
       break;
     }
     case 'putDown': {
@@ -322,6 +412,16 @@ export function poseChicken(out: PoseBuf, inp: PoseInput): void {
     rot(I.body, 6);
     off(I.head, 0, 0.4 * Math.sin(ph + 1.5), 0);
   }
+  const rollT = inp.rollT;
+  if (rollT !== undefined && rollT >= 0 && rollT < 1) {
+    // コロン: 前 に 1 回 ころがって 起きる（12 ステップ。いたく ない・笑える）
+    const q = Math.sin(Math.PI * rollT);
+    rot(I.body, -360 * smooth(rollT));
+    legs(32 * q);
+    wing(38 * q);
+    eyes(0.7 * q);
+    out.rigY += 0.05 * q * calm;
+  }
   const landT = inp.landT;
   if (landT !== undefined && landT >= 0 && landT < LAND_TICKS) {
     // 着地 ぽよん 6 ステップ: たて に つぶれ 横 に ひろがる（体積 ほぼ そのまま）
@@ -330,4 +430,6 @@ export function poseChicken(out: PoseBuf, inp: PoseInput): void {
     out.scale[1] *= 1 - 0.25 * q;
     out.scale[2] *= 1 + 0.18 * q;
   }
+  // ひよこ は 小さい ので とぶ・はねる 高さ も 小さく
+  out.rigY *= K / CHICKEN_SCALE;
 }

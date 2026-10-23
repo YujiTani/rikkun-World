@@ -6,6 +6,8 @@ export function createCameraHook(rig: CameraRig) {
     camera: {
       get: () => rig.getInfo(),
       overview: (on: boolean) => rig.overview(on),
+      /** スクショ用: キャラ を かくす（けしゴム。ふだん は 使わない） */
+      hideDoll: (on: boolean) => rig.hideDoll(on),
       /** WEAPON-2 */
       dollPose: () => rig.dollPose(),
       firstPersonTip: () => rig.firstPersonTip(),

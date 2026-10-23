@@ -79,6 +79,7 @@ import { markUrl } from './ui/medalArt';
 import { itemIconUrl } from './ui/itemIcon';
 import { DropField } from './drops';
 import { createAnimalManager } from './animals';
+import { coopBlocks } from './animals/coop';
 import { AnimalFx } from './fx/animalFx';
 import { AnimalRenderer, ViewBuffer } from './animals/models/AnimalRenderer';
 import { AnimalHint } from './ui/animalHint';
@@ -572,7 +573,23 @@ const animals = createAnimalManager({
       drops.scatter({ x: p.x, y: p.y + 0.5, z: p.z }, [{ item, count: 1 }], { speedMin: 0.3, speedMax: 0.8, upMin: 3, upMax: 3.5 });
       return false;
     },
+    tryAddItem: (item) => inventory.add(item, 1) === 0,
     carriedBefore: () => (achievements.stats()['carry:*'] ?? 0) > 0,
+    // LIVE-2: 小屋 の ブロック は A の coopBlocks() の 一覧 どおり 置く／消す。おとしもの・はじめて の 判定
+    placeCoopBlocks: (x, y, z, dir) => {
+      const list = coopBlocks(x, y, z, dir);
+      for (const b of list) if (!world.isLoaded(b.x, b.z)) return false;
+      for (const b of list) world.setBlock(b.x, b.y, b.z, b.block);
+      return true;
+    },
+    removeCoopBlocks: (x, y, z, dir) => {
+      for (const b of coopBlocks(x, y, z, dir)) if (world.getBlock(b.x, b.y, b.z) === b.block) world.setBlock(b.x, b.y, b.z, 'air');
+    },
+    dropItem: (at, item) => {
+      drops.scatter(at, [{ item, count: 1 }], { speedMin: 0.3, speedMax: 0.8, upMin: 3, upMax: 3.5 });
+    },
+    grewBefore: () => (achievements.stats()['grow:*'] ?? 0) > 0,
+    hatchedBefore: () => (achievements.stats()['hatch:*'] ?? 0) > 0,
     day: () => time.day(),
     phase: () => time.phase(),
     countryAt,
@@ -823,7 +840,7 @@ const dig = new DigSystemImpl(
     pet,
     animals,
     eggHeal: () => live.animalEggHeal,
-    live: () => ({ netSwingTicks: live.netSwingTicks, carryHoldTicks: live.carryHoldTicks }),
+    live: () => ({ netSwingTicks: live.netSwingTicks, carryHoldTicks: live.carryHoldTicks, coopCountMax: live.coopCountMax, coopMax: live.coopMax }),
     emitFarm: (e) => farm.emit(e),
     nowTick: () => game.tick,
     vitals: combat,
@@ -946,8 +963,10 @@ const yokaiM = yokaiManager;
 // LIVE-1: にわとり の 見た目・音（動きの強さの 設定は まだ ない。できたら ここで つなぐ）
 const animalMotion = (): number => 1;
 const animalFx = new AnimalFx({ sound: fxSound, motion: animalMotion, lookDist: () => live.animalLookDist, fullTicks: () => live.animalFullTicks, seed });
-const animalRenderer = new AnimalRenderer({ fx: animalFx, motion: animalMotion, player: () => controller.state.position });
+const animalRenderer = new AnimalRenderer({ fx: animalFx, motion: animalMotion, player: () => controller.state.position, source: animals });
 const animalViews = new ViewBuffer();
+let prevKits = -1;
+let prevCoops = -1;
 const animalEvents: import('./contracts').AnimalEvent[] = [];
 game.scene.add(animalRenderer.group);
 lighting.register(animalRenderer.bodyMaterial, 'doll');
@@ -965,7 +984,11 @@ function deliverAnimalEvents(): void {
   for (const e of ev) animalEvents.push(e);
   if (animalEvents.length > 512) animalEvents.splice(0, animalEvents.length - 512);
 }
-game.onBeforeRender(() => animalRenderer.update(animalViews.fill(animals), game.camera));
+game.onBeforeRender(() => {
+  animalRenderer.setCoopGhost(dig.coopGhost());
+  animalRenderer.setKitGhost(dig.kotatsuGhost());
+  animalRenderer.update(animalViews.fill(animals), game.camera);
+});
 rig.setHeldProvider(() => inventory.held()?.item ?? null);
 rig.setWeaponSource({ blade: () => blade.state(), bowPose: () => tools.bow().pose() });
 
@@ -1381,7 +1404,14 @@ const save = new SaveManager({
   // たんすは ブロックの復元のあとに（SaveManager が その順で呼ぶ）
   storage: { serialize: () => storage.serialize(), deserialize: (d) => storage.deserialize(d) },
   achievements: { serialize: () => achievements.serialize(), deserialize: (d) => achievements.deserialize(d) },
-  animals: { serialize: () => animals.serialize(), deserialize: (d) => animals.deserialize(d) },
+  animals: {
+    serialize: () => animals.serialize(),
+    deserialize: (d) => {
+      animals.deserialize(d);
+      prevKits = -1;
+      prevCoops = -1;
+    },
+  },
   legend: { serialize: () => legendBook.serialize(), deserialize: (d) => legendBook.deserialize(d) },
   // 農業: 作物・印。前の保存（印なし）には 読んだあとに 置きものを置く
   farm,
@@ -1672,7 +1702,16 @@ game.onUpdate((dt) => {
   animals.setTargeted(dig.animalTarget());
   {
     deliverAnimalEvents();
-    animalFx.step(animalViews.fill(animals), controller.state.position);
+    const kitRows = animals.kits();
+    const coopRows = animals.coops();
+    animalFx.step(animalViews.fill(animals), controller.state.position, kitRows, coopRows);
+    // こたつ に たまご を 入れた・小屋 を 置いた 音（数 が ふえた とき）
+    const nKit = kitRows.length;
+    const nCoop = coopRows.length;
+    if (nKit > prevKits && prevKits >= 0) animalFx.play('kitPut');
+    if (nCoop > prevCoops && prevCoops >= 0) animalFx.play('coopPlace');
+    prevKits = nKit;
+    prevCoops = nCoop;
     animalHint.step();
   }
   // CHAR-2 §4.6: 刀・弓が 決まったあとで 板のコマを決める。矢の出来事は ここで 取り出して 配る
@@ -2177,6 +2216,12 @@ installTestHook(game, overlay, () => host.everReady, {
     // 今 チップに出ている合図（120 ステップで消える。消えたら null）
     lastHint: () => animalHint.model.current(),
     carrying: () => animals.carrying(),
+    placeCoop: (x, y, z, dir) => animals.placeCoop(x, y, z, dir),
+    coops: () => animals.coops(),
+    kits: () => animals.kits(),
+    machoMiss: (n) => animals.machoMiss(n),
+    serialize: () => animals.serialize(),
+    deserialize: (d) => animals.deserialize(d),
   },
   attack: { preview: () => dig.attackPreview(), last: () => dig.attackLast() },
   camera: cameraHook.camera,
