@@ -827,6 +827,8 @@ export interface GashaBigHandle {
   goTo(x: number, z: number): void;
   /** 止まって ふり返る（Crawl and Look Back） */
   lookBack(): void;
+  /** 長い 休みに はいる（その場で 体を 動かさない。首を ふる くらい）。sec を 書かなければ 調整表の wander.restSec */
+  rest(sec?: number): void;
   /** うごきの 中身（モード・速さ・手の ついた 数・1 コマの 仕事の 数 など） */
   motion(): Record<string, unknown>;
   /** 当たりの 箱の 一覧（世界の 座標。関節の いまの 姿勢） */
@@ -943,9 +945,10 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
     walk: (on) => actor?.walk(on),
     goTo: (x, z) => actor?.goTo(x, z),
     lookBack: () => actor?.lookBack(),
+    rest: (sec) => actor?.rest(sec),
     motion: () => (actor ? {
       mode: actor.mode, speedNow: actor.speedNow, crawlSpeed: actor.crawlSpeed, crawlRate: actor.crawlRate, target: actor.target, wander: actor.wanderOn,
-      angryLeft: actor.angryLeft, eyeMix: actor.eyeMix, work: actor.work, plant: actor.plant,
+      angryLeft: actor.angryLeft, eyeMix: actor.eyeMix, walkLeft: actor.walkLeft, restLeft: actor.restLeft, work: actor.work, plant: actor.plant,
     } : {}),
     colliders: () => (model ? worldHits(model) : []),
     refreshColliders: refresh,

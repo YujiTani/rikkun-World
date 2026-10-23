@@ -265,6 +265,100 @@ describe('gashaBigActor（#293 はって進む・目・乗っている人）', (
     } finally { T.ride.turnWithBody = true; }
   });
 
+  /** 調整表の 数を 一時的に かえて 実行（かならず もとに もどす） */
+  function withWander(o: Partial<{ walkSec: [number, number]; restSec: number; pauseSec: [number, number]; lookBackChance: number; restLookChance: number }>, f: () => void): void {
+    const keep = { ...T.wander } as Record<string, unknown>;
+    Object.assign(T.wander, o);
+    try { f(); } finally { Object.assign(T.wander, keep); }
+  }
+
+  it('長い 休み: walkSec はい回ったら、restSec の あいだ 体は 動かない。休みが おわると また 歩き出す', () => {
+    withWander({ walkSec: [10, 10], restSec: 30, pauseSec: [2, 2], lookBackChance: 0, restLookChance: 0 }, () => {
+      const { actor } = rig(5);
+      expect(actor.walkLeft).toBe(10);
+      // はい回る: 10 秒 の あいだに 動いて いる
+      let moved = 0;
+      let last = actor.pos.clone();
+      for (let i = 0; i < 9.5 * 60; i++) { actor.update(DT); moved += actor.pos.distanceTo(last); last = actor.pos.clone(); }
+      expect(moved).toBeGreaterThan(1);
+      // 休みに はいる
+      run(actor, 1);
+      expect(actor.restLeft).toBeGreaterThan(0);
+      const p0 = actor.pos.clone(), yaw0 = actor.yaw;
+      let still = 0;
+      for (let i = 0; i < 28 * 60; i++) { actor.update(DT); if (actor.pos.distanceTo(p0) === 0 && actor.yaw === yaw0) still++; }
+      expect(still).toBe(28 * 60); // 休みの あいだ 位置も 向きも かわらない
+      expect(actor.mode).toBe('idle');
+      expect(actor.speedNow).toBe(0);
+      // 休みが おわって また 歩く
+      run(actor, 6);
+      expect(actor.restLeft).toBe(0);
+      expect(actor.mode).toBe('crawl'); // 歩き出した（向きを かえて から 進む）
+      expect(actor.target).not.toBe(null);
+    });
+  });
+
+  it('長い 休みの 長さは 調整表の restSec（既定 300 秒 = 5 分）。walkSec の 既定は 45〜90 秒', () => {
+    expect(T.wander.restSec).toBe(300);
+    expect(T.wander.walkSec[0]).toBe(45);
+    expect(T.wander.walkSec[1]).toBe(90);
+    const { actor } = rig();
+    expect(actor.walkLeft).toBeGreaterThanOrEqual(45);
+    expect(actor.walkLeft).toBeLessThanOrEqual(90);
+    actor.rest(); // 引数なし = restSec
+    expect(actor.restLeft).toBe(300);
+    actor.rest(12);
+    expect(actor.restLeft).toBe(12);
+  });
+
+  it('休んで いる 間は ときどき 首を ふる（ふり返り）けど 体は 動かさない', () => {
+    withWander({ pauseSec: [1, 1], lookBackChance: 0, restLookChance: 1 }, () => {
+      const { actor } = rig();
+      actor.walk(false);
+      actor.rest(60);
+      const p0 = actor.pos.clone();
+      let looked = 0, headMoved = 0;
+      for (let i = 0; i < 30 * 60; i++) {
+        actor.update(DT);
+        if (actor.mode === 'look') looked++;
+        if (actor.model.joints.Head.quaternion.w < 0.9999) headMoved++;
+        expect(actor.pos.distanceTo(p0)).toBe(0);
+      }
+      expect(looked).toBeGreaterThan(60);
+      expect(headMoved).toBeGreaterThan(60);
+    });
+  });
+
+  it('休み 中に 怒ったら 中断して 止まる・プレイヤーを 向く。白目に もどったら また 歩き出す（休みには もどらない）', () => {
+    withWander({ walkSec: [1000, 1000], pauseSec: [1, 1], lookBackChance: 0 }, () => {
+      const { actor, ply } = rig();
+      ply.x = 100; ply.z = 0;
+      actor.rest(300);
+      run(actor, 2);
+      expect(actor.restLeft).toBeGreaterThan(290);
+      actor.hit();
+      expect(actor.restLeft).toBe(0);
+      expect(actor.mode).toBe('angry');
+      run(actor, T.angry.calmSec + 0.2);
+      expect(actor.mode).toBe('idle');
+      expect(actor.restLeft).toBe(0);
+      run(actor, 2);
+      expect(actor.mode).toBe('crawl'); // 歩き出した
+    });
+  });
+
+  it('rest() は 怒って いる 間は むし。walk(false) の ときは 歩き回りの 時間は 数えない', () => {
+    const { actor } = rig();
+    actor.hit();
+    actor.rest(50);
+    expect(actor.restLeft).toBe(0);
+    const b = rig();
+    b.actor.walk(false);
+    const w0 = b.actor.walkLeft;
+    run(b.actor, 5);
+    expect(b.actor.walkLeft).toBe(w0);
+  });
+
   it('1 コマの 仕事: 動いている 間も 数が 小さい（箱 70 こ いか、補間 28 こ いか）', () => {
     const { actor } = rig();
     actor.walk(false);
