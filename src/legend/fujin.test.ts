@@ -17,7 +17,7 @@ describe('AC21: 風神剣の データを defs から 引く', () => {
     expect(d?.item as string).toBe('fujin_ken');
     expect(d?.onAttack.map((x) => x.kind)).toEqual(['wave']);
   });
-  it('既定の 表（nushiDrops）から 引くと 雷神剣と 風神剣の 両方が 出る（weight 1 ずつ、3,000 回で 1,300〜1,700 ずつ）', async () => {
+  it('既定の 表（nushiDrops）から 引くと 雷神剣と 風神剣の 3 本とも 出る（weight 1 ずつ、3,000 回で 900〜1,100 ずつ。PR3 で 虹が 入って 3 本）', async () => {
     const { createRng } = await import('../world/gen/random');
     const S = createW2Settings();
     const rng = createRng(77);

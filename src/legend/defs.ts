@@ -47,6 +47,12 @@ export function legendPowerOf(S: Pick<W2Settings, 'legendary'>, item: ItemId | n
   return Math.round((d.power[0] + d.power[1]) / 2);
 }
 
+/** 1 本ごとに 強さが ちがう（[最小, 最大]）武器か */
+export function hasPowerRange(S: Pick<W2Settings, 'legendary'>, item: ItemId | null | undefined): boolean {
+  const d = legendDefOf(S, item);
+  return !!d && Array.isArray(d.power);
+}
+
 /** 落ちた 1 本の 強さを 決める（[最小, 最大] なら 整数を 同じ 重さで。数字ひとつ・レジェンダリーでない 物は null）。乱数を 1 つ 使う（範囲の ときだけ） */
 export function rollPower(S: Pick<W2Settings, 'legendary'>, item: ItemId, rng: () => number): number | null {
   const d = legendDefOf(S, item);

@@ -61,7 +61,9 @@ export function buildTooltip(item: ItemId, d: TooltipDeps, stack?: ItemStack | n
     add('き に つよい', item);
   }
   if (BLADES.includes(item)) {
-    add(`たたく つよさ ${item === 'niji' && stack?.power ? stack.power : (tools.weaponDamage[item] ?? 1)}`, item);
+    // WEAPON-7 PR3: 虹は その 1 本の つよさ（ヌシが おとした ときに 決まる）
+    const own = stack && stack.item === item && typeof stack.power === 'number' ? stack.power : null;
+    add(`たたく つよさ ${own ?? tools.weaponDamage[item] ?? 1}`, item);
     if (item === 'naginata') add('とおくまで とどく', item);
   }
   if (item === 'yumi') {

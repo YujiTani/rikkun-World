@@ -89,7 +89,7 @@ export class InventoryImpl implements Inventory {
       this.arr[slot] = null;
       this.pushWear({ type: 'toolBreak', tick: this.wearOpts.tick?.() ?? 0, item: s.item, slot });
     } else {
-      this.arr[slot] = copyStack({ item: s.item, count: s.count, wear: max - left, power: s.power });
+      this.arr[slot] = copyStack({ ...s, wear: max - left });
       if (low) this.pushWear({ type: 'wearLow', tick: this.wearOpts.tick?.() ?? 0, item: s.item, slot });
     }
     this.notify();
@@ -107,7 +107,7 @@ export class InventoryImpl implements Inventory {
     const max = s ? this.maxOf(s.item) : null;
     if (!s || max === null || !Number.isFinite(left)) return;
     const l = Math.min(max, Math.max(1, Math.floor(left)));
-    this.arr[slot] = copyStack({ item: s.item, count: s.count, wear: l >= max ? 0 : max - l, power: s.power });
+    this.arr[slot] = copyStack({ ...s, wear: l >= max ? 0 : max - l });
     this.notify();
   }
   private pushWear(ev: WearEvent): void {

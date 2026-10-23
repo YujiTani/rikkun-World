@@ -155,19 +155,40 @@ describe('WEAPON-7 AC6: 選び方（ランダム・持っている かは 見な
   });
 });
 
-describe('WEAPON-7 PR2 AC21: ヌシの 表に 風神剣（初期値は 雷神剣・風神剣 weight 1 ずつ）', () => {
-  it('既定の 表で 2,000 回 → 雷神剣・風神剣 それぞれ 900〜1,100 回・かならず どちらか 1 本', () => {
+describe('WEAPON-7 PR2・PR3 AC21: ヌシの 既定の 表（雷神剣・風神剣・虹 weight 1 ずつ）', () => {
+  it('既定の 表で 3,000 回 → 3 本 それぞれ 900〜1,100 回・かならず どれか 1 本', () => {
     const r = rig({ seed: 31 });
     const n: Record<string, number> = {};
-    for (let i = 0; i < 2000; i++) {
+    for (let i = 0; i < 3000; i++) {
       const got = kill(r, 'karakasa', 'nushi').filter(isLegend);
       expect(got, `${i} 回目`).toHaveLength(1);
       n[got[0]!] = (n[got[0]!] ?? 0) + 1;
     }
-    // WEAPON-9 で 期待が 変わった（理由: 虹が 表に 入って 3 本 → 2,000 回で 約 667 ずつ）
     for (const k of ['raijin_ken', 'fujin_ken', 'niji']) {
-      expect(n[k]).toBeGreaterThanOrEqual(580);
-      expect(n[k]).toBeLessThanOrEqual(760);
+      expect(n[k], k).toBeGreaterThanOrEqual(900);
+      expect(n[k], k).toBeLessThanOrEqual(1100);
     }
   });
+});
+
+describe('WEAPON-7 PR3 AC28: 虹の 強さは 1 本ごとに 4〜10 の 整数（同じ 重さ）', () => {
+  it('袋の stack に power（4〜10 の 整数・7 通り すべて）。ほかの 武器は power なし。同じ シードで 同じ', () => {
+    const roll = (seed: number, n: number) => {
+      const r = rig({ seed, nushiDrops: [{ item: 'niji', weight: 1 }] });
+      const out: number[] = [];
+      for (let i = 0; i < n; i++) {
+        r.scattered.length = 0;
+        kill(r, 'karakasa', 'nushi');
+        const st = r.scattered.find((x) => x.item === 'niji');
+        out.push(st?.power ?? -1);
+      }
+      return out;
+    };
+    const a = roll(41, 400);
+    expect([...new Set(a)].sort((x, y) => x - y)).toEqual([4, 5, 6, 7, 8, 9, 10]);
+    expect(roll(41, 100)).toEqual(a.slice(0, 100));
+    const r = rig({ seed: 3, nushiDrops: [{ item: 'raijin_ken', weight: 1 }] });
+    kill(r, 'karakasa', 'nushi');
+    expect(r.scattered.find((x) => x.item === 'raijin_ken')?.power).toBeUndefined();
+  }, 60_000);
 });

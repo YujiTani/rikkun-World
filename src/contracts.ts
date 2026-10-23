@@ -1940,7 +1940,7 @@ export interface BladeTrailStyle {
   /** 刃の ふちの光（21 番を これに） */
   bladeShine: number;
   /** plain=ふつう・star=星が まじる・long=長い 弧・thunder=ふちに 小さな いなずま（雷神剣） */
-  style: 'plain' | 'star' | 'long' | 'thunder';
+  style: 'plain' | 'star' | 'long' | 'thunder' | 'rainbow';
 }
 
 /** CHAR-4 §4.4: 軌跡の 形・だん・消え方 */

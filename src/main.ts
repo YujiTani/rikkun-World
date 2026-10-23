@@ -44,8 +44,9 @@ import { BuffIcons } from './ui/buffIcons';
 import { buffsOfHeld, createBuffModel } from './ui/buffIconsModel';
 import { ThunderFx } from './fx/thunderFx';
 import { LegendBook } from './legend/LegendBook';
-import { chargeOf, legendMoveMulOf, legendPowerOf, trailStyleOf } from './legend/defs';
+import { chargeOf, hasPowerRange, legendMoveMulOf, legendPowerOf, trailStyleOf } from './legend/defs';
 import { lightningPoseFrame, shiningBodyPose } from './legend/pose';
+import { setPowerFallback } from './ui/powerBadge';
 import { CRAFT_UI_SETTINGS, type CraftUiSettings, type ToolNumbers } from './fx/craftConfig';
 import { playCraft } from './fx/craftSounds';
 import { CraftUiHud, createCraftUiHook, handleCraftEvents, handleGuardEvents, playSwing } from './ui/craftUi';
@@ -451,6 +452,7 @@ const combatCfg = createCombatConfig();
 const digCfg = createDigConfig();
 const craftConfig = createCraftConfig();
 const toolConfig = createToolConfig();
+setPowerFallback((item) => (hasPowerRange(w2, item as never) ? legendPowerOf(w2, item as never) : null));
 /** 画面（ツールチップ・図鑑）用の 道具の数: 刀の 強さに レジェンダリーの P を 足す（WEAPON-7 §2.1。設定を 変えると 追従） */
 const uiWeaponDamage = (): Record<string, number> => {
   const out: Record<string, number> = { ...toolConfig.weaponDamage };
@@ -896,7 +898,7 @@ yokaiManager = new YokaiManager({
   parry: {
     hit: (h) => {
       const r = parry.hit({ dirDeg: h.dirDeg, yawDeg: controller.state.yawDeg, by: h.by, yokaiId: h.yokaiId, amount: h.amount });
-      if (r.first) parryFx.spark(bladeMidInto(sparkAt, controller.state.position, controller.state.facingDeg), reducedMotionMq?.matches ?? false);
+      if (r.first) parryFx.spark(bladeMidInto(sparkAt, controller.state.position, controller.state.facingDeg), reducedMotionMq?.matches ?? false, controller.state.facingDeg);
       return { result: r.result, amount: r.amount };
     },
   },
@@ -1335,7 +1337,7 @@ time.onPhaseChange((p) => achievements.feedPhase(p));
 const defeatWith = (): DefeatWith => {
   const h = inventory.held()?.item;
   if (h === 'bokuto' || h === 'katana' || h === 'naginata' || h === 'crystal_katana' || h === 'yumi') return h;
-  if (h === 'raijin_ken' || h === 'fujin_ken') return 'katana'; // WEAPON-7: 雷神剣で たおした ときは「かたな」と 同じ あつかい（実績の 表に 武器別の 行は 足さない）
+  if (h === 'raijin_ken' || h === 'fujin_ken' || h === 'niji') return 'katana'; // WEAPON-7: 雷神剣で たおした ときは「かたな」と 同じ あつかい（実績の 表に 武器別の 行は 足さない）
   if (h === 'wood_pickaxe' || h === 'stone_pickaxe' || h === 'iron_pickaxe' || h === 'wood_axe' || h === 'stone_axe' || h === 'iron_axe') return 'pickaxe';
   return 'hand';
 };
@@ -1817,6 +1819,11 @@ game.onUpdate((dt) => {
           if (y) weaponFx.hitStarsAt({ x: y.position.x, y: y.position.y + 0.7, z: y.position.z });
         }
       }
+      // 虹: ドームが 当たった 妖怪に 小さな 光の つぶ
+      if (e.type === 'domeHit') {
+        const y = yokaiM.list().find((q) => q.id === e.yokaiId);
+        if (y) weaponFx.hitStarsAt({ x: y.position.x, y: y.position.y + 0.7, z: y.position.z });
+      }
     }
     const reducedNow = reducedMotionMq?.matches ?? false;
     windWaveFx.step(waveSys.list(), reducedNow);
@@ -1853,7 +1860,7 @@ game.onUpdate((dt) => {
   for (const n of parry.sounds()) if (isParrySound(n)) playParry(fxSound, n);
   {
     const ps = parry.state();
-    parryFx.step({ visible: ps.glowLeft > 0, level: parryGlowLevel(ps.glowLeft, w2), position: controller.state.position, reduced: reducedMotionMq?.matches ?? false });
+    parryFx.step({ visible: ps.glowLeft > 0, level: parryGlowLevel(ps.glowLeft, w2), position: controller.state.position, reduced: reducedMotionMq?.matches ?? false, facingDeg: controller.state.facingDeg });
   }
   combatUi.hearts.setArmor(armor.snapshot().hudIcons);
   craftHud.update(dt);

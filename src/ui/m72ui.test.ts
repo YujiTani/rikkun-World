@@ -18,7 +18,7 @@ const ev = (e: Record<string, unknown>): FarmEvent => ({ ...at, ...e }) as FarmE
 const mk = () => new AchievementSystem(() => ({ ...M6_SETTING_DEFAULTS, achieveCooldown: 0, achieveCooldownEarly: 0 }));
 
 describe('M7-2 実績（AC21・§4.7）', () => {
-  it('数の表: そだてる +8、つくる +3、ぜんぶ 247・小 84（LIVE-1 版 3.2・WEAPON-6・WEAPON-7 PR1・PR2 込み）', () => {
+  it('数の表: そだてる +8、つくる +3、ぜんぶ 249・小 84（LIVE-1 版 3.2・WEAPON-6・WEAPON-7 PR1・PR2 込み）', () => {
     const cnt = (cat: string) => ACHIEVEMENT_DEFS.filter((d) => d.category === cat).length;
     expect(cnt('farm')).toBe(26 + 8 + 1 + 12 + 5); // + LIVE-1 の 12 + 版 3.2 の 5
     expect(ACHIEVEMENT_DEFS.length).toBe(249); // LIVE-1 §4.5 ＋ WEAPON-7 PR1・PR2 の 4

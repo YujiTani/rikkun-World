@@ -18,7 +18,7 @@ function make(patch: Partial<InfoNumbers> = {}) {
 
 describe('説明の表（M6 §2.2）', () => {
   const src = make();
-  it('ようかいだま をのぞく 61 こ（LIVE-1: たまご・むし・あみ 込み・WEAPON-7: 雷神剣・風神剣）。文はすべて ひらがな・カタカナ（漢字なし）', () => {
+  it('ようかいだま をのぞく 62 こ（LIVE-1: たまご・むし・あみ 込み・WEAPON-7: 雷神剣・風神剣・虹）。文はすべて ひらがな・カタカナ（漢字なし）', () => {
     const ids = Object.keys(ITEM_INFO).filter((i) => i !== 'yokai_orb');
     expect(ids).toHaveLength(62);
     for (const id of ids) {

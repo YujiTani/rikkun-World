@@ -55,7 +55,7 @@ const attach = (sys: AchievementSystem) => {
 };
 
 describe('実績の表', () => {
-  it('247 こ・id かぶりなし・小 84（LIVE-1 版 3.2 で ＋6・小 ＋1。LIVE-1 の 12・3 を 足した。M6 の 180・61 ＋ M7 の 27・11 ＋ WEAPON-2 の 4・1 ＋ M7-2 の 11・5 ＋ BUCKET-1 の 2・1 ＋ WEAPON-6 の 1・1 ＋ WEAPON-7 PR1 の 2・0 ＋ PR2 の 2・0）', () => {
+  it('249 こ・id かぶりなし・小 84（LIVE-1 版 3.2 で ＋6・小 ＋1。LIVE-1 の 12・3 を 足した。M6 の 180・61 ＋ M7 の 27・11 ＋ WEAPON-2 の 4・1 ＋ M7-2 の 11・5 ＋ BUCKET-1 の 2・1 ＋ WEAPON-6 の 1・1 ＋ WEAPON-7 PR1 の 2・0 ＋ PR2 の 2・0 ＋ PR3 の 2・0）', () => {
     expect(ACHIEVEMENT_DEFS.length).toBe(249);
     expect(new Set(ACHIEVEMENT_DEFS.map((d) => d.id)).size).toBe(249);
     expect(ACHIEVEMENT_DEFS.filter((d) => d.small).length).toBe(84);

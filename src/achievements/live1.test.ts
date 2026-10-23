@@ -56,7 +56,7 @@ describe('LIVE-1 畜産の 記録（§4.5）', () => {
     expect(n('animal.carry.10')).toBe('10 かい だっこ した！');
     expect(n('craft.mushi_ami.1')).toBe('はじめて むしとりあみ を つくった！');
   });
-  it('数（AC26）: ぜんぶ 247（WEAPON-7 PR1 の 2 を足す）・小 84・そだてる 52・小 15。つくる は 1 ふえ（小 1）。craft.mushi_ami は craft.bucket の うしろ', () => {
+  it('数（AC26）: ぜんぶ 249（WEAPON-7 PR1 の 2 を足す）・小 84・そだてる 52・小 15。つくる は 1 ふえ（小 1）。craft.mushi_ami は craft.bucket の うしろ', () => {
     expect(ACHIEVEMENT_DEFS.length).toBe(249);
     expect(ACHIEVEMENT_DEFS.filter((d) => d.small).length).toBe(84);
     const farm = ACHIEVEMENT_DEFS.filter((d) => d.category === 'farm');
