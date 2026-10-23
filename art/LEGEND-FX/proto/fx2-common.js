@@ -15,8 +15,9 @@ export function glowTex(hex, key = hex) {
   });
 }
 // 筆の かすれの 帯（よこ 128 × たて 24。まん中 16）。body = 加算用、edge = こい ふち（ふつう重ね）
-export function brushTex(seed = 1) {
-  const k = 'b' + seed; if (cache[k]) return cache[k];
+const PALS = { mint: ['#F4FFFB', '#BFF5E3', '#7FE0C0', '#2BB39A', '#14675C'], lav: ['#FFFFFF', '#EDE3FF', '#C9B0FF', '#8E6BE0', '#3A2578'], sky: ['#FFFFFF', '#E3F6FF', '#A9E2FF', '#4FB4F0', '#1E5E9A'] };
+export function brushTex(seed = 1, pal = 'mint') {
+  const PL = PALS[pal]; const k = 'b' + pal + seed; if (cache[k]) return cache[k];
   const W = 128, Hh = 24, mask = [];
   for (let x = 0; x < W; x++) {
     const n = .5 + .5 * Math.sin(x * .21 + seed) * Math.cos(x * .07 + seed * 2), e = Math.round(9.6 * (.6 + .4 * n * (H(x >> 1, seed) * .5 + .75)));
@@ -26,12 +27,12 @@ export function brushTex(seed = 1) {
     for (let y = 0; y < Hh; y++) for (let x = 0; x < W; x++) {
       const f = mask[y * W + x]; if (f < 0) continue;
       const lite = H(x >> 2, y, seed, 9) > .8 ? .12 : 0;
-      put(x, y, f < .28 + lite ? '#F4FFFB' : f < .5 + lite ? '#BFF5E3' : f < .78 ? '#7FE0C0' : '#2BB39A');
+      put(x, y, f < .28 + lite ? PL[0] : f < .5 + lite ? PL[1] : f < .78 ? PL[2] : PL[3]);
     }
   });
   const edge = pixTex(W, Hh, put => {
     const on = (x, y) => x >= 0 && x < W && y >= 0 && y < Hh && mask[y * W + x] >= 0;
-    for (let y = 0; y < Hh; y++) for (let x = 0; x < W; x++) { if (on(x, y)) continue; let hit = false; for (let dy = -2; dy <= 2 && !hit; dy++) for (let dx = -2; dx <= 2; dx++) if (on(x + dx, y + dy)) { hit = true; break; } if (hit) put(x, y, '#14675C'); }
+    for (let y = 0; y < Hh; y++) for (let x = 0; x < W; x++) { if (on(x, y)) continue; let hit = false; for (let dy = -2; dy <= 2 && !hit; dy++) for (let dx = -2; dx <= 2; dx++) if (on(x + dx, y + dy)) { hit = true; break; } if (hit) put(x, y, PL[4]); }
   });
   for (const t of [body, edge]) { t.wrapS = THREE.RepeatWrapping; t.needsUpdate = true; }
   return cache[k] = { body, edge };
