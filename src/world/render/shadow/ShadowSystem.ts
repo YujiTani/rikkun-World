@@ -13,6 +13,7 @@ import type { WorldRenderer } from '../WorldRenderer';
 import { snapMapCenter, lightAxes } from './shadowCamera';
 import { shadowLight, type ShadowLightInfo } from './shadowLight';
 import { patchSpriteMaterial, shadowPatch } from './shadowPatch';
+import { pickNearestTorches, shouldRedrawTorch, torchCenter, torchKey, type TorchCandidate } from './shadowTorch';
 
 /** 影の中の明るさ（オーナーの決定 0.55） */
 export const SHADOW_DARKNESS = 0.55;
@@ -86,7 +87,6 @@ const TORCH_FIND_EVERY = 30;
 const TORCH_ENC = 12; // 地図に書く距離の 1.0 = 12 ブロック
 const TORCH_CUBE = 256;
 const TORCH_DARKNESS = 0.3; // 影の中の たいまつの光（オーナーの決定）
-const TORCH_LIGHT_Y = 0.82; // 光の中心（棒の上）
 
 function makeDepthTarget(size: number): { rt: THREE.WebGLRenderTarget; depth: THREE.DepthTexture } {
   const depth = new THREE.DepthTexture(size, size, THREE.UnsignedIntType);
@@ -475,10 +475,9 @@ void main() {
         continue;
       }
       any = true;
-      let near = false;
-      for (const m of mv) if (m.distanceTo(t.pos) < TORCH_NEAR_MOVER) near = true;
-      if (near || t.hadMovers || t.needsDraw) this.drawTorch(i, t, p, force);
-      t.hadMovers = near;
+      const dec = shouldRedrawTorch({ moverDistances: mv.map((m) => m.distanceTo(t.pos)), near: TORCH_NEAR_MOVER, hadMovers: t.hadMovers, needsDraw: t.needsDraw });
+      if (dec.redraw) this.drawTorch(t, p, force);
+      t.hadMovers = dec.hasMovers;
       t.needsDraw = false;
       uv.set(t.pos.x, t.pos.y, t.pos.z, 1);
       (i === 0 ? u.uShCubeA : u.uShCubeB).value = t.rt!.texture;
@@ -501,24 +500,16 @@ void main() {
     const px = Math.floor(p.x);
     const py = Math.floor(p.y);
     const pz = Math.floor(p.z);
-    // 近い 2 本（距離の 2 乗が小さい順）
-    let a = { d: Infinity, x: 0, y: 0, z: 0 };
-    let b = { d: Infinity, x: 0, y: 0, z: 0 };
+    const cands: TorchCandidate[] = [];
     for (let x = px - TORCH_FIND; x <= px + TORCH_FIND; x++) {
       for (let z = pz - TORCH_FIND; z <= pz + TORCH_FIND; z++) {
         for (let y = py - 10; y <= py + 12; y++) {
           const bi = world.getIndex(x, y, z);
-          if (bi <= 0 || !isTorchIndex(bi)) continue;
-          const d = (x + 0.5 - p.x) ** 2 + (y + TORCH_LIGHT_Y - p.y) ** 2 + (z + 0.5 - p.z) ** 2;
-          if (d > TORCH_FIND * TORCH_FIND) continue;
-          if (d < a.d) {
-            b = a;
-            a = { d, x, y, z };
-          } else if (d < b.d) b = { d, x, y, z };
+          if (bi > 0 && isTorchIndex(bi)) cands.push({ x, y, z });
         }
       }
     }
-    const found = [a, b].filter((q) => q.d < Infinity).map((q) => ({ key: (q.x * 73856093) ^ (q.y * 19349663) ^ (q.z * 83492791), x: q.x, y: q.y, z: q.z }));
+    const found = pickNearestTorches(cands, p, TORCH_FIND).map((q) => ({ key: torchKey(q), x: q.x, y: q.y, z: q.z }));
     // いまの場所に あるものは 同じ入れ物のまま、あいた入れ物に 新しいものを入れる
     const slots = this.torches;
     const taken = new Set<number>();
@@ -532,7 +523,8 @@ void main() {
       const t = slots.find((s) => !s.active) ?? slots[0]!;
       t.key = f.key;
       t.active = true;
-      t.pos.set(f.x + 0.5, f.y + TORCH_LIGHT_Y, f.z + 0.5);
+      const c = torchCenter(f);
+      t.pos.set(c.x, c.y, c.z);
       t.needsDraw = true;
       t.hadMovers = false;
       if (!t.rt) {
@@ -543,7 +535,7 @@ void main() {
   }
 
   /** 1 本の たいまつの キューブ地図を 描く: 光からの距離を 赤に（からは 1.0 = とても遠い） */
-  private drawTorch(i: number, t: TorchSlot, p: { x: number; y: number; z: number }, force: boolean): void {
+  private drawTorch(t: TorchSlot, p: { x: number; y: number; z: number }, force: boolean): void {
     const r = this.d.renderer;
     const cc = t.cam!;
     const prevTarget = r.getRenderTarget();
@@ -620,7 +612,6 @@ void main() {
       this.frameInfo.draws += calls;
       this.frameInfo.triangles += triangles;
     }
-    void i;
   }
 
   // ------------------------------------------------------------------ 窓口・調べる用

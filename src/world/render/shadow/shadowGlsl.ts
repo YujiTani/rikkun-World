@@ -102,16 +102,25 @@ float shSunVis(vec3 wp, vec3 n, bool useDyn) {
   return v;
 }
 
-// たいまつ 1 本ぶん: 影の中 = 1、とどく = 0 を answer に、近さの重みを w に足す（キャラ・妖怪だけの 地図。8bit の距離 + 小さなずらし）
+// たいまつ 1 本ぶん: 影の中 = 1 を num に、近さの重みを den に足す（キャラ・妖怪だけの 地図。8bit の距離 + 小さなずらし）。
+// へりは 少しぼかす: 光に直角の 2 方向へ ±0.6 目ずらした 4 点の 平均（段 1 の 2×2 と同じくらい）。
 void shTorchOne(highp samplerCube m, vec4 T, vec3 p, inout float num, inout float den) {
   if (T.w < 0.5) return;
   vec3 dv = p - T.xyz;
   float d = length(dv);
   float c = clamp(1.0 - d / uShT.y, 0.0, 1.0);
   if (c <= 0.0) return;
-  float stored = texture(m, dv).r * uShT.w;
-  float lit = step(d - 0.12, stored);
-  num += c * (1.0 - lit);
+  vec3 a = normalize(cross(dv, abs(dv.y) < 0.9 * d ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0)));
+  vec3 b = normalize(cross(dv, a));
+  float e = d * (2.0 / 256.0) * 0.6; // 1 目の 大きさ（90° を 256 目）× 0.6
+  float lit = 0.0;
+  for (int i = 0; i < 4; i++) {
+    float sx = (i & 1) == 0 ? -1.0 : 1.0;
+    float sy = (i & 2) == 0 ? -1.0 : 1.0;
+    float stored = texture(m, dv + (a * sx + b * sy) * e).r * uShT.w;
+    lit += step(d - 0.12, stored);
+  }
+  num += c * (1.0 - lit * 0.25);
   den += c;
 }
 
