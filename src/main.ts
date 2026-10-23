@@ -1214,6 +1214,8 @@ const weaponFx = new WeaponFx({
     const yk = yokaiManager?.list().find((q) => q.id === e.yokaiId);
     const chest = yk ? boxOf(yk).h * 0.6 : 0.8;
     slashFx.hit({ x: e.position.x, y: e.position.y + chest, z: e.position.z }, e.tech, blade.state().move?.dirDeg ?? controller.state.yawDeg);
+    // 雷神剣のけさ: 妖怪の まわりから 稲妻が 6 本 あつまる
+    if (item === 'raijin_ken' && e.tech === 'kesa') raijinFx.hit({ x: e.position.x, y: e.position.y + chest, z: e.position.z });
   },
   onBladeCancel: () => {
     slashFx.cancelSlash();

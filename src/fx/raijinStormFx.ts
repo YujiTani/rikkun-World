@@ -25,6 +25,19 @@ const FADE = 8;
 const TRAIL_N = 14;
 const RING_N = 28;
 
+interface Conv {
+  x: number;
+  y: number;
+  z: number;
+  age: number;
+  seed: number;
+}
+const MAX_CONV = 8;
+/** 集まる 稲妻: のびる ステップ・きえる までの ステップ・本数・とおい 半径 */
+const CONV_GROW = 4;
+const CONV_LIFE = 8;
+const CONV_BOLTS = 6;
+
 interface Inst {
   idx: number;
   tech: BladeTech;
@@ -58,6 +71,7 @@ export class RaijinStormFx {
   private readonly glow: FxBatch;
   private readonly insts: Inst[] = [];
   private seedN = 0;
+  private readonly conv: Conv[] = [];
   private readonly tmp: number[] = [0, 0, 0];
   private readonly coarse = makePts(10);
   private readonly bolt1 = makePts(24);
@@ -99,6 +113,15 @@ export class RaijinStormFx {
     s.nTips = 0;
   }
 
+  /**
+   * けさが 妖怪に 当たった（1 体ごとに 1 回）: 妖怪の まわり（半径 1.5〜2・高さも ばらして 60° おき 6 か所）から 稲妻が 6 本 のびて、胸の 中心に あつまる。
+   * `center` = 妖怪の 胸の 中心
+   */
+  hit(center: Vec3): void {
+    if (this.conv.length >= MAX_CONV) this.conv.shift();
+    this.conv.push({ x: center.x, y: center.y, z: center.z, age: 0, seed: ++this.seedN * 23 });
+  }
+
   /** わざが やめに なった（出ている 雷は ふつうに 消える） */
   cancel(): void {
     for (const i of this.insts) if (i.active && i.T < 0) i.active = false;
@@ -115,8 +138,38 @@ export class RaijinStormFx {
       s.T++;
       if (s.T - WINDOW[s.tech] > FADE + 10) s.active = false;
     }
+    for (let k = this.conv.length - 1; k >= 0; k--) {
+      const c = this.conv[k]!;
+      this.drawConv(c);
+      if (++c.age >= CONV_LIFE) this.conv.splice(k, 1);
+    }
     this.under.end();
     this.glow.end();
+  }
+
+  private drawConv(c: Conv): void {
+    const age = c.age;
+    const grow = Math.min(1, (age + 1) / CONV_GROW);
+    const fade = age >= CONV_GROW + 1 ? 1 - (age - CONV_GROW - 1) / (CONV_LIFE - CONV_GROW) : 1;
+    const half = Math.floor(age / 2); // 折れ方は 2 ステップごと
+    for (let q = 0; q < CONV_BOLTS; q++) {
+      const ang = ((q * 60 + (hash(q, c.seed) - 0.5) * 24) * Math.PI) / 180;
+      const rad = 1.5 + 0.5 * hash(q, c.seed, 2);
+      const dy = (hash(q, c.seed, 3) - 0.5) * 1.2;
+      const sx = c.x + Math.cos(ang) * rad, sy = c.y + dy, sz = c.z + Math.sin(ang) * rad;
+      // さきが 中心へ のびる（もとは 外がわ）
+      const ex = sx + (c.x - sx) * grow, ey = sy + (c.y - sy) * grow, ez = sz + (c.z - sz) * grow;
+      const n = this.fine(this.bolt1, sx, sy, sz, ex, ey, ez, 5, 0.1, c.seed + q * 13 + half * 5);
+      this.bolt(this.bolt1, n, 0.6, fade, false);
+    }
+    // 中心で 小さく 光る（あつまった あと）
+    if (age >= CONV_GROW - 1) {
+      const t = (age - (CONV_GROW - 1)) / (CONV_LIFE - CONV_GROW + 1);
+      const sz = DOT * (10 - 6 * t);
+      this.under.quad(this.view, c.x, c.y, c.z, sz + DOT * 2, UNDER, 0.9 * fade);
+      this.glow.quad(this.view, c.x, c.y, c.z, sz + DOT * 4, GLOW, 0.5 * fade);
+      this.glow.quad(this.view, c.x, c.y, c.z, sz, W, fade);
+    }
   }
 
   /** 刃の さき・もとの 世界の 位置（BladeTrail と 同じ 式。体は 今の 位置） */
