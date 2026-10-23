@@ -273,7 +273,7 @@ export interface GashaGirlHandle {
 const VANISH = 0.08, GONE = 2.0; // ひゅっ と 消えて、約 2 秒 いない
 const CLIP_FIRE = 0.7; // 詠唱の 70% ごろに 魔法を 出す
 const FB_COUNT = 20, FB_GAP = 0.09, FB_ORB_GAP = 0.05, FB_SPEED = 14, FB_TURN = 120 * D2R, FB_STOP_NEAR = 3, FB_HOMING_MAX = 2.5, FB_LIFE = 4;
-const WAVE_COUNT = 10, WAVE_FAN = 80 * D2R, WAVE_SPEED = 6, WAVE_AMP = 0.6, WAVE_HZ = 1.5, WAVE_RANGE = 14, WAVE_LIFE = 3;
+const WAVE_COUNT = 10, WAVE_FAN = 180 * D2R, WAVE_TURN = 25 * D2R, WAVE_SPEED = 6, WAVE_AMP = 0.6, WAVE_HZ = 1.5, WAVE_RANGE = 14, WAVE_LIFE = 3;
 const HIT_R = 0.6;
 const SPELLS = 4;
 
@@ -511,7 +511,17 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
         if (hit || ground || q.age >= FB_LIFE) { q.on = false; burst(q.pos, 0); if (hit) stats.fbHit++; else stats.fbMiss++; }
       } else {
         const d = WAVE_SPEED * q.age;
-        q.pos.copy(q.org).addScaledVector(q.dir, d).addScaledVector(q.perp, q.amp * Math.sin(Math.PI * 2 * WAVE_HZ * q.age + q.ph));
+        if (q.homing && q.org.distanceTo(chest) < FB_STOP_NEAR) q.homing = false; // 3 ブロックより 近づいたら 追尾 おわり
+        if (q.homing) { // ごく 弱い ホーミング（25°/秒）
+          want.copy(chest).sub(q.org).normalize();
+          const ang = Math.acos(Math.min(1, Math.max(-1, q.dir.dot(want))));
+          const turn = WAVE_TURN * dt;
+          if (ang <= turn) q.dir.copy(want);
+          else { axis.crossVectors(q.dir, want); if (axis.lengthSq() > 1e-8) q.dir.applyAxisAngle(axis.normalize(), turn); }
+          q.dir.normalize(); q.perp.set(-q.dir.z, 0, q.dir.x).normalize();
+        }
+        q.org.addScaledVector(q.dir, WAVE_SPEED * dt); // 中心線は すすむ。そこから 左右に ゆれる
+        q.pos.copy(q.org).addScaledVector(q.perp, q.amp * Math.sin(Math.PI * 2 * WAVE_HZ * q.age + q.ph));
         add.emit(q.pos.x, q.pos.y, q.pos.z, 0, 0, 0, dt * 2, 0.5, 0.5, 0xeaffff, 0xa0e0ff);
         add.emit(q.pos.x, q.pos.y, q.pos.z, 0, 0, 0, dt * 2, 1.0, 1.0, 0x60b0ff, 0x3070ff);
         for (let k = 0; k < 2; k++) add.emit(q.pos.x, q.pos.y, q.pos.z, vr(-0.15, 0.15), vr(-0.15, 0.15), vr(-0.15, 0.15), 0.55, 0.45, 0.08, 0x4aa8ff, 0x1020a0);
