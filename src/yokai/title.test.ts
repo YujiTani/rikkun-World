@@ -76,6 +76,8 @@ describe('BAL-B AC3: M × 二つ名 の数（からかさ 48 こ）', () => {
     expect(hp('rokurokubi')).toEqual([12, 18, 24, 36]);
     expect(yokaiStrength('nurikabe', 1, 'none').hp).toBe(40);
     expect(yokaiStrength('nurikabe', 1, 'oyabun').hp).toBe(60);
+    // #270: ぬりかべ にも たいしょう・ヌシ（体力は ほかと同じ倍率。攻撃力は 16 のまま）
+    expect(hp('nurikabe')).toEqual([40, 60, 80, 120]);
     expect(atk('chochin')).toEqual([2, 2, 3, 4]);
     expect(atk('rokurokubi')).toEqual([2, 2, 3, 4]);
     expect(atk('nurikabe')).toEqual([16, 16, 16, 16]);
@@ -133,16 +135,23 @@ describe('BAL-B AC4: 二つ名の抽選', () => {
     expect(limitTitle('karakasa', 'oyabun', true)).toBe('oyabun');
     expect(limitTitle('karakasa', 'nushi', false)).toBe('nushi');
   });
-  it('ぬりかべ は おやぶん まで（たいしょう・ヌシ → おやぶん）', () => {
-    const rng = createRng(5);
-    for (let i = 0; i < 100_000; i++) {
-      const t = rollTitle(rng, 'nurikabe', false);
-      expect(t === 'taisho' || t === 'nushi').toBe(false);
-    }
-    expect(limitTitle('nurikabe', 'nushi', false)).toBe('oyabun');
-    expect(limitTitle('nurikabe', 'taisho', false)).toBe('oyabun');
-    expect(limitTitle('nurikabe', 'taisho', true)).toBe('oyabun');
+  it('ぬりかべ にも たいしょう・ヌシ がつく（#270）: limitTitle はそのまま・たいしょう/ヌシがいれば なし', () => {
+    expect(limitTitle('nurikabe', 'nushi', false)).toBe('nushi');
+    expect(limitTitle('nurikabe', 'taisho', false)).toBe('taisho');
+    expect(limitTitle('nurikabe', 'nushi', true)).toBe('none');
+    expect(limitTitle('nurikabe', 'taisho', true)).toBe('none');
+    expect(limitTitle('nurikabe', 'oyabun', true)).toBe('oyabun');
     expect(limitTitle('nurikabe', 'none', false)).toBe('none');
+  });
+  it('ぬりかべ もシード固定 100,000 回: おやぶん 3%・たいしょう 1%・ヌシ 0.3%（±0.2%）', () => {
+    const rng = createRng(5);
+    const N = 100_000;
+    const c: Record<YokaiTitle, number> = { none: 0, oyabun: 0, taisho: 0, nushi: 0 };
+    for (let i = 0; i < N; i++) c[rollTitle(rng, 'nurikabe', false)]++;
+    expect(Math.abs(c.oyabun / N - 0.03)).toBeLessThanOrEqual(0.002);
+    expect(Math.abs(c.taisho / N - 0.01)).toBeLessThanOrEqual(0.002);
+    expect(Math.abs(c.nushi / N - 0.003)).toBeLessThanOrEqual(0.002);
+    expect(c.nushi).toBeGreaterThan(0);
   });
   it('頭の上の名前', () => {
     expect(titleLabel('からかさおばけ', 'none')).toBe('からかさおばけ');
@@ -154,8 +163,7 @@ describe('BAL-B AC4: 二つ名の抽選', () => {
 
 describe('BAL-B AC7: 安全のきまり（4 種 × M × 二つ名）', () => {
   const MS = [1, 1.5, 2.25, 3];
-  const allowed = (k: YokaiKind, t: YokaiTitle) => k !== 'nurikabe' || t === 'none' || t === 'oyabun';
-  it('M = 1・二つ名なし（ぬりかべ以外）: すでで 12 回以下・やられる 8 回以上', () => {
+    it('M = 1・二つ名なし（ぬりかべ以外）: すでで 12 回以下・やられる 8 回以上', () => {
     for (const k of KINDS.filter((x) => x !== 'nurikabe')) {
       const s = yokaiStrength(k, 1, 'none');
       expect(s.hp, k).toBeLessThanOrEqual(12);
@@ -172,7 +180,6 @@ describe('BAL-B AC7: 安全のきまり（4 種 × M × 二つ名）', () => {
     for (const k of KINDS) {
       for (const m of MS) {
         for (const t of TITLES) {
-          if (!allowed(k, t)) continue;
           const s = yokaiStats(k, t);
           const label = `${k} M${m} ${t}`;
           expect(s.speed, label).toBeLessThanOrEqual(2);
@@ -183,12 +190,12 @@ describe('BAL-B AC7: 安全のきまり（4 種 × M × 二つ名）', () => {
         }
       }
     }
-    expect(n).toBe((3 * 4 + 2) * 4);
+    expect(n).toBe(4 * 4 * 4); // ぬりかべ も 4 つの二つ名ぜんぶ（#270）
   });
-  it('ぬりかべ: 合図 1.5 以上・はやさ 0.5 以下（おやぶん でも）', () => {
-    for (const t of ['none', 'oyabun'] as const) {
-      expect(yokaiStats('nurikabe', t).hitSeconds).toBeGreaterThanOrEqual(1.5);
-      expect(yokaiStats('nurikabe', t).speed).toBeLessThanOrEqual(0.5);
+  it('ぬりかべ: 合図 1.5 以上・はやさ 0.6 以下（二つ名の倍率をかけて。たいしょう・ヌシ でも。#270）', () => {
+    for (const t of TITLES) {
+      expect(yokaiStats('nurikabe', t).hitSeconds, t).toBeGreaterThanOrEqual(1.5);
+      expect(yokaiStats('nurikabe', t).speed, t).toBeLessThanOrEqual(0.6);
     }
   });
   it('いちばん強い からかさ の ヌシ（M = 3）: 防具なし 4 回・てつの防具 7 回', () => {
