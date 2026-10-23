@@ -94,3 +94,29 @@ export function assignTorchSlots(prev: readonly SlotState[], found: readonly num
 export function hashStep(h: number, v: number): number {
   return Math.imul(h ^ Math.round(v * 1000), 16777619) | 0;
 }
+
+/**
+ * dist[offset..] のうち limit より近いものを 近い順に max 個、もとの配列の場所（index）で out に入れる（out は 使い回し）。
+ * 地図に描く妖怪を 近い 3 体に する。
+ */
+export function pickNearestIndices(dist: readonly number[], offset: number, max: number, limit: number, out: number[]): void {
+  out.length = 0;
+  for (let i = offset; i < dist.length; i++) {
+    const d = dist[i]!;
+    if (!(d < limit)) continue;
+    let k = out.length;
+    while (k > 0 && dist[out[k - 1]!]! > d) k--;
+    if (k >= max) continue;
+    out.splice(k, 0, i);
+    if (out.length > max) out.pop();
+  }
+}
+
+/** 描き直しが いる たいまつのうち 1 コマに 描くのは 1 本。2 本ともなら 前に描いた方の 次（交互） */
+export function pickRedrawTorch(needs: readonly boolean[], last: number): number {
+  for (let k = 1; k <= needs.length; k++) {
+    const i = (((last + k) % needs.length) + needs.length) % needs.length;
+    if (needs[i]) return i;
+  }
+  return -1;
+}

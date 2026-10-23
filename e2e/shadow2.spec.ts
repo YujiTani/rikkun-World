@@ -133,6 +133,34 @@ test.describe('SHADOW-2 たいまつの影', () => {
     expect(moving.count).toBe(2);
   });
 
+  test('AC11・§9: 妖怪が 10 体いても たいまつの 1 コマの描く回数は 50 以下、描き直しは 1 本まで', async ({ page }) => {
+    await openShadow(page);
+    await caveScene(page, [[46, 41], [50, 41]], { x: 48.5, z: 46.5 });
+    await page.evaluate((fy) => {
+      const h = (window as any).__rikkun;
+      for (let i = 0; i < 10; i++) h.yokai.spawn('karakasa', 44 + (i % 5) * 2, fy + 1, 44 + Math.floor(i / 5) * 2.5, { ai: false });
+    }, FLOOR_Y);
+    await advance(page, 40, 1);
+    const worst = await page.evaluate(() => {
+      const h = (window as any).__rikkun;
+      let draws = 0;
+      let redrawn = 0;
+      let count = 0;
+      for (let i = 0; i < 60; i++) {
+        h.shadow.advance(1, 1);
+        const t = h.shadow.stats().torch;
+        draws = Math.max(draws, t.frameDraws);
+        redrawn = Math.max(redrawn, t.frameRedrawn);
+        count = t.count;
+      }
+      return { draws, redrawn, count };
+    });
+    expect(worst.count, 'たいまつの地図は 2 本').toBe(2);
+    expect(worst.redrawn, '1 コマに 描き直す地図').toBeLessThanOrEqual(1);
+    expect(worst.draws, '1 コマの たいまつの 描く回数').toBeLessThanOrEqual(50);
+    expect(worst.draws, '描いている（0 でない）').toBeGreaterThan(0);
+  });
+
   test('AC12: かげ オフでは たいまつの地図を作らず（count 0）、描き直しも 0', async ({ page }) => {
     await openShadow(page);
     await caveScene(page, [[44, 41], [48, 41]], { x: 46.5, z: 46.5 });

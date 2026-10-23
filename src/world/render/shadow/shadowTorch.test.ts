@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { assignTorchSlots, hashStep, mixTorchOcclusion, pickNearestTorches, shouldRedrawTorch, torchCenter, torchKey, torchWeight } from './shadowTorch';
+import { assignTorchSlots, hashStep, pickNearestIndices, pickRedrawTorch, mixTorchOcclusion, pickNearestTorches, shouldRedrawTorch, torchCenter, torchKey, torchWeight } from './shadowTorch';
 
 const P = { x: 0.5, y: 0.82, z: 0.5 };
 
@@ -99,5 +99,44 @@ describe('hashStep', () => {
     expect(h(1, 2.5, -3)).not.toBe(h(1, 2.5, -3.01));
     expect(h(1, 2)).not.toBe(h(2, 1));
     expect(h(1.00001)).toBe(h(1));
+  });
+});
+
+describe('pickNearestIndices', () => {
+  it('近い順に 3 つまで（limit 以内）', () => {
+    const out: number[] = [];
+    pickNearestIndices([9, 1, 5, 3, 7, 2], 0, 3, 8, out);
+    expect(out).toEqual([1, 5, 3]);
+  });
+  it('offset から 数える（先頭は 動く物の ほかの物）。index は もとの配列の場所', () => {
+    const out: number[] = [];
+    pickNearestIndices([0.5, 4, 2], 1, 3, 11, out);
+    expect(out).toEqual([2, 1]);
+  });
+  it('limit の外は 入れない・使い回しの out は 前の中身を 消す', () => {
+    const out = [99];
+    pickNearestIndices([20, 30], 0, 3, 11, out);
+    expect(out).toEqual([]);
+  });
+  it('妖怪 10 体でも 3 体だけ', () => {
+    const out: number[] = [];
+    pickNearestIndices(Array.from({ length: 10 }, (_, i) => 10 - i), 0, 3, 11, out);
+    expect(out).toHaveLength(3);
+    expect(out).toEqual([9, 8, 7]);
+  });
+});
+
+describe('pickRedrawTorch（1 コマ 1 本）', () => {
+  it('どちらも いらなければ -1', () => {
+    expect(pickRedrawTorch([false, false], 0)).toBe(-1);
+  });
+  it('1 本だけ いるなら その 1 本', () => {
+    expect(pickRedrawTorch([false, true], 1)).toBe(1);
+    expect(pickRedrawTorch([true, false], 0)).toBe(0);
+  });
+  it('2 本とも いるときは 前に描いた方の 次（交互）', () => {
+    expect(pickRedrawTorch([true, true], 0)).toBe(1);
+    expect(pickRedrawTorch([true, true], 1)).toBe(0);
+    expect(pickRedrawTorch([true, true], -1)).toBe(0);
   });
 });

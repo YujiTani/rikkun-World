@@ -13,7 +13,7 @@ import type { WorldRenderer } from '../WorldRenderer';
 import { snapMapCenter, lightAxes } from './shadowCamera';
 import { shadowLight, type ShadowLightInfo } from './shadowLight';
 import { patchSpriteMaterial, shadowPatch } from './shadowPatch';
-import { assignTorchSlots, hashStep, pickNearestTorches, shouldRedrawTorch, torchCenter, torchKey, type TorchCandidate } from './shadowTorch';
+import { assignTorchSlots, hashStep, pickNearestIndices, pickNearestTorches, pickRedrawTorch, shouldRedrawTorch, torchCenter, torchKey, type TorchCandidate } from './shadowTorch';
 
 /** 影の中の明るさ（オーナーの決定 0.55） */
 export const SHADOW_DARKNESS = 0.55;
@@ -84,6 +84,7 @@ const BIAS = new THREE.Matrix4().set(0.5, 0, 0, 0.5, 0, 0.5, 0, 0.5, 0, 0, 0.5, 
 const RAD2DEG = 180 / Math.PI;
 const TORCH_RADIUS = 10; // 光の とどく半径（ブロック）
 const TORCH_NEAR_MOVER = 11; // この中に動く物がいるコマだけ 描き直す
+const TORCH_MAX_YOKAI = 3; // 地図に描く妖怪は そのたいまつに近い 3 体まで（丸い影と同じ考え）
 const TORCH_FAR_MARGIN = 1; // 半径 11 + これより 遠い妖怪は 地図に描かない
 const TORCH_FIND = 16; // プレイヤーから これ以内の たいまつを さがす
 const TORCH_FIND_EVERY = 30;
@@ -149,7 +150,13 @@ export class ShadowSystem {
   private cardDist: THREE.Mesh | null = null;
   private readonly tmpMovers: THREE.Vector3[] = [];
   /** 1 本の たいまつから 動く物（キャラ・妖怪）までの 距離（毎コマ使い回す） */
-  private readonly moverDist: number[] = [];
+  private readonly torchDists: number[][] = [[], []];
+  /** 各たいまつの 地図に描く 近い妖怪（mv の場所。最大 TORCH_MAX_YOKAI） */
+  private readonly torchPick: number[][] = [[], []];
+  private readonly torchNeed: boolean[] = [false, false];
+  private readonly torchSigs: number[] = [0, 0];
+  private readonly torchHas: boolean[] = [false, false];
+  private lastTorchDrawn = -1;
   private readonly tmpColor = new THREE.Color();
   /** 影の強さを 0 にしたい（shadeAt の 1 回だけ影なし） */
   private forceOff = false;
@@ -474,6 +481,32 @@ void main() {
     let any = false;
     let matricesFresh = false;
     const mv = this.collectMovers(p);
+    // 1) どの たいまつが 描き直しを 求めるか
+    const need = this.torchNeed;
+    for (let i = 0; i < 2; i++) {
+      need[i] = false;
+      const t = this.torches[i]!;
+      if (!t.active) continue;
+      const md = this.torchDists[i]!;
+      md.length = mv.length;
+      for (let k = 0; k < mv.length; k++) md[k] = mv[k]!.distanceTo(t.pos);
+      pickNearestIndices(md, 1, TORCH_MAX_YOKAI, TORCH_NEAR_MOVER + TORCH_FAR_MARGIN, this.torchPick[i]!);
+      const dec = shouldRedrawTorch({ moverDistances: md, near: TORCH_NEAR_MOVER, hadMovers: t.hadMovers, needsDraw: t.needsDraw });
+      let sig = 0;
+      if (dec.hasMovers) {
+        if (!matricesFresh) {
+          this.d.yokaiGroup.updateMatrixWorld(true);
+          matricesFresh = true;
+        }
+        sig = this.moverSignature(p, this.torchPick[i]!);
+      }
+      this.torchSigs[i] = sig;
+      this.torchHas[i] = dec.hasMovers;
+      // 動く物の 位置・絵のコマが 前に描いたときと同じなら 描き直さない
+      need[i] = dec.redraw && (t.needsDraw || !dec.hasMovers || sig !== t.sig || !t.hadMovers);
+    }
+    // 2) 1 コマに 描き直すのは 1 本まで（2 本とも なら 交互。描かなかった方は 次のコマに のこす）
+    const chosen = pickRedrawTorch(need, this.lastTorchDrawn);
     for (let i = 0; i < 2; i++) {
       const t = this.torches[i]!;
       const uv = i === 0 ? u.uShTA.value : u.uShTB.value;
@@ -482,24 +515,20 @@ void main() {
         continue;
       }
       any = true;
-      const md = this.moverDist;
-      md.length = mv.length;
-      for (let k = 0; k < mv.length; k++) md[k] = mv[k]!.distanceTo(t.pos);
-      const dec = shouldRedrawTorch({ moverDistances: md, near: TORCH_NEAR_MOVER, hadMovers: t.hadMovers, needsDraw: t.needsDraw });
-      let sig = 0;
-      if (dec.hasMovers) {
-        if (!matricesFresh) {
-          this.d.yokaiGroup.updateMatrixWorld(true);
-          matricesFresh = true;
+      const hasMovers = this.torchHas[i]!;
+      if (need[i]) {
+        if (i === chosen) {
+          this.drawTorch(t, i, p, force);
+          this.lastTorchDrawn = i;
+          t.sig = this.torchSigs[i]!;
+        } else {
+          // 次のコマに まわす（hadMovers・needsDraw・sig は そのまま）
+          uv.set(t.pos.x, t.pos.y, t.pos.z, 1);
+          (i === 0 ? u.uShCubeA : u.uShCubeB).value = t.rt!.texture;
+          continue;
         }
-        sig = this.moverSignature(t, p, md);
       }
-      // 動く物の 位置・絵のコマが 前に描いたときと同じなら 描き直さない
-      if (dec.redraw && (t.needsDraw || !dec.hasMovers || sig !== t.sig || !t.hadMovers)) {
-        this.drawTorch(t, p, force);
-        t.sig = sig;
-      }
-      t.hadMovers = dec.hasMovers;
+      t.hadMovers = hasMovers;
       t.needsDraw = false;
       uv.set(t.pos.x, t.pos.y, t.pos.z, 1);
       (i === 0 ? u.uShCubeA : u.uShCubeB).value = t.rt!.texture;
@@ -508,7 +537,7 @@ void main() {
   }
 
   /** 半径 11 以内の 動く物の 位置・向き・絵のコマを まぜた数（描き直すかの 見分け） */
-  private moverSignature(t: TorchSlot, p: { x: number; y: number; z: number }, dist: readonly number[]): number {
+  private moverSignature(p: { x: number; y: number; z: number }, pick: readonly number[]): number {
     let h = 0;
     h = hashStep(h, p.x);
     h = hashStep(h, p.y);
@@ -523,11 +552,7 @@ void main() {
       if (crop) h = hashStep(hashStep(hashStep(hashStep(h, crop.x), crop.y), crop.z), crop.w);
     }
     const kids = this.d.yokaiGroup.children;
-    for (let i = 0; i < kids.length; i++) {
-      if ((dist[i + 1] ?? Infinity) >= TORCH_NEAR_MOVER + TORCH_FAR_MARGIN) continue;
-      h = this.hashMatrices(kids[i]!, h);
-    }
-    void t;
+    for (const k of pick) h = this.hashMatrices(kids[k - 1]!, h);
     return h;
   }
 
@@ -596,7 +621,7 @@ void main() {
   }
 
   /** 1 本の たいまつの キューブ地図を 描く: 光からの距離を 赤に（からは 1.0 = とても遠い） */
-  private drawTorch(t: TorchSlot, p: { x: number; y: number; z: number }, force: boolean): void {
+  private drawTorch(t: TorchSlot, slot: number, p: { x: number; y: number; z: number }, force: boolean): void {
     const r = this.d.renderer;
     const cc = t.cam!;
     const prevTarget = r.getRenderTarget();
@@ -629,14 +654,12 @@ void main() {
     }
     const swapped = this.yokaiSwap;
     swapped.length = 0;
-    // 光から遠い妖怪は 描かない（moverDist[i + 1] = 子 i までの距離）
+    // 地図に描く妖怪は そのたいまつに近い 3 体まで（pick は mv の場所 = 子の番号 + 1）
     const kids = this.d.yokaiGroup.children;
+    const pick = this.torchPick[slot]!;
     for (let i = 0; i < kids.length; i++) {
-      const far = (this.moverDist[i + 1] ?? 0) >= TORCH_NEAR_MOVER + TORCH_FAR_MARGIN;
-      if (!far) this.swapForTorch(kids[i]!);
-    }
-    for (let i = 0; i < kids.length; i++) {
-      if ((this.moverDist[i + 1] ?? 0) >= TORCH_NEAR_MOVER + TORCH_FAR_MARGIN) {
+      if (pick.includes(i + 1)) this.swapForTorch(kids[i]!);
+      else {
         swapped.push([kids[i] as THREE.Mesh, null as unknown as THREE.Material, kids[i]!.visible]);
         kids[i]!.visible = false;
       }
