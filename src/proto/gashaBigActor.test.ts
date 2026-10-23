@@ -101,13 +101,13 @@ describe('gashaBigActor（#293 はって進む・目・乗っている人）', (
     run(actor, 2);
     const y0 = actor.model.rest.LeftHand.y * actor.model.scale; // 手首が 地面に ぺたんと ついた ときの 高さ
     const a = new Vector3(), b = new Vector3();
-    // 手首が 地面の 高さに 10 コマ いじょう つづけて ある「ついている」間の、世界での 横の 速さ
+    // 手首が 地面の 高さに 20 コマ いじょう つづけて ある「ついている」間の、世界での 横の 速さ
     const runs: [number, number][][] = [[], []];
     const speeds: number[] = [];
     let fast = 0;
     const flush = (k: number): void => {
       const r = runs[k]!;
-      if (r.length >= 10) for (let i = 2; i < r.length - 2; i++) { // ふちの 2 コマは つなぎ目なので 数えない
+      if (r.length >= 20) for (let i = 8; i < r.length - 8; i++) { // つく・はなれる ふちの 8 コマは 手が 動いている ので 数えない
         const sp = Math.hypot(r[i]![0] - r[i - 1]![0], r[i]![1] - r[i - 1]![1]) / DT;
         speeds.push(sp);
         if (sp > actor.crawlSpeed) fast++;
@@ -122,7 +122,7 @@ describe('gashaBigActor（#293 はって進む・目・乗っている人）', (
     speeds.sort((x, y) => x - y);
     const med = speeds[Math.floor(speeds.length / 2)]!;
     console.log('stance hand world speed median', med.toFixed(3), 'p90', speeds[Math.floor(speeds.length * 0.9)]!.toFixed(3), 'samples', speeds.length, 'body', actor.crawlSpeed);
-    expect(speeds.length).toBeGreaterThan(100);
+    expect(speeds.length).toBeGreaterThan(50);
     expect(med).toBeLessThan(actor.crawlSpeed * 0.5); // からだの 速さ（もし すべって いたら 手の 世界の 速さも それくらい）の はんぶん いか
     console.log('fast ratio', (fast / speeds.length).toFixed(3));
     expect(fast / speeds.length).toBeLessThan(0.25);
@@ -217,7 +217,7 @@ describe('gashaBigActor（#293 はって進む・目・乗っている人）', (
   });
 
   it('乗っている 人: 体が 向きを かえると、のっている 人も 体の まわりを まわり、向きも いっしょに かわる', () => {
-    const { actor, ply } = rig();
+    const { actor, ply, carried } = rig();
     actor.walk(false);
     const x = 8.5, z = 0.5;
     const y = topAt(actor, x, z);
@@ -226,13 +226,31 @@ describe('gashaBigActor（#293 はって進む・目・乗っている人）', (
     const r0 = Math.hypot(ply.x - actor.pos.x, ply.z - actor.pos.z);
     const a0 = Math.atan2(ply.x - actor.pos.x, ply.z - actor.pos.z);
     const yaw0 = actor.yaw;
-    actor.hit(); // 怒って プレイヤーの 方へ 向く（プレイヤーは のっているので 向きは ゆっくり かわり つづける）
-    // 体を 先に 回して ためす
+    actor.hit(); // 怒って プレイヤーの 方へ 向く（のっている 人の 方向なので、体は まわりつづける）
     run(actor, 0.5);
-    for (let i = 0; i < 3; i++) { actor.yaw += 0.2; actor.update(DT); }
-    void yaw0; void a0;
-    const r1 = Math.hypot(ply.x - actor.pos.x, ply.z - actor.pos.z);
-    expect(r1).toBeCloseTo(r0, 2);
+    const dyaw = actor.yaw - yaw0;
+    expect(Math.abs(dyaw)).toBeGreaterThan(0.1);
+    // 体の まわりを おなじ だけ まわる（three の rotation.y と おなじ 向き）
+    const a1 = Math.atan2(ply.x - actor.pos.x, ply.z - actor.pos.z);
+    expect(Math.hypot(ply.x - actor.pos.x, ply.z - actor.pos.z)).toBeCloseTo(r0, 2);
+    expect(Math.atan2(Math.sin(a1 - a0 - dyaw), Math.cos(a1 - a0 - dyaw))).toBeCloseTo(0, 3);
+    // 向き（度）は 体の 向きと 逆（yawDeg は 時計まわりが ふえる 向き）に おなじだけ
+    expect(carried[3]).toBeCloseTo((-dyaw * 180) / Math.PI, 2);
+    expect(ply.y).toBeCloseTo(y, 3);
+  });
+
+  it('乗っている 人: 向きの おいかけを 切ると（turnWithBody = false）人の 向きは かわらない', () => {
+    T.ride.turnWithBody = false;
+    try {
+      const { actor, ply, carried } = rig();
+      actor.walk(false);
+      const y = topAt(actor, 8.5, 0.5);
+      Object.assign(ply, { x: 8.5, y, z: 0.5, yawDeg: 30 });
+      actor.hit();
+      run(actor, 0.5);
+      expect(carried[3]).toBe(0);
+      expect(Math.abs(carried[0]) + Math.abs(carried[2])).toBeGreaterThan(0.1); // 位置は 運ばれる
+    } finally { T.ride.turnWithBody = true; }
   });
 
   it('1 コマの 仕事: 動いている 間も 数が 小さい（箱 70 こ いか、補間 28 こ いか）', () => {

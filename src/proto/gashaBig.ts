@@ -10,7 +10,7 @@
  * 数は ぜんぶ gashaBigTuning.ts。
  */
 import {
-  BufferGeometry, Color, CylinderGeometry, DoubleSide, Euler, ExtrudeGeometry, Float32BufferAttribute, Group, Matrix3, Matrix4,
+  BufferGeometry, Color, CylinderGeometry, DoubleSide, Euler, ExtrudeGeometry, Float32BufferAttribute, Group, IcosahedronGeometry, Matrix3, Matrix4,
   Mesh, MeshBasicMaterial, OctahedronGeometry, Path, Quaternion, Shape, Vector3, type Camera, type Scene,
 } from 'three';
 import { TUNE as T, applyTune, applyTuneFromUrl } from './gashaBigTuning';
@@ -230,81 +230,148 @@ const octShape = (r: number, hole?: number): Shape => {
   return sh;
 };
 
-// ---------------------------------------------------------------- すりガラスの 渦雲
-/** 雲の 平面の 形（長さ L × はば W の 角の 丸い 形。しっぽ つき）。上の 面は これを そのまま 使う */
-function cloudOutline(L: number, W: number, tail: number, bump: number): Shape {
-  const N = 48, sh = new Shape();
+// ---------------------------------------------------------------- すりガラスの 雲（はしごの 段 と もくもく雲）
+const smooth = (a: number, c: number, x: number): number => { const t = Math.min(1, Math.max(0, (x - a) / (c - a))); return t * t * (3 - 2 * t); };
+const lerpA = (r: readonly [number, number], f: number): number => r[0] + (r[1] - r[0]) * f;
+
+/** 頂点を すりガラスの 色で ためる（上 = alphaTop、横 = alphaSide でふちが 少し 明るい、下 = alphaBottom）。fade は 形の 中の 場所（x, y）ごとの 濃さの 倍率 */
+function pushGlass(b: Builder, joint: JointName, geo: BufferGeometry, M: Matrix4, fade?: (lx: number, ly: number) => number, mul = 1): void {
+  const g = T.glass;
+  const gg = geo.index ? geo.toNonIndexed() : geo;
+  const nm = new Matrix3().getNormalMatrix(M);
+  const pa = gg.getAttribute('position'), na = gg.getAttribute('normal');
+  const bk = b.bucket(joint, 'glass');
+  const white = new Color(0xffffff);
+  for (let i = 0; i < pa.count; i++) {
+    const lx = pa.getX(i), ly = pa.getY(i);
+    tmpP.fromBufferAttribute(pa, i).applyMatrix4(M);
+    const t = vec(na.getX(i), na.getY(i), na.getZ(i)).applyMatrix3(nm).normalize().y;
+    const alpha = (t >= 0 ? g.alphaSide + (g.alphaTop - g.alphaSide) * t : g.alphaSide + (g.alphaBottom - g.alphaSide) * -t) * (fade ? fade(lx, ly) : 1) * mul;
+    tmpC.setHex(g.color).lerp(white, (1 - Math.abs(t)) * 0.7);
+    bk.pos.push(tmpP.x, tmpP.y, tmpP.z);
+    bk.col.push(tmpC.r, tmpC.g, tmpC.b, alpha);
+  }
+  if (gg !== geo) gg.dispose();
+}
+
+/** 雲の 平面の 形（長さ L × はば W の 角の 丸い 形） */
+function blobOutline(L: number, W: number, bump: number): Shape {
+  const N = 24, sh = new Shape();
   for (let k = 0; k < N; k++) {
     const th = (k / N) * Math.PI * 2;
     const c = Math.cos(th), s = Math.sin(th);
     const bu = 1 + bump * Math.sin(th * 5 + 1.3);
-    let x = (L / 2) * Math.sign(c) * Math.pow(Math.abs(c), 0.5) * bu;
+    const x = (L / 2) * Math.sign(c) * Math.pow(Math.abs(c), 0.5) * bu;
     const z = (W / 2) * Math.sign(s) * Math.pow(Math.abs(s), 0.5) * bu;
-    if (tail > 0) { const d = Math.atan2(Math.sin(th - Math.PI), Math.cos(th - Math.PI)); x -= tail * Math.exp(-((d / 0.2) ** 2)) * (c < 0 ? 1 : 0); }
     if (k) sh.lineTo(x, z); else sh.moveTo(x, z);
   }
   return sh;
 }
 
-interface CloudOpts { joint: JointName; a: Vector3; b: Vector3; width: number; thick: number; hitFill: number; hitThick: number; tail?: number; swirls?: number; name: string }
-
-/** 雲を 1 つ。a→b は 上の 面の まんなかの 線（あしばの 長さ）。見た目は すりガラス、当たりは 箱 */
-function cloud(b: Builder, o: CloudOpts): void {
-  const u = o.b.clone().sub(o.a);
-  const len = u.length();
-  u.normalize();
-  const { side, n } = frameOf(u);
-  const g = T.glass;
-  const bt = 0.7, bs = 0.8;
-  const tail = o.tail ?? 0;
-  const geo = new ExtrudeGeometry(cloudOutline(len, o.width, tail, 0.035), { depth: Math.max(0.2, o.thick - 2 * bt), bevelEnabled: true, bevelThickness: bt, bevelSize: bs, bevelSegments: 2, curveSegments: 1 });
-  // 形の x → u、y → 横、z（おしだし）→ 上。上の 面が a→b の 線に のるように ずらす
-  const mid = o.a.clone().add(o.b).multiplyScalar(0.5);
-  const R = new Matrix4().makeBasis(u, side, n);
-  const M = new Matrix4().makeTranslation(mid.x, mid.y, mid.z).multiply(R).multiply(new Matrix4().makeTranslation(0, 0, -(o.thick - bt)));
-  const gg = geo.index ? geo.toNonIndexed() : geo;
-  const nm = new Matrix3().getNormalMatrix(M);
-  const pa = gg.getAttribute('position'), na = gg.getAttribute('normal');
-  const bk = b.bucket(o.joint, 'glass');
-  const white = new Color(0xffffff);
-  for (let i = 0; i < pa.count; i++) {
-    tmpP.fromBufferAttribute(pa, i).applyMatrix4(M);
-    const nn = vec(na.getX(i), na.getY(i), na.getZ(i)).applyMatrix3(nm).normalize();
-    const t = nn.dot(n);
-    // 上 = alphaTop、横 = alphaSide（ふちが 明るい）、下 = alphaBottom
-    const alpha = t >= 0 ? g.alphaSide + (g.alphaTop - g.alphaSide) * t : g.alphaSide + (g.alphaBottom - g.alphaSide) * -t;
-    tmpC.setHex(g.color).lerp(white, (1 - Math.abs(t)) * 0.7);
-    bk.pos.push(tmpP.x, tmpP.y, tmpP.z);
-    bk.col.push(tmpC.r, tmpC.g, tmpC.b, alpha);
-  }
-  geo.dispose();
-  // うずまきの 線（上の 面に のる 細い 帯。らせん）
-  const sw = o.swirls ?? 2;
-  const swirlNode = new Node(b, o.joint, new Matrix4());
-  for (let k = 0; k < sw; k++) {
-    const f = (k + 0.5) / sw;
-    const cu = (f - 0.5) * len * 0.78, cs = (k % 2 ? -1 : 1) * o.width * 0.05;
-    const R0 = Math.min(o.width * 0.34, len / (sw * 2.4));
-    let prev: Vector3 | null = null;
-    const turns = 2.3, steps = 22, dir = k % 2 ? -1 : 1;
-    for (let i = 0; i <= steps; i++) {
-      const th = (i / steps) * turns * Math.PI * 2;
-      const r = R0 * (0.12 + 0.88 * (i / steps));
-      const pu = cu + Math.cos(th * dir + k) * r, ps = cs + Math.sin(th * dir + k) * r;
-      const pt = mid.clone().addScaledVector(u, pu).addScaledVector(side, ps).addScaledVector(n, 0.1);
-      if (prev) {
-        const d = pt.clone().sub(prev);
-        const L2 = d.length();
-        const { q } = frameOf(d.clone().normalize());
-        swirlNode.quads(new Matrix4().compose(prev.clone().add(pt).multiplyScalar(0.5), q, vec(0.55, 0.12, L2 + 0.25)), g.swirlColor, 'glass', 0.92, 1);
-      }
-      prev = pt;
-    }
-  }
-  // 当たり: 長さ方向は a→b いっぱい、はばは hitFill、あつさは hitThick（上の 面が 見た目と そろう）
-  const hc = mid.clone().addScaledVector(n, -o.hitThick / 2);
-  b.hits.push({ name: o.name, joint: o.joint, c: hc, axes: [u.clone(), n.clone(), side.clone()], half: [len / 2, o.hitThick / 2, (o.width * o.hitFill) / 2] });
+/** 平らな 段（すじ雲）の 形。まんなかの flat の 割合は 幅が そろって 平ら、はしは 細く とがる */
+function rungOutline(L: number, D: number, flat: number): Shape {
+  const N = 12, sh = new Shape();
+  const prof = (s: number): number => { const a = Math.abs(s); if (a <= flat) return 1; const e = (a - flat) / (1 - flat); return Math.max(0.05, Math.pow(Math.max(0, 1 - e * e), 0.6)); };
+  for (let i = 0; i <= N; i++) { const s = -1 + (2 * i) / N; if (i) sh.lineTo((s * L) / 2, (D / 2) * prof(s)); else sh.moveTo((s * L) / 2, (D / 2) * prof(s)); }
+  for (let i = N; i >= 0; i--) { const s = -1 + (2 * i) / N; sh.lineTo((s * L) / 2, (-D / 2) * prof(s)); }
+  return sh;
 }
+
+const ICO = new IcosahedronGeometry(1, 1);
+
+/** 形（平面）を おしだした 板を 置く。形の x → u、y → 横、おしだし → 上。板の 上の 面が 高さ top に なる */
+function putSlab(b: Builder, joint: JointName, shape: Shape, thick: number, c: Vector3, u: Vector3, fade?: (lx: number, ly: number) => number, mul = 1): void {
+  const bt = Math.min(0.25, thick * 0.3), bs = 0.25;
+  const geo = new ExtrudeGeometry(shape, { depth: Math.max(0.2, thick - 2 * bt), bevelEnabled: true, bevelThickness: bt, bevelSize: bs, bevelSegments: 1, curveSegments: 1 });
+  const side = new Vector3().crossVectors(vec(0, 1, 0), u);
+  const M = new Matrix4().makeTranslation(c.x, c.y, c.z).multiply(new Matrix4().makeBasis(u, side, vec(0, 1, 0))).multiply(new Matrix4().makeTranslation(0, 0, -(thick - bt)));
+  pushGlass(b, joint, geo, M, fade, mul);
+  geo.dispose();
+}
+
+/** ぶらさがる もくもく（だ円体） */
+function putLobe(b: Builder, joint: JointName, c: Vector3, rx: number, ry: number, rz: number, mul = 1): void {
+  pushGlass(b, joint, ICO, new Matrix4().compose(c, new Quaternion(), vec(rx, ry, rz)), undefined, mul);
+}
+
+interface RungOpts { joint: JointName; c: Vector3; tx: number; tz: number; f: number; len?: readonly [number, number]; name: string; rnd: () => number }
+
+/** はしごの 段を 1 つ。c = 道の 上の 点（y = 上の 面の 高さ）、(tx, tz) = 道の 向き。段は 道と 直角に 長い */
+function rung(b: Builder, o: RungOpts): void {
+  const Ld = T.ladder, rnd = o.rnd;
+  const D = lerpA(Ld.depth, o.f), L = lerpA(o.len ?? Ld.length, o.f) * (0.92 + 0.16 * rnd());
+  const a = ((rnd() - 0.5) * Ld.tiltDeg * Math.PI) / 90; // ±tilt/2 ... ではなく 全はば tilt
+  const lx = -o.tz, lz = o.tx;
+  const u = vec(lx * Math.cos(a) + lz * Math.sin(a), 0, -lx * Math.sin(a) + lz * Math.cos(a)).normalize();
+  const c = o.c.clone().addScaledVector(vec(lx, 0, lz), (rnd() - 0.5) * 2 * Ld.stagger * L);
+  const half = L / 2, flat = Ld.flat, ea = Ld.edgeAlpha;
+  const fadeOf = (w: number) => (lx0: number): number => { const s = Math.min(1, Math.abs(lx0) / w); return s <= flat ? 1 : 1 + (ea - 1) * smooth(flat, 1, s); };
+  putSlab(b, o.joint, rungOutline(L, D, flat), Ld.thick, c, u, fadeOf(half));
+  // すじの 重なり（下に ずらして うすく）
+  for (let k = 1; k <= Ld.layers; k++) {
+    const Lk = L * (0.82 - 0.16 * k), Dk = D * (1.0 + 0.12 * k);
+    const ck = c.clone().addScaledVector(u, (rnd() - 0.5) * L * 0.3); ck.y -= 0.55 * k;
+    putSlab(b, o.joint, rungOutline(Lk, Dk, flat), 0.45, ck, u, fadeOf(Lk / 2), 0.7);
+  }
+  // 下から ぶらさがる もくもく（上の 段ほど おおい）
+  const nl = Math.round(lerpA(Ld.lobes, o.f));
+  const side = new Vector3().crossVectors(vec(0, 1, 0), u);
+  for (let k = 0; k < nl; k++) {
+    const r = D * (0.36 + 0.14 * rnd());
+    const p = c.clone().addScaledVector(u, (rnd() - 0.5) * 2 * half * flat * 0.9).addScaledVector(side, (rnd() - 0.5) * D * 0.3);
+    p.y = c.y - Ld.thick * 0.5 - r * 0.7;
+    putLobe(b, o.joint, p, r * 1.3, r * 0.8, r, 0.8);
+  }
+  // 当たり: 平らな 部分（長さの flat 割合 × ふかさの 9 割）。上の 面が 見た目と そろう
+  b.hits.push({ name: o.name, joint: o.joint, c: o.c.clone().setX(c.x).setZ(c.z).setY(c.y - Ld.thick / 2), axes: [u.clone(), vec(0, 1, 0), side.clone()], half: [(L * flat) / 2, Ld.thick / 2, D * 0.45] });
+}
+
+/** もくもく雲を 1 つ（木くらいの 大きさ）。平らな 上の 面 ＋ まわりと 下の ふくらみ。上の 面が そのまま 当たり */
+function puff(b: Builder, o: { joint: JointName; cx: number; top: number; cz: number; w: number; yaw: number; lobes: number; name: string; rnd: () => number }): void {
+  const rnd = o.rnd, thick = 1.6, w = o.w, d = w * (0.82 + 0.2 * rnd());
+  const u = vec(Math.cos(o.yaw), 0, Math.sin(o.yaw));
+  const side = new Vector3().crossVectors(vec(0, 1, 0), u);
+  const c = vec(o.cx, o.top, o.cz);
+  putSlab(b, o.joint, blobOutline(w, d, 0.035), thick, c, u);
+  for (let k = 0; k < o.lobes; k++) {
+    const ang = (k / o.lobes) * Math.PI * 2 + rnd() * 0.9;
+    const r = w * (0.2 + 0.08 * rnd());
+    const p = c.clone().addScaledVector(u, Math.cos(ang) * w * 0.34).addScaledVector(side, Math.sin(ang) * d * 0.34);
+    p.y = o.top - r * 0.9 - 0.25;
+    putLobe(b, o.joint, p, r, r * 0.85, r);
+  }
+  putLobe(b, o.joint, vec(o.cx, o.top - thick - w * 0.12, o.cz), w * 0.3, w * 0.2, w * 0.28, 0.9);
+  const fill = T.collide.cloudFill;
+  b.hits.push({ name: o.name, joint: o.joint, c: vec(o.cx, o.top - thick / 2, o.cz), axes: [u.clone(), vec(0, 1, 0), side.clone()], half: [(w * fill) / 2, thick / 2, (d * fill) / 2] });
+}
+
+/** 道（[x, z, y?] の 点）を 間かくごとの 点に する。y を 書いた 点の 間は 道の 長さで わりふる */
+function pathPoints(pts: number[][], spacing: number, skipFirst: boolean): { x: number; y: number; z: number; tx: number; tz: number }[] {
+  const cum = [0];
+  for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1]! + Math.hypot(pts[i]![0]! - pts[i - 1]![0]!, pts[i]![1]! - pts[i - 1]![1]!));
+  const total = cum[cum.length - 1]!;
+  const ys: { d: number; y: number }[] = [];
+  pts.forEach((p, i) => { if (p[2] !== undefined) ys.push({ d: cum[i]!, y: p[2] }); });
+  if (ys.length < 2 || ys[0]!.d !== 0 || ys[ys.length - 1]!.d !== total) throw new Error('道の はしの 点には y が いる');
+  const out: { x: number; y: number; z: number; tx: number; tz: number }[] = [];
+  const n = Math.max(1, Math.round(total / spacing));
+  for (let k = skipFirst ? 1 : 0; k <= n; k++) {
+    const d = (total * k) / n;
+    let i = 1;
+    while (i < pts.length - 1 && cum[i]! < d) i++;
+    const a = pts[i - 1]!, c = pts[i]!, seg = cum[i]! - cum[i - 1]!;
+    const f = seg > 0 ? (d - cum[i - 1]!) / seg : 0;
+    let j = 1;
+    while (j < ys.length - 1 && ys[j]!.d < d) j++;
+    const y0 = ys[j - 1]!, y1 = ys[j]!;
+    const y = y0.y + (y1.y - y0.y) * ((d - y0.d) / (y1.d - y0.d || 1));
+    const tl = Math.hypot(c[0]! - a[0]!, c[1]! - a[1]!) || 1;
+    out.push({ x: a[0]! + (c[0]! - a[0]!) * f, y, z: a[1]! + (c[1]! - a[1]!) * f, tx: (c[0]! - a[0]!) / tl, tz: (c[1]! - a[1]!) / tl });
+  }
+  return out;
+}
+
+const jointForY = (y: number): JointName => (y < 20 ? 'Hips' : y < 50 ? 'Spine02' : 'Head');
 
 // ---------------------------------------------------------------- 本体
 export interface BigModel {
@@ -608,22 +675,31 @@ export function buildBig(): BigModel {
     b.hits.push({ name: `hand${sd}`, joint: jH, c: vec(palmX, th / 2, (palmZ - 3.5 + tipZ) / 2), axes: [vec(1, 0, 0), vec(0, 1, 0), vec(0, 0, 1)], half: [3.4, th / 2, (tipZ - palmZ + 3.5) / 2] });
   }
 
-  // --- 雲（こしから 下を かくす。つみあがる すりガラスの 渦雲）。上が 平らで 乗れる
-  const W = T.waist;
-  const cOpt = { hitFill: T.collide.cloudFill, hitThick: T.collide.cloudThick };
-  for (let t = 0; t < W.tiers; t++) {
-    const top = (t + 1) * W.stepUp;
-    const L = W.baseLen - t * W.shrink, D = W.baseDep - t * W.shrink * (W.baseDep / W.baseLen);
-    const sgn = t % 2 ? 1 : -1;
-    cloud(b, { ...cOpt, joint: 'Hips', a: vec(-L / 2 + sgn * 1.2, top, W.z), b: vec(L / 2 + sgn * 1.2, top, W.z), width: D, thick: Math.max(3, W.stepUp + 2.4), tail: t % 3 === 0 ? 6 : 0, swirls: t === W.tiers - 1 || t % 4 === 1 ? 2 : 0, name: `waist${t}` });
-  }
-  const R_ = T.route;
-  for (const s of [-1, 1]) {
-    const sd = s < 0 ? 'R' : 'L';
-    const mir = (p: number[]) => vec(s * p[0]!, p[1]!, p[2]!);
-    cloud(b, { ...cOpt, joint: 'Spine02', a: mir(R_.shoulder.a), b: mir(R_.shoulder.b), width: R_.shoulder.width, thick: R_.shoulder.thick, tail: 8, swirls: 3, name: `shoulder${sd}` });
-    cloud(b, { ...cOpt, joint: 'Spine02', a: mir(R_.rampOut.a), b: mir(R_.rampOut.b), width: R_.rampOut.width, thick: R_.rampOut.thick, tail: 0, swirls: 2, name: `rampOut${sd}` });
-    cloud(b, { ...cOpt, joint: 'Head', a: mir(R_.rampIn.a), b: mir(R_.rampIn.b), width: R_.rampIn.width, thick: R_.rampIn.thick, tail: 0, swirls: 2, name: `rampIn${sd}` });
+  // --- 雲の はしご（地面 → こし → 肩 → リボン → 頭の 上）と、こしの もくもく雲。上の 面が そのまま 当たり
+  {
+    const Ld = T.ladder, rr = makeRnd(Ld.seed);
+    const routes: { key: string; pts: number[][]; skipFirst: boolean; len?: readonly [number, number] }[] = [
+      { key: 'climb', pts: Ld.climb, skipFirst: false },
+      { key: 'link', pts: Ld.link, skipFirst: true },
+      { key: 'ramp', pts: Ld.ramp, skipFirst: true },
+      { key: 'head', pts: Ld.head, skipFirst: true, len: Ld.headLength },
+    ];
+    for (const s of [-1, 1]) {
+      const sd = s < 0 ? 'R' : 'L';
+      for (const r of routes) {
+        const pts = r.pts.map((p) => (p.length > 2 ? [s * p[0]!, p[1]!, p[2]!] : [s * p[0]!, p[1]!]));
+        pathPoints(pts, Ld.spacing, r.skipFirst).forEach((q, i) => {
+          rung(b, { joint: jointForY(q.y), c: vec(q.x, q.y, q.z), tx: q.tx, tz: q.tz, f: Math.min(1, q.y / Ld.topY), len: r.len, name: `${r.key}${sd}${i}`, rnd: rr });
+        });
+      }
+    }
+    const K = T.bank, rb = makeRnd(K.seed);
+    for (let i = 0; i < K.count; i++) {
+      let x = 0, z = 0, rad = 2;
+      while (rad > 1) { x = (rb() * 2 - 1); z = (rb() * 2 - 1); rad = Math.hypot(x, z); }
+      const top = Math.max(1.6, K.height * (1 - Math.pow(rad, 1.6)) + (rb() - 0.5) * 3);
+      puff(b, { joint: 'Hips', cx: x * K.radiusX, top, cz: K.z + z * K.radiusZ, w: lerpA(K.size, rb()), yaw: rb() * Math.PI, lobes: K.lobes, name: `bank${i}`, rnd: rb });
+    }
   }
 
   // ---------------------------------------------------------------- 関節の Group と メッシュ
