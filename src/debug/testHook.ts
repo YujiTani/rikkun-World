@@ -30,6 +30,7 @@ import type { ThunderHook } from '../fx/thunderFx';
 import type { CharSprite, SpriteInfo } from '../char';
 import type { SpriteMotion } from '../char';
 import type { StartHook } from '../start/startBoot';
+import type { WorkHook } from './workHook';
 
 type CameraHook = ReturnType<typeof createCameraHook>;
 type PlayerHook = {
@@ -59,6 +60,8 @@ export interface TestHook {
   /** #179: 1 コマの仕事を 時間（ms）で決めるか 数で決めるか（E2E のサーバーは 'count'） */
   clock(): FrameClock;
   perfOverlayVisible(): boolean;
+  /** #255: 重さを 仕事の数で 見る（start → step → read → stop。docs/tickets/PERF-255.md） */
+  work: WorkHook;
   world: WorldHook;
   /** VOX-I-1 §8.1: 12 の国（at・here・find・take.path） */
   biome: BiomeHook;
@@ -147,7 +150,7 @@ declare global {
   }
 }
 
-export type TestHookGroups = Pick<TestHook, 'start' | 'shadow' | 'char' | 'world' | 'biome' | 'render' | 'player' | 'camera' | 'aim' | 'input' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'attack' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm' | 'log' | 'ui' | 'audio' | 'rarity' | 'animals' | 'parry' | 'legend' | 'thunder'>;
+export type TestHookGroups = Pick<TestHook, 'start' | 'work' | 'shadow' | 'char' | 'world' | 'biome' | 'render' | 'player' | 'camera' | 'aim' | 'input' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'attack' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm' | 'log' | 'ui' | 'audio' | 'rarity' | 'animals' | 'parry' | 'legend' | 'thunder'>;
 
 export function installTestHook(game: Game, overlay: PerfOverlay, isReady: () => boolean, groups: TestHookGroups, clock: FrameClock = 'time'): void {
   window.__rikkun = {
