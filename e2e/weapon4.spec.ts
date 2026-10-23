@@ -321,22 +321,18 @@ test.describe('WEAPON-4 通し', () => {
     }
   });
 
-  test('AC22（LEGEND-FX で 直し）: 切り上げ・大けさぎりで 白い 斬撃が 出て、半月の 帯の 点は 出ない', async ({ page }) => {
-    // LEGEND-FX（#257・2026-10-23 オーナー決定）: 半月の 帯は 白い 斬撃に おきかえ。帯の 点の 計算は src/fx/bladeTrail*.test.ts が 見る
-    const slashOf = (tech: string) => page.evaluate((tech) => (window.__rikkun! as any).legend.slashes().some((s: any) => s.tech === tech) as boolean, tech);
+  test('AC22: 刃の軌跡の 点の 数（切り上げ F19〜22 の 4 つ、大けさぎり F28〜34 の 7 つ）', async ({ page }) => {
     await ready(page, 'gedan');
-    let seen = false;
     const k = await fire(page, 22);
-    seen ||= await slashOf('kiriage');
     expect(k[21]!.f).toBe(22);
-    for (const r of k) expect(r.trail.points, `切り上げ F${r.f}`).toHaveLength(0);
+    expect(k[21]!.trail.points.map((p) => p.step)).toEqual([19, 20, 21, 22]);
     await settle(page);
     await stage(page);
     await toStance(page, 'jodan');
     const s = await fire(page, 34);
-    seen ||= await slashOf('kesa');
-    for (const r of s) expect(r.trail.points, `大けさぎり F${r.f}`).toHaveLength(0);
-    expect(seen, '白い 斬撃が 出ている').toBe(true);
+    expect(s[33]!.trail.points.map((p) => p.step)).toEqual(range(28, 34));
+    // 後半: さいごの 点の 刃先は 1 つ目より u（北 = −z）の方へ 2.0 以上 前（とびこみの 残像）
+    const pts = s[33]!.trail.points;
+    expect(pts[0]!.tip.z - pts[6]!.tip.z).toBeGreaterThanOrEqual(2.0);
   });
-
 });

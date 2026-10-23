@@ -20,7 +20,7 @@ import { createParry, parryGlowLevel } from './combat/parry';
 import { ParryFx, StaggerIcons, bladeMidInto } from './fx/parryFx';
 import { isParrySound, playParry } from './fx/parrySounds';
 import { parryCellOf } from './char/parryCells';
-import { BLADE_TRAIL_ITEMS, bladeColorsOf } from './fx/bladeTrailModel';
+import { LEGEND_FX_ITEMS, bladeColorsOf } from './fx/bladeTrailModel';
 import { EventRelay } from './fx/eventRelay';
 import { BladeHud } from './ui/bladeHud';
 import { WearNotice } from './ui/wearNotice';
@@ -1210,8 +1210,8 @@ const weaponFx = new WeaponFx({
   // WEAPON-7: ふつうの わざに 雷の「ビシューン」を 重ねる（ダメージは かえない）
   onTechItem: (item, tech, step) => {
     if (trailStyleOf(w2, item) === 'thunder') playLegend(fxSound, 'thunderSlash');
-    // 白い 斬撃（刀の 武器ぜんぶの 土台。わざごとの 絵・決めが 当たりに 重なる よう まって 出す。カメラの 向きで 絵を きめる）。ダメージは かえない
-    if (item && BLADE_TRAIL_ITEMS.has(item) && tech) {
+    // 白い 斬撃（レジェンダリー 3 本だけ。ぼくとう・かたな・きらめくかたなは 半月の 帯と 段の 星。2026-10-23 オーナー決定。わざごとの 絵・決めが 当たりに 重なる よう まって 出す。カメラの 向きで 絵を きめる）。ダメージは かえない
+    if (item && LEGEND_FX_ITEMS.has(item) && tech) {
       const u = blade.state().move?.dirDeg ?? controller.state.yawDeg;
       slashFx.queueSlash({ tech, step: step ?? 1, uDeg: u, pos: () => controller.state.position, reach: w2.bladeReach[item] });
       // 上の 層（武器ごと）
@@ -1222,7 +1222,7 @@ const weaponFx = new WeaponFx({
   },
   // 当たった 妖怪 1 体ごとに 白い 火花
   onTechHit: (item, e) => {
-    if (!item || !BLADE_TRAIL_ITEMS.has(item)) return;
+    if (!item || !LEGEND_FX_ITEMS.has(item)) return;
     // 当たった 妖怪の 胸（足もと + 背の 6 割）に 火花を 出す
     const yk = yokaiManager?.list().find((q) => q.id === e.yokaiId);
     const chest = yk ? boxOf(yk).h * 0.6 : 0.8;
@@ -1238,8 +1238,8 @@ const weaponFx = new WeaponFx({
     raijinFx.cancel();
     rainbowFx.cancel();
   },
-  // 刀の 半月の 帯は 白い 斬撃と 置きかえ（全部の 刀）
-  hideBandTrail: true,
+  // 半月の 帯は レジェンダリー 3 本だけ 白い 斬撃と 置きかえ（ぼくとう・かたな・きらめくかたなは 帯を 出す）
+  hideBandTrail: (item) => !!item && LEGEND_FX_ITEMS.has(item),
   // WEAPON-9: 虹の つき・きりあげ・けさ は 今の 刀の 音の 代わりに nijiSlash（1 振りに 1 回。段ごとに 3 とおり）
   replaceTechSound: (item, step) => {
     if (trailStyleOf(w2, item) !== 'rainbow') return false;
