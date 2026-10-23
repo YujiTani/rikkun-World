@@ -186,8 +186,9 @@ export class ToolSystemImpl implements ToolSystem {
    * 1 ステップ進める。primary: 押している（ゆみを ひく）。eye・dir: 目の位置と向き（長さ 1）
    * ゆみ以外を持っているあいだは引かない。飛んでいる や は持ち物に関係なく進める
    */
-  step(primary: boolean, eye: Vec3, dir: Vec3): void {
+  step(primary: boolean, eye: Vec3, dir: Vec3, active = true): void {
     const c = this.bowCtx;
+    c.active = active; // HURT-1: false（怯み・やられ）は ひくのを やめる（矢は 出さない）
     c.item = this.current().kind === 'bow' ? (this.d.inventory.held()?.item ?? null) : null;
     c.pressed = primary && !this.prevPrimary;
     c.held = primary;

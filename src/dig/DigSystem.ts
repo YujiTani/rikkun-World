@@ -71,7 +71,8 @@ const A_PREV = 'hotbarPrev' as Action;
 export interface DigToolPort {
   current(): ToolInfo;
   /** 毎ステップ。ゆみの引きと、飛んでいる や を進める */
-  step(primary: boolean, eye: Vec3, dir: Vec3): void;
+  /** active が false（怯み・やられ）の間は ゆみを ひくのを やめる（はなした扱いで 矢を出さない） */
+  step(primary: boolean, eye: Vec3, dir: Vec3, active?: boolean): void;
   pushSwing(anim: SwingAnim): void;
   /** 何もない所を振った（武器なら武器の振り） */
   swingWhiff(): void;
@@ -534,7 +535,7 @@ export class DigSystemImpl implements DigSystem {
       }
     }
     this.prevPrimaryRaw = primaryRaw;
-    tools?.step(primaryRaw, eye, d);
+    tools?.step(primaryRaw, eye, d, !this.gate?.blocksInput());
     this.punching = this.gate ? this.gate.primaryStep(primary, eye, d, this.tgt?.distance ?? null, dec ?? undefined) : false;
     {
       const pd = this.gate?.punchDirDeg?.() ?? null;
