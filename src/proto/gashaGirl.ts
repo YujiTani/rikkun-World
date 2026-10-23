@@ -26,6 +26,10 @@ export interface GashaGirlDeps {
   hurt(amount: number, from: { x: number; y: number; z: number }): boolean;
   hp(): number;
   maxHp(): number;
+  /** ゲームの BGM の ミキサー（BGM 音量の 設定に のる）。まだ 音が 使えない ときは null */
+  bgmOut(): { ctx: AudioContext; bus: AudioNode } | null;
+  /** ふだんの BGM を 止める（少女の 間） */
+  suppressBgm(on: boolean): void;
   groundY(x: number, z: number): number;
   solid(x: number, y: number, z: number): boolean;
 }
@@ -806,6 +810,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
   const camTarget = { pos: new Vector3(), look: new Vector3(), init: false };
   
   deps.onUpdate((dt) => {
+    bgmStep();
     t += dt; pt += dt;
     const p = deps.player();
     if (phase === 'stand') {
@@ -816,7 +821,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
       fade(clamp01(pt / T.timing.vanishSec));
       if (pt >= T.timing.vanishSec) { phase = 'gone'; pt = 0; fade(1); pivot.visible = false; }
     } else if (phase === 'gone') { // 何も いない 時間（「どこいった？」）
-      if (pt >= T.timing.goneSec) { teleport(); pivot.visible = true; phase = 'appear'; pt = 0; turn++; fade(1); purpleBurst(24); }
+      if (pt >= T.timing.goneSec) { teleport(); pivot.visible = true; bgm.wantOn = true; phase = 'appear'; pt = 0; turn++; fade(1); purpleBurst(24); }
     } else if (phase === 'appear') {
       faceTo(p); idleSway(); fade(1 - clamp01(pt / T.timing.appearSec));
       if (pt >= T.timing.appearSec) { fade(0); startCast(); }
@@ -905,6 +910,29 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
     if (camMode === 'overview') { cam.position.copy(camTarget.pos); cam.lookAt(camTarget.look); cam.updateMatrixWorld(true); }
   });
 
+  // ---- BGM「災厄」（少女が 出ている 間 ループ。ファイルが なければ 音なし） ----
+  const bgm = { buf: null as AudioBuffer | null, fetched: false, missing: false, src: null as AudioBufferSourceNode | null, gain: null as GainNode | null, started: false, startT: -1, ctxStart: 0, wantOn: false };
+  const bgmLoad = () => {
+    if (bgm.fetched) return;
+    bgm.fetched = true;
+    void fetch('./__proto-gasha/bgm/saiyaku.mp3').then((r) => (r.ok && /audio/.test(r.headers.get('content-type') ?? '') ? r.arrayBuffer() : Promise.reject(new Error('no bgm'))))
+      .then(async (ab) => { const o = deps.bgmOut(); const ctx = o?.ctx ?? new AudioContext(); bgm.buf = await ctx.decodeAudioData(ab); })
+      .catch(() => { bgm.missing = true; });
+  };
+  const bgmStep = () => {
+    if (!bgm.wantOn) return;
+    bgmLoad();
+    deps.suppressBgm(true);
+    if (bgm.started || !bgm.buf) return;
+    const o = deps.bgmOut();
+    if (!o) return; // 音が まだ 使えない（あとで また）
+    const g = o.ctx.createGain(); const now = o.ctx.currentTime;
+    g.gain.setValueAtTime(0, now); g.gain.linearRampToValueAtTime(1, now + T.bgm.fadeInSec);
+    g.connect(o.bus);
+    const src = o.ctx.createBufferSource(); src.buffer = bgm.buf; src.loop = true; src.connect(g); src.start(now);
+    bgm.src = src; bgm.gain = g; bgm.started = true; bgm.startT = t; bgm.ctxStart = now;
+  };
+
   // ---- 外から 使う（テスト・スクショ） ----
   const place = (opts?: { groundY?: number; shift?: number; side?: boolean }) => {
     const p = deps.player(); const f = fwdOf(p);
@@ -933,6 +961,9 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
     nextSpell: (n) => { forced = (n - 1 + SPELLS) % SPELLS; },
     predictSide: () => (mulberry(rs)[1] < 0.5 ? 'left' : 'back'),
     info: () => ({
+      bgmFile: bgm.buf ? 'loaded' : bgm.missing ? 'missing' : bgm.fetched ? 'loading' : 'none', bgmStarted: bgm.started, bgmStartT: bgm.startT, bgmDur: bgm.buf?.duration ?? 0, bgmLoop: bgm.src?.loop ?? false,
+      bgmLoops: bgm.started && bgm.buf && bgm.src ? Math.floor((bgm.src.context.currentTime - bgm.ctxStart) / bgm.buf.duration) : 0,
+      bgmFade: bgm.gain ? Math.round(bgm.gain.gain.value * 100) / 100 : 0, bgmCtx: bgm.src ? bgm.src.context.state : 'none',
       turn, cancels, eyeContact: eyeNow, soundCount, lastSoundT, bigCount, shy: shyT >= 0, warnRing: warn0(), camMode, camFov: (deps.camera as PerspectiveCamera).fov, hitActive: erups.some((e) => e.hitActive()), eruptionR: Math.max(...erups.map((e) => (e.e.t >= 0 ? e.e.rad : 0))), eruptionMaxR: T.s1.radius, playerHp: deps.hp(), playerMaxHp: deps.maxHp(), phase, spell: spell + 1, forced, castT: pt, side, dist, eruptionT: Math.max(...erups.map((e) => e.e.t)), vortexT: Math.max(...vortices.map((v) => v.v.t)), vortexCount: vortices.filter((v) => v.v.t >= 0).length,
       fireballs: projs.filter((q) => q.on && q.kind === 0).length, waves: projs.filter((q) => q.on && q.kind === 1).length,
       ...stats, girlX: pivot.position.x, girlZ: pivot.position.z,

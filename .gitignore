@@ -12,3 +12,5 @@ ui-gate-report/
 # テストが撮るスクショ（コミットしない。見せる分は project files の shots/<ID>/ へ。#157）
 test-shots/
 __pycache__/
+# #293 試作の BGM（配布条件を 確かめるまで リポジトリに 入れない）
+proto-assets/bgm/

@@ -376,6 +376,7 @@ const soundSettingsUi = createSoundSettings({ audio: audioSettings, fx: FX_SETTI
 for (const ev of ['pointerdown', 'keydown'] as const) window.addEventListener(ev, () => mixer.unlock(), true);
 document.addEventListener('visibilitychange', () => mixer.setHidden(document.hidden));
 mixer.setHidden(document.hidden);
+let girlBgmOn = false; // #293 試作
 let audioKey = '';
 let audioYokai: BgmSceneInput['yokai'] = [];
 /** 設定が変わっていたら ミキサーに反映・保存・画面を合わせる */
@@ -392,7 +393,8 @@ function audioStep(): void {
   audioSync();
   if (game.tick % 10 === 0) audioYokai = yokaiM.list().map((y) => ({ state: y.state, position: y.position }));
   const dead = combat.dead();
-  bgm.play(bgmScene.update({ tick: game.tick, phase: time.phase(), player: controller.state.position, yokai: audioYokai, dead }));
+  if (girlBgmOn) bgm.play(null); // #293 試作: 少女の 間は ふだんの BGM を 止める（「災厄」を 流す）
+  else bgm.play(bgmScene.update({ tick: game.tick, phase: time.phase(), player: controller.state.position, yokai: audioYokai, dead }));
   const mode = screen.mode();
   mixer.setScreenLevel(screenLevel(mode, dead));
   // 実績の おしらせ（上の 帯）が 出ている 間は BGM を さげる（ファンファーレを 聞かせる）
@@ -2531,6 +2533,6 @@ installTestHook(game, overlay, () => host.everReady, {
 }, frameClock);
 // #293 試作（開発サーバーだけ）: ?proto=gashaGirl で 少女の 大きさくらべ
 if (import.meta.env.DEV && new URLSearchParams(location.search).get('proto') === 'gashaGirl') {
-  void import('./proto/gashaGirl').then((m) => m.startGashaGirl({ scene: game.scene, camera: game.camera, onUpdate: (fn) => game.onUpdate(fn), onBeforeRender: (fn) => game.onBeforeRender(fn), solid: (x, y, z) => world.isSolid(x, y, z), player: () => ({ ...controller.state.position, yawDeg: controller.state.yawDeg, vx: controller.state.velocity.x, vz: controller.state.velocity.z }), hurt: (amount, from) => combat.damage(amount, 'karakasa', from), hp: () => combat.hp(), maxHp: () => combat.maxHp(), groundY: (x, z) => island.groundHeight(x, z) }));
+  void import('./proto/gashaGirl').then((m) => m.startGashaGirl({ scene: game.scene, camera: game.camera, onUpdate: (fn) => game.onUpdate(fn), onBeforeRender: (fn) => game.onBeforeRender(fn), solid: (x, y, z) => world.isSolid(x, y, z), player: () => ({ ...controller.state.position, yawDeg: controller.state.yawDeg, vx: controller.state.velocity.x, vz: controller.state.velocity.z }), hurt: (amount, from) => combat.damage(amount, 'karakasa', from), bgmOut: () => { const o = mixer.output(); const b = mixer.bgmInput(); return o && b ? { ctx: o.ctx, bus: b } : null; }, suppressBgm: (on) => { girlBgmOn = on; }, hp: () => combat.hp(), maxHp: () => combat.maxHp(), groundY: (x, z) => island.groundHeight(x, z) }));
 }
 game.start();

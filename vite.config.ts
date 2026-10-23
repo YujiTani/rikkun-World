@@ -25,12 +25,19 @@ const protoGasha = (): Plugin => ({
   configureServer(server) {
     server.middlewares.use('/__proto-gasha', (req, res, next) => {
       const name = (req.url ?? '').split('?')[0]!.replace(/^\//, '');
-      if (!/^girl-rig\/[A-Za-z_-]+\.glb$/.test(name)) return next();
-      // 手元（yuzu の Mac）は リポジトリの proto-assets/、クラウドは 共有フォルダ
-      const file = [resolve(import.meta.dirname, 'proto-assets', name), resolve('/mnt/project-files/gashadokuro/design-v2/', name)]
-        .find((f) => existsSync(f) && statSync(f).isFile());
+      // 手元（yuzu の Mac）は リポジトリの proto-assets/、クラウドは 共有フォルダ。ファイルが なければ next()（音なし・絵なしで 動く）
+      let candidates: string[];
+      let type: string;
+      if (/^girl-rig\/[A-Za-z_-]+\.glb$/.test(name)) {
+        candidates = [resolve(import.meta.dirname, 'proto-assets', name), resolve('/mnt/project-files/gashadokuro/design-v2/', name)];
+        type = 'model/gltf-binary';
+      } else if (/^bgm\/[A-Za-z_-]+\.mp3$/.test(name)) {
+        candidates = [resolve(import.meta.dirname, 'proto-assets', name), resolve('/mnt/project-files/gashadokuro/', name)]; // BGM は リポジトリに 入れない（.gitignore）
+        type = 'audio/mpeg';
+      } else return next();
+      const file = candidates.find((f) => existsSync(f) && statSync(f).isFile());
       if (!file) return next();
-      res.setHeader('Content-Type', 'model/gltf-binary');
+      res.setHeader('Content-Type', type);
       createReadStream(file).pipe(res);
     });
   },
