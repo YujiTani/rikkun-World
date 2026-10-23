@@ -51,6 +51,10 @@ export class Game {
   private rafId = 0;
   private readonly updaters: Array<(dt: number) => void> = [];
   private readonly idleUpdaters: Array<(dt: number) => void> = [];
+  /** ヒットストップで 止まっている ステップに 呼ぶ 処理（カメラの ゆれだけ 動かす） */
+  private readonly frozenUpdaters: Array<(dt: number) => void> = [];
+  /** ヒットストップ: あと 何ステップ 世界を 止めるか */
+  private stopLeft = 0;
   /** 描く直前に呼ぶ処理（#144 影の試作: 影の地図を先に描く） */
   private readonly preRenders: Array<() => void> = [];
   private realtimeGate: () => boolean = () => true;
@@ -80,6 +84,26 @@ export class Game {
   /** 毎ステップ呼ばれる処理を登録する */
   onUpdate(fn: (dt: number) => void): void {
     this.updaters.push(fn);
+  }
+
+  /** ヒットストップ中（世界の 更新が 止まっている ステップ）に 毎ステップ呼ばれる処理を登録する */
+  onFrozenUpdate(fn: (dt: number) => void): void {
+    this.frozenUpdaters.push(fn);
+  }
+
+  /**
+   * #276 ヒットストップ: このステップの 次から ticks ステップ 世界の 更新を 止める。
+   * 同じ ステップに 何回 呼んでも 長い ほう 1 回 だけ（max）。止まっている 間は tick も 進まず、input.endFrame() も 呼ばない
+   * （押した ボタンは 止まりが 終わった ステップで 受けつける）。
+   */
+  hitStop(ticks: number): void {
+    const n = Math.floor(ticks);
+    if (n > this.stopLeft) this.stopLeft = n;
+  }
+
+  /** ヒットストップの のこり ステップ（テスト用） */
+  hitStopLeft(): number {
+    return this.stopLeft;
   }
 
   /**
@@ -224,6 +248,12 @@ export class Game {
         this.idleDrawn = false;
         this.renderDirty = true;
       }
+      return;
+    }
+    if (this.stopLeft > 0) {
+      // ヒットストップ: 世界は 止める（tick・入力の 「押した」も そのまま）。カメラの ゆれだけ 動く
+      this.stopLeft--;
+      for (const fn of this.frozenUpdaters) fn(FIXED_DT);
       return;
     }
     for (const fn of this.updaters) fn(FIXED_DT);

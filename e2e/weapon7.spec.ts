@@ -688,6 +688,8 @@ test.describe('WEAPON-7 PR1 テロップ', () => {
     const bag = (await bagsOf(page)).find((b) => b.slots.some((s) => s.item === RAIJIN));
     expect(bag?.rarity).toBe('legendary');
     // ゲームは 止まらない・ロックも そのまま
+    // #276 たおした ときの ヒットストップ（大）の 止まりは 数えない: 止まりが おわるまで 進めてから 100 ステップを はかる
+    await page.evaluate(() => { const h = window.__rikkun as any; while (h.impact && h.impact.stopLeft() > 0) h.step(1); });
     const t0 = await page.evaluate(() => (window.__rikkun as any).tick() as number);
     await page.evaluate(() => (window.__rikkun as any).step(100));
     expect((await topBand(page)).kind).toBe('telop');
