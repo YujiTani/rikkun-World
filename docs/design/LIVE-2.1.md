@@ -292,7 +292,7 @@ MOTION（なげる・もちあげ）: 1 ○（もちあげ 10・とぶ 20＋5d�
 | `animals.throwSpot()` | だっこ 中: `{ x, y, z, ok, home: 小屋 id｜null, toss: boolean }`（`toss` false ＝ d＜1 で そっと おろす）。ほか: null |
 | `animals.throwTo(x, y, z)` | だっこ 中 の 子 を その 点 へ なげる（ゲーム と 同じ とびかた・きまり）。テスト 用 |
 | `animals.events()` | ＋ `toss`（`id`・`to: {x,y,z}`）・`bonk`（`id`・`x,y,z`）。`putDown` は そっと おろした とき と 着地 した とき |
-| `animals.fx()` | ＋ `kitIcons`（AC12）・`homePop`（いえ の しるし の 大きさ の 段 0〜1）・`dust` |
+| `animals.fx()` | ＋ `kitIcons`（AC12）・`kitEggMeshes`（こたつ の 中 の たまご の 3D の 物 の 数。いつも 0。AC12）・`homePop`（いえ の しるし の 大きさ の 段 0〜1）・`dust` |
 | `animals.lastHint()` | ＋ `'kitFull'` |
 | `animals.list()` | `state` に `'thrown'`（とんで いる あいだ） |
 

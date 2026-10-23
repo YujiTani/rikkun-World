@@ -88,7 +88,7 @@ test.describe('LIVE-2 文字（合図 5 つ）', () => {
         const id = A.friend(c.x + 6.5, c.z + 6.5);
         A.stand(id);
         A.lift(id);
-        h.player.set({ position: { x: c.x - 0.5, y: 9, z: c.z + 0.5 }, yaw: 90, pitch: -30 });
+        h.player.set({ position: { x: c.x + 0.5, y: 9, z: c.z + 0.5 }, yaw: 90, pitch: -30 });
         h.step(2);
         A.tap();
         grab('coopFull');

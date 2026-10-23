@@ -269,9 +269,11 @@ test.describe('LIVE-2 とりごや', () => {
       out.stat = A.stat('home:*');
       out.unlock = A.unlocked('animal.home.1');
       out.kids = A.cinfo(cid).kids.length;
+      out.markSteps = h.animals.fx().marks.find((m: any) => m.id === id)?.steps ?? null;
       return out;
     });
     expect(r.enter, '歩いて 入って 小屋 の 子 に なる まで').toBe(0);
+    expect(r.markSteps, '小屋の 子は ついてくる 時間 を 使わない').toBeNull();
     expect(r.at10, '入った あと すぐ 小屋 の 子').toBe(r.cid);
     expect(r.homeEv).toBe(1);
     expect(r.stat).toBe(1);

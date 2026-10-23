@@ -3,8 +3,9 @@ import { openAnimals } from './helpers/animals';
 
 /**
  * LIVE-2.1 E2E その 6（docs/design/LIVE-2.1.md 版 1.1 §3.2「さく・もん」・§4.4・§6 AC15）: さく・もん の 当たり と ねらい（かわらない）。
- * TODO(LIVE-2.1 fence look): さく・もん の 見た目（板 の 作り。ブロック の 箱 に 見せない・草花 と 同じ なかま）は オーナーが 案を えらぶ まで
- *   見た目 の 確かめ（`world` の 描き かた の 印・絵）は 書かない。えらんだ あと に ここへ 足す（UI 検査 と オーナー確認 AC17 (5)）。
+ * 見た目: 決まった 形（9dc0f0c。さく ＝ 線 に そう 板・高さ 12/9・角 L、もん ＝ はば 1.5 の 板 ＋ くい 2 本・高さ 1.8、箱 の 面 0）は
+ *   ユニット `src/world/render/coopPanels.test.ts` で 見る。ここでは 描き かた の 種類 だけ 窓口 `world.renderKind(x, y, z)` で 見る。
+ *   絵 そのもの は UI 検査 と オーナー確認 AC17 (5)。
  * ここで 見る のは 「当たり と ねらう 箱 は 今 の ブロック の まま」と 「小屋 3 つ の 描画回数・三角形 が ふえすぎない」だけ。
  * 描画の 数は 「小屋 なし」と くらべた ふえ で 見る（#255。時間 では 見ない）。
  */
@@ -106,6 +107,30 @@ test.describe('LIVE-2.1 さく・もん（当たり と ねらい は かわら�
     expect(r.gateInside, 'もん から は 入れる').toBe(true);
   });
 
+  test('AC15d 描き かた の 種類: さく・もん は 板（panel）・ねぐら・すばこ は 今の まま（box）・箱 の 面 0（窓口 world.renderKind）', async ({ page }) => {
+    await openAnimals(page);
+    const r = await page.evaluate(() => {
+      const h = (window as any).__rikkun;
+      const A = (window as any).__A;
+      A.base(40);
+      const cid = A.coop(20, 20);
+      const c = A.cinfo(cid);
+      const kinds: Record<string, Set<string>> = { toriya_fence: new Set(), toriya_gate: new Set(), toriya_nest: new Set(), toriya_box: new Set() };
+      for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) for (let dy = 0; dy < 4; dy++) {
+        const b = String(h.world.getBlock(c.x + dx, c.y + dy, c.z + dz));
+        if (b in kinds) kinds[b].add(String(h.world.renderKind(c.x + dx, c.y + dy, c.z + dz)));
+      }
+      h.world.setBlock(30, 9, 30, 'flower_y');
+      h.step(2);
+      return { cid, kinds: Object.fromEntries(Object.entries(kinds).map(([k, v]) => [k, [...v]])), flower: h.world.renderKind(30, 9, 30) };
+    });
+    expect(r.kinds.toriya_fence, 'さく は 板（箱 の 面 0）').toEqual(['panel']);
+    expect(r.kinds.toriya_gate, 'もん は 板').toEqual(['panel']);
+    expect(r.kinds.toriya_nest, 'ねぐら は 今の まま').not.toContain('panel');
+    expect(r.kinds.toriya_box, 'すばこ は 今の まま').not.toContain('panel');
+    expect(r.flower, '草花 は cross（比べ）').toBe('cross');
+  });
+
   test('AC15c 描画: 小屋 3 つ（子 なし）を 置いた ふえ は 描画 と 三角形 が 少ない（小屋 1 つ の 三角形 3,600 以下・描画回数 は チャンク の 面 に 入れる）', async ({ page }) => {
     await openAnimals(page);
     const r = await page.evaluate(() => {
@@ -131,7 +156,7 @@ test.describe('LIVE-2.1 さく・もん（当たり と ねらい は かわら�
     expect(r.one.tri - r.zero.tri, '小屋 1 つ の 三角形').toBeLessThanOrEqual(3600);
     expect(r.three.tri - r.zero.tri, '小屋 3 つ の 三角形').toBeLessThanOrEqual(3600 * 3);
     // 小屋 を 板 に しても チャンク の 面 に 入る ので、小屋 1 つ ごとに 描画 が ふえ続ける ことは ない
-    // はかった 値（板 の 試作 で +4）に 2 割 の ゆとり
-    expect(r.three.dc - r.zero.dc, '小屋 3 つ で 描画回数').toBeLessThanOrEqual(5);
+    // PO 決定: 前の 箱 の さく より ふえない。箱 の さく（c96d19a）で はかった ふえ = +4（小屋 3 つ）
+    expect(r.three.dc - r.zero.dc, '小屋 3 つ で 描画回数（箱 の さく は +4）').toBeLessThanOrEqual(4);
   });
 });

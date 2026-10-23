@@ -6,7 +6,7 @@ import { openAnimals } from './helpers/animals';
  * AC10 3 こ まで / AC11 かえる（通し）/ AC12 こたつ の 表示 / AC13 こわす / AC14 保存 v 4。
  * 窓口: `animals.kits()` = [{ x, y, z, size, eggs: [{ egg, left, wobble }], egg, left, wobble }]（後ろ 3 つは 先頭 の たまご）・
  * `animals.fx().kitIcons`・`animals.lastHint()` の `kitFull`。時間は 設定 `kitHatchTicks` と ステップ で 決める（#255）。
- * 「こたつ の 中 の たまご の 3D の 物 が 0」（AC12 の 最後）は 窓口の 名前が 仕様に 無いので、ここでは 見ない（レポート の 「窓口」）。
+ * 「こたつ の 中 の たまご の 3D の 物 が 0」は `animals.fx().kitEggMeshes === 0`（PO 決定。仕様 §6.2）。
  */
 test.describe('LIVE-2.1 こたつ に 3 こ', () => {
   test.describe.configure({ timeout: 170_000 });
@@ -24,9 +24,10 @@ test.describe('LIVE-2.1 こたつ に 3 こ', () => {
       h.step(1);
       out.aimed = A.aimBlock(k.x, k.y, k.z);
       h.animals.events();
+      // 3 回目 の tap の すぐ あと（ステップ を 進める 前）に 読む（さきに 進めると left が へる）
       for (let n = 0; n < 3; n++) {
         A.tap();
-        h.step(58);
+        if (n < 2) h.step(58);
       }
       const row = h.animals.kits()[0];
       out.kits = h.animals.kits().length;
@@ -106,12 +107,15 @@ test.describe('LIVE-2.1 こたつ に 3 こ', () => {
       A.putEgg(k, 'egg', 1);
       const t = A.putEgg(k, 'tomato', 2);
       out.tomato = { left: t.left, hint: t.hint };
-      const d = A.putEgg(k, 'dirt', 3);
-      out.dirt = { left: d.left, rows: h.animals.kits()[0].eggs.length };
+      // egg を さきに（つち を 先に 置くと となり の つち が 照準 を さえぎる）
       const e = A.putEgg(k, 'egg', 2);
-      out.egg = { left: e.left, hint: e.hint, rows: h.animals.kits()[0].eggs.length };
+      out.egg = { aimed: e.aimed, left: e.left, hint: e.hint, rows: h.animals.kits()[0].eggs.length };
+      const d = A.putEgg(k, 'dirt', 3);
+      out.dirt = { aimed: d.aimed, left: d.left, rows: h.animals.kits()[0].eggs.length };
       return out;
     });
+    expect(r.egg.aimed, 'egg の とき こたつ を ねらえた').toBe(true);
+    expect(r.dirt.aimed, 'つち の とき こたつ を ねらえた（照準 を さえぎらない）').toBe(true);
     expect(r.tomato.hint).toBe('kitWait');
     expect(r.tomato.left, 'トマト は たべない').toBe(2);
     expect(r.dirt.left, 'つち は となり に 置く').toBe(2);
@@ -237,6 +241,7 @@ test.describe('LIVE-2.1 こたつ に 3 こ', () => {
       out.eggs = row.eggs.map((e: any) => ({ egg: e.egg, left: e.left, wobble: e.wobble }));
       out.first = { wobble: row.wobble, left: row.left };
       out.icons = h.animals.fx().kitIcons ?? null;
+      out.eggMeshes = h.animals.fx().kitEggMeshes;
       const mine = (ic: any) => (ic ?? []).find((q: any) => q.x === k.x && q.y === k.y && q.z === k.z) ?? null;
       out.near = mine(out.icons);
       // 遠く（20 マス）
@@ -270,6 +275,7 @@ test.describe('LIVE-2.1 こたつ に 3 こ', () => {
       expect(s.fill).toBeLessThanOrEqual(1);
     }
     expect(r.near.slots.map((s: any) => s.wobble)).toEqual(r.eggs.map((e: any) => e.wobble));
+    expect(r.eggMeshes, 'こたつ の 中 の たまご の 3D の 物 が 0（窓口 fx().kitEggMeshes）').toBe(0);
     expect(r.far, '20 マス では 出ない').toBeNull();
     expect(r.emptyNoEgg, 'から で たまご を 持たない なら 出ない').toBeNull();
     expect(r.emptyAim, 'から でも egg を 持って ねらえば 3 わく とも null で 出る').not.toBeNull();

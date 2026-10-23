@@ -48,7 +48,8 @@
 - `animals.throwSpot()`・`animals.throwTo(x, y, z)`（足の 点）・`events()` の `toss {id, to}`／`bonk {id, x, y, z}`・`list()[].state === 'thrown'`。
 - `animals.kits()[].eggs[{egg, left, wobble}]`（先頭 の 前の 形 も のこす）。`fx().kitIcons`・`fx().homePop`・`fx().dust`。`lastHint()` の `kitFull`。
 - `serialize()/deserialize()` の v 4（`kits[].eggs`）。
-- **仕様に 名前が 無く、テストが 見ていない もの**: AC12「こたつ の 中 の たまご の 3D の 物 が 0」の 窓口（案: `fx().kitEggMeshes`）。
+- `animals.fx().kitEggMeshes`（こたつ の 中 の たまご の 3D の 物 の 数。いつも 0。PO 決定。仕様 §6.2 に 1 行 足した）。
+- `world.renderKind(x, y, z)`: 'panel'（さく・もん）／'cross'（草花）／'box'（ねぐら・すばこ など）。`live21-fence` AC15d が 見る。
 - 照準で さく ごしに 中 の 床 を ねらえる か は 画面の 高さ しだい。AC4 は `throwTo` で 見た。AC17 (2) で オーナー確認。
 
 ## 結果（HEAD `fe454e5` の 別 worktree・`--workers` なし）
@@ -59,3 +60,16 @@
 - `npm run check:fast`（型＋ユニット 3,822）緑。
 - 注意: AC15c の 描画回数 +5 は 板 の 試作（+4）に 2 割。見た目 が 決まって 絵 が かわったら 測り直す。
 - 注意: AC29c は 実装 が `coopEnterTicks` を のこす 前提（のこさない なら 「中途 の なかま」を 別の 方法で 作る）。
+
+## 差し戻し（code-reviewer）への 直し（第 2 回）
+
+| # | したこと | 結果 |
+|---|---|---|
+| 1 | `live21-kit` AC10: 3 回目 の tap の すぐ あと（step の 前）に eggs を 読む | 赤（`eggs` が 無い） |
+| 2 | AC12 に `fx().kitEggMeshes === 0`。仕様 §6.2 に 1 行 | 赤（窓口 が 無い） |
+| 3 | `live21-home` AC8: `homeAtEnter` は `toBe(r.cid)`（直してあった） | 赤（`coopEnterTicks` 180） |
+| 4 | AC18b: LIVE-1 AC11b と 同じ かべ の 向こう で 近づけない 形（stuck）。対の 外 の なかま が stuck で warp する こと（120〜240 ステップ）と、距離 は `animalWarpDist` 以内 を assert | 緑（守り。今の ゲームでも 小屋 の 子 は warp しない・対 は warp する） |
+| 5 | AC10c: egg を さきに、つち を 最後 に して `aimed` を assert | 赤（`eggs` が 無い） |
+| 6 | `live1-carry` AC19 に `carryDown` を のこした（`toss` は 足す だけ）。`live2-text` AC25b の 立ち位置 を 元に もどした。`live2-coop` AC9 に `markSteps` null を もどした（`follow` 「出れば なかま」は 仕様で 消えた ので もどさない） | AC19・AC9 は 赤、AC25b は `kitFull` で 赤 |
+| 7 | `live21-fence` AC15c: 描画回数 は 「前の 箱 の さく より ふえない」。箱 の さく（c96d19a）で はかった 小屋 3 つ の ふえ = +4（三角形 +996）を 上限 に | 緑（板 の 試作 も +4） |
+| 8 | 決まった 形（9dc0f0c）を ユニット `src/world/render/coopPanels.test.ts` で 見る（さく=板 2 面・高さ 12/9・マス 中央・角 L 4 面・もん=板＋くい 2 本で 6 面・はば 1.5・高さ 1.8・もん の 上 は 0 面・箱 の 面 0）。E2E は `world.renderKind`（AC15d） | ユニット 7 本 緑（試作 が もう 入っている ため）／AC15d 赤（窓口 が 無い）。絵 は UI 検査 と AC17 |

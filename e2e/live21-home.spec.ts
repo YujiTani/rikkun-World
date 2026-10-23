@@ -233,49 +233,56 @@ test.describe('LIVE-2.1 とりごや の 子', () => {
     expect(r.controlRow?.near, 'そばに ワープ した').toBeLessThanOrEqual(4);
   });
 
-  test('AC18b プレイヤー が とおくで つまった 扱い（固い あなの 中）でも 小屋 の 子 は ワープ しない。対: 外 の なかま は stuck で warp', async ({ page }) => {
+  test('AC18b プレイヤー が つまった 扱い（かべ の 向こう で 近づけない）でも 小屋 の 子 は ワープ しない。対: 同じ 状態 で 外 の なかま は stuck で warp する', async ({ page }) => {
     await openAnimals(page);
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
       const A = (window as any).__A;
-      A.base(90);
+      A.base(30);
       const stuck = h.settings.get('animalStuckTicks');
-      const cid = A.coop(20, 20);
+      const warpD = h.settings.get('animalWarpDist');
+      const cid = A.coop(5, 10);
       const c = A.cinfo(cid);
-      const cx = c.x + 0.5;
-      const cz = c.z + 0.5;
-      const out: any = { stuck, cid };
-      const id = A.kid(c, { stage: 'chick', follow: A.full() });
-      // 小屋 から 近い 固い あな（水平 12 くらい。warp 距離 の 内 でも「つまった」で ワープ する はず の 所）と とおい あな
-      const holeAt = (x: number, z: number) => {
-        h.world.fill(x - 2, 9, z - 2, x + 2, 13, z + 2, 'stone');
-        h.world.fill(x, 9, z, x, 11, z, 'air');
-        h.step(2);
-      };
-      holeAt(cx + 12 + 40, cz);
-      h.player.set({ position: { x: cx + 12 + 40, y: 9, z: cz + 0.5 }, velocity: { x: 0, y: 0, z: 0 } });
+      const out: any = { stuck, warpD, cid };
+      // 長い かべ（高さ 2・x 10..11）と、その 向こう の 高い 床（y 9）。LIVE-1 AC11b と 同じ 形
+      h.world.fill(10, 9, 0, 11, 10, 30, 'stone');
+      h.world.fill(12, 9, 0, 30, 9, 30, 'stone');
+      h.world.fill(10, 11, 0, 30, 20, 30, 'air');
+      h.step(2);
+      const kid = A.kid(c, { stage: 'chick', follow: A.full() });
+      const ctl = A.friend(8.5, 6.5); // かべ の 手前（小屋 の 外）。向こう へ は 行けない
+      h.player.set({ position: { x: 16.5, y: 10, z: 6.5 }, velocity: { x: 0, y: 0, z: 0 } });
+      h.step(1);
+      const p = h.player.get().position;
+      // 距離 だけ では warp しない 近さ（animalWarpDist 以内）で、近づけない = stuck だけ が 理由
+      out.kidDist = Math.hypot(A.one(kid).x - p.x, A.one(kid).z - p.z);
+      out.ctlDist = Math.hypot(A.one(ctl).x - p.x, A.one(ctl).z - p.z);
       h.animals.events();
       let outStep = -1;
-      for (let i = 1; i <= stuck * 6 + 600; i++) {
+      let kidWarps = 0;
+      let ctlWarps = 0;
+      let ctlFirst = -1;
+      for (let i = 1; i <= 3600; i++) {
         h.step(1);
-        const a = A.one(id);
+        const a = A.one(kid);
         if (!a || (!A.inside(c, a) && outStep < 0)) outStep = i;
+        for (const e of h.animals.events()) {
+          if (e.type === 'warp' && e.id === kid) kidWarps++;
+          if (e.type === 'warp' && e.id === ctl) { ctlWarps++; if (ctlFirst < 0) ctlFirst = i; }
+        }
       }
       out.outStep = outStep;
-      out.warps = A.events('warp').length;
-      // 対: 外 の なかま は 近くの 固い あなでも stuck ワープ しない の が 今の きまり（AC11c）。ここでは 「遠くへ うつして つまる」と warp する こと だけ
-      h.animals.clear();
-      h.player.set({ position: { x: 6.5, y: 9, z: 6.5 }, velocity: { x: 0, y: 0, z: 0 } });
-      A.friend(8.5, 6.5);
-      h.step(10);
-      h.player.set({ position: { x: cx + 12 + 40, y: 9, z: cz + 0.5 }, velocity: { x: 0, y: 0, z: 0 } });
-      h.animals.events();
-      h.step(stuck * 2 + 60);
-      out.controlWarps = A.events('warp').length;
+      out.kidWarps = kidWarps;
+      out.ctlWarps = ctlWarps;
+      out.ctlFirst = ctlFirst;
       return out;
     });
-    expect(r.outStep, '3,600 ステップ ほど たっても 中 3×3').toBe(-1);
-    expect(r.warps).toBe(0);
-    expect(r.controlWarps).toBeGreaterThanOrEqual(1);
+    expect(r.kidDist, 'stuck だけ が 理由 に なる 近さ').toBeLessThan(r.warpD);
+    expect(r.ctlDist).toBeLessThan(r.warpD);
+    expect(r.ctlWarps, '対: 外 の なかま は stuck で warp する').toBeGreaterThanOrEqual(1);
+    expect(r.ctlFirst, 'animalStuckTicks ごろ').toBeGreaterThanOrEqual(r.stuck - 20);
+    expect(r.ctlFirst).toBeLessThanOrEqual(r.stuck * 2);
+    expect(r.kidWarps, '小屋 の 子 は warp しない').toBe(0);
+    expect(r.outStep, '3,600 ステップ たっても 中 3×3').toBe(-1);
   });
 });

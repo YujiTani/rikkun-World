@@ -286,7 +286,8 @@ test.describe('LIVE-1 だっこ・おろす・パタパタ', () => {
     expect(r.dx).toBeLessThanOrEqual(0.5);
     expect(r.dz).toBeLessThanOrEqual(0.5);
     expect(r.dy).toBeLessThanOrEqual(0.5);
-    expect(r.sfx).toContain('toss');
+    expect(r.sfx, '手から はなれる 音（§3.5）').toContain('toss');
+    expect(r.sfx, 'おろす 音 は のこす（§6.1 に かわる と 書いて ない）').toContain('carryDown');
   });
 
   test('AC19b おろせない: まわりが 固い 所で 何も ねらわず 押す → おろさない・cantPutHere。やせいを 長おし → carryWild', async ({ page }) => {
