@@ -333,6 +333,26 @@ describe('保存（なげて いる とちゅう）', () => {
   });
 });
 
+describe('なげて いる とちゅう で 着地する 列 が 読まれなく なる', () => {
+  it('その場 で とまって まつ（落ち続けて ワープ しない）。読まれたら つづき で 着地', () => {
+    const s = setup();
+    const id = carry(s, 20.5, 20.5);
+    s.m.startThrow(aimEast(s, { x: 23, y: 9, z: 20 }));
+    s.step(10 + 36); // もちあげ 10 ＋ 弧 T（d=3 で 35）をこえて 落ちる ところ
+    expect(s.one(id).state).toBe('thrown');
+    const real = s.world.isLoaded.bind(s.world);
+    let off = true;
+    s.world.isLoaded = (x: number, z: number) => (off ? false : real(x, z));
+    s.step(400);
+    expect(s.one(id).state).toBe('thrown');
+    expect(s.one(id).y).toBeGreaterThan(-1);
+    off = false;
+    s.step(120);
+    expect(s.one(id).state).not.toBe('thrown');
+    expect(s.ev('putDown')).toHaveLength(1);
+  });
+});
+
 describe('すぐ 小屋 の 子（coopEnterTicks 0）・小屋 の 子 は ワープ しない', () => {
   it('coopEnterTicks の 初期値 は 0。ついてくる なかま が 中 3×3 に 入った ステップ に home・出来事 home', () => {
     const s = setup({ px: 50.5, pz: 44.5 });

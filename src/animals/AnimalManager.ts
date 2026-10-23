@@ -755,6 +755,8 @@ export class AnimalManager implements AnimalApi {
       }
       return;
     }
+    // 着地する 列 が まだ 読まれて いない: その場 で とまって まつ（読まれたら つづき。落ち続けて ワープ しない）
+    if (!this.world.isLoaded(Math.floor(e.x), Math.floor(e.z))) return;
     if (e.y < -10) {
       // 下 に 地面 が 無い: プレイヤー の そば へ もどす
       e.flight = null;
@@ -825,6 +827,7 @@ export class AnimalManager implements AnimalApi {
   private glideStep(e: Ent): void {
     const g = e.glide!;
     e.stateTicks++;
+    if (!this.world.isLoaded(Math.floor(g.x), Math.floor(g.z))) return;
     const dx = g.x - e.x;
     const dz = g.z - e.z;
     const d = Math.hypot(dx, dz);

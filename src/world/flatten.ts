@@ -95,6 +95,8 @@ export function planFlatten(world: FlattenWorld, s: FlattenSpec): FlattenPlan | 
       if (floorY < y - 1 - step || floorY < 0) return null; // 深い あな・がけ
       if (isObjectBlock(String(world.getBlock(ix, floorY, iz)))) return null;
       for (let fy = floorY + 1; fy <= y - 1; fy++) {
+        const fb = String(world.getBlock(ix, fy, iz));
+        if (fb !== 'air' && fb !== 'water' && !FLATTEN_CLEAR.has(fb)) return null; // たいまつ・作物 など を 土で つぶさない
         plan.edits.push({ x: ix, y: fy, z: iz, block: fy === y - 1 ? 'grass' : 'dirt' });
         plan.filled++;
         touched = true;

@@ -56,6 +56,16 @@ describe('LIVE-2.1 AC1 たいら の 判定', () => {
     w.set(9, Y - 1, 9, 'air');
     expect(coop(w)!.edits).toEqual([{ x: 9, y: Y - 1, z: 9, block: 'grass' }]);
   });
+  it('うめる 列 に たいまつ・作物 など 固くない ブロック → 置けない（つぶさない）。水 は うめて よい', () => {
+    for (const b of ['torch', 'start_torch', 'toriya_gate']) {
+      const w = mk();
+      w.set(9, Y - 1, 9, b);
+      expect(coop(w), b).toBeNull();
+    }
+    const w = mk();
+    w.set(9, Y - 1, 9, 'water');
+    expect(coop(w)).not.toBeNull();
+  });
   it('y-1・y-2 が くうき・y-3 が いし → y-2 に つち・y-1 に くさ', () => {
     const w = mk();
     w.set(9, Y - 1, 9, 'air');

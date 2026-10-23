@@ -1618,8 +1618,8 @@ export class DigSystemImpl implements DigSystem {
       for (const c of KOTATSU_CELLS) {
         if (this.overlapsBody(ax + c.dx, y, az + c.dz) || this.gate?.placeBlocked(ax + c.dx, y, az + c.dz)) ok = false;
       }
-      // うめる マス（y-1・y-2）にも 体 が 重ならない
-      for (const e of plan.edits) if (e.block !== 'air' && this.overlapsBody(e.x, e.y, e.z)) ok = false;
+      // うめる・消す マス にも 体 が 重ならない・妖怪 の 箱 に かからない
+      for (const e of plan.edits) if ((e.block !== 'air' && this.overlapsBody(e.x, e.y, e.z)) || this.gate?.placeBlocked(e.x, e.y, e.z)) ok = false;
       if (ok) return { x: ax, z: az, cells: KOTATSU_CELLS.map((c) => ({ x: ax + c.dx, z: az + c.dz, block: c.block })), plan };
     }
     return null;
