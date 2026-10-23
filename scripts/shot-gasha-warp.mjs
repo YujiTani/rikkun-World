@@ -173,12 +173,25 @@ async function eyeContact() {
     if (k.phase === 'gone' || close.length > 200) break;
   }
   gif(dir, close, 'eye-contact-close.gif');
+  await page.evaluate(() => window.__gashaGirl.camera('overview'));
   console.log('close frames', close.length, JSON.stringify(await info()).slice(0, 400));
   const e = await info();
   console.log(`eye: cancels ${e.cancels} turn ${e.turn} sounds ${e.soundCount} lastSoundT ${e.lastSoundT} frames ${frames.length}`);
   gif(dir, frames, 'eye-contact.gif');
 }
 if (process.env.EYE) { await eyeContact(); await browser.close(); process.exit(0); }
+
+/** 立ち姿の ゆらゆら（idle.gif、近めの カメラで 4 秒） */
+async function idle() {
+  const dir = join(work, 'idle'); mkdirSync(dir, { recursive: true });
+  await page.evaluate(() => { window.__gashaGirl.resetTurns(); window.__gashaGirl.camera('idle'); window.__gashaGirl.holdStand(true); });
+  await step(60);
+  const frames = [];
+  for (let i = 0; i < 120; i++) { await step(2); frames.push(await shot(dir)); }
+  gif(dir, frames, 'idle.gif');
+  await page.evaluate(() => { window.__gashaGirl.holdStand(false); window.__gashaGirl.camera('overview'); });
+}
+if (process.env.IDLE) { await idle(); await browser.close(); process.exit(0); }
 for (const n of ONLY) {
   const r = await cycle(n);
   gif(r.dir, r.allNorm, `warp-cast-${n}.gif`);

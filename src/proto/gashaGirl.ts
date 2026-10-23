@@ -258,7 +258,9 @@ export interface GashaGirlHandle {
   standNow(): void;
   setSeed(n: number): void;
   warpNow(spell?: number): void;
-  camera(mode: 'overview' | 'default' | 'look' | 'close'): void;
+  camera(mode: 'overview' | 'default' | 'look' | 'close' | 'idle'): void;
+  /** 立ち姿で とめておく（idle.gif 用） */
+  holdStand(on: boolean): void;
   /** 回数・止めた回数の 数えなおし（撮影用） */
   resetTurns(): void;
   /** 次に 使う 魔法を 決める（1〜4。撮影用） */
@@ -701,16 +703,38 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
     add.emit(hp.x, hp.y, hp.z, 0, 0, 0, 0.2, 1.6, 0.3, 0xfff0c0, 0xff7010);
   };
 
+  // ---- 立ち姿の ゆらゆら（ゾンビらしく 傾いて ふらつく。骨で つける。詠唱・赤面の 間は 使わない） ----
+  const axF = new Vector3(), axR = new Vector3();
+  const wob = (a: number, f1: number, f2: number, ph: number) => a * D2R * (0.6 * Math.sin(Math.PI * 2 * f1 * t + ph) + 0.4 * Math.sin(Math.PI * 2 * f2 * t + ph * 1.7 + 1));
+  const bn = (n: string) => model.getObjectByName(n) as Bone | undefined;
+  const idleBones = ['Hips', 'Spine', 'Spine01', 'Spine02', 'neck', 'Head', 'RightArm', 'RightForeArm', 'RightHand', 'LeftArm', 'LeftForeArm'].map((n) => [n, bn(n)] as const);
+  const idleSway = () => {
+    restorePose();
+    const yaw = pivot.rotation.y;
+    axF.set(Math.sin(yaw), 0, Math.cos(yaw)); axR.set(Math.cos(yaw), 0, -Math.sin(yaw));
+    const rot = (n: string, axis: Vector3, rad: number) => { const b = idleBones.find((q) => q[0] === n)?.[1]; if (b) rotateWorld(b, axis, rad); };
+    rot('Hips', axF, wob(3, 0.31, 0.47, 0.5)); // 重心が ふらっと 片足へ
+    rot('Spine', axF, wob(7, 0.33, 0.49, 1)); rot('Spine', axR, wob(3, 0.37, 0.43, 2));
+    rot('Spine01', axF, wob(7, 0.41, 0.31, 3)); rot('Spine01', axR, wob(3, 0.35, 0.47, 4));
+    rot('Spine02', axF, wob(6, 0.3, 0.45, 5)); rot('Spine02', axR, wob(3, 0.4, 0.33, 6));
+    rot('neck', axF, 15 * D2R + wob(2, 0.3, 0.5, 7)); // 首を かしげたまま
+    rot('Head', axF, wob(6, 0.31, 0.43, 8)); rot('Head', axR, wob(3, 0.37, 0.5, 9));
+    rot('RightArm', axR, wob(5, 0.4, 0.3, 10)); rot('RightForeArm', axR, wob(4, 0.45, 0.35, 11)); rot('RightHand', axR, wob(14, 0.5, 0.37, 12)); // 手首が ぶらっと
+    rot('LeftArm', axR, wob(9, 0.35, 0.48, 13)); rot('LeftForeArm', axR, wob(6, 0.42, 0.3, 14)); // ぶらん
+    model.position.y = y0 + 0.04 * (0.6 * Math.sin(t * 1.9) + 0.4 * Math.sin(t * 2.9 + 1)); model.position.x = 0;
+  };
+
   // ---- 毎ステップ ----
-  let camMode: 'overview' | 'default' | 'look' | 'close' = 'default';
+  let camMode: 'overview' | 'default' | 'look' | 'close' | 'idle' = 'default';
+  let holdStand = false;
   const camTarget = { pos: new Vector3(), look: new Vector3(), init: false };
   
   deps.onUpdate((dt) => {
     t += dt; pt += dt;
     const p = deps.player();
     if (phase === 'stand') {
-      model.position.y = y0 + Math.sin(t * 1.6) * 0.02; model.position.x = Math.sin(t * 0.9) * 0.03;
-      faceTo(p);
+      faceTo(p); idleSway();
+      if (holdStand) pt = 0;
       if (pt >= 2.0) nextWarp();
     } else if (phase === 'vanish') {
       fade(clamp01(pt / VANISH));
@@ -718,7 +742,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
     } else if (phase === 'gone') { // 何も いない 時間（「どこいった？」）
       if (pt >= GONE) { teleport(); pivot.visible = true; phase = 'appear'; pt = 0; turn++; fade(1); purpleBurst(24); }
     } else if (phase === 'appear') {
-      faceTo(p); fade(1 - clamp01(pt / 0.4));
+      faceTo(p); idleSway(); fade(1 - clamp01(pt / 0.4));
       if (pt >= 0.4) { fade(0); startCast(); }
     } else if (phase === 'shy') {
       faceTo(p);
@@ -762,7 +786,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
     if (eyeNow && cancels < 2 && (phase === 'appear' || (phase === 'cast' && pt < 0.1))) {
       cancels++;
       if (phase === 'cast') { action.fadeOut(0.1); mixerLeft = 0.2; }
-      phase = 'shy'; pt = 0; fade(0); shyT = 0; setShy(true); shyT = 0; beep();
+      phase = 'shy'; pt = 0; fade(0); if (mixerLeft <= 0) { restorePose(); model.position.set(model.position.x, y0, model.position.z); } shyT = 0; setShy(true); shyT = 0; beep();
     }
     updateShy(dt);
     // 詠唱が はじまったら 足もとに うすい 予告の 輪（どこまで にげれば いいか）
@@ -786,9 +810,13 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
     const cam = deps.camera as PerspectiveCamera;
     const px = (window.innerHeight * Math.min(window.devicePixelRatio, 2)) / (2 * Math.tan((cam.fov * D2R) / 2));
     add.mat.uniforms.uPx!.value = px; smoke.mat.uniforms.uPx!.value = px;
-    const wantFov = camMode === 'close' ? 30 : baseFov;
+    const wantFov = baseFov;
+    if (camMode === 'idle') { const q = pivot.rotation.y; cam.position.set(pivot.position.x + Math.sin(q) * 3.8 + Math.cos(q) * 1.0, pivot.position.y + 1.9, pivot.position.z + Math.cos(q) * 3.8 - Math.sin(q) * 1.0); cam.lookAt(pivot.position.x, pivot.position.y + 1.5, pivot.position.z); cam.updateMatrixWorld(true); }
     if (cam.fov !== wantFov) { cam.fov = wantFov; cam.updateProjectionMatrix(); }
-    if ((camMode === 'look' || camMode === 'close') && pivot.visible) { const p = deps.player(); cam.position.set(p.x, p.y + 1.6, p.z); cam.lookAt(headCenter(headC).add(upOff.set(0, camMode === 'close' ? 0.2 : 0, 0))); cam.updateMatrixWorld(true); }
+    if ((camMode === 'look' || camMode === 'close') && pivot.visible) { const p = deps.player(); headCenter(headC);
+      cam.position.set(p.x, p.y + 1.6, p.z);
+      if (camMode === 'close') { upOff.copy(cam.position).sub(headC); upOff.y = 0; cam.position.copy(headC).addScaledVector(upOff.normalize(), 1.7); cam.position.y = headC.y + 0.1; } // 顔の すぐ 前まで 近づく
+      cam.lookAt(headC.x, headC.y + (camMode === 'close' ? 0.15 : 0), headC.z); cam.updateMatrixWorld(true); }
     if (camMode === 'overview') { cam.position.copy(camTarget.pos); cam.lookAt(camTarget.look); cam.updateMatrixWorld(true); }
   });
 
@@ -813,6 +841,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
     warpNow: (s) => { if (s !== undefined) forced = (s - 1 + SPELLS) % SPELLS; if (phase === 'stand') pt = 2.0; },
     camera: (m) => { camMode = m; camTarget.init = false; },
     resetTurns: () => { turn = 0; cancels = 0; bigCount = 0; setShy(false); showBig(false); },
+    holdStand: (on) => { holdStand = on; },
     standNow: () => { if (phase === 'stand') pt = 0; },
     nextSpell: (n) => { forced = (n - 1 + SPELLS) % SPELLS; },
     predictSide: () => (mulberry(rs)[1] < 0.5 ? 'left' : 'back'),
