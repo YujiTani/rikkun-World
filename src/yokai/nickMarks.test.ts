@@ -17,16 +17,14 @@ function meshes(g: THREE.Object3D): THREE.Mesh[] {
 }
 const colorsOf = (g: THREE.Object3D) => new Set(meshes(g).map((m) => (m.material as THREE.MeshBasicMaterial).color.getHex()));
 const tris = (g: THREE.Object3D) => meshes(g).reduce((n, m) => n + (m.geometry.index ? m.geometry.index.count / 3 : m.geometry.attributes.position!.count / 3), 0);
-const KINDS = ['karakasa', 'chochin', 'rokurokubi'] as const;
+const KINDS = ['karakasa', 'chochin', 'rokurokubi', 'nurikabe'] as const;
 
 describe('頭の印', () => {
-  it('おやぶん・二つ名なし・ぬりかべ は 印なし', () => {
-    for (const k of [...KINDS, 'nurikabe'] as const) {
+  it('おやぶん・二つ名なし は 印なし（ぬりかべ も。#270）', () => {
+    for (const k of KINDS) {
       expect(buildNickMarks(k, 'none')).toBeNull();
       expect(buildNickMarks(k, 'oyabun')).toBeNull();
     }
-    expect(buildNickMarks('nurikabe', 'taisho')).toBeNull();
-    expect(buildNickMarks('nurikabe', 'nushi')).toBeNull();
   });
   it('たいしょう = はちまき: きなり #FFF6E0 と あい #3D5A9E の 4 つ（帯・結び目・はし 2 本）、48 三角形以下', () => {
     for (const k of KINDS) {

@@ -67,11 +67,12 @@ describe('WEAPON-7 AC5: ヌシの 表（かならず 1 本）', () => {
       expect(items.filter(isLegend), `${i} 回目`).toHaveLength(1);
     }
   });
-  it('おやぶん・たいしょう・二つ名なし → 0（1,000 回ずつ）。ぬりかべは ヌシに ならない → 0', () => {
+  it('おやぶん・たいしょう・二つ名なし → 0（300 回ずつ）。ぬりかべの ヌシは ちょうど 1 本（#270）', () => {
     const r = rig({ seed: 6 });
     for (let i = 0; i < 300; i++) {
       for (const t of ['none', 'oyabun', 'taisho'] as const) expect(kill(r, 'karakasa', t).filter(isLegend), `${t} ${i}`).toEqual([]);
-      expect(kill(r, 'nurikabe', 'nushi').filter(isLegend), `ぬりかべ ${i}`).toEqual([]);
+      expect(kill(r, 'nurikabe', 'nushi').filter(isLegend), `ぬりかべ ${i}`).toHaveLength(1);
+      for (const t of ['none', 'oyabun', 'taisho'] as const) expect(kill(r, 'nurikabe', t).filter(isLegend), `ぬりかべ ${t} ${i}`).toEqual([]);
     }
   });
   it('落下で たおれた ヌシは 出さない（ドロップも 経験値も なし）', () => {
