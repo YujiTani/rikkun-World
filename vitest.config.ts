@@ -7,6 +7,8 @@ const HEAVY = ['src/world/gen/biome.test.ts'];
 export default defineConfig({
   test: {
     environment: 'node',
+    // CPU を ぜんぶ 使う（ふだんは 1 つ 残す。CI の 4 コアで 3 つ → 4 つにすると 245 秒 → 187 秒）
+    maxWorkers: '100%',
     projects: [
       { extends: true, test: { name: 'heavy', include: HEAVY, testTimeout: 120_000 } },
       { extends: true, test: { name: 'unit', include: ['src/**/*.test.ts'], exclude: HEAVY } },
