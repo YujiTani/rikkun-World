@@ -288,10 +288,8 @@ test.describe('LIVE-2 金の たまご・保存・文字・性能', () => {
         h.inventory.clear();
         A.putEgg(k, 'tomato', 1);
         grab('kitNeedEgg');
-        // coopNoRoom: でこぼこ
-        h.world.setBlock(44, 8, 44, 'air');
-        h.world.setBlock(46, 8, 44, 'air');
-        h.world.setBlock(45, 8, 46, 'air');
+        // coopNoRoom: 深さ 3 の あな（LIVE-2.1: 深さ 1〜2 は うめて 置く ので、y−1〜y−3 を くうき に する）
+        for (const [x, z] of [[44, 44], [46, 44], [45, 46]]) for (const y of [8, 7, 6]) h.world.setBlock(x, y, z, 'air');
         h.step(2);
         A.hold('toriya', 1);
         (window as any).__aim.standForS(42.5, 45.5, 90, 0, 9);

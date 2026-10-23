@@ -21,7 +21,7 @@ import { createParry, parryGlowLevel } from './combat/parry';
 import { ParryFx, StaggerIcons, bladeMidInto } from './fx/parryFx';
 import { isParrySound, playParry } from './fx/parrySounds';
 import { parryCellOf } from './char/parryCells';
-import { BLADE_TRAIL_ITEMS, bladeColorsOf } from './fx/bladeTrailModel';
+import { LEGEND_FX_ITEMS, bladeColorsOf } from './fx/bladeTrailModel';
 import { EventRelay } from './fx/eventRelay';
 import { BladeHud } from './ui/bladeHud';
 import { WearNotice } from './ui/wearNotice';
@@ -87,7 +87,10 @@ import { markUrl } from './ui/medalArt';
 import { itemIconUrl } from './ui/itemIcon';
 import { DropField } from './drops';
 import { createAnimalManager } from './animals';
-import { coopBlocks } from './animals/coop';
+import { coopBlocks, coopPlan } from './animals/coop';
+import { ringSeen } from './animals/models/throwRing';
+import { applyFlatten } from './world/flatten';
+import { kitIconsFor, type KitIconRow } from './animals/models/kitIcons';
 import { AnimalFx } from './fx/animalFx';
 import { AnimalRenderer, ViewBuffer } from './animals/models/AnimalRenderer';
 import { AnimalHint } from './ui/animalHint';
@@ -557,6 +560,8 @@ const drops = new DropField({
   onPickup: (item, count, fromYokai) => onDropPicked(item, count, fromYokai),
 });
 let yokaiManager: YokaiManager | null = null;
+/** 置いて たいら に した 足もと の 列（土けむり。次 の ステップ で AnimalFx へ） */
+const pendingDust: Array<{ x: number; y: number; z: number }> = [];
 // LIVE-1（にわとり）: 設定 18 こ（settings から変えたら すぐ効く）としくみ。たまごは 落ちた アイテム にする
 const live = createLiveSettings();
 const animals = createAnimalManager({
@@ -582,7 +587,12 @@ const animals = createAnimalManager({
     placeCoopBlocks: (x, y, z, dir) => {
       const list = coopBlocks(x, y, z, dir);
       for (const b of list) if (!world.isLoaded(b.x, b.z)) return false;
+      // LIVE-2.1 §2.1: 足もと を たいら に（消す・うめる）してから 小屋 を 置く
+      const plan = coopPlan(world, x, y, z);
+      if (!plan) return false;
+      applyFlatten(plan, (px, py, pz, block) => world.setBlock(px, py, pz, block));
       for (const b of list) world.setBlock(b.x, b.y, b.z, b.block);
+      pendingDust.push(...plan.dust);
       return true;
     },
     removeCoopBlocks: (x, y, z, dir) => {
@@ -883,7 +893,7 @@ const dig = new DigSystemImpl(
     pet,
     animals,
     eggHeal: () => live.animalEggHeal,
-    live: () => ({ netSwingTicks: live.netSwingTicks, carryHoldTicks: live.carryHoldTicks, coopCountMax: live.coopCountMax, coopMax: live.coopMax }),
+    live: () => ({ netSwingTicks: live.netSwingTicks, carryHoldTicks: live.carryHoldTicks, coopCountMax: live.coopCountMax, coopMax: live.coopMax, kitEggMax: live.kitEggMax }),
     emitFarm: (e) => farm.emit(e),
     nowTick: () => game.tick,
     vitals: combat,
@@ -1031,7 +1041,29 @@ function deliverAnimalEvents(): void {
   for (const e of ev) animalEvents.push(e);
   if (animalEvents.length > 512) animalEvents.splice(0, animalEvents.length - 512);
 }
+/** こたつ の 天板 の 3 わく（描く のも 窓口 fx().kitIcons も 同じ 物） */
+function currentKitRows(): KitIconRow[] {
+  const aim = dig.aimedKit();
+  const rows = animals.kits() as unknown as Array<{ x: number; y: number; z: number; size?: 1 | 2; eggs: Array<{ egg: 'egg' | 'gold'; left: number }> }>;
+  if (aim.kit && aim.holdingEgg && !rows.some((k) => k.x === aim.kit!.x && k.y === aim.kit!.y && k.z === aim.kit!.z) && String(world.getBlock(aim.kit.x, aim.kit.y, aim.kit.z)) === 'nukunuku') {
+    rows.push({ x: aim.kit.x, y: aim.kit.y, z: aim.kit.z, size: world.getBlock(aim.kit.x + 1, aim.kit.y, aim.kit.z) === 'nukunuku_e' ? 2 : 1, eggs: [] });
+  }
+  const p = controller.state.position;
+  return kitIconsFor(rows, { eye: { x: p.x, z: p.z }, total: live.kitHatchTicks, aim: aim.kit ? { x: aim.kit.x, z: aim.kit.z, holdingEgg: aim.holdingEgg } : null });
+}
 game.onBeforeRender(() => {
+  animalRenderer.setKitIcons(currentKitRows());
+  const throwAim = dig.throwAim();
+  const throwSpot = animals.throwSpot(throwAim);
+  // 丸 は さく・もん の 板 ごし でも 見せる（目 から 丸 への 線 が 地形 に ふさがれて いない とき だけ）
+  animalRenderer.setThrowSpot(
+    throwSpot,
+    throwSpot !== null &&
+      ringSeen((x, y, z) => {
+        const id = String(world.getBlock(x, y, z));
+        return world.isSolid(x, y, z) && id !== 'toriya_fence' && id !== 'toriya_gate';
+      }, throwAim.eye, throwSpot),
+  );
   animalRenderer.setCoopGhost(dig.coopGhost());
   animalRenderer.setKitGhost(dig.kotatsuGhost());
   animalRenderer.update(animalViews.fill(animals), game.camera);
@@ -1221,8 +1253,8 @@ const weaponFx = new WeaponFx({
   // WEAPON-7: ふつうの わざに 雷の「ビシューン」を 重ねる（ダメージは かえない）
   onTechItem: (item, tech, step) => {
     if (trailStyleOf(w2, item) === 'thunder') playLegend(fxSound, 'thunderSlash');
-    // 白い 斬撃（刀の 武器ぜんぶの 土台。わざごとの 絵・決めが 当たりに 重なる よう まって 出す。カメラの 向きで 絵を きめる）。ダメージは かえない
-    if (item && BLADE_TRAIL_ITEMS.has(item) && tech) {
+    // 白い 斬撃（レジェンダリー 3 本だけ。ぼくとう・かたな・きらめくかたなは 半月の 帯と 段の 星。2026-10-23 オーナー決定。わざごとの 絵・決めが 当たりに 重なる よう まって 出す。カメラの 向きで 絵を きめる）。ダメージは かえない
+    if (item && LEGEND_FX_ITEMS.has(item) && tech) {
       const u = blade.state().move?.dirDeg ?? controller.state.yawDeg;
       slashFx.queueSlash({ tech, step: step ?? 1, uDeg: u, pos: () => controller.state.position, reach: w2.bladeReach[item] });
       // 上の 層（武器ごと）
@@ -1233,7 +1265,7 @@ const weaponFx = new WeaponFx({
   },
   // 当たった 妖怪 1 体ごとに 白い 火花
   onTechHit: (item, e) => {
-    if (!item || !BLADE_TRAIL_ITEMS.has(item)) return;
+    if (!item || !LEGEND_FX_ITEMS.has(item)) return;
     // 当たった 妖怪の 胸（足もと + 背の 6 割）に 火花を 出す
     const yk = yokaiManager?.list().find((q) => q.id === e.yokaiId);
     const chest = yk ? boxOf(yk).h * 0.6 : 0.8;
@@ -1249,8 +1281,8 @@ const weaponFx = new WeaponFx({
     raijinFx.cancel();
     rainbowFx.cancel();
   },
-  // 刀の 半月の 帯は 白い 斬撃と 置きかえ（全部の 刀）
-  hideBandTrail: true,
+  // 半月の 帯は レジェンダリー 3 本だけ 白い 斬撃と 置きかえ（ぼくとう・かたな・きらめくかたなは 帯を 出す）
+  hideBandTrail: (item) => !!item && LEGEND_FX_ITEMS.has(item),
   // WEAPON-9: 虹の つき・きりあげ・けさ は 今の 刀の 音の 代わりに nijiSlash（1 振りに 1 回。段ごとに 3 とおり）
   replaceTechSound: (item, step) => {
     if (trailStyleOf(w2, item) !== 'rainbow') return false;
@@ -1794,6 +1826,13 @@ game.onUpdate((dt) => {
     const kitRows = animals.kits();
     const coopRows = animals.coops();
     animalFx.step(animalViews.fill(animals), controller.state.position, kitRows, coopRows);
+    // 置いて たいら に した 足もと の 土けむり（とりごや は placeCoopBlocks、こたつ は DigSystem が ためる）
+    const dust = dig.takeFlattenDust();
+    if (pendingDust.length > 0) {
+      dust.push(...pendingDust);
+      pendingDust.length = 0;
+    }
+    if (dust.length > 0) animalFx.flattenDust(dust);
     // こたつ に たまご を 入れた・小屋 を 置いた 音（数 が ふえた とき）
     const nKit = kitRows.length;
     const nCoop = coopRows.length;
@@ -2138,6 +2177,7 @@ if (shadowStart.build) {
     yokaiGroup: yokaiManager.group,
     player: () => controller.state.position,
     facing: () => controller.state.facingDeg,
+    world,
   });
   sys.enabled = shadowStart.on;
   const sprite = rig.doll.group.getObjectByName('charSprite');
@@ -2238,6 +2278,7 @@ installTestHook(game, overlay, () => host.everReady, {
     slashes: () => slashFx.slashes(),
     nijiFx: () => ({ ...nijiFx.info(), ...slashFx.info() }),
     fujinFx: () => fujinFx.info(),
+    windWaveFx: () => windWaveFx.info(),
     raijinFx: () => raijinFx.info(),
     rainbowFx: () => rainbowFx.info(),
     grains: () => ({ ...domeGrains.counts() }),
@@ -2323,11 +2364,16 @@ installTestHook(game, overlay, () => host.everReady, {
       deliverAnimalEvents();
       return animalEvents.splice(0, animalEvents.length);
     },
-    fx: () => animalFx.fx(),
+    // LIVE-2.1 §6.2: こたつ の 3 わく・小屋 の 子 の 大きな しるし・こたつ の 中 の たまご の 3D の 物（いつも 0）・土けむり。絵 を 描く 側 が 同じ 名前 で 持って いれば そちら が 優先
+    fx: () => {
+      return { kitIcons: currentKitRows(), kitEggMeshes: 0, homePop: animals.homePop(), dust: 0, ...animalFx.fx() };
+    },
     fxReset: () => animalFx.fxReset(),
     // 今 チップに出ている合図（120 ステップで消える。消えたら null）
     lastHint: () => animalHint.model.current(),
     carrying: () => animals.carrying(),
+    throwSpot: () => animals.throwSpot(dig.throwAim()),
+    throwTo: (x, y, z) => animals.throwTo(x, y, z),
     placeCoop: (x, y, z, dir) => animals.placeCoop(x, y, z, dir),
     coops: () => animals.coops(),
     kits: () => animals.kits(),

@@ -71,16 +71,17 @@ test.describe('LIVE-2 とりごや', () => {
     expect(r.sfx).toContain('coopPlace');
   });
 
-  test('AC7b 置く: ねらいが 1 マス ずれて 入らない 所 でも まわりで 入れば 置ける。でこぼこ（下に 穴 3）→ 置かない・coopNoRoom・toriya へらない。4 つ目 coopMax', async ({ page }) => {
+  test('AC7b 置く: ねらいが 1 マス ずれて 入らない 所 でも まわりで 入れば 置ける。あな の 深さ 3 → 置かない・coopNoRoom・toriya へらない（LIVE-2.1: 深さ 1〜2 は うめて 置く。AC1・AC2）', async ({ page }) => {
     await openAnimals(page);
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
       const A = (window as any).__A;
       A.base(60);
       const out: any = {};
-      // 1 マス ずれ: 12..16 の 5×5 の すぐ そばに 高い 柱（ねらった 所は 入らない）、でも まわりに 空きが ある
-      h.world.setBlock(12, 9, 12, 'stone');
-      h.world.setBlock(12, 10, 12, 'stone');
+      // 1 マス ずれ: 12..16 の 5×5 の すぐ そばに じゃま な ブロック（ねらった 所は 入らない）、でも まわりに 空きが ある
+      // （LIVE-2.1: いし の 柱 は 2 マス まで 消えて しまう ので、消えない レンガ に する）
+      h.world.setBlock(12, 9, 12, 'brick');
+      h.world.setBlock(12, 10, 12, 'brick');
       h.step(2);
       const r1 = A.coop(14, 14);
       out.shifted = typeof r1 === 'number' ? 'id' : r1;
@@ -88,10 +89,8 @@ test.describe('LIVE-2 とりごや', () => {
       const c1 = h.animals.coops()[0];
       // 柱 (12, 12) が 5×5 の 中に 入って いない（ずらして 置かれた）
       out.avoids = !!c1 && (Math.abs(c1.x - 12) > 2 || Math.abs(c1.z - 12) > 2);
-      // でこぼこ: 別の 場所の 5×5 の 下に 穴 3
-      h.world.setBlock(44, 8, 44, 'air');
-      h.world.setBlock(46, 8, 44, 'air');
-      h.world.setBlock(45, 8, 46, 'air');
+      // あな: 別の 場所の 5×5 の 下に 深さ 3 の 穴（LIVE-2.1: 深さ 1〜2 は うめて 置く ので、y−1〜y−3 を ぜんぶ くうき に する）
+      for (const [x, z] of [[44, 44], [46, 44], [45, 46]]) for (const y of [8, 7, 6]) h.world.setBlock(x, y, z, 'air');
       h.step(2);
       A.hold('toriya', 5);
       (window as any).__aim.standForS(42.5, 45.5, 90, 0, 9);
@@ -243,7 +242,7 @@ test.describe('LIVE-2 とりごや', () => {
     expect(r.warps).toBe(0);
   });
 
-  test('AC9 小屋の 子に する: 中で 90 ステップ → home 0.45〜0.55・179 は null・180 で 小屋 id・home 出来事・home:* 1。120 で 出る → なかまのまま。だっこで おろす → すぐ。6 わ → coopFull', async ({ page }) => {
+  test('AC9 小屋の 子に する（LIVE-2.1）: 中 3×3 に 入った ステップ に すぐ home（coopEnterTicks 0）・home 出来事 1・home:* 1・animal.home.1・いえ の しるし の うまり（marks の home）は 出ない。出ても 出来事は 1 回', async ({ page }) => {
     await openAnimals(page);
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
@@ -252,53 +251,38 @@ test.describe('LIVE-2 とりごや', () => {
       const enter = h.settings.get('coopEnterTicks');
       const cid = A.coop(20, 20);
       const c = A.cinfo(cid);
-      const f = A.face(c);
       const cx = c.x + 0.5;
       const cz = c.z + 0.5;
-      const out: any = { enter };
-      const mark = (id: number) => h.animals.fx().marks.find((m: any) => m.id === id) ?? null;
+      const out: any = { enter, cid };
       // 中に プレイヤーと なかま（follow まんたん）
       h.player.set({ position: { x: cx, y: 9, z: cz }, velocity: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: 0 });
       const id = h.animals.spawn(cx + 0.8, 9, cz, { friend: true, follow: A.full() });
       h.animals.events();
-      h.step(90);
-      out.at90 = mark(id)?.home ?? null;
-      h.step(89);
-      out.at179 = A.one(id).home ?? null;
-      out.mark179 = mark(id)?.home ?? null;
-      h.step(1);
-      out.at180 = A.one(id).home;
+      let marksHome = false;
+      for (let i = 0; i < 10; i++) {
+        h.step(1);
+        if (h.animals.fx().marks.some((m: any) => m.home > 0)) marksHome = true;
+      }
+      out.marksHome = marksHome;
+      out.at10 = A.one(id).home ?? null;
       out.homeEv = A.events('home').length;
       out.stat = A.stat('home:*');
       out.unlock = A.unlocked('animal.home.1');
-      out.follow = A.one(id).follow;
-      out.markSteps = mark(id)?.steps ?? null;
       out.kids = A.cinfo(cid).kids.length;
-      out.cid = cid;
-      // 出ると なかまの まま（別の 子）
-      h.animals.clear();
-      const id2 = h.animals.spawn(cx + 0.8, 9, cz, { friend: true, follow: A.full() });
-      h.step(120);
-      h.player.set({ position: { x: cx + f.fx * 5, y: 9, z: cz + f.fz * 5 } });
-      h.step(150); // もんまで あるいて 出る のを 待つ（60 だと まだ 中の ことが ある）
-      out.out = { home: A.one(id2).home ?? null, follow: A.one(id2).follow, mark: mark(id2)?.home ?? null };
+      out.markSteps = h.animals.fx().marks.find((m: any) => m.id === id)?.steps ?? null;
       return out;
     });
-    expect(r.at90).toBeGreaterThanOrEqual(0.45);
-    expect(r.at90).toBeLessThanOrEqual(0.55);
-    expect(r.at179, 'まだ').toBeNull();
-    expect(r.at180).toBe(r.cid);
+    expect(r.enter, '歩いて 入って 小屋 の 子 に なる まで').toBe(0);
+    expect(r.markSteps, '小屋の 子は ついてくる 時間 を 使わない').toBeNull();
+    expect(r.at10, '入った あと すぐ 小屋 の 子').toBe(r.cid);
     expect(r.homeEv).toBe(1);
     expect(r.stat).toBe(1);
     expect(r.unlock).toBe(true);
-    expect(r.markSteps, '小屋の 子は ついてくる 時間 を 使わない').toBeNull();
+    expect(r.marksHome, 'いえ の しるし の うまり は 出ない').toBe(false);
     expect(r.kids).toBe(1);
-    expect(r.out.home, '出れば なかまの まま').toBeNull();
-    expect(r.out.follow).toBeGreaterThan(0);
-    expect(r.out.mark, 'しるしが 消える').toBeNull();
   });
 
-  test('AC9b だっこで 中に おろす → すぐ home。6 わの 小屋 → おろさない・coopFull。小屋の 子は なかま 8 に 数えない', async ({ page }) => {
+  test('AC9b だっこで 中へ なげる（またはそっと おろす）→ 着地で すぐ home。6 わの 小屋 → おろさない・coopFull。小屋の 子は なかま 8 に 数えない', async ({ page }) => {
     await openAnimals(page);
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
@@ -314,15 +298,14 @@ test.describe('LIVE-2 とりごや', () => {
       h.player.set({ position: { x: cx + 6 - 2, y: 9, z: cz + 6 }, yaw: 90 });
       A.stand(id);
       out.lift = A.lift(id);
-      h.player.set({ position: { x: cx, y: 9, z: cz }, yaw: 90, pitch: -30 });
+      h.player.set({ position: { x: cx - 1, y: 9, z: cz }, yaw: 90, pitch: -30 });
       h.step(2);
-      A.tap(); // おろす
-      h.step(5);
+      A.flight(id, { max: 400 }); // なげる（LIVE-2.1。d < 1 なら そっと おろす）。着地 まで 進める
       out.after = { home: A.one(id)?.home ?? null, carried: A.one(id)?.carried };
       // 6 わに する
       for (let i = 0; i < 5; i++) A.kid(A.cinfo(cid), { stage: 'adult' }, (i % 3) - 1, Math.floor(i / 3) - 1);
       out.kids = A.cinfo(cid).kids.length;
-      const id7 = A.friend(cx + 6, cz + 6);
+      const id7 = A.friend(cx + 6, cz + 6, { follow: 0 }); // 着地 まで 待った ぶん、ついてくる 子 は うごく ので その場 に とどめる
       A.stand(id7);
       A.lift(id7);
       h.player.set({ position: { x: cx, y: 9, z: cz }, yaw: 90, pitch: -30 });
@@ -360,7 +343,7 @@ test.describe('LIVE-2 とりごや', () => {
     expect(r.total).toBe(14);
   });
 
-  test('AC10 出す: 小屋の 子を だっこ して 外に おろす → home null・follow 0。なかま 8 わの とき → おろさない・friendFull', async ({ page }) => {
+  test('AC10 出す: 小屋の 子を だっこ して 外へ なげる（おろす）→ home null・follow 0。なかま 8 わの とき → おろさない・friendFull', async ({ page }) => {
     await openAnimals(page);
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
@@ -379,8 +362,7 @@ test.describe('LIVE-2 とりごや', () => {
       out.lift = A.lift(id);
       h.player.set({ position: { x: cx + f.fx * 6, y: 9, z: cz + f.fz * 6 }, yaw: A.yawTo(f.fx, f.fz), pitch: 30 });
       h.step(2);
-      A.tap();
-      h.step(30);
+      A.flight(id, { max: 400 }); // 外へ なげる（LIVE-2.1）。着地 まで 進める
       const row = A.one(id);
       out.row = { home: row.home ?? null, follow: row.follow, friend: row.friend, carried: row.carried };
       out.kids = A.cinfo(cid).kids.length;
@@ -665,10 +647,10 @@ test.describe('LIVE-2 とりごや', () => {
       // 子を だっこで 外に → こわれる
       A.stand(kid);
       A.lift(kid);
-      h.player.set({ position: { x: c.x + 0.5 - f.fx * 4.5, y: 9, z: c.z + 0.5 - f.fz * 4.5 }, yaw: A.yawTo(f.fx, f.fz), pitch: 20 });
+      // 外（さく の 6 マス 先）で 小屋 に 背を 向けて なげる（LIVE-2.1: 前 3 マス = 外）
+      h.player.set({ position: { x: c.x + 0.5 + f.fx * 7, y: 9, z: c.z + 0.5 + f.fz * 7 }, yaw: A.yawTo(f.fx, f.fz), pitch: 20 });
       h.step(2);
-      A.tap(); // おろす
-      h.step(5);
+      A.flight(kid, { max: 400 });
       out.kidsAfter = A.cinfo(cid)?.kids.length ?? -1;
       return out;
     }, COOP_BLOCKS);
@@ -683,7 +665,7 @@ test.describe('LIVE-2 とりごや', () => {
     expect(r.same).toBe(true);
     expect(r.coops).toBe(1);
     expect(r.kids).toBe(1);
-    expect(r.kidsAfter, 'だっこで 外に おろすと 子 0').toBe(0);
+    expect(r.kidsAfter, 'だっこで 外へ なげると 子 0').toBe(0);
   });
 
   test('AC29b もん・ねぐら・すばこ でも 同じ（中から ねらう）。だっこ中に 押しても 小屋は のこる', async ({ page }) => {
@@ -831,6 +813,7 @@ test.describe('LIVE-2 とりごや', () => {
       A.aimBlock(c.x - f.fx * 2, c.y, c.z - f.fz * 2);
       h.animals.events();
       A.tap();
+      h.step(40); // なげる（10 ステップ）か そっと おろす（20 ステップ）の どちらでも 手は あく
       out.dropped = A.one(w)?.carried === false;
       out.dirt2 = h.inventory.count('dirt');
       out.collect2 = A.events('coopCollect').length;

@@ -794,13 +794,21 @@ describe('BAL-B: 二つ名・場所の倍率（つなぎ）', () => {
     expect(got).toEqual({ xp: 15, title: 'nushi', m: 1 });
     expect(m.drainEvents().find((e) => e.type === 'defeat')).toMatchObject({ title: 'nushi' });
   });
-  it('たいしょう・ヌシ は 1 体まで・ぬりかべ は おやぶん まで・16 ブロックより遠いと名前なし', () => {
+  it('たいしょう・ヌシ は 1 体まで・ぬりかべ も 同じ（#270）・16 ブロックより遠いと名前なし', () => {
     const { m, player } = setup();
     const a = m.spawn('karakasa', 4.5, 9, 6.5, { ai: false, title: 'taisho' });
     const b = m.spawn('karakasa', 4.5, 9, 9.5, { ai: false, title: 'nushi' });
     const n = m.spawn('nurikabe', 8.5, 9, 6.5, { ai: false, title: 'taisho' });
     const t = (id: number) => m.list().find((y) => y.id === id)!.title;
-    expect([t(a), t(b), t(n)]).toEqual(['taisho', 'none', 'oyabun']);
+    // ぬりかべ も たいしょう・ヌシ の 1 体に かぞえる（先にいる からかさ がいるので なし）
+    expect([t(a), t(b), t(n)]).toEqual(['taisho', 'none', 'none']);
+    // ほかに 大きい二つ名がいなければ ぬりかべ も たいしょう（#270）
+    const s2 = setup();
+    const n2 = s2.m.spawn('nurikabe', 8.5, 9, 6.5, { ai: false, title: 'taisho' });
+    expect(s2.m.list().find((y) => y.id === n2)!.title).toBe('taisho');
+    const s3 = setup();
+    const n3 = s3.m.spawn('nurikabe', 8.5, 9, 6.5, { ai: false, title: 'nushi' });
+    expect(s3.m.list().find((y) => y.id === n3)!.title).toBe('nushi');
     player.position.x = 40;
     m.update(1 / 60);
     expect(m.nameplateInfo(a)?.visible).toBe(false);

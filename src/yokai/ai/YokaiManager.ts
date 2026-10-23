@@ -150,7 +150,7 @@ export interface SpawnOptions {
   /** false なら動かない・攻撃しない（たたかれる・押される・たおれるはする） */
   ai?: boolean;
   yawDeg?: number;
-  /** 二つ名を決めて出す（テスト用。省くと なし。たいしょう・ヌシ は 1 体まで、ぬりかべ は おやぶん まで） */
+  /** 二つ名を決めて出す（テスト用。省くと なし。たいしょう・ヌシ は 1 体まで） */
   title?: YokaiTitle;
   /** 場所の倍率を決めて出す（テスト用。省くと 1。'auto' なら 自動の出現と同じに 出た場所から決める） */
   m?: number | 'auto';
@@ -888,7 +888,7 @@ export class YokaiManager implements YokaiWorld {
         this.emit({ type: 'drop', tick: this.tick(), id: e.id, kind: e.kind, item: row.item, count, added }, true);
       }
     }
-    if (byPlayer && e.title === 'nushi' && e.kind !== 'nurikabe') this.dropLegendary(e);
+    if (byPlayer && e.title === 'nushi') this.dropLegendary(e);
     this.emit({
       type: 'defeat',
       tick: this.tick(),
@@ -954,21 +954,17 @@ export class YokaiManager implements YokaiWorld {
     mark: 'none' | 'hachimaki' | 'crown';
     markColors: number[];
     markOnHead: boolean;
-    glow: null | { color: number; opacity: number; additive: boolean; lift: number };
+    glow: null | { flames: number; visible: boolean; color: number; opacity: number; additive: boolean };
   } | null {
     const e = this.ents.find((q) => q.id === id);
     if (!e || e.remove) return null;
     const n = e.model.nickInfo();
     let glow = null;
     if (n.glow) {
-      const mat = n.glow.material as THREE.MeshBasicMaterial;
-      const g = n.glow.geometry as THREE.BoxGeometry;
-      glow = {
-        color: mat.color.getHex(),
-        opacity: mat.opacity,
-        additive: mat.blending === THREE.AdditiveBlending,
-        lift: (n.glow.position.y - g.parameters.height / 2) / Math.max(1e-6, e.model.size.height),
-      };
+      // PROTOTYPE: 光の箱 → 青い ひとだま。flames = 個数、additive = false、color/opacity は 板 1 まいの もの
+      const mesh = n.glow.children[0]?.children[0] as THREE.Mesh | undefined;
+      const mat = mesh?.material as THREE.MeshBasicMaterial | undefined;
+      glow = { flames: n.glow.children.length, visible: n.glow.visible, color: mat?.color.getHex() ?? 0, opacity: mat?.opacity ?? 0, additive: mat?.blending === THREE.AdditiveBlending };
     }
     return { mark: n.kind, markColors: n.markColors, markOnHead: n.markOnHead, glow };
   }

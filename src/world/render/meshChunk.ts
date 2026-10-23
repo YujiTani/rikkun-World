@@ -248,6 +248,8 @@ export function crossTileName(b: number, stage: number): TileName {
   const id = BLOCK_TYPES[b].id;
   const k = cropKindOfBlock(id);
   if (k && !k.wild) return `crop_${k.kind}_${stage}` as TileName;
+  if (id === 'toriya_fence') return 'toriya_fence_x';
+  if (id === 'toriya_gate') return 'toriya_gate_x';
   return id as TileName;
 }
 
@@ -257,8 +259,12 @@ const CROSS_QUADS: [number, number][][] = [
   [[1, 0], [0, 1]],
 ];
 
+/** 板の 高さ（マス）。ふつう 1。とりごや の さく は 12/9、もん は 1.8（LIVE-2.1） */
+const CROSS_HEIGHT: Partial<Record<TileName, number>> = { toriya_fence_x: 12 / 9, toriya_gate_x: 1.8 };
+
 export function pushCross(mesh: MeshData, x: number, y: number, z: number, tile: TileName, sky: number, blk: number): void {
   const uv = tileUv(tile);
+  const h = CROSS_HEIGHT[tile] ?? 1;
   for (const [a, b] of CROSS_QUADS) {
     for (let side = 0; side < 2; side++) {
       const base = mesh.positions.length / 3;
@@ -270,7 +276,7 @@ export function pushCross(mesh: MeshData, x: number, y: number, z: number, tile:
       ];
       for (let i = 0; i < 4; i++) {
         const [pt, vy] = corners[i];
-        mesh.positions.push(x + pt[0], y + vy, z + pt[1]);
+        mesh.positions.push(x + pt[0], y + vy * h, z + pt[1]);
         const c = CORNER_UV[i];
         mesh.uvs.push(c[0] === 0 ? uv[0] : uv[2], c[1] === 0 ? uv[1] : uv[3]);
         mesh.colors.push(1, 1, 1);
@@ -281,6 +287,78 @@ export function pushCross(mesh: MeshData, x: number, y: number, z: number, tile:
       mesh.faceCount++;
     }
   }
+}
+
+const COOP_IDS: ReadonlySet<string> = new Set(['toriya_fence', 'toriya_gate', 'toriya_nest', 'toriya_box']);
+const FENCE_I = BLOCK_TYPES.findIndex((t) => t.id === 'toriya_fence');
+const GATE_I = BLOCK_TYPES.findIndex((t) => t.id === 'toriya_gate');
+export function isCoopLineIndex(b: number): boolean {
+  return b === FENCE_I || b === GATE_I;
+}
+
+/** 板 1 まい（両面）。底の 2 点 (ax,az)→(bx,bz)、高さ h、絵の UV の 四角 */
+function pushPanel(
+  mesh: MeshData, y: number, h: number, ax: number, az: number, bx: number, bz: number,
+  uv: [number, number, number, number], sky: number, blk: number,
+): void {
+  for (let side = 0; side < 2; side++) {
+    const base = mesh.positions.length / 3;
+    const [px, pz, qx, qz] = side === 0 ? [ax, az, bx, bz] : [bx, bz, ax, az];
+    const corners: [number, number, number][] = [[px, pz, 0], [qx, qz, 0], [qx, qz, 1], [px, pz, 1]];
+    for (let i = 0; i < 4; i++) {
+      const [cx, cz, vy] = corners[i];
+      mesh.positions.push(cx, y + vy * h, cz);
+      const c = CORNER_UV[i];
+      mesh.uvs.push(c[0] === 0 ? uv[0] : uv[2], c[1] === 0 ? uv[1] : uv[3]);
+      mesh.colors.push(1, 1, 1);
+      mesh.lights.push(sky, blk);
+      mesh.darks.push(0);
+    }
+    mesh.indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
+    mesh.faceCount++;
+  }
+}
+
+/**
+ * LIVE-2.1 B「たけ の よつめがき」: さく・もん は マスの まん中 に、さく の 線 の 向き の 板 1 まい。
+ * 向き は となりの 小屋 ブロック（さく・もん・ねぐら・すばこ）で 決める（すみ は 2 まい で L）。
+ * もん は 1.5 マス はば の 板 ＋ 両がわ の くい（直角 の 細い 板）。もん の 上 の マス は 描かない。
+ * 描いたら true。
+ */
+export function pushCoopPanels(
+  mesh: MeshData, world: { getIndex(x: number, y: number, z: number): number },
+  x: number, y: number, z: number, b: number, sky: number, blk: number,
+): boolean {
+  if (!isCoopLineIndex(b)) return false;
+  if (world.getIndex(x, y - 1, z) === b) return true; // 2 マス の もん の 上
+  const near = (dx: number, dz: number) => COOP_IDS.has(BLOCK_TYPES[world.getIndex(x + dx, y, z + dz)]?.id ?? '');
+  let alongX = near(1, 0) || near(-1, 0);
+  const alongZ = near(0, 1) || near(0, -1);
+  if (!alongX && !alongZ) alongX = true;
+  const cx = x + 0.5;
+  const cz = z + 0.5;
+  if (b === GATE_I) {
+    const gx = !(alongZ && !alongX); // もん の 板 は 線 の 向き。たて 線 なら z 方向
+    const uv = tileUv('toriya_gate_x');
+    const w = 0.75;
+    if (gx) pushPanel(mesh, y, 1.8, cx - w, cz, cx + w, cz, uv, sky, blk);
+    else pushPanel(mesh, y, 1.8, cx, cz - w, cx, cz + w, uv, sky, blk);
+    // くい（直角 の 細い 板。絵 の 左右 の はしら の 3 ドット）
+    const postL = tileSubUv('toriya_gate_x', 1, 0, 4, 16);
+    const postR = tileSubUv('toriya_gate_x', 13, 0, 16, 16);
+    const o = 0.56;
+    const t = 3 / 32;
+    for (const [sgn, puv] of [[-1, postL], [1, postR]] as const) {
+      if (gx) pushPanel(mesh, y, 1.8, cx + sgn * o, cz - t, cx + sgn * o, cz + t, puv, sky, blk);
+      else pushPanel(mesh, y, 1.8, cx - t, cz + sgn * o, cx + t, cz + sgn * o, puv, sky, blk);
+    }
+    return true;
+  }
+  const uv = tileUv('toriya_fence_x');
+  const h = 12 / 9;
+  if (alongX) pushPanel(mesh, y, h, cx - 0.5, cz, cx + 0.5, cz, uv, sky, blk);
+  if (alongZ) pushPanel(mesh, y, h, cx, cz - 0.5, cx, cz + 0.5, uv, sky, blk);
+  return true;
 }
 
 /**
@@ -307,6 +385,10 @@ export function meshChunk(
         if (b === AIR) continue;
         if (isTorchIndex(b)) {
           pushTorch(opaque, x, y, z, BLOCK_TYPES[b].id as TileName, light ? light.skyAt(x, y, z) / LIGHT_MAX : 1);
+          continue;
+        }
+        if (isCoopLineIndex(b)) {
+          pushCoopPanels(opaque, world, x, y, z, b, light ? light.skyAt(x, y, z) / LIGHT_MAX : 1, light ? light.blockAt(x, y, z) / LIGHT_MAX : 0);
           continue;
         }
         if (isCrossIndex(b)) {

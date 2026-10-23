@@ -14,6 +14,9 @@ export const LIVE_TILE_NAMES = [
   'toriya_nest_side',
   'toriya_box_top',
   'toriya_box_side',
+  // LIVE-2.1: さく・もん を 十字の板 で 描く ときの 絵（すきま は すきとおる）
+  'toriya_fence_x',
+  'toriya_gate_x',
 ] as const;
 export type LiveTileName = (typeof LIVE_TILE_NAMES)[number];
 
@@ -178,6 +181,60 @@ function boxSide(): Rgba[] {
   return t;
 }
 
+// ---------- LIVE-2.1 B「たけ の よつめがき」の 板（art/LIVE-2.1/fence/tiles.js の bLattice・bGate を 16×16 に 写した 物）----------
+const BAMBOO = { L: '#CDB86E', D: '#A38F4C', N: '#8C7A3E', H: '#DCCB8A' };
+const NOREN = '#3D5A9E';
+const NOREN_D = '#2F4A86';
+const CLEAR: Rgba = [0, 0, 0, 0];
+
+/** 下から y 行目（0 = いちばん下）に 点 */
+function put(t: Rgba[], x: number, y: number, c: string): void {
+  if (x < 0 || x >= N || y < 0 || y >= N) return;
+  t[(N - 1 - y) * N + x] = hex(c);
+}
+function span(t: Rgba[], x: number, y: number, w: number, h: number, c: string): void {
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) put(t, x + i, y + j, c);
+}
+
+/** さく: たて 2 本（たけ）・よこ 3 本・むすび目 は 藍。絵の 高さ は 1.33 マス ぶん に のばして 貼る */
+function fenceX(): Rgba[] {
+  const t = new Array<Rgba>(N * N).fill(CLEAR);
+  for (const [x, top] of [[3, 16], [11, 15]] as const) {
+    span(t, x, 0, 1, top, BAMBOO.L);
+    span(t, x + 1, 0, 1, top - 1, BAMBOO.D);
+    for (const y of [5, 10]) { put(t, x, y, BAMBOO.N); put(t, x + 1, y, BAMBOO.N); }
+  }
+  for (const y of [4, 9, 13]) {
+    span(t, 0, y + 1, N, 1, BAMBOO.H);
+    span(t, 0, y, N, 1, BAMBOO.D);
+  }
+  for (const x of [5, 13]) { put(t, x, 13, NOREN); put(t, x, 14, NOREN); }
+  return t;
+}
+
+/** もん: たけ の はしら 2 本・かさ木・藍 の のれん 3 まい（すそ は 生成り）。1.8 マス の 高さ に 貼る */
+function gateX(): Rgba[] {
+  const t = new Array<Rgba>(N * N).fill(CLEAR);
+  for (const x0 of [1, 13]) {
+    span(t, x0, 0, 1, 15, BAMBOO.L);
+    span(t, x0 + 1, 0, 2, 15, BAMBOO.D);
+    for (const y of [5, 10]) for (let i = 0; i < 3; i++) put(t, x0 + i, y, BAMBOO.N);
+  }
+  span(t, 0, 15, N, 1, BAMBOO.H);
+  span(t, 0, 14, N, 1, BAMBOO.L);
+  span(t, 0, 13, N, 1, BAMBOO.D);
+  for (const x of [3, 12]) put(t, x, 13, NOREN);
+  for (const x of [4, 7, 10]) {
+    for (let y = 7; y < 13; y++) {
+      put(t, x, y, NOREN);
+      put(t, x + 1, y, NOREN_D);
+    }
+    put(t, x, 7, C.hem);
+    put(t, x + 1, 7, C.hem);
+  }
+  return t;
+}
+
 export function paintLiveTile(name: LiveTileName): Rgba[] {
   switch (name) {
     case 'kotatsu_top':
@@ -198,5 +255,9 @@ export function paintLiveTile(name: LiveTileName): Rgba[] {
       return boxTop();
     case 'toriya_box_side':
       return boxSide();
+    case 'toriya_fence_x':
+      return fenceX();
+    case 'toriya_gate_x':
+      return gateX();
   }
 }

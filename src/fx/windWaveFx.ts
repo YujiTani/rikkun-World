@@ -1,22 +1,36 @@
 import * as THREE from 'three';
 import type { SpiralEvent, WaveEvent, WaveView } from '../legend/WaveSystem';
+import { DOT, FxBatch, FxView, hash, makePts } from './fxPaint';
+import { PALS, TH, WHITE_Y, makeFujinAtlas, vOf } from './fujinOrbitFx';
 
 /**
- * WEAPON-8 §3.8: 風神剣の ふつうの 真空波の 見た目 K1「みかづきの 刃」（絵: `public/models/fx/fujin_blade.png`、数: `fujin_blade.json`）。
- * - カメラに 正面の 板 1 まい（22×22 点 = 1.375 ブロック）。絵の 向きは 画面で 進む 向きを 8 向きに まるめた `face`（板は 回さない）。
- * - 8 つ 同時でも 描画 1（InstancedMesh。いちばん 手前の 1 つに 本体を 置き、ほかは そこからの ずれ）・三角形 16。
+ * 風神剣の ふつうの 真空波 v2: 体の まわりを 回る 風の 帯（fujinOrbitFx）と 同じ 作りの「飛んでいく 風」
+ * （2026-10-23 オーナー決定 docs/decisions/2026-10-23-legend-fx-element.md）。見た目だけ。当たり・速さ・数は WaveSystem のまま。
+ * - 風の すじ 3 本（動きを へらす ときは 2 本）が 進む 向きに のびて、うねりながら 前へ 飛ぶ。先が 明るく、うしろは ほどけて 消える。
+ * - 絵・色・ふち・芯は 帯と 同じ（ミント・ラベンダー・水色の かすれの 帯）。ぜんぶ 1 つの 形 = 描画 1。
+ *   1 つの 波の 三角形は 通常（3 本 + ちり）で 246・うごきを へらす 設定（2 本・ちりなし）では 156（上限 400 より 下）。何も 飛んでいない ときは 描画 0。
  * - 位置は `drawPos`（剣の 手の 側へ 0.4 ずらした 見た目）。当たりの `position` は 使わない。
- * - 出る 2 ステップは 0.6 倍・さいご 4 ステップは 網で 消える（点滅しない）。ブロックで 消えたら 小さな 風の けむり（6 ステップ）。
- * 毎フレーム new しない（使い回し）。
+ * - 点滅しない（明るさは 年れいだけで きまる）・乱数は シード付き（hash）・毎ステップ new しない。
+ * - ブロックで 消えたら 小さな 風の けむり（6 ステップ）。
+ * 旧: カメラ向きの 白い みかづきの 板（fujin_blade.png）。絵と 向きの 表は 絵の 検査（fujinAssets.test）が 見るので のこす。
  */
-const BASE = './models/fx/';
-export const WAVE_SIZE = 1.375;
 export const PUFF_STEPS = 6;
 const MAX_WAVES = 8;
 const MAX_PUFFS = 4;
-const SHEET = { w: 128, h: 64 };
+/** すじの 点の 数 */
+const N = 14;
+/** 1 つの 波の 三角形の 上限の 目安 */
+export const WAVE_MAX_TRIS = 400;
+/** すじの ながさ（ブロック）。出てから 6 ステップで この ながさに */
+const LEN = 3;
+const GROW_STEPS = 6;
+/** 約 5 マス = 20 ステップ。さいごの 6 ステップで うすく なる */
+const FADE_FROM = 15;
+const FADE_STEPS = 6;
+const STEP_LEN = 0.25;
+const AMP = 0.27;
 
-/** 絵の 場所 [x, y, w, h]（`fujin_blade.json` の sprites）。キーは `${向きの 絵}_${コマ}` */
+/** 旧 絵の 場所 [x, y, w, h]（`fujin_blade.json` の sprites）。キーは `${向きの 絵}_${コマ}` */
 export const BLADE_SPRITES: Record<string, readonly [number, number, number, number]> = {
   '0_0': [0, 0, 22, 22],
   '0_1': [0, 22, 22, 22],
@@ -36,38 +50,6 @@ export const BLADE_FACES: readonly { sprite: '0' | '45' | '90'; flipX: boolean; 
   { sprite: '90', flipX: false, flipY: true },
   { sprite: '45', flipX: false, flipY: true },
 ];
-export const BLADE_FRAME_STEPS = 3;
-export const BLADE_APPEAR_STEPS = 2;
-export const BLADE_FADE_FROM = 16;
-
-const VERT = `
-attribute vec4 aRect;
-attribute vec3 aFlipCut;
-varying vec2 vUv;
-varying vec4 vRect;
-varying vec3 vFlipCut;
-void main() {
-  vUv = uv;
-  vRect = aRect;
-  vFlipCut = aFlipCut;
-  gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(position, 1.0);
-}`;
-const FRAG = `
-uniform sampler2D uTex;
-varying vec2 vUv;
-varying vec4 vRect;
-varying vec3 vFlipCut;
-void main() {
-  vec2 uv = vUv;
-  if (vFlipCut.x > 0.5) uv.x = 1.0 - uv.x;
-  if (vFlipCut.y > 0.5) uv.y = 1.0 - uv.y;
-  vec2 p = floor(vec2(vRect.x + uv.x * vRect.z, vRect.y + (1.0 - uv.y) * vRect.w));
-  vec4 c = texture2D(uTex, (p + 0.5) / vec2(${SHEET.w}.0, ${SHEET.h}.0));
-  if (c.a < 0.5) discard;
-  if (mod(p.x + p.y, 4.0) < vFlipCut.z) discard;
-  gl_FragColor = c;
-  #include <colorspace_fragment>
-}`;
 
 export interface WindWaveFxDeps {
   scene: THREE.Scene;
@@ -75,44 +57,39 @@ export interface WindWaveFxDeps {
   basePath?: string;
 }
 
+const clamp01 = (x: number): number => Math.max(0, Math.min(1, x));
+
 export class WindWaveFx {
-  private readonly blades: THREE.InstancedMesh;
-  private readonly rect: THREE.InstancedBufferAttribute;
-  private readonly flipCut: THREE.InstancedBufferAttribute;
-  private readonly puffMat: THREE.MeshBasicMaterial;
+  private readonly view = new FxView();
+  private readonly batch: FxBatch;
+  private readonly atlas: THREE.CanvasTexture;
   private readonly puffMeshes: THREE.Mesh[] = [];
   private readonly puffAge: number[] = [];
   private readonly puffSize: number[] = [];
   private readonly group = new THREE.Group();
-  private readonly m = new THREE.Matrix4();
-  private readonly pos = new THREE.Vector3();
-  private readonly scl = new THREE.Vector3();
-  private readonly quat = new THREE.Quaternion();
+  // すじ 1 本ぶんの 点・はば・明るさ・芯（作りなおさない）
+  private readonly pts = makePts(N);
+  private readonly wid = new Float32Array(N);
+  private readonly alp = new Float32Array(N);
+  private readonly core = new Float32Array(N);
+  private readonly coreA = new Float32Array(N);
+  private readonly edgeA = new Float32Array(N);
+  private readonly dir = new THREE.Vector3();
+  private readonly s1 = new THREE.Vector3();
+  private readonly s2 = new THREE.Vector3();
+  private readonly UP = new THREE.Vector3(0, 1, 0);
+  /** 動きを へらす 設定 */
+  private reducedNow = false;
+  /** 今の 波の 数（窓口用） */
+  private count = 0;
 
   constructor(private readonly deps: WindWaveFxDeps) {
-    const tex = new THREE.TextureLoader().load(`${deps.basePath ?? BASE}fujin_blade.png`);
-    tex.magFilter = THREE.NearestFilter;
-    tex.minFilter = THREE.NearestFilter;
-    tex.generateMipmaps = false;
-    tex.flipY = false;
-    tex.colorSpace = THREE.SRGBColorSpace;
-    const geo = new THREE.PlaneGeometry(1, 1);
-    this.rect = new THREE.InstancedBufferAttribute(new Float32Array(MAX_WAVES * 4), 4);
-    this.flipCut = new THREE.InstancedBufferAttribute(new Float32Array(MAX_WAVES * 3), 3);
-    geo.setAttribute('aRect', this.rect);
-    geo.setAttribute('aFlipCut', this.flipCut);
-    const mat = new THREE.ShaderMaterial({ uniforms: { uTex: { value: tex } }, vertexShader: VERT, fragmentShader: FRAG, side: THREE.DoubleSide });
-    this.blades = new THREE.InstancedMesh(geo, mat, MAX_WAVES);
-    this.blades.frustumCulled = false;
-    this.blades.visible = false;
-    this.blades.count = 0;
-    this.blades.renderOrder = 40;
-    this.group.add(this.blades);
-
-    this.puffMat = new THREE.MeshBasicMaterial({ color: 0xe6f8ff, transparent: true, opacity: 0.6, depthWrite: false, side: THREE.DoubleSide, fog: false });
+    this.atlas = makeFujinAtlas();
+    this.batch = new FxBatch(deps.scene, { additive: false, map: this.atlas, depthTest: true, renderOrder: 9, singlePass: true, maxVerts: MAX_WAVES * 3 * (3 * (N - 1) * 6 + 3 * 12) + 600 });
+    const puffMat = new THREE.MeshBasicMaterial({ color: 0xe6f8ff, transparent: true, opacity: 0.6, depthWrite: false, side: THREE.DoubleSide, fog: false });
     const pg = new THREE.PlaneGeometry(1, 1);
     for (let i = 0; i < MAX_PUFFS; i++) {
-      const mesh = new THREE.Mesh(pg, this.puffMat.clone());
+      const mesh = new THREE.Mesh(pg, puffMat.clone());
       mesh.visible = false;
       mesh.frustumCulled = false;
       this.puffMeshes.push(mesh);
@@ -134,38 +111,91 @@ export class WindWaveFx {
     this.puffMeshes[k]!.position.set(we.position.x, we.position.y, we.position.z);
   }
 
-  /** 1 ステップに 1 回。らせん（kind 'spiral'）は ここでは 描かない */
-  step(waves: readonly WaveView[], _reduced = false): void {
-    void _reduced;
-    const cam = this.deps.camera;
+  /** 1 ステップに 1 回（カメラが 動いた あと）。らせん（kind 'spiral'）は ここでは 描かない */
+  step(waves: readonly WaveView[], reduced = false): void {
+    this.reducedNow = reduced;
+    this.view.update(this.deps.camera);
+    this.batch.begin();
     let n = 0;
-    let anchor: THREE.Vector3 | null = null;
     for (let i = 0; i < waves.length && n < MAX_WAVES; i++) {
       const w = waves[i]!;
       if (w.kind === 'spiral') continue;
-      const age = Math.round(w.traveled / 0.25);
-      const f = BLADE_FACES[((w.face ?? 0) % 8 + 8) % 8]!;
-      const frame = Math.floor(age / BLADE_FRAME_STEPS) % 2;
-      const r = BLADE_SPRITES[`${f.sprite}_${frame}`]!;
-      this.rect.setXYZW(n, r[0], r[1], r[2], r[3]);
-      this.flipCut.setXYZ(n, f.flipX ? 1 : 0, f.flipY ? 1 : 0, age >= BLADE_FADE_FROM ? Math.min(3, age - BLADE_FADE_FROM) : 0);
-      const dp = w.drawPos;
-      if (!anchor) {
-        anchor = this.pos.set(dp.x, dp.y, dp.z).clone();
-        this.blades.position.copy(anchor);
-        this.blades.quaternion.copy(cam.quaternion);
-      }
-      this.m.compose(this.pos.set(dp.x - anchor.x, dp.y - anchor.y, dp.z - anchor.z), this.quat.identity(), this.scl.setScalar(WAVE_SIZE * (age < BLADE_APPEAR_STEPS ? 0.6 : 1)));
-      this.blades.setMatrixAt(n, this.m);
+      this.draw(w);
       n += 1;
     }
-    this.blades.count = n;
-    this.blades.visible = n > 0;
-    if (n > 0) {
-      this.blades.instanceMatrix.needsUpdate = true;
-      this.rect.needsUpdate = true;
-      this.flipCut.needsUpdate = true;
+    this.count = n;
+    this.batch.end();
+    this.stepPuffs();
+  }
+
+  /** 風の すじを 1 つの 波ぶん 書く（先 = 今の 位置 drawPos・うしろへ のびる） */
+  private draw(w: WaveView): void {
+    const age = Math.round(w.traveled / STEP_LEN);
+    const grow = clamp01((age + 1) / GROW_STEPS);
+    const fade = 1 - clamp01((age - FADE_FROM) / FADE_STEPS);
+    if (fade <= 0) return;
+    const len = LEN * (0.25 + 0.75 * grow);
+    const d = this.dir.set(w.dir.x, w.dir.y, w.dir.z);
+    if (d.lengthSq() < 1e-6) d.set(0, 0, -1);
+    d.normalize();
+    // 進む 向きに 直角な 2 本（よこと たて）
+    this.s1.crossVectors(d, this.UP);
+    if (this.s1.lengthSq() < 1e-4) this.s1.set(1, 0, 0);
+    this.s1.normalize();
+    this.s2.crossVectors(this.s1, d).normalize();
+    const hp = w.drawPos;
+    const strands = this.reducedNow ? 2 : 3;
+    const seed = w.id;
+    const b = this.batch;
+    const white = WHITE_Y + 1;
+    const spin = this.reducedNow ? 0 : age * 0.32;
+    const P = this.pts, Wd = this.wid, Al = this.alp;
+    for (let j = 0; j < strands; j++) {
+      const pal = PALS[j]!;
+      const y0 = pal.row * 2 * TH;
+      const ph = (j * 6.283185) / strands + seed * 1.7;
+      const wmax = 0.5 * (1 - j * 0.08);
+      for (let k = 0; k < N; k++) {
+        const u = k / (N - 1); // 0 = うしろ・1 = 先
+        const back = (1 - u) * len;
+        // うしろほど ふわっと ひろがって ほどける。うねりは 年れいで 前へ 進む
+        const amp = AMP * (0.3 + 1.1 * (1 - u) * (1 - u) + 0.35 * (1 - u));
+        const th = ph + (1 - u) * 4.2 + spin;
+        const wob = 1 + 0.18 * Math.sin(k * 1.7 + j * 2.1 + seed);
+        const ox = (this.s1.x * Math.cos(th) + this.s2.x * Math.sin(th)) * amp * wob;
+        const oy = (this.s1.y * Math.cos(th) + this.s2.y * Math.sin(th)) * amp * wob;
+        const oz = (this.s1.z * Math.cos(th) + this.s2.z * Math.sin(th)) * amp * wob;
+        P[k * 3] = hp.x - d.x * back + ox;
+        P[k * 3 + 1] = hp.y - d.y * back + oy;
+        P[k * 3 + 2] = hp.z - d.z * back + oz;
+        // はば: 先は 細い 尖り・まん中が ふくらみ・うしろは ほそく ほどける
+        const taper = u < 0.82 ? Math.pow(u / 0.82, 0.85) : 1 - ((u - 0.82) / 0.18) * 0.85;
+        Wd[k] = wmax * Math.max(0.03, taper) * (1 + 0.1 * Math.sin(k * 1.9 + j));
+        Al[k] = Math.pow(u, 0.6) * fade;
+      }
+      const rep = Math.max(1, (len * 1.2) / 4);
+      const u0 = (seed + j) * 0.13;
+      for (let k = 0; k < N; k++) {
+        this.edgeA[k] = Al[k]! * 0.95;
+        this.core[k] = Wd[k]! * 0.22;
+        // 芯は 先ほど 明るい
+        this.coreA[k] = Al[k]! * (0.35 + 0.65 * (k / (N - 1)));
+      }
+      b.strip(this.view, P, N, Wd, this.edgeA, [1, 1, 1], vOf(y0 + TH + TH - 1), vOf(y0 + TH), rep, u0);
+      b.strip(this.view, P, N, Wd, Al, [1, 1, 1], vOf(y0 + TH - 1), vOf(y0), rep, u0);
+      b.strip(this.view, P, N, this.core, this.coreA, pal.core, vOf(white), vOf(white), 1, 0);
+      if (!this.reducedNow) {
+        // ちり（うしろの 方に ひとつ）
+        const k = 2 + Math.floor(hash(j, seed, 3) * (N - 6));
+        const a = Al[k]!;
+        b.quad(this.view, P[k * 3]!, P[k * 3 + 1]! + 0.06, P[k * 3 + 2]!, DOT * 3.2, pal.edge, 0.85 * a, 0.5, vOf(white));
+        b.quad(this.view, P[k * 3]!, P[k * 3 + 1]! + 0.06, P[k * 3 + 2]!, DOT * 2, pal.dust, a, 0.5, vOf(white));
+      }
     }
+  }
+
+  private stepPuffs(): void {
+    const cam = this.deps.camera;
     for (let i = 0; i < this.puffMeshes.length; i++) {
       const a = this.puffAge[i]!;
       const mesh = this.puffMeshes[i]!;
@@ -185,5 +215,20 @@ export class WindWaveFx {
       (mesh.material as THREE.MeshBasicMaterial).opacity = 0.6 * (1 - a / PUFF_STEPS);
       this.puffAge[i] = a + 1;
     }
+  }
+
+  /** 読みこみ中に 材質と 絵を 先に 作る */
+  warmUp(renderer: THREE.WebGLRenderer, camera: THREE.Camera, scene: THREE.Scene): void {
+    this.batch.warmUp(renderer, camera, scene);
+    renderer.initTexture(this.atlas);
+  }
+
+  info(): { draws: number; tris: number; waves: number } {
+    return { draws: this.batch.visible() ? 1 : 0, tris: this.batch.triangles(), waves: this.count };
+  }
+
+  dispose(): void {
+    this.batch.dispose(this.deps.scene);
+    this.deps.scene.remove(this.group);
   }
 }

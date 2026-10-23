@@ -365,6 +365,8 @@ function paintTile(name: TileName): Tile {
     case 'toriya_nest_side':
     case 'toriya_box_top':
     case 'toriya_box_side':
+    case 'toriya_fence_x':
+    case 'toriya_gate_x':
       return paintLiveTile(name).slice();
     case 'snow':
       return speckle('#D2E8F5', ['#C2DBEC', '#DDEFF9'], 91, 14);

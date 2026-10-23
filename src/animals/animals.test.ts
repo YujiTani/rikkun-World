@@ -1080,7 +1080,7 @@ describe('AC24 保存 v 2', () => {
     s.m.spawn(60.5, 9, 60.5, { hearts: 1 });
     s.m.spawn(62.5, 9, 60.5, { hearts: 2 });
     const data = JSON.parse(JSON.stringify(s.m.serialize()));
-    expect(data.v).toBe(3); // LIVE-2: 保存 v 3
+    expect(data.v).toBe(4); // LIVE-2.1: 保存 v 4
     expect(data.friends[0]).not.toHaveProperty('eggDay');
     const t = setup();
     t.m.spawn(70.5, 9, 70.5);

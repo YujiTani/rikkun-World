@@ -10,8 +10,12 @@ import { KATANA_SET, holdItems, openBladeWorld, toStance, waitReady } from './he
  */
 test.describe.configure({ mode: 'serial', timeout: 300_000 });
 
-const WEAPONS = ['bokuto', 'katana', 'crystal_katana', 'raijin_ken', 'fujin_ken', 'niji'] as const;
-type Weapon = (typeof WEAPONS)[number];
+/** 白い 斬撃 ＋ 武器ごとの エフェクトを 出す レジェンダリー 3 本（2026-10-23 オーナー決定: ほかの 刀は 半月の 帯に もどす） */
+const WEAPONS = ['raijin_ken', 'fujin_ken', 'niji'] as const;
+/** レジェンダリーじゃない 刀: 白い 斬撃も 火花も 出ず、半月の 帯（と 段の 星）が 出る */
+const PLAIN = ['bokuto', 'katana', 'crystal_katana'] as const;
+const ALL_BLADES = ['bokuto', 'katana', 'crystal_katana', 'raijin_ken', 'fujin_ken', 'niji'] as const;
+type Weapon = (typeof ALL_BLADES)[number];
 const SLOT: Record<Weapon, number> = { bokuto: 0, katana: 1, crystal_katana: 2, raijin_ken: 3, fujin_ken: 4, niji: 5 };
 const STANCE_OF = { thrust: 'chudan', kiriage: 'gedan', kesa: 'jodan' } as const;
 type Tech = keyof typeof STANCE_OF;
@@ -106,7 +110,7 @@ test.beforeAll(async ({ browser }) => {
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
   await openBladeWorld(page);
-  await holdItems(page, [...WEAPONS.map((item) => ({ item })), { item: 'yumi' }, { item: 'wood_pickaxe' }, { item: 'ya', count: 20 }]);
+  await holdItems(page, [...ALL_BLADES.map((item) => ({ item })), { item: 'yumi' }, { item: 'wood_pickaxe' }, { item: 'ya', count: 20 }]);
   await waitReady(page, KATANA_SET);
 });
 test.afterAll(async () => {
@@ -175,10 +179,27 @@ for (const weapon of WEAPONS) {
   }
 }
 
+for (const weapon of PLAIN) {
+  for (const tech of ['thrust', 'kiriage', 'kesa'] as const satisfies readonly Tech[]) {
+    test(`AC1（オーナー決定で 直し）: ${weapon} の ${tech}: 白い 斬撃は 出ず、半月の 帯が 出る・武器ごとの 層も 火花も なし`, async () => {
+      await hold(page, SLOT[weapon], STANCE_OF[tech]);
+      const rec = await swing(page, 80);
+      for (const s of rec) {
+        expect(s.slashes, `F${s.f} 白い 斬撃`).toEqual([]);
+        expect([s.slashDraws, s.sparkDraws, s.sparkQuads, s.fujin.draws, s.raijin.draws, s.rainbow.draws, s.rainbow.bloomPasses], `F${s.f}`).toEqual([0, 0, 0, 0, 0, 0, 0]);
+      }
+      const band = rec.filter((s) => s.bandVisible);
+      expect(band.length, '半月の 帯が 出る').toBeGreaterThan(0);
+      expect(Math.max(...band.map((s) => s.bandObjects)), '帯の 物').toBeGreaterThanOrEqual(1);
+      expect(rec.at(-1)!.bandVisible, 'おわりには 消える').toBe(false);
+    });
+  }
+}
+
 test('AC1: わざごとに 形が かわる（つき・きりあげ・けさ で 絵の 行が ちがう）', async () => {
   const rows: Record<string, number> = {};
   for (const tech of ['thrust', 'kiriage', 'kesa'] as const) {
-    await hold(page, SLOT.katana, STANCE_OF[tech]);
+    await hold(page, SLOT.fujin_ken, STANCE_OF[tech]);
     const rec = await swing(page, 80);
     const s = rec.find((x) => x.slashes.length)!.slashes[0]!;
     rows[tech] = s.row;
@@ -213,7 +234,7 @@ test('AC1: 弓・つるはし・素手では 白い 斬撃も 武器ごとの �
 });
 
 test('AC2: 妖怪に 当てると 当てた 1 体ごとに 火花が 出る（当てなければ 出ない）', async () => {
-  for (const weapon of ['katana', 'fujin_ken'] as const) {
+  for (const weapon of ['fujin_ken', 'niji'] as const) {
     await hold(page, SLOT[weapon], 'jodan');
     await page.evaluate(() => (window.__rikkun as any).yokai.clear());
     const miss = await swing(page, 80);
@@ -238,6 +259,13 @@ test('AC2: 妖怪に 当てると 当てた 1 体ごとに 火花が 出る（�
       expect(rec.at(-1)!.sparkDraws).toBe(0);
     }
   }
+  // レジェンダリーじゃない 刀（かたな）は 当てても 火花も 白い 斬撃も 出ない
+  await hold(page, SLOT.katana, 'jodan');
+  await page.evaluate(() => (window.__rikkun as any).yokai.clear());
+  await spawnTarget(page, 0);
+  const plain = await swing(page, 80);
+  expect(plain.at(-1)!.hits, 'かたなも 当たる').toBeGreaterThanOrEqual(1);
+  expect(Math.max(...plain.map((s) => s.sparkQuads + s.slashDraws + s.sparkDraws)), 'かたなは 火花も 斬撃も なし').toBe(0);
   await page.evaluate(() => (window.__rikkun as any).yokai.clear());
 });
 
@@ -288,7 +316,7 @@ test('AC10 ②: 全部の 武器を 振った あと 休むと 描画回数・�
       return { snap: (0, eval)(snap), calls: rs.drawCalls as number, triangles: rs.triangles as number, spot: { position: p.position, yaw: p.yaw, pitch: p.pitch } };
     }, { snap: SNAP, spot });
   const round = async () => {
-    for (const weapon of WEAPONS) {
+    for (const weapon of ALL_BLADES) {
       await hold(page, SLOT[weapon], 'jodan');
       await swing(page, 80);
     }

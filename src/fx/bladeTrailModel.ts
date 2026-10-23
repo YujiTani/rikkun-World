@@ -4,6 +4,8 @@ import { TECH_PHASES } from '../char/techCurves';
 import pathJson from './bladePath.json';
 
 /** 軌跡を 出す 刀（`BLADE_ITEMS` と 同じ。fx から tools へ 依存しないよう ここにも 持つ） */
+/** 白い 斬撃 ＋ 武器ごとの エフェクトを 出す 武器（レジェンダリー 3 本だけ。半月の 帯は 出さない。2026-10-23 オーナー決定） */
+export const LEGEND_FX_ITEMS: ReadonlySet<ItemId> = new Set<ItemId>(['raijin_ken', 'fujin_ken', 'niji']);
 export const BLADE_TRAIL_ITEMS: ReadonlySet<ItemId> = new Set<ItemId>(['bokuto', 'katana', 'crystal_katana', 'raijin_ken', 'fujin_ken', 'niji']);
 
 export type PathVec = readonly [number, number, number];

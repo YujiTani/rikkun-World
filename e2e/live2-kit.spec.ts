@@ -143,7 +143,7 @@ test.describe('LIVE-2 こたつ（たまご を あたためる）', () => {
     expect(r.oneNuku).toBe(1);
   });
 
-  test('AC2b 2×2: 4 マス の どれ を 右クリック しても 同じ 1 台。たまご は 1 台 に 1 こ・kitWait は どの マス でも・かえった ひよこ は こたつ の まわり に 出る。古い 1 マス こたつ も 入る', async ({ page }) => {
+  test('AC2b 2×2: 4 マス の どれ を 右クリック しても 同じ 1 台。たまご は 1 回 で 1 こ（LIVE-2.1: 1 台 に 3 こ まで。2 回目 も 入る）・かえった ひよこ は こたつ の まわり に 出る。古い 1 マス こたつ も 入る', async ({ page }) => {
     await openAnimals(page);
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
@@ -161,7 +161,7 @@ test.describe('LIVE-2 こたつ（たまご を あたためる）', () => {
       A.tap();
       out.kits = h.animals.kits().map((q: any) => ({ x: q.x, z: q.z }));
       out.left = h.inventory.count('egg');
-      // 北東 の マス で もう 1 回 → kitWait（入らない）
+      // 北東 の マス で もう 1 回 → 同じ 1 台 の 2 こ目 として 入る（LIVE-2.1。前は kitWait）
       (window as any).__aim.standForS(k.x + 3.5, k.z + 0.5, -90, 0, k.y);
       h.step(1);
       out.aimedNE = A.aimBlock(k.x + 1, k.y, k.z);
@@ -170,6 +170,7 @@ test.describe('LIVE-2 こたつ（たまご を あたためる）', () => {
       out.hint = h.animals.lastHint();
       out.left2 = h.inventory.count('egg');
       out.kitsAfter = h.animals.kits().length;
+      out.eggsAfter = h.animals.kits()[0]?.eggs?.length ?? 1;
       // 古い 1 マス こたつ
       const o = A.kit1(20, 6);
       const b = A.putEgg(o, 'egg', 1);
@@ -184,9 +185,10 @@ test.describe('LIVE-2 こたつ（たまご を あたためる）', () => {
     expect(r.aimed).toBe(true);
     expect(r.kits).toEqual([{ x: 8, z: 6 }]);
     expect(r.left, 'たまご は 1 つ だけ へる').toBe(2);
-    expect(r.hint).toBe('kitWait');
-    expect(r.left2).toBe(2);
-    expect(r.kitsAfter).toBe(1);
+    expect(r.hint, '2 こ目 は 入る（kitWait に ならない）').not.toBe('kitWait');
+    expect(r.left2, '2 こ目 で もう 1 つ へる').toBe(1);
+    expect(r.kitsAfter, '同じ 1 台').toBe(1);
+    expect(r.eggsAfter, 'その 台 に 2 こ').toBe(2);
     expect(r.oldPut.kits).toBe(2);
     expect(r.rows.length).toBeGreaterThanOrEqual(2);
     for (const q of r.rows) {
@@ -196,7 +198,7 @@ test.describe('LIVE-2 こたつ（たまご を あたためる）', () => {
     expect(r.blocks).toEqual(['nukunuku', 'nukunuku_e', 'nukunuku_s', 'nukunuku_se']);
   });
 
-  test('AC2 入れる: から + egg → egg -1・kits に { egg: egg, left: kitHatchTicks }。もう 1 回 kitWait。すで kitNeedEgg。kin_tamago → gold。7 つ目 kitMax。つち は となり に 置く', async ({ page }) => {
+  test('AC2 入れる: から + egg → egg -1・kits に { egg: egg, left: kitHatchTicks }。入って いる 台 に トマト → kitWait（LIVE-2.1: egg は 3 こ まで 入る。AC10）。すで kitNeedEgg。kin_tamago → gold。たまご 7 こ目 kitMax。つち は となり に 置く', async ({ page }) => {
     await openAnimals(page);
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
@@ -211,8 +213,8 @@ test.describe('LIVE-2 こたつ（たまご を あたためる）', () => {
       // egg
       const a = A.putEgg(k1, 'egg', 3);
       out.egg1 = { aimed: a.aimed, left: a.left, kits: h.animals.kits().map((k: any) => ({ x: k.x, y: k.y, z: k.z, egg: k.egg, left: k.left })), sfx: A.sfx() };
-      // もう 1 回
-      const b = A.putEgg(k1, 'egg', 2);
+      // 入って いる 台 に トマト（LIVE-2.1: egg なら 2 こ目 が 入る ので、あたため ちゅう の 合図 は トマト で 見る）
+      const b = A.putEgg(k1, 'tomato', 2);
       out.egg2 = { left: b.left, hint: b.hint, kits: h.animals.kits().length };
       // kin_tamago
       const k2 = A.kit(8, 10);
@@ -242,7 +244,7 @@ test.describe('LIVE-2 こたつ（たまご を あたためる）', () => {
     expect(r.egg1.kits[0].left).toBeLessThanOrEqual(r.total);
     expect(r.egg1.kits[0].left).toBeGreaterThanOrEqual(r.total - 10);
     expect(r.egg1.sfx).toContain('kitPut');
-    expect(r.egg2.left, '入って いる こたつ には 入れない').toBe(2);
+    expect(r.egg2.left, 'トマト は たべない・入らない').toBe(2);
     expect(r.egg2.hint).toBe('kitWait');
     expect(r.egg2.kits).toBe(1);
     expect(r.gold.left).toBe(0);
@@ -512,14 +514,14 @@ test.describe('LIVE-2 こたつ（たまご を あたためる）', () => {
     expect(r.put.kits).toBe(1);
   });
 
-  test('AC20(こたつ) 照準の 下: こたつ + egg → egg・いれる。入って いる → まってね。previewRightClick と 実際 が 同じ', async ({ page }) => {
+  test('AC20(こたつ) 照準の 下: こたつ + egg → egg・いれる。1〜2 こ 入って いても いれる。3 こ 入ると いっぱい。previewRightClick と 実際 が 同じ', async ({ page }) => {
     await openAnimals(page);
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
       const A = (window as any).__A;
       A.base(40);
       const k = A.kit(8, 6);
-      A.hold('egg', 2);
+      A.hold('egg', 4);
       (window as any).__aim.standForS(k.x - 1.5, k.z + 0.5, 90, 0, k.y);
       h.step(1);
       A.aimBlock(k.x, k.y, k.z);
@@ -528,10 +530,26 @@ test.describe('LIVE-2 こたつ（たまご を あたためる）', () => {
       A.tap();
       A.aimBlock(k.x, k.y, k.z);
       h.step(2);
+      out.one = A.hintRight();
+      out.oneEggs = h.animals.kits()[0].eggs.length;
+      A.tap();
+      A.tap();
+      A.aimBlock(k.x, k.y, k.z);
+      h.step(2);
       out.full = A.hintRight();
+      out.threeEggs = h.animals.kits()[0].eggs.length;
+      out.left = h.inventory.count('egg');
+      h.animals.events();
+      A.tap();
+      out.after4 = { hint: h.animals.lastHint(), left: h.inventory.count('egg') };
       return out;
     });
     expect(r.empty).toMatchObject({ icon: 'egg', word: 'いれる' });
-    expect(r.full).toMatchObject({ word: 'まってね' });
+    expect(r.oneEggs).toBeGreaterThanOrEqual(1);
+    expect(r.one, '3 こ より 少なければ いれる（まってね に ならない）').toMatchObject({ word: 'いれる' });
+    expect(r.threeEggs).toBe(3);
+    expect(r.full, '3 こ なら いっぱい').toMatchObject({ word: 'いっぱい' });
+    expect(r.after4.hint, '照準 の 答え と 実際 が 同じ（入らない）').toBe('kitFull');
+    expect(r.after4.left, '入らない ので へらない').toBe(r.left);
   });
 });
