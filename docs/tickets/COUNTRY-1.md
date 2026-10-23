@@ -28,11 +28,11 @@
 - 開発: 表・妖怪のえらび方・判定と並び・実績 は 担当を分けられる（つなぎ目は 仕様 §3.3・§8 の名前）。
 
 ## 受け入れ基準と層
-仕様 §9 の AC1〜AC21。ユニット 18 本（AC1〜8・11〜19）、E2E 1 spec（AC9・AC10）、UI 検査（AC20）、オーナー確認（AC21）。
+仕様 §9 の AC1〜AC21。ユニット 17 本（AC1〜8・11〜19）、E2E 1 spec（AC9・AC10）、UI 検査（AC20）、オーナー確認（AC21）。
 
 ## テスト準備で 見ること（tester。こわれうる 既存テスト）
 - **妖怪の 乱数の順が かわる**（§3.3）: 自動で出す テスト `e2e/m3.spec.ts`・`e2e/m5.spec.ts`・`e2e/voxD-stream.spec.ts` と、`src/yokai/` の 出かたの ユニット。期待は 数を かえず「国の行で えらぶ」形に 直す（強さの期待は そのまま）。
 - **スタートで `visit.country.harappa.1` が しずかに 1 つ取れる**: 実績の数を 数える テスト（`src/achievements/achievements.test.ts`・`e2e/achNext.spec.ts`・`e2e/live3-meat.spec.ts` の 取った数 など）。`achievements.reset()` を 使う テストは 影響なし。
-- **国へ テレポートすると 実績・音・おめでとう画面が 出る**: `e2e/helpers/biome.ts`・`e2e/helpers/flora.ts` を使う spec（`voxI1-biome`・`flora75`・live1〜3 の 動物の spec・`sound1`）と `e2e/ui-gate.spec.ts`。おめでとう画面で 止まると こまる所は `biome.quiet(true)` を 共通の準備に入れる。
+- **国へ テレポートすると 実績・音・上の帯の おしらせ が 出る**: `e2e/helpers/biome.ts`・`e2e/helpers/flora.ts` を使う spec（`voxI1-biome`・`flora75`・live1〜3 の 動物の spec・`sound1`）と `e2e/ui-gate.spec.ts`。実績の おしらせ が 出ると こまる所は `biome.quiet(true)` を 共通の準備に入れる。
 - 古い `visit.*`（regions）の 判定を 見ている テスト: 7 つ と `visit.all` は 取れなくなる。
 - 関係する E2E: 新しい spec ＋ 上の spec ＋ smoke。
