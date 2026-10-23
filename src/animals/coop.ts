@@ -51,7 +51,8 @@ export function coopBlocks(x: number, y: number, z: number, dir: CoopDir): CoopB
       } else if (a === -COOP_HALF && Math.abs(b) <= 1) {
         // ねぐら（うしろ の 列 の まん中 3 マス）。まん中 の ゆか が すばこ
         add(cx, y, cz, b === 0 ? 'toriya_box' : 'toriya_nest');
-        add(cx, y + 1, cz, 'toriya_nest');
+        // すばこ の 上 は あける（たまご が 見える。両がわ の ねぐら と 上 の やね で かこむ ので 入れない）
+        if (b !== 0) add(cx, y + 1, cz, 'toriya_nest');
         add(cx, y + 2, cz, 'toriya_nest');
       } else {
         add(cx, y, cz, 'toriya_fence');

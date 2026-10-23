@@ -389,7 +389,7 @@ describe('AC7 小屋を 置く', () => {
     }
     expect(seen.toriya_box).toBe(1);
     expect(seen.toriya_gate).toBe(2);
-    expect(seen.toriya_nest).toBe(8);
+    expect(seen.toriya_nest).toBe(7); // すばこ の 上 の 1 マス は あけて たまご を 見せる
     expect(seen.toriya_fence).toBe(12);
     expect(c.gate).toEqual({ x: 48, z: 50 });
     expect(c).toMatchObject({ x: 50, y: 9, z: 50, dir: 3, kids: [], nest: { egg: 0, gold: 0 } });
