@@ -344,40 +344,55 @@ test.describe('LIVE-4 ねらい', () => {
       o.b = b;
       o.go = go(h1.rows) + go(probe) + go(h2.rows);
       o.cause2 = h2.rows[h2.k]?.aev.find((e: any) => e.type === 'machoTarget');
-      // 2) 同じ ステップ: 突き の 当たる 番号 を はかる
+      // 2) 同じ ステップ: HURT-1 の 怯みで 刀の わざは とぎれる ので、とんでいる 矢で A を うつ。
+      //    まず 矢が 当たる までの ステップ数 ka を はかる（きっかけ 1 = 矢が A に 当たる）
+      const setupBow = () => {
+        h.inventory.setSlot(1, { item: 'yumi', count: 1 });
+        h.inventory.setSlot(2, { item: 'ya', count: 30 });
+        h.inventory.select(1);
+        h.step(12);
+      };
+      const place = () => {
+        h.player.set({ position: { x: 4.5, y: 9, z: 6.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: 0 });
+        h.step(1);
+      };
       M.base();
+      while (h.combat.get().invincibleTicks > 0) h.step(1); // 前の やられの 無敵（90）が のこっていると たたかれても 体力が へらない
       mid = M.macho(11.5, 6.5);
       a = M.yokai('karakasa', 6.5, 6.5, { hp: 9999 });
-      M.faceTo(a, 2);
-      const probeHit = M.hit(a, {});
-      const kp = probeHit.k; // 押した ステップ から 数えた 当たる 番号
+      place();
+      setupBow();
+      const hpA0 = M.yk(a).hp;
+      h.input.press('primary');
+      h.step(45);
+      h.input.release('primary');
+      let ka = -1; // はなした ステップ(0) から 数えて ka ステップ目 に 当たる
+      for (let i = 0; i < 90 && ka < 0; i++) {
+        h.step(1);
+        if (M.yk(a).hp < hpA0) ka = i;
+      }
+      o.ka = ka;
+      // 本番: B の 当たりを 矢の 当たりと 同じ ステップに する
       M.base();
+      while (h.combat.get().invincibleTicks > 0) h.step(1);
       mid = M.macho(11.5, 6.5);
       a = M.yokai('karakasa', 6.5, 6.5, { hp: 9999 });
       b = M.yokai('karakasa', 3.2, 6.5, { hp: 9999 });
-      M.faceTo(a, 2);
-      h.player.set({ position: { x: 4.5, y: 9, z: 6.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: 0 });
-      h.step(1);
-      M.faceTo(a, 2);
+      place();
+      setupBow();
       const hp0 = h.combat.get().hp;
-      const atk = h.yokai.attackNow(b);
-      const hb = atk ? atk.hitInSteps : -1; // 押した ステップ(0) から 数えて hb ステップ 目 に 当たる
-      o.kp = kp;
+      // B の 攻撃が 当たる までの ステップ数 hb は 1) の hurtMe（attackNow から 体力が へる まで）で はかった 値
+      const hb = h2.k + 1;
+      o.kp = ka;
       o.hb = hb;
-      // b の 当たり を p の 当たり と 同じ ステップ に する: p が 先 なら b を 遅らせる ことは できない ので p を 遅らせる
-      const lag = Math.max(0, hb - kp); // p を 押す のを lag 遅らせる
+      // 押した ステップ(0) → 45 で はなす → 矢は ステップ 45 + ka に 当たる。B は attackNow の hb ステップ目（= t0 + hb - 1）が それと 同じに なる ように はじめる
+      const t0 = Math.max(0, 45 + ka - hb + 1);
       const rows: any[] = [];
-      let pressed = false;
-      for (let i = 0; i < 80; i++) {
-        if (!pressed && i === lag) {
-          h.input.release('primary');
-          h.input.press('primary');
-        }
+      for (let i = 0; i < 160; i++) {
+        if (i === 0) h.input.press('primary');
+        if (i === 45) h.input.release('primary');
+        if (i === t0) h.yokai.attackNow(b);
         h.step(1);
-        if (pressed === false && i === lag) {
-          h.input.release('primary');
-          pressed = true;
-        }
         rows.push(M.row(i, { m: mid, y: a }));
       }
       const both = rows.findIndex((x: any) => x.php < hp0 && x.yev.some((e: any) => e.type === 'hurt' && e.id === a));
@@ -393,7 +408,7 @@ test.describe('LIVE-4 ねらい', () => {
     expect(r.t2, 'B に たたかれた → B').toBe(r.b);
     expect(r.go, 'machoGo 2 回').toBe(2);
     expect(r.cause2).toMatchObject({ yokai: r.b, cause: 'playerHurt' });
-    expect(r.both, '同じ ステップ に A を たたき B に たたかれた（kp=' + r.kp + ' hb=' + r.hb + '）').toBeGreaterThanOrEqual(0);
+    expect(r.both, '同じ ステップ に A を たたき B に たたかれた（ka=' + r.kp + ' hb=' + r.hb + '）').toBeGreaterThanOrEqual(0);
     expect(r.t3, '同じ ステップ なら A').toBe(r.a2);
     expect(r.cause3).toMatchObject({ yokai: r.a2, cause: 'playerHit' });
   });
