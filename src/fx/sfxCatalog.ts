@@ -96,6 +96,10 @@ export const SFX_CATALOG: readonly SfxCatalogEntry[] = [
       ['legendDrop', 'ヌシが おとした（キラキラ）'],
       ['windWave', 'しんくうは（ヒュッ）'],
       ['spiralWind', 'らせんの かぜ（ゴゴゴ）'],
+      ['shiningStart', 'にじ シャイニング（キラキラ）'],
+      ['shiningHit', 'にじ ドームが はじく（ポヨン）'],
+      ['shiningEnd', 'にじ シャイニング おわり（ふわ）'],
+      ['shiningReady', 'にじ また つかえる（ちりん）'],
     ] as const
   ).map(([name, label]): SfxCatalogEntry => ({ group: 'weapon', name, label, play: (s) => playLegend(s, name) })),
   // ため音（風神剣・雷神剣）。ため中の 1 秒 → いっぱいで ため続けの ループ（約 2.5 秒 鳴らして 止める）

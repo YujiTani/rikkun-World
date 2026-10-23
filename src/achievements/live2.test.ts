@@ -10,8 +10,8 @@ const mk = () => {
 };
 
 describe('LIVE-2 実績（§4.5）', () => {
-  it('数（AC24）: 258・小 87・そだてる 61・小 16', () => {
-    expect(ACHIEVEMENT_DEFS.length).toBe(258);
+  it('数（AC24）: 260・小 87・そだてる 61・小 16', () => {
+    expect(ACHIEVEMENT_DEFS.length).toBe(260);
     expect(ACHIEVEMENT_DEFS.filter((d) => d.small).length).toBe(87);
     const farm = ACHIEVEMENT_DEFS.filter((d) => d.category === 'farm');
     expect(farm.length).toBe(61);

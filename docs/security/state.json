@@ -1,0 +1,10 @@
+{
+  "checkedAt": "2026-10-22",
+  "nodeVulnFeedLatest": "october-2026-security-releases",
+  "nodeLatest": { "22": "22.23.4", "24": "24.22.1", "26": "26.12.1" },
+  "ciNodeUsed": "22.23.3",
+  "npmAudit": { "total": 0 },
+  "ciRunnerOs": "ubuntu26.04 (ubuntu-latest)",
+  "playwright": "1.56.1",
+  "open": ["CI の Node が 22.23.3（check-latest: true を足す、PR #244・#245）", "yuzu の Mac の Node の版が不明"]
+}

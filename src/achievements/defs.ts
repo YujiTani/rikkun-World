@@ -68,6 +68,7 @@ export const PICKAXE_RECIPES = ['wood_pickaxe', 'stone_pickaxe', 'iron_pickaxe']
 export const LEGEND_NAMES: ReadonlyArray<readonly [string, string]> = [
   ['raijin_ken', '［雷神剣｜らいじんけん］'],
   ['fujin_ken', '［風神剣｜ふうじんけん］'],
+  ['niji', '［虹｜にじ］'],
 ];
 
 export const WEAPON_RECIPES = ['bokuto', 'katana', 'naginata', 'crystal_katana', 'yumi'] as const;

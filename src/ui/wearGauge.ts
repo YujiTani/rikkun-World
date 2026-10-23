@@ -130,7 +130,7 @@ export function paintWear(root: HTMLElement, stack: ItemStack | null, d?: Durabi
 export function wearSignature(slots: ReadonlyArray<ItemStack | null>, from = 0, to = slots.length): number {
   let h = 0;
   for (let i = from; i < to; i++) {
-    const w = slots[i]?.wear ?? 0;
+    const w = (slots[i]?.wear ?? 0) + (slots[i]?.power ?? 0) * 100003;
     h = (h * 31 + w + 1 + i) % 2147483647;
   }
   return h;

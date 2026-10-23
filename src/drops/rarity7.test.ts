@@ -72,7 +72,7 @@ describe('RARITY-7 表', () => {
 
 describe('RARITY-7 当てはめ・設定', () => {
   it('AC6 rarityAtLeast は全アイテム × 7 段で式と同じ', () => {
-    expect(ITEM_TYPES).toHaveLength(73); // LIVE-2: こたつ・とりごや・きん の たまご +3。WEAPON-7 PR1: 雷神剣 +1・PR2: 風神剣 +1。 FLORA-75: のばな +1・LIVE-1: たまご +1・むし・むしとりあみ +2。#184: 12 の国の 7 こ（ゆき・もみじ・まつ・はな 3・たけ）が ふえた
+    expect(ITEM_TYPES).toHaveLength(74); // LIVE-2: こたつ・とりごや・きん の たまご +3。WEAPON-7 PR1: 雷神剣 +1・PR2: 風神剣 +1・PR3: 虹 +1。 FLORA-75: のばな +1・LIVE-1: たまご +1・むし・むしとりあみ +2。#184: 12 の国の 7 こ（ゆき・もみじ・まつ・はな 3・たけ）が ふえた
     for (const it of ITEM_TYPES) {
       for (const t of ids) {
         expect(rarityAtLeast(it.id, t), `${it.id}/${t}`).toBe(rarityIndex(itemRarity(it.id)) >= rarityIndex(t));
@@ -88,7 +88,7 @@ describe('RARITY-7 当てはめ・設定', () => {
       expect(isRarity(r)).toBe(true);
       n[r] = (n[r] ?? 0) + 1;
     }
-    expect(n).toEqual({ common: 39, uncommon: 18, rare: 10, superRare: 3, epic: 1, legendary: 2 }); // LIVE-2: こたつ・とりごや uncommon、きん の たまご epic。 // 雷神剣・風神剣（WEAPON-7 PR1・PR2）が legendary
+    expect(n).toEqual({ common: 39, uncommon: 18, rare: 10, superRare: 3, epic: 1, legendary: 3 }); // LIVE-2: こたつ・とりごや uncommon、きん の たまご epic。 // 雷神剣・風神剣・虹（WEAPON-7 PR1・PR2・PR3）が legendary
     expect(itemRarity('crystal_katana')).toBe('superRare');
   });
 
