@@ -294,3 +294,23 @@
   pointer-events: none;
   z-index: 9;
 }
+
+/* #264: シャイニングの 休みの のこり（LoL の ように アイコンの 上に 円の おおい。12 時から 時計まわりに あいて いき、まん中に のこりの 秒） */
+.slot-cooldown {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: conic-gradient(transparent 0deg var(--cd-deg, 0deg), rgba(10, 10, 24, 0.68) var(--cd-deg, 0deg) 360deg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 900;
+  font-size: calc(var(--rk-slot-hotbar) * 0.5);
+  text-shadow: 0 0 3px #000, 0 0 6px #000;
+  pointer-events: none;
+  z-index: 2;
+}
+.slot-cooldown[hidden] {
+  display: none;
+}

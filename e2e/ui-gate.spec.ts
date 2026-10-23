@@ -484,7 +484,7 @@ const coopMenuScreen = (id: string, page: 1 | 2 | 3): Screen => ({
 SCREENS.push(coopMenuScreen('coop-menu-1', 1), coopMenuScreen('coop-menu-2', 2), coopMenuScreen('coop-menu-3', 3));
 
 /**
- * CHAR-4 AC18: 刀の軌跡（LEGEND-FX から 白い 斬撃）が 出ている 場面で HUD の はみ出し・重なりが 0。
+ * CHAR-4 AC18: 刀の軌跡が 出ている 場面で HUD の はみ出し・重なりが 0。
  * 大けさぎり F31（ぼくとう・かたな・きらきらの かたな）・切り上げ F21（きらきらの かたな）・突き F5（かたな）。
  * スクショ（ui-gate-report/char4-*-<大きさ>.png）は ui-reviewer が 見る。
  */
@@ -502,7 +502,7 @@ const char4Scene = (id: string, item: string, stance: 'chudan' | 'jodan' | 'geda
       h.step(1);
       h.input.release('primary');
       h.step(frame - 1);
-      return { f: h.blade.state().frame as number, visible: h.legend.slashes().length > 0 }; // LEGEND-FX: 帯は 白い 斬撃に おきかえ
+      return { f: h.blade.state().frame as number, visible: h.blade.trail().visible as boolean };
     }, frame);
     expect(shown, `${id}: 軌跡が 出ている 場面に なっていない`).toEqual({ f: frame, visible: true });
   },

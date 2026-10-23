@@ -80,10 +80,10 @@ describe('きらめく カタナ（#68）', () => {
 });
 
 describe('つくる（AC1〜AC4）', () => {
-  it('list は 33 こ、持ち物が空なら全部 craftable false', () => {
+  it('list は 38 こ、持ち物が空なら全部 craftable false', () => {
     const { craft } = rig();
     const l = craft.list();
-    expect(l).toHaveLength(36);
+    expect(l).toHaveLength(38); // CRAFT-PAGE: たいまつの 作り方が 2 つ ふえた（カードは 36 枚のまま）
     expect(l.every((c) => !c.craftable && c.missing.length === c.inputs.length)).toBe(true);
     expect(l[0].id).toBe('wood_pickaxe');
     expect(craft.bakeList().map((b) => b.id)).toEqual(['iron_ingot', 'kawara', 'brick', 'haniwa', 'momo_yaki']); // LIVE-3: やく 5 こ目

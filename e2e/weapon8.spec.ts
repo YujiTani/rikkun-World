@@ -60,7 +60,7 @@ test.describe('WEAPON-8 AC13 通し（風神剣 → 雷神剣）', () => {
     }
   });
 
-  test('AC13（つづき）: 雷神剣を 60 ステップ ためる → palette raijin・burst・音 3 つ。はなす → F5 で off・F16 までに hold off・F8 に 落雷', async ({ page }) => {
+  test('AC13（つづき）: 雷神剣を 60 ステップ ためる → palette raijin・full・音 3 つ。はなす → F5 で off・F16 までに hold off・F8 に 落雷', async ({ page }) => {
     const floorY = await legendWorld(page, RAIJIN);
     await expectW8Hook(page);
     await aimGroundAhead(page, floorY, 8);
@@ -69,11 +69,12 @@ test.describe('WEAPON-8 AC13 通し（風神剣 → 雷神剣）', () => {
 
     const full = rec[DOWN - 1]!; // ためF 60
     expect(full.fx.palette, 'palette').toBe('raijin');
-    expect(full.fx.phase, 'ためF 60 は burst').toBe('burst');
+    expect(full.fx.phase, 'ためF 60 は full（右手が 光りはじめる）').toBe('full');
+    expect(full.fx.hand, '光りはじめの 1 ステップ').toBe(2);
     const snd = soundsOf(rec.slice(0, DOWN));
     for (const name of ['chargeRise', 'chargeReady', 'chargeHold']) expect(snd, name).toContain(name);
     // はなす
-    expect(rec[fIndex(DOWN, 1)]!.fx.phase, 'F1 から fade').toBe('fade');
+    expect(rec[fIndex(DOWN, 1)]!.fx.phase, 'F1 に すぐ off').toBe('off');
     expect(rec[fIndex(DOWN, 5)]!.fx.phase, 'F5 は off').toBe('off');
     const hold16 = rec.slice(fIndex(DOWN, 1), fIndex(DOWN, 16) + 1).findIndex((s) => s.snd.hold === 'off');
     expect(hold16, 'F16 までに hold off').toBeGreaterThanOrEqual(0);
@@ -147,7 +148,7 @@ test.describe('WEAPON-8 AC16 性能', () => {
     expect(end.points! - base.points, 'ぜんぶ 消えたら 点 0（±1 の ゆれ）').toBeLessThanOrEqual(1);
   });
 
-  test('AC16: K1 の 真空波 8 つの ふえ 描画 2・三角形 32 以下。8 つ ＋ らせん 1 つで エラーなし・らせんの ふえは 同じ・らせんは 8 に 数えない', async ({ page }) => {
+  test('AC16: K1 の 真空波 8 つの ふえ 描画 2 以下・三角形は 風の すじ 8 つぶん（1 つ 400 以下）。8 つ ＋ らせん 1 つで エラーなし・らせんの ふえは 同じ・らせんは 8 に 数えない', async ({ page }) => {
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(e.message));
     page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
@@ -201,7 +202,9 @@ test.describe('WEAPON-8 AC16 性能', () => {
     const none = await rec8(page, 1, undefined, true);
     expect(none[0]!.waves, '真空波は ぜんぶ きえた').toHaveLength(0);
     expect(withoutSpiralCalls - none[0]!.calls!, '8 つ 同時の 描画回数の ふえ').toBeLessThanOrEqual(2);
-    expect(withoutSpiralTri - none[0]!.triangles!, '8 つ 同時の 三角形の ふえ').toBeLessThanOrEqual(32);
+    // 追記 6: 真空波は 風の すじ（旧: みかづきの 板 1 まい = 16）。1 つ 400 以下 × 8
+    expect(withoutSpiralTri - none[0]!.triangles!, '8 つ 同時の 三角形の ふえ').toBeLessThanOrEqual(400 * 8);
+    expect(withoutSpiralTri - none[0]!.triangles!, '風の すじ 8 つぶんの 厚み（板では ない）').toBeGreaterThan(300);
   });
 
   for (const item of [FUJIN, RAIJIN]) {
@@ -217,10 +220,10 @@ test.describe('WEAPON-8 AC16 性能', () => {
       });
       await settle8(page, 5);
       const base = await baseStats(page);
-      const down = 100; // gather・burst・full を 通る
+      const down = 100; // gather・full を 通る
       const rec = await chargeRun8(page, down, 4, '', true);
       const phases = new Set(rec.slice(0, down).map((s) => s.fx.phase));
-      for (const p of ['gather', 'burst', 'full']) expect(phases.has(p as never), `phase ${p} を 通った`).toBe(true);
+      for (const p of ['gather', 'full']) expect(phases.has(p as never), `phase ${p} を 通った`).toBe(true);
       for (const [i, s] of rec.slice(0, down).entries()) {
         expect(s.calls! - base.calls, `ためF ${i + 1} 描画回数の ふえ`).toBeLessThanOrEqual(4);
         expect(s.triangles! - base.triangles, `ためF ${i + 1} 三角形の ふえ`).toBeLessThanOrEqual(150);
@@ -317,4 +320,51 @@ test.describe('WEAPON-8 AC24 手もとの 光の 位置', () => {
     }
     expect(seen, '光が 出ていた').toBeGreaterThanOrEqual(60);
   });
+});
+
+// ---------------------------------------------------------------------------------------------
+// WEAPON-9 PR-1 AC40（§5.8）: ためる 光（つぶ 14 こ・体の 中心・完了後も つづく・手の 光の ドットアニメ）
+// ---------------------------------------------------------------------------------------------
+test.describe('WEAPON-9 AC40 ための光', () => {
+  for (const item of [FUJIN, RAIJIN]) {
+    test(`AC40（${item}）: つぶ 14 こ（ため中も 完了後も 同じ）・体の 中心へ・完了後の 手の 光は コマが 切りかわる・はなすと すぐ off`, async ({ page }) => {
+      test.setTimeout(300_000);
+      const floorY = await legendWorld(page, item);
+      await expectW8Hook(page);
+      if (item === RAIJIN) await aimGroundAhead(page, floorY, 8);
+      await markLegend(page);
+      const down = 120;
+      const rec = await chargeRun8(page, down, 3);
+      const held = rec.slice(0, down);
+      const gather = held.filter((s) => s.fx.phase === 'gather');
+      const full = held.filter((s) => s.fx.phase === 'full');
+      expect(gather.length, 'ため中の ステップが ある').toBeGreaterThan(10);
+      expect(full.length, '完了後の ステップが 十分 ある').toBeGreaterThan(40);
+      // 数は ずっと 一定（14）。完了後も 消えない
+      const counts = new Set(held.filter((s) => s.fx.phase !== 'off').map((s) => s.fx.particles));
+      expect([...counts], 'つぶの 数は 1 通り').toHaveLength(1);
+      expect([...counts][0], 'つぶ 14 こ').toBe(14);
+      expect(full[full.length - 1]!.fx.particles, '完了後も 14').toBe(14);
+      // 集まる 先は 体の 中心（足もと + 1.1）。手ではない
+      for (const s of held.filter((s) => s.fx.phase !== 'off')) {
+        expect(s.fx.chest, '体の 中心が ある').not.toBeNull();
+        expect(Math.abs(s.fx.chest!.y - (s.pos.y + 1.1)), '足もと + 1.1').toBeLessThan(0.05);
+      }
+      // 手の 光: ため中は なし。完了後は ある。絵（芯・輪）が 切りかわる
+      expect(new Set(gather.map((s) => s.fx.hand)), 'ため中は 手の 光なし').toEqual(new Set([0]));
+      expect(full[0]!.fx.hand, '光りはじめ').toBe(2);
+      expect(new Set(full.slice(1).map((s) => s.fx.hand)), '光りはじめの あとは 1').toEqual(new Set([1]));
+      const frames = new Set(full.map((s) => `${s.fx.handCore}/${s.fx.handRing}`));
+      expect(frames.size, '手の 光の 絵が 切りかわる（同じ 絵のまま ではない）').toBeGreaterThanOrEqual(3);
+      // すぐ 切りかわる 動き: 18 ステップ 見ると 芯が 2 回以上 変わる
+      let changes = 0;
+      for (let i = 2; i < Math.min(full.length, 20); i++) if (full[i]!.fx.handCore !== full[i - 1]!.fx.handCore) changes++;
+      expect(changes, '芯が 切りかわった 回数').toBeGreaterThanOrEqual(2);
+      // はなすと すぐ off
+      const rel = rec[fIndex(down, 1)]!;
+      expect(rel.fx.phase, 'はなして すぐ off').toBe('off');
+      expect(rel.fx.particles).toBe(0);
+      expect(rel.fx.hand).toBe(0);
+    });
+  }
 });

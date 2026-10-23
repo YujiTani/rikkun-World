@@ -34,6 +34,7 @@ const ZERO_STATS: ShadowStatsHook = {
   redraws: { near: 0, far: 0, dynamic: 0 },
   frame: { staticRedrawn: [], draws: 0, triangles: 0, maxStaticPerFrame: 0 },
   light: { x: 0, y: 1, z: 0, strength: 0, body: 'sun' },
+  torch: { count: 0, redraws: 0, frameRedrawn: 0, frameDraws: 0, frameTriangles: 0 },
 };
 
 const luma = (r: number, g: number, b: number): number => 0.2126 * r + 0.7152 * g + 0.0722 * b;

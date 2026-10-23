@@ -1,6 +1,6 @@
 import type { Durability, Inventory, ItemStack } from '../contracts';
 import { FX_SETTINGS, type FxSettings } from '../fx/config';
-import { HOTBAR_SIZE, gainedSlots, hotbarCells, snapshotSlots } from './hotbarModel';
+import { HOTBAR_SIZE, gainedSlots, hotbarCells, snapshotSlots, type CooldownCell } from './hotbarModel';
 import { itemRarity } from '../drops/rarity';
 import { gemShape, gemUrl } from './gemArt';
 import { itemIconUrl } from './itemIcon';
@@ -136,8 +136,13 @@ export class Hotbar {
   /** あう道具の ヒント（BAL-D §4.6）で 光っているマス。なければ -1 */
   private hintSlot = -1;
 
-  /** 毎ステップ呼ぶ。hintSlot = ヒントで光らせるマス（なければ null。DigSystem.toolHint()?.slot） */
-  update(hintSlot: number | null = null): void {
+  /** #264: 休みの おおい（マスごと。使う まで 作らない）と 今の 見え方（-1 = 出して いない） */
+  private readonly cdEls: (HTMLDivElement | null)[] = new Array(HOTBAR_SIZE).fill(null);
+  private readonly cdNow: number[] = new Array(HOTBAR_SIZE).fill(-1);
+
+  /** 毎ステップ呼ぶ。hintSlot = ヒントで光らせるマス（なければ null。DigSystem.toolHint()?.slot）。cooldown = 休みの のこりを 出す マス */
+  update(hintSlot: number | null = null, cooldown: ReadonlyArray<CooldownCell> = []): void {
+    this.paintCooldown(cooldown);
     const hs = hintSlot ?? -1;
     if (hs !== this.hintSlot) {
       if (this.hintSlot >= 0) delete this.cells[this.hintSlot]?.root.dataset.hint;
@@ -158,6 +163,31 @@ export class Hotbar {
       this.dirty = true;
     }
     if (this.dirty) this.render();
+  }
+
+  private paintCooldown(cd: ReadonlyArray<CooldownCell>): void {
+    for (let i = 0; i < HOTBAR_SIZE; i++) {
+      const hit = cd.find((c) => c.index === i);
+      // 角度は 1 度 きざみ（毎ステップ スタイルを 書かない）
+      const deg = hit ? Math.round((1 - hit.ratio) * 360) : -1;
+      const key = hit ? deg * 100 + hit.seconds : -1;
+      if (key === this.cdNow[i]) continue;
+      this.cdNow[i] = key;
+      let el = this.cdEls[i];
+      if (!hit) {
+        if (el) el.hidden = true;
+        continue;
+      }
+      if (!el) {
+        el = document.createElement('div');
+        el.className = 'slot-cooldown';
+        this.cells[i].root.append(el);
+        this.cdEls[i] = el;
+      }
+      el.hidden = false;
+      el.style.setProperty('--cd-deg', `${deg}deg`);
+      el.textContent = String(hit.seconds);
+    }
   }
 
   private render(): void {

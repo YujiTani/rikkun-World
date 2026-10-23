@@ -4,6 +4,7 @@ import { BLOCK_MAX_STACK } from '../inventory/items';
 import { itemType } from '../inventory/items';
 import { itemRarity } from '../drops/rarity';
 import { ALL_RECIPES, CRAFT_RECIPES } from '../craft/recipes';
+const BASE_RECIPES = CRAFT_RECIPES.filter((r) => r.output.item !== 'torch' || r.id === 'torch'); // CRAFT-PAGE: たいまつの 足した作り方（2 つ）をのぞいた 元の 36 こ
 import { createDefaultItemInfo } from '../craft/info';
 import { itemCategory } from './itemCategory';
 import { itemIconPixels } from './itemIcon';
@@ -37,9 +38,10 @@ describe('LIVE-2 アイテム（AC23）', () => {
   });
 
   it('レシピ: こたつ = くさ 3・き 2・たいまつ 1、とりごや = き 8・くさ 4。いちばん うしろ（mushi_ami の うしろ）', () => {
-    const tail = CRAFT_RECIPES.slice(-3);
+    const tail = BASE_RECIPES.slice(-3);
     expect(tail.map((r) => r.id)).toEqual(['mushi_ami', 'nukunuku', 'toriya']);
-    expect(CRAFT_RECIPES).toHaveLength(36);
+    expect(BASE_RECIPES).toHaveLength(36);
+    expect(CRAFT_RECIPES).toHaveLength(38);
     expect(tail[1].inputs).toEqual([{ item: 'grass', count: 3 }, { item: 'log', count: 2 }, { item: 'torch', count: 1 }]);
     expect(tail[2].inputs).toEqual([{ item: 'log', count: 8 }, { item: 'grass', count: 4 }]);
     expect(tail[1].output).toEqual({ item: 'nukunuku', count: 1 });

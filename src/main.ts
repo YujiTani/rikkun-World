@@ -21,7 +21,7 @@ import { createParry, parryGlowLevel } from './combat/parry';
 import { ParryFx, StaggerIcons, bladeMidInto } from './fx/parryFx';
 import { isParrySound, playParry } from './fx/parrySounds';
 import { parryCellOf } from './char/parryCells';
-import { BLADE_TRAIL_ITEMS, bladeColorsOf } from './fx/bladeTrailModel';
+import { LEGEND_FX_ITEMS, bladeColorsOf } from './fx/bladeTrailModel';
 import { EventRelay } from './fx/eventRelay';
 import { BladeHud } from './ui/bladeHud';
 import { WearNotice } from './ui/wearNotice';
@@ -35,7 +35,7 @@ import { createLegendSystem } from './legend/LegendSystem';
 import { createWaveSystem } from './legend/WaveSystem';
 import { createSpiralDebris } from './legend/spiralDebris';
 import { createChargeLight } from './legend/chargeLight';
-import { computeHand, newHandInfo } from './legend/handPos';
+import { CHEST_UP, computeHand, FIRST_DEPTH, newHandInfo, pointOnScreen } from './legend/handPos';
 import { WindWaveFx } from './fx/windWaveFx';
 import { SpiralFx } from './fx/spiralFx';
 import { createWaveView3D } from './legend/waveView';
@@ -135,6 +135,7 @@ import { showPrepCard } from './ui/prepModel';
 import { generateChunk } from './world/gen/chunk';
 import { createWorldInfo } from './world/gen/worldInfo';
 import { Hotbar } from './ui/hotbar';
+import { cooldownCells } from './ui/hotbarModel';
 import { InventoryScreen } from './ui/inventoryScreen';
 import { Notice } from './ui/notice';
 import { PerfOverlay } from './debug/perfOverlay';
@@ -728,6 +729,16 @@ rainbowFx.warmUp(game.renderer, game.camera, game.scene); // ブルームの 作
 const spiralDebris = createSpiralDebris({ world, seed });
 const chargeLight = createChargeLight();
 const chargeLightFx = new ChargeLightFx({ scene: game.scene, camera: game.camera });
+/** WEAPON-9 §5.8: ため中の 光が あつまる 体の 中心（むね = 足もと ＋ 約 1.1）。一人称は 画面の まん中より 少し 下 */
+const _chest = { x: 0, y: 0, z: 0 };
+function chargeChest(): { x: number; y: number; z: number } {
+  const p = controller.state.position;
+  if (handInfo.first) return pointOnScreen(game.camera, 0.5, 0.6, FIRST_DEPTH, _chest);
+  _chest.x = p.x;
+  _chest.y = p.y + CHEST_UP;
+  _chest.z = p.z;
+  return _chest;
+}
 const handInfo = newHandInfo();
 /** 今の 剣を 持つ 手の 位置（三人称は 体から、一人称〈カメラが 体に 近く 人形が 見えない〉は 画面の 右下の にぎり） */
 const handNow = (): typeof handInfo => {
@@ -1118,6 +1129,11 @@ const combatUi = createCombatUi(hud, clockPhases);
 const levelHud = new LevelHud(hud);
 const buffIcons = new BuffIcons(hud);
 const hotbar = new Hotbar(hud, inventory, notice);
+/** #264: 休みの ある ためわざ（シャイニング）の 武器なら 休みの 長さ */
+const shiningCooldownOf = (item: ItemId): number | null => {
+  const c = chargeOf(w2, item);
+  return c?.kind === 'shining' ? c.cooldown : null;
+};
 // ねらっている所の ヒント（設定 actionHint で消せる）
 const hintSettings = { actionHint: true };
 const actionHint = new ActionHint(hud);
@@ -1305,8 +1321,8 @@ const weaponFx = new WeaponFx({
   // WEAPON-7: ふつうの わざに 雷の「ビシューン」を 重ねる（ダメージは かえない）
   onTechItem: (item, tech, step) => {
     if (trailStyleOf(w2, item) === 'thunder') playLegend(fxSound, 'thunderSlash');
-    // 白い 斬撃（刀の 武器ぜんぶの 土台。わざごとの 絵・決めが 当たりに 重なる よう まって 出す。カメラの 向きで 絵を きめる）。ダメージは かえない
-    if (item && BLADE_TRAIL_ITEMS.has(item) && tech) {
+    // 白い 斬撃（レジェンダリー 3 本だけ。ぼくとう・かたな・きらめくかたなは 半月の 帯と 段の 星。2026-10-23 オーナー決定。わざごとの 絵・決めが 当たりに 重なる よう まって 出す。カメラの 向きで 絵を きめる）。ダメージは かえない
+    if (item && LEGEND_FX_ITEMS.has(item) && tech) {
       const u = blade.state().move?.dirDeg ?? controller.state.yawDeg;
       slashFx.queueSlash({ tech, step: step ?? 1, uDeg: u, pos: () => controller.state.position, reach: w2.bladeReach[item] });
       // 上の 層（武器ごと）
@@ -1317,7 +1333,7 @@ const weaponFx = new WeaponFx({
   },
   // 当たった 妖怪 1 体ごとに 白い 火花
   onTechHit: (item, e) => {
-    if (!item || !BLADE_TRAIL_ITEMS.has(item)) return;
+    if (!item || !LEGEND_FX_ITEMS.has(item)) return;
     // 当たった 妖怪の 胸（足もと + 背の 6 割）に 火花を 出す
     const yk = yokaiManager?.list().find((q) => q.id === e.yokaiId);
     const chest = yk ? boxOf(yk).h * 0.6 : 0.8;
@@ -1333,8 +1349,8 @@ const weaponFx = new WeaponFx({
     raijinFx.cancel();
     rainbowFx.cancel();
   },
-  // 刀の 半月の 帯は 白い 斬撃と 置きかえ（全部の 刀）
-  hideBandTrail: true,
+  // 半月の 帯は レジェンダリー 3 本だけ 白い 斬撃と 置きかえ（ぼくとう・かたな・きらめくかたなは 帯を 出す）
+  hideBandTrail: (item) => !!item && LEGEND_FX_ITEMS.has(item),
   // WEAPON-9: 虹の つき・きりあげ・けさ は 今の 刀の 音の 代わりに nijiSlash（1 振りに 1 回。段ごとに 3 とおり）
   replaceTechSound: (item, step) => {
     if (trailStyleOf(w2, item) !== 'rainbow') return false;
@@ -1933,8 +1949,8 @@ game.onUpdate((dt) => {
       weapon,
       // CHAR-4: 持っている 刀の 色（20・21 番を この 色に）。表に ない 刀は かたなの 行
       bladeColors: weapon === 'katana' ? bladeColorsOf(w2, bs.item) : null,
-      // WEAPON-9: 手に 持つ 絵は 虹だけ 専用。シャイニング F1〜240 は ため の 形（おおげさぎり コマ 5）を 止める
-      weaponSkin: held === 'niji' ? 'niji' : null,
+      // WEAPON-9: 手に 持つ 絵は 虹・雷神剣・風神剣が 専用（女の子）。シャイニング F1〜240 は ため の 形（おおげさぎり コマ 5）を 止める
+      weaponSkin: held === 'niji' ? 'niji' : held === 'raijin_ken' ? 'raijin' : held === 'fujin_ken' ? 'fujin' : null,
       legendCharge: weapon === 'katana' && (legend.view().charging || shiningBody),
       blade:
         weapon === 'katana'
@@ -2070,7 +2086,7 @@ game.onUpdate((dt) => {
     const cl = chargeLight.step({ ticks: lv ? lv.chargeTicks : null, kind: lv ? lv.kind : null, reduced: reducedNow, full: chargeOf(w2, inventory.held()?.item ?? null)?.chargeTicks, cut: legend.state().move === 'shining' });
     if (cl.phase !== 'off') {
       handNow();
-      chargeLightFx.step(cl, handInfo, handInfo.first ? null : { x: cp.x, y: cp.y + 1.1, z: cp.z });
+      chargeLightFx.step(cl, handInfo, chargeChest());
     } else chargeLightFx.step(cl, handInfo, null);
     // WEAPON-9: 虹の ドーム（シャイニング中）。音: 弾が 消えた ステップに domeErase を 1 つ
     {
@@ -2147,7 +2163,8 @@ game.onUpdate((dt) => {
     const ck = tb ? cropKindOfBlock(tb.id) : null;
     farmAimHud.update(a, ck ? nameOf(VEG_ITEM[ck.kind]) : a ? 'はたけ' : '');
   }
-  hotbar.update(dig.toolHint()?.slot ?? null);
+  // #264: シャイニングの 休み 10 秒の のこりを 虹の マスに 出す
+  hotbar.update(dig.toolHint()?.slot ?? null, cooldownCells(inventory.slots(), shiningCooldownOf, legend.state().cooldownLeft));
   inventoryScreen.update();
   storageScreen.update();
   achievementsPage.update();
@@ -2237,6 +2254,7 @@ if (shadowStart.build) {
     yokaiGroup: yokaiManager.group,
     player: () => controller.state.position,
     facing: () => controller.state.facingDeg,
+    world,
   });
   sys.enabled = shadowStart.on;
   const sprite = rig.doll.group.getObjectByName('charSprite');
@@ -2320,15 +2338,14 @@ installTestHook(game, overlay, () => host.everReady, {
       return {
         phase: v.phase,
         palette: v.palette,
-        core: v.core,
         alpha: v.alpha,
         particles: v.particles,
-        ring: v.ring,
-        sweep: v.sweep,
-        sparkles: v.sparkles,
-        orbit: v.orbit,
-        orbitAngle: v.orbitAngle,
+        hand: v.hand,
+        handCore: v.handCore,
+        handRing: v.handRing,
+        F: v.F,
         center: h ? { ...h.world } : null,
+        chest: on ? { ...chargeChest() } : null,
         screen: h && h.screen ? { ...h.screen } : null,
       };
     },
@@ -2338,6 +2355,7 @@ installTestHook(game, overlay, () => host.everReady, {
     slashes: () => slashFx.slashes(),
     nijiFx: () => ({ ...nijiFx.info(), ...slashFx.info() }),
     fujinFx: () => fujinFx.info(),
+    windWaveFx: () => windWaveFx.info(),
     raijinFx: () => raijinFx.info(),
     rainbowFx: () => rainbowFx.info(),
     grains: () => ({ ...domeGrains.counts() }),

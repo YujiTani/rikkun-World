@@ -7,11 +7,13 @@
 // - 影の強さ・向きは shadowLight.ts、地図のカメラの 1 目そろえは shadowCamera.ts（ユニットテストあり）。
 import * as THREE from 'three';
 import { bearingDeg, dirIndex } from '../../../char/view';
+import { isTorchIndex } from '../../blocks/blockTypes';
 import type { TimeSettings } from '../../../time/config';
 import type { WorldRenderer } from '../WorldRenderer';
 import { snapMapCenter, lightAxes } from './shadowCamera';
 import { shadowLight, type ShadowLightInfo } from './shadowLight';
 import { patchSpriteMaterial, shadowPatch } from './shadowPatch';
+import { assignTorchSlots, hashStep, pickNearestIndices, pickNearestTorches, pickRedrawTorch, shouldRedrawTorch, torchCenter, torchKey, type TorchCandidate } from './shadowTorch';
 
 /** 影の中の明るさ（オーナーの決定 0.55） */
 export const SHADOW_DARKNESS = 0.55;
@@ -23,6 +25,8 @@ export interface ShadowStatsHook {
   /** staticRedrawn / draws / triangles = このコマ、maxStaticPerFrame = resetStats からの最大 */
   frame: { staticRedrawn: ('near' | 'far')[]; draws: number; triangles: number; maxStaticPerFrame: number };
   light: { x: number; y: number; z: number; strength: number; body: 'sun' | 'moon' };
+  /** 段 2: たいまつの影。count = 使っている地図の数（2 まで）、redraws = resetStats からの 描き直し、frame* = このコマ */
+  torch: { count: number; redraws: number; frameRedrawn: number; frameDraws: number; frameTriangles: number };
 }
 
 export interface ShadowDeps {
@@ -36,6 +40,21 @@ export interface ShadowDeps {
   player: () => { x: number; y: number; z: number };
   /** キャラの向き（度。yaw と同じ数え方） */
   facing: () => number;
+  /** たいまつをさがすための世界（ブロック番号） */
+  world?: { getIndex(x: number, y: number, z: number): number };
+}
+
+/** たいまつの影（段 2）の 1 本ぶん */
+interface TorchSlot {
+  rt: THREE.WebGLCubeRenderTarget | null;
+  cam: THREE.CubeCamera | null;
+  pos: THREE.Vector3;
+  key: number;
+  active: boolean;
+  hadMovers: boolean;
+  needsDraw: boolean;
+  /** 最後に描いたときの 動く物の 位置・絵のコマの まぜた数（同じなら 描き直さない） */
+  sig: number;
 }
 
 interface Cascade {
@@ -63,6 +82,15 @@ const MAP_OUTSET = 16; // 地図のはばの外 16 ブロックまでのメッ�
 const THROTTLE = 4; // メッシュが変わってから描き直すまでの最小のコマ数
 const BIAS = new THREE.Matrix4().set(0.5, 0, 0, 0.5, 0, 0.5, 0, 0.5, 0, 0, 0.5, 0.5, 0, 0, 0, 1);
 const RAD2DEG = 180 / Math.PI;
+const TORCH_RADIUS = 10; // 光の とどく半径（ブロック）
+const TORCH_NEAR_MOVER = 11; // この中に動く物がいるコマだけ 描き直す
+const TORCH_MAX_YOKAI = 3; // 地図に描く妖怪は そのたいまつに近い 3 体まで（丸い影と同じ考え）
+const TORCH_FAR_MARGIN = 1; // 半径 11 + これより 遠い妖怪は 地図に描かない
+const TORCH_FIND = 16; // プレイヤーから これ以内の たいまつを さがす
+const TORCH_FIND_EVERY = 30;
+const TORCH_ENC = 12; // 地図に書く距離の 1.0 = 12 ブロック
+const TORCH_CUBE = 256;
+const TORCH_DARKNESS = 0.3; // 影の中の たいまつの光（オーナーの決定）
 
 function makeDepthTarget(size: number): { rt: THREE.WebGLRenderTarget; depth: THREE.DepthTexture } {
   const depth = new THREE.DepthTexture(size, size, THREE.UnsignedIntType);
@@ -87,6 +115,7 @@ export class ShadowSystem {
   private readonly depthBasic = new THREE.MeshBasicMaterial({ colorWrite: false });
   private readonly depthCutout: THREE.MeshBasicMaterial;
   private readonly cardScene = new THREE.Scene();
+  private readonly cardDistScene = new THREE.Scene();
   private card: THREE.Mesh | null = null;
   private spriteMesh: THREE.Mesh | null = null;
   /** 影を落とす板の 絵の場所（光の側から見た向きの絵） */
@@ -111,6 +140,24 @@ export class ShadowSystem {
   private redraws = { near: 0, far: 0, dynamic: 0 };
   private maxStatic = 0;
   private frameInfo = { staticRedrawn: [] as ('near' | 'far')[], draws: 0, triangles: 0 };
+  // ---- たいまつ（段 2）
+  private readonly torches: TorchSlot[] = [0, 1].map(() => ({ rt: null, cam: null, pos: new THREE.Vector3(), key: -1, active: false, hadMovers: false, needsDraw: false, sig: 0 }));
+  private torchDirty = true;
+  private torchFrame = 0;
+  private torchRedraws = 0;
+  private torchFrameInfo = { redrawn: 0, draws: 0, triangles: 0 };
+  private readonly torchDist: THREE.ShaderMaterial;
+  private cardDist: THREE.Mesh | null = null;
+  private readonly tmpMovers: THREE.Vector3[] = [];
+  /** 1 本の たいまつから 動く物（キャラ・妖怪）までの 距離（毎コマ使い回す） */
+  private readonly torchDists: number[][] = [[], []];
+  /** 各たいまつの 地図に描く 近い妖怪（mv の場所。最大 TORCH_MAX_YOKAI） */
+  private readonly torchPick: number[][] = [[], []];
+  private readonly torchNeed: boolean[] = [false, false];
+  private readonly torchSigs: number[] = [0, 0];
+  private readonly torchHas: boolean[] = [false, false];
+  private lastTorchDrawn = -1;
+  private readonly tmpColor = new THREE.Color();
   /** 影の強さを 0 にしたい（shadeAt の 1 回だけ影なし） */
   private forceOff = false;
 
@@ -130,6 +177,11 @@ export class ShadowSystem {
     this.cascades.push(mk('near', 2048, 32, 4, 0.25));
     this.cascades.push(mk('far', 1024, 96, 16, 0.5));
     this.dyn = mk('near', 1024, 20, 0, 0);
+    this.torchDist = new THREE.ShaderMaterial({
+      uniforms: { uLight: { value: new THREE.Vector3() }, uInv: { value: 1 / TORCH_ENC } },
+      vertexShader: 'varying vec3 vW; void main(){ vW = (modelMatrix * vec4(position, 1.0)).xyz; gl_Position = projectionMatrix * viewMatrix * vec4(vW, 1.0); }',
+      fragmentShader: 'uniform vec3 uLight; uniform float uInv; varying vec3 vW; void main(){ gl_FragColor = vec4(vec3(length(vW - uLight) * uInv), 1.0); }',
+    });
     const u = this.uniforms;
     u.uShMap0.value = this.cascades[0]!.depth;
     u.uShMap1.value = this.cascades[1]!.depth;
@@ -137,8 +189,12 @@ export class ShadowSystem {
     u.uShTexel.value.set((2 * 32) / 2048, (2 * 96) / 1024, (2 * 20) / 1024);
     u.uShRange.value.set(DEPTH_REACH * 2, DEPTH_REACH * 2, DEPTH_REACH * 2);
     u.uShP.value.set(0, SHADOW_DARKNESS, 9, 0);
+    u.uShT.value.set(0, TORCH_RADIUS, TORCH_DARKNESS, TORCH_ENC);
     this.info = shadowLight(d.dayTick(), d.timeSettings);
-    d.worldRenderer.onMeshChange = (cx, cz) => this.meshChanged(cx, cz);
+    d.worldRenderer.onMeshChange = (cx, cz) => {
+      this.torchDirty = true;
+      this.meshChanged(cx, cz);
+    };
     // もう作ってあるブロックの材料は 影つきのプログラムで 作りなおす
     for (const m of d.worldRenderer.materials()) m.needsUpdate = true;
   }
@@ -158,13 +214,16 @@ export class ShadowSystem {
     const mat = mesh.material as THREE.ShaderMaterial;
     patchSpriteMaterial(mat);
     // 影を落とす板: 同じ絵を、光の方へたてに向ける。絵は「光の側から見た向き」のコマ
-    const cardMat = new THREE.ShaderMaterial({
+    const mkCard = (dist: boolean) => new THREE.ShaderMaterial({
       // uMap・uSize・uRect・uCrop は 光の側から見た向きのコマ（cardCell が いまの動き・コマから 決める。キャラの板の uniform とは 別）
-      uniforms: { uMap: this.cardMap, uSize: { value: this.cardSize }, uRect: { value: this.cardRect }, uCrop: { value: this.cardCrop } },
-      vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      uniforms: { uMap: this.cardMap, uSize: { value: this.cardSize }, uRect: { value: this.cardRect }, uCrop: { value: this.cardCrop }, ...(dist ? { uLight: this.torchDist.uniforms.uLight!, uInv: this.torchDist.uniforms.uInv! } : {}) },
+      vertexShader: dist
+        ? 'varying vec2 vUv; varying vec3 vW; void main(){ vUv = uv; vW = (modelMatrix * vec4(position, 1.0)).xyz; gl_Position = projectionMatrix * viewMatrix * vec4(vW, 1.0); }'
+        : 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
       // 絵の透明でぬく。ほそい足・すきまが 光をもらさないよう、まわり 12 目ぶんふくらませた形にする（見やすい影）
       // 絵の引き方は キャラの板（src/char/sprite.ts）と同じ整数の目（切りつめた絵。四角の外は とうめい）
-      fragmentShader: `uniform sampler2D uMap; uniform vec4 uRect; uniform vec4 uCrop; uniform vec2 uSize; varying vec2 vUv;
+      fragmentShader: `${dist ? 'uniform vec3 uLight; uniform float uInv; varying vec3 vW;' : ''}
+uniform sampler2D uMap; uniform vec4 uRect; uniform vec4 uCrop; uniform vec2 uSize; varying vec2 vUv;
 bool solid(vec2 c) {
   c = clamp(c, 0.001, 0.999);
   vec2 cp = floor(clamp(vec2(c.x, 1.0 - c.y) * 256.0, 0.0, 255.0));
@@ -181,14 +240,19 @@ void main() {
     hit = solid(vUv + d * (6.0 / 256.0)) || solid(vUv + d * (12.0 / 256.0));
   }
   if (!hit) discard;
-  gl_FragColor = vec4(0.0);
+  gl_FragColor = ${dist ? 'vec4(vec3(length(vW - uLight) * uInv), 1.0)' : 'vec4(0.0)'};
 }`,
       side: THREE.DoubleSide,
     });
-    this.card = new THREE.Mesh(mesh.geometry, cardMat);
+    this.card = new THREE.Mesh(mesh.geometry, mkCard(false));
     this.card.matrixAutoUpdate = false;
     this.card.frustumCulled = false;
     this.cardScene.add(this.card);
+    // たいまつの地図用: 同じ板で 光からの距離を書く
+    this.cardDist = new THREE.Mesh(mesh.geometry, mkCard(true));
+    this.cardDist.matrixAutoUpdate = false;
+    this.cardDist.frustumCulled = false;
+    this.cardDistScene.add(this.cardDist);
   }
 
   // ------------------------------------------------------------------ 毎コマ（描く前）
@@ -228,11 +292,12 @@ void main() {
     // 昼（太陽が出ている）は ブロックの光を 影のこさ まで弱める（月の夜は そのまま）
     u.uShBlockDay.value = on && info.body === 'sun' ? THREE.MathUtils.lerp(1, SHADOW_DARKNESS, info.strength) : 1;
     u.uShL.value.copy(this.L);
+    const p = this.d.player();
+    this.updateTorches(p, force, on);
     if (strength <= 0.001) return;
     const r = this.d.renderer;
     const prevTarget = r.getRenderTarget();
     const prevAutoClear = r.autoClear;
-    const p = this.d.player();
     this.maybeStatic(p, force);
     this.renderDynamic(p, force);
     // キャラの板は 空の光の段階を 持たないので、頭の高さの 空の光で「じかの 日の光」の 割合を 出す（洞くつで 太陽の影にしない）
@@ -390,6 +455,253 @@ void main() {
     return { calls: r.info.render.calls, triangles: r.info.render.triangles };
   }
 
+  // ------------------------------------------------------------------ たいまつの影（段 2）
+
+  /** プレイヤーの近くの たいまつ 2 本をさがし、動く物が近いコマ（と たいまつが変わったとき）だけ キューブ地図を描き直す */
+  private updateTorches(p: { x: number; y: number; z: number }, force: boolean, on: boolean): void {
+    const u = this.uniforms;
+    this.torchFrameInfo = force ? this.torchFrameInfo : { redrawn: 0, draws: 0, triangles: 0 };
+    const world = this.d.world;
+    if (!on || !world) {
+      u.uShT.value.x = 0;
+      u.uShTA.value.w = 0;
+      u.uShTB.value.w = 0;
+      for (const t of this.torches) {
+        t.active = false;
+        t.key = -1;
+      }
+      this.torchDirty = true;
+      return;
+    }
+    this.torchFrame++;
+    if (this.torchDirty || force || this.torchFrame % TORCH_FIND_EVERY === 0) {
+      this.torchDirty = false;
+      this.findTorches(p, world);
+    }
+    let any = false;
+    let matricesFresh = false;
+    const mv = this.collectMovers(p);
+    // 1) どの たいまつが 描き直しを 求めるか
+    const need = this.torchNeed;
+    for (let i = 0; i < 2; i++) {
+      need[i] = false;
+      const t = this.torches[i]!;
+      if (!t.active) continue;
+      const md = this.torchDists[i]!;
+      md.length = mv.length;
+      for (let k = 0; k < mv.length; k++) md[k] = mv[k]!.distanceTo(t.pos);
+      pickNearestIndices(md, 1, TORCH_MAX_YOKAI, TORCH_NEAR_MOVER + TORCH_FAR_MARGIN, this.torchPick[i]!);
+      const dec = shouldRedrawTorch({ moverDistances: md, near: TORCH_NEAR_MOVER, hadMovers: t.hadMovers, needsDraw: t.needsDraw });
+      let sig = 0;
+      if (dec.hasMovers) {
+        if (!matricesFresh) {
+          this.d.yokaiGroup.updateMatrixWorld(true);
+          matricesFresh = true;
+        }
+        sig = this.moverSignature(p, this.torchPick[i]!);
+      }
+      this.torchSigs[i] = sig;
+      this.torchHas[i] = dec.hasMovers;
+      // 動く物の 位置・絵のコマが 前に描いたときと同じなら 描き直さない
+      need[i] = dec.redraw && (t.needsDraw || !dec.hasMovers || sig !== t.sig || !t.hadMovers);
+    }
+    // 2) 1 コマに 描き直すのは 1 本まで（2 本とも なら 交互。描かなかった方は 次のコマに のこす）
+    const chosen = pickRedrawTorch(need, this.lastTorchDrawn);
+    for (let i = 0; i < 2; i++) {
+      const t = this.torches[i]!;
+      const uv = i === 0 ? u.uShTA.value : u.uShTB.value;
+      if (!t.active) {
+        uv.w = 0;
+        continue;
+      }
+      any = true;
+      const hasMovers = this.torchHas[i]!;
+      if (need[i]) {
+        if (i === chosen) {
+          this.drawTorch(t, i, p, force);
+          this.lastTorchDrawn = i;
+          t.sig = this.torchSigs[i]!;
+        } else {
+          // 次のコマに まわす（hadMovers・needsDraw・sig は そのまま）
+          uv.set(t.pos.x, t.pos.y, t.pos.z, 1);
+          (i === 0 ? u.uShCubeA : u.uShCubeB).value = t.rt!.texture;
+          continue;
+        }
+      }
+      t.hadMovers = hasMovers;
+      t.needsDraw = false;
+      uv.set(t.pos.x, t.pos.y, t.pos.z, 1);
+      (i === 0 ? u.uShCubeA : u.uShCubeB).value = t.rt!.texture;
+    }
+    u.uShT.value.x = any ? 1 : 0;
+  }
+
+  /** 半径 11 以内の 動く物の 位置・向き・絵のコマを まぜた数（描き直すかの 見分け） */
+  private moverSignature(p: { x: number; y: number; z: number }, pick: readonly number[]): number {
+    let h = 0;
+    h = hashStep(h, p.x);
+    h = hashStep(h, p.y);
+    h = hashStep(h, p.z);
+    h = hashStep(h, this.d.facing());
+    const sm = this.spriteMesh;
+    if (sm) {
+      const u = (sm.material as THREE.ShaderMaterial).uniforms;
+      const rect = u.uRect?.value as THREE.Vector4 | undefined;
+      const crop = u.uCrop?.value as THREE.Vector4 | undefined;
+      if (rect) h = hashStep(hashStep(hashStep(hashStep(h, rect.x), rect.y), rect.z), rect.w);
+      if (crop) h = hashStep(hashStep(hashStep(hashStep(h, crop.x), crop.y), crop.z), crop.w);
+    }
+    const kids = this.d.yokaiGroup.children;
+    for (const k of pick) h = this.hashMatrices(kids[k - 1]!, h);
+    return h;
+  }
+
+  private hashMatrices(o: THREE.Object3D, h: number): number {
+    const e = o.matrixWorld.elements;
+    for (let i = 0; i < 16; i++) h = hashStep(h, e[i]!);
+    for (let i = 0; i < o.children.length; i++) h = this.hashMatrices(o.children[i]!, h);
+    return h;
+  }
+
+  /** 動く物の位置: キャラと妖怪（いちばん上の子の位置） */
+  private collectMovers(p: { x: number; y: number; z: number }): THREE.Vector3[] {
+    const out = this.tmpMovers;
+    const kids = this.d.yokaiGroup.children;
+    while (out.length < kids.length + 1) out.push(new THREE.Vector3());
+    out.length = kids.length + 1;
+    out[0]!.set(p.x, p.y + 0.8, p.z);
+    for (let i = 0; i < kids.length; i++) kids[i]!.getWorldPosition(out[i + 1]!);
+    return out;
+  }
+
+  private findTorches(p: { x: number; y: number; z: number }, world: { getIndex(x: number, y: number, z: number): number }): void {
+    const px = Math.floor(p.x);
+    const py = Math.floor(p.y);
+    const pz = Math.floor(p.z);
+    const cands: TorchCandidate[] = [];
+    for (let x = px - TORCH_FIND; x <= px + TORCH_FIND; x++) {
+      for (let z = pz - TORCH_FIND; z <= pz + TORCH_FIND; z++) {
+        for (let y = py - 10; y <= py + 12; y++) {
+          const bi = world.getIndex(x, y, z);
+          if (bi > 0 && isTorchIndex(bi)) cands.push({ x, y, z });
+        }
+      }
+    }
+    const found = pickNearestTorches(cands, p, TORCH_FIND);
+    const slots = this.torches;
+    const res = assignTorchSlots(slots, found.map((q) => torchKey(q)));
+    for (let i = 0; i < slots.length; i++) {
+      const t = slots[i]!;
+      const r = res[i]!;
+      t.key = r.key;
+      t.active = r.active;
+      if (!r.fresh) continue;
+      const f = found.find((q) => torchKey(q) === r.key)!;
+      const c = torchCenter(f);
+      t.pos.set(c.x, c.y, c.z);
+      t.needsDraw = true;
+      t.hadMovers = false;
+      if (!t.rt) {
+        t.rt = new THREE.WebGLCubeRenderTarget(TORCH_CUBE, { type: THREE.UnsignedByteType, format: THREE.RGBAFormat, generateMipmaps: false, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter });
+        t.cam = new THREE.CubeCamera(0.05, TORCH_ENC, t.rt);
+      }
+    }
+  }
+
+  /** 妖怪 1 体ぶん: 光からの距離を書く材料にかえる（透明・うら面・光る部品は 描かない）。もとは yokaiSwap に のこす */
+  private swapForTorch(o: THREE.Object3D): void {
+    const m = o as THREE.Mesh;
+    if (m.isMesh) {
+      const mat = m.material as THREE.Material;
+      this.yokaiSwap.push([m, m.material, m.visible]);
+      if (Array.isArray(m.material) || mat.transparent || mat.side === THREE.BackSide || (mat as THREE.MeshBasicMaterial).fog === false) m.visible = false;
+      else m.material = this.torchDist;
+    }
+    for (let i = 0; i < o.children.length; i++) this.swapForTorch(o.children[i]!);
+  }
+
+  /** 1 本の たいまつの キューブ地図を 描く: 光からの距離を 赤に（からは 1.0 = とても遠い） */
+  private drawTorch(t: TorchSlot, slot: number, p: { x: number; y: number; z: number }, force: boolean): void {
+    const r = this.d.renderer;
+    const cc = t.cam!;
+    const prevTarget = r.getRenderTarget();
+    const prevAuto = r.autoClear;
+    const prevClear = r.getClearColor(this.tmpColor).getHex();
+    const prevAlpha = r.getClearAlpha();
+    cc.position.copy(t.pos);
+    if (cc.coordinateSystem !== r.coordinateSystem) {
+      cc.coordinateSystem = r.coordinateSystem;
+      cc.updateCoordinateSystem();
+    }
+    cc.updateMatrixWorld(true);
+    this.torchDist.uniforms.uLight!.value.copy(t.pos);
+    // 板の絵: 光の側から見た向き
+    let cardOk = false;
+    const sm = this.spriteMesh;
+    const near = Math.hypot(p.x - t.pos.x, p.y - t.pos.y, p.z - t.pos.z) < TORCH_NEAR_MOVER + 1;
+    if (sm && this.cardDist && near) {
+      sm.updateWorldMatrix(true, false);
+      sm.matrixWorld.decompose(this.tmpPos, this.tmpQuat, this.tmpScale);
+      const dx = t.pos.x - this.tmpPos.x;
+      const dz = t.pos.z - this.tmpPos.z;
+      this.tmpQuat.setFromAxisAngle(THREE.Object3D.DEFAULT_UP, Math.atan2(dx, dz));
+      const cardCell = sm.userData.cardCell as ((t: number, d: number, rect: THREE.Vector4, crop: THREE.Vector4, map: { value: THREE.Texture | null }, size: THREE.Vector2) => boolean) | undefined;
+      cardOk = !!cardCell && cardCell(0, dirIndex(bearingDeg(dx, dz), this.d.facing()), this.cardRect, this.cardCrop, this.cardMap, this.cardSize);
+      if (cardOk) {
+        this.cardDist.matrix.compose(this.tmpPos, this.tmpQuat, this.tmpScale);
+        this.cardDist.matrixWorld.copy(this.cardDist.matrix);
+      }
+    }
+    const swapped = this.yokaiSwap;
+    swapped.length = 0;
+    // 地図に描く妖怪は そのたいまつに近い 3 体まで（pick は mv の場所 = 子の番号 + 1）
+    const kids = this.d.yokaiGroup.children;
+    const pick = this.torchPick[slot]!;
+    for (let i = 0; i < kids.length; i++) {
+      if (pick.includes(i + 1)) this.swapForTorch(kids[i]!);
+      else {
+        swapped.push([kids[i] as THREE.Mesh, null as unknown as THREE.Material, kids[i]!.visible]);
+        kids[i]!.visible = false;
+      }
+    }
+    let calls = 0;
+    let triangles = 0;
+    try {
+      r.setClearColor(0xffffff, 1);
+      r.autoClear = false;
+      for (let face = 0; face < 6; face++) {
+        const cam = cc.children[face] as THREE.PerspectiveCamera;
+        r.setRenderTarget(t.rt!, face);
+        r.clear(true, true, false);
+        r.render(this.d.yokaiGroup, cam);
+        calls += r.info.render.calls;
+        triangles += r.info.render.triangles;
+        if (cardOk) {
+          r.render(this.cardDistScene, cam);
+          calls += r.info.render.calls;
+          triangles += r.info.render.triangles;
+        }
+      }
+    } finally {
+      for (const [m, mat, vis] of swapped) {
+        if (mat) m.material = mat;
+        m.visible = vis;
+      }
+      swapped.length = 0;
+      r.setClearColor(prevClear, prevAlpha);
+      r.setRenderTarget(prevTarget);
+      r.autoClear = prevAuto;
+    }
+    this.torchRedraws++;
+    if (!force) {
+      this.torchFrameInfo.redrawn++;
+      this.torchFrameInfo.draws += calls;
+      this.torchFrameInfo.triangles += triangles;
+      this.frameInfo.draws += calls;
+      this.frameInfo.triangles += triangles;
+    }
+  }
+
   // ------------------------------------------------------------------ 窓口・調べる用
 
   /** fn の間だけ 影を on / off にして（地図は最新にして）、おわったらもどす */
@@ -416,19 +728,21 @@ void main() {
       redraws: { ...this.redraws },
       frame: { ...this.frameInfo, staticRedrawn: [...this.frameInfo.staticRedrawn], maxStaticPerFrame: this.maxStatic },
       light: { x: i.dir.x, y: i.dir.y, z: i.dir.z, strength: i.strength, body: i.body },
+      torch: { count: this.torches.filter((t) => t.active).length, redraws: this.torchRedraws, frameRedrawn: this.torchFrameInfo.redrawn, frameDraws: this.torchFrameInfo.draws, frameTriangles: this.torchFrameInfo.triangles },
     };
   }
 
   resetStats(): void {
     this.redraws = { near: 0, far: 0, dynamic: 0 };
     this.maxStatic = 0;
+    this.torchRedraws = 0;
   }
 
   /** F3 に出す 1 行 */
   line(): string {
     if (!this._enabled) return 'shadow off';
     const f = this.frameInfo;
-    return `shadow near ${this.redraws.near} far ${this.redraws.far} dyn ${this.redraws.dynamic}  draw ${f.draws} tri ${f.triangles}`;
+    return `shadow near ${this.redraws.near} far ${this.redraws.far} dyn ${this.redraws.dynamic}  draw ${f.draws} tri ${f.triangles}  torch ${this.torches.filter((t) => t.active).length}/${this.torchRedraws}`;
   }
 
   /** 地図・材料・板を 捨てる（GPU の物を返す）。ゲームの終わりに 1 回 */
@@ -438,6 +752,9 @@ void main() {
       c.rt.dispose();
       c.depth.dispose();
     }
+    for (const t of this.torches) t.rt?.dispose();
+    this.torchDist.dispose();
+    if (this.cardDist) (this.cardDist.material as THREE.Material).dispose();
     this.depthBasic.dispose();
     this.depthCutout.dispose();
     if (this.card) {
@@ -452,6 +769,7 @@ void main() {
   gpuBytes(): number {
     let b = 0;
     for (const c of [...this.cascades, this.dyn]) b += c.size * c.size * (4 + 1);
+    for (const t of this.torches) if (t.rt) b += TORCH_CUBE * TORCH_CUBE * 6 * (4 + 4);
     return b;
   }
 }

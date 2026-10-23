@@ -50,7 +50,7 @@ export function patchAtlasShader(shader: WebGLProgramParametersWithUniforms): vo
       'atlas フラグメント common',
     ),
     '#include <color_fragment>',
-    '#include <color_fragment>\n  diffuseColor.rgb *= (uShP.x > 0.001 ? shRatio(vShSB, vShBB, vShFloor, vShSky, vShW, shDerivNormal(vShW)) : vec3(1.0));',
+    '#include <color_fragment>\n  diffuseColor.rgb *= ((uShP.x > 0.001 || uShT.x > 0.5) ? shRatio(vShSB, vShBB, vShFloor, vShSky, vShW, shDerivNormal(vShW)) : vec3(1.0));',
     'atlas フラグメント光',
   );
 }
