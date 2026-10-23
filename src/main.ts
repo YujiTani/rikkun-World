@@ -42,6 +42,7 @@ import { ChargeLightFx } from './fx/chargeLightFx';
 import { NijiFx } from './fx/nijiFx';
 import { SlashFx } from './fx/slashFx';
 import { FujinOrbitFx } from './fx/fujinOrbitFx';
+import { RaijinStormFx } from './fx/raijinStormFx';
 import { boxOf } from './combat/attackFacing';
 import { createDomeGrains } from './legend/domeGrains';
 import { BuffIcons } from './ui/buffIcons';
@@ -691,7 +692,8 @@ const domeGrains = createDomeGrains();
 nijiFx.warmUp(game.renderer, game.camera, game.scene);
 const slashFx = new SlashFx(game.scene, game.camera);
 slashFx.warmUp(game.renderer, game.camera, game.scene);
-// 白い 斬撃の 上の 層（武器ごとの エフェクト）: 風神剣 = 体の まわりを まわる 風の 帯（雷神剣は 作り直し中）
+// 白い 斬撃の 上の 層（武器ごとの エフェクト）: 雷神剣 = 段ごとに 強くなる 黄色い 雷・風神剣 = 体の まわりを まわる 風の 帯
+const raijinFx = new RaijinStormFx(game.scene, game.camera, (tech) => w2.bladeTech[tech]);
 const fujinFx = new FujinOrbitFx(game.scene, game.camera);
 const spiralDebris = createSpiralDebris({ world, seed });
 const chargeLight = createChargeLight();
@@ -1201,7 +1203,8 @@ const weaponFx = new WeaponFx({
       const u = blade.state().move?.dirDeg ?? controller.state.yawDeg;
       slashFx.queueSlash({ tech, step: step ?? 1, uDeg: u, pos: () => controller.state.position, reach: w2.bladeReach[item] });
       // 上の 層（武器ごと）
-      if (item === 'fujin_ken') fujinFx.queue({ tech, step: step ?? 1, uDeg: u, pos: () => controller.state.position, reach: w2.bladeReach[item] });
+      if (item === 'raijin_ken') raijinFx.queue({ tech, step: step ?? 1, uDeg: u, pos: () => controller.state.position });
+      else if (item === 'fujin_ken') fujinFx.queue({ tech, step: step ?? 1, uDeg: u, pos: () => controller.state.position, reach: w2.bladeReach[item] });
     }
   },
   // 当たった 妖怪 1 体ごとに 白い 火花
@@ -1215,6 +1218,7 @@ const weaponFx = new WeaponFx({
   onBladeCancel: () => {
     slashFx.cancelSlash();
     fujinFx.cancel();
+    raijinFx.cancel();
   },
   // 刀の 半月の 帯は 白い 斬撃と 置きかえ（全部の 刀）
   hideBandTrail: true,
@@ -1948,6 +1952,7 @@ game.onUpdate((dt) => {
       nijiFx.step(dv.dome > 0 ? { radius: dv.dome, center: nijiCenter(cp), groundY: dv.groundY, F: mv.moveF } : null, domeGrains, reducedNow, rig.getInfo().hideChar);
       slashFx.step(reducedNow);
       fujinFx.step();
+      raijinFx.step();
       if (domeEraseThisStep) {
         playLegend(fxSound, 'domeErase');
         domeEraseThisStep = false;
@@ -2199,6 +2204,7 @@ installTestHook(game, overlay, () => host.everReady, {
     slashes: () => slashFx.slashes(),
     nijiFx: () => ({ ...nijiFx.info(), ...slashFx.info() }),
     fujinFx: () => fujinFx.info(),
+    raijinFx: () => raijinFx.info(),
     grains: () => ({ ...domeGrains.counts() }),
   } as unknown as TestHookGroups['legend'],
   player: { ...createPlayerHook(controller), handPos: () => { const h = handNow(); return { world: { ...h.world }, screen: h.screen ? { ...h.screen } : null }; }, glow: () => { const g = parry.state().glowLeft; return { visible: g > 0, ticksLeft: g, level: parryGlowLevel(g, w2) }; }, respawn: () => controller.respawn(), doll: withSpriteDoll(cameraHook.doll, sprite, rig.doll.group) } as unknown as TestHookGroups['player'],

@@ -160,17 +160,17 @@ export class FxBatch {
    * 色つきの 帯（無地）。w = 幅、a = 明るさ。soft なら ふちの 明るさを 0 に（にじみ）。skip[k] が 1 の 区間は 書かない。
    * `p` は 点列（x, y, z）・n 点（128 まで）
    */
-  ribbon(view: FxView, p: Float32Array, n: number, w: number, c: readonly number[], a: number, soft = false, skip: Uint8Array | null = null): void {
+  ribbon(view: FxView, p: Float32Array, n: number, w: number | Float32Array, c: readonly number[], a: number, soft = false, skip: Uint8Array | null = null): void {
     if (n < 2) return;
     this.sides(view, p, n);
-    const h = w / 2;
     for (let k = 0; k < n - 1; k++) {
       if (skip && skip[k]) continue;
       const k1 = k + 1;
+      const h = (typeof w === 'number' ? w : w[k]!) / 2, h1 = (typeof w === 'number' ? w : w[k1]!) / 2;
       const l0x = p[k * 3]! - this.sx[k]! * h, l0y = p[k * 3 + 1]! - this.sy[k]! * h, l0z = p[k * 3 + 2]! - this.sz[k]! * h;
       const r0x = p[k * 3]! + this.sx[k]! * h, r0y = p[k * 3 + 1]! + this.sy[k]! * h, r0z = p[k * 3 + 2]! + this.sz[k]! * h;
-      const l1x = p[k1 * 3]! - this.sx[k1]! * h, l1y = p[k1 * 3 + 1]! - this.sy[k1]! * h, l1z = p[k1 * 3 + 2]! - this.sz[k1]! * h;
-      const r1x = p[k1 * 3]! + this.sx[k1]! * h, r1y = p[k1 * 3 + 1]! + this.sy[k1]! * h, r1z = p[k1 * 3 + 2]! + this.sz[k1]! * h;
+      const l1x = p[k1 * 3]! - this.sx[k1]! * h1, l1y = p[k1 * 3 + 1]! - this.sy[k1]! * h1, l1z = p[k1 * 3 + 2]! - this.sz[k1]! * h1;
+      const r1x = p[k1 * 3]! + this.sx[k1]! * h1, r1y = p[k1 * 3 + 1]! + this.sy[k1]! * h1, r1z = p[k1 * 3 + 2]! + this.sz[k1]! * h1;
       if (soft) {
         const c0x = p[k * 3]!, c0y = p[k * 3 + 1]!, c0z = p[k * 3 + 2]!, c1x = p[k1 * 3]!, c1y = p[k1 * 3 + 1]!, c1z = p[k1 * 3 + 2]!;
         this.v(l0x, l0y, l0z, c, 0, 0.5, 0.5); this.v(c0x, c0y, c0z, c, a, 0.5, 0.5); this.v(l1x, l1y, l1z, c, 0, 0.5, 0.5);
