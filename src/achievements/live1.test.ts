@@ -37,9 +37,9 @@ describe('LIVE-1 畜産の 記録（§4.5）', () => {
   });
   it('実績の 並び（版 3.2 §4.5）: 17 こ、小 は feed.1・pet.1・eatEgg.1 だけ。bug・carry は eatEgg の うしろ', () => {
     const l = ACHIEVEMENT_DEFS.filter((d) => d.series.startsWith('animal.'));
-    expect(l.length).toBe(27); // LIVE-2 で ＋9（17 → 26）、LIVE-3 で ＋1（eatMeat）。並び は live2.test.ts・live3.test.ts
-    expect(l.filter((d) => d.small).map((d) => d.id)).toEqual(['animal.feed.1', 'animal.pet.1', 'animal.eatEgg.1', 'animal.eatMeat.1', 'animal.home.1']);
-    expect(l.slice(-16, -9).map((d) => d.id)).toEqual(['animal.eatEgg.1', 'animal.eatMeat.1', 'animal.bug.1', 'animal.bug.10', 'animal.bug.50', 'animal.carry.1', 'animal.carry.10']);
+    expect(l.length).toBe(28); // LIVE-2 で ＋9（17 → 26）、LIVE-3 で ＋1（eatMeat）、LIVE-4 で ＋1（machoKO。eatMeat の すぐ うしろ）。並び は live2.test.ts・live3.test.ts
+    expect(l.filter((d) => d.small).map((d) => d.id)).toEqual(['animal.feed.1', 'animal.pet.1', 'animal.eatEgg.1', 'animal.eatMeat.1', 'animal.machoKO.1', 'animal.home.1']);
+    expect(l.slice(-17, -9).map((d) => d.id)).toEqual(['animal.eatEgg.1', 'animal.eatMeat.1', 'animal.machoKO.1', 'animal.bug.1', 'animal.bug.10', 'animal.bug.50', 'animal.carry.1', 'animal.carry.10']);
     expect(l.find((d) => d.id === 'animal.friend.1')!.name).toBe('はじめて なかま が できた！');
     expect(l.find((d) => d.id === 'animal.friend.5')!.name).toBe('なかま が 5 わ に なった！');
   });
@@ -57,15 +57,15 @@ describe('LIVE-1 畜産の 記録（§4.5）', () => {
     expect(n('craft.mushi_ami.1')).toBe('はじめて むしとりあみ を つくった！');
   });
   it('数（AC26）: LIVE-1 版 3.2 の 数 は LIVE-2 で ふえた（LIVE-3 で さらに ＋1。ぜんぶ 278（GOLD-1 ＋4・COUNTRY-1 で ＋13）・小 88・そだてる 63・小 17。数の 表は achievements.test.ts）。つくる は 1 ふえ（小 1）。craft.mushi_ami は craft.bucket の うしろ', () => {
-    expect(ACHIEVEMENT_DEFS.length).toBe(278);
-    expect(ACHIEVEMENT_DEFS.filter((d) => d.small).length).toBe(88);
+    expect(ACHIEVEMENT_DEFS.length).toBe(279);
+    expect(ACHIEVEMENT_DEFS.filter((d) => d.small).length).toBe(89);
     const farm = ACHIEVEMENT_DEFS.filter((d) => d.category === 'farm');
-    expect(farm.length).toBe(63);
-    expect(farm.filter((d) => d.small).length).toBe(17);
+    expect(farm.length).toBe(64);
+    expect(farm.filter((d) => d.small).length).toBe(18);
     const ids = ACHIEVEMENT_DEFS.map((d) => d.id);
     expect(ids.indexOf('craft.mushi_ami.1')).toBe(ids.indexOf('craft.bucket.1') + 1);
     expect(ACHIEVEMENT_DEFS.find((d) => d.id === 'craft.mushi_ami.1')).toMatchObject({ category: 'craft', small: true, stat: 'craft:mushi_ami' });
-    expect(new Set(ids).size).toBe(278);
+    expect(new Set(ids).size).toBe(279);
   });
   it('bugCatch は bug:*（持ち物 でも 足もと でも）、carry は carry:* を 数える。animal.bug.1・animal.carry.1 が 取れる', () => {
     const s = mk();

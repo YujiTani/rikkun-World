@@ -132,8 +132,8 @@ describe('実績 そだてる（§4.7）', () => {
   const ev = (e: Record<string, unknown>): FarmEvent => ({ ...at, ...e }) as FarmEvent;
   it('数: 分類そだてる 63・小 17（GOLD-1 で +1・+0、LIVE-3 で +1・+1、LIVE-1 で +12・+3、版 3.2 で +5・+0、LIVE-2 で +9・+1）、つくる に くわ（つくれる もの 28）', () => {
     const farm = ACHIEVEMENT_DEFS.filter((d) => d.category === 'farm');
-    expect(farm.length).toBe(63); // LIVE-1 §4.5: 35 + 12 + 5 + LIVE-2 の 9 + LIVE-3 の 1
-    expect(farm.filter((d) => d.small).length).toBe(17); // 12 + 3 + 1 + LIVE-3 の 1
+    expect(farm.length).toBe(64); // LIVE-1 §4.5: 35 + 12 + 5 + LIVE-2 の 9 + LIVE-3 の 1
+    expect(farm.filter((d) => d.small).length).toBe(18); // 12 + 3 + 1 + LIVE-3 の 1
     expect(CRAFT_RECIPE_NAMES.length).toBe(28);
     expect(ACHIEVEMENT_DEFS.find((d) => d.id === 'craft.kuwa.1')).toMatchObject({ category: 'craft', small: true });
     expect(ACHIEVEMENT_DEFS.find((d) => d.id === 'craft.everything.28')).toBeTruthy();

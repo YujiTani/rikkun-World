@@ -21,7 +21,7 @@ const roundTrip = (s: AchievementSystem) => {
 
 describe('実績の表（AC16）', () => {
   it('国 12 ＋ ぜんぶ 1 ＋ うみ・てっぺん。古い 8 つは legacy。ぜんぶで 278（main の GOLD-1 ＋4 込み）', () => {
-    expect(ACHIEVEMENT_DEFS.length).toBe(278);
+    expect(ACHIEVEMENT_DEFS.length).toBe(279);
     for (const k of COUNTRY_KINDS) {
       const d = ACHIEVEMENT_DEFS.find((x) => x.id === `visit.country.${k}.1`)!;
       expect(d, k).toBeTruthy();
@@ -188,7 +188,7 @@ describe('むかしの ばしょ（AC17）', () => {
     p.setTab('achievements');
     p.setCategory('ばしょ');
     const ui = p.ui(true);
-    expect(ui.total).toBe(278 - 8 + 2);
+    expect(ui.total).toBe(279 - 8 + 2);
     const ids = ui.rows.map((r) => r.id);
     expect(ids.filter((i) => LEGACY.includes(i))).toEqual(['visit.forest.1', 'visit.all.9']);
     expect(ids.slice(-2)).toEqual(['visit.forest.1', 'visit.all.9']); // いちばん下
@@ -197,6 +197,6 @@ describe('むかしの ばしょ（AC17）', () => {
     // 何も 取っていなければ 取れる 数だけ
     const q = new AchievementsPageModel(mk());
     q.setTab('achievements');
-    expect(q.ui(true).total).toBe(270);
+    expect(q.ui(true).total).toBe(271);
   });
 });

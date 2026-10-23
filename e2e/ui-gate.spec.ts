@@ -366,6 +366,42 @@ const BAL_SCREENS: Screen[] = [
 SCREENS.push(...BAL_SCREENS);
 
 /**
+ * LIVE-4 AC19: マッチョ が ねらった 妖怪 の 頭の 上 の 力こぶ の しるし（体力バー・二つ名の 名札 の 上）と、マッチョ の 「！」。
+ * 妖怪 に こうげき させて りっくん が たたかれた ステップ に ねらわせる（`machoTarget`）。
+ */
+const openMachoMark = (title: 'taisho' | null): Screen['open'] => async (page) => {
+  await boot(page, true);
+  await page.evaluate((title) => {
+    const h = window.__rikkun! as any;
+    const p = h.player.get().position;
+    const x = Math.floor(p.x);
+    const y = Math.floor(p.y);
+    const z = Math.floor(p.z);
+    h.world.fill(x, y - 1, z - 5, x + 9, y - 1, z + 5, 'stone');
+    h.world.fill(x, y, z - 5, x + 9, y + 10, z + 5, 'air');
+    h.settings.set('yokaiAutoSpawn', false);
+    h.settings.set('animalAutoSpawn', false);
+    h.yokai.clear();
+    h.animals.clear();
+    h.player.set({ position: { x: x + 0.5, y, z: z + 0.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: 0 });
+    h.time.set(20000);
+    h.animals.spawn(x + 0.5, y, z - 2.5, { friend: true, follow: 18000, stage: 'adult', breed: 'macho' });
+    h.step(35);
+    const o = title ? { ai: false, yawDeg: 270, title, m: 1.5 } : { ai: false, yawDeg: 270 };
+    const yid = h.yokai.spawn('karakasa', x + 3.5, y, z + 0.5, o);
+    h.yokai.setHp(yid, 999);
+    const hp0 = h.combat.get().hp;
+    h.yokai.attackNow(yid);
+    for (let i = 0; i < 200 && h.combat.get().hp >= hp0; i++) h.step(1);
+    h.step(4);
+  }, title);
+};
+SCREENS.push(
+  { id: 'macho-mark', roots: ['#hud'], open: openMachoMark(null) },
+  { id: 'macho-mark-taisho', roots: ['#hud'], open: openMachoMark('taisho') },
+);
+
+/**
  * CHAR-2 AC26: 刀のわざ・弓を引く 場面の画面が HUD と重ならない（はみ出し・重なり）。
  * 絵の読みこみ（本当の時間）を待ってから、1 ステップずつ進めて場面を作る。
  */

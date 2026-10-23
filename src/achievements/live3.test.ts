@@ -17,11 +17,11 @@ describe('LIVE-3 保存（AC10）', () => {
 
 describe('LIVE-3 実績（§4.5・AC15）', () => {
   it('数: 278（COUNTRY-1 で ＋13）・小 88・そだてる 63・小 17（260＋1・87＋1・61＋1・16＋1）', () => {
-    expect(ACHIEVEMENT_DEFS.length).toBe(278);
-    expect(ACHIEVEMENT_DEFS.filter((d) => d.small).length).toBe(88);
+    expect(ACHIEVEMENT_DEFS.length).toBe(279);
+    expect(ACHIEVEMENT_DEFS.filter((d) => d.small).length).toBe(89);
     const farm = ACHIEVEMENT_DEFS.filter((d) => d.category === 'farm');
-    expect(farm.length).toBe(63);
-    expect(farm.filter((d) => d.small).length).toBe(17);
+    expect(farm.length).toBe(64);
+    expect(farm.filter((d) => d.small).length).toBe(18);
   });
 
   it('animal.eatMeat は animal.eatEgg の すぐ うしろ・小・名前・記録 eat:momo_yaki・段階 1', () => {

@@ -481,13 +481,17 @@ export interface YokaiInfo {
 /** 二つ名（弱い順 おやぶん → たいしょう → ヌシ。BALANCE §2.5） */
 export type YokaiTitle = 'none' | 'oyabun' | 'taisho' | 'nushi';
 
+/** LIVE-4: 妖怪 の 体力 を へらした もの（りっくん〈ぶき・や・わざ〉か、いっしょ に たたかう マッチョ か） */
+export type YokaiHurtBy = 'player' | 'macho';
+
 export type YokaiEvent =
   | { type: 'spawn'; tick: number; id: number; kind: YokaiKind; position: Vec3 }
   | { type: 'attackStart'; tick: number; id: number; kind: YokaiKind }
   | { type: 'attackHit'; tick: number; id: number; kind: YokaiKind; hitPlayer: boolean; position: Vec3 }
   | { type: 'fireball'; tick: number; id: number; position: Vec3 }
   | { type: 'fireballEnd'; tick: number; position: Vec3; hitPlayer: boolean }
-  | { type: 'hurt'; tick: number; id: number; kind: YokaiKind; position: Vec3 }
+  /** LIVE-4: `by` = 体力 を へらした の は だれ か（落下 など は 省略） */
+  | { type: 'hurt'; tick: number; id: number; kind: YokaiKind; position: Vec3; by?: YokaiHurtBy }
   | { type: 'defeat'; tick: number; id: number; kind: YokaiKind; position: Vec3; reward: number; title: YokaiTitle }
   /** 二つ名の妖怪が出た（1 体に 1 回。音を鳴らす合図） */
   | { type: 'titleSound'; tick: number; id: number; kind: YokaiKind; title: Exclude<YokaiTitle, 'none'> }
@@ -510,7 +514,7 @@ export interface YokaiWorld {
    * WEAPON-2: `knock` を 省くと 今まで どおり（水平 1.0・上へ 0）。ぬりかべは どの 値でも 押されない
    */
   /** 実際に 与えた ダメージを 返してもよい（よろけの 2 倍の あと。WEAPON-5） */
-  damage(id: number, amount: number, from: Vec3, knock?: YokaiKnock): number | void;
+  damage(id: number, amount: number, from: Vec3, knock?: YokaiKnock, by?: YokaiHurtBy): number | void;
   /** そのマスに妖怪の当たりの箱が重なっているか（ブロックを置けない） */
   occupies(x: number, y: number, z: number): boolean;
   /** WEAPON-9: (x, z) の ほうへ 水平に dist だけ すいよせる（ふだんの 当たり判定の 中で。上下は かえない） */
@@ -836,6 +840,7 @@ export type StatKey =
   | `obtainRarity:${string}` // `obtainRarity:epic`（めずらしさ ちょうど ほし 5 の 物 が 持ち物 に 入った 回数）
   // LIVE-3（§4.4）
   | `meat:${string}` // `meat:*`（いただいた 数。実績 は 作らない）
+  | `machoKO:${string}` // `machoKO:*`（マッチョ の パンチ で たおした 数。LIVE-4）
   // M7 農業（`visit:oldfarm` は上の `visit:` の形）
   | 'till'
   | `plant:${string}` // `plant:<kind>`・`plant:*`
@@ -2329,7 +2334,9 @@ export type AnimalState = 'appear' | 'wander' | 'rest' | 'look' | 'eat' | 'pet' 
   // LIVE-2.1（§6.2）: なげられて とんで いる あいだ
   | 'thrown'
   // LIVE-3（§2.4）: いただきます の 演出 中（ねぐら へ 歩く〜いなく なる まで）
-  | 'meat';
+  | 'meat'
+  // LIVE-4（§6.1）: いっしょ に たたかう マッチョ（はしる・パンチ・3 回目 の きりあげ・かちポーズ。おうえん は 'cheer'）
+  | 'run' | 'punch' | 'upper' | 'flex';
 
 /** LIVE-2: 育ち（§2.12）。ひよこ → 大人 */
 export type AnimalStage = 'chick' | 'adult';
@@ -2403,7 +2410,23 @@ export type AnimalEvent =
   /** なげる: 手 から はなれた（`to` = 着地点 の 足もと） */
   | { type: 'toss'; id: number; to: Vec3 }
   /** とんで いる とちゅう で 固い マス に 当たった（x・y・z = 止まった 所） */
-  | { type: 'bonk'; id: number; x: number; y: number; z: number };
+  | { type: 'bonk'; id: number; x: number; y: number; z: number }
+  // ---- LIVE-4（§6.1）
+  /** マッチョ が 妖怪 を ねらった（`cause` = りっくん が たたいた か、りっくん が たたかれた か）。音 `machoGo`・「！」 */
+  | { type: 'machoTarget'; id: number; yokai: number; cause: MachoCause }
+  /** パンチ が 当たった（`upper` = 3 回 に 1 回 の きりあげ。`damage` = 与えた 数）。x・y・z = 当たった 所 */
+  | { type: 'machoPunch'; id: number; yokai: number; hit: boolean; upper: boolean; damage: number; x: number; y: number; z: number }
+  /** ねらい を やめた */
+  | { type: 'machoGiveUp'; id: number; reason: MachoGiveUpReason }
+  /** マッチョ の パンチ で たおした（記録 `machoKO:*`） */
+  | { type: 'machoKO'; id: number; yokai: number }
+  /** かちポーズ が はじまった（音 `machoFlex`。りっくん が たおした とき も） */
+  | { type: 'machoFlex'; id: number };
+
+/** LIVE-4: ねらう きっかけ（§2.2） */
+export type MachoCause = 'playerHit' | 'playerHurt';
+/** LIVE-4: ねらい を やめる わけ（§2.2） */
+export type MachoGiveUpReason = 'defeat' | 'gone' | 'far' | 'forget' | 'stop';
 
 /** `animals.list()` の 1 行 */
 export interface AnimalInfo {
@@ -2442,6 +2465,11 @@ export interface AnimalInfo {
   grow: number;
   /** 体 の 当たり の 大きさ（高さ・はば・長さ。§2.2・§2.10） */
   size: { h: number; w: number; l: number };
+  // ---- LIVE-4（§6.1）
+  /** ねらって いる 妖怪 の id（なければ null） */
+  target?: number | null;
+  /** その ねらい で 当てた パンチ の 数（3 の 倍数 番目 が きりあげ） */
+  hits?: number;
   // ---- GOLD-1（§4.4）。なかま の 大人 だけ 動く（ほか は 0・0・0・natsukiDecayTicks の まま）
   /** なつき度 0〜100（画面 では「なかよし」・メーター だけ） */
   natsuki: number;
@@ -2520,6 +2548,11 @@ export interface AnimalMark {
   home?: number;
   /** LIVE-3: メニュー ページ 2 で えらんで いる 子（世界 の 頭 の 上 に ▼） */
   pick?: boolean;
+  /** LIVE-4: 「！」（マッチョ の 頭 の 上。ねらい を きめて から 20 ステップ） */
+  bang?: boolean;
+  /** LIVE-4: ねらい の しるし の 行（`id` = ねらわれて いる 妖怪 の id。同時 に 1 行 まで。絵 は HTML の 顔） */
+  machoTarget?: boolean;
+  yokai?: number;
 }
 export interface AnimalFxRecord {
   hearts: number;
@@ -2639,6 +2672,19 @@ export interface LiveSettings {
   meatHeal: number;
   /** いただきます の 演出 の ながさ（にく が 入る の は meatTicks − 20） */
   meatTicks: number;
+  // ---- LIVE-4 の 6 こ（§4.1。パンチ の 時間 は 刀 の `bladeTech.thrust`、きりあげ は `bladeDamageMul`・`bladeKnock` を 読む）
+  /** ふつう の パンチ で へる 妖怪 の 体力（ぼくとう の 強さ と 同じ） */
+  machoAtk: number;
+  /** とどく 水平 の 距離（妖怪 の 当たり の 箱 まで） */
+  machoReach: number;
+  /** ねらい へ はしる 速さ（マス/秒） */
+  machoRunSpeed: number;
+  /** ねらい を きめられる プレイヤー から の 距離 */
+  machoLeash: number;
+  /** きっかけ が なく なって から ねらい を やめる まで（ステップ） */
+  machoForget: number;
+  /** 同時 に たたかう 数（0 = だれ も たたかわない） */
+  machoFighters: number;
 }
 
 export const LIVE_SETTING_DEFAULTS: Readonly<LiveSettings> = {
@@ -2708,6 +2754,12 @@ export const LIVE_SETTING_DEFAULTS: Readonly<LiveSettings> = {
   meatPerBird: 2,
   meatHeal: 10,
   meatTicks: 220,
+  machoAtk: 2,
+  machoReach: 1.2,
+  machoRunSpeed: 5.0,
+  machoLeash: 12,
+  machoForget: 600,
+  machoFighters: 1,
 };
 
 export function createLiveSettings(): LiveSettings {
@@ -2757,6 +2809,25 @@ export interface AnimalView {
   liftT?: number;
   /** なげられて とんで いる（state が thrown の とき 羽 を ひろげる） */
   thrown?: boolean;
+  // ---- LIVE-4（B が 描くために 読む）
+  /** いっしょ に たたかって いる あいだ（state の 'run'・'punch'・'upper'・'cheer'・'flex' を 戦い の ポーズ で 描く） */
+  fight?: boolean;
+  /** 「！」 を 出して いる（ねらい を きめて から 20 ステップ） */
+  bang?: boolean;
+  /** ねらって いる 妖怪 の id（なければ 省略） */
+  target?: number;
+}
+
+/** LIVE-4: 骨 1 本 の ポーズ（q = 回転 の 四元数 x,y,z,w。off = 1/16 ブロック） */
+export interface FightBone {
+  q?: [number, number, number, number];
+  off?: [number, number, number];
+}
+/** LIVE-4: からだ 全体（root）と 骨 ごと の ポーズ（アート案 C の `poses.py` と 同じ 意味） */
+export interface FightPose {
+  /** off = 1/16 ブロック、rot = 度（x → y → z）、sc = 拡大 */
+  root: { off: [number, number, number]; rot: [number, number, number]; sc: [number, number, number] };
+  bones: Record<string, FightBone>;
 }
 
 // ---- LIVE-2: こたつ・小屋（§6.1。A が 持つ。C・B・つなぎ込み は これ を 読む）
@@ -2967,6 +3038,11 @@ export interface AnimalApi {
   finishMeat?(): void;
   /** 天板 の 上 の たまご の 3 わく（プレイヤー 8 マス 以内、または たまご を 持って ねらって いる こたつ） */
   kitIcons?(aimedKit: { x: number; y: number; z: number } | null, holdingEgg: boolean): KitIcon[];
+  // ---- LIVE-4（§6.1）
+  /** たたかえる マッチョ の id（なかま に なった 順。`machoFighters` こ まで） */
+  fighters?(): number[];
+  /** 「きっかけ」を 渡す（りっくん が たたいた／たたかれた 妖怪）。その ステップ の うち に ねらい が きまる */
+  fightCue?(c: FightCues): void;
 }
 
 // ---- LIVE-2: ふつう の 計算 の 型（A が `src/animals/` で 書く。ユニット の 仮の 名前: docs/test-reports/LIVE-2.md）
@@ -3014,4 +3090,36 @@ export interface AnimalDeps {
   grewBefore?(): boolean;
   /** かえった ことが ある か（実績 `hatch:*` が 1 以上）。`hatch` 出来事 の `first` の もと */
   hatchedBefore?(): boolean;
+  /** LIVE-4: いっしょ に たたかう ための 窓口（つなぎ込み が 渡す。ない とき は だれ も たたかわない） */
+  fight?: AnimalFightPort;
+}
+
+/** LIVE-4: 妖怪 の 体（たたく 相手）。`state` が 'dying' ならたおれた、'leaving' なら 帰る */
+export interface FightYokai {
+  x: number;
+  y: number;
+  z: number;
+  /** 当たり の 箱 の 半径（水平）と 高さ */
+  radius: number;
+  height: number;
+  state: 'alive' | 'dying' | 'leaving';
+  /** 押されて いる 最中（とまる まで パンチ を まつ） */
+  sliding?: boolean;
+}
+/** LIVE-4: A（にわとり）が 妖怪 に さわる 口（`src/main.ts` が 妖怪 の 管理 へ つなぐ） */
+export interface AnimalFightPort {
+  /** その 妖怪（もう いなければ null） */
+  yokai(id: number): FightYokai | null;
+  /** 体力 を へらす・押す・うかす（刀 の 切り上げ と 同じ 口。`by` は 'macho'）。実際 に 与えた 数 */
+  hit(id: number, amount: number, from: Vec3, knock: { dist: number; up: number }): number;
+  /** りっくん が たおれて いる か（たおれて いる あいだ は たたかわない） */
+  playerDead?(): boolean;
+  /** 刀 の 設定（突き の フレーム・切り上げ の 倍率〈ダメージ〉と 押す／うく） */
+  blade(): { thrust: { startup: number; active: number; recovery: number }; kiriageMul: number; kiriageKnock: readonly [number, number] };
+}
+
+/** LIVE-4: 1 ステップ に 起きた「きっかけ」（妖怪 の id）。`hit` = りっくん が 体力 を へらした、`hurt` = りっくん の 体力 を へらした */
+export interface FightCues {
+  hit: readonly number[];
+  hurt: readonly number[];
 }
