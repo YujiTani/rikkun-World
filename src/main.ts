@@ -94,6 +94,7 @@ import { kitIconsFor, type KitIconRow } from './animals/models/kitIcons';
 import { AnimalFx } from './fx/animalFx';
 import { AnimalRenderer, ViewBuffer } from './animals/models/AnimalRenderer';
 import { AnimalHint } from './ui/animalHint';
+import { playAnimal } from './fx/animalSounds';
 import { Itadakimasu } from './ui/itadakimasu';
 import { countryAt } from './world/gen/biome';
 import { Lighting, Sky } from './sky';
@@ -2371,8 +2372,14 @@ installTestHook(game, overlay, () => host.everReady, {
     machoMiss: (n) => animals.machoMiss(n),
     // LIVE-3 仮: 見た目 の 確かめ だけ（とびら を しめて 見せる・いただきます の 画面 を 出す）
     live3Proto: (o) => {
-      if (o.door !== undefined) animalRenderer.doorClosed = o.door;
-      if (o.overlay !== undefined) itadakimasu.setVisible(o.overlay);
+      if (o.door !== undefined) {
+        if (o.door !== animalRenderer.doorClosed) playAnimal(fxSound, 'coopDoor');
+        animalRenderer.doorClosed = o.door;
+      }
+      if (o.overlay !== undefined) {
+        if (o.overlay && !itadakimasu.visible) playAnimal(fxSound, 'itadakimasu');
+        itadakimasu.setVisible(o.overlay);
+      }
       return { door: animalRenderer.doorClosed, overlay: itadakimasu.visible };
     },
     serialize: () => animals.serialize(),

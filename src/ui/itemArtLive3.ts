@@ -120,7 +120,10 @@ export function live3ItemPixels(item: Live3Item): Rgba[] {
 /** いただきます の 手（あわせ手 ＋ うしろ に ひかり）。幅 × 高さ */
 export const HANDS_SIZE = { w: 22, h: 23 } as const;
 export function handsPixels(): Rgba[] {
-  return fromRows(HAND_ROWS, HAND_PAL);
+  // うしろ の ひかり（やさしい 黄）は 画面 側 の ぼかし で 出す ので すきま に する
+  const pal = { ...HAND_PAL };
+  for (const [k, v] of Object.entries(pal)) if (v[0] === 0xff && v[1] === 0xf2 && v[2] === 0xc4) pal[k] = CLEAR;
+  return fromRows(HAND_ROWS, pal);
 }
 
 /** 手 の 絵 を data URL に（DOM の ある ところ で だけ） */

@@ -22,7 +22,10 @@ export class Itadakimasu {
     const text = document.createElement('div');
     text.className = 'itadakimasu-text';
     text.textContent = ITADAKIMASU_TEXT;
-    this.el.append(img, text);
+    const glow = document.createElement('div');
+    glow.className = 'itadakimasu-glow';
+    glow.append(img);
+    this.el.append(glow, text);
     parent.append(this.el);
   }
 
