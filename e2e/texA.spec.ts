@@ -129,7 +129,7 @@ test.describe('TEX-A', () => {
     expect(ok.length, `へこみの底 ${ok.length}/${sorted.length}`).toBeGreaterThanOrEqual(3);
   });
 
-  test('AC4: 道具 7 種は平らな箱（形を持たない・面 12 以下・絵が元のまま）', async ({ page }) => {
+  test('AC4: 道具 7 種とこたつ・小屋 4 ブロックは平らな箱（形を持たない・面 12 以下・絵が元のまま）', async ({ page }) => {
     await ready(page);
     const flat: string[] = await page.evaluate(() => (window as any).__rikkun.render.flatBlocks());
     expect([...flat].sort()).toEqual([...FLAT_BLOCKS].sort());
