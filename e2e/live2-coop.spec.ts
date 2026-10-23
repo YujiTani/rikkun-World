@@ -439,7 +439,7 @@ test.describe('LIVE-2 とりごや', () => {
       const c = A.cinfo(cid);
       const f = A.face(c);
       const out: any = {};
-      const id = A.kid(c, { stage: 'adult', raised: true });
+      const id = A.kid(c, { stage: 'adult', raised: false }); // LIVE-3 AC2: そだてた 子（raised）が いる 小屋 は メニュー。ここ は LIVE-2 の まま（あつめる）を 見る ので raised false
       h.player.set({ position: { x: c.x + 0.5 - 1.5, y: 9, z: c.z + 0.5 }, yaw: 90 });
       A.hold('mushi', 20);
       const delay = h.settings.get('animalEggDelay');
@@ -789,7 +789,7 @@ test.describe('LIVE-2 とりごや', () => {
       const c = A.cinfo(cid);
       const f = A.face(c);
       const out: any = {};
-      const id = A.kid(c, { stage: 'adult', raised: true });
+      const id = A.kid(c, { stage: 'adult', raised: false }); // LIVE-3 AC2: そだてた 子（raised）が いる 小屋 は メニュー。ここ は LIVE-2 の まま（あつめる）を 見る ので raised false
       h.player.set({ position: { x: c.x + 0.5 - 1.5, y: 9, z: c.z + 0.5 }, yaw: 90 });
       A.hold('mushi', 3);
       A.aim(id);
@@ -859,7 +859,7 @@ test.describe('LIVE-2 とりごや', () => {
       h.animals.deserialize(sv);
       h.step(2);
       const c = A.cinfo(cid);
-      A.kid(c, { stage: 'adult', raised: true });
+      A.kid(c, { stage: 'adult', raised: false }); // LIVE-3 AC2: そだてた 子（raised）が いる 小屋 は メニュー。ここ は LIVE-2 の まま（あつめる）を 見る ので raised false
       A.hold('mushi', 1);
       const f = A.face(c);
       h.player.set({ position: { x: c.x + 0.5 - f.fx * 4.5, y: 9, z: c.z + 0.5 - f.fz * 4.5 }, yaw: A.yawTo(f.fx, f.fz), pitch: 0 });
