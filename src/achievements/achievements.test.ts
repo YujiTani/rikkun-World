@@ -336,6 +336,68 @@ describe('じっせき ページの きまり', () => {
   });
 });
 
+describe('ACH-NEXT: じっせき ページの 次の 1 段（#260）', () => {
+  const setup = () => {
+    const s = mk();
+    const p = new AchievementsPageModel(s);
+    p.setTab('achievements');
+    return { s, p, row: (id: string) => p.ui(true).rows.find((r) => r.id === id)! };
+  };
+  it('段を取る → すぐ上の段だけ next・shown。2 段先と 1 段も取っていないシリーズは 隠す', () => {
+    const { s, row } = setup();
+    s.record('break:dirt', 1);
+    expect(row('break.dirt.1')).toMatchObject({ unlocked: true, shown: true, next: false });
+    expect(row('break.dirt.10')).toMatchObject({ unlocked: false, shown: true, next: true, isNew: false });
+    expect(row('break.dirt.100')).toMatchObject({ unlocked: false, shown: false, next: false });
+    expect(row('break.stone.1')).toMatchObject({ unlocked: false, shown: false, next: false });
+    expect(row('break.stone.10')).toMatchObject({ shown: false, next: false });
+  });
+  it('次の段の行に 進み具合（いまの数・目標）が 出る。今の数は 目標で 頭打ち', () => {
+    const { s, row } = setup();
+    s.record('break:dirt', 3);
+    expect(row('break.dirt.10')).toMatchObject({ next: true, progress: { now: 3, goal: 10 } });
+    // 取った行・隠す行には 進み具合は つかない
+    expect(row('break.dirt.1').progress).toBeUndefined();
+    expect(row('break.dirt.100').progress).toBeUndefined();
+    expect(row('break.stone.1').progress).toBeUndefined();
+    // 次の段（goal 100）で 数が 多くても 目標で 頭打ち
+    s.record('break:dirt', 7);
+    expect(row('break.dirt.100')).toMatchObject({ next: true, progress: { now: 10, goal: 100 } });
+  });
+  it('一気に 2 段 取ると、次の段は その 1 つ上だけ', () => {
+    const { s, row } = setup();
+    s.record('break:dirt', 10);
+    expect(row('break.dirt.1')).toMatchObject({ unlocked: true, next: false });
+    expect(row('break.dirt.10')).toMatchObject({ unlocked: true, next: false, isNew: true });
+    expect(row('break.dirt.100')).toMatchObject({ next: true, shown: true });
+  });
+  it('段を取ると 次の段は 普通の取った行になり、さらに 1 つ上が 次の段になる', () => {
+    const { s, row } = setup();
+    s.record('break:dirt', 1);
+    expect(row('break.dirt.10').next).toBe(true);
+    s.record('break:dirt', 9);
+    expect(row('break.dirt.10')).toMatchObject({ unlocked: true, next: false, shown: true });
+    expect(row('break.dirt.100')).toMatchObject({ unlocked: false, next: true, shown: true });
+  });
+  it('1 段だけの シリーズは 次の段なし。どの行も next でない', () => {
+    const { s, p } = setup();
+    s.record('place:furnace', 1);
+    p.setCategory('おく');
+    const rows = p.ui(true).rows;
+    expect(rows.find((r) => r.id === 'place.furnace.1')).toMatchObject({ unlocked: true, next: false });
+    expect(rows.some((r) => r.next)).toBe(false);
+  });
+  it('どの分類でも「取った」か「次の段」の行だけ shown。ほかは 隠す', () => {
+    const { s, p } = setup();
+    s.record('break:dirt', 1);
+    s.record('place:dirt', 1);
+    for (const c of ['こわす', 'おく', 'つくる']) {
+      p.setCategory(c);
+      for (const r of p.ui(true).rows) expect(r.shown, `${c} ${r.id}`).toBe(r.unlocked || r.next);
+    }
+  });
+});
+
 describe('WEAPON-2 の 実績 4 こ', () => {
   it('道具が こわれると tool.broken.1、防具は armor.broken.1（道具には 数えない）', () => {
     const a = mk();

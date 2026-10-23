@@ -223,7 +223,7 @@ export function setMeter(p: MeterParts, on: number): void {
 
 export interface ChipOptions extends TextContent {
   /** ng = できない（赤い帯）、info = 知らせ（青い帯） */
-  tone?: 'ng' | 'info';
+  tone?: 'ng' | 'info' | 'ok' | 'mute';
   /** 見出しの大きさ（もちもの が いっぱい！ など） */
   head?: boolean;
   art?: string;
@@ -233,6 +233,8 @@ export function createChip(opts: ChipOptions): HTMLDivElement {
   const c = make('div', 'rk-chip');
   c.classList.toggle('rk-chip--ng', opts.tone === 'ng');
   c.classList.toggle('rk-chip--info', opts.tone === 'info');
+  c.classList.toggle('rk-chip--ok', opts.tone === 'ok');
+  c.classList.toggle('rk-chip--mute', opts.tone === 'mute');
   c.classList.toggle('rk-chip--head', !!opts.head);
   if (opts.art) {
     const img = make('img', 'rk-chip__art rk-art');
