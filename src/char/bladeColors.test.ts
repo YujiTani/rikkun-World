@@ -70,7 +70,7 @@ describe('CHAR-4 AC12 板の 刃の色', () => {
     const { sprite, palette } = make();
     step(sprite, {});
     expect(sprite.info().bladeColors).toBeNull();
-    expect(palette()).toHaveLength(23);
+    expect(palette()).toHaveLength(32); // WEAPON-9: 0 番 ＋ 22 色 ＋ 手に 持つ 絵の ための 9 席
     expect(same(palette()[21]!, PALETTE_RGB[20]!)).toBe(true);
     expect(same(palette()[22]!, PALETTE_RGB[21]!)).toBe(true);
   });

@@ -208,4 +208,19 @@ describe('DropField', () => {
     const p = r.f.list()[0]!.position;
     expect(Math.hypot(p.x - 10.5, p.z - 10.5)).toBeLessThan(0.5);
   });
+
+  it('WEAPON-9: 虹の 強さは 地面の 袋 → 保存 → 読みこみ → ひろう で かわらない', () => {
+    const r = rig();
+    r.f.scatter({ x: 10.5, y: 9, z: 10.5 }, [{ item: 'niji', count: 1, power: 9 }]);
+    const saved = JSON.parse(JSON.stringify(r.f.serialize()));
+    expect(saved[0].power).toBe(9);
+    const r2 = rig();
+    r2.f.deserialize(saved);
+    for (let i = 0; i < 300; i++) r2.f.update(false);
+    r2.player.x = 10.5;
+    r2.player.z = 10.5;
+    for (let i = 0; i < 200 && r2.inv.count('niji') === 0; i++) r2.f.update(true);
+    const got = r2.inv.slots().find((x) => x?.item === 'niji');
+    expect(got?.power).toBe(9);
+  });
 });

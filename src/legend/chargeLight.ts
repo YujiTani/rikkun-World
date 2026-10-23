@@ -20,8 +20,6 @@ export interface ChargeLightView {
   orbitAngle: number;
   /** 見た目の ためF（fade の 間は 消え始めの まま） */
   F: number;
-  /** ため満タンの F（雷・風 60・虹 90） */
-  full: number;
 }
 
 export const CHARGE_FULL = 60;
@@ -32,9 +30,11 @@ export interface ChargeLightIn {
   /** ためF（ためて いなければ null） */
   ticks: number | null;
   kind: 'lightning' | 'spiral' | 'shining' | null;
-  /** ため満タンの F（なければ 60。虹は 90） */
-  full?: number;
   reduced: boolean;
+  /** いっぱいに なる ためF（武器の chargeTicks。省くと 60） */
+  full?: number;
+  /** true なら はなした ステップに すぐ 消す（シャイニングに うつる とき。うすく なる 4 ステップを 作らない） */
+  cut?: boolean;
 }
 
 export interface ChargeLight {
@@ -42,26 +42,26 @@ export interface ChargeLight {
   view(): ChargeLightView;
 }
 
-const paletteOf = (k: 'lightning' | 'spiral' | 'shining' | null): ChargePalette | null => (k === 'shining' ? 'niji' : k === 'spiral' ? 'fujin' : k === 'lightning' ? 'raijin' : null);
+const paletteOf = (k: 'lightning' | 'spiral' | 'shining' | null): ChargePalette | null => (k === 'spiral' ? 'fujin' : k === 'lightning' ? 'raijin' : k === 'shining' ? 'niji' : null);
 
 export function createChargeLight(): ChargeLight {
-  const v: ChargeLightView = { phase: 'off', palette: null, core: 0, alpha: 0, particles: 0, ring: 0, sweep: 0, sparkles: 0, orbit: 0, orbitAngle: 0, F: 0, full: CHARGE_FULL };
+  const v: ChargeLightView = { phase: 'off', palette: null, core: 0, alpha: 0, particles: 0, ring: 0, sweep: 0, sparkles: 0, orbit: 0, orbitAngle: 0, F: 0 };
   let lastF = 0;
   let lastPal: ChargePalette | null = null;
   let lastReduced = false;
-  let lastFull = CHARGE_FULL;
   let fade = 0;
   let active = false;
 
-  function shape(F: number, reduced: boolean, full: number): void {
+  let lastFull = CHARGE_FULL;
+  function shape(F: number, reduced: boolean, full = CHARGE_FULL): void {
     v.F = F;
-    v.full = full;
+    const d = full - CHARGE_FULL; // いっぱいの ステップが 60 より おくれる ぶん（虹 150 → 90）
     v.core = Math.round((5 * Math.min(F, full)) / full);
-    v.ring = F >= full && F <= full + 11 ? (F - (full - 1)) / 12 : 0;
-    v.sweep = F >= full && F <= full + 5 ? (F - (full - 1)) / 6 : 0;
-    v.sparkles = F >= full + 6 ? 1 : 0;
-    v.orbit = F >= full + 6 ? 2 : 0;
-    v.orbitAngle = F >= full + 6 ? (F - (full + 6)) * 3 : 0;
+    v.ring = F >= 60 + d && F <= 71 + d ? (F - 59 - d) / 12 : 0;
+    v.sweep = F >= 60 + d && F <= 65 + d ? (F - 59 - d) / 6 : 0;
+    v.sparkles = F >= 66 + d ? 1 : 0;
+    v.orbit = F >= 66 + d ? 2 : 0;
+    v.orbitAngle = F >= 66 + d ? (F - 66 - d) * 3 : 0;
     let n = 0;
     for (let t = Math.max(1, F - GATHER_LIFE + 1); t <= F; t++) if (!(t >= full && t % 2 === 0)) n += 1;
     v.particles = n;
@@ -81,10 +81,11 @@ export function createChargeLight(): ChargeLight {
         lastFull = i.full ?? CHARGE_FULL;
         v.palette = lastPal;
         v.alpha = 1;
-        v.phase = i.ticks < lastFull ? 'gather' : i.ticks <= lastFull + 11 ? 'burst' : 'full';
+        v.phase = i.ticks <= lastFull - 1 ? 'gather' : i.ticks <= lastFull + 11 ? 'burst' : 'full';
         shape(i.ticks, i.reduced, lastFull);
         return v;
       }
+      if (active && i.cut) active = false;
       if (active) {
         // はなした・やめた ステップから 4 ステップ うすく なる
         fade += 1;
@@ -100,7 +101,7 @@ export function createChargeLight(): ChargeLight {
       v.phase = 'off';
       v.palette = null;
       v.alpha = 0;
-      shape(0, false, CHARGE_FULL);
+      shape(0, false);
       return v;
     },
     view: () => v,

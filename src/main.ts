@@ -1,4 +1,5 @@
 import { CameraRig } from './camera/CameraRig';
+import { disposeMergedHeldGeometry } from './camera/heldTools';
 import { useBlockDoll } from './debug/glbDoll';
 import { aimPivot } from './camera/pivot';
 import { createCharSprite } from './char';
@@ -38,14 +39,16 @@ import { WindWaveFx } from './fx/windWaveFx';
 import { SpiralFx } from './fx/spiralFx';
 import { createWaveView3D } from './legend/waveView';
 import { ChargeLightFx } from './fx/chargeLightFx';
-import { ShiningFx } from './fx/shiningFx';
+import { NijiFx } from './fx/nijiFx';
+import { boxOf } from './combat/attackFacing';
+import { createDomeGrains } from './legend/domeGrains';
 import { BuffIcons } from './ui/buffIcons';
 import { buffsOfHeld, createBuffModel } from './ui/buffIconsModel';
 import { ThunderFx } from './fx/thunderFx';
 import { LegendBook } from './legend/LegendBook';
 import { chargeOf, hasPowerRange, legendMoveMulOf, legendPowerOf, trailStyleOf } from './legend/defs';
+import { lightningPoseFrame, shiningBodyPose } from './legend/pose';
 import { setPowerFallback } from './ui/powerBadge';
-import { lightningPoseFrame } from './legend/pose';
 import { CRAFT_UI_SETTINGS, type CraftUiSettings, type ToolNumbers } from './fx/craftConfig';
 import { playCraft } from './fx/craftSounds';
 import { CraftUiHud, createCraftUiHook, handleCraftEvents, handleGuardEvents, playSwing } from './ui/craftUi';
@@ -435,7 +438,7 @@ rig.doll.setBoxBody(blockDollOnly);
 // TEX-A: キャラの足もとの丸い影。影（renderOrder 1）の あとに キャラの板（renderOrder 2）を描く
 const blobShadow = new BlobShadow();
 game.scene.add(blobShadow.mesh);
-window.addEventListener("pagehide", () => { game.scene.remove(blobShadow.mesh); blobShadow.dispose(); });
+window.addEventListener("pagehide", () => { disposeMergedHeldGeometry(); game.scene.remove(blobShadow.mesh); blobShadow.dispose(); });
 rig.doll.group.traverse((o) => {
   if (o.name === 'charSprite') o.renderOrder = BLOB.spriteRenderOrder;
 });
@@ -493,11 +496,6 @@ const uiWeaponDamage = (): Record<string, number> => {
   const out: Record<string, number> = { ...toolConfig.weaponDamage };
   for (const d of w2.legendary) out[d.item] = legendPowerOf(w2, d.item) ?? out[d.item] ?? 1;
   return out;
-};
-/** WEAPON-7 PR3: 手に 持っている 1 本の 強さ（虹）。同じ 武器を 持っていなければ undefined */
-const heldPowerOf = (item: string): number | undefined => {
-  const s = inventory.held();
-  return s && s.item === item ? s.power : undefined;
 };
 const uiTools: ToolNumbers = {
   ...toolConfig,
@@ -619,7 +617,8 @@ const blade = createBladeSystem({
   yokai: () => yokaiManager!,
   settings: w2,
   // WEAPON-7: レジェンダリーの 強さは 設定 `legendary` の power（ふつうの 刀は 今の 表）
-  weaponDamage: (item) => legendPowerOf(w2, item, heldPowerOf(item)) ?? toolConfig.weaponDamage[item] ?? 1,
+  // 虹は 1 本ごとの 強さ（手に 持っている 1 本）
+  weaponDamage: (item) => legendPowerOf(w2, item, item === 'niji' ? (inventory.held()?.power ?? null) : null) ?? toolConfig.weaponDamage[item] ?? 1,
   onHit: () => {
     inventory.wearHeld(w2.toolWear.blade.hit);
   },
@@ -627,6 +626,8 @@ const blade = createBladeSystem({
   tick: () => game.tick,
 });
 // WEAPON-7: レジェンダリー武器の ため・ためわざ（落雷）。たいきゅうは 1 体 以上に 当たった ときだけ 1
+let domeEraseThisStep = false;
+let nijiLockSel = -1;
 const legend = createLegendSystem({
   world,
   yokai: () => yokaiManager!,
@@ -635,10 +636,9 @@ const legend = createLegendSystem({
   onWear: () => {
     inventory.wearHeld(1);
   },
-  power: (item) => legendPowerOf(w2, item, heldPowerOf(item)),
   sound: (n) => playLegend(fxSound, n),
   // WEAPON-8 §3.6: ため音は 続く 音。剣ごとの 味（風神 / 雷神）は ためわざの しゅるいで えらぶ
-  loop: (name) => startLegendLoop(fxSound, name, chargeOf(w2, inventory.held()?.item ?? null)?.kind === 'spiral' ? 'fujin' : 'raijin'),
+  loop: (name) => (name === 'domePull' ? startLegendLoop(fxSound, name) : startLegendLoop(fxSound, name, chargeOf(w2, inventory.held()?.item ?? null)?.kind === 'spiral' ? 'fujin' : chargeOf(w2, inventory.held()?.item ?? null)?.kind === 'shining' ? null : 'raijin')),
   // WEAPON-8: らせんの かぜは F6 に 体の 点 B（足もと + 1.4）から
   launchSpiral: (a) => {
     const p = controller.state.position;
@@ -646,6 +646,14 @@ const legend = createLegendSystem({
   },
   seed,
 });
+const nijiC = { x: 0, y: 0, z: 0 };
+const nijiCenter = (p: { x: number; y: number; z: number }) => {
+  nijiC.x = p.x;
+  nijiC.y = p.y + 0.9;
+  nijiC.z = p.z;
+  return nijiC;
+};
+screen.canOpen = () => !legend.locked();
 const waveView3d = createWaveView3D(game.camera);
 // WEAPON-7 PR2: 風神剣の 真空波（ふつうの わざの 当たりの はじめの F に 1 つ。たいきゅうは へらさない）
 const waveSys = createWaveSystem({
@@ -675,10 +683,13 @@ thunderFx.warmUp(game.renderer, game.camera); // 読みこみ中に 雷 B の �
 const windWaveFx = new WindWaveFx({ scene: game.scene, camera: game.camera });
 // WEAPON-8: らせんの かぜ（S2）・土と 草の つぶ・手もとの 光・速さバフの アイコン
 const spiralFx = new SpiralFx({ scene: game.scene, camera: game.camera });
+// WEAPON-9: 虹の ドーム・かけら・すいよせの つぶ・斬撃（材質は 読みこみ中に ぜんぶ 作る）
+const nijiFx = new NijiFx(game.scene, game.camera);
+const domeGrains = createDomeGrains();
+nijiFx.warmUp(game.renderer, game.camera, game.scene);
 const spiralDebris = createSpiralDebris({ world, seed });
 const chargeLight = createChargeLight();
 const chargeLightFx = new ChargeLightFx({ scene: game.scene, camera: game.camera });
-const shiningFx = new ShiningFx({ scene: game.scene, camera: game.camera });
 const handInfo = newHandInfo();
 /** 今の 剣を 持つ 手の 位置（三人称は 体から、一人称〈カメラが 体に 近く 人形が 見えない〉は 画面の 右下の にぎり） */
 const handNow = (): typeof handInfo => {
@@ -700,6 +711,9 @@ const combat = new PlayerCombatImpl({
   inventory,
   yokai: () => yokaiManager!,
   spawn: startPoint,
+  // WEAPON-9: シャイニング中は 受ける ダメージ 1/3・落下ダメージなし
+  takenMul: () => legend.takenMul(),
+  noFall: () => legend.noFall(),
   // 妖怪のねらい（CHAR-1 第 5.2 版 §4.5）: 届く距離は P から。S からの線で当たらないときは やさしい ねらい補助
   reachOrigin: (out) => aimPivot(world, controller.state.position, out),
   assist: (eye, dir, reach) => aimAssistPick(eye, dir, reach),
@@ -708,9 +722,6 @@ const combat = new PlayerCombatImpl({
   },
   requestSave: () => requestSave(),
   drops,
-  // WEAPON-7 PR3: 虹の シャイニング中は ダメージなし・落下ダメージなし
-  shielded: () => legend.shield(),
-  fallSafe: () => legend.fallSafe(),
 });
 // たんす（M6 §2.9）と すてる（§2.8）
 const storage = new StorageSystem({
@@ -757,6 +768,7 @@ const dropper = new ItemDropper({
 });
 let dragOut: DragOut | null = null;
 const dropController = new DropController({
+  blocked: () => legend.locked(),
   actions: game.input,
   dropper,
   playEnabled: () => lock.playInputEnabled() && !screen.inventoryOpen(),
@@ -929,6 +941,12 @@ yokaiManager = new YokaiManager({
   origin: () => island.spawn(),
   seaY: () => SEA_Y,
   settings: w2,
+  // WEAPON-9: 弾は ドームの 球に ふれた ステップに 消える（音は 1 ステップに 1 つ）
+  dome: () => legend.dome(),
+  onDomeErase: (id) => {
+    legend.emit({ type: 'domeErase', tick: game.tick, projectileId: id });
+    domeEraseThisStep = true;
+  },
   // WEAPON-7: ヌシが レジェンダリーを おとした → 上の 帯の テロップ
   onLegendDrop: (info) => celebrate.enqueueTelop(info.item),
   // WEAPON-5: 妖怪の 攻撃が 当たる所で パリィに 聞く
@@ -956,8 +974,6 @@ yokaiManager = new YokaiManager({
     fxSound.play('break');
   },
 });
-// WEAPON-7 PR3: シャイニングの ドームに ふれた 火の玉は 消える
-yokaiManager.domeSource = () => legend.dome();
 game.scene.add(yokaiManager.group);
 const yokaiM = yokaiManager;
 // LIVE-1: にわとり の 見た目・音（動きの強さの 設定は まだ ない。できたら ここで つなぐ）
@@ -1172,8 +1188,28 @@ const weaponFx = new WeaponFx({
   onWear: (e) => achievements.feedWear(e),
   onBlade: (e) => achievements.feedBlade(e),
   // WEAPON-7: ふつうの わざに 雷の「ビシューン」を 重ねる（ダメージは かえない）
-  onTechItem: (item) => {
+  onTechItem: (item, tech, step) => {
     if (trailStyleOf(w2, item) === 'thunder') playLegend(fxSound, 'thunderSlash');
+    // WEAPON-9: 虹の にじ色の 斬撃（わざごとの 絵・決めが 当たりに 重なる よう まって 出す。カメラの 向きで 絵を きめる）。ダメージは かえない
+    if (trailStyleOf(w2, item) === 'rainbow' && tech) {
+      const u = blade.state().move?.dirDeg ?? controller.state.yawDeg;
+      nijiFx.queueSlash({ tech, step: step ?? 1, uDeg: u, pos: () => controller.state.position });
+    }
+  },
+  // WEAPON-9: 当たった 妖怪 1 体ごとに 虹の 火花
+  onTechHit: (item, e) => {
+    if (trailStyleOf(w2, item) !== 'rainbow') return;
+    // 当たった 妖怪の 胸（足もと + 背の 6 割）に 火花を 出す
+    const yk = yokaiManager?.list().find((q) => q.id === e.yokaiId);
+    const chest = yk ? boxOf(yk).h * 0.6 : 0.8;
+    nijiFx.hit({ x: e.position.x, y: e.position.y + chest, z: e.position.z }, e.tech, blade.state().move?.dirDeg ?? controller.state.yawDeg);
+  },
+  onBladeCancel: () => nijiFx.cancelSlash(),
+  // WEAPON-9: 虹の つき・きりあげ・けさ は 今の 刀の 音の 代わりに nijiSlash（1 振りに 1 回。段ごとに 3 とおり）
+  replaceTechSound: (item, step) => {
+    if (trailStyleOf(w2, item) !== 'rainbow') return false;
+    playLegend(fxSound, 'nijiSlash', step - 1);
+    return true;
   },
   onArrowPickup: () => hotbar.pickup('ya', 1),
 });
@@ -1668,7 +1704,9 @@ game.onUpdate((dt) => {
     controller.motion.speedMul = bm.speedMul * wm.speedMul * (pmOn ? pm.speedMul : 1) * lm.speedMul * legendMoveMulOf(w2, inventory.held()?.item ?? null);
     controller.motion.jumpLocked = bm.jumpLocked || wm.jumpLocked || pm.jumpLocked || lm.jumpLocked;
     controller.motion.noRun = lm.noRun;
-    controller.motion.hoverDy = lm.hoverDy; // WEAPON-7 PR3: シャイニングで うかぶ・おりる
+    // WEAPON-9: シャイニングの うかぶ（重力を 使わず 目標の 高さへ）と カメラを 引く
+    controller.motion.hoverY = lm.hoverY ?? null;
+    rig.distanceOverride = legend.camDistance();
     // CHAR-2: わざのあいだは 向きを わざの向きに 固定（わざを始めたステップは あとで その場で）
     // WEAPON-3: 刀の わざ・パンチの あいだは 攻撃の向き u。攻撃・空ぶりは ＋マークへ 回らない（leftAims）
     // WEAPON-5: パリィの あいだは 今 向いている 方（カメラの 向き）を向く。始めた ステップは すべらず 止まる
@@ -1683,6 +1721,11 @@ game.onUpdate((dt) => {
   rig.update(dt);
   if (worldReady()) yokaiM.update();
   if (worldReady()) animals.update();
+  // WEAPON-9: シャイニング F1〜240 は 持ちかえ・もちもの画面を 出せない
+  if (legend.locked()) {
+    if (nijiLockSel < 0) nijiLockSel = inventory.selected();
+    else if (inventory.selected() !== nijiLockSel) inventory.select(nijiLockSel);
+  } else nijiLockSel = -1;
   dig.update();
   // WEAPON-7 PR2: 真空波（刀が きまった あと。体は ふみこんだ あとの 位置）
   {
@@ -1722,6 +1765,8 @@ game.onUpdate((dt) => {
     const bs = blade.state();
     // わざを始めた ステップ: その場で わざの向きを向き、水平の速さを 0 に
     const lstrike = legend.strike();
+    const shiningNow = legend.state().move === 'shining';
+    const shiningBody = shiningNow && shiningBodyPose(legend.state().moveF) === 'charge';
     const faceU = legend.faceDeg() ?? dig.attackFaceDeg();
     if (faceU !== null) st.facingDeg = ((faceU % 360) + 360) % 360;
     rig.doll.setArcDir(st.facingDeg);
@@ -1743,11 +1788,12 @@ game.onUpdate((dt) => {
       weapon,
       // CHAR-4: 持っている 刀の 色（20・21 番を この 色に）。表に ない 刀は かたなの 行
       bladeColors: weapon === 'katana' ? bladeColorsOf(w2, bs.item) : null,
-      // 虹の シャイニング中（うかぶ〜おりる）も 両手を 頭の上（ため中と 同じ 絵）
-      legendCharge: weapon === 'katana' && (legend.view().charging || legend.shield()),
+      // WEAPON-9: 手に 持つ 絵は 虹だけ 専用。シャイニング F1〜240 は ため の 形（おおげさぎり コマ 5）を 止める
+      weaponSkin: held === 'niji' ? 'niji' : null,
+      legendCharge: weapon === 'katana' && (legend.view().charging || shiningBody),
       blade:
         weapon === 'katana'
-          ? lstrike
+          ? lstrike && !shiningNow
             ? { stance: bs.stance, tech: 'kesa' as const, ...lightningPoseFrame(lstrike.F, lstrike.total), lengths: null }
             : { stance: bs.stance, tech: bs.tech, phase: bs.phase, frame: bs.frame, lengths: bs.tech ? (bs.lengths ?? w2.bladeTech[bs.tech]) : null }
           : null,
@@ -1873,18 +1919,24 @@ game.onUpdate((dt) => {
     spiralFx.step(sp, spiralDebris);
     const lv = holdingLegend ? legend.view() : null;
     const st = lv && lv.ready ? legend.state() : null;
-    thunderFx.step(lv ? { charging: lv.charging, ready: lv.ready, aimS: st && st.aim && st.aim.skyVisible ? st.aim.S : null } : IDLE_THUNDER_LOOK, reducedNow);
+    thunderFx.step(lv && lv.kind !== 'shining' ? { charging: lv.charging, ready: lv.ready, aimS: st && st.aim && st.aim.skyVisible ? st.aim.S : null } : IDLE_THUNDER_LOOK, reducedNow);
     // WEAPON-8 §3.5: ため中の 手もとの 光（雷神剣も 風神剣も）。手は 三人称は 体から、一人称は 画面の 右下の にぎり
     const cp = controller.state.position;
-    const cl = chargeLight.step({ ticks: lv ? lv.chargeTicks : null, kind: lv ? lv.kind : null, full: lv && lv.kind === 'shining' ? 90 : 60, reduced: reducedNow });
+    const cl = chargeLight.step({ ticks: lv ? lv.chargeTicks : null, kind: lv ? lv.kind : null, reduced: reducedNow, full: chargeOf(w2, inventory.held()?.item ?? null)?.chargeTicks, cut: legend.state().move === 'shining' });
     if (cl.phase !== 'off') {
       handNow();
       chargeLightFx.step(cl, handInfo, handInfo.first ? null : { x: cp.x, y: cp.y + 1.1, z: cp.z });
     } else chargeLightFx.step(cl, handInfo, null);
-    // WEAPON-7 PR3 §5.3: 虹の ドーム（見た目は legend.state().dome。一人称では まん中の 光と まくを 出さない）
+    // WEAPON-9: 虹の ドーム（シャイニング中）。音: 弾が 消えた ステップに domeErase を 1 つ
     {
-      const dm = legend.dome();
-      shiningFx.step({ dome: dm ? legend.state().dome : null, x: dm ? dm.x : 0, z: dm ? dm.z : 0, firstPerson: rig.getInfo().hideChar, reduced: reducedNow });
+      const dv = legend.view();
+      const mv = legend.state();
+      domeGrains.step({ F: mv.move === 'shining' ? mv.moveF : 0, center: nijiCenter(cp), radius: dv.dome, pulled: legend.pullers(), reduced: reducedNow });
+      nijiFx.step(dv.dome > 0 ? { radius: dv.dome, center: nijiCenter(cp), groundY: dv.groundY, F: mv.moveF } : null, domeGrains, reducedNow, rig.getInfo().hideChar);
+      if (domeEraseThisStep) {
+        playLegend(fxSound, 'domeErase');
+        domeEraseThisStep = false;
+      }
     }
     // WEAPON-8 §2.4: 速さバフの アイコン（手に 持つ 物の 速さの 倍率が 1 より 大きい 間）
     const heldNow = inventory.held()?.item ?? null;
@@ -2105,7 +2157,6 @@ installTestHook(game, overlay, () => host.everReady, {
   legend: {
     state: () => ({ ...legend.state(), got: legendBook.got() }),
     events: () => legend.peekEvents(),
-    shiningFx: () => ({ ...shiningFx.look(), ...shiningFx.stats() }),
     waves: () => waveSys.list().map((w) => ({ id: w.id, kind: w.kind, position: { ...w.position }, dir: { ...w.dir }, traveled: w.traveled, age: w.age, spin: w.spin, drawPos: { ...w.drawPos }, face: w.face, bodyAlpha: w.bodyAlpha, backAlpha: w.backAlpha })),
     debris: () => ({ ...spiralDebris.view() }),
     chargeFx: () => {
@@ -2129,6 +2180,10 @@ installTestHook(game, overlay, () => host.everReady, {
     },
     chargeSound: () => ({ ...legend.chargeSound() }),
     spiralSound: () => legend.spiralSound(),
+    pullSound: () => legend.pullSound(),
+    slashes: () => nijiFx.slashes(),
+    nijiFx: () => nijiFx.info(),
+    grains: () => ({ ...domeGrains.counts() }),
   } as unknown as TestHookGroups['legend'],
   player: { ...createPlayerHook(controller), handPos: () => { const h = handNow(); return { world: { ...h.world }, screen: h.screen ? { ...h.screen } : null }; }, glow: () => { const g = parry.state().glowLeft; return { visible: g > 0, ticksLeft: g, level: parryGlowLevel(g, w2) }; }, respawn: () => controller.respawn(), doll: withSpriteDoll(cameraHook.doll, sprite, rig.doll.group) } as unknown as TestHookGroups['player'],
   ...createDigHook(dig),

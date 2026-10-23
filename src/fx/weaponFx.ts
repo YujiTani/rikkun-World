@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { type W2Settings, type ArmorSystem, BladeEvent, BladeSystem, BowEvent, BowSystem, Inventory, ItemId, Vec3, WearEvent } from '../contracts';
+import { type W2Settings, type ArmorSystem, type BladeStep, type BladeTech, BladeEvent, BladeSystem, BowEvent, BowSystem, Inventory, ItemId, Vec3, WearEvent } from '../contracts';
 import type { BladeHud } from '../ui/bladeHud';
 import type { WearNotice } from '../ui/wearNotice';
 import { playCombat } from './combatSounds';
@@ -30,7 +30,13 @@ export interface WeaponFxDeps {
   /** WEAPON-6: 刀の 出来事を 実績へ（3 段 ぜんぶ 当てた） */
   onBlade?: (events: readonly BladeEvent[]) => void;
   /** WEAPON-7: わざを 始めた とき、持っている 武器の 追加の 音・見た目（レジェンダリーの きせき） */
-  onTechItem?: (item: ItemId | null) => void;
+  onTechItem?: (item: ItemId | null, tech?: BladeTech, step?: BladeStep) => void;
+  /** WEAPON-9: 妖怪に わざが 当たった（1 体ごとに 1 回。虹の 火花用） */
+  onTechHit?: (item: ItemId | null, e: Extract<BladeEvent, { type: 'techHit' }>) => void;
+  /** WEAPON-9: わざが やめに なった */
+  onBladeCancel?: () => void;
+  /** WEAPON-9: true を 返すと 今の 刀の 斬撃音(と 段の 音)を 鳴らさない（虹の nijiSlash に 入れかえ）。step = 3 段の 何段目(1〜3) */
+  replaceTechSound?: (item: ItemId | null, step: number) => boolean;
   /** たいきゅうの 出来事を 実績へ */
   onWear?: (events: readonly WearEvent[]) => void;
   /** こわれた（人形が 手を 見る 動きなど） */
@@ -105,8 +111,12 @@ export class WeaponFx {
     switch (e.type) {
       case 'techStart':
         this.d.bladeHud.techStarted(e.tech);
+        if (this.d.replaceTechSound?.(this.d.blade.state().item, e.step ?? 1)) {
+          this.d.onTechItem?.(this.d.blade.state().item, e.tech, e.step ?? 1);
+          break;
+        }
         playWeapon(s, e.tech);
-        this.d.onTechItem?.(this.d.blade.state().item);
+        this.d.onTechItem?.(this.d.blade.state().item, e.tech, e.step ?? 1);
         if (e.step === 2) playWeapon(s, 'combo2');
         else if (e.step === 3) playWeapon(s, 'combo3');
         break;
@@ -119,6 +129,7 @@ export class WeaponFx {
           playCombat(s, 'hit');
         }
         this.burst(e.position, WEAPON_FX.starCount, 0xffffff, WEAPON_FX.starSeconds, 0.12, false);
+        this.d.onTechHit?.(this.d.blade.state().item, e);
         break;
       case 'techMiss':
         break;
@@ -127,6 +138,7 @@ export class WeaponFx {
         this.d.bladeHud.stanceChanged(e.to);
         break;
       case 'cancel':
+        this.d.onBladeCancel?.();
         break;
     }
   }

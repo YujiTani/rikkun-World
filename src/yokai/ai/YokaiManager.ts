@@ -35,7 +35,7 @@ import { YOKAI_STATS, yokaiStrength, type StrengthLevel } from '../stats';
 import { ANNOUNCE_TICKS, TITLE_RULES, isBigTitle, limitTitle, rollTitle, titleAnnounceText, titleLabel } from '../title';
 import { fallDamage } from '../../combat/config';
 import { createRng, type Rng } from '../../world/gen/random';
-import { pickNushiDrop, rollLegendPower } from '../../legend/defs';
+import { pickNushiDrop, rollPower } from '../../legend/defs';
 import { applyDollBrightness } from './brightness';
 import { AI_CONST, KIND_AI, YOKAI_DROPS, createYokaiConfig, type KindAi, type YokaiConfig } from './config';
 import { BurstFx } from './effects';
@@ -109,6 +109,10 @@ export interface YokaiManagerOptions {
   onLegendDrop?: (info: { item: ItemId; yokaiId: number; kind: YokaiKind; position: Vec3 }) => void;
   /** WEAPON-5: パリィ。妖怪の攻撃・火の玉が プレイヤーに当たる直前に聞く（なければ 今のまま） */
   parry?: YokaiParryPort;
+  /** WEAPON-9: シャイニングの ドームの 球（なければ null）。火の玉などの 弾は ふれた ステップに 消える */
+  dome?: () => { x: number; y: number; z: number; r: number } | null;
+  /** WEAPON-9: 弾が ドームで 消えた（弾の id） */
+  onDomeErase?: (projectileId: number) => void;
   /** WEAPON-5: よろけ・2 倍・はね返しが当たった 出来事を パリィの 出来事の 列へ */
   onParryEvent?: (e: { type: 'stagger' | 'staggerDouble' | 'reflectHit'; yokaiId: number; by?: StaggerBy; damage?: number }) => void;
 }
@@ -186,8 +190,13 @@ interface Ent {
   knockStep: number;
   /** 上へ の 初速（ブロック/秒）。0 より 大きい あいだ は うきあがっている */
   knockUpV: number;
+  /** 虹の はじきで とんでいる あいだ true（おりても 落下ダメージを 受けない。いたそうに しない） */
+  airSafe: boolean;
   knockDx: number;
   knockDz: number;
+  /** WEAPON-9: 長い はじきの 全部の 距離・全部の ステップ(0 = 一定の 速さ) */
+  knockTotal: number;
+  knockT: number;
   motion: 'wait' | 'move';
   leaveAt: number;
   marks: HpBar | null;
@@ -222,6 +231,7 @@ interface Ent {
 }
 
 interface LiveFireball {
+  id: number;
   fb: Fireball;
   owner: number;
   /** 出した妖怪の攻撃力（出した時点の数） */
@@ -258,6 +268,9 @@ function scaledDims(kind: YokaiKind, s: number): KindAi {
 }
 
 /** 妖怪たち（出現・AI・攻撃・火の玉・たおれる・帰る）。仕様 M3-combat §2.3〜§2.5・§2.9・§4.2〜§4.4 */
+/** 虹の はじき中だけの 重力（g=2h/t²: 高さ 6・0.4 秒 → 75） */
+const HEAVY_G = 75;
+
 export class YokaiManager implements YokaiWorld {
   readonly config: YokaiConfig;
   /** シーンに入れる */
@@ -272,10 +285,6 @@ export class YokaiManager implements YokaiWorld {
   private readonly tickFn: (() => number) | null;
   private readonly rng: Rng;
   private readonly nushiRng: Rng;
-  /** WEAPON-7 PR3: 虹の 強さ（4〜10）を 決める 乱数（ヌシの 表の 列を ずらさない よう べつ） */
-  private readonly powerRng: Rng;
-  /** WEAPON-7 PR3: シャイニングの ドーム（中心と 半径）。ふれた 火の玉は 消える。つなぎ込みが 渡す */
-  domeSource: (() => { x: number; y: number; z: number; r: number } | null) | null = null;
   /** 二つ名の抽選（出現の乱数の並びを変えないように別に持つ） */
   private readonly titleRng: Rng;
   private announceNow: AnnounceInfo | null = null;
@@ -285,6 +294,7 @@ export class YokaiManager implements YokaiWorld {
   private readonly stagBook;
   private ents: Ent[] = [];
   private fireballs: LiveFireball[] = [];
+  private fireballSeq = 0;
   private freeFireballs: Fireball[] = [];
   private nextId = 1;
   private steps = 0;
@@ -314,7 +324,6 @@ export class YokaiManager implements YokaiWorld {
     this.config = opts.config ?? createYokaiConfig();
     this.rng = createRng((opts.seed ?? 20240612) ^ 0x7a11);
     this.titleRng = createRng((opts.seed ?? 20240612) ^ 0x71713);
-    this.powerRng = createRng((opts.seed ?? 20240612) ^ 0x7a11b0);
     this.nushiRng = createRng((opts.seed ?? 20240612) ^ 0x1e6e17d); // WEAPON-7 §2.3: ヌシの 表は べつの 乱数（ほかの ドロップの 列を ずらさない）
     this.group.add(this.burst.group);
   }
@@ -472,7 +481,7 @@ export class YokaiManager implements YokaiWorld {
     }
     e.model.hit();
     this.emit({ type: 'hurt', tick: this.tick(), id: e.id, kind: e.kind, position: { x: e.x, y: e.y, z: e.z } });
-    if (e.kind !== 'nurikabe') {
+    if (e.kind !== 'nurikabe' || knock?.heavy) {
       let dx = e.x - from.x;
       let dz = e.z - from.z;
       const d = Math.hypot(dx, dz);
@@ -485,11 +494,29 @@ export class YokaiManager implements YokaiWorld {
       }
       e.knockDx = dx;
       e.knockDz = dz;
-      e.knockLeft = AI_CONST.knockbackTicks;
-      e.knockStep = (knock ? Math.max(0, knock.dist) : this.config.knockback) / AI_CONST.knockbackTicks;
-      e.knockUpV = knock && knock.up > 0 ? knock.up : 0;
+      const T = knock?.ticks && knock.ticks > 0 ? Math.floor(knock.ticks) : AI_CONST.knockbackTicks;
+      e.knockLeft = T;
+      e.knockStep = (knock ? Math.max(0, knock.dist) : this.config.knockback) / T;
+      // 長い はじきは はじめ 速く・おわり ゆっくり（1 ステップ目 ≒ 2 × 平均）
+      e.knockTotal = knock?.ticks && knock.ticks > 0 ? Math.max(0, knock.dist) : 0;
+      e.knockT = knock?.ticks && knock.ticks > 0 ? T : 0;
+      // heavy（虹の はじき）の 上は「とぶ 高さ」（重力 HEAVY_G=75 で 上 6 に 24 ステップ（0.4 秒）で とどく）。いちばん 高い 所が up マス → 初速 √(2·HEAVY_G·up)。ふつうの 押しは 今までどおり 初速
+      e.knockUpV = knock && knock.up > 0 ? (knock.heavy ? Math.sqrt(2 * HEAVY_G * knock.up) : knock.up) : 0;
+      if (knock?.heavy) e.airSafe = true;
     }
     return amount;
+  }
+
+  /** WEAPON-9 §5.3.1: (x, z) の ほうへ 水平に dist だけ すいよせる。ふだんの 当たり判定の 中で 動く（かべで 止まる）。上下は かえない */
+  pull(id: number, x: number, z: number, dist: number): void {
+    const e = this.ents.find((q) => q.id === id);
+    if (!e || e.state === 'dying' || e.state === 'leaving' || e.remove || e.knockLeft > 0) return;
+    const dx = x - e.x;
+    const dz = z - e.z;
+    const d = Math.hypot(dx, dz);
+    if (d < 1e-6 || !(dist > 0)) return;
+    this.walk(e, dx / d, dz / d, Math.min(dist, d));
+    this.syncTransform(e);
   }
 
   occupies(x: number, y: number, z: number): boolean {
@@ -682,8 +709,11 @@ export class YokaiManager implements YokaiWorld {
       knockLeft: 0,
       knockStep: 0,
       knockUpV: 0,
+      airSafe: false,
       knockDx: 0,
       knockDz: 0,
+      knockTotal: 0,
+      knockT: 0,
       motion: 'wait',
       leaveAt: -1,
       marks: null,
@@ -877,10 +907,9 @@ export class YokaiManager implements YokaiWorld {
     const item = pickNushiDrop(this.S.nushiDrops, this.nushiRng);
     if (item === null) return;
     const at = { x: e.x, y: e.y, z: e.z };
-    // WEAPON-7 PR3: 強さが [最小, 最大] の 武器（虹）は 1 本ごとに 整数で 決めて その 1 本に 保存
-    const power = rollLegendPower(this.S, item, this.powerRng);
-    const stack = power === null ? { item, count: 1 } : { item, count: 1, power };
-    const left = this.drops ? 1 - this.drops.scatter(at, [stack], { kind: 'yokai' }) : this.inventory.add(item, 1, power === null ? undefined : { power });
+    // WEAPON-9 §5.1: 虹は 落ちる たびに 強さ 4〜10（1 本ごと。表の 乱数と 同じ 列から 1 つ）
+    const power = rollPower(this.S, item, this.nushiRng) ?? undefined;
+    const left = this.drops ? 1 - this.drops.scatter(at, [{ item, count: 1, ...(power ? { power } : {}) }], { kind: 'yokai' }) : this.inventory.add(item, 1, { power });
     this.emit({ type: 'drop', tick: this.tick(), id: e.id, kind: e.kind, item, count: 1, added: 1 - left }, true);
     this.opts.onLegendDrop?.({ item, yokaiId: e.id, kind: e.kind, position: at });
   }
@@ -1101,6 +1130,7 @@ export class YokaiManager implements YokaiWorld {
     this.applyKnock(e);
     // よろけ中の ちょうちんは その場で ふわふわ（高さも かえない）
     if (!this.rise(e, dt) && !(e.stag && e.dims.flies)) this.settle(e, dt);
+    this.endAirSafe(e);
     if (e.y < AI_CONST.voidY) {
       e.remove = true;
       return;
@@ -1418,6 +1448,15 @@ export class YokaiManager implements YokaiWorld {
         t = NaN;
       }
     }
+    if (Number.isNaN(t) && e.airSafe) {
+      // 虹の はじきで 空を とんでいる 間: 足場が なくても 体の 箱が かべに 重ならなければ 横へ すすむ
+      const r = ai.radius;
+      if (!bodyInWall(x, z, r, AI_CONST.edgeMargin) || !this.world.isLoaded(Math.floor(x), Math.floor(z))) return false;
+      if (!this.boxFreeAt(x - r, e.y + 0.05, z - r, x + r, e.y + ai.height, z + r)) return false;
+      e.x = x;
+      e.z = z;
+      return true;
+    }
     if (Number.isNaN(t)) return false;
     e.x = x;
     e.z = z;
@@ -1456,11 +1495,14 @@ export class YokaiManager implements YokaiWorld {
     } else if (e.y > t + 1e-6) {
       if (Number.isNaN(e.fallFrom)) {
         e.fallFrom = e.y;
-        e.floating = e.kind === 'karakasa' && e.y - t >= AI_CONST.floatMinDrop - 1e-6;
+        // 虹の はじき中は ふわふわ せず（ゆれて 横へ ずれない）いきおいよく 落ちる
+        e.floating = !e.airSafe && e.kind === 'karakasa' && e.y - t >= AI_CONST.floatMinDrop - 1e-6;
         e.swayStep = 0;
       }
       if (e.floating) this.sway(e, dt);
-      e.vy = Math.min(e.floating ? AI_CONST.floatFallSpeed : 25, e.vy + 25 * dt);
+      // 虹の はじき中（airSafe）は 上がりと おなじ 重力で はやく 落ちる
+      const g = e.airSafe ? HEAVY_G : 25;
+      e.vy = Math.min(e.floating ? AI_CONST.floatFallSpeed : e.airSafe ? 2 * HEAVY_G : 25, e.vy + g * dt);
       e.y = Math.max(t, e.y - e.vy * dt);
       if (e.y <= t) {
         e.vy = 0;
@@ -1576,6 +1618,10 @@ export class YokaiManager implements YokaiWorld {
   private land(e: Ent, ground: number): void {
     const from = e.fallFrom;
     e.fallFrom = NaN;
+    if (e.airSafe) {
+      e.airSafe = false;
+      return;
+    }
     if (e.floating || e.kind === 'karakasa') {
       e.floating = false;
       e.model.fallTilt = 0;
@@ -1595,11 +1641,17 @@ export class YokaiManager implements YokaiWorld {
     this.emit({ type: 'hurt', tick: this.tick(), id: e.id, kind: e.kind, position: { x: e.x, y: e.y, z: e.z } });
   }
 
+  /** 虹の はじきが おわり（押す・うきあがるが 0）、地面に いる（または とぶ 妖怪）なら airSafe を 必ず 戻す（land を 通らない 道: 天井・のぼる・とぶ 妖怪） */
+  private endAirSafe(e: Ent): void {
+    if (!e.airSafe || e.knockLeft > 0 || e.knockUpV > 0) return;
+    if (e.dims.flies || e.y <= settleGround(this.world, e.x, e.z, e.y, e.dims) + 1e-6) e.airSafe = false;
+  }
+
   /** 上への 初速で うきあがる。うきあがっている あいだ true（その ステップ は 地面あわせ を しない） */
   private rise(e: Ent, dt: number): boolean {
     if (e.knockUpV <= 0) return false;
     const ny = e.y + e.knockUpV * dt;
-    e.knockUpV -= 25 * dt;
+    e.knockUpV -= (e.airSafe ? HEAVY_G : 25) * dt;
     const r = e.dims.radius;
     const blocked = !this.boxFreeAt(e.x - r, ny + e.dims.height - 0.05, e.z - r, e.x + r, ny + e.dims.height, e.z + r);
     if (e.knockUpV <= 0 || blocked) {
@@ -1613,7 +1665,8 @@ export class YokaiManager implements YokaiWorld {
 
   private applyKnock(e: Ent): void {
     if (e.knockLeft <= 0) return;
-    if (this.walk(e, e.knockDx, e.knockDz, e.knockStep) <= 0) e.knockLeft = 0;
+    const step = e.knockT > 0 ? (e.knockTotal * 2 * e.knockLeft) / (e.knockT * (e.knockT + 1)) : e.knockStep;
+    if (this.walk(e, e.knockDx, e.knockDz, step) <= 0) e.knockLeft = 0;
     else e.knockLeft--;
   }
 
@@ -1748,7 +1801,7 @@ export class YokaiManager implements YokaiWorld {
     const idx = model.fireballs.findIndex((f) => f.alive && f.traveled === 0);
     if (idx < 0) return;
     const fb = model.fireballs.splice(idx, 1)[0]!;
-    this.fireballs.push({ fb, owner: e.id, damage: e.attack, reflected: false });
+    this.fireballs.push({ id: ++this.fireballSeq, fb, owner: e.id, damage: e.attack, reflected: false });
     const spare = this.freeFireballs.pop();
     if (spare) model.fireballs.push(spare);
   }
@@ -1765,16 +1818,14 @@ export class YokaiManager implements YokaiWorld {
     const pb = this.playerBox(tmpBox);
     const keep: LiveFireball[] = [];
     const half = AI_CONST.fireballBox / 2;
+    const dome = this.opts.dome?.() ?? null;
     for (const f of this.fireballs) {
       f.fb.update(dt);
       const p = f.fb.position;
       const kind: YokaiKind = 'chochin';
       let end = false;
       let hitPlayer = false;
-      const dome = this.domeSource?.() ?? null;
-      if (dome && !f.reflected && Math.hypot(p.x - dome.x, p.y - dome.y, p.z - dome.z) <= dome.r + half) {
-        end = true; // WEAPON-7 PR3: ドームに ふれたら 消える（小さな 光の つぶ）
-      } else if (!f.fb.alive) {
+      if (!f.fb.alive) {
         end = true; // 8 ブロックで消えた
       } else if (
         !this.world.isLoaded(p.x, p.z) || p.y < 0 || p.y >= this.world.size.y
@@ -1782,6 +1833,10 @@ export class YokaiManager implements YokaiWorld {
         end = true;
       } else if (this.world.isSolid(Math.floor(p.x), Math.floor(p.y), Math.floor(p.z))) {
         end = true;
+      } else if (dome && !f.reflected /* はね返した 弾は プレイヤーの 物なので ドームでも 消さない */ && Math.hypot(p.x - dome.x, p.y - dome.y, p.z - dome.z) <= dome.r) {
+        // WEAPON-9: ドームに ふれた 弾は 消える（ダメージ 0）
+        end = true;
+        this.opts.onDomeErase?.(f.id);
       } else {
         tmpBox2.minX = p.x - half;
         tmpBox2.maxX = p.x + half;

@@ -35,7 +35,7 @@ describe('もちものの power', () => {
     expect(inv.add('niji', 1, { power: 4 })).toBe(0);
     expect(inv.add('niji', 1, { power: 10 })).toBe(0);
     expect(inv.add('niji', 1)).toBe(0);
-    expect(powers(inv).slice(0, 3)).toEqual([4, 10, undefined]);
+    expect(powers(inv).slice(0, 3)).toEqual([4, 10, 7]); // WEAPON-9: 強さを わたさない 虹は まん中の 7 を 保存
     expect(inv.count('niji')).toBe(3);
   });
   it('範囲の 外・小数は おさめる（4〜10 の 整数）。強さの ない 武器には つかない', () => {
@@ -80,7 +80,7 @@ describe('もちものの power', () => {
     slots[1] = { item: 'niji', count: 1, power: 'x' };
     slots[2] = { item: 'niji', count: 1, power: 77 };
     inv.deserialize({ slots, selected: 0 });
-    expect(powers(inv).slice(0, 3)).toEqual([undefined, undefined, 10]);
+    expect(powers(inv).slice(0, 3)).toEqual([7, 7, 10]); // WEAPON-9: なし・おかしい 値は まん中の 7
   });
   it('setSlot でも power を もつ', () => {
     const inv = new InventoryImpl();

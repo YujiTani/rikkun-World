@@ -249,7 +249,7 @@ export type ItemOnlyId =
   // WEAPON-7（うしろに足す。レジェンダリー）
   | 'raijin_ken' // 雷神剣（ヌシが おとす）
   | 'fujin_ken' // 風神剣（ヌシが おとす。WEAPON-7 PR2）
-  | 'niji'; // 虹（ヌシが おとす。強さは 1 本ごと。WEAPON-7 PR3）
+  | 'niji'; // 虹（ヌシが おとす。WEAPON-9。強さは 1 本ごと 4〜10）
 
 /** アイテムの種類。ブロックとアイテムだけのもの */
 export type ItemId = BlockId | ItemOnlyId;
@@ -261,7 +261,7 @@ export interface ItemStack {
   wear?: number;
   /** M7-2: じょうろ の みず の 量（1〜入る回数。なし・0 = からっぽ）。じょうろ 2 しゅるい だけが 持つ */
   water?: number;
-  /** WEAPON-7 PR3: 虹の つよさ（その 1 本に 保存。4〜10 の 整数。なし = 7）。虹だけが 持つ */
+  /** WEAPON-9: 虹の 強さ（4〜10。1 本ごとに 保存）。虹だけが 持つ。なし = 7 */
   power?: number;
 }
 
@@ -499,6 +499,8 @@ export interface YokaiWorld {
   damage(id: number, amount: number, from: Vec3, knock?: YokaiKnock): number | void;
   /** そのマスに妖怪の当たりの箱が重なっているか（ブロックを置けない） */
   occupies(x: number, y: number, z: number): boolean;
+  /** WEAPON-9: (x, z) の ほうへ 水平に dist だけ すいよせる（ふだんの 当たり判定の 中で。上下は かえない） */
+  pull?(id: number, x: number, z: number, dist: number): void;
   /** 画面と音用（呼ぶと空になる）。テストの窓口用の列は別に持つ */
   drainEvents(): YokaiEvent[];
 }
@@ -1499,6 +1501,10 @@ export interface YokaiKnock {
   dist: number;
   /** 上への 初速（ブロック/秒。0 = 上げない） */
   up: number;
+  /** WEAPON-9: 押す ステップ数（省くと 10）。長い ときは はじめ 速く・おわり ゆっくり */
+  ticks?: number;
+  /** WEAPON-9: true なら ぬりかべも 押す（虹の はじき） */
+  heavy?: boolean;
 }
 
 // ---------------------------------------------------------------- たいきゅう（F）
@@ -1539,6 +1545,8 @@ export interface PlayerMotionMod {
   faceDeg?: number | null;
   /** CHAR-2: true の ステップは 水平の速さを 0 に する */
   stopNow?: boolean;
+  /** WEAPON-9: null でない あいだ 足もとの 高さを これに 向けて うごかす（シャイニングで うかぶ。重力を 使わない） */
+  hoverY?: number | null;
 }
 
 // ---------------------------------------------------------------- 刀（A）
@@ -1839,6 +1847,8 @@ export interface W2Settings {
   nushiDrops: NushiDropRow[];
   /** WEAPON-7 §2.2: ため中の 歩く 倍率 */
   legendaryChargeWalk: number;
+  /** WEAPON-9 §5.6: 三人称で シャイニング中に カメラを 引く きょり（4 = 引かない） */
+  shiningCamDistance: number;
   /** 刀を ふった ときの きせき（武器ごとの 個性。オーナー決定）。style: plain=ふつう・star=星が まじる・long=長い 弧 */
   bladeTrail: Partial<Record<ItemId, BladeTrailStyle>>;
   // WEAPON-3（§4.7）
@@ -1880,7 +1890,7 @@ export interface W2Settings {
 export type LegendaryCharge =
   | { kind: 'lightning'; chargeTicks: number; range: number; radius: number; damageMul: number; knock: [number, number]; strikeF: number; boltSteps: number; recovery: number }
   | { kind: 'spiral'; chargeTicks: number; launchF: number; recovery: number; speed: number; range: number; radius: number; damageMul: number; knock: [number, number] }
-  | { kind: 'shining'; chargeTicks: number; rise: number; riseSteps: number; holdSteps: number; fallSteps: number; radius: number; damageMul: number; hitEvery: number; push: [number, number]; cooldown: number };
+  | { kind: 'shining'; chargeTicks: number; rise: number; riseSteps: number; holdSteps: number; fallSteps: number; radius: number; damageMul: number; hitEvery: number; push: [number, number]; cooldown: number; takenMul: number; pullRange: number; pullSpeed: number };
 /** ふつうの わざに 足す 効果（見た目・音・弾）。`wave` は PR2 で 作る */
 export type LegendaryAttackFx =
   | { kind: 'trail'; style: 'thunder' | 'rainbow' }
@@ -1921,9 +1931,9 @@ export const LEGENDARY_DEFAULTS: readonly LegendaryDef[] = [
   },
   {
     item: 'niji',
-    // WEAPON-7 PR3: 強さは 落ちた ときに 4〜10 の 整数を 1 本ごとに 決めて その 1 本に 保存（なし = 7）
     power: [4, 10],
-    charge: { kind: 'shining', chargeTicks: 90, rise: 2.0, riseSteps: 40, holdSteps: 160, fallSteps: 40, radius: 7, damageMul: 2.5, hitEvery: 60, push: [3, 2], cooldown: 600 },
+    // WEAPON-9 §5.1: 虹。ため 2.5 秒 → シャイニング（うかぶ 40・とどまる 160・おりる 40・もどり 20）。休み 600
+    charge: { kind: 'shining', chargeTicks: 150, rise: 2.0, riseSteps: 40, holdSteps: 160, fallSteps: 40, radius: 7, damageMul: 2.5, hitEvery: 60, push: [9, 6], cooldown: 600, takenMul: 1 / 3, pullRange: 12, pullSpeed: 3 },
     onAttack: [{ kind: 'trail', style: 'rainbow' }],
     passive: [],
   },
@@ -2047,6 +2057,7 @@ export const W2_SETTING_DEFAULTS: Readonly<W2Settings> = {
   legendary: LEGENDARY_DEFAULTS as LegendaryDef[],
   nushiDrops: LEGENDARY_DEFAULTS.map((d) => ({ item: d.item, weight: 1 })),
   legendaryChargeWalk: 0.5,
+  shiningCamDistance: 14,
   bladeTrail: {
     bokuto: { color: 0x9c6b3a, glow: 0xe8c08a, blade: 0xb98b54, bladeShine: 0xe0bc86, style: 'plain' },
     katana: { color: 0xe8f1fa, glow: 0xffffff, blade: 0xc8cdd8, bladeShine: 0xffffff, style: 'plain' },
@@ -2056,8 +2067,7 @@ export const W2_SETTING_DEFAULTS: Readonly<W2Settings> = {
     raijin_ken: { color: 0xfff6c0, glow: 0xffffff, blade: 0xb070ff, bladeShine: 0xe6d2ff, style: 'thunder' },
     // WEAPON-7 PR2: 風神剣。ふつうの 斬撃の 形（plain）で 白〜みずいろ
     fujin_ken: { color: 0xe6f8ff, glow: 0xffffff, blade: 0xcfefff, bladeShine: 0xffffff, style: 'plain' },
-    // WEAPON-7 PR3: 虹。軌跡は 弧に そって 色相が 流れる にじ色（style 'rainbow'）
-    niji: { color: 0xffd6f0, glow: 0xffffff, blade: 0xff9ad0, bladeShine: 0xfff0f8, style: 'rainbow' },
+    niji: { color: 0xd16be6, glow: 0xffffff, blade: 0xc3cee2, bladeShine: 0x5fd98e, style: 'plain' },
   },
   bladeFaceAssistDeg: 30,
   thrustTiltMaxDeg: 45,
@@ -2146,6 +2156,7 @@ export function createW2Settings(): W2Settings {
     legendary: d.legendary.map(cloneLegendary),
     nushiDrops: d.nushiDrops.map((r) => ({ ...r })),
     legendaryChargeWalk: d.legendaryChargeWalk,
+    shiningCamDistance: d.shiningCamDistance,
     bladeTrail: Object.fromEntries(Object.entries(d.bladeTrail).map(([k, v]) => [k, { ...v }])) as W2Settings['bladeTrail'],
     bladeFaceAssistDeg: d.bladeFaceAssistDeg,
     thrustTiltMaxDeg: d.thrustTiltMaxDeg,

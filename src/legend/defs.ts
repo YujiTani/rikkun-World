@@ -43,8 +43,8 @@ export function legendPowerOf(S: Pick<W2Settings, 'legendary'>, item: ItemId | n
   const d = legendDefOf(S, item);
   if (!d) return null;
   if (typeof d.power === 'number') return d.power;
-  // [最小, 最大]: 持っている 1 本の 強さ（PR3）。なければ 整数の まん中
-  if (typeof stackPower === 'number' && Number.isFinite(stackPower)) return Math.max(d.power[0], Math.min(d.power[1], Math.round(stackPower)));
+  // WEAPON-9: 1 本ごとの 強さ（4〜10 の 整数に おさめる）
+  if (typeof stackPower === 'number' && stackPower > 0) return Math.max(d.power[0], Math.min(d.power[1], Math.round(stackPower)));
   return Math.round((d.power[0] + d.power[1]) / 2);
 }
 
@@ -54,12 +54,12 @@ export function hasPowerRange(S: Pick<W2Settings, 'legendary'>, item: ItemId | n
   return !!d && Array.isArray(d.power);
 }
 
-/** ヌシから 出る 1 本の 強さ（[最小, 最大] の 整数を 同じ 重さで。強さが 1 つに 決まっている 武器は null = 保存しない） */
-export function rollLegendPower(S: Pick<W2Settings, 'legendary'>, item: ItemId, rng: () => number): number | null {
+/** 落ちた 1 本の 強さを 決める（[最小, 最大] なら 整数を 同じ 重さで。数字ひとつ・レジェンダリーでない 物は null）。乱数を 1 つ 使う（範囲の ときだけ） */
+export function rollPower(S: Pick<W2Settings, 'legendary'>, item: ItemId, rng: () => number): number | null {
   const d = legendDefOf(S, item);
   if (!d || typeof d.power === 'number') return null;
   const [lo, hi] = d.power;
-  return lo + Math.min(hi - lo, Math.floor(rng() * (hi - lo + 1)));
+  return Math.min(hi, lo + Math.floor(rng() * (hi - lo + 1)));
 }
 
 /**

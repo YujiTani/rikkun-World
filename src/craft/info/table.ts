@@ -131,8 +131,8 @@ export const ITEM_INFO: Readonly<Record<string, InfoRow>> = {
   // WEAPON-7 §3.1・§2.5: ためて はなすと そら から かみなり が おちる（つかいかたは 刀の 文 ＋ ながおし）
   // WEAPON-8: 風神剣にも ためわざ「らせんの かぜ」（つかいかたは 雷神剣と 同じ）
   fujin_ken: { use: 'てに もつと はやく はしれる。ためて はなすと かぜ が とぶ', how: `${KATANA_HOW}。ながおし して はなすと ためわざ`, buttons: ['1-9', 'left'], stats: 'blade' },
-  // WEAPON-7 PR3: 虹。1 本ごとに つよさが ちがう
-  niji: { use: 'つよさ が 1 ぽん ずつ ちがう。ためて はなすと ひかり の ドーム', how: `${KATANA_HOW}。ながおし して はなすと ためわざ`, buttons: ['1-9', 'left'], stats: 'blade' },
+  // WEAPON-9: 虹。ためて はなすと ひかり の ドーム
+  niji: { use: 'ためて はなすと ひかり の ドーム', how: `${KATANA_HOW}。ながおし して はなすと ためわざ`, buttons: ['1-9', 'left'], stats: 'blade' },
   raijin_ken: { use: 'ためて はなすと そら から かみなり が おちる', how: `${KATANA_HOW}。ながおし して はなすと ためわざ`, buttons: ['1-9', 'left'], stats: 'blade' },
   yumi: {
     use: 'や を とばして とおく の ようかい を たおす。や が いる',

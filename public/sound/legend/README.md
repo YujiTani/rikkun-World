@@ -25,3 +25,8 @@
 
 `docs/audio/WEAPON-8/` の `render.py`・`b2_render.py`・`attack2_render.py` から 部品ごとに 書き出し（シード 7・21・107）、`ffmpeg -c:a libvorbis -q:a 3` で ogg に した。
 ゲームの ものさしに そろえて ある: 攻撃音は 台本の 大きさ ÷ 0.6（ミキサーの master が かけ戻す）、ため音は WAV より −2.1 dB（−6.5 dB ＋ 0.6 の 戻し）。`fxVolume` 0.5 で 倍率 1。
+
+## 虹（WEAPON-9）の 音（B 案「はがねの にじ」・斬撃は C3）
+
+`shiningStart`・`shiningEnd`・`shiningReady`・`shiningHit_0〜2`・`domeErase_0〜2`・`domePull`（ループ 2 秒）・`nijiSlash_段_0〜2`（9 個）。元は `docs/audio/WEAPON-9/` の wav（`B_hagane_*`・`C3_cut_slash*`）を `ffmpeg -c:a libvorbis -q:a 3 -ac 1 -ar 48000` で ogg に した。
+`nijiSlash` は オーナー提供の 見本（on-jin）を 切りはりした 物。**配る・公開する 前に 差しかえか 規約の 確認**（決定 `2026-10-21-niji-sound-b.md`）。

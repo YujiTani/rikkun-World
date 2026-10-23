@@ -1,0 +1,110 @@
+{
+ "a-dome": {
+  "description": null,
+  "job": "6d333222-85f0-4a86-8a7b-3e4ec2a6de04",
+  "quoted": 1,
+  "status": "completed",
+  "usage": {
+   "type": "generations",
+   "generations": 1.0
+  },
+  "effect_id": "0c95c6dd-1174-4d8a-af1a-631aaceed1d1",
+  "message": "A one-shot frosted bubble dome: it grows from a small glowing orb, holds steady with a milky white body, then dithers away, with a cream-white rim with a thin gold edge and a flat glowing ring on the ground. Twelve white twinkling stars are scattered on the surface with a few mint, sky-blue and lilac ones. To tune it, try the ground ring's size and brightness, or the dome's dissolve timing.",
+  "canvas": {
+   "h": 104,
+   "w": 96
+  },
+  "frames": 16,
+  "fps": 12
+ },
+ "a-slash": {
+  "description": "A rainbow katana slash for a gentle kids game: a thick crescent arc swept right to left in 4 fast frames. Cream-white core, thin rainbow edge (green, sky blue, lilac). Tiny 4-point stars trail behind it and fade out one by one. No blood. Crisp pixel art, no outline glow blur.",
+  "job": "922baad6-06cc-4589-a81f-7d7b0c42209d",
+  "quoted": 1,
+  "status": "completed",
+  "usage": {
+   "type": "generations",
+   "generations": 1.0
+  },
+  "effect_id": "855708a4-aa59-49c7-a121-1a0391fb2cfa",
+  "message": "A crisp pixel katana slash: a thick cream-white core with a thin green, sky blue and lilac rainbow edge, sweeping across in a few fast frames. Four small 4-point stars trail behind it and fade out one at a time, with no blood and no glow blur. Try the katana colour and katana thickness sliders to adjust the edge and width.",
+  "canvas": {
+   "h": 60,
+   "w": 44
+  },
+  "frames": 5,
+  "fps": 16
+ },
+ "b-dome": {
+  "description": "A big soap bubble dome seen from outside, for a gentle kids game. Milky frosted white inside. Iridescent thin-film swirls of pastel green, sky blue and lilac only near the edge, slowly flowing. A large curved window highlight on the top-left. A few small round bubbles float upward. One-shot: grows, holds steady (no flashing), then fades with dithering. Round soft shapes only.",
+  "job": "ad8dcc4f-efdc-47a6-a4bd-2b3b832c1740",
+  "quoted": 1,
+  "status": "completed",
+  "usage": {
+   "type": "generations",
+   "generations": 1.0
+  },
+  "effect_id": "f8926e05-608c-44b2-b7af-f268e3a26ed3",
+  "message": "A soft milky-white soap bubble dome that grows from a dot, holds steady with its pastel green, sky blue and lilac iridescent swirls around the rim, then dithers away. A window highlight sits on the top-left and small bubbles drift up from below. Try the swirl and highlight brightness, or the dither, if you want it calmer or sparklier.",
+  "canvas": {
+   "h": 96,
+   "w": 96
+  },
+  "frames": 16,
+  "fps": 12
+ },
+ "b-slash": {
+  "description": "A soft rainbow sword slash for a gentle kids game: a fat round crescent swept right to left in 4 fast frames, rounded tips. Smooth pastel stripes from inner edge to outer edge: cream white, green, sky blue, lilac. Small round bubbles pop along the trail. No blood. Crisp pixel art.",
+  "job": "f6000204-aa2c-4827-aa60-1cc0b5f4edac",
+  "quoted": 1,
+  "status": "completed",
+  "usage": {
+   "type": "generations",
+   "generations": 1.0
+  },
+  "effect_id": "766caf29-2344-48da-9e3c-0f18dbeaaa40",
+  "message": "A fat rainbow crescent sweeps right to left over 4 frames, with cream, green, sky blue and lilac stripes running from the inner edge out, rounded tips, and small pale bubbles popping off the trail. The slash is fully drawn by frame 2 and fades on frame 4, so the last frame is empty. Try the head and tail sliders to change how fast the swipe travels, or ask for bigger bubbles.",
+  "canvas": {
+   "h": 64,
+   "w": 64
+  },
+  "frames": 4,
+  "fps": 14
+ },
+ "c-dome": {
+  "description": "A dome of light seen from outside, for a gentle kids game. Milky white surface crossed by a diamond lattice of thin glowing cream and gold lines. Small rainbow jewel dots (green, sky blue, lilac) sit at the line crossings. Crisp bright cream-white rim with a thin gold outline. One-shot: the lattice lights up from bottom to top once, holds steady (no flashing), then fades with dithering.",
+  "job": "41b24927-2782-4537-a6bd-8b8d9e763679",
+  "quoted": 1,
+  "status": "completed",
+  "usage": {
+   "type": "usd",
+   "usd": 0.0
+  },
+  "effect_id": "8af8a45d-60e3-4312-b76d-2e1a5bfe99f1",
+  "message": "A milky white dome seen from outside, with a gold-and-cream diamond lattice that lights up from bottom to top, then holds steady before dithering away. Seven small jewel dots (green, sky blue, lilac) sit at the crossings and a bright cream rim with a thin gold outline frames it. The lattice line brightness and the dithered fade are the easiest things to tune next.",
+  "canvas": {
+   "h": 45,
+   "w": 78
+  },
+  "frames": 16,
+  "fps": 12
+ },
+ "c-slash": {
+  "description": "A sharp rainbow sword slash for a gentle kids game: an angular crescent with pointed tips swept right to left in 4 fast frames. Inside a cream-white edge, stepped hard bands of green, sky blue and lilac. Small triangle shards fly off and fade. No blood. Crisp pixel art.",
+  "job": "71277b0d-2503-42a7-ab06-040bda4159c7",
+  "quoted": 1,
+  "status": "completed",
+  "usage": {
+   "type": "generations",
+   "generations": 1.0
+  },
+  "effect_id": "cb063134-7b43-4c96-90c0-0df6ddaa12c0",
+  "message": "A crisp angular rainbow slash that sweeps right to left over four frames: a cream-white edge with hard stepped bands of sky blue, green and lilac, and small green triangle shards that fly off and fade. No blood. The shard count and the slash's thickness are the ones to try next, and the shards are a single particle layer you can retime.",
+  "canvas": {
+   "h": 96,
+   "w": 96
+  },
+  "frames": 4,
+  "fps": 12
+ }
+}

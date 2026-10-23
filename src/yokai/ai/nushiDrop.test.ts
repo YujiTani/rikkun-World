@@ -53,7 +53,8 @@ function kill(r: Rig, kind: YokaiKind, title: 'none' | 'oyabun' | 'taisho' | 'nu
   return ev.filter((e) => e.type === 'drop').map((e) => e.item!);
 }
 
-/** PR2 で 表が 2 本・PR3 で 3 本（雷神剣・風神剣・虹）に なった ので、「レジェンダリーが 1 本」は どれかで 数える */
+/** PR2 で 表が 2 本（雷神剣・風神剣）に なった ので、「レジェンダリーが 1 本」は どちらかで 数える */
+// WEAPON-9 で 虹も 表に 入った（3 本）
 const LEGENDS = ['raijin_ken', 'fujin_ken', 'niji'] as ItemId[];
 const isLegend = (x: ItemId) => LEGENDS.includes(x);
 
