@@ -51,7 +51,7 @@ const FACE = `
   };
 `;
 
-/** §4.7 の式 */
+/** 体力のバーの式（docs/decisions/2026-10-23-hp-bar-chunks.md） */
 /** 体力のバー（decisions/2026-10-23-hp-bar-chunks.md）: 最大体力 20 以下は 細いバーだけ。21 以上は 端数が 体力の少ないほうの段 */
 function expected(hp: number, max: number) {
   if (max <= 20) return { bars: max, left: Math.max(Math.ceil(hp), hp > 0 ? 1 : 0), big: 0 };
