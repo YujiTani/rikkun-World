@@ -1,5 +1,6 @@
 import { isLeafId } from '../../world/blocks/blockTypes';
 import * as THREE from 'three';
+import { LIGHT_CONFIG } from '../../world/light/config';
 import { bodyInWall } from '../../world/wall';
 import type {
   BlockId,
@@ -88,7 +89,7 @@ export interface YokaiManagerOptions {
     isDarkForSpawn(x: number, y: number, z: number): boolean;
     brightness(x: number, y: number, z: number): number;
   };
-  /** 足もとの光の下限（人形の明るさ） */
+  /** 足もとの光の下限（人形の明るさ）。既定は LIGHT_CONFIG.yokaiMin（#76 で 0。光らせない） */
   lightMin?: number;
   /** プレイヤーが妖怪をたおした（経験値用。xp = 場所の倍率 M と二つ名を入れた数） */
   onDefeat?: (kind: YokaiKind, info: DefeatInfo) => void;
@@ -606,7 +607,7 @@ export class YokaiManager implements YokaiWorld {
     // 暗さ（暗くしないものは brightness.ts が除く）
     const light = this.opts.light;
     if (light) {
-      const min = this.opts.lightMin ?? 0.3;
+      const min = this.opts.lightMin ?? LIGHT_CONFIG.yokaiMin;
       for (const e of this.ents) {
         const bb = Math.max(min, light.brightness(e.x, e.y + 0.5, e.z));
         if (bb !== e.bright) {

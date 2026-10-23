@@ -32,6 +32,7 @@ const VERT_DECL = `
 attribute vec4 aData;
 attribute vec2 aLight;
 uniform float uDarken;
+uniform float uNight;
 uniform vec3 uTileOf[${KINDS}];
 uniform vec3 uTileAvg[${N_TILES}];
 varying float vShade;
@@ -199,6 +200,7 @@ export function createVoxelMaterial(shared: VoxelShared, ao: Data3DTexture | nul
   const t = tables();
   m.onBeforeCompile = (shader) => {
     shader.uniforms.uDarken = skyDarkness.uniform;
+    shader.uniforms.uNight = skyDarkness.nightUniform;
     shader.uniforms.uAtlas = { value: shared.atlas };
     shader.uniforms.uTileOf = { value: t.of };
     shader.uniforms.uTileAvg = { value: t.avg };
