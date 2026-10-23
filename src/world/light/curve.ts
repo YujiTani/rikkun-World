@@ -10,6 +10,22 @@ export function lightBrightness(level: number): number {
   return C.minBrightness + (1 - C.minBrightness) * f;
 }
 
+/**
+ * #76 夜の倍率: 空の光の曲線の明るさにかける数 mix(1, nightSkyMul, nt × w)。
+ * nt = 夜の度合い（darken ÷ nightDarken）、w = clamp(空の光 ÷ 4, 0, 1)（空の光 0 = どうくつは かけない）。
+ * sky は 時刻で弱める前の空の光（0〜15）。シェーダー（lightShader.ts の skyNight）も同じ式。
+ */
+export function nightSkyFactor(sky: number, darken: number): number {
+  const nt = Math.max(0, Math.min(1, darken / C.nightDarken));
+  const w = Math.max(0, Math.min(1, sky / C.nightSkyFullLevel));
+  return 1 + (C.nightSkyMul - 1) * nt * w;
+}
+
+/** 空の光（時刻で弱める前）から、夜の倍率までふくめた 空の下の見た目の明るさ */
+export function skyBrightness(sky: number, darken: number): number {
+  return lightBrightness(Math.max(0, sky - darken)) * nightSkyFactor(sky, darken);
+}
+
 /** 妖怪・人形・落とし物の明るさ（足もとの明るさから。見えなくなりすぎない下限つき） */
 export function dollLightBrightness(level: number): number {
   return Math.max(C.dollMin, lightBrightness(level));
@@ -37,7 +53,7 @@ export function blockLightBrightness(blockLevel: number): number {
 
 /** 空の光（時刻で弱めたあと）とブロックの光から、見た目の明るさ（大きいほう） */
 export function combinedBrightness(sky: number, darken: number, block: number): number {
-  return Math.max(lightBrightness(sky - darken), blockLightBrightness(block));
+  return Math.max(skyBrightness(sky, darken), blockLightBrightness(block));
 }
 
 /** 妖怪の出る「暗い所」か: 空の光（時刻で弱めたあと）が 7 以下で、たいまつの 8 マス以内でもない */
