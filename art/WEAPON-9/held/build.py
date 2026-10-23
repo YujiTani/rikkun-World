@@ -208,9 +208,19 @@ def line_inliers(m, full=None, retry=True):
     return out
 
 
-def fits(base, a, L):
+def edge_normal(a, base, bc):
+    """刃（は）の がわの 向き。体の 中心 bc から はなれる がわ（= 前）。
+    刀の そりは 峰（むね）がわへ まがる ので、前の 刃が ふくらみ、刃先は 体の がわ（うしろ）へ 反る。
+    （前は (-1,-1) ぐらいの 固定の 向きで 決めて いたので、向きに よって 反りと 刃の がわが 逆に なった）"""
+    n = np.array([-a[1], a[0]], np.float32)
+    if n @ (np.asarray(bc, np.float32) - np.asarray(base, np.float32)) > 0:
+        n = -n
+    return n
+
+
+def fits(base, a, L, bc=None):
     """つば・柄・刃（そりと はば こみ）が コマの ふち 1 点 内に 入るか"""
-    nrm = np.array([-a[1], a[0]], np.float32)
+    nrm = np.array([-a[1], a[0]], np.float32) if bc is None else edge_normal(a, base, bc)
     u = np.linspace(-(max(6, 0.2 * L) + 4), L, 90)
     cu = 0.13 * L * np.abs(np.sin(np.pi * np.clip(u / L, 0, 1))) ** 0.85
     for side in (-4.0, 0.0, 4.0):
@@ -295,7 +305,7 @@ def do_cell(c, shape, row=0):
             ca, sa = math.cos(math.radians(ang)), math.sin(math.radians(ang))
             aa = np.array([a0[0] * ca - a0[1] * sa, a0[0] * sa + a0[1] * ca], np.float32)
             for k in (1.12, 1.11, 1.10):
-                if fits(base, aa, L0 * k):
+                if fits(base, aa, L0 * k, bc):
                     a, L, done = aa, L0 * k, True
                     break
             if done:
@@ -305,6 +315,8 @@ def do_cell(c, shape, row=0):
         nrm = np.array([-a[1], a[0]], np.float32)
         if nrm @ np.array([-1, -1], np.float32) < 0:
             nrm = -nrm
+    if shape in ("niji", "raijin"):
+        nrm = edge_normal(a, base, bc)
     s = float(np.clip(L / 45.0, 0.8, 1.15))
     dx = XX - base[0]
     dy = YY - base[1]

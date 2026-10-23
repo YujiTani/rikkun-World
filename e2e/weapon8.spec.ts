@@ -60,7 +60,7 @@ test.describe('WEAPON-8 AC13 通し（風神剣 → 雷神剣）', () => {
     }
   });
 
-  test('AC13（つづき）: 雷神剣を 60 ステップ ためる → palette raijin・burst・音 3 つ。はなす → F5 で off・F16 までに hold off・F8 に 落雷', async ({ page }) => {
+  test('AC13（つづき）: 雷神剣を 60 ステップ ためる → palette raijin・full・音 3 つ。はなす → F5 で off・F16 までに hold off・F8 に 落雷', async ({ page }) => {
     const floorY = await legendWorld(page, RAIJIN);
     await expectW8Hook(page);
     await aimGroundAhead(page, floorY, 8);
@@ -69,11 +69,12 @@ test.describe('WEAPON-8 AC13 通し（風神剣 → 雷神剣）', () => {
 
     const full = rec[DOWN - 1]!; // ためF 60
     expect(full.fx.palette, 'palette').toBe('raijin');
-    expect(full.fx.phase, 'ためF 60 は burst').toBe('burst');
+    expect(full.fx.phase, 'ためF 60 は full（右手が 光りはじめる）').toBe('full');
+    expect(full.fx.hand, '光りはじめの 1 ステップ').toBe(2);
     const snd = soundsOf(rec.slice(0, DOWN));
     for (const name of ['chargeRise', 'chargeReady', 'chargeHold']) expect(snd, name).toContain(name);
     // はなす
-    expect(rec[fIndex(DOWN, 1)]!.fx.phase, 'F1 から fade').toBe('fade');
+    expect(rec[fIndex(DOWN, 1)]!.fx.phase, 'F1 に すぐ off').toBe('off');
     expect(rec[fIndex(DOWN, 5)]!.fx.phase, 'F5 は off').toBe('off');
     const hold16 = rec.slice(fIndex(DOWN, 1), fIndex(DOWN, 16) + 1).findIndex((s) => s.snd.hold === 'off');
     expect(hold16, 'F16 までに hold off').toBeGreaterThanOrEqual(0);
@@ -217,10 +218,10 @@ test.describe('WEAPON-8 AC16 性能', () => {
       });
       await settle8(page, 5);
       const base = await baseStats(page);
-      const down = 100; // gather・burst・full を 通る
+      const down = 100; // gather・full を 通る
       const rec = await chargeRun8(page, down, 4, '', true);
       const phases = new Set(rec.slice(0, down).map((s) => s.fx.phase));
-      for (const p of ['gather', 'burst', 'full']) expect(phases.has(p as never), `phase ${p} を 通った`).toBe(true);
+      for (const p of ['gather', 'full']) expect(phases.has(p as never), `phase ${p} を 通った`).toBe(true);
       for (const [i, s] of rec.slice(0, down).entries()) {
         expect(s.calls! - base.calls, `ためF ${i + 1} 描画回数の ふえ`).toBeLessThanOrEqual(4);
         expect(s.triangles! - base.triangles, `ためF ${i + 1} 三角形の ふえ`).toBeLessThanOrEqual(150);

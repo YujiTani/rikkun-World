@@ -11,18 +11,16 @@ test.describe.configure({ mode: 'serial', timeout: 1_200_000 });
 type P = import('@playwright/test').Page;
 const OUT = process.env.PR1_DIR ?? '/tmp/pr1';
 const ONLY = (process.env.PR1_ITEMS ?? 'raijin_ken,fujin_ken,niji').split(',');
-const SKINS = (process.env.PR1_SKINS ?? 'new,old').split(',');
+const SKINS = (process.env.PR1_SKINS ?? 'new').split(',');
 // 画面ぜんぶを 撮る（あとで 体の まわりを きりぬく）
 mkdirSync(OUT, { recursive: true });
 
-async function setup(page: P, item: string, noSkin: boolean) {
+async function setup(page: P, item: string) {
   await legendWorld(page, item);
   await page.addStyleTag({ content: '#hud { display: none !important; }' });
   await page.setViewportSize({ width: 1280, height: 800 });
-  await page.evaluate(([noSkin, yaw]) => {
-    const w = window as any;
-    w.__noSkin = noSkin;
-    const h = w.__rikkun;
+  await page.evaluate((yaw) => {
+    const h = (window as any).__rikkun;
     h.input.releaseAll();
     h.yokai.clear();
     h.step(200);
@@ -30,7 +28,7 @@ async function setup(page: P, item: string, noSkin: boolean) {
     h.camera.yawOffset(yaw);
     h.camera.distance(3.0);
     h.step(120); // 手持ちの 絵の 入れかえを まつ
-  }, [noSkin, Number(process.env.PR1_YAW ?? 60)] as const);
+  }, Number(process.env.PR1_YAW ?? 60));
 }
 const shot = async (page: P, dir: string, n: number) => page.screenshot({ path: `${dir}/${String(n).padStart(4, '0')}.png` });
 
@@ -38,7 +36,7 @@ for (const item of ONLY) {
   const short = item.replace('_ken', '');
   for (const skin of SKINS) {
     test(`${short} ${skin}`, async ({ page }) => {
-      await setup(page, item, skin === 'old');
+      await setup(page, item);
       const dir = `${OUT}/${short}-${skin}-attack`;
       rmSync(dir, { recursive: true, force: true });
       mkdirSync(dir, { recursive: true });
@@ -99,7 +97,7 @@ for (const item of ONLY) {
         }, i);
         cm.push(r);
         await shot(page, cdir, ++c);
-        if (r.hand === 1 && cm.filter((x: any) => x.hand >= 1).length > (skin === 'new' ? 30 : 2)) break;
+        if (r.hand === 1 && cm.filter((x: any) => x.hand >= 1).length > 140) break; // 完了後 2 秒以上（またたきと 集まる つぶが 見える）
       }
       // はなす → すぐ 消える（比べ用の 古い 絵では しない）
       for (let i = 0; i < (skin === 'new' ? 12 : 1); i++) {

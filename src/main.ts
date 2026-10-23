@@ -1834,7 +1834,7 @@ game.onUpdate((dt) => {
       // CHAR-4: 持っている 刀の 色（20・21 番を この 色に）。表に ない 刀は かたなの 行
       bladeColors: weapon === 'katana' ? bladeColorsOf(w2, bs.item) : null,
       // WEAPON-9: 手に 持つ 絵は 虹・雷神剣・風神剣が 専用（女の子）。シャイニング F1〜240 は ため の 形（おおげさぎり コマ 5）を 止める
-      weaponSkin: (window as unknown as { __noSkin?: boolean }).__noSkin ? null : held === 'niji' ? 'niji' : held === 'raijin_ken' ? 'raijin' : held === 'fujin_ken' ? 'fujin' : null,
+      weaponSkin: held === 'niji' ? 'niji' : held === 'raijin_ken' ? 'raijin' : held === 'fujin_ken' ? 'fujin' : null,
       legendCharge: weapon === 'katana' && (legend.view().charging || shiningBody),
       blade:
         weapon === 'katana'
@@ -2218,6 +2218,8 @@ installTestHook(game, overlay, () => host.everReady, {
         alpha: v.alpha,
         particles: v.particles,
         hand: v.hand,
+        handCore: v.handCore,
+        handRing: v.handRing,
         F: v.F,
         center: h ? { ...h.world } : null,
         chest: on ? { ...chargeChest() } : null,
