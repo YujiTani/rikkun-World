@@ -34,6 +34,12 @@ export const DOME_R = 7;
 const BASE = './models/fx/';
 /** 当たりの 火花の すじ・まん中の 光を まとめる 板の 数（1 描画）。同時に 当たる 妖怪は 8 体まで */
 const MAX_HITS = 8;
+/** 斬撃の 板を カメラから 遠ざける 量（マス）。キャラ・妖怪を かくさない */
+const SLASH_BACK = 2.5;
+/** 火花の すじ・光を 絵の 指定より 大きく（0.5 → 0.9 マス・光 1.0 → 1.6）・カメラ側へ 出す 量 */
+const SPARK_SIZE_K = 1.8;
+const FLASH_SIZE_K = 1.6;
+const SPARK_TOWARD = 1.8;
 const MAX_QUADS = MAX_HITS * 9;
 /** まくの もよう（B）の 1 まい（88×112。経 352 を 4 回 くりかえす）・2 コマ。ふちは 16 段 */
 const TILE_W = 88;
@@ -246,6 +252,7 @@ export class NijiFx {
   private readonly pointPos: THREE.BufferAttribute;
   private readonly pointCol: THREE.BufferAttribute;
   private readonly slashTex: THREE.Texture;
+  private readonly slashTexReduced: THREE.Texture;
   private readonly slashMesh: THREE.Mesh;
   private readonly sparkTex: THREE.Texture;
   private readonly sparkMesh: THREE.Mesh;
@@ -332,6 +339,8 @@ export class NijiFx {
 
     this.slashTex = tex(`${base}niji_slash3.png`);
     this.slashTex.repeat.set(1 / SLASH_FRAMES, 1 / SLASH_FRAMES);
+    this.slashTexReduced = tex(`${base}niji_slash3_reduced.png`);
+    this.slashTexReduced.repeat.set(1 / SLASH_FRAMES, 1 / SLASH_FRAMES);
     this.slashMesh = new THREE.Mesh(
       new THREE.PlaneGeometry(SLASH3.plateBlocks, SLASH3.plateBlocks * (SLASH3.frameSize[1]! / SLASH3.frameSize[0]!)),
       new THREE.MeshBasicMaterial({ map: this.slashTex, transparent: true, alphaTest: 0.5, depthWrite: false, fog: false, side: THREE.DoubleSide }),
@@ -372,6 +381,7 @@ export class NijiFx {
       m.map?.dispose();
       m.dispose();
     }
+    this.slashTexReduced.dispose();
     for (const u of [this.mat.uniforms.uSurf!, this.mat.uniforms.uRim!]) (u.value as THREE.Texture).dispose();
     {
     }
@@ -386,7 +396,7 @@ export class NijiFx {
     this.sparkMesh.geometry.setDrawRange(0, 6);
     renderer.compile(scene, camera);
     // 絵(テクスチャ)も 先に GPU へ
-    for (const t of [this.slashTex, this.sparkTex, this.mat.uniforms.uSurf!.value as THREE.Texture, this.mat.uniforms.uRim!.value as THREE.Texture, (this.ring.material as THREE.MeshBasicMaterial).map, (this.orb.material as THREE.MeshBasicMaterial).map]) if (t) renderer.initTexture(t);
+    for (const t of [this.slashTex, this.slashTexReduced, this.sparkTex, this.mat.uniforms.uSurf!.value as THREE.Texture, this.mat.uniforms.uRim!.value as THREE.Texture, (this.ring.material as THREE.MeshBasicMaterial).map, (this.orb.material as THREE.MeshBasicMaterial).map]) if (t) renderer.initTexture(t);
     all.forEach((o, i) => (o.visible = was[i]!));
     this.points.geometry.setDrawRange(0, 0);
     this.sparkMesh.geometry.setDrawRange(0, 0);
@@ -521,9 +531,21 @@ export class NijiFx {
       this.tmp.set(0, 1, 0).applyQuaternion(this.camera.quaternion).multiplyScalar(dx * sn + dy * c);
       this.slashMesh.position.add(this.tmp);
     }
+    // 板を キャラ・妖怪より 奥へ: カメラから の 線の 上で SLASH_BACK マス 遠ざけ、同じ 割合で 大きく する（見た目の 位置・大きさは そのまま）
+    {
+      const cp = this.camera.position;
+      const m = this.slashMesh.position;
+      const d = Math.max(1, Math.hypot(m.x - cp.x, m.y - cp.y, m.z - cp.z));
+      const k = (d + SLASH_BACK) / d;
+      m.set(cp.x + (m.x - cp.x) * k, cp.y + (m.y - cp.y) * k, cp.z + (m.z - cp.z) * k);
+      this.slashMesh.scale.setScalar(this.slashScale * k);
+    }
+    // うごきを へらす: 残像の ない 絵
+    const tx = this.reducedNow ? this.slashTexReduced : this.slashTex;
+    (this.slashMesh.material as THREE.MeshBasicMaterial).map = tx;
     const uv = uvOf(f, this.slashRow, this.slashMirror);
-    this.slashTex.repeat.set(uv.repeatX, 1 / SLASH_FRAMES);
-    this.slashTex.offset.set(uv.offsetX, uv.offsetY);
+    tx.repeat.set(uv.repeatX, 1 / SLASH_FRAMES);
+    tx.offset.set(uv.offsetX, uv.offsetY);
     this.slashAge++;
   }
 
@@ -572,18 +594,18 @@ export class NijiFx {
     const SP = SLASH3.spark;
     for (const h of this.hits) {
       // 絵が 妖怪の 体に うまらない よう、カメラの ほうへ 少し 出す
-      this.tmp.set(cam.position.x - h.at.x, cam.position.y - h.at.y, cam.position.z - h.at.z).normalize().multiplyScalar(0.8);
+      this.tmp.set(cam.position.x - h.at.x, cam.position.y - h.at.y, cam.position.z - h.at.z).normalize().multiplyScalar(SPARK_TOWARD);
       const ax = h.at.x + this.tmp.x, ay = h.at.y + this.tmp.y, az = h.at.z + this.tmp.z;
       const ff = flashFrameAt(h.burst.age, h.burst.reduced);
       if (ff >= 0) {
         const fy = SP.flashCells.y;
         const fs = SP.flashCells.size;
-        quad(ax, ay, az, SP.flashBlocks / 2, (ff * fs) / IW, 1 - (fy + fs) / IH, ((ff + 1) * fs) / IW, 1 - fy / IH);
+        quad(ax, ay, az, (SP.flashBlocks * FLASH_SIZE_K) / 2, (ff * fs) / IW, 1 - (fy + fs) / IH, ((ff + 1) * fs) / IW, 1 - fy / IH);
       }
       for (const s of h.burst.sparks) {
         if (s.age >= s.life) continue;
         const r = s.color * 2 + (s.short ? 1 : 0);
-        quad(ax + rx * s.x + ux * s.y, ay + ry * s.x + uy * s.y, az + rz * s.x + uz * s.y, SP.streakBlocks / 2, (s.cell * CELL) / IW, 1 - ((r + 1) * CELL) / IH, ((s.cell + 1) * CELL) / IW, 1 - (r * CELL) / IH);
+        quad(ax + rx * s.x + ux * s.y, ay + ry * s.x + uy * s.y, az + rz * s.x + uz * s.y, (SP.streakBlocks * SPARK_SIZE_K) / 2, (s.cell * CELL) / IW, 1 - ((r + 1) * CELL) / IH, ((s.cell + 1) * CELL) / IW, 1 - (r * CELL) / IH);
       }
       stepHit(h.burst);
     }

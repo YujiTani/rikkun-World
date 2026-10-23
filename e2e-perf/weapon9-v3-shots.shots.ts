@@ -1,5 +1,6 @@
 import { test } from '@playwright/test';
-import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs';
+import { appendFileSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { legendWorld, spawnAt } from '../e2e/helpers/legend';
 import { holdNiji, pushCameraIn, removeWall } from '../e2e/helpers/niji';
 
@@ -118,4 +119,72 @@ test('ドーム: 外から・中から', async ({ page }) => {
   await run(page, 90);
   await page.screenshot({ path: `${OUT}/dome-inside-2.png` });
   await removeWall(page);
+});
+
+// ---------------------------------------------------------------- GIF・MP4（オーナーの きまり: アニメの 確認は すべて GIF）
+const GIF = 'art/WEAPON-9/v3-gif';
+const FRAMES = process.env.NIJI_FRAMES_DIR ?? '/tmp/niji-v3-frames';
+mkdirSync(GIF, { recursive: true });
+
+/** 1 ステップごとに 撮った PNG から、ふつう（1 ステップ = 1 コマ・GIF は 50fps が 上限・MP4 は 60fps）と 4 倍 おそい 版を 作る */
+function encode(name: string, dir: string, w = 640) {
+  const vf = `scale=${w}:-2:flags=neighbor`;
+  const gif = (fps: number, out: string) =>
+    execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-framerate', String(fps), '-i', `${dir}/%04d.png`, '-vf', `${vf},split[a][b];[a]palettegen=stats_mode=diff[p];[b][p]paletteuse=dither=none`, '-loop', '0', out]);
+  const mp4 = (fps: number, out: string) =>
+    execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-framerate', String(fps), '-i', `${dir}/%04d.png`, '-vf', vf, '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '18', out]);
+  gif(50, `${GIF}/${name}.gif`);
+  gif(12.5, `${GIF}/${name}-slow.gif`);
+  mp4(60, `${GIF}/${name}.mp4`);
+  mp4(15, `${GIF}/${name}-slow.mp4`);
+}
+
+/** n ステップ すすめながら 1 ステップごとに 撮る。act(i) が あれば その ステップの 前に 呼ぶ */
+async function record(page: P, name: string, n: number, act: (i: number) => Promise<void> | void, clip?: { x: number; y: number; width: number; height: number }) {
+  const dir = `${FRAMES}/${name}`;
+  rmSync(dir, { recursive: true, force: true });
+  mkdirSync(dir, { recursive: true });
+  for (let i = 0; i < n; i++) {
+    await act(i);
+    const sl = await page.evaluate(() => { const h = (window as any).__rikkun; h.step(1); const q = (h.legend.slashes?.() ?? [])[0]; return q ? `${q.tech}${q.step} f${q.frame}` : '-'; });
+    if (sl !== '-') log(`${name} #${i + 1} ${sl}`);
+    await page.screenshot({ path: `${dir}/${String(i + 1).padStart(4, '0')}.png`, ...(clip ? { clip } : {}) });
+  }
+  encode(name, dir, clip ? 640 : 800);
+}
+
+const swing = (page: P) => page.evaluate(() => { const h = (window as any).__rikkun; h.input.press('primary'); h.step(1); h.input.release('primary'); });
+const PRESS = [0, 16, 40];
+
+test('GIF (a): 3 段こうげき（つき→きりあげ→けさ）うしろ・横', async ({ page }) => {
+  await legendWorld(page, 'niji');
+  await page.setViewportSize({ width: 1280, height: 800 });
+  for (const [label, deg] of [['back', 0], ['side', 100]] as const) {
+    await ready(page);
+    await page.evaluate((deg) => (window as any).__rikkun.camera.yawOffset(deg), deg);
+    await run(page, 3);
+    await record(page, `slash3-${label}`, 96, async (i) => { if (PRESS.includes(i)) await swing(page); }, CLIP);
+  }
+});
+
+test('GIF (b): からかさに 3 段を 当てる（火花・はじき）うしろ・横', async ({ page }) => {
+  await legendWorld(page, 'niji');
+  await page.setViewportSize({ width: 1280, height: 800 });
+  for (const [label, deg] of [['back', 0], ['side', 60]] as const) {
+    await ready(page);
+    const p = await page.evaluate(() => (window as any).__rikkun.player.get().position as { x: number; y: number; z: number });
+    await spawnAt(page, 'karakasa', p.x, p.y, p.z - 2.2, 9999);
+    await page.evaluate((deg) => (window as any).__rikkun.camera.yawOffset(deg), deg);
+    await run(page, 3);
+    await record(page, `hit3-${label}`, 100, async (i) => { if (PRESS.includes(i)) await swing(page); }, CLIP);
+  }
+});
+
+test('GIF (c): ドーム B ＋ らせん（出てから 消えるまで・外から）', async ({ page }) => {
+  await legendWorld(page, 'niji');
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await ready(page);
+  await page.evaluate(() => (window as any).__rikkun.camera.yawOffset(80));
+  await page.evaluate(() => { const h = (window as any).__rikkun; h.input.press('primary'); h.step(148); h.input.release('primary'); });
+  await record(page, 'dome-b-spiral', 270, () => {});
 });

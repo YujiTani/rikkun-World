@@ -73,8 +73,9 @@ describe('左右 反転', () => {
   it('centroid の x を 64 − x に（まん中の 32 を 軸）', () => {
     const [x, y] = centroidOf('kesa', 'side', 5, false);
     const [mx, my] = centroidOf('kesa', 'side', 5, true);
-    expect(x).toBeCloseTo(52.0, 5);
-    expect(mx).toBeCloseTo(64 - 52.0, 5);
+    const lastX = SLASH3.techs.kesa.centroid.side[5]![0]!;
+    expect(x).toBeCloseTo(lastX, 5);
+    expect(mx).toBeCloseTo(64 - lastX, 5);
     expect(my).toBe(y);
   });
   it('slashSwingSign: カメラから 見て 右へ 振る = 1・左へ = −1', () => {
