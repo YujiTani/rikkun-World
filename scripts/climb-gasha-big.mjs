@@ -5,6 +5,7 @@ import { chromium } from '@playwright/test';
 
 const BASE = process.env.BASE ?? 'http://localhost:5173';
 const SIDE = process.env.SIDE ?? 'L'; // L | R
+const ROUTE = process.env.ROUTE ?? 'ladder'; // ladder（地面から 雲の はしご）| arm（手 → うで → 肩 → はしごの 続き）
 const browser = await chromium.launch({
   executablePath: '/opt/pw-browsers/chromium',
   args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
@@ -15,7 +16,7 @@ await page.goto(`${BASE}/?proto=gashaBig&nosave=1&char=boy${process.env.EXTRA ??
 await page.waitForFunction(() => window.__rikkun?.ready === true && !!window.__gashaBig, null, { timeout: 120_000 });
 await page.evaluate(() => window.__rikkun.suspendRender(true)); // 描かずに コマ送り（はやい）
 const START = (process.env.START ?? '').split(',').map(Number); // 例: START=120,-80,90（x, z, 向き（度））で 別の 場所から
-const result = await page.evaluate(async ([side, START]) => {
+const result = await page.evaluate(async ([side, START, ROUTE]) => {
   const h = window.__rikkun, g = window.__gashaBig;
   h.achievements.mute(true); h.lock.simulate(true); h.pause(); h.input.releaseAll();
   h.settings.set('yokaiAutoSpawn', false); h.settings.set('yokaiWander', false); h.yokai.clear(); h.time.set(0);
@@ -30,32 +31,34 @@ const result = await page.evaluate(async ([side, START]) => {
   const hits = g.colliders();
   const H = (n) => hits.find((c) => c.name === n);
   const ends = (c, ax) => { const u = c.axes[ax], l = c.half[ax]; return [[c.center[0] - u[0] * l, c.center[1] - u[1] * l, c.center[2] - u[2] * l], [c.center[0] + u[0] * l, c.center[1] + u[1] * l, c.center[2] + u[2] * l]]; };
-  const hand = H(`hand${side}`), fore = H(`foreArm${side}`), upper = H(`upperArm${side}`), sh = H(`shoulder${side}`), ro = H(`rampOut${side}`), wing = H(`ribbonWing${side}`), ri = H(`rampIn${side}`), sk = H('skull');
-  // 道しるべ（x, z だけ 見る）。名前は 通った 場所
+  const sk = H('skull');
+  const rungs = (key) => hits.filter((c) => new RegExp(`^${key}${side}\\d+$`).test(c.name)).sort((p, q) => Number(p.name.slice(key.length + 1)) - Number(q.name.slice(key.length + 1)));
+  const climb = rungs('climb'), link = rungs('link'), ramp = rungs('ramp'), head = rungs('head');
   const W = [];
   const add = (name, p) => W.push({ name, x: p[0], y: p[1], z: p[2] });
-  add('地面（手の 先の 前）', [hand.center[0], 0, hand.center[2] + hand.half[2] + 2]);
-  add('手', [hand.center[0], 0, hand.center[2]]);
   const lowFirst = (c, ax) => { const [a, b] = ends(c, ax); return a[1] <= b[1] ? [a, b] : [b, a]; }; // 低い 方の はしから
-  const fp = lowFirst(fore, 2);
-  add('前わんの 下はし（手首）', fp[0]);
-  add('前わんの 上はし（ひじ）', fp[1]);
-  const up = lowFirst(upper, 2);
-  add('上わんの 下はし（ひじ）', up[0]);
-  add('上わんの 上はし（肩）', up[1]);
-  add('肩の 雲', sh.center);
-  // 坂は 雲の 上を 通るので、坂の かげを よけて 雲の 前がわを とおり、外の ひろばに 出てから 坂に はいる
-  const sgn = Math.sign((up[1][0] - sh.center[0]) * sh.axes[2][0] + (up[1][2] - sh.center[2]) * sh.axes[2][2]) || 1;
-  const at = (fu, fs) => [0, 1, 2].map((d) => sh.center[d] + sh.axes[0][d] * sh.half[0] * fu + sh.axes[2][d] * sh.half[2] * fs * sgn);
-  add('肩の 雲の 前がわ', at(0.3, 0.6));
-  add('肩の 雲の 外の ひろば', at(0.85, 0.6));
-  const rp = lowFirst(ro, 0);
-  add('坂（外）の 下はし', rp[0]);
-  add('坂（外）の 上はし', rp[1]);
-  add('リボンの 羽', wing.center);
-  const ip = lowFirst(ri, 0);
-  add('坂（内）の 下はし', ip[0]);
-  add('坂（内）の 上はし', ip[1]);
+  if (ROUTE === 'arm') {
+    // 手 → 前わん → 上わん → 肩（上わんの 上） → 雲の はしごの 平らな 道（link）を 外へ → ひじ... ではなく 道（ramp）へ
+    const hand = H(`hand${side}`), fore = H(`foreArm${side}`), upper = H(`upperArm${side}`);
+    add('地面（手の 先の 前）', [hand.center[0], 0, hand.center[2] + hand.half[2] + 2]);
+    add('手', [hand.center[0], 0, hand.center[2]]);
+    const fp = lowFirst(fore, 2);
+    add('前わんの 下はし（手首）', fp[0]);
+    add('前わんの 上はし（ひじ）', fp[1]);
+    const up = lowFirst(upper, 2);
+    add('上わんの 下はし（ひじ）', up[0]);
+    add('上わんの 上はし（肩）', up[1]);
+    [...link].reverse().forEach((c, i) => add(`肩の 平らな 道 ${i}`, [c.center[0], c.center[1], c.center[2]]));
+    add('道の 分かれ目（climb の さいご）', climb[climb.length - 1].center);
+  } else {
+    // 地面 → はしごの はじめの 段 の 少し 手前 から
+    const c0 = climb[0].center, c1 = climb[1].center;
+    const dl = Math.hypot(c1[0] - c0[0], c1[2] - c0[2]) || 1;
+    add('地面（はしごの 手前）', [c0[0] - ((c1[0] - c0[0]) / dl) * 3, 0, c0[2] - ((c1[2] - c0[2]) / dl) * 3]);
+    climb.forEach((c, i) => add(`はしご ${i}`, c.center));
+  }
+  ramp.forEach((c, i) => add(`リボンへ ${i}`, c.center));
+  head.forEach((c, i) => add(`頭の 横 ${i}`, c.center));
   add('頭の 上', [sk.center[0], sk.center[1] + sk.half[1], sk.center[2]]);
   // 出発: 地面
   const gy = h.world.groundHeight(Math.floor(W[0].x), Math.floor(W[0].z)) + 1;
@@ -101,7 +104,7 @@ const result = await page.evaluate(async ([side, START]) => {
   h.input.releaseAll();
   const p = h.player.get().position;
   return { ok, log, steps, final: [p.x, p.y, p.z], skullTop: sk.center[1] + sk.half[1] };
-}, [SIDE, START]);
+}, [SIDE, START, ROUTE]);
 console.log(result.log.join('\n'));
 console.log(JSON.stringify({ ok: result.ok, steps: result.steps, final: result.final.map((v) => +v.toFixed(2)), skullTop: +result.skullTop.toFixed(2) }));
 await browser.close();
