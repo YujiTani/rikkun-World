@@ -45,6 +45,9 @@ export const BOOK_ITEMS: readonly BookItem[] = [
   item('fight', 'fight-gedan', 'きりあげ', '［下段｜げだん］は ［切｜き］り［上｜あ］げ'),
   // WEAPON-7: ためわざ（ヌシから 出る ことは 書かない。見つけた おどろきを のこす）
   item('fight', 'fight-charge', 'ためわざ', 'レジェンダリー の ぶき は ［左｜ひだり］クリック を ながく おして はなすと ためわざ'),
+  // 週次 1019: WEAPON-5 パリィ・WEAPON-6 3 だんこうげき（できる ことと おす キーだけ）
+  item('fight', 'fight-parry', 'パリィ', 'かたな で シフト を おしながら ［左｜ひだり］クリック すると はじく'),
+  item('fight', 'fight-combo', '3だんぎり', 'きらめく カタナ は ［左｜ひだり］クリック を つづけて おすと 3 だん きれる'),
   item('fight', 'fight-naginata', 'なぎなた', 'なぎなた は とおくまで とどく'),
   item('fight', 'fight-yumi', 'ゆみ', 'ゆみ は ながく ひくほど とおくへ'),
   item('fight', 'fight-armor', 'ぼうぐ', '［防具｜ぼうぐ］は ダブルクリック で ［着｜き］る・ぬぐ'),
@@ -73,4 +76,8 @@ export const BOOK_ITEMS: readonly BookItem[] = [
   item('grow', 'grow-sprinkler', 'スプリンクラー', 'スプリンクラー を おくと まわり の ［畑｜はたけ］が ずっと しめる'),
   item('grow', 'grow-pet', 'なでる', 'やさい を ［右｜みぎ］クリック で なでる と ごきげん に なって すこし はやく ［育｜そだ］つ'),
   item('grow', 'grow-bucket', 'バケツ', 'バケツ で ［水｜みず］を くんで ［畑｜はたけ］の そば に おく と ずっと しめる'),
+  // 週次 1019: LIVE-1 にわとり
+  item('grow', 'grow-bug', 'むしとり', 'あみ で ［木｜き］を ［右｜みぎ］クリック すると むし が とれる'),
+  item('grow', 'grow-chicken', 'にわとり', 'むし を もって にわとり を ［右｜みぎ］クリック すると なかよく なれる'),
+  item('grow', 'grow-carry', 'だっこ', 'なかよしの にわとり は ［右｜みぎ］クリック を ながく おすと だっこ できる'),
 ];

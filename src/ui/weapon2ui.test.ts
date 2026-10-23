@@ -76,7 +76,7 @@ describe('ツールチップ・説明（AC31）', () => {
 describe('案内画面・文字', () => {
   it('たたかう の 文に 漢字の ふりがな もれ なし', () => {
     const fight = BOOK_ITEMS.filter((i) => i.chapter === 'fight');
-    expect(fight.length).toBe(11);
+    expect(fight.length).toBe(13);
     for (const i of fight) expect(findUnrubiedKanji(i.caption)).toEqual([]);
     expect(fight.some((i) => i.caption.includes('R で かまえ'))).toBe(true);
   });

@@ -7,9 +7,9 @@ const { BOOK_CHAPTERS, BOOK_ITEMS } = (await import('./bookData')) as any;
 const EXPECTED: Record<string, string[]> = {
   move: ['move-walk', 'move-jump', 'move-look', 'move-run'],
   dig: ['dig-hold', 'dig-crack', 'dig-place', 'dig-select', 'dig-bag'],
-  fight: ['fight-swing', 'fight-stance', 'fight-chudan', 'fight-jodan', 'fight-gedan', 'fight-charge', 'fight-naginata', 'fight-yumi', 'fight-armor', 'fight-wear', 'fight-night'],
+  fight: ['fight-swing', 'fight-stance', 'fight-chudan', 'fight-jodan', 'fight-gedan', 'fight-charge', 'fight-parry', 'fight-combo', 'fight-naginata', 'fight-yumi', 'fight-armor', 'fight-wear', 'fight-night'],
   craft: ['craft-open', 'craft-glow', 'craft-hammer', 'craft-furnace', 'craft-fuel', 'craft-drop', 'craft-tansu', 'craft-log', 'craft-nearby'],
-  grow: ['grow-till', 'grow-sow', 'grow-wet', 'grow-harvest', 'grow-eat', 'grow-seeds', 'grow-light', 'grow-can-fill', 'grow-can-water', 'grow-sprinkler', 'grow-pet', 'grow-bucket'],
+  grow: ['grow-till', 'grow-sow', 'grow-wet', 'grow-harvest', 'grow-eat', 'grow-seeds', 'grow-light', 'grow-can-fill', 'grow-can-water', 'grow-sprinkler', 'grow-pet', 'grow-bucket', 'grow-bug', 'grow-chicken', 'grow-carry'],
 };
 
 /** ふりがな（rt）とタグ・空白を のぞいた字 */
@@ -42,13 +42,13 @@ describe('BOOK-1 項目のデータ（AC2）', () => {
 });
 
 describe('BOOK-1 全項目の じゅん（AC3）', () => {
-  it('章の じゅん ＝ move・dig・fight・craft・grow。項目の id が §4.3 の 40 こ ＋ fight-charge と 同じ順', () => {
+  it('章の じゅん ＝ move・dig・fight・craft・grow。項目の id が §4.3 の 40 こ ＋ fight-charge・parry・combo・bug・chicken・carry と 同じ順', () => {
     expect(BOOK_CHAPTERS.map((c: any) => c.id)).toEqual(Object.keys(EXPECTED));
     expect(BOOK_CHAPTERS.map((c: any) => c.label)).toEqual(['うごく', 'ほる・おく', 'たたかう', 'つくる・やく', 'そだてる']);
     expect((BOOK_ITEMS as any[]).map((i) => i.id)).toEqual(Object.values(EXPECTED).flat());
-    expect((BOOK_ITEMS as any[]).length).toBe(41);
+    expect((BOOK_ITEMS as any[]).length).toBe(46);
   });
-  it('章ごとの 数が §4.2 と 同じ（4・5・11・9・12。WEAPON-7 で たたかうが +1）', () => {
+  it('章ごとの 数が §4.2 と 同じ（4・5・13・9・15。週次で たたかう +2・そだてる +3）', () => {
     for (const [id, ids] of Object.entries(EXPECTED)) {
       expect((BOOK_ITEMS as any[]).filter((i) => i.chapter === id).map((i) => i.id)).toEqual(ids);
     }
