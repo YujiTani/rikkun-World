@@ -5,6 +5,7 @@ import type {
   AnimalBreed,
   AnimalDeps,
   AnimalEvent,
+  ProtoPose,
   AnimalHintKind,
   AnimalInfo,
   AnimalSaveV4,
@@ -267,6 +268,8 @@ interface Ent {
   // ---- LIVE-3
   /** いただきます の 演出 中（ねらえない・なでる／むし／だっこ できない） */
   meat: boolean;
+  /** LIVE-4 試作: 外 から うごかされて いる（AI は 止まる） */
+  proto?: { pose: ProtoPose | null };
 }
 
 export interface AnimalManagerOptions {
@@ -408,6 +411,25 @@ export class AnimalManager implements AnimalApi {
     this.ents.push(e);
     this.push({ type: 'spawn', id: e.id, x, y, z });
     return e.id;
+  }
+
+  /** LIVE-4 試作: 外 から 位置・向き・ポーズ を きめる（null で もどす）。いない id は false */
+  protoDrive(id: number, d: { x: number; y: number; z: number; yaw: number; state: AnimalState; stateTicks: number; pose: ProtoPose | null } | null): boolean {
+    const e = this.find(id);
+    if (!e) return false;
+    if (!d) {
+      delete e.proto;
+      return true;
+    }
+    e.proto = { pose: d.pose };
+    e.x = d.x;
+    e.y = d.y;
+    e.z = d.z;
+    e.yaw = d.yaw;
+    e.headYaw = d.yaw;
+    e.state = d.state;
+    e.stateTicks = d.stateTicks;
+    return true;
   }
 
   list(): AnimalInfo[] {
@@ -1117,6 +1139,7 @@ export class AnimalManager implements AnimalApi {
       v.homePop = e.popAge >= 0 && e.popAge < POP_TICKS ? 1 - e.popAge / POP_TICKS : 0;
       v.liftT = e.liftLeft > 0 ? 1 - e.liftLeft / THROW_LIFT_TICKS : undefined;
       v.thrown = e.flight !== null;
+      v.protoPose = e.proto?.pose ?? undefined;
       if (e.meat) this.meatDraw(e, v);
       fn(v);
     }
@@ -2120,6 +2143,7 @@ export class AnimalManager implements AnimalApi {
   /** 1 ステップ ぶん。消えた なら false */
   private step(e: Ent, p: Vec3): boolean {
     const s = this.settings;
+    if (e.proto) return true; // LIVE-4 試作: 外 から うごかす
     e.stateTicks++;
     if (e.fullLeft > 0) e.fullLeft--;
     if (e.popAge >= 0 && e.popAge < POP_TICKS) e.popAge++;

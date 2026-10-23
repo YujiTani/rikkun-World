@@ -2653,6 +2653,20 @@ export interface AnimalView {
   liftT?: number;
   /** なげられて とんで いる（state が thrown の とき 羽 を ひろげる） */
   thrown?: boolean;
+  /** LIVE-4 試作: 骨 の ポーズ を 外 から きめる（なければ 省略） */
+  protoPose?: ProtoPose;
+}
+
+/** LIVE-4 試作: 骨 1 本 の ポーズ（q = 回転 の 四元数 x,y,z,w。off = 1/16 ブロック） */
+export interface ProtoBone {
+  q?: [number, number, number, number];
+  off?: [number, number, number];
+}
+/** LIVE-4 試作: からだ 全体（root）と 骨 ごと の ポーズ（アート案 C の `poses.py` と 同じ 意味） */
+export interface ProtoPose {
+  /** off = 1/16 ブロック、rot = 度（x → y → z）、sc = 拡大 */
+  root: { off: [number, number, number]; rot: [number, number, number]; sc: [number, number, number] };
+  bones: Record<string, ProtoBone>;
 }
 
 // ---- LIVE-2: こたつ・小屋（§6.1。A が 持つ。C・B・つなぎ込み は これ を 読む）

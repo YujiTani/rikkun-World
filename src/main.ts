@@ -87,6 +87,7 @@ import { markUrl } from './ui/medalArt';
 import { itemIconUrl } from './ui/itemIcon';
 import { DropField } from './drops';
 import { createAnimalManager } from './animals';
+import { Live4Proto } from './animals/live4Proto';
 import { coopBlocks, coopPlan } from './animals/coop';
 import { ringSeen } from './animals/models/throwRing';
 import { applyFlatten } from './world/flatten';
@@ -1032,6 +1033,8 @@ const animalMotion = (): number => 1;
 const animalFx = new AnimalFx({ sound: fxSound, motion: animalMotion, lookDist: () => live.animalLookDist, fullTicks: () => live.animalFullTicks, seed });
 const animalRenderer = new AnimalRenderer({ fx: animalFx, motion: animalMotion, player: () => controller.state.position, source: animals });
 const animalViews = new ViewBuffer();
+// LIVE-4 試作（見た目・うごき の 確認）
+const live4Proto = new Live4Proto({ animals, yokai: yokaiManager!, camera: () => game.camera, player: () => controller.state.position });
 let prevKits = -1;
 let prevCoops = -1;
 const animalEvents: import('./contracts').AnimalEvent[] = [];
@@ -1872,6 +1875,7 @@ game.onUpdate((dt) => {
   rig.update(dt);
   if (worldReady()) yokaiM.update();
   if (worldReady()) animals.update();
+  live4Proto.update();
   // WEAPON-9: シャイニング F1〜240 は 持ちかえ・もちもの画面を 出せない
   if (legend.locked()) {
     if (nijiLockSel < 0) nijiLockSel = inventory.selected();
@@ -2142,6 +2146,7 @@ game.onUpdate((dt) => {
   yokaiFocus.update(hintVisible() ? dig.aimedYokaiId() : null);
   titleAnnounce.sync(yokaiM.announce());
   // 持ち物・メニューを開いている間は 名前を出さない
+  live4Proto.place();
   yokaiNameplates.update(screen.mode() === 'play' ? yokaiM.nameplates(plateBuf) : NO_PLATES, game.camera);
   staggerIcons.update(yokaiM.staggerIcons(stagIconBuf), game.camera, screen.mode() === 'play');
   actionHint.update(hintVisible() ? actionHintLines(dig.previewRightClick(), dig.previewLeftClick(), { carryProgress: dig.carryProgress(), carrying: animals.carrying() !== null, held: tools.current().item, heldIsPickaxe: tools.current().kind === 'pickaxe', heldIsBlade: tools.current().kind === 'blade' }) : {});
@@ -2451,6 +2456,8 @@ installTestHook(game, overlay, () => host.everReady, {
     carrying: () => animals.carrying(),
     throwSpot: () => animals.throwSpot(dig.throwAim()),
     throwTo: (x, y, z) => animals.throwTo(x, y, z),
+    live4Proto: (o) => (o === null ? (live4Proto.stop(), live4Proto.info()) : live4Proto.start(o)),
+    live4ProtoInfo: () => live4Proto.info(),
     placeCoop: (x, y, z, dir) => animals.placeCoop(x, y, z, dir),
     coops: () => animals.coops(),
     kits: () => animals.kits(),

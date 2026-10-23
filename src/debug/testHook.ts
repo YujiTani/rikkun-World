@@ -131,6 +131,9 @@ export interface TestHook {
     throwSpot(): ThrowSpot | null;
     /** テスト 用: だっこ 中 の 子 を その 足もと の 点 へ なげる（ゲーム と 同じ とびかた・きまり）。なげ はじめたら true */
     throwTo(x: number, y: number, z: number): boolean;
+    /** LIVE-4 試作: マッチョ が 妖怪 へ はしる → パンチ → 3 回目 きりあげ → ふんっ！（null で やめる）。くわしくは `animals/live4Proto.ts` */
+    live4Proto(opts: { yokai?: 'karakasa' | 'chochin' | 'nurikabe' | 'rokurokubi'; hits?: number; markScale?: number; noMark?: boolean } | null): unknown;
+    live4ProtoInfo(): unknown;
     // ---- LIVE-2（§6.1）
     /** 小屋 を 置く（ゲーム の 置く と 同じ 判定）。x・z は 5×5 の まん中、y は いちばん 下 の 空気 の 高さ。小屋 id か 理由 */
     placeCoop(x: number, y: number, z: number, dir?: 0 | 1 | 2 | 3): CoopPlaceResult;
