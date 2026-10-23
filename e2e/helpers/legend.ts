@@ -90,11 +90,12 @@ export async function stepN(page: Page, n: number, before?: string): Promise<LSt
   return page.evaluate(
     ({ n, before, snap }) => {
       const h = window.__rikkun! as any;
+      const w1 = () => { h.step(1); while (h.impact && h.impact.stopLeft() > 0) h.step(1); }; // #276 止まりは 1 ステップに 数えない
       const b = before ? (0, eval)(before) : null;
       const out: any[] = [];
       for (let i = 0; i < n; i++) {
         if (b) b(h, i, out[out.length - 1] ?? null);
-        h.step(1);
+        w1();
         out.push((0, eval)(snap));
       }
       return out;
