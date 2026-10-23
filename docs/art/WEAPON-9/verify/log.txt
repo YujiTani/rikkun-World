@@ -1,119 +1,46 @@
-karakasa F1 r=0.01 dist=9.50 up=0.00 hp=999 {"fx":{"dome":true,"tris":202,"draws":4,"slash":false},"g":{"shards":24,"idle":0,"pull":0},"mx":150} chargeStart,chargeReady,shiningStart
-karakasa F6 r=0.43 dist=9.50 up=-0.09 hp=999 {"fx":{"dome":true,"tris":202,"draws":4,"slash":false},"g":{"shards":24,"idle":0,"pull":0},"mx":150} chargeStart,chargeReady,shiningStart
-karakasa F11 r=1.30 dist=9.50 up=-0.31 hp=999 {"fx":{"dome":true,"tris":202,"draws":4,"slash":false},"g":{"shards":24,"idle":0,"pull":0},"mx":150} chargeStart,chargeReady,shiningStart
-karakasa F16 r=2.46 dist=9.50 up=-0.63 hp=999 {"fx":{"dome":true,"tris":202,"draws":4,"slash":false},"g":{"shards":24,"idle":0,"pull":0},"mx":150} chargeStart,chargeReady,shiningStart
-karakasa F21 r=3.76 dist=9.50 up=-1.00 hp=999 {"fx":{"dome":true,"tris":202,"draws":4,"slash":false},"g":{"shards":24,"idle":0,"pull":0},"mx":150} chargeStart,chargeReady,shiningStart
-karakasa F26 r=5.03 dist=9.50 up=-1.37 hp=999 {"fx":{"dome":true,"tris":202,"draws":4,"slash":false},"g":{"shards":24,"idle":0,"pull":0},"mx":150} chargeStart,chargeReady,shiningStart
-karakasa F31 r=6.10 dist=9.50 up=-1.69 hp=999 {"fx":{"dome":true,"tris":202,"draws":4,"slash":false},"g":{"shards":24,"idle":0,"pull":0},"mx":150} chargeStart,chargeReady,shiningStart
-karakasa F36 r=6.80 dist=9.50 up=-1.91 hp=999 {"fx":{"dome":true,"tris":202,"draws":4,"slash":false},"g":{"shards":24,"idle":0,"pull":0},"mx":150} chargeStart,chargeReady,shiningStart
-karakasa F41 r=7.00 dist=9.49 up=-2.00 hp=999 {"fx":{"dome":true,"tris":202,"draws":4,"slash":false},"g":{"shards":24,"idle":16,"pull":1},"mx":150} chargeStart,chargeReady,shiningStart
-karakasa F46 r=7.00 dist=9.39 up=-2.00 hp=999 {"fx":{"dome":true,"tris":202,"draws":4,"slash":false},"g":{"shards":24,"idle":15,"pull":4},"mx":150} chargeStart,chargeReady,shiningStart
-karakasa F51 r=7.00 dist=9.17 up=-2.00 hp=999 {"fx":{"dome":true,"tris":202,"draws":4,"slash":false},"g":{"shards":24,"idle":16,"pull":6},"mx":150} chargeStart,chargeReady,shiningStart
-karakasa F56 r=7.00 dist=8.92 up=-2.00 hp=999 {"fx":{"dome":true,"tris":202,"draws":4,"slash":false},"g":{"shards":24,"idle":15,"pull":6},"mx":150} chargeStart,chargeReady,shiningStart
-karakasa F61 r=7.00 dist=8.67 up=-2.00 hp=999 {"fx":{"dome":true,"tris":202,"draws":4,"slash":false},"g":{"shards":24,"idle":16,"pull":6},"mx":150} chargeStart,chargeReady,shiningStart
-karakasa F66 r=7.00 dist=8.42 up=-2.00 hp=999 {"fx":{"dome":true,"tris":202,"draws":4,"slash":false},"g":{"shards":24,"idle":13,"pull":6},"mx":150} chargeStart,chargeReady,shiningStart
-karakasa F71 r=7.00 dist=8.17 up=-2.00 hp=999 {"fx":{"dome":true,"tris":202,"draws":4,"slash":false},"g":{"shards":24,"idle":16,"pull":6},"mx":150} chargeStart,chargeReady,shiningStart
-karakasa F76 r=7.00 dist=7.92 up=-2.00 hp=999 {"fx":{"dome":true,"tris":202,"draws":4,"slash":false},"g":{"shards":24,"idle":15,"pull":6},"mx":150} chargeStart,chargeReady,shiningStart
-karakasa F81 r=7.00 dist=7.67 up=-2.00 hp=999 {"fx":{"dome":true,"tris":202,"draws":4,"slash":false},"g":{"shards":24,"idle":16,"pull":6},"mx":150} chargeStart,chargeReady,shiningStart
-karakasa F86 r=7.00 dist=7.47 up=-2.00 hp=974 {"fx":{"dome":true,"tris":202,"draws":4,"slash":false},"g":{"shards":24,"idle":14,"pull":5},"mx":150} chargeReady,shiningStart,domeHit
-karakasa F91 r=7.00 dist=10.77 up=-0.63 hp=974 {"fx":{"dome":true,"tris":202,"draws":4,"slash":false},"g":{"shards":24,"idle":16,"pull":2},"mx":151.3739312285296} chargeReady,shiningStart,domeHit
-karakasa F96 r=7.00 dist=13.32 up=0.57 hp=974 {"fx":{"dome":true,"tris":202,"draws":4,"slash":false},"g":{"shards":24,"idle":15,"pull":0},"mx":152.57425134594814} chargeReady,shiningStart,domeHit
-karakasa F101 r=7.00 dist=15.12 up=1.60 hp=974 {"fx":{"dome":true,"tris":202,"draws":4,"slash":false},"g":{"shards":24,"idle":16,"pull":0},"mx":153.60096035225553} chargeReady,shiningStart,domeHit
-karakasa F106 r=7.00 dist=16.17 up=2.45 hp=974 {"fx":{"dome":true,"tris":202,"draws":4,"slash":false},"g":{"shards":24,"idle":15,"pull":0},"mx":154.45405824745183} chargeReady,shiningStart,domeHit
-karakasa F111 r=7.00 dist=16.47 up=3.13 hp=974 {"fx":{"dome":true,"tris":202,"draws":4,"slash":false},"g":{"shards":24,"idle":16,"pull":0},"mx":155.13354503153698} chargeReady,shiningStart,domeHit
-karakasa F116 r=7.00 dist=16.47 up=3.64 hp=974 {"fx":{"dome":true,"tris":202,"draws":4,"slash":false},"g":{"shards":24,"idle":15,"pull":0},"mx":155.63942070451105} chargeReady,shiningStart,domeHit
-karakasa 最初の domeHit = F86 maxUp(体からの 高さ)=3.92 maxDist=16.47 妖怪の 高さ 最初=150.00 最高=155.92
-nurikabe F1 r=0.01 dist=9.50 up=0.00 hp=999 {"fx":{"dome":true,"tris":202,"draws":4,"slash":false},"g":{"shards":24,"idle":0,"pull":0},"mx":150} chargeStart,chargeReady,shiningStart
-nurikabe F6 r=0.43 dist=9.50 up=-0.09 hp=999 {"fx":{"dome":true,"tris":202,"draws":4,"slash":false},"g":{"shards":24,"idle":0,"pull":0},"mx":150} chargeStart,chargeReady,shiningStart
-nurikabe F11 r=1.30 dist=9.50 up=-0.31 hp=999 {"fx":{"dome":true,"tris":202,"draws":4,"slash":false},"g":{"shards":24,"idle":0,"pull":0},"mx":150} chargeStart,chargeReady,shiningStart
-nurikabe F16 r=2.46 dist=9.50 up=-0.63 hp=999 {"fx":{"dome":true,"tris":202,"draws":4,"slash":false},"g":{"shards":24,"idle":0,"pull":0},"mx":150} chargeStart,chargeReady,shiningStart
-nurikabe F21 r=3.76 dist=9.50 up=-1.00 hp=999 {"fx":{"dome":true,"tris":202,"draws":4,"slash":false},"g":{"shards":24,"idle":0,"pull":0},"mx":150} chargeStart,chargeReady,shiningStart
-nurikabe F26 r=5.03 dist=9.50 up=-1.37 hp=999 {"fx":{"dome":true,"tris":202,"draws":4,"slash":false},"g":{"shards":24,"idle":0,"pull":0},"mx":150} chargeStart,chargeReady,shiningStart
-nurikabe F31 r=6.10 dist=9.50 up=-1.69 hp=999 {"fx":{"dome":true,"tris":202,"draws":4,"slash":false},"g":{"shards":24,"idle":0,"pull":0},"mx":150} chargeStart,chargeReady,shiningStart
-nurikabe F36 r=6.80 dist=9.50 up=-1.91 hp=999 {"fx":{"dome":true,"tris":202,"draws":4,"slash":false},"g":{"shards":24,"idle":0,"pull":0},"mx":150} chargeStart,chargeReady,shiningStart
-nurikabe F41 r=7.00 dist=9.49 up=-2.00 hp=999 {"fx":{"dome":true,"tris":202,"draws":4,"slash":false},"g":{"shards":24,"idle":16,"pull":1},"mx":150} chargeStart,chargeReady,shiningStart
-nurikabe F46 r=7.00 dist=9.39 up=-2.00 hp=999 {"fx":{"dome":true,"tris":202,"draws":4,"slash":false},"g":{"shards":24,"idle":15,"pull":4},"mx":150} chargeStart,chargeReady,shiningStart
-nurikabe F51 r=7.00 dist=9.17 up=-2.00 hp=999 {"fx":{"dome":true,"tris":202,"draws":4,"slash":false},"g":{"shards":24,"idle":16,"pull":6},"mx":150} chargeStart,chargeReady,shiningStart
-nurikabe F56 r=7.00 dist=8.92 up=-2.00 hp=999 {"fx":{"dome":true,"tris":202,"draws":4,"slash":false},"g":{"shards":24,"idle":15,"pull":6},"mx":150} chargeStart,chargeReady,shiningStart
-nurikabe F61 r=7.00 dist=8.67 up=-2.00 hp=999 {"fx":{"dome":true,"tris":202,"draws":4,"slash":false},"g":{"shards":24,"idle":16,"pull":6},"mx":150} chargeStart,chargeReady,shiningStart
-nurikabe F66 r=7.00 dist=8.42 up=-2.00 hp=999 {"fx":{"dome":true,"tris":202,"draws":4,"slash":false},"g":{"shards":24,"idle":13,"pull":6},"mx":150} chargeStart,chargeReady,shiningStart
-nurikabe F71 r=7.00 dist=8.17 up=-2.00 hp=999 {"fx":{"dome":true,"tris":202,"draws":4,"slash":false},"g":{"shards":24,"idle":16,"pull":6},"mx":150} chargeStart,chargeReady,shiningStart
-nurikabe F76 r=7.00 dist=7.92 up=-2.00 hp=999 {"fx":{"dome":true,"tris":202,"draws":4,"slash":false},"g":{"shards":24,"idle":15,"pull":6},"mx":150} chargeStart,chargeReady,shiningStart
-nurikabe F78 r=7.00 dist=7.87 up=-2.00 hp=974 {"fx":{"dome":true,"tris":202,"draws":4,"slash":false},"g":{"shards":24,"idle":15,"pull":5},"mx":150} chargeReady,shiningStart,domeHit
-nurikabe F81 r=7.00 dist=9.94 up=-1.15 hp=974 {"fx":{"dome":true,"tris":202,"draws":4,"slash":false},"g":{"shards":24,"idle":16,"pull":4},"mx":150.8451920704511} chargeReady,shiningStart,domeHit
-nurikabe F86 r=7.00 dist=12.79 up=0.11 hp=974 {"fx":{"dome":true,"tris":202,"draws":4,"slash":false},"g":{"shards":24,"idle":14,"pull":1},"mx":152.11495663231406} chargeReady,shiningStart,domeHit
-nurikabe F91 r=7.00 dist=14.89 up=1.21 hp=974 {"fx":{"dome":true,"tris":202,"draws":4,"slash":false},"g":{"shards":24,"idle":16,"pull":0},"mx":153.2111100830659} chargeReady,shiningStart,domeHit
-nurikabe F96 r=7.00 dist=16.24 up=2.13 hp=974 {"fx":{"dome":true,"tris":202,"draws":4,"slash":false},"g":{"shards":24,"idle":15,"pull":0},"mx":154.13365242270663} chargeReady,shiningStart,domeHit
-nurikabe F101 r=7.00 dist=16.84 up=2.88 hp=974 {"fx":{"dome":true,"tris":202,"draws":4,"slash":false},"g":{"shards":24,"idle":16,"pull":0},"mx":154.88258365123625} chargeReady,shiningStart,domeHit
-nurikabe F106 r=7.00 dist=16.87 up=3.46 hp=974 {"fx":{"dome":true,"tris":202,"draws":4,"slash":false},"g":{"shards":24,"idle":15,"pull":0},"mx":155.45790376865477} chargeReady,shiningStart,domeHit
-nurikabe F111 r=7.00 dist=16.87 up=3.86 hp=974 {"fx":{"dome":true,"tris":202,"draws":4,"slash":false},"g":{"shards":24,"idle":16,"pull":0},"mx":155.85961277496216} chargeReady,shiningStart,domeHit
-nurikabe F116 r=7.00 dist=16.87 up=4.09 hp=974 {"fx":{"dome":true,"tris":202,"draws":4,"slash":false},"g":{"shards":24,"idle":15,"pull":0},"mx":156.08771067015846} chargeReady,shiningStart,domeHit
-nurikabe 最初の domeHit = F78 maxUp(体からの 高さ)=4.14 maxDist=16.87 妖怪の 高さ 最初=150.00 最高=156.14
-slash-back 段1 出た step=0 [{"view":"flat","angle":6.441600099335062,"age":1,"pos":{"x":21.61271207444505,"y":151.96762724466703,"z":18.400971392947117}}]
-slash-back 段2 出た step=0 [{"view":"flat","angle":6.441600099335062,"age":1,"pos":{"x":21.61271207444505,"y":151.96762724466703,"z":18.400971392947117}}]
-slash-back 段3 出た step=0 [{"view":"flat","angle":6.441600099335062,"age":1,"pos":{"x":21.61271207444505,"y":151.96762724466703,"z":17.00097139294712}}]
-slash-back-撮影 段1 出た=true [{"view":"flat","angle":6.441600099335062,"age":3,"pos":{"x":21.61271207444505,"y":151.96762724466703,"z":13.900971392947117}}]
-slash-back-撮影 段2 出た=true [{"view":"flat","angle":6.441600099335062,"age":3,"pos":{"x":21.61271207444505,"y":151.96762724466703,"z":13.606638059613783}}]
-slash-back-撮影 段3 出た=true [{"view":"flat","angle":6.441600099335062,"age":3,"pos":{"x":21.61271207444505,"y":151.96762724466703,"z":12.20663805961378}}]
-slash-side45 段1 出た step=0 [{"view":"flat","angle":22.902430171160407,"age":1,"pos":{"x":21.183526405525885,"y":151.87999138776092,"z":10.039439791450425}}]
-slash-side45 段2 出た step=0 [{"view":"flat","angle":22.902430171160407,"age":1,"pos":{"x":21.183526405525885,"y":151.87999138776092,"z":10.039439791450425}}]
-slash-side45 段3 出た step=0 [{"view":"flat","angle":22.90243017116039,"age":1,"pos":{"x":21.183526405525885,"y":151.87999138776092,"z":8.639439791450423}}]
-slash-side45-撮影 段1 出た=true [{"view":"flat","angle":22.90243017116039,"age":3,"pos":{"x":21.183526405525885,"y":151.87999138776092,"z":7.133773124783758}}]
-slash-side45-撮影 段2 出た=true [{"view":"flat","angle":22.90243017116039,"age":3,"pos":{"x":21.183526405525885,"y":151.87999138776092,"z":7.133773124783758}}]
-slash-side45-撮影 段3 出た=true [{"view":"flat","angle":22.90243017116039,"age":3,"pos":{"x":21.183526405525885,"y":151.87999138776092,"z":7.133773124783758}}]
-slash-side90 段1 出た step=0 [{"view":"flat","angle":54.05788812861766,"age":1,"pos":{"x":20.5,"y":151.74695919564476,"z":7.57358139179619}}]
-slash-side90 段2 出た step=0 [{"view":"flat","angle":54.05788812861766,"age":1,"pos":{"x":20.5,"y":151.74695919564476,"z":7.57358139179619}}]
-slash-side90 段3 出た step=0 [{"view":"flat","angle":54.05788812861766,"age":1,"pos":{"x":20.5,"y":151.74695919564476,"z":7.57358139179619}}]
-slash-side90-撮影 段1 出た=true [{"view":"flat","angle":54.05788812861766,"age":3,"pos":{"x":20.5,"y":151.74695919564476,"z":7.57358139179619}}]
-slash-side90-撮影 段2 出た=true [{"view":"flat","angle":54.05788812861766,"age":3,"pos":{"x":20.5,"y":151.74695919564476,"z":7.57358139179619}}]
-slash-side90-撮影 段3 出た=true [{"view":"flat","angle":54.05788812861766,"age":3,"pos":{"x":20.5,"y":151.74695919564476,"z":7.57358139179619}}]
-slash-side 段1 出た step=0 [{"view":"side","angle":69.56484944499422,"age":1,"pos":{"x":20.26820677045627,"y":151.1373476645277,"z":7.580207834128529}}]
-slash-side 段2 出た step=0 [{"view":"side","angle":69.56484944499422,"age":1,"pos":{"x":20.26820677045627,"y":151.1373476645277,"z":7.580207834128529}}]
-slash-side 段3 出た step=0 [{"view":"side","angle":69.56484944499422,"age":1,"pos":{"x":20.26820677045627,"y":151.1373476645277,"z":7.580207834128529}}]
-slash-side-撮影 段1 出た=true [{"view":"side","angle":69.56484944499422,"age":3,"pos":{"x":20.26820677045627,"y":151.1373476645277,"z":7.580207834128529}}]
-slash-side-撮影 段2 出た=true [{"view":"side","angle":69.56484944499422,"age":3,"pos":{"x":20.26820677045627,"y":151.1373476645277,"z":7.580207834128529}}]
-slash-side-撮影 段3 出た=true [{"view":"side","angle":69.56484944499422,"age":3,"pos":{"x":20.26820677045627,"y":151.1373476645277,"z":7.580207834128529}}]
-slash-side135 段1 出た step=0 [{"view":"side","angle":92.29949688448221,"age":1,"pos":{"x":20.043947313159368,"y":151.1452105852272,"z":7.455327959567312}}]
-slash-side135 段2 出た step=0 [{"view":"side","angle":92.29949688448221,"age":1,"pos":{"x":20.043947313159368,"y":151.1452105852272,"z":7.455327959567312}}]
-slash-side135 段3 出た step=0 [{"view":"side","angle":92.29949688448221,"age":1,"pos":{"x":20.043947313159368,"y":151.1452105852272,"z":7.455327959567312}}]
-slash-side135-撮影 段1 出た=true [{"view":"side","angle":92.29949688448221,"age":3,"pos":{"x":20.043947313159368,"y":151.1452105852272,"z":7.455327959567312}}]
-slash-side135-撮影 段2 出た=true [{"view":"side","angle":92.29949688448221,"age":3,"pos":{"x":20.043947313159368,"y":151.1452105852272,"z":7.455327959567312}}]
-slash-side135-撮影 段3 出た=true [{"view":"side","angle":92.29949688448221,"age":3,"pos":{"x":20.043947313159368,"y":151.1452105852272,"z":7.455327959567312}}]
-slash-front 段1 出た step=0 [{"view":"flat","angle":158.74949449286677,"age":1,"pos":{"x":19.51925877053093,"y":151.88844473768145,"z":6.426201635039454}}]
-slash-front 段2 出た step=0 [{"view":"flat","angle":158.74949449286677,"age":1,"pos":{"x":19.51925877053093,"y":151.88844473768145,"z":6.426201635039454}}]
-slash-front 段3 出た step=0 [{"view":"flat","angle":158.74949449286677,"age":1,"pos":{"x":19.51925877053093,"y":151.88844473768145,"z":6.426201635039454}}]
-slash-front-撮影 段1 出た=true [{"view":"flat","angle":158.74949449286677,"age":3,"pos":{"x":19.51925877053093,"y":151.88844473768145,"z":6.426201635039454}}]
-slash-front-撮影 段2 出た=true [{"view":"flat","angle":158.74949449286677,"age":3,"pos":{"x":19.51925877053093,"y":151.88844473768145,"z":6.426201635039454}}]
-slash-front-撮影 段3 出た=true [{"view":"flat","angle":158.74949449286677,"age":3,"pos":{"x":19.51925877053093,"y":151.88844473768145,"z":6.426201635039454}}]
-hand swing0 +2 slash=1
-hand swing0 +4 slash=1
-hand swing0 +6 slash=1
-hand swing0 +8 slash=1
-hand swing0 +10 slash=1
-hand swing0 +12 slash=1
-hand swing0 +14 slash=1
-hand swing0 +16 slash=1
-hand swing0 +18 slash=0
-hand swing0 +20 slash=0
-hand swing0 +22 slash=0
-hand swing0 +24 slash=0
-hand swing1 +2 slash=1
-hand swing1 +4 slash=1
-hand swing1 +6 slash=1
-hand swing1 +8 slash=1
-hand swing1 +10 slash=1
-hand swing1 +12 slash=1
-hand swing1 +14 slash=1
-hand swing1 +16 slash=1
-hand swing1 +18 slash=0
-hand swing1 +20 slash=0
-hand swing1 +22 slash=0
-hand swing1 +24 slash=0
-通常 6 ダメージ: {"hp":20,"maxHp":20,"dead":false,"invincibleTicks":0,"punching":false,"punchTick":0,"lastDamageTick":246} -> {"hp":14,"maxHp":20,"dead":false,"invincibleTicks":28,"punching":false,"punchTick":0,"lastDamageTick":248}
-シャイニング中 6 ダメージ {"move":"shining","F":60}: {"hp":20,"maxHp":20,"dead":false,"invincibleTicks":0,"punching":false,"punchTick":0,"lastDamageTick":250} -> {"hp":18,"maxHp":20,"dead":false,"invincibleTicks":28,"punching":false,"punchTick":0,"lastDamageTick":462}
-  d=1: {"hp":20,"maxHp":20,"dead":false,"invincibleTicks":0,"punching":false,"punchTick":0,"lastDamageTick":464} -> {"hp":19,"maxHp":20,"dead":false,"invincibleTicks":28,"punching":false,"punchTick":0,"lastDamageTick":534}
-  d=2: {"hp":20,"maxHp":20,"dead":false,"invincibleTicks":0,"punching":false,"punchTick":0,"lastDamageTick":536} -> {"hp":19,"maxHp":20,"dead":false,"invincibleTicks":28,"punching":false,"punchTick":0,"lastDamageTick":606}
-  d=4: {"hp":20,"maxHp":20,"dead":false,"invincibleTicks":0,"punching":false,"punchTick":0,"lastDamageTick":608} -> {"hp":16,"maxHp":20,"dead":false,"invincibleTicks":28,"punching":false,"punchTick":0,"lastDamageTick":678}
-  d=5: {"hp":20,"maxHp":20,"dead":false,"invincibleTicks":0,"punching":false,"punchTick":0,"lastDamageTick":680} -> {"hp":15,"maxHp":20,"dead":false,"invincibleTicks":28,"punching":false,"punchTick":0,"lastDamageTick":750}
-火の玉 通常: attackNow={"hitInSteps":30} 最大 1 個 0:0 10:0 20:0 30:1 40:1 50:1 60:1 70:1 80:1 90:1 100:1 110:1 120:1 130:0 140:0 / {"hp":18,"maxHp":20,"dead":false,"invincibleTicks":2,"punching":false,"punchTick":0,"lastDamageTick":1380} / [{"type":"playerHit","tick":248,"by":"karakasa","amount":6},{"type":"playerHit","tick":462,"by":"karakasa","amount":2},{"type":"playerHit","tick":534,"by":"karakasa","amount":1},{"type":"playerHit","tick":606,"by":"karakasa","amount":1},{"type":"playerHit","tick":678,"by":"karakasa","amount":4},{"ty
-火の玉 シャイニング中: attackNow={"hitInSteps":30} 最大 1 個 0:0 10:0 20:0 30:0 40:0 50:0 60:0 70:0 80:0 90:0 100:0 110:0 120:0 130:0 140:0 / {"hp":20,"maxHp":20,"dead":false,"invincibleTicks":0,"punching":false,"punchTick":0,"lastDamageTick":1914} / []
+knock 最初の 当たり F86 地面からの 最高 6.14
+F86(+0) yokaiY=0.00 dist=7.5 playerY=2.00
+F87(+1) yokaiY=0.29 dist=8.2 playerY=2.00
+F88(+2) yokaiY=0.57 dist=8.9 playerY=2.00
+F89(+3) yokaiY=0.85 dist=9.5 playerY=2.00
+F90(+4) yokaiY=1.11 dist=10.2 playerY=2.00
+F91(+5) yokaiY=1.37 dist=10.8 playerY=2.00
+F92(+6) yokaiY=1.63 dist=11.3 playerY=2.00
+F93(+7) yokaiY=1.87 dist=11.9 playerY=2.00
+F94(+8) yokaiY=2.11 dist=12.4 playerY=2.00
+F95(+9) yokaiY=2.35 dist=12.9 playerY=2.00
+F96(+10) yokaiY=2.57 dist=13.3 playerY=2.00
+F97(+11) yokaiY=2.79 dist=13.7 playerY=2.00
+F98(+12) yokaiY=3.01 dist=14.1 playerY=2.00
+F99(+13) yokaiY=3.21 dist=14.5 playerY=2.00
+F100(+14) yokaiY=3.41 dist=14.8 playerY=2.00
+F101(+15) yokaiY=3.60 dist=15.1 playerY=2.00
+F102(+16) yokaiY=3.79 dist=15.4 playerY=2.00
+F103(+17) yokaiY=3.96 dist=15.6 playerY=2.00
+F104(+18) yokaiY=4.13 dist=15.8 playerY=2.00
+F105(+19) yokaiY=4.30 dist=16.0 playerY=2.00
+F106(+20) yokaiY=4.45 dist=16.2 playerY=2.00
+F107(+21) yokaiY=4.60 dist=16.3 playerY=2.00
+F108(+22) yokaiY=4.75 dist=16.4 playerY=2.00
+F109(+23) yokaiY=4.88 dist=16.4 playerY=2.00
+F110(+24) yokaiY=5.01 dist=16.5 playerY=2.00
+F111(+25) yokaiY=5.13 dist=16.5 playerY=2.00
+F112(+26) yokaiY=5.25 dist=16.5 playerY=2.00
+F113(+27) yokaiY=5.36 dist=16.5 playerY=2.00
+F114(+28) yokaiY=5.46 dist=16.5 playerY=2.00
+F115(+29) yokaiY=5.55 dist=16.5 playerY=2.00
+F116(+30) yokaiY=5.64 dist=16.5 playerY=2.00
+F117(+31) yokaiY=5.72 dist=16.5 playerY=2.00
+F118(+32) yokaiY=5.79 dist=16.5 playerY=2.00
+F119(+33) yokaiY=5.86 dist=16.5 playerY=2.00
+F120(+34) yokaiY=5.92 dist=16.5 playerY=2.00
+F121(+35) yokaiY=5.97 dist=16.5 playerY=2.00
+F122(+36) yokaiY=6.02 dist=16.5 playerY=2.00
+F123(+37) yokaiY=6.06 dist=16.5 playerY=2.00
+F124(+38) yokaiY=6.09 dist=16.5 playerY=2.00
+F125(+39) yokaiY=6.11 dist=16.5 playerY=2.00
+F126(+40) yokaiY=6.13 dist=16.5 playerY=2.00
+F127(+41) yokaiY=6.14 dist=16.5 playerY=2.00
+F128(+42) yokaiY=6.13 dist=16.5 playerY=2.00
+F129(+43) yokaiY=6.12 dist=16.5 playerY=2.00
+F130(+44) yokaiY=6.10 dist=16.5 playerY=2.00

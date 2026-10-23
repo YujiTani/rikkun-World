@@ -229,3 +229,48 @@ test('ダメージ 1/3 と 火の玉', async ({ page }) => {
     await page.evaluate(() => { const h = (window as any).__rikkun; h.input.releaseAll(); h.step(300); });
   }
 });
+
+test('丸い ドーム（撮り直し）', async ({ page }) => {
+  await legendWorld(page, 'niji');
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await ready(page);
+  await page.evaluate(() => (window as any).__rikkun.camera.yawOffset(80));
+  await page.evaluate(() => { const h = (window as any).__rikkun; h.input.press('primary'); h.step(150); h.input.release('primary'); h.step(70); });
+  await page.screenshot({ path: `${OUT}/dome-round.png` });
+});
+
+test('はじき 上 6（撮り直し）', async ({ page }) => {
+  await legendWorld(page, 'niji');
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await ready(page);
+  await page.evaluate(() => (window as any).__rikkun.camera.yawOffset(80));
+  const p = await page.evaluate(() => (window as any).__rikkun.player.get().position as { x: number; y: number; z: number });
+  const id = await spawnAt(page, 'karakasa', p.x, p.y, p.z - 9.5, 999);
+  // ものさし: はじかれた さきに 高さ 6 マスの 石の はしら（先の 1 マスは 木）。カメラの 側へ 2 マス よせる
+  await page.evaluate((p) => {
+    const h = (window as any).__rikkun;
+    const c = h.camera.get().position;
+    const sx = c.x - p.x >= 0 ? 1 : -1;
+    const bx = Math.floor(p.x) + sx * 2, bz = Math.floor(p.z - 16.5), y = Math.floor(p.y);
+    h.world.fill(bx, y, bz, bx, y + 5, bz, 'stone');
+    h.world.setBlock(bx, y + 5, bz, 'log');
+    h.step(2);
+  }, p);
+  await page.evaluate(() => { const h = (window as any).__rikkun; h.input.press('primary'); h.step(150); h.input.release('primary'); });
+  await page.evaluate(() => { (window as any).__hits0 = (window as any).__rikkun.legend.events().filter((e: any) => e.type === 'domeHit').length; });
+  let hitF = -1, y0 = p.y, maxY = 0;
+  const rows: string[] = [];
+  for (let F = 1; F <= 130; F++) {
+    const r = await page.evaluate((id) => {
+      const h = (window as any).__rikkun;
+      h.step(1);
+      const y = h.yokai.list().find((q: any) => q.id === id);
+      return { y: y?.position.y ?? 0, d: y ? Math.hypot(y.position.x - h.player.get().position.x, y.position.z - h.player.get().position.z) : 0, hit: h.legend.events().filter((e: any) => e.type === 'domeHit').length > (window as any).__hits0, py: h.player.get().position.y };
+    }, id);
+    if (r.hit && hitF < 0) hitF = F;
+    maxY = Math.max(maxY, r.y);
+    if (hitF >= 0) rows.push(`F${F}(+${F - hitF}) yokaiY=${(r.y - y0).toFixed(2)} dist=${r.d.toFixed(1)} playerY=${(r.py - y0).toFixed(2)}`);
+    if (hitF >= 0 && [0, 8, 16, 24, 32, 41].includes(F - hitF)) await page.screenshot({ path: `${OUT}/knock-raw-${String(F - hitF).padStart(2, '0')}.png` });
+  }
+  log(`knock 最初の 当たり F${hitF} 地面からの 最高 ${(maxY - y0).toFixed(2)}\n` + rows.join('\n'));
+});
