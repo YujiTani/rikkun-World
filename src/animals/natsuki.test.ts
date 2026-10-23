@@ -84,7 +84,7 @@ describe('AC6 なつき度と まち（むし・なでる は べつべつ）', 
     expect(ev.some((e) => e.type === 'egg')).toBe(false);
     expect(ev.some((e) => e.type === 'natsukiWait')).toBe(true);
     expect(s.one(id)).toMatchObject({ natsuki: 15, bugs: 1, fullLeft: 0 });
-    s.step(18000 + 10 - 600 - 1);
+    s.step(18000 - 600 - 1);
     expect(s.one(id).natsukiBugWait).toBe(1);
     s.step(1);
     expect(s.one(id).natsukiBugWait).toBe(0);
@@ -100,7 +100,7 @@ describe('AC6 なつき度と まち（むし・なでる は べつべつ）', 
     expect(s.m.feed(id, 'mushi')).toBe('ate');
     s.step(35);
     expect(s.m.pet(id)).toBe('friend');
-    expect(s.one(id)).toMatchObject({ natsuki: 25, natsukiPetWait: 18000, natsukiBugWait: 18000 - 25 });
+    expect(s.one(id)).toMatchObject({ natsuki: 25, natsukiPetWait: 18000, natsukiBugWait: 18000 - 35 });
     s.m.events();
     s.step(600);
     expect(s.m.preview(id, null)).toBe('animalFull');
@@ -380,14 +380,14 @@ describe('なかよし パネルの 状態 natsukiView（§3.2・§6）', () => 
 });
 
 describe('金 の たまご は natsuki 71 以上 だけ（layEgg）', () => {
-  it('natsuki 70 では ふつう の たまご、71 では 金（goldBaseWild 1・goldCap 1）', () => {
+  it('たまご を うむ とき の natsuki が 70 では ふつう の たまご、71 では 金（むし +15 の あと。55 → 70、56 → 71）', () => {
     const s = setup();
     s.settings.goldBaseWild = 1;
     s.settings.goldCap = 1;
     s.settings.animalEggChance = 1;
     s.settings.natsukiBugWaitTicks = 0;
     const out: boolean[] = [];
-    for (const n of [70, 71]) {
+    for (const n of [55, 56]) {
       s.m.clear();
       const id = s.friend({ natsuki: n });
       s.m.events();
