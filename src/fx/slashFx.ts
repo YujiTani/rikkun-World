@@ -31,9 +31,13 @@ const BASE = './models/fx/';
 const MAX_HITS = 8;
 /** 斬撃の 板を カメラから 遠ざける 量（マス）。キャラ・妖怪を かくさない */
 const SLASH_BACK = 2.5;
-/** 火花の すじ・光を 絵の 指定より 大きく（0.5 → 0.9 マス・光 1.0 → 1.6）・カメラ側へ 出す 量 */
-const SPARK_SIZE_K = 1.8;
-const FLASH_SIZE_K = 1.6;
+/**
+ * 火花の 大きさ（高い 細かさの 絵: 1 点 = 1/32 ブロック）。すじの 升 24 点 = 0.75 ブロック・光の 升 48 点 = 1 ブロック（光の 中身は 0.6 ブロック 以下）。
+ * 妖怪の 体より 小さく（エフェクトで 動きを かくさない）。とびちる きょりも 0.6 倍。カメラ側へ 出す 量
+ */
+const SPARK_SIZE_K = 1.5;
+const FLASH_SIZE_K = 1.0;
+const SPARK_TRAVEL = 0.6;
 const SPARK_TOWARD = 1.8;
 const QX = [-1, 1, -1, 1];
 const QY = [1, 1, -1, -1];
@@ -338,7 +342,8 @@ export class SlashFx {
       for (const s of h.burst.sparks) {
         if (s.age >= s.life) continue;
         const r = s.color * 2 + (s.short ? 1 : 0);
-        quad(ax + rx * s.x + ux * s.y, ay + ry * s.x + uy * s.y, az + rz * s.x + uz * s.y, (SP.streakBlocks * SPARK_SIZE_K) / 2, (s.cell * CELL) / IW, 1 - ((r + 1) * CELL) / IH, ((s.cell + 1) * CELL) / IW, 1 - (r * CELL) / IH);
+        const sx = s.x * SPARK_TRAVEL, sy = s.y * SPARK_TRAVEL;
+        quad(ax + rx * sx + ux * sy, ay + ry * sx + uy * sy, az + rz * sx + uz * sy, (SP.streakBlocks * SPARK_SIZE_K) / 2, (s.cell * CELL) / IW, 1 - ((r + 1) * CELL) / IH, ((s.cell + 1) * CELL) / IW, 1 - (r * CELL) / IH);
       }
       stepHit(h.burst);
     }
