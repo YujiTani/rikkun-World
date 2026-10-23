@@ -26,12 +26,12 @@ export function brushTex(seed = 1) {
     for (let y = 0; y < Hh; y++) for (let x = 0; x < W; x++) {
       const f = mask[y * W + x]; if (f < 0) continue;
       const lite = H(x >> 2, y, seed, 9) > .8 ? .12 : 0;
-      put(x, y, f < .3 + lite ? '#F4FCFF' : f < .55 + lite ? '#CDEFFC' : f < .8 ? '#8FF0D2' : '#4FA8D8');
+      put(x, y, f < .28 + lite ? '#F4FFFB' : f < .5 + lite ? '#BFF5E3' : f < .78 ? '#7FE0C0' : '#2BB39A');
     }
   });
   const edge = pixTex(W, Hh, put => {
     const on = (x, y) => x >= 0 && x < W && y >= 0 && y < Hh && mask[y * W + x] >= 0;
-    for (let y = 0; y < Hh; y++) for (let x = 0; x < W; x++) { if (on(x, y)) continue; let hit = false; for (let dy = -2; dy <= 2 && !hit; dy++) for (let dx = -2; dx <= 2; dx++) if (on(x + dx, y + dy)) { hit = true; break; } if (hit) put(x, y, '#2B6699'); }
+    for (let y = 0; y < Hh; y++) for (let x = 0; x < W; x++) { if (on(x, y)) continue; let hit = false; for (let dy = -2; dy <= 2 && !hit; dy++) for (let dx = -2; dx <= 2; dx++) if (on(x + dx, y + dy)) { hit = true; break; } if (hit) put(x, y, '#14675C'); }
   });
   for (const t of [body, edge]) { t.wrapS = THREE.RepeatWrapping; t.needsUpdate = true; }
   return cache[k] = { body, edge };
@@ -46,7 +46,7 @@ export function starTex(hex, f) {
       const a = Math.pow(dx / (L * .5 + .02), .5) + Math.pow(dy / (L * .5 + .02), .5);   // 4 つとがり
       const small = Math.pow(dx / (L * .18 + .02), .5) + Math.pow(dy / (L * .18 + .02), .5);
       const r = Math.hypot(dx, dy) / (L * .3 + .03);
-      if (r < .35 || small < .9) put(x, y, '#FFFFFF'); else if (a < .75) put(x, y, hex); else if (a < 1.15 && (x + y) % 2 === 0) put(x, y, hex, .5); else if (a < 1.5 && x % 2 === 0 && y % 2 === 0) put(x, y, hex, .4);
+      if (r < .35 || small < .9) put(x, y, '#FFFFFF'); else if (a < .75) put(x, y, hex); else if (a < .95) put(x, y, '#2A2350'); else if (a < 1.5 && (x + y) % 2 === 0 && a < 1.2) put(x, y, hex, .5);
     }
   });
 }
@@ -58,10 +58,10 @@ export function featherTex(f) {
     const S = new Map();
     for (let t = 0; t <= 1; t += .005) {
       const cx = 4 + t * 24, cy = 28 - t * 24, hw = Math.sin(Math.PI * Math.pow(t, .8)) * 4.2 * sq;
-      for (let s = -hw; s <= hw; s += .5) { const x = Math.round(cx + s * .7), y = Math.round(cy + s * .7); S.set(x + ',' + y, Math.abs(s) < hw * .25 ? '#FFFFFF' : (Math.abs(s) < hw * .7 ? '#D8F8EE' : '#8FF0D2')); }
+      for (let s = -hw; s <= hw; s += .5) { const x = Math.round(cx + s * .7), y = Math.round(cy + s * .7); S.set(x + ',' + y, Math.abs(s) < hw * .25 ? '#FFFFFF' : (Math.abs(s) < hw * .7 ? '#BFF5E3' : '#7FE0C0')); }
       S.set(Math.round(cx) + ',' + Math.round(cy), '#FFFFFF');
     }
-    for (const kk of [...S.keys()]) { const [x, y] = kk.split(',').map(Number); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (!S.has((x + dx) + ',' + (y + dy))) S.set((x + dx) + ',' + (y + dy) + '!', '#2B6699'); }
+    for (const kk of [...S.keys()]) { const [x, y] = kk.split(',').map(Number); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (!S.has((x + dx) + ',' + (y + dy))) S.set((x + dx) + ',' + (y + dy) + '!', '#14675C'); }
     for (const [kk, c] of S) { const [a, b] = kk.replace('!', '').split(',').map(Number); if (!kk.endsWith('!')) put(a, b, c); }
     for (const [kk, c] of S) if (kk.endsWith('!')) { const [a, b] = kk.replace('!', '').split(',').map(Number); put(a, b, c, 1); }
   });
