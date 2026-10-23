@@ -2,39 +2,17 @@ import * as THREE from 'three';
 import type { BladeTech, BladeTechFrames, Vec3 } from '../contracts';
 import { TRAIL_K, pathPoint, timeToTau } from './bladeTrailModel';
 import { spawnDelayOf, type SlashStep } from './nijiSlashModel';
-import { DOT, FxBatch, FxView, hash, makePts, rgbOf, type Grad } from './fxPaint';
+import { DOT, FxBatch, FxView, hash, makePts, rgbOf } from './fxPaint';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 
 /**
- * 虹 v3（2026-10-23 オーナー決定）: 白い 斬撃の 上の 層。
- * 刀身が プリズムの にじ色に 光り（振っている 間）、各わざの 終わりに 太陽の フレア（つき 1・きりあげ 2・けさ 3 つ。刀の さきの 弧の 上で
- * 場所・大きさ・時間を ずらす）。粒・星・すじは 1 つずつが 虹色（白い 芯から 外へ 赤〜むらさき）。当てた 時は 虹色の 点。
- * 試作 art/LEGEND-FX/proto/fx3-niji.js・bloom.js。発光 = 虹の エフェクトだけに 効かせる ブルーム（半分の 解像度）。
- * 虹が 出て いない 間は ブルームの パスを 回さない（ふだんの 重さを ふやさない）。
- * 描く 物は 2 つの 形（ふつう重ね・加算）。シード付き（hash）・毎ステップ new しない。
+ * 虹 v4（2026-10-23 オーナー 07:05）: 白い 斬撃の 上の 層。「線の 粒」と「円の 粒」の 2 種類だけで 組む（図形は 描かない）。
+ * 粒は 1 つ 単色（虹の 7 色から シード付き）。たくさん まざって 虹色に 見え、ブルームで 色が にじむ。
+ * 刀身 = 刀身に そって 円の 粒が 流れ、細い 線の 粒。わざの 終わり = 中心から 線の 粒が はじけ 円の 粒が ふわっと 広がる
+ * （つき 1・きりあげ 1・けさ 2。2 つ目は 場所・大きさ・時間を ずらす）。発光 = 虹だけに 効かせる ブルーム（半分の 解像度、
+ * 虹が 出て いない 間は パスを 回さない）。シード付き・毎ステップ new しない。
  */
 const SPEC = ['#FF1F3D', '#FF8A00', '#FFE600', '#00E060', '#00B4FF', '#2E5CFF', '#B030FF'].map(rgbOf);
-const EDGE = rgbOf('#2A2350');
-const WH = rgbOf('#FFFFFF');
-const SKY = rgbOf('#BFD8FF');
-/** 虹の 絵: よこ 64 点（白→赤→だいだい→黄→緑→水→青→むらさき 各 7 点 + 無地の 白 8 点）。向きを かえて うつす */
-function rainbowTexture(): THREE.CanvasTexture {
-  const hexes = ['#FFFFFF', '#FF1F3D', '#FF8A00', '#FFE600', '#00E060', '#00B4FF', '#2E5CFF', '#B030FF'];
-  const c = document.createElement('canvas');
-  c.width = 64;
-  c.height = 2;
-  const g = c.getContext('2d')!;
-  for (let x = 0; x < 64; x++) {
-    g.fillStyle = x < 56 ? hexes[Math.floor(x / 7)]! : '#FFFFFF';
-    g.fillRect(x, 0, 1, 2);
-  }
-  const t = new THREE.CanvasTexture(c);
-  t.magFilter = THREE.NearestFilter;
-  t.minFilter = THREE.NearestFilter;
-  t.generateMipmaps = false;
-  t.colorSpace = THREE.SRGBColorSpace;
-  return t;
-}
 /** エフェクトの 大きさ（オーナー 06:50: 今の 半分くらい） */
 const K = 0.5;
 const WINDOW: Record<BladeTech, number> = { thrust: 4, kiriage: 3, kesa: 6 };
@@ -79,12 +57,9 @@ const smooth = (x: number): number => {
   const t = clamp01(x);
   return t * t * (3 - 2 * t);
 };
-const easeOut = (x: number): number => 1 - (1 - clamp01(x)) * (1 - clamp01(x));
 
 export class RainbowFx {
   private readonly view = new FxView();
-  private readonly tex: THREE.CanvasTexture;
-  private readonly grad: Grad = { mode: 0, cx: 0, cy: 0, cz: 0, ext: 1 };
   private readonly nrm: FxBatch;
   private readonly add: FxBatch;
   private readonly insts: Inst[] = [];
@@ -93,10 +68,7 @@ export class RainbowFx {
   private readonly tmp: number[] = [0, 0, 0];
   private readonly tip = new Float32Array(3);
   private readonly base = new Float32Array(3);
-  private readonly pts5 = makePts(6);
   private readonly pts6 = makePts(6);
-  private readonly ringP = makePts(26);
-  private readonly w5 = new Float32Array(6);
   // ブルーム
   private readonly bloom: RainbowBloom;
 
@@ -105,8 +77,7 @@ export class RainbowFx {
     private readonly camera: THREE.Camera,
     private readonly lengths: (tech: BladeTech) => BladeTechFrames,
   ) {
-    this.tex = rainbowTexture();
-    this.nrm = new FxBatch(scene, { additive: false, map: this.tex, plainU: 0.94, depthTest: false, renderOrder: 8, maxVerts: 60000 });
+    this.nrm = new FxBatch(scene, { additive: false, depthTest: false, renderOrder: 8, maxVerts: 60000 });
     this.add = new FxBatch(scene, { additive: true, depthTest: false, renderOrder: 9, maxVerts: 30000 });
     // ブルームの 「虹だけ」の 道は レイヤー 1 を 使う（本描きは レイヤー 0 と 1 を 描く）
     this.nrm.mesh.layers.enable(1);
@@ -189,89 +160,60 @@ export class RainbowFx {
   private cdy(a: number): number { return this.view.right.y * Math.cos(a) + this.view.up.y * Math.sin(a); }
   private cdz(a: number): number { return this.view.right.z * Math.cos(a) + this.view.up.z * Math.sin(a); }
 
-  /** 粒ごとに 虹の 向きを きめる（0 中心から 外・1 ななめ・2 横・3 たて。シード付き。その 粒が 消えるまで かえない） */
-  private g(seed: number, x: number, y: number, z: number, ext: number): Grad {
-    const g = this.grad;
-    g.mode = Math.min(3, Math.floor(hash(seed, 91) * 4));
-    g.cx = x; g.cy = y; g.cz = z; g.ext = ext;
-    return g;
+  /** 粒の 色（虹の 7 色から シード付きで 1 つ。粒の 中は 単色） */
+  private col(seed: number): readonly number[] {
+    return SPEC[Math.min(6, Math.floor(hash(seed, 91) * 7))]!;
   }
 
-  /** 1 つの 粒の 中に 虹（向きは 粒ごとに ランダム） */
-  private dotRB(x: number, y: number, z: number, r: number, a: number, seed: number): void {
-    r = Math.max(r * K * 1.6, DOT * 2);
-    this.nrm.disc(this.view, x, y, z, r + DOT * 0.6, EDGE, a * 0.85, false, 8);
-    this.nrm.discG(this.view, x, y, z, r, a, this.g(seed, x, y, z, r), 8);
+  /** ①円の 粒（小さな 丸。単色） */
+  private dot(x: number, y: number, z: number, r: number, a: number, seed: number): void {
+    if (a <= 0.02) return;
+    this.nrm.disc(this.view, x, y, z, Math.max(r, DOT * 1.2), this.col(seed), a, false, 6);
   }
 
-  /** 十字の 星: 4 本の 腕に 虹（向きは 星ごとに ランダム） */
-  private crossStar(x: number, y: number, z: number, sz: number, a: number, rot: number, seed: number): void {
-    sz *= K;
-    const F = [0, 0.2, 0.4, 0.65, 0.85, 1];
-    const WE = [2.2, 2, 1.7, 1.2, 0.8, 0.3], WC = [1.4, 1.3, 1.1, 0.8, 0.5, 0.15];
-    const gr = this.g(seed, x, y, z, sz);
-    for (let k = 0; k < 4; k++) {
-      const ang = rot + (k * Math.PI) / 2, dx = this.cdx(ang), dy = this.cdy(ang), dz = this.cdz(ang);
-      for (let j = 0; j < 6; j++) {
-        const d = sz * F[j]! * (k % 2 ? 0.75 : 1);
-        this.pts6[j * 3] = x + dx * d; this.pts6[j * 3 + 1] = y + dy * d; this.pts6[j * 3 + 2] = z + dz * d;
-        this.w5[j] = DOT * WE[j]! * 0.8;
-      }
-      this.nrm.band(this.view, this.pts6, 6, this.w5, 0, EDGE, 0.8 * a);
-      for (let j = 0; j < 6; j++) this.w5[j] = DOT * WC[j]! * 0.8;
-      this.nrm.bandG(this.view, this.pts6, 6, this.w5, a, gr);
+  /** ②線の 粒（細く 短い 光の すじ。向き (dx,dy,dz) に のびる。単色） */
+  private streak(x: number, y: number, z: number, dx: number, dy: number, dz: number, len: number, a: number, seed: number): void {
+    if (a <= 0.02) return;
+    const p = this.pts6;
+    p[0] = x; p[1] = y; p[2] = z;
+    p[3] = x + dx * len; p[4] = y + dy * len; p[5] = z + dz * len;
+    this.nrm.band(this.view, p, 2, DOT * 1.3, 0, this.col(seed), a);
+  }
+
+  /** 刀身: 刀身に そって 円の 粒が 流れ、細い 線の 粒が ならぶ（粒の 数は 一定） */
+  private blade(s: Inst, T: number, a: number): void {
+    const f = T + s.startup + 1;
+    this.swordAt(s, f, 'tip', this.tip);
+    this.swordAt(s, f, 'base', this.base);
+    const bx = this.base[0]!, by = this.base[1]!, bz = this.base[2]!;
+    let dx = this.tip[0]! - bx, dy = this.tip[1]! - by, dz = this.tip[2]! - bz;
+    const dl = Math.hypot(dx, dy, dz) || 1;
+    const ex = this.tip[0]! + (dx / dl) * 0.25, ey = this.tip[1]! + (dy / dl) * 0.25, ez = this.tip[2]! + (dz / dl) * 0.25;
+    dx = (ex - bx); dy = (ey - by); dz = (ez - bz);
+    const ul = Math.hypot(dx, dy, dz) || 1, ux = dx / ul, uy = dy / ul, uz = dz / ul;
+    const v = this.view;
+    for (let q = 0; q < 12; q++) {
+      const fr = (hash(q, s.seed, 8) + (T + 20) * 0.1 * (0.8 + 0.5 * hash(q, 9))) % 1;
+      const o = (hash(q, s.seed, 10) - 0.5) * 0.09 * K * 2;
+      const ang = hash(q, 11) * 6.283;
+      const px = bx + dx * fr + (v.right.x * Math.cos(ang) + v.up.x * Math.sin(ang)) * o;
+      const py = by + dy * fr + (v.right.y * Math.cos(ang) + v.up.y * Math.sin(ang)) * o;
+      const pz = bz + dz * fr + (v.right.z * Math.cos(ang) + v.up.z * Math.sin(ang)) * o;
+      this.dot(px, py, pz, DOT * (1.3 + 1.6 * hash(q, 12)), a * (0.55 + 0.45 * Math.sin(fr * 3.14)), s.seed + q);
     }
-    this.dotRB(x, y, z, DOT * 2.5, a, seed + 1);
-  }
-
-  /** 白い 芯＋両ふちに 赤〜紫の 帯（にごらない ふつう重ね）。芯と にじみだけ 加算 */
-  private prism(n: number, a: number): void {
-    const p = this.pts5, wf = this.wA, w2 = this.wB, of = this.oA;
-    for (let k = 0; k < n; k++) wf[k] = 0.2 * K * Math.max(0.3, Math.sin(Math.PI * clamp01((k / (n - 1)) * 0.92 + 0.04)));
-    for (let k = 0; k < n; k++) w2[k] = wf[k]! * 1.12 + DOT * 3;
-    this.nrm.band(this.view, p, n, w2, 0, EDGE, 0.85 * a);
-    const N = 7;
-    for (let j = 0; j < N; j++) {
-      const o = (j - (N - 1) / 2) / N;
-      for (let k = 0; k < n; k++) { w2[k] = (wf[k]! / N) * 1.3; of[k] = o * wf[k]!; }
-      this.nrm.band(this.view, p, n, w2, of, j === 3 ? WH : SPEC[j > 3 ? j - 1 : j]!, a);
+    for (let q = 0; q < 8; q++) {
+      const fr = (hash(q, s.seed, 13) + (T + 20) * 0.07) % 1;
+      const o = (hash(q, 14) - 0.5) * 0.05;
+      this.streak(bx + dx * fr + v.up.x * o, by + dy * fr + v.up.y * o, bz + dz * fr + v.up.z * o, ux, uy, uz, 0.1 + 0.08 * hash(q, 15), a * 0.9, s.seed + 40 + q);
     }
-    for (let k = 0; k < n; k++) w2[k] = wf[k]! * 0.3;
-    this.add.band(this.view, p, n, w2, 0, WH, 0.95 * a);
-    for (let k = 0; k < n; k++) w2[k] = wf[k]! * 1.9;
-    this.add.band(this.view, p, n, w2, 0, SKY, 0.22 * a, true);
   }
-  private readonly wA = new Float32Array(8);
-  private readonly wB = new Float32Array(8);
-  private readonly oA = new Float32Array(8);
 
   private draw(s: Inst): void {
     const T = s.T, idx = s.idx;
     const L = WINDOW[s.tech];
-    const f = T + s.startup + 1;
-    // ① 刀身が プリズムの にじ色に 光る
     if (T >= -6 && T <= L + 3) {
-      this.swordAt(s, f, 'tip', this.tip);
-      this.swordAt(s, f, 'base', this.base);
-      let dx = this.tip[0]! - this.base[0]!, dy = this.tip[1]! - this.base[1]!, dz = this.tip[2]! - this.base[2]!;
-      const dl = Math.hypot(dx, dy, dz) || 1;
-      dx /= dl; dy /= dl; dz /= dl;
-      const ex = this.tip[0]! + dx * 0.3, ey = this.tip[1]! + dy * 0.3, ez = this.tip[2]! + dz * 0.3;
-      const a0 = smooth((T + 6) / 3) * (1 - smooth((T - L) / 3));
-      for (let k = 0; k < 5; k++) {
-        const t = k / 4;
-        this.pts5[k * 3] = this.base[0]! + (ex - this.base[0]!) * t;
-        this.pts5[k * 3 + 1] = this.base[1]! + (ey - this.base[1]!) * t;
-        this.pts5[k * 3 + 2] = this.base[2]! + (ez - this.base[2]!) * t;
-      }
-      this.prism(5, a0);
-      this.crossStar(ex, ey, ez, 0.22, a0, T * 0.1, s.seed + 5);
-      for (let q = 0; q < 4; q++) {
-        const fr = (hash(q, 8) + (T + 20) * 0.09 * (1 + q * 0.2)) % 1;
-        this.crossStar(this.base[0]! + (ex - this.base[0]!) * fr, this.base[1]! + (ey - this.base[1]!) * fr, this.base[2]! + (ez - this.base[2]!) * fr, 0.08 + 0.05 * hash(q, 9), a0, q + (T + 20) * 0.05, s.seed + 10 + q);
-      }
+      this.blade(s, T, smooth((T + 6) / 3) * (1 - smooth((T - L) / 3)));
     }
-    // ② わざの 終わり: 刀の 通り道に フレアが 順に 1・2・3 つ（ずらして、大きさも ばらばら）
     const nF = idx === 2 ? 2 : 1, mult = [[1], [1], [0.6, 0.9]][idx]!;
     let dly = 0;
     for (let fl = 0; fl < nF; fl++) {
@@ -280,7 +222,6 @@ export class RainbowFx {
       if (t < -1 || t > FLARE_LIFE - 1) continue;
       const m = mult[s.perm[fl]!]!;
       if (!s.fSet[fl]) {
-        // 出る とき 1 回: 刀の さきの 弧の 上（少し 前の 時刻の さき）に きめる
         const back = fl === 0 ? 0 : 3 + Math.floor(hash(s.seed, fl, 35 + idx) * 7);
         const ff = Math.max(s.startup + 1, s.startup + L + 1 - back);
         this.swordAt(s, ff, 'tip', this.tip);
@@ -298,68 +239,44 @@ export class RainbowFx {
     }
   }
 
+  /** フレア: 中心から 線の 粒が 放射状に はじけ、円の 粒が ふわっと 広がって 消える */
   private flare(s: Inst, fl: number, t: number, m: number): void {
-    const idx = s.idx, v = this.view;
+    const idx = s.idx;
     const ox = s.fo[fl * 3]!, oy = s.fo[fl * 3 + 1]!, oz = s.fo[fl * 3 + 2]!;
+    const v = this.view;
     const dEye = Math.hypot(ox - v.eye.x, oy - v.eye.y, oz - v.eye.z);
-    const S = [0.6, 0.85, 0.95][idx]! * K * m * Math.max(0.4, Math.min(1, dEye / 3.3)) * (fl === 0 && idx === 0 ? 0.85 : 1);
-    const grow = easeOut((t + 1) / 5), fade = t > 7 ? 1 - (t - 7) / 8 : 1, g = grow * S;
+    const S = [0.6, 0.85, 0.95][idx]! * K * m * Math.max(0.4, Math.min(1, dEye / 3.3)) * 1.6;
+    const fade = t > 6 ? 1 - (t - 6) / 9 : 1;
     if (fade <= 0) return;
-    const nr = Math.round([12, 18, 26][idx]! * (0.6 + 0.4 * m));
-    const RW = [1.6, 3.1, 4.2, 2.8, 0.8], CW = [1, 2.3, 3.2, 2, 0.4];
-    for (let q = 0; q < nr; q++) {
-      const th = (q / nr) * 6.283 + hash(q, 1) * 0.12;
+    const tt = Math.max(0, t + 1);
+    // 線の 粒: 速く はじけて 止まる
+    const ns = Math.round([10, 12, 14][idx]! * (0.7 + 0.3 * m));
+    const head = 1 - Math.exp(-tt * 0.45);
+    for (let q = 0; q < ns; q++) {
+      const th = (q / ns) * 6.283 + hash(q, s.seed, fl, 1) * 0.4;
       const dx = this.cdx(th), dy = this.cdy(th), dz = this.cdz(th);
-      const long = q % 2 === 0;
-      const len = (long ? 1.0 + 0.6 * hash(q, 2) : 0.45 + 0.25 * hash(q, 3)) * g, r0 = 0.08 * S;
-      const w = long ? 1 : 0.7;
-      for (let j = 0; j < 5; j++) {
-        const d = r0 + len * (j / 4);
-        this.pts5[j * 3] = ox + dx * d; this.pts5[j * 3 + 1] = oy + dy * d; this.pts5[j * 3 + 2] = oz + dz * d;
-        this.w5[j] = DOT * RW[j]! * w;
-      }
-      this.nrm.band(v, this.pts5, 5, this.w5, 0, EDGE, 0.7 * fade);
-      for (let j = 0; j < 5; j++) this.w5[j] = DOT * CW[j]! * w;
-      this.nrm.bandG(v, this.pts5, 5, this.w5, fade, this.g(hash(q, s.seed, fl, 77) * 1000, ox + dx * (r0 + len * 0.5), oy + dy * (r0 + len * 0.5), oz + dz * (r0 + len * 0.5), len * 0.5 + 0.02));
+      const reach = (0.5 + 0.7 * hash(q, s.seed, fl, 2)) * S;
+      const d1 = reach * head, len = Math.min(d1, reach * 0.35 * (1 - head * 0.5) + 0.03);
+      this.streak(ox + dx * (d1 - len), oy + dy * (d1 - len), oz + dz * (d1 - len), dx, dy, dz, len, fade, hash(q, s.seed, fl, 3) * 1000);
     }
-    // 核（加算）
-    this.add.disc(v, ox, oy, oz, 0.22 * g + 0.03, WH, 0.95 * fade, true, 10);
-    this.add.disc(v, ox, oy, oz, 0.55 * g, SKY, 0.35 * fade, true, 10);
-    // 光の 輪（にじ色）
-    const nrg = idx === 0 ? 0 : m > 0.8 ? 2 : 1;
-    for (let k = 0; k < nrg; k++) {
-      const R = (0.4 + k * 0.3) * g;
-      const NR = 24;
-      for (let q = 0; q <= NR; q++) {
-        const a = (q / NR) * 6.283;
-        this.ringP[q * 3] = ox + this.cdx(a) * R; this.ringP[q * 3 + 1] = oy + this.cdy(a) * R; this.ringP[q * 3 + 2] = oz + this.cdz(a) * R;
-      }
-      this.nrm.band(v, this.ringP, NR + 1, DOT * 3.2, 0, EDGE, 0.6 * fade * (1 - k * 0.2));
-      for (let j = 0; j < 7; j++) this.nrm.band(v, this.ringP, NR + 1, DOT * 1.1, (j - 3) * DOT * 0.9, SPEC[j]!, 0.9 * fade);
-    }
-    // レンズフレア: 画面の 一直線に ならぶ 丸い 光
-    const la = -0.55 + idx * 0.1, lx = this.cdx(la), ly = this.cdy(la), lz = this.cdz(la);
-    const no = Math.round([2, 3, 4][idx]! * (0.7 + 0.3 * m));
-    for (let q = 0; q < no; q++) {
-      const off = (q - 1) * (0.35 + 0.2 * hash(q, 4)) * g * 1.3, rr = (0.05 + 0.09 * hash(q, 5)) * (0.6 + S * 0.5);
-      this.dotRB(ox + lx * off, oy + ly * off, oz + lz * off, rr, 0.9 * fade, hash(q, s.seed, fl, 78) * 1000);
-      if (q % 2) this.add.disc(v, ox + lx * off, oy + ly * off, oz + lz * off, rr * 1.8, SKY, 0.22 * fade, true, 8);
-    }
-    // 星くず
-    const nd = [5, 7, 11][idx]!;
+    // 円の 粒: ふわっと 広がり、小さく なって 消える
+    const nd = Math.round([12, 16, 20][idx]! * (0.7 + 0.3 * m));
+    const spread = 1 - Math.exp(-tt * 0.22);
     for (let q = 0; q < nd; q++) {
-      const th = hash(q, 3, s.seed, fl) * 6.283, vel = (0.3 + 1.1 * hash(q, 5)) * S;
-      const dd = vel * (1 - Math.exp(-(t + 1) * 0.3)) + 0.05;
-      const px = ox + this.cdx(th) * dd, py = oy + this.cdy(th) * dd - 0.02 * t, pz = oz + this.cdz(th) * dd;
-      if (q % 3 === 0) this.crossStar(px, py, pz, 0.09 + 0.06 * hash(q, 6), fade * 0.8, q * 0.7 + t * 0.08, hash(q, s.seed, fl, 79) * 1000);
-      else this.dotRB(px, py, pz, DOT * (2.5 + hash(q, 7) * 1.6), fade * 0.8, hash(q, s.seed, fl, 80) * 1000);
+      const th = hash(q, s.seed, fl, 4) * 6.283, reach = (0.2 + 0.9 * hash(q, s.seed, fl, 5)) * S;
+      const d = reach * spread;
+      const sz = DOT * (1.6 + 2.4 * hash(q, s.seed, fl, 6)) * (1 - 0.6 * clamp01(t / 14));
+      this.dot(ox + this.cdx(th) * d, oy + this.cdy(th) * d + 0.01 * tt, oz + this.cdz(th) * d, sz, fade * 0.9, hash(q, s.seed, fl, 7) * 1000);
     }
   }
 
   private drawHit(h: Hit): void {
-    for (let q = 0; q < 9; q++) {
-      const a = hash(q, 9, h.seed) * 6.28, D = (0.3 + 0.6 * hash(q, 3)) * (1 - Math.exp(-h.age * 0.4));
-      this.dotRB(h.x + this.cdx(a) * D, h.y + this.cdy(a) * D, h.z + this.cdz(a) * D, DOT * (2.5 + 1.5 * hash(q, 5)), 1 - h.age / 12, hash(q, h.seed, 81) * 1000);
+    const f = 1 - h.age / 12, g = 1 - Math.exp(-h.age * 0.4);
+    for (let q = 0; q < 8; q++) {
+      const a = hash(q, 9, h.seed) * 6.28, D = (0.2 + 0.4 * hash(q, 3)) * g;
+      const dx = this.cdx(a), dy = this.cdy(a), dz = this.cdz(a);
+      if (q % 2) this.streak(h.x + dx * D, h.y + dy * D, h.z + dz * D, dx, dy, dz, 0.06, f, hash(q, h.seed, 81) * 1000);
+      else this.dot(h.x + dx * D, h.y + dy * D, h.z + dz * D, DOT * (1.8 + hash(q, 5)), f, hash(q, h.seed, 81) * 1000);
     }
   }
 
@@ -377,7 +294,6 @@ export class RainbowFx {
     this.nrm.dispose(this.scene);
     this.add.dispose(this.scene);
     this.bloom.dispose();
-    this.tex.dispose();
   }
 }
 
