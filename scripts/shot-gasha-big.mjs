@@ -1,4 +1,4 @@
-// #293 試作: 大きい がしゃどくろ（?proto=gashaBig）の スクショを 2 枚（正面から ぜんたい／肩の 雲の 上の プレイヤー）。開発サーバー http://localhost:5173 が 動いて いること
+// #293 試作: 大きい がしゃどくろ（?proto=gashaBig）の スクショを 2 枚（正面から ぜんたい／雲の はしごの 上の プレイヤー）。開発サーバー http://localhost:5173 が 動いて いること
 //   node scripts/shot-gasha-big.mjs [出力フォルダ]
 //   開発サーバーは playwright.config.ts の webServer と おなじ 環境変数で 立てる:
 //   VITE_START_MENU=off VITE_SHADOW_DEFAULT=off VITE_MICRO_DEFAULT=off VITE_FRAME_CLOCK=count VITE_RING_DEFAULT=small npx vite --port 5173 --strictPort
@@ -66,20 +66,20 @@ const put = (x, y, z, yaw, pitch) => page.evaluate(([x, y, z, yaw, pitch]) => wi
 
 // 1: 正面から ぜんたい（プレイヤーを うしろに さげる）
 const mpos = info.pos;
-const fy = await page.evaluate(([x, z]) => window.__rikkun.world.groundHeight(Math.floor(x), Math.floor(z)), [X0, Z0 + Number(process.env.BACK1 ?? 62)]);
+const fy = await page.evaluate(([x, z]) => window.__rikkun.world.groundHeight(Math.floor(x), Math.floor(z)), [X0, Z0 + Number(process.env.BACK1 ?? 50)]);
 // プレイヤーが からだに かぶらないよう、カメラを プレイヤーの 目の 位置に する
 await page.evaluate((d) => window.__rikkun.settings.set('thirdPersonDistance', d), Number(process.env.CAM1 ?? 0)); // 0 = プレイヤーが うつらない
-const SIDE1 = Number(process.env.SIDE1 ?? 0), BACK = Number(process.env.BACK1 ?? 62);
-await put(X0 - SIDE1, fy + 1, Z0 + BACK, (Math.atan2(SIDE1, BACK + 40) * 180) / Math.PI, Number(process.env.PITCH1 ?? 20));
+const SIDE1 = Number(process.env.SIDE1 ?? 0), BACK = Number(process.env.BACK1 ?? 50);
+await put(X0 - SIDE1, fy + 1, Z0 + BACK, (Math.atan2(SIDE1, BACK + 40) * 180) / Math.PI, Number(process.env.PITCH1 ?? 14));
 await step(180);
 await page.screenshot({ path: join(OUT, 'gasha-big-front.png') });
 console.log('shot1', mpos);
 
 // 2: 肩の 雲の 上に プレイヤー
-const hits = await page.evaluate(() => window.__gashaBig.colliders().filter((c) => c.name === 'shoulderL').map((c) => ({ c: c.center, h: c.half, a: c.axes })));
+const hits = await page.evaluate((n) => window.__gashaBig.colliders().filter((c) => c.name === n).map((c) => ({ c: c.center, h: c.half, a: c.axes })), 'climbL' + (process.env.RUNG2 ?? '10'));
 const sh = hits[0];
 const topY = sh.c[1] + sh.h[1];
-const px = sh.c[0] + sh.a[0][0] * sh.h[0] * 0.2, pz = sh.c[2] + sh.a[0][2] * sh.h[0] * 0.2;
+const px = sh.c[0], pz = sh.c[2];
 await page.evaluate((d) => window.__rikkun.settings.set('thirdPersonDistance', d), Number(process.env.CAM2 ?? 9));
 await put(px, topY + 0.05, pz, Number(process.env.YAW2 ?? 0), Number(process.env.PITCH2 ?? -14));
 await step(120);
@@ -100,7 +100,7 @@ if (process.env.EXTRA_SHOTS) {
   await shotAt('x-back.png', mp[0], mp[2] - 60, 180, 22, 4);
   await shotAt('x-side.png', mp[0] + 90, mp[2] + 5, -90, 15, 4);
   await shotAt('x-hand.png', mp[0] + 33, mp[2] + 62, 0, 10, 8);
-  const rb = await page.evaluate(() => window.__gashaBig.colliders().filter((c) => /^ribbonWingL|rampInL|rampOutL|skull/.test(c.name)).map((c) => ({ n: c.name, c: c.center, h: c.half, a: c.axes })));
+  const rb = await page.evaluate(() => window.__gashaBig.colliders().filter((c) => /^ribbonWingL|skull/.test(c.name)).map((c) => ({ n: c.name, c: c.center, h: c.half, a: c.axes })));
   const top = (c) => c.c[1] + c.h[1] * Math.abs(c.a[1][1]) + c.h[0] * Math.abs(c.a[0][1]) + c.h[2] * Math.abs(c.a[2][1]) - 0.5;
   const sk = rb.find((c) => c.n === 'skull');
   await shotAt('x-skull.png', sk.c[0], sk.c[2], 200, -20, 14, sk.c[1] + sk.h[1] + 0.5);

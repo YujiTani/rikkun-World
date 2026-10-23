@@ -97,6 +97,15 @@ const result = await page.evaluate(async ([side, START, ROUTE]) => {
         for (let x = px - 4; x <= px + 4; x++) { let top = '.'; for (let y = py + 6; y >= py - 8; y--) if (g.solidAt(x, y, z)) { top = String(y - py); break; } r += top.padStart(3); }
         rows.push(r);
       }
+      // どの 当たりの 箱の 上の 面か（名前の 最後の 数字だけ）
+      const nameAt = (x, y, z) => { for (const c of hits) { const d = [x + 0.5 - c.center[0], y + 0.5 - c.center[1], z + 0.5 - c.center[2]]; let ok = true; for (let k = 0; k < 3; k++) { const u = c.axes[k]; if (Math.abs(d[0] * u[0] + d[1] * u[1] + d[2] * u[2]) > c.half[k]) ok = false; } if (ok) return c.name.replace(/[LR]/, '').slice(0, 2) + c.name.replace(/\D/g, ''); } return '?'; };
+      const nrows = [];
+      for (let z = pz - 4; z <= pz + 4; z++) {
+        let r = `z${z}: `;
+        for (let x = px - 4; x <= px + 4; x++) { let top = '.'; for (let y = py + 6; y >= py - 8; y--) if (g.solidAt(x, y, z)) { top = nameAt(x, y, z); break; } r += top.padStart(7); }
+        nrows.push(r);
+      }
+      log.push('当たりの 名前\n' + nrows.join('\n'));
       log.push(`とまった まわり（足の マスからの 高さ。x ${px - 4}〜${px + 4}）\n` + rows.join('\n'));
       break;
     }

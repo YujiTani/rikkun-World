@@ -169,7 +169,7 @@ export class BigActor {
   rebake(): void {
     const C = T.crawl;
     this.crawlRate = C.motionRate;
-    this.crawlSpeed = C.speed;
+    this.crawlSpeed = C.speedPerHeight * T.size.height; // 身長から きめる（大きさを かえても 重さが おなじ）
     const sk = skeletonOf(this.model);
     const clips = this.clips;
     this.baked = {
@@ -213,7 +213,7 @@ export class BigActor {
     if (this.mode === 'angry') return;
     this.mode = 'look';
     this.target = null;
-    this.player.play(this.baked.lookBack, { fade: T.clips.fadeSec, rate: T.lookBack.rate, loop: false });
+    this.player.play(this.baked.lookBack, { fade: T.clips.fadeSec / T.lookBack.rate, rate: T.lookBack.rate, loop: false });
   }
 
   /** プレイヤーの 攻撃が 当たった */
@@ -221,7 +221,7 @@ export class BigActor {
     this.angryLeft = T.angry.calmSec;
     this.restLeft = 0; // 怒ったら 休みは 中断（白目に もどったら また 歩き出す）
     this.walkLeft = this.randIn(T.wander.walkSec);
-    if (this.mode !== 'angry') { this.mode = 'angry'; this.target = null; this.player.play(null, { fade: T.clips.fadeSec }); }
+    if (this.mode !== 'angry') { this.mode = 'angry'; this.target = null; this.player.play(null, { fade: T.clips.idleFadeSec }); }
   }
 
   angry(on: boolean): void {
@@ -238,7 +238,7 @@ export class BigActor {
     this.mode = 'crawl';
     const clip = this.nextIsRight ? this.baked.climbR : this.baked.climbL;
     this.nextIsRight = !this.nextIsRight;
-    this.player.play(clip, { fade: T.clips.fadeSec, rate: this.crawlRate, loop: false });
+    this.player.play(clip, { fade: T.clips.fadeSec / this.crawlRate, rate: this.crawlRate, loop: false });
   }
 
   private toIdle(): void {
@@ -355,10 +355,10 @@ export class BigActor {
       return false;
     }
     // 左右の 手を 順に（クリップの 終わりの すこし 前に 次の クリップへ クロスフェード）
-    if (this.player.timeLeft() <= T.clips.fadeSec) {
+    if (this.player.timeLeft() <= T.clips.fadeSec / this.crawlRate) {
       const clip = this.nextIsRight ? this.baked.climbR : this.baked.climbL;
       this.nextIsRight = !this.nextIsRight;
-      this.player.play(clip, { fade: T.clips.fadeSec, rate: this.crawlRate, loop: false });
+      this.player.play(clip, { fade: T.clips.fadeSec / this.crawlRate, rate: this.crawlRate, loop: false });
     }
     const want = Math.atan2(dx, dz);
     const err = Math.abs(wrapPi(want - this.yaw));
@@ -390,9 +390,16 @@ export class BigActor {
 
   private pickTarget(): void {
     const W = T.wander;
-    const a = this.rnd() * Math.PI * 2;
     const r = W.minDist + this.rnd() * Math.max(0, W.radius - W.minDist);
-    this.target = { x: this.home.x + Math.sin(a) * r, z: this.home.z + Math.cos(a) * r };
+    // 今の 向きから 左右 maxTurnDeg いない（体の 向きを かえるのは おそい ので）
+    let a = this.yaw + (this.rnd() * 2 - 1) * W.maxTurnDeg * DEG;
+    let x = this.pos.x + Math.sin(a) * r, z = this.pos.z + Math.cos(a) * r;
+    if (Math.hypot(x - this.home.x, z - this.home.z) > W.radius) {
+      // 中心から はなれすぎ: 中心の 方向へ（向きを かえるのが おそくても しかたない）
+      a = Math.atan2(this.home.x - this.pos.x, this.home.z - this.pos.z) + (this.rnd() * 2 - 1) * 0.3;
+      x = this.pos.x + Math.sin(a) * r; z = this.pos.z + Math.cos(a) * r;
+    }
+    this.target = { x, z };
     this.startCrawl();
   }
 

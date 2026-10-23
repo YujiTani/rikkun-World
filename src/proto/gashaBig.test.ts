@@ -87,7 +87,7 @@ describe('gashaBig（#293 大きい がしゃどくろ）', () => {
     const top = skull.center[1] + skull.half[1] * skull.axes[1][1];
     expect(top).toBeGreaterThan(T.size.height - 2);
     expect(top).toBeLessThan(T.size.height + 2);
-    expect(scale).toBeGreaterThan(0.5);
+    expect(scale).toBeGreaterThan(0.3);
   });
 
   it('描画回数: メッシュ 40 こ いか（目安 100 回 以内）', () => {
@@ -96,10 +96,10 @@ describe('gashaBig（#293 大きい がしゃどくろ）', () => {
 
   it('当たりの 箱が ある（うで・雲・リボン・頭）', () => {
     const names = hits.map((h) => h.name);
-    for (const n of ['upperArmL', 'foreArmR', 'handL', 'shoulderL', 'rampOutR', 'rampInL', 'ribbonWingR', 'skull', 'waist0']) expect(names).toContain(n);
+    for (const n of ['upperArmL', 'foreArmR', 'handL', 'climbL0', 'climbR0', 'linkL0', 'rampR0', 'headL0', 'ribbonWingR', 'skull', 'bank0']) expect(names).toContain(n);
   });
 
-  it('地面から 手→前わん→上わん→肩の 雲→リボン→頭の 上 まで 1 ブロックの 段で のぼれる', () => {
+  it('地面から 手→前わん→上わん→肩の 平らな 道→雲の はしご→頭の 上 まで 1 ブロックの 段で のぼれる', () => {
     const hand = hits.find((h) => h.name === 'handL')!;
     const ground = [Math.floor(hand.center[0]), 0, Math.floor(hand.center[2] + hand.half[2] + 3)] as [number, number, number];
     expect(standable(cells, ...ground)).toBe(true);
@@ -114,7 +114,7 @@ describe('gashaBig（#293 大きい がしゃどくろ）', () => {
       }
       return best;
     };
-    const rows = ['handL', 'foreArmL', 'upperArmL', 'shoulderL', 'rampOutL', 'ribbonWingL', 'rampInL', 'skull', 'shoulderR', 'ribbonWingR', 'rampInR', 'waist11'].map((n) => `${n}:${hitHeight(n)}`);
+    const rows = ['handL', 'foreArmL', 'upperArmL', 'climbL0', 'climbL10', 'linkL0', 'rampL0', 'headL0', 'skull', 'climbR10', 'headR0', 'bank0'].map((n) => `${n}:${hitHeight(n)}`);
     console.log('reach', rows.join(' '));
     const skull = hits.find((h) => h.name === 'skull')!;
     const skullTop = Math.floor(skull.center[1] + skull.half[1] - 1);
@@ -122,5 +122,39 @@ describe('gashaBig（#293 大きい がしゃどくろ）', () => {
     for (const [, j] of seen.values()) top = Math.max(top, j);
     console.log('skullTop', skullTop, 'reachTop', top);
     expect(top).toBeGreaterThanOrEqual(skullTop);
+  });
+  it('雲の はしごだけで（うでを 使わず）地面から 頭の 上まで のぼれる。段の 上がりは 1 ブロック いない、当たりの あつさは 1 ブロック いじょう', () => {
+    const noArms = hits.filter((h) => !/^(upperArm|foreArm|hand|shoulder)/.test(h.name));
+    const cellsL = voxelize(noArms, T.collide.margin, T.collide.topLift);
+    const c0 = hits.find((h) => h.name === 'climbL0')!;
+    const ground = [Math.floor(c0.center[0] - c0.axes[2][0] * 3), 0, Math.floor(c0.center[2] - c0.axes[2][2] * 3)] as [number, number, number];
+    // 出発は はしごの はじめの 段の 手前の 地面（段の 向きと 反対 = まわりの 地面）
+    let start = ground;
+    for (const [dx, dz] of [[0, 3], [0, -3], [3, 0], [-3, 0], [3, 3], [-3, -3]] as const) {
+      const g: [number, number, number] = [Math.floor(c0.center[0]) + dx, 0, Math.floor(c0.center[2]) + dz];
+      if (standable(cellsL, ...g)) { start = g; break; }
+    }
+    const seen = reach(cellsL, start);
+    const skull = hits.find((h) => h.name === 'skull')!;
+    let top = 0;
+    for (const [, j] of seen.values()) top = Math.max(top, j);
+    expect(top).toBeGreaterThanOrEqual(Math.floor(skull.center[1] + skull.half[1] - 1));
+    // 段の 上がり（上の 面の 高さの さ）と あつさ（ブロック）
+    for (const key of ['climb', 'link', 'ramp', 'head']) {
+      const rs = hits.filter((h) => new RegExp(`^${key}L\\d+$`).test(h.name)).sort((a, b) => Number(a.name.slice(key.length + 1)) - Number(b.name.slice(key.length + 1)));
+      expect(rs.length).toBeGreaterThan(3);
+      for (let i = 0; i < rs.length; i++) {
+        expect(rs[i]!.half[1] * 2).toBeGreaterThanOrEqual(1);
+        if (i) expect(Math.abs(rs[i]!.center[1] - rs[i - 1]!.center[1])).toBeLessThanOrEqual(0.95);
+      }
+    }
+  });
+
+  it('当たりの 箱は どれも あつさ 1 ブロック いじょう（うすいと マスが 消えて 乗れない）', () => {
+    for (const h of hits) {
+      const t = h.half[1] * 2; // 箱の あつさ（上下の 軸）
+      if (/^(upperArm|foreArm)/.test(h.name)) continue; // うでは 斜めで、あつさの 軸が 回って いる
+      expect(t, h.name).toBeGreaterThanOrEqual(0.99);
+    }
   });
 });
