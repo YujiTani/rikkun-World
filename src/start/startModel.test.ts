@@ -152,6 +152,12 @@ describe('AC8 1 枚目 ― はじめの 状態', () => {
     store.data.set(WEIGHT_STORAGE_KEY, 'light');
     expect(setup({ search: '?menu=1&nosave=1', store: null }).s()).toMatchObject({ char: 'girl', weight: 'fine' });
   });
+  it('2.4: menu=1 なしの URL 指定も はじめの 選び方に 入る（?seed=5・?char=boy・?strength=hard）', () => {
+    expect(setup({ search: '?seed=5' }).s().seedText).toBe('5');
+    expect(setup({ search: '?char=boy' }).s().char).toBe('boy');
+    expect(setup({ search: '?strength=hard' }).s().strength).toBe('hard');
+    expect(setup({ search: '?char=boy&seed=5&strength=easy' }).s()).toMatchObject({ char: 'boy', seedText: '5', strength: 'easy' });
+  });
   it('?menu=1&seed=5 → 2 枚目の まどに はじめから 5、?strength=hard → つよい（ほかの URL 指定も はじめの 値）', () => {
     expect(setup({ search: '?menu=1&seed=5' }).s().seedText).toBe('5');
     expect(setup({ search: '?menu=1&strength=hard' }).s().strength).toBe('hard');
