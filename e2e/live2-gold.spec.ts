@@ -384,7 +384,7 @@ test.describe('LIVE-2 金の たまご・保存・文字・性能', () => {
     expect(r.n).toBe(29);
     expect(r.on.dc - r.zero.dc).toBeLessThanOrEqual(48);
     expect(r.on.tri - r.zero.tri).toBeLessThanOrEqual(20000);
-    // 計算の ふえ は 同じ マシンの 動物 なしの 1 ステップに くらべる（CI は 手元より 約 3 倍 おそい。§4.6）
-    expect(r.addMs / r.baseMs, '動物 なしからの 1 ステップの ふえ の 割合（中央値。§4.6）').toBeLessThanOrEqual(0.5);
+    // 時間は 記録 だけ（ルール #255: E2E は ms で 合否を 決めない。オーナー 2026-10-23。§4.6）
+    test.info().annotations.push({ type: 'perf', description: `1 ステップ 動物 なし ${r.baseMs.toFixed(3)} ／ あり ${r.stepMs.toFixed(3)} ms（中央値）` });
   });
 });
