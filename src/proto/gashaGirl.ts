@@ -46,7 +46,7 @@ function aimBone(bone: Object3D, child: Object3D, dir: Vector3): void {
 
 function rotateWorld(bone: Object3D, axis: Vector3, rad: number): void {
   bone.updateWorldMatrix(true, true);
-  const delta = tmpQ.setAxisAngle(axis, rad);
+  const delta = tmpQ.setFromAxisAngle(axis, rad);
   const wq = bone.getWorldQuaternion(tmpQ2).premultiply(delta);
   const pq = bone.parent!.getWorldQuaternion(new Quaternion());
   bone.quaternion.copy(pq.invert().multiply(wq));
@@ -256,14 +256,15 @@ export interface GashaGirlHandle {
   setSeed(n: number): void;
   warpNow(spell?: number): void;
   camera(mode: 'overview' | 'default'): void;
-  setNextSpell(i: number): void;
+  /** 次に 使う 魔法を 決める（1〜4。撮影用） */
+  nextSpell(n: number): void;
   /** 次の 魔法 1 の ワープ先が 左横か（シードの さきよみ） */
   predictSide(): 'left' | 'back';
   info(): Record<string, number | string>;
 }
 
 const CLIP_FIRE = 0.7; // 詠唱の 70% ごろに 魔法を 出す
-const FB_COUNT = 10, FB_GAP = 0.25, FB_SPEED = 8, FB_TURN = 90 * D2R, FB_STOP_NEAR = 3, FB_HOMING_MAX = 2.5, FB_LIFE = 4;
+const FB_COUNT = 10, FB_GAP = 0.09, FB_ORB_GAP = 0.1, FB_SPEED = 14, FB_TURN = 120 * D2R, FB_STOP_NEAR = 3, FB_HOMING_MAX = 2.5, FB_LIFE = 4;
 const WAVE_COUNT = 10, WAVE_FAN = 80 * D2R, WAVE_SPEED = 6, WAVE_AMP = 0.6, WAVE_HZ = 1.5, WAVE_RANGE = 14, WAVE_LIFE = 3;
 const HIT_R = 0.6;
 const SPELLS = 4;
@@ -279,7 +280,7 @@ export function startGashaGirl(deps: GashaGirlDeps): void {
   );
 }
 
-function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: <T extends Object3D>(o: T) => T): void {
+function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (o: Object3D) => Object3D): void {
   const scene = deps.scene;
   const front = new Vector3(0, 0, 1);
   const H = GIRL_HEIGHTS[0]!;
@@ -521,9 +522,9 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: <
 
   // ---- 少女の 流れ ----
   type Phase = 'stand' | 'vanish' | 'appear' | 'cast';
-  let phase: Phase = 'stand', pt = 0, spell = 0, next = 0;
+  let phase: Phase = 'stand', pt = 0, spell = 0;
   let side: 'left' | 'back' = 'back', dist = 4.5, ang = 0;
-  let fbShots = 0, fired = false, waveSide = 1, mixerLeft = 0, castLen = CLIP_DUR;
+  let fbShots = 0, fired = false, mixerLeft = 0, castLen = CLIP_DUR, forced = -1;
   let t = 0;
   const tele = new Vector3();
   const fwdOf = (p: { yawDeg: number }) => { const y = p.yawDeg * D2R; return { fx: Math.sin(y), fz: -Math.cos(y), rx: Math.cos(y), rz: Math.sin(y) }; };
@@ -537,7 +538,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: <
     for (let i = 0; i < n; i++) add.emit(c.x + vr(-0.5, 0.5), c.y + vr(0, H), c.z + vr(-0.5, 0.5), vr(-2, 2), vr(-1, 3), vr(-2, 2), vr(0.4, 0.9), 0.2, 0.05, 0xf0d8ff, 0x6020c0, -1.5, 0.5);
   };
   const chooseWarp = () => {
-    spell = next;
+    spell = forced >= 0 ? forced : Math.floor(rng() * SPELLS); forced = -1;
     if (spell === 0) { side = rng() < 0.5 ? 'left' : 'back'; dist = 4 + rng(); }
     else if (spell === 1) { side = 'back'; dist = 4 + rng(); }
     else { ang = (rng() * 2 - 1) * 60 * D2R; dist = 10 + 2 * rng(); }
@@ -554,14 +555,13 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: <
   };
   const startCast = () => {
     phase = 'cast'; pt = 0; fired = false; fbShots = 0; castLen = CLIP_DUR;
-    waveSide = 1;
     action.reset(); action.setLoop(LoopOnce, 1); action.clampWhenFinished = true; action.fadeIn(0.15).play();
     mixerLeft = 1e9;
   };
   const endCast = () => {
     action.fadeOut(0.15);
     mixerLeft = 0.2;
-    phase = 'stand'; pt = 0; next = (spell + 1) % SPELLS;
+    phase = 'stand'; pt = 0; 
   };
   const handPos = (out: Vector3) => hand.getWorldPosition(out);
   const hp = new Vector3(), dirV = new Vector3();
@@ -582,10 +582,15 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: <
     }
   };
   const purpleBurstAt = (c: Vector3, col: number) => { for (let i = 0; i < 10; i++) add.emit(c.x, c.y, c.z, vr(-1.5, 1.5), vr(-1, 1.5), vr(-1.5, 1.5), 0.5, 0.18, 0.04, 0xffffff, col); };
+  const orbPos = (i: number, out: Vector3) => { // 少女の まわりに うかぶ 火の玉（前がわの 半円）
+    const a = ((i / (FB_COUNT - 1)) - 0.5) * 2 * 120 * D2R + pivot.rotation.y;
+    const r = 1.5 + 0.1 * Math.sin(t * 2 + i);
+    return out.set(pivot.position.x + Math.sin(a) * r, pivot.position.y + H * (0.66 + 0.2 * (i % 3) / 2) + 0.15 * Math.sin(t * 3 + i * 1.7), pivot.position.z + Math.cos(a) * r);
+  };
   const shootFireball = (i: number) => {
-    const p = deps.player(); handPos(hp); chestOf(p, chest);
-    const h = Math.atan2(chest.x - hp.x, chest.z - hp.z) + (i % 2 ? 1 : -1) * vr(0.12, 0.55);
-    const pit = 0.3;
+    const p = deps.player(); orbPos(i, hp); chestOf(p, chest);
+    const h = Math.atan2(chest.x - hp.x, chest.z - hp.z) + (i % 2 ? 1 : -1) * vr(0.1, 0.4);
+    const pit = 0.25;
     dirV.set(Math.sin(h) * Math.cos(pit), Math.sin(pit), Math.cos(h) * Math.cos(pit));
     spawnProj(0, hp, dirV);
     add.emit(hp.x, hp.y, hp.z, 0, 0, 0, 0.2, 1.6, 0.3, 0xfff0c0, 0xff7010);
@@ -609,11 +614,20 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: <
       if (pt >= 0.4) { fade(0); startCast(); }
     } else {
       faceTo(p);
-      if (spell === 2) castLen = Math.max(CLIP_DUR, CLIP_FIRE * CLIP_DUR + (FB_COUNT - 1) * FB_GAP + 0.4);
+      if (spell === 2) castLen = Math.max(CLIP_DUR, CLIP_FIRE * CLIP_DUR + FB_COUNT * FB_GAP + 0.4);
       if (!fired && pt >= CLIP_FIRE * CLIP_DUR) { fired = true; fire(); }
       if (spell === 2 && fired) {
         const due = Math.floor((pt - CLIP_FIRE * CLIP_DUR) / FB_GAP + 1e-6) + 1;
         while (fbShots < Math.min(FB_COUNT, due)) shootFireball(fbShots++);
+      }
+      if (spell === 2) { // 火の玉が 0.1 秒おきに ぽっと 出て ふわふわ うかぶ
+        const shown = Math.min(FB_COUNT, Math.floor((pt - 0.3) / FB_ORB_GAP) + 1);
+        for (let i = fbShots; i < shown; i++) {
+          orbPos(i, hp);
+          if (pt - 0.3 - i * FB_ORB_GAP < dt * 1.5) add.emit(hp.x, hp.y, hp.z, 0, 0, 0, 0.2, 1.6, 0.3, 0xfff0c0, 0xff7010);
+          add.emit(hp.x, hp.y, hp.z, 0, 0, 0, dt * 2, 0.55, 0.55, 0xfff6c8, 0xffe080);
+          add.emit(hp.x, hp.y, hp.z, 0, 0, 0, dt * 2, 1.2, 1.2, 0xff8a20, 0xff6010);
+        }
       }
       handPos(hp);
       for (let k = 0; k < 2; k++) add.emit(hp.x + vr(-0.2, 0.2), hp.y + vr(-0.2, 0.2), hp.z + vr(-0.2, 0.2), vr(-0.3, 0.3), vr(0.2, 0.9), vr(-0.3, 0.3), 0.5, 0.14, 0.03, 0xf0d8ff, 0x7030d0);
@@ -661,12 +675,12 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: <
     },
     phase: () => phase,
     setSeed: (n) => { rs = n >>> 0; vs = (Math.imul(n, 7919) + 13) >>> 0; },
-    warpNow: (s) => { if (s !== undefined) next = s % SPELLS; if (phase === 'stand') pt = 2.0; },
+    warpNow: (s) => { if (s !== undefined) forced = (s - 1 + SPELLS) % SPELLS; if (phase === 'stand') pt = 2.0; },
     camera: (m) => { camMode = m; },
-    setNextSpell: (i) => { next = ((i % SPELLS) + SPELLS) % SPELLS; },
+    nextSpell: (n) => { forced = (n - 1 + SPELLS) % SPELLS; },
     predictSide: () => (mulberry(rs)[1] < 0.5 ? 'left' : 'back'),
     info: () => ({
-      phase, spell, next, castT: pt, side, dist, eruptionT: ER.t, vortexT: VX.t,
+      phase, spell: spell + 1, forced, castT: pt, side, dist, eruptionT: ER.t, vortexT: VX.t,
       fireballs: projs.filter((q) => q.on && q.kind === 0).length, waves: projs.filter((q) => q.on && q.kind === 1).length,
       ...stats, girlX: pivot.position.x, girlZ: pivot.position.z,
     }),
