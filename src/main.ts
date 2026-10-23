@@ -80,6 +80,7 @@ import { itemIconUrl } from './ui/itemIcon';
 import { DropField } from './drops';
 import { createAnimalManager } from './animals';
 import { coopBlocks, coopPlan } from './animals/coop';
+import { ringSeen } from './animals/models/throwRing';
 import { applyFlatten } from './world/flatten';
 import { kitIconsFor, type KitIconRow } from './animals/models/kitIcons';
 import { AnimalFx } from './fx/animalFx';
@@ -1005,7 +1006,17 @@ function currentKitRows(): KitIconRow[] {
 }
 game.onBeforeRender(() => {
   animalRenderer.setKitIcons(currentKitRows());
-  animalRenderer.setThrowSpot(animals.throwSpot(dig.throwAim()));
+  const throwAim = dig.throwAim();
+  const throwSpot = animals.throwSpot(throwAim);
+  // 丸 は さく・もん の 板 ごし でも 見せる（目 から 丸 への 線 が 地形 に ふさがれて いない とき だけ）
+  animalRenderer.setThrowSpot(
+    throwSpot,
+    throwSpot !== null &&
+      ringSeen((x, y, z) => {
+        const id = String(world.getBlock(x, y, z));
+        return world.isSolid(x, y, z) && id !== 'toriya_fence' && id !== 'toriya_gate';
+      }, throwAim.eye, throwSpot),
+  );
   animalRenderer.setCoopGhost(dig.coopGhost());
   animalRenderer.setKitGhost(dig.kotatsuGhost());
   animalRenderer.update(animalViews.fill(animals), game.camera);

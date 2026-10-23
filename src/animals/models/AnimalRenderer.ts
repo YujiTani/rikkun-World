@@ -720,9 +720,12 @@ export class AnimalRenderer {
   private ringNow: RingState | null = null;
 
   /** だっこ 中 の 着地点 の 丸（`animals.throwSpot()` の 答え）。毎フレーム 呼ぶ。`null`・なげられない 所 で 消える */
-  setThrowSpot(spot: ThrowSpotLike | null): void {
+  setThrowSpot(spot: ThrowSpotLike | null, seen = false): void {
     this.ringNow = ringState(spot);
+    this.ringSeen = seen;
   }
+  /** 目 から 丸 への 線 が 地形 に ふさがれて いない（さく の 板 ごし でも 見せる） */
+  private ringSeen = false;
 
   private updateRing(): void {
     const st = this.ringNow;
@@ -756,6 +759,9 @@ export class AnimalRenderer {
       mat.map = tex;
       mat.needsUpdate = true;
     }
+    // 地形 に ふさがれて いない とき は 深さ を 見ず 最後 に 描く（さく の 板 ごし でも 見える）。描画 の 数 は ふえない
+    mat.depthTest = !this.ringSeen;
+    r.mesh.renderOrder = this.ringSeen ? 999 : 3;
     r.mesh.visible = true;
     r.mesh.scale.set(st.diameter, st.diameter, 1);
     r.mesh.position.set(st.x, st.y, st.z);

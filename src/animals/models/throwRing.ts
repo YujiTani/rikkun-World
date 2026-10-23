@@ -74,3 +74,30 @@ export function rasterRing(home: boolean): Uint8Array {
   }
   return px;
 }
+
+/**
+ * 丸 を さく の 板 ごし に も 見せて よい か: 目 から 丸 への 線 が 地形（さく・もん 以外 の 固い ブロック）で ふさがれて いない とき だけ true。
+ * ふさがれて いる（山・かべ の 向こう）ときは 今 まで どおり 奥 に かくれる。`blocks(x, y, z)` = そこ が ふさぐ ブロック か。
+ */
+export function ringSeen(blocks: (x: number, y: number, z: number) => boolean, eye: { x: number; y: number; z: number }, spot: { x: number; y: number; z: number }): boolean {
+  const tx = spot.x;
+  const ty = spot.y + 0.1;
+  const tz = spot.z;
+  const dx = tx - eye.x;
+  const dy = ty - eye.y;
+  const dz = tz - eye.z;
+  const len = Math.hypot(dx, dy, dz);
+  const n = Math.ceil(len / 0.1);
+  const cx = Math.floor(tx);
+  const cy = Math.floor(ty);
+  const cz = Math.floor(tz);
+  for (let i = 0; i < n; i++) {
+    const t = i / n;
+    const ix = Math.floor(eye.x + dx * t);
+    const iy = Math.floor(eye.y + dy * t);
+    const iz = Math.floor(eye.z + dz * t);
+    if (ix === cx && iy === cy && iz === cz) break;
+    if (blocks(ix, iy, iz)) return false;
+  }
+  return true;
+}

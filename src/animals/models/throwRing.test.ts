@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { RING_DIAMETER, RING_TEX, ringState, rasterRing } from './throwRing';
+import { RING_DIAMETER, RING_TEX, ringSeen, ringState, rasterRing } from './throwRing';
 
 describe('LIVE-2.1 着地点 の 丸（§2.2・§3.2）', () => {
   it('なげられる（ok）なら 直径 0.8 の 丸。ok でない・null は 出さない', () => {
@@ -43,5 +43,17 @@ describe('LIVE-2.1 着地点 の 丸（§2.2・§3.2）', () => {
     let wide = 0;
     for (let x = 0; x < N / 2; x++) if (plain[edge(x) + 3]! >= 200 && plain[edge(x)]! >= 240) wide++;
     expect(wide).toBeGreaterThanOrEqual(4);
+  });
+
+  it('ringSeen: さく ごし は 見える・山 や かべ の 向こう は 見えない・目 の すぐ 先 が あいて いれば 見える', () => {
+    const eye = { x: 0.5, y: 10.6, z: 0.5 };
+    const spot = { x: 5.5, y: 9, z: 0.5 };
+    expect(ringSeen(() => false, eye, spot)).toBe(true);
+    // 手前 の さく（x=2）は 通す ので blocks が false を 返す 想定
+    expect(ringSeen((x) => x === 3 && false, eye, spot)).toBe(true);
+    // x=3 に かべ（高さ 全部）
+    expect(ringSeen((x) => x === 3, eye, spot)).toBe(false);
+    // 着地点 の マス 自体 は 数えない
+    expect(ringSeen((x, y) => x === 5 && y === 9, eye, spot)).toBe(true);
   });
 });
