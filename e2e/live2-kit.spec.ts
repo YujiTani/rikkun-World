@@ -17,8 +17,7 @@ test.describe('LIVE-2 こたつ（たまご を あたためる）', () => {
       const A = (window as any).__A;
       A.base();
       const out: any = {};
-      const list = h.craft.list();
-      out.ids = list.map((x: any) => x.id).slice(-3);
+      out.ids = h.craft.ui().cards.map((x: any) => x.id).slice(-3); // カードの 順（たいまつの 作り方は 1 枚に まとまる）
       h.inventory.add('grass', 3);
       h.inventory.add('log', 2);
       h.inventory.add('torch', 1);

@@ -4,6 +4,10 @@ import { fine } from './helpers/fine';
 import { openBladeWorld, runTech, settle, stage, takeKatana, toStance } from './helpers/blade';
 import { FUJIN, chargeRun, legendWorld, types } from './helpers/legend';
 
+// 細かいメッシュ（?microR=28）の 起動は ひとりなら 8〜12 秒。CI で 重い spec と 同じ シャードに なると CPU の 取りあいで 60 秒を こえる（#284）。
+// 待つのは ゲームの ready（時間では 待たない）。上限だけ 120 秒に する（ブラウザの 用意も ふくむので ファイルごと）
+test.describe.configure({ timeout: 120_000 });
+
 async function open(page: Page) {
   await page.goto('/');
   await page.waitForFunction(() => window.__rikkun?.ready === true);

@@ -188,3 +188,28 @@ export function getNestEggsModel(egg: number, gold: number): BuiltModel {
 
 /** から の かけら（足もと に ちる 3 つ。1×1 点。DESIGN 16.12） */
 export const SHELL_COL = { a: 0xf5ecd8, b: 0xe2d6b8 } as const;
+
+// ---------------------------------------------------------------- ねぐら の とびら（LIVE-3 仮。art 案 A: たて板 ＋ よこ さん 2 本）
+
+/** とびら の 色（art 案 A の とびら と 同じ。木 は とりごや と 同じ 系） */
+export const DOOR_COL = { frame: 0x8e6f48, plank: 0xc2a277, edge: 0xa68455, light: 0xb49468, bar: 0x9e7c51 } as const;
+
+/** しまった とびら（1/9 点）。ねぐら の 前（z = 13.5）の ひらき（x −12〜12・y 6〜16）を ふさぐ。たて板 5 まい ＋ よこ さん 2 本 */
+export function coopDoorSpec(): Part[] {
+  const prims: Prim[] = [];
+  const Z0 = 13.5;
+  const z1 = Z0 + 1.2;
+  const c = DOOR_COL;
+  prims.push(box([-12, 6, Z0], [-10.5, 16, z1 + 0.3], c.frame), box([10.5, 6, Z0], [12, 16, z1 + 0.3], c.frame), box([-12, 6, Z0], [12, 7.2, z1 + 0.3], c.frame));
+  const w = 21 / 5;
+  for (let i = 0; i < 5; i++) {
+    const x0 = -10.5 + i * w;
+    prims.push(box([x0, 7.2, Z0], [x0 + w, 16, z1], c.plank), box([x0, 7.2, Z0], [x0 + 0.5, 16, z1 + 0.05], c.edge), box([x0 + w * 0.55, 7.2, Z0], [x0 + w * 0.8, 16, z1 + 0.05], c.light));
+  }
+  for (const y of [8.6, 13.4]) prims.push(box([-10.5, y, z1 - 0.1], [10.5, y + 1.1, z1 + 0.4], c.bar));
+  return [{ name: 'coopDoor', pivot: [0, 0, 0], prims }];
+}
+
+export function getCoopDoorModel(): BuiltModel {
+  return cachedModel('coop:door:A', coopDoorSpec);
+}

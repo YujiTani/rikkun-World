@@ -21,6 +21,7 @@ import type {
   YokaiKind,
 } from '../contracts';
 import { CROP_KINDS } from '../contracts';
+import { baseRecipeId } from '../craft/recipes';
 import {
   ACHIEVEMENT_DEFS,
   ARMOR_ITEMS,
@@ -270,7 +271,7 @@ export class AchievementSystem implements AchievementShowSource {
     this.run(() => {
       for (const e of events) {
         if (e.type === 'craft') {
-          this.bump(`craft:${e.recipe}`, 1);
+          this.bump(`craft:${baseRecipeId(e.recipe)}`, 1);
           this.bump('craft:*', 1);
           if (e.recipe === 'ya') this.bump('craftItems:ya', e.count);
           this.derivedCraft();
@@ -360,8 +361,8 @@ export class AchievementSystem implements AchievementShowSource {
             break;
           case 'eat':
             this.bump(`eat:${e.item}`, 1);
-            // LIVE-1 §4.5: `eat:*` は やさい だけ（たまご では ふやさない）
-            if (e.item !== 'egg') this.bump('eat:*', 1);
+            // LIVE-1 §4.5: `eat:*` は やさい だけ（たまご では ふやさない）。LIVE-3: やいた もも にく も ふやさない
+            if (e.item !== 'egg' && e.item !== 'momo_yaki') this.bump('eat:*', 1);
             break;
           case 'seedFound':
             this.bump(`seedFrom:${e.from}`, 1);
@@ -436,6 +437,11 @@ export class AchievementSystem implements AchievementShowSource {
           case 'grow':
             this.bump('grow:chicken', 1);
             this.bump('grow:*', 1);
+            break;
+          // LIVE-3（§4.4）: いただいた 数 を 数える だけ（実績 は 作らない。命 を ごほうび に しない）
+          case 'meat':
+            this.bump('meat:chicken', 1);
+            this.bump('meat:*', 1);
             break;
           default:
             break;
@@ -562,7 +568,7 @@ export class AchievementSystem implements AchievementShowSource {
   }
 
   isFirstMade(kind: 'craft' | 'bake', recipe: string): boolean {
-    return this.stat(`${kind}:${recipe}`) === 0;
+    return this.stat(`${kind}:${baseRecipeId(recipe)}`) === 0;
   }
 
   // ------------------------------------------------------------ 保存

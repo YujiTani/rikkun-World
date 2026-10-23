@@ -997,7 +997,7 @@ test.describe('M7-2 画面', () => {
         };
       });
       expect(r.open).toBe(true);
-      expect(r.cards).toBe(36); // LIVE-1 版 3: mushi_ami、LIVE-2: nukunuku・toriya が いちばん うしろに ふえた
+      expect(r.cards).toBe(36); // CRAFT-PAGE: たいまつは 1 枚のまま（レシピは 38 こ）。 // LIVE-1 版 3: mushi_ami、LIVE-2: nukunuku・toriya が いちばん うしろに ふえた
       expect(r.tail).toEqual(['long_watering_can', 'sprinkler', 'bucket']);
       expect(r.over).toBe(0);
       expect(r.sw).toBeLessThanOrEqual(0);

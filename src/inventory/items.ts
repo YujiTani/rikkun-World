@@ -113,6 +113,9 @@ const LIVE_ITEMS: readonly ItemType[] = [
   { id: 'nukunuku', name: 'こたつ', maxStack: BLOCK_MAX_STACK, placeBlock: 'nukunuku' },
   { id: 'toriya', name: 'とりごや', maxStack: 1, placeBlock: null },
   { id: 'kin_tamago', name: 'きん の たまご', maxStack: BLOCK_MAX_STACK, placeBlock: null },
+  // LIVE-3（仮）: もも にく（なま・やいた）
+  { id: 'momo_nama', name: 'なま もも にく', maxStack: BLOCK_MAX_STACK, placeBlock: null },
+  { id: 'momo_yaki', name: 'やいた もも にく', maxStack: BLOCK_MAX_STACK, placeBlock: null },
 ];
 
 /** WEAPON-7: レジェンダリー武器（ヌシが おとす。名前は ［漢字｜よみ］ — src/ui/text.ts の withRuby で 画面に 出す） */

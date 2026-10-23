@@ -35,7 +35,7 @@ import { createLegendSystem } from './legend/LegendSystem';
 import { createWaveSystem } from './legend/WaveSystem';
 import { createSpiralDebris } from './legend/spiralDebris';
 import { createChargeLight } from './legend/chargeLight';
-import { computeHand, newHandInfo } from './legend/handPos';
+import { CHEST_UP, computeHand, FIRST_DEPTH, newHandInfo, pointOnScreen } from './legend/handPos';
 import { WindWaveFx } from './fx/windWaveFx';
 import { SpiralFx } from './fx/spiralFx';
 import { createWaveView3D } from './legend/waveView';
@@ -94,6 +94,9 @@ import { kitIconsFor, type KitIconRow } from './animals/models/kitIcons';
 import { AnimalFx } from './fx/animalFx';
 import { AnimalRenderer, ViewBuffer } from './animals/models/AnimalRenderer';
 import { AnimalHint } from './ui/animalHint';
+import { Itadakimasu } from './ui/itadakimasu';
+import { CoopMenu } from './ui/coopMenu';
+import { coopMenuReach } from './ui/coopMenuModel';
 import { countryAt } from './world/gen/biome';
 import { Lighting, Sky } from './sky';
 import { TimeOfDayImpl, createTimeHook } from './time';
@@ -498,11 +501,15 @@ const m7 = createM7Settings();
 // E でたんす: ScreenController より先に押しを聞く（画面は ScreenController が開く）
 let tryOpenTansu: () => boolean = () => false;
 let modalIsOpen: () => boolean = () => false;
+/** LIVE-3: とりごや の メニュー が ひらいて いる か（E の たんす が かさならない ように） */
+let coopMenuIsOpen: () => boolean = () => false;
+/** LIVE-3: 右クリック で とりごや の メニュー を ひらく（メニュー は あとで 作る） */
+let openCoopMenu: (coopId: number) => void = () => {};
 game.input.onPress((action) => {
   if (action === 'toggleInventory' && !modalIsOpen()) tryOpenTansu();
 });
 const screen = new ScreenController(lock, inventory, game.input, screenSettings, pointerLock);
-modalIsOpen = () => screen.inventoryOpen();
+modalIsOpen = () => screen.inventoryOpen() || coopMenuIsOpen();
 // 保存の要求は、あとで作る SaveManager へ（循環をさけるため関数でつなぐ）
 let requestSave: () => void = () => {};
 const hudSignal: { full: () => void } = { full: () => {} };
@@ -734,6 +741,16 @@ rainbowFx.warmUp(game.renderer, game.camera, game.scene); // ブルームの 作
 const spiralDebris = createSpiralDebris({ world, seed });
 const chargeLight = createChargeLight();
 const chargeLightFx = new ChargeLightFx({ scene: game.scene, camera: game.camera });
+/** WEAPON-9 §5.8: ため中の 光が あつまる 体の 中心（むね = 足もと ＋ 約 1.1）。一人称は 画面の まん中より 少し 下 */
+const _chest = { x: 0, y: 0, z: 0 };
+function chargeChest(): { x: number; y: number; z: number } {
+  const p = controller.state.position;
+  if (handInfo.first) return pointOnScreen(game.camera, 0.5, 0.6, FIRST_DEPTH, _chest);
+  _chest.x = p.x;
+  _chest.y = p.y + CHEST_UP;
+  _chest.z = p.z;
+  return _chest;
+}
 const handInfo = newHandInfo();
 /** 今の 剣を 持つ 手の 位置（三人称は 体から、一人称〈カメラが 体に 近く 人形が 見えない〉は 画面の 右下の にぎり） */
 const handNow = (): typeof handInfo => {
@@ -896,6 +913,8 @@ const dig = new DigSystemImpl(
     pet,
     animals,
     eggHeal: () => live.animalEggHeal,
+    meatHeal: () => live.meatHeal,
+    coopMenu: (id) => openCoopMenu(id),
     live: () => ({ netSwingTicks: live.netSwingTicks, carryHoldTicks: live.carryHoldTicks, coopCountMax: live.coopCountMax, coopMax: live.coopMax, kitEggMax: live.kitEggMax }),
     emitFarm: (e) => farm.emit(e),
     nowTick: () => game.tick,
@@ -1041,6 +1060,8 @@ function deliverAnimalEvents(): void {
   animalFx.onEvents(ev);
   animalHint.feed(ev);
   achievements.feedAnimals(ev);
+  // LIVE-3: 持ち物 に 入った なま もも にく を 拾った ログ に（足もと に おちた 分 は おとしもの として 拾った とき に）
+  for (const e of ev) if (e.type === 'meat' && e.count - e.dropped > 0) onDropPicked('momo_nama', e.count - e.dropped, false);
   for (const e of ev) animalEvents.push(e);
   if (animalEvents.length > 512) animalEvents.splice(0, animalEvents.length - 512);
 }
@@ -1147,6 +1168,7 @@ const inventoryScreen = new InventoryScreen(hud, inventory, screen, () => screen
   onFull: () => notice.showSignal('full'),
   tools: uiTools,
   ui: craftUi,
+  meatHeal: () => live.meatHeal,
   materials: {
     count: (item) => craft.total(item),
     inTansu: (item) => craft.inTansuCount(item),
@@ -1207,6 +1229,56 @@ const fx = new DigFx({
 });
 const farmHint = new FarmHint(hud);
 const animalHint = new AnimalHint(hud);
+// LIVE-3: いのち を いただきます の 一言 と、とりごや の メニュー（3 ページ）
+const itadakimasu = new Itadakimasu(hud);
+const coopMenu = new CoopMenu(hud, {
+  meatList: (c) => animals.meatList(c),
+  eggs: (c) => {
+    const r = animals.coops().find((x) => x.id === c);
+    return r ? r.nest.egg + r.nest.gold : 0;
+  },
+  busy: (c) => animals.coops().find((x) => x.id === c)?.meatBusy ?? null,
+  exists: (c) => animals.coops().some((x) => x.id === c),
+  // M2 の とどく きょり 5.0（小屋 の ふち から）
+  inReach: (c) => {
+    const r = animals.coops().find((x) => x.id === c);
+    const p = controller.state.position;
+    return !!r && coopMenuReach(r, p.x, p.z, 5.0);
+  },
+  collect: (c) => {
+    const r = animals.collectCoop(c);
+    if (r.egg > 0) craft.notifyPickup('egg', r.egg);
+    if (r.gold > 0) craft.notifyPickup('kin_tamago', r.gold);
+  },
+  startMeat: (c, id) => animals.meat(c, id).ok,
+  // たんす と おなじ あつかい: マウス が 出る・時計 は 止めない。とじる と ロック を かけ直す
+  onOpen: () => {
+    lock.setInventoryOpen(true);
+    game.input.releaseAll();
+    if (lock.isSimulated()) lock.simulate(false);
+    pointerLock.release();
+  },
+  onClose: () => {
+    if (lock.isSimulated()) {
+      lock.simulate(true);
+      lock.setInventoryOpen(false);
+    } else {
+      lock.beginRelock();
+      lock.setInventoryOpen(false);
+      pointerLock.request();
+    }
+    game.input.releaseAll();
+  },
+  kidInfo: (id) => ({ id, macho: animals.list().find((a) => a.id === id)?.breed === 'macho' }),
+  tick: () => playCraft(fxSound, 'tab'),
+  onPick: (id) => animalFx.setPick(id),
+});
+coopMenuIsOpen = () => coopMenu.model.info().open;
+openCoopMenu = (id) => void coopMenu.open(id);
+// Esc・E でも とじる（もちもの画面 は 開かない: ScreenController は ロック中 でない と 開かない）
+game.input.onPress((action) => {
+  if ((action === 'closeMenu' || action === 'toggleInventory') && coopMenu.model.info().open) coopMenu.press('close');
+});
 const farmAimHud = new FarmAimHud(hud);
 const combatFx = new CombatFx({
   scene: game.scene,
@@ -1531,6 +1603,11 @@ const save = new SaveManager({
   storage: { serialize: () => storage.serialize(), deserialize: (d) => storage.deserialize(d) },
   achievements: { serialize: () => achievements.serialize(), deserialize: (d) => achievements.deserialize(d) },
   animals: {
+    // LIVE-3 §4.4: 演出 中 の 子 は その場 で おわらせて から 保存（にく は 持ち物 へ。出来事 は すぐ 配る）
+    prepare: () => {
+      animals.finishMeat();
+      deliverAnimalEvents();
+    },
     serialize: () => animals.serialize(),
     deserialize: (d) => {
       animals.deserialize(d);
@@ -1834,6 +1911,9 @@ game.onUpdate((dt) => {
   // LIVE-1: ねらっている にわとり（しるし）。出来事は ここで 1 回だけ 取り出して 音・つぶ・実績・合図に 同じ物を流す
   animals.setTargeted(dig.animalTarget());
   {
+    // LIVE-3: メニュー（はなれたら とじる）と 一言（ふわっと）
+    coopMenu.update();
+    itadakimasu.update(animals.meatSay());
     deliverAnimalEvents();
     const kitRows = animals.kits();
     const coopRows = animals.coops();
@@ -1885,8 +1965,8 @@ game.onUpdate((dt) => {
       weapon,
       // CHAR-4: 持っている 刀の 色（20・21 番を この 色に）。表に ない 刀は かたなの 行
       bladeColors: weapon === 'katana' ? bladeColorsOf(w2, bs.item) : null,
-      // WEAPON-9: 手に 持つ 絵は 虹だけ 専用。シャイニング F1〜240 は ため の 形（おおげさぎり コマ 5）を 止める
-      weaponSkin: held === 'niji' ? 'niji' : null,
+      // WEAPON-9: 手に 持つ 絵は 虹・雷神剣・風神剣が 専用（女の子）。シャイニング F1〜240 は ため の 形（おおげさぎり コマ 5）を 止める
+      weaponSkin: held === 'niji' ? 'niji' : held === 'raijin_ken' ? 'raijin' : held === 'fujin_ken' ? 'fujin' : null,
       legendCharge: weapon === 'katana' && (legend.view().charging || shiningBody),
       blade:
         weapon === 'katana'
@@ -2031,7 +2111,7 @@ game.onUpdate((dt) => {
     const cl = chargeLight.step({ ticks: lv ? lv.chargeTicks : null, kind: lv ? lv.kind : null, reduced: reducedNow, full: chargeOf(w2, inventory.held()?.item ?? null)?.chargeTicks, cut: legend.state().move === 'shining' });
     if (cl.phase !== 'off') {
       handNow();
-      chargeLightFx.step(cl, handInfo, handInfo.first ? null : { x: cp.x, y: cp.y + 1.1, z: cp.z });
+      chargeLightFx.step(cl, handInfo, chargeChest());
     } else chargeLightFx.step(cl, handInfo, null);
     // WEAPON-9: 虹の ドーム（シャイニング中）。音: 弾が 消えた ステップに domeErase を 1 つ
     {
@@ -2287,15 +2367,14 @@ installTestHook(game, overlay, () => host.everReady, {
       return {
         phase: v.phase,
         palette: v.palette,
-        core: v.core,
         alpha: v.alpha,
         particles: v.particles,
-        ring: v.ring,
-        sweep: v.sweep,
-        sparkles: v.sparkles,
-        orbit: v.orbit,
-        orbitAngle: v.orbitAngle,
+        hand: v.hand,
+        handCore: v.handCore,
+        handRing: v.handRing,
+        F: v.F,
         center: h ? { ...h.world } : null,
+        chest: on ? { ...chargeChest() } : null,
         screen: h && h.screen ? { ...h.screen } : null,
       };
     },
@@ -2333,7 +2412,7 @@ installTestHook(game, overlay, () => host.everReady, {
     trauma: () => rig.traumaNow(),
     log: () => impactBus.log.map((l) => ({ ...l })),
   },
-  ui: { alpha: () => uiAlpha(), topBand: () => celebrate.topBand(), buffs: () => buffModel.list().map((b) => ({ ...b })) },
+  ui: { coopMenu: () => coopMenu.model.info(), coopMenuPress: (button: string, id?: number) => coopMenu.press(button as never, id), meatText: () => itadakimasu.text(), alpha: () => uiAlpha(), topBand: () => celebrate.topBand(), buffs: () => buffModel.list().map((b) => ({ ...b })) },
   craft: {
     ...craftHook,
     ...craftUiHook.craft,
@@ -2410,6 +2489,9 @@ installTestHook(game, overlay, () => host.everReady, {
     coops: () => animals.coops(),
     kits: () => animals.kits(),
     machoMiss: (n) => animals.machoMiss(n),
+    // LIVE-3 §6.1: えらべる 子 の 一覧・いただきます（メニュー の ボタン と 同じ）
+    meatList: (coopId) => animals.meatList(coopId),
+    meat: (coopId, id) => animals.meat(coopId, id),
     serialize: () => animals.serialize(),
     deserialize: (d) => animals.deserialize(d),
   },

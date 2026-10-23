@@ -1,4 +1,4 @@
-import { seedKindOfItem, vegKindOfItem, type ItemId, type ItemStack, type Rarity, type Recipe } from '../contracts';
+import { LIVE_SETTING_DEFAULTS, seedKindOfItem, vegKindOfItem, type ItemId, type ItemStack, type Rarity, type Recipe } from '../contracts';
 import { CRAFT_UI_SETTINGS, TOOL_NUMBERS, type CraftUiSettings, type ToolNumbers } from '../fx/craftConfig';
 import { RARITY_COLOR, RARITY_TIERS } from '../drops/rarity';
 import { ITEM_INFO } from '../craft/info/table';
@@ -28,6 +28,8 @@ export interface TooltipDeps {
   recipes(): readonly Recipe[];
   tools?: ToolNumbers;
   ui?: CraftUiSettings;
+  /** LIVE-3: やいた もも にく で もどる 体力（なければ 既定） */
+  meatHeal?: () => number;
 }
 
 export const STARS: Record<Rarity, number> = Object.fromEntries(RARITY_TIERS.map((t) => [t.id, t.stars])) as Record<Rarity, number>;
@@ -88,6 +90,7 @@ export function buildTooltip(item: ItemId, d: TooltipDeps, stack?: ItemStack | n
   if (item === 'mushi_ami') add('き から むし を とる', item);
   if (item === 'toriya') add('おける', item); // 5×5 の 小屋 に なる（ブロック では ない）
   if (vegKindOfItem(item) !== null || item === 'egg') add('たべると ハート が もどる', item);
+  if (item === 'momo_yaki') add(`もどる ハート ${(d.meatHeal?.() ?? LIVE_SETTING_DEFAULTS.meatHeal) / 2}`, item); // LIVE-3: 10 = ハート 5 こ
   // WEAPON-2 §4.6 (8): たいきゅうで へる 道具は 「たいきゅう のこり / 新品」（へった 量が 分からない ときは 新品）
   const wv = wearView(stack && stack.item === item ? stack : { item, count: 1 });
   if (wv) add(`たいきゅう ${wv.left} / ${wv.max}`, item);
