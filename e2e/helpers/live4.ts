@@ -16,6 +16,7 @@ import { openAnimals } from './animals';
  *   __M.rec(n, ids, until?)     1 ステップ ずつ n 回 進めて きろく の 配列（until が true を 返したら そこで やめる）
  *   __M.hit(id, ids?)           ぼくとう の 突き を 1 回（押して はなす）。妖怪 の 体力 が へる まで 1 ステップ ずつ きろく。{ rows, k } k = へった ステップ の 番号 か -1
  *   __M.hurtMe(yid, ids?, max?) その 妖怪 に `attackNow` させ、プレイヤー の 体力 が へる まで きろく。{ rows, k }
+ *   __M.frozenNow() / nf(rows,i) / atNf(rows,n)  ヒットストップ（#276）で 世界 が 止まる ステップ を 数えない（ゲーム の ステップ = 止まって いない ステップ）
  *   __M.punchStart(rows)        最初に state が 'punch' に なった 番号（なければ -1）
  *   __M.bladeFrames()           `bladeTech.thrust` の { startup, active, recovery }
  *   __M.yaFrom(id, dist)        ゆみ で dist 先 の 妖怪 を ねらい（角度 は 当たる まで ためして 決める）。{ rows, k }
@@ -67,7 +68,7 @@ export async function openLive4(page: Page, query = '?nosave=1'): Promise<void> 
         const hit = h.yokai.raycast(eye, { x: 1, y: 0, z: 0 }, dist + 2);
         return hit?.id === id;
       },
-      row(i: number, ids: { m?: number; y?: number } = {}) {
+      row(i: number, ids: { m?: number; y?: number } = {}, frozen = false) {
         const yev = JSON.parse(JSON.stringify(h.yokai.events()));
         const aev = JSON.parse(JSON.stringify(h.animals.events()));
         const snd = A.sfx();
@@ -76,6 +77,7 @@ export async function openLive4(page: Page, query = '?nosave=1'): Promise<void> 
         const p = h.player.get().position;
         return {
           i,
+          frozen,
           yev,
           aev,
           snd,
@@ -88,8 +90,9 @@ export async function openLive4(page: Page, query = '?nosave=1'): Promise<void> 
       rec(n: number, ids: { m?: number; y?: number } = {}, until?: (r: any) => boolean) {
         const rows: any[] = [];
         for (let i = 0; i < n; i++) {
+          const fz = M.frozenNow();
           h.step(1);
-          const r = M.row(i, ids);
+          const r = M.row(i, ids, fz);
           rows.push(r);
           if (until && until(r)) break;
         }
@@ -102,9 +105,10 @@ export async function openLive4(page: Page, query = '?nosave=1'): Promise<void> 
         const rows: any[] = [];
         let k = -1;
         for (let i = 0; i < 20; i++) {
+          const fz = M.frozenNow();
           h.step(1);
           if (i === 0) h.input.release('primary');
-          const r = M.row(i, { ...ids, y: id });
+          const r = M.row(i, { ...ids, y: id }, fz);
           rows.push(r);
           if (k < 0 && r.y && r.y.hp < hp0) {
             k = i;
@@ -119,8 +123,9 @@ export async function openLive4(page: Page, query = '?nosave=1'): Promise<void> 
         const rows: any[] = [];
         let k = -1;
         for (let i = 0; i < max; i++) {
+          const fz = M.frozenNow();
           h.step(1);
-          const r = M.row(i, { ...ids, y: yid });
+          const r = M.row(i, { ...ids, y: yid }, fz);
           rows.push(r);
           if (r.php < hp0) {
             k = i;
@@ -128,6 +133,19 @@ export async function openLive4(page: Page, query = '?nosave=1'): Promise<void> 
           }
         }
         return { rows, k, attackNow: r0 };
+      },
+      /** ヒットストップ（#276）で 世界 が 止まって いる ステップ か（次の step が 止まる なら true）。ゲームの 窓口 `impact.stopLeft()` */
+      frozenNow() {
+        return (h.impact?.stopLeft?.() ?? 0) > 0;
+      },
+      /** 止まって いない ステップ だけ 数えた 番号（0 はじまり）。止まった 行 は -1 */
+      nf(rows: any[], i: number) {
+        if (rows[i].frozen) return -1;
+        return rows.slice(0, i + 1).filter((r: any) => !r.frozen).length - 1;
+      },
+      /** 止まって いない ステップ だけ 数えて n 番目 の 行（なければ undefined） */
+      atNf(rows: any[], n: number) {
+        return rows.filter((r: any) => !r.frozen)[n];
       },
       punchStart(rows: any[]) {
         return rows.findIndex((r) => r.m && r.m.state === 'punch');

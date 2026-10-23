@@ -243,7 +243,8 @@ test.describe('LIVE-4 たたかう', () => {
       o.ko = all.flatMap((x: any) => x.aev).filter((e: any) => e.type === 'machoKO');
       o.flexSnd = all.flatMap((x: any) => x.snd).filter((s: string) => s === 'machoFlex').length;
       o.states = all.map((x: any) => x.m?.state);
-      o.flexRun = o.states.filter((s: string) => s === 'flex').length;
+      o.flexRun = all.filter((x: any) => x.m?.state === 'flex' && !x.frozen).length; // ヒットストップ（たおした = 大 7）で 止まった ステップ は 数えない
+      o.frozenFlex = all.filter((x: any) => x.m?.state === 'flex' && x.frozen).length;
       o.lastState = o.states[o.states.length - 1];
       o.giveUp = all.flatMap((x: any) => x.aev).filter((e: any) => e.type === 'machoGiveUp').map((e: any) => e.reason);
       o.targetEnd = all[all.length - 1].m.target;
@@ -261,7 +262,7 @@ test.describe('LIVE-4 たたかう', () => {
     expect(r.unlocked, '実績 animal.machoKO.1').toBe(true);
     expect(r.ko[0], '出来事 machoKO').toMatchObject({ id: r.mid, yokai: r.yid });
     expect(r.flexSnd, 'machoFlex 1 回').toBe(1);
-    expect(r.flexRun, 'flex 30 ステップ').toBe(30);
+    expect(r.flexRun, 'flex 30 ステップ（止まって いない ステップ）').toBe(30);
     // ついてくる に もどる（プレイヤー の そば では 'idle' で 立って いる。LIVE-1 の ついてくる と 同じ）
     expect(['follow', 'idle', 'wander', 'look', 'rest'], 'そのあと ついてくる').toContain(r.lastState);
     expect(r.giveUp, 'defeat で やめる').toEqual(['defeat']);

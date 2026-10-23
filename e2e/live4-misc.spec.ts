@@ -94,10 +94,11 @@ test.describe('LIVE-4 保存・しるし', () => {
       M.faceTo(yid, 2);
       const trig = M.hit(yid, { m: mid });
       h.yokai.setHp(yid, 9999);
-      const series: any[] = [{ ...marks(), n: 0 }];
-      for (let i = 0; i < 40; i++) {
+      const series: any[] = [{ ...marks(), n: 0, frozen: false }];
+      for (let i = 0; i < 60; i++) {
+        const fz = M.frozenNow();
         h.step(1);
-        series.push({ ...marks(), n: i + 1 });
+        series.push({ ...marks(), n: i + 1, frozen: fz });
       }
       // おわり: 妖怪 を たおす（defeat）
       h.yokai.setHp(yid, 0);
@@ -106,7 +107,7 @@ test.describe('LIVE-4 保存・しるし', () => {
       return { mid, yid, other, before, series, afterKill, trigK: trig.k };
     });
     expect(r.before, 'ねらい の 前').toEqual({ bang: [], target: [] });
-    const bangSteps = r.series.filter((s: any) => s.bang.includes(r.mid)).length;
+    const bangSteps = r.series.filter((s: any) => s.bang.includes(r.mid) && !s.frozen).length; // ヒットストップ中 は 数えない
     expect(bangSteps, '「！」は 20 ステップ（trigger の ステップ から 数える ため ±1）').toBeGreaterThanOrEqual(19);
     expect(bangSteps).toBeLessThanOrEqual(21);
     expect(r.series[r.series.length - 1].bang, '40 ステップ後 は 消えて いる').toEqual([]);

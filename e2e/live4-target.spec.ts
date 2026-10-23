@@ -214,10 +214,12 @@ test.describe('LIVE-4 ねらい', () => {
       M.faceTo(yid, 2);
       let hit = M.hit(yid, { m: mid });
       o.k = hit.k;
-      let rows = M.rec(forget + 5, { m: mid, y: yid });
-      o.t599 = rows[forget - 2] ? (rows[forget - 2].m?.target ?? null) : 'none';
-      o.t600 = rows[forget - 1] ? (rows[forget - 1].m?.target ?? null) : 'none';
-      o.giveUp = rows.map((x: any, i: number) => ({ i, ev: x.aev.filter((e: any) => e.type === 'machoGiveUp') })).filter((x: any) => x.ev.length).map((x: any) => ({ i: x.i, reason: x.ev[0].reason, id: x.ev[0].id }));
+      // ヒットストップ（#276）で 止まった ステップ は 数えない（ゲーム の 時間 = 止まって いない ステップ）
+      let rows = M.rec(forget + 40, { m: mid, y: yid });
+      const tg = (r: any) => (r ? (r.m?.target ?? null) : 'none');
+      o.t599 = tg(M.atNf(rows, forget - 2));
+      o.t600 = tg(M.atNf(rows, forget - 1));
+      o.giveUp = rows.map((x: any, i: number) => ({ i: M.nf(rows, i), ev: x.aev.filter((e: any) => e.type === 'machoGiveUp') })).filter((x: any) => x.ev.length).map((x: any) => ({ i: x.i, reason: x.ev[0].reason, id: x.ev[0].id }));
       o.mid = mid;
       // 2) ちょうちん の 火の玉 で たたかれて ねらい → 300 ステップ 目 に また たたかれる → そこ から 600（ちょうちん は うごかない・高い ので マッチョ とは 接触 しない）
       M.base();
@@ -237,9 +239,9 @@ test.describe('LIVE-4 ねらい', () => {
       const hurt = M.hurtMe(yid, { m: mid }, 400);
       o.hurtK = hurt.k;
       o.targetAtHurt = hurt.rows[hurt.k] ? (hurt.rows[hurt.k].m?.target ?? null) : 'none';
-      const after = M.rec(forget + 5, { m: mid, y: yid });
-      o.b599 = after[forget - 2] ? (after[forget - 2].m?.target ?? null) : 'none';
-      o.b600 = after[forget - 1] ? (after[forget - 1].m?.target ?? null) : 'none';
+      const after = M.rec(forget + 40, { m: mid, y: yid });
+      o.b599 = tg(M.atNf(after, forget - 2));
+      o.b600 = tg(M.atNf(after, forget - 1));
       o.yid2 = yid;
       o.giveUp2 = after.map((x: any, i: number) => ({ i, ev: x.aev.filter((e: any) => e.type === 'machoGiveUp') })).filter((x: any) => x.ev.length).map((x: any) => ({ i: x.i, reason: x.ev[0].reason }));
       return o;
