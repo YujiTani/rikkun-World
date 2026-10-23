@@ -231,7 +231,7 @@ test.describe('M7 農業', () => {
     expect(r.lit.stage).toBe(3);
   });
 
-  test('夜でも みのった作物は少し光る（AC25）', async ({ page }) => {
+  test('夜でも みのった作物は光らない: まわりと同じ明るさ（AC25 を #76 で変更。下限 0.7 は なくした）', async ({ page }) => {
     await open(page);
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
@@ -247,6 +247,8 @@ test.describe('M7 農業', () => {
       h.step(5);
       const out: any = {};
       const lvl = h.world.lightAt(5, 10, 6).level;
+      out.around = h.world.lightAt(4, 10, 6).brightness;
+      out.aroundMid = h.world.lightAt(6, 10, 6).brightness;
       h.farm.setStage(4, 10, 6, 3);
       h.farm.setStage(6, 10, 6, 2);
       h.step(2);
@@ -255,8 +257,9 @@ test.describe('M7 農業', () => {
       out.lvlSame = h.world.lightAt(5, 10, 6).level === lvl;
       return out;
     });
-    expect(r.ripe.brightness).toBeGreaterThanOrEqual(0.7);
-    expect(r.mid.brightness).toBeLessThan(0.7);
+    expect(r.ripe.brightness).toBeCloseTo(r.around, 4); // 0.7 の下限なし（#76）。stage 2 と同じ「まわりの明るさ」
+    expect(r.mid.brightness).toBeCloseTo(r.aroundMid, 4);
+    expect(r.ripe.brightness).toBeLessThan(0.7);
     expect(r.lvlSame).toBe(true);
   });
 

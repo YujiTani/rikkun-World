@@ -1,6 +1,7 @@
 import { lightBrightness } from '../world/light';
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
+import { SCENERY_CONFIG } from '../game/config';
 import { TimeOfDayImpl } from '../time/TimeOfDay';
 import { Lighting, levelToLinear } from './lighting';
 import { Sky } from './Sky';
@@ -67,15 +68,21 @@ describe('Sky', () => {
     const cam = new THREE.PerspectiveCamera();
     time.set(60000);
     sky.update(cam);
-    expect((scene.background as THREE.Color).getHex()).toBe(0x1b2350);
-    expect(scene.fog!.color.getHex()).toBe(0x1b2350);
-    // L の光（空の下の明るさ）を、#4 の見た目どおりの変換（levelToLinear）でかける
-    expect(mat.color.r).toBeCloseTo(levelToLinear(lightBrightness(4)));
+    // #76 夜の暗さ(C): 夜空とかすみの色は 夜の色 0x1b2350 の 0.4 倍（three の色は 線形で持つので 線形でかける）、かすみは 1/3
+    const night = new THREE.Color(0x1b2350).multiplyScalar(0.4).getHex();
+    expect((scene.background as THREE.Color).getHex()).toBe(night);
+    expect(scene.fog!.color.getHex()).toBe(night);
+    expect(scene.fog!.near).toBeCloseTo(SCENERY_CONFIG.fogNear / 3, 3);
+    expect(scene.fog!.far).toBeCloseTo(SCENERY_CONFIG.fogFar / 3, 3);
+    // L の光（空の下の明るさ）を、#4 の見た目どおりの変換（levelToLinear）でかける。夜の外は さらに 0.16 倍（#76）
+    expect(mat.color.r).toBeCloseTo(levelToLinear(lightBrightness(4) * 0.16));
     expect(sky.moon.visible).toBe(true);
     expect(sky.sun.visible).toBe(false);
     time.set(0);
     sky.update(cam);
     expect(mat.color.r).toBeCloseTo(1);
+    expect((scene.background as THREE.Color).getHex()).toBe(0x8fd3ff); // 昼は今と同じ（#76）
+    expect([scene.fog!.near, scene.fog!.far]).toEqual([SCENERY_CONFIG.fogNear, SCENERY_CONFIG.fogFar]);
     expect(sky.sun.visible).toBe(true);
   });
   it('おひさま は東から西へ。おつきさま は よる', () => {
