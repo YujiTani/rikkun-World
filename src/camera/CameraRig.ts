@@ -293,7 +293,7 @@ export class CameraRig {
     this.eye.set(s.position.x, s.position.y + cfg.eyeHeight, s.position.z);
     aimPivot(this.world, s.position, this.pivot, cfg.eyeHeight + cfg.thirdPersonHeight, cfg.eyeHeight);
 
-    const yaw = s.yawDeg * DEG;
+    const yaw = (s.yawDeg + this.testYawOffsetDeg) * DEG;
     const pitch = s.pitchDeg * DEG;
     // 見ている向き D（yaw 0 = 北 -Z、上から見て時計回り）
     this.dir.set(Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), -Math.cos(yaw) * Math.cos(pitch));
@@ -355,6 +355,8 @@ export class CameraRig {
 
   /** WEAPON-9: シャイニング中の 三人称の きょり（null = ふだんの thirdPersonDistance）。壁の ときは 今の きまりどおり 手前で 止まる */
   distanceOverride: number | null = null;
+  /** テスト用: カメラだけ 体の 向きから この 角度 ずらす（遊びでは 0 のまま。斬撃の 横・うしろの 絵を 撮り分ける） */
+  testYawOffsetDeg = 0;
 
   private placeThird(dt: number): void {
     const cfg = this.config;

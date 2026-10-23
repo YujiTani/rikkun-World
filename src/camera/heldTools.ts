@@ -282,6 +282,13 @@ function mergedMaterial(): THREE.MeshBasicMaterial {
   return (mergedMat ??= new THREE.MeshBasicMaterial({ vertexColors: true }));
 }
 const mergedCache = new Map<readonly Part[], THREE.BufferGeometry>();
+/** まとめた 形を 捨てる（ゲームを 閉じる とき・作りなおす とき） */
+export function disposeMergedHeldGeometry(): void {
+  for (const g of mergedCache.values()) g.dispose();
+  mergedCache.clear();
+  mergedMat?.dispose();
+  mergedMat = null;
+}
 /** 箱を 色つきで 1 つの 形に まとめる（回転は rotY だけ） */
 function mergedGeometry(parts: readonly Part[]): THREE.BufferGeometry {
   const hit = mergedCache.get(parts);

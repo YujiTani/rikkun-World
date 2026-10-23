@@ -5,27 +5,32 @@ import { slashAngleDeg, slashViewFor, type SlashView } from '../legend/slashView
 
 /**
  * WEAPON-9 虹の 見た目（B「にじの おび」ドーム ＋ 斬撃 A）。絵の もとは art/WEAPON-9/final/（build.py）。
- * ドーム ぜんぶで 1 つの エフェクト: 描画 4（まく・輪・玉・かけらと つぶの 点）・三角形 ≦ 220（球 18×8 を 地面で 切る 約 198 ＋ 輪 2 ＋ 玉 2）。
+ * ドーム ぜんぶで 1 つの エフェクト: 描画 4（まく・輪・玉・かけらと つぶの 点）・三角形 ≦ 220（球 18×6 を 地面で 切る 198 ＋ 輪 2 ＋ 玉 2）。
  * まくは 球 1 つの シェーダー（1/8 ブロックの 升目・網で 点を ぬく）。外がわの 面だけ 白い もや・ふち。内がわの 面は おびの 細い 線だけ
  * （一人称・カメラが ドームの 中でも 画面を 白く しない）。明るさは 出る・消える 時の 1 回ずつ（とどまる 間は 一定。おびが 回る だけ）。
  * 材質は ぜんぶ `warmUp` で 読みこみ中に 作る（最初の シャイニングで 作りなおさない）。
  */
 export const DOME_R = 7;
 const BASE = './models/fx/';
-/** まくの 形: 経 24 本・緯度の 輪 5 本（北極 90° から 南 −25° まで。地面に とどく 手前で 切る）= 216 三角形（極 24 ＋ おび 4 × 48） */
-const SEG = 24;
+/** まくの 形: 経 18 本・緯度の 輪 6 本（北極 90° から 南 −25° まで。地面に とどく 手前で 切る）= 198 三角形（極 18 ＋ おび 5 × 36）。経と緯度の 刻みを 同じくらい（約 20°）に して りんかくを なめらかに */
+const SEG = 18;
 const LAT_BOTTOM = -25;
-const BANDS = 4;
+const BANDS = 5;
 const MAX_POINTS = 64;
 
 const VERT = `
 varying vec3 vP;
 varying vec3 vNv;
 varying vec3 vVd;
+varying vec3 vInfl;
+varying vec3 vOrg;
 void main() {
   vP = position;
+  // 多角形の かどが 球の 外に 出るよう 少し ふくらませ、ふちは フラグメントで 本当の 球の まるで 切る
+  vInfl = position * 1.03;
+  vOrg = (inverse(modelMatrix) * vec4(cameraPosition, 1.0)).xyz;
   vNv = normalMatrix * normalize(position);
-  vec4 mv = modelViewMatrix * vec4(position, 1.0);
+  vec4 mv = modelViewMatrix * vec4(vInfl, 1.0);
   vVd = mv.xyz;
   gl_Position = projectionMatrix * mv;
 }`;
@@ -35,6 +40,8 @@ uniform float uT;
 varying vec3 vP;
 varying vec3 vNv;
 varying vec3 vVd;
+varying vec3 vInfl;
+varying vec3 vOrg;
 const float PI = 3.14159265;
 float bayer(vec2 c) {
   int x = int(mod(c.x, 4.0)); int y = int(mod(c.y, 4.0));
@@ -49,6 +56,9 @@ vec3 hue3(float h) {
   return vec3(0.820, 0.420, 0.902);
 }
 void main() {
+  // りんかく: カメラから この 点への 線が 本当の 球(半径 ${DOME_R.toFixed(1)})に とどかない 所は ぬく
+  vec3 rd = normalize(vInfl - vOrg);
+  if (length(cross(rd, vOrg)) > ${DOME_R.toFixed(1)}) discard;
   bool front = gl_FrontFacing;
   float lon = atan(vP.z, vP.x) + PI;
   float ln = clamp((vP.y / ${DOME_R.toFixed(1)} + 1.0) * 0.5, 0.0, 1.0);
@@ -332,6 +342,8 @@ export class NijiFx {
   }
 
   info() {
-    return { dome: this.on, tris: this.on ? this.tris : 0, slash: this.slashAge >= 0 };
+    // 描画回数: 見えている 物の 数（まく・輪・玉・つぶの 点。斬撃は 別）
+    const draws = this.on ? [this.dome, this.ring, this.orb, this.points].filter((o) => o.visible).length : 0;
+    return { dome: this.on, tris: this.on ? this.tris : 0, draws, slash: this.slashAge >= 0 };
   }
 }
