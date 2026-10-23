@@ -248,6 +248,8 @@ export function crossTileName(b: number, stage: number): TileName {
   const id = BLOCK_TYPES[b].id;
   const k = cropKindOfBlock(id);
   if (k && !k.wild) return `crop_${k.kind}_${stage}` as TileName;
+  if (id === 'toriya_fence') return 'toriya_fence_x';
+  if (id === 'toriya_gate') return 'toriya_gate_x';
   return id as TileName;
 }
 
@@ -257,8 +259,12 @@ const CROSS_QUADS: [number, number][][] = [
   [[1, 0], [0, 1]],
 ];
 
+/** 板の 高さ（マス）。ふつう 1。とりごや の さく は 12/9、もん は 1.8（LIVE-2.1） */
+const CROSS_HEIGHT: Partial<Record<TileName, number>> = { toriya_fence_x: 12 / 9, toriya_gate_x: 1.8 };
+
 export function pushCross(mesh: MeshData, x: number, y: number, z: number, tile: TileName, sky: number, blk: number): void {
   const uv = tileUv(tile);
+  const h = CROSS_HEIGHT[tile] ?? 1;
   for (const [a, b] of CROSS_QUADS) {
     for (let side = 0; side < 2; side++) {
       const base = mesh.positions.length / 3;
@@ -270,7 +276,7 @@ export function pushCross(mesh: MeshData, x: number, y: number, z: number, tile:
       ];
       for (let i = 0; i < 4; i++) {
         const [pt, vy] = corners[i];
-        mesh.positions.push(x + pt[0], y + vy, z + pt[1]);
+        mesh.positions.push(x + pt[0], y + vy * h, z + pt[1]);
         const c = CORNER_UV[i];
         mesh.uvs.push(c[0] === 0 ? uv[0] : uv[2], c[1] === 0 ? uv[1] : uv[3]);
         mesh.colors.push(1, 1, 1);
