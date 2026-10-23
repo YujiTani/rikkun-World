@@ -19,7 +19,7 @@ test.describe('LIVE-2 金の たまご・保存・文字・性能', () => {
       h.settings.set('goldBaseWild', 1);
       h.settings.set('goldCap', 1);
       const delay = h.settings.get('animalEggDelay');
-      const id = A.friend(4.5, 6.5);
+      const id = A.friend(4.5, 6.5, { natsuki: 71 }); // GOLD-1 AC19: 金は なつき度 71 以上の ときだけ
       A.hold('mushi', 3);
       A.aim(id);
       h.animals.events();
@@ -82,7 +82,7 @@ test.describe('LIVE-2 金の たまご・保存・文字・性能', () => {
       h.settings.set('goldBaseWild', 1);
       h.settings.set('goldCap', 1);
       const delay = h.settings.get('animalEggDelay');
-      const id = A.friend(4.5, 6.5);
+      const id = A.friend(4.5, 6.5, { natsuki: 71 }); // GOLD-1 AC19（まちは A.base() が 0 に する）
       A.hold('mushi', 5);
       const out: number[] = [];
       for (let n = 0; n < 2; n++) {

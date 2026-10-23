@@ -101,7 +101,7 @@
   display: flex;
   align-items: center;
   gap: var(--rk-sp-2);
-  min-height: max(var(--rk-h-tab-guide), calc(44px / var(--rk-fit, 1)));
+  min-height: max(var(--rk-h-tab-guide), calc(56px / var(--rk-fit, 1)) /* GOLD-1: カードが ふえて ちぢむ ので、ちぢめた後も 56px（UI 検査の きまり） */);
   padding: var(--rk-sp-2) var(--rk-sp-5);
   font-family: inherit;
   font-size: var(--rk-fs-head);

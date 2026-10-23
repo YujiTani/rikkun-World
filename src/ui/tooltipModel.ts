@@ -39,9 +39,9 @@ export function rarityCss(r: Rarity): string {
   return `#${RARITY_COLOR[r].toString(16).padStart(6, '0')}`;
 }
 
-const PICKAXES = ['wood_pickaxe', 'stone_pickaxe', 'iron_pickaxe'];
-const AXES = ['wood_axe', 'stone_axe', 'iron_axe'];
-const BLADES = ['bokuto', 'katana', 'naginata', 'crystal_katana', 'raijin_ken', 'fujin_ken', 'niji'];
+const PICKAXES = ['wood_pickaxe', 'stone_pickaxe', 'iron_pickaxe', 'kin_pickaxe'];
+const AXES = ['wood_axe', 'stone_axe', 'iron_axe', 'kin_axe'];
+const BLADES = ['bokuto', 'katana', 'naginata', 'crystal_katana', 'raijin_ken', 'fujin_ken', 'niji', 'kin_katana'];
 
 /** ツールチップの中身（M4 §2.13 の表の順。当てはまるものだけ） */
 export function buildTooltip(item: ItemId, d: TooltipDeps, stack?: ItemStack | null): TooltipData {
@@ -68,14 +68,14 @@ export function buildTooltip(item: ItemId, d: TooltipDeps, stack?: ItemStack | n
     add(`たたく つよさ ${own ?? tools.weaponDamage[item] ?? 1}`, item);
     if (item === 'naginata') add('とおくまで とどく', item);
   }
-  if (item === 'yumi') {
+  if (item === 'yumi' || item === 'kin_yumi') {
     add('や を とばす', 'ya');
     add(`たたく つよさ ${tools.arrowDamage}`, 'ya');
   }
   if (item === 'ya') add('ゆみ で とばす', 'yumi');
-  if (item === 'kabuto') add('たま から まもる', item);
-  if (item === 'yoroi' || item === 'kote') add('こうげき から まもる', item);
-  if (item === 'suneate') add('おちても いたくない', item);
+  if (item === 'kabuto' || item === 'kin_kabuto') add('たま から まもる', item);
+  if (item === 'yoroi' || item === 'kote' || item === 'kin_yoroi' || item === 'kin_kote') add('こうげき から まもる', item);
+  if (item === 'suneate' || item === 'kin_suneate') add('おちても いたくない', item);
   if (item === 'kuwa') {
     add(`ほる つよさ ${tools.toolPower[item] ?? 1}`, item);
     add('つち に つよい', item);

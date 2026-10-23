@@ -18,9 +18,9 @@ function make(patch: Partial<InfoNumbers> = {}) {
 
 describe('説明の表（M6 §2.2）', () => {
   const src = make();
-  it('ようかいだま をのぞく 67 こ（LIVE-3: momo_nama・momo_yaki +2。LIVE-2: こたつ・とりごや・きん の たまご 込み・LIVE-1: たまご・むし・あみ 込み・WEAPON-7: 雷神剣・風神剣・虹）。文はすべて ひらがな・カタカナ（漢字なし）', () => {
+  it('ようかいだま をのぞく 77 こ（LIVE-3: momo_nama・momo_yaki +2。GOLD-1: きん 10 こ・LIVE-2: こたつ・とりごや・きん の たまご 込み・LIVE-1: たまご・むし・あみ 込み・WEAPON-7: 雷神剣・風神剣・虹）。文はすべて ひらがな・カタカナ（漢字なし）', () => {
     const ids = Object.keys(ITEM_INFO).filter((i) => i !== 'yokai_orb');
-    expect(ids).toHaveLength(67);
+    expect(ids).toHaveLength(77);
     for (const id of ids) {
       const i = src.info(id as ItemId);
       expect(findUnrubiedKanji(`${i.use}${i.how}${i.source}${i.stats.map((s) => s.label + s.value).join('')}`), id).toEqual([]);

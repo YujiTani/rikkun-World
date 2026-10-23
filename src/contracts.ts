@@ -252,7 +252,18 @@ export type ItemOnlyId =
   // WEAPON-7（うしろに足す。レジェンダリー）
   | 'raijin_ken' // 雷神剣（ヌシが おとす）
   | 'fujin_ken' // 風神剣（ヌシが おとす。WEAPON-7 PR2）
-  | 'niji'; // 虹（ヌシが おとす。WEAPON-9。強さは 1 本ごと 4〜10）
+  | 'niji' // 虹（ヌシが おとす。WEAPON-9。強さは 1 本ごと 4〜10）
+  // GOLD-1 試作（#222。見せるための 最小の 登録）
+  | 'kin'
+  | 'kin_katana'
+  | 'kin_yumi'
+  | 'kin_pickaxe'
+  | 'kin_axe'
+  | 'kin_kabuto'
+  | 'kin_yoroi'
+  | 'kin_kote'
+  | 'kin_suneate'
+  | 'harapan_mimizu';
 
 /** アイテムの種類。ブロックとアイテムだけのもの */
 export type ItemId = BlockId | ItemOnlyId;
@@ -820,6 +831,8 @@ export type StatKey =
   | `home:${string}` // `home:*`（小屋 の 子 に なった）
   | `grow:${string}` // `grow:*`（大人 に なった）
   | `goldenEgg:${string}` // `goldenEgg:*`（金 の たまご を うんだ）
+  // GOLD-1（§4.8）
+  | `obtainRarity:${string}` // `obtainRarity:epic`（めずらしさ ちょうど ほし 5 の 物 が 持ち物 に 入った 回数）
   // LIVE-3（§4.4）
   | `meat:${string}` // `meat:*`（いただいた 数。実績 は 作らない）
   // M7 農業（`visit:oldfarm` は上の `visit:` の形）
@@ -1829,6 +1842,8 @@ export interface W2Settings {
   bowStageTicks: [number, number, number];
   bowSpeed: [number, number, number];
   bowDamage: [number, number, number];
+  /** GOLD-1 §4.3: ゆみ ごと の や の つよさ（段 1・2・3）。なければ `bowDamage`。きんの ゆみ = 2・3・5 */
+  bowDamageByItem: Partial<Record<ItemId, [number, number, number]>>;
   bowKnock: [number, number, number];
   arrowGravity: number;
   arrowLifeTicks: number;
@@ -1972,7 +1987,9 @@ export interface BladeTrailStyle {
   /** 刃の ふちの光（21 番を これに） */
   bladeShine: number;
   /** plain=ふつう・star=星が まじる・long=長い 弧・thunder=ふちに 小さな いなずま（雷神剣） */
-  style: 'plain' | 'star' | 'long' | 'thunder' | 'rainbow';
+  style: 'plain' | 'star' | 'long' | 'thunder' | 'rainbow' | 'gold';
+  /** GOLD-1 試作: いちばん うちがわの 帯の 下地の 色（あかるい 空でも 見える）。なければ color */
+  under?: number;
 }
 
 /** CHAR-4 §4.4: 軌跡の 形・だん・消え方 */
@@ -2014,7 +2031,7 @@ export const W2_SETTING_DEFAULTS: Readonly<W2Settings> = {
     },
   },
   bladeAimReach: 4.5,
-  bladeReach: { bokuto: 2.2, katana: 2.2, crystal_katana: 2.2, raijin_ken: 2.2, fujin_ken: 2.2, niji: 2.2 },
+  bladeReach: { bokuto: 2.2, katana: 2.2, crystal_katana: 2.2, raijin_ken: 2.2, fujin_ken: 2.2, niji: 2.2, kin_katana: 2.2 },
   bladeShape: {
     thrust: { length: 2.2, radius: 0.2 },
     kesa: { halfAngleDeg: 75, rMin: 0.3, rMax: 2.2, yMin: -0.5, yMax: 2.6 },
@@ -2025,6 +2042,7 @@ export const W2_SETTING_DEFAULTS: Readonly<W2Settings> = {
   bowStageTicks: [10, 25, 40],
   bowSpeed: [12, 20, 28],
   bowDamage: [1, 2, 3],
+  bowDamageByItem: { kin_yumi: [2, 3, 5] },
   bowKnock: [0.5, 1.0, 1.5],
   arrowGravity: 20,
   arrowLifeTicks: 600,
@@ -2054,6 +2072,15 @@ export const W2_SETTING_DEFAULTS: Readonly<W2Settings> = {
     raijin_ken: 10000, // WEAPON-7 §2.4: つくれず ヌシでしか 手に 入らない 武器だけの 例外
     fujin_ken: 10000,
     niji: 10000,
+    // GOLD-1 §4.3: きん の 装備 は 8 こ とも 500
+    kin_katana: 500,
+    kin_yumi: 500,
+    kin_pickaxe: 500,
+    kin_axe: 500,
+    kin_kabuto: 500,
+    kin_yoroi: 500,
+    kin_kote: 500,
+    kin_suneate: 500,
   },
   toolWear: {
     pickaxe: { block: 1, hit: 2 },
@@ -2077,6 +2104,8 @@ export const W2_SETTING_DEFAULTS: Readonly<W2Settings> = {
     // WEAPON-7 PR2: 風神剣。ふつうの 斬撃の 形（plain）で 白〜みずいろ
     fujin_ken: { color: 0xe6f8ff, glow: 0xffffff, blade: 0xcfefff, bladeShine: 0xffffff, style: 'plain' },
     niji: { color: 0xd16be6, glow: 0xffffff, blade: 0xc3cee2, bladeShine: 0x5fd98e, style: 'plain' },
+    // GOLD-1 試作 案 B: 金 ＋ こん色の 下地（2 回に 1 回 きらり）
+    kin_katana: { color: 0xf2b938, glow: 0xfff0b4, blade: 0xebb840, bladeShine: 0xfff0b4, style: 'gold', under: 0x2a2238 },
   },
   bladeFaceAssistDeg: 30,
   thrustTiltMaxDeg: 45,
@@ -2144,6 +2173,7 @@ export function createW2Settings(): W2Settings {
     bowStageTicks: [...d.bowStageTicks],
     bowSpeed: [...d.bowSpeed],
     bowDamage: [...d.bowDamage],
+    bowDamageByItem: Object.fromEntries(Object.entries(d.bowDamageByItem).map(([k, v]) => [k, [...v!]])) as W2Settings['bowDamageByItem'],
     bowKnock: [...d.bowKnock],
     arrowGravity: d.arrowGravity,
     arrowLifeTicks: d.arrowLifeTicks,
@@ -2348,6 +2378,15 @@ export type AnimalEvent =
   | { type: 'roll'; id: number }
   /** 中 に 子 が いて 小屋 を こわせなかった 押し（1 回 に 1 つ） */
   | { type: 'coopLocked'; coop: number }
+  // ---- GOLD-1（§3.4）
+  /** はらぱんみみず を あげて なかよし 100（2 回 ジャンプ・ハート 8 こ は B） */
+  | { type: 'harapanFeed'; id: number }
+  /** まち時計 が うまった（`bug` = むし・`pet` = なでる）。パネル が 出て いる とき だけ 小さな 音 */
+  | { type: 'natsukiReady'; id: number; which: 'bug' | 'pet' }
+  /** なかよし が 70 以下 → 71 以上 に なった（メーター が きんいろ に・キラッ 8） */
+  | { type: 'natsukiGold'; id: number }
+  /** まち中 に むし・なでる を しよう と した（こっち を 見て くび を かしげる） */
+  | { type: 'natsukiWait'; id: number; which: 'bug' | 'pet' }
   // ---- LIVE-3（§6.1）
   /** いただきます の 演出 が はじまった（0 ステップ） */
   | { type: 'meatStart'; id: number; coop: number }
@@ -2400,6 +2439,29 @@ export interface AnimalInfo {
   grow: number;
   /** 体 の 当たり の 大きさ（高さ・はば・長さ。§2.2・§2.10） */
   size: { h: number; w: number; l: number };
+  // ---- GOLD-1（§4.4）。なかま の 大人 だけ 動く（ほか は 0・0・0・natsukiDecayTicks の まま）
+  /** なつき度 0〜100（画面 では「なかよし」・メーター だけ） */
+  natsuki: number;
+  /** むし の まち の のこり ステップ */
+  natsukiBugWait: number;
+  /** なでる の まち の のこり ステップ */
+  natsukiPetWait: number;
+  /** へる まで の のこり ステップ */
+  natsukiDecayLeft: number;
+}
+
+/** GOLD-1 §6: パネル の 状態（窓口 `animals.natsukiView(id)`）。ねらって いる 子 の なかよし パネル が 出る か・ハート 0〜10・きんいろ か・まち時計 が あいて いる か */
+export interface NatsukiView {
+  shown: boolean;
+  /** 0〜10（切り捨て: 75 → 7） */
+  hearts: number;
+  /** 71 以上 = きんいろ（たまご の しるし も 色つき） */
+  gold: boolean;
+  bugReady: boolean;
+  petReady: boolean;
+  /** まち時計 の うまり 0〜1（ふやせる = 1。まち中 は 0 → 1 で うまって いく） */
+  bugFill: number;
+  petFill: number;
 }
 
 export interface AnimalSpawnOpts {
@@ -2417,6 +2479,11 @@ export interface AnimalSpawnOpts {
   bugs?: number;
   goldMiss?: number;
   grow?: number;
+  // ---- GOLD-1（§4.4）
+  natsuki?: number;
+  natsukiBugWait?: number;
+  natsukiPetWait?: number;
+  natsukiDecayLeft?: number;
 }
 
 /** 版 3.2 の 合図 8 つ（§3.1。`animals.lastHint()` の 型） */
@@ -2427,9 +2494,11 @@ export type AnimalLive2Hint =
   | 'kitMax' | 'kitNeedEgg' | 'kitWait' | 'coopNoRoom' | 'coopMax' | 'coopFull' | 'coopNotEmpty' | 'coopNoEgg' | 'sleepHint';
 /** LIVE-2.1 の 合図 1 つ（§3.1）: こたつ が いっぱい（3 こ） */
 export type AnimalLive21Hint = 'kitFull';
+/** GOLD-1 の 合図 3 つ（§3.1）: まち中・なかよし 100 の 子 に はらぱん・やせい／ひよこ に はらぱん */
+export type AnimalGold1Hint = 'natsukiWait' | 'harapanFull' | 'harapanFriend';
 /** LIVE-3 の 合図 1 つ（§3.1）: なま は たべられない */
 export type AnimalLive3Hint = 'rawMeat';
-export type AnimalWindowHint = AnimalLive1Hint | AnimalLive2Hint | AnimalLive21Hint | AnimalLive3Hint;
+export type AnimalWindowHint = AnimalLive1Hint | AnimalLive2Hint | AnimalLive21Hint | AnimalGold1Hint | AnimalLive3Hint;
 
 /** あみ の 結果 の わけ（§6.1 `swing`） */
 export type SwingReason = 'chance' | 'pity' | 'empty' | 'miss';
@@ -2542,6 +2611,24 @@ export interface LiveSettings {
   kitEggMax: number;
   /** なげる 水平 の きょり の 上限（マス） */
   throwRange: number;
+  // ---- GOLD-1 の 設定（§4.4・§4.5・§4.7）
+  natsukiMax: number;
+  natsukiBug: number;
+  natsukiPet: number;
+  natsukiBugWaitTicks: number;
+  natsukiPetWaitTicks: number;
+  natsukiDecay: number;
+  natsukiDecayTicks: number;
+  /** 金 の たまご を うめる のは これ を こえて いる とき だけ（71 以上） */
+  natsukiGoldMin: number;
+  /** マッチョ の 金 の 確率 に かける 倍（上限 goldCap の あと） */
+  goldMachoMul: number;
+  harapanYokai: number;
+  harapanChest: number;
+  harapanBlock: number;
+  harapanLog: number;
+  /** 地下 = 高さ y が これ より 下（初期値 `SEA_Y`） */
+  harapanUnderY: number;
   // ---- LIVE-3 の 3 こ（§4.1）
   /** 1 わ で とれる `momo_nama` */
   meatPerBird: number;
@@ -2601,6 +2688,20 @@ export const LIVE_SETTING_DEFAULTS: Readonly<LiveSettings> = {
   placeStepMax: 2,
   kitEggMax: 3,
   throwRange: 4,
+  natsukiMax: 100,
+  natsukiBug: 15,
+  natsukiPet: 10,
+  natsukiBugWaitTicks: 18000,
+  natsukiPetWaitTicks: 18000,
+  natsukiDecay: 5,
+  natsukiDecayTicks: 36000,
+  natsukiGoldMin: 70,
+  goldMachoMul: 2,
+  harapanYokai: 0.07,
+  harapanChest: 0.03,
+  harapanBlock: 0.005,
+  harapanLog: 0.002,
+  harapanUnderY: SEA_Y,
   meatPerBird: 2,
   meatHeal: 10,
   meatTicks: 220,
@@ -2734,6 +2835,11 @@ export interface AnimalBirdSave {
   bugs?: number;
   goldMiss?: number;
   grow?: number;
+  /** GOLD-1: はじめ の 値（0・0・0・natsukiDecayTicks）の ときは 書かない（4,000 文字 以下 の ため。`natsukiDecayLeft` は natsuki が 0 の ときも 書かない） */
+  natsuki?: number;
+  natsukiBugWait?: number;
+  natsukiPetWait?: number;
+  natsukiDecayLeft?: number;
 }
 export interface AnimalSaveV3 {
   v: 3;
@@ -2790,8 +2896,11 @@ export interface AnimalApi {
   /** 版 3.2（C が 足した）: C から の 合図（treeEmpty・netHint・cantPutHere・carryWild・fullHint・friendFull・feedHint）を 出来事 `hint` と `lastHint()` に 入れる */
   emitHint?(h: AnimalHintKind): void;
   /** 'ate' の とき だけ C が むし を 1 へらす。'full' = おなかいっぱい、'pet' = なでる に なった、'friendFull' = なかま が 8 わ */
-  feed(id: number, item: ItemId): 'ate' | 'full' | 'pet' | 'friendFull' | 'sleep' | null;
-  pet(id: number): 'wild' | 'friend' | null;
+  feed(id: number, item: ItemId): 'ate' | 'full' | 'pet' | 'friendFull' | 'sleep' | 'wait' | 'harapan' | 'harapanNo' | null;
+  /** GOLD-1: `'wait'` = なでる の まち中（なでられない。合図 natsukiWait は A が 出す） */
+  pet(id: number): 'wild' | 'friend' | 'wait' | null;
+  /** GOLD-1 §6: なかよし パネル の 状態（`shown` は 大人 の なかま だけ） */
+  natsukiView?(id: number): NatsukiView | null;
   /** 版 3.2: おなかいっぱい か（テスト・確認用。照準 の 下 の `まってね` は `preview` が 'animalFull' を 返す） */
   isFull?(id: number): boolean;
   /** 版 3.2: あみ を ふる（block = ねらって いる ブロック）。くじ は A */
@@ -2864,6 +2973,10 @@ export interface GoldBird {
   raised: boolean;
   bugs: number;
   goldMiss: number;
+  /** GOLD-1: なつき度。`natsukiGoldMin` 以下 なら 0（金 に ならない） */
+  natsuki: number;
+  /** GOLD-1: マッチョ は 上限 の あと に `goldMachoMul` 倍 */
+  breed: AnimalBreed;
 }
 /** かえす くじ の 状態（AC17 `rollBreed(item, settings, state, rng)`） */
 export interface BreedLotteryState {

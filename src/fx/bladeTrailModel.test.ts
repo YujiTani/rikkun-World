@@ -33,7 +33,7 @@ describe('CHAR-4 AC1 データ', () => {
     expect(TRAIL_K).toBeCloseTo(1.0588, 4);
   });
   it('刀は ぼくとう・かたな・きらきらの かたな・雷神剣（WEAPON-7）だけ。表に ない 刀は かたなの 行', () => {
-    expect([...BLADE_TRAIL_ITEMS].sort()).toEqual(['bokuto', 'crystal_katana', 'fujin_ken', 'katana', 'niji', 'raijin_ken']);
+    expect([...BLADE_TRAIL_ITEMS].sort()).toEqual(['bokuto', 'crystal_katana', 'fujin_ken', 'katana', 'kin_katana', 'niji', 'raijin_ken']);
     const s = createW2Settings();
     expect(trailRow(s, 'raijin_ken')).toBe(s.bladeTrail.raijin_ken); // WEAPON-7 G8: 雷神剣の 行は 表に ある（刃は むらさき）
     expect(s.bladeTrail.raijin_ken!.blade).toBe(0xb070ff);

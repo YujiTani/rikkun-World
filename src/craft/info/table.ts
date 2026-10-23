@@ -16,6 +16,10 @@ export const ARMOR_KIND: Readonly<Record<string, 'normal' | 'ball' | 'fall'>> = 
   yoroi: 'normal',
   kote: 'normal',
   suneate: 'fall',
+  kin_kabuto: 'ball',
+  kin_yoroi: 'normal',
+  kin_kote: 'normal',
+  kin_suneate: 'fall',
 };
 
 /** なかま の 文（WEAPON-2 §4.6 (8)）。「なにに つかう」の 下に 出す */
@@ -195,6 +199,22 @@ export const ITEM_INFO: Readonly<Record<string, InfoRow>> = {
   toriya: { use: 'にわとり の いえ', how: 'おいて、ひよこ を つれて いく', buttons: ['1-9', 'right'] },
   kin_tamago: { use: 'だいじ な たから。こたつ で あたためる と マッチョ ひよこ', how: 'こたつ に いれる', buttons: ['1-9', 'right'] },
 
+  // ---- GOLD-1（#222 §4.1）。強さ・たいきゅう の 数 は 設定 から（てつ の 道具 と 同じ 形）
+  kin: { use: 'きん の そうび の ざいりょう', how: CRAFT_E, buttons: ['E'] },
+  kin_katana: { use: 'ようかい を いちばん つよく たたく', how: KATANA_HOW, buttons: ['1-9', 'left'], stats: 'blade' },
+  kin_yumi: {
+    use: 'や を とばして とおく の ようかい を たおす。や が いる',
+    how: 'えらんで ひだりクリック を おしつづけて ながく ひく。はなすと とぶ',
+    buttons: ['1-9', 'left'],
+    stats: 'bow',
+  },
+  kin_pickaxe: { use: 'いちばん はやく ほれる。てつ も ほれる', how: PICK_HOW, buttons: ['1-9', 'leftHold'], stats: 'pickaxe' },
+  kin_axe: { use: 'いちばん はやく き を きれる', how: PICK_HOW, buttons: ['1-9', 'leftHold'], stats: 'pickaxe' },
+  kin_kabuto: { use: 'ようかい の ひのたま を へらす（あたま）', how: WEAR_HOW, buttons: ['1-9', 'right'], stats: 'armor' },
+  kin_yoroi: { use: 'ようかい の こうげき を へらす（からだ）', how: WEAR_HOW, buttons: ['1-9', 'right'], stats: 'armor' },
+  kin_kote: { use: 'ようかい の こうげき を へらす（うで）', how: WEAR_HOW, buttons: ['1-9', 'right'], stats: 'armor' },
+  kin_suneate: { use: 'たかい ところ から おちた いたみ を へらす（あし）', how: WEAR_HOW, buttons: ['1-9', 'right'], stats: 'armor' },
+  harapan_mimizu: { use: 'なかま の にわとり に あげる と なかよし が いっぱい に なる', how: 'もって なかま の おとな の にわとり に みぎクリック', buttons: ['1-9', 'right'] },
   // ---- LIVE-3（§3.1）: もも にく
   momo_nama: { use: 'かまど で やく と たべられる', how: 'かまど に みぎクリック して やく', buttons: ['right'] },
   momo_yaki: { use: 'たべると ハート が 5 こ もどる', how: 'もって みぎクリック', buttons: ['1-9', 'right'] },
@@ -210,7 +230,10 @@ export const ORB_SOURCE = 'むかし の ようかい が おとした';
 export const EGG_SOURCE = 'なかま の にわとり が むし を たべて うむ';
 
 /** 「どこで」の きん の たまご の文（LIVE-2 §3.1） */
-export const KIN_TAMAGO_SOURCE = 'にわとり が ときどき うむ';
+export const KIN_TAMAGO_SOURCE = 'なかよし の にわとり が ときどき うむ';
+
+/** 「どこで」の はらぱんみみず の文（GOLD-1 §4.7）。ちか が いちばん でやすい */
+export const HARAPAN_SOURCE = 'ちか で ようかい を たおす・ブロック を こわす と ときどき でる';
 
 /** LIVE-3: なま もも にく の 手に入れかた */
 export const MOMO_NAMA_SOURCE = 'とりごや で そだった おとな から';

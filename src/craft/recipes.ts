@@ -62,19 +62,30 @@ export const CRAFT_RECIPES: readonly Recipe[] = [
   // LIVE-2（§4.2）: こたつ（くさ 3・き 2・たいまつ 1）・とりごや（き 8・くさ 4）。カードの いちばん うしろ（この 順）
   r('nukunuku', 1, [['grass', 3], ['log', 2], ['torch', 1]], true),
   r('toriya', 1, [['log', 8], ['grass', 4]], true),
+  // GOLD-1（#222 §4.2 の 表。てつ の 装備 の てつ を きん に。ゆみ は き の かわり に きん。順 は この とおり）
+  r('kin_katana', 1, [['kin', 2], ['log', 1]], true),
+  r('kin_yumi', 1, [['kin', 3], ['string', 3]], true),
+  r('kin_pickaxe', 1, [['kin', 3], ['log', 2]], true),
+  r('kin_axe', 1, [['kin', 3], ['log', 2]], true),
+  r('kin_kabuto', 1, [['kin', 2], ['cloth', 1]], true),
+  r('kin_yoroi', 1, [['kin', 3], ['string', 2], ['cloth', 2]], true),
+  r('kin_kote', 1, [['kin', 1], ['cloth', 1]], true),
+  r('kin_suneate', 1, [['kin', 2], ['string', 1]], true),
   // CRAFT-PAGE（#277）: たいまつの 足した作り方 2 つ（いちばん うしろ。番号を ずらさない）。カードは 元の torch の 1 枚のまま
   // （作り方は せつめい欄のページで えらぶ）。出来る物は どれも torch
   { ...r('torch', 4, [['log', 1], ['coal_ore', 1]], true), id: TORCH_COAL },
   { ...r('torch', 1, [['log', 3]], true), id: TORCH_LOG },
 ];
 
-/** やく 5 こ（M4 §4.2 の 4 こ ＋ LIVE-3 の やいた もも にく。かまど で。ねんりょう 1 こ・60 ステップ） */
+/** やく 6 こ（M4 §4.2 の 4 こ ＋ LIVE-3 の やいた もも にく ＋ GOLD-1 の きん。かまど で。ねんりょう 1 こ・60 ステップ。やいた もも にく は いちばん うしろ） */
 export const BAKE_RECIPES: readonly Recipe[] = [
   r('iron_ingot', 1, [['iron_ore', 1]], true, 'furnace'),
   r('kawara', 2, [['clay', 1]], true, 'furnace'),
   r('brick', 2, [['clay', 1]], true, 'furnace'),
   r('haniwa', 1, [['clay', 2]], false, 'furnace'),
-  // LIVE-3（§4.2）: なま もも にく → やいた もも にく（いちばん うしろ。ねんりょう 1・60 ステップ）
+  // GOLD-1（§4.2）: きん の たまご を やく と きん 1（てつ と 同じ 60 ステップ）
+  r('kin', 1, [['kin_tamago', 1]], true, 'furnace'),
+  // LIVE-3（§4.2）: なま もも にく → やいた もも にく（ねんりょう 1・60 ステップ）
   r('momo_yaki', 1, [['momo_nama', 1]], true, 'furnace'),
 ];
 

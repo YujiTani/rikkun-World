@@ -18,6 +18,11 @@ export interface ParsedBird {
   bugs: number;
   goldMiss: number;
   grow: number;
+  /** GOLD-1: 0〜natsukiMax・まち 0〜waitMax・のこり 1〜decayMax に おさめる（なし = はじめ の 値）。ひよこ は 0・0・0・decayMax */
+  natsuki: number;
+  natsukiBugWait: number;
+  natsukiPetWait: number;
+  natsukiDecayLeft: number;
 }
 export interface ParsedCoop {
   id: number | null;
@@ -55,16 +60,26 @@ export interface ParseLimits {
   kitMax: number;
   /** こたつ 1 台 の たまご（`kitEggMax`。なければ 3） */
   kitEggMax?: number;
+  /** GOLD-1: なつき度 の 上限・まち の 上限（bug・pet）・へる まで の 上限（なければ 100・18,000・18,000・36,000） */
+  natsukiMax?: number;
+  bugWaitMax?: number;
+  petWaitMax?: number;
+  decayMax?: number;
 }
 
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 const count = (v: unknown): number => (isNum(v) ? Math.max(0, Math.round(v)) : 0);
 const obj = (v: unknown): Record<string, unknown> | null => (typeof v === 'object' && v !== null ? (v as Record<string, unknown>) : null);
 
-function parseBird(r: unknown, followMax: number, keepFollow: boolean): ParsedBird | null {
+/** 数 で なければ `dflt`、そうで なければ [lo, hi] に おさめて 整数 に する（GOLD-1 §4.4「おかしい 値 は はんい に おさめる」） */
+const clampInt = (v: unknown, lo: number, hi: number, dflt: number): number => (isNum(v) ? Math.max(lo, Math.min(hi, Math.round(v))) : dflt);
+
+function parseBird(r: unknown, followMax: number, keepFollow: boolean, lim: ParseLimits): ParsedBird | null {
   const o = obj(r);
   if (!o) return null;
   if (!isNum(o.x) || !isNum(o.y) || !isNum(o.z)) return null;
+  const adult = o.stage !== 'chick';
+  const decayMax = lim.decayMax ?? 36000;
   return {
     x: o.x,
     y: o.y,
@@ -77,6 +92,10 @@ function parseBird(r: unknown, followMax: number, keepFollow: boolean): ParsedBi
     bugs: count(o.bugs),
     goldMiss: count(o.goldMiss),
     grow: count(o.grow),
+    natsuki: adult ? clampInt(o.natsuki, 0, lim.natsukiMax ?? 100, 0) : 0,
+    natsukiBugWait: adult ? clampInt(o.natsukiBugWait, 0, lim.bugWaitMax ?? 18000, 0) : 0,
+    natsukiPetWait: adult ? clampInt(o.natsukiPetWait, 0, lim.petWaitMax ?? 18000, 0) : 0,
+    natsukiDecayLeft: adult ? clampInt(o.natsukiDecayLeft, 1, decayMax, decayMax) : decayMax,
   };
 }
 
@@ -86,7 +105,7 @@ export function parseAnimalSave(data: unknown, lim: ParseLimits): ParsedSave | n
   const out: ParsedSave = { friends: [], coops: [], kits: [], machoMiss: 0 };
   for (const r of o.friends) {
     if (out.friends.length >= lim.friendMax) break;
-    const b = parseBird(r, lim.followMax, true);
+    const b = parseBird(r, lim.followMax, true, lim);
     if (b) out.friends.push(b);
   }
   // v 3 より 前（v 1・v 2）には 小屋・こたつ・machoMiss が 無い（空）
@@ -100,7 +119,7 @@ export function parseAnimalSave(data: unknown, lim: ParseLimits): ParsedSave | n
       if (Array.isArray(c.kids)) {
         for (const k of c.kids) {
           if (kids.length >= lim.coopMax) break;
-          const b = parseBird(k, lim.followMax, false);
+          const b = parseBird(k, lim.followMax, false, lim);
           if (b) kids.push(b);
         }
       }

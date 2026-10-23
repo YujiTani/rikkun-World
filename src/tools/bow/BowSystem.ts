@@ -33,7 +33,7 @@ export interface BowDepsX extends BowDeps {
 }
 
 /** 飛んでいる や（`stage` は 当たったときの ダメージ用。窓口では 出さない） */
-type Arrow = ArrowInfo & { stage: 1 | 2 | 3 };
+type Arrow = ArrowInfo & { stage: 1 | 2 | 3; /** うった ゆみ ごと の つよさ（GOLD-1: きんの ゆみ は 2・3・5） */ damage: number };
 
 export function stageOf(drawTicks: number, stageTicks: readonly number[]): BowStage {
   if (drawTicks >= stageTicks[2]!) return 3;
@@ -127,6 +127,7 @@ export function createBowSystem(deps: BowDepsX): BowSystem {
       velocity: { x: dx * speed, y: dy * speed, z: dz * speed },
       age: 0,
       stage: st,
+      damage: (ctx.item !== null ? s.bowDamageByItem[ctx.item]?.[st - 1] : undefined) ?? s.bowDamage[st - 1]!,
     };
     flying.push(info);
     nockLeft = s.bowNockTicks;
@@ -171,7 +172,7 @@ export function createBowSystem(deps: BowDepsX): BowSystem {
         if (yh && (!blk || yh.distance < blk.distance)) {
           const hit = { x: p.x + rayDir.x * yh.distance, y: p.y + rayDir.y * yh.distance, z: p.z + rayDir.z * yh.distance };
           const st = a.stage;
-          const dmg = s.bowDamage[st - 1]!;
+          const dmg = a.damage;
           yokai.damage(yh.id, dmg, { ...lastPos }, { dist: s.bowKnock[st - 1]!, up: 0 });
           emit({ type: 'arrowHit', tick: deps.tick(), yokaiId: yh.id, damage: dmg, position: hit });
           alive = false;

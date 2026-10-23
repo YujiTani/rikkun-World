@@ -29,6 +29,14 @@ import { installArena } from './arena';
  *   __A.chip()               合図の チップ `#animal-hint` の 文字 と ルビの 外に ある 漢字
  *   __A.lift(id)             なかま を 40 ステップ 押して だっこ（はなして 1 ステップ）。だっこ できたら true
  *
+ * GOLD-1（docs/design/GOLD-1.md §6）で足した もの:
+ *   __A.noWait()             なかよし（なつき度）の「むし・なでる の まち」を 0 に する（設定 `natsukiBugWaitTicks`・`natsukiPetWaitTicks`）。
+ *                            LIVE-1・LIVE-2 の テストは 600 ステップごとに むし を あげる ので、`base()` が 自動で 呼ぶ（§6「まち を あける」）。
+ *                            まだ 設定が 無い（実装の 前）ときは 何も しない。もとの 値は `A.waitOrig` に のこす
+ *   __A.realWait()           まち の 設定を もとの 値（18,000）に もどす（まち そのものを 見る テストだけ 呼ぶ）
+ *   __A.view(id)             `animals.natsukiView(id)`（`shown`・`hearts`・`gold`・`bugReady`・`petReady`）
+ *   __A.collect(c)           小屋 c の さくを 外から 右クリックして すばこの たまごを あつめる
+ *
  * LIVE-2.1 で足した もの: snap / solidBelow / put / putKit / flight / outsideWest / carryOne / draw（下の 定義の コメントを 見る）
  *
  * LIVE-2 で足した もの: kit / putEgg / coop / cinfo / face / kid / yawTo / inside / dayLen / night / bags / hintRight（下の 定義の コメントを 見る）
@@ -58,6 +66,7 @@ export async function openAnimals(page: Page, query = '?nosave=1'): Promise<void
         h.settings.set('animalAutoSpawn', false);
         h.settings.set('yokaiAutoSpawn', false);
         h.settings.set('yokaiWander', false);
+        A.noWait();
         h.yokai.clear();
         h.animals.clear();
         (window as any).__arena.floor(0, 0, half, half);
@@ -71,6 +80,33 @@ export async function openAnimals(page: Page, query = '?nosave=1'): Promise<void
         h.animals.fxReset();
         h.audio.sfx();
         h.yokai.events();
+      },
+      // ---- GOLD-1（docs/design/GOLD-1.md §6・§4.4）
+      noWait() {
+        try {
+          if (!A.waitOrig) A.waitOrig = { bug: h.settings.get('natsukiBugWaitTicks'), pet: h.settings.get('natsukiPetWaitTicks') };
+          h.settings.set('natsukiBugWaitTicks', 0);
+          h.settings.set('natsukiPetWaitTicks', 0);
+        } catch {
+          // 設定が まだ 無い（GOLD-1 の 実装の 前）
+        }
+      },
+      realWait() {
+        h.settings.set('natsukiBugWaitTicks', A.waitOrig?.bug ?? 18000);
+        h.settings.set('natsukiPetWaitTicks', A.waitOrig?.pet ?? 18000);
+      },
+      view(id: number) {
+        return h.animals.natsukiView(id);
+      },
+      collect(c: any) {
+        const f = A.face(c);
+        const sx = c.x - f.fx * 2;
+        const sz = c.z - f.fz * 2;
+        h.inventory.clear();
+        h.player.set({ position: { x: sx + 0.5 - f.fx * 2.5, y: 9, z: sz + 0.5 - f.fz * 2.5 }, yaw: A.yawTo(f.fx, f.fz), pitch: 0 });
+        h.step(2);
+        A.aimBlock(sx, c.y, sz);
+        A.tap();
       },
       chicken(x: number, z: number, opts: any = {}) {
         const id = h.animals.spawn(x, 9, z, opts);
