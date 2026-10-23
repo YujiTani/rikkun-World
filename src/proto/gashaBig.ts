@@ -591,7 +591,7 @@ export function buildBig(): BigModel {
       const { side, n } = frameOf(u);
       b.hits.push({ name, joint, c: a.clone().add(bb).multiplyScalar(0.5), axes: [side, n, u], half: [width / 2, thick / 2, len / 2] });
     };
-    lineHit(`upperArm${sd}`, jA, S, E, A.upperWidth, A.upperThick - 0.6);
+    lineHit(`upperArm${sd}`, jA, S, E, A.upperWidth, A.upperThick - 1.6);
     // 前わんは 手首の 先まで 少し のばして 手に つなぐ（手首が 浮いて 見えても 段が 1 つに なる）
     lineHit(`foreArm${sd}`, jF, E, Wr.clone().addScaledVector(uF, A.foreExtend), A.foreWidth - 0.2, A.foreThick - 0.2);
     b.hits.push({ name: `hand${sd}`, joint: jH, c: vec(palmX, th / 2, (palmZ - 3.5 + tipZ) / 2), axes: [vec(1, 0, 0), vec(0, 1, 0), vec(0, 0, 1)], half: [3.4, th / 2, (tipZ - palmZ + 3.5) / 2] });

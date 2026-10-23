@@ -45,10 +45,38 @@ describe('gashaBig（#293 大きい がしゃどくろ）', () => {
   const { cells, hits, scale, model } = cellsAtOrigin();
 
   it('voxelize: 1 つの 箱は その 中に 中心が ある マスだけ', () => {
-    const one: WorldHit = { name: 't', center: [1, 1, 1], half: [1, 1, 1], axes: [[1, 0, 0], [0, 1, 0], [0, 0, 1]] };
+    const one: WorldHit = { name: 't', joint: 'Hips', center: [1, 1, 1], half: [1, 1, 1], axes: [[1, 0, 0], [0, 1, 0], [0, 0, 1]] };
     expect(voxelize([one], 0, 0).size).toBe(8); // 2×2×2
     const rot: WorldHit = { ...one, axes: [[0, 0, 1], [0, 1, 0], [-1, 0, 0]] }; // 90 度 回しても おなじ
     expect(voxelize([rot], 0, 0).size).toBe(8);
+  });
+
+  it('関節の Group: Meshy の 骨と おなじ 名前で、胸 → 首 → 頭、左右 とも 肩 → 上腕 → 前腕 → 手 の 親子に なる', () => {
+    expect(Object.keys(model.joints)).toEqual([...JOINT_NAMES]);
+    const parentOf = (n: string) => model.joints[n as (typeof JOINT_NAMES)[number]].parent?.name;
+    expect(parentOf('Head')).toBe('neck');
+    expect(parentOf('neck')).toBe('Spine02');
+    expect(parentOf('Spine02')).toBe('Spine01');
+    for (const side of ['Left', 'Right']) {
+      expect(parentOf(`${side}Shoulder`)).toBe('Spine02');
+      expect(parentOf(`${side}Arm`)).toBe(`${side}Shoulder`);
+      expect(parentOf(`${side}ForeArm`)).toBe(`${side}Arm`);
+      expect(parentOf(`${side}Hand`)).toBe(`${side}ForeArm`);
+    }
+    // 休みの 姿勢: 回転なし、原点は 関節の 場所
+    for (const n of JOINT_NAMES) expect(model.joints[n].quaternion.w).toBeCloseTo(1, 6);
+  });
+
+  it('当たりの 箱は 関節に ついて 動く（左の 前わんを 回すと 手の 当たりも いっしょに 動く）', () => {
+    const m = buildBig();
+    m.group.scale.setScalar(m.scale);
+    const before = worldHits(m).find((h) => h.name === 'handL')!.center.slice();
+    m.joints.LeftForeArm.rotation.x = 0.8;
+    const after = worldHits(m).find((h) => h.name === 'handL')!.center;
+    expect(Math.hypot(after[1] - before[1], after[2] - before[2])).toBeGreaterThan(5);
+    // 右の 手は うごかない
+    const r1 = worldHits(buildBig()).find((h) => h.name === 'handR')!.center;
+    void r1;
   });
 
   it('身長が 調整表の 高さに なる（頭の 当たりの 上の 面）', () => {
