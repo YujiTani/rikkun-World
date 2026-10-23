@@ -376,7 +376,7 @@ const soundSettingsUi = createSoundSettings({ audio: audioSettings, fx: FX_SETTI
 for (const ev of ['pointerdown', 'keydown'] as const) window.addEventListener(ev, () => mixer.unlock(), true);
 document.addEventListener('visibilitychange', () => mixer.setHidden(document.hidden));
 mixer.setHidden(document.hidden);
-let girlBgmOn = false; // #293 試作
+let girlBgmOn = false; // #293 試作: がしゃどくろの 曲（gashaBgm.ts。少女「災厄」・大きな 姿「神々の 戯れ」）が 流れて いる 間 true。係は ページに 1 つ なので 少女と 大きな 姿で ぶつからない
 let audioKey = '';
 let audioYokai: BgmSceneInput['yokai'] = [];
 /** 設定が変わっていたら ミキサーに反映・保存・画面を合わせる */
@@ -2537,6 +2537,6 @@ if (import.meta.env.DEV && new URLSearchParams(location.search).get('proto') ===
 }
 // #293 試作（開発サーバーだけ）: ?proto=gashaBig で 大きい がしゃどくろ（第一形態）。当たりは「追加の 固いマス」として プレイヤーの 当たりに 重ねる
 if (import.meta.env.DEV && new URLSearchParams(location.search).get('proto') === 'gashaBig') {
-  void import('./proto/gashaBig').then((m) => m.startGashaBig({ scene: game.scene, camera: game.camera, player: () => ({ ...controller.state.position, yawDeg: controller.state.yawDeg }), groundY: (x, z) => island.groundHeight(x, z), addPlayerSolid: (fn) => { const orig = world.isSolidForPlayer.bind(world); world.isSolidForPlayer = (x, y, z) => orig(x, y, z) || fn(x, y, z); }, fillBlocks: (x0, y0, z0, x1, y1, z1, id) => { world.fill(x0, y0, z0, x1, y1, z1, id); }, onUpdate: (fn) => game.onUpdate(fn), carryPlayer: (dx, dy, dz, dYaw) => { const st = controller.state; st.position.x += dx; st.position.y += dy; st.position.z += dz; st.yawDeg = (((st.yawDeg + dYaw) % 360) + 360) % 360; } }));
+  void import('./proto/gashaBig').then((m) => m.startGashaBig({ scene: game.scene, camera: game.camera, player: () => ({ ...controller.state.position, yawDeg: controller.state.yawDeg }), groundY: (x, z) => island.groundHeight(x, z), addPlayerSolid: (fn) => { const orig = world.isSolidForPlayer.bind(world); world.isSolidForPlayer = (x, y, z) => orig(x, y, z) || fn(x, y, z); }, fillBlocks: (x0, y0, z0, x1, y1, z1, id) => { world.fill(x0, y0, z0, x1, y1, z1, id); }, onUpdate: (fn) => game.onUpdate(fn), bgmOut: () => { const o = mixer.output(); const b = mixer.bgmInput(); return o && b ? { ctx: o.ctx, bus: b } : null; }, suppressBgm: (on) => { girlBgmOn = on; }, carryPlayer: (dx, dy, dz, dYaw) => { const st = controller.state; st.position.x += dx; st.position.y += dy; st.position.z += dz; st.yawDeg = (((st.yawDeg + dYaw) % 360) + 360) % 360; } }));
 }
 game.start();

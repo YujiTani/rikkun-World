@@ -15,6 +15,7 @@ import {
 } from 'three';
 import { TUNE as T, applyTune, applyTuneFromUrl } from './gashaBigTuning';
 import { BigActor, type ActorClips } from './gashaBigActor';
+import { sharedGashaBgm } from './gashaBgm';
 import climbL from './gashaBigClips/climbL.json';
 import climbR from './gashaBigClips/climbR.json';
 import lookBackClip from './gashaBigClips/lookBack.json';
@@ -32,6 +33,10 @@ export interface GashaBigDeps {
   onUpdate?(fn: (dt: number) => void): void;
   /** のっている プレイヤーを 動かす（位置の ずれ、向き（度）の ずれ）。なければ 運ばない */
   carryPlayer?(dx: number, dy: number, dz: number, dYawDeg: number): void;
+  /** BGM の ミキサーの 口（少女と おなじ）。なければ BGM は 流さない */
+  bgmOut?(): { ctx: AudioContext; bus: AudioNode } | null;
+  /** ふだんの BGM を 止める（少女と おなじ。曲が 流れて いる 間） */
+  suppressBgm?(on: boolean): void;
   /** 手の まわりの 地面を ならす 用（ワールドの ブロックを 箱で おきかえる。読みこんで いない 所は 変わらない）。なければ ならさない */
   fillBlocks?(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, id: 'grass' | 'air'): void;
 }
@@ -391,6 +396,8 @@ export interface BigModel {
   groundPts: Vector3[];
   /** 頭の 位置（もとの 座標） */
   head: Vector3;
+  /** 雲の はしごの はじめの 段の 場所（もとの 座標）。この まわりの 地面も ならす */
+  stairPts: Vector3[];
   meshes: number;
 }
 
@@ -675,6 +682,7 @@ export function buildBig(): BigModel {
     b.hits.push({ name: `hand${sd}`, joint: jH, c: vec(palmX, th / 2, (palmZ - 3.5 + tipZ) / 2), axes: [vec(1, 0, 0), vec(0, 1, 0), vec(0, 0, 1)], half: [3.4, th / 2, (tipZ - palmZ + 3.5) / 2] });
   }
 
+  const stairPts: Vector3[] = [];
   // --- 雲の はしご（地面 → こし → 肩 → リボン → 頭の 上）と、こしの もくもく雲。上の 面が そのまま 当たり
   {
     const Ld = T.ladder, rr = makeRnd(Ld.seed);
@@ -689,6 +697,7 @@ export function buildBig(): BigModel {
       for (const r of routes) {
         const pts = r.pts.map((p) => (p.length > 2 ? [s * p[0]!, p[1]!, p[2]!] : [s * p[0]!, p[1]!]));
         pathPoints(pts, Ld.spacing, r.skipFirst).forEach((q, i) => {
+          if (r.key === 'climb' && i < T.place.stairPadRungs) stairPts.push(vec(q.x, 0, q.z));
           rung(b, { joint: jointForY(q.y), c: vec(q.x, q.y, q.z), tx: q.tx, tz: q.tz, f: Math.min(1, q.y / Ld.topY), len: r.len, name: `${r.key}${sd}${i}`, rnd: rr });
         });
       }
@@ -749,7 +758,7 @@ export function buildBig(): BigModel {
   const topY = vec(0, 20.4, -0.2).applyMatrix4(hm).y;
   const scale = T.size.height / topY;
   return {
-    group, joints, rest, hits: b.hits, eyes: matOf('eyes'), eyeHalo: matOf('eyeHalo'), brow: brow ?? new Mesh(), scale, groundPts, head: headPos, meshes: meshes.length,
+    group, joints, rest, hits: b.hits, eyes: matOf('eyes'), eyeHalo: matOf('eyeHalo'), brow: brow ?? new Mesh(), scale, groundPts, head: headPos, stairPts, meshes: meshes.length,
   };
 }
 
@@ -883,6 +892,17 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
         deps.fillBlocks(x0, base - P.padDepth, z0, x1, base - 1, z1, 'grass');
         deps.fillBlocks(x0, base, z0, x1, base + P.padHeight, z1, 'air');
       }
+      // 雲の はしごの はじめの 数段の まわりも ならす（1 段目が 地面から 1 だんで 乗れるように）
+      for (const q of model.stairPts) {
+        const xs: number[] = [], zs: number[] = [];
+        for (const [lx, lz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]] as const) {
+          const w = vec(q.x + lx * P.stairPadHalf, 0, q.z + lz * P.stairPadHalf).multiplyScalar(s).applyQuaternion(R);
+          xs.push(mx + w.x); zs.push(mz + w.z);
+        }
+        const x0 = Math.floor(Math.min(...xs)), x1 = Math.ceil(Math.max(...xs)), z0 = Math.floor(Math.min(...zs)), z1 = Math.ceil(Math.max(...zs));
+        deps.fillBlocks(x0, base - P.padDepth, z0, x1, base - 1, z1, 'grass');
+        deps.fillBlocks(x0, base, z0, x1, base + P.padHeight, z1, 'air');
+      }
     }
     pos = new Vector3(mx, base, mz);
     model.group.position.copy(pos);
@@ -896,10 +916,18 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
   };
 
   deps.addPlayerSolid((x, y, z) => actor !== null && actor.solid(x, y, z));
+  // BGM「神々の 戯れ」: 怒って いる（赤い 目の）間だけ。少女が 出た あとは 共通の 係が「災厄」を 優先する（gashaBgm.ts）
+  const bgm = deps.bgmOut && deps.suppressBgm ? sharedGashaBgm({ bgmOut: deps.bgmOut, suppressBgm: deps.suppressBgm }) : null;
+  let bgmWant = false;
   deps.onUpdate?.((dt) => {
     if (!actor) return;
     actor.update(dt);
     pos = actor.pos; yaw = actor.yaw;
+    if (bgm) {
+      const w = actor.angryLeft > 0;
+      if (w !== bgmWant) { bgmWant = w; bgm.request('big', w); }
+      bgm.step();
+    }
   });
   place();
 
