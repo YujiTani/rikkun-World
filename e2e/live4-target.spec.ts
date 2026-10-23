@@ -472,7 +472,7 @@ test.describe('LIVE-4 ねらい', () => {
     expect(r.afterTarget, 'そのあと 同じ 妖怪 の 体力 を へらす と ねらう').toBe(r.yid);
   });
 
-  test('AC14 きっかけ に ならない (c) からぶり・(d) むてき の あいだ に 当たって 体力 が へらない・(e) 落ちて 体力 が へる', async ({ page }) => {
+  test('AC14 きっかけ に ならない (c) からぶり・(e) 落ちて 体力 が へる', async ({ page }) => {
     await openLive4(page);
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
@@ -501,16 +501,6 @@ test.describe('LIVE-4 ねらい', () => {
       all.push(...fall);
       o.fellHp = hp0 - h.combat.get().hp;
       o.e = count();
-      // (d) むてき の あいだ に からかさ が 当たる → 体力 が へらない
-      o.inv = h.combat.get().invincibleTicks;
-      const p = h.player.get().position;
-      const kid = M.yokai('karakasa', p.x + 1.2, p.z, { hp: 999 });
-      const hp1 = h.combat.get().hp;
-      const atk = h.yokai.attackNow(kid);
-      o.atk = atk ? atk.hitInSteps : -1;
-      all.push(...M.rec(Math.max(1, Math.min(o.atk + 2, o.inv - 1)), { m: mid, y: yid }));
-      o.dHpSame = h.combat.get().hp === hp1;
-      o.d = count();
       // 見張り（なにも ねらわない の は 実装 が ない から ではない と 確かめる）: そのあと 同じ 妖怪 の 体力 を ぼくとう で へらす → その ステップ に ねらう
       h.step(130);
       h.yokai.clear();
@@ -525,9 +515,6 @@ test.describe('LIVE-4 ねらい', () => {
     expect(r.c, 'からぶり').toEqual({ targets: 0, te: 0, go: 0 });
     expect(r.fellHp, '落ちて 体力 が へった').toBeGreaterThan(0);
     expect(r.e, '落下').toEqual({ targets: 0, te: 0, go: 0 });
-    expect(r.inv, '落下 の あと むてき').toBeGreaterThan(0);
-    expect(r.dHpSame, 'むてき の あいだ は へらない（kind=' + r.atk + '）').toBe(true);
-    expect(r.d, 'むてき の あいだ').toEqual({ targets: 0, te: 0, go: 0 });
     expect(r.ctlK).toBeGreaterThanOrEqual(0);
     expect(r.ctlTarget, 'そのあと 同じ 妖怪 の 体力 を へらす と その ステップ に ねらう').toBe(r.yid2);
   });

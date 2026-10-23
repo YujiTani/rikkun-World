@@ -16,7 +16,6 @@
 | 新規 道具 | `e2e/helpers/live4.ts` | `openLive4` → `window.__M`（`base/macho/yokai/faceTo/hit/hurtMe/rec/yaFrom/punchStart/bladeFrames`）。1 ステップ ずつ きろく して「その ステップ に」を 見る |
 | 新規 ユニット | `src/animals/live4.test.ts` | 設定 6 こ（`machoAtkTicks` なし）・AC1（`fighters()`）・AC17（`animals` v 4・新しい 項目 なし・`SAVE_GEN` 3）・AC16（`bladeTech/DamageMul/Knock` の 今 の 数 を 固定） |
 | 新規 ユニット | `src/achievements/live4.test.ts` | AC18: `animal.machoKO.1`（eatMeat の すぐ うしろ・小・名前・`machoKO:*`）・記録 → 実績 |
-| 新規 ユニット | `src/ui/book/live4Book.test.ts` | AC18: 案内画面「そだてる」の 1 行（矛盾 C1） |
 | 直した | `src/achievements/achievements.test.ts` | 261→262・小 88→89・そだてる 62→63・小 17→18・`ui.total` 262 |
 | 直した | `src/achievements/live1.test.ts` | 同じ 数。`animal` の 並び 27→28、小 の 並び に `machoKO.1`（eatMeat の うしろ）、`slice` を -17 に |
 | 直した | `src/achievements/live2.test.ts`・`live3.test.ts` | 数 の 行 だけ |
@@ -42,11 +41,11 @@
 | AC11 | E2E | `live4-fight` AC11 | 赤（はしらない） |
 | AC12 | E2E | `live4-target` AC12 | 赤 |
 | AC13 | E2E＋ユニット | `live4-fight` AC13・AC13b（見張り つき） | 赤（見張り の `target`） |
-| AC14 | E2E | `live4-target` AC14 ×2（見張り つき） | 赤（見張り の `target`） |
+| AC14 | E2E | `live4-target` AC14 ×2（パリィ・からぶり／落下。見張り つき) | 赤（見張り の `target`） |
 | AC15 | E2E | `live4-fight` AC15 | 赤（パンチ が 当たらない） |
 | AC16 | ユニット | `live4.test.ts` AC16（今 の 数 を 固定）＋ BALANCE・M3・WEAPON-2 の 既存 ユニット を かえず に 通す | 緑（回帰 の 見張り。実装 後 も 緑 の まま） |
 | AC17 | E2E＋ユニット | `live4-misc` AC17／`live4.test.ts` AC17 | E2E 赤・ユニット 緑（回帰 の 見張り） |
-| AC18 | ユニット（＋E2E の DOM は 本 の 矛盾 C1 のため 未） | `achievements/live4.test.ts`・`book/live4Book.test.ts`・既存 数 の 直し | 赤 |
+| AC18 | ユニット（＋E2E の DOM は 本 の 矛盾 C1 のため 未） | `achievements/live4.test.ts`・既存 数 の 直し（案内画面 の 1 行 は 本 の 週次 更新 で 対象外。PO 決定） | 赤 |
 | AC19 | E2E（＋UI 検査） | `live4-misc` AC19 | 赤。UI 検査（バー と かさならない・3 つ の 大きさ）は 未（下 の 抜け） |
 | AC20 | 性能（自動） | `live4-perf` AC20・20b・20c | 赤（設定・見張り）。仕事 の 数 の 基準 99972 は 実装 前 の HEAD で はかった |
 | AC21 | オーナー確認 | ― | 実装 後 |
@@ -61,8 +60,8 @@
 
 | # | 重大度 | 内容 | テスト の 扱い |
 |---|---|---|---|
-| C1 | 【重大】 | 案内画面 の 1 行（§3.1・AC18）は 約 60 字 の 1 文。いまの 本（`bookData.ts`）は 説明 50 字 以下・1〜2 文・項目 46 こ 固定 の テスト（`bookData.test.ts`）が ある。§0 に「本 の ページ は 足さない（週一）」とも ある。1 行 を 入れる と 既存 テスト と ぶつかる | `book/live4Book.test.ts` は 文 そのまま を 探す（赤）。`bookData.test.ts` の 46 こ・50 字 は 触って いない。短く する か 本 の 規則 を ゆるめる か 決めて ほしい |
-| C2 | 【重大】 | AC14 (d)「防具 で ダメージ 0」: いまの 戦闘 では 防具 は 妖怪 の こうげき を 最低 1 まで しか へらさない（落下 だけ 0 に なる）。AC14 (b)「ぬりかべ の かたい 所」: そんな しくみ が 無い | (d) は「むてき の あいだ に 当たって 体力 が へらない」で、(b) は 作れない ので 外した。(a) パリィ・(c)・(e) 落下 は 通常 どおり |
+| C1 | 解決 | PO: 案内画面・本 の 行 は 機能 PR の 対象外。テスト 削除 ずみ | ― |
+| C2 | 解決 | PO: (d) 防具 は 外す。(b) ぬりかべ は パリィ で はじいた こうげき に 置きかえ（(a) が その テスト） | ― |
 | C3 | 【軽微】 | AC10 の「13 マス 先 の ちょうちん の 火の玉」: 火の玉 は 約 10 マス 以内 しか とどかず 作れない | や だけ 13/11 マス。火の玉 は とどく 8 マス で「ねらう」を 見る |
 | C4 | 【軽微】 | AC7 の `yokai_orb`: M3 第 1 版 の なごりで もう 使わない（ドロップ は 出来事 `drop`） | 経験値・`defeat.reward` を プレイヤー が たおした のと 同じ に する 形 に した |
 | C5 | 【軽微】 | AC4 の「とどいた ステップ を 0」は `state` 'punch' に なった 最初 の ステップ と 読んだ。「5 ステップ目 に −2」は その 5 ステップ あと。別 の 読み方 なら 開発 と すりあわせ | `punchStart()` の 1 か所 |
@@ -72,7 +71,6 @@
 
 ## 抜け（このテストで 確かめて いない もの）
 
-- AC18: 案内画面 の 1 行 の 1024×700・2 行 まで・はみ出し 0px（C1 が きまってから E2E の DOM を 足す）。
 - AC19: しるし が 体力 の バー・二つ名 と かさならない（UI 検査 `check:ui` に 場面 を 足す必要。ui-gate 側 は 開発 の つなぎ込み）。
 - AC6: からぶり を 数えない（からぶり を 起こす 場面 を 作る 窓口 が 無い）。AC15: 「ほか の にわとり が かわらない」は 存在 と 位置 だけ。
 - 実装 前 なので 緑 の 道（`target` が ある ときの 細部。例: AC8 (d) のだっこ中の マッチョ の 位置、AC11 の 水の 範囲）は 実装 後 に 調整 が 要る かも しれない。
