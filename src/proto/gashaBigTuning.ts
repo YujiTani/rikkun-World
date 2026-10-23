@@ -82,7 +82,7 @@ export const TUNE = {
       ref: 'mean',
       mirror: false,
       strength: {
-        Hips: 0, Spine: 0.4, Spine01: 0.5, Spine02: 0.6, neck: 1, Head: 1,
+        Hips: 0, Spine: 0, Spine01: 0, Spine02: 0.25, neck: 1, Head: 1, // 胸を ひねると うでも 動いて 手が 地面から はなれる ので 小さく
         LeftShoulder: 0, LeftArm: 0, LeftForeArm: 0, LeftHand: 0,
         RightShoulder: 0, RightArm: 0, RightForeArm: 0, RightHand: 0,
       } as Record<string, number>,
