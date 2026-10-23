@@ -21,6 +21,7 @@ import type {
   YokaiKind,
 } from '../contracts';
 import { CROP_KINDS } from '../contracts';
+import { baseRecipeId } from '../craft/recipes';
 import {
   ACHIEVEMENT_DEFS,
   ARMOR_ITEMS,
@@ -270,7 +271,7 @@ export class AchievementSystem implements AchievementShowSource {
     this.run(() => {
       for (const e of events) {
         if (e.type === 'craft') {
-          this.bump(`craft:${e.recipe}`, 1);
+          this.bump(`craft:${baseRecipeId(e.recipe)}`, 1);
           this.bump('craft:*', 1);
           if (e.recipe === 'ya') this.bump('craftItems:ya', e.count);
           this.derivedCraft();
@@ -562,7 +563,7 @@ export class AchievementSystem implements AchievementShowSource {
   }
 
   isFirstMade(kind: 'craft' | 'bake', recipe: string): boolean {
-    return this.stat(`${kind}:${recipe}`) === 0;
+    return this.stat(`${kind}:${baseRecipeId(recipe)}`) === 0;
   }
 
   // ------------------------------------------------------------ 保存
