@@ -422,6 +422,9 @@ export class DigSystemImpl implements DigSystem {
     const carrying = enabled && this.isCarrying();
     // 同じステップのうちに押してはなす短いタップも拾う（wasPressed）
     const primaryAny = enabled && !carrying && (this.actions.isHeld('primary') || this.actions.wasPressed('primary'));
+    // HURT-1: 怯み中でも レジェンダリーの ためだけは 消さない（やられたときは 今まで どおり 消える）
+    const legendOn = this.lock.playInputEnabled() && (!this.gate?.blocksInput() || !!this.gate?.flinching?.());
+    const primaryLegend = legendOn && !carrying && (this.actions.isHeld('primary') || this.actions.wasPressed('primary'));
     // WEAPON-5: 刀＋Shift は パリィ（押した）か 何も出さない（押しつづけ）。ほる・わざは しない
     const parryM = this.m4.parry;
     const route = this.m4.blade && parryM ? routeAttackInput({ item: this.inventory.held()?.item, run: this.actions.isHeld('run'), pressed: this.actions.wasPressed('primary'), held: primaryAny }) : 'normal';
@@ -478,10 +481,10 @@ export class DigSystemImpl implements DigSystem {
         const bladeBusy = bs0.phase !== 'idle';
         const res = lg.step({
           item: bladeItem,
-          active: enabled && bladeItem !== null && !parryBusy,
+          active: legendOn && bladeItem !== null && !parryBusy,
           pressed: (primaryRaw && this.actions.wasPressed('primary')) || pendingNow,
           // Shift を 押しても ためは 続く（生の 押している）
-          held: primaryAny && !parryBusy,
+          held: primaryLegend && !parryBusy,
           startOk: furiTech || pendingNow,
           bladeBusy,
           bladeAccepts: bladeBusy ? (blade.busyNext?.().accepts ?? false) : false,

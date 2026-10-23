@@ -53,6 +53,8 @@ export type DropBag = DropView;
 export interface PunchGate {
   /** やられているあいだ true（遊びの入力を無視する） */
   blocksInput(): boolean;
+  /** HURT-1: 怯み中（やられたのではなく）。ためわざを消さないために DigSystem が見る */
+  flinching?(): boolean;
   /**
    * 毎ステップ呼ぶ。パンチを進める。このステップが「パンチ」なら true（ほらない）。
    * blockDistance: 線がブロックにふれる距離（なければ null）
@@ -122,6 +124,8 @@ export interface CombatHookState {
   maxHp: number;
   dead: boolean;
   invincibleTicks: number;
+  /** HURT-1: 怯みののこりステップ */
+  flinchTicks: number;
   punching: boolean;
   punchTick: number;
   lastDamageTick: number;
@@ -152,6 +156,8 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
   private deadTicks = 0;
   private deathPos: Vec3 = { x: 0, y: 0, z: 0 };
   private invincible = 0;
+  /** HURT-1: 怯みののこりステップ */
+  private flinch = 0;
   private sinceDamage = 0;
   private lastDamageTick = -1;
   private kbTicks = 0;
@@ -218,6 +224,16 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
     return this.invincible;
   }
 
+  /** HURT-1: 怯みののこりステップ（0 なら怯んでいない） */
+  flinchTicks(): number {
+    return this.flinch;
+  }
+
+  /** HURT-1: 怯み中か（やられたのとはちがう。ためわざは怯みで消さない） */
+  flinching(): boolean {
+    return this.flinch > 0 && !this.isDead;
+  }
+
   damage(amount: number, by: YokaiKind, from: Vec3, kind: DamageKind = 'normal'): boolean {
     return this.hurt(amount, by, from, false, kind);
   }
@@ -250,6 +266,7 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
       maxHp: this.config.playerMaxHp,
       dead: this.isDead,
       invincibleTicks: this.invincible,
+      flinchTicks: this.flinch,
       punching: this.punchTickNow > 0,
       punchTick: this.punchTickNow,
       lastDamageTick: this.lastDamageTick,
@@ -285,7 +302,7 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
   // ---------------------------------------------------------- パンチ（DigSystem から）
 
   blocksInput(): boolean {
-    return this.isDead;
+    return this.isDead || this.flinch > 0;
   }
 
   placeBlocked(x: number, y: number, z: number): boolean {
@@ -435,6 +452,7 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
   update(): void {
     const cfg = this.config;
     if (this.invincible > 0) this.invincible--;
+    if (this.flinch > 0) this.flinch--;
 
     if (this.isDead) {
       this.fallPeak = this.d.player.get().position.y;
@@ -522,6 +540,8 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
     this.sinceDamage = 0;
     this.lastDamageTick = this.tickCount;
     this.invincible = cfg.hurtInvincibleTicks;
+    this.flinch = cfg.hurtFlinchTicks;
+    this.punchTickNow = 0; // HURT-1: パンチの途中ならとぎれる
     if (by !== null) {
       const ev: PlayerHitEvent = { type: 'playerHit', tick: this.tickCount, by, amount: takenFinal };
       if (blocked) ev.blocked = true;
@@ -616,6 +636,7 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
     this.d.armor?.resetHits();
     this.hpNow = this.config.playerMaxHp;
     this.invincible = this.config.respawnInvincibleTicks;
+    this.flinch = 0;
     this.sinceDamage = 0;
     this.emit({ type: 'respawn', tick: this.tickCount });
   }

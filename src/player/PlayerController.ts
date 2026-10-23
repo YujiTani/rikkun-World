@@ -53,7 +53,7 @@ export class PlayerController {
   readonly state: PlayerState;
   readonly settings: PlayerSettings;
   /** WEAPON-2: 刀・弓が かける 歩く倍率と ジャンプ止め（つなぎ込みが 毎ステップ 書く） */
-  readonly motion: { speedMul: number; jumpLocked: boolean; faceDeg: number | null; stopNow: boolean; leftAims: boolean; noRun: boolean; hoverY: number | null } = {
+  readonly motion: { speedMul: number; jumpLocked: boolean; faceDeg: number | null; stopNow: boolean; leftAims: boolean; noRun: boolean; hoverY: number | null; noMoveInput: boolean } = {
     speedMul: 1,
     jumpLocked: false,
     /** CHAR-2: null でない あいだ facing は これ（わざの向き）。回らない */
@@ -66,6 +66,8 @@ export class PlayerController {
     noRun: false,
     /** WEAPON-9: null でない あいだ 足もとの 高さを これへ 動かす（シャイニングの うかぶ。重力は 使わない） */
     hoverY: null,
+    /** HURT-1: true の あいだは 歩く・走る・ジャンプの 入力を 受けない（怯み。向きと 押される・重力は そのまま） */
+    noMoveInput: false,
   };
   /** WEAPON-4: ふみこみが 手前で 止まる 妖怪の 一覧（つなぎ込みが わたす） */
   lungeYokai: (() => ReadonlyArray<YokaiInfo>) | null = null;
@@ -221,10 +223,12 @@ export class PlayerController {
     let aiming = false;
     if (enabled) {
       const a = this.actions;
-      fwd = (a.isHeld('moveForward') ? 1 : 0) - (a.isHeld('moveBack') ? 1 : 0);
-      right = (a.isHeld('moveRight') ? 1 : 0) - (a.isHeld('moveLeft') ? 1 : 0);
-      jumpHeld = a.isHeld('jump');
-      runHeld = a.isHeld('run');
+      if (!this.motion.noMoveInput) {
+        fwd = (a.isHeld('moveForward') ? 1 : 0) - (a.isHeld('moveBack') ? 1 : 0);
+        right = (a.isHeld('moveRight') ? 1 : 0) - (a.isHeld('moveLeft') ? 1 : 0);
+        jumpHeld = a.isHeld('jump');
+        runHeld = a.isHeld('run');
+      }
       aiming =
         (this.motion.leftAims && (a.isHeld('primary') || a.wasPressed('primary'))) ||
         a.isHeld('secondary') || a.isHeld('drop') || a.isHeld('dropStack') ||
