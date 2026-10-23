@@ -388,7 +388,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
     return ok ? 'hit' : 'retry';
   };
   let nextSetHit = 0; // 設置系の 次の 判定（むてき時間と おなじ ぐらい あける）
-  let flinchT = 0, flinchTotal = 1;
+  let flinchT = 0, flinchTotal = 1, reflectWait = 0;
   const hurtPlayer = (from: { x: number; y: number; z: number }, amount = T.damage.heart): boolean => { const ok = deps.hurt(amount, from); if (ok) stats.hits++; return ok; };
 
   // ---- 魔法 1: 噴き出す（紫の 輪 → 炎の 刃）。輪は 3 つ ----
@@ -871,7 +871,9 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
     if (phase === 'stand') {
       faceTo(p); idleSway();
       if (holdStand) pt = 0;
-      if (pt >= T.timing.standSec) nextWarp();
+      // はね返した 弾が 飛んでいる 間は 次の ワープに 入らず 待つ（上限 parry.reflectWaitMaxSec）
+      if (pt >= T.timing.standSec && projs.some((q) => q.on && q.reflected) && reflectWait < T.parry.reflectWaitMaxSec) { reflectWait += dt; pt = T.timing.standSec - dt; }
+      if (pt >= T.timing.standSec) { reflectWait = 0; nextWarp(); }
     } else if (phase === 'vanish') {
       fade(clamp01(pt / T.timing.vanishSec));
       if (pt >= T.timing.vanishSec) { phase = 'gone'; pt = 0; fade(1); pivot.visible = false; }
