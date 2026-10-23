@@ -6,7 +6,7 @@ import { grassFloor, rec8, settle8 } from './helpers/weapon8';
  * LEGEND-FX 追記 6（docs/decisions/2026-10-23-legend-fx-element.md）: 風神剣の 真空波を「風の すじ 3 本が うねりながら 飛ぶ」形に（見た目だけ）。
  * 聞く 窓口: `legend.windWaveFx()`（{ draws, tris, waves }）・`legend.waves()`。時間では 待たず、1 ステップずつ 進めて 聞く。
  * 当たり・速さ・数は 前と 同じ（weapon7-fujin.spec.ts）。ここは 見た目の 数: 何も 飛んで いない ときは 描画 0、
- * 波が 飛ぶ 間は 描画 1・三角形は 上限（400）より 下、うごきを へらす 設定では 2 本・ちりなし（弾 1 つで 描画 1。三角形は 3 本 + ちりで 246・へらすと 156）。
+ * 波が 飛ぶ 間は 描画 1・三角形は 上限（400）より 下、うごきを へらす 設定では 2 本・ちりなし（弾 1 つで 描画 1。三角形は 通常 = 3 本 + ちりで 246、うごきを へらす 設定では 156）。
  * 実装の 前は 窓口（legend.windWaveFx）が ないので 赤に なる。
  */
 test.describe.configure({ timeout: 240_000 });
