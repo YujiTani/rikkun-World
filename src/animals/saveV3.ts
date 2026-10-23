@@ -1,7 +1,8 @@
 import type { AnimalBreed, AnimalStage, KitEgg } from '../contracts';
 
 /**
- * 保存 `animals` の 読みこみ（LIVE-2 §4.4・台帳 G8）。v 1 → v 2 → v 3 の 順 に 直して 読む。
+ * 保存 `animals` の 読みこみ（LIVE-2 §4.4・台帳 G8、LIVE-2.1 §4.3）。v 1 → v 2 → v 3 → v 4 の 順 に 直して 読む。
+ * こたつ の 行: v 4 は `eggs`（先 の 3 こ だけ・0 こ は すてる・世界 ぜんぶ で 6 こ まで）、v 3 は `{ egg, left }` を `eggs` 1 行 に 直す。
  * 数 で ない 行 は 飛ばす。知らない `breed`（`'gold'` も）は `normal`、知らない `stage` は `adult`。
  * 小屋 は `coopCountMax` まで、小屋 の 子 は `coopMax` まで、こたつ は `kitMax` 行 まで しか 読まない。
  */
@@ -28,12 +29,16 @@ export interface ParsedCoop {
   egg: number;
   gold: number;
 }
+export interface ParsedKitEgg {
+  egg: KitEgg;
+  left: number;
+}
+/** LIVE-2.1: こたつ の 行（たまご は 入れた 順。1〜3 こ） */
 export interface ParsedKit {
   x: number;
   y: number;
   z: number;
-  egg: KitEgg;
-  left: number;
+  eggs: ParsedKitEgg[];
 }
 export interface ParsedSave {
   friends: ParsedBird[];
@@ -46,7 +51,10 @@ export interface ParseLimits {
   friendMax: number;
   coopMax: number;
   coopCountMax: number;
+  /** 世界 ぜんぶ で あたためる たまご の 数（`kitActiveMax`） */
   kitMax: number;
+  /** こたつ 1 台 の たまご（`kitEggMax`。なければ 3） */
+  kitEggMax?: number;
 }
 
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
@@ -110,12 +118,26 @@ export function parseAnimalSave(data: unknown, lim: ParseLimits): ParsedSave | n
     }
   }
   if (Array.isArray(o.kits)) {
+    const perKit = lim.kitEggMax ?? 3;
+    let total = 0;
     for (const r of o.kits) {
-      if (out.kits.length >= lim.kitMax) break;
+      if (total >= lim.kitMax) break;
       const k = obj(r);
-      if (!k || !isNum(k.x) || !isNum(k.y) || !isNum(k.z) || !isNum(k.left)) continue;
-      if (k.egg !== 'egg' && k.egg !== 'gold') continue;
-      out.kits.push({ x: Math.round(k.x), y: Math.round(k.y), z: Math.round(k.z), egg: k.egg, left: Math.max(0, Math.round(k.left)) });
+      if (!k || !isNum(k.x) || !isNum(k.y) || !isNum(k.z)) continue;
+      const eggs: ParsedKitEgg[] = [];
+      if (Array.isArray(k.eggs)) {
+        for (const q of k.eggs) {
+          if (eggs.length >= perKit || total + eggs.length >= lim.kitMax) break;
+          const e = obj(q);
+          if (!e || (e.egg !== 'egg' && e.egg !== 'gold') || !isNum(e.left)) continue;
+          eggs.push({ egg: e.egg, left: Math.max(0, Math.round(e.left)) });
+        }
+      } else if ((k.egg === 'egg' || k.egg === 'gold') && isNum(k.left)) {
+        eggs.push({ egg: k.egg, left: Math.max(0, Math.round(k.left)) });
+      }
+      if (eggs.length === 0) continue;
+      total += eggs.length;
+      out.kits.push({ x: Math.round(k.x), y: Math.round(k.y), z: Math.round(k.z), eggs });
     }
   }
   out.machoMiss = count(o.machoMiss);

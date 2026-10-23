@@ -24,8 +24,10 @@ export const ANIMAL_HINT_VIEW: Readonly<Record<AnimalWindowHint, HintView>> = {
   // LIVE-2 版 3（§3.1）。絵 は 左 から
   kitNeedEgg: { html: `たまご を もって ${R}クリック`, art: ['egg', 'nukunuku'] },
   kitWait: { html: 'あたため ちゅう。まってね', art: ['nukunuku', 'hourglass'] },
-  kitMax: { html: 'あたためる の は 6 つ まで', art: ['nukunuku', 'nukunuku', 'nukunuku', 'nukunuku', 'nukunuku', 'nukunuku'] },
-  coopNoRoom: { html: 'ひろい たいら な ところ に おこう', art: ['toriya', 'grass'] },
+  // LIVE-2.1（§3.1）: たまご の 数 で 6 こ まで・こたつ は 1 台 3 こ まで・置けない 所（とりごや も こたつ も）
+  kitMax: { html: 'あたためる たまご は 6 こ まで', art: ['egg', 'egg', 'egg', 'egg', 'egg', 'egg'] },
+  kitFull: { html: 'この こたつ は いっぱい', art: ['nukunuku', 'egg', 'egg', 'egg'] },
+  coopNoRoom: { html: 'ここ には おけない よ', art: ['toriya', 'stone'] },
   coopMax: { html: 'とりごや は 3 つ まで', art: ['toriya'] },
   coopFull: { html: 'この とりごや は いっぱい', art: ['toriya', 'chicken'] },
   coopNotEmpty: { html: 'こ が いる から こわせない よ。だっこ で そと へ', art: ['toriya', 'chick', 'hand'] },

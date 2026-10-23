@@ -2,6 +2,7 @@ import type {
   ArmorSystem,
   BlockId,
   CoopPlacePreview,
+  ThrowAim,
   CraftSystem,
   DigBlockedReason,
   DigEvent,
@@ -102,7 +103,7 @@ export interface DigM4Deps {
   /** LIVE-1: にわとり（A の `AnimalApi`。ふりわけ 0 は 口 を 呼ぶ だけ。なければ M7-2 のとおり） */
   animals?: AnimalApi;
   /** LIVE-1 版 3.2: あみ を ふる 長さ・だっこ まで の 押しつづけ（設定 を すぐ 読む）。なければ 初期値 */
-  live?: () => { netSwingTicks: number; carryHoldTicks: number; /** LIVE-2: 小屋 の 数 の 上限（なければ 初期値 3） */ coopCountMax?: number; /** LIVE-2: 1 つ の 小屋 の 子 の 上限（なければ 初期値 6） */ coopMax?: number };
+  live?: () => { netSwingTicks: number; carryHoldTicks: number; /** LIVE-2: 小屋 の 数 の 上限（なければ 初期値 3） */ coopCountMax?: number; /** LIVE-2: 1 つ の 小屋 の 子 の 上限（なければ 初期値 6） */ coopMax?: number; /** LIVE-2.1: こたつ 1 台 の たまご の 上限（なければ 初期値 3） */ kitEggMax?: number };
   /** LIVE-1: たまご の 回復（設定 animalEggHeal を すぐ 読む）。なければ 初期値 */
   eggHeal?: () => number;
   /** M7-2: なでる・ごきげん（`PetPort`。C の `farm/pet.ts`） */
@@ -880,7 +881,7 @@ export class DigSystemImpl implements DigSystem {
     else if (pv.kind === 'bucketPlace') this.doBucketPlace();
     else if (pv.kind === 'bucketHint') this.m4.farm?.noteHint('bucket', this.playerChest());
     else if (pv.kind === 'bucketNo' && t) this.m4.bucket?.no({ x: t.place.x, y: t.place.y, z: t.place.z });
-    if (pv.kind === 'kitPut' || pv.kind === 'kitWait' || pv.kind === 'kitNeedEgg' || pv.kind === 'kitMax') this.doKit(t);
+    if (pv.kind === 'kitPut' || pv.kind === 'kitWait' || pv.kind === 'kitNeedEgg' || pv.kind === 'kitMax' || pv.kind === 'kitFull') this.doKit(t);
     else if (pv.kind === 'coopCollect') this.doCoopCollect(t);
     else if (pv.kind === 'coopNoEgg') this.hint('coopNoEgg');
     else if (pv.kind === 'coopPlace' || pv.kind === 'coopNoRoom' || pv.kind === 'coopMax') this.doCoopPlace(t);
@@ -912,7 +913,7 @@ export class DigSystemImpl implements DigSystem {
     const a = this.m4.animals;
     if (!a) return;
     const pv = this.previewRightClick(false);
-    if (pv?.kind === 'putDown') {
+    if (pv?.kind === 'putDown' || pv?.kind === 'throw' || pv?.kind === 'throwNo') {
       this.rightMode = 'latch';
       this.doPutDown();
       return;
@@ -998,10 +999,42 @@ export class DigSystemImpl implements DigSystem {
     this.m4.tools?.pushSwing('dig');
   }
 
-  /** 00 おろす。ブロック を ねらって いれば その 置く マス、なければ 前 1.5 マス・足 の 高さ */
+  /** LIVE-2.1 §2.2: なげる ときの ねらい（ねらった ブロック の 置く マス・目・前） */
+  throwAim(): ThrowAim {
+    const p = this.player();
+    const d = lookDirection(p.yawDeg, 0, this.pvDir);
+    const o = this.origin(p, this.pvOrigin);
+    const t = this.tgt;
+    return { place: t ? { x: t.place.x, y: t.place.y, z: t.place.z } : null, eye: { x: o.x, y: o.y, z: o.z }, dirX: d.x, dirZ: d.z };
+  }
+
+  /** LIVE-2.1 §3.2: いま ねらって いる こたつ の 本体 の マス（こたつ で なければ null）と、たまご を 持って いる か（天板 の 3 わく を 出す わけ） */
+  aimedKit(): { kit: { x: number; y: number; z: number } | null; holdingEgg: boolean } {
+    const t = this.tgt;
+    const held = this.inventory.held()?.item ?? null;
+    const holdingEgg = held === 'egg' || held === 'kin_tamago';
+    if (!t || !isKotatsuBlock(t.id)) return { kit: null, holdingEgg };
+    return { kit: { x: t.block.x, y: t.block.y, z: t.block.z }, holdingEgg };
+  }
+
+  /** 00 の 答え（照準 の 下 の 語・実行 が 同じ 判定）: なげる／なげられない／そっと おろす */
+  private throwKind(): 'throw' | 'throwNo' | 'putDown' {
+    const a = this.m4.animals;
+    const sp = a?.throwSpot?.(this.throwAim());
+    if (!sp) return 'putDown';
+    if (!sp.ok) return 'throwNo';
+    return sp.toss ? 'throw' : 'putDown';
+  }
+
+  /** 00 なげる（LIVE-2.1。前は おろす）。d＜1 は そっと おろす（20 ステップ）。ブロック を ねらって いれば その 置く マス、なければ 前 3 マス */
   private doPutDown(): void {
     const a = this.m4.animals;
     if (!a) return;
+    if (a.startThrow) {
+      if (a.startThrow(this.throwAim())) this.m4.tools?.pushSwing('place');
+      return;
+    }
+    // 古い つなぎ（なげる が 無い A）: 今まで の おろす
     const t = this.tgt;
     let spot: Vec3;
     if (t) spot = { x: t.place.x + 0.5, y: t.place.y, z: t.place.z + 0.5 };
@@ -1101,11 +1134,13 @@ export class DigSystemImpl implements DigSystem {
   }
 
   /** 1a の ようす: ねらって いる の が こたつ か（たまご が 入って いる か） */
-  private kitState(): { occupied: boolean } | null {
+  private kitState(): { occupied: boolean; full: boolean } | null {
     const a = this.m4.animals;
     const t = this.tgt;
     if (!a || !t || !isKotatsuBlock(t.id)) return null;
-    return { occupied: a.kitAt(t.block.x, t.block.y, t.block.z) != null };
+    const k = a.kitAt(t.block.x, t.block.y, t.block.z);
+    const max = this.m4.live?.().kitEggMax ?? LIVE_SETTING_DEFAULTS.kitEggMax;
+    return { occupied: k != null, full: k != null && (k.eggs?.length ?? 1) >= max };
   }
 
   /** 1b の ようす: ねらって いる の が 小屋 の ブロック か（すばこ の たまご の 数） */
@@ -1251,6 +1286,7 @@ export class DigSystemImpl implements DigSystem {
       target: this.tgt,
       animal: () => this.animalPreview(repeat),
       carrying: () => this.isCarrying(),
+      throwKind: () => this.throwKind(),
       kit: () => this.kitState(),
       coop: () => this.coopState(),
       coopSpot: () => this.coopSpot(),

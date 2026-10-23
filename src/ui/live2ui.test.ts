@@ -10,11 +10,11 @@ describe('LIVE-2 合図 9 つ（§3.1）', () => {
   const want: Record<AnimalLive2Hint, string> = {
     kitNeedEgg: `たまご を もって ${R}クリック`,
     kitWait: 'あたため ちゅう。まってね',
-    coopNoRoom: 'ひろい たいら な ところ に おこう',
+    coopNoRoom: 'ここ には おけない よ', // LIVE-2.1 §3.1 で かわった
     coopMax: 'とりごや は 3 つ まで',
     coopFull: 'この とりごや は いっぱい',
     coopNotEmpty: 'こ が いる から こわせない よ。だっこ で そと へ',
-    kitMax: 'あたためる の は 6 つ まで',
+    kitMax: 'あたためる たまご は 6 こ まで', // LIVE-2.1 §3.1 で かわった
     coopNoEgg: 'むし を あげる と たまご を うむ よ',
     sleepHint: 'ねてる よ。あさ に あげよう',
   };
@@ -25,9 +25,9 @@ describe('LIVE-2 合図 9 つ（§3.1）', () => {
       expect(ANIMAL_HINT_VIEW[k].art.length, `${k} は 絵 が 先`).toBeGreaterThan(0);
     }
   });
-  it('合図 は 全部で 17（LIVE-1 の 8 ＋ 9）。画面 に 禁止語 と 小屋・大人 の 漢字 が 無い', () => {
+  it('合図 は 全部で 18（LIVE-1 の 8 ＋ LIVE-2 の 9 ＋ LIVE-2.1 の kitFull）。画面 に 禁止語 と 小屋・大人 の 漢字 が 無い', () => {
     const all = Object.keys(ANIMAL_HINT_VIEW) as AnimalWindowHint[];
-    expect(all.length).toBe(17);
+    expect(all.length).toBe(18);
     for (const k of all) {
       const t = ANIMAL_HINT_VIEW[k].html;
       for (const bad of ['ぬくぬく', '育成', 'たまご こたつ', 'きん の ひよこ', 'きん の にわとり', '小屋', '大人']) expect(t.includes(bad), `${k} ${bad}`).toBe(false);

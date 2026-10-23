@@ -66,7 +66,7 @@ const place = (s: S, x = 50, z = 50, dir: 0 | 1 | 2 | 3 = 0) => {
 };
 
 describe('AC2 こたつに 入れる', () => {
-  it('から + egg → 入る（left は kitHatchTicks）。もう 1 回 kitWait。すで kitNeedEgg。kin_tamago → gold', () => {
+  it('から + egg → 入る（left は kitHatchTicks）。egg で ない 物 は kitWait（2 こ目 は 入る）。すで kitNeedEgg。kin_tamago → gold', () => {
     const s = setup();
     const k = s.kit(30, 30);
     expect(s.m.useKit(k.x, k.y, k.z, null)).toBe('needEgg');
@@ -74,10 +74,13 @@ describe('AC2 こたつに 入れる', () => {
     expect(s.m.useKit(k.x, k.y, k.z, 'tomato' as ItemId)).toBe('needEgg');
     expect(s.m.kits()).toHaveLength(0);
     expect(s.m.useKit(k.x, k.y, k.z, 'egg')).toBe('put');
-    expect(s.m.kits()).toEqual([{ x: 30, y: 9, z: 30, egg: 'egg', left: 7200, wobble: 0 }]);
+    // LIVE-2.1: kits() は eggs・size つき（先頭 の たまご の egg・left・wobble も のこる）
+    expect(s.m.kits()).toEqual([{ x: 30, y: 9, z: 30, size: 1, egg: 'egg', left: 7200, wobble: 0, eggs: [{ egg: 'egg', left: 7200, wobble: 0 }] }]);
     expect(s.m.kitAt(30, 9, 30)).not.toBeNull();
-    expect(s.m.useKit(k.x, k.y, k.z, 'egg')).toBe('wait');
+    // LIVE-2.1 §2.4: 2 こ目 も 入る（3 こ まで）。egg で ない もの は kitWait
+    expect(s.m.useKit(k.x, k.y, k.z, 'tomato' as ItemId)).toBe('wait');
     expect(s.m.lastHint()).toBe('kitWait');
+    expect(s.m.useKit(k.x, k.y, k.z, 'egg')).toBe('put');
     const k2 = s.kit(32, 30);
     expect(s.m.useKit(k2.x, k2.y, k2.z, 'kin_tamago')).toBe('put');
     expect(s.m.kitAt(32, 9, 30)!.egg).toBe('gold');
@@ -501,21 +504,17 @@ describe('AC9 小屋の 子に する', () => {
     const c = place(s);
     return { s, c };
   };
-  it('中で 90 ステップ → homeFill 0.5・179 は まだ・180 で home・出来事 home・follow は 使わない', () => {
+  it('中 に 入った ステップ に home・出来事 home（LIVE-2.1: 3 秒 まつ を やめた）・homeFill は 出ない・follow は 使わない', () => {
     const { s, c } = inside();
     const id = s.m.spawn(51.3, 9, 50.5, { friend: true, follow: s.full })!;
     s.m.events();
     const fill = () => {
-      let f: number | undefined;
+      let f: number | undefined = -1;
       s.m.forEachVisible((v) => {
         if (v.id === id) f = v.homeFill;
       });
       return f;
     };
-    s.step(90);
-    expect(fill()).toBeCloseTo(0.5, 5);
-    s.step(89);
-    expect(s.one(id).home).toBeNull();
     s.step(1);
     expect(s.one(id)).toMatchObject({ home: c.id, follow: 0 });
     expect(s.ev('home')).toEqual([{ type: 'home', id, coop: c.id }]);
@@ -527,21 +526,16 @@ describe('AC9 小屋の 子に する', () => {
     });
     expect(follow).toBe(0);
   });
-  it('120 ステップ いて 外 に 出る → なかま の まま・しるし が 消える', () => {
-    const { s } = inside();
+  it('中 に 入って すぐ プレイヤー が 外 に 出て も 小屋 の 子 の まま（LIVE-2.1: 「120 いて 出る → なかま」は なくなった）', () => {
+    const { s, c } = inside();
     const id = s.m.spawn(51.3, 9, 50.5, { friend: true, follow: s.full })!;
-    s.step(120);
+    s.step(2);
     s.player.position.x = 50.5;
     s.player.position.z = 40.5;
     s.step(300);
     const r = s.one(id);
-    expect(r.home).toBeNull();
-    expect(r.follow).toBeGreaterThan(0);
-    let fill: number | undefined = -1;
-    s.m.forEachVisible((v) => {
-      fill = v.homeFill;
-    });
-    expect(fill).toBeUndefined();
+    expect(r.home).toBe(c.id);
+    expect(r.follow).toBe(0);
   });
   it('だっこ から 中 に おろす → すぐ home。6 わ の 小屋 → おろさない・coopFull・putDownWhy', () => {
     const { s, c } = inside();
@@ -957,7 +951,7 @@ describe('AC21・AC22 保存 v 3 と つなぎ目', () => {
     (s.m as unknown as { coopList: { egg: number; gold: number }[] }).coopList[0]!.egg = 4;
     (s.m as unknown as { coopList: { egg: number; gold: number }[] }).coopList[0]!.gold = 1;
     const data = JSON.parse(JSON.stringify(s.m.serialize()));
-    expect(data.v).toBe(3);
+    expect(data.v).toBe(4); // LIVE-2.1: 保存 v 4
     expect(data.kits).toHaveLength(2);
     const t = setup({ px: 44.5, pz: 50.5 });
     // 世界 も おなじ に（本番では 世界 の 保存 が もどす）
@@ -1064,7 +1058,7 @@ describe('AC21・AC22 保存 v 3 と つなぎ目', () => {
     s.step(20);
     const data = JSON.parse(JSON.stringify(s.m.serialize()));
     expect(data.friends).toHaveLength(0);
-    expect(data.kits).toEqual([{ x: 30, y: 9, z: 30, egg: 'egg', left: 0 }]);
+    expect(data.kits).toEqual([{ x: 30, y: 9, z: 30, eggs: [{ egg: 'egg', left: 0 }] }]);
   });
   it('いちばん 多い とき（なかま 8・小屋 3×6・あたため中 6）で 4,000 文字 以下', () => {
     const s = setup({ px: 44.5, pz: 50.5 });

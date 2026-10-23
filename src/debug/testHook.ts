@@ -14,7 +14,7 @@ import type { createBladeHook } from '../tools/blade/hook';
 import type { createLevelHook } from '../level';
 import type { createAchievementsHook } from '../achievements';
 import type { createLogHook } from '../ui/log';
-import type { UiAlpha, AnimalEvent, AnimalHintKind, AnimalInfo, AnimalSpawnOpts, AnimalWindowHint, AnimalSaveV2, AnimalSaveV3, CoopInfo, CoopPlaceResult, KitInfo } from '../contracts';
+import type { UiAlpha, AnimalEvent, AnimalHintKind, AnimalInfo, AnimalSpawnOpts, AnimalWindowHint, AnimalSaveV2, AnimalSaveV3, AnimalSaveV4, CoopInfo, CoopPlaceResult, KitInfo, ThrowSpot } from '../contracts';
 import type { createRarityHook } from '../drops/rarityHook';
 import type { createStorageHook } from '../storage/hook';
 import type { createYokaiHook } from '../yokai';
@@ -126,6 +126,11 @@ export interface TestHook {
     lastHint(): AnimalHintKind | AnimalWindowHint | null;
     /** 版 3.2: だっこ している id か null */
     carrying(): number | null;
+    // ---- LIVE-2.1（§6.2）
+    /** だっこ 中 の 着地点 `{ x, y, z, ok, home, toss, why }`（照準 の ねらい で きめる。だっこ して いなければ null） */
+    throwSpot(): ThrowSpot | null;
+    /** テスト 用: だっこ 中 の 子 を その 足もと の 点 へ なげる（ゲーム と 同じ とびかた・きまり）。なげ はじめたら true */
+    throwTo(x: number, y: number, z: number): boolean;
     // ---- LIVE-2（§6.1）
     /** 小屋 を 置く（ゲーム の 置く と 同じ 判定）。x・z は 5×5 の まん中、y は いちばん 下 の 空気 の 高さ。小屋 id か 理由 */
     placeCoop(x: number, y: number, z: number, dir?: 0 | 1 | 2 | 3): CoopPlaceResult;
@@ -134,7 +139,7 @@ export interface TestHook {
     /** かえす くじ の はずれ 数（`n` を 渡す と 設定） */
     machoMiss(n?: number): number;
     /** 保存 v 3 の 形 を 取り出す・流しこむ */
-    serialize(): AnimalSaveV3 | AnimalSaveV2;
+    serialize(): AnimalSaveV4 | AnimalSaveV3 | AnimalSaveV2;
     deserialize(data: unknown): void;
   };
   /** CRAFT-2 §6.1: 画面の不透明度 */

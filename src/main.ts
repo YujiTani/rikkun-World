@@ -840,7 +840,7 @@ const dig = new DigSystemImpl(
     pet,
     animals,
     eggHeal: () => live.animalEggHeal,
-    live: () => ({ netSwingTicks: live.netSwingTicks, carryHoldTicks: live.carryHoldTicks, coopCountMax: live.coopCountMax, coopMax: live.coopMax }),
+    live: () => ({ netSwingTicks: live.netSwingTicks, carryHoldTicks: live.carryHoldTicks, coopCountMax: live.coopCountMax, coopMax: live.coopMax, kitEggMax: live.kitEggMax }),
     emitFarm: (e) => farm.emit(e),
     nowTick: () => game.tick,
     vitals: combat,
@@ -2211,11 +2211,17 @@ installTestHook(game, overlay, () => host.everReady, {
       deliverAnimalEvents();
       return animalEvents.splice(0, animalEvents.length);
     },
-    fx: () => animalFx.fx(),
+    // LIVE-2.1 §6.2: こたつ の 3 わく・小屋 の 子 の 大きな しるし・こたつ の 中 の たまご の 3D の 物（いつも 0）・土けむり。絵 を 描く 側 が 同じ 名前 で 持って いれば そちら が 優先
+    fx: () => {
+      const aim = dig.aimedKit();
+      return { kitIcons: animals.kitIcons(aim.kit, aim.holdingEgg), kitEggMeshes: 0, homePop: animals.homePop(), dust: 0, ...animalFx.fx() };
+    },
     fxReset: () => animalFx.fxReset(),
     // 今 チップに出ている合図（120 ステップで消える。消えたら null）
     lastHint: () => animalHint.model.current(),
     carrying: () => animals.carrying(),
+    throwSpot: () => animals.throwSpot(dig.throwAim()),
+    throwTo: (x, y, z) => animals.throwTo(x, y, z),
     placeCoop: (x, y, z, dir) => animals.placeCoop(x, y, z, dir),
     coops: () => animals.coops(),
     kits: () => animals.kits(),

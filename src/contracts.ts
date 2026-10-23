@@ -1396,7 +1396,9 @@ export type RightClickKind =
   | 'animalFull' | 'net' | 'netHint' | 'putDown'
   // LIVE-2（§2.11）: 1a こたつ（入れる／たまご が いる／まってね／6 つ まで）・1b 小屋 の あつめる（なし = coopNoEgg）・10a 小屋 を 置く
   | 'kitPut' | 'kitNeedEgg' | 'kitWait' | 'kitMax'
-  | 'coopCollect' | 'coopNoEgg' | 'coopPlace' | 'coopNoRoom' | 'coopMax';
+  | 'coopCollect' | 'coopNoEgg' | 'coopPlace' | 'coopNoRoom' | 'coopMax'
+  // LIVE-2.1（§2.2・§2.4）: だっこ 中 の なげる（'throwNo' = なげられない 所。うすく）・こたつ いっぱい
+  | 'throw' | 'throwNo' | 'kitFull';
 
 // ---------------------------------------------------------------- 設定（§4.3・§4.4・§4.5）
 
@@ -2272,7 +2274,9 @@ export type AnimalState = 'appear' | 'wander' | 'rest' | 'look' | 'eat' | 'pet' 
   // LIVE-1 版 3.2
   | 'full' | 'carried' | 'putDown'
   // LIVE-2（§6.1）: ねる・こたつ から かえる 動き・大人 に なる 動き
-  | 'sleep' | 'hatch' | 'grow';
+  | 'sleep' | 'hatch' | 'grow'
+  // LIVE-2.1（§6.2）: なげられて とんで いる あいだ
+  | 'thrown';
 
 /** LIVE-2: 育ち（§2.12）。ひよこ → 大人 */
 export type AnimalStage = 'chick' | 'adult';
@@ -2323,7 +2327,12 @@ export type AnimalEvent =
   /** パタパタ おりて 着地 の コロン（ひよこ） */
   | { type: 'roll'; id: number }
   /** 中 に 子 が いて 小屋 を こわせなかった 押し（1 回 に 1 つ） */
-  | { type: 'coopLocked'; coop: number };
+  | { type: 'coopLocked'; coop: number }
+  // ---- LIVE-2.1（§6.2）
+  /** なげる: 手 から はなれた（`to` = 着地点 の 足もと） */
+  | { type: 'toss'; id: number; to: Vec3 }
+  /** とんで いる とちゅう で 固い マス に 当たった（x・y・z = 止まった 所） */
+  | { type: 'bonk'; id: number; x: number; y: number; z: number };
 
 /** `animals.list()` の 1 行 */
 export interface AnimalInfo {
@@ -2387,7 +2396,9 @@ export type AnimalLive1Hint =
 /** LIVE-2 の 合図 9 つ（§3.1。文・絵 は C が `ANIMAL_HINT_VIEW` に 足す） */
 export type AnimalLive2Hint =
   | 'kitMax' | 'kitNeedEgg' | 'kitWait' | 'coopNoRoom' | 'coopMax' | 'coopFull' | 'coopNotEmpty' | 'coopNoEgg' | 'sleepHint';
-export type AnimalWindowHint = AnimalLive1Hint | AnimalLive2Hint;
+/** LIVE-2.1 の 合図 1 つ（§3.1）: こたつ が いっぱい（3 こ） */
+export type AnimalLive21Hint = 'kitFull';
+export type AnimalWindowHint = AnimalLive1Hint | AnimalLive2Hint | AnimalLive21Hint;
 
 /** あみ の 結果 の わけ（§6.1 `swing`） */
 export type SwingReason = 'chance' | 'pity' | 'empty' | 'miss';
@@ -2416,6 +2427,29 @@ export interface AnimalFxRecord {
   shell: number;
   zzz: number;
   marks: AnimalMark[];
+  /** LIVE-2.1（§6.2）: こたつ ごと の 天板 の 上 の 3 わく（窓口 `fx()` で 足す。8 マス 以内 の もの だけ） */
+  kitIcons?: KitIcon[];
+  /** LIVE-2.1: こたつ の 中 の たまご の 3D の 物 の 数（いつも 0） */
+  kitEggMeshes?: number;
+  /** LIVE-2.1: 小屋 の 子 に なった しゅんかん の 大きな しるし の 段（1 → 40 ステップ で 0） */
+  homePop?: number;
+  /** LIVE-2.1: 置いた とき の 土けむり の つぶ の 数 */
+  dust?: number;
+}
+
+/** LIVE-2.1: こたつ の 天板 の 上 の たまご の わく 1 つ。`egg` null = から の わく */
+export interface KitIconSlot {
+  egg: KitEgg | null;
+  /** あたため の すすみ 0〜1（から は 0） */
+  fill: number;
+  wobble: 0 | 1 | 2;
+}
+export interface KitIcon {
+  x: number;
+  y: number;
+  z: number;
+  /** いつも 3 つ */
+  slots: KitIconSlot[];
 }
 
 /** §4.1 の設定（`settings.get/set` の名前そのまま）。初期値は `LIVE_SETTING_DEFAULTS` */
@@ -2468,6 +2502,13 @@ export interface LiveSettings {
   goldBugMax: number;
   goldCap: number;
   goldPity: number;
+  // ---- LIVE-2.1 の 3 こ（§4.1）
+  /** 置き物 で けずる・うめる 高さ の 上限（1 列） */
+  placeStepMax: number;
+  /** こたつ 1 台 に 入る たまご */
+  kitEggMax: number;
+  /** なげる 水平 の きょり の 上限（マス） */
+  throwRange: number;
 }
 
 export const LIVE_SETTING_DEFAULTS: Readonly<LiveSettings> = {
@@ -2506,7 +2547,7 @@ export const LIVE_SETTING_DEFAULTS: Readonly<LiveSettings> = {
   chickFlutterFallSpeed: 2.5,
   coopMax: 6,
   coopCountMax: 3,
-  coopEnterTicks: 180,
+  coopEnterTicks: 0,
   kitActiveMax: 6,
   coopNestMax: 12,
   machoChance: 0.05,
@@ -2517,6 +2558,9 @@ export const LIVE_SETTING_DEFAULTS: Readonly<LiveSettings> = {
   goldBugMax: 0.04,
   goldCap: 0.08,
   goldPity: 30,
+  placeStepMax: 2,
+  kitEggMax: 3,
+  throwRange: 4,
 };
 
 export function createLiveSettings(): LiveSettings {
@@ -2559,6 +2603,13 @@ export interface AnimalView {
   growT?: number;
   /** 着地 の コロン の 経過 0〜1（なければ 省略） */
   rollT?: number;
+  // ---- LIVE-2.1（B が 描くために 読む）
+  /** 小屋 の 子 に なった しゅんかん の 大きな しるし の 段 0〜1（1 → 40 ステップ で 0。1.5 倍 で 出て 20 で ふつう → 40 で 消える の もと） */
+  homePop?: number;
+  /** なげる もちあげ の 経過 0〜1（手 の 中。もちあげ 10 ステップ。なければ 省略） */
+  liftT?: number;
+  /** なげられて とんで いる（state が thrown の とき 羽 を ひろげる） */
+  thrown?: boolean;
 }
 
 // ---- LIVE-2: こたつ・小屋（§6.1。A が 持つ。C・B・つなぎ込み は これ を 読む）
@@ -2574,6 +2625,14 @@ export interface KitInfo {
   /** あたため の のこり ステップ */
   left: number;
   /** ゆれ: 0 じっと／1 ときどき／2 よく ゆれる＋ひび（§2.1・AC4） */
+  wobble: 0 | 1 | 2;
+  /** LIVE-2.1（§6.2）: 入って いる たまご（入れた 順。1〜3 こ）。上 の `egg`・`left`・`wobble` は いちばん 先 の たまご */
+  eggs?: KitEggInfo[];
+}
+/** LIVE-2.1: こたつ に 入って いる たまご 1 こ */
+export interface KitEggInfo {
+  egg: KitEgg;
+  left: number;
   wobble: 0 | 1 | 2;
 }
 
@@ -2607,7 +2666,8 @@ export interface CoopPlacePreview {
 }
 
 /** 右クリック で こたつ を ねらった 答え（C の ふりわけ 1a） */
-export type KitUseResult = 'put' | 'wait' | 'needEgg' | 'max';
+/** LIVE-2.1: 'full' = その こたつ は 3 こ いっぱい（合図 kitFull）。'max' = 世界 ぜんぶ で 6 こ（kitMax） */
+export type KitUseResult = 'put' | 'wait' | 'needEgg' | 'max' | 'full';
 /** 小屋 の ブロック を ねらって 左クリック した 答え（C の こわせない しらせ、§2.3） */
 export type CoopBreakResult = 'ok' | 'locked';
 
@@ -2620,10 +2680,11 @@ export interface AnimalBirdSave {
   follow: number;
   stage: AnimalStage;
   breed: AnimalBreed;
-  raised: boolean;
-  bugs: number;
-  goldMiss: number;
-  grow: number;
+  /** LIVE-2.1: 0・false の ときは 書かない（保存 の 大きさ。読む とき は 無ければ 0・false） */
+  raised?: boolean;
+  bugs?: number;
+  goldMiss?: number;
+  grow?: number;
 }
 export interface AnimalSaveV3 {
   v: 3;
@@ -2632,10 +2693,38 @@ export interface AnimalSaveV3 {
   kits: { x: number; y: number; z: number; egg: KitEgg; left: number }[];
   machoMiss: number;
 }
+/** LIVE-2.1 保存 v 4（§4.3）。`kits` の 行 が `eggs`（入れた 順。1〜3 こ）に なる。ほか は v 3 と 同じ */
+export interface AnimalSaveV4 {
+  v: 4;
+  friends: AnimalBirdSave[];
+  coops: AnimalSaveV3['coops'];
+  kits: { x: number; y: number; z: number; eggs: { egg: KitEgg; left: number }[] }[];
+  machoMiss: number;
+}
 /** 版 2（LIVE-1 版 3.2。v 3 へ 直して 読む）。A が v 3 に 置きかえる まで は これ も 返る */
 export interface AnimalSaveV2 {
   v: 2;
   friends: { x: number; y: number; z: number; yaw: number; follow: number }[];
+}
+
+// ---- LIVE-2.1: なげる（docs/design/LIVE-2.1.md §2.2）
+
+/** なげる ときの ねらい（C が 毎ステップ 作る）。`place` = ねらった ブロック を 置く なら 入る マス（無ければ null）、`eye` = 目、`dirX`・`dirZ` = 前（水平。長さ 1） */
+export interface ThrowAim {
+  place: Vec3 | null;
+  eye: Vec3;
+  dirX: number;
+  dirZ: number;
+}
+/** 着地点 の 答え（窓口 `animals.throwSpot()`・丸 の 場所）。`toss` false = d＜1 で そっと おろす。`why` = なげられない わけ の 合図 */
+export interface ThrowSpot {
+  x: number;
+  y: number;
+  z: number;
+  ok: boolean;
+  home: number | null;
+  toss: boolean;
+  why: AnimalWindowHint | null;
 }
 
 /** A の口（C の ふりわけ・B の 描画・窓口 が 使う。§7 約束 2・3） */
@@ -2686,7 +2775,7 @@ export interface AnimalApi {
   removeCoop(coopId: number): boolean;
   /** ひよこ から 数えて 種類 の くじ の 数（保存 される。引数 で 設定） */
   machoMiss(n?: number): number;
-  serialize(): AnimalSaveV3 | AnimalSaveV2;
+  serialize(): AnimalSaveV4 | AnimalSaveV3 | AnimalSaveV2;
   deserialize(data: unknown): void;
   /** B が 描く: こたつ（たまご が 入って いる もの だけ） */
   forEachKit(fn: (k: KitInfo & { hatchT: number }) => void): void;
@@ -2694,6 +2783,17 @@ export interface AnimalApi {
   forEachCoop(fn: (c: CoopInfo) => void): void;
   /** 直前 の `putDown` が 失敗 した わけ（`coopFull`・`friendFull`。A が 合図 を 出して いる）。ほか は null */
   putDownWhy?(): AnimalHintKind | null;
+  // ---- LIVE-2.1（§6.2）
+  /** だっこ 中 の 着地点 の 答え（だっこ して いなければ null）。照準 の 下 の 語・着地点 の 丸 の もと */
+  throwSpot?(aim: ThrowAim): ThrowSpot | null;
+  /** だっこ 中 に 右クリック: なげる（d＜1 は そっと おろす）。なげられない 所 は 合図 を 出して false */
+  startThrow?(aim: ThrowAim): boolean;
+  /** テスト 用: だっこ 中 の 子 を その 足もと の 点 へ なげる（ゲーム と 同じ とびかた・きまり） */
+  throwTo?(x: number, y: number, z: number): boolean;
+  /** 小屋 の 子 に なった しゅんかん の 大きな しるし の 段 0〜1（いちばん あたらしい 子。なければ 0） */
+  homePop?(): number;
+  /** 天板 の 上 の たまご の 3 わく（プレイヤー 8 マス 以内、または たまご を 持って ねらって いる こたつ） */
+  kitIcons?(aimedKit: { x: number; y: number; z: number } | null, holdingEgg: boolean): KitIcon[];
 }
 
 // ---- LIVE-2: ふつう の 計算 の 型（A が `src/animals/` で 書く。ユニット の 仮の 名前: docs/test-reports/LIVE-2.md）
