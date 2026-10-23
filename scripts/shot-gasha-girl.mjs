@@ -56,16 +56,17 @@ async function labels(withRiky = true) {
     const h = window.__rikkun;
     const p = h.player.get().position;
     const pts = window.__gashaGirl.labels(p, innerWidth, innerHeight);
-    const names = ['2.0', '2.4', '3.0', 'りっくん 1.8'];
+    const names = [...Array(pts.length - 1).fill('3.0'), 'りっくん 1.8'];
+    const last = pts.length - 1;
     document.getElementById('gg-labels')?.remove();
     const d = document.createElement('div');
     d.id = 'gg-labels';
     d.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:99999;font-family:IPAGothic,sans-serif';
     pts.forEach((q, i) => {
-      if (i === 3 && !withRiky) return;
+      if (i === last && !withRiky) return;
       const e = document.createElement('div');
       e.textContent = names[i];
-      e.style.cssText = `position:absolute;left:${q.x}px;top:${q.y}px;transform:translate(-50%,-100%);background:#fff;color:#222;border:3px solid ${i === 3 ? '#e44' : '#36c'};border-radius:10px;padding:2px 12px;font-size:28px;font-weight:bold`;
+      e.style.cssText = `position:absolute;left:${q.x}px;top:${q.y}px;transform:translate(-50%,-100%);background:#fff;color:#222;border:3px solid ${i === last ? '#e44' : '#36c'};border-radius:10px;padding:2px 12px;font-size:28px;font-weight:bold`;
       d.appendChild(e);
     });
     document.body.appendChild(d);
@@ -74,17 +75,17 @@ async function labels(withRiky = true) {
 const settle = async () => { await page.evaluate(() => window.__rikkun.step(2)); await page.waitForTimeout(300); };
 
 // 1. 肩ごし（いつもの 三人称）。りっくんが 中の 1 体を かくさないよう、列を 右へ ずらす
-await page.evaluate(() => window.__gashaGirl.place({ groundY: window.__fy, shift: 4.4 }));
+await page.evaluate(() => window.__gashaGirl.place({ groundY: window.__fy, shift: 2.6 }));
 await settle();
 await labels();
 await page.screenshot({ path: join(OUT, 'size-3.png') });
 
 // 2. よこから: 少女を 右向きに して よこがおを 見せる（カメラは そのまま）
-await page.evaluate(() => window.__gashaGirl.place({ groundY: window.__fy, shift: 4.4, side: true }));
+await page.evaluate(() => window.__gashaGirl.place({ groundY: window.__fy, shift: 2.6, side: true }));
 await settle();
 await labels();
 await page.screenshot({ path: join(OUT, 'size-3-side.png') });
-await page.evaluate(() => window.__gashaGirl.place({ groundY: window.__fy, shift: 4.4 }));
+await page.evaluate(() => window.__gashaGirl.place({ groundY: window.__fy, shift: 2.6 }));
 
 // 3. 立ち姿の GIF（約 2 秒・30fps。ゆっくり ゆれるので 1/60 秒を 2 コマずつ）
 await settle();

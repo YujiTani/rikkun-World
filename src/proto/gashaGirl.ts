@@ -16,7 +16,7 @@ export interface GashaGirlDeps {
 }
 
 /** りっくんは 1.8 ブロック。左から 小さい順 */
-export const GIRL_HEIGHTS = [2.0, 2.4, 3.0];
+export const GIRL_HEIGHTS = [3.0]; // yuzu 2026-10-23: 3.0 ブロックに 決定
 const AHEAD = 5; // プレイヤーの 前 4〜6 ブロック
 const GAP = 2.6; // 体と体の まんなかどうしの 間
 
@@ -69,7 +69,7 @@ export interface GashaGirlHandle {
 }
 
 export function startGashaGirl(deps: GashaGirlDeps): void {
-  const base = './__proto-gasha/girl-rig/girl-rigged.glb';
+  const base = './__proto-gasha/girl-rig/girl-reweight.glb';
   new GLTFLoader().load(
     base,
     (gltf) => {
@@ -107,7 +107,7 @@ export function startGashaGirl(deps: GashaGirlDeps): void {
           const fx = Math.sin(yaw), fz = -Math.cos(yaw); // プレイヤーの 前
           const rx = Math.cos(yaw), rz = Math.sin(yaw); // プレイヤーの 右
           figures.forEach((f, i) => {
-            const side = (i - 1) * GAP + (opts?.shift ?? 0);
+            const side = (i - (figures.length - 1) / 2) * GAP + (opts?.shift ?? 0);
             const x = p.x + fx * AHEAD + rx * side;
             const z = p.z + fz * AHEAD + rz * side;
             const y = (opts?.groundY ?? deps.groundY(Math.floor(x), Math.floor(z))) + 1;
