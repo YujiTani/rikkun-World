@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { meshChunk } from '../render/meshChunk';
 import { ArrayVoxelWorld } from '../VoxelWorld';
 import { LIGHT_CONFIG as C } from './config';
-import { blockLightBrightness, darkenFromBrightness, isDarkForSpawn, lightBrightness } from './curve';
+import { blockLightBrightness, combinedBrightness, darkenFromBrightness, isDarkForSpawn, lightBrightness, nightSkyFactor, skyBrightness } from './curve';
+import { M7_SETTING_DEFAULTS } from '../../contracts';
 import { SkyDarkness } from './skyDarkness';
 import { WorldLight } from './WorldLight';
 
@@ -181,5 +182,42 @@ describe('手動のモード（VOX-D の lightColumn）', () => {
     l.update();
     l.flush();
     expect(l.blockAt(40, 1, 5)).toBe(14);
+  });
+});
+
+describe('夜の倍率（#76）', () => {
+  it('夜の外は 0.125 × 0.16 ≈ 0.02。昼は 1.0 のまま', () => {
+    expect(skyBrightness(15, C.nightDarken)).toBeCloseTo(lightBrightness(4) * 0.16, 6);
+    expect(skyBrightness(15, C.nightDarken)).toBeCloseTo(0.02, 2);
+    expect(skyBrightness(15, 0)).toBeCloseTo(1, 6);
+  });
+  it('どうくつ（空の光 0）は かけない: 0.045 のまま。入り口は なめらか', () => {
+    expect(skyBrightness(0, C.nightDarken)).toBeCloseTo(C.minBrightness, 6);
+    expect(nightSkyFactor(0, C.nightDarken)).toBe(1);
+    expect(nightSkyFactor(2, C.nightDarken)).toBeGreaterThan(nightSkyFactor(4, C.nightDarken));
+    expect(nightSkyFactor(4, C.nightDarken)).toBeCloseTo(0.16, 6);
+    expect(nightSkyFactor(15, C.nightDarken)).toBeCloseTo(0.16, 6);
+  });
+  it('夕方（段数が半分）は 昼と夜の間', () => {
+    const f = nightSkyFactor(15, C.nightDarken / 2);
+    expect(f).toBeCloseTo(0.58, 6);
+  });
+  it('combinedBrightness: たいまつの 3 だんかいは 夜でも そのまま', () => {
+    expect(combinedBrightness(15, C.nightDarken, 14)).toBeCloseTo(C.torchBrightBrightness, 6);
+    expect(combinedBrightness(15, C.nightDarken, 0)).toBeCloseTo(0.02, 2);
+  });
+  it('夜の度合い nt は skyDarkness の入れ物で一緒に動く。isDarkForSpawn・level は変えない', () => {
+    const d = new SkyDarkness();
+    d.value = C.nightDarken;
+    expect(d.night).toBe(1);
+    d.value = C.nightDarken / 2;
+    expect(d.nightUniform.value).toBeCloseTo(0.5, 6);
+    expect(isDarkForSpawn(15, C.nightDarken, 0)).toBe(true);
+    expect(isDarkForSpawn(15, 0, 0)).toBe(false);
+  });
+  it('既定: 妖怪の下限 0・作物の下限 0（自分のキャラ dollMin は 0.3 のまま）', () => {
+    expect(C.yokaiMin).toBe(0);
+    expect(C.dollMin).toBe(0.3);
+    expect(M7_SETTING_DEFAULTS.farmRipeMinBrightness).toBe(0);
   });
 });

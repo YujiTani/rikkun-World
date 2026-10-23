@@ -38,6 +38,8 @@ export interface RenderHookDeps {
   renderNow(): void;
   blob: { info(): BlobHookInfo; setEnabled(on: boolean): void };
   chunks(): ChunkStats;
+  /** #76 かすみ・空の色・人形の明るさ（テストが読む） */
+  env(): { fog: { near: number; far: number; colorHex: number } | null; backgroundHex: number | null; dollBrightness: number };
 }
 
 const DIR: readonly (readonly [number, number, number])[] = [
@@ -254,6 +256,8 @@ export function createRenderHook(d: RenderHookDeps) {
 
   return {
     chunks: () => d.chunks(),
+    /** scene.fog・scene.background・人形の明るさ（#76） */
+    env: () => d.env(),
     faceShade: () => faceShadeTable(),
     /** 平らな箱で描く id（小ブロックの形を持たない固いブロック） */
     flatBlocks: (): string[] => BLOCK_TYPES.filter((_, i) => isFlat(i)).map((t) => t.id as string),
