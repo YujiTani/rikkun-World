@@ -109,7 +109,7 @@ async function cycle(n) {
     }
     if (slowWin) {
       await step(1); const f = await shot(dir); slow.push(f);
-      if (k.eruptionT >= 1.2 && !peak.eruption) peak.eruption = f;
+      if (k.eruptionT >= 0.85 && !peak.eruption) peak.eruption = f;
       if (k.vortexT >= 1.0 && !peak.vortex) peak.vortex = f;
       if (slow.length % 2 === 0) allNorm.push(f);
     } else {
@@ -123,7 +123,7 @@ async function cycle(n) {
     void warped; void ticks; void slowing; void slowDone;
   }
   const end = await info();
-  console.log(`spell ${n}: frames ${allNorm.length} slow ${slow.length} seed ${seed} side ${end.side} dist ${end.dist.toFixed(1)} fbHit ${end.fbHit - stats0.fbHit} fbMiss ${end.fbMiss - stats0.fbMiss} waveHit ${end.waveHit} waveMiss ${end.waveMiss} | hits ${end.hits - stats0.hits} ring ${end.ringHits - stats0.ringHits} vortex ${end.vortexHits - stats0.vortexHits} sw ${end.swHits - stats0.swHits} hp ${end.playerHp}/${end.playerMaxHp} minHp ${minHp}`);
+  console.log(`spell ${n}: frames ${allNorm.length} slow ${slow.length} seed ${seed} side ${end.side} dist ${end.dist.toFixed(1)} fbHit ${end.fbHit - stats0.fbHit} fbMiss ${end.fbMiss - stats0.fbMiss} waveHit ${end.waveHit} waveMiss ${end.waveMiss} | hits ${end.hits - stats0.hits} ring ${end.ringHits - stats0.ringHits} vortex ${end.vortexHits - stats0.vortexHits} hp ${end.playerHp}/${end.playerMaxHp} minHp ${minHp}`);
   return { dir, allNorm, slow, peak, player };
 }
 
