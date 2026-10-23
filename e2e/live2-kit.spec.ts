@@ -17,7 +17,7 @@ test.describe('LIVE-2 こたつ（たまご を あたためる）', () => {
       const A = (window as any).__A;
       A.base();
       const out: any = {};
-      out.ids = h.craft.ui().cards.map((x: any) => x.id).slice(-3); // カードの 順（たいまつの 作り方は 1 枚に まとまる）
+      out.ids = h.craft.ui().cards.map((x: any) => x.id).slice(-11, -8); // GOLD-1: うしろに きんの そうび 8 まい // カードの 順（たいまつの 作り方は 1 枚に まとまる）
       h.inventory.add('grass', 3);
       h.inventory.add('log', 2);
       h.inventory.add('torch', 1);
@@ -57,7 +57,7 @@ test.describe('LIVE-2 こたつ（たまご を あたためる）', () => {
       }
       return out;
     });
-    expect(r.ids.at(-2), 'いちばん うしろ から 2 つ目').toBe('nukunuku');
+    expect(r.ids.at(-2), 'きんの そうび の まえ の うしろ から 2 つ目').toBe('nukunuku');
     expect(r.make.ok).toBe(true);
     expect(r.nuku).toBe(1);
     expect(r.left).toEqual([0, 0, 0]);

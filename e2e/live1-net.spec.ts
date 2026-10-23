@@ -26,7 +26,7 @@ test.describe('LIVE-1 むしとりあみ・むし', () => {
       const made = h.craft.make('mushi_ami');
       h.step(3);
       const out: any = {
-        last: ids[ids.length - 1],
+        last: ids[ids.length - 9], // GOLD-1: うしろに きんの そうび 8 まい
         ok: made?.ok,
         net: h.inventory.count('mushi_ami'),
         log: h.inventory.count('log'),
@@ -49,7 +49,7 @@ test.describe('LIVE-1 むしとりあみ・むし', () => {
       out.durability = h.inventory.durability(0);
       return out;
     });
-    expect(r.last, '作るカードの いちばん うしろ（LIVE-2 で toriya が ふえた）').toBe('toriya');
+    expect(r.last, '作るカードの きんの そうび の まえ（LIVE-2 で toriya が ふえた）').toBe('toriya');
     expect(r.ok).toBe(true);
     expect(r.net).toBe(1);
     expect(r.log).toBe(0);
