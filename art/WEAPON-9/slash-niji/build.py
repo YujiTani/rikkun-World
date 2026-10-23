@@ -42,8 +42,12 @@ def spine(tech, view, n=240):
         x, y = cx + R * np.cos(th), cy - R * np.sin(th)
         nx, ny = np.cos(th), -np.sin(th)  # 外がわ = 中心から はなれる 向き
         if view == "flat":
-            y = 40.5 + (y - 40.5) * 0.6
-            ny = ny * 0.6
+            # うしろから: 前で 下から 上へ 振る 弧は 横から 見ると 線 → たての 細い 三日月（右へ 少し ふくらむ）
+            x = 31 + 5 * np.sin(np.pi * q)
+            y = 41 - 36 * q
+            dx, dy = np.gradient(x), np.gradient(y)
+            nx, ny = -dy, dx
+            nx, ny = np.where(nx < 0, -nx, nx), np.where(nx < 0, -ny, ny)
     else:  # kesa「く」: はば 45 点 = 4.2 マス（けさの 弦 4.25）
         R = 23.3
         ex, ey = R * math.cos(math.radians(15)), R * math.sin(math.radians(15))
@@ -64,7 +68,16 @@ def spine(tech, view, n=240):
     return q, x, y, nx / nn, ny / nn
 
 
-TMAX = {"thrust": 6.5, "kiriage": 8.0, "kesa": 9.0}
+TMAX = {"thrust": 12.0, "kiriage": 5.5, "kesa": 6.0}  # 2026-10-23 試作の スクショ: つきは 太く、きりあげ・けさは 帯を 2/3 に
+
+
+def width_for(tech, u):
+    if tech == "thrust":  # やり: もとは 細く、先へ 太く、先 8% で とがる
+        w = 0.25 + 0.75 * np.clip(u / 0.8, 0, 1) ** 0.7
+        return np.where(u > 0.92, np.clip((1 - u) / 0.08, 0, 1) * 0.9, w)
+    if tech == "kiriage":  # 細めの 三日月: 両はしが とがる
+        return np.where(u > 0.99, 0, np.sin(np.pi * np.clip(u, 0, 1)) ** 0.7)
+    return width(u)
 
 
 def width(u):
@@ -84,10 +97,11 @@ def draw(tech, view, tail, head, sc, core, thin, mode, tip):
     qq = q[k]
     off = (px - sx[k]) * nx[k] + (py - sy[k]) * ny[k]  # 外がわ（前の へり）が +
     u = (qq - tail) / max(1e-3, head - tail)
-    w = T * width(np.clip(u, 0, 1))
+    w = T * width_for(tech, np.clip(u, 0, 1))
     inside = (qq >= tail) & (qq <= head) & (np.abs(off) <= w / 2 + 0.01) & (w > 0.7)
-    if tech == "thrust":
-        inside &= np.abs(py - sy[k]) <= 3.0  # 高さ 6 点 以内
+    inside &= np.sqrt(np.min(d2, axis=2)) <= w / 2 + 0.75  # 背骨の はしより 外へ のびない
+    # まん中を 網で うすく（向こうの キャラ・妖怪が 見える。つき と 紫の 線は べた）
+    holes = inside & (tech != "thrust") & (mode != "purple")
     s = Sprite(FW, FH)
     f = (w / 2 - off) / np.maximum(w, 1e-3)  # 0 = 外の へり（前）→ 1 = 内
     for y in range(FH):
@@ -107,10 +121,20 @@ def draw(tech, view, tail, head, sc, core, thin, mode, tip):
                 else:
                     g = (ff - core) / max(1e-3, 1 - core)
                     c = PAL["G"] if g < 0.34 else PAL["Bl"] if g < 0.67 else PAL["M"]
-                if tip and uu > 0.86:  # 先の 光: 白 → 水色 → にじ の くさび（3〜4 点）
+                if tip and tech == "thrust" and uu > 0.68:  # つきの 先は 強く 光る
+                    c = PAL["W"] if (uu > 0.84 or ff < 0.5) else PAL["T"]
+                elif tip and uu > 0.86:  # 先の 光: 白 → 水色 → にじ の くさび（3〜4 点）
                     c = PAL["W"] if uu > 0.94 else PAL["T"] if (uu > 0.9 or ff < 0.6) else c
             s.px(x, y, c)
-    return s
+    fz = (w / 2 - off) / np.maximum(w, 1e-3)
+    holes = holes & (fz > 0.4) & (fz < 0.85) & (np.array(B)[ys % 4, xs % 4] >= 0.5) & (w > 3.5)
+    return s, holes
+
+
+def punch(im, holes):
+    a = np.asarray(im).copy()
+    a[holes] = 0
+    return Image.fromarray(a, "RGBA")
 
 
 # C1 を 土台に: (名前, tail, head, 太さ, 芯, 網, mode, 先の 光, 残像の もと)
@@ -150,19 +174,23 @@ def ghost(im, prev_im):
 
 def build_slash():
     atlas = Image.new("RGBA", (FW * 6, FH * 6), (0, 0, 0, 0))
+    reduced = Image.new("RGBA", (FW * 6, FH * 6), (0, 0, 0, 0))
     frames, cent = {}, {}
     for ti, tech in enumerate(TECHS):
         for vi, view in enumerate(("side", "flat")):
             seq = seq_for(tech)
             sps = []
-            for (lab, tail, head, sc, core, thin, mode, tip, g) in seq:
-                s = draw(tech, view, tail, head, sc, core, thin, mode, tip)
+            for fi_, (lab, tail, head, sc, core, thin, mode, tip, g) in enumerate(seq):
+                s, holes = draw(tech, view, tail, head, sc, core, thin, mode, tip)
                 s.outline(PAL["D"], where="outside")
                 if mode == "white":
                     s.outline(PAL["D"], where="outside")  # 出る コマは 紺の ふち 2 点（空に とけない。8）
-                sps.append(s.composite(1))
+                if tech == "thrust" and fi_ <= 2 and view == "side":
+                    tex9.plus_star(s, 45, 22, 2 if fi_ < 2 else 1, PAL["W"], PAL["T"])  # 先の 光
+                sps.append(punch(s.composite(1), holes))
             out = []
             for i, im in enumerate(sps):
+                reduced.paste(im, (FW * i, FH * (ti * 2 + vi)))  # うごきを へらす: 残像 なし
                 g = seq[i][8]
                 if g is not None:
                     im = ghost(im, sps[g])
@@ -176,6 +204,7 @@ def build_slash():
                 c.append([round(float(xx.mean()) + 0.5, 1), round(float(yy.mean()) + 0.5, 1)] if len(xx) else [32.0, 22.0])
             cent[(tech, view)] = c
     atlas.save(os.path.join(HERE, "niji_slash3_1x.png"))
+    reduced.save(os.path.join(HERE, "niji_slash3_reduced_1x.png"))
     return atlas, frames, cent
 
 
@@ -254,13 +283,13 @@ def simulate_sparks(seed, dir_deg=0.0):
 
 def write_json(cent):
     data = {
-        "texture": "niji_slash3_1x.png", "frameSize": [FW, FH], "frames": 6,
+        "texture": "niji_slash3_1x.png", "reducedTexture": "niji_slash3_reduced_1x.png", "frameSize": [FW, FH], "frames": 6,
         "rows": {"thrust": {"side": 0, "flat": 1}, "kiriage": {"side": 2, "flat": 3}, "kesa": {"side": 4, "flat": 5}},
         "plateBlocks": 6, "pxPerBlock": 64 / 6,
         "techs": {},
         "variation": {"angleDeg": 5, "lifeSteps": 1, "scale": 0.05, "note": "シード付き乱数。lifeSteps は 消える コマ（2〜4）の どれか 1 つに ±1"},
         "mirror": "カメラから 見て 左へ 振る ときは 板を 左右 反転（uv の x を 反転）し、centroid の x を 64 − x に",
-        "reducedMotion": "残像（ふじの 網）と 火花の 後ろ 2 つを 出さない・まん中の 光は 1 コマ目だけ",
+        "reducedMotion": "絵を reducedTexture（同じ ならび・残像 なし）に かえる。火花の 後ろ 2 つを 出さない・まん中の 光は 1 コマ目だけ",
         "spark": dict(SPARK, texture="niji_hit_1x.png",
                       streakCells={"cell": 8, "dirs": "よこ 0〜7 = 0°,45°,…,315°（画面の 上 = 90°）", "rows": "たて 行 = 色 × 2 + (0 長い / 1 短い)", "colors": SPARK_COLS},
                       flashCells={"y": 80, "size": 16, "frames": 3},
