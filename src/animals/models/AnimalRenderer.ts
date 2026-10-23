@@ -2,7 +2,9 @@ import * as THREE from 'three';
 import type { AnimalView, CoopInfo, CoopPlacePreview, KitInfo } from '../../contracts';
 import { TILE, TILE_COUNT, type AnimalFx, type ParticleOut } from '../../fx/animalFx';
 import { MODEL_SCALE, getAnimalModel, modelKindOf, type AnimalModelKind } from './chickenModel';
-import { NEST_EGG_SCALE, getCoopModel, getEggModel, getNestEggsModel } from './coopSpec';
+import { NEST_EGG_SCALE, getCoopModel, getNestEggsModel } from './coopSpec';
+import { ICON_H, ICON_PER_BLOCK, ICON_W, kitIconKey, rasterKitIcon, type KitIconRow } from './kitIcons';
+import { RING_TEX, rasterRing, ringState, type RingState, type ThrowSpotLike } from './throwRing';
 import { getBugModel } from './bugNetModel';
 import { LAND_TICKS, createPose, poseChicken, type PoseBuf } from './chickenPose';
 import { CHICKEN_BONES, CHICKEN_SCALE, COL, V } from './chickenSpec';
@@ -20,16 +22,14 @@ const D = Math.PI / 180;
 /** 影が 出る にわとり の 数の 上限（InstancedMesh の 大きさ） */
 const MAX_SHADOWS = 64;
 const POINT_CAP = 480;
-/** こたつ の たまご を 描く 数の 上限（`kitActiveMax` の 6） */
-const MAX_KIT_EGGS = 6;
+/** こたつ の 天板 の たまご の 表示 を 描く 数の 上限（`kitActiveMax` の 6 こ = 1 こ ずつ の こたつ 6 台） */
+const MAX_KIT_ICONS = 6;
 /** 小屋 の 形 は 1/9 点 で 組んだ ので 1/16 で 作った 面 に かける */
 const COOP_SCALE = 16 / 9;
 const KIND_INDEX: Readonly<Record<AnimalModelKind, number>> = { chicken: 0, chick: 1, machoChick: 2, macho: 3 };
 /** 小屋 の むき（0 北 −z・1 東 +x・2 南 +z・3 西 −x）の 回転（もん = −z が その むき） */
-/** こたつ の 中心 から たまご の 中心 まで（ふとん の はし 0.5 の すこし 内がわ。たまご の 前 1/3 が のぞく） */
-const KIT_EGG_OUT = 0.46;
-/** 2×2 の こたつ: 中心 から すそ の たまご まで（すそ は 中心 から 1.0。すこし 内がわ） */
-const KIT_EGG_OUT_BIG = 0.96;
+/** 天板 の 上 の たまご の 表示: 天板 の 上 0.5 マス が 絵 の 下 の はし（LIVE-2.1 §3.2）。こたつ の 高さ = 1 */
+const KIT_ICON_LIFT = 1.5;
 const COOP_YAW = [0, -Math.PI / 2, Math.PI, Math.PI / 2] as const;
 
 /** 面の 明るさ（動いた あとの 向き: 上 1.0・南北 0.8・東西 0.6・下 0.5）を かける 材料 */
@@ -291,11 +291,6 @@ export interface AnimalRendererOpts {
   drawCoops?: boolean;
 }
 
-/** こたつ の たまご 1 つ（根もと で かたむく 入れ物） */
-interface EggProp {
-  root: THREE.Group;
-  tilt: THREE.Group;
-}
 /** 小屋 1 つ */
 interface CoopProp {
   root: THREE.Group;
@@ -371,18 +366,13 @@ export class AnimalRenderer {
   private readonly v3 = new THREE.Vector3();
   private readonly flipY = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
   // ---- LIVE-2
-  private readonly eggPool: EggProp[][] = [[], [], [], []];
-  private readonly eggUsed = [0, 0, 0, 0];
-  private eggTotal = 0;
   private readonly coopProps: CoopProp[] = [];
   private coopUsed = 0;
   private extraDraws = 0;
   private extraTris = 0;
-  private motionNow = 1;
   private readonly camPos = new THREE.Vector3();
   private ghost: { root: THREE.Group; mat: THREE.MeshBasicMaterial; bad: { value: number } } | null = null;
   private ghostShown = false;
-  private readonly kitFn = (k: KitInfo & { hatchT: number }): void => this.drawKit(k);
   private readonly coopFn = (c: CoopInfo): void => this.drawCoop(c);
 
   constructor(private readonly o: AnimalRendererOpts) {
@@ -510,20 +500,21 @@ export class AnimalRenderer {
     // LIVE-2: こたつ の たまご・小屋 の すばこ（ひとつ 1 回）
     this.extraDraws = 0;
     this.extraTris = 0;
-    this.motionNow = motion;
     camera.getWorldPosition(this.camPos);
-    this.eggUsed.fill(0);
-    this.eggTotal = 0;
     this.coopUsed = 0;
     if (this.o.source) {
-      this.o.source.forEachKit(this.kitFn);
       this.o.source.forEachCoop(this.coopFn);
     }
-    for (let v = 0; v < 4; v++) for (let i = this.eggUsed[v]; i < this.eggPool[v].length; i++) this.eggPool[v][i].root.visible = false;
+    this.updateKitIcons(camera);
+    this.updateRing();
     for (let i = this.coopUsed; i < this.coopProps.length; i++) this.coopProps[i].root.visible = false;
     if (this.ghostShown && this.ghost) {
       this.extraDraws++;
       this.extraTris += getCoopModel().tris;
+    }
+    if (this.plateShown) {
+      this.extraDraws++;
+      this.extraTris += 2;
     }
     draws += this.extraDraws;
     tris += this.extraTris;
@@ -622,68 +613,6 @@ export class AnimalRenderer {
     return { root, mesh };
   }
 
-  /** こたつ の たまご 1 つ。前（ひび の ある 面）を カメラ に 向け、すそ から のぞく。ゆれ = `left` から（ときどき 600・よく 180 ごと の 12 ステップ） */
-  private drawKit(k: KitInfo & { hatchT: number }): void {
-    if (k.egg === null || this.eggTotal >= MAX_KIT_EGGS) return;
-    const hatching = k.hatchT > 0;
-    if (hatching && k.hatchT >= 20 / 60) return; // ぽんっ で たまご は われて ひよこ に なる
-    const gold = k.egg === 'gold';
-    const cracked = k.wobble === 2;
-    const variant = (gold ? 2 : 0) + (cracked ? 1 : 0);
-    const pool = this.eggPool[variant];
-    let prop = pool[this.eggUsed[variant]];
-    if (!prop) {
-      const m = this.staticMesh(getEggModel(gold, cracked), this.bodyMaterial);
-      const root = new THREE.Group();
-      const tilt = new THREE.Group();
-      tilt.add(m.root);
-      root.add(tilt);
-      this.group.add(root);
-      prop = { root, tilt };
-      pool.push(prop);
-    }
-    this.eggUsed[variant]++;
-    this.eggTotal++;
-    const big = k.size === 2;
-    const cx = k.x + (big ? 1 : 0.5);
-    const cz = k.z + (big ? 1 : 0.5);
-    let ux = this.camPos.x - cx;
-    let uz = this.camPos.z - cz;
-    const len = Math.hypot(ux, uz) || 1;
-    ux /= len;
-    uz /= len;
-    let ex = ux * KIT_EGG_OUT;
-    let ez = uz * KIT_EGG_OUT;
-    if (big) {
-      // 2×2: カメラ に いちばん 向いた 辺 の すそ から のぞく（辺 に そって すこし ずれる）
-      const out = KIT_EGG_OUT_BIG;
-      if (Math.abs(ux) >= Math.abs(uz)) {
-        ex = Math.sign(ux || 1) * out;
-        ez = Math.max(-0.6, Math.min(0.6, (uz / Math.abs(ux || 1)) * out));
-      } else {
-        ez = Math.sign(uz || 1) * out;
-        ex = Math.max(-0.6, Math.min(0.6, (ux / Math.abs(uz || 1)) * out));
-      }
-    }
-    prop.root.visible = true;
-    prop.root.position.set(cx + ex, k.y, cz + ez);
-    prop.root.rotation.set(0, Math.atan2(-ux, -uz), 0);
-    prop.root.scale.setScalar(V * 16);
-    // かたむき
-    let tilt = 0;
-    if (this.motionNow > 0) {
-      if (hatching) tilt = 14 * Math.sin(k.hatchT * 60 * 1.4);
-      else if (k.wobble > 0) {
-        const period = k.wobble === 2 ? 180 : 600;
-        const u = 11 - (k.left % period);
-        if (u >= 0 && u < 12) tilt = (k.wobble === 2 ? 7 : 10) * Math.sin((2 * Math.PI * u * (k.wobble === 2 ? 2 : 1)) / 12);
-      }
-    }
-    prop.tilt.rotation.set(0, 0, tilt * D);
-    this.extraDraws++;
-    this.extraTris += getEggModel(gold, cracked).tris;
-  }
-
   /** 小屋 1 つ。すばこ の たまご は いつも、小屋 の 形 は `drawCoops` の とき だけ */
   private drawCoop(c: CoopInfo): void {
     const total = c.nest.egg + c.nest.gold;
@@ -738,14 +667,139 @@ export class AnimalRenderer {
     return { mat, bad };
   }
 
+  // ---- LIVE-2.1: こたつ の 天板 の たまご の 表示・着地点 の 丸・たいら に なる 足もと の 板
+
+  private readonly kitIconProps: Array<{ mesh: THREE.Mesh; tex: THREE.DataTexture; key: string }> = [];
+  private kitIconRows: readonly KitIconRow[] = [];
+
+  /**
+   * こたつ の 天板 の 上 の たまご の 絵（3 わく）。毎フレーム `kitIconsFor(animals.kits(), …)` の 答え を わたす。
+   * 1 台 1 回 の 描画（こたつ 2 台 で +2）。いつも カメラ の ほう を 向く。`null`・空 で 消える
+   */
+  setKitIcons(rows: readonly KitIconRow[] | null): void {
+    this.kitIconRows = rows ?? [];
+  }
+
+  private makeKitIcon(): { mesh: THREE.Mesh; tex: THREE.DataTexture; key: string } {
+    const tex = new THREE.DataTexture(new Uint8Array(ICON_W * ICON_H * 4), ICON_W, ICON_H, THREE.RGBAFormat);
+    tex.magFilter = THREE.NearestFilter; // ドット絵
+    tex.minFilter = THREE.NearestFilter;
+    tex.flipY = true; // 上 から の 行 を 上 に
+    const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, fog: false });
+    mat.userData.noDim = true;
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(ICON_W / ICON_PER_BLOCK, ICON_H / ICON_PER_BLOCK), mat);
+    mesh.renderOrder = 4;
+    mesh.frustumCulled = false;
+    this.group.add(mesh);
+    return { mesh, tex, key: '' };
+  }
+
+  private updateKitIcons(camera: THREE.Camera): void {
+    const rows = this.kitIconRows;
+    const n = Math.min(rows.length, MAX_KIT_ICONS);
+    for (let i = 0; i < n; i++) {
+      const row = rows[i]!;
+      const prop = (this.kitIconProps[i] ??= this.makeKitIcon());
+      const key = kitIconKey(row.slots);
+      if (prop.key !== key) {
+        prop.key = key;
+        (prop.tex.image.data as Uint8Array).set(rasterKitIcon(row.slots));
+        prop.tex.needsUpdate = true;
+      }
+      const half = row.size === 2 ? 1 : 0.5;
+      prop.mesh.visible = true;
+      prop.mesh.position.set(row.x + half, row.y + KIT_ICON_LIFT + ICON_H / ICON_PER_BLOCK / 2, row.z + half);
+      prop.mesh.quaternion.copy(camera.quaternion);
+      this.extraDraws++;
+      this.extraTris += 2;
+    }
+    for (let i = n; i < this.kitIconProps.length; i++) this.kitIconProps[i]!.mesh.visible = false;
+  }
+
+  private ring: { mesh: THREE.Mesh; plain: THREE.DataTexture; home: THREE.DataTexture } | null = null;
+  private ringNow: RingState | null = null;
+
+  /** だっこ 中 の 着地点 の 丸（`animals.throwSpot()` の 答え）。毎フレーム 呼ぶ。`null`・なげられない 所 で 消える */
+  setThrowSpot(spot: ThrowSpotLike | null): void {
+    this.ringNow = ringState(spot);
+  }
+
+  private updateRing(): void {
+    const st = this.ringNow;
+    if (!st) {
+      if (this.ring) this.ring.mesh.visible = false;
+      return;
+    }
+    if (!this.ring) {
+      const mk = (home: boolean): THREE.DataTexture => {
+        const t = new THREE.DataTexture(rasterRing(home), RING_TEX, RING_TEX, THREE.RGBAFormat);
+        t.magFilter = THREE.LinearFilter;
+        t.minFilter = THREE.LinearFilter;
+        t.needsUpdate = true;
+        return t;
+      };
+      const plain = mk(false);
+      const home = mk(true);
+      const mat = new THREE.MeshBasicMaterial({ map: plain, transparent: true, depthWrite: false, fog: false });
+      mat.userData.noDim = true;
+      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), mat);
+      mesh.rotation.x = -Math.PI / 2;
+      mesh.renderOrder = 3;
+      mesh.frustumCulled = false;
+      this.group.add(mesh);
+      this.ring = { mesh, plain, home };
+    }
+    const r = this.ring;
+    const mat = r.mesh.material as THREE.MeshBasicMaterial;
+    const tex = st.home ? r.home : r.plain;
+    if (mat.map !== tex) {
+      mat.map = tex;
+      mat.needsUpdate = true;
+    }
+    r.mesh.visible = true;
+    r.mesh.scale.set(st.diameter, st.diameter, 1);
+    r.mesh.position.set(st.x, st.y, st.z);
+    this.extraDraws++;
+    this.extraTris += 2;
+  }
+
+  /** たいら に なる 足もと の 板（すけた 形 と いっしょ。白 の うすい 四角） */
+  private plate: THREE.Mesh | null = null;
+  private plateShown = false;
+
+  /** 板 を 出す／消す。`flat` = 足もと の 広さ と 床 の 高さ（`FlattenPlan.plate`）。ok でない とき は 消す */
+  private setPlate(flat: { x0: number; z0: number; w: number; d: number; y: number } | null): void {
+    if (!flat) {
+      this.plateShown = false;
+      if (this.plate) this.plate.visible = false;
+      return;
+    }
+    if (!this.plate) {
+      const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.22, depthWrite: false, fog: false });
+      mat.userData.noDim = true;
+      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), mat);
+      mesh.rotation.x = -Math.PI / 2;
+      mesh.renderOrder = 4;
+      mesh.frustumCulled = false;
+      this.group.add(mesh);
+      this.plate = mesh;
+    }
+    this.plate.visible = true;
+    this.plateShown = true;
+    this.plate.scale.set(flat.w, flat.d, 1);
+    this.plate.position.set(flat.x0 + flat.w / 2, flat.y + 0.02, flat.z0 + flat.d / 2);
+  }
+
   private kitGhost: { mesh: THREE.Mesh; mat: THREE.MeshBasicMaterial; bad: { value: number } } | null = null;
 
   /** 置く 前 の すけた こたつ（2×2×1 の 箱）。毎フレーム 呼ぶ（`null` で 消える）。(x, z) = 北西 の マス */
-  setKitGhost(pv: { x: number; y: number; z: number; ok: boolean } | null): void {
+  setKitGhost(pv: { x: number; y: number; z: number; ok: boolean; flat?: { x0: number; z0: number; w: number; d: number; y: number } } | null): void {
     if (!pv) {
       if (this.kitGhost) this.kitGhost.mesh.visible = false;
+      if (!this.ghostShown) this.setPlate(null);
       return;
     }
+    this.setPlate(pv.ok ? (pv.flat ?? { x0: pv.x, z0: pv.z, w: 2, d: 2, y: pv.y }) : null);
     if (!this.kitGhost) {
       const { mat, bad } = this.makeGhostMat(false); // 骨 の ない 箱 は objectNormal が 無い ので normal を 使う
       const mesh = new THREE.Mesh(new THREE.BoxGeometry(2, 1, 2), mat);
@@ -766,12 +820,14 @@ export class AnimalRenderer {
    * 置く 前 の すけた 小屋（§2.3 10a）。毎フレーム 呼ぶ（`null` で 消える）。入る = 白 40%、入らない = 赤 35% の ななめ しま。
    * 位置 は `previewCoop()` の 答え（ずらし 後）。
    */
-  setCoopGhost(pv: CoopPlacePreview | null): void {
+  setCoopGhost(pv: (CoopPlacePreview & { flat?: { x0: number; z0: number; w: number; d: number; y: number } }) | null): void {
     if (!pv) {
       this.ghostShown = false;
       if (this.ghost) this.ghost.root.visible = false;
+      if (!this.kitGhost?.mesh.visible) this.setPlate(null);
       return;
     }
+    this.setPlate(pv.ok ? (pv.flat ?? { x0: pv.x - 2, z0: pv.z - 2, w: 5, d: 5, y: pv.y }) : null);
     if (!this.ghost) {
       const { mat, bad } = this.makeGhostMat();
       const root = new THREE.Group();
@@ -899,6 +955,21 @@ export class AnimalRenderer {
     this.bodyMaterial.dispose();
     this.hullMaterial.dispose();
     this.ghost?.mat.dispose();
+    for (const k of this.kitIconProps) {
+      k.tex.dispose();
+      (k.mesh.material as THREE.Material).dispose();
+      k.mesh.geometry.dispose();
+    }
+    if (this.ring) {
+      this.ring.plain.dispose();
+      this.ring.home.dispose();
+      (this.ring.mesh.material as THREE.Material).dispose();
+      this.ring.mesh.geometry.dispose();
+    }
+    if (this.plate) {
+      (this.plate.material as THREE.Material).dispose();
+      this.plate.geometry.dispose();
+    }
     if (this.kitGhost) {
       this.kitGhost.mat.dispose();
       this.kitGhost.mesh.geometry.dispose();

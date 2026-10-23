@@ -80,6 +80,11 @@ export const TILE = { heartFull: 0, heartEmpty: 1, star: 2, dot: 3, footFull: 4,
 export const TILE_COUNT = 12;
 
 const CAP = 256;
+/** 小屋 の 子 の しるし: 大きい のは 20 ステップ まで、40 で 消える */
+const POP_BIG = 20;
+const POP_END = 40;
+/** 土けむり の 上限 */
+const DUST_MAX = 25;
 const DT = 1 / 60;
 
 type Kind = 1 | 2 | 3 | 4 | 5 | 6; // 1 ハート 2 紙ふぶき 3 けむり 4 キラッ 5 はっぱ 6 から の かけら
@@ -307,6 +312,8 @@ export interface AnimalFxCounts {
   leaf: number;
   /** LIVE-2: から の かけら（かえる たび 6） */
   shell: number;
+  /** LIVE-2.1: たいら に した ときの 土けむり の つぶ（`flattenDust`。1 列 1 つ・25 まで） */
+  dust: number;
 }
 
 interface Seen {
@@ -334,6 +341,8 @@ interface MarkRow {
   home: number;
   /** 頭 の 上 の しるし の 高さ（ひよこ は ひくい） */
   headY: number;
+  /** LIVE-2.1: 小屋 の 子 に なって から の ステップ（-1 = 出さない） */
+  pop: number;
 }
 
 /** ねて いる 子 の Z 1 つ ぶん */
@@ -392,7 +401,7 @@ export class AnimalFx {
   readonly particles = new AnimalParticles();
   /** とんで いる むし（描く 側が 読む。あみ を ふって 10〜30 ステップ） */
   readonly flights: BugFlight[] = [];
-  private readonly counts: AnimalFxCounts = { hearts: 0, burst: 0, confetti: 0, puff: 0, sparkle: 0, leaf: 0, shell: 0 };
+  private readonly counts: AnimalFxCounts = { hearts: 0, burst: 0, confetti: 0, puff: 0, sparkle: 0, leaf: 0, shell: 0, dust: 0 };
   private readonly rnd: () => number;
   private readonly heads: HeadHeart[] = [];
   private headN = 0;
@@ -407,6 +416,8 @@ export class AnimalFx {
   private hatchedBefore = false;
   private machoBefore = false;
   private readonly seen = new Map<number, Seen>();
+  /** 小屋 の 子 に なった ステップ（id → tick）。40 ステップ で 忘れる */
+  private readonly homePops = new Map<number, number>();
   private readonly pending: Pending[] = [];
   private gen = 0;
   private tick = 0;
@@ -545,9 +556,10 @@ export class AnimalFx {
       const steps = v.friend && near && follow > 0 ? (follow > ANIMAL_FX.stepsHigh ? 3 : follow > ANIMAL_FX.stepsMid ? 2 : 1) : 0;
       const full = near && fullLeft > 0;
       const home = near && (v.homeFill ?? 0) > 0 ? Math.min(1, v.homeFill ?? 0) : 0;
-      if (hearts === 0 && steps === 0 && !full && home === 0) continue;
+      const popAge = near ? this.popAge(v.id) : -1;
+      if (hearts === 0 && steps === 0 && !full && home === 0 && popAge < 0) continue;
       let m = this.marks[n];
-      if (!m) m = this.marks[n] = { id: 0, x: 0, y: 0, z: 0, hearts: 0, steps: 0, follow: 0, fullLeft: 0, home: 0, headY: ANIMAL_FX.headHeartY };
+      if (!m) m = this.marks[n] = { id: 0, x: 0, y: 0, z: 0, hearts: 0, steps: 0, follow: 0, fullLeft: 0, home: 0, headY: ANIMAL_FX.headHeartY, pop: -1 };
       n++;
       m.id = v.id;
       m.x = v.x;
@@ -558,6 +570,7 @@ export class AnimalFx {
       m.follow = follow;
       m.fullLeft = full ? fullLeft : 0;
       m.home = home;
+      m.pop = popAge;
       m.headY = headYOf(v);
     }
     this.markN = n;
@@ -715,6 +728,50 @@ export class AnimalFx {
     }
   }
 
+  /** 小屋 の 子 に なって から の ステップ（40 いじょう・なって いない は -1） */
+  private popAge(id: number): number {
+    const t = this.homePops.get(id);
+    if (t === undefined) return -1;
+    const a = this.tick - t;
+    if (a >= POP_END) {
+      this.homePops.delete(id);
+      return -1;
+    }
+    return a;
+  }
+
+  /**
+   * `fx().homePop`: 小屋 の 子 に なった しるし の 大きさ の 段 0〜1。20 ステップ まで 1、40 で 0。
+   * いちばん 新しい 子 の 値（なければ 0）
+   */
+  homePop(): number {
+    let best = 0;
+    for (const [id, t] of this.homePops) {
+      const a = this.tick - t;
+      if (a >= POP_END) {
+        this.homePops.delete(id);
+        continue;
+      }
+      best = Math.max(best, a < POP_BIG ? 1 : 1 - (a - POP_BIG) / (POP_END - POP_BIG));
+    }
+    return best;
+  }
+
+  /**
+   * 置き物 を たいら に した 足もと の 土けむり（LIVE-2.1 §2.1）。`cols` = 計画 の `dust`（1 列 1 つ）。25 まで。
+   * つなぎ込み が 置いた ステップ に 呼ぶ（`DigSystem.takeFlattenDust()`・`coopPlan().dust`）
+   */
+  flattenDust(cols: ReadonlyArray<{ x: number; y: number; z: number }>): void {
+    const n = Math.min(cols.length, DUST_MAX);
+    this.counts.dust += n;
+    if (this.motion() <= 0) return;
+    for (let i = 0; i < n; i++) {
+      const c = cols[i]!;
+      const a = this.rnd() * Math.PI * 2;
+      this.particles.spawn(3, c.x + 0.5, c.y + 0.1, c.z + 0.5, Math.cos(a) * 0.3, 0.5, Math.sin(a) * 0.3, 26, 0.3, 0xb8a27c);
+    }
+  }
+
   /** 音 を 1 つ 鳴らす（出来事 に ならない もの: こたつ に 入れた〈`kitPut`〉・小屋 を 置いた〈`coopPlace`〉。つなぎ込み が 呼ぶ） */
   play(name: AnimalSoundName): void {
     this.snd(name);
@@ -729,6 +786,19 @@ export class AnimalFx {
   }
 
   private one(e: AnimalEvent): void {
+    // LIVE-2.1: なげる／当たる（出来事 の 型 は 窓口 の 仕上げ で 契約 に 入る まで 文字 で 見る）
+    const kind = (e as { type: string }).type;
+    if (kind === 'toss') {
+      this.snd('toss');
+      return;
+    }
+    if (kind === 'bonk') {
+      this.snd('bonk');
+      const b = e as unknown as { x: number; y: number; z: number };
+      if (this.motion() > 0) this.puff({ x: b.x, y: b.y - 0.2, z: b.z }, 2);
+      else this.counts.puff += 2;
+      return;
+    }
     switch (e.type) {
       case 'feed':
         this.snd('feed');
@@ -823,6 +893,7 @@ export class AnimalFx {
       }
       case 'home': {
         this.snd('home');
+        this.homePops.set(e.id, this.tick);
         this.counts.hearts += ANIMAL_FX.homeHearts;
         const s = this.seen.get(e.id);
         if (s) {
@@ -873,7 +944,7 @@ export class AnimalFx {
       if (m.home > 0) row.home = m.home;
       marks.push(row);
     }
-    return { ...this.counts, zzz: this.zzzN, marks };
+    return { ...this.counts, zzz: this.zzzN, marks, homePop: this.homePop() } as AnimalFxRecord;
   }
 
   /** `animals.fxReset()` */
@@ -885,6 +956,7 @@ export class AnimalFx {
     this.counts.sparkle = 0;
     this.counts.leaf = 0;
     this.counts.shell = 0;
+    this.counts.dust = 0;
   }
 
   /**
@@ -924,7 +996,11 @@ export class AnimalFx {
         const k = Math.max(0, Math.min(1, m.fullLeft / fullTicks));
         put(m, hasMain ? 2 * gap : 0, TILE.belly, ANIMAL_FX.headHeartSize * (0.55 + 0.45 * k), 1);
       }
-      if (m.home > 0) {
+      if (m.pop >= 0) {
+        // LIVE-2.1: 小屋 の 子 に なった しゅんかん。ふだん の 1.5 倍 で ぽんっ → 20 ステップ で ふつう → 40 で 消える
+        const k = m.pop < POP_BIG ? 1.5 - 0.5 * (m.pop / POP_BIG) : 1;
+        put(m, hasMain || m.fullLeft > 0 ? -2 * gap : 0, TILE.house3, ANIMAL_FX.headHeartSize * k, 1);
+      } else if (m.home > 0) {
         // いえ の しるし: 小屋 に 入る とちゅう。3 だんかい（1/3・2/3・ぜんぶ）で うまる
         const tile = m.home >= 1 ? TILE.house3 : m.home >= 2 / 3 ? TILE.house2 : m.home >= 1 / 3 ? TILE.house1 : TILE.houseEmpty;
         put(m, hasMain || m.fullLeft > 0 ? -2 * gap : 0, tile, ANIMAL_FX.headHeartSize, 1);
