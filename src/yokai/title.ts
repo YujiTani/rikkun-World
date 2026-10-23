@@ -36,11 +36,10 @@ export function isBigTitle(t: YokaiTitle): boolean {
 
 /**
  * 頼まれた二つ名を、きまり（§6）の中におさめる。
- * ぬりかべ は おやぶん まで。たいしょう・ヌシ が もういる（bigTaken）ときは なし。
+ * たいしょう・ヌシ が もういる（bigTaken）ときは なし。
  */
-export function limitTitle(kind: YokaiKind, title: YokaiTitle, bigTaken: boolean): YokaiTitle {
+export function limitTitle(_kind: YokaiKind, title: YokaiTitle, bigTaken: boolean): YokaiTitle {
   if (!isBigTitle(title)) return title;
-  if (kind === 'nurikabe') return 'oyabun';
   return bigTaken ? 'none' : title;
 }
 

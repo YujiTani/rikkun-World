@@ -162,7 +162,7 @@ test.describe('BAL-G 色ちがい 3 段階（DESIGN 13.1）', () => {
 });
 
 test.describe('BAL-G 頭の印・ヌシの光（DESIGN 13.2）', () => {
-  test('おやぶん・なしは 印なし、たいしょう = はちまき、ヌシ = かんむり＋光。ぬりかべは 印なし', async ({ page }) => {
+  test('おやぶん・なしは 印なし、たいしょう = はちまき、ヌシ = かんむり＋光（ぬりかべ も。#270）', async ({ page }) => {
     await openBal(page);
     const r = await page.evaluate(() => {
       const T = (window as any).T;
@@ -201,9 +201,11 @@ test.describe('BAL-G 頭の印・ヌシの光（DESIGN 13.2）', () => {
       expect(nu.glow.opacity).toBeLessThanOrEqual(0.12 + 1e-9);
       expect(nu.glow.lift).toBeCloseTo(0.1, 2);
     }
-    expect(r.nurikabe_nushi.mark).toBe('none');
-    expect(r.nurikabe_nushi.glow).toBeNull();
-    expect(r.nurikabe_taisho.mark).toBe('none');
+    expect(r.nurikabe_nushi.mark).toBe('crown');
+    expect(r.nurikabe_nushi.markOnHead).toBe(true);
+    expect(r.nurikabe_nushi.glow).not.toBeNull();
+    expect(r.nurikabe_taisho.mark).toBe('hachimaki');
+    expect(r.nurikabe_taisho.markOnHead).toBe(true);
   });
 
   test('ヌシの光: 2.5 秒で ゆっくり変わる（点滅しない）。夜も 暗くしない。印は 夜に 暗くなる', async ({ page }) => {

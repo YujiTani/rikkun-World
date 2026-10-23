@@ -108,6 +108,11 @@ export class Nurikabe extends YokaiBase {
     this.finish();
   }
 
+  /** 二つ名の印（はちまき・かんむり）は かべの グループに つける（のけぞりに ついてくる） */
+  protected override headGroup(): THREE.Object3D {
+    return this.kabe;
+  }
+
   /** 前の地面に はば 2.6 × 高さ 1.0 × 長さ 3.0（前のはしから -Z へ） */
   protected attackHitBox(): HitBox {
     return { cx: 0, cy: 0.5, cz: PIVOT[2] - 1.5, w: 2.6, h: 1.0, d: 3.0 };

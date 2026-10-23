@@ -6,7 +6,7 @@ import type { YokaiTitle } from '../contracts';
  * 二つ名の 頭の印と、ヌシの ふんわり光（DESIGN 13.2、BALANCE §2.5）。
  *  - たいしょう = はちまき（きなり の帯 ＋ あい の結び目と はし 2 本）
  *  - ヌシ = かんむり（金・濃い金・とげ 5 本・水色の玉）＋ ふんわり光（からだを つつむ 光の箱 1 枚）
- * 印は 頭の グループの 子にする（首・かさ の動きに ついてくる）。ぬりかべ・おやぶん・なし は 印なし。
+ * 印は 頭の グループの 子にする（首・かさ の動きに ついてくる）。おやぶん・なし は 印なし（ぬりかべ は かべの 上の方に はちまき、てっぺんに かんむり。#270）。
  */
 export type NickMarkKind = 'hachimaki' | 'crown';
 
@@ -25,6 +25,10 @@ interface HeadSpec {
   crownY: number;
   crownW: number;
   crownD: number;
+  /** 印の中心の ずれ（頭の グループの 原点が 体の中心でないとき）。なければ 0 */
+  z?: number;
+  /** 印ぜんたいの 大きさの 倍率（大きな体に 合わせる）。なければ 1。ここの 数は 倍率で 割った 値で 書く */
+  k?: number;
 }
 const HEADS: Record<string, HeadSpec> = {
   // かさの 2 段め（y 1.43）・てっぺん（y 1.6）
@@ -33,6 +37,8 @@ const HEADS: Record<string, HeadSpec> = {
   chochin: { bandY: -0.27, bandW: 0.5, bandD: 0.5, crownY: -0.3, crownW: 0.44, crownD: 0.44 },
   // ろくろくび: 頭（0〜0.5）の おでこ・まげの 上
   rokurokubi: { bandY: 0.465, bandW: 0.55, bandD: 0.55, crownY: 0.7, crownW: 0.4, crownD: 0.4 },
+  // ぬりかべ: かべ（はば 2.6・高さ 2.7・あつさ 0.8、かべの グループの 中で y 0〜2.7・z 0.4 が中心）。目の上（y 2.5）に帯、てっぺん（y 2.7）に かんむり
+  nurikabe: { bandY: 1.25, bandW: 1.34, bandD: 0.44, crownY: 1.35, crownW: 0.45, crownD: 0.3, z: 0.4, k: 2 },
 };
 
 const KINARI = 0xfff6e0;
@@ -47,12 +53,14 @@ function box(g: THREE.Group, w: number, h: number, d: number, x: number, y: numb
   g.add(m);
 }
 
-/** 頭の印。おやぶん・二つ名なし・ぬりかべ は null。顔は 前（-Z）なので 結び目は うしろ（+Z） */
+/** 頭の印。おやぶん・二つ名なし は null。顔は 前（-Z）なので 結び目は うしろ（+Z） */
 export function buildNickMarks(kind: string, title: YokaiTitle): NickMarks | null {
   const s = HEADS[kind];
   if (!s || (title !== 'taisho' && title !== 'nushi')) return null;
   const group = new THREE.Group();
   group.name = 'nickMarks';
+  group.position.z = s.z ?? 0;
+  if (s.k) group.scale.setScalar(s.k);
   if (title === 'taisho') {
     const h = 0.08;
     box(group, s.bandW, h, s.bandD, 0, s.bandY, 0, KINARI);

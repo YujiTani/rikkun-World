@@ -251,10 +251,10 @@ test.describe('BAL-B 二つ名（AC10）', () => {
     expect(r.plainAnnounce).toBeNull();
   });
 
-  test('§6: たいしょう・ヌシ は 同時に 1 体まで・ぬりかべ は おやぶん まで', async ({ page }) => {
+  test('§6: たいしょう・ヌシ は 同時に 1 体まで（ぬりかべ も。#270）', async ({ page }) => {
     await open(page);
     // 前提（開発へ）: title を決めて出すときも §6 のきまりを通す。
-    //   たいしょう・ヌシ が もういるとき 同じ段を頼まれたら title = 'none'、ぬりかべ に たいしょう・ヌシ は 'oyabun'。
+    //   たいしょう・ヌシ が もういるとき 同じ段を頼まれたら title = 'none'。ぬりかべ も 同じ（#270 で おやぶん どまりを やめた）。
     const r = await page.evaluate(() => {
       const T = (window as any).T;
       const h = (window as any).__rikkun;
@@ -282,9 +282,8 @@ test.describe('BAL-B 二つ名（AC10）', () => {
     expect(r.sounds.filter((s: string) => s === 'nushi').length).toBe(1);
     expect(r.sounds.includes('taisho')).toBe(false);
     expect(r.afterClear).toBe('taisho');
-    expect(r.nurikabe.title).toBe('oyabun');
-    expect(r.nurikabe.maxHp).toBe(60);
-    expect(r.nurikabeTaisho.title).toBe('oyabun');
-    expect(r.nurikabeTaisho.maxHp).toBe(60);
+    expect(r.nurikabe.title).toBe('nushi');
+    expect(r.nurikabeTaisho.title).toBe('taisho');
+    expect(r.nurikabe.maxHp / r.nurikabeTaisho.maxHp).toBeCloseTo(1.5, 1);
   });
 });
