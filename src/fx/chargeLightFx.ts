@@ -1,12 +1,12 @@
 import * as THREE from 'three';
-import type { ChargeLightView, ChargePalette } from '../legend/chargeLight';
+import { GATHER_LIFE, type ChargeLightView, type ChargePalette } from '../legend/chargeLight';
 import type { HandInfo } from '../legend/handPos';
 import { DotPoints } from './dotPoints';
 
 /**
- * WEAPON-8 §3.5: ため中の 手もとの 光（T1）の 絵。素材 `public/models/fx/charge_light.{png,json}`（雷神剣・風神剣 共通。色の 表だけ ちがう）。
+ * WEAPON-9 PR-1（§5.8）: ため中の 光の 絵（体の 中心へ あつまる つぶ ＋ いっぱいで 右手の 光）。元は WEAPON-8 §3.5 の 絵。素材 `public/models/fx/charge_light.{png,json}`（雷神剣・風神剣 共通。色の 表だけ ちがう）。
  * - 板 3 まい（芯・輪・剣先の きらり。カメラに 向く）を 1 つの メッシュで 1 回 ＋ 点（すいこまれる つぶ・光の 走り・回る つぶ）1 回 = 描画 2・三角形 6。
- * - 光は 剣を 持つ 手に あつまる。体は かくさない（深さの 判定は しない）。うすく なる ときは 網で ぬく（半透明の 点は 作らない）。
+ * - 光は 体の 中心へ あつまる。右手は いっぱいの ときだけ 光る。体は かくさない（深さの 判定は しない）。はなしたら すぐ 消える。
  * - 「動きを減らす」の ふるまいは `ChargeLightView`（つぶ・輪・回る つぶ なし）が 決める。
  */
 const BASE = './models/fx/';
@@ -29,7 +29,6 @@ const RINGS: readonly (readonly number[])[] = [
   [92, 16, 21, 21],
   [0, 38, 21, 21],
 ];
-const STAR: readonly number[] = [22, 38, 7, 7];
 
 export const CHARGE_PALETTES: Record<ChargePalette, readonly string[]> = {
   fujin: ['#F4FCFF', '#CDEFFC', '#8FD6F2', '#4FA8D8', '#2B6699'],
@@ -93,8 +92,6 @@ export class ChargeLightFx {
   private readonly camR = new THREE.Vector3();
   private readonly camU = new THREE.Vector3();
   private readonly hand = new THREE.Vector3();
-  private readonly tipP = new THREE.Vector3();
-  private readonly body = new THREE.Vector3();
   private readonly tmp = new THREE.Vector3();
   private readonly dirv = new THREE.Vector3();
 
@@ -156,7 +153,7 @@ export class ChargeLightFx {
     }
   }
 
-  /** 1 ステップに 1 回。body = 体の まん中（つぶが 体の 前を 横切らない ための 向き。なければ 下） */
+  /** 1 ステップに 1 回。body = 体の 中心（むね）。つぶは まわりから ここへ あつまる（手には あつまらない） */
   step(v: ChargeLightView, h: HandInfo, body: { x: number; y: number; z: number } | null): void {
     if (v.phase === 'off' || !v.palette) {
       this.quads.visible = false;
@@ -169,63 +166,48 @@ export class ChargeLightFx {
     this.camR.set(1, 0, 0).applyQuaternion(cam.quaternion);
     this.camU.set(0, 1, 0).applyQuaternion(cam.quaternion);
     this.hand.set(h.world.x, h.world.y, h.world.z);
-    this.tipP.set(h.tip.x, h.tip.y, h.tip.z);
     const pal = this.pal[v.palette];
-    const level = Math.round((1 - v.alpha) * 4);
     this.mat.uniforms.uPal!.value = pal;
-    this.mat.uniforms.uLevel!.value = level;
+    this.mat.uniforms.uLevel!.value = 0;
 
-    // 板 3 まい: 芯・輪・剣先の きらり
-    this.quad(0, CORES[Math.max(0, Math.min(5, v.core))]!, this.hand, k);
-    if (v.ring > 0) this.quad(1, RINGS[Math.max(0, Math.min(11, Math.round(v.ring * 12) - 1))]!, this.hand, k);
-    else this.hideQuad(1);
-    if (v.sparkles > 0) this.quad(2, STAR, this.tipP, k);
-    else this.hideQuad(2);
+    // 右手の 光（いっぱいの ときだけ。光りはじめの 1 ステップは 輪が ひろがって 明るい。あとは 芯だけで 一定）
+    this.hideQuad(2);
+    if (v.hand > 0) {
+      this.quad(0, CORES[v.hand >= 2 ? 5 : 4]!, this.hand, k);
+      if (v.hand >= 2) this.quad(1, RINGS[7]!, this.hand, k);
+      else this.hideQuad(1);
+      this.quads.visible = true;
+    } else {
+      this.hideQuad(0);
+      this.hideQuad(1);
+      this.quads.visible = false;
+    }
     (this.geo.getAttribute('position') as THREE.BufferAttribute).needsUpdate = true;
     (this.geo.getAttribute('aRect') as THREE.BufferAttribute).needsUpdate = true;
-    this.quads.visible = true;
 
-    // 点
+    // 点: 体の 中心へ あつまる つぶ。数も はやさも ため中 ずっと 同じ（つぶ i は GATHER_LIFE ステップで 外から 中心へ まっすぐ）
     const d = this.dots;
     d.reset();
-    const F = v.F;
-    if (v.particles > 0) {
-      // 体の まん中の 向き（画面の 平面で）。この 向きの ±70° からは つぶを 出さない
-      let phiB = -Math.PI / 2;
-      if (body) {
-        this.body.set(body.x, body.y, body.z).sub(this.hand);
-        phiB = Math.atan2(this.body.dot(this.camU), this.body.dot(this.camR));
-      }
-      for (let t = Math.max(1, F - 17); t <= F; t++) {
-        if (t >= 60 && t % 2 === 0) continue;
-        const u = (F - t) / 18;
-        const r0 = (0.8 + 0.3 * hash(t * 5 + 1)) * k;
-        const ang = phiB + ((70 + 220 * hash(t * 5 + 2)) * Math.PI) / 180;
-        const rr = r0 * (1 - u * u);
-        this.dirv.copy(this.camR).multiplyScalar(Math.cos(ang)).addScaledVector(this.camU, Math.sin(ang));
-        this.tmp.copy(this.hand).addScaledVector(this.dirv, rr);
-        d.add(this.tmp.x, this.tmp.y, this.tmp.z, pal[0]!, k, level);
-        if (u > 0.3) {
-          this.tmp.copy(this.hand).addScaledVector(this.dirv, rr + 0.09 * k);
-          d.add(this.tmp.x, this.tmp.y, this.tmp.z, pal[1]!, k, level);
-          this.tmp.copy(this.hand).addScaledVector(this.dirv, rr + 0.19 * k);
-          d.add(this.tmp.x, this.tmp.y, this.tmp.z, pal[2]!, k, level);
-        }
-      }
-    }
-    if (v.sweep > 0) {
-      for (let j = 0; j < 3; j++) {
-        const s = v.sweep - 0.06 * j;
-        if (s < 0) continue;
-        this.tmp.copy(this.hand).lerp(this.tipP, s);
-        d.add(this.tmp.x, this.tmp.y, this.tmp.z, pal[j === 0 ? 0 : 1]!, j === 0 ? 2 : 1, level);
-      }
-    }
-    if (v.orbit > 0) {
-      for (let j = 0; j < v.orbit; j++) {
-        const a = ((v.orbitAngle + j * 180) * Math.PI) / 180;
-        this.tmp.copy(this.hand).addScaledVector(this.camR, Math.cos(a) * 0.32 * k).addScaledVector(this.camU, Math.sin(a) * 0.32 * k);
-        d.add(this.tmp.x, this.tmp.y, this.tmp.z, pal[1]!, 2, level);
+    if (v.particles > 0 && body) {
+      const F = v.F;
+      for (let i = 0; i < v.particles; i++) {
+        const off = Math.floor((i * GATHER_LIFE) / v.particles);
+        const age = (F + off) % GATHER_LIFE; // 0（外）〜 LIFE-1（中心に ちかい）
+        const cycle = Math.floor((F + off) / GATHER_LIFE);
+        const key = cycle * 31 + i * 7;
+        // 球の 上の 向き（まわり ぜんぶから）
+        const z = 2 * hash(key + 1) - 1;
+        const ph = 2 * Math.PI * hash(key + 2);
+        const rxy = Math.sqrt(1 - z * z);
+        const R = (1.0 + 0.35 * hash(key + 3)) * k;
+        const rr = R * (1 - age / GATHER_LIFE);
+        this.dirv.set(rxy * Math.cos(ph), z * 0.8, rxy * Math.sin(ph));
+        this.tmp.set(body.x, body.y, body.z).addScaledVector(this.dirv, rr);
+        const near = age / GATHER_LIFE;
+        d.add(this.tmp.x, this.tmp.y, this.tmp.z, pal[near > 0.6 ? 0 : near > 0.3 ? 1 : 2]!, k, 0);
+        // しっぽ（外がわに 1 つ）
+        this.tmp.set(body.x, body.y, body.z).addScaledVector(this.dirv, rr + 0.12 * k);
+        d.add(this.tmp.x, this.tmp.y, this.tmp.z, pal[near > 0.3 ? 2 : 3]!, k, 0);
       }
     }
     d.done();

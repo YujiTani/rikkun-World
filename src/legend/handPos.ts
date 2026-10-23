@@ -7,7 +7,9 @@ import type { Vec3 } from '../contracts';
  * - 一人称（カメラが 体に 近く 人形が 見えない 状態）: 画面の 右下の 剣の にぎり。今の ゲームは 一人称の 剣を 描かない ので、
  *   にぎり・剣先の 画面の 位置を ここで 決め、カメラの 前 FIRST_DEPTH の 所に 置く（光は 画面の その 位置に 見える）。
  */
-export const THIRD_HAND = { right: 0.38, up: 1.65 } as const;
+export const THIRD_HAND = { right: 0.38, up: 1.5 } as const;
+/** ため中の 光が あつまる 体の 中心（むね）の 高さ（足もとから） */
+export const CHEST_UP = 1.1;
 export const THIRD_TIP = { right: 0.2, forward: 0.7, up: 0.55 } as const;
 /** 一人称: 画面の 位置（0〜1。左上が 0）。右下 4 分の 1 の 中・照準の まわりの 外 */
 export const FIRST_PERSON_HAND = { x: 0.72, y: 0.8 } as const;

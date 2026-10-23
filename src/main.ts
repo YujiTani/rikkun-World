@@ -34,7 +34,7 @@ import { createLegendSystem } from './legend/LegendSystem';
 import { createWaveSystem } from './legend/WaveSystem';
 import { createSpiralDebris } from './legend/spiralDebris';
 import { createChargeLight } from './legend/chargeLight';
-import { computeHand, newHandInfo } from './legend/handPos';
+import { CHEST_UP, computeHand, FIRST_DEPTH, newHandInfo, pointOnScreen } from './legend/handPos';
 import { WindWaveFx } from './fx/windWaveFx';
 import { SpiralFx } from './fx/spiralFx';
 import { createWaveView3D } from './legend/waveView';
@@ -710,6 +710,16 @@ rainbowFx.warmUp(game.renderer, game.camera, game.scene); // ブルームの 作
 const spiralDebris = createSpiralDebris({ world, seed });
 const chargeLight = createChargeLight();
 const chargeLightFx = new ChargeLightFx({ scene: game.scene, camera: game.camera });
+/** WEAPON-9 §5.8: ため中の 光が あつまる 体の 中心（むね = 足もと ＋ 約 1.1）。一人称は 画面の まん中より 少し 下 */
+const _chest = { x: 0, y: 0, z: 0 };
+function chargeChest(): { x: number; y: number; z: number } {
+  const p = controller.state.position;
+  if (handInfo.first) return pointOnScreen(game.camera, 0.5, 0.6, FIRST_DEPTH, _chest);
+  _chest.x = p.x;
+  _chest.y = p.y + CHEST_UP;
+  _chest.z = p.z;
+  return _chest;
+}
 const handInfo = newHandInfo();
 /** 今の 剣を 持つ 手の 位置（三人称は 体から、一人称〈カメラが 体に 近く 人形が 見えない〉は 画面の 右下の にぎり） */
 const handNow = (): typeof handInfo => {
@@ -1823,8 +1833,8 @@ game.onUpdate((dt) => {
       weapon,
       // CHAR-4: 持っている 刀の 色（20・21 番を この 色に）。表に ない 刀は かたなの 行
       bladeColors: weapon === 'katana' ? bladeColorsOf(w2, bs.item) : null,
-      // WEAPON-9: 手に 持つ 絵は 虹だけ 専用。シャイニング F1〜240 は ため の 形（おおげさぎり コマ 5）を 止める
-      weaponSkin: held === 'niji' ? 'niji' : null,
+      // WEAPON-9: 手に 持つ 絵は 虹・雷神剣・風神剣が 専用（女の子）。シャイニング F1〜240 は ため の 形（おおげさぎり コマ 5）を 止める
+      weaponSkin: (window as unknown as { __noSkin?: boolean }).__noSkin ? null : held === 'niji' ? 'niji' : held === 'raijin_ken' ? 'raijin' : held === 'fujin_ken' ? 'fujin' : null,
       legendCharge: weapon === 'katana' && (legend.view().charging || shiningBody),
       blade:
         weapon === 'katana'
@@ -1960,7 +1970,7 @@ game.onUpdate((dt) => {
     const cl = chargeLight.step({ ticks: lv ? lv.chargeTicks : null, kind: lv ? lv.kind : null, reduced: reducedNow, full: chargeOf(w2, inventory.held()?.item ?? null)?.chargeTicks, cut: legend.state().move === 'shining' });
     if (cl.phase !== 'off') {
       handNow();
-      chargeLightFx.step(cl, handInfo, handInfo.first ? null : { x: cp.x, y: cp.y + 1.1, z: cp.z });
+      chargeLightFx.step(cl, handInfo, chargeChest());
     } else chargeLightFx.step(cl, handInfo, null);
     // WEAPON-9: 虹の ドーム（シャイニング中）。音: 弾が 消えた ステップに domeErase を 1 つ
     {
@@ -2205,15 +2215,12 @@ installTestHook(game, overlay, () => host.everReady, {
       return {
         phase: v.phase,
         palette: v.palette,
-        core: v.core,
         alpha: v.alpha,
         particles: v.particles,
-        ring: v.ring,
-        sweep: v.sweep,
-        sparkles: v.sparkles,
-        orbit: v.orbit,
-        orbitAngle: v.orbitAngle,
+        hand: v.hand,
+        F: v.F,
         center: h ? { ...h.world } : null,
+        chest: on ? { ...chargeChest() } : null,
         screen: h && h.screen ? { ...h.screen } : null,
       };
     },
