@@ -84,7 +84,7 @@ describe('AC6 なつき度と まち（むし・なでる は べつべつ）', 
     expect(ev.some((e) => e.type === 'egg')).toBe(false);
     expect(ev.some((e) => e.type === 'natsukiWait')).toBe(true);
     expect(s.one(id)).toMatchObject({ natsuki: 15, bugs: 1, fullLeft: 0 });
-    s.step(18000 - 600 - 1);
+    s.step(18000 + 10 - 600 - 1);
     expect(s.one(id).natsukiBugWait).toBe(1);
     s.step(1);
     expect(s.one(id).natsukiBugWait).toBe(0);
@@ -100,7 +100,7 @@ describe('AC6 なつき度と まち（むし・なでる は べつべつ）', 
     expect(s.m.feed(id, 'mushi')).toBe('ate');
     s.step(35);
     expect(s.m.pet(id)).toBe('friend');
-    expect(s.one(id)).toMatchObject({ natsuki: 25, natsukiPetWait: 18000, natsukiBugWait: 18000 - 35 });
+    expect(s.one(id)).toMatchObject({ natsuki: 25, natsukiPetWait: 18000, natsukiBugWait: 18000 - 25 });
     s.m.events();
     s.step(600);
     expect(s.m.preview(id, null)).toBe('animalFull');

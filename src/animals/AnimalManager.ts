@@ -252,6 +252,8 @@ interface Ent {
   natsukiBugWait: number;
   natsukiPetWait: number;
   natsukiDecayLeft: number;
+  /** まち を 置いた 直後 の 数 ステップ は まち時計 を すすめない（えんしゅつ の あいだ。保存 しない） */
+  natsukiHold: number;
   /** たまご の くじ に つかう なつき度（むし を たべる まえ の 値。たべた ぶん +15 は 数えない。保存 しない） */
   eggNatsuki: number;
 }
@@ -309,6 +311,9 @@ const yawTo = (dx: number, dz: number) => Math.atan2(dx, -dz);
  * LIVE-1 A: にわとり の しくみ（出る・うろうろ・見る・ついてくる・ワープ・なかよし・たまご・保存）。
  * 見た目・音・ふりわけ は 持たない。`AnimalApi`（rayHit・preview・feed・pet・forEachVisible）と `SaveExtra` を 実装。
  */
+/** むし・なでる の あと、まち時計 が うごき はじめる まで の ステップ（ぽよん の えんしゅつ の あいだ） */
+const NATSUKI_HOLD = 10;
+
 export class AnimalManager implements AnimalApi {
   readonly settings: LiveSettings;
   private readonly world: AnimalWorld;
@@ -1014,7 +1019,10 @@ export class AnimalManager implements AnimalApi {
 
   preview(id: number, held: ItemStack | null): 'feed' | 'animalFull' | 'animalPet' | null {
     const e = this.find(id);
-    if (!e || e.lock > 0 || e.carried) return null;
+    if (!e || e.carried) return null;
+    // まち中 の むし は ロック中 でも「まってね」を 返す（feed と おなじ）
+    if (e.lock > 0 && held && held.item === 'harapan_mimizu' && this.hasNatsuki(e) && e.state !== 'sleep') return 'feed';
+    if (e.lock > 0) return held && held.item === 'mushi' && e.state !== 'sleep' && this.hasNatsuki(e) && e.natsukiBugWait > 0 ? 'animalFull' : null;
     const nat = this.hasNatsuki(e);
     if (held && held.item === 'mushi') {
       if (e.state === 'sleep') return 'animalPet';
@@ -1048,7 +1056,18 @@ export class AnimalManager implements AnimalApi {
 
   feed(id: number, item: ItemId): 'ate' | 'full' | 'pet' | 'friendFull' | 'sleep' | 'wait' | 'harapan' | 'harapanNo' | null {
     const e = this.find(id);
-    if (!e || e.lock > 0 || e.carried) return null;
+    if (!e || e.carried) return null;
+    // まち中 の 合図 は 動きの 最中（ロック中）でも 返す（くび を かしげる は つづけて 出さない）
+    if (e.lock > 0 && item === 'mushi' && e.state !== 'sleep' && this.hasNatsuki(e) && e.natsukiBugWait > 0) {
+      this.push({ type: 'natsukiWait', id: e.id, which: 'bug' });
+      if (this.tick - this.waitHintAt >= NATSUKI_HINT_GAP) {
+        this.waitHintAt = this.tick;
+        this.hintOut('natsukiWait');
+      }
+      return 'wait';
+    }
+    // はらぱんみみず は 前 の 動き の 最中 でも あげられる（なかま の 大人 だけ）
+    if (e.lock > 0 && !(item === 'harapan_mimizu' && this.hasNatsuki(e))) return null;
     if (item === 'harapan_mimizu') return this.feedHarapan(e);
     if (item !== 'mushi') return null;
     const s = this.settings;
@@ -1085,6 +1104,7 @@ export class AnimalManager implements AnimalApi {
       if (this.hasNatsuki(e)) {
         this.addNatsuki(e, s.natsukiBug);
         e.natsukiBugWait = s.natsukiBugWaitTicks;
+        e.natsukiHold = NATSUKI_HOLD;
       }
       // ひよこ は たまご を うまない（§2.2）
       const roll = e.stage === 'chick' ? { hit: false, misses: e.eggMiss } : rollPity(this.eggRng, s.animalEggChance, s.animalEggPity, e.eggMiss);
@@ -1182,6 +1202,7 @@ export class AnimalManager implements AnimalApi {
       }
       this.addNatsuki(e, this.settings.natsukiPet);
       e.natsukiPetWait = this.settings.natsukiPetWaitTicks;
+      e.natsukiHold = NATSUKI_HOLD;
     }
     this.push({ type: 'pet', id, friend: true });
     this.setLock(e, 'pet', this.settings.animalReactTicks);
@@ -1617,9 +1638,14 @@ export class AnimalManager implements AnimalApi {
   /** GOLD-1: なつき度 の 時間（まち が へる・10 分 ごと に へる）。はなれて いても・ねて いても 世界 の 時計 で すすむ。へる が 先 */
   private natsukiTick(e: Ent): void {
     const s = this.settings;
-    if (--e.natsukiDecayLeft <= 0) {
+    // なつき度 0 の 間 は へる もの が 無い ので 時計 は 止める（はじめて 上がった とき から 数える）
+    if (e.natsuki > 0 && --e.natsukiDecayLeft <= 0) {
       e.natsuki = Math.max(0, e.natsuki - s.natsukiDecay);
       e.natsukiDecayLeft = s.natsukiDecayTicks;
+    }
+    if (e.natsukiHold > 0) {
+      e.natsukiHold--;
+      return;
     }
     if (e.natsukiBugWait > 0 && --e.natsukiBugWait === 0 && e.id === this.targetId) this.push({ type: 'natsukiReady', id: e.id, which: 'bug' });
     if (e.natsukiPetWait > 0 && --e.natsukiPetWait === 0 && e.id === this.targetId) this.push({ type: 'natsukiReady', id: e.id, which: 'pet' });
@@ -2003,6 +2029,7 @@ export class AnimalManager implements AnimalApi {
       natsukiBugWait: 0,
       natsukiPetWait: 0,
       natsukiDecayLeft: this.settings.natsukiDecayTicks,
+      natsukiHold: 0,
       eggNatsuki: 0,
     };
   }
