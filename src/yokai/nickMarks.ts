@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { boxGeo } from './common';
+import { boxGeo, makePixelTexture } from './common';
 import type { YokaiTitle } from '../contracts';
 
 /**
@@ -82,38 +82,96 @@ export function buildNickMarks(kind: string, title: YokaiTitle): NickMarks | nul
   return { group, kind: 'crown' };
 }
 
-/** ヌシの ふんわり光（DESIGN 13.2）。すけ 9% を中心に 6%〜12% の あいだを 周期 2.5 秒で なめらかに */
-export const NUSHI_GLOW = {
-  color: 0xfff0b0,
-  period: 2.5,
-  minOpacity: 0.06,
-  maxOpacity: 0.12,
-  /** 地面から うかせる 高さ（体の高さの 割合） */
-  liftRatio: 0.1,
+/**
+ * ヌシの 青い ひとだま（青い焔）。#270 の つづき（PROTOTYPE）。からだの まわりを 3 つ ゆっくり まわる。
+ * ドット絵（12×16）を 十字の板（たて板 2 まい）に はる。ゆれ・まわりは 妖怪の clock（固定ステップの 積み）だけで 決める。
+ */
+export const NUSHI_FLAME = {
+  count: 3,
+  texW: 12,
+  texH: 16, // FLAME_ROWS の 行数
+  /** 1 周の 秒 */
+  orbitPeriod: 12,
+  /** うかぶ 上下の 周期（秒） */
+  bobPeriod: 2.4,
+  /** ゆらぎ（ひらべったく のびちぢみ）の 周期（秒） */
+  swayPeriod: 1.7,
 } as const;
 
-/** 光の すけ（t 秒）。周期 2.5 秒で なめらかに（点滅しない） */
-export function nushiGlowOpacity(t: number): number {
-  const mid = (NUSHI_GLOW.minOpacity + NUSHI_GLOW.maxOpacity) / 2;
-  const amp = (NUSHI_GLOW.maxOpacity - NUSHI_GLOW.minOpacity) / 2;
-  return mid + amp * Math.sin((2 * Math.PI * t) / NUSHI_GLOW.period);
+// 外ぶち O（こい 青）・うえ a → した d（水色 → あかるい 水色）・渦 s
+const FLAME_ROWS = [
+  '....OO......',
+  '...OaaO.....',
+  '....OaaO....',
+  '.....OaaO...',
+  '.....OabO...',
+  '....OabbO...',
+  '...OabbbbO..',
+  '..ObbbbbbbO.',
+  '.ObbbbbbbbbO',
+  'ObbbbOOObbbO',
+  'ObbbOcccObbO',
+  'ObbcOcOOcOdO',
+  'ObcdOcOcOOdO',
+  'OccdcOcccOdO',
+  '.OddddOOOdO.',
+  '..OOOOOOOO..',
+];
+/** ヌシ = 青、たいしょう = 赤（同じ形。ひと目で ちがいが わかる） */
+export type FlameColor = 'blue' | 'red';
+const FLAME_PALS: Record<FlameColor, Record<string, number>> = {
+  blue: { O: 0x1a7fc0, a: 0x5bc0e0, b: 0x5ccbe8, c: 0x5fd9f0, d: 0x5fe8f5 },
+  red: { O: 0xb01e1e, a: 0xe8452a, b: 0xf06a2a, c: 0xf89a30, d: 0xffd04a },
+};
+const flameTex: Partial<Record<FlameColor, THREE.DataTexture>> = {};
+function flameTexture(c: FlameColor): THREE.DataTexture {
+  return (flameTex[c] ??= makePixelTexture(FLAME_ROWS, FLAME_PALS[c]));
+}
+const flameGeo = new THREE.PlaneGeometry(1, 1);
+
+/** ひとだま 1 つ = 十字（たて板 + 90°まわした たて板）。夜も 暗くしない・うしろを 書かない */
+function createFlame(h: number, color: FlameColor): THREE.Group {
+  const g = new THREE.Group();
+  const mat = new THREE.MeshBasicMaterial({ map: flameTexture(color), transparent: true, alphaTest: 0.5, depthWrite: false, side: THREE.DoubleSide });
+  mat.userData = { base: 0xffffff, skip: true };
+  const w = (h * NUSHI_FLAME.texW) / NUSHI_FLAME.texH;
+  for (const ry of [0, Math.PI / 2]) {
+    const m = new THREE.Mesh(flameGeo, mat);
+    m.scale.set(w, h, 1);
+    m.rotation.y = ry;
+    m.renderOrder = 2;
+    g.add(m);
+  }
+  return g;
 }
 
-/** からだを つつむ 光の箱 1 枚。地面から 高さの 1 割 うかせ、うしろを 書かない・たし算 */
-export function createNushiGlow(size: { width: number; height: number; depth: number }): THREE.Mesh {
-  const mat = new THREE.MeshBasicMaterial({
-    color: NUSHI_GLOW.color,
-    transparent: true,
-    opacity: nushiGlowOpacity(0),
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
+/** からだの まわりを まわる 青い ひとだま 3 つ（グループ 1 つ。まわりは updateNushiFlames で）。 */
+export function createNushiFlames(size: { width: number; height: number; depth: number }, color: FlameColor = 'blue'): THREE.Group {
+  const root = new THREE.Group();
+  root.name = 'nushiFlames';
+  const fh = Math.max(0.4, Math.min(1.3, size.height * 0.42));
+  root.userData = { radius: Math.max(size.width, size.depth) * 0.5 + fh * 0.7, height: size.height, fh };
+  for (let i = 0; i < NUSHI_FLAME.count; i++) {
+    const f = createFlame(fh, color);
+    f.name = 'nushiFlame';
+    root.add(f);
+  }
+  updateNushiFlames(root, 0);
+  return root;
+}
+
+/** t 秒（固定ステップの 積み）の ひとだまの ならび。まわる・上下に うかぶ・ゆらぐ（点滅しない） */
+export function updateNushiFlames(root: THREE.Group, t: number): void {
+  const { radius, height, fh } = root.userData as { radius: number; height: number; fh: number };
+  const n = root.children.length;
+  root.children.forEach((f, i) => {
+    const ph = (i / n) * Math.PI * 2;
+    const a = (t / NUSHI_FLAME.orbitPeriod) * Math.PI * 2 + ph;
+    const bob = Math.sin((t / NUSHI_FLAME.bobPeriod) * Math.PI * 2 + ph * 1.7);
+    f.position.set(Math.cos(a) * radius, height * (0.62 + 0.14 * (i % 2)) + bob * height * 0.05, Math.sin(a) * radius);
+    const sw = Math.sin((t / NUSHI_FLAME.swayPeriod) * Math.PI * 2 + ph * 2.3);
+    f.scale.set(1 - 0.07 * sw, 1 + 0.1 * sw, 1 - 0.07 * sw);
+    f.rotation.y = Math.sin(t * 1.3 + ph) * 0.25;
+    f.position.y += fh * 0.1 * sw;
   });
-  // 夜の暗さを かけない（applyDollBrightness は skip を見る）
-  mat.userData = { base: NUSHI_GLOW.color, skip: true };
-  const h = size.height * (1 - NUSHI_GLOW.liftRatio);
-  const m = new THREE.Mesh(boxGeo(size.width, h, size.depth), mat);
-  m.position.y = size.height * NUSHI_GLOW.liftRatio + h / 2;
-  m.name = 'nushiGlow';
-  m.renderOrder = 2;
-  return m;
 }

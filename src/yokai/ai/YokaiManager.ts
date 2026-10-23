@@ -954,21 +954,17 @@ export class YokaiManager implements YokaiWorld {
     mark: 'none' | 'hachimaki' | 'crown';
     markColors: number[];
     markOnHead: boolean;
-    glow: null | { color: number; opacity: number; additive: boolean; lift: number };
+    glow: null | { flames: number; visible: boolean; color: number; opacity: number; additive: boolean };
   } | null {
     const e = this.ents.find((q) => q.id === id);
     if (!e || e.remove) return null;
     const n = e.model.nickInfo();
     let glow = null;
     if (n.glow) {
-      const mat = n.glow.material as THREE.MeshBasicMaterial;
-      const g = n.glow.geometry as THREE.BoxGeometry;
-      glow = {
-        color: mat.color.getHex(),
-        opacity: mat.opacity,
-        additive: mat.blending === THREE.AdditiveBlending,
-        lift: (n.glow.position.y - g.parameters.height / 2) / Math.max(1e-6, e.model.size.height),
-      };
+      // PROTOTYPE: 光の箱 → 青い ひとだま。flames = 個数、additive = false、color/opacity は 板 1 まいの もの
+      const mesh = n.glow.children[0]?.children[0] as THREE.Mesh | undefined;
+      const mat = mesh?.material as THREE.MeshBasicMaterial | undefined;
+      glow = { flames: n.glow.children.length, visible: n.glow.visible, color: mat?.color.getHex() ?? 0, opacity: mat?.opacity ?? 0, additive: mat?.blending === THREE.AdditiveBlending };
     }
     return { mark: n.kind, markColors: n.markColors, markOnHead: n.markOnHead, glow };
   }

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { YokaiTitle } from '../contracts';
-import { buildNickMarks, createNushiGlow, nushiGlowOpacity, type NickMarkKind, type NickMarks } from './nickMarks';
+import { buildNickMarks, createNushiFlames, updateNushiFlames, type NickMarkKind, type NickMarks } from './nickMarks';
 
 export const DEG = Math.PI / 180;
 
@@ -305,7 +305,7 @@ export abstract class YokaiBase {
     return null;
   }
   private nickMarks: NickMarks | null = null;
-  private nickGlow: THREE.Mesh | null = null;
+  private nickGlow: THREE.Group | null = null;
   nickTitle: YokaiTitle = 'none';
 
   /** 二つ名に合わせて 印（たいしょう = はちまき、ヌシ = かんむり）と 光（ヌシ）を つけかえる */
@@ -321,7 +321,7 @@ export abstract class YokaiBase {
       this.nickMarks = null;
     }
     if (this.nickGlow) {
-      (this.nickGlow.material as THREE.Material).dispose();
+      this.nickGlow.traverse((o) => o instanceof THREE.Mesh && (o.material as THREE.Material).dispose());
       this.nickGlow.removeFromParent();
       this.nickGlow = null;
     }
@@ -334,14 +334,14 @@ export abstract class YokaiBase {
       });
       this.nickMarks = marks;
     }
-    if (marks && title === 'nushi') {
-      this.nickGlow = createNushiGlow({ width: this._size.width, height: this._size.height, depth: this._size.depth });
+    if (marks) {
+      this.nickGlow = createNushiFlames({ width: this._size.width, height: this._size.height, depth: this._size.depth }, title === 'nushi' ? 'blue' : 'red');
       this.rig.add(this.nickGlow);
     }
   }
 
   /** 印・光の 記録（テスト用） */
-  nickInfo(): { kind: NickMarkKind | 'none'; markOnHead: boolean; markColors: number[]; glow: THREE.Mesh | null } {
+  nickInfo(): { kind: NickMarkKind | 'none'; markOnHead: boolean; markColors: number[]; glow: THREE.Group | null } {
     const head = this.headGroup();
     const cols: number[] = [];
     this.nickMarks?.group.traverse((o) => o instanceof THREE.Mesh && cols.push((o.material as THREE.MeshBasicMaterial).color.getHex()));
@@ -546,7 +546,7 @@ export abstract class YokaiBase {
     this.updateBlink(dt);
     if (this.nickGlow) {
       this.nickGlow.visible = !this.dying; // たおれる演出に入ったら 光は 消す
-      (this.nickGlow.material as THREE.MeshBasicMaterial).opacity = nushiGlowOpacity(this.clock);
+      updateNushiFlames(this.nickGlow, this.clock);
     }
 
     if (this.dying) {

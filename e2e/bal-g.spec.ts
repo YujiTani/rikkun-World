@@ -13,7 +13,7 @@ import { openBal } from './helpers/bal';
  *  - `yokai.palette(id)`: { stage: 1|2|3, brightness, colors: number[], textureColors: number[] }
  *      colors = 材料（テクスチャなし）の色の 16 進数、textureColors = ぬりかべの もよう（2 色のテクスチャ）の色
  *  - `yokai.marks(id)`: { mark: 'none'|'hachimaki'|'crown', markColors: number[], markOnHead: boolean,
- *                          glow: null | { color, opacity, additive: boolean, lift: number（地面から うかせた 高さ ÷ 体の高さ）} }
+ *                          glow: null | { flames: 個数, visible, color, opacity, additive } }
  */
 test.describe.configure({ timeout: 180_000 });
 
@@ -189,17 +189,13 @@ test.describe('BAL-G 頭の印・ヌシの光（DESIGN 13.2）', () => {
       expect(ta.mark).toBe('hachimaki');
       expect(ta.markOnHead).toBe(true);
       expect(new Set(ta.markColors)).toEqual(new Set([0xfff6e0, 0x3d5a9e]));
-      expect(ta.glow).toBeNull();
+      expect(ta.glow.flames).toBe(3); // たいしょう = 赤い ひとだま
       const nu = r[`${k}_nushi`];
       expect(nu.mark).toBe('crown');
       expect(nu.markOnHead).toBe(true);
       expect(new Set(nu.markColors)).toEqual(new Set([0xffd23f, 0xd9a520, 0x5fd3ff]));
       expect(nu.glow).not.toBeNull();
-      expect(nu.glow.color).toBe(0xfff0b0);
-      expect(nu.glow.additive).toBe(true);
-      expect(nu.glow.opacity).toBeGreaterThanOrEqual(0.06 - 1e-9);
-      expect(nu.glow.opacity).toBeLessThanOrEqual(0.12 + 1e-9);
-      expect(nu.glow.lift).toBeCloseTo(0.1, 2);
+      expect(nu.glow.flames).toBe(3); // 青い ひとだま 3 つ（PROTOTYPE。光の箱は やめた）
     }
     expect(r.nurikabe_nushi.mark).toBe('crown');
     expect(r.nurikabe_nushi.markOnHead).toBe(true);
@@ -208,7 +204,7 @@ test.describe('BAL-G 頭の印・ヌシの光（DESIGN 13.2）', () => {
     expect(r.nurikabe_taisho.markOnHead).toBe(true);
   });
 
-  test('ヌシの光: 2.5 秒で ゆっくり変わる（点滅しない）。夜も 暗くしない。印は 夜に 暗くなる', async ({ page }) => {
+  test('ヌシの ひとだま: 夜も 暗くしない。印は 夜に 暗くなる', async ({ page }) => {
     await openBal(page);
     const r = await page.evaluate(() => {
       const T = (window as any).T;
@@ -216,34 +212,14 @@ test.describe('BAL-G 頭の印・ヌシの光（DESIGN 13.2）', () => {
       T.base();
       const id = h.yokai.spawn('karakasa', 6.5, 9, 6.5, { ai: false, title: 'nushi', m: 1 });
       h.step(3);
-      const series: number[] = [];
-      for (let i = 0; i < 300; i++) {
-        h.step(1);
-        series.push(h.yokai.marks(id).glow.opacity);
-      }
       const day = h.yokai.marks(id);
       h.time.set(70000);
       h.step(5);
       const night = h.yokai.marks(id);
-      return { series, day, night };
+      return { day, night };
     });
-    const s = r.series as number[];
-    expect(Math.max(...s)).toBeLessThanOrEqual(0.12 + 1e-9);
-    expect(Math.min(...s)).toBeGreaterThanOrEqual(0.06 - 1e-9);
-    expect(Math.max(...s) - Math.min(...s)).toBeGreaterThan(0.03); // 動いている
-    // なめらか: 1 ステップの変わりは 小さい。明暗が 反対に 変わる 回数は 5 秒（300 ステップ）で 4 回以下（周期 2.5 秒）
-    for (let i = 1; i < s.length; i++) expect(Math.abs(s[i]! - s[i - 1]!)).toBeLessThan(0.01);
-    let turns = 0;
-    let dir = 0;
-    for (let i = 1; i < s.length; i++) {
-      const d = Math.sign(s[i]! - s[i - 1]!);
-      if (d !== 0 && dir !== 0 && d !== dir) turns++;
-      if (d !== 0) dir = d;
-    }
-    expect(turns).toBeLessThanOrEqual(5);
-    // 夜: 光の色は そのまま、印の色は 暗い
-    expect(r.night.glow.color).toBe(0xfff0b0);
-    expect(r.night.glow.opacity).toBeGreaterThanOrEqual(0.06 - 1e-9);
+    expect(r.night.glow.flames).toBe(3);
+    expect(r.night.glow.color).toBe(0xffffff);
     expect(r.night.markColors.join()).not.toBe(r.day.markColors.join());
   });
 });
