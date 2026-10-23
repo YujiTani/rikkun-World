@@ -191,19 +191,33 @@ describe('gashaBigActor（#293 はって進む・目・乗っている人）', (
     actor.angry(false); run(actor, 1); expect(actor.eyeMix).toBe(0);
   });
 
-  /** こしの 雲の 上の 立てる 場所（x, z）で、足の 高さ y を さがす */
-  function topAt(actor: BigActor, x: number, z: number): number {
-    let j = 0;
-    while (actor.solid(Math.floor(x), j, Math.floor(z))) j++;
-    return j > 0 ? j : -1;
+  /** 体の うしろに 平らな 台（当たりの 箱）を 足して、その 上に 立てる 場所を 返す。体の かたちが かわっても テストが こわれない ように */
+  function deckRig(): Rig & { spot: { x: number; z: number; y: number } } {
+    const model = buildBig();
+    const rest = model.rest.Hips;
+    model.hits.push({ name: 'deck', joint: 'Hips', c: new Vector3(0, 40, -60), axes: [new Vector3(1, 0, 0), new Vector3(0, 1, 0), new Vector3(0, 0, 1)], half: [30, 1, 20] });
+    void rest;
+    const ply = { x: 500, y: 1, z: 500, yawDeg: 0 };
+    const carried = [0, 0, 0, 0];
+    const env: ActorEnv = {
+      groundY: () => -1,
+      player: () => ply,
+      carryPlayer: (dx, dy, dz, dyaw) => { ply.x += dx; ply.y += dy; ply.z += dz; ply.yawDeg += dyaw; carried[0] += dx; carried[1] += dy; carried[2] += dz; carried[3] += dyaw; },
+    };
+    const actor = new BigActor(model, CLIPS, env, 293);
+    actor.place(0, 0, 0, 0);
+    const x = 0.5, z = Math.floor(-60 * model.scale + model.rest.Hips.z * 0) + 0.5;
+    let j = 120;
+    while (j > 0 && !actor.solid(0, j, Math.floor(z))) j--;
+    expect(j).toBeGreaterThan(5);
+    expect(actor.solid(0, j + 1, Math.floor(z))).toBe(false);
+    return { actor, env, ply, carried, spot: { x, z, y: j + 1 } };
   }
 
   it('乗っている 人: 体が はって 進むと、のっている 人も いっしょに 同じだけ 動く', () => {
-    const { actor, ply, carried } = rig();
+    const { actor, ply, carried, spot } = deckRig();
     actor.walk(false);
-    const x = 3.5, z = -1.5;
-    const y = topAt(actor, x, z);
-    expect(y).toBeGreaterThan(0);
+    const { x, z, y } = spot;
     Object.assign(ply, { x, y, z });
     actor.goTo(0, 300);
     const p0 = actor.pos.clone();
@@ -217,11 +231,9 @@ describe('gashaBigActor（#293 はって進む・目・乗っている人）', (
   });
 
   it('乗っている 人: 体が 向きを かえると、のっている 人も 体の まわりを まわり、向きも いっしょに かわる', () => {
-    const { actor, ply, carried } = rig();
+    const { actor, ply, carried, spot } = deckRig();
     actor.walk(false);
-    const x = 8.5, z = 0.5;
-    const y = topAt(actor, x, z);
-    expect(y).toBeGreaterThan(0);
+    const { x, z, y } = spot;
     Object.assign(ply, { x, y, z, yawDeg: 30 });
     const r0 = Math.hypot(ply.x - actor.pos.x, ply.z - actor.pos.z);
     const a0 = Math.atan2(ply.x - actor.pos.x, ply.z - actor.pos.z);
@@ -242,10 +254,10 @@ describe('gashaBigActor（#293 はって進む・目・乗っている人）', (
   it('乗っている 人: 向きの おいかけを 切ると（turnWithBody = false）人の 向きは かわらない', () => {
     T.ride.turnWithBody = false;
     try {
-      const { actor, ply, carried } = rig();
+      const { actor, ply, carried, spot } = deckRig();
       actor.walk(false);
-      const y = topAt(actor, 8.5, 0.5);
-      Object.assign(ply, { x: 8.5, y, z: 0.5, yawDeg: 30 });
+      const { x, z, y } = spot;
+      Object.assign(ply, { x, y, z, yawDeg: 30 });
       actor.hit();
       run(actor, 0.5);
       expect(carried[3]).toBe(0);

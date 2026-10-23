@@ -236,6 +236,8 @@ const octShape = (r: number, hole?: number): Shape => {
 };
 
 // ---------------------------------------------------------------- すりガラスの 雲（はしごの 段 と もくもく雲）
+/** 1 ブロック あたりの もとの 座標の 長さ（= 1 / 拡大）。雲の はしごの 段の 高さ・間かく・あつさは ブロックの 絶対の 値で 決める ので、buildBig の はじめに 入れる */
+let KW = 1;
 const smooth = (a: number, c: number, x: number): number => { const t = Math.min(1, Math.max(0, (x - a) / (c - a))); return t * t * (3 - 2 * t); };
 const lerpA = (r: readonly [number, number], f: number): number => r[0] + (r[1] - r[0]) * f;
 
@@ -286,7 +288,7 @@ const ICO = new IcosahedronGeometry(1, 1);
 
 /** 形（平面）を おしだした 板を 置く。形の x → u、y → 横、おしだし → 上。板の 上の 面が 高さ top に なる */
 function putSlab(b: Builder, joint: JointName, shape: Shape, thick: number, c: Vector3, u: Vector3, fade?: (lx: number, ly: number) => number, mul = 1): void {
-  const bt = Math.min(0.25, thick * 0.3), bs = 0.25;
+  const bt = Math.min(0.25 * KW, thick * 0.3), bs = 0.25 * KW;
   const geo = new ExtrudeGeometry(shape, { depth: Math.max(0.2, thick - 2 * bt), bevelEnabled: true, bevelThickness: bt, bevelSize: bs, bevelSegments: 1, curveSegments: 1 });
   const side = new Vector3().crossVectors(vec(0, 1, 0), u);
   const M = new Matrix4().makeTranslation(c.x, c.y, c.z).multiply(new Matrix4().makeBasis(u, side, vec(0, 1, 0))).multiply(new Matrix4().makeTranslation(0, 0, -(thick - bt)));
@@ -304,19 +306,20 @@ interface RungOpts { joint: JointName; c: Vector3; tx: number; tz: number; f: nu
 /** はしごの 段を 1 つ。c = 道の 上の 点（y = 上の 面の 高さ）、(tx, tz) = 道の 向き。段は 道と 直角に 長い */
 function rung(b: Builder, o: RungOpts): void {
   const Ld = T.ladder, rnd = o.rnd;
-  const D = lerpA(Ld.depth, o.f), L = lerpA(o.len ?? Ld.length, o.f) * (0.92 + 0.16 * rnd());
+  const D = lerpA(Ld.depth, o.f) * KW, L = lerpA(o.len ?? Ld.length, o.f) * KW * (0.92 + 0.16 * rnd());
+  const thick = Ld.thick * KW;
   const a = ((rnd() - 0.5) * Ld.tiltDeg * Math.PI) / 180; // 道と 直角から の かたむき（全はば tiltDeg）
   const lx = -o.tz, lz = o.tx;
   const u = vec(lx * Math.cos(a) + lz * Math.sin(a), 0, -lx * Math.sin(a) + lz * Math.cos(a)).normalize();
   const c = o.c.clone().addScaledVector(vec(lx, 0, lz), (rnd() - 0.5) * 2 * Ld.stagger * L);
   const half = L / 2, flat = Ld.flat, ea = Ld.edgeAlpha;
   const fadeOf = (w: number) => (lx0: number): number => { const s = Math.min(1, Math.abs(lx0) / w); return s <= flat ? 1 : 1 + (ea - 1) * smooth(flat, 1, s); };
-  putSlab(b, o.joint, rungOutline(L, D, flat), Ld.thick, c, u, fadeOf(half));
+  putSlab(b, o.joint, rungOutline(L, D, flat), thick, c, u, fadeOf(half));
   // すじの 重なり（下に ずらして うすく）
   for (let k = 1; k <= Ld.layers; k++) {
     const Lk = L * (0.82 - 0.16 * k), Dk = D * (1.0 + 0.12 * k);
-    const ck = c.clone().addScaledVector(u, (rnd() - 0.5) * L * 0.3); ck.y -= 0.55 * k;
-    putSlab(b, o.joint, rungOutline(Lk, Dk, flat), 0.45, ck, u, fadeOf(Lk / 2), 0.7);
+    const ck = c.clone().addScaledVector(u, (rnd() - 0.5) * L * 0.3); ck.y -= 0.55 * k * KW;
+    putSlab(b, o.joint, rungOutline(Lk, Dk, flat), 0.45 * KW, ck, u, fadeOf(Lk / 2), 0.7);
   }
   // 下から ぶらさがる もくもく（上の 段ほど おおい）
   const nl = Math.round(lerpA(Ld.lobes, o.f));
@@ -324,16 +327,16 @@ function rung(b: Builder, o: RungOpts): void {
   for (let k = 0; k < nl; k++) {
     const r = D * (0.36 + 0.14 * rnd());
     const p = c.clone().addScaledVector(u, (rnd() - 0.5) * 2 * half * flat * 0.9).addScaledVector(side, (rnd() - 0.5) * D * 0.3);
-    p.y = c.y - Ld.thick * 0.5 - r * 0.7;
+    p.y = c.y - thick * 0.5 - r * 0.7;
     putLobe(b, o.joint, p, r * 1.3, r * 0.8, r, 0.8);
   }
   // 当たり: 平らな 部分（長さの flat 割合 × ふかさの 9 割）。上の 面が 見た目と そろう
-  b.hits.push({ name: o.name, joint: o.joint, c: o.c.clone().setX(c.x).setZ(c.z).setY(c.y - Ld.thick / 2), axes: [u.clone(), vec(0, 1, 0), side.clone()], half: [(L * flat) / 2, Ld.thick / 2, D * 0.45] });
+  b.hits.push({ name: o.name, joint: o.joint, c: o.c.clone().setX(c.x).setZ(c.z).setY(c.y - thick / 2), axes: [u.clone(), vec(0, 1, 0), side.clone()], half: [(L * flat) / 2, thick / 2, D * 0.45] });
 }
 
 /** もくもく雲を 1 つ（木くらいの 大きさ）。平らな 上の 面 ＋ まわりと 下の ふくらみ。上の 面が そのまま 当たり */
 function puff(b: Builder, o: { joint: JointName; cx: number; top: number; cz: number; w: number; yaw: number; lobes: number; name: string; rnd: () => number }): void {
-  const rnd = o.rnd, thick = 1.6, w = o.w, d = w * (0.82 + 0.2 * rnd());
+  const rnd = o.rnd, thick = T.bank.thick * KW, w = o.w * KW, d = w * (0.82 + 0.2 * rnd());
   const u = vec(Math.cos(o.yaw), 0, Math.sin(o.yaw));
   const side = new Vector3().crossVectors(vec(0, 1, 0), u);
   const c = vec(o.cx, o.top, o.cz);
@@ -342,7 +345,7 @@ function puff(b: Builder, o: { joint: JointName; cx: number; top: number; cz: nu
     const ang = (k / o.lobes) * Math.PI * 2 + rnd() * 0.9;
     const r = w * (0.2 + 0.08 * rnd());
     const p = c.clone().addScaledVector(u, Math.cos(ang) * w * 0.34).addScaledVector(side, Math.sin(ang) * d * 0.34);
-    p.y = o.top - r * 0.9 - 0.25;
+    p.y = o.top - r * 0.9 - 0.25 * KW;
     putLobe(b, o.joint, p, r, r * 0.85, r);
   }
   putLobe(b, o.joint, vec(o.cx, o.top - thick - w * 0.12, o.cz), w * 0.3, w * 0.2, w * 0.28, 0.9);
@@ -682,6 +685,11 @@ export function buildBig(): BigModel {
     b.hits.push({ name: `hand${sd}`, joint: jH, c: vec(palmX, th / 2, (palmZ - 3.5 + tipZ) / 2), axes: [vec(1, 0, 0), vec(0, 1, 0), vec(0, 0, 1)], half: [3.4, th / 2, (tipZ - palmZ + 3.5) / 2] });
   }
 
+  // 身長: 頭の いちばん 上（頭の 当たりの 上の 面）が T.size.height に なる ように
+  const hm = new Matrix4().compose(headPos, new Quaternion().setFromEuler(new Euler(0.17, headYaw, 0, 'YXZ')), vec(1, 1, 1));
+  const topY = vec(0, 20.4, -0.2).applyMatrix4(hm).y;
+  const scale = T.size.height / topY;
+  KW = 1 / scale;
   const stairPts: Vector3[] = [];
   // --- 雲の はしご（地面 → こし → 肩 → リボン → 頭の 上）と、こしの もくもく雲。上の 面が そのまま 当たり
   {
@@ -696,7 +704,7 @@ export function buildBig(): BigModel {
       const sd = s < 0 ? 'R' : 'L';
       for (const r of routes) {
         const pts = r.pts.map((p) => (p.length > 2 ? [s * p[0]!, p[1]!, p[2]!] : [s * p[0]!, p[1]!]));
-        pathPoints(pts, Ld.spacing, r.skipFirst).forEach((q, i) => {
+        pathPoints(pts, Ld.spacing * KW, r.skipFirst).forEach((q, i) => {
           if (r.key === 'climb' && i < T.place.stairPadRungs) stairPts.push(vec(q.x, 0, q.z));
           rung(b, { joint: jointForY(q.y), c: vec(q.x, q.y, q.z), tx: q.tx, tz: q.tz, f: Math.min(1, q.y / Ld.topY), len: r.len, name: `${r.key}${sd}${i}`, rnd: rr });
         });
@@ -706,7 +714,7 @@ export function buildBig(): BigModel {
     for (let i = 0; i < K.count; i++) {
       let x = 0, z = 0, rad = 2;
       while (rad > 1) { x = (rb() * 2 - 1); z = (rb() * 2 - 1); rad = Math.hypot(x, z); }
-      const top = Math.max(1.6, K.height * (1 - Math.pow(rad, 1.6)) + (rb() - 0.5) * 3);
+      const top = Math.max(1.6 * KW, K.height * (1 - Math.pow(rad, 1.6)) + (rb() - 0.5) * 3);
       puff(b, { joint: 'Hips', cx: x * K.radiusX, top, cz: K.z + z * K.radiusZ, w: lerpA(K.size, rb()), yaw: rb() * Math.PI, lobes: K.lobes, name: `bank${i}`, rnd: rb });
     }
   }
@@ -753,10 +761,6 @@ export function buildBig(): BigModel {
     joints[bk.joint].add(m); meshes.push(m);
   }
 
-  // 身長: 頭の いちばん 上（頭の 当たりの 上の 面）が T.size.height に なる ように
-  const hm = new Matrix4().compose(headPos, new Quaternion().setFromEuler(new Euler(0.17, headYaw, 0, 'YXZ')), vec(1, 1, 1));
-  const topY = vec(0, 20.4, -0.2).applyMatrix4(hm).y;
-  const scale = T.size.height / topY;
   return {
     group, joints, rest, hits: b.hits, eyes: matOf('eyes'), eyeHalo: matOf('eyeHalo'), brow: brow ?? new Mesh(), scale, groundPts, head: headPos, stairPts, meshes: meshes.length,
   };
