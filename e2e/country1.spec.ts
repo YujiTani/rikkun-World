@@ -117,24 +117,37 @@ test.describe('#291 COUNTRY-1 国の土台', () => {
       return h.biome.found().length as number;
     });
     expect(before).toBe(11);
+    // 179 コマのあいだに ほかの visit.*（sea・peak）が 先に取れて おしらせが 先に開くことが ある。
+    // 1 コマずつ すすめ、国の 2 つが 入った おしらせ（modal）を 見つける。出ていなければ flush で 出す
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
       h.step(1);
       const found = h.biome.found() as string[];
-      const pending = [...h.achievements.pending(), ...h.achievements.modal().ids] as string[];
-      h.achievements.flush();
-      const m = h.achievements.modal();
-      return { found, pending, modal: { open: m.open as boolean, ids: m.ids as string[], mainId: m.mainId as string | null, more: m.more as number } };
+      const mineIds = ['visit.country.yuki.1', 'visit.countries.12'];
+      const seenAll = new Set<string>(h.achievements.pending() as string[]);
+      let show: { ids: string[]; mainId: string | null; more: number } | null = null;
+      for (let n = 0; n < 3000 && !show; n++) {
+        let m = h.achievements.modal();
+        if (!m.open && h.achievements.pending().length > 0) {
+          h.achievements.flush();
+          m = h.achievements.modal();
+        }
+        for (const id of m.ids as string[]) seenAll.add(id);
+        if (m.open && mineIds.every((id) => (m.ids as string[]).includes(id))) show = { ids: [...m.ids], mainId: m.mainId, more: m.more };
+        else if (!m.open && h.achievements.pending().length === 0) break;
+        else h.step(1);
+      }
+      return { found, seen: [...seenAll], show };
     });
     expect(r.found).toHaveLength(12);
     expect(r.found[11]).toBe(last);
-    expect(r.pending).toEqual(expect.arrayContaining([`visit.country.${last}.1`, 'visit.countries.12']));
-    expect(r.modal.open).toBe(true);
-    expect(r.modal.ids).toEqual(expect.arrayContaining([`visit.country.${last}.1`, 'visit.countries.12']));
-    const mine = r.modal.ids.filter((id) => id.startsWith('visit.country.') || id === 'visit.countries.12');
+    expect(r.seen).toEqual(expect.arrayContaining([`visit.country.${last}.1`, 'visit.countries.12']));
+    expect(r.show, '国の 2 つが 入った おしらせ').not.toBeNull();
+    const show = r.show!;
+    const mine = show.ids.filter((id) => id.startsWith('visit.country.') || id === 'visit.countries.12');
     expect(mine).toHaveLength(2); // 国の 2 つ（ほかの visit.* が 混ざっても ゆれない）
-    expect(r.modal.more).toBe(r.modal.ids.length - 1);
-    expect(r.modal.ids).toContain(r.modal.mainId);
+    expect(show.more).toBe(show.ids.length - 1); // 主役 1 ＋ ほか N こ
+    expect(show.ids).toContain(show.mainId);
     await waitToastGone(page);
 
     const ids1 = await visitIds(page);
