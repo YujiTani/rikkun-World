@@ -1,3 +1,4 @@
+import { COUNTRY_TABLE } from '../world/gen/countryTable';
 import { CROP_KINDS, type AchievementCategory, type AchievementDef, type CropKind, type MedalTier, type StatKey } from '../contracts';
 
 /**
@@ -106,6 +107,8 @@ interface SeriesSpec {
   tiers: Tier[];
   /** 段階 index（0 から）と目標から名前を作る */
   name: (goal: number, index: number) => string;
+  /** COUNTRY-1: 新しくは 取れない 古い 実績 */
+  legacy?: boolean;
 }
 
 function medalFor(index: number, count: number): MedalTier {
@@ -380,7 +383,7 @@ function build(): AchievementDef[] {
   add({ series: 'tool.wearAll', category: 'adventure', stat: 'wearTotal', tiers: [t(1000)], name: (g) => `どうぐ を ${g} かい つかった！` });
   add({ series: 'armor.broken', category: 'adventure', stat: 'armorBroken', tiers: [t(1)], name: () => 'ぼうぐ が みを まもって くれた！' });
 
-  // J. ばしょ
+  // J. ばしょ（COUNTRY-1: 12 の国。古い 7 つと ぜんぶの ばしょは legacy = 新しくは 取れない・取った物だけ のこる）
   for (const [id, name] of [
     ['mountain', 'やま'],
     ['forest', 'もり'],
@@ -390,11 +393,15 @@ function build(): AchievementDef[] {
     ['pond', 'いけ'],
     ['river', 'かわ'],
   ] as const) {
-    add({ series: `visit.${id}`, category: 'places', stat: `visit:${id}`, tiers: [t(1)], name: () => `はじめて ${name} に きた！` });
+    add({ series: `visit.${id}`, category: 'places', stat: `visit:${id}`, tiers: [t(1)], name: () => `はじめて ${name} に きた！`, legacy: true });
   }
   add({ series: 'visit.sea', category: 'places', stat: 'visit:sea', tiers: [t(1)], name: () => 'はじめて うみ に はいった！' });
   add({ series: 'visit.peak', category: 'places', stat: 'visit:peak', tiers: [t(1)], name: () => 'やま の てっぺん に のぼった！' });
-  add({ series: 'visit.all', category: 'places', stat: 'visit:all', tiers: [t(VISIT_PLACES.length)], name: () => 'ぜんぶ の ばしょ に いった！' });
+  add({ series: 'visit.all', category: 'places', stat: 'visit:all', tiers: [t(VISIT_PLACES.length)], name: () => 'ぜんぶ の ばしょ に いった！', legacy: true });
+  for (const r of COUNTRY_TABLE) {
+    add({ series: `visit.country.${r.kind}`, category: 'places', stat: `country:${r.kind}`, tiers: [t(1)], name: () => `はじめて ${r.yomi} に きた！` });
+  }
+  add({ series: 'visit.countries', category: 'places', stat: 'country:all', tiers: [t(COUNTRY_TABLE.length)], name: () => 'ぜんぶの くに に いった！' });
 
   // K. そだてる（M7 §4.7）
   add({
@@ -556,6 +563,7 @@ function build(): AchievementDef[] {
         medal: medalFor(i, s.tiers.length),
         small: !!tier.small,
         name: s.name(tier.goal, i),
+        ...(s.legacy ? { legacy: true } : {}),
       });
     });
   }

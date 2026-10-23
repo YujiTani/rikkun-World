@@ -55,9 +55,9 @@ const attach = (sys: AchievementSystem) => {
 };
 
 describe('実績の表', () => {
-  it('265 こ・id かぶりなし・小 88（GOLD-1 で ＋4・小 ＋0。LIVE-3 で ＋1・小 ＋1（animal.eatMeat）。WEAPON-7 の 4 ＋ PR3 の 2 を 足した。LIVE-2 版 3 で ＋11・小 ＋3。LIVE-1 版 3.2 で ＋6・小 ＋1。LIVE-1 の 12・3 を 足した。M6 の 180・61 ＋ M7 の 27・11 ＋ WEAPON-2 の 4・1 ＋ M7-2 の 11・5 ＋ BUCKET-1 の 2・1 ＋ WEAPON-6 の 1・1）', () => {
-    expect(ACHIEVEMENT_DEFS.length).toBe(265);
-    expect(new Set(ACHIEVEMENT_DEFS.map((d) => d.id)).size).toBe(265);
+  it('278 こ（COUNTRY-1 で ＋13: 国 12 ＋ ぜんぶの くに 1。古い 8 つは legacy で のこる）・id かぶりなし・小 88（GOLD-1 で ＋4・小 ＋0。LIVE-3 で ＋1・小 ＋1（animal.eatMeat）。WEAPON-7 の 4 ＋ PR3 の 2 を 足した。LIVE-2 版 3 で ＋11・小 ＋3。LIVE-1 版 3.2 で ＋6・小 ＋1。LIVE-1 の 12・3 を 足した。M6 の 180・61 ＋ M7 の 27・11 ＋ WEAPON-2 の 4・1 ＋ M7-2 の 11・5 ＋ BUCKET-1 の 2・1 ＋ WEAPON-6 の 1・1）', () => {
+    expect(ACHIEVEMENT_DEFS.length).toBe(278);
+    expect(new Set(ACHIEVEMENT_DEFS.map((d) => d.id)).size).toBe(278);
     expect(ACHIEVEMENT_DEFS.filter((d) => d.small).length).toBe(88);
     expect(ACHIEVEMENT_DEFS.filter((d) => d.category === 'farm').length).toBe(63);
     expect(ACHIEVEMENT_DEFS.filter((d) => d.category === 'farm' && d.small).length).toBe(17);
@@ -178,15 +178,17 @@ describe('M5 の場所', () => {
     meadow: { cx: 100, cz: 20, r: 6 },
     pond: { cx: 20, cz: 100, r: 5 },
   };
-  it('入ると取る・ぜんぶで visit.all', () => {
+  it('regions では うみ だけ（COUNTRY-1: 古い 7 つと visit.all は 取れない）。てっぺん は ctx.peak（4 つの山の国の 頂上）', () => {
     const s = mk();
     s.update(ctx({ regions, position: { x: 30, y: 10, z: 30 } }));
-    expect(s.isUnlocked('visit.forest.1')).toBe(true);
+    expect(s.isUnlocked('visit.forest.1')).toBe(false);
     const spots: Array<[number, number, number, boolean?]> = [[90, 40, 90], [100, 10, 20], [55, 10, 55], [64, 10, 64], [20, 10, 100], [3, 10, 3], [0, 10, 0, true]];
     for (const [x, y, z, w] of spots) s.update(ctx({ regions, position: { x, y, z }, inWater: !!w }));
-    expect(s.isUnlocked('visit.peak.1')).toBe(true);
+    expect(s.isUnlocked('visit.peak.1')).toBe(false);
     expect(s.isUnlocked('visit.sea.1')).toBe(true);
-    expect(s.isUnlocked('visit.all.9')).toBe(true);
+    expect(s.isUnlocked('visit.all.9')).toBe(false);
+    s.update(ctx({ regions, peak: { x: 300, z: 300, h: 50 }, position: { x: 301, y: 50, z: 300 } }));
+    expect(s.isUnlocked('visit.peak.1')).toBe(true);
   });
 });
 
@@ -321,7 +323,7 @@ describe('じっせき ページの きまり', () => {
     p.setTab('achievements');
     let ui = p.ui(true);
     expect(ui.categories.length).toBe(9);
-    expect(ui.total).toBe(265);
+    expect(ui.total).toBe(270); // 278 − 取っていない むかしの 8（COUNTRY-1 §5.2）
     expect(ui.tabDot).toBe(true);
     expect(ui.rows.some((r) => r.isNew)).toBe(true);
     expect(ui.rows.filter((r) => !r.shown).length).toBeGreaterThan(0);

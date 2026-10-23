@@ -816,6 +816,7 @@ export type StatKey =
   | `defeatWith:${DefeatWith}`
   | `wear:${string}`
   | `visit:${string}`
+  | `country:${string}` // COUNTRY-1: `country:<kind>`（0 か 1）・`country:all`（見つけた国の数）
   | `drop:${string}`
   | `store:${string}`
   // LIVE-1 畜産（`<kind>` は 'chicken'、`*` は ぜんぶ）
@@ -889,6 +890,8 @@ export interface AchievementDef {
   small: boolean;
   /** 名前（ひらがな・カタカナ。漢字は使わない） */
   name: string;
+  /** COUNTRY-1: 新しくは 取れない 古い 実績（取った物だけ のこす。記録が とどいても 取れない） */
+  legacy?: boolean;
 }
 
 /** C → B: 今 出す おめでとう画面の 1 枚（§2.6 (3)） */
