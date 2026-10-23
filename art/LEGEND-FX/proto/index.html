@@ -1,0 +1,31 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>LEGEND-FX 見本</title>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js"}}</script>
+<style>
+body{margin:0;background:#fff;font-family:"WenQuanYi Zen Hei","IPAGothic",sans-serif;width:900px}
+.row{display:flex}.cell{width:300px}.lab{height:34px;line-height:34px;text-align:center;font-size:19px;font-weight:bold;background:#fff3c8;color:#333;border-right:2px solid #fff}
+canvas{display:block}.foot{height:26px;line-height:26px;font-size:16px;background:#333;color:#fff;padding:0 10px;display:flex;justify-content:space-between}
+</style></head><body>
+<div class="row" id="row"></div><div class="foot"><span id="fl"></span><span id="fr"></span></div>
+<script type="module">
+import { makePanel, runVariant, TOTAL, stageName } from './lib.js';
+import { raijin, PALS } from './fx-raijin.js'; import { fujin } from './fx-fujin.js'; import { niji } from './fx-niji.js';
+const q = new URLSearchParams(location.search), w = q.get('w') || 'raijin', pal = q.get('pal') || 'yellow';
+const DEF = {
+  raijin: ['らいじんけん', ['A はしる いなずま', 'B でんきの たまが かける', 'C ばちばちの あみ'], () => raijin(PALS[pal])],
+  fujin: ['ふうじんけん', ['A かぜの すじ', 'B つむじかぜの はっぱ', 'C かぜの うずもよう'], fujin],
+  niji: ['にじ', ['A ひかりの つぶの かわ', 'B にじの ほしくず', 'C ほどける にじの リボン'], niji],
+  white: ['ふつうの かたな', ['しろい ざんげき（どだい）'], () => ({ A: null })],
+};
+const [name, labels, mk] = DEF[w], fx = mk(), keys = ['A', 'B', 'C'].slice(0, labels.length);
+const size = labels.length === 1 ? 600 : 300; document.body.style.width = (size * labels.length) + 'px';
+const panels = keys.map((k, n) => {
+  const cell = document.createElement('div'); cell.className = 'cell'; cell.style.width = size + 'px';
+  cell.innerHTML = `<div class="lab">${labels[n]}</div><canvas></canvas>`; document.getElementById('row').appendChild(cell);
+  const p = makePanel(cell.querySelector('canvas'), size, 2), v = fx[k], run = v ? runVariant(v, n + 1) : () => {};
+  return { p, run };
+});
+document.getElementById('fl').textContent = name + (w === 'raijin' && pal === 'purple' ? '（むらさき）' : '');
+window.TOTAL = TOTAL;
+window.frame = i => { for (const { p, run } of panels) p.render(i, run); document.getElementById('fr').textContent = stageName(i); };
+window.frame(0); window.READY = true;
+</script></body></html>
