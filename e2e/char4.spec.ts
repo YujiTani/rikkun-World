@@ -1,16 +1,11 @@
 import { expect, test, type Page } from '@playwright/test';
 import {
   BLADE_TABLE,
-  DRAW_TAU,
   KATANA_SET,
   bladeColors,
-  bladeScale,
-  dist,
   expectTrailHook,
-  fadeOfAge,
   fire,
   holdItems,
-  maxPointError,
   openBladeWorld,
   range,
   settingRow,
@@ -25,24 +20,24 @@ import {
  * 数は ゲーム（window.__rikkun）に 聞く。決め打ちは 仕様書 §4.2 の 見える ステップ（F の 範囲）と §4.5 の 色の 表だけ。
  * 実装の 前は `blade.trail()` と `sprite.bladeColors` が まだ ないので 落ちる（赤）。
  */
-const SHOTS = 'test-shots/CHAR-4';
+/**
+ * LEGEND-FX（#257・2026-10-23 オーナー決定）: 刀の 半月の 帯（bladeTrail）は 白い 斬撃に おきかえ。ゲームでは 帯を 一度も 出さない（hideBandTrail）。
+ * このファイルの 帯の 形・点・消えぐあい・星・タイミングの 検査は、帯の 計算そのもの（BladeTrail）を 見る ユニット
+ * （src/fx/bladeTrail.test.ts・bladeTrailModel.test.ts）が 引き継ぐ。ここは「帯が 出ない」ことと、色・弓・なぎなた など 帯と 関係ない 基準を 見る。
+ * 白い 斬撃の 出方は e2e/legend-fx.spec.ts。
+ */
 test.describe.configure({ timeout: 180_000 });
 
 const visibleSteps = (rec: Snap[]) => rec.filter((s) => s.trail.visible).map((s) => s.f);
-const at = (rec: Snap[], f: number): Snap => {
-  const s = rec.find((x) => x.f === f);
-  if (!s) throw new Error(`F${f} の きろくが ない`);
-  return s;
-};
 
-/** 見える 物の 数・三角形の 上限（仕様書 §4.8・AC14）。出ていない ときは 物 0 */
-function expectCheap(rec: Snap[], maxObjects: number, maxTriangles: number): void {
+/** LEGEND-FX: 半月の 帯は どの ステップでも 出ない（見える 物 0・三角形 0・星 0・点 0） */
+function expectNoBand(rec: Snap[]): void {
+  expect(visibleSteps(rec), '帯が 見える ステップ').toEqual([]);
   for (const s of rec) {
-    if (!s.trail.visible) expect(s.trail.objects, `F${s.f} 出ていない とき 物 0`).toBe(0);
-    else {
-      expect(s.trail.objects, `F${s.f}`).toBeLessThanOrEqual(maxObjects);
-      expect(s.trail.triangles, `F${s.f}`).toBeLessThanOrEqual(maxTriangles);
-    }
+    expect(s.trail.objects, `F${s.f} 帯の 物`).toBe(0);
+    expect(s.trail.triangles, `F${s.f} 帯の 三角形`).toBe(0);
+    expect(s.trail.stars, `F${s.f} 星`).toHaveLength(0);
+    expect(s.trail.points, `F${s.f} 点`).toHaveLength(0);
   }
 }
 
@@ -59,7 +54,7 @@ async function spawnTarget(page: Page): Promise<void> {
 }
 
 test.describe('CHAR-4 通し', () => {
-  test('AC16: 刀の通し（かたな → 上段へ R → 大けさぎり 45 ステップ → ぼくとうに持ちかえ）', async ({ page }) => {
+  test('AC16（LEGEND-FX で 直し）: 刀の通し（かたな → 上段へ R → 大けさぎり 45 ステップ・帯は 出ない → ぼくとうに持ちかえ）', async ({ page }) => {
     await openBladeWorld(page);
     await expectTrailHook(page);
     await holdItems(page, [{ item: 'katana' }, { item: 'bokuto' }]);
@@ -77,27 +72,8 @@ test.describe('CHAR-4 通し', () => {
     expect(rec.map((s) => s.f)).toEqual(range(1, 45));
     expect(rec[0]!.dir).not.toBeNull();
 
-    // 見える ステップは F29〜F42 だけ
-    expect(visibleSteps(rec)).toEqual(range(29, 42));
-    for (const s of rec.filter((x) => x.trail.visible)) {
-      expect(s.trail.item, `F${s.f}`).toBe('katana');
-      expect(s.trail.tech, `F${s.f}`).toBe('kesa');
-      expect(s.trail.color, `F${s.f} の 色`).toBe(katana.color);
-      expect(s.trail.glow, `F${s.f} の そとの光`).toBe(katana.glow);
-    }
-    // F34 で 点 7 こ（F28〜F34、τ = 28〜34）
-    const f34 = at(rec, 34).trail;
-    expect(f34.points).toHaveLength(7);
-    expect(f34.points.map((p) => p.step)).toEqual(range(28, 34));
-    expect(f34.points.map((p) => p.tau)).toEqual(range(28, 34));
-    // 各点の 刃先・つばは 「そのステップの 体の 位置 ＋ k × データ」（新しい絵 kesa2 で 復活。台帳 G7）
-    expect(maxPointError(rec, 'kesa', rec[0]!.dir!, await bladeScale(page)).err).toBeLessThanOrEqual(0.01);
-    // WEAPON-4: 体が とびこむので、点は そのステップの 体の 位置に 置かれて 前へ のびる
-    expect(f34.points.every((p) => Number.isFinite(p.tip.x) && Number.isFinite(p.tip.z))).toBe(true);
-    // 軌跡は 1 本・三角形 288 以下
-    expectCheap(rec, 1, 288);
-    // かたなの 軌跡には 星が ない
-    for (const s of rec) expect(s.trail.stars, `F${s.f}`).toHaveLength(0);
+    // 半月の 帯は 白い 斬撃に おきかえ（LEGEND-FX）: かたなの 大けさぎりでも 帯は 出ない
+    expectNoBand(rec);
 
     // F45 で ぼくとうに 持ちかえ → 同じ ステップに 板の 刃の色が ぼくとう
     const swapped = await page.evaluate(() => {
@@ -110,32 +86,9 @@ test.describe('CHAR-4 通し', () => {
     expect(swapped.colors).toEqual({ body: BLADE_TABLE.bokuto.blade, shine: BLADE_TABLE.bokuto.bladeShine });
     expect(swapped.colors).toEqual({ body: (await settingRow(page, 'bokuto')).blade, shine: (await settingRow(page, 'bokuto')).bladeShine });
 
-    // スクショ（上の 確かめが 通ってから 撮る）: かたな・ぼくとう の F31
-    await page.evaluate(() => {
-      const h = window.__rikkun! as any;
-      h.inventory.select(0);
-      h.step(120);
-    });
-    await toStance(page, 'jodan');
-    const shot1 = await fire(page, 31);
-    expect(at(shot1, 31).trail.visible).toBe(true);
-    expect(at(shot1, 31).trail.points).toHaveLength(4);
-    await page.screenshot({ path: `${SHOTS}/kesa-katana-F31.png` });
-
-    await page.evaluate(() => {
-      const h = window.__rikkun! as any;
-      h.inventory.select(1);
-      h.step(120);
-    });
-    await toStance(page, 'jodan');
-    const shot2 = await fire(page, 31);
-    expect(at(shot2, 31).trail.visible).toBe(true);
-    expect(at(shot2, 31).trail.color).toBe(BLADE_TABLE.bokuto.color);
-    expect(at(shot2, 31).trail.glow).toBe(BLADE_TABLE.bokuto.glow);
-    await page.screenshot({ path: `${SHOTS}/kesa-bokuto-F31.png` });
   });
 
-  test('AC16: 当たっても 外れても 同じ 軌跡（妖怪の 前で 大けさぎり）', async ({ page }) => {
+  test('AC16（LEGEND-FX で 直し）: 当たっても 外れても 帯は 出ない（妖怪の 前で 大けさぎり）', async ({ page }) => {
     await openBladeWorld(page);
     await expectTrailHook(page);
     await holdItems(page, [{ item: 'katana' }]);
@@ -150,13 +103,12 @@ test.describe('CHAR-4 通し', () => {
     const hits0 = await countHits();
     const hit = await fire(page, 50);
     expect((await countHits()) - hits0, '妖怪に 当たった').toBeGreaterThan(0);
-    expect(visibleSteps(hit)).toEqual(visibleSteps(miss));
-    expect(visibleSteps(hit)).toEqual(range(29, 42));
-    // 同じ 点の 数（WEAPON-4: 妖怪の 手前で 体が 止まるので、体からの ずれの 同じさは 見ない）
-    expect(hit.map((s) => s.trail.points.length)).toEqual(miss.map((s) => s.trail.points.length));
+    // LEGEND-FX: 当たっても 外れても 帯は 出ない（白い 斬撃の 出方は 同じ → e2e/legend-fx.spec.ts）
+    expectNoBand(hit);
+    expectNoBand(miss);
   });
 
-  test('AC17: 水晶の かたな・下段で 切り上げ（見える F20〜F30・F22 で 星 1 こ・F31 で 消える。WEAPON-4・WEAPON-6: 1 段目は 星 1 こ）', async ({ page }) => {
+  test('AC17（LEGEND-FX で 直し）: 水晶の かたな・下段で 切り上げ（刃の色は 水晶。帯も 星も 出ない）', async ({ page }) => {
     await openBladeWorld(page);
     await expectTrailHook(page);
     await holdItems(page, [{ item: 'crystal_katana' }]);
@@ -168,60 +120,19 @@ test.describe('CHAR-4 通し', () => {
     await toStance(page, 'gedan');
     const rec = await fire(page, 40);
     expect(rec.map((s) => s.tech).slice(0, 3)).toEqual(['kiriage', 'kiriage', 'kiriage']);
-    // 点は F19〜22 の 4 つ（窓 = 当たりの 1 つ前の F から 当たりの おわり）。見えるのは 点が 2 つに なる F20 から 9 ステップ ぶん
-    expect(visibleSteps(rec)).toEqual(range(20, 30));
-    expect(at(rec, 31).trail.visible).toBe(false);
-    expect(at(rec, 22).trail.points.map((p) => p.step)).toEqual(range(19, 22));
-    for (const s of rec.filter((x) => x.trail.visible)) {
-      expect(s.trail.item).toBe('crystal_katana');
-      expect(s.trail.tech).toBe('kiriage');
-      expect(s.trail.color).toBe(crystal.color);
-      expect(s.trail.glow).toBe(crystal.glow);
-    }
-    // 星は 段の 数（WEAPON-6: 1 段目 = 1 こ。q = 0.55 の 区切りの 刃先の 上）
-    const f42 = at(rec, 22).trail;
-    expect(f42.stars).toHaveLength(1);
-    const cols42 = [...f42.columns].sort((a, b) => a.q - b.q);
-    for (const q of [0.55]) {
-      const tip = cols42[Math.floor(q * f42.segments)]!.tip;
-      const near = Math.min(...f42.stars.map((st) => dist(tip, st)));
-      expect(near, `q = ${q} の 区切りの 刃先から 0.05 以内に 星`).toBeLessThanOrEqual(0.05);
-    }
-    // 刃先・つばの 位置は 体 ＋ k × データ（新しい絵 kiriage2 で 復活。台帳 G7）
-    expect(maxPointError(rec, 'kiriage', rec[0]!.dir!, await bladeScale(page)).err).toBeLessThanOrEqual(0.01);
-    // 星込みで 物 2 以下・三角形 360 以下
-    expectCheap(rec, 2, 360);
-    // 軌跡が 消えたら 星も ない
-    expect(at(rec, 31).trail.stars).toHaveLength(0);
-
-    // スクショ F41
-    await page.evaluate(() => (window.__rikkun! as any).step(150));
-    await toStance(page, 'gedan');
-    const shot = await fire(page, 21);
-    expect(at(shot, 21).trail.visible).toBe(true);
-    await page.screenshot({ path: `${SHOTS}/kiriage-crystal-F21.png` });
+    // LEGEND-FX: 帯も 星も 出ない（白い 斬撃は e2e/legend-fx.spec.ts）
+    expectNoBand(rec);
   });
 
-  test('AC17: 中段で 突き（見える F3〜F14・F5 のスクショ）', async ({ page }) => {
+  test('AC17（LEGEND-FX で 直し）: 中段で 突き（帯は 出ない）', async ({ page }) => {
     await openBladeWorld(page);
     await expectTrailHook(page);
     await holdItems(page, [{ item: 'katana' }]);
     await waitReady(page, KATANA_SET);
-    const k = await bladeScale(page);
     const rec = await fire(page, 20);
     expect(rec[0]!.tech).toBe('thrust');
-    expect(visibleSteps(rec)).toEqual(range(3, 14));
-    expect(at(rec, 6).trail.points.map((p) => p.step)).toEqual(range(2, 6));
-    expect(at(rec, 6).trail.points.map((p) => p.tau)).toEqual(range(DRAW_TAU.thrust[0], DRAW_TAU.thrust[1]));
-    expect(maxPointError(rec, 'thrust', rec[0]!.dir!, k).err).toBeLessThanOrEqual(0.01);
-    expectCheap(rec, 1, 288);
-    // 星は かたなでは 出ない
-    for (const s of rec) expect(s.trail.stars, `F${s.f}`).toHaveLength(0);
-
-    await page.evaluate(() => (window.__rikkun! as any).step(100));
-    const shot = await fire(page, 5);
-    expect(at(shot, 5).trail.visible).toBe(true);
-    await page.screenshot({ path: `${SHOTS}/thrust-katana-F5.png` });
+    // LEGEND-FX: 突きでも 帯は 出ない
+    expectNoBand(rec);
   });
 
   test('AC17・AC8: なぎなた・つるはし・素手・弓では 新しい 軌跡が 出ない（なぎなたの 白い弧は 9 ステップ）', async ({ page }) => {
@@ -285,109 +196,6 @@ test.describe('CHAR-4 通し', () => {
     expect(await colorsOf(1)).toEqual({ body: BLADE_TABLE.katana.blade, shine: BLADE_TABLE.katana.bladeShine });
   });
 
-  test('AC5（ゲームに聞く）: 消えぐあいは 区切りの 年れいだけで 決まり、同じ 時刻の 所は ふえない。形の きほん（AC4）', async ({ page }) => {
-    await openBladeWorld(page);
-    await expectTrailHook(page);
-    await holdItems(page, [{ item: 'katana' }]);
-    await waitReady(page, KATANA_SET);
-    await toStance(page, 'jodan');
-    const rec = await fire(page, 46);
-    let checked = 0;
-    for (const s of rec) {
-      const t = s.trail;
-      if (!t.visible) continue;
-      expect(t.strips.length, `F${s.f} 区切りの 数`).toBe(t.segments);
-      // 区切りの 数 = min(36, max(6, ⌈6 × 見える はば⌉))
-      const width = t.head! - t.tail!;
-      expect(t.segments, `F${s.f}`).toBe(Math.min(36, Math.max(6, Math.ceil(6 * width - 1e-9))));
-      // 見える部分は いまの 時刻から 9 ステップ いない
-      expect(t.head!, `F${s.f}`).toBeLessThanOrEqual(s.f + 1e-9);
-      expect(t.tail!, `F${s.f}`).toBeGreaterThanOrEqual(s.f - 9 - 1e-9);
-      // 三角形 = 区切り × だん 4 × 2 以下
-      expect(t.triangles, `F${s.f}`).toBeLessThanOrEqual(t.segments * 8);
-      // fade は 区切りの 年れいだけで 決まる（並びは 決めない）
-      for (const st of t.strips) {
-        expect(st.age, `F${s.f}`).toBeLessThan(9);
-        expect(st.fade, `F${s.f} age ${st.age}`).toBeCloseTo(fadeOfAge(st.age), 6);
-        checked++;
-      }
-      // 形: q = 0 でも q = 1 でも うちの へり = 刃先（とがる）。q で 並べて 見る
-      const cols = [...t.columns].sort((a, b) => a.q - b.q);
-      expect(cols[0]!.q).toBeCloseTo(0, 6);
-      expect(cols[cols.length - 1]!.q).toBeCloseTo(1, 6);
-      expect(dist(cols[0]!.inner, cols[0]!.tip), `F${s.f} q=0`).toBeLessThanOrEqual(0.001);
-      expect(dist(cols[cols.length - 1]!.inner, cols[cols.length - 1]!.tip), `F${s.f} q=1`).toBeLessThanOrEqual(0.001);
-    }
-    // 見える間に 1 回は 検査した
-    expect(checked).toBeGreaterThan(0);
-  });
-
-  test('AC7: わざの とちゅうで 持ちかえ → 点は 4 こ のまま・8 ステップめまで 見えて 9 ステップめに 消える', async ({ page }) => {
-    await openBladeWorld(page);
-    await expectTrailHook(page);
-    await holdItems(page, [{ item: 'katana' }, { item: 'bokuto' }]);
-    await waitReady(page, KATANA_SET);
-    await toStance(page, 'jodan');
-    const rec = await fire(page, 31);
-    expect(at(rec, 31).trail.points.map((p) => p.step)).toEqual(range(28, 31));
-    // 次の ステップで 持ちかえ（持ちかえた ステップを 1 と 数える）
-    const after = await page.evaluate(() => {
-      const h = window.__rikkun! as any;
-      const out: { visible: boolean; points: number; frame: number }[] = [];
-      h.inventory.select(1);
-      for (let i = 0; i < 10; i++) {
-        h.step(1);
-        const t = h.blade.trail();
-        out.push({ visible: t.visible, points: t.points.length, frame: h.blade.state().frame });
-      }
-      return out;
-    });
-    expect(after[0]!.frame, '持ちかえた ステップで わざは 取り消し').toBe(0);
-    for (let i = 0; i < 8; i++) {
-      expect(after[i]!.points, `${i + 1} ステップめ 点は ふえない`).toBe(4);
-      expect(after[i]!.visible, `${i + 1} ステップめ`).toBe(true);
-    }
-    expect(after[8]!.visible, '9 ステップめ').toBe(false);
-    expect(after[9]!.visible).toBe(false);
-  });
-
-  test('AC7: 突きを おしつづけても 軌跡は 1 本・1 秒に 3 回 以下（F1・F42・F83 に わざ）', async ({ page }) => {
-    await openBladeWorld(page, { half: 30 });
-    await expectTrailHook(page);
-    await holdItems(page, [{ item: 'katana' }]);
-    await waitReady(page, KATANA_SET);
-    const rec = await page.evaluate(() => {
-      const h = window.__rikkun! as any;
-      const out: { f: number; visible: boolean; objects: number; points: number }[] = [];
-      h.input.press('primary');
-      for (let i = 0; i < 600; i++) {
-        h.step(1);
-        const t = h.blade.trail();
-        out.push({ f: h.blade.state().frame, visible: t.visible, objects: t.objects, points: t.points.length });
-      }
-      h.input.releaseAll();
-      return out;
-    });
-    const starts = rec.map((s, i) => (s.f === 1 ? i + 1 : 0)).filter((x) => x > 0);
-    expect(starts.slice(0, 3)).toEqual([1, 42, 83]);
-    expect(Math.max(...rec.map((s) => s.objects))).toBeLessThanOrEqual(1);
-    const onsets = rec.map((s, i) => (s.visible && !(i > 0 && rec[i - 1]!.visible) ? i : -1)).filter((x) => x >= 0);
-    expect(onsets.length).toBeGreaterThanOrEqual(10);
-    for (let i = 0; i + 60 <= 600; i++) expect(onsets.filter((o) => o >= i && o < i + 60).length, `${i} ステップ目から 1 秒`).toBeLessThanOrEqual(3);
-  });
-
-  test('AC2（ゲームに聞く）: 設定の 長さを 大けさぎり 14/3/36 に すると 点は F14〜F17・tau 28・30・32・34・見える F15〜F25', async ({ page }) => {
-    await openBladeWorld(page);
-    await expectTrailHook(page);
-    await page.evaluate(() => (window.__rikkun! as any).settings.set('bladeTech', { kesa: { startup: 14, active: 3, recovery: 36 } }));
-    await holdItems(page, [{ item: 'katana' }]);
-    await waitReady(page, KATANA_SET);
-    await toStance(page, 'jodan');
-    const rec = await fire(page, 30);
-    expect(visibleSteps(rec)).toEqual(range(15, 25));
-    const last = at(rec, 17).trail;
-    expect(last.points.map((p) => p.step)).toEqual(range(14, 17));
-    expect(last.points.map((p) => p.tau)).toEqual([28, 30, 32, 34]);
-    expect(at(rec, 25).trail.points).toHaveLength(4);
-  });
+  // 消した テスト（LEGEND-FX・半月の 帯が ゲームから なくなった ため。帯の 計算は ユニット bladeTrail.test.ts・bladeTrailModel.test.ts が 見る）:
+  //  AC5（消えぐあい・区切りの 数）・AC7（わざの とちゅうで 持ちかえ・押しつづけの 回数）・AC2（設定の 長さで 点の ステップが かわる）
 });
