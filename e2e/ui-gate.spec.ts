@@ -1,6 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
-import { standOnGround } from './helpers/aim';
+import { installAimHelpers, standOnGround } from './helpers/aim';
+import { installArena } from './helpers/arena';
 import { toStance } from './helpers/blade';
 import { aimGroundAhead, chargeUntilReady, legendWorld, releaseAndStep } from './helpers/legend';
 import { expectThunderHook } from './helpers/thunder';
@@ -616,6 +617,52 @@ SCREENS.push(
   },
 );
 
+
+/**
+ * GOLD-1 AC20（docs/design/GOLD-1.md §6）: なかよし パネルの いちばん 多い とき
+ * （なかまの 大人 natsuki 75・むしの まち中 9,000・なでるの まち 0 → ハート 7 こ・きんいろ・まち時計 2 つ）。
+ * DOM は `#natsuki-panel`（仮の 名前。開発が ちがう id に したら ここも 直す）。ねらう 子は `animals.natsukiView(id)` で 確かめる。
+ */
+const NATSUKI_PANEL = '#natsuki-panel';
+async function openNatsukiPanel(page: Page): Promise<void> {
+  await boot(page, true);
+  await installAimHelpers(page);
+  await installArena(page);
+  const view = await page.evaluate(() => {
+    const h = window.__rikkun! as any;
+    const aim = (window as any).__aim;
+    h.settings.set('animalAutoSpawn', false);
+    h.settings.set('yokaiAutoSpawn', false);
+    h.settings.set('yokaiWander', false);
+    h.yokai.clear();
+    h.animals.clear();
+    (window as any).__arena.floor(0, 0, 24, 24);
+    h.inventory.clear();
+    h.time.set(12000);
+    aim.standForS(2.5, 6.5, 90, -20, 9);
+    h.step(5);
+    let follow = 18000;
+    try {
+      follow = h.settings.get('animalFollowTicks');
+    } catch {
+      // 設定が 無ければ 既定
+    }
+    const id = h.animals.spawn(4.5, 9, 6.5, { friend: true, follow, stage: 'adult', natsuki: 75, natsukiBugWait: 9000, natsukiPetWait: 0 });
+    h.step(35);
+    const c = h.animals.list().find((a: any) => a.id === id);
+    aim.solve(Math.floor(c.x), Math.floor(c.y), Math.floor(c.z), 0.5);
+    h.step(2);
+    return { target: h.animals.target() === id, view: h.animals.natsukiView(id) };
+  });
+  expect(view.target, 'なかまを ねらえている').toBe(true);
+  expect(view.view, 'パネルの 状態（AC20 のいちばん 多い とき）').toMatchObject({ shown: true, hearts: 7, gold: true });
+}
+SCREENS.push({
+  id: 'natsuki-panel',
+  roots: [NATSUKI_PANEL, '#animal-hint', '#hud'],
+  open: openNatsukiPanel,
+});
+
 interface Issue {
   kind: string;
   /** 数字を ふくまない 目印（known.json と くらべる） */
@@ -711,6 +758,38 @@ test.describe('UI 検査ゲート', () => {
         `新しい くずれ。直すか、直せない理由があれば issue にして ${KNOWN_FILE} に足す`,
       ).toEqual([]);
     });
+  }
+});
+
+/** GOLD-1 AC20: なかよし パネルの はばは 画面の 60% 以下・左右 16px 以上 あき・ホットバーと 重ならない（3 つの 大きさ） */
+test('GOLD-1 AC20: なかよし パネルの はば・すきま・ホットバーと 重ならない（3 つの 大きさ）', async ({ page }) => {
+  await page.setViewportSize({ width: SIZES[0].w, height: SIZES[0].h });
+  await openNatsukiPanel(page);
+  for (const s of SIZES) {
+    await page.setViewportSize({ width: s.w, height: s.h });
+    await page.evaluate(() => {
+      (window.__rikkun as any).step(2);
+      return new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    });
+    const m = await page.evaluate((sel) => {
+      const rect = (q: string) => {
+        const e = document.querySelector(q) as HTMLElement | null;
+        if (!e || e.hidden) return null;
+        const b = e.getBoundingClientRect();
+        return { l: b.left, t: b.top, r: b.right, b: b.bottom, w: b.width, h: b.height };
+      };
+      return { panel: rect(sel), hot: rect('#hotbar') ?? rect('.hotbar'), hint: rect('#animal-hint'), vw: innerWidth, vh: innerHeight };
+    }, NATSUKI_PANEL);
+    const tag = `${s.w}x${s.h}`;
+    expect(m.panel, `${tag} パネルが 出ている`).not.toBeNull();
+    const p = m.panel!;
+    expect(p.w, `${tag} はば 60% 以下（実際 ${p.w.toFixed(0)} / ${m.vw}）`).toBeLessThanOrEqual(m.vw * 0.6 + 0.5);
+    expect(p.l, `${tag} 左 16px 以上`).toBeGreaterThanOrEqual(16);
+    expect(m.vw - p.r, `${tag} 右 16px 以上`).toBeGreaterThanOrEqual(16);
+    expect(p.t >= 0 && p.b <= m.vh, `${tag} 画面の 中`).toBe(true);
+    if (m.hot) expect(p.b <= m.hot.t || p.t >= m.hot.b || p.r <= m.hot.l || p.l >= m.hot.r, `${tag} ホットバーと 重ならない`).toBe(true);
+    if (m.hint) expect(p.t, `${tag} 照準の 下の 案内の すぐ 下`).toBeGreaterThanOrEqual(m.hint.b - 1);
+    await page.screenshot({ path: `${OUT}/natsuki-panel-width-${tag}.png` });
   }
 });
 
