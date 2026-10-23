@@ -262,9 +262,10 @@ export interface GashaGirlHandle {
   nextSpell(n: number): void;
   /** 次の 魔法 1 の ワープ先が 左横か（シードの さきよみ） */
   predictSide(): 'left' | 'back';
-  info(): Record<string, number | string>;
+  info(): Record<string, number | string | boolean>;
 }
 
+const VANISH = 0.08, GONE = 2.0; // ひゅっ と 消えて、約 2 秒 いない
 const CLIP_FIRE = 0.7; // 詠唱の 70% ごろに 魔法を 出す
 const FB_COUNT = 10, FB_GAP = 0.09, FB_ORB_GAP = 0.1, FB_SPEED = 14, FB_TURN = 120 * D2R, FB_STOP_NEAR = 3, FB_HOMING_MAX = 2.5, FB_LIFE = 4;
 const WAVE_COUNT = 10, WAVE_FAN = 80 * D2R, WAVE_SPEED = 6, WAVE_AMP = 0.6, WAVE_HZ = 1.5, WAVE_RANGE = 14, WAVE_LIFE = 3;
@@ -348,54 +349,60 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
 
   // ---- 魔法 1: 噴き出す（紫の 輪 → 炎の 刃） ----
   const ER = { root: new Group(), t: -1, ring: null as unknown as Mesh, flash: null as unknown as Mesh,
-    blades: [] as { outer: Group; inner: Group; h: number; w: number; start: number; lean: number; ph: number }[], count: 6, x: 0, y: 0, z: 0 };
+    rad: 0, blades: [] as { outer: Group; inner: Group; h: number; w: number; start: number; lean: number; ph: number }[], count: 6, x: 0, y: 0, z: 0 };
   scene.add(ER.root);
   const ringMat = basic(ringTex, 0xa040ff, 0), flashMat = basic(glowTex, 0xe8c8ff, 0), bladeMat = basic(bladeTex, 0xc8a0ff, 0.6);
   ER.ring = flat(ringMat, ER.root); ER.flash = flat(flashMat, ER.root);
-  for (let i = 0; i < 9; i++) {
+  for (let i = 0; i < 12; i++) {
     const outer = new Group(); const inner = crossed(bladeMat, outer); outer.add(inner); ER.root.add(outer); outer.visible = false;
     ER.blades.push({ outer, inner, h: 2, w: 0.5, start: 0.9, lean: 0.3, ph: 0 });
   }
+  const ER_R = 3.8; // 輪の 半径（はじめの 2.2 の 約 1.7 倍）
+  let erHitEnd = 0;
   const fireEruption = (x: number, z: number) => {
     ER.x = x; ER.z = z; ER.y = deps.groundY(Math.floor(x), Math.floor(z)) + 1.04;
-    ER.root.position.set(x, ER.y, z); ER.t = 0;
-    ER.count = 7 + Math.floor(vrng() * 3);
+    ER.root.position.set(x, ER.y, z); ER.t = 0; erHitEnd = 0;
+    ER.count = 10 + Math.floor(vrng() * 3);
     ER.blades.forEach((b, i) => {
-      b.h = vr(3.0, 4.0); b.w = vr(0.7, 0.9); b.start = 0.9 + i * 0.025 + vr(0, 0.05); b.lean = vr(0.05, 0.14); b.ph = vr(0, 6);
-      const ph = (i / ER.count) * Math.PI * 2 + vr(-0.3, 0.3), r = vr(0.15, 0.9);
+      b.h = vr(3.0, 4.0); b.w = vr(0.7, 0.9); b.start = 0.5 + vr(0, 0.08); b.lean = vr(0.05, 0.14); b.ph = vr(0, 6);
+      const ph = i * 2.39996 + vr(-0.2, 0.2), r = ER_R * 0.85 * Math.sqrt((i + 0.5) / ER.count); // 輪の はんい いっぱいに ばらまく
       b.outer.position.set(Math.cos(ph) * r, 0, -Math.sin(ph) * r);
       b.outer.rotation.y = ph;
+      if (i < ER.count) erHitEnd = Math.max(erHitEnd, b.start + 1.1);
     });
   };
   const updateEruption = (dt: number) => {
     if (ER.t < 0) return;
     const t = (ER.t += dt);
-    if (t > 2.7) { ER.t = -1; ER.root.visible = false; ER.ring.visible = ER.flash.visible = false; ER.blades.forEach((b) => (b.outer.visible = false)); return; }
+    if (t > 2.3) { ER.t = -1; ER.root.visible = false; ER.ring.visible = ER.flash.visible = false; ER.blades.forEach((b) => (b.outer.visible = false)); return; }
     ER.root.visible = true;
-    const rad = t < 0.8 ? 2.2 * easeOut(t / 0.8) : 2.2 + 0.5 * ((t - 0.8) / 1.9);
+    const rad = t < 0.4 ? ER_R * easeOut(t / 0.4) : ER_R + 0.4 * ((t - 0.4) / 1.9);
+    ER.rad = rad;
     ER.ring.visible = true; ER.ring.scale.set(rad, 1, rad);
-    ringMat.opacity = Math.min(1, t / 0.4) * 0.9 * (t > 1.8 ? 1 - (t - 1.8) / 0.9 : 1);
-    const fl = clamp01(1 - Math.abs(t - 0.9) / 0.3);
-    ER.flash.visible = fl > 0; ER.flash.scale.setScalar(0.8 + 2.2 * easeOut((t - 0.6) / 0.5)); flashMat.opacity = fl * 1.3;
-    if (t < 0.8) for (let k = 0; k < 3; k++) { // 火の粉が 内向きに あつまる
-      const a = vr(0, Math.PI * 2), r = vr(2.6, 3.2);
-      add.emit(ER.x + Math.cos(a) * r, ER.y + vr(0, 0.5), ER.z + Math.sin(a) * r, -Math.cos(a) * 3.2, 0.3, -Math.sin(a) * 3.2, 0.7, 0.14, 0.06, 0xf0e0ff, 0x9040e0);
+    const hitOn = t < erHitEnd; // 魔法陣が 出てから 炎が おわるまで 輪の 中は あぶない（ふちを 明るく ゆらす）
+    ringMat.opacity = Math.min(1, t / 0.25) * (hitOn ? 0.95 + 0.05 * Math.sin(t * 25) : 0.9) * (t > 1.5 ? 1 - (t - 1.5) / 0.8 : 1);
+    ringMat.color.setHex(hitOn ? 0xe098ff : 0xa040ff);
+    const fl = clamp01(1 - Math.abs(t - 0.45) / 0.2);
+    ER.flash.visible = fl > 0; ER.flash.scale.setScalar(1 + 3 * easeOut((t - 0.3) / 0.4)); flashMat.opacity = fl * 1.3;
+    if (t < 0.5) for (let k = 0; k < 5; k++) { // 火の粉が 内向きに あつまる
+      const a = vr(0, Math.PI * 2), r = vr(ER_R * 1.1, ER_R * 1.3);
+      add.emit(ER.x + Math.cos(a) * r, ER.y + vr(0, 0.5), ER.z + Math.sin(a) * r, -Math.cos(a) * 7, 0.3, -Math.sin(a) * 7, 0.5, 0.14, 0.06, 0xf0e0ff, 0x9040e0);
     }
     for (let i = 0; i < ER.blades.length; i++) {
       const b = ER.blades[i]!;
-      const on = i < ER.count && t > b.start && t < b.start + 1.25;
+      const on = i < ER.count && t > b.start && t < b.start + 1.1;
       b.outer.visible = on; b.inner.visible = on;
       if (!on) continue;
       const u = t - b.start;
-      const g = u < 0.25 ? easeOut(u / 0.25) : u > 0.9 ? 1 - (u - 0.9) / 0.35 : 1;
+      const g = u < 0.2 ? easeOut(u / 0.2) : u > 0.8 ? 1 - (u - 0.8) / 0.3 : 1;
       const fk = 1 + 0.07 * Math.sin(t * 28 + b.ph);
       b.inner.scale.set(b.w * g + 0.05, Math.max(0.01, b.h * g * fk), b.w * g + 0.05);
       b.inner.rotation.z = -(b.lean * (0.4 + 0.6 * g));
     }
-    if (t > 0.95 && t < 1.7) for (let k = 0; k < 2; k++) add.emit(ER.x + vr(-0.6, 0.6), ER.y + vr(0, 1), ER.z + vr(-0.6, 0.6), vr(-0.8, 0.8), vr(1.5, 4), vr(-0.8, 0.8), 0.8, 0.12, 0.04, 0xe0b0ff, 0x6020b0, -1);
-    if (t > 1.2 && t < 2.2) {
-      for (let k = 0; k < 2; k++) smoke.emit(ER.x + vr(-0.6, 0.6), ER.y + 0.3, ER.z + vr(-0.6, 0.6), vr(-0.5, 0.5), vr(1, 2), vr(-0.5, 0.5), 1.1, 0.5, 1.3, 0x2a1838, 0x050208, 0, 0.5);
-      add.emit(ER.x + vr(-0.8, 0.8), ER.y + 0.3, ER.z + vr(-0.8, 0.8), vr(-0.6, 0.6), vr(2, 4), vr(-0.6, 0.6), 1, 0.1, 0.03, 0xd8a0ff, 0x501090);
+    if (t > 0.55 && t < 1.3) for (let k = 0; k < 4; k++) add.emit(ER.x + vr(-ER_R * 0.8, ER_R * 0.8), ER.y + vr(0, 1), ER.z + vr(-ER_R * 0.8, ER_R * 0.8), vr(-0.8, 0.8), vr(1.5, 4), vr(-0.8, 0.8), 0.8, 0.12, 0.04, 0xe0b0ff, 0x6020b0, -1);
+    if (t > 0.8 && t < 1.8) {
+      for (let k = 0; k < 3; k++) smoke.emit(ER.x + vr(-ER_R * 0.7, ER_R * 0.7), ER.y + 0.3, ER.z + vr(-ER_R * 0.7, ER_R * 0.7), vr(-0.5, 0.5), vr(1, 2), vr(-0.5, 0.5), 1.1, 0.5, 1.3, 0x2a1838, 0x050208, 0, 0.5);
+      add.emit(ER.x + vr(-ER_R * 0.8, ER_R * 0.8), ER.y + 0.3, ER.z + vr(-ER_R * 0.8, ER_R * 0.8), vr(-0.6, 0.6), vr(2, 4), vr(-0.6, 0.6), 1, 0.1, 0.03, 0xd8a0ff, 0x501090);
     }
   };
 
@@ -523,7 +530,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
   };
 
   // ---- 少女の 流れ ----
-  type Phase = 'stand' | 'vanish' | 'appear' | 'cast';
+  type Phase = 'stand' | 'vanish' | 'gone' | 'appear' | 'cast';
   let phase: Phase = 'stand', pt = 0, spell = 0;
   let side: 'left' | 'back' = 'back', dist = 4.5, ang = 0;
   let fbShots = 0, fired = false, mixerLeft = 0, castLen = CLIP_DUR, forced = -1;
@@ -531,14 +538,16 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
   const tele = new Vector3();
   const fwdOf = (p: { yawDeg: number }) => { const y = p.yawDeg * D2R; return { fx: Math.sin(y), fz: -Math.cos(y), rx: Math.cos(y), rz: Math.sin(y) }; };
   const faceTo = (p: { x: number; z: number }) => { pivot.rotation.y = Math.atan2(p.x - pivot.position.x, p.z - pivot.position.z); };
-  const fade = (k: number) => { // k: 0 = 見える、1 = 消えた
-    mats.forEach((m) => (m.opacity = 1 - k));
-    pivot.scale.set(1 - 0.5 * k, 1 + 0.25 * k, 1 - 0.5 * k);
+  const fade = (k: number) => { // k: 0 = 見える、1 = 消えた（さいごは 細い 光の 線に なって きえる）
+    mats.forEach((m) => (m.opacity = 1 - k * k));
+    const w = Math.max(0.03, 1 - 0.97 * k);
+    pivot.scale.set(w, 1 + 0.15 * k, w);
   };
   const purpleBurst = (n: number) => {
     const c = pivot.position;
     for (let i = 0; i < n; i++) add.emit(c.x + vr(-0.5, 0.5), c.y + vr(0, H), c.z + vr(-0.5, 0.5), vr(-2, 2), vr(-1, 3), vr(-2, 2), vr(0.4, 0.9), 0.2, 0.05, 0xf0d8ff, 0x6020c0, -1.5, 0.5);
   };
+  const lineBurst = () => { const c = pivot.position; for (let i = 0; i < 12; i++) add.emit(c.x, c.y + (i / 11) * H, c.z, 0, vr(-0.5, 0.5), 0, 0.2, 0.35, 0.05, 0xffffff, 0xa060ff); };
   const chooseWarp = () => {
     spell = forced >= 0 ? forced : Math.floor(rng() * SPELLS); forced = -1;
     if (spell === 0) { side = rng() < 0.5 ? 'left' : 'back'; dist = 4 + rng(); }
@@ -607,10 +616,12 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
     if (phase === 'stand') {
       model.position.y = y0 + Math.sin(t * 1.6) * 0.02; model.position.x = Math.sin(t * 0.9) * 0.03;
       faceTo(p);
-      if (pt >= 2.0) { chooseWarp(); phase = 'vanish'; pt = 0; purpleBurst(24); }
+      if (pt >= 2.0) { chooseWarp(); phase = 'vanish'; pt = 0; purpleBurst(10); lineBurst(); }
     } else if (phase === 'vanish') {
-      fade(clamp01(pt / 0.4));
-      if (pt >= 0.4) { teleport(); phase = 'appear'; pt = 0; fade(1); purpleBurst(24); }
+      fade(clamp01(pt / VANISH));
+      if (pt >= VANISH) { phase = 'gone'; pt = 0; fade(1); pivot.visible = false; }
+    } else if (phase === 'gone') { // 何も いない 時間（「どこいった？」）
+      if (pt >= GONE) { teleport(); pivot.visible = true; phase = 'appear'; pt = 0; fade(1); purpleBurst(24); }
     } else if (phase === 'appear') {
       faceTo(p); fade(1 - clamp01(pt / 0.4));
       if (pt >= 0.4) { fade(0); startCast(); }
@@ -683,7 +694,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
     nextSpell: (n) => { forced = (n - 1 + SPELLS) % SPELLS; },
     predictSide: () => (mulberry(rs)[1] < 0.5 ? 'left' : 'back'),
     info: () => ({
-      phase, spell: spell + 1, forced, castT: pt, side, dist, eruptionT: ER.t, vortexT: VX.t,
+      hitActive: ER.t >= 0 && ER.t < erHitEnd, eruptionR: ER.t >= 0 ? ER.rad : 0, eruptionMaxR: ER_R, phase, spell: spell + 1, forced, castT: pt, side, dist, eruptionT: ER.t, vortexT: VX.t,
       fireballs: projs.filter((q) => q.on && q.kind === 0).length, waves: projs.filter((q) => q.on && q.kind === 1).length,
       ...stats, girlX: pivot.position.x, girlZ: pivot.position.z,
     }),

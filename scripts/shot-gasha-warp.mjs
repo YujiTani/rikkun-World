@@ -116,7 +116,7 @@ async function cycle(n) {
     }
     const e = await info();
     if (e.phase === 'cast') sawCast = true;
-    if (sawCast && (e.phase === 'vanish' || e.phase === 'appear')) break; // 次の ワープが はじまる前に おわる
+    if (sawCast && (e.phase === 'vanish' || e.phase === 'gone' || e.phase === 'appear')) break; // 次の ワープが はじまる前に おわる
     if (g > 30 && e.phase === 'stand' && e.eruptionT < 0 && e.vortexT < 0 && e.fireballs === 0 && e.waves === 0) { await step(2); allNorm.push(await shot(dir)); break; }
     void warped; void ticks; void slowing; void slowDone;
   }
