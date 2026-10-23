@@ -2,6 +2,7 @@ import { DataTexture, NearestFilter, RGBAFormat, SRGBColorSpace, UnsignedByteTyp
 import type { BlockId } from '../../contracts';
 import { tansuPixels } from '../../storage/tansuArt';
 import { FARM_TILE_NAMES, paintFarmTile } from './farmTextures';
+import { KOTATSU_ART_ROWS, kotatsuTileOrder, paintKotatsuArt, type KotatsuTileName } from './kotatsuArt';
 import { LIVE_TILE_NAMES, paintLiveTile, type LiveTileName } from './liveTextures';
 
 /** 16x16 ドット絵をコードで描く（M1-01 4-2 の色）。 */
@@ -31,7 +32,8 @@ export type TileName =
   | 'tansu_top'
   | VoxITileName
   | FarmTileName
-  | LiveTileName;
+  | LiveTileName
+  | KotatsuTileName;
 
 /** VOX-I-1（12 の国）のふつうの絵（一ひねりの絵は #185） */
 export type VoxITileName = 'snow' | 'momiji_leaves' | 'matsu_leaves' | 'flower_y' | 'flower_o' | 'flower_p' | 'bamboo' | 'susuki' | 'kusa' | 'nobana';
@@ -45,7 +47,7 @@ export type FarmTileName =
   | 'kakashi' | 'kakashi_head' | 'saku'
   | 'sprinkler_top' | 'sprinkler_side' | 'sprinkler_bottom';
 
-export const TILE_NAMES: readonly TileName[] = [
+const TILE_NAMES_BASE: readonly TileName[] = [
   'grass_top',
   'grass_side',
   'dirt',
@@ -71,6 +73,8 @@ export const TILE_NAMES: readonly TileName[] = [
   // LIVE-2（こたつ・とりごや。うしろに 足す）
   ...(LIVE_TILE_NAMES as readonly LiveTileName[]),
 ];
+// LIVE-2 こたつ 2×2 の 絵（さいご に 足す。並べ方 は kotatsuTileOrder）
+export const TILE_NAMES: readonly TileName[] = [...TILE_NAMES_BASE, ...kotatsuTileOrder(TILE_NAMES_BASE.length)];
 export const ATLAS_ROWS = Math.ceil(TILE_NAMES.length / ATLAS_COLS);
 export const ATLAS_WIDTH = ATLAS_COLS * TILE_SIZE;
 export const ATLAS_HEIGHT = ATLAS_ROWS * TILE_SIZE;
@@ -383,6 +387,9 @@ function paintTile(name: TileName): Tile {
     case 'nobana':
       return nobanaTile();
     default:
+      if (name.startsWith('kotatsu_') && (name.startsWith('kotatsu_pad') || name in KOTATSU_ART_ROWS)) {
+        return paintKotatsuArt(name as KotatsuTileName).map((c) => (c[3] === 0 ? hex('#000000', 0) : hex('#' + [c[0], c[1], c[2]].map((v) => v.toString(16).padStart(2, '0')).join(''))));
+      }
       return paintFarmTile(
         name,
         paintTile('dirt').map((c) => '#' + [c[0], c[1], c[2]].map((v) => v.toString(16).padStart(2, '0')).join('')),
@@ -416,6 +423,9 @@ export const BLOCK_TILES: Readonly<Partial<Record<BlockId, readonly [TileName, T
   tansu: ['tansu_top', 'tansu_top', 'tansu_front'],
   // LIVE-2（`liveTextures.ts`）。こたつ = 天板 + みかん / 藍の ふとん、小屋 = さく・のれん・藍の やね・すばこ
   nukunuku: ['kotatsu_top', 'kotatsu_side', 'kotatsu_side'],
+  nukunuku_e: ['kotatsu_top', 'kotatsu_side', 'kotatsu_side'],
+  nukunuku_s: ['kotatsu_top', 'kotatsu_side', 'kotatsu_side'],
+  nukunuku_se: ['kotatsu_top', 'kotatsu_side', 'kotatsu_side'],
   toriya_fence: ['toriya_fence_top', 'toriya_fence_top', 'toriya_fence_side'],
   toriya_gate: ['toriya_fence_top', 'toriya_fence_top', 'toriya_gate'],
   toriya_nest: ['toriya_nest_roof', 'toriya_fence_top', 'toriya_nest_side'],

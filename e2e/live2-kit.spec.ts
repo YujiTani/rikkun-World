@@ -72,6 +72,130 @@ test.describe('LIVE-2 こたつ（たまご を あたためる）', () => {
     expect(r.nukuAfterBreak).toBe(1);
   });
 
+  test('AC1b 2×2: 置くと 4 マス（本体＋のこり 3 マス）・どの マス を こわして も 全部 消えて nukunuku 1 と 中 の たまご が おちる。1 マス の 古い こたつ は 1 マス の まま こわせる', async ({ page }) => {
+    await openAnimals(page);
+    const r = await page.evaluate(() => {
+      const h = (window as any).__rikkun;
+      const A = (window as any).__A;
+      A.base(40);
+      const cells = (x: number, z: number) => [[0, 0], [1, 0], [0, 1], [1, 1]].map(([dx, dz]) => String(h.world.getBlock(x + dx, 9, z + dz)));
+      const out: any = {};
+      // 置く: 床 (4, 8, 6) の 上 を ねらって 置く（西 から）
+      A.hold('nukunuku', 1);
+      (window as any).__aim.standForS(2.5, 6.5, 90, 0, 9);
+      h.step(1);
+      (window as any).__aim.solve(4, 8, 6, 1);
+      h.step(1);
+      A.tap();
+      out.placedCells = [] as string[];
+      for (let x = 3; x <= 6; x++) for (let z = 4; z <= 8; z++) { const b = String(h.world.getBlock(x, 9, z)); if (b.startsWith('nukunuku')) out.placedCells.push(`${x},${z}:${b}`); }
+      out.left = h.inventory.count('nukunuku');
+      // たまご を 入れて から、どの マス でも こわす（南東 の マス を ねらう）
+      const anchorKey = out.placedCells.find((c: string) => c.endsWith(':nukunuku'))!;
+      const [ax, az] = anchorKey.split(':')[0].split(',').map(Number);
+      out.anchor = [ax, az];
+      const k = { x: ax, y: 9, z: az };
+      A.putEgg(k, 'egg', 1);
+      out.kitsBefore = h.animals.kits().length;
+      h.inventory.clear();
+      (window as any).__aim.standForS(ax + 3.5, az + 1.5, -90, 0, 9);
+      h.step(1);
+      out.aimedSE = A.aimBlock(ax + 1, 9, az + 1);
+      for (let i = 0; i < 20 && h.world.getBlock(ax + 1, 9, az + 1) !== 'air'; i++) {
+        h.input.press('primary');
+        h.step(60);
+        h.input.release('primary');
+        h.step(1);
+      }
+      h.step(3);
+      out.after = cells(ax, az);
+      out.nuku = h.inventory.count('nukunuku') + A.bags('nukunuku').length;
+      out.kitsAfter = h.animals.kits().length;
+      out.eggBack = A.bags('egg').length + h.inventory.count('egg');
+      // 古い 1 マス こたつ は 1 マス だけ 消える
+      const one = A.kit1(12, 6);
+      out.oneCells = [String(h.world.getBlock(12, 9, 6)), String(h.world.getBlock(13, 9, 6))];
+      h.inventory.clear();
+      (window as any).__aim.standForS(10.5, 6.5, 90, 0, 9);
+      h.step(1);
+      A.aimBlock(one.x, 9, one.z);
+      for (let i = 0; i < 20 && h.world.getBlock(12, 9, 6) !== 'air'; i++) {
+        h.input.press('primary');
+        h.step(60);
+        h.input.release('primary');
+        h.step(1);
+      }
+      h.step(2);
+      out.oneAfter = String(h.world.getBlock(12, 9, 6));
+      out.oneNuku = h.inventory.count('nukunuku') + A.bags('nukunuku').length;
+      return out;
+    });
+    expect(r.placedCells.map((c: string) => c.split(':')[1]).sort()).toEqual(['nukunuku', 'nukunuku_e', 'nukunuku_s', 'nukunuku_se']);
+    expect(r.left, '置いたら こたつ 1 つ へる（4 マス でも 1 つ）').toBe(0);
+    expect(r.kitsBefore).toBe(1);
+    expect(r.aimedSE).toBe(true);
+    expect(r.after, '4 マス ぜんぶ 消える').toEqual(['air', 'air', 'air', 'air']);
+    expect(r.nuku, 'nukunuku は 1 つ だけ').toBe(1);
+    expect(r.kitsAfter).toBe(0);
+    expect(r.eggBack, '中 の たまご は おちる').toBe(1);
+    expect(r.oneCells).toEqual(['nukunuku', 'air']);
+    expect(r.oneAfter).toBe('air');
+    expect(r.oneNuku).toBe(1);
+  });
+
+  test('AC2b 2×2: 4 マス の どれ を 右クリック しても 同じ 1 台。たまご は 1 台 に 1 こ・kitWait は どの マス でも・かえった ひよこ は こたつ の まわり に 出る。古い 1 マス こたつ も 入る', async ({ page }) => {
+    await openAnimals(page);
+    const r = await page.evaluate(() => {
+      const h = (window as any).__rikkun;
+      const A = (window as any).__A;
+      A.base(40);
+      h.settings.set('kitHatchTicks', 120);
+      const out: any = {};
+      const k = A.kit(8, 6);
+      // 南東 の マス を ねらって 入れる
+      A.hold('egg', 3);
+      (window as any).__aim.standForS(k.x + 3.5, k.z + 1.5, -90, 0, k.y); // 東 から 見て 南東 の マス が 手前
+      h.step(1);
+      out.aimed = A.aimBlock(k.x + 1, k.y, k.z + 1);
+      h.animals.events();
+      A.tap();
+      out.kits = h.animals.kits().map((q: any) => ({ x: q.x, z: q.z }));
+      out.left = h.inventory.count('egg');
+      // 北東 の マス で もう 1 回 → kitWait（入らない）
+      (window as any).__aim.standForS(k.x + 3.5, k.z + 0.5, -90, 0, k.y);
+      h.step(1);
+      out.aimedNE = A.aimBlock(k.x + 1, k.y, k.z);
+      h.animals.events();
+      A.tap();
+      out.hint = h.animals.lastHint();
+      out.left2 = h.inventory.count('egg');
+      out.kitsAfter = h.animals.kits().length;
+      // 古い 1 マス こたつ
+      const o = A.kit1(20, 6);
+      const b = A.putEgg(o, 'egg', 1);
+      out.oldPut = { aimed: b.aimed, kits: h.animals.kits().length };
+      // かえる（120 ステップ）。ひよこ は こたつ の 外 の 地面（4 マス の 中 ではない）
+      for (let i = 0; i < 400; i++) h.step(1);
+      out.rows = h.animals.list().map((q: any) => ({ x: q.x, z: q.z, stage: q.stage }));
+      out.blocks = cells(h, k);
+      function cells(hh: any, kk: any) { return [[0, 0], [1, 0], [0, 1], [1, 1]].map(([dx, dz]) => String(hh.world.getBlock(kk.x + dx, kk.y, kk.z + dz))); }
+      return out;
+    });
+    expect(r.aimed).toBe(true);
+    expect(r.kits).toEqual([{ x: 8, z: 6 }]);
+    expect(r.left, 'たまご は 1 つ だけ へる').toBe(2);
+    expect(r.hint).toBe('kitWait');
+    expect(r.left2).toBe(2);
+    expect(r.kitsAfter).toBe(1);
+    expect(r.oldPut.kits).toBe(2);
+    expect(r.rows.length).toBeGreaterThanOrEqual(2);
+    for (const q of r.rows) {
+      const inBig = q.x > 8 && q.x < 10 && q.z > 6 && q.z < 8;
+      expect(inBig, `ひよこ (${q.x}, ${q.z}) は こたつ の 上 に 出ない`).toBe(false);
+    }
+    expect(r.blocks).toEqual(['nukunuku', 'nukunuku_e', 'nukunuku_s', 'nukunuku_se']);
+  });
+
   test('AC2 入れる: から + egg → egg -1・kits に { egg: egg, left: kitHatchTicks }。もう 1 回 kitWait。すで kitNeedEgg。kin_tamago → gold。7 つ目 kitMax。つち は となり に 置く', async ({ page }) => {
     await openAnimals(page);
     const r = await page.evaluate(() => {

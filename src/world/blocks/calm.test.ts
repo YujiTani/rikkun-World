@@ -214,7 +214,9 @@ describe('CALM 基準 5: 変えない絵は 1 画素も変わらない', () => {
   };
   it('おさえる絵と farmland の横 4 枚以外は、全部この表にある', () => {
     const skip = new Set([...Object.keys(CALMED), 'farmland_side', 'farmland_wet_side']);
-    expect(TILE_NAMES.filter((n) => !skip.has(n)).sort()).toEqual(Object.keys(HASH).sort());
+    // こたつ 2×2 の 新しい 絵（ふとん・角・天板 の 切れ はし・すきま）は kotatsu.test.ts で 調べる
+    const kotatsuNew = (n: string) => /^kotatsu_(slope|corner|top_|pad)/.test(n);
+    expect(TILE_NAMES.filter((n) => !skip.has(n) && !kotatsuNew(n)).sort()).toEqual(Object.keys(HASH).sort());
   });
   for (const [name, h] of Object.entries(HASH)) {
     it(name, () => expect(fnv(getTilePixels(name as TileName))).toBe(h));

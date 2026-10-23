@@ -28,6 +28,8 @@ const KIND_INDEX: Readonly<Record<AnimalModelKind, number>> = { chicken: 0, chic
 /** 小屋 の むき（0 北 −z・1 東 +x・2 南 +z・3 西 −x）の 回転（もん = −z が その むき） */
 /** こたつ の 中心 から たまご の 中心 まで（ふとん の はし 0.5 の すこし 内がわ。たまご の 前 1/3 が のぞく） */
 const KIT_EGG_OUT = 0.46;
+/** 2×2 の こたつ: 中心 から すそ の たまご まで（すそ は 中心 から 1.0。すこし 内がわ） */
+const KIT_EGG_OUT_BIG = 0.96;
 const COOP_YAW = [0, -Math.PI / 2, Math.PI, Math.PI / 2] as const;
 
 /** 面の 明るさ（動いた あとの 向き: 上 1.0・南北 0.8・東西 0.6・下 0.5）を かける 材料 */
@@ -642,15 +644,29 @@ export class AnimalRenderer {
     }
     this.eggUsed[variant]++;
     this.eggTotal++;
-    const cx = k.x + 0.5;
-    const cz = k.z + 0.5;
+    const big = k.size === 2;
+    const cx = k.x + (big ? 1 : 0.5);
+    const cz = k.z + (big ? 1 : 0.5);
     let ux = this.camPos.x - cx;
     let uz = this.camPos.z - cz;
     const len = Math.hypot(ux, uz) || 1;
     ux /= len;
     uz /= len;
+    let ex = ux * KIT_EGG_OUT;
+    let ez = uz * KIT_EGG_OUT;
+    if (big) {
+      // 2×2: カメラ に いちばん 向いた 辺 の すそ から のぞく（辺 に そって すこし ずれる）
+      const out = KIT_EGG_OUT_BIG;
+      if (Math.abs(ux) >= Math.abs(uz)) {
+        ex = Math.sign(ux || 1) * out;
+        ez = Math.max(-0.6, Math.min(0.6, (uz / Math.abs(ux || 1)) * out));
+      } else {
+        ez = Math.sign(uz || 1) * out;
+        ex = Math.max(-0.6, Math.min(0.6, (ux / Math.abs(uz || 1)) * out));
+      }
+    }
     prop.root.visible = true;
-    prop.root.position.set(cx + ux * KIT_EGG_OUT, k.y, cz + uz * KIT_EGG_OUT);
+    prop.root.position.set(cx + ex, k.y, cz + ez);
     prop.root.rotation.set(0, Math.atan2(-ux, -uz), 0);
     prop.root.scale.setScalar(V * 16);
     // かたむき
@@ -707,6 +723,45 @@ export class AnimalRenderer {
     }
   }
 
+  /** 置く 前 の すけた 形 の 材料（入る = 白、入らない = 赤 の ななめ しま）。小屋 と こたつ で 同じ */
+  private makeGhostMat(skinned = true): { mat: THREE.MeshBasicMaterial; bad: { value: number } } {
+      const bad = { value: 0 };
+      const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.4, depthWrite: false, fog: false });
+      mat.userData.noDim = true;
+      mat.onBeforeCompile = (sh) => {
+        sh.uniforms.uBad = bad;
+        sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vGhostW;\nvarying float vGhostS;').replace('#include <project_vertex>', '#include <project_vertex>\nvGhostW = (modelMatrix * vec4(transformed, 1.0)).xyz;\nvGhostS = 0.7 + 0.3 * normalize(mat3(modelMatrix) * ' + (skinned ? 'objectNormal' : 'normal') + ').y;');
+        sh.fragmentShader = sh.fragmentShader
+          .replace('#include <common>', '#include <common>\nvarying vec3 vGhostW;\nvarying float vGhostS;\nuniform float uBad;')
+          .replace('#include <color_fragment>', '#include <color_fragment>\n diffuseColor.rgb *= vGhostS;\n if (uBad > 0.5 && fract((vGhostW.x + vGhostW.z - vGhostW.y) * 3.0) < 0.5) discard;');
+      };
+    return { mat, bad };
+  }
+
+  private kitGhost: { mesh: THREE.Mesh; mat: THREE.MeshBasicMaterial; bad: { value: number } } | null = null;
+
+  /** 置く 前 の すけた こたつ（2×2×1 の 箱）。毎フレーム 呼ぶ（`null` で 消える）。(x, z) = 北西 の マス */
+  setKitGhost(pv: { x: number; y: number; z: number; ok: boolean } | null): void {
+    if (!pv) {
+      if (this.kitGhost) this.kitGhost.mesh.visible = false;
+      return;
+    }
+    if (!this.kitGhost) {
+      const { mat, bad } = this.makeGhostMat(false); // 骨 の ない 箱 は objectNormal が 無い ので normal を 使う
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(2, 1, 2), mat);
+      mesh.renderOrder = 5;
+      mesh.frustumCulled = false;
+      this.group.add(mesh);
+      this.kitGhost = { mesh, mat, bad };
+    }
+    const g = this.kitGhost;
+    g.bad.value = pv.ok ? 0 : 1;
+    g.mat.color.setHex(pv.ok ? 0xffffff : 0xe8554a);
+    g.mat.opacity = pv.ok ? 0.4 : 0.35;
+    g.mesh.visible = true;
+    g.mesh.position.set(pv.x + 1, pv.y + 0.5, pv.z + 1);
+  }
+
   /**
    * 置く 前 の すけた 小屋（§2.3 10a）。毎フレーム 呼ぶ（`null` で 消える）。入る = 白 40%、入らない = 赤 35% の ななめ しま。
    * 位置 は `previewCoop()` の 答え（ずらし 後）。
@@ -718,16 +773,7 @@ export class AnimalRenderer {
       return;
     }
     if (!this.ghost) {
-      const bad = { value: 0 };
-      const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.4, depthWrite: false, fog: false });
-      mat.userData.noDim = true;
-      mat.onBeforeCompile = (sh) => {
-        sh.uniforms.uBad = bad;
-        sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vGhostW;\nvarying float vGhostS;').replace('#include <project_vertex>', '#include <project_vertex>\nvGhostW = (modelMatrix * vec4(transformed, 1.0)).xyz;\nvGhostS = 0.7 + 0.3 * normalize(mat3(modelMatrix) * objectNormal).y;');
-        sh.fragmentShader = sh.fragmentShader
-          .replace('#include <common>', '#include <common>\nvarying vec3 vGhostW;\nvarying float vGhostS;\nuniform float uBad;')
-          .replace('#include <color_fragment>', '#include <color_fragment>\n diffuseColor.rgb *= vGhostS;\n if (uBad > 0.5 && fract((vGhostW.x + vGhostW.z - vGhostW.y) * 3.0) < 0.5) discard;');
-      };
+      const { mat, bad } = this.makeGhostMat();
       const root = new THREE.Group();
       const m = this.staticMesh(getCoopModel(), mat);
       m.root.scale.setScalar(COOP_SCALE);
@@ -853,6 +899,10 @@ export class AnimalRenderer {
     this.bodyMaterial.dispose();
     this.hullMaterial.dispose();
     this.ghost?.mat.dispose();
+    if (this.kitGhost) {
+      this.kitGhost.mat.dispose();
+      this.kitGhost.mesh.geometry.dispose();
+    }
     this.group.removeFromParent();
   }
 }

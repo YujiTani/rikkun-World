@@ -950,6 +950,7 @@ function deliverAnimalEvents(): void {
 }
 game.onBeforeRender(() => {
   animalRenderer.setCoopGhost(dig.coopGhost());
+  animalRenderer.setKitGhost(dig.kotatsuGhost());
   animalRenderer.update(animalViews.fill(animals), game.camera);
 });
 rig.setHeldProvider(() => inventory.held()?.item ?? null);

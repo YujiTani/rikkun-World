@@ -185,8 +185,17 @@ export async function openAnimals(page: Page, query = '?nosave=1'): Promise<void
       },
 
       // ---- LIVE-2（docs/design/LIVE-2.md §6・§6.1）で足した もの。窓口の 仮の 名前は docs/test-reports/LIVE-2.md の「仮の 窓口」
-      /** (x, y, z) に こたつ（`nukunuku`）を 置いて 2 ステップ 進める */
+      /** (x, y, z) を 本体（北西 の マス）に して こたつ 2×2（`nukunuku`＋のこり 3 マス）を 置いて 2 ステップ 進める。返す {x, y, z} は 本体 */
       kit(x: number, z: number, y = 9) {
+        h.world.setBlock(x, y, z, 'nukunuku');
+        h.world.setBlock(x + 1, y, z, 'nukunuku_e');
+        h.world.setBlock(x, y, z + 1, 'nukunuku_s');
+        h.world.setBlock(x + 1, y, z + 1, 'nukunuku_se');
+        h.step(2);
+        return { x, y, z };
+      },
+      /** 古い セーブ の 1 マス こたつ（まわり に 3 マス が 無い `nukunuku`）。1 マス の まま こたつ として 動く */
+      kit1(x: number, z: number, y = 9) {
         h.world.setBlock(x, y, z, 'nukunuku');
         h.step(2);
         return { x, y, z };

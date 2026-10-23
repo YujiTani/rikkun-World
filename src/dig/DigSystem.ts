@@ -35,6 +35,7 @@ import type { Action, ActionState } from '../input/actions';
 import { LIVE_SETTING_DEFAULTS, cropKindOfBlock, seedKindOfItem, vegKindOfItem } from '../contracts';
 import { itemType } from '../inventory/items';
 import { isFloraBlock } from '../world/blocks/flora';
+import { KOTATSU_CELLS, isKotatsuBlock, kotatsuAnchorOf } from '../world/blocks/kotatsu';
 import { BODY_H, BODY_W, FARM_BREAK_DROP, NO_DROP_BLOCKS, createDigConfig, type DigConfig } from './config';
 import { createRng, randInt, type Rng } from '../world/gen/random';
 import type { PunchGate } from '../combat/PlayerCombat';
@@ -706,6 +707,9 @@ export class DigSystemImpl implements DigSystem {
   private breakBlock(t: TargetInfo): void {
     if (COOP_BLOCKS.has(t.id)) return this.breakCoopBlock(t);
     const { x, y, z } = t.block;
+    // こたつ 2×2: どの マス を こわして も 4 マス ぜんぶ 消える（`nukunuku` 1 と 中 の たまご は 1 回 だけ）
+    if (isKotatsuBlock(t.id)) this.clearKotatsuCells(t);
+    const dropId: BlockId = isKotatsuBlock(t.id) ? 'nukunuku' : t.id;
     const craft = this.m4.craft;
     const wasFurnace = craft?.isFurnace(x, y, z) ?? false;
     const wasTansu = t.id === 'tansu';
@@ -714,10 +718,10 @@ export class DigSystemImpl implements DigSystem {
     this.dropUnsupportedTorches(x, y, z);
     this.liftFlora(x, y + 1, z); // FLORA-75: 下の ブロックを こわすと 上の くさ・のばな も 消える
     const farmDrop = FARM_BREAK_DROP[t.id] ?? null;
-    const fixed = farmDrop ? farmDrop.count : (craft?.fixedDrop(t.id) ?? null);
-    const dropItem: ItemId = farmDrop ? farmDrop.item : t.id;
-    const max = Math.max(1, this.config.dropMax[this.config.rarity[t.id] ?? 'common'] ?? 1);
-    const n = NO_DROP_BLOCKS.has(t.id) ? 0 : fixed !== null ? fixed : randInt(this.rng, 1, max);
+    const fixed = farmDrop ? farmDrop.count : (craft?.fixedDrop(dropId) ?? null);
+    const dropItem: ItemId = farmDrop ? farmDrop.item : dropId;
+    const max = Math.max(1, this.config.dropMax[this.config.rarity[dropId] ?? 'common'] ?? 1);
+    const n = NO_DROP_BLOCKS.has(dropId) ? 0 : fixed !== null ? fixed : randInt(this.rng, 1, max);
     const got = n - this.inventory.add(dropItem, n);
     if (got > 0) this.m4.onPickup?.(dropItem, got);
     // たんす は入らなければ 落とし物にする（なくさない。M6）
@@ -738,6 +742,18 @@ export class DigSystemImpl implements DigSystem {
     this.clearMem();
     this.active = false;
     this.cooldown = this.config.digCooldown;
+  }
+
+  /** こたつ 2×2 の 4 マス（ねらった マス いがい。ねらった マス は 呼んだ 側 が 消す）を 空気 に する。本体 が 無い 古い 1 マス は 何も しない */
+  private clearKotatsuCells(t: TargetInfo): void {
+    const { x, y, z } = t.block;
+    const a = kotatsuAnchorOf(t.id, x, z);
+    for (const c of KOTATSU_CELLS) {
+      const cx = a.x + c.dx;
+      const cz = a.z + c.dz;
+      if ((cx === x && cz === z) || this.world.getBlock(cx, y, cz) !== c.block) continue;
+      this.world.setBlock(cx, y, cz, 'air');
+    }
   }
 
   /** FLORA-75: (x, y, z) に くさ・のばな が あれば どける（のばな は 1 こ 持ち物へ。くさ は 何も出ない） */
@@ -1088,7 +1104,7 @@ export class DigSystemImpl implements DigSystem {
   private kitState(): { occupied: boolean } | null {
     const a = this.m4.animals;
     const t = this.tgt;
-    if (!a || !t || t.id !== 'nukunuku') return null;
+    if (!a || !t || !isKotatsuBlock(t.id)) return null;
     return { occupied: a.kitAt(t.block.x, t.block.y, t.block.z) != null };
   }
 
@@ -1505,7 +1521,7 @@ export class DigSystemImpl implements DigSystem {
   }
 
   /** 置く場所とブロック（置けないなら null）。tryPlace とヒントが同じ判定を使う */
-  private placeSpot(): { x: number; y: number; z: number; block: BlockId } | null {
+  private placeSpot(): { x: number; y: number; z: number; block: BlockId; cells?: ReadonlyArray<{ x: number; z: number; block: BlockId }> } | null {
     const t = this.tgt;
     const held = this.inventory.held();
     if (!t || !held) return null;
@@ -1515,6 +1531,10 @@ export class DigSystemImpl implements DigSystem {
     const { x, y, z } = t.id === 'kusa' ? t.block : t.place;
     const cur = this.world.getBlock(x, y, z);
     if (cur !== 'air' && cur !== 'water' && !(cur === 'kusa' && t.id === 'kusa')) return null; // 世界の外・ほかのブロック
+    if (block === 'nukunuku') {
+      const k = this.kotatsuSpot(x, y, z);
+      return k ? { x: k.x, y, z: k.z, block, cells: k.cells } : null;
+    }
     if (block === 'nobana') {
       // のばな は くさ・つち の上だけ
       const under = this.world.getBlock(x, y - 1, z);
@@ -1539,11 +1559,50 @@ export class DigSystemImpl implements DigSystem {
     return st.open(t.block.x, t.block.y, t.block.z, { screenOpens: true });
   }
 
+  /**
+   * こたつ 2×2 を 置く 場所。ねらった マス (x, y, z) を かど に して、プレイヤー から 見て おく がわ（むこう）に 2×2。
+   * ふさがって いたら ほか の 3 つ の むき も ためす。4 マス とも 空気（か 草花）で、体 と 重ならない とき だけ。
+   * 本体 は 北西 の マス。見つからなければ null
+   */
+  private kotatsuSpot(x: number, y: number, z: number): { x: number; z: number; cells: Array<{ x: number; z: number; block: BlockId }> } | null {
+    const p = this.player().position;
+    const ex = x + 0.5 >= p.x ? 1 : -1;
+    const ez = z + 0.5 >= p.z ? 1 : -1;
+    for (const [sx, sz] of [[ex, ez], [-ex, ez], [ex, -ez], [-ex, -ez]] as const) {
+      const ax = sx > 0 ? x : x - 1;
+      const az = sz > 0 ? z : z - 1;
+      let ok = true;
+      for (const c of KOTATSU_CELLS) {
+        const cx = ax + c.dx;
+        const cz = az + c.dz;
+        const cur = this.world.getBlock(cx, y, cz);
+        if ((cur !== 'air' && cur !== 'water' && !isFloraBlock(cur)) || this.overlapsBody(cx, y, cz) || this.gate?.placeBlocked(cx, y, cz)) {
+          ok = false;
+          break;
+        }
+      }
+      if (ok) return { x: ax, z: az, cells: KOTATSU_CELLS.map((c) => ({ x: ax + c.dx, z: az + c.dz, block: c.block })) };
+    }
+    return null;
+  }
+
+  /** 置く 前 の すけた こたつ（`nukunuku` を 持って ブロック を ねらって いる とき だけ。置けない 所 は ok=false で 赤）。毎フレーム 描く 側 が 読む */
+  kotatsuGhost(): { x: number; y: number; z: number; ok: boolean } | null {
+    const t = this.tgt;
+    if (!t || this.inventory.held()?.item !== 'nukunuku') return null;
+    const { x, y, z } = t.id === 'kusa' ? t.block : t.place;
+    const k = this.placeSpot();
+    if (k) return { x: k.x, y: k.y, z: k.z, ok: true };
+    return { x, y, z, ok: false };
+  }
+
   private tryPlace(): void {
     const spot = this.placeSpot();
     if (!spot) return;
     const { x, y, z, block } = spot;
-    if (!this.world.setBlock(x, y, z, block)) return;
+    if (spot.cells) {
+      for (const c of spot.cells) this.world.setBlock(c.x, y, c.z, c.block);
+    } else if (!this.world.setBlock(x, y, z, block)) return;
     this.inventory.consumeHeld();
     if (block === 'tansu') this.m4.storage?.placed(x, y, z, this.player().yawDeg);
     this.m4.tools?.pushSwing('place');

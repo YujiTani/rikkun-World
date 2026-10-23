@@ -1,3 +1,4 @@
+import { isBigKotatsu, kotatsuAnchorOf } from '../world/blocks/kotatsu';
 import type {
   AnimalApi,
   AnimalBirdSave,
@@ -82,12 +83,15 @@ const BREED_SALT = 0x11fe0004;
 const GOLD_SALT = 0x11fe0005;
 const BLOCK_NUKUNUKU = 'nukunuku';
 
+
 /** こたつ 1 つ（たまご が 入った もの だけ） */
 interface Kit {
   x: number;
   y: number;
   z: number;
   egg: KitEgg;
+  /** 1 辺 の マス の 数（こわれた あと の たまご の おちる 場所 の ため、本体 が ある 間 に 覚える） */
+  size?: 1 | 2;
   left: number;
   /** 入れた ときの あたためる 時間（ゆれ の 段階 の 分母） */
   total: number;
@@ -711,6 +715,20 @@ export class AnimalManager implements AnimalApi {
     return at ? { x: at.x, y, z: at.z, dir, ok: true } : { x, y, z, dir, ok: false };
   }
 
+  /** その マス が こたつ の 3 マス の どれか なら 本体 の マス。ほか は そのまま */
+  private kitAnchor(x: number, y: number, z: number): { x: number; y: number; z: number } {
+    const ix = Math.floor(x);
+    const iy = Math.floor(y);
+    const iz = Math.floor(z);
+    const a = kotatsuAnchorOf(String(this.world.getBlock(ix, iy, iz)), ix, iz);
+    return { x: a.x, y: iy, z: a.z };
+  }
+
+  /** 本体 の まわり に 3 マス が そろって いれば 2、古い 1 マス こたつ なら 1 */
+  private kitSize(k: { x: number; y: number; z: number }): 1 | 2 {
+    return isBigKotatsu((x, y, z) => String(this.world.getBlock(x, y, z)), k.x, k.y, k.z) ? 2 : 1;
+  }
+
   kits(): KitInfo[] {
     return this.kitList.map((k) => this.kitInfo(k, { x: 0, y: 0, z: 0, egg: null, left: 0, wobble: 0 }));
   }
@@ -721,7 +739,8 @@ export class AnimalManager implements AnimalApi {
 
   /** その マス の こたつ（たまご が 入って いる もの だけ） */
   kitAt(x: number, y: number, z: number): KitInfo | null {
-    const k = this.kitList.find((o) => o.x === Math.floor(x) && o.y === Math.floor(y) && o.z === Math.floor(z));
+    const a = this.kitAnchor(x, y, z);
+    const k = this.kitList.find((o) => o.x === a.x && o.y === a.y && o.z === a.z);
     return k ? this.kitInfo(k, { x: 0, y: 0, z: 0, egg: null, left: 0, wobble: 0 }) : null;
   }
 
@@ -746,9 +765,8 @@ export class AnimalManager implements AnimalApi {
    * 置ける 物 を 持って いる とき の「となり に 置く」は C が 決めて、この 口 は 呼ばない。
    */
   useKit(x: number, y: number, z: number, held: ItemId | null): KitUseResult {
-    const ix = Math.floor(x);
-    const iy = Math.floor(y);
-    const iz = Math.floor(z);
+    // こたつ 2×2: 4 マス の どれ を ねらって も 本体（北西 の マス）の こたつ 1 台 として あつかう
+    const { x: ix, y: iy, z: iz } = this.kitAnchor(x, y, z);
     if (this.kitList.some((k) => k.x === ix && k.y === iy && k.z === iz)) {
       this.hintOut('kitWait');
       return 'wait';
@@ -835,6 +853,7 @@ export class AnimalManager implements AnimalApi {
     const r = this.kitScratch;
     for (const k of this.kitList) {
       this.kitInfo(k, r);
+      r.size = this.kitSize(k); // 描く 側 だけ が 読む（kits()・kitAt() の 答え には 入れない）
       const c = k.chick !== 0 ? this.find(k.chick) : undefined;
       r.hatchT = c && c.lock > 0 && c.lockKind === 'hatch' ? 1 - c.lock / Math.max(1, c.lockTotal) : 0;
       fn(r);
@@ -1157,11 +1176,13 @@ export class AnimalManager implements AnimalApi {
       // こたつ を こわした: たまご は もどる（あたため は 0）
       if (this.world.isLoaded(k.x, k.z) && String(this.world.getBlock(k.x, k.y, k.z)) !== BLOCK_NUKUNUKU) {
         this.kitList.splice(i, 1);
-        const at = { x: k.x + 0.5, y: k.y + 0.5, z: k.z + 0.5 };
+        const half = (k.size ?? 1) / 2;
+        const at = { x: k.x + half, y: k.y + 0.5, z: k.z + half };
         if (k.egg === 'gold') this.dropGold(at);
         else this.d.dropEgg(at);
         continue;
       }
+      k.size = this.kitSize(k);
       if (k.left > 0) k.left--;
       if (k.left > 0) continue;
       // あたため おわり: 近く に いて、なかま が 8 わ より 少ない とき に かえる
@@ -1206,11 +1227,13 @@ export class AnimalManager implements AnimalApi {
     this.push({ type: 'hatchStart', x: k.x, y: k.y, z: k.z });
   }
 
-  /** こたつ の となり の 地面（プレイヤー に 近い 方 から）。無ければ こたつ の 上。それ も だめ なら null */
+  /** こたつ の まわり の 地面（プレイヤー に 近い 方 から）。無ければ こたつ の 上。それ も だめ なら null */
   private findHatchSpot(k: Kit, p: Vec3): Vec3 | null {
     const w = this.world;
-    const sides: [number, number][] = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-    const dd = (a: [number, number]) => (k.x + 0.5 + a[0] - p.x) ** 2 + (k.z + 0.5 + a[1] - p.z) ** 2;
+    const n = this.kitSize(k);
+    const sides: [number, number][] = [];
+    for (let i = 0; i < n; i++) sides.push([-1, i], [n, i], [i, -1], [i, n]);
+    const dd = (a: [number, number]) => (k.x + a[0] + 0.5 - p.x) ** 2 + (k.z + a[1] + 0.5 - p.z) ** 2;
     sides.sort((a, b) => dd(a) - dd(b));
     for (const [dx, dz] of sides) {
       const ix = k.x + dx;

@@ -32,6 +32,8 @@ export class CameraRig {
   readonly doll = new BlockDoll();
   private readonly view: ViewMode = 'third';
   private overviewOn = false;
+  /** スクショ・テスト用: キャラ を かくす（`camera.hideDoll`）。ふだん は false */
+  private dollForcedHidden = false;
   /** 壁よけ後の今のカメラまでの距離（P から）。-1 = 次の更新でぴったり合わせる */
   private current = -1;
   private fogBackup: THREE.Scene['fog'] = null;
@@ -210,6 +212,10 @@ export class CameraRig {
   getView(): ViewMode {
     return this.view;
   }
+  /** スクショ・テスト用: キャラ（人形）を かくす／もどす */
+  hideDoll(on: boolean): void {
+    this.dollForcedHidden = on;
+  }
   isOverview(): boolean {
     return this.overviewOn;
   }
@@ -323,7 +329,7 @@ export class CameraRig {
 
     if (this.heldProvider) this.doll.setHeld(this.heldProvider());
     if (this.overviewOn) this.doll.setMode('hidden');
-    else this.doll.setMode(this.distToBody >= DOLL_HIDE_DISTANCE ? 'third' : 'hidden');
+    else this.doll.setMode(!this.dollForcedHidden && this.distToBody >= DOLL_HIDE_DISTANCE ? 'third' : 'hidden');
     this.doll.setWeapon(this.weaponSource ? this.bladeNow() : null, this.weaponSource ? this.weaponSource.bowPose() : null);
     this.doll.update(dt, s.position, s.yawDeg, s.pitchDeg, s.moving && s.onGround, s.onGround);
     this.doll.placeFirstPerson(this.camera);

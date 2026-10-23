@@ -22,6 +22,8 @@ const ALL_IDS: BlockId[] = [
   'kusa', 'nobana',
   // LIVE-2（うしろに足す）
   'nukunuku', 'toriya_fence', 'toriya_gate', 'toriya_nest', 'toriya_box',
+  // こたつ 2×2（うしろに足す）
+  'nukunuku_e', 'nukunuku_s', 'nukunuku_se',
 ];
 
 /** この試験は M1 の 64×32×64 の世界で書かれている */

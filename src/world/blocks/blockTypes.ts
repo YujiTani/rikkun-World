@@ -54,6 +54,10 @@ export const BLOCK_TYPES: readonly BlockType[] = [
   { id: 'toriya_gate', name: 'とりごや', solid: false, breakable: true },
   { id: 'toriya_nest', name: 'とりごや', solid: true, breakable: true },
   { id: 'toriya_box', name: 'とりごや', solid: true, breakable: true },
+  // こたつ 2×2 の のこり 3 マス（本体 は かど の `nukunuku`）
+  { id: 'nukunuku_e', name: 'こたつ', solid: true, breakable: true },
+  { id: 'nukunuku_s', name: 'こたつ', solid: true, breakable: true },
+  { id: 'nukunuku_se', name: 'こたつ', solid: true, breakable: true },
 ];
 
 export const BLOCK_INDEX: Readonly<Record<BlockId, number>> = Object.fromEntries(

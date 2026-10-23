@@ -68,7 +68,11 @@ export type BlockId =
   | 'toriya_fence' // さく（見た目 12/9 マス、当たり 高さ 2）
   | 'toriya_gate' // もん（のれん。はば 1・高さ 2）
   | 'toriya_nest' // ねぐら
-  | 'toriya_box'; // すばこ（ねぐら の ゆか）
+  | 'toriya_box' // すばこ（ねぐら の ゆか）
+  // こたつ 2×2 の のこり 3 マス（かど の `nukunuku` が 本体。ここは 持ち物 に 入らない。`src/world/blocks/kotatsu.ts`）
+  | 'nukunuku_e' // 本体 の 東（+x）
+  | 'nukunuku_s' // 本体 の 南（+z）
+  | 'nukunuku_se'; // 本体 の 南東
 
 export interface BlockType {
   id: BlockId;
@@ -2565,6 +2569,8 @@ export interface KitInfo {
   y: number;
   z: number;
   egg: KitEgg | null;
+  /** 1 辺 の マス の 数（2 = 2×2 の こたつ、1 = 古い セーブ の 1 マス こたつ。なければ 1） */
+  size?: 1 | 2;
   /** あたため の のこり ステップ */
   left: number;
   /** ゆれ: 0 じっと／1 ときどき／2 よく ゆれる＋ひび（§2.1・AC4） */
