@@ -1,0 +1,46 @@
+# VCSL（Versilian Community Sample Library、CC0 1.0）https://github.com/sgossner/VCSL から 使った 録音。1 行 = URL と 48kHz モノラルに した ときの 名前
+https://raw.githubusercontent.com/sgossner/VCSL/master/Idiophones/Struck%20Idiophones/Mark%20Trees/Legacy/windchimes_asc1.wav marktrees__0.wav
+https://raw.githubusercontent.com/sgossner/VCSL/master/Idiophones/Struck%20Idiophones/Mark%20Trees/Legacy/windchimes_desc1.wav marktrees__1.wav
+https://raw.githubusercontent.com/sgossner/VCSL/master/Idiophones/Struck%20Idiophones/Mark%20Trees/Legacy/windchimes_fastAsc1.wav marktrees__2.wav
+https://raw.githubusercontent.com/sgossner/VCSL/master/Idiophones/Struck%20Idiophones/Bell%20Tree/Individual/BellTree_Hit_A%235_rr1_Mid.wav belltree__As5.wav
+https://raw.githubusercontent.com/sgossner/VCSL/master/Idiophones/Struck%20Idiophones/Bell%20Tree/Individual/BellTree_Hit_C5_rr1_Mid.wav belltree__C5.wav
+https://raw.githubusercontent.com/sgossner/VCSL/master/Idiophones/Struck%20Idiophones/Bell%20Tree/Individual/BellTree_Hit_D5_rr1_Mid.wav belltree__D5.wav
+https://raw.githubusercontent.com/sgossner/VCSL/master/Idiophones/Struck%20Idiophones/Bell%20Tree/Individual/BellTree_Hit_E5_rr1_Mid.wav belltree__E5.wav
+https://raw.githubusercontent.com/sgossner/VCSL/master/Idiophones/Struck%20Idiophones/Bell%20Tree/Individual/BellTree_Hit_F%235_rr1_Mid.wav belltree__Fs5.wav
+https://raw.githubusercontent.com/sgossner/VCSL/master/Idiophones/Struck%20Idiophones/Bell%20Tree/Individual/BellTree_Hit_G%235_rr1_Mid.wav belltree__Gs5.wav
+https://raw.githubusercontent.com/sgossner/VCSL/master/Idiophones/Struck%20Idiophones/Glockenspiel/glock_soft_C5_02.wav glockenspiel__C5.wav
+https://raw.githubusercontent.com/sgossner/VCSL/master/Idiophones/Struck%20Idiophones/Glockenspiel/glock_soft_C6_01.wav glockenspiel__C6.wav
+https://raw.githubusercontent.com/sgossner/VCSL/master/Idiophones/Struck%20Idiophones/Glockenspiel/glock_soft_C7_03.wav glockenspiel__C7.wav
+https://raw.githubusercontent.com/sgossner/VCSL/master/Idiophones/Struck%20Idiophones/Glockenspiel/glock_soft_G4_01.wav glockenspiel__G4.wav
+https://raw.githubusercontent.com/sgossner/VCSL/master/Idiophones/Struck%20Idiophones/Glockenspiel/glock_soft_G5_01.wav glockenspiel__G5.wav
+https://raw.githubusercontent.com/sgossner/VCSL/master/Idiophones/Struck%20Idiophones/Glockenspiel/glock_soft_G6_01.wav glockenspiel__G6.wav
+https://raw.githubusercontent.com/sgossner/VCSL/master/Idiophones/Friction%20Idiophones/Wine%20Glasses/Sustains/Fast/glass1_D%234_Fast_1_main.wav wineglass__Ds4.wav
+https://raw.githubusercontent.com/sgossner/VCSL/master/Idiophones/Friction%20Idiophones/Wine%20Glasses/Sustains/Fast/glass2_F%234_Fast_1_Main.wav wineglass__Fs4.wav
+https://raw.githubusercontent.com/sgossner/VCSL/master/Idiophones/Friction%20Idiophones/Wine%20Glasses/Sustains/Fast/glass3_A%234_Fast_1_Main.wav wineglass__As4.wav
+https://raw.githubusercontent.com/sgossner/VCSL/master/Idiophones/Friction%20Idiophones/Wine%20Glasses/Sustains/Fast/glass4_D5_Fast_1_Main.wav wineglass__D5.wav
+https://raw.githubusercontent.com/sgossner/VCSL/master/Idiophones/Struck%20Idiophones/Hand%20Chimes/sus_C4_r01_main.wav handchimes__C4.wav
+https://raw.githubusercontent.com/sgossner/VCSL/master/Idiophones/Struck%20Idiophones/Hand%20Chimes/sus_C5_r01_main.wav handchimes__C5.wav
+https://raw.githubusercontent.com/sgossner/VCSL/master/Idiophones/Struck%20Idiophones/Hand%20Chimes/sus_C6_r01_main.wav handchimes__C6.wav
+https://raw.githubusercontent.com/sgossner/VCSL/master/Idiophones/Struck%20Idiophones/Hand%20Chimes/sus_D5_r01_main.wav handchimes__D5.wav
+https://raw.githubusercontent.com/sgossner/VCSL/master/Idiophones/Struck%20Idiophones/Hand%20Chimes/sus_E4_r01_main.wav handchimes__E4.wav
+https://raw.githubusercontent.com/sgossner/VCSL/master/Idiophones/Struck%20Idiophones/Hand%20Chimes/sus_E5_r01_main.wav handchimes__E5.wav
+https://raw.githubusercontent.com/sgossner/VCSL/master/Idiophones/Struck%20Idiophones/Hand%20Chimes/sus_G%234_r01_main.wav handchimes__Gs4.wav
+https://raw.githubusercontent.com/sgossner/VCSL/master/Idiophones/Struck%20Idiophones/Hand%20Chimes/sus_G%235_r01_main.wav handchimes__Gs5.wav
+https://raw.githubusercontent.com/sgossner/VCSL/master/Idiophones/Struck%20Idiophones/Vibraphone/Bowed/Vibes_bowed_A4_rr1_Main.wav vibraphone_bowed__A4.wav
+https://raw.githubusercontent.com/sgossner/VCSL/master/Idiophones/Struck%20Idiophones/Vibraphone/Bowed/Vibes_bowed_D4_rr1_Main.wav vibraphone_bowed__D4.wav
+https://raw.githubusercontent.com/sgossner/VCSL/master/Idiophones/Struck%20Idiophones/Vibraphone/Bowed/Vibes_bowed_E5_rr1_Main.wav vibraphone_bowed__E5.wav
+https://raw.githubusercontent.com/sgossner/VCSL/master/Idiophones/Struck%20Idiophones/Vibraphone/Bowed/Vibes_bowed_G3_rr1_Main.wav vibraphone_bowed__G3.wav
+https://raw.githubusercontent.com/sgossner/VCSL/master/Idiophones/Struck%20Idiophones/Finger%20Cymbals/Fing_Cymb.wav fingercymbal__0.wav
+https://raw.githubusercontent.com/sgossner/VCSL/master/Idiophones/Struck%20Idiophones/Triangles/Triangle1_HitFM_v1_rr1_Mid.wav triangles__0.wav
+https://raw.githubusercontent.com/sgossner/VCSL/master/Idiophones/Struck%20Idiophones/Triangles/Triangle1_HitFM_v1_rr2_Mid.wav triangles__1.wav
+https://raw.githubusercontent.com/sgossner/VCSL/master/Idiophones/Struck%20Idiophones/Triangles/Triangle1_HitM_v1_rr2_Mid.wav triangles__2.wav
+https://raw.githubusercontent.com/sgossner/VCSL/master/Idiophones/Struck%20Idiophones/Triangles/Triangle1_HitM_v1_rr4_Mid.wav triangles__3.wav
+https://raw.githubusercontent.com/sgossner/VCSL/master/Idiophones/Struck%20Idiophones/Anvil/Anvil_Hit1_v1_rr1_Mid.wav anvil__0.wav
+https://raw.githubusercontent.com/sgossner/VCSL/master/Idiophones/Struck%20Idiophones/Anvil/Anvil_Hit1_v2_rr1_Mid.wav anvil__1.wav
+https://raw.githubusercontent.com/sgossner/VCSL/master/Idiophones/Struck%20Idiophones/Anvil/Anvil_Hit1_v3_rr1_Mid.wav anvil__2.wav
+https://raw.githubusercontent.com/sgossner/VCSL/master/Idiophones/Struck%20Idiophones/Anvil/Anvil_Hit2_v1_rr1_Mid.wav anvil__3.wav
+https://raw.githubusercontent.com/sgossner/VCSL/master/Idiophones/Struck%20Idiophones/Suspended%20Cymbal%201/susCymb1_bow_13.wav sus_cymbal__0.wav
+https://raw.githubusercontent.com/sgossner/VCSL/master/Idiophones/Struck%20Idiophones/Suspended%20Cymbal%201/susCymb1_bow_17.wav sus_cymbal__1.wav
+https://raw.githubusercontent.com/sgossner/VCSL/master/Idiophones/Struck%20Idiophones/Suspended%20Cymbal%201/susCymb1_bow_20.wav sus_cymbal__2.wav
+
+# C3_cut_slash*: オーナーの見本 on-jin「sen_ka_katana_kirikizamu02.mp3」(https://on-jin.com) を切りはり。配らない前提（2026-10-21 yuzu）。公開する前に規約確認か差しかえ。元の mp3 はリポジトリに入れない。

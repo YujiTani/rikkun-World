@@ -1,0 +1,144 @@
+{
+ "issue": "WEAPON-9 (#70) v2: ドームの もよう・ふち と にじの 斬撃を PixelLab の 下絵から（オーナー 2026-10-23）",
+ "api": "v2 REST（手元 Mac、PIXELLAB_SECRET）",
+ "limit": "POST /vfx artist lite だけ・目安 6 generations（依頼文）",
+ "balance_before": {
+  "generations": 32.0,
+  "usd": 0.0
+ },
+ "calls": [
+  {
+   "n": 1,
+   "endpoint": "POST /v2/vfx",
+   "artist": "lite",
+   "name": "niji-a-dome",
+   "job": "6d333222-85f0-4a86-8a7b-3e4ec2a6de04",
+   "effect_id": "0c95c6dd-1174-4d8a-af1a-631aaceed1d1",
+   "quoted_generations": 1,
+   "usage": {
+    "type": "generations",
+    "generations": 1.0
+   },
+   "canvas": {
+    "h": 104,
+    "w": 96
+   },
+   "frames": 16,
+   "out": "niji-a-dome.png/.gif/.json",
+   "artist_message": "A one-shot frosted bubble dome: it grows from a small glowing orb, holds steady with a milky white body, then dithers away, with a cream-white rim with a thin gold edge and a flat glowing ring on the ground. Twelve white twinkling stars are scattered on the surface with a few mint, sky-blue and lilac ones. To tune it, try the ground ring's size and brightness, or the dome's dissolve timing."
+  },
+  {
+   "n": 2,
+   "endpoint": "POST /v2/vfx",
+   "artist": "lite",
+   "name": "niji-a-slash",
+   "job": "922baad6-06cc-4589-a81f-7d7b0c42209d",
+   "effect_id": "855708a4-aa59-49c7-a121-1a0391fb2cfa",
+   "quoted_generations": 1,
+   "usage": {
+    "type": "generations",
+    "generations": 1.0
+   },
+   "canvas": {
+    "h": 60,
+    "w": 44
+   },
+   "frames": 5,
+   "out": "niji-a-slash.png/.gif/.json",
+   "artist_message": "A crisp pixel katana slash: a thick cream-white core with a thin green, sky blue and lilac rainbow edge, sweeping across in a few fast frames. Four small 4-point stars trail behind it and fade out one at a time, with no blood and no glow blur. Try the katana colour and katana thickness sliders to adjust the edge and width."
+  },
+  {
+   "n": 3,
+   "endpoint": "POST /v2/vfx",
+   "artist": "lite",
+   "name": "niji-b-dome",
+   "job": "ad8dcc4f-efdc-47a6-a4bd-2b3b832c1740",
+   "effect_id": "f8926e05-608c-44b2-b7af-f268e3a26ed3",
+   "quoted_generations": 1,
+   "usage": {
+    "type": "generations",
+    "generations": 1.0
+   },
+   "canvas": {
+    "h": 96,
+    "w": 96
+   },
+   "frames": 16,
+   "out": "niji-b-dome.png/.gif/.json",
+   "artist_message": "A soft milky-white soap bubble dome that grows from a dot, holds steady with its pastel green, sky blue and lilac iridescent swirls around the rim, then dithers away. A window highlight sits on the top-left and small bubbles drift up from below. Try the swirl and highlight brightness, or the dither, if you want it calmer or sparklier."
+  },
+  {
+   "n": 4,
+   "endpoint": "POST /v2/vfx",
+   "artist": "lite",
+   "name": "niji-b-slash",
+   "job": "f6000204-aa2c-4827-aa60-1cc0b5f4edac",
+   "effect_id": "766caf29-2344-48da-9e3c-0f18dbeaaa40",
+   "quoted_generations": 1,
+   "usage": {
+    "type": "generations",
+    "generations": 1.0
+   },
+   "canvas": {
+    "h": 64,
+    "w": 64
+   },
+   "frames": 4,
+   "out": "niji-b-slash.png/.gif/.json",
+   "artist_message": "A fat rainbow crescent sweeps right to left over 4 frames, with cream, green, sky blue and lilac stripes running from the inner edge out, rounded tips, and small pale bubbles popping off the trail. The slash is fully drawn by frame 2 and fades on frame 4, so the last frame is empty. Try the head and tail sliders to change how fast the swipe travels, or ask for bigger bubbles."
+  },
+  {
+   "n": 5,
+   "endpoint": "POST /v2/vfx",
+   "artist": "lite",
+   "name": "niji-c-dome",
+   "job": "41b24927-2782-4537-a6bd-8b8d9e763679",
+   "effect_id": "8af8a45d-60e3-4312-b76d-2e1a5bfe99f1",
+   "quoted_generations": 1,
+   "usage": {
+    "type": "usd",
+    "usd": 0.0
+   },
+   "canvas": {
+    "h": 45,
+    "w": 78
+   },
+   "frames": 16,
+   "out": "niji-c-dome.png/.gif/.json",
+   "artist_message": "A milky white dome seen from outside, with a gold-and-cream diamond lattice that lights up from bottom to top, then holds steady before dithering away. Seven small jewel dots (green, sky blue, lilac) sit at the crossings and a bright cream rim with a thin gold outline frames it. The lattice line brightness and the dithered fade are the easiest things to tune next."
+  },
+  {
+   "n": 6,
+   "endpoint": "POST /v2/vfx",
+   "artist": "lite",
+   "name": "niji-c-slash",
+   "job": "71277b0d-2503-42a7-ab06-040bda4159c7",
+   "effect_id": "cb063134-7b43-4c96-90c0-0df6ddaa12c0",
+   "quoted_generations": 1,
+   "usage": {
+    "type": "generations",
+    "generations": 1.0
+   },
+   "canvas": {
+    "h": 96,
+    "w": 96
+   },
+   "frames": 4,
+   "out": "niji-c-slash.png/.gif/.json",
+   "artist_message": "A crisp angular rainbow slash that sweeps right to left over four frames: a cream-white edge with hard stepped bands of sky blue, green and lilac, and small green triangle shards that fly off and fade. No blood. The shard count and the slash's thickness are the ones to try next, and the shards are a single particle layer you can retime."
+  }
+ ],
+ "balance_after": {
+  "generations": 25.197,
+  "usd": 0.0
+ },
+ "charged_total_generations": 6.8,
+ "note": "見積もりは 1 回 1 × 6 = 6。残りの へりは 6.8（どれかの 作業が 長く かかり 少し 多く 請求された。各 job の usage は 1 か usd 0 と 出る）。同時に 2 つ 出すと 429 → 1 つずつ。",
+ "use": "下絵だけ（色・もようの 形・時間の 割りふり）。絵は ゲームに 入れない。build.py（tex-a/b/c）で 1 点ずつ 描いた。規約の たしかめは 本番の 前に PO",
+ "rounds": {
+  "tex-a": 3,
+  "tex-b": 3,
+  "tex-c": 2,
+  "compare": 3
+ }
+}

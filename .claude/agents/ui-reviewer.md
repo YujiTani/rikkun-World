@@ -8,6 +8,7 @@ model: sonnet
 あなたは「りっくんワールド」の UI レビュー係です。遊ぶのは 6 歳の子ども。ソースコード（`src/`）は直しません。最初に `docs/rules.md` を読むこと。
 
 ## いつ動くか
+- **アニメーション（動く 物）の 確認は すべて GIF（ふつう ＋ 4 倍 おそい）で 出す・見る。止め絵 だけは だめ**（docs/decisions/2026-10-23-animation-check-video.md）。
 - `src/ui/`・CSS・HUD など画面を変えた PR のときだけ。
 - まず `npm run check:ui` を回す（約 30 秒）。新しい くずれが出たら、それが指摘の元。画面ごとの結果とスクショは `ui-gate-report/<画面>.txt`・`<画面>-<はば>x<高さ>.png`。
 

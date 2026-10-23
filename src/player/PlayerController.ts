@@ -53,7 +53,7 @@ export class PlayerController {
   readonly state: PlayerState;
   readonly settings: PlayerSettings;
   /** WEAPON-2: 刀・弓が かける 歩く倍率と ジャンプ止め（つなぎ込みが 毎ステップ 書く） */
-  readonly motion: { speedMul: number; jumpLocked: boolean; faceDeg: number | null; stopNow: boolean; leftAims: boolean; noRun: boolean; hoverDy: number | null } = {
+  readonly motion: { speedMul: number; jumpLocked: boolean; faceDeg: number | null; stopNow: boolean; leftAims: boolean; noRun: boolean; hoverY: number | null } = {
     speedMul: 1,
     jumpLocked: false,
     /** CHAR-2: null でない あいだ facing は これ（わざの向き）。回らない */
@@ -64,8 +64,8 @@ export class PlayerController {
     leftAims: true,
     /** WEAPON-7: true の あいだは はしらない（ため中） */
     noRun: false,
-    /** WEAPON-7 PR3: null でない ステップは 重力なしで 上下に この 分だけ 動く（シャイニングの うかぶ・おりる。ジャンプは しない） */
-    hoverDy: null,
+    /** WEAPON-9: null でない あいだ 足もとの 高さを これへ 動かす（シャイニングの うかぶ。重力は 使わない） */
+    hoverY: null,
   };
   /** WEAPON-4: ふみこみが 手前で 止まる 妖怪の 一覧（つなぎ込みが わたす） */
   lungeYokai: (() => ReadonlyArray<YokaiInfo>) | null = null;
@@ -284,14 +284,15 @@ export class PlayerController {
     p[1] = st.position.y;
     p[2] = st.position.z;
     let vy = st.velocity.y;
-    const hover = this.motion.hoverDy;
-    if (hover === null && st.onGround && !this.motion.jumpLocked && (jumpHeld || (wlen > 0 && cfg.autoJump && this.shouldAutoJump(wx, wz)))) {
+    if (st.onGround && !this.motion.jumpLocked && (jumpHeld || (wlen > 0 && cfg.autoJump && this.shouldAutoJump(wx, wz)))) {
       vy = Math.sqrt(2 * cfg.gravity * cfg.jumpHeight * (st.inWater ? cfg.waterJumpMul : 1));
     }
 
     // 上下: はじめと終わりの速さの平均で動かす（§4.5）
+    // WEAPON-9: うかぶ ときは 目標の 高さへ（1 ステップ 0.5 まで）。重力・ジャンプは 使わない
+    const hover = this.motion.hoverY;
     const vyNew = hover !== null ? 0 : Math.max(vy - cfg.gravity * dt, -cfg.maxFallSpeed);
-    const moveY = hover !== null ? hover : ((vy + vyNew) / 2) * dt;
+    const moveY = hover !== null ? Math.max(-0.5, Math.min(0.5, hover - st.position.y)) : ((vy + vyNew) / 2) * dt;
 
     const hitX = this.sweep(0, st.velocity.x * dt);
     const hitZ = this.sweep(2, st.velocity.z * dt);
@@ -303,7 +304,7 @@ export class PlayerController {
     st.position.x = p[0];
     st.position.y = p[1];
     st.position.z = p[2];
-    st.onGround = hitY && moveY < 0;
+    st.onGround = hover === null && hitY && moveY < 0;
     st.moving = wlen > 0 || Math.hypot(st.velocity.x, st.velocity.z) > MOVING_SPEED_EPS;
     this.updateWater();
 

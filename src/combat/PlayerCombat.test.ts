@@ -12,6 +12,7 @@ import type {
 import { DigSystemImpl } from '../dig/DigSystem';
 import { ActionState } from '../input/actions';
 import { InventoryImpl } from '../inventory/Inventory';
+import { setCanCapacitySource } from '../tools/durability';
 import { createRng } from '../world/gen/random';
 import { createCombatHook } from './hook';
 import { PlayerCombatImpl } from './PlayerCombat';
@@ -360,6 +361,22 @@ describe('やられた・落とす・ふくろ・復活', () => {
     r.player.position.z = 60;
     r.step(180);
   }
+
+  it('やられた 袋: じょうろの みず・虹の 強さ・へった 量が のこる（copyStack(s)）', () => {
+    setCanCapacitySource(() => ({ watering_can: 10, long_watering_can: 20 }));
+    const r = rig({ rng: () => 0 }); // 0 = かならず 落とす
+    r.inv.setSlot(0, { item: 'dirt', count: 1 });
+    r.inv.setSlot(1, { item: 'watering_can', count: 1, water: 7 });
+    r.inv.setSlot(2, { item: 'niji', count: 1, power: 9, wear: 4 });
+    r.inv.select(0);
+    r.combat.setHp(0);
+    const items = r.combat.drops.serialize(); // 袋の 保存の 形（bags() の 見え方は wear・water・power を 出さない）
+    expect(items.find((q) => q.item === 'watering_can')?.water).toBe(7);
+    const niji = items.find((q) => q.item === 'niji');
+    expect(niji?.power).toBe(9);
+    expect(niji?.wear).toBe(4);
+    setCanCapacitySource(() => ({}));
+  });
 
   it('えらんでいるマスは落とさない・落ちた分は 1 マス 1 アイテムになる', () => {
     const r = rig();

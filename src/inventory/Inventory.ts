@@ -147,6 +147,7 @@ export class InventoryImpl implements Inventory {
   add(item: ItemId, count: number, opts?: { power?: number }): number {
     const n = Math.floor(count);
     if (!(n > 0)) return 0; // 0 以下は なにもしない（「入った数 = n − 返り値」が マイナスにならないように）
+    // WEAPON-9: 強さが 1 本ごとの 武器（虹）は 強さを 持たせる（わたさなければ まん中の 7）
     const left = addInto(this.arr, item, n, 0, this.arr.length, 0, 0, readPower(opts?.power, item));
     if (left !== n) {
       this.notify();

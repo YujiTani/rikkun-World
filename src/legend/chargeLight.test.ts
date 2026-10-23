@@ -97,3 +97,25 @@ describe('AC23: 消え方', () => {
     expect(v.core).toBe(0);
   });
 });
+
+describe('WEAPON-9: いっぱいの ステップを 武器から（虹 150）・虹の 色・すぐ 消す', () => {
+  it('full 150: 149 までは gather、150 から burst、162 から full。60 のときの 形と おなじ ずれ', async () => {
+    const { createChargeLight } = await import('./chargeLight');
+    const c = createChargeLight();
+    expect(c.step({ ticks: 149, kind: 'shining', reduced: false, full: 150 }).phase).toBe('gather');
+    expect(c.view().palette).toBe('niji');
+    const v = c.step({ ticks: 150, kind: 'shining', reduced: false, full: 150 });
+    expect(v.phase).toBe('burst');
+    expect(v.core).toBe(5);
+    expect(c.step({ ticks: 162, kind: 'shining', reduced: false, full: 150 }).phase).toBe('full');
+  });
+  it('cut: はなした ステップに すぐ 消える（うすくなる 4 ステップを 作らない）', async () => {
+    const { createChargeLight } = await import('./chargeLight');
+    const c = createChargeLight();
+    c.step({ ticks: 150, kind: 'shining', reduced: false, full: 150 });
+    expect(c.step({ ticks: null, kind: null, reduced: false, cut: true }).phase).toBe('off');
+    const d = createChargeLight();
+    d.step({ ticks: 150, kind: 'shining', reduced: false, full: 150 });
+    expect(d.step({ ticks: null, kind: null, reduced: false }).phase).toBe('fade');
+  });
+});

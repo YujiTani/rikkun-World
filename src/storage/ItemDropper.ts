@@ -87,6 +87,8 @@ export interface DropControllerDeps {
   inventoryOpen: () => boolean;
   /** もちもの画面で マウスが合っているマス */
   hover: () => DragTarget | null;
+  /** WEAPON-9: true の あいだ すてない（シャイニング F1〜240） */
+  blocked?: () => boolean;
 }
 
 /** Action `drop`・`dropStack` を読む。押した瞬間に 1 回だけ（`wasPressed`）。毎ステップ update() を呼ぶ */
@@ -96,6 +98,7 @@ export class DropController {
     const stack = this.d.actions.wasPressed('dropStack' as Action);
     const one = this.d.actions.wasPressed('drop' as Action);
     if (!stack && !one) return;
+    if (this.d.blocked?.()) return;
     const all = stack; // Shift＋Q のときは drop は出ない
     if (this.d.inventoryOpen()) {
       const t = this.d.hover();

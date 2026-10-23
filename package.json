@@ -16,6 +16,7 @@
     "check:ui": "playwright test e2e/ui-gate.spec.ts",
     "test:e2e:fast": "playwright test e2e/smoke.spec.ts e2e/m6-shots.spec.ts e2e/partsPage.spec.ts",
     "test:e2e:calm": "playwright test --config playwright.calm.config.ts",
+    "test:e2e:niji": "playwright test --config playwright.niji.config.ts",
     "test:e2e:shadow": "playwright test --config playwright.shadow.config.ts",
     "perf": "playwright test --config playwright.perf.config.ts",
     "check": "npm run typecheck && npm run test && npm run test:e2e",

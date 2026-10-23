@@ -96,10 +96,13 @@ export const SFX_CATALOG: readonly SfxCatalogEntry[] = [
       ['legendDrop', 'ヌシが おとした（キラキラ）'],
       ['windWave', 'しんくうは（ヒュッ）'],
       ['spiralWind', 'らせんの かぜ（ゴゴゴ）'],
-      ['shiningStart', 'にじ シャイニング（キラキラ）'],
-      ['shiningHit', 'にじ ドームが はじく（ポヨン）'],
-      ['shiningEnd', 'にじ シャイニング おわり（ふわ）'],
-      ['shiningReady', 'にじ また つかえる（ちりん）'],
+      // WEAPON-9 虹（B「はがねの にじ」・斬撃は C3）
+      ['shiningStart', 'にじ シャイニング はじまり（キラキラ のぼる）'],
+      ['shiningHit', 'にじ ドームで はじく（キン）'],
+      ['shiningEnd', 'にじ シャイニング おわり'],
+      ['shiningReady', 'にじ やすみが あけた（ティロン）'],
+      ['domeErase', 'にじ たまを かきけす（シュワッ）'],
+      ['nijiSlash', 'にじの きりつけ（シャキン）'],
     ] as const
   ).map(([name, label]): SfxCatalogEntry => ({ group: 'weapon', name, label, play: (s) => playLegend(s, name) })),
   // ため音（風神剣・雷神剣）。ため中の 1 秒 → いっぱいで ため続けの ループ（約 2.5 秒 鳴らして 止める）
@@ -107,6 +110,7 @@ export const SFX_CATALOG: readonly SfxCatalogEntry[] = [
     [
       ['chargeRise', 'ためる（ひかりの うた）'],
       ['chargeHold', 'ため つづけ（ふわん ふわん）'],
+      ['domePull', 'にじ すいこみ（すぅー）'],
     ] as const
   ).flatMap(([name, label]): SfxCatalogEntry[] =>
     ([[null, ''], ['fujin', '・ふうじん'], ['raijin', '・らいじん']] as const).map(([flavor, tag]) => ({

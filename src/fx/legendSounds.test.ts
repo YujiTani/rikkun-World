@@ -249,17 +249,25 @@ describe('音の ファイル（public/sound/legend/）', () => {
     ...LEGEND_FILES.chargeReady,
     ...Object.values(LEGEND_FILES.chargeRise),
     ...Object.values(LEGEND_FILES.chargeHold),
+    // WEAPON-9 虹の 音（19 個）
+    ...LEGEND_FILES.shiningStart,
+    ...LEGEND_FILES.shiningEnd,
+    ...LEGEND_FILES.shiningReady,
+    ...LEGEND_FILES.shiningHit,
+    ...LEGEND_FILES.domeErase,
+    ...LEGEND_FILES.nijiSlash.flat(),
+    LEGEND_FILES.domePull.none,
   ];
-  it('14 個 すべて あり、ogg で、1 つ 30KB 以下・全部で 200KB 以下。出どころの 説明が ある', () => {
+  it('33 個 すべて あり、ogg で、1 つ 32KB 以下・全部で 420KB 以下。出どころの 説明が ある', () => {
     let total = 0;
     for (const u of all) {
       expect(existsSync(rel(u)), u).toBe(true);
       const b = readFileSync(rel(u));
       expect(b.subarray(0, 4).toString()).toBe('OggS');
-      expect(b.length).toBeLessThanOrEqual(30 * 1024);
+      expect(b.length).toBeLessThanOrEqual(32 * 1024);
       total += b.length;
     }
-    expect(total).toBeLessThanOrEqual(200 * 1024);
+    expect(total).toBeLessThanOrEqual(420 * 1024);
     expect(readdirSync(DIR).filter((n) => n.endsWith('.ogg')).length).toBe(all.length);
     const readme = readFileSync(join(DIR, 'README.md'), 'utf8');
     expect(readme).toContain('VCSL');
@@ -267,7 +275,7 @@ describe('音の ファイル（public/sound/legend/）', () => {
   });
 
   const hasFfmpeg = spawnSync(FFMPEG, ['-version']).status === 0;
-  const maxLen: Record<string, number> = { windWave: 0.5, thunderSlash: 0.8, spiralWind: 2.0, chargeRise: 1.05, chargeReady: 2.0, chargeHold: 1.25 };
+  const maxLen: Record<string, number> = { windWave: 0.5, thunderSlash: 0.8, spiralWind: 2.0, chargeRise: 1.05, chargeReady: 2.0, chargeHold: 1.25, shiningStart: 4.1, shiningEnd: 3.5, shiningReady: 2.5, shiningHit: 1.0, domeErase: 1.0, nijiSlash: 0.95, domePull: 2.05 };
   it.skipIf(!hasFfmpeg && !process.env.CI)('ピーク −9 dBFS 以下（クリップ 0）、長さは 仕様の 上限以内、ため続けは 1.2 秒 ちょうど', () => {
     for (const u of all) {
       const r = spawnSync(FFMPEG, ['-v', 'error', '-i', rel(u), '-ac', '1', '-ar', '48000', '-f', 'f32le', '-'], { maxBuffer: 1 << 26 });

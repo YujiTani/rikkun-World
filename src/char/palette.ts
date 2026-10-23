@@ -27,6 +27,9 @@ export const PALETTE_RGB: readonly (readonly [number, number, number])[] = [
 ];
 
 export const PALETTE_SIZE = PALETTE_RGB.length;
+/** WEAPON-9: 手に 持つ 絵の ための 色の 席(色番号 23〜31)。板の 色見本の 表の 大きさ = 0 番 ＋ 22 ＋ 9 */
+export const EXTRA_COLORS_MAX = 9;
+export const PALETTE_SLOTS = PALETTE_SIZE + 1 + EXTRA_COLORS_MAX;
 
 export type PaletteRgb = readonly (readonly [number, number, number])[];
 

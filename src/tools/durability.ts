@@ -53,6 +53,20 @@ export function readWater(raw: unknown, item: ItemId): number {
   return Math.max(0, Math.min(cap, Math.floor(raw)));
 }
 
+/** 強さが 1 本ごとに 決まる 武器（虹）の 範囲 [最小, 最大]。それ以外は null */
+export function powerRange(item: ItemId): [number, number] | null {
+  const d = W2_SETTING_DEFAULTS.legendary.find((x) => x.item === item);
+  return d && Array.isArray(d.power) ? [d.power[0], d.power[1]] : null;
+}
+
+/** 保存から 読んだ 強さ（WEAPON-9）。虹の 範囲に おさめた 整数。虹でない = 0。おかしい 値・なし = まん中（7） */
+export function readPower(raw: unknown, item: ItemId): number {
+  const r = powerRange(item);
+  if (!r) return 0;
+  if (typeof raw !== 'number' || !Number.isFinite(raw)) return Math.round((r[0] + r[1]) / 2);
+  return Math.max(r[0], Math.min(r[1], Math.round(raw)));
+}
+
 /** へった 量・みず の 量を もつ 形で 写す（0・なしは 新品／からっぽ = つけない） */
 export function copyStack(s: ItemStack): ItemStack {
   const out: ItemStack = { item: s.item, count: s.count };
@@ -60,19 +74,6 @@ export function copyStack(s: ItemStack): ItemStack {
   if (s.water && s.water > 0) out.water = s.water;
   if (s.power && s.power > 0) out.power = s.power;
   return out;
-}
-
-/** 保存から 読んだ 強さ（WEAPON-7 PR3）。設定の [最小, 最大] の 整数に おさめる。強さを 持たない 物・おかしい 値 = 0（なし） */
-export function readPower(raw: unknown, item: ItemId): number {
-  const r = powerRangeOf(item);
-  if (!r || typeof raw !== 'number' || !Number.isFinite(raw)) return 0;
-  return Math.max(r[0], Math.min(r[1], Math.round(raw)));
-}
-
-/** 強さが 1 本ごとに ちがう 武器の 範囲（初期値の 表から。虹だけ） */
-export function powerRangeOf(item: ItemId): [number, number] | null {
-  const d = W2_SETTING_DEFAULTS.legendary.find((x) => x.item === item);
-  return d && Array.isArray(d.power) ? [d.power[0], d.power[1]] : null;
 }
 
 /** 保存から 読んだ へった 量（おかしい 値・なし = 0 = 新品）。max が あれば max − 1 まで */

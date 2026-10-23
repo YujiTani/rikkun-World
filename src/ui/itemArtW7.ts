@@ -58,26 +58,25 @@ const FUJIN_KEN = [
   'KGgK...KK.......',
 ];
 
-/** 虹（PR3）。H 白っぽい つや・r/y/g/b/p = にじの 5 色・S/N/n = 柄。もとは art/WEAPON-7/icon-niji/niji_rows.txt */
-const PAL_NIJI = { K: 0x241a4a, H: 0xeef2ff, r: 0xff8c94, y: 0xffe585, g: 0x86eba8, b: 0x82c6ff, p: 0xc79cff, S: 0x8c93ae, N: 0x2b3a78, n: 0x5a6a9e };
-
-const NIJI = [
-  '................',
-  '............K...',
-  '...........KpK..',
-  '..........KppK..',
-  '.........KbbbK..',
-  '........KHbbK...',
-  '.......KgggK....',
-  '......KHyyK.....',
-  '.....KyyyK......',
-  '.....KHrrK......',
-  '....KrrrK.......',
-  '...KSSSSSK......',
-  '....KnNKK.......',
-  '...KnNK.........',
-  '...KNK..........',
-  '....K...........',
+/** WEAPON-9: 虹。そった 長い 太刀・にじ色の 刃文・三日月宗近ふうの 柄と 木瓜の つば。もとは art/WEAPON-9/icon-tachi/build.py */
+export const PAL_NIJI = { K: 0x241a44, L: 0xf4f7ff, M: 0xc3cee2, D: 0xd16be6, d: 0x4fa3f0, G: 0x5fd98e, g: 0xf6cb45, Y: 0xb8860b, W: 0xd2283c, N: 0xb9772f, n: 0x7c4a1e };
+export const NIJI_TACHI = [
+  '............KLMK',
+  '...........KLMK.',
+  '..........KLDDK.',
+  '.........KLMDK..',
+  '.........KLddK..',
+  '........KLMdK...',
+  '.......KLGGK....',
+  '.....KKLMGK.....',
+  '....KgggYK......',
+  '...KgKgKK.......',
+  '..KgKgKYK.......',
+  '..KKgKYK........',
+  '.KWNnYK.........',
+  'KKWWKK..........',
+  'gNWK............',
+  'gYK.............',
 ];
 
 export function w7ItemPixels(item: W7ItemId): Rgba[] {
@@ -87,6 +86,6 @@ export function w7ItemPixels(item: W7ItemId): Rgba[] {
     case 'fujin_ken':
       return fromRows(FUJIN_KEN, PAL_FUJIN);
     case 'niji':
-      return fromRows(NIJI, PAL_NIJI);
+      return fromRows(NIJI_TACHI, PAL_NIJI);
   }
 }

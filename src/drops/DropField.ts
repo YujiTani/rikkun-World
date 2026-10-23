@@ -74,7 +74,7 @@ export type DropSave = {
   wear?: number;
   /** M7-2: じょうろ の みず の 量（なし = からっぽ） */
   water?: number;
-  /** WEAPON-7 PR3: 虹の つよさ */
+  /** WEAPON-9: 虹の 強さ */
   power?: number;
   /** 妖怪の おとしもの */
   yokai?: boolean;
