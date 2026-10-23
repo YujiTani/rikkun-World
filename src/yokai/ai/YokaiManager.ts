@@ -83,6 +83,8 @@ export interface YokaiManagerOptions {
   /** 出来事に付ける「ゲームの何ステップ目か」。なければ update を呼んだ回数 */
   tick?: () => number;
   seed?: number;
+  /** GOLD-1 §4.7: 妖怪 の 足もと の 高さ → はらぱんみみず が おちる か（`createHarapanRoll().yokai`） */
+  harapan?: (y: number) => boolean;
   /** START-1: つよさ（その 世界の 妖怪の 体力・攻撃力に かける。なければ ふつう） */
   strength?: StrengthLevel;
   config?: YokaiConfig;
@@ -898,6 +900,12 @@ export class YokaiManager implements YokaiWorld {
         total += added;
         this.emit({ type: 'drop', tick: this.tick(), id: e.id, kind: e.kind, item: row.item, count, added }, true);
       }
+    }
+    // GOLD-1 §4.7: はらぱんみみず（地下 の 妖怪 だけ。べつ の 乱数 の 流れ）
+    if (byPlayer && this.opts.harapan?.(e.y)) {
+      const at = { x: e.x, y: e.y, z: e.z };
+      const left = this.drops ? 1 - this.drops.scatter(at, [{ item: 'harapan_mimizu', count: 1 }], { kind: 'yokai' }) : this.inventory.add('harapan_mimizu', 1);
+      this.emit({ type: 'drop', tick: this.tick(), id: e.id, kind: e.kind, item: 'harapan_mimizu', count: 1, added: 1 - left }, true);
     }
     if (byPlayer && e.title === 'nushi') this.dropLegendary(e);
     this.emit({

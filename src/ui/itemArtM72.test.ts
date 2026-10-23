@@ -61,7 +61,7 @@ describe('M7-2 レシピ（AC20 の ユニット部分）', () => {
     ]);
   });
   it('26・27・28 こ目（おの 3 つが 4〜6 こ目に入って、うしろが 3 つずれる）', () => {
-    expect(BASE_RECIPES).toHaveLength(36);
+    expect(BASE_RECIPES).toHaveLength(44);
     expect(BASE_RECIPES.slice(25, 28).map((r) => [r.id, r.output.count, r.inputs.map((i) => `${i.item}${i.count}`).join(','), r.works])).toEqual([
       ['watering_can', 1, 'iron_ingot1,stone2', true],
       ['long_watering_can', 1, 'iron_ingot3,log1', true],

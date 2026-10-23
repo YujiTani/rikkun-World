@@ -9,6 +9,7 @@ import type {
   AnimalInfo,
   AnimalSaveV4,
   AnimalSpawnOpts,
+  NatsukiView,
   AnimalStage,
   CoopBreakResult,
   CoopInfo,
@@ -107,6 +108,8 @@ const FRIEND_FULL_REPEAT = 600;
 const SPOT_RETRY = 60;
 const BREED_SALT = 0x11fe0004;
 const GOLD_SALT = 0x11fe0005;
+/** GOLD-1 §3.4: 合図 natsukiWait は 600 ステップ に 1 回 まで */
+const NATSUKI_HINT_GAP = 600;
 const BLOCK_NUKUNUKU = 'nukunuku';
 /** LIVE-3 §2.4: ねぐら へ 歩く（この ステップ で 着く）・とびら が おりる 区間・一言 が 出る・とびら の 上下 の ながさ */
 const MEAT_WALK = 60;
@@ -264,6 +267,11 @@ interface Ent {
   glide: { x: number; z: number } | null;
   /** 小屋 の 子 に なって から の ステップ（-1 = なし）。大きな しるし の 段 */
   popAge: number;
+  // ---- GOLD-1（なかま の 大人 だけ 動く）
+  natsuki: number;
+  natsukiBugWait: number;
+  natsukiPetWait: number;
+  natsukiDecayLeft: number;
   // ---- LIVE-3
   /** いただきます の 演出 中（ねらえない・なでる／むし／だっこ できない） */
   meat: boolean;
@@ -336,6 +344,8 @@ export class AnimalManager implements AnimalApi {
   private spawnTimer = 0;
   private hint: AnimalHintKind | null = null;
   private targetId: number | null = null;
+  /** 合図 natsukiWait を 最後 に 出した ステップ（600 に 1 回 まで） */
+  private waitHintAt = -NATSUKI_HINT_GAP;
   /** たまご の くじ（あみ・妖怪 と べつ の 流れ） */
   private readonly eggRng: Rng;
   private readonly net: BugNet;
@@ -404,6 +414,13 @@ export class AnimalManager implements AnimalApi {
     e.bugs = Math.max(0, Math.round(opts.bugs ?? 0));
     e.goldMiss = Math.max(0, Math.round(opts.goldMiss ?? 0));
     e.grow = Math.max(0, Math.round(opts.grow ?? 0));
+    if (e.friend && e.stage === 'adult') {
+      const s = this.settings;
+      e.natsuki = Math.max(0, Math.min(s.natsukiMax, Math.round(opts.natsuki ?? 0)));
+      e.natsukiBugWait = Math.max(0, Math.min(s.natsukiBugWaitTicks, Math.round(opts.natsukiBugWait ?? 0)));
+      e.natsukiPetWait = Math.max(0, Math.min(s.natsukiPetWaitTicks, Math.round(opts.natsukiPetWait ?? 0)));
+      e.natsukiDecayLeft = Math.max(1, Math.min(s.natsukiDecayTicks, Math.round(opts.natsukiDecayLeft ?? s.natsukiDecayTicks)));
+    }
     if (coop) this.makeKid(e, coop);
     this.ents.push(e);
     this.push({ type: 'spawn', id: e.id, x, y, z });
@@ -437,6 +454,10 @@ export class AnimalManager implements AnimalApi {
       goldMiss: e.goldMiss,
       grow: e.grow,
       size: bodySize(e.stage, e.breed),
+      natsuki: e.natsuki,
+      natsukiBugWait: e.natsukiBugWait,
+      natsukiPetWait: e.natsukiPetWait,
+      natsukiDecayLeft: e.natsukiDecayLeft,
     }));
   }
 
@@ -1007,21 +1028,74 @@ export class AnimalManager implements AnimalApi {
     return { id: bestId, distance: bestT };
   }
 
+  /** GOLD-1: なつき度 を もつ 子（なかま の 大人。ふつう・マッチョ どちら も。小屋 の 子 も） */
+  private hasNatsuki(e: Ent): boolean {
+    return e.friend && e.stage === 'adult';
+  }
+
   preview(id: number, held: ItemStack | null): 'feed' | 'animalFull' | 'animalPet' | null {
     const e = this.find(id);
-    if (!e || e.lock > 0 || e.carried || e.meat) return null;
-    if (held && held.item === 'mushi') return e.state === 'sleep' ? 'animalPet' : e.fullLeft > 0 ? 'animalFull' : 'feed';
+    if (!e || e.carried || e.meat) return null;
+    // まち中 の むし は ロック中 でも「まってね」を 返す（feed と おなじ）
+    if (e.lock > 0 && held && held.item === 'harapan_mimizu' && this.hasNatsuki(e) && e.state !== 'sleep') return 'feed';
+    if (e.lock > 0) return held && held.item === 'mushi' && e.state !== 'sleep' && this.hasNatsuki(e) && e.natsukiBugWait > 0 ? 'animalFull' : null;
+    const nat = this.hasNatsuki(e);
+    if (held && held.item === 'mushi') {
+      if (e.state === 'sleep') return 'animalPet';
+      // GOLD-1: なかま の 大人 は むし の まち中 は あげられない（まってね）。おなかいっぱい（600）は まち の ほう が 長い ので 目立たない
+      if (nat && e.natsukiBugWait > 0) return 'animalFull';
+      return e.fullLeft > 0 ? 'animalFull' : 'feed';
+    }
+    // はらぱんみみず: なかま の 大人（ねて いない）に あげる。ほか は なでる の まま（右クリック で 合図 だけ 出す）
+    if (held && held.item === 'harapan_mimizu') return nat && e.state !== 'sleep' ? 'feed' : 'animalPet';
+    if (nat && e.natsukiPetWait > 0 && e.state !== 'sleep') return 'animalFull';
     return 'animalPet';
   }
 
-  feed(id: number, item: ItemId): 'ate' | 'full' | 'pet' | 'friendFull' | 'sleep' | null {
+  /** 合図 natsukiWait は 600 ステップ に 1 回 まで。出来事 natsukiWait と こっち を 見て くび を かしげる は 毎回 */
+  private waitReact(e: Ent, which: 'bug' | 'pet'): void {
+    this.push({ type: 'natsukiWait', id: e.id, which });
+    if (this.tick - this.waitHintAt >= NATSUKI_HINT_GAP) {
+      this.waitHintAt = this.tick;
+      this.hintOut('natsukiWait');
+    }
+    this.setLock(e, 'full', FULL_REACT_TICKS);
+  }
+
+  /** なつき度 を ふやす（上限 natsukiMax）。70 以下 → 71 以上 に なったら 出来事 natsukiGold */
+  private addNatsuki(e: Ent, n: number): void {
+    const s = this.settings;
+    const before = e.natsuki;
+    e.natsuki = Math.max(0, Math.min(s.natsukiMax, before + n));
+    if (before <= s.natsukiGoldMin && e.natsuki > s.natsukiGoldMin) this.push({ type: 'natsukiGold', id: e.id });
+  }
+
+  feed(id: number, item: ItemId): 'ate' | 'full' | 'pet' | 'friendFull' | 'sleep' | 'wait' | 'harapan' | 'harapanNo' | null {
     const e = this.find(id);
-    if (!e || e.lock > 0 || e.carried || e.meat || item !== 'mushi') return null;
+    if (!e || e.carried || e.meat) return null;
+    // まち中 の 合図 は 動きの 最中（ロック中）でも 返す（くび を かしげる は つづけて 出さない）
+    if (e.lock > 0 && item === 'mushi' && e.state !== 'sleep' && this.hasNatsuki(e) && e.natsukiBugWait > 0) {
+      this.push({ type: 'natsukiWait', id: e.id, which: 'bug' });
+      if (this.tick - this.waitHintAt >= NATSUKI_HINT_GAP) {
+        this.waitHintAt = this.tick;
+        this.hintOut('natsukiWait');
+      }
+      return 'wait';
+    }
+    // はらぱんみみず は 前 の 動き の 最中 でも あげられる（なかま の 大人 だけ）
+    if (e.lock > 0 && !(item === 'harapan_mimizu' && this.hasNatsuki(e))) return null;
+    if (item === 'harapan_mimizu') return this.feedHarapan(e);
+    if (item !== 'mushi') return null;
     const s = this.settings;
     // ねて いる 子: たべない（むし は へらない）。あさ に あげよう（§2.7）
     if (e.state === 'sleep') {
       this.hintOut('sleepHint');
       return 'sleep';
+    }
+    // GOLD-1 §4.4: まち中 は あげられない（むし は のこる・くじ も bugs も ふえない）
+    if (this.hasNatsuki(e) && e.natsukiBugWait > 0) {
+      this.waitReact(e, 'bug');
+      return 'wait';
     }
     if (e.fullLeft > 0) {
       this.push({ type: 'full', id });
@@ -1042,6 +1116,10 @@ export class AnimalManager implements AnimalApi {
         e.stuck = 0;
       }
       this.push({ type: 'feed', id, item, hearts: 0, friend: true });
+      if (this.hasNatsuki(e)) {
+        this.addNatsuki(e, s.natsukiBug);
+        e.natsukiBugWait = s.natsukiBugWaitTicks;
+      }
       // ひよこ は たまご を うまない（§2.2）
       const roll = e.stage === 'chick' ? { hit: false, misses: e.eggMiss } : rollPity(this.eggRng, s.animalEggChance, s.animalEggPity, e.eggMiss);
       e.eggMiss = roll.misses;
@@ -1064,6 +1142,52 @@ export class AnimalManager implements AnimalApi {
     return 'ate';
   }
 
+  /** はらぱんみみず（§4.6）: なかま の 大人 に あげる と なかよし 100。ほか は へらさない（合図） */
+  private feedHarapan(e: Ent): 'harapan' | 'harapanNo' {
+    if (e.state === 'sleep') {
+      this.hintOut('sleepHint');
+      return 'harapanNo';
+    }
+    if (!this.hasNatsuki(e)) {
+      // やせい は 今 の「なでる」の 返し（見る・くび を かしげる）。ひよこ は じっと
+      if (!e.friend) {
+        this.push({ type: 'pet', id: e.id, friend: false });
+        this.setLock(e, 'pet', this.settings.animalReactTicks);
+      }
+      this.hintOut('harapanFriend');
+      return 'harapanNo';
+    }
+    if (e.natsuki >= this.settings.natsukiMax) {
+      this.hintOut('harapanFull');
+      this.setLock(e, 'full', FULL_REACT_TICKS);
+      return 'harapanNo';
+    }
+    this.addNatsuki(e, this.settings.natsukiMax);
+    this.push({ type: 'harapanFeed', id: e.id });
+    // お祝い: 金 の たまご を うんだ ときの「2 回 ジャンプ」（LIVE-2 §2.8）を 使い回す
+    this.setLock(e, 'cheer', 40);
+    return 'harapan';
+  }
+
+  /** パネル の 状態（§3.2・§6）。なかま の 大人 だけ shown（だっこ 中 は 出ない） */
+  natsukiView(id: number): NatsukiView | null {
+    const e = this.find(id);
+    if (!e) return null;
+    const s = this.settings;
+    const shown = this.hasNatsuki(e) && !e.carried && e.flight === null;
+    const bw = Math.max(1, s.natsukiBugWaitTicks);
+    const pw = Math.max(1, s.natsukiPetWaitTicks);
+    return {
+      shown,
+      hearts: Math.min(10, Math.floor((e.natsuki * 10) / Math.max(1, s.natsukiMax))),
+      gold: e.natsuki > s.natsukiGoldMin,
+      bugReady: e.natsukiBugWait <= 0,
+      petReady: e.natsukiPetWait <= 0,
+      bugFill: e.natsukiBugWait <= 0 ? 1 : 1 - Math.min(1, e.natsukiBugWait / bw),
+      petFill: e.natsukiPetWait <= 0 ? 1 : 1 - Math.min(1, e.natsukiPetWait / pw),
+    };
+  }
+
   private nextStopOff(): number {
     return (this.friendSeq++ % STOP_KINDS) * STOP_STEP;
   }
@@ -1075,7 +1199,7 @@ export class AnimalManager implements AnimalApi {
     return n;
   }
 
-  pet(id: number): 'wild' | 'friend' | null {
+  pet(id: number): 'wild' | 'friend' | 'wait' | null {
     const e = this.find(id);
     if (!e || e.lock > 0 || e.carried || e.meat) return null;
     if (!e.friend) {
@@ -1083,6 +1207,15 @@ export class AnimalManager implements AnimalApi {
       this.hintOut('feedHint');
       this.setLock(e, 'pet', this.settings.animalReactTicks);
       return 'wild';
+    }
+    if (this.hasNatsuki(e)) {
+      // GOLD-1 §4.4: なでる の まち中 は なでられない（ねて いる 子 も おなじ）
+      if (e.natsukiPetWait > 0) {
+        this.waitReact(e, 'pet');
+        return 'wait';
+      }
+      this.addNatsuki(e, this.settings.natsukiPet);
+      e.natsukiPetWait = this.settings.natsukiPetWaitTicks;
     }
     this.push({ type: 'pet', id, friend: true });
     this.setLock(e, 'pet', this.settings.animalReactTicks);
@@ -1534,6 +1667,11 @@ export class AnimalManager implements AnimalApi {
       if (e.bugs > 0) b.bugs = e.bugs;
       if (e.goldMiss > 0) b.goldMiss = e.goldMiss;
       if (e.grow > 0) b.grow = e.grow;
+      if (e.natsuki > 0) b.natsuki = e.natsuki;
+      if (e.natsukiBugWait > 0) b.natsukiBugWait = e.natsukiBugWait;
+      if (e.natsukiPetWait > 0) b.natsukiPetWait = e.natsukiPetWait;
+      // へる まで の のこり は なつき度 が 0 なら 意味 が ない ので 書かない（読む とき は まんたん）
+      if (e.natsuki > 0 && e.natsukiDecayLeft !== this.settings.natsukiDecayTicks) b.natsukiDecayLeft = e.natsukiDecayLeft;
       return b;
     };
     const friends: AnimalBirdSave[] = [];
@@ -1575,6 +1713,10 @@ export class AnimalManager implements AnimalApi {
       coopCountMax: s.coopCountMax,
       kitMax: s.kitActiveMax,
       kitEggMax: s.kitEggMax,
+      natsukiMax: s.natsukiMax,
+      bugWaitMax: s.natsukiBugWaitTicks,
+      petWaitMax: s.natsukiPetWaitTicks,
+      decayMax: s.natsukiDecayTicks,
     });
     if (!p) return;
     for (const b of p.friends) {
@@ -1619,6 +1761,10 @@ export class AnimalManager implements AnimalApi {
     e.bugs = b.bugs;
     e.goldMiss = b.goldMiss;
     e.grow = b.grow;
+    e.natsuki = b.natsuki;
+    e.natsukiBugWait = b.natsukiBugWait;
+    e.natsukiPetWait = b.natsukiPetWait;
+    e.natsukiDecayLeft = b.natsukiDecayLeft;
   }
 
   /** 小屋・こたつ・くじ を ぜんぶ 空 に する（読みこみ の まえ） */
@@ -1653,6 +1799,7 @@ export class AnimalManager implements AnimalApi {
     for (const c of this.coopList) if (c.meat) this.meatTick(c);
     for (let i = this.ents.length - 1; i >= 0; i--) {
       const e = this.ents[i]!;
+      if (e.friend && e.stage === 'adult') this.natsukiTick(e);
       if (!this.step(e, p)) this.ents.splice(i, 1);
     }
     // かさならない: すわっている なかま を はなす（小屋 の 子 は 中 3×3 だけ なので はなさない）
@@ -1662,6 +1809,18 @@ export class AnimalManager implements AnimalApi {
       this.coopCheckT = 0;
       this.checkCoopBlocks();
     }
+  }
+
+  /** GOLD-1: なつき度 の 時間（まち が へる・10 分 ごと に へる）。はなれて いても・ねて いても 世界 の 時計 で すすむ。へる が 先 */
+  private natsukiTick(e: Ent): void {
+    const s = this.settings;
+    // なつき度 0 の 間 は へる もの が 無い ので 時計 は 止める（はじめて 上がった とき から 数える）
+    if (e.natsuki > 0 && --e.natsukiDecayLeft <= 0) {
+      e.natsuki = Math.max(0, e.natsuki - s.natsukiDecay);
+      e.natsukiDecayLeft = s.natsukiDecayTicks;
+    }
+    if (e.natsukiBugWait > 0 && --e.natsukiBugWait === 0 && e.id === this.targetId) this.push({ type: 'natsukiReady', id: e.id, which: 'bug' });
+    if (e.natsukiPetWait > 0 && --e.natsukiPetWait === 0 && e.id === this.targetId) this.push({ type: 'natsukiReady', id: e.id, which: 'pet' });
   }
 
   // ------------------------------------------------------------ 内部 (LIVE-2)
@@ -1849,7 +2008,7 @@ export class AnimalManager implements AnimalApi {
 
   /** 金 かどうか きめて、小屋 の すばこ か 足もと に たまご を 出す（§2.6・§2.8） */
   private layEgg(e: Ent): void {
-    const roll = rollGold(this.goldRng, e, this.settings);
+    const roll = rollGold(this.goldRng, { raised: e.raised, bugs: e.bugs, goldMiss: e.goldMiss, natsuki: e.natsuki, breed: e.breed }, this.settings);
     e.goldMiss = roll.goldMiss;
     const gold = roll.gold;
     const coop = e.home === null ? undefined : this.coopById(e.home);
@@ -2051,6 +2210,10 @@ export class AnimalManager implements AnimalApi {
       flight: null,
       glide: null,
       popAge: -1,
+      natsuki: 0,
+      natsukiBugWait: 0,
+      natsukiPetWait: 0,
+      natsukiDecayLeft: this.settings.natsukiDecayTicks,
       meat: false,
     };
   }
@@ -2234,6 +2397,10 @@ export class AnimalManager implements AnimalApi {
       e.stage = 'adult';
       e.raised = true;
       e.grow = 0;
+      e.natsuki = 0;
+      e.natsukiBugWait = 0;
+      e.natsukiPetWait = 0;
+      e.natsukiDecayLeft = this.settings.natsukiDecayTicks;
       this.push({ type: 'grow', id: e.id, first, breed: e.breed });
     }
     if (e.becomeFriend && this.friendCount() < this.settings.animalFriendMax) {
@@ -2242,6 +2409,10 @@ export class AnimalManager implements AnimalApi {
       e.stopOff = this.nextStopOff();
       e.hearts = 0;
       e.eggMiss = 0;
+      e.natsuki = 0;
+      e.natsukiBugWait = 0;
+      e.natsukiPetWait = 0;
+      e.natsukiDecayLeft = this.settings.natsukiDecayTicks;
       e.follow = this.settings.animalFollowTicks;
       e.following = false;
       const count = this.friendCount();

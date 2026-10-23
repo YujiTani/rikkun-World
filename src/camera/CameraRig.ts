@@ -172,7 +172,7 @@ export class CameraRig {
       };
     }
     const w = this.weaponSource?.bowPose();
-    if (w && (w.stage > 0 || w.pull > 0.001) && this.doll.heldItem === 'yumi') {
+    if (w && (w.stage > 0 || w.pull > 0.001) && (this.doll.heldItem === 'yumi' || this.doll.heldItem === 'kin_yumi')) {
       const p = bowDollAt(w, this.bowScratch);
       return { rx: p.rx, rz: p.rz, lx: p.lx, lz: p.lz, swordPitch: 0, twist: p.twist, legFront: { right: 0, left: 0 }, knee: 0 };
     }

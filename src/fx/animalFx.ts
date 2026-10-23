@@ -68,6 +68,9 @@ export const ANIMAL_FX = {
   homeHearts: 3,
   growSparkle: 8,
   goldSparkle: 8,
+  // ---- GOLD-1（§3.4）: なかよし が きんいろ に なった ときの キラッ・はらぱんみみず を あげた ときの ハート（どちらも 8 こ）
+  natsukiSparkle: 8,
+  harapanHearts: 8,
   /** 金 の たまご が すばこ に ある 小屋 の キラッ（ステップ ごと） */
   goldCoopGap: 45,
   /** あつめた 数 が これ 以上 なら 長い ころころ */
@@ -924,6 +927,31 @@ export class AnimalFx {
           if (e.egg + e.gold >= ANIMAL_FX.collectMany) this.snd('collectMany');
         }
         break;
+      // ---- GOLD-1
+      case 'harapanFeed': {
+        // 2 回 ジャンプ は A（'cheer' 40）。ハート 8 こ が ふわっ（なでる の ハート の つぶ を 数 だけ ふやして 使い回す）
+        this.snd('harapanFeed');
+        const s = this.seen.get(e.id);
+        const n = ANIMAL_FX.harapanHearts;
+        this.counts.hearts += n;
+        if (s) {
+          for (let i = 0; i < n; i++) {
+            const a = (i / n) * Math.PI * 2 + this.rnd();
+            this.particles.spawn(1, s.x + Math.cos(a) * 0.25, s.y + ANIMAL_FX.headHeartY, s.z + Math.sin(a) * 0.25, Math.cos(a) * 0.3, 0.9, Math.sin(a) * 0.3, 44, 0.22, 0xffffff);
+          }
+        }
+        break;
+      }
+      case 'natsukiGold': {
+        this.snd('natsukiGold');
+        const s = this.seen.get(e.id);
+        if (s) this.sparkleAt(s.x, s.y + 0.6, s.z, ANIMAL_FX.natsukiSparkle);
+        else this.counts.sparkle += ANIMAL_FX.natsukiSparkle;
+        break;
+      }
+      case 'natsukiReady':
+        this.snd('natsukiReady');
+        break;
       // ---- LIVE-3: とびら の 音 `coopDoor`（しまりきった・あがりきった）・一言 の 音 `itadakimasu`（1 回）。つぶ・紙ふぶき・ハート は 出さない
       case 'meatDoor':
         this.snd('coopDoor');
@@ -931,6 +959,7 @@ export class AnimalFx {
       case 'meatSay':
         this.snd('itadakimasu');
         break;
+      case 'natsukiWait': // 合図 の 音 は `hint`（今 の animalHint）。こっち を 見て くび を かしげる のは A
       case 'meatStart':
       case 'meat':
         break;
