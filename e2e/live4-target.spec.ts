@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { KATANA_SET, waitReady } from './helpers/blade';
 import { openLive4 } from './helpers/live4';
+import { parryFireballAtF } from './helpers/parry';
 
 /**
  * LIVE-4 E2E その 1（docs/design/LIVE-4.md 版 2 §2.1・§2.2・§5・§6 AC1・AC2・AC3・AC8〜AC10・AC12・AC14）: だれ が たたかうか・何 を ねらうか・やめる とき。
@@ -42,6 +43,79 @@ test.describe('LIVE-4 ねらい', () => {
     expect(r.afterLift, 'だっこ 中 は たたかわない').toEqual([]);
   });
 
+  test('AC1 (g) いただきます 中 の 子 は たたかわない／3 わ の いちばん 早い 子 を だっこ → 次 の ステップ に 2 番目', async ({ page }) => {
+    await openLive4(page);
+    const r = await page.evaluate(() => {
+      const h = (window as any).__rikkun;
+      const A = (window as any).__A;
+      const M = (window as any).__M;
+      M.base();
+      const o: any = {};
+      const ids = [M.macho(1.5, 4.5, { follow: 18000 }), M.macho(1.5, 6.5, { follow: 18000 }), M.macho(1.5, 8.5, { follow: 18000 })];
+      o.ids = ids;
+      o.first = h.animals.fighters();
+      A.stand(ids[0]);
+      o.lifted = A.lift(ids[0]);
+      h.step(1);
+      o.afterLift = h.animals.fighters();
+      // (g)
+      const cid = A.coop(20, 20);
+      const c = A.cinfo(cid);
+      const kid = A.kid(c, { stage: 'adult', raised: true, breed: 'macho', follow: 18000 });
+      const m = h.animals.meat(cid, kid);
+      h.step(30);
+      o.meat = m.ok;
+      o.duringMeat = h.animals.fighters();
+      o.kid = kid;
+      return o;
+    });
+    expect(r.first).toEqual([r.ids[0]]);
+    expect(r.lifted).toBe(true);
+    expect(r.afterLift, '次 の ステップ に 2 番目').toEqual([r.ids[1]]);
+    expect(r.meat).toBe(true);
+    expect(r.duringMeat, 'いただきます 中 の 子 は 入らない').not.toContain(r.kid);
+  });
+
+  test('AC12b machoFighters 0: fighters() は 空・だれ も target を 持たない', async ({ page }) => {
+    await openLive4(page);
+    const r = await page.evaluate(() => {
+      const h = (window as any).__rikkun;
+      const A = (window as any).__A;
+      const M = (window as any).__M;
+      M.base();
+      const o: any = {};
+      try {
+        h.settings.set('machoFighters', 0);
+        o.setting = h.settings.get('machoFighters');
+      } catch {
+        o.setting = null;
+      }
+      const ids = [M.macho(1.5, 4.5), M.macho(1.5, 6.5)];
+      const yid = M.yokai('karakasa', 6.5, 6.5, { hp: 9999 });
+      M.faceTo(yid, 2);
+      const hit = M.hit(yid, { m: ids[0] });
+      M.rec(120, { m: ids[0], y: yid });
+      o.k = hit.k;
+      o.fighters = typeof h.animals.fighters === 'function' ? h.animals.fighters() : null;
+      o.targets = ids.map((id: number) => A.one(id).target ?? null);
+      o.events = h.animals.events().filter((e: any) => e.type === 'machoTarget').length;
+      // 見張り: 1 に もどす と ねらう
+      h.settings.set('machoFighters', 1);
+      M.faceTo(yid, 2);
+      h.step(60);
+      const again = M.hit(yid, { m: ids[0] });
+      o.ctl = again.rows[again.k]?.m?.target ?? null;
+      o.yid = yid;
+      return o;
+    });
+    expect(r.setting, '設定 machoFighters 0').toBe(0);
+    expect(r.k).toBeGreaterThanOrEqual(0);
+    expect(r.fighters, '空').toEqual([]);
+    expect(r.targets).toEqual([null, null]);
+    expect(r.events).toBe(0);
+    expect(r.ctl, '見張り: 1 に もどす と ねらう').toBe(r.yid);
+  });
+
   test('AC2 きっかけ 1: ぼくとう で 1 回 → その ステップ に target・machoTarget(playerHit)・machoGo 1 回。もう 1 回 たたいても machoGo は ふえない', async ({ page }) => {
     await openLive4(page);
     const r = await page.evaluate(() => {
@@ -61,6 +135,7 @@ test.describe('LIVE-4 ねらい', () => {
       o.faced2 = M.faceTo(yid, 2);
       const second = M.hit(yid, { m: mid });
       o.k2 = second.k;
+      o.by2 = (second.rows[second.k]?.yev ?? []).filter((e: any) => e.type === 'hurt').map((e: any) => e.by);
       const more = M.rec(30, { m: mid, y: yid });
       o.go2 = [...second.rows, ...more].reduce((n: number, x: any) => n + x.snd.filter((s: string) => s === 'machoGo').length, 0);
       o.targetEvents = [...first.rows, ...rest, ...second.rows, ...more].flatMap((x: any) => x.aev).filter((e: any) => e.type === 'machoTarget');
@@ -78,6 +153,7 @@ test.describe('LIVE-4 ねらい', () => {
     expect(r.go1, 'machoGo 1 回').toBe(1);
     expect(r.go1b).toBe(0);
     expect(r.k2, '2 回目 も 体力 が へった').toBeGreaterThanOrEqual(0);
+    expect(r.by2, '2 回目 の へった の は プレイヤー の 一撃（マッチョ の パンチ ではない）').toEqual(['player']);
     expect(r.go2, '同じ 妖怪 を もう 1 回 → machoGo は ふえない').toBe(0);
     expect(r.targetEvents.length, 'machoTarget は 1 つ の ねらい に 1 回').toBe(1);
   });
@@ -470,6 +546,63 @@ test.describe('LIVE-4 ねらい', () => {
     expect(r.go).toBe(0);
     expect(r.afterK).toBeGreaterThanOrEqual(0);
     expect(r.afterTarget, 'そのあと 同じ 妖怪 の 体力 を へらす と ねらう').toBe(r.yid);
+  });
+
+  test('AC14 きっかけ に ならない (b) ちょうちん の 火の玉 を パリィ で はね返す: target null・machoTarget なし・machoGo なし。そのあと ねらう', async ({ page }) => {
+    await openLive4(page);
+    await page.evaluate(() => {
+      const h = (window as any).__rikkun;
+      (window as any).__M.base();
+      h.inventory.setSlot(1, { item: 'katana', count: 1 });
+      h.inventory.select(1);
+      h.step(1);
+    });
+    await waitReady(page, KATANA_SET);
+    const pre = await page.evaluate(() => {
+      const h = (window as any).__rikkun;
+      const M = (window as any).__M;
+      const mid = M.macho(1.5, 6.5);
+      const cid = M.yokai('chochin', M.PX + 5, 6.5, { y: 13, hp: 999 });
+      h.yokai.events();
+      h.animals.events();
+      h.audio.sfx();
+      h.parry.events();
+      (window as any).__base = h.parry.events().length;
+      (window as any).__hp0 = h.combat.get().hp;
+      h.yokai.attackNow(cid);
+      return { mid, cid };
+    });
+    await parryFireballAtF(page, 10);
+    const r = await page.evaluate(({ mid, cid }) => {
+      const h = (window as any).__rikkun;
+      const A = (window as any).__A;
+      const M = (window as any).__M;
+      const rows = M.rec(60, { m: mid, y: cid });
+      h.input.releaseAll();
+      const o: any = {};
+      o.ok = h.parry.events().slice((window as any).__base).some((e: any) => e.type === 'parrySuccess');
+      o.hpSame = h.combat.get().hp === (window as any).__hp0;
+      o.target = rows.map((x: any) => x.m?.target ?? null).filter((t: unknown) => t !== null).length;
+      o.te = rows.flatMap((x: any) => x.aev).filter((e: any) => e.type === 'machoTarget').length;
+      o.go = rows.flatMap((x: any) => x.snd).filter((s: string) => s === 'machoGo').length;
+      h.inventory.select(0);
+      h.step(40);
+      M.faceTo(cid, 1.5);
+      // 見張り: ちょうちん は 高い ので ぼくとう は とどかない → 火の玉 を あらためて うたせて たたかれる
+      h.yokai.setHp(cid, 999);
+      h.player.set({ position: { x: M.PX, y: 9, z: 6.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: 0 });
+      h.step(1);
+      const hurt = M.hurtMe(cid, { m: mid }, 400);
+      o.ctl = hurt.rows[hurt.k]?.m?.target ?? null;
+      void A;
+      return o;
+    }, pre);
+    expect(r.ok, '火の玉 を はじいた').toBe(true);
+    expect(r.hpSame).toBe(true);
+    expect(r.target).toBe(0);
+    expect(r.te).toBe(0);
+    expect(r.go).toBe(0);
+    expect(r.ctl, '見張り: そのあと たたかれる と ねらう').toBe(pre.cid);
   });
 
   test('AC14 きっかけ に ならない (c) からぶり・(e) 落ちて 体力 が へる', async ({ page }) => {

@@ -16,3 +16,7 @@
 | 2 | test-prep | tester（PO 決定） | 【重大】AC7: `yokai_orb` は もう 使って いない | 古い M3 の ごほうび を 写した | G7 | 対応済（版 2.1: 経験値 と ふつう の たおした ごほうび に。§2.4 も） |
 | 2 | test-prep | tester（PO 決定） | 【重大】AC10・§5: 火の玉 は 11〜13 マス に とどかない（4〜8 マス で うつ） | ちょうちん の 射程 を 見落とした | G8 | 対応済（版 2.1: 12 マス は や で 確かめ、火の玉 は 7 マス で ねらう ケース に） |
 | 2 | test-prep | tester（PO 決定） | 【軽微】AC4「とどいた ステップ」・`marks` の ねらい の 行 の 形・`machoFighters` 0 が 書いて いない | 窓口 と 境目 の 書き もれ | G9 | 対応済（版 2.1: はじめて `machoReach` に 入った ステップ、`{ machoTarget: true, yokai }`、`machoFighters` 0 で だれ も たたかわない（AC12）を 書いた） |
+| 3 | test-review | code-reviewer | 【重大】AC14 に (b) ちょうちん の 火の玉 を パリィ で はねる 場面 が 無い | テスト 不足 | G9 | 対応済（live4-target AC14 (b)） |
+| 3 | test-review | code-reviewer | 【重大】AC12 で `machoFighters` 0 の とき fighters() 空・target なし を 見て いない | テスト 不足 | G9 | 対応済（AC12b・ユニット） |
+| 3 | test-review | code-reviewer | 【重大】AC1 (g) いただきます 中 と「1 番目 を だっこ → 次 の ステップ に 2 番目」が 無い | テスト 不足 | G9 | 対応済（AC1 追加・ユニット） |
+| 3 | test-review | code-reviewer | 【軽微】AC2 の k2 が プレイヤー の 一撃 か 不明／AC5b は 3 回 以上／AC7 の ドロップ は 確率／AC15 に や／AC13 ユニット と 火の玉／AC11 の 窓 は 180 | テスト の ゆるさ | G9 | 対応済 |

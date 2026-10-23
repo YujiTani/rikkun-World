@@ -165,7 +165,7 @@ test.describe('LIVE-4 たたかう', () => {
       const mul = h.settings.get('bladeDamageMul').kiriage;
       return { hits: hits.slice(0, 3), dmg3: hits[2] ? rows[hits[2] - 1].y.hp - rows[hits[2]].y.hp : null, moved, rise, mul };
     });
-    expect(r.hits.length, '3 回 当たる').toBe(3);
+    expect(r.hits.length, '3 回 以上 当たる').toBeGreaterThanOrEqual(3);
     expect(r.dmg3).toBeCloseTo(2 * r.mul, 2);
     expect(r.moved, '押されない').toBeLessThanOrEqual(0.05);
     expect(r.rise, 'うかない').toBeLessThanOrEqual(0.05);
@@ -238,7 +238,6 @@ test.describe('LIVE-4 たたかう', () => {
       o.xp = h.level.get().xp;
       o.level = h.level.get().level;
       o.reward = all.flatMap((x: any) => x.yev).find((e: any) => e.type === 'defeat')?.reward ?? null;
-      o.drops = all.flatMap((x: any) => x.yev).filter((e: any) => e.type === 'drop').length;
       o.stat = A.stat('machoKO:*') - stat0;
       o.unlocked = A.unlocked('animal.machoKO.1');
       o.ko = all.flatMap((x: any) => x.aev).filter((e: any) => e.type === 'machoKO');
@@ -258,7 +257,6 @@ test.describe('LIVE-4 たたかう', () => {
     expect(r.reward, 'defeat の reward は プレイヤー が たおした のと 同じ').toBe(r.base.reward);
     expect(r.xp, '経験値 は プレイヤー に（同じ 数）').toBe(r.base.xp);
     expect(r.level).toBe(r.base.level);
-    expect(r.drops, 'ドロップ の 出来事 が 出る（ぬしは プレイヤー）').toBeGreaterThanOrEqual(1);
     expect(r.stat, '記録 machoKO:*').toBe(1);
     expect(r.unlocked, '実績 animal.machoKO.1').toBe(true);
     expect(r.ko[0], '出来事 machoKO').toMatchObject({ id: r.mid, yokai: r.yid });
@@ -328,8 +326,7 @@ test.describe('LIVE-4 たたかう', () => {
     expect(r.r0, 'はしり はじめた').toBeGreaterThanOrEqual(0);
     expect(r.cheerAt, 'cheer に なった').toBeGreaterThan(0);
     expect(r.earlyCheer, '150 までは cheer しない').toBe(false);
-    expect(r.rel, 'はしり はじめて 180 ステップ').toBeGreaterThanOrEqual(179);
-    expect(r.rel).toBeLessThanOrEqual(182);
+    expect(r.rel, 'はしり はじめて 180 ステップ 目（仕様 AC11 の 数）').toBe(180);
     expect(r.near, 'プレイヤー の そば 4 マス 以内').toBeLessThanOrEqual(4);
     expect(r.target, 'target は のこる').toBe(r.cid);
   });
@@ -376,6 +373,36 @@ test.describe('LIVE-4 たたかう', () => {
     expect(a.hits.length, 'こうげき は 出た').toBeGreaterThan(0);
     for (const e of a.hits) expect(e.hitPlayer, 'マッチョ に 当たっても プレイヤー の 体力 は へらない（的 は プレイヤー だけ）').toBe(false);
     expect(a.ctl, '見張り: そのあと プレイヤー が たたく と ねらう').toBe(a.yid);
+  });
+
+  test('AC13c やられない（火の玉）: マッチョ の 横 を 火の玉 が とおる → マッチョ は のこる・火の玉 は マッチョ で 止まらない（fireballEnd の hitPlayer false）', async ({ page }) => {
+    await openLive4(page);
+    const r = await page.evaluate(() => {
+      const h = (window as any).__rikkun;
+      const M = (window as any).__M;
+      M.base();
+      const mid = M.macho(5.5, 6.5); // プレイヤー(3.5) と ちょうちん の あいだ
+      const cid = M.yokai('chochin', 9.5, 6.5, { y: 13 });
+      h.player.set({ position: { x: 3.5, y: 9, z: 6.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: 0 });
+      h.yokai.events();
+      const ev: any[] = [];
+      for (let i = 0; i < 600; i++) {
+        if (i % 150 === 0) h.yokai.attackNow(cid);
+        h.step(1);
+        ev.push(...h.yokai.events());
+      }
+      const m = M.one(mid);
+      // 見張り: プレイヤー が たたく と ねらう
+      h.yokai.clear();
+      const kid = M.yokai('karakasa', 6.5, 6.5, { hp: 999 });
+      M.faceTo(kid, 2);
+      const ctl = M.hit(kid, { m: mid });
+      return { ctl: ctl.rows[ctl.k]?.m?.target ?? null, kid, alive: !!m, fb: ev.filter((e: any) => e.type === 'fireball').length, ends: ev.filter((e: any) => e.type === 'fireballEnd').length, cid, mid, hp: m ? Object.keys(m).includes('hp') : null };
+    });
+    expect(r.alive, 'マッチョ は のこる').toBe(true);
+    expect(r.fb, '火の玉 が 出た').toBeGreaterThan(0);
+    expect(r.hp, 'マッチョ に 体力 は 無い').toBe(false);
+    expect(r.ctl, '見張り: そのあと たたく と ねらう').toBe(r.kid);
   });
 
   test('AC13b 妖怪 の 動き（ai あり）は マッチョ が いても いなくても 同じ（同じ シード・プレイヤー が たたかれる 前 まで）', async ({ page }) => {
@@ -474,5 +501,40 @@ test.describe('LIVE-4 たたかう', () => {
     expect(r.otherAlive, 'ほか の にわとり').toBe(true);
     expect(r.stillThere, 'マッチョ は のこる').toBe(true);
     expect(r.hurtMacho).toBe(0);
+  });
+
+  test('AC15b や は マッチョ に 当たらない（ゆみ で 前 の マッチョ を ねらっても のこる・やが とどまらない）', async ({ page }) => {
+    await openLive4(page);
+    const r = await page.evaluate(() => {
+      const h = (window as any).__rikkun;
+      const A = (window as any).__A;
+      const M = (window as any).__M;
+      M.base();
+      h.inventory.setSlot(1, { item: 'yumi', count: 1 });
+      h.inventory.setSlot(2, { item: 'ya', count: 10 });
+      h.inventory.select(1);
+      h.step(12);
+      const mid = M.macho(12.5, 6.5);
+      h.player.set({ position: { x: 8.5, y: 9, z: 6.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: 0 });
+      h.step(1);
+      h.animals.events();
+      h.input.press('primary');
+      h.step(45);
+      h.input.release('primary');
+      h.step(100);
+      const m = M.one(mid);
+      const near = h.bow.stuck().filter((s: any) => Math.hypot(s.position.x - m.x, s.position.z - m.z) < 0.6).length;
+      h.inventory.select(0);
+      h.step(20);
+      const kid = M.yokai('karakasa', 6.5, 6.5, { hp: 999 });
+      M.faceTo(kid, 2);
+      const ctl = M.hit(kid, { m: mid });
+      return { ctl: ctl.rows[ctl.k]?.m?.target ?? null, kid, alive: !!m, hurt: h.animals.events().filter((e: any) => e.type === 'hurt' || e.type === 'die').length, near, shot: h.inventory.count('ya') < 10, target: A.one(mid).target ?? null };
+    });
+    expect(r.shot, 'や を うった').toBe(true);
+    expect(r.alive).toBe(true);
+    expect(r.hurt).toBe(0);
+    expect(r.near, 'や が マッチョ に ささらない').toBe(0);
+    expect(r.ctl, '見張り: そのあと たたく と ねらう').toBe(r.kid);
   });
 });

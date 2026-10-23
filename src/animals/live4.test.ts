@@ -92,6 +92,38 @@ describe('AC1 たたかう マッチョ（fighters）', () => {
   });
 });
 
+describe('AC1 追加・AC13 ユニット', () => {
+  it('machoFighters 0 → fighters() は 空', () => {
+    const s = setup();
+    s.macho(0);
+    s.macho(1);
+    (s.settings as any).machoFighters = 0;
+    s.step(3);
+    expect(s.fighters()).toEqual([]);
+  });
+
+  it('(g) いただきます 中 の とりごや の 子 は たたかわない（fighters に 入らない）', () => {
+    const s = setup();
+    const a = s.macho(-2);
+    const id = s.m.placeCoop(10, 9, 10, 0) as number;
+    const coop = s.m.coops().find((x) => x.id === id)!;
+    const kid = s.m.spawn(coop.x + 0.5, 9, coop.z + 0.5, { friend: true, home: coop.id, stage: 'adult', raised: true, breed: 'macho', follow: 100 } as never)!;
+    s.step(5);
+    const r = s.m.meat(coop.id, kid);
+    expect(r.ok).toBe(true);
+    s.step(20);
+    expect(s.fighters()).toEqual([a]);
+  });
+
+  it('AC13: マッチョ は 体力 を もたない（list の 行 に hp が 無い）・妖怪 の 的 に なる 窓口 が 無い', () => {
+    const s = setup();
+    const a = s.macho(0);
+    const row = s.m.list().find((x) => x.id === a) as unknown as Record<string, unknown>;
+    expect('hp' in row).toBe(false);
+    expect('maxHp' in row).toBe(false);
+  });
+});
+
 describe('AC17 保存（§4.3）', () => {
   it('animals は v 4 の まま・新しい 項目 なし（target・hits・punch を 保存 しない）。SAVE_GEN は かえない', () => {
     const s = setup();

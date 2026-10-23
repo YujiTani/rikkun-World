@@ -1,7 +1,7 @@
-# LIVE-4 テストレポート（テストの 準備 = 実装 の 前。第 1 回）
+# LIVE-4 テストレポート（テストの 準備 = 実装 の 前。第 2 回。仕様書 版 2.1）
 
 - 判定: **準備 完了（新しい テスト は 赤）**。実装 は まだ 無い ので 受け入れ の 合否 は 出さない
-- 対象の仕様書: `docs/design/LIVE-4.md` 版 2（AC1〜AC21・AC10b は 仕様書 に 無い。版 1.1 の パリィ・かたい 所 の 基準 は AC14 に 入った）／ `docs/decisions/2026-10-23-macho-fight.md`
+- 対象の仕様書: `docs/design/LIVE-4.md` 版 2.1（AC1〜AC21・AC10b は 仕様書 に 無い。版 1.1 の パリィ・かたい 所 の 基準 は AC14 に 入った）／ `docs/decisions/2026-10-23-macho-fight.md`
 - 試作（`a866275`・`animals.live4Proto`）は 使わない。テスト は 仕様書 §6.1 の 窓口（`animals.fighters()`・`list()` の `target`/`hits`・出来事 `machoTarget/machoPunch/machoGiveUp/machoKO`・`fx().marks`・`yokai.events()` の `hurt.by`）だけ を 見る
 - 実行したコマンド: 新しい spec を 1 回 ずつ（赤 の 確認）・`npm run check:fast`（型 は 通る。ユニット の 赤 は 下 の とおり LIVE-4 の もの だけ）
 
@@ -83,3 +83,8 @@
 | 29 わ・60 ステップ の `work` getBlock | 99972（LIVE-3 と 同じ。マッチョ 大人 を ふくむ） |
 | 妖怪 5 体／10 体 の 仕事 の 数（ねらい なし） | 98255／98255 |
 | `AC20c` の 差（ねらい なし の 同じ 場面） | 描画 0・三角形 0 |
+
+## 第 2 回（コードレビュー 差し戻し の 直し）
+- 足した: AC14(b) 火の玉 を パリィ（`live4-target`）／AC12b `machoFighters` 0（E2E＋ユニット）／AC1 (g) いただきます 中 と「1 番目 を だっこ → 次 の ステップ に 2 番目」（E2E＋ユニット）／AC13 火の玉 側（AC13c）と 体力 なし（ユニット）／AC15b や は マッチョ に 当たらない。
+- 直した: AC2 の 2 回目 は プレイヤー の 一撃 と 確認／AC5b を 3 回 以上／AC7 の ドロップ 依存 を 外した（経験値・reward だけ）／AC11 を 180 ちょうど に。
+- 抜け（そのまま）: AC6 からぶり、AC19 UI 検査（実装 が ui-gate の 場面 を 足す）。
