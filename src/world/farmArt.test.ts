@@ -67,7 +67,7 @@ describe('十字の板の描画', () => {
     expect(ripe.lights.some((v, i) => i % 2 === 1 && v >= RIPE_FLAG)).toBe(true);
     expect(young.lights.some((v, i) => i % 2 === 1 && v >= RIPE_FLAG)).toBe(false);
   });
-  it('みのった作物は 夜の明るさ 0 でも 0.7 以上、段階 2 は 0.7 未満（AC25）', () => {
+  it('みのった作物・やせいの やさいは 夜でも光らない: まわりと同じ明るさ（#76。下限 0.7 は 設定 ripeMin で入れたときだけ）', () => {
     const w = new ArrayVoxelWorld({ x: 32, y: 16, z: 32 });
     w.fill(0, 0, 0, 31, 3, 31, 'stone');
     w.setBlock(5, 4, 5, 'crop_pumpkin');
@@ -78,11 +78,17 @@ describe('十字の板の描画', () => {
     let stage: CropStage = 3;
     const v = createFarmVisual({ world: w, light: r.light, crops: { stageAt: () => stage } });
     expect(v.look(5, 4, 5)).toMatchObject({ tile: 'crop_pumpkin_3' });
-    expect(v.look(5, 4, 5)!.brightness).toBeGreaterThanOrEqual(0.7);
+    expect(v.look(5, 4, 5)!.brightness).toBeCloseTo(r.light.brightness(5, 4, 5), 5);
+    expect(v.look(5, 4, 5)!.brightness).toBeLessThan(0.1);
     expect(v.look(8, 4, 5)).toMatchObject({ tile: 'wild_onion' });
+    expect(v.look(8, 4, 5)!.brightness).toBeCloseTo(r.light.brightness(8, 4, 5), 5);
     stage = 2;
     expect(v.look(5, 4, 5)).toMatchObject({ tile: 'crop_pumpkin_2' });
-    expect(v.look(5, 4, 5)!.brightness).toBeLessThan(0.7);
+    expect(v.look(5, 4, 5)!.brightness).toBeCloseTo(r.light.brightness(5, 4, 5), 5);
+    // 設定は のこしてある: ripeMin に 0.7 を渡せば 今までどおり 下限が入る
+    stage = 3;
+    const v7 = createFarmVisual({ world: w, light: r.light, crops: { stageAt: () => stage }, ripeMin: () => 0.7 });
+    expect(v7.look(5, 4, 5)!.brightness).toBeGreaterThanOrEqual(0.7);
     expect(v.look(1, 1, 1)).toBeNull();
     skyDarkness.value = 0;
   });

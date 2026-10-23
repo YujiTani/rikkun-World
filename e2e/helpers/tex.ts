@@ -62,13 +62,29 @@ export const linLum = (c: ArrayLike<number>): number => 0.2126 * lin(c[0]) + 0.7
  * 明るさ = max(空の光の曲線, ブロックの光の 3 だんかい)。ブロックの光が空の光より明るいと 暖かい色あいがかかる。
  */
 export function lightTriple(sky: number, darken: number, block: number): Rgb {
-  const sb = lightBrightness(Math.max(0, sky - darken));
+  return lightTripleWith(sky, darken, block, NIGHT_SKY_MUL);
+}
+
+/** #76 夜の暗さ(C): 空の光の曲線に かける 夜の倍率（docs/decisions/2026-10-23-night-darker.md）。夜の外 = 0.125 × 0.16 ≈ 0.02 */
+export const NIGHT_SKY_MUL = 0.16;
+
+/**
+ * 夜の倍率を変えられる光の式。#76 の前の式（倍率 1）は `lightTripleBefore`。
+ * 空の光の曲線 sb に mix(1, mul, nt × w) をかける。nt = darken ÷ nightDarken（夜の度合い 0〜1）、w = clamp(空の光 ÷ 4, 0, 1)（どうくつは かけない）
+ */
+export function lightTripleWith(sky: number, darken: number, block: number, mul: number): Rgb {
+  const nt = Math.max(0, Math.min(1, darken / LIGHT_CONFIG.nightDarken));
+  const w = Math.max(0, Math.min(1, sky / 4));
+  const sb = lightBrightness(Math.max(0, sky - darken)) * (1 + (mul - 1) * nt * w);
   const bb = blockLightBrightness(block);
-  const w = Math.max(0, Math.min(1, (bb - sb) * 3)) * LIGHT_CONFIG.warmTintStrength;
+  const ww = Math.max(0, Math.min(1, (bb - sb) * 3)) * LIGHT_CONFIG.warmTintStrength;
   const t = LIGHT_CONFIG.warmTint;
   const m = Math.max(sb, bb);
-  return [m * (1 + (t[0] - 1) * w), m * (1 + (t[1] - 1) * w), m * (1 + (t[2] - 1) * w)];
+  return [m * (1 + (t[0] - 1) * ww), m * (1 + (t[1] - 1) * ww), m * (1 + (t[2] - 1) * ww)];
 }
+
+/** #76 の前の光の式（夜の倍率なし）。「今より暗い」をくらべる見本 */
+export const lightTripleBefore = (sky: number, darken: number, block: number): Rgb => lightTripleWith(sky, darken, block, 1);
 
 /** ページの中で使う: 光とメッシュの順番待ちが 0 になるまで進める（e2e/voxE-mesh.spec.ts の settle と同じ）。最大 3000 コマ */
 export const QUIET_SRC = `(h) => {

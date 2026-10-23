@@ -1452,7 +1452,7 @@ export const M7_SETTING_DEFAULTS: Readonly<M7Settings> = {
   farmGrassSeedChance: 0.125,
   farmGrassSeedWeight: 4,
   eatHeal: { onion: 2, tomato: 2, pumpkin: 4, eggplant: 2 },
-  farmRipeMinBrightness: 0.7,
+  farmRipeMinBrightness: 0,
   farmWaterDays: 1,
   farmCanCapacity: { watering_can: 10, long_watering_can: 20 },
   farmCanTiles: { watering_can: 1, long_watering_can: 2 },
