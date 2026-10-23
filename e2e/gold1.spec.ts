@@ -88,7 +88,7 @@ test.describe('GOLD-1 金の そうび・なかよし・はらぱんみみず', 
       out.firstGold = A.unlocked('gold.first.1');
       out.star5 = A.unlocked('rarity.star5.1');
       out.kinKinds = A.stat('craft:kinKinds');
-      out.rarity = h.rarity.of('kin_katana');
+      out.rarity = h.rarity.of('kin_katana')?.id;
       const info = h.craft.info('kin_katana');
       out.stats = (info?.stats ?? []).map((s: any) => ({ label: s.label, value: s.value }));
       return out;
@@ -251,7 +251,7 @@ test.describe('GOLD-1 金の そうび・なかよし・はらぱんみみず', 
       A.base(24);
       h.settings.set('harapanYokai', 1);
       const arena = (window as any).__arena;
-      const out: any = { under: h.settings.get('harapanUnderY'), rarity: h.rarity.of('harapan_mimizu') };
+      const out: any = { under: h.settings.get('harapanUnderY'), rarity: h.rarity.of('harapan_mimizu')?.id };
       h.inventory.clear(); // すで（体力 1 に して あるので 1 回で たおれる）
       h.step(1);
       const kill = (floorY: number, x: number) => {
