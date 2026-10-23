@@ -43,6 +43,7 @@ import { NijiFx } from './fx/nijiFx';
 import { SlashFx } from './fx/slashFx';
 import { FujinOrbitFx } from './fx/fujinOrbitFx';
 import { RaijinStormFx } from './fx/raijinStormFx';
+import { RainbowFx } from './fx/rainbowFx';
 import { boxOf } from './combat/attackFacing';
 import { createDomeGrains } from './legend/domeGrains';
 import { BuffIcons } from './ui/buffIcons';
@@ -681,7 +682,15 @@ const sparkAt = { x: 0, y: 0, z: 0 };
 const IDLE_THUNDER_LOOK = { charging: false, ready: false, aimS: null };
 const thunderFx = new ThunderFx({ scene: game.scene, camera: game.camera, seed });
 // ART-PIPE-1: 落雷の 間だけ 世界を 絵に 描く 道（深さを 読む 雷・まわりを 明るく）
-game.setWorldPass(thunderFx);
+// 虹の 発光（ブルーム）も この 道で: 虹が 出て いない 間は 回さない。落雷の 間は 雷の 道を 優先
+const rainbowFx = new RainbowFx(game.scene, game.camera, (tech) => w2.bladeTech[tech]);
+game.setWorldPass({
+  active: () => thunderFx.active() || rainbowFx.active(),
+  render: (r, sc, cam) => {
+    if (thunderFx.active()) thunderFx.render(r, sc, cam);
+    else rainbowFx.renderWorld(r, sc, cam);
+  },
+});
 thunderFx.warmUp(game.renderer, game.camera); // 読みこみ中に 雷 B の プログラムを 作る
 const windWaveFx = new WindWaveFx({ scene: game.scene, camera: game.camera });
 // WEAPON-8: らせんの かぜ（S2）・土と 草の つぶ・手もとの 光・速さバフの アイコン
@@ -1203,7 +1212,8 @@ const weaponFx = new WeaponFx({
       const u = blade.state().move?.dirDeg ?? controller.state.yawDeg;
       slashFx.queueSlash({ tech, step: step ?? 1, uDeg: u, pos: () => controller.state.position, reach: w2.bladeReach[item] });
       // 上の 層（武器ごと）
-      if (item === 'raijin_ken') raijinFx.queue({ tech, step: step ?? 1, uDeg: u, pos: () => controller.state.position });
+      if (item === 'niji') rainbowFx.queue({ tech, step: step ?? 1, uDeg: u, pos: () => controller.state.position });
+      else if (item === 'raijin_ken') raijinFx.queue({ tech, step: step ?? 1, uDeg: u, pos: () => controller.state.position });
       else if (item === 'fujin_ken') fujinFx.queue({ tech, step: step ?? 1, uDeg: u, pos: () => controller.state.position, reach: w2.bladeReach[item] });
     }
   },
@@ -1214,6 +1224,8 @@ const weaponFx = new WeaponFx({
     const yk = yokaiManager?.list().find((q) => q.id === e.yokaiId);
     const chest = yk ? boxOf(yk).h * 0.6 : 0.8;
     slashFx.hit({ x: e.position.x, y: e.position.y + chest, z: e.position.z }, e.tech, blade.state().move?.dirDeg ?? controller.state.yawDeg);
+    // 虹: 当てた 妖怪の 胸に 虹色の 点
+    if (item === 'niji') rainbowFx.hit({ x: e.position.x, y: e.position.y + chest, z: e.position.z });
     // 雷神剣のけさ: 妖怪の まわりから 稲妻が 6 本 あつまる
     if (item === 'raijin_ken' && e.tech === 'kesa') raijinFx.hit({ x: e.position.x, y: e.position.y + chest, z: e.position.z });
   },
@@ -1221,6 +1233,7 @@ const weaponFx = new WeaponFx({
     slashFx.cancelSlash();
     fujinFx.cancel();
     raijinFx.cancel();
+    rainbowFx.cancel();
   },
   // 刀の 半月の 帯は 白い 斬撃と 置きかえ（全部の 刀）
   hideBandTrail: true,
@@ -1955,6 +1968,7 @@ game.onUpdate((dt) => {
       slashFx.step(reducedNow);
       fujinFx.step();
       raijinFx.step();
+      rainbowFx.step();
       if (domeEraseThisStep) {
         playLegend(fxSound, 'domeErase');
         domeEraseThisStep = false;
@@ -2207,6 +2221,7 @@ installTestHook(game, overlay, () => host.everReady, {
     nijiFx: () => ({ ...nijiFx.info(), ...slashFx.info() }),
     fujinFx: () => fujinFx.info(),
     raijinFx: () => raijinFx.info(),
+    rainbowFx: () => rainbowFx.info(),
     grains: () => ({ ...domeGrains.counts() }),
   } as unknown as TestHookGroups['legend'],
   player: { ...createPlayerHook(controller), handPos: () => { const h = handNow(); return { world: { ...h.world }, screen: h.screen ? { ...h.screen } : null }; }, glow: () => { const g = parry.state().glowLeft; return { visible: g > 0, ticksLeft: g, level: parryGlowLevel(g, w2) }; }, respawn: () => controller.respawn(), doll: withSpriteDoll(cameraHook.doll, sprite, rig.doll.group) } as unknown as TestHookGroups['player'],
