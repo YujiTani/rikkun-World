@@ -110,6 +110,7 @@ import { YokaiNameplates } from './ui/yokaiNameplates';
 import { actionHintLines } from './ui/actionHintModel';
 import { createRng } from './world/gen/random';
 import { FX_SETTINGS } from './fx/config';
+import { ImpactBus, impactOf } from './fx/impact';
 import { drainSounds } from './fx/soundLog';
 import { createBrowserTitleSound } from './fx/titleSound';
 import { SoundFx } from './fx/sound';
@@ -419,6 +420,17 @@ const startPoint = () => {
 };
 const controller = new PlayerController(world, game.input, look, lock, startPoint);
 // CHAR-1 第 5 版: 一人称（V）はなくなった。CameraRig は受け取るだけの ActionState を使う
+// #276 手ごたえ: ヒットストップと 画面の ゆれ（ゆれは FX_SETTINGS.fxShake が 0 なら なし）
+const impactBus = new ImpactBus({
+  stop: (n) => game.hitStop(n),
+  shake: (a) => {
+    if (FX_SETTINGS.fxShake) rig.addTrauma(a);
+  },
+  tick: () => game.tick,
+});
+/** シャイニングの ドーム: 始めてから まだ 当たって いない（最初の 当たりだけ 大） */
+let domeFirstHit = true;
+const titleOfYokai = (id: number) => yokaiManager?.list().find((q) => q.id === id)?.title ?? 'none';
 const rig = new CameraRig(game.camera, game.scene, world, () => controller.state, game.input);
 lighting.registerTree(rig.doll.group, 'doll');
 // キャラは 8 方向のドット絵の板。?char=block のときだけ 箱人形（描画回数を比べるため）
@@ -1295,6 +1307,9 @@ const combatFx = new CombatFx({
   clock: combatUi.clock,
   titleSound,
   onPickup: (item, count) => hotbar.pickup(item, count),
+  // #276: パンチが 当たった・妖怪を たおした
+  onPunchHit: (id) => impactBus.hit(impactOf({ kind: 'punch', title: titleOfYokai(id) })),
+  onDefeat: () => impactBus.hit(impactOf({ kind: 'defeat' })),
 });
 
 const arrowRelay = new EventRelay<import('./contracts').BowEvent>();
@@ -1315,7 +1330,6 @@ const weaponFx = new WeaponFx({
   // CHAR-4: 刃の軌跡は 体（当たり判定の 足もと）の そのステップの おわりの 位置と カメラから 作る
   body: () => controller.state.position,
   camera: game.camera,
-  shakeEl: game.renderer.domElement,
   onWear: (e) => achievements.feedWear(e),
   onBlade: (e) => achievements.feedBlade(e),
   // WEAPON-7: ふつうの わざに 雷の「ビシューン」を 重ねる（ダメージは かえない）
@@ -1333,6 +1347,8 @@ const weaponFx = new WeaponFx({
   },
   // 当たった 妖怪 1 体ごとに 白い 火花
   onTechHit: (item, e) => {
+    // #276 ヒットストップ・画面の ゆれ（1 ステップに 一番 強い 1 回）
+    impactBus.hit(impactOf({ kind: 'tech', tech: e.tech, step: e.step, title: titleOfYokai(e.yokaiId) }));
     if (!item || !LEGEND_FX_ITEMS.has(item)) return;
     // 当たった 妖怪の 胸（足もと + 背の 6 割）に 火花を 出す
     const yk = yokaiManager?.list().find((q) => q.id === e.yokaiId);
@@ -2031,6 +2047,7 @@ game.onUpdate((dt) => {
   for (const e of arrowEvents) {
     if (e.type === 'noArrow') notice.showSignal('noArrow');
     else if (e.type === 'arrowHit') {
+      impactBus.hit(impactOf({ kind: 'arrow', title: titleOfYokai(e.yokaiId) }));
       playCombat(fxSound, 'hit');
       achievements.feedArrow('hit');
     } else if (e.type === 'arrowShot') achievements.feedArrow('shot');
@@ -2059,6 +2076,14 @@ game.onUpdate((dt) => {
     for (const e of evs) {
       thunderFx.onEvent(e);
       windWaveFx.onEvent(e);
+      if (e.type === 'lightningStrike' && e.hits.length > 0) impactBus.hit(impactOf({ kind: 'charged' }));
+      // シャイニングの ドーム: 始めてから 最初の 当たりだけ 大。2 回目からは 止めなし（ゆれは 中の 量）
+      if (e.type === 'waveHit' || e.type === 'spiralHit') impactBus.hit(impactOf({ kind: 'repeat' })); // 真空波・らせん: 止めなし
+      if (e.type === 'shiningStart') domeFirstHit = true;
+      if (e.type === 'domeHit') {
+        impactBus.hit(impactOf({ kind: domeFirstHit ? 'charged' : 'repeat' }));
+        domeFirstHit = false;
+      }
       if (e.type === 'lightningStrike') {
         for (const id of e.hits) {
           const y = yokaiM.list().find((q) => q.id === id);
@@ -2176,7 +2201,11 @@ game.onUpdate((dt) => {
   const pp = controller.state.position;
   renderer.update({ x: pp.x, z: pp.z });
   save.update(game.tick + 1);
+  // #276: このステップの 当たりを まとめて 1 回（ヒットストップ・画面の ゆれ）
+  impactBus.flush();
 });
+// ヒットストップで 世界が 止まっている 間も カメラの ゆれだけは 動く
+game.onFrozenUpdate((dt) => rig.updateFrozen(dt));
 game.onUpdate((dt) => overlay.update(dt));
 // 案内画面で止まっている間も 読みこみは進める（B3）
 // count の時計（E2E のサーバー）: そろって いまの中心のまわりも そろったら、止めている間は進めない
@@ -2378,6 +2407,11 @@ installTestHook(game, overlay, () => host.everReady, {
     events: () => [...combatHook.events(), ...toolHook.arrowEvents()],
   } as unknown as TestHookGroups['combat'],
   ...logHook,
+  impact: {
+    stopLeft: () => game.hitStopLeft(),
+    trauma: () => rig.traumaNow(),
+    log: () => impactBus.log.map((l) => ({ ...l })),
+  },
   ui: { coopMenu: () => coopMenu.model.info(), coopMenuPress: (button: string, id?: number) => coopMenu.press(button as never, id), meatText: () => itadakimasu.text(), alpha: () => uiAlpha(), topBand: () => celebrate.topBand(), buffs: () => buffModel.list().map((b) => ({ ...b })) },
   craft: {
     ...craftHook,

@@ -147,6 +147,8 @@ export interface TestHook {
     deserialize(data: unknown): void;
   };
   /** CRAFT-2 §6.1: 画面の不透明度 */
+  /** #276 手ごたえ: ヒットストップの のこり（ステップ）・画面の ゆれの 量（0〜1）・最近の 当たり（tick・段） */
+  impact: { stopLeft(): number; trauma(): number; log(): { tick: number; level: string }[] };
   ui: { /** LIVE-3: とりごや の メニュー の ようす */ coopMenu(): { open: boolean; coop: number | null; page: 'top' | 'pick' | 'confirm'; kids: number[]; selected: number | null; eggs: number; meatDisabled: boolean }; /** LIVE-3: メニュー の ボタン を 押す（'collect'｜'meat'｜'back'｜'cancel'｜'ok'｜'close'｜'card'｜'hover'） */ coopMenuPress(button: string, id?: number): void; /** LIVE-3: いただきます の 一言（出て いなければ 空） */ meatText(): string; alpha(): UiAlpha; /** WEAPON-7 §9: 画面の 上の 帯 */ topBand(): { kind: 'achieve' | 'telop' | 'appear' | null; item: string | null; age: number; leftSteps: number; queue: string[] }; /** WEAPON-8 §7: 速さバフの アイコン */ buffs(): unknown[] };
   /** WEAPON-7 §9: レジェンダリー武器（ため・ためわざ） */
   legend: {
@@ -169,7 +171,7 @@ declare global {
   }
 }
 
-export type TestHookGroups = Pick<TestHook, 'start' | 'work' | 'shadow' | 'char' | 'world' | 'biome' | 'render' | 'player' | 'camera' | 'aim' | 'input' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'attack' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm' | 'log' | 'ui' | 'audio' | 'rarity' | 'animals' | 'parry' | 'legend' | 'thunder'>;
+export type TestHookGroups = Pick<TestHook, 'start' | 'work' | 'shadow' | 'char' | 'world' | 'biome' | 'render' | 'player' | 'camera' | 'aim' | 'input' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'attack' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm' | 'log' | 'ui' | 'audio' | 'rarity' | 'animals' | 'parry' | 'legend' | 'thunder' | 'impact'>;
 
 export function installTestHook(game: Game, overlay: PerfOverlay, isReady: () => boolean, groups: TestHookGroups, clock: FrameClock = 'time'): void {
   window.__rikkun = {
