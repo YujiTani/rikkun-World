@@ -104,6 +104,10 @@ export class BigActor {
   private rnd: () => number;
   private home = new Vector3();
   private pauseLeft = 0;
+  /** あと この 秒 はい回ったら 長い 休みに はいる */
+  walkLeft = 0;
+  /** 長い 休みの のこり（秒）。0 = 休んで いない */
+  restLeft = 0;
   private nextIsRight = false;
   private lastWork = 0;
   private dirty = true;
@@ -149,6 +153,8 @@ export class BigActor {
     this.mode = 'idle';
     this.player.play(null, { fade: 0 });
     this.pauseLeft = this.randIn(T.wander.pauseSec);
+    this.restLeft = 0;
+    this.walkLeft = this.randIn(T.wander.walkSec);
     this.applyTransform();
     this.applyPose(true);
     this.model.group.updateMatrixWorld(true);
@@ -184,7 +190,21 @@ export class BigActor {
     if (!on) { this.target = null; if (this.mode === 'crawl') this.toIdle(); }
   }
 
+  /** 長い 休みに はいる（その場で 体を 動かさない）。sec を 書かなければ 調整表の restSec。怒って いる 間は むし */
+  rest(sec?: number): void {
+    if (this.mode === 'angry') return;
+    this.startRest(sec ?? T.wander.restSec);
+  }
+
+  private startRest(sec: number): void {
+    this.restLeft = Math.max(0, sec);
+    this.target = null;
+    this.pauseLeft = this.randIn(T.wander.pauseSec);
+    if (this.mode === 'crawl') this.toIdle();
+  }
+
   goTo(x: number, z: number): void {
+    this.restLeft = 0; // 行き先を 言われたら 休みは やめる
     this.target = { x, z };
     if (this.mode === 'idle' || this.mode === 'look') this.startCrawl();
   }
@@ -199,6 +219,8 @@ export class BigActor {
   /** プレイヤーの 攻撃が 当たった */
   hit(): void {
     this.angryLeft = T.angry.calmSec;
+    this.restLeft = 0; // 怒ったら 休みは 中断（白目に もどったら また 歩き出す）
+    this.walkLeft = this.randIn(T.wander.walkSec);
     if (this.mode !== 'angry') { this.mode = 'angry'; this.target = null; this.player.play(null, { fade: T.clips.fadeSec }); }
   }
 
@@ -292,6 +314,14 @@ export class BigActor {
       this.speedNow = 0;
       return moved;
     }
+    // 長い 休み（はい回った 時間が たまったら 5 分 止まる）
+    if (this.restLeft > 0) {
+      this.restLeft -= dt;
+      if (this.restLeft <= 0) { this.restLeft = 0; this.walkLeft = this.randIn(T.wander.walkSec); this.pauseLeft = 0; }
+    } else if (this.wanderOn) {
+      this.walkLeft -= dt;
+      if (this.walkLeft <= 0) this.startRest(T.wander.restSec);
+    }
     if (this.mode === 'look') {
       this.speedNow = 0;
       if (this.player.timeLeft() <= 0) { this.toIdle(); this.pauseLeft = this.randIn(T.wander.pauseSec); }
@@ -300,6 +330,12 @@ export class BigActor {
     if (this.mode === 'idle') {
       this.speedNow = 0;
       if (this.target) { this.startCrawl(); return false; }
+      if (this.restLeft > 0) {
+        // 休んで いる 間は 体を 動かさない。ときどき 首を ふる（ふり返りの 動き）
+        this.pauseLeft -= dt;
+        if (this.pauseLeft <= 0) { this.pauseLeft = this.randIn(T.wander.pauseSec); if (this.rnd() < T.wander.restLookChance) this.lookBack(); }
+        return false;
+      }
       if (this.wanderOn) {
         this.pauseLeft -= dt;
         if (this.pauseLeft <= 0) this.pickTarget();
