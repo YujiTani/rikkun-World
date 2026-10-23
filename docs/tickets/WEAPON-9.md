@@ -107,3 +107,14 @@ WEAPON-8 が 大きく さわっている: `src/legend/LegendSystem.ts`（ため
 
 **次の 1 手（かわった）**: のこり 1（developer）の 前に、**tester が 5・6・8・9・12 を 画面で 確かめる**（妖怪を 前に 置いて ため → シャイニング → すわれて はじかれる を 連続の スクショか 動画。ふつうの 攻撃 3 段で にじの 斬撃が 出るか）。出ない 物は バグとして developer に もどす。
 | 2026-10-22 | 引きつぎ | yuzu「プロジェクトに伝えて残り作業してもらって」→ プロジェクトの セッションへ 渡した。この スレッドは ここで 手を はなす | 次は 引きつぎ 3 の「次の 1 手」から |
+
+## 引きつぎ 4（2026-10-23 PO。オーナー「デスクトップアプリに切り替えて」でクラウドを止めた）
+**どこまで**: main（#243 虹の最初の版・#250 パリィ十字 入り）に このブランチを マージで のせ直した（d31df88）。決定どおり 遊びの数は WEAPON-9、ドームは 白いドーム（docs/decisions/2026-10-22-niji-dome-look.md、オーナーがカードで選んだ）。main の shiningFx は 消して nijiFx に 一本化。
+- 直した: ドームの ふちを 丸く（198 三角形）・はじきの 上 6（`verify/knock-*.png`、からかさ 約 6.1 マス）・袋の じょうろの 水（copyStack）・強さの 範囲・state().power・横から 見た 斬撃の 位置（`verify/slash-side*-2.png`）・draws・camera.yawOffset。
+- 画面で 確かめた（tester）: すいこみ・はじき 水平 9/上 6・にじの 斬撃（うしろ flat／横 side）・1/3 切り上げ・火の玉が ドームで 消える・手持ちの 太刀。UI 検査 46 画面 OK。
+- code-reviewer: 再レビュー 重大 0。
+**のこり（この 順）**
+1. 作業途中（このコミット、**未確認**）: (a) YokaiManager の airSafe が 解除されない 道（天井で 上へ 飛べない・高い 所へ 着地・飛ぶ 妖怪）を 直す、ユニットを 足す (b) 撮影スペックを `.shots.ts` に 改名して `npm run perf` に 拾わせない (c) はじきの 上がりが 約 41 ステップと 遅い → 仕様に 指定が なければ そのまま。→ check:fast・weapon9-niji E2E。
+2. **オーナー 2026-10-23「ドームの 絵と 斬撃も PixelLab 使いましょう」**: art-director → pixel-artist（PIPELINE.md 1.1。lite だけ、下絵 → build.py で 仕上げ）→ art-reviewer → オーナー確認 → developer が 差し替え。クラウドは api.pixellab.ai が 止められて いたので Mac から。
+3. code-reviewer → PO が draft PR（`Closes #70` は 残りを 見て 判断）→ スクショを オーナーへ → CI 緑 ＋ オーナー OK で ready。マージは オーナー。
+4. あとで PR-1（ための 光 3 本・雷神剣と 風神剣の 手持ち・真空波の 向き）。

@@ -6,7 +6,7 @@ const PORT = Number(process.env.NIJI_PORT ?? 5198);
 export default defineConfig({
   ...base,
   testDir: './e2e-perf',
-  testMatch: '**/weapon9-verify-shots.perf.ts',
+  testMatch: '**/weapon9-verify-shots.shots.ts',
   fullyParallel: false,
   workers: 1,
   timeout: 600_000,

@@ -114,4 +114,31 @@ describe('大きな はじき（ticks 24・水平 9・上 6）', () => {
       expect(hp1).toBeLessThan(hp0);
     }
   });
+  describe('airSafe は はじきが おわったら 必ず もどる', () => {
+    const safe = (m: any, id: number): boolean => m.ents.find((q: any) => q.id === id).airSafe;
+    it('天井で 上へ とべない（足場も かわらない）', () => {
+      const { m, step, world } = rig();
+      world.fill(30, 12, 30, 45, 12, 45, 'stone'); // 天井（ぬりかべ の 頭の すぐ 上）
+      const id = m.spawn('nurikabe', 36.5, 9, 30.5, { ai: false });
+      m.damage(id, 1, { x: 30.5, y: 10, z: 30.5 }, { dist: 9, up: 6, ticks: 24, heavy: true });
+      step(60);
+      expect(safe(m, id)).toBe(false);
+    });
+    it('高い 所に 着く（のぼる がわ。settle の t > y）', () => {
+      const { m, step, world } = rig();
+      const id = m.spawn('karakasa', 36.5, 9, 30.5, { ai: false });
+      world.setBlock(36, 9, 30, 'stone'); // 足もとが 1 マス 高く なった
+      (m as any).ents.find((q: any) => q.id === id).airSafe = true;
+      step(30);
+      expect(safe(m, id)).toBe(false);
+    });
+    it('とぶ 妖怪（ちょうちん）は land を 通らない', () => {
+      const { m, step } = rig();
+      const id = m.spawn('chochin', 36.5, 11, 30.5, { ai: false });
+      step(10);
+      m.damage(id, 1, { x: 30.5, y: 10, z: 30.5 }, { dist: 9, up: 6, ticks: 24, heavy: true });
+      step(120);
+      expect(safe(m, id)).toBe(false);
+    });
+  });
 });

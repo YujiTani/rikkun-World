@@ -1125,6 +1125,7 @@ export class YokaiManager implements YokaiWorld {
     this.applyKnock(e);
     // よろけ中の ちょうちんは その場で ふわふわ（高さも かえない）
     if (!this.rise(e, dt) && !(e.stag && e.dims.flies)) this.settle(e, dt);
+    this.endAirSafe(e);
     if (e.y < AI_CONST.voidY) {
       e.remove = true;
       return;
@@ -1630,6 +1631,12 @@ export class YokaiManager implements YokaiWorld {
     }
     e.model.hit();
     this.emit({ type: 'hurt', tick: this.tick(), id: e.id, kind: e.kind, position: { x: e.x, y: e.y, z: e.z } });
+  }
+
+  /** 虹の はじきが おわり（押す・うきあがるが 0）、地面に いる（または とぶ 妖怪）なら airSafe を 必ず 戻す（land を 通らない 道: 天井・のぼる・とぶ 妖怪） */
+  private endAirSafe(e: Ent): void {
+    if (!e.airSafe || e.knockLeft > 0 || e.knockUpV > 0) return;
+    if (e.dims.flies || e.y <= settleGround(this.world, e.x, e.z, e.y, e.dims) + 1e-6) e.airSafe = false;
   }
 
   /** 上への 初速で うきあがる。うきあがっている あいだ true（その ステップ は 地面あわせ を しない） */
