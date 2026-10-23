@@ -272,7 +272,7 @@ export interface GashaGirlHandle {
 
 const VANISH = 0.08, GONE = 2.0; // ひゅっ と 消えて、約 2 秒 いない
 const CLIP_FIRE = 0.7; // 詠唱の 70% ごろに 魔法を 出す
-const FB_COUNT = 10, FB_GAP = 0.09, FB_ORB_GAP = 0.1, FB_SPEED = 14, FB_TURN = 120 * D2R, FB_STOP_NEAR = 3, FB_HOMING_MAX = 2.5, FB_LIFE = 4;
+const FB_COUNT = 20, FB_GAP = 0.09, FB_ORB_GAP = 0.05, FB_SPEED = 14, FB_TURN = 120 * D2R, FB_STOP_NEAR = 3, FB_HOMING_MAX = 2.5, FB_LIFE = 4;
 const WAVE_COUNT = 10, WAVE_FAN = 80 * D2R, WAVE_SPEED = 6, WAVE_AMP = 0.6, WAVE_HZ = 1.5, WAVE_RANGE = 14, WAVE_LIFE = 3;
 const HIT_R = 0.6;
 const SPELLS = 4;
@@ -690,10 +690,11 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
     }
   };
   const purpleBurstAt = (c: Vector3, col: number) => { for (let i = 0; i < 10; i++) add.emit(c.x, c.y, c.z, vr(-1.5, 1.5), vr(-1, 1.5), vr(-1.5, 1.5), 0.5, 0.18, 0.04, 0xffffff, col); };
-  const orbPos = (i: number, out: Vector3) => { // 少女の まわりに うかぶ 火の玉（前がわの 半円）
-    const a = ((i / (FB_COUNT - 1)) - 0.5) * 2 * 120 * D2R + pivot.rotation.y;
-    const r = 1.5 + 0.1 * Math.sin(t * 2 + i);
-    return out.set(pivot.position.x + Math.sin(a) * r, pivot.position.y + H * (0.66 + 0.2 * (i % 3) / 2) + 0.15 * Math.sin(t * 3 + i * 1.7), pivot.position.z + Math.cos(a) * r);
+  const orbPos = (i: number, out: Vector3) => { // 少女の まわりに うかぶ 火の玉（前がわの 半円を 2 だんに ならべる）
+    const tier = i % 2, k = Math.floor(i / 2);
+    const a = ((k + tier * 0.5) / (FB_COUNT / 2 - 1) - 0.5) * 2 * 120 * D2R + pivot.rotation.y;
+    const r = 1.5 + 0.3 * tier + 0.1 * Math.sin(t * 2 + i);
+    return out.set(pivot.position.x + Math.sin(a) * r, pivot.position.y + H * (0.58 + 0.24 * tier) + 0.15 * Math.sin(t * 3 + i * 1.7), pivot.position.z + Math.cos(a) * r);
   };
   const shootFireball = (i: number) => {
     const p = deps.player(); orbPos(i, hp); chestOf(p, chest);
@@ -781,10 +782,10 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
         while (fbShots < Math.min(FB_COUNT, due)) shootFireball(fbShots++);
       }
       if (spell === 2) { // 火の玉が 0.1 秒おきに ぽっと 出て ふわふわ うかぶ
-        const shown = Math.min(FB_COUNT, Math.floor((pt - 0.3) / FB_ORB_GAP) + 1);
+        const shown = Math.min(FB_COUNT, Math.floor((pt - 0.2) / FB_ORB_GAP) + 1);
         for (let i = fbShots; i < shown; i++) {
           orbPos(i, hp);
-          if (pt - 0.3 - i * FB_ORB_GAP < dt * 1.5) add.emit(hp.x, hp.y, hp.z, 0, 0, 0, 0.2, 1.6, 0.3, 0xfff0c0, 0xff7010);
+          if (pt - 0.2 - i * FB_ORB_GAP < dt * 1.5) add.emit(hp.x, hp.y, hp.z, 0, 0, 0, 0.2, 1.6, 0.3, 0xfff0c0, 0xff7010);
           add.emit(hp.x, hp.y, hp.z, 0, 0, 0, dt * 2, 0.55, 0.55, 0xfff6c8, 0xffe080);
           add.emit(hp.x, hp.y, hp.z, 0, 0, 0, dt * 2, 1.2, 1.2, 0xff8a20, 0xff6010);
         }
