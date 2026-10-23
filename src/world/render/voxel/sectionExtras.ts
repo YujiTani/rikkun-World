@@ -7,7 +7,7 @@ import type { WorldLight } from '../../light/WorldLight';
 import type { ArrayVoxelWorld } from '../../VoxelWorld';
 import { isKotatsuBlock } from '../../blocks/kotatsu';
 import { pushKotatsuCell } from '../kotatsuMesh';
-import { FACES, LIGHT_MAX, RIPE_FLAG, TILE_UV, crossTileName, emptyMesh, pushCross, pushFace, pushTorch, type MeshData } from '../meshChunk';
+import { FACES, LIGHT_MAX, RIPE_FLAG, TILE_UV, crossTileName, emptyMesh, isCoopLineIndex, pushCoopPanels, pushCross, pushFace, pushTorch, type MeshData } from '../meshChunk';
 
 /**
  * セクション 1 つぶんの「絵（atlas）で描くもの」: たいまつ・十字の板（作物・やせいの やさい・かかし・さく）・
@@ -45,6 +45,10 @@ export function meshSectionExtras(
         if (b <= AIR) continue;
         if (isTorchIndex(b)) {
           pushTorch(opaque, x, y, z, BLOCK_TYPES[b].id as TileName, light ? light.skyAt(x, y, z) / LIGHT_MAX : 1);
+          continue;
+        }
+        if (isCoopLineIndex(b)) {
+          pushCoopPanels(opaque, world, x, y, z, b, light ? light.skyAt(x, y, z) / LIGHT_MAX : 1, light ? light.blockAt(x, y, z) / LIGHT_MAX : 0);
           continue;
         }
         if (isCrossIndex(b)) {

@@ -1,0 +1,10 @@
+import { chromium } from '/home/claude/rikkun-World/node_modules/playwright/index.mjs';
+const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+const page = await browser.newPage({ viewport: { width: 1928, height: 900 } });
+page.on('pageerror', (e) => console.log('PAGEERR', e.message));
+page.on('console', (m) => console.log('CON', m.text()));
+await page.goto('http://localhost:8765/index.html');
+await page.waitForFunction(() => window.__done === true, null, { timeout: 60000 });
+console.log(JSON.stringify(await page.evaluate(() => window.__stats)));
+await page.screenshot({ path: process.argv[2], fullPage: true });
+await browser.close();

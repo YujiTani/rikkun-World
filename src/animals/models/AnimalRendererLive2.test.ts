@@ -5,6 +5,7 @@ import { AnimalFx } from '../../fx/animalFx';
 import { AnimalRenderer } from './AnimalRenderer';
 import { MODEL_SCALE, getAnimalModel } from './chickenModel';
 import { getCoopModel, getEggModel, getNestEggsModel } from './coopSpec';
+import type { KitIconRow } from './kitIcons';
 
 const view = (id: number, o: Partial<AnimalView> = {}): AnimalView => ({
   id, x: id * 0.8, y: 9, z: 0, yaw: 0, headYaw: 0, state: 'idle' as AnimalState, stateTicks: 0, friend: false, hearts: 0, targeted: false, ...o,
@@ -102,68 +103,105 @@ describe('LIVE-2 形の えらび（stage・breed・grow）', () => {
   });
 });
 
-describe('LIVE-2 こたつ の たまご', () => {
-  it('たまご の 入った こたつ だけ 1 つ ずつ（ひび = 2/3 から・金 は 金）。1 回 ずつ。上限 6', () => {
-    const kits = [kit(0), kit(2, { wobble: 2 }), kit(4, { egg: 'gold' }), kit(6, { egg: null }), kit(8), kit(10), kit(12), kit(14), kit(16)];
-    const { r, cam } = setup(kits);
-    r.update([], cam);
-    const n = (gold: boolean, cr: boolean) => visibleMeshes(r.group, getEggModel(gold, cr).geo).length;
-    expect(n(false, false)).toBe(4); // 0・8・10・12（6 こ で 打ち切り）
-    expect(n(false, true)).toBe(1);
-    expect(n(true, false)).toBe(1);
-    expect(r.stats().draws).toBe(6);
+describe('LIVE-2.1 こたつ の たまご（中 の 3D の 絵 は 出さない。天板 の 上 の 表示 だけ）', () => {
+  const rowOf = (x: number, eggs: number, z = -4): KitIconRow => ({
+    x, y: 9, z, size: 2,
+    slots: [0, 1, 2].map((i) => (i < eggs ? { egg: 'egg' as const, fill: 0.3, wobble: 0 as const } : { egg: null, fill: 0, wobble: 0 as const })),
   });
+  const iconMeshes = (r: AnimalRenderer): THREE.Mesh[] => {
+    const out: THREE.Mesh[] = [];
+    r.group.traverse((o) => {
+      if (o instanceof THREE.Mesh && !(o instanceof THREE.SkinnedMesh) && o.geometry instanceof THREE.PlaneGeometry && o.visible && (o.material as THREE.MeshBasicMaterial).map?.magFilter === THREE.NearestFilter) out.push(o);
+    });
+    return out;
+  };
 
-  it('たまご は カメラ の ほう の すそ に のぞく（こたつ の 中心 から カメラ がわ へ 0.46）', () => {
-    const { r, cam } = setup([kit(0)]);
+  it('こたつ の 中 の たまご の 3D の 物 は いつも 0（forEachKit に たまご が あっても）', () => {
+    const { r, cam } = setup([kit(0), kit(2, { wobble: 2 }), kit(4, { egg: 'gold' })]);
     r.update([], cam);
-    const m = visibleMeshes(r.group, getEggModel(false, false).geo)[0];
-    const root = m.parent!.parent!.parent!.parent as THREE.Group; // mesh → rig → egg root → tilt → root
-    const w = root.getWorldPosition(new THREE.Vector3());
-    expect(w.x).toBeCloseTo(0.5, 1);
-    expect(w.z).toBeGreaterThan(-3.5 + 0.4);
-    expect(w.z).toBeLessThan(-3.5 + 0.5);
-    expect(w.y).toBeCloseTo(9, 5);
-  });
-
-  it('ゆれ: ときどき（600 ごと の 頭 12 ステップ）だけ かたむく。じっと は かたむかない。動きの 強さ 0 でも かたむかない', () => {
-    const tiltOf = (k: KitInfo & { hatchT: number }, motion = 1) => {
-      const fx = new AnimalFx({ sound: { playTones: () => {} } });
-      const r = new AnimalRenderer({ fx, source: { forEachKit: (fn) => fn(k), forEachCoop: () => {} }, motion: () => motion });
-      const cam = new THREE.PerspectiveCamera(70, 1.6, 0.1, 200);
-      cam.position.set(0, 10, 8);
-      r.update([], cam);
-      const m = visibleMeshes(r.group, getEggModel(false, k.wobble === 2).geo)[0];
-      return Math.abs((m.parent!.parent!.parent as THREE.Group).rotation.z);
-    };
-    expect(tiltOf(kit(0, { wobble: 1, left: 600 * 4 + 11 - 3 }))).toBeGreaterThan(0.05); // u = 3
-    expect(tiltOf(kit(0, { wobble: 1, left: 600 * 4 + 300 }))).toBe(0);
-    expect(tiltOf(kit(0, { wobble: 0, left: 600 * 4 + 8 }))).toBe(0);
-    expect(tiltOf(kit(0, { wobble: 2, left: 180 * 3 + 11 - 1 }))).toBeGreaterThan(0.03);
-    expect(tiltOf(kit(0, { wobble: 1, left: 600 * 4 + 8 }), 0)).toBe(0);
-  });
-
-  it('かえる とき: ぷるぷる（hatchT が ある）→ 3 分の 1 で たまご は きえる（ひよこ が とび出す）', () => {
-    const { r, cam } = setup([kit(0, { hatchT: 0.1, wobble: 2 })]);
-    r.update([], cam);
-    const g = getEggModel(false, true).geo;
-    expect(visibleMeshes(r.group, g)).toHaveLength(1);
-    const tilt = visibleMeshes(r.group, g)[0].parent!.parent!.parent as THREE.Group;
-    expect(Math.abs(tilt.rotation.z)).toBeGreaterThan(0.1);
-    const s2 = setup([kit(0, { hatchT: 0.4, wobble: 2 })]);
-    s2.r.update([], s2.cam);
-    expect(visibleMeshes(s2.r.group, g)).toHaveLength(0);
-  });
-
-  it('こたつ が なくなれば たまご も きえる（使いまわす）', () => {
-    const kits = [kit(0)];
-    const { r, cam } = setup(kits);
-    r.update([], cam);
-    expect(visibleMeshes(r.group, getEggModel(false, false).geo)).toHaveLength(1);
-    kits.length = 0;
-    r.update([], cam);
-    expect(visibleMeshes(r.group, getEggModel(false, false).geo)).toHaveLength(0);
+    for (const [g, c] of [[false, false], [false, true], [true, false], [true, true]] as const) expect(visibleMeshes(r.group, getEggModel(g, c).geo)).toHaveLength(0);
     expect(r.stats().draws).toBe(0);
+  });
+
+  it('setKitIcons: 1 台 1 回。天板 の 上 0.5 マス・こたつ の はば（2 マス）に おさまる・カメラ の ほう を 向く。空 で 消える', () => {
+    const { r, cam } = setup();
+    r.update([], cam);
+    expect(iconMeshes(r)).toHaveLength(0);
+    r.setKitIcons([rowOf(0, 2), rowOf(4, 3)]);
+    cam.position.set(3, 14, 8);
+    cam.lookAt(2, 9, -4);
+    cam.updateMatrixWorld(true);
+    r.update([], cam);
+    const ms = iconMeshes(r);
+    expect(ms).toHaveLength(2);
+    expect(r.stats().draws).toBe(2); // こたつ 2 台 で +2
+    const w = ms[0].position;
+    expect([w.x, w.z]).toEqual([1, -3]); // 2×2 の まん中
+    expect(w.y).toBeGreaterThanOrEqual(9 + 1.5); // 天板（高さ 1）の 上 0.5 マス から 上
+    expect(w.y).toBeLessThan(9 + 1.5 + 1);
+    expect((ms[0].geometry as THREE.PlaneGeometry).parameters.width).toBeLessThanOrEqual(2); // わく 3 つ が 2 マス に おさまる
+    expect(ms[0].quaternion.angleTo(cam.quaternion)).toBeLessThan(1e-6);
+    r.setKitIcons([]);
+    r.update([], cam);
+    expect(iconMeshes(r)).toHaveLength(0);
+    expect(r.stats().draws).toBe(0);
+  });
+
+  it('絵 は 見た目 が かわった とき だけ 作り直す（同じ 鍵 では 同じ 絵 の まま）', () => {
+    const { r, cam } = setup();
+    r.setKitIcons([rowOf(0, 1)]);
+    r.update([], cam);
+    const tex = (iconMeshes(r)[0].material as THREE.MeshBasicMaterial).map as THREE.DataTexture;
+    const v0 = tex.version;
+    r.update([], cam);
+    expect(tex.version).toBe(v0);
+    r.setKitIcons([rowOf(0, 2)]);
+    r.update([], cam);
+    expect(tex.version).toBeGreaterThan(v0);
+  });
+
+  it('いちばん 多い とき: 6 台 まで 描く（それ いじょう は 描かない）', () => {
+    const { r, cam } = setup();
+    r.setKitIcons([0, 1, 2, 3, 4, 5, 6, 7].map((i) => rowOf(i * 3, 1)));
+    r.update([], cam);
+    expect(iconMeshes(r)).toHaveLength(6);
+  });
+});
+
+describe('LIVE-2.1 着地点 の 丸', () => {
+  const ringMeshes = (r: AnimalRenderer): THREE.Mesh[] => {
+    const out: THREE.Mesh[] = [];
+    r.group.traverse((o) => {
+      if (o instanceof THREE.Mesh && o.visible && o.rotation.x === -Math.PI / 2 && (o.material as THREE.MeshBasicMaterial).map) out.push(o);
+    });
+    return out;
+  };
+  it('なげられる 所 に 直径 0.8 の 丸 が 1 つ（描画 +1）。固い 所・だっこ して いない で 消える', () => {
+    const { r, cam } = setup();
+    r.update([], cam);
+    expect(ringMeshes(r)).toHaveLength(0);
+    r.setThrowSpot({ x: 5.5, y: 9, z: 3.5, ok: true, home: null, toss: true });
+    r.update([], cam);
+    const m = ringMeshes(r);
+    expect(m).toHaveLength(1);
+    expect(m[0].scale.x).toBeCloseTo(0.8, 5);
+    expect([m[0].position.x, m[0].position.z]).toEqual([5.5, 3.5]);
+    expect(r.stats().draws).toBe(1);
+    r.setThrowSpot({ x: 5.5, y: 9, z: 3.5, ok: false, home: null, toss: true });
+    r.update([], cam);
+    expect(ringMeshes(r)).toHaveLength(0);
+    r.setThrowSpot(null);
+    r.update([], cam);
+    expect(r.stats().draws).toBe(0);
+  });
+  it('とりごや の 中 は いえ の しるし の 絵 に かわる', () => {
+    const { r, cam } = setup();
+    r.setThrowSpot({ x: 5.5, y: 9, z: 3.5, ok: true, home: null, toss: true });
+    r.update([], cam);
+    const plain = (ringMeshes(r)[0].material as THREE.MeshBasicMaterial).map;
+    r.setThrowSpot({ x: 5.5, y: 9, z: 3.5, ok: true, home: 2, toss: true });
+    r.update([], cam);
+    expect((ringMeshes(r)[0].material as THREE.MeshBasicMaterial).map).not.toBe(plain);
   });
 });
 
@@ -229,7 +267,7 @@ describe('LIVE-2 すけた 小屋（置く 前）', () => {
     const root = g[0].parent!.parent!.parent as THREE.Group;
     expect(root.rotation.y).toBeCloseTo(Math.PI, 5);
     expect((g[0].parent!.parent as THREE.Group).scale.x).toBeCloseTo(16 / 9, 5);
-    expect(r.stats().draws).toBe(1);
+    expect(r.stats().draws).toBe(2); // 小屋 の すけた 形 ＋ たいら に なる 足もと の 板（LIVE-2.1）
     r.setCoopGhost(pv(false, 3));
     r.update([], cam);
     g = ghostOf(r);
@@ -273,7 +311,7 @@ describe('LIVE-2 軽さ（いちばん 多い とき）', () => {
     withExtra.r.update(views, withExtra.cam);
     const dDraw = withExtra.r.stats().draws - base.r.stats().draws;
     const dTri = withExtra.r.stats().triangles - base.r.stats().triangles;
-    expect(dDraw).toBe(6 + 3);
+    expect(dDraw).toBe(3); // LIVE-2.1: こたつ の 中 の 3D の たまご は 出さない（天板 の 表示 は setKitIcons）
     expect(dDraw).toBeLessThanOrEqual(36);
     // 29 わ の 三角形（DESIGN 16.17・LIVE-2 §4.6）は 20,000 以下。たまご（こたつ 6 ＋ すばこ 12 こ×3）は それとは べつに 数える
     expect(base.r.stats().triangles).toBeLessThanOrEqual(20000);

@@ -29,6 +29,8 @@ import { installArena } from './arena';
  *   __A.chip()               合図の チップ `#animal-hint` の 文字 と ルビの 外に ある 漢字
  *   __A.lift(id)             なかま を 40 ステップ 押して だっこ（はなして 1 ステップ）。だっこ できたら true
  *
+ * LIVE-2.1 で足した もの: snap / solidBelow / put / putKit / flight / outsideWest / carryOne / draw（下の 定義の コメントを 見る）
+ *
  * LIVE-2 で足した もの: kit / putEgg / coop / cinfo / face / kid / yawTo / inside / dayLen / night / bags / hintRight（下の 定義の コメントを 見る）
  */
 export async function openAnimals(page: Page, query = '?nosave=1'): Promise<void> {
@@ -256,6 +258,97 @@ export async function openAnimals(page: Page, query = '?nosave=1'): Promise<void
       /** 照準の 下の 右がわ（`hud.actionHint().right`） */
       hintRight() {
         return h.hud.actionHint().right ?? null;
+      },
+
+      // ---- LIVE-2.1（docs/design/LIVE-2.1.md §6）で足した もの
+      /** 範囲の ブロック id を 1 本の 文字に する（前と 後を くらべて 「何も かわらない」を 見る） */
+      snap(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number) {
+        const out: string[] = [];
+        for (let y = y0; y <= y1; y++) for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) out.push(String(h.world.getBlock(x, y, z)));
+        return out.join(',');
+      },
+      /** (cx, cz) の まわり r マスの 下（y 2..7）を いしで うめる。穴の 深さを テストが 決める ため（床 y=8 の 下が 空気か 土かに たよらない） */
+      solidBelow(cx: number, cz: number, r = 5) {
+        h.world.fill(cx - r, 2, cz - r, cx + r, 7, cz + r, 'stone');
+        h.step(2);
+      },
+      /** 世界で 1 マス ちがう だけ を 作る 小さな 道具: (x, y) に ブロックを 置いて 1 ステップ */
+      put(x: number, y: number, z: number, id: string) {
+        h.world.setBlock(x, y, z, id);
+        h.step(1);
+      },
+      /**
+       * こたつ（nukunuku）を 持って 床の ブロック (tx, 8, tz) の 上の 面を 西 から ねらい、右クリック 1 回（ゲームの 置くと 同じ）。
+       * 置けたか・合図・のこりの 数・本体 {x,y,z}（nukunuku の 北西 の マス）を 返す。
+       */
+      putKit(tx: number, tz: number, y = 9) {
+        A.hold('nukunuku', 1);
+        (window as any).__aim.standForS(tx - 1.5, tz + 0.5, 90, 0, y);
+        h.step(1);
+        (window as any).__aim.solve(tx, y - 1, tz, 1);
+        h.step(1);
+        h.animals.events();
+        A.tap();
+        const hints = h.animals.events().filter((e: any) => e.type === 'hint').map((e: any) => e.hint);
+        let body: any = null;
+        for (let x = tx - 3; x <= tx + 3 && !body; x++) for (let z = tz - 3; z <= tz + 3 && !body; z++) {
+          if (h.world.getBlock(x, y, z) === 'nukunuku') body = { x, y, z };
+        }
+        return { placed: !!body, body, hint: hints.length ? hints[hints.length - 1] : null, left: h.inventory.count('nukunuku') };
+      },
+      /**
+       * 右クリック 1 回（押して はなす）の あと、着地（putDown か home）まで 1 ステップ ずつ 進めて 記録する。
+       * 返す {rows, ev, tossAt, landAt}: rows は ステップごとの その 子の 1 行（i は 押した ステップ から 数える）、ev は 出来事（i つき）。
+       * 時間(ms)ではなく 「ゲームの ステップ」で 数える（#255）。
+       */
+      flight(id: number, opts: { max?: number; press?: boolean } = {}) {
+        const max = opts.max ?? 600;
+        h.animals.events();
+        if (opts.press !== false) {
+          h.input.release('secondary');
+          h.input.press('secondary');
+        }
+        const rows: any[] = [];
+        const ev: any[] = [];
+        let tossAt = -1;
+        let landAt = -1;
+        for (let i = 0; i <= max; i++) {
+          h.step(1);
+          if (i === 0 && opts.press !== false) h.input.release('secondary');
+          const c = A.one(id);
+          rows.push({ i, ...(c ? { x: c.x, y: c.y, z: c.z, vy: c.vy, carried: c.carried, fluttering: c.fluttering, state: c.state, home: c.home ?? null } : {}) });
+          for (const e of h.animals.events()) {
+            ev.push({ ...e, i });
+            if (e.type === 'toss' && tossAt < 0) tossAt = i;
+            if ((e.type === 'putDown' || e.type === 'home') && landAt < 0 && e.id === id) landAt = i;
+          }
+          if (landAt >= 0 && i >= landAt + 3) break;
+        }
+        return { rows, ev, tossAt, landAt };
+      },
+      /** 小屋 c の 外の 西がわ 1 マス（さくの すぐ 外）に プレイヤーを 立たせ、東（小屋の ほう）を 向く */
+      outsideWest(c: any, pitch = 0) {
+        h.player.set({ position: { x: c.x - 2 + 0.5 - 1, y: c.y, z: c.z + 0.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch });
+        h.step(1);
+      },
+      /**
+       * (px, pz) に 立って、2 マス 西に いる なかま（ひよこ または 大人。ついてくる 時間 まんたん）を だっこ する。
+       * だっこ できたら ok。そのあと プレイヤーの 向きは 呼ぶ ほうが 決める（ここでは 西向きの まま）
+       */
+      carryOne(px: number, pz: number, stage = 'chick') {
+        // 先に プレイヤー を 立たせる（あとから だと なかま が 古い 位置 へ 歩いて 2 マス 西 から ずれ、だっこ の 40 ステップ 中 に ねらい が はずれる）
+        h.player.set({ position: { x: px, y: 9, z: pz }, velocity: { x: 0, y: 0, z: 0 }, yaw: 270, pitch: 0 });
+        h.step(1);
+        const id = A.friend(px - 2, pz, { stage });
+        h.player.set({ position: { x: px, y: 9, z: pz }, velocity: { x: 0, y: 0, z: 0 }, yaw: 270, pitch: 0 });
+        h.step(1);
+        const ok = A.lift(id);
+        return { id, ok };
+      },
+      /** 画面の 描画回数と 三角形 */
+      draw() {
+        const r = h.renderStats();
+        return { dc: r.drawCalls as number, tri: r.triangles as number };
       },
     };
     (window as any).__A = A;

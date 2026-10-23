@@ -3,7 +3,7 @@ import type { StartFeatures } from './gen/features';
 import type { WorldGenInfo } from './gen/populate';
 import type { MouthInfo } from './gen/region';
 import type { CountryKind } from './gen/config';
-import { BLOCK_TYPES } from './blocks/blockTypes';
+import { BLOCK_TYPES, isCrossIndex } from './blocks/blockTypes';
 import { skyDarkness } from './light/skyDarkness';
 import type { WorldRenderer, MeshJobStats, RebuildStats, SectionInfo, SectionStats, MeshStats, RebuildLogEntry } from './render/WorldRenderer';
 import type { StreamInfo, Stage } from './stream/ChunkStream';
@@ -70,7 +70,12 @@ export interface WorldHook {
   chunkStage(cx: number, cz: number): Stage;
   /** 見えない壁（WORLD_LIMIT） */
   wall(): number;
+  /** LIVE-2.1 §6.2: そのマスの 描きかた の 種類。'panel' = とりごや の さく・もん（板）、'cross' = 草花・作物 など（十字の板）、'box' = ブロックの 箱、'none' = 空気・読みこんで いない */
+  renderKind(x: number, y: number, z: number): 'panel' | 'cross' | 'box' | 'none';
 }
+
+const PANEL_IDS: ReadonlySet<string> = new Set(['toriya_fence', 'toriya_gate']);
+const INDEX_OF: ReadonlyMap<string, number> = new Map(BLOCK_TYPES.map((t, i) => [t.id as string, i]));
 
 /** createWorldHook に つなぐ ストリーミングの窓口（main が StreamHost から作る） */
 export type StreamFacade = Pick<WorldHook, 'teleport' | 'stream' | 'settle' | 'setStreamWork' | 'chunkStage' | 'wall'>;
@@ -113,6 +118,12 @@ export function createWorldHook(world: ArrayVoxelWorld, renderer: WorldRenderer,
     rebuildLog: (clear) => renderer.rebuildLog(clear === true),
     seaY: () => island.seaY(),
     isLoaded: (x, z) => world.isLoaded(x, z),
+    renderKind: (x, y, z) => {
+      const id = String(world.getBlock(x, y, z));
+      if (id === 'air' || id === 'outside') return 'none';
+      if (PANEL_IDS.has(id)) return 'panel';
+      return isCrossIndex(INDEX_OF.get(id) ?? -1) ? 'cross' : 'box';
+    },
     loadedChunks: () => island.loadedChunks(),
     genHash: (cx, cz) => island.genHash(cx, cz),
     terrainAt: (x, z) => island.terrainAt(x, z),

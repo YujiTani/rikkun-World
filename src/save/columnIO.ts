@@ -76,15 +76,25 @@ export class ColumnIO implements StreamIO {
       },
       () => null,
     );
-    // IndexedDB が止まっても ready を止めない: 返事が無ければ null（生成）
-    let timer: ReturnType<typeof setTimeout> | undefined;
+    // IndexedDB が止まっても ready を止めない: 返事が無ければ null（生成）。
+    // 画面が 止まっていた時間（重い起動・遅い機械）は 数えない: 1 回の見はりで 進める時間に 上限を つける（#263。
+    // 止まっている間に 返事が 来ていたのに 先に 時間切れ になり、保存した列が 生成で 置きかわっていた）
+    const limit = this.d.readTimeoutMs ?? 3000;
+    const beat = Math.max(1, Math.min(250, limit / 4));
+    let timer: ReturnType<typeof setInterval> | undefined;
     const giveUp = new Promise<null>((ok) => {
-      timer = setTimeout(() => {
+      let waited = 0;
+      let last = Date.now();
+      timer = setInterval(() => {
+        const now = Date.now();
+        waited += Math.min(Math.max(0, now - last), beat * 2);
+        last = now;
+        if (waited < limit) return;
         this.d.onReadTimeout?.();
         ok(null);
-      }, this.d.readTimeoutMs ?? 3000);
+      }, beat);
     });
-    return Promise.race([reading, giveUp]).finally(() => clearTimeout(timer));
+    return Promise.race([reading, giveUp]).finally(() => clearInterval(timer));
   }
 
   persistent(): boolean {

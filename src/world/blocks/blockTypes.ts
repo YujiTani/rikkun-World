@@ -89,6 +89,7 @@ const CROSS_IDS: ReadonlySet<string> = new Set([
   'crop_onion', 'crop_tomato', 'crop_pumpkin', 'crop_eggplant',
   'wild_onion', 'wild_tomato', 'wild_pumpkin', 'wild_eggplant',
   'kakashi', 'kakashi_head', 'saku',
+  'toriya_fence', 'toriya_gate', // LIVE-2.1: とりごや の さく・もん（当たり は 今 の まま ブロック）
   'flower_y', 'flower_o', 'flower_p', 'susuki', 'kusa', 'nobana',
 ]);
 const CROSS = BLOCK_TYPES.map((t) => CROSS_IDS.has(t.id));

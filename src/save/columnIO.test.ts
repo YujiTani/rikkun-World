@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ChunkColumn } from '../contracts';
 import { uniformSection } from '../world/sections';
 import { ChunkStream } from '../world/stream/ChunkStream';
@@ -134,6 +134,49 @@ describe('読みの上限', () => {
     });
     const r = io.read(0, 0);
     expect(r).toBeInstanceOf(Promise);
+    expect(await r).toBeNull();
+    expect(timedOut).toBe(1);
+  });
+});
+
+describe('読みの上限は 画面が止まった時間を 数えない（#263）', () => {
+  afterEach(() => vi.useRealTimers());
+  const mk = (readChunk: () => Promise<unknown>, onReadTimeout: () => void) =>
+    new ColumnIO({
+      db: { readChunk } as unknown as MemoryBackend,
+      saveId: SAVE_ID,
+      nSections: NS,
+      keys: new Set([colKey(0, 0)]),
+      generate: (cx, cz) => col(cx, cz, 2),
+      saveOn: () => true,
+      saving: () => false,
+      writing: () => false,
+      canFlush: () => false,
+      flush: () => undefined,
+      readTimeoutMs: 3000,
+      onReadTimeout,
+    });
+
+  it('画面が 5 秒 止まっても（タイマーが 一度に飛ぶ）、返事が あとから 来れば 時間切れに しない', async () => {
+    vi.useFakeTimers();
+    let timedOut = 0;
+    let answer: (v: unknown) => void = () => undefined;
+    const io = mk(() => new Promise((ok) => (answer = ok)), () => void timedOut++);
+    const r = io.read(0, 0) as Promise<unknown>;
+    vi.setSystemTime(Date.now() + 5000); // 画面が 5 秒 止まった（タイマーは 動けず、時計だけ すすむ）
+    await vi.advanceTimersByTimeAsync(250); // 止まりが 明けて 最初の 1 回
+    expect(timedOut).toBe(0);
+    answer(null);
+    expect(await r).toBeNull();
+    expect(timedOut).toBe(0);
+  });
+
+  it('動いている時間で 上限（3 秒）を こえて 返事が 無ければ、時間切れ', async () => {
+    vi.useFakeTimers();
+    let timedOut = 0;
+    const io = mk(() => new Promise(() => undefined), () => void timedOut++);
+    const r = io.read(0, 0) as Promise<unknown>;
+    for (let i = 0; i < 40; i++) await vi.advanceTimersByTimeAsync(100);
     expect(await r).toBeNull();
     expect(timedOut).toBe(1);
   });
