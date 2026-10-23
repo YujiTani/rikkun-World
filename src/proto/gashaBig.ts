@@ -14,6 +14,10 @@ import {
   Mesh, MeshBasicMaterial, OctahedronGeometry, Path, Quaternion, Shape, Vector3, type Camera, type Scene,
 } from 'three';
 import { TUNE as T, applyTune, applyTuneFromUrl } from './gashaBigTuning';
+import { BigActor, type ActorClips } from './gashaBigActor';
+import climbL from './gashaBigClips/climbL.json';
+import climbR from './gashaBigClips/climbR.json';
+import lookBackClip from './gashaBigClips/lookBack.json';
 
 export interface GashaBigDeps {
   scene: Scene;
@@ -24,6 +28,12 @@ export interface GashaBigDeps {
   groundY(x: number, z: number): number;
   /** プレイヤーの 当たりに「追加の 固いマス」を 足す（isSolidForPlayer に 重ねる） */
   addPlayerSolid(fn: (x: number, y: number, z: number) => boolean): void;
+  /** 毎ステップ（1/60 秒）呼ばれる 処理を 登録する（はって 進む・目の 色・のっている 人）。なければ うごかない */
+  onUpdate?(fn: (dt: number) => void): void;
+  /** のっている プレイヤーを 動かす（位置の ずれ、向き（度）の ずれ）。なければ 運ばない */
+  carryPlayer?(dx: number, dy: number, dz: number, dYawDeg: number): void;
+  /** 手の まわりの 地面を ならす 用（ワールドの ブロックを 箱で おきかえる。読みこんで いない 所は 変わらない）。なければ ならさない */
+  fillBlocks?(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, id: 'grass' | 'air'): void;
 }
 
 // ---------------------------------------------------------------- 色と 面の 明るさ
@@ -591,7 +601,8 @@ export function buildBig(): BigModel {
       const { side, n } = frameOf(u);
       b.hits.push({ name, joint, c: a.clone().add(bb).multiplyScalar(0.5), axes: [side, n, u], half: [width / 2, thick / 2, len / 2] });
     };
-    lineHit(`upperArm${sd}`, jA, S, E, A.upperWidth, A.upperThick - 1.6);
+    // 上わんの 当たりは ひじの 先まで 少し のばして、前わんの 当たりと かさねる（つなぎ目の 段を なくす）
+    lineHit(`upperArm${sd}`, jA, S, E.clone().addScaledVector(E.clone().sub(S).normalize(), A.elbowExtend), A.upperWidth, A.upperThick - 0.4);
     // 前わんは 手首の 先まで 少し のばして 手に つなぐ（手首が 浮いて 見えても 段が 1 つに なる）
     lineHit(`foreArm${sd}`, jF, E, Wr.clone().addScaledVector(uF, A.foreExtend), A.foreWidth - 0.2, A.foreThick - 0.2);
     b.hits.push({ name: `hand${sd}`, joint: jH, c: vec(palmX, th / 2, (palmZ - 3.5 + tipZ) / 2), axes: [vec(1, 0, 0), vec(0, 1, 0), vec(0, 0, 1)], half: [3.4, th / 2, (tipZ - palmZ + 3.5) / 2] });
@@ -717,7 +728,18 @@ export interface GashaBigHandle {
   tune(o: unknown): void;
   /** 作りなおして プレイヤーの 前に 置く */
   place(): void;
+  /** 怒る（赤い 目。止まって プレイヤーの 方を 向く）/ 白目に もどす。怒りは 攻撃されない まま T.angry.calmSec で 自然に 消える */
   angry(on: boolean): void;
+  /** プレイヤーの 攻撃が 当たった ことに する（怒る。20 秒 カウントを はじめから）。段 4 で 本物の 攻撃に つなぐ */
+  hit(): void;
+  /** さまよう（はって あるく）のを はじめる / 止める */
+  walk(on: boolean): void;
+  /** その 場所（ブロックの 座標）へ はって 行く（さまよう とき の 目的地を 上書き） */
+  goTo(x: number, z: number): void;
+  /** 止まって ふり返る（Crawl and Look Back） */
+  lookBack(): void;
+  /** うごきの 中身（モード・速さ・手の ついた 数・1 コマの 仕事の 数 など） */
+  motion(): Record<string, unknown>;
   /** 当たりの 箱の 一覧（世界の 座標。関節の いまの 姿勢） */
   colliders(): WorldHit[];
   /** 関節を うごかした あとに 呼ぶ。当たりの マスを 関節の いまの 姿勢で 作りなおす */
@@ -733,8 +755,8 @@ export interface GashaBigHandle {
 export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
   applyTuneFromUrl(location.search);
   let model: BigModel | null = null;
-  let cells = new Set<number>();
-  let hitsNow: WorldHit[] = [];
+  let actor: BigActor | null = null;
+  const CLIPS: ActorClips = { climbL, climbR, lookBack: lookBackClip };
   let isAngry = false;
   let pos = new Vector3(), yaw = 0;
   const fwdOf = (p: { yawDeg: number }) => { const y = (p.yawDeg * Math.PI) / 180; return { fx: Math.sin(y), fz: -Math.cos(y) }; };
@@ -748,17 +770,11 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
     model = null;
   };
 
+  /** 当たりの 箱の 場所を いまの 姿勢で 更新（マスの 集合は 作らない。判定は その 場で 箱に 聞く） */
   const refresh = (): void => {
-    if (!model) return;
-    hitsNow = worldHits(model);
-    cells = voxelize(hitsNow, T.collide.margin, T.collide.topLift);
-  };
-
-  const setEyes = (on: boolean): void => {
-    if (!model) return;
-    model.eyes.color.set(on ? 0xff3b2a : 0xffffff);
-    model.eyeHalo.color.set(on ? 0xff3b2a : 0xffffff);
-    model.brow.visible = on;
+    if (!model || !actor) return;
+    model.group.updateMatrixWorld(true);
+    actor.updateBoxes();
   };
 
   const place = (): void => {
@@ -775,29 +791,60 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
       const w = q.clone().multiplyScalar(s).applyQuaternion(R);
       return deps.groundY(Math.floor(mx + w.x), Math.floor(mz + w.z)) + 1;
     });
-    const base = T.place.groundPick === 'min' ? Math.min(...hs) : T.place.groundPick === 'center' ? hs[0]! : Math.max(...hs);
+    const handHs = hs.slice(1);
+    const base = T.place.groundPick === 'min' ? Math.min(...hs) : T.place.groundPick === 'center' ? hs[0]! : T.place.groundPick === 'hands' ? Math.round(handHs.reduce((a, b) => a + b, 0) / handHs.length) : Math.max(...hs);
+    // 手の まわりを 平らに ならす（手の 高さに そろえる。地面が でこぼこでも 手から 1 だんで 乗れるように）
+    if (T.place.levelGround && deps.fillBlocks) {
+      const P = T.place;
+      for (let i = 1; i + 1 < model.groundPts.length; i += 2) {
+        const pm = model.groundPts[i]!, pt = model.groundPts[i + 1]!;
+        const xs: number[] = [], zs: number[] = [];
+        for (const [lx, lz] of [[pm.x - P.padHalfWidth, pm.z - P.padBack], [pm.x + P.padHalfWidth, pt.z + P.padFront]] as const) {
+          const w = vec(lx, 0, lz).multiplyScalar(s).applyQuaternion(R);
+          xs.push(mx + w.x); zs.push(mz + w.z);
+        }
+        const x0 = Math.floor(Math.min(...xs)), x1 = Math.ceil(Math.max(...xs)), z0 = Math.floor(Math.min(...zs)), z1 = Math.ceil(Math.max(...zs));
+        deps.fillBlocks(x0, base - P.padDepth, z0, x1, base - 1, z1, 'grass');
+        deps.fillBlocks(x0, base, z0, x1, base + P.padHeight, z1, 'air');
+      }
+    }
     pos = new Vector3(mx, base, mz);
     model.group.position.copy(pos);
     model.group.rotation.y = yaw;
     model.group.scale.setScalar(s);
-    setEyes(isAngry);
     deps.scene.add(model.group);
-    refresh();
+    actor = new BigActor(model, CLIPS, { groundY: deps.groundY, player: deps.player, carryPlayer: deps.carryPlayer }, 293);
+    actor.place(pos.x, pos.y, pos.z, yaw);
+    actor.walk(T.wander.enabledAtStart);
+    if (isAngry) actor.hit();
   };
 
-  deps.addPlayerSolid((x, y, z) => cells.size > 0 && cells.has(cellKey(x, y, z)));
+  deps.addPlayerSolid((x, y, z) => actor !== null && actor.solid(x, y, z));
+  deps.onUpdate?.((dt) => {
+    if (!actor) return;
+    actor.update(dt);
+    pos = actor.pos; yaw = actor.yaw;
+  });
   place();
 
   const handle: GashaBigHandle = {
     tune: (o) => applyTune(o),
     place,
-    angry: (on) => { isAngry = on; setEyes(on); },
-    colliders: () => hitsNow,
+    angry: (on) => { isAngry = on; actor?.angry(on); },
+    hit: () => { isAngry = true; actor?.hit(); },
+    walk: (on) => actor?.walk(on),
+    goTo: (x, z) => actor?.goTo(x, z),
+    lookBack: () => actor?.lookBack(),
+    motion: () => (actor ? {
+      mode: actor.mode, speedNow: actor.speedNow, crawlSpeed: actor.crawlSpeed, crawlRate: actor.crawlRate, target: actor.target, wander: actor.wanderOn,
+      angryLeft: actor.angryLeft, eyeMix: actor.eyeMix, work: actor.work, plant: actor.plant,
+    } : {}),
+    colliders: () => (model ? worldHits(model) : []),
     refreshColliders: refresh,
     joints: () => (model ? { ...model.joints } : {}),
-    solidAt: (x, y, z) => cells.has(cellKey(x, y, z)),
+    solidAt: (x, y, z) => actor?.solid(x, y, z) ?? false,
     info: () => ({
-      scale: model?.scale, pos: [pos.x, pos.y, pos.z], yawDeg: (yaw * 180) / Math.PI, drawCalls: model?.meshes, hitBoxes: hitsNow.length, cells: cells.size, angry: isAngry,
+      scale: model?.scale, pos: [pos.x, pos.y, pos.z], yawDeg: (yaw * 180) / Math.PI, drawCalls: model?.meshes, hitBoxes: model?.hits.length, angry: (actor?.angryLeft ?? 0) > 0,
       head: model ? model.head.clone().multiplyScalar(model.scale).applyQuaternion(new Quaternion().setFromAxisAngle(UP, yaw)).add(pos).toArray() : null,
       rest: model ? Object.fromEntries(JOINT_NAMES.map((j) => [j, model!.rest[j].toArray()])) : null,
     }),

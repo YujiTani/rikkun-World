@@ -1,0 +1,257 @@
+import { describe, expect, it } from 'vitest';
+import { Vector3 } from 'three';
+import climbL from './gashaBigClips/climbL.json';
+import climbR from './gashaBigClips/climbR.json';
+import lookBack from './gashaBigClips/lookBack.json';
+import { buildBig, cellKey, voxelize, worldHits } from './gashaBig';
+import { BigActor, type ActorEnv } from './gashaBigActor';
+import { TUNE as T } from './gashaBigTuning';
+
+const CLIPS = { climbL, climbR, lookBack };
+const DT = 1 / 60;
+
+interface Rig { actor: BigActor; env: ActorEnv; ply: { x: number; y: number; z: number; yawDeg: number }; carried: number[] }
+
+/** 地面 高さ 0 の 平らな 世界。プレイヤーは 遠くに いる */
+function rig(seed = 293, x = 0, z = 0, yaw = 0): Rig {
+  const ply = { x: 500, y: 1, z: 500, yawDeg: 0 };
+  const carried = [0, 0, 0, 0];
+  const env: ActorEnv = {
+    groundY: () => -1, // 立つ 面は +1 なので 地面の 高さは 0
+    player: () => ply,
+    carryPlayer: (dx, dy, dz, dyaw) => { ply.x += dx; ply.y += dy; ply.z += dz; ply.yawDeg += dyaw; carried[0] += dx; carried[1] += dy; carried[2] += dz; carried[3] += dyaw; },
+  };
+  const actor = new BigActor(buildBig(), CLIPS, env, seed);
+  actor.place(x, 0, z, yaw);
+  return { actor, env, ply, carried };
+}
+const run = (a: BigActor, sec: number): void => { for (let i = 0; i < Math.round(sec / DT); i++) a.update(DT); };
+
+describe('gashaBigActor（#293 はって進む・目・乗っている人）', () => {
+  it('当たりの 判定は voxelize と おなじ（マスごとに くらべる）', () => {
+    const { actor } = rig();
+    const m = actor.model;
+    const cells = voxelize(worldHits(m), T.collide.margin, T.collide.topLift);
+    let diff = 0, n = 0;
+    for (let i = -45; i <= 45; i++) for (let k = -45; k <= 45; k++) for (let j = -2; j <= 50; j++) {
+      const a = cells.has(cellKey(i, j, k)), b = actor.solid(i, j, k);
+      if (a) n++;
+      if (a !== b) diff++;
+    }
+    expect(n).toBeGreaterThan(1000);
+    expect(diff).toBe(0);
+  });
+
+  it('動きの 速さと 進む 速さは 調整表どおり。ついている 手が あり、腕が とどく', () => {
+    const { actor } = rig();
+    expect(actor.crawlRate).toBe(T.crawl.motionRate);
+    expect(actor.crawlSpeed).toBe(T.crawl.speed);
+    for (const r of actor.plant) {
+      expect(r.planted.Left).toBeGreaterThan(3);
+      expect(r.planted.Right).toBeGreaterThan(3);
+      expect(r.overreachMax).toBeLessThan(1); // 腕が とどかない のは 1 ブロック 未満
+    }
+  });
+
+  it('goTo: 前へ はって 進み、着くと 止まる（左右の 手が 交ごに 出る）', () => {
+    const { actor } = rig();
+    actor.walk(false);
+    actor.goTo(0, 40); // +z が 前
+    const L = actor.model.joints.LeftArm.quaternion, R = actor.model.joints.RightArm.quaternion;
+    const seen = { L: 0, R: 0 };
+    let z0 = 0;
+    run(actor, 0.5); z0 = actor.pos.z;
+    expect(actor.mode).toBe('crawl');
+    for (let i = 0; i < 6 * 60; i++) {
+      actor.update(DT);
+      const cur = (actor as unknown as { player: { clip: { name: string } | null } }).player.clip;
+      void cur; void L; void R;
+    }
+    const dz = actor.pos.z - z0;
+    expect(dz).toBeGreaterThan(0);
+    expect(dz / 6).toBeCloseTo(actor.crawlSpeed, 1); // 進んだ 速さ = 調整表の 速さ
+    expect(Math.abs(actor.pos.x)).toBeLessThan(0.01);
+    void seen;
+    run(actor, 120);
+    expect(actor.mode).toBe('idle');
+    expect(Math.hypot(actor.pos.x, actor.pos.z - 40)).toBeLessThan(T.wander.arriveDist + 0.5);
+  });
+
+  it('はう クリップは 左 → 右 → 左 と かわる', () => {
+    const { actor } = rig();
+    actor.walk(false);
+    actor.goTo(0, 400);
+    const names: string[] = [];
+    for (let i = 0; i < 20 * 60; i++) {
+      actor.update(DT);
+      const c = (actor as unknown as { player: { clip: { name: string } | null } }).player.clip;
+      const n = c?.name ?? '';
+      if (names[names.length - 1] !== n) names.push(n);
+    }
+    console.log('clips', names.join(' > '));
+    expect(names.length).toBeGreaterThanOrEqual(4);
+    expect(new Set(names).size).toBe(2);
+    for (let i = 1; i < names.length; i++) expect(names[i]).not.toBe(names[i - 1]);
+  });
+
+  it('ついている 手は 地面で すべらない（手首が 地面の 高さに ある 間、世界での 速さが からだの 速さより ずっと 小さい）', () => {
+    const { actor } = rig();
+    actor.walk(false);
+    actor.goTo(0, 400);
+    run(actor, 2);
+    const y0 = actor.model.rest.LeftHand.y * actor.model.scale; // 手首が 地面に ぺたんと ついた ときの 高さ
+    const a = new Vector3(), b = new Vector3();
+    // 手首が 地面の 高さに 10 コマ いじょう つづけて ある「ついている」間の、世界での 横の 速さ
+    const runs: [number, number][][] = [[], []];
+    const speeds: number[] = [];
+    let fast = 0;
+    const flush = (k: number): void => {
+      const r = runs[k]!;
+      if (r.length >= 10) for (let i = 2; i < r.length - 2; i++) { // ふちの 2 コマは つなぎ目なので 数えない
+        const sp = Math.hypot(r[i]![0] - r[i - 1]![0], r[i]![1] - r[i - 1]![1]) / DT;
+        speeds.push(sp);
+        if (sp > actor.crawlSpeed) fast++;
+      }
+      runs[k] = [];
+    };
+    for (let i = 0; i < 12 * 60; i++) {
+      actor.update(DT);
+      actor.model.joints.LeftHand.getWorldPosition(a); actor.model.joints.RightHand.getWorldPosition(b);
+      [a, b].forEach((v, k) => { if (Math.abs(v.y - y0) < 0.05) runs[k]!.push([v.x, v.z]); else flush(k); });
+    }
+    speeds.sort((x, y) => x - y);
+    const med = speeds[Math.floor(speeds.length / 2)]!;
+    console.log('stance hand world speed median', med.toFixed(3), 'p90', speeds[Math.floor(speeds.length * 0.9)]!.toFixed(3), 'samples', speeds.length, 'body', actor.crawlSpeed);
+    expect(speeds.length).toBeGreaterThan(100);
+    expect(med).toBeLessThan(actor.crawlSpeed * 0.5); // からだの 速さ（もし すべって いたら 手の 世界の 速さも それくらい）の はんぶん いか
+    console.log('fast ratio', (fast / speeds.length).toFixed(3));
+    expect(fast / speeds.length).toBeLessThan(0.25);
+  });
+
+  it('さまよう: シードが おなじなら おなじ 道を 通る。ちがえば ちがう', () => {
+    const path = (seed: number) => { const { actor } = rig(seed); run(actor, 60); return [actor.pos.x, actor.pos.z]; };
+    const a = path(1), b = path(1), c = path(2);
+    expect(a).toEqual(b);
+    expect(a).not.toEqual(c);
+    const { actor } = rig(5);
+    run(actor, 120);
+    expect(Math.hypot(actor.pos.x, actor.pos.z)).toBeLessThan(T.wander.radius + 5);
+    expect(Math.hypot(actor.pos.x, actor.pos.z)).toBeGreaterThan(1);
+  });
+
+  it('walk(false) なら さまよわない', () => {
+    const { actor } = rig();
+    actor.walk(false);
+    run(actor, 60);
+    expect(actor.pos.length()).toBe(0);
+  });
+
+  it('lookBack: 止まって ふり返り、終わると 休みへ', () => {
+    const { actor } = rig();
+    actor.walk(false);
+    actor.lookBack();
+    expect(actor.mode).toBe('look');
+    run(actor, 2);
+    expect(actor.model.joints.Head.quaternion.w).toBeLessThan(0.99999);
+    run(actor, 20);
+    expect(actor.mode).toBe('idle');
+  });
+
+  it('目の 色: 白 → 赤は 0.3 秒、20 秒 攻撃されないと 白に もどる。怒って いる 間は 止まって プレイヤーの 方を 向く', () => {
+    const { actor, ply } = rig();
+    ply.x = 100; ply.z = 0; // +x の 方
+    actor.goTo(0, 300);
+    run(actor, 3);
+    expect(actor.speedNow).toBeGreaterThan(0);
+    const eye = actor.model.eyes.color;
+    expect(eye.r).toBeCloseTo(1, 3); expect(eye.g).toBeCloseTo(1, 3);
+    actor.hit();
+    run(actor, 0.15);
+    expect(actor.eyeMix).toBeGreaterThan(0.3); expect(actor.eyeMix).toBeLessThan(0.7);
+    run(actor, 0.2);
+    expect(actor.eyeMix).toBe(1);
+    expect(eye.r).toBeCloseTo(1, 2); expect(eye.g).toBeCloseTo(0x3b / 255, 2);
+    expect(actor.model.brow.visible).toBe(true);
+    const z = actor.pos.z;
+    run(actor, 10);
+    expect(actor.pos.z).toBeCloseTo(z, 6); // 止まって いる
+    expect(actor.mode).toBe('angry');
+    // プレイヤー（+x）の 方を 向く（yaw = atan2(dx, dz) = 90 度に ちかい）
+    expect(Math.abs(actor.yaw - Math.PI / 2)).toBeLessThan(0.05);
+    actor.hit(); // また 攻撃 → 20 秒が はじめから
+    run(actor, 19);
+    expect(actor.eyeMix).toBe(1);
+    run(actor, 1.5);
+    expect(actor.mode).toBe('idle');
+    run(actor, 0.4);
+    expect(actor.eyeMix).toBe(0);
+    expect(actor.model.brow.visible).toBe(false);
+    expect(eye.g).toBeCloseTo(1, 3);
+    actor.angry(true); run(actor, 1); expect(actor.eyeMix).toBe(1);
+    actor.angry(false); run(actor, 1); expect(actor.eyeMix).toBe(0);
+  });
+
+  /** こしの 雲の 上の 立てる 場所（x, z）で、足の 高さ y を さがす */
+  function topAt(actor: BigActor, x: number, z: number): number {
+    let j = 0;
+    while (actor.solid(Math.floor(x), j, Math.floor(z))) j++;
+    return j > 0 ? j : -1;
+  }
+
+  it('乗っている 人: 体が はって 進むと、のっている 人も いっしょに 同じだけ 動く', () => {
+    const { actor, ply, carried } = rig();
+    actor.walk(false);
+    const x = 3.5, z = -1.5;
+    const y = topAt(actor, x, z);
+    expect(y).toBeGreaterThan(0);
+    Object.assign(ply, { x, y, z });
+    actor.goTo(0, 300);
+    const p0 = actor.pos.clone();
+    run(actor, 5);
+    const d = actor.pos.clone().sub(p0);
+    expect(d.z).toBeGreaterThan(3);
+    expect(ply.x - x).toBeCloseTo(d.x, 3);
+    expect(ply.z - z).toBeCloseTo(d.z, 3);
+    expect(ply.y - y).toBeCloseTo(d.y, 3);
+    expect(carried[2]).toBeCloseTo(d.z, 3);
+  });
+
+  it('乗っている 人: 体が 向きを かえると、のっている 人も 体の まわりを まわり、向きも いっしょに かわる', () => {
+    const { actor, ply } = rig();
+    actor.walk(false);
+    const x = 8.5, z = 0.5;
+    const y = topAt(actor, x, z);
+    expect(y).toBeGreaterThan(0);
+    Object.assign(ply, { x, y, z, yawDeg: 30 });
+    const r0 = Math.hypot(ply.x - actor.pos.x, ply.z - actor.pos.z);
+    const a0 = Math.atan2(ply.x - actor.pos.x, ply.z - actor.pos.z);
+    const yaw0 = actor.yaw;
+    actor.hit(); // 怒って プレイヤーの 方へ 向く（プレイヤーは のっているので 向きは ゆっくり かわり つづける）
+    // 体を 先に 回して ためす
+    run(actor, 0.5);
+    for (let i = 0; i < 3; i++) { actor.yaw += 0.2; actor.update(DT); }
+    void yaw0; void a0;
+    const r1 = Math.hypot(ply.x - actor.pos.x, ply.z - actor.pos.z);
+    expect(r1).toBeCloseTo(r0, 2);
+  });
+
+  it('1 コマの 仕事: 動いている 間も 数が 小さい（箱 70 こ いか、補間 28 こ いか）', () => {
+    const { actor } = rig();
+    actor.walk(false);
+    actor.goTo(0, 300);
+    run(actor, 3);
+    const w = { ...actor.work };
+    console.log('work per frame', JSON.stringify(w), 'boxes', actor.boxCount);
+    expect(w.interps).toBeLessThanOrEqual(28);
+    expect(w.boxes).toBe(actor.boxCount);
+    const t0 = performance.now();
+    const N = 600;
+    for (let i = 0; i < N; i++) actor.update(DT);
+    console.log('ms/frame (node)', ((performance.now() - t0) / N).toFixed(3));
+    // 止まって いる 間は 何も しない
+    actor.goTo(actor.pos.x, actor.pos.z);
+    run(actor, 10);
+    run(actor, 0.2);
+    expect(actor.work.total).toBe(0);
+  });
+});

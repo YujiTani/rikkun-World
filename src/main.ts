@@ -2537,6 +2537,6 @@ if (import.meta.env.DEV && new URLSearchParams(location.search).get('proto') ===
 }
 // #293 試作（開発サーバーだけ）: ?proto=gashaBig で 大きい がしゃどくろ（第一形態）。当たりは「追加の 固いマス」として プレイヤーの 当たりに 重ねる
 if (import.meta.env.DEV && new URLSearchParams(location.search).get('proto') === 'gashaBig') {
-  void import('./proto/gashaBig').then((m) => m.startGashaBig({ scene: game.scene, camera: game.camera, player: () => ({ ...controller.state.position, yawDeg: controller.state.yawDeg }), groundY: (x, z) => island.groundHeight(x, z), addPlayerSolid: (fn) => { const orig = world.isSolidForPlayer.bind(world); world.isSolidForPlayer = (x, y, z) => orig(x, y, z) || fn(x, y, z); } }));
+  void import('./proto/gashaBig').then((m) => m.startGashaBig({ scene: game.scene, camera: game.camera, player: () => ({ ...controller.state.position, yawDeg: controller.state.yawDeg }), groundY: (x, z) => island.groundHeight(x, z), addPlayerSolid: (fn) => { const orig = world.isSolidForPlayer.bind(world); world.isSolidForPlayer = (x, y, z) => orig(x, y, z) || fn(x, y, z); }, fillBlocks: (x0, y0, z0, x1, y1, z1, id) => { world.fill(x0, y0, z0, x1, y1, z1, id); }, onUpdate: (fn) => game.onUpdate(fn), carryPlayer: (dx, dy, dz, dYaw) => { const st = controller.state; st.position.x += dx; st.position.y += dy; st.position.z += dz; st.yawDeg = (((st.yawDeg + dYaw) % 360) + 360) % 360; } }));
 }
 game.start();
