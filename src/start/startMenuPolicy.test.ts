@@ -17,12 +17,18 @@ describe('AC1 メニューを 出すか（URL × 環境変数）', () => {
     expect(shouldShowStartMenu('?menu=1&char=block', undefined)).toBe(true);
     expect(shouldShowStartMenu('?menu=1&seed=5', undefined)).toBe(true);
   });
-  for (const q of ['?nosave=1', '?seed=3', '?char=boy', '?microR=16', '?ring=small', '?shadow=0', '?reset=1', '?menu=0', '?foo=1']) {
-    it(`${q} → 出さない（今どおり すぐ 始める）`, () => {
-      expect(shouldShowStartMenu(q, undefined)).toBe(false);
+  for (const q of ['?nosave=1', '?seed=3', '?char=boy', '?strength=hard', '?microR=16', '?ring=small', '?shadow=0', '?reset=1', '?foo=1', '?seed=5&char=boy&strength=easy']) {
+    it(`${q} → 出す（2.4: 指定が あっても いつも 出す）`, () => {
+      expect(shouldShowStartMenu(q, undefined)).toBe(true);
     });
   }
-  it('menu=1 の ほかに 指定が 1 つでも あっても menu=1 が あれば 出す（?strength=easy&menu=1 など）', () => {
+  it('?menu=0 → 出さない（ほかの 指定と いっしょでも）', () => {
+    expect(shouldShowStartMenu('?menu=0', undefined)).toBe(false);
+    expect(shouldShowStartMenu('?menu=0&seed=3', undefined)).toBe(false);
+    expect(shouldShowStartMenu('?seed=3&menu=0', undefined)).toBe(false);
+    expect(shouldShowStartMenu('?menu=0', 'on')).toBe(false);
+  });
+  it('menu=1 と strength など いっしょでも 出す', () => {
     expect(shouldShowStartMenu('?strength=easy&menu=1', undefined)).toBe(true);
   });
   it("'' でも 環境変数 off → 出さない（E2E の サーバー）", () => {
@@ -36,6 +42,6 @@ describe('AC1 メニューを 出すか（URL × 環境変数）', () => {
   it('環境変数が off 以外（空・on など）なら ないのと 同じ', () => {
     expect(shouldShowStartMenu('', '')).toBe(true);
     expect(shouldShowStartMenu('', 'on')).toBe(true);
-    expect(shouldShowStartMenu('?seed=3', 'on')).toBe(false);
+    expect(shouldShowStartMenu('?seed=3', 'on')).toBe(true);
   });
 });
