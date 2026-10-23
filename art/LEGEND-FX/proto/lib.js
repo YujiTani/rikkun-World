@@ -75,12 +75,12 @@ export const col = h => colCache[h] || (colCache[h] = (() => { const c = new THR
 export class Painter {
   constructor(scene, camera, max = 120000) {
     this.camera = camera; this.bufs = {};
-    for (const [name, add, ro] of [['n', false, 10], ['a', true, 12]]) {
+    for (const [name, add, ro, dt] of [['n', false, 10, false], ['a', true, 12, false], ['d', false, 4, true], ['e', true, 4.5, true]]) {
       const pos = new Float32Array(max * 3), colr = new Float32Array(max * 4);
       const g = new THREE.BufferGeometry();
       g.setAttribute('position', new THREE.BufferAttribute(pos, 3).setUsage(THREE.DynamicDrawUsage));
       g.setAttribute('color', new THREE.BufferAttribute(colr, 4).setUsage(THREE.DynamicDrawUsage));
-      const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, depthTest: false, side: THREE.DoubleSide, blending: add ? THREE.AdditiveBlending : THREE.NormalBlending }));
+      const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, depthTest: dt, side: THREE.DoubleSide, blending: add ? THREE.AdditiveBlending : THREE.NormalBlending }));
       m.frustumCulled = false; m.renderOrder = ro; scene.add(m);
       this.bufs[name] = { pos, colr, n: 0, g };
     }
@@ -88,7 +88,7 @@ export class Painter {
     this.camR = V(1, 0, 0); this.camU = V(0, 1, 0); this.eye = V();
   }
   begin() {
-    this.bufs.n.n = 0; this.bufs.a.n = 0; this.pi = 0; this.bi = 0; this.camera.updateMatrixWorld();
+    this.bufs.n.n = 0; this.bufs.a.n = 0; this.bufs.d.n = 0; this.bufs.e.n = 0; this.deep = false; this.pi = 0; this.bi = 0; this.camera.updateMatrixWorld();
     const e = this.camera.matrixWorld.elements; this.camR.set(e[0], e[1], e[2]); this.camU.set(e[4], e[5], e[6]); this.eye.set(e[12], e[13], e[14]);
     this.mode = 'n';
   }
@@ -96,7 +96,7 @@ export class Painter {
     for (const b of Object.values(this.bufs)) { b.g.setDrawRange(0, b.n); b.g.attributes.position.needsUpdate = true; b.g.attributes.color.needsUpdate = true; }
     for (let k = this.pi; k < this.pool.length; k++) this.pool[k].visible = false; for (let k = this.bi; k < this.bpool.length; k++) this.bpool[k].mesh.visible = false;
   }
-  add(on) { this.mode = on ? 'a' : 'n'; return this; }
+  add(on) { this.mode = this.deep ? (on ? 'e' : 'd') : (on ? 'a' : 'n'); return this; }
   _v(p, c, a) { const b = this.bufs[this.mode], i = b.n++; b.pos[i * 3] = p.x; b.pos[i * 3 + 1] = p.y; b.pos[i * 3 + 2] = p.z; b.colr[i * 4] = c[0]; b.colr[i * 4 + 1] = c[1]; b.colr[i * 4 + 2] = c[2]; b.colr[i * 4 + 3] = a; }
   tri(a, b, c, ca, cb, cc, aa, ab, ac) { this._v(a, ca, aa); this._v(b, cb, ab); this._v(c, cc, ac); }
   // 板（カメラ向き）
