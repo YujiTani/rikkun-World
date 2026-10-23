@@ -106,3 +106,33 @@
 .ach-tip[hidden] {
   display: none;
 }
+
+/* #260: すぐ次の段 */
+.ach-row--next {
+  opacity: 0.7;
+}
+.ach-row__bar {
+  width: 160px;
+  height: 8px;
+  margin-top: 4px;
+}
+.ach-row__cap {
+  font-size: var(--rk-fs-small);
+  color: var(--rk-text-sub);
+  font-variant-numeric: tabular-nums;
+}
+
+.ach-tag--ok {
+  color: var(--rk-ink);
+  background: var(--rk-ok);
+  position: absolute;
+  top: 0;
+  left: var(--rk-sp-2);
+}
+.ach-tag--mute {
+  color: var(--rk-text);
+  background: #5b6472;
+  position: absolute;
+  top: 0;
+  left: var(--rk-sp-2);
+}

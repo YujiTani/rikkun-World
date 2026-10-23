@@ -8,6 +8,10 @@ export interface PageRow {
   id: AchievementId;
   /** 名前を見せてよい（取った） */
   shown: boolean;
+  /** 同じシリーズの すぐ下の段を 取った（この段の名前だけ 見せる。#260） */
+  next: boolean;
+  /** 次の段だけ: いまの数（目標で頭打ち）と 目標 */
+  progress?: { now: number; goal: number };
   unlocked: boolean;
   isNew: boolean;
 }
@@ -70,9 +74,13 @@ export class AchievementsPageModel {
 
   ui(inventoryOpen = true): PageUi {
     this.sync(inventoryOpen);
-    const rows = ACHIEVEMENT_DEFS.filter((d) => d.category === this.category_).map((d) => {
+    const rows: PageRow[] = ACHIEVEMENT_DEFS.filter((d) => d.category === this.category_).map((d) => {
       const u = this.sys.isUnlocked(d.id);
-      return { id: d.id, shown: u, unlocked: u, isNew: u && !this.sys.isViewed(d.id) };
+      const prev = !u && d.tier > 1 ? ACHIEVEMENT_DEFS.find((p) => p.series === d.series && p.tier === d.tier - 1) : undefined;
+      const next = !!prev && this.sys.isUnlocked(prev.id);
+      const row: PageRow = { id: d.id, shown: u || next, next, unlocked: u, isNew: u && !this.sys.isViewed(d.id) };
+      if (next) row.progress = { now: Math.min(d.goal, this.sys.stat(d.stat)), goal: d.goal };
+      return row;
     });
     const count = this.sys.pendingCount();
     return {
