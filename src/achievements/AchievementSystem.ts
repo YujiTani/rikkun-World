@@ -443,6 +443,10 @@ export class AchievementSystem implements AchievementShowSource {
             this.bump('meat:chicken', 1);
             this.bump('meat:*', 1);
             break;
+          // LIVE-4（§2.4・§4.5）: マッチョ の パンチ で たおした（2 回目 から も 数える。実績 は はじめて だけ）
+          case 'machoKO':
+            this.bump('machoKO:*', 1);
+            break;
           default:
             break;
         }

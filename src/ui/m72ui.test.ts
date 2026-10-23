@@ -29,7 +29,7 @@ describe('M7-2 実績（AC21・§4.7）', () => {
   });
   it('そだてる の 並び: M7 の 行 の うしろ に water・sprinkler・pet・petHarvest の 順、名前 に 漢字 なし', () => {
     const farm = ACHIEVEMENT_DEFS.filter((d) => d.category === 'farm');
-    expect(farm.slice(-36, -28).map((d) => d.id)).toEqual([
+    expect(farm.slice(-37, -29).map((d) => d.id)).toEqual([
       'farm.water.1',
       'farm.water.10',
       'farm.water.100',
@@ -39,8 +39,8 @@ describe('M7-2 実績（AC21・§4.7）', () => {
       'farm.pet.100',
       'farm.petHarvest.1',
     ]);
-    expect(farm[farm.length - 28].id).toBe('farm.bucket.1');
-    expect(farm.slice(-36, -28).filter((d) => d.small).map((d) => d.id)).toEqual(['farm.water.1', 'farm.pet.1']);
+    expect(farm[farm.length - 29].id).toBe('farm.bucket.1');
+    expect(farm.slice(-37, -29).filter((d) => d.small).map((d) => d.id)).toEqual(['farm.water.1', 'farm.pet.1']);
     expect(farm.some((d) => /[一-鿿]/.test(d.name))).toBe(false);
     expect(ACHIEVEMENT_DEFS.find((d) => d.id === 'farm.water.10')?.name).toBe('10 かい みずやり した！');
     expect(ACHIEVEMENT_DEFS.find((d) => d.id === 'farm.pet.10')?.name).toBe('やさい を 10 かい なでた！');

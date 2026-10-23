@@ -87,7 +87,6 @@ import { markUrl } from './ui/medalArt';
 import { itemIconUrl } from './ui/itemIcon';
 import { DropField } from './drops';
 import { createAnimalManager } from './animals';
-import { Live4Proto } from './animals/live4Proto';
 import { coopBlocks, coopPlan } from './animals/coop';
 import { ringSeen } from './animals/models/throwRing';
 import { applyFlatten } from './world/flatten';
@@ -108,6 +107,7 @@ import { ActionHint } from './ui/actionHint';
 import { YokaiFocus } from './fx/yokaiFocus';
 import { TitleAnnounce } from './ui/titleAnnounce';
 import { YokaiNameplates } from './ui/yokaiNameplates';
+import { MachoMarks } from './ui/machoMarks';
 import { actionHintLines } from './ui/actionHintModel';
 import { createRng } from './world/gen/random';
 import { FX_SETTINGS } from './fx/config';
@@ -615,6 +615,12 @@ const animals = createAnimalManager({
     day: () => time.day(),
     phase: () => time.phase(),
     countryAt,
+    // LIVE-4: いっしょ に たたかう マッチョ が 妖怪 に さわる 口（体力 を へらす・押す・うかす は 刀 の 切り上げ と 同じ 口〈`YokaiManager.damage`〉）
+    fight: {
+      yokai: (id) => yokaiManager?.fightBody(id) ?? null,
+      hit: (id, amount, from, knock) => yokaiManager?.damage(id, amount, from, knock, 'macho') ?? 0,
+      blade: () => ({ thrust: w2.bladeTech.thrust, kiriageMul: w2.bladeDamageMul.kiriage, kiriageKnock: w2.bladeKnock.kiriage }),
+    },
   },
 });
 // 実績は あとで作る（たいきゅうの へった量を わたす先）
@@ -1033,8 +1039,9 @@ const animalMotion = (): number => 1;
 const animalFx = new AnimalFx({ sound: fxSound, motion: animalMotion, lookDist: () => live.animalLookDist, fullTicks: () => live.animalFullTicks, seed });
 const animalRenderer = new AnimalRenderer({ fx: animalFx, motion: animalMotion, player: () => controller.state.position, source: animals });
 const animalViews = new ViewBuffer();
-// LIVE-4 試作（見た目・うごき の 確認）
-const live4Proto = new Live4Proto({ animals, yokai: yokaiManager!, camera: () => game.camera, player: () => controller.state.position });
+// LIVE-4: マッチョ の「！」と、ねらって いる 妖怪 の 上 の 顔（HTML）
+const machoMarks = new MachoMarks(hud);
+const machoMarkIn: import('./ui/machoMarks').MachoMarkInput = { bang: null, face: null };
 let prevKits = -1;
 let prevCoops = -1;
 const animalEvents: import('./contracts').AnimalEvent[] = [];
@@ -1875,7 +1882,6 @@ game.onUpdate((dt) => {
   rig.update(dt);
   if (worldReady()) yokaiM.update();
   if (worldReady()) animals.update();
-  live4Proto.update();
   // WEAPON-9: シャイニング F1〜240 は 持ちかえ・もちもの画面を 出せない
   if (legend.locked()) {
     if (nijiLockSel < 0) nijiLockSel = inventory.selected();
@@ -1902,6 +1908,7 @@ game.onUpdate((dt) => {
     // LIVE-3: メニュー（はなれたら とじる）と 一言（ふわっと）
     coopMenu.update();
     itadakimasu.update(animals.meatSay());
+    { const cues = yokaiM.takeCues(); if (cues) animals.fightCue(cues); }
     deliverAnimalEvents();
     const kitRows = animals.kits();
     const coopRows = animals.coops();
@@ -2146,7 +2153,13 @@ game.onUpdate((dt) => {
   yokaiFocus.update(hintVisible() ? dig.aimedYokaiId() : null);
   titleAnnounce.sync(yokaiM.announce());
   // 持ち物・メニューを開いている間は 名前を出さない
-  live4Proto.place();
+  {
+    // LIVE-4: 「！」と 顔（ねらい の 妖怪 の バー の 上）
+    const fm = animals.fightMarks();
+    machoMarkIn.bang = fm.bang && { x: fm.bang.x, y: fm.bang.y, z: fm.bang.z, age: fm.bang.age };
+    machoMarkIn.face = fm.target === null ? null : yokaiM.markAnchor(fm.target);
+    machoMarks.update(machoMarkIn, game.camera, screen.mode() === 'play');
+  }
   yokaiNameplates.update(screen.mode() === 'play' ? yokaiM.nameplates(plateBuf) : NO_PLATES, game.camera);
   staggerIcons.update(yokaiM.staggerIcons(stagIconBuf), game.camera, screen.mode() === 'play');
   actionHint.update(hintVisible() ? actionHintLines(dig.previewRightClick(), dig.previewLeftClick(), { carryProgress: dig.carryProgress(), carrying: animals.carrying() !== null, held: tools.current().item, heldIsPickaxe: tools.current().kind === 'pickaxe', heldIsBlade: tools.current().kind === 'blade' }) : {});
@@ -2456,8 +2469,7 @@ installTestHook(game, overlay, () => host.everReady, {
     carrying: () => animals.carrying(),
     throwSpot: () => animals.throwSpot(dig.throwAim()),
     throwTo: (x, y, z) => animals.throwTo(x, y, z),
-    live4Proto: (o) => (o === null ? (live4Proto.stop(), live4Proto.info()) : live4Proto.start(o)),
-    live4ProtoInfo: () => live4Proto.info(),
+    fighters: () => animals.fighters(),
     placeCoop: (x, y, z, dir) => animals.placeCoop(x, y, z, dir),
     coops: () => animals.coops(),
     kits: () => animals.kits(),

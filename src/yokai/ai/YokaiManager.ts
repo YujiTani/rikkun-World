@@ -14,6 +14,7 @@ import type {
   Vec3,
   VoxelWorld,
   YokaiEvent,
+  YokaiHurtBy,
   YokaiInfo,
   YokaiKnock,
   YokaiKind,
@@ -303,6 +304,8 @@ export class YokaiManager implements YokaiWorld {
   private lastBrightness = 1;
   private screenEvents: YokaiEvent[] = [];
   private hookEvents: HookYokaiEvent[] = [];
+  /** LIVE-4: マッチョ に 知らせる「きっかけ」（りっくん が たたいた／たたかれた 妖怪 の id）。`takeCues()` で 取り出す */
+  private readonly cues: { hit: number[]; hurt: number[] } = { hit: [], hurt: [] };
 
   // 今のステップのプレイヤー
   private px = 0;
@@ -463,12 +466,12 @@ export class YokaiManager implements YokaiWorld {
   }
 
   /** knock（WEAPON-2）: 押す 距離（水平。省くと 1.0）・上への 初速（省くと 0）。ぬりかべ は 押されない */
-  damage(id: number, amount: number, from: Vec3, knock?: YokaiKnock): number {
-    return this.hurtYokai(id, amount, from, knock);
+  damage(id: number, amount: number, from: Vec3, knock?: YokaiKnock, by: YokaiHurtBy = 'player'): number {
+    return this.hurtYokai(id, amount, from, knock, by);
   }
 
   /** ダメージ。よろけ中の 最初の 1 回は 2 倍（WEAPON-5）。実際に 与えた 数を 返す（当たらなければ 0） */
-  private hurtYokai(id: number, amount: number, from: Vec3, knock?: YokaiKnock): number {
+  private hurtYokai(id: number, amount: number, from: Vec3, knock?: YokaiKnock, by: YokaiHurtBy | 'reflect' = 'player'): number {
     const e = this.ents.find((q) => q.id === id);
     if (!e || e.state === 'dying' || e.state === 'leaving' || e.remove) return 0;
     const wasDouble = this.stagBook.hasDouble(id);
@@ -481,7 +484,9 @@ export class YokaiManager implements YokaiWorld {
       return amount;
     }
     e.model.hit();
-    this.emit({ type: 'hurt', tick: this.tick(), id: e.id, kind: e.kind, position: { x: e.x, y: e.y, z: e.z } });
+    this.emit({ type: 'hurt', tick: this.tick(), id: e.id, kind: e.kind, position: { x: e.x, y: e.y, z: e.z }, by: by === 'macho' ? 'macho' : 'player' });
+    // LIVE-4: りっくん が たたいた（ぶき・や・わざ）。パリィ で はね返した 火の玉 と マッチョ の パンチ は きっかけ に しない
+    if (by === 'player') this.cues.hit.push(e.id);
     if (e.kind !== 'nurikabe' || knock?.heavy) {
       let dx = e.x - from.x;
       let dz = e.z - from.z;
@@ -535,6 +540,33 @@ export class YokaiManager implements YokaiWorld {
     const out = this.screenEvents;
     this.screenEvents = [];
     return out;
+  }
+
+  // ---------------------------------------------------------------- LIVE-4: マッチョ と いっしょ に たたかう ための 口
+
+  /** この ステップ の「きっかけ」を 取り出す（呼ぶと 空）。数 は かえない。`hit` = りっくん が 体力 を へらした、`hurt` = りっくん の 体力 を へらした（火の玉 は うった 妖怪） */
+  takeCues(): { hit: number[]; hurt: number[] } | null {
+    const c = this.cues;
+    if (c.hit.length === 0 && c.hurt.length === 0) return null;
+    const out = { hit: c.hit.slice(), hurt: c.hurt.slice() };
+    c.hit.length = 0;
+    c.hurt.length = 0;
+    return out;
+  }
+
+  /** マッチョ が たたく 相手 の 体（水平 の 半径・高さ・たおれた か 帰る か）。いなければ null */
+  fightBody(id: number): { x: number; y: number; z: number; radius: number; height: number; state: 'alive' | 'dying' | 'leaving'; sliding: boolean } | null {
+    const e = this.ents.find((q) => q.id === id);
+    if (!e || e.remove) return null;
+    const state = e.state === 'dying' ? 'dying' : e.state === 'leaving' ? 'leaving' : 'alive';
+    return { x: e.x, y: e.y, z: e.z, radius: e.dims.radius, height: e.dims.height, state, sliding: e.knockLeft > 0 };
+  }
+
+  /** ねらい の しるし（顔）を 置く 場所: 体力 の バー の すぐ 上。二つ名 の 名前 が 出て いる ときは `titled` */
+  markAnchor(id: number): { x: number; y: number; z: number; titled: boolean } | null {
+    const e = this.ents.find((q) => q.id === id);
+    if (!e || e.remove || e.state === 'dying' || e.state === 'leaving') return null;
+    return { x: e.x, y: e.y + e.dims.marksHeight + HP_BAR.barHeight * 0.75 + 0.1, z: e.z, titled: this.nameVisible(e) };
   }
 
   // ---------------------------------------------------------------- テストの窓口用
@@ -1717,7 +1749,10 @@ export class YokaiManager implements YokaiWorld {
       if (e.state === 'dying' || e.state === 'leaving' || e.state === 'appear' || e.state === 'attack' || e.stag) continue; // 攻撃中は攻撃のダメージだけ。よろけ中は 体当たりしない
       for (const b of this.boxesOf(e, this.boxList)) {
         if (aabbOverlap(obbBounds(b, e.x, e.y, e.z, e.yaw, tmpBox2), pb) && this.localOverlap(e, b)) {
-          if (this.combat.damage(e.kind === 'nurikabe' ? dmg * AI_CONST.nurikabeContactMul : dmg, e.kind, { x: e.x, y: e.y, z: e.z })) return;
+          if (this.combat.damage(e.kind === 'nurikabe' ? dmg * AI_CONST.nurikabeContactMul : dmg, e.kind, { x: e.x, y: e.y, z: e.z })) {
+            this.cues.hurt.push(e.id);
+            return;
+          }
           break;
         }
       }
@@ -1765,7 +1800,7 @@ export class YokaiManager implements YokaiWorld {
     }
     if (e.kind === 'nurikabe') this.crush(e);
     this.emit({ type: 'attackHit', tick: this.tick(), id: e.id, kind: e.kind, hitPlayer: hit, position: wpos });
-    if (hit) this.combat.damage(dmg, e.kind, { x: e.x, y: e.y, z: e.z });
+    if (hit && this.combat.damage(dmg, e.kind, { x: e.x, y: e.y, z: e.z })) this.cues.hurt.push(e.id);
   }
 
   /** パリィに 聞く。パリィの 窓口が なければ null（今のまま） */
@@ -1852,7 +1887,7 @@ export class YokaiManager implements YokaiWorld {
           } else {
             hitPlayer = true;
             end = true;
-            this.combat.damage(v?.result === 'early' ? v.amount : f.damage, kind, { x: p.x, y: p.y, z: p.z }, 'ball');
+            if (this.combat.damage(v?.result === 'early' ? v.amount : f.damage, kind, { x: p.x, y: p.y, z: p.z }, 'ball')) this.cues.hurt.push(f.owner);
           }
         }
       }
@@ -1922,7 +1957,7 @@ export class YokaiManager implements YokaiWorld {
         if (!aabbOverlap(obbBounds(b, e.x, e.y, e.z, e.yaw, tmpBox), fbBox)) continue;
         const p = f.fb.position;
         const amount = f.damage * this.S.reflectFireball.damageMul;
-        const dealt = this.hurtYokai(e.id, amount, { x: p.x, y: p.y, z: p.z });
+        const dealt = this.hurtYokai(e.id, amount, { x: p.x, y: p.y, z: p.z }, undefined, 'reflect');
         this.opts.onParryEvent?.({ type: 'reflectHit', yokaiId: e.id, damage: dealt });
         if ((e.state as YokaiState) !== 'dying') this.applyStagger(e.id, 'reflect');
         return true;
