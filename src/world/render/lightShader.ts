@@ -13,6 +13,10 @@ float skyCurve(float lv) {
   float t = clamp(lv, 0.0, 15.0) / 15.0;
   return ${f(LC.minBrightness)} + ${f(1 - LC.minBrightness)} * (t / (4.0 - 3.0 * t));
 }
+// #76 夜の倍率: mix(1, 夜の倍率, 夜の度合い × w)。raw = 時刻で弱める前の空の光（0〜15）。world/light/curve.ts の nightSkyFactor と同じ式
+float skyNight(float raw) {
+  return mix(1.0, ${f(LC.nightSkyMul)}, uNight * clamp(raw / ${f(LC.nightSkyFullLevel)}, 0.0, 1.0));
+}
 float blockTier(float lv) {
   if (lv <= 0.01) return 0.0;
   float dist = ${f(LC.torchLevel)} - lv;
@@ -28,7 +32,7 @@ float blockTier(float lv) {
  */
 export const LIGHT_GLSL_LIT = `
   float s = max(skyIn * 15.0 - uDarken, 0.0);
-  float sb = skyCurve(s);
+  float sb = skyCurve(s) * skyNight(skyIn * 15.0);
   float bb = blockTier(blkIn * 15.0);
   float w = clamp((bb - sb) * 3.0, 0.0, 1.0) * ${f(LC.warmTintStrength)};
   vec3 tint = mix(vec3(1.0), vec3(${f(LC.warmTint[0])}, ${f(LC.warmTint[1])}, ${f(LC.warmTint[2])}), w);
@@ -42,6 +46,7 @@ export function applyLightShader(material: MeshBasicMaterial, cacheKey = 'rikkun
   material.userData.noDim = true; // sky/Lighting では暗くしない（ここで明るさを決める）
   material.onBeforeCompile = (shader) => {
     shader.uniforms.uDarken = skyDarkness.uniform;
+    shader.uniforms.uNight = skyDarkness.nightUniform;
     shader.uniforms.uRipeMin = ripeMinBrightness;
     shader.uniforms.uAoOn = aoUniforms.on;
     shader.uniforms.uAoFade = aoUniforms.fade;
@@ -53,6 +58,7 @@ export function applyLightShader(material: MeshBasicMaterial, cacheKey = 'rikkun
 attribute vec2 aLight;
 attribute float aDark;
 uniform float uDarken;
+uniform float uNight;
 uniform float uRipeMin;
 uniform float uAoOn;
 uniform vec2 uAoFade;
@@ -66,7 +72,7 @@ ${LIGHT_GLSL_FUNCS}`,
   float ripe = step(1.5, aLight.y);
   float s = max(aLight.x * 15.0 - uDarken, 0.0);
   float bl = (aLight.y - ripe * 2.0) * 15.0;
-  float sb = skyCurve(s);
+  float sb = skyCurve(s) * skyNight(aLight.x * 15.0);
   float bb = blockTier(bl);
   float w = clamp((bb - sb) * 3.0, 0.0, 1.0) * ${f(LC.warmTintStrength)};
   vec3 tint = mix(vec3(1.0), vec3(${f(LC.warmTint[0])}, ${f(LC.warmTint[1])}, ${f(LC.warmTint[2])}), w);

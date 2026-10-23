@@ -1,3 +1,4 @@
+import { Color as ThreeColor, type Fog as ThreeFog } from 'three';
 import { CameraRig } from './camera/CameraRig';
 import { disposeMergedHeldGeometry } from './camera/heldTools';
 import { useBlockDoll } from './debug/glbDoll';
@@ -2226,6 +2227,11 @@ installTestHook(game, overlay, () => host.everReady, {
     renderNow: () => game.renderNow(),
     blob: blobShadow,
     chunks: () => renderer.chunkStats(),
+    env: () => ({
+      fog: game.scene.fog ? { near: (game.scene.fog as ThreeFog).near, far: (game.scene.fog as ThreeFog).far, colorHex: game.scene.fog.color.getHex() } : null,
+      backgroundHex: game.scene.background instanceof ThreeColor ? game.scene.background.getHex() : null,
+      dollBrightness: sky.lastDoll,
+    }),
   }),
   parry: {
     state: () => parry.state(),

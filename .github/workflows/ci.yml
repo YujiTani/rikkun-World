@@ -27,8 +27,27 @@ jobs:
       - run: npm ci
       - run: npm run check:fast
 
+  # PR の 変更が ドキュメントだけ（docs/・.md・.claude/）なら E2E を とばす。main への push は いつも 全部 回す
+  changes:
+    name: 変更の 中身
+    runs-on: ubuntu-24.04
+    outputs:
+      code: ${{ steps.diff.outputs.code }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: diff
+        run: |
+          if [ "${{ github.event_name }}" != "pull_request" ]; then echo "code=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+          files=$(git diff --name-only "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}")
+          echo "$files"
+          if echo "$files" | grep -qvE '^docs/|\.md$|^\.claude/'; then echo "code=true" >> "$GITHUB_OUTPUT"; else echo "code=false" >> "$GITHUB_OUTPUT"; fi
+
   e2e:
     name: E2E（${{ matrix.shard }}/4）
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     strategy:
@@ -45,8 +64,9 @@ jobs:
       - run: npm ci
       - name: Playwright の Chromium を入れる
         run: npx playwright install --with-deps chromium
+      # 件数でなく 前の 時間（e2e/shard-times.json）で 4 つに 分ける（scripts/e2e-shard.mjs）
       - name: E2E（4 つに分けた ${{ matrix.shard }} つ目）
-        run: npx playwright test --shard=${{ matrix.shard }}/4 --reporter=list,html
+        run: npx playwright test $(node scripts/e2e-shard.mjs ${{ matrix.shard }} 4) --reporter=list,html
         env:
           PLAYWRIGHT_HTML_OPEN: never
       - name: 失敗したときのレポートとスクショ
@@ -70,9 +90,12 @@ jobs:
   # 3 つ全部が通ったかを、前と同じ名前の 1 つのチェックにまとめる（必須チェックの名前を変えないため）
   e2e-all:
     name: E2E（全部）
-    needs: e2e
+    needs: [changes, e2e]
     if: always()
     runs-on: ubuntu-24.04
     steps:
-      - name: 3 つの結果をたしかめる
-        run: test "${{ needs.e2e.result }}" = "success"
+      # ドキュメントだけの PR は E2E を とばして 緑（変更の 中身の ジョブが 落ちたら 赤）
+      - name: 4 つの結果をたしかめる
+        run: |
+          test "${{ needs.changes.result }}" = "success"
+          if [ "${{ needs.changes.outputs.code }}" = "true" ]; then test "${{ needs.e2e.result }}" = "success"; fi
