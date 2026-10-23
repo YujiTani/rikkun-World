@@ -46,6 +46,13 @@ test.describe('GOLD-1 金の そうび・なかよし・はらぱんみみず', 
       // あつめる（さくを 外から 右クリック）
       h.animals.events();
       A.collect(c);
+      // LIVE-3: 小屋に そだてた 大人が いると メニューが ひらく → 「あつめる」で すばこの たまごを あつめる
+      if (h.ui.coopMenu().open) {
+        h.ui.coopMenuPress('collect');
+        h.step(2);
+        if (h.ui.coopMenu().open) h.ui.coopMenuPress('close');
+        h.step(2);
+      }
       out.tamago = h.inventory.count('kin_tamago');
       out.egg = h.inventory.count('egg');
       out.nestAfter = { ...A.cinfo(cid).nest };
