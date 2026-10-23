@@ -42,6 +42,8 @@ function artOf(d: AchievementDef): ItemId | 'droplet' | 'heart' | 'chicken' | nu
   if (s === 'craft:weapons') return 'katana';
   if (s === 'craft:armors') return 'yoroi';
   if (s === 'craft:everything') return 'furnace';
+  if (s === 'craft:kinKinds') return 'kin_katana';
+  if (s === 'obtainRarity:epic') return 'kin';
   if (s === 'wearAll') return 'kabuto';
   if (s === 'arrowShot' || s === 'arrowHit') return 'ya';
   if (s === 'bagBack') return 'cloth';

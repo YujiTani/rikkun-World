@@ -74,6 +74,8 @@ export const LEGEND_NAMES: ReadonlyArray<readonly [string, string]> = [
 export const WEAPON_RECIPES = ['bokuto', 'katana', 'naginata', 'crystal_katana', 'yumi'] as const;
 export const ARMOR_RECIPES = ['kabuto', 'yoroi', 'kote', 'suneate'] as const;
 export const ARMOR_ITEMS = ARMOR_RECIPES;
+/** GOLD-1: きん の そうび 8 こ（実績 `gold.*`。`CRAFT_RECIPE_NAMES` には 入れない） */
+export const KIN_RECIPES = ['kin_katana', 'kin_yumi', 'kin_pickaxe', 'kin_axe', 'kin_kabuto', 'kin_yoroi', 'kin_kote', 'kin_suneate'] as const;
 /** やさい 4 しゅるいの 名前（実績の文） */
 export const CROP_NAME: Readonly<Record<CropKind, string>> = { onion: 'たまねぎ', tomato: 'トマト', pumpkin: 'かぼちゃ', eggplant: 'なす' };
 
@@ -228,6 +230,9 @@ function build(): AchievementDef[] {
     tiers: [t(10), t(50)],
     name: (g) => `てつの かたまり を ${g} こ やいた！`,
   });
+  // GOLD-1 §4.8: きん の そうび（大きい 実績）
+  add({ series: 'gold.first', category: 'craft', stat: 'craft:kinKinds', tiers: [t(1)], name: () => 'はじめて きん の そうび を つくった！' });
+  add({ series: 'gold.all', category: 'craft', stat: 'craft:kinKinds', tiers: [t(KIN_RECIPES.length)], name: (g) => `きん の そうび を ${g} こ ぜんぶ つくった！` });
 
   // E. あつめる
   for (const [id, name, small] of [
@@ -244,6 +249,8 @@ function build(): AchievementDef[] {
   add({ series: 'obtain.bag', category: 'collect', stat: 'bagBack', tiers: [t(1)], name: () => 'おとしもの ぶくろ を とりもどした！' });
   add({ series: 'store.first', category: 'collect', stat: 'store:*', tiers: [t(1)], name: () => 'はじめて たんす に しまった！' });
   add({ series: 'store.full', category: 'collect', stat: 'storeFull', tiers: [t(1)], name: () => 'たんす を いっぱい に した！' });
+  // GOLD-1 §4.8: ちょうど ほし 5（`epic`）の 物 が もちもの に 入った
+  add({ series: 'rarity.star5', category: 'collect', stat: 'obtainRarity:epic', tiers: [t(1)], name: () => 'はじめて ほし 5 を ゲット！' });
 
   // F. たおす・G. まもる・やられる・や
   add({
@@ -531,6 +538,8 @@ function build(): AchievementDef[] {
     name: firstOrN('はじめて きん の たまご！', (g) => `きん の たまご を ${g} こ！`),
   });
   add({ series: 'animal.macho', category: 'farm', stat: 'hatch:macho', tiers: [t(1)], name: () => 'マッチョ ひよこ が かえった！' });
+  // GOLD-1 §4.8: はらぱんみみず を ひろった
+  add({ series: 'obtain.harapan_mimizu', category: 'farm', stat: 'obtain:harapan_mimizu', tiers: [t(1)], name: () => 'はじめて はらぱんみみず を てにいれた！' });
 
   const out: AchievementDef[] = [];
   for (const s of specs) {

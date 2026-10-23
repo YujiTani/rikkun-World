@@ -25,6 +25,7 @@ import {
   ACHIEVEMENT_DEFS,
   ARMOR_ITEMS,
   ARMOR_RECIPES,
+  KIN_RECIPES,
   CRAFT_RECIPE_NAMES,
   DEFS_BY_STAT,
   DEF_BY_ID,
@@ -489,6 +490,12 @@ export class AchievementSystem implements AchievementShowSource {
     this.run(() => this.bump('wearTotal', n));
   }
 
+  /** GOLD-1: めずらしさ `epic`（ほし 5）の 物 が もちもの に 入った（ちょうど epic だけ。ほし 6・7 は 数えない） */
+  feedRarity(rarity: string): void {
+    if (rarity !== 'epic') return;
+    this.run(() => this.bump('obtainRarity:epic', 1));
+  }
+
   feedArrow(kind: 'shot' | 'hit'): void {
     this.run(() => this.bump(kind === 'shot' ? 'arrowShot' : 'arrowHit', 1));
   }
@@ -671,6 +678,7 @@ export class AchievementSystem implements AchievementShowSource {
     this.setMax('craft:pickaxes', count(PICKAXE_RECIPES));
     this.setMax('craft:weapons', count(WEAPON_RECIPES));
     this.setMax('craft:armors', count(ARMOR_RECIPES));
+    this.setMax('craft:kinKinds', count(KIN_RECIPES));
     this.setMax('craft:everything', count(CRAFT_RECIPE_NAMES.map(([id]) => id)));
   }
 
