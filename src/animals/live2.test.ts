@@ -410,14 +410,14 @@ describe('AC7 小屋を 置く', () => {
   });
   it('1 マス ずれて 入る 所 に 置く。穴 3 の でこぼこ は 置かない・coopNoRoom', () => {
     const s = setup();
-    s.world.setBlock(48, 9, 48, 'stone');
-    s.world.setBlock(48, 10, 48, 'stone');
+    s.world.setBlock(48, 9, 48, 'brick'); // LIVE-2.1: いし・つち は 消える ので、じゃま な レンガ の 柱 で ずらす
+    s.world.setBlock(48, 10, 48, 'brick');
     const r = s.m.placeCoop(50, 9, 50, 0);
     expect(typeof r).toBe('number');
     const c = s.m.coops()[0]!;
     expect(Math.abs(c.x - 48) > 2 || Math.abs(c.z - 48) > 2).toBe(true);
     const t = setup();
-    for (const [x, z] of [[74, 74], [76, 74], [75, 76]] as const) t.world.setBlock(x, 8, z, 'air');
+    for (const [x, z] of [[74, 74], [76, 74], [75, 76]] as const) for (const y of [8, 7, 6]) t.world.setBlock(x, y, z, 'air'); // 深さ 3 の あな（LIVE-2.1: 深さ 2 までは うめる）
     expect(t.m.placeCoop(75, 9, 75, 0)).toBe('noRoom');
     expect(t.m.lastHint()).toBe('coopNoRoom');
     expect(t.m.coops()).toHaveLength(0);

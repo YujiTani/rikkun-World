@@ -12,7 +12,7 @@ const R = ruby('右', 'みぎ');
 /** 文（漢字は ふりがな付き。HTML）と 添える絵（左から）。仕様 §3.1。数 8 は 設定 `animalFriendMax` の 初期値 */
 type HintView = { html: string; art: ReadonlyArray<AnimalHintArt> };
 /** 画面 では「とりごや」「こ」「おとな」「こたつ」に そろえる（G7）。漢字は 右 だけ（ふりがな付き） */
-export const ANIMAL_HINT_VIEW: Readonly<Record<AnimalWindowHint, HintView>> = {
+export const ANIMAL_HINT_VIEW: Readonly<Record<AnimalWindowHint | 'kitFull', HintView>> = {
   feedHint: { html: `むし を もって ${R}クリック で あげよう`, art: ['mushi', 'chicken'] },
   fullHint: { html: 'おなか いっぱい。すこし まってね', art: ['chicken', 'sun'] },
   friendFull: { html: 'なかま は 8 わ まで', art: ['chickenRibbon'] },
@@ -24,10 +24,10 @@ export const ANIMAL_HINT_VIEW: Readonly<Record<AnimalWindowHint, HintView>> = {
   // LIVE-2 版 3（§3.1）。絵 は 左 から
   kitNeedEgg: { html: `たまご を もって ${R}クリック`, art: ['egg', 'nukunuku'] },
   kitWait: { html: 'あたため ちゅう。まってね', art: ['nukunuku', 'hourglass'] },
-  // LIVE-2.1（§3.1）: たまご の 数 で 6 こ まで・こたつ は 1 台 3 こ まで・置けない 所（とりごや も こたつ も）
+  // LIVE-2.1（§3.1）: たまご は 6 こ まで・おけない 所（こたつ も）・こたつ いっぱい（合図 は 10 に ふえた）
   kitMax: { html: 'あたためる たまご は 6 こ まで', art: ['egg', 'egg', 'egg', 'egg', 'egg', 'egg'] },
   kitFull: { html: 'この こたつ は いっぱい', art: ['nukunuku', 'egg', 'egg', 'egg'] },
-  coopNoRoom: { html: 'ここ には おけない よ', art: ['toriya', 'stone'] },
+  coopNoRoom: { html: 'ここ には おけない よ', art: ['toriya', 'dirt', 'stone'] },
   coopMax: { html: 'とりごや は 3 つ まで', art: ['toriya'] },
   coopFull: { html: 'この とりごや は いっぱい', art: ['toriya', 'chicken'] },
   coopNotEmpty: { html: 'こ が いる から こわせない よ。だっこ で そと へ', art: ['toriya', 'chick', 'hand'] },
@@ -37,11 +37,11 @@ export const ANIMAL_HINT_VIEW: Readonly<Record<AnimalWindowHint, HintView>> = {
 
 /** 出ている合図を持つ（DOM なしでテストできる） */
 export class AnimalHintModel {
-  private hint: AnimalWindowHint | null = null;
+  private hint: AnimalWindowHint | 'kitFull' | null = null;
   private left = 0;
   shown = 0;
 
-  show(kind: AnimalHintKind): void {
+  show(kind: AnimalHintKind | 'kitFull'): void {
     this.hint = kind;
     this.left = ANIMAL_HINT_STEPS;
     this.shown++;
@@ -58,7 +58,8 @@ export class AnimalHintModel {
   }
 
   current(): AnimalWindowHint | null {
-    return this.hint;
+    // 'kitFull' は 契約 の `AnimalLive2Hint` に 入る まで 型 が 合わない ので、ここ で 合わせる
+    return this.hint as AnimalWindowHint | null;
   }
   stepsLeft(): number {
     return this.left;

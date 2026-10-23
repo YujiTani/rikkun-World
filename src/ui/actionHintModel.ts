@@ -31,6 +31,11 @@ export interface ActionHintCtx {
   carryProgress?: number;
   /** 版 3.2: だっこ中（左クリック は 止まって いる ので 左の 案内 を 出さない） */
   carrying?: boolean;
+  /**
+   * LIVE-2.1: だっこ中 の 着地点 の 答え（`animals.throwSpot()` の `ok`・`toss`）。
+   * 渡せば 語 は `なげる`（`toss` false = 1 マス より 近い は `おろす`）、なげられない 所（`ok` false）は うすく
+   */
+  throwSpot?: { ok: boolean; toss: boolean } | null;
 }
 
 /**
@@ -40,7 +45,7 @@ export interface ActionHintCtx {
 export function actionHintLines(right: RightClickPreview | null, left: LeftClickKind | null, c: ActionHintCtx): ActionHintLines {
   const out: ActionHintLines = {};
   if (right) {
-    switch (right.kind) {
+    switch (right.kind as string) {
       case 'storage':
         out.right = { icon: 'tansu', word: 'ひらく' };
         break;
@@ -76,9 +81,13 @@ export function actionHintLines(right: RightClickPreview | null, left: LeftClick
       case 'net':
         out.right = { icon: 'mushi_ami', word: 'とる' };
         break;
-      case 'putDown':
-        out.right = { icon: 'chicken', word: 'おろす' };
+      case 'putDown': {
+        // LIVE-2.1（§3.1）: 着地点 が 答え に ある とき は なげる（d が 1 より 近い 時 は おろす）。なげられない 所 は うすく
+        const ts = c.throwSpot;
+        if (ts) out.right = ts.toss ? { icon: 'chicken', word: 'なげる', ...(ts.ok ? {} : { disabled: true }) } : { icon: 'chicken', word: 'おろす' };
+        else out.right = { icon: 'chicken', word: 'おろす' };
         break;
+      }
       // LIVE-2.1（§3.1）: なげる（なげられない 所 は うすく）
       case 'throw':
         out.right = { icon: 'chicken', word: 'なげる' };
@@ -96,6 +105,10 @@ export function actionHintLines(right: RightClickPreview | null, left: LeftClick
         break;
       case 'kitWait':
         out.right = { icon: 'nukunuku', word: 'まってね' };
+        break;
+      // LIVE-2.1: 3 こ 入って いる こたつ に たまご = いっぱい（3 こ より 少なければ kitPut の いれる）
+      case 'kitFull':
+        out.right = { icon: right.item ?? 'egg', word: 'いっぱい' };
         break;
       case 'coopCollect':
         out.right = { icon: 'egg', word: 'あつめる' };
