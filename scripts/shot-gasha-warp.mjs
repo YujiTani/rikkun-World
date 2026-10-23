@@ -187,7 +187,9 @@ async function idle() {
   await page.evaluate(() => { window.__gashaGirl.resetTurns(); window.__gashaGirl.camera('idle'); window.__gashaGirl.holdStand(true); });
   await step(60);
   const frames = [];
-  for (let i = 0; i < 120; i++) { await step(2); frames.push(await shot(dir)); }
+  for (let i = 0; i < 60; i++) { await step(2); frames.push(await shot(dir)); } // ななめ前 2 秒
+  await page.evaluate(() => window.__gashaGirl.camera('idleSide'));
+  for (let i = 0; i < 60; i++) { await step(2); frames.push(await shot(dir)); } // 横から 2 秒
   gif(dir, frames, 'idle.gif');
   await page.evaluate(() => { window.__gashaGirl.holdStand(false); window.__gashaGirl.camera('overview'); });
 }

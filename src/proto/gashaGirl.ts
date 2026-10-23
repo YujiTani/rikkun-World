@@ -258,7 +258,7 @@ export interface GashaGirlHandle {
   standNow(): void;
   setSeed(n: number): void;
   warpNow(spell?: number): void;
-  camera(mode: 'overview' | 'default' | 'look' | 'close' | 'idle'): void;
+  camera(mode: 'overview' | 'default' | 'look' | 'close' | 'idle' | 'idleSide'): void;
   /** 立ち姿で とめておく（idle.gif 用） */
   holdStand(on: boolean): void;
   /** 回数・止めた回数の 数えなおし（撮影用） */
@@ -707,25 +707,42 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
   const axF = new Vector3(), axR = new Vector3();
   const wob = (a: number, f1: number, f2: number, ph: number) => a * D2R * (0.6 * Math.sin(Math.PI * 2 * f1 * t + ph) + 0.4 * Math.sin(Math.PI * 2 * f2 * t + ph * 1.7 + 1));
   const bn = (n: string) => model.getObjectByName(n) as Bone | undefined;
-  const idleBones = ['Hips', 'Spine', 'Spine01', 'Spine02', 'neck', 'Head', 'RightArm', 'RightForeArm', 'RightHand', 'LeftArm', 'LeftForeArm'].map((n) => [n, bn(n)] as const);
+  const idleNames = ['Hips', 'Spine', 'Spine01', 'Spine02', 'neck', 'Head', 'RightArm', 'RightForeArm', 'RightHand', 'LeftArm', 'LeftForeArm', 'LeftHand',
+    'LeftUpLeg', 'LeftLeg', 'LeftFoot', 'RightUpLeg', 'RightLeg', 'RightFoot'];
+  const idleBones = new Map<string, Bone>();
+  idleNames.forEach((n) => { const b = bn(n); if (b) idleBones.set(n, b); });
+  const feet = ['LeftToeBase', 'RightToeBase', 'LeftFoot', 'RightFoot'].map((n) => bn(n)).filter((b): b is Bone => !!b);
+  const feetLow = () => { let m = 1e9; for (const f of feet) m = Math.min(m, f.getWorldPosition(tmpV).y); return m - pivot.position.y; };
+  let footBase = NaN;
+  const axUp = new Vector3(0, 1, 0);
   const idleSway = () => {
-    restorePose();
+    restorePose(); model.position.y = y0; model.position.x = 0;
+    pivot.updateMatrixWorld(true);
+    if (Number.isNaN(footBase)) footBase = feetLow();
     const yaw = pivot.rotation.y;
     axF.set(Math.sin(yaw), 0, Math.cos(yaw)); axR.set(Math.cos(yaw), 0, -Math.sin(yaw));
-    const rot = (n: string, axis: Vector3, rad: number) => { const b = idleBones.find((q) => q[0] === n)?.[1]; if (b) rotateWorld(b, axis, rad); };
-    rot('Hips', axF, wob(3, 0.31, 0.47, 0.5)); // 重心が ふらっと 片足へ
-    rot('Spine', axF, wob(7, 0.33, 0.49, 1)); rot('Spine', axR, wob(3, 0.37, 0.43, 2));
-    rot('Spine01', axF, wob(7, 0.41, 0.31, 3)); rot('Spine01', axR, wob(3, 0.35, 0.47, 4));
-    rot('Spine02', axF, wob(6, 0.3, 0.45, 5)); rot('Spine02', axR, wob(3, 0.4, 0.33, 6));
-    rot('neck', axF, 15 * D2R + wob(2, 0.3, 0.5, 7)); // 首を かしげたまま
-    rot('Head', axF, wob(6, 0.31, 0.43, 8)); rot('Head', axR, wob(3, 0.37, 0.5, 9));
-    rot('RightArm', axR, wob(5, 0.4, 0.3, 10)); rot('RightForeArm', axR, wob(4, 0.45, 0.35, 11)); rot('RightHand', axR, wob(14, 0.5, 0.37, 12)); // 手首が ぶらっと
-    rot('LeftArm', axR, wob(9, 0.35, 0.48, 13)); rot('LeftForeArm', axR, wob(6, 0.42, 0.3, 14)); // ぶらん
-    model.position.y = y0 + 0.04 * (0.6 * Math.sin(t * 1.9) + 0.4 * Math.sin(t * 2.9 + 1)); model.position.x = 0;
+    const rot = (n: string, axis: Vector3, rad: number) => { const b = idleBones.get(n); if (b) rotateWorld(b, axis, rad); };
+    const d = D2R;
+    // かまえ（ねこ背・頭を 前へ・片足に 体重・ひざを まげて 内また・左右 ひだりみぎ ちがう うで）
+    rot('Hips', axF, -5 * d + wob(3, 0.31, 0.47, 0.5)); // 腰が 片側へ 出る ＋ 重心が ふらっと
+    rot('Spine', axR, 5 * d + wob(3, 0.37, 0.43, 2)); rot('Spine', axF, wob(7, 0.33, 0.49, 1));
+    rot('Spine01', axR, 6 * d + wob(3, 0.35, 0.47, 4)); rot('Spine01', axF, wob(7, 0.41, 0.31, 3));
+    rot('Spine02', axR, 6 * d + wob(3, 0.4, 0.33, 6)); rot('Spine02', axF, wob(6, 0.3, 0.45, 5));
+    rot('neck', axR, 8 * d); rot('neck', axF, 15 * d + wob(2, 0.3, 0.5, 7)); // 首を かしげたまま、前へ
+    rot('Head', axR, 10 * d + wob(3, 0.37, 0.5, 9)); rot('Head', axF, wob(6, 0.31, 0.43, 8));
+    rot('RightArm', axR, wob(5, 0.4, 0.3, 10)); rot('RightForeArm', axUp, 14 * d); rot('RightForeArm', axR, wob(4, 0.45, 0.35, 11));
+    rot('RightHand', axR, 35 * d + wob(14, 0.5, 0.37, 12)); // 手首を 下へ おって ぶらっと
+    rot('LeftArm', axR, wob(9, 0.35, 0.48, 13)); rot('LeftForeArm', axR, 25 * d + wob(6, 0.42, 0.3, 14)); rot('LeftHand', axR, 15 * d);
+    // 足: ひざを かるく まげて 内また、右足に 体重
+    rot('LeftUpLeg', axR, -16 * d); rot('LeftLeg', axR, 30 * d); rot('LeftFoot', axR, -14 * d); rot('LeftUpLeg', axF, 7 * d);
+    rot('RightUpLeg', axR, -10 * d); rot('RightLeg', axR, 18 * d); rot('RightFoot', axR, -8 * d); rot('RightUpLeg', axF, -7 * d);
+    pivot.updateMatrixWorld(true);
+    // 足の うらを 地面から うかせない（腰を さげる）
+    model.position.y = y0 + (footBase - feetLow()) + 0.03 * (0.6 * Math.sin(t * 1.9) + 0.4 * Math.sin(t * 2.9 + 1));
   };
 
   // ---- 毎ステップ ----
-  let camMode: 'overview' | 'default' | 'look' | 'close' | 'idle' = 'default';
+  let camMode: 'overview' | 'default' | 'look' | 'close' | 'idle' | 'idleSide' = 'default';
   let holdStand = false;
   const camTarget = { pos: new Vector3(), look: new Vector3(), init: false };
   
@@ -811,6 +828,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
     const px = (window.innerHeight * Math.min(window.devicePixelRatio, 2)) / (2 * Math.tan((cam.fov * D2R) / 2));
     add.mat.uniforms.uPx!.value = px; smoke.mat.uniforms.uPx!.value = px;
     const wantFov = baseFov;
+    if (camMode === 'idleSide') { const q = pivot.rotation.y; cam.position.set(pivot.position.x + Math.cos(q) * 4.6, pivot.position.y + 1.7, pivot.position.z - Math.sin(q) * 4.6); cam.lookAt(pivot.position.x, pivot.position.y + 1.5, pivot.position.z); cam.updateMatrixWorld(true); }
     if (camMode === 'idle') { const q = pivot.rotation.y; cam.position.set(pivot.position.x + Math.sin(q) * 3.8 + Math.cos(q) * 1.0, pivot.position.y + 1.9, pivot.position.z + Math.cos(q) * 3.8 - Math.sin(q) * 1.0); cam.lookAt(pivot.position.x, pivot.position.y + 1.5, pivot.position.z); cam.updateMatrixWorld(true); }
     if (cam.fov !== wantFov) { cam.fov = wantFov; cam.updateProjectionMatrix(); }
     if ((camMode === 'look' || camMode === 'close') && pivot.visible) { const p = deps.player(); headCenter(headC);
