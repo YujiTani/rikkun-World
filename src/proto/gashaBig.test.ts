@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { Vector3 } from 'three';
 import { TUNE as T } from './gashaBigTuning';
-import { buildBig, cellKey, toWorld, voxelize, type WorldHit } from './gashaBig';
+import { buildBig, cellKey, voxelize, worldHits, JOINT_NAMES, type WorldHit } from './gashaBig';
 
 /** 地面の 高さ 0、からだの 中心 = 原点、向き 0 の ときの 当たりの マス */
 function cellsAtOrigin(model = buildBig()): { cells: Set<number>; hits: WorldHit[]; scale: number; model: ReturnType<typeof buildBig> } {
-  const hits = toWorld(model.hits, new Vector3(0, 0, 0), 0, model.scale);
+  model.group.position.set(0, 0, 0);
+  model.group.scale.setScalar(model.scale);
+  const hits = worldHits(model);
   return { cells: voxelize(hits, T.collide.margin, T.collide.topLift), hits, scale: model.scale, model };
 }
 
@@ -25,6 +26,7 @@ function reach(cells: Set<number>, start: [number, number, number], maxDrop = 3)
     const [i, j, k] = q.pop()!;
     for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
       const ni = i + dx, nk = k + dz;
+      if (Math.abs(ni) > 90 || Math.abs(nk) > 90) continue;
       for (let nj = j + 1; nj >= Math.max(0, j - maxDrop); nj--) {
         if (!standable(cells, ni, nj, nk)) continue;
         // 1 つ 上がる ときは 今の 場所の 頭の 上も あいて いること
@@ -43,7 +45,7 @@ describe('gashaBig（#293 大きい がしゃどくろ）', () => {
   const { cells, hits, scale, model } = cellsAtOrigin();
 
   it('voxelize: 1 つの 箱は その 中に 中心が ある マスだけ', () => {
-    const one: WorldHit = { name: 't', center: [0.5, 0.5, 0.5], half: [1, 1, 1], axes: [[1, 0, 0], [0, 1, 0], [0, 0, 1]] };
+    const one: WorldHit = { name: 't', center: [1, 1, 1], half: [1, 1, 1], axes: [[1, 0, 0], [0, 1, 0], [0, 0, 1]] };
     expect(voxelize([one], 0, 0).size).toBe(8); // 2×2×2
     const rot: WorldHit = { ...one, axes: [[0, 0, 1], [0, 1, 0], [-1, 0, 0]] }; // 90 度 回しても おなじ
     expect(voxelize([rot], 0, 0).size).toBe(8);
@@ -58,8 +60,8 @@ describe('gashaBig（#293 大きい がしゃどくろ）', () => {
     expect(scale).toBeGreaterThan(0.5);
   });
 
-  it('描画回数: メッシュ 12 こ いか（目安 100 回 以内）', () => {
-    expect(model.meshes).toBeLessThanOrEqual(14);
+  it('描画回数: メッシュ 40 こ いか（目安 100 回 以内）', () => {
+    expect(model.meshes).toBeLessThanOrEqual(40);
   });
 
   it('当たりの 箱が ある（うで・雲・リボン・頭）', () => {

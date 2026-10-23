@@ -1,9 +1,12 @@
 /**
  * #293 試作（開発サーバーだけ）: 大きい がしゃどくろ（第一形態）の 見た目 と 登れる 当たり。
  * `?proto=gashaBig` のときだけ main.ts から 読まれる。見た目は design-v1 の C 案（黒の セーラー ＋ ピンクの スカーフ）を 箱で 作った もの。
- * ・描画回数を へらす ため、箱は ぜんぶ まとめて（部分ごとに 1 つの メッシュ）。ゲームに 光源は ないので MeshBasicMaterial ＋ 頂点の 色で、面の 向きごとに 明るさを かえて 立体に 見せる。
- * ・当たりは 見えない 箱（OBB）。プレイヤーの 当たりは ブロック（isSolidForPlayer）でしか 当たらないので、箱を ブロックの マスに 直して 「追加の 固いマス」として 足す（deps.addPlayerSolid）。
- * ・動かない（段 3 で うでを 動かす）。目は ふだん 白、`__gashaBig.angry(true)` で 赤。
+ * ・上半身は 関節ごとの Group（Meshy の 人型の 骨の 名前と おなじ: Hips, Spine, Spine01, Spine02, neck, Head, Left/Right の Shoulder・Arm・ForeArm・Hand）。
+ *   原点は 関節の 場所（回転の 中心）。休みの 姿勢では ぜんぶ 回転なし（向きは からだの 座標と おなじ）。`__gashaBig.joints()` で 名前 → Group。
+ * ・描画回数を へらす ため、箱は 関節ごとに まとめて 1 つの メッシュに する。ゲームに 光源は ないので MeshBasicMaterial ＋ 頂点の 色で、面の 向きごとに 明るさを かえて 立体に 見せる。
+ * ・当たりは 見えない 箱（OBB）で、関節の Group に ついて 動く。プレイヤーの 当たりは ブロック（isSolidForPlayer）でしか 当たらないので、箱を ブロックの マスに 直して
+ *   「追加の 固いマス」として 足す（deps.addPlayerSolid）。うでを 動かしたら `refreshColliders()` で 作りなおす。
+ * ・目は ふだん 白、`__gashaBig.angry(true)` で 赤。
  * 数は ぜんぶ gashaBigTuning.ts。
  */
 import {
@@ -34,26 +37,43 @@ const nailColor = (i: number) => (i % 2 ? 0xffd84a : 0xf27aa8);
 const LIGHT = new Vector3(-0.35, 0.8, 0.5).normalize();
 function shade(nx: number, ny: number, nz: number): number {
   const l = Math.max(0, nx * LIGHT.x + ny * LIGHT.y + nz * LIGHT.z);
-  return 0.56 + 0.44 * l * 1.15;
+  return Math.min(1, 0.56 + 0.44 * l * 1.15);
 }
 
 const vec = (x: number, y: number, z: number) => new Vector3(x, y, z);
 const UP = vec(0, 1, 0);
 
+// ---------------------------------------------------------------- 関節
+export const JOINT_NAMES = [
+  'Hips', 'Spine', 'Spine01', 'Spine02', 'neck', 'Head',
+  'LeftShoulder', 'LeftArm', 'LeftForeArm', 'LeftHand',
+  'RightShoulder', 'RightArm', 'RightForeArm', 'RightHand',
+] as const;
+export type JointName = (typeof JOINT_NAMES)[number];
+const PARENT: Record<JointName, JointName | null> = {
+  Hips: null, Spine: 'Hips', Spine01: 'Spine', Spine02: 'Spine01', neck: 'Spine02', Head: 'neck',
+  LeftShoulder: 'Spine02', LeftArm: 'LeftShoulder', LeftForeArm: 'LeftArm', LeftHand: 'LeftForeArm',
+  RightShoulder: 'Spine02', RightArm: 'RightShoulder', RightForeArm: 'RightArm', RightHand: 'RightForeArm',
+};
+
 // ---------------------------------------------------------------- 箱を ためて まとめる
-type BucketName = 'body' | 'head' | 'armL' | 'armR' | 'bright' | 'eyes' | 'eyeHalo' | 'brow' | 'glow' | 'glass';
-const SHADED: Record<BucketName, boolean> = { body: true, head: true, armL: true, armR: true, bright: false, eyes: false, eyeHalo: false, brow: true, glow: false, glass: false };
-const RGBA = new Set<BucketName>(['glow', 'glass']);
+/** 1 つの 関節の 中の 種類。main = ふつうの 箱（面ごとに 明るさ）、ほかは 影なし */
+type Kind = 'main' | 'bright' | 'eyes' | 'eyeHalo' | 'brow' | 'glow' | 'glass';
+const SHADED: Record<Kind, boolean> = { main: true, bright: false, eyes: false, eyeHalo: false, brow: true, glow: false, glass: false };
+const RGBA = new Set<Kind>(['glow', 'glass']);
 
 class Bucket {
   pos: number[] = [];
   col: number[] = [];
-  constructor(readonly rgba: boolean) {}
+  constructor(readonly joint: JointName, readonly kind: Kind) {}
+  get rgba(): boolean { return RGBA.has(this.kind); }
 }
 
 export interface Hit {
   name: string;
-  /** もとの 座標（からだ ぜんたいの 座標）での 中心・3 本の 軸（長さ 1）・はんぶんの 大きさ */
+  /** どの 関節に ついて 動くか */
+  joint: JointName;
+  /** もとの 座標（からだ ぜんたいの 休みの 姿勢）での 中心・3 本の 軸（長さ 1）・はんぶんの 大きさ */
   c: Vector3;
   axes: [Vector3, Vector3, Vector3];
   half: [number, number, number];
@@ -76,51 +96,54 @@ const FACES: { n: [number, number, number]; v: [number, number, number][] }[] = 
 ];
 
 class Builder {
-  readonly buckets = new Map<BucketName, Bucket>();
+  readonly buckets = new Map<string, Bucket>();
   readonly hits: Hit[] = [];
-  bucket(n: BucketName): Bucket {
-    let b = this.buckets.get(n);
-    if (!b) { b = new Bucket(RGBA.has(n)); this.buckets.set(n, b); }
+  bucket(joint: JointName, kind: Kind): Bucket {
+    const k = `${joint}|${kind}`;
+    let b = this.buckets.get(k);
+    if (!b) { b = new Bucket(joint, kind); this.buckets.set(k, b); }
     return b;
   }
-  root(bucket: BucketName): Node { return new Node(this, bucket, new Matrix4()); }
+  /** 休みの 姿勢の 座標（からだの 座標）で 作りはじめる。joint は その 箱が ついて 動く 関節 */
+  root(joint: JointName): Node { return new Node(this, joint, new Matrix4()); }
 
-  /** 頂点を 1 つ ためる（p は もとの 座標、n は 法線、alpha は 半透明の ときだけ） */
-  push(bucket: BucketName, p: Vector3, n: Vector3, color: number, alpha = 1, flat?: number): void {
-    const b = this.bucket(bucket);
+  /** 頂点を 1 つ ためる（p は からだの 座標、n は 法線） */
+  push(joint: JointName, kind: Kind, p: Vector3, n: Vector3, color: number, alpha = 1, flat?: number): void {
+    const b = this.bucket(joint, kind);
     b.pos.push(p.x, p.y, p.z);
     tmpC.setHex(color);
-    const f = flat ?? (SHADED[bucket] ? shade(n.x, n.y, n.z) : 1);
+    const f = flat ?? (SHADED[kind] ? shade(n.x, n.y, n.z) : 1);
     if (b.rgba) b.col.push(tmpC.r * f, tmpC.g * f, tmpC.b * f, alpha);
     else b.col.push(tmpC.r * f, tmpC.g * f, tmpC.b * f);
   }
 }
 
 class Node {
-  constructor(readonly b: Builder, readonly bucket: BucketName, readonly m: Matrix4) {}
+  constructor(readonly b: Builder, readonly joint: JointName, readonly m: Matrix4) {}
 
-  group(x: number, y: number, z: number, rot?: [number, number, number], scale?: [number, number, number], order: 'XYZ' | 'YXZ' = 'XYZ', bucket?: BucketName): Node {
+  /** おなじ 場所で ついて 動く 関節だけ かえる */
+  at(joint: JointName): Node { return new Node(this.b, joint, this.m); }
+
+  group(x: number, y: number, z: number, rot?: [number, number, number], scale?: [number, number, number], order: 'XYZ' | 'YXZ' = 'XYZ'): Node {
     const q = new Quaternion().setFromEuler(new Euler(rot?.[0] ?? 0, rot?.[1] ?? 0, rot?.[2] ?? 0, order));
     const local = new Matrix4().compose(vec(x, y, z), q, scale ? vec(...scale) : vec(1, 1, 1));
-    return new Node(this.b, bucket ?? this.bucket, this.m.clone().multiply(local));
+    return new Node(this.b, this.joint, this.m.clone().multiply(local));
   }
 
   /** 箱（中心 x,y,z、大きさ w,h,d、回転 rot） */
-  box(w: number, h: number, d: number, x: number, y: number, z: number, color: number, rot?: [number, number, number], bucket?: BucketName): void {
+  box(w: number, h: number, d: number, x: number, y: number, z: number, color: number, rot?: [number, number, number], kind: Kind = 'main'): void {
     const q = rot ? new Quaternion().setFromEuler(new Euler(rot[0], rot[1], rot[2], 'XYZ')) : new Quaternion();
     const M = tmpM.copy(this.m).multiply(new Matrix4().compose(vec(x, y, z), q, vec(w, h, d)));
-    this.quads(M, color, bucket ?? this.bucket);
+    this.quads(M, color, kind);
   }
 
-  quads(M: Matrix4, color: number, bucket: BucketName, alpha = 1, flat?: number): void {
+  quads(M: Matrix4, color: number, kind: Kind, alpha = 1, flat?: number): void {
     const nm = tmpN.getNormalMatrix(M);
-    const n = tmpV;
     const p = [vec(0, 0, 0), vec(0, 0, 0), vec(0, 0, 0), vec(0, 0, 0)];
     for (const f of FACES) {
-      n.set(f.n[0], f.n[1], f.n[2]).applyMatrix3(nm).normalize();
+      const nn = tmpV.set(f.n[0], f.n[1], f.n[2]).applyMatrix3(nm).normalize().clone();
       for (let i = 0; i < 4; i++) p[i]!.set(f.v[i]![0], f.v[i]![1], f.v[i]![2]).applyMatrix4(M);
-      const nn = n.clone();
-      for (const i of [0, 1, 2, 0, 2, 3]) this.b.push(bucket, p[i]!, nn, color, alpha, flat);
+      for (const i of [0, 1, 2, 0, 2, 3]) this.b.push(this.joint, kind, p[i]!, nn, color, alpha, flat);
     }
   }
 
@@ -131,30 +154,29 @@ class Node {
     this.quads(M, color, 'glow', alpha, 1);
   }
 
-  /** 3 つの 辺で できた 形（Extrude・Cylinder など）を 入れる。local は 形の 中の 変形 */
-  geom(g: BufferGeometry, color: number, local?: Matrix4, bucket?: BucketName, alpha = 1, shadeFn?: (n: Vector3) => number): void {
+  /** Extrude・Cylinder など 形の 頂点を 入れる。local は 形の 中の 変形 */
+  geom(g: BufferGeometry, color: number, local?: Matrix4, kind: Kind = 'main', alpha = 1): void {
     const gg = g.index ? g.toNonIndexed() : g;
     const M = tmpM.copy(this.m);
     if (local) M.multiply(local);
     const nm = new Matrix3().getNormalMatrix(M);
     const pa = gg.getAttribute('position'), na = gg.getAttribute('normal');
-    const bk = bucket ?? this.bucket;
     for (let i = 0; i < pa.count; i++) {
       tmpP.fromBufferAttribute(pa, i).applyMatrix4(M);
       const n = vec(na.getX(i), na.getY(i), na.getZ(i)).applyMatrix3(nm).normalize();
-      this.b.push(bk, tmpP, n, color, alpha, shadeFn ? shadeFn(n) : undefined);
+      this.b.push(this.joint, kind, tmpP, n, color, alpha);
     }
   }
 
   /** 線の ように のびた 箱（a → b。from〜to で 一部だけ）。幅 w は 左右、厚み h は 上下 */
-  seg(a: Vector3, b: Vector3, w: number, h: number, color: number, from = 0, to = 1, bucket?: BucketName): void {
+  seg(a: Vector3, b: Vector3, w: number, h: number, color: number, from = 0, to = 1): void {
     const A = a.clone().lerp(b, from), B = a.clone().lerp(b, to);
     const d = B.clone().sub(A);
     const len = d.length();
     const { q } = frameOf(d.clone().normalize());
     const mid = A.clone().add(B).multiplyScalar(0.5);
     const M = tmpM.copy(this.m).multiply(new Matrix4().compose(mid, q, vec(w, h, len)));
-    this.quads(M, color, bucket ?? this.bucket);
+    this.quads(M, color, 'main');
   }
 
   /** 当たりの 箱を 足す（この 場所の 箱と おなじ 大きさ・向き）。親に 左右で ちがう 拡大が ある 所では 使わない */
@@ -164,7 +186,7 @@ class Node {
     const pos = new Vector3(), qq = new Quaternion(), sc = new Vector3();
     M.decompose(pos, qq, sc);
     this.b.hits.push({
-      name, c: pos,
+      name, joint: this.joint, c: pos,
       axes: [vec(1, 0, 0).applyQuaternion(qq), vec(0, 1, 0).applyQuaternion(qq), vec(0, 0, 1).applyQuaternion(qq)],
       half: [(w * sc.x) / 2, (h * sc.y) / 2, (d * sc.z) / 2],
     });
@@ -214,7 +236,7 @@ function cloudOutline(L: number, W: number, tail: number, bump: number): Shape {
   return sh;
 }
 
-interface CloudOpts { a: Vector3; b: Vector3; width: number; thick: number; hitFill: number; hitThick: number; tail?: number; swirls?: number; name: string; rnd: () => number }
+interface CloudOpts { joint: JointName; a: Vector3; b: Vector3; width: number; thick: number; hitFill: number; hitThick: number; tail?: number; swirls?: number; name: string }
 
 /** 雲を 1 つ。a→b は 上の 面の まんなかの 線（あしばの 長さ）。見た目は すりガラス、当たりは 箱 */
 function cloud(b: Builder, o: CloudOpts): void {
@@ -229,28 +251,26 @@ function cloud(b: Builder, o: CloudOpts): void {
   // 形の x → u、y → 横、z（おしだし）→ 上。上の 面が a→b の 線に のるように ずらす
   const mid = o.a.clone().add(o.b).multiplyScalar(0.5);
   const R = new Matrix4().makeBasis(u, side, n);
-  const local = new Matrix4().makeTranslation(mid.x, mid.y, mid.z).multiply(R).multiply(new Matrix4().makeTranslation(0, 0, -(o.thick - bt)));
-  const nUp = n.clone();
-  // 頂点ごとに 色・濃さ: 上 = alphaTop、横 = alphaSide（ふちが 明るい）、下 = alphaBottom
+  const M = new Matrix4().makeTranslation(mid.x, mid.y, mid.z).multiply(R).multiply(new Matrix4().makeTranslation(0, 0, -(o.thick - bt)));
   const gg = geo.index ? geo.toNonIndexed() : geo;
-  const M = local;
   const nm = new Matrix3().getNormalMatrix(M);
   const pa = gg.getAttribute('position'), na = gg.getAttribute('normal');
+  const bk = b.bucket(o.joint, 'glass');
+  const white = new Color(0xffffff);
   for (let i = 0; i < pa.count; i++) {
     tmpP.fromBufferAttribute(pa, i).applyMatrix4(M);
     const nn = vec(na.getX(i), na.getY(i), na.getZ(i)).applyMatrix3(nm).normalize();
-    const t = nn.dot(nUp);
+    const t = nn.dot(n);
+    // 上 = alphaTop、横 = alphaSide（ふちが 明るい）、下 = alphaBottom
     const alpha = t >= 0 ? g.alphaSide + (g.alphaTop - g.alphaSide) * t : g.alphaSide + (g.alphaBottom - g.alphaSide) * -t;
-    tmpC.setHex(g.color).lerp(new Color(0xffffff), (1 - Math.abs(t)) * 0.7);
-    const bk = b.bucket('glass');
+    tmpC.setHex(g.color).lerp(white, (1 - Math.abs(t)) * 0.7);
     bk.pos.push(tmpP.x, tmpP.y, tmpP.z);
     bk.col.push(tmpC.r, tmpC.g, tmpC.b, alpha);
   }
   geo.dispose();
   // うずまきの 線（上の 面に のる 細い 帯。らせん）
   const sw = o.swirls ?? 2;
-  const swirlNode = new Node(b, 'glass', new Matrix4());
-  const lineC = g.swirlColor;
+  const swirlNode = new Node(b, o.joint, new Matrix4());
   for (let k = 0; k < sw; k++) {
     const f = (k + 0.5) / sw;
     const cu = (f - 0.5) * len * 0.78, cs = (k % 2 ? -1 : 1) * o.width * 0.05;
@@ -266,20 +286,24 @@ function cloud(b: Builder, o: CloudOpts): void {
         const d = pt.clone().sub(prev);
         const L2 = d.length();
         const { q } = frameOf(d.clone().normalize());
-        const MM = new Matrix4().compose(prev.clone().add(pt).multiplyScalar(0.5), q, vec(0.55, 0.12, L2 + 0.25));
-        swirlNode.quads(MM, lineC, 'glass', 0.92, 1);
+        swirlNode.quads(new Matrix4().compose(prev.clone().add(pt).multiplyScalar(0.5), q, vec(0.55, 0.12, L2 + 0.25)), g.swirlColor, 'glass', 0.92, 1);
       }
       prev = pt;
     }
   }
   // 当たり: 長さ方向は a→b いっぱい、はばは hitFill、あつさは hitThick（上の 面が 見た目と そろう）
   const hc = mid.clone().addScaledVector(n, -o.hitThick / 2);
-  b.hits.push({ name: o.name, c: hc, axes: [u.clone(), n.clone(), side.clone()], half: [len / 2, o.hitThick / 2, (o.width * o.hitFill) / 2] });
+  b.hits.push({ name: o.name, joint: o.joint, c: hc, axes: [u.clone(), n.clone(), side.clone()], half: [len / 2, o.hitThick / 2, (o.width * o.hitFill) / 2] });
 }
 
 // ---------------------------------------------------------------- 本体
 export interface BigModel {
+  /** ぜんたいの 親（位置・向き・拡大は これに つける） */
   group: Group;
+  /** 関節ごとの Group（Hips が group の 子） */
+  joints: Record<JointName, Group>;
+  /** 休みの 姿勢での 関節の 位置（からだの 座標） */
+  rest: Record<JointName, Vector3>;
   hits: Hit[];
   eyes: MeshBasicMaterial;
   eyeHalo: MeshBasicMaterial;
@@ -301,6 +325,23 @@ export function buildBig(): BigModel {
   const Tt = (x: number, y: number, z: number) => vec(x * 1.45, y * 1.1, z * 1.3).applyAxisAngle(vec(1, 0, 0), PITCH).add(HIP);
   const A = T.arm;
 
+  // 関節の 場所（休みの 姿勢）
+  const hn = Tt(0, 38, -6);
+  const headPos = vec(hn.x, hn.y + 0.6, hn.z + 5.6);
+  const rest = {
+    Hips: HIP.clone(), Spine: Tt(0, 6, -6), Spine01: Tt(0, 16, -6), Spine02: Tt(0, 26, -6), neck: Tt(0, 36, -6), Head: headPos.clone(),
+  } as Record<JointName, Vector3>;
+  const armPts: Record<string, { S: Vector3; E: Vector3; Wr: Vector3 }> = {};
+  for (const s of [-1, 1]) {
+    const nm = s > 0 ? 'Left' : 'Right';
+    const S = Tt(s * 12.5, 33.2, -0.5);
+    const E = S.clone().add(vec(s * A.upper[0], A.upper[1], A.upper[2]));
+    const Wr = E.clone().add(vec(s * A.fore[0], A.fore[1], A.fore[2]));
+    rest[`${nm}Shoulder` as JointName] = Tt(s * 4, 34.5, 1.4);
+    rest[`${nm}Arm` as JointName] = S; rest[`${nm}ForeArm` as JointName] = E; rest[`${nm}Hand` as JointName] = Wr;
+    armPts[nm] = { S, E, Wr };
+  }
+
   const moss = (p: Node, x: number, y: number, z: number, n = 3, spread = 1.6): void => {
     for (let i = 0; i < n; i++) {
       const s = 0.7 + rnd() * 1.3;
@@ -311,39 +352,44 @@ export function buildBig(): BigModel {
     for (const t of ts) { const c = a.clone().lerp(bb, t); moss(p, c.x, c.y + up, c.z, 3, 1.8); }
   };
 
-  // --- 胴体（背骨・ろっ骨・ぼろぼろセーラー服）。ここは 当たりを 置かない（拡大が 左右で ちがう ため）
-  const bodyRoot = b.root('body');
-  const torso = bodyRoot.group(HIP.x, HIP.y, HIP.z, [PITCH, 0, 0], [1.45, 1.1, 1.3]);
-  torso.box(9, 24, 1.0, 0, 24, -5.0, 0x5a463c);
+  // --- 胴体（背骨・ろっ骨・ぼろぼろセーラー服）。箱は ついて 動く 関節ごとに 分ける。ここには 当たりを 置かない（拡大が 左右で ちがう ため）
+  const torso = b.root('Spine02').group(HIP.x, HIP.y, HIP.z, [PITCH, 0, 0], [1.45, 1.1, 1.3]);
+  const tj = (j: JointName) => torso.at(j);
+  const vJoint = (i: number): JointName => (i < 3 ? 'Hips' : i < 9 ? 'Spine' : i < 15 ? 'Spine01' : 'Spine02');
+  tj('Spine01').box(9, 24, 1.0, 0, 24, -5.0, 0x5a463c);
   for (let i = 0; i < 20; i++) {
-    const y = 3 + i * 2.05, w = 3.3 + (i % 2) * 0.6;
-    torso.box(w, 1.8, 3.2, 0, y, -7.2, i % 2 ? BONE : BONE_D);
-    torso.box(1.2, 1.3, 2.4, 0, y, -9.0, i % 2 ? BONE_D : BONE);
-    if (i > 6 && i < 17) moss(torso, 0.8 * (i % 3 - 1), y + 0.8, -8.6, 1, 1);
+    const y = 3 + i * 2.05, w = 3.3 + (i % 2) * 0.6, t = tj(vJoint(i));
+    t.box(w, 1.8, 3.2, 0, y, -7.2, i % 2 ? BONE : BONE_D);
+    t.box(1.2, 1.3, 2.4, 0, y, -9.0, i % 2 ? BONE_D : BONE);
+    if (i > 6 && i < 17) moss(t, 0.8 * (i % 3 - 1), y + 0.8, -8.6, 1, 1);
   }
-  for (let i = 0; i < 3; i++) torso.box(2.6, 1.5, 2.6, 0, 38.5 + i * 1.6, -6.2 + i * 0.4, i % 2 ? BONE : BONE_D);
+  for (let i = 0; i < 3; i++) tj('neck').box(2.6, 1.5, 2.6, 0, 38.5 + i * 1.6, -6.2 + i * 0.4, i % 2 ? BONE : BONE_D);
   const RIB_LV = 7;
   for (let i = 0; i < RIB_LV; i++) {
     const y = 15.5 + i * 2.75, a = 8 + 3.6 * Math.sin(Math.PI * (i + 1.1) / (RIB_LV + 1.6)), bb = a * 0.72;
+    const t = tj(i < 2 ? 'Spine01' : 'Spine02');
     for (const s of [-1, 1]) {
       let prev: Vector3 | null = null;
       for (let k = 0; k <= 7; k++) {
         const phi = 0.12 + (k / 7) * Math.PI * 0.82;
         const p = vec(s * a * Math.sin(phi), y - (k > 5 ? 0.4 : 0) - 0.12 * k, bb * Math.cos(phi) * (phi > 1.6 ? 0.92 : 1) + 0.3);
-        if (prev) torso.seg(prev, p, 1.8, 1.75, k % 2 ? BONE : BONE_D);
+        if (prev) t.seg(prev, p, 1.8, 1.75, k % 2 ? BONE : BONE_D);
         prev = p;
       }
-      torso.box(1.9, 1.9, 1.9, s * 1.3, y, bb + 0.5, BONE_D);
+      t.box(1.9, 1.9, 1.9, s * 1.3, y, bb + 0.5, BONE_D);
     }
   }
-  torso.box(2.4, 20, 1.5, 0, 24, 6.7, BONE);
-  torso.box(1.6, 17, 1.2, 0, 24, 7.5, BONE_D);
-  torso.box(24, 2.2, 2.4, 0, 34.5, 1.4, BONE);
+  const chest = tj('Spine02');
+  chest.box(2.4, 20, 1.5, 0, 24, 6.7, BONE);
+  chest.box(1.6, 17, 1.2, 0, 24, 7.5, BONE_D);
+  chest.box(24, 2.2, 2.4, 0, 34.5, 1.4, BONE);
   for (const s of [-1, 1]) {
-    torso.box(6, 2, 8, s * 11.5, 34.7, -3, BONE_D);
-    torso.box(4.6, 4.6, 4.6, s * 12.5, 33.5, -0.5, BONE);
+    const sh = tj(s > 0 ? 'LeftShoulder' : 'RightShoulder');
+    sh.box(6, 2, 8, s * 11.5, 34.7, -3, BONE_D); // けんこうこつ
+    sh.box(6.5, 3.6, 8.5, s * 11, 35.4, -3, C.top); // かたの ぬの
+    moss(sh, s * 12, 37, -1.5, 3, 3);
   }
-  moss(torso, -3, 36, 1.4, 4, 3); moss(torso, 7, 36, 0.5, 3, 3);
+  moss(chest, -3, 36, 1.4, 4, 3); moss(chest, 7, 36, 0.5, 3, 3);
   // ぼろぼろセーラー服
   const cl = C.top, cd = C.topDark;
   const rag = (p: Node, w: number, h: number, d: number, x: number, y: number, z: number, c: number, teeth = 3, rot?: [number, number, number]): void => {
@@ -351,37 +397,34 @@ export function buildBig(): BigModel {
     g.box(w, h, d, 0, 0, 0, c);
     for (let i = 0; i < teeth; i++) g.box(w / teeth * 0.7, 0.8 + rnd() * 2.2, d, -w / 2 + (i + 0.5) * (w / teeth), -h / 2 - 0.4 - (i % 2) * 0.8, 0, c);
   };
-  rag(torso, 6.2, 9, 0.7, -5.3, 14, -8.6, cl, 3); rag(torso, 6.2, 7, 0.7, 5.3, 13, -8.6, cl, 3);
-  torso.box(6.5, 3.6, 8.5, -11, 35.4, -3, cl); torso.box(6.5, 3.6, 8.5, 11, 35.4, -3, cl);
-  rag(torso, 2.2, 5, 0.8, -14.5, 21, -1.5, cl, 2, [0, -1.2, 0.1]);
-  rag(torso, 2.2, 6, 0.8, 14.8, 20, -1.5, cl, 2, [0, 1.2, -0.08]);
-  rag(torso, 4.0, 4, 0.8, -4.5, 11.5, 7.4, cl, 3, [0, 0, 0.15]);
-  rag(torso, 5.5, 3, 0.8, 5.0, 10.5, 7.6, cl, 3, [0, 0, -0.2]);
+  rag(tj('Spine'), 6.2, 9, 0.7, -5.3, 14, -8.6, cl, 3); rag(tj('Spine'), 6.2, 7, 0.7, 5.3, 13, -8.6, cl, 3);
+  rag(tj('Spine01'), 2.2, 5, 0.8, -14.5, 21, -1.5, cl, 2, [0, -1.2, 0.1]);
+  rag(tj('Spine01'), 2.2, 6, 0.8, 14.8, 20, -1.5, cl, 2, [0, 1.2, -0.08]);
+  rag(tj('Spine'), 4.0, 4, 0.8, -4.5, 11.5, 7.4, cl, 3, [0, 0, 0.15]);
+  rag(tj('Spine'), 5.5, 3, 0.8, 5.0, 10.5, 7.6, cl, 3, [0, 0, -0.2]);
   for (const s of [-1, 1]) {
-    torso.seg(vec(s * 11.8, 37.0, 0.5), vec(s * 0.8, 29.5, 8.3), 4.2, 0.9, cd);
-    torso.seg(vec(s * 11.8, 37.3, 0.5), vec(s * 1.4, 30.2, 8.7), 0.9, 0.6, C.stripe, 0.0, 0.95);
-    torso.seg(vec(s * 11.3, 36.4, 1.5), vec(s * 0.6, 28.8, 8.8), 0.9, 0.6, C.stripe, 0.1, 0.95);
+    chest.seg(vec(s * 11.8, 37.0, 0.5), vec(s * 0.8, 29.5, 8.3), 4.2, 0.9, cd);
+    chest.seg(vec(s * 11.8, 37.3, 0.5), vec(s * 1.4, 30.2, 8.7), 0.9, 0.6, C.stripe, 0.0, 0.95);
+    chest.seg(vec(s * 11.3, 36.4, 1.5), vec(s * 0.6, 28.8, 8.8), 0.9, 0.6, C.stripe, 0.1, 0.95);
   }
-  torso.box(15, 0.9, 9.5, 0, 37.6, -4.2, cd);
-  torso.box(15.4, 0.5, 0.7, 0, 37.9, -9.0, C.stripe);
+  chest.box(15, 0.9, 9.5, 0, 37.6, -4.2, cd);
+  chest.box(15.4, 0.5, 0.7, 0, 37.9, -9.0, C.stripe);
   {
-    const g = torso.group(0, 29.4, 9.4, [-0.1, 0, 0]);
+    const g = chest.group(0, 29.4, 9.4, [-0.1, 0, 0]);
     g.box(3.2, 3.2, 1.8, 0, 0, 0.3, C.scarf2);
     g.box(4.6, 2.8, 1.2, -3.6, 0.4, 0, C.scarf, [0, 0, 0.3]); g.box(4.6, 2.8, 1.2, 3.6, 0.4, 0, C.scarf, [0, 0, -0.3]);
     g.box(1.8, 6.5, 0.9, -1.1, -4.4, 0.1, C.scarf, [0, 0, 0.12]); g.box(1.8, 5.0, 0.9, 1.2, -3.8, 0.1, C.scarf2, [0, 0, -0.12]);
   }
   // 缶バッジ と 鈴
-  torso.geom(new CylinderGeometry(1.7, 1.7, 0.5, 10), 0xffd84a, new Matrix4().compose(vec(-7.0, 33.2, 9.2), new Quaternion().setFromEuler(new Euler(Math.PI / 2, 0, 0)), vec(1, 1, 1)));
-  torso.box(1.2, 0.3, 0.3, -7.0, 33.2, 9.5, INK); torso.box(0.3, 0.3, 0.3, -7.6, 33.8, 9.5, INK); torso.box(0.3, 0.3, 0.3, -6.4, 33.8, 9.5, INK);
-  torso.box(1.2, 1.2, 0.4, -7.0, 31.2, 9.4, 0xf27aa8);
-  torso.box(2.0, 2.0, 2.0, 6.6, 31.6, 9.0, 0xffd23a); torso.box(2.0, 0.35, 2.05, 6.6, 31.6, 9.0, 0xc9a020); torso.box(0.5, 0.5, 2.1, 6.6, 31.0, 9.0, 0x6a4a10);
-  torso.box(1.2, 0.6, 0.6, 6.6, 33.0, 9.0, 0xf27aa8);
+  chest.geom(new CylinderGeometry(1.7, 1.7, 0.5, 10), 0xffd84a, new Matrix4().compose(vec(-7.0, 33.2, 9.2), new Quaternion().setFromEuler(new Euler(Math.PI / 2, 0, 0)), vec(1, 1, 1)));
+  chest.box(1.2, 0.3, 0.3, -7.0, 33.2, 9.5, INK); chest.box(0.3, 0.3, 0.3, -7.6, 33.8, 9.5, INK); chest.box(0.3, 0.3, 0.3, -6.4, 33.8, 9.5, INK);
+  chest.box(1.2, 1.2, 0.4, -7.0, 31.2, 9.4, 0xf27aa8);
+  chest.box(2.0, 2.0, 2.0, 6.6, 31.6, 9.0, 0xffd23a); chest.box(2.0, 0.35, 2.05, 6.6, 31.6, 9.0, 0xc9a020); chest.box(0.5, 0.5, 2.1, 6.6, 31.0, 9.0, 0x6a4a10);
+  chest.box(1.2, 0.6, 0.6, 6.6, 33.0, 9.0, 0xf27aa8);
 
-  // --- あたま
-  const hn = Tt(0, 38, -6);
-  const headPos = vec(hn.x, hn.y + 0.6, hn.z + 5.6);
+  // --- あたま（関節 Head）
   const headYaw = (T.place.headYawDeg * Math.PI) / 180;
-  const head = b.root('head').group(headPos.x, headPos.y, headPos.z, [0.17, headYaw, 0], undefined, 'YXZ');
+  const head = b.root('Head').group(headPos.x, headPos.y, headPos.z, [0.17, headYaw, 0], undefined, 'YXZ');
   {
     const R = 9.5, bt = 3.0, bs = 1.4, dep = 9.4;
     const geo = new ExtrudeGeometry(octShape(R, 3.6), { depth: dep, bevelEnabled: true, bevelThickness: bt, bevelSize: bs, bevelOffset: 0, bevelSegments: 3, curveSegments: 4 });
@@ -423,7 +466,7 @@ export function buildBig(): BigModel {
     }
     rb.hit('ribbonKnot', 4.8, 4.2, 3.8, 0, 0.5, 0);
   }
-  // 頭がいの 当たり（上の 面は 少し 前に かたむく）
+  // 頭がいの 当たり
   head.hit('skull', 19.2, 15.4, 19.4, 0, 12.7, -0.2);
   // ほお骨・あご
   head.box(15.5, 5.4, 15.5, 0, 2.6, 1.4, BONE_D);
@@ -448,7 +491,7 @@ export function buildBig(): BigModel {
   for (let i = 0; i < 6; i++) { const x = (i - 2.5) * 1.3; head.box(1.15, 1.15, 0.9, x, 3.2 + 0.07 * x * x, 10.0, 0xfffbee); }
   for (let i = 0; i < 4; i++) { const x = (i - 1.5) * 1.3; head.box(1.15, 1.0, 0.9, x, 1.7 + 0.05 * x * x, 10.0, 0xfffbee); }
   head.box(0.5, 0.5, 0.9, -5.0, 4.2, 9.9, DARK); head.box(0.5, 0.5, 0.9, 5.0, 4.2, 9.9, DARK);
-  moss(head, -5, 18.6, 3, 5, 4); moss(head, -2, 20.4, -5, 3, 3); moss(head, 6, 19.4, -4, 3, 3); moss(torso, -12, 37, -2, 4, 4); moss(torso, 12, 37, -1, 4, 4); moss(head, 7, 17.5, 5, 4, 3); moss(head, -9.5, 11, -2, 3, 3); moss(head, 4, 17.8, -6, 4, 3); moss(head, 10.6, 12, 2, 3, 2);
+  moss(head, -5, 18.6, 3, 5, 4); moss(head, -2, 20.4, -5, 3, 3); moss(head, 6, 19.4, -4, 3, 3); moss(head, 7, 17.5, 5, 4, 3); moss(head, -9.5, 11, -2, 3, 3); moss(head, 4, 17.8, -6, 4, 3); moss(head, 10.6, 12, 2, 3, 2);
   head.box(4.5, 1.2, 4.5, -7.8, 17.2, -4, MOSS[1]!); head.box(3, 1.0, 3, -8.5, 16.5, -2, MOSS[0]!);
   // ヘアバンド
   {
@@ -475,9 +518,8 @@ export function buildBig(): BigModel {
   {
     const P0 = vec(4.9, 9.6, 8.5), d = vec(0.85, 0.38, 0.4).normalize();
     const g = head.group(P0.x, P0.y, P0.z);
-    // 矢の 向き（z → d）
     const qa = new Quaternion().setFromUnitVectors(vec(0, 0, 1), d);
-    const ga = new Node(b, 'head', g.m.clone().multiply(new Matrix4().makeRotationFromQuaternion(qa)));
+    const ga = new Node(b, 'Head', g.m.clone().multiply(new Matrix4().makeRotationFromQuaternion(qa)));
     ga.box(1.5, 1.5, 28, 0, 0, 12, 0xc99358); ga.box(0.6, 0.6, 28, 0.5, 0.5, 12, 0xe0b27a);
     ga.box(2.2, 2.2, 0.8, 0, 0, 26.2, 0x8a5a2a);
     for (let k = 0; k < 3; k++) {
@@ -502,23 +544,26 @@ export function buildBig(): BigModel {
   let nailI = 0;
   const th = A.handThick;
   for (const s of [-1, 1]) {
-    const S = Tt(s * 12.5, 33.2, -0.5);
-    const E = S.clone().add(vec(s * A.upper[0], A.upper[1], A.upper[2]));
-    const Wr = E.clone().add(vec(s * A.fore[0], A.fore[1], A.fore[2]));
-    const arm = b.root(s > 0 ? 'armL' : 'armR');
+    const nmS = s > 0 ? 'Left' : 'Right', sd = s < 0 ? 'R' : 'L';
+    const { S, E, Wr } = armPts[nmS]!;
+    const jA = `${nmS}Arm` as JointName, jF = `${nmS}ForeArm` as JointName, jH = `${nmS}Hand` as JointName;
+    const upper = b.root(jA), fore = b.root(jF), hand = b.root(jH);
     const uF = Wr.clone().sub(E).normalize();
-    // 上わん（そで ぼろぼろ）と 前わん
-    arm.seg(S, E, 3.6, 3.6, BONE); arm.seg(S, E, 1.2, 1.2, BONE_D, 0.1, 0.9);
-    arm.box(4.4, 4.4, 4.4, E.x, E.y, E.z, BONE_D); arm.box(3.6, 3.6, 3.6, E.x, E.y + 0.3, E.z, BONE);
-    arm.seg(E, Wr, A.foreWidth, A.foreThick, BONE); arm.seg(E.clone().add(vec(1.1 * s, 0.3, 0)), Wr.clone().add(vec(1.1 * s, 0.3, 0)), 1.2, 1.2, BONE_D);
-    arm.box(A.foreWidth - 0.4, 3.0, 3.6, Wr.x, Wr.y, Wr.z, BONE_D);
-    mossAlong(arm, S, E, [0.2, 0.55, 0.8], 2.0); mossAlong(arm, E, Wr, [0.3, 0.6], 1.9);
-    arm.seg(S, E, 6.0, A.upperThick, cl, -0.08, 0.5);
-    arm.seg(S, E, 6.4, A.upperThick + 0.4, C.stripe, 0.46, 0.5); arm.seg(S, E, 6.0, A.upperThick, cd, 0.5, 0.56);
-    for (let i = 0; i < 3; i++) { const c = S.clone().lerp(E, 0.58 + i * 0.01); arm.box(1.6, 2.4, 1.6, c.x + (i - 1) * 2.1, c.y - 0.6 - (i % 2) * 0.9, c.z + 1.0, cd); }
-    // 手: てのひら と 指（先に ネイル）。地面に ぺたんと
+    // 上わん（そで ぼろぼろ）: 関節 Arm
+    upper.box(4.6, 4.6, 4.6, S.x, S.y, S.z, BONE_D); // かたの 関節
+    upper.seg(S, E, 3.6, 3.6, BONE); upper.seg(S, E, 1.2, 1.2, BONE_D, 0.1, 0.9);
+    mossAlong(upper, S, E, [0.2, 0.55, 0.8], 2.0);
+    upper.seg(S, E, 6.0, A.upperThick, cl, -0.08, 0.5);
+    upper.seg(S, E, 6.4, A.upperThick + 0.4, C.stripe, 0.46, 0.5); upper.seg(S, E, 6.0, A.upperThick, cd, 0.5, 0.56);
+    for (let i = 0; i < 3; i++) { const c = S.clone().lerp(E, 0.58 + i * 0.01); upper.box(1.6, 2.4, 1.6, c.x + (i - 1) * 2.1, c.y - 0.6 - (i % 2) * 0.9, c.z + 1.0, cd); }
+    // 前わん: 関節 ForeArm
+    fore.box(4.4, 4.4, 4.4, E.x, E.y, E.z, BONE_D); fore.box(3.6, 3.6, 3.6, E.x, E.y + 0.3, E.z, BONE);
+    fore.seg(E, Wr, A.foreWidth, A.foreThick, BONE); fore.seg(E.clone().add(vec(1.1 * s, 0.3, 0)), Wr.clone().add(vec(1.1 * s, 0.3, 0)), 1.2, 1.2, BONE_D);
+    mossAlong(fore, E, Wr, [0.3, 0.6], 1.9);
+    // 手: 関節 Hand（てのひら と 指。先に ネイル。地面に ぺたんと）
+    hand.box(A.foreWidth - 0.4, 3.0, 3.6, Wr.x, Wr.y, Wr.z, BONE_D);
     const palmZ = Wr.z + 3.4, palmX = Wr.x;
-    arm.box(6.4, th, 7.0, palmX, th / 2, palmZ, BONE_D); arm.box(5.6, th, 6.2, palmX, th / 2 + 0.05, palmZ + 0.4, BONE);
+    hand.box(6.4, th, 7.0, palmX, th / 2, palmZ, BONE_D); hand.box(5.6, th, 6.2, palmX, th / 2 + 0.05, palmZ + 0.4, BONE);
     let tipZ = palmZ;
     for (let f = 0; f < 5; f++) {
       const thumb = f === 4;
@@ -530,97 +575,114 @@ export function buildBig(): BigModel {
         const rise = k === lens.length - 1 ? 0.2 : k === 1 ? 0.06 : 0;
         dir = vec(dir.x, rise, dir.z).normalize();
         const n = p.clone().addScaledVector(dir, L);
-        arm.seg(p, n, 1.25, Math.min(1.15, th * 0.95), k % 2 ? BONE : BONE_D);
-        arm.box(1.5, Math.min(1.4, th), 1.5, p.x, p.y, p.z, BONE_D);
+        hand.seg(p, n, 1.25, Math.min(1.15, th * 0.95), k % 2 ? BONE : BONE_D);
+        hand.box(1.5, Math.min(1.4, th), 1.5, p.x, p.y, p.z, BONE_D);
         p = n;
       });
       tipZ = Math.max(tipZ, p.z);
       const eu = new Euler().setFromQuaternion(new Quaternion().setFromUnitVectors(vec(0, 0, 1), dir.clone().normalize()));
       const tip = p.clone().addScaledVector(dir, 0.2).add(vec(0, 0.45, 0));
-      arm.box(1.15, 0.55, 1.5, tip.x, tip.y, tip.z, nailColor(nailI++), [eu.x, eu.y, eu.z]);
+      hand.box(1.15, 0.55, 1.5, tip.x, tip.y, tip.z, nailColor(nailI++), [eu.x, eu.y, eu.z]);
     }
     groundPts.push(vec(palmX, 0, palmZ), vec(palmX, 0, tipZ));
     // ---- 当たり（のぼる 道）。目に 見える 面と そろえる
-    const lineHit = (name: string, a: Vector3, bb: Vector3, width: number, thick: number): void => {
+    const lineHit = (name: string, joint: JointName, a: Vector3, bb: Vector3, width: number, thick: number): void => {
       const u = bb.clone().sub(a), len = u.length(); u.normalize();
       const { side, n } = frameOf(u);
-      b.hits.push({ name, c: a.clone().add(bb).multiplyScalar(0.5), axes: [side, n, u], half: [width / 2, thick / 2, len / 2] });
+      b.hits.push({ name, joint, c: a.clone().add(bb).multiplyScalar(0.5), axes: [side, n, u], half: [width / 2, thick / 2, len / 2] });
     };
-    const sd = s < 0 ? 'R' : 'L';
-    lineHit(`upperArm${sd}`, S, E, A.upperWidth, A.upperThick - 0.6);
+    lineHit(`upperArm${sd}`, jA, S, E, A.upperWidth, A.upperThick - 0.6);
     // 前わんは 手首の 先まで 少し のばして 手に つなぐ（手首が 浮いて 見えても 段が 1 つに なる）
-    lineHit(`foreArm${sd}`, E, Wr.clone().addScaledVector(uF, A.foreExtend), A.foreWidth - 0.2, A.foreThick - 0.2);
-    b.hits.push({ name: `hand${sd}`, c: vec(palmX, th / 2, (palmZ - 3.5 + tipZ) / 2), axes: [vec(1, 0, 0), vec(0, 1, 0), vec(0, 0, 1)], half: [3.4, th / 2, (tipZ - palmZ + 3.5) / 2] });
+    lineHit(`foreArm${sd}`, jF, E, Wr.clone().addScaledVector(uF, A.foreExtend), A.foreWidth - 0.2, A.foreThick - 0.2);
+    b.hits.push({ name: `hand${sd}`, joint: jH, c: vec(palmX, th / 2, (palmZ - 3.5 + tipZ) / 2), axes: [vec(1, 0, 0), vec(0, 1, 0), vec(0, 0, 1)], half: [3.4, th / 2, (tipZ - palmZ + 3.5) / 2] });
   }
 
   // --- 雲（こしから 下を かくす。つみあがる すりガラスの 渦雲）。上が 平らで 乗れる
   const W = T.waist;
-  const cOpt = { hitFill: T.collide.cloudFill, hitThick: T.collide.cloudThick, rnd };
+  const cOpt = { hitFill: T.collide.cloudFill, hitThick: T.collide.cloudThick };
   for (let t = 0; t < W.tiers; t++) {
     const top = (t + 1) * W.stepUp;
     const L = W.baseLen - t * W.shrink, D = W.baseDep - t * W.shrink * (W.baseDep / W.baseLen);
     const sgn = t % 2 ? 1 : -1;
-    cloud(b, { ...cOpt, a: vec(-L / 2 + sgn * 1.2, top, W.z), b: vec(L / 2 + sgn * 1.2, top, W.z), width: D, thick: Math.max(3, W.stepUp + 2.4), tail: t % 3 === 0 ? 6 : 0, swirls: t === W.tiers - 1 || t % 4 === 1 ? 2 : 0, name: `waist${t}` });
+    cloud(b, { ...cOpt, joint: 'Hips', a: vec(-L / 2 + sgn * 1.2, top, W.z), b: vec(L / 2 + sgn * 1.2, top, W.z), width: D, thick: Math.max(3, W.stepUp + 2.4), tail: t % 3 === 0 ? 6 : 0, swirls: t === W.tiers - 1 || t % 4 === 1 ? 2 : 0, name: `waist${t}` });
   }
   const R_ = T.route;
   for (const s of [-1, 1]) {
-    const side = s < 0 ? 'R' : 'L';
+    const sd = s < 0 ? 'R' : 'L';
     const mir = (p: number[]) => vec(s * p[0]!, p[1]!, p[2]!);
-    cloud(b, { ...cOpt, a: mir(R_.shoulder.a), b: mir(R_.shoulder.b), width: R_.shoulder.width, thick: R_.shoulder.thick, tail: 8, swirls: 3, name: `shoulder${side}` });
-    cloud(b, { ...cOpt, a: mir(R_.rampOut.a), b: mir(R_.rampOut.b), width: R_.rampOut.width, thick: R_.rampOut.thick, tail: 0, swirls: 2, name: `rampOut${side}` });
-    cloud(b, { ...cOpt, a: mir(R_.rampIn.a), b: mir(R_.rampIn.b), width: R_.rampIn.width, thick: R_.rampIn.thick, tail: 0, swirls: 2, name: `rampIn${side}` });
+    cloud(b, { ...cOpt, joint: 'Spine02', a: mir(R_.shoulder.a), b: mir(R_.shoulder.b), width: R_.shoulder.width, thick: R_.shoulder.thick, tail: 8, swirls: 3, name: `shoulder${sd}` });
+    cloud(b, { ...cOpt, joint: 'Spine02', a: mir(R_.rampOut.a), b: mir(R_.rampOut.b), width: R_.rampOut.width, thick: R_.rampOut.thick, tail: 0, swirls: 2, name: `rampOut${sd}` });
+    cloud(b, { ...cOpt, joint: 'Head', a: mir(R_.rampIn.a), b: mir(R_.rampIn.b), width: R_.rampIn.width, thick: R_.rampIn.thick, tail: 0, swirls: 2, name: `rampIn${sd}` });
   }
 
-  // ---------------------------------------------------------------- 3D に する
+  // ---------------------------------------------------------------- 関節の Group と メッシュ
   const group = new Group();
+  group.name = 'gashaBig';
+  const joints = {} as Record<JointName, Group>;
+  for (const j of JOINT_NAMES) {
+    const g = new Group();
+    g.name = j;
+    const p = PARENT[j];
+    g.position.copy(rest[j]).sub(p ? rest[p] : vec(0, 0, 0));
+    joints[j] = g;
+    (p ? joints[p] : group).add(g);
+  }
   const meshes: Mesh[] = [];
-  const mats: Record<string, MeshBasicMaterial> = {};
-  const mk = (name: BucketName, o: { transparent?: boolean; opacity?: number; side?: 0 | 1 | 2; order?: number; depthWrite?: boolean; visible?: boolean } = {}): Mesh | null => {
-    const bk = b.buckets.get(name);
-    if (!bk || !bk.pos.length) return null;
-    const geo = new BufferGeometry();
-    geo.setAttribute('position', new Float32BufferAttribute(bk.pos, 3));
-    geo.setAttribute('color', new Float32BufferAttribute(bk.col, bk.rgba ? 4 : 3));
-    const mat = new MeshBasicMaterial({ vertexColors: true, fog: false, side: o.side ?? DoubleSide, transparent: o.transparent ?? false, opacity: o.opacity ?? 1, depthWrite: o.depthWrite ?? true });
-    mats[name] = mat;
-    const m = new Mesh(geo, mat);
-    m.name = `gashaBig:${name}`;
-    m.renderOrder = o.order ?? 0;
-    m.frustumCulled = false;
-    m.visible = o.visible ?? true;
-    group.add(m); meshes.push(m);
+  const mats: Partial<Record<Kind, MeshBasicMaterial>> = {};
+  const matOf = (kind: Kind): MeshBasicMaterial => {
+    let m = mats[kind];
+    if (!m) {
+      const tr = kind === 'glow' || kind === 'glass' || kind === 'eyeHalo';
+      m = new MeshBasicMaterial({ vertexColors: true, fog: false, side: kind === 'glass' ? 0 : DoubleSide, transparent: tr, opacity: kind === 'eyeHalo' ? 0.3 : 1, depthWrite: !tr });
+      mats[kind] = m;
+    }
     return m;
   };
-  for (const n of ['body', 'head', 'armL', 'armR', 'bright'] as const) mk(n);
-  mk('eyes');
-  mk('eyeHalo', { transparent: true, opacity: 0.3, depthWrite: false, order: 1 });
-  const brow = mk('brow', { visible: false });
-  mk('glow', { transparent: true, depthWrite: false, order: 3 });
-  mk('glass', { transparent: true, depthWrite: false, order: 2, side: 0 });
+  const ORDER: Record<Kind, number> = { main: 0, bright: 0, eyes: 0, brow: 0, eyeHalo: 1, glass: 2, glow: 3 };
+  let brow: Mesh | null = null;
+  for (const bk of b.buckets.values()) {
+    if (!bk.pos.length) continue;
+    // 関節の 原点が 回転の 中心に なる ように、頂点を 関節の 場所から の ずれに する
+    const o = rest[bk.joint];
+    const pos = bk.pos.slice();
+    for (let i = 0; i < pos.length; i += 3) { pos[i]! -= o.x; pos[i + 1]! -= o.y; pos[i + 2]! -= o.z; }
+    const geo = new BufferGeometry();
+    geo.setAttribute('position', new Float32BufferAttribute(pos, 3));
+    geo.setAttribute('color', new Float32BufferAttribute(bk.col, bk.rgba ? 4 : 3));
+    const m = new Mesh(geo, matOf(bk.kind));
+    m.name = `${bk.joint}:${bk.kind}`;
+    m.renderOrder = ORDER[bk.kind];
+    m.frustumCulled = false;
+    if (bk.kind === 'brow') { m.visible = false; brow = m; }
+    joints[bk.joint].add(m); meshes.push(m);
+  }
 
   // 身長: 頭の いちばん 上（頭の 当たりの 上の 面）が T.size.height に なる ように
   const hm = new Matrix4().compose(headPos, new Quaternion().setFromEuler(new Euler(0.17, headYaw, 0, 'YXZ')), vec(1, 1, 1));
   const topY = vec(0, 20.4, -0.2).applyMatrix4(hm).y;
   const scale = T.size.height / topY;
   return {
-    group, hits: b.hits, eyes: mats.eyes!, eyeHalo: mats.eyeHalo!, brow: brow ?? new Mesh(), scale, groundPts, head: headPos, meshes: meshes.length,
+    group, joints, rest, hits: b.hits, eyes: matOf('eyes'), eyeHalo: matOf('eyeHalo'), brow: brow ?? new Mesh(), scale, groundPts, head: headPos, meshes: meshes.length,
   };
 }
 
 // ---------------------------------------------------------------- 当たりの 箱 → ブロックの マス
-export interface WorldHit { name: string; center: [number, number, number]; half: [number, number, number]; axes: [[number, number, number], [number, number, number], [number, number, number]] }
+export interface WorldHit { name: string; joint: JointName; center: [number, number, number]; half: [number, number, number]; axes: [[number, number, number], [number, number, number], [number, number, number]] }
 
-/** もとの 座標の 当たりを 世界の 座標（位置 pos、向き yaw、拡大 scale）に うつす */
-export function toWorld(hits: Hit[], pos: Vector3, yaw: number, scale: number): WorldHit[] {
-  const M = new Matrix4().compose(pos, new Quaternion().setFromAxisAngle(UP, yaw), vec(scale, scale, scale));
-  const R = new Quaternion().setFromAxisAngle(UP, yaw);
-  return hits.map((h) => {
-    const c = h.c.clone().applyMatrix4(M);
-    const ax = h.axes.map((a) => a.clone().applyQuaternion(R));
+/** 当たりの 箱を、関節の いまの 姿勢（Group の ワールド行列）で 世界の 座標に うつす。group の 位置・向き・拡大は 先に 決めて おく */
+export function worldHits(model: BigModel): WorldHit[] {
+  model.group.updateMatrixWorld(true);
+  const pos = new Vector3(), q = new Quaternion(), sc = new Vector3();
+  return model.hits.map((h) => {
+    const jg = model.joints[h.joint];
+    jg.matrixWorld.decompose(pos, q, sc);
+    const o = model.rest[h.joint];
+    const c = h.c.clone().sub(o).applyMatrix4(jg.matrixWorld);
+    const ax = h.axes.map((a) => a.clone().applyQuaternion(q));
     return {
-      name: h.name,
+      name: h.name, joint: h.joint,
       center: [c.x, c.y, c.z],
-      half: [h.half[0] * scale, h.half[1] * scale, h.half[2] * scale],
+      half: [h.half[0] * sc.x, h.half[1] * sc.y, h.half[2] * sc.z],
       axes: [[ax[0]!.x, ax[0]!.y, ax[0]!.z], [ax[1]!.x, ax[1]!.y, ax[1]!.z], [ax[2]!.x, ax[2]!.y, ax[2]!.z]],
     };
   });
@@ -629,12 +691,11 @@ export function toWorld(hits: Hit[], pos: Vector3, yaw: number, scale: number): 
 /** マス（i, j, k）の キー。±32768 の 外は 想定しない */
 export const cellKey = (i: number, j: number, k: number): number => ((i + 32768) * 65536 + (k + 32768)) * 1024 + j;
 
-/** 箱の 中に マスの 中心が ある マスを 数える。margin は 箱の ぜんぶの 向きに ひろげる ぶん、topLift は 上の 向きだけ */
+/** 箱の 中に マスの 中心が ある マスを 数える。margin は 箱の ぜんぶの 向きに ひろげる ぶん、topLift は 箱の 上の 向き（2 番目の 軸）だけ */
 export function voxelize(hits: WorldHit[], margin: number, topLift: number): Set<number> {
   const cells = new Set<number>();
   for (const h of hits) {
     const [hx, hy, hz] = h.half;
-    // 外がわの 四角（AABB）
     const ext = [0, 1, 2].map((d) => Math.abs(h.axes[0]![d]!) * (hx + margin) + Math.abs(h.axes[1]![d]!) * (hy + margin + topLift) + Math.abs(h.axes[2]![d]!) * (hz + margin));
     const [cx, cy, cz] = h.center;
     const i0 = Math.floor(cx - ext[0]!), i1 = Math.ceil(cx + ext[0]!);
@@ -654,9 +715,15 @@ export function voxelize(hits: WorldHit[], margin: number, topLift: number): Set
 // ---------------------------------------------------------------- ゲームに 入れる
 export interface GashaBigHandle {
   tune(o: unknown): void;
+  /** 作りなおして プレイヤーの 前に 置く */
   place(): void;
   angry(on: boolean): void;
+  /** 当たりの 箱の 一覧（世界の 座標。関節の いまの 姿勢） */
   colliders(): WorldHit[];
+  /** 関節を うごかした あとに 呼ぶ。当たりの マスを 関節の いまの 姿勢で 作りなおす */
+  refreshColliders(): void;
+  /** 関節の 名前 → Group（Meshy の 骨と おなじ 名前）。休みの 姿勢では 回転なし */
+  joints(): Record<string, Group>;
   /** 見えない 固いマスを 1 つ 聞く */
   solidAt(x: number, y: number, z: number): boolean;
   info(): Record<string, unknown>;
@@ -667,7 +734,7 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
   applyTuneFromUrl(location.search);
   let model: BigModel | null = null;
   let cells = new Set<number>();
-  let worldHits: WorldHit[] = [];
+  let hitsNow: WorldHit[] = [];
   let isAngry = false;
   let pos = new Vector3(), yaw = 0;
   const fwdOf = (p: { yawDeg: number }) => { const y = (p.yawDeg * Math.PI) / 180; return { fx: Math.sin(y), fz: -Math.cos(y) }; };
@@ -675,8 +742,23 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
   const clear = () => {
     if (!model) return;
     deps.scene.remove(model.group);
-    model.group.traverse((o) => { const m = o as Mesh; if (m.isMesh) { m.geometry.dispose(); (m.material as MeshBasicMaterial).dispose(); } });
+    const mats = new Set<MeshBasicMaterial>();
+    model.group.traverse((o) => { const m = o as Mesh; if (m.isMesh) { m.geometry.dispose(); mats.add(m.material as MeshBasicMaterial); } });
+    mats.forEach((m) => m.dispose());
     model = null;
+  };
+
+  const refresh = (): void => {
+    if (!model) return;
+    hitsNow = worldHits(model);
+    cells = voxelize(hitsNow, T.collide.margin, T.collide.topLift);
+  };
+
+  const setEyes = (on: boolean): void => {
+    if (!model) return;
+    model.eyes.color.set(on ? 0xff3b2a : 0xffffff);
+    model.eyeHalo.color.set(on ? 0xff3b2a : 0xffffff);
+    model.brow.visible = on;
   };
 
   const place = (): void => {
@@ -698,12 +780,9 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
     model.group.position.copy(pos);
     model.group.rotation.y = yaw;
     model.group.scale.setScalar(s);
-    model.eyes.color.set(isAngry ? 0xff3b2a : 0xffffff);
-    model.eyeHalo.color.set(isAngry ? 0xff3b2a : 0xffffff);
-    model.brow.visible = isAngry;
+    setEyes(isAngry);
     deps.scene.add(model.group);
-    worldHits = toWorld(model.hits, pos, yaw, s);
-    cells = voxelize(worldHits, T.collide.margin, T.collide.topLift);
+    refresh();
   };
 
   deps.addPlayerSolid((x, y, z) => cells.size > 0 && cells.has(cellKey(x, y, z)));
@@ -712,15 +791,15 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
   const handle: GashaBigHandle = {
     tune: (o) => applyTune(o),
     place,
-    angry: (on) => {
-      isAngry = on;
-      if (model) { model.eyes.color.set(on ? 0xff3b2a : 0xffffff); model.eyeHalo.color.set(on ? 0xff3b2a : 0xffffff); model.brow.visible = on; }
-    },
-    colliders: () => worldHits,
+    angry: (on) => { isAngry = on; setEyes(on); },
+    colliders: () => hitsNow,
+    refreshColliders: refresh,
+    joints: () => (model ? { ...model.joints } : {}),
     solidAt: (x, y, z) => cells.has(cellKey(x, y, z)),
     info: () => ({
-      scale: model?.scale, pos: [pos.x, pos.y, pos.z], yawDeg: (yaw * 180) / Math.PI, drawCalls: model?.meshes, hitBoxes: worldHits.length, cells: cells.size, angry: isAngry,
+      scale: model?.scale, pos: [pos.x, pos.y, pos.z], yawDeg: (yaw * 180) / Math.PI, drawCalls: model?.meshes, hitBoxes: hitsNow.length, cells: cells.size, angry: isAngry,
       head: model ? model.head.clone().multiplyScalar(model.scale).applyQuaternion(new Quaternion().setFromAxisAngle(UP, yaw)).add(pos).toArray() : null,
+      rest: model ? Object.fromEntries(JOINT_NAMES.map((j) => [j, model!.rest[j].toArray()])) : null,
     }),
     get group() { return model!.group; },
   };
