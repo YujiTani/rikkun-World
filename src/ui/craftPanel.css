@@ -437,6 +437,7 @@
   white-space: nowrap; /* → 絵 ×数 は 折り返しても ばらばらに ならない */
 }
 .cp-out-num {
+  font-variant-numeric: tabular-nums;
   font-weight: 800;
   font-size: var(--rk-fs-body);
 }
