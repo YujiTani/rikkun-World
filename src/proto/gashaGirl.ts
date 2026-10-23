@@ -815,9 +815,10 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
     add.update(dt); smoke.update(dt);
     // 俯瞰カメラの 目標（ふたりの まんなかを 見る）
     const gp = pivot.position, f = fwdOf(p);
-    const mx = (p.x + gp.x) / 2, mz = (p.z + gp.z) / 2, my = p.y + 1;
+    const wMid = Math.hypot(p.x - gp.x, p.z - gp.z) > 8 ? 0.38 : 0.5; // 遠い ときは プレイヤー寄り（扇が ひろがって くるのが 見える）
+    const mx = p.x + (gp.x - p.x) * wMid, mz = p.z + (gp.z - p.z) * wMid, my = p.y + 1;
     const sep = Math.hypot(p.x - gp.x, p.z - gp.z), ex = Math.max(0, sep - 5);
-    const tp = new Vector3(mx + f.rx * (3.6 + 0.3 * ex) + f.fx * (2 + 0.2 * ex), my + 4.5 + 0.35 * ex, mz + f.rz * (3.6 + 0.3 * ex) + f.fz * (2 + 0.2 * ex));
+    const tp = new Vector3(mx + f.rx * (3.6 + 0.22 * ex) + f.fx * (2 + 0.15 * ex), my + 4.5 + 0.25 * ex, mz + f.rz * (3.6 + 0.22 * ex) + f.fz * (2 + 0.15 * ex));
     const tl = new Vector3(mx, my, mz);
     if (!camTarget.init) { camTarget.pos.copy(tp); camTarget.look.copy(tl); camTarget.init = true; }
     else { camTarget.pos.lerp(tp, 0.15); camTarget.look.lerp(tl, 0.15); }
