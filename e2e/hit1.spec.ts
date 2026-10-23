@@ -131,6 +131,19 @@ test.describe('HIT-1 AC1 止まる 長さ', () => {
     expect(levelAt(hitTicks[3]!), '3 段目').toEqual(['large']);
   });
 
+  test('AC1: 素手の パンチが 当たる → 中（3 ステップ）', async ({ page }) => {
+    await openBladeWorld(page);
+    await stage(page);
+    await page.evaluate(() => (window.__rikkun as any).inventory.clear());
+    const id = await spawnAhead(page, 'karakasa', 1.0, { hp: 400 });
+    const r = await probe(page, { before: TAP, max: 60, after: 8 });
+    const hp = await page.evaluate((id) => (window.__rikkun as any).yokai.list().find((y: any) => y.id === id)?.hp as number, id);
+    expect(hp, 'パンチで 体力が へる（前提）').toBeLessThan(400);
+    expect(r.hit).not.toBeNull();
+    expect(r.level).toBe('mid');
+    expect(r.frozen).toBe(3);
+  });
+
   test('AC1: 弓の 矢が 当たる → 中（3 ステップ）', async ({ page }) => {
     await openBladeWorld(page);
     await stage(page);
@@ -274,9 +287,12 @@ test.describe('HIT-1 AC4 ゆれは カメラの 向きだけ', () => {
     expect(on.post.some((s) => s.trauma > 0), 'ゆれて いる（前提）').toBe(true);
     expect(off.post.every((s) => s.trauma === 0), 'ゆれて いない（前提）').toBe(true);
     expect(on.post).toHaveLength(off.post.length);
-    on.post.forEach((a, i) => {
-      const b = off.post[i]!;
+    const shakingSteps = on.post.map((a, i) => ({ a, b: off.post[i]! })).filter(({ a }) => a.trauma > 0);
+    expect(shakingSteps.length, 'ゆれて いる ステップが たくさん ある（前提）').toBeGreaterThanOrEqual(10);
+    // trauma > 0 の すべての ステップで 人・妖怪・肩の 点（ねらいの 出どころ）が ゆれ無しと 同じ
+    shakingSteps.forEach(({ a, b }) => {
       sameVec(a.pos, b.pos);
+      sameVec(a.cam.shoulder, b.cam.shoulder);
       expect(a.yokai.map((q) => [q.x, q.y, q.z, q.hp])).toEqual(b.yokai.map((q) => [q.x, q.y, q.z, q.hp]));
       expect(a.shape).toBe(b.shape);
       for (const k of ['position', 'eye', 'pivot', 'shoulder'] as const) sameVec(a.cam[k], b.cam[k]);
@@ -346,7 +362,12 @@ test.describe('HIT-1 AC9 けさぎり', () => {
     await katanaWorld(page, 'jodan');
     await page.evaluate(() => (window.__rikkun as any).settings.set('fxShake', 1));
     await spawnAhead(page, 'karakasa', 2.0, { hp: 400 });
+    await page.evaluate(() => (window.__rikkun as any).settings.set('fxShake', 0));
+    await page.evaluate(() => (window.__rikkun as any).settings.set('fxShake', 1)); // 0 → 1 に もどす
+    expect(await page.evaluate(() => (window.__rikkun as any).settings.get('fxShake'))).toBe(1);
     const rec = await watch(page, 80, TAP);
+    expect(rec[rec.length - 1]!.logLen, 'けさぎりが 当たった（記録が ふえた）').toBeGreaterThan(0);
+    expect(Math.max(...rec.map((x) => x.trauma)), 'ゆれは カメラに').toBeGreaterThan(0);
     for (const s of rec) for (const t of s.canvasTransform) expect(t).toBe('');
   });
 });
