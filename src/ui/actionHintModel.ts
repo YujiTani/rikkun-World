@@ -95,9 +95,6 @@ export function actionHintLines(right: RightClickPreview | null, left: LeftClick
       case 'throwNo':
         out.right = { icon: 'chicken', word: 'なげる', disabled: true };
         break;
-      case 'kitFull':
-        out.right = { icon: 'nukunuku', word: 'いっぱい' };
-        break;
       // LIVE-2（§2.11）: こたつ = egg／kin_tamago ＋ いれる、入って いる = こたつ ＋ まってね。小屋 = あつめる、置く = toriya ＋ おく（入らない 所 は うすく）
       // kitNeedEgg・kitMax・coopNoEgg は 照準 の 下 に 出さず、クリック した ときの 合図 の チップ だけ
       case 'kitPut':
