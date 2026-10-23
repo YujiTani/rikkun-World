@@ -2088,6 +2088,7 @@ if (shadowStart.build) {
     yokaiGroup: yokaiManager.group,
     player: () => controller.state.position,
     facing: () => controller.state.facingDeg,
+    world,
   });
   sys.enabled = shadowStart.on;
   const sprite = rig.doll.group.getObjectByName('charSprite');

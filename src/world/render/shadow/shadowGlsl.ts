@@ -1,6 +1,6 @@
 // 影を受ける側（ブロック・キャラの板）に入れる GLSL と、みんなで同じものを指す uniform（SHADOW.md §5.3）。
 // 影は「光」に 1 か所かけ算するだけ（shRatio）。面の明るさ・AO・テクスチャの色はさわらない（§10）。
-import { Matrix4, Vector3, Vector4, type Texture } from 'three';
+import { Matrix4, Vector3, Vector4, type CubeTexture, type Texture } from 'three';
 import { LIGHT_CONFIG as LC } from '../../light/config';
 
 const f = (n: number): string => n.toFixed(4);
@@ -28,6 +28,13 @@ export function createShadowUniforms() {
     uShBias: { value: 0.22 },
     /** キャラの板の「じかの 日の光」の 割合（0..1。頭の高さの 空の光から。洞くつで 太陽の影にしない） */
     uShSpriteDirect: { value: 1 },
+    /** たいまつの影（段 2）: x: 1 = 使う、y: 光のとどく半径（ブロック）、z: 影の中の明るさ（見た目 0..1）、w: 奥行きの符号の 1 ぶん（ブロック。地図の距離の 8bit を ブロックに戻す大きさ） */
+    uShT: { value: new Vector4(0, 10, 0.3, 12) },
+    /** 近い 2 本の たいまつの光の中心（xyz）と、使うか（w = 1）。地図は 光からの距離 ÷ w（uShT）を 赤に書いた キューブ地図 */
+    uShTA: { value: new Vector4() },
+    uShTB: { value: new Vector4() },
+    uShCubeA: { value: null as CubeTexture | null },
+    uShCubeB: { value: null as CubeTexture | null },
   };
 }
 export type ShadowUniforms = ReturnType<typeof createShadowUniforms>;
@@ -47,6 +54,11 @@ uniform vec4 uShP;
 uniform float uShBlockDay;
 uniform float uShBias;
 uniform float uShSpriteDirect;
+uniform vec4 uShT;
+uniform vec4 uShTA;
+uniform vec4 uShTB;
+uniform highp samplerCube uShCubeA;
+uniform highp samplerCube uShCubeB;
 
 // 1 枚の地図を引く。edge: 地図の真ん中 0 〜 へり 1（外は 1 より大きい）
 float shTap(highp sampler2DShadow m, mat4 M, vec3 p, float biasWorld, float range, out float edge) {
@@ -90,6 +102,30 @@ float shSunVis(vec3 wp, vec3 n, bool useDyn) {
   return v;
 }
 
+// たいまつ 1 本ぶん: 影の中 = 1、とどく = 0 を answer に、近さの重みを w に足す（キャラ・妖怪だけの 地図。8bit の距離 + 小さなずらし）
+void shTorchOne(highp samplerCube m, vec4 T, vec3 p, inout float num, inout float den) {
+  if (T.w < 0.5) return;
+  vec3 dv = p - T.xyz;
+  float d = length(dv);
+  float c = clamp(1.0 - d / uShT.y, 0.0, 1.0);
+  if (c <= 0.0) return;
+  float stored = texture(m, dv).r * uShT.w;
+  float lit = step(d - 0.12, stored);
+  num += c * (1.0 - lit);
+  den += c;
+}
+
+// たいまつの影の割合（0 = 影なし、1 = まるごと影）。近い 2 本を 近さの重みでまぜる。遠いほどうすい
+float shTorchOcc(vec3 wp, vec3 n) {
+  if (uShT.x < 0.5) return 0.0;
+  vec3 p = wp + n * 0.06;
+  float num = 0.0;
+  float den = 0.0;
+  shTorchOne(uShCubeA, uShTA, p, num, den);
+  shTorchOne(uShCubeB, uShTB, p, num, den);
+  return num / max(den, 0.35);
+}
+
 // 明るさ（空の光 s・ブロックの光 b・畑の下限 fl）と暖かい色あい。lightShader と同じ式
 vec3 shLitOf(float s, float b, float fl) {
   float w = clamp((b - s) * 3.0, 0.0, 1.0) * ${f(LC.warmTintStrength)};
@@ -101,13 +137,15 @@ vec3 shLitOf(float s, float b, float fl) {
 // sb, bb: 空の光・ブロックの光の明るさ（曲線のあと）、sky: 空の光の段階（0..1、1 = 空が真上に見える）。
 // 洞くつの おく など 空の光が まわりこんで来た所（段階 9 より下）は もう「じかに来る光」が ないので 影で さらに暗くしない
 vec3 shRatio(float sb, float bb, float fl, float sky, vec3 wp, vec3 n) {
-  if (uShP.x <= 0.001) return vec3(1.0);
+  if (uShP.x <= 0.001 && uShT.x < 0.5) return vec3(1.0);
   float direct = smoothstep(8.5 / 15.0, 12.5 / 15.0, sky);
-  float vis = direct > 0.0 ? shSunVis(wp, n, true) : 1.0;
+  float vis = (direct > 0.0 && uShP.x > 0.001) ? shSunVis(wp, n, true) : 1.0;
+  // たいまつの影: ブロックの光が 0 の所は引かない
+  float tOcc = bb > 0.001 ? shTorchOcc(wp, n) : 0.0;
   // こさは 見た目（sRGB）の明るさで決める: 色は リニアでかけるので 2.2 乗にする
   float sbs = sb * pow(mix(1.0, uShP.y, (1.0 - vis) * uShP.x * direct), 2.2);
   // 昼の たいまつ は 空が見える所（sb が大きい）だけ 影のこさまで弱める: 洞くつの たいまつ は そのまま
-  float bbs = bb * pow(mix(1.0, uShBlockDay, smoothstep(0.25, 0.85, sb)), 2.2);
+  float bbs = bb * pow(mix(1.0, uShBlockDay, smoothstep(0.25, 0.85, sb)), 2.2) * pow(mix(1.0, uShT.z, tOcc), 2.2);
   return shLitOf(sbs, bbs, fl) / max(shLitOf(sb, bb, fl), vec3(0.0001));
 }
 `;
