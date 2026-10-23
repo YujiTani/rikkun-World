@@ -7,7 +7,7 @@
  * 3: 距離を とって → 火の玉 10 連射（ホーミング）/ 4: 距離を とって → 青い 弾の 扇（へびのように ゆれる・追尾なし）
  */
 import {
-  AdditiveBlending, Box3, BufferGeometry, CanvasTexture, CircleGeometry, Color, DoubleSide, Float32BufferAttribute, Group, LoopOnce,
+  AdditiveBlending, Box3, BufferAttribute, BufferGeometry, CanvasTexture, CircleGeometry, Color, DoubleSide, Group, LoopOnce,
   AnimationClip, AnimationMixer, Mesh, MeshBasicMaterial, NormalBlending, Object3D, PerspectiveCamera, PlaneGeometry, Points, Quaternion,
   Scene, ShaderMaterial, SRGBColorSpace, Sprite, SpriteMaterial, Vector3, type Camera, type Material, type MeshStandardMaterial, type SkinnedMesh, type Bone,
 } from 'three';
@@ -203,9 +203,9 @@ class ParticlePool {
     this.s0 = new Float32Array(n); this.s1 = new Float32Array(n);
     this.grav = new Float32Array(n); this.drag = new Float32Array(n);
     const geo = new BufferGeometry();
-    geo.setAttribute('position', new Float32BufferAttribute(this.pos, 3));
-    geo.setAttribute('aSize', new Float32BufferAttribute(this.size, 1));
-    geo.setAttribute('aColor', new Float32BufferAttribute(this.col, 4));
+    geo.setAttribute('position', new BufferAttribute(this.pos, 3)); // 配列を コピーしない（毎ステップ 書きかえる）
+    geo.setAttribute('aSize', new BufferAttribute(this.size, 1));
+    geo.setAttribute('aColor', new BufferAttribute(this.col, 4));
     this.mat = new ShaderMaterial({
       vertexShader: PARTICLE_VS, fragmentShader: PARTICLE_FS, transparent: true, depthWrite: false,
       blending: additive ? AdditiveBlending : NormalBlending, uniforms: { uPx: { value: 600 }, uAdd: { value: additive ? 1 : 0 } },
@@ -239,9 +239,9 @@ class ParticlePool {
       this.size[i] = this.s0[i]! + (this.s1[i]! - this.s0[i]!) * t;
     }
     const g = this.points.geometry;
-    (g.getAttribute('position') as Float32BufferAttribute).needsUpdate = true;
-    (g.getAttribute('aSize') as Float32BufferAttribute).needsUpdate = true;
-    (g.getAttribute('aColor') as Float32BufferAttribute).needsUpdate = true;
+    g.getAttribute('position').needsUpdate = true;
+    g.getAttribute('aSize').needsUpdate = true;
+    g.getAttribute('aColor').needsUpdate = true;
   }
   clear(): void { this.life.fill(0); this.size.fill(0); }
 }
@@ -258,7 +258,7 @@ export interface GashaGirlHandle {
   standNow(): void;
   setSeed(n: number): void;
   warpNow(spell?: number): void;
-  camera(mode: 'overview' | 'default' | 'look'): void;
+  camera(mode: 'overview' | 'default' | 'look' | 'close'): void;
   /** 回数・止めた回数の 数えなおし（撮影用） */
   resetTurns(): void;
   /** 次に 使う 魔法を 決める（1〜4。撮影用） */
@@ -538,8 +538,10 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
   // ---- 目が合った ときの 演出（赤面・！・ピピン） ----
   const headBone = model.getObjectByName('Head')!;
   const headTop = model.getObjectByName('head_end') ?? headBone;
+  const faceBone = model.getObjectByName('headfront') ?? headBone;
+  const faceP = new Vector3();
   const cheekMat = new MeshBasicMaterial({ map: glowTex, color: 0xff6f90, transparent: true, opacity: 0.0, depthWrite: false });
-  const cheekGeo = new PlaneGeometry(0.2, 0.12);
+  const cheekGeo = new PlaneGeometry(0.26, 0.15);
   const cheeks = [new Mesh(cheekGeo, cheekMat), new Mesh(cheekGeo, cheekMat)];
   cheeks.forEach((c) => { c.visible = false; c.renderOrder = 6; scene.add(c); });
   const bangTex = canvasTex(128, 128, (c) => {
@@ -570,7 +572,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
   let audio: AudioContext | null = null;
   const setShy = (on: boolean) => {
     cheeks.forEach((c) => (c.visible = on)); bang.visible = on; cheekMat.opacity = on ? 0.6 : 0;
-    mats.forEach((m) => m.color.setHex(on ? 0xffd8dc : 0xffffff));
+    mats.forEach((m) => m.color.setHex(on ? 0xffb0c0 : 0xffffff));
     if (!on) shyT = -1;
   };
   const updateShy = (dt: number) => {
@@ -578,24 +580,26 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
     shyT += dt;
     headCenter(headC);
     const yaw = pivot.rotation.y, fx = Math.sin(yaw), fz = Math.cos(yaw), rx = Math.cos(yaw), rz = -Math.sin(yaw);
+    faceBone.getWorldPosition(faceP);
     cheeks.forEach((c, i) => {
-      const sd = i === 0 ? -0.2 : 0.2;
-      c.position.set(headC.x + fx * 0.24 + rx * sd, headC.y - 0.1, headC.z + fz * 0.24 + rz * sd);
+      const sd = i === 0 ? -0.17 : 0.17;
+      c.position.set(faceP.x + fx * 0.06 + rx * sd, faceP.y - 0.08, faceP.z + fz * 0.06 + rz * sd);
       c.rotation.y = yaw;
     });
     const k = shyT < 0.08 ? shyT / 0.08 * 1.3 : shyT < 0.18 ? 1.3 - 0.3 * ((shyT - 0.08) / 0.1) : 1; // ぴょこん
-    bang.position.set(headC.x + rx * 0.55, headC.y + 0.75, headC.z + rz * 0.55);
-    bang.scale.setScalar(0.9 * k);
+    bang.position.set(headC.x + rx * 0.5, headC.y + 0.5, headC.z + rz * 0.5);
+    bang.scale.setScalar(0.7 * k);
   };
   const viewPos = new Vector3(), viewDir = new Vector3();
   const checkEye = (): boolean => { // 少女の 頭が カメラの 向きの 約 12° 以内 かつ 間に ブロックが ない
     if (camMode === 'overview' || !pivot.visible) return false;
+    const lookLike = camMode === 'look' || camMode === 'close';
     headCenter(headC);
     const p = deps.player();
-    if (camMode === 'look') viewPos.set(p.x, p.y + 1.6, p.z);
+    if (lookLike) viewPos.set(p.x, p.y + 1.6, p.z);
     else deps.camera.getWorldPosition(viewPos);
     const to = tmpV.copy(headC).sub(viewPos); const d = to.length(); to.divideScalar(d || 1);
-    if (camMode === 'look') viewDir.copy(to); else deps.camera.getWorldDirection(viewDir);
+    if (lookLike) viewDir.copy(to); else deps.camera.getWorldDirection(viewDir);
     if (Math.acos(Math.min(1, viewDir.dot(to))) > 12 * D2R) return false;
     for (let s = 0.5; s < d - 0.5; s += 0.25) if (deps.solid(Math.floor(viewPos.x + to.x * s), Math.floor(viewPos.y + to.y * s), Math.floor(viewPos.z + to.z * s))) return false;
     return true;
@@ -698,7 +702,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
   };
 
   // ---- 毎ステップ ----
-  let camMode: 'overview' | 'default' | 'look' = 'default';
+  let camMode: 'overview' | 'default' | 'look' | 'close' = 'default';
   const camTarget = { pos: new Vector3(), look: new Vector3(), init: false };
   
   deps.onUpdate((dt) => {
@@ -718,7 +722,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
       if (pt >= 0.4) { fade(0); startCast(); }
     } else if (phase === 'shy') {
       faceTo(p);
-      if (pt >= 0.3) turnDone(true);
+      if (pt >= 1.5) turnDone(true); // はずかしくて 1.5 秒 その場で とまる
     } else if (phase === 'bigvanish') {
       fade(clamp01(pt / VANISH));
       if (pt >= VANISH) { pivot.visible = false; phase = 'bigtext'; pt = 0; showBig(true); }
@@ -776,11 +780,15 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
     if (!camTarget.init) { camTarget.pos.copy(tp); camTarget.look.copy(tl); camTarget.init = true; }
     else { camTarget.pos.lerp(tp, 0.15); camTarget.look.lerp(tl, 0.15); }
   });
+  const upOff = new Vector3();
+  const baseFov = (deps.camera as PerspectiveCamera).fov ?? 70;
   deps.onBeforeRender(() => {
     const cam = deps.camera as PerspectiveCamera;
-    const px = (window.innerHeight * Math.min(window.devicePixelRatio, 2)) / (2 * Math.tan(((cam.fov ?? 70) * D2R) / 2));
+    const px = (window.innerHeight * Math.min(window.devicePixelRatio, 2)) / (2 * Math.tan((cam.fov * D2R) / 2));
     add.mat.uniforms.uPx!.value = px; smoke.mat.uniforms.uPx!.value = px;
-    if (camMode === 'look' && pivot.visible) { const p = deps.player(); cam.position.set(p.x, p.y + 1.6, p.z); cam.lookAt(headCenter(headC)); cam.updateMatrixWorld(true); }
+    const wantFov = camMode === 'close' ? 30 : baseFov;
+    if (cam.fov !== wantFov) { cam.fov = wantFov; cam.updateProjectionMatrix(); }
+    if ((camMode === 'look' || camMode === 'close') && pivot.visible) { const p = deps.player(); cam.position.set(p.x, p.y + 1.6, p.z); cam.lookAt(headCenter(headC).add(upOff.set(0, camMode === 'close' ? 0.2 : 0, 0))); cam.updateMatrixWorld(true); }
     if (camMode === 'overview') { cam.position.copy(camTarget.pos); cam.lookAt(camTarget.look); cam.updateMatrixWorld(true); }
   });
 
@@ -809,7 +817,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
     nextSpell: (n) => { forced = (n - 1 + SPELLS) % SPELLS; },
     predictSide: () => (mulberry(rs)[1] < 0.5 ? 'left' : 'back'),
     info: () => ({
-      turn, cancels, eyeContact: eyeNow, soundCount, lastSoundT, bigCount, shy: shyT >= 0, warnRing: warnRing.visible, hitActive: ER.t >= 0 && ER.t < erHitEnd, eruptionR: ER.t >= 0 ? ER.rad : 0, eruptionMaxR: ER_R, phase, spell: spell + 1, forced, castT: pt, side, dist, eruptionT: ER.t, vortexT: VX.t,
+      turn, cancels, eyeContact: eyeNow, soundCount, lastSoundT, bigCount, shy: shyT >= 0, warnRing: warnRing.visible, camMode, camFov: (deps.camera as PerspectiveCamera).fov, hitActive: ER.t >= 0 && ER.t < erHitEnd, eruptionR: ER.t >= 0 ? ER.rad : 0, eruptionMaxR: ER_R, phase, spell: spell + 1, forced, castT: pt, side, dist, eruptionT: ER.t, vortexT: VX.t,
       fireballs: projs.filter((q) => q.on && q.kind === 0).length, waves: projs.filter((q) => q.on && q.kind === 1).length,
       ...stats, girlX: pivot.position.x, girlZ: pivot.position.z,
     }),

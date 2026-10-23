@@ -161,6 +161,19 @@ async function eyeContact() {
     await step(fastFwd ? 4 : 2); frames.push(await shot(dir));
     if (k.cancels >= 2 && k.phase === 'gone') break;
   }
+  // --- 目が合った 瞬間の 顔の アップ（カメラの ズーム）。はずかしくて 1.5 秒 とまる ところまで
+  await page.evaluate(() => { window.__gashaGirl.resetTurns(); window.__gashaGirl.camera('look'); window.__gashaGirl.setSeed(21); window.__gashaGirl.nextSpell(1); window.__gashaGirl.standNow(); });
+  for (let g = 0; g < 3000; g++) { const k = await info(); if (k.phase === 'gone') break; await step(4); }
+  for (let g = 0; g < 3000; g++) { const k = await info(); if (k.phase === 'appear' || k.phase === 'shy') break; await step(1); }
+  await page.evaluate(() => window.__gashaGirl.camera('close'));
+  const close = [];
+  for (let g = 0; g < 3000; g++) {
+    await step(2); close.push(await shot(dir));
+    const k = await info();
+    if (k.phase === 'gone' || close.length > 200) break;
+  }
+  gif(dir, close, 'eye-contact-close.gif');
+  console.log('close frames', close.length, JSON.stringify(await info()).slice(0, 400));
   const e = await info();
   console.log(`eye: cancels ${e.cancels} turn ${e.turn} sounds ${e.soundCount} lastSoundT ${e.lastSoundT} frames ${frames.length}`);
   gif(dir, frames, 'eye-contact.gif');
