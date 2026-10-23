@@ -78,8 +78,8 @@ describe('LIVE-1 版 3.2 むし・むしとりあみ（AC6・AC25。§4.2）', (
     expect(itemRarity('mushi_ami')).toBe('common');
   });
   it('レシピ: カードの いちばん うしろ・き 1 ＋ いと 2・つくる 台・たいきゅう なし・むし は つくれない', () => {
-    // LIVE-2 で nukunuku・toriya が 後ろに ふえたので、むしとりあみは うしろから 3 つ目
-    const last = CRAFT_RECIPES[CRAFT_RECIPES.length - 3];
+    // LIVE-2 で nukunuku・toriya、GOLD-1 で きんの そうび 8 こ が 後ろに ふえたので、むしとりあみは うしろから 11 こ目
+    const last = CRAFT_RECIPES[CRAFT_RECIPES.length - 11];
     expect(last.id).toBe('mushi_ami');
     expect(last.output).toEqual({ item: 'mushi_ami', count: 1 });
     expect(last.inputs).toEqual([{ item: 'log', count: 1 }, { item: 'string', count: 2 }]);

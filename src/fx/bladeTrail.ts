@@ -93,6 +93,8 @@ export class BladeTrail {
   private style: BladeTrailStyle | null = null;
   /** WEAPON-6: 何段目か（星の数）。段の情報が ない ときは 3 */
   private comboStep = 3;
+  /** GOLD-1 試作: 金の 刀を 何回 ふったか（2 回に 1 回 きらり） */
+  private goldSwings = 0;
   private lengths: BladeTechFrames = { startup: 1, active: 1, recovery: 1 };
   private writing = false;
   /** いまの 時刻（わざを 始めた ステップの おわり = 1） */
@@ -127,6 +129,7 @@ export class BladeTrail {
   private readonly c2 = new THREE.Color();
   /** WEAPON-7 PR3: 虹の 軌跡の 色（弧に そって 色相が ながれる） */
   private readonly cRb = new THREE.Color();
+  private readonly cUnder = new THREE.Color();
   private readonly camPos = new THREE.Vector3();
   private readonly camR = new THREE.Vector3();
   private readonly camU = new THREE.Vector3();
@@ -183,6 +186,7 @@ export class BladeTrail {
       this.comboStep = st.combo?.step ?? 3;
       this.item = st.item;
       this.style = trailRow(s, st.item);
+      if (this.style.style === 'gold') this.goldSwings++;
       this.lengths = st.lengths ?? s.bladeTech[tech];
       const u = ((((st.move?.dirDeg ?? 0) % 360) + 360) % 360 * Math.PI) / 180;
       this.uSin = Math.sin(u);
@@ -353,7 +357,10 @@ export class BladeTrail {
           // 弧の はじめ → おわりで 赤 → むらさき。いちばん そとの だんは うすく（白っぽく）
           col = this.cRb.setHSL((0.85 * (j + 0.5)) / nseg, 0.9, b === 0 ? 0.85 : 0.65);
         }
-        const al = sh.bandAlpha[b]! * fade;
+        // GOLD-1 試作: いちばん うちがわの 帯は こん色の 下地（あかるい 空でも 見える）
+        const under = b === 3 && style.style === 'gold' && style.under !== undefined;
+        if (under) col = this.cUnder.setHex(style.under!);
+        const al = (under ? 0.6 : sh.bandAlpha[b]!) * fade;
         const f0 = b === 0 ? 0 : b === 1 ? e1 : b === 2 ? e2 : e3;
         const f1 = b === 0 ? e1 : b === 1 ? e2 : b === 2 ? e3 : 1;
         for (let c = 0; c < 2; c++) {
@@ -396,6 +403,19 @@ export class BladeTrail {
         this.starAt[this.nStars] = j;
         this.writeStar(this.nStars, tip[j * 3]!, tip[j * 3 + 1]!, tip[j * 3 + 2]!);
         this.nStars++;
+      }
+    }
+    // GOLD-1 試作: 金の 刀は 2 回に 1 回、まん中の 区切りに 1 つ きらり（3 だんで くらく。ふち線なし）
+    if (style.style === 'gold' && this.shown && this.goldSwings % 2 === 0) {
+      const j = Math.min(nseg, Math.floor(sh.starAt[1]! * nseg));
+      const age = n - this.colT[j]!;
+      if (age >= 0 && age <= sh.starMaxAge) {
+        const life = age < 3 ? 0 : age < 6 ? 1 : 2;
+        this.c1.setHex(life === 0 ? 0xfffbe6 : life === 1 ? 0xfff0b4 : 0xebb840);
+        this.c2.setHex(life === 0 ? 0xfffbe6 : life === 1 ? 0xfff0b4 : 0xc98a1e);
+        this.starAt[0] = j;
+        this.writeStar(0, tip[j * 3]!, tip[j * 3 + 1]!, tip[j * 3 + 2]!);
+        this.nStars = 1;
       }
     }
     this.starGeo.setDrawRange(0, this.nStars * STAR_QUADS * 6);

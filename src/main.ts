@@ -86,6 +86,7 @@ import { CLOCK_PHASES, type ClockPhases } from './ui/clockModel';
 import { markUrl } from './ui/medalArt';
 import { itemIconUrl } from './ui/itemIcon';
 import { DropField } from './drops';
+import { createHarapanRoll } from './drops/harapan';
 import { createAnimalManager } from './animals';
 import { coopBlocks, coopPlan } from './animals/coop';
 import { ringSeen } from './animals/models/throwRing';
@@ -93,6 +94,7 @@ import { applyFlatten } from './world/flatten';
 import { kitIconsFor, type KitIconRow } from './animals/models/kitIcons';
 import { AnimalFx } from './fx/animalFx';
 import { AnimalRenderer, ViewBuffer } from './animals/models/AnimalRenderer';
+import { NatsukiPanel } from './ui/natsukiPanel';
 import { AnimalHint } from './ui/animalHint';
 import { countryAt } from './world/gen/biome';
 import { Lighting, Sky } from './sky';
@@ -565,6 +567,8 @@ let yokaiManager: YokaiManager | null = null;
 const pendingDust: Array<{ x: number; y: number; z: number }> = [];
 // LIVE-1（にわとり）: 設定 18 こ（settings から変えたら すぐ効く）としくみ。たまごは 落ちた アイテム にする
 const live = createLiveSettings();
+// GOLD-1 §4.7: はらぱんみみず の おとしもの の くじ（シード 付き・べつ の 流れ）
+const harapanRoll = createHarapanRoll(seed, () => live);
 const animals = createAnimalManager({
   world,
   getPlayer: () => controller.state,
@@ -888,6 +892,7 @@ const dig = new DigSystemImpl(
     scatterItem: (pos, item, count) => {
       drops.scatter(pos, [{ item, count }]);
     },
+    harapan: (id, y) => harapanRoll.block(id, y),
     farm,
     water: createWatering({ farm, inventory, settings: m7, tick: () => game.tick }),
     bucket: createBucket({ inventory, emit: (e) => farm.emit(e), tick: () => game.tick }),
@@ -975,6 +980,7 @@ yokaiManager = new YokaiManager({
   drops,
   tick: () => game.tick + 1,
   seed,
+  harapan: (y) => harapanRoll.yokai(y),
   strength: strengthLevel,
   light: renderer.light,
   // 出る場所は 描く輪の メッシュずみの列だけ（VOX-D）
@@ -1038,6 +1044,7 @@ function deliverAnimalEvents(): void {
   }
   animalFx.onEvents(ev);
   animalHint.feed(ev);
+  natsukiPanel.onEvents(ev, dig.animalTarget());
   achievements.feedAnimals(ev);
   for (const e of ev) animalEvents.push(e);
   if (animalEvents.length > 512) animalEvents.splice(0, animalEvents.length - 512);
@@ -1205,6 +1212,7 @@ const fx = new DigFx({
 });
 const farmHint = new FarmHint(hud);
 const animalHint = new AnimalHint(hud);
+const natsukiPanel = new NatsukiPanel(hud);
 const farmAimHud = new FarmAimHud(hud);
 const combatFx = new CombatFx({
   scene: game.scene,
@@ -1306,6 +1314,7 @@ const legendBook = new LegendBook((item) => w2.legendary.some((d) => d.item === 
 inventory.onAdded = (item) => {
   const r = legendBook.add(item);
   if (r) achievements.feedLegend(item, r.kinds);
+  achievements.feedRarity(itemRarity(item));
 };
 // M7-2: キラキラ・ハート（C）・しずく（A）・しぶき（B）
 const eyePos = { x: 0, y: 0, z: 0 };
@@ -1489,6 +1498,9 @@ time.onPhaseChange((p) => achievements.feedPhase(p));
 const defeatWith = (): DefeatWith => {
   const h = inventory.held()?.item;
   if (h === 'bokuto' || h === 'katana' || h === 'naginata' || h === 'crystal_katana' || h === 'yumi') return h;
+  if (h === 'kin_yumi') return 'yumi'; // GOLD-1: きんの 装備 は 実績 の 表 に 武器別 の 行 を 足さず、てつ と 同じ あつかい
+  if (h === 'kin_katana') return 'katana';
+  if (h === 'kin_pickaxe' || h === 'kin_axe') return 'pickaxe';
   if (h === 'raijin_ken' || h === 'fujin_ken' || h === 'niji') return 'katana'; // WEAPON-7: 雷神剣で たおした ときは「かたな」と 同じ あつかい（実績の 表に 武器別の 行は 足さない）
   if (h === 'wood_pickaxe' || h === 'stone_pickaxe' || h === 'iron_pickaxe' || h === 'wood_axe' || h === 'stone_axe' || h === 'iron_axe') return 'pickaxe';
   return 'hand';
@@ -1868,7 +1880,7 @@ game.onUpdate((dt) => {
     if ((bs.move !== null && bs.frame === 1) || parry.startedNow() || lstrike?.F === 1) st.velocity.x = st.velocity.z = 0;
     const bowPose = tools.bow().state();
     const held = inventory.held()?.item ?? null;
-    const weapon = bs.item !== null ? 'katana' : held === 'yumi' ? 'bow' : 'none';
+    const weapon = bs.item !== null ? 'katana' : held === 'yumi' || held === 'kin_yumi' ? 'bow' : 'none';
     sprite?.step({
       position: st.position,
       velocity: st.velocity,
@@ -2074,6 +2086,11 @@ game.onUpdate((dt) => {
   // 持ち物・メニューを開いている間は 名前を出さない
   yokaiNameplates.update(screen.mode() === 'play' ? yokaiM.nameplates(plateBuf) : NO_PLATES, game.camera);
   staggerIcons.update(yokaiM.staggerIcons(stagIconBuf), game.camera, screen.mode() === 'play');
+  {
+    // GOLD-1: なかよし パネル（なかま の 大人 を ねらって いる あいだ。案内 と 同じ とき）
+    const tid = hintVisible() ? dig.animalTarget() : null;
+    natsukiPanel.update(tid === null ? null : animals.natsukiView(tid));
+  }
   actionHint.update(hintVisible() ? actionHintLines(dig.previewRightClick(), dig.previewLeftClick(), { carryProgress: dig.carryProgress(), carrying: animals.carrying() !== null, held: tools.current().item, heldIsPickaxe: tools.current().kind === 'pickaxe', heldIsBlade: tools.current().kind === 'blade' }) : {});
   farmHint.step();
   {
@@ -2364,6 +2381,8 @@ installTestHook(game, overlay, () => host.everReady, {
   animals: {
     spawn: (x, y, z, opts) => animals.spawn(x, y, z, opts),
     list: () => animals.list(),
+    // GOLD-1 §6: なかよし パネル の 状態（`shown`・`hearts`・`gold`・`bugReady`・`petReady`）
+    natsukiView: (id) => animals.natsukiView(id),
     clear: () => animals.clear(),
     trySpawn: () => animals.trySpawn(),
     target: () => dig.animalTarget(),

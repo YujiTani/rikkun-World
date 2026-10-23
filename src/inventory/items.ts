@@ -122,6 +122,20 @@ const WEAPON7_ITEMS: readonly ItemType[] = [
   { id: 'niji', name: '［虹｜にじ］', maxStack: 1, placeBlock: null },
 ];
 
+/** GOLD-1 §4.1（#222）: きん・きん の そうび 8 こ・はらぱんみみず */
+const GOLD_ITEMS: readonly ItemType[] = [
+  { id: 'kin', name: 'きん', maxStack: BLOCK_MAX_STACK, placeBlock: null },
+  { id: 'kin_katana', name: 'きんの かたな', maxStack: 1, placeBlock: null },
+  { id: 'kin_yumi', name: 'きんの ゆみ', maxStack: 1, placeBlock: null },
+  { id: 'kin_pickaxe', name: 'きんの つるはし', maxStack: 1, placeBlock: null },
+  { id: 'kin_axe', name: 'きんの おの', maxStack: 1, placeBlock: null },
+  { id: 'kin_kabuto', name: 'きんの かぶと', maxStack: 1, placeBlock: null },
+  { id: 'kin_yoroi', name: 'きんの よろい', maxStack: 1, placeBlock: null },
+  { id: 'kin_kote', name: 'きんの こて', maxStack: 1, placeBlock: null },
+  { id: 'kin_suneate', name: 'きんの すねあて', maxStack: 1, placeBlock: null },
+  { id: 'harapan_mimizu', name: 'はらぱんみみず', maxStack: BLOCK_MAX_STACK, placeBlock: null },
+];
+
 export const ITEM_TYPES: readonly ItemType[] = [
   ...PLACEABLE_TYPES,
   ...ITEM_ONLY,
@@ -133,6 +147,7 @@ export const ITEM_TYPES: readonly ItemType[] = [
   ...VOX_I_BLOCKS,
   ...LIVE_ITEMS,
   ...WEAPON7_ITEMS,
+  ...GOLD_ITEMS,
 ];
 
 const BY_ID = new Map<string, ItemType>(ITEM_TYPES.map((t) => [t.id, t]));

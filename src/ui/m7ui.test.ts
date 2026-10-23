@@ -130,9 +130,9 @@ describe('農業の出来事 → 音・つぶ・合図・実績', () => {
 describe('実績 そだてる（§4.7）', () => {
   const mk = () => new AchievementSystem(() => ({ ...M6_SETTING_DEFAULTS, achieveCooldown: 0, achieveCooldownEarly: 0 }));
   const ev = (e: Record<string, unknown>): FarmEvent => ({ ...at, ...e }) as FarmEvent;
-  it('数: 分類そだてる 61・小 16（LIVE-1 で +12・+3、版 3.2 で +5・+0、LIVE-2 で +9・+1）、つくる に くわ（つくれる もの 28）', () => {
+  it('数: 分類そだてる 62・小 16（LIVE-1 で +12・+3、版 3.2 で +5・+0、LIVE-2 で +9・+1）、つくる に くわ（つくれる もの 28）', () => {
     const farm = ACHIEVEMENT_DEFS.filter((d) => d.category === 'farm');
-    expect(farm.length).toBe(61); // LIVE-1 §4.5: 35 + 12 + 5 + LIVE-2 の 9
+    expect(farm.length).toBe(62); // LIVE-1 §4.5: 35 + 12 + 5 + LIVE-2 の 9
     expect(farm.filter((d) => d.small).length).toBe(16); // 12 + 3 + 1
     expect(CRAFT_RECIPE_NAMES.length).toBe(28);
     expect(ACHIEVEMENT_DEFS.find((d) => d.id === 'craft.kuwa.1')).toMatchObject({ category: 'craft', small: true });
