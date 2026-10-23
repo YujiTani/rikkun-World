@@ -14,11 +14,11 @@ const GIF = process.env.SLASH_GIF_DIR ?? '/tmp/slash-white-gif';
 const FRAMES = process.env.SLASH_FRAMES_DIR ?? '/tmp/slash-white-frames';
 mkdirSync(GIF, { recursive: true });
 // よこ（side）は 体と 妖怪の 真ん中が 画面の 左よりに 来るので、枠を 左へ ずらす
-const CLIPS = { back: { x: 240, y: 120, width: 800, height: 520 }, side: { x: 0, y: 120, width: 800, height: 520 } };
+const CLIPS = { back: { x: 140, y: 90, width: 1000, height: 625 }, side: { x: 0, y: 90, width: 1000, height: 625 } };
 const N = 400; // 3 段（つき→きりあげ→けさ）と けさの あとの 消えるまで
 
 function encode(name: string, dir: string) {
-  const vf = 'scale=640:-2:flags=neighbor';
+  const vf = 'scale=900:-2:flags=neighbor';
   const gif = (fps: number, out: string) =>
     execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-framerate', String(fps), '-i', `${dir}/%04d.png`, '-vf', `${vf},split[a][b];[a]palettegen=stats_mode=diff[p];[b][p]paletteuse=dither=none`, '-loop', '0', out]);
   gif(50, `${GIF}/${name}.gif`);
@@ -39,19 +39,20 @@ async function ready(page: P) {
 
 
 const ITEMS = (process.env.SLASH_ITEMS ?? 'katana,bokuto,raijin_ken').split(',');
-let home = { x: 0, y: 0, z: 0 };
+let home = { dx: 0 };
 for (const item of ITEMS) {
   const short = item === 'raijin_ken' ? 'raijin' : item;
   test(`白い 斬撃 3 段: ${item}`, async ({ page }) => {
     await legendWorld(page, item);
+    await page.addStyleTag({ content: '#hud { display: none !important; }' }); // 撮影中は HUD を かくす
     await page.evaluate(() => (window as any).__rikkun.camera.distance(null));
     await page.setViewportSize({ width: 1280, height: 800 });
     // うしろ: 少し 高く（背中ごしに 妖怪が 見える）・妖怪は 少し 右。よこ: 体の 真横から
-    for (const [label, deg, dist, pitch, dx] of [['back', 0, 6.5, -25, 0.7], ['side', 100, 7.5, -15, 0]] as const) {
+    for (const [label, deg, dist, pitch, dx] of [['back', 0, 4.5, -18, 0.6], ['side', 100, 4.0, -12, 0]] as const) {
       await ready(page);
       const p = await page.evaluate(() => (window as any).__rikkun.player.get().position as { x: number; y: number; z: number });
-      await spawnAt(page, 'karakasa', p.x + dx, p.y, p.z - 2.2, 99999);
-      home = { x: p.x + dx, y: p.y, z: p.z - 2.2 };
+      await spawnAt(page, 'karakasa', p.x + dx, p.y, p.z - 1.5, 99999);
+      home = { dx };
       await page.evaluate(([deg, dist, pitch]) => { const h = (window as any).__rikkun; h.camera.yawOffset(deg); h.camera.distance(dist); h.player.set({ yaw: 0, pitch }); }, [deg, dist, pitch] as const);
       await page.evaluate(() => (window as any).__rikkun.step(3));
       const name = `white-${short}-${label}`;
@@ -66,9 +67,10 @@ for (const item of ITEMS) {
         const q = await page.evaluate(([combo, home]) => {
           const h = (window as any).__rikkun;
           const d = ((window as any).__drv ??= { stage: 0, pressed: -1, switching: false });
-          // 大きく はじかれたら もとの 位置に 立てなおす（撮影用。体力は 多いので 倒れない）
+          // 大きく はじかれたら 体の 前 1.5 マスに 立てなおす（撮影用。体力は 多いので 倒れない）
           const y0 = h.yokai.list()[0];
-          if (y0 && Math.hypot(y0.position.x - home.x, y0.position.z - home.z) > 1.5) { h.yokai.clear(); const id = h.yokai.spawn('karakasa', home.x, home.y, home.z, { ai: false }); h.yokai.setHp(id, 99999); }
+          const pp = h.player.get().position;
+          if (y0 && Math.hypot(y0.position.x - pp.x, y0.position.z - pp.z) > 3) { h.yokai.clear(); const id = h.yokai.spawn('karakasa', pp.x + home.dx, pp.y, pp.z - 1.5, { ai: false }); h.yokai.setHp(id, 99999); }
           const st = h.blade.state();
           let key: string | null = null;
           if (combo) {
