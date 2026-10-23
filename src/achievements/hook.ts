@@ -19,7 +19,11 @@ export function createAchievementsHook(
     flush: () => {
       sys.flush();
     },
-    reset: () => sys.reset(),
+    // テスト用: 全部 0 に したあと、はらっぱ は 本物の ゲームと 同じに しずかに 見つけた あつかい（COUNTRY-1 §4.3）
+    reset: () => {
+      sys.reset();
+      sys.enterCountry('harappa', true);
+    },
     /** COUNTRY-1 §8: 古い セーブで 取ってあった ことに する（legacy の 実績だけ。しずかに） */
     restoreLegacy: (ids: string[]) => sys.restoreLegacy(ids),
     markViewed: (ids: string[]) => sys.markViewed(ids as never),
