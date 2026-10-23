@@ -95,4 +95,23 @@ describe('大きな はじき（ticks 24・水平 9・上 6）', () => {
     step(10);
     expect(pos(id).x - 36.5).toBeCloseTo(1, 1);
   });
+  it('上 6: からかさ・ぬりかべとも いちばん 高い 所が 5.5〜6.5 マス（足もとから）。おりても たいりょくは へらない', () => {
+    for (const kind of ['karakasa', 'nurikabe'] as const) {
+      const { m, step, pos } = rig();
+      const id = m.spawn(kind, 36.5, 9, 30.5, { ai: false });
+      const hp0 = m.list().find((y: any) => y.id === id).hp;
+      const y0 = pos(id).y;
+      m.damage(id, 1, { x: 30.5, y: 10, z: 30.5 }, { dist: 9, up: 6, ticks: 24, heavy: true });
+      const hp1 = m.list().find((y: any) => y.id === id).hp;
+      let top = y0;
+      for (let i = 0; i < 200; i++) {
+        step();
+        top = Math.max(top, pos(id).y);
+      }
+      expect(top - y0, `${kind} の 高さ`).toBeGreaterThan(5.5);
+      expect(top - y0, `${kind} の 高さ`).toBeLessThan(6.5);
+      expect(m.list().find((y: any) => y.id === id).hp, `${kind} は おりて も へらない`).toBe(hp1);
+      expect(hp1).toBeLessThan(hp0);
+    }
+  });
 });

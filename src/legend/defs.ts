@@ -43,7 +43,8 @@ export function legendPowerOf(S: Pick<W2Settings, 'legendary'>, item: ItemId | n
   const d = legendDefOf(S, item);
   if (!d) return null;
   if (typeof d.power === 'number') return d.power;
-  if (typeof stackPower === 'number' && stackPower > 0) return stackPower; // WEAPON-9: 1 本ごとの 強さ
+  // WEAPON-9: 1 本ごとの 強さ（4〜10 の 整数に おさめる）
+  if (typeof stackPower === 'number' && stackPower > 0) return Math.max(d.power[0], Math.min(d.power[1], Math.round(stackPower)));
   return Math.round((d.power[0] + d.power[1]) / 2);
 }
 

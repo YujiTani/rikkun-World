@@ -581,7 +581,7 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
       if (i === sel || !s) continue;
       if (this.rng() < this.config.dropChance) {
         dropped.push(i);
-        stacks.push(copyStack({ item: s.item, count: s.count, wear: s.wear, power: s.power }));
+        stacks.push(copyStack(s));
       }
     }
     for (const i of dropped) inv.setSlot(i, null);

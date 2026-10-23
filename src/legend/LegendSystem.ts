@@ -202,6 +202,8 @@ export function createLegendSystem(deps: LegendDeps): LegendSystem {
   };
 
   let heldItem: ItemId | null = null;
+  /** 持っている 1 本の 強さ（なければ null = 設定の まん中） */
+  let heldPower: number | null = null;
   let charge: { ticks: number; ready: boolean; readyAge: number } | null = null;
   let aim: ThunderAim | null = null;
   /** 落雷（F1 から） */
@@ -424,6 +426,7 @@ export function createLegendSystem(deps: LegendDeps): LegendSystem {
       const def = legendDefOf(deps.settings, ctx.item);
       const L = chargedOf(def?.charge ?? null);
       heldItem = L ? ctx.item : null;
+      heldPower = L ? (ctx.power ?? null) : null;
       inWaterNow = ctx.inWater;
       if (sh && (!L || !ctx.item || !ctx.active)) endShining(true);
       if (!L || !ctx.item) {
@@ -538,7 +541,7 @@ export function createLegendSystem(deps: LegendDeps): LegendSystem {
       const def = legendDefOf(deps.settings, heldItem);
       return {
         item: heldItem && def ? heldItem : null,
-        power: heldItem ? legendPowerOf(deps.settings, heldItem) : null,
+        power: heldItem ? legendPowerOf(deps.settings, heldItem, heldPower) : null,
         charge: charge ? { ticks: charge.ticks, ready: charge.ready } : null,
         move: move ? move.kind : null,
         moveF: move ? move.F : 0,

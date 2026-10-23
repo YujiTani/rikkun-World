@@ -188,6 +188,8 @@ interface Ent {
   knockStep: number;
   /** 上へ の 初速（ブロック/秒）。0 より 大きい あいだ は うきあがっている */
   knockUpV: number;
+  /** 虹の はじきで とんでいる あいだ true（おりても 落下ダメージを 受けない。いたそうに しない） */
+  airSafe: boolean;
   knockDx: number;
   knockDz: number;
   /** WEAPON-9: 長い はじきの 全部の 距離・全部の ステップ(0 = 一定の 速さ) */
@@ -493,7 +495,9 @@ export class YokaiManager implements YokaiWorld {
       // 長い はじきは はじめ 速く・おわり ゆっくり（1 ステップ目 ≒ 2 × 平均）
       e.knockTotal = knock?.ticks && knock.ticks > 0 ? Math.max(0, knock.dist) : 0;
       e.knockT = knock?.ticks && knock.ticks > 0 ? T : 0;
-      e.knockUpV = knock && knock.up > 0 ? knock.up : 0;
+      // heavy（虹の はじき）の 上は「とぶ 高さ」（重力 25 で いちばん 高い 所が up マス → 初速 √(2·25·up)）。ふつうの 押しは 今までどおり 初速
+      e.knockUpV = knock && knock.up > 0 ? (knock.heavy ? Math.sqrt(2 * 25 * knock.up) : knock.up) : 0;
+      if (knock?.heavy) e.airSafe = true;
     }
     return amount;
   }
@@ -700,6 +704,7 @@ export class YokaiManager implements YokaiWorld {
       knockLeft: 0,
       knockStep: 0,
       knockUpV: 0,
+      airSafe: false,
       knockDx: 0,
       knockDz: 0,
       knockTotal: 0,
@@ -1437,6 +1442,15 @@ export class YokaiManager implements YokaiWorld {
         t = NaN;
       }
     }
+    if (Number.isNaN(t) && e.airSafe) {
+      // 虹の はじきで 空を とんでいる 間: 足場が なくても 体の 箱が かべに 重ならなければ 横へ すすむ
+      const r = ai.radius;
+      if (!bodyInWall(x, z, r, AI_CONST.edgeMargin) || !this.world.isLoaded(Math.floor(x), Math.floor(z))) return false;
+      if (!this.boxFreeAt(x - r, e.y + 0.05, z - r, x + r, e.y + ai.height, z + r)) return false;
+      e.x = x;
+      e.z = z;
+      return true;
+    }
     if (Number.isNaN(t)) return false;
     e.x = x;
     e.z = z;
@@ -1595,6 +1609,10 @@ export class YokaiManager implements YokaiWorld {
   private land(e: Ent, ground: number): void {
     const from = e.fallFrom;
     e.fallFrom = NaN;
+    if (e.airSafe) {
+      e.airSafe = false;
+      return;
+    }
     if (e.floating || e.kind === 'karakasa') {
       e.floating = false;
       e.model.fallTilt = 0;
@@ -1800,7 +1818,7 @@ export class YokaiManager implements YokaiWorld {
         end = true;
       } else if (this.world.isSolid(Math.floor(p.x), Math.floor(p.y), Math.floor(p.z))) {
         end = true;
-      } else if (dome && !f.reflected && Math.hypot(p.x - dome.x, p.y - dome.y, p.z - dome.z) <= dome.r) {
+      } else if (dome && !f.reflected /* はね返した 弾は プレイヤーの 物なので ドームでも 消さない */ && Math.hypot(p.x - dome.x, p.y - dome.y, p.z - dome.z) <= dome.r) {
         // WEAPON-9: ドームに ふれた 弾は 消える（ダメージ 0）
         end = true;
         this.opts.onDomeErase?.(f.id);

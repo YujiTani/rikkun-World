@@ -1822,8 +1822,6 @@ export interface W2Settings {
   nushiDrops: NushiDropRow[];
   /** WEAPON-7 §2.2: ため中の 歩く 倍率 */
   legendaryChargeWalk: number;
-  /** WEAPON-9: 虹を 強さ なしで わたした ときの 強さ */
-  nijiTestPower: number;
   /** WEAPON-9 §5.6: 三人称で シャイニング中に カメラを 引く きょり（4 = 引かない） */
   shiningCamDistance: number;
   /** 刀を ふった ときの きせき（武器ごとの 個性。オーナー決定）。style: plain=ふつう・star=星が まじる・long=長い 弧 */
@@ -2034,7 +2032,6 @@ export const W2_SETTING_DEFAULTS: Readonly<W2Settings> = {
   legendary: LEGENDARY_DEFAULTS as LegendaryDef[],
   nushiDrops: LEGENDARY_DEFAULTS.map((d) => ({ item: d.item, weight: 1 })),
   legendaryChargeWalk: 0.5,
-  nijiTestPower: 7,
   shiningCamDistance: 14,
   bladeTrail: {
     bokuto: { color: 0x9c6b3a, glow: 0xe8c08a, blade: 0xb98b54, bladeShine: 0xe0bc86, style: 'plain' },
@@ -2134,7 +2131,6 @@ export function createW2Settings(): W2Settings {
     legendary: d.legendary.map(cloneLegendary),
     nushiDrops: d.nushiDrops.map((r) => ({ ...r })),
     legendaryChargeWalk: d.legendaryChargeWalk,
-    nijiTestPower: d.nijiTestPower,
     shiningCamDistance: d.shiningCamDistance,
     bladeTrail: Object.fromEntries(Object.entries(d.bladeTrail).map(([k, v]) => [k, { ...v }])) as W2Settings['bladeTrail'],
     bladeFaceAssistDeg: d.bladeFaceAssistDeg,

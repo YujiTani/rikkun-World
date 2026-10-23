@@ -128,6 +128,8 @@ export interface NijiSlashInfo {
   view: SlashView;
   angle: number;
   age: number;
+  /** 板の まん中の 世界の 位置 */
+  pos: Vec3;
 }
 
 /** まくの 三角形（経 SEG 本・北極から LAT_BOTTOM まで BANDS+1 区間）。法線は 位置から シェーダーで 出す */
@@ -315,7 +317,8 @@ export class NijiFx {
     this.slashView = slashViewFor(this.slashAngle, this.lastView);
     this.lastView = this.slashView;
     this.slashAge = 0;
-    this.slashMesh.position.set(at.x, at.y, at.z);
+    // 絵の 中で 刃の 弧は よこ = 板の まん中より 上・ねかせ = 下に ある ので、見た目の まん中が 体の 高さに なるよう ずらす
+    this.slashMesh.position.set(at.x, at.y + (this.slashView === 'side' ? -0.45 : 0.7), at.z);
     this.slashTex.offset.y = this.slashView === 'side' ? 0.5 : 0;
   }
 
@@ -338,7 +341,7 @@ export class NijiFx {
 
   /** 出ている 斬撃の 絵（窓口用） */
   slashes(): NijiSlashInfo[] {
-    return this.slashAge >= 0 ? [{ view: this.slashView, angle: this.slashAngle, age: this.slashAge }] : [];
+    return this.slashAge >= 0 ? [{ view: this.slashView, angle: this.slashAngle, age: this.slashAge, pos: { x: this.slashMesh.position.x, y: this.slashMesh.position.y, z: this.slashMesh.position.z } }] : [];
   }
 
   info() {
