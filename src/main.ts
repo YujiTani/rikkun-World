@@ -132,6 +132,7 @@ import { showPrepCard } from './ui/prepModel';
 import { generateChunk } from './world/gen/chunk';
 import { createWorldInfo } from './world/gen/worldInfo';
 import { Hotbar } from './ui/hotbar';
+import { cooldownCells } from './ui/hotbarModel';
 import { InventoryScreen } from './ui/inventoryScreen';
 import { Notice } from './ui/notice';
 import { PerfOverlay } from './debug/perfOverlay';
@@ -1107,6 +1108,11 @@ const combatUi = createCombatUi(hud, clockPhases);
 const levelHud = new LevelHud(hud);
 const buffIcons = new BuffIcons(hud);
 const hotbar = new Hotbar(hud, inventory, notice);
+/** #264: 休みの ある ためわざ（シャイニング）の 武器なら 休みの 長さ */
+const shiningCooldownOf = (item: ItemId): number | null => {
+  const c = chargeOf(w2, item);
+  return c?.kind === 'shining' ? c.cooldown : null;
+};
 // ねらっている所の ヒント（設定 actionHint で消せる）
 const hintSettings = { actionHint: true };
 const actionHint = new ActionHint(hud);
@@ -2077,7 +2083,8 @@ game.onUpdate((dt) => {
     const ck = tb ? cropKindOfBlock(tb.id) : null;
     farmAimHud.update(a, ck ? nameOf(VEG_ITEM[ck.kind]) : a ? 'はたけ' : '');
   }
-  hotbar.update(dig.toolHint()?.slot ?? null);
+  // #264: シャイニングの 休み 10 秒の のこりを 虹の マスに 出す
+  hotbar.update(dig.toolHint()?.slot ?? null, cooldownCells(inventory.slots(), shiningCooldownOf, legend.state().cooldownLeft));
   inventoryScreen.update();
   storageScreen.update();
   achievementsPage.update();
