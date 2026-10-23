@@ -1,41 +1,90 @@
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
-import { HP_BAR, HpBar, hpBarIconPixels, hpBarLayout, hpBarModel, hpBarState } from './hpBar';
+import { HP_BAR, HP_BAR_COLORS, HpBar, hpBarIconPixels, hpBarLayout, hpBarModel, hpBarState } from './hpBar';
 import { nickIconPixels } from '../../ui/itemArtBal';
 
-describe('BAL-C 体力のバー（BALANCE.md §4.7 AC12）', () => {
-  const table: [number, number, number, number, string][] = [
-    [8, 8, 8, 8, 'white'],
-    [8, 4, 8, 4, 'white'],
-    [8, 3, 8, 3, 'yellow'],
-    [8, 2, 8, 2, 'red'],
-    [12, 4, 12, 4, 'yellow'],
-    [12, 3, 12, 3, 'red'],
-    [40, 20, 20, 10, 'white'],
-    [40, 19, 20, 10, 'yellow'],
-    [40, 13, 20, 7, 'red'],
-    [72, 1, 20, 1, 'red'],
+describe('HP-CHUNK 体力のバー（decisions/2026-10-23-hp-bar-chunks.md, #259）', () => {
+  // [最大, 今, 細いバーの本数, 残り, 大きな塊]
+  const table: [number, number, number, number, number][] = [
+    [8, 7, 8, 7, 0],
+    [20, 20, 20, 20, 0],
+    [40, 40, 20, 20, 1],
+    [40, 25, 20, 5, 1],
+    [40, 20, 20, 20, 0],
+    [50, 50, 20, 20, 2],
+    [50, 10, 10, 10, 0],
+    [50, 11, 20, 1, 1],
+    [120, 120, 20, 20, 5],
+    [120, 70, 20, 10, 3],
+    [180, 180, 20, 20, 8],
+    [40, 0.5, 20, 1, 0],
+    [8, 8, 8, 8, 0],
+    [8, 0.01, 8, 1, 0],
+    [21, 21, 20, 20, 1],
+    [21, 1, 1, 1, 0],
+    [21, 2, 20, 1, 1],
   ];
-  it.each(table)('最大 %i 今 %i → 本数 %i 残り %i %s', (max, hp, bars, left, color) => {
-    expect(hpBarModel(hp, max)).toEqual({ bars, left, color });
+  it.each(table)('最大 %f 今 %f → 本数 %i 残り %i 塊 %i', (max, hp, bars, left, big) => {
+    expect(hpBarModel(hp, max)).toEqual({ bars, left, big });
   });
 
-  it('WEAPON-4 AC5: 体力が 小数でも 正しい。最大 8・6.5 → 8 本中 7 本、最大 8・0.01 → 1 本（赤）', () => {
-    expect(hpBarModel(6.5, 8)).toEqual({ bars: 8, left: 7, color: 'white' });
-    expect(hpBarModel(0.01, 8)).toEqual({ bars: 8, left: 1, color: 'red' });
+  it('WEAPON-4 AC5: 体力が 小数でも 正しい。最大 8・6.5 → 8 本中 7 本、最大 8・0.01 → 1 本', () => {
+    expect(hpBarModel(6.5, 8)).toEqual({ bars: 8, left: 7, big: 0 });
+    expect(hpBarModel(0.01, 8)).toEqual({ bars: 8, left: 1, big: 0 });
     expect(hpBarModel(4, 8).left).toBe(4);
     expect(hpBarModel(4.5, 8).left).toBe(5);
   });
-  it('最大 5 残り 5 → 5 本 白。本数は 20 以下。体力が 0 より大きければ 1 本以上', () => {
-    expect(hpBarModel(5, 5)).toEqual({ bars: 5, left: 5, color: 'white' });
-    for (const max of [1, 5, 8, 20, 21, 40, 72, 500]) {
+
+  it('最大 1〜500 のどの体力でも 本数は 20 以下・残りは 1〜本数・塊は 0 以上。最大 20 以下は 塊なし', () => {
+    for (let max = 1; max <= 500; max++) {
       for (let hp = 1; hp <= max; hp++) {
         const m = hpBarModel(hp, max);
-        expect(m.bars).toBeLessThanOrEqual(20);
-        expect(m.left).toBeGreaterThanOrEqual(1);
-        expect(m.left).toBeLessThanOrEqual(m.bars);
+        expect(m.bars, `${max}/${hp}`).toBeLessThanOrEqual(20);
+        expect(m.bars, `${max}/${hp}`).toBeGreaterThanOrEqual(1);
+        expect(m.left, `${max}/${hp}`).toBeGreaterThanOrEqual(1);
+        expect(m.left, `${max}/${hp}`).toBeLessThanOrEqual(m.bars);
+        expect(m.big, `${max}/${hp}`).toBeGreaterThanOrEqual(0);
+        if (max <= 20) expect(m.big).toBe(0);
+        // 塊は 5 で切らない: 残りの段の数
+        expect(m.big, `${max}/${hp}`).toBeLessThanOrEqual(Math.ceil(max / 20) - 1);
       }
     }
+    expect(hpBarModel(500, 500)).toEqual({ bars: 20, left: 20, big: 24 });
+  });
+
+  it('色の定数: 細いバー 黄・へった分 灰・大きな塊は みどり→きみどり→黄→だいだい→赤。塊は 5 枚まで', () => {
+    expect(HP_BAR_COLORS).toEqual({
+      bar: 0xffd54f,
+      empty: 0x555555,
+      big: [0x43a047, 0x9ccc3c, 0xffd54f, 0xff9800, 0xe53935],
+    });
+    expect(HP_BAR.maxBig).toBe(5);
+  });
+
+  it('HpBar: 細いバーの数と 大きな塊の色（後ろから手前の順）。塊は 5 枚まで', () => {
+    const big = HP_BAR_COLORS.big;
+    const cases: [number, number[]][] = [
+      [0, []],
+      [1, [big[0]!]],
+      [3, [big[0]!, big[1]!, big[2]!]],
+      [5, [...big]],
+      [8, [...big]],
+    ];
+    for (const [n, colors] of cases) {
+      const b = new HpBar();
+      b.show({ visible: true, bars: 20, left: 20, big: n, icon: null });
+      expect(b.rectCount, `big=${n}`).toBe(20);
+      expect(b.bigCards, `big=${n}`).toEqual(colors);
+    }
+    const b = new HpBar();
+    b.show({ visible: true, bars: 8, left: 3, big: 0, icon: null });
+    expect(b.rectCount).toBe(8);
+    expect(b.bigCards).toEqual([]);
+    // 塊がへると 枚数がへる
+    b.show({ visible: true, bars: 20, left: 5, big: 3, icon: null });
+    expect(b.bigCards).toHaveLength(3);
+    b.show({ visible: true, bars: 20, left: 20, big: 2, icon: null });
+    expect(b.bigCards).toHaveLength(2);
   });
 
   it('いちばん長い 20 本で 横はば 1.6 ブロック以内', () => {

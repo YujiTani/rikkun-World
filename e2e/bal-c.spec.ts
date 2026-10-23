@@ -52,15 +52,18 @@ const FACE = `
 `;
 
 /** §4.7 の式 */
+/** 体力のバー（decisions/2026-10-23-hp-bar-chunks.md）: 最大体力 20 以下は 細いバーだけ。21 以上は 端数が 体力の少ないほうの段 */
 function expected(hp: number, max: number) {
-  const bars = Math.min(max, 20);
-  const left = Math.ceil((bars * hp) / max);
-  const color = hp * 3 < max ? 'red' : hp * 2 < max ? 'yellow' : 'white';
-  return { bars, left, color };
+  if (max <= 20) return { bars: max, left: Math.max(Math.ceil(hp), hp > 0 ? 1 : 0), big: 0 };
+  const rem = max - 20 * (Math.ceil(max / 20) - 1);
+  const seg = hp <= rem ? 0 : Math.ceil((hp - rem) / 20);
+  const size = seg === 0 ? rem : 20;
+  const base = seg === 0 ? 0 : rem + 20 * (seg - 1);
+  return { bars: size, left: Math.max(1, Math.ceil(hp - base)), big: seg };
 }
 
 test.describe('BAL-C 体力のバー（AC12b）', () => {
-  test('AC12b: たたかなければ出ない・すでで たたくと 本数・残り・色が式どおり・180 ステップで消える・まる は出ない', async ({ page }) => {
+  test('AC12b: たたかなければ出ない・すでで たたくと 本数・残り・塊が式どおり・180 ステップで消える・まる は出ない', async ({ page }) => {
     await open(page);
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
@@ -100,28 +103,24 @@ test.describe('BAL-C 体力のバー（AC12b）', () => {
     expect(r.unknown).toBeNull();
     expect(r.aimed.every((a: boolean) => a), JSON.stringify(r.aimed)).toBe(true);
     expect(r.hits.length).toBeGreaterThan(0);
-    // AC12b（BAL-A のあと）: からかさ は 最大 8。5 回で 残り 3・黄、6 回で 残り 2・赤
+    // AC12b（BAL-A のあと）: からかさ は 最大 8（細いバーだけ）。5 回で 残り 3、6 回で 残り 2。色は 持たない
     expect(r.max).toBe(8);
     const at = (hp: number) => r.hits.find((h: any) => h.hp === hp)?.bar;
-    expect(at(3)).toMatchObject({ bars: 8, left: 3, color: 'yellow' });
-    expect(at(2)).toMatchObject({ bars: 8, left: 2, color: 'red' });
-    const colors = new Set<string>();
+    expect(at(3)).toMatchObject({ bars: 8, left: 3, big: 0 });
+    expect(at(2)).toMatchObject({ bars: 8, left: 2, big: 0 });
     for (const hit of r.hits) {
       const e = expected(hit.hp, r.max);
       expect(hit.bar.visible, `hp=${hit.hp}`).toBe(true);
       expect(hit.bar.bars, `hp=${hit.hp} bars`).toBe(e.bars);
       expect(hit.bar.left, `hp=${hit.hp} left`).toBe(e.left);
-      expect(hit.bar.color, `hp=${hit.hp} color`).toBe(e.color);
+      expect(hit.bar.big, `hp=${hit.hp} big`).toBe(e.big);
+      expect(hit.bar.color, `hp=${hit.hp} 色は もう持たない`).toBeUndefined();
       expect(hit.bar.icon).toBeNull();
-      colors.add(hit.bar.color);
     }
-    // 最後（体力 1）は 最大が 2 より大きければ 赤
+    // 最後（体力 1）は 残り 1 本
     const last = r.hits[r.hits.length - 1];
     expect(last.hp).toBe(1);
-    expect(last.bar.color).toBe(r.max >= 3 ? 'red' : 'white');
-    // 最大が 5 以上なら 黄 も 通る（最大 4 だと 黄は ない）
-    if (r.max >= 5) expect(colors.has('yellow')).toBe(true);
-    expect(colors.has('red')).toBe(true);
+    expect(last.bar.left).toBe(1);
     // 180 ステップで消える
     expect(r.at100.visible).toBe(true);
     expect(r.at175.visible).toBe(true);
