@@ -336,6 +336,9 @@ export async function openAnimals(page: Page, query = '?nosave=1'): Promise<void
        * だっこ できたら ok。そのあと プレイヤーの 向きは 呼ぶ ほうが 決める（ここでは 西向きの まま）
        */
       carryOne(px: number, pz: number, stage = 'chick') {
+        // 先に プレイヤー を 立たせる（あとから だと なかま が 古い 位置 へ 歩いて 2 マス 西 から ずれ、だっこ の 40 ステップ 中 に ねらい が はずれる）
+        h.player.set({ position: { x: px, y: 9, z: pz }, velocity: { x: 0, y: 0, z: 0 }, yaw: 270, pitch: 0 });
+        h.step(1);
         const id = A.friend(px - 2, pz, { stage });
         h.player.set({ position: { x: px, y: 9, z: pz }, velocity: { x: 0, y: 0, z: 0 }, yaw: 270, pitch: 0 });
         h.step(1);
