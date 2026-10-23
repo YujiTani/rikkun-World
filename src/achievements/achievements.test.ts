@@ -55,12 +55,12 @@ const attach = (sys: AchievementSystem) => {
 };
 
 describe('実績の表', () => {
-  it('261 こ・id かぶりなし・小 88（LIVE-3 で ＋1・小 ＋1（animal.eatMeat）。WEAPON-7 の 4 ＋ PR3 の 2 を 足した。LIVE-2 版 3 で ＋11・小 ＋3。LIVE-1 版 3.2 で ＋6・小 ＋1。LIVE-1 の 12・3 を 足した。M6 の 180・61 ＋ M7 の 27・11 ＋ WEAPON-2 の 4・1 ＋ M7-2 の 11・5 ＋ BUCKET-1 の 2・1 ＋ WEAPON-6 の 1・1）', () => {
-    expect(ACHIEVEMENT_DEFS.length).toBe(261);
-    expect(new Set(ACHIEVEMENT_DEFS.map((d) => d.id)).size).toBe(261);
-    expect(ACHIEVEMENT_DEFS.filter((d) => d.small).length).toBe(88);
-    expect(ACHIEVEMENT_DEFS.filter((d) => d.category === 'farm').length).toBe(62);
-    expect(ACHIEVEMENT_DEFS.filter((d) => d.category === 'farm' && d.small).length).toBe(17);
+  it('262 こ・id かぶりなし・小 89（LIVE-4 で ＋1・小 ＋1（animal.machoKO）。LIVE-3 で ＋1・小 ＋1（animal.eatMeat）。WEAPON-7 の 4 ＋ PR3 の 2 を 足した。LIVE-2 版 3 で ＋11・小 ＋3。LIVE-1 版 3.2 で ＋6・小 ＋1。LIVE-1 の 12・3 を 足した。M6 の 180・61 ＋ M7 の 27・11 ＋ WEAPON-2 の 4・1 ＋ M7-2 の 11・5 ＋ BUCKET-1 の 2・1 ＋ WEAPON-6 の 1・1）', () => {
+    expect(ACHIEVEMENT_DEFS.length).toBe(262);
+    expect(new Set(ACHIEVEMENT_DEFS.map((d) => d.id)).size).toBe(262);
+    expect(ACHIEVEMENT_DEFS.filter((d) => d.small).length).toBe(89);
+    expect(ACHIEVEMENT_DEFS.filter((d) => d.category === 'farm').length).toBe(63);
+    expect(ACHIEVEMENT_DEFS.filter((d) => d.category === 'farm' && d.small).length).toBe(18);
   });
   it('メダルと名前', () => {
     const med = (id: string) => ACHIEVEMENT_DEFS.find((d) => d.id === id)?.medal;
@@ -321,7 +321,7 @@ describe('じっせき ページの きまり', () => {
     p.setTab('achievements');
     let ui = p.ui(true);
     expect(ui.categories.length).toBe(9);
-    expect(ui.total).toBe(261);
+    expect(ui.total).toBe(262);
     expect(ui.tabDot).toBe(true);
     expect(ui.rows.some((r) => r.isNew)).toBe(true);
     expect(ui.rows.filter((r) => !r.shown).length).toBeGreaterThan(0);
