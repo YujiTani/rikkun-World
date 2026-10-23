@@ -12,6 +12,7 @@ import {
   Scene, ShaderMaterial, SRGBColorSpace, Sprite, SpriteMaterial, Vector3, type Camera, type Material, type MeshStandardMaterial, type SkinnedMesh, type Bone,
 } from 'three';
 import { ruby } from '../ui/text';
+import { bearingOf } from '../combat/parry';
 import { TUNE as T, applyTune, applyTuneFromUrl } from './gashaGirlTuning';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
@@ -26,6 +27,8 @@ export interface GashaGirlDeps {
   hurt(amount: number, from: { x: number; y: number; z: number }): boolean;
   hp(): number;
   maxHp(): number;
+  /** パリィに 聞く（妖怪と おなじ 口）。by: 設置系 'attack'、弾系 'fireball'。dirDeg は プレイヤー足もと → 当たった 物 */
+  parry(h: { dirDeg: number | null; by: 'attack' | 'fireball'; amount: number }): { result: 'success' | 'early' | 'fail' | 'none'; amount: number };
   /** ゲームの BGM の ミキサー（BGM 音量の 設定に のる）。まだ 音が 使えない ときは null */
   bgmOut(): { ctx: AudioContext; bus: AudioNode } | null;
   /** ふだんの BGM を 止める（少女の 間） */
@@ -279,6 +282,8 @@ export interface GashaGirlHandle {
   info(): Record<string, number | string | boolean>;
   /** 戦いの 数を 上書き（gashaGirlTuning.ts の TUNE と おなじ 形） */
   tune(o: unknown): void;
+  /** テスト用: パリィの 結果を 決めうち（null で ふつう） */
+  forceParry(r: 'success' | 'early' | null): void;
 }
 
 const SPELLS = 4;
@@ -364,7 +369,27 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
   const vr = (a: number, b: number) => a + (b - a) * vrng();
 
   const stats = { fbHit: 0, fbMiss: 0, waveHit: 0, waveMiss: 0, fired: 0, hits: 0, ringHits: 0, vortexHits: 0, swHits: 0 };
-  const hurtPlayer = (from: { x: number; y: number; z: number }): boolean => { const ok = deps.hurt(T.damage.heart, from); if (ok) stats.hits++; return ok; };
+  Object.assign(stats, { parried: 0, parryEarly: 0, reflected: 0, reflectHits: 0 });
+  const st2 = stats as typeof stats & { parried: number; parryEarly: number; reflected: number; reflectHits: number };
+  /** パリィに 聞く（当たる 瞬間）。success: 防ぐ／はね返す、early: ダメージが へる */
+  let parryForce: 'success' | 'early' | null = null;
+  const askParry = (by: 'attack' | 'fireball', at: { x: number; y: number; z: number }) => {
+    const p = deps.player();
+    if (parryForce) return { result: parryForce, amount: parryForce === 'early' ? T.damage.heart / 2 : T.damage.heart }; // テスト用
+    return deps.parry({ dirDeg: bearingOf({ x: p.x, y: p.y, z: p.z }, at), by, amount: T.damage.heart });
+  };
+  /** 設置系（輪・渦）の 当たり: パリィは 防ぐだけ。'hit' = ダメージが 入った、'blocked' = 防いだ、'retry' = むてき時間 など */
+  const setHit = (from: { x: number; y: number; z: number }): 'hit' | 'blocked' | 'retry' => {
+    const r = askParry('attack', from);
+    if (r.result === 'success') { st2.parried++; return 'blocked'; }
+    if (r.result === 'early') st2.parryEarly++;
+    const ok = deps.hurt(r.result === 'early' ? r.amount : T.damage.heart, from);
+    if (ok) stats.hits++;
+    return ok ? 'hit' : 'retry';
+  };
+  let nextSetHit = 0; // 設置系の 次の 判定（むてき時間と おなじ ぐらい あける）
+  let flinchT = 0, flinchTotal = 1;
+  const hurtPlayer = (from: { x: number; y: number; z: number }, amount = T.damage.heart): boolean => { const ok = deps.hurt(amount, from); if (ok) stats.hits++; return ok; };
 
   // ---- 魔法 1: 噴き出す（紫の 輪 → 炎の 刃）。輪は 3 つ ----
   const bladeMat = basic(bladeTex, 0xffffff, 0.4);
@@ -512,9 +537,9 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
   };
 
   // ---- 弾（魔法 3: 火の玉 / 魔法 4: 青い 波） ----
-  interface Proj { on: boolean; kind: 0 | 1; pos: Vector3; dir: Vector3; age: number; homing: boolean; org: Vector3; perp: Vector3; ph: number; amp: number; }
+  interface Proj { on: boolean; kind: 0 | 1; pos: Vector3; dir: Vector3; age: number; homing: boolean; org: Vector3; perp: Vector3; ph: number; amp: number; reflected: boolean; }
   const projs: Proj[] = [];
-  for (let i = 0; i < 44; i++) projs.push({ on: false, kind: 0, pos: new Vector3(), dir: new Vector3(), age: 0, homing: true, org: new Vector3(), perp: new Vector3(), ph: 0, amp: 0 });
+  for (let i = 0; i < 44; i++) projs.push({ on: false, kind: 0, pos: new Vector3(), dir: new Vector3(), age: 0, homing: true, org: new Vector3(), perp: new Vector3(), ph: 0, amp: 0, reflected: false });
   const burstRing = new Mesh(disc, basic(ringTex));
   void burstRing;
   const bursts: { mesh: Mesh; mat: MeshBasicMaterial; t: number; size: number; on: boolean }[] = [];
@@ -537,12 +562,34 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
   };
   const chestOf = (p: { x: number; y: number; z: number }, out: Vector3) => out.set(p.x, p.y + 1.2, p.z);
   const chest = new Vector3(), want = new Vector3(), axis = new Vector3();
+  /** パリィ成功: はね返す（少女へ 向き直し・追尾 おわり・プレイヤーの もの） */
+  const reflectProj = (q: Proj) => {
+    want.set(pivot.position.x, pivot.position.y + H * 0.55, pivot.position.z).sub(q.pos);
+    if (want.lengthSq() < 1e-6) want.copy(q.dir).negate();
+    q.dir.copy(want).normalize(); q.homing = false; q.reflected = true; q.amp = 0; q.age = 0; st2.reflected++;
+    add.emit(q.pos.x, q.pos.y, q.pos.z, 0, 0, 0, 0.25, 2.4, 0.4, 0xffffff, 0xfff0c0);
+  };
   const updateProjs = (dt: number) => {
     const pl = deps.player();
     chestOf(pl, chest);
     for (const q of projs) {
       if (!q.on) continue;
       q.age += dt;
+      if (q.reflected) { // はね返した 弾（プレイヤーの もの）。少女に 当たったら ひるませる
+        q.pos.addScaledVector(q.dir, (q.kind === 0 ? T.s3.speed : T.s4.speed) * T.parry.reflectSpeedMul * dt);
+        const c0 = q.kind === 0 ? [0xffffff, 0xffe8b0, 0xffc060] : [0xffffff, 0xd0f8ff, 0x90e0ff];
+        add.emit(q.pos.x, q.pos.y, q.pos.z, 0, 0, 0, dt * 2, 0.7, 0.7, c0[0]!, c0[1]!);
+        add.emit(q.pos.x, q.pos.y, q.pos.z, 0, 0, 0, dt * 2, 1.4, 1.4, c0[2]!, c0[2]!);
+        add.emit(q.pos.x + vr(-0.06, 0.06), q.pos.y + vr(-0.06, 0.06), q.pos.z + vr(-0.06, 0.06), vr(-0.2, 0.2), vr(0, 0.5), vr(-0.2, 0.2), 0.4, 0.5, 0.08, c0[1]!, c0[2]!);
+        const gx = q.pos.x - pivot.position.x, gz = q.pos.z - pivot.position.z;
+        const onGirl = pivot.visible && Math.hypot(gx, gz) < T.parry.girlHitR && q.pos.y > pivot.position.y - 0.2 && q.pos.y < pivot.position.y + H + 0.3;
+        const gr = deps.solid(Math.floor(q.pos.x), Math.floor(q.pos.y), Math.floor(q.pos.z));
+        if (onGirl || gr || q.age >= T.s3.lifeSec) {
+          q.on = false; burst(q.pos, q.kind);
+          if (onGirl) { st2.reflectHits++; flinchT = flinchTotal = T.parry.flinchSec; }
+        }
+        continue;
+      }
       if (q.kind === 0) {
         if (q.homing && (q.age > T.s3.homingMaxSec || q.pos.distanceTo(chest) < T.s3.stopNear)) q.homing = false;
         if (q.homing) {
@@ -559,7 +606,8 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
         for (let k = 0; k < 2; k++) add.emit(q.pos.x + vr(-0.06, 0.06), q.pos.y + vr(-0.06, 0.06), q.pos.z + vr(-0.06, 0.06), vr(-0.2, 0.2), vr(0, 0.5), vr(-0.2, 0.2), 0.4, 0.5, 0.08, 0xff9a30, 0x601000);
         const hit = q.pos.distanceTo(chest) < T.s3.hitR;
         const ground = deps.solid(Math.floor(q.pos.x), Math.floor(q.pos.y), Math.floor(q.pos.z));
-        if (hit || ground || q.age >= T.s3.lifeSec) { q.on = false; burst(q.pos, 0); if (hit) { stats.fbHit++; hurtPlayer(q.pos); } else stats.fbMiss++; }
+        if (hit) { const r = askParry('fireball', q.pos); if (r.result === 'success') { reflectProj(q); continue; } q.on = false; burst(q.pos, 0); stats.fbHit++; if (r.result === 'early') st2.parryEarly++; hurtPlayer(q.pos, r.result === 'early' ? r.amount : T.damage.heart); continue; }
+        if (ground || q.age >= T.s3.lifeSec) { q.on = false; burst(q.pos, 0); stats.fbMiss++; }
       } else {
         const d = T.s4.speed * q.age;
         if (q.homing && q.org.distanceTo(chest) < T.s4.stopNear) q.homing = false; // 3 ブロックより 近づいたら 追尾 おわり
@@ -579,7 +627,8 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
         if (vrng() < 0.35) add.emit(q.pos.x, q.pos.y, q.pos.z, vr(-0.5, 0.5), vr(-0.4, 0.4), vr(-0.5, 0.5), 0.9, 0.14, 0.04, 0x90d0ff, 0x2040c0);
         const hit = q.pos.distanceTo(chest) < T.s4.hitR;
         const ground = deps.solid(Math.floor(q.pos.x), Math.floor(q.pos.y), Math.floor(q.pos.z));
-        if (hit || ground || d >= T.s4.range || q.age >= T.s4.lifeSec) { q.on = false; if (hit || ground) burst(q.pos, 1); if (hit) { stats.waveHit++; hurtPlayer(q.pos); } else stats.waveMiss++; }
+        if (hit) { const r = askParry('fireball', q.pos); if (r.result === 'success') { reflectProj(q); continue; } q.on = false; burst(q.pos, 1); stats.waveHit++; if (r.result === 'early') st2.parryEarly++; hurtPlayer(q.pos, r.result === 'early' ? r.amount : T.damage.heart); continue; }
+        if (ground || d >= T.s4.range || q.age >= T.s4.lifeSec) { q.on = false; if (ground) burst(q.pos, 1); stats.waveMiss++; }
       }
     }
     for (const b of bursts) {
@@ -595,7 +644,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
     const q = projs.find((p) => !p.on);
     if (!q) return;
     q.on = true; q.kind = kind; q.age = 0; q.homing = true; q.pos.copy(from); q.org.copy(from); q.dir.copy(dir).normalize();
-    q.perp.set(-q.dir.z, 0, q.dir.x).normalize(); q.amp = amp; q.ph = ph; stats.fired++;
+    q.perp.set(-q.dir.z, 0, q.dir.x).normalize(); q.amp = amp; q.ph = ph; q.reflected = false; stats.fired++;
   };
 
   // ---- 目が合った ときの 演出（赤面・！・ピピン） ----
@@ -816,6 +865,8 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
   deps.onUpdate((dt) => {
     bgmStep();
     t += dt; pt += dt;
+    const frozen = flinchT > 0;
+    if (frozen) { flinchT -= dt; pt -= dt; const u = 1 - Math.max(0, flinchT) / flinchTotal; model.rotation.x = -T.parry.flinchTiltRad * Math.sin(Math.PI * u); if (flinchT <= 0) model.rotation.x = 0; } // 短く 止まって 小さく のけぞる
     const p = deps.player();
     if (phase === 'stand') {
       faceTo(p); idleSway();
@@ -862,7 +913,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
       for (let k = 0; k < 2; k++) add.emit(hp.x + vr(-0.2, 0.2), hp.y + vr(-0.2, 0.2), hp.z + vr(-0.2, 0.2), vr(-0.3, 0.3), vr(0.2, 0.9), vr(-0.3, 0.3), 0.5, 0.14, 0.03, 0xf0d8ff, 0x7030d0);
       if (pt >= castLen) endCast();
     }
-    if (mixerLeft > 0) {
+    if (mixerLeft > 0 && !frozen) {
       mixer.update(dt); pivot.updateMatrixWorld(true);
       mixerLeft -= dt;
       if (mixerLeft <= 0) { action.stop(); mixer.stopAllAction(); restorePose(); }
@@ -881,9 +932,17 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
     showVortexWarn(warn); warnMat.opacity = 0.3 + 0.1 * Math.sin(t * 8);
     erups.forEach((e) => e.update(dt)); vortices.forEach((v) => v.update(dt)); updateProjs(dt);
     // 魔法 1: 輪の 中に いる あいだ ずっと（むてき時間ごと）
-    for (const e of erups) if (e.hitActive() && Math.hypot(p.x - e.e.x, p.z - e.e.z) < e.e.rad && Math.abs(p.y - e.e.y) < 3 && hurtPlayer({ x: e.e.x, y: p.y, z: e.e.z })) stats.ringHits++;
+    if (t >= nextSetHit) {
+      let src: { x: number; y: number; z: number } | null = null, isRing = false;
+      for (const e of erups) if (e.hitActive() && Math.hypot(p.x - e.e.x, p.z - e.e.z) < e.e.rad && Math.abs(p.y - e.e.y) < 3) { src = { x: e.e.x, y: p.y, z: e.e.z }; isRing = true; break; }
+      if (!src) for (const v of vortices) if (v.hits(p.x, p.z)) { src = { x: v.v.x, y: p.y, z: v.v.z }; break; }
+      if (src) {
+        const r = setHit(src);
+        if (r === 'hit') { if (isRing) stats.ringHits++; else stats.vortexHits++; }
+        if (r !== 'retry') nextSetHit = t + T.parry.setCooldownSec;
+      }
+    }
     // 魔法 2: 渦の 中に いる あいだ ずっと（むてき時間ごと）。渦と 渦の すき間は 安全
-    for (const v of vortices) if (v.hits(p.x, p.z) && hurtPlayer({ x: v.v.x, y: p.y, z: v.v.z })) stats.vortexHits++;
     add.update(dt); smoke.update(dt);
     // 俯瞰カメラの 目標（ふたりの まんなかを 見る）
     const gp = pivot.position, f = fwdOf(p);
@@ -950,6 +1009,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
   const warn0 = () => phase === 'cast' && spell === 1 && !fired;
   const handle: GashaGirlHandle = {
     tune: (o) => applyTune(o),
+    forceParry: (r) => { parryForce = r; },
     place, figures: [pivot],
     labels: (riky, w, h) => {
       const pts = [new Vector3(pivot.position.x, pivot.position.y + H + 0.3, pivot.position.z), new Vector3(riky.x, riky.y + 2.1, riky.z)];
@@ -968,7 +1028,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
       bgmFile: bgm.buf ? 'loaded' : bgm.missing ? 'missing' : bgm.fetched ? 'loading' : 'none', bgmStarted: bgm.started, bgmStartT: bgm.startT, bgmDur: bgm.buf?.duration ?? 0, bgmLoop: bgm.src?.loop ?? false,
       bgmLoops: bgm.started && bgm.buf && bgm.src ? Math.floor((bgm.src.context.currentTime - bgm.ctxStart) / bgm.buf.duration) : 0,
       bgmFade: bgm.gain ? Math.round(bgm.gain.gain.value * 100) / 100 : 0, bgmCtx: bgm.src ? bgm.src.context.state : 'none',
-      turn, cancels, eyeContact: eyeNow, soundCount, lastSoundT, bigCount, shy: shyT >= 0, warnRing: warn0(), camMode, camFov: (deps.camera as PerspectiveCamera).fov, hitActive: erups.some((e) => e.hitActive()), eruptionR: Math.max(...erups.map((e) => (e.e.t >= 0 ? e.e.rad : 0))), eruptionMaxR: T.s1.radius, playerHp: deps.hp(), playerMaxHp: deps.maxHp(), phase, spell: spell + 1, forced, castT: pt, side, dist, eruptionT: Math.max(...erups.map((e) => e.e.t)), vortexT: Math.max(...vortices.map((v) => v.v.t)), vortexCount: vortices.filter((v) => v.v.t >= 0).length,
+      turn, cancels, eyeContact: eyeNow, soundCount, lastSoundT, bigCount, shy: shyT >= 0, warnRing: warn0(), camMode, camFov: (deps.camera as PerspectiveCamera).fov, parried: st2.parried, parryEarly: st2.parryEarly, reflected: st2.reflected, reflectHits: st2.reflectHits, flinch: flinchT > 0, hitActive: erups.some((e) => e.hitActive()), eruptionR: Math.max(...erups.map((e) => (e.e.t >= 0 ? e.e.rad : 0))), eruptionMaxR: T.s1.radius, playerHp: deps.hp(), playerMaxHp: deps.maxHp(), phase, spell: spell + 1, forced, castT: pt, side, dist, eruptionT: Math.max(...erups.map((e) => e.e.t)), vortexT: Math.max(...vortices.map((v) => v.v.t)), vortexCount: vortices.filter((v) => v.v.t >= 0).length,
       fireballs: projs.filter((q) => q.on && q.kind === 0).length, waves: projs.filter((q) => q.on && q.kind === 1).length,
       ...stats, girlX: pivot.position.x, girlZ: pivot.position.z,
     }),
