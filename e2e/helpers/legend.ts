@@ -213,3 +213,54 @@ export async function pinNushiTable(page: Page, item: string = RAIJIN): Promise<
 }
 
 export const FUJIN = 'fujin_ken';
+
+/**
+ * HURT-1: ヌシに たたかれると 怯み（24 ステップ）で わざが とぎれる。
+ * そこで 怯みが おわるのを 待ってから 左クリックを 1 回 たたく（押して 次の ステップで はなす）→ 14 ステップ 見る、を くりかえす。
+ * `done` は 1 ステップごとに 呼ぶ 式（`(h, i) => 値`。真っぽい 値を 返したら そこで とまる）。
+ * ぶつかって 押し戻された ときは はじめの 場所へ もどしてから たたき直す。
+ * 戻りは { found, step（全体の 何ステップめか）, value（done の 値）}。ヒットストップの 止まりは 1 ステップに 数えない。
+ */
+export async function tapUntil(page: Page, done: string, max = 600): Promise<{ found: boolean; step: number; value: any }> {
+  return page.evaluate(
+    ({ done, max }) => {
+      const h = window.__rikkun! as any;
+      const d = (0, eval)(done);
+      let n = 0;
+      const p0 = h.player.get().position;
+      const home = { x: p0.x, y: p0.y, z: p0.z };
+      let hurt = false;
+      const one = () => {
+        h.step(1);
+        while (h.impact && h.impact.stopLeft() > 0) h.step(1);
+        const v = d(h, n);
+        n++;
+        return v;
+      };
+      while (n < max) {
+        if (h.combat.get().flinchTicks > 0) {
+          hurt = true;
+          const v = one();
+          if (v) return { found: true, step: n - 1, value: v };
+          continue;
+        }
+        // ぶつかって 怯むと うしろへ 押されて 刀が とどかなくなる → はじめの 場所へ もどす
+        if (hurt) {
+          h.player.set({ position: { ...home }, velocity: { x: 0, y: 0, z: 0 } });
+          hurt = false;
+        }
+        h.input.press('primary');
+        let v = one();
+        h.input.release('primary');
+        if (v) return { found: true, step: n - 1, value: v };
+        for (let k = 0; k < 14 && n < max; k++) {
+          if (h.combat.get().flinchTicks > 0) break;
+          v = one();
+          if (v) return { found: true, step: n - 1, value: v };
+        }
+      }
+      return { found: false, step: -1, value: null };
+    },
+    { done, max },
+  );
+}

@@ -1935,6 +1935,8 @@ game.onUpdate((dt) => {
     controller.motion.faceDeg = pm.jumpLocked ? controller.state.yawDeg : (lm.faceDeg ?? dig.attackFaceDeg());
     controller.motion.leftAims = !['attack', 'whiff'].includes(dig.attackPreview().use);
     controller.motion.stopNow = false;
+    // HURT-1: 怯み中は 歩く・走る・ジャンプが きかない
+    controller.motion.noMoveInput = combat.flinchTicks() > 0;
   }
   // 空の光の弱まりを先に今の時刻にそろえる（妖怪の出現の「暗い所」がこれを読む。Sky は あとで画面ぶんを更新）
   skyDarkness.value = darkenFromBrightness(time.brightness(), timeSettings.nightBrightness);

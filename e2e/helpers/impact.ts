@@ -92,8 +92,25 @@ export async function probe(
       const pre = S();
       let hit: any = null;
       let steps = 0;
+      // HURT-1: ぶつかって 怯むと わざが とぎれ、うしろへ 押される。怯みが おわるのを 待ち、はじめの 場所へ もどして、はじめから たたき直す
+      const home = { x: pre.pos.x, y: pre.pos.y, z: pre.pos.z };
+      let k = 0; // before に わたす 番号（たたき直すと 0 に もどる）
+      let hurt = false;
       for (let i = 0; i < (o.max ?? 120) && !hit; i++) {
-        if (before) before(h, i);
+        if (h.combat.get().flinchTicks > 0) {
+          hurt = true;
+          h.input.release('primary');
+          h.step(1);
+          steps++;
+          continue;
+        }
+        if (hurt) {
+          h.player.set({ position: { ...home }, velocity: { x: 0, y: 0, z: 0 } });
+          hurt = false;
+          k = 0;
+        }
+        if (before) before(h, k);
+        k++;
         h.step(1);
         steps++;
         const s = S();

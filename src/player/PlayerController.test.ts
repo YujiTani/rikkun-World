@@ -555,3 +555,31 @@ describe('CHAR-2: lunge の戻り値・向きの指定・すぐ止まる', () =>
     expect(Math.hypot(r.s.velocity.x, r.s.velocity.z)).toBe(0);
   });
 });
+
+describe('HURT-1 motion.noMoveInput（怯み）', () => {
+  it('true の あいだは 歩く・走る・ジャンプの 入力が きかない。false に もどせば 動く', () => {
+    const r = new Rig();
+    r.floor();
+    r.player.motion.noMoveInput = true;
+    r.press('moveForward', 'run', 'jump');
+    const p0 = { ...r.s.position };
+    r.step(24);
+    expect(Math.hypot(r.s.position.x - p0.x, r.s.position.z - p0.z)).toBeLessThan(0.01);
+    expect(r.s.position.y).toBeCloseTo(p0.y, 2);
+    r.player.motion.noMoveInput = false;
+    r.step(10);
+    expect(Math.hypot(r.s.position.x - p0.x, r.s.position.z - p0.z)).toBeGreaterThan(0.3);
+  });
+
+  it('重力はのこる（空中なら落ちる）・マウスで向きは変えられる', () => {
+    const r = new Rig();
+    r.floor({ x: 2.5, y: 12, z: 6.5 });
+    r.player.motion.noMoveInput = true;
+    const y0 = r.s.position.y;
+    const yaw0 = r.s.yawDeg;
+    r.mouse(100, 0);
+    r.step(5);
+    expect(r.s.position.y).toBeLessThan(y0);
+    expect(r.s.yawDeg).not.toBe(yaw0);
+  });
+});

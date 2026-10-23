@@ -469,6 +469,20 @@ describe('ゆみ と や（WEAPON-2。くわしくは bow/bow.test.ts）', () =>
     expect(r.tools.bow().stuck()).toHaveLength(1);
     expect(r.world.getBlock(5, 10, 6)).toBe('stone');
   });
+  it('HURT-1: ゆみを ひいている 途中で ダメージを 受けると 矢は 出ずに ひくのを やめる（や はへらない）', () => {
+    const r = bowRig();
+    r.press('primary');
+    r.step(30);
+    expect(r.tools.bow().state().drawing).toBe(true);
+    r.combat.debugDamage(1);
+    r.step(1);
+    expect(r.tools.bow().state().drawing).toBe(false);
+    expect(r.tools.bow().arrows()).toHaveLength(0);
+    r.release('primary');
+    r.step(30);
+    expect(r.inv.count('ya')).toBe(3);
+    expect(r.tools.takeHookEvents().map((e) => e.type)).not.toContain('arrowShot');
+  });
   it('持ちかえる と ひくのを やめる', () => {
     const r = bowRig();
     r.inv.setSlot(2, { item: 'stone', count: 1 });
