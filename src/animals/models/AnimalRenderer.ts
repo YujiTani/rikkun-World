@@ -397,10 +397,10 @@ export class AnimalRenderer {
   private makeArrow(): THREE.Mesh {
     const geo = new THREE.ConeGeometry(0.24, 0.42, 4);
     geo.rotateX(Math.PI); // 先 を 下 に
-    const mat = new THREE.MeshBasicMaterial({ color: 0xffd54f, fog: false });
+    const mat = new THREE.MeshBasicMaterial({ color: 0xffd54f, fog: false, depthTest: false });
     mat.userData.noDim = true;
     const m = new THREE.Mesh(geo, mat);
-    m.renderOrder = 5;
+    m.renderOrder = 999;
     m.frustumCulled = false;
     m.visible = false;
     this.group.add(m);
