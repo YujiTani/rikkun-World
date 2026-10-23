@@ -93,9 +93,11 @@ async function cycle(n) {
   warped = true;
   const allNorm = [...fast];
   const stats0 = await info();
-  let sawCast = false, waveFrames = 0;
+  let sawCast = false, waveFrames = 0, minHp = 99;
   for (let g = 0; g < 1200; g++) {
     const k = await info();
+    if (k.playerHp < 8) await page.evaluate(() => window.__rikkun.combat.setHp(20)); // 撮影中は やられない ように 体力を もどす
+    minHp = Math.min(minHp, k.playerHp);
     const slowWin = (n === 1 && k.phase === 'cast' && k.castT >= 1.5 && k.eruptionT >= 0) || (n === 1 && k.eruptionT > 0)
       || (n === 2 && k.phase === 'cast' && k.castT >= 1.5) || (n === 2 && k.vortexT > 0);
     // よける（魔法 3）: 最初の 1 発から 少しあと、右へ 3 ブロック すばやく 動く
@@ -121,7 +123,7 @@ async function cycle(n) {
     void warped; void ticks; void slowing; void slowDone;
   }
   const end = await info();
-  console.log(`spell ${n}: frames ${allNorm.length} slow ${slow.length} seed ${seed} side ${end.side} dist ${end.dist.toFixed(1)} fbHit ${end.fbHit - stats0.fbHit} fbMiss ${end.fbMiss - stats0.fbMiss} waveHit ${end.waveHit} waveMiss ${end.waveMiss}`);
+  console.log(`spell ${n}: frames ${allNorm.length} slow ${slow.length} seed ${seed} side ${end.side} dist ${end.dist.toFixed(1)} fbHit ${end.fbHit - stats0.fbHit} fbMiss ${end.fbMiss - stats0.fbMiss} waveHit ${end.waveHit} waveMiss ${end.waveMiss} | hits ${end.hits - stats0.hits} ring ${end.ringHits - stats0.ringHits} vortex ${end.vortexHits - stats0.vortexHits} sw ${end.swHits - stats0.swHits} hp ${end.playerHp}/${end.playerMaxHp} minHp ${minHp}`);
   return { dir, allNorm, slow, peak, player };
 }
 

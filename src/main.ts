@@ -2531,6 +2531,6 @@ installTestHook(game, overlay, () => host.everReady, {
 }, frameClock);
 // #293 試作（開発サーバーだけ）: ?proto=gashaGirl で 少女の 大きさくらべ
 if (import.meta.env.DEV && new URLSearchParams(location.search).get('proto') === 'gashaGirl') {
-  void import('./proto/gashaGirl').then((m) => m.startGashaGirl({ scene: game.scene, camera: game.camera, onUpdate: (fn) => game.onUpdate(fn), onBeforeRender: (fn) => game.onBeforeRender(fn), solid: (x, y, z) => world.isSolid(x, y, z), player: () => ({ ...controller.state.position, yawDeg: controller.state.yawDeg }), groundY: (x, z) => island.groundHeight(x, z) }));
+  void import('./proto/gashaGirl').then((m) => m.startGashaGirl({ scene: game.scene, camera: game.camera, onUpdate: (fn) => game.onUpdate(fn), onBeforeRender: (fn) => game.onBeforeRender(fn), solid: (x, y, z) => world.isSolid(x, y, z), player: () => ({ ...controller.state.position, yawDeg: controller.state.yawDeg, vx: controller.state.velocity.x, vz: controller.state.velocity.z }), hurt: (amount, from) => combat.damage(amount, 'karakasa', from), hp: () => combat.hp(), maxHp: () => combat.maxHp(), groundY: (x, z) => island.groundHeight(x, z) }));
 }
 game.start();
