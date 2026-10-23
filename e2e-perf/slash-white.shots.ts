@@ -38,10 +38,10 @@ async function ready(page: P) {
 }
 
 
-const ITEMS = (process.env.SLASH_ITEMS ?? 'katana,bokuto,raijin_ken').split(',');
+const ITEMS = (process.env.SLASH_ITEMS ?? 'katana,bokuto,raijin_ken,fujin_ken').split(',');
 let home = { dx: 0 };
 for (const item of ITEMS) {
-  const short = item === 'raijin_ken' ? 'raijin' : item;
+  const short = item === 'raijin_ken' ? 'raijin' : item === 'fujin_ken' ? 'fujin' : item;
   test(`白い 斬撃 3 段: ${item}`, async ({ page }) => {
     await legendWorld(page, item);
     await page.addStyleTag({ content: '#hud { display: none !important; }' }); // 撮影中は HUD を かくす
@@ -55,7 +55,7 @@ for (const item of ITEMS) {
       home = { dx };
       await page.evaluate(([deg, dist, pitch]) => { const h = (window as any).__rikkun; h.camera.yawOffset(deg); h.camera.distance(dist); h.player.set({ yaw: 0, pitch }); }, [deg, dist, pitch] as const);
       await page.evaluate(() => (window as any).__rikkun.step(3));
-      const name = `white-${short}-${label}`;
+      const name = short === 'raijin' || short === 'fujin' ? `${short}-${label}` : `white-${short}-${label}`;
       const dir = `${FRAMES}/${name}`;
       rmSync(dir, { recursive: true, force: true });
       mkdirSync(dir, { recursive: true });
@@ -85,8 +85,8 @@ for (const item of ITEMS) {
           h.step(1);
           if (key) h.input.release(key);
           const a = (h.legend.slashes?.() ?? [])[0];
-          return { key, stage: d.stage, idle: h.blade.state().phase === 'idle', slash: a ? `${a.tech}${a.step} f${a.frame}` : '-', yk: (() => { const y = h.yokai.list()[0]; return y ? `${y.position.x.toFixed(1)},${y.position.z.toFixed(1)}` : 'none'; })() };
-        }, [item === 'raijin_ken', home] as const);
+          return { key, stage: d.stage, idle: h.blade.state().phase === 'idle', slash: a ? `${a.tech}${a.step} f${a.frame}` : '-', fx: (() => { const r = h.legend.raijinFx?.(), f = h.legend.fujinFx?.(); return `${(r?.draws ?? 0) + (f?.draws ?? 0)}/${(r?.tris ?? 0) + (f?.tris ?? 0)}`; })(), yk: (() => { const y = h.yokai.list()[0]; return y ? `${y.position.x.toFixed(1)},${y.position.z.toFixed(1)}` : 'none'; })() };
+        }, [item === 'raijin_ken' || item === 'fujin_ken', home] as const);
         if (process.env.SLASH_LOG) appendFileSync(process.env.SLASH_LOG, `${name} ${i} ${JSON.stringify(q)}\n`);
         await page.screenshot({ path: `${dir}/${String(i + 1).padStart(4, '0')}.png`, clip: CLIPS[label] });
         if (q.slash.startsWith('kesa')) kesaSeen = true;
