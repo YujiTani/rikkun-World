@@ -1098,10 +1098,24 @@ const kodachi = new Kodachi({
     if (!y) return;
     const px = controller.state.position.x, pz = controller.state.position.z;
     const dx = y.position.x - px, dz = y.position.z - pz;
-    const d = Math.hypot(dx, dz) || 1;
     const uDeg = (Math.atan2(dx, -dz) * 180) / Math.PI;
-    // 妖怪の すぐ 手前に 小さく（reach 1.0 = 絵の 基準の 半分くらい）
-    kodachiFx.queueSlash({ tech: 'kiriage', step: 1, uDeg, pos: () => ({ x: y.position.x - (dx / d) * 0.8, y: y.position.y, z: y.position.z - (dz / d) * 0.8 }), reach: 1.0 });
+    // 追い打ちの 当たりと 同じ ステップに（delay 0）、妖怪の 中心の 高さで カメラ側の 手前に 小さく 白く（体に かくれない・遠ざけない）
+    const T = NINJA_TUNING;
+    kodachiFx.queueSlash({
+      tech: 'kiriage',
+      step: 1,
+      uDeg,
+      pos: () => y.position,
+      reach: T.tekkoSlashReach,
+      delay: 0,
+      back: 0,
+      center: () => {
+        const c = game.camera.position;
+        const vx = c.x - y.position.x, vz = c.z - y.position.z;
+        const vl = Math.hypot(vx, vz) || 1;
+        return { x: y.position.x + (vx / vl) * T.tekkoSlashFront, y: y.position.y + T.tekkoSlashHeight, z: y.position.z + (vz / vl) * T.tekkoSlashFront };
+      },
+    });
   },
 });
 let kodachiHookBuf: CombatEvent[] = [];
@@ -2543,6 +2557,7 @@ installTestHook(game, overlay, () => host.everReady, {
     spiralSound: () => legend.spiralSound(),
     pullSound: () => legend.pullSound(),
     slashes: () => slashFx.slashes(),
+    kodachiSlashes: () => kodachiFx.slashes(),
     nijiFx: () => ({ ...nijiFx.info(), ...slashFx.info() }),
     fujinFx: () => fujinFx.info(),
     windWaveFx: () => windWaveFx.info(),
