@@ -113,3 +113,25 @@ describe('少女の 効果音: ゆらぎと 同時再生', () => {
     for (let i = 0; i < 5; i++) expect(sfx.play('cast')).toBe(false);
   });
 });
+
+describe('少女の 効果音: 先読みと resume', () => {
+  it('はじめに 17 ファイルを 読みこみ、suspended なら 最初の クリックで resume する', async () => {
+    const { createWebAudioPlayer } = await import('./gashaGirlSfx');
+    const fetched: string[] = [];
+    const listeners: Record<string, () => void> = {};
+    let resumed = 0;
+    class FakeCtx { state = 'suspended'; currentTime = 0; decodeAudioData = async () => ({ duration: 1 }); resume = async () => { resumed++; this.state = 'running'; }; }
+    const g = globalThis as unknown as Record<string, unknown>;
+    const old = { window: g.window, fetch: g.fetch };
+    g.window = { AudioContext: FakeCtx, addEventListener: (e: string, f: () => void) => { listeners[e] = f; }, removeEventListener: () => {} };
+    g.fetch = async (u: string) => { fetched.push(u); return { ok: true, arrayBuffer: async () => new ArrayBuffer(1) }; };
+    try {
+      createWebAudioPlayer().preload();
+      await new Promise((r) => setTimeout(r, 0));
+      expect(new Set(fetched).size).toBe(17);
+      expect(resumed).toBe(0);
+      listeners.pointerdown!();
+      expect(resumed).toBe(1);
+    } finally { g.window = old.window; g.fetch = old.fetch; }
+  });
+});

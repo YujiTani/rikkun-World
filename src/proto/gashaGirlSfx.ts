@@ -139,7 +139,16 @@ export function createWebAudioPlayer(): SfxEnv & { preload(): void } {
   };
   return {
     /** 先に 読みこんでおく（最初の 1 回から 鳴らす ため） */
-    preload: () => { const c = ensure(); if (c) load(c); },
+    preload: () => {
+      const c = ensure();
+      if (!c) return;
+      load(c);
+      // ユーザー操作の 前は suspended。最初の クリック・キーで resume する
+      if (c.state === 'suspended') {
+        const go = (): void => { void c.resume(); for (const e of ['pointerdown', 'keydown']) window.removeEventListener(e, go, true); };
+        for (const e of ['pointerdown', 'keydown']) window.addEventListener(e, go, true);
+      }
+    },
     now: () => ctx?.currentTime ?? 0,
     play: (url, o) => {
       const c = ensure();
