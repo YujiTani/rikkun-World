@@ -286,7 +286,7 @@ const titleSound = createBrowserTitleSound(
     mixer.unlock(); // 先に AudioContext を作ってから読む（下の unlock と同じ。何度呼んでもよい）
     void titleSound.preload();
     void preloadLegendSounds(fxSound);
-    void preloadGetaSounds(fxSound); // 風神剣・雷神剣の ため音・攻撃音（最初の 操作の あとに 1 回）
+    void preloadGetaSounds(fxSound); // 明珍下駄の 足音（最初の 操作の あとに 1 回）
   };
   window.addEventListener('pointerdown', warm, true);
   window.addEventListener('keydown', warm, true);
