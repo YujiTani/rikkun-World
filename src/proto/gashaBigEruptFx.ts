@@ -31,7 +31,7 @@ export interface EmberView { x: number; y: number; z: number; age: number }
 export interface AshView { x: number; y: number; z: number; spin: number }
 export interface ShadowView { x: number; y: number; z: number; warn: number }
 
-const CAP = { jet: 60, smoke: 260, flames: 120, ash: 130, shadows: 130, embers: 170, wind: 40 };
+const CAP = { jet: 60, smoke: 260, flames: 120, ash: 130, shadows: 130, embers: 310, wind: 40 };
 
 export class EruptFx {
   private readonly root = new Group();

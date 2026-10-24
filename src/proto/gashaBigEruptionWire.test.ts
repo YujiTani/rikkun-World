@@ -3,6 +3,7 @@ import { PerspectiveCamera, Scene } from 'three';
 import { TUNE as T } from './gashaBigTuning';
 import { startGashaBig, type GashaBigDeps } from './gashaBig';
 import type { BigSfxEnv } from './gashaBigSfx';
+import type { HitSources, YokaiWorldLike } from './gashaBigHit';
 
 /** 攻撃 4「口から 火山噴火」: つなぎ（灰・予告の 影・燃え残り・植物が 燃える・体が 焼ける・ドットダメージ・音） */
 function rig() {
@@ -11,6 +12,8 @@ function rig() {
   const calls = { hurt: [] as { a: number; from: { x: number; y: number; z: number } }[], air: 0 };
   const removed = new Set<string>();
   const sounds: string[] = [];
+  const src = { blade: null as ReturnType<NonNullable<HitSources['blade']>>, waves: [] as ReturnType<NonNullable<HitSources['waves']>> | never[] };
+  const ym: YokaiWorldLike = { raycast: () => null, damage: () => 0 };
   const sfxEnv: BigSfxEnv = { now: () => 0, play: (u) => { sounds.push(u.replace(/^.*\//, '').replace(/\.(ogg|wav)$/, '')); return 0.1; }, loop: (u) => { sounds.push('loop:' + u.replace(/^.*\//, '').replace(/\.wav$/, '')); return { stop: () => { sounds.push('stop:' + u.replace(/^.*\//, '').replace(/\.wav$/, '')); } }; } };
   const deps: GashaBigDeps = {
     scene: new Scene(), camera: new PerspectiveCamera(),
@@ -28,6 +31,7 @@ function rig() {
     },
     setBlockAir: (x, y, z) => { calls.air++; removed.add(`${x},${y},${z}`); return true; },
     sfxEnv,
+    hit: { blade: () => src.blade, waves: () => src.waves as never, yokai: () => ym },
   };
   const h = startGashaBig(deps);
   h.walk(false);
@@ -35,7 +39,7 @@ function rig() {
   const yaw = (info.yawDeg * Math.PI) / 180;
   st.x = info.pos[0]! + Math.sin(yaw) * 70; st.z = info.pos[2]! + Math.cos(yaw) * 70; st.y = 0; // 灰の 範囲の そと
   const step = (sec: number, each?: () => void) => { for (let i = 0; i < Math.round(sec * 60); i++) { each?.(); for (const f of ups) f(1 / 60); } };
-  return { h, st, calls, step, sounds, removed, pos: info.pos };
+  return { h, st, calls, step, sounds, removed, pos: info.pos, src, ym };
 }
 const total = () => T.eruption.inhaleSec + T.eruption.eruptSec + T.eruption.rainSec + 0.5;
 
@@ -162,5 +166,77 @@ describe('口から 火山噴火: つなぎ（#293）', () => {
       r.step(T.eruption.body.restoreSec + 2);
       expect(r.h.attackInfo().eruption.mossHidden).toBe(0);
     } finally { Object.assign(T.eruption.ash, saved.ash); T.eruption.body.restoreSec = saved.restore; }
+  });
+
+  it('燃えかすは 約 5 分（300 秒）燃えつづけて、それから 消える。数が 多くても 描画の 回数は ふえない', () => {
+    expect(T.eruption.ember.sec).toBe(300);
+    const r = rig();
+    r.h.attack('eruption');
+    r.step(T.eruption.inhaleSec + T.eruption.eruptSec + T.eruption.rainSec + 0.3);
+    r.h.angry(false);
+    const n0 = r.h.attackInfo().eruption.embers;
+    expect(n0).toBe(T.eruption.ash.count);
+    r.step(280);
+    expect(r.h.attackInfo().eruption.embers).toBe(n0);
+    // 描画: 炎・こげ跡は どれだけ 増えても 1 つの InstancedMesh
+    const meshes: string[] = [];
+    r.h.group.parent?.traverse((o) => { if ((o as { isInstancedMesh?: boolean }).isInstancedMesh) meshes.push(o.name); });
+    r.h.attack('eruption');
+    r.step(T.eruption.inhaleSec + T.eruption.eruptSec + T.eruption.rainSec + 0.3);
+    expect(r.h.attackInfo().eruption.embers).toBe(n0 * 2);
+    const after: string[] = [];
+    r.h.group.parent?.traverse((o) => { if ((o as { isInstancedMesh?: boolean }).isInstancedMesh) after.push(o.name); });
+    expect(after.length).toBe(meshes.length);
+    r.h.angry(false);
+    r.step(25);
+    expect(r.h.attackInfo().eruption.embers).toBe(n0); // 1 回目の ぶんだけ 消える
+  }, 60000);
+
+  it('刀を 当てると 燃えかすが 消える（小さな 煙と 音）。当てなかった 燃えかすは のこる', () => {
+    const r = rig();
+    r.h.attack('eruption');
+    r.step(total());
+    const list = r.h.eruptionEmbers().filter((e) => !e.body);
+    const e = list[0]!, n0 = r.h.attackInfo().eruption.embers;
+    r.sounds.length = 0;
+    r.src.blade = { shape: { kind: 'capsule', from: { x: e.x, y: e.y + 0.4, z: e.z }, to: { x: e.x + 0.3, y: e.y + 0.4, z: e.z }, radius: 0.4 }, damage: 1, swing: 'a', frame: 1 };
+    r.step(0.1);
+    r.src.blade = null;
+    const i = r.h.attackInfo().eruption;
+    expect(i.embers).toBeLessThan(n0);
+    expect(i.embers).toBeGreaterThan(n0 - 20); // 当てた 近くだけ
+    expect(i.doused).toBe(n0 - i.embers);
+    expect(i.fx.smoke).toBeGreaterThan(0);
+    expect(r.sounds.length).toBeGreaterThan(0);
+    const still = r.h.eruptionEmbers();
+    expect(still.some((q) => Math.hypot(q.x - e.x, q.z - e.z) < 0.3 && Math.abs(q.y - e.y) < 0.3)).toBe(false);
+  });
+
+  it('真空波・らせん（飛ぶ 波）でも 消える。ドームは 範囲ぜんぶ', () => {
+    const r = rig();
+    r.h.attack('eruption');
+    r.step(total());
+    const e = r.h.eruptionEmbers().find((q) => !q.body)!, n0 = r.h.attackInfo().eruption.embers;
+    r.src.waves = [{ id: 1, position: { x: e.x, y: e.y + 0.5, z: e.z }, radius: 1, damage: 1 }];
+    r.step(0.1);
+    r.src.waves = [];
+    expect(r.h.attackInfo().eruption.embers).toBeLessThan(n0);
+  });
+
+  it('パンチ・矢（妖怪への 線の 当たり）でも 消える: 線が 燃えかすに 当たり、ダメージが 来ると 消える', () => {
+    const r = rig();
+    r.h.attack('eruption');
+    r.step(total());
+    r.step(0.1); // 線の 当たりへの 割りこみを つける
+    const e = r.h.eruptionEmbers().find((q) => !q.body)!, n0 = r.h.attackInfo().eruption.embers;
+    const o = { x: e.x, y: e.y + 3, z: e.z };
+    const hit = r.ym.raycast(o, { x: 0, y: -1, z: 0 }, 10);
+    expect(hit).not.toBeNull();
+    expect(hit!.distance).toBeGreaterThan(1.2);
+    expect(hit!.distance).toBeLessThan(3);
+    r.ym.damage(hit!.id, 2, o);
+    expect(r.h.attackInfo().eruption.embers).toBe(n0 - 1);
+    // はずれた 線は 何にも 当たらない
+    expect(r.ym.raycast({ x: e.x + 40, y: e.y + 3, z: e.z + 40 }, { x: 0, y: -1, z: 0 }, 10)).toBeNull();
   });
 });

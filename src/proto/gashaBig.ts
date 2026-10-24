@@ -21,12 +21,12 @@ import { TUNE as T, applyTune, applyTuneFromUrl } from './gashaBigTuning';
 import { BigActor, type ActorClips } from './gashaBigActor';
 import { buildSwirlEyes, type SwirlEyes } from './gashaBigSwirl';
 import { sharedGashaBgm } from './gashaBgm';
-import { BigHit, type HitSources } from './gashaBigHit';
+import { BigHit, boxTouchesCapsule, boxTouchesFan, distToBox, rayBox, type BoxLike, type HitSources } from './gashaBigHit';
 import { GashaGeyser, type GeyserInfo } from './gashaGeyser';
 import { BigShock, type ShockHit } from './gashaBigShock';
 import { ShockFx } from './gashaBigShockFx';
 import { createBigSfx, createBigWebAudioPlayer, type BigSfxEnv } from './gashaBigSfx';
-import { AshRain, Embers, burnPlants, type Ash, type LandInfo } from './gashaBigEruption';
+import { AshRain, Embers, burnPlants, type Ash, type Ember, type LandInfo } from './gashaBigEruption';
 import { EruptFx } from './gashaBigEruptFx';
 import type { PlacedBlock } from './gashaBigPlaced';
 import { BeamAim, type AimEnv } from './gashaBigBeam';
@@ -1164,7 +1164,7 @@ export interface GashaBigHandle {
   /** 噴火で 落ちた 燃えかすの 場所（テスト・デバッグ用） */
   eruptionEmbers(): { x: number; y: number; z: number; body: boolean; age: number }[];
   /** 攻撃サイクル・予告・体の ゆれの いま（テスト用） */
-  attackInfo(): { mode: string; phase: string; attack: string | null; done: number; count: number; left: number; slam2Count: number; sweepCount: number; sweepActive: string | null; quakeLeft: number; warn: boolean; fx: { warn: boolean; rocks: number; cracks: number }; beamCount: number; beamPhase: string; beamMode: string | null; beamAim: { x: number; y: number; z: number } | null; beamFx: { marks: number; flames: number; smoke: number; beams: number; sparkle: number }; eruption: { count: number; phase: string; flying: number; landed: number; embers: number; onBody: number; mossHidden: number; glassBroken: number; burntBlocks: number; fx: { ashes: number; shadows: number; embers: number; burning: number; smoke: number; jet: number; wind: number; column: boolean } } };
+  attackInfo(): { mode: string; phase: string; attack: string | null; done: number; count: number; left: number; slam2Count: number; sweepCount: number; sweepActive: string | null; quakeLeft: number; warn: boolean; fx: { warn: boolean; rocks: number; cracks: number }; beamCount: number; beamPhase: string; beamMode: string | null; beamAim: { x: number; y: number; z: number } | null; beamFx: { marks: number; flames: number; smoke: number; beams: number; sparkle: number }; eruption: { count: number; phase: string; flying: number; landed: number; embers: number; onBody: number; mossHidden: number; glassBroken: number; burntBlocks: number; doused: number; fx: { ashes: number; shadows: number; embers: number; burning: number; smoke: number; jet: number; wind: number; column: boolean } } };
   /** 長い 休みに はいる（その場で 体を 動かさない。首を ふる くらい）。sec を 書かなければ 調整表の wander.restSec */
   rest(sec?: number): void;
   /** うごきの 中身（モード・速さ・手の ついた 数・1 コマの 仕事の 数 など） */
@@ -1433,6 +1433,59 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
       if (moss.length || pl.length) bodyBurnt.push({ t: eruptClock, moss, placed: pl });
     }
   };
+  // 燃えかすは 殴ると 消える（刀・真空波・らせん・ドーム・パンチ・矢）。小さな 煙と「じゅっ」
+  const EMBER_ID_BASE = 910_000_000;
+  let doused = 0, lastDouse = -1e9, douseYm: object | null = null;
+  const emberBox = { name: 'ember', c: [0, 0, 0], ax: [1, 0, 0, 0, 1, 0, 0, 0, 1], half: [0, 0, 0] } as { name: string; c: number[]; ax: number[]; half: number[] } satisfies BoxLike;
+  const fillBox = (e: Ember): BoxLike => {
+    const K = T.eruption.ember;
+    emberBox.c[0] = e.x; emberBox.c[1] = e.y + K.douseHalfY; emberBox.c[2] = e.z;
+    emberBox.half[0] = K.douseHalf; emberBox.half[1] = K.douseHalfY; emberBox.half[2] = K.douseHalf;
+    return emberBox;
+  };
+  const douseWhere = (touch: (b: BoxLike, e: Ember) => boolean): void => {
+    const gone = embers.douse((e) => touch(fillBox(e), e));
+    if (!gone.length) return;
+    const K = T.eruption.ember;
+    doused += gone.length;
+    for (const e of gone) eruptFx.puff(e.x, e.y + 0.3, e.z, K.douseSmoke, K.douseSmokeSize, 1.2, 0.5);
+    if (eruptClock - lastDouse >= K.douseSoundEverySec) { lastDouse = eruptClock; sfx.smoke(); }
+  };
+  const stepDouse = (): void => {
+    const s = deps.hit;
+    if (!s) return;
+    // 線の 当たり（パンチ・矢）: 燃えかすを 小さな 箱として 妖怪の 線の 当たりに 重ねる
+    const ym = s.yokai?.() ?? null;
+    if (ym && douseYm !== ym) {
+      douseYm = ym;
+      const rayPrev = ym.raycast.bind(ym), dmgPrev = ym.damage.bind(ym);
+      ym.raycast = (origin, dir, max) => {
+        const real = rayPrev(origin, dir, max);
+        if (!embers.list.length) return real;
+        const len = Math.hypot(dir.x, dir.y, dir.z) || 1;
+        let best: Ember | null = null, bt = real ? real.distance : max;
+        for (const e of embers.list) {
+          const t = rayBox(fillBox(e), origin.x, origin.y, origin.z, dir.x / len, dir.y / len, dir.z / len, bt);
+          if (t !== null && (best === null ? t <= bt : t < bt)) { best = e; bt = t; }
+        }
+        return best ? { id: EMBER_ID_BASE + best.id, kind: 'nurikabe', distance: bt } : real;
+      };
+      ym.damage = (id, amount, from, knock) => {
+        if (id >= EMBER_ID_BASE && id < EMBER_ID_BASE + 1_000_000) { const want = id - EMBER_ID_BASE; douseWhere((_b, e) => e.id === want); return 0; }
+        return dmgPrev(id, amount, from, knock);
+      };
+    }
+    if (!embers.list.length) return;
+    const M = T.hit;
+    const b = s.blade?.() ?? null;
+    if (b) {
+      if (b.shape.kind === 'capsule') { const sh = b.shape; douseWhere((bx) => boxTouchesCapsule(bx, sh.from, sh.to, sh.radius + M.swordMargin)); }
+      else { const sh = b.shape; douseWhere((bx) => boxTouchesFan(bx, sh, M.swordMargin)); }
+    }
+    for (const w of s.waves?.() ?? []) douseWhere((bx) => distToBox(bx, w.position.x, w.position.y, w.position.z) <= w.radius + M.waveMargin);
+    const d = s.dome?.() ?? null;
+    if (d) douseWhere((bx) => distToBox(bx, d.center.x, d.center.y, d.center.z) <= d.radius);
+  };
   const stepEruption = (dt: number): void => {
     if (!actor) return;
     eruptClock += dt;
@@ -1450,6 +1503,7 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
       eruptFx.setShadows(rain.ashes.filter((a) => rain.warn(a) > 0).map((a) => ({ x: a.lx, y: a.ly, z: a.lz, warn: rain.warn(a) })));
     } else { eruptFx.setAshes([]); eruptFx.setShadows([]); }
     embers.update(dt);
+    stepDouse();
     eruptFx.setEmbers(embers.list);
     const p = deps.player();
     const d = embers.step(dt, { x: p.x, y: p.y, z: p.z });
@@ -1613,7 +1667,7 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
       mode: actor?.mode ?? '', phase: actor?.cycle.phase ?? 'off', attack: actor?.attackName ?? null, done: actor?.cycle.done ?? 0, count: actor?.cycle.count ?? 0, left: actor?.cycle.left ?? 0,
       slam2Count: actor?.slam2Count ?? 0, sweepCount: actor?.sweepCount ?? 0, sweepActive: actor?.sweepNow?.side ?? null, quakeLeft: quake.left, warn: !!actor?.warn, fx: shockFx.bigCounts(),
       beamCount: actor?.beamCount ?? 0, beamPhase: actor?.beam.phase ?? 'idle', beamMode: actor && actor.attackName === 'beam' ? beamAim.mode : null, beamAim: actor && actor.attackName === 'beam' && beamPrev === 'fire' ? { ...beamAim.a } : null, beamFx: beamFx.counts(),
-      eruption: { count: actor?.eruptionCount ?? 0, phase: actor?.eruption.phase ?? 'idle', flying: rain.ashes.length, landed: rain.landedCount, embers: embers.list.length, onBody: embers.list.filter((e) => e.body).length, mossHidden: model?.mossHidden() ?? 0, glassBroken: brokenQ.length, burntBlocks, fx: eruptFx.counts() },
+      eruption: { count: actor?.eruptionCount ?? 0, phase: actor?.eruption.phase ?? 'idle', flying: rain.ashes.length, landed: rain.landedCount, embers: embers.list.length, onBody: embers.list.filter((e) => e.body).length, mossHidden: model?.mossHidden() ?? 0, glassBroken: brokenQ.length, burntBlocks, doused, fx: eruptFx.counts() },
     }),
     rest: (sec) => actor?.rest(sec),
     eruptionEmbers: () => embers.list.map((e) => ({ ...e })),

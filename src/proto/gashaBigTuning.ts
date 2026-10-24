@@ -524,13 +524,18 @@ export const TUNE = {
       maxFlying: 120, // 同時に とぶ 灰の 数の 上限
     },
     ember: {
-      sec: 22, // 【秒】燃え残りが のこる 長さ
+      sec: 300, // 【秒】燃え残りが のこる 長さ（オーナー 2026-10-24: 約 5 分）。殴ると 消せる（douse*）
       radius: 1.3, // 【ブロック】燃えかすに 触れた とみなす 近さ（水平）
       yTol: 1.8, // 【ブロック】燃えかすと 足の 高さの ちがい この 以内
       dotDamage: 1, // 燃えかすに 触れて いる 間の ダメージ（1 回ぶん）
       dotEverySec: 0.6, // 【秒】ドットダメージの 間かく
-      max: 160, // 燃えかすの 数の 上限（多いと 古い 順に 消える）
+      max: 300, // 燃えかすの 数の 上限（多いと 古い 順に 消える。描画は 数に よらず 1 つの InstancedMesh）
       flameScale: 1.1, // 【ブロック】燃えかすの 炎の 高さ
+      douseHalf: 0.9, // 【ブロック】殴る・刀を 当てる ときの 燃えかすの 当たりの はば（はんぶん）
+      douseHalfY: 0.8, // 【ブロック】当たりの 高さ（はんぶん。足もとの 上）
+      douseSmoke: 3, // 消した ときに 出す 小さな 煙の 数（1 つの 燃えかすに つき）
+      douseSmokeSize: 0.55, // 【ブロック】その 煙の 玉の 大きさ
+      douseSoundEverySec: 0.2, // 【秒】消した 音（じゅっ）を 鳴らす 間かくの 下限（まとめて 消えても 1 回）
     },
     plants: ['kusa', 'flower_y', 'flower_o', 'flower_p', 'nobana', 'susuki', 'leaves', 'momiji_leaves', 'matsu_leaves', 'bamboo', 'log'] as string[], // 灰で 燃えて 消える 植物の ブロック（落とし物なし）
     burnRadius: 1.8, // 【ブロック】灰が 落ちた 点から この はんいの 植物が 燃える

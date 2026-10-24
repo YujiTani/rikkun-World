@@ -148,16 +148,17 @@ export class AshRain {
   }
 }
 
-export interface Ember { x: number; y: number; z: number; age: number; body: boolean }
+export interface Ember { id: number; x: number; y: number; z: number; age: number; body: boolean }
 
 export class Embers {
   list: Ember[] = [];
   private cool = 0;
+  private serial = 0;
 
   add(x: number, y: number, z: number, body: boolean): Ember {
     const K = T.eruption.ember;
     if (this.list.length >= K.max) this.list.shift();
-    const e: Ember = { x, y, z, age: 0, body };
+    const e: Ember = { id: this.serial++, x, y, z, age: 0, body };
     this.list.push(e);
     return e;
   }
@@ -184,6 +185,15 @@ export class Embers {
     if (this.cool > 0) return 0;
     this.cool = K.dotEverySec;
     return K.dotDamage;
+  }
+
+  /** 当たった 燃えかすを 消す（殴る・刀を 当てる）。消した ものを 返す */
+  douse(hit: (e: Ember) => boolean): Ember[] {
+    const gone: Ember[] = [];
+    let w = 0;
+    for (const e of this.list) { if (hit(e)) gone.push(e); else this.list[w++] = e; }
+    this.list.length = w;
+    return gone;
   }
 
   clear(): void { this.list.length = 0; this.cool = 0; }
