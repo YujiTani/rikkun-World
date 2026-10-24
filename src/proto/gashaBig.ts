@@ -22,6 +22,7 @@ import { TUNE as T, applyTune, applyTuneFromUrl } from './gashaBigTuning';
 import { BigActor, type ActorClips } from './gashaBigActor';
 import { buildSwirlEyes, type SwirlEyes } from './gashaBigSwirl';
 import { sharedGashaBgm } from './gashaBgm';
+import { CoreBarrier } from './gashaBigBarrier';
 import { FinishSeq, type FinishEvent } from './gashaBigFinish';
 import { CRUMBLE_ORDER, CrumbleFx, crumbleSchedule } from './gashaBigCrumbleFx';
 import { BigHit, boxTouchesCapsule, boxTouchesFan, distToBox, rayBox, type BoxLike, type HitSources } from './gashaBigHit';
@@ -101,7 +102,7 @@ export interface GashaBigDeps {
   onCoreBroken?(e: { x: number; y: number; z: number }): void;
   /** くずれおわって 体が 消えた(片づけは 呼んだ 側が despawn() する) */
   onVanished?(): void;
-  /** 体力 1/3 で 噴火を して 固まった(ぴたっと 止まった しゅんかん。BGM は ここで ぶつっと 切る)。ふだんの ゲームは release.ts が 少女を 呼ぶ */
+  /** 体力 1/2 で 噴火を して 固まった(ぴたっと 止まった しゅんかん。BGM は ここで ぶつっと 切る)。ふだんの ゲームは release.ts が 少女を 呼ぶ */
   onHeld?(): void;
   /** 手が 地面を たたいた ときの 打撃・衝撃波・小さい 衝撃の ダメージ（プレイヤーの combat.damage。当たったら true）。なければ ダメージなし（ひるみだけ） */
   hurt?(amount: number, from: { x: number; y: number; z: number }): boolean;
@@ -1189,6 +1190,8 @@ export interface GashaBigHandle {
   frozen(): boolean;
   /** 少女が 座る 場所(左かたの ぬの の 上。世界の 座標と 向き)。体が なければ null */
   perchSpot(): { x: number; y: number; z: number; yawDeg: number } | null;
+  /** コアを まもる 虹色の バリア(少女の 間だけ on)。波紋の 数・半径(テスト用) */
+  barrier(): { on: boolean; ripples: number; radius: number };
   /** とどめの あとの 様子(テスト・デバッグ用): 場面・コアの のこり・倒れ具合・赤さ・くずれ具合・かけらの 数 */
   finishInfo(): { phase: string; coreHp: number; coreMax: number; fallK: number; redK: number; crumbleK: number; chunks: number };
   /** 座っている 少女の 当たりの 箱を 足す(名前 girl。null で はずす)。箱の 中身は 少女が 毎コマ 更新する */
@@ -1271,6 +1274,8 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
   /** 横に おし出す 速さ(ふつうは コアの ふり落とし。とどめの 一撃では 大きく) */
   let throwSpeed = T.core.throwOff.speed;
   const throwDir = { x: 0, z: 0 };
+  /** コアの ふり落としで、体の 外へ 出きるまで 押しつづける(経過の 秒・押しつづける 印) */
+  let throwTotal = 0, throwOut = false;
   // コアを たたかれた: まず 予兆（大きな 音・画面の ゆれ・コアが ゆれて 半透明で 無敵。プレイヤーは 動ける）→ 風の 音と ともに 遠くへ とばされる（カメラが 1 回転）
   let warnLeft = 0, warnClock = 0, spinLeft = 0, spinDone = 0;
   const reduced = (): boolean => deps.reducedMotion?.() ?? false;
@@ -1288,23 +1293,28 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
     const p = deps.player();
     if (Math.hypot(p.x - b.c[0], p.y - b.c[1], p.z - b.c[2]) > K.range) return;
     if (p.y < b.c[1] - K.minBelow) return; // 地面から 弓で 撃って いる 人（小さな 穴から ねらう）は 体の 上に いないので とばさない
-    // 道は せまくて かい段だらけ なので、とばす まえに 穴の 外（入り口の 床の だんの 少し 上・うしろ）へ ワープさせてから、うしろへ とばす
-    const fi = actor.model.hits.findIndex((h) => h.name === 'chestCoreFloor');
-    const fb = fi >= 0 ? actor.boxList[fi] : undefined;
-    const ax = { x: -b.ax[6]!, y: -b.ax[7]!, z: -b.ax[8]! }; // 道の 軸（うしろ・上）
-    if (fb && deps.carryPlayer) {
-      const out = fb.half[2] + K.exitOut;
-      // 外へは 道の 向きに のばし、高さは 床の うしろの はしの まま（道は 下り坂 なので 軸の まま のばすと 高く なりすぎて 着地ダメージが 大きすぎる）
-      const ex = fb.c[0]! - fb.ax[6]! * out, ey = fb.c[1]! - fb.ax[7]! * fb.half[2] + K.exitUp, ez = fb.c[2]! - fb.ax[8]! * out;
-      deps.carryPlayer(ex - p.x, ey - p.y, ez - p.z, 0);
-    }
+    // ワープは しない(オーナー 20:19)。コア → プレイヤーの 向き(水平)へ、その場から 放射状に とばす。体の 外へ 出きるまで 押しつづける
+    let dx = p.x - b.c[0], dz = p.z - b.c[2];
+    const d = Math.hypot(dx, dz);
+    if (d < 0.3) { dx = -Math.sin(yaw); dz = -Math.cos(yaw); } else { dx /= d; dz /= d; } // コアの 真上・真下なら 体の うしろへ
     deps.setPlayerVelocity({ x: 0, y: K.up, z: 0 }); // 横の 速さは ゲームが 入力から 毎コマ きめる ので、横は 下で 毎コマ ずらす
-    throwDir.x = ax.x; throwDir.z = ax.z;
+    throwDir.x = dx; throwDir.z = dz;
     throwSpeed = K.speed;
     throwLeft = K.blockSec;
+    throwTotal = 0; throwOut = true;
     if (!reduced() && K.spinTurns > 0) { spinLeft = K.spinSec; spinDone = 0; }
+    if (K.damage > 0) deps.hurt?.(K.damage, { x: b.c[0], y: b.c[1], z: b.c[2] });
     deps.onCoreThrow?.();
-    // ふり落とし自体の ダメージは なし。着地ダメージは ふつうに 入る（足袋・間欠泉の 守りは そのまま）
+    // 着地ダメージは ふつうに 入る（足袋・間欠泉の 守りは そのまま）
+  };
+  /** プレイヤー(足もと p)の 体・頭の まわり pad ブロックに 体の 固い マスが あるか(体の 外へ 出きって いないか) */
+  const insideBody = (p: { x: number; y: number; z: number }, pad: number): boolean => {
+    if (!actor) return false;
+    const r = Math.max(0.5, pad);
+    for (const dy of [0.2, 1.5]) for (const [ox, oz] of [[0, 0], [r, 0], [-r, 0], [0, r], [0, -r]] as const) {
+      if (actor.solid(Math.floor(p.x + ox), Math.floor(p.y + dy), Math.floor(p.z + oz))) return true;
+    }
+    return false;
   };
   const stepCoreWarn = (dt: number): void => {
     const K = T.core.throwOff;
@@ -1364,7 +1374,12 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
   };
   // プレイヤーが 体の 上に 置く ブロック（gashaBigPlaced.ts）。がしゃどくろを 置きなおすと ぜんぶ 消える
   const placed = new BodyPlaced({ model: () => model, actor: () => (hidden ? null : actor), lighting: deps.lighting, patch: hazePatch, breakGlassAt: (c, r, max) => breakGlass(c, r, max) });
-  const bh = new BigHit({ scene: deps.scene, angry: () => { isAngry = true; actor?.hit(); }, onCore: throwOff, coreGuard: () => warnLeft > 0, onCloud: (at) => { breakGlass(at, T.glass.swordRadius); }, onCoreHit: (at) => coreStruck(at), sources: deps.hit });
+  // 少女の 間(固まって いる 間)は 体も コアも ダメージ 0 + コアは 虹色の バリアで まもられて いる(とどめの あとは 別)
+  const barrier = new CoreBarrier(deps.scene);
+  const bodyGuardOn = (): boolean => !!actor && !hidden && actor.held && fin.phase === 'off' && T.freeze.bodyInvincible && !!deps.onHeld;
+  const bh = new BigHit({ scene: deps.scene, angry: () => { isAngry = true; actor?.hit(); }, onCore: throwOff, coreGuard: () => warnLeft > 0,
+    bodyGuard: bodyGuardOn,
+    onDeflect: (at) => { if (at) barrier.ripple(at.x, at.y, at.z); else { const p = deps.player(); barrier.ripple(p.x, p.y + 1, p.z); } }, onCloud: (at) => { breakGlass(at, T.glass.swordRadius); }, onCoreHit: (at) => coreStruck(at), sources: deps.hit });
   let pos = new Vector3(), yaw = 0;
   const { blockAt, setGeyserBlock, scanGeyserBlocks } = deps;
   const geysers = deps.onUpdate && deps.playerBody && deps.setPlayerVelocity && deps.nudgePlayer && deps.setNoFall && blockAt && setGeyserBlock && scanGeyserBlocks
@@ -1763,7 +1778,7 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
       const n = d > 1e-3 ? 1 / d : 0;
       throwDir.x = d > 1e-3 ? dx * n : 0; throwDir.z = d > 1e-3 ? dz * n : 1;
       throwSpeed = F.knockSpeed;
-      throwLeft = F.knockSec;
+      throwLeft = F.knockSec; throwOut = false;
       deps.setPlayerVelocity({ x: 0, y: F.knockUp, z: 0 });
     }
     bgm?.request('big', false);
@@ -1811,9 +1826,19 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
   bgm?.preload('kamigami', 'saiyaku'); // 怒った 瞬間・少女が 出る 瞬間に 曲が とぎれない ように 先に 読みこむ（FIX-BRIEF-2 §3-4）
   let bgmWant = false;
   let farNow = false;
+  /** コアの バリア: 少女の 間だけ 張る(コアの 場所に ついて いく) */
+  const stepBarrier = (dt: number): void => {
+    const on = bodyGuardOn();
+    barrier.setOn(on);
+    if (!on) return;
+    const c = coreCenter();
+    barrier.setCenter(c.x, c.y, c.z);
+    barrier.update(dt);
+  };
   deps.onUpdate?.((dt) => {
     // 片づけた あと・少女の 間は 何も 動かさない（BGM の 後始末だけ 毎コマ）
-    if (!actor || hidden) { bgm?.step(); return; }
+    if (!actor || hidden) { barrier.setOn(false); bgm?.step(); return; }
+    stepBarrier(dt);
     updateHaze();
     // プレイヤーが 遠い(perf.farDist より 遠い)間は 攻撃の 当たり・見た目・音・ゆれを まいコマ 省く(体の 動きと 体力だけ)。遠く なった しゅんかんに 画面の 効果・音を 片づける
     const fp = deps.player();
@@ -1849,7 +1874,15 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
     if (quake.left > T.sfx.quakeFadeOutSec) sfx.quakeOn(); else sfx.quakeOff();
     sfx.update();
     shockFx.setWarn(actor.warn);
-    if (throwLeft > 0) { throwLeft -= dt; deps.nudgePlayer?.(throwDir.x * throwSpeed * dt, throwDir.z * throwSpeed * dt); }
+    if (throwLeft > 0) {
+      throwLeft -= dt; throwTotal += dt;
+      deps.nudgePlayer?.(throwDir.x * throwSpeed * dt, throwDir.z * throwSpeed * dt);
+      // コアの ふり落とし: まだ 体の 箱の 中・すぐ そばなら、外へ 出きる まで(上限 maxSec)押しつづける
+      if (throwLeft <= 0) {
+        if (throwOut && actor && throwTotal < T.core.throwOff.maxSec && insideBody(deps.player(), T.core.throwOff.clearPad)) throwLeft = dt;
+        else throwOut = false;
+      }
+    }
     shock.step(dt);
     shockFx.update(dt);
     pos = actor.pos; yaw = actor.yaw;
@@ -1868,7 +1901,7 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
     if (full) bodyBurnt.length = 0;
     thunderFx.clear(); strikes.clear(); bodyShock.reset(); fingerBolt = null; sfx.stopAll();
     shock.clear(); shockFx.clear();
-    throwLeft = 0; warnLeft = 0; spinLeft = 0;
+    throwLeft = 0; warnLeft = 0; spinLeft = 0; throwOut = false;
   };
   const detachedGroup = new Group();
 
@@ -1881,6 +1914,7 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
     actor = null;
     isAngry = false; hidden = false; defeatedFired = false; heldFired = false;
     finishReset();
+    barrier.setOn(false);
     if (bgm) { bgmWant = false; bgm.uncut(); bgm.request('big', false); bgm.step(); }
   };
 
@@ -1917,6 +1951,7 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
       return { x: b.c[0]!, y: top + T.freeze.perchUp, z: b.c[2]!, yawDeg: (yaw * 180) / Math.PI };
     },
     setGirlBox: (box) => { if (fin.phase === 'off') bh.setExtra(box); },
+    barrier: () => barrier.info(),
     finishInfo: () => ({ phase: fin.phase, coreHp: fin.coreHp, coreMax: fin.coreMax, fallK: fin.fallK, redK: fin.redK, crumbleK: fin.crumbleK, chunks: crumbleFx?.alive() ?? 0 }),
     maxHp: () => bh.maxHp,
     hp: () => bh.hp,

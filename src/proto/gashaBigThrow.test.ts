@@ -43,12 +43,14 @@ describe('コアの ふり落とし（#293 予兆・2 倍・カメラ 1 回転�
   beforeEach(() => { vi.stubGlobal('location', { search: '' }); vi.stubGlobal('window', {}); chase = T.chase.enabled; T.chase.enabled = false; });
   afterEach(() => { vi.unstubAllGlobals(); T.chase.enabled = chase; });
 
-  it('調整表: 予兆 1.5 秒・飛ぶ きょりは もとの 2 倍・落下の 守り（noFallSec）は なし', () => {
+  it('調整表: 予兆 1.5 秒・飛ぶ きょりは 以前(20)の 1.5 倍(30)・ワープの 数(exitOut)は もう ない・落下の 守り（noFallSec）は なし', () => {
     const K = T.core.throwOff as Record<string, number>;
     expect(K.warnSec).toBeCloseTo(1.5, 5);
     expect(K.range).toBeGreaterThanOrEqual(28); // もとは 14
-    expect(K.exitOut).toBeGreaterThanOrEqual(5); // もとは 2.5
-    expect(K.speed).toBeGreaterThanOrEqual(20); // もとは 10
+    expect('exitOut' in K).toBe(false);
+    expect('exitUp' in K).toBe(false);
+    expect(K.speed).toBeGreaterThanOrEqual(30); // 以前は 20(もとは 10)
+    expect(K.up).toBeGreaterThanOrEqual(9);
     expect(K.spinTurns).toBe(1);
     expect('noFallSec' in K).toBe(false);
   });
@@ -99,9 +101,12 @@ describe('コアの ふり落とし（#293 予兆・2 倍・カメラ 1 回転�
     const yawStart = 30;
     r.step(Math.ceil(Math.max(K.blockSec, K.spinSec) * 60) + 5);
     expect(r.blocked()).toBe(false);
-    // 遠く（2 倍）: 入り口の うしろへ ワープ + 横の 速さ × 秒
+    // 遠く: ワープなし。コア → プレイヤーの 向き(水平)へ 横の 速さ × 秒
     const moved = Math.hypot(r.st.x - p0.x, r.st.z - p0.z);
-    expect(moved).toBeGreaterThanOrEqual(K.exitOut + K.speed * K.blockSec * 0.95);
+    expect(moved).toBeGreaterThanOrEqual(K.speed * K.blockSec * 0.95);
+    const core = r.h.colliders().find((c) => c.name === 'core')!;
+    const rx = p0.x - core.center[0], rz = p0.z - core.center[2], dx = r.st.x - p0.x, dz = r.st.z - p0.z;
+    expect((dx * rx + dz * rz) / (Math.hypot(dx, dz) * Math.hypot(rx, rz))).toBeGreaterThan(0.99);
     // カメラ: ちょうど 1 回転して もとの 向き
     const turn = r.calls.dYaw.reduce((a, b) => a + b, 0);
     expect(turn).toBeCloseTo(360 * K.spinTurns, 3);
@@ -111,6 +116,27 @@ describe('コアの ふり落とし（#293 予兆・2 倍・カメラ 1 回転�
     expect(r.calls.noFall.filter((x) => x)).toEqual([]);
     // 予兆が おわれば また 当たる
     expect(r.h.damage('core', 10)).toBeGreaterThan(0);
+  });
+
+  it('ワープしない: どの 向きから なぐっても、コア → プレイヤーの 向きへ 毎コマ speed / 60 ブロックずつ(1 コマで 大きく 動かない)', () => {
+    const K = T.core.throwOff;
+    for (const [ox, oz] of [[0, -3], [5, 0], [-5, 0], [0, 6], [3, 3]] as const) {
+      const r = rig();
+      const core = r.h.colliders().find((c) => c.name === 'core')!;
+      r.st.x = core.center[0] + ox; r.st.y = core.center[1]; r.st.z = core.center[2] + oz;
+      const p0 = { x: r.st.x, z: r.st.z };
+      r.h.damage('core', 10);
+      r.step(Math.ceil(K.warnSec * 60) + 1);
+      let prev = { x: r.st.x, z: r.st.z }, maxStep = 0;
+      for (let i = 0; i < Math.ceil(K.blockSec * 60) + 10; i++) {
+        r.step(1);
+        maxStep = Math.max(maxStep, Math.hypot(r.st.x - prev.x, r.st.z - prev.z));
+        prev = { x: r.st.x, z: r.st.z };
+      }
+      expect(maxStep, `(${ox}, ${oz})`).toBeLessThanOrEqual(K.speed / 60 + 1e-6);
+      const rx = p0.x - core.center[0], rz = p0.z - core.center[2], dx = r.st.x - p0.x, dz = r.st.z - p0.z;
+      expect((dx * rx + dz * rz) / (Math.hypot(dx, dz) * Math.hypot(rx, rz)), `(${ox}, ${oz}) 遠ざかる 向き`).toBeGreaterThan(0.99);
+    }
   });
 
   it('「うごきを へらす」: カメラは 回らない（とばすのは そのまま）', () => {

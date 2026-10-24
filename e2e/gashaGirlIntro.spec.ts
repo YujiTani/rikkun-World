@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
-// 体力 1/3 → 噴火して 固まる → BGM ぶつっと → 笑い声 → 少女が ワープで 飛びまわる → 決めポーズ → 戦い → 5 回の あと 肩に 座る（FIX-BRIEF-2 §4）
+// 体力 1/2 → 噴火して 固まる → BGM ぶつっと → 笑い声 → 少女が ワープで 飛びまわる → 決めポーズ → 戦い → 5 回の あと 肩に 座る（FIX-BRIEF-2 §4）
 test.describe.configure({ timeout: 180_000 });
 
 async function open(page: Page) {

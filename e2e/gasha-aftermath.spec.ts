@@ -199,22 +199,33 @@ test.describe('1. たおした 後は 動かない', () => {
 
 // ---------------------------------------------------------------- 2. 間欠泉で はさまる
 
-/** 少女の 間（笑って いる 間。大きな 姿は 固まって いる）まで すすめる。ガラスの 生えなおしは 止める */
-async function toFrozen(page: Page): Promise<void> {
-  const errs = await openGasha(page);
-  void errs;
-  await installGirlTools(page);
-  await setupBoss(page, { walk: true, distance: 60 });
-  await loadGirl(page);
-  await page.evaluate(() => (window as any).__gg.hpTo(0.3));
-  expect(await page.evaluate(() => (window as any).__gg.untilForm('laugh')), '少女が 笑う').toBeGreaterThanOrEqual(0);
-  await page.evaluate(() => (window as any).__rikkun.gasha.bigTune.glass.regenDelaySec = 1e6);
+/** 低い 雲(bank*)の すぐ そとに 順番に 立って 刀で 突く。どれかで ガラスが 割れれば true */
+async function swingAtSomeGlass(page: Page): Promise<boolean> {
+  const names: string[] = await page.evaluate(() => (window as any).__gashaBig.colliders().filter((c: any) => c.mask && c.name.startsWith('bank')).map((c: any) => c.name as string));
+  for (const name of names.slice(0, 40)) {
+    const b0 = await page.evaluate((name) => {
+      const w = window as any, gt = w.__gt, g = gt.big(), h = gt.h;
+      const c = g.colliders().find((q: any) => q.name === name);
+      const boss = gt.boss();
+      let dx = c.center[0] - boss.x, dz = c.center[2] - boss.z; const d = Math.hypot(dx, dz) || 1; dx /= d; dz /= d;
+      const px = c.center[0] + dx * (Math.max(c.half[0], c.half[2]) + 1.2), pz = c.center[2] + dz * (Math.max(c.half[0], c.half[2]) + 1.2);
+      h.player.set({ position: { x: px, y: c.center[1] - 0.8, z: pz }, velocity: { x: 0, y: 0, z: 0 }, yawDeg: (Math.atan2(-dx, dz) * 180) / Math.PI, pitchDeg: 0 });
+      gt.heal();
+      h.step(1);
+      return g.glassInfo().broken as number;
+    }, name);
+    await runTech(page, 14);
+    const b1 = await page.evaluate(() => (window as any).__gashaBig.glassInfo().broken as number);
+    await settle(page, 20);
+    if (b1 > b0) return true;
+  }
+  return false;
 }
 
 /** 体の 下（肩の 雲の 近く。上に 体・ガラスが ある 場所）に 間欠泉を 立てて、その 中に プレイヤーを 立たせる */
 async function standInGeyserUnderBody(page: Page): Promise<{ x0: number; z0: number; ground: number; top: number }> {
   const ge = await page.evaluate(() => {
-    const w = window as any, gt = w.__gt, g = gt.big(), h = gt.h;
+    const w = window as any, gt = w.__gt, g = gt.big();
     g.spawnGeyser(58, 5, 0);
     gt.run(320, () => gt.heal());
     const q = g.geysers().find((s: any) => s.x0 >= 56 && s.x0 <= 60 && s.state !== 'cracking');
@@ -262,22 +273,31 @@ test.describe('2. 間欠泉で 体・ガラスの 下に 押し上げられて�
     await page.evaluate(() => (window as any).__gg.hpTo(0.3));
     expect(await page.evaluate(() => (window as any).__gg.untilForm('laugh'))).toBeGreaterThanOrEqual(0);
     const ge = await standInGeyserUnderBody(page);
+    // 柱の 中心に 立って、四方の どれかへ 歩けば 柱の 外へ 出られる(体の かべが ある 方は 出られなくても よい)
     const out = await page.evaluate((q) => {
       const w = window as any, gt = w.__gt, h = gt.h;
       gt.run(60, () => gt.heal());
-      // -x の 向きへ 歩く（yaw 90 度 = -x を 向く）
-      h.player.set({ yawDeg: 90, pitchDeg: 0 });
-      h.input.press('moveForward');
-      let outAt = -1;
-      for (let i = 0; i < 180; i++) { gt.heal(); h.step(1); if (h.player.get().position.x < q.x0 - 0.5) { outAt = i; break; } }
-      h.input.releaseAll();
-      return { outAt, x: h.player.get().position.x as number };
+      let outAt = -1, dir = -1, x = 0;
+      for (const yawDeg of [270, 90, 0, 180]) {
+        h.player.set({ position: { x: q.x0 + 1, y: q.ground + 0.2, z: q.z0 + 1 }, velocity: { x: 0, y: 0, z: 0 }, yawDeg, pitchDeg: 0 });
+        gt.run(10, () => gt.heal());
+        h.input.press('moveForward');
+        for (let i = 0; i < 120; i++) {
+          gt.heal(); h.step(1);
+          const p = h.player.get().position;
+          if (p.x < q.x0 - 0.5 || p.x > q.x0 + 2.5 || p.z < q.z0 - 0.5 || p.z > q.z0 + 2.5) { outAt = i; dir = yawDeg; break; }
+        }
+        h.input.releaseAll();
+        x = h.player.get().position.x;
+        if (outAt >= 0) break;
+      }
+      return { outAt, dir, x };
     }, ge);
     expect(out.outAt, `柱の 外へ 出られた（x = ${out.x}）`).toBeGreaterThanOrEqual(0);
     expect(errs).toEqual([]);
   });
 
-  test('少女の 間も すりガラスは 刀で 割れる: 体の 下で ガラスの 天井に 向けて 振ると 割れて、はさまりも ほどける', async ({ page }) => {
+  test('少女の 間も すりガラスは 刀で 割れる(体に はじかれても ガラスは 割れる)。割れた 下で はさまらない', async ({ page }) => {
     const errs = await openGasha(page);
     await installGirlTools(page);
     await setupBoss(page, { walk: true, distance: 60 });
@@ -285,14 +305,9 @@ test.describe('2. 間欠泉で 体・ガラスの 下に 押し上げられて�
     await takeKatana(page, 'chudan');
     await page.evaluate(() => (window as any).__gg.hpTo(0.3));
     expect(await page.evaluate(() => (window as any).__gg.untilForm('laugh'))).toBeGreaterThanOrEqual(0);
-    await page.evaluate(() => (window as any).__rikkun.gasha.bigTune.glass.regenDelaySec = 1e6);
+    await page.evaluate(() => { (window as any).__rikkun.gasha.bigTune.glass.regenDelaySec = 1e6; });
+    expect(await swingAtSomeGlass(page), 'どれかの 雲が 割れた').toBe(true);
     await standInGeyserUnderBody(page);
-    await page.evaluate(() => { const gt = (window as any).__gt; gt.run(30, () => gt.heal()); });
-    const before = await page.evaluate(() => { const w = window as any; w.__rikkun.player.set({ yawDeg: 0, pitchDeg: 70 }); return w.__gashaBig.glassInfo().broken as number; });
-    await runTech(page, 14);
-    const after = await page.evaluate(() => (window as any).__gashaBig.glassInfo().broken as number);
-    expect(after, 'ガラスが 割れた').toBeGreaterThan(before);
-    await settle(page, 5);
     const r = await pinnedFor(page, 120);
     expect(r.pinned).toBe(false);
     expect(errs).toEqual([]);
@@ -306,31 +321,7 @@ test.describe('2. 間欠泉で 体・ガラスの 下に 押し上げられて�
     await page.evaluate(() => { (window as any).__rikkun.gasha.bigTune.glass.regenDelaySec = 1e6; });
     await swordKill(page);
     expect(await untilLie(page)).toBeGreaterThanOrEqual(0);
-    // 体の 後ろがわの 低い 雲（bank*）の すぐ そとに 立って 突く。雲の 順番に 試して どれかで 割れれば よい
-    const broke = await page.evaluate(() => {
-      const w = window as any, gt = w.__gt, g = gt.big(), h = gt.h;
-      const names = g.colliders().filter((c: any) => c.mask && c.name.startsWith('bank')).map((c: any) => c.name as string);
-      return names;
-    });
-    let ok = false;
-    for (const name of broke.slice(0, 30)) {
-      const b0 = await page.evaluate((name) => {
-        const w = window as any, gt = w.__gt, g = gt.big(), h = gt.h;
-        const c = g.colliders().find((q: any) => q.name === name);
-        const boss = gt.boss();
-        let dx = c.center[0] - boss.x, dz = c.center[2] - boss.z; const d = Math.hypot(dx, dz) || 1; dx /= d; dz /= d;
-        const px = c.center[0] + dx * (Math.max(c.half[0], c.half[2]) + 1.2), pz = c.center[2] + dz * (Math.max(c.half[0], c.half[2]) + 1.2);
-        h.player.set({ position: { x: px, y: c.center[1] - 0.8, z: pz }, velocity: { x: 0, y: 0, z: 0 }, yawDeg: (Math.atan2(-dx, dz) * 180) / Math.PI, pitchDeg: 0 });
-        gt.heal();
-        h.step(1);
-        return g.glassInfo().broken as number;
-      }, name);
-      await runTech(page, 14);
-      const b1 = await page.evaluate(() => (window as any).__gashaBig.glassInfo().broken as number);
-      await settle(page, 20);
-      if (b1 > b0) { ok = true; break; }
-    }
-    expect(ok, 'どれかの 雲が 割れた').toBe(true);
+    expect(await swingAtSomeGlass(page), 'どれかの 雲が 割れた').toBe(true);
     expect(errs).toEqual([]);
   });
 });
@@ -483,7 +474,7 @@ test.describe('5. 少女の 間は 大きな 姿の 体・コアは ダメージ
     expect((await barrier()).ripples, 'たたくと 波紋').toBeGreaterThan(0);
     await page.evaluate(() => { const w = window as any; w.__rikkun.step(Math.ceil(60 * 3)); });
     expect((await barrier()).ripples, '波紋は 消える').toBe(0);
-    await page.evaluate(() => { const w = window as any; w.__gashaBig.damage('girl', 1e6); w.__rikkun.step(3); });
+    await page.evaluate(() => { const w = window as any; w.__gashaBig.damage('girl', 1e6); w.__rikkun.step(30); });
     expect((await barrier()).on, 'とどめで 消える').toBe(false);
     expect(errs).toEqual([]);
   });

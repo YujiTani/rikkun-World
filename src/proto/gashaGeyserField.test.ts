@@ -6,7 +6,7 @@ const A: GeyserPlaceArgs = { x: 0, y: 11, z: 0, yaw: 0.4, scale: 0.465 };
 const DT = 1 / 60;
 
 /** 平らな 草原（地面の 高さ 10）の にせの ワールドと プレイヤー */
-function make(player = { x: 500, y: 11, z: 500 }) {
+function make(player = { x: 500, y: 11, z: 500 }, bodySolid: FieldDeps['bodySolid'] = () => false) {
   const blocks = new Map<string, string>();
   const calls = { vel: [] as { x: number; y: number; z: number }[], noFall: [] as boolean[], nudge: 0 };
   const vel = { x: 0, y: 0, z: 0 };
@@ -16,7 +16,7 @@ function make(player = { x: 500, y: 11, z: 500 }) {
     setBlock: (x, y, z, id) => { blocks.set(`${x},${y},${z}`, id); return true; },
     restoreBlock: (x, y, z, id) => { blocks.set(`${x},${y},${z}`, id); return true; },
     scanBlocks: (found) => { for (const [k, v] of blocks) if (v === 'geyser_dirt') { const [x, y, z] = k.split(',').map(Number); found(x!, y!, z!); } },
-    bodySolid: () => false,
+    bodySolid,
     centre: () => ({ x: 0, z: 0 }),
     body: () => ({ position: player, velocity: vel, onGround: false }),
     setVelocity: (v) => { calls.vel.push({ ...v }); },
@@ -313,5 +313,33 @@ describe('GeyserField: 自分が 作った つちを 片づけで もどす・�
     w.run(0.5);
     expect(w.f.specs().length).toBe(1); // 近い 1 つだけ
     expect(w.f.specs()[0]!.x0).toBe(20);
+  });
+});
+
+describe('GeyserField（体・ガラスの 下では 打ち上げない。#293 直し 4）', () => {
+  const S = T.geyser.spawn;
+
+  it('天井が なければ(割れて 通れる)これまで どおり 打ち上げる。調整表 blockedByBody を false に すれば 天井が あっても 打ち上げる', () => {
+    const solid = (x: number, y: number, z: number): boolean => y === 15 && Math.abs(x) <= 40 && Math.abs(z) <= 40;
+    let on = true;
+    const w = make({ x: 0, y: 11, z: 0 }, (x, y, z) => on && solid(x, y, z));
+    w.f.place(A);
+    w.run(S.crackSec + 2 + T.geyser.staggerSec);
+    const g = w.f.info().find((q) => q.state === 'up')!;
+    w.player.x = g.x; w.player.z = g.z; w.player.y = g.ground;
+    w.run(0.2);
+    expect(w.calls.vel.length, '天井の 下では 打ち上げない').toBe(0);
+    expect(w.calls.nudge, '横に 押しもどさない').toBe(0);
+    expect(w.calls.noFall.filter((x) => x), '柱の 中の 守りも かけない').toEqual([]);
+    on = false;
+    w.run(0.2);
+    expect(w.calls.vel.at(-1)!.y, '天井が なくなれば 打ち上げる').toBeGreaterThan(0);
+    on = true;
+    const saved = T.geyser.blockedByBody;
+    T.geyser.blockedByBody = false;
+    const n = w.calls.vel.length;
+    w.run(0.2);
+    T.geyser.blockedByBody = saved;
+    expect(w.calls.vel.length, 'false なら 天井が あっても 打ち上げる').toBeGreaterThan(n);
   });
 });
