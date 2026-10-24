@@ -22,6 +22,7 @@ import { TUNE as T, applyTune, applyTuneFromUrl } from './gashaBigTuning';
 import { BigActor, type ActorClips } from './gashaBigActor';
 import { buildSwirlEyes, type SwirlEyes } from './gashaBigSwirl';
 import { sharedGashaBgm } from './gashaBgm';
+import { CoreBarrier } from './gashaBigBarrier';
 import { FinishSeq, type FinishEvent } from './gashaBigFinish';
 import { CRUMBLE_ORDER, CrumbleFx, crumbleSchedule } from './gashaBigCrumbleFx';
 import { BigHit, boxTouchesCapsule, boxTouchesFan, distToBox, rayBox, type BoxLike, type HitSources } from './gashaBigHit';
@@ -29,7 +30,7 @@ import { GashaGeyser, type GeyserInfo } from './gashaGeyser';
 import { BigShock, type ShockHit } from './gashaBigShock';
 import { ShockFx } from './gashaBigShockFx';
 import { createBigSfx, createBigWebAudioPlayer, type BigSfxEnv } from './gashaBigSfx';
-import { AshRain, Embers, burnPlants, type Ash, type Ember, type LandInfo } from './gashaBigEruption';
+import { Embers, MeteorRain, burnPlants, craterCells, inBlast, type Ember, type LandInfo, type Meteor, type Spark } from './gashaBigEruption';
 import { EruptFx } from './gashaBigEruptFx';
 import { BodyShock, StrikeField, touchBody } from './gashaBigThunder';
 import { ThunderFx, type BoltView, type RingView, type WarnView } from './gashaBigThunderFx';
@@ -37,7 +38,7 @@ import { boltVariantOf } from '../legend/thunderModel';
 import type { PlacedBlock } from './gashaBigPlaced';
 import { BeamAim, type AimEnv } from './gashaBigBeam';
 import { BeamFx } from './gashaBigBeamFx';
-import { crushAt } from './gashaBigCrush';
+import { crushAt, crushable } from './gashaBigCrush';
 import { BodyQuake } from './gashaBigQuake';
 import { armHit } from './gashaBigSweepHit';
 import climbUp from './gashaBigClips/climbUp.json';
@@ -101,7 +102,7 @@ export interface GashaBigDeps {
   onCoreBroken?(e: { x: number; y: number; z: number }): void;
   /** くずれおわって 体が 消えた(片づけは 呼んだ 側が despawn() する) */
   onVanished?(): void;
-  /** 体力 1/3 で 噴火を して 固まった(ぴたっと 止まった しゅんかん。BGM は ここで ぶつっと 切る)。ふだんの ゲームは release.ts が 少女を 呼ぶ */
+  /** 体力 1/2 で 噴火を して 固まった(ぴたっと 止まった しゅんかん。BGM は ここで ぶつっと 切る)。ふだんの ゲームは release.ts が 少女を 呼ぶ */
   onHeld?(): void;
   /** 手が 地面を たたいた ときの 打撃・衝撃波・小さい 衝撃の ダメージ（プレイヤーの combat.damage。当たったら true）。なければ ダメージなし（ひるみだけ） */
   hurt?(amount: number, from: { x: number; y: number; z: number }): boolean;
@@ -1189,6 +1190,8 @@ export interface GashaBigHandle {
   frozen(): boolean;
   /** 少女が 座る 場所(左かたの ぬの の 上。世界の 座標と 向き)。体が なければ null */
   perchSpot(): { x: number; y: number; z: number; yawDeg: number } | null;
+  /** コアを まもる 虹色の バリア(少女の 間だけ on)。波紋の 数・半径(テスト用) */
+  barrier(): { on: boolean; ripples: number; radius: number };
   /** とどめの あとの 様子(テスト・デバッグ用): 場面・コアの のこり・倒れ具合・赤さ・くずれ具合・かけらの 数 */
   finishInfo(): { phase: string; coreHp: number; coreMax: number; fallK: number; redK: number; crumbleK: number; chunks: number };
   /** 座っている 少女の 当たりの 箱を 足す(名前 girl。null で はずす)。箱の 中身は 少女が 毎コマ 更新する */
@@ -1220,9 +1223,11 @@ export interface GashaBigHandle {
   /** 噴火で 落ちた 燃えかすの 場所（テスト・デバッグ用） */
   /** 自分に 落雷で まわりに 落ちた 雷の 場所（この 攻撃の ぶん。テスト用） */
   thunderSpots(): { x: number; z: number }[];
-  eruptionEmbers(): { x: number; y: number; z: number; body: boolean; age: number }[];
+  eruptionEmbers(): { id: number; x: number; y: number; z: number; body: boolean; age: number; from: number }[];
+  /** いまの 噴火で 着地した 隕石（テスト・デバッグ用。sparks = 飛び散った 火の 粉の 数） */
+  eruptionImpacts(): { id: number; x: number; y: number; z: number; body: boolean; aimed: boolean; sparks: number }[];
   /** 攻撃サイクル・予告・体の ゆれの いま（テスト用） */
-  attackInfo(): { mode: string; phase: string; attack: string | null; done: number; count: number; left: number; slam2Count: number; sweepCount: number; sweepActive: string | null; quakeLeft: number; warn: boolean; fx: { warn: boolean; rocks: number; cracks: number }; beamCount: number; beamPhase: string; beamMode: string | null; beamAim: { x: number; y: number; z: number } | null; beamFx: { marks: number; flames: number; smoke: number; beams: number; sparkle: number }; thunder: { count: number; phase: string; cloud: number; elec: number; strikes: number; hits: number; bodyHurts: number; strikeHurts: number; fx: { bolts: number; rings: number; warns: number; arcs: number; cloud: number; flash: number; glow: boolean } }; eruption: { count: number; phase: string; flying: number; landed: number; embers: number; onBody: number; mossHidden: number; glassBroken: number; burntBlocks: number; doused: number; fx: { ashes: number; shadows: number; embers: number; burning: number; smoke: number; jet: number; wind: number; column: boolean } } };
+  attackInfo(): { mode: string; phase: string; attack: string | null; done: number; count: number; left: number; slam2Count: number; sweepCount: number; sweepActive: string | null; quakeLeft: number; warn: boolean; fx: { warn: boolean; rocks: number; cracks: number }; beamCount: number; beamPhase: string; beamMode: string | null; beamAim: { x: number; y: number; z: number } | null; beamFx: { marks: number; flames: number; smoke: number; beams: number; sparkle: number }; thunder: { count: number; phase: string; cloud: number; elec: number; strikes: number; hits: number; bodyHurts: number; strikeHurts: number; fx: { bolts: number; rings: number; warns: number; arcs: number; cloud: number; flash: number; glow: boolean } }; eruption: { count: number; phase: string; flying: number; sparks: number; landed: number; aimed: number; meteorHurts: number; embers: number; onBody: number; mossHidden: number; glassBroken: number; burntBlocks: number; craterBlocks: number; doused: number; fx: ReturnType<EruptFx['counts']> } };
   /** 長い 休みに はいる（その場で 体を 動かさない。首を ふる くらい）。sec を 書かなければ 調整表の wander.restSec */
   rest(sec?: number): void;
   /** うごきの 中身（モード・速さ・手の ついた 数・1 コマの 仕事の 数 など） */
@@ -1271,6 +1276,8 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
   /** 横に おし出す 速さ(ふつうは コアの ふり落とし。とどめの 一撃では 大きく) */
   let throwSpeed = T.core.throwOff.speed;
   const throwDir = { x: 0, z: 0 };
+  /** コアの ふり落としで、体の 外へ 出きるまで 押しつづける(経過の 秒・押しつづける 印) */
+  let throwTotal = 0, throwOut = false;
   // コアを たたかれた: まず 予兆（大きな 音・画面の ゆれ・コアが ゆれて 半透明で 無敵。プレイヤーは 動ける）→ 風の 音と ともに 遠くへ とばされる（カメラが 1 回転）
   let warnLeft = 0, warnClock = 0, spinLeft = 0, spinDone = 0;
   const reduced = (): boolean => deps.reducedMotion?.() ?? false;
@@ -1288,23 +1295,28 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
     const p = deps.player();
     if (Math.hypot(p.x - b.c[0], p.y - b.c[1], p.z - b.c[2]) > K.range) return;
     if (p.y < b.c[1] - K.minBelow) return; // 地面から 弓で 撃って いる 人（小さな 穴から ねらう）は 体の 上に いないので とばさない
-    // 道は せまくて かい段だらけ なので、とばす まえに 穴の 外（入り口の 床の だんの 少し 上・うしろ）へ ワープさせてから、うしろへ とばす
-    const fi = actor.model.hits.findIndex((h) => h.name === 'chestCoreFloor');
-    const fb = fi >= 0 ? actor.boxList[fi] : undefined;
-    const ax = { x: -b.ax[6]!, y: -b.ax[7]!, z: -b.ax[8]! }; // 道の 軸（うしろ・上）
-    if (fb && deps.carryPlayer) {
-      const out = fb.half[2] + K.exitOut;
-      // 外へは 道の 向きに のばし、高さは 床の うしろの はしの まま（道は 下り坂 なので 軸の まま のばすと 高く なりすぎて 着地ダメージが 大きすぎる）
-      const ex = fb.c[0]! - fb.ax[6]! * out, ey = fb.c[1]! - fb.ax[7]! * fb.half[2] + K.exitUp, ez = fb.c[2]! - fb.ax[8]! * out;
-      deps.carryPlayer(ex - p.x, ey - p.y, ez - p.z, 0);
-    }
+    // ワープは しない(オーナー 20:19)。コア → プレイヤーの 向き(水平)へ、その場から 放射状に とばす。体の 外へ 出きるまで 押しつづける
+    let dx = p.x - b.c[0], dz = p.z - b.c[2];
+    const d = Math.hypot(dx, dz);
+    if (d < 0.3) { dx = -Math.sin(yaw); dz = -Math.cos(yaw); } else { dx /= d; dz /= d; } // コアの 真上・真下なら 体の うしろへ
     deps.setPlayerVelocity({ x: 0, y: K.up, z: 0 }); // 横の 速さは ゲームが 入力から 毎コマ きめる ので、横は 下で 毎コマ ずらす
-    throwDir.x = ax.x; throwDir.z = ax.z;
+    throwDir.x = dx; throwDir.z = dz;
     throwSpeed = K.speed;
     throwLeft = K.blockSec;
+    throwTotal = 0; throwOut = true;
     if (!reduced() && K.spinTurns > 0) { spinLeft = K.spinSec; spinDone = 0; }
+    if (K.damage > 0) deps.hurt?.(K.damage, { x: b.c[0], y: b.c[1], z: b.c[2] });
     deps.onCoreThrow?.();
-    // ふり落とし自体の ダメージは なし。着地ダメージは ふつうに 入る（足袋・間欠泉の 守りは そのまま）
+    // 着地ダメージは ふつうに 入る（足袋・間欠泉の 守りは そのまま）
+  };
+  /** プレイヤー(足もと p)の 体・頭の まわり pad ブロックに 体の 固い マスが あるか(体の 外へ 出きって いないか) */
+  const insideBody = (p: { x: number; y: number; z: number }, pad: number): boolean => {
+    if (!actor) return false;
+    const r = Math.max(0.5, pad);
+    for (const dy of [0.2, 1.5]) for (const [ox, oz] of [[0, 0], [r, 0], [-r, 0], [0, r], [0, -r]] as const) {
+      if (actor.solid(Math.floor(p.x + ox), Math.floor(p.y + dy), Math.floor(p.z + oz))) return true;
+    }
+    return false;
   };
   const stepCoreWarn = (dt: number): void => {
     const K = T.core.throwOff;
@@ -1364,7 +1376,12 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
   };
   // プレイヤーが 体の 上に 置く ブロック（gashaBigPlaced.ts）。がしゃどくろを 置きなおすと ぜんぶ 消える
   const placed = new BodyPlaced({ model: () => model, actor: () => (hidden ? null : actor), lighting: deps.lighting, patch: hazePatch, breakGlassAt: (c, r, max) => breakGlass(c, r, max) });
-  const bh = new BigHit({ scene: deps.scene, angry: () => { isAngry = true; actor?.hit(); }, onCore: throwOff, coreGuard: () => warnLeft > 0, onCloud: (at) => { breakGlass(at, T.glass.swordRadius); }, onCoreHit: (at) => coreStruck(at), sources: deps.hit });
+  // 少女の 間(固まって いる 間)は 体も コアも ダメージ 0 + コアは 虹色の バリアで まもられて いる(とどめの あとは 別)
+  const barrier = new CoreBarrier(deps.scene);
+  const bodyGuardOn = (): boolean => !!actor && !hidden && actor.held && fin.phase === 'off' && T.freeze.bodyInvincible && !!deps.onHeld;
+  const bh = new BigHit({ scene: deps.scene, angry: () => { isAngry = true; actor?.hit(); }, onCore: throwOff, coreGuard: () => warnLeft > 0,
+    bodyGuard: bodyGuardOn,
+    onDeflect: (at) => { if (at) barrier.ripple(at.x, at.y, at.z); else { const p = deps.player(); barrier.ripple(p.x, p.y + 1, p.z); } }, onCloud: (at) => { breakGlass(at, T.glass.swordRadius); }, onCoreHit: (at) => coreStruck(at), sources: deps.hit });
   let pos = new Vector3(), yaw = 0;
   const { blockAt, setGeyserBlock, scanGeyserBlocks } = deps;
   const geysers = deps.onUpdate && deps.playerBody && deps.setPlayerVelocity && deps.nudgePlayer && deps.setNoFall && blockAt && setGeyserBlock && scanGeyserBlocks
@@ -1472,10 +1489,14 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
     beamPrev = ph;
     beamFx.update(dt);
   };
-  // 攻撃 4「口から 火山噴火」: 灰（放射状・ランダム）・予告の 影・燃え残り・植物が 燃える・体の ガラス/こけ/おいた ブロックが 焼ける（gashaBigEruption.ts / gashaBigEruptFx.ts）
-  const rain = new AshRain(), embers = new Embers(), eruptFx = new EruptFx(deps.scene, deps.camera);
-  const mouthV = new Vector3(), ashV = { x: 0, y: 0, z: 0 };
-  let eruptClock = 0, burntBlocks = 0;
+  // 攻撃 4「口から 火山噴火」: 隕石（放射状・一部 ねらい）・予告の 赤い 輪・落下範囲ダメージ・飛び散る 炎・燃え残り・小さな 穴・植物が 燃える・
+  // 体の ガラス/こけ/おいた ブロックが 焼ける（gashaBigEruption.ts / gashaBigEruptFx.ts）
+  const rain = new MeteorRain(), embers = new Embers(), eruptFx = new EruptFx(deps.scene, deps.camera);
+  const mouthV = new Vector3();
+  let eruptClock = 0, burntBlocks = 0, craterBlocks = 0, meteorHurts = 0;
+  /** 地形の 仕事（穴・植物が 燃える）の 待ち。terrain.everySec ごとに まとめて する（チャンクの 作り直しを へらす） */
+  const terrainJobs: { x: number; y: number; z: number; crater: boolean; ember: Ember }[] = [];
+  let terrainAcc = 0;
   const bodyBurnt: { t: number; moss: number[]; placed: PlacedBlock[] }[] = [];
   const landAt = (x: number, z: number): LandInfo => {
     const ix = Math.floor(x), iz = Math.floor(z);
@@ -1485,22 +1506,52 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
     if (actor) for (let y = Math.floor(mouthV.y); y >= top; y--) if (actor.solid(ix, y, iz)) return { y: y + 1, body: true };
     return { y: top, body: false };
   };
-  const onAshLand = (a: Ash): void => {
-    const K = T.eruption;
-    embers.add(a.lx, a.ly, a.lz, a.body);
-    sfx.ash();
-    eruptFx.puff(a.lx, a.ly, a.lz, 1, 0.8, 1.2, 0.55);
-    const p = deps.player();
-    if (Math.hypot(p.x - a.lx, p.z - a.lz) <= K.ash.hitRadius && Math.abs(p.y - a.ly) <= K.ash.hitYTol) deps.hurt?.(K.ash.damage, { x: a.lx, y: a.ly, z: a.lz });
-    if (!a.body) {
-      if (blockAt && deps.setBlockAir) for (const c of burnPlants(a.lx, a.ly, a.lz, blockAt, deps.setBlockAir)) { eruptFx.burnFlame(c.x + 0.5, c.y, c.z + 0.5); burntBlocks++; }
-    } else if (model) {
-      const c = { x: a.lx, y: a.ly, z: a.lz };
-      breakGlass(c, K.body.glassRadius, K.body.glassMax);
-      const moss = model.burnMoss(c, K.body.mossRadius);
-      const pl = placed.burn(c, K.body.placedRadius, new Set(K.body.placedBurnable), K.body.placedMax);
-      if (moss.length || pl.length) bodyBurnt.push({ t: eruptClock, moss, placed: pl });
+  const placedBurnable = new Set(T.eruption.body.placedBurnable);
+  /** 隕石・火の 粉が 落ちた 点の 体への 焼け（ガラスの 雲が 割れる のは 隕石だけ） */
+  const burnBody = (x: number, y: number, z: number, glass: boolean): void => {
+    if (!model) return;
+    const K = T.eruption, c = { x, y, z };
+    if (glass) breakGlass(c, K.body.glassRadius, K.body.glassMax);
+    const moss = model.burnMoss(c, K.body.mossRadius);
+    const pl = placed.burn(c, K.body.placedRadius, placedBurnable, K.body.placedMax);
+    if (moss.length || pl.length) bodyBurnt.push({ t: eruptClock, moss, placed: pl });
+  };
+  /** 地形の 仕事を まとめて する: 隕石の 小さな 穴（燃えかすを 穴の 底へ）・植物が 燃える */
+  const runTerrain = (all: boolean): void => {
+    if (!blockAt || !deps.setBlockAir) { terrainJobs.length = 0; return; }
+    const n = all ? terrainJobs.length : Math.min(terrainJobs.length, T.eruption.terrain.maxJobs);
+    for (const j of terrainJobs.splice(0, n)) {
+      if (j.crater) {
+        const cells = craterCells(j.x, j.y, j.z, blockAt, crushable, deps.setBlockAir);
+        craterBlocks += cells.length;
+        // 燃えかすの 真下が 穴に なったら 底へ おろす
+        const ix = Math.floor(j.ember.x), iz = Math.floor(j.ember.z), iy = Math.floor(j.ember.y + 1e-6) - 1;
+        if (cells.some((c) => c.x === ix && c.z === iz && c.y === iy)) { j.ember.y = iy; embers.moved(); }
+      }
+      // 燃えかすの 場所（穴の 底へ おりた あと）を 中心に 燃やす
+      for (const c of burnPlants(j.x, j.ember.y, j.z, blockAt, deps.setBlockAir)) { eruptFx.burnFlame(c.x + 0.5, c.y, c.z + 0.5); burntBlocks++; }
     }
+  };
+  /** 隕石の 着地: 落下範囲ダメージ（＋ふつうの はじき）・燃えかす・重い ドン・輪と 光と かけら・小さな 穴・植物が 燃える / 体が 焼ける */
+  const onMeteorLand = (m: Meteor): void => {
+    const K = T.eruption;
+    const ember = embers.add(m.lx, m.ly, m.lz, m.body, m.id);
+    const p = deps.player();
+    const dist = Math.hypot(p.x - m.lx, p.z - m.lz);
+    sfx.meteor(dist);
+    eruptFx.impact(m.lx, m.ly, m.lz);
+    if (inBlast(m.lx, m.ly, m.lz, { x: p.x, y: p.y, z: p.z }) && deps.hurt?.(K.meteor.damage, { x: m.lx, y: m.ly, z: m.lz })) meteorHurts++;
+    if (dist < K.impact.shakeNear && !reduced()) deps.shake?.(K.impact.shake * (1 - dist / K.impact.shakeNear));
+    if (!m.body) terrainJobs.push({ x: m.lx, y: m.ly, z: m.lz, crater: true, ember });
+    else burnBody(m.lx, m.ly, m.lz, true);
+  };
+  /** 飛び散った 火の 粉が 落ちた: 燃えかす・小さな ぱちっ・植物が 燃える / 体が 焼ける */
+  const onSparkLand = (s: Spark): void => {
+    const ember = embers.add(s.lx, s.ly, s.lz, s.body, s.from);
+    sfx.ash();
+    eruptFx.sparkPop(s.lx, s.ly, s.lz);
+    if (!s.body) terrainJobs.push({ x: s.lx, y: s.ly, z: s.lz, crater: false, ember });
+    else burnBody(s.lx, s.ly, s.lz, false);
   };
   // 燃えかすは 殴ると 消える（刀・真空波・らせん・ドーム・パンチ・矢）。小さな 煙と「じゅっ」
   const EMBER_ID_BASE = GHOST_EMBER_BASE;
@@ -1533,7 +1584,9 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
         if (!embers.list.length) return real;
         const len = Math.hypot(dir.x, dir.y, dir.z) || 1;
         let best: Ember | null = null, bt = real ? real.distance : max;
+        const reach = bt + 2; // 線の とどく 長さより 遠い 燃えかすは 箱を 作らずに とばす（燃えかすは 数百 ある）
         for (const e of embers.list) {
+          if (Math.abs(e.x - origin.x) > reach || Math.abs(e.z - origin.z) > reach || Math.abs(e.y - origin.y) > reach) continue;
           const t = rayBox(fillBox(e), origin.x, origin.y, origin.z, dir.x / len, dir.y / len, dir.z / len, bt);
           if (t !== null && (best === null ? t <= bt : t < bt)) { best = e; bt = t; }
         }
@@ -1565,15 +1618,17 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
     eruptFx.setColumn(mouth, ph === 'erupt' ? E.column : 0);
     eruptFx.setMouthGlow(mouth, ph === 'inhale' ? E.wind * 0.7 : ph === 'erupt' ? 0.5 + 0.5 * E.column : 0);
     if (rain.active) {
-      const o = rain.update(dt, mouth, landAt);
-      for (const a of o.landed) onAshLand(a);
-      const views = rain.ashes.map((a) => { rain.position(a, ashV); return { x: ashV.x, y: ashV.y, z: ashV.z, spin: a.t * 6 + a.apex }; });
-      eruptFx.setAshes(views);
-      eruptFx.setShadows(rain.ashes.filter((a) => rain.warn(a) > 0).map((a) => ({ x: a.lx, y: a.ly, z: a.lz, warn: rain.warn(a) })));
-    } else { eruptFx.setAshes([]); eruptFx.setShadows([]); }
+      const pl = deps.player();
+      const o = rain.update(dt, mouth, landAt, { x: pl.x, y: pl.y, z: pl.z });
+      for (const m of o.landed) onMeteorLand(m);
+      for (const s of o.sparkLanded) onSparkLand(s);
+      eruptFx.setRain(rain);
+    } else eruptFx.setRain(null);
+    terrainAcc += dt;
+    if (terrainJobs.length && terrainAcc >= T.eruption.terrain.everySec) { terrainAcc = 0; runTerrain(false); }
     embers.update(dt);
     stepDouse();
-    eruptFx.setEmbers(embers.list);
+    eruptFx.setEmbers(embers.list, embers.version);
     const p = deps.player();
     const d = embers.step(dt, { x: p.x, y: p.y, z: p.z });
     if (d > 0) deps.hurt?.(d, { x: p.x, y: p.y, z: p.z - 1 });
@@ -1688,7 +1743,7 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
       },
       onTap: (x, y, z) => { if (farNow) return; shockFx.spawn(shock.add('tap', x, y, z)); sfx.step(); },
       onAttackStart: (name) => { if (farNow) return; if (name === 'slam2') sfx.lift(); else if (name === 'sweep') sfx.windup(); else if (name === 'beam') sfx.omen(); else if (name === 'eruption') sfx.inhale(); else if (name === 'thunder') sfx.cloud(); },
-      onEruptStart: () => { if (farNow) return; rain.begin(actor?.eruptionCount ?? 0); sfx.erupt(); },
+      onEruptStart: () => { if (farNow) return; rain.begin(actor?.eruptionCount ?? 0, !!actor?.eruption.hold); sfx.erupt(); }, // 少女への 切りかえの 噴火（hold）は プレイヤーの まわりに 落とさない
       onThunderStrike: () => { if (farNow) return; fingerBolt = { age: 0, variant: boltVariantOf(293, actor?.thunderCount ?? 0) }; sfx.strike(); },
       onThunderLand: () => { if (farNow) return; strikes.begin((actor?.thunderCount ?? 1) - 1); thunderHitLog = []; bodyShock.reset(); },
       onSweepStroke: (i) => { if (farNow) return; sfx.sweep(i); },
@@ -1763,7 +1818,7 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
       const n = d > 1e-3 ? 1 / d : 0;
       throwDir.x = d > 1e-3 ? dx * n : 0; throwDir.z = d > 1e-3 ? dz * n : 1;
       throwSpeed = F.knockSpeed;
-      throwLeft = F.knockSec;
+      throwLeft = F.knockSec; throwOut = false;
       deps.setPlayerVelocity({ x: 0, y: F.knockUp, z: 0 });
     }
     bgm?.request('big', false);
@@ -1811,9 +1866,19 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
   bgm?.preload('kamigami', 'saiyaku'); // 怒った 瞬間・少女が 出る 瞬間に 曲が とぎれない ように 先に 読みこむ（FIX-BRIEF-2 §3-4）
   let bgmWant = false;
   let farNow = false;
+  /** コアの バリア: 少女の 間だけ 張る(コアの 場所に ついて いく) */
+  const stepBarrier = (dt: number): void => {
+    const on = bodyGuardOn();
+    barrier.setOn(on);
+    if (!on) return;
+    const c = coreCenter();
+    barrier.setCenter(c.x, c.y, c.z);
+    barrier.update(dt);
+  };
   deps.onUpdate?.((dt) => {
     // 片づけた あと・少女の 間は 何も 動かさない（BGM の 後始末だけ 毎コマ）
-    if (!actor || hidden) { bgm?.step(); return; }
+    if (!actor || hidden) { barrier.setOn(false); bgm?.step(); return; }
+    stepBarrier(dt);
     updateHaze();
     // プレイヤーが 遠い(perf.farDist より 遠い)間は 攻撃の 当たり・見た目・音・ゆれを まいコマ 省く(体の 動きと 体力だけ)。遠く なった しゅんかんに 画面の 効果・音を 片づける
     const fp = deps.player();
@@ -1849,7 +1914,15 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
     if (quake.left > T.sfx.quakeFadeOutSec) sfx.quakeOn(); else sfx.quakeOff();
     sfx.update();
     shockFx.setWarn(actor.warn);
-    if (throwLeft > 0) { throwLeft -= dt; deps.nudgePlayer?.(throwDir.x * throwSpeed * dt, throwDir.z * throwSpeed * dt); }
+    if (throwLeft > 0) {
+      throwLeft -= dt; throwTotal += dt;
+      deps.nudgePlayer?.(throwDir.x * throwSpeed * dt, throwDir.z * throwSpeed * dt);
+      // コアの ふり落とし: まだ 体の 箱の 中・すぐ そばなら、外へ 出きる まで(上限 maxSec)押しつづける
+      if (throwLeft <= 0) {
+        if (throwOut && actor && throwTotal < T.core.throwOff.maxSec && insideBody(deps.player(), T.core.throwOff.clearPad)) throwLeft = dt;
+        else throwOut = false;
+      }
+    }
     shock.step(dt);
     shockFx.update(dt);
     pos = actor.pos; yaw = actor.yaw;
@@ -1864,11 +1937,11 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
 
   /** 攻撃の エフェクト・音・燃えかす・雷・たたいた 輪・ひるみ・画面の ゆれを ぜんぶ 止めて 消す（体は そのまま）。full: 体の 焼け あとの もどす 予定も 消す。keepEmbers: 燃えかすは のこす（遠くへ いった とき） */
   const clearFx = (full: boolean, keepEmbers = false): void => {
-    quake.stop(); beamFx.clear(); eruptFx.clear(); rain.active = false; rain.ashes = []; if (!keepEmbers) embers.clear();
+    quake.stop(); beamFx.clear(); rain.stop(); runTerrain(true); eruptFx.clear(); if (!keepEmbers) embers.clear(); // 地形の 待ちを すませて から 見た目を 消す（燃える 植物の 炎を のこさない）
     if (full) bodyBurnt.length = 0;
     thunderFx.clear(); strikes.clear(); bodyShock.reset(); fingerBolt = null; sfx.stopAll();
     shock.clear(); shockFx.clear();
-    throwLeft = 0; warnLeft = 0; spinLeft = 0;
+    throwLeft = 0; warnLeft = 0; spinLeft = 0; throwOut = false;
   };
   const detachedGroup = new Group();
 
@@ -1881,6 +1954,7 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
     actor = null;
     isAngry = false; hidden = false; defeatedFired = false; heldFired = false;
     finishReset();
+    barrier.setOn(false);
     if (bgm) { bgmWant = false; bgm.uncut(); bgm.request('big', false); bgm.step(); }
   };
 
@@ -1917,6 +1991,7 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
       return { x: b.c[0]!, y: top + T.freeze.perchUp, z: b.c[2]!, yawDeg: (yaw * 180) / Math.PI };
     },
     setGirlBox: (box) => { if (fin.phase === 'off') bh.setExtra(box); },
+    barrier: () => barrier.info(),
     finishInfo: () => ({ phase: fin.phase, coreHp: fin.coreHp, coreMax: fin.coreMax, fallK: fin.fallK, redK: fin.redK, crumbleK: fin.crumbleK, chunks: crumbleFx?.alive() ?? 0 }),
     maxHp: () => bh.maxHp,
     hp: () => bh.hp,
@@ -1949,11 +2024,12 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
       slam2Count: actor?.slam2Count ?? 0, sweepCount: actor?.sweepCount ?? 0, sweepActive: actor?.sweepNow?.side ?? null, quakeLeft: quake.left, warn: !!actor?.warn, fx: shockFx.bigCounts(),
       beamCount: actor?.beamCount ?? 0, beamPhase: actor?.beam.phase ?? 'idle', beamMode: actor && actor.attackName === 'beam' ? beamAim.mode : null, beamAim: actor && actor.attackName === 'beam' && beamPrev === 'fire' ? { ...beamAim.a } : null, beamFx: beamFx.counts(),
       thunder: { count: actor?.thunderCount ?? 0, phase: actor?.thunder.phase ?? 'idle', cloud: actor?.thunder.cloud ?? 0, elec: actor?.thunder.elec ?? 0, strikes: strikes.list.length, hits: strikes.hitCount, bodyHurts: thunderBodyHurts, strikeHurts: thunderStrikeHurts, fx: thunderFx.counts() },
-      eruption: { count: actor?.eruptionCount ?? 0, phase: actor?.eruption.phase ?? 'idle', flying: rain.ashes.length, landed: rain.landedCount, embers: embers.list.length, onBody: embers.list.filter((e) => e.body).length, mossHidden: model?.mossHidden() ?? 0, glassBroken: brokenQ.length, burntBlocks, doused, fx: eruptFx.counts() },
+      eruption: { count: actor?.eruptionCount ?? 0, phase: actor?.eruption.phase ?? 'idle', flying: rain.meteors.length, sparks: rain.sparks.length, landed: rain.landedCount, aimed: rain.aimedCount, meteorHurts, embers: embers.list.length, onBody: embers.list.filter((e) => e.body).length, mossHidden: model?.mossHidden() ?? 0, glassBroken: brokenQ.length, burntBlocks, craterBlocks, doused, fx: eruptFx.counts() },
     }),
     rest: (sec) => actor?.rest(sec),
     thunderSpots: () => thunderHitLog.map((q) => ({ ...q })),
     eruptionEmbers: () => embers.list.map((e) => ({ ...e })),
+    eruptionImpacts: () => rain.impacts.map((q) => ({ ...q })),
     motion: () => (actor ? {
       mode: actor.mode, speedNow: actor.speedNow, crawlSpeed: actor.crawlSpeed, crawlRate: actor.crawlRate, strideScale: actor.strideScale, backOn: actor.backOn, target: actor.target, wander: actor.wanderOn,
       angryLeft: actor.angryLeft, eyeMix: actor.eyeMix, walkLeft: actor.walkLeft, restLeft: actor.restLeft, work: actor.work, plant: actor.plant,

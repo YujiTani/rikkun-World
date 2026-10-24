@@ -183,6 +183,8 @@ export class BigActor {
   private stepBoundary = false;
   /** 少女への 切りかえの 噴火を おえて 上を 向いた まま 固まって いる(mode = 'frozen')。unfreeze() / calm で 解ける */
   held = false;
+  /** とどめで lock() された（二度と ふだんの 動きに もどらない。place() で 作りなおす まで）。怒り解除・休み明け・なぐられ・攻撃の 指示でも 固まった まま */
+  locked = false;
   /** finale() で はじめた 噴火は おわったら 固まる */
   private finaleOn = false;
   /** 怒って プレイヤーを 追う 1 歩を している 間 true（調整表 chase。1 歩の 途中で 攻撃は はじめない） */
@@ -300,7 +302,7 @@ export class BigActor {
     this.mode = 'idle';
     this.player.play(null, { fade: 0 });
     this.stepW = 0; this.stepWant = 0; this.step.reset();
-    this.chasing = false; this.pendingAttack = null; this.held = false; this.finaleOn = false;
+    this.chasing = false; this.pendingAttack = null; this.held = false; this.finaleOn = false; this.locked = false;
     this.pauseLeft = this.randIn(T.wander.pauseSec);
     this.restLeft = 0;
     this.walkLeft = this.randIn(T.wander.walkSec);
@@ -397,7 +399,7 @@ export class BigActor {
 
   /** プレイヤーの 攻撃が 当たった */
   hit(): void {
-    if (this.mode === 'frozen') return; // 固まって いる 間は なぐられても 怒り直さない
+    if (this.locked || this.mode === 'frozen') return; // 固まって いる 間は なぐられても 怒り直さない
     this.angryLeft = T.angry.calmSec;
     this.restLeft = 0; // 怒ったら 休みは 中断（白目に もどったら また 歩き出す）
     this.walkLeft = this.randIn(T.wander.walkSec);
@@ -415,6 +417,7 @@ export class BigActor {
 
   private calm(): void {
     this.angryLeft = 0;
+    if (this.locked) return; // とどめの あとは 固まった まま（ふだんの 動きに もどらない）
     this.bodyTurning = false;
     this.cycle.reset();
     this.clearAttackState();
@@ -451,6 +454,7 @@ export class BigActor {
   // ---------------------------------------------------------------- 攻撃・つかれ
   /** 攻撃を はじめる（デバッグ・サイクルから）。怒って いなければ 怒らせる */
   attack(name: string): void {
+    if (this.locked) return;
     if (!this.isAngry()) this.hit();
     if (this.mode === 'attack') return;
     this.cycle.forceAttack(name);
@@ -459,6 +463,7 @@ export class BigActor {
 
   /** つかれて 休む（デバッグ）。sec を 省くと 調整表 */
   tired(sec?: number): void {
+    if (this.locked) return;
     if (!this.isAngry()) this.hit();
     this.cycle.forceTired(sec);
     this.startTired();
@@ -469,7 +474,7 @@ export class BigActor {
    * 固まらない 設定(freeze.enabled = false)なら ふつうの 噴火を 1 回 するだけ。
    */
   finale(): void {
-    if (this.mode === 'frozen') return;
+    if (this.locked || this.mode === 'frozen') return;
     if (!this.isAngry()) this.hit();
     this.abortAttack();
     this.chasing = false;
@@ -480,7 +485,7 @@ export class BigActor {
 
   /** 固まりを 解いて 怒りの ならしに もどる(体力が 回復する など。ふだんは 使わない) */
   unfreeze(): void {
-    if (this.mode !== 'frozen') return;
+    if (this.locked || this.mode !== 'frozen') return;
     this.held = false; this.finaleOn = false;
     this.eruption.phase = 'idle'; this.eruption.pitch = 0; this.eruption.hold = false;
     this.angryLeft = T.angry.calmSec;
@@ -490,6 +495,7 @@ export class BigActor {
 
   /** とどめ: どんな 状態でも その場で 固まる(攻撃・追いかけは 片づける)。固まった あとは 倒れる・くずれる(setTilt・hideJoint) */
   lock(): void {
+    this.locked = true;
     if (this.mode !== 'frozen') {
       this.abortAttack();
       this.chasing = false; this.pendingAttack = null; this.finaleOn = false;
