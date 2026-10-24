@@ -33,7 +33,8 @@ export type TileName =
   | VoxITileName
   | FarmTileName
   | LiveTileName
-  | KotatsuTileName;
+  | KotatsuTileName
+  | 'geyser_dirt_top' | 'geyser_dirt_side';
 
 /** VOX-I-1（12 の国）のふつうの絵（一ひねりの絵は #185） */
 export type VoxITileName = 'snow' | 'momiji_leaves' | 'matsu_leaves' | 'flower_y' | 'flower_o' | 'flower_p' | 'bamboo' | 'susuki' | 'kusa' | 'nobana';
@@ -72,6 +73,9 @@ const TILE_NAMES_BASE: readonly TileName[] = [
   ...VOX_I_TILES,
   // LIVE-2（こたつ・とりごや。うしろに 足す）
   ...(LIVE_TILE_NAMES as readonly LiveTileName[]),
+  // #293 試作: 間欠泉の つち（さいごに 足す）
+  'geyser_dirt_top',
+  'geyser_dirt_side',
 ];
 // LIVE-2 こたつ 2×2 の 絵（さいご に 足す。並べ方 は kotatsuTileOrder）
 export const TILE_NAMES: readonly TileName[] = [...TILE_NAMES_BASE, ...kotatsuTileOrder(TILE_NAMES_BASE.length)];
@@ -291,6 +295,26 @@ function brickTile(): Tile {
   return t;
 }
 
+/** #293 試作: 間欠泉の つち = つちの 色ちがい（あかるい 赤ちゃ）＋ ひび（くろい すじ）＋ 水色の すきま。上の 面は ひびが 大きい */
+function geyserDirt(top: boolean): Tile {
+  const t = calm(speckle('#9A5A34', ['#7C4526', '#B26E42'], top ? 23 : 24), '#9A5A34');
+  const rnd = lcg(top ? 301 : 302);
+  const crack = (x0: number, y0: number, len: number): void => {
+    let x = x0, y = y0;
+    for (let i = 0; i < len; i++) {
+      t[(y & 15) * TILE_SIZE + (x & 15)] = hex(i % 3 === 2 ? '#8FD3F0' : '#2C1A12');
+      const r = rnd();
+      if (r < 0.34) x++; else if (r < 0.67) y++; else { x++; y++; }
+    }
+  };
+  if (top) {
+    crack(2, 1, 12); crack(13, 2, 10); crack(1, 9, 9); crack(9, 8, 8);
+  } else {
+    crack(3, 0, 7); crack(11, 0, 5);
+  }
+  return t;
+}
+
 function paintTile(name: TileName): Tile {
   switch (name) {
     case 'grass_top':
@@ -368,6 +392,10 @@ function paintTile(name: TileName): Tile {
     case 'toriya_fence_x':
     case 'toriya_gate_x':
       return paintLiveTile(name).slice();
+    case 'geyser_dirt_top':
+      return geyserDirt(true);
+    case 'geyser_dirt_side':
+      return geyserDirt(false);
     case 'snow':
       return speckle('#D2E8F5', ['#C2DBEC', '#DDEFF9'], 91, 14);
     case 'momiji_leaves':
@@ -458,6 +486,8 @@ export const BLOCK_TILES: Readonly<Partial<Record<BlockId, readonly [TileName, T
   susuki: ['susuki', 'susuki', 'susuki'],
   kusa: ['kusa', 'kusa', 'kusa'],
   nobana: ['nobana', 'nobana', 'nobana'],
+  // #293 試作
+  geyser_dirt: ['geyser_dirt_top', 'geyser_dirt_side', 'geyser_dirt_side'],
 };
 
 /** タイルの UV の四角 [u0, v0, u1, v1]（v は下から。となりのタイルがにじまないよう少し内側） */

@@ -52,10 +52,10 @@ const notch = (p: number): string =>
   `polygon(0 ${2 * p}px,${p}px ${2 * p}px,${p}px ${p}px,${2 * p}px ${p}px,${2 * p}px 0,calc(100% - ${2 * p}px) 0,calc(100% - ${2 * p}px) ${p}px,calc(100% - ${p}px) ${p}px,calc(100% - ${p}px) ${2 * p}px,100% ${2 * p}px,100% calc(100% - ${2 * p}px),calc(100% - ${p}px) calc(100% - ${2 * p}px),calc(100% - ${p}px) calc(100% - ${p}px),calc(100% - ${2 * p}px) calc(100% - ${p}px),calc(100% - ${2 * p}px) 100%,${2 * p}px 100%,${2 * p}px calc(100% - ${p}px),${p}px calc(100% - ${p}px),${p}px calc(100% - ${2 * p}px),0 calc(100% - ${2 * p}px))`;
 
 /** 入れ子の 枠を 作って いちばん 内側を 返す。layers = [色, 太さ（ドット）] を 外から 順に */
-function frame(parent: HTMLElement, layers: readonly (readonly [string, number])[], p: number, css = ''): HTMLElement {
+function frame(parent: HTMLElement, layers: readonly (readonly [string, number])[], p: number, css = '', fill = false): HTMLElement {
   let cur = parent;
   layers.forEach(([color, dots], i) => {
-    cur = el('div', `background:${color};padding:${dots * p}px;clip-path:${notch(p)};box-sizing:border-box;${i === 0 ? css : ''}`, cur);
+    cur = el('div', `background:${color};padding:${dots * p}px;clip-path:${notch(p)};box-sizing:border-box;${fill ? 'display:flex;flex:1;min-height:0;' : ''}${i === 0 ? css : ''}`, cur);
   });
   return cur;
 }
@@ -97,7 +97,7 @@ export class HpBar {
     const plateH = Math.round(H.barNameSizePx * 1.5 + 4 * p);
     const emblemSize = plateH + 2 * p + (H.barHeightDots + 6) * p;
     const emblemOuter = el('div', `width:${emblemSize}px;flex:none;display:flex`, this.shaker);
-    const emblemIn = frame(emblemOuter, [[out, 1], [inn, 1], [pal.accent, 2], [pal.accentLo, 1], [pal.emblemBg, 0]], p, 'flex:1;display:flex');
+    const emblemIn = frame(emblemOuter, [[out, 1], [inn, 1], [pal.accent, 2], [pal.accentLo, 1], [pal.emblemBg, 0]], p, '', true);
     emblemIn.style.cssText += ';flex:1;display:flex;align-items:center;justify-content:center';
     emblemIn.appendChild(pixels(SKULL, pal.emblem, Math.max(p, Math.floor((emblemSize - 8 * p) / 9))));
 

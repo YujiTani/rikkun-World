@@ -1,134 +1,26 @@
 /**
- * #293 試作（開発サーバーだけ）: 大きい がしゃどくろを 置いた とき、まわりの 地面から 間欠泉が わき出す。
- * ・柱（地面の cells × cells マスに ぴったり）に 入ると 真上へ 打ち上がる。肩の 雲の 上 + 2 ブロックまで とどく（調整表 geyser）。
- *   空中では ふつうに 横へ 動けるので 肩の 雲へ のりうつれる。柱の 上は ろうと形に ひろがって、ななめに 落ちてきても 柱へ すいこまれる。
- * ・柱に 入った しゅんかんに 落ちる 速さを ゆるめ、柱から 出て 地面に 着くまで 落下ダメージを 受けない（`setNoFall`。combat の noFall の 口）。
- * ・見た目: 半透明（白〜水色）の 水の 柱（たて板と よこ板を かさねた 十字）、根元の 湯気、地面の われ目。
- *   どれも InstancedMesh で、描画は 3 回。
- * ・場所は 置いた とき きめる（がしゃどくろが 動いても そのまま）。数・大きさ・速さは gashaBigTuning.ts の geyser。
- * 純粋な 計算（planGeysers / inColumn / liftStep）は 切りはなして あり、gashaGeyser.test.ts で 確かめる。
+ * #293 試作（開発サーバーだけ）: 間欠泉の 見た目と つなぎ（しくみは gashaGeyserField.ts）。
+ * ・柱（地面の cells × cells マスに ぴったり。見た目は widen 倍に 太い）、根元の 湯気、地面の われ目。
+ *   かわる 途中は ひびが 4 だんで ふえ、湯気が つよく なる（まだ 打ち上げない）。
+ * ・どれも InstancedMesh で、描画は 3 回（柱・湯気・われ目）。
+ * ・場所は ワールドの `geyser_dirt` ブロックで きまる。数・大きさ・速さは gashaBigTuning.ts の geyser。
  */
 import {
   AdditiveBlending, CanvasTexture, Color, DoubleSide, Float32BufferAttribute, BufferGeometry, InstancedBufferAttribute, InstancedMesh,
   Matrix4, MeshBasicMaterial, Quaternion, RepeatWrapping, Vector3, type Scene,
 } from 'three';
 import { TUNE as T } from './gashaBigTuning';
+import { GeyserField, MAX_CELLS, crackStage, type FieldDeps, type GeyserInfo, type GeyserPlaceArgs } from './gashaGeyserField';
 
-export interface GeyserSpec {
-  /** 柱の 北西の かどの マス（x0, z0）。柱は x0 〜 x0 + cells、z0 〜 z0 + cells */
-  x0: number;
-  z0: number;
-  cells: number;
-  /** 柱の 根元（立つ 地面の 高さ） */
-  ground: number;
-  /** 柱の 上の はし（世界の 高さ） */
-  top: number;
-  /** 置いてから わき出すまで（秒） */
-  delay: number;
-}
+export { apexOf, crackStage, funnelRadius, inColumn, liftStep, planShoulders, worldOf, type GeyserInfo, type GeyserPlaceArgs, type GeyserSpec } from './gashaGeyserField';
 
-export interface GeyserPlaceArgs {
-  /** からだの 中心（地面の 高さ）と 向き（ラジアン。three の rotation.y）・もとの 座標 → ブロックの 拡大 */
-  x: number;
-  y: number;
-  z: number;
-  yaw: number;
-  scale: number;
-}
-
-type Tune = typeof T.geyser;
-
-function makeRnd(seed: number): () => number {
-  let s = seed;
-  return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
-}
-
-/** からだの 向きで 回した 世界の 場所（local = ブロック。x = 左、z = 前） */
-export function worldOf(a: GeyserPlaceArgs, lx: number, lz: number): { x: number; z: number } {
-  const c = Math.cos(a.yaw), s = Math.sin(a.yaw);
-  return { x: a.x + lx * c + lz * s, z: a.z - lx * s + lz * c };
-}
-
-/**
- * 間欠泉の 場所を きめる（同じ 引数なら 同じ 結果）。
- * 肩の 下の 左右 2 本、からだの 前（両うでの あいだ。頭の 上から とびおりる 先）に 1 本、のこりは 背中がわ。
- * 背中がわ には 太い リボンが あって 頭の 上から とびおりると そこへ 落ちるので、とびおり 用の 1 本は 前に おく。
- */
-export function planGeysers(a: GeyserPlaceArgs, groundY: (x: number, z: number) => number, tune: Tune = T.geyser): GeyserSpec[] {
-  const rnd = makeRnd(tune.seed);
-  const spots: { x: number; z: number }[] = [];
-  for (const s of [1, -1]) spots.push(worldOf(a, s * tune.shoulderX * a.scale, tune.shoulderZ * a.scale));
-  if (tune.count >= 3) spots.push(worldOf(a, 0, tune.frontRadius));
-  const n = Math.max(0, tune.count - 3);
-  const spread = (n - 1) * tune.spacingDeg;
-  for (let i = 0; i < n; i++) {
-    // 背中がわ（180 度）を まんなかに ならべる。外がわほど とおい
-    const off = n > 1 ? -spread / 2 + (i * spread) / (n - 1) : 0;
-    const th = ((180 + off + (rnd() - 0.5) * 8) * Math.PI) / 180;
-    const k = spread > 0 ? Math.abs(off) / (spread / 2) : 0;
-    const r = tune.ringMin + (tune.ringMax - tune.ringMin) * 0.7 * k * (0.85 + 0.15 * rnd());
-    spots.push(worldOf(a, r * Math.sin(th), r * Math.cos(th)));
-  }
-  const out: GeyserSpec[] = [];
-  const c = tune.cells;
-  for (const p of spots) {
-    const x0 = Math.round(p.x - c / 2), z0 = Math.round(p.z - c / 2);
-    let g = -Infinity;
-    for (let i = 0; i < c; i++) for (let j = 0; j < c; j++) g = Math.max(g, groundY(x0 + i, z0 + j) + 1);
-    const [d0, d1] = tune.delaySec;
-    out.push({ x0, z0, cells: c, ground: g, top: a.y + tune.height, delay: d0 + (d1 - d0) * rnd() });
-  }
-  return out;
-}
-
-/** 柱の 中か（足もとの 場所 x, y, z。柱の 根元の すこし 下から 上の はしまで） */
-export function inColumn(g: GeyserSpec, x: number, y: number, z: number): boolean {
-  return x >= g.x0 && x < g.x0 + g.cells && z >= g.z0 && z < g.z0 + g.cells && y >= g.ground - 0.6 && y <= g.top;
-}
-
-/** 柱の 中での 上向きの 速さ: 落ちて いたら まず slowFall まで ゆるめ、launchAccel で launchSpeed まで 上がる */
-export function liftStep(vy: number, dt: number, tune: Tune = T.geyser): number {
-  const v = vy < -tune.slowFall ? -tune.slowFall : vy;
-  return Math.min(tune.launchSpeed, v + tune.launchAccel * dt);
-}
-
-/** 柱の 上の ろうと: 打ち上げの いちばん 高い ところ（柱の 上 + 4）より 上から、中心から この 水平きょり いない なら すいこむ（なければ null） */
-export function funnelRadius(g: GeyserSpec, y: number, tune: Tune = T.geyser): number | null {
-  if (y < g.top + tune.funnelFrom || y > g.top + tune.funnelHeight) return null;
-  return g.cells / 2 + Math.min(tune.funnelMax, tune.funnelSlope * (y - g.top));
-}
-
-/** 柱の 上へ とび出したあとの 高さ（重力 gravity）: 柱の 上 + v² / 2g */
-export function apexOf(g: GeyserSpec, gravity = 28, tune: Tune = T.geyser): number {
-  return g.top + (tune.launchSpeed * tune.launchSpeed) / (2 * gravity);
-}
-
-export interface GeyserInfo extends GeyserSpec {
-  /** 中心 */
-  x: number;
-  z: number;
-  state: 'wait' | 'rising' | 'up';
-  /** 柱が 伸びた 割合（0〜1） */
-  grow: number;
-}
-
-export interface GeyserDeps {
+export interface GeyserDeps extends FieldDeps {
   scene: Scene;
   /** 毎ステップ 呼ぶ（dt 秒）。固定ステップ */
   onUpdate(fn: (dt: number) => void): void;
-  groundY(x: number, z: number): number;
-  /** プレイヤーの いま（足もと の 位置、速さ、地面に のって いるか） */
-  body(): { position: { x: number; y: number; z: number }; velocity: { x: number; y: number; z: number }; onGround?: boolean };
-  setVelocity(v: { x: number; y: number; z: number }): void;
-  /** 水平に すこし 寄せる（ブロック） */
-  nudge(dx: number, dz: number): void;
-  /** 落下ダメージを 受けない（combat の noFall に 重ねる） */
-  setNoFall(on: boolean): void;
 }
 
 // ---------------------------------------------------------------- 見た目
-const COLUMN_MAX = 16;
-
 function streakTexture(): CanvasTexture {
   const W = 64, H = 128;
   const cv = document.createElement('canvas');
@@ -197,173 +89,119 @@ function crackGeometry(): BufferGeometry {
   return g;
 }
 
+const MAX_PEND_CELLS = 32;
+
 export class GashaGeyser {
-  private specs: GeyserSpec[] = [];
-  private t = 0;
-  private assisted = false;
-  /** 上から 落ちて 柱に 入った ときの 柱（そっと おりる。打ち上げない。柱の 外へ でるまで） */
-  private sinking: GeyserSpec | null = null;
-  private assistedT = 0;
-  private noFallNow = false;
-  private columns: InstancedMesh | null = null;
-  private steam: InstancedMesh | null = null;
-  private cracks: InstancedMesh | null = null;
-  private colTex: CanvasTexture | null = null;
+  readonly field: GeyserField;
+  private readonly columns: InstancedMesh;
+  private readonly steam: InstancedMesh;
+  private readonly cracks: InstancedMesh;
+  private readonly colTex: CanvasTexture;
   private readonly mat = new Matrix4();
   private readonly q = new Quaternion();
   private readonly v = new Vector3();
   private readonly sc = new Vector3();
 
-  constructor(private readonly d: GeyserDeps) {
-    d.onUpdate((dt) => this.update(dt));
+  constructor(d: GeyserDeps) {
+    this.field = new GeyserField(d);
+    const R = T.geyser;
+    this.colTex = streakTexture();
+    const cm = new MeshBasicMaterial({ map: this.colTex, color: new Color(R.color), transparent: true, opacity: R.opacity, depthWrite: false, side: DoubleSide, fog: false });
+    this.columns = new InstancedMesh(crossGeometry(), cm, MAX_CELLS * 2);
+    this.columns.name = 'geyserColumns';
+    const sm = new MeshBasicMaterial({ map: puffTexture(), color: new Color(0xe8f6ff), transparent: true, depthWrite: false, blending: AdditiveBlending, side: DoubleSide, fog: false });
+    const nSteam = MAX_CELLS * 4 + MAX_PEND_CELLS * 2;
+    this.steam = new InstancedMesh(crossGeometry(-0.5, 0.5), sm, nSteam);
+    this.steam.name = 'geyserSteam';
+    this.steam.instanceColor = new InstancedBufferAttribute(new Float32Array(nSteam * 3).fill(1), 3);
+    const km = new MeshBasicMaterial({ color: 0x2c2420, side: DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+    this.cracks = new InstancedMesh(crackGeometry(), km, MAX_CELLS + MAX_PEND_CELLS);
+    this.cracks.name = 'geyserCracks';
+    for (const m of [this.columns, this.steam, this.cracks]) { m.frustumCulled = false; m.renderOrder = 4; m.count = 0; d.scene.add(m); }
+    this.cracks.renderOrder = 1;
+    d.onUpdate((dt) => { this.field.step(dt); this.layout(); });
   }
 
-  /** 置く（前の 間欠泉は 消す）。からだが その後 動いても 場所は かわらない */
-  place(a: GeyserPlaceArgs): GeyserSpec[] {
-    this.clear();
-    this.specs = planGeysers(a, this.d.groundY);
-    this.t = 0;
-    this.build();
-    return this.specs;
+  /** 置く（肩の 下の 2 本を かえはじめる）。ワールドの 間欠泉の つちは そのまま */
+  place(a: GeyserPlaceArgs): void {
+    this.field.place(a);
+  }
+
+  /** x, z の マスから 間欠泉に かえはじめる（テスト用。sec = ひびの 秒。0 で すぐ） */
+  spawn(x: number, z: number, sec?: number): boolean {
+    return this.field.spawnAt(x, z, sec);
   }
 
   geysers(): GeyserInfo[] {
-    const R = T.geyser;
-    return this.specs.map((g) => {
-      const age = this.t - g.delay;
-      return { ...g, x: g.x0 + g.cells / 2, z: g.z0 + g.cells / 2, state: age < 0 ? 'wait' : age < R.riseSec ? 'rising' : 'up', grow: Math.min(1, Math.max(0, age / R.riseSec)) };
-    });
+    return this.field.info();
   }
 
   clear(): void {
-    for (const m of [this.columns, this.steam, this.cracks]) {
-      if (!m) continue;
-      this.d.scene.remove(m);
-      m.geometry.dispose();
-      (m.material as MeshBasicMaterial).map?.dispose();
-      (m.material as MeshBasicMaterial).dispose();
-    }
-    this.columns = this.steam = this.cracks = null;
-    this.colTex = null;
-    this.specs = [];
-    this.assisted = false;
-    this.sinking = null;
-    this.setNoFall(false);
-  }
-
-  private setNoFall(on: boolean): void {
-    if (on === this.noFallNow) return;
-    this.noFallNow = on;
-    this.d.setNoFall(on && T.geyser.noFallInColumn);
-  }
-
-  private build(): void {
-    const R = T.geyser, n = this.specs.length;
-    if (!n) return;
-    this.colTex = streakTexture();
-    const cm = new MeshBasicMaterial({ map: this.colTex, color: new Color(R.color), transparent: true, opacity: R.opacity, depthWrite: false, side: DoubleSide, fog: false });
-    this.columns = new InstancedMesh(crossGeometry(), cm, Math.min(COLUMN_MAX, n));
-    this.columns.name = 'geyserColumns';
-    const sm = new MeshBasicMaterial({ map: puffTexture(), color: new Color(0xe8f6ff), transparent: true, depthWrite: false, blending: AdditiveBlending, side: DoubleSide, fog: false });
-    this.steam = new InstancedMesh(crossGeometry(-0.5, 0.5), sm, Math.min(COLUMN_MAX, n) * R.steamCount);
-    this.steam.name = 'geyserSteam';
-    this.steam.instanceColor = new InstancedBufferAttribute(new Float32Array(this.steam.count * 3).fill(1), 3);
-    const km = new MeshBasicMaterial({ color: 0x2c2420, side: DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
-    this.cracks = new InstancedMesh(crackGeometry(), km, Math.min(COLUMN_MAX, n));
-    this.cracks.name = 'geyserCracks';
-    for (const m of [this.columns, this.steam, this.cracks]) { m.frustumCulled = false; m.renderOrder = 4; this.d.scene.add(m); }
-    this.cracks.renderOrder = 1;
-    this.layout();
+    this.field.reset();
   }
 
   /** 見た目を いまの 時間に あわせる */
   private layout(): void {
-    if (!this.columns || !this.steam || !this.cracks) return;
-    const R = T.geyser, m = this.mat, q = this.q;
-    let si = 0;
-    this.specs.forEach((g, i) => {
-      if (i >= COLUMN_MAX) return;
-      const cx = g.x0 + g.cells / 2, cz = g.z0 + g.cells / 2, age = this.t - g.delay;
-      const wait = Math.min(1, Math.max(0, this.t / Math.max(0.01, g.delay)));
+    const R = T.geyser, S = R.spawn, m = this.mat, q = this.q, t = this.field.t;
+    let ci = 0, si = 0, ki = 0;
+    for (const g of this.field.specs()) {
+      const cx = g.x0 + g.w / 2, cz = g.z0 + g.d / 2, age = t - g.born;
       const grow = Math.min(1, Math.max(0, age / R.riseSec));
       const ease = 1 - (1 - grow) * (1 - grow);
-      // われ目: 水が わく 前から ひろがる（ひとマスより すこし 大きく）
-      m.compose(this.v.set(cx, g.ground + 0.03, cz), q.identity(), this.sc.set(g.cells * (0.2 + 0.7 * wait) * 0.95, 1, g.cells * (0.2 + 0.7 * wait) * 0.95));
-      this.cracks!.setMatrixAt(i, m);
-      // 柱: 地面の cells × cells マスに ぴったり。たて板と よこ板が 十字
+      // われ目: 水が わく 前から ひろがる
+      const open = age > -0.4 ? 1 : 0.5;
+      m.compose(this.v.set(cx, g.ground + 0.03, cz), q.identity(), this.sc.set(g.w * 0.95 * open, 1, g.d * 0.95 * open));
+      this.cracks.setMatrixAt(ki++, m);
+      // 柱: 地面の マスに ぴったり（当たり）。見た目は widen 倍に 太く、芯を もう 1 まい かさねて 濃く
       const h = Math.max(0.001, (g.top - g.ground) * ease);
-      m.compose(this.v.set(cx, g.ground, cz), q.identity(), this.sc.set(g.cells, h, g.cells));
-      this.columns!.setMatrixAt(i, m);
-      // 根元の 湯気（わき出す 前の しぶきも ふくむ）
+      m.compose(this.v.set(cx, g.ground, cz), q.identity(), this.sc.set(g.w * R.widen, h, g.d * R.widen));
+      this.columns.setMatrixAt(ci++, m);
+      m.compose(this.v.set(cx, g.ground, cz), q.identity(), this.sc.set(g.w * 0.6, h, g.d * 0.6));
+      this.columns.setMatrixAt(ci++, m);
+      // 根元の 湯気
+      const size = (g.w + g.d) / 2;
       for (let k = 0; k < R.steamCount; k++, si++) {
-        const ph = (this.t * 0.55 + k / R.steamCount + i * 0.173) % 1;
+        const ph = (t * 0.55 + k / R.steamCount + g.x0 * 0.173) % 1;
         const burst = age > 0 ? Math.exp(-age * 1.8) : 0;
         const on = age > -0.4 ? 1 : 0;
-        const sz = g.cells * (0.9 + 1.1 * ph + 0.9 * burst) * on;
-        const ang = (k / R.steamCount) * Math.PI * 2 + i;
-        m.compose(this.v.set(cx + Math.cos(ang) * g.cells * 0.35 * ph, g.ground + 0.5 + ph * 2.6 + burst * 1.5, cz + Math.sin(ang) * g.cells * 0.35 * ph), q.identity(), this.sc.set(sz, sz, sz));
-        this.steam!.setMatrixAt(si, m);
+        const sz = size * (0.9 + 1.1 * ph + 0.9 * burst) * on;
+        const ang = (k / R.steamCount) * Math.PI * 2 + g.z0;
+        m.compose(this.v.set(cx + Math.cos(ang) * size * 0.35 * ph, g.ground + 0.5 + ph * 2.6 + burst * 1.5, cz + Math.sin(ang) * size * 0.35 * ph), q.identity(), this.sc.set(sz, sz, sz));
+        this.steam.setMatrixAt(si, m);
         const f = (1 - ph) * (grow > 0 || age > -0.4 ? 0.9 : 0);
-        this.steam!.instanceColor!.setXYZ(si, f, f, f);
+        this.steam.instanceColor!.setXYZ(si, f, f, f);
       }
-    });
+    }
+    // かわる 途中: ひびが だんだん ふえ、湯気が つよく なる
+    let pc = 0;
+    for (const p of this.field.pending()) {
+      const prog = Math.min(1, p.t / Math.max(1e-6, p.dur));
+      const stage = crackStage(prog, S.crackStages);
+      const k = 0.3 + 0.75 * (stage / S.crackStages);
+      let gy = 0;
+      for (const c of p.cells) {
+        gy = c.y + 1;
+        if (ki >= this.cracks.instanceMatrix.count) break;
+        m.compose(this.v.set(c.x + 0.5, c.y + 1.03, c.z + 0.5), q.identity(), this.sc.set(k, 1, k));
+        this.cracks.setMatrixAt(ki++, m);
+        pc++;
+      }
+      const cx = p.x0 + p.w / 2, cz = p.z0 + p.d / 2;
+      for (let n = 0; n < 2 && si < this.steam.instanceMatrix.count; n++, si++) {
+        const ph = (t * 0.4 + n * 0.5) % 1;
+        const sz = (p.w + p.d) / 2 * (0.5 + 1.1 * prog) * (0.6 + 0.8 * ph);
+        m.compose(this.v.set(cx, gy + 0.3 + ph * 1.5 * prog, cz), q.identity(), this.sc.set(sz, sz, sz));
+        this.steam.setMatrixAt(si, m);
+        const f = (1 - ph) * 0.65 * prog * prog;
+        this.steam.instanceColor!.setXYZ(si, f, f, f);
+      }
+    }
+    void pc;
+    this.columns.count = ci; this.steam.count = si; this.cracks.count = ki;
     this.columns.instanceMatrix.needsUpdate = true;
     this.steam.instanceMatrix.needsUpdate = true;
     this.steam.instanceColor!.needsUpdate = true;
     this.cracks.instanceMatrix.needsUpdate = true;
-    if (this.colTex) this.colTex.offset.y = -((this.t * R.flowSpeed) % 1);
-  }
-
-  private update(dt: number): void {
-    if (!this.specs.length) return;
-    const R = T.geyser;
-    this.t += dt;
-    this.layout();
-    const b = this.d.body(), p = b.position, vel = b.velocity;
-    let inside = false;
-    let vy = vel.y;
-    for (const g of this.specs) {
-      if (this.t - g.delay < R.riseSec * 0.5) continue; // まだ わき出して いない
-      if (inColumn(g, p.x, p.y, p.z)) {
-        inside = true;
-        // 柱の 上の ほうから 落ちて きた ときは 打ち上げず、ゆっくり おりる（下まで ついて 柱を でるまで）
-        if (this.sinking !== g && !this.sinking && p.y > g.top - R.sinkBelowTop && vel.y < 0) this.sinking = g;
-        if (this.sinking === g) {
-          vy = Math.max(vy, -R.slowFall);
-          this.d.setVelocity({ x: vel.x, y: vy, z: vel.z });
-          break;
-        }
-        vy = liftStep(vy, dt, R);
-        // 柱の 上の はしの すこし 下までは 水の 柱から 横に でられない（まっすぐ 上へ。上の はしを こえたら 自由に 動ける）
-        if (p.y < g.top - R.holdBelowTop) {
-          const m = R.holdMargin, lo = g.x0 + m, hi = g.x0 + g.cells - m, lz = g.z0 + m, hz = g.z0 + g.cells - m;
-          const cx = Math.min(hi, Math.max(lo, p.x)) - p.x, cz = Math.min(hz, Math.max(lz, p.z)) - p.z;
-          if (cx !== 0 || cz !== 0) this.d.nudge(cx, cz);
-        }
-        break;
-      }
-      const fr = vel.y < 0 ? funnelRadius(g, p.y, R) : null; // 落ちて いる ときだけ（のぼりの ときは じゃましない）
-      if (fr !== null) {
-        const cx = g.x0 + g.cells / 2, cz = g.z0 + g.cells / 2, dx = cx - p.x, dz = cz - p.z, dist = Math.hypot(dx, dz);
-        if (dist < fr && dist > 0.05) {
-          // 水平の 速さは 入力で 毎ステップ 上書きされる ので、位置を 直接 すこし 寄せる
-          const st = Math.min(dist, R.funnelPull * dt);
-          this.d.nudge((dx / dist) * st, (dz / dist) * st);
-          this.assisted = true; this.assistedT = 0;
-        }
-      }
-    }
-    if (this.sinking && !inColumn(this.sinking, p.x, p.y, p.z)) this.sinking = null;
-    if (inside) {
-      this.assisted = true; this.assistedT = 0;
-      if (!this.sinking) this.d.setVelocity({ x: vel.x, y: vy, z: vel.z });
-    }
-    // 柱から 出たあと 地面に 着く（または 時間ぎれ）まで 落下ダメージなし
-    if (this.assisted && !inside) {
-      this.assistedT += dt;
-      if (b.onGround === true && this.assistedT > 0.1) this.assisted = false;
-      else if (this.assistedT > R.assistMaxSec) this.assisted = false;
-    }
-    this.setNoFall(inside || this.assisted);
+    this.colTex.offset.y = -((t * R.flowSpeed) % 1);
   }
 }

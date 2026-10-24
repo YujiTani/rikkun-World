@@ -49,6 +49,10 @@ export interface GashaBigDeps {
   nudgePlayer?(dx: number, dz: number): void;
   /** 落下ダメージを 受けない（combat の noFall に 重ねる） */
   setNoFall?(on: boolean): void;
+  /** 間欠泉の つち（ブロック `geyser_dirt`）の 口: ブロックの 名前・置きかえ・読みこんだ 列の 間欠泉の つちを ぜんぶ 渡す。そろって いれば 間欠泉が わく */
+  blockAt?(x: number, y: number, z: number): string;
+  setGeyserBlock?(x: number, y: number, z: number): boolean;
+  scanGeyserBlocks?(found: (x: number, y: number, z: number) => void): void;
   /** 忍者の足袋（レア装備。落下ダメージ 0）を 持ち物に 入れて 着る。開始時に 1 回 呼ぶ。なければ 渡さない */
   giveNinjaTabi?(): void;
 }
@@ -793,8 +797,10 @@ export interface GashaBigHandle {
   joints(): Record<string, Group>;
   /** 見えない 固いマスを 1 つ 聞く */
   solidAt(x: number, y: number, z: number): boolean;
-  /** 間欠泉の 一覧（場所・状態。置いた とき きまる） */
+  /** 間欠泉の 一覧（場所・状態。かわる 途中の ものも 入る: state = 'cracking'、stage = ひびの 段） */
   geysers(): GeyserInfo[];
+  /** x, z の マスから 間欠泉の つちに かえはじめる（テスト用。sec = ひびの 秒、省くと 調整表。0 で すぐ）。始められたら true */
+  spawnGeyser(x: number, z: number, sec?: number): boolean;
   /** 忍者の足袋を 着る（開始時に も 自動で 1 回）。口が なければ 何もしない */
   giveTabi(): void;
   info(): Record<string, unknown>;
@@ -810,8 +816,14 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
   // プレイヤーの 攻撃を 受ける（体力・部位の 倍率・怒る・火花・体力ゲージ。gashaBigHit.ts）
   const bh = new BigHit({ scene: deps.scene, angry: () => { isAngry = true; actor?.hit(); }, sources: deps.hit });
   let pos = new Vector3(), yaw = 0;
-  const geysers = deps.onUpdate && deps.playerBody && deps.setPlayerVelocity && deps.nudgePlayer && deps.setNoFall
-    ? new GashaGeyser({ scene: deps.scene, onUpdate: deps.onUpdate, groundY: deps.groundY, body: deps.playerBody, setVelocity: deps.setPlayerVelocity, nudge: deps.nudgePlayer, setNoFall: deps.setNoFall })
+  const { blockAt, setGeyserBlock, scanGeyserBlocks } = deps;
+  const geysers = deps.onUpdate && deps.playerBody && deps.setPlayerVelocity && deps.nudgePlayer && deps.setNoFall && blockAt && setGeyserBlock && scanGeyserBlocks
+    ? new GashaGeyser({
+      scene: deps.scene, onUpdate: deps.onUpdate, groundY: deps.groundY, body: deps.playerBody, setVelocity: deps.setPlayerVelocity, nudge: deps.nudgePlayer, setNoFall: deps.setNoFall,
+      blockAt, setBlock: (x, y, z) => setGeyserBlock(x, y, z), scanBlocks: scanGeyserBlocks,
+      bodySolid: (x, y, z) => actor?.solid(x, y, z) ?? false,
+      centre: () => (actor ? { x: pos.x, z: pos.z } : null),
+    })
     : null;
   const fwdOf = (p: { yawDeg: number }) => { const y = (p.yawDeg * Math.PI) / 180; return { fx: Math.sin(y), fz: -Math.cos(y) }; };
 
@@ -914,6 +926,7 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
     joints: () => (model ? { ...model.joints } : {}),
     solidAt: (x, y, z) => actor?.solid(x, y, z) ?? false,
     geysers: () => geysers?.geysers() ?? [],
+    spawnGeyser: (x, z, sec) => geysers?.spawn(x, z, sec) ?? false,
     giveTabi: () => deps.giveNinjaTabi?.(),
     info: () => ({
       scale: model?.scale, pos: [pos.x, pos.y, pos.z], yawDeg: (yaw * 180) / Math.PI, drawCalls: model?.meshes, hitBoxes: model?.hits.length, angry: (actor?.angryLeft ?? 0) > 0, hp: bh.hp, maxHp: bh.maxHp, lastHit: bh.last,

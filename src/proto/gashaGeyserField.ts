@@ -157,6 +157,7 @@ export class GeyserField {
   private specList: GeyserSpec[] = [];
   private pend: Pending[] = [];
   private placed = false;
+  private full = false;
   private cool = 0;
   private tick = 0;
   private rnd = makeRnd(T.geyser.seed);
@@ -238,12 +239,17 @@ export class GeyserField {
   }
 
   private spawnStep(dt: number): void {
-    this.cool -= dt;
-    if (this.cool > 0) return;
     const R = T.geyser, S = R.spawn;
     const c = this.d.centre();
     if (!c) return;
-    if (this.groupCount() >= S.maxGroups) return; // 3 本の あいだは 作らない（掘って へれば また 作る）
+    if (this.groupCount() >= S.maxGroups) {
+      // 3 本の あいだは 作らない。掘って へったら、そこから 1 つぶんの 間かくを おいて また 作る
+      if (!this.full) { this.full = true; this.cool = this.range(S.intervalSec); }
+      return;
+    }
+    this.full = false;
+    this.cool -= dt;
+    if (this.cool > 0) return;
     const taken = new Set<string>();
     for (const v of this.cells.values()) taken.add(key(v.x, v.z));
     for (const p of this.pend) for (const q of p.cells) taken.add(key(q.x, q.z));

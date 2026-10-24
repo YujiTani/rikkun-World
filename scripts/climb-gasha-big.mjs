@@ -3,7 +3,7 @@
 //   頭の 上から 間欠泉めがけて とびおりても 体力が へらないか を 確かめる。
 //   node scripts/climb-gasha-big.mjs     （開発サーバー http://localhost:5173 が 動いて いること）
 //   環境変数: SIDE=L|R（のぼる 側の 肩）、START="x,z,向き(度)"（別の 場所から）、BASE、EXTRA（URL の おわりに 足す）、
-//            DIVE=0（とびおりを しない）、CONTROL=1（間欠泉から 離れた 方へ とびおりて、体力が へる ことも 確かめる）
+//            DIVE=1（頭の 上から とびおる 確かめも する。ふだんは しない）、CONTROL=1（間欠泉から 離れた 方へ とびおりて、体力が へる ことも 確かめる）
 //   全部 通ったら 終了コード 0。
 import { chromium } from '@playwright/test';
 
@@ -29,14 +29,17 @@ const result = await page.evaluate(async ([side, START, dive, control]) => {
     h.player.set({ position: { x: START[0], y: gy0 + 2, z: START[1] }, velocity: { x: 0, y: 0, z: 0 }, yaw: START[2], pitch: 0 });
   }
   for (let i = 0; i < 90; i++) h.step(1);
+  const log0 = [];
   g.place(); g.walk?.(false); // さまよい（動く 巨大がしゃ）を 止めて、決まった 姿勢で 調べる
-  for (let i = 0; i < 240; i++) h.step(1); // 間欠泉が わき出す まで
+  const early = g.geysers();
+  log0.push(`置いた すぐ: ` + early.map((q) => `${q.state}${q.stage}`).join(' '));
+  for (let i = 0; i < 780; i++) h.step(1); // ひびが 入って（10 秒）間欠泉に なり、わき出す まで
   const hits = g.colliders();
   const H = (n) => hits.find((c) => c.name === n);
-  const log = [];
+  const log = log0;
   const hp = () => h.combat.get().hp;
   const me = () => h.player.get();
-  const geys = g.geysers();
+  const geys = g.geysers().filter((q) => q.state === 'up');
   log.push(`間欠泉 ${geys.length} 本: ` + geys.map((q) => `(${q.x.toFixed(0)},${q.z.toFixed(0)} ${q.state})`).join(' '));
 
   /** 目標へ 向かって 本物の 入力で 歩く。着いたら true */
@@ -185,7 +188,7 @@ const result = await page.evaluate(async ([side, START, dive, control]) => {
   }
   h.input.releaseAll();
   return { ok, log, enteredAt, maxY, climbed };
-}, [SIDE, START, process.env.DIVE !== '0', process.env.CONTROL === '1']);
+}, [SIDE, START, process.env.DIVE === '1', process.env.CONTROL === '1']);
 console.log(result.log.join('\n'));
 console.log(JSON.stringify({ ok: result.ok, climbed: result.climbed }));
 await browser.close();

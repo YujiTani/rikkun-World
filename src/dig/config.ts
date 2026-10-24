@@ -46,6 +46,7 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     nukunuku_e: 2,
     nukunuku_s: 2,
     nukunuku_se: 2,
+    geyser_dirt: 0.5, // つちと おなじ
     toriya_fence: 5,
     toriya_gate: 5,
     toriya_nest: 5,
@@ -100,6 +101,7 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     nukunuku_e: 0,
     nukunuku_s: 0,
     nukunuku_se: 0,
+    geyser_dirt: 0,
     toriya_fence: 0,
     toriya_gate: 0,
     toriya_nest: 0,
@@ -160,6 +162,7 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     nukunuku_e: 'uncommon',
     nukunuku_s: 'uncommon',
     nukunuku_se: 'uncommon',
+    geyser_dirt: 'uncommon',
     toriya_fence: 'uncommon',
     toriya_gate: 'uncommon',
     toriya_nest: 'uncommon',
@@ -210,6 +213,8 @@ export const FARM_BREAK_DROP: Readonly<Partial<Record<BlockId, { item: ItemId; c
   farmland_wet: { item: 'dirt', count: 1 },
   saku: { item: 'log', count: 1 },
   sprinkler: { item: 'sprinkler', count: 1 },
+  // #293 試作: 間欠泉の つちは いつも 1 こ（そのまま 置きなおせる）
+  geyser_dirt: { item: 'geyser_dirt', count: 1 },
   // FLORA-75: のばな は いつも 1 こ（ランダムな数にしない）
   nobana: { item: 'nobana', count: 1 },
 };

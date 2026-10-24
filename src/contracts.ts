@@ -72,7 +72,9 @@ export type BlockId =
   // こたつ 2×2 の のこり 3 マス（かど の `nukunuku` が 本体。ここは 持ち物 に 入らない。`src/world/blocks/kotatsu.ts`）
   | 'nukunuku_e' // 本体 の 東（+x）
   | 'nukunuku_s' // 本体 の 南（+z）
-  | 'nukunuku_se'; // 本体 の 南東
+  | 'nukunuku_se' // 本体 の 南東
+  // #293 試作（うしろに足す）
+  | 'geyser_dirt'; // かんけつせんの つち（上に 間欠泉の 柱が たつ。ほると 持ち物に 入る。置けば どこでも 間欠泉）
 
 export interface BlockType {
   id: BlockId;

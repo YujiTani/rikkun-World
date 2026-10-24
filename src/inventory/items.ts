@@ -66,6 +66,8 @@ const M4_ITEMS: readonly ItemType[] = [
   { id: 'suneate', name: 'すねあて', maxStack: 1, placeBlock: null },
   // #293 試作: 忍者の足袋（レア装備。名前は ［漢字｜よみ］ — withRuby で 画面に 出す）
   { id: 'ninja_tabi', name: '［忍者｜にんじゃ］の ［足袋｜たび］', maxStack: 1, placeBlock: null },
+  // #293 試作: 間欠泉の つち（置ける。置けば どこでも 間欠泉。名前は ［漢字｜よみ］ — withRuby で 画面に 出す）
+  { id: 'geyser_dirt', name: '［間欠泉｜かんけつせん］の つち', maxStack: BLOCK_MAX_STACK, placeBlock: 'geyser_dirt' },
   { id: 'lantern', name: 'ちょうちん', maxStack: BLOCK_MAX_STACK, placeBlock: null },
   { id: 'kite', name: 'たこ', maxStack: 1, placeBlock: null },
   { id: 'futon', name: 'ふとん', maxStack: 1, placeBlock: null },
