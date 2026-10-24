@@ -106,6 +106,8 @@ export interface SaveDeps {
   legend?: SaveExtra;
   /** NINJA-1: 手に 入れた ことの ある 忍者装備（忍者帳 `{ got }`）。前の 保存に ない ときは 空（読んだ とき 持って いる 忍者装備は 帳に 入れる） */
   ninja?: SaveExtra;
+  /** SAMURAI-1: 手に 入れた ことの ある 侍装備（侍帳 `{ got }`）。前の 保存に ない ときは 空（読んだ とき 持って いる 侍装備は 帳に 入れる） */
+  samurai?: SaveExtra;
   /** #293: 保存にだけ 別の ブロックで 書く マス（がしゃどくろの 間欠泉が 作った つちを 元の ブロックで 書く。遊んでいる 世界は かえない。saveOverride.ts） */
   saveOverrides?: () => readonly SaveBlockOverride[];
   /** #293: がしゃどくろを たおした 回数（{ v: 2, kills }。ボス本体は 保存しない。前の 版の 宝箱の 一覧は 読みこんでも むし）。前の 保存に ない ときは null */
@@ -326,6 +328,11 @@ export class SaveManager {
       this.d.ninja?.deserialize(null);
     }
     try {
+      this.d.samurai?.deserialize(data.samurai);
+    } catch {
+      this.d.samurai?.deserialize(null);
+    }
+    try {
       this.d.gasha?.deserialize(data.gasha ?? null);
     } catch {
       this.d.gasha?.deserialize(null);
@@ -530,6 +537,7 @@ export class SaveManager {
       animals: this.d.animals?.serialize() ?? null,
       legend: this.d.legend?.serialize() ?? null,
       ninja: this.d.ninja?.serialize() ?? null,
+      samurai: this.d.samurai?.serialize() ?? null,
       gasha: this.d.gasha?.serialize() ?? null,
       farm,
       ...(this.d.strength ? { strength: this.d.strength } : {}),

@@ -43,6 +43,8 @@ import { createRng, type Rng } from '../../world/gen/random';
 import { COUNTRY_TABLE } from '../../world/gen/countryTable';
 import { YOKAI_ORDER, effectiveRow, pickYokaiKind, weightOf, type YokaiRow } from '../countryPick';
 import { pickNushiDrop, rollPower } from '../../legend/defs';
+import { isSamuraiGear } from '../../craft/SamuraiBook';
+import { samuraiSelectable } from '../../craft/samuraiDrop';
 import { applyDollBrightness } from './brightness';
 import { AI_CONST, KIND_AI, YOKAI_DROPS, createYokaiConfig, type KindAi, type YokaiConfig } from './config';
 import { BurstFx } from './effects';
@@ -111,6 +113,8 @@ export interface YokaiManagerOptions {
   onBlocks?: (cells: { x: number; y: number; z: number; from: BlockId; to: BlockId }[], why: 'crush' | 'stone') => void;
   /** NINJA-1: 着ている 防具を 聞く 入り口（忍び装束の とき 気づく 距離が 半分）。なければ 何も 着て いない */
   armor?: { equipped(slot: ArmorSlot): ItemId | null };
+  /** SAMURAI-1 §4.2: 侍帳（手に 入れた ことの ある 侍装備）と 今 持って いる 物。ヌシの 表で 選べない 侍装備の 行を とばす ため。なければ 帳は 空・何も 持って いない */
+  samurai?: () => { book: readonly ItemId[]; have: readonly ItemId[] };
   /** WEAPON-5: 設定の入れ物（よろけ・はね返し。WEAPON-7: ヌシの ドロップ表 `nushiDrops`。なければ 初期値） */
   settings?: W2Settings;
   /**
@@ -963,11 +967,13 @@ export class YokaiManager implements YokaiWorld {
    * weight で ランダム（持っている か・前に 何が 出たかは 見ない）。表が 空なら 何も 出さない
    */
   private dropLegendary(e: Ent): void {
-    const item = pickNushiDrop(this.S.nushiDrops, this.nushiRng);
+    const sm = this.opts.samurai?.() ?? { book: [], have: [] };
+    const item = pickNushiDrop(this.S.nushiDrops, this.nushiRng, samuraiSelectable(sm.book, sm.have));
     if (item === null) return;
     const at = { x: e.x, y: e.y, z: e.z };
     // WEAPON-9 §5.1: 虹は 落ちる たびに 強さ 4〜10（1 本ごと。表の 乱数と 同じ 列から 1 つ）
-    const power = rollPower(this.S, item, this.nushiRng) ?? undefined;
+    // SAMURAI-1: 侍装備に 強さの くじは 使わない（rollPower は 虹だけ）
+    const power = isSamuraiGear(item) ? undefined : (rollPower(this.S, item, this.nushiRng) ?? undefined);
     const left = this.drops ? 1 - this.drops.scatter(at, [{ item, count: 1, ...(power ? { power } : {}) }], { kind: 'yokai' }) : this.inventory.add(item, 1, { power });
     this.emit({ type: 'drop', tick: this.tick(), id: e.id, kind: e.kind, item, count: 1, added: 1 - left }, true);
     this.opts.onLegendDrop?.({ item, yokaiId: e.id, kind: e.kind, position: at });

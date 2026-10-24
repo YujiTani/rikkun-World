@@ -346,6 +346,10 @@ function build(): AchievementDef[] {
   add({ series: 'ninja.first', category: 'fight', stat: 'ninjaKinds', tiers: [t(1)], name: () => 'はじめての ［忍者｜にんじゃ］［装備｜そうび］！' });
   add({ series: 'ninja.all', category: 'fight', stat: 'ninjaKinds', tiers: [t(4)], name: () => '［忍者｜にんじゃ］［装備｜そうび］を ぜんぶ あつめた！' });
 
+  // SAMURAI-1 §6 AC18: 侍装備。はじめて 手に 入れた（大きい 実績）と 4 しゅ そろえた。忍者の 実績・legend.kinds・get.* には 数えない
+  add({ series: 'samurai.first', category: 'fight', stat: 'samuraiKinds', tiers: [t(1)], name: () => 'はじめての ［侍｜さむらい］［装備｜そうび］！' });
+  add({ series: 'samurai.all', category: 'fight', stat: 'samuraiKinds', tiers: [t(4)], name: () => '［侍｜さむらい］［装備｜そうび］を 4 つ そろえた！' });
+
   // #293: がしゃどくろ（ボス）を たおした。ふだんの ようかい（defeat.all）には 数えず、これ 1 つだけ（大きい 実績・金メダル）
   add({ series: 'defeat.gashadokuro', category: 'fight', stat: 'defeat:gashadokuro', tiers: [t(1)], name: () => 'がしゃどくろ を たおした！' });
 

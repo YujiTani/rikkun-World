@@ -9,6 +9,7 @@ import { isLive3Item, live3ItemPixels } from './itemArtLive3';
 import { isW7Item, w7ItemPixels } from './itemArtW7';
 import { goldItemPixels, isGoldItem } from './itemArtGold';
 import { isNinjaItem, ninjaItemPixels } from './itemArtNinja';
+import { isSamuraiItem, samuraiItemPixels } from './itemArtSamurai';
 import { bucketItemPixels, isBucketItem } from './bucketArt';
 import { axeItemPixels, isAxeItem } from './itemArtBal';
 import { tansuPixels } from '../storage/tansuArt';
@@ -28,6 +29,7 @@ export function itemIconPixels(item: ItemId): Pixels {
   if (isAxeItem(item)) return axeItemPixels(item);
   if (isM4Item(item)) return m4ItemPixels(item);
   if (isNinjaItem(item)) return ninjaItemPixels(item); // NINJA-1: オーナー OK 済みの 絵
+  if (isSamuraiItem(item)) return samuraiItemPixels(item); // SAMURAI-1: オーナー OK 済みの 絵
   if (item === 'egg') return eggPixels();
   if (item === 'mushi') return mushiPixels();
   if (item === 'mushi_ami') return mushiAmiPixels();

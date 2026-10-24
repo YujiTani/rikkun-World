@@ -82,6 +82,9 @@ export function buildTooltip(item: ItemId, d: TooltipDeps, stack?: ItemStack | n
   if (item === 'suneate' || item === 'kin_suneate') add('おちても いたくない', item);
   if (item === 'ninja_zukin') add('たま から まもる', item);
   if (item === 'ninja_shozoku' || item === 'ninja_tekko') add('こうげき から まもる', item);
+  if (item === 'samurai_jingasa') add('たま から まもる', item);
+  if (item === 'samurai_haori' || item === 'samurai_tekko') add('こうげき から まもる', item);
+  if (item === 'samurai_geta') add('おちても いたくない', item);
   // 足袋の「おちても いたく ない」は とくべつな ちから（special）へ うつった
   if (item === 'kuwa') {
     add(`ほる つよさ ${tools.toolPower[item] ?? 1}`, item);

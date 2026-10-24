@@ -46,7 +46,7 @@ export const CATEGORY_ITEMS: Readonly<Record<ItemCategory, readonly string[]>> =
   metal: ['iron_ingot', 'crystal', 'kin'],
   tool: ['wood_pickaxe', 'stone_pickaxe', 'iron_pickaxe', 'wood_axe', 'stone_axe', 'iron_axe', 'kin_pickaxe', 'kin_axe', 'kuwa', 'watering_can', 'long_watering_can', 'bucket', 'water_bucket', 'mushi_ami'],
   weapon: ['bokuto', 'katana', 'naginata', 'crystal_katana', 'raijin_ken', 'fujin_ken', 'niji', 'kin_katana', 'kin_yumi', 'yumi', 'ya'],
-  armor: ['kabuto', 'yoroi', 'kote', 'suneate', 'ninja_zukin', 'ninja_shozoku', 'ninja_tekko', 'ninja_tabi', 'kin_kabuto', 'kin_yoroi', 'kin_kote', 'kin_suneate'],
+  armor: ['kabuto', 'yoroi', 'kote', 'suneate', 'ninja_zukin', 'ninja_shozoku', 'ninja_tekko', 'ninja_tabi', 'samurai_jingasa', 'samurai_haori', 'samurai_tekko', 'samurai_geta', 'kin_kabuto', 'kin_yoroi', 'kin_kote', 'kin_suneate'],
   light: ['torch', 'lantern'],
   home: ['furnace', 'tansu', 'futon', 'haniwa', 'kite', 'waraji', 'omamori', 'sprinkler', 'nukunuku', 'toriya'],
   food: ['onion', 'tomato', 'pumpkin', 'eggplant', 'egg', 'momo_nama', 'momo_yaki'],

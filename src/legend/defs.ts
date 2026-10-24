@@ -64,17 +64,18 @@ export function rollPower(S: Pick<W2Settings, 'legendary'>, item: ItemId, rng: (
 
 /**
  * ヌシの 表から weight で ランダムに 1 本（§2.3）。持っているか・前に 何が 出たかは 見ない。
- * 乱数は 1 つだけ 使う。表が 空・weight が ぜんぶ 0 なら null
+ * 乱数は 1 つだけ 使う。表が 空・weight が ぜんぶ 0 なら null。selectable（SAMURAI-1）= 選べない 行を とばす 関数
  */
-export function pickNushiDrop(rows: readonly NushiDropRow[], rng: () => number): ItemId | null {
+export function pickNushiDrop(rows: readonly NushiDropRow[], rng: () => number, selectable?: (item: ItemId) => boolean): ItemId | null {
+  // SAMURAI-1 §4.2: selectable が false を 返す 行（もう 手に 入れた 侍装備）は weight 0 と 同じに とばす
+  const live = rows.filter((r) => r.weight > 0 && (selectable ? selectable(r.item) : true));
   let total = 0;
-  for (const r of rows) if (r.weight > 0) total += r.weight;
+  for (const r of live) total += r.weight;
   if (!(total > 0)) return null;
   let x = rng() * total;
-  for (const r of rows) {
-    if (!(r.weight > 0)) continue;
+  for (const r of live) {
     if (x < r.weight) return r.item;
     x -= r.weight;
   }
-  return rows.filter((r) => r.weight > 0).at(-1)!.item;
+  return live.at(-1)!.item;
 }

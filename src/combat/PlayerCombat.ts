@@ -19,6 +19,7 @@ import { isBladeItem } from '../tools/blade';
 import { copyStack } from '../tools/durability';
 import { DropField, type DropView } from '../drops';
 import { createRng, type Rng } from '../world/gen/random';
+import { knockbackMulOf } from '../craft/samuraiPower';
 import { centerOfYokai, inPunchFan, wallBetween, type AttackDecision } from './attackFacing';
 import { GHOST_ID_MIN } from './ghostIds';
 import {
@@ -566,8 +567,10 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
       }
       this.kbTicks = KNOCKBACK_TICKS;
       if (cfg.knockbackUp > 0 && st.velocity.y < cfg.knockbackUp) this.d.player.set({ velocity: { x: st.velocity.x, y: cfg.knockbackUp, z: st.velocity.z } });
-      this.kbX = (dx * cfg.knockback) / KNOCKBACK_TICKS;
-      this.kbZ = (dz * cfg.knockback) / KNOCKBACK_TICKS;
+      // SAMURAI-1 §4.4: 羽織など 「とばされにくさ」の 防具（横の 距離だけ。上への はねは そのまま）
+      const kb = cfg.knockback * (this.d.armor ? knockbackMulOf(this.d.armor) : 1);
+      this.kbX = (dx * kb) / KNOCKBACK_TICKS;
+      this.kbZ = (dz * kb) / KNOCKBACK_TICKS;
     }
     if (this.hpNow <= 0) this.die();
     return true;

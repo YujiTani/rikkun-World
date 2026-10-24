@@ -116,8 +116,8 @@ function shockRig(mul?: number) {
   const shock = new BigShock({
     player: () => ply,
     groundY: () => -1,
-    hurt: (amount) => (hurts.push(amount), true),
-    setPlayerVelocity: (v) => pushes.push(v),
+    hurt: (amount: number) => (hurts.push(amount), true),
+    setPlayerVelocity: (v: { x: number; y: number; z: number }) => pushes.push(v),
     ...(mul === undefined ? {} : { knockbackMul: () => mul }),
   } as never);
   return { shock, ply, hurts, pushes };

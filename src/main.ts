@@ -53,6 +53,11 @@ import { ThunderFx } from './fx/thunderFx';
 import { LegendBook } from './legend/LegendBook';
 import { NinjaBook, isNinjaGear } from './craft/NinjaBook';
 import { NINJA_TUNING } from './craft/ninjaTuning';
+import { SamuraiBook, isSamuraiGear } from './craft/SamuraiBook';
+import { SAMURAI_GEAR } from './craft/config';
+import { knockbackMulOf, tekkoBladeMulOf, tekkoDefIgnoreOf } from './craft/samuraiPower';
+import { GetaStepper } from './craft/geta';
+import { playGeta, preloadGetaSounds } from './fx/getaSounds';
 import { SENSE } from './yokai/ai/senseTuning';
 import { Kodachi } from './combat/Kodachi';
 import { chargeOf, hasPowerRange, legendMoveMulOf, legendPowerOf, trailStyleOf } from './legend/defs';
@@ -280,7 +285,8 @@ const titleSound = createBrowserTitleSound(
     window.removeEventListener('keydown', warm, true);
     mixer.unlock(); // 先に AudioContext を作ってから読む（下の unlock と同じ。何度呼んでもよい）
     void titleSound.preload();
-    void preloadLegendSounds(fxSound); // 風神剣・雷神剣の ため音・攻撃音（最初の 操作の あとに 1 回）
+    void preloadLegendSounds(fxSound);
+    void preloadGetaSounds(fxSound); // 風神剣・雷神剣の ため音・攻撃音（最初の 操作の あとに 1 回）
   };
   window.addEventListener('pointerdown', warm, true);
   window.addEventListener('keydown', warm, true);
@@ -677,7 +683,8 @@ const blade = createBladeSystem({
   settings: w2,
   // WEAPON-7: レジェンダリーの 強さは 設定 `legendary` の power（ふつうの 刀は 今の 表）
   // 虹は 1 本ごとの 強さ（手に 持っている 1 本）
-  weaponDamage: (item) => legendPowerOf(w2, item, item === 'niji' ? (inventory.held()?.power ?? null) : null) ?? toolConfig.weaponDamage[item] ?? 1,
+  // SAMURAI-1 §4.5: 明珍手甲を 着ていれば 刀の 強さ × 1.5（わざの 倍率の 前に かける）
+  weaponDamage: (item) => (legendPowerOf(w2, item, item === 'niji' ? (inventory.held()?.power ?? null) : null) ?? toolConfig.weaponDamage[item] ?? 1) * tekkoBladeMulOf(armor, item),
   onHit: () => {
     inventory.wearHeld(w2.toolWear.blade.hit);
   },
@@ -699,6 +706,7 @@ const legend = createLegendSystem({
   // WEAPON-8 §3.6: ため音は 続く 音。剣ごとの 味（風神 / 雷神）は ためわざの しゅるいで えらぶ
   loop: (name) => (name === 'domePull' ? startLegendLoop(fxSound, name) : startLegendLoop(fxSound, name, chargeOf(w2, inventory.held()?.item ?? null)?.kind === 'spiral' ? 'fujin' : chargeOf(w2, inventory.held()?.item ?? null)?.kind === 'shining' ? null : 'raijin')),
   // WEAPON-8: らせんの かぜは F6 に 体の 点 B（足もと + 1.4）から
+  powerMul: (item) => tekkoBladeMulOf(armor, item), // SAMURAI-1: 雷・ドームの 強さ P × 手甲
   launchSpiral: (a) => {
     const p = controller.state.position;
     waveSys.launchSpiral({ item: a.item, dirDeg: a.dirDeg, body: { x: p.x, y: p.y + 1.4, z: p.z } });
@@ -724,6 +732,7 @@ const waveSys = createWaveSystem({
   sound: (v) => playLegend(fxSound, 'windWave', v),
   spiralSound: () => startLegendOneShot(fxSound, 'spiralWind'),
   onSpiralHit: () => inventory.wearHeld(1),
+  powerMul: (item) => tekkoBladeMulOf(armor, item), // SAMURAI-1: 真空波・らせんの 強さ P × 手甲（出した ステップに 1 回）
   reducedMotion: () => reducedMotionMq?.matches ?? false,
   view: () => waveView3d.view(),
   seed,
@@ -731,6 +740,8 @@ const waveSys = createWaveSystem({
 // WEAPON-5: 刀のパリィ（Shift＋クリック）。「動きを へらす」のときは スローにしない
 const reducedMotionMq = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
 const parry = createParry(w2, { reducedMotion: () => reducedMotionMq?.matches ?? false });
+// SAMURAI-1 §4.6: 下駄の 1 歩（音は 4 つから 1 つ。ファイルは 最初の 操作の あとに 読みこむ）
+const geta = new GetaStepper(armor, () => playGeta(fxSound));
 const parryFx = new ParryFx({ scene: game.scene, camera: game.camera, basePath: './models/fx/' });
 const sparkAt = { x: 0, y: 0, z: 0 };
 // WEAPON-7: 雷の 見た目（十字の ドット絵・着地の 光・光の つぶ）
@@ -1037,6 +1048,7 @@ yokaiManager = new YokaiManager({
   countryOf: (x, z) => countryAt(seed, Math.floor(x), Math.floor(z)).kind,
   harapan: (y) => harapanRoll.yokai(y),
   armor, // NINJA-1: 忍び装束で 気づく 距離が 半分
+  samurai: () => ({ book: samuraiBook.got(), have: samuraiHave() }), // SAMURAI-1 §4.2: ヌシの 表で 選べない 侍装備の 行を とばす
   strength: strengthLevel,
   light: renderer.light,
   // 出る場所は 描く輪の メッシュずみの列だけ（VOX-D）
@@ -1489,11 +1501,27 @@ const ninjaHave = (): ItemId[] => {
   if (c && isNinjaGear(c.item)) out.push(c.item);
   return out;
 };
+// SAMURAI-1 §4.2: 手に 入れた ことの ある 侍装備（侍帳。世界ごとに 保存）。実績 samurai.* へ。忍者帳・legend.kinds・get.* には 数えない
+const samuraiBook = new SamuraiBook();
+/** いま 持って いる 侍装備（もちもの・防具の マス・手に もった 物） */
+const samuraiHave = (): ItemId[] => {
+  const out: ItemId[] = [];
+  for (const s of inventory.slots()) if (s && isSamuraiGear(s.item)) out.push(s.item);
+  for (const slot of ['head', 'body', 'arms', 'legs'] as const) {
+    const it = armor.equipped(slot);
+    if (it && isSamuraiGear(it)) out.push(it);
+  }
+  const c = inventory.cursor();
+  if (c && isSamuraiGear(c.item)) out.push(c.item);
+  return out;
+};
 inventory.onAdded = (item) => {
   const r = legendBook.add(item);
   if (r) achievements.feedLegend(item, r.kinds);
   const n = ninjaBook.add(item);
   if (n) achievements.feedNinja(item, n.kinds);
+  const sm = samuraiBook.add(item);
+  if (sm) achievements.feedSamurai(item, sm.kinds);
   achievements.feedRarity(itemRarity(item));
 };
 // M7-2: キラキラ・ハート（C）・しずく（A）・しぶき（B）
@@ -1745,6 +1773,8 @@ const save = new SaveManager({
   legend: { serialize: () => legendBook.serialize(), deserialize: (d) => legendBook.deserialize(d) },
   // NINJA-1: 忍者帳。前の 保存（帳なし）は 空。読んだ とき もちもの・防具の マスに ある 忍者装備は 帳に 入れる（#298 で もう 足袋を 持って いる 人に 2 こ目を 出さない）
   ninja: { serialize: () => ninjaBook.serialize(), deserialize: (d) => { kodachi.clear(); ninjaBook.deserialize(d, ninjaHave()); const k = ninjaBook.got().length; if (k > 0) achievements.feedNinja('', k); } },
+  // SAMURAI-1: 侍帳。前の 保存（帳なし）は 空。読んだ とき もちもの・防具の マスに ある 侍装備は 帳に 入れる
+  samurai: { serialize: () => samuraiBook.serialize(), deserialize: (d) => { samuraiBook.deserialize(d, samuraiHave()); const k = samuraiBook.got().length; if (k > 0) achievements.feedSamurai('', k); } },
   // #293: がしゃどくろの たおした 回数。係は あとで 作る ので、読みこみが 先に 来たら 預かって、作った あとで わたす
   gasha: { serialize: () => gashaRelease?.serialize() ?? gashaSavedPending, deserialize: (d) => { gashaSavedPending = d; gashaRelease?.deserialize(d); } },
   // 農業: 作物・印。前の保存（印なし）には 読んだあとに 置きものを置く
@@ -2002,6 +2032,7 @@ game.onUpdate((dt) => {
   const parryIn = dig.parryInput(game.tick + 1);
   // Shift を 押した 時点で パリィの 絵を 先読みする（刀を 持っただけでは 読まない。初回から 受けの 絵が 出るように）
   if (parryIn.run && parryIn.active && isBladeItem(parryIn.item)) sprite?.preloadParry();
+  parryIn.jingasa = armor.equipped('head') === SAMURAI_GEAR.head; // SAMURAI-1: 始めた ステップの 値が そのパリィの 間 つかわれる
   parry.update(parryIn);
   // WEAPON-2: 刀・弓の 動きの 制限（歩く倍率・ジャンプ止め）を プレイヤーへ
   {
@@ -2095,7 +2126,7 @@ game.onUpdate((dt) => {
     rig.doll.setArcDir(st.facingDeg);
     // WEAPON-5: パリィの 絵と 青白い 光（からだの 色）
     const ps = parry.state();
-    sprite?.setParry(parryCellOf(ps.phase, ps.frame));
+    sprite?.setParry(parryCellOf(ps.phase, ps.frame, ps.jingasa));
     sprite?.setGlow(parryGlowLevel(ps.glowLeft, w2));
     if ((bs.move !== null && bs.frame === 1) || parry.startedNow() || lstrike?.F === 1) st.velocity.x = st.velocity.z = 0;
     const bowPose = tools.bow().state();
@@ -2128,6 +2159,12 @@ game.onUpdate((dt) => {
   }
   // NINJA-1: 小太刀の 追い打ちは 先に 1 ステップ すすめ、このステップの 当たりは あとで 入れる（当てた ステップを 0 に する ため）
   kodachi.step();
+  // SAMURAI-1 §4.6 明珍下駄: 走って いる 時間 30 ステップごとに 1 歩（遊び中・やられて いない・ひるんで いない とき だけ 数える）
+  {
+    const s = controller.state;
+    const walking = screen.mode() === 'play' && !combat.dead() && !combat.flinching();
+    geta.step({ running: walking && s.running, onGround: s.onGround, inWater: s.inWater, velocity: s.velocity });
+  }
   combat.update();
   craft.update();
   storage.update();
@@ -2589,6 +2626,12 @@ installTestHook(game, overlay, () => host.everReady, {
     book: { got: () => ninjaBook.got(), set: (items) => ninjaBook.deserialize({ got: items }) },
     pending: () => kodachi.pending(),
   },
+  // SAMURAI-1: 調整表は ninja.tune と 同じ（NINJA_TUNING 1 か所）。侍帳（E2E 用）・とばされにくさの 倍率・下駄の 数え
+  samurai: {
+    book: { got: () => samuraiBook.got(), set: (items) => samuraiBook.deserialize({ got: items }) },
+    knockbackMul: () => knockbackMulOf(armor),
+    getaTicks: () => geta.ticks(),
+  },
   ...logHook,
   impact: {
     stopLeft: () => game.hitStopLeft(),
@@ -2761,9 +2804,9 @@ if (import.meta.env.DEV && new URLSearchParams(location.search).get('proto') ===
 const startBigBoss = (wrap: (d: GashaBigDeps) => GashaBigDeps = (d) => d, at?: { x: number; z: number; yawDeg?: number }) =>
   Promise.all([import('./proto/gashaBig'), import('./proto/gashaBigHitWire')]).then(([m, hw]) => m.startGashaBig(wrap({ scene: game.scene, camera: game.camera, player: () => ({ ...controller.state.position, yawDeg: controller.state.yawDeg }), groundY: (x, z) => island.groundHeight(x, z), lighting, addPlayerSolid: (fn) => { const orig = world.isSolidForPlayer.bind(world); world.isSolidForPlayer = (x, y, z) => orig(x, y, z) || fn(x, y, z); }, onUpdate: (fn) => game.onUpdate(fn), playerBody: () => controller.state, setPlayerVelocity: (v) => { controller.set({ velocity: v }); }, nudgePlayer: (dx, dz) => { const st = controller.state; st.position.x += dx; st.position.z += dz; }, setNoFall: (on) => { protoNoFall = on; }, blockAt: (x, y, z) => world.getBlock(x, y, z), setGeyserBlock: (x, y, z) => world.setBlock(x, y, z, 'geyser_dirt'), restoreGeyserBlock: (x, y, z, id) => world.setBlock(x, y, z, id as Parameters<typeof world.setBlock>[3]), scanGeyserBlocks: (found) => { const si = blockIndexOf('geyser_dirt'); world.scanBlocks((i) => i === si, (x, y, z) => found(x, y, z)); }, giveNinjaTabi: () => { if (armor.equipped('legs') === 'ninja_tabi') return; const old = armor.equippedStack('legs'); if (old) inventory.add(old.item, 1); armor.set(armor.equipped('head'), armor.equipped('body'), armor.equipped('arms'), 'ninja_tabi'); }, bgmOut: () => { const o = mixer.output(); const b = mixer.bgmInput(); return o && b ? { ctx: o.ctx, bus: b } : null; }, sfxOut: () => mixer.output(), suppressBgm: (on, f) => { girlBgmOn = on; if (f) gashaBgmFade = { ...gashaBgmFade, ...f }; }, carryPlayer: (dx, dy, dz, dYaw) => { const st = controller.state; st.position.x += dx; st.position.y += dy; st.position.z += dz; st.yawDeg = (((st.yawDeg + dYaw) % 360) + 360) % 360; }, hurt: (amount, from) => combat.damage(amount, 'karakasa', from), blockPlayerInput: (fn) => { const orig = lock.playInputEnabled.bind(lock); lock.playInputEnabled = () => orig() && !fn(); }, onBeforeRender: (fn) => game.onBeforeRender(fn), reducedMotion: () => reducedMotionMq?.matches ?? false, setBlockAir: (x, y, z) => world.setBlock(x, y, z, 'air'), onCrushBlocks: (cells) => { for (const c of cells.slice(0, 40)) fx.particles.burst({ x: c.x, y: c.y, z: c.z }, c.from as Parameters<typeof fx.particles.burst>[1], FX_SETTINGS); fxSound.play('break'); }, onGlassBreak: (cells) => { for (const c of cells.slice(0, 24)) fx.particles.burst({ x: Math.floor(c.x), y: Math.floor(c.y), z: Math.floor(c.z) }, 'snow', FX_SETTINGS); fxSound.play('break'); }, hitStop: (n) => game.hitStop(n), shake: (a) => { if (FX_SETTINGS.fxShake) rig.addTrauma(a); }, onCoreWarn: () => playLegend(fxSound, 'lightning'), onCoreThrow: () => playLegend(fxSound, 'spiralWind'), onBodyBlocks: (port) => { gashaBodyBlocks = port; }, onSaveOverrides: (get) => { gashaSaveOverrides = get; },
     // 本物の 攻撃（刀・ためわざ・波・矢・パンチ）を がしゃどくろの 箱に 当てる 口
-    hit: hw.makeHitSources({ blade, waves: () => waveSys.list(), legend, held: () => { const h = inventory.held(); return h ? { item: h.item, power: h.power } : null; }, settings: w2, weaponDamage: (item) => legendPowerOf(w2, item, item === 'niji' ? (inventory.held()?.power ?? null) : null) ?? toolConfig.weaponDamage[item] ?? 1, yokai: () => yokaiManager, sound: () => playCombat(fxSound, 'hit') }),
+    hit: hw.makeHitSources({ blade, waves: () => waveSys.list(), legend, held: () => { const h = inventory.held(); return h ? { item: h.item, power: h.power } : null; }, settings: w2, weaponDamage: (item) => (legendPowerOf(w2, item, item === 'niji' ? (inventory.held()?.power ?? null) : null) ?? toolConfig.weaponDamage[item] ?? 1) * tekkoBladeMulOf(armor, item), powerMul: (item) => tekkoBladeMulOf(armor, item), yokai: () => yokaiManager, sound: () => playCombat(fxSound, 'hit') }),
     // NINJA-1: 刀・パンチが 部位に 当たった → 忍びの手甲の 追い打ち
-    onStrike: (i) => kodachi.onBigHit(i.part) }), at)).then((h) => { bigBossHandle = h as unknown as BossHandle; return h; });
+    onStrike: (i) => kodachi.onBigHit(i.part), knockbackMul: () => knockbackMulOf(armor), defIgnore: () => tekkoDefIgnoreOf(armor) }), at)).then((h) => { bigBossHandle = h as unknown as BossHandle; return h; });
 if (import.meta.env.DEV && new URLSearchParams(location.search).get('proto') === 'gashaBig') void startBigBoss();
 // #293 リリース: がしゃどくろを ふだんの ゲームに 出す（ゲームの 1 日の あさごとに 約 3 割で、プレイヤーから 150〜250 ブロック先に 1 体。たおすか 遠くへ はなれると 消える。たおすと 赤い コアが 出て、たたく たびに アイテムが ばらまかれる）。数は src/gasha/releaseTuning.ts
 // 開発用に すぐ 出すには コンソールで `__rikkun.gasha.spawn()`（距離・向きは `{ distance: 40, angleDeg: 0 }`）。たおした ことに するのは `__rikkun.gasha.defeat()`
