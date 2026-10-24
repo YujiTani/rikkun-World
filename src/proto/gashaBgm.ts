@@ -18,7 +18,7 @@ export interface GashaBgmEnv {
   /** ゲームの BGM の ミキサー（BGM 音量の 設定に のる）。まだ 音が 使えない ときは null */
   bgmOut(): { ctx: AudioContext; bus: AudioNode } | null;
   /** ふだんの BGM を 止める（がしゃどくろの 曲が 流れて いる 間） */
-  suppressBgm(on: boolean): void;
+  suppressBgm(on: boolean, fade?: { outSec?: number; inSec?: number; delaySec?: number }): void;
   /** 音の ファイルを 読む（テスト用に 差しかえられる。なければ fetch） */
   loadFile?(url: string): Promise<ArrayBuffer>;
 }
@@ -59,6 +59,8 @@ export class GashaBgm {
   private girlLock = false;
   private desired: BgmTrack | null = null;
   private suppressed = false;
+  /** この 時刻（音の 時計）まで 曲を はじめない（ふだんの BGM が フェードアウトする 間 まつ） */
+  private holdUntil = 0;
   private readonly tr: Record<BgmTrack, TrackState> = {
     saiyaku: { buf: null, fetched: false, missing: false, src: null, gain: null, ctxStart: 0 },
     kamigami: { buf: null, fetched: false, missing: false, src: null, gain: null, ctxStart: 0 },
@@ -121,7 +123,19 @@ export class GashaBgm {
     const want = this.desired;
     if (want !== null) this.load(want);
     const sup = want !== null;
-    if (sup !== this.suppressed) { this.suppressed = sup; this.env.suppressBgm(sup); }
+    if (sup !== this.suppressed) {
+      this.suppressed = sup;
+      const B = BIG.bgm;
+      if (sup) {
+        // ふだんの BGM が フェードアウト → そのあと（overlapSec だけ 重ねて）がしゃどくろの 曲が フェードイン
+        const o = this.env.bgmOut();
+        if (o) this.holdUntil = o.ctx.currentTime + Math.max(0, B.normalFadeOutSec - B.overlapSec);
+        this.env.suppressBgm(true, { outSec: B.normalFadeOutSec });
+      } else {
+        // がしゃどくろの 曲が フェードアウト → そのあと ふだんの BGM が フェードイン
+        this.env.suppressBgm(false, { inSec: B.normalFadeInSec, delaySec: Math.max(0, B.fadeSec - B.overlapSec) });
+      }
+    }
     else if (sup) this.env.suppressBgm(true); // main 側の 旗が 別の 係に 下ろされて いても 立てなおす
     for (const k of TRACKS) {
       const t = this.tr[k];
@@ -135,6 +149,7 @@ export class GashaBgm {
     const t = this.tr[k];
     const o = this.env.bgmOut();
     if (!o || !t.buf) return; // 音が まだ 使えない（あとで また）
+    if (o.ctx.currentTime < this.holdUntil && !TRACKS.some((x) => x !== k && this.tr[x].src)) return; // ふだんの BGM の フェードアウトを まつ
     const cfg = TUNING[k]();
     const g = o.ctx.createGain();
     const now = o.ctx.currentTime;

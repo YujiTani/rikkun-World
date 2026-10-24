@@ -182,7 +182,7 @@ describe('gashaBigActor（#293 はって進む・目・乗っている人）', (
     expect(eye.r).toBeCloseTo(1, 2); expect(eye.g).toBeCloseTo(0x3b / 255, 2);
     expect(actor.model.brow.visible).toBe(true);
     const z = actor.pos.z;
-    run(actor, 14);
+    run(actor, 20);
     expect(actor.pos.z).toBeCloseTo(z, 6); // 止まって いる
     expect(actor.mode).toBe('angry');
     // プレイヤー（+x）の 方を 向く（yaw = atan2(dx, dz)。進んだ ぶん 90 度 から 少し ずれる）
@@ -241,6 +241,7 @@ describe('gashaBigActor（#293 はって進む・目・乗っている人）', (
   });
 
   it('乗っている 人: 体が 向きを かえると、のっている 人も 体の まわりを まわり、向きも いっしょに かわる', () => {
+    T.angry.lookYawMaxDeg = 0; // 首の 範囲を 0 に して すぐ 体が まわる ように（首が 先の しくみは 別の テスト）
     const { actor, ply, carried, spot } = deckRig();
     actor.walk(false);
     const { x, z, y } = spot;
@@ -259,10 +260,11 @@ describe('gashaBigActor（#293 はって進む・目・乗っている人）', (
     // 向き（度）は 体の 向きと 逆（yawDeg は 時計まわりが ふえる 向き）に おなじだけ
     expect(carried[3]).toBeCloseTo((-dyaw * 180) / Math.PI, 2);
     expect(ply.y).toBeCloseTo(y, 3);
+    T.angry.lookYawMaxDeg = 70;
   });
 
   it('乗っている 人: 向きの おいかけを 切ると（turnWithBody = false）人の 向きは かわらない', () => {
-    T.ride.turnWithBody = false;
+    T.ride.turnWithBody = false; T.angry.lookYawMaxDeg = 0;
     try {
       const { actor, ply, carried, spot } = deckRig();
       actor.walk(false);
@@ -272,7 +274,7 @@ describe('gashaBigActor（#293 はって進む・目・乗っている人）', (
       run(actor, 0.5);
       expect(carried[3]).toBe(0);
       expect(Math.abs(carried[0]) + Math.abs(carried[2])).toBeGreaterThan(0.1); // 位置は 運ばれる
-    } finally { T.ride.turnWithBody = true; }
+    } finally { T.ride.turnWithBody = true; T.angry.lookYawMaxDeg = 70; }
   });
 
   /** 調整表の 数を 一時的に かえて 実行（かならず もとに もどす） */
@@ -380,6 +382,37 @@ describe('gashaBigActor（#293 はって進む・目・乗っている人）', (
     run(actor, 12);
     expect(actor.lookYaw).toBe(0);
     expect(actor.lookPitch).toBe(0);
+  });
+
+  it('首が 先: 上限まで 首が まわり きって から 体が まわる。体が まわる 間 顔は プレイヤーを 向いたまま、体が 追いつくと 首は 正面へ', () => {
+    const { actor, ply } = rig();
+    ply.x = 0; ply.z = -100; ply.y = 0; // 真うしろ（180 度）
+    actor.hit();
+    const lim = T.angry.lookYawMaxDeg * Math.PI / 180;
+    const yaw0 = actor.yaw;
+    let bodyStartedAt = -1, headFullAt = -1;
+    for (let i = 0; i < 60 * 40; i++) {
+      actor.update(DT);
+      if (headFullAt < 0 && Math.abs(actor.lookYaw) >= lim - 0.02) headFullAt = i;
+      if (bodyStartedAt < 0 && Math.abs(actor.yaw - yaw0) > 1e-4) bodyStartedAt = i;
+      if (bodyStartedAt < 0) expect(Math.abs(actor.lookYaw)).toBeLessThanOrEqual(lim + 1e-9);
+    }
+    expect(headFullAt).toBeGreaterThan(0);
+    expect(bodyStartedAt).toBeGreaterThanOrEqual(headFullAt); // 首が 先
+    const want = Math.atan2(ply.x - actor.pos.x, ply.z - actor.pos.z);
+    expect(Math.abs(Math.atan2(Math.sin(actor.yaw - want), Math.cos(actor.yaw - want)))).toBeLessThan(0.06); // 体が 追いついた
+    expect(Math.abs(actor.lookYaw)).toBeLessThan(0.1); // 首は 正面へ
+    expect(actor.bodyTurning).toBe(false);
+  });
+
+  it('首の 範囲の 中なら 体は まわらない（首だけ）', () => {
+    const { actor, ply } = rig();
+    ply.x = 40; ply.z = 60; ply.y = 0; // 前の 右ななめ 約 34 度
+    actor.hit();
+    const yaw0 = actor.yaw;
+    run(actor, 20);
+    expect(actor.yaw).toBe(yaw0);
+    expect(Math.abs(actor.lookYaw)).toBeGreaterThan(0.3);
   });
 
   it('rest() は 怒って いる 間は むし。walk(false) の ときは 歩き回りの 時間は 数えない', () => {

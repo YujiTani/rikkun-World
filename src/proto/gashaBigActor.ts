@@ -121,6 +121,8 @@ export class BigActor {
   /** 首の 向き（ラジアン。怒って いる 間 プレイヤーの 方へ。neck と Head に 半分ずつ かける） */
   lookYaw = 0;
   lookPitch = 0;
+  /** 首が まわり きって 体が まわって いる 間 true */
+  bodyTurning = false;
   private readonly lookQ = new Quaternion();
   private readonly lookQ2 = new Quaternion();
   private readonly lookV = new Vector3();
@@ -313,6 +315,7 @@ export class BigActor {
 
   private calm(): void {
     this.angryLeft = 0;
+    this.bodyTurning = false;
     if (this.mode === 'angry') { this.mode = 'idle'; this.pauseLeft = this.randIn(T.wander.pauseSec); }
   }
 
@@ -439,7 +442,12 @@ export class BigActor {
     if (this.mode === 'angry') {
       const p = this.env.player();
       const want = Math.atan2(p.x - this.pos.x, p.z - this.pos.z);
-      moved = this.turnToward(want, T.angry.turnDegPerSec * DEG * dt);
+      // 首が 先: 首が 上限まで まわり きって から 体が まわりはじめる。体が プレイヤーに 向く まで まわり つづけ、体が 追いつく ほど 首は 正面へ もどる
+      const diff = wrapPi(want - this.yaw);
+      const ym = T.angry.lookYawMaxDeg * DEG;
+      if (!this.bodyTurning && Math.abs(diff) > ym && Math.abs(this.lookYaw) >= ym - 0.02) this.bodyTurning = true;
+      if (this.bodyTurning && Math.abs(diff) < 2 * DEG) this.bodyTurning = false;
+      if (this.bodyTurning) moved = this.turnToward(want, T.angry.turnDegPerSec * DEG * dt);
       this.speedNow = 0;
       return moved;
     }
@@ -606,6 +614,7 @@ export class BigActor {
       const qn = this.lookQ.copy(this.tq).multiply(ni >= 0 ? this.player.pose[ni]! : this.lookQ2.identity());
       dir.applyQuaternion(qn.invert());
       ty = Math.atan2(dir.x, dir.z);
+      if (Math.abs(ty) > 2.6 && this.lookYaw !== 0 && Math.sign(ty) !== Math.sign(this.lookYaw)) ty = -ty; // ほぼ 真うしろ: 向きが ぱたぱた かわらない ように 今の 向きの がわに そろえる
       tp = Math.atan2(-dir.y, Math.hypot(dir.x, dir.z));
       const ym = A.lookYawMaxDeg * DEG, pm = A.lookPitchMaxDeg * DEG;
       ty = Math.max(-ym, Math.min(ym, ty)); tp = Math.max(-pm, Math.min(pm, tp));

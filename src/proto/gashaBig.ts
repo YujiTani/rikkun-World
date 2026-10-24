@@ -43,7 +43,7 @@ export interface GashaBigDeps {
   /** BGM の ミキサーの 口（少女と おなじ）。なければ BGM は 流さない */
   bgmOut?(): { ctx: AudioContext; bus: AudioNode } | null;
   /** ふだんの BGM を 止める（少女と おなじ。曲が 流れて いる 間） */
-  suppressBgm?(on: boolean): void;
+  suppressBgm?(on: boolean, fade?: { outSec?: number; inSec?: number; delaySec?: number }): void;
   /** 手の まわりの 地面を ならす 用（ワールドの ブロックを 箱で おきかえる。読みこんで いない 所は 変わらない）。なければ ならさない */
   fillBlocks?(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, id: 'grass' | 'air'): void;
   /** プレイヤーの 攻撃を 受ける 口（刀・弓・波・雷など。つなぎは gashaBigHitWire.ts）。なければ 本物の 攻撃は 当たらない（`__gashaBig.damage` だけ 効く） */

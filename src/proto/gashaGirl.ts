@@ -33,7 +33,7 @@ export interface GashaGirlDeps {
   /** ゲームの BGM の ミキサー（BGM 音量の 設定に のる）。まだ 音が 使えない ときは null */
   bgmOut(): { ctx: AudioContext; bus: AudioNode } | null;
   /** ふだんの BGM を 止める（少女の 間） */
-  suppressBgm(on: boolean): void;
+  suppressBgm(on: boolean, fade?: { outSec?: number; inSec?: number; delaySec?: number }): void;
   groundY(x: number, z: number): number;
   solid(x: number, y: number, z: number): boolean;
 }

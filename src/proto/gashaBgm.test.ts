@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { GashaBgm, sharedGashaBgm, type GashaBgmEnv } from './gashaBgm';
 import { TUNE as BIG } from './gashaBigTuning';
 import { TUNE as GIRL } from './gashaGirlTuning';
@@ -31,21 +31,23 @@ const flush = async (): Promise<void> => { for (let i = 0; i < 5; i++) await new
 function rig(missing: string[] = []) {
   const ctx = new Ctx();
   const log: boolean[] = [];
+  const fades: { on: boolean; outSec?: number; inSec?: number; delaySec?: number }[] = [];
   const env: GashaBgmEnv = {
     bgmOut: () => ({ ctx: ctx as unknown as AudioContext, bus: {} as AudioNode }),
-    suppressBgm: (on) => { log.push(on); },
+    suppressBgm: (on, fade) => { log.push(on); fades.push({ on, ...fade }); },
     // 曲ごとに ちがう 長さの バッファを 返す（どの 曲の 音か 見わけられる）
     loadFile: async (url) => (missing.some((m) => url.includes(m)) ? Promise.reject(new Error('no file')) : new ArrayBuffer(url.includes('kamigami') ? 2 : 1)),
   };
   const bgm = new GashaBgm(env);
   const sync = async () => { bgm.step(); await flush(); bgm.step(); };
-  return { ctx, env, log, bgm, sync };
+  return { ctx, env, log, fades, bgm, sync };
 }
 /** いま 流れて いる 曲の 音源（フェードアウト中は 数えない） */
 const liveTag = (ctx: Ctx): number[] => ctx.sources.filter((s) => s.stoppedAt === null).map((s) => (s.buffer as { tag: string }).tag).map(Number);
 
 describe('gashaBgm（#293 がしゃどくろの BGM）', () => {
-  beforeEach(() => { delete (globalThis as { __gashaBgm?: unknown }).__gashaBgm; });
+  beforeEach(() => { delete (globalThis as { __gashaBgm?: unknown }).__gashaBgm; BIG.bgm.normalFadeOutSec = 0; BIG.bgm.normalFadeInSec = 0; BIG.bgm.overlapSec = 0; });
+  afterEach(() => { BIG.bgm.normalFadeOutSec = 2; BIG.bgm.normalFadeInSec = 2; BIG.bgm.overlapSec = 0.5; });
 
   it('大きな 姿: 怒ると「神々の 戯れ」を ループで 流し（ふだんの BGM は 止める）、白目に もどると 止める', async () => {
     const { bgm, ctx, log, sync } = rig();
@@ -89,6 +91,29 @@ describe('gashaBgm（#293 がしゃどくろの BGM）', () => {
     bgm.step();
     expect(bgm.status().playing).toBe('kamigami');
     expect(ctx.sources.length).toBe(2); // おわった 音源の かわりに 1 つ だけ 作りなおす
+  });
+
+  it('入れかわり: ふだんの BGM が フェードアウト → 重ねて がしゃどくろの 曲が フェードイン。白目に もどると 逆', async () => {
+    BIG.bgm.normalFadeOutSec = 2; BIG.bgm.normalFadeInSec = 3; BIG.bgm.overlapSec = 0.5;
+    const { bgm, ctx, fades, sync } = rig();
+    ctx.currentTime = 100;
+    bgm.request('big', true);
+    await sync();
+    expect(fades[0]).toEqual({ on: true, outSec: 2 });
+    expect(ctx.sources.length).toBe(0); // まだ（ふだんの 曲が 消えて いく 間）
+    ctx.currentTime = 101.4;
+    bgm.step();
+    expect(ctx.sources.length).toBe(0);
+    ctx.currentTime = 101.5; // 2 - 0.5 秒
+    bgm.step();
+    expect(ctx.sources.length).toBe(1);
+    ctx.currentTime = 200;
+    bgm.request('big', false);
+    bgm.step();
+    const back = fades[fades.length - 1]!;
+    expect(back.on).toBe(false);
+    expect(back.inSec).toBe(3);
+    expect(back.delaySec).toBeCloseTo(BIG.bgm.fadeSec - 0.5, 6); // がしゃどくろの 曲が きえはじめて から
   });
 
   it('少女が 出ると「災厄」に クロスフェード。そのあと 大きな 姿が 怒っても「神々の 戯れ」は 流れない', async () => {

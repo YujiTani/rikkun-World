@@ -27,6 +27,35 @@ function mk() {
   return { s, mixer, bgm, ctx, fades };
 }
 
+describe('#293 BGM のフェード秒を 呼ぶ 側が きめられる（ほかの 場面は そのまま）', () => {
+  it('play(null, {fadeOutSec}) は その 秒で 0。渡さなければ 0.8 秒', () => {
+    const a = mk();
+    a.ctx.currentTime = 5;
+    a.bgm.play('day');
+    a.ctx.currentTime = 10;
+    a.bgm.play(null, { fadeOutSec: 2.5 });
+    const ev = a.fades()[0]!.gain.events;
+    expect(ev[ev.length - 1]!.time - 10).toBeCloseTo(2.5, 5);
+    const b = mk();
+    b.bgm.play('day');
+    b.ctx.currentTime = 10;
+    b.bgm.play(null);
+    const e2 = b.fades()[0]!.gain.events;
+    expect(e2[e2.length - 1]!.time - 10).toBeCloseTo(0.8, 5);
+  });
+  it('無音から 入る とき fadeInSec と delaySec が きく。曲が あるとき（クロスフェード）は むし', () => {
+    const { bgm, ctx, fades } = mk();
+    ctx.currentTime = 10;
+    bgm.play('day', { fadeInSec: 3, delaySec: 2 });
+    const ev = fades()[0]!.gain.events;
+    expect(ev[ev.length - 1]!.time - 10).toBeCloseTo(5, 5);
+    ctx.currentTime = 30;
+    bgm.play('night', { fadeInSec: 9, delaySec: 9 });
+    const ev2 = fades()[1]!.gain.events;
+    expect(ev2[ev2.length - 1]!.time - 30).toBeCloseTo(1.5, 5);
+  });
+});
+
 describe('B4 BGM の切り替え', () => {
   it('はじめは 1.5 秒で入る（0 → 1）', () => {
     const { bgm, ctx, fades } = mk();
