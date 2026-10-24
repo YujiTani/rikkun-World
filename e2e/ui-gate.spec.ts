@@ -666,16 +666,14 @@ for (const id of NINJA_IDS) {
 SCREENS.push(
   {
     id: 'ninja1-detail-tekko',
-    roots: ['#inventory-screen', '#tooltip', '#hud'],
+    roots: ['#tooltip'], // ツールチップは もちもの画面の 上に 浮く 作りなので、画面の 文字との 重なりは 見ない
     open: async (page) => {
       await boot(page, true);
       await page.evaluate(ninjaBag);
       await page.evaluate(toggleInventory);
-      await page.evaluate(() => {
-        const h = window.__rikkun! as any;
-        h.craft.hover('ninja_tekko');
-        h.step(3);
-      });
+      // 説明パネルは レシピの ある 物しか 出せない。作れない 忍者装備は もちものの スロットに マウスを 乗せて ツールチップで 見る
+      await page.locator('#inventory-screen .slot[data-item="ninja_tekko"]').first().hover();
+      await page.evaluate(() => (window.__rikkun as any).step(3));
     },
   },
   {

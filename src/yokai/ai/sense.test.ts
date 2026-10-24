@@ -89,14 +89,16 @@ describe('AC8 装束 なし で ふるまいが 同じ（からかさ・うろ�
     expect(lose.state()).toBe('search');
   });
   it('高さの 差 6 で 気づく・6.1 で 気づかない。追う 子は 12 で 追う まま・12.1 で あきらめる', () => {
-    const a = setup();
-    a.spawnAt('karakasa', 5, -6); // 妖怪が プレイヤーより 6 下
-    a.step(30);
-    expect(a.chasing()).toBe(true);
-    const b = setup();
-    b.spawnAt('karakasa', 5, -6.1);
-    b.step(300);
-    expect(b.state()).toBe('idle');
+    // 妖怪は 地面に のせたまま、プレイヤーの 高さを ずらして 差を たもつ（妖怪が 落ちて 差が 0 に ならないように）
+    for (const [dy, want] of [[6, true], [6.1, false], [-6, true], [-6.1, false]] as const) {
+      const c = setup();
+      c.spawnAt('karakasa', 5);
+      const y0 = c.m.list()[0]!.position.y; // 地面の 上（9）
+      c.player.position.y = y0 + dy; // 最初の 1 コマ目から 差を つけて おく
+      c.step(30);
+      expect(c.m.list()[0]!.position.y, `妖怪は 地面の まま（差 ${dy}）`).toBeCloseTo(y0, 1);
+      expect(c.chasing(), `高さの 差 ${dy}`).toBe(want);
+    }
     for (const [dy, want] of [[12, 'chase'], [12.1, 'search']] as const) {
       const c = setup();
       c.spawnAt('karakasa', 5);
