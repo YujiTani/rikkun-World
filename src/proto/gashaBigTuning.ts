@@ -317,7 +317,7 @@ export const TUNE = {
     flashBoost: 1.0, // 当たった とき 体が 白く 光る 強さ（0 = 光らない。1 = 色が 2 倍）
     flashSec: 0.25, // 光る 秒
     // ---- 画面の 上の ボスの 体力ゲージ（gashaBigHpBar.ts。ふつうの 妖怪の バーと おなじ 黄・紺と 白の 二重の ふち）
-    barStyle: 'A' as 'A' | 'B' | 'C', // 見た目の 案（A = 黒地に 金の ふち ＋ どくろの 紋、B = お札風、C = 骨の 枠）。`?tune={"hit":{"barStyle":"B"}}` か `tune()` のあと `place()`
+    barStyle: 'D' as 'A' | 'B' | 'C' | 'D', // 見た目の 案（D = 赤い バー ＋ 鋼の 枠 ＋ どくろの かざり（既定）、A = 黒地に 金の ふち ＋ どくろの 紋、B = お札風、C = 骨の 枠）。`?tune={"hit":{"barStyle":"B"}}` か `tune()` のあと `place()`
     barTopPx: 16, // ゲージの 上の 位置（画面の 上から ピクセル）
     barWidthVw: 56, // ゲージの 幅（画面の 幅の %）
     barMaxPx: 620, // ゲージの 幅の 上限（ピクセル）
