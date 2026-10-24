@@ -99,14 +99,14 @@ describe('gashaBig（#293 大きい がしゃどくろ）', () => {
     expect(model.meshes).toBeLessThanOrEqual(40);
   });
 
-  it('当たりの 箱が ある（うで・肩の 雲・髪の 段・リボン・頭）', () => {
+  it('当たりの 箱が ある（うで・肩の 雲・雲の らせん・リボン・頭）', () => {
     const names = hits.map((h) => h.name);
-    for (const n of ['upperArmL', 'foreArmR', 'handL', 'shoulderL0', 'shoulderR0', 'tailL0', 'tailR0', 'tailL15', 'ribbonWingR', 'skull', 'bank0']) expect(names).toContain(n);
+    for (const n of ['upperArmL', 'foreArmR', 'handL', 'shoulderL0', 'shoulderR0', 'riseL0', 'riseR0', 'riseL21', 'riseR21', 'ribbonWingR', 'skull', 'bank0']) expect(names).toContain(n);
     // 雲の はしご（ladder / link / ramp / head の 段）は もう ない
     for (const n of names) expect(n).not.toMatch(/^(climb|link|ramp|head)[LR]\d/);
   });
 
-  it('肩の 雲の 上から 髪の 段（ツインテール → ぽんぽん → 横の 髪）を ふんで 頭の 上まで 1 ブロックの 段で のぼれる', () => {
+  it('肩の 雲の 上から 雲の らせん（rise）を ふんで 頭の 上まで 1 ブロックの 段で のぼれる', () => {
     const skull = hits.find((h) => h.name === 'skull')!;
     const skullTop = Math.floor(skull.center[1] + skull.half[1] - 1);
     // 肩の 雲の 上（いちばん 外がわの 雲の 上）から はじめる
@@ -128,16 +128,48 @@ describe('gashaBig（#293 大きい がしゃどくろ）', () => {
     expect(top).toBeGreaterThanOrEqual(skullTop);
   });
 
-  it('髪の 段・雲の 当たりは 段の 上がりが 1 ブロック いない', () => {
-    for (const key of ['tail']) {
+  it('うでの 道: 地面 → 手 → 前わん → 上わん → 肩 → 雲の らせん → 頭の てっぺん。ブロックの そろい かた（ずれ 0〜1）が どう でも 通る', () => {
+    // 上わんの 上の 面の 高さが ずれで 1 かわり、かたの ぬの・雲の らせんの 下の すきまが 1 ブロックに なって つかえた ことが あった
+    const onBox = (h: WorldHit, i: number, j: number, k: number): boolean => {
+      const d = [i + 0.5 - h.center[0], j - 0.5 - h.center[1], k + 0.5 - h.center[2]];
+      for (let a = 0; a < 3; a++) {
+        const u = d[0]! * h.axes[a]![0] + d[1]! * h.axes[a]![1] + d[2]! * h.axes[a]![2];
+        if (Math.abs(u) > h.half[a]! + 0.55) return false;
+      }
+      return true;
+    };
+    const offsets: [number, number][] = [[0, 0], [0.5, 0.5], [0, 0.5], [0.4, 0.6], [0.25, 0.75], [0.5, 0]];
+    for (const [ox, oz] of offsets) {
+      const m = buildBig();
+      m.group.position.set(ox, 0, oz);
+      m.group.scale.setScalar(m.scale);
+      const hs = worldHits(m);
+      const cs = voxelize(hs, T.collide.margin, T.collide.topLift);
+      for (const S of ['L', 'R']) {
+        const hand = hs.find((h) => h.name === `hand${S}`)!;
+        const tip = hand.half[2] + 6;
+        const start: [number, number, number] = [Math.floor(hand.center[0] + hand.axes[2][0] * tip), 0, Math.floor(hand.center[2] + hand.axes[2][2] * tip)];
+        const seen = reach(cs, start);
+        const stood = (re: RegExp): boolean => [...seen.values()].some(([i, j, k]) => hs.some((h) => re.test(h.name) && onBox(h, i, j, k)));
+        const tag = `ずれ (${ox}, ${oz}) ${S}`;
+        expect(stood(new RegExp(`^upperArm${S}$`)), `${tag}: 上わん`).toBe(true);
+        expect(stood(new RegExp(`^(shoulder${S}\\d+|armStep${S}|chestTop|collarbone)$`)), `${tag}: 肩`).toBe(true);
+        expect(stood(new RegExp(`^rise${S}\\d+$`)), `${tag}: 雲の らせん`).toBe(true);
+        expect(stood(/^skullTop/), `${tag}: 頭の てっぺん`).toBe(true);
+      }
+    }
+  });
+
+  it('雲の らせんは 段の 上がりが 1 ブロック いない', () => {
+    for (const key of ['rise']) {
       const rs = hits.filter((h) => new RegExp(`^${key}L\\d+$`).test(h.name)).sort((a, b) => Number(a.name.slice(key.length + 1)) - Number(b.name.slice(key.length + 1)));
       expect(rs.length).toBeGreaterThan(2);
       for (let i = 1; i < rs.length; i++) expect(Math.abs(rs[i]!.center[1] - rs[i - 1]!.center[1])).toBeLessThanOrEqual(0.95);
     }
   });
 
-  it('髪の 段は 重なる ところで 3 ブロック いじょう あいて いる（頭が つかえて ジャンプできない のを ふせぐ）', () => {
-    const rs = hits.filter((h) => /^tailL\d+$/.test(h.name));
+  it('雲の らせんは 重なる ところで 3 ブロック いじょう あいて いる（頭が つかえて ジャンプできない のを ふせぐ）', () => {
+    const rs = hits.filter((h) => /^riseL\d+$/.test(h.name));
     for (const a of rs) for (const b of rs) {
       if (a === b || b.center[1] - a.center[1] < 2.5) continue; // a の 上（となりの 段は のぞく）に b
       const overlap = Math.abs(a.center[0] - b.center[0]) < a.half[0] + b.half[0] + 0.1 && Math.abs(a.center[2] - b.center[2]) < a.half[2] + b.half[2] + 0.1;
@@ -201,7 +233,9 @@ describe('gashaBig（#293 大きい がしゃどくろ）', () => {
     console.log('見える 面の ふくまれない 割合', ((100 * bad) / tot).toFixed(1) + '%', JSON.stringify(badBy));
     expect(bad / tot).toBeLessThan(0.08); // のこりは 矢・髪どめ・髪の 段の 下に たれた ぶぶん・ほおの かざり
     // 手・うで・肩・首は ぜんぶ ふくまれる
-    for (const k of ['LeftHand', 'RightHand', 'LeftForeArm', 'RightForeArm', 'LeftArm', 'RightArm', 'neck', 'Hips']) expect((badBy[`${k}:main`] ?? 0), k).toBeLessThan(1);
+    for (const k of ['LeftHand', 'RightHand', 'LeftForeArm', 'RightForeArm', 'neck', 'Hips']) expect((badBy[`${k}:main`] ?? 0), k).toBeLessThan(1);
+    // 上わんの かたの つけねの まるい かざりの はしは すこし のぞく（かたの ぬのの 当たりは うでの 道の 頭の 上を あけるため 内がわに よせた）
+    for (const k of ['LeftArm', 'RightArm']) expect((badBy[`${k}:main`] ?? 0), k).toBeLessThan(4);
   });
 
   it('てっぺんの 穴と 後ろの 欠け（コアを ねらう ところ）は ふさがない: 穴の 上と コアの 後ろには 当たりの 箱が ない', () => {
@@ -233,7 +267,7 @@ describe('gashaBig（#293 大きい がしゃどくろ）', () => {
       }
       return false;
     };
-    for (const n of ['chestTop', 'collarbone', 'chestUp', 'chestMid2', 'torsoWaist', 'skullTop0', 'skullTop1', 'skullTop2', 'skullTop3', 'ribbonKnot', 'shoulderClothL']) expect(standsOn(n), n).toBe(true);
+    for (const n of ['chestTop', 'collarbone', 'chestUp', 'chestMid2', 'torsoWaist', 'skullTop0', 'skullTop1', 'skullTop2', 'skullTop3', 'shoulderClothL']) expect(standsOn(n), n).toBe(true);
   });
 
   it('1 回の 問い合わせで 調べる 箱は 少ない（大まかな 範囲で しぼって、くわしく 見る 箱は 多くて 10 こ ほど。毎ステップ 数十回 聞かれても 軽い）', () => {
@@ -251,4 +285,66 @@ describe('gashaBig（#293 大きい がしゃどくろ）', () => {
     expect(max).toBeLessThanOrEqual(12);
     expect(sum / n).toBeLessThan(4);
   });
+
+  it('からだが 動いても（はって 進む・うでを ふり上げる）、肩の 雲から 頭の てっぺんまで 歩いて のぼれる（左右の どちらかは いつも つながる）', () => {
+    const ply = { x: 500, y: 1, z: 500, yawDeg: 0 };
+    const actor = new BigActor(buildBig(), { climbUp, climbDown, lookBack } as never, { groundY: () => -1, player: () => ply }, 293);
+    actor.place(0, 0, 0, 0.8);
+    const names = actor.model.hits.map((h) => h.name);
+    const box = (n: string) => actor.boxList[names.indexOf(n)]!;
+    const cache = new Map<number, boolean>();
+    const solid = (i: number, j: number, k: number): boolean => { const q = cellKey(i, j, k); let v = cache.get(q); if (v === undefined) { v = actor.solid(i, j, k); cache.set(q, v); } return v; };
+    const stand = (i: number, j: number, k: number): boolean => j >= 0 && !solid(i, j, k) && !solid(i, j + 1, k) && (j === 0 || solid(i, j - 1, k));
+    /** 肩の 雲の 上から あるいて 頭の てっぺんの わくに とどくか（いまの 姿勢で） */
+    const reachesTop = (side: 'L' | 'R'): boolean => {
+      cache.clear();
+      const seen = new Set<number>(), q: [number, number, number][] = [];
+      for (const n of names) {
+        if (!new RegExp(`^shoulder${side}\\d+$`).test(n)) continue;
+        const b = box(n), top = b.c[1] + b.ax[4] * b.half[1];
+        for (let i = Math.floor(b.c[0] - 3); i <= Math.ceil(b.c[0] + 3); i++) for (let k = Math.floor(b.c[2] - 3); k <= Math.ceil(b.c[2] + 3); k++) for (const j of [Math.floor(top + 0.3) - 1, Math.floor(top + 0.3), Math.floor(top + 0.3) + 1]) {
+          const dx = i + 0.5 - b.c[0], dz = k + 0.5 - b.c[2];
+          if (Math.abs(dx * b.ax[0]! + dz * b.ax[2]!) < b.half[0]! && Math.abs(dx * b.ax[6]! + dz * b.ax[8]!) < b.half[2]! && stand(i, j, k) && !seen.has(cellKey(i, j, k))) { seen.add(cellKey(i, j, k)); q.push([i, j, k]); }
+        }
+      }
+      while (q.length) {
+        const [i, j, k] = q.pop()!;
+        for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+          const ni = i + dx, nk = k + dz;
+          if (Math.abs(ni - Math.floor(actor.pos.x)) > 40 || Math.abs(nk - Math.floor(actor.pos.z)) > 40) continue;
+          for (let nj = j + 1; nj >= Math.max(0, j - 3); nj--) {
+            if (!stand(ni, nj, nk)) continue;
+            if (nj === j + 1 && solid(i, j + 2, k)) break;
+            const kk = cellKey(ni, nj, nk);
+            if (!seen.has(kk)) { seen.add(kk); q.push([ni, nj, nk]); }
+            break;
+          }
+        }
+      }
+      for (const n of ['skullTop0', 'skullTop1', 'skullTop2', 'skullTop3']) {
+        const b = box(n), top = b.c[1] + Math.abs(b.ax[4]) * b.half[1];
+        for (let i = Math.floor(b.c[0] - 3); i <= Math.ceil(b.c[0] + 3); i++) for (let k = Math.floor(b.c[2] - 3); k <= Math.ceil(b.c[2] + 3); k++) {
+          const j = Math.floor(top + 0.3);
+          if (seen.has(cellKey(i, j, k)) || seen.has(cellKey(i, j + 1, k))) return true;
+        }
+      }
+      return false;
+    };
+    const fails: string[] = [];
+    let frames = 0, oneSide = 0;
+    const check = (t: string): void => {
+      frames++;
+      const l = reachesTop('L'), r = reachesTop('R');
+      if (l || r) oneSide++; else fails.push(t);
+      if (!l && !r) console.log('のぼれない', t);
+    };
+    check('rest');
+    actor.walk(true); actor.goTo(0, 300);
+    for (let t = 0; t < 60 * 24; t++) {
+      actor.update(1 / 60);
+      if (t % 90 === 89) check(`t${((t + 1) / 60).toFixed(1)}`); // 1.5 秒ごと（1 歩 = 約 5 秒の どの 場面も ふくむ）
+    }
+    console.log('のぼれた フレーム', oneSide, '/', frames);
+    expect(fails).toEqual([]);
+  }, 120_000);
 });

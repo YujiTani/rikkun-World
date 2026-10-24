@@ -15,6 +15,8 @@ import { SectionMesher, type MeshTier, type SectionMeshData } from './sectionMes
  * PERF-2（docs/tickets/PERF-2.md テスト 1）: 1 セクションの作り直しを「続きから再開できる仕事」にしても、出力はバイト単位で同じ。
  *  (1) 前の値の表（golden）: 実装の前の main の build() の出力の FNV ハッシュ。実装のあとも全部同じ。
  *      表の作り直し（ふだんはしない）: GOLDEN_WRITE=1 npx vitest run src/world/render/voxel/sectionMesher.slice.test.ts
+ *      作り直しの記録: #293（間欠泉の つち の 絵 2 まいで アトラスが 21 → 22 行に ふえ、extras の UV の 縦の 目盛りが かわった。
+ *      2 まいを 外すと 表は そのまま 通る = 地形の 形・ライトは かわって いない ことを 確かめて 作り直した）。
  *  (2) start → resume（偽物の時計で 止める所を変える）が build() と同じ。
  *  (3) 途中の cancel → 別のセクションが build() と同じ（前の仕事の残りがまざらない）。
  */

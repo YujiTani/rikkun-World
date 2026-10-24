@@ -30,6 +30,9 @@ function rig(sources: HitSources = {}) {
 }
 
 const v = (x: number, y: number, z: number): Vec3 => ({ x, y, z });
+/** 体力の 初期値は 調整表から（数を かえても テストは 追従する） */
+const HP = T.hit.hp;
+const hpIs = (r: { bh: { hp: number } }, lost: number): void => { expect(r.bh.hp).toBeCloseTo(HP - lost, 5); };
 
 describe('gashaBigHit（#293 プレイヤーの 攻撃を 受ける）', () => {
   // しくみの テストは 防御力を 0 にして 数を 見やすく する（防御力は 下の 専用の テスト）
@@ -50,7 +53,7 @@ describe('gashaBigHit（#293 プレイヤーの 攻撃を 受ける）', () => {
     for (const n of ['torsoWaist', 'chestTop', 'neck', 'spineMid', 'collarbone', 'shoulderClothL', 'hairTailL0']) expect(partOf(n)).toBe('body');
     expect(partOf('shoulderL3')).toBe('cloud');
     expect(partOf('tailL4')).toBe('cloud');
-    expect(mulOf('body')).toBe(0);
+    expect(mulOf('body')).toBe(0.5); // 胴体・胸・首・髪も たたける
     expect(mulOf('hand')).toBe(1.0);
     expect(mulOf('foreArm')).toBe(0.6);
     expect(mulOf('upperArm')).toBe(0.6);
@@ -58,7 +61,7 @@ describe('gashaBigHit（#293 プレイヤーの 攻撃を 受ける）', () => {
     expect(mulOf('core')).toBe(3.0);
     expect(mulOf('cloud')).toBe(0);
     expect(mulOf('なにか')).toBe(0);
-    expect(T.hit.hp).toBe(300);
+    expect(T.hit.hp).toBeGreaterThan(0);
   });
 
   it('形の 計算: 線・カプセル・扇・球', () => {
@@ -82,14 +85,14 @@ describe('gashaBigHit（#293 プレイヤーの 攻撃を 受ける）', () => {
 
   it('damage: ダメージ = 武器の 強さ × 部位の 倍率。体力は 0 で 止まる。倍率 0 は 当たらない', () => {
     const r = rig();
-    expect(r.bh.hp).toBe(300);
+    hpIs(r, 0);
     expect(r.bh.damage('hand', 10)).toBe(10);
-    expect(r.bh.hp).toBe(290);
+    hpIs(r, 10);
     expect(r.bh.damage('foreArm', 10)).toBe(6);
     expect(r.bh.damage('upperArm', 10)).toBe(6);
     expect(r.bh.damage('head', 10)).toBe(5);
     expect(r.bh.damage('core', 10)).toBe(30);
-    expect(r.bh.hp).toBe(290 - 6 - 6 - 5 - 30);
+    hpIs(r, 10 + 6 + 6 + 5 + 30);
     const before = r.bh.hp;
     expect(r.bh.damage('cloud', 10)).toBe(0);
     expect(r.bh.damage('hand', 0)).toBe(0);
@@ -97,7 +100,7 @@ describe('gashaBigHit（#293 プレイヤーの 攻撃を 受ける）', () => {
     r.bh.damage('core', 1000);
     expect(r.bh.hp).toBe(0);
     r.bh.reset();
-    expect(r.bh.hp).toBe(300);
+    hpIs(r, 0);
   });
 
   it('調整表の 数を かえると 倍率も 体力も かわる', () => {
@@ -134,15 +137,15 @@ describe('gashaBigHit（#293 プレイヤーの 攻撃を 受ける）', () => {
     const c = v(h.c[0]!, h.c[1]!, h.c[2]!);
     shape = { kind: 'capsule', from: v(c.x, c.y + 0.2, c.z - 6), to: v(c.x, c.y + 0.2, c.z + 6), radius: 0.6 };
     r.bh.step(1 / 60);
-    expect(r.bh.hp).toBe(298);
+    hpIs(r, 2);
     expect(r.bh.last?.part).toBe('hand');
     expect(r.bh.last?.source).toBe('blade');
     frame = 2; r.bh.step(1 / 60); r.bh.step(1 / 60);
-    expect(r.bh.hp).toBe(298); // おなじ 振りでは 増えない
+    hpIs(r, 2); // おなじ 振りでは 増えない
     shape = null; r.bh.step(1 / 60); // 当たりが おわる
     shape = { kind: 'capsule', from: v(c.x, c.y + 0.2, c.z - 6), to: v(c.x, c.y + 0.2, c.z + 6), radius: 0.6 };
     frame = 1; r.bh.step(1 / 60);
-    expect(r.bh.hp).toBe(296);
+    hpIs(r, 4);
     expect(r.calls()).toBe(2);
   });
 
@@ -154,13 +157,13 @@ describe('gashaBigHit（#293 プレイヤーの 攻撃を 受ける）', () => {
     const tip = h.c[2]! + h.half[2]!; // 手の 先（プレイヤー がわ = +z）
     const fanAt = (dz: number, fz: number): BladeShapeInfo => ({ kind: 'fan', center: v(h.c[0]!, h.c[1]!, tip + dz), forward: v(0, 0, fz), halfAngleDeg: 70, rMin: 0, rMax: 3, yMin: h.c[1]! - 1.5, yMax: h.c[1]! + 2 });
     shape = fanAt(60, -1); swing = 'kesa:a'; r.bh.step(1 / 60);
-    expect(r.bh.hp).toBe(300); // 遠い
+    hpIs(r, 0); // 遠い
     shape = null; r.bh.step(1 / 60);
     shape = fanAt(1.2, 1); swing = 'kesa:b'; r.bh.step(1 / 60);
-    expect(r.bh.hp).toBe(300); // 手と 反対むき
+    hpIs(r, 0); // 手と 反対むき
     shape = null; r.bh.step(1 / 60);
     shape = fanAt(1.2, -1); swing = 'kesa:c'; r.bh.step(1 / 60);
-    expect(r.bh.hp).toBe(295);
+    hpIs(r, 5);
     expect(r.bh.last?.part).toBe('hand');
   });
 
@@ -168,7 +171,7 @@ describe('gashaBigHit（#293 プレイヤーの 攻撃を 受ける）', () => {
     const r = rig({ blade: () => ({ shape: { kind: 'capsule', from: v(-80, 20, -80), to: v(80, 20, 80), radius: 80 }, damage: 10, swing: 'x', frame: 1 }) });
     r.bh.step(1 / 60);
     expect(r.bh.last?.part).toBe('hand');
-    expect(r.bh.hp).toBe(290);
+    hpIs(r, 10);
   });
 
   it('矢・パンチ: YokaiManager の 線の 当たりと ダメージに 割りこむ。本物の 妖怪は そのまま', () => {
@@ -187,14 +190,14 @@ describe('gashaBigHit（#293 プレイヤーの 攻撃を 受ける）', () => {
     expect(real.raycast(origin, v(0, 0, -1), 20)).toBeNull(); // とどかない
     expect(real.raycast(v(123, 0, 0), v(0, 0, -1), 60)!.id).toBe(7); // 本物の 妖怪が 近ければ そちら
     expect(real.damage(hit.id, 4, origin)).toBe(4);
-    expect(r.bh.hp).toBe(296);
+    hpIs(r, 4);
     expect(r.bh.last?.source).toBe('ray');
     expect(r.bh.last?.part).toBe('hand');
     expect(r.bh.last?.at).not.toBeNull();
     expect(dmg).toEqual([]);
     real.damage(7, 3, origin);
     expect(dmg).toEqual([[7, 3]]);
-    expect(r.bh.hp).toBe(296);
+    hpIs(r, 4);
   });
 
   it('真空波・らせん: 飛んで きて 箱を つらぬく 間に 1 回。雷・ドームも', () => {
@@ -206,29 +209,31 @@ describe('gashaBigHit（#293 プレイヤーの 攻撃を 受ける）', () => {
     const z0 = h.c[2]! + h.half[2]! + 3; // 手の 先の 3 ブロック 前から 手前へ とんで くる
     waves = [{ id: 1, position: v(h.c[0]!, h.c[1]!, z0), radius: 0.5, damage: 1.8 }];
     r.bh.step(1 / 60);
-    expect(r.bh.hp).toBe(300);
+    hpIs(r, 0);
     for (let i = 1; i <= 12; i++) { waves = [{ id: 1, position: v(h.c[0]!, h.c[1]!, z0 - i * 0.5), radius: 0.5, damage: 1.8 }]; r.bh.step(1 / 60); }
-    expect(r.bh.hp).toBe(298.2); // つらぬいても 1 回
+    hpIs(r, 1.8); // つらぬいても 1 回
     waves = [];
     r.bh.step(1 / 60);
     strikes = [{ center: v(h.c[0]! + 2, h.c[1]!, h.c[2]!), radius: 5, damage: 16 }];
     r.bh.step(1 / 60);
     strikes = [];
-    expect(r.bh.hp).toBe(282.2);
+    hpIs(r, 17.8);
     expect(r.bh.last?.source).toBe('strike');
     dome = { center: v(h.c[0]!, h.c[1]!, h.c[2]!), radius: 7, damage: 10, everySteps: 60 };
     r.bh.step(1 / 60);
-    expect(r.bh.hp).toBe(272.2);
+    hpIs(r, 27.8);
     for (let i = 0; i < 30; i++) r.bh.step(1 / 60);
-    expect(r.bh.hp).toBe(272.2); // 間かくの 間は 当たらない
+    hpIs(r, 27.8); // 間かくの 間は 当たらない
     for (let i = 0; i < 40; i++) r.bh.step(1 / 60);
-    expect(r.bh.hp).toBe(262.2);
+    hpIs(r, 37.8);
   });
 
-  it('防御力（はじめて）: 手は 30 ひかれる。最低 1。ほかの 部位は 今まで どおり', () => {
+  it('防御力（はじめて）: 手・頭・胴体は 30 ひかれる。最低 1。腕・コアは 今まで どおり', () => {
     Object.assign(T.hit.partDef, defSaved); // 調整表の 本物の 数
     expect(defSaved.hand).toBe(30);
-    for (const k of ['foreArm', 'upperArm', 'head', 'core', 'ribbon', 'cloud', 'body']) expect(defOf(k), k).toBe(0);
+    expect(defSaved.head).toBe(30);
+    expect(defSaved.body).toBe(30);
+    for (const k of ['foreArm', 'upperArm', 'core', 'ribbon', 'cloud']) expect(defOf(k), k).toBe(0);
     expect(defOf('なにか')).toBe(0);
     // 手: 武器の 強さ × 1.0 − 30、ただし 最低 1
     expect(damageOf('hand', 10)).toBe(1);
@@ -238,13 +243,19 @@ describe('gashaBigHit（#293 プレイヤーの 攻撃を 受ける）', () => {
     expect(damageOf('hand', 100)).toBe(70); // レジェンダリー 級
     expect(damageOf('hand', 0.5)).toBe(1);
     expect(damageOf('hand', 0)).toBe(0); // 強さ 0 いかは 当たらない
-    // ほかの 部位は 防御力 0（今まで どおり 強さ × 倍率）
+    // 頭・顔・胴体・胸: 強さ × 0.5 − 30（最低 1）
+    for (const k of ['head', 'body']) {
+      expect(damageOf(k, 10), k).toBe(1);
+      expect(damageOf(k, 60), k).toBe(1); // 30 − 30 = 0 → 最低 1
+      expect(damageOf(k, 62), k).toBe(1);
+      expect(damageOf(k, 100), k).toBe(20); // 50 − 30
+      expect(damageOf(k, 0), k).toBe(0);
+    }
+    // 腕・コアは 防御力 0（今まで どおり 強さ × 倍率）。コアは 防御力なし = ねらい目
     expect(damageOf('foreArm', 10)).toBe(6);
     expect(damageOf('upperArm', 10)).toBe(6);
-    expect(damageOf('head', 10)).toBe(5);
     expect(damageOf('core', 10)).toBe(30);
     expect(damageOf('cloud', 10)).toBe(0);
-    expect(damageOf('body', 10)).toBe(0);
     // 防御力が あっても 倍率 0 の 部位は 当たらない（最低 1 は 当たる 部位だけ）
     T.hit.partDef.cloud = 50;
     expect(damageOf('cloud', 10)).toBe(0);
@@ -253,16 +264,30 @@ describe('gashaBigHit（#293 プレイヤーの 攻撃を 受ける）', () => {
     try { T.hit.partMul.hand = 2; expect(damageOf('hand', 20)).toBe(10); } finally { T.hit.partMul.hand = mul; }
   });
 
-  it('防御力は 体力に も 反映: 手だけ 殴り続けても 体力は 0 に ならない（1 ずつ へる）、コアは 防御力なし', () => {
+  it('防御力は 体力にも 反映: 手・体・頭だけ 殴り続けても 体力は 0 に ならない（1 ずつ へる）、コアは 防御力なし', () => {
     Object.assign(T.hit.partDef, defSaved);
     const r = rig();
     for (let i = 0; i < 100; i++) expect(r.bh.damage('hand', 20)).toBe(1); // 弱い 武器でも 1
-    expect(r.bh.hp).toBe(200);
-    for (let i = 0; i < 100; i++) r.bh.damage('hand', 29); // 防御力 いかでも 最低 1
-    expect(r.bh.hp).toBe(100);
+    hpIs(r, 100);
+    for (let i = 0; i < 100; i++) r.bh.damage('body', 50); // 防御力 いかでも 最低 1
+    hpIs(r, 200);
+    for (let i = 0; i < 100; i++) r.bh.damage('head', 50);
+    hpIs(r, 300);
     expect(r.bh.last?.dealt).toBe(1);
     expect(r.bh.damage('hand', 80)).toBe(50);
     expect(r.bh.damage('core', 10)).toBe(30);
     expect(r.calls()).toBeGreaterThan(0);
+  });
+
+  it('胴体・胸・顔の 箱に 当たると 防御力で ひかれて 最低 1（刀・矢）', () => {
+    Object.assign(T.hit.partDef, defSaved);
+    let shape: BladeShapeInfo | null = null;
+    const r = rig({ blade: () => (shape ? { shape, damage: 5, swing: 'x', frame: 1 } : null) });
+    const c = r.find('chestMid2');
+    shape = { kind: 'capsule', from: v(c.c[0]!, c.c[1]!, c.c[2]! - 40), to: v(c.c[0]!, c.c[1]!, c.c[2]! + 40), radius: 0.6 };
+    r.bh.step(1 / 60);
+    expect(r.bh.last?.part).toBe('body');
+    expect(r.bh.last?.dealt).toBe(1);
+    hpIs(r, 1);
   });
 });

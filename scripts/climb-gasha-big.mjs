@@ -15,7 +15,7 @@ const browser = await chromium.launch({
 });
 const page = await browser.newPage({ viewport: { width: 640, height: 400 } });
 page.on('pageerror', (e) => console.log('[pageerror]', e.message));
-await page.goto(`${BASE}/?proto=gashaBig&nosave=1&char=boy${process.env.EXTRA ?? ''}`);
+await page.goto(`${BASE}/?proto=gashaBig&menu=0&nosave=1&char=boy${process.env.EXTRA ?? ''}`);
 await page.waitForFunction(() => window.__rikkun?.ready === true && !!window.__gashaBig, null, { timeout: 120_000 });
 await page.evaluate(() => window.__rikkun.suspendRender(true)); // 描かずに コマ送り（はやい）
 const START = (process.env.START ?? '').split(',').map(Number);

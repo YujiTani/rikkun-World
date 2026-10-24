@@ -509,7 +509,7 @@ export function buildBig(): BigModel {
     th('Spine02').hit('chestTop', 15.4, 4.8, 14.2, 0, 35.7, -2.6); // 肩の あいだ・えりの 上の 面（ここが 胴体の 上）
     th('Spine02').hit('collarbone', 24.6, 2.6, 4.6, 0, 34.7, 2.0); // さこつ（肩の 先まで）
     th('neck').hit('neck', 3.8, 5.3, 5.5, 0, 40.35, -6.85); // 首（背骨の つづき）
-    for (const s of [-1, 1]) th(s > 0 ? 'LeftShoulder' : 'RightShoulder').hit(`shoulderCloth${s < 0 ? 'R' : 'L'}`, 6.9, 3.7, 8.7, s * 11.2, 35.4, -3); // かたの ぬの・けんこうこつ
+    for (const s of [-1, 1]) th(s > 0 ? 'LeftShoulder' : 'RightShoulder').hit(`shoulderCloth${s < 0 ? 'R' : 'L'}`, 5.2, 2.4, 8.7, s * 7.2, 36.05, -3); // かたの ぬの・けんこうこつ
   }
 
   // --- あたま（関節 Head）
@@ -648,6 +648,7 @@ export function buildBig(): BigModel {
 
   // --- うで（のぼれるように 長め・ゆるい 坂。手を 地面に ついて すすむ）
   const groundPts: Vector3[] = [vec(0, 0, 0)];
+  const armEnds: { s: number; S: Vector3; E: Vector3; joint: JointName }[] = []; // 上わんの かたがわの はし（あとで うでの 足場の 雲を つける）
   let nailI = 0;
   const th = A.handThick;
   for (const s of [-1, 1]) {
@@ -706,6 +707,7 @@ export function buildBig(): BigModel {
       b.hits.push({ name, joint, c: a.clone().add(bb).multiplyScalar(0.5), axes: [side, n, u], half: [width / 2, thick / 2, len / 2] });
     };
     // 上わんの 当たりは ひじの 先まで 少し のばして、前わんの 当たりと かさねる（つなぎ目の 段を なくす）
+    armEnds.push({ s, S: S.clone(), E: E.clone(), joint: jA });
     lineHit(`upperArm${sd}`, jA, S, E.clone().addScaledVector(E.clone().sub(S).normalize(), A.elbowExtend), A.upperWidth, A.upperThick - 0.4);
     // 前わんは 手首の 先まで 少し のばして 手に つなぐ（手首が 浮いて 見えても 段が 1 つに なる）
     lineHit(`foreArm${sd}`, jF, E, Wr.clone().addScaledVector(uF, A.foreExtend), A.foreWidth - 0.2, A.foreThick - 0.2);
@@ -727,6 +729,15 @@ export function buildBig(): BigModel {
         puff(b, { joint: 'Spine02', cx: s * x, top: S.y + (rs() - 0.5) * S.jitter, cz: z, w: lerpA(S.size, rs()), yaw: rs() * Math.PI, lobes: 4, name: `shoulder${sd}${n++}`, rnd: rs });
       }
     }
+    // うでの 足場の 雲: 上わんの かたがわの はしに 小さな 雲を 1 つ。うでを のぼりきった ところ（かたの ぬの・肩の 雲の すぐ 下）で、
+    // うでの 上の 面と 肩の 雲の 高さの 差（ブロックの そろい かたで 1〜2 ブロック かわる）を うめる。うでの 関節に つく（うでと いっしょに うごく）
+    {
+      const Q = T.armStep, rq = makeRnd(Q.seed);
+      for (const e of armEnds) {
+        const dir = e.E.clone().sub(e.S).normalize(), p = e.S.clone().addScaledVector(dir, Q.back * KW);
+        puff(b, { joint: e.joint, cx: p.x + e.s * Q.out * KW, top: p.y + A.upperThick / 2 + Q.up * KW, cz: p.z, w: lerpA(Q.size, rq()), yaw: rq() * Math.PI, lobes: 4, name: `armStep${e.s < 0 ? 'R' : 'L'}`, rnd: rq });
+      }
+    }
     // 髪の 毛束: 黒い 箱。上の 面が 当たり。ときどき 髪どめ（ピンク）
     const H = T.hair;
     const lock = (name: string, x: number, top: number, z: number, k: number): void => {
@@ -744,15 +755,17 @@ export function buildBig(): BigModel {
       }
       H.side.forEach((q, k) => lock(`side${sd}${k}`, s * q[0]!, q[2]!, q[1]!, k));
     }
-    // 肩から 頭の 上への 雲の らせん（からだが 動いても 通れる。上がりは 1 つ 0.75 ブロック）
+    // 肩から 頭の 上への 雲の らせん（からだが 動いても 通れる。上がりは 1 つ 0.62 ブロック。さいごの 数個は 頭の てっぺんの わくへ 近づく）
     {
       const U = T.rise, rr = makeRnd(U.seed);
+      const sm = (t: number): number => { const c = Math.min(1, Math.max(0, t)); return c * c * (3 - 2 * c); };
       for (const s of [-1, 1]) {
         const sd = s < 0 ? 'R' : 'L';
         for (let k = 0; k < U.count; k++) {
           const a = ((U.angle0Deg + k * U.stepDeg) * Math.PI) / 180, y = U.y0 + k * U.step;
+          const rad = U.radius + (U.endRadius - U.radius) * sm((k - U.taperFrom) / Math.max(1, U.count - 1 - U.taperFrom));
           puff(b, {
-            joint: y < U.splitY ? 'Spine02' : 'Head', cx: s * (U.cx + U.radius * Math.cos(a)) * KW, top: y * KW, cz: (U.cz + U.radius * Math.sin(a)) * KW,
+            joint: y < U.splitY ? 'Spine02' : 'Head', cx: s * (U.cx + rad * Math.cos(a)) * KW, top: y * KW, cz: (U.cz + rad * Math.sin(a)) * KW,
             w: lerpA(U.size, rr()), yaw: rr() * Math.PI, lobes: 4, name: `rise${sd}${k}`, rnd: rr,
           });
         }

@@ -206,6 +206,8 @@ describe('CALM 基準 5: 変えない絵は 1 画素も変わらない', () => {
     // LIVE-2（こたつ・とりごや。ふつうの 絵。今の 絵を 守るだけ）
     kotatsu_top: '578c39f9', kotatsu_side: '35a80286', toriya_fence_top: 'cf2081e5', toriya_fence_side: 'fb229365', toriya_gate: '211cc5d6',
     toriya_nest_roof: '640edfc5', toriya_nest_side: 'dd4aaae5', toriya_box_top: 'ff2119f1', toriya_box_side: '435e773b',
+    // #293 試作: 間欠泉の つち（さいごに足した新しい絵。今の絵を守るだけ）
+    geyser_dirt_top: '2f587436', geyser_dirt_side: 'a4ac15e6',
   };
   const fnv = (px: readonly Rgba[]) => {
     let x = 2166136261;
