@@ -692,6 +692,75 @@ SCREENS.push(
 );
 
 /**
+ * SAMURAI-1（#300）AC22: 侍装備 4 つの 説明の 表（ツールチップの「とくべつな ちから」の 行・説明パネル）と、テロップ（ヌシの 文・宝箱の 文）。
+ * 窓口は NINJA-1 で できた `ui.telop(item, source)` と おなじ（source = 'nushi' | 'chest'）。実装の 前は 侍装備が 無くて 落ちる（赤）。
+ * いちばん 長い 説明は 下駄（「おちた とき の いたさ を へらす。はしる と カランコロン と 心地よい おと が する」）。
+ */
+const SAMURAI_IDS = ['samurai_jingasa', 'samurai_haori', 'samurai_tekko', 'samurai_geta'];
+const samuraiBag = () => {
+  const h = window.__rikkun! as any;
+  h.inventory.clear();
+  ['samurai_jingasa', 'samurai_haori', 'samurai_tekko', 'samurai_geta'].forEach((id, i) => h.inventory.setSlot(i, { item: id, count: 1 }));
+  h.inventory.select(0);
+  h.step(2);
+};
+for (const id of SAMURAI_IDS) {
+  SCREENS.push({
+    id: `samurai1-tooltip-${id}`,
+    roots: ['#tooltip'],
+    open: async (page) => {
+      await boot(page, true);
+      await page.evaluate(samuraiBag);
+      await page.evaluate(toggleInventory);
+      await page.locator(`#inventory-screen .slot[data-item="${id}"]`).first().hover();
+      await page.evaluate(() => (window.__rikkun as any).step(3));
+    },
+  });
+}
+SCREENS.push(
+  {
+    id: 'samurai1-detail-geta',
+    roots: ['#inventory-screen', '#tooltip', '#hud'],
+    open: async (page) => {
+      await boot(page, true);
+      await page.evaluate(samuraiBag);
+      await page.evaluate(toggleInventory);
+      await page.evaluate(() => {
+        const h = window.__rikkun! as any;
+        h.craft.hover('samurai_geta');
+        h.step(3);
+      });
+    },
+  },
+  {
+    id: 'samurai1-telop-nushi-haori',
+    roots: ['[data-band="telop"]'],
+    open: async (page) => {
+      await boot(page, true);
+      await page.evaluate(() => {
+        const h = window.__rikkun! as any;
+        h.ui.telop('samurai_haori', 'nushi');
+        for (let i = 0; i < 90 && h.ui.topBand().kind !== 'telop'; i++) h.step(1);
+        h.step(40); // 出きるまで
+      });
+    },
+  },
+  {
+    id: 'samurai1-telop-chest-jingasa',
+    roots: ['[data-band="telop"]'],
+    open: async (page) => {
+      await boot(page, true);
+      await page.evaluate(() => {
+        const h = window.__rikkun! as any;
+        h.ui.telop('samurai_jingasa', 'chest');
+        for (let i = 0; i < 90 && h.ui.topBand().kind !== 'telop'; i++) h.step(1);
+        h.step(40);
+      });
+    },
+  },
+);
+
+/**
  * START-1 AC12（docs/design/START-1.md §6.1）: スタートメニュー 1 枚目（保存あり・なし）と 2 枚目（おしらせあり・シード 9 けた）。
  * 世界が まだ ないので `__rikkun.step` は ない（上の 描きなおしは step?.() で とばす）。
  * 保存の ある 場面は まず メニューの 通しで 保存の ある 世界（seed 1234・やさしい）を 作ってから 読み直す。

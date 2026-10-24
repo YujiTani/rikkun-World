@@ -34,8 +34,12 @@ describe('WEAPON-7 AC1: legendary の 初期値（雷神剣 ＋ PR2 の 風神�
     expect(d.onAttack).toEqual([{ kind: 'trail', style: 'thunder' }]);
     expect(d.passive).toEqual([]);
   });
-  it('nushiDrops の 初期値 = legendary の ぜんぶ・weight 1', () => {
-    expect(S().nushiDrops).toEqual([{ item: 'raijin_ken', weight: 1 }, { item: 'fujin_ken', weight: 1 }, { item: 'niji', weight: 1 }]); // PR2: 風神剣・WEAPON-9: 虹も
+  it('nushiDrops の 初期値 = legendary の ぜんぶ ＋ 侍装備 4 つ・weight 1', () => {
+    // SAMURAI-1（#300）で 期待が 変わった: 侍装備 4 行（weight 1）が 武器 3 行の あとに 足される（順は 雷神剣・風神剣・虹・陣笠・羽織・手甲・下駄）
+    expect(S().nushiDrops).toEqual([
+      { item: 'raijin_ken', weight: 1 }, { item: 'fujin_ken', weight: 1 }, { item: 'niji', weight: 1 }, // PR2: 風神剣・WEAPON-9: 虹も
+      { item: 'samurai_jingasa', weight: 1 }, { item: 'samurai_haori', weight: 1 }, { item: 'samurai_tekko', weight: 1 }, { item: 'samurai_geta', weight: 1 },
+    ]);
   });
   it('そのほかの 設定 §9', () => {
     expect(S().legendaryChargeWalk).toBe(0.5);
