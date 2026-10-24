@@ -85,6 +85,20 @@ describe('大きな姿の 効果音（#293）', () => {
     expect(loops.every((l) => l.stopped === T.sfx.emberFadeOutSec)).toBe(true);
     expect(sfx.activeLoops()).toEqual([]);
   });
+  it('攻撃 4: 隕石の 着地は 重い ドン（太鼓 由来の step_slam を 低く）。近い ほど 大きい。たくさん 落ちても 同時 meteorMaxSame まで', () => {
+    const { sfx, log, advance } = setup(1);
+    expect(sfx.meteor(0)).toBe(true);
+    expect(sfx.meteor(T.sfx.meteorFar * 2)).toBe(true);
+    const [near, far] = log;
+    expect(near!.url).toMatch(/step_slam(_b|_c)?\.ogg$/);
+    expect(near!.o.rate).toBeLessThan(Math.pow(2, (T.sfx.meteorCents + T.sfx.detuneCents + 1) / 1200)); // 低く
+    expect(near!.o.gain).toBeGreaterThan(far!.o.gain * 2);
+    advance(2);
+    log.length = 0;
+    let ok = 0;
+    for (let i = 0; i < 30; i++) if (sfx.meteor(5)) ok++;
+    expect(ok).toBe(Math.min(30, T.sfx.meteorMaxSame * 3)); // 3 ファイル × 同時 上限
+  });
   it('攻撃 5: 雷雲 → 指への 落雷 → 電気（ループ）→ まわりの 落雷は 3 種を 順番に', () => {
     const { sfx, names, loops, advance } = setup(1);
     sfx.cloud(); sfx.strike(); sfx.elecOn(); sfx.elecOn();
