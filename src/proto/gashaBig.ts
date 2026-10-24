@@ -26,6 +26,9 @@ import { GashaGeyser, type GeyserInfo } from './gashaGeyser';
 import { BigShock, type ShockHit } from './gashaBigShock';
 import { ShockFx } from './gashaBigShockFx';
 import { createBigSfx, createBigWebAudioPlayer, type BigSfxEnv } from './gashaBigSfx';
+import { AshRain, Embers, burnPlants, type Ash, type LandInfo } from './gashaBigEruption';
+import { EruptFx } from './gashaBigEruptFx';
+import type { PlacedBlock } from './gashaBigPlaced';
 import { BeamAim, type AimEnv } from './gashaBigBeam';
 import { BeamFx } from './gashaBigBeamFx';
 import { crushAt } from './gashaBigCrush';
@@ -416,6 +419,10 @@ export interface BigModel {
   /** 体の 外がわの こけ・くさ（かたまりの 数・板の 数）。毎コマ updateMoss で 関節の 動きに あわせる */
   mossOutside: { clumps: number; count: number };
   updateMoss(): void;
+  /** 体の 外の こけ・くさを 焼く / もどす（gashaBigPlants.ts の OutsideMoss） */
+  burnMoss(c: { x: number; y: number; z: number }, radius: number, max?: number): number[];
+  restoreMoss(ids: readonly number[]): void;
+  mossHidden(): number;
   /** コアの 見た目を ずらす（胴体の 座標の ずれ x, y, z・大きさの 倍・透明度の 倍）。もどす ときは (0,0,0,1,1) */
   setCoreFx(jx: number, jy: number, jz: number, scale: number, alphaK: number): void;
   eyes: MeshBasicMaterial;
@@ -1076,7 +1083,7 @@ export function buildBig(): BigModel {
   const swirl = buildSwirlEyes(new Quaternion().setFromEuler(new Euler(0.17, headYaw, 0, 'YXZ')));
   joints.Head.add(swirl.root);
   return {
-    group, joints, rest, hits: b.hits, glass: b.glass, setGlass, plants: plantCount, mossOutside: { clumps: outside.clumps, count: outside.count }, updateMoss: outside.update, setCoreFx, eyes: matOf('eyes'), eyeHalo: matOf('eyeHalo'), swirl, brow: brow ?? new Mesh(), scale, groundPts, head: headPos, meshes: meshes.length,
+    group, joints, rest, hits: b.hits, glass: b.glass, setGlass, plants: plantCount, mossOutside: { clumps: outside.clumps, count: outside.count }, updateMoss: outside.update, burnMoss: outside.burn, restoreMoss: outside.restore, mossHidden: outside.hiddenCount, setCoreFx, eyes: matOf('eyes'), eyeHalo: matOf('eyeHalo'), swirl, brow: brow ?? new Mesh(), scale, groundPts, head: headPos, meshes: meshes.length,
   };
 }
 
@@ -1150,12 +1157,14 @@ export interface GashaBigHandle {
   lookBack(): void;
   /** 後ろへ さがる（climbing down wall を 倒した 動き）を はじめる / 止める */
   back(on: boolean): void;
-  /** 攻撃を すぐ 出す（デバッグ。怒って いなければ 怒らせる）。'slam2'（両手たたきつけ）・'sweep'（両手で 払う）・'beam'（目から 光線） */
+  /** 攻撃を すぐ 出す（デバッグ。怒って いなければ 怒らせる）。'slam2'（両手たたきつけ）・'sweep'（両手で 払う）・'beam'（目から 光線）・'eruption'（口から 火山噴火） */
   attack(name: string): void;
   /** つかれて 休みに はいる（デバッグ。sec を 省くと 調整表の 20〜30 秒） */
   tired(sec?: number): void;
+  /** 噴火で 落ちた 燃えかすの 場所（テスト・デバッグ用） */
+  eruptionEmbers(): { x: number; y: number; z: number; body: boolean; age: number }[];
   /** 攻撃サイクル・予告・体の ゆれの いま（テスト用） */
-  attackInfo(): { mode: string; phase: string; attack: string | null; done: number; count: number; left: number; slam2Count: number; sweepCount: number; sweepActive: string | null; quakeLeft: number; warn: boolean; fx: { warn: boolean; rocks: number; cracks: number }; beamCount: number; beamPhase: string; beamMode: string | null; beamAim: { x: number; y: number; z: number } | null; beamFx: { marks: number; flames: number; smoke: number; beams: number; sparkle: number } };
+  attackInfo(): { mode: string; phase: string; attack: string | null; done: number; count: number; left: number; slam2Count: number; sweepCount: number; sweepActive: string | null; quakeLeft: number; warn: boolean; fx: { warn: boolean; rocks: number; cracks: number }; beamCount: number; beamPhase: string; beamMode: string | null; beamAim: { x: number; y: number; z: number } | null; beamFx: { marks: number; flames: number; smoke: number; beams: number; sparkle: number }; eruption: { count: number; phase: string; flying: number; landed: number; embers: number; onBody: number; mossHidden: number; glassBroken: number; burntBlocks: number; fx: { ashes: number; shadows: number; embers: number; burning: number; smoke: number; jet: number; wind: number; column: boolean } } };
   /** 長い 休みに はいる（その場で 体を 動かさない。首を ふる くらい）。sec を 書かなければ 調整表の wander.restSec */
   rest(sec?: number): void;
   /** うごきの 中身（モード・速さ・手の ついた 数・1 コマの 仕事の 数 など） */
@@ -1394,6 +1403,66 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
     beamPrev = ph;
     beamFx.update(dt);
   };
+  // 攻撃 4「口から 火山噴火」: 灰（放射状・ランダム）・予告の 影・燃え残り・植物が 燃える・体の ガラス/こけ/おいた ブロックが 焼ける（gashaBigEruption.ts / gashaBigEruptFx.ts）
+  const rain = new AshRain(), embers = new Embers(), eruptFx = new EruptFx(deps.scene, deps.camera);
+  const mouthV = new Vector3(), ashV = { x: 0, y: 0, z: 0 };
+  let eruptClock = 0, burntBlocks = 0;
+  const bodyBurnt: { t: number; moss: number[]; placed: PlacedBlock[] }[] = [];
+  const landAt = (x: number, z: number): LandInfo => {
+    const ix = Math.floor(x), iz = Math.floor(z);
+    const gy = deps.groundY(ix, iz) + 1;
+    let top = gy;
+    if (blockAt) for (let y = gy + 30; y >= gy; y--) { const b = blockAt(ix, y, iz); if (b !== 'air' && b !== 'outside') { top = y + 1; break; } }
+    if (actor) for (let y = Math.floor(mouthV.y); y >= top; y--) if (actor.solid(ix, y, iz)) return { y: y + 1, body: true };
+    return { y: top, body: false };
+  };
+  const onAshLand = (a: Ash): void => {
+    const K = T.eruption;
+    embers.add(a.lx, a.ly, a.lz, a.body);
+    sfx.ash();
+    eruptFx.puff(a.lx, a.ly, a.lz, 1, 0.8, 1.2, 0.55);
+    const p = deps.player();
+    if (Math.hypot(p.x - a.lx, p.z - a.lz) <= K.ash.hitRadius && Math.abs(p.y - a.ly) <= K.ash.hitYTol) deps.hurt?.(K.ash.damage, { x: a.lx, y: a.ly, z: a.lz });
+    if (!a.body) {
+      if (blockAt && deps.setBlockAir) for (const c of burnPlants(a.lx, a.ly, a.lz, blockAt, deps.setBlockAir)) { eruptFx.burnFlame(c.x + 0.5, c.y, c.z + 0.5); burntBlocks++; }
+    } else if (model) {
+      const c = { x: a.lx, y: a.ly, z: a.lz };
+      breakGlass(c, K.body.glassRadius, K.body.glassMax);
+      const moss = model.burnMoss(c, K.body.mossRadius);
+      const pl = placed.burn(c, K.body.placedRadius, new Set(K.body.placedBurnable), K.body.placedMax);
+      if (moss.length || pl.length) bodyBurnt.push({ t: eruptClock, moss, placed: pl });
+    }
+  };
+  const stepEruption = (dt: number): void => {
+    if (!actor) return;
+    eruptClock += dt;
+    const E = actor.eruption, ph = actor.attackName === 'eruption' && actor.mode === 'attack' ? E.phase : 'idle';
+    actor.mouthPosition(mouthV);
+    const mouth = { x: mouthV.x, y: mouthV.y, z: mouthV.z };
+    eruptFx.setWind(mouth, ph === 'inhale' ? E.wind : 0);
+    eruptFx.setColumn(mouth, ph === 'erupt' ? E.column : 0);
+    eruptFx.setMouthGlow(mouth, ph === 'inhale' ? E.wind * 0.7 : ph === 'erupt' ? 0.5 + 0.5 * E.column : 0);
+    if (rain.active) {
+      const o = rain.update(dt, mouth, landAt);
+      for (const a of o.landed) onAshLand(a);
+      const views = rain.ashes.map((a) => { rain.position(a, ashV); return { x: ashV.x, y: ashV.y, z: ashV.z, spin: a.t * 6 + a.apex }; });
+      eruptFx.setAshes(views);
+      eruptFx.setShadows(rain.ashes.filter((a) => rain.warn(a) > 0).map((a) => ({ x: a.lx, y: a.ly, z: a.lz, warn: rain.warn(a) })));
+    } else { eruptFx.setAshes([]); eruptFx.setShadows([]); }
+    embers.update(dt);
+    eruptFx.setEmbers(embers.list);
+    const p = deps.player();
+    const d = embers.step(dt, { x: p.x, y: p.y, z: p.z });
+    if (d > 0) deps.hurt?.(d, { x: p.x, y: p.y, z: p.z - 1 });
+    // 焼けた 体は 時間で もどる（ガラスは glass の 再生）
+    while (bodyBurnt.length && eruptClock - bodyBurnt[0]!.t >= T.eruption.body.restoreSec) {
+      const b = bodyBurnt.shift()!;
+      model?.restoreMoss(b.moss);
+      for (const pb of b.placed) placed.restore(pb);
+    }
+    sfx.embers(embers.list.length);
+    eruptFx.update(dt);
+  };
   deps.blockPlayerInput?.(() => shock.inputBlocked() || throwLeft > 0 || spinLeft > 0);
   deps.onBeforeRender?.(() => shockFx.applyShake(Math.max(reduced() ? 0 : shock.shakeNow, warnLeft > 0 ? T.core.throwOff.warnShakeDeg * (reduced() ? 0.25 : 1) : 0, quake.active && riding() ? T.slam2.quake.bodyShakeDeg * (reduced() ? 0.25 : 1) : 0), shock.time));
   const fwdOf = (p: { yawDeg: number }) => { const y = (p.yawDeg * Math.PI) / 180; return { fx: Math.sin(y), fz: -Math.cos(y) }; };
@@ -1463,7 +1532,8 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
         if (blockAt && deps.setBlockAir) crushAt(x, y, z, { getBlock: blockAt, setAir: deps.setBlockAir, onBlocks: deps.onCrushBlocks });
       },
       onTap: (x, y, z) => { shockFx.spawn(shock.add('tap', x, y, z)); sfx.step(); },
-      onAttackStart: (name) => { if (name === 'slam2') sfx.lift(); else if (name === 'sweep') sfx.windup(); else if (name === 'beam') sfx.omen(); },
+      onAttackStart: (name) => { if (name === 'slam2') sfx.lift(); else if (name === 'sweep') sfx.windup(); else if (name === 'beam') sfx.omen(); else if (name === 'eruption') sfx.inhale(); },
+      onEruptStart: () => { rain.begin(actor?.eruptionCount ?? 0); sfx.erupt(); },
       onSweepStroke: (i) => { sfx.sweep(i); },
       onSlam2: (x, y, z, fx, fz) => {
         sfx.slam();
@@ -1493,6 +1563,7 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
     quake.step(dt);
     stepSweep(dt);
     stepBeam(dt);
+    stepEruption(dt);
     // アースクエイクの ゴゴゴ: ゆれの のこりが 少なく なったら 小さく して 切る
     if (quake.left > T.sfx.quakeFadeOutSec) sfx.quakeOn(); else sfx.quakeOff();
     sfx.update();
@@ -1512,7 +1583,7 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
 
   const handle: GashaBigHandle = {
     tune: (o) => applyTune(o),
-    place: () => { quake.stop(); beamFx.clear(); sfx.stopAll(); place(); bh.reset(); },
+    place: () => { quake.stop(); beamFx.clear(); eruptFx.clear(); rain.active = false; rain.ashes = []; embers.clear(); bodyBurnt.length = 0; sfx.stopAll(); place(); bh.reset(); },
     hp: () => bh.hp,
     damage: (part, amount) => bh.damage(part, amount),
     section: (on) => {
@@ -1542,8 +1613,10 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
       mode: actor?.mode ?? '', phase: actor?.cycle.phase ?? 'off', attack: actor?.attackName ?? null, done: actor?.cycle.done ?? 0, count: actor?.cycle.count ?? 0, left: actor?.cycle.left ?? 0,
       slam2Count: actor?.slam2Count ?? 0, sweepCount: actor?.sweepCount ?? 0, sweepActive: actor?.sweepNow?.side ?? null, quakeLeft: quake.left, warn: !!actor?.warn, fx: shockFx.bigCounts(),
       beamCount: actor?.beamCount ?? 0, beamPhase: actor?.beam.phase ?? 'idle', beamMode: actor && actor.attackName === 'beam' ? beamAim.mode : null, beamAim: actor && actor.attackName === 'beam' && beamPrev === 'fire' ? { ...beamAim.a } : null, beamFx: beamFx.counts(),
+      eruption: { count: actor?.eruptionCount ?? 0, phase: actor?.eruption.phase ?? 'idle', flying: rain.ashes.length, landed: rain.landedCount, embers: embers.list.length, onBody: embers.list.filter((e) => e.body).length, mossHidden: model?.mossHidden() ?? 0, glassBroken: brokenQ.length, burntBlocks, fx: eruptFx.counts() },
     }),
     rest: (sec) => actor?.rest(sec),
+    eruptionEmbers: () => embers.list.map((e) => ({ ...e })),
     motion: () => (actor ? {
       mode: actor.mode, speedNow: actor.speedNow, crawlSpeed: actor.crawlSpeed, crawlRate: actor.crawlRate, strideScale: actor.strideScale, backOn: actor.backOn, target: actor.target, wander: actor.wanderOn,
       angryLeft: actor.angryLeft, eyeMix: actor.eyeMix, walkLeft: actor.walkLeft, restLeft: actor.restLeft, work: actor.work, plant: actor.plant,

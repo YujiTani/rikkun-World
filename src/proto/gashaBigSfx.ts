@@ -24,6 +24,11 @@ export const BIG_FILES: Record<BigSfxName, FileDef> = {
   a3_beam_on: one('a3_beam_on'),
   a3_beam_loop: one('a3_beam_loop', 'wav', true),
   a3_smoke: one('a3_smoke'),
+  a4_inhale: one('a4_inhale'),
+  a4_erupt: one('a4_erupt'),
+  a4_ash: { files: ['a4_ash', 'a4_ash_b', 'a4_ash_c'], ext: 'ogg' },
+  a4_embers: one('a4_embers', 'wav', true),
+  a4_embers_b: one('a4_embers_b', 'wav', true),
   step_slam: { files: ['step_slam', 'step_slam_b', 'step_slam_c'], ext: 'ogg' },
 };
 const DIR = './sound/gasha/big/';
@@ -64,7 +69,8 @@ export function createBigSfx(env: BigSfxEnv, tune: SfxTune = T.sfx, seed = 294) 
     const url = bigSfxUrl(def.files[i]!, def.ext);
     const start = env.now() + delaySec;
     const list = (active.get(url) ?? []).filter((x) => x.e > start - 1e-9 || x.s > start);
-    if (list.filter((x) => x.s <= start + 1e-9 && start < x.e - 1e-9).length >= tune.maxSame) { active.set(url, list); return false; }
+    const cap = name === 'a4_ash' ? tune.ashMaxSame : tune.maxSame; // 灰は 小さく たくさん 重なる
+    if (list.filter((x) => x.s <= start + 1e-9 && start < x.e - 1e-9).length >= cap) { active.set(url, list); return false; }
     const cents = (rnd() * 2 - 1) * tune.detuneCents, db = (rnd() * 2 - 1) * tune.gainDb;
     const dur = env.play(url, { gain: vol * Math.pow(10, db / 20), rate: Math.pow(2, cents / 1200), delaySec });
     if (!(dur > 0)) { active.set(url, list); return false; }
@@ -118,6 +124,15 @@ export function createBigSfx(env: BigSfxEnv, tune: SfxTune = T.sfx, seed = 294) 
     beamLoopOn: () => loopOn('a3_beam_loop', tune.beamLoopFadeInSec, tune.beamLoopFadeOutSec),
     beamLoopOff: () => loopOff('a3_beam_loop'),
     smoke: () => play('a3_smoke'),
+    inhale: () => play('a4_inhale'),
+    erupt: () => play('a4_erupt'),
+    /** 灰が 1 つ 落ちた */
+    ash: () => play('a4_ash'),
+    /** 燃え残りの ぱちぱち: n = 燃えかすの 数。0 で 消える。多いと 別の 録音も 重ねる */
+    embers: (n: number) => {
+      if (n > 0) loopOn('a4_embers', tune.emberFadeInSec, tune.emberFadeOutSec); else loopOff('a4_embers');
+      if (n >= tune.emberManyAt) loopOn('a4_embers_b', tune.emberFadeInSec, tune.emberFadeOutSec); else loopOff('a4_embers_b');
+    },
     step: () => play('step_slam'),
   };
 }

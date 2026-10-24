@@ -11,8 +11,8 @@ import { TUNE as T } from './gashaBigTuning';
 import type { V3 } from './gashaBigBeam';
 
 /** 画面が ない（ユニットテスト）ときの 1 ドットの 白い 絵 */
-const blankTexture = (): DataTexture => { const t = new DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1); t.needsUpdate = true; return t; };
-const hasDom = (): boolean => typeof document !== 'undefined';
+export const blankTexture = (): DataTexture => { const t = new DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1); t.needsUpdate = true; return t; };
+export const hasDom = (): boolean => typeof document !== 'undefined';
 
 interface Mark { x: number; y: number; z: number; yaw: number; age: number; life: number; r: number }
 interface Flame { x: number; y: number; z: number; age: number; life: number; ph: number }
@@ -38,7 +38,7 @@ function sparkleTexture(): Texture {
 }
 
 /** 光の 玉（着弾点） */
-function glowTexture(): Texture {
+export function glowTexture(): Texture {
   if (!hasDom()) return blankTexture();
   const c = document.createElement('canvas');
   c.width = c.height = 64;
@@ -68,7 +68,7 @@ const FLAME_PIX = [
   '.12233332...',
   '..111222....',
 ];
-function flameTexture(): Texture {
+export function flameTexture(): Texture {
   if (!hasDom()) return blankTexture();
   const w = 12, h = FLAME_PIX.length, c = document.createElement('canvas');
   c.width = w; c.height = h;
@@ -84,7 +84,7 @@ function flameTexture(): Texture {
 }
 
 /** 十字の 板（たて 2 まいを 直角に）。底が y = 0、高さ 1、はば 0.8 */
-function crossGeometry(): BufferGeometry {
+export function crossGeometry(): BufferGeometry {
   const pos: number[] = [], uv: number[] = [], idx: number[] = [];
   const quad = (ax: number, az: number): void => {
     const b = pos.length / 3, hw = 0.4;

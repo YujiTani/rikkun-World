@@ -25,7 +25,7 @@ export const BODY_PLACEABLE: ReadonlySet<BlockId> = new Set<BlockId>([
   'grass', 'dirt', 'stone', 'sand', 'log', 'leaves', 'coal_ore', 'iron_ore', 'kawara', 'brick', 'snow', 'momiji_leaves', 'matsu_leaves',
 ]);
 
-interface PlacedBlock {
+export interface PlacedBlock {
   id: BlockId;
   joint: JointName;
   /** 関節の 座標（もとの 座標 - 休みの 姿勢の 関節の 位置）での 中心 */
@@ -149,6 +149,36 @@ export class BodyPlaced implements BodyBlocksPort {
     this.blocks.splice(i, 1);
     this.sync(f.joint);
     return f.id;
+  }
+
+  /** 灰で 焼ける: 世界の 点 c から radius いないの 燃える ブロック（burnable の 名前）を 近い 順に 最大 max 個 消す。消した ものを 返す（restore で もどす）。当たりも 見た目も 作りなおす */
+  burn(c: Vec3, radius: number, burnable: ReadonlySet<string>, max: number): PlacedBlock[] {
+    const a = this.d.actor();
+    if (!a) return [];
+    const xs = a.extraBoxes, found: { b: PlacedBlock; d: number }[] = [];
+    for (let i = 0; i < xs.length && i < this.blocks.length; i++) {
+      const pb = this.blocks[i]!, bx = xs[i]!;
+      if (!burnable.has(pb.id)) continue;
+      const d = Math.hypot(bx.c[0] - c.x, bx.c[1] - c.y, bx.c[2] - c.z);
+      if (d <= radius) found.push({ b: pb, d });
+    }
+    found.sort((p, q) => p.d - q.d);
+    const out: PlacedBlock[] = [], joints = new Set<JointName>();
+    for (const f of found.slice(0, max)) {
+      const i = this.blocks.indexOf(f.b);
+      if (i < 0) continue;
+      this.blocks.splice(i, 1);
+      out.push(f.b); joints.add(f.b.joint);
+    }
+    for (const j of joints) this.sync(j);
+    return out;
+  }
+
+  /** burn で 消した ブロックを もどす（もどす 場所は もとの 関節の 座標） */
+  restore(b: PlacedBlock): void {
+    if (this.blocks.includes(b)) return;
+    this.blocks.push(b);
+    this.sync(b.joint);
   }
 
   /** がしゃどくろを 置きなおした / 消した: ぜんぶ 消す（見た目は モデルごと 消える） */

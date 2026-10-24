@@ -148,8 +148,8 @@ describe('怒りの 攻撃サイクル（actor）', () => {
     const { actor, slams, run } = rig();
     actor.hit();
     const names = new Set<string>();
-    run(1500, () => { if (actor.attackName) names.add(actor.attackName); });
-    expect([...names].sort()).toEqual(['beam', 'slam2', 'sweep']);
+    run(3000, () => { if (actor.attackName) names.add(actor.attackName); });
+    expect([...names].sort()).toEqual(['beam', 'eruption', 'slam2', 'sweep']);
     expect(slams.length).toBeGreaterThan(0);
     expect(actor.sweepCount).toBeGreaterThan(0);
     expect(actor.beamCount).toBeGreaterThan(0);
@@ -175,6 +175,25 @@ describe('怒りの 攻撃サイクル（actor）', () => {
     // 目の 色: おわったら ふつうの 怒りの 赤に もどる
     expect(actor.model.eyes.color.getHex()).toBe(asEye(T.eyes.angryColor));
     expect(actor.model.eyeHalo.opacity).toBeCloseTo(0.3, 5);
+  });
+
+  it('attack(eruption): ゆっくり 上を 向き → 噴火 → 首が もどって 怒りに もどる。口の 位置は 上を 向くと 高くなる', () => {
+    const { actor, run } = rig();
+    actor.attack('eruption');
+    expect(actor.mode).toBe('attack');
+    expect(actor.attackName).toBe('eruption');
+    expect(actor.eruptionCount).toBe(1);
+    const m0 = actor.mouthPosition(new Vector3()).clone();
+    const K = T.eruption;
+    run(K.inhaleSec + K.eruptSec * 0.5);
+    const m1 = actor.mouthPosition(new Vector3());
+    expect(actor.eruption.pitch).toBe(1);
+    expect(m1.y).toBeGreaterThan(m0.y + 1); // 上を 向く と 口が 上がる
+    expect(m1.z).toBeLessThan(m0.z); // 口が 前から 引っこむ
+    run(K.eruptSec * 0.5 + K.rainSec + 1.5);
+    expect(actor.mode === 'angry' || actor.mode === 'attack').toBe(true);
+    expect(actor.eruption.done || actor.attackName !== 'eruption').toBe(true);
+    expect(actor.mouthPosition(new Vector3()).y).toBeLessThan(m1.y - 1);
   });
 
   it('光っている 間は 目の 色が 赤黒い 色から 強い 赤へ、光の 輪が 濃くなる', () => {

@@ -159,7 +159,15 @@ export interface OutsideOpt {
   max: number;
   seed: number;
 }
-export interface OutsideMoss { meshes: InstancedMesh[]; count: number; clumps: number; update(): void }
+export interface OutsideMoss {
+  meshes: InstancedMesh[]; count: number; clumps: number; update(): void;
+  /** 世界の 点 c から radius いないの こけ・くさを 焼いて 消す（最大 max 枚）。消した 枚の 番号を 返す */
+  burn(c: { x: number; y: number; z: number }, radius: number, max?: number): number[];
+  /** burn で 消した 枚を もどす */
+  restore(ids: readonly number[]): void;
+  /** いま 消えて いる 枚の 数 */
+  hiddenCount(): number;
+}
 
 /** 体の 部品（当たりの 箱）の 外がわの 面（上・よこ）に、くさ・こけの かたまりを まばらに 生やす。
  *  かたまりは 部品の 関節の 動きに ついて 動く（毎コマ update で 板の 位置を 関節の 行列から 作りなおす）。描くのは 3 つの InstancedMesh だけ。当たりは なし。 */
@@ -184,7 +192,7 @@ export function buildOutsideMoss(
   }
   const total = faces.reduce((q, f) => q + f.w, 0);
   const pick = (): Face => { let x = r() * total; for (const f of faces) { x -= f.w; if (x <= 0) return f; } return faces[faces.length - 1]!; };
-  interface Inst { joint: string; local: Matrix4 }
+  interface Inst { joint: string; local: Matrix4; hidden?: boolean }
   const inst: Inst[][] = [[], [], []], tints: number[][] = [[], [], []];
   const q = new Quaternion(), qy = new Quaternion(), UPY = new Vector3(0, 1, 0), pos = new Vector3(), sc = new Vector3();
   let clumps = 0, made = 0;
@@ -236,11 +244,36 @@ export function buildOutsideMoss(
         const it = list[i]!;
         let R = rel.get(it.joint);
         if (!R) { R = new Matrix4().multiplyMatrices(inv, joints[it.joint]!.matrixWorld); rel.set(it.joint, R); }
+        if (it.hidden) { m.makeScale(0, 0, 0); mesh.setMatrixAt(i, m); continue; }
         mesh.setMatrixAt(i, m.multiplyMatrices(R, it.local));
       }
       mesh.instanceMatrix.needsUpdate = true;
     }
   };
   update();
-  return { meshes, count: made, clumps, update };
+  const SHIFT = 100000, wp = new Vector3();
+  const burn = (c: { x: number; y: number; z: number }, radius: number, max = Infinity): number[] => {
+    group.updateMatrixWorld(true);
+    const found: { id: number; d: number }[] = [];
+    lists.forEach(({ list }, li) => {
+      for (let i = 0; i < list.length; i++) {
+        const it = list[i]!;
+        if (it.hidden) continue;
+        wp.setFromMatrixPosition(it.local).applyMatrix4(joints[it.joint]!.matrixWorld);
+        const d = Math.hypot(wp.x - c.x, wp.y - c.y, wp.z - c.z);
+        if (d <= radius) found.push({ id: li * SHIFT + i, d });
+      }
+    });
+    found.sort((a, b) => a.d - b.d);
+    const ids = found.slice(0, max).map((f) => f.id);
+    for (const id of ids) lists[Math.floor(id / SHIFT)]!.list[id % SHIFT]!.hidden = true;
+    if (ids.length) update();
+    return ids;
+  };
+  const restore = (ids: readonly number[]): void => {
+    for (const id of ids) { const l = lists[Math.floor(id / SHIFT)]; if (l) l.list[id % SHIFT]!.hidden = false; }
+    if (ids.length) update();
+  };
+  const hiddenCount = (): number => lists.reduce((n, l) => n + l.list.filter((x) => x.hidden).length, 0);
+  return { meshes, count: made, clumps, update, burn, restore, hiddenCount };
 }

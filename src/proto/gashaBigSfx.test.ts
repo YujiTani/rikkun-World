@@ -67,6 +67,24 @@ describe('大きな姿の 効果音（#293）', () => {
     expect(loops[0]!.stopped).toBe(T.sfx.beamLoopFadeOutSec);
     expect(names()).toEqual(['a3_omen', 'a3_beam_on', 'a3_smoke']);
   });
+  it('攻撃 4: 吸いこみ → 噴火 → 灰（小さく たくさん。同時 上限は 別）→ 燃え残りの ループ（多い とき もう 1 種）', () => {
+    const { sfx, names, loops } = setup(1);
+    sfx.inhale(); sfx.erupt();
+    for (let i = 0; i < 12; i++) sfx.ash();
+    expect(names().slice(0, 2)).toEqual(['a4_inhale', 'a4_erupt']);
+    const ash = names().filter((n) => n.startsWith('a4_ash'));
+    expect(ash.length).toBe(12); // 同じ ファイルが 4 回ずつ（maxSame の 3 を こえる）
+    expect(new Set(ash).size).toBe(3);
+    sfx.embers(3);
+    expect(loops.map((l) => l.url)).toEqual(['./sound/gasha/big/a4_embers.wav']);
+    sfx.embers(T.sfx.emberManyAt);
+    expect(loops.map((l) => l.url)).toEqual(['./sound/gasha/big/a4_embers.wav', './sound/gasha/big/a4_embers_b.wav']);
+    sfx.embers(T.sfx.emberManyAt + 5);
+    expect(loops.length).toBe(2);
+    sfx.embers(0);
+    expect(loops.every((l) => l.stopped === T.sfx.emberFadeOutSec)).toBe(true);
+    expect(sfx.activeLoops()).toEqual([]);
+  });
   it('前進の 一歩: 3 種を 順番に', () => {
     const { sfx, names, advance } = setup();
     for (let i = 0; i < 3; i++) { sfx.step(); advance(2); }
