@@ -1,6 +1,7 @@
 // #293 試作: がしゃどくろの 体の 上に ブロックを 置く（すき間に 橋）を 本物の 入力で 確かめる + GIF
 //   node scripts/bridge-gasha.mjs [出力フォルダ]     （開発サーバー http://localhost:5173 が 動いて いること）
 //   環境変数: GIF=0 で GIF を 作らない（確認だけ）。BASE
+//   最後に 向こうの 床から 刀（katana）で コアを なぐれる ことも 確かめる
 //   穴の 手前の 床の ふちに 立ち → 下を 見て 前の 面に ブロックを 置く → 歩いて のる → くりかえして 橋 → 向こうの 床 → コアの 前まで
 import { chromium } from '@playwright/test';
 import { mkdirSync, mkdtempSync } from 'node:fs';
@@ -162,6 +163,29 @@ p = await me();
 const hpNow = await ev(() => window.__rikkun.combat.get().hp);
 log.push(`向こうの 床 (${f1(p.x)}, ${f1(p.y)}, ${f1(p.z)}) コアまで 横 ${f1(Math.hypot(B.core.c[0] - p.x, B.core.c[2] - p.z))}、体力 ${hpNow}`);
 check(reached, '置いた 橋を わたって（のこりは 飛び降りて）コアの 前の 床まで あるけた');
+// 刀で コアを なぐれるか
+const SW = await ev(async (B) => {
+  const h = window.__rikkun, g = window.__gashaBig;
+  h.inventory.setSlot(1, { item: 'katana', count: 1 }); h.inventory.select(1);
+  const out = [];
+  for (const [dx, dz] of [[0, 0]]) {
+    const q0 = h.player.get().position;
+    h.player.set({ position: { x: q0.x + dx, y: q0.y, z: q0.z + dz }, velocity: { x: 0, y: 0, z: 0 } });
+    for (let i = 0; i < 6; i++) h.step(1);
+    const q = h.player.get().position;
+    const hp0 = g.hp(); let best = hp0;
+    const yaw = (Math.atan2(B.core.c[0] - q.x, -(B.core.c[2] - q.z)) * 180) / Math.PI;
+    for (let t = 0; t < 3; t++) {
+      h.player.set({ yaw, pitch: 10 });
+      h.input.press('primary'); for (let i = 0; i < 4; i++) h.step(1); h.input.release('primary');
+      for (let i = 0; i < 60; i++) { h.step(1); best = Math.min(best, g.hp()); }
+    }
+    out.push({ at: [q.x, q.y, q.z].map((v) => +v.toFixed(2)), dmg: hp0 - best, last: g.info().lastHit?.part ?? null });
+  }
+  return out;
+}, B);
+log.push('刀: ' + JSON.stringify(SW));
+check(SW[0].dmg > 0 && SW[0].last === 'core', `橋の むこうの 床から 刀で コアを なぐれた（ダメージ ${SW[0].dmg}）`);
 // こわす: 置いた ブロックを 1 つ 左クリックで ほると 持ち物に もどる
 const stone0 = await ev((it) => window.__rikkun.inventory.count(it), ITEM);
 log.push(`持ち物の いし ${stone0} こ（20 こ から ${placed} こ 置いた）`);

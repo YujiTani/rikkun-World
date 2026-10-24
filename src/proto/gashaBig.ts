@@ -478,7 +478,11 @@ export function buildBig(): BigModel {
   const torso = b.root('Spine02').group(HIP.x, HIP.y, HIP.z, [PITCH, 0, 0], [1.45, 1.1, 1.3]);
   const tj = (j: JointName) => torso.at(j);
   const vJoint = (i: number): JointName => (i < 3 ? 'Hips' : i < 9 ? 'Spine' : i < 15 ? 'Spine01' : 'Spine02');
-  const K = T.core, KT = K.tunnel, TX0 = KT.x - KT.width / 2, TX1 = KT.x + KT.width / 2, CEIL = KT.ceilY, G0 = KT.gap.z0, G1 = KT.gap.z1; // 道（トンネル）の 左右の はしと 天井、途中の 穴の はじ
+  const K = T.core, KT = K.tunnel;
+  const SH = K.sideHole;
+  /** 左の かべの 穴（なければ null）。y は 道の 左の かべの 高さ（19.6 〜 天井）に おさめる */
+  const SHOLE = SH.enabled ? { y0: Math.max(19.6, SH.y - SH.h / 2), y1: Math.min(T.core.tunnel.ceilY, SH.y + SH.h / 2), z0: SH.z - SH.w / 2, z1: SH.z + SH.w / 2 } : null;
+  const TX0 = KT.x - KT.width / 2, TX1 = KT.x + KT.width / 2, CEIL = KT.ceilY, G0 = KT.gap.z0, G1 = KT.gap.z1; // 道（トンネル）の 左右の はしと 天井、途中の 穴の はじ
   {
     // 背中の ぬの（x ±4.5、y 12〜36）。背中の 穴の ぶんだけ あける（穴の 左右の はば TX0〜TX1、高さ 床〜天井）
     const px = (x0: number, x1: number, y0: number, y1: number): void => { if (x1 - x0 > 0.2 && y1 - y0 > 0.2) tj('Spine01').box(x1 - x0, y1 - y0, 1.0, (x0 + x1) / 2, (y0 + y1) / 2, -5.0, 0x5a463c); };
@@ -502,7 +506,8 @@ export function buildBig(): BigModel {
         const phi = 0.12 + (k / 7) * Math.PI * 0.82;
         const p = vec(s * a * Math.sin(phi), y - (k > 5 ? 0.4 : 0) - 0.12 * k, bb * Math.cos(phi) * (phi > 1.6 ? 0.92 : 1) + 0.3);
         // 背中の 穴の 道に かかる ろっ骨は とぎれさせる（穴の 左右 ＋ 1、床〜天井）
-        const inHole = p.x > TX0 - 1.2 && p.x < TX1 + 1.2 && p.y > KT.floorY - 1.2 && p.y < CEIL + 1.2 && p.z < KT.endZ;
+        const inHole = (p.x > TX0 - 1.2 && p.x < TX1 + 1.2 && p.y > KT.floorY - 1.2 && p.y < CEIL + 1.2 && p.z < KT.endZ)
+          || (!!SHOLE && s > 0 && p.x > TX1 - 0.5 && p.y > SHOLE.y0 - 1.0 && p.y < SHOLE.y1 + 1.0 && p.z > SHOLE.z0 - 1.2 && p.z < SHOLE.z1 + 1.2); // 左の 小さな 穴の まわりの ろっ骨も とぎれさせる
         if (prev && !inHole && !prevIn) t.seg(prev, p, 1.8, 1.75, k % 2 ? BONE : BONE_D);
         prev = p; prevIn = inHole;
       }
@@ -568,7 +573,18 @@ export function buildBig(): BigModel {
     // ろっ骨 1〜2 だんめ・3〜6 だんめ（いちばん ひろい 所）は 道（トンネル）の ぶんだけ あける: 道の 左 / 右。道は 床〜天井。天井の 上は chestMid2
     const slab = (name: string, x0: number, x1: number, y0: number, y1: number, z0: number, z1: number, j: JointName = 'Spine02'): void => th(j).hit(name, x1 - x0, y1 - y0, z1 - z0, (x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
     slab('chestLow', TX1, 11.4, 14.6, 19.6, -8.975, 9.075, 'Spine01'); slab('chestLowR', -11.4, TX0, 14.6, 19.6, -8.975, 9.075, 'Spine01');
-    slab('chestMid1', TX1, 12.5, 19.6, CEIL, -8.05, 9.85); slab('chestMid1R', -12.5, TX0, 19.6, CEIL, -8.05, 9.85);
+    slab('chestMid1R', -12.5, TX0, 19.6, CEIL, -8.05, 9.85);
+    if (!SHOLE) slab('chestMid1', TX1, 12.5, 19.6, CEIL, -8.05, 9.85);
+    else {
+      // 左がわの 小さな 穴（K.sideHole）: かべを 穴の まわり 4 つに 分ける。うすい 箱は 作らない
+      const part = (name: string, y0: number, y1: number, z0: number, z1: number): void => { if (y1 - y0 > 0.2 && z1 - z0 > 0.2) slab(name, TX1, 12.5, y0, y1, z0, z1); };
+      part('chestMid1', 19.6, CEIL, -8.05, SHOLE.z0); // うしろ（背中がわ）
+      part('chestMid1Front', 19.6, CEIL, SHOLE.z1, 9.85); // まえ
+      part('chestMid1Low', 19.6, SHOLE.y0, SHOLE.z0, SHOLE.z1); // 穴の 下（穴の 下の はしが 19.6 なら なし）
+      part('chestMid1Up', SHOLE.y1, CEIL, SHOLE.z0, SHOLE.z1); // 穴の 上（天井まで あけて あれば なし）
+      // 穴に 入れない ための 見えない 壁（名前が chest で はじまらない = 矢・刀には 当たらない 'cloud' あつかい。人の 足・体だけ ぶつかる）
+      if (SH.guard) th('Spine02').hit('holeGuard', 1.6, SHOLE.y1 - SHOLE.y0, SHOLE.z1 - SHOLE.z0, TX1 + 0.8, (SHOLE.y0 + SHOLE.y1) / 2, (SHOLE.z0 + SHOLE.z1) / 2);
+    }
     slab('chestMid2', -12.4, 12.4, CEIL, 30.5, -8.05, 10.45); // 道の 天井から 胸の 上まで（ぜんぶ ふさぐ）
     slab('chestCoreEnd', TX0, TX1, KT.floorY, CEIL, KT.endZ, 10.45); // コアの 向こうの かべ（道の つきあたり）
     slab('chestCoreFloor', TX0, TX1, KT.floorY - KT.floorThick, KT.floorY, KT.backZ, -7.5); // 背中の 外へ のびる 床（穴の 入り口の だん）
@@ -591,7 +607,12 @@ export function buildBig(): BigModel {
     t.box(W, 0.4, G0 - zA, KT.x, KT.floorY - 0.2, zc(zA, G0), FLOOR);
     t.box(W, 0.4, zB - G1, KT.x, KT.floorY - 0.2, zc(G1, zB), FLOOR);
     t.box(0.4, H, L, TX0 + 0.2, KT.floorY + H / 2, zc(zA, zB), DARK_IN);
-    t.box(0.4, H, L, TX1 - 0.2, KT.floorY + H / 2, zc(zA, zB), DARK_IN);
+    if (!SHOLE) t.box(0.4, H, L, TX1 - 0.2, KT.floorY + H / 2, zc(zA, zB), DARK_IN);
+    else {
+      // 左の かべは 小さな 穴の ぶんだけ あける（外から コアが 見える）
+      const lw = (y0: number, y1: number, z0: number, z1: number): void => { if (y1 - y0 > 0.1 && z1 - z0 > 0.1) t.box(0.4, y1 - y0, z1 - z0, TX1 - 0.2, (y0 + y1) / 2, (z0 + z1) / 2, DARK_IN); };
+      lw(KT.floorY, CEIL, zA, SHOLE.z0); lw(KT.floorY, CEIL, SHOLE.z1, zB); lw(KT.floorY, SHOLE.y0, SHOLE.z0, SHOLE.z1); lw(SHOLE.y1, CEIL, SHOLE.z0, SHOLE.z1);
+    }
     t.box(W, 0.4, L, KT.x, CEIL - 0.2, zc(zA, zB), DARK_IN);
     t.box(W, H, 0.4, KT.x, KT.floorY + H / 2, zB - 0.2, 0x2b1a20);
     // 穴の かべ（下へ 深く 暗く ぬける。腰の 下の 骨まで）
@@ -607,7 +628,7 @@ export function buildBig(): BigModel {
     for (let z = zA + 1.5; z < zB - 0.5; z += 3.0) {
       if (z < G0 - 0.6 || z > G1 + 0.6) t.box(W - 0.6, 0.5, 1.0, KT.x, KT.floorY + 0.1, z, BONE_D);
       t.box(0.8, H - 0.4, 1.0, TX0 + 0.55, KT.floorY + H / 2, z, BONE);
-      t.box(0.8, H - 0.4, 1.0, TX1 - 0.55, KT.floorY + H / 2, z, BONE);
+      if (!SHOLE || z < SHOLE.z0 - 0.6 || z > SHOLE.z1 + 0.6) t.box(0.8, H - 0.4, 1.0, TX1 - 0.55, KT.floorY + H / 2, z, BONE);
       t.box(W - 0.6, 0.8, 1.0, KT.x, CEIL - 0.5, z, BONE);
     }
     // 穴の ふち（背中の がわ）と 外へ のびる 床の だん
@@ -615,6 +636,13 @@ export function buildBig(): BigModel {
     t.box(1.4, H + 1.4, 2.0, TX1 + 0.7, KT.floorY + H / 2 + 0.7, zA - 0.7, BONE_D); // 左
     t.box(1.4, H + 1.4, 2.0, TX0 - 0.7, KT.floorY + H / 2 + 0.7, zA - 0.7, BONE_D); // 右
     t.box(W + 2.4, KT.floorThick, KT.backZ - zA + 1.0, KT.x, KT.floorY - KT.floorThick / 2, (KT.backZ + zA - 1.0) / 2 + 0.2, BONE); // 外へ のびる 床
+    // 左の 小さな 穴の ふち（骨の わく。見た目だけ）。外へ 少し 出して 穴が 目立つ ように
+    if (SHOLE && SH.rim) {
+      const cy = (SHOLE.y0 + SHOLE.y1) / 2, cz = (SHOLE.z0 + SHOLE.z1) / 2, hh = SHOLE.y1 - SHOLE.y0, ww = SHOLE.z1 - SHOLE.z0, rx = TX1 + 1.4, th = 0.9;
+      t.box(2.6, th, ww + 2 * th, rx, SHOLE.y1 + th / 2, cz, BONE); t.box(2.6, th, ww + 2 * th, rx, SHOLE.y0 - th / 2, cz, BONE_D);
+      t.box(2.6, hh, th, rx, cy, SHOLE.z0 - th / 2, BONE); t.box(2.6, hh, th, rx, cy, SHOLE.z1 + th / 2, BONE_D);
+      t.glowBox(0.3, hh, ww, TX1 - 0.1, cy, (SHOLE.z0 + SHOLE.z1) / 2, 0x8aeaff, 0.16); // 中の コアの 光が もれる（穴が 目立つ）
+    }
     // コア: とぎれた 道の むこうで 光る（しん と まわりの 光）
     const cp = K.pos;
     void cp; // コアの 見た目は 別の メッシュ（ふり落としの 予兆で ゆらして 半透明に するため。下の coreVis）
@@ -1178,6 +1206,7 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
     if (!b) return;
     const p = deps.player();
     if (Math.hypot(p.x - b.c[0], p.y - b.c[1], p.z - b.c[2]) > K.range) return;
+    if (p.y < b.c[1] - K.minBelow) return; // 地面から 弓で 撃って いる 人（小さな 穴から ねらう）は 体の 上に いないので とばさない
     // 道は せまくて かい段だらけ なので、とばす まえに 穴の 外（入り口の 床の だんの 少し 上・うしろ）へ ワープさせてから、うしろへ とばす
     const fi = actor.model.hits.findIndex((h) => h.name === 'chestCoreFloor');
     const fb = fi >= 0 ? actor.boxList[fi] : undefined;

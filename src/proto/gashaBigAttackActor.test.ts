@@ -32,7 +32,7 @@ function rig() {
 }
 
 describe('怒りの 攻撃サイクル（actor）', () => {
-  it('怒る → 攻撃 1〜3 回（両手たたきつけ）→ つかれて 30〜40 秒 → また 攻撃', () => onlySlam2(() => {
+  it('怒る → 攻撃 3〜5 回（両手たたきつけ）→ つかれて 30〜40 秒 → また 攻撃', () => onlySlam2(() => {
     const { actor, slams, run } = rig();
     actor.hit();
     const modes: string[] = [];
@@ -46,13 +46,13 @@ describe('怒りの 攻撃サイクル（actor）', () => {
         if (tiredStart >= 0 && tiredSec === 0 && actor.mode !== 'tired') tiredSec = t - tiredStart;
       }
     });
-    expect(slamsAtTired).toBeGreaterThanOrEqual(1);
-    expect(slamsAtTired).toBeLessThanOrEqual(3);
+    expect(slamsAtTired).toBeGreaterThanOrEqual(T.attack.minCount);
+    expect(slamsAtTired).toBeLessThanOrEqual(T.attack.maxCount);
     expect(tiredSec).toBeGreaterThanOrEqual(T.tired.restSec[0] - 0.1);
     expect(tiredSec).toBeLessThanOrEqual(T.tired.restSec[1] + 0.1);
     // 休みの あと また 攻撃（2 周目）
     expect(slams.length).toBeGreaterThan(slamsAtTired);
-    expect(modes.slice(0, 3)).toEqual(['angry', 'attack', slamsAtTired === 1 ? 'tired' : 'angry']);
+    expect(modes.slice(0, 3)).toEqual(['angry', 'attack', 'angry']);
   }));
 
   it('攻撃は 前（体の 向き）の 地面を たたく。予告の 半円は たたく 前だけ 出て、同じ 場所', () => {

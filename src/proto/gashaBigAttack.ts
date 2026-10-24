@@ -1,6 +1,6 @@
 /**
  * #293 試作: 怒りの 攻撃サイクル（画面・DOM には さわらない。ユニットテストで 動かせる）。
- *  怒る → ならし（gap）→ 攻撃（attack）× 1〜3 回（間に ならし）→ つかれて 休む（tired。20〜30 秒）→ また ならし …
+ *  怒る → ならし（gap）→ 攻撃（attack）× 3〜5 回（間に ならし。3 回目の あとから 毎回 休む くじ、5 回目の あとは 必ず 休む）→ つかれて 休む（tired。30〜40 秒）→ また ならし …
  *  攻撃の 種類は 調整表 `attack.table` の 行（名前と 重み）。行を 足すだけで ふやせる。くじは シード付き。
  *  攻撃の 動きそのものは 呼ぶ 側（gashaBigActor.ts）が 名前で 出し分ける。数は gashaBigTuning.ts の attack・tired。
  */
@@ -22,7 +22,7 @@ function makeRnd(seed: number): () => number {
 
 export class AttackCycle {
   phase: CyclePhase = 'off';
-  /** この サイクルで 出す 攻撃の 回数 */
+  /** この サイクルで 出す 攻撃の 回数の 上限（maxCount）。回数は くじで 決まる（minCount〜maxCount） */
   count = 0;
   /** この サイクルで 出し終えた 攻撃の 数 */
   done = 0;
@@ -41,8 +41,7 @@ export class AttackCycle {
   /** 新しい サイクルを はじめる（怒った とき）。最初の 攻撃までは firstGapSec */
   begin(): void {
     const A = T.attack;
-    const lo = Math.round(A.countMin), hi = Math.max(lo, Math.round(A.countMax));
-    this.count = lo + Math.floor(this.rnd() * (hi - lo + 1));
+    this.count = Math.max(1, Math.round(A.maxCount));
     this.done = 0;
     this.current = null;
     this.phase = 'gap';
@@ -79,7 +78,9 @@ export class AttackCycle {
     if (this.phase !== 'attack') return;
     this.done++;
     this.current = null;
-    if (this.done >= this.count) this.forceTired();
+    const A = T.attack;
+    const rest = this.done >= this.count || (this.done >= Math.round(A.minCount) && this.rnd() < A.restChance);
+    if (rest) this.forceTired();
     else { this.phase = 'gap'; this.left = this.randIn(T.attack.gapSec); }
   }
 

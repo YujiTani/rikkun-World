@@ -21,21 +21,22 @@ function lap(c: AttackCycle, attackSec = 9): { attacks: string[]; restSec: numbe
 }
 
 describe('怒りの 攻撃サイクル（gashaBigAttack.ts）', () => {
-  it('調整表: 1〜3 回・休み 30〜40 秒・攻撃の 表に slam2', () => {
-    expect(T.attack.countMin).toBe(1);
-    expect(T.attack.countMax).toBe(3);
+  it('調整表: 3〜5 回・休む 確率 50%・休み 30〜40 秒・攻撃の 表に slam2', () => {
+    expect(T.attack.minCount).toBe(3);
+    expect(T.attack.maxCount).toBe(5);
+    expect(T.attack.restChance).toBe(0.5);
     expect(T.tired.restSec).toEqual([30, 40]);
     expect(T.attack.table.map((r) => r.name)).toContain('slam2');
   });
 
-  it('1 サイクル = 攻撃を 1〜3 回 → つかれて 30〜40 秒 休む → おわり（次の サイクルへ）', () => {
+  it('1 サイクル = 攻撃を 3〜5 回 → つかれて 30〜40 秒 休む → おわり（次の サイクルへ）', () => {
     const counts = new Set<number>();
     const c = new AttackCycle(1);
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < 40; i++) {
       c.begin();
       const r = lap(c);
-      expect(r.attacks.length).toBeGreaterThanOrEqual(T.attack.countMin);
-      expect(r.attacks.length).toBeLessThanOrEqual(T.attack.countMax);
+      expect(r.attacks.length).toBeGreaterThanOrEqual(T.attack.minCount);
+      expect(r.attacks.length).toBeLessThanOrEqual(T.attack.maxCount);
       expect(r.restSec).toBeGreaterThanOrEqual(T.tired.restSec[0] - 0.05);
       expect(r.restSec).toBeLessThanOrEqual(T.tired.restSec[1] + 0.05);
       // 順番: 攻撃 … 攻撃 → つかれる → 立ち上がる
@@ -43,7 +44,27 @@ describe('怒りの 攻撃サイクル（gashaBigAttack.ts）', () => {
       expect(r.seq.slice(0, -2).every((s) => s === 'attack')).toBe(true);
       counts.add(r.attacks.length);
     }
-    expect([...counts].sort()).toEqual([1, 2, 3]); // くじで 1・2・3 回が ぜんぶ 出る
+    expect([...counts].sort()).toEqual([3, 4, 5]); // くじで 3・4・5 回が ぜんぶ 出る
+  });
+
+  it('休む くじ: 1・2 回目の あとは 休まない。5 回目の あとは 必ず 休む。restChance 0 なら 5 回、1 なら 3 回', () => {
+    const saved = T.attack.restChance;
+    try {
+      const run = (chance: number) => {
+        T.attack.restChance = chance;
+        const out: number[] = [];
+        const c = new AttackCycle(7);
+        for (let i = 0; i < 10; i++) { c.begin(); out.push(lap(c).attacks.length); }
+        return out;
+      };
+      expect(run(0).every((n) => n === 5)).toBe(true);
+      expect(run(1).every((n) => n === 3)).toBe(true);
+      // 50%: 3 回目から 毎回 くじ（3 回で 休む のは 約半分）
+      T.attack.restChance = 0.5;
+      const n3 = (() => { let k = 0; const c = new AttackCycle(11); for (let i = 0; i < 200; i++) { c.begin(); if (lap(c).attacks.length === 3) k++; } return k; })();
+      expect(n3).toBeGreaterThan(70);
+      expect(n3).toBeLessThan(130);
+    } finally { T.attack.restChance = saved; }
   });
 
   it('同じ シードなら 同じ 回数・休みの 長さ（再現できる）', () => {
@@ -52,11 +73,8 @@ describe('怒りの 攻撃サイクル（gashaBigAttack.ts）', () => {
   });
 
   it('攻撃と 攻撃の 間に ならし（gapSec）が ある・最初は firstGapSec', () => {
-    const saved = [T.attack.countMin, T.attack.countMax];
-    T.attack.countMin = 3; T.attack.countMax = 3; // 2 回目の ならしを 見る ため 3 回に 固定
     const c = new AttackCycle(2);
     c.begin();
-    T.attack.countMin = saved[0]!; T.attack.countMax = saved[1]!;
     let t = 0;
     while (!c.update(DT).start) t += DT;
     expect(t).toBeGreaterThanOrEqual(T.attack.firstGapSec - 0.05);

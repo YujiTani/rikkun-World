@@ -51,6 +51,26 @@ describe('コアの ふり落とし（#293 予兆・2 倍・カメラ 1 回転�
     expect('noFallSec' in K).toBe(false);
   });
 
+  it('地面から 弓で コアを 撃った 人（コアより 5 ブロック いじょう 下）は 予兆だけで とばされない（体の 上に いない）', () => {
+    const r = rig(), K = T.core.throwOff;
+    const core = r.h.colliders().find((c) => c.name === 'core')!;
+    r.st.x = core.center[0] + 20; r.st.y = core.center[1] - K.minBelow - 3; r.st.z = core.center[2] + 4;
+    const p0 = { x: r.st.x, y: r.st.y, z: r.st.z };
+    expect(r.h.damage('core', 10)).toBeGreaterThan(0);
+    expect(r.calls.warn).toBe(1);
+    r.step(Math.ceil((K.warnSec + K.blockSec + K.spinSec) * 60) + 10);
+    expect(r.calls.throw).toBe(0);
+    expect(r.calls.vel).toEqual([]);
+    expect(r.calls.dYaw).toEqual([]);
+    expect(r.blocked()).toBe(false);
+    expect(r.st).toMatchObject(p0);
+    // 体の 上（コアの すぐ 近く）に いれば 今まで どおり とばされる
+    r.st.x = core.center[0]; r.st.y = core.center[1] - core.half[1]; r.st.z = core.center[2] - 3;
+    expect(r.h.damage('core', 10)).toBeGreaterThan(0);
+    r.step(Math.ceil((K.warnSec) * 60) + 5);
+    expect(r.calls.throw).toBe(1);
+  });
+
   it('予兆の 間は 動かない・コアは むてき。予兆の あと とばされ、カメラが 1 回転して もとの 向きに もどる。ふり落とし自体は ダメージなし・落下の 守りも かけない', () => {
     const r = rig(), K = T.core.throwOff;
     const hp0 = r.h.hp();
