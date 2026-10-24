@@ -13,10 +13,11 @@
  * 数は ぜんぶ releaseTuning.ts。ゲームとの つなぎは ReleaseEnv（main.ts が 渡す）。
  */
 import type { Object3D } from 'three';
-import type { ItemStack } from '../contracts';
+import type { ItemId, ItemStack } from '../contracts';
 import type { GashaBigDeps } from '../proto/gashaBig';
 import { TUNE as BIG } from '../proto/gashaBigTuning';
 import { rewardRng, rollReward } from './reward';
+import { isNinjaGear } from '../craft/NinjaBook';
 import { createRng, randInt } from '../world/gen/random';
 import { applySilhouette, updateSilhouette } from './silhouette';
 import { RELEASE } from './releaseTuning';
@@ -35,7 +36,7 @@ export interface BossHandle {
   /** `pos: [x, y, z]`（体の 足もと） */
   info(): Record<string, unknown>;
   /** 部位に ダメージ(体力 0 に する とき に 使う。開発用 defeat()) */
-  damage?(part: string, amount: number): number;
+  damage?(part: string, amount: number, at?: { x: number; y: number; z: number } | null, source?: string): number;
   /** とどめの あとの 様子(場面・コアの のこり) */
   finishInfo?(): { phase: string; coreHp: number; coreMax: number };
   /** 体力 1/3: 噴火を 必ず 出して 上を 向いた まま 固まる(固まった しゅんかんに onHeld) */
@@ -82,6 +83,10 @@ export interface ReleaseEnv {
   sound?(name: 'ready' | 'levelUp'): void;
   /** 体力ゲージ（試作の 画面の 部品）を 出す / かくす。試作の ゲージは 作った 時から 出っぱなしなので、遠い 間・いない 間は かくす */
   showBar?(on: boolean): void;
+  /** NINJA-1 §4.2: 忍者帳（手に 入れた ことの ある 忍者装備）と 今 持って いる 物（もちもの・防具の マス・手に もった 物）。くじの 材料。なければ どちらも 空 */
+  ninja?(): { book: readonly ItemId[]; have: readonly ItemId[] };
+  /** NINJA-1 §3.2: 忍者装備の 袋が 出た ことの 知らせ（上の 帯の テロップ用）。出どころは 'gasha' */
+  dropped?(item: ItemId, from: 'gasha'): void;
 }
 
 /** 少女の 形態の 係（gashaGirl.ts の GirlController） */
@@ -330,7 +335,7 @@ export class GashaRelease {
     this.env.sound?.('levelUp');
   }
 
-  /** コアを こわした: 実績 → 大きな 一山(足袋 ＋ レア素材) → 少女も くずれる */
+  /** コアを こわした: 実績 → 大きな 一山(忍者装備 1 つ ＋ レア素材) → 少女も くずれる */
   private coreBroken(e: { x: number; y: number; z: number }): void {
     if (this.st !== 'present') return;
     this.readPos();
@@ -339,7 +344,9 @@ export class GashaRelease {
     this.killCount++;
     this.env.record('defeat:gashadokuro');
     this.env.say('がしゃどくろ を たおした！');
-    this.scatterStacks({ x: e.x, y: e.y + RELEASE.core.dropUp, z: e.z }, rollReward(rewardRng(this.env.seed, this.killCount)));
+    const stacks = rollReward(rewardRng(this.env.seed, this.killCount), RELEASE.reward, this.env.ninja?.() ?? { book: [], have: [] });
+    this.scatterStacks({ x: e.x, y: e.y + RELEASE.core.dropUp, z: e.z }, stacks);
+    for (const st of stacks) if (isNinjaGear(st.item)) this.env.dropped?.(st.item, 'gasha');
     this.env.sound?.('ready');
     this.girl?.crumble();
   }

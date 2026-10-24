@@ -1,6 +1,7 @@
 import { createMedal, popAnimation, setRarity, type MedalTier, type RarityIndex } from '../theme';
 import { withRuby } from '../text';
 import { CELEBRATE } from './config';
+import { telopParts, type TelopSource } from './telopText';
 import type { BannerLook } from './bannerModel';
 import { makeRng, poyonScale, type SparkPool } from './sparkModel';
 
@@ -246,8 +247,8 @@ export class BandView {
     this.root.hidden = false;
   }
 
-  /** 武器の テロップを 出し始める（`ヌシ が 〔武器〕 を おとした！` ＋ ★） */
-  showTelop(itemName: string, iconUrl: string, stars: number): void {
+  /** テロップを 出し始める（`ヌシ が 〔武器〕 を おとした！` ＋ ★。文は 出どころで かわる。telopText.ts） */
+  showTelop(itemName: string, iconUrl: string, stars: number, source: TelopSource = 'nushi'): void {
     this.kind = 'telop';
     this.band.className = 'cel-band cel-telop';
     this.band.dataset.band = 'telop';
@@ -258,7 +259,8 @@ export class BandView {
     const disc = el('div', 'cel-band__disc');
     disc.append(img);
     this.pic.replaceChildren((this.medal = disc));
-    this.head.innerHTML = `ヌシ が <span class="cel-band__item">${withRuby(itemName)}</span> を おとした！`;
+    const tp = telopParts(source);
+    this.head.innerHTML = `${withRuby(tp.pre)}<span class="cel-band__item">${withRuby(itemName)}</span>${withRuby(tp.post)}`;
     this.name.hidden = true;
     this.name.textContent = '';
     this.sub.hidden = false;

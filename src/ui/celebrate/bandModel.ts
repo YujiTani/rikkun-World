@@ -2,12 +2,15 @@ import type { AchievementId, ItemId } from '../../contracts';
 import type { CelebrateSettings } from './config';
 import { TOP_BAND } from './config';
 import { ModalModel } from './modalModel';
+import type { TelopSource } from './telopText';
 
 export type BandKind = 'achieve' | 'telop' | 'appear' | null;
 
 export interface TopBandInfo {
   kind: BandKind;
   item: ItemId | null;
+  /** テロップの 出どころ（kind が telop の とき。それ以外は null） */
+  source: TelopSource | null;
   age: number;
   leftSteps: number;
   /** 待っている もの（じゅんばん） */
@@ -16,6 +19,7 @@ export interface TopBandInfo {
 
 export interface TelopLook {
   item: ItemId;
+  source: TelopSource;
   age: number;
   leftSteps: number;
 }
@@ -37,15 +41,16 @@ export function bandEase(age: number, total: number, inSteps: number, outSteps: 
  */
 export class TopBandModel {
   readonly toast: ModalModel;
-  private telop: { item: ItemId; age: number } | null = null;
-  private queue: ItemId[] = [];
+  private telop: { item: ItemId; source: TelopSource; age: number } | null = null;
+  private queue: { item: ItemId; source: TelopSource }[] = [];
 
   constructor(private readonly cfg: () => CelebrateSettings) {
     this.toast = new ModalModel(cfg);
   }
 
-  enqueueTelop(item: ItemId): void {
-    this.queue.push(item);
+  /** source = 出どころ（省くと nushi = 今までの「ヌシ が 〜 を おとした！」） */
+  enqueueTelop(item: ItemId, source: TelopSource = 'nushi'): void {
+    this.queue.push({ item, source });
   }
 
   /** 実績の おしらせを 出して よいか（テロップが 出ている・待っている・あらわれたが 出ている 間は だめ） */
@@ -72,14 +77,17 @@ export class TopBandModel {
    * 1 ステップ（amount = 画面ステップ。案内画面は 0）。appearing の 間は 止まる。
    * 戻りは { telopStarted: 今 出し始めた テロップの 武器, toastEnded: きえた 実績の おしらせの id の列 }
    */
-  step(amount: number, appearing: boolean): { telopStarted: ItemId | null; toastEnded: AchievementId[] | null } {
+  step(amount: number, appearing: boolean): { telopStarted: ItemId | null; telopSource: TelopSource | null; toastEnded: AchievementId[] | null } {
     let telopStarted: ItemId | null = null;
+    let telopSource: TelopSource | null = null;
     let toastEnded: AchievementId[] | null = null;
     // あらわれた が 出ている 間・案内画面（amount 0）は 止まる
-    if (appearing || amount <= 0) return { telopStarted, toastEnded };
+    if (appearing || amount <= 0) return { telopStarted, telopSource, toastEnded };
     if (!this.telop && !this.toast.isOpen() && this.queue.length > 0) {
-      this.telop = { item: this.queue.shift()!, age: 0 };
-      telopStarted = this.telop.item;
+      const q = this.queue.shift()!;
+      this.telop = { item: q.item, source: q.source, age: 0 };
+      telopStarted = q.item;
+      telopSource = q.source;
     }
     if (this.telop) {
       this.telop.age += amount;
@@ -87,13 +95,13 @@ export class TopBandModel {
     } else if (this.toast.isOpen()) {
       toastEnded = this.toast.step(amount);
     }
-    return { telopStarted, toastEnded };
+    return { telopStarted, telopSource, toastEnded };
   }
 
   telopLook(): TelopLook | null {
     if (!this.telop) return null;
     const age = Math.floor(this.telop.age + 1e-9);
-    return { item: this.telop.item, age, leftSteps: Math.max(0, this.telopTotal() - age) };
+    return { item: this.telop.item, source: this.telop.source, age, leftSteps: Math.max(0, this.telopTotal() - age) };
   }
 
   info(appear: { ticksLeft: number } | null): TopBandInfo {
@@ -101,15 +109,15 @@ export class TopBandModel {
     if (appear) {
       if (this.telop) queue.unshift('telop');
       if (this.toast.isOpen()) queue.push('achieve');
-      return { kind: 'appear', item: null, age: 0, leftSteps: Math.max(0, appear.ticksLeft), queue };
+      return { kind: 'appear', item: null, source: null, age: 0, leftSteps: Math.max(0, appear.ticksLeft), queue };
     }
     const t = this.telopLook();
-    if (t) return { kind: 'telop', item: t.item, age: t.age, leftSteps: t.leftSteps, queue };
+    if (t) return { kind: 'telop', item: t.item, source: t.source, age: t.age, leftSteps: t.leftSteps, queue };
     if (this.toast.isOpen()) {
       const v = this.toast.view([]);
-      return { kind: 'achieve', item: null, age: v.age, leftSteps: v.leftSteps, queue };
+      return { kind: 'achieve', item: null, source: null, age: v.age, leftSteps: v.leftSteps, queue };
     }
-    return { kind: null, item: null, age: 0, leftSteps: 0, queue };
+    return { kind: null, item: null, source: null, age: 0, leftSteps: 0, queue };
   }
 
   /** 見た目: 出る・きえる */

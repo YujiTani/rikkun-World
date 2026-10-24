@@ -342,6 +342,10 @@ function build(): AchievementDef[] {
     name: firstOrN('レジェンダリー を てにいれた！', (g) => `レジェンダリー を ${g} つ あつめた！`),
   });
 
+  // NINJA-1 §6 AC18: 忍者装備。はじめて 手に 入れた（大きい 実績・金メダル）と 4 しゅ ぜんぶ。legend.kinds・get.* には 数えない
+  add({ series: 'ninja.first', category: 'fight', stat: 'ninjaKinds', tiers: [t(1)], name: () => 'はじめての ［忍者｜にんじゃ］［装備｜そうび］！' });
+  add({ series: 'ninja.all', category: 'fight', stat: 'ninjaKinds', tiers: [t(4)], name: () => '［忍者｜にんじゃ］［装備｜そうび］を ぜんぶ あつめた！' });
+
   // #293: がしゃどくろ（ボス）を たおした。ふだんの ようかい（defeat.all）には 数えず、これ 1 つだけ（大きい 実績・金メダル）
   add({ series: 'defeat.gashadokuro', category: 'fight', stat: 'defeat:gashadokuro', tiers: [t(1)], name: () => 'がしゃどくろ を たおした！' });
 
