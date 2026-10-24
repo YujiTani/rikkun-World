@@ -49,6 +49,8 @@ export interface GashaBigDeps {
   nudgePlayer?(dx: number, dz: number): void;
   /** 落下ダメージを 受けない（combat の noFall に 重ねる） */
   setNoFall?(on: boolean): void;
+  /** 忍者の足袋（レア装備。落下ダメージ 0）を 持ち物に 入れて 着る。開始時に 1 回 呼ぶ。なければ 渡さない */
+  giveNinjaTabi?(): void;
 }
 
 // ---------------------------------------------------------------- 色と 面の 明るさ
@@ -793,6 +795,8 @@ export interface GashaBigHandle {
   solidAt(x: number, y: number, z: number): boolean;
   /** 間欠泉の 一覧（場所・状態。置いた とき きまる） */
   geysers(): GeyserInfo[];
+  /** 忍者の足袋を 着る（開始時に も 自動で 1 回）。口が なければ 何もしない */
+  giveTabi(): void;
   info(): Record<string, unknown>;
   group: Group;
 }
@@ -910,6 +914,7 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
     joints: () => (model ? { ...model.joints } : {}),
     solidAt: (x, y, z) => actor?.solid(x, y, z) ?? false,
     geysers: () => geysers?.geysers() ?? [],
+    giveTabi: () => deps.giveNinjaTabi?.(),
     info: () => ({
       scale: model?.scale, pos: [pos.x, pos.y, pos.z], yawDeg: (yaw * 180) / Math.PI, drawCalls: model?.meshes, hitBoxes: model?.hits.length, angry: (actor?.angryLeft ?? 0) > 0, hp: bh.hp, maxHp: bh.maxHp, lastHit: bh.last,
       head: model ? model.head.clone().multiplyScalar(model.scale).applyQuaternion(new Quaternion().setFromAxisAngle(UP, yaw)).add(pos).toArray() : null,
@@ -918,5 +923,6 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
     get group() { return model!.group; },
   };
   (window as unknown as { __gashaBig: GashaBigHandle }).__gashaBig = handle;
+  deps.giveNinjaTabi?.(); // #293: テストでは はじめから 忍者の足袋を 着ている
   return handle;
 }

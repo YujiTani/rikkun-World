@@ -254,7 +254,7 @@ export class GashaGeyser {
   private setNoFall(on: boolean): void {
     if (on === this.noFallNow) return;
     this.noFallNow = on;
-    this.d.setNoFall(on);
+    this.d.setNoFall(on && T.geyser.noFallInColumn);
   }
 
   private build(): void {

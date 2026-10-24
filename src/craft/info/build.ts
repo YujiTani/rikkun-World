@@ -215,7 +215,7 @@ export function createItemInfo(d: InfoDeps): ItemInfoSource {
         return [{ key: 'damage', label: 'つよさ', value: n.arrowDamage, max: STAT_MAX.damage }];
       case 'armor': {
         const k = ARMOR_KIND[item] ?? 'normal';
-        return [{ key: 'guard', label: 'まもる つよさ', value: n.armorValue[item]?.[k] ?? 0, max: STAT_MAX.guard }, ...durRow(item, n)];
+        return [{ key: 'guard', label: 'まもる つよさ', value: Math.min(n.armorValue[item]?.[k] ?? 0, STAT_MAX.guard), max: STAT_MAX.guard }, ...durRow(item, n)];
       }
       case 'can':
         return [{ key: 'capacity', label: 'まける かず', value: ((n.farmCanCapacity ?? M7_SETTING_DEFAULTS.farmCanCapacity) as Readonly<Record<string, number>>)[item] ?? 0 }];

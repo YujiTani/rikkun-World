@@ -215,6 +215,7 @@ export type ItemOnlyId =
   | 'yoroi'
   | 'kote' // こて（籠手）
   | 'suneate' // すねあて（脛当て）
+  | 'ninja_tabi' // 忍者の足袋（#293 試作・レア装備。落下ダメージ 0。作れない・ステータスだけ）
   | 'torch'
   | 'lantern'
   | 'kite'
@@ -2051,6 +2052,7 @@ export const W2_SETTING_DEFAULTS: Readonly<W2Settings> = {
     yoroi: 240,
     kote: 225,
     suneate: 195,
+    ninja_tabi: 390, // すねあての 2 倍（#293 試作）
     raijin_ken: 10000, // WEAPON-7 §2.4: つくれず ヌシでしか 手に 入らない 武器だけの 例外
     fujin_ken: 10000,
     niji: 10000,

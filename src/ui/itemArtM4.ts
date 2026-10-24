@@ -339,6 +339,10 @@ const SUNEATE = [
   '................',
   '................',
 ];
+/** #293 試作: 忍者の足袋の 仮の 絵（絵は まだ 作らない。すねあての 色ちがい = こい むらさきと 金） */
+export function ninjaTabiPixels(): Rgba[] {
+  return fromRows(SUNEATE, { K: 0x14101f, S: 0x3a2f6b, L: 0x7a6bc2, R: 0xf2c230, Y: 0xf27aa8 });
+}
 const IRON_INGOT = [
   '................',
   '................',

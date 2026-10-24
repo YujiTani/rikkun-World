@@ -3,6 +3,13 @@ import type { BlockId, VoxelWorld } from '../contracts';
 import { CRAFT_DEFAULTS } from '../craft/config';
 import { ArmorSystemImpl } from '../craft/ArmorSystem';
 import { InventoryImpl } from '../inventory/Inventory';
+import { W2_SETTING_DEFAULTS } from '../contracts';
+import { itemRarity } from '../drops/rarity';
+import { ITEM_INFO } from '../craft/info/table';
+import { itemType } from '../inventory/items';
+import { itemCategory } from '../ui/itemCategory';
+import { itemIconPixels } from '../ui/itemIcon';
+import { maxDurability } from '../tools/durability';
 import { fallDamage } from './config';
 import { PlayerCombatImpl } from './PlayerCombat';
 
@@ -25,12 +32,13 @@ class W implements VoxelWorld {
   }
 }
 
-function rig(withArmor?: ('suneate' | 'kabuto' | 'yoroi' | 'kote')[]) {
+function rig(withArmor?: ('suneate' | 'kabuto' | 'yoroi' | 'kote' | 'ninja_tabi')[]) {
   const inv = new InventoryImpl();
   const armor = new ArmorSystemImpl(inv, { armorValue: CRAFT_DEFAULTS.armorValue });
   if (withArmor) {
     const pick = (n: string) => (withArmor.includes(n as never) ? n : null);
-    armor.set(pick('kabuto') as 'kabuto' | null, pick('yoroi') as 'yoroi' | null, pick('kote') as 'kote' | null, pick('suneate') as 'suneate' | null);
+    const legs = pick('ninja_tabi') ?? pick('suneate');
+    armor.set(pick('kabuto') as 'kabuto' | null, pick('yoroi') as 'yoroi' | null, pick('kote') as 'kote' | null, legs as 'suneate' | null);
   }
   const player = { position: { x: 5, y: 20, z: 5 }, velocity: { x: 0, y: 0, z: 0 }, yawDeg: 0, pitchDeg: 0, onGround: true, inWater: false, moving: false, facingDeg: 0, running: false };
   const combat = new PlayerCombatImpl({
@@ -97,6 +105,51 @@ describe('落下ダメージ（プレイヤー）', () => {
     const r = rig(['kabuto', 'yoroi', 'kote']);
     r.drop(5);
     expect(r.combat.hp()).toBe(18);
+  });
+});
+
+describe('忍者の足袋（#293 試作・レア装備）', () => {
+  it('着ていると どんな高さから落ちても 体力が へらない', () => {
+    for (const h of [5, 10, 20]) {
+      const r = rig(['ninja_tabi']);
+      r.drop(h);
+      expect(r.combat.hp()).toBe(20);
+      expect(r.combat.drainEvents().some((e) => e.type === 'fallHurt')).toBe(false);
+    }
+  });
+  it('すねあてと同じ「あし」のマスに入る（どちらか 1 つ）', () => {
+    const inv = new InventoryImpl();
+    const armor = new ArmorSystemImpl(inv, { armorValue: CRAFT_DEFAULTS.armorValue });
+    expect(armor.slotFor('ninja_tabi' as never)).toBe('legs');
+    armor.set(null, null, null, 'ninja_tabi' as never);
+    expect(armor.equipped('legs')).toBe('ninja_tabi');
+    armor.set(null, null, null, 'suneate');
+    expect(armor.equipped('legs')).toBe('suneate');
+  });
+  it('持ち物から 着て、脱ぐと また 落下ダメージが 入る', () => {
+    const inv = new InventoryImpl();
+    const armor = new ArmorSystemImpl(inv, { armorValue: CRAFT_DEFAULTS.armorValue });
+    inv.setSlot(0, { item: 'ninja_tabi' as never, count: 1 });
+    expect(armor.equipFromSlot(0)).toBe(true);
+    expect(armor.valueOf('fall')).toBeGreaterThanOrEqual(CRAFT_DEFAULTS.armorValue.suneate!.fall);
+    expect(armor.unequipToBag('legs')).toBe(true);
+    expect(armor.equipped('legs')).toBeNull();
+    const r = rig();
+    r.drop(10);
+    expect(r.combat.hp()).toBe(13);
+  });
+  it('ふつう・たま は すねあてと 同じ（0）。たいきゅうは すねあての 2 倍', () => {
+    const t = CRAFT_DEFAULTS.armorValue.ninja_tabi!;
+    expect([t.normal, t.ball]).toEqual([0, 0]);
+    expect(maxDurability('ninja_tabi' as never, W2_SETTING_DEFAULTS.toolDurability)).toBe(maxDurability('suneate', W2_SETTING_DEFAULTS.toolDurability)! * 2);
+  });
+  it('名前・めずらしさ・説明・絵が そろっている', () => {
+    expect(itemType('ninja_tabi')?.maxStack).toBe(1);
+    expect(itemType('ninja_tabi')?.name).toContain('忍者');
+    expect(itemRarity('ninja_tabi' as never)).toBe('rare');
+    expect(itemCategory('ninja_tabi')).toBe('armor');
+    expect(ITEM_INFO.ninja_tabi?.use).toContain('おちて');
+    expect(itemIconPixels('ninja_tabi' as never)).toHaveLength(256);
   });
 });
 

@@ -31,6 +31,8 @@ export const CRAFT_DEFAULTS: Readonly<CraftConfig> = {
     yoroi: { normal: 2, ball: 0, fall: 0 },
     kote: { normal: 1, ball: 0, fall: 0 },
     suneate: { normal: 0, ball: 0, fall: 2 },
+    // #293 試作: 忍者の足袋。落下は どれだけ 高くても 0（fall は 99 = ぜんぶ ふせぐ）。ほかは すねあてと 同じ
+    ninja_tabi: { normal: 0, ball: 0, fall: 99 },
   },
   pickupLogTicks: 180,
   pickupLogMax: 5,
@@ -46,7 +48,7 @@ export function createCraftConfig(): CraftConfig {
 }
 
 /** そうびのマスに入れられるアイテム */
-export const ARMOR_SLOT_OF: Readonly<Record<string, ArmorSlot>> = { kabuto: 'head', yoroi: 'body', kote: 'arms', suneate: 'legs' };
+export const ARMOR_SLOT_OF: Readonly<Record<string, ArmorSlot>> = { kabuto: 'head', yoroi: 'body', kote: 'arms', suneate: 'legs', ninja_tabi: 'legs' };
 
 /** そうびの部位の順（画面・保存・落とす順） */
 export const ARMOR_SLOTS: readonly ArmorSlot[] = ['head', 'body', 'arms', 'legs'];
