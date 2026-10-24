@@ -15,6 +15,7 @@ import { BoxGeometry, Mesh, MeshBasicMaterial, type Scene } from 'three';
 import type { BladeShapeInfo, Vec3, YokaiRayHit } from '../contracts';
 import type { BigModel } from './gashaBig';
 import { TUNE as T } from './gashaBigTuning';
+import { HpBar } from './gashaBigHpBar';
 
 /** 当たりの 箱（世界の 座標。BigActor の 箱と おなじ 形） */
 export interface BoxLike {
@@ -201,8 +202,7 @@ export class BigHit {
   private sparks: { mesh: Mesh; vx: number; vy: number; vz: number; left: number }[] = [];
   private sparkGeo: BoxGeometry | null = null;
   private sparkMat: MeshBasicMaterial | null = null;
-  private bar: { root: HTMLElement; fill: HTMLElement; text: HTMLElement } | null = null;
-  private barShown = -1;
+  private bar: HpBar | null = null;
   private installed = false;
 
   constructor(private readonly env: HitEnv) {
@@ -237,7 +237,7 @@ export class BigHit {
     this.hits = 0;
     this.swingKey = null; this.swingDone = false;
     this.waveLast.clear(); this.waveDone.clear();
-    this.showBar(true);
+    this.makeBar();
   }
 
   // ------------------------------------------------------------ ダメージ
@@ -257,7 +257,7 @@ export class BigHit {
     if (at) this.spark(at);
     this.flash = 1;
     this.env.sources?.sound?.();
-    this.showBar();
+    this.showBar(true);
     return dealt;
   }
 
@@ -418,34 +418,15 @@ export class BigHit {
     }
   }
 
+  /** 体力ゲージを 作る（調整表の barStyle の 案で）。document が なければ 作らない */
   private makeBar(): void {
     if (typeof document === 'undefined') return;
-    const root = document.createElement('div');
-    root.id = 'gashaBigHp';
-    const H = T.hit;
-    root.style.cssText = `position:fixed;top:${H.barTopPx}px;left:50%;transform:translateX(-50%);width:min(${H.barWidthVw}vw,${H.barMaxPx}px);z-index:40;pointer-events:none;font:700 15px/1.2 system-ui,sans-serif;color:#fff;text-shadow:0 1px 3px #000;text-align:center`;
-    const name = document.createElement('div');
-    name.textContent = 'がしゃどくろ';
-    const track = document.createElement('div');
-    track.style.cssText = 'margin-top:3px;height:14px;border:2px solid #fff;border-radius:8px;background:rgba(0,0,0,.55);overflow:hidden';
-    const fill = document.createElement('div');
-    fill.style.cssText = 'height:100%;width:100%;background:linear-gradient(#ff7a7a,#d93a3a);transition:width .15s';
-    track.appendChild(fill);
-    const text = document.createElement('div');
-    text.style.cssText = 'font-size:11px;font-weight:400;margin-top:1px';
-    root.append(name, track, text);
-    document.body.appendChild(root);
-    this.bar = { root, fill, text };
-    this.showBar(true);
+    this.bar?.destroy();
+    this.bar = new HpBar();
+    this.showBar(false, true);
   }
 
-  private showBar(force = false): void {
-    if (!this.bar) return;
-    if (!force && this.barShown === this.hp) return;
-    this.barShown = this.hp;
-    const r = this.maxHp > 0 ? this.hp / this.maxHp : 0;
-    this.bar.fill.style.width = `${Math.round(r * 1000) / 10}%`;
-    this.bar.text.textContent = `${Math.ceil(this.hp)} / ${this.maxHp}`;
-    this.bar.root.dataset.hp = String(this.hp);
+  private showBar(damaged = false, instant = false): void {
+    this.bar?.set(this.hp, this.maxHp, damaged, instant);
   }
 }
