@@ -23,6 +23,8 @@ export interface ActorEnv {
   carryPlayer?(dx: number, dy: number, dz: number, dYawDeg: number): void;
   /** 前へ 進む 1 歩で 手を 地面に たたきつけた（手の ひらの まんなか。y は 地面の 高さ）。打撃・衝撃波・ゆれ は 呼ぶ 側 */
   onSlam?(x: number, y: number, z: number, side: Side): void;
+  /** 引きよせの おわりに つきなおした 手が 地面を たたいた（小さい 衝撃。手の ひらの まんなか） */
+  onTap?(x: number, y: number, z: number, side: Side): void;
 }
 
 export type ActorClips = { climbUp: AimClipJson; climbDown: AimClipJson; lookBack: ClipJson };
@@ -139,6 +141,8 @@ export class BigActor {
   private stepBoundary = false;
   /** さいごに たたきつけた 所（世界の 座標） */
   lastSlam: { x: number; y: number; z: number; side: Side; step: number } | null = null;
+  /** さいごに 手を つきなおした 所（世界の 座標） */
+  lastTap: { x: number; y: number; z: number; side: Side; step: number } | null = null;
 
   private readonly boxes: Box[] = [];
   private readonly player: MotionPlayer;
@@ -315,13 +319,14 @@ export class BigActor {
     this.stepFade = Math.max(1e-3, sec);
   }
 
-  /** 手を たたきつけた: 手の ひらの まんなかを 世界の 座標で 知らせる */
-  private emitSlam(side: Side): void {
+  /** 手が 地面を たたいた: 手の ひらの まんなかを 世界の 座標で 知らせる（slam = たたきつけ、tap = つきなおし） */
+  private emitImpact(kind: 'slam' | 'tap', side: Side): void {
     const p = this.step.palm(side), s = this.model.scale;
     const c = Math.cos(this.yaw), sn = Math.sin(this.yaw);
     const x = this.pos.x + (p.x * c + p.z * sn) * s, z = this.pos.z + (-p.x * sn + p.z * c) * s;
-    this.lastSlam = { x, y: this.pos.y, z, side, step: this.step.steps };
-    this.env.onSlam?.(x, this.pos.y, z, side);
+    const e = { x, y: this.pos.y, z, side, step: this.step.steps };
+    if (kind === 'slam') { this.lastSlam = e; this.env.onSlam?.(x, this.pos.y, z, side); }
+    else { this.lastTap = e; this.env.onTap?.(x, this.pos.y, z, side); }
   }
 
   /** はう / さがる クリップを 再生して いる 間、この コマで 体が 進む 長さ（ブロック。後ろは −）。rate = この コマの 動きの 速さ */
@@ -468,7 +473,9 @@ export class BigActor {
     // 1 歩の 区切りで 着いたか 決める（1 歩が 大きい ので、のこりが 半歩 より 近ければ 止まる）
     if (this.stepBoundary) {
       this.stepBoundary = false;
-      if (dist < T.wander.arriveDist || dist < C.stride * this.model.scale * 0.5) {
+      // 目的地が 後ろに なった（1 歩で こえた）ときも 止まる
+      const st = C.stride * this.model.scale, behind = Math.abs(wrapPi(Math.atan2(dx, dz) - this.yaw)) > Math.PI / 2;
+      if (dist < T.wander.arriveDist || dist < st * 0.5 || (behind && dist < st * 1.5)) {
         this.target = null;
         this.toIdle();
         this.pauseLeft = this.randIn(T.wander.pauseSec);
@@ -489,8 +496,11 @@ export class BigActor {
     C.strideMul = Math.max(0, Math.min(1, 1 - (err - lim) / lim));
     const ev = C.update(dt);
     if (ev.stepStart) this.stepBoundary = true;
-    if (ev.slam) this.emitSlam(ev.slam);
-    return this.advance(ev.advance * this.model.scale, dt) || moved;
+    const mv = this.advance(ev.advance * this.model.scale, dt) || moved;
+    // 体を 進めた あとの 場所で 知らせる（手の ひらは からだの 座標なので）
+    if (ev.slam) this.emitImpact('slam', ev.slam);
+    if (ev.tap) this.emitImpact('tap', ev.tap);
+    return mv;
   }
 
   private turnToward(want: number, maxStep: number): boolean {
@@ -556,7 +566,7 @@ export class BigActor {
   private applyPose(force: boolean): void {
     if (force) { for (const q of this.player.pose) q.set(0, 0, 0, 1); }
     const m = this.model;
-    const w = this.stepW, sp = this.step.pose;
+    const w0 = this.stepW, w = w0 * w0 * (3 - 2 * w0), sp = this.step.pose; // 切りかえは なめらかに
     for (let i = 0; i < this.names.length; i++) {
       const q = m.joints[this.names[i]!].quaternion.copy(this.player.pose[i]!);
       if (w >= 1) q.copy(sp[i]!);

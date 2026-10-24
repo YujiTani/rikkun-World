@@ -64,6 +64,8 @@ const ease = {
   /** だんだん 速く */
   in: (u: number, p = 2.2) => Math.pow(u, p),
   smooth: (u: number) => u * u * (3 - 2 * u),
+  /** そっと 動き出して、あとは 長く だんだん 止まる（速さ = 12u(1−u)²。いちばん 速いのは 1/3 の 所） */
+  lift: (u: number) => 1 - Math.pow(1 - u, 3) * (1 + 3 * u),
 };
 const clamp01 = (u: number) => Math.max(0, Math.min(1, u));
 const DEG = Math.PI / 180;
@@ -264,7 +266,7 @@ export class StepCrawler {
     const act = new Vector3();
     let plant = 1;
     if (this.phase === 'windup') {
-      const e = ease.out(u, 3);
+      const e = ease.lift(u);
       act.copy(this.start).lerp(this.top, e);
       act.x += s * k.raiseBulge * Math.sin(Math.PI * e);
       act.y += k.raiseBulge * 0.5 * Math.sin(Math.PI * e);

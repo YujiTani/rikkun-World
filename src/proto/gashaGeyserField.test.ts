@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { TUNE as T } from './gashaBigTuning';
-import { GeyserField, type FieldDeps, type GeyserPlaceArgs } from './gashaGeyserField';
+import { GeyserField, apexOf, cycleOf, geyserPhase, hash01, nominalCycle, type FieldDeps, type GeyserPlaceArgs } from './gashaGeyserField';
 
 const A: GeyserPlaceArgs = { x: 0, y: 11, z: 0, yaw: 0.4, scale: 0.465 };
 const DT = 1 / 60;
@@ -58,7 +58,7 @@ describe('GeyserField（間欠泉の つち・かわる・数の 上限）', () 
   it('できた 柱に 入ると 上へ 打ち上げ、柱の 中と 着地まで 落下ダメージなし', () => {
     const w = make({ x: 0, y: 11, z: 0 });
     w.f.place(A);
-    w.run(S.crackSec + 2);
+    w.run(S.crackSec + 2 + T.geyser.staggerSec);
     const g = w.f.info().find((q) => q.state === 'up')!;
     w.player.x = g.x; w.player.z = g.z; w.player.y = g.ground;
     w.run(0.05);
@@ -123,7 +123,7 @@ describe('GeyserField（間欠泉の つち・かわる・数の 上限）', () 
   it('ブロックを 置けば どこでも 柱が たち、掘れば 消える（1 マスでも 立つ）', () => {
     const w = make({ x: 30.5, y: 11, z: 30.5 });
     w.blocks.set('30,10,30', 'geyser_dirt');
-    w.run(1);
+    w.run(1.5);
     const g = w.f.info();
     expect(g.length).toBe(1);
     expect(g[0]!.w).toBe(1);
@@ -167,5 +167,108 @@ describe('GeyserField（間欠泉の つち・かわる・数の 上限）', () 
     w.run(4);
     expect(w.dirtCells()).toBe(0);
     expect(w.f.info().length).toBe(0);
+  });
+
+  it('柱は 15 秒ほどの くり返し: ふき出す（1 秒で 10 マス）→ そのまま → 5 秒かけて 小さく なる → また ふき出す', () => {
+    const R = T.geyser;
+    expect(R.visualHeight).toBe(10);
+    expect(nominalCycle(R)).toBeCloseTo(15, 6);
+    expect(R.riseSec).toBe(1);
+    expect(geyserPhase(-1).state).toBe('wait');
+    expect(geyserPhase(0)).toMatchObject({ state: 'rising', frac: 0 });
+    const half = geyserPhase(R.riseSec / 2);
+    expect(half.state).toBe('rising');
+    expect(half.frac).toBeGreaterThan(0.4);
+    expect(half.frac).toBeLessThan(1);
+    expect(geyserPhase(R.riseSec + 0.01)).toMatchObject({ state: 'up', frac: 1 });
+    expect(geyserPhase(5)).toMatchObject({ state: 'up', frac: 1 });
+    expect(geyserPhase(9.99)).toMatchObject({ state: 'up', frac: 1 });
+    expect(geyserPhase(10.01).state).toBe('shrinking');
+    // 小さく なる: だんだん ひくく（10 秒 → 15 秒）
+    let prev = 1;
+    for (let t = 10.1; t < 15; t += 0.1) { const f = geyserPhase(t).frac; expect(f).toBeLessThanOrEqual(prev + 1e-9); prev = f; }
+    expect(geyserPhase(12.5).frac).toBeCloseTo((1 + R.shrinkTo) / 2, 1);
+    expect(geyserPhase(14.99).frac).toBeCloseTo(R.shrinkTo, 1);
+    // 15 秒で また ふき出す（小さい 状態から 1 秒で もとの 高さへ）
+    expect(geyserPhase(15.0).state).toBe('rising');
+    expect(geyserPhase(15.0).frac).toBeCloseTo(R.shrinkTo, 2);
+    expect(geyserPhase(16.01)).toMatchObject({ state: 'up', frac: 1 });
+    expect(geyserPhase(30.01).state).toBe('rising'); // 2 まわり目
+  });
+
+  it('1 本ごとに くり返しの 長さと 始まりが ずれる（いっせいに ふき出さない）', () => {
+    const R = T.geyser;
+    const cycles = new Set<number>(), shifts: number[] = [];
+    for (let i = 0; i < 40; i++) {
+      const x = 100 + i * 7, z = 300 - i * 3;
+      const c = cycleOf(x, z, R);
+      expect(c).toBeGreaterThanOrEqual(nominalCycle(R) * (1 - R.cycleJitter) - 1e-9);
+      expect(c).toBeLessThanOrEqual(nominalCycle(R) * (1 + R.cycleJitter) + 1e-9);
+      cycles.add(Math.round(c * 100));
+      shifts.push(hash01(x, z, 3) * R.staggerSec);
+    }
+    expect(cycles.size).toBeGreaterThan(30);
+    expect(Math.max(...shifts) - Math.min(...shifts)).toBeGreaterThan(R.staggerSec * 0.6);
+    // 伸びる 時間と 小さくなる 時間は ずれても かわらない（ずれは そのままの 時間で 合わせる）
+    const c = cycleOf(123, 456, R);
+    expect(geyserPhase(R.riseSec + 0.01, c).state).toBe('up');
+    expect(geyserPhase(c - R.shrinkSec + 0.01, c).state).toBe('shrinking');
+    expect(geyserPhase(c - 0.01, c).state).toBe('shrinking');
+  });
+
+  it('見た目の 高さは 時間で かわるが、打ち上げる 高さ（top）と 打ち上げは いつも おなじ（小さい ときも 肩の 雲の 上まで）', () => {
+    const R = T.geyser;
+    const w = make({ x: 0, y: 11, z: 0 });
+    w.f.place(A);
+    w.run(S.crackSec + 1);
+    const base = w.f.info().filter((g) => g.state !== 'cracking');
+    expect(base.length).toBe(2);
+    const g0 = base[0]!;
+    const tops = new Set<number>(), visTops: number[] = [], states = new Set<string>();
+    const apex0 = apexOf({ top: g0.top });
+    expect(apex0 - (g0.ground - 1)).toBeGreaterThanOrEqual(17 + 2 - 1); // 肩の 雲の 上 + 2
+    let minLiftVy = Infinity, seenUp = false;
+    for (let i = 0; i < 60 * 40; i++) {
+      w.f.step(DT);
+      const g = w.f.info().find((q) => q.x0 === g0.x0 && q.z0 === g0.z0)!;
+      tops.add(g.top); states.add(g.state); visTops.push(g.visTop - g.ground);
+      expect(g.visTop - g.ground).toBeLessThanOrEqual(R.visualHeight + 1e-9);
+      if (g.state === 'up') seenUp = true;
+      if (g.state === 'wait' || (g.state === 'rising' && !seenUp)) continue; // わき出す 前・さいしょの ふき出しの はじめは まだ 打ち上げない
+      // どの 時間でも 柱に 入れば 上へ（小さい ときも）
+      if (i % 25 === 0) {
+        w.player.x = g.x; w.player.z = g.z; w.player.y = g.ground; w.vel.y = 0;
+        const n = w.calls.vel.length;
+        w.f.step(DT);
+        expect(w.calls.vel.length).toBeGreaterThan(n);
+        minLiftVy = Math.min(minLiftVy, w.calls.vel.at(-1)!.y);
+        expect(w.calls.noFall.at(-1)).toBe(true);
+        w.player.x = 500; w.player.z = 500;
+        w.f.step(DT);
+      }
+    }
+    expect([...tops]).toEqual([g0.top]); // 打ち上げる 高さは ずっと おなじ
+    expect(minLiftVy).toBeGreaterThan(0);
+    expect(states.has('rising') || states.has('up')).toBe(true);
+    expect(states.has('shrinking')).toBe(true);
+    // 見た目は 10 マスまで 伸びて、小さく なる
+    expect(Math.max(...visTops)).toBeCloseTo(R.visualHeight, 3);
+    expect(Math.min(...visTops)).toBeLessThan(R.visualHeight * 0.5);
+  });
+
+  it('小さく なっている 柱の 上から 落ちても 守りが 効く（ゆっくり おりて 落下ダメージなし）', () => {
+    const R = T.geyser;
+    const w = make({ x: 0, y: 11, z: 0 });
+    w.f.place(A);
+    w.run(S.crackSec + 1);
+    const g0 = w.f.info().find((q) => q.state !== 'cracking')!;
+    // 小さく なる 時間まで すすめる
+    for (let i = 0; i < 60 * 40; i++) { w.f.step(DT); const g = w.f.info().find((q) => q.x0 === g0.x0 && q.z0 === g0.z0)!; if (g.state === 'shrinking' && g.grow < 0.5) break; }
+    const g = w.f.info().find((q) => q.x0 === g0.x0 && q.z0 === g0.z0)!;
+    expect(g.state).toBe('shrinking');
+    w.player.x = g.x; w.player.z = g.z; w.player.y = g.top - 1; w.vel.y = -20; // 柱の 上の ほうから 落ちて きた
+    w.f.step(DT);
+    expect(w.calls.vel.at(-1)!.y).toBeGreaterThanOrEqual(-R.slowFall - 1e-9);
+    expect(w.calls.noFall.at(-1)).toBe(true);
   });
 });

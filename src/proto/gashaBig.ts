@@ -18,6 +18,8 @@ import { BigActor, type ActorClips } from './gashaBigActor';
 import { sharedGashaBgm } from './gashaBgm';
 import { BigHit, type HitSources } from './gashaBigHit';
 import { GashaGeyser, type GeyserInfo } from './gashaGeyser';
+import { BigShock, type ShockHit } from './gashaBigShock';
+import { ShockFx } from './gashaBigShockFx';
 import climbUp from './gashaBigClips/climbUp.json';
 import climbDown from './gashaBigClips/climbDown.json';
 import lookBackClip from './gashaBigClips/lookBack.json';
@@ -55,6 +57,14 @@ export interface GashaBigDeps {
   scanGeyserBlocks?(found: (x: number, y: number, z: number) => void): void;
   /** 忍者の足袋（レア装備。落下ダメージ 0）を 持ち物に 入れて 着る。開始時に 1 回 呼ぶ。なければ 渡さない */
   giveNinjaTabi?(): void;
+  /** 手が 地面を たたいた ときの 打撃・衝撃波・小さい 衝撃の ダメージ（プレイヤーの combat.damage。当たったら true）。なければ ダメージなし（ひるみだけ） */
+  hurt?(amount: number, from: { x: number; y: number; z: number }): boolean;
+  /** ひるみ（試作だけ）: fn() が true の 間は プレイヤーの 入力を 止める（lock.playInputEnabled に 重ねる） */
+  blockPlayerInput?(fn: () => boolean): void;
+  /** 描く 前の 処理（画面の ゆれ）。なければ ゆらさない */
+  onBeforeRender?(fn: () => void): void;
+  /** 「うごきを へらす」の 人は ゆらさない */
+  reducedMotion?(): boolean;
 }
 
 // ---------------------------------------------------------------- 色と 面の 明るさ
@@ -213,7 +223,19 @@ class Node {
   /** 当たりの 箱を 足す（この 場所の 箱と おなじ 大きさ・向き）。親に 左右で ちがう 拡大が ある 所では 使わない */
   hit(name: string, w: number, h: number, d: number, x: number, y: number, z: number, rot?: [number, number, number]): void {
     const q = rot ? new Quaternion().setFromEuler(new Euler(rot[0], rot[1], rot[2], 'XYZ')) : new Quaternion();
-    const M = this.m.clone().multiply(new Matrix4().compose(vec(x, y, z), q, vec(1, 1, 1)));
+    this.hitM(name, this.m.clone().multiply(new Matrix4().compose(vec(x, y, z), q, vec(1, 1, 1))), w, h, d);
+  }
+
+  /** 線の ように のびた 箱（`seg` と おなじ 場所・向き）の 当たりを 足す。親に 左右で ちがう 拡大が ある 所では 使わない */
+  segHit(name: string, a: Vector3, b: Vector3, w: number, h: number, from = 0, to = 1): void {
+    const A = a.clone().lerp(b, from), B = a.clone().lerp(b, to);
+    const dd = B.clone().sub(A);
+    const { q } = frameOf(dd.clone().normalize());
+    const mid = A.clone().add(B).multiplyScalar(0.5);
+    this.hitM(name, this.m.clone().multiply(new Matrix4().compose(mid, q, vec(1, 1, 1))), w, h, dd.length());
+  }
+
+  private hitM(name: string, M: Matrix4, w: number, h: number, d: number): void {
     const pos = new Vector3(), qq = new Quaternion(), sc = new Vector3();
     M.decompose(pos, qq, sc);
     this.b.hits.push({
@@ -803,6 +825,8 @@ export interface GashaBigHandle {
   spawnGeyser(x: number, z: number, sec?: number): boolean;
   /** 忍者の足袋を 着る（開始時に も 自動で 1 回）。口が なければ 何もしない */
   giveTabi(): void;
+  /** 手が 地面を たたいた ときの 当たり（ひるみの のこり・当たった 記録・いまの 輪）。テスト用 */
+  shock(): { staggerLeft: number; inputBlocked: boolean; hits: ShockHit[]; impacts: number; shake: number; lastPush: { x: number; y: number; z: number } | null; slams: number; taps: number; phase: string; fx: { rings: number; dust: number } };
   info(): Record<string, unknown>;
   group: Group;
 }
@@ -825,6 +849,14 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
       centre: () => (actor ? { x: pos.x, z: pos.z } : null),
     })
     : null;
+  // 手が 地面を たたいた ときの 打撃・衝撃波・小さい 衝撃・ひるみ（gashaBigShock.ts）と 見た目（gashaBigShockFx.ts）
+  const shock = new BigShock({
+    player: deps.player, groundY: deps.groundY, hurt: deps.hurt, setPlayerVelocity: deps.setPlayerVelocity,
+    onGround: deps.playerBody ? () => deps.playerBody!().onGround ?? true : undefined,
+  });
+  const shockFx = new ShockFx(deps.scene, deps.camera);
+  deps.blockPlayerInput?.(() => shock.inputBlocked());
+  deps.onBeforeRender?.(() => shockFx.applyShake(deps.reducedMotion?.() ? 0 : shock.shakeNow, shock.time));
   const fwdOf = (p: { yawDeg: number }) => { const y = (p.yawDeg * Math.PI) / 180; return { fx: Math.sin(y), fz: -Math.cos(y) }; };
 
   const clear = () => {
@@ -881,7 +913,11 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
     deps.scene.add(model.group);
     // 間欠泉は ここで 場所を きめる（がしゃどくろが その後 動いても そのまま）
     geysers?.place({ x: pos.x, y: pos.y, z: pos.z, yaw, scale: s });
-    actor = new BigActor(model, CLIPS, { groundY: deps.groundY, player: deps.player, carryPlayer: deps.carryPlayer }, 293);
+    actor = new BigActor(model, CLIPS, {
+      groundY: deps.groundY, player: deps.player, carryPlayer: deps.carryPlayer,
+      onSlam: (x, y, z) => shockFx.spawn(shock.add('slam', x, y, z)),
+      onTap: (x, y, z) => shockFx.spawn(shock.add('tap', x, y, z)),
+    }, 293);
     actor.place(pos.x, pos.y, pos.z, yaw);
     actor.walk(T.wander.enabledAtStart);
     if (isAngry) actor.hit();
@@ -896,6 +932,8 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
     if (!actor) return;
     actor.update(dt);
     bh.step(dt);
+    shock.step(dt);
+    shockFx.update(dt);
     pos = actor.pos; yaw = actor.yaw;
     if (bgm) {
       const w = actor.angryLeft > 0;
@@ -928,6 +966,10 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
     geysers: () => geysers?.geysers() ?? [],
     spawnGeyser: (x, z, sec) => geysers?.spawn(x, z, sec) ?? false,
     giveTabi: () => deps.giveNinjaTabi?.(),
+    shock: () => ({
+      staggerLeft: shock.staggerLeft, inputBlocked: shock.inputBlocked(), hits: shock.hits.slice(), impacts: shock.impacts.length, shake: shock.shakeNow, lastPush: shock.lastPush,
+      slams: actor?.step.slams ?? 0, taps: actor?.step.taps ?? 0, phase: actor?.step.phase ?? '', fx: shockFx.counts(),
+    }),
     info: () => ({
       scale: model?.scale, pos: [pos.x, pos.y, pos.z], yawDeg: (yaw * 180) / Math.PI, drawCalls: model?.meshes, hitBoxes: model?.hits.length, angry: (actor?.angryLeft ?? 0) > 0, hp: bh.hp, maxHp: bh.maxHp, lastHit: bh.last,
       head: model ? model.head.clone().multiplyScalar(model.scale).applyQuaternion(new Quaternion().setFromAxisAngle(UP, yaw)).add(pos).toArray() : null,

@@ -1,8 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { Scene } from 'three';
 import { buildBig, worldHits } from './gashaBig';
 import {
-  BIG_ID_BASE, BigHit, boxTouchesCapsule, boxTouchesFan, boxTouchesSphere, closestOnBox, distToBox, mulOf, partOf, rayBox,
+  BIG_ID_BASE, BigHit, boxTouchesCapsule, boxTouchesFan, boxTouchesSphere, closestOnBox, damageOf, defOf, distToBox, mulOf, partOf, rayBox,
   type BoxLike, type HitSources, type YokaiWorldLike,
 } from './gashaBigHit';
 import { TUNE as T } from './gashaBigTuning';
@@ -32,6 +32,11 @@ function rig(sources: HitSources = {}) {
 const v = (x: number, y: number, z: number): Vec3 => ({ x, y, z });
 
 describe('gashaBigHit（#293 プレイヤーの 攻撃を 受ける）', () => {
+  // しくみの テストは 防御力を 0 にして 数を 見やすく する（防御力は 下の 専用の テスト）
+  const defSaved = { ...T.hit.partDef };
+  beforeEach(() => { for (const k of Object.keys(T.hit.partDef)) T.hit.partDef[k] = 0; });
+  afterEach(() => { Object.assign(T.hit.partDef, defSaved); });
+
   it('部位の 倍率は 調整表どおり（手 1.0・腕 0.6・頭 0.5・コア 3.0・雲 0）', () => {
     expect(partOf('handL')).toBe('hand');
     expect(partOf('foreArmR')).toBe('foreArm');
@@ -40,6 +45,12 @@ describe('gashaBigHit（#293 プレイヤーの 攻撃を 受ける）', () => {
     expect(partOf('ribbonKnot')).toBe('ribbon');
     expect(partOf('rampL3')).toBe('cloud');
     expect(partOf('bank7')).toBe('cloud');
+    for (const n of ['handThumbL', 'handFingersR']) expect(partOf(n)).toBe('hand');
+    for (const n of ['skull', 'skullTop0', 'skullJaw', 'skullTempleL']) expect(partOf(n)).toBe('head');
+    for (const n of ['torsoWaist', 'chestTop', 'neck', 'spineMid', 'collarbone', 'shoulderClothL', 'hairTailL0']) expect(partOf(n)).toBe('body');
+    expect(partOf('shoulderL3')).toBe('cloud');
+    expect(partOf('tailL4')).toBe('cloud');
+    expect(mulOf('body')).toBe(0);
     expect(mulOf('hand')).toBe(1.0);
     expect(mulOf('foreArm')).toBe(0.6);
     expect(mulOf('upperArm')).toBe(0.6);
@@ -212,5 +223,46 @@ describe('gashaBigHit（#293 プレイヤーの 攻撃を 受ける）', () => {
     expect(r.bh.hp).toBe(272.2); // 間かくの 間は 当たらない
     for (let i = 0; i < 40; i++) r.bh.step(1 / 60);
     expect(r.bh.hp).toBe(262.2);
+  });
+
+  it('防御力（はじめて）: 手は 30 ひかれる。最低 1。ほかの 部位は 今まで どおり', () => {
+    Object.assign(T.hit.partDef, defSaved); // 調整表の 本物の 数
+    expect(defSaved.hand).toBe(30);
+    for (const k of ['foreArm', 'upperArm', 'head', 'core', 'ribbon', 'cloud', 'body']) expect(defOf(k), k).toBe(0);
+    expect(defOf('なにか')).toBe(0);
+    // 手: 武器の 強さ × 1.0 − 30、ただし 最低 1
+    expect(damageOf('hand', 10)).toBe(1);
+    expect(damageOf('hand', 30)).toBe(1);
+    expect(damageOf('hand', 31)).toBe(1);
+    expect(damageOf('hand', 32)).toBe(2);
+    expect(damageOf('hand', 100)).toBe(70); // レジェンダリー 級
+    expect(damageOf('hand', 0.5)).toBe(1);
+    expect(damageOf('hand', 0)).toBe(0); // 強さ 0 いかは 当たらない
+    // ほかの 部位は 防御力 0（今まで どおり 強さ × 倍率）
+    expect(damageOf('foreArm', 10)).toBe(6);
+    expect(damageOf('upperArm', 10)).toBe(6);
+    expect(damageOf('head', 10)).toBe(5);
+    expect(damageOf('core', 10)).toBe(30);
+    expect(damageOf('cloud', 10)).toBe(0);
+    expect(damageOf('body', 10)).toBe(0);
+    // 防御力が あっても 倍率 0 の 部位は 当たらない（最低 1 は 当たる 部位だけ）
+    T.hit.partDef.cloud = 50;
+    expect(damageOf('cloud', 10)).toBe(0);
+    // 最低 1 は 倍率が かかった あとで 引く（倍率 2 の 手に 20 → 40 − 30 = 10）
+    const mul = T.hit.partMul.hand;
+    try { T.hit.partMul.hand = 2; expect(damageOf('hand', 20)).toBe(10); } finally { T.hit.partMul.hand = mul; }
+  });
+
+  it('防御力は 体力に も 反映: 手だけ 殴り続けても 体力は 0 に ならない（1 ずつ へる）、コアは 防御力なし', () => {
+    Object.assign(T.hit.partDef, defSaved);
+    const r = rig();
+    for (let i = 0; i < 100; i++) expect(r.bh.damage('hand', 20)).toBe(1); // 弱い 武器でも 1
+    expect(r.bh.hp).toBe(200);
+    for (let i = 0; i < 100; i++) r.bh.damage('hand', 29); // 防御力 いかでも 最低 1
+    expect(r.bh.hp).toBe(100);
+    expect(r.bh.last?.dealt).toBe(1);
+    expect(r.bh.damage('hand', 80)).toBe(50);
+    expect(r.bh.damage('core', 10)).toBe(30);
+    expect(r.calls()).toBeGreaterThan(0);
   });
 });

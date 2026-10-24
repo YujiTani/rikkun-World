@@ -42,58 +42,63 @@ describe('gashaBigActor（#293 はって進む・目・乗っている人）', (
     expect(diff).toBe(0);
   });
 
-  it('動きの 速さは 調整表どおり。進む 速さは 手が すべらない 歩幅 から 決まる。ついている 手が あり、腕が とどく', () => {
+  it('進む 速さの 目安 = 1 歩の 長さ ÷ 1 歩の 秒（1 歩 = ためる → たたきつける → 引きよせる）。さがる クリップは ついている 手が あり、腕が とどく', () => {
     const { actor } = rig();
-    expect(actor.crawlRate).toBe(T.crawl.motionRate);
-    const c = (actor as unknown as { baked: { crawl: { stride: number; duration: number } } }).baked.crawl;
-    expect(actor.strideScale).toBeGreaterThan(0.5); // 素材 → 箱の 長さの 倍率（腕の 長さの 比 くらい）
-    expect(actor.crawlSpeed).toBeCloseTo((c.stride * actor.model.scale * T.crawl.motionRate) / c.duration, 9);
-    console.log('strideScale', actor.strideScale.toFixed(3), 'stride(blocks)', (c.stride * actor.model.scale).toFixed(1), 'speed', actor.crawlSpeed.toFixed(3), 'plant', JSON.stringify(actor.plant));
-    for (const r of actor.plant) {
-      expect(r.planted.Left).toBeGreaterThan(10);
-      expect(r.planted.Right).toBeGreaterThan(10);
-      expect(r.overreachMax).toBeLessThan(1 / actor.model.scale); // 腕が とどかない のは 1 ブロック 未満
-    }
+    const st = actor.step;
+    expect(st.stride).toBeGreaterThan(10); // 腕の 届く ぶん（もとの 座標）
+    expect(actor.crawlSpeed).toBeCloseTo((st.stride * actor.model.scale) / st.stepSec(), 9);
+    expect(actor.crawlRate).toBe(T.crawl.motionRate); // さがる 動きの 速さ
+    console.log('stride(blocks)', (st.stride * actor.model.scale).toFixed(2), 'stepSec', st.stepSec().toFixed(2), 'speed', actor.crawlSpeed.toFixed(3));
+    const back = actor.plant[1]!;
+    expect(back.planted.Left).toBeGreaterThan(10);
+    expect(back.planted.Right).toBeGreaterThan(10);
+    expect(back.overreachMax).toBeLessThan(1 / actor.model.scale);
   });
 
-  it('goTo: 前へ はって 進む（1 まわりで 歩幅 ぶん）。着くと 止まる', () => {
+  it('goTo: 前へ 進む（1 歩で 1 歩の 長さ ぶん）。着くと 止まる', () => {
     const { actor } = rig();
     actor.walk(false);
     actor.goTo(0, 400); // +z が 前
-    const c = (actor as unknown as { baked: { crawl: { stride: number; duration: number } } }).baked.crawl;
-    const cycle = c.duration / actor.crawlRate;
-    run(actor, cycle);
+    const stride = actor.step.stride * actor.model.scale;
+    run(actor, actor.step.stepSec() + 0.05);
     expect(actor.mode).toBe('crawl');
-    expect(actor.pos.z).toBeCloseTo(c.stride * actor.model.scale, 1); // 1 まわりで ちょうど 歩幅
-    expect(actor.pos.z / cycle).toBeCloseTo(actor.crawlSpeed, 2);
+    expect(actor.step.steps).toBe(1);
+    expect(actor.pos.z).toBeCloseTo(stride, 1); // 1 歩で ちょうど 1 歩の 長さ
     expect(Math.abs(actor.pos.x)).toBeLessThan(0.01);
     const { actor: b } = rig();
     b.walk(false);
-    b.goTo(0, 4);
-    run(b, cycle);
+    b.goTo(0, stride * 1.2);
+    run(b, 2 * b.step.stepSec() + 1);
     expect(b.mode).toBe('idle');
-    expect(Math.hypot(b.pos.x, b.pos.z - 4)).toBeLessThan(T.wander.arriveDist + 0.5);
+    expect(Math.abs(b.pos.z - stride * 1.2)).toBeLessThan(stride * 0.5 + 0.01); // のこりが 半歩 より 近ければ 止まる
   });
 
-  it('既定の はう 動きは ゆっくり（1/10: 動き 0.05 倍 = 1 まわり 約 40 秒、向きを かえるのも ゆっくり）', () => {
-    expect(T.crawl.motionRate).toBeLessThanOrEqual(0.05);
-    expect(T.crawl.strideMul).toBe(1); // 手が すべらない 歩幅
-    expect(T.crawl.turnDegPerSec).toBeLessThanOrEqual(1.5);
-    expect(T.lookBack.rate).toBeLessThanOrEqual(0.06);
+  it('速さは 1/10 を やめて 1/3（yuzu 2026-10-24）: 3 段の 秒は 目安どおり、向きを かえる・ふり返る・さがる は もとの 1/3', () => {
+    const C = T.crawl;
+    expect(C.windupSec).toBeGreaterThanOrEqual(2.5); expect(C.windupSec).toBeLessThanOrEqual(3);
+    expect(C.holdSec).toBeGreaterThanOrEqual(0.3); expect(C.holdSec).toBeLessThanOrEqual(0.5);
+    expect(C.slamSec).toBeGreaterThanOrEqual(0.25); expect(C.slamSec).toBeLessThanOrEqual(0.4);
+    expect(C.pullSec).toBeGreaterThanOrEqual(1.5); expect(C.pullSec).toBeLessThanOrEqual(2);
+    expect(C.turnDegPerSec).toBe(4); // 12 の 1/3
+    expect(T.lookBack.rate).toBeCloseTo(0.2, 6); // 0.6 の 1/3
+    expect(T.angry.turnDegPerSec).toBeCloseTo(25 / 3, 0); // 25 の 約 1/3
+    expect(C.motionRate).toBeCloseTo(0.5 / 3, 2); // さがる 0.5 の 1/3
+    expect(T.clips.idleFadeSec).toBeCloseTo(0.6 * 3, 6);
   });
 
-  it('はう クリップは 1 つを くり返す（climbing up wall）。back(true) で 後ろへ さがり（climbing down wall）、back(false) で 止まる', () => {
+  it('前へ 進む ときは クリップを 使わない（キーの 姿勢）。back(true) で 後ろへ さがり（climbing down wall）、back(false) で 止まる', () => {
     const { actor } = rig();
     actor.walk(false);
     actor.goTo(0, 400);
     const clipName = () => (actor as unknown as { player: { clip: { name: string } | null } }).player.clip?.name ?? '';
     const names = new Set<string>();
-    for (let i = 0; i < 100 * 60; i++) { actor.update(DT); names.add(clipName()); }
-    expect([...names]).toEqual([climbUp.name]);
+    for (let i = 0; i < 20 * 60; i++) { actor.update(DT); names.add(clipName()); }
+    expect([...names]).toEqual(['']);
+    expect(actor.step.slams).toBeGreaterThanOrEqual(3);
     const z0 = actor.pos.z;
     actor.back(true);
     expect(actor.mode).toBe('back');
-    run(actor, 60);
+    run(actor, 20);
     expect(clipName()).toBe(climbDown.name);
     expect(actor.pos.z).toBeLessThan(z0 - 5); // 後ろへ さがった
     actor.back(false);
@@ -103,77 +108,33 @@ describe('gashaBigActor（#293 はって進む・目・乗っている人）', (
     expect(actor.pos.z).toBe(z1);
   });
 
-  /** はいながら、ついている 手（手首が 地面の 高さに 20 コマ いじょう つづけて ある 間）の 世界での 横の 速さを 集める */
-  function stanceSpeeds(actor: BigActor, warm: number, sec: number): { med: number; fastRatio: number; n: number } {
-    actor.walk(false);
-    actor.goTo(0, 400);
-    run(actor, warm);
-    const y0 = actor.model.rest.LeftHand.y * actor.model.scale; // 手首が 地面に ぺたんと ついた ときの 高さ
-    const a = new Vector3(), b = new Vector3();
-    const runs: [number, number][][] = [[], []];
-    const speeds: number[] = [];
-    let fast = 0;
-    // つく・はなれる ふちは 手が 動いている ので 数えない（クリップの 0.05 秒 ぶん。動きが おそい ほど コマ数が ふえる）
-    const trim = Math.max(8, Math.ceil((0.05 / actor.crawlRate) * 60));
-    const flush = (k: number): void => {
-      const r = runs[k]!;
-      if (r.length >= 3 * trim) for (let i = trim; i < r.length - trim; i++) {
-        const sp = Math.hypot(r[i]![0] - r[i - 1]![0], r[i]![1] - r[i - 1]![1]) / DT;
-        speeds.push(sp);
-        if (sp > actor.crawlSpeed) fast++;
+  it('1 歩の 段の つなぎ目で 手首が とばない（たたきつけて 止まる コマ いがいは 1 コマの うごきが なめらか）', () => {
+    for (const side of ['LeftHand', 'RightHand'] as const) {
+      const { actor } = rig();
+      actor.walk(false);
+      actor.goTo(0, 400);
+      const a = new Vector3();
+      let prev: Vector3 | null = null, lastStep = NaN, worst = 0, boundaries = 0, lastPhase = actor.step.phase;
+      const slamSec = actor.step.phaseSec('slam');
+      for (let i = 0; i < Math.ceil(3 * actor.step.stepSec() * 60); i++) {
+        actor.update(DT);
+        const ph = actor.step.phase;
+        actor.model.joints[side].getWorldPosition(a);
+        if (prev) {
+          const step = a.distanceTo(prev);
+          // たたきつけ（だんだん 速く → 地面で ぴたっと 止まる）と つきなおしの 着く コマは のぞく
+          const skip = ph === 'slam' || (ph === 'pull' && lastPhase === 'slam') || (ph === 'windup' && lastPhase === 'pull');
+          if (!skip && !Number.isNaN(lastStep)) worst = Math.max(worst, Math.abs(step - lastStep));
+          lastStep = step;
+        }
+        if (ph !== lastPhase) boundaries++;
+        lastPhase = ph;
+        prev = a.clone();
       }
-      runs[k] = [];
-    };
-    for (let i = 0; i < sec * 60; i++) {
-      actor.update(DT);
-      actor.model.joints.LeftHand.getWorldPosition(a); actor.model.joints.RightHand.getWorldPosition(b);
-      [a, b].forEach((v, k) => { if (Math.abs(v.y - y0) < 0.05 * actor.model.scale / 0.465) runs[k]!.push([v.x, v.z]); else flush(k); });
+      console.log(side, 'worst speed change per frame', worst.toFixed(4), 'boundaries', boundaries, 'slamSec', slamSec);
+      expect(boundaries).toBeGreaterThanOrEqual(10);
+      expect(worst).toBeLessThan(0.25); // 1 コマで 0.25 ブロック より 大きく 速さが かわらない
     }
-    speeds.sort((x, y) => x - y);
-    return { med: speeds[Math.floor(speeds.length / 2)] ?? NaN, fastRatio: fast / Math.max(1, speeds.length), n: speeds.length };
-  }
-
-  it('ついている 手は 地面で すべらない（世界での 速さが からだの 平均の 速さの 1 割 いか）。大きさが かわっても', () => {
-    const keep = T.size.height;
-    try {
-      for (const h of [30, 60]) {
-        T.size.height = h;
-        const { actor } = rig();
-        const r = stanceSpeeds(actor, 30, 90);
-        console.log('height', h, 'speed', actor.crawlSpeed.toFixed(3), 'stance median', r.med.toFixed(4), 'fast', r.fastRatio.toFixed(3), 'n', r.n);
-        expect(r.n).toBeGreaterThan(50);
-        expect(r.med).toBeLessThan(actor.crawlSpeed * 0.1);
-        expect(r.fastRatio).toBeLessThan(0.25);
-      }
-    } finally { T.size.height = keep; }
-  });
-
-  it('ループの つなぎ目で 手首が とばない（1 コマの うごきが 小さい）', () => {
-    const { actor } = rig();
-    actor.walk(false);
-    actor.goTo(0, 400);
-    const a = new Vector3();
-    const pl = (actor as unknown as { player: { time: number; clip: { duration: number } | null } }).player;
-    let prev: Vector3 | null = null, lastStep = NaN, worst = 0, fastest = 0, wraps = 0, lastLoop = 0;
-    // 回す コマ数は 動きの 速さ（調整表の motionRate）から 決める: 2.5 まわり ぶん（つなぎ目を 2 回 通る）
-    const frames = Math.ceil(((2.5 * pl.clip!.duration) / actor.crawlRate) * 60);
-    for (let i = 0; i < frames; i++) {
-      actor.update(DT);
-      const loop = Math.floor(pl.time / pl.clip!.duration);
-      if (loop !== lastLoop) wraps++;
-      lastLoop = loop;
-      actor.model.joints.LeftHand.getWorldPosition(a);
-      if (prev) {
-        const step = a.distanceTo(prev);
-        fastest = Math.max(fastest, step);
-        if (!Number.isNaN(lastStep)) worst = Math.max(worst, Math.abs(step - lastStep)); // 1 コマごとの 速さの かわり方（とびが あれば 大きい）
-        lastStep = step;
-      }
-      prev = a.clone();
-    }
-    console.log('wrist: fastest step', fastest.toFixed(4), 'worst speed change per frame', worst.toFixed(4), 'loop wraps', wraps);
-    expect(wraps).toBeGreaterThanOrEqual(2);
-    expect(worst).toBeLessThan(fastest * 0.6);
   });
 
   it('さまよう: シードが おなじなら おなじ 道を 通る。ちがえば ちがう', () => {
@@ -209,7 +170,7 @@ describe('gashaBigActor（#293 はって進む・目・乗っている人）', (
     const { actor, ply } = rig();
     ply.x = 100; ply.z = 0; // +x の 方
     actor.goTo(0, 300);
-    run(actor, 3);
+    run(actor, T.crawl.windupSec + T.crawl.holdSec + T.crawl.slamSec + 0.3); // ③ 引きよせ の 中
     expect(actor.speedNow).toBeGreaterThan(0);
     const eye = actor.model.eyes.color;
     expect(eye.r).toBeCloseTo(1, 3); expect(eye.g).toBeCloseTo(1, 3);

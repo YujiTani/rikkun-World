@@ -8,7 +8,7 @@
  *  ・刀・真空波・らせん・雷・ドームは 妖怪の 一覧（円柱）で 当たりを 見て いる ので、がしゃどくろには 当たらない。
  *    そこで 毎ステップ 「いまの 当たりの 形」を 聞いて（HitSources。つなぎは gashaBigHitWire.ts）、箱と 重なったら ここで 受ける。
  *
- * ダメージ = ふだんの 武器の 強さ × 部位の 倍率（gashaBigTuning.ts の hit.partMul）。1 回の 攻撃（1 振り・1 発の 波・1 回の 雷）で 1 回だけ。
+ * ダメージ = 最低 1（ふだんの 武器の 強さ × 部位の 倍率 − 部位の 防御力。gashaBigTuning.ts の hit.partMul・partDef）。1 回の 攻撃（1 振り・1 発の 波・1 回の 雷）で 1 回だけ。
  * 画面・DOM は 体力ゲージ（document が あるとき）だけ。数は ぜんぶ gashaBigTuning.ts。
  */
 import { BoxGeometry, Mesh, MeshBasicMaterial, type Scene } from 'three';
@@ -28,20 +28,33 @@ export interface BoxLike {
   half: ArrayLike<number>;
 }
 
-export type Part = 'hand' | 'foreArm' | 'upperArm' | 'head' | 'core' | 'ribbon' | 'cloud';
+export type Part = 'hand' | 'foreArm' | 'upperArm' | 'head' | 'core' | 'ribbon' | 'cloud' | 'body';
 
-/** 箱の 名前 → 部位（gashaBig.ts の 当たりの 名前: hand・foreArm・upperArm・skull・ribbon*・それ以外は 雲） */
+/** 箱の 名前 → 部位（gashaBig.ts の 当たりの 名前: hand*（指・親指も）・foreArm・upperArm・skull*（頭がいの よこ・ほお・あご・てっぺんも）・ribbon*・torso/spine/chest/neck/collar/shoulderCloth/hair* は 胴体・それ以外は 雲） */
 export function partOf(name: string): Part {
   if (name.startsWith('hand')) return 'hand';
   if (name.startsWith('foreArm')) return 'foreArm';
   if (name.startsWith('upperArm')) return 'upperArm';
-  if (name === 'skull') return 'head';
+  if (name.startsWith('skull')) return 'head';
   if (name.startsWith('ribbon')) return 'ribbon';
+  if (/^(torso|spine|chest|neck|collar|shoulderCloth|hair)/.test(name)) return 'body';
   return 'cloud';
 }
 
+const round2 = (v: number): number => Math.round(v * 100 + 1e-7) / 100;
+
 /** 部位の 倍率（表に なければ 0） */
 export const mulOf = (part: string): number => Math.max(0, T.hit.partMul[part] ?? 0);
+
+/** 部位の 防御力（受ける ダメージから ひく 数。表に なければ 0） */
+export const defOf = (part: string): number => Math.max(0, T.hit.partDef[part] ?? 0);
+
+/** ダメージ = 最低 1（武器の 強さ × 部位の 倍率 − 部位の 防御力）。倍率が 0 の 部位・強さが 0 いかは 0（当たらない） */
+export function damageOf(part: string, amount: number): number {
+  const mul = mulOf(part);
+  if (!(mul > 0) || !(amount > 0)) return 0;
+  return round2(Math.max(1, amount * mul - defOf(part)));
+}
 
 /** 仮の 妖怪 id の はじまり（本物の 妖怪の id と ぶつからない 大きい 数） */
 export const BIG_ID_BASE = 900_000_000;
@@ -178,7 +191,6 @@ export interface HitEnv {
 
 export interface LastHit { part: Part; mul: number; dealt: number; source: string; at: Vec3 | null; hp: number }
 
-const round2 = (v: number): number => Math.round(v * 100 + 1e-7) / 100;
 const SPARKS_MAX = 48;
 
 /** 体力・倍率・怒る・火花・光る・体力ゲージ。1 つの からだに つき 1 つ（bind で からだを つなぐ） */
@@ -244,8 +256,8 @@ export class BigHit {
   /** 部位に ダメージ（武器の 強さ amount × 倍率）。実際に 与えた 数を 返す（倍率 0 なら 0 で、怒らない） */
   damage(part: string, amount: number, at: Vec3 | null = null, source = 'test'): number {
     const mul = mulOf(part);
-    if (!(mul > 0) || !(amount > 0)) return 0;
-    const dealt = round2(amount * mul);
+    const dealt = damageOf(part, amount);
+    if (dealt <= 0) return 0;
     this.hp = Math.max(0, round2(this.hp - dealt));
     this.hits++;
     this.last = { part: part as Part, mul, dealt, source, at: at ? { ...at } : null, hp: this.hp };

@@ -10,9 +10,9 @@ import {
   Matrix4, MeshBasicMaterial, Quaternion, RepeatWrapping, Vector3, type Scene,
 } from 'three';
 import { TUNE as T } from './gashaBigTuning';
-import { GeyserField, MAX_CELLS, crackStage, type FieldDeps, type GeyserInfo, type GeyserPlaceArgs } from './gashaGeyserField';
+import { GeyserField, MAX_CELLS, crackStage, geyserPhase, type FieldDeps, type GeyserInfo, type GeyserPlaceArgs } from './gashaGeyserField';
 
-export { apexOf, crackStage, funnelRadius, inColumn, liftStep, planShoulders, worldOf, type GeyserInfo, type GeyserPlaceArgs, type GeyserSpec } from './gashaGeyserField';
+export { apexOf, crackStage, cycleOf, geyserPhase, hash01, nominalCycle, funnelRadius, inColumn, liftStep, planShoulders, worldOf, type GeyserInfo, type GeyserPlaceArgs, type GeyserSpec } from './gashaGeyserField';
 
 export interface GeyserDeps extends FieldDeps {
   scene: Scene;
@@ -146,23 +146,24 @@ export class GashaGeyser {
     let ci = 0, si = 0, ki = 0;
     for (const g of this.field.specs()) {
       const cx = g.x0 + g.w / 2, cz = g.z0 + g.d / 2, age = t - g.born;
-      const grow = Math.min(1, Math.max(0, age / R.riseSec));
-      const ease = 1 - (1 - grow) * (1 - grow);
+      const phase = geyserPhase(age, g.cycle, R);
+      const grow = phase.frac; // 見た目の 高さの 割合（打ち上げる 高さは これに よらない）
       // われ目: 水が わく 前から ひろがる
       const open = age > -0.4 ? 1 : 0.5;
       m.compose(this.v.set(cx, g.ground + 0.03, cz), q.identity(), this.sc.set(g.w * 0.95 * open, 1, g.d * 0.95 * open));
       this.cracks.setMatrixAt(ki++, m);
       // 柱: 地面の マスに ぴったり（当たり）。見た目は widen 倍に 太く、芯を もう 1 まい かさねて 濃く
-      const h = Math.max(0.001, (g.top - g.ground) * ease);
-      m.compose(this.v.set(cx, g.ground, cz), q.identity(), this.sc.set(g.w * R.widen, h, g.d * R.widen));
+      const h = Math.max(0.001, R.visualHeight * grow);
+      const thin = 0.65 + 0.35 * grow; // 小さく なる ときは 細くも なる
+      m.compose(this.v.set(cx, g.ground, cz), q.identity(), this.sc.set(g.w * R.widen * thin, h, g.d * R.widen * thin));
       this.columns.setMatrixAt(ci++, m);
-      m.compose(this.v.set(cx, g.ground, cz), q.identity(), this.sc.set(g.w * 0.6, h, g.d * 0.6));
+      m.compose(this.v.set(cx, g.ground, cz), q.identity(), this.sc.set(g.w * 0.6 * thin, h, g.d * 0.6 * thin));
       this.columns.setMatrixAt(ci++, m);
       // 根元の 湯気
       const size = (g.w + g.d) / 2;
       for (let k = 0; k < R.steamCount; k++, si++) {
         const ph = (t * 0.55 + k / R.steamCount + g.x0 * 0.173) % 1;
-        const burst = age > 0 ? Math.exp(-age * 1.8) : 0;
+        const burst = age > 0 ? Math.exp(-phase.since * 1.8) : 0;
         const on = age > -0.4 ? 1 : 0;
         const sz = size * (0.9 + 1.1 * ph + 0.9 * burst) * on;
         const ang = (k / R.steamCount) * Math.PI * 2 + g.z0;

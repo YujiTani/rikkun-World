@@ -26,6 +26,8 @@ export interface GeyserSpec {
   top: number;
   /** わき出す 時間（シミュレーションの 秒） */
   born: number;
+  /** 1 本の くり返しの 長さ（秒）。なければ 調整表の 合計（riseSec + holdSec + shrinkSec） */
+  cycle?: number;
 }
 
 export interface GeyserPlaceArgs {
@@ -57,6 +59,35 @@ export function planShoulders(a: GeyserPlaceArgs, tune: Tune = T.geyser): { x0: 
     const p = worldOf(a, s * tune.shoulderX * a.scale, tune.shoulderZ * a.scale);
     return { x0: Math.round(p.x - c / 2), z0: Math.round(p.z - c / 2), cells: c, top: a.y + tune.height };
   });
+}
+
+/** 場所から きまる 0〜1 の 数（シードなし。1 本ごとの ずれに 使う） */
+export function hash01(x: number, z: number, salt = 0): number {
+  let h = Math.imul(x | 0, 73856093) ^ Math.imul(z | 0, 19349663) ^ Math.imul(salt | 0, 83492791);
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  h ^= h >>> 16;
+  return (h >>> 0) / 4294967296;
+}
+
+/** 調整表の 1 本の くり返しの 長さ（ふき出す + そのまま + 小さくなる） */
+export const nominalCycle = (tune: Tune = T.geyser): number => tune.riseSec + tune.holdSec + tune.shrinkSec;
+
+/** 1 本ごとの くり返しの 長さ（±cycleJitter。場所から きまる） */
+export function cycleOf(x0: number, z0: number, tune: Tune = T.geyser): number {
+  return nominalCycle(tune) * (1 + tune.cycleJitter * (hash01(x0, z0, 1) * 2 - 1));
+}
+
+/** 柱の 見た目の 時間の 流れ: age（わき出してからの 秒）→ 状態と 高さの 割合（0〜1。visualHeight に かける）。
+ *  ふき出す（riseSec）→ そのまま（holdSec。長さの ずれは ここで 合わせる）→ 小さくなる（shrinkSec）→ また ふき出す。打ち上げは この 割合に よらない */
+export function geyserPhase(age: number, cycle: number = nominalCycle(), tune: Tune = T.geyser): { state: 'wait' | 'rising' | 'up' | 'shrinking'; frac: number; since: number } {
+  if (age < 0) return { state: 'wait', frac: 0, since: 0 };
+  const c = age % cycle;
+  const hold = Math.max(0, cycle - tune.riseSec - tune.shrinkSec);
+  const f0 = age < cycle ? 0 : tune.shrinkTo;
+  if (c < tune.riseSec) { const p = c / Math.max(1e-6, tune.riseSec); return { state: 'rising', frac: f0 + (1 - f0) * (1 - (1 - p) * (1 - p)), since: c }; }
+  if (c < tune.riseSec + hold) return { state: 'up', frac: 1, since: c };
+  const p = (c - tune.riseSec - hold) / Math.max(1e-6, tune.shrinkSec);
+  return { state: 'shrinking', frac: 1 + (tune.shrinkTo - 1) * Math.min(1, p), since: c };
 }
 
 /** 柱の 中か（足もとの 場所 x, y, z。柱の 根元の すこし 下から 上の はしまで） */
@@ -99,9 +130,11 @@ export interface GeyserInfo {
   x: number;
   z: number;
   /** wait = わく 前、rising = 伸びて いる、up = 立っている、cracking = ひびが 入って かわって いる 途中（まだ 打ち上げない） */
-  state: 'wait' | 'rising' | 'up' | 'cracking';
-  /** 柱が 伸びた 割合（0〜1）／かわる 途中は 進み（0〜1） */
+  state: 'wait' | 'rising' | 'up' | 'shrinking' | 'cracking';
+  /** 柱の 見た目の 高さの 割合（0〜1。visualHeight に かける）／かわる 途中は 進み（0〜1） */
   grow: number;
+  /** 柱の 見た目の 上の はし（世界の 高さ。ground + visualHeight × grow）。打ち上げる 高さ（top）は かわらない */
+  visTop: number;
   /** かわる 途中の ひびの 段（1〜crackStages）。それ以外は 0 */
   stage: number;
 }
@@ -201,17 +234,17 @@ export class GeyserField {
   info(): GeyserInfo[] {
     const R = T.geyser;
     const out: GeyserInfo[] = this.specList.map((g) => {
-      const age = this.t - g.born;
+      const ph = geyserPhase(this.t - g.born, g.cycle, R);
       return {
         x0: g.x0, z0: g.z0, cells: g.w, w: g.w, d: g.d, ground: g.ground, top: g.top, x: g.x0 + g.w / 2, z: g.z0 + g.d / 2,
-        state: age < 0 ? 'wait' : age < R.riseSec ? 'rising' : 'up', grow: Math.min(1, Math.max(0, age / R.riseSec)), stage: 0,
+        state: ph.state, grow: ph.frac, visTop: g.ground + R.visualHeight * ph.frac, stage: 0,
       };
     });
     for (const p of this.pend) {
       const prog = Math.min(1, p.t / Math.max(1e-6, p.dur));
       const y = p.cells[0]!.y + 1;
       out.push({
-        x0: p.x0, z0: p.z0, cells: p.w, w: p.w, d: p.d, ground: y, top: p.top ?? y + R.height, x: p.x0 + p.w / 2, z: p.z0 + p.d / 2,
+        x0: p.x0, z0: p.z0, cells: p.w, w: p.w, d: p.d, ground: y, top: p.top ?? y + R.height, visTop: y, x: p.x0 + p.w / 2, z: p.z0 + p.d / 2,
         state: 'cracking', grow: prog, stage: crackStage(prog, R.spawn.crackStages),
       });
     }
@@ -303,7 +336,7 @@ export class GeyserField {
     for (const q of p.cells) {
       this.d.setBlock(q.x, q.y, q.z, BLOCK);
       const k = key(q.x, q.z);
-      this.cells.set(k, { x: q.x, y: q.y, z: q.z, born: this.t + T.geyser.delaySec[0] });
+      this.cells.set(k, { x: q.x, y: q.y, z: q.z, born: this.t + T.geyser.delaySec[0] + hash01(p.x0, p.z0, 3) * T.geyser.staggerSec });
       if (p.top !== null) this.tops.set(k, p.top);
     }
     this.rebuild();
@@ -371,7 +404,10 @@ export class GeyserField {
           const t = this.tops.get(key(c.x, c.z));
           if (t !== undefined) top = t;
         }
-        specs.push({ x0: px0, z0: pz0, w: px1 - px0 + 1, d: pz1 - pz0 + 1, ground: y + 1, top: top ?? y + 1 + R.height, born });
+        specs.push({
+          x0: px0, z0: pz0, w: px1 - px0 + 1, d: pz1 - pz0 + 1, ground: y + 1, top: top ?? y + 1 + R.height,
+          born, cycle: cycleOf(px0, pz0, R),
+        });
       }
     }
     this.specList = specs;
@@ -393,7 +429,7 @@ export class GeyserField {
     let vy = vel.y;
     const reach = R.funnelMax + 2;
     for (const g of this.specList) {
-      if (this.t - g.born < R.riseSec * 0.5) continue; // まだ わき出して いない
+      if (this.t - g.born < R.riseSec * 0.3) continue; // まだ わき出して いない
       const cx = g.x0 + g.w / 2, cz = g.z0 + g.d / 2, half = Math.max(g.w, g.d) / 2;
       if (Math.abs(p.x - cx) > half + reach || Math.abs(p.z - cz) > half + reach) continue;
       const gk = key(g.x0, g.z0);
