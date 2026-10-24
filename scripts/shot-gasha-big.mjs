@@ -1,4 +1,4 @@
-// #293 試作: 大きい がしゃどくろ（?proto=gashaBig）の スクショを 2 枚（正面から ぜんたい／雲の はしごの 上の プレイヤー）。開発サーバー http://localhost:5173 が 動いて いること
+// #293 試作: 大きい がしゃどくろ（?proto=gashaBig）の スクショを 3 枚（正面から ぜんたい（間欠泉が 見える）／肩の 雲の 上の プレイヤー／間欠泉で 打ち上がる プレイヤー）。開発サーバー http://localhost:5173 が 動いて いること
 //   node scripts/shot-gasha-big.mjs [出力フォルダ]
 //   開発サーバーは playwright.config.ts の webServer と おなじ 環境変数で 立てる:
 //   VITE_START_MENU=off VITE_SHADOW_DEFAULT=off VITE_MICRO_DEFAULT=off VITE_FRAME_CLOCK=count VITE_RING_DEFAULT=small npx vite --port 5173 --strictPort
@@ -72,11 +72,11 @@ await page.evaluate((d) => window.__rikkun.settings.set('thirdPersonDistance', d
 const SIDE1 = Number(process.env.SIDE1 ?? 0), BACK = Number(process.env.BACK1 ?? 50);
 await put(X0 - SIDE1, fy + 1, Z0 + BACK, (Math.atan2(SIDE1, BACK + 40) * 180) / Math.PI, Number(process.env.PITCH1 ?? 14));
 await step(180);
-await page.screenshot({ path: join(OUT, 'gasha-big-front.png') });
+await page.screenshot({ path: join(OUT, process.env.NAME1 ?? 'gasha-big-front.png') });
 console.log('shot1', mpos);
 
 // 2: 肩の 雲の 上に プレイヤー
-const hits = await page.evaluate((n) => window.__gashaBig.colliders().filter((c) => c.name === n).map((c) => ({ c: c.center, h: c.half, a: c.axes })), 'climbL' + (process.env.RUNG2 ?? '10'));
+const hits = await page.evaluate((n) => window.__gashaBig.colliders().filter((c) => c.name === n).map((c) => ({ c: c.center, h: c.half, a: c.axes })), process.env.CLOUD2 ?? 'shoulderL9');
 const sh = hits[0];
 const topY = sh.c[1] + sh.h[1];
 const px = sh.c[0], pz = sh.c[2];
@@ -85,6 +85,17 @@ await put(px, topY + 0.05, pz, Number(process.env.YAW2 ?? 0), Number(process.env
 await step(120);
 await page.screenshot({ path: join(OUT, 'gasha-big-shoulder.png') });
 console.log('shot2 player at', px.toFixed(1), topY.toFixed(1), pz.toFixed(1), 'state', JSON.stringify(await page.evaluate(() => window.__rikkun.player.get().position)));
+// 3: 間欠泉で 打ち上がる プレイヤー（肩の 下の 間欠泉の 中ほど）
+{
+  const gs = await page.evaluate(() => window.__gashaBig.geysers());
+  const ref = hits[0];
+  const gy = [...gs].sort((a, b) => Math.hypot(a.x - ref.c[0], a.z - ref.c[2]) - Math.hypot(b.x - ref.c[0], b.z - ref.c[2]))[0];
+  console.log('geysers', JSON.stringify(gs.map((q) => [q.x, q.z, q.ground, q.top, q.state])));
+  await page.evaluate((d) => window.__rikkun.settings.set('thirdPersonDistance', d), Number(process.env.CAM3 ?? 11));
+  await put(gy.x, gy.ground + Number(process.env.UP3 ?? 6), gy.z, Number(process.env.YAW3 ?? 90), Number(process.env.PITCH3 ?? -8));
+  await step(2);
+  await page.screenshot({ path: join(OUT, 'gasha-big-geyser.png') });
+}
 if (process.env.EXTRA_SHOTS) {
   // 見て 直す 用の 追加の 写真（出力は おなじ フォルダ）
   const mp = info.pos;

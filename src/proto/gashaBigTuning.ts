@@ -91,8 +91,8 @@ export const TUNE = {
     delaySec: [0.6, 1.8] as [number, number], // 置いてから わき出すまで（秒。ずらす）
     riseSec: 0.7, // 柱が 伸びる 秒
     flowSpeed: 1.6, // 水の すじの ながれる はやさ（1 秒に 柱の 何倍）
-    color: 0xcfeeff, // 柱の 色（白〜水色）
-    opacity: 0.55, // 柱の 濃さ
+    color: 0xb8e2ff, // 柱の 色（白〜水色）
+    opacity: 0.9, // 柱の 濃さ
     steamCount: 4, // 根元の 湯気の 数（1 本あたり）
     seed: 7,
   },

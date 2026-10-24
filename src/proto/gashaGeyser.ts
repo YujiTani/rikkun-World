@@ -149,12 +149,12 @@ function streakTexture(): CanvasTexture {
   }
   // 全体の うすい 水色（芯）
   const fill = g.createLinearGradient(0, H, 0, 0);
-  fill.addColorStop(0, 'rgba(210,240,255,0.55)'); fill.addColorStop(1, 'rgba(210,240,255,0.08)');
+  fill.addColorStop(0, 'rgba(205,236,255,0.8)'); fill.addColorStop(1, 'rgba(205,236,255,0.5)');
   g.fillStyle = fill; g.fillRect(0, 0, W, H);
   // よこの ふちを うすく
   g.globalCompositeOperation = 'destination-in';
   const edge = g.createLinearGradient(0, 0, W, 0);
-  edge.addColorStop(0, 'rgba(0,0,0,0.15)'); edge.addColorStop(0.2, 'rgba(0,0,0,1)'); edge.addColorStop(0.8, 'rgba(0,0,0,1)'); edge.addColorStop(1, 'rgba(0,0,0,0.15)');
+  edge.addColorStop(0, 'rgba(0,0,0,0.4)'); edge.addColorStop(0.15, 'rgba(0,0,0,1)'); edge.addColorStop(0.85, 'rgba(0,0,0,1)'); edge.addColorStop(1, 'rgba(0,0,0,0.4)');
   g.fillStyle = edge; g.fillRect(0, 0, W, H);
   const tex = new CanvasTexture(cv);
   tex.wrapS = tex.wrapT = RepeatWrapping;
