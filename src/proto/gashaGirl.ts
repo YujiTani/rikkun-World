@@ -1,6 +1,7 @@
 /**
- * #293 試作（開発サーバーだけ）: がしゃどくろ 第二形態（少女）の「ワープ → 詠唱 → 魔法 4 種」。
- * `?proto=gashaGirl` のときだけ main.ts から 読まれる。GLB は public/models/gasha/girl-cast.glb（相対パス。公開版でも 読める。頂点の 使わない 属性を 減らし、テクスチャは JPEG の 圧縮を 強めて 約 4 MB）。
+ * #293 がしゃどくろ 第二形態（少女）の「ワープ → 詠唱 → 魔法 4 種」。
+ * 試作ページ（`?proto=gashaGirl`、開発サーバーだけ）は すぐ はじまる。ふだんの ゲームでは `{ dormant: true }` で 読みこんで ねかせて おき（見えない・動かない・描かない）、
+ * 大きな 姿の 体力が 1/3 に なったら release.ts が summon() で はじめる（5 回の 魔法 → onBigReturn で 大きな 姿が もどって 休む → onBigLeave → また 少女）。dismiss() で 止める。GLB は public/models/gasha/girl-cast.glb（相対パス。公開版でも 読める。頂点の 使わない 属性を 減らし、テクスチャは JPEG の 圧縮を 強めて 約 4 MB）。
  * 少女は 歩かない・走らない（移動は ワープだけ）。ふだんは ゾンビの ように 右うでを 前に 出して 立つ。
  * すべて Game.onUpdate の 固定ステップで 進める。乱数は シード付き。ダメージは なし（見た目だけ）。
  * 魔法 1: 背面か 左横へ ワープ → プレイヤーの 足もとに 噴き出す / 2: 真後ろ → 周囲攻撃（渦）/
@@ -263,6 +264,26 @@ class ParticlePool {
 const easeOut = (t: number) => 1 - (1 - Math.min(1, Math.max(0, t))) ** 3;
 const clamp01 = (t: number) => Math.min(1, Math.max(0, t));
 
+export interface GashaGirlOpts {
+  /** true: 読みこんだ あと ねかせて おく（ふだんの ゲーム）。summon() で はじまる。なければ すぐ はじまる（?proto=gashaGirl） */
+  dormant?: boolean;
+  /** dormant: 5 回の 魔法が おわって 少女が 消えた。大きな 姿が もどって restSec 秒（eye.bigWaitSec）休む */
+  onBigReturn?(restSec: number): void;
+  /** dormant: 休みが おわって 少女が また ワープで 出る 直前（大きな 姿を かくす） */
+  onBigLeave?(): void;
+}
+
+/** ふだんの ゲームから 少女を 動かす 口 */
+export interface GirlController {
+  /** 少女の 戦いを はじめる（2 秒 何もいない → 背面か 横へ ワープして 詠唱）。dormant のときだけ */
+  summon(): void;
+  /** 止めて かくす（エフェクト・弾・BGM の 頼み・文字を 消す）。dormant のときだけ */
+  dismiss(): void;
+  /** 少女の 戦いの 最中か（ねかせて いる 間は false） */
+  active(): boolean;
+  handle: GashaGirlHandle;
+}
+
 export interface GashaGirlHandle {
   place(opts?: { groundY?: number; shift?: number; side?: boolean }): void;
   figures: Group[];
@@ -290,19 +311,22 @@ export interface GashaGirlHandle {
 
 const SPELLS = 4;
 
-export function startGashaGirl(deps: GashaGirlDeps): void {
+export function startGashaGirl(deps: GashaGirlDeps, opts: GashaGirlOpts = {}): Promise<GirlController> {
   applyTuneFromUrl(location.search);
-  new GLTFLoader().load(
-    './models/gasha/girl-cast.glb',
-    (gltf) => {
-      void import('three/examples/jsm/utils/SkeletonUtils.js').then(({ clone }) => build(deps, gltf.scene, gltf.animations[0]!, clone));
-    },
-    undefined,
-    (e) => console.warn('[proto gashaGirl] 読めません', e),
-  );
+  return new Promise<GirlController>((resolve, reject) => {
+    new GLTFLoader().load(
+      './models/gasha/girl-cast.glb',
+      (gltf) => {
+        void import('three/examples/jsm/utils/SkeletonUtils.js').then(({ clone }) => resolve(build(deps, gltf.scene, gltf.animations[0]!, clone, opts)), reject);
+      },
+      undefined,
+      (e) => { console.warn('[gashaGirl] 読めません', e); reject(e instanceof Error ? e : new Error('girl glb')); },
+    );
+  });
 }
 
-function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (o: Object3D) => Object3D): void {
+function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (o: Object3D) => Object3D, opts: GashaGirlOpts): GirlController {
+  const dormant = opts.dormant === true;
   const scene = deps.scene;
   const front = new Vector3(0, 0, 1);
   const H = GIRL_HEIGHTS[0]!;
@@ -721,7 +745,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
   const showBig = (on: boolean) => {
     if (!bigEl) {
       bigEl = document.createElement('div');
-      bigEl.style.cssText = 'position:fixed;left:0;right:0;top:40%;text-align:center;z-index:99999;pointer-events:none;font:bold 56px/1.4 IPAGothic,sans-serif;color:#fff;text-shadow:0 0 10px #a040ff,0 0 4px #000,2px 2px 0 #000';
+      bigEl.style.cssText = 'position:fixed;left:0;right:0;top:40%;text-align:center;z-index:50;pointer-events:none;font:bold 56px/1.4 IPAGothic,sans-serif;color:#fff;text-shadow:0 0 10px #a040ff,0 0 4px #000,2px 2px 0 #000';
       bigEl.innerHTML = `${ruby('大', 'おお')}きな${ruby('姿', 'すがた')}にもどる`;
       document.body.appendChild(bigEl);
     }
@@ -736,8 +760,8 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
   };
 
   // ---- 少女の 流れ ----
-  type Phase = 'stand' | 'vanish' | 'gone' | 'appear' | 'cast' | 'shy' | 'bigvanish' | 'bigtext' | 'bigwait';
-  let phase: Phase = 'stand', pt = 0, spell = 0;
+  type Phase = 'dormant' | 'stand' | 'vanish' | 'gone' | 'appear' | 'cast' | 'shy' | 'bigvanish' | 'bigtext' | 'bigwait';
+  let phase: Phase = dormant ? 'dormant' : 'stand', pt = 0, spell = 0;
   let side: 'left' | 'back' = 'back', dist = 4.5, ang = 0;
   let turn = 0, cancels = 0, eyeNow = false, soundCount = 0, lastSoundT = -1, bigCount = 0;
   let wave2Done = false;
@@ -865,6 +889,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
   
   deps.onUpdate((dt) => {
     bgmStep();
+    if (phase === 'dormant') return; // ねかせて いる 間は 何も しない
     t += dt; pt += dt;
     const frozen = flinchT > 0;
     if (frozen) { flinchT -= dt; pt -= dt; const u = 1 - Math.max(0, flinchT) / flinchTotal; model.rotation.x = -T.parry.flinchTiltRad * Math.sin(Math.PI * u); if (flinchT <= 0) model.rotation.x = 0; } // 短く 止まって 小さく のけぞる
@@ -890,9 +915,9 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
       fade(clamp01(pt / T.timing.vanishSec));
       if (pt >= T.timing.vanishSec) { pivot.visible = false; phase = 'bigtext'; pt = 0; showBig(true); bgm.request('girl', false); }
     } else if (phase === 'bigtext') {
-      if (pt >= T.eye.bigTextSec) { showBig(false); phase = 'bigwait'; pt = 0; }
+      if (pt >= T.eye.bigTextSec) { showBig(false); phase = 'bigwait'; pt = 0; if (dormant) opts.onBigReturn?.(T.eye.bigWaitSec); }
     } else if (phase === 'bigwait') {
-      if (pt >= T.eye.bigWaitSec) { turn = 0; cancels = 0; bigCount++; chooseWarp(); phase = 'gone'; pt = T.timing.goneSec; }
+      if (pt >= T.eye.bigWaitSec) { if (dormant) opts.onBigLeave?.(); turn = 0; cancels = 0; bigCount++; chooseWarp(); phase = 'gone'; pt = T.timing.goneSec; }
     } else {
       faceTo(p);
       if (spell === 2) castLen = Math.max(clipDur(), T.cast.fireAt * clipDur() + T.s3.count * T.s3.shotGap + 0.4);
@@ -963,13 +988,14 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
   const upOff = new Vector3();
   const baseFov = (deps.camera as PerspectiveCamera).fov ?? 70;
   deps.onBeforeRender(() => {
+    if (phase === 'dormant') return;
     const cam = deps.camera as PerspectiveCamera;
     const px = (window.innerHeight * Math.min(window.devicePixelRatio, 2)) / (2 * Math.tan((cam.fov * D2R) / 2));
     add.mat.uniforms.uPx!.value = px; smoke.mat.uniforms.uPx!.value = px;
     const wantFov = baseFov;
     if (camMode === 'idleSide') { const q = pivot.rotation.y; cam.position.set(pivot.position.x + Math.cos(q) * 4.6, pivot.position.y + 1.7, pivot.position.z - Math.sin(q) * 4.6); cam.lookAt(pivot.position.x, pivot.position.y + 1.5, pivot.position.z); cam.updateMatrixWorld(true); }
     if (camMode === 'idle') { const q = pivot.rotation.y; cam.position.set(pivot.position.x + Math.sin(q) * 3.8 + Math.cos(q) * 1.0, pivot.position.y + 1.9, pivot.position.z + Math.cos(q) * 3.8 - Math.sin(q) * 1.0); cam.lookAt(pivot.position.x, pivot.position.y + 1.5, pivot.position.z); cam.updateMatrixWorld(true); }
-    if (cam.fov !== wantFov) { cam.fov = wantFov; cam.updateProjectionMatrix(); }
+    if (camMode !== 'default' && cam.fov !== wantFov) { cam.fov = wantFov; cam.updateProjectionMatrix(); } // ふだんの 画角は ゲームに まかせる
     if ((camMode === 'look' || camMode === 'close') && pivot.visible) { const p = deps.player(); headCenter(headC);
       cam.position.set(p.x, p.y + 1.6, p.z);
       if (camMode === 'close') { upOff.copy(cam.position).sub(headC); upOff.y = 0; cam.position.copy(headC).addScaledVector(upOff.normalize(), 1.7); cam.position.y = headC.y + 0.1; } // 顔の すぐ 前まで 近づく
@@ -991,6 +1017,22 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
   };
   void GAP;
   place();
+  /** ねかせる とき・止める とき: 少女・魔法・弾・文字・BGM の 頼みを ぜんぶ 消す */
+  const sleep = (): void => {
+    action.stop(); mixer.stopAllAction(); mixerLeft = 0; restorePose(); model.rotation.x = 0; flinchT = 0;
+    fade(0);
+    pivot.visible = false;
+    setShy(false); showBig(false);
+    for (const e of erups) { e.e.t = -1; e.e.root.visible = false; }
+    for (const v of vortices) { v.v.t = -1; v.v.root.visible = false; v.showWarn(false); }
+    for (const q of projs) q.on = false;
+    for (const b of bursts) { b.on = false; b.mesh.visible = false; }
+    add.clear(); smoke.clear();
+    add.points.visible = smoke.points.visible = false;
+    forced = -1; reflectWait = 0; holdStand = false;
+    bgm.request('girl', false);
+  };
+  if (dormant) sleep();
   const warn0 = () => phase === 'cast' && spell === 1 && !fired;
   const handle: GashaGirlHandle = {
     tune: (o) => applyTune(o),
@@ -1019,4 +1061,21 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
   };
   (window as unknown as { __gashaGirl: GashaGirlHandle }).__gashaGirl = handle;
   void Color;
+  const controller: GirlController = {
+    summon: () => {
+      if (!dormant || phase !== 'dormant') return;
+      add.points.visible = smoke.points.visible = true;
+      turn = 0; cancels = 0; reflectWait = 0;
+      chooseWarp();
+      phase = 'gone'; pt = 0; // 2 秒 何も いない（「どこいった？」）→ ワープ
+    },
+    dismiss: () => {
+      if (!dormant || phase === 'dormant') return;
+      phase = 'dormant';
+      sleep();
+    },
+    active: () => phase !== 'dormant',
+    handle,
+  };
+  return controller;
 }

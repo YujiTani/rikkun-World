@@ -4,6 +4,8 @@
  *    場所と 向きは gashaBig.ts の `place({ x, z, yawDeg })` に 直接 わたす（プレイヤーの 方を 向く）。
  *  ・たおす（体力 0。gashaBig.ts の onDefeated で 知らせが 来る）か、プレイヤーが 遠く（despawnDistance）へ はなれると
  *    gashaBig.ts の `despawn()` で 片づける（体・当たり・間欠泉・ゲージ・射線・エフェクト・音が ぜんぶ 消える）。次の 出番は また place() で 使いまわす。
+ *  ・体力が 1/3 以下に なると 大きな 姿を かくして 少女の 形態へ（gashaGirl.ts。5 回の 魔法 → 大きな 姿が もどって 2 分 休む → また 少女、を くりかえす。
+ *    少女の しくみは 先に 読みこんで ねかせて おき、きりかえで summon() する。休みの 秒・もどる 合図は 少女の 係が 決める）。
  *  ・たおしたら: 実績を 記録 → BGM を 止める → その 場所に 大きな 宝箱（bigChest.ts）→ 近づくと ひらいて 中身（reward.ts）。
  *  ・遠くは 世界が 読みこまれて いない ので、地面の 高さは 地形から、地ならし（fillBlocks）は 列が 読みこまれる まで 待つ。
  * 数は ぜんぶ releaseTuning.ts。ゲームとの つなぎは ReleaseEnv（main.ts が 渡す）。
@@ -31,6 +33,10 @@ export interface BossHandle {
   walk(on: boolean): void;
   /** `pos: [x, y, z]`（体の 足もと） */
   info(): Record<string, unknown>;
+  /** 少女に かわる 間だけ かくす / もどす（体力・怒り・位置は のこる） */
+  hide?(on: boolean): void;
+  /** つかれて sec 秒 休む（もどった 大きな 姿を 休ませる） */
+  tired?(sec?: number): void;
   /** 体の 3D の かたまり（place() の たびに 作りなおされる）。あれば 遠くで シルエットに 見える ように する */
   readonly group?: Object3D;
 }
@@ -57,6 +63,8 @@ export interface ReleaseEnv {
   lighting?: { registerTree(root: Object3D, group: 'doll'): number; unregister?(m: unknown): void };
   /** 試作の 係を 読みこんで 作る（初めの 1 回だけ。作る とき `at` に place() される）。wrap で 入り口を すりかえる */
   start(wrap: DepsWrap, at: { x: number; z: number; yawDeg?: number }): Promise<BossHandle>;
+  /** 少女の 形態を 読みこんで 作る（初めの 1 回だけ）。ねかせて おき、summon() で はじまる。なければ 少女は 出ない */
+  startGirl?(hooks: GirlHooks): Promise<GirlControl>;
   /** 落ちた アイテムとして ばらまく（DropField.scatter） */
   scatter(at: { x: number; y: number; z: number }, stacks: readonly ItemStack[], opts?: { speedMin?: number; speedMax?: number; upMin?: number; upMax?: number }): void;
   /** 実績の 記録（`defeat:gashadokuro`） */
@@ -70,7 +78,26 @@ export interface ReleaseEnv {
   showBar?(on: boolean): void;
 }
 
+/** 少女の 形態の 係（gashaGirl.ts の GirlController） */
+export interface GirlControl {
+  /** 少女の 戦いを はじめる（すぐ ワープして 5 回の 魔法） */
+  summon(): void;
+  /** 止めて かくす（エフェクト・BGM の 頼みも 消す） */
+  dismiss(): void;
+  active(): boolean;
+}
+
+/** 少女の 係が 知らせる 合図 */
+export interface GirlHooks {
+  /** 5 回の 魔法が おわって 少女が 消えた。大きな 姿が もどって restSec 秒 休む */
+  onBigReturn(restSec: number): void;
+  /** 休みが おわって 少女が また ワープで 出る 直前（大きな 姿を かくす） */
+  onBigLeave(): void;
+}
+
 export type ReleaseState = 'idle' | 'loading' | 'present' | 'defeated';
+/** big = 大きな 姿で たたかう / girl = 少女（大きな 姿は かくれて いる）/ rest = 大きな 姿が もどって 休んでいる */
+export type ReleaseForm = 'big' | 'girl' | 'rest';
 
 interface ChestEntry {
   logic: ChestLogic;
@@ -105,6 +132,10 @@ export class GashaRelease {
   private lingerLeft = 0;
   private killCount = 0;
   private cancelLoad = false;
+  private girl: GirlControl | null = null;
+  private girlLoading = false;
+  private girlFailed = false;
+  private form: ReleaseForm = 'big';
   private readonly chestList: ChestEntry[] = [];
   private readonly pending: PendingFill[] = [];
   private bossPos: { x: number; y: number; z: number } | null = null;
@@ -186,6 +217,7 @@ export class GashaRelease {
       this.st = 'idle';
       return false;
     }
+    this.form = 'big';
     this.dress();
     if (this.cancelLoad) { this.cancelLoad = false; this.st = 'present'; this.despawn(); return false; }
     this.st = 'present';
@@ -208,6 +240,7 @@ export class GashaRelease {
     if (this.st === 'loading') { this.cancelLoad = true; return; }
     this.pending.length = 0;
     if (!this.handle || this.st === 'idle') { this.st = 'idle'; return; }
+    this.endGirl();
     this.handle.despawn();
     this.bossPos = null;
     this.st = 'idle';
@@ -226,6 +259,47 @@ export class GashaRelease {
     if (Array.isArray(pos) && pos.length === 3) this.bossPos = { x: Number(pos[0]), y: Number(pos[1]), z: Number(pos[2]) };
   }
 
+  // ---------------------------------------------------------------- 少女への きりかえ
+  /** 少女を 止めて かくす（たおした・消える とき）。大きな 姿に 戻した 状態にして おく */
+  private endGirl(): void {
+    this.girl?.dismiss();
+    this.form = 'big';
+  }
+
+  /** 体力を 見て、少しずつ 少女を 読みこみ、1/3 以下で 大きな 姿を かくして 少女を 出す */
+  private stepGirl(): void {
+    const h = this.handle;
+    if (!h || this.form !== 'big' || !this.env.startGirl || !h.hide) return;
+    const hp = h.hp(), max = h.maxHp();
+    if (!(max > 0) || hp <= 0) return;
+    const G = RELEASE.girl;
+    if (!this.girl && !this.girlLoading && !this.girlFailed && hp <= max * G.loadHpFraction) {
+      this.girlLoading = true;
+      this.env.startGirl({
+        onBigReturn: (restSec) => this.bigReturn(restSec),
+        onBigLeave: () => this.bigLeave(),
+      }).then((g) => { this.girl = g; }, () => { this.girlFailed = true; /* 読めなければ 大きな 姿だけで たたかう */ }).finally(() => { this.girlLoading = false; });
+    }
+    if (this.girl && hp <= max * G.hpFraction) {
+      h.hide(true);
+      this.form = 'girl';
+      this.girl.summon();
+    }
+  }
+
+  private bigReturn(restSec: number): void {
+    if (this.st !== 'present' || !this.handle?.hide) return;
+    this.handle.hide(false);
+    this.handle.tired?.(restSec);
+    this.form = 'rest';
+  }
+
+  private bigLeave(): void {
+    if (this.st !== 'present' || !this.handle?.hide) return;
+    this.handle.hide(true);
+    this.form = 'girl';
+  }
+
   // ---------------------------------------------------------------- たおした
   /** たおした ことに する（体力が 0 に なった とき 自動で 呼ばれる。開発用にも） */
   defeat(): void {
@@ -233,6 +307,7 @@ export class GashaRelease {
     this.readPos();
     const at = this.bossPos ?? this.env.player();
     this.st = 'defeated';
+    this.endGirl();
     this.lingerLeft = RELEASE.defeat.lingerSec;
     this.killCount++;
     this.env.record('defeat:gashadokuro');
@@ -306,6 +381,7 @@ export class GashaRelease {
     if (this.st === 'present' || this.st === 'defeated') updateSilhouette();
     if (this.st === 'present') {
       if (this.handle && this.handle.hp() <= 0) { this.defeat(); return; }
+      this.stepGirl();
       this.checkClock += dt;
       if (this.checkClock >= RELEASE.spawn.checkEverySec) {
         this.checkClock = 0;
@@ -347,10 +423,11 @@ export class GashaRelease {
     return this.chestList.map((c) => ({ x: c.x, y: c.y, z: c.z, phase: c.logic.phase, lidDeg: c.logic.lidDeg, items: c.stacks.map((s) => `${s.item}x${s.count}`) }));
   }
 
-  info(): { state: ReleaseState; pos: { x: number; y: number; z: number } | null; distance: number | null; pendingFills: number; chests: number; lastDay: number; kills: number } {
+  info(): { state: ReleaseState; form: ReleaseForm; pos: { x: number; y: number; z: number } | null; distance: number | null; pendingFills: number; chests: number; lastDay: number; kills: number } {
     const pos = this.bossPos;
     return {
       state: this.st,
+      form: this.form,
       pos: pos ? { ...pos } : null,
       distance: pos ? horizontalDistance(this.env.player(), pos) : null,
       pendingFills: this.pending.length,
