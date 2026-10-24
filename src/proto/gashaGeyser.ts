@@ -119,7 +119,13 @@ export class GashaGeyser {
     this.cracks.name = 'geyserCracks';
     for (const m of [this.columns, this.steam, this.cracks]) { m.frustumCulled = false; m.renderOrder = 4; m.count = 0; d.scene.add(m); }
     this.cracks.renderOrder = 1;
-    d.onUpdate((dt) => { if (this.field.sleeping()) return; this.field.step(dt); this.layout(); });
+    d.onUpdate((dt) => {
+      if (this.field.sleeping()) return;
+      // プレイヤーが ボスから 遠い(perf.farDist より 遠い)間は 数えなおし・物理・見た目を まいコマ やらない
+      const c = d.centre(), b = d.body().position;
+      if (c && Math.hypot(b.x - c.x, b.z - c.z) > T.perf.farDist) return;
+      this.field.step(dt); this.layout();
+    });
   }
 
   /** 置く（肩の 下の 2 本を かえはじめる）。ワールドの 間欠泉の つちは そのまま */

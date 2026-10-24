@@ -7,7 +7,7 @@
  *  ・体力が 1/3 以下に なると 大きな 姿を かくして 少女の 形態へ（gashaGirl.ts。5 回の 魔法 → 大きな 姿が もどって 2 分 休む → また 少女、を くりかえす。
  *    少女の しくみは 先に 読みこんで ねかせて おき、きりかえで summon() する。休みの 秒・もどる 合図は 少女の 係が 決める）。
  *  ・たおしたら: 実績を 記録 → BGM を 止める → その 場所に 大きな 宝箱（bigChest.ts）→ 近づくと ひらいて 中身（reward.ts）。
- *  ・遠くは 世界が 読みこまれて いない ので、地面の 高さは 地形から、地ならし（fillBlocks）は 列が 読みこまれる まで 待つ。
+ *  ・遠くは 世界が 読みこまれて いない ので、体の 高さは 読みこみ済みなら 世界の 地面（置いた ブロック込み）、未読みこみなら 地形から。地ならしは しない（浮いて 進む ので いらない。プレイヤーの 家・畑を 消さない）。
  * 数は ぜんぶ releaseTuning.ts。ゲームとの つなぎは ReleaseEnv（main.ts が 渡す）。
  */
 import type { Object3D, Scene } from 'three';
@@ -56,7 +56,7 @@ export interface ReleaseEnv {
   isLoaded(x: number, z: number): boolean;
   /** 読みこんで いない 所の 地面の いちばん 上の ブロックの 高さ（地形から） */
   terrainTop(x: number, z: number): number;
-  /** 読みこんだ 所の 地面の いちばん 上の ブロックの 高さ（宝箱を 置く とき） */
+  /** 読みこんだ 所の 地面の いちばん 上の ブロックの 高さ（プレイヤーが 置いた ブロック・家・畑も ふくむ。体を 出す 高さに 使う） */
   groundY(x: number, z: number): number;
   scene: Scene;
   /** 昼夜の 明るさの 係。あれば 宝箱の 材料を 登録して 夜は 暗くする */
@@ -110,11 +110,6 @@ interface ChestEntry {
   removeAt: number | null;
 }
 
-interface PendingFill {
-  apply(): void;
-  cols: [number, number][];
-}
-
 export interface SpawnOpts {
   /** プレイヤーからの 距離（ブロック）。なければ dev.distance */
   distance?: number;
@@ -137,7 +132,6 @@ export class GashaRelease {
   private girlFailed = false;
   private form: ReleaseForm = 'big';
   private readonly chestList: ChestEntry[] = [];
-  private readonly pending: PendingFill[] = [];
   private bossPos: { x: number; y: number; z: number } | null = null;
   private clock = 0;
 
@@ -149,7 +143,6 @@ export class GashaRelease {
 
   // ---------------------------------------------------------------- 入り口のすりかえ（試作の 係に わたす）
   readonly wrap: DepsWrap = (d) => {
-    const { fillBlocks } = d;
     return {
       ...d,
       noTabi: true, // 足袋は ごほうび なので はじめから 着せない
@@ -157,24 +150,10 @@ export class GashaRelease {
       onDefeated: () => { d.onDefeated?.(); this.defeat(); },
       // 読みこんで いない 遠くは 地形の 高さ
       groundY: (x, z) => (this.env.isLoaded(x, z) ? d.groundY(x, z) : this.env.terrainTop(x, z)),
-      // 地ならしは 列が そろって から
-      fillBlocks: fillBlocks
-        ? (x0, y0, z0, x1, y1, z1, id) => this.fill(() => fillBlocks(x0, y0, z0, x1, y1, z1, id), [[x0, z0], [x1, z0], [x0, z1], [x1, z1], [(x0 + x1) >> 1, (z0 + z1) >> 1]])
-        : undefined,
+      // 出す 高さ: 読みこみ済みなら 世界の 地面（置いた ブロック込み）、未読みこみなら 地形から。地ならしは しない（浮いて 進む）
+      placeGroundY: (x, z) => (this.env.isLoaded(x, z) ? this.env.groundY(x, z) : this.env.terrainTop(x, z)),
     };
   };
-
-  private fill(apply: () => void, cols: [number, number][]): void {
-    if (cols.every(([x, z]) => this.env.isLoaded(x, z))) apply();
-    else this.pending.push({ apply, cols });
-  }
-
-  private flushFills(): void {
-    for (let i = 0; i < this.pending.length;) {
-      const f = this.pending[i]!;
-      if (f.cols.every(([x, z]) => this.env.isLoaded(x, z))) { this.pending.splice(i, 1); f.apply(); } else i++;
-    }
-  }
 
   // ---------------------------------------------------------------- 出す・しまう
   /** ゲームの 1 日の はじまり（あさ）。くじを 引いて、当たれば 出す */
@@ -238,7 +217,6 @@ export class GashaRelease {
   /** 消す（たおされた あとも 遠くはなれた ときも）。gashaBig.ts の despawn() で 体・当たり・間欠泉・ゲージ・射線・エフェクト・音を 片づける */
   despawn(): void {
     if (this.st === 'loading') { this.cancelLoad = true; return; }
-    this.pending.length = 0;
     if (!this.handle || this.st === 'idle') { this.st = 'idle'; return; }
     this.endGirl();
     this.handle.despawn();
@@ -386,14 +364,13 @@ export class GashaRelease {
       if (this.checkClock >= RELEASE.spawn.checkEverySec) {
         this.checkClock = 0;
         this.readPos();
-        this.flushFills();
         if (this.bossPos && shouldDespawn(horizontalDistance(this.env.player(), this.bossPos))) this.despawn();
         else this.applyBar();
       }
     } else if (this.st === 'defeated') {
       this.lingerLeft -= dt;
       this.checkClock += dt;
-      if (this.checkClock >= RELEASE.spawn.checkEverySec) { this.checkClock = 0; this.flushFills(); }
+      if (this.checkClock >= RELEASE.spawn.checkEverySec) this.checkClock = 0;
       if (this.lingerLeft <= 0) this.despawn();
     }
   }
@@ -423,14 +400,13 @@ export class GashaRelease {
     return this.chestList.map((c) => ({ x: c.x, y: c.y, z: c.z, phase: c.logic.phase, lidDeg: c.logic.lidDeg, items: c.stacks.map((s) => `${s.item}x${s.count}`) }));
   }
 
-  info(): { state: ReleaseState; form: ReleaseForm; pos: { x: number; y: number; z: number } | null; distance: number | null; pendingFills: number; chests: number; lastDay: number; kills: number } {
+  info(): { state: ReleaseState; form: ReleaseForm; pos: { x: number; y: number; z: number } | null; distance: number | null; chests: number; lastDay: number; kills: number } {
     const pos = this.bossPos;
     return {
       state: this.st,
       form: this.form,
       pos: pos ? { ...pos } : null,
       distance: pos ? horizontalDistance(this.env.player(), pos) : null,
-      pendingFills: this.pending.length,
       chests: this.chestList.length,
       lastDay: this.lastDay,
       kills: this.killCount,

@@ -5,7 +5,7 @@
  *  ・読めて いない 間は 鳴らさない（ループは 読めたら あとから 始まる）。tired_* は 使わない。
  */
 import { TUNE as T } from './gashaBigTuning';
-import { createWebAudioPlayerBase, type SfxEnv } from './gashaBigSfxPlayer';
+import { createWebAudioPlayerBase, type SfxEnv, type SfxOut } from './gashaBigSfxPlayer';
 
 export type BigSfxName = keyof typeof T.sfx.gain;
 
@@ -151,16 +151,18 @@ export function createBigSfx(env: BigSfxEnv, tune: SfxTune = T.sfx, seed = 294) 
 }
 export type BigSfx = ReturnType<typeof createBigSfx>;
 
-/** 本物の 鳴らす 口（WebAudio）。初めて 呼ばれたとき ファイルを 全部 読みこむ。読めない 所でも 動く */
-export function createBigWebAudioPlayer(): BigSfxEnv & { preload(): void } {
-  const base = createWebAudioPlayerBase(allBigSfxUrls);
+/** 本物の 鳴らす 口（WebAudio）。初めて 呼ばれたとき ファイルを 全部 読みこむ。読めない 所でも 動く。out = ゲームの ミキサーの 効果音バス（なければ 自前） */
+export function createBigWebAudioPlayer(out?: SfxOut): BigSfxEnv & { preload(): void } {
+  const base = createWebAudioPlayerBase(allBigSfxUrls, out);
   return {
     preload: base.preload,
     now: base.now,
     play: base.play,
+    stopAll: base.stopAll,
     loop: (url, gain, fadeInSec) => {
-      const c = base.context(), buf = base.buffer(url);
-      if (!c || !buf) return null;
+      const r = base.route(), buf = base.buffer(url);
+      if (!r || !buf) return null;
+      const c = r.ctx;
       try {
         if (c.state === 'suspended') void c.resume();
         const src = c.createBufferSource(), g = c.createGain();
@@ -168,7 +170,7 @@ export function createBigWebAudioPlayer(): BigSfxEnv & { preload(): void } {
         const t0 = c.currentTime;
         g.gain.setValueAtTime(0, t0);
         g.gain.linearRampToValueAtTime(gain, t0 + Math.max(0.01, fadeInSec));
-        src.connect(g); g.connect(c.destination);
+        src.connect(g); g.connect(r.dest);
         src.start(t0);
         return {
           stop: (fadeOutSec: number) => {

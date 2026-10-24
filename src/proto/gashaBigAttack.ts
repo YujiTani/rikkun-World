@@ -84,6 +84,9 @@ export class AttackCycle {
     else { this.phase = 'gap'; this.left = this.randIn(T.attack.gapSec); }
   }
 
+  /** 攻撃を 中断した（少女への 切りかえなど）: ならしに もどる。出し終えた 数は のこす */
+  abortToGap(): void { this.phase = 'gap'; this.current = null; this.left = this.randIn(T.attack.gapSec); }
+
   // ---- デバッグ・テスト用
   forceAttack(name: string): void { this.phase = 'attack'; this.current = name; this.left = 0; }
   forceTired(sec?: number): void { this.phase = 'tired'; this.current = null; this.left = sec ?? this.randIn(T.tired.restSec); }

@@ -39,6 +39,11 @@ const TRACKS: BgmTrack[] = ['saiyaku', 'kamigami'];
 
 interface TrackState {
   buf: AudioBuffer | null;
+  /** 読みこんだ ままの ファイル（ミキサーの 音が 使えるように なる まで 待つ。自前の AudioContext は 作らない） */
+  raw: ArrayBuffer | null;
+  decoding: boolean;
+  /** 止めた とき の 流れて いた 場所(曲の 秒)と 時刻。すぐ また 頼まれたら その つづきから 流す */
+  lastStop: { pos: number; at: number } | null;
   fetched: boolean;
   missing: boolean;
   src: AudioBufferSourceNode | null;
@@ -64,8 +69,8 @@ export class GashaBgm {
   /** この 時刻（音の 時計）まで 曲を はじめない（ふだんの BGM が フェードアウトする 間 まつ） */
   private holdUntil = 0;
   private readonly tr: Record<BgmTrack, TrackState> = {
-    saiyaku: { buf: null, fetched: false, missing: false, src: null, gain: null, ctxStart: 0 },
-    kamigami: { buf: null, fetched: false, missing: false, src: null, gain: null, ctxStart: 0 },
+    saiyaku: { buf: null, raw: null, decoding: false, lastStop: null, fetched: false, missing: false, src: null, gain: null, ctxStart: 0 },
+    kamigami: { buf: null, raw: null, decoding: false, lastStop: null, fetched: false, missing: false, src: null, gain: null, ctxStart: 0 },
   };
 
   constructor(private readonly env: GashaBgmEnv) {}
@@ -75,6 +80,12 @@ export class GashaBgm {
     this.want[owner] = on;
     if (owner === 'girl' && on) this.girlLock = true;
     this.decide();
+  }
+
+  /** 先に 読みこんで おく(頼まれてから 読みこむと 出る 瞬間に 曲が とぎれる)。流しは しない。ミキサーの 音が 使えるように なったら 変換も すます */
+  preload(...tracks: BgmTrack[]): void {
+    for (const k of tracks) this.load(k);
+    this.decodePending();
   }
 
   /** 少女が 出た 記録も けして、ぜんぶ 止める（テスト・スクショ用） */
@@ -116,14 +127,31 @@ export class GashaBgm {
     const get = this.env.loadFile
       ?? ((url: string) => fetch(url).then((r) => (r.ok && /audio/.test(r.headers.get('content-type') ?? '') ? r.arrayBuffer() : Promise.reject(new Error('no bgm')))));
     void get(FILE[track])
-      .then(async (ab) => { const o = this.env.bgmOut(); const ctx = o?.ctx ?? new AudioContext(); t.buf = await ctx.decodeAudioData(ab); })
+      .then((ab) => { t.raw = ab; this.decodePending(); })
       .catch(() => { t.missing = true; });
+  }
+
+  /** 読みこんだ ファイルを 音に 変換する。ミキサーの ctx が 使えるように なるまで 待つ(自前の ctx は 作らない: 音量・ミュートが 効く ように) */
+  private decodePending(): void {
+    const o = this.env.bgmOut();
+    if (!o) return;
+    for (const k of TRACKS) {
+      const t = this.tr[k];
+      if (!t.raw || t.buf || t.decoding) continue;
+      const ab = t.raw;
+      t.decoding = true;
+      void o.ctx.decodeAudioData(ab)
+        .then((b) => { t.buf = b; t.raw = null; })
+        .catch(() => { t.missing = true; })
+        .finally(() => { t.decoding = false; });
+    }
   }
 
   /** 毎コマ 呼ぶ。頼まれた 曲を 流し、ほかの 曲は フェードアウトして 止める */
   step(): void {
     const want = this.desired;
     if (want !== null) this.load(want);
+    this.decodePending();
     const sup = want !== null;
     if (sup !== this.suppressed) {
       this.suppressed = sup;
@@ -167,8 +195,12 @@ export class GashaBgm {
     // 何かの 都合で 音源が おわって しまっても、まだ 頼まれて いれば 次の step() で 頭から また 流す
     src.onended = () => { if (t.src === src) { t.src = null; t.gain = null; try { g.disconnect(); } catch { /* むし */ } } };
     if (o.ctx.state === 'suspended') void o.ctx.resume?.();
-    src.start(now);
-    t.src = src; t.gain = g; t.ctxStart = now;
+    // 止めた すぐ あとなら 同じ 場所から(フェードアウト中の 音と クロスフェードして つながる)。それ いがいは 頭から
+    let off = 0;
+    if (t.lastStop && now - t.lastStop.at < Math.max(0.01, cfg.fadeSec) + 0.1) off = (t.lastStop.pos + (now - t.lastStop.at)) % Math.max(0.1, src.loopEnd);
+    t.lastStop = null;
+    src.start(now, off);
+    t.src = src; t.gain = g; t.ctxStart = now - off;
   }
 
   private stop(k: BgmTrack): void {
@@ -179,6 +211,7 @@ export class GashaBgm {
     const ctx = src.context;
     const now = ctx.currentTime;
     const fade = Math.max(0.01, TUNING[k]().fadeSec);
+    if (t.buf) t.lastStop = { pos: (now - t.ctxStart) % Math.max(0.1, src.loopEnd || t.buf.duration), at: now };
     try {
       g.gain.cancelScheduledValues(now);
       g.gain.setValueAtTime(g.gain.value, now);

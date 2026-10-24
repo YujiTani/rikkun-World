@@ -34,6 +34,8 @@ export interface GashaGirlDeps {
   parry(h: { dirDeg: number | null; by: 'attack' | 'fireball'; amount: number }): { result: 'success' | 'early' | 'fail' | 'none'; amount: number };
   /** ゲームの BGM の ミキサー（BGM 音量の 設定に のる）。まだ 音が 使えない ときは null */
   bgmOut(): { ctx: AudioContext; bus: AudioNode } | null;
+  /** ゲームの ミキサーの 効果音バス（main.ts の mixer.output()）。わたすと 効果音は ここを 通る（設定の 音量・ミュートが 効く）。なければ 自前の AudioContext */
+  sfxOut?(): { ctx: AudioContext; destination: AudioNode } | null;
   /** ふだんの BGM を 止める（少女の 間） */
   suppressBgm(on: boolean, fade?: { outSec?: number; inSec?: number; delaySec?: number }): void;
   groundY(x: number, z: number): number;
@@ -317,7 +319,9 @@ export function startGashaGirl(deps: GashaGirlDeps, opts: GashaGirlOpts = {}): P
     new GLTFLoader().load(
       './models/gasha/girl-cast.glb',
       (gltf) => {
-        void import('three/examples/jsm/utils/SkeletonUtils.js').then(({ clone }) => resolve(build(deps, gltf.scene, gltf.animations[0]!, clone, opts)), reject);
+        void import('three/examples/jsm/utils/SkeletonUtils.js').then(({ clone }) => {
+          try { resolve(build(deps, gltf.scene, gltf.animations[0]!, clone, opts)); } catch (e) { console.warn('[gashaGirl] 作れません', e); reject(e instanceof Error ? e : new Error('girl build')); } // build() の 途中で 失敗しても 待たされ続けない
+        }, reject);
       },
       undefined,
       (e) => { console.warn('[gashaGirl] 読めません', e); reject(e instanceof Error ? e : new Error('girl glb')); },
@@ -700,7 +704,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
   const headC = new Vector3(), headT = new Vector3();
   const headCenter = (out: Vector3) => { headBone.getWorldPosition(out); headTop.getWorldPosition(headT); return out.lerp(headT, 0.5); };
   // 効果音（13 音。数は 調整表 sfx）。ファイルは 最初に まとめて 読みこむ
-  const sfxPlayer = createWebAudioPlayer();
+  const sfxPlayer = createWebAudioPlayer(deps.sfxOut);
   const sfx = createGirlSfx(sfxPlayer);
   sfxPlayer.preload();
   let blushPlayed = false;
@@ -1005,6 +1009,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
 
   // ---- BGM「災厄」（少女が 出ている 間 ループ。大きな 姿の「神々の 戯れ」と 共通の 係 gashaBgm.ts が 流す。ファイルが なければ 音なし） ----
   const bgm = sharedGashaBgm({ bgmOut: deps.bgmOut, suppressBgm: deps.suppressBgm });
+  bgm.preload('saiyaku'); // 少女が 出る 瞬間に 曲が とぎれない ように 先に 読みこむ（FIX-BRIEF-2 §3-4）
   const bgmStep = () => bgm.step();
 
   // ---- 外から 使う（テスト・スクショ） ----
@@ -1031,6 +1036,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
     add.points.visible = smoke.points.visible = false;
     forced = -1; reflectWait = 0; holdStand = false;
     bgm.request('girl', false);
+    sfxPlayer.stopAll?.(); // 遅れて 鳴らす 予約の 効果音(間欠泉の 噴出など)も 止める
   };
   if (dormant) sleep();
   const warn0 = () => phase === 'cast' && spell === 1 && !fired;

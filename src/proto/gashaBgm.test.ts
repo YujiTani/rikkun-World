@@ -11,7 +11,7 @@ class Param {
   linearRampToValueAtTime(v: number, t: number): void { this.ramps.push([v, t]); }
   cancelScheduledValues(): void { this.ramps = []; }
 }
-interface Src { buffer: unknown; loop: boolean; loopStart: number; loopEnd: number; context: Ctx; started: number | null; stoppedAt: number | null; onended: (() => void) | null; connect(): void; start(t: number): void; stop(t: number): void; tag: string }
+interface Src { buffer: unknown; loop: boolean; loopStart: number; loopEnd: number; context: Ctx; started: number | null; offset: number; stoppedAt: number | null; onended: (() => void) | null; connect(): void; start(t: number, offset?: number): void; stop(t: number): void; tag: string }
 class Ctx {
   currentTime = 0;
   state = 'running';
@@ -19,7 +19,7 @@ class Ctx {
   sources: Src[] = [];
   createGain(): { gain: Param; connect(): void; disconnect(): void } { const g = { gain: new Param(), connect() {}, disconnect() {} }; this.gains.push(g); return g; }
   createBufferSource(): Src {
-    const s: Src = { buffer: null, loop: false, loopStart: 0, loopEnd: 0, context: this, started: null, stoppedAt: null, onended: null, tag: '', connect() {}, start(t) { s.started = t; }, stop(t) { s.stoppedAt = t; } };
+    const s: Src = { buffer: null, loop: false, loopStart: 0, loopEnd: 0, context: this, started: null, offset: 0, stoppedAt: null, onended: null, tag: '', connect() {}, start(t, o) { s.started = t; s.offset = o ?? 0; }, stop(t) { s.stoppedAt = t; } };
     this.sources.push(s);
     return s;
   }
@@ -214,5 +214,64 @@ describe('gashaBgm（#293 がしゃどくろの BGM）', () => {
       expect(c.volume).toBeGreaterThan(0);
       expect(c.volume).toBeLessThanOrEqual(1);
     }
+  });
+});
+
+
+describe('gashaBgm: 自前の AudioContext を 作らない・先読み・stop→すぐ start（FIX-BRIEF-2 §3-3・4・7）', () => {
+  beforeEach(() => { delete (globalThis as { __gashaBgm?: unknown }).__gashaBgm; BIG.bgm.normalFadeOutSec = 0; BIG.bgm.normalFadeInSec = 0; BIG.bgm.overlapSec = 0; });
+  afterEach(() => { BIG.bgm.normalFadeOutSec = 2; BIG.bgm.normalFadeInSec = 2; BIG.bgm.overlapSec = 0.5; });
+
+  it('ミキサーの 音が まだ 使えない(bgmOut = null)間は 自前の AudioContext を 作らない。使えるように なったら 流れる', async () => {
+    const ctx = new Ctx();
+    let avail = false;
+    let made = 0;
+    const g = globalThis as unknown as Record<string, unknown>;
+    const old = g.AudioContext;
+    g.AudioContext = class { constructor() { made++; } };
+    try {
+      const bgm = new GashaBgm({
+        bgmOut: () => (avail ? { ctx: ctx as unknown as AudioContext, bus: {} as AudioNode } : null),
+        suppressBgm: () => {},
+        loadFile: async () => new ArrayBuffer(1),
+      });
+      bgm.request('big', true);
+      bgm.step(); await flush(); bgm.step(); await flush(); bgm.step();
+      expect(made).toBe(0);
+      expect(bgm.status().playing).toBe(null);
+      avail = true;
+      bgm.step(); await flush(); bgm.step();
+      expect(bgm.status().playing).toBe('kamigami');
+      expect(made).toBe(0);
+    } finally { g.AudioContext = old; }
+  });
+
+  it('先読み: preload() で 曲を 読みこんで おけば、頼んだ そのコマで 流れる(頼んでから 読みこまない)', async () => {
+    const { bgm, ctx } = rig();
+    bgm.preload('saiyaku');
+    bgm.step(); await flush(); bgm.step();
+    expect(ctx.sources.length).toBe(0); // 頼まれて いない ので 流さない
+    expect(bgm.info('saiyaku').file).toBe('loaded');
+    bgm.request('girl', true);
+    bgm.step();
+    expect(bgm.status().playing).toBe('saiyaku'); // 待たずに すぐ
+    expect(ctx.sources.length).toBe(1);
+  });
+
+  it('止めて すぐ また 頼むと、フェードアウト中の 音と 同じ 場所から つづきを 流す(頭から 重ねない。クロスフェードで 音が とぎれない)', async () => {
+    const { bgm, ctx, sync } = rig();
+    bgm.request('big', true);
+    await sync();
+    expect(ctx.sources.length).toBe(1);
+    ctx.currentTime = 10;
+    bgm.request('big', false);
+    bgm.step();
+    expect(bgm.status().playing).toBe(null);
+    ctx.currentTime = 10.5;
+    bgm.request('big', true);
+    bgm.step();
+    expect(ctx.sources.length).toBe(2);
+    expect(ctx.sources[1]!.offset).toBeCloseTo(10.5, 6); // 頭(0)ではなく 流れていた 場所の つづき
+    expect(bgm.status().playing).toBe('kamigami');
   });
 });

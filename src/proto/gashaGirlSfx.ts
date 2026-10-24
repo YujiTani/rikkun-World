@@ -5,6 +5,7 @@
  *  ・読み方は public/sound/legend と 同じ（相対パスの ogg を fetch → decodeAudioData）。読めて いない 間は 鳴らさない。
  */
 import { TUNE } from './gashaGirlTuning';
+import { createWebAudioPlayerBase, type SfxEnv, type SfxOut, type SfxPlayOpts } from './gashaBigSfxPlayer';
 
 export type GirlSfxName = keyof typeof TUNE.sfx.gain;
 
@@ -28,21 +29,7 @@ export const SFX_FILES: Record<GirlSfxName, readonly string[]> = {
 export const sfxUrl = (file: string): string => `${DIR}${file}.ogg`;
 export const allSfxUrls = (): string[] => Object.values(SFX_FILES).flat().map(sfxUrl);
 
-export interface SfxPlayOpts {
-  /** 音量（倍） */
-  gain: number;
-  /** 再生の 速さ（倍。高さの ゆらぎ） */
-  rate: number;
-  /** 鳴らし はじめるまで（秒） */
-  delaySec: number;
-}
-/** 鳴らす 口（差しかえ できる） */
-export interface SfxEnv {
-  /** いまの 時刻（秒） */
-  now(): number;
-  /** 1 回 鳴らす。鳴らした 音の 長さ（秒）を 返す。まだ 読めて いない ときは 0 */
-  play(url: string, o: SfxPlayOpts): number;
-}
+export type { SfxEnv, SfxPlayOpts };
 type SfxTune = typeof TUNE.sfx;
 
 const mulberry = (s: number) => () => {
@@ -111,59 +98,8 @@ export function createGirlSfx(env: SfxEnv, tune: SfxTune = TUNE.sfx, seed = 293)
 }
 export type GirlSfx = ReturnType<typeof createGirlSfx>;
 
-/** 本物の 鳴らす 口（WebAudio）。初めて 呼ばれたとき ファイルを 全部 読みこむ。読めない 所でも 動く */
-export function createWebAudioPlayer(): SfxEnv & { preload(): void } {
-  let ctx: AudioContext | null = null;
-  const buffers = new Map<string, AudioBuffer>();
-  let loading = false;
-  const ensure = (): AudioContext | null => {
-    if (ctx) return ctx;
-    try {
-      const AC = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      ctx = new AC();
-    } catch { ctx = null; }
-    return ctx;
-  };
-  const load = (c: AudioContext): void => {
-    if (loading) return;
-    loading = true;
-    for (const url of allSfxUrls()) {
-      void (async () => {
-        try {
-          const r = await fetch(url);
-          if (!r.ok) return;
-          buffers.set(url, await c.decodeAudioData(await r.arrayBuffer()));
-        } catch { /* 読めない 音は 鳴らさない */ }
-      })();
-    }
-  };
-  return {
-    /** 先に 読みこんでおく（最初の 1 回から 鳴らす ため） */
-    preload: () => {
-      const c = ensure();
-      if (!c) return;
-      load(c);
-      // ユーザー操作の 前は suspended。最初の クリック・キーで resume する
-      if (c.state === 'suspended') {
-        const go = (): void => { void c.resume(); for (const e of ['pointerdown', 'keydown']) window.removeEventListener(e, go, true); };
-        for (const e of ['pointerdown', 'keydown']) window.addEventListener(e, go, true);
-      }
-    },
-    now: () => ctx?.currentTime ?? 0,
-    play: (url, o) => {
-      const c = ensure();
-      if (!c) return 0;
-      load(c);
-      const buf = buffers.get(url);
-      if (!buf) return 0;
-      try {
-        if (c.state === 'suspended') void c.resume();
-        const src = c.createBufferSource(), g = c.createGain();
-        src.buffer = buf; src.playbackRate.value = o.rate; g.gain.value = o.gain;
-        src.connect(g); g.connect(c.destination);
-        src.start(c.currentTime + o.delaySec);
-        return buf.duration / o.rate;
-      } catch { return 0; }
-    },
-  };
+/** 本物の 鳴らす 口（WebAudio）。初めて 呼ばれたとき ファイルを 全部 読みこむ。読めない 所でも 動く。out = ゲームの ミキサーの 効果音バス（なければ 自前） */
+export function createWebAudioPlayer(out?: SfxOut): SfxEnv & { preload(): void } {
+  const base = createWebAudioPlayerBase(allSfxUrls, out);
+  return { preload: base.preload, now: base.now, play: base.play, stopAll: base.stopAll };
 }

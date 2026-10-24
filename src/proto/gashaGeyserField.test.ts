@@ -14,6 +14,7 @@ function make(player = { x: 500, y: 11, z: 500 }) {
     groundY: () => 10,
     blockAt: (x, y, z) => blocks.get(`${x},${y},${z}`) ?? (y > 10 ? 'air' : y === 10 ? 'grass' : 'dirt'),
     setBlock: (x, y, z, id) => { blocks.set(`${x},${y},${z}`, id); return true; },
+    restoreBlock: (x, y, z, id) => { blocks.set(`${x},${y},${z}`, id); return true; },
     scanBlocks: (found) => { for (const [k, v] of blocks) if (v === 'geyser_dirt') { const [x, y, z] = k.split(',').map(Number); found(x!, y!, z!); } },
     bodySolid: () => false,
     centre: () => ({ x: 0, z: 0 }),
@@ -270,5 +271,47 @@ describe('GeyserField（間欠泉の つち・かわる・数の 上限）', () 
     w.f.step(DT);
     expect(w.calls.vel.at(-1)!.y).toBeGreaterThanOrEqual(-R.slowFall - 1e-9);
     expect(w.calls.noFall.at(-1)).toBe(true);
+  });
+});
+
+describe('GeyserField: 自分が 作った つちを 片づけで もどす・数えなおしの はんい（FIX-BRIEF-2 §3-5）', () => {
+  const S = T.geyser.spawn;
+
+  it('片づける(dismiss)と、自分が 作った つちは もとの ブロックに もどる。掘られた ところ・プレイヤーが 置いた つちは さわらない', () => {
+    const w = make({ x: 0, y: 11, z: 0 });
+    w.f.place(A);
+    w.run(S.crackSec + 2 + T.geyser.staggerSec);
+    expect(w.dirtCells()).toBe(8);
+    // 1 マス 掘る(空気)・プレイヤーが 遠くに 置いた つち
+    w.dig(1);
+    w.blocks.set('300,10,300', 'geyser_dirt');
+    w.f.dismiss();
+    expect(w.dirtCells()).toBe(1); // プレイヤーが 置いた 1 つだけ のこる
+    expect(w.blocks.get('300,10,300')).toBe('geyser_dirt');
+    // もどった 場所は もとの 草(grass)
+    const back = [...w.blocks.entries()].filter(([, v]) => v === 'grass');
+    expect(back.length).toBe(7);
+    expect([...w.blocks.values()].filter((v) => v === 'air').length).toBe(1); // 掘られた ところは そのまま
+  });
+
+  it('次の ボスの 数えなおしは 古い つちを 拾わない（前の ボスの つちは 片づけで もどって いる)', () => {
+    const w = make({ x: 0, y: 11, z: 0 });
+    w.f.place(A);
+    w.run(S.crackSec + 2 + T.geyser.staggerSec);
+    w.f.dismiss();
+    expect(w.dirtCells()).toBe(0);
+    w.f.place({ ...A, x: 30 });
+    expect(w.f.pending().length).toBe(2); // ひびから(古い つちは 柱に ならない)
+    expect(w.f.groupCount()).toBe(2);
+  });
+
+  it('数えなおしは ボスから rescanRadius ブロックの 中だけ: 遠くの つちは 柱に しない', () => {
+    const w = make({ x: 0, y: 11, z: 0 });
+    w.blocks.set('20,10,20', 'geyser_dirt');
+    w.blocks.set(`${T.geyser.rescanRadius + 50},10,0`, 'geyser_dirt');
+    w.f.place(A);
+    w.run(0.5);
+    expect(w.f.specs().length).toBe(1); // 近い 1 つだけ
+    expect(w.f.specs()[0]!.x0).toBe(20);
   });
 });

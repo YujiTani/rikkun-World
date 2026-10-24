@@ -410,14 +410,34 @@ export class BigActor {
     this.angryLeft = 0;
     this.bodyTurning = false;
     this.cycle.reset();
-    this.warn = null; this.attackName = null; this.sweepNow = null; this.beamLook = null; this.beam.phase = 'idle'; this.beam.glow = 0; this.eruption.phase = 'idle'; this.eruption.pitch = 0; this.thunder.reset();
+    this.clearAttackState();
     if (this.chasing) { this.chasing = false; this.fadeStep(0, T.clips.idleFadeSec); }
-    this.pendingAttack = null;
     if (this.isAngry()) {
       const was = this.mode;
       this.mode = 'idle'; this.pauseLeft = this.randIn(T.wander.pauseSec);
       if (was !== 'angry') { this.fadeStep(0, T.clips.idleFadeSec); this.eyeShown = -1; }
     }
+  }
+
+  /** 攻撃の 途中の 状態を ぜんぶ 片づける（当たり・予告・払い・光線・噴火・雷の 雲と 電気・待たせた 攻撃）。怒り・サイクルは そのまま */
+  private clearAttackState(): void {
+    this.warn = null; this.attackName = null; this.sweepNow = null; this.sweepLast = null; this.beamLook = null;
+    this.beam.phase = 'idle'; this.beam.glow = 0;
+    this.eruption.phase = 'idle'; this.eruption.pitch = 0; this.eruption.column = 0; this.eruption.wind = 0;
+    this.thunder.reset();
+    this.sweep.phase = 'idle'; this.sweep.t = 0;
+    this.slam2.phase = 'idle'; this.slam2Phase = '';
+    this.pendingAttack = null;
+  }
+
+  /** 攻撃を 中断して 怒りの ならしに もどる（少女への 切りかえなど）。画面の 効果は 呼ぶ 側が 消す。怒り・サイクルの 回数は のこす */
+  abortAttack(): void {
+    if (this.mode !== 'attack' && this.mode !== 'tired') { this.clearAttackState(); return; }
+    this.clearAttackState();
+    this.tiredHands = null;
+    this.step.reset();
+    this.backToAngry(0.3);
+    this.cycle.abortToGap();
   }
 
   // ---------------------------------------------------------------- 攻撃・つかれ
@@ -496,7 +516,9 @@ export class BigActor {
   }
 
   private startTired(): void {
-    this.mode = 'tired'; this.attackName = null; this.warn = null; this.target = null;
+    this.clearAttackState(); // 途中の 攻撃の 当たり・雲・電気が のこらない ように
+    this.chasing = false;
+    this.mode = 'tired'; this.target = null;
     this.player.play(null, { fade: 0 });
     this.tiredT = 0;
     this.step.reset();

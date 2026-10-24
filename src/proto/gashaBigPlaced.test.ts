@@ -153,4 +153,37 @@ describe('体の 上に ブロックを 置く（#293）', () => {
     expect(h.bodyBlocks.surfaceBelow(c.center[0], topY + 20, c.center[2])).toBeNull();
     expect(h.bodyBlocks.surfaceBelow(1000, 100, 1000)).toBeNull();
   });
+
+  it('ボスから 遠い(perf.farDist より 遠い)ときは ねらい・足もとの 影の 計算を すぐ やめる(null)。近ければ 今までどおり', () => {
+    const { h, top } = make();
+    const p = top('chestCoreFloor');
+    expect(aimDown(h, p)).not.toBeNull();
+    expect(h.bodyBlocks.surfaceBelow(p.x, p.y + 1, p.z)).not.toBeNull();
+    const keep = T.perf.farDist;
+    try {
+      T.perf.farDist = 0.5; // 体の 中心から 0.5 ブロックより 遠いと「遠い」
+      expect(aimDown(h, p)).toBeNull();
+      expect(h.bodyBlocks.surfaceBelow(p.x, p.y + 1, p.z)).toBeNull();
+    } finally { T.perf.farDist = keep; }
+    expect(aimDown(h, p)).not.toBeNull();
+    expect(keep).toBeGreaterThanOrEqual(60);
+  });
+
+  it('プレイヤーが 遠いと(perf.farDist より 遠い)たたきつけの 予告の 半円・岩など 攻撃の 見た目を 出さない。近ければ 出る', () => {
+    const run = (dz: number): number => {
+      const { h, step, pl } = make();
+      pl.z += dz; // 置いた あとで プレイヤーを 動かす(置く ときは プレイヤーの 前に 出る)
+      h.attack('slam2');
+      let peak = 0;
+      for (let i = 0; i < 40; i++) {
+        step(15);
+        const fx = (h.attackInfo() as { fx: { warn: boolean; rocks: number; cracks: number } }).fx;
+        peak = Math.max(peak, (fx.warn ? 1 : 0) + fx.rocks + fx.cracks);
+      }
+      return peak;
+    };
+    const near = run(0), far = run(900);
+    expect(far).toBe(0);
+    expect(near).toBeGreaterThan(0);
+  });
 });

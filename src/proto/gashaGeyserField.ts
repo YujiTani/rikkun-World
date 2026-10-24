@@ -156,6 +156,8 @@ export interface FieldDeps {
   groundY(x: number, z: number): number;
   blockAt(x: number, y: number, z: number): string;
   setBlock(x: number, y: number, z: number, id: 'geyser_dirt'): boolean;
+  /** 自分が 作った つちを もとの ブロックに もどす(片づけ)。なければ もどさない */
+  restoreBlock?(x: number, y: number, z: number, id: string): boolean;
   /** 読みこんで いる 列の 間欠泉の つちを ぜんぶ 渡す */
   scanBlocks(found: (x: number, y: number, z: number) => void): void;
   /** がしゃどくろの 体の 当たり（固い マス） */
@@ -186,6 +188,8 @@ export class GeyserField {
   /** 柱の 形が かわる たびに ふえる（見た目の 作りなおし 用） */
   version = 0;
   private cells = new Map<string, Cell>();
+  /** 自分が 作った つち(もとの ブロックつき)。片づけで もどす。プレイヤーが 置いた つちは 入らない */
+  private made = new Map<string, { x: number; y: number; z: number; prev: string }>();
   private tops = new Map<string, number>();
   private specList: GeyserSpec[] = [];
   private pend: Pending[] = [];
@@ -219,6 +223,7 @@ export class GeyserField {
     this.cool = this.range(R.spawn.firstSec);
     for (const p of planShoulders(a, R)) this.start(p.x0, p.z0, R.spawn.crackSec, p.top, false);
     this.rescan();
+    this.rebuild(); // 置く前から ある つちも すぐ 柱に する
     this.version++;
   }
 
@@ -340,8 +345,10 @@ export class GeyserField {
       if (id === 'air' || id === 'outside' || id === 'water' || id === BLOCK) return; // 掘られた・かわった: やめる
     }
     for (const q of p.cells) {
+      const prev = this.d.blockAt(q.x, q.y, q.z);
       this.d.setBlock(q.x, q.y, q.z, BLOCK);
       const k = key(q.x, q.z);
+      this.made.set(`${q.x},${q.y},${q.z}`, { x: q.x, y: q.y, z: q.z, prev });
       this.cells.set(k, { x: q.x, y: q.y, z: q.z, born: this.t + T.geyser.delaySec[0] + hash01(p.x0, p.z0, 3) * T.geyser.staggerSec });
       if (p.top !== null) this.tops.set(k, p.top);
     }
@@ -352,7 +359,9 @@ export class GeyserField {
   /** 読みこんだ 列の 間欠泉の つちを 数えなおす。ふえた・へった 場合は true */
   private rescan(): boolean {
     const found: Cell[] = [];
+    const c0 = this.d.centre(), maxR = T.geyser.rescanRadius;
     this.d.scanBlocks((x, y, z) => {
+      if (c0 && Math.hypot(x + 0.5 - c0.x, z + 0.5 - c0.z) > maxR) return; // ボスから 遠い つちは 見ない(前の ボスの のこり・遠くの 置いた つち)
       const above = this.d.blockAt(x, y + 1, z);
       if (above === BLOCK || (above !== 'air' && !isNonSolid(above))) return; // 上に かたい ものが ある（つみ上げた したの つち）
       found.push({ x, y, z, born: 0 });
@@ -485,6 +494,9 @@ export class GeyserField {
 
   /** がしゃどくろを 片づけた: 間欠泉を ぜんぶ 止めて 見た目を 消す（ワールドの つちは 動かない ただの ブロックとして のこる）。次の place() まで 何もしない */
   dismiss(): void {
+    // 自分が 作った つちを もとの ブロックに もどす(掘られた・かわった ところは さわらない)
+    if (this.d.restoreBlock) for (const m of this.made.values()) if (this.d.blockAt(m.x, m.y, m.z) === BLOCK) this.d.restoreBlock(m.x, m.y, m.z, m.prev);
+    this.made.clear();
     this.dormant = true;
     this.placed = false;
     this.cells.clear(); this.tops.clear();

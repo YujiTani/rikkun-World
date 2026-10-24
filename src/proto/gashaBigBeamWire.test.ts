@@ -33,10 +33,11 @@ function rig(opts: { dist?: number; walls?: (info: { px: number; pz: number; fx:
   const fx = Math.sin(yaw), fz = Math.cos(yaw), dist = opts.dist ?? 24;
   st.x = info.pos[0]! + fx * dist; st.z = info.pos[2]! + fz * dist; st.y = 0; st.yawDeg = 0;
   if (opts.walls) walls = opts.walls({ px: st.x, pz: st.z, fx, fz });
-  const origBreak = T.beam.breakBlocks;
+  const origBreak = T.beam.breakBlocks, origFar = T.perf.farDist;
   T.beam.breakBlocks = !!opts.breakBlocks;
+  T.perf.farDist = 400; // この 試験は プレイヤーが 15 秒 走って 100 ブロック はなれる。遠いと 見た目を 省く 動きは gashaBigPlaced.test.ts で 見る
   const step = (n: number, each?: (i: number) => void) => { for (let i = 0; i < n; i++) { each?.(i); for (const f of ups) f(1 / 60); } };
-  return { h, st, calls, step, fx, fz, restore: () => { T.beam.breakBlocks = origBreak; } };
+  return { h, st, calls, step, fx, fz, restore: () => { T.beam.breakBlocks = origBreak; T.perf.farDist = origFar; } };
 }
 const sec = (s: number) => Math.round(s * 60);
 const total = () => T.beam.chargeSec + T.beam.fireSec + T.beam.finaleSec + T.beam.recoverSec + 0.5;

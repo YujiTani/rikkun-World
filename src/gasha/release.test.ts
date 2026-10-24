@@ -23,13 +23,12 @@ function fakeBoss(wrapped: GashaBigDeps, first: { x: number; z: number; yawDeg?:
     kill() { boss.hp = 0; wrapped.onDefeated?.(); },
     place(at: { x: number; z: number; yawDeg?: number }) {
       const { x, z } = at;
-      boss.pos = { x, y: wrapped.groundY(Math.floor(x), Math.floor(z)) + 1, z };
+      boss.pos = { x, y: (wrapped.placeGroundY ?? wrapped.groundY)(Math.floor(x), Math.floor(z)) + 1, z };
       boss.yawDeg = at.yawDeg ?? 0;
       boss.hp = 1000;
       boss.alive = true;
       boss.hidden = false;
       boss.places++;
-      wrapped.fillBlocks?.(Math.floor(x) - 3, boss.pos.y - 8, Math.floor(z) - 3, Math.floor(x) + 3, boss.pos.y - 1, Math.floor(z) + 3, 'grass');
     },
     despawn() { boss.alive = false; boss.angry = false; boss.walking = false; boss.despawns++; },
   };
@@ -82,8 +81,8 @@ function rig(over: { chance?: number; enabled?: boolean; noGirl?: boolean; hold?
   let bossRef: ReturnType<typeof fakeBoss> | null = null;
   const baseDeps = {
     player: () => ({ ...player }),
-    groundY: () => 40,
-    fillBlocks: (...a: number[]) => { log.fills.push(a); },
+    groundY: () => 30, // 地形の 高さ（ゲームの groundY）。出す 高さは placeGroundY が 決める
+    fillBlocks: (...a: number[]) => { log.fills.push(a); }, // 呼ばれない はず（地ならしは しない）
     giveNinjaTabi: () => { log.tabi++; },
   } as unknown as GashaBigDeps;
   const env: ReleaseEnv = {
@@ -276,38 +275,26 @@ describe('地面の 高さ・地ならし（読みこんで いない 遠くで�
     expect(r2.boss().pos.y).toBe(40 + 1);
   });
 
-  it('地ならし（fillBlocks）は 列が 読みこまれる まで 待って、読みこまれたら 1 回だけ 流す', async () => {
+  it('地ならしは しない: 出現で ワールドの ブロックを 書きかえない（プレイヤーの 家・畑を 消さない）。遠くでも 近くでも', async () => {
     const r = rig();
     await r.rel.spawn({ distance: 200, angleDeg: 0 });
-    expect(r.log.fills.length).toBe(0); // まだ 読みこんで いない
-    expect(r.rel.info().pendingFills).toBe(1);
-    r.run(2);
+    r.run(5);
     expect(r.log.fills.length).toBe(0);
-    // 近づいて 列が 読みこまれた
     const bx = Math.floor(r.boss().pos.x), bz = Math.floor(r.boss().pos.z);
     for (let x = bx - 3; x <= bx + 3; x += 1) for (let z = bz - 3; z <= bz + 3; z += 1) r.loaded.add(`${x >> 4},${z >> 4}`);
-    r.run(2);
-    expect(r.log.fills.length).toBe(1);
-    expect(r.rel.info().pendingFills).toBe(0);
     r.run(5);
-    expect(r.log.fills.length).toBe(1);
+    expect(r.log.fills.length).toBe(0);
+    const r2 = rig();
+    for (let x = -20; x <= 120; x += 8) for (let z = -20; z <= 20; z += 8) r2.loaded.add(`${x >> 4},${z >> 4}`);
+    await r2.rel.spawn({ distance: 60, angleDeg: 0 });
+    expect(r2.log.fills.length).toBe(0);
   });
 
-  it('すでに 読みこんで いる 近い 所なら すぐ 地ならし', async () => {
+  it('出す 高さ: 読みこみ済みなら env.groundY（置いた ブロック込み）、未読みこみなら terrainTop。ゲームの groundY（地形）は つかわない', async () => {
     const r = rig();
     for (let x = -20; x <= 120; x += 8) for (let z = -20; z <= 20; z += 8) r.loaded.add(`${x >> 4},${z >> 4}`);
     await r.rel.spawn({ distance: 60, angleDeg: 0 });
-    expect(r.log.fills.length).toBe(1);
-    expect(r.rel.info().pendingFills).toBe(0);
-  });
-
-  it('片づける ときは 待っていた 地ならしも すてる（流さない）', async () => {
-    const r = rig();
-    await r.rel.spawn({ distance: 200, angleDeg: 0 });
-    expect(r.rel.info().pendingFills).toBe(1);
-    r.rel.despawn();
-    expect(r.rel.info().pendingFills).toBe(0);
-    expect(r.log.fills.length).toBe(0);
+    expect(r.boss().pos.y).toBe(40 + 1);
   });
 });
 

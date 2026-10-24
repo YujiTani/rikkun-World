@@ -66,9 +66,15 @@ export class BodyPlaced implements BodyBlocksPort {
 
   accepts(block: BlockId): boolean { return BODY_PLACEABLE.has(block); }
 
+  /** 体の 中心から x, z が perf.farDist より 遠い(重い 計算を 省く) */
+  private far(x: number, z: number): boolean {
+    const a = this.d.actor();
+    return !a || Math.hypot(x - a.pos.x, z - a.pos.z) > T.perf.farDist;
+  }
+
   aim(o: Vec3, dir: Vec3, reach: number): BodyAim | null {
     const a = this.d.actor();
-    if (!a) return null;
+    if (!a || this.far(o.x, o.z)) return null;
     const t = raycastBlocks(this.fake, o.x, o.y, o.z, dir.x, dir.y, dir.z, reach, true);
     if (!t) return null;
     const placed = this.findPlaced(t.block.x + 0.5, t.block.y + 0.5, t.block.z + 0.5);
@@ -112,7 +118,7 @@ export class BodyPlaced implements BodyBlocksPort {
 
   surfaceBelow(x: number, y: number, z: number): number | null {
     const a = this.d.actor();
-    if (!a) return null;
+    if (!a || this.far(x, z)) return null;
     const oy = y + 1.0, max = 9; // 見える 上面は 当たりの マスより 最大 1 ブロック 高い ことが ある ので 足の 1 ブロック 上から 見おろす
     let best = Infinity;
     const test = (b: { name: string; c: number[]; ax: number[]; half: number[]; mask?: Parameters<typeof maskHas>[0] }): void => {

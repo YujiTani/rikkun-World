@@ -28,7 +28,7 @@ function rig() {
   h.walk(false);
   const info = h.info() as { pos: number[]; yawDeg: number };
   const yaw = (info.yawDeg * Math.PI) / 180;
-  st.x = info.pos[0]! + Math.sin(yaw) * 90; st.z = info.pos[2]! + Math.cos(yaw) * 90; st.y = 0; // 落雷の はんい（rMax）の そと
+  st.x = info.pos[0]! + Math.sin(yaw) * 70; st.z = info.pos[2]! + Math.cos(yaw) * 70; st.y = 0; // 落雷の はんい（rMax 46）の そと。perf.farDist 80 より 近い
   const step = (sec: number, each?: () => void) => { for (let i = 0; i < Math.round(sec * 60); i++) { clock += 1 / 60; each?.(); for (const f of ups) f(1 / 60); } };
   /** 体の 上に 立てる 場所（体の マスの まうえ） */
   const bodySpot = (): { x: number; y: number; z: number } => {
