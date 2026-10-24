@@ -1,6 +1,6 @@
 /**
  * #293 試作: がしゃどくろの BGM の 共通の 係（ページに 1 つ。`window.__gashaBgm`）。
- *  ・少女「災厄」（saiyaku.mp3）と 大きな 姿「神々の 戯れ」（kamigami.mp3、作曲 こおろぎ）を ループで 流し、かえる とき クロスフェードする。
+ *  ・少女「災厄」（saiyaku.ogg）と 大きな 姿「神々の 戯れ」（kamigami.ogg、作曲 こおろぎ）を ループで 流し、かえる とき クロスフェードする。
  *  ・流し方は ミキサーの BGM の 口（`bgmOut`）に つなぎ、ふだんの BGM は `suppressBgm` で 止める。音の ファイルが なければ 音なし。
  *  ・決まり: 一度でも 少女が 出たら（災厄が 流れたら）、そのあとは 大きな 姿の 曲を 頼まれても 流さない（休んで いる 間も。頼まれたら「災厄」を 流す）。
  *    少女が 出たと いう 記録は ページを 開いている 間 ずっと のこる（少女の 戦いは 休んでは また 出る くり返しなので）。`reset()` で けす。
@@ -23,16 +23,18 @@ export interface GashaBgmEnv {
   loadFile?(url: string): Promise<ArrayBuffer>;
 }
 
-const FILE: Record<BgmTrack, string> = {
-  saiyaku: './__proto-gasha/bgm/saiyaku.mp3',
-  kamigami: './__proto-gasha/bgm/kamigami.mp3',
+/** 音の ファイル（相対パス。公開版でも 読める）。ogg に 変換し、つなぎ目が 自然に なる ように ループ用に 切って ある（public/sound/gasha/README.md） */
+export const BGM_FILE: Record<BgmTrack, string> = {
+  saiyaku: './sound/gasha/bgm/saiyaku.ogg',
+  kamigami: './sound/gasha/bgm/kamigami.ogg',
 };
+const FILE = BGM_FILE;
 const TUNING: Record<BgmTrack, () => { fadeSec: number; volume: number }> = {
   saiyaku: () => GIRL.bgm,
   kamigami: () => BIG.bgm,
 };
-/** 曲の おわりの 無音（秒）。ここは ループに ふくめない（ffmpeg silencedetect で はかった） */
-const TAIL_SILENCE: Partial<Record<BgmTrack, number>> = { kamigami: 0.55 };
+/** 曲の おわりの 無音（秒）。ここは ループに ふくめない。ogg は おわりの 余韻を 頭に 重ねて 切ってあるので どちらも 無音は なし */
+const TAIL_SILENCE: Partial<Record<BgmTrack, number>> = {};
 const TRACKS: BgmTrack[] = ['saiyaku', 'kamigami'];
 
 interface TrackState {

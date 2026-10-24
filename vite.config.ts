@@ -18,34 +18,9 @@ const charOrig = (): Plugin => ({
   },
 });
 
-/** #293 試作: 開発サーバーだけ、少女の GLB の フォルダを /__proto-gasha/ で見せる（試作のブランチだけ proto-assets/ に置く。マージ前に消す） */
-const protoGasha = (): Plugin => ({
-  name: 'proto-gasha',
-  apply: 'serve',
-  configureServer(server) {
-    server.middlewares.use('/__proto-gasha', (req, res, next) => {
-      const name = (req.url ?? '').split('?')[0]!.replace(/^\//, '');
-      // 手元（yuzu の Mac）は リポジトリの proto-assets/、クラウドは 共有フォルダ。ファイルが なければ next()（音なし・絵なしで 動く）
-      let candidates: string[];
-      let type: string;
-      if (/^girl-rig\/[A-Za-z_-]+\.glb$/.test(name)) {
-        candidates = [resolve(import.meta.dirname, 'proto-assets', name), resolve('/mnt/project-files/gashadokuro/design-v2/', name)];
-        type = 'model/gltf-binary';
-      } else if (/^bgm\/[A-Za-z_-]+\.mp3$/.test(name)) {
-        candidates = [resolve(import.meta.dirname, 'proto-assets', name), resolve('/mnt/project-files/gashadokuro/', name)]; // BGM は リポジトリに 入れない（.gitignore）
-        type = 'audio/mpeg';
-      } else return next();
-      const file = candidates.find((f) => existsSync(f) && statSync(f).isFile());
-      if (!file) return next();
-      res.setHeader('Content-Type', type);
-      createReadStream(file).pipe(res);
-    });
-  },
-});
-
 export default defineConfig({
   base: './',
-  plugins: [charOrig(), protoGasha()],
+  plugins: [charOrig()],
   server: { port: 5173 },
   build: {
     // main.ts は 起動で IndexedDB の保存を待つ（トップレベル await）

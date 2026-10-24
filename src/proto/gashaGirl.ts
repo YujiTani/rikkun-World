@@ -1,6 +1,6 @@
 /**
  * #293 試作（開発サーバーだけ）: がしゃどくろ 第二形態（少女）の「ワープ → 詠唱 → 魔法 4 種」。
- * `?proto=gashaGirl` のときだけ main.ts から 読まれる。GLB は リポジトリの proto-assets/ を /__proto-gasha/ から 読む。
+ * `?proto=gashaGirl` のときだけ main.ts から 読まれる。GLB は public/models/gasha/girl-cast.glb（相対パス。公開版でも 読める。頂点の 使わない 属性を 減らし、テクスチャは JPEG の 圧縮を 強めて 約 4 MB）。
  * 少女は 歩かない・走らない（移動は ワープだけ）。ふだんは ゾンビの ように 右うでを 前に 出して 立つ。
  * すべて Game.onUpdate の 固定ステップで 進める。乱数は シード付き。ダメージは なし（見た目だけ）。
  * 魔法 1: 背面か 左横へ ワープ → プレイヤーの 足もとに 噴き出す / 2: 真後ろ → 周囲攻撃（渦）/
@@ -293,7 +293,7 @@ const SPELLS = 4;
 export function startGashaGirl(deps: GashaGirlDeps): void {
   applyTuneFromUrl(location.search);
   new GLTFLoader().load(
-    './__proto-gasha/girl-rig/girl-cast.glb',
+    './models/gasha/girl-cast.glb',
     (gltf) => {
       void import('three/examples/jsm/utils/SkeletonUtils.js').then(({ clone }) => build(deps, gltf.scene, gltf.animations[0]!, clone));
     },
