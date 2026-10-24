@@ -90,7 +90,9 @@ test.describe('燃えかす', () => {
     const errs = await openGasha(page);
     await setupBoss(page);
     const list = await erupt(page);
-    const targets = isolated(list, 8);
+    // 隕石の まわりに 火の 粉の 燃えかすが かたまる ので、すきまは 3.5 ブロック。隕石の 小さな 穴の 底では なく、切る 場所（手前）と 同じ 高さの 地面の もの
+    const flat = await page.evaluate((l) => l.map((e: Ember) => { const gt = (window as any).__gt; return gt.groundTop(e.x, e.z) === e.y && gt.groundTop(e.x, e.z + 1.8) === e.y; }), list);
+    const targets = isolated(list, 3.5).filter((e) => flat[list.indexOf(e)]);
     expect(targets.length).toBeGreaterThan(1);
     const e = targets[0]!, other = targets[targets.length - 1]!;
     await takeKatana(page, 'chudan');
@@ -120,7 +122,7 @@ test.describe('燃えかす', () => {
     await installAimHelpers(page);
     await setupBoss(page);
     const list = await erupt(page);
-    const e = isolated(list, 8)[0]!;
+    const e = isolated(list, 3.5)[0]!;
     const r = await page.evaluate((e) => {
       const gt = (window as any).__gt, h = gt.h, aim = (window as any).__aim, g = gt.big();
       // 何も 持たない（素手）

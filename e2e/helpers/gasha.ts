@@ -105,7 +105,7 @@ export async function installTools(page: Page): Promise<void> {
       beam: bf.marks + bf.flames + bf.smoke + bf.beams + bf.sparkle, beamAimOn: !!a.beamAim,
       thunderCloud: a.thunder.cloud, thunderElec: a.thunder.elec, thunderStrikes: a.thunder.strikes,
       thunderFx: tf.bolts + tf.rings + tf.warns + tf.arcs + tf.cloud + tf.flash, thunderGlow: !!tf.glow,
-      eruptionFlying: a.eruption.flying, eruptionFx: ef.ashes + ef.shadows + ef.burning + ef.smoke + ef.jet + ef.wind, eruptionEmbers: ef.embers, eruptionColumn: !!ef.column,
+      eruptionFlying: a.eruption.flying + a.eruption.sparks, eruptionFx: ef.meteors + ef.warns + ef.sparks + ef.trails + ef.rings + ef.flashes + ef.debris + ef.burning + ef.smoke + ef.jet + ef.wind, eruptionEmbers: ef.embers, eruptionColumn: !!ef.column,
       mode: a.mode, attack: a.attack,
     } as any;
       },
