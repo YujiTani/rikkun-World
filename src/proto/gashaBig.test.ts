@@ -5,7 +5,6 @@ import climbDown from './gashaBigClips/climbDown.json';
 import lookBack from './gashaBigClips/lookBack.json';
 import { BigActor } from './gashaBigActor';
 import { TUNE as T } from './gashaBigTuning';
-const CEIL_Y = 30.5; // 胴体の 座標での 道の 天井（gashaBig.ts の CEIL）
 import { buildBig, cellKey, voxelize, worldHits, JOINT_NAMES, type WorldHit } from './gashaBig';
 
 /** 地面の 高さ 0、からだの 中心 = 原点、向き 0 の ときの 当たりの マス */
@@ -103,34 +102,12 @@ describe('gashaBig（#293 大きい がしゃどくろ）', () => {
 
   it('当たりの 箱が ある（うで・肩の 雲・雲の らせん・リボン・頭）', () => {
     const names = hits.map((h) => h.name);
-    for (const n of ['upperArmL', 'foreArmR', 'handL', 'shoulderL0', 'shoulderR0', 'riseL0', 'riseR0', 'riseL21', 'riseR21', 'ribbonWingR', 'skull', 'bank0']) expect(names).toContain(n);
+    for (const n of ['upperArmL', 'foreArmR', 'handL', 'shoulderL0', 'shoulderR0', 'riseL0', 'riseR0', 'riseL6', 'riseR6', 'ribbonWingR', 'skull', 'bank0']) expect(names).toContain(n);
     // 雲の はしご（ladder / link / ramp / head の 段）は もう ない
     for (const n of names) expect(n).not.toMatch(/^(climb|link|ramp|head)[LR]\d/);
   });
 
-  it('肩の 雲の 上から 雲の らせん（rise）を ふんで 頭の 上まで 1 ブロックの 段で のぼれる', () => {
-    const skull = hits.find((h) => h.name === 'skull')!;
-    const skullTop = Math.floor(skull.center[1] + skull.half[1] - 1);
-    // 肩の 雲の 上（いちばん 外がわの 雲の 上）から はじめる
-    const sh = hits.filter((h) => /^shoulderL\d+$/.test(h.name));
-    expect(sh.length).toBeGreaterThan(4);
-    let start: [number, number, number] | null = null;
-    for (const h of sh) {
-      const j = Math.floor(h.center[1] + h.half[1] + 0.0001);
-      const g: [number, number, number] = [Math.floor(h.center[0]), j, Math.floor(h.center[2])];
-      if (standable(cells, ...g)) { start = g; break; }
-    }
-    expect(start).not.toBeNull();
-    const noArms = hits.filter((h) => !/^(upperArm|foreArm|hand)/.test(h.name));
-    const cellsL = voxelize(noArms, T.collide.margin, T.collide.topLift);
-    const seen = reach(cellsL, start!);
-    let top = 0;
-    for (const [, j] of seen.values()) top = Math.max(top, j);
-    console.log('shoulder start', start, 'skullTop', skullTop, 'reachTop', top);
-    expect(top).toBeGreaterThanOrEqual(skullTop);
-  });
-
-  it('うでの 道: 地面 → 手 → 前わん → 上わん → 肩 → 雲の らせん → 頭の てっぺん。ブロックの そろい かた（ずれ 0〜1）が どう でも 通る', () => {
+  it('うでの 道: 地面 → 手 → 前わん → 上わん → 肩 → 雲の らせん。ブロックの そろい かた（ずれ 0〜1）が どう でも 通る', () => {
     // 上わんの 上の 面の 高さが ずれで 1 かわり、かたの ぬの・雲の らせんの 下の すきまが 1 ブロックに なって つかえた ことが あった
     const onBox = (h: WorldHit, i: number, j: number, k: number): boolean => {
       const d = [i + 0.5 - h.center[0], j - 0.5 - h.center[1], k + 0.5 - h.center[2]];
@@ -157,7 +134,6 @@ describe('gashaBig（#293 大きい がしゃどくろ）', () => {
         expect(stood(new RegExp(`^upperArm${S}$`)), `${tag}: 上わん`).toBe(true);
         expect(stood(new RegExp(`^(shoulder${S}\\d+|armStep${S}|chestTop|collarbone)$`)), `${tag}: 肩`).toBe(true);
         expect(stood(new RegExp(`^rise${S}\\d+$`)), `${tag}: 雲の らせん`).toBe(true);
-        expect(stood(/^skullTop/), `${tag}: 頭の てっぺん`).toBe(true);
       }
     }
   }, 60_000);
@@ -250,7 +226,7 @@ describe('gashaBig（#293 大きい がしゃどくろ）', () => {
     for (const z of [-10.6, -12, -14, -16, -18]) expect(insideAny(headPt(0, 10.2, z)), `コア z=${z}`).toBe(false);
   });
 
-  it('全身の 道: 肩の 雲から 胴体の 上（えり）・さこつ・おなか と、頭の てっぺんの 前の ふち（顔の まえ）に 立てる。うでを 通らなくても', () => {
+  it('全身の 道: 肩の 雲から 胴体の 上（えり）・さこつ に 立てる。うでを 通らなくても', () => {
     const sh = hits.filter((h) => /^shoulderL\d+$/.test(h.name));
     let start: [number, number, number] | null = null;
     for (const h of sh) {
@@ -269,7 +245,7 @@ describe('gashaBig（#293 大きい がしゃどくろ）', () => {
       }
       return false;
     };
-    for (const n of ['chestTop', 'collarbone', 'chestUp', 'chestMid2', 'torsoWaist', 'skullTop0', 'skullTop1', 'skullTop2', 'skullTop3', 'shoulderClothL']) expect(standsOn(n), n).toBe(true);
+    for (const n of ['chestTop', 'collarbone', 'chestUp', 'chestMid2', 'shoulderClothL']) expect(standsOn(n), n).toBe(true);
   });
 
   it('1 回の 問い合わせで 調べる 箱は 少ない（大まかな 範囲で しぼって、くわしく 見る 箱は 多くて 10 こ ほど。毎ステップ 数十回 聞かれても 軽い）', () => {
@@ -288,109 +264,74 @@ describe('gashaBig（#293 大きい がしゃどくろ）', () => {
     expect(sum / n).toBeLessThan(4);
   });
 
-  it('からだが 動いても（はって 進む・うでを ふり上げる）、肩の 雲から 頭の てっぺんまで 歩いて のぼれる（左右の どちらかは いつも つながる）', () => {
+  // ---------------------------------------------------------------- 心臓の コア・背中の 穴の 道（yuzu 2026-10-24）
+  const mkActor = (ox = 0, oz = 0, yaw = 0.8): BigActor => {
     const ply = { x: 500, y: 1, z: 500, yawDeg: 0 };
     const actor = new BigActor(buildBig(), { climbUp, climbDown, lookBack } as never, { groundY: () => -1, player: () => ply }, 293);
-    actor.place(0, 0, 0, 0.8);
+    actor.place(ox, 0, oz, yaw);
+    return actor;
+  };
+  /** いまの 姿勢の actor で 歩いて 行ける 場所を 調べる 道具。maxDrop = 1 歩で おりられる 高さ、minJ = これより 低い 所へは おりない */
+  function walker(actor: BigActor) {
     const names = actor.model.hits.map((h) => h.name);
     const box = (n: string) => actor.boxList[names.indexOf(n)]!;
     const cache = new Map<number, boolean>();
     const solid = (i: number, j: number, k: number): boolean => { const q = cellKey(i, j, k); let v = cache.get(q); if (v === undefined) { v = actor.solid(i, j, k); cache.set(q, v); } return v; };
     const stand = (i: number, j: number, k: number): boolean => j >= 0 && !solid(i, j, k) && !solid(i, j + 1, k) && (j === 0 || solid(i, j - 1, k));
-    /** 肩の 雲の 上から あるいて 頭の てっぺんの わくに とどくか（いまの 姿勢で） */
-    const reachesTop = (side: 'L' | 'R'): boolean => {
-      cache.clear();
-      const seen = new Set<number>(), q: [number, number, number][] = [];
-      for (const n of names) {
-        if (!new RegExp(`^shoulder${side}\\d+$`).test(n)) continue;
-        const b = box(n), top = b.c[1] + b.ax[4] * b.half[1];
-        for (let i = Math.floor(b.c[0] - 3); i <= Math.ceil(b.c[0] + 3); i++) for (let k = Math.floor(b.c[2] - 3); k <= Math.ceil(b.c[2] + 3); k++) for (const j of [Math.floor(top + 0.3) - 1, Math.floor(top + 0.3), Math.floor(top + 0.3) + 1]) {
-          const dx = i + 0.5 - b.c[0], dz = k + 0.5 - b.c[2];
-          if (Math.abs(dx * b.ax[0]! + dz * b.ax[2]!) < b.half[0]! && Math.abs(dx * b.ax[6]! + dz * b.ax[8]!) < b.half[2]! && stand(i, j, k) && !seen.has(cellKey(i, j, k))) { seen.add(cellKey(i, j, k)); q.push([i, j, k]); }
-        }
+    /** 箱の 上の 面の 中心（箱の 上下の 軸の 向き） */
+    const topPt = (n: string): [number, number, number] => { const b = box(n); return [b.c[0]! + b.ax[3]! * b.half[1]!, b.c[1]! + b.ax[4]! * b.half[1]!, b.c[2]! + b.ax[5]! * b.half[1]!]; };
+    /** 箱の 座標（胴体の 座標の ずれ。x, y, z）の 点を 世界へ。胴体の 拡大（1.45, 1.1, 1.3）を かける */
+    const frame = (n: string, dx: number, dy: number, dz: number): [number, number, number] => {
+      const b = box(n), a = dx * 1.45 * scale, bb = dy * 1.1 * scale, c = dz * 1.3 * scale;
+      return [b.c[0]! + b.ax[0]! * a + b.ax[3]! * bb + b.ax[6]! * c, b.c[1]! + b.ax[1]! * a + b.ax[4]! * bb + b.ax[7]! * c, b.c[2]! + b.ax[2]! * a + b.ax[5]! * bb + b.ax[8]! * c];
+    };
+    /** 点の まわり（横 rh・下 dn・上 up）で 立てる マス */
+    const cellsNear = (p: [number, number, number], rh = 1.0, dn = 1, up = 1): [number, number, number][] => {
+      const out: [number, number, number][] = [];
+      for (let i = Math.floor(p[0] - rh); i <= Math.ceil(p[0] + rh); i++) for (let k = Math.floor(p[2] - rh); k <= Math.ceil(p[2] + rh); k++) for (let j = Math.floor(p[1] - dn); j <= Math.ceil(p[1] + up); j++) {
+        if (Math.hypot(i + 0.5 - p[0], k + 0.5 - p[2]) <= rh && stand(i, j, k)) out.push([i, j, k]);
       }
+      return out;
+    };
+    /** 箱の 上に 立てる マス（雲・肩など 上下の 軸が 世界の 上の 箱） */
+    const seedsOn = (n: string): [number, number, number][] => {
+      const b = box(n), top = b.c[1]! + b.ax[4]! * b.half[1]!, out: [number, number, number][] = [];
+      for (let i = Math.floor(b.c[0]! - 3); i <= Math.ceil(b.c[0]! + 3); i++) for (let k = Math.floor(b.c[2]! - 3); k <= Math.ceil(b.c[2]! + 3); k++) for (const j of [Math.floor(top + 0.3) - 1, Math.floor(top + 0.3), Math.floor(top + 0.3) + 1]) {
+        const dx = i + 0.5 - b.c[0]!, dz = k + 0.5 - b.c[2]!;
+        if (Math.abs(dx * b.ax[0]! + dz * b.ax[2]!) < b.half[0]! && Math.abs(dx * b.ax[6]! + dz * b.ax[8]!) < b.half[2]! && stand(i, j, k)) out.push([i, j, k]);
+      }
+      return out;
+    };
+    const reach = (seeds: [number, number, number][], maxDrop: number, minJ = 0, parents?: Map<number, number>): Set<number> => {
+      const seen = new Set<number>(), q: [number, number, number][] = [];
+      for (const s of seeds) { seen.add(cellKey(...s)); q.push(s); }
       while (q.length) {
         const [i, j, k] = q.pop()!;
         for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
           const ni = i + dx, nk = k + dz;
           if (Math.abs(ni - Math.floor(actor.pos.x)) > 40 || Math.abs(nk - Math.floor(actor.pos.z)) > 40) continue;
-          for (let nj = j + 1; nj >= Math.max(0, j - 3); nj--) {
+          for (let nj = j + 1; nj >= Math.max(minJ, 0, j - maxDrop); nj--) {
             if (!stand(ni, nj, nk)) continue;
             if (nj === j + 1 && solid(i, j + 2, k)) break;
             const kk = cellKey(ni, nj, nk);
-            if (!seen.has(kk)) { seen.add(kk); q.push([ni, nj, nk]); }
+            if (!seen.has(kk)) { seen.add(kk); q.push([ni, nj, nk]); parents?.set(kk, cellKey(i, j, k)); }
             break;
           }
         }
       }
-      for (const n of ['skullTop0', 'skullTop1', 'skullTop2', 'skullTop3']) {
-        const b = box(n), top = b.c[1] + Math.abs(b.ax[4]) * b.half[1];
-        for (let i = Math.floor(b.c[0] - 3); i <= Math.ceil(b.c[0] + 3); i++) for (let k = Math.floor(b.c[2] - 3); k <= Math.ceil(b.c[2] + 3); k++) {
-          const j = Math.floor(top + 0.3);
-          if (seen.has(cellKey(i, j, k)) || seen.has(cellKey(i, j + 1, k))) return true;
-        }
+      return seen;
+    };
+    const touches = (seen: Set<number>, p: [number, number, number], rh = 1.0, dn = 1, up = 1): boolean => {
+      for (const key of seen) {
+        const j = key % 1024, rest = Math.floor(key / 1024), k = (rest % 65536) - 32768, i = Math.floor(rest / 65536) - 32768;
+        if (Math.hypot(i + 0.5 - p[0], k + 0.5 - p[2]) <= rh && j >= p[1] - dn && j <= p[1] + up) return true;
       }
       return false;
     };
-    const fails: string[] = [];
-    let frames = 0, oneSide = 0;
-    const check = (t: string): void => {
-      frames++;
-      const l = reachesTop('L'), r = reachesTop('R');
-      if (l || r) oneSide++; else fails.push(t);
-      if (!l && !r) console.log('のぼれない', t);
-    };
-    check('rest');
-    actor.walk(true); actor.goTo(0, 300);
-    for (let t = 0; t < 60 * 24; t++) {
-      actor.update(1 / 60);
-      if (t % 90 === 89) check(`t${((t + 1) / 60).toFixed(1)}`); // 1.5 秒ごと（1 歩 = 約 5 秒の どの 場面も ふくむ）
-    }
-    console.log('のぼれた フレーム', oneSide, '/', frames);
-    expect(fails).toEqual([]);
-  }, 120_000);
-
-  // ---------------------------------------------------------------- 心臓の コア・背中の 穴の 道（yuzu 2026-10-24）
-  /** 肩の 雲の 上から 歩いて、コアの すぐ 前（背中の 穴 → 道 → コアの 前）に 立てるか。いまの 姿勢の actor で 調べる */
-  function coreWalk(actor: BigActor): { ok: boolean; reachedTunnel: boolean } {
-    const names = actor.model.hits.map((h) => h.name);
-    const box = (n: string) => actor.boxList[names.indexOf(n)]!;
-    const cache = new Map<number, boolean>();
-    const solid = (i: number, j: number, k: number): boolean => { const q = cellKey(i, j, k); let v = cache.get(q); if (v === undefined) { v = actor.solid(i, j, k); cache.set(q, v); } return v; };
-    const stand = (i: number, j: number, k: number): boolean => j >= 0 && !solid(i, j, k) && !solid(i, j + 1, k) && (j === 0 || solid(i, j - 1, k));
-    const seen = new Set<number>(), q: [number, number, number][] = [];
-    const b0 = box('shoulderL0'), top0 = b0.c[1] + b0.ax[4] * b0.half[1];
-    for (let i = Math.floor(b0.c[0] - 2); i <= Math.ceil(b0.c[0] + 2); i++) for (let k = Math.floor(b0.c[2] - 2); k <= Math.ceil(b0.c[2] + 2); k++) for (const j of [Math.floor(top0 + 0.3) - 1, Math.floor(top0 + 0.3), Math.floor(top0 + 0.3) + 1]) {
-      if (stand(i, j, k) && !seen.has(cellKey(i, j, k))) { seen.add(cellKey(i, j, k)); q.push([i, j, k]); }
-    }
-    while (q.length) {
-      const [i, j, k] = q.pop()!;
-      for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
-        const ni = i + dx, nk = k + dz;
-        if (Math.abs(ni - Math.floor(actor.pos.x)) > 40 || Math.abs(nk - Math.floor(actor.pos.z)) > 40) continue;
-        for (let nj = j + 1; nj >= Math.max(0, j - 3); nj--) {
-          if (!stand(ni, nj, nk)) continue;
-          if (nj === j + 1 && solid(i, j + 2, k)) break;
-          const kk = cellKey(ni, nj, nk);
-          if (!seen.has(kk)) { seen.add(kk); q.push([ni, nj, nk]); }
-          break;
-        }
-      }
-    }
-    // コアの すぐ 前: コアの 箱の 中心から 3 ブロック いないに 立つ マス（道の 中）
-    const core = box('core');
-    const flo = box('chestCoreFloor');
-    let ok = false, reachedTunnel = false;
-    for (const key of seen) {
-      const j = key % 1024, rest = Math.floor(key / 1024), k = (rest % 65536) - 32768, i = Math.floor(rest / 65536) - 32768;
-      const d = Math.hypot(i + 0.5 - core.c[0], j + 0.5 - core.c[1], k + 0.5 - core.c[2]);
-      const dyLocal = (i + 0.5 - core.c[0]) * core.ax[3]! + (j + 0.5 - core.c[1]) * core.ax[4]! + (k + 0.5 - core.c[2]) * core.ax[5]!; // コアの 上向きの 軸で 見た 高さ
-      if (d < 3.6 && dyLocal < 0) ok = true; // 道の 床に 立つ（コアの 中心より 下。胸の 上の 面ではない）
-      const e = Math.hypot(i + 0.5 - flo.c[0], k + 0.5 - flo.c[2]);
-      if (e < 2.5 && Math.abs(j - flo.c[1]) < 3) reachedTunnel = true;
-    }
-    if (process.env.DBGCORE && !ok) { let best = 99, bc = ''; for (const key of seen) { const j = key % 1024, rest = Math.floor(key / 1024), k = (rest % 65536) - 32768, i = Math.floor(rest / 65536) - 32768; const d = Math.hypot(i + 0.5 - core.c[0], j + 0.5 - core.c[1], k + 0.5 - core.c[2]); if (d < best) { best = d; bc = `${i},${j},${k}`; } } console.log('DBG closest', best.toFixed(2), bc, 'core', core.c.map((v: number) => +v.toFixed(1)).join(','), 'floor', flo.c.map((v: number) => +v.toFixed(1)).join(','), 'tunnel', reachedTunnel); }
-    return { ok, reachedTunnel };
+    /** 道の 床の 上の 面の 点（胴体の 座標の z）: 床の だん（外）の 箱を 基準に する */
+    const KT = T.core.tunnel, fz0 = (KT.backZ + -7.5) / 2, ft = KT.floorThick / 2;
+    const path = (z: number): [number, number, number] => frame('chestCoreFloor', 0, ft, z - fz0);
+    return { box, solid, stand, topPt, frame, path, cellsNear, seedsOn, reach, touches };
   }
 
   it('心臓の コア: 当たりの 箱 core が ある。頭の コアは ない（頭の 欠けに 光る 物は ない）', () => {
@@ -403,42 +344,136 @@ describe('gashaBig（#293 大きい がしゃどくろ）', () => {
     expect(c.center[0]).toBeGreaterThan(model.group.position.x + 0.5);
   });
 
-  it('背中の 穴の 道は 幅・高さ 2 ブロック いじょう（床 〜 天井の あいだに 当たりの 箱が ない）', () => {
+  it('背中の 穴の 道は 幅・高さ 2 ブロック いじょう', () => {
     const KT = T.core.tunnel, sc = scale * 1.1; // 縦の 拡大
-    expect((CEIL_Y - KT.floorY) * sc).toBeGreaterThanOrEqual(2.5);
+    expect((KT.ceilY - KT.floorY) * sc).toBeGreaterThanOrEqual(2.5);
     expect(KT.width * 1.45 * scale).toBeGreaterThanOrEqual(2.5);
   });
 
-  it('肩の 雲 → 背中の 穴 → 道 → コアの 前 まで 歩いて 行ける（休みの 姿勢・ブロックの そろい かた 0〜1）', () => {
-    const ply = { x: 500, y: 1, z: 500, yawDeg: 0 };
-    for (const [ox, oz] of [[0, 0], [0.5, 0.5], [0.25, 0.75], [0.5, 0]] as [number, number][]) {
-      const actor = new BigActor(buildBig(), { climbUp, climbDown, lookBack } as never, { groundY: () => -1, player: () => ply }, 293);
-      actor.place(ox, 0, oz, 0.8);
-      const r = coreWalk(actor);
-      expect(r.reachedTunnel, `ずれ (${ox}, ${oz}): 穴の 入り口`).toBe(true);
-      expect(r.ok, `ずれ (${ox}, ${oz}): コアの 前`).toBe(true);
-    }
+  it('道は 途中で とぎれて いる: 穴の はばは 横に 6 ブロック いじょう、穴の 底は 深い（下に 体が ない）', () => {
+    const KT = T.core.tunnel, w = walker(mkActor());
+    const A = w.path(KT.gap.z0), B = w.path(KT.gap.z1);
+    const gapBlocks = Math.hypot(B[0] - A[0], B[2] - A[2]);
+    console.log('穴の はば（ブロック）', gapBlocks.toFixed(2), '・高さの ちがい', (A[1] - B[1]).toFixed(2));
+    expect(gapBlocks).toBeGreaterThanOrEqual(6);
+    // むこうの 床は 手前の 床の ふちより 低い（下りの 斜め）ので、とびこえる ときは 横 6 ブロック いじょう
+    // 穴の まんなかの 真下: 床の ふちから 下へ、体が ない 深さ
+    const M: [number, number, number] = [(A[0] + B[0]) / 2, Math.min(A[1], B[1]), (A[2] + B[2]) / 2];
+    const ci = Math.floor(M[0]), ck = Math.floor(M[2]);
+    let depth = 0;
+    for (let j = Math.floor(M[1]) - 1; j >= 0 && !w.solid(ci, j, ck); j--) depth++;
+    console.log('穴の 深さ（ブロック。ぶつかる 物まで）', depth);
+    expect(depth).toBeGreaterThanOrEqual(3);
   });
 
-  it('はって 進む・首を 振る・怒る 全コマで、肩 → 背中の 穴 → コアの 前の 道が とぎれない', () => {
-    const ply = { x: 500, y: 1, z: 500, yawDeg: 0 };
-    const actor = new BigActor(buildBig(), { climbUp, climbDown, lookBack } as never, { groundY: () => -1, player: () => ply }, 293);
-    actor.place(0, 0, 0, 0.8);
+  it('肩の 雲 → 雲の 道 → 飛び降り（4〜6 ブロック）→ 背中の 穴の 床の だん → 穴の 手前の 床（休みの 姿勢・ブロックの そろい かた 0〜1）', () => {
+    // 向きは 地面の マスに そろえた 0 度・90 度（斜めに 向くと、かたむいた 胴体の 背中が 階段に なって 登れて しまう 見かけに なる ので 数えない）
+    for (const [ox, oz, yaw] of [[0, 0, 0], [0.5, 0.5, 0], [0.25, 0.75, Math.PI / 2], [0.5, 0, Math.PI / 2]] as [number, number, number][]) {
+      const actor = mkActor(ox, oz, yaw), w = walker(actor);
+      const seeds = w.seedsOn('shoulderL0');
+      expect(seeds.length).toBeGreaterThan(0);
+      const ledge = w.path(T.core.tunnel.backZ + 0.4);
+      const drop = (() => { const b = w.box('backJump'); return b.c[1]! + b.half[1]! - ledge[1]; })();
+      expect(drop, `ずれ (${ox}, ${oz}): 飛び降りの 高さ`).toBeGreaterThanOrEqual(4);
+      expect(drop, `ずれ (${ox}, ${oz}): 飛び降りの 高さ`).toBeLessThanOrEqual(6.2);
+      const seen6 = w.reach(seeds, 6);
+      expect(w.touches(seen6, ledge), `ずれ (${ox}, ${oz}): 床の だんへ 飛び降りれば 行ける`).toBe(true);
+    }
+  }, 120_000);
+
+  it('一方通行: 床の だんに おりたら、地面に おりずに 肩の 雲・雲の 道へは もどれない。穴の むこうの 床へも 歩いては 行けない', () => {
+    for (const [ox, oz, yaw] of [[0, 0, 0], [0.5, 0.5, 0], [0.25, 0.75, Math.PI / 2], [0.5, 0, Math.PI / 2]] as [number, number, number][]) {
+      const actor = mkActor(ox, oz, yaw), w = walker(actor);
+      const ledge = w.path(T.core.tunnel.backZ + 0.4);
+      const lj = Math.floor(ledge[1]);
+      const seeds = w.cellsNear(ledge);
+      expect(seeds.length).toBeGreaterThan(0);
+      const seen = w.reach(seeds, 6, lj - 1); // これより 低くは おりない（おりたら 地面から 登りなおし）
+      for (const n of ['shoulderL0', 'backJump', 'backStep0']) expect(w.touches(seen, w.topPt(n)), `ずれ (${ox}, ${oz}): ${n} へは もどれない`).toBe(false);
+      expect(w.touches(seen, w.path(T.core.tunnel.gap.z0 - 2.2), 1.0), '穴の 手前の 床').toBe(true);
+      expect(w.touches(seen, w.path(T.core.tunnel.gap.z1 + 0.5)), '穴の むこうの 床').toBe(false);
+      expect(w.touches(seen, w.topPt('chestTop'), 3, 2, 2), '胸の 上へは もどれない').toBe(false);
+    }
+  }, 120_000);
+
+  it('はって 進む・首を 振る・怒る 全コマで、肩 → 雲の 道 → 飛び降り → 穴の 手前の 床 が とぎれない（穴の むこうへは いつも 行けない）', () => {
+    const actor = mkActor();
     const fails: string[] = [];
-    let frames = 0;
-    const check = (t: string): void => { frames++; const r = coreWalk(actor); if (!r.ok) fails.push(t); };
+    let frames = 0, minDrop = 99, maxDrop = -99;
+    const check = (t: string): void => {
+      frames++;
+      const w = walker(actor);
+      const seeds = w.seedsOn('shoulderL0');
+      if (!seeds.length) { fails.push(`${t}(肩)`); return; }
+      const seen = w.reach(seeds, 6), ledge = w.path(T.core.tunnel.backZ + 0.4);
+      const d = w.box('backJump').c[1]! + w.box('backJump').half[1]! - ledge[1];
+      minDrop = Math.min(minDrop, d); maxDrop = Math.max(maxDrop, d);
+      if (!w.touches(seen, ledge)) fails.push(`${t}(だん)`);
+      else if (!w.touches(seen, w.path(T.core.tunnel.gap.z0 - 2.2))) { fails.push(`${t}(手前)`); if (process.env.DBGPATH && fails.length < 2) for (let z = -9.6; z <= -4; z += 0.8) { const p = w.path(z); console.log('DBGZ', z.toFixed(1), p.map((v) => v.toFixed(1)).join(','), 'cells', w.cellsNear(p, 1.0, 3, 3).map((c) => c.join(':') + (seen.has(cellKey(...c)) ? '*' : '')).join(' ')); } }
+      if (w.touches(seen, w.path(T.core.tunnel.gap.z1 + 0.5))) { fails.push(`${t}(むこうに 行ける)`); if (process.env.DBGPATH && fails.length < 2) { const par = new Map<number, number>(); const s2 = w.reach(seeds, 6, 0, par); const tgt = w.cellsNear(w.path(T.core.tunnel.gap.z1 + 0.5)).map((c) => cellKey(...c)).find((k) => s2.has(k)); const names = actor.model.hits.map((h) => h.name); let cur = tgt; const out: string[] = []; while (cur !== undefined && out.length < 40) { const j = cur % 1024, rest = Math.floor(cur / 1024), k = (rest % 65536) - 32768, i = Math.floor(rest / 65536) - 32768; const on = actor.boxList.map((b, n) => ({ b, n })).filter(({ b }) => { const d = [i + 0.5 - b.c[0]!, j - 0.5 - b.c[1]!, k + 0.5 - b.c[2]!]; for (let a = 0; a < 3; a++) { const u = d[0]! * b.ax[a * 3]! + d[1]! * b.ax[a * 3 + 1]! + d[2]! * b.ax[a * 3 + 2]!; if (Math.abs(u) > b.half[a]! + 0.6) return false; } return true; }).map(({ n }) => names[n]); out.push(`${i},${j},${k}[${on.join('/')}]`); cur = par.get(cur); } console.log('PATHF', out.join(' <- ')); } }
+    };
     check('rest');
     actor.walk(true); actor.goTo(0, 300);
     for (let t = 0; t < 60 * 22; t++) {
       actor.update(1 / 60);
-      if (t % 10 === 9) check(`walk${((t + 1) / 60).toFixed(2)}`);
+      if (t % 20 === 19) check(`walk${((t + 1) / 60).toFixed(2)}`);
     }
     actor.walk(false);
     actor.lookBack();
-    for (let t = 0; t < 60 * 6; t++) { actor.update(1 / 60); if (t % 20 === 19) check(`look${((t + 1) / 60).toFixed(2)}`); }
+    for (let t = 0; t < 60 * 6; t++) { actor.update(1 / 60); if (t % 30 === 29) check(`look${((t + 1) / 60).toFixed(2)}`); }
     actor.hit();
-    for (let t = 0; t < 60 * 4; t++) { actor.update(1 / 60); if (t % 20 === 19) check(`angry${((t + 1) / 60).toFixed(2)}`); }
-    console.log('コアの 前へ 行けた コマ', frames - fails.length, '/', frames, fails.slice(0, 8).join(' '));
+    for (let t = 0; t < 60 * 4; t++) { actor.update(1 / 60); if (t % 30 === 29) check(`angry${((t + 1) / 60).toFixed(2)}`); }
+    console.log('飛び降りで 床の だんへ 行けた コマ', frames - fails.length, '/', frames, '飛び降りの 高さ', minDrop.toFixed(1), '〜', maxDrop.toFixed(1), fails.slice(0, 8).join(' '));
     expect(fails).toEqual([]);
-  }, 300_000);
+    expect(minDrop).toBeGreaterThanOrEqual(3.5);
+    expect(maxDrop).toBeLessThanOrEqual(6.5);
+  }, 600_000);
+
+  // ---------------------------------------------------------------- ガラスの 雲（すりガラスの ブロック。割れて、1 つずつ 生えなおす）
+  it('ガラスの 雲: 1 ブロックの マスの 板。割ると マスが 消えて（見た目 と 当たり）、もどすと もどる', () => {
+    const m = buildBig();
+    expect(m.glass.length).toBeGreaterThan(300);
+    for (const h of m.hits) if (h.mask) { expect(h.mask.on.length).toBe(h.mask.nx * h.mask.nz); expect(h.mask.on.some((v) => v === 1)).toBe(true); }
+    const gc = m.glass[0]!, mk = m.hits[gc.hit]!.mask!;
+    expect(mk.on[gc.cell]).toBe(1);
+    m.setGlass(gc, false);
+    expect(mk.on[gc.cell]).toBe(0);
+    const mesh = m.joints[gc.joint].children.find((o) => o.name === `${gc.joint}:gblock`) as import('three').Mesh;
+    expect(mesh.geometry.getAttribute('color').getW(gc.ranges[0]!.start)).toBe(0);
+    m.setGlass(gc, true);
+    expect(mk.on[gc.cell]).toBe(1);
+    expect(mesh.geometry.getAttribute('color').getW(gc.ranges[0]!.start)).toBe(1);
+  });
+
+  it('割れた マスは 当たりからも 消える（その 場所に 立てなく なる）', () => {
+    const actor = mkActor(), w = walker(actor);
+    const mk = actor.model.hits.find((h) => h.name === 'bank20')!.mask!, b = w.box('bank20');
+    const top = b.c[1]! + b.ax[4]! * b.half[1]!;
+    const idx = actor.model.hits.findIndex((h) => h.name === 'bank20');
+    const count = (): number => {
+      let n = 0;
+      for (let i = Math.floor(b.c[0]! - 4); i <= Math.ceil(b.c[0]! + 4); i++) for (let k = Math.floor(b.c[2]! - 4); k <= Math.ceil(b.c[2]! + 4); k++) for (let j = Math.floor(top - 1.5); j <= Math.floor(top); j++) if (actor.boxAt(i, j, k) === idx) n++;
+      return n;
+    };
+    const before = count();
+    expect(before).toBeGreaterThan(3);
+    mk.on.fill(0);
+    expect(count()).toBe(0);
+  });
+
+  it('雲は ガラスの ブロックだけ: 肩・腰・道の 雲の 板は ぜんぶ mask を もつ。腰の まわりに 雲が たくさん ある', () => {
+    const clouds = hits.filter((h) => /^(shoulder[LR]|bank|rise|armStep|backStep|backJump)/.test(h.name));
+    expect(clouds.length).toBeGreaterThan(60);
+    for (const h of clouds) expect(h.mask, h.name).toBeDefined();
+    expect(hits.filter((h) => h.name.startsWith('bank')).length).toBeGreaterThanOrEqual(40); // （腰の 雲を ふやす）
+    expect(hits.filter((h) => /^rise[LR]/.test(h.name)).length).toBeLessThanOrEqual(16); // 頭の まわりの 雲は 減らした
+  });
+
+  it('こけ・くさ: 十字の 板（ブロックでは ない）が たくさん 生えて、描画回数は 少ない（種類ごとに 1 回）', () => {
+    expect(model.plants).toBeGreaterThanOrEqual(300);
+    const inst = [] as import('three').InstancedMesh[];
+    model.group.traverse((o) => { if ((o as import('three').InstancedMesh).isInstancedMesh) inst.push(o as import('three').InstancedMesh); });
+    expect(inst.length).toBeGreaterThanOrEqual(2);
+    expect(inst.length).toBeLessThanOrEqual(3);
+  });
 });

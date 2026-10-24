@@ -1,7 +1,7 @@
 // #293 試作: 大きい がしゃどくろ（?proto=gashaBig）の「全身に のれる」を、本物の プレイヤーの 動き（前進・ジャンプの 入力を コマ送り）で 確かめる。
 //   ・うでの 道: 地面 → 手（指）→ 前わん → 上わん → 肩の ぬの（体を 45 度 むけても）   ARMS=1（ふだんは しない。START の 向きを 45 に する）
 //   ・間欠泉 → 肩の 雲 → 胴体の 上（えり・さこつ）→ 首の よこ → 背中の おなか（おりる）
-//   ・肩の 雲 → 雲の らせん（rise）→ 頭の てっぺんの わく → 顔の 前の ふち（60 ステップ 落ちずに 立つ）→ てっぺんの 穴に おりて みる（ふさがって いない）
+//   ・肩の 雲 → 雲の 道 → 飛び降り（4〜6 ブロック）→ 背中の 穴の 床の だん → とぎれた 道の ふち（もどれない・走って ジャンプしても わたれない）→ 弓で コアを ねらう → ふり落とし
 //   node scripts/climb-gasha-body.mjs     （開発サーバー http://localhost:5173 が 動いて いること。BASE=http://localhost:5391 など で かえる）
 //   環境変数: SIDE=L|R、START="x,z,向き(度)"、ARMS=1（うでの 道だけ）、EXTRA、BASE
 //   全部 通ったら 終了コード 0。
@@ -100,7 +100,8 @@ const result = await page.evaluate(async ([side, START, arms]) => {
   };
   /** 今の 場所から、goal(x, y, z) を みたす 立てる マスへの 道（マスの 列）。1 マス 上り・3 マス 下り まで、ななめ なし */
   let lastReach = null; // 道が みつからない とき: 歩いて 行けた いちばん 高い マス（なぜ とまるか 見る ため）
-  const findPath = (goal, R = 34, relaxed = false) => {
+  const findPath = (goal, R = 34, relaxed = false, o = {}) => {
+    const drops = [0, 1, -1, -2, -3]; for (let d = 4; d <= (o.maxDrop ?? 3); d++) drops.push(-d);
     const p0 = me().position, sx = Math.floor(p0.x), sz = Math.floor(p0.z);
     let sy = Math.floor(p0.y + 0.01);
     if (!standable(sx, sy, sz)) { for (let d = -1; d <= 1 && !standable(sx, sy, sz); d++) if (standable(sx, Math.floor(p0.y) + d, sz)) sy = Math.floor(p0.y) + d; }
@@ -115,8 +116,9 @@ const result = await page.evaluate(async ([side, START, arms]) => {
       for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
         const nx = x + dx, nz = z + dz;
         if (Math.abs(nx - sx) > R || Math.abs(nz - sz) > R) continue;
-        for (const dy of [0, 1, -1, -2, -3]) {
+        for (const dy of drops) {
           const ny = y + dy;
+          if (o.minY !== undefined && ny < o.minY) continue;
           if (dy === 1 && (solid(x, y + 2, z) || (!relaxed && (solid(x, y + 3, z) || solid(nx, y + 3, nz))))) continue; // ジャンプの 頭の 上が ふさがって いる（とびあがる 高さ 1.25 + 背たけ 1.8）
           if (!standable(nx, ny, nz)) continue;
           if (dy < 0 && (solid(nx, y, nz) || solid(nx, y + 1, nz))) continue;
@@ -231,70 +233,169 @@ const result = await page.evaluate(async ([side, START, arms]) => {
   void skullTopBox;
   const sgn = side === 'L' ? 1 : -1;
 
-  // ============================================================ 肩の 雲 → 小さな 雲の らせん（rise）→ 頭の てっぺん → 顔の 前
-  // 肩の 雲の 上から はじめて、本物の 入力で らせんの 雲を 1 こずつ とび移って のぼる
-  h.player.set({ position: { x: cloud.center[0], y: cloudTop, z: cloud.center[2] }, velocity: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: 0 });
-  for (let i = 0; i < 30; i++) h.step(1);
-  const top2 = H('skullTop2');
-  let climbed = false;
+  // ============================================================ 肩の 雲 → 雲の 道 → 飛び降り → 背中の 穴の 床の だん → とぎれた 道の 手前（本物の 入力）→ 弓で コアを ねらう
   {
-    const tops = hits.filter((c) => /^skullTop\d$/.test(c.name));
-    const path = findPath((x, y, z) => tops.some((c) => onBox(c, x, y, z)), 60);
-    if (!path) check(false, `肩の 雲 → 雲の らせん → 頭の てっぺん: 道が みつからない（いちばん 高い マス ${lastReach?.join(',')}）`);
+    const toCloud = () => {
+      h.player.set({ position: { x: cloud.center[0], y: Math.ceil(cloudTop - 0.2), z: cloud.center[2] }, velocity: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: 0 });
+      for (let i = 0; i < 30; i++) h.step(1);
+    };
+    toCloud();
+    log.push(`  雲 ${cloud.name} 上 ${f1(cloudTop)} 立った 位置 ${JSON.stringify(me().position)} 地面 ${me().onGround}`);
+    const jb = H('backJump'), fl = H('chestCoreFloor'), core = H('core'), far = H('chestFarFloor');
+    // 1) 肩の 雲から 雲の 道を 歩いて 最後の 雲（backJump）の 上へ
+    const pj = findPath((x, y, z) => onBox(jb, x, y, z), 40);
+    if (!pj) { check(false, `肩の 雲 → 雲の 道: 最後の 雲へ 道が みつからない（いちばん 高い マス ${lastReach?.join(',')}）`); }
     else {
-      const r = followPath(path);
-      climbed = r.ok;
-      if (!r.ok) check(false, `らせんの 途中で とまった マス ${r.at.join(',')}（${r.i}/${r.n}）道 ${lastTrace.join(' ')}\n${dumpAround()}`);
-      log.push(`  雲の らせんの 道 ${path.length} マス、のぼった 高さ ${path[0][1]} → ${path[path.length - 1][1]}`);
-    }
-  }
-  stopAll();
-  check(climbed, `肩の 雲 → 雲の らせん → 頭の てっぺんの わく。いま (${f1(me().position.x)}, ${f1(me().position.y)}, ${f1(me().position.z)})`);
-  if (climbed) {
-    // 前の わく（穴の 前）→ 顔の 前の ふち（からだの 前 = 軸 2）
-    const a2 = top2.axes[2];
-    const edge = { x: top2.center[0] + a2[0] * (top2.half[2] - 0.6), z: top2.center[2] + a2[2] * (top2.half[2] - 0.6) };
-    edge.y = topAt(edge.x, edge.z, top2.center[1] + 4);
-    let okw = false;
-    {
-      const pf = findPath((x, y, z) => onBox(top2, x, y, z) && Math.hypot(x + 0.5 - edge.x, z + 0.5 - edge.z) < 1.3, 40);
-      if (pf) okw = followPath(pf.length > 3 ? pf.slice(0, -1) : pf).ok; // ふちの 1 マス 手前まで あるいて 止まる（いきおいで ふちを こえない）
-    }
-    const s = stand(60);
-    check(okw && !s.off && s.drop < 0.2, `顔の 前の ふち（頭の てっぺんの 前）に 落ちずに 立てる (${f1(edge.x)}, ${edge.y}, ${f1(edge.z)}) → (${f1(s.p.x)}, ${f1(s.p.y)}, ${f1(s.p.z)}) 60 ステップ 立って 落ち ${f1(s.drop)}`);
-  }
-  // ============================================================ 肩の 雲 → 背中の 穴 → 道 → コアの 前（本物の 入力）→ コアを たたくと 背中の 外へ ふり落とされる
-  {
-    h.player.set({ position: { x: cloud.center[0], y: cloudTop, z: cloud.center[2] }, velocity: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: 0 });
-    for (let i = 0; i < 30; i++) h.step(1);
-    const core = H('core');
-    const dyL = (x, y, z) => (x + 0.5 - core.center[0]) * core.axes[1][0] + (y + 0.5 - core.center[1]) * core.axes[1][1] + (z + 0.5 - core.center[2]) * core.axes[1][2];
-    const goalCore = (x, y, z) => Math.hypot(x + 0.5 - core.center[0], y + 0.5 - core.center[1], z + 0.5 - core.center[2]) < 3.6 && dyL(x, y, z) < 0;
-    const pc = findPath(goalCore, 40);
-    if (!pc) check(false, `肩の 雲 → 背中の 穴 → コアの 前: 道が みつからない（歩いて 行けた いちばん 高い マス ${lastReach?.join(',')}）`);
-    else {
-      const r = followPath(pc); stopAll();
+      const r = followPath(pj); stopAll();
       const p = me().position;
-      check(r.ok, `肩の 雲 → 背中の 穴 → 道 → コアの 前（道 ${pc.length} マス）。いま (${f1(p.x)}, ${f1(p.y)}, ${f1(p.z)})${r.ok ? '' : `（止まった ${r.at.join(',')}）\n${dumpAround()}`}`);
+      check(r.ok, `肩の 雲 → 雲の 道 → 最後の 雲（道 ${pj.length} マス）。いま (${f1(p.x)}, ${f1(p.y)}, ${f1(p.z)})${r.ok ? '' : `（止まった ${r.at.join(',')}）\n${dumpAround()}`}`);
       if (r.ok) {
-        const s1 = stand(30);
-        check(!s1.off && s1.drop < 1.05, `コアの 前で 落ちずに 立てる（落ち ${f1(s1.drop)}）`);
-        const before = { ...me().position }, dCore = () => { const q = me().position; return Math.hypot(q.x - core.center[0], q.y - core.center[1], q.z - core.center[2]); };
-        const hp0 = hp();
-        const dealt = g.damage('core', 10);
-        h.step(1); log.push(`  とばされた 直後 速さ ${JSON.stringify(me().velocity)} 入力 ${g.shock().inputBlocked}`);
-        const tr = []; for (let i = 0; i < 90; i++) { h.step(1); if (i < 40 && i % 3 === 0) { const w = me().position; tr.push(`(${f1(w.x)},${f1(w.y)},${f1(w.z)})`); } }
-        log.push(`  軌道 ${tr.join(' ')} コア (${f1(core.center[0])},${f1(core.center[1])},${f1(core.center[2])})`);
-        const q = me().position;
-        check(dealt > 0, `コアに ダメージが 入る（${dealt}）`);
-        check(dCore() > 8 && !inBody(), `コアを たたくと 背中の 外へ ふり落とされる（コアから ${f1(dCore())} ブロック、いま (${f1(q.x)}, ${f1(q.y)}, ${f1(q.z)})）`);
-        check(hp() === hp0, `ふり落とされても 体力は そのまま ${hp()}`);
-        void before;
+        // 2) 飛び降りる: 忍者の足袋を ぬいで（落下ダメージが 出る ように）、床の だん（外へ のびた 床）へ まっすぐ 歩き出す
+        h.armor.set(null, null, null, null);
+        h.combat.setHp?.(20);
+        const s1 = stand(20);
+        const top0 = me().position.y;
+        const fa = fl.axes[2]; // 道の 前向き
+        const tgt = { x: fl.center[0] + fa[0] * 1.8, z: fl.center[2] + fa[2] * 1.8 }; // 雲の 下の 床の だんの すこし 先（雲の ふちを こえて おりる）
+        tgt.y = topAt(tgt.x, tgt.z, fl.center[1] + fl.half[1] + 1.2); // 上の 雲が かぶって いるので 床の だんの すぐ 上から 下をさがす
+        const okj = walkTo({ x: tgt.x, z: tgt.z, y: tgt.y }, { maxN: 400, r: 0.9, dy: 1.7, noJump: true });
+        stopAll();
+        const st = stand(40), pp = me().position;
+        const dropH = top0 - pp.y;
+        log.push(`  飛び降り: 雲の 上 ${f1(top0)} → 床の だん ${f1(pp.y)}（${f1(dropH)} ブロック）体力 ${hp()}`);
+        check((st.onGround || !st.off) && st.drop < 0.1 && Math.hypot(pp.x - fl.center[0], pp.z - fl.center[2]) < 3.5 && Math.abs(pp.y - (fl.center[1] + fl.half[1])) < 2, `雲の ふちから 歩いて 飛び降りて 床の だんに 立てた (${f1(pp.x)}, ${f1(pp.y)}, ${f1(pp.z)})`);
+        check(dropH >= 4 && dropH <= 6.6, `飛び降りの 高さ 4〜6 ブロック（${f1(dropH)}）`);
+        check(hp() < 20 && hp() >= 15, `足袋が なくても しなない。小さな ダメージ（体力 20 → ${hp()}）`);
+        void s1;
+        // 3) もどれない: 床の だんから 地面に おりずに（これより 低くは おりない）最後の 雲・肩の 雲へは 道が ない
+        const y0 = Math.floor(pp.y) - 1;
+        const back = findPath((x, y, z) => onBox(jb, x, y, z) || clouds.some((c) => onBox(c, x, y, z)), 40, false, { maxDrop: 6, minY: y0 });
+        check(back === null, `床の だんから 雲の 道・肩の 雲へは もどれない（${back ? '道が ある!' : '道なし'}）`);
+        // 4) 道を すすむ: とぎれた 穴の ふち（手前の 床の はし）まで
+        const edge = { x: fl.center[0] + fa[0] * 2.2, z: fl.center[2] + fa[2] * 2.2 };
+        edge.y = topAt(edge.x, edge.z, fl.center[1] + fl.half[1] + 1.2);
+        const okE = walkTo({ x: edge.x, z: edge.z, y: edge.y }, { maxN: 400, r: 0.6, dy: 1.7, noJump: true });
+        stopAll();
+        const se = stand(30), pe = me().position;
+        check(se.drop < 1.05 && Math.hypot(pe.x - fl.center[0], pe.z - fl.center[2]) < 6, `穴の ふち（手前の 床の はし）に 立てる (${f1(pe.x)}, ${f1(pe.y)}, ${f1(pe.z)})。むこうの 床まで 横 ${f1(Math.hypot(far.center[0] - pe.x, far.center[2] - pe.z) - far.half[2])} ブロック`);
+        // 5) 走って ジャンプしても むこうの 床には とどかない（おちる）
+        {
+          const dx = core.center[0] - pe.x, dz = core.center[2] - pe.z, yaw = (Math.atan2(dx, -dz) * 180) / Math.PI;
+          // 少し 手前（手前の 床の 上で 2 ブロック 助走）から
+          const bx0 = pe.x - fa[0] * 1.8, bz0 = pe.z - fa[2] * 1.8, by0 = topAt(bx0, bz0, pe.y + 3) ?? pe.y;
+          h.player.set({ position: { x: bx0, y: by0, z: bz0 }, velocity: { x: 0, y: 0, z: 0 }, yaw, pitch: 0 });
+          for (let i = 0; i < 10; i++) h.step(1);
+          let landed = null, jumped = false, minD = 1e9, maxAlongAbove = -99;
+          const farTop = far.center[1] + far.half[1], farEdge = (far.center[0] - pe.x) * fa[0] + (far.center[2] - pe.z) * fa[2] - far.half[2] * 0.7;
+          for (let n = 0; n < 220; n++) {
+            const q = me(), p = q.position;
+            h.player.set({ yaw });
+            h.input.press('moveForward'); h.input.press('run');
+            const along = (p.x - pe.x) * fa[0] + (p.z - pe.z) * fa[2];
+            if (!jumped && along > -0.3 && q.onGround) { h.input.press('jump'); jumped = true; } else h.input.release('jump');
+            h.step(1);
+            const q2 = me();
+            const dFar = Math.hypot(q2.position.x - far.center[0], q2.position.z - far.center[2]);
+            minD = Math.min(minD, dFar);
+            if (q2.position.y >= farTop - 0.3) maxAlongAbove = Math.max(maxAlongAbove, (q2.position.x - pe.x) * fa[0] + (q2.position.z - pe.z) * fa[2]);
+            if (jumped && q2.onGround && n > 12) { landed = { ...q2.position }; break; }
+            if (q2.position.y < pe.y - 9) break;
+          }
+          stopAll();
+          const fin = me().position;
+          const onFar = landed && Math.hypot(landed.x - far.center[0], landed.z - far.center[2]) < far.half[2] + 1.5 && Math.abs(landed.y - (far.center[1] + far.half[1])) < 2.5;
+          check(!onFar, `走って ジャンプしても 穴は わたれない（むこうの 床に ${onFar ? '着いた!' : '着かない'}。いま (${f1(fin.x)}, ${f1(fin.y)}, ${f1(fin.z)})、むこうの 床に いちばん ちかづいた 横の きょり ${f1(minD)}、むこうの 床と おなじ 高さ いじょうで 進めた 横の きょり ${f1(maxAlongAbove)} / むこうの 床の ふち ${f1(farEdge)}）`);
+        }
+        // 6) 弓で コアを ねらう（穴の 手前の 床から）
+        h.armor.set(null, null, null, 'ninja_tabi'); // もどる ところから ダメージを 気に しない
+        h.combat.setHp?.(20);
+        // 穴の ふちから 1 ブロック 手前に 立って ねらう（ふちを こえて おちない）
+        const sx2 = pe.x - fa[0] * 1.0, sz2 = pe.z - fa[2] * 1.0, sy2 = topAt(sx2, sz2, pe.y + 2) ?? pe.y;
+        h.player.set({ position: { x: sx2, y: sy2, z: sz2 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: 0 });
+        for (let i = 0; i < 20; i++) h.step(1);
+        const pp2 = me().position;
+        const stand0 = { x: pp2.x, y: pp2.y, z: pp2.z };
+        const eye = { x: pp2.x, y: pp2.y + 1.6, z: pp2.z };
+        const dxC = core.center[0] - eye.x, dyC = core.center[1] - eye.y, dzC = core.center[2] - eye.z, hdC = Math.hypot(dxC, dzC);
+        // 刀の とどく 長さ（2〜3 ブロック）より はなれて いる
+        const cd = Math.hypot(dxC, dyC, dzC) - core.half[0];
+        check(cd > 3.6, `穴の ふちから コアまで ${f1(cd)} ブロック（刀の とどく 3 より ずっと とおい）`);
+        h.settings.set('thirdPersonDistance', 0); // 矢は カメラの まんなかの 向きへ 出る ので 一人称で ねらう
+        h.inventory.setSlot(0, { item: 'yumi', count: 1 });
+        h.inventory.setSlot(1, { item: 'ya', count: 20 });
+        h.inventory.select(0);
+        {
+          const L = Math.hypot(dxC, dyC, dzC), ry = h.yokai.raycast({ x: eye.x, y: eye.y, z: eye.z }, { x: dxC / L, y: dyC / L, z: dzC / L }, 40);
+          const ci = g.colliders().findIndex((c) => c.name === 'core');
+          check(ry && ry.id === 900000000 + ci, `手前の 床から コアへ まっすぐ 線が 通る（矢の 線の 当たり: ${ry ? `${ry.id - 900000000 === ci ? 'コア' : '別の 箱 ' + (ry.id - 900000000)}、${f1(ry.distance)} ブロック` : 'なし'}）`);
+        }
+        const hp0 = g.hp();
+        let hitPart = null, warn0 = null;
+        for (const dPitch of [0, 1.5, 3, -1.5, 5, -3]) {
+          const yaw = (Math.atan2(dxC, -dzC) * 180) / Math.PI, pitch = (Math.atan2(dyC, hdC) * 180) / Math.PI + dPitch;
+          h.player.set({ position: stand0, velocity: { x: 0, y: 0, z: 0 }, yaw, pitch });
+          for (let i = 0; i < 6; i++) h.step(1);
+          h.input.press('primary');
+          for (let i = 0; i < 50; i++) { h.player.set({ yaw, pitch }); h.step(1); }
+          const aimP = h.aim.point(); const ev0 = h.bow.events().slice(-2).map((e) => e.type);
+          h.input.release('primary');
+          const arrTr = [];
+          for (let i = 0; i < 90; i++) {
+            h.step(1);
+            if (dPitch === 0 && i < 40 && i % 4 === 0) { const a = h.bow.arrows()[0]; if (a) arrTr.push(`(${f1(a.position.x)},${f1(a.position.y)},${f1(a.position.z)})`); }
+            const cw = g.info().coreWarn;
+            if (!warn0 && cw.warnLeft > 0) { warn0 = { pos: { ...me().position }, hp: g.hp(), yaw: me().yaw, steps: 0 }; }
+            if (warn0 && cw.warnLeft > 0) warn0.steps++;
+          }
+          if (dPitch === 0) log.push(`  camera ${JSON.stringify(h.camera.get())} player ${JSON.stringify(me())}`);
+          if (dPitch === 0) log.push(`  eye ${f1(eye.x)},${f1(eye.y)},${f1(eye.z)} core ${f1(core.center[0])},${f1(core.center[1])},${f1(core.center[2])} aim ${JSON.stringify(aimP)} ev ${ev0} 矢 ${arrTr.join(' ')}`);
+          const li = g.info().lastHit;
+          log.push(`  ねらい 上へ ${dPitch} 度: 当たり ${li ? `${li.part}(${li.source})` : 'なし'} 体力 ${g.hp()}`);
+          if (li && li.part === 'core') { hitPart = li; break; }
+        }
+        check(hitPart !== null && hitPart.part === 'core', `弓の 矢が コアに 当たる（体力 ${hp0} → ${g.hp()}、${hitPart ? `当たった 部位 ${hitPart.part}・${hitPart.source}` : '当たらない'}）`);
+        check(warn0 !== null, `コアを たたくと まず 予兆（むてきの あいだ）が 始まる${warn0 ? `（${warn0.steps} コマ ぶん 見えた。調整表 ${f1(1.5 * 60)} コマ）` : ''}`);
+        // 予兆の あいだは ふり落とされて いない（まだ 道の 中）。コアは むてきで ダメージ 0
+        {
+          const dcW = warn0 ? Math.hypot(warn0.pos.x - core.center[0], warn0.pos.y - core.center[1], warn0.pos.z - core.center[2]) : 0;
+          check(warn0 !== null && dcW < 12 && !inBody(), `予兆の あいだは まだ 道の 中に いる（コアから ${f1(dcW)}）`);
+        }
+        const hpBefore = g.info().hp;
+        const dmg = g.damage('core', 5);
+        check(g.info().hp === hpBefore || g.info().coreWarn.warnLeft <= 0, `予兆の あいだ（むてき）は コアに ダメージが 入らない（${hpBefore} → ${g.info().hp}、はじかれた ${g.info().deflects} 回、damage() ${dmg}）`);
+        // 予兆 → ふり落とし: カメラの 向きの 変化を ぜんぶ 記録
+        h.armor.set(null, null, null, null); h.combat.setHp?.(20); // 着地ダメージが 入るのを 見るため 足袋を ぬぐ
+        const hpPre = hp();
+        const yaw0 = me().yaw;
+        let launched = null, spinSum = 0, prevYaw = me().yaw, maxSpeedXZ = 0, sawSpin = false, steps = 0, hpAtLaunch = 0;
+        const startP = { ...me().position };
+        for (let i = 0; i < 400; i++) {
+          h.step(1); steps++;
+          const cw = g.info().coreWarn, q = me();
+          let dy = q.yaw - prevYaw; while (dy > 180) dy -= 360; while (dy < -180) dy += 360;
+          spinSum += dy; prevYaw = q.yaw;
+          if (cw.spinLeft > 0) sawSpin = true;
+          if (!launched && cw.throwLeft > 0) { launched = { ...q.position }; hpAtLaunch = hp(); }
+          if (i % 10 === 0) log.push(`    [${i}] (${f1(q.position.x)}, ${f1(q.position.y)}, ${f1(q.position.z)}) 地面 ${q.onGround} 予兆 ${f1(cw.warnLeft)} 飛 ${f1(cw.throwLeft)} 回 ${f1(cw.spinLeft)} 体力 ${hp()}`);
+          if (launched && q.onGround && cw.throwLeft <= 0 && cw.spinLeft <= 0 && i > 20) break;
+        }
+        const landedHp = hp();
+        const q = me().position, dc = Math.hypot(q.x - core.center[0], q.y - core.center[1], q.z - core.center[2]);
+        const farDist = Math.hypot(q.x - core.center[0], q.z - core.center[2]);
+        log.push(`  ふり落とし: 予兆から ${steps} コマ。飛ばされた 先 (${f1(q.x)}, ${f1(q.y)}, ${f1(q.z)})、コアから 横 ${f1(farDist)}、体の 向き 合計 ${f1(spinSum)} 度、体力 ${hpPre} → ${hp()}`);
+        check(launched !== null && hpAtLaunch === hpPre, `ふり落とし自体では ダメージなし（飛ばす 直前 ${hpAtLaunch}、前 ${hpPre}）`);
+        check(dc > 16 && !inBody(), `コアが たたかれて 背中の 外の 遠くへ ふり落とされた（コアから ${f1(dc)}、いま (${f1(q.x)}, ${f1(q.y)}, ${f1(q.z)})）`);
+        check(sawSpin && Math.abs(spinSum - 360) < 20, `飛ばされている あいだ カメラが 横に 1 回転（合計 ${f1(spinSum)} 度）`);
+        { let d = me().yaw - yaw0; while (d > 180) d -= 360; while (d < -180) d += 360; check(Math.abs(d) < 5, `着地の 前に 元の 向きに もどる（向きの ずれ ${f1(d)} 度）`); }
+        for (let i = 0; i < 240; i++) { h.step(1); if (i % 40 === 0) { const t = me(); log.push(`    [後 ${i}] (${f1(t.position.x)}, ${f1(t.position.y)}, ${f1(t.position.z)}) v ${f1(t.velocity.x)},${f1(t.velocity.y)},${f1(t.velocity.z)} 地面 ${t.onGround}`); } }
+        const q3 = me();
+        log.push(`  ふり落とされた あと: (${f1(q3.position.x)}, ${f1(q3.position.y)}, ${f1(q3.position.z)}) 体力 ${hp()}`);
+        void startP; void maxSpeedXZ;
+        check(hp() > 0 && landedHp < hpPre, `ふり落とされても しなない。着地ダメージは ふつうに 入る（足袋なし 体力 ${hpPre} → ${landedHp}）`);
       }
     }
     stopAll();
   }
-  check(hp() === 20, `体力は そのまま ${hp()}`);
   h.input.releaseAll();
   return { ok, log };
 }, [SIDE, START, process.env.ARMS === '1']);

@@ -10,10 +10,11 @@
  * 数は ぜんぶ gashaBigTuning.ts。
  */
 import {
-  BufferGeometry, Color, CylinderGeometry, DoubleSide, Euler, ExtrudeGeometry, Float32BufferAttribute, Group, IcosahedronGeometry, Matrix3, Matrix4,
+  BufferAttribute, BufferGeometry, Color, DataTexture, NearestFilter, RGBAFormat, SRGBColorSpace, CylinderGeometry, DoubleSide, Euler, ExtrudeGeometry, Float32BufferAttribute, Group, Matrix3, Matrix4,
   Mesh, MeshBasicMaterial, OctahedronGeometry, Path, Plane, Quaternion, Shape, Vector3, type Camera, type Object3D, type Scene,
 } from 'three';
 import { armPoints } from './gashaBigArm';
+import { buildPlants, plantMaterial, type PlantSurface } from './gashaBigPlants';
 import { TUNE as T, applyTune, applyTuneFromUrl } from './gashaBigTuning';
 import { BigActor, type ActorClips } from './gashaBigActor';
 import { sharedGashaBgm } from './gashaBgm';
@@ -72,6 +73,11 @@ export interface GashaBigDeps {
   /** たたきつけた 手の 下と まわりを こわす 口: ブロックを 空気に する（blockAt と そろって いる ときだけ こわす）と、こわした マス（くだける つぶ・音。ぬりかべの onBlocks と おなじ） */
   setBlockAir?(x: number, y: number, z: number): boolean;
   onCrushBlocks?(cells: { x: number; y: number; z: number; from: string; to: 'air' }[]): void;
+  /** ガラスの 雲が 割れた（ブロックの 中心の 世界の 座標）。小さな かけらと 音を 出す 口 */
+  onGlassBreak?(cells: { x: number; y: number; z: number }[]): void;
+  /** コアに 当たった 予兆（大きな 音）/ 遠くへ とばされる 瞬間（風の 音） */
+  onCoreWarn?(): void;
+  onCoreThrow?(): void;
 }
 
 // ---------------------------------------------------------------- 色と 面の 明るさ
@@ -106,16 +112,21 @@ const PARENT: Record<JointName, JointName | null> = {
 
 // ---------------------------------------------------------------- 箱を ためて まとめる
 /** 1 つの 関節の 中の 種類。main = ふつうの 箱（面ごとに 明るさ）、ほかは 影なし */
-type Kind = 'main' | 'bright' | 'eyes' | 'eyeHalo' | 'brow' | 'glow' | 'glass';
-const SHADED: Record<Kind, boolean> = { main: true, bright: false, eyes: false, eyeHalo: false, brow: true, glow: false, glass: false };
-const RGBA = new Set<Kind>(['glow', 'glass']);
+type Kind = 'main' | 'bright' | 'eyes' | 'eyeHalo' | 'brow' | 'glow' | 'glass' | 'gblock';
+const SHADED: Record<Kind, boolean> = { main: true, bright: false, eyes: false, eyeHalo: false, brow: true, glow: false, glass: false, gblock: false };
+const RGBA = new Set<Kind>(['glow', 'glass', 'gblock']);
 
 class Bucket {
   pos: number[] = [];
   col: number[] = [];
+  /** ガラスの ブロックの 絵（gblock だけ） */
+  uv: number[] = [];
   constructor(readonly joint: JointName, readonly kind: Kind) {}
   get rgba(): boolean { return RGBA.has(this.kind); }
 }
+
+/** ガラスの 雲の 1 マス: hit = 当たりの 箱の 番号、cell = マスの 番号（mask の 中）、ranges = この マスの 頂点（バケツの 中の はじめ・数） */
+export interface GlassCell { hit: number; cell: number; joint: JointName; ranges: { start: number; count: number }[]; local: Vector3 }
 
 export interface Hit {
   name: string;
@@ -125,7 +136,19 @@ export interface Hit {
   c: Vector3;
   axes: [Vector3, Vector3, Vector3];
   half: [number, number, number];
+  /** ガラスの 雲: 1 ブロックの マスごとの 有る・ない（nx × nz。u が 軸 0、w が 軸 2）。割れた マスは 0 */
+  mask?: GlassMask;
 }
+
+/** 雲の 板の マス（1 ブロック 単位）。割れる と on が 0 に なる */
+export interface GlassMask { nx: number; nz: number; on: Uint8Array }
+/** 箱の 中の 点（箱の 座標 u, w）が マスの 有る 所か */
+export const maskHas = (m: GlassMask | undefined, u: number, w: number, hx: number, hz: number): boolean => {
+  if (!m) return true;
+  const ix = Math.min(m.nx - 1, Math.max(0, Math.floor(((u + hx) / (2 * hx)) * m.nx)));
+  const iz = Math.min(m.nz - 1, Math.max(0, Math.floor(((w + hz) / (2 * hz)) * m.nz)));
+  return m.on[iz * m.nx + ix] === 1;
+};
 
 const tmpM = new Matrix4();
 const tmpN = new Matrix3();
@@ -146,6 +169,8 @@ const FACES: { n: [number, number, number]; v: [number, number, number][] }[] = 
 class Builder {
   readonly buckets = new Map<string, Bucket>();
   readonly hits: Hit[] = [];
+  /** ガラスの 雲の マスごとの 見た目の 頂点の 範囲（割れた とき 消す） */
+  readonly glass: GlassCell[] = [];
   bucket(joint: JointName, kind: Kind): Bucket {
     const k = `${joint}|${kind}`;
     let b = this.buckets.get(k);
@@ -285,74 +310,79 @@ const octShape = (r: number, hole?: number): Shape => {
 let KW = 1;
 const lerpA = (r: readonly [number, number], f: number): number => r[0] + (r[1] - r[0]) * f;
 
-/** 頂点を すりガラスの 色で ためる（上 = alphaTop、横 = alphaSide でふちが 少し 明るい、下 = alphaBottom）。fade は 形の 中の 場所（x, y）ごとの 濃さの 倍率 */
-function pushGlass(b: Builder, joint: JointName, geo: BufferGeometry, M: Matrix4, fade?: (lx: number, ly: number) => number, mul = 1): void {
-  const g = T.glass;
-  const gg = geo.index ? geo.toNonIndexed() : geo;
-  const nm = new Matrix3().getNormalMatrix(M);
-  const pa = gg.getAttribute('position'), na = gg.getAttribute('normal');
-  const bk = b.bucket(joint, 'glass');
-  const white = new Color(0xffffff);
-  for (let i = 0; i < pa.count; i++) {
-    const lx = pa.getX(i), ly = pa.getY(i);
-    tmpP.fromBufferAttribute(pa, i).applyMatrix4(M);
-    const t = vec(na.getX(i), na.getY(i), na.getZ(i)).applyMatrix3(nm).normalize().y;
-    const alpha = (t >= 0 ? g.alphaSide + (g.alphaTop - g.alphaSide) * t : g.alphaSide + (g.alphaBottom - g.alphaSide) * -t) * (fade ? fade(lx, ly) : 1) * mul;
-    tmpC.setHex(g.color).lerp(white, (1 - Math.abs(t)) * 0.7);
-    bk.pos.push(tmpP.x, tmpP.y, tmpP.z);
-    bk.col.push(tmpC.r, tmpC.g, tmpC.b, alpha);
+/** ガラスの ブロックの 絵（16 × 16。ふちは 明るい 青白、中は 白っぽい 半透明、左上に ななめの つや） */
+let glassTex: DataTexture | null = null;
+function glassTexture(): DataTexture {
+  if (glassTex) return glassTex;
+  const N = 16, d = new Uint8Array(N * N * 4);
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const edge = x === 0 || y === 0 || x === N - 1 || y === N - 1;
+    const edge2 = x === 1 || y === 1 || x === N - 2 || y === N - 2;
+    const shine = (x + y === 5 || x + y === 6 || x + y === 9) && x > 2 && y > 2 && x < 10 && y < 10;
+    let r = 232, g = 244, bl = 252, a = 70;
+    if (edge) { r = 250; g = 253; bl = 255; a = 235; }
+    else if (edge2) { r = 214; g = 236; bl = 250; a = 120; }
+    else if (shine) { r = 255; g = 255; bl = 255; a = 170; }
+    const i = (y * N + x) * 4;
+    d[i] = r; d[i + 1] = g; d[i + 2] = bl; d[i + 3] = a;
   }
-  if (gg !== geo) gg.dispose();
+  const t = new DataTexture(d, N, N, RGBAFormat);
+  t.magFilter = NearestFilter; t.minFilter = NearestFilter; t.colorSpace = SRGBColorSpace; t.generateMipmaps = false; t.needsUpdate = true;
+  return (glassTex = t);
 }
 
-/** 雲の 平面の 形（長さ L × はば W の 角の 丸い 形） */
-function blobOutline(L: number, W: number, bump: number): Shape {
-  const N = 24, sh = new Shape();
-  for (let k = 0; k < N; k++) {
-    const th = (k / N) * Math.PI * 2;
-    const c = Math.cos(th), s = Math.sin(th);
-    const bu = 1 + bump * Math.sin(th * 5 + 1.3);
-    const x = (L / 2) * Math.sign(c) * Math.pow(Math.abs(c), 0.5) * bu;
-    const z = (W / 2) * Math.sign(s) * Math.pow(Math.abs(s), 0.5) * bu;
-    if (k) sh.lineTo(x, z); else sh.moveTo(x, z);
+/** ガラスの ブロック 1 つ（1 ブロック 角。マイクラの ガラスの ように 明るい ふち ＋ 中は 白っぽい 半透明）。M = 中心・向き・大きさ。ためた 頂点の はじめと 数を 返す */
+function pushCube(b: Builder, joint: JointName, M: Matrix4, tint: number): { start: number; count: number } {
+  const bk = b.bucket(joint, 'gblock');
+  const start = bk.pos.length / 3;
+  const UV: [number, number][] = [[0, 0], [1, 0], [1, 1], [0, 1]];
+  const c = new Color(0xffffff).multiplyScalar(tint);
+  for (const f of FACES) {
+    for (const i of [0, 1, 2, 0, 2, 3]) {
+      tmpP.set(f.v[i]![0], f.v[i]![1], f.v[i]![2]).applyMatrix4(M);
+      bk.pos.push(tmpP.x, tmpP.y, tmpP.z);
+      bk.col.push(c.r, c.g, c.b, 1);
+      bk.uv.push(UV[i]![0], UV[i]![1]);
+    }
   }
-  return sh;
+  return { start, count: 36 };
 }
 
-const ICO = new IcosahedronGeometry(1, 1);
-
-/** 形（平面）を おしだした 板を 置く。形の x → u、y → 横、おしだし → 上。板の 上の 面が 高さ top に なる */
-function putSlab(b: Builder, joint: JointName, shape: Shape, thick: number, c: Vector3, u: Vector3, fade?: (lx: number, ly: number) => number, mul = 1): void {
-  const bt = Math.min(0.25 * KW, thick * 0.3), bs = 0.25 * KW;
-  const geo = new ExtrudeGeometry(shape, { depth: Math.max(0.2, thick - 2 * bt), bevelEnabled: true, bevelThickness: bt, bevelSize: bs, bevelSegments: 1, curveSegments: 1 });
-  const side = new Vector3().crossVectors(vec(0, 1, 0), u);
-  const M = new Matrix4().makeTranslation(c.x, c.y, c.z).multiply(new Matrix4().makeBasis(u, side, vec(0, 1, 0))).multiply(new Matrix4().makeTranslation(0, 0, -(thick - bt)));
-  pushGlass(b, joint, geo, M, fade, mul);
-  geo.dispose();
-}
-
-/** ぶらさがる もくもく（だ円体） */
-function putLobe(b: Builder, joint: JointName, c: Vector3, rx: number, ry: number, rz: number, mul = 1): void {
-  pushGlass(b, joint, ICO, new Matrix4().compose(c, new Quaternion(), vec(rx, ry, rz)), undefined, mul);
-}
-
-/** もくもく雲を 1 つ（木くらいの 大きさ）。平らな 上の 面 ＋ まわりと 下の ふくらみ。上の 面が そのまま 当たり */
+/** もくもく雲を 1 つ（木くらいの 大きさ）。1 ブロックの すりガラスの ブロックを 平らに 並べた 板（上の 面が 乗れる 当たり。マスごとに 割れる）＋ 下に ぶらさがる ブロック。 */
 function puff(b: Builder, o: { joint: JointName; cx: number; top: number; cz: number; w: number; yaw: number; lobes: number; name: string; rnd: () => number }): void {
-  const rnd = o.rnd, thick = T.bank.thick * KW, w = o.w * KW, d = w * (0.82 + 0.2 * rnd());
+  const rnd = o.rnd, cell = KW, thick = T.bank.thick * KW;
+  const nx = Math.max(2, Math.round(o.w)), nz = Math.max(2, Math.round(o.w * (0.82 + 0.2 * rnd())));
   const u = vec(Math.cos(o.yaw), 0, Math.sin(o.yaw));
   const side = new Vector3().crossVectors(vec(0, 1, 0), u);
-  const c = vec(o.cx, o.top, o.cz);
-  putSlab(b, o.joint, blobOutline(w, d, 0.035), thick, c, u);
-  for (let k = 0; k < o.lobes; k++) {
-    const ang = (k / o.lobes) * Math.PI * 2 + rnd() * 0.9;
-    const r = w * (0.2 + 0.08 * rnd());
-    const p = c.clone().addScaledVector(u, Math.cos(ang) * w * 0.34).addScaledVector(side, Math.sin(ang) * d * 0.34);
-    p.y = o.top - r * 0.9 - 0.25 * KW;
-    putLobe(b, o.joint, p, r, r * 0.85, r);
+  const on = new Uint8Array(nx * nz);
+  let count = 0;
+  for (let iz = 0; iz < nz; iz++) for (let ix = 0; ix < nx; ix++) {
+    const e = (ix + 0.5 - nx / 2) / (nx / 2), f = (iz + 0.5 - nz / 2) / (nz / 2);
+    if (Math.pow(Math.abs(e), 2.6) + Math.pow(Math.abs(f), 2.6) <= 1.15) { on[iz * nx + ix] = 1; count++; }
   }
-  putLobe(b, o.joint, vec(o.cx, o.top - thick - w * 0.12, o.cz), w * 0.3, w * 0.2, w * 0.28, 0.9);
-  const fill = T.collide.cloudFill;
-  b.hits.push({ name: o.name, joint: o.joint, c: vec(o.cx, o.top - thick / 2, o.cz), axes: [u.clone(), vec(0, 1, 0), side.clone()], half: [(w * fill) / 2, thick / 2, (d * fill) / 2] });
+  if (!count) { on[Math.floor(nz / 2) * nx + Math.floor(nx / 2)] = 1; }
+  const hitIdx = b.hits.length;
+  const q = new Quaternion().setFromRotationMatrix(new Matrix4().makeBasis(u, vec(0, 1, 0), side));
+  const cellCentre = (ix: number, iz: number, below: number): Vector3 =>
+    vec(o.cx, o.top - thick / 2 - below * thick, o.cz).addScaledVector(u, (ix + 0.5 - nx / 2) * cell).addScaledVector(side, (iz + 0.5 - nz / 2) * cell);
+  const cells: Map<number, GlassCell> = new Map();
+  const addCube = (ix: number, iz: number, below: number): void => {
+    const k = iz * nx + ix;
+    let gc = cells.get(k);
+    if (!gc) { gc = { hit: hitIdx, cell: k, joint: o.joint, ranges: [], local: cellCentre(ix, iz, 0) }; cells.set(k, gc); }
+    const M = new Matrix4().compose(cellCentre(ix, iz, below), q, vec(cell, thick, cell));
+    gc.ranges.push(pushCube(b, o.joint, M, 0.9 + 0.1 * rnd()));
+  };
+  for (let iz = 0; iz < nz; iz++) for (let ix = 0; ix < nx; ix++) if (on[iz * nx + ix]) addCube(ix, iz, 0);
+  // 下に ぶらさがる ブロック（もくもく）: 板の ふちに 近い マスの 下に 1〜2 こ
+  const lobeCells = [...cells.keys()];
+  for (let k = 0; k < o.lobes && lobeCells.length; k++) {
+    const pick = lobeCells[Math.floor(rnd() * lobeCells.length)]!;
+    addCube(pick % nx, Math.floor(pick / nx), 1);
+    if (rnd() < 0.35) addCube(pick % nx, Math.floor(pick / nx), 2);
+  }
+  for (const gc of cells.values()) b.glass.push(gc);
+  b.hits.push({ name: o.name, joint: o.joint, c: vec(o.cx, o.top - thick / 2, o.cz), axes: [u.clone(), vec(0, 1, 0), side.clone()], half: [(nx * cell) / 2, thick / 2, (nz * cell) / 2], mask: { nx, nz, on } });
 }
 
 const jointForY = (y: number): JointName => (y < 20 ? 'Hips' : y < 50 ? 'Spine02' : 'Head');
@@ -366,6 +396,13 @@ export interface BigModel {
   /** 休みの 姿勢での 関節の 位置（からだの 座標） */
   rest: Record<JointName, Vector3>;
   hits: Hit[];
+  /** ガラスの 雲の マスの 一覧（割れる 単位）と、出す / 消す */
+  glass: GlassCell[];
+  setGlass(gc: GlassCell, on: boolean): void;
+  /** 道に 生えた こけ・くさの 数（十字の 板の まとまり） */
+  plants: number;
+  /** コアの 見た目を ずらす（胴体の 座標の ずれ x, y, z・大きさの 倍・透明度の 倍）。もどす ときは (0,0,0,1,1) */
+  setCoreFx(jx: number, jy: number, jz: number, scale: number, alphaK: number): void;
   eyes: MeshBasicMaterial;
   eyeHalo: MeshBasicMaterial;
   brow: Mesh;
@@ -429,7 +466,7 @@ export function buildBig(): BigModel {
   const torso = b.root('Spine02').group(HIP.x, HIP.y, HIP.z, [PITCH, 0, 0], [1.45, 1.1, 1.3]);
   const tj = (j: JointName) => torso.at(j);
   const vJoint = (i: number): JointName => (i < 3 ? 'Hips' : i < 9 ? 'Spine' : i < 15 ? 'Spine01' : 'Spine02');
-  const K = T.core, KT = K.tunnel, TX0 = KT.x - KT.width / 2, TX1 = KT.x + KT.width / 2, CEIL = 30.5; // 道（トンネル）の 左右の はしと 天井（胸の 上の 面）
+  const K = T.core, KT = K.tunnel, TX0 = KT.x - KT.width / 2, TX1 = KT.x + KT.width / 2, CEIL = KT.ceilY, G0 = KT.gap.z0, G1 = KT.gap.z1; // 道（トンネル）の 左右の はしと 天井、途中の 穴の はじ
   {
     // 背中の ぬの（x ±4.5、y 12〜36）。背中の 穴の ぶんだけ あける（穴の 左右の はば TX0〜TX1、高さ 床〜天井）
     const px = (x0: number, x1: number, y0: number, y1: number): void => { if (x1 - x0 > 0.2 && y1 - y0 > 0.2) tj('Spine01').box(x1 - x0, y1 - y0, 1.0, (x0 + x1) / 2, (y0 + y1) / 2, -5.0, 0x5a463c); };
@@ -509,16 +546,21 @@ export function buildBig(): BigModel {
   {
     const th = (j: JointName) => torso.at(j);
     th('Hips').hit('spineLow', 3.9, 6.8, 4.0, 0, 5.5, -7.6); // 背骨の 下（こしの 骨）
-    th('Spine').hit('torsoWaist', 16.8, 7.8, 18.0, 0, 12.1, -0.6); // おなか・すその ぼろぼろ（ほねは すかすかでも 中は 固い）
+    // おなか・すその ぼろぼろ（ほねは すかすかでも 中は 固い）。道の 穴（G0〜G1）の ところは 下まで ぬける: 穴の 前 / 後ろ は 全幅、穴の 左右の かべ
+    const WZ0 = -9.6, WZ1 = 8.4, WY0 = 8.2, WY1 = 16.0;
+    const wslab = (name: string, x0: number, x1: number, z0: number, z1: number): void => { if (x1 - x0 > 0.2 && z1 - z0 > 0.2) th('Spine').hit(name, x1 - x0, WY1 - WY0, z1 - z0, (x0 + x1) / 2, (WY0 + WY1) / 2, (z0 + z1) / 2); };
+    wslab('torsoWaist', -8.4, 8.4, WZ0, G0); // 穴の 手前（道の 床の つづき）
+    wslab('waistGapL', TX1, 8.4, G0, G1); wslab('waistGapR', -8.4, TX0, G0, G1); // 穴の 左右の かべ
+    wslab('waistFrontL', TX1, 8.4, G1, WZ1); wslab('waistFrontR', -8.4, TX0, G1, WZ1);
     th('Spine01').hit('spineMid', 3.9, 13.5, 4.0, 0, 24.25, -7.6); // 背骨（ろっ骨の うしろに とび出す ぶん）
-    th('Spine01').hit('chestLow', 22.8, 5.0, 18.1, 0, 17.1, 0.05); // ろっ骨 1〜2 だんめ
-    // 3〜6 だんめ（いちばん ひろい 所）は 背中の 穴の 道（トンネル）の ぶんだけ あける: 床より 下 / 道の 左 / 道の 右 / コアの 前の かべ。道は 床〜天井（chestUp の 下）
-    const slab = (name: string, x0: number, x1: number, y0: number, y1: number, z0: number, z1: number): void => th('Spine02').hit(name, x1 - x0, y1 - y0, z1 - z0, (x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
-    slab('chestMid1', -12.5, 12.5, 19.6, KT.floorY, -8.05, 9.85);
-    slab('chestMid2', TX1, 12.4, KT.floorY, CEIL, -8.05, 10.45); // 道の 左（体の 左がわ）
-    slab('chestMid2R', -12.4, TX0, KT.floorY, CEIL, -8.05, 10.45); // 道の 右
-    slab('chestCoreEnd', TX0, TX1, KT.floorY, CEIL, KT.endZ, 10.45); // コアの 前の かべ（これより 先は 行けない）
+    // ろっ骨 1〜2 だんめ・3〜6 だんめ（いちばん ひろい 所）は 道（トンネル）の ぶんだけ あける: 道の 左 / 右。道は 床〜天井。天井の 上は chestMid2
+    const slab = (name: string, x0: number, x1: number, y0: number, y1: number, z0: number, z1: number, j: JointName = 'Spine02'): void => th(j).hit(name, x1 - x0, y1 - y0, z1 - z0, (x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
+    slab('chestLow', TX1, 11.4, 14.6, 19.6, -8.975, 9.075, 'Spine01'); slab('chestLowR', -11.4, TX0, 14.6, 19.6, -8.975, 9.075, 'Spine01');
+    slab('chestMid1', TX1, 12.5, 19.6, CEIL, -8.05, 9.85); slab('chestMid1R', -12.5, TX0, 19.6, CEIL, -8.05, 9.85);
+    slab('chestMid2', -12.4, 12.4, CEIL, 30.5, -8.05, 10.45); // 道の 天井から 胸の 上まで（ぜんぶ ふさぐ）
+    slab('chestCoreEnd', TX0, TX1, KT.floorY, CEIL, KT.endZ, 10.45); // コアの 向こうの かべ（道の つきあたり）
     slab('chestCoreFloor', TX0, TX1, KT.floorY - KT.floorThick, KT.floorY, KT.backZ, -7.5); // 背中の 外へ のびる 床（穴の 入り口の だん）
+    slab('chestFarFloor', TX0, TX1, KT.floorY - KT.floorThick, KT.floorY, G1, KT.endZ); // 穴の むこうがわの 小さな 床（コアの 下）
     th('Spine02').hit('core', K.size, K.size, K.size, K.pos[0], K.pos[1], K.pos[2]); // コア（たたくと ふり落とされる）
     th('Spine02').hit('chestUp', 21.8, 2.9, 16.3, 0, 31.95, 0.85); // 7 だんめ ＋ セーラーの えり（前の V）
     th('Spine02').hit('chestTop', 15.4, 4.8, 14.2, 0, 35.7, -2.6); // 肩の あいだ・えりの 上の 面（ここが 胴体の 上）
@@ -531,16 +573,27 @@ export function buildBig(): BigModel {
   {
     const t = tj('Spine02');
     const W = KT.width, H = CEIL - KT.floorY, zA = -8.1, zB = KT.endZ, L = zB - zA;
-    const DARK_IN = 0x1b1116, FLOOR = 0x4d3d38;
-    // 中の かべ・床・天井（暗い 内がわ）
-    t.box(W, 0.4, L, KT.x, KT.floorY - 0.2, (zA + zB) / 2, FLOOR);
-    t.box(0.4, H, L, TX0 + 0.2, KT.floorY + H / 2, (zA + zB) / 2, DARK_IN);
-    t.box(0.4, H, L, TX1 - 0.2, KT.floorY + H / 2, (zA + zB) / 2, DARK_IN);
-    t.box(W, 0.4, L, KT.x, CEIL - 0.2, (zA + zB) / 2, DARK_IN);
+    const DARK_IN = 0x1b1116, FLOOR = 0x4d3d38, PIT = 0x120a0e;
+    const zc = (z0: number, z1: number) => (z0 + z1) / 2;
+    // 中の かべ・床・天井（暗い 内がわ）。床は 穴（G0〜G1）の ところだけ ない
+    t.box(W, 0.4, G0 - zA, KT.x, KT.floorY - 0.2, zc(zA, G0), FLOOR);
+    t.box(W, 0.4, zB - G1, KT.x, KT.floorY - 0.2, zc(G1, zB), FLOOR);
+    t.box(0.4, H, L, TX0 + 0.2, KT.floorY + H / 2, zc(zA, zB), DARK_IN);
+    t.box(0.4, H, L, TX1 - 0.2, KT.floorY + H / 2, zc(zA, zB), DARK_IN);
+    t.box(W, 0.4, L, KT.x, CEIL - 0.2, zc(zA, zB), DARK_IN);
     t.box(W, H, 0.4, KT.x, KT.floorY + H / 2, zB - 0.2, 0x2b1a20);
-    // 道の ろっ骨（アーチ）: 床の 骨の いたと、かべ・天井に 沿う 骨を 一定の 間かくで
+    // 穴の かべ（下へ 深く 暗く ぬける。腰の 下の 骨まで）
+    for (const sx of [TX0 + 0.2, TX1 - 0.2]) t.box(0.4, 8.0, G1 - G0, sx, KT.floorY - 4.0, zc(G0, G1), PIT);
+    t.box(W, 8.0, 0.4, KT.x, KT.floorY - 4.0, G0 + 0.2, PIT); // 手前の 穴の かべ
+    t.box(W, 8.0, 0.4, KT.x, KT.floorY - 4.0, G1 - 0.2, PIT); // むこうの 穴の かべ
+    // 穴の ふちの ほね（かけた 骨の 歯）
+    for (const [z, sgn] of [[G0, -1], [G1, 1]] as const) {
+      t.box(W - 0.4, 0.6, 0.9, KT.x, KT.floorY + 0.3, z + sgn * -0.2, BONE);
+      for (const dx of [-1.5, -0.3, 1.1]) t.box(0.8, 0.7 + (dx > 0 ? 0.5 : 0), 0.8, KT.x + dx, KT.floorY - 0.5, z + sgn * 0.3, BONE_D);
+    }
+    // 道の ろっ骨（アーチ）: 床の 骨の いたと、かべ・天井に 沿う 骨を 一定の 間かくで（床の 骨は 穴の ところは なし）
     for (let z = zA + 1.5; z < zB - 0.5; z += 3.0) {
-      t.box(W - 0.6, 0.5, 1.0, KT.x, KT.floorY + 0.1, z, BONE_D);
+      if (z < G0 - 0.6 || z > G1 + 0.6) t.box(W - 0.6, 0.5, 1.0, KT.x, KT.floorY + 0.1, z, BONE_D);
       t.box(0.8, H - 0.4, 1.0, TX0 + 0.55, KT.floorY + H / 2, z, BONE);
       t.box(0.8, H - 0.4, 1.0, TX1 - 0.55, KT.floorY + H / 2, z, BONE);
       t.box(W - 0.6, 0.8, 1.0, KT.x, CEIL - 0.5, z, BONE);
@@ -550,11 +603,9 @@ export function buildBig(): BigModel {
     t.box(1.4, H + 1.4, 2.0, TX1 + 0.7, KT.floorY + H / 2 + 0.7, zA - 0.7, BONE_D); // 左
     t.box(1.4, H + 1.4, 2.0, TX0 - 0.7, KT.floorY + H / 2 + 0.7, zA - 0.7, BONE_D); // 右
     t.box(W + 2.4, KT.floorThick, KT.backZ - zA + 1.0, KT.x, KT.floorY - KT.floorThick / 2, (KT.backZ + zA - 1.0) / 2 + 0.2, BONE); // 外へ のびる 床
-    moss(t, KT.x + 1, KT.floorY + 0.8, KT.backZ + 1, 3, 3);
-    // コア: 道の 先で 光る（しん と まわりの 光）
+    // コア: とぎれた 道の むこうで 光る（しん と まわりの 光）
     const cp = K.pos;
-    t.geom(new OctahedronGeometry(K.size * 0.42), 0xcffaff, new Matrix4().makeTranslation(cp[0], cp[1], cp[2]), 'bright');
-    t.geom(new OctahedronGeometry(K.size * 0.62), 0x8aeaff, new Matrix4().makeTranslation(cp[0], cp[1], cp[2]), 'glow', 0.3);
+    void cp; // コアの 見た目は 別の メッシュ（ふり落としの 予兆で ゆらして 半透明に するため。下の coreVis）
     t.glowBox(W - 0.6, H - 0.6, 0.3, KT.x, KT.floorY + H / 2, zB - 0.6, 0x8aeaff, 0.22);
     // 肩から 穴の 外の だんへ おりる 雲の 段は 肩の 雲を つくる ところ（KW が きまって から）
   }
@@ -794,15 +845,19 @@ export function buildBig(): BigModel {
         puff(b, { joint: e.joint, cx: p.x + e.s * Q.out * KW, top: armTop + Q.rise * KW, cz: p.z, w, yaw: rq() * Math.PI, lobes: 4, name: `armStep${e.s < 0 ? 'R' : 'L'}`, rnd: rq });
       }
     }
-    // 背中の 穴へ おりる 雲の 段: 左の 肩の いちばん 後ろの 雲（肩の 高さ）から 穴の 外の 床の だん（入り口）へ、下がりが 1 ブロックより 小さい 段で つなぐ
+    // 背中の 穴の 上へ つづく 雲の 道: 左の 肩の いちばん 後ろの 雲（肩の 高さ）から 肩の 高さの まま 穴の 外の 床の だんの うしろまで。
+    // さいごの 雲の ふちから 床の だん（約 5 ブロック 下）へ 飛び降りる。床の だんからは 上へ 戻れない（一方通行）
     {
       const Z = T.core, rs2 = makeRnd(Z.steps.seed), n = Math.max(1, Math.round(Z.steps.count));
       const L = Tt(KT.x, KT.floorY, KT.backZ);
       const x0 = S.xs[0]!, z0 = S.zs[0]!, y0 = S.y;
+      const wJ = lerpA(Z.steps.size, rs2());
+      const xJ = L.x, zJ = L.z - (wJ / 2 + Z.steps.behind) * KW;
       for (let k = 1; k <= n; k++) {
         const u = k / (n + 1);
-        puff(b, { joint: 'Spine02', cx: x0 + (L.x - x0) * u, top: y0 + (L.y - y0) * u, cz: z0 + (L.z - z0) * u, w: lerpA(Z.steps.size, rs2()), yaw: rs2() * Math.PI, lobes: 4, name: `backStep${k - 1}`, rnd: rs2 });
+        puff(b, { joint: 'Spine02', cx: x0 + (xJ - x0) * u, top: y0, cz: z0 + (zJ - z0) * u, w: lerpA(Z.steps.size, rs2()), yaw: rs2() * Math.PI, lobes: 4, name: `backStep${k - 1}`, rnd: rs2 });
       }
+      puff(b, { joint: 'Spine02', cx: xJ, top: y0, cz: zJ, w: wJ, yaw: 0, lobes: 2, name: 'backJump', rnd: rs2 });
     }
     // 髪の 毛束: 黒い 箱。上の 面が 当たり。ときどき 髪どめ（ピンク）
     const H = T.hair;
@@ -837,12 +892,17 @@ export function buildBig(): BigModel {
         }
       }
     }
+    // 腰の まわり: ガラスの 雲の 輪（中心から 外へ 数本の 輪。外の 輪ほど ひくく、地面ちかくまで ぐるっと かこむ）
     const K = T.bank, rb = makeRnd(K.seed);
-    for (let i = 0; i < K.count; i++) {
-      let x = 0, z = 0, rad = 2;
-      while (rad > 1) { x = (rb() * 2 - 1); z = (rb() * 2 - 1); rad = Math.hypot(x, z); }
-      const top = Math.max(1.6 * KW, K.height * (1 - Math.pow(rad, 1.6)) + (rb() - 0.5) * K.jitter);
-      puff(b, { joint: 'Hips', cx: x * K.radiusX, top, cz: K.z + z * K.radiusZ, w: lerpA(K.size, rb()), yaw: rb() * Math.PI, lobes: K.lobes, name: `bank${i}`, rnd: rb });
+    let bi = 0;
+    for (const [rr0, n] of K.rings) {
+      const a0 = rb() * Math.PI * 2;
+      for (let q = 0; q < n; q++) {
+        const ang = a0 + ((q + (rb() - 0.5) * 0.5) / n) * Math.PI * 2, rad = Math.min(1, Math.max(0.05, rr0 + (rb() - 0.5) * 0.08));
+        let top = Math.max(1.6 * KW, K.height * (1 - Math.pow(rad, 1.6)) + (rb() - 0.5) * K.jitter);
+        if (rad < K.innerRad) top = Math.min(top, K.innerTop);
+        puff(b, { joint: 'Hips', cx: Math.cos(ang) * rad * K.radiusX, top, cz: K.z + Math.sin(ang) * rad * K.radiusZ, w: lerpA(K.size, rb()), yaw: rb() * Math.PI, lobes: K.lobes, name: `bank${bi++}`, rnd: rb });
+      }
     }
   }
 
@@ -863,17 +923,18 @@ export function buildBig(): BigModel {
   const matOf = (kind: Kind): MeshBasicMaterial => {
     let m = mats[kind];
     if (!m) {
-      const tr = kind === 'glow' || kind === 'glass' || kind === 'eyeHalo';
+      const tr = kind === 'glow' || kind === 'glass' || kind === 'eyeHalo' || kind === 'gblock';
       const lit = kind === 'eyes' || kind === 'eyeHalo' || kind === 'glow'; // 目の 光（怒り）と 光の 玉だけは 暗くしない・霞ませない
-      m = new MeshBasicMaterial({ vertexColors: true, fog: !lit, side: kind === 'glass' ? 0 : DoubleSide, transparent: tr, opacity: kind === 'eyeHalo' ? 0.3 : 1, depthWrite: !tr });
+      m = new MeshBasicMaterial({ vertexColors: true, fog: !lit, side: kind === 'glass' || kind === 'gblock' ? 0 : DoubleSide, transparent: tr, opacity: kind === 'eyeHalo' ? 0.3 : 1, depthWrite: !tr, map: kind === 'gblock' ? glassTexture() : null });
       if (lit) m.userData.noDim = true;
       else hazePatch(m);
       mats[kind] = m;
     }
     return m;
   };
-  const ORDER: Record<Kind, number> = { main: 0, bright: 0, eyes: 0, brow: 0, eyeHalo: 1, glass: 2, glow: 3 };
+  const ORDER: Record<Kind, number> = { main: 0, bright: 0, eyes: 0, brow: 0, eyeHalo: 1, glass: 2, gblock: 2, glow: 3 };
   let brow: Mesh | null = null;
+  const glassMeshes: Partial<Record<JointName, Mesh>> = {};
   for (const bk of b.buckets.values()) {
     if (!bk.pos.length) continue;
     // 関節の 原点が 回転の 中心に なる ように、頂点を 関節の 場所から の ずれに する
@@ -883,21 +944,92 @@ export function buildBig(): BigModel {
     const geo = new BufferGeometry();
     geo.setAttribute('position', new Float32BufferAttribute(pos, 3));
     geo.setAttribute('color', new Float32BufferAttribute(bk.col, bk.rgba ? 4 : 3));
+    if (bk.uv.length) geo.setAttribute('uv', new Float32BufferAttribute(bk.uv, 2));
     const m = new Mesh(geo, matOf(bk.kind));
     m.name = `${bk.joint}:${bk.kind}`;
     m.renderOrder = ORDER[bk.kind];
     m.frustumCulled = false;
     if (bk.kind === 'brow') { m.visible = false; brow = m; }
+    if (bk.kind === 'gblock') glassMeshes[bk.joint] = m;
     joints[bk.joint].add(m); meshes.push(m);
   }
+  // コアの 見た目（しん と まわりの 光）。予兆の 間 ゆれて 半透明に なる ので、まとめずに 別の メッシュに する
+  const coreVis = new Group();
+  coreVis.name = 'coreVis';
+  const coreBase = new Matrix4().makeTranslation(-rest.Spine02.x, -rest.Spine02.y, -rest.Spine02.z).multiply(torso.m).multiply(new Matrix4().makeTranslation(K.pos[0], K.pos[1], K.pos[2]));
+  const coreMats: { m: MeshBasicMaterial; a: number }[] = [];
+  for (const [r, color, a] of [[0.42, 0xcffaff, 1], [0.62, 0x8aeaff, 0.3]] as const) {
+    const m = new MeshBasicMaterial({ color, fog: false, transparent: true, opacity: a, depthWrite: a >= 1 });
+    m.userData.noDim = true;
+    const cm = new Mesh(new OctahedronGeometry(K.size * r), m);
+    cm.frustumCulled = false; cm.renderOrder = a >= 1 ? 0 : 3;
+    coreVis.add(cm);
+    coreMats.push({ m, a });
+  }
+  coreVis.matrixAutoUpdate = false;
+  coreVis.matrix.copy(coreBase);
+  joints.Spine02.add(coreVis);
+  const setCoreFx = (jx: number, jy: number, jz: number, scale: number, alphaK: number): void => {
+    coreVis.matrix.copy(coreBase).multiply(new Matrix4().compose(vec(jx, jy, jz), new Quaternion(), vec(scale, scale, scale)));
+    coreVis.matrixWorldNeedsUpdate = true;
+    for (const c of coreMats) c.m.opacity = c.a * alphaK;
+  };
+  meshes.push(...(coreVis.children as Mesh[]));
+  // 体の 中の 道に 生い茂る こけ・くさ（十字の ドット絵の 板。InstancedMesh）
+  let plantCount = 0;
+  {
+    const M = T.core.moss, zA = -8.1, zB = KT.endZ, x0 = TX0 + 0.3, x1 = TX1 - 0.3, fy = KT.floorY, cy = CEIL - 0.45;
+    const surf: PlantSurface[] = [];
+    const rect = (o: [number, number, number], a: [number, number, number], bb: [number, number, number], up: [number, number, number], density: number): void => {
+      surf.push({ o: vec(...o), a: vec(...a), b: vec(...bb), up: vec(...up), density });
+    };
+    const ZL = KT.backZ + 0.4;
+    // 床（穴の 手前 / むこう / 外の だん）
+    rect([x0, fy, ZL], [x1 - x0, 0, 0], [0, 0, G0 - ZL], [0, 1, 0], M.floor);
+    rect([x0, fy, G1], [x1 - x0, 0, 0], [0, 0, zB - 0.4 - G1], [0, 1, 0], M.floor);
+    // 左右の かべ（穴の ところは 下へ 深く）
+    for (const [wx, dir] of [[TX0 + 0.35, 1], [TX1 - 0.35, -1]] as const) {
+      rect([wx, fy + 0.2, zA], [0, CEIL - 0.5 - fy - 0.2, 0], [0, 0, zB - zA], [dir, 0, 0], M.wall);
+      rect([wx, fy - 6, G0], [0, 6, 0], [0, 0, G1 - G0], [dir, 0, 0], M.wall * 0.7);
+    }
+    // 天井（下むきに たれる）
+    rect([x0, cy, zA], [x1 - x0, 0, 0], [0, 0, zB - zA], [0, -1, 0], M.ceil);
+    // つきあたりの かべ
+    rect([x0, fy + 0.2, zB - 0.4], [x1 - x0, 0, 0], [0, CEIL - 0.5 - fy - 0.2, 0], [0, 0, -1], M.wall);
+    // 穴の むこう / 手前の かべ
+    rect([x0, fy - 6, G0 + 0.4], [x1 - x0, 0, 0], [0, 6, 0], [0, 0, 1], M.wall * 0.7);
+    rect([x0, fy - 6, G1 - 0.4], [x1 - x0, 0, 0], [0, 6, 0], [0, 0, -1], M.wall * 0.7);
+    // アーチの ほね まわり（ほねの すきまに ぎっしり）
+    for (let z = zA + 1.5; z < zB - 0.5; z += 3.0) {
+      if (z > G0 - 0.6 && z < G1 + 0.6) continue;
+      rect([x0, fy, z - 0.8], [x1 - x0, 0, 0], [0, 0, 1.6], [0, 1, 0], M.ribs);
+      for (const [wx, dir] of [[TX0 + 0.35, 1], [TX1 - 0.35, -1]] as const) rect([wx, fy + 0.2, z - 0.8], [0, CEIL - 0.5 - fy - 0.2, 0], [0, 0, 1.6], [dir, 0, 0], M.ribs);
+    }
+    const pm = plantMaterial();
+    hazePatch(pm);
+    const parent = new Matrix4().makeTranslation(-rest.Spine02.x, -rest.Spine02.y, -rest.Spine02.z).multiply(torso.m);
+    const { meshes: pl, count } = buildPlants(surf.filter((q) => q.density > 0), { parent, size: M.size, carpet: M.carpet, max: M.max, seed: M.seed }, pm);
+    for (const mesh of pl) { mesh.renderOrder = 0; joints.Spine02.add(mesh); meshes.push(mesh); }
+    plantCount = count;
+  }
+  /** ガラスの マスを 出す / 消す（見た目は 頂点の 透明度、当たりは mask） */
+  const setGlass = (gc: GlassCell, on: boolean): void => {
+    const m = glassMeshes[gc.joint];
+    if (!m) return;
+    const a = m.geometry.getAttribute('color') as BufferAttribute;
+    for (const r of gc.ranges) for (let i = r.start; i < r.start + r.count; i++) a.setW(i, on ? 1 : 0);
+    a.needsUpdate = true;
+    const mk = b.hits[gc.hit]?.mask;
+    if (mk) mk.on[gc.cell] = on ? 1 : 0;
+  };
 
   return {
-    group, joints, rest, hits: b.hits, eyes: matOf('eyes'), eyeHalo: matOf('eyeHalo'), brow: brow ?? new Mesh(), scale, groundPts, head: headPos, meshes: meshes.length,
+    group, joints, rest, hits: b.hits, glass: b.glass, setGlass, plants: plantCount, setCoreFx, eyes: matOf('eyes'), eyeHalo: matOf('eyeHalo'), brow: brow ?? new Mesh(), scale, groundPts, head: headPos, meshes: meshes.length,
   };
 }
 
 // ---------------------------------------------------------------- 当たりの 箱 → ブロックの マス
-export interface WorldHit { name: string; joint: JointName; center: [number, number, number]; half: [number, number, number]; axes: [[number, number, number], [number, number, number], [number, number, number]] }
+export interface WorldHit { name: string; joint: JointName; center: [number, number, number]; half: [number, number, number]; axes: [[number, number, number], [number, number, number], [number, number, number]]; mask?: GlassMask }
 
 /** 当たりの 箱を、関節の いまの 姿勢（Group の ワールド行列）で 世界の 座標に うつす。group の 位置・向き・拡大は 先に 決めて おく */
 export function worldHits(model: BigModel): WorldHit[] {
@@ -914,6 +1046,7 @@ export function worldHits(model: BigModel): WorldHit[] {
       center: [c.x, c.y, c.z],
       half: [h.half[0] * sc.x, h.half[1] * sc.y, h.half[2] * sc.z],
       axes: [[ax[0]!.x, ax[0]!.y, ax[0]!.z], [ax[1]!.x, ax[1]!.y, ax[1]!.z], [ax[2]!.x, ax[2]!.y, ax[2]!.z]],
+      mask: h.mask,
     };
   });
 }
@@ -936,7 +1069,7 @@ export function voxelize(hits: WorldHit[], margin: number, topLift: number): Set
       const u = dx * h.axes[0]![0] + dy * h.axes[0]![1] + dz * h.axes[0]![2];
       const v = dx * h.axes[1]![0] + dy * h.axes[1]![1] + dz * h.axes[1]![2] - topLift / 2;
       const w = dx * h.axes[2]![0] + dy * h.axes[2]![1] + dz * h.axes[2]![2];
-      if (Math.abs(u) <= hx + margin && Math.abs(v) <= hy + margin + topLift / 2 && Math.abs(w) <= hz + margin) cells.add(cellKey(i, j, k));
+      if (Math.abs(u) <= hx + margin && Math.abs(v) <= hy + margin + topLift / 2 && Math.abs(w) <= hz + margin && maskHas(h.mask, u, w, hx, hz)) cells.add(cellKey(i, j, k));
     }
   }
   return cells;
@@ -969,6 +1102,10 @@ export interface GashaBigHandle {
   rest(sec?: number): void;
   /** うごきの 中身（モード・速さ・手の ついた 数・1 コマの 仕事の 数 など） */
   motion(): Record<string, unknown>;
+  /** ガラスの 雲を 割る: center（世界の 座標）から radius（ブロック）いないの ブロックが 消える。割れた 数を 返す。しばらくして 1 つずつ もどる（火の 攻撃用の 口。テストでも 使う） */
+  breakGlass(center: { x: number; y: number; z: number }, radius: number): number;
+  /** ガラスの 数（ぜんぶ・いま 割れている・もどるのを 待っている） */
+  glassInfo(): { total: number; broken: number };
   /** 当たりの 箱の 一覧（世界の 座標。関節の いまの 姿勢） */
   colliders(): WorldHit[];
   /** 関節を うごかした あとに 呼ぶ。当たりの マスを 関節の いまの 姿勢で 作りなおす */
@@ -996,10 +1133,17 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
   const CLIPS: ActorClips = { climbUp, climbDown, lookBack: lookBackClip };
   let isAngry = false;
   // プレイヤーの 攻撃を 受ける（体力・部位の 倍率・怒る・火花・体力ゲージ。gashaBigHit.ts）
-  let noFallLeft = 0, throwLeft = 0;
+  let throwLeft = 0;
   const throwDir = { x: 0, z: 0 };
-  /** コアを たたかれた: 近くに いる プレイヤーを 穴の 向き（胴体の 後ろ・上）へ とばして 背中の 外へ ふり落とす */
+  // コアを たたかれた: まず 予兆（大きな 音・画面の ゆれ・コアが ゆれて 半透明で 無敵。プレイヤーは 動ける）→ 風の 音と ともに 遠くへ とばされる（カメラが 1 回転）
+  let warnLeft = 0, warnClock = 0, spinLeft = 0, spinDone = 0;
+  const reduced = (): boolean => deps.reducedMotion?.() ?? false;
   const throwOff = (): void => {
+    if (warnLeft > 0 || throwLeft > 0) return;
+    warnLeft = T.core.throwOff.warnSec; warnClock = 0;
+    deps.onCoreWarn?.();
+  };
+  const launch = (): void => {
     const K = T.core.throwOff;
     if (!actor || !deps.setPlayerVelocity) return;
     const i = actor.model.hits.findIndex((h) => h.name === 'core');
@@ -1012,16 +1156,69 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
     const fb = fi >= 0 ? actor.boxList[fi] : undefined;
     const ax = { x: -b.ax[6]!, y: -b.ax[7]!, z: -b.ax[8]! }; // 道の 軸（うしろ・上）
     if (fb && deps.carryPlayer) {
-      const out = fb.half[2]! + K.exitOut;
-      const ex = fb.c[0]! - fb.ax[6]! * out, ey = fb.c[1]! - fb.ax[7]! * out + K.exitUp, ez = fb.c[2]! - fb.ax[8]! * out;
+      const out = fb.half[2] + K.exitOut;
+      // 外へは 道の 向きに のばし、高さは 床の うしろの はしの まま（道は 下り坂 なので 軸の まま のばすと 高く なりすぎて 着地ダメージが 大きすぎる）
+      const ex = fb.c[0]! - fb.ax[6]! * out, ey = fb.c[1]! - fb.ax[7]! * fb.half[2] + K.exitUp, ez = fb.c[2]! - fb.ax[8]! * out;
       deps.carryPlayer(ex - p.x, ey - p.y, ez - p.z, 0);
     }
-    deps.setPlayerVelocity({ x: 0, y: ax.y * K.speed + K.up, z: 0 }); // 横の 速さは ゲームが 入力から 毎コマ きめる ので、横は 下で 毎コマ ずらす
+    deps.setPlayerVelocity({ x: 0, y: K.up, z: 0 }); // 横の 速さは ゲームが 入力から 毎コマ きめる ので、横は 下で 毎コマ ずらす
     throwDir.x = ax.x; throwDir.z = ax.z;
     throwLeft = K.blockSec;
-    if (deps.setNoFall) { deps.setNoFall(true); noFallLeft = K.noFallSec; }
+    if (!reduced() && K.spinTurns > 0) { spinLeft = K.spinSec; spinDone = 0; }
+    deps.onCoreThrow?.();
+    // ふり落とし自体の ダメージは なし。着地ダメージは ふつうに 入る（足袋・間欠泉の 守りは そのまま）
   };
-  const bh = new BigHit({ scene: deps.scene, angry: () => { isAngry = true; actor?.hit(); }, onCore: throwOff, sources: deps.hit });
+  const stepCoreWarn = (dt: number): void => {
+    const K = T.core.throwOff;
+    if (warnLeft > 0) {
+      warnLeft -= dt; warnClock += dt;
+      if (model) {
+        const j = K.warnJitter, t = warnClock * 38;
+        model.setCoreFx(j * Math.sin(t * 1.7), j * Math.sin(t * 2.3 + 1), j * Math.sin(t * 1.3 + 2), 1 + 0.12 * Math.sin(t), K.warnAlpha * (0.8 + 0.2 * Math.sin(t * 0.9)));
+      }
+      if (warnLeft <= 0) { model?.setCoreFx(0, 0, 0, 1, 1); launch(); }
+    }
+    if (spinLeft > 0) {
+      const step = Math.min(dt, spinLeft), d = (360 * K.spinTurns * step) / K.spinSec;
+      spinLeft -= step; spinDone += d;
+      deps.carryPlayer?.(0, 0, 0, d);
+    }
+  };
+  // ガラスの 雲: 割れた マスの 順番待ち（古い 順に 1 つずつ もどる）
+  const brokenQ: { gc: GlassCell; t: number }[] = [];
+  let glassClock = 0, lastRegen = -1e9;
+  const glassWorld = (gc: GlassCell, out: Vector3): Vector3 => {
+    const m = model!;
+    return out.copy(gc.local).sub(m.rest[gc.joint]).applyMatrix4(m.joints[gc.joint].matrixWorld);
+  };
+  const breakGlass = (c: { x: number; y: number; z: number }, radius: number): number => {
+    if (!model) return 0;
+    model.group.updateMatrixWorld(true);
+    const v = new Vector3(), done: { x: number; y: number; z: number }[] = [];
+    for (const gc of model.glass) {
+      const mk = model.hits[gc.hit]?.mask;
+      if (!mk || mk.on[gc.cell] !== 1) continue;
+      glassWorld(gc, v);
+      if (Math.hypot(v.x - c.x, v.y - c.y, v.z - c.z) > radius) continue;
+      model.setGlass(gc, false);
+      brokenQ.push({ gc, t: glassClock });
+      done.push({ x: v.x, y: v.y, z: v.z });
+    }
+    if (done.length) deps.onGlassBreak?.(done);
+    return done.length;
+  };
+  const stepGlass = (dt: number): void => {
+    glassClock += dt;
+    const G = T.glass, q = brokenQ[0];
+    if (!model || !q || glassClock - q.t < G.regenDelaySec || glassClock - lastRegen < G.regenGapSec) return;
+    // プレイヤーが その マスの 中に いる あいだは もどさない（うまらない ように）
+    const p = deps.player(), v = glassWorld(q.gc, new Vector3());
+    if (Math.abs(p.x - v.x) < 1.3 && Math.abs(p.z - v.z) < 1.3 && p.y > v.y - 2.2 && p.y < v.y + 1.2) return;
+    brokenQ.shift();
+    model.setGlass(q.gc, true);
+    lastRegen = glassClock;
+  };
+  const bh = new BigHit({ scene: deps.scene, angry: () => { isAngry = true; actor?.hit(); }, onCore: throwOff, coreGuard: () => warnLeft > 0, sources: deps.hit });
   let pos = new Vector3(), yaw = 0;
   const { blockAt, setGeyserBlock, scanGeyserBlocks } = deps;
   const geysers = deps.onUpdate && deps.playerBody && deps.setPlayerVelocity && deps.nudgePlayer && deps.setNoFall && blockAt && setGeyserBlock && scanGeyserBlocks
@@ -1038,8 +1235,8 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
     onGround: deps.playerBody ? () => deps.playerBody!().onGround ?? true : undefined,
   });
   const shockFx = new ShockFx(deps.scene, deps.camera);
-  deps.blockPlayerInput?.(() => shock.inputBlocked() || throwLeft > 0);
-  deps.onBeforeRender?.(() => shockFx.applyShake(deps.reducedMotion?.() ? 0 : shock.shakeNow, shock.time));
+  deps.blockPlayerInput?.(() => shock.inputBlocked() || throwLeft > 0 || spinLeft > 0);
+  deps.onBeforeRender?.(() => shockFx.applyShake(Math.max(reduced() ? 0 : shock.shakeNow, warnLeft > 0 ? T.core.throwOff.warnShakeDeg * (reduced() ? 0.25 : 1) : 0), shock.time));
   const fwdOf = (p: { yawDeg: number }) => { const y = (p.yawDeg * Math.PI) / 180; return { fx: Math.sin(y), fz: -Math.cos(y) }; };
 
   const clear = () => {
@@ -1049,6 +1246,7 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
     model.group.traverse((o) => { const m = o as Mesh; if (m.isMesh) { m.geometry.dispose(); mats.add(m.material as MeshBasicMaterial); } });
     mats.forEach((m) => m.dispose());
     model = null;
+    brokenQ.length = 0;
   };
 
   /** 当たりの 箱の 場所を いまの 姿勢で 更新（マスの 集合は 作らない。判定は その 場で 箱に 聞く） */
@@ -1120,8 +1318,9 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
     if (!actor) return;
     actor.update(dt);
     bh.step(dt);
+    stepGlass(dt);
+    stepCoreWarn(dt);
     if (throwLeft > 0) { throwLeft -= dt; deps.nudgePlayer?.(throwDir.x * T.core.throwOff.speed * dt, throwDir.z * T.core.throwOff.speed * dt); }
-    if (noFallLeft > 0) { noFallLeft -= dt; if (noFallLeft <= 0) deps.setNoFall?.(false); }
     shock.step(dt);
     shockFx.update(dt);
     pos = actor.pos; yaw = actor.yaw;
@@ -1164,6 +1363,8 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
       mode: actor.mode, speedNow: actor.speedNow, crawlSpeed: actor.crawlSpeed, crawlRate: actor.crawlRate, strideScale: actor.strideScale, backOn: actor.backOn, target: actor.target, wander: actor.wanderOn,
       angryLeft: actor.angryLeft, eyeMix: actor.eyeMix, walkLeft: actor.walkLeft, restLeft: actor.restLeft, work: actor.work, plant: actor.plant,
     } : {}),
+    breakGlass,
+    glassInfo: () => ({ total: model?.glass.length ?? 0, broken: brokenQ.length }),
     colliders: () => (model ? worldHits(model) : []),
     refreshColliders: refresh,
     joints: () => (model ? { ...model.joints } : {}),
@@ -1176,7 +1377,8 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
       slams: actor?.step.slams ?? 0, taps: actor?.step.taps ?? 0, phase: actor?.step.phase ?? '', fx: shockFx.counts(), lastSlam: actor?.lastSlam ?? null, lastTap: actor?.lastTap ?? null,
     }),
     info: () => ({
-      scale: model?.scale, pos: [pos.x, pos.y, pos.z], yawDeg: (yaw * 180) / Math.PI, drawCalls: model?.meshes, hitBoxes: model?.hits.length, angry: (actor?.angryLeft ?? 0) > 0, hp: bh.hp, maxHp: bh.maxHp, lastHit: bh.last,
+      scale: model?.scale, pos: [pos.x, pos.y, pos.z], yawDeg: (yaw * 180) / Math.PI, drawCalls: model?.meshes, hitBoxes: model?.hits.length, angry: (actor?.angryLeft ?? 0) > 0, hp: bh.hp, maxHp: bh.maxHp, lastHit: bh.last, deflects: bh.deflects,
+      coreWarn: { warnLeft, throwLeft, spinLeft },
       head: model ? model.head.clone().multiplyScalar(model.scale).applyQuaternion(new Quaternion().setFromAxisAngle(UP, yaw)).add(pos).toArray() : null,
       rest: model ? Object.fromEntries(JOINT_NAMES.map((j) => [j, model!.rest[j].toArray()])) : null,
     }),

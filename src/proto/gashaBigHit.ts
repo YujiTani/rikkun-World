@@ -38,7 +38,7 @@ export function partOf(name: string): Part {
   if (name.startsWith('upperArm')) return 'upperArm';
   if (name.startsWith('skull')) return 'head';
   if (name.startsWith('ribbon')) return 'ribbon';
-  if (/^(torso|spine|chest|neck|collar|shoulderCloth|hair)/.test(name)) return 'body';
+  if (/^(torso|waist|spine|chest|neck|collar|shoulderCloth|hair)/.test(name)) return 'body';
   return 'cloud';
 }
 
@@ -189,6 +189,8 @@ export interface HitEnv {
   angry(): void;
   /** コアに ダメージが 入った（ふり落とす 合図） */
   onCore?(): void;
+  /** true の 間は コアが 無敵（当たっても ダメージ 0、はじかれた 火花だけ）。ふり落とし前の 予兆の 間 */
+  coreGuard?(): boolean;
   sources?: HitSources;
 }
 
@@ -203,6 +205,8 @@ export class BigHit {
   last: LastHit | null = null;
   /** 当たった 回数（テスト用） */
   hits = 0;
+  /** コアが 無敵の 間に はじいた 回数（テスト用） */
+  deflects = 0;
   private boxes: readonly BoxLike[] = [];
   private parts: Part[] = [];
   private mats: { m: MeshBasicMaterial; r: number; g: number; b: number }[] = [];
@@ -258,6 +262,12 @@ export class BigHit {
   // ------------------------------------------------------------ ダメージ
   /** 部位に ダメージ（武器の 強さ amount × 倍率）。実際に 与えた 数を 返す（倍率 0 なら 0 で、怒らない） */
   damage(part: string, amount: number, at: Vec3 | null = null, source = 'test'): number {
+    if (part === 'core' && this.env.coreGuard?.()) {
+      if (!at) { const i = this.parts.indexOf('core'); if (i >= 0) at = { x: this.boxes[i]!.c[0]!, y: this.boxes[i]!.c[1]!, z: this.boxes[i]!.c[2]! }; }
+      this.deflects++;
+      if (at) this.spark(at, 0x9fe8ff, 0.5);
+      return 0;
+    }
     const mul = mulOf(part);
     const dealt = damageOf(part, amount);
     if (dealt <= 0) return 0;
@@ -395,19 +405,20 @@ export class BigHit {
   }
 
   // ------------------------------------------------------------ 火花・光る・体力ゲージ
-  private spark(at: Vec3): void {
+  private spark(at: Vec3, color: number = T.hit.sparkColor, k = 1): void {
     const H = T.hit;
     if (H.sparkCount <= 0) return;
     if (!this.sparkGeo) { this.sparkGeo = new BoxGeometry(1, 1, 1); this.sparkMat = new MeshBasicMaterial({ color: H.sparkColor, fog: false }); }
-    this.sparkMat!.color.setHex(H.sparkColor);
-    for (let n = 0; n < H.sparkCount; n++) {
+    this.sparkMat!.color.setHex(color);
+    const cnt = Math.max(2, Math.round(H.sparkCount * k));
+    for (let n = 0; n < cnt; n++) {
       let sp = this.sparks.length < SPARKS_MAX ? undefined : this.sparks.find((q) => q.left <= 0);
       if (!sp) {
         if (this.sparks.length >= SPARKS_MAX) sp = this.sparks[0]!;
         else { const mesh = new Mesh(this.sparkGeo, this.sparkMat!); mesh.visible = false; this.env.scene.add(mesh); sp = { mesh, vx: 0, vy: 0, vz: 0, left: 0 }; this.sparks.push(sp); }
       }
       // 上むき 半球に ちらす（決まった 並びで 乱数は つかわない: 見た目だけ）
-      const a = (n / H.sparkCount) * Math.PI * 2 + this.hits * 0.7, e = 0.35 + 0.5 * ((n * 37) % 10) / 10;
+      const a = (n / cnt) * Math.PI * 2 + this.hits * 0.7, e = 0.35 + 0.5 * ((n * 37) % 10) / 10;
       const sp2 = H.sparkSpeed * (0.6 + 0.4 * (((n * 53) % 10) / 10));
       sp.vx = Math.cos(a) * Math.cos(e) * sp2; sp.vz = Math.sin(a) * Math.cos(e) * sp2; sp.vy = Math.sin(e) * sp2;
       sp.left = H.sparkSec;

@@ -8,7 +8,7 @@
  * 数は ぜんぶ gashaBigTuning.ts。
  */
 import { Matrix4, Quaternion, Vector3 } from 'three';
-import type { BigModel, JointName } from './gashaBig';
+import { maskHas, type BigModel, type GlassMask, type JointName } from './gashaBig';
 import { TUNE as T } from './gashaBigTuning';
 import { aimClip, bakeClip, clipProgress, MotionPlayer, type AimClipJson, type AimOpts, type BakedClip, type ClipJson, type RetargetOpts, type Skeleton } from './gashaBigMotion';
 import { fitStride, plantHands, type PlantReport } from './gashaBigPlant';
@@ -85,6 +85,8 @@ interface Box {
   half: [number, number, number];
   /** 世界の 軸に そろえた はんぶんの 大きさ（余白 込み） */
   ext: [number, number, number];
+  /** ガラスの 雲の マス（割れた マスは 当たらない） */
+  mask?: GlassMask;
 }
 
 function makeRnd(seed: number): () => number {
@@ -198,7 +200,7 @@ export class BigActor {
     this.baked = { crawl: null as never, back: null as never, lookBack: null as never };
     this.player = new MotionPlayer(this.names.length);
     for (const h of model.hits) {
-      this.boxes.push({ name: h.name, joint: h.joint, c: [0, 0, 0], ax: new Array<number>(9).fill(0), half: [0, 0, 0], ext: [0, 0, 0] });
+      this.boxes.push({ name: h.name, joint: h.joint, c: [0, 0, 0], ax: new Array<number>(9).fill(0), half: [0, 0, 0], ext: [0, 0, 0], mask: h.mask });
     }
     model.group.traverse(() => { this.matrixCount++; });
     this.rebake();
@@ -686,7 +688,7 @@ export class BigActor {
       const u = dx * a[0]! + dy * a[1]! + dz * a[2]!;
       const vv = dx * a[3]! + dy * a[4]! + dz * a[5]! - lift / 2;
       const w = dx * a[6]! + dy * a[7]! + dz * a[8]!;
-      if (Math.abs(u) <= b.half[0] + mg && Math.abs(vv) <= b.half[1] + mg + lift / 2 && Math.abs(w) <= b.half[2] + mg) {
+      if (Math.abs(u) <= b.half[0] + mg && Math.abs(vv) <= b.half[1] + mg + lift / 2 && Math.abs(w) <= b.half[2] + mg && (!b.mask || maskHas(b.mask, u, w, b.half[0], b.half[2]))) {
         // うでの 箱を 優先（雲より 動くので）
         if (found < 0 || (this.boxes[found]!.joint === 'Hips' && b.joint !== 'Hips')) found = n;
         if (b.joint !== 'Hips') break;

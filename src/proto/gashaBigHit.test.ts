@@ -30,6 +30,23 @@ function rig(sources: HitSources = {}) {
 }
 
 const v = (x: number, y: number, z: number): Vec3 => ({ x, y, z });
+
+describe('コアの 予兆（無敵）', () => {
+  it('coreGuard が true の 間は コアに 当てても ダメージ 0・怒らない・ふり落とし（onCore）も 起きない。はじいた 数だけ 数える。false に もどれば ふつうに 当たる', () => {
+    const { boxes, model } = bodyBoxes();
+    let guard = true, angry = 0, cores = 0;
+    const bh = new BigHit({ scene: new Scene(), angry: () => { angry++; }, onCore: () => { cores++; }, coreGuard: () => guard });
+    bh.bind(boxes, model);
+    expect(bh.damage('core', 10)).toBe(0);
+    expect(bh.hp).toBe(bh.maxHp);
+    expect(bh.deflects).toBe(1);
+    expect(angry + cores).toBe(0);
+    guard = false;
+    expect(bh.damage('core', 10)).toBeGreaterThan(0);
+    expect(cores).toBe(1);
+    expect(bh.deflects).toBe(1);
+  });
+});
 /** 体力の 初期値は 調整表から（数を かえても テストは 追従する） */
 const HP = T.hit.hp;
 const hpIs = (r: { bh: { hp: number } }, lost: number): void => { expect(r.bh.hp).toBeCloseTo(HP - lost, 5); };
