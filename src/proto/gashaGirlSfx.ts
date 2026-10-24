@@ -25,10 +25,8 @@ export const SFX_FILES: Record<GirlSfxName, readonly string[]> = {
   eye_pipin: ['eye_pipin'],
   eye_blush: ['eye_blush'],
   player_hit: ['player_hit'],
-  // 笑い声・とどめ・くずれる(オーナーが 選んだ 音 2026-10-24 15:59。候補は sfx-laugh の girl_laugh_a/b/c・finish_blow_a/b/c・crumble_a/b。差しかえは ここの 名前だけ)
+  // 笑い声(オーナーが 選んだ 音 2026-10-24 15:59。候補は sfx-laugh の girl_laugh_a/b/c。差しかえは ここの 名前だけ)。とどめ・くずれるの 音は 大きな 姿の gashaBigSfx.ts
   girl_laugh: ['girl_laugh_a'],
-  finish_blow: ['finish_blow_a'],
-  crumble: ['crumble_b'],
 };
 export const sfxUrl = (file: string): string => `${DIR}${file}.ogg`;
 export const allSfxUrls = (): string[] => Object.values(SFX_FILES).flat().map(sfxUrl);
@@ -100,10 +98,6 @@ export function createGirlSfx(env: SfxEnv, tune: SfxTune = TUNE.sfx, seed = 293)
     playerHit: () => play('player_hit'),
     /** 体力 1/3 で 固まった しゅんかん、女の人の 不気味な 笑い声 */
     laugh: () => play('girl_laugh'),
-    /** とどめの 一撃 */
-    finishBlow: () => play('finish_blow'),
-    /** 大きな 姿と 少女が くずれて 消える */
-    crumble: () => play('crumble'),
   };
 }
 export type GirlSfx = ReturnType<typeof createGirlSfx>;

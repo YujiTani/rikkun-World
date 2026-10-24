@@ -893,11 +893,11 @@ function encodeV1(sections: readonly import('../contracts').SectionData[]): Uint
   return Uint8Array.from(out);
 }
 
-describe('SaveManager #293（あけていない 宝箱の 保存）', () => {
+describe('SaveManager #293（がしゃどくろを たおした 回数の 保存）', () => {
   it('gasha の 中身を 書いて、つぎの ページ表示で そのまま 返す。キーが ない 古い 保存では null', async () => {
     const store = new MemoryStore();
     const db = new MemoryBackend();
-    const data = { v: 1, chests: [{ x: 1.5, y: 40, z: -3.5, yaw: 0.5, items: [{ item: 'ninja_tabi', count: 1 }] }] };
+    const data = { v: 2, kills: 3 };
     const s1 = await session(store, db, { gasha: { serialize: () => data, deserialize: () => {} } });
     await s1.save.now();
     let got: unknown = 'unset';

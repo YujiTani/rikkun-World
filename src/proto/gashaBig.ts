@@ -21,6 +21,8 @@ import { TUNE as T, applyTune, applyTuneFromUrl } from './gashaBigTuning';
 import { BigActor, type ActorClips } from './gashaBigActor';
 import { buildSwirlEyes, type SwirlEyes } from './gashaBigSwirl';
 import { sharedGashaBgm } from './gashaBgm';
+import { FinishSeq, type FinishEvent } from './gashaBigFinish';
+import { CRUMBLE_ORDER, CrumbleFx, crumbleSchedule } from './gashaBigCrumbleFx';
 import { BigHit, boxTouchesCapsule, boxTouchesFan, distToBox, rayBox, type BoxLike, type HitSources } from './gashaBigHit';
 import { GashaGeyser, type GeyserInfo } from './gashaGeyser';
 import { BigShock, type ShockHit } from './gashaBigShock';
@@ -84,8 +86,18 @@ export interface GashaBigDeps {
   giveNinjaTabi?(): void;
   /** true なら 起動時に 足袋を 自動で 着せない（ふだんの ゲームでは ごほうび。試作は 着せる）。`giveTabi()` で 後からも 着せられる */
   noTabi?: boolean;
-  /** 体力が 0 に なった（置いてから 1 回だけ。次の place() で また 数える）。たおした あとの 宝箱・実績は 呼んだ 側が 出す */
+  /** 体力が 0 に なった（置いてから 1 回だけ。次の place() で また 数える）。実績・ごほうびは コアを こわした とき(onCoreBroken)に 呼んだ 側が 出す */
   onDefeated?(): void;
+  /** ヒットストップ(#276。ticks ステップ 世界を 止める)。とどめの 一撃で 使う。なければ 止めない */
+  hitStop?(ticks: number): void;
+  /** 画面の ゆれ(0〜1)。とどめの 一撃で 使う。なければ ゆらさない */
+  shake?(amount: number): void;
+  /** とどめの あと: コアを たたいた(n 回目・のこり left 回。at = コアの 場所)。ここから アイテムを ばらまく */
+  onCoreHit?(e: { x: number; y: number; z: number; n: number; left: number }): void;
+  /** とどめの あと: コアを こわした(体が くずれはじめる)。実績・大きな ごほうびは ここから */
+  onCoreBroken?(e: { x: number; y: number; z: number }): void;
+  /** くずれおわって 体が 消えた(片づけは 呼んだ 側が despawn() する) */
+  onVanished?(): void;
   /** 体力 1/3 で 噴火を して 固まった(ぴたっと 止まった しゅんかん。BGM は ここで ぶつっと 切る)。ふだんの ゲームは release.ts が 少女を 呼ぶ */
   onHeld?(): void;
   /** 手が 地面を たたいた ときの 打撃・衝撃波・小さい 衝撃の ダメージ（プレイヤーの combat.damage。当たったら true）。なければ ダメージなし（ひるみだけ） */
@@ -438,6 +450,8 @@ export interface BigModel {
   mossHidden(): number;
   /** コアの 見た目を ずらす（胴体の 座標の ずれ x, y, z・大きさの 倍・透明度の 倍）。もどす ときは (0,0,0,1,1) */
   setCoreFx(jx: number, jy: number, jz: number, scale: number, alphaK: number): void;
+  /** コアの 色を 赤く する(0 = ふだんの 水色、1 = 赤。とどめの あと)。pulse = 明るさの ゆらぎ(0〜1)。0, 0 で もどす */
+  setCoreRed(k: number, pulse?: number): void;
   eyes: MeshBasicMaterial;
   eyeHalo: MeshBasicMaterial;
   /** つかれた ときの くるくる目（渦巻き。ふだんは 見えない。gashaBigSwirl.ts） */
@@ -1039,6 +1053,16 @@ export function buildBig(): BigModel {
     coreVis.matrixWorldNeedsUpdate = true;
     for (const c of coreMats) c.m.opacity = c.a * alphaK;
   };
+  const coreBaseColors = coreMats.map((c) => c.m.color.clone());
+  const coreRedColors = T.finish.core.redColor.map((c) => new Color(c));
+  const setCoreRed = (k: number, pulse = 0): void => {
+    const kk = Math.min(1, Math.max(0, k));
+    coreMats.forEach((c, i) => {
+      const red = coreRedColors[i] ?? coreRedColors[0]!;
+      c.m.color.copy(coreBaseColors[i]!).lerp(red, kk);
+      if (kk > 0) c.m.color.multiplyScalar(1 + 0.5 * pulse); // 赤い コアが ゆらゆら 明るく なる
+    });
+  };
   meshes.push(...(coreVis.children as Mesh[]));
   // 体の 中の 道に 生い茂る こけ・くさ（十字の ドット絵の 板。InstancedMesh）
   let plantCount = 0;
@@ -1096,7 +1120,7 @@ export function buildBig(): BigModel {
   const swirl = buildSwirlEyes(new Quaternion().setFromEuler(new Euler(0.17, headYaw, 0, 'YXZ')));
   joints.Head.add(swirl.root);
   return {
-    group, joints, rest, hits: b.hits, glass: b.glass, setGlass, plants: plantCount, mossOutside: { clumps: outside.clumps, count: outside.count }, updateMoss: outside.update, burnMoss: outside.burn, restoreMoss: outside.restore, mossHidden: outside.hiddenCount, setCoreFx, eyes: matOf('eyes'), eyeHalo: matOf('eyeHalo'), swirl, brow: brow ?? new Mesh(), scale, groundPts, head: headPos, meshes: meshes.length,
+    group, joints, rest, hits: b.hits, glass: b.glass, setGlass, plants: plantCount, mossOutside: { clumps: outside.clumps, count: outside.count }, updateMoss: outside.update, burnMoss: outside.burn, restoreMoss: outside.restore, mossHidden: outside.hiddenCount, setCoreFx, setCoreRed, eyes: matOf('eyes'), eyeHalo: matOf('eyeHalo'), swirl, brow: brow ?? new Mesh(), scale, groundPts, head: headPos, meshes: meshes.length,
   };
 }
 
@@ -1162,6 +1186,8 @@ export interface GashaBigHandle {
   frozen(): boolean;
   /** 少女が 座る 場所(左かたの ぬの の 上。世界の 座標と 向き)。体が なければ null */
   perchSpot(): { x: number; y: number; z: number; yawDeg: number } | null;
+  /** とどめの あとの 様子(テスト・デバッグ用): 場面・コアの のこり・倒れ具合・赤さ・くずれ具合・かけらの 数 */
+  finishInfo(): { phase: string; coreHp: number; coreMax: number; fallK: number; redK: number; crumbleK: number; chunks: number };
   /** 座っている 少女の 当たりの 箱を 足す(名前 girl。null で はずす)。箱の 中身は 少女が 毎コマ 更新する */
   setGirlBox(box: BoxLike | null): void;
   /** 体力の 最大 */
@@ -1239,6 +1265,8 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
   let isAngry = false;
   // プレイヤーの 攻撃を 受ける（体力・部位の 倍率・怒る・火花・体力ゲージ。gashaBigHit.ts）
   let throwLeft = 0;
+  /** 横に おし出す 速さ(ふつうは コアの ふり落とし。とどめの 一撃では 大きく) */
+  let throwSpeed = T.core.throwOff.speed;
   const throwDir = { x: 0, z: 0 };
   // コアを たたかれた: まず 予兆（大きな 音・画面の ゆれ・コアが ゆれて 半透明で 無敵。プレイヤーは 動ける）→ 風の 音と ともに 遠くへ とばされる（カメラが 1 回転）
   let warnLeft = 0, warnClock = 0, spinLeft = 0, spinDone = 0;
@@ -1269,6 +1297,7 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
     }
     deps.setPlayerVelocity({ x: 0, y: K.up, z: 0 }); // 横の 速さは ゲームが 入力から 毎コマ きめる ので、横は 下で 毎コマ ずらす
     throwDir.x = ax.x; throwDir.z = ax.z;
+    throwSpeed = K.speed;
     throwLeft = K.blockSec;
     if (!reduced() && K.spinTurns > 0) { spinLeft = K.spinSec; spinDone = 0; }
     deps.onCoreThrow?.();
@@ -1332,7 +1361,7 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
   };
   // プレイヤーが 体の 上に 置く ブロック（gashaBigPlaced.ts）。がしゃどくろを 置きなおすと ぜんぶ 消える
   const placed = new BodyPlaced({ model: () => model, actor: () => (hidden ? null : actor), lighting: deps.lighting, patch: hazePatch, breakGlassAt: (c, r, max) => breakGlass(c, r, max) });
-  const bh = new BigHit({ scene: deps.scene, angry: () => { isAngry = true; actor?.hit(); }, onCore: throwOff, coreGuard: () => warnLeft > 0, onCloud: (at) => { breakGlass(at, T.glass.swordRadius); }, sources: deps.hit });
+  const bh = new BigHit({ scene: deps.scene, angry: () => { isAngry = true; actor?.hit(); }, onCore: throwOff, coreGuard: () => warnLeft > 0, onCloud: (at) => { breakGlass(at, T.glass.swordRadius); }, onCoreHit: (at) => coreStruck(at), sources: deps.hit });
   let pos = new Vector3(), yaw = 0;
   const { blockAt, setGeyserBlock, scanGeyserBlocks } = deps;
   const geysers = deps.onUpdate && deps.playerBody && deps.setPlayerVelocity && deps.nudgePlayer && deps.setNoFall && blockAt && setGeyserBlock && scanGeyserBlocks
@@ -1624,6 +1653,7 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
     hidden = false;
     defeatedFired = false;
     heldFired = false;
+    finishReset();
     deps.lighting?.registerTree(model.group, 'doll');
     const p = deps.player();
     const f = fwdOf(p);
@@ -1671,6 +1701,106 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
     bh.bind(actor.boxList, model);
   };
 
+  // ---- とどめの あと(FIX-BRIEF-2 §5): 一撃 → 倒れる → 赤い コア → たたくと ばらまく → こわすと くずれて 消える ----
+  const fin = new FinishSeq();
+  let crumbleFx: CrumbleFx | null = null;
+  let crumbleSched: { joint: JointName; at: number }[] = [];
+  let crumbleNext = 0;
+  let finClock = 0;
+  const coreCenter = (): { x: number; y: number; z: number } => {
+    const i = actor ? actor.boxList.findIndex((b) => b.name === 'core') : -1;
+    const b = i >= 0 ? actor!.boxList[i] : undefined;
+    return b ? { x: b.c[0]!, y: b.c[1]!, z: b.c[2]! } : { x: pos.x, y: pos.y + 10, z: pos.z };
+  };
+  /** コアを たたいた(BigHit から)。数えて よければ true */
+  const coreStruck = (at: { x: number; y: number; z: number } | null): boolean => {
+    const r = fin.hitCore();
+    for (const e of r.events) onFinishEvent(e);
+    void at;
+    return r.accepted;
+  };
+  const onFinishEvent = (e: FinishEvent): void => {
+    if (!actor) return;
+    if (e.kind === 'lie') {
+      bh.setFinish('core'); bh.setCoreReach(T.finish.core.reach);
+    } else if (e.kind === 'coreHit') {
+      const c = coreCenter();
+      bh.burst(c, 3, 0xff6a40);
+      deps.onCoreHit?.({ ...c, n: e.n, left: e.left });
+    } else if (e.kind === 'crumble') {
+      const c = coreCenter();
+      bh.setFinish('lock'); bh.setCoreReach(0);
+      sfx.crumble();
+      bh.burst(c, 6, 0xff6a40);
+      crumbleSched = crumbleSchedule(); crumbleNext = 0;
+      deps.onCoreBroken?.(c);
+    } else if (e.kind === 'gone') {
+      if (model) model.group.visible = false;
+      crumbleFx?.clear();
+      deps.onVanished?.();
+    }
+  };
+  /** とどめの 一撃(体力が 0 に なった しゅんかん): その場で 固めて、ヒットストップ・遠くへ はじく・画面の ゆれ・SE */
+  const startFinish = (): void => {
+    if (!actor || fin.phase !== 'off') return;
+    for (const e of fin.begin()) void e;
+    actor.lock(); isAngry = false;
+    bh.setFinish('lock'); bh.setExtra(null);
+    clearFx(false);
+    const F = T.finish.blow;
+    const at = bh.last?.at ?? coreCenter();
+    bh.burst(at, F.sparkMul);
+    sfx.finishBlow();
+    deps.hitStop?.(F.hitStopTicks);
+    deps.shake?.(F.shake);
+    const p = deps.player();
+    const dx = p.x - pos.x, dz = p.z - pos.z, d = Math.hypot(dx, dz);
+    if (d <= F.knockRange && deps.setPlayerVelocity) {
+      const n = d > 1e-3 ? 1 / d : 0;
+      throwDir.x = d > 1e-3 ? dx * n : 0; throwDir.z = d > 1e-3 ? dz * n : 1;
+      throwSpeed = F.knockSpeed;
+      throwLeft = F.knockSec;
+      deps.setPlayerVelocity({ x: 0, y: F.knockUp, z: 0 });
+    }
+    bgm?.request('big', false);
+  };
+  const stepFinish = (dt: number): void => {
+    if (fin.phase === 'off') return;
+    finClock += dt;
+    for (const e of fin.update(dt)) onFinishEvent(e);
+    if (!actor || !model) return;
+    const F = T.finish, ph = fin.phase;
+    if (ph === 'fall' || ph === 'lie' || ph === 'crumble' || ph === 'gone') {
+      const k = fin.fallK;
+      const sink = F.fall.sinkBlocks * k + (ph === 'crumble' || ph === 'gone' ? F.crumble.sinkBlocks * fin.crumbleK : 0);
+      actor.setTilt(F.fall.rollDeg * (Math.PI / 180) * k, F.fall.pitchDeg * (Math.PI / 180) * k, F.fall.pivotY, sink);
+    }
+    if (ph === 'lie' || ph === 'crumble') model.setCoreRed(fin.redK, 0.5 + 0.5 * Math.sin(finClock * F.core.pulseHz * Math.PI * 2));
+    if (ph === 'crumble') {
+      const k = fin.crumbleK;
+      while (crumbleNext < crumbleSched.length && crumbleSched[crumbleNext]!.at <= k) {
+        const j = crumbleSched[crumbleNext++]!.joint;
+        crumbleJoint(j);
+      }
+    }
+    crumbleFx?.update(dt);
+  };
+  /** 関節 1 つを はがす(見た目を 消し、当たりを はずし、かけらを とび散らす) */
+  const crumbleJoint = (j: JointName): void => {
+    if (!actor || !model) return;
+    if (!crumbleFx) crumbleFx = new CrumbleFx(deps.scene);
+    const mine = actor.boxList.filter((_, i) => actor!.jointOfBox(i) === j);
+    const each = Math.max(1, Math.round(T.finish.crumble.chunks / CRUMBLE_ORDER.length / Math.max(1, mine.length)));
+    for (const b of mine) crumbleFx.burst({ x: b.c[0]!, y: b.c[1]!, z: b.c[2]! }, each, Math.min(3, Math.max(0.5, Math.min(b.half[0]!, b.half[1]!, b.half[2]!))), 1);
+    model.joints[j].visible = false;
+    actor.hideJoint(j);
+  };
+  const finishReset = (): void => {
+    fin.cancel(); finClock = 0; crumbleNext = 0; crumbleSched = [];
+    crumbleFx?.clear();
+    bh.setFinish('off'); bh.setCoreReach(0);
+  };
+
   deps.addPlayerSolid((x, y, z) => actor !== null && !hidden && actor.solid(x, y, z));
   // BGM「神々の 戯れ」: 怒って いる（赤い 目の）間だけ。少女が 出た あとは 共通の 係が「災厄」を 優先する（gashaBgm.ts）
   const bgm = deps.bgmOut && deps.suppressBgm ? sharedGashaBgm({ bgmOut: deps.bgmOut, suppressBgm: deps.suppressBgm }) : null;
@@ -1687,17 +1817,20 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
     if (far && !farNow) clearFx(false);
     farNow = far;
     actor.update(dt);
-    if (actor.held && !heldFired) { heldFired = true; bgm?.cut(); deps.onHeld?.(); } // 固まった しゅんかん: BGM を ぶつっと 切って 少女を 呼ぶ
+    if (actor.held && !heldFired && fin.phase === 'off') { heldFired = true; bgm?.cut(); deps.onHeld?.(); } // 固まった しゅんかん: BGM を ぶつっと 切って 少女を 呼ぶ
     if (far) {
       bh.step(dt);
-      if (!defeatedFired && bh.hp <= 0) { defeatedFired = true; deps.onDefeated?.(); }
+      if (!defeatedFired && bh.hp <= 0) { defeatedFired = true; startFinish(); deps.onDefeated?.(); }
+      stepFinish(dt);
       if (actor) { pos = actor.pos; yaw = actor.yaw; }
       if (bgm && actor) { const w = actor.angryLeft > 0; if (w !== bgmWant) { bgmWant = w; bgm.request('big', w); } bgm.step(); }
       return;
     }
     model?.updateMoss();
     bh.step(dt);
-    if (!defeatedFired && bh.hp <= 0) { defeatedFired = true; deps.onDefeated?.(); if (!actor) return; }
+    if (!defeatedFired && bh.hp <= 0) { defeatedFired = true; startFinish(); deps.onDefeated?.(); if (!actor) return; }
+    stepFinish(dt);
+    if (!actor) return; // くずれて 消えた 合図で 呼んだ 側が despawn() した
     stepGlass(dt);
     stepCoreWarn(dt);
     quake.step(dt);
@@ -1709,7 +1842,7 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
     if (quake.left > T.sfx.quakeFadeOutSec) sfx.quakeOn(); else sfx.quakeOff();
     sfx.update();
     shockFx.setWarn(actor.warn);
-    if (throwLeft > 0) { throwLeft -= dt; deps.nudgePlayer?.(throwDir.x * T.core.throwOff.speed * dt, throwDir.z * T.core.throwOff.speed * dt); }
+    if (throwLeft > 0) { throwLeft -= dt; deps.nudgePlayer?.(throwDir.x * throwSpeed * dt, throwDir.z * throwSpeed * dt); }
     shock.step(dt);
     shockFx.update(dt);
     pos = actor.pos; yaw = actor.yaw;
@@ -1740,6 +1873,7 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
     clear();
     actor = null;
     isAngry = false; hidden = false; defeatedFired = false; heldFired = false;
+    finishReset();
     if (bgm) { bgmWant = false; bgm.uncut(); bgm.request('big', false); bgm.step(); }
   };
 
@@ -1775,7 +1909,8 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
       const top = b.c[1]! + Math.abs(b.ax[1]!) * b.half[0] + Math.abs(b.ax[4]!) * b.half[1] + Math.abs(b.ax[7]!) * b.half[2];
       return { x: b.c[0]!, y: top + T.freeze.perchUp, z: b.c[2]!, yawDeg: (yaw * 180) / Math.PI };
     },
-    setGirlBox: (box) => bh.setExtra(box),
+    setGirlBox: (box) => { if (fin.phase === 'off') bh.setExtra(box); },
+    finishInfo: () => ({ phase: fin.phase, coreHp: fin.coreHp, coreMax: fin.coreMax, fallK: fin.fallK, redK: fin.redK, crumbleK: fin.crumbleK, chunks: crumbleFx?.alive() ?? 0 }),
     maxHp: () => bh.maxHp,
     hp: () => bh.hp,
     damage: (part, amount) => bh.damage(part, amount),

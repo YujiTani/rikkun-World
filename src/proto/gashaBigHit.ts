@@ -192,6 +192,8 @@ export interface HitEnv {
   onCore?(): void;
   /** true の 間は コアが 無敵（当たっても ダメージ 0、はじかれた 火花だけ）。ふり落とし前の 予兆の 間 */
   coreGuard?(): boolean;
+  /** とどめの あと(finish が core)コアを たたいた。数えて よければ true（数える 間かくは 呼んだ 側が 見る）。at = 当たった 点 */
+  onCoreHit?(at: Vec3 | null): boolean;
   /** 刀が ガラスの 雲に 当たった（ダメージの ある 部位に 当たらなかった とき）。当たった 点（世界の 座標） */
   onCloud?(at: Vec3): void;
   sources?: HitSources;
@@ -230,6 +232,10 @@ export class BigHit {
   private sparkMat: MeshBasicMaterial | null = null;
   private bar: HpBar | null = null;
   private installed = false;
+  /** とどめの あとの モード: off = ふつう / lock = どこに 当たっても ダメージ 0 / core = コアだけ onCoreHit に 知らせる */
+  private finish: 'off' | 'lock' | 'core' = 'off';
+  /** コアの 当たりを 太らせる ぶん（ブロック。たおれた あと） */
+  private coreReach = 0;
 
   constructor(private readonly env: HitEnv) {
     this.makeBar();
@@ -282,8 +288,25 @@ export class BigHit {
     for (const sp of this.sparks) { sp.left = 0; sp.mesh.visible = false; }
   }
 
+  /** とどめの あとの モードを きめる */
+  setFinish(mode: 'off' | 'lock' | 'core'): void {
+    this.finish = mode;
+  }
+
+  /** コアの 当たりを この ぶん(ブロック)だけ 太らせる（刀・波が とどきやすい。たおれた あとだけ） */
+  setCoreReach(r: number): void {
+    this.coreReach = Math.max(0, r);
+  }
+
+  /** 火花を 出す（とどめの 一撃などで 大きく）。k = 数の 倍 */
+  burst(at: Vec3, k = 1, color: number = T.hit.sparkColor): void {
+    this.spark(at, color, k);
+  }
+
   /** 体力を 満タンに もどす（調整表の hp を 読みなおす） */
   reset(): void {
+    this.finish = 'off';
+    this.coreReach = 0;
     this.maxHp = T.hit.hp;
     this.hp = this.maxHp;
     this.last = null;
@@ -296,6 +319,7 @@ export class BigHit {
   // ------------------------------------------------------------ ダメージ
   /** 部位に ダメージ（武器の 強さ amount × 倍率）。実際に 与えた 数を 返す（倍率 0 なら 0 で、怒らない） */
   damage(part: string, amount: number, at: Vec3 | null = null, source = 'test'): number {
+    if (this.finish !== 'off') return this.finishDamage(part, at);
     if (part === 'core' && this.env.coreGuard?.()) {
       if (!at) { const i = this.parts.indexOf('core'); if (i >= 0) at = { x: this.boxes[i]!.c[0]!, y: this.boxes[i]!.c[1]!, z: this.boxes[i]!.c[2]! }; }
       this.deflects++;
@@ -319,6 +343,21 @@ export class BigHit {
     this.env.sources?.sound?.();
     this.showBar(true);
     return dealt;
+  }
+
+  /** とどめの あと: コアだけ 数える。ほかは 0 */
+  private finishDamage(part: string, at: Vec3 | null): number {
+    if (!at) {
+      const i = this.parts.indexOf(part as Part);
+      if (i >= 0) at = { x: this.boxes[i]!.c[0]!, y: this.boxes[i]!.c[1]!, z: this.boxes[i]!.c[2]! };
+    }
+    if (this.finish === 'core' && part === 'core' && this.env.onCoreHit?.(at)) {
+      if (at) this.spark(at, 0xff8a60, 1.5);
+      this.flash = 1;
+      this.env.sources?.sound?.();
+      return 1;
+    }
+    return 0;
   }
 
   /** 箱の 番号に ダメージ。at = 火花の 場所（なければ 箱の いちばん 近い 点） */
@@ -379,6 +418,10 @@ export class BigHit {
     this.stepFx(dt);
   }
 
+  private reachOf(i: number): number {
+    return this.coreReach > 0 && this.parts[i] === 'core' ? this.coreReach : 0;
+  }
+
   private stepBlade(s: HitSources): void {
     const b = s.blade?.() ?? null;
     if (!b) { this.swingKey = null; return; }
@@ -390,11 +433,11 @@ export class BigHit {
     if (b.shape.kind === 'capsule') {
       const sh = b.shape;
       from = sh.from;
-      touched = (i) => boxTouchesCapsule(this.boxes[i]!, sh.from, sh.to, sh.radius + m);
+      touched = (i) => boxTouchesCapsule(this.boxes[i]!, sh.from, sh.to, sh.radius + m + this.reachOf(i));
     } else {
       const sh = b.shape;
       from = sh.center;
-      touched = (i) => boxTouchesFan(this.boxes[i]!, sh, m);
+      touched = (i) => boxTouchesFan(this.boxes[i]!, sh, m + this.reachOf(i));
     }
     const i = this.pick(touched, from);
     if (i < 0) {
@@ -423,7 +466,7 @@ export class BigHit {
       const prev = this.waveLast.get(w.id) ?? w.position;
       if (!this.waveDone.has(w.id)) {
         const from = { ...prev }, to = { ...w.position };
-        const i = this.pick((k) => boxTouchesCapsule(this.boxes[k]!, from, to, w.radius + T.hit.waveMargin), to);
+        const i = this.pick((k) => boxTouchesCapsule(this.boxes[k]!, from, to, w.radius + T.hit.waveMargin + this.reachOf(k)), to);
         if (i >= 0) { this.waveDone.add(w.id); this.strike(i, w.damage, to, 'wave'); }
       }
       this.waveLast.set(w.id, { ...w.position });

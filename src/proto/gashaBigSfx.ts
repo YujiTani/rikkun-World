@@ -34,6 +34,9 @@ export const BIG_FILES: Record<BigSfxName, FileDef> = {
   a5_elec: one('a5_elec', 'wav', true),
   a5_bolt: { files: ['a5_bolt', 'a5_bolt_b', 'a5_bolt_c'], ext: 'ogg' },
   step_slam: { files: ['step_slam', 'step_slam_b', 'step_slam_c'], ext: 'ogg' },
+  // とどめ・くずれる(オーナーが 選んだ 音 2026-10-24 15:59。候補は sfx-laugh の finish_blow_a/b/c・crumble_a/b。差しかえは ここの 名前だけ)
+  finish_blow: one('finish_blow_a'),
+  crumble: one('crumble_b'),
 };
 const DIR = './sound/gasha/big/';
 export const bigSfxUrl = (file: string, ext: 'ogg' | 'wav'): string => `${DIR}${file}.${ext}`;
@@ -147,6 +150,10 @@ export function createBigSfx(env: BigSfxEnv, tune: SfxTune = T.sfx, seed = 294) 
     /** まわりの 落雷 1 回（3 種を 順番に） */
     bolt: () => play('a5_bolt'),
     step: () => play('step_slam'),
+    /** とどめの 一撃 */
+    finishBlow: () => play('finish_blow'),
+    /** 大きな 姿と 少女が くずれて 消える */
+    crumble: () => play('crumble'),
   };
 }
 export type BigSfx = ReturnType<typeof createBigSfx>;

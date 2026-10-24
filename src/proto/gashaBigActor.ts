@@ -124,6 +124,8 @@ function makeRnd(seed: number): () => number {
 
 const wrapPi = (a: number): number => Math.atan2(Math.sin(a), Math.cos(a));
 const DEG = Math.PI / 180;
+const AXIS_X = new Vector3(1, 0, 0), AXIS_Y = new Vector3(0, 1, 0), AXIS_Z = new Vector3(0, 0, 1);
+const TILT_Q = new Quaternion(), TILT_Q2 = new Quaternion(), TILT_V = new Vector3(), TILT_V2 = new Vector3(), TILT_V3 = new Vector3();
 
 export interface ActorWork {
   /** 関節を うごかした 数 */
@@ -484,6 +486,43 @@ export class BigActor {
     this.angryLeft = T.angry.calmSec;
     this.backToAngry(0.5);
     this.cycle.begin();
+  }
+
+  /** とどめ: どんな 状態でも その場で 固まる(攻撃・追いかけは 片づける)。固まった あとは 倒れる・くずれる(setTilt・hideJoint) */
+  lock(): void {
+    if (this.mode !== 'frozen') {
+      this.abortAttack();
+      this.chasing = false; this.pendingAttack = null; this.finaleOn = false;
+      this.eruption.phase = 'idle'; this.eruption.hold = false;
+      this.enterHeld();
+    }
+    this.held = true;
+  }
+
+  // ---------------------------------------------------------------- とどめの あと: 倒れる・しずむ・はがれる
+  private tiltRoll = 0;
+  private tiltPitch = 0;
+  private tiltPivotY = 0;
+  private liftY = 0;
+  private readonly goneJoints = new Set<JointName>();
+
+  /**
+   * 体を 横(roll)・前(pitch)へ ラジアンで かたむけ(土台の 上 pivotY(もとの 座標)の 高さを 中心に)、sink ブロック 地面へ しずめる。固い 当たりも 箱ごと ついて いく。
+   * 0, 0, _, 0 で もとに もどす。体は あみを 組んだ 足(はって あるく 形)なので 地面に ぴったり ふせる ことは できない。前へ のめって 手が 地面に うまる 形で「倒れこむ」。
+   */
+  setTilt(roll: number, pitch: number, pivotY: number, sink: number): void {
+    this.tiltRoll = roll; this.tiltPitch = pitch; this.tiltPivotY = pivotY;
+    this.liftY = -sink;
+    this.dirty = true;
+  }
+
+  /** 関節の 箱を 当たりから はずす(くずれて 落ちた)。見た目は 呼んだ 側が 消す */
+  hideJoint(j: JointName): void {
+    this.goneJoints.add(j);
+  }
+
+  showAllJoints(): void {
+    this.goneJoints.clear();
   }
 
   private enterHeld(): void {
@@ -1088,9 +1127,21 @@ export class BigActor {
 
   private applyTransform(): void {
     const g = this.model.group;
-    g.position.copy(this.pos);
-    g.rotation.y = this.yaw;
-    g.scale.setScalar(this.model.scale);
+    const sc = this.model.scale;
+    if (this.tiltRoll === 0 && this.tiltPitch === 0) {
+      g.position.copy(this.pos);
+      g.position.y += this.liftY;
+      g.rotation.set(0, this.yaw, 0);
+    } else {
+      // 中心 P(土台の 上 tiltPivotY)まわりに かたむける: 位置 = pos + R_yaw · sc · (P − Rt · P)、向き = R_yaw · Rt
+      const qy = this.tq.setFromAxisAngle(AXIS_Y, this.yaw);
+      const rt = TILT_Q.setFromAxisAngle(AXIS_X, this.tiltPitch).multiply(TILT_Q2.setFromAxisAngle(AXIS_Z, this.tiltRoll));
+      const p = TILT_V.set(0, this.tiltPivotY, 0);
+      const d = TILT_V2.copy(p).sub(TILT_V3.copy(p).applyQuaternion(rt)).multiplyScalar(sc).applyQuaternion(qy);
+      g.position.set(this.pos.x + d.x, this.pos.y + this.liftY + d.y, this.pos.z + d.z);
+      g.quaternion.copy(qy).multiply(rt);
+    }
+    g.scale.setScalar(sc);
   }
 
   // ---------------------------------------------------------------- 当たりの 箱
@@ -1135,6 +1186,7 @@ export class BigActor {
     let tested = 0, found = -1;
     for (let n = 0; n < this.boxes.length; n++) {
       const b = this.boxes[n]!;
+      if (this.goneJoints.size > 0 && this.goneJoints.has(b.joint)) continue;
       const mg = b.exact ? 0 : mg0, lift = b.exact ? 0 : lift0;
       const dx = cx - b.c[0], dy = cy - b.c[1], dz = cz - b.c[2];
       if (Math.abs(dx) > b.ext[0] || Math.abs(dy) > b.ext[1] || Math.abs(dz) > b.ext[2]) continue;

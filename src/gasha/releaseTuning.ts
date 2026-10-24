@@ -1,4 +1,5 @@
 import type { ItemId } from '../contracts';
+import { NINJA_GEAR } from '../craft/config';
 
 /**
  * #293 リリース: がしゃどくろを ふだんの ゲームに 出す 数の 表（調整表）。値を かえる だけで 出方・ごほうびを 直せる。
@@ -28,7 +29,7 @@ export const RELEASE = {
     strength: 0.88, // 割合: いちばん 濃い とき の 色の まざり 具合（0 = そのまま、1 = 完全に 単色）
     hazeMax: 0, // 割合: 試作の 霞み（空の 色に 溶ける）の 最大。シルエットと けんかしない よう 0（gashaBigTuning の look.hazeMax を 上書き）
   },
-  /** 少女の 形態への きりかえ（くわしい 戦いの 数は gashaGirlTuning.ts。5 回の 魔法 → 大きな 姿に もどって eye.bigWaitSec 休む → また 少女、を たおすまで くりかえす） */
+  /** 少女の 形態への きりかえ（くわしい 戦いの 数は gashaGirlTuning.ts。体力 1/3 で 固まる → 笑い → ワープ → ポーズ → 5 回の 魔法 → かたに 座って eye.bigWaitSec 休む → また 魔法、を とどめまで くりかえす） */
   girl: {
     hpFraction: 1 / 3, // 割合: 大きな 姿の 体力が これ 以下に なると 少女の 形態へ（オーナー決定: 体力 1/3 以下）
     loadHpFraction: 0.6, // 割合: 少女の 3D（約 4 MB）を 先に 読みこみはじめる 体力。きりかえで 待たされない ように 早めに。読んでおくだけで 出さない
@@ -39,29 +40,21 @@ export const RELEASE = {
   },
   /** たおされた あと */
   defeat: {
-    lingerSec: 4, // 秒: たおれてから 体が 消えるまで（その間に 宝箱が 出る）
+    safetyExtraSec: 5, // 秒: コアを こわしてから くずれ おわる 時間（gashaBigTuning の finish.crumble.sec）に 足す 余裕。これを すぎたら 合図が なくても 体を 片づける
   },
-  /** 大きな 宝箱 */
-  chest: {
-    width: 3.2, // ブロック: よこ はば
-    depth: 2.2, // ブロック: おくゆき
-    bodyHeight: 1.5, // ブロック: 箱の 高さ（ふたを のぞく）
-    lidHeight: 0.8, // ブロック: ふたの 高さ
-    openRadius: 5, // ブロック: プレイヤーが これより 近づくと 自分で あく（よこの 距離）
-    openHeight: 4, // ブロック: 上下の 差が これ以内 なら 近いと する
-    openSec: 1.2, // 秒: ふたが ひらききる まで
-    openAngleDeg: 112, // 度: ふたの ひらく 角度
-    dropDelaySec: 0.5, // 秒: ふたが ひらき はじめてから 中身が とびだす まで
-    riseSec: 1.0, // 秒: 地面から せり上がって 出てくる 時間
-    dropUpOffset: 1.6, // ブロック: 中身が とびだす 高さ（箱の 底から）
-    scatterSpeed: [1.5, 2.8] as [number, number], // ブロック/秒: 中身が 散らばる 横の 速さ（最小, 最大）
-    scatterUp: [5.5, 7] as [number, number], // ブロック/秒: 中身が とびあがる 速さ（最小, 最大）
-    glowSec: 1.2, // 秒: あく ときの 金色の 光が 消える まで
-    stayOpenSec: 120, // 秒: あけた 宝箱が そのまま のこっている 時間（そのあと 消える）
+  /** コアの ドロップ(オーナー 2026-10-24 15:18・15:19: 宝箱は やめて、コアを たたく たびに PSO ふうに ばらまく。何が 出るかは 下の reward の 表を つかう) */
+  core: {
+    hitScale: 0.4, // 倍: コアを 1 回 たたく ごとに ばらまく レア素材の 量(reward.rare の 最小〜最大 に かけて 四捨五入。最低 1)
+    dropUp: 0.5, // ブロック: ばらまく 高さの 足し(コアの 中心から)
+    scatterSpeed: [3, 6] as [number, number], // ブロック/秒: 散らばる 横の 速さ(最小, 最大。いきおいよく)
+    scatterUp: [6, 9] as [number, number], // ブロック/秒: とびあがる 速さ(最小, 最大)
   },
-  /** ごほうび（仮。忍者の ほかの 部位が できたら ここを 入れかえる） */
+  /**
+   * コアの ドロップの 中身は ここ 1 か所(仮)。忍者の 頭・体・うで・あしが できたら、guaranteed に { item, count } の 行を 足すだけで
+   * コアを こわした 一山に 入る(コードは かえない)。たたく たびの 小さな ばらまきは rare の 一部(core.hitScale)
+   */
   reward: {
-    guaranteed: [{ item: 'ninja_tabi', count: 1 }] as { item: ItemId; count: number }[], // かならず 入る もの（個）
+    guaranteed: [{ item: NINJA_GEAR.legs, count: 1 }] as { item: ItemId; count: number }[], // かならず 入る もの（個。コアを こわした 一山だけ。忍者装備の id は src/craft/config.ts の NINJA_GEAR から 読む。部位が ふえたら ここに 行を 足す）
     rare: [
       { item: 'crystal', min: 3, max: 5 }, // すいしょう（個の はんい。最小〜最大の 一様）
       { item: 'iron_ingot', min: 6, max: 10 }, // てつの かたまり（個）

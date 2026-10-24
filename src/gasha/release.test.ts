@@ -1,10 +1,12 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { BoxGeometry, Group, Mesh, MeshBasicMaterial, type Scene } from 'three';
+import { BoxGeometry, Group, Mesh, MeshBasicMaterial } from 'three';
 import { hazePatch } from '../proto/gashaBig';
 import type { ItemStack } from '../contracts';
 import type { GashaBigDeps } from '../proto/gashaBig';
 import { createGashaRelease, type BossHandle, type DepsWrap, type GirlHooks, type ReleaseEnv } from './release';
 import { RELEASE } from './releaseTuning';
+import { NINJA_GEAR } from '../craft/config';
+import { TUNE as BIG } from '../proto/gashaBigTuning';
 
 /** gashaBig.ts の place({ x, z, yawDeg })・despawn()・onDefeated の まね */
 function fakeBoss(wrapped: GashaBigDeps, first: { x: number; z: number; yawDeg?: number }) {
@@ -26,6 +28,15 @@ function fakeBoss(wrapped: GashaBigDeps, first: { x: number; z: number; yawDeg?:
     despawns: 0,
     /** 体力 0 に なった（gashaBig.ts の onUpdate が onDefeated を 呼ぶ） */
     kill() { boss.hp = 0; wrapped.onDefeated?.(); },
+    /** とどめの あとの 場面（gashaBig.ts の finishInfo の まね） */
+    phase: 'off',
+    damaged: [] as { part: string; amount: number }[],
+    /** コアを たたいた（n 回目。left = のこり） */
+    coreHit(n: number, left: number) { wrapped.onCoreHit?.({ x: boss.pos.x + 1, y: boss.pos.y + 5, z: boss.pos.z, n, left }); },
+    /** コアが こわれた */
+    coreBroken() { wrapped.onCoreBroken?.({ x: boss.pos.x + 1, y: boss.pos.y + 5, z: boss.pos.z }); },
+    /** くずれて 消えた */
+    vanished() { wrapped.onVanished?.(); },
     place(at: { x: number; z: number; yawDeg?: number }) {
       const { x, z } = at;
       boss.pos = { x, y: (wrapped.placeGroundY ?? wrapped.groundY)(Math.floor(x), Math.floor(z)) + 1, z };
@@ -55,6 +66,8 @@ function fakeBoss(wrapped: GashaBigDeps, first: { x: number; z: number; yawDeg?:
     setGirlBox: (b) => { boss.girlBox = b; },
     hp: () => boss.hp,
     maxHp: () => 1000,
+    damage: (part, amount) => { boss.damaged.push({ part, amount }); boss.kill(); return amount; },
+    finishInfo: () => ({ phase: boss.phase, coreHp: 8, coreMax: 8 }),
     angry: (on) => { boss.angry = on; },
     walk: (on) => { boss.walking = on; },
     info: () => ({ pos: [boss.pos.x, boss.pos.y, boss.pos.z] }),
@@ -66,7 +79,7 @@ function rig(over: { chance?: number; enabled?: boolean; noGirl?: boolean; hold?
   const player = { x: 0.5, y: 20, z: 0.5, yawDeg: 90 };
   const loaded = new Set<string>(); // 読みこんだ 列
   const log = {
-    scatter: [] as { at: { x: number; y: number; z: number }; stacks: readonly ItemStack[] }[],
+    scatter: [] as { at: { x: number; y: number; z: number }; stacks: readonly ItemStack[]; opts?: object }[],
     record: [] as string[],
     say: [] as string[],
     bgmReset: 0,
@@ -78,16 +91,17 @@ function rig(over: { chance?: number; enabled?: boolean; noGirl?: boolean; hold?
     girlStarts: 0,
     summons: 0,
     dismisses: 0,
+    finishes: 0,
+    crumbles: 0,
   };
   /** 少女の まね（読みこみを 待たせる ことも できる）。hooks = 座る 場所・当たりの 箱 */
   const girl = {
     hooks: null as null | GirlHooks,
-    stage: 'laugh' as 'off' | 'laugh' | 'orbit' | 'pose' | 'girl' | 'perch',
+    stage: 'laugh' as 'off' | 'laugh' | 'orbit' | 'pose' | 'girl' | 'perch' | 'down' | 'crumble',
     active: false,
     gate: null as null | (() => void),
     hold: false,
   };
-  const scene = new Group() as unknown as Scene;
   let bossRef: ReturnType<typeof fakeBoss> | null = null;
   const baseDeps = {
     player: () => ({ ...player }),
@@ -103,7 +117,6 @@ function rig(over: { chance?: number; enabled?: boolean; noGirl?: boolean; hold?
     isLoaded: (x, z) => loaded.has(`${x >> 4},${z >> 4}`),
     terrainTop: () => 12,
     groundY: () => 40,
-    scene,
     start: async (wrap: DepsWrap, at) => {
       log.starts++;
       bossRef = fakeBoss(wrap(baseDeps), at);
@@ -116,12 +129,14 @@ function rig(over: { chance?: number; enabled?: boolean; noGirl?: boolean; hold?
       if (girl.hold) await new Promise<void>((res) => { girl.gate = res; });
       return {
         summon: () => { log.summons++; girl.active = true; },
+        finish: () => { log.finishes++; girl.stage = 'down'; },
+        crumble: () => { log.crumbles++; girl.stage = 'crumble'; },
         dismiss: () => { log.dismisses++; girl.active = false; },
         active: () => girl.active,
         stage: () => (girl.active ? girl.stage : 'off'),
       };
     },
-    scatter: (at, stacks) => { log.scatter.push({ at: { ...at }, stacks }); },
+    scatter: (at, stacks, opts) => { log.scatter.push({ at: { ...at }, stacks, opts }); },
     record: (key) => { log.record.push(key); },
     say: (t) => { log.say.push(t); },
     bgmReset: () => { log.bgmReset++; },
@@ -309,156 +324,224 @@ describe('地面の 高さ・地ならし（読みこんで いない 遠くで�
   });
 });
 
-describe('たおした ごほうび', () => {
+describe('とどめ → 赤い コア → ごほうび（宝箱は ない）', () => {
   afterEach(() => { RELEASE.spawn.chancePerMorning = 0.3; });
 
-  async function defeated() {
-    const r = rig();
+  async function finishing(over: Parameters<typeof rig>[0] = {}) {
+    const r = rig(over);
     await r.rel.spawn({ distance: 40, angleDeg: 0 });
-    r.boss().kill(); // 体力 0 の 通知（onDefeated）
+    r.boss().kill(); // 体力 0 の 一撃（onDefeated）
     return r;
   }
 
-  it('体力 0 で: 実績 を 記録、メッセージ、BGM を 止める、その 場所に 宝箱', async () => {
-    const r = await defeated();
+  it('とどめの 一撃: まだ 倒した ことに しない（実績・ごほうびは コアを こわした とき）。BGM は 止める。形態は down', async () => {
+    const r = await finishing();
+    expect(r.rel.state()).toBe('present');
+    expect(r.log.record).toEqual([]);
+    expect(r.log.scatter.length).toBe(0);
+    expect(r.log.bgmReset).toBe(1);
+    expect(r.rel.info().form).toBe('down');
+    expect(r.boss().angry).toBe(false);
+  });
+
+  it('何コマ たっても とどめは 1 回だけ（BGM・少女への 合図も 1 回）', async () => {
+    const r = rig({ chance: 0 });
+    await r.rel.spawn({ distance: 40, angleDeg: 0 });
+    r.boss().hp = 100;
+    r.run(RELEASE.spawn.checkEverySec + 0.2);
+    await r.settle();
+    r.run(RELEASE.spawn.checkEverySec + 0.2);
+    r.boss().hold();
+    r.boss().kill();
+    r.boss().kill();
+    r.run(1);
+    expect(r.log.finishes).toBe(1);
+    expect(r.log.bgmReset).toBe(1);
+    expect(r.log.dismisses).toBe(0); // 少女は 消さず その場に 座らせる
+    expect(r.rel.info().form).toBe('down');
+  });
+
+  it('体力が 0 に なって いるのに onDefeated が 来なくても 毎コマの 見まわりで とどめに 入る', async () => {
+    const r = rig();
+    await r.rel.spawn({ distance: 40, angleDeg: 0 });
+    r.boss().hp = 0;
+    r.run(0.1);
+    expect(r.rel.info().form).toBe('down');
+    expect(r.log.bgmReset).toBe(1);
+  });
+
+  it('形態: とどめの あとは down、大きな 姿が くずれはじめたら crumble', async () => {
+    const r = await finishing();
+    for (const ph of ['blow', 'fall', 'lie']) { r.boss().phase = ph; expect(r.rel.info().form).toBe('down'); }
+    for (const ph of ['crumble', 'gone']) { r.boss().phase = ph; expect(r.rel.info().form).toBe('crumble'); }
+  });
+
+  it('コアを たたく たび: レア素材の 行ごとに 1 山ずつ、いきおいよく ばらまく（実績・状態は まだ）', async () => {
+    const r = await finishing();
+    r.boss().coreHit(1, 7);
+    expect(r.log.scatter.length).toBe(RELEASE.reward.rare.length);
+    for (let i = 0; i < r.log.scatter.length; i++) {
+      const row = RELEASE.reward.rare[i]!;
+      const s = r.log.scatter[i]!;
+      expect(s.stacks.length).toBe(1); // 山ごとに 光の 柱
+      expect(s.stacks[0]!.item).toBe(row.item);
+      expect(s.stacks[0]!.count).toBeGreaterThanOrEqual(1);
+      expect(s.stacks[0]!.count).toBeLessThanOrEqual(Math.max(1, Math.round(row.max * RELEASE.core.hitScale)));
+      expect(s.opts).toEqual({ speedMin: RELEASE.core.scatterSpeed[0], speedMax: RELEASE.core.scatterSpeed[1], upMin: RELEASE.core.scatterUp[0], upMax: RELEASE.core.scatterUp[1] });
+      expect(s.at.y).toBeCloseTo(r.boss().pos.y + 5 + RELEASE.core.dropUp, 3);
+    }
+    expect(r.log.record).toEqual([]);
+    expect(r.rel.state()).toBe('present');
+    expect(r.log.sounds).toContain('levelUp');
+    // たたく たびに ふえる
+    r.boss().coreHit(2, 6);
+    expect(r.log.scatter.length).toBe(RELEASE.reward.rare.length * 2);
+  });
+
+  it('たたいた ときの 中身は 同じ 世界・同じ 回なら 同じ。足袋は たたいた ときは 出ない', async () => {
+    const a = await finishing(), b = await finishing();
+    a.boss().coreHit(3, 5); b.boss().coreHit(3, 5);
+    expect(a.log.scatter.map((s) => s.stacks)).toEqual(b.log.scatter.map((s) => s.stacks));
+    expect(a.log.scatter.flatMap((s) => s.stacks.map((x) => x.item))).not.toContain(NINJA_GEAR.legs);
+  });
+
+  it('コアを こわした: 実績 1 回、メッセージ、足袋 ＋ レア素材の 大きな 一山、少女も くずれる。状態は defeated', async () => {
+    const r = await finishing();
+    const before = r.log.scatter.length;
+    r.boss().coreBroken();
     expect(r.rel.state()).toBe('defeated');
     expect(r.log.record).toEqual(['defeat:gashadokuro']);
     expect(r.log.say.length).toBe(1);
     expect(r.log.say[0]).toContain('がしゃどくろ');
-    expect(r.log.bgmReset).toBe(1);
-    const chests = r.rel.chests();
-    expect(chests.length).toBe(1);
-    expect(chests[0]!.x).toBeCloseTo(r.boss().pos.x, 3);
-    expect(chests[0]!.z).toBeCloseTo(r.boss().pos.z, 3);
-    expect(r.env.scene.children.length).toBe(1);
-  });
-
-  it('たおれた 回数は 1 回だけ（体力 0 の まま 何コマ たっても 実績・宝箱は ふえない）', async () => {
-    const r = await defeated();
+    // 山ごとに 1 回(光の 柱が 1 本ずつ): 足袋 1 山 ＋ レア素材 3 山
+    expect(r.log.scatter.length).toBe(before + RELEASE.reward.guaranteed.length + RELEASE.reward.rare.length);
+    expect(r.log.scatter.slice(before).every((x) => x.stacks.length === 1)).toBe(true);
+    const items = r.log.scatter.slice(before).flatMap((x) => x.stacks.map((s) => s.item));
+    expect(items).toContain(NINJA_GEAR.legs);
+    for (const row of RELEASE.reward.rare) expect(items).toContain(row.item);
+    expect(r.rel.info().kills).toBe(1);
+    // 二重に 数えない
+    r.boss().coreBroken();
     r.run(0.5);
     expect(r.log.record.length).toBe(1);
-    expect(r.rel.chests().length).toBe(1);
+    expect(r.log.scatter.length).toBe(before + RELEASE.reward.guaranteed.length + RELEASE.reward.rare.length);
   });
 
-  it('lingerSec たつと 体は 片づけられ（消え）、宝箱は のこる', async () => {
-    const r = await defeated();
-    r.run(RELEASE.defeat.lingerSec + 0.5);
+  it('ドロップの 中身は 調整表(RELEASE.reward)の 1 か所: guaranteed に 行を 足すだけで、こわした 一山に 入る(忍者の 部位用)', async () => {
+    const saved = RELEASE.reward.guaranteed.slice();
+    try {
+      RELEASE.reward.guaranteed.push({ item: 'iron_ingot', count: 2 });
+      const r = await finishing();
+      r.boss().coreBroken();
+      const stacks = r.log.scatter.flatMap((x) => x.stacks);
+      expect(stacks.filter((s) => s.item === NINJA_GEAR.legs).length).toBe(1);
+      expect(stacks.find((s) => s.item === 'iron_ingot' && s.count === 2)).toBeDefined();
+    } finally {
+      RELEASE.reward.guaranteed.splice(0, RELEASE.reward.guaranteed.length, ...saved);
+    }
+  });
+
+  it('少女が いれば: とどめで finish()、コアを こわすと crumble()', async () => {
+    const r = rig({ chance: 0 });
+    await r.rel.spawn({ distance: 40, angleDeg: 0 });
+    r.boss().hp = 100;
+    r.run(RELEASE.spawn.checkEverySec + 0.2);
+    await r.settle();
+    r.run(RELEASE.spawn.checkEverySec + 0.2);
+    r.boss().hold();
+    r.girl.stage = 'perch';
+    r.boss().kill();
+    expect(r.log.finishes).toBe(1);
+    expect(r.log.crumbles).toBe(0);
+    r.boss().coreBroken();
+    expect(r.log.crumbles).toBe(1);
+    expect(r.girl.active).toBe(true); // くずれ おわる まで 少女は 生きて いる
+  });
+
+  it('くずれて 消えた 合図で 体を 片づける（idle。次の あさに また 出られる）', async () => {
+    const r = await finishing();
+    r.boss().coreBroken();
+    r.boss().vanished();
     expect(r.rel.state()).toBe('idle');
     expect(r.boss().alive).toBe(false);
     expect(r.boss().despawns).toBe(1);
-    expect(r.rel.chests().length).toBe(1);
   });
 
-  it('宝箱: 遠い あいだは あかない。近づくと あいて、足袋 + レア素材が とびだす（1 回だけ）', async () => {
-    const r = await defeated();
-    r.run(RELEASE.defeat.lingerSec + 0.5);
-    r.run(10);
-    expect(r.log.scatter.length).toBe(0);
-    // 宝箱の そばへ
-    const c = r.rel.chests()[0]!;
-    r.player.x = c.x + 2; r.player.z = c.z; r.player.y = c.y;
-    r.run(RELEASE.chest.openSec + 1);
-    expect(r.log.scatter.length).toBe(1);
-    const items = r.log.scatter[0]!.stacks.map((s) => s.item);
-    expect(items).toContain('ninja_tabi');
-    for (const row of RELEASE.reward.rare) expect(items).toContain(row.item);
-    expect(r.log.scatter[0]!.at.y).toBeGreaterThan(c.y);
-    r.run(10);
-    expect(r.log.scatter.length).toBe(1);
-    expect(r.log.sounds).toContain('levelUp');
+  it('消える 合図が 来なくても crumble.sec ＋ safetyExtraSec で 片づける', async () => {
+    const r = await finishing();
+    r.boss().coreBroken();
+    r.run(BIG.finish.crumble.sec);
+    expect(r.rel.state()).toBe('defeated');
+    r.run(RELEASE.defeat.safetyExtraSec + 0.5);
+    expect(r.rel.state()).toBe('idle');
+    expect(r.boss().despawns).toBe(1);
   });
 
-  it('あけた 宝箱は stayOpenSec あとに 消える', async () => {
-    const r = await defeated();
-    const c = r.rel.chests()[0]!;
-    r.player.x = c.x + 1; r.player.z = c.z; r.player.y = c.y;
-    r.run(RELEASE.defeat.lingerSec + RELEASE.chest.riseSec + RELEASE.chest.openSec + RELEASE.chest.stayOpenSec + 2);
-    expect(r.rel.chests().length).toBe(0);
-    expect(r.env.scene.children.length).toBe(0);
+  it('コアを こわす 前に 遠く はなれたら 片づく。実績は 付かない（コアを 壊して いない）', async () => {
+    const r = await finishing();
+    r.player.x += RELEASE.spawn.despawnDistance + 100;
+    r.run(RELEASE.spawn.checkEverySec + 0.5);
+    expect(r.rel.state()).toBe('idle');
+    expect(r.log.record).toEqual([]);
   });
 
-  it('dev: defeat() で すぐ たおした ことに できる', async () => {
+  it('dev: defeat() は 体力を 0 に する とどめの 流れ（すぐ 倒した ことには ならない）。体の 口が 無ければ とどめの 流れに 入るだけ', async () => {
     const r = rig();
     await r.rel.spawn({ distance: 40 });
     r.rel.defeat();
-    expect(r.rel.state()).toBe('defeated');
-    expect(r.rel.chests().length).toBe(1);
+    expect(r.boss().damaged).toEqual([{ part: 'head', amount: 1e9 }]);
+    expect(r.rel.state()).toBe('present');
+    expect(r.rel.info().form).toBe('down');
+    const r2 = rig();
+    await r2.rel.spawn({ distance: 40 });
+    (r2.rel as unknown as { handle: { damage?: unknown } }).handle.damage = undefined;
+    r2.rel.defeat();
+    expect(r2.rel.info().form).toBe('down');
+    expect(r2.log.bgmReset).toBe(1);
   });
 });
 
-describe('あけていない 宝箱の 保存（ボス本体は 保存しない）', () => {
+describe('保存（たおした 回数だけ。ボス本体は 保存しない。宝箱は ない）', () => {
   afterEach(() => { RELEASE.spawn.chancePerMorning = 0.3; });
 
-  async function withChest() {
+  it('はじめは 0 回。コアを こわすと 1 ふえる。JSON に できる', async () => {
     const r = rig();
+    expect(r.rel.serialize()).toEqual({ v: 2, kills: 0 });
     await r.rel.spawn({ distance: 40, angleDeg: 0 });
-    r.rel.defeat();
-    r.run(RELEASE.defeat.lingerSec + 0.5);
-    return r;
-  }
-
-  it('宝箱が ない 時は 空。たおすと 1 つ 入る（位置・向き・中身）。JSON に できる', async () => {
-    const r0 = rig();
-    expect(r0.rel.serialize()).toEqual({ v: 1, chests: [] });
-    const r = await withChest();
-    const d = JSON.parse(JSON.stringify(r.rel.serialize())) as { v: number; chests: { x: number; y: number; z: number; yaw: number; items: { item: string; count: number }[] }[] };
-    expect(d.v).toBe(1);
-    expect(d.chests.length).toBe(1);
-    const c = r.rel.chests()[0]!;
-    expect(d.chests[0]!.x).toBeCloseTo(c.x, 2);
-    expect(d.chests[0]!.z).toBeCloseTo(c.z, 2);
-    expect(d.chests[0]!.items.map((s) => s.item)).toContain('ninja_tabi');
-    expect(r.rel.state()).toBe('idle'); // ボス本体は 入って いない
-    expect(Object.keys(d)).toEqual(['v', 'chests']);
+    r.boss().kill();
+    expect(r.rel.serialize()).toEqual({ v: 2, kills: 0 }); // とどめだけでは 数えない
+    r.boss().coreBroken();
+    expect(JSON.parse(JSON.stringify(r.rel.serialize()))).toEqual({ v: 2, kills: 1 });
   });
 
-  it('リロード: 保存を 読むと 宝箱が とじた まま 戻り（せり上がりは 飛ばす）、近づくと 同じ 中身が とびだす', async () => {
-    const r1 = await withChest();
-    const saved = JSON.parse(JSON.stringify(r1.rel.serialize()));
-    const itemsBefore = r1.rel.chests()[0]!.items;
-    const r2 = rig();
-    r2.rel.deserialize(saved);
-    expect(r2.rel.chests().length).toBe(1);
-    expect(r2.rel.chests()[0]!.phase).toBe('closed');
-    expect(r2.rel.chests()[0]!.items).toEqual(itemsBefore);
-    expect(r2.env.scene.children.length).toBe(1);
-    const c = r2.rel.chests()[0]!;
-    r2.player.x = c.x + 2; r2.player.z = c.z; r2.player.y = c.y;
-    r2.run(RELEASE.chest.openSec + 1);
-    expect(r2.log.scatter.length).toBe(1);
-    expect(r2.log.scatter[0]!.stacks.map((s) => s.item)).toContain('ninja_tabi');
-    // あけたら 保存から きえる
-    expect(r2.rel.serialize()).toEqual({ v: 1, chests: [] });
+  it('読みこむと 回数が もどる。古い 保存(v1: 宝箱の 一覧)・こわれた データは むし(0 回)', () => {
+    const r = rig();
+    r.rel.deserialize({ v: 2, kills: 3 });
+    expect(r.rel.info().kills).toBe(3);
+    r.rel.deserialize({ v: 1, chests: [{ x: 1, y: 2, z: 3, yaw: 0, items: [{ item: 'crystal', count: 3 }] }] });
+    expect(r.rel.info().kills).toBe(0);
+    r.rel.deserialize({ v: 2, kills: 2.7 });
+    expect(r.rel.info().kills).toBe(2);
+    for (const bad of [null, undefined, 'x', 7, { kills: 'a' }, { kills: -1 }, { kills: Number.NaN }]) {
+      r.rel.deserialize({ v: 2, kills: 5 });
+      r.rel.deserialize(bad);
+      expect(r.rel.info().kills).toBe(0);
+    }
   });
 
-  it('あけた 宝箱は 保存しない。ひらきはじめて 中身が 出る 前なら まだ 保存する', async () => {
-    const r = await withChest();
-    const c = r.rel.chests()[0]!;
-    r.player.x = c.x + 2; r.player.z = c.z; r.player.y = c.y;
-    r.run(RELEASE.chest.dropDelaySec / 2); // ひらきはじめた ところ（中身は まだ）
-    expect(r.rel.chests()[0]!.phase).toBe('opening');
-    expect(r.log.scatter.length).toBe(0);
-    expect((r.rel.serialize() as { chests: unknown[] }).chests.length).toBe(1);
-    r.run(RELEASE.chest.openSec + 1);
-    expect(r.log.scatter.length).toBe(1);
-    expect((r.rel.serialize() as { chests: unknown[] }).chests.length).toBe(0);
-  });
-
-  it('読みなおすと いまの 宝箱は 入れかわる（ふえない）。こわれた データ・知らない アイテムは むし', async () => {
-    const r1 = await withChest();
-    const saved = JSON.parse(JSON.stringify(r1.rel.serialize()));
-    const r2 = rig();
-    r2.rel.deserialize(saved);
-    r2.rel.deserialize(saved);
-    expect(r2.rel.chests().length).toBe(1);
-    expect(r2.env.scene.children.length).toBe(1);
-    r2.rel.deserialize(null);
-    r2.rel.deserialize('x');
-    r2.rel.deserialize({ v: 1, chests: [{ x: 'a' }, null, { x: 1, y: 2, z: 3, yaw: 0, items: [{ item: 'no_such_item', count: 2 }, { item: 'crystal', count: 3 }] }] });
-    expect(r2.rel.chests().map((c) => c.items)).toEqual([['crystalx3']]);
-    r2.rel.deserialize({ v: 1, chests: [{ x: 1, y: 2, z: 3, yaw: 0, items: [{ item: 'no_such_item', count: 1 }] }] });
-    expect(r2.rel.chests().length).toBe(0); // 中身が ぜんぶ 無効なら 出さない
-    expect(r2.env.scene.children.length).toBe(0);
+  it('回数が ちがうと ごほうびの 中身の 乱数も かわる（同じ 回数なら 同じ）', async () => {
+    const run = async (kills: number) => {
+      const r = rig();
+      r.rel.deserialize({ v: 2, kills });
+      await r.rel.spawn({ distance: 40, angleDeg: 0 });
+      r.boss().kill();
+      r.boss().coreBroken();
+      return r.log.scatter.flatMap((x) => x.stacks);
+    };
+    expect(await run(0)).toEqual(await run(0));
+    const seen = new Set<string>();
+    for (let k = 0; k < 12; k++) seen.add(JSON.stringify(await run(k)));
+    expect(seen.size).toBeGreaterThan(1);
   });
 });
 
@@ -556,7 +639,7 @@ describe('体力 1/3 で 少女へ（#293 まとめ）', () => {
     expect(r.boss().girlBox).toBeNull();
   });
 
-  it('座って 休んでいる 間に たおした: 少女を 止めて 宝箱・実績', async () => {
+  it('座って 休んでいる 間に とどめ: 少女は その場に 座りこむ(消さない)。実績は コアを こわした とき', async () => {
     const r = await fighting();
     r.boss().hp = 200;
     r.run(RELEASE.spawn.checkEverySec + 0.2);
@@ -565,11 +648,14 @@ describe('体力 1/3 で 少女へ（#293 まとめ）', () => {
     r.boss().hold();
     r.girl.stage = 'perch';
     r.boss().kill();
-    expect(r.rel.state()).toBe('defeated');
-    expect(r.log.dismisses).toBe(1);
-    expect(r.log.record).toEqual(['defeat:gashadokuro']);
+    expect(r.rel.state()).toBe('present');
+    expect(r.log.finishes).toBe(1);
+    expect(r.log.dismisses).toBe(0);
+    expect(r.log.record).toEqual([]);
     expect(r.log.bgmReset).toBe(1);
-    expect(r.rel.chests().length).toBe(1);
+    r.boss().coreBroken();
+    expect(r.rel.state()).toBe('defeated');
+    expect(r.log.record).toEqual(['defeat:gashadokuro']);
   });
 
   it('少女の 間に 遠く はなれて 消えた: 少女も 止める。次に 出た ときは また 大きな 姿から（少女は 読みこみなおさない）', async () => {
@@ -611,7 +697,7 @@ describe('体力 1/3 で 少女へ（#293 まとめ）', () => {
     await r2.settle();
     expect(r2.boss().finales).toBe(0);
     expect(r2.log.summons).toBe(0);
-    expect(r2.rel.state()).toBe('defeated');
+    expect(r2.rel.info().form).toBe('down');
   });
 
   it('少女が 読みこみ おわる まで 固めない（読めたら かわる）', async () => {

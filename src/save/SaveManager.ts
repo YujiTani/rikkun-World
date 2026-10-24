@@ -103,7 +103,7 @@ export interface SaveDeps {
   animals?: SaveExtra;
   /** WEAPON-7: 手に 入れた ことの ある レジェンダリー（`legendGot`）。前の 保存に ない ときは 空 */
   legend?: SaveExtra;
-  /** #293: あけていない がしゃどくろの 宝箱（位置・中身。ボス本体は 保存しない）。前の 保存に ない ときは null */
+  /** #293: がしゃどくろを たおした 回数（{ v: 2, kills }。ボス本体は 保存しない。前の 版の 宝箱の 一覧は 読みこんでも むし）。前の 保存に ない ときは null */
   gasha?: SaveExtra;
   /** M7: 作物・農業の乱数・「置きものを置いた」印。無い保存は 読んだあと 置きものを置く */
   farm?: SaveFarm;

@@ -56,6 +56,14 @@ export const TUNE = {
     hipUp: 0.35, // ブロック: 座った とき お尻(腰の 骨)を かたの 上から どれだけ 上に するか
     hitUp: 0.9, // ブロック: 当たりの 箱の 中心の 高さ(座った お尻から)
   },
+  /** とどめ(体力 0 の 一撃)のあと: その場に 座りこんで 動かない → コアが こわれたら 消える */
+  finish: {
+    sitBlendSec: 0.5, // 秒: 座りこむ ポーズに 入る までの 時間
+    fadeSec: 3, // 秒: コアが こわれてから 少女が 透けて 消える までの 時間(大きな 姿の くずれの はじめから)
+    crumbleSparksPerSec: 90, // 個/秒: 消えて いく 間に 体から 出る 粉の 数
+    crumbleFall: 1.6, // ブロック/秒: 粉の 落ちる 速さ(下向き)
+    crumbleColors: [0xf0d8ff, 0x6020c0] as [number, number], // 粉の 色(はじめ, おわり)
+  },
   /** パリィ（少女の 魔法） */
   parry: {
     reflectSpeedMul: 1.2, // はね返した 弾の 速さの 倍率（もとの 速さに かける）
@@ -98,8 +106,6 @@ export const TUNE = {
       eye_blush: 1, // 「////」
       player_hit: 1, // 魔法が 当たった
       girl_laugh: 1, // 固まった あとの 笑い声(girl_laugh_a)
-      finish_blow: 1, // とどめの 一撃(finish_blow_a)
-      crumble: 1, // くずれて 消える(crumble_b)
     },
   },
   /** ダメージ */

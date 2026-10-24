@@ -287,8 +287,12 @@ export interface GirlController {
   dismiss(): void;
   /** 少女の 戦いの 最中か（ねかせて いる 間は false） */
   active(): boolean;
-  /** いまの 場面: off(ねている)/ laugh(笑い声)/ orbit(飛びまわる)/ pose(決めポーズ)/ girl(戦い)/ perch(かたに 座って 休む) */
-  stage(): 'off' | 'laugh' | 'orbit' | 'pose' | 'girl' | 'perch';
+  /** とどめ(大きな 姿の 体力 0): 魔法・弾・当たりの 箱を ぜんぶ 消して、その場に 座りこむ。動かない・無敵。ねている 間は 何も しない */
+  finish(): void;
+  /** コアが こわれた: 座った まま 透けて 粉に なって 消えて いく(finish() の あとだけ) */
+  crumble(): void;
+  /** いまの 場面: off(ねている)/ laugh(笑い声)/ orbit(飛びまわる)/ pose(決めポーズ)/ girl(戦い)/ perch(かたに 座って 休む)/ down(とどめで 座りこむ)/ crumble(消えて いく) */
+  stage(): 'off' | 'laugh' | 'orbit' | 'pose' | 'girl' | 'perch' | 'down' | 'crumble';
   handle: GashaGirlHandle;
 }
 
@@ -774,7 +778,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
   };
 
   // ---- 少女の 流れ ----
-  type Phase = 'dormant' | 'stand' | 'vanish' | 'gone' | 'appear' | 'cast' | 'shy' | 'bigvanish' | 'bigtext' | 'bigwait' | 'laugh' | 'orbit' | 'pose' | 'perchgo' | 'perch' | 'perchleave';
+  type Phase = 'dormant' | 'stand' | 'vanish' | 'gone' | 'appear' | 'cast' | 'shy' | 'bigvanish' | 'bigtext' | 'bigwait' | 'laugh' | 'orbit' | 'pose' | 'perchgo' | 'perch' | 'perchleave' | 'down' | 'crumble';
   let phase: Phase = dormant ? 'dormant' : 'stand', pt = 0, spell = 0;
   let side: 'left' | 'back' = 'back', dist = 4.5, ang = 0;
   let turn = 0, cancels = 0, eyeNow = false, soundCount = 0, lastSoundT = -1, bigCount = 0;
@@ -935,14 +939,18 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
   };
   const perchBox: { name: string; c: number[]; ax: number[]; half: number[] } = { name: 'girl', c: [0, 0, 0], ax: [1, 0, 0, 0, 1, 0, 0, 0, 1], half: [1, 1, 1] };
   const sitNow: Record<string, [number, number, number]> = {};
+  /** とどめの あと: 大きな 姿の かたに 座って いたか(かたの 動きに ついて いく) */
+  let downPerched = false;
   const updatePerch = (dt: number) => {
     perchT += dt;
     const P = T.perch;
+    const isDown = phase === 'down' || phase === 'crumble';
+    if (isDown && downPerched) { const sp = opts.perchSpot?.() ?? null; if (sp) pivot.position.set(sp.x, sp.y, sp.z); }
     faceTo(deps.player());
     for (const k of Object.keys(SIT_DELTA)) { const v = SIT_DELTA[k]!; const q = sitNow[k] ?? (sitNow[k] = [0, 0, 0]); q[0] = v[0]; q[1] = v[1]; q[2] = v[2]; }
-    const sw = P.swayDeg * Math.sin((perchT / Math.max(0.1, P.swaySec)) * Math.PI * 2);
+    const sw = isDown ? 0 : P.swayDeg * Math.sin((perchT / Math.max(0.1, P.swaySec)) * Math.PI * 2); // とどめの あとは 足も 動かさない
     sitNow.LeftLeg![0] = SIT_DELTA.LeftLeg![0] + sw; sitNow.RightLeg![0] = SIT_DELTA.RightLeg![0] - sw;
-    applyDelta(bareBase, sitNow, clamp01(perchT / Math.max(0.01, P.blendSec)));
+    applyDelta(bareBase, sitNow, clamp01(perchT / Math.max(0.01, isDown ? T.finish.sitBlendSec : P.blendSec)));
     pivot.updateMatrixWorld(true);
     // お尻を かたの 上に(足は ぶらさげる)
     if (hipsBone) { hipsBone.getWorldPosition(gw); model.position.y += (pivot.position.y + T.perch.hipUp - gw.y); pivot.updateMatrixWorld(true); }
@@ -966,6 +974,50 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
     perchOn = false; opts.setHitBox?.(null);
     restorePose(); model.position.y = y0; model.position.x = 0;
     turn = 0; cancels = 0; chooseWarp(); phase = 'perchleave'; pt = 0; purpleBurst(10); lineBurst(); sfx.warpOut();
+  };
+
+  /** とどめ: 魔法・弾・輪・赤面・文字を ぜんぶ 消して、その場に 座りこむ(無敵。当たりの 箱も はずす) */
+  const downBegin = () => {
+    if (phase === 'dormant' || phase === 'down' || phase === 'crumble') return;
+    const wasPerch = phase === 'perch' || phase === 'perchgo' || phase === 'perchleave';
+    action.stop(); mixer.stopAllAction(); mixerLeft = 0; model.rotation.x = 0; flinchT = 0;
+    setShy(false); showBig(false);
+    intro = null; perchOn = false; opts.setHitBox?.(null);
+    for (const e of erups) { e.e.t = -1; e.e.root.visible = false; }
+    for (const v of vortices) { v.v.t = -1; v.v.root.visible = false; v.showWarn(false); }
+    for (const q of projs) q.on = false;
+    for (const b of bursts) { b.on = false; b.mesh.visible = false; }
+    forced = -1; reflectWait = 0; holdStand = false;
+    bgm.uncut(); bgm.request('girl', false);
+    sfxPlayer.stopAll?.();
+    restorePose(); model.position.y = y0; model.position.x = 0;
+    const p = deps.player();
+    const sp = wasPerch ? opts.perchSpot?.() ?? null : null;
+    downPerched = !!sp;
+    if (sp) pivot.position.set(sp.x, sp.y, sp.z);
+    else if (!pivot.visible) { const s = introSpot(p, 0, T.intro.poseDist); pivot.position.set(s.x, groundAt(s.x, s.z), s.z); } // まだ 姿を 見せて いなければ プレイヤーの 前に 座る
+    else pivot.position.y = groundAt(pivot.position.x, pivot.position.z);
+    pivot.visible = true; fade(0);
+    purpleBurst(12);
+    phase = 'down'; pt = 0; perchT = 0;
+    updatePerch(0);
+  };
+  /** コアが こわれた: 座った まま 透けて、粉に なって 消えて いく */
+  const crumbleBegin = () => {
+    if (phase !== 'down') return;
+    phase = 'crumble'; pt = 0;
+  };
+  let crumbleAcc = 0;
+  const updateCrumble = (dt: number) => {
+    const F = T.finish, k = clamp01(pt / Math.max(0.01, F.fadeSec));
+    mats.forEach((m) => (m.opacity = 1 - k * k));
+    crumbleAcc += F.crumbleSparksPerSec * dt;
+    const c = pivot.position;
+    while (crumbleAcc >= 1 && k < 1) {
+      crumbleAcc -= 1;
+      add.emit(c.x + vr(-0.5, 0.5), c.y + vr(0, H * 0.7), c.z + vr(-0.5, 0.5), vr(-0.6, 0.6), -F.crumbleFall * vr(0.5, 1), vr(-0.6, 0.6), vr(0.6, 1.2), 0.16, 0.04, F.crumbleColors[0], F.crumbleColors[1]);
+    }
+    if (k >= 1) pivot.visible = false;
   };
 
   // ---- 毎ステップ ----
@@ -1019,6 +1071,10 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
       updatePerch(dt);
       fade(1 - clamp01(pt / T.timing.appearSec));
       if (pt >= T.eye.bigWaitSec) perchEnd();
+    } else if (phase === 'down') {
+      updatePerch(dt);
+    } else if (phase === 'crumble') {
+      updatePerch(dt); updateCrumble(dt);
     } else if (phase === 'perchleave') {
       fade(clamp01(pt / T.timing.vanishSec));
       if (pt >= T.timing.vanishSec) { phase = 'gone'; pt = T.timing.goneSec; fade(1); pivot.visible = false; }
@@ -1135,7 +1191,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
     for (const b of bursts) { b.on = false; b.mesh.visible = false; }
     add.clear(); smoke.clear();
     add.points.visible = smoke.points.visible = false;
-    forced = -1; reflectWait = 0; holdStand = false;
+    forced = -1; reflectWait = 0; holdStand = false; downPerched = false; crumbleAcc = 0;
     bgm.request('girl', false);
     sfxPlayer.stopAll?.(); // 遅れて 鳴らす 予約の 効果音(間欠泉の 噴出など)も 止める
   };
@@ -1183,8 +1239,10 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
       phase = 'dormant';
       sleep();
     },
+    finish: () => { if (dormant) downBegin(); },
+    crumble: () => { if (dormant) crumbleBegin(); },
     active: () => phase !== 'dormant',
-    stage: () => (phase === 'dormant' ? 'off' : phase === 'laugh' || phase === 'orbit' || phase === 'pose' ? phase : phase === 'perchgo' || phase === 'perch' || phase === 'perchleave' ? 'perch' : 'girl'),
+    stage: () => (phase === 'dormant' ? 'off' : phase === 'down' || phase === 'crumble' ? phase : phase === 'laugh' || phase === 'orbit' || phase === 'pose' ? phase : phase === 'perchgo' || phase === 'perch' || phase === 'perchleave' ? 'perch' : 'girl'),
     handle,
   };
   return controller;
