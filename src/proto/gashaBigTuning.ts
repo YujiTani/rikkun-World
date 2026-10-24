@@ -565,6 +565,7 @@ export const TUNE = {
       radius: 1.0, // 【ブロック】着地点から この 水平きょりの マスの いちばん 上を こわす（0 で 穴なし）
       depth: 1, // 【ブロック】こわす だんの 数
       max: 5, // 1 つの 隕石で こわす マスの 上限
+      blocks: ['grass', 'dirt', 'stone', 'sand', 'snow', 'coal_ore', 'iron_ore', 'geyser_dirt'] as string[], // 穴を あけて よい ブロック（地形生成が 置く 自然の 地面だけ。家の 屋根・床・かべ・チェスト・扉・畑・置いた 家具は こわさない）
     },
     /** 地形の 仕事（穴・植物が 燃える）は まとめて 少しずつ（チャンクの 作り直しを へらす。1 コマの 仕事を しばる） */
     terrain: {
@@ -585,7 +586,7 @@ export const TUNE = {
       douseSmokeSize: 0.55, // 【ブロック】その 煙の 玉の 大きさ
       douseSoundEverySec: 0.2, // 【秒】消した 音（じゅっ）を 鳴らす 間かくの 下限（まとめて 消えても 1 回）
     },
-    plants: ['kusa', 'flower_y', 'flower_o', 'flower_p', 'nobana', 'susuki', 'leaves', 'momiji_leaves', 'matsu_leaves', 'bamboo', 'log'] as string[], // 隕石・火の 粉で 燃えて 消える 植物の ブロック（落とし物なし）
+    plants: ['kusa', 'flower_y', 'flower_o', 'flower_p', 'nobana', 'susuki', 'leaves', 'momiji_leaves', 'matsu_leaves', 'bamboo'] as string[], // 隕石・火の 粉で 燃えて 消える 植物の ブロック（落とし物なし。log = 家の 柱・かべに 使われる ので 燃やさない）
     burnRadius: 1.8, // 【ブロック】隕石・火の 粉が 落ちた 点から この はんいの 植物が 燃える
     burnMax: 26, // 1 つの 点で 燃やす ブロックの 数の 上限
     burnFlameSec: 3, // 【秒】燃えている ブロックの あとに 炎の 板が 出ている 長さ

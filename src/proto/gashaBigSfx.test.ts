@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { TUNE as T } from './gashaBigTuning';
-import { BIG_FILES, bigSfxUrl, createBigSfx, type BigLoop, type BigSfxEnv, type BigSfxName } from './gashaBigSfx';
+import { BIG_FILES, allBigSfxUrls, bigSfxUrl, createBigSfx, type BigLoop, type BigSfxEnv, type BigSfxName } from './gashaBigSfx';
 import type { SfxPlayOpts } from './gashaBigSfxPlayer';
 
 /** 鳴らす 口の 偽物: 鳴らした ものと ループの 入り・切れを 記録する */
@@ -26,6 +26,11 @@ function setup(durSec = 0.5, loaded = true) {
 }
 
 describe('大きな姿の 効果音（#293）', () => {
+  it('読みこむ 一覧に 同じ ファイルが 二重に ない（a4_meteor と step_slam は おなじ 3 ファイル）', () => {
+    const urls = allBigSfxUrls();
+    expect(new Set(urls).size).toBe(urls.length);
+    expect(urls.filter((u) => /step_slam/.test(u)).length).toBe(3);
+  });
   it('調整表の 音は ぜんぶ ファイルが ある（ふつうは ogg、ループは wav）', () => {
     for (const [name, d] of Object.entries(BIG_FILES)) {
       expect(name in T.sfx.gain, name).toBe(true);

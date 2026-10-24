@@ -6,8 +6,8 @@ import type { BigSfxEnv } from './gashaBigSfx';
 import type { HitSources, YokaiWorldLike } from './gashaBigHit';
 
 /** 攻撃 4「口から 火山噴火」: つなぎ（隕石・予告の 輪・落下範囲・飛び散る 炎・燃え残り・小さな 穴・植物が 燃える・体が 焼ける・ドットダメージ・音）。
- *  high = 地面を 高く（y = 4 が くさ ブロックの 地面。草は なし）して 穴が あけられる ように する */
-function rig(opts: { high?: boolean } = {}) {
+ *  high = 地面を 高く（y = 4 が くさ ブロックの 地面。草は なし）して 穴が あけられる ように する。top = y = 4 の ブロック（家の 屋根など）・pillar = y = 5 の ブロック（家の かべ・柱など）に かえる */
+function rig(opts: { high?: boolean; top?: string; pillar?: string } = {}) {
   const ups: ((dt: number) => void)[] = [];
   const st = { x: 0, y: 0, z: 0, yawDeg: 0 };
   const calls = { hurt: [] as { a: number; from: { x: number; y: number; z: number } }[], air: 0 };
@@ -25,7 +25,7 @@ function rig(opts: { high?: boolean } = {}) {
     hurt: (a, from) => { calls.hurt.push({ a, from: { ...from } }); return true; },
     blockAt: (x, y, z) => {
       if (removed.has(`${x},${y},${z}`)) return 'air';
-      if (opts.high) return y < 4 ? 'dirt' : y === 4 ? 'grass' : 'air';
+      if (opts.high) return y < 4 ? 'dirt' : y === 4 ? (opts.top ?? 'grass') : y === 5 && opts.pillar ? opts.pillar : 'air';
       if (y < -1) return 'dirt';
       if (y === -1) return 'grass';
       if (y === 0) return 'kusa';
@@ -202,6 +202,69 @@ describe('口から 火山噴火: つなぎ（#293）', () => {
     const low = r.h.eruptionEmbers().filter((e) => !e.body && Math.abs(e.y - 4) < 1e-6).length;
     expect(low).toBeGreaterThan(imp.length * 0.5);
   });
+
+  it('家・置いた ブロックは こわれない: 屋根（かわら・レンガ・たんす・はたけ・チェスト・扉）の 上に 落ちても 穴は あかず、柱・かべ（き）は 燃えない。保存に のこる 変化が 0', () => {
+    for (const top of ['kawara', 'brick', 'tansu', 'farmland', 'furnace', 'chest', 'door', 'log']) {
+      const r = rig({ high: true, top });
+      r.h.attack('eruption');
+      r.step(total());
+      expect(r.h.attackInfo().eruption.landed, top).toBe(T.eruption.meteor.count);
+      expect(r.h.attackInfo().eruption.craterBlocks, top).toBe(0);
+      expect(r.calls.air, top).toBe(0);
+    }
+    const r = rig({ high: true, pillar: 'log' });
+    r.h.attack('eruption');
+    r.step(total());
+    expect(r.calls.air).toBe(0);
+    expect(r.removed.size).toBe(0);
+  }, 30000);
+
+  it('少女への 切りかえの 噴火（finale）: 飛んで いる 間に 着地点へ 動いても けがを しない（着地の ダメージ 0）。ふつうの 噴火では 同じ 動きで けがを する', () => {
+    const run = (finale: boolean) => {
+      const r = rig();
+      if (finale) r.h.finale(); else r.h.attack('eruption');
+      let seen = 0;
+      r.step(total() + 4, () => { const imp = r.h.eruptionImpacts(); seen = imp.length; const q = imp[imp.length - 1]; if (q) { r.st.x = q.x; r.st.z = q.z; r.st.y = q.y; } });
+      return { seen, hits: r.calls.hurt.filter((c) => c.a === T.eruption.meteor.damage).length, hurts: r.h.attackInfo().eruption.meteorHurts };
+    };
+    const f = run(true);
+    expect(f.seen, '切りかえの 噴火で 隕石が 落ちた').toBeGreaterThan(20);
+    expect(f.hits).toBe(0);
+    expect(f.hurts).toBe(0);
+    const n = run(false);
+    expect(n.seen).toBeGreaterThan(20);
+    expect(n.hits, 'ふつうの 噴火なら 当たる').toBeGreaterThan(0);
+  }, 30000);
+
+  it('片づけ（休む・怒りが とける）で、まとめて 待っていた 穴あけの 仕事は 捨てる（1 コマで 流さない）。植物を 燃やす 仕事は 1 コマの 上限（maxJobs）まで', () => {
+    const saved = T.eruption.terrain.everySec;
+    T.eruption.terrain.everySec = 1e6; // 地形の 仕事を ためる（ふだんの 0.25 秒ごとの 処理を 止める）
+    try {
+      const hi = rig({ high: true });
+      hi.h.attack('eruption');
+      hi.step(T.eruption.inhaleSec + T.eruption.eruptSec + 2);
+      expect(hi.h.attackInfo().eruption.landed).toBeGreaterThan(T.eruption.terrain.maxJobs);
+      expect(hi.h.attackInfo().mode).toBe('attack');
+      hi.h.tired(5);
+      expect(hi.h.attackInfo().eruption.craterBlocks, '穴あけは 捨てる').toBe(0);
+      expect(hi.calls.air).toBe(0);
+      hi.step(2);
+      expect(hi.calls.air, '捨てた 仕事は あとから 走らない').toBe(0);
+
+      const lo = rig();
+      lo.h.attack('eruption');
+      lo.step(T.eruption.inhaleSec + T.eruption.eruptSec + 2);
+      expect(lo.h.attackInfo().mode).toBe('attack');
+      expect(lo.calls.air).toBe(0);
+      lo.h.tired(5);
+      const burnt = lo.calls.air;
+      expect(burnt, '植物を 燃やす 仕事は すませる').toBeGreaterThan(0);
+      expect(burnt, '1 コマの 上限').toBeLessThanOrEqual(T.eruption.terrain.maxJobs * T.eruption.burnMax);
+      expect(lo.h.attackInfo().eruption.craterBlocks).toBe(0);
+      lo.step(2);
+      expect(lo.calls.air).toBe(burnt);
+    } finally { T.eruption.terrain.everySec = saved; }
+  }, 30000);
 
   it('体にも 降る: 体の 上に 落ちた 隕石で ガラスの 雲が 割れ、こけが 焼け、時間で もどる', () => {
     const saved = { ash: { ...T.eruption.meteor }, restore: T.eruption.body.restoreSec };

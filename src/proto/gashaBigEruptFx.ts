@@ -92,7 +92,8 @@ export interface EmberView { x: number; y: number; z: number; age: number }
 /** とんで いる 隕石・火の 粉と 予告の 強さを 読む 口（MeteorRain） */
 export interface RainView { meteors: readonly (Flyer & { id: number })[]; sparks: readonly Flyer[]; warn(a: Flyer): number }
 
-const CAP = { jet: 300, smoke: 260, flames: 120, embers: 910, wind: 40, meteors: 150, sparks: 310, debris: 420, rings: 80 };
+// 隕石・火の 粉・燃えかすの 数は 調整表の 上限（ember.max・meteor.maxFlying・splash.maxFlying）から 出す（+10 は 余裕）。調整表を かえても あふれない
+const CAP = { jet: 300, smoke: 260, flames: 120, embers: T.eruption.ember.max + 10, wind: 40, meteors: T.eruption.meteor.maxFlying + 10, sparks: T.eruption.splash.maxFlying + 10, debris: 420, rings: 80 };
 const TRAIL_CAP = CAP.meteors * 6;
 const FLAME_CAP = CAP.embers + CAP.flames + CAP.jet + TRAIL_CAP + CAP.sparks;
 const SMOKE_CAP = CAP.smoke + CAP.meteors * 3 + CAP.debris;

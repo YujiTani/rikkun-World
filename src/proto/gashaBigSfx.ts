@@ -41,7 +41,7 @@ export const BIG_FILES: Record<BigSfxName, FileDef> = {
 };
 const DIR = './sound/gasha/big/';
 export const bigSfxUrl = (file: string, ext: 'ogg' | 'wav'): string => `${DIR}${file}.${ext}`;
-export const allBigSfxUrls = (): string[] => Object.values(BIG_FILES).flatMap((d) => d.files.map((f) => bigSfxUrl(f, d.ext)));
+export const allBigSfxUrls = (): string[] => [...new Set(Object.values(BIG_FILES).flatMap((d) => d.files.map((f) => bigSfxUrl(f, d.ext))))]; // a4_meteor と step_slam は 同じ 3 ファイル: 二重に 読みこまない
 
 /** 鳴り つづけて いる ループ 1 つ（止めると 秒かけて 小さく なって 切れる） */
 export interface BigLoop { stop(fadeOutSec: number): void }

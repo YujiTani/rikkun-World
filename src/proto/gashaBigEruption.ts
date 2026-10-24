@@ -340,13 +340,13 @@ export function burnPlants(
 
 /**
  * 着地点の 小さな 穴: 着地点（x, z）から 水平 crater.radius の マスの、立つ 面（y）の すぐ 下から crater.depth だんを、近い 順に 最大 crater.max マス。
- * こわして よいかは canBreak（ぬりかべと おなじ きまり）。こわした マスを 返す
+ * こわして よいかは canBreak（ぬりかべと おなじ きまり）に 加えて、調整表 crater.blocks の 名簿（自然の 地面だけ。家・チェスト・扉・置いた ブロックは こわさない）。こわした マスを 返す
  */
 export function craterCells(
   x: number, y: number, z: number,
   blockAt: (x: number, y: number, z: number) => string, canBreak: (block: string, y: number) => boolean, setAir: (x: number, y: number, z: number) => boolean,
 ): { x: number; y: number; z: number; from: string }[] {
-  const C = T.eruption.crater, R = C.radius, out: { x: number; y: number; z: number; from: string }[] = [];
+  const C = T.eruption.crater, R = C.radius, out: { x: number; y: number; z: number; from: string }[] = [], natural = new Set(C.blocks);
   if (!(R > 0) || C.depth <= 0 || C.max <= 0) return out;
   const top = Math.floor(y + 1e-6) - 1, cells: { x: number; z: number; d: number }[] = [];
   for (let ix = Math.floor(x - R); ix <= Math.floor(x + R); ix++) for (let iz = Math.floor(z - R); iz <= Math.floor(z + R); iz++) {
@@ -357,7 +357,7 @@ export function craterCells(
   for (const c of cells) {
     for (let j = 0; j < C.depth && out.length < C.max; j++) {
       const iy = top - j, b = blockAt(c.x, iy, c.z);
-      if (!canBreak(b, iy)) break;
+      if (!natural.has(b) || !canBreak(b, iy)) break;
       if (setAir(c.x, iy, c.z)) out.push({ x: c.x, y: iy, z: c.z, from: b });
     }
     if (out.length >= C.max) break;

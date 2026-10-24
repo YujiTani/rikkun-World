@@ -238,6 +238,19 @@ describe('噴火: 小さな 穴（craterCells）', () => {
     expect(blockAt(8, 4, 8)).toBe('grass');
     expect(craterCells(5.5, 1, 5.5, (_x, y) => (y === 0 ? 'stone' : 'air'), can, setAir)).toEqual([]);
   });
+  it('穴を あけるのは 名簿（crater.blocks）の 自然の 地面だけ。家の 屋根・床・かべ・置いた ブロック・チェスト・扉・畑は こわさない（canBreak が 何でも true でも）', () => {
+    expect(T.eruption.crater.blocks).toEqual(expect.arrayContaining(['grass', 'dirt', 'sand', 'stone']));
+    for (const home of ['kawara', 'brick', 'log', 'leaves', 'tansu', 'furnace', 'chest', 'door', 'farmland', 'farmland_wet', 'saku', 'sprinkler', 'nukunuku', 'toriya_box', 'torch', 'water', 'bedrock']) expect(T.eruption.crater.blocks, home).not.toContain(home);
+    for (const top of ['kawara', 'brick', 'log', 'tansu', 'chest', 'door', 'farmland']) {
+      const cells = new Map<string, string>();
+      const k = (x: number, y: number, z: number) => `${x},${y},${z}`;
+      for (let x = 0; x < 10; x++) for (let z = 0; z < 10; z++) { cells.set(k(x, 4, z), top); cells.set(k(x, 3, z), 'dirt'); }
+      const blockAt = (x: number, y: number, z: number) => cells.get(k(x, y, z)) ?? 'air';
+      const setAir = (x: number, y: number, z: number) => { cells.set(k(x, y, z), 'air'); return true; };
+      expect(craterCells(5.5, 5, 5.5, blockAt, () => true, setAir), top).toEqual([]);
+      expect(blockAt(5, 4, 5)).toBe(top);
+    }
+  });
 });
 
 describe('噴火: 燃え残り', () => {
@@ -285,6 +298,7 @@ describe('噴火: 植物は 燃える', () => {
     cells.set(k(5, 1, 5), 'stone');
     cells.set(k(5, 2, 5), 'leaves');
     cells.set(k(6, 1, 5), 'flower_y');
+    cells.set(k(7, 1, 5), 'log');
     const blockAt = (x: number, y: number, z: number) => cells.get(k(x, y, z)) ?? 'air';
     const setAir = (x: number, y: number, z: number) => { cells.set(k(x, y, z), 'air'); return true; };
     const burnt = burnPlants(5.5, 1.5, 5.5, blockAt, setAir);
@@ -293,6 +307,8 @@ describe('噴火: 植物は 燃える', () => {
     expect(blockAt(5, 1, 5)).toBe('stone');
     expect(blockAt(5, 2, 5)).toBe('air');
     expect(blockAt(6, 1, 5)).toBe('air');
+    expect(T.eruption.plants).not.toContain('log'); // き は 家の 柱・かべ
+    expect(blockAt(7, 1, 5)).toBe('log');
     expect(blockAt(5, 0, 5)).toBe('grass');
     expect(blockAt(11, 1, 11)).toBe('kusa');
   });

@@ -1517,12 +1517,14 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
     if (moss.length || pl.length) bodyBurnt.push({ t: eruptClock, moss, placed: pl });
   };
   /** 地形の 仕事を まとめて する: 隕石の 小さな 穴（燃えかすを 穴の 底へ）・植物が 燃える */
-  const runTerrain = (all: boolean): void => {
+  const runTerrain = (flush: boolean): void => {
     if (!blockAt || !deps.setBlockAir) { terrainJobs.length = 0; return; }
-    const n = all ? terrainJobs.length : Math.min(terrainJobs.length, T.eruption.terrain.maxJobs);
-    for (const j of terrainJobs.splice(0, n)) {
-      if (j.crater) {
-        const cells = craterCells(j.x, j.y, j.z, blockAt, crushable, deps.setBlockAir);
+    const n = Math.min(terrainJobs.length, T.eruption.terrain.maxJobs); // flush（片づけ）でも 1 コマの 上限は まもる
+    const jobs = terrainJobs.splice(0, n);
+    if (flush) terrainJobs.length = 0; // 片づけでは 穴あけの 仕事を 捨てる（植物を 燃やす 仕事だけ 上限まで すませる）
+    for (const j of jobs) {
+      if (j.crater && !flush) {
+        const cells = craterCells(j.x, j.y, j.z, blockAt, crushable, deps.setBlockAir); // 名簿（crater.blocks）の 自然の 地面だけ
         craterBlocks += cells.length;
         // 燃えかすの 真下が 穴に なったら 底へ おろす
         const ix = Math.floor(j.ember.x), iz = Math.floor(j.ember.z), iy = Math.floor(j.ember.y + 1e-6) - 1;
@@ -1540,7 +1542,7 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
     const dist = Math.hypot(p.x - m.lx, p.z - m.lz);
     sfx.meteor(dist);
     eruptFx.impact(m.lx, m.ly, m.lz);
-    if (inBlast(m.lx, m.ly, m.lz, { x: p.x, y: p.y, z: p.z }) && deps.hurt?.(K.meteor.damage, { x: m.lx, y: m.ly, z: m.lz })) meteorHurts++;
+    if (!rain.finale && inBlast(m.lx, m.ly, m.lz, { x: p.x, y: p.y, z: p.z }) && deps.hurt?.(K.meteor.damage, { x: m.lx, y: m.ly, z: m.lz })) meteorHurts++;
     if (dist < K.impact.shakeNear && !reduced()) deps.shake?.(K.impact.shake * (1 - dist / K.impact.shakeNear));
     if (!m.body) terrainJobs.push({ x: m.lx, y: m.ly, z: m.lz, crater: true, ember });
     else burnBody(m.lx, m.ly, m.lz, true);
