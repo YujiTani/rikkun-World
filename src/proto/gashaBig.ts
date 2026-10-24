@@ -535,7 +535,6 @@ export function buildBig(): BigModel {
       for (let i = 0; i < 3; i++) head.seg(pts[i]!, pts[i + 1]!, 3.2 - i * 0.5, 3.4 - i * 0.5, HAIR);
       head.box(2.0, 2.4, 2.0, s * 14.4, -15.4, 2.2, HAIR);
       head.box(3.2, 3.2, 3.2, s * 11.8, 13.6, -3, pc); head.box(2.2, 2.2, 3.6, s * 11.8, 13.6, -3, 0xffd0e0);
-      head.hit(`pompon${s < 0 ? 'R' : 'L'}`, 3.2, 3.2, 3.2, s * 11.8, 13.6, -3); // ポンポンの 上が 足場（ツインテールを のぼった ところ）
       head.box(3.4, 3.4, 3.4, s * 15.0, -1.5, -2.8, pc);
       moss(head, s * 13, 14.8, -3, 1, 1);
     }

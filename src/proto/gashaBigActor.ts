@@ -30,7 +30,7 @@ const SRC_BONE: Record<string, string> = { Spine: 'Spine02', Spine01: 'Spine01',
 const TORSO = new Set(['Spine', 'Spine01', 'Spine02', 'neck', 'Head']);
 
 /** 骨の 向きで うつす ための 箱の 骨の 軸（休みの 姿勢）。首と 頭は 胸の 軸（素材で 首・頭が 胸と まっすぐ なら 箱は 休みの 首・頭） */
-export function aimOpts(model: BigModel, c: { armTiltDeg: number; torsoTiltDeg: number; rootTiltDeg: number; loop: boolean; contactSpeed: readonly [number, number]; follow: Record<string, number> }): AimOpts {
+export function aimOpts(model: BigModel, c: { armTiltDeg: number; torsoTiltDeg: number; rootTiltDeg: number; loop: boolean; contactSpeed: readonly [number, number]; contactBlur: number; follow: Record<string, number> }): AimOpts {
   const r = model.rest;
   const dir = (a: JointName, b: JointName) => r[b].clone().sub(r[a]).normalize();
   const chest = dir('Spine02', 'neck');
@@ -49,7 +49,7 @@ export function aimOpts(model: BigModel, c: { armTiltDeg: number; torsoTiltDeg: 
     tiltDeg[n] = TORSO.has(n) || n === 'Hips' ? c.torsoTiltDeg : c.armTiltDeg;
     if (TORSO.has(n)) side[n] = new Vector3(1, 0, 0);
   }
-  return { map: SRC_BONE, axis, side, tiltDeg, follow: { ...c.follow }, rootTiltDeg: c.rootTiltDeg, loop: c.loop, contactSpeed: c.contactSpeed };
+  return { map: SRC_BONE, axis, side, tiltDeg, follow: { ...c.follow }, rootTiltDeg: c.rootTiltDeg, loop: c.loop, contactSpeed: c.contactSpeed, contactBlur: c.contactBlur };
 }
 
 /** 箱の 関節の 親子（Group の 名前から） */

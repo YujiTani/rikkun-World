@@ -133,7 +133,7 @@ describe('gashaBigActor（#293 はって進む・目・乗っている人）', (
     return { med: speeds[Math.floor(speeds.length / 2)] ?? NaN, fastRatio: fast / Math.max(1, speeds.length), n: speeds.length };
   }
 
-  it('ついている 手は 地面で すべらない（世界での 速さが からだの 速さの はんぶん いか）。ゆっくり でも 大きさが かわっても', () => {
+  it('ついている 手は 地面で すべらない（世界での 速さが からだの 平均の 速さの 1 割 いか）。大きさが かわっても', () => {
     const keep = T.size.height;
     try {
       for (const h of [30, 60]) {
@@ -142,7 +142,7 @@ describe('gashaBigActor（#293 はって進む・目・乗っている人）', (
         const r = stanceSpeeds(actor, 30, 90);
         console.log('height', h, 'speed', actor.crawlSpeed.toFixed(3), 'stance median', r.med.toFixed(4), 'fast', r.fastRatio.toFixed(3), 'n', r.n);
         expect(r.n).toBeGreaterThan(50);
-        expect(r.med).toBeLessThan(actor.crawlSpeed * 0.5);
+        expect(r.med).toBeLessThan(actor.crawlSpeed * 0.1);
         expect(r.fastRatio).toBeLessThan(0.25);
       }
     } finally { T.size.height = keep; }

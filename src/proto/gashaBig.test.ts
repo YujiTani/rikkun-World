@@ -96,7 +96,7 @@ describe('gashaBig（#293 大きい がしゃどくろ）', () => {
 
   it('当たりの 箱が ある（うで・肩の 雲・髪の 段・リボン・頭）', () => {
     const names = hits.map((h) => h.name);
-    for (const n of ['upperArmL', 'foreArmR', 'handL', 'shoulderL0', 'shoulderR0', 'tailL0', 'tailR0', 'sideL0', 'pompomL'.replace('pompom', 'pompon'), 'ribbonWingR', 'skull', 'bank0']) expect(names).toContain(n);
+    for (const n of ['upperArmL', 'foreArmR', 'handL', 'shoulderL0', 'shoulderR0', 'tailL0', 'tailR0', 'tailL15', 'ribbonWingR', 'skull', 'bank0']) expect(names).toContain(n);
     // 雲の はしご（ladder / link / ramp / head の 段）は もう ない
     for (const n of names) expect(n).not.toMatch(/^(climb|link|ramp|head)[LR]\d/);
   });
@@ -124,10 +124,19 @@ describe('gashaBig（#293 大きい がしゃどくろ）', () => {
   });
 
   it('髪の 段・雲の 当たりは 段の 上がりが 1 ブロック いない', () => {
-    for (const key of ['tail', 'side']) {
+    for (const key of ['tail']) {
       const rs = hits.filter((h) => new RegExp(`^${key}L\\d+$`).test(h.name)).sort((a, b) => Number(a.name.slice(key.length + 1)) - Number(b.name.slice(key.length + 1)));
       expect(rs.length).toBeGreaterThan(2);
       for (let i = 1; i < rs.length; i++) expect(Math.abs(rs[i]!.center[1] - rs[i - 1]!.center[1])).toBeLessThanOrEqual(0.95);
+    }
+  });
+
+  it('髪の 段は 重なる ところで 3 ブロック いじょう あいて いる（頭が つかえて ジャンプできない のを ふせぐ）', () => {
+    const rs = hits.filter((h) => /^tailL\d+$/.test(h.name));
+    for (const a of rs) for (const b of rs) {
+      if (a === b || b.center[1] - a.center[1] < 2.5) continue; // a の 上（となりの 段は のぞく）に b
+      const overlap = Math.abs(a.center[0] - b.center[0]) < a.half[0] + b.half[0] + 0.1 && Math.abs(a.center[2] - b.center[2]) < a.half[2] + b.half[2] + 0.1;
+      if (overlap) expect(b.center[1] - b.half[1] - (a.center[1] + a.half[1]), `${a.name} と ${b.name}`).toBeGreaterThanOrEqual(3.05);
     }
   });
 

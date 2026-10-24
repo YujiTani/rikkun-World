@@ -295,6 +295,8 @@ export interface AimOpts {
   loop: boolean;
   /** 手首の 速さが 体の 平均の 速さの [この 倍 いか で つかむ, この 倍 いじょう で はなす]（素材の 手首が かべで 止まって いる コマ） */
   contactSpeed?: readonly [number, number];
+  /** つく・はなす ふちを なめらかに する コマ数（前後） */
+  contactBlur?: number;
 }
 
 export interface AimedClip extends BakedClip {
@@ -431,6 +433,19 @@ export function aimClip(clip: AimClipJson, o: AimOpts, sk: Skeleton): AimedClip 
         const v = Math.max(f > 0 ? P[f]!.distanceTo(P[f - 1]!) : 0, f + 1 < F0 ? P[f + 1]!.distanceTo(P[f]!) : 0);
         const t = Math.max(0, Math.min(1, (hi * vMean - v) / Math.max(1e-6, (hi - lo) * vMean)));
         contact[sd][f] = t * t * (3 - 2 * t);
+      }
+      // つく・はなす ふちを なめらかに（前後 blur コマの 平均。素材は 手が 急に 動き出す ので、手の 上がり方が とばない ように）
+      const B = Math.max(0, Math.round(o.contactBlur ?? 0));
+      if (B > 0) {
+        const src = contact[sd].slice();
+        for (let f = 0; f < F; f++) {
+          let sum = 0, n = 0;
+          for (let k = -B; k <= B; k++) {
+            const g = o.loop ? (((f + k) % F) + F) % F : Math.max(0, Math.min(F - 1, f + k));
+            sum += src[g]!; n++;
+          }
+          contact[sd][f] = sum / n;
+        }
       }
     }
     out.contact = contact;

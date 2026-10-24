@@ -49,15 +49,20 @@ export function worldOf(a: GeyserPlaceArgs, lx: number, lz: number): { x: number
   return { x: a.x + lx * c + lz * s, z: a.z - lx * s + lz * c };
 }
 
-/** 間欠泉の 場所を きめる（同じ 引数なら 同じ 結果）。肩の 下の 左右 2 本 ＋ 背中がわ。高さは 立つ 面に そろえず、柱の 上は ぜんぶ 身長の 基準（y + height） */
+/**
+ * 間欠泉の 場所を きめる（同じ 引数なら 同じ 結果）。
+ * 肩の 下の 左右 2 本、からだの 前（両うでの あいだ。頭の 上から とびおりる 先）に 1 本、のこりは 背中がわ。
+ * 背中がわ には 太い リボンが あって 頭の 上から とびおりると そこへ 落ちるので、とびおり 用の 1 本は 前に おく。
+ */
 export function planGeysers(a: GeyserPlaceArgs, groundY: (x: number, z: number) => number, tune: Tune = T.geyser): GeyserSpec[] {
   const rnd = makeRnd(tune.seed);
   const spots: { x: number; z: number }[] = [];
   for (const s of [1, -1]) spots.push(worldOf(a, s * tune.shoulderX * a.scale, tune.shoulderZ * a.scale));
-  const n = Math.max(0, tune.count - 2);
+  if (tune.count >= 3) spots.push(worldOf(a, 0, tune.frontRadius));
+  const n = Math.max(0, tune.count - 3);
   const spread = (n - 1) * tune.spacingDeg;
   for (let i = 0; i < n; i++) {
-    // 背中がわ（180 度）を まんなかに ならべる。まんなかが いちばん 近い（頭の 上から とびおりて とどく）
+    // 背中がわ（180 度）を まんなかに ならべる。外がわほど とおい
     const off = n > 1 ? -spread / 2 + (i * spread) / (n - 1) : 0;
     const th = ((180 + off + (rnd() - 0.5) * 8) * Math.PI) / 180;
     const k = spread > 0 ? Math.abs(off) / (spread / 2) : 0;
@@ -87,9 +92,9 @@ export function liftStep(vy: number, dt: number, tune: Tune = T.geyser): number 
   return Math.min(tune.launchSpeed, v + tune.launchAccel * dt);
 }
 
-/** 柱の 上の ろうと: 柱の 上に いて、中心から この 水平きょり いない なら すいこむ（なければ null） */
+/** 柱の 上の ろうと: 打ち上げの いちばん 高い ところ（柱の 上 + 4）より 上から、中心から この 水平きょり いない なら すいこむ（なければ null） */
 export function funnelRadius(g: GeyserSpec, y: number, tune: Tune = T.geyser): number | null {
-  if (y <= g.top || y > g.top + tune.funnelHeight) return null;
+  if (y < g.top + tune.funnelFrom || y > g.top + tune.funnelHeight) return null;
   return g.cells / 2 + Math.min(tune.funnelMax, tune.funnelSlope * (y - g.top));
 }
 
@@ -196,6 +201,8 @@ export class GashaGeyser {
   private specs: GeyserSpec[] = [];
   private t = 0;
   private assisted = false;
+  /** 上から 落ちて 柱に 入った ときの 柱（そっと おりる。打ち上げない。柱の 外へ でるまで） */
+  private sinking: GeyserSpec | null = null;
   private assistedT = 0;
   private noFallNow = false;
   private columns: InstancedMesh | null = null;
@@ -240,6 +247,7 @@ export class GashaGeyser {
     this.colTex = null;
     this.specs = [];
     this.assisted = false;
+    this.sinking = null;
     this.setNoFall(false);
   }
 
@@ -318,10 +326,23 @@ export class GashaGeyser {
       if (this.t - g.delay < R.riseSec * 0.5) continue; // まだ わき出して いない
       if (inColumn(g, p.x, p.y, p.z)) {
         inside = true;
+        // 柱の 上の ほうから 落ちて きた ときは 打ち上げず、ゆっくり おりる（下まで ついて 柱を でるまで）
+        if (this.sinking !== g && !this.sinking && p.y > g.top - R.sinkBelowTop && vel.y < 0) this.sinking = g;
+        if (this.sinking === g) {
+          vy = Math.max(vy, -R.slowFall);
+          this.d.setVelocity({ x: vel.x, y: vy, z: vel.z });
+          break;
+        }
         vy = liftStep(vy, dt, R);
+        // 柱の 上の はしの すこし 下までは 水の 柱から 横に でられない（まっすぐ 上へ。上の はしを こえたら 自由に 動ける）
+        if (p.y < g.top - R.holdBelowTop) {
+          const m = R.holdMargin, lo = g.x0 + m, hi = g.x0 + g.cells - m, lz = g.z0 + m, hz = g.z0 + g.cells - m;
+          const cx = Math.min(hi, Math.max(lo, p.x)) - p.x, cz = Math.min(hz, Math.max(lz, p.z)) - p.z;
+          if (cx !== 0 || cz !== 0) this.d.nudge(cx, cz);
+        }
         break;
       }
-      const fr = funnelRadius(g, p.y, R);
+      const fr = vel.y < 0 ? funnelRadius(g, p.y, R) : null; // 落ちて いる ときだけ（のぼりの ときは じゃましない）
       if (fr !== null) {
         const cx = g.x0 + g.cells / 2, cz = g.z0 + g.cells / 2, dx = cx - p.x, dz = cz - p.z, dist = Math.hypot(dx, dz);
         if (dist < fr && dist > 0.05) {
@@ -332,9 +353,10 @@ export class GashaGeyser {
         }
       }
     }
+    if (this.sinking && !inColumn(this.sinking, p.x, p.y, p.z)) this.sinking = null;
     if (inside) {
       this.assisted = true; this.assistedT = 0;
-      this.d.setVelocity({ x: vel.x, y: vy, z: vel.z });
+      if (!this.sinking) this.d.setVelocity({ x: vel.x, y: vy, z: vel.z });
     }
     // 柱から 出たあと 地面に 着く（または 時間ぎれ）まで 落下ダメージなし
     if (this.assisted && !inside) {
