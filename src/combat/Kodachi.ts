@@ -110,6 +110,11 @@ export class Kodachi {
     return out;
   }
 
+  /** 待ちを ぜんぶ すてる（セーブの 読みこみ・世界の きりかえ。前の 世界の 妖怪 id に 当たらない ように） */
+  clear(): void {
+    this.queue = [];
+  }
+
   /** 待って いる 追い打ちの 数 */
   pending(): number {
     return this.queue.length;

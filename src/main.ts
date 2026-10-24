@@ -1730,7 +1730,7 @@ const save = new SaveManager({
   },
   legend: { serialize: () => legendBook.serialize(), deserialize: (d) => legendBook.deserialize(d) },
   // NINJA-1: 忍者帳。前の 保存（帳なし）は 空。読んだ とき もちもの・防具の マスに ある 忍者装備は 帳に 入れる（#298 で もう 足袋を 持って いる 人に 2 こ目を 出さない）
-  ninja: { serialize: () => ninjaBook.serialize(), deserialize: (d) => { ninjaBook.deserialize(d, ninjaHave()); const k = ninjaBook.got().length; if (k > 0) achievements.feedNinja('', k); } },
+  ninja: { serialize: () => ninjaBook.serialize(), deserialize: (d) => { kodachi.clear(); ninjaBook.deserialize(d, ninjaHave()); const k = ninjaBook.got().length; if (k > 0) achievements.feedNinja('', k); } },
   // #293: がしゃどくろの たおした 回数。係は あとで 作る ので、読みこみが 先に 来たら 預かって、作った あとで わたす
   gasha: { serialize: () => gashaRelease?.serialize() ?? gashaSavedPending, deserialize: (d) => { gashaSavedPending = d; gashaRelease?.deserialize(d); } },
   // 農業: 作物・印。前の保存（印なし）には 読んだあとに 置きものを置く
