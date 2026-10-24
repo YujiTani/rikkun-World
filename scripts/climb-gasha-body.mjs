@@ -227,8 +227,7 @@ const result = await page.evaluate(async ([side, START, arms]) => {
   }
   goOnBox('胸の 上の 面（胸の まんなか）', chestMid, (x, y) => y >= 170);
   check(!inBody(), '胸の 上でも 中に 入って いない');
-  goOnBox('おなか（背中がわ）', waist, (x, y, z) => onBox(waist, x, y, z) && z < waist.center[2]);
-  check(!inBody(), 'おなかの 中に 入って いない');
+  void waist;
   void skullTopBox;
   const sgn = side === 'L' ? 1 : -1;
 
@@ -241,7 +240,7 @@ const result = await page.evaluate(async ([side, START, arms]) => {
   {
     const tops = hits.filter((c) => /^skullTop\d$/.test(c.name));
     const path = findPath((x, y, z) => tops.some((c) => onBox(c, x, y, z)), 60);
-    if (!path) check(false, '肩の 雲 → 雲の らせん → 頭の てっぺん: 道が みつからない');
+    if (!path) check(false, `肩の 雲 → 雲の らせん → 頭の てっぺん: 道が みつからない（いちばん 高い マス ${lastReach?.join(',')}）`);
     else {
       const r = followPath(path);
       climbed = r.ok;
@@ -263,18 +262,37 @@ const result = await page.evaluate(async ([side, START, arms]) => {
     }
     const s = stand(60);
     check(okw && !s.off && s.drop < 0.2, `顔の 前の ふち（頭の てっぺんの 前）に 落ちずに 立てる (${f1(edge.x)}, ${edge.y}, ${f1(edge.z)}) → (${f1(s.p.x)}, ${f1(s.p.y)}, ${f1(s.p.z)}) 60 ステップ 立って 落ち ${f1(s.drop)}`);
-    // てっぺんの 穴: 穴の まんなかへ あるいて おりられる（ふさがって いない）
-    const sk = H('skull');
-    const hole = { x: top2.center[0] - a2[0] * (top2.half[2] + 1.2), z: top2.center[2] - a2[2] * (top2.half[2] + 1.2) };
-    const hy = topAt(hole.x, hole.z, sk.center[1] + sk.half[1] + 3);
-    const skTop = sk.center[1] + sk.half[1];
-    const holeOk = hy !== null && hy <= edge.y && hy > skTop - 1.6; // 穴の 底が わくより 高く ない（ふさがって いない）
-    check(holeOk, `てっぺんの 穴は あいて いる（穴の 底の 立てる 高さ ${hy}、わくの 上 ${f1(top2.center[1] + top2.half[1])}、頭がいの 上 ${f1(skTop)}）`);
-    if (holeOk) {
-      const okh = walkTo({ x: hole.x, z: hole.z, y: hy }, { maxN: 300, r: 0.5, dy: 1.2, noJump: true });
+  }
+  // ============================================================ 肩の 雲 → 背中の 穴 → 道 → コアの 前（本物の 入力）→ コアを たたくと 背中の 外へ ふり落とされる
+  {
+    h.player.set({ position: { x: cloud.center[0], y: cloudTop, z: cloud.center[2] }, velocity: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: 0 });
+    for (let i = 0; i < 30; i++) h.step(1);
+    const core = H('core');
+    const dyL = (x, y, z) => (x + 0.5 - core.center[0]) * core.axes[1][0] + (y + 0.5 - core.center[1]) * core.axes[1][1] + (z + 0.5 - core.center[2]) * core.axes[1][2];
+    const goalCore = (x, y, z) => Math.hypot(x + 0.5 - core.center[0], y + 0.5 - core.center[1], z + 0.5 - core.center[2]) < 3.6 && dyL(x, y, z) < 0;
+    const pc = findPath(goalCore, 40);
+    if (!pc) check(false, `肩の 雲 → 背中の 穴 → コアの 前: 道が みつからない（歩いて 行けた いちばん 高い マス ${lastReach?.join(',')}）`);
+    else {
+      const r = followPath(pc); stopAll();
       const p = me().position;
-      check(okh, `穴の 中へ おりられる いま (${f1(p.x)}, ${f1(p.y)}, ${f1(p.z)})`);
+      check(r.ok, `肩の 雲 → 背中の 穴 → 道 → コアの 前（道 ${pc.length} マス）。いま (${f1(p.x)}, ${f1(p.y)}, ${f1(p.z)})${r.ok ? '' : `（止まった ${r.at.join(',')}）\n${dumpAround()}`}`);
+      if (r.ok) {
+        const s1 = stand(30);
+        check(!s1.off && s1.drop < 1.05, `コアの 前で 落ちずに 立てる（落ち ${f1(s1.drop)}）`);
+        const before = { ...me().position }, dCore = () => { const q = me().position; return Math.hypot(q.x - core.center[0], q.y - core.center[1], q.z - core.center[2]); };
+        const hp0 = hp();
+        const dealt = g.damage('core', 10);
+        h.step(1); log.push(`  とばされた 直後 速さ ${JSON.stringify(me().velocity)} 入力 ${g.shock().inputBlocked}`);
+        const tr = []; for (let i = 0; i < 90; i++) { h.step(1); if (i < 40 && i % 3 === 0) { const w = me().position; tr.push(`(${f1(w.x)},${f1(w.y)},${f1(w.z)})`); } }
+        log.push(`  軌道 ${tr.join(' ')} コア (${f1(core.center[0])},${f1(core.center[1])},${f1(core.center[2])})`);
+        const q = me().position;
+        check(dealt > 0, `コアに ダメージが 入る（${dealt}）`);
+        check(dCore() > 8 && !inBody(), `コアを たたくと 背中の 外へ ふり落とされる（コアから ${f1(dCore())} ブロック、いま (${f1(q.x)}, ${f1(q.y)}, ${f1(q.z)})）`);
+        check(hp() === hp0, `ふり落とされても 体力は そのまま ${hp()}`);
+        void before;
+      }
     }
+    stopAll();
   }
   check(hp() === 20, `体力は そのまま ${hp()}`);
   h.input.releaseAll();

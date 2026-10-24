@@ -5,6 +5,7 @@ import climbDown from './gashaBigClips/climbDown.json';
 import lookBack from './gashaBigClips/lookBack.json';
 import { BigActor } from './gashaBigActor';
 import { TUNE as T } from './gashaBigTuning';
+const CEIL_Y = 30.5; // 胴体の 座標での 道の 天井（gashaBig.ts の CEIL）
 import { buildBig, cellKey, voxelize, worldHits, JOINT_NAMES, type WorldHit } from './gashaBig';
 
 /** 地面の 高さ 0、からだの 中心 = 原点、向き 0 の ときの 当たりの マス */
@@ -348,4 +349,96 @@ describe('gashaBig（#293 大きい がしゃどくろ）', () => {
     console.log('のぼれた フレーム', oneSide, '/', frames);
     expect(fails).toEqual([]);
   }, 120_000);
+
+  // ---------------------------------------------------------------- 心臓の コア・背中の 穴の 道（yuzu 2026-10-24）
+  /** 肩の 雲の 上から 歩いて、コアの すぐ 前（背中の 穴 → 道 → コアの 前）に 立てるか。いまの 姿勢の actor で 調べる */
+  function coreWalk(actor: BigActor): { ok: boolean; reachedTunnel: boolean } {
+    const names = actor.model.hits.map((h) => h.name);
+    const box = (n: string) => actor.boxList[names.indexOf(n)]!;
+    const cache = new Map<number, boolean>();
+    const solid = (i: number, j: number, k: number): boolean => { const q = cellKey(i, j, k); let v = cache.get(q); if (v === undefined) { v = actor.solid(i, j, k); cache.set(q, v); } return v; };
+    const stand = (i: number, j: number, k: number): boolean => j >= 0 && !solid(i, j, k) && !solid(i, j + 1, k) && (j === 0 || solid(i, j - 1, k));
+    const seen = new Set<number>(), q: [number, number, number][] = [];
+    const b0 = box('shoulderL0'), top0 = b0.c[1] + b0.ax[4] * b0.half[1];
+    for (let i = Math.floor(b0.c[0] - 2); i <= Math.ceil(b0.c[0] + 2); i++) for (let k = Math.floor(b0.c[2] - 2); k <= Math.ceil(b0.c[2] + 2); k++) for (const j of [Math.floor(top0 + 0.3) - 1, Math.floor(top0 + 0.3), Math.floor(top0 + 0.3) + 1]) {
+      if (stand(i, j, k) && !seen.has(cellKey(i, j, k))) { seen.add(cellKey(i, j, k)); q.push([i, j, k]); }
+    }
+    while (q.length) {
+      const [i, j, k] = q.pop()!;
+      for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+        const ni = i + dx, nk = k + dz;
+        if (Math.abs(ni - Math.floor(actor.pos.x)) > 40 || Math.abs(nk - Math.floor(actor.pos.z)) > 40) continue;
+        for (let nj = j + 1; nj >= Math.max(0, j - 3); nj--) {
+          if (!stand(ni, nj, nk)) continue;
+          if (nj === j + 1 && solid(i, j + 2, k)) break;
+          const kk = cellKey(ni, nj, nk);
+          if (!seen.has(kk)) { seen.add(kk); q.push([ni, nj, nk]); }
+          break;
+        }
+      }
+    }
+    // コアの すぐ 前: コアの 箱の 中心から 3 ブロック いないに 立つ マス（道の 中）
+    const core = box('core');
+    const flo = box('chestCoreFloor');
+    let ok = false, reachedTunnel = false;
+    for (const key of seen) {
+      const j = key % 1024, rest = Math.floor(key / 1024), k = (rest % 65536) - 32768, i = Math.floor(rest / 65536) - 32768;
+      const d = Math.hypot(i + 0.5 - core.c[0], j + 0.5 - core.c[1], k + 0.5 - core.c[2]);
+      const dyLocal = (i + 0.5 - core.c[0]) * core.ax[3]! + (j + 0.5 - core.c[1]) * core.ax[4]! + (k + 0.5 - core.c[2]) * core.ax[5]!; // コアの 上向きの 軸で 見た 高さ
+      if (d < 3.6 && dyLocal < 0) ok = true; // 道の 床に 立つ（コアの 中心より 下。胸の 上の 面ではない）
+      const e = Math.hypot(i + 0.5 - flo.c[0], k + 0.5 - flo.c[2]);
+      if (e < 2.5 && Math.abs(j - flo.c[1]) < 3) reachedTunnel = true;
+    }
+    if (process.env.DBGCORE && !ok) { let best = 99, bc = ''; for (const key of seen) { const j = key % 1024, rest = Math.floor(key / 1024), k = (rest % 65536) - 32768, i = Math.floor(rest / 65536) - 32768; const d = Math.hypot(i + 0.5 - core.c[0], j + 0.5 - core.c[1], k + 0.5 - core.c[2]); if (d < best) { best = d; bc = `${i},${j},${k}`; } } console.log('DBG closest', best.toFixed(2), bc, 'core', core.c.map((v: number) => +v.toFixed(1)).join(','), 'floor', flo.c.map((v: number) => +v.toFixed(1)).join(','), 'tunnel', reachedTunnel); }
+    return { ok, reachedTunnel };
+  }
+
+  it('心臓の コア: 当たりの 箱 core が ある。頭の コアは ない（頭の 欠けに 光る 物は ない）', () => {
+    const names = hits.map((h) => h.name);
+    expect(names).toContain('core');
+    expect(names.filter((n) => n === 'core').length).toBe(1);
+    // コアは 胸の 中（頭より ずっと 下）で 少し 左（+x）
+    const c = hits.find((h) => h.name === 'core')!, skull = hits.find((h) => h.name === 'skull')!;
+    expect(c.center[1]).toBeLessThan(skull.center[1] - 5);
+    expect(c.center[0]).toBeGreaterThan(model.group.position.x + 0.5);
+  });
+
+  it('背中の 穴の 道は 幅・高さ 2 ブロック いじょう（床 〜 天井の あいだに 当たりの 箱が ない）', () => {
+    const KT = T.core.tunnel, sc = scale * 1.1; // 縦の 拡大
+    expect((CEIL_Y - KT.floorY) * sc).toBeGreaterThanOrEqual(2.5);
+    expect(KT.width * 1.45 * scale).toBeGreaterThanOrEqual(2.5);
+  });
+
+  it('肩の 雲 → 背中の 穴 → 道 → コアの 前 まで 歩いて 行ける（休みの 姿勢・ブロックの そろい かた 0〜1）', () => {
+    const ply = { x: 500, y: 1, z: 500, yawDeg: 0 };
+    for (const [ox, oz] of [[0, 0], [0.5, 0.5], [0.25, 0.75], [0.5, 0]] as [number, number][]) {
+      const actor = new BigActor(buildBig(), { climbUp, climbDown, lookBack } as never, { groundY: () => -1, player: () => ply }, 293);
+      actor.place(ox, 0, oz, 0.8);
+      const r = coreWalk(actor);
+      expect(r.reachedTunnel, `ずれ (${ox}, ${oz}): 穴の 入り口`).toBe(true);
+      expect(r.ok, `ずれ (${ox}, ${oz}): コアの 前`).toBe(true);
+    }
+  });
+
+  it('はって 進む・首を 振る・怒る 全コマで、肩 → 背中の 穴 → コアの 前の 道が とぎれない', () => {
+    const ply = { x: 500, y: 1, z: 500, yawDeg: 0 };
+    const actor = new BigActor(buildBig(), { climbUp, climbDown, lookBack } as never, { groundY: () => -1, player: () => ply }, 293);
+    actor.place(0, 0, 0, 0.8);
+    const fails: string[] = [];
+    let frames = 0;
+    const check = (t: string): void => { frames++; const r = coreWalk(actor); if (!r.ok) fails.push(t); };
+    check('rest');
+    actor.walk(true); actor.goTo(0, 300);
+    for (let t = 0; t < 60 * 22; t++) {
+      actor.update(1 / 60);
+      if (t % 10 === 9) check(`walk${((t + 1) / 60).toFixed(2)}`);
+    }
+    actor.walk(false);
+    actor.lookBack();
+    for (let t = 0; t < 60 * 6; t++) { actor.update(1 / 60); if (t % 20 === 19) check(`look${((t + 1) / 60).toFixed(2)}`); }
+    actor.hit();
+    for (let t = 0; t < 60 * 4; t++) { actor.update(1 / 60); if (t % 20 === 19) check(`angry${((t + 1) / 60).toFixed(2)}`); }
+    console.log('コアの 前へ 行けた コマ', frames - fails.length, '/', frames, fails.slice(0, 8).join(' '));
+    expect(fails).toEqual([]);
+  }, 300_000);
 });

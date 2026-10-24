@@ -167,11 +167,11 @@ describe('gashaBigHit（#293 プレイヤーの 攻撃を 受ける）', () => {
     expect(r.bh.last?.part).toBe('hand');
   });
 
-  it('刀: 手と 腕と 頭に ぜんぶ 当たる 振りは いちばん 倍率の 高い 所に 1 回だけ', () => {
+  it('刀: 手と 腕と 頭と コアに ぜんぶ 当たる 振りは いちばん 倍率の 高い 所（コア 3 倍）に 1 回だけ', () => {
     const r = rig({ blade: () => ({ shape: { kind: 'capsule', from: v(-80, 20, -80), to: v(80, 20, 80), radius: 80 }, damage: 10, swing: 'x', frame: 1 }) });
     r.bh.step(1 / 60);
-    expect(r.bh.last?.part).toBe('hand');
-    hpIs(r, 10);
+    expect(r.bh.last?.part).toBe('core');
+    hpIs(r, 30);
   });
 
   it('矢・パンチ: YokaiManager の 線の 当たりと ダメージに 割りこむ。本物の 妖怪は そのまま', () => {

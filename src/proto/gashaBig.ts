@@ -11,7 +11,7 @@
  */
 import {
   BufferGeometry, Color, CylinderGeometry, DoubleSide, Euler, ExtrudeGeometry, Float32BufferAttribute, Group, IcosahedronGeometry, Matrix3, Matrix4,
-  Mesh, MeshBasicMaterial, OctahedronGeometry, Path, Quaternion, Shape, Vector3, type Camera, type Object3D, type Scene,
+  Mesh, MeshBasicMaterial, OctahedronGeometry, Path, Plane, Quaternion, Shape, Vector3, type Camera, type Object3D, type Scene,
 } from 'three';
 import { armPoints } from './gashaBigArm';
 import { TUNE as T, applyTune, applyTuneFromUrl } from './gashaBigTuning';
@@ -429,7 +429,13 @@ export function buildBig(): BigModel {
   const torso = b.root('Spine02').group(HIP.x, HIP.y, HIP.z, [PITCH, 0, 0], [1.45, 1.1, 1.3]);
   const tj = (j: JointName) => torso.at(j);
   const vJoint = (i: number): JointName => (i < 3 ? 'Hips' : i < 9 ? 'Spine' : i < 15 ? 'Spine01' : 'Spine02');
-  tj('Spine01').box(9, 24, 1.0, 0, 24, -5.0, 0x5a463c);
+  const K = T.core, KT = K.tunnel, TX0 = KT.x - KT.width / 2, TX1 = KT.x + KT.width / 2, CEIL = 30.5; // 道（トンネル）の 左右の はしと 天井（胸の 上の 面）
+  {
+    // 背中の ぬの（x ±4.5、y 12〜36）。背中の 穴の ぶんだけ あける（穴の 左右の はば TX0〜TX1、高さ 床〜天井）
+    const px = (x0: number, x1: number, y0: number, y1: number): void => { if (x1 - x0 > 0.2 && y1 - y0 > 0.2) tj('Spine01').box(x1 - x0, y1 - y0, 1.0, (x0 + x1) / 2, (y0 + y1) / 2, -5.0, 0x5a463c); };
+    px(-4.5, Math.min(4.5, TX0 - 0.2), 12, 36);
+    px(TX0 - 0.2, 4.5, 12, KT.floorY - 0.5); px(TX0 - 0.2, 4.5, CEIL + 0.5, 36);
+  }
   for (let i = 0; i < 20; i++) {
     const y = 3 + i * 2.05, w = 3.3 + (i % 2) * 0.6, t = tj(vJoint(i));
     t.box(w, 1.8, 3.2, 0, y, -7.2, i % 2 ? BONE : BONE_D);
@@ -442,12 +448,14 @@ export function buildBig(): BigModel {
     const y = 15.5 + i * 2.75, a = 8 + 3.6 * Math.sin(Math.PI * (i + 1.1) / (RIB_LV + 1.6)), bb = a * 0.72;
     const t = tj(i < 2 ? 'Spine01' : 'Spine02');
     for (const s of [-1, 1]) {
-      let prev: Vector3 | null = null;
+      let prev: Vector3 | null = null, prevIn = false;
       for (let k = 0; k <= 7; k++) {
         const phi = 0.12 + (k / 7) * Math.PI * 0.82;
         const p = vec(s * a * Math.sin(phi), y - (k > 5 ? 0.4 : 0) - 0.12 * k, bb * Math.cos(phi) * (phi > 1.6 ? 0.92 : 1) + 0.3);
-        if (prev) t.seg(prev, p, 1.8, 1.75, k % 2 ? BONE : BONE_D);
-        prev = p;
+        // 背中の 穴の 道に かかる ろっ骨は とぎれさせる（穴の 左右 ＋ 1、床〜天井）
+        const inHole = p.x > TX0 - 1.2 && p.x < TX1 + 1.2 && p.y > KT.floorY - 1.2 && p.y < CEIL + 1.2 && p.z < KT.endZ;
+        if (prev && !inHole && !prevIn) t.seg(prev, p, 1.8, 1.75, k % 2 ? BONE : BONE_D);
+        prev = p; prevIn = inHole;
       }
       t.box(1.9, 1.9, 1.9, s * 1.3, y, bb + 0.5, BONE_D);
     }
@@ -504,13 +512,51 @@ export function buildBig(): BigModel {
     th('Spine').hit('torsoWaist', 16.8, 7.8, 18.0, 0, 12.1, -0.6); // おなか・すその ぼろぼろ（ほねは すかすかでも 中は 固い）
     th('Spine01').hit('spineMid', 3.9, 13.5, 4.0, 0, 24.25, -7.6); // 背骨（ろっ骨の うしろに とび出す ぶん）
     th('Spine01').hit('chestLow', 22.8, 5.0, 18.1, 0, 17.1, 0.05); // ろっ骨 1〜2 だんめ
-    th('Spine02').hit('chestMid1', 25.0, 5.6, 17.9, 0, 22.4, 0.85); // 3〜4 だんめ（いちばん ひろい）
-    th('Spine02').hit('chestMid2', 24.8, 5.3, 18.5, 0, 27.85, 1.15); // 5〜6 だんめ ＋ スカーフ・すず・バッジ
+    // 3〜6 だんめ（いちばん ひろい 所）は 背中の 穴の 道（トンネル）の ぶんだけ あける: 床より 下 / 道の 左 / 道の 右 / コアの 前の かべ。道は 床〜天井（chestUp の 下）
+    const slab = (name: string, x0: number, x1: number, y0: number, y1: number, z0: number, z1: number): void => th('Spine02').hit(name, x1 - x0, y1 - y0, z1 - z0, (x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
+    slab('chestMid1', -12.5, 12.5, 19.6, KT.floorY, -8.05, 9.85);
+    slab('chestMid2', TX1, 12.4, KT.floorY, CEIL, -8.05, 10.45); // 道の 左（体の 左がわ）
+    slab('chestMid2R', -12.4, TX0, KT.floorY, CEIL, -8.05, 10.45); // 道の 右
+    slab('chestCoreEnd', TX0, TX1, KT.floorY, CEIL, KT.endZ, 10.45); // コアの 前の かべ（これより 先は 行けない）
+    slab('chestCoreFloor', TX0, TX1, KT.floorY - KT.floorThick, KT.floorY, KT.backZ, -7.5); // 背中の 外へ のびる 床（穴の 入り口の だん）
+    th('Spine02').hit('core', K.size, K.size, K.size, K.pos[0], K.pos[1], K.pos[2]); // コア（たたくと ふり落とされる）
     th('Spine02').hit('chestUp', 21.8, 2.9, 16.3, 0, 31.95, 0.85); // 7 だんめ ＋ セーラーの えり（前の V）
     th('Spine02').hit('chestTop', 15.4, 4.8, 14.2, 0, 35.7, -2.6); // 肩の あいだ・えりの 上の 面（ここが 胴体の 上）
     th('Spine02').hit('collarbone', 24.6, 2.6, 4.6, 0, 34.7, 2.0); // さこつ（肩の 先まで）
     th('neck').hit('neck', 3.8, 5.3, 5.5, 0, 40.35, -6.85); // 首（背骨の つづき）
     for (const s of [-1, 1]) th(s > 0 ? 'LeftShoulder' : 'RightShoulder').hit(`shoulderCloth${s < 0 ? 'R' : 'L'}`, 5.2, 2.4, 8.7, s * 7.2, 36.05, -3); // かたの ぬの・けんこうこつ
+  }
+
+  // --- 背中の 穴・体の 中の 道（トンネル）・心臓の コア（見た目。当たりは 上の 胴体の 当たり）
+  {
+    const t = tj('Spine02');
+    const W = KT.width, H = CEIL - KT.floorY, zA = -8.1, zB = KT.endZ, L = zB - zA;
+    const DARK_IN = 0x1b1116, FLOOR = 0x4d3d38;
+    // 中の かべ・床・天井（暗い 内がわ）
+    t.box(W, 0.4, L, KT.x, KT.floorY - 0.2, (zA + zB) / 2, FLOOR);
+    t.box(0.4, H, L, TX0 + 0.2, KT.floorY + H / 2, (zA + zB) / 2, DARK_IN);
+    t.box(0.4, H, L, TX1 - 0.2, KT.floorY + H / 2, (zA + zB) / 2, DARK_IN);
+    t.box(W, 0.4, L, KT.x, CEIL - 0.2, (zA + zB) / 2, DARK_IN);
+    t.box(W, H, 0.4, KT.x, KT.floorY + H / 2, zB - 0.2, 0x2b1a20);
+    // 道の ろっ骨（アーチ）: 床の 骨の いたと、かべ・天井に 沿う 骨を 一定の 間かくで
+    for (let z = zA + 1.5; z < zB - 0.5; z += 3.0) {
+      t.box(W - 0.6, 0.5, 1.0, KT.x, KT.floorY + 0.1, z, BONE_D);
+      t.box(0.8, H - 0.4, 1.0, TX0 + 0.55, KT.floorY + H / 2, z, BONE);
+      t.box(0.8, H - 0.4, 1.0, TX1 - 0.55, KT.floorY + H / 2, z, BONE);
+      t.box(W - 0.6, 0.8, 1.0, KT.x, CEIL - 0.5, z, BONE);
+    }
+    // 穴の ふち（背中の がわ）と 外へ のびる 床の だん
+    t.box(W + 2.4, 1.4, 2.0, KT.x, CEIL + 0.7, zA - 0.7, BONE); // 上
+    t.box(1.4, H + 1.4, 2.0, TX1 + 0.7, KT.floorY + H / 2 + 0.7, zA - 0.7, BONE_D); // 左
+    t.box(1.4, H + 1.4, 2.0, TX0 - 0.7, KT.floorY + H / 2 + 0.7, zA - 0.7, BONE_D); // 右
+    t.box(W + 2.4, KT.floorThick, KT.backZ - zA + 1.0, KT.x, KT.floorY - KT.floorThick / 2, (KT.backZ + zA - 1.0) / 2 + 0.2, BONE); // 外へ のびる 床
+    moss(t, KT.x + 1, KT.floorY + 0.8, KT.backZ + 1, 3, 3);
+    // コア: 道の 先で 光る（しん と まわりの 光）
+    const cp = K.pos;
+    t.geom(new OctahedronGeometry(K.size * 0.42), 0xcffaff, new Matrix4().makeTranslation(cp[0], cp[1], cp[2]), 'bright');
+    t.geom(new OctahedronGeometry(K.size * 0.62), 0x8aeaff, new Matrix4().makeTranslation(cp[0], cp[1], cp[2]), 'glow', 0.3);
+    t.glowBox(W - 0.6, H - 0.6, 0.3, KT.x, KT.floorY + H / 2, zB - 0.6, 0x8aeaff, 0.22);
+    // 肩から 穴の 外の だんへ おりる 雲の 段は 肩の 雲を つくる ところ（KW が きまって から）
   }
 
   // --- あたま（関節 Head）
@@ -539,9 +585,7 @@ export function buildBig(): BigModel {
     for (const [x, y, w, h] of [[-7.2, cy + 5.6, 1.6, 0.6], [-8.4, cy + 6.4, 1.2, 0.6], [-9.2, cy + 7.4, 0.8, 1.2], [7.4, cy + 4.6, 1.6, 0.6], [8.8, cy + 5.4, 1.2, 0.6], [9.6, cy + 6.6, 0.8, 1.4],
       [-7.0, cy - 5.4, 1.4, 0.6], [-8.2, cy - 6.4, 1.0, 1.2], [6.8, cy - 5.6, 1.6, 0.6], [8.2, cy - 6.6, 1.0, 1.2], [-1.0, cy + 6.6, 0.6, 1.4], [0.2, cy + 7.8, 0.6, 1.2]] as const) head.box(w, h, 0.5, x, y, zb - 0.1, BONE_DK);
     head.box(1.5, 1.2, 1.2, -6.4, cy + 4.6, zb - 0.5, BONE, [0, 0.3, 0.5]); head.box(1.2, 1.0, 1.0, 6.8, cy - 4.2, zb - 0.4, BONE, [0, -0.3, 0.6]); head.box(1.0, 1.0, 1.0, 1.8, cy + 5.4, zb - 0.6, BONE, [0.3, 0.3, 0.2]);
-    // コアは 欠けの 中（穴の 面に はまって いる）
-    head.geom(new OctahedronGeometry(2.2), 0xcffaff, new Matrix4().makeTranslation(0, cy, zb - 0.3), 'bright');
-    head.geom(new OctahedronGeometry(3.3), 0x8aeaff, new Matrix4().makeTranslation(0, cy, zb - 0.3), 'glow', 0.3);
+    // （コアは 心臓へ うつした。欠けの 見た目だけ のこす）
     // 後ろの 大きな ヘアリボン。羽の 上は 平らな あしば
     const rb = head.group(0, 3.6, -11.6);
     const RP = 0xf6a6c8, RL = 0xc3a4f2, RD = 0xd8789f;
@@ -750,6 +794,16 @@ export function buildBig(): BigModel {
         puff(b, { joint: e.joint, cx: p.x + e.s * Q.out * KW, top: armTop + Q.rise * KW, cz: p.z, w, yaw: rq() * Math.PI, lobes: 4, name: `armStep${e.s < 0 ? 'R' : 'L'}`, rnd: rq });
       }
     }
+    // 背中の 穴へ おりる 雲の 段: 左の 肩の いちばん 後ろの 雲（肩の 高さ）から 穴の 外の 床の だん（入り口）へ、下がりが 1 ブロックより 小さい 段で つなぐ
+    {
+      const Z = T.core, rs2 = makeRnd(Z.steps.seed), n = Math.max(1, Math.round(Z.steps.count));
+      const L = Tt(KT.x, KT.floorY, KT.backZ);
+      const x0 = S.xs[0]!, z0 = S.zs[0]!, y0 = S.y;
+      for (let k = 1; k <= n; k++) {
+        const u = k / (n + 1);
+        puff(b, { joint: 'Spine02', cx: x0 + (L.x - x0) * u, top: y0 + (L.y - y0) * u, cz: z0 + (L.z - z0) * u, w: lerpA(Z.steps.size, rs2()), yaw: rs2() * Math.PI, lobes: 4, name: `backStep${k - 1}`, rnd: rs2 });
+      }
+    }
     // 髪の 毛束: 黒い 箱。上の 面が 当たり。ときどき 髪どめ（ピンク）
     const H = T.hair;
     const lock = (name: string, x: number, top: number, z: number, k: number): void => {
@@ -901,6 +955,8 @@ export interface GashaBigHandle {
   hp(): number;
   /** 部位（hand・foreArm・upperArm・head・core など）に ダメージ（武器の 強さ amount × 部位の 倍率）。与えた 数を 返す。テスト用 */
   damage(part: string, amount: number): number;
+  /** 撮影用: コアの 左右の まんなかで 体を 半分に 切って 断面を 見せる（左がわを 消す）/ もどす */
+  section(on: boolean): void;
   /** さまよう（はって あるく）のを はじめる / 止める */
   walk(on: boolean): void;
   /** その 場所（ブロックの 座標）へ はって 行く（さまよう とき の 目的地を 上書き） */
@@ -940,7 +996,32 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
   const CLIPS: ActorClips = { climbUp, climbDown, lookBack: lookBackClip };
   let isAngry = false;
   // プレイヤーの 攻撃を 受ける（体力・部位の 倍率・怒る・火花・体力ゲージ。gashaBigHit.ts）
-  const bh = new BigHit({ scene: deps.scene, angry: () => { isAngry = true; actor?.hit(); }, sources: deps.hit });
+  let noFallLeft = 0, throwLeft = 0;
+  const throwDir = { x: 0, z: 0 };
+  /** コアを たたかれた: 近くに いる プレイヤーを 穴の 向き（胴体の 後ろ・上）へ とばして 背中の 外へ ふり落とす */
+  const throwOff = (): void => {
+    const K = T.core.throwOff;
+    if (!actor || !deps.setPlayerVelocity) return;
+    const i = actor.model.hits.findIndex((h) => h.name === 'core');
+    const b = i >= 0 ? actor.boxList[i] : undefined;
+    if (!b) return;
+    const p = deps.player();
+    if (Math.hypot(p.x - b.c[0], p.y - b.c[1], p.z - b.c[2]) > K.range) return;
+    // 道は せまくて かい段だらけ なので、とばす まえに 穴の 外（入り口の 床の だんの 少し 上・うしろ）へ ワープさせてから、うしろへ とばす
+    const fi = actor.model.hits.findIndex((h) => h.name === 'chestCoreFloor');
+    const fb = fi >= 0 ? actor.boxList[fi] : undefined;
+    const ax = { x: -b.ax[6]!, y: -b.ax[7]!, z: -b.ax[8]! }; // 道の 軸（うしろ・上）
+    if (fb && deps.carryPlayer) {
+      const out = fb.half[2]! + K.exitOut;
+      const ex = fb.c[0]! - fb.ax[6]! * out, ey = fb.c[1]! - fb.ax[7]! * out + K.exitUp, ez = fb.c[2]! - fb.ax[8]! * out;
+      deps.carryPlayer(ex - p.x, ey - p.y, ez - p.z, 0);
+    }
+    deps.setPlayerVelocity({ x: 0, y: ax.y * K.speed + K.up, z: 0 }); // 横の 速さは ゲームが 入力から 毎コマ きめる ので、横は 下で 毎コマ ずらす
+    throwDir.x = ax.x; throwDir.z = ax.z;
+    throwLeft = K.blockSec;
+    if (deps.setNoFall) { deps.setNoFall(true); noFallLeft = K.noFallSec; }
+  };
+  const bh = new BigHit({ scene: deps.scene, angry: () => { isAngry = true; actor?.hit(); }, onCore: throwOff, sources: deps.hit });
   let pos = new Vector3(), yaw = 0;
   const { blockAt, setGeyserBlock, scanGeyserBlocks } = deps;
   const geysers = deps.onUpdate && deps.playerBody && deps.setPlayerVelocity && deps.nudgePlayer && deps.setNoFall && blockAt && setGeyserBlock && scanGeyserBlocks
@@ -957,7 +1038,7 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
     onGround: deps.playerBody ? () => deps.playerBody!().onGround ?? true : undefined,
   });
   const shockFx = new ShockFx(deps.scene, deps.camera);
-  deps.blockPlayerInput?.(() => shock.inputBlocked());
+  deps.blockPlayerInput?.(() => shock.inputBlocked() || throwLeft > 0);
   deps.onBeforeRender?.(() => shockFx.applyShake(deps.reducedMotion?.() ? 0 : shock.shakeNow, shock.time));
   const fwdOf = (p: { yawDeg: number }) => { const y = (p.yawDeg * Math.PI) / 180; return { fx: Math.sin(y), fz: -Math.cos(y) }; };
 
@@ -1039,6 +1120,8 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
     if (!actor) return;
     actor.update(dt);
     bh.step(dt);
+    if (throwLeft > 0) { throwLeft -= dt; deps.nudgePlayer?.(throwDir.x * T.core.throwOff.speed * dt, throwDir.z * T.core.throwOff.speed * dt); }
+    if (noFallLeft > 0) { noFallLeft -= dt; if (noFallLeft <= 0) deps.setNoFall?.(false); }
     shock.step(dt);
     shockFx.update(dt);
     pos = actor.pos; yaw = actor.yaw;
@@ -1055,6 +1138,21 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
     place: () => { place(); bh.reset(); },
     hp: () => bh.hp,
     damage: (part, amount) => bh.damage(part, amount),
+    section: (on) => {
+      if (!model || !actor) return;
+      const i = actor.model.hits.findIndex((h) => h.name === 'core');
+      const b = i >= 0 ? actor.boxList[i] : undefined;
+      if (!b) return;
+      const plane = new Plane().setFromNormalAndCoplanarPoint(new Vector3(-b.ax[0]!, -b.ax[1]!, -b.ax[2]!), new Vector3(b.c[0]!, b.c[1]!, b.c[2]!)); // 左（+x）がわが 消える
+      model.group.traverse((o) => {
+        const m = o as Mesh;
+        if (!m.isMesh) return;
+        const mat = m.material as MeshBasicMaterial;
+        mat.clippingPlanes = on ? [plane] : null;
+        mat.needsUpdate = true;
+        m.onBeforeRender = on ? (r) => { r.localClippingEnabled = true; } : () => undefined;
+      });
+    },
     angry: (on) => { isAngry = on; actor?.angry(on); },
     hit: () => { isAngry = true; actor?.hit(); },
     walk: (on) => actor?.walk(on),

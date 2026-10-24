@@ -32,6 +32,7 @@ export type Part = 'hand' | 'foreArm' | 'upperArm' | 'head' | 'core' | 'ribbon' 
 
 /** 箱の 名前 → 部位（gashaBig.ts の 当たりの 名前: hand*（指・親指も）・foreArm・upperArm・skull*（頭がいの よこ・ほお・あご・てっぺんも）・ribbon*・torso/spine/chest/neck/collar/shoulderCloth/hair* は 胴体・それ以外は 雲） */
 export function partOf(name: string): Part {
+  if (name === 'core') return 'core';
   if (name.startsWith('hand')) return 'hand';
   if (name.startsWith('foreArm')) return 'foreArm';
   if (name.startsWith('upperArm')) return 'upperArm';
@@ -186,6 +187,8 @@ export interface HitEnv {
   scene: Scene;
   /** 怒らせる（白目 → 赤い 目。20 秒 カウントを はじめから） */
   angry(): void;
+  /** コアに ダメージが 入った（ふり落とす 合図） */
+  onCore?(): void;
   sources?: HitSources;
 }
 
@@ -262,6 +265,7 @@ export class BigHit {
     this.hits++;
     this.last = { part: part as Part, mul, dealt, source, at: at ? { ...at } : null, hp: this.hp };
     this.env.angry();
+    if (part === 'core') this.env.onCore?.();
     if (!at) {
       const i = this.parts.indexOf(part as Part);
       if (i >= 0) at = { x: this.boxes[i]!.c[0]!, y: this.boxes[i]!.c[1]!, z: this.boxes[i]!.c[2]! };
