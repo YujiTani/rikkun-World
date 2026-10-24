@@ -313,15 +313,15 @@ describe('gashaBigActor（#293 はって進む・目・乗っている人）', (
     });
   });
 
-  it('長い 休みの 長さは 調整表の restSec（既定 300 秒 = 5 分）。walkSec の 既定は 45〜90 秒', () => {
-    expect(T.wander.restSec).toBe(300);
+  it('長い 休みの 長さは 調整表の restSec（既定 180 秒 = 3 分）。walkSec の 既定は 45〜90 秒', () => {
+    expect(T.wander.restSec).toBe(180);
     expect(T.wander.walkSec[0]).toBe(45);
     expect(T.wander.walkSec[1]).toBe(90);
     const { actor } = rig();
     expect(actor.walkLeft).toBeGreaterThanOrEqual(45);
     expect(actor.walkLeft).toBeLessThanOrEqual(90);
     actor.rest(); // 引数なし = restSec
-    expect(actor.restLeft).toBe(300);
+    expect(actor.restLeft).toBe(180);
     actor.rest(12);
     expect(actor.restLeft).toBe(12);
   });
