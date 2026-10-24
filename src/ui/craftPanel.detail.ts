@@ -4,6 +4,7 @@ import { materialDotSources, type DetailView } from './craftModel';
 import { mouseEl, questionUrl, fingerUrl } from './craftPanel.art';
 import { rarityIndex } from '../drops/rarityTable';
 import { createChip, createMeter, createButton, setButtonDisabled, setButtonKind, setRarity } from './theme';
+import { SPECIAL_HEAD } from '../craft/info/table';
 import { starText } from './tooltipModel';
 import { withRuby } from './text';
 
@@ -27,6 +28,9 @@ export interface DetailEls {
   pageDots: HTMLDivElement;
   useRow: HTMLDivElement;
   useText: HTMLElement;
+  /** NINJA-1: 虹色の「とくべつな ちから」の 行（見出し + 文）。せつめいの 最初の ページだけ */
+  specialRow: HTMLDivElement;
+  specialText: HTMLElement;
   howRow: HTMLDivElement;
   howButtons: HTMLElement;
   howText: HTMLElement;
@@ -108,6 +112,12 @@ export function createDetailEls(parent: HTMLElement, h: { onPress(): void; onEnt
   q.alt = '';
   q.src = questionUrl();
   const useText = el('div', 'cp-text', useRow);
+  const specialRow = el('div', 'cp-row cp-special', pageDesc);
+  const specialBody = el('div', 'cp-text', specialRow);
+  const specialHead = el('div', 'cp-special-head rk-special-head', specialBody);
+  specialHead.textContent = SPECIAL_HEAD;
+  const specialText = el('div', 'cp-special-text', specialBody);
+  specialRow.hidden = true;
   const howRow = el('div', 'cp-row cp-how', pageDesc);
   const hand = el('img', 'cp-mark-ico cp-hand rk-art', howRow);
   hand.alt = '';
@@ -137,7 +147,7 @@ export function createDetailEls(parent: HTMLElement, h: { onPress(): void; onEnt
   root.append(button);
   return {
     root, headArt, name, stars, word, body, pageMake, pageDesc, pageStats, pager, prev, next, pageName, pageDots,
-    useRow, useText, howRow, howButtons, howText, stats, classEl, mats, fuel, out, outNum, outArt, count, hint, button, empty, emptyArt,
+    useRow, useText, specialRow, specialText, howRow, howButtons, howText, stats, classEl, mats, fuel, out, outNum, outArt, count, hint, button, empty, emptyArt,
   };
 }
 
@@ -195,6 +205,9 @@ export function renderDetail(e: DetailEls, d: DetailView | null, iconOf: (item: 
   e.useText.innerHTML = withRuby(dp?.use ?? d.use);
   e.useRow.dataset.later = String(d.later !== null);
   e.useRow.hidden = dp ? dp.use === '' : false;
+  const firstDesc = dp !== undefined && d.pages.find((p) => p.kind === 'desc') === dp;
+  e.specialText.innerHTML = d.special ? withRuby(d.special) : '';
+  e.specialRow.hidden = !d.special || !firstDesc;
   e.howButtons.replaceChildren();
   if (!dp || dp.buttons) for (const b of d.buttons) buttonPicture(b, e.howButtons);
   e.howText.innerHTML = withRuby(dp?.how ?? d.how);

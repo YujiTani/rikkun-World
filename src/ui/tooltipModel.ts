@@ -1,7 +1,7 @@
 import { LIVE_SETTING_DEFAULTS, seedKindOfItem, vegKindOfItem, type ItemId, type ItemStack, type Rarity, type Recipe } from '../contracts';
 import { CRAFT_UI_SETTINGS, TOOL_NUMBERS, type CraftUiSettings, type ToolNumbers } from '../fx/craftConfig';
 import { RARITY_COLOR, RARITY_TIERS } from '../drops/rarity';
-import { ITEM_INFO } from '../craft/info/table';
+import { ITEM_INFO, SPECIAL_HEAD } from '../craft/info/table';
 import { wearView } from './wearGauge';
 
 /** ツールチップの行につく小さな絵。アイテムの id か、かなづち・時計 */
@@ -17,6 +17,10 @@ export interface TooltipData {
   icons: TooltipIcon[];
   /** M6: 名前の下の「なにに つかう」の文（説明の表と同じ。見せるのは 1 行目まで） */
   desc: string;
+  /** NINJA-1: 虹色の「とくべつな ちから」の 文（レジェンダリーの 物だけ。無ければ null） */
+  special: string | null;
+  /** 虹色の 見出し（`とくべつな ちから`） */
+  specialHead: string;
 }
 
 export interface TooltipDeps {
@@ -76,7 +80,9 @@ export function buildTooltip(item: ItemId, d: TooltipDeps, stack?: ItemStack | n
   if (item === 'kabuto' || item === 'kin_kabuto') add('たま から まもる', item);
   if (item === 'yoroi' || item === 'kote' || item === 'kin_yoroi' || item === 'kin_kote') add('こうげき から まもる', item);
   if (item === 'suneate' || item === 'kin_suneate') add('おちても いたくない', item);
-  if (item === 'ninja_tabi') add('たかい ところ から おちても いたく ない', item);
+  if (item === 'ninja_zukin') add('たま から まもる', item);
+  if (item === 'ninja_shozoku' || item === 'ninja_tekko') add('こうげき から まもる', item);
+  // 足袋の「おちても いたく ない」は とくべつな ちから（special）へ うつった
   if (item === 'kuwa') {
     add(`ほる つよさ ${tools.toolPower[item] ?? 1}`, item);
     add('つち に つよい', item);
@@ -107,7 +113,7 @@ export function buildTooltip(item: ItemId, d: TooltipDeps, stack?: ItemStack | n
   }
   if (recipes.some((r) => r.output.item === item && !r.works)) add('もうすぐ つかえる', 'clock');
   const rarity = d.rarityOf(item);
-  return { item, name: d.nameOf(item), rarity, stars: STARS[rarity], lines, icons, desc: ITEM_INFO[item]?.use ?? '' };
+  return { item, name: d.nameOf(item), rarity, stars: STARS[rarity], lines, icons, desc: ITEM_INFO[item]?.use ?? '', special: ITEM_INFO[item]?.special ?? null, specialHead: SPECIAL_HEAD };
 }
 
 /** ★ を数だけ並べた文字 */

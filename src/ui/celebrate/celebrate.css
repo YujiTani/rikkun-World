@@ -274,7 +274,8 @@
   position: absolute;
   inset: 0;
   border-radius: var(--rk-r-l);
-  background: linear-gradient(90deg, #ff6b6b, #ffd93d, #6bff95, #4dd2ff, #b36bff, #ff6b6b, #ffd93d);
+  /* にじ色は UI の 決まりの 色（tokens.css の --rk-medal-rainbow と 同じ 5 色）に そろえた（UI 検査 AC22） */
+  background: linear-gradient(90deg, #ff5a5f, #ffc83d, #3ddc84, #4fc3f7, #c79bff, #ff5a5f, #ffc83d);
   background-size: 200% 100%;
   animation: cel-rainbow-flow 6s linear infinite;
 }
@@ -337,11 +338,11 @@
 .cel-telop .cel-band__stars {
   /* 星 7 つの はばに にじ 1 まわりが 入る（下地は 星の はばだけ。2 まわり分を ならべて 200% で 流す） */
   width: max-content;
-  background: linear-gradient(90deg, #ff6b6b, #ffd93d, #6bff95, #4dd2ff, #b36bff, #ff6b6b, #ffd93d, #6bff95, #4dd2ff, #b36bff, #ff6b6b);
+  background: linear-gradient(90deg, #ff5a5f, #ffc83d, #3ddc84, #4fc3f7, #c79bff, #ff5a5f, #ffc83d, #3ddc84, #4fc3f7, #c79bff, #ff5a5f);
   background-size: 200% 100%;
   -webkit-background-clip: text;
   background-clip: text;
-  color: transparent;
+  color: var(--rk-bg-900); /* 字の 色の 検査用（見えるのは 下の にじ色。字の 中は 下の fill が とうめい） */
   -webkit-text-fill-color: transparent;
   text-shadow: none; /* ふちの影が すけて 黒く 見えるので 消す */
   -webkit-text-stroke: 0;
@@ -351,5 +352,18 @@
 @media (prefers-reduced-motion: reduce) {
   .cel-telop .cel-band__stars {
     animation: none;
+  }
+}
+
+/* NINJA-1: 文が 長い テロップ（がしゃどくろ が 〜 を おとした！／たからばこ に 〜 が はいって いた！）は 帯を 広げて 字を 24px に（切れない） */
+.cel-telop.cel-telop--long {
+  width: 760px;
+}
+.cel-telop.cel-telop--long .cel-band__head {
+  font-size: 24px;
+}
+@media (max-width: 1100px) {
+  .cel-telop.cel-telop--long {
+    width: 700px;
   }
 }

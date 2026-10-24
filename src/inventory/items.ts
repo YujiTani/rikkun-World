@@ -64,8 +64,11 @@ const M4_ITEMS: readonly ItemType[] = [
   { id: 'yoroi', name: 'よろい', maxStack: 1, placeBlock: null },
   { id: 'kote', name: 'こて', maxStack: 1, placeBlock: null },
   { id: 'suneate', name: 'すねあて', maxStack: 1, placeBlock: null },
-  // #293 試作: 忍者の足袋（レア装備。名前は ［漢字｜よみ］ — withRuby で 画面に 出す）
-  { id: 'ninja_tabi', name: '［忍者｜にんじゃ］の ［足袋｜たび］', maxStack: 1, placeBlock: null },
+  // NINJA-1（#299）: 忍者装備 4 つ
+  { id: 'ninja_zukin', name: '［黒頭巾｜くろずきん］', maxStack: 1, placeBlock: null },
+  { id: 'ninja_shozoku', name: '［忍｜しの］び［装束｜しょうぞく］', maxStack: 1, placeBlock: null },
+  { id: 'ninja_tekko', name: '［忍｜しの］びの ［手甲｜てっこう］', maxStack: 1, placeBlock: null },
+  { id: 'ninja_tabi', name: '［忍｜しの］びの ［足袋｜たび］', maxStack: 1, placeBlock: null },
   // #293 試作: 間欠泉の つち（置ける。置けば どこでも 間欠泉。名前は ［漢字｜よみ］ — withRuby で 画面に 出す）
   { id: 'geyser_dirt', name: '［間欠泉｜かんけつせん］の つち', maxStack: BLOCK_MAX_STACK, placeBlock: 'geyser_dirt' },
   { id: 'lantern', name: 'ちょうちん', maxStack: BLOCK_MAX_STACK, placeBlock: null },

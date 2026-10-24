@@ -27,6 +27,8 @@ export interface ItemInfoData {
   stars: number;
   rarityWord: string;
   use: string;
+  /** NINJA-1: 虹色の「とくべつな ちから」の 文（レジェンダリーの 物だけ） */
+  special?: string;
   how: string;
   buttons: ButtonKey[];
   later: string | null;
@@ -248,6 +250,7 @@ export function createItemInfo(d: InfoDeps): ItemInfoSource {
         stars: rarityTier(rarity).stars,
         rarityWord: rarityTier(rarity).word,
         use: row?.use ?? '',
+        special: row?.special,
         how: row?.how ?? '',
         buttons: row ? [...row.buttons] : [],
         later: row?.later ?? null,

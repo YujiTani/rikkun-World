@@ -200,6 +200,8 @@ export interface DetailView {
   stars: number;
   rarityWord: string;
   use: string;
+  /** NINJA-1: 虹色の「とくべつな ちから」の 文（無ければ null） */
+  special: string | null;
   how: string;
   buttons: ItemInfoData['buttons'];
   later: string | null;
@@ -373,6 +375,7 @@ export function buildDetail(o: {
     stars: info.stars,
     rarityWord: info.rarityWord,
     use: info.use,
+    special: info.special ?? null,
     how: info.how,
     buttons: info.buttons,
     later: info.later,

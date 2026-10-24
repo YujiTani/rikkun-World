@@ -60,6 +60,15 @@ export function weaponSoundLogNames(name: WeaponSoundName): string[] {
   return [name];
 }
 
+/**
+ * NINJA-1: 小太刀の 追い打ちの 音。今の 切り上げ（kiriage）の 音を 小さく・みじかく・少し 高く 軽くして 使う（新しい 音は 作らない。
+ * くりかえす 行動なので 控えめ）。`combat.sounds()` の 名前は kodachi
+ */
+export function playKodachi(sound: Pick<SoundFx, 'playTones'>): void {
+  sound.playTones(WEAPON_SOUNDS.kiriage.map((t) => ({ ...t, gain: t.gain * 0.35, dur: t.dur * 0.7 })), 4);
+  logSound('kodachi');
+}
+
 export function playWeapon(sound: Pick<SoundFx, 'playTones'>, name: WeaponSoundName): void {
   sound.playTones(WEAPON_SOUNDS[name] as readonly Tone[]);
   logSound(...weaponSoundLogNames(name));
