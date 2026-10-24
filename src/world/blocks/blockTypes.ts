@@ -58,6 +58,8 @@ export const BLOCK_TYPES: readonly BlockType[] = [
   { id: 'nukunuku_e', name: 'こたつ', solid: true, breakable: true },
   { id: 'nukunuku_s', name: 'こたつ', solid: true, breakable: true },
   { id: 'nukunuku_se', name: 'こたつ', solid: true, breakable: true },
+  // #293 試作（番号は後ろに足す）
+  { id: 'geyser_dirt', name: 'かんけつせんの つち', solid: true, breakable: true },
 ];
 
 export const BLOCK_INDEX: Readonly<Record<BlockId, number>> = Object.fromEntries(

@@ -44,6 +44,7 @@ interface Opts {
   noDb?: boolean;
   streaming?: boolean;
   animals?: { serialize(): unknown; deserialize(d: unknown): void; prepare?(): void };
+  gasha?: { serialize(): unknown; deserialize(d: unknown): void };
 }
 
 /** 1 回のページ表示に当たるもの（世界・持ち物・プレイヤー・保存係）を作る。main.ts と同じ順 */
@@ -96,6 +97,7 @@ async function session(store: KeyValueStore | null, db: MemoryBackend | null, o:
     bags: o.bags,
     streaming: o.streaming,
     animals: o.animals,
+    gasha: o.gasha,
     clock: clock && {
       dayTick: () => clock.t,
       day: () => clock.d,
@@ -890,3 +892,24 @@ function encodeV1(sections: readonly import('../contracts').SectionData[]): Uint
   }
   return Uint8Array.from(out);
 }
+
+describe('SaveManager #293（がしゃどくろを たおした 回数の 保存）', () => {
+  it('gasha の 中身を 書いて、つぎの ページ表示で そのまま 返す。キーが ない 古い 保存では null', async () => {
+    const store = new MemoryStore();
+    const db = new MemoryBackend();
+    const data = { v: 2, kills: 3 };
+    const s1 = await session(store, db, { gasha: { serialize: () => data, deserialize: () => {} } });
+    await s1.save.now();
+    let got: unknown = 'unset';
+    await session(store, db, { gasha: { serialize: () => null, deserialize: (d) => { got = d; } } });
+    expect(got).toEqual(data);
+    // gasha を つなげて いない 保存
+    const store2 = new MemoryStore();
+    const db2 = new MemoryBackend();
+    const s3 = await session(store2, db2);
+    await s3.save.now();
+    let got2: unknown = 'unset';
+    await session(store2, db2, { gasha: { serialize: () => null, deserialize: (d) => { got2 = d; } } });
+    expect(got2 ?? null).toBeNull();
+  });
+});

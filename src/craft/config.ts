@@ -36,6 +36,8 @@ export const CRAFT_DEFAULTS: Readonly<CraftConfig> = {
     kin_yoroi: { normal: 3, ball: 0, fall: 0 },
     kin_kote: { normal: 2, ball: 0, fall: 0 },
     kin_suneate: { normal: 0, ball: 0, fall: 3 },
+    // #293 試作: 忍者の足袋。落下は どれだけ 高くても 0（fall は 99 = ぜんぶ ふせぐ）。ほかは すねあてと 同じ
+    ninja_tabi: { normal: 0, ball: 0, fall: 99 },
   },
   pickupLogTicks: 180,
   pickupLogMax: 5,
@@ -50,6 +52,12 @@ export function createCraftConfig(): CraftConfig {
   };
 }
 
+/**
+ * 忍者装備（#293 試作。yuzu: 一式が ある ことに する）。今は 足袋だけ。
+ * あたま・からだ・うでは 名前も 効き目も まだ 決まって いない（決まったら ここに 足し、ARMOR_SLOT_OF・armorValue・ITEM_TYPES・rarity にも 同じ id を 足す）。
+ */
+export const NINJA_GEAR = { legs: 'ninja_tabi' } as const satisfies Partial<Record<ArmorSlot, string>>;
+
 /** そうびのマスに入れられるアイテム */
 export const ARMOR_SLOT_OF: Readonly<Record<string, ArmorSlot>> = {
   kabuto: 'head',
@@ -61,6 +69,8 @@ export const ARMOR_SLOT_OF: Readonly<Record<string, ArmorSlot>> = {
   kin_yoroi: 'body',
   kin_kote: 'arms',
   kin_suneate: 'legs',
+  // 忍者の足袋（#293 試作）
+  ninja_tabi: 'legs',
 };
 
 /** そうびの部位の順（画面・保存・落とす順） */

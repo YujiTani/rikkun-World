@@ -30,6 +30,16 @@ interface LiveSong {
 
 const TIMER_MS = 25;
 
+/** play() の おまけ（ふだんの 場面では 渡さない） */
+export interface BgmPlayOpts {
+  /** null に する とき の フェードアウト（秒） */
+  fadeOutSec?: number;
+  /** 無音から 曲が 入る とき の フェードイン（秒） */
+  fadeInSec?: number;
+  /** 無音から 入る とき、曲を はじめる まで 待つ 秒 */
+  delaySec?: number;
+}
+
 export class BgmPlayer {
   private songs: LiveSong[] = [];
   private cur: LiveSong | null = null;
@@ -42,15 +52,15 @@ export class BgmPlayer {
 
   constructor(private readonly mixer: AudioMixer) {}
 
-  /** 同じ曲なら何もしない。null は fadeOut（0.8 秒）。AudioContext が まだ無いときは何もしない（あとで また呼ぶ） */
-  play(song: BgmSong | null): void {
+  /** 同じ曲なら何もしない。null は fadeOut（0.8 秒。opts.fadeOutSec で変えられる）。opts.fadeInSec / delaySec は 無音から 入る とき（前の曲が ない）だけ きく（#293 がしゃどくろの 曲との 入れかえ用）。AudioContext が まだ無いときは何もしない（あとで また呼ぶ） */
+  play(song: BgmSong | null, opts?: BgmPlayOpts): void {
     const out = this.mixer.output();
     const bgmBus = this.mixer.bgmInput();
     if (!out || !bgmBus) return;
     const ctx = out.ctx;
     if (song === null) {
       if (this.cur) {
-        this.fadeOutSong(this.cur, MIX.fadeOut);
+        this.fadeOutSong(this.cur, opts?.fadeOutSec ?? MIX.fadeOut);
         this.cur = null;
       }
       return;
@@ -60,7 +70,8 @@ export class BgmPlayer {
     // 3 曲目: 鳴っている曲が 2 つあるなら いちばん古い曲を 0.1 秒で消す
     const audible = this.songs.filter((s) => !s.killed);
     if (audible.length >= 2) this.fadeOutSong(audible[0], MIX.quickFade, true);
-    const sec = this.cur ? MIX.crossfade : MIX.fadeIn;
+    const sec = this.cur ? MIX.crossfade : (opts?.fadeInSec ?? MIX.fadeIn);
+    const delay = this.cur ? 0 : Math.max(0, opts?.delaySec ?? 0);
     if (this.cur) this.fadeOutSong(this.cur, MIX.crossfade);
 
     const def = BGM_SONGS[song];
@@ -68,7 +79,8 @@ export class BgmPlayer {
     fade.gain.value = 0;
     fade.connect(bgmBus);
     fade.gain.setValueAtTime(0, now);
-    fade.gain.linearRampToValueAtTime(1, now + sec);
+    if (delay > 0) fade.gain.setValueAtTime(0, now + delay);
+    fade.gain.linearRampToValueAtTime(1, now + delay + sec);
     const info = songInfo(def);
     const bus = createSongBus(ctx, fade, def);
     let events = this.compiled.get(song);
@@ -76,7 +88,7 @@ export class BgmPlayer {
       events = compileSong(def, BGM_INSTRUMENTS, BGM_KIT);
       this.compiled.set(song, events);
     }
-    const live: LiveSong = { key: song, info, events, bus, fade, start: now + 0.05, step: 0, stopAt: Infinity, killed: false };
+    const live: LiveSong = { key: song, info, events, bus, fade, start: now + 0.05 + delay, step: 0, stopAt: Infinity, killed: false };
     this.songs.push(live);
     this.cur = live;
     if (this.timer === null) this.timer = setInterval(() => this.tick(), TIMER_MS);

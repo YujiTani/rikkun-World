@@ -20,6 +20,7 @@ export const ARMOR_KIND: Readonly<Record<string, 'normal' | 'ball' | 'fall'>> = 
   kin_yoroi: 'normal',
   kin_kote: 'normal',
   kin_suneate: 'fall',
+  ninja_tabi: 'fall',
 };
 
 /** なかま の 文（WEAPON-2 §4.6 (8)）。「なにに つかう」の 下に 出す */
@@ -149,6 +150,8 @@ export const ITEM_INFO: Readonly<Record<string, InfoRow>> = {
   yoroi: { use: 'ようかい の こうげき を へらす（からだ）', how: WEAR_HOW, buttons: ['1-9', 'right'], stats: 'armor' },
   kote: { use: 'ようかい の こうげき を へらす（うで）', how: WEAR_HOW, buttons: ['1-9', 'right'], stats: 'armor' },
   suneate: { use: 'たかい ところ から おちた いたみ を へらす（あし）', how: WEAR_HOW, buttons: ['1-9', 'right'], stats: 'armor' },
+  // #293 試作: 忍者の足袋（すねあてと おなじ あしの マス。どちらか 1 つ）
+  ninja_tabi: { use: 'たかい ところ から おちても いたく ない（あし）', how: WEAR_HOW, buttons: ['1-9', 'right'], stats: 'armor' },
 
   // ---- 働きが あとのもの（6）
   lantern: later('おいて あかるく できるように なるよ（もうすぐ）'),

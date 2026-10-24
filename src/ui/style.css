@@ -24,20 +24,6 @@ body {
   text-shadow: 0 2px 0 #000;
 }
 
-#title {
-  position: absolute;
-  top: 16px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 40px;
-  font-weight: bold;
-}
-
-#title small {
-  font-size: 24px;
-  margin-left: 12px;
-}
-
 rt {
   font-size: 0.5em;
 }

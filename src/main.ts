@@ -153,7 +153,6 @@ import { bindKeyboardAndMouse } from './input/actions';
 import { LockController, MouseLook, WheelAccumulator, bindPointerLock, createInputHook, createLockHook } from './input';
 import { createPlayerHook } from './player/hook';
 import { PlayerController } from './player/PlayerController';
-import { mountHud } from './ui/hud';
 import { PlayOverlay } from './ui/playOverlay';
 import { ArrayVoxelWorld } from './world/VoxelWorld';
 import { GEN_CONFIG } from './world/gen/config';
@@ -165,11 +164,15 @@ import { createWorldHook } from './world/hook';
 import { WorldRenderer } from './world/render/WorldRenderer';
 import { decideFrameClock } from './world/frameClock';
 import { MICRO_RADII } from './world/render/voxel/tier';
+import { createGashaRelease, gashaHook, type BossHandle, type GirlHooks, type GashaRelease } from './gasha/release';
+import { gashaEnabled } from './gasha/spawnRule';
+import type { GashaBigDeps } from './proto/gashaBig';
+import type { GashaGirlDeps } from './proto/gashaGirl';
 import { setKataTable } from './proto/voxel/looks';
 import { decideKata } from './proto/voxel/looks/kata';
 import { createRenderHook } from './world/render/renderHook';
 import { BlobShadow, BLOB, groundBelow } from './fx/blobShadow';
-import { WATER, isSolidIndex } from './world/blocks/blockTypes';
+import { WATER, blockIndexOf, isSolidIndex } from './world/blocks/blockTypes';
 import { ShadowSystem } from './world/render/shadow/ShadowSystem';
 import { createShadowHook } from './world/render/shadow/shadowHook';
 import { saveShadowPref } from './world/render/shadow/shadowPref';
@@ -359,7 +362,6 @@ const timeSettings = time.settings;
 const sky = new Sky({ scene: game.scene, time, timeSettings, lighting, light: renderer.light, focus: () => controller.state.position });
 
 // 入力・スタート画面
-mountHud(hud);
 const lock = new LockController();
 const wheel = new WheelAccumulator(game.input, () => lock.playInputEnabled());
 // 本（BOOK-1）が 出ている間だけ Backspace を 止める（ブラウザの「前のページへ」にならないように）
@@ -383,6 +385,8 @@ const soundSettingsUi = createSoundSettings({ audio: audioSettings, fx: FX_SETTI
 for (const ev of ['pointerdown', 'keydown'] as const) window.addEventListener(ev, () => mixer.unlock(), true);
 document.addEventListener('visibilitychange', () => mixer.setHidden(document.hidden));
 mixer.setHidden(document.hidden);
+let gashaBgmFade: { outSec?: number; inSec?: number; delaySec?: number } = {}; // #293 試作: ふだんの BGM の フェード（gashaBgm.ts が きめる）
+let girlBgmOn = false; // #293 試作: がしゃどくろの 曲（gashaBgm.ts。少女「災厄」・大きな 姿「神々の 戯れ」）が 流れて いる 間 true。係は ページに 1 つ なので 少女と 大きな 姿で ぶつからない
 let audioKey = '';
 let audioYokai: BgmSceneInput['yokai'] = [];
 /** 設定が変わっていたら ミキサーに反映・保存・画面を合わせる */
@@ -399,7 +403,8 @@ function audioStep(): void {
   audioSync();
   if (game.tick % 10 === 0) audioYokai = yokaiM.list().map((y) => ({ state: y.state, position: y.position }));
   const dead = combat.dead();
-  bgm.play(bgmScene.update({ tick: game.tick, phase: time.phase(), player: controller.state.position, yokai: audioYokai, dead }));
+  if (girlBgmOn) bgm.play(null, gashaBgmFade); // #293 試作: 少女の 間は ふだんの BGM を 止める（「災厄」を 流す）
+  else { bgm.play(bgmScene.update({ tick: game.tick, phase: time.phase(), player: controller.state.position, yokai: audioYokai, dead }), gashaBgmFade); if (bgm.current() !== null) gashaBgmFade = {}; }
   const mode = screen.mode();
   mixer.setScreenLevel(screenLevel(mode, dead));
   // 実績の おしらせ（上の 帯）が 出ている 間は BGM を さげる（ファンファーレを 聞かせる）
@@ -774,6 +779,7 @@ const handNow = (): typeof handInfo => {
 };
 const buffModel = createBuffModel();
 controller.lungeYokai = () => (yokaiManager ? yokaiManager.list() : []);
+let protoNoFall = false; // #293 試作: 間欠泉の 中・あと は 落下ダメージなし（?proto=gashaBig）
 const combat = new PlayerCombatImpl({
   config: combatCfg,
   tool: tools,
@@ -789,7 +795,7 @@ const combat = new PlayerCombatImpl({
   spawn: startPoint,
   // WEAPON-9: シャイニング中は 受ける ダメージ 1/3・落下ダメージなし
   takenMul: () => legend.takenMul(),
-  noFall: () => legend.noFall(),
+  noFall: () => legend.noFall() || protoNoFall,
   // 妖怪のねらい（CHAR-1 第 5.2 版 §4.5）: 届く距離は P から。S からの線で当たらないときは やさしい ねらい補助
   reachOrigin: (out) => aimPivot(world, controller.state.position, out),
   assist: (eye, dir, reach) => aimAssistPick(eye, dir, reach),
@@ -894,6 +900,8 @@ renderer.setCropStageSource({ stageAt: (x, y, z) => farm.crop(x, y, z)?.stage ??
     return n;
   };
 }
+// #293 試作: 体の 上に ブロックを 置く 口（?proto=gashaBig の ときだけ 後から 入る）
+let gashaBodyBlocks: import('./dig/bodyBlocks').BodyBlocksPort | null = null;
 const dig = new DigSystemImpl(
   world,
   () => controller.state,
@@ -905,6 +913,15 @@ const dig = new DigSystemImpl(
   createRng(20240601),
   combat,
   {
+    bodyBlocks: {
+      aim: (o, d, reach) => gashaBodyBlocks?.aim(o, d, reach) ?? null,
+      canPlace: (cell, block) => gashaBodyBlocks?.canPlace(cell, block) ?? false,
+      place: (cell, block) => gashaBodyBlocks?.place(cell, block) ?? false,
+      remove: (cell) => gashaBodyBlocks?.remove(cell) ?? null,
+      accepts: (block) => gashaBodyBlocks?.accepts(block) ?? false,
+      solid: (x, y, z) => gashaBodyBlocks?.solid(x, y, z) ?? false,
+      surfaceBelow: (x, y, z) => gashaBodyBlocks?.surfaceBelow(x, y, z) ?? null,
+    },
     tools,
     craft: {
       isFurnace: (x, y, z) => craft.isFurnace(x, y, z),
@@ -1514,6 +1531,8 @@ const defById = new Map(ACHIEVEMENT_DEFS.map((d) => [d.id, d]));
 const craftPanel = inventoryScreen.craftPanel!;
 const celebrate = new CelebrateUi({
   hud,
+  // 実績の おしらせ(帯)は body 直下: #hud の 外に 置くと、#hud の 中の メニュー・ボスの 体力ゲージより いつも 上に 出る
+  topLayer: document.body,
   badgeParent: noticeCluster(hud),
   sound: fxSound,
   screen,
@@ -1614,6 +1633,10 @@ onDefeatAch = (kind) => {
 };
 
 // 自動セーブ（?nosave=1 は保存しない、?reset=1 は消してから始める。消すのは開発サーバーだけ）
+let gashaRelease: GashaRelease | null = null;
+let gashaSavedPending: unknown = null;
+/** 保存にだけ 元の ブロックで 書く マス（ボスの 間欠泉が 作った つち。ボスが 出て いなければ 空） */
+let gashaSaveOverrides: () => Array<{ x: number; y: number; z: number; live: string; save: string }> = () => [];
 const save = new SaveManager({
   world,
   seed,
@@ -1626,6 +1649,7 @@ const save = new SaveManager({
     // 読みこんだら 向きはカメラの yaw と同じ（背中が見える）
     set: (v) => controller.set({ position: v.position, velocity: v.velocity, yawDeg: v.yawDeg, pitchDeg: START_PITCH_DEG, facingDeg: v.yawDeg }),
   },
+  saveOverrides: () => gashaSaveOverrides(),
   spawn: spawnPlain, // 保存の meta に 書くだけ（スタートへ もどす動きは しない）
   store,
   tick: () => game.tick,
@@ -1659,6 +1683,8 @@ const save = new SaveManager({
     },
   },
   legend: { serialize: () => legendBook.serialize(), deserialize: (d) => legendBook.deserialize(d) },
+  // #293: がしゃどくろの たおした 回数。係は あとで 作る ので、読みこみが 先に 来たら 預かって、作った あとで わたす
+  gasha: { serialize: () => gashaRelease?.serialize() ?? gashaSavedPending, deserialize: (d) => { gashaSavedPending = d; gashaRelease?.deserialize(d); } },
   // 農業: 作物・印。前の保存（印なし）には 読んだあとに 置きものを置く
   farm,
   // VOX-D: 列は stream が読みこむ。保険から戻したときの最初の保存は ready のあと
@@ -2294,7 +2320,9 @@ game.onUpdate(() => {
     const b = world.getIndex(bx, y, bz);
     return b === WATER ? 'water' : b > 0 && isSolidIndex(b) ? 'solid' : 'other';
   });
-  blobShadow.update(p, ground, rig.doll.group.visible);
+  // #293: がしゃどくろの 体・ガラスの 雲・置いた ブロックの 上でも 足もとに 丸い 影（真下の いちばん 近い 体の 上面の 高さ。ワールドの 地面より 高い ほうを 使う）
+  const onBody = gashaBodyBlocks?.surfaceBelow(p.x, p.y, p.z) ?? null;
+  blobShadow.update(p, onBody !== null && (ground === null || onBody > ground) ? onBody : ground, rig.doll.group.visible);
 });
 // ロックがないあいだは時間を止める。F3 だけは効く（M1-02 §2.4）
 game.setRealtimeGate(() => lock.realtimeAllowed());
@@ -2645,4 +2673,52 @@ installTestHook(game, overlay, () => host.everReady, {
       renderer.config,
     ]),
 }, frameClock);
+// #293: 少女（第二形態）の 入り口。試作ページ（?proto=gashaGirl、開発サーバーだけ）と ふだんの ゲーム（src/gasha/release.ts。体力 1/3 で きりかえる）の 両方が 使う
+const girlDeps = (): GashaGirlDeps => ({ scene: game.scene, camera: game.camera, onUpdate: (fn) => game.onUpdate(fn), onBeforeRender: (fn) => game.onBeforeRender(fn), solid: (x, y, z) => world.isSolid(x, y, z), player: () => ({ ...controller.state.position, yawDeg: controller.state.yawDeg, vx: controller.state.velocity.x, vz: controller.state.velocity.z }), hurt: (amount, from) => combat.damage(amount, 'karakasa', from), parry: (h) => { const r = parry.hit({ dirDeg: h.dirDeg, yawDeg: controller.state.yawDeg, by: h.by, yokaiId: null, amount: h.amount }); if (r.first) parryFx.spark(bladeMidInto(sparkAt, controller.state.position, controller.state.facingDeg), reducedMotionMq?.matches ?? false, controller.state.facingDeg); return { result: r.result, amount: r.amount }; }, bgmOut: () => { const o = mixer.output(); const b = mixer.bgmInput(); return o && b ? { ctx: o.ctx, bus: b } : null; }, sfxOut: () => mixer.output(), suppressBgm: (on, f) => { girlBgmOn = on; if (f) gashaBgmFade = { ...gashaBgmFade, ...f }; }, hp: () => combat.hp(), maxHp: () => combat.maxHp(), groundY: (x, z) => island.groundHeight(x, z) });
+const startGirlBoss = (hooks: GirlHooks) =>
+  import('./proto/gashaGirl').then((m) => m.startGashaGirl(girlDeps(), { dormant: true, ...hooks }));
+// #293 試作（開発サーバーだけ）: ?proto=gashaGirl で 少女の 大きさくらべ
+if (import.meta.env.DEV && new URLSearchParams(location.search).get('proto') === 'gashaGirl') {
+  void import('./proto/gashaGirl').then((m) => m.startGashaGirl(girlDeps()));
+}
+// #293: がしゃどくろ（大きな 姿）を 作って 動かす 口。試作ページ（?proto=gashaBig、開発サーバーだけ）と ふだんの ゲーム（src/gasha/release.ts。wrap で 入り口を すりかえる）の 両方が 使う。当たりは「追加の 固いマス」として プレイヤーの 当たりに 重ねる
+const startBigBoss = (wrap: (d: GashaBigDeps) => GashaBigDeps = (d) => d, at?: { x: number; z: number; yawDeg?: number }) =>
+  Promise.all([import('./proto/gashaBig'), import('./proto/gashaBigHitWire')]).then(([m, hw]) => m.startGashaBig(wrap({ scene: game.scene, camera: game.camera, player: () => ({ ...controller.state.position, yawDeg: controller.state.yawDeg }), groundY: (x, z) => island.groundHeight(x, z), lighting, addPlayerSolid: (fn) => { const orig = world.isSolidForPlayer.bind(world); world.isSolidForPlayer = (x, y, z) => orig(x, y, z) || fn(x, y, z); }, onUpdate: (fn) => game.onUpdate(fn), playerBody: () => controller.state, setPlayerVelocity: (v) => { controller.set({ velocity: v }); }, nudgePlayer: (dx, dz) => { const st = controller.state; st.position.x += dx; st.position.z += dz; }, setNoFall: (on) => { protoNoFall = on; }, blockAt: (x, y, z) => world.getBlock(x, y, z), setGeyserBlock: (x, y, z) => world.setBlock(x, y, z, 'geyser_dirt'), restoreGeyserBlock: (x, y, z, id) => world.setBlock(x, y, z, id as Parameters<typeof world.setBlock>[3]), scanGeyserBlocks: (found) => { const si = blockIndexOf('geyser_dirt'); world.scanBlocks((i) => i === si, (x, y, z) => found(x, y, z)); }, giveNinjaTabi: () => { if (armor.equipped('legs') === 'ninja_tabi') return; const old = armor.equippedStack('legs'); if (old) inventory.add(old.item, 1); armor.set(armor.equipped('head'), armor.equipped('body'), armor.equipped('arms'), 'ninja_tabi'); }, bgmOut: () => { const o = mixer.output(); const b = mixer.bgmInput(); return o && b ? { ctx: o.ctx, bus: b } : null; }, sfxOut: () => mixer.output(), suppressBgm: (on, f) => { girlBgmOn = on; if (f) gashaBgmFade = { ...gashaBgmFade, ...f }; }, carryPlayer: (dx, dy, dz, dYaw) => { const st = controller.state; st.position.x += dx; st.position.y += dy; st.position.z += dz; st.yawDeg = (((st.yawDeg + dYaw) % 360) + 360) % 360; }, hurt: (amount, from) => combat.damage(amount, 'karakasa', from), blockPlayerInput: (fn) => { const orig = lock.playInputEnabled.bind(lock); lock.playInputEnabled = () => orig() && !fn(); }, onBeforeRender: (fn) => game.onBeforeRender(fn), reducedMotion: () => reducedMotionMq?.matches ?? false, setBlockAir: (x, y, z) => world.setBlock(x, y, z, 'air'), onCrushBlocks: (cells) => { for (const c of cells.slice(0, 40)) fx.particles.burst({ x: c.x, y: c.y, z: c.z }, c.from as Parameters<typeof fx.particles.burst>[1], FX_SETTINGS); fxSound.play('break'); }, onGlassBreak: (cells) => { for (const c of cells.slice(0, 24)) fx.particles.burst({ x: Math.floor(c.x), y: Math.floor(c.y), z: Math.floor(c.z) }, 'snow', FX_SETTINGS); fxSound.play('break'); }, hitStop: (n) => game.hitStop(n), shake: (a) => { if (FX_SETTINGS.fxShake) rig.addTrauma(a); }, onCoreWarn: () => playLegend(fxSound, 'lightning'), onCoreThrow: () => playLegend(fxSound, 'spiralWind'), onBodyBlocks: (port) => { gashaBodyBlocks = port; }, onSaveOverrides: (get) => { gashaSaveOverrides = get; },
+    // 本物の 攻撃（刀・ためわざ・波・矢・パンチ）を がしゃどくろの 箱に 当てる 口
+    hit: hw.makeHitSources({ blade, waves: () => waveSys.list(), legend, held: () => { const h = inventory.held(); return h ? { item: h.item, power: h.power } : null; }, settings: w2, weaponDamage: (item) => legendPowerOf(w2, item, item === 'niji' ? (inventory.held()?.power ?? null) : null) ?? toolConfig.weaponDamage[item] ?? 1, yokai: () => yokaiManager, sound: () => playCombat(fxSound, 'hit') }) }), at));
+if (import.meta.env.DEV && new URLSearchParams(location.search).get('proto') === 'gashaBig') void startBigBoss();
+// #293 リリース: がしゃどくろを ふだんの ゲームに 出す（ゲームの 1 日の あさごとに 約 3 割で、プレイヤーから 150〜250 ブロック先に 1 体。たおすか 遠くへ はなれると 消える。たおすと 赤い コアが 出て、たたく たびに アイテムが ばらまかれる）。数は src/gasha/releaseTuning.ts
+// 開発用に すぐ 出すには コンソールで `__rikkun.gasha.spawn()`（距離・向きは `{ distance: 40, angleDeg: 0 }`）。たおした ことに するのは `__rikkun.gasha.defeat()`
+gashaRelease = createGashaRelease({
+  seed,
+  enabled: gashaEnabled(location.search, navigator.webdriver === true),
+  player: () => ({ x: controller.state.position.x, y: controller.state.position.y, z: controller.state.position.z, yawDeg: controller.state.yawDeg }),
+  isLand: (x, z) => !island.terrainAt(Math.floor(x), Math.floor(z)).sea,
+  isLoaded: (x, z) => world.isLoaded(x, z),
+  terrainTop: (x, z) => island.terrainAt(Math.floor(x), Math.floor(z)).h,
+  groundY: (x, z) => {
+    // 読みこんだ 列の 本当の いちばん 上（置いた ブロック・家・畑も ふくむ。木の 葉は 数えない）。体を 出す 高さ用
+    const ix = Math.floor(x), iz = Math.floor(z), base = island.groundHeight(x, z);
+    for (let y = base + 40; y > base; y--) {
+      if (!world.isSolid(ix, y, iz)) continue;
+      const b = world.getBlock(ix, y, iz) as string;
+      if (b === 'leaves' || b === 'matsu_leaves' || b === 'momiji_leaves') continue;
+      return y;
+    }
+    return base;
+  },
+  start: (wrap, at) => startBigBoss(wrap, at) as Promise<BossHandle>,
+  startGirl: (hooks) => startGirlBoss(hooks),
+  scatter: (at, stacks, opts) => { drops.scatter(at, stacks, opts); },
+  record: (key) => { achievements.record(key); },
+  say: () => { log.defeat('がしゃどくろ'); },
+  bgmReset: () => { (globalThis as unknown as { __gashaBgm?: { reset(): void } }).__gashaBgm?.reset(); },
+  sound: (name) => { fxSound.play(name); },
+  showBar: (on) => { const e = document.getElementById('gashaBigHp'); if (e) e.style.display = on ? '' : 'none'; },
+});
+const gashaRel = gashaRelease;
+if (gashaSavedPending) gashaRel.deserialize(gashaSavedPending);
+game.onUpdate((dt) => gashaRel.step(dt));
+time.onPhaseChange((p) => { if (p === 'day') gashaRel.onMorning(time.day()); });
+if (window.__rikkun) window.__rikkun.gasha = gashaHook(gashaRel);
 game.start();

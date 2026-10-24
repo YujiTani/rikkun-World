@@ -76,6 +76,7 @@ export function buildTooltip(item: ItemId, d: TooltipDeps, stack?: ItemStack | n
   if (item === 'kabuto' || item === 'kin_kabuto') add('たま から まもる', item);
   if (item === 'yoroi' || item === 'kote' || item === 'kin_yoroi' || item === 'kin_kote') add('こうげき から まもる', item);
   if (item === 'suneate' || item === 'kin_suneate') add('おちても いたくない', item);
+  if (item === 'ninja_tabi') add('たかい ところ から おちても いたく ない', item);
   if (item === 'kuwa') {
     add(`ほる つよさ ${tools.toolPower[item] ?? 1}`, item);
     add('つち に つよい', item);

@@ -1,0 +1,279 @@
+/**
+ * #293 試作: がしゃどくろの 体の 中の 道に 生い茂る こけ・くさ（yuzu 2026-10-24「くさやコケは ブロックタイプではなく、十字の ドット絵みたいな やつで 装飾」）。
+ * ゲームの くさ（FLORA-75。src/world/blocks/textures.ts の kusaTile）と おなじ 色・おなじ 作りの「十字の 板」（たての 板を 2 まい ななめに 交差）と、
+ * 面に はる 平らな こけの しきもの。ブロックの 種類では ない ので 当たりは なし。描くのは InstancedMesh（種類ごとに 1 回）。
+ * 数（密度・大きさ・上限）は gashaBigTuning.ts の core.moss。
+ */
+import { BufferGeometry, DataTexture, DoubleSide, Float32BufferAttribute, InstancedBufferAttribute, InstancedMesh, Matrix4, MeshBasicMaterial, NearestFilter, Quaternion, RGBAFormat, SRGBColorSpace, Vector3 } from 'three';
+import type { Object3D } from 'three';
+
+/** 平らな 四角い 面（torso の 座標）に、面の 外むきが up。o + a·s + b·t（s, t = 0〜1）の 上に 生やす */
+export interface PlantSurface { o: Vector3; a: Vector3; b: Vector3; up: Vector3; density: number }
+
+export interface PlantOpt {
+  /** 体の 座標 → 取りつける 関節の 中の 座標 */
+  parent: Matrix4;
+  size: readonly [number, number];
+  /** こけの しきものを 重ねる 割合（0〜1） */
+  carpet: number;
+  max: number;
+  seed: number;
+}
+
+// ---------------------------------------------------------------- 絵（16 × 16 を 3 まい よこに 並べる: くさ・こけの 房・こけの しきもの）
+const hex = (h: string): [number, number, number] => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+let atlas: DataTexture | null = null;
+export function plantTexture(): DataTexture {
+  if (atlas) return atlas;
+  const N = 16, W = N * 3, d = new Uint8Array(W * N * 4);
+  // 上から y 行目 → データでは 下から 数える（DataTexture の はじめの 行は 下）
+  const put = (tile: number, x: number, y: number, c: [number, number, number]): void => {
+    if (x < 0 || x >= N || y < 0 || y >= N) return;
+    const i = ((N - 1 - y) * W + tile * N + x) * 4;
+    d[i] = c[0]; d[i + 1] = c[1]; d[i + 2] = c[2]; d[i + 3] = 255;
+  };
+  // 0: くさ（kusaTile と おなじ 7 本の は。色も おなじ）
+  const blades: [number, number, number][] = [[2, 9, -1], [4, 7, 0], [6, 10, 1], [8, 8, 0], [10, 9, -1], [12, 7, 1], [14, 10, 0]];
+  for (const [x, top, lean] of blades) {
+    for (let y = top; y < N; y++) {
+      const k = (y - top) / (N - top);
+      const xx = x + (k < 0.4 ? lean : 0);
+      put(0, xx, y, hex(y === top ? '#B7D65A' : y < top + 2 ? '#8CC24A' : '#4E9A36'));
+      if (y > 13) put(0, xx + 1, y, hex('#3E8B2F'));
+    }
+  }
+  // 1: こけの 房（みじかく ふさふさ。ひろい はばで 2 〜 3 ぎょう ごとに 明るい 点）
+  for (let x = 0; x < N; x++) {
+    const top = 8 + ((x * 5 + (x >> 2) * 3) % 5);
+    for (let y = top; y < N; y++) {
+      const c = y === top ? '#B7D65A' : (x + y) % 5 === 0 ? '#6DBE45' : y < top + 3 ? '#8CC24A' : y > 13 ? '#3E8B2F' : '#4E9A36';
+      put(1, x, y, hex(c));
+    }
+  }
+  // 2: こけの しきもの（まるい かたまり。ふちは ぎざぎざ。点々の 明るい 緑）
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const dx = (x - 7.5) / 7.6, dy = (y - 7.5) / 7.6, r = Math.hypot(dx, dy) + (((x * 7 + y * 13) % 5) - 2) * 0.05;
+    if (r > 1) continue;
+    const n = (x * 31 + y * 17) % 9;
+    put(2, x, y, hex(n === 0 ? '#B7D65A' : n < 3 ? '#6DBE45' : n < 6 ? '#58A83A' : r > 0.8 ? '#3E8B2F' : '#4E9A36'));
+  }
+  const t = new DataTexture(d, W, N, RGBAFormat);
+  t.magFilter = NearestFilter; t.minFilter = NearestFilter; t.colorSpace = SRGBColorSpace; t.generateMipmaps = false; t.needsUpdate = true;
+  return (atlas = t);
+}
+
+// ---------------------------------------------------------------- 形
+/** 十字の 板（たて 2 まいが ななめに 交差。足もとが 原点・高さ 1・はば 1） */
+function crossGeo(tile: number): BufferGeometry {
+  const u0 = tile / 3, u1 = (tile + 1) / 3;
+  const pos: number[] = [], uv: number[] = [], idx: number[] = [];
+  for (const a of [Math.PI / 4, -Math.PI / 4]) {
+    const dx = Math.cos(a) * 0.5, dz = Math.sin(a) * 0.5, n = pos.length / 3;
+    pos.push(-dx, 0, -dz, dx, 0, dz, dx, 1, dz, -dx, 1, -dz);
+    uv.push(u0, 0, u1, 0, u1, 1, u0, 1);
+    idx.push(n, n + 1, n + 2, n, n + 2, n + 3);
+  }
+  const g = new BufferGeometry();
+  g.setAttribute('position', new Float32BufferAttribute(pos, 3));
+  g.setAttribute('uv', new Float32BufferAttribute(uv, 2));
+  g.setIndex(idx);
+  return g;
+}
+/** こけの しきもの（平らな 1 まい。上むき） */
+function carpetGeo(tile: number): BufferGeometry {
+  const u0 = tile / 3, u1 = (tile + 1) / 3;
+  const g = new BufferGeometry();
+  g.setAttribute('position', new Float32BufferAttribute([-0.5, 0.03, -0.5, 0.5, 0.03, -0.5, 0.5, 0.03, 0.5, -0.5, 0.03, 0.5], 3));
+  g.setAttribute('uv', new Float32BufferAttribute([u0, 0, u1, 0, u1, 1, u0, 1], 2));
+  g.setIndex([0, 2, 1, 0, 3, 2]);
+  return g;
+}
+
+function rnd(seed: number): () => number {
+  let s = seed >>> 0;
+  return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
+}
+
+export const plantMaterial = (): MeshBasicMaterial => new MeshBasicMaterial({ map: plantTexture(), alphaTest: 0.5, side: DoubleSide, vertexColors: false });
+
+/** 面の 一覧から 生える ところを きめて、InstancedMesh を 3 つ（くさ・こけの 房・こけの しきもの）返す。数が 0 の ものは 返さない */
+export function buildPlants(surfaces: readonly PlantSurface[], opt: PlantOpt, material: MeshBasicMaterial): { meshes: InstancedMesh[]; count: number } {
+  const r = rnd(opt.seed);
+  const lists: Matrix4[][] = [[], [], []];
+  const tints: number[][] = [[], [], []];
+  // 先に 全体の 数を 数えて、上限を こえたら 間引く
+  const want = surfaces.map((s) => Math.max(0, s.a.length() * s.b.length() * s.density));
+  const total = want.reduce((a, b) => a + b, 0);
+  const keep = total > opt.max ? opt.max / total : 1;
+  const q = new Quaternion(), qy = new Quaternion(), UPY = new Vector3(0, 1, 0), pos = new Vector3(), sc = new Vector3(), m = new Matrix4();
+  surfaces.forEach((s, si) => {
+    const n = Math.floor(want[si]! * keep + r());
+    q.setFromUnitVectors(UPY, s.up.clone().normalize());
+    for (let i = 0; i < n; i++) {
+      pos.copy(s.o).addScaledVector(s.a, r()).addScaledVector(s.b, r()).addScaledVector(s.up, 0.02);
+      const size = opt.size[0] + (opt.size[1] - opt.size[0]) * r();
+      qy.setFromAxisAngle(UPY, r() * Math.PI * 2);
+      const put = (tile: number, k: number, hk: number): void => {
+        sc.set(size * k, size * hk, size * k);
+        m.compose(pos, q.clone().multiply(qy), sc).premultiply(opt.parent);
+        lists[tile]!.push(m.clone());
+        tints[tile]!.push(0.82 + r() * 0.28);
+      };
+      put(r() < 0.5 ? 0 : 1, 1, 0.6 + r() * 0.4);
+      if (r() < opt.carpet) put(2, 1.3 + r() * 0.8, 1);
+    }
+  });
+  const meshes: InstancedMesh[] = [];
+  let count = 0;
+  for (let tile = 0; tile < 3; tile++) {
+    const L = lists[tile]!;
+    if (!L.length) continue;
+    const mesh = new InstancedMesh(tile === 2 ? carpetGeo(tile) : crossGeo(tile), material, L.length);
+    const col = new Float32Array(L.length * 3);
+    L.forEach((mm, i) => { mesh.setMatrixAt(i, mm); const t = tints[tile]![i]!; col[i * 3] = t; col[i * 3 + 1] = t; col[i * 3 + 2] = t; });
+    mesh.instanceColor = new InstancedBufferAttribute(col, 3);
+    mesh.instanceMatrix.needsUpdate = true;
+    mesh.frustumCulled = false;
+    mesh.name = `plants${tile}`;
+    meshes.push(mesh);
+    count += L.length;
+  }
+  return { meshes, count };
+}
+
+// ---------------------------------------------------------------- 体の 外がわの こけ・くさ（まばらに かたまりで）
+export interface OutsideHit { name: string; joint: string; c: Vector3; axes: readonly [Vector3, Vector3, Vector3]; half: readonly [number, number, number] }
+export interface OutsideOpt {
+  /** 部品の 名前の はじめ → 生えやすさ。いちばん 長く あう ものを 使う。表に ない 部品には 生えない */
+  parts: Readonly<Record<string, number>>;
+  /** かたまりの 数 */
+  count: number;
+  /** 1 かたまりの 板の 数 */
+  clump: number;
+  /** 1 かたまりの 広がり（もとの 座標） */
+  radius: number;
+  size: readonly [number, number];
+  carpet: number;
+  /** よこ・うしろの 面に 生やす 割合（上の 面を 1 として） */
+  sideFrac: number;
+  max: number;
+  seed: number;
+}
+export interface OutsideMoss {
+  meshes: InstancedMesh[]; count: number; clumps: number; update(): void;
+  /** 世界の 点 c から radius いないの こけ・くさを 焼いて 消す（最大 max 枚）。消した 枚の 番号を 返す */
+  burn(c: { x: number; y: number; z: number }, radius: number, max?: number): number[];
+  /** burn で 消した 枚を もどす */
+  restore(ids: readonly number[]): void;
+  /** いま 消えて いる 枚の 数 */
+  hiddenCount(): number;
+}
+
+/** 体の 部品（当たりの 箱）の 外がわの 面（上・よこ）に、くさ・こけの かたまりを まばらに 生やす。
+ *  かたまりは 部品の 関節の 動きに ついて 動く（毎コマ update で 板の 位置を 関節の 行列から 作りなおす）。描くのは 3 つの InstancedMesh だけ。当たりは なし。 */
+export function buildOutsideMoss(
+  hits: readonly OutsideHit[], rest: Record<string, Vector3>, joints: Record<string, Object3D>, group: Object3D, opt: OutsideOpt, material: MeshBasicMaterial,
+): OutsideMoss {
+  const r = rnd(opt.seed);
+  const keys = Object.keys(opt.parts).sort((a, b) => b.length - a.length);
+  const weightOf = (name: string): number => { const k = keys.find((q) => name.startsWith(q)); return k ? opt.parts[k]! : 0; };
+  interface Face { h: OutsideHit; n: Vector3; t1: Vector3; t2: Vector3; e1: number; e2: number; ha: number; w: number }
+  const faces: Face[] = [];
+  for (const h of hits) {
+    const pw = weightOf(h.name);
+    if (pw <= 0) continue;
+    for (let a = 0; a < 3; a++) for (const s of [1, -1]) {
+      const n = h.axes[a]!.clone().multiplyScalar(s);
+      const t1 = h.axes[(a + 1) % 3]!.clone(), t2 = h.axes[(a + 2) % 3]!.clone();
+      const e1 = h.half[(a + 1) % 3]!, e2 = h.half[(a + 2) % 3]!, area = 4 * e1 * e2;
+      const w = n.y > 0.7 ? pw * area : Math.abs(n.y) < 0.5 ? pw * area * opt.sideFrac : 0;
+      if (w > 0) faces.push({ h, n, t1, t2, e1, e2, ha: h.half[a]!, w });
+    }
+  }
+  const total = faces.reduce((q, f) => q + f.w, 0);
+  const pick = (): Face => { let x = r() * total; for (const f of faces) { x -= f.w; if (x <= 0) return f; } return faces[faces.length - 1]!; };
+  interface Inst { joint: string; local: Matrix4; hidden?: boolean }
+  const inst: Inst[][] = [[], [], []], tints: number[][] = [[], [], []];
+  const q = new Quaternion(), qy = new Quaternion(), UPY = new Vector3(0, 1, 0), pos = new Vector3(), sc = new Vector3();
+  let clumps = 0, made = 0;
+  const per = Math.min(1, opt.max / Math.max(1, opt.count * opt.clump * (1 + opt.carpet)));
+  for (let c = 0; c < opt.count && faces.length; c++) {
+    const f = pick();
+    const cs = (r() * 2 - 1) * f.e1, ct = (r() * 2 - 1) * f.e2;
+    clumps++;
+    const n = Math.max(1, Math.round(opt.clump * per));
+    q.setFromUnitVectors(UPY, f.n);
+    for (let i = 0; i < n; i++) {
+      const ang = r() * Math.PI * 2, rad = Math.sqrt(r()) * opt.radius;
+      const u = Math.max(-f.e1 + 0.2, Math.min(f.e1 - 0.2, cs + Math.cos(ang) * rad)), v = Math.max(-f.e2 + 0.2, Math.min(f.e2 - 0.2, ct + Math.sin(ang) * rad));
+      pos.copy(f.h.c).addScaledVector(f.n, f.ha + 0.02).addScaledVector(f.t1, u).addScaledVector(f.t2, v).sub(rest[f.h.joint]!);
+      const size = opt.size[0] + (opt.size[1] - opt.size[0]) * r();
+      qy.setFromAxisAngle(UPY, r() * Math.PI * 2);
+      const put = (tile: number, k: number, hk: number): void => {
+        sc.set(size * k, size * hk, size * k);
+        inst[tile]!.push({ joint: f.h.joint, local: new Matrix4().compose(pos, q.clone().multiply(qy), sc) });
+        tints[tile]!.push(0.82 + r() * 0.28);
+        made++;
+      };
+      put(r() < 0.5 ? 0 : 1, 1, 0.6 + r() * 0.4);
+      if (r() < opt.carpet) put(2, 1.3 + r() * 0.8, 1);
+    }
+  }
+  const meshes: InstancedMesh[] = [];
+  const lists: { mesh: InstancedMesh; list: Inst[] }[] = [];
+  for (let tile = 0; tile < 3; tile++) {
+    const L = inst[tile]!;
+    if (!L.length) continue;
+    const mesh = new InstancedMesh(tile === 2 ? carpetGeo(tile) : crossGeo(tile), material, L.length);
+    const col = new Float32Array(L.length * 3);
+    tints[tile]!.forEach((t, i) => { col[i * 3] = t; col[i * 3 + 1] = t; col[i * 3 + 2] = t; });
+    mesh.instanceColor = new InstancedBufferAttribute(col, 3);
+    mesh.frustumCulled = false;
+    mesh.name = `mossOut${tile}`;
+    mesh.userData.noDim = false;
+    meshes.push(mesh);
+    lists.push({ mesh, list: L });
+  }
+  const inv = new Matrix4(), rel = new Map<string, Matrix4>(), m = new Matrix4();
+  const update = (): void => {
+    group.updateMatrixWorld(true);
+    inv.copy(group.matrixWorld).invert();
+    rel.clear();
+    for (const { mesh, list } of lists) {
+      for (let i = 0; i < list.length; i++) {
+        const it = list[i]!;
+        let R = rel.get(it.joint);
+        if (!R) { R = new Matrix4().multiplyMatrices(inv, joints[it.joint]!.matrixWorld); rel.set(it.joint, R); }
+        if (it.hidden) { m.makeScale(0, 0, 0); mesh.setMatrixAt(i, m); continue; }
+        mesh.setMatrixAt(i, m.multiplyMatrices(R, it.local));
+      }
+      mesh.instanceMatrix.needsUpdate = true;
+    }
+  };
+  update();
+  const SHIFT = 100000, wp = new Vector3();
+  const burn = (c: { x: number; y: number; z: number }, radius: number, max = Infinity): number[] => {
+    group.updateMatrixWorld(true);
+    const found: { id: number; d: number }[] = [];
+    lists.forEach(({ list }, li) => {
+      for (let i = 0; i < list.length; i++) {
+        const it = list[i]!;
+        if (it.hidden) continue;
+        wp.setFromMatrixPosition(it.local).applyMatrix4(joints[it.joint]!.matrixWorld);
+        const d = Math.hypot(wp.x - c.x, wp.y - c.y, wp.z - c.z);
+        if (d <= radius) found.push({ id: li * SHIFT + i, d });
+      }
+    });
+    found.sort((a, b) => a.d - b.d);
+    const ids = found.slice(0, max).map((f) => f.id);
+    for (const id of ids) lists[Math.floor(id / SHIFT)]!.list[id % SHIFT]!.hidden = true;
+    if (ids.length) update();
+    return ids;
+  };
+  const restore = (ids: readonly number[]): void => {
+    for (const id of ids) { const l = lists[Math.floor(id / SHIFT)]; if (l) l.list[id % SHIFT]!.hidden = false; }
+    if (ids.length) update();
+  };
+  const hiddenCount = (): number => lists.reduce((n, l) => n + l.list.filter((x) => x.hidden).length, 0);
+  return { meshes, count: made, clumps, update, burn, restore, hiddenCount };
+}

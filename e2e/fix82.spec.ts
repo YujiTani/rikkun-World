@@ -47,9 +47,9 @@ test('砂の上の「もちものが いっぱい！」は ほる／おく の �
   expect(sig.top).toBeGreaterThanOrEqual(hint.bottom);
 });
 
-test('もちもの画面を開くと、うしろの HUD（題・時計・レベル・ホットバー）は消え、とじると もどる', async ({ page }) => {
+test('もちもの画面を開くと、うしろの HUD（時計・レベル・ホットバー）は消え、とじると もどる', async ({ page }) => {
   await fullOnSand(page);
-  const hudSel = ['#title', '#clock', '#hud-self', '#hotbar', '#crosshair'];
+  const hudSel = ['#clock', '#hud-self', '#hotbar', '#crosshair'];
   const opacities = () => page.evaluate((sels) => sels.map((s) => getComputedStyle(document.querySelector(s)!).opacity), hudSel);
   const toggle = () =>
     page.evaluate(() => {

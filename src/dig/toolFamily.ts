@@ -32,6 +32,7 @@ const BLOCK_FAMILY: Partial<Record<BlockId, ToolFamily>> = {
   snow: 'dirt',
   farmland: 'dirt',
   farmland_wet: 'dirt',
+  geyser_dirt: 'dirt',
 };
 
 const TOOL_FAMILY: Partial<Record<ItemId, ToolFamily>> = {

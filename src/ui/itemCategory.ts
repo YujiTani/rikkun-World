@@ -37,7 +37,7 @@ export const ITEM_CATEGORIES: readonly ItemCategory[] = [
 
 /** カテゴリーごとの アイテム（§3.5 (7) の表 そのまま） */
 export const CATEGORY_ITEMS: Readonly<Record<ItemCategory, readonly string[]>> = {
-  soil: ['dirt', 'sand', 'snow'],
+  soil: ['dirt', 'sand', 'snow', 'geyser_dirt'],
   stone: ['stone'],
   plant: ['grass', 'log', 'leaves', 'seed_onion', 'seed_tomato', 'seed_pumpkin', 'seed_eggplant', 'momiji_leaves', 'matsu_leaves', 'flower_y', 'flower_o', 'flower_p', 'bamboo', 'mushi', 'nobana', 'harapan_mimizu'],
   ore: ['coal_ore', 'iron_ore'],
@@ -46,7 +46,7 @@ export const CATEGORY_ITEMS: Readonly<Record<ItemCategory, readonly string[]>> =
   metal: ['iron_ingot', 'crystal', 'kin'],
   tool: ['wood_pickaxe', 'stone_pickaxe', 'iron_pickaxe', 'wood_axe', 'stone_axe', 'iron_axe', 'kin_pickaxe', 'kin_axe', 'kuwa', 'watering_can', 'long_watering_can', 'bucket', 'water_bucket', 'mushi_ami'],
   weapon: ['bokuto', 'katana', 'naginata', 'crystal_katana', 'raijin_ken', 'fujin_ken', 'niji', 'kin_katana', 'kin_yumi', 'yumi', 'ya'],
-  armor: ['kabuto', 'yoroi', 'kote', 'suneate', 'kin_kabuto', 'kin_yoroi', 'kin_kote', 'kin_suneate'],
+  armor: ['kabuto', 'yoroi', 'kote', 'suneate', 'ninja_tabi', 'kin_kabuto', 'kin_yoroi', 'kin_kote', 'kin_suneate'],
   light: ['torch', 'lantern'],
   home: ['furnace', 'tansu', 'futon', 'haniwa', 'kite', 'waraji', 'omamori', 'sprinkler', 'nukunuku', 'toriya'],
   food: ['onion', 'tomato', 'pumpkin', 'eggplant', 'egg', 'momo_nama', 'momo_yaki'],

@@ -72,7 +72,9 @@ export type BlockId =
   // こたつ 2×2 の のこり 3 マス（かど の `nukunuku` が 本体。ここは 持ち物 に 入らない。`src/world/blocks/kotatsu.ts`）
   | 'nukunuku_e' // 本体 の 東（+x）
   | 'nukunuku_s' // 本体 の 南（+z）
-  | 'nukunuku_se'; // 本体 の 南東
+  | 'nukunuku_se' // 本体 の 南東
+  // #293 試作（うしろに足す）
+  | 'geyser_dirt'; // かんけつせんの つち（上に 間欠泉の 柱が たつ。ほると 持ち物に 入る。置けば どこでも 間欠泉）
 
 export interface BlockType {
   id: BlockId;
@@ -215,6 +217,7 @@ export type ItemOnlyId =
   | 'yoroi'
   | 'kote' // こて（籠手）
   | 'suneate' // すねあて（脛当て）
+  | 'ninja_tabi' // 忍者の足袋（#293 試作・レア装備。落下ダメージ 0。作れない・ステータスだけ）
   | 'torch'
   | 'lantern'
   | 'kite'
@@ -2077,6 +2080,7 @@ export const W2_SETTING_DEFAULTS: Readonly<W2Settings> = {
     yoroi: 240,
     kote: 225,
     suneate: 195,
+    ninja_tabi: 390, // すねあての 2 倍（#293 試作）
     raijin_ken: 10000, // WEAPON-7 §2.4: つくれず ヌシでしか 手に 入らない 武器だけの 例外
     fujin_ken: 10000,
     niji: 10000,

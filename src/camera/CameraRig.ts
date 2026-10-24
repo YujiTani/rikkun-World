@@ -346,6 +346,12 @@ export class CameraRig {
       this.camera.rotation.set(pitch + this.shakePitch + o.pitch, -yaw + this.shakeYaw + o.yaw, o.roll);
       this.placeThird(dt);
       this.camera.position.copy(this.camPos);
+      if (this.testFixed) {
+        const f = this.testFixed;
+        this.camera.position.set(f.x, f.y, f.z);
+        this.camera.lookAt(f.tx, f.ty, f.tz);
+        this.camPos.copy(this.camera.position);
+      }
     }
     this.distToEye = this.camPos.distanceTo(this.eye);
     this.distToPivot = Math.hypot(
@@ -397,6 +403,8 @@ export class CameraRig {
   testYawOffsetDeg = 0;
   /** テスト用: 三人称の きょりを きめうちに する（null = きめない。スクショ用） */
   testDistance: number | null = null;
+  /** テスト用: カメラを 場所に 固定する（遊びでは null。プレイヤーが はじかれる 所を 動かない 絵で 撮る） */
+  testFixed: { x: number; y: number; z: number; tx: number; ty: number; tz: number } | null = null;
 
   private placeThird(dt: number): void {
     const cfg = this.config;
