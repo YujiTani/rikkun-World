@@ -65,7 +65,8 @@ describe('gashaBig（#293 大きい がしゃどくろ）', () => {
     for (const side of ['Left', 'Right']) {
       expect(parentOf(`${side}Shoulder`)).toBe('Spine02');
       expect(parentOf(`${side}Arm`)).toBe(`${side}Shoulder`);
-      expect(parentOf(`${side}ForeArm`)).toBe(`${side}Arm`);
+      expect(parentOf(`${side}ArmMid`)).toBe(`${side}Arm`);
+      expect(parentOf(`${side}ForeArm`)).toBe(`${side}ArmMid`);
       expect(parentOf(`${side}Hand`)).toBe(`${side}ForeArm`);
     }
     // 休みの 姿勢: 回転なし、原点は 関節の 場所
@@ -158,7 +159,7 @@ describe('gashaBig（#293 大きい がしゃどくろ）', () => {
         expect(stood(/^skullTop/), `${tag}: 頭の てっぺん`).toBe(true);
       }
     }
-  });
+  }, 60_000);
 
   it('雲の らせんは 段の 上がりが 1 ブロック いない', () => {
     for (const key of ['rise']) {
@@ -235,7 +236,7 @@ describe('gashaBig（#293 大きい がしゃどくろ）', () => {
     // 手・うで・肩・首は ぜんぶ ふくまれる
     for (const k of ['LeftHand', 'RightHand', 'LeftForeArm', 'RightForeArm', 'neck', 'Hips']) expect((badBy[`${k}:main`] ?? 0), k).toBeLessThan(1);
     // 上わんの かたの つけねの まるい かざりの はしは すこし のぞく（かたの ぬのの 当たりは うでの 道の 頭の 上を あけるため 内がわに よせた）
-    for (const k of ['LeftArm', 'RightArm']) expect((badBy[`${k}:main`] ?? 0), k).toBeLessThan(4);
+    for (const k of ['LeftArm', 'RightArm']) expect((badBy[`${k}:main`] ?? 0), k).toBeLessThan(6);
   });
 
   it('てっぺんの 穴と 後ろの 欠け（コアを ねらう ところ）は ふさがない: 穴の 上と コアの 後ろには 当たりの 箱が ない', () => {

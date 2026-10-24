@@ -45,6 +45,7 @@ export function aimOpts(model: BigModel, c: { armTiltDeg: number; torsoTiltDeg: 
   for (const s of ['Left', 'Right'] as const) {
     axis[`${s}Shoulder`] = dir(`${s}Shoulder`, `${s}Arm`);
     axis[`${s}Arm`] = dir(`${s}Arm`, `${s}ForeArm`);
+    axis[`${s}ArmMid`] = dir(`${s}ArmMid`, `${s}ForeArm`); // 上わんの 節を 分けた 関節（親と おなじ 向き）
     axis[`${s}ForeArm`] = dir(`${s}ForeArm`, `${s}Hand`);
     axis[`${s}Hand`] = new Vector3(0, 0, 1); // 手の ひらは 地面に 平ら、指が 前
   }
@@ -54,7 +55,7 @@ export function aimOpts(model: BigModel, c: { armTiltDeg: number; torsoTiltDeg: 
     tiltDeg[n] = TORSO.has(n) || n === 'Hips' ? c.torsoTiltDeg : c.armTiltDeg;
     if (TORSO.has(n)) side[n] = new Vector3(1, 0, 0);
   }
-  return { map: SRC_BONE, axis, side, tiltDeg, follow: { ...c.follow }, rootTiltDeg: c.rootTiltDeg, loop: c.loop, contactSpeed: c.contactSpeed, contactBlur: c.contactBlur };
+  return { map: SRC_BONE, axis, side, tiltDeg, follow: { ...c.follow }, inherit: ['LeftArmMid', 'RightArmMid'], rootTiltDeg: c.rootTiltDeg, loop: c.loop, contactSpeed: c.contactSpeed, contactBlur: c.contactBlur };
 }
 
 /** 箱の 関節の 親子（Group の 名前から） */

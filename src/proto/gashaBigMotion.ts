@@ -289,6 +289,8 @@ export interface AimOpts {
   tiltDeg: Readonly<Record<string, number>>;
   /** 関節ごとの 素材の 向きに 合わせる 割合（0〜1。書いて ない 関節は 0 = 動かない） */
   follow: Readonly<Record<string, number>>;
+  /** 親と おなじ 向きに する 関節（局所の 回転なし）。親の 節を 分けた 関節（ArmMid）。IK は この 関節の 回転なしを 前提に する */
+  inherit?: readonly string[];
   /** 体の 前進を 倒す 角（度） */
   rootTiltDeg: number;
   /** 最後の コマを 最初の コマに つなげて ループに する */
@@ -385,6 +387,8 @@ export function aimClip(clip: AimClipJson, o: AimOpts, sk: Skeleton): AimedClip 
       if (sd) frameRotation(a, sd, d, s.copy(X).applyQuaternion(w), R);
       else R.setFromUnitVectors(a.clone().normalize(), d);
       qpow(R, o.follow[nm] ?? 0, Wb[j]!);
+      const par = sk.parent[nm];
+      if (par && o.inherit?.includes(nm)) Wb[j]!.copy(Wb[idx.get(par)!]!);
     }
     for (let j = 0; j < n; j++) {
       const p = sk.parent[sk.names[j]!];

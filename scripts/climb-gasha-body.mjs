@@ -99,6 +99,7 @@ const result = await page.evaluate(async ([side, START, arms]) => {
     return true;
   };
   /** 今の 場所から、goal(x, y, z) を みたす 立てる マスへの 道（マスの 列）。1 マス 上り・3 マス 下り まで、ななめ なし */
+  let lastReach = null; // 道が みつからない とき: 歩いて 行けた いちばん 高い マス（なぜ とまるか 見る ため）
   const findPath = (goal, R = 34, relaxed = false) => {
     const p0 = me().position, sx = Math.floor(p0.x), sz = Math.floor(p0.z);
     let sy = Math.floor(p0.y + 0.01);
@@ -106,8 +107,10 @@ const result = await page.evaluate(async ([side, START, arms]) => {
     const key = (x, y, z) => `${x},${y},${z}`;
     const prev = new Map([[key(sx, sy, sz), null]]);
     const q = [[sx, sy, sz]];
+    lastReach = null;
     for (let qi = 0; qi < q.length; qi++) {
       const [x, y, z] = q[qi];
+      if (!lastReach || y > lastReach[1]) lastReach = [x, y, z];
       if (goal(x, y, z)) { const out = []; let k = key(x, y, z); while (k) { out.push(k.split(',').map(Number)); k = prev.get(k); } return out.reverse(); }
       for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
         const nx = x + dx, nz = z + dz;
@@ -158,7 +161,7 @@ const result = await page.evaluate(async ([side, START, arms]) => {
     for (let i = 0; i < 30; i++) h.step(1);
     // 道: 指 → てのひら → 前わん → 上わん → 肩の ぬの。1 つ 前の 箱の 上から 次の 箱の 上へ、本物の 入力で 歩く（箱の 上に 立てる 道を さがす）
     let allOk = true;
-    for (const [label, name] of [['指', `handFingersA${S}`], ['てのひら', `hand${S}`], ['前わん', `foreArm${S}`], ['上わん', `upperArm${S}`]]) {
+    for (const [label, name] of [['指', `handFingersA${S}`], ['てのひら', `hand${S}`], ['前わん', `foreArm${S}`], ['上わん（ひじ）', `upperArmMid${S}`], ['上わん', `upperArm${S}`]]) {
       if (!goOnBox(label, H(name))) { allOk = false; break; }
     }
     if (allOk) {
@@ -167,7 +170,7 @@ const result = await page.evaluate(async ([side, START, arms]) => {
       const sc = hits.filter((c) => scRe.test(c.name));
       const goalC = (x, y, z) => sc.some((c) => onBox(c, x, y, z));
       const pathC = findPath(goalC, 40);
-      if (!pathC) { check(false, `上わん → 肩: 道が みつからない\n${dumpAround()}`); allOk = false; }
+      if (!pathC) { check(false, `上わん → 肩: 道が みつからない（歩いて 行けた いちばん 高い マス ${lastReach?.join(',')}）\n${dumpAround()}`); allOk = false; }
       else { const r = followPath(pathC); stopAll(); const p = me().position; check(r.ok, `上わん → 肩（雲）へ 道 ${pathC.length} マス。いま (${f1(p.x)}, ${f1(p.y)}, ${f1(p.z)})${r.ok ? '' : `（止まった ${r.at.join(',')}）\n${dumpAround()}`}`); allOk = r.ok; }
       if (allOk) {
         const tops = hits.filter((c) => /^skullTop\d$/.test(c.name));

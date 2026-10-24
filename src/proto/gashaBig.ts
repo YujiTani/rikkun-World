@@ -13,6 +13,7 @@ import {
   BufferGeometry, Color, CylinderGeometry, DoubleSide, Euler, ExtrudeGeometry, Float32BufferAttribute, Group, IcosahedronGeometry, Matrix3, Matrix4,
   Mesh, MeshBasicMaterial, OctahedronGeometry, Path, Quaternion, Shape, Vector3, type Camera, type Object3D, type Scene,
 } from 'three';
+import { armPoints } from './gashaBigArm';
 import { TUNE as T, applyTune, applyTuneFromUrl } from './gashaBigTuning';
 import { BigActor, type ActorClips } from './gashaBigActor';
 import { sharedGashaBgm } from './gashaBgm';
@@ -93,14 +94,14 @@ const UP = vec(0, 1, 0);
 // ---------------------------------------------------------------- 関節
 export const JOINT_NAMES = [
   'Hips', 'Spine', 'Spine01', 'Spine02', 'neck', 'Head',
-  'LeftShoulder', 'LeftArm', 'LeftForeArm', 'LeftHand',
-  'RightShoulder', 'RightArm', 'RightForeArm', 'RightHand',
+  'LeftShoulder', 'LeftArm', 'LeftArmMid', 'LeftForeArm', 'LeftHand',
+  'RightShoulder', 'RightArm', 'RightArmMid', 'RightForeArm', 'RightHand',
 ] as const;
 export type JointName = (typeof JOINT_NAMES)[number];
 const PARENT: Record<JointName, JointName | null> = {
   Hips: null, Spine: 'Hips', Spine01: 'Spine', Spine02: 'Spine01', neck: 'Spine02', Head: 'neck',
-  LeftShoulder: 'Spine02', LeftArm: 'LeftShoulder', LeftForeArm: 'LeftArm', LeftHand: 'LeftForeArm',
-  RightShoulder: 'Spine02', RightArm: 'RightShoulder', RightForeArm: 'RightArm', RightHand: 'RightForeArm',
+  LeftShoulder: 'Spine02', LeftArm: 'LeftShoulder', LeftArmMid: 'LeftArm', LeftForeArm: 'LeftArmMid', LeftHand: 'LeftForeArm',
+  RightShoulder: 'Spine02', RightArm: 'RightShoulder', RightArmMid: 'RightArm', RightForeArm: 'RightArmMid', RightHand: 'RightForeArm',
 };
 
 // ---------------------------------------------------------------- 箱を ためて まとめる
@@ -403,15 +404,15 @@ export function buildBig(): BigModel {
   const rest = {
     Hips: HIP.clone(), Spine: Tt(0, 6, -6), Spine01: Tt(0, 16, -6), Spine02: Tt(0, 26, -6), neck: Tt(0, 36, -6), Head: headPos.clone(),
   } as Record<JointName, Vector3>;
-  const armPts: Record<string, { S: Vector3; E: Vector3; Wr: Vector3 }> = {};
+  // 腕の 関節 4 つ: S = J1（かたの 外）、M = J2（上わんの なかほど）、E = J3（前わんの なかほど）、Wr = J4（手首）。gashaBigArm.ts
+  const armPts: Record<string, { S: Vector3; M: Vector3; E: Vector3; Wr: Vector3 }> = {};
   for (const s of [-1, 1]) {
     const nm = s > 0 ? 'Left' : 'Right';
     const S = Tt(s * 12.5, 33.2, -0.5);
-    const E = S.clone().add(vec(s * A.upper[0], A.upper[1], A.upper[2]));
-    const Wr = E.clone().add(vec(s * A.fore[0], A.fore[1], A.fore[2]));
+    const { p: [, M, E, Wr] } = armPoints(S, s, A);
     rest[`${nm}Shoulder` as JointName] = Tt(s * 4, 34.5, 1.4);
-    rest[`${nm}Arm` as JointName] = S; rest[`${nm}ForeArm` as JointName] = E; rest[`${nm}Hand` as JointName] = Wr;
-    armPts[nm] = { S, E, Wr };
+    rest[`${nm}Arm` as JointName] = S; rest[`${nm}ArmMid` as JointName] = M; rest[`${nm}ForeArm` as JointName] = E; rest[`${nm}Hand` as JointName] = Wr;
+    armPts[nm] = { S, M, E, Wr };
   }
 
   const moss = (p: Node, x: number, y: number, z: number, n = 3, spread = 1.6): void => {
@@ -653,18 +654,24 @@ export function buildBig(): BigModel {
   const th = A.handThick;
   for (const s of [-1, 1]) {
     const nmS = s > 0 ? 'Left' : 'Right', sd = s < 0 ? 'R' : 'L';
-    const { S, E, Wr } = armPts[nmS]!;
-    const jA = `${nmS}Arm` as JointName, jF = `${nmS}ForeArm` as JointName, jH = `${nmS}Hand` as JointName;
-    const upper = b.root(jA), fore = b.root(jF), hand = b.root(jH);
-    const uF = Wr.clone().sub(E).normalize();
-    // 上わん（そで ぼろぼろ）: 関節 Arm
+    const { S, M, E, Wr } = armPts[nmS]!;
+    const jA = `${nmS}Arm` as JointName, jM = `${nmS}ArmMid` as JointName, jF = `${nmS}ForeArm` as JointName, jH = `${nmS}Hand` as JointName;
+    const upper = b.root(jA), mid = b.root(jM), fore = b.root(jF), hand = b.root(jH);
+    const uF = Wr.clone().sub(E).normalize(), uM = E.clone().sub(M).normalize();
+    // 節 1（J1〜J2）: 関節 Arm（そで ぼろぼろ）。かたの 外の ふくらみ から 上わんの なかほど まで
     upper.box(4.6, 4.6, 4.6, S.x, S.y, S.z, BONE_D); // かたの 関節
-    upper.seg(S, E, 3.6, 3.6, BONE); upper.seg(S, E, 1.2, 1.2, BONE_D, 0.1, 0.9);
-    mossAlong(upper, S, E, [0.2, 0.55, 0.8], 2.0);
-    upper.seg(S, E, 6.0, A.upperThick, cl, -0.08, 0.5);
-    upper.seg(S, E, 6.4, A.upperThick + 0.4, C.stripe, 0.46, 0.5); upper.seg(S, E, 6.0, A.upperThick, cd, 0.5, 0.56);
-    for (let i = 0; i < 3; i++) { const c = S.clone().lerp(E, 0.58 + i * 0.01); upper.box(1.6, 2.4, 1.6, c.x + (i - 1) * 2.1, c.y - 0.6 - (i % 2) * 0.9, c.z + 1.0, cd); }
-    // 前わん: 関節 ForeArm
+    upper.seg(S, M, 3.6, 3.6, BONE); upper.seg(S, M, 1.2, 1.2, BONE_D, 0.1, 0.9);
+    mossAlong(upper, S, M, [0.2, 0.55, 0.8], 2.0);
+    upper.seg(S, M, 6.0, A.upperThick, cl, -0.08, 0.86);
+    upper.seg(S, M, 6.4, A.upperThick + 0.4, C.stripe, 0.8, 0.88); upper.seg(S, M, 6.0, A.upperThick, cd, 0.86, 0.94);
+    for (let i = 0; i < 3; i++) { const c = S.clone().lerp(M, 0.9 + i * 0.01); upper.box(1.6, 2.4, 1.6, c.x + (i - 1) * 2.1 * s, c.y - 0.6 - (i % 2) * 0.9, c.z + 1.0, cd); }
+    // 節 2（J2〜J3）: 関節 ArmMid。上わんの なかほど から 前わんの なかほど まで（ひじは この まんなか）
+    mid.box(4.4, 4.4, 4.4, M.x, M.y, M.z, BONE_D);
+    mid.seg(M, E, A.foreWidth, A.foreThick, BONE); mid.seg(M.clone().add(vec(1.1 * s, 0.3, 0)), E.clone().add(vec(1.1 * s, 0.3, 0)), 1.2, 1.2, BONE_D);
+    mossAlong(mid, M, E, [0.3, 0.6], 1.9);
+    const el = M.clone().lerp(E, 0.5); // ひじ
+    mid.box(4.0, 4.0, 4.0, el.x, el.y + 0.3, el.z, BONE);
+    // 節 3（J3〜J4）: 関節 ForeArm。前わんの なかほど から 手首 まで
     fore.box(4.4, 4.4, 4.4, E.x, E.y, E.z, BONE_D); fore.box(3.6, 3.6, 3.6, E.x, E.y + 0.3, E.z, BONE);
     fore.seg(E, Wr, A.foreWidth, A.foreThick, BONE); fore.seg(E.clone().add(vec(1.1 * s, 0.3, 0)), Wr.clone().add(vec(1.1 * s, 0.3, 0)), 1.2, 1.2, BONE_D);
     mossAlong(fore, E, Wr, [0.3, 0.6], 1.9);
@@ -707,8 +714,9 @@ export function buildBig(): BigModel {
       b.hits.push({ name, joint, c: a.clone().add(bb).multiplyScalar(0.5), axes: [side, n, u], half: [width / 2, thick / 2, len / 2] });
     };
     // 上わんの 当たりは ひじの 先まで 少し のばして、前わんの 当たりと かさねる（つなぎ目の 段を なくす）
-    armEnds.push({ s, S: S.clone(), E: E.clone(), joint: jA });
-    lineHit(`upperArm${sd}`, jA, S, E.clone().addScaledVector(E.clone().sub(S).normalize(), A.elbowExtend), A.upperWidth, A.upperThick - 0.4);
+    armEnds.push({ s, S: S.clone(), E: M.clone(), joint: jA });
+    lineHit(`upperArm${sd}`, jA, S, M.clone().addScaledVector(M.clone().sub(S).normalize(), A.elbowExtend), A.upperWidth, A.upperThick - 0.4);
+    lineHit(`upperArmMid${sd}`, jM, M, E.clone().addScaledVector(uM, A.elbowExtend), A.foreWidth - 0.2, A.foreThick - 0.2);
     // 前わんは 手首の 先まで 少し のばして 手に つなぐ（手首が 浮いて 見えても 段が 1 つに なる）
     lineHit(`foreArm${sd}`, jF, E, Wr.clone().addScaledVector(uF, A.foreExtend), A.foreWidth - 0.2, A.foreThick - 0.2);
     b.hits.push({ name: `hand${sd}`, joint: jH, c: vec(palmX, th / 2, (palmZ - 3.5 + tipZ) / 2), axes: [vec(1, 0, 0), vec(0, 1, 0), vec(0, 0, 1)], half: [3.4, th / 2, (tipZ - palmZ + 3.5) / 2] });
@@ -735,7 +743,11 @@ export function buildBig(): BigModel {
       const Q = T.armStep, rq = makeRnd(Q.seed);
       for (const e of armEnds) {
         const dir = e.E.clone().sub(e.S).normalize(), p = e.S.clone().addScaledVector(dir, Q.back * KW);
-        puff(b, { joint: e.joint, cx: p.x + e.s * Q.out * KW, top: p.y + A.upperThick / 2 + Q.up * KW, cz: p.z, w: lerpA(Q.size, rq()), yaw: rq() * Math.PI, lobes: 4, name: `armStep${e.s < 0 ? 'R' : 'L'}`, rnd: rq });
+        const w = lerpA(Q.size, rq());
+        // 雲の 上の 面 = 腕の 上の 面（雲の ひじ がわの ふち）より Q.rise だけ 高い。腕は 斜めで、雲は 腕の 上に のる ので、ふちで くらべる（下がり 角が ふえても 段が 1 つ より 高く ならない）
+        const q = e.S.clone().addScaledVector(dir, (Q.back + 0.6 * w) * KW);
+        const armTop = q.y + (A.upperThick - 0.4) / 2 / Math.max(0.3, Math.hypot(dir.x, dir.z));
+        puff(b, { joint: e.joint, cx: p.x + e.s * Q.out * KW, top: armTop + Q.rise * KW, cz: p.z, w, yaw: rq() * Math.PI, lobes: 4, name: `armStep${e.s < 0 ? 'R' : 'L'}`, rnd: rq });
       }
     }
     // 髪の 毛束: 黒い 箱。上の 面が 当たり。ときどき 髪どめ（ピンク）

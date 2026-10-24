@@ -368,6 +368,8 @@ export class StepCrawler {
     // 手: ついて いる ときは 地面に 平ら（からだの 座標で 回転なし）、空中では 前わんに ついて いく
     const flat = Wf.clone().invert();
     this.pose[iH]!.set(0, 0, 0, 1).slerp(flat, plant);
+    const iM = this.idx.get(`${sd}ArmMid`);
+    if (iM !== undefined) { this.pose[iM]!.set(0, 0, 0, 1); this.W[iM]!.copy(Wa); } // 上わんの 節を 分けた 関節は 親と おなじ 向き
     this.W[iS]!.copy(Wa); this.W[iF]!.copy(Wf); this.W[iH]!.copy(Wf).multiply(this.pose[iH]!);
     this.P[iF]!.copy(E); this.P[iH]!.copy(Wr);
   }
