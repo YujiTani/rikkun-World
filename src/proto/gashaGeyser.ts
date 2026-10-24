@@ -138,6 +138,11 @@ export class GashaGeyser {
     return this.field.spawnAt(x, z, sec);
   }
 
+  /** 保存だけ 元の ブロックで 書く マス（gashaGeyserField.ts の madeCells） */
+  saveOverrides(): Array<{ x: number; y: number; z: number; live: string; save: string }> {
+    return this.field.madeCells();
+  }
+
   geysers(): GeyserInfo[] {
     return this.field.info();
   }

@@ -32,8 +32,8 @@ export interface Texel {
 /** (1) 面の明るさ（DESIGN 3.1）。north = −z */
 export const FACE_SHADE: Record<Face, number> = { top: 1, bottom: 0.5, north: 0.8, south: 0.8, east: 0.6, west: 0.6 };
 
-/** 平らな箱で描く 13 種（道具 7 種 DESIGN 5.3 + LIVE-2 のこたつ・小屋 2 ブロック + こたつ 2×2 の のこり 3 マス。3 マス は 1 つ だけ 置くと ふつう の 箱。さく・とびら は LIVE-2.1 で 板 に なった ので 入らない） */
-export const FLAT_BLOCKS = ['brick', 'farmland', 'farmland_wet', 'furnace', 'kawara', 'nukunuku', 'nukunuku_e', 'nukunuku_s', 'nukunuku_se', 'sprinkler', 'tansu', 'toriya_box', 'toriya_nest'];
+/** 平らな箱で描く 14 種（道具 7 種 DESIGN 5.3 + LIVE-2 のこたつ・小屋 2 ブロック + こたつ 2×2 の のこり 3 マス。3 マス は 1 つ だけ 置くと ふつう の 箱。さく・とびら は LIVE-2.1 で 板 に なった ので 入らない + geyser_dirt = #293 間欠泉の 土: 赤ちゃ色＋ひび＋水色の すきまの 専用の 絵で 土と 見分けるため ごつごつに せず 平らな 箱） */
+export const FLAT_BLOCKS = ['brick', 'farmland', 'farmland_wet', 'furnace', 'geyser_dirt', 'kawara', 'nukunuku', 'nukunuku_e', 'nukunuku_s', 'nukunuku_se', 'sprinkler', 'tansu', 'toriya_box', 'toriya_nest'];
 
 /** 空の色の見分け方（TEX-A.md 基準 9・13） */
 export const isSky = (r: number, g: number, b: number): boolean => b > r + 40 && b > 180 && g > 150;

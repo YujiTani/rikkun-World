@@ -102,6 +102,21 @@ describe('AC11 ほった量は 0 のまま（すで）', () => {
   });
 });
 
+describe('仮の id（がしゃどくろの 体の 箱・燃えかす）は 一覧に 無くても 素手の パンチが 当たる', () => {
+  for (const id of [900_000_003, 910_000_007]) {
+    it(`raycast だけに 出る id ${id} を ねらって おす → パンチが 始まり、その id に ダメージが 届く`, () => {
+      const r = rig('hand');
+      const real = r.yokai.raycast.bind(r.yokai);
+      r.yokai.raycast = (o, d, max) => real(o, d, max) ?? (max >= 2 ? { id, kind: 'nurikabe', distance: 2 } : null);
+      expect(r.dig.attackPreview()).toMatchObject({ use: 'attack', targetId: id });
+      r.press('primary');
+      for (let i = 0; i < 40; i++) r.step();
+      r.release('primary');
+      expect(r.yokai.damaged.map((c) => c.id)).toContain(id);
+    });
+  }
+});
+
 describe('AC15 攻撃では ＋マークへ 回らない', () => {
   for (const kind of ['blade', 'hand'] as const) {
     it(`${kind}: yaw 0・facing 90、東 2.0 に 妖怪、60 ステップ おしつづける → 毎ステップ facing = その時の u、0 へ 回らない。はなして 30 ステップ たっても 回らない`, () => {

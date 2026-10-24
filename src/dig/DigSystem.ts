@@ -41,7 +41,8 @@ import { applyFlatten, planFlatten, type FlattenPlan } from '../world/flatten';
 import { BODY_H, BODY_W, FARM_BREAK_DROP, NO_DROP_BLOCKS, createDigConfig, type DigConfig } from './config';
 import { createRng, randInt, type Rng } from '../world/gen/random';
 import type { PunchGate } from '../combat/PlayerCombat';
-import { centerOfYokai, decideAttack, type AttackDecision, type AttackHold } from '../combat/attackFacing';
+import { boxOf, centerOfYokai, decideAttack, type AttackDecision, type AttackHold } from '../combat/attackFacing';
+import { GHOST_ID_MIN } from '../combat/ghostIds';
 import { cellInWall } from '../world/wall';
 import { lookDirection, raycastBlocks } from './raycast';
 import type { BodyBlocksPort } from './bodyBlocks';
@@ -1574,6 +1575,19 @@ export class DigSystemImpl implements DigSystem {
     const block: 'block' | 'crop' | null = tgt ? (this.m4.farm && cropKindOfBlock(tgt.id) ? 'crop' : 'block') : null;
     const before = tgt ? this.m4.yokai().raycast(o, d, tgt.distance) : null;
     const yokaiBeforeBlock = before !== null && before.distance < tgt!.distance;
+    // 仮の id（がしゃどくろの 体の 箱・燃えかす）は 一覧に 無いので、当たった 点に 立つ 仮の 妖怪を 足して 規則 2 に 入れる
+    let yokaiList = list;
+    if (aimYokai !== null && aimYokai >= GHOST_ID_MIN && !list.some((q) => q.id === aimYokai)) {
+      const hit = this.m4.yokai().raycast(o, d, tgt?.distance ?? 12);
+      if (hit && hit.id === aimYokai) {
+        const ghost: YokaiInfo = {
+          id: aimYokai, kind: hit.kind, position: { x: o.x + d.x * hit.distance, y: o.y + d.y * hit.distance, z: o.z + d.z * hit.distance },
+          yawDeg: 0, hp: 1, maxHp: 1, state: 'idle', attackTick: 0, scale: 1, name: '', title: 'none', m: 1, attack: 0,
+        };
+        ghost.position.y -= boxOf(ghost).h / 2;
+        yokaiList = [...list, ghost];
+      }
+    }
     // WEAPON-6: 次に 始まる わざ・何段目か（きらめく カタナだけ。ほかは かまえの わざ）
     const nextBlade = hold === 'blade' ? this.m4.blade!.nextStart?.() : undefined;
     return decideAttack({
@@ -1593,7 +1607,7 @@ export class DigSystemImpl implements DigSystem {
       },
       position: p.position,
       body: this.bodyPoint(p, this.bodyScratch),
-      yokai: list,
+      yokai: yokaiList,
       world: this.world,
       aim: { yokaiId: aimYokai, block, yokaiBeforeBlock },
     });

@@ -1002,6 +1002,12 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
     const sp = opts.perchSpot?.() ?? null;
     if (sp) pivot.position.set(sp.x, sp.y, sp.z); else pivot.position.y = pivot.position.y; // 場所が なければ その 場に 座る
     pivot.visible = true; perchT = 0; perchOn = true; pt = 0;
+    // 座った 直後に 飛んで いた 弾・噴火・うずが 当たらない ように、downBegin と 同じく 消す(休んで いる 少女は 傷つけない)
+    for (const e of erups) { e.e.t = -1; e.e.root.visible = false; }
+    for (const v of vortices) { v.v.t = -1; v.v.root.visible = false; v.showWarn(false); }
+    for (const q of projs) q.on = false;
+    for (const b of bursts) { b.on = false; b.mesh.visible = false; }
+    reflectWait = 0;
     restorePose(); model.position.y = y0; model.position.x = 0;
     purpleBurst(24); lineBurst(); sfx.warpIn(); fade(1);
     bgm.request('girl', false); // 休んでいる 間は 戦いの 曲を 止める

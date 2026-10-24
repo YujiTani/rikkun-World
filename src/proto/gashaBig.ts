@@ -13,6 +13,7 @@ import {
   BufferAttribute, BufferGeometry, Color, DataTexture, NearestFilter, RGBAFormat, SRGBColorSpace, CylinderGeometry, DoubleSide, Euler, ExtrudeGeometry, Float32BufferAttribute, Group, Matrix3, Matrix4,
   Mesh, MeshBasicMaterial, OctahedronGeometry, Path, Plane, Quaternion, Shape, Vector3, type Camera, type Material, type Object3D, type Scene,
 } from 'three';
+import { GHOST_EMBER_BASE, GHOST_ID_SPAN } from '../combat/ghostIds';
 import type { BodyBlocksPort } from '../dig/bodyBlocks';
 import { BodyPlaced } from './gashaBigPlaced';
 import { armPoints } from './gashaBigArm';
@@ -82,6 +83,8 @@ export interface GashaBigDeps {
   /** 間欠泉の つちを もとの ブロックに もどす(片づけ。自分が 作った 分だけ)。なければ もどさない */
   restoreGeyserBlock?(x: number, y: number, z: number, id: string): boolean;
   scanGeyserBlocks?(found: (x: number, y: number, z: number) => void): void;
+  /** 保存に だけ 元の ブロックで 書く マスの 一覧の 取り出し口を 渡す（ボスが 作った 間欠泉の つち。保存の しくみ側が 保存の たびに 呼ぶ） */
+  onSaveOverrides?(get: () => Array<{ x: number; y: number; z: number; live: string; save: string }>): void;
   /** 忍者の足袋（レア装備。落下ダメージ 0）を 持ち物に 入れて 着る。開始時に 1 回 呼ぶ。なければ 渡さない */
   giveNinjaTabi?(): void;
   /** true なら 起動時に 足袋を 自動で 着せない（ふだんの ゲームでは ごほうび。試作は 着せる）。`giveTabi()` で 後からも 着せられる */
@@ -1372,6 +1375,7 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
       centre: () => (actor && !hidden ? { x: pos.x, z: pos.z } : null),
     })
     : null;
+  if (geysers) deps.onSaveOverrides?.(() => geysers.saveOverrides());
   // 手が 地面を たたいた ときの 打撃・衝撃波・小さい 衝撃・ひるみ（gashaBigShock.ts）と 見た目（gashaBigShockFx.ts）
   const shock = new BigShock({
     player: deps.player, groundY: deps.groundY, hurt: deps.hurt, setPlayerVelocity: deps.setPlayerVelocity,
@@ -1499,7 +1503,7 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
     }
   };
   // 燃えかすは 殴ると 消える（刀・真空波・らせん・ドーム・パンチ・矢）。小さな 煙と「じゅっ」
-  const EMBER_ID_BASE = 910_000_000;
+  const EMBER_ID_BASE = GHOST_EMBER_BASE;
   let doused = 0, lastDouse = -1e9, douseYm: object | null = null;
   const emberBox = { name: 'ember', c: [0, 0, 0], ax: [1, 0, 0, 0, 1, 0, 0, 0, 1], half: [0, 0, 0] } as { name: string; c: number[]; ax: number[]; half: number[] } satisfies BoxLike;
   const fillBox = (e: Ember): BoxLike => {
@@ -1536,7 +1540,7 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
         return best ? { id: EMBER_ID_BASE + best.id, kind: 'nurikabe', distance: bt } : real;
       };
       ym.damage = (id, amount, from, knock) => {
-        if (id >= EMBER_ID_BASE && id < EMBER_ID_BASE + 1_000_000) { const want = id - EMBER_ID_BASE; douseWhere((_b, e) => e.id === want); return 0; }
+        if (id >= EMBER_ID_BASE && id < EMBER_ID_BASE + GHOST_ID_SPAN) { const want = id - EMBER_ID_BASE; douseWhere((_b, e) => e.id === want); return 0; }
         return dmgPrev(id, amount, from, knock);
       };
     }
@@ -1814,11 +1818,14 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
     // プレイヤーが 遠い(perf.farDist より 遠い)間は 攻撃の 当たり・見た目・音・ゆれを まいコマ 省く(体の 動きと 体力だけ)。遠く なった しゅんかんに 画面の 効果・音を 片づける
     const fp = deps.player();
     const far = Math.hypot(fp.x - actor.pos.x, fp.z - actor.pos.z) > T.perf.farDist;
-    if (far && !farNow) clearFx(false);
+    if (far && !farNow) clearFx(false, true); // 燃えかすは ワールドに のこる もの: 遠くへ いっても 消さず（約 5 分の 寿命どおり）
     farNow = far;
+    const wasAttack = actor.mode === 'attack';
     actor.update(dt);
+    if (wasAttack && !actor.isAngry()) clearFx(false, true); // 攻撃の 途中で 怒りが 自然に とけた（calmSec）: 効果・雷・灰・音を 片づける（燃えかすは のこす）
     if (actor.held && !heldFired && fin.phase === 'off') { heldFired = true; bgm?.cut(); deps.onHeld?.(); } // 固まった しゅんかん: BGM を ぶつっと 切って 少女を 呼ぶ
     if (far) {
+      embers.update(dt); // 遠い 間も 燃えかすの 年れいは 進める（寿命どおり）
       bh.step(dt);
       if (!defeatedFired && bh.hp <= 0) { defeatedFired = true; startFinish(); deps.onDefeated?.(); }
       stepFinish(dt);
@@ -1855,9 +1862,9 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
   place(first);
   deps.onBodyBlocks?.(placed);
 
-  /** 攻撃の エフェクト・音・燃えかす・雷・たたいた 輪・ひるみ・画面の ゆれを ぜんぶ 止めて 消す（体は そのまま）。keepBurnt: 体の 焼け あとの もどす 予定は のこす */
-  const clearFx = (full: boolean): void => {
-    quake.stop(); beamFx.clear(); eruptFx.clear(); rain.active = false; rain.ashes = []; embers.clear();
+  /** 攻撃の エフェクト・音・燃えかす・雷・たたいた 輪・ひるみ・画面の ゆれを ぜんぶ 止めて 消す（体は そのまま）。full: 体の 焼け あとの もどす 予定も 消す。keepEmbers: 燃えかすは のこす（遠くへ いった とき） */
+  const clearFx = (full: boolean, keepEmbers = false): void => {
+    quake.stop(); beamFx.clear(); eruptFx.clear(); rain.active = false; rain.ashes = []; if (!keepEmbers) embers.clear();
     if (full) bodyBurnt.length = 0;
     thunderFx.clear(); strikes.clear(); bodyShock.reset(); fingerBolt = null; sfx.stopAll();
     shock.clear(); shockFx.clear();
@@ -1929,14 +1936,14 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
         m.onBeforeRender = on ? (r) => { r.localClippingEnabled = true; } : () => undefined;
       });
     },
-    angry: (on) => { isAngry = on; actor?.angry(on); },
+    angry: (on) => { isAngry = on; if (!on && actor?.mode === 'attack') clearFx(false, true); actor?.angry(on); }, // 攻撃の 途中で 怒りが とけたら tired と 同じく 効果を 片づける（燃えかすは のこす）
     hit: () => { isAngry = true; actor?.hit(); },
     walk: (on) => actor?.walk(on),
     goTo: (x, z) => actor?.goTo(x, z),
     lookBack: () => actor?.lookBack(),
     back: (on) => actor?.back(on),
     attack: (name) => actor?.attack(name),
-    tired: (sec) => { if (actor?.mode === 'attack') clearFx(false); actor?.tired(sec); },
+    tired: (sec) => { if (actor?.mode === 'attack') clearFx(false, true); actor?.tired(sec); }, // 燃えかすは 休んでも 消さない（約 5 分・殴ると 消える）
     attackInfo: () => ({
       mode: actor?.mode ?? '', phase: actor?.cycle.phase ?? 'off', attack: actor?.attackName ?? null, done: actor?.cycle.done ?? 0, count: actor?.cycle.count ?? 0, left: actor?.cycle.left ?? 0,
       slam2Count: actor?.slam2Count ?? 0, sweepCount: actor?.sweepCount ?? 0, sweepActive: actor?.sweepNow?.side ?? null, quakeLeft: quake.left, warn: !!actor?.warn, fx: shockFx.bigCounts(),
