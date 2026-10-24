@@ -46,6 +46,19 @@ export class ChestLogic {
     return { dropNow };
   }
 
+  /** 中身が もう とびだした か（とびだす 前なら 保存して よい） */
+  get opened(): boolean {
+    return this.dropped;
+  }
+
+  /** せり上がりを 飛ばして とじた 姿から はじめる（保存から 戻した とき） */
+  skipRise(): void {
+    if (this.phase !== 'rising') return;
+    this.phase = 'closed';
+    this.t = 0;
+    this.rise = 1;
+  }
+
   /** ひらいた 後の 時間（光の 演出用）。ひらいていない 間は 0 */
   get glow01(): number {
     const C = this.tune;

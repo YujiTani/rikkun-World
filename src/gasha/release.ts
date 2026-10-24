@@ -14,7 +14,9 @@ import type { ItemStack } from '../contracts';
 import type { GashaBigDeps } from '../proto/gashaBig';
 import { TUNE as BIG } from '../proto/gashaBigTuning';
 import { ChestLogic, chestNear, createChestMesh, type ChestMesh, type ChestPhase } from './bigChest';
+import { itemType } from '../inventory/items';
 import { rewardRng, rollReward } from './reward';
+import { applySilhouette, updateSilhouette } from './silhouette';
 import { RELEASE } from './releaseTuning';
 import { faceYawDeg, horizontalDistance, pickSpawnSpot, rollMorning, shouldDespawn, type SpawnSpot } from './spawnRule';
 
@@ -27,6 +29,8 @@ export interface BossHandle {
   walk(on: boolean): void;
   /** `pos: [x, y, z]`（体の 足もと） */
   info(): Record<string, unknown>;
+  /** 体の 3D の かたまり（place() の たびに 作りなおされる）。あれば 遠くで シルエットに 見える ように する */
+  readonly group?: Object3D;
 }
 
 /** 試作の 係を 作る とき、ふだんの 入り口（deps）を すりかえる 関数 */
@@ -72,6 +76,7 @@ interface ChestEntry {
   x: number;
   y: number;
   z: number;
+  yaw: number;
   stacks: ItemStack[];
   removeAt: number | null;
 }
@@ -87,6 +92,8 @@ export interface SpawnOpts {
   /** 向きの 角度（度。0 = +x（東）、90 = +z（南））。なければ プレイヤーの 正面 */
   angleDeg?: number;
 }
+
+const round2 = (v: number): number => Math.round(v * 100) / 100;
 
 export class GashaRelease {
   private st: ReleaseState = 'idle';
@@ -186,6 +193,7 @@ export class GashaRelease {
       return false;
     }
     this.placing = null;
+    this.dress();
     if (this.cancelLoad) { this.cancelLoad = false; this.st = 'present'; this.despawn(); return false; }
     this.st = 'present';
     this.checkClock = 0;
@@ -193,6 +201,13 @@ export class GashaRelease {
     this.applyBar();
     this.env.sound?.('ready');
     return true;
+  }
+
+  /** 体の 材料に 遠くの シルエットを かける（作りなおす たびに 新しい 材料なので かけなおす） */
+  private dress(): void {
+    updateSilhouette();
+    const g = this.handle?.group;
+    if (g) applySilhouette(g);
   }
 
   /** 消す（たおされた あとも 遠くはなれた ときも）。体を すごく 遠くへ おき直して、当たりも 見えも しなく する */
@@ -245,14 +260,49 @@ export class GashaRelease {
 
   private addChest(x: number, z: number): void {
     const y = this.env.groundY(Math.floor(x), Math.floor(z)) + 1;
+    const p = this.env.player();
+    // 前（+z）を プレイヤーへ
+    this.placeChest(x, y, z, Math.atan2(p.x - x, p.z - z), rollReward(rewardRng(this.env.seed, this.killCount)), false);
+  }
+
+  private placeChest(x: number, y: number, z: number, yaw: number, stacks: ItemStack[], restored: boolean): void {
     const mesh = createChestMesh();
     mesh.group.position.set(x, y, z);
-    const p = this.env.player();
-    mesh.group.rotation.y = Math.atan2(p.x - x, p.z - z); // 前（+z）を プレイヤーへ
-    mesh.setPose(0, 0);
+    mesh.group.rotation.y = yaw;
+    const logic = new ChestLogic();
+    if (restored) logic.skipRise();
+    mesh.setPose(logic.rise, 0);
     this.env.scene.add(mesh.group);
     this.env.lighting?.registerTree(mesh.group, 'doll');
-    this.chestList.push({ logic: new ChestLogic(), mesh, x, y, z, stacks: rollReward(rewardRng(this.env.seed, this.killCount)), removeAt: null });
+    this.chestList.push({ logic, mesh, x, y, z, yaw, stacks, removeAt: null });
+  }
+
+  // ---------------------------------------------------------------- 保存（あけていない 宝箱だけ。ボス本体は 保存しない）
+  serialize(): { v: 1; chests: { x: number; y: number; z: number; yaw: number; items: { item: string; count: number }[] }[] } {
+    return {
+      v: 1,
+      chests: this.chestList
+        .filter((c) => !c.logic.opened)
+        .map((c) => ({ x: round2(c.x), y: c.y, z: round2(c.z), yaw: round2(c.yaw), items: c.stacks.map((s) => ({ item: s.item, count: s.count })) })),
+    };
+  }
+
+  /** 保存から 宝箱を 戻す（いまの 宝箱は ぜんぶ 入れかえる）。こわれた データ・知らない アイテムは むし */
+  deserialize(data: unknown): void {
+    for (const c of this.chestList.splice(0)) this.removeChest(c);
+    const list = (data as { chests?: unknown } | null)?.chests;
+    if (!Array.isArray(list)) return;
+    for (const raw of list.slice(0, 16)) {
+      const c = raw as { x?: unknown; y?: unknown; z?: unknown; yaw?: unknown; items?: unknown } | null;
+      if (!c || ![c.x, c.y, c.z].every((v) => typeof v === 'number' && Number.isFinite(v)) || !Array.isArray(c.items)) continue;
+      const stacks: ItemStack[] = [];
+      for (const it of c.items as { item?: unknown; count?: unknown }[]) {
+        if (typeof it?.item !== 'string' || !itemType(it.item) || typeof it.count !== 'number' || !(it.count >= 1)) continue;
+        stacks.push({ item: it.item as ItemStack['item'], count: Math.min(64, Math.floor(it.count)) });
+      }
+      if (stacks.length === 0) continue;
+      this.placeChest(c.x as number, c.y as number, c.z as number, typeof c.yaw === 'number' && Number.isFinite(c.yaw) ? c.yaw : 0, stacks, true);
+    }
   }
 
   private removeChest(c: ChestEntry): void {
@@ -269,6 +319,7 @@ export class GashaRelease {
   step(dt: number): void {
     this.clock += dt;
     this.stepChests(dt);
+    if (this.st === 'present' || this.st === 'defeated') updateSilhouette();
     if (this.st === 'present') {
       if (this.handle && this.handle.hp() <= 0) { this.defeat(); return; }
       this.checkClock += dt;

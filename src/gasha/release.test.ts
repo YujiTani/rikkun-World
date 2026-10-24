@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { Group, type Scene } from 'three';
+import { BoxGeometry, Group, Mesh, MeshBasicMaterial, type Scene } from 'three';
+import { hazePatch } from '../proto/gashaBig';
 import type { ItemStack } from '../contracts';
 import type { GashaBigDeps } from '../proto/gashaBig';
 import { TUNE as BIG } from '../proto/gashaBigTuning';
@@ -27,8 +28,13 @@ function fakeBoss(wrapped: GashaBigDeps) {
   };
   boss.place();
   wrapped.giveNinjaTabi?.();
+  // 体の 3D（place の たびに 新しい 材料で 作りなおされる、ところまで まねる）
+  let group = new Group();
+  const remake = () => { group = new Group(); const m = new MeshBasicMaterial(); hazePatch(m); group.add(new Mesh(new BoxGeometry(), m)); };
+  remake();
   const handle: BossHandle = {
-    place: () => boss.place(),
+    get group() { return group; },
+    place: () => { boss.place(); remake(); },
     hp: () => boss.hp,
     angry: (on) => { boss.angry = on; },
     walk: (on) => { boss.walking = on; },
@@ -334,5 +340,96 @@ describe('たおした ごほうび', () => {
     r.rel.defeat();
     expect(r.rel.state()).toBe('defeated');
     expect(r.rel.chests().length).toBe(1);
+  });
+});
+
+describe('あけていない 宝箱の 保存（ボス本体は 保存しない）', () => {
+  afterEach(() => { RELEASE.spawn.chancePerMorning = 0.3; });
+
+  async function withChest() {
+    const r = rig();
+    await r.rel.spawn({ distance: 40, angleDeg: 0 });
+    r.rel.defeat();
+    r.run(RELEASE.defeat.lingerSec + 0.5);
+    return r;
+  }
+
+  it('宝箱が ない 時は 空。たおすと 1 つ 入る（位置・向き・中身）。JSON に できる', async () => {
+    const r0 = rig();
+    expect(r0.rel.serialize()).toEqual({ v: 1, chests: [] });
+    const r = await withChest();
+    const d = JSON.parse(JSON.stringify(r.rel.serialize())) as { v: number; chests: { x: number; y: number; z: number; yaw: number; items: { item: string; count: number }[] }[] };
+    expect(d.v).toBe(1);
+    expect(d.chests.length).toBe(1);
+    const c = r.rel.chests()[0]!;
+    expect(d.chests[0]!.x).toBeCloseTo(c.x, 2);
+    expect(d.chests[0]!.z).toBeCloseTo(c.z, 2);
+    expect(d.chests[0]!.items.map((s) => s.item)).toContain('ninja_tabi');
+    expect(r.rel.state()).toBe('idle'); // ボス本体は 入って いない
+    expect(Object.keys(d)).toEqual(['v', 'chests']);
+  });
+
+  it('リロード: 保存を 読むと 宝箱が とじた まま 戻り（せり上がりは 飛ばす）、近づくと 同じ 中身が とびだす', async () => {
+    const r1 = await withChest();
+    const saved = JSON.parse(JSON.stringify(r1.rel.serialize()));
+    const itemsBefore = r1.rel.chests()[0]!.items;
+    const r2 = rig();
+    r2.rel.deserialize(saved);
+    expect(r2.rel.chests().length).toBe(1);
+    expect(r2.rel.chests()[0]!.phase).toBe('closed');
+    expect(r2.rel.chests()[0]!.items).toEqual(itemsBefore);
+    expect(r2.env.scene.children.length).toBe(1);
+    const c = r2.rel.chests()[0]!;
+    r2.player.x = c.x + 2; r2.player.z = c.z; r2.player.y = c.y;
+    r2.run(RELEASE.chest.openSec + 1);
+    expect(r2.log.scatter.length).toBe(1);
+    expect(r2.log.scatter[0]!.stacks.map((s) => s.item)).toContain('ninja_tabi');
+    // あけたら 保存から きえる
+    expect(r2.rel.serialize()).toEqual({ v: 1, chests: [] });
+  });
+
+  it('あけた 宝箱は 保存しない。ひらきはじめて 中身が 出る 前なら まだ 保存する', async () => {
+    const r = await withChest();
+    const c = r.rel.chests()[0]!;
+    r.player.x = c.x + 2; r.player.z = c.z; r.player.y = c.y;
+    r.run(RELEASE.chest.dropDelaySec / 2); // ひらきはじめた ところ（中身は まだ）
+    expect(r.rel.chests()[0]!.phase).toBe('opening');
+    expect(r.log.scatter.length).toBe(0);
+    expect((r.rel.serialize() as { chests: unknown[] }).chests.length).toBe(1);
+    r.run(RELEASE.chest.openSec + 1);
+    expect(r.log.scatter.length).toBe(1);
+    expect((r.rel.serialize() as { chests: unknown[] }).chests.length).toBe(0);
+  });
+
+  it('読みなおすと いまの 宝箱は 入れかわる（ふえない）。こわれた データ・知らない アイテムは むし', async () => {
+    const r1 = await withChest();
+    const saved = JSON.parse(JSON.stringify(r1.rel.serialize()));
+    const r2 = rig();
+    r2.rel.deserialize(saved);
+    r2.rel.deserialize(saved);
+    expect(r2.rel.chests().length).toBe(1);
+    expect(r2.env.scene.children.length).toBe(1);
+    r2.rel.deserialize(null);
+    r2.rel.deserialize('x');
+    r2.rel.deserialize({ v: 1, chests: [{ x: 'a' }, null, { x: 1, y: 2, z: 3, yaw: 0, items: [{ item: 'no_such_item', count: 2 }, { item: 'crystal', count: 3 }] }] });
+    expect(r2.rel.chests().map((c) => c.items)).toEqual([['crystalx3']]);
+    r2.rel.deserialize({ v: 1, chests: [{ x: 1, y: 2, z: 3, yaw: 0, items: [{ item: 'no_such_item', count: 1 }] }] });
+    expect(r2.rel.chests().length).toBe(0); // 中身が ぜんぶ 無効なら 出さない
+    expect(r2.env.scene.children.length).toBe(0);
+  });
+});
+
+describe('遠くの シルエット（体の 材料に かける）', () => {
+  afterEach(() => { RELEASE.spawn.chancePerMorning = 0.3; });
+  it('出した とき・置きなおした とき、体の 新しい 材料に シルエットが かかる', async () => {
+    const r = rig();
+    await r.rel.spawn({ distance: 200, angleDeg: 0 });
+    const h = (r.rel as unknown as { handle: BossHandle }).handle;
+    const mat = (g: Group) => (g.children[0] as Mesh).material as MeshBasicMaterial;
+    expect(mat(h.group as Group).userData.silhouette).toBe(true);
+    const first = h.group;
+    await r.rel.spawn({ distance: 100, angleDeg: 90 });
+    expect(h.group).not.toBe(first); // 作りなおされた 体にも
+    expect(mat(h.group as Group).userData.silhouette).toBe(true);
   });
 });

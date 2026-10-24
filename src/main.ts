@@ -157,7 +157,7 @@ import { createWorldHook } from './world/hook';
 import { WorldRenderer } from './world/render/WorldRenderer';
 import { decideFrameClock } from './world/frameClock';
 import { MICRO_RADII } from './world/render/voxel/tier';
-import { createGashaRelease, gashaHook, type BossHandle } from './gasha/release';
+import { createGashaRelease, gashaHook, type BossHandle, type GashaRelease } from './gasha/release';
 import { gashaEnabled } from './gasha/spawnRule';
 import type { GashaBigDeps } from './proto/gashaBig';
 import { setKataTable } from './proto/voxel/looks';
@@ -1577,6 +1577,8 @@ onDefeatAch = (kind) => {
 };
 
 // 自動セーブ（?nosave=1 は保存しない、?reset=1 は消してから始める。消すのは開発サーバーだけ）
+let gashaRelease: GashaRelease | null = null;
+let gashaSavedPending: unknown = null;
 const save = new SaveManager({
   world,
   seed,
@@ -1616,6 +1618,8 @@ const save = new SaveManager({
     },
   },
   legend: { serialize: () => legendBook.serialize(), deserialize: (d) => legendBook.deserialize(d) },
+  // #293: あけていない がしゃどくろの 宝箱。係は あとで 作る ので、読みこみが 先に 来たら 預かって、作った あとで わたす
+  gasha: { serialize: () => gashaRelease?.serialize() ?? gashaSavedPending, deserialize: (d) => { gashaSavedPending = d; gashaRelease?.deserialize(d); } },
   // 農業: 作物・印。前の保存（印なし）には 読んだあとに 置きものを置く
   farm,
   // VOX-D: 列は stream が読みこむ。保険から戻したときの最初の保存は ready のあと
@@ -2559,7 +2563,7 @@ const startBigBoss = (wrap: (d: GashaBigDeps) => GashaBigDeps = (d) => d) =>
 if (import.meta.env.DEV && new URLSearchParams(location.search).get('proto') === 'gashaBig') void startBigBoss();
 // #293 リリース: がしゃどくろを ふだんの ゲームに 出す（ゲームの 1 日の あさごとに 約 3 割で、プレイヤーから 150〜250 ブロック先に 1 体。たおすか 遠くへ はなれると 消える。たおすと 大きな 宝箱）。数は src/gasha/releaseTuning.ts
 // 開発用に すぐ 出すには コンソールで `__rikkun.gasha.spawn()`（距離・向きは `{ distance: 40, angleDeg: 0 }`）。たおした ことに するのは `__rikkun.gasha.defeat()`
-const gashaRelease = createGashaRelease({
+gashaRelease = createGashaRelease({
   seed,
   enabled: gashaEnabled(location.search, navigator.webdriver === true),
   player: () => ({ x: controller.state.position.x, y: controller.state.position.y, z: controller.state.position.z, yawDeg: controller.state.yawDeg }),
@@ -2577,7 +2581,9 @@ const gashaRelease = createGashaRelease({
   sound: (name) => { fxSound.play(name); },
   showBar: (on) => { const e = document.getElementById('gashaBigHp'); if (e) e.style.display = on ? '' : 'none'; },
 });
-game.onUpdate((dt) => gashaRelease.step(dt));
-time.onPhaseChange((p) => { if (p === 'day') gashaRelease.onMorning(time.day()); });
-if (window.__rikkun) window.__rikkun.gasha = gashaHook(gashaRelease);
+const gashaRel = gashaRelease;
+if (gashaSavedPending) gashaRel.deserialize(gashaSavedPending);
+game.onUpdate((dt) => gashaRel.step(dt));
+time.onPhaseChange((p) => { if (p === 'day') gashaRel.onMorning(time.day()); });
+if (window.__rikkun) window.__rikkun.gasha = gashaHook(gashaRel);
 game.start();
