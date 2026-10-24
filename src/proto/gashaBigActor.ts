@@ -13,6 +13,8 @@ import { TUNE as T } from './gashaBigTuning';
 import { aimClip, bakeClip, clipProgress, MotionPlayer, type AimClipJson, type AimOpts, type BakedClip, type ClipJson, type RetargetOpts, type Skeleton } from './gashaBigMotion';
 import { fitStride, plantHands, type PlantReport } from './gashaBigPlant';
 import { StepCrawler, type Side } from './gashaBigStep';
+import { AttackCycle } from './gashaBigAttack';
+import { Slam2 } from './gashaBigSlam2';
 
 export interface ActorEnv {
   /** 地面の いちばん 上の ブロックの 高さ（立つ 面は +1） */
@@ -23,12 +25,19 @@ export interface ActorEnv {
   carryPlayer?(dx: number, dy: number, dz: number, dYawDeg: number): void;
   /** 前へ 進む 1 歩で 手を 地面に たたきつけた（手の ひらの まんなか。y は 地面の 高さ）。打撃・衝撃波・ゆれ は 呼ぶ 側 */
   onSlam?(x: number, y: number, z: number, side: Side): void;
+  /** 攻撃 1（両手たたきつけ）で 手が 地面に 着いた（両手の まんなか。fx, fz = 体の 前の 向き）。打撃・岩・衝撃波・ゆれ・地形こわし・体の ゆれ は 呼ぶ 側 */
+  onSlam2?(x: number, y: number, z: number, fx: number, fz: number): void;
   /** 引きよせの おわりに つきなおした 手が 地面を たたいた（小さい 衝撃。手の ひらの まんなか） */
   onTap?(x: number, y: number, z: number, side: Side): void;
+  /** 攻撃 1（両手たたきつけ）で 手が 地面に 着いた（両手の まんなか。fx, fz = 体の 前の 向き）。打撃・岩・衝撃波・ゆれ・地形こわし・体の ゆれ は 呼ぶ 側 */
+  onSlam2?(x: number, y: number, z: number, fx: number, fz: number): void;
 }
 
 export type ActorClips = { climbUp: AimClipJson; climbDown: AimClipJson; lookBack: ClipJson };
-export type ActorMode = 'idle' | 'crawl' | 'back' | 'look' | 'angry';
+export type ActorMode = 'idle' | 'crawl' | 'back' | 'look' | 'angry' | 'attack' | 'tired';
+
+/** 予告の 半円（世界の 座標。中心 = 手の 落ちる 所、fx, fz = 体の 前。level = 強さ 0〜1） */
+export interface WarnMark { x: number; y: number; z: number; fx: number; fz: number; radius: number; level: number }
 
 /** 箱の 関節 → 素材（Meshy）の 骨。Meshy の 背骨は 下から Spine02 → Spine01 → Spine（箱は Spine → Spine01 → Spine02） */
 const SRC_BONE: Record<string, string> = { Spine: 'Spine02', Spine01: 'Spine01', Spine02: 'Spine' };
@@ -163,6 +172,20 @@ export class BigActor {
   /** さいごに 手を つきなおした 所（世界の 座標） */
   lastTap: { x: number; y: number; z: number; side: Side; step: number } | null = null;
 
+  /** 怒りの 攻撃サイクル（回数・休み。gashaBigAttack.ts） */
+  readonly cycle = new AttackCycle();
+  /** 両手たたきつけの 動き（gashaBigSlam2.ts） */
+  slam2!: Slam2;
+  /** 攻撃の 名前（attack モードの 間） */
+  attackName: string | null = null;
+  /** 両手たたきつけを 出した 数（テスト用） */
+  slam2Count = 0;
+  /** 予告の 半円（なければ null） */
+  warn: WarnMark | null = null;
+  private slam2Pred = new Vector3();
+  private slam2Phase = '';
+  private tiredT = 0;
+  private tiredHands: { l: Vector3; r: Vector3 } | null = null;
   private hitCount = 0;
   private hitBoxes: Box[] = [];
   private xhits: ExtraHit[] = [];
@@ -260,6 +283,7 @@ export class BigActor {
     this.plant = [up, down].map((c) => plantHands(this.model, [c], { tol: C.contactTol, spread: C.plantSpread, speed: 0, lift: C.liftHeight, center: true })[0]!);
     // 前へ 進む 1 歩（調整表の crawl を その まま 読む）。速さの 目安 = 1 歩の 長さ ÷ 1 歩の 秒
     this.step = new StepCrawler(this.model, T.crawl);
+    this.slam2 = new Slam2(this.step, this.model);
     this.crawlSpeed = (this.step.stride * this.model.scale) / this.step.stepSec();
     this.stepW = 0; this.stepWant = 0;
   }
@@ -276,7 +300,7 @@ export class BigActor {
   back(on: boolean): void {
     this.backOn = on;
     if (on) {
-      if (this.mode === 'angry') return;
+      if (this.isAngry()) return;
       this.target = null;
       this.restLeft = 0;
       this.mode = 'back';
@@ -287,7 +311,7 @@ export class BigActor {
 
   /** 長い 休みに はいる（その場で 体を 動かさない）。sec を 書かなければ 調整表の restSec。怒って いる 間は むし */
   rest(sec?: number): void {
-    if (this.mode === 'angry') return;
+    if (this.isAngry()) return;
     this.startRest(sec ?? T.wander.restSec);
   }
 
@@ -307,7 +331,7 @@ export class BigActor {
   }
 
   lookBack(): void {
-    if (this.mode === 'angry') return;
+    if (this.isAngry()) return;
     this.mode = 'look';
     this.target = null;
     this.player.play(this.baked.lookBack, { fade: T.clips.fadeSec / T.lookBack.rate, rate: T.lookBack.rate, loop: false });
@@ -319,8 +343,11 @@ export class BigActor {
     this.restLeft = 0; // 怒ったら 休みは 中断（白目に もどったら また 歩き出す）
     this.walkLeft = this.randIn(T.wander.walkSec);
     this.backOn = false;
-    if (this.mode !== 'angry') { this.mode = 'angry'; this.target = null; this.player.play(null, { fade: T.clips.idleFadeSec }); this.fadeStep(0, T.clips.idleFadeSec); }
+    if (!this.isAngry()) { this.mode = 'angry'; this.target = null; this.player.play(null, { fade: T.clips.idleFadeSec }); this.fadeStep(0, T.clips.idleFadeSec); this.cycle.begin(); }
   }
+
+  /** 怒りの 間（ならし・攻撃・つかれて 休む）か */
+  isAngry(): boolean { return this.mode === 'angry' || this.mode === 'attack' || this.mode === 'tired'; }
 
   angry(on: boolean): void {
     if (on) this.hit();
@@ -330,7 +357,91 @@ export class BigActor {
   private calm(): void {
     this.angryLeft = 0;
     this.bodyTurning = false;
-    if (this.mode === 'angry') { this.mode = 'idle'; this.pauseLeft = this.randIn(T.wander.pauseSec); }
+    this.cycle.reset();
+    this.warn = null; this.attackName = null;
+    if (this.isAngry()) {
+      const was = this.mode;
+      this.mode = 'idle'; this.pauseLeft = this.randIn(T.wander.pauseSec);
+      if (was !== 'angry') { this.fadeStep(0, T.clips.idleFadeSec); this.eyeShown = -1; }
+    }
+  }
+
+  // ---------------------------------------------------------------- 攻撃・つかれ
+  /** 攻撃を はじめる（デバッグ・サイクルから）。怒って いなければ 怒らせる */
+  attack(name: string): void {
+    if (!this.isAngry()) this.hit();
+    if (this.mode === 'attack') return;
+    this.cycle.forceAttack(name);
+    this.startAttack(name);
+  }
+
+  /** つかれて 休む（デバッグ）。sec を 省くと 調整表 */
+  tired(sec?: number): void {
+    if (!this.isAngry()) this.hit();
+    this.cycle.forceTired(sec);
+    this.startTired();
+  }
+
+  private startAttack(name: string): void {
+    if (name !== 'slam2') { this.cycle.attackEnded(); return; } // まだ ない 攻撃は とばす
+    this.mode = 'attack'; this.attackName = name; this.target = null;
+    this.player.play(null, { fade: 0 });
+    this.slam2.start();
+    this.slam2Phase = this.slam2.phase;
+    this.stepW = 1; this.stepWant = 1;
+    this.eyeShown = -1;
+    const c = Math.cos(this.yaw), sn = Math.sin(this.yaw), sc = this.model.scale;
+    const p = this.slam2.predicted(this.slam2Pred);
+    const wx = this.pos.x + (p.x * c + p.z * sn) * sc, wz = this.pos.z + (-p.x * sn + p.z * c) * sc;
+    const fx = Math.sin(this.yaw), fz = Math.cos(this.yaw), R = T.slam2.warnRadius;
+    // 予告の 印は 平らな 板なので、半円の 中の いちばん 高い 地面に そろえる（でこぼこで 地面に うまらない ように）
+    let wy = this.pos.y;
+    for (let i = 0; i <= 8; i++) {
+      const a = (i / 8 - 0.5) * Math.PI;
+      for (const k of [0.4, 0.8]) {
+        const lx = Math.sin(a) * R * k, lz = Math.cos(a) * R * k;
+        wy = Math.max(wy, this.env.groundY(Math.floor(wx + lx * fz + lz * fx), Math.floor(wz - lx * fx + lz * fz)) + 1);
+      }
+    }
+    this.warn = { x: wx, y: wy, z: wz, fx, fz, radius: R, level: this.slam2.warnLevel() };
+  }
+
+  private startTired(): void {
+    this.mode = 'tired'; this.attackName = null; this.warn = null; this.target = null;
+    this.player.play(null, { fade: 0 });
+    this.tiredT = 0;
+    this.step.reset();
+    const r = this.model.rest, K = T.tired, reach = this.step.reach * T.slam2.reachFrac;
+    const mk = (sd: 'Left' | 'Right') => {
+      const s = sd === 'Left' ? 1 : -1, sh = this.step.shoulderAt(sd, K.leanDeg * DEG, 0, new Vector3());
+      const gy = r[`${sd}Hand`].y, x = s * K.handSpread;
+      const hor2 = reach * reach - (sh.y - gy) ** 2 - (x - sh.x) ** 2;
+      return new Vector3(x, gy, Math.min(K.handZ, hor2 > 0 ? sh.z + Math.sqrt(hor2) : sh.z));
+    };
+    this.tiredHands = { l: mk('Left'), r: mk('Right') };
+    this.stepW = 1; this.stepWant = 1;
+    this.eyeShown = -1;
+    this.solveTired(0);
+  }
+
+  /** 休みの 姿勢（両手を 前の 地面に つく・のめる・頭を 下げる）。e = 0〜1 の なじみ */
+  private solveTired(e: number): void {
+    const K = T.tired, h = this.tiredHands!;
+    const sm = e * e * (3 - 2 * e);
+    const L = new Vector3().copy(this.model.rest.LeftHand).lerp(h.l, sm), R = new Vector3().copy(this.model.rest.RightHand).lerp(h.r, sm);
+    // 肩で 息: 胸を ゆっくり 前後に ゆらす（手は 地面に ついた まま。IK が 腕を 合わせる）
+    const breath = Math.sin((this.tiredT / Math.max(0.5, K.breathSec)) * Math.PI * 2) * K.breathDeg * DEG * sm;
+    this.step.poseBoth(L, R, K.leanDeg * DEG * sm + breath, 0, 1, 1);
+    for (const g of this.model.swirl.eyes) g.rotation.z = -(this.tiredT * K.swirlDegPerSec * DEG);
+    const q = this.lookQ.setFromAxisAngle(this.lookV2.set(1, 0, 0), (K.headDownDeg * DEG * sm) / 2);
+    for (const n of ['neck', 'Head'] as const) { const i = this.jointIndex.get(n); if (i !== undefined) this.step.pose[i]!.multiply(q); }
+  }
+
+  /** つかれ・攻撃を おえて ふだんの 怒りへ（姿勢は なめらかに もどる） */
+  private backToAngry(sec: number): void {
+    this.mode = 'angry'; this.attackName = null; this.warn = null; this.tiredHands = null;
+    this.fadeStep(0, sec);
+    this.eyeShown = -1;
   }
 
   private startCrawl(): void {
@@ -453,6 +564,33 @@ export class BigActor {
       this.angryLeft -= dt;
       if (this.angryLeft <= 0) this.calm();
     }
+    if (this.mode === 'attack') {
+      this.speedNow = 0;
+      const ev = this.slam2.update(dt);
+      if (this.slam2.phase !== this.slam2Phase) {
+        this.slam2Phase = this.slam2.phase;
+        if (this.slam2.phase === 'recover') this.fadeStep(0, T.slam2.recoverSec);
+      }
+      if (this.warn) this.warn.level = this.slam2.warnLevel();
+      if (ev.strike) {
+        this.slam2Count++;
+        this.warn = null;
+        const q = this.slam2.landing(new Vector3()), c = Math.cos(this.yaw), sn = Math.sin(this.yaw), sc = this.model.scale;
+        this.env.onSlam2?.(this.pos.x + (q.x * c + q.z * sn) * sc, this.pos.y, this.pos.z + (-q.x * sn + q.z * c) * sc, Math.sin(this.yaw), Math.cos(this.yaw));
+      }
+      if (this.slam2.done) {
+        this.cycle.attackEnded();
+        if (this.cycle.phase === 'tired') this.startTired(); else this.backToAngry(0.3);
+      }
+      return false;
+    }
+    if (this.mode === 'tired') {
+      this.speedNow = 0;
+      this.tiredT += dt;
+      this.solveTired(Math.min(1, this.tiredT / Math.max(1e-3, T.tired.settleSec)));
+      if (this.cycle.update(dt).tiredEnd) this.backToAngry(T.tired.exitSec);
+      return false;
+    }
     if (this.mode === 'angry') {
       const p = this.env.player();
       const want = Math.atan2(p.x - this.pos.x, p.z - this.pos.z);
@@ -463,6 +601,8 @@ export class BigActor {
       if (this.bodyTurning && Math.abs(diff) < 2 * DEG) this.bodyTurning = false;
       if (this.bodyTurning) moved = this.turnToward(want, T.angry.turnDegPerSec * DEG * dt);
       this.speedNow = 0;
+      const ev = T.attack.enabled ? this.cycle.update(dt) : {};
+      if (ev.start) this.startAttack(ev.start);
       return moved;
     }
     // 長い 休み（はい回った 時間が たまったら 5 分 止まる）
@@ -589,6 +729,9 @@ export class BigActor {
     const lo = T.eyes.calmColor, hi = T.eyes.angryColor;
     const lerp = (a: number, b: number, t: number) => Math.round(a + (b - a) * t);
     const k = this.eyeMix;
+    const swirl = this.mode === 'tired';
+    m.swirl.root.visible = swirl;
+    m.eyes.visible = !swirl; m.eyeHalo.visible = !swirl; // くるくる目の 間は 赤い 目と 光の 輪を かくす
     const rgb = (h: number) => [(h >> 16) & 255, (h >> 8) & 255, h & 255] as const;
     const A = rgb(lo), B = rgb(hi);
     c.setRGB(lerp(A[0], B[0], k) / 255, lerp(A[1], B[1], k) / 255, lerp(A[2], B[2], k) / 255);

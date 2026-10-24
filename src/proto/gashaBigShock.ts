@@ -9,7 +9,7 @@
  */
 import { TUNE as T } from './gashaBigTuning';
 
-export type ImpactKind = 'slam' | 'tap';
+export type ImpactKind = 'slam' | 'slam2' | 'tap';
 type V3 = { x: number; y: number; z: number };
 
 export interface ShockDeps {
@@ -39,6 +39,10 @@ export interface Impact {
   waveDone: boolean;
   /** 見た目が 消える まで の 秒 */
   life: number;
+  /** 輪の 広がる 速さ（ブロック / 秒）・前の ふちの 太さ・当たる 足の 高さの 上限・ダメージ（slam と slam2 で ちがう） */
+  speed: number; band: number; height: number; damage: number;
+  /** 体の 前の 向き（slam2 の 半円の むき。長さ 1 の 水平） */
+  fx: number; fz: number;
 }
 
 export type ShockHitKind = 'hit' | 'wave' | 'tap';
@@ -73,28 +77,42 @@ export class BigShock {
   private dist(x: number, z: number): number { const p = this.d.player(); return Math.hypot(p.x - x, p.z - z); }
 
   /** 足が 地面に ある（ジャンプで はなれて いない） */
-  private grounded(): boolean {
+  private grounded(maxH: number = T.slam.waveHeight): boolean {
     const p = this.d.player();
     if (this.d.onGround && !this.d.onGround()) return false;
-    return p.y - (this.d.groundY(Math.floor(p.x), Math.floor(p.z)) + 1) <= T.slam.waveHeight;
+    return p.y - (this.d.groundY(Math.floor(p.x), Math.floor(p.z)) + 1) <= maxH;
   }
 
-  private shake(amp: number, sec: number, x: number, z: number): void {
-    const k = Math.max(0, 1 - this.dist(x, z) / Math.max(1e-3, T.slam.shakeRange));
+  private shake(amp: number, sec: number, x: number, z: number, range: number = T.slam.shakeRange): void {
+    const k = Math.max(0, 1 - this.dist(x, z) / Math.max(1e-3, range));
     if (amp * k > 0) this.shakes.push({ amp: amp * k, sec: Math.max(1e-3, sec), age: 0 });
   }
 
   /** 手が 地面を たたいた（その コマの 当たりも ここで 見る） */
-  add(kind: ImpactKind, x: number, y: number, z: number): Impact {
-    const S = T.slam;
-    const slam = kind === 'slam';
-    const imp: Impact = { kind, x, y, z, age: 0, r: 0, maxR: slam ? S.waveRadius : S.tapRadius, waveDone: false, life: slam ? Math.max(S.ringSec, S.waveRadius / Math.max(1e-3, S.waveSpeed)) : S.tapRingSec };
+  add(kind: ImpactKind, x: number, y: number, z: number, facing?: { fx: number; fz: number }): Impact {
+    const S = T.slam, Q = T.slam2;
+    const slam = kind === 'slam', big = kind === 'slam2';
+    const fl = facing ? Math.hypot(facing.fx, facing.fz) : 0;
+    const imp: Impact = {
+      kind, x, y, z, age: 0, r: 0, maxR: big ? Q.waveRadius : slam ? S.waveRadius : S.tapRadius, waveDone: false,
+      life: big ? Math.max(Q.ringSec, Q.waveRadius / Math.max(1e-3, Q.waveSpeed)) : slam ? Math.max(S.ringSec, S.waveRadius / Math.max(1e-3, S.waveSpeed)) : S.tapRingSec,
+      speed: big ? Q.waveSpeed : S.waveSpeed, band: big ? Q.waveBand : S.waveBand, height: big ? Q.waveHeight : S.waveHeight, damage: big ? Q.waveDamage : S.waveDamage,
+      fx: fl > 1e-6 ? facing!.fx / fl : 0, fz: fl > 1e-6 ? facing!.fz / fl : 1,
+    };
     this.impacts.push(imp);
-    if (slam) this.shake(S.shakeDeg, S.shakeSec, x, z);
+    if (big) this.shake(Q.shakeDeg, Q.shakeSec, x, z, Q.shakeRange);
+    else if (slam) this.shake(S.shakeDeg, S.shakeSec, x, z);
     else this.shake(S.tapShakeDeg, S.tapShakeSec, x, z);
     const p = this.d.player();
     const d = this.dist(x, z);
-    if (slam) {
+    if (big) {
+      // 打撃: 予告の 半円（手の 落ちる 所が 中心・体の 反対の 前がわ）の 中。高く ジャンプ して いれば 当たらない
+      const ahead = (p.x - x) * imp.fx + (p.z - z) * imp.fz;
+      if (d <= Q.warnRadius && ahead >= 0 && p.y - y <= Q.hitHeight && p.y - y >= -1) {
+        this.strike('hit', Q.hitDamage, imp, T.stagger.knockSpeed);
+        imp.waveDone = true;
+      }
+    } else if (slam) {
       // 打撃: 手の 真下と まわり（手の 高さ まで）
       if (d <= S.hitRadius && p.y - y <= S.hitHeight && p.y - y >= -1) {
         this.strike('hit', S.hitDamage, imp, T.stagger.knockSpeed);
@@ -130,20 +148,19 @@ export class BigShock {
   step(dt: number): void {
     this.tick++;
     this.time += dt;
-    const S = T.slam;
     if (this.staggerLeft > 0) this.staggerLeft = Math.max(0, this.staggerLeft - dt);
     for (let i = this.shakes.length - 1; i >= 0; i--) { const s = this.shakes[i]!; s.age += dt; if (s.age >= s.sec) this.shakes.splice(i, 1); }
     for (let i = this.impacts.length - 1; i >= 0; i--) {
       const m = this.impacts[i]!;
       m.age += dt;
-      if (m.kind === 'slam') {
+      if (m.kind === 'slam' || m.kind === 'slam2') {
         const r0 = m.r;
-        m.r = Math.min(m.maxR, m.r + S.waveSpeed * dt);
+        m.r = Math.min(m.maxR, m.r + m.speed * dt);
         if (!m.waveDone) {
           const d = this.dist(m.x, m.z);
-          // 輪の 前の ふちが この コマで 通った（太さ waveBand）
-          if (d <= m.r && d >= r0 - S.waveBand) {
-            if (this.grounded()) { m.waveDone = true; this.strike('wave', S.waveDamage, m, T.stagger.knockSpeed); }
+          // 輪の 前の ふちが この コマで 通った（太さ band）
+          if (d <= m.r && d >= r0 - m.band) {
+            if (this.grounded(m.height)) { m.waveDone = true; this.strike('wave', m.damage, m, T.stagger.knockSpeed); }
           }
           if (m.r >= m.maxR && r0 >= m.maxR) m.waveDone = true;
         }

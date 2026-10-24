@@ -96,3 +96,69 @@ describe('gashaBigShock（#293 手が 地面を たたいた ときの 当たり
     expect(r.shock.hits[0]!.ok).toBe(false);
   });
 });
+
+describe('両手たたきつけ slam2（予告の 半円 → 打撃 → 特大の 衝撃波）', () => {
+  const K = T.slam2;
+  const F = { fx: 0, fz: 1 }; // 体の 前 = +z
+
+  it('半円の 中（前がわ）は 打撃の 大ダメージ。手の うしろ（体の がわ）は 半円の 外', () => {
+    const a = rig({ x: 1, y: 0, z: 5 });
+    a.shock.add('slam2', 0, 0, 0, F);
+    expect(a.hurts[0]).toBe(K.hitDamage);
+    expect(a.shock.hits[0]!.kind).toBe('hit');
+    const b = rig({ x: 1, y: 0, z: -5 }); // 半径の 中でも 手の うしろがわ
+    b.shock.add('slam2', 0, 0, 0, F);
+    expect(b.hurts).toEqual([]);
+  });
+
+  it('半円の 外（半径より 遠い）は 打撃なし。高く ジャンプ してれば 打撃を よけられる', () => {
+    const far = rig({ x: 0, y: 0, z: K.warnRadius + 2 });
+    far.shock.add('slam2', 0, 0, 0, F);
+    expect(far.hurts).toEqual([]);
+    const air = rig({ x: 0, y: K.hitHeight + 1, z: 3 });
+    air.shock.add('slam2', 0, 0, 0, F);
+    expect(air.hurts).toEqual([]);
+  });
+
+  it('順番: 打撃（その コマ）→ 衝撃波（あとから 広がって 当たる）。半円の 外の 人は 衝撃波だけ', () => {
+    const r = rig({ x: 0, y: 0, z: K.warnRadius + 6 });
+    const imp = r.shock.add('slam2', 0, 0, 0, F);
+    expect(r.hurts).toEqual([]);
+    expect(imp.maxR).toBe(K.waveRadius);
+    run(r.shock, (K.warnRadius + 6) / K.waveSpeed + 0.3);
+    expect(r.hurts).toEqual([K.waveDamage]);
+    expect(r.shock.hits[0]!.kind).toBe('wave');
+  });
+
+  it('打撃を 受けた 人には 衝撃波は 当たらない（1 回だけ）', () => {
+    const r = rig({ x: 0, y: 0, z: 3 });
+    r.shock.add('slam2', 0, 0, 0, F);
+    run(r.shock, 3);
+    expect(r.hurts).toEqual([K.hitDamage]);
+  });
+
+  it('衝撃波は ジャンプで よけられる（足が waveHeight より 上）。前進の 輪（24）より 大きく 太く 速い', () => {
+    expect(K.waveRadius).toBeGreaterThan(T.slam.waveRadius);
+    expect(K.waveBand).toBeGreaterThan(T.slam.waveBand);
+    expect(K.waveSpeed).toBeGreaterThan(T.slam.waveSpeed);
+    const r = rig({ x: 0, y: K.waveHeight + 0.5, z: K.warnRadius + 8 });
+    r.shock.add('slam2', 0, 0, 0, F);
+    run(r.shock, 3);
+    expect(r.hurts).toEqual([]);
+  });
+
+  it('アースクエイク: 前進の たたきつけより ゆれが 強く 長く、遠くまで とどく', () => {
+    const a = rig({ x: 0, y: 0, z: 30 }), b = rig({ x: 0, y: 0, z: 30 });
+    a.shock.add('slam2', 0, 0, 0, F);
+    b.shock.add('slam', 0, 0, 0);
+    expect(a.shock.shakeNow).toBeGreaterThan(b.shock.shakeNow);
+    run(a.shock, 1.2); run(b.shock, 1.2);
+    expect(a.shock.shakeNow).toBeGreaterThan(0.05); // 前進の ゆれ（0.7 秒）は もう 消えた あとも ゆれて いる
+    expect(b.shock.shakeNow).toBe(0);
+    const far = rig({ x: 0, y: 0, z: 90 }); // 前進の ゆれの 届く 70 より 遠い
+    far.shock.add('slam2', 0, 0, 0, F);
+    expect(far.shock.shakeNow).toBeGreaterThan(0);
+    run(a.shock, K.shakeSec);
+    expect(a.shock.shakeNow).toBe(0);
+  });
+});

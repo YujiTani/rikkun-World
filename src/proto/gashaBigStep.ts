@@ -168,7 +168,7 @@ export class StepCrawler {
   private sgn(sd: Side): number { return sd === 'Left' ? 1 : -1; }
 
   /** 肩（Arm 関節）の 位置（からだの 座標）を 胸の 角度から 出す */
-  private shoulderAt(sd: Side, lean: number, twist: number, out: Vector3): Vector3 {
+  shoulderAt(sd: Side, lean: number, twist: number, out: Vector3): Vector3 {
     this.setTorso(lean, twist);
     this.fk();
     return out.copy(this.P[this.idx.get(`${sd}Arm`)!]!);
@@ -372,6 +372,20 @@ export class StepCrawler {
     if (iM !== undefined) { this.pose[iM]!.set(0, 0, 0, 1); this.W[iM]!.copy(Wa); } // 上わんの 節を 分けた 関節は 親と おなじ 向き
     this.W[iS]!.copy(Wa); this.W[iF]!.copy(Wf); this.W[iH]!.copy(Wf).multiply(this.pose[iH]!);
     this.P[iF]!.copy(E); this.P[iH]!.copy(Wr);
+  }
+
+  /** 腕が とどく 長さ（上わん ＋ 前わん。もとの 座標） */
+  get reach(): number { return this.L.upper + this.L.fore; }
+
+  /**
+   * 両手を 好きな 場所へ 置いた 姿勢を pose に 作る（両手たたきつけ・つかれた 姿勢 用。1 歩の しくみとは 別。gashaBigSlam2.ts）。
+   * left / right = 手首の 目標（からだの 座標）、plant = 手の ひらを 地面に 平らに する 重み（0〜1）。
+   */
+  poseBoth(left: Vector3, right: Vector3, lean: number, twist: number, plantL: number, plantR: number): void {
+    this.setTorso(lean, twist);
+    this.fk();
+    this.solveArm('Left', left, plantL);
+    this.solveArm('Right', right, plantR);
   }
 
   /** 手の ひらの まんなか（からだの 座標）。たたきつけた 所の 中心 */

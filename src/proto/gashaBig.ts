@@ -19,12 +19,14 @@ import { armPoints } from './gashaBigArm';
 import { buildOutsideMoss, buildPlants, plantMaterial, type OutsideMoss, type PlantSurface } from './gashaBigPlants';
 import { TUNE as T, applyTune, applyTuneFromUrl } from './gashaBigTuning';
 import { BigActor, type ActorClips } from './gashaBigActor';
+import { buildSwirlEyes, type SwirlEyes } from './gashaBigSwirl';
 import { sharedGashaBgm } from './gashaBgm';
 import { BigHit, type HitSources } from './gashaBigHit';
 import { GashaGeyser, type GeyserInfo } from './gashaGeyser';
 import { BigShock, type ShockHit } from './gashaBigShock';
 import { ShockFx } from './gashaBigShockFx';
 import { crushAt } from './gashaBigCrush';
+import { BodyQuake } from './gashaBigQuake';
 import climbUp from './gashaBigClips/climbUp.json';
 import climbDown from './gashaBigClips/climbDown.json';
 import lookBackClip from './gashaBigClips/lookBack.json';
@@ -412,6 +414,8 @@ export interface BigModel {
   setCoreFx(jx: number, jy: number, jz: number, scale: number, alphaK: number): void;
   eyes: MeshBasicMaterial;
   eyeHalo: MeshBasicMaterial;
+  /** つかれた ときの くるくる目（渦巻き。ふだんは 見えない。gashaBigSwirl.ts） */
+  swirl: SwirlEyes;
   brow: Mesh;
   /** もとの 座標 → ブロック の 拡大 */
   scale: number;
@@ -1035,8 +1039,10 @@ export function buildBig(): BigModel {
     if (mk) mk.on[gc.cell] = on ? 1 : 0;
   };
 
+  const swirl = buildSwirlEyes(new Quaternion().setFromEuler(new Euler(0.17, headYaw, 0, 'YXZ')));
+  joints.Head.add(swirl.root);
   return {
-    group, joints, rest, hits: b.hits, glass: b.glass, setGlass, plants: plantCount, mossOutside: { clumps: outside.clumps, count: outside.count }, updateMoss: outside.update, setCoreFx, eyes: matOf('eyes'), eyeHalo: matOf('eyeHalo'), brow: brow ?? new Mesh(), scale, groundPts, head: headPos, meshes: meshes.length,
+    group, joints, rest, hits: b.hits, glass: b.glass, setGlass, plants: plantCount, mossOutside: { clumps: outside.clumps, count: outside.count }, updateMoss: outside.update, setCoreFx, eyes: matOf('eyes'), eyeHalo: matOf('eyeHalo'), swirl, brow: brow ?? new Mesh(), scale, groundPts, head: headPos, meshes: meshes.length,
   };
 }
 
@@ -1110,6 +1116,12 @@ export interface GashaBigHandle {
   lookBack(): void;
   /** 後ろへ さがる（climbing down wall を 倒した 動き）を はじめる / 止める */
   back(on: boolean): void;
+  /** 攻撃を すぐ 出す（デバッグ。怒って いなければ 怒らせる）。いまは 'slam2'（両手たたきつけ）だけ */
+  attack(name: string): void;
+  /** つかれて 休みに はいる（デバッグ。sec を 省くと 調整表の 20〜30 秒） */
+  tired(sec?: number): void;
+  /** 攻撃サイクル・予告・体の ゆれの いま（テスト用） */
+  attackInfo(): { mode: string; phase: string; attack: string | null; done: number; count: number; left: number; slam2Count: number; quakeLeft: number; warn: boolean; fx: { warn: boolean; rocks: number; cracks: number } };
   /** 長い 休みに はいる（その場で 体を 動かさない。首を ふる くらい）。sec を 書かなければ 調整表の wander.restSec */
   rest(sec?: number): void;
   /** うごきの 中身（モード・速さ・手の ついた 数・1 コマの 仕事の 数 など） */
@@ -1257,8 +1269,14 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
     onGround: deps.playerBody ? () => deps.playerBody!().onGround ?? true : undefined,
   });
   const shockFx = new ShockFx(deps.scene, deps.camera);
+  // 攻撃 1 の アースクエイク: 体も ゆれて、のっている 人は 一定の 間かくで 横に ゆさぶられる（自動では ふり落とさない。歩いて 踏んばれば のこれる。ジャンプ中は 押されない）
+  const riding = (): boolean => { if (!actor || !deps.carryPlayer) return false; const p = deps.player(); return actor.boxUnder(p.x, p.y, p.z) >= 0; };
+  const quake = new BodyQuake({
+    isRider: riding, onGround: () => deps.playerBody?.().onGround ?? true,
+    nudge: (dx, dz) => deps.nudgePlayer?.(dx, dz),
+  });
   deps.blockPlayerInput?.(() => shock.inputBlocked() || throwLeft > 0 || spinLeft > 0);
-  deps.onBeforeRender?.(() => shockFx.applyShake(Math.max(reduced() ? 0 : shock.shakeNow, warnLeft > 0 ? T.core.throwOff.warnShakeDeg * (reduced() ? 0.25 : 1) : 0), shock.time));
+  deps.onBeforeRender?.(() => shockFx.applyShake(Math.max(reduced() ? 0 : shock.shakeNow, warnLeft > 0 ? T.core.throwOff.warnShakeDeg * (reduced() ? 0.25 : 1) : 0, quake.active && riding() ? T.slam2.quake.bodyShakeDeg * (reduced() ? 0.25 : 1) : 0), shock.time));
   const fwdOf = (p: { yawDeg: number }) => { const y = (p.yawDeg * Math.PI) / 180; return { fx: Math.sin(y), fz: -Math.cos(y) }; };
 
   const clear = () => {
@@ -1325,6 +1343,11 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
         if (blockAt && deps.setBlockAir) crushAt(x, y, z, { getBlock: blockAt, setAir: deps.setBlockAir, onBlocks: deps.onCrushBlocks });
       },
       onTap: (x, y, z) => shockFx.spawn(shock.add('tap', x, y, z)),
+      onSlam2: (x, y, z, fx, fz) => {
+        shockFx.spawn(shock.add('slam2', x, y, z, { fx, fz }));
+        if (blockAt && deps.setBlockAir) crushAt(x, y, z, { getBlock: blockAt, setAir: deps.setBlockAir, onBlocks: deps.onCrushBlocks }, T.slam2);
+        quake.start();
+      },
     }, 293);
     actor.place(pos.x, pos.y, pos.z, yaw);
     actor.walk(T.wander.enabledAtStart);
@@ -1344,6 +1367,8 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
     bh.step(dt);
     stepGlass(dt);
     stepCoreWarn(dt);
+    quake.step(dt);
+    shockFx.setWarn(actor.warn);
     if (throwLeft > 0) { throwLeft -= dt; deps.nudgePlayer?.(throwDir.x * T.core.throwOff.speed * dt, throwDir.z * T.core.throwOff.speed * dt); }
     shock.step(dt);
     shockFx.update(dt);
@@ -1359,7 +1384,7 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
 
   const handle: GashaBigHandle = {
     tune: (o) => applyTune(o),
-    place: () => { place(); bh.reset(); },
+    place: () => { quake.stop(); place(); bh.reset(); },
     hp: () => bh.hp,
     damage: (part, amount) => bh.damage(part, amount),
     section: (on) => {
@@ -1383,6 +1408,12 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
     goTo: (x, z) => actor?.goTo(x, z),
     lookBack: () => actor?.lookBack(),
     back: (on) => actor?.back(on),
+    attack: (name) => actor?.attack(name),
+    tired: (sec) => actor?.tired(sec),
+    attackInfo: () => ({
+      mode: actor?.mode ?? '', phase: actor?.cycle.phase ?? 'off', attack: actor?.attackName ?? null, done: actor?.cycle.done ?? 0, count: actor?.cycle.count ?? 0, left: actor?.cycle.left ?? 0,
+      slam2Count: actor?.slam2Count ?? 0, quakeLeft: quake.left, warn: !!actor?.warn, fx: shockFx.bigCounts(),
+    }),
     rest: (sec) => actor?.rest(sec),
     motion: () => (actor ? {
       mode: actor.mode, speedNow: actor.speedNow, crawlSpeed: actor.crawlSpeed, crawlRate: actor.crawlRate, strideScale: actor.strideScale, backOn: actor.backOn, target: actor.target, wander: actor.wanderOn,

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Vector3 } from 'three';
 import climbUp from './gashaBigClips/climbUp.json';
 import climbDown from './gashaBigClips/climbDown.json';
@@ -28,6 +28,11 @@ function rig(seed = 293, x = 0, z = 0, yaw = 0): Rig {
 const run = (a: BigActor, sec: number): void => { for (let i = 0; i < Math.round(sec / DT); i++) a.update(DT); };
 
 describe('gashaBigActor（#293 はって進む・目・乗っている人）', () => {
+  // 怒りの 攻撃サイクル（gashaBigAttack・gashaBigAttackActor.test.ts）は ここでは 切る（ここは「怒って いる 間は 止まって 向きを かえる」ならしの 動きを 見る）
+  let atk = true;
+  beforeAll(() => { atk = T.attack.enabled; T.attack.enabled = false; });
+  afterAll(() => { T.attack.enabled = atk; });
+
   it('当たりの 判定は voxelize と おなじ（マスごとに くらべる）', () => {
     const { actor } = rig();
     const m = actor.model;

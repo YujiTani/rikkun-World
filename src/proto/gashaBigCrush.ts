@@ -21,9 +21,8 @@ export function crushable(block: string, y: number): boolean {
   return y > 0 && block !== 'air' && block !== 'outside' && block !== 'water' && block !== 'start_torch';
 }
 
-/** 手の ひらの まんなか（x, z）と 立つ 面の 高さ y の まわりを こわす。こわした マスを 返す */
-export function crushAt(x: number, y: number, z: number, io: CrushIO): { x: number; y: number; z: number; from: string; to: 'air' }[] {
-  const S = T.slam;
+/** 手の ひらの まんなか（x, z）と 立つ 面の 高さ y の まわりを こわす。こわした マスを 返す。S を 省くと 前進の たたきつけ（slam）、両手たたきつけは T.slam2 */
+export function crushAt(x: number, y: number, z: number, io: CrushIO, S: { crushRadius: number; crushDepth: number; crushUp: number } = T.slam): { x: number; y: number; z: number; from: string; to: 'air' }[] {
   const R = Math.max(0, S.crushRadius);
   const changed: { x: number; y: number; z: number; from: string; to: 'air' }[] = [];
   if (R <= 0) return changed;
