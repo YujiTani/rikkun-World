@@ -303,6 +303,17 @@ export class ShockFx {
     this.shaken = true;
   }
 
+  /** 片づける: 輪・岩・ひび・土ぼこり・予告の 半円を ぜんぶ 消し、画面の ゆれも もどす */
+  clear(): void {
+    for (const r of this.rings) { r.imp = null; r.g.visible = false; }
+    this.rocks.length = 0; this.rockMesh.count = 0;
+    for (const c of this.cracks) c.imp = null;
+    this.crackMesh.count = 0;
+    this.motes.length = 0; this.dust.count = 0;
+    this.warnG.visible = false;
+    this.applyShake(0, 0);
+  }
+
   /** いま 見えて いる 輪と 土ぼこりの 数（テスト・info 用） */
   counts(): { rings: number; dust: number } {
     return { rings: this.rings.filter((r) => r.imp).length, dust: this.dust.count };

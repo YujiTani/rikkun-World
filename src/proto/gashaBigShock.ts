@@ -64,6 +64,15 @@ export class BigShock {
 
   constructor(private readonly d: ShockDeps) {}
 
+  /** 片づける: 当たりの 記録・ひるみ・ゆれを ぜんぶ 消す（体を しまう とき） */
+  clear(): void {
+    this.impacts.length = 0;
+    this.hits.length = 0;
+    this.shakes.length = 0;
+    this.staggerLeft = 0;
+    this.lastPush = null;
+  }
+
   /** 入力を 止める か（ひるみ中） */
   inputBlocked(): boolean { return this.staggerLeft > 0; }
 

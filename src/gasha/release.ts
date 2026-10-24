@@ -1,10 +1,9 @@
 /**
  * #293 リリース: がしゃどくろを ふだんの ゲーム（?proto なし）に 出す 係。
  *  ・ゲームの 1 日（あさ）ごとに くじを 引き（約 3 割）、当たると プレイヤーから 150〜250 ブロック先に 1 体だけ 出す。
- *    出し方は 試作の 置き方（gashaBig.ts の place。プレイヤーの 前方 T.place.distance に 置く）を そのまま 使い、
- *    「どの 向きに 置くか」は deps.player() の yawDeg を 置く 間だけ すりかえて きめる。
- *  ・たおす（体力 0）か、プレイヤーが 遠く（despawnDistance）へ はなれると 消える。消すとは「すごく 遠くへ おき直す」こと
- *    （gashaBig.ts に 片づける 口が まだ 無いため。体力も もどる。次の 出番は また place() で 使いまわす）。
+ *    場所と 向きは gashaBig.ts の `place({ x, z, yawDeg })` に 直接 わたす（プレイヤーの 方を 向く）。
+ *  ・たおす（体力 0。gashaBig.ts の onDefeated で 知らせが 来る）か、プレイヤーが 遠く（despawnDistance）へ はなれると
+ *    gashaBig.ts の `despawn()` で 片づける（体・当たり・間欠泉・ゲージ・射線・エフェクト・音が ぜんぶ 消える）。次の 出番は また place() で 使いまわす。
  *  ・たおしたら: 実績を 記録 → BGM を 止める → その 場所に 大きな 宝箱（bigChest.ts）→ 近づくと ひらいて 中身（reward.ts）。
  *  ・遠くは 世界が 読みこまれて いない ので、地面の 高さは 地形から、地ならし（fillBlocks）は 列が 読みこまれる まで 待つ。
  * 数は ぜんぶ releaseTuning.ts。ゲームとの つなぎは ReleaseEnv（main.ts が 渡す）。
@@ -18,13 +17,16 @@ import { itemType } from '../inventory/items';
 import { rewardRng, rollReward } from './reward';
 import { applySilhouette, updateSilhouette } from './silhouette';
 import { RELEASE } from './releaseTuning';
-import { faceYawDeg, horizontalDistance, pickSpawnSpot, rollMorning, shouldDespawn, type SpawnSpot } from './spawnRule';
+import { faceTowardYawDeg, horizontalDistance, pickSpawnSpot, rollMorning, shouldDespawn, type SpawnSpot } from './spawnRule';
 
 /** 試作の 係（gashaBig.ts の GashaBigHandle）のうち、ここで 使う 口 */
 export interface BossHandle {
-  /** 作りなおして プレイヤーの 前に 置く（体力も もどる） */
-  place(): void;
+  /** 作りなおして 指した 場所・向きに 置く（体力も もどる） */
+  place(at: { x: number; z: number; yawDeg?: number }): void;
+  /** 片づける（体・当たり・間欠泉・ゲージ・射線・エフェクト・音を 消し、毎コマの 更新も 止める） */
+  despawn(): void;
   hp(): number;
+  maxHp(): number;
   angry(on: boolean): void;
   walk(on: boolean): void;
   /** `pos: [x, y, z]`（体の 足もと） */
@@ -53,8 +55,8 @@ export interface ReleaseEnv {
   scene: Scene;
   /** 昼夜の 明るさの 係。あれば 宝箱の 材料を 登録して 夜は 暗くする */
   lighting?: { registerTree(root: Object3D, group: 'doll'): number; unregister?(m: unknown): void };
-  /** 試作の 係を 読みこんで 作る（初めの 1 回だけ。作る とき すでに place() される）。wrap で 入り口を すりかえる */
-  start(wrap: DepsWrap): Promise<BossHandle>;
+  /** 試作の 係を 読みこんで 作る（初めの 1 回だけ。作る とき `at` に place() される）。wrap で 入り口を すりかえる */
+  start(wrap: DepsWrap, at: { x: number; z: number; yawDeg?: number }): Promise<BossHandle>;
   /** 落ちた アイテムとして ばらまく（DropField.scatter） */
   scatter(at: { x: number; y: number; z: number }, stacks: readonly ItemStack[], opts?: { speedMin?: number; speedMax?: number; upMin?: number; upMax?: number }): void;
   /** 実績の 記録（`defeat:gashadokuro`） */
@@ -98,8 +100,6 @@ const round2 = (v: number): number => Math.round(v * 100) / 100;
 export class GashaRelease {
   private st: ReleaseState = 'idle';
   private handle: BossHandle | null = null;
-  private placing: { yawDeg: number } | null = null;
-  private parking = false;
   private lastDay = -1;
   private checkClock = 0;
   private lingerLeft = 0;
@@ -118,18 +118,15 @@ export class GashaRelease {
 
   // ---------------------------------------------------------------- 入り口のすりかえ（試作の 係に わたす）
   readonly wrap: DepsWrap = (d) => {
-    const { giveNinjaTabi: _tabi, fillBlocks, ...rest } = d; // 足袋は ごほうび なので はじめから 着せない
-    void _tabi;
+    const { fillBlocks } = d;
     return {
-      ...rest,
-      // 置く 間だけ「プレイヤーが その 向きを 向いて いる」ことに して、前方に 置かせる
-      player: () => {
-        const p = d.player();
-        return this.placing ? { ...p, yawDeg: this.placing.yawDeg } : p;
-      },
+      ...d,
+      noTabi: true, // 足袋は ごほうび なので はじめから 着せない
+      // 体力 0: たおした ことにする（宝箱・実績・BGM）
+      onDefeated: () => { d.onDefeated?.(); this.defeat(); },
       // 読みこんで いない 遠くは 地形の 高さ
       groundY: (x, z) => (this.env.isLoaded(x, z) ? d.groundY(x, z) : this.env.terrainTop(x, z)),
-      // 地ならしは 列が そろって から（遠くへ しまう ときは しない）
+      // 地ならしは 列が そろって から
       fillBlocks: fillBlocks
         ? (x0, y0, z0, x1, y1, z1, id) => this.fill(() => fillBlocks(x0, y0, z0, x1, y1, z1, id), [[x0, z0], [x1, z0], [x0, z1], [x1, z1], [(x0 + x1) >> 1, (z0 + z1) >> 1]])
         : undefined,
@@ -137,7 +134,6 @@ export class GashaRelease {
   };
 
   private fill(apply: () => void, cols: [number, number][]): void {
-    if (this.parking) return;
     if (cols.every(([x, z]) => this.env.isLoaded(x, z))) apply();
     else this.pending.push({ apply, cols });
   }
@@ -177,22 +173,19 @@ export class GashaRelease {
     if (this.st !== 'idle') return false;
     this.st = 'loading';
     this.cancelLoad = false;
-    this.parking = false;
-    BIG.place.distance = spot.distance;
-    this.placing = { yawDeg: faceYawDeg(spot.dx, spot.dz) };
+    // プレイヤーの 方を 向いて 立つ
+    const at = { x: spot.x, z: spot.z, yawDeg: faceTowardYawDeg(spot, this.env.player(), BIG.place.faceYawOffsetDeg) };
     try {
       if (this.handle) {
         this.handle.angry(false);
-        this.handle.place();
+        this.handle.place(at);
       } else {
-        this.handle = await this.env.start(this.wrap); // この 中で 最初の place() が 行われる
+        this.handle = await this.env.start(this.wrap, at); // この 中で 最初の place() が 行われる
       }
     } catch {
-      this.placing = null;
       this.st = 'idle';
       return false;
     }
-    this.placing = null;
     this.dress();
     if (this.cancelLoad) { this.cancelLoad = false; this.st = 'present'; this.despawn(); return false; }
     this.st = 'present';
@@ -210,25 +203,16 @@ export class GashaRelease {
     if (g) applySilhouette(g);
   }
 
-  /** 消す（たおされた あとも 遠くはなれた ときも）。体を すごく 遠くへ おき直して、当たりも 見えも しなく する */
+  /** 消す（たおされた あとも 遠くはなれた ときも）。gashaBig.ts の despawn() で 体・当たり・間欠泉・ゲージ・射線・エフェクト・音を 片づける */
   despawn(): void {
     if (this.st === 'loading') { this.cancelLoad = true; return; }
     this.pending.length = 0;
     if (!this.handle || this.st === 'idle') { this.st = 'idle'; return; }
-    const p = this.env.player();
-    this.parking = true;
-    BIG.place.distance = RELEASE.defeat.parkDistance;
-    this.placing = { yawDeg: p.yawDeg };
-    this.handle.angry(false);
-    this.handle.place();
-    this.handle.angry(false);
-    this.handle.walk(false);
-    this.placing = null;
-    this.parking = false;
-    this.pending.length = 0;
+    this.handle.despawn();
     this.bossPos = null;
     this.st = 'idle';
     this.applyBar();
+    this.env.bgmReset?.(); // 少女が 出た 記録も けして、ふだんの BGM に もどす
   }
 
   /** ゲージは いる 間の 近くだけ。ゲージの 部品は place() の たびに 作り直される ので そのつど かけなおす */

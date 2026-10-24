@@ -250,6 +250,19 @@ export class BigHit {
     this.flash = 0;
   }
 
+  /** 片づける（#293 まとめ）: 体力ゲージを 画面から はずし、当たりの 箱・火花・光りを 手ばなす。射線の 割りこみは 箱が 空なので 本物の まま 通る。reset() で また 作る */
+  dismiss(): void {
+    this.bar?.destroy();
+    this.bar = null;
+    this.boxes = [];
+    this.parts = [];
+    this.mats = [];
+    this.flash = 0;
+    this.swingKey = null; this.swingDone = false;
+    this.waveLast.clear(); this.waveDone.clear();
+    for (const sp of this.sparks) { sp.left = 0; sp.mesh.visible = false; }
+  }
+
   /** 体力を 満タンに もどす（調整表の hp を 読みなおす） */
   reset(): void {
     this.maxHp = T.hit.hp;

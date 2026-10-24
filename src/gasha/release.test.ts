@@ -1,41 +1,47 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { BoxGeometry, Group, Mesh, MeshBasicMaterial, type Scene } from 'three';
 import { hazePatch } from '../proto/gashaBig';
 import type { ItemStack } from '../contracts';
 import type { GashaBigDeps } from '../proto/gashaBig';
-import { TUNE as BIG } from '../proto/gashaBigTuning';
 import { createGashaRelease, type BossHandle, type DepsWrap, type ReleaseEnv } from './release';
 import { RELEASE } from './releaseTuning';
 
-/** gashaBig.ts の place の まね: プレイヤーの 前方 distance に 置く（deps.player と T.place.distance を 読む） */
-function fakeBoss(wrapped: GashaBigDeps) {
+/** gashaBig.ts の place({ x, z, yawDeg })・despawn()・onDefeated の まね */
+function fakeBoss(wrapped: GashaBigDeps, first: { x: number; z: number; yawDeg?: number }) {
   const boss = {
     pos: { x: 0, y: 0, z: 0 },
+    yawDeg: 0,
     hp: 1000,
     angry: false,
     walking: true,
+    alive: false,
     places: 0,
-    place() {
-      const p = wrapped.player();
-      const y = (p.yawDeg * Math.PI) / 180;
-      const d = BIG.place.distance;
-      const x = p.x + Math.sin(y) * d, z = p.z - Math.cos(y) * d;
+    despawns: 0,
+    /** 体力 0 に なった（gashaBig.ts の onUpdate が onDefeated を 呼ぶ） */
+    kill() { boss.hp = 0; wrapped.onDefeated?.(); },
+    place(at: { x: number; z: number; yawDeg?: number }) {
+      const { x, z } = at;
       boss.pos = { x, y: wrapped.groundY(Math.floor(x), Math.floor(z)) + 1, z };
+      boss.yawDeg = at.yawDeg ?? 0;
       boss.hp = 1000;
+      boss.alive = true;
       boss.places++;
       wrapped.fillBlocks?.(Math.floor(x) - 3, boss.pos.y - 8, Math.floor(z) - 3, Math.floor(x) + 3, boss.pos.y - 1, Math.floor(z) + 3, 'grass');
     },
+    despawn() { boss.alive = false; boss.angry = false; boss.walking = false; boss.despawns++; },
   };
-  boss.place();
-  wrapped.giveNinjaTabi?.();
+  boss.place(first);
+  if (!wrapped.noTabi) wrapped.giveNinjaTabi?.();
   // 体の 3D（place の たびに 新しい 材料で 作りなおされる、ところまで まねる）
   let group = new Group();
   const remake = () => { group = new Group(); const m = new MeshBasicMaterial(); hazePatch(m); group.add(new Mesh(new BoxGeometry(), m)); };
   remake();
   const handle: BossHandle = {
     get group() { return group; },
-    place: () => { boss.place(); remake(); },
+    place: (at) => { boss.place(at); remake(); },
+    despawn: () => boss.despawn(),
     hp: () => boss.hp,
+    maxHp: () => 1000,
     angry: (on) => { boss.angry = on; },
     walk: (on) => { boss.walking = on; },
     info: () => ({ pos: [boss.pos.x, boss.pos.y, boss.pos.z] }),
@@ -74,9 +80,9 @@ function rig(over: { chance?: number; enabled?: boolean } = {}) {
     terrainTop: () => 12,
     groundY: () => 40,
     scene,
-    start: async (wrap: DepsWrap) => {
+    start: async (wrap: DepsWrap, at) => {
       log.starts++;
-      bossRef = fakeBoss(wrap(baseDeps));
+      bossRef = fakeBoss(wrap(baseDeps), at);
       // 読みこんだ 列なら 本物の 高さ（40）、読みこんで いなければ 地形の 高さ（12）が 返る
       return bossRef.handle;
     },
@@ -95,9 +101,7 @@ function rig(over: { chance?: number; enabled?: boolean } = {}) {
 }
 
 describe('がしゃどくろの 出現（ふだんの ゲーム）', () => {
-  let distBackup = 0;
-  beforeEach(() => { distBackup = BIG.place.distance; });
-  afterEach(() => { BIG.place.distance = distBackup; RELEASE.spawn.chancePerMorning = 0.3; });
+  afterEach(() => { RELEASE.spawn.chancePerMorning = 0.3; });
 
   it('あさに くじが 当たると、プレイヤーから 150〜250 ブロック先に 1 体だけ 出る（足袋は 自動で 着せない）', async () => {
     const r = rig();
@@ -162,15 +166,30 @@ describe('がしゃどくろの 出現（ふだんの ゲーム）', () => {
     r.player.x += RELEASE.spawn.despawnDistance + RELEASE.spawn.maxDistance + 50;
     r.run(RELEASE.spawn.checkEverySec + 0.5);
     expect(r.rel.state()).toBe('idle');
-    expect(r.boss().places).toBe(first + 1); // 遠くへ しまった（置きなおし）
-    expect(Math.hypot(r.boss().pos.x - r.player.x, r.boss().pos.z - r.player.z)).toBeGreaterThan(RELEASE.defeat.parkDistance - 10);
+    expect(r.boss().places).toBe(first); // 置きなおしでは なく
+    expect(r.boss().despawns).toBe(1); // 本物の 片づける 口を 呼ぶ
+    expect(r.boss().alive).toBe(false);
     expect(r.boss().angry).toBe(false);
     expect(r.boss().walking).toBe(false);
     r.rel.onMorning(2);
     await r.settle();
     expect(r.rel.state()).toBe('present');
     expect(r.log.starts).toBe(1); // 2 回目は 読みこみなおさず 置くだけ
+    expect(r.boss().alive).toBe(true);
+    expect(r.boss().places).toBe(first + 1);
     expect(Math.hypot(r.boss().pos.x - r.player.x, r.boss().pos.z - r.player.z)).toBeLessThanOrEqual(RELEASE.spawn.maxDistance + 1e-6);
+  });
+
+  it('片づけたら BGM の 記録も けす。出す ときは 場所と プレイヤーの 方を 向く 向きを 直接 わたす', async () => {
+    const r = rig();
+    await r.rel.spawn({ distance: 100, angleDeg: 0 });
+    const b = r.boss();
+    expect(b.pos.x).toBeCloseTo(r.player.x + 100, 3);
+    expect(b.pos.z).toBeCloseTo(r.player.z, 3);
+    // プレイヤーは -x の 方 → atan2(-100, 0) = -90 度
+    expect(b.yawDeg).toBeCloseTo(-90, 3);
+    r.rel.despawn();
+    expect(r.log.bgmReset).toBe(1);
   });
 
   it('近く にいる 間は 消えない', async () => {
@@ -256,7 +275,7 @@ describe('地面の 高さ・地ならし（読みこんで いない 遠くで�
     expect(r.rel.info().pendingFills).toBe(0);
   });
 
-  it('しまう（遠くへ おく）ときは 地ならしを しない。待っていた 分も すてる', async () => {
+  it('片づける ときは 待っていた 地ならしも すてる（流さない）', async () => {
     const r = rig();
     await r.rel.spawn({ distance: 200, angleDeg: 0 });
     expect(r.rel.info().pendingFills).toBe(1);
@@ -272,8 +291,7 @@ describe('たおした ごほうび', () => {
   async function defeated() {
     const r = rig();
     await r.rel.spawn({ distance: 40, angleDeg: 0 });
-    r.boss().hp = 0;
-    r.run(1 / 60);
+    r.boss().kill(); // 体力 0 の 通知（onDefeated）
     return r;
   }
 
@@ -298,11 +316,12 @@ describe('たおした ごほうび', () => {
     expect(r.rel.chests().length).toBe(1);
   });
 
-  it('lingerSec たつと 体は 遠くへ しまわれ（消え）、宝箱は のこる', async () => {
+  it('lingerSec たつと 体は 片づけられ（消え）、宝箱は のこる', async () => {
     const r = await defeated();
     r.run(RELEASE.defeat.lingerSec + 0.5);
     expect(r.rel.state()).toBe('idle');
-    expect(Math.hypot(r.boss().pos.x - r.player.x, r.boss().pos.z - r.player.z)).toBeGreaterThan(RELEASE.defeat.parkDistance - 10);
+    expect(r.boss().alive).toBe(false);
+    expect(r.boss().despawns).toBe(1);
     expect(r.rel.chests().length).toBe(1);
   });
 

@@ -119,7 +119,7 @@ export class GashaGeyser {
     this.cracks.name = 'geyserCracks';
     for (const m of [this.columns, this.steam, this.cracks]) { m.frustumCulled = false; m.renderOrder = 4; m.count = 0; d.scene.add(m); }
     this.cracks.renderOrder = 1;
-    d.onUpdate((dt) => { this.field.step(dt); this.layout(); });
+    d.onUpdate((dt) => { if (this.field.sleeping()) return; this.field.step(dt); this.layout(); });
   }
 
   /** 置く（肩の 下の 2 本を かえはじめる）。ワールドの 間欠泉の つちは そのまま */
@@ -138,6 +138,12 @@ export class GashaGeyser {
 
   clear(): void {
     this.field.reset();
+  }
+
+  /** 片づける（#293 まとめ）: 間欠泉を ぜんぶ 止めて 消す。次の place() で また はじまる */
+  dismiss(): void {
+    this.field.dismiss();
+    this.layout();
   }
 
   /** 見た目を いまの 時間に あわせる */

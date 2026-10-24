@@ -79,7 +79,8 @@ export class HpBar {
     this.root = el('div');
     this.root.id = 'gashaBigHp';
     this.build();
-    document.body.appendChild(this.root);
+    // メニュー・本・ポーズ画面（#hud の 中で z-index 8 以上）より 下に 出す ため #hud の 中に 置く。実績の おしらせは body 直下（#hud の 外）なので いちばん 上の まま
+    (document.getElementById('hud') ?? document.body).appendChild(this.root);
   }
 
   /** 1 ドット = dot px の ドット絵を canvas に 描く（c の 色の 表で） */
@@ -101,7 +102,7 @@ export class HpBar {
     const half = Math.round(barH / 2); // ひし形の とがりの ふかさ
     const skullH = Math.round(barH * 1.45); // どくろは バーの 太さの 約 1.45 倍
     const stroke = (c: string, w: number): string => `${w}px 0 0 ${c},-${w}px 0 0 ${c},0 ${w}px 0 ${c},0 -${w}px 0 ${c},${w}px ${w}px 0 ${c},-${w}px ${w}px 0 ${c},${w}px -${w}px 0 ${c},-${w}px -${w}px 0 ${c}`;
-    this.root.style.cssText = `position:fixed;top:${H.barTopPx}px;left:50%;transform:translateX(-50%);width:min(${H.barWidthVw}vw,${H.barMaxPx}px);z-index:40;pointer-events:none;font-family:system-ui,sans-serif`;
+    this.root.style.cssText = `position:fixed;top:${H.barTopPx}px;left:50%;transform:translateX(-50%);width:min(${H.barWidthVw}vw,${H.barMaxPx}px);z-index:3;pointer-events:none;font-family:system-ui,sans-serif`;
     this.shaker = el('div', 'display:flex;flex-direction:column', this.root);
     // 上の 段: 名前（左）・どくろ（まん中）・数（右）
     const head = el('div', `position:relative;display:flex;align-items:flex-end;justify-content:space-between;height:${Math.round(skullH * 0.74)}px;padding:0 ${half}px ${p}px`, this.shaker);
@@ -148,7 +149,7 @@ export class HpBar {
       C: { accent: '#FFF6E4', accentLo: '#D9C8A4', plate: '#FFF6E4', text: '#3A2A26', mark: '#F27AA8', emblemBg: '#F27AA8', emblem: '#FFF6E4' },
     }[S as 'A' | 'B' | 'C'];
 
-    this.root.style.cssText = `position:fixed;top:${H.barTopPx}px;left:50%;transform:translateX(-50%);width:min(${H.barWidthVw}vw,${H.barMaxPx}px);z-index:40;pointer-events:none;font-family:system-ui,sans-serif`;
+    this.root.style.cssText = `position:fixed;top:${H.barTopPx}px;left:50%;transform:translateX(-50%);width:min(${H.barWidthVw}vw,${H.barMaxPx}px);z-index:3;pointer-events:none;font-family:system-ui,sans-serif`;
     this.shaker = el('div', 'display:flex;align-items:stretch;gap:' + 2 * p + 'px', this.root);
 
     // ---- もん（左の 四角）

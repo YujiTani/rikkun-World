@@ -11,7 +11,7 @@
  */
 import {
   BufferAttribute, BufferGeometry, Color, DataTexture, NearestFilter, RGBAFormat, SRGBColorSpace, CylinderGeometry, DoubleSide, Euler, ExtrudeGeometry, Float32BufferAttribute, Group, Matrix3, Matrix4,
-  Mesh, MeshBasicMaterial, OctahedronGeometry, Path, Plane, Quaternion, Shape, Vector3, type Camera, type Object3D, type Scene,
+  Mesh, MeshBasicMaterial, OctahedronGeometry, Path, Plane, Quaternion, Shape, Vector3, type Camera, type Material, type Object3D, type Scene,
 } from 'three';
 import type { BodyBlocksPort } from '../dig/bodyBlocks';
 import { BodyPlaced } from './gashaBigPlaced';
@@ -55,7 +55,7 @@ export interface GashaBigDeps {
   /** のっている プレイヤーを 動かす（位置の ずれ、向き（度）の ずれ）。なければ 運ばない */
   carryPlayer?(dx: number, dy: number, dz: number, dYawDeg: number): void;
   /** 昼夜の 明るさの 係（sky/lighting.ts）。あれば 体の 材料を 登録して 夜は 暗くする（目の 光は 暗くしない） */
-  lighting?: { registerTree(root: Object3D, group: 'doll'): number };
+  lighting?: { registerTree(root: Object3D, group: 'doll'): number; unregister?(material: Material): void };
   /** 効果音を 鳴らす 口の 差しかえ（テスト用。なければ 本物の WebAudio） */
   sfxEnv?: BigSfxEnv;
   /** BGM の ミキサーの 口（少女と おなじ）。なければ BGM は 流さない */
@@ -78,6 +78,10 @@ export interface GashaBigDeps {
   scanGeyserBlocks?(found: (x: number, y: number, z: number) => void): void;
   /** 忍者の足袋（レア装備。落下ダメージ 0）を 持ち物に 入れて 着る。開始時に 1 回 呼ぶ。なければ 渡さない */
   giveNinjaTabi?(): void;
+  /** true なら 起動時に 足袋を 自動で 着せない（ふだんの ゲームでは ごほうび。試作は 着せる）。`giveTabi()` で 後からも 着せられる */
+  noTabi?: boolean;
+  /** 体力が 0 に なった（置いてから 1 回だけ。次の place() で また 数える）。たおした あとの 宝箱・実績は 呼んだ 側が 出す */
+  onDefeated?(): void;
   /** 手が 地面を たたいた ときの 打撃・衝撃波・小さい 衝撃の ダメージ（プレイヤーの combat.damage。当たったら true）。なければ ダメージなし（ひるみだけ） */
   hurt?(amount: number, from: { x: number; y: number; z: number }): boolean;
   /** ひるみ（試作だけ）: fn() が true の 間は プレイヤーの 入力を 止める（lock.playInputEnabled に 重ねる） */
@@ -1140,8 +1144,14 @@ export function voxelize(hits: WorldHit[], margin: number, topLift: number): Set
 // ---------------------------------------------------------------- ゲームに 入れる
 export interface GashaBigHandle {
   tune(o: unknown): void;
-  /** 作りなおして プレイヤーの 前に 置く */
-  place(): void;
+  /** 作りなおして 置く（体力も もどる）。引数なしは プレイヤーの 前 T.place.distance。`{ x, z, yawDeg }` を 渡すと その 場所（体の 中心の 地面の 位置）・向き（度。`info().yawDeg` と おなじ。省くと プレイヤーの 方を 向く）に 置く。ふだんの ゲームは こちら（release.ts） */
+  place(at?: { x: number; z: number; yawDeg?: number }): void;
+  /** 片づける（体・当たり・間欠泉・体力ゲージ・射線の 割りこみ・攻撃の エフェクト・燃えかす・音を 消し、毎コマの 更新も 止める）。もういちど 出すには place(at) */
+  despawn(): void;
+  /** 少女に かわる 間だけ 体を かくす（見えない・当たらない・固くない・うごかない。体力・怒り・位置・攻撃の 回数は のこる）。体の 上の 人は 地面へ おろす。false で もどす（その あと tired(sec) で 休ませる） */
+  hide(on: boolean): void;
+  /** 体力の 最大 */
+  maxHp(): number;
   /** 怒る（赤い 目。止まって プレイヤーの 方を 向く）/ 白目に もどす。怒りは 攻撃されない まま T.angry.calmSec で 自然に 消える */
   angry(on: boolean): void;
   /** プレイヤーの 攻撃が 当たった ことに する（怒る。20 秒 カウントを はじめから）。段 4 で 本物の 攻撃に つなぐ */
@@ -1200,10 +1210,15 @@ export interface GashaBigHandle {
   group: Group;
 }
 
-export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
+/** `first`: 最初の 置き場所（なければ プレイヤーの 前 T.place.distance。ふだんの ゲームは release.ts が 場所を 渡す） */
+export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number; yawDeg?: number }): GashaBigHandle {
   applyTuneFromUrl(location.search);
   let model: BigModel | null = null;
   let actor: BigActor | null = null;
+  /** 少女に かわる 間は true（hide）。体は のこして かくす */
+  let hidden = false;
+  /** 体力 0 の 通知を 出したか（place() で もどる） */
+  let defeatedFired = false;
   const CLIPS: ActorClips = { climbUp, climbDown, lookBack: lookBackClip };
   let isAngry = false;
   // プレイヤーの 攻撃を 受ける（体力・部位の 倍率・怒る・火花・体力ゲージ。gashaBigHit.ts）
@@ -1300,7 +1315,7 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
     lastRegen = glassClock;
   };
   // プレイヤーが 体の 上に 置く ブロック（gashaBigPlaced.ts）。がしゃどくろを 置きなおすと ぜんぶ 消える
-  const placed = new BodyPlaced({ model: () => model, actor: () => actor, lighting: deps.lighting, patch: hazePatch, breakGlassAt: (c, r, max) => breakGlass(c, r, max) });
+  const placed = new BodyPlaced({ model: () => model, actor: () => (hidden ? null : actor), lighting: deps.lighting, patch: hazePatch, breakGlassAt: (c, r, max) => breakGlass(c, r, max) });
   const bh = new BigHit({ scene: deps.scene, angry: () => { isAngry = true; actor?.hit(); }, onCore: throwOff, coreGuard: () => warnLeft > 0, onCloud: (at) => { breakGlass(at, T.glass.swordRadius); }, sources: deps.hit });
   let pos = new Vector3(), yaw = 0;
   const { blockAt, setGeyserBlock, scanGeyserBlocks } = deps;
@@ -1308,8 +1323,8 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
     ? new GashaGeyser({
       scene: deps.scene, onUpdate: deps.onUpdate, groundY: deps.groundY, body: deps.playerBody, setVelocity: deps.setPlayerVelocity, nudge: deps.nudgePlayer, setNoFall: deps.setNoFall,
       blockAt, setBlock: (x, y, z) => setGeyserBlock(x, y, z), scanBlocks: scanGeyserBlocks,
-      bodySolid: (x, y, z) => actor?.solid(x, y, z) ?? false,
-      centre: () => (actor ? { x: pos.x, z: pos.z } : null),
+      bodySolid: (x, y, z) => (hidden ? false : actor?.solid(x, y, z) ?? false),
+      centre: () => (actor && !hidden ? { x: pos.x, z: pos.z } : null),
     })
     : null;
   // 手が 地面を たたいた ときの 打撃・衝撃波・小さい 衝撃・ひるみ（gashaBigShock.ts）と 見た目（gashaBigShockFx.ts）
@@ -1574,7 +1589,7 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
     deps.scene.remove(model.group);
     const mats = new Set<MeshBasicMaterial>();
     model.group.traverse((o) => { const m = o as Mesh; if (m.isMesh) { m.geometry.dispose(); mats.add(m.material as MeshBasicMaterial); } });
-    mats.forEach((m) => m.dispose());
+    mats.forEach((m) => { deps.lighting?.unregister?.(m); m.dispose(); });
     model = null;
     brokenQ.length = 0;
     placed.reset();
@@ -1587,14 +1602,16 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
     actor.updateBoxes();
   };
 
-  const place = (): void => {
+  const place = (at?: { x: number; z: number; yawDeg?: number }): void => {
     clear();
     model = buildBig();
+    hidden = false;
+    defeatedFired = false;
     deps.lighting?.registerTree(model.group, 'doll');
     const p = deps.player();
     const f = fwdOf(p);
-    const mx = p.x + f.fx * T.place.distance, mz = p.z + f.fz * T.place.distance;
-    yaw = Math.atan2(p.x - mx, p.z - mz) + (T.place.faceYawOffsetDeg * Math.PI) / 180;
+    const mx = at ? at.x : p.x + f.fx * T.place.distance, mz = at ? at.z : p.z + f.fz * T.place.distance;
+    yaw = at && at.yawDeg !== undefined ? (at.yawDeg * Math.PI) / 180 : Math.atan2(p.x - mx, p.z - mz) + (T.place.faceYawOffsetDeg * Math.PI) / 180;
     const s = model.scale;
     // 地面の 高さ: 手・からだの 下の 何点かで 決める
     const R = new Quaternion().setFromAxisAngle(UP, yaw);
@@ -1652,16 +1669,18 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
     bh.bind(actor.boxList, model);
   };
 
-  deps.addPlayerSolid((x, y, z) => actor !== null && actor.solid(x, y, z));
+  deps.addPlayerSolid((x, y, z) => actor !== null && !hidden && actor.solid(x, y, z));
   // BGM「神々の 戯れ」: 怒って いる（赤い 目の）間だけ。少女が 出た あとは 共通の 係が「災厄」を 優先する（gashaBgm.ts）
   const bgm = deps.bgmOut && deps.suppressBgm ? sharedGashaBgm({ bgmOut: deps.bgmOut, suppressBgm: deps.suppressBgm }) : null;
   let bgmWant = false;
   deps.onUpdate?.((dt) => {
+    // 片づけた あと・少女の 間は 何も 動かさない（BGM の 後始末だけ 毎コマ）
+    if (!actor || hidden) { bgm?.step(); return; }
     updateHaze();
-    if (!actor) return;
     actor.update(dt);
     model?.updateMoss();
     bh.step(dt);
+    if (!defeatedFired && bh.hp <= 0) { defeatedFired = true; deps.onDefeated?.(); if (!actor) return; }
     stepGlass(dt);
     stepCoreWarn(dt);
     quake.step(dt);
@@ -1683,12 +1702,53 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
       bgm.step();
     }
   });
-  place();
+  place(first);
   deps.onBodyBlocks?.(placed);
+
+  /** 攻撃の エフェクト・音・燃えかす・雷・たたいた 輪・ひるみ・画面の ゆれを ぜんぶ 止めて 消す（体は そのまま）。keepBurnt: 体の 焼け あとの もどす 予定は のこす */
+  const clearFx = (full: boolean): void => {
+    quake.stop(); beamFx.clear(); eruptFx.clear(); rain.active = false; rain.ashes = []; embers.clear();
+    if (full) bodyBurnt.length = 0;
+    thunderFx.clear(); strikes.clear(); bodyShock.reset(); fingerBolt = null; sfx.stopAll();
+    shock.clear(); shockFx.clear();
+    throwLeft = 0; warnLeft = 0; spinLeft = 0;
+  };
+  const detachedGroup = new Group();
+
+  /** 片づける（#293 まとめ）。体・当たり・間欠泉・体力ゲージ・射線の 割りこみ・エフェクト・燃えかす・音を 消す。あとは place(at) で また 出せる */
+  const despawn = (): void => {
+    clearFx(true);
+    geysers?.dismiss();
+    bh.dismiss();
+    clear();
+    actor = null;
+    isAngry = false; hidden = false; defeatedFired = false;
+    if (bgm) { bgmWant = false; bgm.request('big', false); bgm.step(); }
+  };
+
+  /** 少女に かわる 間だけ かくす / もどす */
+  const hide = (on: boolean): void => {
+    if (!model || !actor || on === hidden) return;
+    hidden = on;
+    model.group.visible = !on;
+    if (on) {
+      // 体の 上に のっている 人は 地面へ おろす（高い 所から 落とさない）
+      const p = deps.player();
+      if (deps.carryPlayer && actor.boxUnder(p.x, p.y, p.z) >= 0) deps.carryPlayer(0, deps.groundY(Math.floor(p.x), Math.floor(p.z)) + 1 - p.y, 0, 0);
+      clearFx(false);
+      bh.bind([], null);
+      if (bgm && !bgmWant && actor.angryLeft > 0) { bgmWant = true; bgm.request('big', true); }
+    } else {
+      bh.bind(actor.boxList, model);
+    }
+  };
 
   const handle: GashaBigHandle = {
     tune: (o) => applyTune(o),
-    place: () => { quake.stop(); beamFx.clear(); eruptFx.clear(); rain.active = false; rain.ashes = []; embers.clear(); bodyBurnt.length = 0; thunderFx.clear(); strikes.clear(); fingerBolt = null; sfx.stopAll(); place(); bh.reset(); },
+    place: (at) => { clearFx(true); bodyBurnt.length = 0; place(at); bh.reset(); },
+    despawn,
+    hide,
+    maxHp: () => bh.maxHp,
     hp: () => bh.hp,
     damage: (part, amount) => bh.damage(part, amount),
     section: (on) => {
@@ -1730,10 +1790,10 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
     } : {}),
     breakGlass,
     glassInfo: () => ({ total: model?.glass.length ?? 0, broken: brokenQ.length }),
-    colliders: () => (model ? worldHits(model) : []),
+    colliders: () => (model && !hidden ? worldHits(model) : []),
     refreshColliders: refresh,
     joints: () => (model ? { ...model.joints } : {}),
-    solidAt: (x, y, z) => actor?.solid(x, y, z) ?? false,
+    solidAt: (x, y, z) => (hidden ? false : actor?.solid(x, y, z) ?? false),
     geysers: () => geysers?.geysers() ?? [],
     spawnGeyser: (x, z, sec) => geysers?.spawn(x, z, sec) ?? false,
     giveTabi: () => deps.giveNinjaTabi?.(),
@@ -1748,9 +1808,9 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
       rest: model ? Object.fromEntries(JOINT_NAMES.map((j) => [j, model!.rest[j].toArray()])) : null,
     }),
     bodyBlocks: placed,
-    get group() { return model!.group; },
+    get group() { return model ? model.group : detachedGroup; },
   };
   (window as unknown as { __gashaBig: GashaBigHandle }).__gashaBig = handle;
-  deps.giveNinjaTabi?.(); // #293: テストでは はじめから 忍者の足袋を 着ている
+  if (!deps.noTabi) deps.giveNinjaTabi?.(); // #293: 試作・テストでは はじめから 忍者の足袋を 着ている。ふだんの ゲーム（noTabi）では ごほうび
   return handle;
 }

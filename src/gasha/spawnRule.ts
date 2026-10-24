@@ -63,6 +63,11 @@ export function faceYawDeg(dx: number, dz: number): number {
   return (Math.atan2(dx, -dz) * 180) / Math.PI;
 }
 
+/** from から to の 方を 向く とき の 体の 向き（度。gashaBig.ts の place({ yawDeg }) と おなじ。atan2(to.x - from.x, to.z - from.z)）。offsetDeg は 調整表 place.faceYawOffsetDeg */
+export function faceTowardYawDeg(from: { x: number; z: number }, to: { x: number; z: number }, offsetDeg = 0): number {
+  return (Math.atan2(to.x - from.x, to.z - from.z) * 180) / Math.PI + offsetDeg;
+}
+
 /** プレイヤーとの 距離が 遠すぎて 消す 時か */
 export function shouldDespawn(distance: number, tune: SpawnTune = RELEASE.spawn): boolean {
   return distance > tune.despawnDistance;

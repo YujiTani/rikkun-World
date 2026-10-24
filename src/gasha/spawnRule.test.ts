@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createRng } from '../world/gen/random';
 import { RELEASE } from './releaseTuning';
-import { dayRng, faceYawDeg, gashaEnabled, horizontalDistance, pickSpawnSpot, rollMorning, shouldDespawn } from './spawnRule';
+import { dayRng, faceTowardYawDeg, faceYawDeg, gashaEnabled, horizontalDistance, pickSpawnSpot, rollMorning, shouldDespawn } from './spawnRule';
 
 const S = RELEASE.spawn;
 
@@ -117,5 +117,14 @@ describe('いつ 出して よいか（gashaEnabled）', () => {
   });
   it('?gasha=on は 自動テストでも 出す', () => {
     expect(gashaEnabled('?gasha=on', true)).toBe(true);
+  });
+});
+
+describe('faceTowardYawDeg（体の 向き）', () => {
+  it('to の 方を 向く: gashaBig.ts の place と おなじ atan2(to.x - from.x, to.z - from.z)', () => {
+    expect(faceTowardYawDeg({ x: 0, z: 0 }, { x: 0, z: 10 })).toBeCloseTo(0, 6);
+    expect(faceTowardYawDeg({ x: 100, z: 0 }, { x: 0, z: 0 })).toBeCloseTo(-90, 6);
+    expect(faceTowardYawDeg({ x: 0, z: 0 }, { x: 5, z: 0 })).toBeCloseTo(90, 6);
+    expect(faceTowardYawDeg({ x: 0, z: 0 }, { x: 0, z: -3 }, 10)).toBeCloseTo(190, 6);
   });
 });

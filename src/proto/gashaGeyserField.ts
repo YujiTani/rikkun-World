@@ -199,15 +199,20 @@ export class GeyserField {
   private assistedT = 0;
   private noFallNow = false;
   private sinking: string | null = null;
+  /** 片づけた あと（place() まで 何もしない） */
+  private dormant = false;
 
   constructor(private readonly d: FieldDeps) {}
 
+  /** 片づけて あって、place() を まっている */
+  sleeping(): boolean { return this.dormant; }
   specs(): readonly GeyserSpec[] { return this.specList; }
   pending(): readonly Pending[] { return this.pend; }
 
   /** がしゃどくろを 置いた: 肩の 下の 2 本を かえはじめ、ランダムの はじめの 間かくを 数えなおす。ワールドの つちは そのまま */
   place(a: GeyserPlaceArgs): void {
     this.placed = true;
+    this.dormant = false;
     this.pend = [];
     this.t = 0;
     const R = T.geyser;
@@ -253,6 +258,7 @@ export class GeyserField {
 
   /** 1 ステップ（dt 秒） */
   step(dt: number): void {
+    if (this.dormant) return;
     this.t += dt;
     this.tick++;
     let changed = false;
@@ -475,6 +481,18 @@ export class GeyserField {
       else if (this.assistedT > R.assistMaxSec) this.assisted = false;
     }
     this.setNoFall(R.noFallInColumn && (inside || this.assisted));
+  }
+
+  /** がしゃどくろを 片づけた: 間欠泉を ぜんぶ 止めて 見た目を 消す（ワールドの つちは 動かない ただの ブロックとして のこる）。次の place() まで 何もしない */
+  dismiss(): void {
+    this.dormant = true;
+    this.placed = false;
+    this.cells.clear(); this.tops.clear();
+    this.specList = [];
+    this.pend = [];
+    this.full = false;
+    this.version++;
+    this.reset();
   }
 
   /** 柱の 上に いる 人の 守りを やめる（片づけ） */
