@@ -90,6 +90,8 @@ export class StepCrawler {
   readonly wrist: Record<Side, Vector3>;
   /** この 歩の 1 歩の 長さ（もとの 座標） */
   stride = 0;
+  /** 向きの ずれで 短く する 前の 1 歩の 長さ（もとの 座標） */
+  strideFull = 0;
   /** 引きよせで もう 進んだ 長さ */
   private pulled = 0;
   /** 1 歩の 長さの 倍率（向きが ずれて いる 間は 小さく。歩の はじめに 決める） */
@@ -189,7 +191,7 @@ export class StepCrawler {
     const zMax = hor2 > 0 ? Sf.z + Math.sqrt(hor2) : Sf.z;
     this.slamAt.set(x, gy, Math.min(k.slamZ, zMax));
     // 1 歩の 長さ: 引きよせで 反対の 手が 後ろへ 届かなく ならない まで
-    let stride = Math.max(0, this.slamAt.z - k.pullEndZ) * this.strideMul;
+    let stride = Math.max(0, this.slamAt.z - k.pullEndZ);
     const S0 = this.shoulderAt(o, 0, 0, new Vector3());
     const ho = this.hands[o];
     const back2 = reach * reach - (S0.y - ho.y) ** 2 - (ho.x - S0.x) ** 2;
@@ -197,7 +199,8 @@ export class StepCrawler {
     // 反対の 手は catchFrom で 地面から はなれる ので、そこ までに 進む ぶん だけ 届けば よい
     const until = k.catchFrom < 1 ? ease.out(clamp01(k.catchFrom), 2.5) : 1;
     stride = Math.min(stride, Math.max(0, ho.z - zMin) / Math.max(1e-3, until));
-    this.stride = stride;
+    this.strideFull = stride;
+    this.stride = stride * this.strideMul;
     this.pulled = 0;
   }
 

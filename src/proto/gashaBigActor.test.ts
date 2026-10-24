@@ -185,8 +185,9 @@ describe('gashaBigActor（#293 はって進む・目・乗っている人）', (
     run(actor, 14);
     expect(actor.pos.z).toBeCloseTo(z, 6); // 止まって いる
     expect(actor.mode).toBe('angry');
-    // プレイヤー（+x）の 方を 向く（yaw = atan2(dx, dz) = 90 度に ちかい）
-    expect(Math.abs(actor.yaw - Math.PI / 2)).toBeLessThan(0.05);
+    // プレイヤー（+x）の 方を 向く（yaw = atan2(dx, dz)。進んだ ぶん 90 度 から 少し ずれる）
+    expect(Math.abs(actor.yaw - Math.atan2(ply.x - actor.pos.x, ply.z - actor.pos.z))).toBeLessThan(0.05);
+    expect(Math.abs(actor.yaw - Math.PI / 2)).toBeLessThan(0.15);
     actor.hit(); // また 攻撃 → 20 秒が はじめから
     run(actor, 19);
     expect(actor.eyeMix).toBe(1);

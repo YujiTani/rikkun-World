@@ -476,6 +476,24 @@ export function buildBig(): BigModel {
   chest.box(2.0, 2.0, 2.0, 6.6, 31.6, 9.0, 0xffd23a); chest.box(2.0, 0.35, 2.05, 6.6, 31.6, 9.0, 0xc9a020); chest.box(0.5, 0.5, 2.1, 6.6, 31.0, 9.0, 0x6a4a10);
   chest.box(1.2, 0.6, 0.6, 6.6, 33.0, 9.0, 0xf27aa8);
 
+  // --- 当たり（胴体・胸・セーラー服・スカーフ・首・肩）: 見える 体の 面を ぜんぶ 固くする。中も 固い（歩いて 入れない）。
+  //     箱は 胴体の 座標（ひねりなし。拡大と かたむきは 親の Group が 持つ）で、ついて 動く 関節ごとに 分ける。1 ブロックより うすい 箱は 作らない。
+  //     リブの すきま・ぼろぼろの すそ・おまもり などの 小さな かざりは 外側の 箱に ふくまれる（見た目との ずれは 0.5 ブロック いない）。
+  {
+    const th = (j: JointName) => torso.at(j);
+    th('Hips').hit('spineLow', 3.9, 6.8, 4.0, 0, 5.5, -7.6); // 背骨の 下（こしの 骨）
+    th('Spine').hit('torsoWaist', 16.8, 7.8, 18.0, 0, 12.1, -0.6); // おなか・すその ぼろぼろ（ほねは すかすかでも 中は 固い）
+    th('Spine01').hit('spineMid', 3.9, 13.5, 4.0, 0, 24.25, -7.6); // 背骨（ろっ骨の うしろに とび出す ぶん）
+    th('Spine01').hit('chestLow', 22.8, 5.0, 18.1, 0, 17.1, 0.05); // ろっ骨 1〜2 だんめ
+    th('Spine02').hit('chestMid1', 25.0, 5.6, 17.9, 0, 22.4, 0.85); // 3〜4 だんめ（いちばん ひろい）
+    th('Spine02').hit('chestMid2', 24.8, 5.3, 18.5, 0, 27.85, 1.15); // 5〜6 だんめ ＋ スカーフ・すず・バッジ
+    th('Spine02').hit('chestUp', 21.8, 2.9, 16.3, 0, 31.95, 0.85); // 7 だんめ ＋ セーラーの えり（前の V）
+    th('Spine02').hit('chestTop', 15.4, 4.8, 14.2, 0, 35.7, -2.6); // 肩の あいだ・えりの 上の 面（ここが 胴体の 上）
+    th('Spine02').hit('collarbone', 24.6, 2.6, 4.6, 0, 34.7, 2.0); // さこつ（肩の 先まで）
+    th('neck').hit('neck', 3.8, 5.3, 5.5, 0, 40.35, -6.85); // 首（背骨の つづき）
+    for (const s of [-1, 1]) th(s > 0 ? 'LeftShoulder' : 'RightShoulder').hit(`shoulderCloth${s < 0 ? 'R' : 'L'}`, 6.9, 3.7, 8.7, s * 11.2, 35.4, -3); // かたの ぬの・けんこうこつ
+  }
+
   // --- あたま（関節 Head）
   const headYaw = (T.place.headYawDeg * Math.PI) / 180;
   const head = b.root('Head').group(headPos.x, headPos.y, headPos.z, [0.17, headYaw, 0], undefined, 'YXZ');
@@ -517,11 +535,22 @@ export function buildBig(): BigModel {
       // 当たり（リボンの 羽の 上の 面）
       rb.hit(`ribbonWing${sd < 0 ? 'R' : 'L'}`, 7.5, 3.4 + 0.5, 12.0, sd * 11.6, 0.8 + 0.25, -3.6);
       rb.hit(`ribbonWing2${sd < 0 ? 'R' : 'L'}`, 7.0, 3.0 + 0.5, 8.5, sd * 5.3, 0.6 + 0.25, -2.2);
+      // たれる リボン 2 本（うすい ので 2.4 の あつみで）
+      rb.hit(`ribbonTail${sd < 0 ? 'R' : 'L'}0`, 3.0, 8.0, 2.4, sd * 3.0, -5.0, -3.0, [0, 0, sd * 0.25]);
+      rb.hit(`ribbonTail${sd < 0 ? 'R' : 'L'}1`, 3.0, 6.0, 2.4, sd * 6.0, -4.2, -3.4, [0, 0, sd * 0.45]);
     }
     rb.hit('ribbonKnot', 4.8, 4.2, 3.8, 0, 0.5, 0);
   }
   // 頭がいの 当たり
-  head.hit('skull', 19.2, 15.4, 19.4, 0, 12.7, -0.2);
+  //   頭がい 本体 ＋ てっぺんの 穴の まわりの わく ＋ よこ（こめかみ）＋ あご・ほお。てっぺんの 穴（コアが 見える ところ）と
+  //   後ろの 欠け（コアを ねらう ところ）は 箱を おかない: 穴の 底（光る 板）まで のぞける・矢が 通る。
+  head.hit('skull', 20.0, 12.5, 20.8, 0, 11.25, 0.4);
+  head.hit('skullTop0', 8.2, 2.9, 19.6, -5.9, 18.95, -0.1); // てっぺんの わく（穴の 左）
+  head.hit('skullTop1', 8.2, 2.9, 19.6, 5.9, 18.95, -0.1); // （穴の 右）
+  head.hit('skullTop2', 3.6, 2.9, 8.1, 0, 18.95, 5.65); // （穴の 前）
+  head.hit('skullTop3', 3.6, 2.9, 7.9, 0, 18.95, -5.95); // （穴の 後ろ）
+  for (const s of [-1, 1]) head.hit(`skullTemple${s < 0 ? 'R' : 'L'}`, 2.4, 6.0, 8.0, s * 10.6, 7.0, 0); // こめかみ
+  head.hit('skullJaw', 16.8, 5.9, 16.9, 0, 2.35, 2.05); // あご・ほお・歯
   // ほお骨・あご
   head.box(15.5, 5.4, 15.5, 0, 2.6, 1.4, BONE_D);
   head.box(13.5, 3.2, 14.2, 0, 1.0, 1.6, BONE_D);
@@ -560,7 +589,13 @@ export function buildBig(): BigModel {
     const pc = 0xf27aa8;
     for (const s of [-1, 1]) {
       const pts = [vec(s * 11.8, 13, -3), vec(s * 14.5, 5, -3.5), vec(s * 15.5, -5, -2), vec(s * 15, -14, 1.5)];
-      for (let i = 0; i < 3; i++) head.seg(pts[i]!, pts[i + 1]!, 3.2 - i * 0.5, 3.4 - i * 0.5, HAIR);
+      for (let i = 0; i < 3; i++) {
+        head.seg(pts[i]!, pts[i + 1]!, 3.2 - i * 0.5, 3.4 - i * 0.5, HAIR);
+        head.segHit(`hairTail${s < 0 ? 'R' : 'L'}${i}`, pts[i]!, pts[i + 1]!, 3.2 - i * 0.5, 3.4 - i * 0.5); // 当たり（ツインテールの たれ髪）
+      }
+      head.hit(`hairTailEnd${s < 0 ? 'R' : 'L'}`, 2.0, 2.4, 2.0, s * 14.4, -15.4, 2.2);
+      head.hit(`hairPom${s < 0 ? 'R' : 'L'}0`, 3.2, 3.2, 3.2, s * 11.8, 13.6, -3);
+      head.hit(`hairPom${s < 0 ? 'R' : 'L'}1`, 3.4, 3.4, 3.4, s * 15.0, -1.5, -2.8);
       head.box(2.0, 2.4, 2.0, s * 14.4, -15.4, 2.2, HAIR);
       head.box(3.2, 3.2, 3.2, s * 11.8, 13.6, -3, pc); head.box(2.2, 2.2, 3.6, s * 11.8, 13.6, -3, 0xffd0e0);
       head.box(3.4, 3.4, 3.4, s * 15.0, -1.5, -2.8, pc);
@@ -639,6 +674,13 @@ export function buildBig(): BigModel {
       hand.box(1.15, 0.55, 1.5, tip.x, tip.y, tip.z, nailColor(nailI++), [eu.x, eu.y, eu.z]);
     }
     groundPts.push(vec(palmX, 0, palmZ), vec(palmX, 0, tipZ));
+    // 指（ひらいた 4 本）の 当たり: 外がわ 2 本・内がわ 2 本を それぞれ 1 つの 箱に（根元の はばより 先が ひろがる）
+    for (const k of [0, 1]) {
+      const ang = k === 0 ? -0.19 : 0.19, bx = palmX + (k === 0 ? -1.5 : 1.5); // 2 本の まんなかの かたむきと 根元の 場所
+      hand.hit(`handFingers${k === 0 ? 'A' : 'B'}${sd}`, 4.4, th, 9.0, bx + Math.sin(ang) * 4.5, th / 2, palmZ + 3.5 + Math.cos(ang) * 4.5, [0, ang, 0]);
+    }
+    // 親指（てのひらの 内がわへ 開く）の 当たり。ほかの 指は てのひらの 箱に ふくまれる
+    hand.hit(`handThumb${sd}`, 2.6, th, 5.2, palmX - s * 4.87, th / 2, palmZ + 0.84, [0, -s * 0.95, 0]);
     // ---- 当たり（のぼる 道）。目に 見える 面と そろえる
     const lineHit = (name: string, joint: JointName, a: Vector3, bb: Vector3, width: number, thick: number): void => {
       const u = bb.clone().sub(a), len = u.length(); u.normalize();

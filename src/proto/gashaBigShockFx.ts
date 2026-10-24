@@ -54,7 +54,7 @@ export class ShockFx {
   constructor(private readonly scene: Scene, private readonly camera: Camera) {
     const S = T.slam;
     const inner = new Color(S.ringColorIn), outer = new Color(S.ringColorOut);
-    const flatGeo = new RingGeometry(0.86, 1, 64, 1);
+    const flatGeo = new RingGeometry(0.8, 1, 64, 1);
     flatGeo.rotateX(-Math.PI / 2);
     colorRing(flatGeo, inner, outer, 'radius');
     const bandGeo = new CylinderGeometry(1, 1, 1, 64, 1, true);
@@ -75,7 +75,7 @@ export class ShockFx {
     }
     const boxGeo = new BoxGeometry(1, 1, 1);
     this.geos.push(boxGeo);
-    this.dust = new InstancedMesh(boxGeo, new MeshBasicMaterial({ color: 0xb89e78 }), DUST);
+    this.dust = new InstancedMesh(boxGeo, new MeshBasicMaterial({ color: 0xcdb38c }), DUST);
     this.dust.name = 'gashaShockDust';
     this.dust.count = 0;
     this.dust.frustumCulled = false;
@@ -99,7 +99,7 @@ export class ShockFx {
       this.motes.push({
         floor: imp.y, x: imp.x + Math.sin(a) * r0, y: imp.y + 0.3, z: imp.z + Math.cos(a) * r0,
         vx: Math.sin(a) * sp, vy: sp * (0.4 + this.rnd() * 0.6), vz: Math.cos(a) * sp,
-        age: 0, life: S.dustSec * (0.6 + this.rnd() * 0.5) * (imp.kind === 'slam' ? 1 : 0.6), size: (imp.kind === 'slam' ? 0.9 : 0.6) * (0.6 + this.rnd() * 0.6),
+        age: 0, life: S.dustSec * (0.6 + this.rnd() * 0.5) * (imp.kind === 'slam' ? 1 : 0.6), size: (imp.kind === 'slam' ? 1.4 : 0.8) * (0.6 + this.rnd() * 0.6),
       });
     }
   }
@@ -117,9 +117,9 @@ export class ShockFx {
       const rad = Math.max(0.3, slam ? imp.r : imp.maxR * Math.min(1, imp.age / (S.tapRingSec * 0.5)));
       const fade = 1 - imp.age / life;
       r.flat.scale.set(rad, 1, rad);
-      r.band.scale.set(rad, slam ? 0.9 : 0.5, rad);
-      r.mats[0]!.opacity = 0.85 * fade;
-      r.mats[1]!.opacity = 0.6 * fade;
+      r.band.scale.set(rad, (slam ? 1.6 : 0.8) * (0.5 + 0.5 * fade), rad);
+      r.mats[0]!.opacity = Math.min(1, 1.2 * fade);
+      r.mats[1]!.opacity = 0.75 * fade;
     }
     let n = 0;
     for (let i = this.motes.length - 1; i >= 0; i--) {

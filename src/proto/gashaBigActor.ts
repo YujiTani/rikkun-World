@@ -139,6 +139,8 @@ export class BigActor {
   private stepFade = 0.5;
   /** 1 歩の 区切り（振り上げの はじまり）。ここで 着いたか 決める */
   private stepBoundary = false;
+  /** 次の 1 歩の 区切りで 止まる（goTo の 行き先が もう 半歩 より 近い） */
+  private stopAtBoundary = false;
   /** さいごに たたきつけた 所（世界の 座標） */
   lastSlam: { x: number; y: number; z: number; side: Side; step: number } | null = null;
   /** さいごに 手を つきなおした 所（世界の 座標） */
@@ -277,6 +279,7 @@ export class BigActor {
     this.restLeft = 0; // 行き先を 言われたら 休みは やめる
     this.target = { x, z };
     this.backOn = false;
+    this.stopAtBoundary = this.mode === 'crawl' && Math.hypot(x - this.pos.x, z - this.pos.z) < this.step.strideFull * this.model.scale * 0.5;
     if (this.mode === 'idle' || this.mode === 'look' || this.mode === 'back') this.startCrawl();
   }
 
@@ -473,9 +476,10 @@ export class BigActor {
     // 1 歩の 区切りで 着いたか 決める（1 歩が 大きい ので、のこりが 半歩 より 近ければ 止まる）
     if (this.stepBoundary) {
       this.stepBoundary = false;
-      // 目的地が 後ろに なった（1 歩で こえた）ときも 止まる
-      const st = C.stride * this.model.scale, behind = Math.abs(wrapPi(Math.atan2(dx, dz) - this.yaw)) > Math.PI / 2;
-      if (dist < T.wander.arriveDist || dist < st * 0.5 || (behind && dist < st * 1.5)) {
+      // goTo の とき もう 半歩 より 近かった（stopAtBoundary）ときも、いまの 1 歩を おえて 止まる
+      const near = this.stopAtBoundary;
+      this.stopAtBoundary = false;
+      if (near || dist < T.wander.arriveDist || dist < C.strideFull * this.model.scale * 0.5) {
         this.target = null;
         this.toIdle();
         this.pauseLeft = this.randIn(T.wander.pauseSec);
@@ -485,8 +489,8 @@ export class BigActor {
     }
     const want = Math.atan2(dx, dz);
     const err = Math.abs(wrapPi(want - this.yaw));
-    // 向きを かえるのは ためる 間 だけ（ついている 手は 世界で 止める）
-    if (C.phase === 'windup' || C.phase === 'hold') {
+    // 体ごと 向きを かえる（ついている 手は 世界で 止める ように からだの 座標で 逆に 回す）
+    {
       const y0 = this.yaw;
       moved = this.turnToward(want, T.crawl.turnDegPerSec * DEG * dt);
       C.rotate(wrapPi(this.yaw - y0));
