@@ -25,6 +25,7 @@ import { BigHit, type HitSources } from './gashaBigHit';
 import { GashaGeyser, type GeyserInfo } from './gashaGeyser';
 import { BigShock, type ShockHit } from './gashaBigShock';
 import { ShockFx } from './gashaBigShockFx';
+import { createBigSfx, createBigWebAudioPlayer, type BigSfxEnv } from './gashaBigSfx';
 import { BeamAim, type AimEnv } from './gashaBigBeam';
 import { BeamFx } from './gashaBigBeamFx';
 import { crushAt } from './gashaBigCrush';
@@ -49,6 +50,8 @@ export interface GashaBigDeps {
   carryPlayer?(dx: number, dy: number, dz: number, dYawDeg: number): void;
   /** 昼夜の 明るさの 係（sky/lighting.ts）。あれば 体の 材料を 登録して 夜は 暗くする（目の 光は 暗くしない） */
   lighting?: { registerTree(root: Object3D, group: 'doll'): number };
+  /** 効果音を 鳴らす 口の 差しかえ（テスト用。なければ 本物の WebAudio） */
+  sfxEnv?: BigSfxEnv;
   /** BGM の ミキサーの 口（少女と おなじ）。なければ BGM は 流さない */
   bgmOut?(): { ctx: AudioContext; bus: AudioNode } | null;
   /** ふだんの BGM を 止める（少女と おなじ。曲が 流れて いる 間） */
@@ -1303,9 +1306,14 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
   const shockFx = new ShockFx(deps.scene, deps.camera);
   // 攻撃 1 の アースクエイク: 体も ゆれて、のっている 人は 一定の 間かくで 横に ゆさぶられる（自動では ふり落とさない。歩いて 踏んばれば のこれる。ジャンプ中は 押されない）
   const riding = (): boolean => { if (!actor || !deps.carryPlayer) return false; const p = deps.player(); return actor.boxUnder(p.x, p.y, p.z) >= 0; };
+  // 効果音（gashaBigSfx.ts。オーナー OK 済みの sfx-big-v1。数は 調整表の sfx）。ファイルは 最初に まとめて 読みこむ
+  const sfxPlayer = deps.sfxEnv ? null : createBigWebAudioPlayer();
+  const sfx = createBigSfx(deps.sfxEnv ?? sfxPlayer!);
+  sfxPlayer?.preload();
   const quake = new BodyQuake({
     isRider: riding, onGround: () => deps.playerBody?.().onGround ?? true,
     nudge: (dx, dz) => deps.nudgePlayer?.(dx, dz),
+    onPush: () => { sfx.shake(); },
   });
   // 攻撃 2「両手で 払う」: 払っている 腕の 箱に 当たったら はじき飛ばす（1 回の 払いで 1 回）。手の まえに 土ぼこり
   let sweepStroke = -1, sweepHitDone = false, sweepDustClock = 0;
@@ -1338,6 +1346,7 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
     if (ph === 'idle' || ph === 'done') {
       if (beamShown || beamPrev !== 'idle') { beamFx.setBeams([], [], false); beamFx.setSparkle([], 0); beamShown = false; actor.beamLook = null; }
       beamPrev = 'idle'; beamLast = null;
+      sfx.beamLoopOff();
       beamFx.update(dt);
       return;
     }
@@ -1356,7 +1365,7 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
       // 予兆の 間は プレイヤーを 見る
       actor.beamLook = null;
     } else if (ph === 'fire') {
-      if (beamPrev !== 'fire') { beamAim.begin(env); beamMark = 0; beamSmoke = 0; }
+      if (beamPrev !== 'fire') { beamAim.begin(env); beamMark = 0; beamSmoke = 0; sfx.beamOn(); sfx.beamLoopOn(); }
       const r = beamAim.step(dt, env);
       const a = beamAim.a;
       beamFx.setSparkle(beamEyes, 1);
@@ -1374,6 +1383,7 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
     } else {
       // 終わり: 光線を 止めて 大きな 煙（最後の 着弾点で）
       if (beamPrev === 'fire') {
+        sfx.beamLoopOff(); sfx.smoke();
         const a = beamAim.a;
         beamFx.smoke(a.x, a.y, a.z, K.finaleSmoke, K.finaleSize);
       }
@@ -1449,10 +1459,14 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
       groundY: deps.groundY, player: deps.player, carryPlayer: deps.carryPlayer,
       onSlam: (x, y, z) => {
         shockFx.spawn(shock.add('slam', x, y, z));
+        sfx.step();
         if (blockAt && deps.setBlockAir) crushAt(x, y, z, { getBlock: blockAt, setAir: deps.setBlockAir, onBlocks: deps.onCrushBlocks });
       },
-      onTap: (x, y, z) => shockFx.spawn(shock.add('tap', x, y, z)),
+      onTap: (x, y, z) => { shockFx.spawn(shock.add('tap', x, y, z)); sfx.step(); },
+      onAttackStart: (name) => { if (name === 'slam2') sfx.lift(); else if (name === 'sweep') sfx.windup(); else if (name === 'beam') sfx.omen(); },
+      onSweepStroke: (i) => { sfx.sweep(i); },
       onSlam2: (x, y, z, fx, fz) => {
+        sfx.slam();
         shockFx.spawn(shock.add('slam2', x, y, z, { fx, fz }));
         if (blockAt && deps.setBlockAir) crushAt(x, y, z, { getBlock: blockAt, setAir: deps.setBlockAir, onBlocks: deps.onCrushBlocks }, T.slam2);
         quake.start();
@@ -1479,6 +1493,9 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
     quake.step(dt);
     stepSweep(dt);
     stepBeam(dt);
+    // アースクエイクの ゴゴゴ: ゆれの のこりが 少なく なったら 小さく して 切る
+    if (quake.left > T.sfx.quakeFadeOutSec) sfx.quakeOn(); else sfx.quakeOff();
+    sfx.update();
     shockFx.setWarn(actor.warn);
     if (throwLeft > 0) { throwLeft -= dt; deps.nudgePlayer?.(throwDir.x * T.core.throwOff.speed * dt, throwDir.z * T.core.throwOff.speed * dt); }
     shock.step(dt);
@@ -1495,7 +1512,7 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
 
   const handle: GashaBigHandle = {
     tune: (o) => applyTune(o),
-    place: () => { quake.stop(); beamFx.clear(); place(); bh.reset(); },
+    place: () => { quake.stop(); beamFx.clear(); sfx.stopAll(); place(); bh.reset(); },
     hp: () => bh.hp,
     damage: (part, amount) => bh.damage(part, amount),
     section: (on) => {

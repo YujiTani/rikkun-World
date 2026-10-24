@@ -29,6 +29,10 @@ export interface ActorEnv {
   onSlam?(x: number, y: number, z: number, side: Side): void;
   /** 攻撃 1（両手たたきつけ）で 手が 地面に 着いた（両手の まんなか。fx, fz = 体の 前の 向き）。打撃・岩・衝撃波・ゆれ・地形こわし・体の ゆれ は 呼ぶ 側 */
   onSlam2?(x: number, y: number, z: number, fx: number, fz: number): void;
+  /** 攻撃が はじまった（'slam2'・'sweep'・'beam'。効果音など 呼ぶ 側の 用） */
+  onAttackStart?(name: string): void;
+  /** 攻撃 2 で 腕が 払いはじめた（0 = 1 回目、1 = 2 回目） */
+  onSweepStroke?(index: number): void;
   /** 引きよせの おわりに つきなおした 手が 地面を たたいた（小さい 衝撃。手の ひらの まんなか） */
   onTap?(x: number, y: number, z: number, side: Side): void;
   /** 攻撃 1（両手たたきつけ）で 手が 地面に 着いた（両手の まんなか。fx, fz = 体の 前の 向き）。打撃・岩・衝撃波・ゆれ・地形こわし・体の ゆれ は 呼ぶ 側 */
@@ -405,6 +409,8 @@ export class BigActor {
     if (name !== 'slam2' && name !== 'sweep' && name !== 'beam') { this.cycle.attackEnded(); return; } // まだ ない 攻撃は とばす
     this.mode = 'attack'; this.attackName = name; this.target = null;
     this.player.play(null, { fade: 0 });
+    this.sweepStroke = 0;
+    this.env.onAttackStart?.(name);
     if (name === 'beam') {
       // 目から 光線: 足は 止めて そのまま。首を ねらう 点へ むける
       this.beam.start();
@@ -623,7 +629,7 @@ export class BigActor {
       this.speedNow = 0;
       const ev = this.sweep.update(dt);
       void ev.warn;
-      if (ev.strokeStart) this.sweepStroke++;
+      if (ev.strokeStart) { this.env.onSweepStroke?.(this.sweepStroke); this.sweepStroke++; }
       if (this.sweep.phase === 'recover' && this.stepWant !== 0) this.fadeStep(0, T.sweep.recoverSec);
       const a = this.sweep.active;
       if (a) {

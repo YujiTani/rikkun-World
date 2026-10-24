@@ -12,6 +12,8 @@ export interface QuakeDeps {
   onGround(): boolean;
   /** 横へ ずらす（nudgePlayer） */
   nudge(dx: number, dz: number): void;
+  /** 押しが はじまった（効果音の 用） */
+  onPush?(): void;
 }
 
 function makeRnd(seed: number): () => number {
@@ -48,6 +50,7 @@ export class BodyQuake {
         const a = this.rnd() * Math.PI * 2;
         this.dirX = Math.cos(a); this.dirZ = Math.sin(a);
         this.pushLeft = Math.max(1e-3, K.pushSec);
+        this.d.onPush?.();
       } else this.pushLeft = 0;
     }
     this.clock -= dt;
