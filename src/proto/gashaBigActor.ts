@@ -1,7 +1,7 @@
 /**
  * #293 試作: 大きい がしゃどくろ（第一形態）の うごき。画面・DOM には さわらない（ユニットテストで 動かせる）。
- *  ・モーションを 箱の 関節へ うつす（gashaBigMotion.ts）。はう（かべ登りを 地面に 倒し、骨の 向きを そのまま 向ける）・さがる・ふり返る・休み。
- *    はう ときは 体を クリップの こしの 動き（倒して 前へ）だけ 進める。ついている 手は 世界で 止まる（gashaBigPlant.ts）。
+ *  ・前へ 進む: 1 歩 = ためる（腕を 振り上げる）→ たたきつける（打撃・衝撃波の できごと）→ 引きよせる（gashaBigStep.ts。キーの 姿勢を イージングで つなぐ）。
+ *  ・さがる・ふり返る は Meshy の モーションを 箱の 関節へ うつす（gashaBigMotion.ts）。さがる ときは 体を クリップの こしの 動きだけ 進める（gashaBigPlant.ts）。
  *  ・ふだんは 白目で ゆっくり はって さまよう（シード付き 乱数）。攻撃されると 赤い 目で 怒り、止まって プレイヤーの 方を 向く。20 秒 攻撃されないと 白目に もどる。
  *  ・当たり（見えない 箱）は 毎コマ 作りなおさず、箱の いまの 場所を 毎コマ 更新して「このマスは 固いか」を その場で 聞く（マスの 集合を 作らない）。
  *  ・上に のっている プレイヤーは、のっている 箱が 動いた ぶん（位置と 向き）いっしょに 動かす。
@@ -12,6 +12,7 @@ import type { BigModel, JointName } from './gashaBig';
 import { TUNE as T } from './gashaBigTuning';
 import { aimClip, bakeClip, clipProgress, MotionPlayer, type AimClipJson, type AimOpts, type BakedClip, type ClipJson, type RetargetOpts, type Skeleton } from './gashaBigMotion';
 import { fitStride, plantHands, type PlantReport } from './gashaBigPlant';
+import { StepCrawler, type Side } from './gashaBigStep';
 
 export interface ActorEnv {
   /** 地面の いちばん 上の ブロックの 高さ（立つ 面は +1） */
@@ -20,6 +21,8 @@ export interface ActorEnv {
   player(): { x: number; y: number; z: number; yawDeg: number };
   /** プレイヤーを 動かす（位置の ずれ、向き（度）の ずれ） */
   carryPlayer?(dx: number, dy: number, dz: number, dYawDeg: number): void;
+  /** 前へ 進む 1 歩で 手を 地面に たたきつけた（手の ひらの まんなか。y は 地面の 高さ）。打撃・衝撃波・ゆれ は 呼ぶ 側 */
+  onSlam?(x: number, y: number, z: number, side: Side): void;
 }
 
 export type ActorClips = { climbUp: AimClipJson; climbDown: AimClipJson; lookBack: ClipJson };
@@ -126,6 +129,16 @@ export class BigActor {
   strideScale = 1;
   /** 後ろへ さがる（back(true) の 間） */
   backOn = false;
+  /** 前へ 進む 1 歩（ためる → たたきつける → 引きよせる） */
+  step!: StepCrawler;
+  /** 1 歩の 姿勢の 重み（0 = ふだんの 姿勢、1 = 歩く 姿勢）と めざす 重み・切りかえの 秒 */
+  stepW = 0;
+  private stepWant = 0;
+  private stepFade = 0.5;
+  /** 1 歩の 区切り（振り上げの はじまり）。ここで 着いたか 決める */
+  private stepBoundary = false;
+  /** さいごに たたきつけた 所（世界の 座標） */
+  lastSlam: { x: number; y: number; z: number; side: Side; step: number } | null = null;
 
   private readonly boxes: Box[] = [];
   private readonly player: MotionPlayer;
@@ -183,6 +196,7 @@ export class BigActor {
     this.target = null;
     this.mode = 'idle';
     this.player.play(null, { fade: 0 });
+    this.stepW = 0; this.stepWant = 0; this.step.reset();
     this.pauseLeft = this.randIn(T.wander.pauseSec);
     this.restLeft = 0;
     this.walkLeft = this.randIn(T.wander.walkSec);
@@ -215,6 +229,10 @@ export class BigActor {
     // 進む 速さ（ブロック / 実時間の 秒）= 1 まわりの 長さ × 拡大 × 動きの 速さ ÷ 1 まわりの 秒
     this.crawlSpeed = (up.stride! * this.model.scale * this.crawlRate) / up.duration;
     this.plant = [up, down].map((c) => plantHands(this.model, [c], { tol: C.contactTol, spread: C.plantSpread, speed: 0, lift: C.liftHeight, center: true })[0]!);
+    // 前へ 進む 1 歩（調整表の crawl を その まま 読む）。速さの 目安 = 1 歩の 長さ ÷ 1 歩の 秒
+    this.step = new StepCrawler(this.model, T.crawl);
+    this.crawlSpeed = (this.step.stride * this.model.scale) / this.step.stepSec();
+    this.stepW = 0; this.stepWant = 0;
   }
 
   private randIn(r: readonly [number, number]): number { return r[0] + this.rnd() * (r[1] - r[0]); }
@@ -233,6 +251,7 @@ export class BigActor {
       this.target = null;
       this.restLeft = 0;
       this.mode = 'back';
+      this.fadeStep(0, T.crawl.startFadeSec);
       if (this.player.clip !== this.baked.back) this.player.play(this.baked.back, { fade: T.crawl.startFadeSec, rate: this.crawlRate, loop: true });
     } else if (this.mode === 'back') this.toIdle();
   }
@@ -270,7 +289,7 @@ export class BigActor {
     this.restLeft = 0; // 怒ったら 休みは 中断（白目に もどったら また 歩き出す）
     this.walkLeft = this.randIn(T.wander.walkSec);
     this.backOn = false;
-    if (this.mode !== 'angry') { this.mode = 'angry'; this.target = null; this.player.play(null, { fade: T.clips.idleFadeSec }); }
+    if (this.mode !== 'angry') { this.mode = 'angry'; this.target = null; this.player.play(null, { fade: T.clips.idleFadeSec }); this.fadeStep(0, T.clips.idleFadeSec); }
   }
 
   angry(on: boolean): void {
@@ -285,7 +304,24 @@ export class BigActor {
 
   private startCrawl(): void {
     this.mode = 'crawl';
-    if (this.player.clip !== this.baked.crawl) this.player.play(this.baked.crawl, { fade: T.crawl.startFadeSec, rate: this.crawlRate, loop: true });
+    // 歩く 姿勢が すっかり 消えて いれば 休みの 姿勢から（左の 腕から）はじめる。消えかけ なら 続きから
+    if (this.stepW <= 0) { this.step.reset(); this.stepBoundary = true; }
+    if (this.player.clip) this.player.play(null, { fade: T.crawl.startFadeSec });
+    this.fadeStep(1, T.crawl.startFadeSec);
+  }
+
+  private fadeStep(want: number, sec: number): void {
+    this.stepWant = want;
+    this.stepFade = Math.max(1e-3, sec);
+  }
+
+  /** 手を たたきつけた: 手の ひらの まんなかを 世界の 座標で 知らせる */
+  private emitSlam(side: Side): void {
+    const p = this.step.palm(side), s = this.model.scale;
+    const c = Math.cos(this.yaw), sn = Math.sin(this.yaw);
+    const x = this.pos.x + (p.x * c + p.z * sn) * s, z = this.pos.z + (-p.x * sn + p.z * c) * s;
+    this.lastSlam = { x, y: this.pos.y, z, side, step: this.step.steps };
+    this.env.onSlam?.(x, this.pos.y, z, side);
   }
 
   /** はう / さがる クリップを 再生して いる 間、この コマで 体が 進む 長さ（ブロック。後ろは −）。rate = この コマの 動きの 速さ */
@@ -315,6 +351,7 @@ export class BigActor {
   private toIdle(): void {
     this.mode = 'idle';
     this.player.play(null, { fade: T.clips.idleFadeSec });
+    this.fadeStep(0, T.clips.idleFadeSec);
   }
 
   // ---------------------------------------------------------------- 1 コマ
@@ -342,7 +379,12 @@ export class BigActor {
 
     // 4. 姿勢 と 場所
     this.player.update(dt);
-    const poseNow = this.player.work > 0 || this.lastWork > 0;
+    const w0 = this.stepW;
+    if (this.stepW !== this.stepWant) {
+      const k = dt / this.stepFade;
+      this.stepW = this.stepWant > this.stepW ? Math.min(this.stepWant, this.stepW + k) : Math.max(this.stepWant, this.stepW - k);
+    }
+    const poseNow = this.player.work > 0 || this.lastWork > 0 || this.stepW > 0 || w0 > 0;
     this.lastWork = this.player.work;
     this.work.interps = this.player.work;
     this.work.joints = 0; this.work.matrices = 0; this.work.boxes = 0;
@@ -417,29 +459,38 @@ export class BigActor {
       }
       return false;
     }
-    // crawl
+    // crawl（1 歩 = ためる → たたきつける → 引きよせる）
     const t = this.target;
     if (!t) { this.toIdle(); return false; }
     const dx = t.x - this.pos.x, dz = t.z - this.pos.z;
     const dist = Math.hypot(dx, dz);
-    if (dist < T.wander.arriveDist) {
-      this.target = null;
-      this.toIdle();
-      this.pauseLeft = this.randIn(T.wander.pauseSec);
-      if (this.wanderOn && this.rnd() < T.wander.lookBackChance) this.lookBack();
-      return false;
+    const C = this.step;
+    // 1 歩の 区切りで 着いたか 決める（1 歩が 大きい ので、のこりが 半歩 より 近ければ 止まる）
+    if (this.stepBoundary) {
+      this.stepBoundary = false;
+      if (dist < T.wander.arriveDist || dist < C.stride * this.model.scale * 0.5) {
+        this.target = null;
+        this.toIdle();
+        this.pauseLeft = this.randIn(T.wander.pauseSec);
+        if (this.wanderOn && this.rnd() < T.wander.lookBackChance) this.lookBack();
+        return false;
+      }
     }
     const want = Math.atan2(dx, dz);
     const err = Math.abs(wrapPi(want - this.yaw));
-    moved = this.turnToward(want, T.crawl.turnDegPerSec * DEG * dt);
-    // 向きが 大きく ずれて いる 間は 動きを ゆるめる（その場で 向きを かえる）。動きの 速さと 進む 長さは いつも おなじ 比（手が すべらない）
+    // 向きを かえるのは ためる 間 だけ（ついている 手は 世界で 止める）
+    if (C.phase === 'windup' || C.phase === 'hold') {
+      const y0 = this.yaw;
+      moved = this.turnToward(want, T.crawl.turnDegPerSec * DEG * dt);
+      C.rotate(wrapPi(this.yaw - y0));
+    }
+    // 向きが 大きく ずれて いる 間は 次の 1 歩を 短く する
     const lim = T.crawl.moveAngleDeg * DEG;
-    const f = Math.max(0, Math.min(1, 1 - (err - lim) / lim));
-    const rate = this.crawlRate * f;
-    this.player.setRate(rate);
-    let step = this.crawlStep(dt, rate);
-    if (step > dist) step = dist;
-    return this.advance(step, dt) || moved;
+    C.strideMul = Math.max(0, Math.min(1, 1 - (err - lim) / lim));
+    const ev = C.update(dt);
+    if (ev.stepStart) this.stepBoundary = true;
+    if (ev.slam) this.emitSlam(ev.slam);
+    return this.advance(ev.advance * this.model.scale, dt) || moved;
   }
 
   private turnToward(want: number, maxStep: number): boolean {
@@ -505,7 +556,12 @@ export class BigActor {
   private applyPose(force: boolean): void {
     if (force) { for (const q of this.player.pose) q.set(0, 0, 0, 1); }
     const m = this.model;
-    for (let i = 0; i < this.names.length; i++) m.joints[this.names[i]!].quaternion.copy(this.player.pose[i]!);
+    const w = this.stepW, sp = this.step.pose;
+    for (let i = 0; i < this.names.length; i++) {
+      const q = m.joints[this.names[i]!].quaternion.copy(this.player.pose[i]!);
+      if (w >= 1) q.copy(sp[i]!);
+      else if (w > 0) q.slerp(sp[i]!, w);
+    }
     this.work.joints = this.names.length;
   }
 
