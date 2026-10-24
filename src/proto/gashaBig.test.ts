@@ -94,59 +94,40 @@ describe('gashaBig（#293 大きい がしゃどくろ）', () => {
     expect(model.meshes).toBeLessThanOrEqual(40);
   });
 
-  it('当たりの 箱が ある（うで・雲・リボン・頭）', () => {
+  it('当たりの 箱が ある（うで・肩の 雲・髪の 段・リボン・頭）', () => {
     const names = hits.map((h) => h.name);
-    for (const n of ['upperArmL', 'foreArmR', 'handL', 'climbL0', 'climbR0', 'linkL0', 'rampR0', 'headL0', 'ribbonWingR', 'skull', 'bank0']) expect(names).toContain(n);
+    for (const n of ['upperArmL', 'foreArmR', 'handL', 'shoulderL0', 'shoulderR0', 'tailL0', 'tailR0', 'sideL0', 'pompomL'.replace('pompom', 'pompon'), 'ribbonWingR', 'skull', 'bank0']) expect(names).toContain(n);
+    // 雲の はしご（ladder / link / ramp / head の 段）は もう ない
+    for (const n of names) expect(n).not.toMatch(/^(climb|link|ramp|head)[LR]\d/);
   });
 
-  it('地面から 手→前わん→上わん→肩の 平らな 道→雲の はしご→頭の 上 まで 1 ブロックの 段で のぼれる', () => {
-    const hand = hits.find((h) => h.name === 'handL')!;
-    const ground = [Math.floor(hand.center[0]), 0, Math.floor(hand.center[2] + hand.half[2] + 3)] as [number, number, number];
-    expect(standable(cells, ...ground)).toBe(true);
-    const seen = reach(cells, ground);
-    // 地面の 上で どこまで 高く いけるか と 通る 場所
-    const hitHeight = (name: string): number => {
-      const h = hits.find((x) => x.name === name)!;
-      let best = -1;
-      for (const [i, j, k] of seen.values()) {
-        const dx = i + 0.5 - h.center[0], dz = k + 0.5 - h.center[2];
-        if (Math.abs(dx) <= h.half[0] + 1 && Math.abs(dz) <= h.half[2] + 1) best = Math.max(best, j);
-      }
-      return best;
-    };
-    const rows = ['handL', 'foreArmL', 'upperArmL', 'climbL0', 'climbL10', 'linkL0', 'rampL0', 'headL0', 'skull', 'climbR10', 'headR0', 'bank0'].map((n) => `${n}:${hitHeight(n)}`);
-    console.log('reach', rows.join(' '));
+  it('肩の 雲の 上から 髪の 段（ツインテール → ぽんぽん → 横の 髪）を ふんで 頭の 上まで 1 ブロックの 段で のぼれる', () => {
     const skull = hits.find((h) => h.name === 'skull')!;
     const skullTop = Math.floor(skull.center[1] + skull.half[1] - 1);
+    // 肩の 雲の 上（いちばん 外がわの 雲の 上）から はじめる
+    const sh = hits.filter((h) => /^shoulderL\d+$/.test(h.name));
+    expect(sh.length).toBeGreaterThan(4);
+    let start: [number, number, number] | null = null;
+    for (const h of sh) {
+      const j = Math.floor(h.center[1] + h.half[1] + 0.0001);
+      const g: [number, number, number] = [Math.floor(h.center[0]), j, Math.floor(h.center[2])];
+      if (standable(cells, ...g)) { start = g; break; }
+    }
+    expect(start).not.toBeNull();
+    const noArms = hits.filter((h) => !/^(upperArm|foreArm|hand)/.test(h.name));
+    const cellsL = voxelize(noArms, T.collide.margin, T.collide.topLift);
+    const seen = reach(cellsL, start!);
     let top = 0;
     for (const [, j] of seen.values()) top = Math.max(top, j);
-    console.log('skullTop', skullTop, 'reachTop', top);
+    console.log('shoulder start', start, 'skullTop', skullTop, 'reachTop', top);
     expect(top).toBeGreaterThanOrEqual(skullTop);
   });
-  it('雲の はしごだけで（うでを 使わず）地面から 頭の 上まで のぼれる。段の 上がりは 1 ブロック いない、当たりの あつさは 1 ブロック いじょう', () => {
-    const noArms = hits.filter((h) => !/^(upperArm|foreArm|hand|shoulder)/.test(h.name));
-    const cellsL = voxelize(noArms, T.collide.margin, T.collide.topLift);
-    const c0 = hits.find((h) => h.name === 'climbL0')!;
-    const ground = [Math.floor(c0.center[0] - c0.axes[2][0] * 3), 0, Math.floor(c0.center[2] - c0.axes[2][2] * 3)] as [number, number, number];
-    // 出発は はしごの はじめの 段の 手前の 地面（段の 向きと 反対 = まわりの 地面）
-    let start = ground;
-    for (const [dx, dz] of [[0, 3], [0, -3], [3, 0], [-3, 0], [3, 3], [-3, -3]] as const) {
-      const g: [number, number, number] = [Math.floor(c0.center[0]) + dx, 0, Math.floor(c0.center[2]) + dz];
-      if (standable(cellsL, ...g)) { start = g; break; }
-    }
-    const seen = reach(cellsL, start);
-    const skull = hits.find((h) => h.name === 'skull')!;
-    let top = 0;
-    for (const [, j] of seen.values()) top = Math.max(top, j);
-    expect(top).toBeGreaterThanOrEqual(Math.floor(skull.center[1] + skull.half[1] - 1));
-    // 段の 上がり（上の 面の 高さの さ）と あつさ（ブロック）
-    for (const key of ['climb', 'link', 'ramp', 'head']) {
+
+  it('髪の 段・雲の 当たりは 段の 上がりが 1 ブロック いない', () => {
+    for (const key of ['tail', 'side']) {
       const rs = hits.filter((h) => new RegExp(`^${key}L\\d+$`).test(h.name)).sort((a, b) => Number(a.name.slice(key.length + 1)) - Number(b.name.slice(key.length + 1)));
-      expect(rs.length).toBeGreaterThan(3);
-      for (let i = 0; i < rs.length; i++) {
-        expect(rs[i]!.half[1] * 2).toBeGreaterThanOrEqual(1);
-        if (i) expect(Math.abs(rs[i]!.center[1] - rs[i - 1]!.center[1])).toBeLessThanOrEqual(0.95);
-      }
+      expect(rs.length).toBeGreaterThan(2);
+      for (let i = 1; i < rs.length; i++) expect(Math.abs(rs[i]!.center[1] - rs[i - 1]!.center[1])).toBeLessThanOrEqual(0.95);
     }
   });
 

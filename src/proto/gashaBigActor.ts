@@ -209,11 +209,12 @@ export class BigActor {
     for (const c of [up, down]) {
       c.root = c.rootSrc.map((v) => v * this.strideScale);
       c.stride = c.strideSrc * this.strideScale;
+      c.sway = c.swaySrc.map((v) => v * this.strideScale);
     }
     this.baked = { crawl: up, back: down, lookBack: bakeClip(clips.lookBack, retargetOpts(T.clips.lookBack), sk) };
     // 進む 速さ（ブロック / 実時間の 秒）= 1 まわりの 長さ × 拡大 × 動きの 速さ ÷ 1 まわりの 秒
     this.crawlSpeed = (up.stride! * this.model.scale * this.crawlRate) / up.duration;
-    this.plant = [up, down].map((c) => plantHands(this.model, [c], { tol: C.contactTol, spread: C.plantSpread, speed: 0, lift: C.liftHeight })[0]!);
+    this.plant = [up, down].map((c) => plantHands(this.model, [c], { tol: C.contactTol, spread: C.plantSpread, speed: 0, lift: C.liftHeight, center: true })[0]!);
   }
 
   private randIn(r: readonly [number, number]): number { return r[0] + this.rnd() * (r[1] - r[0]); }

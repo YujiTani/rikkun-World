@@ -423,7 +423,7 @@ export class BigHit {
     const root = document.createElement('div');
     root.id = 'gashaBigHp';
     const H = T.hit;
-    root.style.cssText = `position:fixed;top:10px;left:50%;transform:translateX(-50%);width:min(${H.barWidthVw}vw,${H.barMaxPx}px);z-index:40;pointer-events:none;font:700 15px/1.2 system-ui,sans-serif;color:#fff;text-shadow:0 1px 3px #000;text-align:center`;
+    root.style.cssText = `position:fixed;top:${H.barTopPx}px;left:50%;transform:translateX(-50%);width:min(${H.barWidthVw}vw,${H.barMaxPx}px);z-index:40;pointer-events:none;font:700 15px/1.2 system-ui,sans-serif;color:#fff;text-shadow:0 1px 3px #000;text-align:center`;
     const name = document.createElement('div');
     name.textContent = 'がしゃどくろ';
     const track = document.createElement('div');

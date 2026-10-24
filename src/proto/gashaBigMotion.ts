@@ -56,6 +56,8 @@ export interface BakedClip {
   root?: Float32Array;
   /** ループ 1 まわりで 進む 長さ（箱の もとの 座標。後ろへ さがる クリップは −） */
   stride?: number;
+  /** 手首の 横の ずらし（箱の もとの 座標、コマごと）。素材の こしの 横ゆれ（箱では 消す）の ぶん */
+  sway?: Float32Array;
   /** 手が 地面（素材では かべ）を つかんで いる 重み 0〜1（コマごと）。素材の 手首が 止まって いる コマ */
   contact?: { Left: Float32Array; Right: Float32Array };
 }
@@ -300,6 +302,8 @@ export interface AimedClip extends BakedClip {
   rootSrc: Float32Array;
   /** ループ 1 まわりの 前進（素材の 長さ） */
   strideSrc: number;
+  /** こしの 横ゆれ（素材の 長さ。平均からの ずれ。コマごと） */
+  swaySrc: Float32Array;
   /** 倒した 素材の 骨の 向き（follow を まぜる 前）。[frame][joint][xyz]。テスト・確かめ用 */
   dirs: Float32Array;
 }
@@ -393,11 +397,16 @@ export function aimClip(clip: AimClipJson, o: AimOpts, sk: Skeleton): AimedClip 
   const th = (o.rootTiltDeg * Math.PI) / 180, cs = Math.cos(th), sn = Math.sin(th);
   const hp = clip.hipsPos ?? [];
   const fwd = (f: number): number => (hp.length >= 3 * F0 ? (hp[3 * f + 1]! - hp[1]!) * sn + (hp[3 * f + 2]! - hp[2]!) * cs : 0);
-  const rootSrc = new Float32Array(F);
+  const rootSrc = new Float32Array(F), swaySrc = new Float32Array(F);
   for (let f = 0; f < F; f++) rootSrc[f] = fwd(f);
+  if (hp.length >= 3 * F0) {
+    let mx = 0;
+    for (let f = 0; f < F; f++) mx += hp[3 * f]! / F;
+    for (let f = 0; f < F; f++) swaySrc[f] = hp[3 * f]! - mx;
+  }
   const strideSrc = fwd(F0 - 1); // ループの とき 最後の コマ = 次の まわりの 最初の コマ
   const fps = clip.fps;
-  const out: AimedClip = { name: clip.name ?? 'clip', fps, frames: F, duration: F / fps, joints: sk.names, q, rootSrc, strideSrc, dirs };
+  const out: AimedClip = { name: clip.name ?? 'clip', fps, frames: F, duration: F / fps, joints: sk.names, q, rootSrc, strideSrc, swaySrc, dirs };
   // 7. つかんで いる コマ: 素材の 手首（Hand の 位置）が かべで 止まって いる（速さが 体の 平均の 速さ より ずっと 小さい）
   if (clip.offset && hp.length >= 3 * F0) {
     const pos: Record<string, Vector3[]> = {};

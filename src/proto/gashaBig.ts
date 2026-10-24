@@ -17,6 +17,7 @@ import { TUNE as T, applyTune, applyTuneFromUrl } from './gashaBigTuning';
 import { BigActor, type ActorClips } from './gashaBigActor';
 import { sharedGashaBgm } from './gashaBgm';
 import { BigHit, type HitSources } from './gashaBigHit';
+import { GashaGeyser, type GeyserInfo } from './gashaGeyser';
 import climbUp from './gashaBigClips/climbUp.json';
 import climbDown from './gashaBigClips/climbDown.json';
 import lookBackClip from './gashaBigClips/lookBack.json';
@@ -42,6 +43,12 @@ export interface GashaBigDeps {
   fillBlocks?(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, id: 'grass' | 'air'): void;
   /** プレイヤーの 攻撃を 受ける 口（刀・弓・波・雷など。つなぎは gashaBigHitWire.ts）。なければ 本物の 攻撃は 当たらない（`__gashaBig.damage` だけ 効く） */
   hit?: HitSources;
+  /** 間欠泉（gashaGeyser.ts）の 口: プレイヤーの 体（足もと・速さ・地面）。4 つ そろった ときだけ 間欠泉が わく */
+  playerBody?(): { position: { x: number; y: number; z: number }; velocity: { x: number; y: number; z: number }; onGround?: boolean };
+  setPlayerVelocity?(v: { x: number; y: number; z: number }): void;
+  nudgePlayer?(dx: number, dz: number): void;
+  /** 落下ダメージを 受けない（combat の noFall に 重ねる） */
+  setNoFall?(on: boolean): void;
 }
 
 // ---------------------------------------------------------------- 色と 面の 明るさ
@@ -241,7 +248,6 @@ const octShape = (r: number, hole?: number): Shape => {
 // ---------------------------------------------------------------- すりガラスの 雲（はしごの 段 と もくもく雲）
 /** 1 ブロック あたりの もとの 座標の 長さ（= 1 / 拡大）。雲の はしごの 段の 高さ・間かく・あつさは ブロックの 絶対の 値で 決める ので、buildBig の はじめに 入れる */
 let KW = 1;
-const smooth = (a: number, c: number, x: number): number => { const t = Math.min(1, Math.max(0, (x - a) / (c - a))); return t * t * (3 - 2 * t); };
 const lerpA = (r: readonly [number, number], f: number): number => r[0] + (r[1] - r[0]) * f;
 
 /** 頂点を すりガラスの 色で ためる（上 = alphaTop、横 = alphaSide でふちが 少し 明るい、下 = alphaBottom）。fade は 形の 中の 場所（x, y）ごとの 濃さの 倍率 */
@@ -278,15 +284,6 @@ function blobOutline(L: number, W: number, bump: number): Shape {
   return sh;
 }
 
-/** 平らな 段（すじ雲）の 形。まんなかの flat の 割合は 幅が そろって 平ら、はしは 細く とがる */
-function rungOutline(L: number, D: number, flat: number): Shape {
-  const N = 12, sh = new Shape();
-  const prof = (s: number): number => { const a = Math.abs(s); if (a <= flat) return 1; const e = (a - flat) / (1 - flat); return Math.max(0.05, Math.pow(Math.max(0, 1 - e * e), 0.6)); };
-  for (let i = 0; i <= N; i++) { const s = -1 + (2 * i) / N; if (i) sh.lineTo((s * L) / 2, (D / 2) * prof(s)); else sh.moveTo((s * L) / 2, (D / 2) * prof(s)); }
-  for (let i = N; i >= 0; i--) { const s = -1 + (2 * i) / N; sh.lineTo((s * L) / 2, (-D / 2) * prof(s)); }
-  return sh;
-}
-
 const ICO = new IcosahedronGeometry(1, 1);
 
 /** 形（平面）を おしだした 板を 置く。形の x → u、y → 横、おしだし → 上。板の 上の 面が 高さ top に なる */
@@ -302,39 +299,6 @@ function putSlab(b: Builder, joint: JointName, shape: Shape, thick: number, c: V
 /** ぶらさがる もくもく（だ円体） */
 function putLobe(b: Builder, joint: JointName, c: Vector3, rx: number, ry: number, rz: number, mul = 1): void {
   pushGlass(b, joint, ICO, new Matrix4().compose(c, new Quaternion(), vec(rx, ry, rz)), undefined, mul);
-}
-
-interface RungOpts { joint: JointName; c: Vector3; tx: number; tz: number; f: number; len?: readonly [number, number]; name: string; rnd: () => number }
-
-/** はしごの 段を 1 つ。c = 道の 上の 点（y = 上の 面の 高さ）、(tx, tz) = 道の 向き。段は 道と 直角に 長い */
-function rung(b: Builder, o: RungOpts): void {
-  const Ld = T.ladder, rnd = o.rnd;
-  const D = lerpA(Ld.depth, o.f) * KW, L = lerpA(o.len ?? Ld.length, o.f) * KW * (0.92 + 0.16 * rnd());
-  const thick = Ld.thick * KW;
-  const a = ((rnd() - 0.5) * Ld.tiltDeg * Math.PI) / 180; // 道と 直角から の かたむき（全はば tiltDeg）
-  const lx = -o.tz, lz = o.tx;
-  const u = vec(lx * Math.cos(a) + lz * Math.sin(a), 0, -lx * Math.sin(a) + lz * Math.cos(a)).normalize();
-  const c = o.c.clone().addScaledVector(vec(lx, 0, lz), (rnd() - 0.5) * 2 * Ld.stagger * L);
-  const half = L / 2, flat = Ld.flat, ea = Ld.edgeAlpha;
-  const fadeOf = (w: number) => (lx0: number): number => { const s = Math.min(1, Math.abs(lx0) / w); return s <= flat ? 1 : 1 + (ea - 1) * smooth(flat, 1, s); };
-  putSlab(b, o.joint, rungOutline(L, D, flat), thick, c, u, fadeOf(half));
-  // すじの 重なり（下に ずらして うすく）
-  for (let k = 1; k <= Ld.layers; k++) {
-    const Lk = L * (0.82 - 0.16 * k), Dk = D * (1.0 + 0.12 * k);
-    const ck = c.clone().addScaledVector(u, (rnd() - 0.5) * L * 0.3); ck.y -= 0.55 * k * KW;
-    putSlab(b, o.joint, rungOutline(Lk, Dk, flat), 0.45 * KW, ck, u, fadeOf(Lk / 2), 0.7);
-  }
-  // 下から ぶらさがる もくもく（上の 段ほど おおい）
-  const nl = Math.round(lerpA(Ld.lobes, o.f));
-  const side = new Vector3().crossVectors(vec(0, 1, 0), u);
-  for (let k = 0; k < nl; k++) {
-    const r = D * (0.36 + 0.14 * rnd());
-    const p = c.clone().addScaledVector(u, (rnd() - 0.5) * 2 * half * flat * 0.9).addScaledVector(side, (rnd() - 0.5) * D * 0.3);
-    p.y = c.y - thick * 0.5 - r * 0.7;
-    putLobe(b, o.joint, p, r * 1.3, r * 0.8, r, 0.8);
-  }
-  // 当たり: 平らな 部分（長さの flat 割合 × ふかさの 9 割）。上の 面が 見た目と そろう
-  b.hits.push({ name: o.name, joint: o.joint, c: o.c.clone().setX(c.x).setZ(c.z).setY(c.y - thick / 2), axes: [u.clone(), vec(0, 1, 0), side.clone()], half: [(L * flat) / 2, thick / 2, D * 0.45] });
 }
 
 /** もくもく雲を 1 つ（木くらいの 大きさ）。平らな 上の 面 ＋ まわりと 下の ふくらみ。上の 面が そのまま 当たり */
@@ -354,32 +318,6 @@ function puff(b: Builder, o: { joint: JointName; cx: number; top: number; cz: nu
   putLobe(b, o.joint, vec(o.cx, o.top - thick - w * 0.12, o.cz), w * 0.3, w * 0.2, w * 0.28, 0.9);
   const fill = T.collide.cloudFill;
   b.hits.push({ name: o.name, joint: o.joint, c: vec(o.cx, o.top - thick / 2, o.cz), axes: [u.clone(), vec(0, 1, 0), side.clone()], half: [(w * fill) / 2, thick / 2, (d * fill) / 2] });
-}
-
-/** 道（[x, z, y?] の 点）を 間かくごとの 点に する。y を 書いた 点の 間は 道の 長さで わりふる */
-function pathPoints(pts: number[][], spacing: number, skipFirst: boolean): { x: number; y: number; z: number; tx: number; tz: number }[] {
-  const cum = [0];
-  for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1]! + Math.hypot(pts[i]![0]! - pts[i - 1]![0]!, pts[i]![1]! - pts[i - 1]![1]!));
-  const total = cum[cum.length - 1]!;
-  const ys: { d: number; y: number }[] = [];
-  pts.forEach((p, i) => { if (p[2] !== undefined) ys.push({ d: cum[i]!, y: p[2] }); });
-  if (ys.length < 2 || ys[0]!.d !== 0 || ys[ys.length - 1]!.d !== total) throw new Error('道の はしの 点には y が いる');
-  const out: { x: number; y: number; z: number; tx: number; tz: number }[] = [];
-  const n = Math.max(1, Math.round(total / spacing));
-  for (let k = skipFirst ? 1 : 0; k <= n; k++) {
-    const d = (total * k) / n;
-    let i = 1;
-    while (i < pts.length - 1 && cum[i]! < d) i++;
-    const a = pts[i - 1]!, c = pts[i]!, seg = cum[i]! - cum[i - 1]!;
-    const f = seg > 0 ? (d - cum[i - 1]!) / seg : 0;
-    let j = 1;
-    while (j < ys.length - 1 && ys[j]!.d < d) j++;
-    const y0 = ys[j - 1]!, y1 = ys[j]!;
-    const y = y0.y + (y1.y - y0.y) * ((d - y0.d) / (y1.d - y0.d || 1));
-    const tl = Math.hypot(c[0]! - a[0]!, c[1]! - a[1]!) || 1;
-    out.push({ x: a[0]! + (c[0]! - a[0]!) * f, y, z: a[1]! + (c[1]! - a[1]!) * f, tx: (c[0]! - a[0]!) / tl, tz: (c[1]! - a[1]!) / tl });
-  }
-  return out;
 }
 
 const jointForY = (y: number): JointName => (y < 20 ? 'Hips' : y < 50 ? 'Spine02' : 'Head');
@@ -597,6 +535,7 @@ export function buildBig(): BigModel {
       for (let i = 0; i < 3; i++) head.seg(pts[i]!, pts[i + 1]!, 3.2 - i * 0.5, 3.4 - i * 0.5, HAIR);
       head.box(2.0, 2.4, 2.0, s * 14.4, -15.4, 2.2, HAIR);
       head.box(3.2, 3.2, 3.2, s * 11.8, 13.6, -3, pc); head.box(2.2, 2.2, 3.6, s * 11.8, 13.6, -3, 0xffd0e0);
+      head.hit(`pompon${s < 0 ? 'R' : 'L'}`, 3.2, 3.2, 3.2, s * 11.8, 13.6, -3); // ポンポンの 上が 足場（ツインテールを のぼった ところ）
       head.box(3.4, 3.4, 3.4, s * 15.0, -1.5, -2.8, pc);
       moss(head, s * 13, 14.8, -3, 1, 1);
     }
@@ -691,21 +630,32 @@ export function buildBig(): BigModel {
   const topY = vec(0, 20.4, -0.2).applyMatrix4(hm).y;
   const scale = T.size.height / topY;
   KW = 1 / scale;
-  // --- 雲の はしご（地面 → こし → 肩 → リボン → 頭の 上）と、こしの もくもく雲。上の 面が そのまま 当たり
+  // --- 肩の 雲（小さな もくもく雲の あつまり。平らな 足場）・髪の 段（ツインテール と もみあげ）・こしの もくもく雲。上の 面が そのまま 当たり
   {
-    const Ld = T.ladder, rr = makeRnd(Ld.seed);
-    const routes: { key: string; pts: number[][]; skipFirst: boolean; len?: readonly [number, number] }[] = [
-      { key: 'ramp', pts: Ld.ramp, skipFirst: false, len: Ld.rampLength },
-      { key: 'head', pts: Ld.head, skipFirst: true, len: Ld.headLength },
-    ];
+    const S = T.shoulder, rs = makeRnd(S.seed);
     for (const s of [-1, 1]) {
       const sd = s < 0 ? 'R' : 'L';
-      for (const r of routes) {
-        const pts = r.pts.map((p) => (p.length > 2 ? [s * p[0]!, p[1]!, p[2]!] : [s * p[0]!, p[1]!]));
-        pathPoints(pts, Ld.spacing * KW, r.skipFirst).forEach((q, i) => {
-          rung(b, { joint: jointForY(q.y), c: vec(q.x, q.y, q.z), tx: q.tx, tz: q.tz, f: Math.min(1, q.y / Ld.topY), len: r.len, name: `${r.key}${sd}${i}`, rnd: rr });
-        });
+      let n = 0;
+      for (const x of S.xs) for (const z of S.zs) {
+        puff(b, { joint: 'Spine02', cx: s * x, top: S.y + (rs() - 0.5) * S.jitter, cz: z, w: lerpA(S.size, rs()), yaw: rs() * Math.PI, lobes: 4, name: `shoulder${sd}${n++}`, rnd: rs });
       }
+    }
+    // 髪の 毛束: 黒い 箱。上の 面が 当たり。ときどき 髪どめ（ピンク）
+    const H = T.hair;
+    const lock = (name: string, x: number, top: number, z: number, k: number): void => {
+      const w = H.size * KW, th = H.thick * KW, joint = jointForY(top), r = b.root(joint);
+      r.box(w, th, w, x, top - th / 2, z, HAIR);
+      r.box(w * 0.78, th * 1.4, w * 0.78, x, top - th - th * 0.7, z, HAIR);
+      if (k % 3 === 2) r.box(w * 1.06, th * 0.3, w * 1.06, x, top - th * 0.55, z, C.stripe);
+      b.hits.push({ name, joint, c: vec(x, top - th / 2, z), axes: [vec(1, 0, 0), vec(0, 1, 0), vec(0, 0, 1)], half: [w / 2, th / 2, w / 2] });
+    };
+    for (const s of [-1, 1]) {
+      const sd = s < 0 ? 'R' : 'L', Tl = H.tail;
+      for (let k = 0; k < Tl.steps; k++) {
+        const a = ((Tl.angle0Deg + k * Tl.stepDeg) * Math.PI) / 180;
+        lock(`tail${sd}${k}`, s * (Tl.x + Tl.radius * Math.cos(a)), Tl.y0 + k * Tl.rise, Tl.z + Tl.radius * Math.sin(a), k);
+      }
+      H.side.forEach((q, k) => lock(`side${sd}${k}`, s * q[0]!, q[2]!, q[1]!, k));
     }
     const K = T.bank, rb = makeRnd(K.seed);
     for (let i = 0; i < K.count; i++) {
@@ -842,6 +792,8 @@ export interface GashaBigHandle {
   joints(): Record<string, Group>;
   /** 見えない 固いマスを 1 つ 聞く */
   solidAt(x: number, y: number, z: number): boolean;
+  /** 間欠泉の 一覧（場所・状態。置いた とき きまる） */
+  geysers(): GeyserInfo[];
   info(): Record<string, unknown>;
   group: Group;
 }
@@ -855,6 +807,9 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
   // プレイヤーの 攻撃を 受ける（体力・部位の 倍率・怒る・火花・体力ゲージ。gashaBigHit.ts）
   const bh = new BigHit({ scene: deps.scene, angry: () => { isAngry = true; actor?.hit(); }, sources: deps.hit });
   let pos = new Vector3(), yaw = 0;
+  const geysers = deps.onUpdate && deps.playerBody && deps.setPlayerVelocity && deps.nudgePlayer && deps.setNoFall
+    ? new GashaGeyser({ scene: deps.scene, onUpdate: deps.onUpdate, groundY: deps.groundY, body: deps.playerBody, setVelocity: deps.setPlayerVelocity, nudge: deps.nudgePlayer, setNoFall: deps.setNoFall })
+    : null;
   const fwdOf = (p: { yawDeg: number }) => { const y = (p.yawDeg * Math.PI) / 180; return { fx: Math.sin(y), fz: -Math.cos(y) }; };
 
   const clear = () => {
@@ -909,6 +864,8 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
     model.group.rotation.y = yaw;
     model.group.scale.setScalar(s);
     deps.scene.add(model.group);
+    // 間欠泉は ここで 場所を きめる（がしゃどくろが その後 動いても そのまま）
+    geysers?.place({ x: pos.x, y: pos.y, z: pos.z, yaw, scale: s });
     actor = new BigActor(model, CLIPS, { groundY: deps.groundY, player: deps.player, carryPlayer: deps.carryPlayer }, 293);
     actor.place(pos.x, pos.y, pos.z, yaw);
     actor.walk(T.wander.enabledAtStart);
@@ -953,6 +910,7 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
     refreshColliders: refresh,
     joints: () => (model ? { ...model.joints } : {}),
     solidAt: (x, y, z) => actor?.solid(x, y, z) ?? false,
+    geysers: () => geysers?.geysers() ?? [],
     info: () => ({
       scale: model?.scale, pos: [pos.x, pos.y, pos.z], yawDeg: (yaw * 180) / Math.PI, drawCalls: model?.meshes, hitBoxes: model?.hits.length, angry: (actor?.angryLeft ?? 0) > 0, hp: bh.hp, maxHp: bh.maxHp, lastHit: bh.last,
       head: model ? model.head.clone().multiplyScalar(model.scale).applyQuaternion(new Quaternion().setFromAxisAngle(UP, yaw)).add(pos).toArray() : null,

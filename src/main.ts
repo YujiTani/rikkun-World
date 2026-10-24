@@ -749,6 +749,7 @@ const handNow = (): typeof handInfo => {
 };
 const buffModel = createBuffModel();
 controller.lungeYokai = () => (yokaiManager ? yokaiManager.list() : []);
+let protoNoFall = false; // #293 試作: 間欠泉の 中・あと は 落下ダメージなし（?proto=gashaBig）
 const combat = new PlayerCombatImpl({
   config: combatCfg,
   tool: tools,
@@ -764,7 +765,7 @@ const combat = new PlayerCombatImpl({
   spawn: startPoint,
   // WEAPON-9: シャイニング中は 受ける ダメージ 1/3・落下ダメージなし
   takenMul: () => legend.takenMul(),
-  noFall: () => legend.noFall(),
+  noFall: () => legend.noFall() || protoNoFall,
   // 妖怪のねらい（CHAR-1 第 5.2 版 §4.5）: 届く距離は P から。S からの線で当たらないときは やさしい ねらい補助
   reachOrigin: (out) => aimPivot(world, controller.state.position, out),
   assist: (eye, dir, reach) => aimAssistPick(eye, dir, reach),
@@ -2537,7 +2538,7 @@ if (import.meta.env.DEV && new URLSearchParams(location.search).get('proto') ===
 }
 // #293 試作（開発サーバーだけ）: ?proto=gashaBig で 大きい がしゃどくろ（第一形態）。当たりは「追加の 固いマス」として プレイヤーの 当たりに 重ねる
 if (import.meta.env.DEV && new URLSearchParams(location.search).get('proto') === 'gashaBig') {
-  void Promise.all([import('./proto/gashaBig'), import('./proto/gashaBigHitWire')]).then(([m, hw]) => m.startGashaBig({ scene: game.scene, camera: game.camera, player: () => ({ ...controller.state.position, yawDeg: controller.state.yawDeg }), groundY: (x, z) => island.groundHeight(x, z), addPlayerSolid: (fn) => { const orig = world.isSolidForPlayer.bind(world); world.isSolidForPlayer = (x, y, z) => orig(x, y, z) || fn(x, y, z); }, fillBlocks: (x0, y0, z0, x1, y1, z1, id) => { world.fill(x0, y0, z0, x1, y1, z1, id); }, onUpdate: (fn) => game.onUpdate(fn), bgmOut: () => { const o = mixer.output(); const b = mixer.bgmInput(); return o && b ? { ctx: o.ctx, bus: b } : null; }, suppressBgm: (on) => { girlBgmOn = on; }, carryPlayer: (dx, dy, dz, dYaw) => { const st = controller.state; st.position.x += dx; st.position.y += dy; st.position.z += dz; st.yawDeg = (((st.yawDeg + dYaw) % 360) + 360) % 360; },
+  void Promise.all([import('./proto/gashaBig'), import('./proto/gashaBigHitWire')]).then(([m, hw]) => m.startGashaBig({ scene: game.scene, camera: game.camera, player: () => ({ ...controller.state.position, yawDeg: controller.state.yawDeg }), groundY: (x, z) => island.groundHeight(x, z), addPlayerSolid: (fn) => { const orig = world.isSolidForPlayer.bind(world); world.isSolidForPlayer = (x, y, z) => orig(x, y, z) || fn(x, y, z); }, fillBlocks: (x0, y0, z0, x1, y1, z1, id) => { world.fill(x0, y0, z0, x1, y1, z1, id); }, onUpdate: (fn) => game.onUpdate(fn), playerBody: () => controller.state, setPlayerVelocity: (v) => { controller.set({ velocity: v }); }, nudgePlayer: (dx, dz) => { const st = controller.state; st.position.x += dx; st.position.z += dz; }, setNoFall: (on) => { protoNoFall = on; }, bgmOut: () => { const o = mixer.output(); const b = mixer.bgmInput(); return o && b ? { ctx: o.ctx, bus: b } : null; }, suppressBgm: (on) => { girlBgmOn = on; }, carryPlayer: (dx, dy, dz, dYaw) => { const st = controller.state; st.position.x += dx; st.position.y += dy; st.position.z += dz; st.yawDeg = (((st.yawDeg + dYaw) % 360) + 360) % 360; },
     // 本物の 攻撃（刀・ためわざ・波・矢・パンチ）を がしゃどくろの 箱に 当てる 口
     hit: hw.makeHitSources({ blade, waves: () => waveSys.list(), legend, held: () => { const h = inventory.held(); return h ? { item: h.item, power: h.power } : null; }, settings: w2, weaponDamage: (item) => legendPowerOf(w2, item, item === 'niji' ? (inventory.held()?.power ?? null) : null) ?? toolConfig.weaponDamage[item] ?? 1, yokai: () => yokaiManager, sound: () => playCombat(fxSound, 'hit') }) }));
 }

@@ -23,6 +23,8 @@ export interface PlantOpts {
   speed: number;
   /** はなれて いる 手を 地面から 上げる 高さ（もとの 座標。手首が これ より 低い ときだけ 上げる。0 = 上げない） */
   lift?: number;
+  /** 左右の ついた 手の まんなかを 体の まんなかに そろえる */
+  center?: boolean;
 }
 
 export interface PlantReport {
@@ -69,7 +71,8 @@ export function plantHands(model: BigModel, clips: BakedClip[], o: PlantOpts): P
     const wrist: Info['wrist'] = { Left: [], Right: [] };
     for (let f = 0; f < c.frames; f++) {
       setFrame(c, c.q, f);
-      for (const s of SIDES) wrist[s].push(J[`${s}Hand`].getWorldPosition(p).clone());
+      // 素材の こしの 横ゆれを 消した ぶん 手首を 横へ ずらす（箱の 体は 横に ゆれない。素材では 手は かべで 止まり、こしが ゆれる）
+      for (const s of SIDES) { const v = J[`${s}Hand`].getWorldPosition(p).clone(); if (c.sway) v.x += c.sway[f]!; wrist[s].push(v); }
     }
     return { wrist, w: { Left: [], Right: [] } };
   });
@@ -82,6 +85,17 @@ export function plantHands(model: BigModel, clips: BakedClip[], o: PlantOpts): P
   };
   // クリップに「つかんで いる」重み（素材の 手首が 止まって いる コマ）が あれば それを 使う
   infos.forEach((inf, ci) => { for (const s of SIDES) inf.w[s] = clips[ci]!.contact ? Array.from(clips[ci]!.contact![s]) : inf.wrist[s].map((v) => weight(v.y)); });
+  // 左右の ついた 手の まんなかを 体の まんなかに そろえる（素材の 体の かたむき・ねじれで 両手が 片がわに よらない ように）
+  if (o.center) {
+    const avg: Record<Side, number> = { Left: 0, Right: 0 };
+    for (const s of SIDES) {
+      let sum = 0, n = 0;
+      for (const inf of infos) inf.w[s].forEach((w, f) => { if (w >= 0.5) { sum += inf.wrist[s][f]!.x; n++; } });
+      avg[s] = n ? sum / n : model.rest[`${s}Hand`].x;
+    }
+    const dx = (avg.Left + avg.Right) / 2 - (model.rest.LeftHand.x + model.rest.RightHand.x) / 2;
+    for (const inf of infos) for (const s of SIDES) for (const v of inf.wrist[s]) v.x -= dx;
+  }
 
   const reports: PlantReport[] = [];
   const S = new Vector3(), E = new Vector3(), Wr = new Vector3(), u = new Vector3(), pole = new Vector3(), tmp = new Vector3(), dirA = new Vector3(), dirF = new Vector3();
@@ -144,7 +158,7 @@ export function plantHands(model: BigModel, clips: BakedClip[], o: PlantOpts): P
         const free = infos[ci]!.wrist[s][f]!.clone();
         const liftY = model.rest[`${s}Hand`].y + (o.lift ?? 0) * (1 - w);
         if (free.y < liftY) free.y = liftY;
-        if ((!T0 || w <= 0) && free.distanceToSquared(infos[ci]!.wrist[s][f]!) < 1e-8) continue;
+        if ((!T0 || w <= 0) && free.distanceToSquared(J[`${s}Hand`].getWorldPosition(tmp)) < 1e-8) continue;
         // 目標 = 上げた 手首と ついた 位置を 重みで まぜた 点（重み 0 では うつした 姿勢（上げた だけ）→ つなぎ目に 段が 出ない）
         const T = T0 && w > 0 ? free.lerp(T0, w) : free;
         const A = J[`${s}Arm`], Fa = J[`${s}ForeArm`], H = J[`${s}Hand`];
