@@ -103,6 +103,8 @@ export interface SaveDeps {
   animals?: SaveExtra;
   /** WEAPON-7: 手に 入れた ことの ある レジェンダリー（`legendGot`）。前の 保存に ない ときは 空 */
   legend?: SaveExtra;
+  /** #293: あけていない がしゃどくろの 宝箱（位置・中身。ボス本体は 保存しない）。前の 保存に ない ときは null */
+  gasha?: SaveExtra;
   /** M7: 作物・農業の乱数・「置きものを置いた」印。無い保存は 読んだあと 置きものを置く */
   farm?: SaveFarm;
   /** 時刻と何日目。なければ保存しない */
@@ -314,6 +316,11 @@ export class SaveManager {
       this.d.legend?.deserialize(null);
     }
     try {
+      this.d.gasha?.deserialize(data.gasha ?? null);
+    } catch {
+      this.d.gasha?.deserialize(null);
+    }
+    try {
       this.d.animals?.deserialize(data.animals);
     } catch {
       this.d.animals?.deserialize(null);
@@ -512,6 +519,7 @@ export class SaveManager {
       achievements: this.d.achievements?.serialize() ?? null,
       animals: this.d.animals?.serialize() ?? null,
       legend: this.d.legend?.serialize() ?? null,
+      gasha: this.d.gasha?.serialize() ?? null,
       farm,
       ...(this.d.strength ? { strength: this.d.strength } : {}),
     });
