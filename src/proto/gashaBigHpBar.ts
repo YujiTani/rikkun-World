@@ -29,18 +29,35 @@ const DIAMOND = ['..X..', '.XXX.', 'XXXXX', '.XXX.', '..X..'];
 /** リボン（7 × 5） */
 const RIBBON = ['XX...XX', 'XXX.XXX', 'XXXXXXX', 'XXX.XXX', 'XX...XX'];
 
-/** D 案の かざり（31 × 10 ドット）。k = ふち、d = 暗い 鋼、s = 鋼、h = 明るい 鋼、b = 青い 目、c = 目の 光 */
+/** D 案の かざり（49 × 27 ドット。上の 22 行が バーの 上に 出て、下の 5 行が 枠に かぶさる）。k = ふち、d = 暗い 鋼、s = 鋼、h = 明るい 鋼、b = 青い 目、c = 目の 光 */
 export const ORNAMENT_D = [
-  '...............k...............',
-  '..............khk..............',
-  '..............khk..............',
-  '..........kkkkhhhkkkk..........',
-  '.......k..khhhhhhhhhk..k.......',
-  '......kdk.kskkkskkksk.kdk......',
-  '....kddhhkksbcbsbcbskkhhddk....',
-  '...kdhhhhsk' + 'sssdkdsss' + 'kshhhhdk...',
-  '.kddhhdk..k' + '.khkhkhk.' + 'k' + '..kdhhddk.',
-  '..kk......kkkkkkkkkkk......kk..',
+  '........................k........................',
+  '.k.....................khk.....................k.',
+  'khk....................khk....................khk',
+  'kshk..................khhhk..................khsk',
+  'kdsk................kkhhhhhkk................ksdk',
+  '.kshk.............kkhhhhhhhhhkk.............khsk.',
+  '.kdsk............khhhhhhhhhhhhhk............ksdk.',
+  '..kshkk.........khhhhhhhhhhhhhhhk.........kkhsk..',
+  'k.kdshhkk......khhhssssssssssshhhk......kkhhsdk.k',
+  'hk.kdsshhkkkkkkkhssssssssssssssshkkkkkkkhhssdk.kh',
+  'dhk.kdssshhhhhhksskkkkkssskkkkksskhhhhhhsssdk.khd',
+  'kshk.kdssssssssksskbcbbsssbbcbksskssssssssdk.khsk',
+  'kdshk.kddssssssksskbbbbsssbbbbksskssssssddk.khsdk',
+  '.kdshkkkkddssssksskkkkkssskkkkksskssssddkkkkhsdk.',
+  '..kdshhhkkksssskshhssssdddsssshhsksssskkkhhhsdk..',
+  '...kdssshhhsssskdsssssskkkssssssdksssshhhsssdk...',
+  '..kkkdsssssssssskdsssssssssssssdkssssssssssdkkk..',
+  '.khhkkddssssssssskhkhkhkhkhkhkhksssssssssddkkhhk.',
+  '.kdskkkkdddddsssskkhkhkhkhkhkhkkssssdddddkkkksdk.',
+  '..kshhkkkkkkkssssskkkkkkkkkkkkkssssskkkkkkkhhsk..',
+  '..kdsshhkkkkhssssskkdddddddddkkssssshkkkkhhssdk..',
+  '...kdssshhhhssssskddsssssssssddkssssshhhhsssdk...',
+  '....kddssssssskdddsssssssssssssdddksssssssddk....',
+  '.....kkddsssskddddsssssssssssssddddkssssddkk.....',
+  '.......kkdddddddddk...........kdddddddddkk.......',
+  '.........kkkkkkkkk.............kkkkkkkkk.........',
+  '.................................................',
 ];
 const ORNAMENT_COLORS: Record<string, string> = { k: '#141a24', d: '#3a4452', s: '#7f8a9a', h: '#c9d4e2', b: '#2fb8f0', c: '#d6f6ff' };
 /** 鋲（ひし形 7 × 5） */
@@ -112,7 +129,7 @@ export class HpBar {
     this.root.style.cssText = `position:fixed;top:${H.barTopPx}px;left:50%;transform:translateX(-50%);width:min(${H.barWidthVw}vw,${H.barMaxPx}px);z-index:40;pointer-events:none;font-family:system-ui,sans-serif`;
     this.shaker = el('div', 'display:flex;flex-direction:column', this.root);
     // 上の 段: 名前（左）・かざり（まん中）・数（右）
-    const head = el('div', `position:relative;display:flex;align-items:flex-end;justify-content:space-between;height:${8 * q}px;padding:0 ${2 * p}px ${2 * p}px`, this.shaker);
+    const head = el('div', `position:relative;display:flex;align-items:flex-end;justify-content:space-between;height:${22 * q}px;padding:0 ${2 * p}px ${2 * p}px`, this.shaker);
     const name = el('span', `font:700 ${H.barNameSizePx}px/1 system-ui,sans-serif;letter-spacing:.18em;color:#fff;text-shadow:${stroke('#141a24')},0 ${p}px 0 #141a24;white-space:nowrap`, head);
     name.textContent = 'がしゃどくろ';
     this.count = el('div', `font:700 ${Math.round(H.barNameSizePx * 0.65)}px/1 system-ui,sans-serif;color:#fff;text-shadow:${stroke('#141a24')},0 ${p}px 0 #141a24;letter-spacing:.05em`, head);
@@ -126,13 +143,13 @@ export class HpBar {
     el('div', `position:absolute;left:${2 * p}px;right:${2 * p}px;bottom:0;height:${p}px;background:#6fd3f2;opacity:.8`, bot);
     this.ghost = el('div', 'position:absolute;left:0;top:0;bottom:0;width:100%;background:#fff;opacity:.92', inner);
     const u = Math.max(1, Math.round(((H.barHeightDots + 2) * p) / 8));
-    this.fill = el('div', `position:absolute;left:0;top:0;bottom:0;width:100%;background:linear-gradient(to bottom,#ff8f7a 0,#ff8f7a ${u}px,#ff4030 ${u}px,#ee1c1c ${3 * u}px,#cc1016 ${3 * u}px,#a30a12 ${6 * u}px,#7d0710 ${6 * u}px,#7d0710 100%)`, inner);
+    this.fill = el('div', `position:absolute;left:0;top:0;bottom:0;width:100%;background:linear-gradient(to bottom,#ffe3dc 0,#ffe3dc ${u}px,#ff5a48 ${u}px,#ee1c1c ${3 * u}px,#cc1016 ${3 * u}px,#a30a12 ${6 * u}px,#6a050c ${6 * u}px,#6a050c 100%)`, inner);
     if (H.barSegments > 1) {
       const w = 100 / H.barSegments;
-      el('div', `position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0,transparent calc(${w}% - ${p}px),rgba(60,0,8,.55) calc(${w}% - ${p}px),rgba(60,0,8,.55) ${w}%)`, inner);
+      el('div', `position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0,transparent calc(${w}% - ${p}px),rgba(60,0,8,.14) calc(${w}% - ${p}px),rgba(60,0,8,.14) ${w}%)`, inner);
     }
     // かざり（上の まん中。枠に かぶる）と 鋲（下の まん中）
-    const orn = this.sprite(ORNAMENT_D, q, `position:absolute;left:50%;bottom:${-3 * q}px;transform:translateX(-50%);z-index:2`);
+    const orn = this.sprite(ORNAMENT_D, q, `position:absolute;left:50%;bottom:${-5 * q}px;transform:translateX(-50%);z-index:2`);
     head.appendChild(orn);
     el('div', `position:absolute;left:50%;bottom:${-2 * p}px;transform:translateX(-50%);display:flex`, bar).appendChild(this.sprite(STUD_D, p));
     this.set(1, 1, false);
