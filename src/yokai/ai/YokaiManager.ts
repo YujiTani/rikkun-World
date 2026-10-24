@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { LIGHT_CONFIG } from '../../world/light/config';
 import { bodyInWall } from '../../world/wall';
 import type {
+  ArmorSlot,
   BlockId,
   Inventory,
   ItemId,
@@ -36,6 +37,8 @@ import { colorStage, locationMAt } from '../location';
 import { YOKAI_STATS, yokaiStrength, type StrengthLevel } from '../stats';
 import { ANNOUNCE_TICKS, TITLE_RULES, isBigTitle, limitTitle, rollTitle, titleAnnounceText, titleLabel } from '../title';
 import { fallDamage } from '../../combat/config';
+import { NINJA_GEAR } from '../../craft/config';
+import { SENSE } from './senseTuning';
 import { createRng, type Rng } from '../../world/gen/random';
 import { COUNTRY_TABLE } from '../../world/gen/countryTable';
 import { YOKAI_ORDER, effectiveRow, pickYokaiKind, weightOf, type YokaiRow } from '../countryPick';
@@ -106,6 +109,8 @@ export interface YokaiManagerOptions {
   seaY?: () => number;
   /** ブロックがこわれた・石になった（くだけるつぶ・音用。1 回の出来事ぶんをまとめて渡す） */
   onBlocks?: (cells: { x: number; y: number; z: number; from: BlockId; to: BlockId }[], why: 'crush' | 'stone') => void;
+  /** NINJA-1: 着ている 防具を 聞く 入り口（忍び装束の とき 気づく 距離が 半分）。なければ 何も 着て いない */
+  armor?: { equipped(slot: ArmorSlot): ItemId | null };
   /** WEAPON-5: 設定の入れ物（よろけ・はね返し。WEAPON-7: ヌシの ドロップ表 `nushiDrops`。なければ 初期値） */
   settings?: W2Settings;
   /**
@@ -482,8 +487,10 @@ export class YokaiManager implements YokaiWorld {
   private hurtYokai(id: number, amount: number, from: Vec3, knock?: YokaiKnock, by: YokaiHurtBy | 'reflect' = 'player'): number {
     const e = this.ents.find((q) => q.id === id);
     if (!e || e.state === 'dying' || e.state === 'leaving' || e.remove) return 0;
-    const wasDouble = this.stagBook.hasDouble(id);
-    amount = this.stagBook.damage(id, amount);
+    // NINJA-1: 小太刀の 追い打ち（kodachi）は よろけの 2 倍を 使わない（つぎの 本の 当たりの ために のこす）・押さない
+    const kodachi = by === 'kodachi';
+    const wasDouble = !kodachi && this.stagBook.hasDouble(id);
+    if (!kodachi) amount = this.stagBook.damage(id, amount);
     if (wasDouble) this.opts.onParryEvent?.({ type: 'staggerDouble', yokaiId: id, damage: amount });
     e.hp = Math.max(0, Math.round((e.hp - amount) * 100 + 1e-7) / 100); // WEAPON-4: 0.01 の位に まるめる（小数の 誤差で のこさない）
     this.showMarks(e);
@@ -492,10 +499,10 @@ export class YokaiManager implements YokaiWorld {
       return amount;
     }
     e.model.hit();
-    this.emit({ type: 'hurt', tick: this.tick(), id: e.id, kind: e.kind, position: { x: e.x, y: e.y, z: e.z }, by: by === 'macho' ? 'macho' : 'player' });
+    this.emit({ type: 'hurt', tick: this.tick(), id: e.id, kind: e.kind, position: { x: e.x, y: e.y, z: e.z }, by: by === 'macho' ? 'macho' : by === 'kodachi' ? 'kodachi' : 'player' });
     // LIVE-4: りっくん が たたいた（ぶき・や・わざ）。パリィ で はね返した 火の玉 と マッチョ の パンチ は きっかけ に しない
     if (by === 'player') this.cues.hit.push(e.id);
-    if (e.kind !== 'nurikabe' || knock?.heavy) {
+    if (!kodachi && (e.kind !== 'nurikabe' || knock?.heavy)) {
       let dx = e.x - from.x;
       let dz = e.z - from.z;
       const d = Math.hypot(dx, dz);
@@ -1202,7 +1209,6 @@ export class YokaiManager implements YokaiWorld {
   }
 
   private think(e: Ent, dt: number): void {
-    const ai = KIND_AI[e.kind];
     e.age++;
     if (e.state !== 'attack' && e.cool > 0) e.cool--;
     const dx = this.px - e.x;
@@ -1213,8 +1219,13 @@ export class YokaiManager implements YokaiWorld {
     const speed = this.speedOf(e);
     let moved = 0;
 
-    const notice = (): boolean =>
-      targetable && dist <= ai.sight && Math.abs(dy) <= AI_CONST.sightDy;
+    // 感知の 表（senseTuning.ts）。忍び装束を 着て いると「気づく」距離だけ 半分（防具の マスを 見るのは 距離が 近い ときだけ・1 回）
+    const sense = SENSE.kinds[e.kind];
+    const notice = (): boolean => {
+      if (!targetable || Math.abs(dy) > SENSE.sightDy || dist > sense.sight) return false;
+      if (sense.shinobi && dist > sense.sight * SENSE.shinobiSightMul && this.opts.armor?.equipped('body') === NINJA_GEAR.body) return false;
+      return true;
+    };
 
     switch (e.state) {
       case 'attack':
@@ -1311,8 +1322,7 @@ export class YokaiManager implements YokaiWorld {
   }
 
   private chaseTick(e: Ent, dt: number, dist: number, dy: number, targetable: boolean): number {
-    const ai = KIND_AI[e.kind];
-    if (!targetable || dist > ai.giveUp || Math.abs(dy) > AI_CONST.sightDy * 2) {
+    if (!targetable || dist > SENSE.kinds[e.kind].giveUp || Math.abs(dy) > SENSE.sightDy * SENSE.giveUpDyMul) {
       this.lose(e);
       return 0;
     }

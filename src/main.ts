@@ -51,6 +51,10 @@ import { BuffIcons } from './ui/buffIcons';
 import { buffsOfHeld, createBuffModel } from './ui/buffIconsModel';
 import { ThunderFx } from './fx/thunderFx';
 import { LegendBook } from './legend/LegendBook';
+import { NinjaBook, isNinjaGear } from './craft/NinjaBook';
+import { NINJA_TUNING } from './craft/ninjaTuning';
+import { SENSE } from './yokai/ai/senseTuning';
+import { Kodachi } from './combat/Kodachi';
 import { chargeOf, hasPowerRange, legendMoveMulOf, legendPowerOf, trailStyleOf } from './legend/defs';
 import { lightningPoseFrame, shiningBodyPose } from './legend/pose';
 import { setPowerFallback } from './ui/powerBadge';
@@ -202,7 +206,7 @@ import { createStartBoot } from './start/startBoot';
 import { SAVE_BOOT_TIMEOUT_MS } from './start/lastWorld';
 import { decideWeightedStart } from './start/weightPref';
 import { decideStrength, strengthToSave } from './yokai/strengthPref';
-import { playWeapon } from './fx/weaponSounds';
+import { playKodachi, playWeapon } from './fx/weaponSounds';
 
 const container = document.getElementById('game')!;
 const hud = document.getElementById('hud')!;
@@ -1032,6 +1036,7 @@ yokaiManager = new YokaiManager({
   // COUNTRY-1 §3.3: 妖怪の 種類は その場所の 国の行で えらぶ
   countryOf: (x, z) => countryAt(seed, Math.floor(x), Math.floor(z)).kind,
   harapan: (y) => harapanRoll.yokai(y),
+  armor, // NINJA-1: 忍び装束で 気づく 距離が 半分
   strength: strengthLevel,
   light: renderer.light,
   // 出る場所は 描く輪の メッシュずみの列だけ（VOX-D）
@@ -1075,6 +1080,31 @@ yokaiManager = new YokaiManager({
 });
 game.scene.add(yokaiManager.group);
 const yokaiM = yokaiManager;
+// NINJA-1 §4.3 忍びの手甲: 刀・素手の 当たりの あと、おくれて 小太刀の 追い打ち。絵は 今の 斬撃（slashFx）を 小さく 白く、音は 今の 切り上げの 音を 小さく 軽く
+// 追い打ちは くりかえす 行動なので 控えめ（画面は ゆらさない・止めない）。斬撃の 絵は 本人の 斬撃と ぶつからない よう もう 1 組 持つ
+let bigBossHandle: BossHandle | null = null;
+const kodachiFx = new SlashFx(game.scene, game.camera);
+kodachiFx.warmUp(game.renderer, game.camera, game.scene);
+const kodachi = new Kodachi({
+  armor,
+  yokai: yokaiM,
+  playerPos: () => ({ ...controller.state.position }),
+  big: { damage: (part, amount, at, source) => bigBossHandle?.damage?.(part, amount, at, source) ?? 0 },
+  tick: () => game.tick,
+  onFire: (info) => {
+    playKodachi(fxSound);
+    if (info.yokaiId === null) return;
+    const y = yokaiM.list().find((q) => q.id === info.yokaiId);
+    if (!y) return;
+    const px = controller.state.position.x, pz = controller.state.position.z;
+    const dx = y.position.x - px, dz = y.position.z - pz;
+    const d = Math.hypot(dx, dz) || 1;
+    const uDeg = (Math.atan2(dx, -dz) * 180) / Math.PI;
+    // 妖怪の すぐ 手前に 小さく（reach 1.0 = 絵の 基準の 半分くらい）
+    kodachiFx.queueSlash({ tech: 'kiriage', step: 1, uDeg, pos: () => ({ x: y.position.x - (dx / d) * 0.8, y: y.position.y, z: y.position.z - (dz / d) * 0.8 }), reach: 1.0 });
+  },
+});
+let kodachiHookBuf: CombatEvent[] = [];
 // LIVE-1: にわとり の 見た目・音（動きの強さの 設定は まだ ない。できたら ここで つなぐ）
 const animalMotion = (): number => 1;
 const animalFx = new AnimalFx({ sound: fxSound, motion: animalMotion, lookDist: () => live.animalLookDist, fullTicks: () => live.animalFullTicks, seed });
@@ -1372,7 +1402,7 @@ const weaponFx = new WeaponFx({
   body: () => controller.state.position,
   camera: game.camera,
   onWear: (e) => achievements.feedWear(e),
-  onBlade: (e) => achievements.feedBlade(e),
+  onBlade: (e) => { achievements.feedBlade(e); for (const b of e) kodachi.onCombatEvent(b); },
   // WEAPON-7: ふつうの わざに 雷の「ビシューン」を 重ねる（ダメージは かえない）
   onTechItem: (item, tech, step) => {
     if (trailStyleOf(w2, item) === 'thunder') playLegend(fxSound, 'thunderSlash');
@@ -1431,9 +1461,25 @@ const countryWatch = new CountryWatch({
 });
 // WEAPON-7: 手に 入れた ことの ある レジェンダリー（もちものに 入った とき。袋を ひろう・テストの add も）。実績 get.* と legend.kinds へ
 const legendBook = new LegendBook((item) => w2.legendary.some((d) => d.item === item));
+// NINJA-1 §4.2: 手に 入れた ことの ある 忍者装備（忍者帳。世界ごとに 保存）。実績 ninja.* へ。legend.kinds・get.* には 数えない
+const ninjaBook = new NinjaBook();
+/** いま 持って いる 忍者装備（もちもの・防具の マス・手に もった 物） */
+const ninjaHave = (): ItemId[] => {
+  const out: ItemId[] = [];
+  for (const s of inventory.slots()) if (s && isNinjaGear(s.item)) out.push(s.item);
+  for (const slot of ['head', 'body', 'arms', 'legs'] as const) {
+    const it = armor.equipped(slot);
+    if (it && isNinjaGear(it)) out.push(it);
+  }
+  const c = inventory.cursor();
+  if (c && isNinjaGear(c.item)) out.push(c.item);
+  return out;
+};
 inventory.onAdded = (item) => {
   const r = legendBook.add(item);
   if (r) achievements.feedLegend(item, r.kinds);
+  const n = ninjaBook.add(item);
+  if (n) achievements.feedNinja(item, n.kinds);
   achievements.feedRarity(itemRarity(item));
 };
 // M7-2: キラキラ・ハート（C）・しずく（A）・しぶき（B）
@@ -1683,6 +1729,8 @@ const save = new SaveManager({
     },
   },
   legend: { serialize: () => legendBook.serialize(), deserialize: (d) => legendBook.deserialize(d) },
+  // NINJA-1: 忍者帳。前の 保存（帳なし）は 空。読んだ とき もちもの・防具の マスに ある 忍者装備は 帳に 入れる（#298 で もう 足袋を 持って いる 人に 2 こ目を 出さない）
+  ninja: { serialize: () => ninjaBook.serialize(), deserialize: (d) => { ninjaBook.deserialize(d, ninjaHave()); const k = ninjaBook.got().length; if (k > 0) achievements.feedNinja('', k); } },
   // #293: がしゃどくろの たおした 回数。係は あとで 作る ので、読みこみが 先に 来たら 預かって、作った あとで わたす
   gasha: { serialize: () => gashaRelease?.serialize() ?? gashaSavedPending, deserialize: (d) => { gashaSavedPending = d; gashaRelease?.deserialize(d); } },
   // 農業: 作物・印。前の保存（印なし）には 読んだあとに 置きものを置く
@@ -2064,6 +2112,8 @@ game.onUpdate((dt) => {
           : null,
     });
   }
+  // NINJA-1: 小太刀の 追い打ちは 先に 1 ステップ すすめ、このステップの 当たりは あとで 入れる（当てた ステップを 0 に する ため）
+  kodachi.step();
   combat.update();
   craft.update();
   storage.update();
@@ -2136,10 +2186,13 @@ game.onUpdate((dt) => {
       achievements.feedArrow('hit');
     } else if (e.type === 'arrowShot') achievements.feedArrow('shot');
   }
+  // NINJA-1: 追い打ちの 出来事（kodachiHit）は テストの 窓口 `combat.events()` へ
+  { const ke = kodachi.drainEvents(); if (ke.length > 0) kodachiHookBuf.push(...ke); }
   const combatEvents = combat.drainEvents();
   if (combatEvents.length > 0) {
     for (const e of combatEvents) {
       rig.onCombatEvent(e);
+      kodachi.onCombatEvent(e);
       if ((e.type === 'playerHit' && e.amount > 0 && (e as { blocked?: boolean }).blocked !== true) || e.type === 'fallHurt') sprite?.hurt();
       if (e.type === 'respawn') log.home();
       // やられた: だっこ中の にわとりは その場に おろす（A の putDown が 足もとに 置く）
@@ -2204,6 +2257,7 @@ game.onUpdate((dt) => {
       domeGrains.step({ F: mv.move === 'shining' ? mv.moveF : 0, center: nijiCenter(cp), radius: dv.dome, pulled: legend.pullers(), reduced: reducedNow });
       nijiFx.step(dv.dome > 0 ? { radius: dv.dome, center: nijiCenter(cp), groundY: dv.groundY, F: mv.moveF } : null, domeGrains, reducedNow, rig.getInfo().hideChar);
       slashFx.step(reducedNow);
+      kodachiFx.step(reducedNow);
       fujinFx.step(reducedNow);
       raijinFx.step(reducedNow);
       rainbowFx.step(reducedNow);
@@ -2511,15 +2565,22 @@ installTestHook(game, overlay, () => host.everReady, {
     arrows: toolHook.arrows,
     /** 鳴らす頼み・鳴らした音の名前の列（呼ぶと空） */
     sounds: () => drainSounds(),
-    events: () => [...combatHook.events(), ...toolHook.arrowEvents()],
+    events: () => [...combatHook.events(), ...toolHook.arrowEvents(), ...kodachiHookBuf.splice(0)],
   } as unknown as TestHookGroups['combat'],
+  // NINJA-1: 調整表の 上書き（Object.assign(__rikkun.ninja.tune, { tekkoDamage: 10 })）・忍者帳・追い打ちの 待ち
+  ninja: {
+    tune: NINJA_TUNING as unknown as Record<string, number>,
+    sense: SENSE,
+    book: { got: () => ninjaBook.got(), set: (items) => ninjaBook.deserialize({ got: items }) },
+    pending: () => kodachi.pending(),
+  },
   ...logHook,
   impact: {
     stopLeft: () => game.hitStopLeft(),
     trauma: () => rig.traumaNow(),
     log: () => impactBus.log.map((l) => ({ ...l })),
   },
-  ui: { coopMenu: () => coopMenu.model.info(), coopMenuPress: (button: string, id?: number) => coopMenu.press(button as never, id), meatText: () => itadakimasu.text(), alpha: () => uiAlpha(), topBand: () => celebrate.topBand(), buffs: () => buffModel.list().map((b) => ({ ...b })) },
+  ui: { telop: (item: ItemId, source: 'nushi' | 'gasha' | 'chest' = 'nushi') => celebrate.enqueueTelop(item, source), coopMenu: () => coopMenu.model.info(), coopMenuPress: (button: string, id?: number) => coopMenu.press(button as never, id), meatText: () => itadakimasu.text(), alpha: () => uiAlpha(), topBand: () => celebrate.topBand(), buffs: () => buffModel.list().map((b) => ({ ...b })) },
   craft: {
     ...craftHook,
     ...craftUiHook.craft,
@@ -2685,7 +2746,9 @@ if (import.meta.env.DEV && new URLSearchParams(location.search).get('proto') ===
 const startBigBoss = (wrap: (d: GashaBigDeps) => GashaBigDeps = (d) => d, at?: { x: number; z: number; yawDeg?: number }) =>
   Promise.all([import('./proto/gashaBig'), import('./proto/gashaBigHitWire')]).then(([m, hw]) => m.startGashaBig(wrap({ scene: game.scene, camera: game.camera, player: () => ({ ...controller.state.position, yawDeg: controller.state.yawDeg }), groundY: (x, z) => island.groundHeight(x, z), lighting, addPlayerSolid: (fn) => { const orig = world.isSolidForPlayer.bind(world); world.isSolidForPlayer = (x, y, z) => orig(x, y, z) || fn(x, y, z); }, onUpdate: (fn) => game.onUpdate(fn), playerBody: () => controller.state, setPlayerVelocity: (v) => { controller.set({ velocity: v }); }, nudgePlayer: (dx, dz) => { const st = controller.state; st.position.x += dx; st.position.z += dz; }, setNoFall: (on) => { protoNoFall = on; }, blockAt: (x, y, z) => world.getBlock(x, y, z), setGeyserBlock: (x, y, z) => world.setBlock(x, y, z, 'geyser_dirt'), restoreGeyserBlock: (x, y, z, id) => world.setBlock(x, y, z, id as Parameters<typeof world.setBlock>[3]), scanGeyserBlocks: (found) => { const si = blockIndexOf('geyser_dirt'); world.scanBlocks((i) => i === si, (x, y, z) => found(x, y, z)); }, giveNinjaTabi: () => { if (armor.equipped('legs') === 'ninja_tabi') return; const old = armor.equippedStack('legs'); if (old) inventory.add(old.item, 1); armor.set(armor.equipped('head'), armor.equipped('body'), armor.equipped('arms'), 'ninja_tabi'); }, bgmOut: () => { const o = mixer.output(); const b = mixer.bgmInput(); return o && b ? { ctx: o.ctx, bus: b } : null; }, sfxOut: () => mixer.output(), suppressBgm: (on, f) => { girlBgmOn = on; if (f) gashaBgmFade = { ...gashaBgmFade, ...f }; }, carryPlayer: (dx, dy, dz, dYaw) => { const st = controller.state; st.position.x += dx; st.position.y += dy; st.position.z += dz; st.yawDeg = (((st.yawDeg + dYaw) % 360) + 360) % 360; }, hurt: (amount, from) => combat.damage(amount, 'karakasa', from), blockPlayerInput: (fn) => { const orig = lock.playInputEnabled.bind(lock); lock.playInputEnabled = () => orig() && !fn(); }, onBeforeRender: (fn) => game.onBeforeRender(fn), reducedMotion: () => reducedMotionMq?.matches ?? false, setBlockAir: (x, y, z) => world.setBlock(x, y, z, 'air'), onCrushBlocks: (cells) => { for (const c of cells.slice(0, 40)) fx.particles.burst({ x: c.x, y: c.y, z: c.z }, c.from as Parameters<typeof fx.particles.burst>[1], FX_SETTINGS); fxSound.play('break'); }, onGlassBreak: (cells) => { for (const c of cells.slice(0, 24)) fx.particles.burst({ x: Math.floor(c.x), y: Math.floor(c.y), z: Math.floor(c.z) }, 'snow', FX_SETTINGS); fxSound.play('break'); }, hitStop: (n) => game.hitStop(n), shake: (a) => { if (FX_SETTINGS.fxShake) rig.addTrauma(a); }, onCoreWarn: () => playLegend(fxSound, 'lightning'), onCoreThrow: () => playLegend(fxSound, 'spiralWind'), onBodyBlocks: (port) => { gashaBodyBlocks = port; }, onSaveOverrides: (get) => { gashaSaveOverrides = get; },
     // 本物の 攻撃（刀・ためわざ・波・矢・パンチ）を がしゃどくろの 箱に 当てる 口
-    hit: hw.makeHitSources({ blade, waves: () => waveSys.list(), legend, held: () => { const h = inventory.held(); return h ? { item: h.item, power: h.power } : null; }, settings: w2, weaponDamage: (item) => legendPowerOf(w2, item, item === 'niji' ? (inventory.held()?.power ?? null) : null) ?? toolConfig.weaponDamage[item] ?? 1, yokai: () => yokaiManager, sound: () => playCombat(fxSound, 'hit') }) }), at));
+    hit: hw.makeHitSources({ blade, waves: () => waveSys.list(), legend, held: () => { const h = inventory.held(); return h ? { item: h.item, power: h.power } : null; }, settings: w2, weaponDamage: (item) => legendPowerOf(w2, item, item === 'niji' ? (inventory.held()?.power ?? null) : null) ?? toolConfig.weaponDamage[item] ?? 1, yokai: () => yokaiManager, sound: () => playCombat(fxSound, 'hit') }),
+    // NINJA-1: 刀・パンチが 部位に 当たった → 忍びの手甲の 追い打ち
+    onStrike: (i) => kodachi.onBigHit(i.part) }), at)).then((h) => { bigBossHandle = h as unknown as BossHandle; return h; });
 if (import.meta.env.DEV && new URLSearchParams(location.search).get('proto') === 'gashaBig') void startBigBoss();
 // #293 リリース: がしゃどくろを ふだんの ゲームに 出す（ゲームの 1 日の あさごとに 約 3 割で、プレイヤーから 150〜250 ブロック先に 1 体。たおすか 遠くへ はなれると 消える。たおすと 赤い コアが 出て、たたく たびに アイテムが ばらまかれる）。数は src/gasha/releaseTuning.ts
 // 開発用に すぐ 出すには コンソールで `__rikkun.gasha.spawn()`（距離・向きは `{ distance: 40, angleDeg: 0 }`）。たおした ことに するのは `__rikkun.gasha.defeat()`
@@ -2715,6 +2778,9 @@ gashaRelease = createGashaRelease({
   bgmReset: () => { (globalThis as unknown as { __gashaBgm?: { reset(): void } }).__gashaBgm?.reset(); },
   sound: (name) => { fxSound.play(name); },
   showBar: (on) => { const e = document.getElementById('gashaBigHp'); if (e) e.style.display = on ? '' : 'none'; },
+  // NINJA-1: 忍者帳と 今 持って いる 物（まだ 手に 入れて いない 物から 1 つ）／袋が 出た ことの 知らせ（上の 帯の テロップ）
+  ninja: () => ({ book: ninjaBook.got(), have: ninjaHave() }),
+  dropped: (item, from) => celebrate.enqueueTelop(item, from),
 });
 const gashaRel = gashaRelease;
 if (gashaSavedPending) gashaRel.deserialize(gashaSavedPending);

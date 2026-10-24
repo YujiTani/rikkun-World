@@ -71,6 +71,8 @@ export interface GashaBigDeps {
   placeGroundY?(x: number, z: number): number;
   /** プレイヤーの 攻撃を 受ける 口（刀・弓・波・雷など。つなぎは gashaBigHitWire.ts）。なければ 本物の 攻撃は 当たらない（`__gashaBig.damage` だけ 効く） */
   hit?: HitSources;
+  /** NINJA-1: 刀・パンチが 部位に 当たった（忍びの手甲の 追い打ち用。BigHit の onStrike） */
+  onStrike?(info: { part: string; source: string }): void;
   /** 間欠泉（gashaGeyser.ts）の 口: プレイヤーの 体（足もと・速さ・地面）。4 つ そろった ときだけ 間欠泉が わく */
   playerBody?(): { position: { x: number; y: number; z: number }; velocity: { x: number; y: number; z: number }; onGround?: boolean };
   setPlayerVelocity?(v: { x: number; y: number; z: number }): void;
@@ -1202,7 +1204,7 @@ export interface GashaBigHandle {
   /** いまの 体力 */
   hp(): number;
   /** 部位（hand・foreArm・upperArm・head・core など）に ダメージ（武器の 強さ amount × 部位の 倍率）。与えた 数を 返す。テスト用 */
-  damage(part: string, amount: number): number;
+  damage(part: string, amount: number, at?: { x: number; y: number; z: number } | null, source?: string): number;
   /** 撮影用: コアの 左右の まんなかで 体を 半分に 切って 断面を 見せる（左がわを 消す）/ もどす */
   section(on: boolean): void;
   /** さまよう（はって あるく）のを はじめる / 止める */
@@ -1364,7 +1366,7 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
   };
   // プレイヤーが 体の 上に 置く ブロック（gashaBigPlaced.ts）。がしゃどくろを 置きなおすと ぜんぶ 消える
   const placed = new BodyPlaced({ model: () => model, actor: () => (hidden ? null : actor), lighting: deps.lighting, patch: hazePatch, breakGlassAt: (c, r, max) => breakGlass(c, r, max) });
-  const bh = new BigHit({ scene: deps.scene, angry: () => { isAngry = true; actor?.hit(); }, onCore: throwOff, coreGuard: () => warnLeft > 0, onCloud: (at) => { breakGlass(at, T.glass.swordRadius); }, onCoreHit: (at) => coreStruck(at), sources: deps.hit });
+  const bh = new BigHit({ scene: deps.scene, angry: () => { isAngry = true; actor?.hit(); }, onCore: throwOff, coreGuard: () => warnLeft > 0, onCloud: (at) => { breakGlass(at, T.glass.swordRadius); }, onCoreHit: (at) => coreStruck(at), onStrike: deps.onStrike, sources: deps.hit });
   let pos = new Vector3(), yaw = 0;
   const { blockAt, setGeyserBlock, scanGeyserBlocks } = deps;
   const geysers = deps.onUpdate && deps.playerBody && deps.setPlayerVelocity && deps.nudgePlayer && deps.setNoFall && blockAt && setGeyserBlock && scanGeyserBlocks
@@ -1539,9 +1541,9 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
         }
         return best ? { id: EMBER_ID_BASE + best.id, kind: 'nurikabe', distance: bt } : real;
       };
-      ym.damage = (id, amount, from, knock) => {
+      ym.damage = (id, amount, from, knock, by) => {
         if (id >= EMBER_ID_BASE && id < EMBER_ID_BASE + GHOST_ID_SPAN) { const want = id - EMBER_ID_BASE; douseWhere((_b, e) => e.id === want); return 0; }
-        return dmgPrev(id, amount, from, knock);
+        return dmgPrev(id, amount, from, knock, by);
       };
     }
     if (!embers.list.length) return;
@@ -1920,7 +1922,7 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
     finishInfo: () => ({ phase: fin.phase, coreHp: fin.coreHp, coreMax: fin.coreMax, fallK: fin.fallK, redK: fin.redK, crumbleK: fin.crumbleK, chunks: crumbleFx?.alive() ?? 0 }),
     maxHp: () => bh.maxHp,
     hp: () => bh.hp,
-    damage: (part, amount) => bh.damage(part, amount),
+    damage: (part, amount, at, source) => bh.damage(part, amount, at ?? null, source),
     section: (on) => {
       if (!model || !actor) return;
       const i = actor.model.hits.findIndex((h) => h.name === 'core');
