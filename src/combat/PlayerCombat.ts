@@ -19,7 +19,7 @@ import { isBladeItem } from '../tools/blade';
 import { copyStack } from '../tools/durability';
 import { DropField, type DropView } from '../drops';
 import { createRng, type Rng } from '../world/gen/random';
-import { centerOfYokai, inPunchFan, wallBetween, type AttackDecision } from './attackFacing';
+import { GHOST_ID_MIN, centerOfYokai, inPunchFan, wallBetween, type AttackDecision } from './attackFacing';
 import {
   BODY_HALF,
   BODY_HEIGHT,
@@ -399,6 +399,8 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
     const st = this.d.player.get();
     const P = st.position;
     const u = this.pDir!;
+    // 仮の id（体の 箱・燃えかす）を ねらって 始めた パンチは そのまま その 相手に（一覧に いないので 扇では 探せない）
+    if (this.pTarget !== null && this.pTarget >= GHOST_ID_MIN) return this.pTarget;
     const shape = this.w2.punchShape;
     const body = this.d.bodyPoint ? this.d.bodyPoint(this.bodyTmp) : ((this.bodyTmp.x = P.x), (this.bodyTmp.y = P.y + 1.4), (this.bodyTmp.z = P.z), this.bodyTmp);
     let best: number | null = null;

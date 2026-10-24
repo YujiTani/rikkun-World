@@ -4,7 +4,7 @@ import { BLOCK_TYPES } from '../world/blocks/blockTypes';
 import { sectionToArray } from '../world/sections';
 import { packColumn, unpackColumn } from './backend';
 import { BLOCK_IDS_V1 } from './blockIdsV1';
-import { CHUNK_FORMAT_VERSION, decodeSections, deflateRaw, encodeSections } from './chunkCodec';
+import { CHUNK_FORMAT_VERSION, decodeSections, deflateRaw, encodeSections, persistIds } from './chunkCodec';
 
 const base: readonly string[] = BLOCK_IDS_V1;
 const idx = (id: string) => base.indexOf(id);
@@ -58,6 +58,26 @@ describe('SAVE-30 AC1: 並び順のちがう表で読んでも 同じ id', () =>
     const src = shapes();
     const got = decodeSections(encodeSections(src), 3);
     for (let s = 0; s < 3; s++) expect(sectionToArray(got[s])).toEqual(sectionToArray(src[s]));
+  });
+});
+
+describe('間欠泉の つち(geyser_dirt) は 保存に 残らない（#293）', () => {
+  it('persistIds の 表で 書くと geyser_dirt は 土として もどり、ほかの ブロックは かわらない', () => {
+    const ids = BLOCK_TYPES.map((t) => t.id);
+    const g = ids.indexOf('geyser_dirt');
+    const d = ids.indexOf('dirt');
+    const s = ids.indexOf('stone');
+    expect(g).toBeGreaterThanOrEqual(0);
+    const data = new Uint8Array(4096);
+    for (let i = 0; i < 4096; i++) data[i] = i % 3 === 0 ? g : i % 3 === 1 ? s : d;
+    const src: SectionData[] = [{ kind: 'full', data }, { kind: 'uniform', block: g }];
+    const got = decodeSections(encodeSections(src, persistIds()), 2);
+    const a = sectionToArray(got[0]);
+    for (let i = 0; i < 4096; i++) expect(a[i]).toBe(i % 3 === 1 ? s : d);
+    expect(sectionToArray(got[1]).every((v) => v === d)).toBe(true);
+    // ふつうの 表では そのまま
+    const plain = decodeSections(encodeSections(src), 2);
+    expect(sectionToArray(plain[1]).every((v) => v === g)).toBe(true);
   });
 });
 

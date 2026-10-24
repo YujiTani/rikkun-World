@@ -20,6 +20,12 @@ export const CHUNK_FORMAT_VERSION = 2;
 const currentIds = (): readonly string[] => BLOCK_TYPES.map((t) => t.id);
 
 /**
+ * 保存に 書く id の 表。`geyser_dirt` は 保存に 残さず `dirt` として 書く（がしゃどくろは 保存しないので、
+ * 持ち主の いない 間欠泉の つちが ワールドに のこらない ため。開きなおすと ふつうの 土）。
+ */
+export const persistIds = (): readonly string[] => BLOCK_TYPES.map((t) => (t.id === 'geyser_dirt' ? 'dirt' : t.id));
+
+/**
  * 列をバイト列にする（同期。保存の瞬間のコピーなので、このあと世界が変わっても影響しない）。
  * table = sections の番号が指す id の表（省略 = 今の BLOCK_TYPES。テストで並びのちがう表を渡せる）。
  */

@@ -1814,11 +1814,14 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
     // プレイヤーが 遠い(perf.farDist より 遠い)間は 攻撃の 当たり・見た目・音・ゆれを まいコマ 省く(体の 動きと 体力だけ)。遠く なった しゅんかんに 画面の 効果・音を 片づける
     const fp = deps.player();
     const far = Math.hypot(fp.x - actor.pos.x, fp.z - actor.pos.z) > T.perf.farDist;
-    if (far && !farNow) clearFx(false);
+    if (far && !farNow) clearFx(false, true); // 燃えかすは ワールドに のこる もの: 遠くへ いっても 消さず（約 5 分の 寿命どおり）
     farNow = far;
+    const wasAttack = actor.mode === 'attack';
     actor.update(dt);
+    if (wasAttack && !actor.isAngry()) clearFx(false, true); // 攻撃の 途中で 怒りが 自然に とけた（calmSec）: 効果・雷・灰・音を 片づける（燃えかすは のこす）
     if (actor.held && !heldFired && fin.phase === 'off') { heldFired = true; bgm?.cut(); deps.onHeld?.(); } // 固まった しゅんかん: BGM を ぶつっと 切って 少女を 呼ぶ
     if (far) {
+      embers.update(dt); // 遠い 間も 燃えかすの 年れいは 進める（寿命どおり）
       bh.step(dt);
       if (!defeatedFired && bh.hp <= 0) { defeatedFired = true; startFinish(); deps.onDefeated?.(); }
       stepFinish(dt);
@@ -1855,9 +1858,9 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
   place(first);
   deps.onBodyBlocks?.(placed);
 
-  /** 攻撃の エフェクト・音・燃えかす・雷・たたいた 輪・ひるみ・画面の ゆれを ぜんぶ 止めて 消す（体は そのまま）。keepBurnt: 体の 焼け あとの もどす 予定は のこす */
-  const clearFx = (full: boolean): void => {
-    quake.stop(); beamFx.clear(); eruptFx.clear(); rain.active = false; rain.ashes = []; embers.clear();
+  /** 攻撃の エフェクト・音・燃えかす・雷・たたいた 輪・ひるみ・画面の ゆれを ぜんぶ 止めて 消す（体は そのまま）。full: 体の 焼け あとの もどす 予定も 消す。keepEmbers: 燃えかすは のこす（遠くへ いった とき） */
+  const clearFx = (full: boolean, keepEmbers = false): void => {
+    quake.stop(); beamFx.clear(); eruptFx.clear(); rain.active = false; rain.ashes = []; if (!keepEmbers) embers.clear();
     if (full) bodyBurnt.length = 0;
     thunderFx.clear(); strikes.clear(); bodyShock.reset(); fingerBolt = null; sfx.stopAll();
     shock.clear(); shockFx.clear();
@@ -1929,7 +1932,7 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
         m.onBeforeRender = on ? (r) => { r.localClippingEnabled = true; } : () => undefined;
       });
     },
-    angry: (on) => { isAngry = on; actor?.angry(on); },
+    angry: (on) => { isAngry = on; if (!on && actor?.mode === 'attack') clearFx(false, true); actor?.angry(on); }, // 攻撃の 途中で 怒りが とけたら tired と 同じく 効果を 片づける（燃えかすは のこす）
     hit: () => { isAngry = true; actor?.hit(); },
     walk: (on) => actor?.walk(on),
     goTo: (x, z) => actor?.goTo(x, z),

@@ -1,7 +1,7 @@
 import type { BlockId, ChunkColumn, Inventory, PlayerState, ScreenSettings, SpawnPoint, Vec3 } from '../contracts';
 import { packColumn, SAVE_ID, type PersistBackend, type StoredChunk, type StoredMeta } from './backend';
 import { BLOCK_TYPES } from '../world/blocks/blockTypes';
-import { encodeSections } from './chunkCodec';
+import { encodeSections, persistIds } from './chunkCodec';
 import { colKey } from '../world/stream/ring';
 import { bodyInWall } from '../world/wall';
 import type { StrengthLevel } from '../yokai/stats';
@@ -551,7 +551,7 @@ export class SaveManager {
       taken = w.takeSaveDirty();
       const takenKeys = taken.map((col) => colKey(col.cx, col.cz));
       for (const k of takenKeys) this.writingKeys.add(k);
-      const raws = taken.map((col) => ({ cx: col.cx, cz: col.cz, h: col.sections.length, raw: encodeSections(col.sections) }));
+      const raws = taken.map((col) => ({ cx: col.cx, cz: col.cz, h: col.sections.length, raw: encodeSections(col.sections, persistIds()) }));
       const logEnd = w.changeLogEnd();
       this.lastKey = key;
       this.lastTimeKey = timeKey;
