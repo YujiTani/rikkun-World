@@ -250,7 +250,8 @@ export class BandView {
   /** テロップを 出し始める（`ヌシ が 〔武器〕 を おとした！` ＋ ★。文は 出どころで かわる。telopText.ts） */
   showTelop(itemName: string, iconUrl: string, stars: number, source: TelopSource = 'nushi'): void {
     this.kind = 'telop';
-    this.band.className = 'cel-band cel-telop';
+    // 文が 長い 出どころ（がしゃどくろ・宝箱）は 帯を 広げる（NINJA-1）
+    this.band.className = source === 'nushi' ? 'cel-band cel-telop' : 'cel-band cel-telop cel-telop--long';
     this.band.dataset.band = 'telop';
     const img = document.createElement('img');
     img.className = 'cel-band__icon rk-art';
