@@ -20,6 +20,7 @@ import { BigHit, type HitSources } from './gashaBigHit';
 import { GashaGeyser, type GeyserInfo } from './gashaGeyser';
 import { BigShock, type ShockHit } from './gashaBigShock';
 import { ShockFx } from './gashaBigShockFx';
+import { crushAt } from './gashaBigCrush';
 import climbUp from './gashaBigClips/climbUp.json';
 import climbDown from './gashaBigClips/climbDown.json';
 import lookBackClip from './gashaBigClips/lookBack.json';
@@ -65,6 +66,9 @@ export interface GashaBigDeps {
   onBeforeRender?(fn: () => void): void;
   /** 「うごきを へらす」の 人は ゆらさない */
   reducedMotion?(): boolean;
+  /** たたきつけた 手の 下と まわりを こわす 口: ブロックを 空気に する（blockAt と そろって いる ときだけ こわす）と、こわした マス（くだける つぶ・音。ぬりかべの onBlocks と おなじ） */
+  setBlockAir?(x: number, y: number, z: number): boolean;
+  onCrushBlocks?(cells: { x: number; y: number; z: number; from: string; to: 'air' }[]): void;
 }
 
 // ---------------------------------------------------------------- 色と 面の 明るさ
@@ -868,7 +872,7 @@ export interface GashaBigHandle {
   /** 忍者の足袋を 着る（開始時に も 自動で 1 回）。口が なければ 何もしない */
   giveTabi(): void;
   /** 手が 地面を たたいた ときの 当たり（ひるみの のこり・当たった 記録・いまの 輪）。テスト用 */
-  shock(): { staggerLeft: number; inputBlocked: boolean; hits: ShockHit[]; impacts: number; shake: number; lastPush: { x: number; y: number; z: number } | null; slams: number; taps: number; phase: string; fx: { rings: number; dust: number } };
+  shock(): { staggerLeft: number; inputBlocked: boolean; hits: ShockHit[]; impacts: number; shake: number; lastPush: { x: number; y: number; z: number } | null; slams: number; taps: number; phase: string; fx: { rings: number; dust: number }; lastSlam: { x: number; y: number; z: number } | null; lastTap: { x: number; y: number; z: number } | null };
   info(): Record<string, unknown>;
   group: Group;
 }
@@ -957,7 +961,10 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
     geysers?.place({ x: pos.x, y: pos.y, z: pos.z, yaw, scale: s });
     actor = new BigActor(model, CLIPS, {
       groundY: deps.groundY, player: deps.player, carryPlayer: deps.carryPlayer,
-      onSlam: (x, y, z) => shockFx.spawn(shock.add('slam', x, y, z)),
+      onSlam: (x, y, z) => {
+        shockFx.spawn(shock.add('slam', x, y, z));
+        if (blockAt && deps.setBlockAir) crushAt(x, y, z, { getBlock: blockAt, setAir: deps.setBlockAir, onBlocks: deps.onCrushBlocks });
+      },
       onTap: (x, y, z) => shockFx.spawn(shock.add('tap', x, y, z)),
     }, 293);
     actor.place(pos.x, pos.y, pos.z, yaw);
@@ -1010,7 +1017,7 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
     giveTabi: () => deps.giveNinjaTabi?.(),
     shock: () => ({
       staggerLeft: shock.staggerLeft, inputBlocked: shock.inputBlocked(), hits: shock.hits.slice(), impacts: shock.impacts.length, shake: shock.shakeNow, lastPush: shock.lastPush,
-      slams: actor?.step.slams ?? 0, taps: actor?.step.taps ?? 0, phase: actor?.step.phase ?? '', fx: shockFx.counts(),
+      slams: actor?.step.slams ?? 0, taps: actor?.step.taps ?? 0, phase: actor?.step.phase ?? '', fx: shockFx.counts(), lastSlam: actor?.lastSlam ?? null, lastTap: actor?.lastTap ?? null,
     }),
     info: () => ({
       scale: model?.scale, pos: [pos.x, pos.y, pos.z], yawDeg: (yaw * 180) / Math.PI, drawCalls: model?.meshes, hitBoxes: model?.hits.length, angry: (actor?.angryLeft ?? 0) > 0, hp: bh.hp, maxHp: bh.maxHp, lastHit: bh.last,
