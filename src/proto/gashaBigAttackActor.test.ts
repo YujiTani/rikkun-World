@@ -10,6 +10,13 @@ import { TUNE as T } from './gashaBigTuning';
 const CLIPS = { climbUp, climbDown, lookBack };
 const DT = 1 / 60;
 
+/** 攻撃の 表を いっとき slam2 だけに する（回数を 数える テスト用） */
+const onlySlam2 = <R>(f: () => R): R => {
+  const saved = T.attack.table.slice();
+  T.attack.table.length = 0; T.attack.table.push({ name: 'slam2', weight: 1 });
+  try { return f(); } finally { T.attack.table.length = 0; T.attack.table.push(...saved); }
+};
+
 function rig() {
   const ply = { x: 0, y: 1, z: 40, yawDeg: 180 };
   const slams: { x: number; z: number; fx: number; fz: number; t: number }[] = [];
@@ -25,7 +32,7 @@ function rig() {
 }
 
 describe('怒りの 攻撃サイクル（actor）', () => {
-  it('怒る → 攻撃 1〜3 回（両手たたきつけ）→ つかれて 30〜40 秒 → また 攻撃', () => {
+  it('怒る → 攻撃 1〜3 回（両手たたきつけ）→ つかれて 30〜40 秒 → また 攻撃', () => onlySlam2(() => {
     const { actor, slams, run } = rig();
     actor.hit();
     const modes: string[] = [];
@@ -46,7 +53,7 @@ describe('怒りの 攻撃サイクル（actor）', () => {
     // 休みの あと また 攻撃（2 周目）
     expect(slams.length).toBeGreaterThan(slamsAtTired);
     expect(modes.slice(0, 3)).toEqual(['angry', 'attack', slamsAtTired === 1 ? 'tired' : 'angry']);
-  });
+  }));
 
   it('攻撃は 前（体の 向き）の 地面を たたく。予告の 半円は たたく 前だけ 出て、同じ 場所', () => {
     const { actor, slams, run } = rig();
@@ -133,6 +140,34 @@ describe('怒りの 攻撃サイクル（actor）', () => {
     expect(actor.warn).toBeNull();
     run(30);
     expect(actor.mode === 'idle' || actor.mode === 'crawl' || actor.mode === 'look').toBe(true);
+  });
+
+  it('攻撃の 表に slam2 と sweep: サイクルで ランダムに どちらも 出る。sweep は 払って おわると 怒りに もどる', () => {
+    const { actor, slams, run } = rig();
+    actor.hit();
+    const names = new Set<string>();
+    run(600, () => { if (actor.attackName) names.add(actor.attackName); });
+    expect([...names].sort()).toEqual(['slam2', 'sweep']);
+    expect(slams.length).toBeGreaterThan(0);
+    expect(actor.sweepCount).toBeGreaterThan(0);
+  });
+
+  it('attack(sweep): 振りかぶり → 左右 2 回 払う → もどる。払っている 間 手が 世界の 座標で 動く', () => {
+    const { actor, run } = rig();
+    actor.attack('sweep');
+    expect(actor.mode).toBe('attack');
+    expect(actor.attackName).toBe('sweep');
+    expect(actor.sweepCount).toBe(1);
+    const sides: string[] = []; let moved = 0, last: { x: number; z: number } | null = null;
+    const K = T.sweep;
+    run(K.windupSec + K.holdSec + 2 * K.sweepSec + K.linkSec + K.recoverSec + 0.3, () => {
+      const n = actor.sweepNow;
+      if (n) { if (!sides.length || sides[sides.length - 1] !== n.side) sides.push(n.side); if (last) moved += Math.hypot(n.x - last.x, n.z - last.z); last = { x: n.x, z: n.z }; } else last = null;
+    });
+    expect(sides).toEqual(['Left', 'Right']);
+    expect(moved).toBeGreaterThan(60); // 手が 大きく 動いた（ブロック）
+    expect(actor.mode).toBe('angry');
+    expect(actor.sweepNow).toBeNull();
   });
 
   it('おなじ シードなら おなじ 回数・おなじ 時刻', () => {

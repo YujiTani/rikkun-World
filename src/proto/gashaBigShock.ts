@@ -45,7 +45,7 @@ export interface Impact {
   fx: number; fz: number;
 }
 
-export type ShockHitKind = 'hit' | 'wave' | 'tap';
+export type ShockHitKind = 'hit' | 'wave' | 'tap' | 'sweep';
 export interface ShockHit { kind: ShockHitKind; amount: number; from: V3; ok: boolean; tick: number }
 
 export class BigShock {
@@ -124,6 +124,20 @@ export class BigShock {
       if (d <= S.tapRadius && this.grounded()) this.strike('tap', S.tapDamage, imp, T.stagger.tapKnockSpeed);
     }
     return imp;
+  }
+
+  /** 払う 腕に 当たった（from = 腕の 当たった 所、dx, dz = はじく 向き（水平。長さ 1））。ダメージ・大きく はじく・ひるみ。当たったら true */
+  sweepStrike(from: V3, dx: number, dz: number): boolean {
+    const S = T.sweep, G = T.stagger;
+    const ok = this.d.hurt ? this.d.hurt(S.damage, from) : true;
+    this.hits.unshift({ kind: 'sweep', amount: S.damage, from, ok, tick: this.tick });
+    if (this.hits.length > 16) this.hits.length = 16;
+    if (!ok) return false;
+    this.staggerLeft = Math.max(this.staggerLeft, S.staggerSec);
+    this.lastPush = { x: dx * S.knockSpeed, y: S.knockUp, z: dz * S.knockSpeed };
+    this.d.setPlayerVelocity?.(this.lastPush);
+    this.shakes.push({ amp: S.shakeDeg, sec: Math.max(1e-3, G.shakeSec), age: 0 });
+    return true;
   }
 
   private strike(kind: ShockHitKind, amount: number, imp: Impact, knock: number): void {

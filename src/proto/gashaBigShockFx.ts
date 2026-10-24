@@ -147,6 +147,20 @@ export class ShockFx {
     }
   }
 
+  /** 払う 手の まえに 土ぼこりの すじ（手の 水平の 動き vx, vz の 向きに とばす） */
+  dustAt(x: number, y: number, z: number, vx: number, vz: number, n: number): void {
+    const sp = Math.hypot(vx, vz) || 1, dx = vx / sp, dz = vz / sp;
+    for (let i = 0; i < n; i++) {
+      if (this.motes.length >= DUST) this.motes.shift();
+      const j = (this.rnd() - 0.5) * 2.4, k = 0.6 + this.rnd() * 0.8;
+      this.motes.push({
+        floor: y, x: x + dx * 1.2 - dz * j, y: y + 0.2 + this.rnd() * 0.8, z: z + dz * 1.2 + dx * j,
+        vx: dx * Math.min(sp, 30) * 0.45 * k, vy: 2 + this.rnd() * 3, vz: dz * Math.min(sp, 30) * 0.45 * k,
+        age: 0, life: 0.7 + this.rnd() * 0.5, size: 1.1 + this.rnd() * 1.1,
+      });
+    }
+  }
+
   /** 岩の とげを 半円の 中に ばらまく（シード付き） */
   private spawnRocks(imp: Impact): void {
     const Q = T.slam2;

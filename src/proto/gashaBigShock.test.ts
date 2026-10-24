@@ -162,3 +162,29 @@ describe('両手たたきつけ slam2（予告の 半円 → 打撃 → 特大�
     expect(a.shock.shakeNow).toBe(0);
   });
 });
+
+describe('両手で 払う: 腕に 当たった とき（sweepStrike）', () => {
+  const K = T.sweep;
+  it('ダメージ・大きく はじく（払う 向き）・上へ うかす・入力が きかない 秒（前進の 打撃より 長い）', () => {
+    const r = rig({ x: 0, y: 0, z: 0 });
+    expect(r.shock.sweepStrike({ x: 3, y: 0, z: 0 }, 1, 0)).toBe(true);
+    expect(r.hurts).toEqual([K.damage]);
+    expect(r.shock.hits[0]!.kind).toBe('sweep');
+    expect(r.pushes[0]).toEqual({ x: K.knockSpeed, y: K.knockUp, z: 0 });
+    expect(r.shock.inputBlocked()).toBe(true);
+    expect(K.knockSpeed).toBeGreaterThan(T.stagger.knockSpeed);
+    expect(K.staggerSec).toBeGreaterThan(T.stagger.sec);
+    run(r.shock, K.staggerSec - 0.05);
+    expect(r.shock.inputBlocked()).toBe(true);
+    run(r.shock, 0.1);
+    expect(r.shock.inputBlocked()).toBe(false);
+    expect(r.shock.shakeNow).toBeGreaterThanOrEqual(0);
+  });
+  it('むてき中（hurt が false）は はじかない', () => {
+    const r = rig({ x: 0, y: 0, z: 0 });
+    r.setInvincible(5);
+    expect(r.shock.sweepStrike({ x: 3, y: 0, z: 0 }, 1, 0)).toBe(false);
+    expect(r.pushes).toEqual([]);
+    expect(r.shock.inputBlocked()).toBe(false);
+  });
+});

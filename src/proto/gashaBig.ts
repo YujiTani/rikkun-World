@@ -27,6 +27,7 @@ import { BigShock, type ShockHit } from './gashaBigShock';
 import { ShockFx } from './gashaBigShockFx';
 import { crushAt } from './gashaBigCrush';
 import { BodyQuake } from './gashaBigQuake';
+import { armHit } from './gashaBigSweepHit';
 import climbUp from './gashaBigClips/climbUp.json';
 import climbDown from './gashaBigClips/climbDown.json';
 import lookBackClip from './gashaBigClips/lookBack.json';
@@ -1116,12 +1117,12 @@ export interface GashaBigHandle {
   lookBack(): void;
   /** 後ろへ さがる（climbing down wall を 倒した 動き）を はじめる / 止める */
   back(on: boolean): void;
-  /** 攻撃を すぐ 出す（デバッグ。怒って いなければ 怒らせる）。いまは 'slam2'（両手たたきつけ）だけ */
+  /** 攻撃を すぐ 出す（デバッグ。怒って いなければ 怒らせる）。'slam2'（両手たたきつけ）・'sweep'（両手で 払う） */
   attack(name: string): void;
   /** つかれて 休みに はいる（デバッグ。sec を 省くと 調整表の 20〜30 秒） */
   tired(sec?: number): void;
   /** 攻撃サイクル・予告・体の ゆれの いま（テスト用） */
-  attackInfo(): { mode: string; phase: string; attack: string | null; done: number; count: number; left: number; slam2Count: number; quakeLeft: number; warn: boolean; fx: { warn: boolean; rocks: number; cracks: number } };
+  attackInfo(): { mode: string; phase: string; attack: string | null; done: number; count: number; left: number; slam2Count: number; sweepCount: number; sweepActive: string | null; quakeLeft: number; warn: boolean; fx: { warn: boolean; rocks: number; cracks: number } };
   /** 長い 休みに はいる（その場で 体を 動かさない。首を ふる くらい）。sec を 書かなければ 調整表の wander.restSec */
   rest(sec?: number): void;
   /** うごきの 中身（モード・速さ・手の ついた 数・1 コマの 仕事の 数 など） */
@@ -1275,6 +1276,25 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
     isRider: riding, onGround: () => deps.playerBody?.().onGround ?? true,
     nudge: (dx, dz) => deps.nudgePlayer?.(dx, dz),
   });
+  // 攻撃 2「両手で 払う」: 払っている 腕の 箱に 当たったら はじき飛ばす（1 回の 払いで 1 回）。手の まえに 土ぼこり
+  let sweepStroke = -1, sweepHitDone = false, sweepDustClock = 0;
+  const stepSweep = (dt: number): void => {
+    const n = actor?.sweepNow;
+    if (!actor || !n) { sweepStroke = -1; return; }
+    const K = T.sweep;
+    if (n.stroke !== sweepStroke) { sweepStroke = n.stroke; sweepHitDone = false; sweepDustClock = 0; }
+    sweepDustClock -= dt;
+    if (sweepDustClock <= 0) { sweepDustClock = K.dustEverySec; shockFx.dustAt(n.x, n.y, n.z, n.vx, n.vz, K.dustCount); }
+    if (K.crushPath && blockAt && deps.setBlockAir) crushAt(n.x, n.y, n.z, { getBlock: blockAt, setAir: deps.setBlockAir, onBlocks: deps.onCrushBlocks }, { crushRadius: K.crushRadius, crushDepth: 0, crushUp: 3 });
+    if (sweepHitDone) return;
+    const p = deps.player();
+    if (!armHit(actor.boxList, n.side, p, deps.groundY, K)) return;
+    // はじく 向き: 手の 動く 向き と 体から 外へ
+    const sp = Math.hypot(n.vx, n.vz) || 1, ox = p.x - actor.pos.x, oz = p.z - actor.pos.z, ol = Math.hypot(ox, oz) || 1;
+    let dx = 0.75 * n.vx / sp + 0.5 * ox / ol, dz = 0.75 * n.vz / sp + 0.5 * oz / ol;
+    const dl = Math.hypot(dx, dz) || 1; dx /= dl; dz /= dl;
+    if (shock.sweepStrike({ x: p.x, y: p.y, z: p.z }, dx, dz)) sweepHitDone = true;
+  };
   deps.blockPlayerInput?.(() => shock.inputBlocked() || throwLeft > 0 || spinLeft > 0);
   deps.onBeforeRender?.(() => shockFx.applyShake(Math.max(reduced() ? 0 : shock.shakeNow, warnLeft > 0 ? T.core.throwOff.warnShakeDeg * (reduced() ? 0.25 : 1) : 0, quake.active && riding() ? T.slam2.quake.bodyShakeDeg * (reduced() ? 0.25 : 1) : 0), shock.time));
   const fwdOf = (p: { yawDeg: number }) => { const y = (p.yawDeg * Math.PI) / 180; return { fx: Math.sin(y), fz: -Math.cos(y) }; };
@@ -1368,6 +1388,7 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
     stepGlass(dt);
     stepCoreWarn(dt);
     quake.step(dt);
+    stepSweep(dt);
     shockFx.setWarn(actor.warn);
     if (throwLeft > 0) { throwLeft -= dt; deps.nudgePlayer?.(throwDir.x * T.core.throwOff.speed * dt, throwDir.z * T.core.throwOff.speed * dt); }
     shock.step(dt);
@@ -1412,7 +1433,7 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
     tired: (sec) => actor?.tired(sec),
     attackInfo: () => ({
       mode: actor?.mode ?? '', phase: actor?.cycle.phase ?? 'off', attack: actor?.attackName ?? null, done: actor?.cycle.done ?? 0, count: actor?.cycle.count ?? 0, left: actor?.cycle.left ?? 0,
-      slam2Count: actor?.slam2Count ?? 0, quakeLeft: quake.left, warn: !!actor?.warn, fx: shockFx.bigCounts(),
+      slam2Count: actor?.slam2Count ?? 0, sweepCount: actor?.sweepCount ?? 0, sweepActive: actor?.sweepNow?.side ?? null, quakeLeft: quake.left, warn: !!actor?.warn, fx: shockFx.bigCounts(),
     }),
     rest: (sec) => actor?.rest(sec),
     motion: () => (actor ? {

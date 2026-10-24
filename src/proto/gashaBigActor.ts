@@ -15,6 +15,7 @@ import { fitStride, plantHands, type PlantReport } from './gashaBigPlant';
 import { StepCrawler, type Side } from './gashaBigStep';
 import { AttackCycle } from './gashaBigAttack';
 import { Slam2 } from './gashaBigSlam2';
+import { Sweep } from './gashaBigSweep';
 
 export interface ActorEnv {
   /** 地面の いちばん 上の ブロックの 高さ（立つ 面は +1） */
@@ -176,6 +177,14 @@ export class BigActor {
   readonly cycle = new AttackCycle();
   /** 両手たたきつけの 動き（gashaBigSlam2.ts） */
   slam2!: Slam2;
+  /** 両手で 払う 動き（gashaBigSweep.ts） */
+  sweep!: Sweep;
+  /** 両手で 払う を 出した 数（テスト用） */
+  sweepCount = 0;
+  /** 払っている 手の いま（世界の 座標。vx, vz = 手の 水平の 動き 1 秒あたり）。払って いなければ null */
+  sweepNow: { side: Side; x: number; y: number; z: number; vx: number; vz: number; stroke: number } | null = null;
+  private sweepLast: { x: number; z: number } | null = null;
+  private sweepStroke = 0;
   /** 攻撃の 名前（attack モードの 間） */
   attackName: string | null = null;
   /** 両手たたきつけを 出した 数（テスト用） */
@@ -184,6 +193,7 @@ export class BigActor {
   warn: WarnMark | null = null;
   private slam2Pred = new Vector3();
   private slam2Phase = '';
+  private readonly tv2 = new Vector3();
   private tiredT = 0;
   private tiredHands: { l: Vector3; r: Vector3 } | null = null;
   private hitCount = 0;
@@ -284,6 +294,7 @@ export class BigActor {
     // 前へ 進む 1 歩（調整表の crawl を その まま 読む）。速さの 目安 = 1 歩の 長さ ÷ 1 歩の 秒
     this.step = new StepCrawler(this.model, T.crawl);
     this.slam2 = new Slam2(this.step, this.model);
+    this.sweep = new Sweep(this.step, this.model);
     this.crawlSpeed = (this.step.stride * this.model.scale) / this.step.stepSec();
     this.stepW = 0; this.stepWant = 0;
   }
@@ -358,7 +369,7 @@ export class BigActor {
     this.angryLeft = 0;
     this.bodyTurning = false;
     this.cycle.reset();
-    this.warn = null; this.attackName = null;
+    this.warn = null; this.attackName = null; this.sweepNow = null;
     if (this.isAngry()) {
       const was = this.mode;
       this.mode = 'idle'; this.pauseLeft = this.randIn(T.wander.pauseSec);
@@ -383,9 +394,17 @@ export class BigActor {
   }
 
   private startAttack(name: string): void {
-    if (name !== 'slam2') { this.cycle.attackEnded(); return; } // まだ ない 攻撃は とばす
+    if (name !== 'slam2' && name !== 'sweep') { this.cycle.attackEnded(); return; } // まだ ない 攻撃は とばす
     this.mode = 'attack'; this.attackName = name; this.target = null;
     this.player.play(null, { fade: 0 });
+    if (name === 'sweep') {
+      this.sweep.start();
+      this.sweepCount++;
+      this.sweepNow = null; this.sweepLast = null;
+      this.stepW = 1; this.stepWant = 1;
+      this.eyeShown = -1;
+      return;
+    }
     this.slam2.start();
     this.slam2Phase = this.slam2.phase;
     this.stepW = 1; this.stepWant = 1;
@@ -563,6 +582,27 @@ export class BigActor {
     if (this.angryLeft > 0) {
       this.angryLeft -= dt;
       if (this.angryLeft <= 0) this.calm();
+    }
+    if (this.mode === 'attack' && this.attackName === 'sweep') {
+      this.speedNow = 0;
+      const ev = this.sweep.update(dt);
+      void ev.warn;
+      if (ev.strokeStart) this.sweepStroke++;
+      if (this.sweep.phase === 'recover' && this.stepWant !== 0) this.fadeStep(0, T.sweep.recoverSec);
+      const a = this.sweep.active;
+      if (a) {
+        const q = this.sweep.palm(a, this.tv2), c = Math.cos(this.yaw), sn = Math.sin(this.yaw), sc = this.model.scale;
+        const x = this.pos.x + (q.x * c + q.z * sn) * sc, z = this.pos.z + (-q.x * sn + q.z * c) * sc;
+        const l = this.sweepLast;
+        this.sweepNow = { side: a, x, y: this.pos.y, z, vx: l ? (x - l.x) / dt : 0, vz: l ? (z - l.z) / dt : 0, stroke: this.sweepStroke };
+        this.sweepLast = { x, z };
+      } else { this.sweepNow = null; this.sweepLast = null; }
+      if (this.sweep.done) {
+        this.sweepNow = null;
+        this.cycle.attackEnded();
+        if (this.cycle.phase === 'tired') this.startTired(); else this.backToAngry(0.3);
+      }
+      return false;
     }
     if (this.mode === 'attack') {
       this.speedNow = 0;

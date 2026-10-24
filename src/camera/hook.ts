@@ -18,6 +18,10 @@ export function createCameraHook(rig: CameraRig) {
       distance: (m: number | null) => {
         rig.testDistance = m;
       },
+      /** スクショ用: カメラを この 場所に 固定して この 点を 見る。null で もどる */
+      fixed: (v: { x: number; y: number; z: number; tx: number; ty: number; tz: number } | null) => {
+        rig.testFixed = v;
+      },
       /** WEAPON-9: カメラだけ 体の 向きから ずらす（度。0 でもどる） */
       yawOffset: (deg: number) => {
         rig.testYawOffsetDeg = Number.isFinite(deg) ? deg : 0;
