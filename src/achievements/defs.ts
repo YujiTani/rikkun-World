@@ -332,6 +332,9 @@ function build(): AchievementDef[] {
     name: firstOrN('レジェンダリー を てにいれた！', (g) => `レジェンダリー を ${g} つ あつめた！`),
   });
 
+  // #293: がしゃどくろ（ボス）を たおした。ふだんの ようかい（defeat.all）には 数えず、これ 1 つだけ（大きい 実績・金メダル）
+  add({ series: 'defeat.gashadokuro', category: 'fight', stat: 'defeat:gashadokuro', tiers: [t(1)], name: () => 'がしゃどくろ を たおした！' });
+
   // H. レベル
   add({
     series: 'level',
