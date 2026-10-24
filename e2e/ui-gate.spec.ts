@@ -639,6 +639,61 @@ SCREENS.push(
 );
 
 /**
+ * NINJA-1（#299）AC22・AC25: 忍者装備 4 つの 説明の 表（ツールチップの「とくべつな ちから」の 行・説明パネル）と、テロップ（いちばん 長い 名前 `忍びの 手甲`）。
+ * 窓口: `ui.telop(item, source)`（テストの 準備用。上の 帯の 列に 入れる。source = 'gasha' | 'chest' | 'nushi'）。実装の 前は この窓口が 無くて 落ちる（赤）。
+ */
+const NINJA_IDS = ['ninja_zukin', 'ninja_shozoku', 'ninja_tekko', 'ninja_tabi'];
+const ninjaBag = () => {
+  const h = window.__rikkun! as any;
+  h.inventory.clear();
+  ['ninja_zukin', 'ninja_shozoku', 'ninja_tekko', 'ninja_tabi'].forEach((id, i) => h.inventory.setSlot(i, { item: id, count: 1 }));
+  h.inventory.select(0);
+  h.step(2);
+};
+for (const id of NINJA_IDS) {
+  SCREENS.push({
+    id: `ninja1-tooltip-${id}`,
+    roots: ['#tooltip'],
+    open: async (page) => {
+      await boot(page, true);
+      await page.evaluate(ninjaBag);
+      await page.evaluate(toggleInventory);
+      await page.locator(`#inventory-screen .slot[data-item="${id}"]`).first().hover();
+      await page.evaluate(() => (window.__rikkun as any).step(3));
+    },
+  });
+}
+SCREENS.push(
+  {
+    id: 'ninja1-detail-tekko',
+    roots: ['#inventory-screen', '#tooltip', '#hud'],
+    open: async (page) => {
+      await boot(page, true);
+      await page.evaluate(ninjaBag);
+      await page.evaluate(toggleInventory);
+      await page.evaluate(() => {
+        const h = window.__rikkun! as any;
+        h.craft.hover('ninja_tekko');
+        h.step(3);
+      });
+    },
+  },
+  {
+    id: 'ninja1-telop-tekko',
+    roots: ['[data-band="telop"]'],
+    open: async (page) => {
+      await boot(page, true);
+      await page.evaluate(() => {
+        const h = window.__rikkun! as any;
+        h.ui.telop('ninja_tekko', 'gasha');
+        for (let i = 0; i < 90 && h.ui.topBand().kind !== 'telop'; i++) h.step(1);
+        h.step(40); // 出きるまで
+      });
+    },
+  },
+);
+
+/**
  * START-1 AC12（docs/design/START-1.md §6.1）: スタートメニュー 1 枚目（保存あり・なし）と 2 枚目（おしらせあり・シード 9 けた）。
  * 世界が まだ ないので `__rikkun.step` は ない（上の 描きなおしは step?.() で とばす）。
  * 保存の ある 場面は まず メニューの 通しで 保存の ある 世界（seed 1234・やさしい）を 作ってから 読み直す。

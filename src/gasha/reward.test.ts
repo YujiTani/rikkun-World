@@ -10,11 +10,16 @@ import { rewardRng, rollReward } from './reward';
 const R = RELEASE.reward;
 
 describe('ごほうびの 中身（コアを こわした 一山）', () => {
-  it('忍者の足袋が かならず 1 つ 入る', () => {
+  // NINJA-1（#299）で 変わった: 足袋 ぴったり ではなく「まだ 手に 入れて いない 忍者装備 1 つ」。くわしくは src/craft/ninjaDrop.test.ts
+  it('忍者装備が かならず 1 つ 入る（4 つの どれか。調整表の guaranteed には 置かない）', () => {
+    const ninja = Object.values(NINJA_GEAR) as string[];
     for (let i = 0; i < 50; i++) {
       const stacks = rollReward(createRng(i));
-      expect(stacks.filter((s) => s.item === NINJA_GEAR.legs)).toEqual([{ item: NINJA_GEAR.legs, count: 1 }]);
+      const mine = stacks.filter((s) => ninja.includes(s.item));
+      expect(mine).toHaveLength(1);
+      expect(mine[0]!.count).toBe(1);
     }
+    for (const g of R.guaranteed) expect(ninja).not.toContain(g.item);
   });
 
   it('レア素材は 表の 行ごとに 最小〜最大の 個数 入る', () => {
@@ -42,16 +47,16 @@ describe('ごほうびの 中身（コアを こわした 一山）', () => {
     expect(rollReward(rewardRng(9, 3))).toEqual(rollReward(rewardRng(9, 3)));
   });
 
-  it('表の アイテムは ぜんぶ 本当に ある アイテムで、レア素材は レア（スーパーレア いか 〜 ） 以上、足袋は レジェンダリー', () => {
+  it('表の アイテムは ぜんぶ 本当に ある アイテムで、レア素材は レア（スーパーレア いか 〜 ） 以上、忍者装備 4 つは レジェンダリー', () => {
     const ids = new Set(ITEM_TYPES.map((t) => t.id));
-    for (const g of R.guaranteed) expect(ids.has(g.item) || g.item === NINJA_GEAR.legs, g.item).toBe(true);
+    for (const g of R.guaranteed) expect(ids.has(g.item), g.item).toBe(true);
     for (const row of R.rare) {
       expect(ids.has(row.item), row.item).toBe(true);
       expect(rarityIndex(itemRarity(row.item)), row.item).toBeGreaterThanOrEqual(1); // ふつう（0）より 上
       expect(row.max).toBeGreaterThanOrEqual(row.min);
       expect(row.min).toBeGreaterThanOrEqual(1);
     }
-    expect(itemRarity(NINJA_GEAR.legs)).toBe('legendary');
+    for (const id of Object.values(NINJA_GEAR)) expect(itemRarity(id), id).toBe('legendary');
   });
 
   it('1 つの 山の 数が 持ち物の 上限（maxStack）を こえない（ばらまく ときは 山ごと）', () => {

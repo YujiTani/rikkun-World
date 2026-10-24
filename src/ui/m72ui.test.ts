@@ -18,10 +18,10 @@ const ev = (e: Record<string, unknown>): FarmEvent => ({ ...at, ...e }) as FarmE
 const mk = () => new AchievementSystem(() => ({ ...M6_SETTING_DEFAULTS, achieveCooldown: 0, achieveCooldownEarly: 0 }));
 
 describe('M7-2 実績（AC21・§4.7）', () => {
-  it('数の表: そだてる +8、つくる +3、ぜんぶ 280（#293 の defeat.gashadokuro ＋1・GOLD-1 ＋4・COUNTRY-1 ＋13）・小 88（LIVE-3 込み。LIVE-1 版 3.2・LIVE-2 版 3 の ＋11・小 ＋3・WEAPON-6・WEAPON-7 込み）', () => {
+  it('数の表: そだてる +8、つくる +3、ぜんぶ 282（NINJA-1 ＋2・小 ＋0。#293 の defeat.gashadokuro ＋1・GOLD-1 ＋4・COUNTRY-1 ＋13）・小 88（LIVE-3 込み。LIVE-1 版 3.2・LIVE-2 版 3 の ＋11・小 ＋3・WEAPON-6・WEAPON-7 込み）', () => {
     const cnt = (cat: string) => ACHIEVEMENT_DEFS.filter((d) => d.category === cat).length;
     expect(cnt('farm')).toBe(26 + 8 + 1 + 12 + 5 + 9 + 1 + 1 + 1); // + LIVE-1 の 12 + 版 3.2 の 5 + LIVE-2 の 9 + LIVE-3 の 1（eatMeat）
-    expect(ACHIEVEMENT_DEFS.length).toBe(280); // #293 の ＋1・COUNTRY-1 の ＋13（国 12 ＋ ぜんぶの くに）込み。LIVE-3 の ＋1（eatMeat）込み。 LIVE-1 §4.5 ＋ WEAPON-7 の 4 ＋ PR3 の 2 ＋ LIVE-2 §4.5 の 11
+    expect(ACHIEVEMENT_DEFS.length).toBe(282); // #293 の ＋1・COUNTRY-1 の ＋13（国 12 ＋ ぜんぶの くに）込み。LIVE-3 の ＋1（eatMeat）込み。 LIVE-1 §4.5 ＋ WEAPON-7 の 4 ＋ PR3 の 2 ＋ LIVE-2 §4.5 の 11
     expect(ACHIEVEMENT_DEFS.filter((d) => d.small).length).toBe(89);
     for (const id of ['craft.watering_can.1', 'craft.long_watering_can.1', 'craft.sprinkler.1']) {
       expect(ACHIEVEMENT_DEFS.find((d) => d.id === id)).toMatchObject({ category: 'craft', small: true });
