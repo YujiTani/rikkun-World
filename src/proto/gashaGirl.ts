@@ -15,6 +15,7 @@ import { ruby } from '../ui/text';
 import { bearingOf } from '../combat/parry';
 import { TUNE as T, applyTune, applyTuneFromUrl } from './gashaGirlTuning';
 import { sharedGashaBgm } from './gashaBgm';
+import { createGirlSfx, createWebAudioPlayer } from './gashaGirlSfx';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 export interface GashaGirlDeps {
@@ -385,12 +386,12 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
     if (r.result === 'success') { st2.parried++; return 'blocked'; }
     if (r.result === 'early') st2.parryEarly++;
     const ok = deps.hurt(r.result === 'early' ? r.amount : T.damage.heart, from);
-    if (ok) stats.hits++;
+    if (ok) { stats.hits++; sfx.playerHit(); }
     return ok ? 'hit' : 'retry';
   };
   let nextSetHit = 0; // 設置系の 次の 判定（むてき時間と おなじ ぐらい あける）
   let flinchT = 0, flinchTotal = 1, reflectWait = 0;
-  const hurtPlayer = (from: { x: number; y: number; z: number }, amount = T.damage.heart): boolean => { const ok = deps.hurt(amount, from); if (ok) stats.hits++; return ok; };
+  const hurtPlayer = (from: { x: number; y: number; z: number }, amount = T.damage.heart): boolean => { const ok = deps.hurt(amount, from); if (ok) { stats.hits++; sfx.playerHit(); } return ok; };
 
   // ---- 魔法 1: 噴き出す（紫の 輪 → 炎の 刃）。輪は 3 つ ----
   const bladeMat = basic(bladeTex, 0xffffff, 0.4);
@@ -462,6 +463,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
     const l = Math.hypot(dx, dz); dx /= l; dz /= l;
     const sgn = rng() < 0.5 ? -1 : 1;
     const A = T.s1.ahead, S = T.s1.side, n = T.s1.rings;
+    if (n > 0) sfx.s1(T.s1.delaySec); // 予告（輪）→ 噴出。輪が 3 つでも 1 回ずつ
     if (n > 0) erups[0]!.fire(p.x, p.z);
     if (n > 1) erups[1]!.fire(p.x + dx * A, p.z + dz * A);
     if (n > 2) erups[2]!.fire(p.x + dx * A - dz * S * sgn, p.z + dz * A + dx * S * sgn);
@@ -531,7 +533,8 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
     }
     return out;
   };
-  const fireVortices = () => gridCenters(pivot.position.x, pivot.position.z, pivot.rotation.y).forEach((c, i) => vortices[i]?.fire(c.x, c.z));
+  const fireVortices = () => { sfx.s2Vortex(); fireVorticesAt(); }; // 渦は 9 か所でも 音は 1 回
+  const fireVorticesAt = () => gridCenters(pivot.position.x, pivot.position.z, pivot.rotation.y).forEach((c, i) => vortices[i]?.fire(c.x, c.z));
   const showVortexWarn = (on: boolean) => {
     const cs = gridCenters(pivot.position.x, pivot.position.z, pivot.rotation.y);
     vortices.forEach((v, i) => v.showWarn(on && i < cs.length, cs[i]?.x, cs[i]?.z));
@@ -551,6 +554,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
   }
   let nBurst = 0;
   const burst = (p: Vector3, kind: 0 | 1) => {
+    if (kind === 0) sfx.s3Hit();
     const b = bursts[nBurst++ % bursts.length]!;
     b.on = true; b.t = 0; b.size = kind === 0 ? 1.4 : 0.8;
     b.mat.color.setHex(kind === 0 ? 0xff8a20 : 0x60b8ff);
@@ -671,21 +675,15 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
   let shyT = -1; // 目が 合ってから の 秒
   const headC = new Vector3(), headT = new Vector3();
   const headCenter = (out: Vector3) => { headBone.getWorldPosition(out); headTop.getWorldPosition(headT); return out.lerp(headT, 0.5); };
-  const beep = () => { // 仮の「ピピン！」(本番の 音は サウンド係)
+  // 効果音（13 音。数は 調整表 sfx）。ファイルは 最初に まとめて 読みこむ
+  const sfxPlayer = createWebAudioPlayer();
+  const sfx = createGirlSfx(sfxPlayer);
+  sfxPlayer.preload();
+  let blushPlayed = false;
+  const beep = () => { // 目が 合った「ピピン！」(音は gashaGirlSfx.ts の eye_pipin)
     soundCount++; lastSoundT = t;
-    try {
-      const AC = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      audio ??= new AC();
-      const t0 = audio.currentTime + 0.01;
-      [[1320, 0], [1760, 0.1]].forEach(([f, d]) => {
-        const o = audio!.createOscillator(), g = audio!.createGain();
-        o.type = 'triangle'; o.frequency.value = f!;
-        g.gain.setValueAtTime(0, t0 + d!); g.gain.linearRampToValueAtTime(0.18, t0 + d! + 0.008); g.gain.exponentialRampToValueAtTime(0.001, t0 + d! + 0.06);
-        o.connect(g).connect(audio!.destination); o.start(t0 + d!); o.stop(t0 + d! + 0.07);
-      });
-    } catch { /* 音が 出せない 所でも 動く */ }
+    sfx.eyePipin();
   };
-  let audio: AudioContext | null = null;
   const setShy = (on: boolean) => {
     bang.visible = on; hatch.visible = false;
     if (!on) shyT = -1;
@@ -697,6 +695,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
     const yaw = pivot.rotation.y, rx = Math.cos(yaw), rz = -Math.sin(yaw);
     const k = shyT < 0.08 ? shyT / 0.08 * 1.3 : shyT < 0.18 ? 1.3 - 0.3 * ((shyT - 0.08) / 0.1) : 1; // ぴょこん
     const px = headC.x + rx * 0.5, py = headC.y + 0.4, pz = headC.z + rz * 0.5;
+    if (shyT >= T.eye.bangSwapSec && !blushPlayed) { blushPlayed = true; sfx.eyeBlush(); }
     if (shyT < T.eye.bangSwapSec) { bang.visible = true; hatch.visible = false; bang.position.set(px, py + 0.1, pz); bang.scale.setScalar(0.7 * k); }
     else { // 0.4 秒 あとに「！」と 入れかわりで 頬染めの 斜線（ぷるぷる ふるえる）
       bang.visible = false; hatch.visible = true;
@@ -728,11 +727,11 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
     }
     bigEl.style.display = on ? 'block' : 'none';
   };
-  const nextWarp = () => { chooseWarp(); phase = 'vanish'; pt = 0; purpleBurst(10); lineBurst(); };
+  const nextWarp = () => { chooseWarp(); phase = 'vanish'; pt = 0; purpleBurst(10); lineBurst(); sfx.warpOut(); };
   /** 1 回の 出番が おわった とき。5 回分 おわったら 大きな 姿に もどる（試作） */
   const turnDone = (viaCancel: boolean) => {
     setShy(false);
-    if (turn >= T.eye.turnsPerShow) { phase = 'bigvanish'; pt = 0; purpleBurst(10); lineBurst(); return; }
+    if (turn >= T.eye.turnsPerShow) { phase = 'bigvanish'; pt = 0; purpleBurst(10); lineBurst(); sfx.warpOut(); return; }
     if (viaCancel) nextWarp(); else { phase = 'stand'; pt = 0; }
   };
 
@@ -742,7 +741,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
   let side: 'left' | 'back' = 'back', dist = 4.5, ang = 0;
   let turn = 0, cancels = 0, eyeNow = false, soundCount = 0, lastSoundT = -1, bigCount = 0;
   let wave2Done = false;
-  let fbShots = 0, fired = false, mixerLeft = 0, castLen = clipDur(), forced = -1;
+  let orbSounds = 0, fbShots = 0, fired = false, mixerLeft = 0, castLen = clipDur(), forced = -1;
   let t = 0;
   const tele = new Vector3();
   const fwdOf = (p: { yawDeg: number }) => { const y = p.yawDeg * D2R; return { fx: Math.sin(y), fz: -Math.cos(y), rx: Math.cos(y), rz: Math.sin(y) }; };
@@ -774,7 +773,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
     faceTo(p);
   };
   const startCast = () => {
-    phase = 'cast'; pt = 0; fired = false; wave2Done = false; fbShots = 0; castLen = clipDur();
+    phase = 'cast'; pt = 0; fired = false; wave2Done = false; fbShots = 0; orbSounds = 0; castLen = clipDur(); sfx.cast();
     action.reset(); action.timeScale = T.cast.speed; action.setLoop(LoopOnce, 1); action.clampWhenFinished = true; action.fadeIn(0.15).play();
     mixerLeft = 1e9;
   };
@@ -795,6 +794,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
       dirV.set(Math.sin(a) * Math.cos(pit), Math.sin(pit), Math.cos(a) * Math.cos(pit));
       spawnProj(1, hp, dirV, T.s4.ampl, i * 1.3 + shift * 2);
     }
+    sfx.s4Wave(T.s4.count); // 16 発でも 1 波で 4〜6 回に 間引く
     purpleBurstAt(hp, 0x80c0ff);
   };
   const fire = () => {
@@ -816,7 +816,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
     const h = Math.atan2(chest.x - hp.x, chest.z - hp.z) + (i % 2 ? 1 : -1) * vr(0.1, 0.4);
     const pit = T.s3.pitchRad;
     dirV.set(Math.sin(h) * Math.cos(pit), Math.sin(pit), Math.cos(h) * Math.cos(pit));
-    spawnProj(0, hp, dirV);
+    spawnProj(0, hp, dirV); sfx.s3Fire();
     add.emit(hp.x, hp.y, hp.z, 0, 0, 0, 0.2, 1.6, 0.3, 0xfff0c0, 0xff7010);
   };
 
@@ -879,7 +879,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
       fade(clamp01(pt / T.timing.vanishSec));
       if (pt >= T.timing.vanishSec) { phase = 'gone'; pt = 0; fade(1); pivot.visible = false; }
     } else if (phase === 'gone') { // 何も いない 時間（「どこいった？」）
-      if (pt >= T.timing.goneSec) { teleport(); pivot.visible = true; bgm.request('girl', true); phase = 'appear'; pt = 0; turn++; fade(1); purpleBurst(24); }
+      if (pt >= T.timing.goneSec) { teleport(); pivot.visible = true; bgm.request('girl', true); phase = 'appear'; pt = 0; turn++; fade(1); purpleBurst(24); sfx.warpIn(); }
     } else if (phase === 'appear') {
       faceTo(p); idleSway(); fade(1 - clamp01(pt / T.timing.appearSec));
       if (pt >= T.timing.appearSec) { fade(0); startCast(); }
@@ -905,6 +905,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
       }
       if (spell === 2) { // 火の玉が 0.1 秒おきに ぽっと 出て ふわふわ うかぶ
         const shown = Math.min(T.s3.count, Math.floor((pt - T.s3.orbStartSec) / T.s3.orbGap) + 1);
+        while (orbSounds < shown) { orbSounds++; sfx.s3Spawn(); } // 火の玉が 1 つ 出るたびに「ぽっ」
         for (let i = fbShots; i < shown; i++) {
           orbPos(i, hp);
           if (pt - T.s3.orbStartSec - i * T.s3.orbGap < dt * 1.5) add.emit(hp.x, hp.y, hp.z, 0, 0, 0, 0.2, 1.6, 0.3, 0xfff0c0, 0xff7010);
@@ -927,7 +928,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
     if (eyeNow && cancels < T.eye.maxCancels && ((phase === 'appear' && pt < T.eye.windowSec) || (phase === 'cast' && pt < T.eye.windowSec - T.timing.appearSec))) {
       cancels++;
       if (phase === 'cast') { action.fadeOut(0.1); mixerLeft = 0.2; }
-      phase = 'shy'; pt = 0; fade(0); if (mixerLeft <= 0) { restorePose(); model.position.set(model.position.x, y0, model.position.z); } shyT = 0; setShy(true); shyT = 0; beep();
+      phase = 'shy'; pt = 0; fade(0); if (mixerLeft <= 0) { restorePose(); model.position.set(model.position.x, y0, model.position.z); } shyT = 0; setShy(true); shyT = 0; blushPlayed = false; beep();
     }
     updateShy(dt);
     // 詠唱が はじまったら 足もとに うすい 予告の 輪（どこまで にげれば いいか）
