@@ -196,4 +196,24 @@ test.describe('燃えかす', () => {
     expect(r.left, '遠くへ いって もどっても 燃えかすは のこる').toBe(n0);
     expect(errs).toEqual([]);
   });
+
+  test('攻撃の 途中で 休んでも（tired）、燃えかすは 消えない（約 5 分 のこる 決まり）', async ({ page }) => {
+    const errs = await openGasha(page);
+    await setupBoss(page);
+    const list = await erupt(page);
+    const n0 = list.length;
+    expect(n0).toBeGreaterThan(20);
+    const r = await page.evaluate(() => {
+      const gt = (window as any).__gt, g = gt.big();
+      g.attack('slam2');
+      gt.run(60, () => { gt.put(64.5, 64.5, 30); gt.heal(); });
+      const mode = g.attackInfo().mode as string;
+      g.tired(600);
+      gt.run(30, () => { gt.put(64.5, 64.5, 30); gt.heal(); });
+      return { mode, left: g.attackInfo().eruption.embers as number };
+    });
+    expect(r.mode, '攻撃の 途中だった').toBe('attack');
+    expect(r.left, '休んでも 燃えかすは のこる').toBe(n0);
+    expect(errs).toEqual([]);
+  });
 });

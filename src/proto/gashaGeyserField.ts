@@ -3,7 +3,8 @@
  *
  * ・間欠泉は ワールドの ブロック `geyser_dirt`（かんけつせんの つち）の 上に たつ。ブロックを 置けば どこでも 柱が たち、
  *   掘れば 柱は 消えて ブロックは 持ち物に 入る。たて・よこに くっついた ブロックが cells × cells の 四角（高さも そろう）なら 1 本の 柱、
- *   そうでなければ 1 マスずつ 柱。ブロックは 保存の しくみに のる（ワールドの ブロックだから）。柱の 場所は 読みこんだ 列を 数えて きめる。
+ *   そうでなければ 1 マスずつ 柱。プレイヤーが 置いた つちは ふつうの ブロックとして 保存される。ボスが 作った つちは、ボスを 保存しない ので
+ *   保存の ときだけ 元の ブロックで 書く（madeCells()。遊んでいる 世界は かえない）。柱の 場所は 読みこんだ 列を 数えて きめる。
  * ・がしゃどくろを 置いた とき、肩の 下の 2 本を すぐ かえはじめる（ひびが 入って crackSec で 間欠泉の つちに なる）。
  * ・あとは 一定の 間かくで、体の 中心から 半径 spawn.radius の 地表の くさ・つちを ランダム（シード付き）に cells × cells で 1 か所ずつ かえる。
  *   数えるのは 半径の 中の 間欠泉の つち（4 つで 1 本）＋ かわる 途中。maxGroups に なったら 作らない。掘って へれば また 作る。
@@ -490,6 +491,16 @@ export class GeyserField {
       else if (this.assistedT > R.assistMaxSec) this.assisted = false;
     }
     this.setNoFall(R.noFallInColumn && (inside || this.assisted));
+  }
+
+  /**
+   * 保存だけ 元の ブロックで 書く マス（自分が 作って、まだ geyser_dirt の ままの もの）。ボスは 保存しないので、
+   * 持ち主の いない つちを 保存に のこさない ため。プレイヤーが 置いた つち・掘られた マスは 入らない
+   */
+  madeCells(): Array<{ x: number; y: number; z: number; live: string; save: string }> {
+    const out: Array<{ x: number; y: number; z: number; live: string; save: string }> = [];
+    for (const m of this.made.values()) if (m.prev !== BLOCK && this.d.blockAt(m.x, m.y, m.z) === BLOCK) out.push({ x: m.x, y: m.y, z: m.z, live: BLOCK, save: m.prev });
+    return out;
   }
 
   /** がしゃどくろを 片づけた: 間欠泉を ぜんぶ 止めて 見た目を 消す（ワールドの つちは 動かない ただの ブロックとして のこる）。次の place() まで 何もしない */

@@ -13,6 +13,7 @@
  */
 import { BoxGeometry, Mesh, MeshBasicMaterial, type Scene } from 'three';
 import type { BladeShapeInfo, Vec3, YokaiRayHit } from '../contracts';
+import { GHOST_BIG_BASE, GHOST_ID_SPAN } from '../combat/ghostIds';
 import type { BigModel } from './gashaBig';
 import { TUNE as T } from './gashaBigTuning';
 import { HpBar } from './gashaBigHpBar';
@@ -59,7 +60,7 @@ export function damageOf(part: string, amount: number): number {
 }
 
 /** 仮の 妖怪 id の はじまり（本物の 妖怪の id と ぶつからない 大きい 数） */
-export const BIG_ID_BASE = 900_000_000;
+export const BIG_ID_BASE = GHOST_BIG_BASE;
 
 // ---------------------------------------------------------------- 形の 計算（箱 ＝ 回転した はこ）
 type P3 = [number, number, number];
@@ -397,7 +398,7 @@ export class BigHit {
       return bi >= 0 ? { id: BIG_ID_BASE + bi, kind: 'nurikabe', distance: bt } : real;
     };
     ym.damage = (id: number, amount: number, from: Vec3, knock?: unknown): number | void => {
-      if (id >= BIG_ID_BASE && id < BIG_ID_BASE + 1_000_000) {
+      if (id >= BIG_ID_BASE && id < BIG_ID_BASE + GHOST_ID_SPAN) {
         const i = id - BIG_ID_BASE;
         return this.boxes[i] ? this.strike(i, amount, from, 'ray') : 0;
       }

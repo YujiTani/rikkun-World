@@ -1,5 +1,5 @@
 import type { ChunkColumn, ChunkStore } from '../contracts';
-import { CHUNK_FORMAT_VERSION, decodeSections, deflateRaw, encodeSections, inflateRaw, padSections, persistIds } from './chunkCodec';
+import { CHUNK_FORMAT_VERSION, decodeSections, deflateRaw, encodeSections, inflateRaw, padSections } from './chunkCodec';
 
 /** 1 列の保存（IndexedDB の `chunks` の値）。data = encodeSections を deflate-raw したもの */
 export interface StoredChunk {
@@ -214,7 +214,7 @@ export function createChunkStore(backend: PersistBackend, saveId: string, nSecti
       }
     },
     async save(column) {
-      const rec = await packColumn(column.cx, column.cz, encodeSections(column.sections, persistIds()), gen, column.sections.length);
+      const rec = await packColumn(column.cx, column.cz, encodeSections(column.sections), gen, column.sections.length);
       await backend.write(saveId, [rec], null);
     },
   };

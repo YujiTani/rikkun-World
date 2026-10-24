@@ -19,7 +19,8 @@ import { isBladeItem } from '../tools/blade';
 import { copyStack } from '../tools/durability';
 import { DropField, type DropView } from '../drops';
 import { createRng, type Rng } from '../world/gen/random';
-import { GHOST_ID_MIN, centerOfYokai, inPunchFan, wallBetween, type AttackDecision } from './attackFacing';
+import { centerOfYokai, inPunchFan, wallBetween, type AttackDecision } from './attackFacing';
+import { GHOST_ID_MIN } from './ghostIds';
 import {
   BODY_HALF,
   BODY_HEIGHT,

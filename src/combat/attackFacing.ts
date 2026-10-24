@@ -90,12 +90,6 @@ export function keyDirDeg(yawDeg: number, keys: AttackKeys): number | null {
   return bearingDeg(wx, wz);
 }
 
-/**
- * 妖怪の 一覧に 出ない「仮の id」（がしゃどくろの 体の 箱 900_000_000〜・燃えかす 910_000_000〜）の 下限。
- * 線の 当たり（raycast）には 出て、ダメージは 割りこみで 受ける。向き決め・パンチは これらを ねらった 妖怪として あつかう
- */
-export const GHOST_ID_MIN = 900_000_000;
-
 /** 妖怪の 当たりの箱（円柱で 近づける） */
 export function boxOf(y: YokaiInfo): { r: number; h: number } {
   const ai = KIND_AI[y.kind];

@@ -1,7 +1,8 @@
 import type { BlockId, ChunkColumn, Inventory, PlayerState, ScreenSettings, SpawnPoint, Vec3 } from '../contracts';
 import { packColumn, SAVE_ID, type PersistBackend, type StoredChunk, type StoredMeta } from './backend';
 import { BLOCK_TYPES } from '../world/blocks/blockTypes';
-import { encodeSections, persistIds } from './chunkCodec';
+import { encodeSections } from './chunkCodec';
+import { columnForSave, pendingCellsForSave, type SaveBlockOverride } from './saveOverride';
 import { colKey } from '../world/stream/ring';
 import { bodyInWall } from '../world/wall';
 import type { StrengthLevel } from '../yokai/stats';
@@ -103,6 +104,8 @@ export interface SaveDeps {
   animals?: SaveExtra;
   /** WEAPON-7: 手に 入れた ことの ある レジェンダリー（`legendGot`）。前の 保存に ない ときは 空 */
   legend?: SaveExtra;
+  /** #293: 保存にだけ 別の ブロックで 書く マス（がしゃどくろの 間欠泉が 作った つちを 元の ブロックで 書く。遊んでいる 世界は かえない。saveOverride.ts） */
+  saveOverrides?: () => readonly SaveBlockOverride[];
   /** #293: がしゃどくろを たおした 回数（{ v: 2, kills }。ボス本体は 保存しない。前の 版の 宝箱の 一覧は 読みこんでも むし）。前の 保存に ない ときは null */
   gasha?: SaveExtra;
   /** M7: 作物・農業の乱数・「置きものを置いた」印。無い保存は 読んだあと 置きものを置く */
@@ -434,7 +437,7 @@ export class SaveManager {
       const metaNow = this.makeMeta(settle).meta;
       const c = this.d.clock;
       const meta: StoredMeta = { ...metaNow, ...(c ? { time: { day: c.day(), dayTick: c.dayTick() } } : {}), tick: this.d.tick() };
-      store.setItem(PENDING_KEY, JSON.stringify({ saveId: this.saveId, ids: BLOCK_TYPES.map((t) => t.id), cells: world.changeLogCells(), meta }));
+      store.setItem(PENDING_KEY, JSON.stringify({ saveId: this.saveId, ids: BLOCK_TYPES.map((t) => t.id), cells: pendingCellsForSave(world.changeLogCells(), this.d.saveOverrides?.() ?? []), meta }));
     } catch {
       /* 容量いっぱいなど: あきらめる */
     }
@@ -551,7 +554,8 @@ export class SaveManager {
       taken = w.takeSaveDirty();
       const takenKeys = taken.map((col) => colKey(col.cx, col.cz));
       for (const k of takenKeys) this.writingKeys.add(k);
-      const raws = taken.map((col) => ({ cx: col.cx, cz: col.cz, h: col.sections.length, raw: encodeSections(col.sections, persistIds()) }));
+      const ov = this.d.saveOverrides?.() ?? [];
+      const raws = taken.map((col) => ({ cx: col.cx, cz: col.cz, h: col.sections.length, raw: encodeSections(columnForSave(col, ov).sections) }));
       const logEnd = w.changeLogEnd();
       this.lastKey = key;
       this.lastTimeKey = timeKey;

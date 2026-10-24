@@ -93,3 +93,26 @@ test('保存に のこらない: 間欠泉の 土が ある ときに 保存し�
   expect(after, '保存した ワールドに 間欠泉の 土が のこらない').toBe(0);
   expect(errs).toEqual([]);
 });
+
+test('保存に のこる: プレイヤーが 置いた 間欠泉の 土は、ボスが 作った 土と いっしょに あっても 保存・開きなおしで そのまま のこる', async ({ page }) => {
+  const errs = await openGasha(page);
+  await setupBoss(page);
+  const placed = await page.evaluate(() => {
+    const gt = (window as any).__gt, h = gt.h, g = gt.big();
+    const y = gt.groundTop(100, 100);
+    h.world.setBlock(100, y, 100, 'geyser_dirt');
+    for (const [x, z] of [[84, 10], [90, 20], [40, 12], [50, 30]]) g.spawnGeyser(x, z, 0);
+    gt.run(300);
+    return { y, total: (h.world.countBlocks().geyser_dirt ?? 0) as number };
+  });
+  expect(placed.total, 'ボスが 作った 土も ある').toBeGreaterThan(1);
+  await page.evaluate(() => (window as any).__rikkun.save.now());
+  await reopenGasha(page);
+  const after = await page.evaluate((y) => {
+    const h = (window as any).__rikkun;
+    return { count: (h.world.countBlocks().geyser_dirt ?? 0) as number, mine: h.world.getBlock(100, y, 100) as string };
+  }, placed.y);
+  expect(after.mine, '置いた 土は のこる').toBe('geyser_dirt');
+  expect(after.count, 'のこるのは 置いた 1 つだけ（ボスが 作った 土は 元の ブロック）').toBe(1);
+  expect(errs).toEqual([]);
+});
