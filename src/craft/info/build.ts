@@ -8,7 +8,7 @@ import { itemClassOf } from '../../tools/durability';
 import { YOKAI_DROPS } from '../../yokai/ai/config';
 import { CRAFT_DEFAULTS } from '../config';
 import { ALL_RECIPES } from '../recipes';
-import { ARMOR_KIND, CLASS_TEXT, EGG_SOURCE, ITEM_INFO, KIN_TAMAGO_SOURCE, MOMO_NAMA_SOURCE, MUSHI_SOURCE, ORB_SOURCE, STAT_MAX, YOKAI_NAME, type ButtonKey } from './table';
+import { ARMOR_KIND, CLASS_TEXT, EGG_SOURCE, ITEM_INFO, HARAPAN_SOURCE, KIN_TAMAGO_SOURCE, MOMO_NAMA_SOURCE, MUSHI_SOURCE, ORB_SOURCE, STAT_MAX, YOKAI_NAME, type ButtonKey } from './table';
 
 export interface StatRow {
   key: string;
@@ -101,6 +101,12 @@ export function defaultInfoNumbers(): InfoNumbers {
 
 const PICKAXES = ['wood_pickaxe', 'stone_pickaxe', 'iron_pickaxe'];
 
+/** ゆみ の や の つよさ の はば（段 1〜3。ゆみ 1〜3・きんの ゆみ 2〜5。GOLD-1 §4.3） */
+function bowRange(item: ItemId): string {
+  const t = W2_SETTING_DEFAULTS.bowDamageByItem[item] ?? W2_SETTING_DEFAULTS.bowDamage;
+  return `${t[0]}〜${t[2]}`;
+}
+
 /** 「なにに つかう」の 1 行目（ツールチップの `desc`）。表だけから作る */
 export function descOf(item: ItemId): string {
   return ITEM_INFO[item]?.use ?? '';
@@ -127,6 +133,7 @@ export function createItemInfo(d: InfoDeps): ItemInfoSource {
     if (item === 'egg') return EGG_SOURCE;
     if (item === 'kin_tamago') return KIN_TAMAGO_SOURCE;
     if (item === 'mushi') return MUSHI_SOURCE;
+    if (item === 'harapan_mimizu') return HARAPAN_SOURCE;
     if (item === 'momo_nama') return MOMO_NAMA_SOURCE;
     const parts: string[] = [];
     const row = ITEM_INFO[item];
@@ -188,6 +195,10 @@ export function createItemInfo(d: InfoDeps): ItemInfoSource {
             label: 'てつ を ほれる',
             value: (n.toolLevel[item] ?? n.handLevel) >= n.harvestLevel('iron_ore') ? '○' : '×',
           },
+          // GOLD-1: きん の つるはし・おの は たたく つよさ も ある（てつ の 道具 は すで と 同じ ので 出さない）
+          ...(n.weaponDamage[item] !== undefined
+            ? [{ key: 'damage', label: 'たたく つよさ', value: n.weaponDamage[item]!, max: STAT_MAX.damage, compare: `すで は ${numText(n.punchDamage)}` }]
+            : []),
           ...durRow(item, n),
         ];
       case 'blade': {
@@ -207,7 +218,7 @@ export function createItemInfo(d: InfoDeps): ItemInfoSource {
       }
       case 'bow':
         return [
-          { key: 'damage', label: 'や の つよさ', value: '1〜3' },
+          { key: 'damage', label: 'や の つよさ', value: bowRange(item) },
           ...durRow(item, n),
           { key: 'draw', label: 'ながく ひくほど', value: 'とおくへ とぶ' },
         ];

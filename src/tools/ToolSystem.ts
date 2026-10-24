@@ -50,7 +50,7 @@ export interface ToolDeps {
   onBowShot?: () => void;
 }
 
-const BLADES: ReadonlySet<string> = new Set(['bokuto', 'katana', 'naginata', 'crystal_katana', 'raijin_ken', 'fujin_ken', 'niji']);
+const BLADES: ReadonlySet<string> = new Set(['bokuto', 'katana', 'naginata', 'crystal_katana', 'raijin_ken', 'fujin_ken', 'niji', 'kin_katana']);
 
 /** 手に持っているものの働き（M4 §2.4〜§2.6・§4.3）。`DigSystem` が毎ステップ step() を呼ぶ */
 export class ToolSystemImpl implements ToolSystem {
@@ -186,8 +186,9 @@ export class ToolSystemImpl implements ToolSystem {
    * 1 ステップ進める。primary: 押している（ゆみを ひく）。eye・dir: 目の位置と向き（長さ 1）
    * ゆみ以外を持っているあいだは引かない。飛んでいる や は持ち物に関係なく進める
    */
-  step(primary: boolean, eye: Vec3, dir: Vec3): void {
+  step(primary: boolean, eye: Vec3, dir: Vec3, active = true): void {
     const c = this.bowCtx;
+    c.active = active; // HURT-1: false（怯み・やられ）は ひくのを やめる（矢は 出さない）
     c.item = this.current().kind === 'bow' ? (this.d.inventory.held()?.item ?? null) : null;
     c.pressed = primary && !this.prevPrimary;
     c.held = primary;
@@ -256,10 +257,12 @@ const NO_YOKAI = {
 
 function kindOf(item: ItemId | null, c: ToolConfig): ToolKind {
   if (item === null) return 'hand';
-  if (item === 'yumi') return 'bow';
-  if (BLADES.has(item) || c.weaponDamage[item] !== undefined) return 'blade';
+  if (item === 'yumi' || item === 'kin_yumi') return 'bow';
+  if (BLADES.has(item)) return 'blade';
   // おの・つるはし は 「ほる道具」。くわ は toolPower を 持つが たがやす 道具なので 今までどおり 'other'
+  // （GOLD-1: きんの つるはし・おの は たたく つよさ 5 を もつ ので、weaponDamage より 先 に 見る）
   if (item.endsWith('_pickaxe') || item.endsWith('_axe')) return 'pickaxe';
+  if (c.weaponDamage[item] !== undefined) return 'blade';
   if (c.toolPower[item] !== undefined && item !== 'kuwa') return 'pickaxe';
   return 'other';
 }

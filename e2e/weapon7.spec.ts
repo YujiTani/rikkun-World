@@ -22,6 +22,7 @@ import {
   spawnAt,
   spawnNushiAhead,
   stepN,
+  tapUntil,
   types,
 } from './helpers/legend';
 import { toggleInventory } from './helpers/rarity';
@@ -76,8 +77,9 @@ test.describe('WEAPON-7 PR1 しくみ', () => {
     await spawnNushiAhead(page, 1.5, 1);
     await settle(page, 5);
     await markLegend(page);
-    const tap = await stepN(page, 20, `(h, i) => { if (i === 0) h.input.press('primary'); if (i === 1) h.input.release('primary'); }`);
-    expect(tap.length).toBe(20);
+    // HURT-1: 怯みで わざが とぎれるので、怯みが おわるのを 待って たたき直す
+    const tap = await tapUntil(page, `(h) => h.combat.bags().length > 0`);
+    expect(tap.found, 'ヌシが たおれて 袋が 出る').toBe(true);
     const items = (await bagsOf(page)).flatMap((b) => b.slots.map((s) => s.item));
     expect(items).toContain('crystal_katana');
   });
@@ -468,7 +470,7 @@ test.describe('WEAPON-7 PR1 手に 入れた（AC7）', () => {
     await pinNushiTable(page); // PR2 で 表が 2 本に なった ので 雷神剣に 固定
     await spawnNushiAhead(page, 1.5, 1);
     await page.evaluate(() => (window.__rikkun as any).step(190));
-    await runTech(page, 12);
+    await tapUntil(page, `(h) => h.combat.bags().some((b) => b.slots.some((s) => s.item === 'raijin_ken'))`); // HURT-1: 怯みで とぎれたら 待って たたき直す
     expect((await bagsOf(page)).some((b) => b.slots.some((s) => s.item === RAIJIN)), '袋が 出た').toBe(true);
     expect((await legendState(page)).got, '袋が 地面に ある 間は 手に 入れて いない').toEqual([]);
     // 手に 入れる
@@ -656,22 +658,18 @@ test.describe('WEAPON-7 PR1 テロップ', () => {
 
   /** たたいて ヌシを たおす。袋が 出た ステップ（drop）で とまり、その ステップの 帯・音を 返す */
   async function killAndSeeDrop(page: Page) {
-    return page.evaluate(() => {
+    // HURT-1: 怯みで わざが とぎれるので、怯みが おわるのを 待って たたき直す（tapUntil）
+    await page.evaluate(() => {
       const h = window.__rikkun as any;
       h.combat.sounds();
       h.craft.sounds();
       h.yokai.events();
-      h.input.press('primary');
-      for (let i = 0; i < 40; i++) {
-        h.step(1);
-        if (i === 0) h.input.release('primary');
-        const ev = h.yokai.events() as any[];
-        if (ev.some((e) => e.type === 'drop' && e.item === 'raijin_ken')) {
-          return { step: i, band: h.ui.topBand(), sounds: [...h.combat.sounds(), ...h.craft.sounds()] as string[] };
-        }
-      }
-      return null;
     });
+    const r = await tapUntil(
+      page,
+      `(h) => { const ev = h.yokai.events(); if (ev.some((e) => e.type === 'drop' && e.item === 'raijin_ken')) return { band: h.ui.topBand(), sounds: [...h.combat.sounds(), ...h.craft.sounds()] }; return null; }`,
+    );
+    return r.found ? { step: r.step, band: r.value.band, sounds: r.value.sounds as string[] } : null;
   }
 
   test('AC12c: 袋が 出た ステップに telop・item = 雷神剣・300 ステップで きえる・legendDrop の 音', async ({ page }) => {
@@ -688,6 +686,8 @@ test.describe('WEAPON-7 PR1 テロップ', () => {
     const bag = (await bagsOf(page)).find((b) => b.slots.some((s) => s.item === RAIJIN));
     expect(bag?.rarity).toBe('legendary');
     // ゲームは 止まらない・ロックも そのまま
+    // #276 たおした ときの ヒットストップ（大）の 止まりは 数えない: 止まりが おわるまで 進めてから 100 ステップを はかる
+    await page.evaluate(() => { const h = window.__rikkun as any; while (h.impact && h.impact.stopLeft() > 0) h.step(1); });
     const t0 = await page.evaluate(() => (window.__rikkun as any).tick() as number);
     await page.evaluate(() => (window.__rikkun as any).step(100));
     expect((await topBand(page)).kind).toBe('telop');
@@ -772,16 +772,8 @@ test.describe('WEAPON-7 PR1 通し', () => {
       h.achievements.reset();
       h.step(190);
     });
-    const r = await page.evaluate(() => {
-      const h = window.__rikkun as any;
-      h.input.press('primary');
-      for (let i = 0; i < 40; i++) {
-        h.step(1);
-        if (i === 0) h.input.release('primary');
-        if (h.combat.bags().some((b: any) => b.slots.some((s: any) => s.item === 'raijin_ken'))) return { found: true, step: i };
-      }
-      return { found: false, step: -1 };
-    });
+    // HURT-1: 怯みで わざが とぎれるので、怯みが おわるのを 待って たたき直す
+    const r = await tapUntil(page, `(h) => h.combat.bags().some((b) => b.slots.some((s) => s.item === 'raijin_ken'))`);
     expect(r.found, 'ヌシから 雷神剣の 袋').toBe(true);
     const band = await topBand(page);
     expect(band.kind).toBe('telop');

@@ -14,6 +14,7 @@ import type {
   Vec3,
   VoxelWorld,
   YokaiEvent,
+  YokaiHurtBy,
   YokaiInfo,
   YokaiKnock,
   YokaiKind,
@@ -36,6 +37,8 @@ import { YOKAI_STATS, yokaiStrength, type StrengthLevel } from '../stats';
 import { ANNOUNCE_TICKS, TITLE_RULES, isBigTitle, limitTitle, rollTitle, titleAnnounceText, titleLabel } from '../title';
 import { fallDamage } from '../../combat/config';
 import { createRng, type Rng } from '../../world/gen/random';
+import { COUNTRY_TABLE } from '../../world/gen/countryTable';
+import { YOKAI_ORDER, effectiveRow, pickYokaiKind, weightOf, type YokaiRow } from '../countryPick';
 import { pickNushiDrop, rollPower } from '../../legend/defs';
 import { applyDollBrightness } from './brightness';
 import { AI_CONST, KIND_AI, YOKAI_DROPS, createYokaiConfig, type KindAi, type YokaiConfig } from './config';
@@ -81,6 +84,8 @@ export interface YokaiManagerOptions {
   /** 出来事に付ける「ゲームの何ステップ目か」。なければ update を呼んだ回数 */
   tick?: () => number;
   seed?: number;
+  /** GOLD-1 §4.7: 妖怪 の 足もと の 高さ → はらぱんみみず が おちる か（`createHarapanRoll().yokai`） */
+  harapan?: (y: number) => boolean;
   /** START-1: つよさ（その 世界の 妖怪の 体力・攻撃力に かける。なければ ふつう） */
   strength?: StrengthLevel;
   config?: YokaiConfig;
@@ -114,6 +119,10 @@ export interface YokaiManagerOptions {
   dome?: () => { x: number; y: number; z: number; r: number } | null;
   /** WEAPON-9: 弾が ドームで 消えた（弾の id） */
   onDomeErase?: (projectileId: number) => void;
+  /** COUNTRY-1 §3.3: (x, z) の 国の kind を 聞く（つなぎ込みは countryAt を わたす。なければ いつも はらっぱ） */
+  countryOf?: (x: number, z: number) => string;
+  /** COUNTRY-1 §3.3: 国の表（kind と 妖怪の重み）。なければ 12 国の表 */
+  countryTable?: readonly { kind: string; yokai: YokaiRow }[];
   /** WEAPON-5: よろけ・2 倍・はね返しが当たった 出来事を パリィの 出来事の 列へ */
   onParryEvent?: (e: { type: 'stagger' | 'staggerDouble' | 'reflectHit'; yokaiId: number; by?: StaggerBy; damage?: number }) => void;
 }
@@ -303,6 +312,8 @@ export class YokaiManager implements YokaiWorld {
   private lastBrightness = 1;
   private screenEvents: YokaiEvent[] = [];
   private hookEvents: HookYokaiEvent[] = [];
+  /** LIVE-4: マッチョ に 知らせる「きっかけ」（りっくん が たたいた／たたかれた 妖怪 の id）。`takeCues()` で 取り出す */
+  private readonly cues: { hit: number[]; hurt: number[] } = { hit: [], hurt: [] };
 
   // 今のステップのプレイヤー
   private px = 0;
@@ -463,12 +474,12 @@ export class YokaiManager implements YokaiWorld {
   }
 
   /** knock（WEAPON-2）: 押す 距離（水平。省くと 1.0）・上への 初速（省くと 0）。ぬりかべ は 押されない */
-  damage(id: number, amount: number, from: Vec3, knock?: YokaiKnock): number {
-    return this.hurtYokai(id, amount, from, knock);
+  damage(id: number, amount: number, from: Vec3, knock?: YokaiKnock, by: YokaiHurtBy = 'player'): number {
+    return this.hurtYokai(id, amount, from, knock, by);
   }
 
   /** ダメージ。よろけ中の 最初の 1 回は 2 倍（WEAPON-5）。実際に 与えた 数を 返す（当たらなければ 0） */
-  private hurtYokai(id: number, amount: number, from: Vec3, knock?: YokaiKnock): number {
+  private hurtYokai(id: number, amount: number, from: Vec3, knock?: YokaiKnock, by: YokaiHurtBy | 'reflect' = 'player'): number {
     const e = this.ents.find((q) => q.id === id);
     if (!e || e.state === 'dying' || e.state === 'leaving' || e.remove) return 0;
     const wasDouble = this.stagBook.hasDouble(id);
@@ -481,7 +492,9 @@ export class YokaiManager implements YokaiWorld {
       return amount;
     }
     e.model.hit();
-    this.emit({ type: 'hurt', tick: this.tick(), id: e.id, kind: e.kind, position: { x: e.x, y: e.y, z: e.z } });
+    this.emit({ type: 'hurt', tick: this.tick(), id: e.id, kind: e.kind, position: { x: e.x, y: e.y, z: e.z }, by: by === 'macho' ? 'macho' : 'player' });
+    // LIVE-4: りっくん が たたいた（ぶき・や・わざ）。パリィ で はね返した 火の玉 と マッチョ の パンチ は きっかけ に しない
+    if (by === 'player') this.cues.hit.push(e.id);
     if (e.kind !== 'nurikabe' || knock?.heavy) {
       let dx = e.x - from.x;
       let dz = e.z - from.z;
@@ -535,6 +548,33 @@ export class YokaiManager implements YokaiWorld {
     const out = this.screenEvents;
     this.screenEvents = [];
     return out;
+  }
+
+  // ---------------------------------------------------------------- LIVE-4: マッチョ と いっしょ に たたかう ための 口
+
+  /** この ステップ の「きっかけ」を 取り出す（呼ぶと 空）。数 は かえない。`hit` = りっくん が 体力 を へらした、`hurt` = りっくん の 体力 を へらした（火の玉 は うった 妖怪） */
+  takeCues(): { hit: number[]; hurt: number[] } | null {
+    const c = this.cues;
+    if (c.hit.length === 0 && c.hurt.length === 0) return null;
+    const out = { hit: c.hit.slice(), hurt: c.hurt.slice() };
+    c.hit.length = 0;
+    c.hurt.length = 0;
+    return out;
+  }
+
+  /** マッチョ が たたく 相手 の 体（水平 の 半径・高さ・たおれた か 帰る か）。いなければ null */
+  fightBody(id: number): { x: number; y: number; z: number; radius: number; height: number; state: 'alive' | 'dying' | 'leaving'; sliding: boolean } | null {
+    const e = this.ents.find((q) => q.id === id);
+    if (!e || e.remove) return null;
+    const state = e.state === 'dying' ? 'dying' : e.state === 'leaving' ? 'leaving' : 'alive';
+    return { x: e.x, y: e.y, z: e.z, radius: e.dims.radius, height: e.dims.height, state, sliding: e.knockLeft > 0 };
+  }
+
+  /** ねらい の しるし（顔）を 置く 場所: 体力 の バー の すぐ 上。二つ名 の 名前 が 出て いる ときは `titled` */
+  markAnchor(id: number): { x: number; y: number; z: number; titled: boolean } | null {
+    const e = this.ents.find((q) => q.id === id);
+    if (!e || e.remove || e.state === 'dying' || e.state === 'leaving') return null;
+    return { x: e.x, y: e.y + e.dims.marksHeight + HP_BAR.barHeight * 0.75 + 0.1, z: e.z, titled: this.nameVisible(e) };
   }
 
   // ---------------------------------------------------------------- テストの窓口用
@@ -756,31 +796,31 @@ export class YokaiManager implements YokaiWorld {
     this.trySpawn();
   }
 
-  private pickKind(): YokaiKind | null {
-    const nuri = this.ents.filter((e) => e.kind === 'nurikabe').length;
-    const kinds: YokaiKind[] = ['karakasa', 'chochin', 'rokurokubi', 'nurikabe'];
-    let total = 0;
-    const w: number[] = [];
-    for (const k of kinds) {
-      let v = this.config.yokaiWeights[k] ?? 0;
-      if (k === 'nurikabe' && nuri >= this.config.nurikabeMax) v = 0;
-      w.push(Math.max(0, v));
-      total += Math.max(0, v);
-    }
-    if (total <= 0) return null;
-    let r = this.rng() * total;
-    for (let i = 0; i < kinds.length; i++) {
-      if (r < w[i]!) return kinds[i]!;
-      r -= w[i]!;
-    }
-    return kinds[kinds.length - 1]!;
+  /** COUNTRY-1: その場所の 国の行（行 × 倍率の 合計が 0 なら ものさしの行 = はらっぱ） */
+  private rowAt(x: number, z: number): { country: string; row: YokaiRow } {
+    const table = this.opts.countryTable ?? COUNTRY_TABLE;
+    const country = this.opts.countryOf ? this.opts.countryOf(x, z) : 'harappa';
+    const base = table.find((r) => r.kind === 'harappa')?.yokai ?? {};
+    const row = table.find((r) => r.kind === country)?.yokai ?? {};
+    return { country, row: effectiveRow(row, this.config.yokaiWeights, base) };
+  }
+
+  /** テストの窓口 `yokai.spawnWeights(x, z)`: その場所で 使う 行 × 全体の倍率（ぬりかべ の 同時の数は 入れない） */
+  spawnWeights(x: number, z: number): { country: string; weights: Record<string, number> } {
+    const { country, row } = this.rowAt(x, z);
+    const weights: Record<string, number> = {};
+    for (const k of YOKAI_ORDER) weights[k] = weightOf(row, this.config.yokaiWeights, k);
+    return { country, weights };
+  }
+
+  private countKind(kind: YokaiKind): number {
+    let n = 0;
+    for (const e of this.ents) if (e.kind === kind) n++;
+    return n;
   }
 
   private trySpawn(): void {
     if (this.ents.length >= this.config.yokaiMax) return;
-    const kind = this.pickKind();
-    if (!kind) return;
-    const ai = KIND_AI[kind];
     const night = this.time.phase() === 'night';
     const minD = Math.max(this.config.yokaiSpawnMinDist, this.config.yokaiSpawnNearExclude);
     const maxD = Math.max(minD, this.config.yokaiSpawnMaxDist);
@@ -812,6 +852,11 @@ export class YokaiManager implements YokaiWorld {
       // M5: みず の列（うみ・かわ・いずみ・いけ）には出ない
       if (waterColumn || floors.length === 0) continue;
       const top = floors[Math.floor(this.rng() * floors.length)]!;
+      // COUNTRY-1 §3.3: 場所 → 国 → 種類。種類は その場所の 国の行で えらぶ（だめなら この ためしは しっぱい）
+      const nurikabeFull = this.countKind('nurikabe') >= this.config.nurikabeMax;
+      const kind = pickYokaiKind(this.rowAt(x, z).row, this.config.yokaiWeights, nurikabeFull, this.rng());
+      if (!kind) continue;
+      const ai = KIND_AI[kind];
       const T = groundSupport(this.world, x, z, top, ai);
       if (Number.isNaN(T)) continue;
       // 光の少ない場所だけ: 屋根の下、またはよる
@@ -887,6 +932,12 @@ export class YokaiManager implements YokaiWorld {
         total += added;
         this.emit({ type: 'drop', tick: this.tick(), id: e.id, kind: e.kind, item: row.item, count, added }, true);
       }
+    }
+    // GOLD-1 §4.7: はらぱんみみず（地下 の 妖怪 だけ。べつ の 乱数 の 流れ）
+    if (byPlayer && this.opts.harapan?.(e.y)) {
+      const at = { x: e.x, y: e.y, z: e.z };
+      const left = this.drops ? 1 - this.drops.scatter(at, [{ item: 'harapan_mimizu', count: 1 }], { kind: 'yokai' }) : this.inventory.add('harapan_mimizu', 1);
+      this.emit({ type: 'drop', tick: this.tick(), id: e.id, kind: e.kind, item: 'harapan_mimizu', count: 1, added: 1 - left }, true);
     }
     if (byPlayer && e.title === 'nushi') this.dropLegendary(e);
     this.emit({
@@ -1717,7 +1768,10 @@ export class YokaiManager implements YokaiWorld {
       if (e.state === 'dying' || e.state === 'leaving' || e.state === 'appear' || e.state === 'attack' || e.stag) continue; // 攻撃中は攻撃のダメージだけ。よろけ中は 体当たりしない
       for (const b of this.boxesOf(e, this.boxList)) {
         if (aabbOverlap(obbBounds(b, e.x, e.y, e.z, e.yaw, tmpBox2), pb) && this.localOverlap(e, b)) {
-          if (this.combat.damage(e.kind === 'nurikabe' ? dmg * AI_CONST.nurikabeContactMul : dmg, e.kind, { x: e.x, y: e.y, z: e.z })) return;
+          if (this.combat.damage(e.kind === 'nurikabe' ? dmg * AI_CONST.nurikabeContactMul : dmg, e.kind, { x: e.x, y: e.y, z: e.z })) {
+            this.cues.hurt.push(e.id);
+            return;
+          }
           break;
         }
       }
@@ -1765,7 +1819,7 @@ export class YokaiManager implements YokaiWorld {
     }
     if (e.kind === 'nurikabe') this.crush(e);
     this.emit({ type: 'attackHit', tick: this.tick(), id: e.id, kind: e.kind, hitPlayer: hit, position: wpos });
-    if (hit) this.combat.damage(dmg, e.kind, { x: e.x, y: e.y, z: e.z });
+    if (hit && this.combat.damage(dmg, e.kind, { x: e.x, y: e.y, z: e.z })) this.cues.hurt.push(e.id);
   }
 
   /** パリィに 聞く。パリィの 窓口が なければ null（今のまま） */
@@ -1852,7 +1906,7 @@ export class YokaiManager implements YokaiWorld {
           } else {
             hitPlayer = true;
             end = true;
-            this.combat.damage(v?.result === 'early' ? v.amount : f.damage, kind, { x: p.x, y: p.y, z: p.z }, 'ball');
+            if (this.combat.damage(v?.result === 'early' ? v.amount : f.damage, kind, { x: p.x, y: p.y, z: p.z }, 'ball')) this.cues.hurt.push(f.owner);
           }
         }
       }
@@ -1922,7 +1976,7 @@ export class YokaiManager implements YokaiWorld {
         if (!aabbOverlap(obbBounds(b, e.x, e.y, e.z, e.yaw, tmpBox), fbBox)) continue;
         const p = f.fb.position;
         const amount = f.damage * this.S.reflectFireball.damageMul;
-        const dealt = this.hurtYokai(e.id, amount, { x: p.x, y: p.y, z: p.z });
+        const dealt = this.hurtYokai(e.id, amount, { x: p.x, y: p.y, z: p.z }, undefined, 'reflect');
         this.opts.onParryEvent?.({ type: 'reflectHit', yokaiId: e.id, damage: dealt });
         if ((e.state as YokaiState) !== 'dying') this.applyStagger(e.id, 'reflect');
         return true;

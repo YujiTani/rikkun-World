@@ -11,7 +11,7 @@ export interface YokaiConfig {
   /** 同時の数 */
   yokaiMax: number;
   nurikabeMax: number;
-  /** 出る重み。null か 0 は出さない */
+  /** 全体の 倍率（COUNTRY-1。種類 → 数）。1 = そのまま・2 = どの国でも 2 倍・null か 0 は どの国にも 出さない */
   yokaiWeights: Record<string, number | null>;
   yokaiSpawnMinDist: number;
   yokaiSpawnMaxDist: number;
@@ -68,7 +68,8 @@ export function createYokaiConfig(): YokaiConfig {
     yokaiSpawnInterval: 300,
     yokaiMax: 5,
     nurikabeMax: 1,
-    yokaiWeights: { karakasa: 30, chochin: 25, rokurokubi: 25, nurikabe: 20 },
+    // COUNTRY-1: 全体の 倍率（4 種とも 1）。30・25・25・20 の 数は 国の表の ものさしの行（countryTable.ts）
+    yokaiWeights: { karakasa: 1, chochin: 1, rokurokubi: 1, nurikabe: 1 },
     yokaiSpawnMinDist: 12,
     yokaiSpawnMaxDist: 28,
     yokaiSpawnNearExclude: 8,

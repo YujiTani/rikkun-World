@@ -15,7 +15,9 @@ export interface CombatConfig {
   knockbackUp: number;
   /** 体力（ハート 10 こ = 20） */
   playerMaxHp: number;
-  /** ダメージのあとの むてき */
+  /** ダメージを受けたあとの怯み（歩く・遊びの入力がきかない）。単位はステップ（1/60 秒。24 = 0.4 秒） */
+  hurtFlinchTicks: number;
+  /** ダメージを受けたあとの むてき（怯みをふくむ）。単位はステップ（1/60 秒。90 = 1.5 秒） */
   hurtInvincibleTicks: number;
   /** ダメージから回復が始まるまで待つ */
   regenDelayTicks: number;
@@ -58,7 +60,8 @@ export const COMBAT_DEFAULTS: Readonly<CombatConfig> = {
   knockback: 1.8,
   knockbackUp: 4.5,
   playerMaxHp: 20,
-  hurtInvincibleTicks: 30,
+  hurtFlinchTicks: 24,
+  hurtInvincibleTicks: 90,
   regenDelayTicks: 600,
   regenIntervalTicks: 900,
   regenMaxRatio: 0.5,

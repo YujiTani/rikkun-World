@@ -5,10 +5,13 @@ import type {
   AnimalBreed,
   AnimalDeps,
   AnimalEvent,
+  FightCues,
+  MachoGiveUpReason,
   AnimalHintKind,
   AnimalInfo,
   AnimalSaveV4,
   AnimalSpawnOpts,
+  NatsukiView,
   AnimalStage,
   CoopBreakResult,
   CoopInfo,
@@ -40,6 +43,7 @@ import { rollGold } from './gold';
 import { rollBreed } from './hatch';
 import { aimBox, bodySize } from './size';
 import { parseAnimalSave, type ParsedBird } from './saveV3';
+import { FIGHT, inReach, isUpperPunch, pickFighters, punchDamage, punchPlan, resolveCue } from './fight';
 
 const DT = 1 / 60;
 const TAU = Math.PI * 2;
@@ -107,6 +111,8 @@ const FRIEND_FULL_REPEAT = 600;
 const SPOT_RETRY = 60;
 const BREED_SALT = 0x11fe0004;
 const GOLD_SALT = 0x11fe0005;
+/** GOLD-1 §3.4: 合図 natsukiWait は 600 ステップ に 1 回 まで */
+const NATSUKI_HINT_GAP = 600;
 const BLOCK_NUKUNUKU = 'nukunuku';
 /** LIVE-3 §2.4: ねぐら へ 歩く（この ステップ で 着く）・とびら が おりる 区間・一言 が 出る・とびら の 上下 の ながさ */
 const MEAT_WALK = 60;
@@ -264,10 +270,44 @@ interface Ent {
   glide: { x: number; z: number } | null;
   /** 小屋 の 子 に なって から の ステップ（-1 = なし）。大きな しるし の 段 */
   popAge: number;
+  // ---- GOLD-1（なかま の 大人 だけ 動く）
+  natsuki: number;
+  natsukiBugWait: number;
+  natsukiPetWait: number;
+  natsukiDecayLeft: number;
   // ---- LIVE-3
   /** いただきます の 演出 中（ねらえない・なでる／むし／だっこ できない） */
   meat: boolean;
+  // ---- LIVE-4（いっしょ に たたかう マッチョ）
+  /** なかま に なった 順（小さい ほど 早い）。たたかう 子 を えらぶ もと */
+  joinNo: number;
+  /** ねらって いる 妖怪 の id */
+  target: number | null;
+  /** その ねらい で 当てた パンチ の 数 */
+  hits: number;
+  /** たたかい の 段: はしる・パンチ（きりあげ ふくむ）・おうえん・かちポーズ */
+  fs: FightPhase;
+  /** その 段 の 経過 ステップ（パンチ は 0 が とどいた ステップ） */
+  ft: number;
+  /** いまの パンチ が きりあげ か */
+  upper: boolean;
+  /** いまの パンチ の 当たる コマ と ながさ（パンチ を はじめる とき に 刀 の 突き から 読む） */
+  punchAt: number;
+  punchLen: number;
+  /** ねらい を わすれる まで の のこり ステップ（きっかけ で もどる） */
+  forgetLeft: number;
+  /** 「！」 の のこり ステップ */
+  bangLeft: number;
+  /** かちポーズ の のこり ステップ */
+  flexLeft: number;
+  /** おうえん を はじめた とき の 妖怪 の 位置（そこ から 大きく うごいたら また はしる） */
+  cheerX: number;
+  cheerZ: number;
 }
+
+type FightPhase = 'none' | 'run' | 'punch' | 'cheer' | 'flex';
+const NO_FIGHT: number[] = [];
+const ZERO_KNOCK = { dist: 0, up: 0 } as const;
 
 export interface AnimalManagerOptions {
   world: VoxelWorld | AnimalWorld;
@@ -333,9 +373,17 @@ export class AnimalManager implements AnimalApi {
   private nextId = 1;
   /** なかま に なった 数（止まる 距離 の 順番） */
   private friendSeq = 0;
+  /** なかま に なった 順 の 番号（たたかう 子 を えらぶ） */
+  private joinSeq = 0;
+  /** この ステップ の たたかう 子 の id（`update` の はじめ に きめる） */
+  private fighterIds: number[] = NO_FIGHT;
+  private readonly oneFighter: number[] = [0];
+  private readonly fightCands: { id: number; joinNo: number }[] = [];
   private spawnTimer = 0;
   private hint: AnimalHintKind | null = null;
   private targetId: number | null = null;
+  /** 合図 natsukiWait を 最後 に 出した ステップ（600 に 1 回 まで） */
+  private waitHintAt = -NATSUKI_HINT_GAP;
   /** たまご の くじ（あみ・妖怪 と べつ の 流れ） */
   private readonly eggRng: Rng;
   private readonly net: BugNet;
@@ -404,6 +452,13 @@ export class AnimalManager implements AnimalApi {
     e.bugs = Math.max(0, Math.round(opts.bugs ?? 0));
     e.goldMiss = Math.max(0, Math.round(opts.goldMiss ?? 0));
     e.grow = Math.max(0, Math.round(opts.grow ?? 0));
+    if (e.friend && e.stage === 'adult') {
+      const s = this.settings;
+      e.natsuki = Math.max(0, Math.min(s.natsukiMax, Math.round(opts.natsuki ?? 0)));
+      e.natsukiBugWait = Math.max(0, Math.min(s.natsukiBugWaitTicks, Math.round(opts.natsukiBugWait ?? 0)));
+      e.natsukiPetWait = Math.max(0, Math.min(s.natsukiPetWaitTicks, Math.round(opts.natsukiPetWait ?? 0)));
+      e.natsukiDecayLeft = Math.max(1, Math.min(s.natsukiDecayTicks, Math.round(opts.natsukiDecayLeft ?? s.natsukiDecayTicks)));
+    }
     if (coop) this.makeKid(e, coop);
     this.ents.push(e);
     this.push({ type: 'spawn', id: e.id, x, y, z });
@@ -437,11 +492,19 @@ export class AnimalManager implements AnimalApi {
       goldMiss: e.goldMiss,
       grow: e.grow,
       size: bodySize(e.stage, e.breed),
+      target: e.target,
+      hits: e.hits,
+      natsuki: e.natsuki,
+      natsukiBugWait: e.natsukiBugWait,
+      natsukiPetWait: e.natsukiPetWait,
+      natsukiDecayLeft: e.natsukiDecayLeft,
     }));
   }
 
   clear(): void {
     this.friendSeq = 0;
+    this.joinSeq = 0;
+    this.fighterIds = NO_FIGHT;
     this.ents.length = 0;
     this.targetId = null;
     this.carriedId = null;
@@ -1007,21 +1070,74 @@ export class AnimalManager implements AnimalApi {
     return { id: bestId, distance: bestT };
   }
 
+  /** GOLD-1: なつき度 を もつ 子（なかま の 大人。ふつう・マッチョ どちら も。小屋 の 子 も） */
+  private hasNatsuki(e: Ent): boolean {
+    return e.friend && e.stage === 'adult';
+  }
+
   preview(id: number, held: ItemStack | null): 'feed' | 'animalFull' | 'animalPet' | null {
     const e = this.find(id);
-    if (!e || e.lock > 0 || e.carried || e.meat) return null;
-    if (held && held.item === 'mushi') return e.state === 'sleep' ? 'animalPet' : e.fullLeft > 0 ? 'animalFull' : 'feed';
+    if (!e || e.carried || e.meat) return null;
+    // まち中 の むし は ロック中 でも「まってね」を 返す（feed と おなじ）
+    if (e.lock > 0 && held && held.item === 'harapan_mimizu' && this.hasNatsuki(e) && e.state !== 'sleep') return 'feed';
+    if (e.lock > 0) return held && held.item === 'mushi' && e.state !== 'sleep' && this.hasNatsuki(e) && e.natsukiBugWait > 0 ? 'animalFull' : null;
+    const nat = this.hasNatsuki(e);
+    if (held && held.item === 'mushi') {
+      if (e.state === 'sleep') return 'animalPet';
+      // GOLD-1: なかま の 大人 は むし の まち中 は あげられない（まってね）。おなかいっぱい（600）は まち の ほう が 長い ので 目立たない
+      if (nat && e.natsukiBugWait > 0) return 'animalFull';
+      return e.fullLeft > 0 ? 'animalFull' : 'feed';
+    }
+    // はらぱんみみず: なかま の 大人（ねて いない）に あげる。ほか は なでる の まま（右クリック で 合図 だけ 出す）
+    if (held && held.item === 'harapan_mimizu') return nat && e.state !== 'sleep' ? 'feed' : 'animalPet';
+    if (nat && e.natsukiPetWait > 0 && e.state !== 'sleep') return 'animalFull';
     return 'animalPet';
   }
 
-  feed(id: number, item: ItemId): 'ate' | 'full' | 'pet' | 'friendFull' | 'sleep' | null {
+  /** 合図 natsukiWait は 600 ステップ に 1 回 まで。出来事 natsukiWait と こっち を 見て くび を かしげる は 毎回 */
+  private waitReact(e: Ent, which: 'bug' | 'pet'): void {
+    this.push({ type: 'natsukiWait', id: e.id, which });
+    if (this.tick - this.waitHintAt >= NATSUKI_HINT_GAP) {
+      this.waitHintAt = this.tick;
+      this.hintOut('natsukiWait');
+    }
+    this.setLock(e, 'full', FULL_REACT_TICKS);
+  }
+
+  /** なつき度 を ふやす（上限 natsukiMax）。70 以下 → 71 以上 に なったら 出来事 natsukiGold */
+  private addNatsuki(e: Ent, n: number): void {
+    const s = this.settings;
+    const before = e.natsuki;
+    e.natsuki = Math.max(0, Math.min(s.natsukiMax, before + n));
+    if (before <= s.natsukiGoldMin && e.natsuki > s.natsukiGoldMin) this.push({ type: 'natsukiGold', id: e.id });
+  }
+
+  feed(id: number, item: ItemId): 'ate' | 'full' | 'pet' | 'friendFull' | 'sleep' | 'wait' | 'harapan' | 'harapanNo' | null {
     const e = this.find(id);
-    if (!e || e.lock > 0 || e.carried || e.meat || item !== 'mushi') return null;
+    if (!e || e.carried || e.meat) return null;
+    // まち中 の 合図 は 動きの 最中（ロック中）でも 返す（くび を かしげる は つづけて 出さない）
+    if (e.lock > 0 && item === 'mushi' && e.state !== 'sleep' && this.hasNatsuki(e) && e.natsukiBugWait > 0) {
+      this.push({ type: 'natsukiWait', id: e.id, which: 'bug' });
+      if (this.tick - this.waitHintAt >= NATSUKI_HINT_GAP) {
+        this.waitHintAt = this.tick;
+        this.hintOut('natsukiWait');
+      }
+      return 'wait';
+    }
+    // はらぱんみみず は 前 の 動き の 最中 でも あげられる（なかま の 大人 だけ）
+    if (e.lock > 0 && !(item === 'harapan_mimizu' && this.hasNatsuki(e))) return null;
+    if (item === 'harapan_mimizu') return this.feedHarapan(e);
+    if (item !== 'mushi') return null;
     const s = this.settings;
     // ねて いる 子: たべない（むし は へらない）。あさ に あげよう（§2.7）
     if (e.state === 'sleep') {
       this.hintOut('sleepHint');
       return 'sleep';
+    }
+    // GOLD-1 §4.4: まち中 は あげられない（むし は のこる・くじ も bugs も ふえない）
+    if (this.hasNatsuki(e) && e.natsukiBugWait > 0) {
+      this.waitReact(e, 'bug');
+      return 'wait';
     }
     if (e.fullLeft > 0) {
       this.push({ type: 'full', id });
@@ -1042,6 +1158,10 @@ export class AnimalManager implements AnimalApi {
         e.stuck = 0;
       }
       this.push({ type: 'feed', id, item, hearts: 0, friend: true });
+      if (this.hasNatsuki(e)) {
+        this.addNatsuki(e, s.natsukiBug);
+        e.natsukiBugWait = s.natsukiBugWaitTicks;
+      }
       // ひよこ は たまご を うまない（§2.2）
       const roll = e.stage === 'chick' ? { hit: false, misses: e.eggMiss } : rollPity(this.eggRng, s.animalEggChance, s.animalEggPity, e.eggMiss);
       e.eggMiss = roll.misses;
@@ -1064,6 +1184,52 @@ export class AnimalManager implements AnimalApi {
     return 'ate';
   }
 
+  /** はらぱんみみず（§4.6）: なかま の 大人 に あげる と なかよし 100。ほか は へらさない（合図） */
+  private feedHarapan(e: Ent): 'harapan' | 'harapanNo' {
+    if (e.state === 'sleep') {
+      this.hintOut('sleepHint');
+      return 'harapanNo';
+    }
+    if (!this.hasNatsuki(e)) {
+      // やせい は 今 の「なでる」の 返し（見る・くび を かしげる）。ひよこ は じっと
+      if (!e.friend) {
+        this.push({ type: 'pet', id: e.id, friend: false });
+        this.setLock(e, 'pet', this.settings.animalReactTicks);
+      }
+      this.hintOut('harapanFriend');
+      return 'harapanNo';
+    }
+    if (e.natsuki >= this.settings.natsukiMax) {
+      this.hintOut('harapanFull');
+      this.setLock(e, 'full', FULL_REACT_TICKS);
+      return 'harapanNo';
+    }
+    this.addNatsuki(e, this.settings.natsukiMax);
+    this.push({ type: 'harapanFeed', id: e.id });
+    // お祝い: 金 の たまご を うんだ ときの「2 回 ジャンプ」（LIVE-2 §2.8）を 使い回す
+    this.setLock(e, 'cheer', 40);
+    return 'harapan';
+  }
+
+  /** パネル の 状態（§3.2・§6）。なかま の 大人 だけ shown（だっこ 中 は 出ない） */
+  natsukiView(id: number): NatsukiView | null {
+    const e = this.find(id);
+    if (!e) return null;
+    const s = this.settings;
+    const shown = this.hasNatsuki(e) && !e.carried && e.flight === null;
+    const bw = Math.max(1, s.natsukiBugWaitTicks);
+    const pw = Math.max(1, s.natsukiPetWaitTicks);
+    return {
+      shown,
+      hearts: Math.min(10, Math.floor((e.natsuki * 10) / Math.max(1, s.natsukiMax))),
+      gold: e.natsuki > s.natsukiGoldMin,
+      bugReady: e.natsukiBugWait <= 0,
+      petReady: e.natsukiPetWait <= 0,
+      bugFill: e.natsukiBugWait <= 0 ? 1 : 1 - Math.min(1, e.natsukiBugWait / bw),
+      petFill: e.natsukiPetWait <= 0 ? 1 : 1 - Math.min(1, e.natsukiPetWait / pw),
+    };
+  }
+
   private nextStopOff(): number {
     return (this.friendSeq++ % STOP_KINDS) * STOP_STEP;
   }
@@ -1075,7 +1241,7 @@ export class AnimalManager implements AnimalApi {
     return n;
   }
 
-  pet(id: number): 'wild' | 'friend' | null {
+  pet(id: number): 'wild' | 'friend' | 'wait' | null {
     const e = this.find(id);
     if (!e || e.lock > 0 || e.carried || e.meat) return null;
     if (!e.friend) {
@@ -1083,6 +1249,15 @@ export class AnimalManager implements AnimalApi {
       this.hintOut('feedHint');
       this.setLock(e, 'pet', this.settings.animalReactTicks);
       return 'wild';
+    }
+    if (this.hasNatsuki(e)) {
+      // GOLD-1 §4.4: なでる の まち中 は なでられない（ねて いる 子 も おなじ）
+      if (e.natsukiPetWait > 0) {
+        this.waitReact(e, 'pet');
+        return 'wait';
+      }
+      this.addNatsuki(e, this.settings.natsukiPet);
+      e.natsukiPetWait = this.settings.natsukiPetWaitTicks;
     }
     this.push({ type: 'pet', id, friend: true });
     this.setLock(e, 'pet', this.settings.animalReactTicks);
@@ -1117,6 +1292,9 @@ export class AnimalManager implements AnimalApi {
       v.homePop = e.popAge >= 0 && e.popAge < POP_TICKS ? 1 - e.popAge / POP_TICKS : 0;
       v.liftT = e.liftLeft > 0 ? 1 - e.liftLeft / THROW_LIFT_TICKS : undefined;
       v.thrown = e.flight !== null;
+      v.fight = e.fs !== 'none' ? true : undefined;
+      v.bang = e.bangLeft > 0 ? true : undefined;
+      v.target = e.target ?? undefined;
       if (e.meat) this.meatDraw(e, v);
       fn(v);
     }
@@ -1534,6 +1712,11 @@ export class AnimalManager implements AnimalApi {
       if (e.bugs > 0) b.bugs = e.bugs;
       if (e.goldMiss > 0) b.goldMiss = e.goldMiss;
       if (e.grow > 0) b.grow = e.grow;
+      if (e.natsuki > 0) b.natsuki = e.natsuki;
+      if (e.natsukiBugWait > 0) b.natsukiBugWait = e.natsukiBugWait;
+      if (e.natsukiPetWait > 0) b.natsukiPetWait = e.natsukiPetWait;
+      // へる まで の のこり は なつき度 が 0 なら 意味 が ない ので 書かない（読む とき は まんたん）
+      if (e.natsuki > 0 && e.natsukiDecayLeft !== this.settings.natsukiDecayTicks) b.natsukiDecayLeft = e.natsukiDecayLeft;
       return b;
     };
     const friends: AnimalBirdSave[] = [];
@@ -1575,6 +1758,10 @@ export class AnimalManager implements AnimalApi {
       coopCountMax: s.coopCountMax,
       kitMax: s.kitActiveMax,
       kitEggMax: s.kitEggMax,
+      natsukiMax: s.natsukiMax,
+      bugWaitMax: s.natsukiBugWaitTicks,
+      petWaitMax: s.natsukiPetWaitTicks,
+      decayMax: s.natsukiDecayTicks,
     });
     if (!p) return;
     for (const b of p.friends) {
@@ -1619,6 +1806,10 @@ export class AnimalManager implements AnimalApi {
     e.bugs = b.bugs;
     e.goldMiss = b.goldMiss;
     e.grow = b.grow;
+    e.natsuki = b.natsuki;
+    e.natsukiBugWait = b.natsukiBugWait;
+    e.natsukiPetWait = b.natsukiPetWait;
+    e.natsukiDecayLeft = b.natsukiDecayLeft;
   }
 
   /** 小屋・こたつ・くじ を ぜんぶ 空 に する（読みこみ の まえ） */
@@ -1649,19 +1840,33 @@ export class AnimalManager implements AnimalApi {
     }
     const p = this.getPlayer().position;
     this.night = this.d.phase() === 'night';
+    this.fighterIds = this.pickFightersNow();
     this.checkMorning();
     for (const c of this.coopList) if (c.meat) this.meatTick(c);
     for (let i = this.ents.length - 1; i >= 0; i--) {
       const e = this.ents[i]!;
+      if (e.friend && e.stage === 'adult') this.natsukiTick(e);
       if (!this.step(e, p)) this.ents.splice(i, 1);
     }
     // かさならない: すわっている なかま を はなす（小屋 の 子 は 中 3×3 だけ なので はなさない）
-    for (const e of this.ents) if (e.friend && e.home === null && !e.following && !e.carried && !e.flight && !e.glide && e.lock === 0) this.separate(e, p);
+    for (const e of this.ents) if (e.friend && e.home === null && !e.following && !e.carried && !e.flight && !e.glide && e.lock === 0 && e.fs === 'none') this.separate(e, p);
     if (this.kitList.length > 0) this.updateKits(p);
     if (this.coopList.length > 0 && ++this.coopCheckT >= COOP_CHECK_EVERY) {
       this.coopCheckT = 0;
       this.checkCoopBlocks();
     }
+  }
+
+  /** GOLD-1: なつき度 の 時間（まち が へる・10 分 ごと に へる）。はなれて いても・ねて いても 世界 の 時計 で すすむ。へる が 先 */
+  private natsukiTick(e: Ent): void {
+    const s = this.settings;
+    // なつき度 0 の 間 は へる もの が 無い ので 時計 は 止める（はじめて 上がった とき から 数える）
+    if (e.natsuki > 0 && --e.natsukiDecayLeft <= 0) {
+      e.natsuki = Math.max(0, e.natsuki - s.natsukiDecay);
+      e.natsukiDecayLeft = s.natsukiDecayTicks;
+    }
+    if (e.natsukiBugWait > 0 && --e.natsukiBugWait === 0 && e.id === this.targetId) this.push({ type: 'natsukiReady', id: e.id, which: 'bug' });
+    if (e.natsukiPetWait > 0 && --e.natsukiPetWait === 0 && e.id === this.targetId) this.push({ type: 'natsukiReady', id: e.id, which: 'pet' });
   }
 
   // ------------------------------------------------------------ 内部 (LIVE-2)
@@ -1849,7 +2054,7 @@ export class AnimalManager implements AnimalApi {
 
   /** 金 かどうか きめて、小屋 の すばこ か 足もと に たまご を 出す（§2.6・§2.8） */
   private layEgg(e: Ent): void {
-    const roll = rollGold(this.goldRng, e, this.settings);
+    const roll = rollGold(this.goldRng, { raised: e.raised, bugs: e.bugs, goldMiss: e.goldMiss, natsuki: e.natsuki, breed: e.breed }, this.settings);
     e.goldMiss = roll.goldMiss;
     const gold = roll.gold;
     const coop = e.home === null ? undefined : this.coopById(e.home);
@@ -2051,7 +2256,24 @@ export class AnimalManager implements AnimalApi {
       flight: null,
       glide: null,
       popAge: -1,
+      natsuki: 0,
+      natsukiBugWait: 0,
+      natsukiPetWait: 0,
+      natsukiDecayLeft: this.settings.natsukiDecayTicks,
       meat: false,
+      joinNo: friend ? ++this.joinSeq : 0,
+      target: null,
+      hits: 0,
+      fs: 'none',
+      ft: 0,
+      upper: false,
+      punchAt: 0,
+      punchLen: 0,
+      forgetLeft: 0,
+      bangLeft: 0,
+      flexLeft: 0,
+      cheerX: 0,
+      cheerZ: 0,
     };
   }
 
@@ -2120,6 +2342,9 @@ export class AnimalManager implements AnimalApi {
   /** 1 ステップ ぶん。消えた なら false */
   private step(e: Ent, p: Vec3): boolean {
     const s = this.settings;
+    if (e.bangLeft > 0) e.bangLeft--;
+    // LIVE-4: たたかえる 子 で なく なった（だっこ・なげ・いただきます・パタパタ・順番 など）→ ねらい を やめる
+    if (e.fs !== 'none' && !this.fighterIds.includes(e.id)) this.fightStop(e, 'stop');
     e.stateTicks++;
     if (e.fullLeft > 0) e.fullLeft--;
     if (e.popAge >= 0 && e.popAge < POP_TICKS) e.popAge++;
@@ -2185,6 +2410,7 @@ export class AnimalManager implements AnimalApi {
     }
     if (e.lock === 0) {
       if (e.home !== null && this.night) this.sleep(e);
+      else if (e.fs !== 'none') this.fightStep(e, p, d);
       else this.behave(e, p, d);
     }
     if (e.home !== null) {
@@ -2199,6 +2425,7 @@ export class AnimalManager implements AnimalApi {
 
   /** ついてくる 時間 が 0 に なった（§2.7）: その場 に とまり、そこ を 中心 に のんびり */
   private endFollow(e: Ent): void {
+    if (e.fs !== 'none') this.fightStop(e, 'stop');
     e.following = false;
     e.bestDist = Infinity;
     e.stuck = 0;
@@ -2234,14 +2461,23 @@ export class AnimalManager implements AnimalApi {
       e.stage = 'adult';
       e.raised = true;
       e.grow = 0;
+      e.natsuki = 0;
+      e.natsukiBugWait = 0;
+      e.natsukiPetWait = 0;
+      e.natsukiDecayLeft = this.settings.natsukiDecayTicks;
       this.push({ type: 'grow', id: e.id, first, breed: e.breed });
     }
     if (e.becomeFriend && this.friendCount() < this.settings.animalFriendMax) {
       e.becomeFriend = false;
       e.friend = true;
+      e.joinNo = ++this.joinSeq;
       e.stopOff = this.nextStopOff();
       e.hearts = 0;
       e.eggMiss = 0;
+      e.natsuki = 0;
+      e.natsukiBugWait = 0;
+      e.natsukiPetWait = 0;
+      e.natsukiDecayLeft = this.settings.natsukiDecayTicks;
       e.follow = this.settings.animalFollowTicks;
       e.following = false;
       const count = this.friendCount();
@@ -2522,11 +2758,250 @@ export class AnimalManager implements AnimalApi {
     e.homeZ = e.z;
   }
 
+  // ------------------------------------------------------------ LIVE-4: マッチョ と いっしょ に たたかう（docs/design/LIVE-4.md 版 2.1）
+
+  /** たたかえる マッチョ か（§2.1。ひよこ・ふつう の にわとり・とりごや の 子・だっこ／なげ／パタパタ／いただきます 中 は 入らない） */
+  private canFight(e: Ent): boolean {
+    return e.friend && e.home === null && e.stage === 'adult' && e.breed === 'macho' && e.follow > 0 && !e.carried && !e.flight && !e.glide && !e.meat && !(e.fluttering && e.airFrom - e.y > FIGHT.flutterDrop);
+  }
+
+  /** たたかう 子 の id（なかま に なった 順 に `machoFighters` わ まで）。毎 ステップ の はじめ に 1 回 */
+  private pickFightersNow(): number[] {
+    if (this.d.fight?.playerDead?.()) return NO_FIGHT; // りっくん が たおれた: たたかいを やめる（'stop'）
+    const max = this.settings.machoFighters;
+    if (max === 1) {
+      // 1 わ だけ: 並べかえ せず に いちばん 早い 子（joinNo、同じ なら id）を さがす
+      let best: Ent | null = null;
+      for (const e of this.ents) {
+        if (e.joinNo > 0 && this.canFight(e) && (best === null || e.joinNo < best.joinNo || (e.joinNo === best.joinNo && e.id < best.id))) best = e;
+      }
+      if (best === null) return NO_FIGHT;
+      this.oneFighter[0] = best.id;
+      return this.oneFighter;
+    }
+    const c = this.fightCands;
+    c.length = 0;
+    for (const e of this.ents) if (e.joinNo > 0 && this.canFight(e)) c.push({ id: e.id, joinNo: e.joinNo });
+    return c.length === 0 ? NO_FIGHT : pickFighters(c, this.settings.machoFighters);
+  }
+
+  /** 窓口: いま たたかえる マッチョ の id（その場 で 数え直す。だっこ した 次 の 子 も すぐ 見える） */
+  fighters(): number[] {
+    const ids = this.pickFightersNow();
+    return ids === NO_FIGHT ? [] : [...ids];
+  }
+
+  /**
+   * 「きっかけ」を 渡す（§2.2）。りっくん が 体力 を へらした 妖怪（`hit`）・りっくん の 体力 を へらした 妖怪（`hurt`）。
+   * 12 マス（`machoLeash`）より とおい 妖怪・もう いない 妖怪 は 数えない。たたかう 子 だけ が その ステップ に ねらう
+   */
+  fightCue(c: FightCues): void {
+    const port = this.d.fight;
+    if (!port || (c.hit.length === 0 && c.hurt.length === 0)) return;
+    const ids = this.fighters();
+    if (ids.length === 0) return;
+    const p = this.getPlayer().position;
+    const leash = this.settings.machoLeash;
+    const ok = (id: number): boolean => {
+      const y = port.yokai(id);
+      return y !== null && y.state === 'alive' && dist2d(y.x, y.z, p.x, p.z) <= leash;
+    };
+    const cue = resolveCue(c.hit.filter(ok), c.hurt.filter(ok));
+    if (!cue) return;
+    for (const id of ids) {
+      const e = this.find(id);
+      if (!e) continue;
+      e.forgetLeft = this.settings.machoForget;
+      if (e.target === cue.yokai) continue;
+      e.target = cue.yokai;
+      e.hits = 0;
+      e.fs = 'run';
+      e.ft = -1;
+      e.flexLeft = 0;
+      e.bangLeft = FIGHT.bangTicks;
+      this.push({ type: 'machoTarget', id, yokai: cue.yokai, cause: cue.cause });
+    }
+  }
+
+  private readonly markOut: { bang: { x: number; y: number; z: number; age: number } | null; target: number | null } = { bang: null, target: null };
+  private readonly bangBuf = { x: 0, y: 0, z: 0, age: 0 };
+
+  /** 画面 の しるし 用: 「！」 を 出す マッチョ の 足もと と 経過、ねらわれて いる 妖怪 の id（同時 に 1 つ まで） */
+  fightMarks(): { bang: { x: number; y: number; z: number; age: number } | null; target: number | null } {
+    const o = this.markOut;
+    o.bang = null;
+    o.target = null;
+    for (const e of this.ents) {
+      if (e.bangLeft > 0 && o.bang === null) {
+        const b = this.bangBuf;
+        b.x = e.x;
+        b.y = e.y;
+        b.z = e.z;
+        b.age = FIGHT.bangTicks - e.bangLeft;
+        o.bang = b;
+      }
+      if (e.target !== null && o.target === null) o.target = e.target;
+    }
+    return o;
+  }
+
+  /** ねらい を やめる（かちポーズ は 別）。ふつう の ついてくる に もどる */
+  private fightStop(e: Ent, reason: MachoGiveUpReason): void {
+    if (e.target !== null) this.push({ type: 'machoGiveUp', id: e.id, reason });
+    e.target = null;
+    e.hits = 0;
+    e.fs = 'none';
+    e.ft = 0;
+    e.flexLeft = 0;
+    e.forgetLeft = 0;
+  }
+
+  /** たおれた: かちポーズ（30 ステップ）。マッチョ の パンチ で たおした なら `ko` */
+  private fightDefeat(e: Ent, ko: boolean): void {
+    if (ko && e.target !== null) this.push({ type: 'machoKO', id: e.id, yokai: e.target });
+    this.fightStop(e, 'defeat');
+    e.fs = 'flex';
+    e.flexLeft = FIGHT.flexTicks;
+    e.ft = 0;
+    this.setState(e, 'flex');
+    this.push({ type: 'machoFlex', id: e.id });
+  }
+
+  /** ねらい の ある あいだ の 1 ステップ（`fs` が 'none' でない とき の `behave` の かわり） */
+  private fightStep(e: Ent, p: Vec3, d: number): void {
+    const port = this.d.fight;
+    if (!port) {
+      this.fightStop(e, 'stop');
+      this.behave(e, p, d);
+      return;
+    }
+    if (e.fs === 'flex') {
+      e.ft++;
+      if (--e.flexLeft > 0) {
+        this.setState(e, 'flex');
+        return;
+      }
+      e.fs = 'none';
+      this.behave(e, p, d);
+      return;
+    }
+    const t = e.target === null ? null : port.yokai(e.target);
+    let why: MachoGiveUpReason | null = null;
+    if (t === null || t.state === 'leaving') why = 'gone';
+    else if (t.state === 'dying') {
+      this.fightDefeat(e, false);
+      return;
+    } else if (dist2d(t.x, t.z, p.x, p.z) > FIGHT.farDist) why = 'far';
+    else if (--e.forgetLeft <= 0) why = 'forget';
+    if (why !== null || t === null) {
+      this.fightStop(e, why ?? 'gone');
+      this.behave(e, p, d);
+      return;
+    }
+    e.walkYaw = yawTo(t.x - e.x, t.z - e.z);
+    if (e.fs === 'punch') this.punchStep(e, t, p);
+    else if (e.fs === 'cheer') this.cheerStep(e, t, p, d);
+    else this.runStep(e, t);
+  }
+
+  private reachOf(e: Ent, t: { x: number; y: number; z: number; radius: number }, slack = 0): boolean {
+    return inReach(dist2d(e.x, e.z, t.x, t.z), t.y - e.y, t.radius, this.settings.machoReach, slack);
+  }
+
+  /** はしる。とどいたら パンチ。180 ステップ とどかなければ おうえん */
+  private runStep(e: Ent, t: { x: number; y: number; z: number; radius: number }): void {
+    const s = this.settings;
+    e.ft++;
+    this.setState(e, 'run');
+    if (!this.reachOf(e, t)) {
+      const dh = dist2d(e.x, e.z, t.x, t.z);
+      // 横 に とどく のに 高さ が たりない（ちょうちん など）ときは その場 に 止まる
+      const v = Math.min(s.machoRunSpeed * DT, Math.max(0, dh - Math.max(0, t.radius + s.machoReach - 0.05)));
+      if (v > 0) {
+        for (const off of FOLLOW_OFFS) {
+          const a = e.walkYaw + off;
+          if (this.tryMove(e, Math.sin(a) * v, -Math.cos(a) * v, BODY.wanderDrop, false)) break;
+        }
+      }
+    }
+    if (this.reachOf(e, t) && !(t as { sliding?: boolean }).sliding) {
+      this.beginPunch(e);
+      return;
+    }
+    if (e.ft >= FIGHT.cheerAfter) {
+      e.fs = 'cheer';
+      e.ft = 0;
+      e.cheerX = t.x;
+      e.cheerZ = t.z;
+      this.setState(e, 'cheer');
+    }
+  }
+
+  /** パンチ を はじめる（刀 の 突き の ため〈startup〉＋ 1 で 当たる。ながさ は 突き と 同じ）。きりあげ は 3 回 に 1 回 */
+  private beginPunch(e: Ent): void {
+    const plan = punchPlan(this.d.fight!.blade().thrust);
+    e.upper = isUpperPunch(e.hits);
+    e.punchAt = plan.hitAt;
+    e.punchLen = plan.total;
+    e.fs = 'punch';
+    e.ft = 0;
+    this.setState(e, e.upper ? 'upper' : 'punch');
+    e.stateTicks = 0;
+  }
+
+  private punchStep(e: Ent, t: { x: number; y: number; z: number; radius: number; height: number }, _p: Vec3): void {
+    e.ft++;
+    if (e.ft >= e.punchLen) {
+      // つぎ の パンチ（まだ とどく なら すぐ、とどかなければ また はしる）
+      e.fs = 'run';
+      e.ft = -1;
+      this.runStep(e, t);
+      return;
+    }
+    this.setState(e, e.upper ? 'upper' : 'punch');
+    e.stateTicks = e.ft;
+    if (e.ft === e.punchAt) this.punchHit(e, t);
+  }
+
+  /** 当たる コマ: まだ とどいて いれば 妖怪 の 体力 を へらす（刀 の 切り上げ と 同じ 口。押す・うかす も）。からぶり は 何も しない */
+  private punchHit(e: Ent, t: { x: number; y: number; z: number; radius: number; height: number }): void {
+    const port = this.d.fight!;
+    if (e.target === null || !this.reachOf(e, t, FIGHT.hitSlack)) return;
+    const b = port.blade();
+    const amount = punchDamage(this.settings.machoAtk, e.upper, b.kiriageMul);
+    const knock = e.upper ? { dist: b.kiriageKnock[0], up: b.kiriageKnock[1] } : ZERO_KNOCK;
+    const dealt = port.hit(e.target, amount, { x: e.x, y: e.y, z: e.z }, knock);
+    if (!(dealt > 0)) return;
+    e.hits++;
+    this.push({ type: 'machoPunch', id: e.id, yokai: e.target, hit: true, upper: e.upper, damage: dealt, x: t.x, y: t.y + t.height * 0.6, z: t.z });
+    const after = port.yokai(e.target);
+    if (after === null || after.state === 'dying') this.fightDefeat(e, true);
+  }
+
+  /** おうえん: プレイヤー の そば で 力こぶ。ねらい は のこす。妖怪 が とどく 所 に 来たら また たたく */
+  private cheerStep(e: Ent, t: { x: number; y: number; z: number; radius: number }, p: Vec3, d: number): void {
+    e.ft++;
+    if (this.reachOf(e, t) && !(t as { sliding?: boolean }).sliding) {
+      this.beginPunch(e);
+      return;
+    }
+    if (dist2d(t.x, t.z, e.cheerX, e.cheerZ) > 3) {
+      e.fs = 'run';
+      e.ft = -1;
+      this.runStep(e, t);
+      return;
+    }
+    if (d > this.settings.animalFollowStart) this.follow(e, p, d);
+    else this.setState(e, 'cheer');
+  }
+
   private turn(e: Ent, p: Vec3, d: number): void {
     let want = e.yaw;
     const toP = yawTo(p.x - e.x, p.z - e.z);
     if (e.lock === 0) {
-      if (!e.friend || e.follow <= 0) want = e.look ? toP : e.walking ? e.walkYaw : e.yaw;
+      if (e.fs === 'run' || e.fs === 'punch') want = e.walkYaw; // LIVE-4: 妖怪 の ほう を むく
+      else if (e.fs !== 'none') want = d > 0.3 ? toP : e.yaw; // おうえん・かちポーズ は きみ の ほう
+      else if (!e.friend || e.follow <= 0) want = e.look ? toP : e.walking ? e.walkYaw : e.yaw;
       else if (e.following) want = e.walkYaw;
       else if (d <= this.settings.animalLookDist && d > 0.3) want = toP;
     }

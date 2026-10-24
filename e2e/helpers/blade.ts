@@ -173,14 +173,15 @@ export async function fire(page: Page, n: number): Promise<Snap[]> {
   return page.evaluate(
     ({ n, fn }) => {
       const h = window.__rikkun! as any;
+      const w1 = () => { h.step(1); while (h.impact && h.impact.stopLeft() > 0) h.step(1); }; // #276 ヒットストップの 止まりは 1 ステップに 数えない（ゲームに 聞いて 止まりが おわるまで 進める）
       const snap = () => (0, eval)(fn);
       const out: any[] = [];
       h.input.press('primary');
-      h.step(1);
+      w1();
       h.input.release('primary');
       out.push(snap());
       for (let i = 1; i < n; i++) {
-        h.step(1);
+        w1();
         out.push(snap());
       }
       return out;
@@ -194,9 +195,10 @@ export async function advance(page: Page, n: number): Promise<Snap[]> {
   return page.evaluate(
     ({ n, fn }) => {
       const h = window.__rikkun! as any;
+      const w1 = () => { h.step(1); while (h.impact && h.impact.stopLeft() > 0) h.step(1); }; // #276 ヒットストップの 止まりは 1 ステップに 数えない（ゲームに 聞いて 止まりが おわるまで 進める）
       const out: any[] = [];
       for (let i = 0; i < n; i++) {
-        h.step(1);
+        w1();
         out.push((0, eval)(fn));
       }
       return out;
@@ -315,6 +317,7 @@ export async function runTech(page: Page, n: number, o: { hold?: boolean } = {})
   return page.evaluate(
     ({ n, hold }) => {
       const h = window.__rikkun! as any;
+      const w1 = () => { h.step(1); while (h.impact && h.impact.stopLeft() > 0) h.step(1); }; // #276 ヒットストップの 止まりは 1 ステップに 数えない（ゲームに 聞いて 止まりが おわるまで 進める）
       const out: any[] = [];
       let seen = h.blade.events().length;
       const snap = () => {
@@ -332,11 +335,11 @@ export async function runTech(page: Page, n: number, o: { hold?: boolean } = {})
         });
       };
       h.input.press('primary');
-      h.step(1);
+      w1();
       if (!hold) h.input.release('primary');
       snap();
       for (let i = 1; i < n; i++) {
-        h.step(1);
+        w1();
         snap();
       }
       if (hold) h.input.release('primary');

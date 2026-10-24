@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { Vec3, WeaponVisualSource, ArmorSlot, CombatEvent, CraftEvent, ItemId, PlayerState, SwingAnim, VoxelWorld } from '../contracts';
 import type { ActionState } from '../input/actions';
 import { aimPivot } from './pivot';
+import { SHAKE, shakeAngles } from '../fx/impact';
 import { BlockDoll } from './BlockDoll';
 import { bladePoseAt, bowDollAt, bowHandAt, newBladePose } from './weaponPose';
 import {
@@ -75,6 +76,33 @@ export class CameraRig {
     this.shakePitch = pitch;
   }
 
+  /** #276 画面の ゆれ（0〜1）。当たるたびに 足し、毎秒 SHAKE.decayPerSecond ずつ へる。カメラの 向きだけ ゆらす */
+  private trauma = 0;
+  private shakeT = 0;
+  private baseYaw = 0;
+  private basePitch = 0;
+  private readonly shakeOut = { yaw: 0, pitch: 0, roll: 0 };
+
+  addTrauma(amount: number): void {
+    this.trauma = Math.min(1, this.trauma + amount);
+  }
+  traumaNow(): number {
+    return this.trauma;
+  }
+  /** ゆれの 時間を 進めて trauma を へらす（ヒットストップ中も 呼ぶ） */
+  private stepShake(dt: number): void {
+    this.shakeT += dt;
+    this.trauma = Math.max(0, this.trauma - SHAKE.decayPerSecond * dt);
+    shakeAngles(this.trauma, this.shakeT, this.shakeOut);
+  }
+  /** ヒットストップで 世界が 止まっている ステップ: カメラの 向きの ゆれだけ 動かす（位置・人形・ねらいは そのまま） */
+  updateFrozen(dt: number): void {
+    this.stepShake(dt);
+    if (this.overviewOn) return;
+    const o = this.shakeOut;
+    this.camera.rotation.set(this.basePitch + this.shakePitch + o.pitch, this.baseYaw + this.shakeYaw + o.yaw, o.roll);
+  }
+
   private heldProvider: (() => ItemId | null) | null = null;
 
   /** 右手に持つアイテムを返す関数（持ち物の held()）。毎ステップ読む */
@@ -144,7 +172,7 @@ export class CameraRig {
       };
     }
     const w = this.weaponSource?.bowPose();
-    if (w && (w.stage > 0 || w.pull > 0.001) && this.doll.heldItem === 'yumi') {
+    if (w && (w.stage > 0 || w.pull > 0.001) && (this.doll.heldItem === 'yumi' || this.doll.heldItem === 'kin_yumi')) {
       const p = bowDollAt(w, this.bowScratch);
       return { rx: p.rx, rz: p.rz, lx: p.lx, lz: p.lz, swordPitch: 0, twist: p.twist, legFront: { right: 0, left: 0 }, knee: 0 };
     }
@@ -311,7 +339,11 @@ export class CameraRig {
       this.camera.lookAt(OVERVIEW_TARGET.x, OVERVIEW_TARGET.y, OVERVIEW_TARGET.z);
       this.camPos.copy(this.camera.position);
     } else {
-      this.camera.rotation.set(pitch + this.shakePitch, -yaw + this.shakeYaw, 0);
+      this.stepShake(dt);
+      this.basePitch = pitch;
+      this.baseYaw = -yaw;
+      const o = this.shakeOut;
+      this.camera.rotation.set(pitch + this.shakePitch + o.pitch, -yaw + this.shakeYaw + o.yaw, o.roll);
       this.placeThird(dt);
       this.camera.position.copy(this.camPos);
       if (this.testFixed) {

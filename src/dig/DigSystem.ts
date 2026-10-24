@@ -72,7 +72,8 @@ const A_PREV = 'hotbarPrev' as Action;
 export interface DigToolPort {
   current(): ToolInfo;
   /** 毎ステップ。ゆみの引きと、飛んでいる や を進める */
-  step(primary: boolean, eye: Vec3, dir: Vec3): void;
+  /** active が false（怯み・やられ）の間は ゆみを ひくのを やめる（はなした扱いで 矢を出さない） */
+  step(primary: boolean, eye: Vec3, dir: Vec3, active?: boolean): void;
   pushSwing(anim: SwingAnim): void;
   /** 何もない所を振った（武器なら武器の振り） */
   swingWhiff(): void;
@@ -94,6 +95,8 @@ export interface DigM4Deps {
   onPickup?: (item: ItemId, count: number) => void;
   /** 支えをなくした たいまつ を地面に落とす（なければ 持ち物へ直接入れる） */
   scatterItem?: (pos: Vec3, item: ItemId, count: number) => void;
+  /** GOLD-1 §4.7: こわした ブロック から はらぱんみみず が おちる くじ（`createHarapanRoll().block`）。当たれば true */
+  harapan?: (id: string, y: number) => boolean;
   /** M6: たんす（`StorageSystem` が合う） */
   storage?: DigStoragePort;
   /** M7: 農業（`FarmSystem` が合う。なければ M6 のとおり） */
@@ -452,6 +455,9 @@ export class DigSystemImpl implements DigSystem {
     const carrying = enabled && this.isCarrying();
     // 同じステップのうちに押してはなす短いタップも拾う（wasPressed）
     const primaryAny = enabled && !carrying && (this.actions.isHeld('primary') || this.actions.wasPressed('primary'));
+    // HURT-1: 怯み中でも レジェンダリーの ためだけは 消さない（やられたときは 今まで どおり 消える）
+    const legendOn = this.lock.playInputEnabled() && (!this.gate?.blocksInput() || !!this.gate?.flinching?.());
+    const primaryLegend = legendOn && !carrying && (this.actions.isHeld('primary') || this.actions.wasPressed('primary'));
     // WEAPON-5: 刀＋Shift は パリィ（押した）か 何も出さない（押しつづけ）。ほる・わざは しない
     const parryM = this.m4.parry;
     const route = this.m4.blade && parryM ? routeAttackInput({ item: this.inventory.held()?.item, run: this.actions.isHeld('run'), pressed: this.actions.wasPressed('primary'), held: primaryAny }) : 'normal';
@@ -508,10 +514,10 @@ export class DigSystemImpl implements DigSystem {
         const bladeBusy = bs0.phase !== 'idle';
         const res = lg.step({
           item: bladeItem,
-          active: enabled && bladeItem !== null && !parryBusy,
+          active: legendOn && bladeItem !== null && !parryBusy,
           pressed: (primaryRaw && this.actions.wasPressed('primary')) || pendingNow,
           // Shift を 押しても ためは 続く（生の 押している）
-          held: primaryAny && !parryBusy,
+          held: primaryLegend && !parryBusy,
           startOk: furiTech || pendingNow,
           bladeBusy,
           bladeAccepts: bladeBusy ? (blade.busyNext?.().accepts ?? false) : false,
@@ -561,7 +567,7 @@ export class DigSystemImpl implements DigSystem {
       }
     }
     this.prevPrimaryRaw = primaryRaw;
-    tools?.step(primaryRaw, eye, d);
+    tools?.step(primaryRaw, eye, d, !this.gate?.blocksInput());
     this.punching = this.gate ? this.gate.primaryStep(primary, eye, d, this.tgt?.distance ?? null, dec ?? undefined) : false;
     {
       const pd = this.gate?.punchDirDeg?.() ?? null;
@@ -771,6 +777,8 @@ export class DigSystemImpl implements DigSystem {
     // たんす は入らなければ 落とし物にする（なくさない。M6）
     if (wasTansu && got < n) this.m4.scatterItem?.({ x: x + 0.5, y, z: z + 0.5 }, t.id, n - got);
     if (wasFurnace) craft!.furnaceBroken(x, y, z);
+    // GOLD-1 §4.7: はらぱんみみず（べつ の 乱数。地下 の ブロック 0.5%・き 0.2%）。地面 に おちる
+    if (this.m4.harapan?.(t.id, y)) this.m4.scatterItem?.({ x: x + 0.5, y, z: z + 0.5 }, 'harapan_mimizu', 1);
     // M7: はたけ の 上の作物・くさ の 上の やせいの やさい、くさ から たね
     const farm = this.m4.farm;
     if (farm) {
@@ -1049,10 +1057,16 @@ export class DigSystemImpl implements DigSystem {
   }
 
   private doAnimalKind(kind: string): void {
-    if (kind === 'feed' || kind === 'animalFull') this.doFeed();
-    else if (kind === 'animalPet') {
+    // GOLD-1: まち中（'animalFull'）は むし なら あげる ふり（feed() が 'wait'）、それ いがい は なでる ふり（pet() が 'wait'）
+    const held = this.inventory.held()?.item;
+    if (kind === 'feed') this.doFeed();
+    else if (kind === 'animalFull') {
+      if (held === 'mushi' || held === 'harapan_mimizu') this.doFeed();
+      else this.doAnimalPet();
+    } else if (kind === 'animalPet') {
       // LIVE-2: ねて いる 子 に むし → なでず に sleepHint（feed() が 'sleep' を 返す。むし は へらない）
-      if (this.inventory.held()?.item === 'mushi') this.doFeed();
+      // GOLD-1: はらぱんみみず を やせい・ひよこ・ねて いる 子 に → 合図 だけ（へらない）
+      if (held === 'mushi' || held === 'harapan_mimizu') this.doFeed();
       else this.doAnimalPet();
     }
   }
@@ -1141,7 +1155,7 @@ export class DigSystemImpl implements DigSystem {
     const held = this.inventory.held();
     if (!a || !h || !held) return;
     const r = a.feed(h.id, held.item);
-    if (r === 'ate') this.inventory.consumeHeld();
+    if (r === 'ate' || r === 'harapan') this.inventory.consumeHeld();
     else if (r === 'full') this.hint('fullHint');
     else if (r === 'friendFull') this.hint('friendFull');
     else if (r === 'sleep') this.hint('sleepHint'); // LIVE-2: ねて いる 子 には あげられない（むし は へらない）

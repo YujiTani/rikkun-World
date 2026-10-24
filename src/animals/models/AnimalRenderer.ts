@@ -8,6 +8,7 @@ import { RING_TEX, rasterRing, ringState, type RingState, type ThrowSpotLike } f
 import { getBugModel } from './bugNetModel';
 import { LAND_TICKS, createPose, poseChicken, type PoseBuf } from './chickenPose';
 import { CHICKEN_BONES, CHICKEN_SCALE, COL, V } from './chickenSpec';
+import { fightPoseOf, makeFightPose } from './fightPose';
 import type { BuiltModel } from './voxelMesh';
 
 /**
@@ -19,6 +20,9 @@ import type { BuiltModel } from './voxelMesh';
  */
 
 const D = Math.PI / 180;
+/** 戦い の ポーズ を 書く 作業 用（1 わ ぶん ずつ すぐ 使う） */
+const FIGHT_SCRATCH = makeFightPose();
+
 /** 影が 出る にわとり の 数の 上限（InstancedMesh の 大きさ） */
 const MAX_SHADOWS = 64;
 const POINT_CAP = 480;
@@ -624,8 +628,24 @@ export class AnimalRenderer {
       b.rotation.set(p.rot[j] * D, p.rot[j + 1] * D, p.rot[j + 2] * D);
       b.scale.set(p.sc[j], p.sc[j + 1], p.sc[j + 2]);
     }
-    e.rig.position.y = p.rigY;
+    e.rig.position.set(0, p.rigY, 0);
+    e.rig.rotation.set(0, 0, 0);
     e.rig.scale.set(p.scale[0], p.scale[1], p.scale[2]);
+    // LIVE-4: いっしょ に たたかう マッチョ は 骨 ごと の ポーズ（アート 案 C）で 上書き（root = リグ 全体）
+    const pp = v.fight && !carried ? fightPoseOf(v.state, v.stateTicks, motion <= 0, FIGHT_SCRATCH) : null;
+    if (pp) {
+      for (let i = 0; i < bones.length; i++) {
+        const pb = pp.bones[e.model.names[i]];
+        bones[i].position.set(rest[i][0] + (pb?.off?.[0] ?? 0) * V, rest[i][1] + (pb?.off?.[1] ?? 0) * V, rest[i][2] + (pb?.off?.[2] ?? 0) * V);
+        if (pb?.q) bones[i].quaternion.set(pb.q[0], pb.q[1], pb.q[2], pb.q[3]);
+        else bones[i].quaternion.identity();
+        bones[i].scale.set(1, 1, 1);
+      }
+      const K = p.scale[0];
+      e.rig.position.set(pp.root.off[0] * V * K, pp.root.off[1] * V * K, pp.root.off[2] * V * K);
+      e.rig.rotation.set(pp.root.rot[0] * D, pp.root.rot[1] * D, pp.root.rot[2] * D);
+      e.rig.scale.set(K * pp.root.sc[0], K * pp.root.sc[1], K * pp.root.sc[2]);
+    }
     e.hull.visible = v.targeted && !carried;
     e.root.updateMatrixWorld(true);
     if (carried && !this.carry) this.measureCarry(e, camera);

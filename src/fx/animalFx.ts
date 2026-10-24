@@ -68,6 +68,9 @@ export const ANIMAL_FX = {
   homeHearts: 3,
   growSparkle: 8,
   goldSparkle: 8,
+  // ---- GOLD-1（§3.4）: なかよし が きんいろ に なった ときの キラッ・はらぱんみみず を あげた ときの ハート（どちらも 8 こ）
+  natsukiSparkle: 8,
+  harapanHearts: 8,
   /** 金 の たまご が すばこ に ある 小屋 の キラッ（ステップ ごと） */
   goldCoopGap: 45,
   /** あつめた 数 が これ 以上 なら 長い ころころ */
@@ -345,6 +348,10 @@ interface MarkRow {
   pop: number;
   /** LIVE-3: メニュー ページ 2 で えらんで いる 子（▼ は 描く 側 が 3D で 出す。ここ は 数 だけ） */
   pick: boolean;
+  /** LIVE-4: 「！」（絵 は HTML〈`ui/machoMarks`〉。ここ は 窓口 `fx().marks` の 行 だけ） */
+  bang: boolean;
+  /** LIVE-4: ねらい の しるし の 行（`id` = ねらわれて いる 妖怪 の id） */
+  machoTarget: boolean;
 }
 
 /** ねて いる 子 の Z 1 つ ぶん */
@@ -537,6 +544,7 @@ export class AnimalFx {
   private collectMarks(views: readonly AnimalView[], eye: Vec3): void {
     let n = 0;
     let z = 0;
+    let targetRow = false;
     const md2 = ANIMAL_FX.markDist * ANIMAL_FX.markDist;
     for (const v of views) {
       if (v.carried) continue; // だっこ 中は 出さない（手の 中に ある）
@@ -561,11 +569,18 @@ export class AnimalFx {
       const home = near && (v.homeFill ?? 0) > 0 ? Math.min(1, v.homeFill ?? 0) : 0;
       const popAge = near ? this.popAge(v.id) : -1;
       const pick = this.pickId !== null && v.id === this.pickId;
-      if (hearts === 0 && steps === 0 && !full && home === 0 && popAge < 0 && !pick) continue;
-      let m = this.marks[n];
-      if (!m) m = this.marks[n] = { id: 0, x: 0, y: 0, z: 0, hearts: 0, steps: 0, follow: 0, fullLeft: 0, home: 0, headY: ANIMAL_FX.headHeartY, pop: -1, pick: false };
-      n++;
+      // LIVE-4: ねらい の しるし（同時 に 1 行 まで。妖怪 の id）。「！」
+      if (v.target !== undefined && !targetRow) {
+        targetRow = true;
+        const t = this.markRow(n++);
+        t.id = v.target;
+        t.machoTarget = true;
+      }
+      const bang = v.bang === true;
+      if (hearts === 0 && steps === 0 && !full && home === 0 && popAge < 0 && !pick && !bang) continue;
+      const m = this.markRow(n++);
       m.pick = pick;
+      m.bang = bang;
       m.id = v.id;
       m.x = v.x;
       m.y = v.y;
@@ -580,6 +595,25 @@ export class AnimalFx {
     }
     this.markN = n;
     this.zzzN = z;
+  }
+
+  /** しるし の 行 n を きれいに して 返す（使いまわし） */
+  private markRow(n: number): MarkRow {
+    let m = this.marks[n];
+    if (!m) m = this.marks[n] = { id: 0, x: 0, y: 0, z: 0, hearts: 0, steps: 0, follow: 0, fullLeft: 0, home: 0, headY: ANIMAL_FX.headHeartY, pop: -1, pick: false, bang: false, machoTarget: false };
+    m.id = 0;
+    m.x = m.y = m.z = 0;
+    m.hearts = 0;
+    m.steps = 0;
+    m.follow = 0;
+    m.fullLeft = 0;
+    m.home = 0;
+    m.headY = ANIMAL_FX.headHeartY;
+    m.pop = -1;
+    m.pick = false;
+    m.bang = false;
+    m.machoTarget = false;
+    return m;
   }
 
   /** 少し あとで 起きる もの（あみ を ふって 10 ステップ 目）を 流す */
@@ -782,6 +816,18 @@ export class AnimalFx {
     this.snd(name);
   }
 
+  /** LIVE-4: パンチ が 当たった 星（ふつう = 白 の 小さな ポコッ 2 つ、きりあげ = 上 へ とぶ 星 3 つ。赤 は 使わない） */
+  private punchStars(x: number, y: number, z: number, upper: boolean): void {
+    const n = upper ? 3 : 2;
+    this.counts.sparkle += n;
+    if (this.motion() <= 0) return;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2 + this.rnd();
+      if (upper) this.particles.spawn(4, x + Math.cos(a) * 0.15, y, z + Math.sin(a) * 0.15, Math.cos(a) * 0.5, 3.2 + this.rnd(), Math.sin(a) * 0.5, 30, 0.16, i === 1 ? 0xffe27a : 0xffffff);
+      else this.particles.spawn(4, x + Math.cos(a) * 0.1, y, z + Math.sin(a) * 0.1, Math.cos(a) * 0.9, 0.9, Math.sin(a) * 0.9, 18, 0.12, i === 0 ? 0xffffff : 0xffe27a);
+    }
+  }
+
   private puff(p: Vec3, n: number = ANIMAL_FX.puffEach): void {
     this.counts.puff += n;
     for (let i = 0; i < n; i++) {
@@ -924,6 +970,31 @@ export class AnimalFx {
           if (e.egg + e.gold >= ANIMAL_FX.collectMany) this.snd('collectMany');
         }
         break;
+      // ---- GOLD-1
+      case 'harapanFeed': {
+        // 2 回 ジャンプ は A（'cheer' 40）。ハート 8 こ が ふわっ（なでる の ハート の つぶ を 数 だけ ふやして 使い回す）
+        this.snd('harapanFeed');
+        const s = this.seen.get(e.id);
+        const n = ANIMAL_FX.harapanHearts;
+        this.counts.hearts += n;
+        if (s) {
+          for (let i = 0; i < n; i++) {
+            const a = (i / n) * Math.PI * 2 + this.rnd();
+            this.particles.spawn(1, s.x + Math.cos(a) * 0.25, s.y + ANIMAL_FX.headHeartY, s.z + Math.sin(a) * 0.25, Math.cos(a) * 0.3, 0.9, Math.sin(a) * 0.3, 44, 0.22, 0xffffff);
+          }
+        }
+        break;
+      }
+      case 'natsukiGold': {
+        this.snd('natsukiGold');
+        const s = this.seen.get(e.id);
+        if (s) this.sparkleAt(s.x, s.y + 0.6, s.z, ANIMAL_FX.natsukiSparkle);
+        else this.counts.sparkle += ANIMAL_FX.natsukiSparkle;
+        break;
+      }
+      case 'natsukiReady':
+        this.snd('natsukiReady');
+        break;
       // ---- LIVE-3: とびら の 音 `coopDoor`（しまりきった・あがりきった）・一言 の 音 `itadakimasu`（1 回）。つぶ・紙ふぶき・ハート は 出さない
       case 'meatDoor':
         this.snd('coopDoor');
@@ -931,8 +1002,23 @@ export class AnimalFx {
       case 'meatSay':
         this.snd('itadakimasu');
         break;
+      case 'natsukiWait': // 合図 の 音 は `hint`（今 の animalHint）。こっち を 見て くび を かしげる のは A
       case 'meatStart':
       case 'meat':
+        break;
+      // ---- LIVE-4（§3.5）。ねらい の しるし・「！」・顔 は HTML〈`ui/machoMarks`〉。ここ は 音 と 星 の つぶ だけ
+      case 'machoTarget':
+        this.snd('machoGo');
+        break;
+      case 'machoPunch':
+        this.snd(e.upper ? 'machoUpper' : 'machoPunch');
+        this.punchStars(e.x, e.y, e.z, e.upper);
+        break;
+      case 'machoFlex':
+        this.snd('machoFlex');
+        break;
+      case 'machoGiveUp':
+      case 'machoKO':
         break;
       case 'growStart': // 動き だけ（音・つぶ は 大人 に なった とき）
       case 'roll': // ころん: 音は なし（ひよこ の パタパタ の 着地。からだ の うごき で 見せる）
@@ -956,6 +1042,11 @@ export class AnimalFx {
       if (m.steps > 0) row.steps = m.steps;
       if (m.home > 0) row.home = m.home;
       if (this.pickId !== null && m.id === this.pickId) row.pick = true;
+      if (m.bang) row.bang = true;
+      if (m.machoTarget) {
+        row.machoTarget = true;
+        row.yokai = m.id;
+      }
       marks.push(row);
     }
     return { ...this.counts, zzz: this.zzzN, marks, homePop: this.homePop() } as AnimalFxRecord;

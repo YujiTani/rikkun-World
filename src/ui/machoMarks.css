@@ -1,0 +1,32 @@
+/* LIVE-4: マッチョ の「！」と、ねらって いる 妖怪 の 上 の 顔（HTML。点滅 しない。字 なし） */
+.macho-bang {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 36px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  font-weight: 900;
+  line-height: 1;
+  color: #fff;
+  text-shadow: -2px -2px 0 #2a1e14, 2px -2px 0 #2a1e14, -2px 2px 0 #2a1e14, 2px 2px 0 #2a1e14, 0 3px 0 #2a1e14;
+  pointer-events: none;
+  z-index: 5;
+  will-change: transform;
+}
+.macho-face {
+  position: fixed;
+  left: 0;
+  top: 0;
+  image-rendering: pixelated;
+  pointer-events: none;
+  z-index: 5;
+  will-change: transform;
+}
+.macho-bang[hidden],
+.macho-face[hidden] {
+  display: none;
+}

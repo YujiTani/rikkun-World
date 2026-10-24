@@ -4,7 +4,7 @@ import type { BladeHud } from '../ui/bladeHud';
 import type { WearNotice } from '../ui/wearNotice';
 import { playCombat } from './combatSounds';
 import type { SoundFx } from './sound';
-import { WEAPON_FX, pickShardColors, shakeOffset } from './weaponFxModel';
+import { WEAPON_FX, pickShardColors } from './weaponFxModel';
 import { BladeTrail, type TrailSnapshot } from './bladeTrail';
 import { playWeapon } from './weaponSounds';
 
@@ -20,8 +20,6 @@ export interface WeaponFxDeps {
   nameOf(item: ItemId): string;
   /** 手の 位置（こわれた かけらが とびちる 所） */
   handPos(): Vec3;
-  /** ゆれる 画面（ゲームの canvas）。なければ ゆらさない */
-  shakeEl?: HTMLElement;
   /** 武器ごとの きせき・わざの 長さ（なければ 初期値） */
   settings?: () => Pick<W2Settings, 'bladeTrail' | 'bladeTrailShape' | 'bladeTrailWindow' | 'bladeTech'>;
   /** CHAR-4: 体（当たり判定の 足もと）の いまの 位置。ふみこみの あとで 呼ぶ。`camera` と 両方 あるときだけ 刃の軌跡を 出す */
@@ -61,8 +59,6 @@ export class WeaponFx {
   private readonly hp: Particles;
   private readonly bladeTrail: BladeTrail | null;
   private rng = 777;
-  private shakeLeft = 0;
-  private shakeFrame = 0;
   private readonly m = new THREE.Matrix4();
   private readonly q = new THREE.Quaternion();
   private readonly v = new THREE.Vector3();
@@ -105,7 +101,6 @@ export class WeaponFx {
     const wear = [...d.inventory.drainWearEvents(), ...d.armor.drainWearEvents()];
     for (const e of wear) this.onWear(e);
     if (wear.length) d.onWear?.(wear);
-    this.shakeStep();
   }
 
   private onBlade(e: BladeEvent): void {
@@ -123,10 +118,9 @@ export class WeaponFx {
         else if (e.step === 3) playWeapon(s, 'combo3');
         break;
       case 'techHit':
+        // 画面の ゆれ・ヒットストップは #276 の ImpactBus（main の onTechHit）が 出す
         if (e.tech === 'kesa') {
           playWeapon(s, 'kesaHit');
-          this.shakeLeft = WEAPON_FX.shakeSteps;
-          this.shakeFrame = 0;
         } else {
           playCombat(s, 'hit');
         }
@@ -215,16 +209,6 @@ export class WeaponFx {
     return this.bladeTrail ? this.bladeTrail.snapshot() : null;
   }
 
-  // ---- 画面の ゆれ（大げさ斬りが 当たったとき だけ。2px・0.1 秒。明るさは かえない）
-  private shakeStep(): void {
-    const el = this.d.shakeEl;
-    if (this.shakeLeft > 0) {
-      const x = shakeOffset(this.shakeFrame++);
-      this.shakeLeft--;
-      if (el) el.style.transform = this.shakeLeft > 0 ? `translate(${x.toFixed(2)}px, 0)` : '';
-    }
-  }
-
   /** 描画の 前（秒）。星・かけらを 動かす */
   update(dt: number): void {
     this.sp.update(dt, this.m, this.q, this.v, this.sc, this.col);
@@ -244,7 +228,6 @@ export class WeaponFx {
     }
     this.stars.geometry.dispose();
     this.bladeTrail?.dispose();
-    if (this.d.shakeEl) this.d.shakeEl.style.transform = '';
   }
 }
 

@@ -1,6 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
-import { standOnGround } from './helpers/aim';
+import { installAimHelpers, standOnGround } from './helpers/aim';
+import { installArena } from './helpers/arena';
 import { toStance } from './helpers/blade';
 import { aimGroundAhead, chargeUntilReady, legendWorld, releaseAndStep } from './helpers/legend';
 import { expectThunderHook } from './helpers/thunder';
@@ -365,6 +366,42 @@ const BAL_SCREENS: Screen[] = [
 SCREENS.push(...BAL_SCREENS);
 
 /**
+ * LIVE-4 AC19: マッチョ が ねらった 妖怪 の 頭の 上 の 力こぶ の しるし（体力バー・二つ名の 名札 の 上）と、マッチョ の 「！」。
+ * 妖怪 に こうげき させて りっくん が たたかれた ステップ に ねらわせる（`machoTarget`）。
+ */
+const openMachoMark = (title: 'taisho' | null): Screen['open'] => async (page) => {
+  await boot(page, true);
+  await page.evaluate((title) => {
+    const h = window.__rikkun! as any;
+    const p = h.player.get().position;
+    const x = Math.floor(p.x);
+    const y = Math.floor(p.y);
+    const z = Math.floor(p.z);
+    h.world.fill(x, y - 1, z - 5, x + 9, y - 1, z + 5, 'stone');
+    h.world.fill(x, y, z - 5, x + 9, y + 10, z + 5, 'air');
+    h.settings.set('yokaiAutoSpawn', false);
+    h.settings.set('animalAutoSpawn', false);
+    h.yokai.clear();
+    h.animals.clear();
+    h.player.set({ position: { x: x + 0.5, y, z: z + 0.5 }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch: 0 });
+    h.time.set(20000);
+    h.animals.spawn(x + 0.5, y, z - 2.5, { friend: true, follow: 18000, stage: 'adult', breed: 'macho' });
+    h.step(35);
+    const o = title ? { ai: false, yawDeg: 270, title, m: 1.5 } : { ai: false, yawDeg: 270 };
+    const yid = h.yokai.spawn('karakasa', x + 3.5, y, z + 0.5, o);
+    h.yokai.setHp(yid, 999);
+    const hp0 = h.combat.get().hp;
+    h.yokai.attackNow(yid);
+    for (let i = 0; i < 200 && h.combat.get().hp >= hp0; i++) h.step(1);
+    h.step(4);
+  }, title);
+};
+SCREENS.push(
+  { id: 'macho-mark', roots: ['#hud'], open: openMachoMark(null) },
+  { id: 'macho-mark-taisho', roots: ['#hud'], open: openMachoMark('taisho') },
+);
+
+/**
  * CHAR-2 AC26: 刀のわざ・弓を引く 場面の画面が HUD と重ならない（はみ出し・重なり）。
  * 絵の読みこみ（本当の時間）を待ってから、1 ステップずつ進めて場面を作る。
  */
@@ -636,6 +673,52 @@ SCREENS.push(
   },
 );
 
+
+/**
+ * GOLD-1 AC20（docs/design/GOLD-1.md §6）: なかよし パネルの いちばん 多い とき
+ * （なかまの 大人 natsuki 75・むしの まち中 9,000・なでるの まち 0 → ハート 7 こ・きんいろ・まち時計 2 つ）。
+ * DOM は `#natsuki-panel`（仮の 名前。開発が ちがう id に したら ここも 直す）。ねらう 子は `animals.natsukiView(id)` で 確かめる。
+ */
+const NATSUKI_PANEL = '#natsuki-panel';
+async function openNatsukiPanel(page: Page): Promise<void> {
+  await boot(page, true);
+  await installAimHelpers(page);
+  await installArena(page);
+  const view = await page.evaluate(() => {
+    const h = window.__rikkun! as any;
+    const aim = (window as any).__aim;
+    h.settings.set('animalAutoSpawn', false);
+    h.settings.set('yokaiAutoSpawn', false);
+    h.settings.set('yokaiWander', false);
+    h.yokai.clear();
+    h.animals.clear();
+    (window as any).__arena.floor(0, 0, 24, 24);
+    h.inventory.clear();
+    h.time.set(12000);
+    aim.standForS(2.5, 6.5, 90, -20, 9);
+    h.step(5);
+    let follow = 18000;
+    try {
+      follow = h.settings.get('animalFollowTicks');
+    } catch {
+      // 設定が 無ければ 既定
+    }
+    const id = h.animals.spawn(4.5, 9, 6.5, { friend: true, follow, stage: 'adult', natsuki: 75, natsukiBugWait: 9000, natsukiPetWait: 0 });
+    h.step(35);
+    const c = h.animals.list().find((a: any) => a.id === id);
+    aim.solve(Math.floor(c.x), Math.floor(c.y), Math.floor(c.z), 0.5);
+    h.step(2);
+    return { target: h.animals.target() === id, view: h.animals.natsukiView(id) };
+  });
+  expect(view.target, 'なかまを ねらえている').toBe(true);
+  expect(view.view, 'パネルの 状態（AC20 のいちばん 多い とき）').toMatchObject({ shown: true, hearts: 7, gold: true });
+}
+SCREENS.push({
+  id: 'natsuki-panel',
+  roots: [NATSUKI_PANEL, '#animal-hint', '#hud'],
+  open: openNatsukiPanel,
+});
+
 interface Issue {
   kind: string;
   /** 数字を ふくまない 目印（known.json と くらべる） */
@@ -731,6 +814,38 @@ test.describe('UI 検査ゲート', () => {
         `新しい くずれ。直すか、直せない理由があれば issue にして ${KNOWN_FILE} に足す`,
       ).toEqual([]);
     });
+  }
+});
+
+/** GOLD-1 AC20: なかよし パネルの はばは 画面の 60% 以下・左右 16px 以上 あき・ホットバーと 重ならない（3 つの 大きさ） */
+test('GOLD-1 AC20: なかよし パネルの はば・すきま・ホットバーと 重ならない（3 つの 大きさ）', async ({ page }) => {
+  await page.setViewportSize({ width: SIZES[0].w, height: SIZES[0].h });
+  await openNatsukiPanel(page);
+  for (const s of SIZES) {
+    await page.setViewportSize({ width: s.w, height: s.h });
+    await page.evaluate(() => {
+      (window.__rikkun as any).step(2);
+      return new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    });
+    const m = await page.evaluate((sel) => {
+      const rect = (q: string) => {
+        const e = document.querySelector(q) as HTMLElement | null;
+        if (!e || e.hidden) return null;
+        const b = e.getBoundingClientRect();
+        return { l: b.left, t: b.top, r: b.right, b: b.bottom, w: b.width, h: b.height };
+      };
+      return { panel: rect(sel), hot: rect('#hotbar') ?? rect('.hotbar'), hint: rect('#animal-hint'), vw: innerWidth, vh: innerHeight };
+    }, NATSUKI_PANEL);
+    const tag = `${s.w}x${s.h}`;
+    expect(m.panel, `${tag} パネルが 出ている`).not.toBeNull();
+    const p = m.panel!;
+    expect(p.w, `${tag} はば 60% 以下（実際 ${p.w.toFixed(0)} / ${m.vw}）`).toBeLessThanOrEqual(m.vw * 0.6 + 0.5);
+    expect(p.l, `${tag} 左 16px 以上`).toBeGreaterThanOrEqual(16);
+    expect(m.vw - p.r, `${tag} 右 16px 以上`).toBeGreaterThanOrEqual(16);
+    expect(p.t >= 0 && p.b <= m.vh, `${tag} 画面の 中`).toBe(true);
+    if (m.hot) expect(p.b <= m.hot.t || p.t >= m.hot.b || p.r <= m.hot.l || p.l >= m.hot.r, `${tag} ホットバーと 重ならない`).toBe(true);
+    if (m.hint) expect(p.t, `${tag} 照準の 下の 案内の すぐ 下`).toBeGreaterThanOrEqual(m.hint.b - 1);
+    await page.screenshot({ path: `${OUT}/natsuki-panel-width-${tag}.png` });
   }
 });
 

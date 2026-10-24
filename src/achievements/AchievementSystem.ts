@@ -21,18 +21,19 @@ import type {
   YokaiKind,
 } from '../contracts';
 import { CROP_KINDS } from '../contracts';
+import { COUNTRY_KINDS } from '../world/gen/config';
 import { baseRecipeId } from '../craft/recipes';
 import {
   ACHIEVEMENT_DEFS,
   ARMOR_ITEMS,
   ARMOR_RECIPES,
+  KIN_RECIPES,
   CRAFT_RECIPE_NAMES,
   DEFS_BY_STAT,
   DEF_BY_ID,
   DEF_INDEX,
   MEDAL_RANK,
   PICKAXE_RECIPES,
-  VISIT_PLACES,
   WEAPON_RECIPES,
 } from './defs';
 
@@ -84,6 +85,8 @@ export interface StepContext {
   /** そうび: [head, body, arms, legs] */
   armor: ReadonlyArray<ItemId | null>;
   regions: WorldRegions | null;
+  /** COUNTRY-1 §5.2: いちばん近い 山の頂上（`peakNear`）。なければ null（省くと null） */
+  peak?: { x: number; z: number; h: number } | null;
 }
 
 export interface DefeatInfo {
@@ -114,6 +117,8 @@ export class AchievementSystem implements AchievementShowSource {
   private stats_: Record<string, number> = {};
   private walkAcc = 0;
   private unlocked = new Map<AchievementId, number>();
+  /** COUNTRY-1 §5.1: 見つけた国の 並び（見つけた順）。セーブの 正（記録 `country:*` は ここから そろえる） */
+  private foundCountries: string[] = [];
   private seen = new Set<AchievementId>();
   /** じっせき ページで 見た */
   private viewed = new Set<AchievementId>();
@@ -228,6 +233,7 @@ export class AchievementSystem implements AchievementShowSource {
     this.stats_ = {};
     this.walkAcc = 0;
     this.unlocked.clear();
+    this.foundCountries = [];
     this.seen.clear();
     this.viewed.clear();
     this.pending = [];
@@ -443,6 +449,10 @@ export class AchievementSystem implements AchievementShowSource {
             this.bump('meat:chicken', 1);
             this.bump('meat:*', 1);
             break;
+          // LIVE-4（§2.4・§4.5）: マッチョ の パンチ で たおした（2 回目 から も 数える。実績 は はじめて だけ）
+          case 'machoKO':
+            this.bump('machoKO:*', 1);
+            break;
           default:
             break;
         }
@@ -493,6 +503,12 @@ export class AchievementSystem implements AchievementShowSource {
   feedWorn(n: number): void {
     if (!(n > 0)) return;
     this.run(() => this.bump('wearTotal', n));
+  }
+
+  /** GOLD-1: めずらしさ `epic`（ほし 5）の 物 が もちもの に 入った（ちょうど epic だけ。ほし 6・7 は 数えない） */
+  feedRarity(rarity: string): void {
+    if (rarity !== 'epic') return;
+    this.run(() => this.bump('obtainRarity:epic', 1));
   }
 
   feedArrow(kind: 'shot' | 'hit'): void {
@@ -546,7 +562,78 @@ export class AchievementSystem implements AchievementShowSource {
 
   /** ロードした直後: 今の状態で決まるもの（レベル・防具）を しずかに取る */
   syncSilently(ctx: Pick<StepContext, 'level' | 'armor'>): void {
-    this.run(() => this.sampleState(ctx, true));
+    this.run(() => {
+      this.sampleState(ctx, true);
+      // COUNTRY-1 §4.3: スタートの はらっぱ は はじめから（並びの 先頭に しずかに）
+      if (!this.foundCountries.includes('harappa')) {
+        this.foundCountries.unshift('harappa');
+        this.syncCountryStats(true);
+      }
+    });
+  }
+
+  // ------------------------------------------------------------ 国（COUNTRY-1）
+
+  /** 見つけた国の 並び（見つけた順） */
+  found(): string[] {
+    return [...this.foundCountries];
+  }
+
+  /**
+   * 「国に入った」を 伝える（§4.3）。新しく 並びに 足したら true・もう あれば（または 知らない国なら）false。
+   * silent なら しずかに（実績は 取るが 知らせない）
+   */
+  enterCountry(kind: string, silent: boolean): boolean {
+    if (!(COUNTRY_KINDS as readonly string[]).includes(kind) || this.foundCountries.includes(kind)) return false;
+    this.run(() => {
+      this.foundCountries.push(kind);
+      this.syncCountryStats(silent);
+    });
+    return true;
+  }
+
+  /** テスト用: 並びを 入れかえる（しずかに 記録と 実績を そろえる。取った実績は 消えない。harappa は 足さない） */
+  setFound(kinds: readonly string[]): void {
+    this.run(() => {
+      this.foundCountries = this.cleanCountries(kinds);
+      this.syncCountryStats(true);
+    });
+  }
+
+  /** 並びから `country:<kind>`（0 か 1）と `country:all`（並びの長さ）を そろえる。ふえたら 実績を 取る（取った物は へらさない） */
+  private syncCountryStats(silent: boolean): void {
+    const exact = (key: string, v: number): void => {
+      const cur = this.stats_[key] ?? 0;
+      if (v === cur) return;
+      if (v < cur) {
+        if (v === 0) delete this.stats_[key];
+        else this.stats_[key] = v;
+        this.version_++;
+      } else {
+        this.setStat(key, v, silent);
+      }
+    };
+    for (const k of COUNTRY_KINDS) exact(`country:${k}`, this.foundCountries.includes(k) ? 1 : 0);
+    exact('country:all', this.foundCountries.length);
+  }
+
+  private cleanCountries(x: unknown): string[] {
+    const out: string[] = [];
+    if (!Array.isArray(x)) return out;
+    for (const k of x) if (typeof k === 'string' && (COUNTRY_KINDS as readonly string[]).includes(k) && !out.includes(k)) out.push(k);
+    return out;
+  }
+
+  /** テスト用（UI 検査・AC17）: 古い セーブで 取ってあった ことにする（legacy の 実績だけ。しずかに） */
+  restoreLegacy(ids: readonly string[]): void {
+    this.run(() => {
+      for (const id of ids) {
+        const d = DEF_BY_ID.get(id);
+        if (!d || !d.legacy || this.unlocked.has(d.id)) continue;
+        this.stats_[d.stat] = Math.max(this.stats_[d.stat] ?? 0, d.goal);
+        this.unlock(d, true);
+      }
+    });
   }
 
   // ------------------------------------------------------------ おめでとう画面に出すきまり
@@ -584,6 +671,7 @@ export class AchievementSystem implements AchievementShowSource {
       seen: [...this.seen],
       viewed: [...this.viewed],
       pending: [...this.pending],
+      foundCountries: [...this.foundCountries],
     };
   }
 
@@ -611,6 +699,10 @@ export class AchievementSystem implements AchievementShowSource {
     for (const i of ids(d.viewed)) this.viewed.add(i);
     for (const i of ids(d.pending)) if (!this.seen.has(i) && !this.pending.includes(i)) this.pending.push(i);
     this.oldestSmallAt = this.pending.some((i) => DEF_BY_ID.get(i)?.small) ? 0 : null;
+    // COUNTRY-1 §5.1: 並びが 正。記録は さいごに 並びから 作りなおす
+    if (Array.isArray(d.foundCountries)) this.foundCountries = this.cleanCountries(d.foundCountries);
+    else this.foundCountries = COUNTRY_KINDS.filter((k) => this.stat(`country:${k}`) > 0);
+    this.syncCountryStats(true);
     this.version_++;
   }
 
@@ -644,6 +736,7 @@ export class AchievementSystem implements AchievementShowSource {
     if (!defs) return;
     for (const d of defs) {
       if (v < d.goal) break;
+      if (d.legacy) continue; // COUNTRY-1: 古い 実績は 新しくは 取れない
       if (!this.unlocked.has(d.id)) this.unlock(d, silent);
     }
   }
@@ -677,6 +770,7 @@ export class AchievementSystem implements AchievementShowSource {
     this.setMax('craft:pickaxes', count(PICKAXE_RECIPES));
     this.setMax('craft:weapons', count(WEAPON_RECIPES));
     this.setMax('craft:armors', count(ARMOR_RECIPES));
+    this.setMax('craft:kinKinds', count(KIN_RECIPES));
     this.setMax('craft:everything', count(CRAFT_RECIPE_NAMES.map(([id]) => id)));
   }
 
@@ -694,30 +788,13 @@ export class AchievementSystem implements AchievementShowSource {
     }
     if (this.prevOnGround && !ctx.onGround && ctx.velocityY > 0) this.bump('jump', 1);
     this.prevOnGround = ctx.onGround;
-    if (ctx.regions) this.sampleVisits(ctx.regions, p, ctx.inWater);
+    this.sampleVisits(ctx.regions, ctx.peak ?? null, p, ctx.inWater);
   }
 
-  private visit(name: string): void {
-    this.bump(`visit:${name}`, 1);
-    let n = 0;
-    for (const v of VISIT_PLACES) if (this.stat(`visit:${v}`) > 0) n++;
-    this.setMax('visit:all', n);
-  }
-
-  private sampleVisits(r: WorldRegions, p: Vec3, inWater: boolean): void {
-    const inCircle = (c: { cx: number; cz: number; r: number }): boolean => (p.x - c.cx) ** 2 + (p.z - c.cz) ** 2 <= c.r * c.r;
-    const inRect = (c: { x0: number; z0: number; x1: number; z1: number }): boolean =>
-      p.x >= Math.min(c.x0, c.x1) && p.x <= Math.max(c.x0, c.x1) && p.z >= Math.min(c.z0, c.z1) && p.z <= Math.max(c.z0, c.z1);
-    const need = (n: string): boolean => this.stat(`visit:${n}`) === 0;
-    if (need('mountain') && inCircle(r.mountain)) this.visit('mountain');
-    if (need('forest') && inCircle(r.forest)) this.visit('forest');
-    if (need('meadow') && inCircle(r.meadow)) this.visit('meadow');
-    if (need('spring') && inCircle(r.spring)) this.visit('spring');
-    if (need('pond') && inCircle(r.pond)) this.visit('pond');
-    if (need('flat') && inRect(r.flat)) this.visit('flat');
-    if (need('river') && r.river.some(inRect)) this.visit('river');
-    if (need('sea') && inWater && Math.hypot(p.x - r.center.x, p.z - r.center.z) >= SEA_MIN_DIST) this.visit('sea');
-    if (need('peak') && Math.hypot(p.x - r.mountain.peak.x, p.z - r.mountain.peak.z) <= PEAK_RADIUS && p.y >= r.mountain.peak.h) this.visit('peak');
+  /** うみ（regions の center から 60 以上で 水の中）と てっぺん（4 つの山の国の 頂上）。古い 7 つと visit:all は もう ふやさない（COUNTRY-1 §5.2） */
+  private sampleVisits(r: WorldRegions | null, peak: StepContext['peak'], p: Vec3, inWater: boolean): void {
+    if (r && this.stat('visit:sea') === 0 && inWater && Math.hypot(p.x - r.center.x, p.z - r.center.z) >= SEA_MIN_DIST) this.bump('visit:sea', 1);
+    if (this.stat('visit:peak') === 0 && peak && Math.hypot(p.x - peak.x, p.z - peak.z) <= PEAK_RADIUS && p.y >= peak.h) this.bump('visit:peak', 1);
   }
 
   private sampleState(ctx: Pick<StepContext, 'level' | 'armor'>, silent: boolean): void {

@@ -20,6 +20,9 @@ function setup(opts: { phase?: DayPhase; px?: number; pz?: number; seed?: number
   const dropped: { at: Vec3; item: ItemId }[] = [];
   const settings = createLiveSettings();
   settings.animalAutoSpawn = false;
+  // GOLD-1: むし・なでる の まち（5 分）は この テスト の 邪魔 に なる ので 0（まち そのもの は natsuki.test.ts）
+  settings.natsukiBugWaitTicks = 0;
+  settings.natsukiPetWaitTicks = 0;
   const m = new AnimalManager({
     world,
     getPlayer: () => player,

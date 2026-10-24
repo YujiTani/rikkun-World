@@ -1,3 +1,4 @@
+import { COUNTRY_TABLE } from '../world/gen/countryTable';
 import { CROP_KINDS, type AchievementCategory, type AchievementDef, type CropKind, type MedalTier, type StatKey } from '../contracts';
 
 /**
@@ -74,6 +75,8 @@ export const LEGEND_NAMES: ReadonlyArray<readonly [string, string]> = [
 export const WEAPON_RECIPES = ['bokuto', 'katana', 'naginata', 'crystal_katana', 'yumi'] as const;
 export const ARMOR_RECIPES = ['kabuto', 'yoroi', 'kote', 'suneate'] as const;
 export const ARMOR_ITEMS = ARMOR_RECIPES;
+/** GOLD-1: きん の そうび 8 こ（実績 `gold.*`。`CRAFT_RECIPE_NAMES` には 入れない） */
+export const KIN_RECIPES = ['kin_katana', 'kin_yumi', 'kin_pickaxe', 'kin_axe', 'kin_kabuto', 'kin_yoroi', 'kin_kote', 'kin_suneate'] as const;
 /** やさい 4 しゅるいの 名前（実績の文） */
 export const CROP_NAME: Readonly<Record<CropKind, string>> = { onion: 'たまねぎ', tomato: 'トマト', pumpkin: 'かぼちゃ', eggplant: 'なす' };
 
@@ -104,6 +107,8 @@ interface SeriesSpec {
   tiers: Tier[];
   /** 段階 index（0 から）と目標から名前を作る */
   name: (goal: number, index: number) => string;
+  /** COUNTRY-1: 新しくは 取れない 古い 実績 */
+  legacy?: boolean;
 }
 
 function medalFor(index: number, count: number): MedalTier {
@@ -228,6 +233,9 @@ function build(): AchievementDef[] {
     tiers: [t(10), t(50)],
     name: (g) => `てつの かたまり を ${g} こ やいた！`,
   });
+  // GOLD-1 §4.8: きん の そうび（大きい 実績）
+  add({ series: 'gold.first', category: 'craft', stat: 'craft:kinKinds', tiers: [t(1)], name: () => 'はじめて きん の そうび を つくった！' });
+  add({ series: 'gold.all', category: 'craft', stat: 'craft:kinKinds', tiers: [t(KIN_RECIPES.length)], name: (g) => `きん の そうび を ${g} こ ぜんぶ つくった！` });
 
   // E. あつめる
   for (const [id, name, small] of [
@@ -244,6 +252,8 @@ function build(): AchievementDef[] {
   add({ series: 'obtain.bag', category: 'collect', stat: 'bagBack', tiers: [t(1)], name: () => 'おとしもの ぶくろ を とりもどした！' });
   add({ series: 'store.first', category: 'collect', stat: 'store:*', tiers: [t(1)], name: () => 'はじめて たんす に しまった！' });
   add({ series: 'store.full', category: 'collect', stat: 'storeFull', tiers: [t(1)], name: () => 'たんす を いっぱい に した！' });
+  // GOLD-1 §4.8: ちょうど ほし 5（`epic`）の 物 が もちもの に 入った
+  add({ series: 'rarity.star5', category: 'collect', stat: 'obtainRarity:epic', tiers: [t(1)], name: () => 'はじめて ほし 5 を ゲット！' });
 
   // F. たおす・G. まもる・やられる・や
   add({
@@ -376,7 +386,7 @@ function build(): AchievementDef[] {
   add({ series: 'tool.wearAll', category: 'adventure', stat: 'wearTotal', tiers: [t(1000)], name: (g) => `どうぐ を ${g} かい つかった！` });
   add({ series: 'armor.broken', category: 'adventure', stat: 'armorBroken', tiers: [t(1)], name: () => 'ぼうぐ が みを まもって くれた！' });
 
-  // J. ばしょ
+  // J. ばしょ（COUNTRY-1: 12 の国。古い 7 つと ぜんぶの ばしょは legacy = 新しくは 取れない・取った物だけ のこる）
   for (const [id, name] of [
     ['mountain', 'やま'],
     ['forest', 'もり'],
@@ -386,11 +396,15 @@ function build(): AchievementDef[] {
     ['pond', 'いけ'],
     ['river', 'かわ'],
   ] as const) {
-    add({ series: `visit.${id}`, category: 'places', stat: `visit:${id}`, tiers: [t(1)], name: () => `はじめて ${name} に きた！` });
+    add({ series: `visit.${id}`, category: 'places', stat: `visit:${id}`, tiers: [t(1)], name: () => `はじめて ${name} に きた！`, legacy: true });
   }
   add({ series: 'visit.sea', category: 'places', stat: 'visit:sea', tiers: [t(1)], name: () => 'はじめて うみ に はいった！' });
   add({ series: 'visit.peak', category: 'places', stat: 'visit:peak', tiers: [t(1)], name: () => 'やま の てっぺん に のぼった！' });
-  add({ series: 'visit.all', category: 'places', stat: 'visit:all', tiers: [t(VISIT_PLACES.length)], name: () => 'ぜんぶ の ばしょ に いった！' });
+  add({ series: 'visit.all', category: 'places', stat: 'visit:all', tiers: [t(VISIT_PLACES.length)], name: () => 'ぜんぶ の ばしょ に いった！', legacy: true });
+  for (const r of COUNTRY_TABLE) {
+    add({ series: `visit.country.${r.kind}`, category: 'places', stat: `country:${r.kind}`, tiers: [t(1)], name: () => `はじめて ${r.yomi} に きた！` });
+  }
+  add({ series: 'visit.countries', category: 'places', stat: 'country:all', tiers: [t(COUNTRY_TABLE.length)], name: () => 'ぜんぶの くに に いった！' });
 
   // K. そだてる（M7 §4.7）
   add({
@@ -496,6 +510,8 @@ function build(): AchievementDef[] {
   add({ series: 'animal.eatEgg', category: 'farm', stat: 'eat:egg', tiers: [t(1, true)], name: () => 'はじめて たまご を たべた！' });
   // LIVE-3（§4.5）: eatEgg の すぐ うしろ。「いただきます」その もの の 実績 は 作らない（命 を ごほうび に しない）
   add({ series: 'animal.eatMeat', category: 'farm', stat: 'eat:momo_yaki', tiers: [t(1, true)], name: () => 'はじめて やいた もも にく を たべた！' });
+  // LIVE-4（§4.5）: eatMeat の すぐ うしろ。マッチョ の パンチ で はじめて たおした とき の 小さな おめでとう
+  add({ series: 'animal.machoKO', category: 'farm', stat: 'machoKO:*', tiers: [t(1, true)], name: () => 'はじめて マッチョ と いっしょ に ようかい を たおした！' });
   // 版 3.2（§4.5）: eatEgg の うしろ に bug・carry の 順（小 では ない）
   add({
     series: 'animal.bug',
@@ -536,6 +552,8 @@ function build(): AchievementDef[] {
     name: firstOrN('はじめて きん の たまご！', (g) => `きん の たまご を ${g} こ！`),
   });
   add({ series: 'animal.macho', category: 'farm', stat: 'hatch:macho', tiers: [t(1)], name: () => 'マッチョ ひよこ が かえった！' });
+  // GOLD-1 §4.8: はらぱんみみず を ひろった
+  add({ series: 'obtain.harapan_mimizu', category: 'farm', stat: 'obtain:harapan_mimizu', tiers: [t(1)], name: () => 'はじめて はらぱんみみず を てにいれた！' });
 
   const out: AchievementDef[] = [];
   for (const s of specs) {
@@ -550,6 +568,7 @@ function build(): AchievementDef[] {
         medal: medalFor(i, s.tiers.length),
         small: !!tier.small,
         name: s.name(tier.goal, i),
+        ...(s.legacy ? { legacy: true } : {}),
       });
     });
   }

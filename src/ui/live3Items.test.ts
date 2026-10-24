@@ -52,13 +52,13 @@ describe('LIVE-3 アイテム（AC14）', () => {
 });
 
 describe('LIVE-3 やく レシピ（AC12 の 表・§4.2）', () => {
-  it('BAKE_RECIPES の いちばん うしろ に momo_yaki 1 ＝ momo_nama 1。やく は 5 こ。つくる（E）に にく は 入らない。craft.everything には 入らない', () => {
-    expect(BAKE_RECIPES).toHaveLength(5);
+  it('BAKE_RECIPES の いちばん うしろ に momo_yaki 1 ＝ momo_nama 1。やく は 6 こ（GOLD-1 の kin 込み）。つくる（E）に にく は 入らない。craft.everything には 入らない', () => {
+    expect(BAKE_RECIPES).toHaveLength(6);
     const last = BAKE_RECIPES[BAKE_RECIPES.length - 1]!;
     expect(last).toMatchObject({ id: 'momo_yaki', output: { item: 'momo_yaki', count: 1 }, inputs: [{ item: 'momo_nama', count: 1 }], station: 'furnace', works: true });
     // つくる（E）の 数 は ほか の PR で ふえる（main で 36→38）ので 数 で なく「にく が 入らない」で 見る
     expect(CRAFT_RECIPES.some((r) => r.output.item === 'momo_nama' || r.output.item === 'momo_yaki')).toBe(false);
-    expect(ALL_RECIPES.filter((r) => r.station === 'furnace').map((r) => r.id)).toEqual(['iron_ingot', 'kawara', 'brick', 'haniwa', 'momo_yaki']);
+    expect(ALL_RECIPES.filter((r) => r.station === 'furnace').map((r) => r.id)).toEqual(['iron_ingot', 'kawara', 'brick', 'haniwa', 'kin', 'momo_yaki']);
   });
 });
 

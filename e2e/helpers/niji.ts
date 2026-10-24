@@ -103,6 +103,7 @@ async function snap(page: Page, F: number, shots: boolean, rgb: boolean): Promis
   const s = await page.evaluate(() => {
     const h = window.__rikkun as any;
     h.step(1);
+    while (h.impact && h.impact.stopLeft() > 0) h.step(1); // #276 ヒットストップの 止まりは 1 ステップに 数えない
     const st = h.legend.state();
     const ev = h.legend.events();
     const w = window as any;

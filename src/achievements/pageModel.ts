@@ -14,6 +14,8 @@ export interface PageRow {
   progress?: { now: number; goal: number };
   unlocked: boolean;
   isNew: boolean;
+  /** COUNTRY-1: むかしの ばしょ（取った物だけ。いちばん下） */
+  legacy?: boolean;
 }
 
 export interface PageUi {
@@ -74,11 +76,14 @@ export class AchievementsPageModel {
 
   ui(inventoryOpen = true): PageUi {
     this.sync(inventoryOpen);
-    const rows: PageRow[] = ACHIEVEMENT_DEFS.filter((d) => d.category === this.category_).map((d) => {
+    // COUNTRY-1 §5.2: 古い（legacy）実績は 取った物だけ いちばん下に「むかしの ばしょ」として 出す
+    const inCategory = ACHIEVEMENT_DEFS.filter((d) => d.category === this.category_);
+    const ordered = [...inCategory.filter((d) => !d.legacy), ...inCategory.filter((d) => d.legacy && this.sys.isUnlocked(d.id))];
+    const rows: PageRow[] = ordered.map((d) => {
       const u = this.sys.isUnlocked(d.id);
       const prev = !u && d.tier > 1 ? ACHIEVEMENT_DEFS.find((p) => p.series === d.series && p.tier === d.tier - 1) : undefined;
       const next = !!prev && this.sys.isUnlocked(prev.id);
-      const row: PageRow = { id: d.id, shown: u || next, next, unlocked: u, isNew: u && !this.sys.isViewed(d.id) };
+      const row: PageRow = { id: d.id, shown: u || next, next, unlocked: u, isNew: u && !this.sys.isViewed(d.id), ...(d.legacy ? { legacy: true } : {}) };
       if (next) row.progress = { now: Math.min(d.goal, this.sys.stat(d.stat)), goal: d.goal };
       return row;
     });
@@ -87,7 +92,8 @@ export class AchievementsPageModel {
       tab: this.tab_,
       category: this.category_,
       categories: CATEGORY_ORDER.map((id) => ({ id, label: CATEGORY_LABEL[id], dot: this.dot(id) })),
-      total: ACHIEVEMENT_DEFS.length,
+      // N = 今 取れる 実績 ＋ 取った むかしの 実績（COUNTRY-1 §5.2）
+      total: ACHIEVEMENT_DEFS.filter((d) => !d.legacy || this.sys.isUnlocked(d.id)).length,
       unlocked: this.sys.unlockedCount(),
       rows,
       tabDot: this.dot(null),

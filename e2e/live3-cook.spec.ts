@@ -51,7 +51,7 @@ test.describe('LIVE-3 やいて たべる', () => {
     expect(r.countPlace, '置けない').toBe(3);
   });
 
-  test('AC12 やく: K で momo_nama 1・せきたん 1 → click → 59 で 0・60 で momo_yaki 1。furnace.list() は 5 こ・5 つ目 が momo_yaki', async ({ page }) => {
+  test('AC12 やく: K で momo_nama 1・せきたん 1 → click → 59 で 0・60 で momo_yaki 1。furnace.list() は 6 こ（GOLD-1 の kin を 足した）・いちばん うしろ が momo_yaki', async ({ page }) => {
     await openLive3(page);
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
@@ -84,8 +84,8 @@ test.describe('LIVE-3 やいて たべる', () => {
       o.noMat = { ok: c2.ok };
       return o;
     });
-    expect(r.ids, 'やく 5 こ').toHaveLength(5);
-    expect(r.ids[4]).toBe('momo_yaki');
+    expect(r.ids, 'やく 6 こ（GOLD-1 の kin）').toHaveLength(6);
+    expect(r.ids[5]).toBe('momo_yaki');
     expect(r.last).toMatchObject({ id: 'momo_yaki', canBake: true, fuelOk: true });
     expect(r.click.ok).toBe(true);
     expect(r.nama, '材料 を つかう').toBe(0);

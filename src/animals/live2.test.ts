@@ -21,6 +21,9 @@ function setup(opts: { phase?: DayPhase; px?: number; pz?: number; seed?: number
   const bag: ItemId[] = [];
   const settings = createLiveSettings();
   settings.animalAutoSpawn = false;
+  // GOLD-1: むし・なでる の まち（5 分）は この テスト の 邪魔 に なる ので 0（まち そのもの は natsuki.test.ts）
+  settings.natsukiBugWaitTicks = 0;
+  settings.natsukiPetWaitTicks = 0;
   const m = new AnimalManager({
     world,
     getPlayer: () => player,
@@ -774,13 +777,14 @@ describe('AC12 小屋の たまご', () => {
   });
 });
 
+// GOLD-1: 金 の たまご は なつき度 71 以上 の ときだけ（natsuki: 71 を わたす）
 describe('AC16 金の たまご', () => {
   it('goldBaseWild 1・goldCap 1 → 金 の たまご（dropItem kin_tamago・egg 出来事 gold true）', () => {
     const s = setup();
     s.settings.animalEggChance = 1;
     s.settings.goldBaseWild = 1;
     s.settings.goldCap = 1;
-    const id = s.m.spawn(21.5, 9, 20.5, { friend: true })!;
+    const id = s.m.spawn(21.5, 9, 20.5, { friend: true, natsuki: 71 })!;
     s.m.feed(id, 'mushi');
     s.step(s.settings.animalEggDelay + 2);
     expect(s.dropped.map((d) => d.item)).toEqual(['kin_tamago']);
@@ -795,7 +799,7 @@ describe('AC16 金の たまご', () => {
     s.settings.animalEggChance = 1;
     s.settings.goldBaseWild = 0;
     s.settings.goldPerBug = 0;
-    const id = s.m.spawn(21.5, 9, 20.5, { friend: true, goldMiss: 30 })!;
+    const id = s.m.spawn(21.5, 9, 20.5, { friend: true, goldMiss: 30, natsuki: 71 })!;
     s.m.feed(id, 'mushi');
     s.step(s.settings.animalEggDelay + 2);
     expect(s.dropped.map((d) => d.item)).toEqual(['kin_tamago']);
@@ -804,7 +808,7 @@ describe('AC16 金の たまご', () => {
     t.settings.animalEggChance = 1;
     t.settings.goldBaseWild = 0;
     t.settings.goldPerBug = 0;
-    const b = t.m.spawn(21.5, 9, 20.5, { friend: true, goldMiss: 3 })!;
+    const b = t.m.spawn(21.5, 9, 20.5, { friend: true, goldMiss: 3, natsuki: 71 })!;
     t.m.feed(b, 'mushi');
     t.step(t.settings.animalEggDelay + 2);
     expect(t.eggs).toHaveLength(1);
@@ -816,7 +820,7 @@ describe('AC16 金の たまご', () => {
     s.settings.goldBaseWild = 1;
     s.settings.goldCap = 1;
     const c = place(s);
-    const id = s.m.spawn(50.5, 9, 50.5, { home: c.id })!;
+    const id = s.m.spawn(50.5, 9, 50.5, { home: c.id, natsuki: 71 })!;
     s.m.feed(id, 'mushi');
     s.step(s.settings.animalEggDelay + 2);
     expect(s.m.coops()[0]!.nest).toEqual({ egg: 0, gold: 1 });
@@ -829,7 +833,7 @@ describe('AC16 金の たまご', () => {
     s.settings.animalEggChance = 1;
     s.settings.goldBaseWild = 1;
     s.settings.goldCap = 1;
-    const id = s.m.spawn(21.5, 9, 20.5, { friend: true })!;
+    const id = s.m.spawn(21.5, 9, 20.5, { friend: true, natsuki: 71 })!;
     s.m.feed(id, 'mushi');
     s.step(s.settings.animalEggDelay + 2);
     expect(s.eggs).toHaveLength(1);
@@ -842,7 +846,7 @@ describe('AC13 ねる', () => {
     const c = place(s);
     const a = s.m.spawn(49.5, 9, 50.5, { home: c.id, stage: 'adult' })!;
     const b = s.m.spawn(51.5, 9, 50.5, { home: c.id, stage: 'chick' })!;
-    const f = s.m.spawn(25.5, 9, 25.5, { friend: true })!;
+    const f = s.m.spawn(25.5, 9, 25.5, { friend: true, natsuki: 71 })!;
     s.st.phase = 'night';
     s.step(120);
     expect(s.one(a).state).toBe('sleep');

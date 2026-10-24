@@ -72,6 +72,17 @@ const ITEM_ONLY_RARITY: Record<string, Rarity> = {
   raijin_ken: 'legendary',
   fujin_ken: 'legendary',
   niji: 'legendary',
+  // GOLD-1 §4.1（ぜんぶ ほし 5）
+  kin: 'epic',
+  kin_katana: 'epic',
+  kin_yumi: 'epic',
+  kin_pickaxe: 'epic',
+  kin_axe: 'epic',
+  kin_kabuto: 'epic',
+  kin_yoroi: 'epic',
+  kin_kote: 'epic',
+  kin_suneate: 'epic',
+  harapan_mimizu: 'epic',
   // BUCKET-1
   bucket: 'common',
   water_bucket: 'common',
