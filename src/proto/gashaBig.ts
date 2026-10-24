@@ -730,6 +730,20 @@ export function buildBig(): BigModel {
       }
       H.side.forEach((q, k) => lock(`side${sd}${k}`, s * q[0]!, q[2]!, q[1]!, k));
     }
+    // 肩から 頭の 上への 雲の らせん（からだが 動いても 通れる。上がりは 1 つ 0.75 ブロック）
+    {
+      const U = T.rise, rr = makeRnd(U.seed);
+      for (const s of [-1, 1]) {
+        const sd = s < 0 ? 'R' : 'L';
+        for (let k = 0; k < U.count; k++) {
+          const a = ((U.angle0Deg + k * U.stepDeg) * Math.PI) / 180, y = U.y0 + k * U.step;
+          puff(b, {
+            joint: y < U.splitY ? 'Spine02' : 'Head', cx: s * (U.cx + U.radius * Math.cos(a)) * KW, top: y * KW, cz: (U.cz + U.radius * Math.sin(a)) * KW,
+            w: lerpA(U.size, rr()), yaw: rr() * Math.PI, lobes: 4, name: `rise${sd}${k}`, rnd: rr,
+          });
+        }
+      }
+    }
     const K = T.bank, rb = makeRnd(K.seed);
     for (let i = 0; i < K.count; i++) {
       let x = 0, z = 0, rad = 2;
