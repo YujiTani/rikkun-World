@@ -25,6 +25,8 @@ import { BigHit, type HitSources } from './gashaBigHit';
 import { GashaGeyser, type GeyserInfo } from './gashaGeyser';
 import { BigShock, type ShockHit } from './gashaBigShock';
 import { ShockFx } from './gashaBigShockFx';
+import { BeamAim, type AimEnv } from './gashaBigBeam';
+import { BeamFx } from './gashaBigBeamFx';
 import { crushAt } from './gashaBigCrush';
 import { BodyQuake } from './gashaBigQuake';
 import { armHit } from './gashaBigSweepHit';
@@ -1145,12 +1147,12 @@ export interface GashaBigHandle {
   lookBack(): void;
   /** 後ろへ さがる（climbing down wall を 倒した 動き）を はじめる / 止める */
   back(on: boolean): void;
-  /** 攻撃を すぐ 出す（デバッグ。怒って いなければ 怒らせる）。'slam2'（両手たたきつけ）・'sweep'（両手で 払う） */
+  /** 攻撃を すぐ 出す（デバッグ。怒って いなければ 怒らせる）。'slam2'（両手たたきつけ）・'sweep'（両手で 払う）・'beam'（目から 光線） */
   attack(name: string): void;
   /** つかれて 休みに はいる（デバッグ。sec を 省くと 調整表の 20〜30 秒） */
   tired(sec?: number): void;
   /** 攻撃サイクル・予告・体の ゆれの いま（テスト用） */
-  attackInfo(): { mode: string; phase: string; attack: string | null; done: number; count: number; left: number; slam2Count: number; sweepCount: number; sweepActive: string | null; quakeLeft: number; warn: boolean; fx: { warn: boolean; rocks: number; cracks: number } };
+  attackInfo(): { mode: string; phase: string; attack: string | null; done: number; count: number; left: number; slam2Count: number; sweepCount: number; sweepActive: string | null; quakeLeft: number; warn: boolean; fx: { warn: boolean; rocks: number; cracks: number }; beamCount: number; beamPhase: string; beamMode: string | null; beamAim: { x: number; y: number; z: number } | null; beamFx: { marks: number; flames: number; smoke: number; beams: number; sparkle: number } };
   /** 長い 休みに はいる（その場で 体を 動かさない。首を ふる くらい）。sec を 書かなければ 調整表の wander.restSec */
   rest(sec?: number): void;
   /** うごきの 中身（モード・速さ・手の ついた 数・1 コマの 仕事の 数 など） */
@@ -1324,6 +1326,64 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
     const dl = Math.hypot(dx, dz) || 1; dx /= dl; dz /= dl;
     if (shock.sweepStrike({ x: p.x, y: p.y, z: p.z }, dx, dz)) sweepHitDone = true;
   };
+  // 攻撃 3「目から 光線」: 着弾点が 追う・ブロックで 止まる・当たったら ダメージ・こげ跡と 煙（gashaBigBeam.ts / gashaBigBeamFx.ts）
+  const beamAim = new BeamAim(), beamFx = new BeamFx(deps.scene, deps.camera);
+  const beamEyes: [Vector3, Vector3] = [new Vector3(), new Vector3()];
+  let beamPrev = 'idle', beamMark = 0, beamSmoke = 0, beamLast: { x: number; y: number; z: number } | null = null, beamShown = false;
+  const beamSolid = (x: number, y: number, z: number): boolean => (blockAt ? ((b: string) => b !== 'air' && b !== 'outside')(blockAt(x, y, z)) : y <= deps.groundY(x, z));
+  const stepBeam = (dt: number): void => {
+    if (!actor) return;
+    const ph = actor.attackName === 'beam' && actor.mode === 'attack' ? actor.beam.phase : 'idle';
+    const K = T.beam;
+    if (ph === 'idle' || ph === 'done') {
+      if (beamShown || beamPrev !== 'idle') { beamFx.setBeams([], [], false); beamFx.setSparkle([], 0); beamShown = false; actor.beamLook = null; }
+      beamPrev = 'idle'; beamLast = null;
+      beamFx.update(dt);
+      return;
+    }
+    actor.eyePositions(beamEyes);
+    const p = deps.player();
+    const lp = beamLast;
+    const env: AimEnv = {
+      player: { x: p.x, y: p.y, z: p.z }, vel: { x: lp ? (p.x - lp.x) / dt : 0, z: lp ? (p.z - lp.z) / dt : 0 }, yawDeg: p.yawDeg,
+      eyes: [beamEyes[0], beamEyes[1]], body: { x: actor.pos.x, z: actor.pos.z }, solid: beamSolid,
+    };
+    beamLast = { x: p.x, y: p.y, z: p.z };
+    beamShown = true;
+    if (ph === 'charge') {
+      beamFx.setSparkle(beamEyes, actor.beam.glow);
+      beamFx.setBeams([], [], false);
+      // 予兆の 間は プレイヤーを 見る
+      actor.beamLook = null;
+    } else if (ph === 'fire') {
+      if (beamPrev !== 'fire') { beamAim.begin(env); beamMark = 0; beamSmoke = 0; }
+      const r = beamAim.step(dt, env);
+      const a = beamAim.a;
+      beamFx.setSparkle(beamEyes, 1);
+      beamFx.setBeams(beamEyes, [r.ends[0].end, r.ends[1].end], true);
+      actor.beamLook = { x: a.x, y: a.y, z: a.z };
+      if (r.reached) {
+        beamMark -= dt; beamSmoke -= dt;
+        if (beamMark <= 0) { beamMark = K.markEverySec; beamFx.burn(a.x, a.y, a.z); }
+        if (beamSmoke <= 0) { beamSmoke = K.smokeEverySec; beamFx.smoke(a.x, a.y, a.z, 1, K.smokeSize); }
+        if (K.breakBlocks && blockAt && deps.setBlockAir) {
+          for (const e of r.ends) if (e.blocked) deps.setBlockAir(Math.floor(e.end.x), Math.floor(e.end.y), Math.floor(e.end.z));
+        }
+      }
+      if (r.damage > 0) deps.hurt?.(r.damage, { x: actor.pos.x, y: actor.pos.y, z: actor.pos.z });
+    } else {
+      // 終わり: 光線を 止めて 大きな 煙（最後の 着弾点で）
+      if (beamPrev === 'fire') {
+        const a = beamAim.a;
+        beamFx.smoke(a.x, a.y, a.z, K.finaleSmoke, K.finaleSize);
+      }
+      beamFx.setBeams([], [], false);
+      beamFx.setSparkle(beamEyes, actor.beam.glow);
+      if (ph === 'recover') actor.beamLook = null;
+    }
+    beamPrev = ph;
+    beamFx.update(dt);
+  };
   deps.blockPlayerInput?.(() => shock.inputBlocked() || throwLeft > 0 || spinLeft > 0);
   deps.onBeforeRender?.(() => shockFx.applyShake(Math.max(reduced() ? 0 : shock.shakeNow, warnLeft > 0 ? T.core.throwOff.warnShakeDeg * (reduced() ? 0.25 : 1) : 0, quake.active && riding() ? T.slam2.quake.bodyShakeDeg * (reduced() ? 0.25 : 1) : 0), shock.time));
   const fwdOf = (p: { yawDeg: number }) => { const y = (p.yawDeg * Math.PI) / 180; return { fx: Math.sin(y), fz: -Math.cos(y) }; };
@@ -1418,6 +1478,7 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
     stepCoreWarn(dt);
     quake.step(dt);
     stepSweep(dt);
+    stepBeam(dt);
     shockFx.setWarn(actor.warn);
     if (throwLeft > 0) { throwLeft -= dt; deps.nudgePlayer?.(throwDir.x * T.core.throwOff.speed * dt, throwDir.z * T.core.throwOff.speed * dt); }
     shock.step(dt);
@@ -1434,7 +1495,7 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
 
   const handle: GashaBigHandle = {
     tune: (o) => applyTune(o),
-    place: () => { quake.stop(); place(); bh.reset(); },
+    place: () => { quake.stop(); beamFx.clear(); place(); bh.reset(); },
     hp: () => bh.hp,
     damage: (part, amount) => bh.damage(part, amount),
     section: (on) => {
@@ -1463,6 +1524,7 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
     attackInfo: () => ({
       mode: actor?.mode ?? '', phase: actor?.cycle.phase ?? 'off', attack: actor?.attackName ?? null, done: actor?.cycle.done ?? 0, count: actor?.cycle.count ?? 0, left: actor?.cycle.left ?? 0,
       slam2Count: actor?.slam2Count ?? 0, sweepCount: actor?.sweepCount ?? 0, sweepActive: actor?.sweepNow?.side ?? null, quakeLeft: quake.left, warn: !!actor?.warn, fx: shockFx.bigCounts(),
+      beamCount: actor?.beamCount ?? 0, beamPhase: actor?.beam.phase ?? 'idle', beamMode: actor && actor.attackName === 'beam' ? beamAim.mode : null, beamAim: actor && actor.attackName === 'beam' && beamPrev === 'fire' ? { ...beamAim.a } : null, beamFx: beamFx.counts(),
     }),
     rest: (sec) => actor?.rest(sec),
     motion: () => (actor ? {

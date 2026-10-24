@@ -2,13 +2,15 @@ import { describe, expect, it } from 'vitest';
 import climbUp from './gashaBigClips/climbUp.json';
 import climbDown from './gashaBigClips/climbDown.json';
 import lookBack from './gashaBigClips/lookBack.json';
-import { Vector3 } from 'three';
+import { Color, Vector3 } from 'three';
 import { buildBig } from './gashaBig';
 import { BigActor } from './gashaBigActor';
 import { TUNE as T } from './gashaBigTuning';
 
 const CLIPS = { climbUp, climbDown, lookBack };
 const DT = 1 / 60;
+/** 目の 色の つくり方（actor の applyEyes と おなじ setRGB）で 16 進を 色の 値に した もの */
+const asEye = (h: number): number => new Color().setRGB(((h >> 16) & 255) / 255, ((h >> 8) & 255) / 255, (h & 255) / 255).getHex();
 
 /** 攻撃の 表を いっとき slam2 だけに する（回数を 数える テスト用） */
 const onlySlam2 = <R>(f: () => R): R => {
@@ -142,14 +144,49 @@ describe('怒りの 攻撃サイクル（actor）', () => {
     expect(actor.mode === 'idle' || actor.mode === 'crawl' || actor.mode === 'look').toBe(true);
   });
 
-  it('攻撃の 表に slam2 と sweep: サイクルで ランダムに どちらも 出る。sweep は 払って おわると 怒りに もどる', () => {
+  it('攻撃の 表に slam2・sweep・beam: サイクルで ランダムに どれも 出る。おわると 怒りに もどる', () => {
     const { actor, slams, run } = rig();
     actor.hit();
     const names = new Set<string>();
-    run(600, () => { if (actor.attackName) names.add(actor.attackName); });
-    expect([...names].sort()).toEqual(['slam2', 'sweep']);
+    run(1500, () => { if (actor.attackName) names.add(actor.attackName); });
+    expect([...names].sort()).toEqual(['beam', 'slam2', 'sweep']);
     expect(slams.length).toBeGreaterThan(0);
     expect(actor.sweepCount).toBeGreaterThan(0);
+    expect(actor.beamCount).toBeGreaterThan(0);
+  });
+
+  it('attack(beam): 予兆（目が 光る）→ 光線 → 終わり → もどる。光は この 攻撃の 間だけ。目は ねらいの 点を 見る', () => {
+    const { actor, run } = rig();
+    actor.attack('beam');
+    expect(actor.mode).toBe('attack');
+    expect(actor.attackName).toBe('beam');
+    expect(actor.beamCount).toBe(1);
+    const K = T.beam;
+    const phases: string[] = []; let maxGlow = 0;
+    run(K.chargeSec + K.fireSec + K.finaleSec + K.recoverSec + 0.4, () => {
+      const p = actor.beam.phase;
+      if (!phases.length || phases[phases.length - 1] !== p) phases.push(p);
+      maxGlow = Math.max(maxGlow, actor.beam.glow);
+    });
+    expect(phases).toEqual(['charge', 'fire', 'finale', 'recover', 'done']);
+    expect(maxGlow).toBe(1);
+    expect(actor.mode).toBe('angry');
+    expect(actor.beam.glow).toBe(0);
+    // 目の 色: おわったら ふつうの 怒りの 赤に もどる
+    expect(actor.model.eyes.color.getHex()).toBe(asEye(T.eyes.angryColor));
+    expect(actor.model.eyeHalo.opacity).toBeCloseTo(0.3, 5);
+  });
+
+  it('光っている 間は 目の 色が 赤黒い 色から 強い 赤へ、光の 輪が 濃くなる', () => {
+    const { actor, run } = rig();
+    actor.attack('beam');
+    run(0.1);
+    const early = actor.model.eyes.color.getHex();
+    const haloEarly = actor.model.eyeHalo.opacity;
+    run(T.beam.chargeSec + 0.5);
+    expect(actor.model.eyes.color.getHex()).toBe(asEye(T.beam.eyeColorHot));
+    expect(actor.model.eyeHalo.opacity).toBeGreaterThan(haloEarly);
+    expect(early).not.toBe(asEye(T.beam.eyeColorHot));
   });
 
   it('attack(sweep): 振りかぶり → 左右 2 回 払う → もどる。払っている 間 手が 世界の 座標で 動く', () => {

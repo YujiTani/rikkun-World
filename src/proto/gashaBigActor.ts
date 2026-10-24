@@ -16,6 +16,7 @@ import { StepCrawler, type Side } from './gashaBigStep';
 import { AttackCycle } from './gashaBigAttack';
 import { Slam2 } from './gashaBigSlam2';
 import { Sweep } from './gashaBigSweep';
+import { Beam } from './gashaBigBeam';
 
 export interface ActorEnv {
   /** 地面の いちばん 上の ブロックの 高さ（立つ 面は +1） */
@@ -185,6 +186,12 @@ export class BigActor {
   sweepNow: { side: Side; x: number; y: number; z: number; vx: number; vz: number; stroke: number } | null = null;
   private sweepLast: { x: number; z: number } | null = null;
   private sweepStroke = 0;
+  /** 目から 光線の 動き（gashaBigBeam.ts） */
+  beam!: Beam;
+  /** 目から 光線を 出した 数（テスト用） */
+  beamCount = 0;
+  /** 光線の 間 首が 向く 点（世界の 座標。外から 毎コマ 決める。なければ プレイヤー） */
+  beamLook: { x: number; y: number; z: number } | null = null;
   /** 攻撃の 名前（attack モードの 間） */
   attackName: string | null = null;
   /** 両手たたきつけを 出した 数（テスト用） */
@@ -295,6 +302,7 @@ export class BigActor {
     this.step = new StepCrawler(this.model, T.crawl);
     this.slam2 = new Slam2(this.step, this.model);
     this.sweep = new Sweep(this.step, this.model);
+    this.beam = new Beam();
     this.crawlSpeed = (this.step.stride * this.model.scale) / this.step.stepSec();
     this.stepW = 0; this.stepWant = 0;
   }
@@ -369,7 +377,7 @@ export class BigActor {
     this.angryLeft = 0;
     this.bodyTurning = false;
     this.cycle.reset();
-    this.warn = null; this.attackName = null; this.sweepNow = null;
+    this.warn = null; this.attackName = null; this.sweepNow = null; this.beamLook = null; this.beam.phase = 'idle'; this.beam.glow = 0;
     if (this.isAngry()) {
       const was = this.mode;
       this.mode = 'idle'; this.pauseLeft = this.randIn(T.wander.pauseSec);
@@ -394,9 +402,17 @@ export class BigActor {
   }
 
   private startAttack(name: string): void {
-    if (name !== 'slam2' && name !== 'sweep') { this.cycle.attackEnded(); return; } // まだ ない 攻撃は とばす
+    if (name !== 'slam2' && name !== 'sweep' && name !== 'beam') { this.cycle.attackEnded(); return; } // まだ ない 攻撃は とばす
     this.mode = 'attack'; this.attackName = name; this.target = null;
     this.player.play(null, { fade: 0 });
+    if (name === 'beam') {
+      // 目から 光線: 足は 止めて そのまま。首を ねらう 点へ むける
+      this.beam.start();
+      this.beamCount++;
+      this.beamLook = null;
+      this.eyeShown = -1;
+      return;
+    }
     if (name === 'sweep') {
       this.sweep.start();
       this.sweepCount++;
@@ -575,6 +591,14 @@ export class BigActor {
     }
   }
 
+  /** 左右の 目の 世界の 位置（左右の じゅん） */
+  eyePositions(out: [Vector3, Vector3]): [Vector3, Vector3] {
+    const e = this.model.swirl.eyes;
+    e[0]!.getWorldPosition(out[0]);
+    e[1]!.getWorldPosition(out[1]);
+    return out;
+  }
+
   /** ふるまい。からだが 動いた（位置か 向きが かわった）か を 返す */
   private think(dt: number): boolean {
     let moved = false;
@@ -582,6 +606,18 @@ export class BigActor {
     if (this.angryLeft > 0) {
       this.angryLeft -= dt;
       if (this.angryLeft <= 0) this.calm();
+    }
+    if (this.mode === 'attack' && this.attackName === 'beam') {
+      this.speedNow = 0;
+      this.beam.update(dt);
+      this.eyeShown = -1; // 光は 毎コマ 変わる
+      if (this.beam.done) {
+        this.beamLook = null;
+        this.cycle.attackEnded();
+        this.eyeShown = -1;
+        if (this.cycle.phase === 'tired') this.startTired(); else this.backToAngry(0.3);
+      }
+      return false;
     }
     if (this.mode === 'attack' && this.attackName === 'sweep') {
       this.speedNow = 0;
@@ -768,16 +804,25 @@ export class BigActor {
     const c = m.eyes.color;
     const lo = T.eyes.calmColor, hi = T.eyes.angryColor;
     const lerp = (a: number, b: number, t: number) => Math.round(a + (b - a) * t);
-    const k = this.eyeMix;
+    let k = this.eyeMix;
     const swirl = this.mode === 'tired';
+    const glow = this.mode === 'attack' && this.attackName === 'beam' ? this.beam.glow : 0;
+    const bk = T.beam;
     m.swirl.root.visible = swirl;
     m.eyes.visible = !swirl; m.eyeHalo.visible = !swirl; // くるくる目の 間は 赤い 目と 光の 輪を かくす
     const rgb = (h: number) => [(h >> 16) & 255, (h >> 8) & 255, h & 255] as const;
     const A = rgb(lo), B = rgb(hi);
     c.setRGB(lerp(A[0], B[0], k) / 255, lerp(A[1], B[1], k) / 255, lerp(A[2], B[2], k) / 255);
+    // 目から 光線の 間だけ: 赤黒い 色から 強い 赤へ・光の 輪が 濃く（ふだんは 0.3）
+    if (glow > 0) {
+      const D = rgb(bk.eyeColorDark), H = rgb(bk.eyeColorHot);
+      c.setRGB(lerp(D[0], H[0], glow) / 255, lerp(D[1], H[1], glow) / 255, lerp(D[2], H[2], glow) / 255);
+      m.eyeHalo.opacity = 0.3 + (bk.haloMax - 0.3) * glow;
+      k = 1;
+    } else m.eyeHalo.opacity = 0.3;
     m.eyeHalo.color.copy(c);
     m.brow.visible = k > 0.5;
-    this.eyeShown = k;
+    this.eyeShown = glow > 0 ? -1 : k;
   }
 
   private applyPose(force: boolean): void {
@@ -801,10 +846,12 @@ export class BigActor {
     const m = this.model, A = T.angry;
     let ty = 0, tp = 0;
     const neck = m.joints.neck, head = m.joints.Head;
-    if (this.mode === 'angry' && neck && head && neck.parent) {
+    const beamLook = this.mode === 'attack' && this.attackName === 'beam' && this.beam.phase !== 'done';
+    if ((this.mode === 'angry' || beamLook) && neck && head && neck.parent) {
       const p = this.env.player();
       const hp = this.lookV.setFromMatrixPosition(head.matrixWorld);
-      const dir = this.lookV2.set(p.x - hp.x, p.y + A.lookEyeHeight - hp.y, p.z - hp.z);
+      const bl = beamLook ? this.beamLook : null;
+      const dir = bl ? this.lookV2.set(bl.x - hp.x, bl.y - hp.y, bl.z - hp.z) : this.lookV2.set(p.x - hp.x, p.y + A.lookEyeHeight - hp.y, p.z - hp.z);
       // 首の 根もとの 向き（1 コマ前の 親の 行列 × いまの 姿勢の 首）
       neck.parent.matrixWorld.decompose(this.tv, this.tq, this.ts);
       const ni = this.names.indexOf('neck');

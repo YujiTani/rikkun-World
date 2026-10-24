@@ -99,7 +99,7 @@ describe('怒りの 攻撃サイクル（gashaBigAttack.ts）', () => {
   it('攻撃の 表に 行を 足すだけで 種類が ふえる（重みで 選ぶ）', () => {
     const saved = T.attack.table.slice();
     try {
-      T.attack.table.push({ name: 'sweep', weight: 1 });
+      T.attack.table.length = 0; T.attack.table.push({ name: 'slam2', weight: 1 }, { name: 'sweep', weight: 1 });
       const seen = new Set<string>();
       const c = new AttackCycle(9);
       for (let i = 0; i < 20; i++) { c.begin(); for (const a of lap(c).attacks) seen.add(a); }
