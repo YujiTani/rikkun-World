@@ -157,7 +157,12 @@
 /* ---- 上の 帯（実績の おしらせ・テロップ。WEAPON-7 §2.6）---- */
 .cel-layer--band {
   pointer-events: none;
+  /* body 直下に 置く（#hud の 中だと #hud の 重なりの 箱に 入って、body 直下の ボスの 体力ゲージ(40) に 負ける）。
+     体力ゲージ(40) より 上、スタートメニュー(100) より 下。 */
   z-index: 45;
+  /* #hud の 外に 出ても 字の 見え方が 変わらない ように、#hud が 渡していた 色と ふちを 持たせる */
+  color: #fff;
+  text-shadow: 0 2px 0 #000;
 }
 .cel-layer--band[hidden],
 .cel-band[hidden] {

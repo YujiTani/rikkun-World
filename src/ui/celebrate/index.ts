@@ -26,6 +26,11 @@ export interface AchievementLook {
 export interface CelebrateDeps {
   /** 横断幕・つぶ・おめでとう画面を置く所（#hud） */
   hud: HTMLElement;
+  /**
+   * 上の帯（実績の おしらせ・テロップ）を置く所。なければ hud。
+   * #hud の中は 1 つの 重なりの 箱なので、body 直下の ボスの 体力ゲージ(z 40) の 上に 出すには body を 渡す。
+   */
+  topLayer?: HTMLElement;
   /** メダルの印を置く所（S2 の B おしらせ のかたまり。なければ hud） */
   badgeParent?: HTMLElement;
   sound: Pick<SoundFx, 'playTones'>;
@@ -79,7 +84,7 @@ export class CelebrateUi {
     this.bandModel = new TopBandModel(d.settings);
     this.fx = new EffectsView(d.hud, this.sparks);
     this.bannerView = new BannerView(d.hud);
-    this.bandView = new BandView(d.hud);
+    this.bandView = new BandView(d.topLayer ?? d.hud);
 
     this.badgeEl = document.createElement('div');
     this.badgeEl.className = 'cel-badge';

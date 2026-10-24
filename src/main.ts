@@ -1480,6 +1480,8 @@ const defById = new Map(ACHIEVEMENT_DEFS.map((d) => [d.id, d]));
 const craftPanel = inventoryScreen.craftPanel!;
 const celebrate = new CelebrateUi({
   hud,
+  // 実績の おしらせ(帯)は body 直下: #hud の 中だと body 直下の ボスの 体力ゲージ(z 40) に 隠れる
+  topLayer: document.body,
   badgeParent: noticeCluster(hud),
   sound: fxSound,
   screen,
