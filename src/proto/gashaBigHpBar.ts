@@ -29,36 +29,8 @@ const DIAMOND = ['..X..', '.XXX.', 'XXXXX', '.XXX.', '..X..'];
 /** リボン（7 × 5） */
 const RIBBON = ['XX...XX', 'XXX.XXX', 'XXXXXXX', 'XXX.XXX', 'XX...XX'];
 
-/** D 案の かざり（49 × 27 ドット。上の 22 行が バーの 上に 出て、下の 5 行が 枠に かぶさる）。k = ふち、d = 暗い 鋼、s = 鋼、h = 明るい 鋼、b = 青い 目、c = 目の 光 */
-export const ORNAMENT_D = [
-  '........................k........................',
-  '.k.....................khk.....................k.',
-  'khk....................khk....................khk',
-  'kshk..................khhhk..................khsk',
-  'kdsk................kkhhhhhkk................ksdk',
-  '.kshk.............kkhhhhhhhhhkk.............khsk.',
-  '.kdsk............khhhhhhhhhhhhhk............ksdk.',
-  '..kshkk.........khhhhhhhhhhhhhhhk.........kkhsk..',
-  'k.kdshhkk......khhhssssssssssshhhk......kkhhsdk.k',
-  'hk.kdsshhkkkkkkkhssssssssssssssshkkkkkkkhhssdk.kh',
-  'dhk.kdssshhhhhhksskkkkkssskkkkksskhhhhhhsssdk.khd',
-  'kshk.kdssssssssksskbcbbsssbbcbksskssssssssdk.khsk',
-  'kdshk.kddssssssksskbbbbsssbbbbksskssssssddk.khsdk',
-  '.kdshkkkkddssssksskkkkkssskkkkksskssssddkkkkhsdk.',
-  '..kdshhhkkksssskshhssssdddsssshhsksssskkkhhhsdk..',
-  '...kdssshhhsssskdsssssskkkssssssdksssshhhsssdk...',
-  '..kkkdsssssssssskdsssssssssssssdkssssssssssdkkk..',
-  '.khhkkddssssssssskhkhkhkhkhkhkhksssssssssddkkhhk.',
-  '.kdskkkkdddddsssskkhkhkhkhkhkhkkssssdddddkkkksdk.',
-  '..kshhkkkkkkkssssskkkkkkkkkkkkkssssskkkkkkkhhsk..',
-  '..kdsshhkkkkhssssskkdddddddddkkssssshkkkkhhssdk..',
-  '...kdssshhhhssssskddsssssssssddkssssshhhhsssdk...',
-  '....kddssssssskdddsssssssssssssdddksssssssddk....',
-  '.....kkddsssskddddsssssssssssssddddkssssddkk.....',
-  '.......kkdddddddddk...........kdddddddddkk.......',
-  '.........kkkkkkkkk.............kkkkkkkkk.........',
-  '.................................................',
-];
+/** D 案の どくろ（128 × 128 の 絵。art/293/hpbar-skull/build.py で 作る。ゲームには 縮めて 出す） */
+export const SKULL_D_SRC = 'proto/hpbar-skull.png';
 const ORNAMENT_COLORS: Record<string, string> = { k: '#141a24', d: '#3a4452', s: '#7f8a9a', h: '#c9d4e2', b: '#2fb8f0', c: '#d6f6ff' };
 /** 鋲（ひし形 7 × 5） */
 const STUD_D = ['...k...', '..khk..', '.khshk.', '..kdk..', '...k...'];
@@ -120,38 +92,41 @@ export class HpBar {
     return cv;
   }
 
-  /** D 案: 赤い バー ＋ 鋼の 枠 ＋ 上の どくろの かざり ＋ 下の 鋲 */
+  /** D 案: 赤い バー ＋ 左右が ひし形の 鋼の 枠 ＋ 上の まん中に 小さな 銀の どくろ ＋ 下の 鋲 */
   private buildD(): void {
     const H = T.hit;
     const p = Math.max(1, H.barDot);
-    const q = p + 2; // かざりの 1 ドット
-    const stroke = (c: string): string => `${p / 3}px 0 0 ${c},-${p / 3}px 0 0 ${c},0 ${p / 3}px 0 ${c},0 -${p / 3}px 0 ${c}`;
+    const inH = (H.barHeightDots + 2) * p; // 赤い ところの 高さ
+    const barH = inH + 6 * p; // 枠ぜんぶの 高さ
+    const half = Math.round(barH / 2); // ひし形の とがりの ふかさ
+    const skullH = Math.round(barH * 1.45); // どくろは バーの 太さの 約 1.45 倍
+    const stroke = (c: string, w: number): string => `${w}px 0 0 ${c},-${w}px 0 0 ${c},0 ${w}px 0 ${c},0 -${w}px 0 ${c},${w}px ${w}px 0 ${c},-${w}px ${w}px 0 ${c},${w}px -${w}px 0 ${c},-${w}px -${w}px 0 ${c}`;
     this.root.style.cssText = `position:fixed;top:${H.barTopPx}px;left:50%;transform:translateX(-50%);width:min(${H.barWidthVw}vw,${H.barMaxPx}px);z-index:40;pointer-events:none;font-family:system-ui,sans-serif`;
     this.shaker = el('div', 'display:flex;flex-direction:column', this.root);
-    // 上の 段: 名前（左）・かざり（まん中）・数（右）
-    const head = el('div', `position:relative;display:flex;align-items:flex-end;justify-content:space-between;height:${22 * q}px;padding:0 ${2 * p}px ${2 * p}px`, this.shaker);
-    const name = el('span', `font:700 ${H.barNameSizePx}px/1 system-ui,sans-serif;letter-spacing:.18em;color:#fff;text-shadow:${stroke('#141a24')},0 ${p}px 0 #141a24;white-space:nowrap`, head);
+    // 上の 段: 名前（左）・どくろ（まん中）・数（右）
+    const head = el('div', `position:relative;display:flex;align-items:flex-end;justify-content:space-between;height:${Math.round(skullH * 0.74)}px;padding:0 ${half}px ${p}px`, this.shaker);
+    const name = el('span', `font:900 ${H.barNameSizePx + 2}px/1 system-ui,sans-serif;letter-spacing:.14em;color:#fff;text-shadow:${stroke('#0a0d14', 2)},0 ${p}px 0 #0a0d14;white-space:nowrap`, head);
     name.textContent = 'がしゃどくろ';
-    this.count = el('div', `font:700 ${Math.round(H.barNameSizePx * 0.65)}px/1 system-ui,sans-serif;color:#fff;text-shadow:${stroke('#141a24')},0 ${p}px 0 #141a24;letter-spacing:.05em`, head);
-    // 枠つきの バー
-    const bar = el('div', `position:relative;z-index:1;display:flex;flex-direction:column;clip-path:${notch(p)}`, this.shaker);
-    const metal = (hair: boolean): string => `height:${3 * p}px;flex:none;background:linear-gradient(to bottom,${hair ? '#6fd3f2 0,#6fd3f2 ' + p + 'px,' : ''}#59667a ${hair ? p : 0}px,#59667a ${hair ? 2 * p : p}px,#2c3644 ${hair ? 2 * p : p}px,#2c3644 ${hair ? 3 * p : 2 * p}px,#161c26 ${hair ? 3 * p : 2 * p}px,#161c26 100%)`;
-    el('div', metal(true), bar);
-    const inner = el('div', `position:relative;height:${(H.barHeightDots + 2) * p}px;background:#2a070c;overflow:hidden`, bar);
-    const bot = el('div', `height:${3 * p}px;flex:none;background:linear-gradient(to bottom,#161c26 0,#161c26 ${p}px,#2c3644 ${p}px,#2c3644 ${2 * p}px,#59667a ${2 * p}px,#59667a ${3 * p}px)`, bar);
-    // 水色の ふちどり（下がわ）
-    el('div', `position:absolute;left:${2 * p}px;right:${2 * p}px;bottom:0;height:${p}px;background:#6fd3f2;opacity:.8`, bot);
+    this.count = el('div', `font:900 ${Math.round(H.barNameSizePx * 1.35)}px/1 system-ui,sans-serif;font-variant-numeric:tabular-nums;color:#fff;text-shadow:${stroke('#0a0d14', 2)},0 ${p}px 0 #0a0d14;letter-spacing:.04em;white-space:nowrap`, head);
+    // 枠つきの バー（左右は ひし形。外がわに 暗い ふちどり）
+    const edge = el('div', `position:relative;z-index:1;filter:drop-shadow(${p}px 0 0 #0a0d14) drop-shadow(-${p}px 0 0 #0a0d14) drop-shadow(0 ${p}px 0 #0a0d14) drop-shadow(0 -${p}px 0 #0a0d14)`, this.shaker);
+    const dia = (d: number): string => `polygon(0 50%,${d}px 0,calc(100% - ${d}px) 0,100% 50%,calc(100% - ${d}px) 100%,${d}px 100%)`;
+    const bar = el('div', `position:relative;display:flex;flex-direction:column;background:linear-gradient(to bottom,#59667a,#2c3644 50%,#161c26);clip-path:${dia(half)}`, edge);
+    el('div', `height:${3 * p}px;flex:none;background:linear-gradient(to bottom,#6fd3f2 0,#6fd3f2 ${p}px,#59667a ${p}px,#59667a ${2 * p}px,#2c3644 ${2 * p}px,#2c3644 ${3 * p}px)`, bar);
+    const inner = el('div', `position:relative;height:${inH}px;margin:0 ${half + 2 * p}px;background:#2a070c;overflow:hidden;clip-path:${dia(Math.round(inH / 2))}`, bar);
+    el('div', `height:${3 * p}px;flex:none;background:linear-gradient(to bottom,#161c26 0,#161c26 ${p}px,#2c3644 ${p}px,#2c3644 ${2 * p}px,#59667a ${2 * p}px,#59667a ${3 * p}px)`, bar);
     this.ghost = el('div', 'position:absolute;left:0;top:0;bottom:0;width:100%;background:#fff;opacity:.92', inner);
-    const u = Math.max(1, Math.round(((H.barHeightDots + 2) * p) / 8));
+    const u = Math.max(1, Math.round(inH / 8));
     this.fill = el('div', `position:absolute;left:0;top:0;bottom:0;width:100%;background:linear-gradient(to bottom,#ffe3dc 0,#ffe3dc ${u}px,#ff5a48 ${u}px,#ee1c1c ${3 * u}px,#cc1016 ${3 * u}px,#a30a12 ${6 * u}px,#6a050c ${6 * u}px,#6a050c 100%)`, inner);
     if (H.barSegments > 1) {
       const w = 100 / H.barSegments;
       el('div', `position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0,transparent calc(${w}% - ${p}px),rgba(60,0,8,.14) calc(${w}% - ${p}px),rgba(60,0,8,.14) ${w}%)`, inner);
     }
-    // かざり（上の まん中。枠に かぶる）と 鋲（下の まん中）
-    const orn = this.sprite(ORNAMENT_D, q, `position:absolute;left:50%;bottom:${-5 * q}px;transform:translateX(-50%);z-index:2`);
-    head.appendChild(orn);
-    el('div', `position:absolute;left:50%;bottom:${-2 * p}px;transform:translateX(-50%);display:flex`, bar).appendChild(this.sprite(STUD_D, p));
+    // どくろ（上の まん中。枠に かぶる）と 鋲（下の まん中）
+    const img = el('img', `position:absolute;left:50%;bottom:${-Math.round(skullH * 0.3)}px;height:${skullH}px;width:${skullH}px;transform:translateX(-50%);image-rendering:auto;z-index:2`, head);
+    img.src = SKULL_D_SRC;
+    img.alt = '';
+    el('div', `position:absolute;left:50%;bottom:${-2 * p}px;transform:translateX(-50%);display:flex;z-index:2`, edge).appendChild(this.sprite(STUD_D, p));
     this.set(1, 1, false);
     this.ghost.style.transition = 'none';
     this.injectStyle();
