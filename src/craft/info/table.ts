@@ -20,6 +20,9 @@ export const ARMOR_KIND: Readonly<Record<string, 'normal' | 'ball' | 'fall'>> = 
   kin_yoroi: 'normal',
   kin_kote: 'normal',
   kin_suneate: 'fall',
+  ninja_zukin: 'ball',
+  ninja_shozoku: 'normal',
+  ninja_tekko: 'normal',
   ninja_tabi: 'fall',
 };
 
@@ -29,6 +32,9 @@ export const CLASS_TEXT = {
   durable: 'つかうと へって、0 で こわれる',
   permanent: 'へらない',
 } as const;
+
+/** 虹色の 見出し（レジェンダリーの 物の「とくべつな ちから」の 行。NINJA-1 §3.1） */
+export const SPECIAL_HEAD = 'とくべつな ちから';
 
 export type StatKind = 'pickaxe' | 'blade' | 'bow' | 'arrow' | 'armor' | 'tansu' | 'can';
 
@@ -44,6 +50,8 @@ export interface InfoRow {
   dig?: boolean;
   /** つよさ の出し方 */
   stats?: StatKind;
+  /** 虹色の「とくべつな ちから」の 文（レジェンダリーの 物だけ。NINJA-1 §3.1。無い 物には 行を 出さない） */
+  special?: string;
 }
 
 const PLACE = 'てに もって みぎクリック で おく';
@@ -135,10 +143,10 @@ export const ITEM_INFO: Readonly<Record<string, InfoRow>> = {
   crystal_katana: { use: 'れんぞく で ふると 3 だん わざ に なる かたな', how: `${KATANA_HOW}。ひだりクリック を つづけて おすと 3 だん わざ`, buttons: ['1-9', 'left'], stats: 'blade' },
   // WEAPON-7 §3.1・§2.5: ためて はなすと そら から かみなり が おちる（つかいかたは 刀の 文 ＋ ながおし）
   // WEAPON-8: 風神剣にも ためわざ「らせんの かぜ」（つかいかたは 雷神剣と 同じ）
-  fujin_ken: { use: 'てに もつと はやく はしれる。ためて はなすと かぜ が とぶ', how: `${KATANA_HOW}。ながおし して はなすと ためわざ`, buttons: ['1-9', 'left'], stats: 'blade' },
+  fujin_ken: { use: 'ようかい を つよく たたく', special: 'てに もつと はやく はしれる。ためて はなすと かぜ が とぶ', how: `${KATANA_HOW}。ながおし して はなすと ためわざ`, buttons: ['1-9', 'left'], stats: 'blade' },
   // WEAPON-9: 虹。ためて はなすと ひかり の ドーム
-  niji: { use: 'ためて はなすと ひかり の ドーム', how: `${KATANA_HOW}。ながおし して はなすと ためわざ`, buttons: ['1-9', 'left'], stats: 'blade' },
-  raijin_ken: { use: 'ためて はなすと そら から かみなり が おちる', how: `${KATANA_HOW}。ながおし して はなすと ためわざ`, buttons: ['1-9', 'left'], stats: 'blade' },
+  niji: { use: 'ようかい を つよく たたく', special: 'ためて はなすと ひかり の ドーム', how: `${KATANA_HOW}。ながおし して はなすと ためわざ`, buttons: ['1-9', 'left'], stats: 'blade' },
+  raijin_ken: { use: 'ようかい を つよく たたく', special: 'ためて はなすと そら から かみなり が おちる', how: `${KATANA_HOW}。ながおし して はなすと ためわざ`, buttons: ['1-9', 'left'], stats: 'blade' },
   yumi: {
     use: 'や を とばして とおく の ようかい を たおす。や が いる',
     how: 'えらんで ひだりクリック を おしつづけて ながく ひく。はなすと とぶ',
@@ -151,7 +159,10 @@ export const ITEM_INFO: Readonly<Record<string, InfoRow>> = {
   kote: { use: 'ようかい の こうげき を へらす（うで）', how: WEAR_HOW, buttons: ['1-9', 'right'], stats: 'armor' },
   suneate: { use: 'たかい ところ から おちた いたみ を へらす（あし）', how: WEAR_HOW, buttons: ['1-9', 'right'], stats: 'armor' },
   // #293 試作: 忍者の足袋（すねあてと おなじ あしの マス。どちらか 1 つ）
-  ninja_tabi: { use: 'たかい ところ から おちても いたく ない（あし）', how: WEAR_HOW, buttons: ['1-9', 'right'], stats: 'armor' },
+  ninja_zukin: { use: 'こうげき から まもる（あたま）', special: 'ひのたま を ふせぐ。みず の なか で いき が ながく もつ', how: WEAR_HOW, buttons: ['1-9', 'right'], stats: 'armor' },
+  ninja_shozoku: { use: 'こうげき から まもる（からだ）', special: 'ようかい に きづかれ にくい', how: WEAR_HOW, buttons: ['1-9', 'right'], stats: 'armor' },
+  ninja_tekko: { use: 'こうげき から まもる（うで）', special: 'かたな・すで で こうげき した とき に ［小太刀｜こだち］ で おいうち', how: WEAR_HOW, buttons: ['1-9', 'right'], stats: 'armor' },
+  ninja_tabi: { use: 'こうげき から まもる（あし）', special: 'たかい ところ から おちても いたく ない', how: WEAR_HOW, buttons: ['1-9', 'right'], stats: 'armor' },
 
   // ---- 働きが あとのもの（6）
   lantern: later('おいて あかるく できるように なるよ（もうすぐ）'),

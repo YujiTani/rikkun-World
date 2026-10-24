@@ -7,6 +7,7 @@ import { BannerModel } from './bannerModel';
 import { ComboModel } from './comboModel';
 import { flashPeriods, flashPerSecond, type CelebrateSettings, CELEBRATE } from './config';
 import { TopBandModel, type TopBandInfo } from './bandModel';
+import type { TelopSource } from './telopText';
 import { SparkPool } from './sparkModel';
 import { BandView, BannerView, EffectsView } from './views';
 import './celebrate.css';
@@ -185,8 +186,8 @@ export class CelebrateUi {
   }
 
   /** ヌシが 武器を おとした（テロップの 列に 入れる） */
-  enqueueTelop(item: ItemId): void {
-    this.bandModel.enqueueTelop(item);
+  enqueueTelop(item: ItemId, source: TelopSource = 'nushi'): void {
+    this.bandModel.enqueueTelop(item, source);
   }
 
   /** テストの 準備用: 出ている テロップを すてる（`achievements.flush()` が 今すぐ 出せるように） */
@@ -220,7 +221,7 @@ export class CelebrateUi {
     const r = this.bandModel.step(amount, appearing);
     if (r.telopStarted) {
       const item = r.telopStarted;
-      this.bandView.showTelop(this.d.itemName(item), this.d.itemIconUrl(item), this.d.itemRarity(item) + 1);
+      this.bandView.showTelop(this.d.itemName(item), this.d.itemIconUrl(item), this.d.itemRarity(item) + 1, r.telopSource ?? 'nushi');
       this.d.onTelopStart?.(item);
     }
     if (r.toastEnded) for (const f of this.closedFns) f(r.toastEnded);

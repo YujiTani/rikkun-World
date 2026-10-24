@@ -86,10 +86,7 @@ export function createYokaiConfig(): YokaiConfig {
 
 /** 妖怪ごとの AI の数（仕様 §4.3、§2.5） */
 export interface KindAi {
-  /** 見つける距離（水平） */
-  sight: number;
-  /** あきらめる距離（水平） */
-  giveUp: number;
+  // 見つける距離（sight）・あきらめる距離（giveUp）は 感知の 表 senseTuning.ts（NINJA-1）
   /** のぼれる段 */
   stepUp: number;
   /** 動くときの体の半分のはば（ぶつかり用） */
@@ -107,10 +104,10 @@ export interface KindAi {
 }
 
 export const KIND_AI: Record<YokaiKind, KindAi> = {
-  karakasa: { sight: 18, giveUp: 24, stepUp: 2, radius: 0.6, height: 1.6, eyeHeight: 1.1, turnDegPerSec: 360, marksHeight: 2.1, flies: false },
-  chochin: { sight: 21, giveUp: 27, stepUp: 0, radius: 0.4, height: 1.7, eyeHeight: 0.95, turnDegPerSec: 180, marksHeight: 2.3, flies: true },
-  nurikabe: { sight: 12, giveUp: 18, stepUp: 1, radius: 0.9, height: 3.0, eyeHeight: 1.9, turnDegPerSec: 45, marksHeight: 3.5, flies: false },
-  rokurokubi: { sight: 18, giveUp: 24, stepUp: 1, radius: 0.4, height: 2.9, eyeHeight: 1.6, turnDegPerSec: 240, marksHeight: 3.3, flies: false },
+  karakasa: { stepUp: 2, radius: 0.6, height: 1.6, eyeHeight: 1.1, turnDegPerSec: 360, marksHeight: 2.1, flies: false },
+  chochin: { stepUp: 0, radius: 0.4, height: 1.7, eyeHeight: 0.95, turnDegPerSec: 180, marksHeight: 2.3, flies: true },
+  nurikabe: { stepUp: 1, radius: 0.9, height: 3.0, eyeHeight: 1.9, turnDegPerSec: 45, marksHeight: 3.5, flies: false },
+  rokurokubi: { stepUp: 1, radius: 0.4, height: 2.9, eyeHeight: 1.6, turnDegPerSec: 240, marksHeight: 3.3, flies: false },
 };
 
 /** そのほかの決まった数 */
@@ -124,8 +121,7 @@ export const AI_CONST = {
   progressDist: 0.5,
   /** さがすのは最大このステップ（仕様は 300。余裕をとる） */
   searchTicks: 290,
-  /** 高さの差がこれ以内のときだけ見つける */
-  sightDy: 6,
+  // 高さの差の 上限（sightDy）は 感知の 表 senseTuning.ts
   /** 暗い所の判定: この高さまで上を見て固いブロックがあれば「ふさがっている」 */
   skyCheckHeight: 40,
   /** うろうろ・出現では、これより深い所へはおりない（落ちてもダメージのない高さ） */

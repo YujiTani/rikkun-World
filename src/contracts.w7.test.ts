@@ -148,10 +148,12 @@ describe('WEAPON-7 AC12: 実績', () => {
   });
   // WEAPON-8 で 期待が 変わった（理由: 風神剣に ためわざ「らせんの かぜ」。docs/design/WEAPON-8.md AC12・§4・§9）
   it('AC26: 説明の 文（なにに つかう・つかいかた）。風神剣も ためわざが ある ので「ながおし して はなすと ためわざ」が つく', () => {
-    const info = ITEM_INFO as Record<string, { use: string; how: string; buttons: string[]; stats: string }>;
+    const info = ITEM_INFO as Record<string, { use: string; how: string; buttons: string[]; stats: string; special?: string }>;
     const f = info.fujin_ken;
     expect(f, 'ITEM_INFO に fujin_ken').toBeDefined();
-    expect(f!.use).toBe('てに もつと はやく はしれる。ためて はなすと かぜ が とぶ');
+    // NINJA-1（#299）で 期待が 変わった: use は ふつうの 刀の 文（ようかい を つよく たたく）、ためわざの 文は とくべつな ちから（special）へ うつった
+    expect(f!.use).toBe('ようかい を つよく たたく');
+    expect((f as { special?: string }).special).toBe('てに もつと はやく はしれる。ためて はなすと かぜ が とぶ');
     expect(f!.how).toBe(info.raijin_ken!.how); // 雷神剣と 同じ
     expect(f!.how).toContain('ためわざ');
     expect(f!.stats).toBe('blade');

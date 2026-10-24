@@ -16,8 +16,8 @@ describe('LIVE-3 保存（AC10）', () => {
 });
 
 describe('LIVE-3 実績（§4.5・AC15）', () => {
-  it('数: 280（#293 の ＋1・COUNTRY-1 で ＋13）・小 88・そだてる 63・小 17（260＋1・87＋1・61＋1・16＋1）', () => {
-    expect(ACHIEVEMENT_DEFS.length).toBe(280);
+  it('数: 282（NINJA-1 で ＋2・小 ＋0。#293 の ＋1・COUNTRY-1 で ＋13）・小 88・そだてる 63・小 17（260＋1・87＋1・61＋1・16＋1）', () => {
+    expect(ACHIEVEMENT_DEFS.length).toBe(282);
     expect(ACHIEVEMENT_DEFS.filter((d) => d.small).length).toBe(89);
     const farm = ACHIEVEMENT_DEFS.filter((d) => d.category === 'farm');
     expect(farm.length).toBe(64);

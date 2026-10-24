@@ -523,6 +523,11 @@ export class AchievementSystem implements AchievementShowSource {
     });
   }
 
+  /** NINJA-1: 忍者装備が もちものに 入った（しゅるいの 数 `ninjaKinds`。忍者帳 NinjaBook.add の kinds。legend.kinds・get.* には 数えない） */
+  feedNinja(_item: string, kinds: number): void {
+    this.run(() => this.setMax('ninjaKinds', kinds));
+  }
+
   /** 「もちもの が いっぱい」の合図が出た */
   feedFull(): void {
     this.run(() => this.bump('full', 1));

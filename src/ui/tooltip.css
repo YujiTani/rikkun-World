@@ -73,6 +73,33 @@
 .tip-stars--rainbow {
   width: max-content; /* 下地の にじは 星の はばだけ（左に よっても 全部の 色が 見える） */
 }
+/* NINJA-1: 虹色の「とくべつな ちから」の 見出し（せつめい パネルと 共通）。字は にじ色の 下地を 切りぬいて 見せる */
+.rk-special-head {
+  width: max-content;
+  font-weight: 800;
+  color: var(--rk-bg-900);
+  background: var(--rk-rarity-rainbow);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: rainbow-spin 8s linear infinite;
+}
+.tip-special {
+  max-width: calc(var(--rk-slot-inv) * 5);
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+.tip-special-text rt {
+  font-size: var(--rk-fs-rt); /* 16px の 字の ルビも 12px 以上（UI 検査） */
+}
+.tip-special[hidden] {
+  display: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .rk-special-head {
+    animation: none;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   .tip-name--rainbow,
   .tip-stars--rainbow {

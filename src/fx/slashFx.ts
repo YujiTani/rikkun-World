@@ -86,6 +86,12 @@ export interface SlashRequest {
   pos: () => Vec3;
   /** その 武器の とどき（マス。`bladeReach`）。なければ 2.2（絵の 基準） */
   reach?: number;
+  /** 追い打ちなど: 注文から 出るまでの ステップ（なければ 武器の spawnDelay） */
+  delay?: number;
+  /** 追い打ちなど: 板の まん中の 世界の 位置（出る 時に 聞く）。あれば 体の 前の 計算の かわりに 使う */
+  center?: () => Vec3;
+  /** 板を カメラから 遠ざける 量（マス）。なければ SLASH_BACK。0 = 遠ざけない（妖怪の 手前に 出す） */
+  back?: number;
 }
 
 export class SlashFx {
@@ -117,6 +123,7 @@ export class SlashFx {
   private slashAngle = 0;
   private readonly slashTip = new THREE.Vector3();
   private slashScale = 1;
+  private slashBack = SLASH_BACK;
   private lastView: SlashView | null = null;
   private sparkQuads = 0;
   private qn = 0;
@@ -201,7 +208,7 @@ export class SlashFx {
    * 前の 注文が まだ 出て いなければ すてる（わざが つぎに 変わった）。出ている 板は 新しい 板が 出る まで のこす。
    */
   queueSlash(req: SlashRequest): void {
-    this.pending = { req, wait: spawnDelayOf(req.tech, req.step) };
+    this.pending = { req, wait: req.delay ?? spawnDelayOf(req.tech, req.step) };
   }
 
   /** わざが やめに なった（まだ 出ていない 斬撃を すてる） */
@@ -235,6 +242,11 @@ export class SlashFx {
     this.slashMesh.scale.setScalar(this.slashScale);
     const k = (reach.dist / SLASH_BASE_REACH) * rk;
     this.slashTip.set(base.x + (at.x - base.x) * k, base.y - 0.1, base.z + (at.z - base.z) * k);
+    if (req.center) {
+      const c = req.center();
+      this.slashTip.set(c.x, c.y, c.z);
+    }
+    this.slashBack = req.back ?? SLASH_BACK;
     this.slashMesh.position.copy(this.slashTip);
   }
 
@@ -278,7 +290,7 @@ export class SlashFx {
       const cp = this.camera.position;
       const m = this.slashMesh.position;
       const d = Math.max(1, Math.hypot(m.x - cp.x, m.y - cp.y, m.z - cp.z));
-      const k = (d + SLASH_BACK) / d;
+      const k = (d + this.slashBack) / d;
       m.set(cp.x + (m.x - cp.x) * k, cp.y + (m.y - cp.y) * k, cp.z + (m.z - cp.z) * k);
       this.slashMesh.scale.setScalar(this.slashScale * k);
     }

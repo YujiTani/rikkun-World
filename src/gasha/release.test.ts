@@ -6,6 +6,9 @@ import type { GashaBigDeps } from '../proto/gashaBig';
 import { createGashaRelease, type BossHandle, type DepsWrap, type GirlHooks, type ReleaseEnv } from './release';
 import { RELEASE } from './releaseTuning';
 import { NINJA_GEAR } from '../craft/config';
+import type { ItemId } from '../contracts';
+
+const NINJA_IDS = Object.values(NINJA_GEAR) as string[];
 import { TUNE as BIG } from '../proto/gashaBigTuning';
 
 /** gashaBig.ts の place({ x, z, yawDeg })・despawn()・onDefeated の まね */
@@ -75,7 +78,7 @@ function fakeBoss(wrapped: GashaBigDeps, first: { x: number; z: number; yawDeg?:
   return { boss, handle };
 }
 
-function rig(over: { chance?: number; enabled?: boolean; noGirl?: boolean; hold?: boolean } = {}) {
+function rig(over: { chance?: number; enabled?: boolean; noGirl?: boolean; hold?: boolean; ninja?: { book: ItemId[]; have: ItemId[] } } = {}) {
   const player = { x: 0.5, y: 20, z: 0.5, yawDeg: 90 };
   const loaded = new Set<string>(); // 読みこんだ 列
   const log = {
@@ -87,6 +90,7 @@ function rig(over: { chance?: number; enabled?: boolean; noGirl?: boolean; hold?
     fills: [] as number[][],
     bar: [] as boolean[],
     tabi: 0,
+    dropped: [] as { item: string; from: string }[],
     starts: 0,
     girlStarts: 0,
     summons: 0,
@@ -142,6 +146,9 @@ function rig(over: { chance?: number; enabled?: boolean; noGirl?: boolean; hold?
     bgmReset: () => { log.bgmReset++; },
     sound: (n) => { log.sounds.push(n); },
     showBar: (on) => { log.bar.push(on); },
+    // NINJA-1（#299）: 手に 入れた 帳と 持って いる 物（なければ 空）／袋が 出た ことの 知らせ（テロップ用）
+    ninja: () => over.ninja ?? { book: [], have: [] },
+    dropped: (item, from) => { log.dropped.push({ item, from }); },
   };
   RELEASE.spawn.chancePerMorning = over.chance ?? 1;
   girl.hold = over.hold ?? false;
@@ -398,14 +405,14 @@ describe('とどめ → 赤い コア → ごほうび（宝箱は ない）', (
     expect(r.log.scatter.length).toBe(RELEASE.reward.rare.length * 2);
   });
 
-  it('たたいた ときの 中身は 同じ 世界・同じ 回なら 同じ。足袋は たたいた ときは 出ない', async () => {
+  it('たたいた ときの 中身は 同じ 世界・同じ 回なら 同じ。忍者装備は たたいた ときは 出ない', async () => {
     const a = await finishing(), b = await finishing();
     a.boss().coreHit(3, 5); b.boss().coreHit(3, 5);
     expect(a.log.scatter.map((s) => s.stacks)).toEqual(b.log.scatter.map((s) => s.stacks));
-    expect(a.log.scatter.flatMap((s) => s.stacks.map((x) => x.item))).not.toContain(NINJA_GEAR.legs);
+    expect(a.log.scatter.flatMap((s) => s.stacks.map((x) => x.item)).filter((i) => NINJA_IDS.includes(i))).toEqual([]);
   });
 
-  it('コアを こわした: 実績 1 回、メッセージ、足袋 ＋ レア素材の 大きな 一山、少女も くずれる。状態は defeated', async () => {
+  it('コアを こわした: 実績 1 回、メッセージ、忍者装備 ＋ レア素材の 大きな 一山、少女も くずれる。状態は defeated', async () => {
     const r = await finishing();
     const before = r.log.scatter.length;
     r.boss().coreBroken();
@@ -413,18 +420,42 @@ describe('とどめ → 赤い コア → ごほうび（宝箱は ない）', (
     expect(r.log.record).toEqual(['defeat:gashadokuro']);
     expect(r.log.say.length).toBe(1);
     expect(r.log.say[0]).toContain('がしゃどくろ');
-    // 山ごとに 1 回(光の 柱が 1 本ずつ): 足袋 1 山 ＋ レア素材 3 山
-    expect(r.log.scatter.length).toBe(before + RELEASE.reward.guaranteed.length + RELEASE.reward.rare.length);
+    // 山ごとに 1 回(光の 柱が 1 本ずつ): 忍者装備 1 山（NINJA-1: まだの 物から 1 つ）＋ レア素材 3 山
+    expect(r.log.scatter.length).toBe(before + 1 + RELEASE.reward.guaranteed.length + RELEASE.reward.rare.length);
     expect(r.log.scatter.slice(before).every((x) => x.stacks.length === 1)).toBe(true);
     const items = r.log.scatter.slice(before).flatMap((x) => x.stacks.map((s) => s.item));
-    expect(items).toContain(NINJA_GEAR.legs);
+    expect(items.filter((i) => NINJA_IDS.includes(i))).toHaveLength(1);
     for (const row of RELEASE.reward.rare) expect(items).toContain(row.item);
     expect(r.rel.info().kills).toBe(1);
     // 二重に 数えない
     r.boss().coreBroken();
     r.run(0.5);
     expect(r.log.record.length).toBe(1);
-    expect(r.log.scatter.length).toBe(before + RELEASE.reward.guaranteed.length + RELEASE.reward.rare.length);
+    expect(r.log.scatter.length).toBe(before + 1 + RELEASE.reward.guaranteed.length + RELEASE.reward.rare.length);
+  });
+
+  // NINJA-1（#299）§3.2・§4.2: 袋が 出た とき に テロップ用の 知らせを 1 回（出どころ gasha）。まだの 物から 1 つ、ぜんぶ 持って いれば 出ない
+  it('NINJA-1: 帳に 3 つ → のこりの 1 つが 出て、袋が 出た 知らせ（dropped）が 1 回 だけ', async () => {
+    const book = NINJA_IDS.filter((x) => x !== 'ninja_shozoku') as ItemId[];
+    const r = await finishing({ ninja: { book, have: [] } });
+    const before = r.log.scatter.length;
+    r.boss().coreBroken();
+    const items = r.log.scatter.slice(before).flatMap((x) => x.stacks.map((s) => s.item));
+    expect(items.filter((i) => NINJA_IDS.includes(i))).toEqual(['ninja_shozoku']);
+    expect(r.log.dropped).toEqual([{ item: 'ninja_shozoku', from: 'gasha' }]);
+    r.boss().coreBroken(); // 二重に 出さない
+    expect(r.log.dropped).toHaveLength(1);
+  });
+
+  it('NINJA-1: 4 つとも 持って いる → 忍者装備は 出ない（レア素材だけ）・知らせも なし', async () => {
+    const all = NINJA_IDS as ItemId[];
+    const r = await finishing({ ninja: { book: all, have: all } });
+    const before = r.log.scatter.length;
+    r.boss().coreBroken();
+    const items = r.log.scatter.slice(before).flatMap((x) => x.stacks.map((s) => s.item));
+    expect(items.filter((i) => NINJA_IDS.includes(i))).toEqual([]);
+    for (const row of RELEASE.reward.rare) expect(items).toContain(row.item);
+    expect(r.log.dropped).toEqual([]);
   });
 
   it('ドロップの 中身は 調整表(RELEASE.reward)の 1 か所: guaranteed に 行を 足すだけで、こわした 一山に 入る(忍者の 部位用)', async () => {
@@ -434,7 +465,7 @@ describe('とどめ → 赤い コア → ごほうび（宝箱は ない）', (
       const r = await finishing();
       r.boss().coreBroken();
       const stacks = r.log.scatter.flatMap((x) => x.stacks);
-      expect(stacks.filter((s) => s.item === NINJA_GEAR.legs).length).toBe(1);
+      expect(stacks.filter((s) => NINJA_IDS.includes(s.item)).length).toBe(1);
       expect(stacks.find((s) => s.item === 'iron_ingot' && s.count === 2)).toBeDefined();
     } finally {
       RELEASE.reward.guaranteed.splice(0, RELEASE.reward.guaranteed.length, ...saved);
