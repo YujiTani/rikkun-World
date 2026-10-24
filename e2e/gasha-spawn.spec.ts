@@ -12,7 +12,7 @@ test.describe.configure({ timeout: 180_000 });
 const R = RELEASE.spawn;
 
 const stateOf = (page: Page) => page.evaluate(() => (window as any).__rikkun.gasha.state() as string);
-const infoOf = (page: Page) => page.evaluate(() => (window as any).__rikkun.gasha.info() as { state: string; pos: { x: number; y: number; z: number } | null; distance: number | null; chests: number; lastDay: number; kills: number });
+const infoOf = (page: Page) => page.evaluate(() => (window as any).__rikkun.gasha.info() as { state: string; pos: { x: number; y: number; z: number } | null; distance: number | null; lastDay: number; kills: number });
 
 /** 読みこみ（非同期）が おわって 出る まで 待つ。コマを 進めながら 状態に 聞く（時間では 待たない） */
 async function untilState(page: Page, want: string, maxFrames = 600): Promise<boolean> {
@@ -188,7 +188,7 @@ test.describe('spawn と 消える 距離', () => {
 });
 
 test.describe('保存して 読みなおし', () => {
-  test('ボスは 保存しない: 出して 保存して ページを 開きなおすと いない（エラー なし・宝箱も なし）', async ({ page }) => {
+  test('ボスは 保存しない: 出して 保存して ページを 開きなおすと いない（エラー なし・たおした 数も 0）', async ({ page }) => {
     const errs = await openGasha(page);
     await page.evaluate(() => (window as any).__rikkun.gasha.spawn({ distance: 60, angleDeg: -90 }));
     expect(await stateOf(page)).toBe('present');
@@ -196,7 +196,7 @@ test.describe('保存して 読みなおし', () => {
     await reopenGasha(page);
     expect(await stateOf(page)).toBe('idle');
     const info = await infoOf(page);
-    expect(info.chests).toBe(0);
+    expect(info.kills).toBe(0);
     expect(info.pos).toBeNull();
     // 読みなおしの あとも、また 出せる
     expect(await page.evaluate(() => (window as any).__rikkun.gasha.spawn({ distance: 60, angleDeg: -90 }))).toBe(true);

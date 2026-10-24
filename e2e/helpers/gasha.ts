@@ -164,3 +164,43 @@ export const bare = (l: Leftovers): Omit<Leftovers, 'mode' | 'attack'> => {
 export async function quietCycle(page: Page): Promise<void> {
   await page.evaluate(() => (window as any).__gashaBig.tune({ attack: { gapSec: [1e6, 1e6], firstGapSec: 1e6 } }));
 }
+
+// ---------------------------------------------------------------- 少女・とどめ（段 4・5）の 道具
+
+/** ページの 中に `window.__gg`（少女・とどめの 道具）を 作る。installTools の あとに 呼ぶ（reopenGasha の あとは 呼びなおす） */
+export async function installGirlTools(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const w = window as any;
+    const h = w.__rikkun;
+    const gt = w.__gt;
+    const gg: any = {
+      form() { return h.gasha.info().form as string; },
+      girl() { return w.__gashaGirl ? (w.__gashaGirl.info() as Record<string, any>) : null; },
+      /** 大きな 姿の 体力を 最大の frac 倍まで 下げる（'girl' 部位は 倍率 5・防御 0 なので 正確に 減らせる）。frac は 0 より 大きい */
+      hpTo(frac: number) {
+        const g = gt.big();
+        const d = g.hp() - g.maxHp() * frac;
+        if (d > 0) g.damage('girl', d / 5);
+      },
+      /** 形が want に なるまで 5 コマずつ。毎回 each() を 呼ぶ。見つかれば かかった コマ数、見つからなければ -1 */
+      untilForm(want: string, max = 6000, each?: () => void) {
+        for (let i = 0; i < max; i += 5) {
+          if (gg.form() === want) return i;
+          if (each) each();
+          gt.heal();
+          h.step(5);
+        }
+        return gg.form() === want ? max : -1;
+      },
+      bgm() { return w.__gashaBgm ? (w.__gashaBgm.status() as { playing: string | null; desired: string | null; cut: boolean; girlLock: boolean }) : null; },
+      barShown() { const e = document.getElementById('gashaBigHp'); return !!e && getComputedStyle(e).display !== 'none'; },
+    };
+    w.__gg = gg;
+  });
+}
+
+/** 少女の 3D（約 4 MB。非同期）が 読みこまれるまで 待つ。体力 60% 以下で 読みはじめるので、先に 体力を 下げて コマを 進める */
+export async function loadGirl(page: Page): Promise<void> {
+  await page.evaluate(() => { const gg = (window as any).__gg; gg.hpTo(0.55); (window as any).__rikkun.step(70); });
+  await page.waitForFunction(() => !!(window as any).__gashaGirl, null, { timeout: 60_000 });
+}
