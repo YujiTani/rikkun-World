@@ -41,6 +41,10 @@ test('固まって 笑い、飛びまわり、ポーズを 決め、5 回の あ
     if (f === 'laugh') cutSeen = cutSeen || (await page.evaluate(() => (window as unknown as W).__gashaBgm?.status().cut ?? false));
     if (f === 'pose' && !testInfo.attachments.some((a) => a.name === 'pose')) {
       await page.evaluate(() => { (window as unknown as W).__rikkun.step(40); });
+      // 決めポーズ「空中で 足を 組んで 座る」(オーナー 2026-10-24 17:31): 入り(約 0.55 秒)の あとは 浮いて いる
+      const gi = await page.evaluate(() => (window as unknown as W).__gashaGirl!.info());
+      expect(gi.poseName).toBe('float');
+      expect(Number(gi.footGap)).toBeGreaterThan(0.6);
       await testInfo.attach('pose', { body: await page.screenshot({ path: process.env.SHOT_DIR ? `${process.env.SHOT_DIR}/pose.png` : undefined }), contentType: 'image/png' });
     }
     if (f === 'freeze' && !testInfo.attachments.some((a) => a.name === 'freeze')) {

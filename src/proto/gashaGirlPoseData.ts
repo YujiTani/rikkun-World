@@ -1,7 +1,7 @@
 /**
  * #293 少女の 決めポーズ(FIX-BRIEF-2 §4)。Meshy の 動き(共有フォルダ gashadokuro/big-motion/clips/)の 1 コマから 骨ごとの 回転(ローカル クォータニオン x y z w)を 取り出した もの。
  * 少女の 骨は Meshy の 骨と 同じ 名前・同じ 休みの 姿勢なので、そのまま 骨に 入れられる。候補の GIF は gashadokuro/girl-pose/pose_A〜C.gif。
- * どれを 使うかは gashaGirlTuning.ts の intro.poseName（a / b / c）。オーナーが 選んだら そこを 書きかえる だけ。
+ * どれを 使うかは gashaGirlTuning.ts の intro.poseName（a / b / c）。既定は float(空中で 足を 組んで 座る、gashaGirlFloat.ts。オーナー 2026-10-24 17:31)。
  */
 export type PoseBones = Record<string, readonly [number, number, number, number]>;
 export interface PoseData {

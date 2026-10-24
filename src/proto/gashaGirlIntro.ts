@@ -29,6 +29,11 @@ export function introSpot(p: { x: number; z: number; yawDeg: number }, angleDeg:
   return { x: p.x + (fx * Math.cos(a) + rx * Math.sin(a)) * dist, z: p.z + (fz * Math.cos(a) + rz * Math.sin(a)) * dist };
 }
 
+/** 決めポーズで 止まる 秒: float(空中で 座る)は 入り＋ためる 秒、ほかは poseSec */
+export function introPoseSec(I: { poseName: string; poseSec: number; float: { inSec: number; holdSec: number } }): number {
+  return I.poseName === 'float' ? I.float.inSec + I.float.holdSec : I.poseSec;
+}
+
 export class IntroSeq {
   phase: IntroPhase = 'laugh';
   /** 次の 出来事までの のこり(秒) */

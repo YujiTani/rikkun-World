@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { IntroSeq, introAngleDeg, introSpot, type IntroEvent } from './gashaGirlIntro';
+import { IntroSeq, introAngleDeg, introPoseSec, introSpot, type IntroEvent } from './gashaGirlIntro';
 
 const cfg = { laughSec: 3, warps: 5, warpSec: 0.3, poseSec: 2.5 };
 const run = (seq: IntroSeq, total: number, dt = 1 / 60): { t: number; e: IntroEvent }[] => {
@@ -56,5 +56,11 @@ describe('決めポーズへの 登場の 流れ（笑う → ワープ 5 回 �
     seq.cancel();
     expect(seq.update(10)).toEqual([]);
     expect(seq.phase).toBe('done');
+  });
+
+  it('決めポーズの 秒: float は 入り＋ためる 秒、a・b・c は poseSec', () => {
+    const f = { inSec: 0.5, holdSec: 2.5 };
+    expect(introPoseSec({ poseName: 'float', poseSec: 9, float: f })).toBeCloseTo(3, 6);
+    expect(introPoseSec({ poseName: 'c', poseSec: 2.2, float: f })).toBeCloseTo(2.2, 6);
   });
 });
