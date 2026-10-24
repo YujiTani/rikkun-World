@@ -48,7 +48,7 @@ export interface ActorEnv {
 }
 
 export type ActorClips = { climbUp: AimClipJson; climbDown: AimClipJson; lookBack: ClipJson };
-export type ActorMode = 'idle' | 'crawl' | 'back' | 'look' | 'angry' | 'attack' | 'tired';
+export type ActorMode = 'idle' | 'crawl' | 'back' | 'look' | 'angry' | 'attack' | 'tired' | 'frozen';
 
 /** 予告の 半円（世界の 座標。中心 = 手の 落ちる 所、fx, fz = 体の 前。level = 強さ 0〜1） */
 export interface WarnMark { x: number; y: number; z: number; fx: number; fz: number; radius: number; level: number }
@@ -179,6 +179,10 @@ export class BigActor {
   private stepFade = 0.5;
   /** 1 歩の 区切り（振り上げの はじまり）。ここで 着いたか 決める */
   private stepBoundary = false;
+  /** 少女への 切りかえの 噴火を おえて 上を 向いた まま 固まって いる(mode = 'frozen')。unfreeze() / calm で 解ける */
+  held = false;
+  /** finale() で はじめた 噴火は おわったら 固まる */
+  private finaleOn = false;
   /** 怒って プレイヤーを 追う 1 歩を している 間 true（調整表 chase。1 歩の 途中で 攻撃は はじめない） */
   chasing = false;
   /** 追う 1 歩の 途中で 攻撃の 番に なった とき、1 歩の 区切りまで 待たせて いる 攻撃の 名前 */
@@ -294,7 +298,7 @@ export class BigActor {
     this.mode = 'idle';
     this.player.play(null, { fade: 0 });
     this.stepW = 0; this.stepWant = 0; this.step.reset();
-    this.chasing = false; this.pendingAttack = null;
+    this.chasing = false; this.pendingAttack = null; this.held = false; this.finaleOn = false;
     this.pauseLeft = this.randIn(T.wander.pauseSec);
     this.restLeft = 0;
     this.walkLeft = this.randIn(T.wander.walkSec);
@@ -391,6 +395,7 @@ export class BigActor {
 
   /** プレイヤーの 攻撃が 当たった */
   hit(): void {
+    if (this.mode === 'frozen') return; // 固まって いる 間は なぐられても 怒り直さない
     this.angryLeft = T.angry.calmSec;
     this.restLeft = 0; // 怒ったら 休みは 中断（白目に もどったら また 歩き出す）
     this.walkLeft = this.randIn(T.wander.walkSec);
@@ -399,7 +404,7 @@ export class BigActor {
   }
 
   /** 怒りの 間（ならし・攻撃・つかれて 休む）か */
-  isAngry(): boolean { return this.mode === 'angry' || this.mode === 'attack' || this.mode === 'tired'; }
+  isAngry(): boolean { return this.mode === 'angry' || this.mode === 'attack' || this.mode === 'tired' || this.mode === 'frozen'; }
 
   angry(on: boolean): void {
     if (on) this.hit();
@@ -411,6 +416,7 @@ export class BigActor {
     this.bodyTurning = false;
     this.cycle.reset();
     this.clearAttackState();
+    this.held = false; this.finaleOn = false;
     if (this.chasing) { this.chasing = false; this.fadeStep(0, T.clips.idleFadeSec); }
     if (this.isAngry()) {
       const was = this.mode;
@@ -456,6 +462,38 @@ export class BigActor {
     this.startTired();
   }
 
+  /**
+   * 少女への 切りかえ: 攻撃の 途中なら 片づけて、必ず 噴火攻撃を する。噴火が おわったら 上を 向いた まま 固まる(held)。
+   * 固まらない 設定(freeze.enabled = false)なら ふつうの 噴火を 1 回 するだけ。
+   */
+  finale(): void {
+    if (this.mode === 'frozen') return;
+    if (!this.isAngry()) this.hit();
+    this.abortAttack();
+    this.chasing = false;
+    this.finaleOn = T.freeze.enabled;
+    this.cycle.forceAttack('eruption');
+    this.startAttack('eruption');
+  }
+
+  /** 固まりを 解いて 怒りの ならしに もどる(体力が 回復する など。ふだんは 使わない) */
+  unfreeze(): void {
+    if (this.mode !== 'frozen') return;
+    this.held = false; this.finaleOn = false;
+    this.eruption.phase = 'idle'; this.eruption.pitch = 0; this.eruption.hold = false;
+    this.angryLeft = T.angry.calmSec;
+    this.backToAngry(0.5);
+    this.cycle.begin();
+  }
+
+  private enterHeld(): void {
+    this.held = true;
+    this.mode = 'frozen'; this.attackName = null; this.warn = null; this.target = null;
+    this.angryLeft = 0; // 目は 白目に もどる(eyesWhite)。BGM の 頼みも おわる
+    this.cycle.reset();
+    this.eyeShown = -1;
+  }
+
   private startAttack(name: string): void {
     if (name !== 'slam2' && name !== 'sweep' && name !== 'beam' && name !== 'eruption' && name !== 'thunder') { this.cycle.attackEnded(); return; } // まだ ない 攻撃は とばす
     this.mode = 'attack'; this.attackName = name; this.target = null;
@@ -474,7 +512,7 @@ export class BigActor {
       return;
     }
     if (name === 'eruption') {
-      this.eruption.start();
+      this.eruption.start(this.finaleOn);
       this.eruptionCount++;
       this.eyeShown = -1;
       return;
@@ -705,6 +743,10 @@ export class BigActor {
       this.angryLeft -= dt;
       if (this.angryLeft <= 0) this.calm();
     }
+    if (this.mode === 'frozen') { // 固まり: 動かない・攻撃しない・追わない・向きも かえない(上を 向いた まま)
+      this.speedNow = 0;
+      return false;
+    }
     if (this.mode === 'attack' && this.attackName === 'thunder') {
       this.speedNow = 0;
       const ev = this.thunder.update(dt);
@@ -721,6 +763,7 @@ export class BigActor {
       this.speedNow = 0;
       const ev = this.eruption.update(dt);
       if (ev.eruptStart) this.env.onEruptStart?.();
+      if (this.eruption.phase === 'hold') { this.enterHeld(); return false; }
       if (this.eruption.done) {
         this.cycle.attackEnded();
         if (this.cycle.phase === 'tired') this.startTired(); else this.backToAngry(0.3);
@@ -1013,7 +1056,7 @@ export class BigActor {
     let ty = 0, tp = 0;
     const neck = m.joints.neck, head = m.joints.Head;
     const beamLook = this.mode === 'attack' && this.attackName === 'beam' && this.beam.phase !== 'done';
-    const erupting = this.mode === 'attack' && this.attackName === 'eruption';
+    const erupting = (this.mode === 'attack' && this.attackName === 'eruption') || this.mode === 'frozen';
     if (erupting) tp = -T.eruption.headUpDeg * DEG * this.eruption.pitch; // 上を 向く（首と 頭に 半分ずつ）
     else if (this.mode === 'attack' && this.attackName === 'thunder') tp = -T.thunder.headUpDeg * DEG * this.thunder.raise; // 空を 見あげる
     if ((this.mode === 'angry' || beamLook) && neck && head && neck.parent) {

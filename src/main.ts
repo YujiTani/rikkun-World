@@ -164,7 +164,7 @@ import { createWorldHook } from './world/hook';
 import { WorldRenderer } from './world/render/WorldRenderer';
 import { decideFrameClock } from './world/frameClock';
 import { MICRO_RADII } from './world/render/voxel/tier';
-import { createGashaRelease, gashaHook, type BossHandle, type GashaRelease } from './gasha/release';
+import { createGashaRelease, gashaHook, type BossHandle, type GirlHooks, type GashaRelease } from './gasha/release';
 import { gashaEnabled } from './gasha/spawnRule';
 import type { GashaBigDeps } from './proto/gashaBig';
 import type { GashaGirlDeps } from './proto/gashaGirl';
@@ -2672,7 +2672,7 @@ installTestHook(game, overlay, () => host.everReady, {
 }, frameClock);
 // #293: 少女（第二形態）の 入り口。試作ページ（?proto=gashaGirl、開発サーバーだけ）と ふだんの ゲーム（src/gasha/release.ts。体力 1/3 で きりかえる）の 両方が 使う
 const girlDeps = (): GashaGirlDeps => ({ scene: game.scene, camera: game.camera, onUpdate: (fn) => game.onUpdate(fn), onBeforeRender: (fn) => game.onBeforeRender(fn), solid: (x, y, z) => world.isSolid(x, y, z), player: () => ({ ...controller.state.position, yawDeg: controller.state.yawDeg, vx: controller.state.velocity.x, vz: controller.state.velocity.z }), hurt: (amount, from) => combat.damage(amount, 'karakasa', from), parry: (h) => { const r = parry.hit({ dirDeg: h.dirDeg, yawDeg: controller.state.yawDeg, by: h.by, yokaiId: null, amount: h.amount }); if (r.first) parryFx.spark(bladeMidInto(sparkAt, controller.state.position, controller.state.facingDeg), reducedMotionMq?.matches ?? false, controller.state.facingDeg); return { result: r.result, amount: r.amount }; }, bgmOut: () => { const o = mixer.output(); const b = mixer.bgmInput(); return o && b ? { ctx: o.ctx, bus: b } : null; }, sfxOut: () => mixer.output(), suppressBgm: (on, f) => { girlBgmOn = on; if (f) gashaBgmFade = { ...gashaBgmFade, ...f }; }, hp: () => combat.hp(), maxHp: () => combat.maxHp(), groundY: (x, z) => island.groundHeight(x, z) });
-const startGirlBoss = (hooks: { onBigReturn(restSec: number): void; onBigLeave(): void }) =>
+const startGirlBoss = (hooks: GirlHooks) =>
   import('./proto/gashaGirl').then((m) => m.startGashaGirl(girlDeps(), { dormant: true, ...hooks }));
 // #293 試作（開発サーバーだけ）: ?proto=gashaGirl で 少女の 大きさくらべ
 if (import.meta.env.DEV && new URLSearchParams(location.search).get('proto') === 'gashaGirl') {

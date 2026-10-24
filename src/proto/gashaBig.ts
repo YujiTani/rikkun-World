@@ -86,6 +86,8 @@ export interface GashaBigDeps {
   noTabi?: boolean;
   /** 体力が 0 に なった（置いてから 1 回だけ。次の place() で また 数える）。たおした あとの 宝箱・実績は 呼んだ 側が 出す */
   onDefeated?(): void;
+  /** 体力 1/3 で 噴火を して 固まった(ぴたっと 止まった しゅんかん。BGM は ここで ぶつっと 切る)。ふだんの ゲームは release.ts が 少女を 呼ぶ */
+  onHeld?(): void;
   /** 手が 地面を たたいた ときの 打撃・衝撃波・小さい 衝撃の ダメージ（プレイヤーの combat.damage。当たったら true）。なければ ダメージなし（ひるみだけ） */
   hurt?(amount: number, from: { x: number; y: number; z: number }): boolean;
   /** ひるみ（試作だけ）: fn() が true の 間は プレイヤーの 入力を 止める（lock.playInputEnabled に 重ねる） */
@@ -1154,6 +1156,14 @@ export interface GashaBigHandle {
   despawn(): void;
   /** 少女に かわる 間だけ 体を かくす（見えない・当たらない・固くない・うごかない。体力・怒り・位置・攻撃の 回数は のこる）。体の 上の 人は 地面へ おろす。false で もどす（その あと tired(sec) で 休ませる） */
   hide(on: boolean): void;
+  /** 少女への 切りかえ: 攻撃中なら 片づけて 噴火攻撃を 必ず 出し、上を 向いた まま 固まる(動かない・攻撃しない・追わない。登る・なぐるのは できる。目は 白目)。BGM は 固まった しゅんかんに 切る。固まったら onHeld */
+  finale(): void;
+  /** 固まって いるか */
+  frozen(): boolean;
+  /** 少女が 座る 場所(左かたの ぬの の 上。世界の 座標と 向き)。体が なければ null */
+  perchSpot(): { x: number; y: number; z: number; yawDeg: number } | null;
+  /** 座っている 少女の 当たりの 箱を 足す(名前 girl。null で はずす)。箱の 中身は 少女が 毎コマ 更新する */
+  setGirlBox(box: BoxLike | null): void;
   /** 体力の 最大 */
   maxHp(): number;
   /** 怒る（赤い 目。止まって プレイヤーの 方を 向く）/ 白目に もどす。怒りは 攻撃されない まま T.angry.calmSec で 自然に 消える */
@@ -1223,6 +1233,8 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
   let hidden = false;
   /** 体力 0 の 通知を 出したか（place() で もどる） */
   let defeatedFired = false;
+  /** 固まった ことを 知らせたか(place・despawn で もどる) */
+  let heldFired = false;
   const CLIPS: ActorClips = { climbUp, climbDown, lookBack: lookBackClip };
   let isAngry = false;
   // プレイヤーの 攻撃を 受ける（体力・部位の 倍率・怒る・火花・体力ゲージ。gashaBigHit.ts）
@@ -1611,6 +1623,7 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
     model = buildBig();
     hidden = false;
     defeatedFired = false;
+    heldFired = false;
     deps.lighting?.registerTree(model.group, 'doll');
     const p = deps.player();
     const f = fwdOf(p);
@@ -1674,6 +1687,7 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
     if (far && !farNow) clearFx(false);
     farNow = far;
     actor.update(dt);
+    if (actor.held && !heldFired) { heldFired = true; bgm?.cut(); deps.onHeld?.(); } // 固まった しゅんかん: BGM を ぶつっと 切って 少女を 呼ぶ
     if (far) {
       bh.step(dt);
       if (!defeatedFired && bh.hp <= 0) { defeatedFired = true; deps.onDefeated?.(); }
@@ -1725,8 +1739,8 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
     bh.dismiss();
     clear();
     actor = null;
-    isAngry = false; hidden = false; defeatedFired = false;
-    if (bgm) { bgmWant = false; bgm.request('big', false); bgm.step(); }
+    isAngry = false; hidden = false; defeatedFired = false; heldFired = false;
+    if (bgm) { bgmWant = false; bgm.uncut(); bgm.request('big', false); bgm.step(); }
   };
 
   /** 少女に かわる 間だけ かくす / もどす */
@@ -1752,6 +1766,16 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
     place: (at) => { clearFx(true); bodyBurnt.length = 0; place(at); bh.reset(); },
     despawn,
     hide,
+    finale: () => { if (!actor) return; if (hidden) hide(false); isAngry = true; actor.finale(); },
+    frozen: () => actor?.held ?? false,
+    perchSpot: () => {
+      if (!actor) return null;
+      const b = actor.boxList.find((q) => q.name === T.freeze.perchBox);
+      if (!b) return null;
+      const top = b.c[1]! + Math.abs(b.ax[1]!) * b.half[0] + Math.abs(b.ax[4]!) * b.half[1] + Math.abs(b.ax[7]!) * b.half[2];
+      return { x: b.c[0]!, y: top + T.freeze.perchUp, z: b.c[2]!, yawDeg: (yaw * 180) / Math.PI };
+    },
+    setGirlBox: (box) => bh.setExtra(box),
     maxHp: () => bh.maxHp,
     hp: () => bh.hp,
     damage: (part, amount) => bh.damage(part, amount),

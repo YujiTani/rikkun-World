@@ -28,11 +28,12 @@ export interface BoxLike {
   half: ArrayLike<number>;
 }
 
-export type Part = 'hand' | 'foreArm' | 'upperArm' | 'head' | 'core' | 'ribbon' | 'cloud' | 'body';
+export type Part = 'hand' | 'foreArm' | 'upperArm' | 'head' | 'core' | 'ribbon' | 'cloud' | 'body' | 'girl';
 
 /** 箱の 名前 → 部位（gashaBig.ts の 当たりの 名前: hand*（指・親指も）・foreArm・upperArm・skull*（頭がいの よこ・ほお・あご・てっぺんも）・ribbon*・torso/spine/chest/neck/collar/shoulderCloth/hair* は 胴体・それ以外は 雲） */
 export function partOf(name: string): Part {
   if (name === 'core') return 'core';
+  if (name === 'girl') return 'girl';
   if (name.startsWith('hand')) return 'hand';
   if (name.startsWith('foreArm')) return 'foreArm';
   if (name.startsWith('upperArm')) return 'upperArm';
@@ -210,6 +211,10 @@ export class BigHit {
   /** コアが 無敵の 間に はじいた 回数（テスト用） */
   deflects = 0;
   private boxes: readonly BoxLike[] = [];
+  /** からだの 箱（bind で わたされた もの）。boxes = これ ＋ extra */
+  private base: readonly BoxLike[] = [];
+  /** 足す 箱 1 つ（座っている 少女。名前 girl。外から 毎コマ 場所を 更新される） */
+  private extra: BoxLike | null = null;
   private parts: Part[] = [];
   private mats: { m: MeshBasicMaterial; r: number; g: number; b: number }[] = [];
   private flash = 0;
@@ -233,8 +238,8 @@ export class BigHit {
 
   /** からだ（当たりの 箱）を つなぐ。体力は かえない（もどすのは reset） */
   bind(boxes: readonly BoxLike[], model: BigModel | null): void {
-    this.boxes = boxes;
-    this.parts = boxes.map((b) => partOf(b.name));
+    this.base = boxes;
+    this.rebuild();
     this.mats = [];
     if (model) {
       const seen = new Set<MeshBasicMaterial>();
@@ -250,10 +255,24 @@ export class BigHit {
     this.flash = 0;
   }
 
+  /** 箱の 一覧を 作りなおす（からだ ＋ 足した 箱） */
+  private rebuild(): void {
+    this.boxes = this.extra ? [...this.base, this.extra] : this.base;
+    this.parts = this.boxes.map((b) => partOf(b.name));
+  }
+
+  /** 足す 箱を 入れる / 外す（座っている 少女）。箱の 中身は 持ち主が 毎コマ 更新する */
+  setExtra(box: BoxLike | null): void {
+    this.extra = box;
+    this.rebuild();
+  }
+
   /** 片づける（#293 まとめ）: 体力ゲージを 画面から はずし、当たりの 箱・火花・光りを 手ばなす。射線の 割りこみは 箱が 空なので 本物の まま 通る。reset() で また 作る */
   dismiss(): void {
     this.bar?.destroy();
     this.bar = null;
+    this.base = [];
+    this.extra = null;
     this.boxes = [];
     this.parts = [];
     this.mats = [];

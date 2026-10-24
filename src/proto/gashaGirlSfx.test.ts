@@ -14,15 +14,21 @@ function setup(durSec = 0.5, seed = 1) {
 }
 
 describe('少女の 効果音: どの 場面で 何を 何回', () => {
-  it('ファイル 17 個が public/sound/gasha/ に ある', () => {
+  it('ファイル 20 個が public/sound/gasha/ に ある（17 個 ＋ 笑い声・とどめ・くずれる の 3 個）', () => {
     const all = Object.values(SFX_FILES).flat();
-    expect(all.length).toBe(17);
+    expect(all.length).toBe(20);
     for (const f of all) expect(existsSync(join(process.cwd(), 'public/sound/gasha', `${f}.ogg`)), f).toBe(true);
   });
   it('パスは 相対パス（公開版で 404 に ならない）', () => {
     const { sfx, log } = setup();
     sfx.warpOut();
     expect(log[0]!.url).toBe('./sound/gasha/warp_out.ogg');
+  });
+  it('笑い声・とどめ・くずれるは 1 回ずつ。ファイルは 名前だけで 差しかえられる（SFX_FILES）', () => {
+    const a = setup(); a.sfx.laugh(); expect(a.names()).toEqual(['girl_laugh_a']);
+    const b = setup(); b.sfx.finishBlow(); expect(b.names()).toEqual(['finish_blow_a']);
+    const c = setup(); c.sfx.crumble(); expect(c.names()).toEqual(['crumble_b']);
+    expect(SFX_FILES.girl_laugh).toHaveLength(1);
   });
   it('消える・現れる・詠唱は 1 回ずつ', () => {
     const a = setup(); a.sfx.warpOut(); expect(a.names()).toEqual(['warp_out']);
@@ -115,7 +121,7 @@ describe('少女の 効果音: ゆらぎと 同時再生', () => {
 });
 
 describe('少女の 効果音: 先読みと resume', () => {
-  it('はじめに 17 ファイルを 読みこみ、suspended なら 最初の クリックで resume する', async () => {
+  it('はじめに 20 ファイルを 読みこみ、suspended なら 最初の クリックで resume する', async () => {
     const { createWebAudioPlayer } = await import('./gashaGirlSfx');
     const fetched: string[] = [];
     const listeners: Record<string, () => void> = {};
@@ -128,7 +134,7 @@ describe('少女の 効果音: 先読みと resume', () => {
     try {
       createWebAudioPlayer().preload();
       await new Promise((r) => setTimeout(r, 0));
-      expect(new Set(fetched).size).toBe(17);
+      expect(new Set(fetched).size).toBe(20);
       expect(resumed).toBe(0);
       listeners.pointerdown!();
       expect(resumed).toBe(1);

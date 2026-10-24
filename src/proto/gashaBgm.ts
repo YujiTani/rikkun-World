@@ -59,6 +59,8 @@ export interface GashaBgmStatus {
   /** 少女が 出た ので 大きな 姿の 曲は 流さない */
   girlLock: boolean;
   wants: Record<BgmOwner, boolean>;
+  /** cut() で 切って いる 間 */
+  cut: boolean;
 }
 
 export class GashaBgm {
@@ -66,6 +68,8 @@ export class GashaBgm {
   private girlLock = false;
   private desired: BgmTrack | null = null;
   private suppressed = false;
+  /** cut() の 間は 曲を 流さない(ふだんの BGM も 止めたまま) */
+  private cutOn = false;
   /** この 時刻（音の 時計）まで 曲を はじめない（ふだんの BGM が フェードアウトする 間 まつ） */
   private holdUntil = 0;
   private readonly tr: Record<BgmTrack, TrackState> = {
@@ -92,7 +96,19 @@ export class GashaBgm {
   reset(): void {
     this.want.girl = this.want.big = false;
     this.girlLock = false;
+    this.cutOn = false;
     this.decide();
+  }
+
+  /** 曲を フェードなしで ぶつっと 切る(少女に かわる しゅんかん)。uncut() まで どの 曲も 流さず、ふだんの BGM も 止めたまま */
+  cut(): void {
+    this.cutOn = true;
+    for (const k of TRACKS) this.stopNow(k);
+  }
+
+  /** cut() を 終える。頼まれて いる 曲が あれば その 曲が 流れはじめる(なければ ふだんの BGM に もどる) */
+  uncut(): void {
+    this.cutOn = false;
   }
 
   private decide(): void {
@@ -103,7 +119,7 @@ export class GashaBgm {
 
   status(): GashaBgmStatus {
     const playing = TRACKS.find((k) => this.tr[k].src !== null) ?? null;
-    return { playing, desired: this.desired, girlLock: this.girlLock, wants: { ...this.want } };
+    return { playing, desired: this.desired, girlLock: this.girlLock, wants: { ...this.want }, cut: this.cutOn };
   }
 
   /** 曲ごとの 様子（デバッグ表示用） */
@@ -149,10 +165,10 @@ export class GashaBgm {
 
   /** 毎コマ 呼ぶ。頼まれた 曲を 流し、ほかの 曲は フェードアウトして 止める */
   step(): void {
-    const want = this.desired;
-    if (want !== null) this.load(want);
+    const want = this.cutOn ? null : this.desired;
+    if (this.desired !== null) this.load(this.desired);
     this.decodePending();
-    const sup = want !== null;
+    const sup = this.desired !== null || this.cutOn;
     if (sup !== this.suppressed) {
       this.suppressed = sup;
       const B = BIG.bgm;
@@ -201,6 +217,21 @@ export class GashaBgm {
     t.lastStop = null;
     src.start(now, off);
     t.src = src; t.gain = g; t.ctxStart = now - off;
+  }
+
+  /** その 場で ぶつっと 止める(フェードなし) */
+  private stopNow(k: BgmTrack): void {
+    const t = this.tr[k];
+    const src = t.src, g = t.gain;
+    t.src = null; t.gain = null; t.lastStop = null;
+    if (!src || !g) return;
+    const now = src.context.currentTime;
+    try {
+      g.gain.cancelScheduledValues(now);
+      g.gain.setValueAtTime(0, now);
+      src.stop(now);
+    } catch { /* すでに 止まって いる */ }
+    src.onended = () => { try { g.disconnect(); } catch { /* むし */ } };
   }
 
   private stop(k: BgmTrack): void {

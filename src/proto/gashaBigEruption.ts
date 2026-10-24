@@ -10,7 +10,7 @@ import { TUNE as T } from './gashaBigTuning';
 
 export interface V3 { x: number; y: number; z: number }
 
-export type EruptPhase = 'idle' | 'inhale' | 'erupt' | 'rain' | 'done';
+export type EruptPhase = 'idle' | 'inhale' | 'erupt' | 'hold' | 'rain' | 'done';
 
 const smooth = (k: number): number => { const t = Math.max(0, Math.min(1, k)); return t * t * (3 - 2 * t); };
 
@@ -34,11 +34,14 @@ export class Eruption {
 
   get done(): boolean { return this.phase === 'done'; }
 
-  start(): void { this.phase = 'inhale'; this.t = 0; this.pitch = this.column = this.wind = 0; }
+  /** hold = true: 火柱が おわっても 上を 向いた まま とまる('hold')。灰は 降る。少女への 切りかえの 姿勢(FIX-BRIEF-2 §4) */
+  hold = false;
+
+  start(hold = false): void { this.phase = 'inhale'; this.t = 0; this.pitch = this.column = this.wind = 0; this.hold = hold; }
 
   update(dt: number): EruptEvent {
     const K = T.eruption, ev: EruptEvent = {};
-    if (this.phase === 'idle' || this.phase === 'done') return ev;
+    if (this.phase === 'idle' || this.phase === 'done' || this.phase === 'hold') return ev;
     this.t += dt;
     if (this.phase === 'inhale') {
       this.pitch = smooth(this.t / Math.max(1e-3, K.inhaleSec));
@@ -48,7 +51,7 @@ export class Eruption {
     if (this.phase === 'erupt') {
       this.pitch = 1;
       this.column = Math.min(smooth(this.t / 0.3), smooth((K.eruptSec - this.t) / 0.5));
-      if (this.t >= K.eruptSec) { this.phase = 'rain'; this.t -= K.eruptSec; this.column = 0; ev.eruptEnd = true; }
+      if (this.t >= K.eruptSec) { this.phase = this.hold ? 'hold' : 'rain'; this.t -= K.eruptSec; this.column = 0; ev.eruptEnd = true; this.pitch = 1; }
     }
     if (this.phase === 'rain') {
       this.pitch = 1 - smooth(this.t / Math.max(1e-3, K.recoverSec));

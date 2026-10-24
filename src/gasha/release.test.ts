@@ -3,7 +3,7 @@ import { BoxGeometry, Group, Mesh, MeshBasicMaterial, type Scene } from 'three';
 import { hazePatch } from '../proto/gashaBig';
 import type { ItemStack } from '../contracts';
 import type { GashaBigDeps } from '../proto/gashaBig';
-import { createGashaRelease, type BossHandle, type DepsWrap, type ReleaseEnv } from './release';
+import { createGashaRelease, type BossHandle, type DepsWrap, type GirlHooks, type ReleaseEnv } from './release';
 import { RELEASE } from './releaseTuning';
 
 /** gashaBig.ts の place({ x, z, yawDeg })・despawn()・onDefeated の まね */
@@ -17,6 +17,11 @@ function fakeBoss(wrapped: GashaBigDeps, first: { x: number; z: number; yawDeg?:
     alive: false,
     hidden: false,
     tiredSec: 0,
+    finales: 0,
+    frozen: false,
+    girlBox: null as unknown,
+    /** 固まった しゅんかん(gashaBig.ts の onUpdate が onHeld を 呼ぶ) */
+    hold() { boss.frozen = true; wrapped.onHeld?.(); },
     places: 0,
     despawns: 0,
     /** 体力 0 に なった（gashaBig.ts の onUpdate が onDefeated を 呼ぶ） */
@@ -28,6 +33,8 @@ function fakeBoss(wrapped: GashaBigDeps, first: { x: number; z: number; yawDeg?:
       boss.hp = 1000;
       boss.alive = true;
       boss.hidden = false;
+      boss.finales = 0;
+      boss.frozen = false;
       boss.places++;
     },
     despawn() { boss.alive = false; boss.angry = false; boss.walking = false; boss.despawns++; },
@@ -42,8 +49,10 @@ function fakeBoss(wrapped: GashaBigDeps, first: { x: number; z: number; yawDeg?:
     get group() { return group; },
     place: (at) => { boss.place(at); remake(); },
     despawn: () => boss.despawn(),
-    hide: (on) => { boss.hidden = on; },
-    tired: (sec) => { boss.tiredSec = sec ?? 0; },
+    finale: () => { boss.finales++; },
+    frozen: () => boss.frozen,
+    perchSpot: () => ({ x: boss.pos.x + 3, y: boss.pos.y + 30, z: boss.pos.z, yawDeg: 0 }),
+    setGirlBox: (b) => { boss.girlBox = b; },
     hp: () => boss.hp,
     maxHp: () => 1000,
     angry: (on) => { boss.angry = on; },
@@ -70,9 +79,10 @@ function rig(over: { chance?: number; enabled?: boolean; noGirl?: boolean; hold?
     summons: 0,
     dismisses: 0,
   };
-  /** 少女の まね（読みこみを 待たせる ことも できる）。hooks = 大きな 姿に もどる / 少女が また 出る 前 */
+  /** 少女の まね（読みこみを 待たせる ことも できる）。hooks = 座る 場所・当たりの 箱 */
   const girl = {
-    hooks: null as null | { onBigReturn(restSec: number): void; onBigLeave(): void },
+    hooks: null as null | GirlHooks,
+    stage: 'laugh' as 'off' | 'laugh' | 'orbit' | 'pose' | 'girl' | 'perch',
     active: false,
     gate: null as null | (() => void),
     hold: false,
@@ -108,6 +118,7 @@ function rig(over: { chance?: number; enabled?: boolean; noGirl?: boolean; hold?
         summon: () => { log.summons++; girl.active = true; },
         dismiss: () => { log.dismisses++; girl.active = false; },
         active: () => girl.active,
+        stage: () => (girl.active ? girl.stage : 'off'),
       };
     },
     scatter: (at, stacks) => { log.scatter.push({ at: { ...at }, stacks }); },
@@ -496,77 +507,63 @@ describe('体力 1/3 で 少女へ（#293 まとめ）', () => {
     expect(r.log.girlStarts).toBe(1); // 1 回だけ
   });
 
-  it('体力が 1/3 以下に なると 大きな 姿を かくして 少女を 出す（1 回だけ）。BGM は 止めない', async () => {
+  it('体力が 1/3 以下に なると 噴火を 出して 固まる(finale)。まだ 少女は 出ない。固まった しゅんかんに 少女の 登場(summon)。BGM は release では 止めない', async () => {
     const r = await fighting();
     r.boss().hp = 1000 / 3 - 1;
     r.run(RELEASE.spawn.checkEverySec + 0.2);
     await r.settle();
     r.run(RELEASE.spawn.checkEverySec + 0.2);
-    expect(r.boss().hidden).toBe(true);
+    expect(r.boss().finales).toBe(1);
+    expect(r.boss().hidden).toBe(false); // 体は かくさない(固まって その場に のこる)
+    expect(r.log.summons).toBe(0);
+    expect(r.rel.info().form).toBe('freeze');
+    r.boss().hold();
     expect(r.log.summons).toBe(1);
-    expect(r.rel.info().form).toBe('girl');
+    expect(r.rel.info().form).toBe('laugh');
     expect(r.log.bgmReset).toBe(0);
     r.run(5);
+    expect(r.boss().finales).toBe(1); // 1 回だけ
     expect(r.log.summons).toBe(1);
     expect(r.rel.state()).toBe('present');
   });
 
-  it('ちょうど 1/3 でも かわる。たおした（0）後は かわらない', async () => {
-    const r = await fighting();
-    r.boss().hp = 1000 / 3;
-    r.run(RELEASE.spawn.checkEverySec + 0.2);
-    await r.settle();
-    r.run(RELEASE.spawn.checkEverySec + 0.2);
-    expect(r.log.summons).toBe(1);
-    const r2 = await fighting();
-    r2.boss().kill();
-    r2.run(RELEASE.spawn.checkEverySec + 0.2);
-    await r2.settle();
-    expect(r2.log.summons).toBe(0);
-    expect(r2.rel.state()).toBe('defeated');
-  });
-
-  it('少女が 読みこみ おわる まで 大きな 姿は かくさない（読めたら かわる）', async () => {
-    const r = await fighting({ hold: true });
-    r.boss().hp = 100;
-    r.run(RELEASE.spawn.checkEverySec * 3);
-    await r.settle();
-    expect(r.boss().hidden).toBe(false);
-    expect(r.log.summons).toBe(0);
-    r.girl.gate!();
-    await r.settle();
-    r.run(RELEASE.spawn.checkEverySec + 0.2);
-    expect(r.boss().hidden).toBe(true);
-    expect(r.log.summons).toBe(1);
-  });
-
-  it('少女の 5 回が おわって 大きな 姿に もどる: 体が 出て 2 分 休む。休みが おわると また かくれて 少女', async () => {
+  it('形態は 少女の 場面に したがう: laugh → orbit → pose → girl → perch', async () => {
     const r = await fighting();
     r.boss().hp = 200;
     r.run(RELEASE.spawn.checkEverySec + 0.2);
     await r.settle();
     r.run(RELEASE.spawn.checkEverySec + 0.2);
-    expect(r.boss().hidden).toBe(true);
-    r.girl.hooks!.onBigReturn(120);
-    expect(r.boss().hidden).toBe(false);
-    expect(r.boss().tiredSec).toBe(120);
-    expect(r.rel.info().form).toBe('rest');
-    r.run(5);
-    expect(r.log.summons).toBe(1); // 休み中は 少女を また 出さない（少女の 係が 2 分 数える）
-    r.girl.hooks!.onBigLeave();
-    expect(r.boss().hidden).toBe(true);
-    expect(r.rel.info().form).toBe('girl');
+    r.boss().hold();
+    for (const st of ['laugh', 'orbit', 'pose', 'girl', 'perch'] as const) {
+      r.girl.stage = st;
+      expect(r.rel.info().form).toBe(st);
+    }
     expect(r.boss().hp).toBe(200); // 体力は のこる
-    expect(r.log.summons).toBe(1); // 2 回目の 出番は 少女の 係が 自分で はじめる
   });
 
-  it('休み中に たおした: 少女を 止めて 宝箱・実績', async () => {
+  it('少女に わたす 口: 座る 場所は 大きな 姿の かた、当たりの 箱は 大きな 姿に 足される', async () => {
+    const r = await fighting();
+    r.boss().hp = 200;
+    r.run(RELEASE.spawn.checkEverySec + 0.2);
+    await r.settle();
+    const sp = r.girl.hooks!.perchSpot();
+    expect(sp).not.toBeNull();
+    expect(sp!.y).toBe(r.boss().pos.y + 30);
+    const box = { name: 'girl', c: [0, 0, 0], ax: [1, 0, 0, 0, 1, 0, 0, 0, 1], half: [1, 1, 1] };
+    r.girl.hooks!.setHitBox(box);
+    expect(r.boss().girlBox).toBe(box);
+    r.girl.hooks!.setHitBox(null);
+    expect(r.boss().girlBox).toBeNull();
+  });
+
+  it('座って 休んでいる 間に たおした: 少女を 止めて 宝箱・実績', async () => {
     const r = await fighting();
     r.boss().hp = 200;
     r.run(RELEASE.spawn.checkEverySec + 0.2);
     await r.settle();
     r.run(RELEASE.spawn.checkEverySec + 0.2);
-    r.girl.hooks!.onBigReturn(120);
+    r.boss().hold();
+    r.girl.stage = 'perch';
     r.boss().kill();
     expect(r.rel.state()).toBe('defeated');
     expect(r.log.dismisses).toBe(1);
@@ -581,6 +578,7 @@ describe('体力 1/3 で 少女へ（#293 まとめ）', () => {
     r.run(RELEASE.spawn.checkEverySec + 0.2);
     await r.settle();
     r.run(RELEASE.spawn.checkEverySec + 0.2);
+    r.boss().hold();
     expect(r.girl.active).toBe(true);
     r.player.x += RELEASE.spawn.despawnDistance + 100;
     r.run(RELEASE.spawn.checkEverySec + 0.5);
@@ -589,14 +587,46 @@ describe('体力 1/3 で 少女へ（#293 まとめ）', () => {
     expect(r.girl.active).toBe(false);
     await r.rel.spawn({ distance: 40, angleDeg: 0 });
     expect(r.rel.info().form).toBe('big');
-    expect(r.boss().hidden).toBe(false);
     expect(r.boss().hp).toBe(1000);
     r.run(3);
     expect(r.log.summons).toBe(1);
     r.boss().hp = 100;
     r.run(RELEASE.spawn.checkEverySec + 0.2);
+    expect(r.boss().finales).toBe(1);
+    r.boss().hold();
     expect(r.log.summons).toBe(2);
     expect(r.log.girlStarts).toBe(1);
+  });
+
+  it('ちょうど 1/3 でも かわる。たおした（0）後は かわらない', async () => {
+    const r = await fighting();
+    r.boss().hp = 1000 / 3;
+    r.run(RELEASE.spawn.checkEverySec + 0.2);
+    await r.settle();
+    r.run(RELEASE.spawn.checkEverySec + 0.2);
+    expect(r.boss().finales).toBe(1);
+    const r2 = await fighting();
+    r2.boss().kill();
+    r2.run(RELEASE.spawn.checkEverySec + 0.2);
+    await r2.settle();
+    expect(r2.boss().finales).toBe(0);
+    expect(r2.log.summons).toBe(0);
+    expect(r2.rel.state()).toBe('defeated');
+  });
+
+  it('少女が 読みこみ おわる まで 固めない（読めたら かわる）', async () => {
+    const r = await fighting({ hold: true });
+    r.boss().hp = 100;
+    r.run(RELEASE.spawn.checkEverySec * 3);
+    await r.settle();
+    expect(r.boss().finales).toBe(0);
+    expect(r.log.summons).toBe(0);
+    r.girl.gate!();
+    await r.settle();
+    r.run(RELEASE.spawn.checkEverySec + 0.2);
+    expect(r.boss().finales).toBe(1);
+    r.boss().hold();
+    expect(r.log.summons).toBe(1);
   });
 
   it('少女の しくみが 無い（startGirl なし）ときは そのまま 大きな 姿で たたかう', async () => {
@@ -604,7 +634,7 @@ describe('体力 1/3 で 少女へ（#293 まとめ）', () => {
     r.boss().hp = 10;
     r.run(RELEASE.spawn.checkEverySec * 3);
     await r.settle();
-    expect(r.boss().hidden).toBe(false);
+    expect(r.boss().finales).toBe(0);
     expect(r.rel.info().form).toBe('big');
   });
 
@@ -615,6 +645,8 @@ describe('体力 1/3 で 少女へ（#293 まとめ）', () => {
     r.run(RELEASE.spawn.checkEverySec + 0.2);
     await r.settle();
     r.run(RELEASE.spawn.checkEverySec + 0.2);
+    expect(r.boss().finales).toBe(1);
+    r.boss().hold();
     expect(r.log.summons).toBe(1);
   });
 });

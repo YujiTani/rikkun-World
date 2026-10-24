@@ -73,6 +73,41 @@ describe('gashaBgm（#293 がしゃどくろの BGM）', () => {
     expect(log[log.length - 1]).toBe(false); // ふだんの BGM に もどる
   });
 
+  it('cut(): 流れている 曲を フェードなしで ぶつっと 切る。ふだんの BGM も 止めたまま。uncut() で 頼まれている 曲が また 流れる（FIX-BRIEF-2 §4）', async () => {
+    const { bgm, ctx, log, sync } = rig();
+    bgm.request('big', true);
+    await sync();
+    expect(bgm.status().playing).toBe('kamigami');
+    const s = ctx.sources[0]!;
+    ctx.currentTime = 40;
+    bgm.cut();
+    bgm.step();
+    expect(bgm.status().playing).toBe(null);
+    expect(s.stoppedAt).toBe(40); // フェードアウトの 待ちなし
+    expect(ctx.gains[0]!.gain.value).toBe(0);
+    expect(log[log.length - 1]).toBe(true); // ふだんの BGM は 止めたまま
+    bgm.request('big', false); // 怒りが きれても
+    bgm.step();
+    expect(log[log.length - 1]).toBe(true); // ふだんの BGM は まだ もどらない
+    bgm.request('girl', true);
+    await sync();
+    expect(bgm.status().playing).toBe(null); // 切って いる 間は 少女の 曲も 流さない
+    bgm.uncut();
+    await sync();
+    expect(bgm.status().playing).toBe('saiyaku');
+    expect(bgm.status().cut).toBe(false);
+  });
+
+  it('cut() のあと 誰も 曲を 頼まずに uncut() すると ふだんの BGM に もどる', async () => {
+    const { bgm, log, sync } = rig();
+    bgm.cut();
+    await sync();
+    expect(log[log.length - 1]).toBe(true);
+    bgm.uncut();
+    await sync();
+    expect(log[log.length - 1]).toBe(false);
+  });
+
   it('怒って いる 間は 曲が おわっても つながって 鳴りつづける（loopEnd は 曲の 長さ いない。音源が 勝手に おわっても 頭から 流しなおす）', async () => {
     const { bgm, ctx, sync } = rig();
     bgm.request('big', true);

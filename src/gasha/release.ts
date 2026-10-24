@@ -4,8 +4,9 @@
  *    場所と 向きは gashaBig.ts の `place({ x, z, yawDeg })` に 直接 わたす（プレイヤーの 方を 向く）。
  *  ・たおす（体力 0。gashaBig.ts の onDefeated で 知らせが 来る）か、プレイヤーが 遠く（despawnDistance）へ はなれると
  *    gashaBig.ts の `despawn()` で 片づける（体・当たり・間欠泉・ゲージ・射線・エフェクト・音が ぜんぶ 消える）。次の 出番は また place() で 使いまわす。
- *  ・体力が 1/3 以下に なると 大きな 姿を かくして 少女の 形態へ（gashaGirl.ts。5 回の 魔法 → 大きな 姿が もどって 2 分 休む → また 少女、を くりかえす。
- *    少女の しくみは 先に 読みこんで ねかせて おき、きりかえで summon() する。休みの 秒・もどる 合図は 少女の 係が 決める）。
+ *  ・体力が 1/3 以下に なると 噴火を 出して 上を 向いた まま 固まる（BGM が ぶつっと 切れる）→ 少女（gashaGirl.ts）が 笑い声 → ワープで 飛びまわる → 決めポーズ → 魔法 5 回 →
+ *    大きな 姿の かたに 座って 休む（なぐると 大ダメージ）→ また 魔法、を たおすまで くりかえす。大きな 姿は 固まった まま（登れる・なぐれる）。
+ *    少女の しくみは 先に 読みこんで ねかせて おき、固まった しゅんかんに summon() する。
  *  ・たおしたら: 実績を 記録 → BGM を 止める → その 場所に 大きな 宝箱（bigChest.ts）→ 近づくと ひらいて 中身（reward.ts）。
  *  ・遠くは 世界が 読みこまれて いない ので、体の 高さは 読みこみ済みなら 世界の 地面（置いた ブロック込み）、未読みこみなら 地形から。地ならしは しない（浮いて 進む ので いらない。プレイヤーの 家・畑を 消さない）。
  * 数は ぜんぶ releaseTuning.ts。ゲームとの つなぎは ReleaseEnv（main.ts が 渡す）。
@@ -33,10 +34,14 @@ export interface BossHandle {
   walk(on: boolean): void;
   /** `pos: [x, y, z]`（体の 足もと） */
   info(): Record<string, unknown>;
-  /** 少女に かわる 間だけ かくす / もどす（体力・怒り・位置は のこる） */
-  hide?(on: boolean): void;
-  /** つかれて sec 秒 休む（もどった 大きな 姿を 休ませる） */
-  tired?(sec?: number): void;
+  /** 体力 1/3: 噴火を 必ず 出して 上を 向いた まま 固まる(固まった しゅんかんに onHeld) */
+  finale?(): void;
+  /** 固まって いるか */
+  frozen?(): boolean;
+  /** 少女が 座る 場所(大きな 姿の かたの 上) */
+  perchSpot?(): { x: number; y: number; z: number; yawDeg: number } | null;
+  /** 座っている 少女の 当たりの 箱を 足す / はずす */
+  setGirlBox?(box: { name: string; c: ArrayLike<number>; ax: ArrayLike<number>; half: ArrayLike<number> } | null): void;
   /** 体の 3D の かたまり（place() の たびに 作りなおされる）。あれば 遠くで シルエットに 見える ように する */
   readonly group?: Object3D;
 }
@@ -80,8 +85,10 @@ export interface ReleaseEnv {
 
 /** 少女の 形態の 係（gashaGirl.ts の GirlController） */
 export interface GirlControl {
-  /** 少女の 戦いを はじめる（すぐ ワープして 5 回の 魔法） */
+  /** 少女の 登場を はじめる（笑い声 → ワープで 飛びまわる → 決めポーズ → 5 回の 魔法 → 大きな 姿の かたに 座って 休む → また 魔法） */
   summon(): void;
+  /** いまの 場面 */
+  stage(): 'off' | 'laugh' | 'orbit' | 'pose' | 'girl' | 'perch';
   /** 止めて かくす（エフェクト・BGM の 頼みも 消す） */
   dismiss(): void;
   active(): boolean;
@@ -89,15 +96,18 @@ export interface GirlControl {
 
 /** 少女の 係が 知らせる 合図 */
 export interface GirlHooks {
-  /** 5 回の 魔法が おわって 少女が 消えた。大きな 姿が もどって restSec 秒 休む */
-  onBigReturn(restSec: number): void;
-  /** 休みが おわって 少女が また ワープで 出る 直前（大きな 姿を かくす） */
-  onBigLeave(): void;
+  /** 少女が 座る 場所(大きな 姿の かた) */
+  perchSpot(): { x: number; y: number; z: number; yawDeg: number } | null;
+  /** 座っている 少女の 当たりの 箱を 大きな 姿に 足す / はずす */
+  setHitBox(box: { name: string; c: ArrayLike<number>; ax: ArrayLike<number>; half: ArrayLike<number> } | null): void;
 }
 
 export type ReleaseState = 'idle' | 'loading' | 'present' | 'defeated';
-/** big = 大きな 姿で たたかう / girl = 少女（大きな 姿は かくれて いる）/ rest = 大きな 姿が もどって 休んでいる */
-export type ReleaseForm = 'big' | 'girl' | 'rest';
+/**
+ * big = 大きな 姿で たたかう / freeze = 体力 1/3 で 噴火して 固まる(まで) / laugh = 笑い声 / orbit = 少女が ワープで 飛びまわる / pose = 正面で 決めポーズ /
+ * girl = 少女の 魔法(大きな 姿は 固まった まま) / perch = 少女が 大きな 姿の かたに 座って 休む(なぐると 大ダメージ)
+ */
+export type ReleaseForm = 'big' | 'freeze' | 'laugh' | 'orbit' | 'pose' | 'girl' | 'perch';
 
 interface ChestEntry {
   logic: ChestLogic;
@@ -146,6 +156,8 @@ export class GashaRelease {
     return {
       ...d,
       noTabi: true, // 足袋は ごほうび なので はじめから 着せない
+      // 体力 1/3 で 噴火して 固まった: 少女の 登場を はじめる
+      onHeld: () => { d.onHeld?.(); this.onHeld(); },
       // 体力 0: たおした ことにする（宝箱・実績・BGM）
       onDefeated: () => { d.onDefeated?.(); this.defeat(); },
       // 読みこんで いない 遠くは 地形の 高さ
@@ -247,35 +259,34 @@ export class GashaRelease {
   /** 体力を 見て、少しずつ 少女を 読みこみ、1/3 以下で 大きな 姿を かくして 少女を 出す */
   private stepGirl(): void {
     const h = this.handle;
-    if (!h || this.form !== 'big' || !this.env.startGirl || !h.hide) return;
+    if (!h || this.form !== 'big' || !this.env.startGirl || !h.finale) return;
     const hp = h.hp(), max = h.maxHp();
     if (!(max > 0) || hp <= 0) return;
     const G = RELEASE.girl;
     if (!this.girl && !this.girlLoading && !this.girlFailed && hp <= max * G.loadHpFraction) {
       this.girlLoading = true;
       this.env.startGirl({
-        onBigReturn: (restSec) => this.bigReturn(restSec),
-        onBigLeave: () => this.bigLeave(),
+        perchSpot: () => this.handle?.perchSpot?.() ?? null,
+        setHitBox: (b) => this.handle?.setGirlBox?.(b),
       }).then((g) => { this.girl = g; }, () => { this.girlFailed = true; /* 読めなければ 大きな 姿だけで たたかう */ }).finally(() => { this.girlLoading = false; });
     }
     if (this.girl && hp <= max * G.hpFraction) {
-      h.hide(true);
-      this.form = 'girl';
-      this.girl.summon();
+      h.finale();
+      this.form = 'freeze';
     }
   }
 
-  private bigReturn(restSec: number): void {
-    if (this.st !== 'present' || !this.handle?.hide) return;
-    this.handle.hide(false);
-    this.handle.tired?.(restSec);
-    this.form = 'rest';
+  /** 固まった しゅんかん(gashaBig.ts から)。BGM は もう 切れて いる。少女の 登場を はじめる */
+  private onHeld(): void {
+    if (this.st !== 'present' || this.form !== 'freeze') return;
+    this.girl?.summon();
   }
 
-  private bigLeave(): void {
-    if (this.st !== 'present' || !this.handle?.hide) return;
-    this.handle.hide(true);
-    this.form = 'girl';
+  /** いまの 形態(固まった あとは 少女の 場面に したがう) */
+  private formNow(): ReleaseForm {
+    if (this.form !== 'freeze' || !this.girl || !this.girl.active()) return this.form;
+    const g = this.girl.stage();
+    return g === 'laugh' || g === 'orbit' || g === 'pose' || g === 'perch' ? g : 'girl';
   }
 
   // ---------------------------------------------------------------- たおした
@@ -404,7 +415,7 @@ export class GashaRelease {
     const pos = this.bossPos;
     return {
       state: this.st,
-      form: this.form,
+      form: this.formNow(),
       pos: pos ? { ...pos } : null,
       distance: pos ? horizontalDistance(this.env.player(), pos) : null,
       chests: this.chestList.length,

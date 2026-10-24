@@ -1,7 +1,7 @@
 /**
  * #293 がしゃどくろ 第二形態（少女）の「ワープ → 詠唱 → 魔法 4 種」。
  * 試作ページ（`?proto=gashaGirl`、開発サーバーだけ）は すぐ はじまる。ふだんの ゲームでは `{ dormant: true }` で 読みこんで ねかせて おき（見えない・動かない・描かない）、
- * 大きな 姿の 体力が 1/3 に なったら release.ts が summon() で はじめる（5 回の 魔法 → onBigReturn で 大きな 姿が もどって 休む → onBigLeave → また 少女）。dismiss() で 止める。GLB は public/models/gasha/girl-cast.glb（相対パス。公開版でも 読める。頂点の 使わない 属性を 減らし、テクスチャは JPEG の 圧縮を 強めて 約 4 MB）。
+ * 大きな 姿の 体力が 1/3 に なって 固まったら release.ts が summon() で はじめる（笑い声 → ワープで 飛びまわる → 決めポーズ → 5 回の 魔法 → 大きな 姿の かたに 座って 休む（perchSpot・setHitBox）→ また 魔法）。dismiss() で 止める。GLB は public/models/gasha/girl-cast.glb（相対パス。公開版でも 読める。頂点の 使わない 属性を 減らし、テクスチャは JPEG の 圧縮を 強めて 約 4 MB）。
  * 少女は 歩かない・走らない（移動は ワープだけ）。ふだんは ゾンビの ように 右うでを 前に 出して 立つ。
  * すべて Game.onUpdate の 固定ステップで 進める。乱数は シード付き。ダメージは なし（見た目だけ）。
  * 魔法 1: 背面か 左横へ ワープ → プレイヤーの 足もとに 噴き出す / 2: 真後ろ → 周囲攻撃（渦）/
@@ -17,6 +17,10 @@ import { bearingOf } from '../combat/parry';
 import { TUNE as T, applyTune, applyTuneFromUrl } from './gashaGirlTuning';
 import { sharedGashaBgm } from './gashaBgm';
 import { createGirlSfx, createWebAudioPlayer } from './gashaGirlSfx';
+import { IntroSeq, introAngleDeg, introSpot, type IntroEvent } from './gashaGirlIntro';
+import { applyDelta, blendPose, SIT_DELTA, type BaseBone } from './gashaGirlPose';
+import { POSES } from './gashaGirlPoseData';
+import type { BoxLike } from './gashaBigHit';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 export interface GashaGirlDeps {
@@ -269,10 +273,10 @@ const clamp01 = (t: number) => Math.min(1, Math.max(0, t));
 export interface GashaGirlOpts {
   /** true: 読みこんだ あと ねかせて おく（ふだんの ゲーム）。summon() で はじまる。なければ すぐ はじまる（?proto=gashaGirl） */
   dormant?: boolean;
-  /** dormant: 5 回の 魔法が おわって 少女が 消えた。大きな 姿が もどって restSec 秒（eye.bigWaitSec）休む */
-  onBigReturn?(restSec: number): void;
-  /** dormant: 休みが おわって 少女が また ワープで 出る 直前（大きな 姿を かくす） */
-  onBigLeave?(): void;
+  /** dormant: 5 回の 魔法の あと 少女が 座る 場所(大きな 姿の かたの 上。足もとの 世界の 座標と 向き)。なければ null(その 場に 座る) */
+  perchSpot?(): { x: number; y: number; z: number; yawDeg: number } | null;
+  /** dormant: 座っている 少女の 当たりの 箱を 大きな 姿の 当たりに 足す(名前 girl)。null で はずす。箱の 中身は 少女が 毎コマ 更新する */
+  setHitBox?(box: BoxLike | null): void;
 }
 
 /** ふだんの ゲームから 少女を 動かす 口 */
@@ -283,6 +287,8 @@ export interface GirlController {
   dismiss(): void;
   /** 少女の 戦いの 最中か（ねかせて いる 間は false） */
   active(): boolean;
+  /** いまの 場面: off(ねている)/ laugh(笑い声)/ orbit(飛びまわる)/ pose(決めポーズ)/ girl(戦い)/ perch(かたに 座って 休む) */
+  stage(): 'off' | 'laugh' | 'orbit' | 'pose' | 'girl' | 'perch';
   handle: GashaGirlHandle;
 }
 
@@ -337,6 +343,8 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
 
   // ---- 少女 ----
   const model = clone(src);
+  const bareRest = new Map<string, Quaternion>(); // 少女の 骨の もとの 休みの 回転(座りポーズの もと)
+  model.traverse((o) => { if ((o as Bone).isBone) bareRest.set(o.name, o.quaternion.clone()); });
   poseZombie(model, front);
   model.updateMatrixWorld(true);
   const box = new Box3().setFromObject(model, true);
@@ -359,6 +367,8 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
   // 立ち姿の ポーズを 保存（詠唱のあと もどす）
   const standPose: { bone: Object3D; q: Quaternion; p: Vector3 }[] = [];
   model.traverse((o) => { if ((o as Bone).isBone) standPose.push({ bone: o, q: o.quaternion.clone(), p: o.position.clone() }); });
+  const bareBase: BaseBone[] = standPose.map((s) => ({ bone: s.bone, q: bareRest.get(s.bone.name) ?? s.q })); // 座りポーズの もと
+  const standBase: BaseBone[] = standPose.map((s) => ({ bone: s.bone, q: s.q })); // 決めポーズの もと(ゾンビの 立ち姿)
   const restorePose = () => standPose.forEach((s) => { s.bone.quaternion.copy(s.q); s.bone.position.copy(s.p); });
   const mixer = new AnimationMixer(model);
   const action = mixer.clipAction(clip);
@@ -759,12 +769,12 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
   /** 1 回の 出番が おわった とき。5 回分 おわったら 大きな 姿に もどる（試作） */
   const turnDone = (viaCancel: boolean) => {
     setShy(false);
-    if (turn >= T.eye.turnsPerShow) { phase = 'bigvanish'; pt = 0; purpleBurst(10); lineBurst(); sfx.warpOut(); return; }
+    if (turn >= T.eye.turnsPerShow) { phase = dormant ? 'perchgo' : 'bigvanish'; pt = 0; purpleBurst(10); lineBurst(); sfx.warpOut(); return; }
     if (viaCancel) nextWarp(); else { phase = 'stand'; pt = 0; }
   };
 
   // ---- 少女の 流れ ----
-  type Phase = 'dormant' | 'stand' | 'vanish' | 'gone' | 'appear' | 'cast' | 'shy' | 'bigvanish' | 'bigtext' | 'bigwait';
+  type Phase = 'dormant' | 'stand' | 'vanish' | 'gone' | 'appear' | 'cast' | 'shy' | 'bigvanish' | 'bigtext' | 'bigwait' | 'laugh' | 'orbit' | 'pose' | 'perchgo' | 'perch' | 'perchleave';
   let phase: Phase = dormant ? 'dormant' : 'stand', pt = 0, spell = 0;
   let side: 'left' | 'back' = 'back', dist = 4.5, ang = 0;
   let turn = 0, cancels = 0, eyeNow = false, soundCount = 0, lastSoundT = -1, bigCount = 0;
@@ -886,6 +896,78 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
     model.position.y = y0 + (footBase - feetLow()) + 0.03 * (0.6 * Math.sin(t * 1.9) + 0.4 * Math.sin(t * 2.9 + 1));
   };
 
+  // ---- 登場(笑い声 → ワープで 飛びまわる → 決めポーズ)と、かたに 座って 休む ----
+  let intro: IntroSeq | null = null;
+  let poseT = 0, perchT = 0, perchOn = false;
+  const gw = new Vector3();
+  const hipsBone = bn('Hips');
+  const ensureFootBase = () => { if (Number.isNaN(footBase)) { restorePose(); model.position.y = y0; pivot.updateMatrixWorld(true); footBase = feetLow(); } };
+  /** 足の うらを 地面に つける(ポーズを つけた あと) */
+  const groundFeet = () => { pivot.updateMatrixWorld(true); model.position.y = y0 + (footBase - feetLow()); pivot.updateMatrixWorld(true); };
+  const groundAt = (x: number, z: number) => deps.groundY(Math.floor(x), Math.floor(z)) + 1;
+  const poseBones = () => (POSES[T.intro.poseName] ?? POSES.c!).bones;
+  const warpTo = (x: number, z: number) => {
+    if (pivot.visible) { purpleBurst(8); lineBurst(); }
+    pivot.position.set(x, groundAt(x, z), z);
+    pivot.visible = true; fade(0);
+    faceTo(deps.player());
+    purpleBurst(14); sfx.warpIn();
+  };
+  const onIntro = (e: IntroEvent) => {
+    const p = deps.player(), I = T.intro;
+    if (e.kind === 'laugh') { phase = 'laugh'; pt = 0; pivot.visible = false; sfx.laugh(); }
+    else if (e.kind === 'warp') {
+      phase = 'orbit'; pt = 0; ensureFootBase(); restorePose(); model.position.y = y0;
+      if (pivot.visible) sfx.warpOut();
+      const s = introSpot(p, introAngleDeg(e.index, I.warps), I.radius);
+      warpTo(s.x, s.z);
+      groundFeet();
+    } else if (e.kind === 'pose') {
+      phase = 'pose'; pt = 0; poseT = 0; ensureFootBase();
+      if (pivot.visible) sfx.warpOut();
+      const s = introSpot(p, 0, I.poseDist);
+      warpTo(s.x, s.z);
+    } else { // done: 戦いへ(BGM「災厄」が 流れる)
+      intro = null;
+      bgm.uncut(); bgm.request('girl', true);
+      chooseWarp(); phase = 'vanish'; pt = 0; purpleBurst(10); lineBurst(); sfx.warpOut();
+    }
+  };
+  const perchBox: { name: string; c: number[]; ax: number[]; half: number[] } = { name: 'girl', c: [0, 0, 0], ax: [1, 0, 0, 0, 1, 0, 0, 0, 1], half: [1, 1, 1] };
+  const sitNow: Record<string, [number, number, number]> = {};
+  const updatePerch = (dt: number) => {
+    perchT += dt;
+    const P = T.perch;
+    faceTo(deps.player());
+    for (const k of Object.keys(SIT_DELTA)) { const v = SIT_DELTA[k]!; const q = sitNow[k] ?? (sitNow[k] = [0, 0, 0]); q[0] = v[0]; q[1] = v[1]; q[2] = v[2]; }
+    const sw = P.swayDeg * Math.sin((perchT / Math.max(0.1, P.swaySec)) * Math.PI * 2);
+    sitNow.LeftLeg![0] = SIT_DELTA.LeftLeg![0] + sw; sitNow.RightLeg![0] = SIT_DELTA.RightLeg![0] - sw;
+    applyDelta(bareBase, sitNow, clamp01(perchT / Math.max(0.01, P.blendSec)));
+    pivot.updateMatrixWorld(true);
+    // お尻を かたの 上に(足は ぶらさげる)
+    if (hipsBone) { hipsBone.getWorldPosition(gw); model.position.y += (pivot.position.y + T.perch.hipUp - gw.y); pivot.updateMatrixWorld(true); }
+    if (perchOn) {
+      perchBox.c[0] = pivot.position.x; perchBox.c[1] = pivot.position.y + P.hitUp; perchBox.c[2] = pivot.position.z;
+      perchBox.half[0] = P.hitHalf[0]; perchBox.half[1] = P.hitHalf[1]; perchBox.half[2] = P.hitHalf[2];
+    }
+  };
+  const perchBegin = () => {
+    const sp = opts.perchSpot?.() ?? null;
+    if (sp) pivot.position.set(sp.x, sp.y, sp.z); else pivot.position.y = pivot.position.y; // 場所が なければ その 場に 座る
+    pivot.visible = true; perchT = 0; perchOn = true; pt = 0;
+    restorePose(); model.position.y = y0; model.position.x = 0;
+    purpleBurst(24); lineBurst(); sfx.warpIn(); fade(1);
+    bgm.request('girl', false); // 休んでいる 間は 戦いの 曲を 止める
+    phase = 'perch';
+    updatePerch(0);
+    opts.setHitBox?.(perchBox);
+  };
+  const perchEnd = () => {
+    perchOn = false; opts.setHitBox?.(null);
+    restorePose(); model.position.y = y0; model.position.x = 0;
+    turn = 0; cancels = 0; chooseWarp(); phase = 'perchleave'; pt = 0; purpleBurst(10); lineBurst(); sfx.warpOut();
+  };
+
   // ---- 毎ステップ ----
   let camMode: 'overview' | 'default' | 'look' | 'close' | 'idle' | 'idleSide' = 'default';
   let holdStand = false;
@@ -919,9 +1001,27 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
       fade(clamp01(pt / T.timing.vanishSec));
       if (pt >= T.timing.vanishSec) { pivot.visible = false; phase = 'bigtext'; pt = 0; showBig(true); bgm.request('girl', false); }
     } else if (phase === 'bigtext') {
-      if (pt >= T.eye.bigTextSec) { showBig(false); phase = 'bigwait'; pt = 0; if (dormant) opts.onBigReturn?.(T.eye.bigWaitSec); }
+      if (pt >= T.eye.bigTextSec) { showBig(false); phase = 'bigwait'; pt = 0; }
     } else if (phase === 'bigwait') {
-      if (pt >= T.eye.bigWaitSec) { if (dormant) opts.onBigLeave?.(); turn = 0; cancels = 0; bigCount++; chooseWarp(); phase = 'gone'; pt = T.timing.goneSec; }
+      if (pt >= T.eye.bigWaitSec) { turn = 0; cancels = 0; bigCount++; chooseWarp(); phase = 'gone'; pt = T.timing.goneSec; }
+    } else if (phase === 'laugh' || phase === 'orbit' || phase === 'pose') {
+      if (intro) for (const e of intro.update(dt)) onIntro(e);
+      if (phase === 'orbit' || phase === 'pose') faceTo(p);
+      if (phase === 'pose') {
+        poseT += dt;
+        blendPose(standBase, poseBones(), clamp01(poseT / Math.max(0.01, T.intro.poseBlendSec)));
+        groundFeet();
+      }
+    } else if (phase === 'perchgo') {
+      fade(clamp01(pt / T.timing.vanishSec));
+      if (pt >= T.timing.vanishSec) { pivot.visible = false; perchBegin(); }
+    } else if (phase === 'perch') {
+      updatePerch(dt);
+      fade(1 - clamp01(pt / T.timing.appearSec));
+      if (pt >= T.eye.bigWaitSec) perchEnd();
+    } else if (phase === 'perchleave') {
+      fade(clamp01(pt / T.timing.vanishSec));
+      if (pt >= T.timing.vanishSec) { phase = 'gone'; pt = T.timing.goneSec; fade(1); pivot.visible = false; }
     } else {
       faceTo(p);
       if (spell === 2) castLen = Math.max(clipDur(), T.cast.fireAt * clipDur() + T.s3.count * T.s3.shotGap + 0.4);
@@ -1028,6 +1128,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
     fade(0);
     pivot.visible = false;
     setShy(false); showBig(false);
+    intro = null; perchOn = false; opts.setHitBox?.(null); bgm.uncut();
     for (const e of erups) { e.e.t = -1; e.e.root.visible = false; }
     for (const v of vortices) { v.v.t = -1; v.v.root.visible = false; v.showWarn(false); }
     for (const q of projs) q.on = false;
@@ -1073,7 +1174,9 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
       add.points.visible = smoke.points.visible = true;
       turn = 0; cancels = 0; reflectWait = 0;
       chooseWarp();
-      phase = 'gone'; pt = 0; // 2 秒 何も いない（「どこいった？」）→ ワープ
+      intro = new IntroSeq(T.intro);
+      phase = 'laugh'; pt = 0; pivot.visible = false;
+      for (const e of intro.start()) onIntro(e); // 笑い声(少女は まだ 見えない)→ ワープで 飛びまわる → 決めポーズ → 戦い
     },
     dismiss: () => {
       if (!dormant || phase === 'dormant') return;
@@ -1081,6 +1184,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
       sleep();
     },
     active: () => phase !== 'dormant',
+    stage: () => (phase === 'dormant' ? 'off' : phase === 'laugh' || phase === 'orbit' || phase === 'pose' ? phase : phase === 'perchgo' || phase === 'perch' || phase === 'perchleave' ? 'perch' : 'girl'),
     handle,
   };
   return controller;
