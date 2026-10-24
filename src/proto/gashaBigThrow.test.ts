@@ -38,8 +38,10 @@ function rig(): Rig {
 }
 
 describe('コアの ふり落とし（#293 予兆・2 倍・カメラ 1 回転）', () => {
-  beforeEach(() => { vi.stubGlobal('location', { search: '' }); vi.stubGlobal('window', {}); });
-  afterEach(() => { vi.unstubAllGlobals(); });
+  // 追いかけ（体が プレイヤーの 方へ まわる）は 切る: ここは ふり落としの しくみだけを 見る
+  let chase = true;
+  beforeEach(() => { vi.stubGlobal('location', { search: '' }); vi.stubGlobal('window', {}); chase = T.chase.enabled; T.chase.enabled = false; });
+  afterEach(() => { vi.unstubAllGlobals(); T.chase.enabled = chase; });
 
   it('調整表: 予兆 1.5 秒・飛ぶ きょりは もとの 2 倍・落下の 守り（noFallSec）は なし', () => {
     const K = T.core.throwOff as Record<string, number>;

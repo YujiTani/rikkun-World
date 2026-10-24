@@ -179,6 +179,10 @@ export class BigActor {
   private stepFade = 0.5;
   /** 1 歩の 区切り（振り上げの はじまり）。ここで 着いたか 決める */
   private stepBoundary = false;
+  /** 怒って プレイヤーを 追う 1 歩を している 間 true（調整表 chase。1 歩の 途中で 攻撃は はじめない） */
+  chasing = false;
+  /** 追う 1 歩の 途中で 攻撃の 番に なった とき、1 歩の 区切りまで 待たせて いる 攻撃の 名前 */
+  private pendingAttack: string | null = null;
   /** 次の 1 歩の 区切りで 止まる（goTo の 行き先が もう 半歩 より 近い） */
   private stopAtBoundary = false;
   /** さいごに たたきつけた 所（世界の 座標） */
@@ -290,6 +294,7 @@ export class BigActor {
     this.mode = 'idle';
     this.player.play(null, { fade: 0 });
     this.stepW = 0; this.stepWant = 0; this.step.reset();
+    this.chasing = false; this.pendingAttack = null;
     this.pauseLeft = this.randIn(T.wander.pauseSec);
     this.restLeft = 0;
     this.walkLeft = this.randIn(T.wander.walkSec);
@@ -406,6 +411,8 @@ export class BigActor {
     this.bodyTurning = false;
     this.cycle.reset();
     this.warn = null; this.attackName = null; this.sweepNow = null; this.beamLook = null; this.beam.phase = 'idle'; this.beam.glow = 0; this.eruption.phase = 'idle'; this.eruption.pitch = 0; this.thunder.reset();
+    if (this.chasing) { this.chasing = false; this.fadeStep(0, T.clips.idleFadeSec); }
+    this.pendingAttack = null;
     if (this.isAngry()) {
       const was = this.mode;
       this.mode = 'idle'; this.pauseLeft = this.randIn(T.wander.pauseSec);
@@ -432,6 +439,7 @@ export class BigActor {
   private startAttack(name: string): void {
     if (name !== 'slam2' && name !== 'sweep' && name !== 'beam' && name !== 'eruption' && name !== 'thunder') { this.cycle.attackEnded(); return; } // まだ ない 攻撃は とばす
     this.mode = 'attack'; this.attackName = name; this.target = null;
+    this.chasing = false; this.pendingAttack = null;
     this.player.play(null, { fade: 0 });
     this.sweepStroke = 0;
     this.env.onAttackStart?.(name);
@@ -565,6 +573,7 @@ export class BigActor {
       moved = true;
     }
     this.speedNow = Math.abs(step) / dt;
+    if (T.chase.holdHeight) return moved; // 出現した 高さを 保って 浮いて 進む（地面に ついて いかない）
     const gy = this.groundTarget();
     const maxD = T.ground.followSpeed * dt;
     const dy = gy - this.pos.y;
@@ -758,16 +767,27 @@ export class BigActor {
     }
     if (this.mode === 'angry') {
       const p = this.env.player();
+      const K = T.chase, chase = K.enabled;
       const want = Math.atan2(p.x - this.pos.x, p.z - this.pos.z);
       // 首が 先: 首が 上限まで まわり きって から 体が まわりはじめる。体が プレイヤーに 向く まで まわり つづけ、体が 追いつく ほど 首は 正面へ もどる
+      // 追う とき（chase）は 首が turnStartDeg まで まわったら 体も まわる（歩く 向きが プレイヤーから ずれ つづけない ように）
       const diff = wrapPi(want - this.yaw);
       const ym = T.angry.lookYawMaxDeg * DEG;
-      if (!this.bodyTurning && Math.abs(diff) > ym && Math.abs(this.lookYaw) >= ym - 0.02) this.bodyTurning = true;
+      const startRad = chase ? Math.min(ym, K.turnStartDeg * DEG) : ym;
+      if (!this.bodyTurning && Math.abs(diff) > startRad && Math.abs(this.lookYaw) >= startRad - 0.02) this.bodyTurning = true;
       if (this.bodyTurning && Math.abs(diff) < 2 * DEG) this.bodyTurning = false;
-      if (this.bodyTurning) moved = this.turnToward(want, T.angry.turnDegPerSec * DEG * dt);
+      if (this.bodyTurning) {
+        const y0 = this.yaw;
+        moved = this.turnToward(want, (chase ? K.turnDegPerSec : T.angry.turnDegPerSec) * DEG * dt);
+        if (this.stepW > 0) this.step.rotate(wrapPi(this.yaw - y0)); // ついている 手は 世界で 止める
+      }
       this.speedNow = 0;
+      if (chase) moved = this.chaseTick(dt, p, want) || moved;
       const ev = T.attack.enabled ? this.cycle.update(dt) : {};
-      if (ev.start) this.startAttack(ev.start);
+      if (ev.start) {
+        // 追う 1 歩の 途中なら 1 歩の 区切りまで 待つ（腕の 姿勢が とぶのを さける）
+        if (this.chasing) this.pendingAttack = ev.start; else this.startAttack(ev.start);
+      }
       return moved;
     }
     // 長い 休み（はい回った 時間が たまったら 5 分 止まる）
@@ -837,6 +857,41 @@ export class BigActor {
     if (ev.stepStart) this.stepBoundary = true;
     const mv = this.advance(ev.advance * this.model.scale, dt) || moved;
     // 体を 進めた あとの 場所で 知らせる（手の ひらは からだの 座標なので）
+    if (ev.slam) this.emitImpact('slam', ev.slam);
+    if (ev.tap) this.emitImpact('tap', ev.tap);
+    return mv;
+  }
+
+  /** 怒って いる 間の 追いかけ（1 歩 = ためる → たたきつける → 引きよせる を 遅い 速さで）。体が 動いたら true */
+  private chaseTick(dt: number, p: { x: number; z: number }, want: number): boolean {
+    const K = T.chase, C = this.step;
+    const dist = Math.hypot(p.x - this.pos.x, p.z - this.pos.z);
+    if (!this.chasing) {
+      if (dist <= K.stopDist + K.resumeMargin) return false;
+      this.chasing = true;
+      if (this.stepW <= 0) C.reset();
+      this.stepBoundary = true;
+      this.fadeStep(1, T.crawl.startFadeSec);
+    }
+    // 1 歩の 区切り: 近づいた か、攻撃の 番なら ここで 止まる
+    if (this.stepBoundary) {
+      this.stepBoundary = false;
+      if (this.pendingAttack || dist < K.stopDist) {
+        this.chasing = false;
+        this.fadeStep(0, T.clips.idleFadeSec);
+        const n = this.pendingAttack;
+        this.pendingAttack = null;
+        if (n) this.startAttack(n);
+        return false;
+      }
+    }
+    // 向きが 大きく ずれて いる 間は 1 歩を 短く する（crawl と おなじ）
+    const err = Math.abs(wrapPi(want - this.yaw));
+    const lim = T.crawl.moveAngleDeg * DEG;
+    C.strideMul = Math.max(0, Math.min(1, 1 - (err - lim) / lim));
+    const ev = C.update(dt * K.speedMul);
+    if (ev.stepStart) this.stepBoundary = true;
+    const mv = this.advance(ev.advance * this.model.scale, dt);
     if (ev.slam) this.emitImpact('slam', ev.slam);
     if (ev.tap) this.emitImpact('tap', ev.tap);
     return mv;

@@ -29,9 +29,10 @@ const run = (a: BigActor, sec: number): void => { for (let i = 0; i < Math.round
 
 describe('gashaBigActor（#293 はって進む・目・乗っている人）', () => {
   // 怒りの 攻撃サイクル（gashaBigAttack・gashaBigAttackActor.test.ts）は ここでは 切る（ここは「怒って いる 間は 止まって 向きを かえる」ならしの 動きを 見る）
-  let atk = true;
-  beforeAll(() => { atk = T.attack.enabled; T.attack.enabled = false; });
-  afterAll(() => { T.attack.enabled = atk; });
+  // 追いかけ（gashaBigChase.test.ts）も 切る: ここは「その場で 向きだけ かえる」基本の 怒りを 見る
+  let atk = true, chase = true;
+  beforeAll(() => { atk = T.attack.enabled; T.attack.enabled = false; chase = T.chase.enabled; T.chase.enabled = false; });
+  afterAll(() => { T.attack.enabled = atk; T.chase.enabled = chase; });
 
   it('当たりの 判定は voxelize と おなじ（マスごとに くらべる）', () => {
     const { actor } = rig();
