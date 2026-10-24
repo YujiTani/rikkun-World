@@ -55,6 +55,9 @@ export class Tooltip {
   private readonly wordText: HTMLSpanElement;
   private readonly body: HTMLDivElement;
   private readonly descEl: HTMLDivElement;
+  private readonly specialEl: HTMLDivElement;
+  private readonly specialText: HTMLDivElement;
+  private readonly specialHead: HTMLDivElement;
   private readonly headIcon: HTMLImageElement;
 
   constructor(parent: HTMLElement, private readonly o: TooltipOptions) {
@@ -79,9 +82,19 @@ export class Tooltip {
     this.wordEl.append(this.wordImg, this.wordText);
     this.descEl = document.createElement('div');
     this.descEl.className = 'tip-desc rk-tooltip__desc';
+    // NINJA-1: 虹色の「とくべつな ちから」の 行（レジェンダリーの 物だけ。「なにに」の 下）
+    this.specialEl = document.createElement('div');
+    this.specialEl.className = 'tip-special';
+    this.specialEl.hidden = true;
+    const specialHead = document.createElement('div');
+    specialHead.className = 'tip-special-head rk-special-head';
+    this.specialText = document.createElement('div');
+    this.specialText.className = 'tip-special-text';
+    this.specialEl.append(specialHead, this.specialText);
+    this.specialHead = specialHead;
     this.body = document.createElement('div');
     this.body.className = 'tip-lines';
-    this.el.append(this.head, this.starsEl, this.wordEl, this.descEl, this.body);
+    this.el.append(this.head, this.starsEl, this.wordEl, this.descEl, this.specialEl, this.body);
     parent.append(this.el);
     this.onMove = (e) => {
       this.mx = e.clientX;
@@ -121,7 +134,7 @@ export class Tooltip {
       }
       return;
     }
-    const key = `${t.item}|${t.rarity}|${t.desc}|${t.lines.join('/')}`;
+    const key = `${t.item}|${t.rarity}|${t.desc}|${t.special ?? ''}|${t.lines.join('/')}`;
     if (key !== this.shownKey) {
       this.shownKey = key;
       const col = rarityCss(t.rarity);
@@ -144,6 +157,9 @@ export class Tooltip {
       }
       this.descEl.innerHTML = withRuby(t.desc);
       this.descEl.hidden = t.desc === '';
+      this.specialEl.hidden = t.special === null;
+      this.specialHead.textContent = t.specialHead;
+      this.specialText.innerHTML = t.special === null ? '' : withRuby(t.special);
       this.body.replaceChildren();
       t.lines.forEach((text, i) => {
         const row = document.createElement('div');

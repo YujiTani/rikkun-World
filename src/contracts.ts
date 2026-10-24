@@ -217,7 +217,10 @@ export type ItemOnlyId =
   | 'yoroi'
   | 'kote' // こて（籠手）
   | 'suneate' // すねあて（脛当て）
-  | 'ninja_tabi' // 忍者の足袋（#293 試作・レア装備。落下ダメージ 0。作れない・ステータスだけ）
+  | 'ninja_zukin' // 黒頭巾（NINJA-1 #299・あたま。ひのたまを ふせぐ・酸素が ながく もつ）
+  | 'ninja_shozoku' // 忍び装束（からだ。妖怪に 気づかれにくい）
+  | 'ninja_tekko' // 忍びの手甲（うで。刀・素手の 当たりの あとに 小太刀で 追い打ち）
+  | 'ninja_tabi' // 忍びの足袋（あし。落下ダメージ 0。#293 試作 → NINJA-1。作れない・ステータスだけ）
   | 'torch'
   | 'lantern'
   | 'kite'
@@ -485,7 +488,7 @@ export interface YokaiInfo {
 export type YokaiTitle = 'none' | 'oyabun' | 'taisho' | 'nushi';
 
 /** LIVE-4: 妖怪 の 体力 を へらした もの（りっくん〈ぶき・や・わざ〉か、いっしょ に たたかう マッチョ か） */
-export type YokaiHurtBy = 'player' | 'macho';
+export type YokaiHurtBy = 'player' | 'macho' | 'kodachi';
 
 export type YokaiEvent =
   | { type: 'spawn'; tick: number; id: number; kind: YokaiKind; position: Vec3 }
@@ -530,6 +533,8 @@ export type CombatEvent =
   | { type: 'punchStart'; tick: number; /** WEAPON-3: パンチの向き u と えらんだ 妖怪 */ dirDeg?: number; targetId?: number | null }
   | { type: 'punchHit'; tick: number; yokaiId: number }
   | { type: 'punchMiss'; tick: number }
+  /** NINJA-1: 忍びの手甲の 追い打ち（小太刀）が 妖怪に 当たった（音・絵・テスト用） */
+  | { type: 'kodachiHit'; tick: number; yokaiId: number; damage: number }
   | { type: 'playerHit'; tick: number; by: YokaiKind; amount: number; /** 防具でカットした（カキン） */ blocked?: boolean }
   | { type: 'fallHurt'; tick: number; amount: number }
   | { type: 'regen'; tick: number; hp: number }
@@ -865,6 +870,7 @@ export type StatKey =
   | 'guard'
   | 'bladeCombo3' // WEAPON-6: 3 段 ぜんぶ 当てた
   | `get:${string}` // WEAPON-7: レジェンダリーを はじめて 手に 入れた（`get:raijin_ken`）
+  | 'ninjaKinds' // NINJA-1: 手に 入れた ことの ある 忍者装備の しゅるいの 数
   | 'legendKinds' // WEAPON-7: 手に 入れた ことの ある レジェンダリーの しゅるいの 数
   | 'wearAll'
   | 'death'
@@ -2080,7 +2086,11 @@ export const W2_SETTING_DEFAULTS: Readonly<W2Settings> = {
     yoroi: 240,
     kote: 225,
     suneate: 195,
-    ninja_tabi: 390, // すねあての 2 倍（#293 試作）
+    // NINJA-1 §4.1: 忍者装備 4 つは たいきゅう 10000（つくれず 手に 入れ方が 限られる ので 事実上 こわれない。足袋の 390 から かえた）
+    ninja_zukin: 10000,
+    ninja_shozoku: 10000,
+    ninja_tekko: 10000,
+    ninja_tabi: 10000,
     raijin_ken: 10000, // WEAPON-7 §2.4: つくれず ヌシでしか 手に 入らない 武器だけの 例外
     fujin_ken: 10000,
     niji: 10000,

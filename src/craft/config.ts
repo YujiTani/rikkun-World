@@ -1,4 +1,5 @@
 import type { ArmorSlot, BlockId, DamageKind, ItemId } from '../contracts';
+import { NINJA_TUNING } from './ninjaTuning';
 
 /**
  * つくる・やく・防具・拾ったログの数値（M4 §4.5）。ここ 1 か所にまとめる。
@@ -36,8 +37,11 @@ export const CRAFT_DEFAULTS: Readonly<CraftConfig> = {
     kin_yoroi: { normal: 3, ball: 0, fall: 0 },
     kin_kote: { normal: 2, ball: 0, fall: 0 },
     kin_suneate: { normal: 0, ball: 0, fall: 3 },
-    // #293 試作: 忍者の足袋。落下は どれだけ 高くても 0（fall は 99 = ぜんぶ ふせぐ）。ほかは すねあてと 同じ
-    ninja_tabi: { normal: 0, ball: 0, fall: 99 },
+    // NINJA-1 §4.1: 忍者装備。数は ninjaTuning.ts の 表（頭巾 ball・装束 normal・手甲 normal は てつの かぶと・よろい・こてと 同じ）。足袋の fall は どんな 落下より 大きい 数 = ぜんぶ ふせぐ
+    ninja_zukin: { normal: 0, ball: NINJA_TUNING.zukinBallCut, fall: 0 },
+    ninja_shozoku: { normal: NINJA_TUNING.shozokuNormalCut, ball: 0, fall: 0 },
+    ninja_tekko: { normal: NINJA_TUNING.tekkoNormalCut, ball: 0, fall: 0 },
+    ninja_tabi: { normal: 0, ball: 0, fall: NINJA_TUNING.tabiFallCut },
   },
   pickupLogTicks: 180,
   pickupLogMax: 5,
@@ -52,11 +56,8 @@ export function createCraftConfig(): CraftConfig {
   };
 }
 
-/**
- * 忍者装備（#293 試作。yuzu: 一式が ある ことに する）。今は 足袋だけ。
- * あたま・からだ・うでは 名前も 効き目も まだ 決まって いない（決まったら ここに 足し、ARMOR_SLOT_OF・armorValue・ITEM_TYPES・rarity にも 同じ id を 足す）。
- */
-export const NINJA_GEAR = { legs: 'ninja_tabi' } as const satisfies Partial<Record<ArmorSlot, string>>;
+/** 忍者装備（NINJA-1 #299）。4 マス 1 つずつ。数は ninjaTuning.ts */
+export const NINJA_GEAR = { head: 'ninja_zukin', body: 'ninja_shozoku', arms: 'ninja_tekko', legs: 'ninja_tabi' } as const satisfies Record<ArmorSlot, string>;
 
 /** そうびのマスに入れられるアイテム */
 export const ARMOR_SLOT_OF: Readonly<Record<string, ArmorSlot>> = {
@@ -69,7 +70,10 @@ export const ARMOR_SLOT_OF: Readonly<Record<string, ArmorSlot>> = {
   kin_yoroi: 'body',
   kin_kote: 'arms',
   kin_suneate: 'legs',
-  // 忍者の足袋（#293 試作）
+  // 忍者装備（NINJA-1）
+  ninja_zukin: 'head',
+  ninja_shozoku: 'body',
+  ninja_tekko: 'arms',
   ninja_tabi: 'legs',
 };
 
