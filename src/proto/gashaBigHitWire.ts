@@ -37,6 +37,8 @@ export interface WireRefs {
 export function makeHitSources(r: WireRefs): HitSources {
   let seenTick = -Infinity;
   let primed = false;
+  /** SAMURAI-1 §4.5: ドームの 手甲の 倍率は 始めた（球が 出た）ときの 値を ドームの 間 つかう（途中で 手甲を ぬいでも 強さは かわらない） */
+  let domeMul: number | null = null;
   return {
     blade: () => {
       const shape = r.blade.shape();
@@ -67,10 +69,12 @@ export function makeHitSources(r: WireRefs): HitSources {
     },
     dome: () => {
       const d = r.legend.dome();
+      if (!d) domeMul = null;
       const h = r.held();
       const L = h ? chargeOf(r.settings, h.item) : null;
       if (!d || !h || !L || L.kind !== 'shining') return null;
-      return { center: { x: d.x, y: d.y, z: d.z }, radius: d.r, damage: Math.round((legendPowerOf(r.settings, h.item, h.power ?? null) ?? 1) * (r.powerMul?.(h.item) ?? 1) * L.damageMul * 100 + 1e-7) / 100, everySteps: L.hitEvery };
+      domeMul ??= r.powerMul?.(h.item) ?? 1;
+      return { center: { x: d.x, y: d.y, z: d.z }, radius: d.r, damage: Math.round((legendPowerOf(r.settings, h.item, h.power ?? null) ?? 1) * domeMul * L.damageMul * 100 + 1e-7) / 100, everySteps: L.hitEvery };
     },
     yokai: r.yokai,
     sound: r.sound,

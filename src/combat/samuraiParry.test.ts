@@ -19,10 +19,12 @@ const S = createW2Settings();
 const HIT = { dirDeg: 0, yawDeg: 0, by: 'attack' as const, yokaiId: 1, amount: 4 };
 
 /** 刀で 走りながら 押した（Shift ＋ 左クリック）。tick は 1 から */
-function rig(jingasa: boolean | ((tick: number) => boolean) = true) {
+function rig(...args: [(boolean | ((tick: number) => boolean) | undefined)?]) {
+  // 引数なし = 陣笠あり。undefined を 明示して わたしたら 「着ていない」
+  const jingasa = args.length === 0 ? true : args[0];
   const p = createParry(S);
   let tick = 0;
-  const wear = (t: number) => (typeof jingasa === 'function' ? jingasa(t) : jingasa);
+  const wear = (t: number) => (typeof jingasa === 'function' ? jingasa(t) : jingasa === true);
   const step = (pressed = false) => {
     tick++;
     p.update({ tick, item: 'katana', run: true, pressed, held: true, active: true, jingasa: wear(tick) });

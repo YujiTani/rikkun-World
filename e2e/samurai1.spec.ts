@@ -109,6 +109,17 @@ test.describe('AC20 通し: ヌシ → 侍装備の 袋', () => {
     await stage(page);
     await markLegend(page);
     await page.evaluate((rows) => (window as any).__rikkun.settings.set('nushiDrops', rows), SAMURAI.map((item) => ({ item, weight: 1 })));
+    // 1 回目の 拾いの 実績の 通知が 閉じる（帯が あくまで）待つ。時間では なく ゲームに 聞く（開いている 間は テロップが 後ろに 並ぶ）
+    const drained = await page.evaluate(() => {
+      const h = (window as any).__rikkun;
+      for (let i = 0; i < 3000; i++) {
+        const t = h.ui.topBand();
+        if (t.kind === null && t.queue.length === 0) return true;
+        h.step(1);
+      }
+      return false;
+    });
+    expect(drained, '実績の 通知が 閉じた').toBe(true);
     const b = await killNushi(page);
     expect(b.item, '別の 侍装備').not.toBe(a.item);
     expect(SAMURAI).toContain(b.item);

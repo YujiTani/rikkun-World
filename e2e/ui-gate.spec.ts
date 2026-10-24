@@ -720,16 +720,13 @@ for (const id of SAMURAI_IDS) {
 SCREENS.push(
   {
     id: 'samurai1-detail-geta',
-    roots: ['#inventory-screen', '#tooltip', '#hud'],
+    roots: ['#tooltip'], // ツールチップは もちもの画面の 上に 浮く 作りなので、画面の 文字との 重なりは 見ない
     open: async (page) => {
       await boot(page, true);
       await page.evaluate(samuraiBag);
       await page.evaluate(toggleInventory);
-      await page.evaluate(() => {
-        const h = window.__rikkun! as any;
-        h.craft.hover('samurai_geta');
-        h.step(3);
-      });
+      await page.locator('#inventory-screen .slot[data-item="samurai_geta"]').first().hover();
+      await page.evaluate(() => (window.__rikkun as any).step(3));
     },
   },
   {

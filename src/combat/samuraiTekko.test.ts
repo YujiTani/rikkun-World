@@ -159,20 +159,24 @@ describe('AC12 手甲 × 刀から 出る 物（強さ P × 1.5）', () => {
   it('風神剣の らせん: 6 × 2.0 = 12 → 18。出してから ぬいでも 18', () => {
     const run = (mulAtFire: number, mulAfter: number) => {
       let mul = mulAtFire;
+      let tk = 0; // らせんは 生まれた ステップ（bornTick）から 進むので、ステップごとに 進める
       const dmg: number[] = [];
       const list = [{ id: 1, kind: 'karakasa', scale: 1, state: 'idle', position: { x: 0.5, y: 0, z: -3 } }] as unknown as YokaiInfo[];
       const w = createWaveSystem({
         world: { isSolid: () => false },
         yokai: () => ({ list: () => list, damage: (_id: number, a: number) => (dmg.push(a), a) }) as never,
         settings: S,
-        tick: () => 0,
+        tick: () => tk,
         emit: () => {},
         powerMul: () => mul,
         seed: 3,
       } as never);
       w.launchSpiral({ item: 'fujin_ken' as ItemId, dirDeg: 0, body: { x: 0.5, y: 1.4, z: 0.5 } });
       mul = mulAfter;
-      for (let i = 0; i < 60; i++) w.step({ ...waveIdle, item: 'fujin_ken' as ItemId });
+      for (let i = 0; i < 60; i++) {
+        tk++;
+        w.step({ ...waveIdle, item: 'fujin_ken' as ItemId });
+      }
       return dmg;
     };
     expect(run(1, 1)).toEqual([12]);

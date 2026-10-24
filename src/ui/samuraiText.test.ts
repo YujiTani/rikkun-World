@@ -80,7 +80,7 @@ describe('AC19 文字（ひらがな・カタカナ。漢字は ルビ）', () =
   });
   it('いちばん 長い 名前は 4 字（NINJA-1 の「忍びの 手甲」6 字より 短い）', () => {
     for (const id of SAMURAI) {
-      const plain = withRuby(ITEM_TYPES.find((x) => x.id === id)!.name).replace(/<[^>]*>/g, '');
+      const plain = withRuby(ITEM_TYPES.find((x) => x.id === id)!.name).replace(/<rt>.*?<\/rt>/g, '').replace(/<[^>]*>/g, ''); // 読み（rt）は 数えない
       expect(plain.length, id).toBeLessThanOrEqual(4);
     }
   });
