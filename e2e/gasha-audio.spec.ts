@@ -103,6 +103,8 @@ test.describe('BGM', () => {
   test('BGM は ミキサー（リミッター）を 通って スピーカーへ。ミュート・音量 0 で 積が 0、もどすと 鳴る', async ({ page }) => {
     const errs = await open(page);
     expect(await startBgm(page), 'BGM が 流れる').toBe(true);
+    // 流れはじめは フェードインの 途中（音の 時計で ゆっくり 上がる）。CI が 重いと まだ 小さい ので、上がりきる まで 条件で 待つ
+    await page.waitForFunction(() => { const w = window as any; return w.__kamiGain() > 0.01; });
     const on = await bgmGain(page);
     expect(on).not.toBeNull();
     expect(on!.n).toBeGreaterThan(0);
