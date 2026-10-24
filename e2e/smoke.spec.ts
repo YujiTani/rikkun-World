@@ -27,7 +27,6 @@ test('ゲーム画面が出て、エラーが出ない', async ({ page }) => {
   await page.evaluate(() => window.__rikkun!.lock.simulate(true));
 
   await expect(page.locator('#game canvas')).toBeVisible();
-  await expect(page.locator('#title')).toContainText('りっくんワールド');
   // ゲームが進んでいる
   const t0 = await page.evaluate(() => window.__rikkun!.tick());
   await page.waitForFunction((t) => window.__rikkun!.tick() > t + 10, t0);

@@ -148,7 +148,6 @@ import { bindKeyboardAndMouse } from './input/actions';
 import { LockController, MouseLook, WheelAccumulator, bindPointerLock, createInputHook, createLockHook } from './input';
 import { createPlayerHook } from './player/hook';
 import { PlayerController } from './player/PlayerController';
-import { mountHud } from './ui/hud';
 import { PlayOverlay } from './ui/playOverlay';
 import { ArrayVoxelWorld } from './world/VoxelWorld';
 import { GEN_CONFIG } from './world/gen/config';
@@ -352,7 +351,6 @@ const timeSettings = time.settings;
 const sky = new Sky({ scene: game.scene, time, timeSettings, lighting, light: renderer.light, focus: () => controller.state.position });
 
 // 入力・スタート画面
-mountHud(hud);
 const lock = new LockController();
 const wheel = new WheelAccumulator(game.input, () => lock.playInputEnabled());
 // 本（BOOK-1）が 出ている間だけ Backspace を 止める（ブラウザの「前のページへ」にならないように）

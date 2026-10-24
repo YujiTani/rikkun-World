@@ -47,6 +47,12 @@ export function createCraftConfig(): CraftConfig {
   };
 }
 
+/**
+ * 忍者装備（#293 試作。yuzu: 一式が ある ことに する）。今は 足袋だけ。
+ * あたま・からだ・うでは 名前も 効き目も まだ 決まって いない（決まったら ここに 足し、ARMOR_SLOT_OF・armorValue・ITEM_TYPES・rarity にも 同じ id を 足す）。
+ */
+export const NINJA_GEAR = { legs: 'ninja_tabi' } as const satisfies Partial<Record<ArmorSlot, string>>;
+
 /** そうびのマスに入れられるアイテム */
 export const ARMOR_SLOT_OF: Readonly<Record<string, ArmorSlot>> = { kabuto: 'head', yoroi: 'body', kote: 'arms', suneate: 'legs', ninja_tabi: 'legs' };
 

@@ -146,7 +146,7 @@ describe('忍者の足袋（#293 試作・レア装備）', () => {
   it('名前・めずらしさ・説明・絵が そろっている', () => {
     expect(itemType('ninja_tabi')?.maxStack).toBe(1);
     expect(itemType('ninja_tabi')?.name).toContain('忍者');
-    expect(itemRarity('ninja_tabi' as never)).toBe('rare');
+    expect(itemRarity('ninja_tabi' as never)).toBe('legendary'); // yuzu: レア度 7（7 段目）
     expect(itemCategory('ninja_tabi')).toBe('armor');
     expect(ITEM_INFO.ninja_tabi?.use).toContain('おちて');
     expect(itemIconPixels('ninja_tabi' as never)).toHaveLength(256);

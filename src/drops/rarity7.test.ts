@@ -88,7 +88,7 @@ describe('RARITY-7 当てはめ・設定', () => {
       expect(isRarity(r)).toBe(true);
       n[r] = (n[r] ?? 0) + 1;
     }
-    expect(n).toEqual({ common: 41, uncommon: 18, rare: 11, superRare: 3, epic: 1, legendary: 3 }); // LIVE-2: こたつ・とりごや uncommon、きん の たまご epic。 // 雷神剣・風神剣・虹（WEAPON-7 PR1・PR2・PR3）が legendary
+    expect(n).toEqual({ common: 41, uncommon: 18, rare: 10, superRare: 3, epic: 1, legendary: 4 }); // LIVE-2: こたつ・とりごや uncommon、きん の たまご epic。 // 雷神剣・風神剣・虹（WEAPON-7 PR1・PR2・PR3）が legendary
     expect(itemRarity('crystal_katana')).toBe('superRare');
   });
 

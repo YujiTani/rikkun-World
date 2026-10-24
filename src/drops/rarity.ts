@@ -36,7 +36,7 @@ const ITEM_ONLY_RARITY: Record<string, Rarity> = {
   yoroi: 'rare',
   kote: 'rare',
   suneate: 'rare',
-  ninja_tabi: 'rare', // #293 試作: レア装備（すねあてと 同じ 段）
+  ninja_tabi: 'legendary', // #293 試作: 忍者装備（レア度 7 = 7 段目。yuzu 2026-10-24）
   torch: 'common',
   lantern: 'uncommon',
   kite: 'uncommon',
