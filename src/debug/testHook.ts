@@ -31,6 +31,7 @@ import type { CharSprite, SpriteInfo } from '../char';
 import type { SpriteMotion } from '../char';
 import type { StartHook } from '../start/startBoot';
 import type { WorkHook } from './workHook';
+import type { GashaHook } from '../gasha/release';
 
 type CameraHook = ReturnType<typeof createCameraHook>;
 type PlayerHook = {
@@ -161,6 +162,8 @@ export interface TestHook {
   };
   /** ART-PIPE-1: 雷 B の 見た目（コマ・板の 向き・輪・つぶ・まわりの 明るさ・絵の 読み方）。型は e2e/helpers/thunder.ts */
   thunder: ThunderHook;
+  /** #293 リリース: がしゃどくろ（いま すぐ 出す・たおした ことに する・調整表。src/gasha/release.ts）。起動の おわりに 足される */
+  gasha?: GashaHook;
 }
 
 declare global {
