@@ -4,6 +4,7 @@
  *   1. ためる（windup → hold）: 片腕を 頭の 上まで ゆっくり 振り上げる（だんだん 止まる）。体は 少し そる。反対の 手は 地面に ついた まま。いちばん 上で 少し 止まる。
  *   2. たたきつける（slam）: 体の 前の できるだけ 遠くへ いっきに 振り下ろす（だんだん 速く）。手が 地面に 着いた コマで slam の できごと（ダメージ・ゆれ・土ぼこり は 呼ぶ 側）。
  *   3. 引きよせる（pull）: 着いた 手は 地面に 止めた まま、体を 手の 方へ 引きよせて 進む（出だし 強く、だんだん ゆるめる）。1 歩の 長さ = 腕の 届く ぶん。
+ *      おわりの ほう（catchFrom から）で 後ろに のこった 反対の 手を 前へ つきなおす。手が 地面を たたいた コマで tap の できごと（小さい 衝撃）。
  * 腕は 2 本の 骨の IK（肩 → ひじ → 手首）。胸は 3 つの 背骨に そり・前のめり・ひねりを 分けて かける。首・頭は 前を 見る ように 少し もどす。
  * 座標は からだの 座標（もとの 座標。+x = キャラの 左、+y = 上、+z = 前）。ついている 手は 体が 進む・回る ぶん からだの 座標で 動かして、世界では 止める。
  * three の 数学（Quaternion / Vector3）だけ 使う（画面には さわらない）。
@@ -40,6 +41,10 @@ export interface StepTune {
   raiseBulge: number;
   /** 腕が とどく 長さの 何割 まで のばすか（1 だと のびきって ひじが ぴんと なる） */
   reachFrac: number;
+  /** 【割合】引きよせの この 割合 から 反対の 手を 前へ つきなおす（1 いじょうで つきなおさない） */
+  catchFrom: number;
+  /** つきなおす 手を 持ち上げる 高さ（もとの 座標） */
+  catchLift: number;
 }
 
 export interface StepEvent {
@@ -49,6 +54,8 @@ export interface StepEvent {
   slam: Side | null;
   /** この コマで 新しい 1 歩（振り上げ）が はじまった */
   stepStart: boolean;
+  /** この コマで つきなおした 手が 地面を たたいた 腕（小さい 衝撃） */
+  tap: Side | null;
 }
 
 const ease = {
@@ -71,6 +78,8 @@ export class StepCrawler {
   steps = 0;
   /** たたきつけた 回数 */
   slams = 0;
+  /** 反対の 手を つきなおした 回数 */
+  taps = 0;
   /** 関節ごとの local 回転（model.joints の 並び） */
   readonly pose: Quaternion[];
   /** 手首の 目標（からだの 座標）。ついている 手は 世界で 止まる ように 動かす */
@@ -88,6 +97,10 @@ export class StepCrawler {
   private slamAt = new Vector3();
   private lean = 0;
   private twist = 0;
+  /** 反対の 手を つきなおして いる（宙に ある）間 true。はじめと おわりの 場所（からだの 座標） */
+  private catching = false;
+  private readonly catchA = new Vector3();
+  private readonly catchB = new Vector3();
 
   private readonly names: JointName[];
   private readonly idx: Map<JointName, number>;
@@ -119,8 +132,8 @@ export class StepCrawler {
   reset(): void {
     const r = this.rest;
     this.hands.Left.copy(r.LeftHand); this.hands.Right.copy(r.RightHand);
-    this.phase = 'windup'; this.t = 0; this.side = 'Left'; this.steps = 0; this.slams = 0;
-    this.lean = 0; this.twist = 0; this.pulled = 0;
+    this.phase = 'windup'; this.t = 0; this.side = 'Left'; this.steps = 0; this.slams = 0; this.taps = 0;
+    this.lean = 0; this.twist = 0; this.pulled = 0; this.catching = false;
     this.beginStep();
     this.solve();
   }
@@ -140,6 +153,7 @@ export class StepCrawler {
     const c = Math.cos(-dYaw), s = Math.sin(-dYaw);
     for (const sd of SIDES) {
       if (sd === this.side && this.phase !== 'pull') continue; // 振り上げて いる 手は 体と いっしょに 回る（道は からだの 座標）
+      if (sd !== this.side && this.catching) continue; // つきなおして いる 手も 宙に ある
       const h = this.hands[sd];
       const x = h.x * c + h.z * s, z = -h.x * s + h.z * c;
       h.x = x; h.z = z;
@@ -178,14 +192,16 @@ export class StepCrawler {
     const ho = this.hands[o];
     const back2 = reach * reach - (S0.y - ho.y) ** 2 - (ho.x - S0.x) ** 2;
     const zMin = back2 > 0 ? S0.z - Math.sqrt(back2) : S0.z;
-    stride = Math.min(stride, Math.max(0, ho.z - zMin));
+    // 反対の 手は catchFrom で 地面から はなれる ので、そこ までに 進む ぶん だけ 届けば よい
+    const until = k.catchFrom < 1 ? ease.out(clamp01(k.catchFrom), 2.5) : 1;
+    stride = Math.min(stride, Math.max(0, ho.z - zMin) / Math.max(1e-3, until));
     this.stride = stride;
     this.pulled = 0;
   }
 
   /** 1 コマ すすめる。stepStart の ときは 呼ぶ 側が 止まるか 決められる（stop なら 何も しない） */
   update(dt: number): StepEvent {
-    const ev: StepEvent = { advance: 0, slam: null, stepStart: false };
+    const ev: StepEvent = { advance: 0, slam: null, stepStart: false, tap: null };
     this.t += dt;
     // 段を すすめる（dt が 大きくても 段を とばさない ように 1 コマ 1 段 まで）
     if (this.t >= this.phaseSec()) {
@@ -198,8 +214,15 @@ export class StepCrawler {
         this.slams++;
         ev.slam = this.side;
       } else {
-        // 引きよせの のこりを 進めきる
+        // 引きよせの のこりを 進めきる。つきなおした 手が 地面を たたく
         ev.advance += this.pullTo(1);
+        if (this.catching) {
+          const o = this.other();
+          this.hands[o].copy(this.catchB);
+          this.catching = false;
+          this.taps++;
+          ev.tap = o;
+        }
         this.phase = 'windup';
         this.side = this.other();
         this.steps++;
@@ -208,7 +231,17 @@ export class StepCrawler {
       }
       this.t = Math.min(over, this.phaseSec() * 0.999);
     }
-    if (this.phase === 'pull') ev.advance += this.pullTo(this.t / this.phaseSec());
+    if (this.phase === 'pull') {
+      const u = this.t / this.phaseSec();
+      // 反対の 手を つきなおし はじめる（宙へ）。おく 所は 休みの 手の 場所
+      if (!this.catching && this.tune.catchFrom < 1 && u >= this.tune.catchFrom) {
+        const o = this.other();
+        this.catching = true;
+        this.catchA.copy(this.hands[o]);
+        this.catchB.copy(this.rest[`${o}Hand`]);
+      }
+      ev.advance += this.pullTo(u);
+    }
     this.solve();
     return ev;
   }
@@ -218,14 +251,14 @@ export class StepCrawler {
     const want = this.stride * ease.out(clamp01(u), 2.5);
     const d = want - this.pulled;
     if (d !== 0) {
-      for (const sd of SIDES) this.hands[sd].z -= d; // 世界で 止まる ように
+      for (const sd of SIDES) if (!(this.catching && sd !== this.side)) this.hands[sd].z -= d; // 世界で 止まる ように（宙の 手は のぞく）
       this.pulled = want;
     }
     return d;
   }
 
   /** いまの 段の 手首の 目標・ついている 重み・胸の 角度 */
-  private targets(): { act: Vector3; actPlant: number } {
+  private targets(): { act: Vector3; actPlant: number; oth: Vector3; othPlant: number } {
     const k = this.tune, u = clamp01(this.t / this.phaseSec()), s = this.sgn(this.side);
     const back = -k.backLeanDeg * DEG, fwd = k.fwdLeanDeg * DEG, tw = k.twistDeg * DEG * s;
     const act = new Vector3();
@@ -256,7 +289,17 @@ export class StepCrawler {
       const f = this.stride > 0 ? this.pulled / this.stride : 1;
       this.lean = fwd * (1 - f); this.twist = -tw * (1 - f);
     }
-    return { act, actPlant: plant };
+    const o = this.other();
+    let oth = this.hands[o], othPlant = 1;
+    if (this.catching) {
+      // 反対の 手を 前へ つきなおす: 持ち上げて 前へ はこび、さいごは 地面を たたく（下りる とき いちばん 速い）
+      const cf = clamp01(k.catchFrom), v = clamp01((u - cf) / Math.max(1e-3, 1 - cf));
+      const e = ease.smooth(v);
+      oth = new Vector3().copy(this.catchA).lerp(this.catchB, e);
+      oth.y += k.catchLift * Math.sin(Math.PI * Math.pow(v, 1.5)); // 上がりは ゆっくり、下りは 速く（たたく）
+      othPlant = 1 - ease.smooth(clamp01(v / 0.2)) + ease.smooth(clamp01((v - 0.85) / 0.15));
+    }
+    return { act, actPlant: plant, oth, othPlant };
   }
 
   private setTorso(lean: number, twist: number): void {
@@ -281,12 +324,12 @@ export class StepCrawler {
 
   /** いまの 段の 姿勢を pose に 作る */
   solve(): void {
-    const { act, actPlant } = this.targets();
+    const { act, actPlant, oth, othPlant } = this.targets();
     this.setTorso(this.lean, this.twist);
     this.fk();
     for (const sd of SIDES) {
-      const tgt = sd === this.side ? act : this.hands[sd];
-      const plant = sd === this.side ? actPlant : 1;
+      const tgt = sd === this.side ? act : oth;
+      const plant = sd === this.side ? actPlant : othPlant;
       this.solveArm(sd, tgt, plant);
     }
   }
