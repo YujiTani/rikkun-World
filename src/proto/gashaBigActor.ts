@@ -118,6 +118,13 @@ export class BigActor {
   eyeMix = 0;
   /** 怒りの のこり（秒）。0 = 白目 */
   angryLeft = 0;
+  /** 首の 向き（ラジアン。怒って いる 間 プレイヤーの 方へ。neck と Head に 半分ずつ かける） */
+  lookYaw = 0;
+  lookPitch = 0;
+  private readonly lookQ = new Quaternion();
+  private readonly lookQ2 = new Quaternion();
+  private readonly lookV = new Vector3();
+  private readonly lookV2 = new Vector3();
   wanderOn = true;
   /** いま めざして いる 場所 */
   target: { x: number; z: number } | null = null;
@@ -396,8 +403,9 @@ export class BigActor {
     this.lastWork = this.player.work;
     this.work.interps = this.player.work;
     this.work.joints = 0; this.work.matrices = 0; this.work.boxes = 0;
-    if (poseNow) this.applyPose(false);
-    if (moved || poseNow || this.dirty) {
+    const lookMoving = this.updateLook(dt);
+    if (poseNow || lookMoving) this.applyPose(false);
+    if (moved || poseNow || lookMoving || this.dirty) {
       this.applyTransform();
       this.model.group.updateMatrixWorld(true);
       this.work.matrices = this.matrixCount;
@@ -577,6 +585,40 @@ export class BigActor {
       else if (w > 0) q.slerp(sp[i]!, w);
     }
     this.work.joints = this.names.length;
+    if (this.lookYaw !== 0 || this.lookPitch !== 0) {
+      const e = this.lookQ2.setFromAxisAngle(this.lookV2.set(0, 1, 0), this.lookYaw / 2).multiply(this.lookQ.setFromAxisAngle(this.lookV2.set(1, 0, 0), this.lookPitch / 2));
+      for (const n of ['neck', 'Head'] as const) if (m.joints[n]) m.joints[n].quaternion.multiply(e);
+    }
+  }
+
+  /** 怒って いる 間、首を プレイヤーの 方へ（上限つき・なめらか）。まだ 動いて いる（0 に もどりきって いない）なら true */
+  private updateLook(dt: number): boolean {
+    const m = this.model, A = T.angry;
+    let ty = 0, tp = 0;
+    const neck = m.joints.neck, head = m.joints.Head;
+    if (this.mode === 'angry' && neck && head && neck.parent) {
+      const p = this.env.player();
+      const hp = this.lookV.setFromMatrixPosition(head.matrixWorld);
+      const dir = this.lookV2.set(p.x - hp.x, p.y + A.lookEyeHeight - hp.y, p.z - hp.z);
+      // 首の 根もとの 向き（1 コマ前の 親の 行列 × いまの 姿勢の 首）
+      neck.parent.matrixWorld.decompose(this.tv, this.tq, this.ts);
+      const ni = this.names.indexOf('neck');
+      const qn = this.lookQ.copy(this.tq).multiply(ni >= 0 ? this.player.pose[ni]! : this.lookQ2.identity());
+      dir.applyQuaternion(qn.invert());
+      ty = Math.atan2(dir.x, dir.z);
+      tp = Math.atan2(-dir.y, Math.hypot(dir.x, dir.z));
+      const ym = A.lookYawMaxDeg * DEG, pm = A.lookPitchMaxDeg * DEG;
+      ty = Math.max(-ym, Math.min(ym, ty)); tp = Math.max(-pm, Math.min(pm, tp));
+    }
+    const rate = A.lookTurnDegPerSec * DEG * dt;
+    const ease = (cur: number, to: number): number => {
+      const d = to - cur;
+      const step = rate * Math.min(1, 0.25 + Math.abs(d) / (12 * DEG)); // 近づくほど ゆっくり
+      return Math.abs(d) <= step ? to : cur + Math.sign(d) * step;
+    };
+    const oy = this.lookYaw, op = this.lookPitch;
+    this.lookYaw = ease(oy, ty); this.lookPitch = ease(op, tp);
+    return this.lookYaw !== 0 || this.lookPitch !== 0 || oy !== 0 || op !== 0;
   }
 
   private applyTransform(): void {

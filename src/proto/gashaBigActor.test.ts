@@ -166,7 +166,7 @@ describe('gashaBigActor（#293 はって進む・目・乗っている人）', (
     expect(actor.mode).toBe('idle');
   });
 
-  it('目の 色: 白 → 赤は 0.3 秒、20 秒 攻撃されないと 白に もどる。怒って いる 間は 止まって プレイヤーの 方を 向く', () => {
+  it('目の 色: 白 → 赤は 0.3 秒、calmSec 秒（5 分）攻撃されないと 白に もどる。怒って いる 間は 止まって プレイヤーの 方を 向く', () => {
     const { actor, ply } = rig();
     ply.x = 100; ply.z = 0; // +x の 方
     actor.goTo(0, 300);
@@ -188,8 +188,8 @@ describe('gashaBigActor（#293 はって進む・目・乗っている人）', (
     // プレイヤー（+x）の 方を 向く（yaw = atan2(dx, dz)。進んだ ぶん 90 度 から 少し ずれる）
     expect(Math.abs(actor.yaw - Math.atan2(ply.x - actor.pos.x, ply.z - actor.pos.z))).toBeLessThan(0.05);
     expect(Math.abs(actor.yaw - Math.PI / 2)).toBeLessThan(0.15);
-    actor.hit(); // また 攻撃 → 20 秒が はじめから
-    run(actor, 19);
+    actor.hit(); // また 攻撃 → calmSec が はじめから
+    run(actor, T.angry.calmSec - 1);
     expect(actor.eyeMix).toBe(1);
     run(actor, 1.5);
     expect(actor.mode).toBe('idle');
@@ -358,6 +358,28 @@ describe('gashaBigActor（#293 はって進む・目・乗っている人）', (
       run(actor, 2);
       expect(actor.mode).toBe('crawl'); // 歩き出した
     });
+  });
+
+  it('怒って いる 間は 首が プレイヤーの 方へ（左右 ±上限・なめらか）。白目に もどると 正面に もどる', () => {
+    const { actor, ply } = rig();
+    ply.x = 60; ply.z = 10; ply.y = 0; // 体の 横
+    actor.hit();
+    let prev = 0, maxStep = 0, maxYaw = 0;
+    for (let i = 0; i < 60 * 12; i++) {
+      actor.update(DT);
+      maxStep = Math.max(maxStep, Math.abs(actor.lookYaw - prev)); prev = actor.lookYaw;
+      maxYaw = Math.max(maxYaw, Math.abs(actor.lookYaw));
+    }
+    const lim = T.angry.lookYawMaxDeg * Math.PI / 180;
+    expect(maxYaw).toBeGreaterThan(0.2); // 体が 向く まで の 間、首が 先に 向く
+    expect(Math.abs(actor.lookYaw)).toBeLessThanOrEqual(lim + 1e-9);
+    expect(Math.abs(actor.lookPitch)).toBeLessThanOrEqual(T.angry.lookPitchMaxDeg * Math.PI / 180 + 1e-9);
+    expect(maxStep).toBeLessThanOrEqual(T.angry.lookTurnDegPerSec * Math.PI / 180 * DT + 1e-9); // 急に 振り向かない
+    expect(actor.model.joints.Head.quaternion.w).toBeLessThan(0.9999);
+    actor.angry(false);
+    run(actor, 12);
+    expect(actor.lookYaw).toBe(0);
+    expect(actor.lookPitch).toBe(0);
   });
 
   it('rest() は 怒って いる 間は むし。walk(false) の ときは 歩き回りの 時間は 数えない', () => {

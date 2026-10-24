@@ -11,7 +11,7 @@ class Param {
   linearRampToValueAtTime(v: number, t: number): void { this.ramps.push([v, t]); }
   cancelScheduledValues(): void { this.ramps = []; }
 }
-interface Src { buffer: unknown; loop: boolean; context: Ctx; started: number | null; stoppedAt: number | null; onended: (() => void) | null; connect(): void; start(t: number): void; stop(t: number): void; tag: string }
+interface Src { buffer: unknown; loop: boolean; loopStart: number; loopEnd: number; context: Ctx; started: number | null; stoppedAt: number | null; onended: (() => void) | null; connect(): void; start(t: number): void; stop(t: number): void; tag: string }
 class Ctx {
   currentTime = 0;
   state = 'running';
@@ -19,7 +19,7 @@ class Ctx {
   sources: Src[] = [];
   createGain(): { gain: Param; connect(): void; disconnect(): void } { const g = { gain: new Param(), connect() {}, disconnect() {} }; this.gains.push(g); return g; }
   createBufferSource(): Src {
-    const s: Src = { buffer: null, loop: false, context: this, started: null, stoppedAt: null, onended: null, tag: '', connect() {}, start(t) { s.started = t; }, stop(t) { s.stoppedAt = t; } };
+    const s: Src = { buffer: null, loop: false, loopStart: 0, loopEnd: 0, context: this, started: null, stoppedAt: null, onended: null, tag: '', connect() {}, start(t) { s.started = t; }, stop(t) { s.stoppedAt = t; } };
     this.sources.push(s);
     return s;
   }
@@ -69,6 +69,26 @@ describe('gashaBgm（#293 がしゃどくろの BGM）', () => {
     expect(s.stoppedAt).toBeCloseTo(30 + BIG.bgm.fadeSec + 0.05, 6); // フェードアウトの あと 止まる
     expect(ctx.gains[0]!.gain.ramps[0]).toEqual([0, 30 + BIG.bgm.fadeSec]);
     expect(log[log.length - 1]).toBe(false); // ふだんの BGM に もどる
+  });
+
+  it('怒って いる 間は 曲が おわっても つながって 鳴りつづける（loopEnd は 曲の 長さ いない。音源が 勝手に おわっても 頭から 流しなおす）', async () => {
+    const { bgm, ctx, sync } = rig();
+    bgm.request('big', true);
+    await sync();
+    const s = ctx.sources[0]!;
+    expect(s.loop).toBe(true);
+    expect(s.loopStart).toBe(0);
+    expect(s.loopEnd).toBeGreaterThan(0);
+    expect(s.loopEnd).toBeLessThanOrEqual(100);
+    ctx.currentTime = 100 * 3.5; // 曲の 3 周め
+    bgm.step();
+    expect(bgm.status().playing).toBe('kamigami');
+    expect(s.stoppedAt).toBe(null);
+    s.onended?.(); // 万一 おわった
+    expect(bgm.status().playing).toBe(null);
+    bgm.step();
+    expect(bgm.status().playing).toBe('kamigami');
+    expect(ctx.sources.length).toBe(2); // おわった 音源の かわりに 1 つ だけ 作りなおす
   });
 
   it('少女が 出ると「災厄」に クロスフェード。そのあと 大きな 姿が 怒っても「神々の 戯れ」は 流れない', async () => {

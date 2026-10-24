@@ -11,7 +11,7 @@
  */
 import {
   BufferGeometry, Color, CylinderGeometry, DoubleSide, Euler, ExtrudeGeometry, Float32BufferAttribute, Group, IcosahedronGeometry, Matrix3, Matrix4,
-  Mesh, MeshBasicMaterial, OctahedronGeometry, Path, Quaternion, Shape, Vector3, type Camera, type Scene,
+  Mesh, MeshBasicMaterial, OctahedronGeometry, Path, Quaternion, Shape, Vector3, type Camera, type Object3D, type Scene,
 } from 'three';
 import { TUNE as T, applyTune, applyTuneFromUrl } from './gashaBigTuning';
 import { BigActor, type ActorClips } from './gashaBigActor';
@@ -38,6 +38,8 @@ export interface GashaBigDeps {
   onUpdate?(fn: (dt: number) => void): void;
   /** のっている プレイヤーを 動かす（位置の ずれ、向き（度）の ずれ）。なければ 運ばない */
   carryPlayer?(dx: number, dy: number, dz: number, dYawDeg: number): void;
+  /** 昼夜の 明るさの 係（sky/lighting.ts）。あれば 体の 材料を 登録して 夜は 暗くする（目の 光は 暗くしない） */
+  lighting?: { registerTree(root: Object3D, group: 'doll'): number };
   /** BGM の ミキサーの 口（少女と おなじ）。なければ BGM は 流さない */
   bgmOut?(): { ctx: AudioContext; bus: AudioNode } | null;
   /** ふだんの BGM を 止める（少女と おなじ。曲が 流れて いる 間） */
@@ -373,6 +375,18 @@ export interface BigModel {
   /** 頭の 位置（もとの 座標） */
   head: Vector3;
   meshes: number;
+}
+
+/** 遠い 部位ほど 空の 色（scene.fog の 色）に 溶ける（空気遠近法）。強さは 調整表 look.haze*。uniform は 毎コマ updateHaze() で 入れる */
+const hazeU = { value: new Vector3(35, 160, 0.6) };
+export function updateHaze(): void { hazeU.value.set(T.look.hazeNear, T.look.hazeFar, T.look.hazeMax); }
+function hazePatch(m: MeshBasicMaterial): void {
+  m.onBeforeCompile = (sh) => {
+    sh.uniforms.uHaze = hazeU;
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <fog_pars_fragment>', '#include <fog_pars_fragment>\nuniform vec3 uHaze;')
+      .replace('#include <fog_fragment>', '#ifdef USE_FOG\n gl_FragColor.rgb = mix(gl_FragColor.rgb, fogColor, smoothstep(uHaze.x, uHaze.y, vFogDepth) * uHaze.z);\n#endif');
+  };
 }
 
 export function buildBig(): BigModel {
@@ -771,7 +785,10 @@ export function buildBig(): BigModel {
     let m = mats[kind];
     if (!m) {
       const tr = kind === 'glow' || kind === 'glass' || kind === 'eyeHalo';
-      m = new MeshBasicMaterial({ vertexColors: true, fog: false, side: kind === 'glass' ? 0 : DoubleSide, transparent: tr, opacity: kind === 'eyeHalo' ? 0.3 : 1, depthWrite: !tr });
+      const lit = kind === 'eyes' || kind === 'eyeHalo' || kind === 'glow'; // 目の 光（怒り）と 光の 玉だけは 暗くしない・霞ませない
+      m = new MeshBasicMaterial({ vertexColors: true, fog: !lit, side: kind === 'glass' ? 0 : DoubleSide, transparent: tr, opacity: kind === 'eyeHalo' ? 0.3 : 1, depthWrite: !tr });
+      if (lit) m.userData.noDim = true;
+      else hazePatch(m);
       mats[kind] = m;
     }
     return m;
@@ -938,6 +955,7 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
   const place = (): void => {
     clear();
     model = buildBig();
+    deps.lighting?.registerTree(model.group, 'doll');
     const p = deps.player();
     const f = fwdOf(p);
     const mx = p.x + f.fx * T.place.distance, mz = p.z + f.fz * T.place.distance;
@@ -992,6 +1010,7 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
   const bgm = deps.bgmOut && deps.suppressBgm ? sharedGashaBgm({ bgmOut: deps.bgmOut, suppressBgm: deps.suppressBgm }) : null;
   let bgmWant = false;
   deps.onUpdate?.((dt) => {
+    updateHaze();
     if (!actor) return;
     actor.update(dt);
     bh.step(dt);

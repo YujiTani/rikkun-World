@@ -31,6 +31,8 @@ const TUNING: Record<BgmTrack, () => { fadeSec: number; volume: number }> = {
   saiyaku: () => GIRL.bgm,
   kamigami: () => BIG.bgm,
 };
+/** 曲の おわりの 無音（秒）。ここは ループに ふくめない（ffmpeg silencedetect で はかった） */
+const TAIL_SILENCE: Partial<Record<BgmTrack, number>> = { kamigami: 0.55 };
 const TRACKS: BgmTrack[] = ['saiyaku', 'kamigami'];
 
 interface TrackState {
@@ -125,6 +127,7 @@ export class GashaBgm {
       const t = this.tr[k];
       if (k !== want && t.src) { this.stop(k); continue; }
       if (k === want && !t.src && t.buf) this.start(k);
+      else if (k === want && t.src && t.src.context.state === 'suspended') void (t.src.context as AudioContext).resume?.();
     }
   }
 
@@ -139,7 +142,15 @@ export class GashaBgm {
     g.gain.linearRampToValueAtTime(cfg.volume, now + Math.max(0.01, cfg.fadeSec));
     g.connect(o.bus);
     const src = o.ctx.createBufferSource();
-    src.buffer = t.buf; src.loop = true; src.connect(g); src.start(now);
+    src.buffer = t.buf; src.loop = true;
+    // ループの 範囲を はっきり きめる（曲の おわりの 無音は のぞく。decode の あと loopEnd が 0 の ままに ならないように）
+    src.loopStart = 0;
+    src.loopEnd = Math.max(0.1, t.buf.duration - (TAIL_SILENCE[k] ?? 0));
+    src.connect(g);
+    // 何かの 都合で 音源が おわって しまっても、まだ 頼まれて いれば 次の step() で 頭から また 流す
+    src.onended = () => { if (t.src === src) { t.src = null; t.gain = null; try { g.disconnect(); } catch { /* むし */ } } };
+    if (o.ctx.state === 'suspended') void o.ctx.resume?.();
+    src.start(now);
     t.src = src; t.gain = g; t.ctxStart = now;
   }
 
