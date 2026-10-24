@@ -155,7 +155,9 @@ describe('gashaBigActor（#293 はって進む・目・乗っている人）', (
     const a = new Vector3();
     const pl = (actor as unknown as { player: { time: number; clip: { duration: number } | null } }).player;
     let prev: Vector3 | null = null, lastStep = NaN, worst = 0, fastest = 0, wraps = 0, lastLoop = 0;
-    for (let i = 0; i < 100 * 60; i++) {
+    // 回す コマ数は 動きの 速さ（調整表の motionRate）から 決める: 2.5 まわり ぶん（つなぎ目を 2 回 通る）
+    const frames = Math.ceil(((2.5 * pl.clip!.duration) / actor.crawlRate) * 60);
+    for (let i = 0; i < frames; i++) {
       actor.update(DT);
       const loop = Math.floor(pl.time / pl.clip!.duration);
       if (loop !== lastLoop) wraps++;

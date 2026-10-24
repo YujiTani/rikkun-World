@@ -40,11 +40,12 @@ describe('gashaGeyser（#293 間欠泉）', () => {
   });
 
   it('からだの 中心から 10〜18 ブロック ほどの ところに あり、おたがい 離れて いる', () => {
-    for (const g of specs) {
+    specs.forEach((g, i) => {
       const d = Math.hypot(g.x0 + g.cells / 2 - A.x, g.z0 + g.cells / 2 - A.z);
       expect(d).toBeGreaterThanOrEqual(R.ringMin - 1.5);
-      expect(d).toBeLessThanOrEqual(R.ringMax + 1.5);
-    }
+      // 肩の 下の 2 本（先頭）は 肩の 雲の 外がわ（はば）に おく ので、すこし 外
+      expect(d).toBeLessThanOrEqual((i < 2 ? Math.hypot(R.shoulderX * A.scale, R.shoulderZ * A.scale) : R.ringMax) + 1.5);
+    });
     for (let i = 0; i < specs.length; i++) for (let j = i + 1; j < specs.length; j++) {
       const a = specs[i]!, b = specs[j]!;
       expect(Math.hypot(a.x0 - b.x0, a.z0 - b.z0)).toBeGreaterThanOrEqual(R.minGap - 1);
