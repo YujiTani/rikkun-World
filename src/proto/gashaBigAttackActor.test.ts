@@ -149,7 +149,7 @@ describe('怒りの 攻撃サイクル（actor）', () => {
     actor.hit();
     const names = new Set<string>();
     run(3000, () => { if (actor.attackName) names.add(actor.attackName); });
-    expect([...names].sort()).toEqual(['beam', 'eruption', 'slam2', 'sweep']);
+    expect([...names].sort()).toEqual(['beam', 'eruption', 'slam2', 'sweep', 'thunder']);
     expect(slams.length).toBeGreaterThan(0);
     expect(actor.sweepCount).toBeGreaterThan(0);
     expect(actor.beamCount).toBeGreaterThan(0);
@@ -194,6 +194,40 @@ describe('怒りの 攻撃サイクル（actor）', () => {
     expect(actor.mode === 'angry' || actor.mode === 'attack').toBe(true);
     expect(actor.eruption.done || actor.attackName !== 'eruption').toBe(true);
     expect(actor.mouthPosition(new Vector3()).y).toBeLessThan(m1.y - 1);
+  });
+
+  it('attack(thunder): 左手を 空へ → 雷が 指に → 電気が 走る → 手を おろして 怒りに もどる。指さきは 上がる・頭は 上を 向く', () => {
+    const calls: string[] = [];
+    const actor = new BigActor(buildBig(), CLIPS, {
+      groundY: () => -1, player: () => ({ x: 0, y: 1, z: 40, yawDeg: 180 }), carryPlayer: () => {},
+      onThunderStrike: () => calls.push('strike'), onThunderLand: () => calls.push('land'), onAttackStart: (n) => calls.push(`start:${n}`),
+    }, 293);
+    actor.place(0, 0, 0, 0);
+    actor.walk(false);
+    const run = (sec: number, each?: () => void) => { for (let i = 0; i < Math.round(sec / DT); i++) { actor.update(DT); each?.(); } };
+    actor.attack('thunder');
+    expect(actor.mode).toBe('attack');
+    expect(actor.attackName).toBe('thunder');
+    expect(actor.thunderCount).toBe(1);
+    const K = T.thunder;
+    run(0.05);
+    const tip0 = actor.fingerTip(new Vector3()).clone();
+    let headPitch = 0;
+    run(K.raiseSec + 0.5, () => { headPitch = Math.max(headPitch, -actor.lookPitch); });
+    const tip1 = actor.fingerTip(new Vector3()).clone();
+    expect(tip1.y).toBeGreaterThan(tip0.y + 8); // 指さきが 空へ
+    expect(headPitch).toBeGreaterThan(0.1);
+    expect(calls).toEqual(['start:thunder']);
+    run(K.pointSec - K.raiseSec - 0.5 + K.strikeSec + 0.1);
+    expect(calls).toEqual(['start:thunder', 'strike', 'land']);
+    expect(actor.thunder.phase).toBe('shock');
+    const tip2 = actor.fingerTip(new Vector3());
+    expect(Math.abs(tip2.y - tip1.y)).toBeLessThan(2); // 指さした まま
+    run(K.shockSec + K.recoverSec + 0.4);
+    expect(actor.mode).toBe('angry');
+    expect(actor.thunder.done || actor.attackName !== 'thunder').toBe(true);
+    expect(actor.fingerTip(new Vector3()).y).toBeLessThan(tip1.y - 8);
+    expect(calls).toEqual(['start:thunder', 'strike', 'land']);
   });
 
   it('光っている 間は 目の 色が 赤黒い 色から 強い 赤へ、光の 輪が 濃くなる', () => {

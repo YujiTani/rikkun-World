@@ -29,6 +29,10 @@ export const BIG_FILES: Record<BigSfxName, FileDef> = {
   a4_ash: { files: ['a4_ash', 'a4_ash_b', 'a4_ash_c'], ext: 'ogg' },
   a4_embers: one('a4_embers', 'wav', true),
   a4_embers_b: one('a4_embers_b', 'wav', true),
+  a5_cloud: one('a5_cloud'),
+  a5_strike: one('a5_strike'),
+  a5_elec: one('a5_elec', 'wav', true),
+  a5_bolt: { files: ['a5_bolt', 'a5_bolt_b', 'a5_bolt_c'], ext: 'ogg' },
   step_slam: { files: ['step_slam', 'step_slam_b', 'step_slam_c'], ext: 'ogg' },
 };
 const DIR = './sound/gasha/big/';
@@ -133,6 +137,15 @@ export function createBigSfx(env: BigSfxEnv, tune: SfxTune = T.sfx, seed = 294) 
       if (n > 0) loopOn('a4_embers', tune.emberFadeInSec, tune.emberFadeOutSec); else loopOff('a4_embers');
       if (n >= tune.emberManyAt) loopOn('a4_embers_b', tune.emberFadeInSec, tune.emberFadeOutSec); else loopOff('a4_embers_b');
     },
+    /** 空が 雷雲に なる */
+    cloud: () => play('a5_cloud'),
+    /** 指への 落雷 */
+    strike: () => play('a5_strike'),
+    /** 体を 走る 電気（ループ） */
+    elecOn: () => loopOn('a5_elec', tune.elecFadeInSec, tune.elecFadeOutSec),
+    elecOff: () => loopOff('a5_elec'),
+    /** まわりの 落雷 1 回（3 種を 順番に） */
+    bolt: () => play('a5_bolt'),
     step: () => play('step_slam'),
   };
 }

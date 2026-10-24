@@ -18,6 +18,7 @@ import { Slam2 } from './gashaBigSlam2';
 import { Sweep } from './gashaBigSweep';
 import { Beam } from './gashaBigBeam';
 import { Eruption } from './gashaBigEruption';
+import { Thunder } from './gashaBigThunder';
 
 export interface ActorEnv {
   /** 地面の いちばん 上の ブロックの 高さ（立つ 面は +1） */
@@ -30,10 +31,14 @@ export interface ActorEnv {
   onSlam?(x: number, y: number, z: number, side: Side): void;
   /** 攻撃 1（両手たたきつけ）で 手が 地面に 着いた（両手の まんなか。fx, fz = 体の 前の 向き）。打撃・岩・衝撃波・ゆれ・地形こわし・体の ゆれ は 呼ぶ 側 */
   onSlam2?(x: number, y: number, z: number, fx: number, fz: number): void;
-  /** 攻撃が はじまった（'slam2'・'sweep'・'beam'。効果音など 呼ぶ 側の 用） */
+  /** 攻撃が はじまった（'slam2'・'sweep'・'beam'・'eruption'・'thunder'。効果音など 呼ぶ 側の 用） */
   onAttackStart?(name: string): void;
   /** 攻撃 4 で 火柱が 立った（口から 灰を とばしはじめる） */
   onEruptStart?(): void;
+  /** 攻撃 5 で 雷が 指へ 落ちはじめた（雷の 絵・音） */
+  onThunderStrike?(): void;
+  /** 攻撃 5 で 雷が 指に 着いた（電気が はじまる・まわりの 落雷が はじまる） */
+  onThunderLand?(): void;
   /** 攻撃 2 で 腕が 払いはじめた（0 = 1 回目、1 = 2 回目） */
   onSweepStroke?(index: number): void;
   /** 引きよせの おわりに つきなおした 手が 地面を たたいた（小さい 衝撃。手の ひらの まんなか） */
@@ -201,6 +206,12 @@ export class BigActor {
   eruption!: Eruption;
   /** 口から 火山噴火を 出した 数（テスト用。灰の 並びの 種にも なる） */
   eruptionCount = 0;
+  /** 自分に 落雷の 動き（gashaBigThunder.ts） */
+  thunder!: Thunder;
+  /** 自分に 落雷を 出した 数（テスト用。まわりの 落雷の 場所の 種にも なる） */
+  thunderCount = 0;
+  private readonly thL = new Vector3();
+  private readonly thR = new Vector3();
   /** 口の 位置の 目印（頭の 関節の 子。口の 前の 少し 外） */
   private mouthAnchor: Object3D | null = null;
   /** 光線の 間 首が 向く 点（世界の 座標。外から 毎コマ 決める。なければ プレイヤー） */
@@ -317,6 +328,7 @@ export class BigActor {
     this.sweep = new Sweep(this.step, this.model);
     this.beam = new Beam();
     this.eruption = new Eruption();
+    this.thunder = new Thunder();
     if (!this.mouthAnchor) { this.mouthAnchor = new Object3D(); this.model.joints.Head.add(this.mouthAnchor); }
     this.mouthAnchor.position.set(0, 2.6, 10.8); // 頭の 関節の 座標（口の 前）
     this.crawlSpeed = (this.step.stride * this.model.scale) / this.step.stepSec();
@@ -393,7 +405,7 @@ export class BigActor {
     this.angryLeft = 0;
     this.bodyTurning = false;
     this.cycle.reset();
-    this.warn = null; this.attackName = null; this.sweepNow = null; this.beamLook = null; this.beam.phase = 'idle'; this.beam.glow = 0; this.eruption.phase = 'idle'; this.eruption.pitch = 0;
+    this.warn = null; this.attackName = null; this.sweepNow = null; this.beamLook = null; this.beam.phase = 'idle'; this.beam.glow = 0; this.eruption.phase = 'idle'; this.eruption.pitch = 0; this.thunder.reset();
     if (this.isAngry()) {
       const was = this.mode;
       this.mode = 'idle'; this.pauseLeft = this.randIn(T.wander.pauseSec);
@@ -418,11 +430,21 @@ export class BigActor {
   }
 
   private startAttack(name: string): void {
-    if (name !== 'slam2' && name !== 'sweep' && name !== 'beam' && name !== 'eruption') { this.cycle.attackEnded(); return; } // まだ ない 攻撃は とばす
+    if (name !== 'slam2' && name !== 'sweep' && name !== 'beam' && name !== 'eruption' && name !== 'thunder') { this.cycle.attackEnded(); return; } // まだ ない 攻撃は とばす
     this.mode = 'attack'; this.attackName = name; this.target = null;
     this.player.play(null, { fade: 0 });
     this.sweepStroke = 0;
     this.env.onAttackStart?.(name);
+    if (name === 'thunder') {
+      // 自分に 落雷: 足は 止めて、左手を 空へ（右手は 地面に ついた まま）
+      this.step.reset();
+      this.thunder.start(this.thunderCount);
+      this.thunderCount++;
+      this.stepW = 1; this.stepWant = 1;
+      this.eyeShown = -1;
+      this.solveThunder();
+      return;
+    }
     if (name === 'eruption') {
       this.eruption.start();
       this.eruptionCount++;
@@ -615,6 +637,21 @@ export class BigActor {
     }
   }
 
+  /** 左手を 空へ 上げて 指さす 姿勢（thunder.raise に 合わせる）。右手は 休みの 位置で 地面に ついた まま */
+  private solveThunder(): void {
+    const K = T.thunder, r0 = this.model.rest, e = this.thunder.raise;
+    const h = this.thL.set(K.raise[0], K.raise[1], K.raise[2]);
+    h.lerpVectors(r0.LeftHand, h, e);
+    h.x += 6 * Math.sin(Math.PI * e);
+    const smooth = (u: number): number => { const t = Math.max(0, Math.min(1, u)); return t * t * (3 - 2 * t); };
+    this.step.poseBoth(h, this.thR.copy(r0.RightHand), -K.backLeanDeg * DEG * e, K.twistDeg * DEG * e, 1 - smooth(e / 0.25), 1);
+  }
+
+  /** 左手の 指さきの 世界の 位置（指さす 向き = 手の 先） */
+  fingerTip(out: Vector3): Vector3 {
+    return out.set(0, 0, T.thunder.fingerLen).applyMatrix4(this.model.joints.LeftHand.matrixWorld);
+  }
+
   /** 口の 世界の 位置 */
   mouthPosition(out: Vector3): Vector3 {
     if (!this.mouthAnchor) return out.copy(this.pos);
@@ -636,6 +673,18 @@ export class BigActor {
     if (this.angryLeft > 0) {
       this.angryLeft -= dt;
       if (this.angryLeft <= 0) this.calm();
+    }
+    if (this.mode === 'attack' && this.attackName === 'thunder') {
+      this.speedNow = 0;
+      const ev = this.thunder.update(dt);
+      if (ev.strike) this.env.onThunderStrike?.();
+      if (ev.land) this.env.onThunderLand?.();
+      this.solveThunder();
+      if (this.thunder.done) {
+        this.cycle.attackEnded();
+        if (this.cycle.phase === 'tired') this.startTired(); else this.backToAngry(0.3);
+      }
+      return false;
     }
     if (this.mode === 'attack' && this.attackName === 'eruption') {
       this.speedNow = 0;
@@ -889,6 +938,7 @@ export class BigActor {
     const beamLook = this.mode === 'attack' && this.attackName === 'beam' && this.beam.phase !== 'done';
     const erupting = this.mode === 'attack' && this.attackName === 'eruption';
     if (erupting) tp = -T.eruption.headUpDeg * DEG * this.eruption.pitch; // 上を 向く（首と 頭に 半分ずつ）
+    else if (this.mode === 'attack' && this.attackName === 'thunder') tp = -T.thunder.headUpDeg * DEG * this.thunder.raise; // 空を 見あげる
     if ((this.mode === 'angry' || beamLook) && neck && head && neck.parent) {
       const p = this.env.player();
       const hp = this.lookV.setFromMatrixPosition(head.matrixWorld);

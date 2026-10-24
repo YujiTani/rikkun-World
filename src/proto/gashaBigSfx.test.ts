@@ -85,6 +85,18 @@ describe('大きな姿の 効果音（#293）', () => {
     expect(loops.every((l) => l.stopped === T.sfx.emberFadeOutSec)).toBe(true);
     expect(sfx.activeLoops()).toEqual([]);
   });
+  it('攻撃 5: 雷雲 → 指への 落雷 → 電気（ループ）→ まわりの 落雷は 3 種を 順番に', () => {
+    const { sfx, names, loops, advance } = setup(1);
+    sfx.cloud(); sfx.strike(); sfx.elecOn(); sfx.elecOn();
+    expect(names()).toEqual(['a5_cloud', 'a5_strike']);
+    expect(loops.map((l) => l.url)).toEqual(['./sound/gasha/big/a5_elec.wav']);
+    expect(loops[0]!.fadeIn).toBe(T.sfx.elecFadeInSec);
+    for (let i = 0; i < 4; i++) { sfx.bolt(); advance(2); }
+    expect(names().slice(2)).toEqual(['a5_bolt', 'a5_bolt_b', 'a5_bolt_c', 'a5_bolt']);
+    sfx.elecOff();
+    expect(loops[0]!.stopped).toBe(T.sfx.elecFadeOutSec);
+    expect(sfx.activeLoops()).toEqual([]);
+  });
   it('前進の 一歩: 3 種を 順番に', () => {
     const { sfx, names, advance } = setup();
     for (let i = 0; i < 3; i++) { sfx.step(); advance(2); }

@@ -28,6 +28,9 @@ import { ShockFx } from './gashaBigShockFx';
 import { createBigSfx, createBigWebAudioPlayer, type BigSfxEnv } from './gashaBigSfx';
 import { AshRain, Embers, burnPlants, type Ash, type Ember, type LandInfo } from './gashaBigEruption';
 import { EruptFx } from './gashaBigEruptFx';
+import { BodyShock, StrikeField, touchBody } from './gashaBigThunder';
+import { ThunderFx, type BoltView, type RingView, type WarnView } from './gashaBigThunderFx';
+import { boltVariantOf } from '../legend/thunderModel';
 import type { PlacedBlock } from './gashaBigPlaced';
 import { BeamAim, type AimEnv } from './gashaBigBeam';
 import { BeamFx } from './gashaBigBeamFx';
@@ -1157,14 +1160,16 @@ export interface GashaBigHandle {
   lookBack(): void;
   /** 後ろへ さがる（climbing down wall を 倒した 動き）を はじめる / 止める */
   back(on: boolean): void;
-  /** 攻撃を すぐ 出す（デバッグ。怒って いなければ 怒らせる）。'slam2'（両手たたきつけ）・'sweep'（両手で 払う）・'beam'（目から 光線）・'eruption'（口から 火山噴火） */
+  /** 攻撃を すぐ 出す（デバッグ。怒って いなければ 怒らせる）。'slam2'（両手たたきつけ）・'sweep'（両手で 払う）・'beam'（目から 光線）・'eruption'（口から 火山噴火）・'thunder'（自分に 落雷） */
   attack(name: string): void;
   /** つかれて 休みに はいる（デバッグ。sec を 省くと 調整表の 20〜30 秒） */
   tired(sec?: number): void;
   /** 噴火で 落ちた 燃えかすの 場所（テスト・デバッグ用） */
+  /** 自分に 落雷で まわりに 落ちた 雷の 場所（この 攻撃の ぶん。テスト用） */
+  thunderSpots(): { x: number; z: number }[];
   eruptionEmbers(): { x: number; y: number; z: number; body: boolean; age: number }[];
   /** 攻撃サイクル・予告・体の ゆれの いま（テスト用） */
-  attackInfo(): { mode: string; phase: string; attack: string | null; done: number; count: number; left: number; slam2Count: number; sweepCount: number; sweepActive: string | null; quakeLeft: number; warn: boolean; fx: { warn: boolean; rocks: number; cracks: number }; beamCount: number; beamPhase: string; beamMode: string | null; beamAim: { x: number; y: number; z: number } | null; beamFx: { marks: number; flames: number; smoke: number; beams: number; sparkle: number }; eruption: { count: number; phase: string; flying: number; landed: number; embers: number; onBody: number; mossHidden: number; glassBroken: number; burntBlocks: number; doused: number; fx: { ashes: number; shadows: number; embers: number; burning: number; smoke: number; jet: number; wind: number; column: boolean } } };
+  attackInfo(): { mode: string; phase: string; attack: string | null; done: number; count: number; left: number; slam2Count: number; sweepCount: number; sweepActive: string | null; quakeLeft: number; warn: boolean; fx: { warn: boolean; rocks: number; cracks: number }; beamCount: number; beamPhase: string; beamMode: string | null; beamAim: { x: number; y: number; z: number } | null; beamFx: { marks: number; flames: number; smoke: number; beams: number; sparkle: number }; thunder: { count: number; phase: string; cloud: number; elec: number; strikes: number; hits: number; bodyHurts: number; strikeHurts: number; fx: { bolts: number; rings: number; warns: number; arcs: number; cloud: number; flash: number; glow: boolean } }; eruption: { count: number; phase: string; flying: number; landed: number; embers: number; onBody: number; mossHidden: number; glassBroken: number; burntBlocks: number; doused: number; fx: { ashes: number; shadows: number; embers: number; burning: number; smoke: number; jet: number; wind: number; column: boolean } } };
   /** 長い 休みに はいる（その場で 体を 動かさない。首を ふる くらい）。sec を 書かなければ 調整表の wander.restSec */
   rest(sec?: number): void;
   /** うごきの 中身（モード・速さ・手の ついた 数・1 コマの 仕事の 数 など） */
@@ -1517,6 +1522,49 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
     sfx.embers(embers.list.length);
     eruptFx.update(dt);
   };
+  // 攻撃 5「自分に 落雷」: 雷雲・指への 落雷・体の 電気（触れると ダメージ）・まわりの 落雷と 予告（gashaBigThunder.ts / gashaBigThunderFx.ts）
+  const strikes = new StrikeField(), thunderFx = new ThunderFx(deps.scene, deps.camera), bodyShock = new BodyShock();
+  const tipV = new Vector3();
+  let fingerBolt: { age: number; variant: number } | null = null;
+  let thunderBodyHurts = 0, thunderStrikeHurts = 0, thunderHitLog: { x: number; z: number }[] = [];
+  const boltViews: BoltView[] = [], ringViews: RingView[] = [], warnViews: WarnView[] = [];
+  const stepThunder = (dt: number): void => {
+    if (!actor) return;
+    const A = actor.thunder, K = T.thunder, strikeLead = 7 / 60;
+    thunderFx.setSky(A.cloud, A.flash, reduced());
+    actor.fingerTip(tipV);
+    const fingerOn = A.phase === 'point' || A.phase === 'strike' || A.phase === 'shock';
+    thunderFx.setFinger(fingerOn ? tipV : null, A.glow);
+    boltViews.length = 0; ringViews.length = 0; warnViews.length = 0;
+    if (fingerBolt) {
+      fingerBolt.age += dt;
+      if (fingerBolt.age > 0.7) fingerBolt = null;
+      else boltViews.push({ x: tipV.x, y: tipV.y, z: tipV.z, age: fingerBolt.age, variant: fingerBolt.variant, scale: K.boltScaleFinger });
+    }
+    if (strikes.active) {
+      const p = deps.player();
+      const o = strikes.update(dt, { center: { x: actor.pos.x, y: actor.pos.y, z: actor.pos.z }, player: { x: p.x, y: p.y, z: p.z }, landAt });
+      for (const s of o.hits) {
+        sfx.bolt();
+        thunderHitLog.push({ x: s.x, z: s.z });
+        if (strikes.inStrike(s, p) && deps.hurt?.(K.around.damage, { x: s.x, y: s.y, z: s.z }) !== undefined) thunderStrikeHurts++;
+      }
+      for (const s of strikes.list) {
+        if (s.t < 0) warnViews.push({ x: s.x, y: s.y, z: s.z, warn: strikes.warn(s), radius: K.around.radius });
+        else ringViews.push({ x: s.x, y: s.y, z: s.z, age: s.t, radius: K.around.radius });
+        if (s.t + strikeLead >= 0) boltViews.push({ x: s.x, y: s.y, z: s.z, age: s.t + strikeLead, variant: boltVariantOf(293 + actor.thunderCount, s.id), scale: K.boltScaleGround });
+      }
+    }
+    thunderFx.setBolts(boltViews); thunderFx.setRings(ringViews); thunderFx.setWarns(warnViews);
+    // 体の 電気: 走って いる 間 触れて いる 人に ダメージ
+    thunderFx.setElectric(A.elec > 0.01 ? actor.boxList : [], A.elec);
+    if (A.elec > 0.05) sfx.elecOn(); else sfx.elecOff();
+    const live = A.live, pl = deps.player();
+    const touching = live && touchBody((i, j, k) => actor!.solid(i, j, k), { x: pl.x, y: pl.y, z: pl.z }, K.body.touchMargin);
+    const d = bodyShock.step(dt, live, touching);
+    if (d > 0) { deps.hurt?.(d, { x: actor.pos.x, y: actor.pos.y, z: actor.pos.z }); thunderBodyHurts++; }
+    thunderFx.update(dt);
+  };
   deps.blockPlayerInput?.(() => shock.inputBlocked() || throwLeft > 0 || spinLeft > 0);
   deps.onBeforeRender?.(() => shockFx.applyShake(Math.max(reduced() ? 0 : shock.shakeNow, warnLeft > 0 ? T.core.throwOff.warnShakeDeg * (reduced() ? 0.25 : 1) : 0, quake.active && riding() ? T.slam2.quake.bodyShakeDeg * (reduced() ? 0.25 : 1) : 0), shock.time));
   const fwdOf = (p: { yawDeg: number }) => { const y = (p.yawDeg * Math.PI) / 180; return { fx: Math.sin(y), fz: -Math.cos(y) }; };
@@ -1586,8 +1634,10 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
         if (blockAt && deps.setBlockAir) crushAt(x, y, z, { getBlock: blockAt, setAir: deps.setBlockAir, onBlocks: deps.onCrushBlocks });
       },
       onTap: (x, y, z) => { shockFx.spawn(shock.add('tap', x, y, z)); sfx.step(); },
-      onAttackStart: (name) => { if (name === 'slam2') sfx.lift(); else if (name === 'sweep') sfx.windup(); else if (name === 'beam') sfx.omen(); else if (name === 'eruption') sfx.inhale(); },
+      onAttackStart: (name) => { if (name === 'slam2') sfx.lift(); else if (name === 'sweep') sfx.windup(); else if (name === 'beam') sfx.omen(); else if (name === 'eruption') sfx.inhale(); else if (name === 'thunder') sfx.cloud(); },
       onEruptStart: () => { rain.begin(actor?.eruptionCount ?? 0); sfx.erupt(); },
+      onThunderStrike: () => { fingerBolt = { age: 0, variant: boltVariantOf(293, actor?.thunderCount ?? 0) }; sfx.strike(); },
+      onThunderLand: () => { strikes.begin((actor?.thunderCount ?? 1) - 1); thunderHitLog = []; bodyShock.reset(); },
       onSweepStroke: (i) => { sfx.sweep(i); },
       onSlam2: (x, y, z, fx, fz) => {
         sfx.slam();
@@ -1618,6 +1668,7 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
     stepSweep(dt);
     stepBeam(dt);
     stepEruption(dt);
+    stepThunder(dt);
     // アースクエイクの ゴゴゴ: ゆれの のこりが 少なく なったら 小さく して 切る
     if (quake.left > T.sfx.quakeFadeOutSec) sfx.quakeOn(); else sfx.quakeOff();
     sfx.update();
@@ -1637,7 +1688,7 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
 
   const handle: GashaBigHandle = {
     tune: (o) => applyTune(o),
-    place: () => { quake.stop(); beamFx.clear(); eruptFx.clear(); rain.active = false; rain.ashes = []; embers.clear(); bodyBurnt.length = 0; sfx.stopAll(); place(); bh.reset(); },
+    place: () => { quake.stop(); beamFx.clear(); eruptFx.clear(); rain.active = false; rain.ashes = []; embers.clear(); bodyBurnt.length = 0; thunderFx.clear(); strikes.clear(); fingerBolt = null; sfx.stopAll(); place(); bh.reset(); },
     hp: () => bh.hp,
     damage: (part, amount) => bh.damage(part, amount),
     section: (on) => {
@@ -1667,9 +1718,11 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
       mode: actor?.mode ?? '', phase: actor?.cycle.phase ?? 'off', attack: actor?.attackName ?? null, done: actor?.cycle.done ?? 0, count: actor?.cycle.count ?? 0, left: actor?.cycle.left ?? 0,
       slam2Count: actor?.slam2Count ?? 0, sweepCount: actor?.sweepCount ?? 0, sweepActive: actor?.sweepNow?.side ?? null, quakeLeft: quake.left, warn: !!actor?.warn, fx: shockFx.bigCounts(),
       beamCount: actor?.beamCount ?? 0, beamPhase: actor?.beam.phase ?? 'idle', beamMode: actor && actor.attackName === 'beam' ? beamAim.mode : null, beamAim: actor && actor.attackName === 'beam' && beamPrev === 'fire' ? { ...beamAim.a } : null, beamFx: beamFx.counts(),
+      thunder: { count: actor?.thunderCount ?? 0, phase: actor?.thunder.phase ?? 'idle', cloud: actor?.thunder.cloud ?? 0, elec: actor?.thunder.elec ?? 0, strikes: strikes.list.length, hits: strikes.hitCount, bodyHurts: thunderBodyHurts, strikeHurts: thunderStrikeHurts, fx: thunderFx.counts() },
       eruption: { count: actor?.eruptionCount ?? 0, phase: actor?.eruption.phase ?? 'idle', flying: rain.ashes.length, landed: rain.landedCount, embers: embers.list.length, onBody: embers.list.filter((e) => e.body).length, mossHidden: model?.mossHidden() ?? 0, glassBroken: brokenQ.length, burntBlocks, doused, fx: eruptFx.counts() },
     }),
     rest: (sec) => actor?.rest(sec),
+    thunderSpots: () => thunderHitLog.map((q) => ({ ...q })),
     eruptionEmbers: () => embers.list.map((e) => ({ ...e })),
     motion: () => (actor ? {
       mode: actor.mode, speedNow: actor.speedNow, crawlSpeed: actor.crawlSpeed, crawlRate: actor.crawlRate, strideScale: actor.strideScale, backOn: actor.backOn, target: actor.target, wander: actor.wanderOn,
