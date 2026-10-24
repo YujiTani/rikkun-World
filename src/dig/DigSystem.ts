@@ -44,6 +44,7 @@ import type { PunchGate } from '../combat/PlayerCombat';
 import { centerOfYokai, decideAttack, type AttackDecision, type AttackHold } from '../combat/attackFacing';
 import { cellInWall } from '../world/wall';
 import { lookDirection, raycastBlocks } from './raycast';
+import type { BodyBlocksPort } from './bodyBlocks';
 import { isBladeItem } from '../tools/blade/BladeSystem';
 import type { LegendSystem } from '../legend/LegendSystem';
 import { routeAttackInput, type ParryInput, type Parry } from '../combat/parry';
@@ -81,6 +82,8 @@ export interface DigToolPort {
 
 /** M4 の つなぎ目（どれもなくてよい。なければ M2 のとおり） */
 export interface DigM4Deps {
+  /** #293 試作: 大きい がしゃどくろの 体の 上に ブロックを 置く・こわす（ワールドの ブロックと 同じ ねらい・置き方。なければ 何も しない） */
+  bodyBlocks?: BodyBlocksPort;
   tools?: DigToolPort;
   craft?: Pick<CraftSystem, 'isFurnace' | 'openFurnace' | 'furnaceBroken' | 'fixedDrop'>;
   armor?: Pick<ArmorSystem, 'tryEquip'> & {
@@ -172,6 +175,12 @@ export function digSteps(
 export class DigSystemImpl implements DigSystem {
   private tickCount = 0;
   private tgt: TargetInfo | null = null;
+  /** いまの ねらいが ワールドの ブロックではなく 体の 上の マス（#293）。置いた ブロックを ねらう か、置く ブロックを 持って 体を ねらって いる とき */
+  private bodyTgt = false;
+  /** 体の マスを ねらって いるとき: 置いた ブロック（本体の 固い マスなら null） */
+  private bodyPlaced: BlockId | null = null;
+  /** 体の マスが ガラスの 雲（ほると 割れる。アイテムは 出ない） */
+  private bodyGlass = false;
   /** LIVE-2.1: 直前 の 置く で たいら に した 列（`takeFlattenDust` で 取る） */
   private flatDust: Array<{ x: number; y: number; z: number }> = [];
   /** LIVE-1: ブロック より 手前 の ねらう 箱 に 当たった にわとり（毎ステップ 決め直す） */
@@ -266,6 +275,28 @@ export class DigSystemImpl implements DigSystem {
     const t = this.aimBlockRaw(p, o, d);
     // 見えない壁の外のマスは ほれない（VOX-D W4）。ブロックも おく所も 壁の中だけ
     return t && cellInWall(t.block.x, t.block.z) && cellInWall(t.place.x, t.place.z) ? t : null;
+  }
+
+  /**
+   * #293: 体（がしゃどくろ）の 固い マスを ワールドの ブロックと くらべて、近い 方を ねらいに する。
+   * 体の マスを ねらうのは「置いた ブロック」か「置ける ブロックを 持って いる とき」だけ（刀・パンチは いつもどおり）。
+   */
+  private aimBody(enabled: boolean, o: Vec3, d: Vec3): void {
+    this.bodyTgt = false;
+    this.bodyPlaced = null;
+    this.bodyGlass = false;
+    const bb = this.m4.bodyBlocks;
+    if (!bb || !enabled) return;
+    const held = this.inventory.held();
+    if (held && isBladeItem(held.item)) return; // 刀は いつもどおり ふる（ガラスの 雲は 刀の ふりで 割れる）
+    const a = bb.aim(o, d, this.config.reach);
+    if (!a || (this.tgt && a.distance >= this.tgt.distance)) return;
+    const hb = held ? itemType(held.item)?.placeBlock : undefined;
+    if (a.placed === null && !(hb && bb.accepts(hb))) return;
+    this.tgt = { block: a.cell, id: a.placed ?? 'bedrock', face: a.face, place: a.place, distance: a.distance };
+    this.bodyTgt = true;
+    this.bodyPlaced = a.placed;
+    this.bodyGlass = a.glass === true;
   }
 
   /** LIVE-1 §2.4: 目 から の 線 が ブロック に 当たる より 手前 で ねらう 箱 に 当たるか */
@@ -413,6 +444,7 @@ export class DigSystemImpl implements DigSystem {
     const d = lookDirection(p.yawDeg, p.pitchDeg, this.dir);
     const o = this.origin(p, this.originScratch);
     this.tgt = this.aimBlock(p, o, d);
+    this.aimBody(enabled, o, d);
     this.animalHit = this.aimAnimal(o, d);
 
     if (this.netLock > 0) this.netLock--;
@@ -587,6 +619,7 @@ export class DigSystemImpl implements DigSystem {
 
     const t = this.tgt;
     if (!primary) this.unripeBlock = null;
+    if (this.bodyTgt && this.bodyPlaced === null) { this.decay(); return; } // 体の 本体は こわせない（ブロックを 置く ためだけに ねらって いる）
     if (primary && t && this.tryHarvest(t)) return;
     // LIVE-2 §2.3: 中 に 子 が いる 小屋 は こわせない。ほる 段 を 進めず（ひび 0）、押した ステップ に しらせ（A が 合図・音・出来事 を 出す）
     if (primary && t && COOP_BLOCKS.has(t.id) && this.coopLocked(t)) {
@@ -715,6 +748,7 @@ export class DigSystemImpl implements DigSystem {
   }
 
   private breakBlock(t: TargetInfo): void {
+    if (this.bodyTgt) return this.breakBodyBlock(t);
     if (COOP_BLOCKS.has(t.id)) return this.breakCoopBlock(t);
     const { x, y, z } = t.block;
     // こたつ 2×2: どの マス を こわして も 4 マス ぜんぶ 消える（`nukunuku` 1 と 中 の たまご は 1 回 だけ）
@@ -749,6 +783,24 @@ export class DigSystemImpl implements DigSystem {
     this.emit({ type: 'break', tick: this.tickCount, block: { x, y, z }, id: t.id, gotItem: got > 0, count: got });
     this.wearForBlock();
     this.toolHintModel.forget(`${x},${y},${z}`);
+    this.clearMem();
+    this.active = false;
+    this.cooldown = this.config.digCooldown;
+  }
+
+  /** #293: 体に 置いた ブロックを こわす（1 こ 持ち物に もどる。入りきらなければ 落とし物） */
+  private breakBodyBlock(t: TargetInfo): void {
+    const { x, y, z } = t.block;
+    const id = this.m4.bodyBlocks?.remove(t.block) ?? null;
+    if (this.bodyGlass) {
+      // ガラスの 雲: アイテムは 出ない（割れる 音と かけらは がしゃどくろ 側が 出す）
+    } else if (id) {
+      const got = 1 - this.inventory.add(id, 1);
+      if (got > 0) this.m4.onPickup?.(id, got);
+      else this.m4.scatterItem?.({ x: x + 0.5, y, z: z + 0.5 }, id, 1);
+      this.emit({ type: 'break', tick: this.tickCount, block: { x, y, z }, id, gotItem: got > 0, count: got });
+      this.wearForBlock();
+    }
     this.clearMem();
     this.active = false;
     this.cooldown = this.config.digCooldown;
@@ -857,6 +909,11 @@ export class DigSystemImpl implements DigSystem {
       this.holdCancelled = false;
     }
     this.secondaryTicks++;
+    if (this.bodyTgt) {
+      // 体の 上: 置く だけ（ワールドの 耕す・まく・開く などは しない）
+      if (due && this.placeSpot()) this.tryPlace();
+      return;
+    }
     // 00・0・0b・8b（LIVE-1 版 3.2 §2.3）。押した ステップ で きまり、押しつづけ の くりかえし では しない
     if (first) this.rightFirst();
     if (this.rightMode === 'latch') return;
@@ -1309,6 +1366,7 @@ export class DigSystemImpl implements DigSystem {
    */
   previewRightClick(repeat = false): RightClickPreview | null {
     if (!this.lock.playInputEnabled() || this.gate?.blocksInput()) return null;
+    if (this.bodyTgt) return this.placeSpot() ? { kind: 'place', item: this.inventory.held()!.item } : null;
     const st = this.m4.storage;
     const craft = this.m4.craft;
     const armor = this.m4.armor;
@@ -1593,6 +1651,13 @@ export class DigSystemImpl implements DigSystem {
     if (!t || !held) return null;
     const block = itemType(held.item)?.placeBlock;
     if (!block) return null;
+    if (this.bodyTgt) {
+      // #293: 体の 上。ねらった マスの となり（置く マス）が あいて いて、プレイヤーの 体と 重ならない
+      const bb = this.m4.bodyBlocks;
+      const { x, y, z } = t.place;
+      if (!bb || !bb.accepts(block) || this.world.getBlock(x, y, z) !== 'air' || this.overlapsBody(x, y, z) || !bb.canPlace(t.place, block)) return null;
+      return { x, y, z, block };
+    }
     // FLORA-75: くさ を ねらって 置くと、くさ の マスに 置ける（くさ は 消える）
     const { x, y, z } = t.id === 'kusa' ? t.block : t.place;
     const cur = this.world.getBlock(x, y, z);
@@ -1682,6 +1747,8 @@ export class DigSystemImpl implements DigSystem {
         this.flatDust = spot.plan.dust;
       }
       for (const c of spot.cells) this.world.setBlock(c.x, y, c.z, c.block);
+    } else if (this.bodyTgt) {
+      if (!this.m4.bodyBlocks?.place({ x, y, z }, block)) return;
     } else if (!this.world.setBlock(x, y, z, block)) return;
     this.inventory.consumeHeld();
     if (block === 'tansu') this.m4.storage?.placed(x, y, z, this.player().yawDeg);

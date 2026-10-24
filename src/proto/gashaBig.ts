@@ -13,8 +13,10 @@ import {
   BufferAttribute, BufferGeometry, Color, DataTexture, NearestFilter, RGBAFormat, SRGBColorSpace, CylinderGeometry, DoubleSide, Euler, ExtrudeGeometry, Float32BufferAttribute, Group, Matrix3, Matrix4,
   Mesh, MeshBasicMaterial, OctahedronGeometry, Path, Plane, Quaternion, Shape, Vector3, type Camera, type Object3D, type Scene,
 } from 'three';
+import type { BodyBlocksPort } from '../dig/bodyBlocks';
+import { BodyPlaced } from './gashaBigPlaced';
 import { armPoints } from './gashaBigArm';
-import { buildPlants, plantMaterial, type PlantSurface } from './gashaBigPlants';
+import { buildOutsideMoss, buildPlants, plantMaterial, type OutsideMoss, type PlantSurface } from './gashaBigPlants';
 import { TUNE as T, applyTune, applyTuneFromUrl } from './gashaBigTuning';
 import { BigActor, type ActorClips } from './gashaBigActor';
 import { sharedGashaBgm } from './gashaBgm';
@@ -78,6 +80,8 @@ export interface GashaBigDeps {
   /** コアに 当たった 予兆（大きな 音）/ 遠くへ とばされる 瞬間（風の 音） */
   onCoreWarn?(): void;
   onCoreThrow?(): void;
+  /** 体の 上に 置く ブロックの 口（DigSystem の bodyBlocks に つなぐ）。開始時に 1 回 呼ばれる */
+  onBodyBlocks?(port: BodyBlocksPort): void;
 }
 
 // ---------------------------------------------------------------- 色と 面の 明るさ
@@ -401,6 +405,9 @@ export interface BigModel {
   setGlass(gc: GlassCell, on: boolean): void;
   /** 道に 生えた こけ・くさの 数（十字の 板の まとまり） */
   plants: number;
+  /** 体の 外がわの こけ・くさ（かたまりの 数・板の 数）。毎コマ updateMoss で 関節の 動きに あわせる */
+  mossOutside: { clumps: number; count: number };
+  updateMoss(): void;
   /** コアの 見た目を ずらす（胴体の 座標の ずれ x, y, z・大きさの 倍・透明度の 倍）。もどす ときは (0,0,0,1,1) */
   setCoreFx(jx: number, jy: number, jz: number, scale: number, alphaK: number): void;
   eyes: MeshBasicMaterial;
@@ -418,7 +425,7 @@ export interface BigModel {
 /** 遠い 部位ほど 空の 色（scene.fog の 色）に 溶ける（空気遠近法）。強さは 調整表 look.haze*。uniform は 毎コマ updateHaze() で 入れる */
 const hazeU = { value: new Vector3(35, 160, 0.6) };
 export function updateHaze(): void { hazeU.value.set(T.look.hazeNear, T.look.hazeFar, T.look.hazeMax); }
-function hazePatch(m: MeshBasicMaterial): void {
+export function hazePatch(m: MeshBasicMaterial): void {
   m.onBeforeCompile = (sh) => {
     sh.uniforms.uHaze = hazeU;
     sh.fragmentShader = sh.fragmentShader
@@ -1012,6 +1019,11 @@ export function buildBig(): BigModel {
     for (const mesh of pl) { mesh.renderOrder = 0; joints.Spine02.add(mesh); meshes.push(mesh); }
     plantCount = count;
   }
+  // 体の 外がわの こけ・くさ（まばらな かたまり）。3 つの InstancedMesh を からだの 親に つけ、毎コマ 関節の 行列から 位置を 作りなおす
+  const outsidePm = plantMaterial();
+  hazePatch(outsidePm);
+  const outside: OutsideMoss = buildOutsideMoss(b.hits, rest, joints, group, T.core.moss.outside, outsidePm);
+  for (const mesh of outside.meshes) { mesh.renderOrder = 0; group.add(mesh); meshes.push(mesh); }
   /** ガラスの マスを 出す / 消す（見た目は 頂点の 透明度、当たりは mask） */
   const setGlass = (gc: GlassCell, on: boolean): void => {
     const m = glassMeshes[gc.joint];
@@ -1024,7 +1036,7 @@ export function buildBig(): BigModel {
   };
 
   return {
-    group, joints, rest, hits: b.hits, glass: b.glass, setGlass, plants: plantCount, setCoreFx, eyes: matOf('eyes'), eyeHalo: matOf('eyeHalo'), brow: brow ?? new Mesh(), scale, groundPts, head: headPos, meshes: meshes.length,
+    group, joints, rest, hits: b.hits, glass: b.glass, setGlass, plants: plantCount, mossOutside: { clumps: outside.clumps, count: outside.count }, updateMoss: outside.update, setCoreFx, eyes: matOf('eyes'), eyeHalo: matOf('eyeHalo'), brow: brow ?? new Mesh(), scale, groundPts, head: headPos, meshes: meshes.length,
   };
 }
 
@@ -1103,7 +1115,7 @@ export interface GashaBigHandle {
   /** うごきの 中身（モード・速さ・手の ついた 数・1 コマの 仕事の 数 など） */
   motion(): Record<string, unknown>;
   /** ガラスの 雲を 割る: center（世界の 座標）から radius（ブロック）いないの ブロックが 消える。割れた 数を 返す。しばらくして 1 つずつ もどる（火の 攻撃用の 口。テストでも 使う） */
-  breakGlass(center: { x: number; y: number; z: number }, radius: number): number;
+  breakGlass(center: { x: number; y: number; z: number }, radius: number, max?: number): number;
   /** ガラスの 数（ぜんぶ・いま 割れている・もどるのを 待っている） */
   glassInfo(): { total: number; broken: number };
   /** 当たりの 箱の 一覧（世界の 座標。関節の いまの 姿勢） */
@@ -1123,6 +1135,8 @@ export interface GashaBigHandle {
   /** 手が 地面を たたいた ときの 当たり（ひるみの のこり・当たった 記録・いまの 輪）。テスト用 */
   shock(): { staggerLeft: number; inputBlocked: boolean; hits: ShockHit[]; impacts: number; shake: number; lastPush: { x: number; y: number; z: number } | null; slams: number; taps: number; phase: string; fx: { rings: number; dust: number }; lastSlam: { x: number; y: number; z: number } | null; lastTap: { x: number; y: number; z: number } | null };
   info(): Record<string, unknown>;
+  /** 体の 上に 置いた ブロック（置く・こわす・数。DigSystem の 口と おなじ） */
+  bodyBlocks: BodyBlocksPort & { count: number; list(): { id: string; joint: string }[] };
   group: Group;
 }
 
@@ -1191,18 +1205,24 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
     const m = model!;
     return out.copy(gc.local).sub(m.rest[gc.joint]).applyMatrix4(m.joints[gc.joint].matrixWorld);
   };
-  const breakGlass = (c: { x: number; y: number; z: number }, radius: number): number => {
+  /** ガラスの 雲を 割る。center から radius いないの マスを 近い 順に 最大 max 個（プレイヤーが ほる ときは 1 個） */
+  const breakGlass = (c: { x: number; y: number; z: number }, radius: number, max = Infinity): number => {
     if (!model) return 0;
     model.group.updateMatrixWorld(true);
-    const v = new Vector3(), done: { x: number; y: number; z: number }[] = [];
+    const v = new Vector3(), found: { gc: GlassCell; d: number; at: { x: number; y: number; z: number } }[] = [];
     for (const gc of model.glass) {
       const mk = model.hits[gc.hit]?.mask;
       if (!mk || mk.on[gc.cell] !== 1) continue;
       glassWorld(gc, v);
-      if (Math.hypot(v.x - c.x, v.y - c.y, v.z - c.z) > radius) continue;
-      model.setGlass(gc, false);
-      brokenQ.push({ gc, t: glassClock });
-      done.push({ x: v.x, y: v.y, z: v.z });
+      const d = Math.hypot(v.x - c.x, v.y - c.y, v.z - c.z);
+      if (d <= radius) found.push({ gc, d, at: { x: v.x, y: v.y, z: v.z } });
+    }
+    found.sort((p, q) => p.d - q.d);
+    const done: { x: number; y: number; z: number }[] = [];
+    for (const f of found.slice(0, max)) {
+      model.setGlass(f.gc, false);
+      brokenQ.push({ gc: f.gc, t: glassClock });
+      done.push(f.at);
     }
     if (done.length) deps.onGlassBreak?.(done);
     return done.length;
@@ -1218,7 +1238,9 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
     model.setGlass(q.gc, true);
     lastRegen = glassClock;
   };
-  const bh = new BigHit({ scene: deps.scene, angry: () => { isAngry = true; actor?.hit(); }, onCore: throwOff, coreGuard: () => warnLeft > 0, sources: deps.hit });
+  // プレイヤーが 体の 上に 置く ブロック（gashaBigPlaced.ts）。がしゃどくろを 置きなおすと ぜんぶ 消える
+  const placed = new BodyPlaced({ model: () => model, actor: () => actor, lighting: deps.lighting, patch: hazePatch, breakGlassAt: (c, r, max) => breakGlass(c, r, max) });
+  const bh = new BigHit({ scene: deps.scene, angry: () => { isAngry = true; actor?.hit(); }, onCore: throwOff, coreGuard: () => warnLeft > 0, onCloud: (at) => { breakGlass(at, T.glass.swordRadius); }, sources: deps.hit });
   let pos = new Vector3(), yaw = 0;
   const { blockAt, setGeyserBlock, scanGeyserBlocks } = deps;
   const geysers = deps.onUpdate && deps.playerBody && deps.setPlayerVelocity && deps.nudgePlayer && deps.setNoFall && blockAt && setGeyserBlock && scanGeyserBlocks
@@ -1247,6 +1269,7 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
     mats.forEach((m) => m.dispose());
     model = null;
     brokenQ.length = 0;
+    placed.reset();
   };
 
   /** 当たりの 箱の 場所を いまの 姿勢で 更新（マスの 集合は 作らない。判定は その 場で 箱に 聞く） */
@@ -1317,6 +1340,7 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
     updateHaze();
     if (!actor) return;
     actor.update(dt);
+    model?.updateMoss();
     bh.step(dt);
     stepGlass(dt);
     stepCoreWarn(dt);
@@ -1331,6 +1355,7 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
     }
   });
   place();
+  deps.onBodyBlocks?.(placed);
 
   const handle: GashaBigHandle = {
     tune: (o) => applyTune(o),
@@ -1382,6 +1407,7 @@ export function startGashaBig(deps: GashaBigDeps): GashaBigHandle {
       head: model ? model.head.clone().multiplyScalar(model.scale).applyQuaternion(new Quaternion().setFromAxisAngle(UP, yaw)).add(pos).toArray() : null,
       rest: model ? Object.fromEntries(JOINT_NAMES.map((j) => [j, model!.rest[j].toArray()])) : null,
     }),
+    bodyBlocks: placed,
     get group() { return model!.group; },
   };
   (window as unknown as { __gashaBig: GashaBigHandle }).__gashaBig = handle;

@@ -67,6 +67,26 @@ if (want('glass-diagonal')) {
   await put(x, fy, z, yawOf(mp[0] - x, mp[2] - z), Number(process.env.PITCH2 ?? 16)); await step(60);
   await shot('glass-diagonal.png');
 }
+// 2b: 体の 外がわの こけ（全身。ななめ前から）
+if (want('moss-body')) {
+  const BACK = Number(process.env.BACK9 ?? 24), SIDE = Number(process.env.SIDE9 ?? 22), x = X0 - SIDE, z = Z0 + BACK - 12, fy = await gh(x, z);
+  await put(x, fy, z, yawOf(mp[0] - x, mp[2] - z), Number(process.env.PITCH9 ?? 14)); await step(60);
+  await shot('moss-body.png');
+}
+// 2c: 体の 上に 立つ と 足もとに 丸い 影（うでの 上。うしろから 三人称）
+if (want('shadow-on-body')) {
+  const arm = await box(process.env.ARM10 ?? 'upperArmL');
+  const top = arm.c[1] + arm.h[1] * arm.a[1][1] + 0 ; // 上の 面（軸 1 は ほぼ 上）
+  const ax = arm.a[2]; // 腕の ながい 軸
+  const px = arm.c[0] - ax[0] * Number(process.env.ALONG10 ?? 4), pz = arm.c[2] - ax[2] * Number(process.env.ALONG10 ?? 4);
+  const standY = await page.evaluate(([x, z, y0]) => { const g = window.__gashaBig; for (let j = Math.floor(y0 + 3); j > 0; j--) if (g.solidAt(Math.floor(x), j, Math.floor(z)) && !g.solidAt(Math.floor(x), j + 1, Math.floor(z))) return j + 1; return null; }, [px, pz, top]);
+  await cam(Number(process.env.CAM10 ?? 5));
+  await put(px, standY, pz, yawOf(-ax[0], -ax[2]) + Number(process.env.YAW10 ?? 180), Number(process.env.PITCH10 ?? -28)); await step(60);
+  await page.evaluate(() => { document.getElementById('hud')?.style.setProperty('display', 'none'); });
+  await shot('shadow-on-body.png');
+  console.log('shadow', JSON.stringify(await page.evaluate(() => window.__rikkun.player.get().position)), standY, JSON.stringify(await page.evaluate(() => window.__rikkun.render.blobShadow())));
+  await cam(0);
+}
 // 3: ガラスの 雲の アップ（腰の まわりの 雲を 近くで）
 if (want('glass-closeup')) {
   const b = await box(process.env.CLOUD3 ?? 'bank30');

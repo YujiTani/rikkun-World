@@ -191,6 +191,8 @@ export interface HitEnv {
   onCore?(): void;
   /** true の 間は コアが 無敵（当たっても ダメージ 0、はじかれた 火花だけ）。ふり落とし前の 予兆の 間 */
   coreGuard?(): boolean;
+  /** 刀が ガラスの 雲に 当たった（ダメージの ある 部位に 当たらなかった とき）。当たった 点（世界の 座標） */
+  onCloud?(at: Vec3): void;
   sources?: HitSources;
 }
 
@@ -363,7 +365,19 @@ export class BigHit {
       touched = (i) => boxTouchesFan(this.boxes[i]!, sh, m);
     }
     const i = this.pick(touched, from);
-    if (i < 0) return;
+    if (i < 0) {
+      // ダメージの ある 部位に 当たらなかった: ガラスの 雲に 当たって いれば 割る（1 振りに つき 1 回）
+      if (this.env.onCloud) {
+        let bj = -1, bd = Infinity;
+        for (let k = 0; k < this.boxes.length; k++) {
+          if (this.parts[k] !== 'cloud' || !touched(k)) continue;
+          const d = distToBox(this.boxes[k]!, from.x, from.y, from.z);
+          if (d < bd) { bj = k; bd = d; }
+        }
+        if (bj >= 0) { this.swingDone = true; this.env.onCloud(closestOnBox(this.boxes[bj]!, from.x, from.y, from.z, { x: 0, y: 0, z: 0 })); }
+      }
+      return;
+    }
     this.swingDone = true; // 1 振りに つき 1 回
     this.strike(i, b.damage, from, 'blade');
   }

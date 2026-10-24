@@ -166,6 +166,21 @@ describe('gashaBigHit（#293 プレイヤーの 攻撃を 受ける）', () => {
     expect(r.calls()).toBe(2);
   });
 
+  it('刀が ガラスの 雲に だけ 当たると onCloud（割る 口）が 1 振りに 1 回 呼ばれる。ダメージは なし', () => {
+    const { boxes, model } = bodyBoxes();
+    const cloud = boxes.find((b) => b.name === 'bank12')!;
+    const seen: Vec3[] = [];
+    let swing = 'a';
+    let on = true;
+    const bh = new BigHit({ scene: new Scene(), angry: () => {}, onCloud: (at) => { seen.push(at); }, sources: { blade: () => (on ? { shape: { kind: 'capsule', from: v(cloud.c[0]!, cloud.c[1]!, cloud.c[2]!), to: v(cloud.c[0]!, cloud.c[1]! + 0.1, cloud.c[2]!), radius: 0.3 }, damage: 3, swing, frame: 1 } : null) } });
+    bh.bind(boxes, model);
+    bh.step(1 / 60); bh.step(1 / 60);
+    expect(seen).toHaveLength(1);
+    expect(bh.hp).toBe(bh.maxHp);
+    on = false; bh.step(1 / 60); on = true; swing = 'b'; bh.step(1 / 60);
+    expect(seen).toHaveLength(2);
+  });
+
   it('刀（けさ・扇）: 手の 前に 立って ふると 当たる。うしろむき・遠いと 当たらない', () => {
     let shape: BladeShapeInfo | null = null;
     let swing = 'kesa:1';

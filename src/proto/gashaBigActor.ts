@@ -87,7 +87,12 @@ interface Box {
   ext: [number, number, number];
   /** ガラスの 雲の マス（割れた マスは 当たらない） */
   mask?: GlassMask;
+  /** プレイヤーが 置いた ブロック（ちょうど 1 ブロック。余白・持ち上げは なし） */
+  exact?: boolean;
 }
+
+/** 体に ついて 動く 追加の 箱（置いた ブロック）。座標は Hit と おなじ（もとの 座標・関節の 休みの 姿勢） */
+export interface ExtraHit { joint: JointName; c: Vector3; axes: [Vector3, Vector3, Vector3]; half: [number, number, number] }
 
 function makeRnd(seed: number): () => number {
   let s = seed >>> 0;
@@ -158,6 +163,10 @@ export class BigActor {
   /** さいごに 手を つきなおした 所（世界の 座標） */
   lastTap: { x: number; y: number; z: number; side: Side; step: number } | null = null;
 
+  private hitCount = 0;
+  private hitBoxes: Box[] = [];
+  private xhits: ExtraHit[] = [];
+  private xboxes: Box[] = [];
   private readonly boxes: Box[] = [];
   private readonly player: MotionPlayer;
   private baked: { crawl: BakedClip; back: BakedClip; lookBack: BakedClip };
@@ -202,6 +211,8 @@ export class BigActor {
     for (const h of model.hits) {
       this.boxes.push({ name: h.name, joint: h.joint, c: [0, 0, 0], ax: new Array<number>(9).fill(0), half: [0, 0, 0], ext: [0, 0, 0], mask: h.mask });
     }
+    this.hitCount = model.hits.length;
+    this.hitBoxes = this.boxes.slice();
     model.group.traverse(() => { this.matrixCount++; });
     this.rebake();
   }
@@ -647,10 +658,11 @@ export class BigActor {
     const q = this.tq, sc = this.ts, pos = this.tv;
     const stamp = ++this.stamp;
     let lo0 = Infinity, lo1 = Infinity, lo2 = Infinity, hi0 = -Infinity, hi1 = -Infinity, hi2 = -Infinity;
-    const mg = T.collide.margin, lift = T.collide.topLift;
+    const mg0 = T.collide.margin, lift0 = T.collide.topLift;
     const v = new Vector3();
     for (let i = 0; i < this.boxes.length; i++) {
-      const b = this.boxes[i]!, h = m.hits[i]!;
+      const b = this.boxes[i]!, h = i < this.hitCount ? m.hits[i]! : this.xhits[i - this.hitCount]!;
+      const mg = b.exact ? 0 : mg0, lift = b.exact ? 0 : lift0;
       const jg = m.joints[b.joint];
       const ji = this.jointIndex.get(b.joint)!;
       const cj = this.jointCache[ji]!;
@@ -669,7 +681,7 @@ export class BigActor {
       lo2 = Math.min(lo2, b.c[2] - b.ext[2]); hi2 = Math.max(hi2, b.c[2] + b.ext[2]);
     }
     this.bbox = { lo: [lo0, lo1, lo2], hi: [hi0, hi1, hi2] };
-    this.work.boxes = this.boxes.length;
+    this.work.boxes = this.hitCount;
   }
 
   /** マス（i, j, k）の 中心が 入る 箱の 番号（なければ -1）。voxelize と おなじ きまり（j < 0 は 地面の 下なので なし） */
@@ -677,10 +689,11 @@ export class BigActor {
     const bb = this.bbox;
     const cx = i + 0.5, cy = j + 0.5, cz = k + 0.5;
     if (j < 0 || cx < bb.lo[0]! || cx > bb.hi[0]! || cy < bb.lo[1]! || cy > bb.hi[1]! || cz < bb.lo[2]! || cz > bb.hi[2]!) { this.work.lastQueryBoxes = 0; return -1; }
-    const mg = T.collide.margin, lift = T.collide.topLift;
+    const mg0 = T.collide.margin, lift0 = T.collide.topLift;
     let tested = 0, found = -1;
     for (let n = 0; n < this.boxes.length; n++) {
       const b = this.boxes[n]!;
+      const mg = b.exact ? 0 : mg0, lift = b.exact ? 0 : lift0;
       const dx = cx - b.c[0], dy = cy - b.c[1], dz = cz - b.c[2];
       if (Math.abs(dx) > b.ext[0] || Math.abs(dy) > b.ext[1] || Math.abs(dz) > b.ext[2]) continue;
       tested++;
@@ -708,8 +721,24 @@ export class BigActor {
   }
 
   /** いまの 当たりの 箱の 数 */
-  get boxCount(): number { return this.boxes.length; }
+  get boxCount(): number { return this.hitCount; }
 
   /** 当たりの 箱（世界の 座標。毎コマ 更新される）。プレイヤーの 攻撃を 受ける 口が 読む（gashaBigHit.ts） */
-  get boxList(): readonly Box[] { return this.boxes; }
+  get boxList(): readonly Box[] { return this.hitBoxes; }
+
+  /** 体に ついて 動く 追加の 箱（置いた ブロック）を 入れかえる。当たりの 箱の 番号（hits）の あとに 足す。boxAt の 答えが hits の 数 以上なら 追加の 箱 */
+  setExtras(list: readonly ExtraHit[]): void {
+    this.boxes.length = this.hitCount;
+    this.xhits = list.slice();
+    for (const x of list) this.boxes.push({ name: 'placed', joint: x.joint, c: [0, 0, 0], ax: new Array<number>(9).fill(0), half: [0, 0, 0], ext: [0, 0, 0], exact: true });
+    this.xboxes = this.boxes.slice(this.hitCount);
+    this.model.group.updateMatrixWorld(true);
+    this.updateBoxes();
+  }
+  /** 追加の 箱（置いた ブロック。setExtras に わたした 順。世界の 座標） */
+  get extraBoxes(): readonly Box[] { return this.xboxes; }
+  /** 当たりの 箱（hits）の 数。これ 以上の 番号は 追加の 箱 */
+  get hitBoxCount(): number { return this.hitCount; }
+  /** 箱 n の 関節（追加の 箱も 含む） */
+  jointOfBox(n: number): JointName | null { return this.boxes[n]?.joint ?? null; }
 }

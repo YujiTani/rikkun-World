@@ -474,6 +474,31 @@ describe('gashaBig（#293 大きい がしゃどくろ）', () => {
     const inst = [] as import('three').InstancedMesh[];
     model.group.traverse((o) => { if ((o as import('three').InstancedMesh).isInstancedMesh) inst.push(o as import('three').InstancedMesh); });
     expect(inst.length).toBeGreaterThanOrEqual(2);
-    expect(inst.length).toBeLessThanOrEqual(3);
+    expect(inst.length).toBeLessThanOrEqual(6); // 道の 中（最大 3）+ 体の 外がわ（最大 3）。種類ごとに 1 回
+  });
+
+  it('体の 外がわの こけ・くさ: まばらな かたまりが あちこちに 生えて、関節に ついて 動く（描画は 3 回まで・当たりなし）', () => {
+    const O = T.core.moss.outside;
+    expect(model.mossOutside.clumps).toBe(O.count);
+    expect(model.mossOutside.count).toBeGreaterThan(O.count * 2);
+    expect(model.mossOutside.count).toBeLessThanOrEqual(O.max * (1 + O.carpet));
+    const out = [] as import('three').InstancedMesh[];
+    model.group.traverse((o) => { const m = o as import('three').InstancedMesh; if (m.isInstancedMesh && m.name.startsWith('mossOut')) out.push(m); });
+    expect(out.length).toBeGreaterThanOrEqual(2);
+    expect(out.length).toBeLessThanOrEqual(3);
+    // 関節（左の うで）を 動かして 更新すると 板の 位置が かわる。動かさない 板（頭など）は かわらない
+    const snap = (): number[] => out.flatMap((m) => Array.from(m.instanceMatrix.array as Float32Array));
+    model.group.updateMatrixWorld(true);
+    model.updateMoss();
+    const a = snap();
+    model.joints.LeftArm.rotation.z += 0.8;
+    model.updateMoss();
+    const b = snap();
+    let moved = 0, same = 0;
+    for (let i = 0; i < a.length; i += 16) { if (Math.abs(a[i + 12]! - b[i + 12]!) + Math.abs(a[i + 13]! - b[i + 13]!) + Math.abs(a[i + 14]! - b[i + 14]!) > 1e-4) moved++; else same++; }
+    expect(moved).toBeGreaterThan(5);
+    expect(same).toBeGreaterThan(5);
+    model.joints.LeftArm.rotation.z -= 0.8;
+    model.updateMoss();
   });
 });

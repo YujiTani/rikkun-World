@@ -5,6 +5,7 @@
  * 数（密度・大きさ・上限）は gashaBigTuning.ts の core.moss。
  */
 import { BufferGeometry, DataTexture, DoubleSide, Float32BufferAttribute, InstancedBufferAttribute, InstancedMesh, Matrix4, MeshBasicMaterial, NearestFilter, Quaternion, RGBAFormat, SRGBColorSpace, Vector3 } from 'three';
+import type { Object3D } from 'three';
 
 /** 平らな 四角い 面（torso の 座標）に、面の 外むきが up。o + a·s + b·t（s, t = 0〜1）の 上に 生やす */
 export interface PlantSurface { o: Vector3; a: Vector3; b: Vector3; up: Vector3; density: number }
@@ -138,4 +139,108 @@ export function buildPlants(surfaces: readonly PlantSurface[], opt: PlantOpt, ma
     count += L.length;
   }
   return { meshes, count };
+}
+
+// ---------------------------------------------------------------- 体の 外がわの こけ・くさ（まばらに かたまりで）
+export interface OutsideHit { name: string; joint: string; c: Vector3; axes: readonly [Vector3, Vector3, Vector3]; half: readonly [number, number, number] }
+export interface OutsideOpt {
+  /** 部品の 名前の はじめ → 生えやすさ。いちばん 長く あう ものを 使う。表に ない 部品には 生えない */
+  parts: Readonly<Record<string, number>>;
+  /** かたまりの 数 */
+  count: number;
+  /** 1 かたまりの 板の 数 */
+  clump: number;
+  /** 1 かたまりの 広がり（もとの 座標） */
+  radius: number;
+  size: readonly [number, number];
+  carpet: number;
+  /** よこ・うしろの 面に 生やす 割合（上の 面を 1 として） */
+  sideFrac: number;
+  max: number;
+  seed: number;
+}
+export interface OutsideMoss { meshes: InstancedMesh[]; count: number; clumps: number; update(): void }
+
+/** 体の 部品（当たりの 箱）の 外がわの 面（上・よこ）に、くさ・こけの かたまりを まばらに 生やす。
+ *  かたまりは 部品の 関節の 動きに ついて 動く（毎コマ update で 板の 位置を 関節の 行列から 作りなおす）。描くのは 3 つの InstancedMesh だけ。当たりは なし。 */
+export function buildOutsideMoss(
+  hits: readonly OutsideHit[], rest: Record<string, Vector3>, joints: Record<string, Object3D>, group: Object3D, opt: OutsideOpt, material: MeshBasicMaterial,
+): OutsideMoss {
+  const r = rnd(opt.seed);
+  const keys = Object.keys(opt.parts).sort((a, b) => b.length - a.length);
+  const weightOf = (name: string): number => { const k = keys.find((q) => name.startsWith(q)); return k ? opt.parts[k]! : 0; };
+  interface Face { h: OutsideHit; n: Vector3; t1: Vector3; t2: Vector3; e1: number; e2: number; ha: number; w: number }
+  const faces: Face[] = [];
+  for (const h of hits) {
+    const pw = weightOf(h.name);
+    if (pw <= 0) continue;
+    for (let a = 0; a < 3; a++) for (const s of [1, -1]) {
+      const n = h.axes[a]!.clone().multiplyScalar(s);
+      const t1 = h.axes[(a + 1) % 3]!.clone(), t2 = h.axes[(a + 2) % 3]!.clone();
+      const e1 = h.half[(a + 1) % 3]!, e2 = h.half[(a + 2) % 3]!, area = 4 * e1 * e2;
+      const w = n.y > 0.7 ? pw * area : Math.abs(n.y) < 0.5 ? pw * area * opt.sideFrac : 0;
+      if (w > 0) faces.push({ h, n, t1, t2, e1, e2, ha: h.half[a]!, w });
+    }
+  }
+  const total = faces.reduce((q, f) => q + f.w, 0);
+  const pick = (): Face => { let x = r() * total; for (const f of faces) { x -= f.w; if (x <= 0) return f; } return faces[faces.length - 1]!; };
+  interface Inst { joint: string; local: Matrix4 }
+  const inst: Inst[][] = [[], [], []], tints: number[][] = [[], [], []];
+  const q = new Quaternion(), qy = new Quaternion(), UPY = new Vector3(0, 1, 0), pos = new Vector3(), sc = new Vector3();
+  let clumps = 0, made = 0;
+  const per = Math.min(1, opt.max / Math.max(1, opt.count * opt.clump * (1 + opt.carpet)));
+  for (let c = 0; c < opt.count && faces.length; c++) {
+    const f = pick();
+    const cs = (r() * 2 - 1) * f.e1, ct = (r() * 2 - 1) * f.e2;
+    clumps++;
+    const n = Math.max(1, Math.round(opt.clump * per));
+    q.setFromUnitVectors(UPY, f.n);
+    for (let i = 0; i < n; i++) {
+      const ang = r() * Math.PI * 2, rad = Math.sqrt(r()) * opt.radius;
+      const u = Math.max(-f.e1 + 0.2, Math.min(f.e1 - 0.2, cs + Math.cos(ang) * rad)), v = Math.max(-f.e2 + 0.2, Math.min(f.e2 - 0.2, ct + Math.sin(ang) * rad));
+      pos.copy(f.h.c).addScaledVector(f.n, f.ha + 0.02).addScaledVector(f.t1, u).addScaledVector(f.t2, v).sub(rest[f.h.joint]!);
+      const size = opt.size[0] + (opt.size[1] - opt.size[0]) * r();
+      qy.setFromAxisAngle(UPY, r() * Math.PI * 2);
+      const put = (tile: number, k: number, hk: number): void => {
+        sc.set(size * k, size * hk, size * k);
+        inst[tile]!.push({ joint: f.h.joint, local: new Matrix4().compose(pos, q.clone().multiply(qy), sc) });
+        tints[tile]!.push(0.82 + r() * 0.28);
+        made++;
+      };
+      put(r() < 0.5 ? 0 : 1, 1, 0.6 + r() * 0.4);
+      if (r() < opt.carpet) put(2, 1.3 + r() * 0.8, 1);
+    }
+  }
+  const meshes: InstancedMesh[] = [];
+  const lists: { mesh: InstancedMesh; list: Inst[] }[] = [];
+  for (let tile = 0; tile < 3; tile++) {
+    const L = inst[tile]!;
+    if (!L.length) continue;
+    const mesh = new InstancedMesh(tile === 2 ? carpetGeo(tile) : crossGeo(tile), material, L.length);
+    const col = new Float32Array(L.length * 3);
+    tints[tile]!.forEach((t, i) => { col[i * 3] = t; col[i * 3 + 1] = t; col[i * 3 + 2] = t; });
+    mesh.instanceColor = new InstancedBufferAttribute(col, 3);
+    mesh.frustumCulled = false;
+    mesh.name = `mossOut${tile}`;
+    mesh.userData.noDim = false;
+    meshes.push(mesh);
+    lists.push({ mesh, list: L });
+  }
+  const inv = new Matrix4(), rel = new Map<string, Matrix4>(), m = new Matrix4();
+  const update = (): void => {
+    group.updateMatrixWorld(true);
+    inv.copy(group.matrixWorld).invert();
+    rel.clear();
+    for (const { mesh, list } of lists) {
+      for (let i = 0; i < list.length; i++) {
+        const it = list[i]!;
+        let R = rel.get(it.joint);
+        if (!R) { R = new Matrix4().multiplyMatrices(inv, joints[it.joint]!.matrixWorld); rel.set(it.joint, R); }
+        mesh.setMatrixAt(i, m.multiplyMatrices(R, it.local));
+      }
+      mesh.instanceMatrix.needsUpdate = true;
+    }
+  };
+  update();
+  return { meshes, count: made, clumps, update };
 }
