@@ -112,7 +112,7 @@ import { coopMenuReach } from './ui/coopMenuModel';
 import { countryAt } from './world/gen/biome';
 import { Lighting, Sky } from './sky';
 import { TimeOfDayImpl, createTimeHook } from './time';
-import { YokaiManager, createYokaiHook } from './yokai';
+import { YOKAI_NAME, YokaiManager, createYokaiHook } from './yokai';
 import { LevelSystem, createLevelHook } from './level';
 import { LevelHud } from './ui/levelHud';
 import { ActionHint } from './ui/actionHint';
@@ -584,7 +584,6 @@ const dropLive = {
 function plainReading(html: string): string {
   return html.replace(/<ruby>.*?<rt>(.*?)<\/rt><\/ruby>/g, '$1').replace(/<[^>]*>/g, '');
 }
-const YOKAI_NAME: Record<YokaiKind, string> = { karakasa: 'からかさ', chochin: 'ちょうちん', nurikabe: 'ぬりかべ', rokurokubi: 'ろくろくび' };
 let onDropPicked: (item: ItemId, count: number, fromYokai: boolean) => void = () => {};
 const drops = new DropField({
   world,

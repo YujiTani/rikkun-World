@@ -1,12 +1,13 @@
 // CHAR-4: 刃の軌跡の 純粋な 決まり（three.js なし）。docs/design/CHAR-4.md §4.2〜§4.5
 import { W2_SETTING_DEFAULTS, type BladeTech, type BladeTechFrames, type BladeTrailStyle, type ItemId, type W2Settings } from '../contracts';
 import { TECH_PHASES } from '../char/techCurves';
+import { BLADE_ITEMS } from '../tools/bladeSets';
 import pathJson from './bladePath.json';
 
-/** 軌跡を 出す 刀（`BLADE_ITEMS` と 同じ。fx から tools へ 依存しないよう ここにも 持つ） */
 /** 白い 斬撃 ＋ 武器ごとの エフェクトを 出す 武器（レジェンダリー 3 本だけ。半月の 帯は 出さない。2026-10-23 オーナー決定） */
 export const LEGEND_FX_ITEMS: ReadonlySet<ItemId> = new Set<ItemId>(['raijin_ken', 'fujin_ken', 'niji']);
-export const BLADE_TRAIL_ITEMS: ReadonlySet<ItemId> = new Set<ItemId>(['bokuto', 'katana', 'crystal_katana', 'raijin_ken', 'fujin_ken', 'niji', 'kin_katana']);
+/** 軌跡を 出す 刀（`BLADE_ITEMS` そのもの。出どころは tools/bladeSets.ts） */
+export const BLADE_TRAIL_ITEMS: ReadonlySet<ItemId> = BLADE_ITEMS;
 
 export type PathVec = readonly [number, number, number];
 export interface PathPoint {

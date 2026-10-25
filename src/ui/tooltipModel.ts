@@ -2,6 +2,7 @@ import { LIVE_SETTING_DEFAULTS, seedKindOfItem, vegKindOfItem, type ItemId, type
 import { CRAFT_UI_SETTINGS, TOOL_NUMBERS, type CraftUiSettings, type ToolNumbers } from '../fx/craftConfig';
 import { RARITY_COLOR, RARITY_TIERS } from '../drops/rarity';
 import { ITEM_INFO, SPECIAL_HEAD } from '../craft/info/table';
+import { BLADE_LIKE_ITEMS } from '../tools/bladeSets';
 import { wearView } from './wearGauge';
 
 /** ツールチップの行につく小さな絵。アイテムの id か、かなづち・時計 */
@@ -45,7 +46,6 @@ export function rarityCss(r: Rarity): string {
 
 const PICKAXES = ['wood_pickaxe', 'stone_pickaxe', 'iron_pickaxe', 'kin_pickaxe'];
 const AXES = ['wood_axe', 'stone_axe', 'iron_axe', 'kin_axe'];
-const BLADES = ['bokuto', 'katana', 'naginata', 'crystal_katana', 'raijin_ken', 'fujin_ken', 'niji', 'kin_katana'];
 
 /** ツールチップの中身（M4 §2.13 の表の順。当てはまるものだけ） */
 export function buildTooltip(item: ItemId, d: TooltipDeps, stack?: ItemStack | null): TooltipData {
@@ -66,7 +66,7 @@ export function buildTooltip(item: ItemId, d: TooltipDeps, stack?: ItemStack | n
     add(`ほる つよさ ${tools.toolPower[item] ?? 1}`, item);
     add('き に つよい', item);
   }
-  if (BLADES.includes(item)) {
+  if (BLADE_LIKE_ITEMS.has(item)) {
     // WEAPON-7 PR3: 虹は その 1 本の つよさ（ヌシが おとした ときに 決まる）
     const own = stack && stack.item === item && typeof stack.power === 'number' ? stack.power : null;
     add(`たたく つよさ ${own ?? tools.weaponDamage[item] ?? 1}`, item);

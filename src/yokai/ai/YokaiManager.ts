@@ -41,7 +41,7 @@ import { NINJA_GEAR } from '../../craft/config';
 import { SENSE } from './senseTuning';
 import { createRng, type Rng } from '../../world/gen/random';
 import { COUNTRY_TABLE } from '../../world/gen/countryTable';
-import { YOKAI_ORDER, effectiveRow, pickYokaiKind, weightOf, type YokaiRow } from '../countryPick';
+import { YOKAI_DRAW_ORDER, effectiveRow, pickYokaiKind, weightOf, type YokaiRow } from '../countryPick';
 import { pickNushiDrop, rollPower } from '../../legend/defs';
 import { isSamuraiGear } from '../../craft/SamuraiBook';
 import { samuraiSelectable } from '../../craft/samuraiDrop';
@@ -405,6 +405,10 @@ export class YokaiManager implements YokaiWorld {
         out.push({ cx: h.x, cy: h.y, cz: h.z, hx: 0.3, hy: 0.3, hz: 0.3 });
         break;
       }
+      default: {
+        const unreachable: never = e.kind;
+        throw new Error(`boxesOf: 知らない妖怪 ${String(unreachable)}`);
+      }
     }
     if (e.bodyScale !== 1) {
       for (const b of out) {
@@ -726,9 +730,13 @@ export class YokaiManager implements YokaiWorld {
       case 'nurikabe':
         model = new Nurikabe();
         break;
-      default:
+      case 'rokurokubi':
         model = new Rokurokubi();
         break;
+      default: {
+        const unreachable: never = kind;
+        throw new Error(`create: 知らない妖怪 ${String(unreachable)}`);
+      }
     }
     const hp = YOKAI_STATS[kind].hp;
     const st = yokaiStrength(kind);
@@ -820,7 +828,7 @@ export class YokaiManager implements YokaiWorld {
   spawnWeights(x: number, z: number): { country: string; weights: Record<string, number> } {
     const { country, row } = this.rowAt(x, z);
     const weights: Record<string, number> = {};
-    for (const k of YOKAI_ORDER) weights[k] = weightOf(row, this.config.yokaiWeights, k);
+    for (const k of YOKAI_DRAW_ORDER) weights[k] = weightOf(row, this.config.yokaiWeights, k);
     return { country, weights };
   }
 
@@ -1383,7 +1391,7 @@ export class YokaiManager implements YokaiWorld {
         else this.turn(e, yawToward(ux, uz), dt);
         break;
       }
-      default: {
+      case 'rokurokubi': {
         // ろくろくび
         hold = 5.5;
         if (dist < 2) {
@@ -1401,6 +1409,10 @@ export class YokaiManager implements YokaiWorld {
         if (dist > hold) moved = this.moveToward(e, ux, uz, speed, dt);
         else this.turn(e, yawToward(ux, uz), dt);
         break;
+      }
+      default: {
+        const unreachable: never = e.kind;
+        throw new Error(`chaseTick: 知らない妖怪 ${String(unreachable)}`);
       }
     }
     // 3 秒間 0.5 も近づけなかったらあきらめる（近づきたいとき だけ数える）

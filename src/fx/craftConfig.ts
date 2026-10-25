@@ -1,3 +1,5 @@
+import { TOOL_DEFAULTS } from '../tools/config';
+
 /**
  * M4 の画面・音の数値を 1 か所に（仕様 M4 §3, §4.5）。
  * settings の名前（pickupLogTicks など）と同じ名前。つなぎ込みで settings とつなぐ。
@@ -60,9 +62,10 @@ export interface ToolNumbers {
   arrowDamage: number;
 }
 
+/** 数は tools/config.ts の TOOL_DEFAULTS と同じもの（写さず読む。tools/config.ts は型だけを読む葉のファイルなので循環しない） */
 export const TOOL_NUMBERS: ToolNumbers = {
-  toolPower: { wood_pickaxe: 2, stone_pickaxe: 4, iron_pickaxe: 6, wood_axe: 2, stone_axe: 4, iron_axe: 6, kin_pickaxe: 6, kin_axe: 6, kuwa: 4 },
-  toolLevel: { wood_pickaxe: 0, stone_pickaxe: 1, iron_pickaxe: 2, wood_axe: 0, stone_axe: 0, iron_axe: 0, kin_pickaxe: 2, kin_axe: 0 },
-  weaponDamage: { bokuto: 2, katana: 4, naginata: 3, crystal_katana: 4, kin_katana: 5, kin_pickaxe: 5, kin_axe: 5 },
-  arrowDamage: 2,
+  toolPower: { ...TOOL_DEFAULTS.toolPower },
+  toolLevel: { ...TOOL_DEFAULTS.toolLevel },
+  weaponDamage: { ...TOOL_DEFAULTS.weaponDamage },
+  arrowDamage: TOOL_DEFAULTS.arrowDamage,
 };

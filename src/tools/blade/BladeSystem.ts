@@ -18,12 +18,14 @@ import type {
 import { TECH_PHASES } from '../../char/techCurves';
 import { boxOf, capsuleDist, normDeg, thrustTilt, wallBetween } from '../../combat/attackFacing';
 import { bladeReachOf, techAdvance } from './advance';
+import { BLADE_ITEMS } from '../bladeSets';
 
 const DEG = Math.PI / 180;
 const MAX_QUEUE = 256;
 
-/** 刀（わざ・かまえが ある もの）。なぎなたは 入れない（今の パンチのまま） */
-export const BLADE_ITEMS: ReadonlySet<ItemId> = new Set<ItemId>(['bokuto', 'katana', 'crystal_katana', 'raijin_ken', 'fujin_ken', 'niji', 'kin_katana']);
+
+/** 刀の集まりは tools/bladeSets.ts が出どころ（ここからも今までどおり読める） */
+export { BLADE_ITEMS };
 
 /** わざのダメージ = 刀の強さ × 倍率。0.01 の位に まるめるだけ（四捨五入も 最低 1 も しない。WEAPON-4 §4.3） */
 export function techDamage(base: number, mul: number): number {

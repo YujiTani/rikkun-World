@@ -1,5 +1,3 @@
-import type { YokaiKind } from '../../contracts';
-
 /**
  * 全アイテムの説明の表（M6 §2.2）。文はここ 1 か所だけに書く。
  * 画面（せつめい パネル）・ツールチップ・`craft.info()` は、この表と設定から作った同じデータを読む。
@@ -263,13 +261,8 @@ export const MOMO_NAMA_SOURCE = 'とりごや で そだった おとな から'
 /** 「どこで」の むし の文（LIVE-1 版 3.2 §3.1） */
 export const MUSHI_SOURCE = 'むしとりあみ で き から とる';
 
-/** 妖怪の名前（ドロップ表の「〇〇 が おとす」） */
-export const YOKAI_NAME: Readonly<Record<YokaiKind, string>> = {
-  karakasa: 'からかさ',
-  chochin: 'ちょうちん',
-  nurikabe: 'ぬりかべ',
-  rokurokubi: 'ろくろくび',
-};
+/** 妖怪の名前（ドロップ表の「〇〇 が おとす」）。出どころは yokai/stats.ts */
+export { YOKAI_NAME } from '../../yokai/stats';
 
 /** 四角のメーターの最大の数（§2.2） */
 export const STAT_MAX = { dig: 6, damage: 6, guard: 5 } as const;

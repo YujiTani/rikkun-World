@@ -47,6 +47,7 @@ import { cellInWall } from '../world/wall';
 import { lookDirection, raycastBlocks } from './raycast';
 import type { BodyBlocksPort } from './bodyBlocks';
 import { isBladeItem } from '../tools/blade/BladeSystem';
+import { BLADE_LIKE_ITEMS } from '../tools/bladeSets';
 import type { LegendSystem } from '../legend/LegendSystem';
 import { routeAttackInput, type ParryInput, type Parry } from '../combat/parry';
 import { blockFamily, effectivePower, toolFamily, toolRank } from './toolFamily';
@@ -843,7 +844,7 @@ export class DigSystemImpl implements DigSystem {
     let n = 0;
     if (it.endsWith('_pickaxe') || it.endsWith('_axe')) n = w.pickaxe.block;
     else if (it === 'kuwa') n = w.kuwa.block;
-    else if (isBladeItem(it) || it === 'naginata') n = w.blade.block;
+    else if (BLADE_LIKE_ITEMS.has(it)) n = w.blade.block;
     if (n > 0) this.inventory.wearHeld?.(n);
   }
 

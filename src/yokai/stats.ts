@@ -3,6 +3,14 @@ import { TITLE_RULES } from './title';
 
 export type { YokaiTitle };
 
+/** 妖怪の名前（ひらがな）。画面・ログ・ドロップ表の文で使う、ひとつだけの表 */
+export const YOKAI_NAME: Readonly<Record<YokaiKind, string>> = {
+  karakasa: 'からかさ',
+  chochin: 'ちょうちん',
+  nurikabe: 'ぬりかべ',
+  rokurokubi: 'ろくろくび',
+};
+
 /** 妖怪の強さ（設計書 3 章の表）。M3 本番の AI が使う */
 export interface YokaiStats {
   /** 体力（素手で何回たたくとたおれるか） */

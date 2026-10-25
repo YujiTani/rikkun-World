@@ -2,9 +2,9 @@ import type { YokaiKind } from '../contracts';
 
 /**
  * 妖怪の 種類の えらび方（COUNTRY-1 §3.3）。国の行（種類 → 重み）× 全体の倍率で 1 つ えらぶ。
- * 順番は 昔から この 4 つ（乱数の 並びを きめる）。表に ない 種類は 重み 0。
+ * 順番は 昔から この 4 つ（乱数の 並びを きめる。見本ページの並びの yokai/index.ts の YOKAI_ORDER とは別もの）。表に ない 種類は 重み 0。
  */
-export const YOKAI_ORDER: readonly YokaiKind[] = ['karakasa', 'chochin', 'rokurokubi', 'nurikabe'];
+export const YOKAI_DRAW_ORDER: readonly YokaiKind[] = ['karakasa', 'chochin', 'rokurokubi', 'nurikabe'];
 
 export type YokaiRow = Partial<Record<YokaiKind, number>>;
 export type YokaiScale = Record<string, number | null | undefined>;
@@ -23,7 +23,7 @@ export function weightOf(row: YokaiRow, scale: YokaiScale, k: YokaiKind): number
 
 export function rowTotal(row: YokaiRow, scale: YokaiScale): number {
   let t = 0;
-  for (const k of YOKAI_ORDER) t += weightOf(row, scale, k);
+  for (const k of YOKAI_DRAW_ORDER) t += weightOf(row, scale, k);
   return t;
 }
 
@@ -39,7 +39,7 @@ export function effectiveRow(row: YokaiRow, scale: YokaiScale, fallback: YokaiRo
 export function pickYokaiKind(row: YokaiRow, scale: YokaiScale, nurikabeFull: boolean, r: number): YokaiKind | null {
   const w: number[] = [];
   let total = 0;
-  for (const k of YOKAI_ORDER) {
+  for (const k of YOKAI_DRAW_ORDER) {
     const v = k === 'nurikabe' && nurikabeFull ? 0 : weightOf(row, scale, k);
     w.push(v);
     total += v;
@@ -47,9 +47,9 @@ export function pickYokaiKind(row: YokaiRow, scale: YokaiScale, nurikabeFull: bo
   if (!(total > 0)) return null;
   let x = r * total;
   let last: YokaiKind | null = null;
-  for (let i = 0; i < YOKAI_ORDER.length; i++) {
+  for (let i = 0; i < YOKAI_DRAW_ORDER.length; i++) {
     if (w[i]! <= 0) continue;
-    last = YOKAI_ORDER[i]!;
+    last = YOKAI_DRAW_ORDER[i]!;
     if (x < w[i]!) return last;
     x -= w[i]!;
   }
