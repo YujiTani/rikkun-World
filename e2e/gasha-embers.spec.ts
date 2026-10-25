@@ -29,6 +29,11 @@ async function erupt(page: Page, stand?: { x: number; z: number; up?: number }):
 /** 近くに 別の 燃えかすが ない（minGap ブロック いない）、読みこんだ 範囲の 地面の 燃えかす */
 const isolated = (list: Ember[], minGap = 5) => list.filter((e) => !e.body && e.z > 8 && e.z < 120 && e.x > 8 && e.x < 120 && list.every((o) => o === e || Math.hypot(o.x - e.x, o.z - e.z) > minGap));
 
+/** 切る・殴る 場所（手前）と 同じ 高さの 地面の 燃えかす（隕石の 小さな 穴の 底の ものは 除く）の 印 */
+const flatOf = (page: Page, list: Ember[]) => page.evaluate((l) => l.map((e: Ember) => { const gt = (window as any).__gt; return gt.groundTop(e.x, e.z) === e.y && gt.groundTop(e.x, e.z + 1.8) === e.y; }), list);
+/** e の いちばん 近い ほかの 燃えかす（地面の もの。体の 上は 除く） */
+const nearestOther = (list: Ember[], e: Ember): Ember => list.filter((o) => o !== e && !o.body).sort((a, b) => Math.hypot(a.x - e.x, a.z - e.z) - Math.hypot(b.x - e.x, b.z - e.z))[0]!;
+
 test.describe('燃えかす', () => {
   test('約 5 分（調整表の sec）のこって、そのあと 消える。5 分 たつ 前に 消えない', async ({ page }) => {
     const errs = await openGasha(page);
@@ -90,9 +95,12 @@ test.describe('燃えかす', () => {
     const errs = await openGasha(page);
     await setupBoss(page);
     const list = await erupt(page);
-    const targets = isolated(list, 8);
+    // 隕石の まわりに 火の 粉の 燃えかすが かたまる ので、すきまは 3.5 ブロック。隕石の 小さな 穴の 底では なく、切る 場所（手前）と 同じ 高さの 地面の もの
+    const flat = await flatOf(page, list);
+    const targets = isolated(list, 3.5).filter((e) => flat[list.indexOf(e)]);
     expect(targets.length).toBeGreaterThan(1);
-    const e = targets[0]!, other = targets[targets.length - 1]!;
+    const e = targets[0]!, other = targets[targets.length - 1]!, neighbor = nearestOther(list, e);
+    expect(neighbor, '近い 隣').toBeTruthy();
     await takeKatana(page, 'chudan');
     await page.evaluate((e) => {
       const gt = (window as any).__gt, h = gt.h;
@@ -106,10 +114,11 @@ test.describe('燃えかす', () => {
     const after = await page.evaluate((ids) => {
       const g = (window as any).__gashaBig;
       const live = new Set(g.eruptionEmbers().map((x: Ember) => x.id));
-      return { n: g.attackInfo().eruption.embers as number, doused: g.attackInfo().eruption.doused as number, eGone: !live.has(ids.e), otherKept: live.has(ids.o) };
-    }, { e: e.id, o: other.id });
+      return { n: g.attackInfo().eruption.embers as number, doused: g.attackInfo().eruption.doused as number, eGone: !live.has(ids.e), otherKept: live.has(ids.o), neighborKept: live.has(ids.n) };
+    }, { e: e.id, o: other.id, n: neighbor.id });
     expect(after.eGone, '殴った 燃えかすは 消える').toBe(true);
     expect(after.otherKept, 'はなれた 燃えかすは のこる').toBe(true);
+    expect(after.neighborKept, '近い 隣の 燃えかすも のこる').toBe(true);
     expect(after.doused).toBeGreaterThanOrEqual(1);
     expect(after.n).toBeLessThan(before);
     expect(errs).toEqual([]);
@@ -120,8 +129,11 @@ test.describe('燃えかす', () => {
     await installAimHelpers(page);
     await setupBoss(page);
     const list = await erupt(page);
-    const e = isolated(list, 8)[0]!;
-    const r = await page.evaluate((e) => {
+    const flat = await flatOf(page, list);
+    const e = isolated(list, 3.5).filter((q) => flat[list.indexOf(q)])[0]!; // 刀と おなじ: 穴の 底では なく 同じ 高さの 地面の もの
+    expect(e).toBeTruthy();
+    const neighbor = nearestOther(list, e);
+    const r = await page.evaluate(({ e, nid }) => {
       const gt = (window as any).__gt, h = gt.h, aim = (window as any).__aim, g = gt.big();
       // 何も 持たない（素手）
       for (let i = 0; i < 9; i++) h.inventory.setSlot(i, null);
@@ -136,9 +148,10 @@ test.describe('燃えかす', () => {
       h.input.release('primary');
       h.step(10);
       const live = new Set(g.eruptionEmbers().map((x: Ember) => x.id));
-      return { n0, n1: g.attackInfo().eruption.embers as number, gone: !live.has(e.id), doused: g.attackInfo().eruption.doused as number };
-    }, e);
+      return { n0, n1: g.attackInfo().eruption.embers as number, gone: !live.has(e.id), neighborKept: live.has(nid), doused: g.attackInfo().eruption.doused as number };
+    }, { e, nid: neighbor.id });
     expect(r.gone, '殴った 燃えかすは 消える').toBe(true);
+    expect(r.neighborKept, '近い 隣の 燃えかすは のこる').toBe(true);
     expect(r.doused).toBeGreaterThanOrEqual(1);
     expect(errs).toEqual([]);
   });
@@ -176,6 +189,34 @@ test.describe('燃えかす', () => {
     expect(nearBurnt, '落ちた 点の すぐ そばの くさは 燃える').toBe(near);
     expect(farBurnt, 'はなれた くさは のこる').toBe(0);
     expect(far).toBeGreaterThan(1000);
+    expect(errs).toEqual([]);
+  });
+
+  test('家・置いた ブロックは 噴火で こわれない: 屋根・床（かわら）・柱（き）・チェスト（たんす）は 全部 のこり、穴も あかない。地面の 草は 燃える', async ({ page }) => {
+    const errs = await openGasha(page);
+    await setupBoss(page);
+    // 地面いちめんに 家の 部品を 置く: かわら（屋根・床 = 地面の いちばん 上を おきかえ）・き（柱）・たんす（チェスト）。ほかに 草も
+    const cells = await page.evaluate(() => {
+      const gt = (window as any).__gt, h = gt.h;
+      const out: { x: number; y: number; z: number; b: string }[] = [];
+      for (let x = 20; x <= 110; x++) for (let z = 12; z <= 118; z++) {
+        const y = gt.groundTop(x, z), m = (x + z) % 4;
+        if (h.world.getBlock(x, y, z) !== 'air') continue;
+        if (m === 0) { if (h.world.setBlock(x, y - 1, z, 'kawara')) out.push({ x, y: y - 1, z, b: 'kawara' }); }
+        else if (m === 1) { if (h.world.setBlock(x, y, z, 'log')) out.push({ x, y, z, b: 'log' }); }
+        else if (m === 2) { if (h.world.setBlock(x, y, z, 'tansu')) out.push({ x, y, z, b: 'tansu' }); }
+        else h.world.setBlock(x, y, z, 'kusa');
+      }
+      return out;
+    });
+    expect(cells.length).toBeGreaterThan(4000);
+    const list = await erupt(page);
+    expect(list.filter((e) => !e.body).length).toBeGreaterThan(20);
+    const changed = await page.evaluate((cells) => {
+      const h = (window as any).__gt.h;
+      return cells.filter((c: { x: number; y: number; z: number; b: string }) => h.world.getBlock(c.x, c.y, c.z) !== c.b).map((c: { x: number; y: number; z: number; b: string }) => `${c.b}@${c.x},${c.y},${c.z}`);
+    }, cells);
+    expect(changed, '家の 部品は ひとつも かわらない').toEqual([]);
     expect(errs).toEqual([]);
   });
 

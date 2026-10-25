@@ -520,7 +520,7 @@ describe('とどめ → 赤い コア → ごほうび（宝箱は ない）', (
     const r = rig();
     await r.rel.spawn({ distance: 40 });
     r.rel.defeat();
-    expect(r.boss().damaged).toEqual([{ part: 'head', amount: 1e9 }]);
+    expect(r.boss().damaged).toEqual([{ part: 'girl', amount: 1e9 }]);
     expect(r.rel.state()).toBe('present');
     expect(r.rel.info().form).toBe('down');
     const r2 = rig();
@@ -591,8 +591,8 @@ describe('遠くの シルエット（体の 材料に かける）', () => {
   });
 });
 
-describe('体力 1/3 で 少女へ（#293 まとめ）', () => {
-  afterEach(() => { RELEASE.spawn.chancePerMorning = 0.3; RELEASE.girl.hpFraction = 1 / 3; RELEASE.girl.loadHpFraction = 0.6; });
+describe('体力 1/2（調整表 girl.hpFraction）で 少女へ（#293 まとめ）', () => {
+  afterEach(() => { RELEASE.spawn.chancePerMorning = 0.3; RELEASE.girl.hpFraction = 1 / 2; RELEASE.girl.loadHpFraction = 0.6; });
 
   async function fighting(over: Parameters<typeof rig>[0] = {}) {
     const r = rig({ chance: 0, ...over });
@@ -621,9 +621,9 @@ describe('体力 1/3 で 少女へ（#293 まとめ）', () => {
     expect(r.log.girlStarts).toBe(1); // 1 回だけ
   });
 
-  it('体力が 1/3 以下に なると 噴火を 出して 固まる(finale)。まだ 少女は 出ない。固まった しゅんかんに 少女の 登場(summon)。BGM は release では 止めない', async () => {
+  it('体力が 半分（hpFraction）以下に なると 噴火を 出して 固まる(finale)。まだ 少女は 出ない。固まった しゅんかんに 少女の 登場(summon)。BGM は release では 止めない', async () => {
     const r = await fighting();
-    r.boss().hp = 1000 / 3 - 1;
+    r.boss().hp = 1000 * RELEASE.girl.hpFraction - 1;
     r.run(RELEASE.spawn.checkEverySec + 0.2);
     await r.settle();
     r.run(RELEASE.spawn.checkEverySec + 0.2);
@@ -715,9 +715,9 @@ describe('体力 1/3 で 少女へ（#293 まとめ）', () => {
     expect(r.log.girlStarts).toBe(1);
   });
 
-  it('ちょうど 1/3 でも かわる。たおした（0）後は かわらない', async () => {
+  it('ちょうど hpFraction でも かわる。たおした（0）後は かわらない', async () => {
     const r = await fighting();
-    r.boss().hp = 1000 / 3;
+    r.boss().hp = 1000 * RELEASE.girl.hpFraction;
     r.run(RELEASE.spawn.checkEverySec + 0.2);
     await r.settle();
     r.run(RELEASE.spawn.checkEverySec + 0.2);
@@ -756,9 +756,9 @@ describe('体力 1/3 で 少女へ（#293 まとめ）', () => {
   });
 
   it('調整表: girl.hpFraction を かえると きりかわる 体力が かわる', async () => {
-    RELEASE.girl.hpFraction = 0.5;
+    RELEASE.girl.hpFraction = 0.3;
     const r = await fighting();
-    r.boss().hp = 450;
+    r.boss().hp = 280;
     r.run(RELEASE.spawn.checkEverySec + 0.2);
     await r.settle();
     r.run(RELEASE.spawn.checkEverySec + 0.2);

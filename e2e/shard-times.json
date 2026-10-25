@@ -27,6 +27,7 @@
   "e2e/fixM6Scroll.spec.ts": 277,
   "e2e/flora75.spec.ts": 80,
   "e2e/gasha-abort.spec.ts": 94,
+  "e2e/gasha-aftermath.spec.ts": 560,
   "e2e/gasha-attacks.spec.ts": 277,
   "e2e/gasha-audio.spec.ts": 85,
   "e2e/gasha-chase.spec.ts": 57,

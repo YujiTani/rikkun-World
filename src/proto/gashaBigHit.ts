@@ -201,6 +201,10 @@ export interface HitEnv {
   coreGuard?(): boolean;
   /** とどめの あと(finish が core)コアを たたいた。数えて よければ true（数える 間かくは 呼んだ 側が 見る）。at = 当たった 点 */
   onCoreHit?(at: Vec3 | null): boolean;
+  /** true の 間は 大きな 姿の 体・コアは ダメージ 0(少女の 間。「少女」の 部位だけ 通る)。はじいた 火花・音・バリアの 波紋だけ */
+  bodyGuard?(): boolean;
+  /** bodyGuard で はじいた(at = 当たった 点。なければ null)。バリアの 波紋・音に つなぐ */
+  onDeflect?(at: Vec3 | null, part: string): void;
   /** NINJA-1: 刀（blade）・パンチ（ray。矢・マッチョの パンチは 除く）が 部位に 当たった（忍びの手甲の 追い打ち用）。波・雷・ドーム・追い打ち自身は 知らせない */
   onStrike?(info: { part: string; source: string }): void;
   /** SAMURAI-1: 明珍手甲の「防御力 無視」の 数（着て いなければ 0 / なし）。刀・波・雷・ドーム（blade・wave・strike・dome）の 当たりだけに 効く。矢・パンチ（ray）には かけない */
@@ -333,6 +337,18 @@ export class BigHit {
   /** 部位に ダメージ（武器の 強さ amount × 倍率）。実際に 与えた 数を 返す（倍率 0 なら 0 で、怒らない） */
   damage(part: string, amount: number, at: Vec3 | null = null, source = 'test'): number {
     if (this.finish !== 'off') return this.finishDamage(part, at);
+    // 少女の 間: 体も コアも ダメージ 0(はじく 手ごたえだけ)。肩の 少女('girl')は 通る
+    if (part !== 'girl' && mulOf(part) > 0 && this.env.bodyGuard?.()) {
+      if (!at) {
+        const i = this.parts.indexOf(part as Part);
+        if (i >= 0) at = { x: this.boxes[i]!.c[0]!, y: this.boxes[i]!.c[1]!, z: this.boxes[i]!.c[2]! };
+      }
+      this.deflects++;
+      if (at) this.spark(at, 0x9fe8ff, 0.5);
+      this.env.onDeflect?.(at, part);
+      this.env.sources?.sound?.();
+      return 0;
+    }
     if (part === 'core' && this.env.coreGuard?.()) {
       if (!at) { const i = this.parts.indexOf('core'); if (i >= 0) at = { x: this.boxes[i]!.c[0]!, y: this.boxes[i]!.c[1]!, z: this.boxes[i]!.c[2]! }; }
       this.deflects++;
@@ -461,21 +477,22 @@ export class BigHit {
       touched = (i) => boxTouchesFan(this.boxes[i]!, sh, m + this.reachOf(i));
     }
     const i = this.pick(touched, from);
-    if (i < 0) {
-      // ダメージの ある 部位に 当たらなかった: ガラスの 雲に 当たって いれば 割る（1 振りに つき 1 回）
-      if (this.env.onCloud) {
-        let bj = -1, bd = Infinity;
-        for (let k = 0; k < this.boxes.length; k++) {
-          if (this.parts[k] !== 'cloud' || !touched(k)) continue;
-          const d = distToBox(this.boxes[k]!, from.x, from.y, from.z);
-          if (d < bd) { bj = k; bd = d; }
-        }
-        if (bj >= 0) { this.swingDone = true; this.env.onCloud(closestOnBox(this.boxes[bj]!, from.x, from.y, from.z, { x: 0, y: 0, z: 0 })); }
-      }
-      return;
-    }
+    if (i < 0) { this.breakCloud(touched, from); return; }
     this.swingDone = true; // 1 振りに つき 1 回
-    this.strike(i, b.damage, from, 'blade');
+    // ダメージが 入らなかった(少女の 間・とどめの あと)ときは、そこに ガラスの 雲が あれば 割る(はじかれて ガラスまで 割れなく ならない ように)
+    if (this.strike(i, b.damage, from, 'blade') <= 0) this.breakCloud(touched, from);
+  }
+
+  /** ガラスの 雲に 当たって いれば 割る(1 振りに つき 1 回) */
+  private breakCloud(touched: (i: number) => boolean, from: Vec3): void {
+    if (!this.env.onCloud) return;
+    let bj = -1, bd = Infinity;
+    for (let k = 0; k < this.boxes.length; k++) {
+      if (this.parts[k] !== 'cloud' || !touched(k)) continue;
+      const d = distToBox(this.boxes[k]!, from.x, from.y, from.z);
+      if (d < bd) { bj = k; bd = d; }
+    }
+    if (bj >= 0) { this.swingDone = true; this.env.onCloud(closestOnBox(this.boxes[bj]!, from.x, from.y, from.z, { x: 0, y: 0, z: 0 })); }
   }
 
   private stepWaves(s: HitSources): void {

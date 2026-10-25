@@ -47,6 +47,50 @@ describe('コアの 予兆（無敵）', () => {
     expect(bh.deflects).toBe(1);
   });
 });
+describe('少女の 間の 体・コアの 無敵（bodyGuard）', () => {
+  it('bodyGuard が true の 間は コア・手・頭に ダメージ 0・ふり落とし(onCore)も 起きない。はじいた 数と 通知(onDeflect)だけ。「少女」は 通る', () => {
+    const { boxes, model } = bodyBoxes();
+    let guard = true, cores = 0;
+    const deflected: string[] = [];
+    const bh = new BigHit({ scene: new Scene(), angry: () => {}, onCore: () => { cores++; }, bodyGuard: () => guard, onDeflect: (_a, part) => { deflected.push(part); } });
+    bh.bind(boxes, model);
+    for (const part of ['core', 'hand', 'head', 'upperArm', 'foreArm']) expect(bh.damage(part, 1e6)).toBe(0);
+    expect(bh.hp).toBe(bh.maxHp);
+    expect(cores).toBe(0);
+    expect(bh.deflects).toBe(5);
+    expect(deflected).toEqual(['core', 'hand', 'head', 'upperArm', 'foreArm']);
+    expect(bh.damage('girl', 10)).toBeGreaterThan(0);
+    expect(bh.deflects).toBe(5);
+    guard = false;
+    expect(bh.damage('hand', 50)).toBeGreaterThan(0);
+  });
+
+  it('とどめの あと(finish が core)は bodyGuard に よらず コアの 数え方が そのまま', () => {
+    const { boxes, model } = bodyBoxes();
+    let hits = 0;
+    const bh = new BigHit({ scene: new Scene(), angry: () => {}, bodyGuard: () => true, onCoreHit: () => { hits++; return true; } });
+    bh.bind(boxes, model);
+    bh.setFinish('core');
+    expect(bh.damage('core', 1)).toBe(1);
+    expect(hits).toBe(1);
+    expect(bh.deflects).toBe(0);
+  });
+
+  it('ダメージが 入らなかった 刀の 振りでも、そこに ガラスの 雲が あれば 割れる(体に はじかれて ガラスまで 割れなく ならない)', () => {
+    const { boxes, model } = bodyBoxes();
+    const hand = boxes.find((b) => b.name === 'handL')!;
+    const hc = v(hand.c[0]!, hand.c[1]!, hand.c[2]!);
+    const cloud: BoxLike = { name: 'bank0', c: [hc.x, hc.y, hc.z], ax: hand.ax, half: [hand.half[0]! + 1, hand.half[1]! + 1, hand.half[2]! + 1] };
+    const broken: Vec3[] = [];
+    const blade: HitSources = { blade: () => ({ shape: { kind: 'capsule', from: hc, to: v(hc.x, hc.y + 0.5, hc.z), radius: 0.5 } as BladeShapeInfo, damage: 10, swing: 's1', frame: 1 }) };
+    const bh = new BigHit({ scene: new Scene(), angry: () => {}, bodyGuard: () => true, onCloud: (at) => { broken.push(at); }, sources: blade });
+    bh.bind([hand, cloud], model);
+    bh.step(1 / 60);
+    expect(bh.hp).toBe(bh.maxHp);
+    expect(broken.length).toBe(1);
+  });
+});
+
 /** 体力の 初期値は 調整表から（数を かえても テストは 追従する） */
 const HP = T.hit.hp;
 const hpIs = (r: { bh: { hp: number } }, lost: number): void => { expect(r.bh.hp).toBeCloseTo(HP - lost, 5); };

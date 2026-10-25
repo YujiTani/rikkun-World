@@ -27,6 +27,7 @@ export const BIG_FILES: Record<BigSfxName, FileDef> = {
   a4_inhale: one('a4_inhale'),
   a4_erupt: one('a4_erupt'),
   a4_ash: { files: ['a4_ash', 'a4_ash_b', 'a4_ash_c'], ext: 'ogg' },
+  a4_meteor: { files: ['step_slam', 'step_slam_b', 'step_slam_c'], ext: 'ogg' }, // 隕石の 着地の ドン（前進の 手の たたきつけ = 効果音ラボの 太鼓 由来を meteorCents だけ 低く）
   a4_embers: one('a4_embers', 'wav', true),
   a4_embers_b: one('a4_embers_b', 'wav', true),
   a5_cloud: one('a5_cloud'),
@@ -40,7 +41,7 @@ export const BIG_FILES: Record<BigSfxName, FileDef> = {
 };
 const DIR = './sound/gasha/big/';
 export const bigSfxUrl = (file: string, ext: 'ogg' | 'wav'): string => `${DIR}${file}.${ext}`;
-export const allBigSfxUrls = (): string[] => Object.values(BIG_FILES).flatMap((d) => d.files.map((f) => bigSfxUrl(f, d.ext)));
+export const allBigSfxUrls = (): string[] => [...new Set(Object.values(BIG_FILES).flatMap((d) => d.files.map((f) => bigSfxUrl(f, d.ext))))]; // a4_meteor と step_slam は 同じ 3 ファイル: 二重に 読みこまない
 
 /** 鳴り つづけて いる ループ 1 つ（止めると 秒かけて 小さく なって 切れる） */
 export interface BigLoop { stop(fadeOutSec: number): void }
@@ -66,9 +67,9 @@ export function createBigSfx(env: BigSfxEnv, tune: SfxTune = T.sfx, seed = 294) 
   /** ループ: 鳴らしたい か（want）・鳴って いる もの（h）・止める ときの フェード */
   const loops = new Map<BigSfxName, { want: boolean; h: BigLoop | null; fadeIn: number; fadeOut: number }>();
 
-  /** 1 回 鳴らす。鳴らせたら true（volume 0・同時 maxSame・ファイル未読みこみは false） */
-  function play(name: BigSfxName, delaySec = 0): boolean {
-    const vol = tune.volume * tune.gain[name];
+  /** 1 回 鳴らす。鳴らせたら true（volume 0・同時 maxSame・ファイル未読みこみは false）。mul = 音量の 倍率 */
+  function play(name: BigSfxName, delaySec = 0, mul = 1): boolean {
+    const vol = tune.volume * tune.gain[name] * mul;
     if (!(vol > 0)) return false;
     const def = BIG_FILES[name];
     const i = turn[name] ?? 0;
@@ -76,9 +77,9 @@ export function createBigSfx(env: BigSfxEnv, tune: SfxTune = T.sfx, seed = 294) 
     const url = bigSfxUrl(def.files[i]!, def.ext);
     const start = env.now() + delaySec;
     const list = (active.get(url) ?? []).filter((x) => x.e > start - 1e-9 || x.s > start);
-    const cap = name === 'a4_ash' ? tune.ashMaxSame : tune.maxSame; // 灰は 小さく たくさん 重なる
+    const cap = name === 'a4_ash' ? tune.ashMaxSame : name === 'a4_meteor' ? tune.meteorMaxSame : tune.maxSame; // 火の 粉は 小さく たくさん 重なる
     if (list.filter((x) => x.s <= start + 1e-9 && start < x.e - 1e-9).length >= cap) { active.set(url, list); return false; }
-    const cents = (rnd() * 2 - 1) * tune.detuneCents, db = (rnd() * 2 - 1) * tune.gainDb;
+    const cents = (rnd() * 2 - 1) * tune.detuneCents + (name === 'a4_meteor' ? tune.meteorCents : 0), db = (rnd() * 2 - 1) * tune.gainDb;
     const dur = env.play(url, { gain: vol * Math.pow(10, db / 20), rate: Math.pow(2, cents / 1200), delaySec });
     if (!(dur > 0)) { active.set(url, list); return false; }
     list.push({ s: start, e: start + dur });
@@ -133,8 +134,10 @@ export function createBigSfx(env: BigSfxEnv, tune: SfxTune = T.sfx, seed = 294) 
     smoke: () => play('a3_smoke'),
     inhale: () => play('a4_inhale'),
     erupt: () => play('a4_erupt'),
-    /** 灰が 1 つ 落ちた */
+    /** 火の 粉が 1 つ 落ちた（小さな ぱちっ） */
     ash: () => play('a4_ash'),
+    /** 隕石が 1 つ 落ちた（重い ドン）。dist = プレイヤーからの 水平きょり（遠い ほど 小さい） */
+    meteor: (dist: number) => play('a4_meteor', 0, Math.max(tune.meteorFarGain, 1 - (1 - tune.meteorFarGain) * Math.min(1, dist / Math.max(1e-6, tune.meteorFar)))),
     /** 燃え残りの ぱちぱち: n = 燃えかすの 数。0 で 消える。多いと 別の 録音も 重ねる */
     embers: (n: number) => {
       if (n > 0) loopOn('a4_embers', tune.emberFadeInSec, tune.emberFadeOutSec); else loopOff('a4_embers');

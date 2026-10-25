@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { TUNE as T } from './gashaBigTuning';
-import { BIG_FILES, bigSfxUrl, createBigSfx, type BigLoop, type BigSfxEnv, type BigSfxName } from './gashaBigSfx';
+import { BIG_FILES, allBigSfxUrls, bigSfxUrl, createBigSfx, type BigLoop, type BigSfxEnv, type BigSfxName } from './gashaBigSfx';
 import type { SfxPlayOpts } from './gashaBigSfxPlayer';
 
 /** 鳴らす 口の 偽物: 鳴らした ものと ループの 入り・切れを 記録する */
@@ -26,6 +26,11 @@ function setup(durSec = 0.5, loaded = true) {
 }
 
 describe('大きな姿の 効果音（#293）', () => {
+  it('読みこむ 一覧に 同じ ファイルが 二重に ない（a4_meteor と step_slam は おなじ 3 ファイル）', () => {
+    const urls = allBigSfxUrls();
+    expect(new Set(urls).size).toBe(urls.length);
+    expect(urls.filter((u) => /step_slam/.test(u)).length).toBe(3);
+  });
   it('調整表の 音は ぜんぶ ファイルが ある（ふつうは ogg、ループは wav）', () => {
     for (const [name, d] of Object.entries(BIG_FILES)) {
       expect(name in T.sfx.gain, name).toBe(true);
@@ -84,6 +89,20 @@ describe('大きな姿の 効果音（#293）', () => {
     sfx.embers(0);
     expect(loops.every((l) => l.stopped === T.sfx.emberFadeOutSec)).toBe(true);
     expect(sfx.activeLoops()).toEqual([]);
+  });
+  it('攻撃 4: 隕石の 着地は 重い ドン（太鼓 由来の step_slam を 低く）。近い ほど 大きい。たくさん 落ちても 同時 meteorMaxSame まで', () => {
+    const { sfx, log, advance } = setup(1);
+    expect(sfx.meteor(0)).toBe(true);
+    expect(sfx.meteor(T.sfx.meteorFar * 2)).toBe(true);
+    const [near, far] = log;
+    expect(near!.url).toMatch(/step_slam(_b|_c)?\.ogg$/);
+    expect(near!.o.rate).toBeLessThan(Math.pow(2, (T.sfx.meteorCents + T.sfx.detuneCents + 1) / 1200)); // 低く
+    expect(near!.o.gain).toBeGreaterThan(far!.o.gain * 2);
+    advance(2);
+    log.length = 0;
+    let ok = 0;
+    for (let i = 0; i < 30; i++) if (sfx.meteor(5)) ok++;
+    expect(ok).toBe(Math.min(30, T.sfx.meteorMaxSame * 3)); // 3 ファイル × 同時 上限
   });
   it('攻撃 5: 雷雲 → 指への 落雷 → 電気（ループ）→ まわりの 落雷は 3 種を 順番に', () => {
     const { sfx, names, loops, advance } = setup(1);

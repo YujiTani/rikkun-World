@@ -4,7 +4,7 @@
  *    場所と 向きは gashaBig.ts の `place({ x, z, yawDeg })` に 直接 わたす（プレイヤーの 方を 向く）。
  *  ・たおす（体力 0。gashaBig.ts の onDefeated で 知らせが 来る）か、プレイヤーが 遠く（despawnDistance）へ はなれると
  *    gashaBig.ts の `despawn()` で 片づける（体・当たり・間欠泉・ゲージ・射線・エフェクト・音が ぜんぶ 消える）。次の 出番は また place() で 使いまわす。
- *  ・体力が 1/3 以下に なると 噴火を 出して 上を 向いた まま 固まる（BGM が ぶつっと 切れる）→ 少女（gashaGirl.ts）が 笑い声 → ワープで 飛びまわる → 決めポーズ → 魔法 5 回 →
+ *  ・体力が 半分（1/2。調整表 girl.hpFraction）以下に なると 噴火を 出して 上を 向いた まま 固まる（BGM が ぶつっと 切れる）→ 少女（gashaGirl.ts）が 笑い声 → ワープで 飛びまわる → 決めポーズ → 魔法 5 回 →
  *    大きな 姿の かたに 座って 休む（なぐると 大ダメージ）→ また 魔法、を たおすまで くりかえす。大きな 姿は 固まった まま（登れる・なぐれる）。
  *    少女の しくみは 先に 読みこんで ねかせて おき、固まった しゅんかんに summon() する。
  *  ・とどめ（体力 0 の 一撃）: 少女は その場に 座りこんで 動かない（無敵）→ 大きな 姿が 倒れて 赤い コアが 出る → コアを たたく たびに アイテムが ばらまかれる（PSO ふう。
@@ -39,7 +39,7 @@ export interface BossHandle {
   damage?(part: string, amount: number, at?: { x: number; y: number; z: number } | null, source?: string): number;
   /** とどめの あとの 様子(場面・コアの のこり) */
   finishInfo?(): { phase: string; coreHp: number; coreMax: number };
-  /** 体力 1/3: 噴火を 必ず 出して 上を 向いた まま 固まる(固まった しゅんかんに onHeld) */
+  /** 体力 1/2: 噴火を 必ず 出して 上を 向いた まま 固まる(固まった しゅんかんに onHeld) */
   finale?(): void;
   /** 固まって いるか */
   frozen?(): boolean;
@@ -114,7 +114,7 @@ export interface GirlHooks {
 
 export type ReleaseState = 'idle' | 'loading' | 'present' | 'defeated';
 /**
- * big = 大きな 姿で たたかう / freeze = 体力 1/3 で 噴火して 固まる(まで) / laugh = 笑い声 / orbit = 少女が ワープで 飛びまわる / pose = 正面で 決めポーズ /
+ * big = 大きな 姿で たたかう / freeze = 体力 1/2 で 噴火して 固まる(まで) / laugh = 笑い声 / orbit = 少女が ワープで 飛びまわる / pose = 正面で 決めポーズ /
  * girl = 少女の 魔法(大きな 姿は 固まった まま) / perch = 少女が 大きな 姿の かたに 座って 休む(なぐると 大ダメージ) /
  * down = とどめの あと(倒れて 赤い コアを たたく) / crumble = コアを こわした あと くずれて 消える
  */
@@ -157,7 +157,7 @@ export class GashaRelease {
     return {
       ...d,
       noTabi: true, // 足袋は ごほうび なので はじめから 着せない
-      // 体力 1/3 で 噴火して 固まった: 少女の 登場を はじめる
+      // 体力 1/2 で 噴火して 固まった: 少女の 登場を はじめる
       onHeld: () => { d.onHeld?.(); this.onHeld(); },
       // 体力 0 の 一撃: 少女は 座りこむ(大きな 姿は 倒れる)。実績・ごほうびは コアを こわした とき
       onDefeated: () => { d.onDefeated?.(); this.killBlow(); },
@@ -263,7 +263,7 @@ export class GashaRelease {
     this.form = 'big';
   }
 
-  /** 体力を 見て、少しずつ 少女を 読みこみ、1/3 以下で 大きな 姿を かくして 少女を 出す */
+  /** 体力を 見て、少しずつ 少女を 読みこみ、1/2 以下で 大きな 姿を かくして 少女を 出す */
   private stepGirl(): void {
     const h = this.handle;
     if (!h || this.form !== 'big' || !this.env.startGirl || !h.finale) return;
@@ -304,7 +304,7 @@ export class GashaRelease {
   /** たおした ことに する(開発用。体力を 0 に する → 本物と おなじ とどめの 流れ)。体の 口が 無ければ すぐ とどめの 流れへ */
   defeat(): void {
     if (this.st !== 'present' || this.finishing) return;
-    if (this.handle?.damage) this.handle.damage('head', 1e9);
+    if (this.handle?.damage) this.handle.damage('girl', 1e9); // 少女の 間は 体が ダメージ 0 なので「少女」の 部位で 体力を 0 に する
     else this.killBlow();
   }
 
@@ -314,7 +314,7 @@ export class GashaRelease {
     this.finishing = true;
     this.girl?.finish();
     this.env.bgmReset?.();
-    this.handle?.angry(false);
+    // ここで angry(false) は 呼ばない（体は gashaBig.ts の startFinish() で lock() 済み。怒り解除で ふだんの 動きに もどさない）
   }
 
   /** 1 回の 一撃で ばらまく もの: レア素材の 行ごとに(最小〜最大 × hitScale、最低 1)1 つの 山。山ごとに 光の 柱 */

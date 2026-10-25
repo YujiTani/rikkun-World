@@ -1,7 +1,7 @@
 /**
  * #293 がしゃどくろ 第二形態（少女）の「ワープ → 詠唱 → 魔法 4 種」。
  * 試作ページ（`?proto=gashaGirl`、開発サーバーだけ）は すぐ はじまる。ふだんの ゲームでは `{ dormant: true }` で 読みこんで ねかせて おき（見えない・動かない・描かない）、
- * 大きな 姿の 体力が 1/3 に なって 固まったら release.ts が summon() で はじめる（笑い声 → ワープで 飛びまわる → 決めポーズ → 5 回の 魔法 → 大きな 姿の かたに 座って 休む（perchSpot・setHitBox）→ また 魔法）。dismiss() で 止める。GLB は public/models/gasha/girl-cast.glb（相対パス。公開版でも 読める。頂点の 使わない 属性を 減らし、テクスチャは JPEG の 圧縮を 強めて 約 4 MB）。
+ * 大きな 姿の 体力が 1/2 に なって 固まったら release.ts が summon() で はじめる（笑い声 → ワープで 飛びまわる → 決めポーズ → 5 回の 魔法 → 大きな 姿の かたに 座って 休む（perchSpot・setHitBox）→ また 魔法）。dismiss() で 止める。GLB は public/models/gasha/girl-cast.glb（相対パス。公開版でも 読める。頂点の 使わない 属性を 減らし、テクスチャは JPEG の 圧縮を 強めて 約 4 MB）。
  * 少女は 歩かない・走らない（移動は ワープだけ）。ふだんは ゾンビの ように 右うでを 前に 出して 立つ。
  * すべて Game.onUpdate の 固定ステップで 進める。乱数は シード付き。ダメージは なし（見た目だけ）。
  * 魔法 1: 背面か 左横へ ワープ → プレイヤーの 足もとに 噴き出す / 2: 真後ろ → 周囲攻撃（渦）/
@@ -1010,7 +1010,8 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
     reflectWait = 0;
     restorePose(); model.position.y = y0; model.position.x = 0;
     purpleBurst(24); lineBurst(); sfx.warpIn(); fade(1);
-    bgm.request('girl', false); // 休んでいる 間は 戦いの 曲を 止める
+    // 休んでいる 間も「災厄」は 流したまま(ふだんの 曲に もどさない。オーナー 2026-10-24 20:17)。とどめ・片づけで 止まる
+    bgm.request('girl', true);
     phase = 'perch';
     updatePerch(0);
     opts.setHitBox?.(perchBox);
@@ -1096,7 +1097,7 @@ function build(deps: GashaGirlDeps, src: Object3D, clip: AnimationClip, clone: (
       if (pt >= T.eye.holdSec) turnDone(true); // はずかしくて その場で とまる
     } else if (phase === 'bigvanish') {
       fade(clamp01(pt / T.timing.vanishSec));
-      if (pt >= T.timing.vanishSec) { pivot.visible = false; phase = 'bigtext'; pt = 0; showBig(true); bgm.request('girl', false); }
+      if (pt >= T.timing.vanishSec) { pivot.visible = false; phase = 'bigtext'; pt = 0; showBig(true); }
     } else if (phase === 'bigtext') {
       if (pt >= T.eye.bigTextSec) { showBig(false); phase = 'bigwait'; pt = 0; }
     } else if (phase === 'bigwait') {

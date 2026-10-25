@@ -6,7 +6,7 @@ import { TUNE as BT } from '../src/proto/gashaBigTuning';
 import { RELEASE } from '../src/gasha/releaseTuning';
 
 /**
- * #293 段 4: 体力 1/3 → 噴火 → 固まる → 笑う → ワープ 5 回 → 決めポーズ → 魔法 → 5 回の あと 肩に 座って 休む（座った 少女は 大ダメージ）。
+ * #293 段 4: 体力 1/2 → 噴火 → 固まる → 笑う → ワープ 5 回 → 決めポーズ → 魔法 → 5 回の あと 肩に 座って 休む（座った 少女は 大ダメージ）。
  * 既存の gashaGirlIntro.spec.ts（正しい 流れの 順番）と だぶらない よう、境目・固まって いる 間・座った 少女の 当たり・途中の 片づけを 見る。
  * 時間では 待たず、コマで 進める。体力は 'girl' 部位（倍率 5・防御 0）で 正確に 下げる。
  */
@@ -35,17 +35,17 @@ async function untilSeated(page: Page): Promise<void> {
 }
 
 test.describe('切りかえの 境目', () => {
-  test('体力が 1/3 より 上の 間は 固まらない。1/3 を きった ところで 噴火を 出して から 固まる', async ({ page }) => {
+  test('体力が 切りかえの 体力（調整表 girl.hpFraction = 1/2）より 上の 間は 固まらない。きった ところで 噴火を 出して から 固まる', async ({ page }) => {
     const errs = await ready(page, false);
-    const r = await page.evaluate(() => {
+    const r = await page.evaluate((F) => {
       const w = window as any, gt = w.__gt, gg = w.__gg, g = gt.big();
       const out: any = {};
       gt.run(120, () => gt.heal());
       out.at55 = { form: gg.form(), frozen: g.frozen(), girl: w.__gashaGirl.phase() };
-      gg.hpTo(0.334); // 1/3 の すぐ 上
+      gg.hpTo(F + 0.004); // 切りかえの 体力の すぐ 上
       gt.run(120, () => gt.heal());
       out.above = { form: gg.form(), frozen: g.frozen(), hp: g.hp() };
-      g.damage('girl', 0.4); // 2 へらして 1/3 より 下へ
+      g.damage('girl', 1); // 5 へらして 切りかえの 体力より 下へ
       gt.run(3, () => gt.heal());
       out.cut = { form: gg.form(), hp: g.hp(), max: g.maxHp() };
       out.afterCut = { mode: g.attackInfo().mode, attack: g.attackInfo().attack, frozen: g.frozen() };
@@ -53,9 +53,9 @@ test.describe('切りかえの 境目', () => {
       out.heldAt = n;
       out.held = { form: gg.form(), mode: g.attackInfo().mode, eruptions: g.attackInfo().eruption.count };
       return out;
-    });
-    expect(r.at55, '1/3 より ずっと 上').toEqual({ form: 'big', frozen: false, girl: 'dormant' });
-    expect(r.above.form, '1/3 の すぐ 上').toBe('big');
+    }, RELEASE.girl.hpFraction);
+    expect(r.at55, '切りかえより ずっと 上').toEqual({ form: 'big', frozen: false, girl: 'dormant' });
+    expect(r.above.form, '切りかえの すぐ 上').toBe('big');
     expect(r.above.frozen).toBe(false);
     expect(r.cut.hp).toBeLessThanOrEqual(r.cut.max * RELEASE.girl.hpFraction);
     expect(r.cut.form).toBe('freeze');
@@ -173,7 +173,7 @@ test.describe('固まって いる 間（笑い・ワープ・ポーズ）', () 
 });
 
 test.describe('肩に 座った 少女', () => {
-  test('座って いる 間は 新しい 魔法を 出さず プレイヤーを 傷つけない（飛んで いた 弾が 消えた あと）・戦いの 曲は 止まる・座った 位置は 肩', async ({ page }) => {
+  test('座って いる 間は 新しい 魔法を 出さず プレイヤーを 傷つけない（飛んで いた 弾が 消えた あと）・曲は「災厄」の まま・座った 位置は 肩', async ({ page }) => {
     const errs = await ready(page);
     await page.evaluate(() => (window as any).__gg.hpTo(0.3));
     await untilSeated(page);
@@ -196,7 +196,7 @@ test.describe('肩に 座った 少女', () => {
     expect(r.form).toBe('perch');
     expect(r.taken).toBe(0);
     expect(r.maxShots, '魔法・渦・火の玉は 新しく 出ない').toBe(0);
-    expect(r.bgm.desired, '座って いる 間は 戦いの 曲を 止める').toBeNull();
+    expect(r.bgm.desired, '座って いる 間も「災厄」(ふだんの 曲に もどさない)').toBe('saiyaku');
     expect(r.dist).toBeLessThan(0.5);
     expect(errs).toEqual([]);
   });
@@ -251,7 +251,7 @@ test.describe('肩に 座った 少女', () => {
 });
 
 test.describe('プレイヤーが 遠い・やられた とき', () => {
-  test('perf.farDist（80）より 遠くで 体力が 1/3 を きっても、噴火 → 固まる → 笑う … と 切りかえが すすむ（矢などで 遠くから へらす場合）', async ({ page }) => {
+  test('perf.farDist（80）より 遠くで 体力が 切りかえの 体力を きっても、噴火 → 固まる → 笑う … と 切りかえが すすむ（矢などで 遠くから へらす場合）', async ({ page }) => {
     const errs = await openGasha(page);
     await installGirlTools(page);
     // 体を 東に 100 ブロック（farDist より 遠く・ゲージの 距離 barShowDistance 以内）に 置く

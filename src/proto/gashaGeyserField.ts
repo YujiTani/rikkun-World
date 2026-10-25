@@ -437,6 +437,15 @@ export class GeyserField {
     this.d.setNoFall(on);
   }
 
+  /** プレイヤー(足もと p)の 頭の 上から 柱の 上の はしまでに、体の 固い マス(ガラスの 雲も)が あるか */
+  private blockedAbove(g: GeyserSpec, p: { x: number; y: number; z: number }): boolean {
+    const R = T.geyser, hw = R.bodyHalfWidth;
+    const xs = [Math.floor(p.x - hw), Math.floor(p.x + hw)], zs = [Math.floor(p.z - hw), Math.floor(p.z + hw)];
+    const y0 = Math.floor(p.y + R.headHeight), y1 = Math.floor(g.top);
+    for (let y = y0; y <= y1; y++) for (const x of xs) for (const z of zs) if (this.d.bodySolid(x, y, z)) return true;
+    return false;
+  }
+
   private physics(dt: number): void {
     if (!this.specList.length && !this.assisted) return;
     const R = T.geyser;
@@ -450,6 +459,8 @@ export class GeyserField {
       if (Math.abs(p.x - cx) > half + reach || Math.abs(p.z - cz) > half + reach) continue;
       const gk = key(g.x0, g.z0);
       if (inColumn(g, p.x, p.y, p.z)) {
+        // 柱の 上に がしゃどくろの 体・ガラスが あって つきぬけられない: 打ち上げない(天井に 押しつけられた まま 動けなく ならない ように。横へ 歩いて 出られる)
+        if (R.blockedByBody && this.blockedAbove(g, p)) { this.sinking = null; continue; }
         inside = true;
         // 柱の 上の ほうから 落ちて きた ときは 打ち上げず、ゆっくり おりる（下まで ついて 柱を でるまで）
         if (this.sinking === null && p.y > g.top - R.sinkBelowTop && vel.y < 0) this.sinking = gk;
