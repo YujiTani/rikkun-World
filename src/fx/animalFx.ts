@@ -1,7 +1,8 @@
 import type { AnimalEvent, AnimalFxRecord, AnimalMark, AnimalView, CoopInfo, KitInfo, Vec3 } from '../contracts';
 import { playAnimal, type AnimalSoundName } from './animalSounds';
 import { ANIMAL_FX, TILE } from './animalFxConfig';
-import { ease, headYOf, mix, rngOf } from './animalFxMath';
+import { startFlight, stepFlights } from './animalBugFlight';
+import { headYOf, mix, rngOf } from './animalFxMath';
 import type { AnimalFxCounts, BugFlight, MarkRow, Pending, Seen, ZzzRow } from './animalFxTypes';
 import { headHeartsInto, type HeadHeart } from './animalHeadHearts';
 import { AnimalParticles, type ParticleOut } from './animalParticles';
@@ -39,7 +40,6 @@ export interface AnimalFxDeps {
 }
 
 const RUSTLES = ['rustle', 'rustle2', 'rustle3'] as const;
-const FLIGHT_SLOTS = 4;
 
 
 export class AnimalFx {
@@ -144,7 +144,7 @@ export class AnimalFx {
     this.collectMarks(views, eye);
     this.stepKits(kits, eye);
     this.stepCoops(coops, eye);
-    this.stepFlights();
+    stepFlights(this.flights, this.eye);
     this.runPending(); // とび出した ステップ の 経過は 0（次の ステップ から 動く）
     this.particles.step();
   }
@@ -280,7 +280,7 @@ export class AnimalFx {
       this.particles.spawn(5, cx + Math.cos(a) * 0.5, cy + 0.3 + g * 0.3, cz + Math.sin(a) * 0.5, Math.cos(a) * 0.5, 0.9 + g * 0.6, Math.sin(a) * 0.5, 28 + Math.floor(g * 10), 0.13, g < 0.5 ? 0x6ea04a : 0x8cc152);
     }
     if (p.caught) {
-      this.startFlight(cx, cy, cz);
+      if (this.motion() > 0) startFlight(this.flights, this.eye, cx, cy, cz); // むし は すぐ 持ち物 へ（動き 0 は 弧 を 止める）
       return;
     }
     // とれなかった: がさがさ（3 しゅるい から 直前と ちがう もの）
@@ -301,47 +301,6 @@ export class AnimalFx {
       const a = (i / ANIMAL_FX.shell) * Math.PI * 2 + this.rnd();
       const sp = 0.8 + this.rnd() * 0.8;
       this.particles.spawn(6, p.x, p.y + 0.25, p.z, Math.cos(a) * sp, 1.6 + this.rnd(), Math.sin(a) * sp, 36 + Math.floor(this.rnd() * 10), 0.1, i % 3 === 2 ? 0xe2d6b8 : 0xf5ecd8);
-    }
-  }
-
-  private startFlight(cx: number, cy: number, cz: number): void {
-    if (this.motion() <= 0) return; // むし は すぐ 持ち物 へ（弧 を 止める）
-    if (this.flights.length >= FLIGHT_SLOTS) this.flights.shift();
-    // ねらった ブロック の プレイヤー がわ の 面 から ぴょん と 出る
-    const dx = this.eye.x - cx;
-    const dz = this.eye.z - cz;
-    const len = Math.hypot(dx, dz) || 1;
-    const sx = cx + (dx / len) * 0.55;
-    const sz = cz + (dz / len) * 0.55;
-    this.flights.push({ x: sx, y: cy, z: sz, yaw: Math.atan2(-dx, -dz), pitch: 0, scale: 0.4, curl: 0, age: 0, sx, sy: cy, sz });
-  }
-
-  private stepFlights(): void {
-    for (let i = this.flights.length - 1; i >= 0; i--) {
-      const f = this.flights[i];
-      f.age++;
-      if (f.age >= ANIMAL_FX.bugFly) {
-        this.flights.splice(i, 1);
-        continue;
-      }
-      const t = f.age / ANIMAL_FX.bugFly;
-      const k = ease(t);
-      // 行き先 = プレイヤー の 胸（毎ステップ 読みなおす）
-      const tx = this.eye.x;
-      const ty = this.eye.y - 0.35;
-      const tz = this.eye.z;
-      const px = f.x;
-      const py = f.y;
-      const pz = f.z;
-      f.x = f.sx + (tx - f.sx) * k;
-      f.z = f.sz + (tz - f.sz) * k;
-      f.y = f.sy + (ty - f.sy) * k + 0.55 * Math.sin(Math.PI * t); // 弧
-      const mx = f.x - px;
-      const mz = f.z - pz;
-      if (mx * mx + mz * mz > 1e-8) f.yaw = Math.atan2(-mx, -mz); // 頭（−z）が すすむ 向き
-      f.pitch = Math.atan2(f.y - py, Math.hypot(mx, mz) + 1e-4) * 0.6;
-      f.scale = t < 0.2 ? 0.4 + 0.6 * ease(t / 0.2) : 1 - 0.35 * ease((t - 0.2) / 0.8);
-      f.curl = 0.25 * Math.sin(Math.PI * Math.min(1, t * 1.6)); // 空中 で まるまる
     }
   }
 

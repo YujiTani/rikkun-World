@@ -1,7 +1,7 @@
 import { inFootprint } from './coop';
 import { TAU } from './animalConsts';
 
-export const SLAB: [number, number] = [0, 0];
+const SLAB: [number, number] = [0, 0];
 /** 1 つの 軸 の 区間 [t0,t1] を 箱 [lo,hi] で せばめる。当たらなければ null（返す 配列は 使いまわし） */
 export function slab(o: number, d: number, lo: number, hi: number, t0: number, t1: number): [number, number] | null {
   if (Math.abs(d) < 1e-9) {

@@ -5,7 +5,7 @@ import type { AnimalWorld } from './terrain';
 export type LockKind = 'appear' | 'eat' | 'pet' | 'cheer' | 'full' | 'putDown' | 'hatch' | 'grow';
 
 /** なげる の とびかた（山なり。乱数 なし） */
-export interface Flight {
+interface Flight {
   sx: number;
   sy: number;
   sz: number;
@@ -66,7 +66,7 @@ export interface Coop {
 }
 
 /** いただきます の 演出 1 つ（`t` = 押してから の ステップ） */
-export interface MeatJob {
+interface MeatJob {
   id: number;
   t: number;
   /** はじめ の 位置（ねぐら へ 歩く 出だし） */
@@ -185,7 +185,7 @@ export interface Ent {
   cheerZ: number;
 }
 
-export type FightPhase = 'none' | 'run' | 'punch' | 'cheer' | 'flex';
+type FightPhase = 'none' | 'run' | 'punch' | 'cheer' | 'flex';
 
 export interface AnimalManagerOptions {
   world: VoxelWorld | AnimalWorld;
