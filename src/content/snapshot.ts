@@ -26,8 +26,10 @@ import { YOKAI_VARIANT_COLORS } from '../yokai/variants';
  * 値の写しは持たない。表を 1 か所にまとめる整理のあとも、この出力が変わらないことで同じ値だと確かめる。
  */
 
-/** 値を再帰的にキー順へそろえる（Set は並べた配列、関数は捨てる） */
+/** 値を再帰的にキー順へそろえる（Set は並べた配列、関数は捨てる。Infinity・NaN・undefined は JSON で null になって区別できないので文字にする） */
 export function norm(v: unknown, depth = 0): unknown {
+  if (typeof v === 'number' && !Number.isFinite(v)) return Number.isNaN(v) ? 'NaN' : v > 0 ? 'Infinity' : '-Infinity';
+  if (v === undefined) return 'undefined';
   if (v instanceof Set) return [...v].map((x) => norm(x, depth + 1)).sort();
   if (v instanceof Map) return norm(Object.fromEntries(v), depth);
   if (Array.isArray(v)) return v.map((x) => norm(x, depth + 1));
