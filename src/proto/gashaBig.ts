@@ -1544,7 +1544,7 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
     eruptFx.impact(m.lx, m.ly, m.lz);
     if (!rain.finale && inBlast(m.lx, m.ly, m.lz, { x: p.x, y: p.y, z: p.z }) && deps.hurt?.(K.meteor.damage, { x: m.lx, y: m.ly, z: m.lz })) meteorHurts++;
     if (dist < K.impact.shakeNear && !reduced()) deps.shake?.(K.impact.shake * (1 - dist / K.impact.shakeNear));
-    if (!m.body) terrainJobs.push({ x: m.lx, y: m.ly, z: m.lz, crater: true, ember });
+    if (!m.body) terrainJobs.push({ x: m.lx, y: m.ly, z: m.lz, crater: !rain.finale, ember }); // 切りかえの 噴火は 演出: 穴は あけない（植物が 燃えるのは そのまま）
     else burnBody(m.lx, m.ly, m.lz, true);
   };
   /** 飛び散った 火の 粉が 落ちた: 燃えかす・小さな ぱちっ・植物が 燃える / 体が 焼ける */

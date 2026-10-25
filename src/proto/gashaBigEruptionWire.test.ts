@@ -236,6 +236,19 @@ describe('口から 火山噴火: つなぎ（#293）', () => {
     expect(n.hits, 'ふつうの 噴火なら 当たる').toBeGreaterThan(0);
   }, 30000);
 
+  it('少女への 切りかえの 噴火（finale）は 演出: 地形に 穴を あけない（crater の 仕事が 0）。ふつうの 噴火では 穴が あく', () => {
+    const f = rig({ high: true });
+    f.h.finale();
+    f.step(total() + 4);
+    expect(f.h.attackInfo().eruption.landed, '切りかえの 噴火で 隕石が 落ちた').toBeGreaterThan(20);
+    expect(f.h.attackInfo().eruption.craterBlocks).toBe(0);
+    expect([...f.removed].filter((k) => k.split(',')[1] === '4').length, '穴の だんは のこる').toBe(0);
+    const n = rig({ high: true });
+    n.h.attack('eruption');
+    n.step(total());
+    expect(n.h.attackInfo().eruption.craterBlocks, 'ふつうの 噴火なら 穴が あく').toBeGreaterThan(0);
+  }, 30000);
+
   it('片づけ（休む・怒りが とける）で、まとめて 待っていた 穴あけの 仕事は 捨てる（1 コマで 流さない）。植物を 燃やす 仕事は 1 コマの 上限（maxJobs）まで', () => {
     const saved = T.eruption.terrain.everySec;
     T.eruption.terrain.everySec = 1e6; // 地形の 仕事を ためる（ふだんの 0.25 秒ごとの 処理を 止める）
