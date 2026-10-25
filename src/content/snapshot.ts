@@ -27,7 +27,7 @@ import { YOKAI_VARIANT_COLORS } from '../yokai/variants';
  */
 
 /** 値を再帰的にキー順へそろえる（Set は並べた配列、関数は捨てる） */
-function norm(v: unknown, depth = 0): unknown {
+export function norm(v: unknown, depth = 0): unknown {
   if (v instanceof Set) return [...v].map((x) => norm(x, depth + 1)).sort();
   if (v instanceof Map) return norm(Object.fromEntries(v), depth);
   if (Array.isArray(v)) return v.map((x) => norm(x, depth + 1));

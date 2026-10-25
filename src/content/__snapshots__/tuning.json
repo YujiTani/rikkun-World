@@ -1,0 +1,1588 @@
+{
+  "AI_CONST": {
+    "appearTicks": 30,
+    "attackPad": 0.4,
+    "attackPadY": 0.2,
+    "chaseMaxDrop": 64,
+    "edgeMargin": 0.3,
+    "farRemoveDist": 64,
+    "fireballBox": 0.9,
+    "floatFallSpeed": 2,
+    "floatMinDrop": 2,
+    "floatSwayAmp": 0.8,
+    "floatSwayPeriod": 1.2,
+    "floatTiltDeg": 25,
+    "hitPad": 0.3,
+    "hoverRate": 2,
+    "knockbackTicks": 10,
+    "marksTicks": 180,
+    "maxDrop": 3,
+    "noAttackTicks": 60,
+    "nurikabeContactMul": 4,
+    "playerEye": 1.62,
+    "playerHeight": 1.8,
+    "playerWidth": 0.6,
+    "progressDist": 0.5,
+    "progressTicks": 180,
+    "riseRate": 6,
+    "searchTicks": 290,
+    "skyCheckHeight": 40,
+    "spawnTries": 20,
+    "stoneNoAttack": 0.5,
+    "stoneSlowMin": 0.2,
+    "stoneTicks": 180,
+    "voidY": -10,
+    "wanderRest": [
+      120,
+      240
+    ],
+    "wanderSpeedRate": 0.5,
+    "wanderWalk": [
+      120,
+      300
+    ]
+  },
+  "ATTACK_DAMAGE": {
+    "chochin": 2,
+    "karakasa": 2,
+    "nurikabe": 16,
+    "rokurokubi": 2
+  },
+  "COUNTRY_TABLE": [
+    {
+      "boss": "tsuchigumo",
+      "kind": "harappa",
+      "name": "はじまりの <ruby>原<rt>はら</rt></ruby>っぱ",
+      "yokai": {
+        "chochin": 25,
+        "karakasa": 30,
+        "nurikabe": 20,
+        "rokurokubi": 25
+      },
+      "yomi": "はじまりの はらっぱ"
+    },
+    {
+      "boss": "tsuchigumo",
+      "kind": "mori",
+      "name": "<ruby>森<rt>もり</rt></ruby>",
+      "yokai": {
+        "chochin": 20,
+        "karakasa": 25,
+        "nurikabe": 15,
+        "rokurokubi": 40
+      },
+      "yomi": "もり"
+    },
+    {
+      "boss": "byakko",
+      "kind": "ookina",
+      "name": "<ruby>大<rt>おお</rt></ruby>きな <ruby>木<rt>き</rt></ruby>の <ruby>森<rt>もり</rt></ruby>",
+      "yokai": {
+        "chochin": 20,
+        "karakasa": 25,
+        "nurikabe": 15,
+        "rokurokubi": 40
+      },
+      "yomi": "おおきな きの もり"
+    },
+    {
+      "boss": "byakko",
+      "kind": "hana",
+      "name": "<ruby>花畑<rt>はなばたけ</rt></ruby>",
+      "yokai": {
+        "chochin": 40,
+        "karakasa": 25,
+        "nurikabe": 15,
+        "rokurokubi": 20
+      },
+      "yomi": "はなばたけ"
+    },
+    {
+      "boss": "omukade",
+      "kind": "sunahama",
+      "name": "<ruby>砂浜<rt>すなはま</rt></ruby>",
+      "yokai": {
+        "chochin": 20,
+        "karakasa": 45,
+        "nurikabe": 15,
+        "rokurokubi": 20
+      },
+      "yomi": "すなはま"
+    },
+    {
+      "boss": "itsumade",
+      "kind": "susuki",
+      "name": "すすきの <ruby>原<rt>はら</rt></ruby>",
+      "yokai": {
+        "chochin": 40,
+        "karakasa": 25,
+        "nurikabe": 15,
+        "rokurokubi": 20
+      },
+      "yomi": "すすきの はら"
+    },
+    {
+      "boss": "tsuchigumo",
+      "kind": "take",
+      "name": "<ruby>竹<rt>たけ</rt></ruby>やぶ",
+      "yokai": {
+        "chochin": 20,
+        "karakasa": 45,
+        "nurikabe": 15,
+        "rokurokubi": 20
+      },
+      "yomi": "たけやぶ"
+    },
+    {
+      "boss": "omukade",
+      "kind": "kappa",
+      "name": "かっぱの <ruby>沼<rt>ぬま</rt></ruby>",
+      "yokai": {
+        "chochin": 20,
+        "karakasa": 45,
+        "nurikabe": 15,
+        "rokurokubi": 20
+      },
+      "yomi": "かっぱの ぬま"
+    },
+    {
+      "boss": "omukade",
+      "kind": "iwayama",
+      "name": "<ruby>岩山<rt>いわやま</rt></ruby>",
+      "yokai": {
+        "chochin": 20,
+        "karakasa": 25,
+        "nurikabe": 35,
+        "rokurokubi": 20
+      },
+      "yomi": "いわやま"
+    },
+    {
+      "boss": "itsumade",
+      "kind": "tengu",
+      "name": "<ruby>天狗<rt>てんぐ</rt></ruby>の <ruby>山<rt>やま</rt></ruby>",
+      "yokai": {
+        "chochin": 20,
+        "karakasa": 25,
+        "nurikabe": 35,
+        "rokurokubi": 20
+      },
+      "yomi": "てんぐの やま"
+    },
+    {
+      "boss": "itsumade",
+      "kind": "momiji",
+      "name": "<ruby>紅葉山<rt>もみじやま</rt></ruby>",
+      "yokai": {
+        "chochin": 40,
+        "karakasa": 25,
+        "nurikabe": 15,
+        "rokurokubi": 20
+      },
+      "yomi": "もみじやま"
+    },
+    {
+      "boss": "byakko",
+      "kind": "yuki",
+      "name": "<ruby>雪山<rt>ゆきやま</rt></ruby>",
+      "yokai": {
+        "chochin": 20,
+        "karakasa": 25,
+        "nurikabe": 35,
+        "rokurokubi": 20
+      },
+      "yomi": "ゆきやま"
+    }
+  ],
+  "KIND_AI": {
+    "chochin": {
+      "eyeHeight": 0.95,
+      "flies": true,
+      "height": 1.7,
+      "marksHeight": 2.3,
+      "radius": 0.4,
+      "stepUp": 0,
+      "turnDegPerSec": 180
+    },
+    "karakasa": {
+      "eyeHeight": 1.1,
+      "flies": false,
+      "height": 1.6,
+      "marksHeight": 2.1,
+      "radius": 0.6,
+      "stepUp": 2,
+      "turnDegPerSec": 360
+    },
+    "nurikabe": {
+      "eyeHeight": 1.9,
+      "flies": false,
+      "height": 3,
+      "marksHeight": 3.5,
+      "radius": 0.9,
+      "stepUp": 1,
+      "turnDegPerSec": 45
+    },
+    "rokurokubi": {
+      "eyeHeight": 1.6,
+      "flies": false,
+      "height": 2.9,
+      "marksHeight": 3.3,
+      "radius": 0.4,
+      "stepUp": 1,
+      "turnDegPerSec": 240
+    }
+  },
+  "LEVEL_DEFAULTS": {
+    "maxLevel": 99,
+    "perLevel": 5,
+    "xp": {
+      "chochin": 2,
+      "karakasa": 3,
+      "nurikabe": 6,
+      "rokurokubi": 3
+    }
+  },
+  "NINJA_TUNING": {
+    "getaFallCut": 2,
+    "getaMinSpeed": 1,
+    "getaStepTicks": 30,
+    "haoriNormalCut": 2,
+    "jingasaBallCut": 2,
+    "jingasaGuardTicks": 30,
+    "knockbackMul": {
+      "samurai_haori": 0.3
+    },
+    "ninjaChestChance": 0.003,
+    "samuraiChestChance": 0.003,
+    "samuraiTekkoNormalCut": 1,
+    "shozokuNormalCut": 2,
+    "tabiFallCut": 100000,
+    "tekkoBladeMul": 1.5,
+    "tekkoDamage": 5,
+    "tekkoDefIgnore": 10,
+    "tekkoDelayTicks": 12,
+    "tekkoNormalCut": 1,
+    "tekkoQueueMax": 16,
+    "tekkoSlashFront": 1.3,
+    "tekkoSlashHeight": 0.9,
+    "tekkoSlashReach": 1,
+    "zukinBallCut": 2,
+    "zukinOxygenDrainMul": 0.5
+  },
+  "RELEASE": {
+    "core": {
+      "dropUp": 0.5,
+      "hitScale": 0.4,
+      "scatterSpeed": [
+        3,
+        6
+      ],
+      "scatterUp": [
+        6,
+        9
+      ]
+    },
+    "defeat": {
+      "safetyExtraSec": 5
+    },
+    "dev": {
+      "distance": 60
+    },
+    "girl": {
+      "hpFraction": 0.5,
+      "loadHpFraction": 0.6
+    },
+    "reward": {
+      "guaranteed": [],
+      "rare": [
+        {
+          "item": "crystal",
+          "max": 5,
+          "min": 3
+        },
+        {
+          "item": "iron_ingot",
+          "max": 10,
+          "min": 6
+        },
+        {
+          "item": "yokai_orb",
+          "max": 6,
+          "min": 4
+        }
+      ],
+      "seedSalt": 2931
+    },
+    "silhouette": {
+      "color": 1975347,
+      "farBlocks": 150,
+      "hazeMax": 0,
+      "nearBlocks": 60,
+      "on": true,
+      "strength": 0.88
+    },
+    "spawn": {
+      "barShowDistance": 100,
+      "chancePerMorning": 0.3,
+      "checkEverySec": 1,
+      "despawnDistance": 400,
+      "landProbeRadius": 24,
+      "landTries": 16,
+      "maxDistance": 250,
+      "minDistance": 150,
+      "saltSeed": 293
+    }
+  },
+  "SENSE": {
+    "giveUpDyMul": 2,
+    "kinds": {
+      "chochin": {
+        "giveUp": 27,
+        "shinobi": true,
+        "sight": 21
+      },
+      "karakasa": {
+        "giveUp": 24,
+        "shinobi": true,
+        "sight": 18
+      },
+      "nurikabe": {
+        "giveUp": 18,
+        "shinobi": true,
+        "sight": 12
+      },
+      "rokurokubi": {
+        "giveUp": 24,
+        "shinobi": true,
+        "sight": 18
+      }
+    },
+    "shinobiSightMul": 0.5,
+    "sightDy": 6
+  },
+  "STRENGTH_MUL": {
+    "easy": {
+      "attack": 0.5,
+      "hp": 0.5
+    },
+    "hard": {
+      "attack": 1.25,
+      "hp": 1.5
+    },
+    "normal": {
+      "attack": 1,
+      "hp": 1
+    }
+  },
+  "YOKAI_STATS": {
+    "chochin": {
+      "attackSeconds": 0.8,
+      "avoidsWater": true,
+      "cooldownSeconds": 3,
+      "hitSeconds": 0.5,
+      "hp": 5,
+      "reach": 8,
+      "speed": 1
+    },
+    "karakasa": {
+      "attackSeconds": 1.2,
+      "avoidsWater": true,
+      "cooldownSeconds": 2,
+      "hitSeconds": 0.5,
+      "hp": 8,
+      "reach": 2.5,
+      "speed": 1.5
+    },
+    "nurikabe": {
+      "attackSeconds": 4,
+      "avoidsWater": false,
+      "cooldownSeconds": 2,
+      "hitSeconds": 1.5,
+      "hp": 40,
+      "reach": 3,
+      "speed": 0.5
+    },
+    "rokurokubi": {
+      "attackSeconds": 1.6,
+      "avoidsWater": false,
+      "cooldownSeconds": 2.5,
+      "hitSeconds": 0.5,
+      "hp": 12,
+      "reach": 8,
+      "speed": 1
+    }
+  },
+  "gashaBig": {
+    "angry": {
+      "calmSec": 300,
+      "lookEyeHeight": 1.5,
+      "lookPitchMaxDeg": 35,
+      "lookTurnDegPerSec": 28,
+      "lookYawMaxDeg": 70,
+      "turnDegPerSec": 8
+    },
+    "arm": {
+      "bendDeg": 24,
+      "elbowExtend": 0,
+      "elbowHeight": 10,
+      "foreExtend": 2.5,
+      "foreThick": 3.6,
+      "foreWidth": 6,
+      "handThick": 2.3,
+      "segLen": [
+        26,
+        20,
+        20
+      ],
+      "spreadDeg": 40,
+      "upperThick": 3.8,
+      "upperWidth": 6,
+      "wristY": -0.5
+    },
+    "armStep": {
+      "back": 0,
+      "out": 0,
+      "rise": 0.3,
+      "seed": 5,
+      "size": [
+        3.4,
+        3.8
+      ]
+    },
+    "attack": {
+      "enabled": true,
+      "firstGapSec": 2,
+      "gapSec": [
+        2.5,
+        4.5
+      ],
+      "maxCount": 5,
+      "minCount": 3,
+      "restChance": 0.5,
+      "seed": 777,
+      "table": [
+        {
+          "name": "slam2",
+          "weight": 1
+        },
+        {
+          "name": "sweep",
+          "weight": 1
+        },
+        {
+          "name": "beam",
+          "weight": 1
+        },
+        {
+          "name": "eruption",
+          "weight": 1
+        },
+        {
+          "name": "thunder",
+          "weight": 1
+        }
+      ]
+    },
+    "bank": {
+      "height": 20,
+      "innerRad": 0.5,
+      "innerTop": 6,
+      "jitter": 6,
+      "lobes": 4,
+      "radiusX": 30,
+      "radiusZ": 24,
+      "rings": [
+        [
+          0.3,
+          6
+        ],
+        [
+          0.55,
+          12
+        ],
+        [
+          0.78,
+          18
+        ],
+        [
+          0.98,
+          22
+        ]
+      ],
+      "seed": 5,
+      "size": [
+        3,
+        5
+      ],
+      "thick": 1.1,
+      "z": -8
+    },
+    "beam": {
+      "beamRadius": 0.4,
+      "bodyMinHeight": 3.5,
+      "bodyRadius": 20,
+      "breakBlocks": false,
+      "chargeSec": 3.3,
+      "chaseMul": 1,
+      "colorCore": 16767176,
+      "colorOuter": 13637680,
+      "damage": 2,
+      "eyeColorDark": 7997972,
+      "eyeColorHot": 16722474,
+      "finaleSec": 2.2,
+      "finaleSize": 3.2,
+      "finaleSmoke": 40,
+      "fireSec": 12,
+      "flameEvery": 3,
+      "flameSec": 7,
+      "flameSize": 1.4,
+      "haloMax": 0.85,
+      "hitEverySec": 0.5,
+      "hitRadius": 1.5,
+      "hitYTol": 2.5,
+      "leadDist": 7,
+      "markEverySec": 0.1,
+      "markRadius": 1.1,
+      "markSec": 30,
+      "maxFlames": 40,
+      "maxMarks": 160,
+      "maxSmoke": 140,
+      "reachTol": 0.8,
+      "recoverSec": 0.8,
+      "runSpeed": 5.6,
+      "safeMargin": 1,
+      "smokeEverySec": 0.16,
+      "smokeSec": 3.2,
+      "smokeSize": 1.3,
+      "sparkleSize": 5,
+      "stepBlocks": 0.4
+    },
+    "bgm": {
+      "fadeSec": 2,
+      "normalFadeInSec": 2,
+      "normalFadeOutSec": 2,
+      "overlapSec": 0.5,
+      "volume": 1
+    },
+    "chase": {
+      "enabled": true,
+      "holdHeight": true,
+      "resumeMargin": 6,
+      "speedMul": 0.5,
+      "stopDist": 30,
+      "turnDegPerSec": 14,
+      "turnStartDeg": 25
+    },
+    "clips": {
+      "crawl": {
+        "armTiltDeg": 90,
+        "contactBlur": 3,
+        "contactSpeed": [
+          1,
+          2
+        ],
+        "follow": {
+          "Head": 0.5,
+          "Hips": 0,
+          "LeftArm": 1,
+          "LeftForeArm": 1,
+          "LeftHand": 1,
+          "LeftShoulder": 1,
+          "RightArm": 1,
+          "RightForeArm": 1,
+          "RightHand": 1,
+          "RightShoulder": 1,
+          "Spine": 1,
+          "Spine01": 1,
+          "Spine02": 1,
+          "neck": 0.5
+        },
+        "loop": true,
+        "rootTiltDeg": 90,
+        "torsoTiltDeg": 55
+      },
+      "fadeSec": 0.04,
+      "idleFadeSec": 1.8,
+      "lookBack": {
+        "mirror": false,
+        "pitchDeg": 0,
+        "ref": "mean",
+        "strength": {
+          "Head": 1,
+          "Hips": 0,
+          "LeftArm": 0,
+          "LeftForeArm": 0,
+          "LeftHand": 0,
+          "LeftShoulder": 0,
+          "RightArm": 0,
+          "RightForeArm": 0,
+          "RightHand": 0,
+          "RightShoulder": 0,
+          "Spine": 0,
+          "Spine01": 0,
+          "Spine02": 0.25,
+          "neck": 1
+        }
+      }
+    },
+    "collide": {
+      "cloudFill": 0.84,
+      "margin": 0,
+      "topLift": 0
+    },
+    "core": {
+      "moss": {
+        "carpet": 0.5,
+        "ceil": 0.45,
+        "floor": 1.1,
+        "max": 700,
+        "outside": {
+          "carpet": 0.25,
+          "clump": 8,
+          "count": 110,
+          "max": 900,
+          "parts": {
+            "backJump": 0.5,
+            "chestTop": 1.3,
+            "collarbone": 0.7,
+            "foreArm": 0.8,
+            "hand": 0.35,
+            "neck": 0.3,
+            "shoulderCloth": 0.8,
+            "skull": 0.5,
+            "skullTemple": 0.3,
+            "skullTop": 1,
+            "spineMid": 0.5,
+            "torsoWaist": 0.8,
+            "upperArm": 1
+          },
+          "radius": 1.7,
+          "seed": 31,
+          "sideFrac": 0.3,
+          "size": [
+            1.1,
+            1.9
+          ]
+        },
+        "ribs": 1.5,
+        "seed": 21,
+        "size": [
+          0.8,
+          1.4
+        ],
+        "wall": 0.7
+      },
+      "pos": [
+        4.4,
+        20.4,
+        7.4
+      ],
+      "sideHole": {
+        "enabled": true,
+        "guard": true,
+        "h": 4.2,
+        "rim": true,
+        "w": 3.6,
+        "y": 21.7,
+        "z": 6.35
+      },
+      "size": 4.4,
+      "steps": {
+        "behind": -0.6,
+        "count": 3,
+        "seed": 11,
+        "size": [
+          3.4,
+          3.8
+        ]
+      },
+      "throwOff": {
+        "blockSec": 0.5,
+        "clearPad": 1.5,
+        "damage": 0,
+        "maxSec": 3,
+        "minBelow": 5,
+        "range": 28,
+        "speed": 30,
+        "spinSec": 1,
+        "spinTurns": 1,
+        "up": 9,
+        "warnAlpha": 0.35,
+        "warnJitter": 0.55,
+        "warnSec": 1.5,
+        "warnShakeDeg": 2.4
+      },
+      "tunnel": {
+        "backZ": -9.8,
+        "ceilY": 24,
+        "endZ": 9.8,
+        "floorThick": 2.4,
+        "floorY": 16,
+        "gap": {
+          "z0": -4,
+          "z1": 8
+        },
+        "width": 4.8,
+        "x": 4.4
+      }
+    },
+    "crawl": {
+      "backLeanDeg": 14,
+      "catchFrom": 0.6,
+      "catchLift": 7,
+      "contactTol": 4,
+      "fwdLeanDeg": 20,
+      "holdSec": 0.4,
+      "liftHeight": 6,
+      "motionRate": 0.17,
+      "moveAngleDeg": 35,
+      "plantSpread": 1,
+      "pullEndZ": 8,
+      "pullSec": 1.8,
+      "raise": [
+        24,
+        86,
+        -2
+      ],
+      "raiseBulge": 6,
+      "reachFrac": 0.97,
+      "slamSec": 0.3,
+      "slamZ": 60,
+      "startFadeSec": 0.5,
+      "strideMul": 1,
+      "turnDegPerSec": 4,
+      "twistDeg": 12,
+      "windupSec": 2.8
+    },
+    "eruption": {
+      "body": {
+        "glassMax": 5,
+        "glassRadius": 3.2,
+        "mossRadius": 3,
+        "placedBurnable": [
+          "grass",
+          "leaves",
+          "log",
+          "momiji_leaves",
+          "matsu_leaves"
+        ],
+        "placedMax": 3,
+        "placedRadius": 2.6,
+        "restoreSec": 45
+      },
+      "burnFlameSec": 3,
+      "burnMax": 26,
+      "burnRadius": 1.8,
+      "columnHeight": 46,
+      "columnRadius": 3,
+      "crater": {
+        "blocks": [
+          "grass",
+          "dirt",
+          "stone",
+          "sand",
+          "snow",
+          "coal_ore",
+          "iron_ore",
+          "geyser_dirt"
+        ],
+        "depth": 1,
+        "max": 5,
+        "radius": 1
+      },
+      "ember": {
+        "dotDamage": 1,
+        "dotEverySec": 0.6,
+        "douseHalf": 0.9,
+        "douseHalfY": 0.8,
+        "douseSmoke": 3,
+        "douseSmokeSize": 0.55,
+        "douseSoundEverySec": 0.2,
+        "flameScale": 1.1,
+        "max": 900,
+        "radius": 1.3,
+        "sec": 300,
+        "yTol": 1.8
+      },
+      "eruptSec": 2.6,
+      "headUpDeg": 52,
+      "impact": {
+        "debris": 6,
+        "debrisSec": 0.9,
+        "debrisSpeed": 8,
+        "dust": 2,
+        "fireballs": 4,
+        "flashSec": 0.2,
+        "flashSize": 5,
+        "ringSec": 0.4,
+        "shake": 0.12,
+        "shakeNear": 9
+      },
+      "inhaleSec": 3.2,
+      "meteor": {
+        "aimMaxDist": 58,
+        "aimShare": 0.2,
+        "aimSpread": 6,
+        "apexMax": 44,
+        "apexMin": 18,
+        "count": 120,
+        "damage": 3,
+        "finaleSafe": 9,
+        "flightMax": 3.2,
+        "flightMin": 1.9,
+        "hitYTol": 2.5,
+        "maxFlying": 140,
+        "maxLaunchPerFrame": 3,
+        "nearMax": 17,
+        "nearShare": 0.15,
+        "rMax": 52,
+        "rMin": 5,
+        "radius": 3.2,
+        "seed": 4107,
+        "size": 1.5,
+        "smokeTrail": 2,
+        "spawnSec": 2.4,
+        "trailGapSec": 0.04,
+        "trailLen": 5,
+        "trailWidth": 1.9,
+        "warnSec": 1.5
+      },
+      "plants": [
+        "kusa",
+        "flower_y",
+        "flower_o",
+        "flower_p",
+        "nobana",
+        "susuki",
+        "leaves",
+        "momiji_leaves",
+        "matsu_leaves",
+        "bamboo"
+      ],
+      "plumeSize": 5.5,
+      "rainSec": 5.5,
+      "recoverSec": 1.6,
+      "splash": {
+        "apexMax": 3.5,
+        "apexMin": 1.5,
+        "flightMax": 0.85,
+        "flightMin": 0.45,
+        "max": 7,
+        "maxFlying": 300,
+        "min": 5,
+        "rMax": 6.5,
+        "rMin": 2.5,
+        "size": 0.75
+      },
+      "terrain": {
+        "everySec": 0.25,
+        "maxJobs": 48
+      },
+      "windLines": 34,
+      "windRadius": 22
+    },
+    "eyes": {
+      "angryColor": 16726826,
+      "calmColor": 16777215,
+      "fadeSec": 0.3
+    },
+    "finish": {
+      "blow": {
+        "hitStopTicks": 14,
+        "knockRange": 40,
+        "knockSec": 0.5,
+        "knockSpeed": 20,
+        "knockUp": 9,
+        "shake": 1,
+        "sparkMul": 4
+      },
+      "core": {
+        "hitGapSec": 0.3,
+        "hits": 8,
+        "pulseHz": 1.6,
+        "reach": 1.6,
+        "redColor": [
+          16722458,
+          16738880
+        ],
+        "redSec": 1.5
+      },
+      "crumble": {
+        "chunkLifeSec": 2.4,
+        "chunkSize": [
+          0.5,
+          1.4
+        ],
+        "chunkSpeed": 3,
+        "chunks": 160,
+        "sec": 8,
+        "sinkBlocks": 3
+      },
+      "fall": {
+        "delaySec": 0.8,
+        "ease": 2.2,
+        "pitchDeg": 22,
+        "pivotY": 6,
+        "rollDeg": 8,
+        "sec": 5,
+        "sinkBlocks": 9
+      }
+    },
+    "freeze": {
+      "barrier": {
+        "enabled": true,
+        "fill": 0.5,
+        "flickerAmt": 0.18,
+        "flickerHz": 1.4,
+        "flowScale": 0.3,
+        "flowSpeed": 0.22,
+        "opacity": 0.9,
+        "radius": 2.8,
+        "rimPower": 1.6,
+        "rippleBoost": 1.1,
+        "rippleMax": 4,
+        "rippleSec": 1.2,
+        "rippleSpeed": 3.2,
+        "rippleWidth": 0.35,
+        "scaleKick": 0.06
+      },
+      "bodyInvincible": true,
+      "enabled": true,
+      "eyesWhite": true,
+      "perchBox": "shoulderClothL",
+      "perchUp": 0.2
+    },
+    "geyser": {
+      "assistMaxSec": 6,
+      "blockedByBody": true,
+      "bodyHalfWidth": 0.3,
+      "cells": 2,
+      "color": 12116735,
+      "cycleJitter": 0.1,
+      "delaySec": [
+        0.2,
+        0.6
+      ],
+      "flowSpeed": 1.6,
+      "funnelFrom": 4.5,
+      "funnelHeight": 18,
+      "funnelMax": 4.5,
+      "funnelPull": 4,
+      "funnelSlope": 0.9,
+      "graceTicks": 12,
+      "headHeight": 1.8,
+      "height": 16,
+      "holdBelowTop": 1.5,
+      "holdMargin": 0.3,
+      "holdSec": 9,
+      "launchAccel": 90,
+      "launchSpeed": 15,
+      "noFallInColumn": true,
+      "opacity": 0.9,
+      "rescanRadius": 120,
+      "riseSec": 1,
+      "seed": 7,
+      "shoulderX": 41.5,
+      "shoulderZ": -6,
+      "shrinkSec": 5,
+      "shrinkTo": 0.1,
+      "sinkBelowTop": 3,
+      "slowFall": 3,
+      "spawn": {
+        "bodyClear": 12,
+        "crackSec": 10,
+        "crackStages": 4,
+        "firstSec": [
+          10,
+          20
+        ],
+        "gap": 1,
+        "intervalSec": [
+          20,
+          40
+        ],
+        "maxGroups": 3,
+        "radius": 100,
+        "retrySec": 2,
+        "seed": 11,
+        "tries": 40
+      },
+      "staggerSec": 3,
+      "steamCount": 3,
+      "visualHeight": 10,
+      "widen": 1.45
+    },
+    "glass": {
+      "digRadius": 1,
+      "fragments": 6,
+      "regenDelaySec": 8,
+      "regenGapSec": 0.35,
+      "swordRadius": 1.3
+    },
+    "ground": {
+      "followSpeed": 0.3
+    },
+    "hair": {
+      "side": [],
+      "size": 2.2,
+      "tail": {
+        "angle0Deg": 0,
+        "radius": 4.3,
+        "rise": 1.95,
+        "stepDeg": 60,
+        "steps": 0,
+        "x": 16.5,
+        "y0": 38.4,
+        "z": 4
+      },
+      "thick": 1.1
+    },
+    "hit": {
+      "barDot": 3,
+      "barEdgeIn": "#0B1030",
+      "barEdgeOut": "#F4F4FF",
+      "barEmpty": "#555555",
+      "barFill": "#FFD54F",
+      "barFillHi": "#FFF0A8",
+      "barFillLo": "#D9A21B",
+      "barGhostDelaySec": 0.45,
+      "barGhostSec": 0.5,
+      "barHeightDots": 7,
+      "barMaxPx": 620,
+      "barNameSizePx": 20,
+      "barSegments": 10,
+      "barShakePx": 4,
+      "barShakeSec": 0.28,
+      "barStyle": "D",
+      "barTopPx": 16,
+      "barWidthVw": 56,
+      "flashBoost": 1,
+      "flashSec": 0.25,
+      "hp": 1000,
+      "partDef": {
+        "body": 30,
+        "cloud": 0,
+        "core": 0,
+        "foreArm": 30,
+        "girl": 0,
+        "hand": 30,
+        "head": 30,
+        "ribbon": 0,
+        "upperArm": 30
+      },
+      "partMul": {
+        "body": 0.5,
+        "cloud": 0,
+        "core": 9,
+        "foreArm": 0.6,
+        "girl": 5,
+        "hand": 1,
+        "head": 0.5,
+        "ribbon": 0,
+        "upperArm": 0.6
+      },
+      "sparkColor": 16773808,
+      "sparkCount": 8,
+      "sparkSec": 0.5,
+      "sparkSize": 0.5,
+      "sparkSpeed": 7,
+      "swordMargin": 0,
+      "waveMargin": 0.3
+    },
+    "look": {
+      "hazeFar": 170,
+      "hazeMax": 0.6,
+      "hazeNear": 35
+    },
+    "lookBack": {
+      "rate": 0.2
+    },
+    "perf": {
+      "farDist": 80
+    },
+    "place": {
+      "distance": 33,
+      "faceYawOffsetDeg": 0,
+      "groundPick": "hands",
+      "headYawDeg": 0
+    },
+    "placed": {
+      "max": 200
+    },
+    "ride": {
+      "turnWithBody": true
+    },
+    "rise": {
+      "angle0Deg": 0,
+      "count": 7,
+      "cx": 10.8,
+      "cz": 1.8,
+      "endRadius": 5,
+      "radius": 2.8,
+      "seed": 9,
+      "size": [
+        3.6,
+        4.4
+      ],
+      "splitY": 21.3,
+      "step": 0.62,
+      "stepDeg": -25.7,
+      "taperFrom": 14,
+      "y0": 17.6
+    },
+    "sfx": {
+      "ashMaxSame": 40,
+      "beamLoopFadeInSec": 0.15,
+      "beamLoopFadeOutSec": 0.5,
+      "detuneCents": 20,
+      "elecFadeInSec": 0.2,
+      "elecFadeOutSec": 0.9,
+      "emberFadeInSec": 0.6,
+      "emberFadeOutSec": 1.5,
+      "emberManyAt": 14,
+      "gain": {
+        "a1_lift": 1,
+        "a1_quake": 1,
+        "a1_shake": 1,
+        "a1_slam": 1,
+        "a2_sweep": 1,
+        "a2_sweep_b": 1,
+        "a2_windup": 1,
+        "a3_beam_loop": 1,
+        "a3_beam_on": 1,
+        "a3_omen": 1,
+        "a3_smoke": 1,
+        "a4_ash": 1,
+        "a4_embers": 1,
+        "a4_embers_b": 1,
+        "a4_erupt": 1,
+        "a4_inhale": 1,
+        "a4_meteor": 0.8,
+        "a5_bolt": 1,
+        "a5_cloud": 1,
+        "a5_elec": 1,
+        "a5_strike": 1,
+        "crumble": 1,
+        "finish_blow": 1,
+        "step_slam": 1
+      },
+      "gainDb": 0.8,
+      "maxSame": 3,
+      "meteorCents": -500,
+      "meteorFar": 60,
+      "meteorFarGain": 0.3,
+      "meteorMaxSame": 4,
+      "quakeFadeInSec": 0.15,
+      "quakeFadeOutSec": 1.8,
+      "volume": 1
+    },
+    "shoulder": {
+      "jitter": 0.6,
+      "seed": 3,
+      "size": [
+        3.2,
+        4.2
+      ],
+      "xs": [
+        20,
+        25,
+        29.5
+      ],
+      "y": 36.6,
+      "zs": [
+        -11,
+        -6,
+        -1,
+        4
+      ]
+    },
+    "size": {
+      "height": 30
+    },
+    "slam": {
+      "crushDepth": 2,
+      "crushRadius": 3,
+      "crushUp": 4,
+      "dustCount": 40,
+      "dustSec": 1.4,
+      "dustSpeed": 6,
+      "hitDamage": 4,
+      "hitHeight": 4,
+      "hitRadius": 4,
+      "ringColorIn": 16777215,
+      "ringColorOut": 10123858,
+      "ringSec": 1.2,
+      "shakeDeg": 1.6,
+      "shakeRange": 70,
+      "shakeSec": 0.7,
+      "tapDamage": 2,
+      "tapDustCount": 10,
+      "tapRadius": 3.5,
+      "tapRingSec": 0.5,
+      "tapShakeDeg": 0.5,
+      "tapShakeSec": 0.3,
+      "waveBand": 1.5,
+      "waveDamage": 6,
+      "waveHeight": 0.35,
+      "waveRadius": 24,
+      "waveSpeed": 20
+    },
+    "slam2": {
+      "backLeanDeg": 6,
+      "clasp": 1.2,
+      "crackCount": 14,
+      "crackLen": 34,
+      "crackSec": 3,
+      "crackWidth": 0.35,
+      "crushDepth": 3,
+      "crushRadius": 8,
+      "crushUp": 8,
+      "dustCount": 90,
+      "fwdLeanDeg": 9,
+      "hitDamage": 10,
+      "hitHeight": 5,
+      "holdSec": 0.5,
+      "impactHoldSec": 1,
+      "quake": {
+        "bodyShakeDeg": 1.2,
+        "pushDist": 1.5,
+        "pushIntervalSec": 0.45,
+        "pushSec": 0.2,
+        "sec": 3.5,
+        "seed": 41
+      },
+      "raise": [
+        1.2,
+        90,
+        -4
+      ],
+      "reachFrac": 0.97,
+      "recoverSec": 1.8,
+      "ringBand": 3.2,
+      "ringSec": 2.2,
+      "rockColor": 9073752,
+      "rockColorTip": 13480844,
+      "rockCount": 16,
+      "rockHeight": [
+        4,
+        10
+      ],
+      "rockHoldSec": 1,
+      "rockRiseSec": 0.18,
+      "rockSinkSec": 0.9,
+      "rockWidth": [
+        1.6,
+        3
+      ],
+      "shakeDeg": 3.4,
+      "shakeRange": 110,
+      "shakeSec": 3.8,
+      "slamSec": 0.25,
+      "slamZ": 60,
+      "warnAlpha": 0.55,
+      "warnColor": 16726826,
+      "warnRadius": 13,
+      "waveBand": 3,
+      "waveDamage": 8,
+      "waveHeight": 1,
+      "waveRadius": 48,
+      "waveSpeed": 26,
+      "windupSec": 5
+    },
+    "stagger": {
+      "knockSpeed": 11,
+      "knockUp": 5,
+      "sec": 0.5,
+      "shakeDeg": 0.8,
+      "shakeSec": 0.3,
+      "tapKnockSpeed": 7
+    },
+    "sweep": {
+      "armHeight": 2,
+      "boxHeight": 6,
+      "centerZ": -8,
+      "crushPath": false,
+      "crushRadius": 2,
+      "damage": 8,
+      "dustCount": 6,
+      "dustEverySec": 0.04,
+      "endDeg": -28,
+      "hitMargin": 1.4,
+      "holdSec": 0.35,
+      "knockSpeed": 22,
+      "knockUp": 7,
+      "leanDeg": 10,
+      "linkSec": 0.45,
+      "radius": 52,
+      "raise": [
+        12,
+        86,
+        -26
+      ],
+      "reachFrac": 0.97,
+      "recoverSec": 1.6,
+      "shakeDeg": 1.8,
+      "staggerSec": 0.8,
+      "startDeg": 172,
+      "sweepSec": 0.85,
+      "twistDeg": 42,
+      "windupSec": 2.2,
+      "wristY": 4.3
+    },
+    "thunder": {
+      "around": {
+        "aimJitter": 3.5,
+        "aimShare": 0.22,
+        "count": 18,
+        "damage": 6,
+        "keepSec": 0.6,
+        "maxActive": 30,
+        "nearMax": 16,
+        "nearShare": 0.3,
+        "rMax": 46,
+        "rMin": 8,
+        "radius": 3.4,
+        "seed": 5201,
+        "spanSec": 5.2,
+        "warnSec": 1.1,
+        "yAbove": 4.5,
+        "yBelow": 1.2
+      },
+      "backLeanDeg": 9,
+      "body": {
+        "arcs": 240,
+        "damage": 2,
+        "everySec": 0.7,
+        "faceOffset": 0.2,
+        "flickerSec": 0.07,
+        "touchMargin": 0.45
+      },
+      "boltScaleFinger": 2.1,
+      "boltScaleGround": 1.5,
+      "cloudDark": 0.8,
+      "cloudHeight": 90,
+      "cloudSec": 3.4,
+      "fingerLen": 14,
+      "flashAlpha": 0.38,
+      "flashEverySec": [
+        0.9,
+        2.1
+      ],
+      "headUpDeg": 34,
+      "maxBolts": 14,
+      "pointSec": 5.2,
+      "raise": [
+        6,
+        140,
+        6
+      ],
+      "raiseSec": 1.8,
+      "recoverSec": 1.8,
+      "shockSec": 7.2,
+      "strikeSec": 0.12,
+      "twistDeg": 12
+    },
+    "tired": {
+      "breathDeg": 2.4,
+      "breathSec": 3.4,
+      "exitSec": 1.2,
+      "handSpread": 16,
+      "handZ": 38,
+      "headDownDeg": 28,
+      "leanDeg": 32,
+      "restSec": [
+        30,
+        40
+      ],
+      "settleSec": 1.5,
+      "swirlDegPerSec": 90,
+      "swirlRadius": 2.9,
+      "swirlTurns": 3.2,
+      "swirlWidth": 0.55
+    },
+    "wander": {
+      "arriveDist": 1.5,
+      "enabledAtStart": true,
+      "lookBackChance": 0.4,
+      "maxTurnDeg": 45,
+      "minDist": 12,
+      "pauseSec": [
+        3,
+        8
+      ],
+      "radius": 35,
+      "restLookChance": 0.5,
+      "restSec": 180,
+      "walkSec": [
+        45,
+        90
+      ]
+    }
+  },
+  "gashaGirl": {
+    "bgm": {
+      "fadeSec": 1,
+      "volume": 1
+    },
+    "cast": {
+      "fireAt": 0.7,
+      "speed": 1.28
+    },
+    "damage": {
+      "heart": 2
+    },
+    "eye": {
+      "angleDeg": 12,
+      "bangSwapSec": 0.4,
+      "bigTextSec": 1,
+      "bigWaitSec": 120,
+      "holdSec": 1.5,
+      "maxCancels": 2,
+      "turnsPerShow": 5,
+      "windowSec": 0.5
+    },
+    "finish": {
+      "crumbleColors": [
+        15784191,
+        6299840
+      ],
+      "crumbleFall": 1.6,
+      "crumbleSparksPerSec": 90,
+      "fadeSec": 3,
+      "sitBlendSec": 0.5
+    },
+    "intro": {
+      "float": {
+        "bobSec": 2.4,
+        "bobUp": 0.07,
+        "breathDeg": 2.5,
+        "dipDeg": 40,
+        "dipSec": 0.12,
+        "headTurnDeg": 30,
+        "holdSec": 2.6,
+        "hoverGap": 1,
+        "inSec": 0.55,
+        "spinDeg": 360,
+        "swingDeg": 5,
+        "yawDeg": 55
+      },
+      "laughSec": 3.2,
+      "poseBlendSec": 0.25,
+      "poseDist": 4.5,
+      "poseName": "float",
+      "poseSec": 2.5,
+      "radius": 6,
+      "warpSec": 0.28,
+      "warps": 5
+    },
+    "parry": {
+      "flinchSec": 0.5,
+      "flinchTiltRad": 0.22,
+      "girlHitR": 0.9,
+      "reflectSpeedMul": 1.2,
+      "reflectWaitMaxSec": 4,
+      "setCooldownSec": 0.5
+    },
+    "perch": {
+      "blendSec": 0.4,
+      "hipUp": 0.35,
+      "hitHalf": [
+        0.8,
+        1,
+        0.8
+      ],
+      "hitUp": 0.9,
+      "swayDeg": 8,
+      "swaySec": 3
+    },
+    "s1": {
+      "activeSec": 1.1,
+      "ahead": 3,
+      "delaySec": 0.4,
+      "radius": 3.8,
+      "rings": 3,
+      "side": 3
+    },
+    "s2": {
+      "grid": 3,
+      "hitSec": 2.1,
+      "radius": 2.4,
+      "spacing": 6,
+      "totalSec": 2.6
+    },
+    "s3": {
+      "count": 20,
+      "hitR": 0.6,
+      "homingMaxSec": 2.5,
+      "lifeSec": 4,
+      "orbGap": 0.05,
+      "orbStartSec": 0.2,
+      "pitchRad": 0.25,
+      "shotGap": 0.09,
+      "speed": 22,
+      "stopNear": 2,
+      "turnDeg": 160
+    },
+    "s4": {
+      "ampl": 0.6,
+      "count": 16,
+      "fanDeg": 180,
+      "hitR": 0.6,
+      "hz": 1.5,
+      "lifeSec": 3,
+      "range": 14,
+      "secondShift": 0.5,
+      "secondWaveSec": 0.6,
+      "speed": 6,
+      "stopNear": 3,
+      "turnDeg": 40
+    },
+    "sfx": {
+      "detuneCents": 30,
+      "gain": {
+        "cast": 1,
+        "eye_blush": 1,
+        "eye_pipin": 1,
+        "girl_laugh": 1,
+        "player_hit": 1,
+        "s1_erupt": 1,
+        "s1_warn": 1,
+        "s2_vortex": 1,
+        "s3_fire": 1,
+        "s3_hit": 1,
+        "s3_spawn": 1,
+        "s4_fire": 1,
+        "warp_in": 1,
+        "warp_out": 1
+      },
+      "gainDb": 1,
+      "maxSame": 3,
+      "s4PlaysMax": 6,
+      "s4PlaysMin": 4,
+      "s4SpreadSec": 0.24,
+      "volume": 1
+    },
+    "timing": {
+      "appearSec": 0.4,
+      "goneSec": 2,
+      "standSec": 2,
+      "vanishSec": 0.08
+    },
+    "warp": {
+      "far": {
+        "distMax": 12,
+        "distMin": 10,
+        "fanDeg": 60
+      },
+      "s1": {
+        "distMax": 5,
+        "distMin": 4,
+        "leftChance": 0.5
+      },
+      "s2": {
+        "distMax": 2,
+        "distMin": 1.5
+      }
+    }
+  }
+}

@@ -1,0 +1,329 @@
+{
+  "DROP": {
+    "angleJitter": 0.35,
+    "bounce": {
+      "horizontal": 0.6,
+      "maxCount": 1,
+      "minImpact": 1.5,
+      "vertical": 0.4
+    },
+    "floatSpeed": 3,
+    "gravity": 20,
+    "maxItems": 400,
+    "pickupDelay": 18,
+    "pickupHeight": 2,
+    "pickupRadius": 1.5,
+    "popUpSpeed": [
+      5,
+      6.5
+    ],
+    "scatterSpeed": [
+      2,
+      3.5
+    ],
+    "ticks": 36000
+  },
+  "RARITY_TIERS": [
+    {
+      "color": 16777215,
+      "cssVar": "--rk-rarity-0",
+      "dropMax": 4,
+      "gem": "circle",
+      "id": "common",
+      "index": 0,
+      "stars": 1,
+      "word": "ノーマル"
+    },
+    {
+      "color": 9429135,
+      "cssVar": "--rk-rarity-1",
+      "dropMax": 3,
+      "gem": "diamond",
+      "id": "uncommon",
+      "index": 1,
+      "stars": 2,
+      "word": "レア"
+    },
+    {
+      "color": 8370431,
+      "cssVar": "--rk-rarity-2",
+      "dropMax": 2,
+      "gem": "hexagon",
+      "id": "rare",
+      "index": 2,
+      "stars": 3,
+      "word": "スーパーレア"
+    },
+    {
+      "color": 13081599,
+      "cssVar": "--rk-rarity-3",
+      "dropMax": 1,
+      "gem": "star",
+      "id": "superRare",
+      "index": 3,
+      "stars": 4,
+      "word": "ハイパーレア"
+    },
+    {
+      "color": 16765503,
+      "cssVar": "--rk-rarity-4",
+      "dropMax": 1,
+      "gem": "moon",
+      "id": "epic",
+      "index": 4,
+      "stars": 5,
+      "word": "ウルトラレア"
+    },
+    {
+      "color": 16742973,
+      "cssVar": "--rk-rarity-5",
+      "dropMax": 1,
+      "gem": "flame",
+      "id": "mythic",
+      "index": 5,
+      "stars": 6,
+      "word": "ミラクル"
+    },
+    {
+      "color": 16774048,
+      "cssVar": "--rk-rarity-6",
+      "dropMax": 1,
+      "gem": "crown",
+      "id": "legendary",
+      "index": 6,
+      "stars": 7,
+      "word": "レジェンダリー"
+    }
+  ],
+  "YOKAI_DROPS": {
+    "chochin": [
+      {
+        "chance": 0.7,
+        "item": "paper",
+        "max": 4
+      },
+      {
+        "chance": 0.4,
+        "item": "string",
+        "max": 3
+      },
+      {
+        "chance": 0.15,
+        "item": "coal_ore",
+        "max": 2
+      }
+    ],
+    "karakasa": [
+      {
+        "chance": 0.7,
+        "item": "paper",
+        "max": 4
+      },
+      {
+        "chance": 0.7,
+        "item": "string",
+        "max": 4
+      },
+      {
+        "chance": 0.4,
+        "item": "log",
+        "max": 3
+      },
+      {
+        "chance": 0.15,
+        "item": "oil",
+        "max": 2
+      },
+      {
+        "chance": 0.05,
+        "item": "iron_ore",
+        "max": 1
+      },
+      {
+        "chance": 0.05,
+        "item": "seed_tomato",
+        "max": 1
+      },
+      {
+        "chance": 0.05,
+        "item": "seed_pumpkin",
+        "max": 1
+      }
+    ],
+    "nurikabe": [
+      {
+        "chance": 0.7,
+        "item": "dirt",
+        "max": 4
+      },
+      {
+        "chance": 0.7,
+        "item": "stone",
+        "max": 4
+      },
+      {
+        "chance": 0.15,
+        "item": "clay",
+        "max": 2
+      }
+    ],
+    "rokurokubi": [
+      {
+        "chance": 0.7,
+        "item": "cloth",
+        "max": 4
+      },
+      {
+        "chance": 0.05,
+        "item": "crystal",
+        "max": 1
+      },
+      {
+        "chance": 0.05,
+        "item": "seed_onion",
+        "max": 1
+      },
+      {
+        "chance": 0.05,
+        "item": "seed_eggplant",
+        "max": 1
+      }
+    ]
+  },
+  "dropMax": {
+    "common": 4,
+    "epic": 1,
+    "legendary": 1,
+    "mythic": 1,
+    "rare": 2,
+    "superRare": 1,
+    "uncommon": 3
+  },
+  "itemRarity": {
+    "bamboo": "common",
+    "bokuto": "common",
+    "brick": "uncommon",
+    "bucket": "common",
+    "clay": "uncommon",
+    "cloth": "common",
+    "coal_ore": "uncommon",
+    "crystal": "superRare",
+    "crystal_katana": "superRare",
+    "dirt": "common",
+    "egg": "common",
+    "eggplant": "common",
+    "flower_o": "common",
+    "flower_p": "common",
+    "flower_y": "common",
+    "fujin_ken": "legendary",
+    "furnace": "uncommon",
+    "futon": "uncommon",
+    "geyser_dirt": "uncommon",
+    "grass": "common",
+    "haniwa": "uncommon",
+    "harapan_mimizu": "epic",
+    "iron_axe": "rare",
+    "iron_ingot": "rare",
+    "iron_ore": "rare",
+    "iron_pickaxe": "rare",
+    "kabuto": "rare",
+    "katana": "rare",
+    "kawara": "uncommon",
+    "kin": "epic",
+    "kin_axe": "epic",
+    "kin_kabuto": "epic",
+    "kin_katana": "epic",
+    "kin_kote": "epic",
+    "kin_pickaxe": "epic",
+    "kin_suneate": "epic",
+    "kin_tamago": "epic",
+    "kin_yoroi": "epic",
+    "kin_yumi": "epic",
+    "kite": "uncommon",
+    "kote": "rare",
+    "kuwa": "common",
+    "lantern": "uncommon",
+    "leaves": "common",
+    "log": "uncommon",
+    "long_watering_can": "uncommon",
+    "matsu_leaves": "common",
+    "momiji_leaves": "common",
+    "momo_nama": "common",
+    "momo_yaki": "common",
+    "mushi": "common",
+    "mushi_ami": "common",
+    "naginata": "rare",
+    "niji": "legendary",
+    "ninja_shozoku": "legendary",
+    "ninja_tabi": "legendary",
+    "ninja_tekko": "legendary",
+    "ninja_zukin": "legendary",
+    "nobana": "common",
+    "nukunuku": "uncommon",
+    "oil": "uncommon",
+    "omamori": "superRare",
+    "onion": "common",
+    "paper": "common",
+    "pumpkin": "common",
+    "raijin_ken": "legendary",
+    "samurai_geta": "legendary",
+    "samurai_haori": "legendary",
+    "samurai_jingasa": "legendary",
+    "samurai_tekko": "legendary",
+    "sand": "common",
+    "seed_eggplant": "common",
+    "seed_onion": "common",
+    "seed_pumpkin": "common",
+    "seed_tomato": "common",
+    "snow": "common",
+    "sprinkler": "uncommon",
+    "stone": "common",
+    "stone_axe": "common",
+    "stone_pickaxe": "common",
+    "string": "common",
+    "suneate": "rare",
+    "tansu": "uncommon",
+    "tomato": "common",
+    "torch": "common",
+    "toriya": "uncommon",
+    "waraji": "common",
+    "water_bucket": "common",
+    "watering_can": "common",
+    "wood_axe": "common",
+    "wood_pickaxe": "common",
+    "ya": "common",
+    "yokai_orb": "uncommon",
+    "yoroi": "rare",
+    "yumi": "uncommon"
+  },
+  "nushiDrops": [
+    {
+      "item": "raijin_ken",
+      "weight": 1
+    },
+    {
+      "item": "fujin_ken",
+      "weight": 1
+    },
+    {
+      "item": "niji",
+      "weight": 1
+    },
+    {
+      "item": "samurai_jingasa",
+      "weight": 1
+    },
+    {
+      "item": "samurai_haori",
+      "weight": 1
+    },
+    {
+      "item": "samurai_tekko",
+      "weight": 1
+    },
+    {
+      "item": "samurai_geta",
+      "weight": 1
+    }
+  ]
+}
