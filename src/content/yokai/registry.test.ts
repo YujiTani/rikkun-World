@@ -11,7 +11,7 @@ import { YOKAI_NAME, YOKAI_STATS, yokaiStrength } from '../../yokai/stats';
 import { YOKAI_VARIANT_COLORS, baseColorOf, variantColor } from '../../yokai/variants';
 import { MARK_KINDS } from '../../ui/medalArt';
 import { YOKAI_IDS, type YokaiKind } from './ids';
-import { YOKAI_DEFS, mapKinds, yokaiAchievementNames, yokaiAi, yokaiBasis, yokaiCountryBase, yokaiDrops, yokaiHeads, yokaiMotion, yokaiNames, yokaiSense, yokaiVariantColors } from './registry';
+import { YOKAI_DEFS, mapKinds, yokaiAchievementNames, yokaiAi, yokaiBasis, yokaiCountryBase, yokaiDrops, yokaiHeads, yokaiMotion, yokaiNames, yokaiSense, yokaiTraits, yokaiVariantColors } from './registry';
 
 // #307: 登録表（妖怪）から作った「見せ方」が、これまでの表と同じ値になること。
 // 期待は これまでの表（2026-10-25 の写し JSON）から 手で 写した 値。登録表を 直すと ここが 落ちる。
@@ -184,5 +184,14 @@ describe('登録表（妖怪）', () => {
       expect(defeat.length, `${k} を たおす 実績`).toBeGreaterThan(0);
       expect(defeat[0]!.name, k).toContain(EXPECT[k].name);
     }
+  });
+  it('動きの分かれ道の印（traits）は これまでコードに 直書きして いた 動きと 同じ（#308 4-4）', () => {
+    const none = { floatsDown: false, knockOnlyHeavy: false, walksFacing: false, turnsToStone: false, contactMul: 1, crushesBlocks: false, limitedCount: false, longNeck: false, glowColors: [] as number[] };
+    expect(yokaiTraits()).toEqual({
+      karakasa: { ...none, floatsDown: true },
+      chochin: { ...none, glowColors: [0xffb347, 0xfff2a0] },
+      nurikabe: { ...none, knockOnlyHeavy: true, walksFacing: true, turnsToStone: true, contactMul: 4, crushesBlocks: true, limitedCount: true },
+      rokurokubi: { ...none, longNeck: true },
+    });
   });
 });

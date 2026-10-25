@@ -12,6 +12,7 @@ import { Rokurokubi } from '../models/rokurokubi';
 import type { YokaiBase } from '../common';
 import type { StaggerBook } from '../stagger';
 import { YOKAI_STATS, yokaiStrength } from '../stats';
+import { KIND_TRAITS } from '../traits';
 import { syncTransform } from './body';
 import { AI_CONST, KIND_AI, type YokaiConfig } from './config';
 import { DEG, type Ent, type YokaiField } from './entity';
@@ -176,9 +177,10 @@ export class YokaiSpawner {
     return { country, weights };
   }
 
-  private countKind(kind: YokaiKind): number {
+  /** 数に上限がある妖怪（traits.limitedCount = ぬりかべ）が 今 何体 いるか */
+  private countLimited(): number {
     let n = 0;
-    for (const e of this.d.f.ents) if (e.kind === kind) n++;
+    for (const e of this.d.f.ents) if (KIND_TRAITS[e.kind].limitedCount) n++;
     return n;
   }
 
@@ -217,8 +219,8 @@ export class YokaiSpawner {
       if (waterColumn || floors.length === 0) continue;
       const top = floors[Math.floor(rng() * floors.length)]!;
       // COUNTRY-1 §3.3: 場所 → 国 → 種類。種類は その場所の 国の行で えらぶ（だめなら この ためしは しっぱい）
-      const nurikabeFull = this.countKind('nurikabe') >= config.nurikabeMax;
-      const kind = pickYokaiKind(this.rowAt(x, z).row, config.yokaiWeights, nurikabeFull, rng());
+      const limitedFull = this.countLimited() >= config.nurikabeMax;
+      const kind = pickYokaiKind(this.rowAt(x, z).row, config.yokaiWeights, limitedFull, rng());
       if (!kind) continue;
       const ai = KIND_AI[kind];
       const T = groundSupport(world, x, z, top, ai);

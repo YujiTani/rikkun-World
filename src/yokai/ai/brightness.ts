@@ -1,10 +1,10 @@
 import * as THREE from 'three';
 import type { YokaiKind } from '../../contracts';
 import type { YokaiBase } from '../common';
+import { KIND_TRAITS } from '../traits';
 import { baseColorOf, variantColor } from '../variants';
 
 const STONE_GRAY = new THREE.Color(0x8c8c8c);
-const CHOCHIN_BODY = [0xffb347, 0xfff2a0];
 
 /**
  * 妖怪の人形を暗くする（色に brightness をかける。仕様 §3.2）。
@@ -23,7 +23,7 @@ export function applyDollBrightness(model: YokaiBase, kindId: YokaiKind, brightn
         // 段階 2・3 の色で はじめて見たときも、もとの色（段階 1）にもどして覚える
         const hex = baseColorOf(kindId, mat.color.getHex());
         ud.base = hex;
-        ud.body = kindId === 'chochin' && CHOCHIN_BODY.includes(hex);
+        ud.body = KIND_TRAITS[kindId].glowColors.includes(hex);
         ud.skip = ud.body || (!mat.map && (hex === 0 || hex === 0xffffff));
       }
       // ぬりかべ の もよう（段階ごとの テクスチャ）

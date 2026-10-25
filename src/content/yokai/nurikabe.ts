@@ -38,4 +38,12 @@ export const NURIKABE: YokaiDef = {
   head: { bandY: 1.25, bandW: 1.34, bandD: 0.44, crownY: 1.35, crownW: 0.45, crownD: 0.3, z: 0.4, k: 2 },
   country: { base: 20 }, // はらっぱの 重み
   achievement: { name: 'ぬりかべ' },
+  traits: {
+    knockOnlyHeavy: true, // 重い攻撃（虹のはじき）でしか のけぞらない
+    walksFacing: true, // 向いている方へしか 進まない
+    turnsToStone: true, // みず の中で 石になる
+    contactMul: 4, // 体当たりダメージ 4 倍
+    crushesBlocks: true, // 攻撃のたおれこみで ブロックをこわす
+    limitedCount: true, // 同時に出る数に 上限（設定 nurikabeMax）
+  },
 };

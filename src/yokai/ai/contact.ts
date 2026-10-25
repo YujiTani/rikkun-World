@@ -1,4 +1,6 @@
 import type { PlayerCombat } from '../../contracts';
+import { YOKAI_DEFS } from '../../content/yokai/registry';
+import { KIND_TRAITS } from '../traits';
 import { boxesOf, localOverlap, playerBox } from './body';
 import { AI_CONST, type YokaiConfig } from './config';
 import type { Ent, YokaiField } from './entity';
@@ -44,7 +46,7 @@ export class YokaiContact {
       if (e.state === 'dying' || e.state === 'leaving' || e.state === 'appear' || e.state === 'attack' || e.stag) continue; // 攻撃中は攻撃のダメージだけ。よろけ中は 体当たりしない
       for (const b of boxesOf(e, this.boxList)) {
         if (aabbOverlap(obbBounds(b, e.x, e.y, e.z, e.yaw, tmpBox2), pb) && localOverlap(f, e, b)) {
-          if (combat.damage(e.kind === 'nurikabe' ? dmg * AI_CONST.nurikabeContactMul : dmg, e.kind, { x: e.x, y: e.y, z: e.z })) {
+          if (combat.damage(dmg * KIND_TRAITS[e.kind].contactMul, e.kind, { x: e.x, y: e.y, z: e.z })) {
             events.cues.hurt.push(e.id);
             return;
           }
@@ -59,7 +61,7 @@ export class YokaiContact {
     const { f, combat, events } = this.d;
     toWorldXZ(box.cx * e.bodyScale, box.cz * e.bodyScale, e.yaw, tmp);
     const wpos = { x: e.x + tmp.x, y: e.y + box.cy * e.bodyScale, z: e.z + tmp.z };
-    if (e.kind === 'chochin') {
+    if (YOKAI_DEFS[e.kind].basis.projectile) {
       this.d.fireballs.take(e);
       events.emit({ type: 'attackHit', tick: events.tick(), id: e.id, kind: e.kind, hitPlayer: false, position: wpos });
       events.emit({ type: 'fireball', tick: events.tick(), id: e.id, position: wpos });
@@ -76,7 +78,7 @@ export class YokaiContact {
     // WEAPON-5: パリィに 聞く（ろくろくびは 首の頭への 向き、ほかは 妖怪の足もとへの 向き）
     let dmg = e.attack;
     if (hit) {
-      const v = askParry(this.d.opts.parry, f, 'attack', e.id, e.kind === 'rokurokubi' ? wpos : { x: e.x, y: e.y, z: e.z }, e.attack);
+      const v = askParry(this.d.opts.parry, f, 'attack', e.id, KIND_TRAITS[e.kind].longNeck ? wpos : { x: e.x, y: e.y, z: e.z }, e.attack);
       if (v?.result === 'success') {
         // 受けた: 攻撃は 取り消し（ダメージ 0・押されない・こわさない・attackHit なし）
         this.d.reeler.applyStagger(e.id, 'parry');
@@ -84,7 +86,7 @@ export class YokaiContact {
       }
       if (v?.result === 'early') dmg = v.amount;
     }
-    if (e.kind === 'nurikabe') this.d.stone.crush(e);
+    if (KIND_TRAITS[e.kind].crushesBlocks) this.d.stone.crush(e);
     events.emit({ type: 'attackHit', tick: events.tick(), id: e.id, kind: e.kind, hitPlayer: hit, position: wpos });
     if (hit && combat.damage(dmg, e.kind, { x: e.x, y: e.y, z: e.z })) events.cues.hurt.push(e.id);
   }

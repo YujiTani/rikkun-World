@@ -1,4 +1,5 @@
 import type { YokaiKind } from '../contracts';
+import { KIND_TRAITS } from './traits';
 
 /**
  * 妖怪の 種類の えらび方（COUNTRY-1 §3.3）。国の行（種類 → 重み）× 全体の倍率で 1 つ えらぶ。
@@ -34,14 +35,14 @@ export function effectiveRow(row: YokaiRow, scale: YokaiScale, fallback: YokaiRo
 }
 
 /**
- * 種類を 1 つ えらぶ。r は 0 以上 1 未満。ぬりかべ が 上限に いる（nurikabeFull）ときは ぬりかべ を 0 として のこりで えらぶ。
+ * 種類を 1 つ えらぶ。r は 0 以上 1 未満。数に上限がある妖怪（traits.limitedCount = ぬりかべ）が 上限に いる（limitedFull）ときは その妖怪を 0 として のこりで えらぶ。
  * 合計が 0 なら null。
  */
-export function pickYokaiKind(row: YokaiRow, scale: YokaiScale, nurikabeFull: boolean, r: number): YokaiKind | null {
+export function pickYokaiKind(row: YokaiRow, scale: YokaiScale, limitedFull: boolean, r: number): YokaiKind | null {
   const w: number[] = [];
   let total = 0;
   for (const k of YOKAI_DRAW_ORDER) {
-    const v = k === 'nurikabe' && nurikabeFull ? 0 : weightOf(row, scale, k);
+    const v = KIND_TRAITS[k].limitedCount && limitedFull ? 0 : weightOf(row, scale, k);
     w.push(v);
     total += v;
   }

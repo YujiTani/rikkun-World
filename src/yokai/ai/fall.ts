@@ -2,6 +2,7 @@ import type { VoxelWorld } from '../../contracts';
 import { fallDamage } from '../../combat/config';
 import { bodyInWall } from '../../world/wall';
 import { YOKAI_STATS } from '../stats';
+import { KIND_TRAITS } from '../traits';
 import { boxFreeAt } from './body';
 import { AI_CONST, KIND_AI, type YokaiConfig } from './config';
 import type { YokaiDefeat } from './defeat';
@@ -45,7 +46,7 @@ export class YokaiFall {
       if (Number.isNaN(e.fallFrom)) {
         e.fallFrom = e.y;
         // 虹の はじき中は ふわふわ せず（ゆれて 横へ ずれない）いきおいよく 落ちる
-        e.floating = !e.airSafe && e.kind === 'karakasa' && e.y - t >= AI_CONST.floatMinDrop - 1e-6;
+        e.floating = !e.airSafe && KIND_TRAITS[e.kind].floatsDown && e.y - t >= AI_CONST.floatMinDrop - 1e-6;
         e.swayStep = 0;
       }
       if (e.floating) this.sway(e, dt);
@@ -63,7 +64,7 @@ export class YokaiFall {
     }
   }
 
-  /** からかさ: 落ち葉のように 横にゆれてかたむく。ゆれた先が かべ・みず なら ずれない */
+  /** ゆらゆら落ちる妖怪（からかさ）: 落ち葉のように 横にゆれてかたむく。ゆれた先が かべ・みず なら ずれない */
   private sway(e: Ent, dt: number): void {
     const { world } = this.d;
     const w = (Math.PI * 2) / AI_CONST.floatSwayPeriod;
@@ -110,7 +111,7 @@ export class YokaiFall {
       e.airSafe = false;
       return;
     }
-    if (e.floating || e.kind === 'karakasa') {
+    if (e.floating || KIND_TRAITS[e.kind].floatsDown) {
       e.floating = false;
       e.model.fallTilt = 0;
       return;

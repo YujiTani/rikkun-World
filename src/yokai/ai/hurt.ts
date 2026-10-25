@@ -1,5 +1,6 @@
 import type { YokaiHurtBy, YokaiKnock } from '../../contracts';
 import type { StaggerBook } from '../stagger';
+import { KIND_TRAITS } from '../traits';
 import type { YokaiConfig } from './config';
 import { AI_CONST } from './config';
 import type { YokaiDefeat } from './defeat';
@@ -44,7 +45,7 @@ export class YokaiHurt {
     d.events.emit({ type: 'hurt', tick: d.events.tick(), id: e.id, kind: e.kind, position: { x: e.x, y: e.y, z: e.z }, by: by === 'macho' ? 'macho' : by === 'kodachi' ? 'kodachi' : 'player' });
     // LIVE-4: りっくん が たたいた（ぶき・や・わざ）。パリィ で はね返した 火の玉 と マッチョ の パンチ は きっかけ に しない
     if (by === 'player') d.events.cues.hit.push(e.id);
-    if (!kodachi && (e.kind !== 'nurikabe' || knock?.heavy)) {
+    if (!kodachi && (!KIND_TRAITS[e.kind].knockOnlyHeavy || knock?.heavy)) {
       let dx = e.x - from.x;
       let dz = e.z - from.z;
       const dist = Math.hypot(dx, dz);

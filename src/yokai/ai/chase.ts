@@ -3,6 +3,7 @@ import { NINJA_GEAR } from '../../craft/config';
 import type { Rng } from '../../world/gen/random';
 import type { Rokurokubi } from '../models/rokurokubi';
 import { YOKAI_STATS } from '../stats';
+import { KIND_TRAITS } from '../traits';
 import { syncTransform } from './body';
 import { AI_CONST, KIND_AI, type YokaiConfig } from './config';
 import { DEG, type Ent, type YokaiField } from './entity';
@@ -145,11 +146,11 @@ export class YokaiChaser {
     return m;
   }
 
-  /** 向きをゆっくり変えながら、(dirx, dirz) の方へ進む。ぬりかべは向いている方へしか進まない。進んだ距離を返す */
+  /** 向きをゆっくり変えながら、(dirx, dirz) の方へ進む。向いている方へしか進まない妖怪（ぬりかべ）は 向きがそろうまで 進まない。進んだ距離を返す */
   private moveToward(e: Ent, dirx: number, dirz: number, speed: number, dt: number): number {
     const want = yawToward(dirx, dirz);
     this.turn(e, want, dt);
-    if (e.kind === 'nurikabe') {
+    if (KIND_TRAITS[e.kind].walksFacing) {
       if (Math.abs(angleDiff(e.yaw, want)) > 30 * DEG) return 0;
       return this.d.mover.walk(e, Math.sin(e.yaw), -Math.cos(e.yaw), speed * dt);
     }
@@ -269,7 +270,7 @@ export class YokaiChaser {
   startAttack(e: Ent): void {
     // ねらう所（プレイヤーの足もと）を、妖怪から見た位置で渡す
     this.setAim(e);
-    if (e.kind === 'rokurokubi') this.sendNeckRoute(e);
+    if (KIND_TRAITS[e.kind].longNeck) this.sendNeckRoute(e);
     this.setMotion(e, 'wait');
     e.state = 'attack';
     e.attackSteps = 0;

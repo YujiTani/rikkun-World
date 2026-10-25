@@ -18,6 +18,7 @@ import { createRng, type Rng } from '../../world/gen/random';
 import type { YokaiBase } from '../common';
 import { createStaggerBook, type StaggerBook, type StaggerBy, type StaggerInfo } from '../stagger';
 import { YOKAI_STATS } from '../stats';
+import { KIND_TRAITS } from '../traits';
 import { boxesOf, syncTransform } from './body';
 import { YokaiChaser } from './chase';
 import { AI_CONST, createYokaiConfig, type YokaiConfig } from './config';
@@ -365,7 +366,7 @@ export class YokaiManager implements YokaiWorld {
       this.reeler.clear(e);
       if (e.ai) this.chaser.think(e, dt);
     }
-    if (e.kind === 'nurikabe' && this.stone.stoneTick(e)) return;
+    if (KIND_TRAITS[e.kind].turnsToStone && this.stone.stoneTick(e)) return;
     this.mover.applyKnock(e);
     // よろけ中の ちょうちんは その場で ふわふわ（高さも かえない）
     if (!this.fall.rise(e, dt) && !(e.stag && e.dims.flies)) this.fall.settle(e, dt);
@@ -477,7 +478,7 @@ export class YokaiManager implements YokaiWorld {
     const dz = f.pz - e.z;
     const d = Math.hypot(dx, dz);
     if (d > 1e-6) e.yaw = yawToward(dx / d, dz / d); // プレイヤーの方を すぐ向く
-    if (e.kind === 'rokurokubi' && !this.chaser.planNeck(e)) return null;
+    if (KIND_TRAITS[e.kind].longNeck && !this.chaser.planNeck(e)) return null;
     this.chaser.startAttack(e);
     return { hitInSteps: Math.round(YOKAI_STATS[e.kind].hitSeconds * 60) };
   }

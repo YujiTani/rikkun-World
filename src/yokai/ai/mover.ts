@@ -2,6 +2,7 @@ import type { VoxelWorld } from '../../contracts';
 import { fallDamage } from '../../combat/config';
 import { bodyInWall } from '../../world/wall';
 import { YOKAI_STATS } from '../stats';
+import { KIND_TRAITS } from '../traits';
 import { boxFreeAt } from './body';
 import { AI_CONST, KIND_AI, type YokaiConfig } from './config';
 import { DT, type Ent, type YokaiField } from './entity';
@@ -53,7 +54,7 @@ export class YokaiMover {
       t = groundSupport(world, x, z, e.y, ai, AI_CONST.chaseMaxDrop, allowWater);
       if (
         !Number.isNaN(t) &&
-        e.kind !== 'karakasa' && // からかさ は ゆらゆら落ちて ダメージなし
+        !KIND_TRAITS[e.kind].floatsDown && // ゆらゆら落ちる妖怪（からかさ）は ダメージなし
         world.getBlock(Math.floor(x), Math.floor(t), Math.floor(z)) !== 'water' &&
         fallDamage(e.y - t, config.safeFallHeight, config.fallDamagePerBlock) >= e.hp
       ) {

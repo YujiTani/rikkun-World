@@ -22,7 +22,7 @@ export interface YokaiBasis {
   attack: number;
   /** 経験値（M = 1・二つ名なし） */
   xp: number;
-  /** 飛び道具か（書かない = false） */
+  /** 飛び道具か（書かない = false）。こわさの式で ×2 になり、攻撃の当たる瞬間に model が出した火の玉を 引き取って 飛ばす（yokai/ai/fireballs.ts） */
   projectile?: boolean;
   /** 前にしか攻撃しないか（書かない = false） */
   frontOnly?: boolean;
@@ -72,6 +72,32 @@ export interface YokaiSense {
   shinobi: boolean;
 }
 
+/**
+ * 動きの「分かれ道」の印（#308 段階 4-4）。コードに `kind === 'nurikabe'` と書く代わりに、ここに印を書く。
+ * 書かなかった印は「なし」（false・1・空）。国の妖怪を足すときは、同じ動きをしたい妖怪に 同じ印を書けば 使える。
+ * 形を作る class（models/<kind>.ts）や 追いかけ方の switch は コードのまま（never で 全種類を 強制）。
+ */
+export interface YokaiTraits {
+  /** ゆらゆら落ちる: 2 ブロック以上の段差から 落ち葉のように 横にゆれて落ち、落下ダメージなし。追いかけるときは 落ちて倒れる深さでも 降りる（からかさ） */
+  floatsDown?: boolean;
+  /** 重い攻撃（虹のはじき）でしか のけぞらない: ふつうの攻撃では 押されない・うきあがらない（ぬりかべ） */
+  knockOnlyHeavy?: boolean;
+  /** 向いている方へしか 進まない: 行きたい向きと 30 度以上 ずれていると その場で 向きだけ かえる（ぬりかべ） */
+  walksFacing?: boolean;
+  /** みず の中で かたまって 石になる: かたまるほど おそくなり・攻撃しなくなり、全部かたまると まわりを石にして たおれる（ぬりかべ） */
+  turnsToStone?: boolean;
+  /** 体当たり（ふれる）ダメージの倍率。書かなければ 1 倍（ぬりかべ = 4） */
+  contactMul?: number;
+  /** 攻撃が 出るたびに、たおれた体が 重なる ブロックを こわす（ぬりかべのたおれこみ） */
+  crushesBlocks?: boolean;
+  /** 同時に出られる数に 上限がある: 上限は 設定 `nurikabeMax`。いっぱいのあいだは 出現のくじで 重み 0 になる（ぬりかべ） */
+  limitedCount?: boolean;
+  /** 首をのばして攻撃する: 攻撃の前に 首の とどく道すじを 調べ（とどかなければ 攻撃しない）、パリィは 首の先（頭）からの向きで 見る（ろくろくび） */
+  longNeck?: boolean;
+  /** 夜でも 暗くしない「光る」体の色（もとの色。色ちがいの段階の色は 自動でそろう）（ちょうちんの 胴） */
+  glowColors?: readonly number[];
+}
+
 /** 色ちがい 3 段階の 色（段階 2・3。{ もとの色: 新しい色 }。段階 1 = 今の色なので 書かない。DESIGN 13.1、BALANCE §2.4） */
 export type VariantColors = Record<2 | 3, Record<number, number>>;
 
@@ -107,4 +133,6 @@ export interface YokaiDef {
   country: { base: number };
   /** 「たおした」実績の 名前（名前の 部分。文は achievements/defs.ts） */
   achievement: { name: string };
+  /** 動きの分かれ道の印（書かない = どれも なし） */
+  traits?: YokaiTraits;
 }
