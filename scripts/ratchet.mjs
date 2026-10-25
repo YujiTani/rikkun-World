@@ -2,7 +2,7 @@
 // 使い方: node scripts/ratchet.mjs          … 数えて 上限と くらべる（ふえていたら exit 1）
 //         node scripts/ratchet.mjs --update … 上限を 今の数まで 下げる（上げることは しない）
 import { spawn } from 'node:child_process';
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
 
 const LIMIT_FILE = new URL('../ratchet.json', import.meta.url);
 const ROOT = new URL('..', import.meta.url).pathname;
@@ -60,6 +60,28 @@ async function countKnip() {
   return { unusedExports, unusedTypes };
 }
 
+/** src の .ts（テストは 別。.test.ts / .d.ts を のぞく）を 1 つずつ 調べる */
+function walkSrc(dir, out = []) {
+  for (const e of readdirSync(dir, { withFileTypes: true })) {
+    const p = `${dir}${e.name}`;
+    if (e.isDirectory()) walkSrc(`${p}/`, out);
+    else if (p.endsWith('.ts')) out.push(p);
+  }
+  return out;
+}
+
+/** eslint-disable の ある 行の数（src 全部。テストも ふくむ）と、800 行を こえる ファイルの数（src の .ts。テストは のぞく） */
+function countFiles() {
+  let eslintDisable = 0;
+  let filesOver800 = 0;
+  for (const f of walkSrc(`${ROOT}src/`)) {
+    const text = readFileSync(f, 'utf8');
+    eslintDisable += text.split('\n').filter((l) => l.includes('eslint-disable')).length;
+    if (!f.endsWith('.test.ts') && text.split('\n').length - 1 > 800) filesOver800++;
+  }
+  return { eslintDisable, filesOver800 };
+}
+
 const LABELS = {
   idCompare: 'id の === / !== 直書き',
   idCase: 'id の case 直書き',
@@ -67,10 +89,12 @@ const LABELS = {
   cycles: 'import の ぐるぐる（循環）',
   unusedExports: '使われない export',
   unusedTypes: '使われない type の export',
+  eslintDisable: 'eslint-disable の 行',
+  filesOver800: '800 行を こえる .ts ファイル（テストは のぞく）',
 };
 
 const t0 = Date.now();
-const results = await Promise.all([countEslint(), countMadge(), countKnip()]);
+const results = [...(await Promise.all([countEslint(), countMadge(), countKnip()])), countFiles()];
 const counts = Object.assign({}, ...results);
 const update = process.argv.includes('--update');
 const limits = existsSync(LIMIT_FILE) ? JSON.parse(readFileSync(LIMIT_FILE, 'utf8')) : {};
