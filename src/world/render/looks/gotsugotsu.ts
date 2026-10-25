@@ -1,5 +1,5 @@
 import { blockHash, createPalette, dentable, mix } from './common';
-import { microSoil } from '../../../world/micro/microSurface';
+import { microSoil } from '../../micro/microSurface';
 import { ALL_FACES, LOOK_N, type KindSpec, type Look } from './types';
 
 /**

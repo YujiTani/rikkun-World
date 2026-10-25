@@ -1,5 +1,5 @@
 import { Data3DTexture, NearestFilter, RGBAFormat, RepeatWrapping, UnsignedByteType } from 'three';
-import { ALL_FACES, LOOK_N, LOOK_VOLUME, baseColorOf, fillBlockLook, hasLook, paletteRgb } from './looks';
+import { ALL_FACES, LOOK_N, LOOK_VOLUME, baseColorOf, fillBlockLook, hasLook, paletteRgb } from '../../world/render/looks';
 
 /** くり返しの大きさ: 3 ブロック = 27 小ブロック */
 export const TEX_REPEAT = 3;

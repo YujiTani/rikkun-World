@@ -1,6 +1,6 @@
 import { PerspectiveCamera, WebGLRenderer } from 'three';
 import { CHUNK_SIZE } from '../../world/VoxelWorld';
-import { ALL_LOOKS, DEFAULT_LOOK_ID, currentLook, findLook, setCurrentLook } from './looks';
+import { ALL_LOOKS, DEFAULT_LOOK_ID, currentLook, findLook, setCurrentLook } from '../../world/render/looks';
 import { CharSprite } from './charSprite';
 import { HEIGHT_FACTORS, BASE_HEIGHT, SEA_Y, heightFactorFromParam } from './terrain/stretchHeight';
 import { MICRO_RADII, PROTO_MODES, ProtoScene, TERRAIN_MODES, type ProtoMode, type TerrainMode } from './ProtoScene';

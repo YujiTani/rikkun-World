@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { BGM_FILE } from '../proto/gashaBgm';
+import { BGM_FILE } from './gashaBgm';
 
 /** #293 リリース: BGM と 少女の GLB が「公開版でも 読める 場所に、相対パスで、軽く」入っている ことを 見はる */
 describe('がしゃどくろの 音・モデルの ファイル', () => {
@@ -19,7 +19,7 @@ describe('がしゃどくろの 音・モデルの ファイル', () => {
   });
 
   it('少女の GLB は public/ の 下に あり、gashaGirl.ts は 相対パスで そこを 読む', () => {
-    const src = readFileSync('src/proto/gashaGirl.ts', 'utf8');
+    const src = readFileSync('src/gasha/gashaGirl.ts', 'utf8');
     const m = /\.load\(\s*'(\.\/[^']+\.glb)'/.exec(src);
     expect(m, 'gashaGirl.ts の GLB の パス').not.toBeNull();
     const file = 'public/' + m![1]!.slice(2);
@@ -41,7 +41,7 @@ describe('がしゃどくろの 音・モデルの ファイル', () => {
   });
 
   it('試作用の /__proto-gasha/ の 入り口は 公開の コードに のこらない', () => {
-    for (const f of ['vite.config.ts', 'src/proto/gashaBgm.ts', 'src/proto/gashaGirl.ts']) {
+    for (const f of ['vite.config.ts', 'src/gasha/gashaBgm.ts', 'src/gasha/gashaGirl.ts']) {
       expect(readFileSync(f, 'utf8'), f).not.toContain("'./__proto-gasha/");
     }
     expect(readFileSync('vite.config.ts', 'utf8')).not.toContain('/__proto-gasha');

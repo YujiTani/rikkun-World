@@ -6,7 +6,7 @@
  *  ・色・距離・濃さは releaseTuning.ts の silhouette。試作の 霞みは hazeMax = 0 に して けんかしない ようにする（release 側だけ。試作ページは そのまま）。
  */
 import { Vector3, type Material, type MeshBasicMaterial, type Object3D } from 'three';
-import { TUNE as BIG } from '../proto/gashaBigTuning';
+import { TUNE as BIG } from './gashaBigTuning';
 import { RELEASE } from './releaseTuning';
 
 const silCol = { value: new Vector3(0.12, 0.14, 0.2) };

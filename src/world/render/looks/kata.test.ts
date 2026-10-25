@@ -8,8 +8,8 @@
  * （候補の位置 = 原点まわりの格子 ＋ 遠い位置 (-50040..-49960, -7, 0)。型を遠い位置の形で作る試作の約束）。
  */
 import { beforeEach, describe, expect, it } from 'vitest';
-import { BLOCK_TYPES } from '../../../world/blocks/blockTypes';
-import '../meshVoxel';
+import { BLOCK_TYPES } from '../../blocks/blockTypes';
+import '../../../proto/voxel/meshVoxel';
 import { KATA_TABLE, KATA_UNDER, decideKata } from './kata';
 import {
   ALL_FACES,

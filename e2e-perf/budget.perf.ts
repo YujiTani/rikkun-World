@@ -195,7 +195,7 @@ async function instrument(page: Page): Promise<void> {
   await patch('**/src/world/render/WorldRenderer.ts*', (s) => s.replace('this.markDirty(ns, false)', 'this.markDirtyNb(ns)') + RENDERER_ADD, 'markDirtyNb(ns)');
   await patch('**/src/world/light/WorldLight.ts*', (s) => s + LIGHT_ADD, 'WorldLight.prototype');
   await patch('**/src/world/stream/ChunkStream.ts*', (s) => s + STREAM_ADD, 'ChunkStream.prototype');
-  await patch('**/src/proto/voxel/looks/index.ts*', LOOKS_PATCH, 'function __fbl');
+  await patch('**/src/world/render/looks/index.ts*', LOOKS_PATCH, 'function __fbl');
 }
 
 /** ページの中に 道具を入れる（window.__b）。矢印関数だけ（名前つきの関数は使わない） */

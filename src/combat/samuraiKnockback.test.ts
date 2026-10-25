@@ -4,8 +4,8 @@ import { ArmorSystemImpl } from '../craft/ArmorSystem';
 import { CRAFT_DEFAULTS } from '../craft/config';
 import { NINJA_TUNING } from '../craft/ninjaTuning';
 import { InventoryImpl } from '../inventory/Inventory';
-import { BigShock } from '../proto/gashaBigShock';
-import { TUNE as T } from '../proto/gashaBigTuning';
+import { BigShock } from '../gasha/gashaBigShock';
+import { TUNE as T } from '../gasha/gashaBigTuning';
 import { PlayerCombatImpl } from './PlayerCombat';
 import { COMBAT_DEFAULTS } from './config';
 

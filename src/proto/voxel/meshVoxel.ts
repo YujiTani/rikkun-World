@@ -13,7 +13,7 @@ import {
   lookIdOf,
   occludes,
   paletteRgb,
-} from './looks';
+} from '../../world/render/looks';
 import { newSample, sampleSurface, type ColumnSource, type SurfaceSample } from '../../world/micro/microSurface';
 import { scanColumn, type ColumnInfo } from '../../world/micro/worldColumns';
 

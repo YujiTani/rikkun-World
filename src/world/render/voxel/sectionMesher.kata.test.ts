@@ -1,15 +1,15 @@
 /**
  * #202 ブロックの型: セクションのメッシュ作りでの 型の使い分け（タスク票 docs/tickets/PERF-3.md の基準 5・6）。
  * 前提にした口（いまの試作にある物。developer はこの名前・型のまま作る）:
- *  - proto/voxel/looks の kataStats: number[]（[毎回計算, 型なしの種類, 型, 地下の型] の数え。fill(0) で数え直す）
+ *  - world/render/looks の kataStats: number[]（[毎回計算, 型なしの種類, 型, 地下の型] の数え。fill(0) で数え直す）
  *    毎回計算 = 水のそば、または 地下で kataUnder=0 のとき。地下の型 = 地下で @under の型を使った数。
  *    はっぱは 地下でも「型」（[2]）に数える（地下あつかいしない）。
  *  - kata.ts の decideKata, index.ts の setKataTable
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { ArrayVoxelWorld } from '../../VoxelWorld';
-import { decideKata } from '../../../proto/voxel/looks/kata';
-import { kataStats, setKataTable } from '../../../proto/voxel/looks';
+import { decideKata } from '../looks/kata';
+import { kataStats, setKataTable } from '../looks';
 import { SectionMesher, type SectionMeshData } from './sectionMesher';
 
 /** 型を使うのは 小ブロック（micro）の段だけ（box は 729 マスの形を作らない） */

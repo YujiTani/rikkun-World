@@ -1,8 +1,8 @@
 import { test, expect, type Page } from '@playwright/test';
 import { openGasha, setupBoss, installGirlTools, loadGirl, leftovers, bare, CLEAN } from './helpers/gasha';
 import { takeKatana, runTech, settle } from './helpers/blade';
-import { TUNE as GT } from '../src/proto/gashaGirlTuning';
-import { TUNE as BT } from '../src/proto/gashaBigTuning';
+import { TUNE as GT } from '../src/gasha/gashaGirlTuning';
+import { TUNE as BT } from '../src/gasha/gashaBigTuning';
 import { RELEASE } from '../src/gasha/releaseTuning';
 
 /**

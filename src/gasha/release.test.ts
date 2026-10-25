@@ -1,15 +1,15 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { BoxGeometry, Group, Mesh, MeshBasicMaterial } from 'three';
-import { hazePatch } from '../proto/gashaBig';
+import { hazePatch } from './gashaBig';
 import type { ItemStack } from '../contracts';
-import type { GashaBigDeps } from '../proto/gashaBig';
+import type { GashaBigDeps } from './gashaBig';
 import { createGashaRelease, type BossHandle, type DepsWrap, type GirlHooks, type ReleaseEnv } from './release';
 import { RELEASE } from './releaseTuning';
 import { NINJA_GEAR } from '../craft/config';
 import type { ItemId } from '../contracts';
 
 const NINJA_IDS = Object.values(NINJA_GEAR) as string[];
-import { TUNE as BIG } from '../proto/gashaBigTuning';
+import { TUNE as BIG } from './gashaBigTuning';
 
 /** gashaBig.ts の place({ x, z, yawDeg })・despawn()・onDefeated の まね */
 function fakeBoss(wrapped: GashaBigDeps, first: { x: number; z: number; yawDeg?: number }) {

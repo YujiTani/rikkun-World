@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hasLook, occludes } from '../../../proto/voxel/looks';
+import { hasLook, occludes } from '../looks';
 import { MICRO_PARAMS, sampleSurface, newSample, type ColumnSource } from '../../micro/microSurface';
 import { scanColumn, type ColumnInfo } from '../../micro/worldColumns';
 import { isOpaqueIndex } from '../../blocks/blockTypes';
