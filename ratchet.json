@@ -1,8 +1,8 @@
 {
-  "idCompare": 285,
-  "idCase": 74,
-  "switchExhaustive": 23,
+  "idCompare": 284,
+  "idCase": 77,
+  "switchExhaustive": 21,
   "cycles": 8,
-  "unusedExports": 427,
+  "unusedExports": 425,
   "unusedTypes": 165
 }
