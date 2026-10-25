@@ -40,52 +40,8 @@ export interface InfoRow {
   special?: string;
 }
 
-const PLACE = 'てに もって みぎクリック で おく';
-const PLACE_BTN: ButtonKey[] = ['1-9', 'right'];
-
 const OLD_ITEM_INFO: Record<string, InfoRow> = {
-  // ---- ブロック（13）
-  grass: { use: 'ブロック として おける。わらじ の ざいりょう', how: PLACE, buttons: PLACE_BTN, dig: true },
-  dirt: { use: 'ブロック として おける', how: PLACE, buttons: PLACE_BTN, dig: true },
-  stone: { use: 'おける。つるはし・かまど・や の ざいりょう', how: PLACE, buttons: PLACE_BTN, dig: true },
-  sand: { use: 'おける', how: PLACE, buttons: PLACE_BTN, dig: true },
-  log: {
-    use: 'おける。いろんな もの の ざいりょう。かまど の ねんりょう にも なる',
-    how: `${PLACE}。ねんりょう は かまど が かってに つかう`,
-    buttons: PLACE_BTN,
-    dig: true,
-  },
-  leaves: { use: 'おける', how: PLACE, buttons: PLACE_BTN, dig: true },
-  coal_ore: {
-    use: 'かまど の ねんりょう（いちばん さきに つかう）。おける',
-    how: 'かまど で やく と かってに つかう。おくのは てに もって みぎクリック',
-    buttons: PLACE_BTN,
-    dig: true,
-  },
-  iron_ore: {
-    use: 'かまど で やくと てつの かたまり に なる。おける',
-    how: 'かまど に みぎクリック して やく',
-    buttons: ['right'],
-    dig: true,
-  },
-  furnace: {
-    use: 'おいて、てつ や ねんど を やく',
-    how: 'おいて、かまど に むけて みぎクリック（E でも）',
-    buttons: PLACE_BTN,
-  },
-  kawara: { use: 'ブロック として おける（やね に ぴったり）', how: PLACE, buttons: PLACE_BTN },
-  brick: { use: 'ブロック として おける（かべ に ぴったり）', how: PLACE, buttons: PLACE_BTN },
-  torch: {
-    use: 'おくと まわり が あかるく なる。あかるい ところ には ようかい が でない',
-    how: PLACE,
-    buttons: PLACE_BTN,
-  },
-  tansu: {
-    use: 'おいて、もちもの を たくさん（54 こ の マス）しまえる',
-    how: 'おいて、たんす に むけて みぎクリック で ひらく（E でも）。シフト を おしながら クリック で いっきに うつす',
-    buttons: PLACE_BTN,
-    stats: 'tansu',
-  },
+  // ---- 置ける ブロックの 説明 13 個（くさ・つち・いし・すな・き・はっぱ・せきたん・てつ・かまど・かわら・レンガ・たいまつ・たんす）は 登録表（content/items/blocks.ts）に ある。地形・かざりの 9 個は 説明なし
 
   // ---- ざいりょう（ようかいだま・かみ・あぶら・いと・ぬの・ねんど・すいしょう・てつの かたまり 8 個）は 登録表（content/items/materials.ts）に ある
 

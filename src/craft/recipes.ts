@@ -1,5 +1,5 @@
 import type { ItemId, Recipe } from '../contracts';
-import { ARMOR_DEFS, BOW_DEFS, BUCKET_DEFS, FARM_TOOL_DEFS, GADGET_DEFS, GOLD_DEFS, INGOT_DEFS, LIVE_DEFS, SEED_DEFS, SPRINKLER_DEFS, SWORD_DEFS, TOOL_DEFS, noteDuplicates, recipesOf } from '../content/items/registry';
+import { ARMOR_DEFS, BOW_DEFS, BUCKET_DEFS, FARM_TOOL_DEFS, GADGET_DEFS, GOLD_DEFS, INGOT_DEFS, LIVE_DEFS, M4_BLOCK_DEFS, SEED_DEFS, SPRINKLER_DEFS, SWORD_DEFS, TOOL_DEFS, noteDuplicates, pickDefs, recipesOf } from '../content/items/registry';
 
 const r = (
   id: ItemId,
@@ -23,16 +23,17 @@ export const TORCH_LOG = 'torch_log';
 export const CRAFT_RECIPES: readonly Recipe[] = [
   // M4・BAL-D: つるはし 3 本・おの 3 本は 登録表（content/items/tools.ts）から。順は 登録の 順
   ...recipesOf(TOOL_DEFS, 'craft'),
-  r('furnace', 1, [['stone', 5]], true),
+  // かまどは 登録表（content/items/blocks.ts）から
+  ...recipesOf(pickDefs(M4_BLOCK_DEFS, ['furnace']), 'craft'),
   // M4: ぼくとう・かたな・なぎなた・きらめく カタナ・ゆみ・や・かぶと・よろい・こて・すねあては 登録表（content/items/weapons.ts・armor.ts）から。順は 刀 → ゆみ・や → 防具
   ...recipesOf(SWORD_DEFS, 'craft'),
   ...recipesOf(BOW_DEFS, 'craft'),
   ...recipesOf(ARMOR_DEFS, 'craft'),
-  r('torch', 4, [['log', 1], ['oil', 1]], true),
+  ...recipesOf(pickDefs(M4_BLOCK_DEFS, ['torch']), 'craft'),
   // 小物（ちょうちん・たこ・ふとん・おまもり・わらじ。はにわは かまど）は 登録表（content/items/misc.ts）から。順は 登録の 順
   ...recipesOf(GADGET_DEFS, 'craft'),
-  // M6: たんす（き 8・てつの かたまり 2）
-  r('tansu', 1, [['log', 8], ['iron_ingot', 2]], true),
+  // M6: たんす（き 8・てつの かたまり 2）も 登録表から
+  ...recipesOf(pickDefs(M4_BLOCK_DEFS, ['tansu']), 'craft'),
   // 畑は 登録表（content/items/farm.ts）から。順は くわ → じょうろ → ながい じょうろ → スプリンクラー → バケツ（29 こ目）→ たね 4 こ（やさい 1 こ → たね 4 こ。作物の 順）
   ...recipesOf(FARM_TOOL_DEFS, 'craft'),
   ...recipesOf(SPRINKLER_DEFS, 'craft'),
@@ -50,10 +51,9 @@ export const CRAFT_RECIPES: readonly Recipe[] = [
 
 /** やく 6 こ（M4 §4.2 の 4 こ ＋ LIVE-3 の やいた もも にく ＋ GOLD-1 の きん。かまど で。ねんりょう 1 こ・60 ステップ。やいた もも にく は いちばん うしろ） */
 export const BAKE_RECIPES: readonly Recipe[] = [
-  // てつの かたまりは 登録表（content/items/materials.ts）から。かわら・レンガの 次の はにわは 登録表（content/items/misc.ts）から
+  // てつの かたまりは 登録表（content/items/materials.ts）から。かわら・レンガ（content/items/blocks.ts）の 次の はにわは 登録表（content/items/misc.ts）から
   ...recipesOf(INGOT_DEFS, 'furnace'),
-  r('kawara', 2, [['clay', 1]], true, 'furnace'),
-  r('brick', 2, [['clay', 1]], true, 'furnace'),
+  ...recipesOf(pickDefs(M4_BLOCK_DEFS, ['kawara', 'brick']), 'furnace'),
   ...recipesOf(GADGET_DEFS, 'furnace'),
   // GOLD-1（§4.2）: きん の たまご を やく と きん 1 は 登録表（content/items/gold.ts）から
   ...recipesOf(GOLD_DEFS, 'furnace'),

@@ -14,6 +14,7 @@ import { isNinjaItem, ninjaItemPixels } from '../../ui/itemArtNinja';
 import { isSamuraiItem, samuraiItemPixels } from '../../ui/itemArtSamurai';
 import { NINJA_TUNING } from '../../craft/ninjaTuning';
 import { ARMOR_ITEM_IDS, BOW_IDS, FARM_BUCKET_IDS, FARM_TOOL_IDS, GADGET_IDS, GOLD_IDS, INGOT_IDS, LEGEND_IDS, LIVE_ITEM_IDS, MATERIAL_ITEM_IDS, NINJA_ITEM_IDS, ORB_IDS, SAMURAI_ITEM_IDS, SEED_ITEM_IDS, SWORD_IDS, TOOL_ITEM_IDS, VEG_ITEM_IDS, type GoldId } from './ids';
+import { GEYSER, M4_BLOCKS, PLACEABLE, VOX_I } from './blocks';
 import { LEGEND } from './legend';
 import { ITEM_DEFS, REGISTRY_OVERLAPS, itemDef, registryHeal } from './registry';
 import { toolFamily } from '../../dig/toolFamily';
@@ -71,6 +72,8 @@ const CRAFTS: ReadonlyArray<[GoldId, Array<[string, number]>]> = [
   ['kin_suneate', [['kin', 2], ['string', 1]]],
 ];
 
+/** 置けるブロック 22 個（content/items/blocks.ts） */
+const BLOCK_ITEM_IDS = [...Object.keys(PLACEABLE), ...Object.keys(M4_BLOCKS), ...Object.keys(GEYSER), ...Object.keys(VOX_I)];
 const GEAR_IDS = [...TOOL_ITEM_IDS, ...SWORD_IDS, ...BOW_IDS, ...ARMOR_ITEM_IDS] as const;
 const FARM_IDS = [...SEED_ITEM_IDS, ...VEG_ITEM_IDS, ...FARM_TOOL_IDS, 'sprinkler', ...FARM_BUCKET_IDS] as const;
 
@@ -78,7 +81,7 @@ describe('登録表（金シリーズ）', () => {
   it('金の全 id に ItemDef がある（10 個・id は ids.ts の 1 回だけ）', () => {
     expect(GOLD_IDS).toHaveLength(10);
     for (const id of GOLD_IDS) expect(itemDef(id), id).toBeDefined();
-    expect(Object.keys(ITEM_DEFS).sort()).toEqual([...GOLD_IDS, ...LEGEND_IDS, ...NINJA_ITEM_IDS, ...SAMURAI_ITEM_IDS, ...GEAR_IDS, ...FARM_IDS, ...ORB_IDS, ...MATERIAL_ITEM_IDS, ...INGOT_IDS, ...GADGET_IDS, ...LIVE_ITEM_IDS, 'nukunuku'].sort());
+    expect(Object.keys(ITEM_DEFS).sort()).toEqual([...GOLD_IDS, ...LEGEND_IDS, ...NINJA_ITEM_IDS, ...SAMURAI_ITEM_IDS, ...GEAR_IDS, ...FARM_IDS, ...ORB_IDS, ...MATERIAL_ITEM_IDS, ...INGOT_IDS, ...GADGET_IDS, ...LIVE_ITEM_IDS, 'nukunuku', ...BLOCK_ITEM_IDS].sort());
     expect(Object.keys(EXPECT).sort()).toEqual([...GOLD_IDS].sort());
   });
 
@@ -86,7 +89,8 @@ describe('登録表（金シリーズ）', () => {
     const types = new Set(ITEM_TYPES.map((t) => t.id as string));
     for (const id of Object.keys(ITEM_DEFS)) {
       expect(types.has(id), `${id} が ITEM_TYPES に無い`).toBe(true);
-      expect(ITEM_INFO[id], `${id} の 説明が 無い`).toBeDefined();
+      // 地形・かざりの 9 個は 説明なし（completeness.test.ts の 許可リストと 同じ）
+      if (!['geyser_dirt', 'snow', 'momiji_leaves', 'matsu_leaves', 'flower_y', 'flower_o', 'flower_p', 'bamboo', 'nobana'].includes(id)) expect(ITEM_INFO[id], `${id} の 説明が 無い`).toBeDefined();
     }
     for (const id of GOLD_IDS) {
       expect(isGoldItem(id), id).toBe(true);
@@ -104,8 +108,9 @@ describe('登録表（金シリーズ）', () => {
   });
 
   it('itemDef は 登録の ない id では undefined', () => {
-    expect(itemDef('torch')).toBeUndefined();
-    expect(itemDef('furnace')).toBeUndefined();
+    // 全アイテムが 登録表に 入ったので、ない id は 書きまちがいだけ
+    expect(itemDef('no_such_item')).toBeUndefined();
+    expect(itemDef('zzz')).toBeUndefined();
   });
 
   it.each(GOLD_IDS)('%s: 名前・重ね数・置けない・レア度・分類が 今の表と同じ', (id) => {

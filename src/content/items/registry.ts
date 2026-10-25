@@ -3,6 +3,7 @@ import type { InfoRow } from '../../craft/info/table';
 import type { ToolFamily } from '../../dig/toolFamily';
 import type { ItemCategory } from '../../ui/itemCategory';
 import { ARMOR } from './armor';
+import { GEYSER, M4_BLOCKS, PLACEABLE, VOX_I } from './blocks';
 import { BUCKETS, FARM_TOOLS, SEEDS, SPRINKLER, VEGGIES } from './farm';
 import { GOLD } from './gold';
 import { LEGEND } from './legend';
@@ -28,7 +29,8 @@ import { BOWS, SWORDS } from './weapons';
  * 畑（たね・やさい・くわ・じょうろ・スプリンクラー・バケツ 14 個）は farm.ts。絵は ui/itemArtM7.ts・itemArtM72.ts・bucketArt.ts。
  * ざいりょう（ようかいだま・かみ・あぶら・いと・ぬの・ねんど・すいしょう・てつの かたまり）は materials.ts、小物（ちょうちん・たこ・ふとん・おまもり・わらじ・はにわ）は misc.ts。
  * 生き物（たまご・むし・むしとりあみ・こたつ・とりごや・きんの たまご・もも にく 2 つ）は live.ts（食べた ときの 回復量は `food` 部品）。絵は ui/itemArtLive1〜3.ts。
- * のこりのシリーズは 段階 3 で 1 本ずつ ここへ うつす（全部 うまったら ITEM_DEFS を 全件 Record に する）。
+ * 置ける ブロック 22 個（くさ・つち・いし・すな・き・はっぱ・せきたん・てつ・かまど・かわら・レンガ・たいまつ・たんす・間欠泉の つち・12 の国の ブロック 8 つ）は blocks.ts（ブロックとしての 性質は BLOCK_TYPES と DIG_DEFAULTS のまま）。
+ * これで ITEM_TYPES の 全 id に 登録が ある（全部 うまったので ITEM_DEFS は 全件 Record に できる）。
  */
 export type ItemDefs = Readonly<Partial<Record<ItemId, ItemDef>>>;
 
@@ -72,10 +74,20 @@ export const GADGET_DEFS: ItemDefs = GADGETS;
  */
 export const LIVE_DEFS: ItemDefs = pickDefs({ ...LIVE, ...KOTATSU }, ['egg', 'mushi', 'mushi_ami', 'nukunuku', 'toriya', 'kin_tamago', 'momo_nama', 'momo_yaki']);
 
+/** 置ける ブロック 8 つ（くさ・つち・いし・すな・き・はっぱ・せきたん・てつ。ITEM_TYPES の 先頭） */
+export const PLACEABLE_DEFS: ItemDefs = PLACEABLE;
+/** かまど・かわら・レンガ・たいまつ・たんす（ITEM_TYPES では ざいりょうの 次。作業台では かまど → たいまつ → たんすが 別々の 位置に 入る） */
+export const M4_BLOCK_DEFS: ItemDefs = M4_BLOCKS;
+/** 間欠泉の つち（ITEM_TYPES では 侍装備の 次） */
+export const GEYSER_DEFS: ItemDefs = GEYSER;
+/** 12 の国の ブロック 8 つ（ITEM_TYPES では バケツの 次） */
+export const VOX_I_DEFS: ItemDefs = VOX_I;
+
 /** レジェンダリー武器（ITEM_TYPES・武器の 色分けでは 古い表の 同じ 位置（crystal_katana の 次）に 入れる） */
 export const LEGEND_DEFS: ItemDefs = LEGEND;
-/** 登録された 全アイテム（道具・刀・ゆみ・防具・忍者・侍・畑・ざいりょう・小物・生き物・レジェンダリー・金。刀の集まり BLADE_ITEMS の 並びは この 順） */
+/** 登録された 全アイテム（置ける ブロック・道具・刀・ゆみ・防具・忍者・侍・畑・ざいりょう・小物・生き物・レジェンダリー・金。刀の集まり BLADE_ITEMS の 並びは この 順） */
 export const ITEM_DEFS: ItemDefs = {
+  ...PLACEABLE_DEFS, ...M4_BLOCK_DEFS, ...GEYSER_DEFS, ...VOX_I_DEFS,
   ...TOOL_DEFS, ...SWORD_DEFS, ...BOW_DEFS, ...ARMOR_DEFS, ...NINJA_SAMURAI_DEFS,
   ...SEED_DEFS, ...VEG_DEFS, ...FARM_TOOL_DEFS, ...SPRINKLER_DEFS, ...BUCKET_DEFS,
   ...MATERIAL_DEFS, ...INGOT_DEFS, ...GADGET_DEFS, ...LIVE_DEFS, ...LEGEND_DEFS, ...GOLD_DEFS,

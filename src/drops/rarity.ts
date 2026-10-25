@@ -13,8 +13,7 @@ export { RARITY_COLOR, RARITY_ORDER, RARITY_TIERS, defaultDropMax, isRarity, rar
  */
 const OLD_ITEM_ONLY_RARITY: Record<string, Rarity> = {
   // ようかいだま・ざいりょう 6・てつの かたまり・小物 6 は 登録表（content/items/materials.ts・misc.ts）にある
-  // M4（docs/design/M4-craft.md §4.4）。かまど・かわら・レンガは ほる設定（DIG_DEFAULTS.rarity）にある
-  torch: 'common',
+  // 置ける ブロック 22 個（かまど・かわら・レンガ・たいまつ …）は 登録表（content/items/blocks.ts）にある。値は ほる設定（DIG_DEFAULTS.rarity）から 取る（二重に 書かない）
   // M7・M7-2・BUCKET-1（たね・やさい・くわ・じょうろ・スプリンクラー・バケツ）は 登録表（content/items/farm.ts）にある
   // LIVE-1〜3（たまご・むし・むしとりあみ・こたつ・とりごや・きんの たまご・もも にく 2 つ）は 登録表（content/items/live.ts）にある
 };
