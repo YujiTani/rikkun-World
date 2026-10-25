@@ -5,7 +5,7 @@
  * 新しいアイテムを足すときは、ここにも 1 行足す（表に無いアイテムは `material` = そざい）。
  * 登録表（content/items/）に うつしたシリーズは、そちらの `category` に 書く（ここへは 自動で 入る）。
  */
-import { LEGEND_DEFS, noteDuplicates, registryCategoryIds } from '../content/items/registry';
+import { ARMOR_DEFS, BOW_DEFS, GOLD_DEFS, LEGEND_DEFS, NINJA_SAMURAI_DEFS, SWORD_DEFS, TOOL_DEFS, noteDuplicates, registryCategoryIds } from '../content/items/registry';
 
 export type ItemCategory =
   | 'soil'
@@ -38,7 +38,10 @@ export const ITEM_CATEGORIES: readonly ItemCategory[] = [
   'food',
 ];
 
-/** まだ 登録表（content/items/）に うつしていない アイテムの カテゴリー（§3.5 (7) の表）。レジェンダリーだけは 古い表の まん中に 登録表の 分が 入る */
+/**
+ * まだ 登録表（content/items/）に うつしていない アイテムの カテゴリー（§3.5 (7) の表）。
+ * 古い表の 先頭・まん中に 入る 登録表の 分（道具・刀・レジェンダリー・ゆみ・防具）は ここで 場所を 書いて 差し込む（うしろに ならぶ 分は 下の CATEGORY_ITEMS）
+ */
 const OLD_CATEGORY_ITEMS: Readonly<Record<ItemCategory, readonly string[]>> = {
   soil: ['dirt', 'sand', 'snow', 'geyser_dirt'],
   stone: ['stone'],
@@ -47,17 +50,17 @@ const OLD_CATEGORY_ITEMS: Readonly<Record<ItemCategory, readonly string[]>> = {
   build: ['kawara', 'brick'],
   material: ['paper', 'string', 'cloth', 'oil', 'clay', 'yokai_orb', 'kin_tamago'],
   metal: ['iron_ingot', 'crystal'],
-  tool: ['wood_pickaxe', 'stone_pickaxe', 'iron_pickaxe', 'wood_axe', 'stone_axe', 'iron_axe', 'kuwa', 'watering_can', 'long_watering_can', 'bucket', 'water_bucket', 'mushi_ami'],
-  weapon: ['bokuto', 'katana', 'naginata', 'crystal_katana', ...registryCategoryIds('weapon', LEGEND_DEFS), 'yumi', 'ya'], // レジェンダリー 3 つは 登録表（content/items/legend.ts）から（古い表と 同じ 位置）
-  armor: ['kabuto', 'yoroi', 'kote', 'suneate'],
+  tool: [...registryCategoryIds('tool', TOOL_DEFS), 'kuwa', 'watering_can', 'long_watering_can', 'bucket', 'water_bucket', 'mushi_ami'],
+  weapon: [...registryCategoryIds('weapon', SWORD_DEFS), ...registryCategoryIds('weapon', LEGEND_DEFS), ...registryCategoryIds('weapon', BOW_DEFS)], // 刀 4 つ → レジェンダリー 3 つ → ゆみ・や（古い表と 同じ 並び）
+  armor: registryCategoryIds('armor', ARMOR_DEFS),
   light: ['torch', 'lantern'],
   home: ['furnace', 'tansu', 'futon', 'haniwa', 'kite', 'waraji', 'omamori', 'sprinkler', 'nukunuku', 'toriya'],
   food: ['onion', 'tomato', 'pumpkin', 'eggplant', 'egg', 'momo_nama', 'momo_yaki'],
 };
 
-/** カテゴリーごとの アイテム（§3.5 (7) の表 ＋ 登録表から 作った分。登録表の 分は うしろに ならぶ） */
+/** カテゴリーごとの アイテム（§3.5 (7) の表 ＋ 忍者・侍・金。忍者・侍・金は うしろに ならぶ） */
 export const CATEGORY_ITEMS: Readonly<Record<ItemCategory, readonly string[]>> = Object.fromEntries(
-  ITEM_CATEGORIES.map((c) => [c, [...OLD_CATEGORY_ITEMS[c], ...registryCategoryIds(c)]]),
+  ITEM_CATEGORIES.map((c) => [c, [...OLD_CATEGORY_ITEMS[c], ...registryCategoryIds(c, NINJA_SAMURAI_DEFS), ...registryCategoryIds(c, GOLD_DEFS)]]),
 ) as unknown as Record<ItemCategory, readonly string[]>;
 
 noteDuplicates('CATEGORY_ITEMS', ITEM_CATEGORIES.flatMap((c) => CATEGORY_ITEMS[c]));

@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { LEGENDARY_DEFAULTS, W2_SETTING_DEFAULTS } from '../../contracts';
-import { ARMOR_SLOT_OF, CRAFT_DEFAULTS, NINJA_GEAR, SAMURAI_GEAR } from '../../craft/config';
+import { LEGENDARY_DEFAULTS, W2_SETTING_DEFAULTS, createW2Settings } from '../../contracts';
+import { ARMOR_SLOT_OF, CRAFT_DEFAULTS, NINJA_GEAR, SAMURAI_GEAR, createCraftConfig } from '../../craft/config';
 import { ARMOR_KIND, ITEM_INFO } from '../../craft/info/table';
 import { ALL_RECIPES, BAKE_RECIPES, CRAFT_RECIPES, TORCH_COAL } from '../../craft/recipes';
 import { itemRarity } from '../../drops/rarity';
 import { ITEM_TYPES, itemType } from '../../inventory/items';
-import { TOOL_DEFAULTS } from '../../tools/config';
+import { TOOL_DEFAULTS, createToolConfig } from '../../tools/config';
 import { BLADE_ITEMS, BLADE_LIKE_ITEMS } from '../../tools/bladeSets';
 import { itemClassOf } from '../../tools/durability';
 import { CATEGORY_ITEMS, itemCategory } from '../../ui/itemCategory';
@@ -13,9 +13,11 @@ import { goldItemPixels, isGoldItem } from '../../ui/itemArtGold';
 import { isNinjaItem, ninjaItemPixels } from '../../ui/itemArtNinja';
 import { isSamuraiItem, samuraiItemPixels } from '../../ui/itemArtSamurai';
 import { NINJA_TUNING } from '../../craft/ninjaTuning';
-import { GOLD_IDS, LEGEND_IDS, NINJA_ITEM_IDS, SAMURAI_ITEM_IDS, type GoldId } from './ids';
+import { ARMOR_ITEM_IDS, BOW_IDS, GOLD_IDS, LEGEND_IDS, NINJA_ITEM_IDS, SAMURAI_ITEM_IDS, SWORD_IDS, TOOL_ITEM_IDS, type GoldId } from './ids';
 import { LEGEND } from './legend';
 import { ITEM_DEFS, REGISTRY_OVERLAPS, itemDef } from './registry';
+import { toolFamily } from '../../dig/toolFamily';
+import { isM4Item, m4ItemPixels } from '../../ui/itemArtM4';
 import { isW7Item, w7ItemPixels } from '../../ui/itemArtW7';
 import { LEGEND_FX_ITEMS } from '../../fx/bladeTrailModel';
 
@@ -69,11 +71,13 @@ const CRAFTS: ReadonlyArray<[GoldId, Array<[string, number]>]> = [
   ['kin_suneate', [['kin', 2], ['string', 1]]],
 ];
 
+const GEAR_IDS = [...TOOL_ITEM_IDS, ...SWORD_IDS, ...BOW_IDS, ...ARMOR_ITEM_IDS] as const;
+
 describe('登録表（金シリーズ）', () => {
   it('金の全 id に ItemDef がある（10 個・id は ids.ts の 1 回だけ）', () => {
     expect(GOLD_IDS).toHaveLength(10);
     for (const id of GOLD_IDS) expect(itemDef(id), id).toBeDefined();
-    expect(Object.keys(ITEM_DEFS).sort()).toEqual([...GOLD_IDS, ...LEGEND_IDS, ...NINJA_ITEM_IDS, ...SAMURAI_ITEM_IDS].sort());
+    expect(Object.keys(ITEM_DEFS).sort()).toEqual([...GOLD_IDS, ...LEGEND_IDS, ...NINJA_ITEM_IDS, ...SAMURAI_ITEM_IDS, ...GEAR_IDS].sort());
     expect(Object.keys(EXPECT).sort()).toEqual([...GOLD_IDS].sort());
   });
 
@@ -99,7 +103,7 @@ describe('登録表（金シリーズ）', () => {
   });
 
   it('itemDef は 登録の ない id では undefined', () => {
-    expect(itemDef('katana')).toBeUndefined();
+    expect(itemDef('iron_ingot')).toBeUndefined();
     expect(itemDef('kin_tamago')).toBeUndefined();
   });
 
@@ -336,5 +340,178 @@ describe('登録表（レジェンダリー武器）', () => {
 
   it('ヌシの ドロップ表: 先頭 3 行が レジェンダリー（weight 1）', () => {
     expect(W2_SETTING_DEFAULTS.nushiDrops.slice(0, 3)).toEqual(LEGEND_IDS.map((item) => ({ item, weight: 1 })));
+  });
+});
+
+// ---------------------------------------------------------------- ふつうの 道具・武器・防具（#306 段階 3 列 A）
+// 期待は これまでの 表（2026-10-25 の写し JSON）から 手で 写した 値。
+
+type G = (typeof GEAR_IDS)[number];
+const G_EXPECT: Record<G, { name: string; stack: number; rarity: string; cat: string; wear?: number; recipe: Array<[string, number]>; count?: number }> = {
+  wood_pickaxe: { name: 'きの つるはし', stack: 1, rarity: 'common', cat: 'tool', wear: 59, recipe: [['log', 3]] },
+  stone_pickaxe: { name: 'いしの つるはし', stack: 1, rarity: 'common', cat: 'tool', wear: 131, recipe: [['stone', 3], ['log', 2]] },
+  iron_pickaxe: { name: 'てつの つるはし', stack: 1, rarity: 'rare', cat: 'tool', wear: 250, recipe: [['iron_ingot', 3], ['log', 2]] },
+  wood_axe: { name: 'きの おの', stack: 1, rarity: 'common', cat: 'tool', wear: 59, recipe: [['log', 3]] },
+  stone_axe: { name: 'いしの おの', stack: 1, rarity: 'common', cat: 'tool', wear: 131, recipe: [['stone', 3], ['log', 2]] },
+  iron_axe: { name: 'てつの おの', stack: 1, rarity: 'rare', cat: 'tool', wear: 250, recipe: [['iron_ingot', 3], ['log', 2]] },
+  bokuto: { name: 'ぼくとう', stack: 1, rarity: 'common', cat: 'weapon', wear: 59, recipe: [['log', 2]] },
+  katana: { name: 'かたな', stack: 1, rarity: 'rare', cat: 'weapon', wear: 250, recipe: [['iron_ingot', 2], ['log', 1]] },
+  naginata: { name: 'なぎなた', stack: 1, rarity: 'rare', cat: 'weapon', wear: 250, recipe: [['iron_ingot', 1], ['log', 3]] },
+  crystal_katana: { name: 'きらめく カタナ', stack: 1, rarity: 'superRare', cat: 'weapon', wear: 400, recipe: [['crystal', 2], ['iron_ingot', 2], ['log', 2]] },
+  yumi: { name: 'ゆみ', stack: 1, rarity: 'uncommon', cat: 'weapon', wear: 384, recipe: [['log', 3], ['string', 3]] },
+  ya: { name: 'や', stack: 64, rarity: 'common', cat: 'weapon', recipe: [['log', 1], ['stone', 1], ['paper', 1]], count: 4 },
+  kabuto: { name: 'かぶと', stack: 1, rarity: 'rare', cat: 'armor', wear: 165, recipe: [['iron_ingot', 2], ['cloth', 1]] },
+  yoroi: { name: 'よろい', stack: 1, rarity: 'rare', cat: 'armor', wear: 240, recipe: [['iron_ingot', 3], ['string', 2], ['cloth', 2]] },
+  kote: { name: 'こて', stack: 1, rarity: 'rare', cat: 'armor', wear: 225, recipe: [['iron_ingot', 1], ['cloth', 1]] },
+  suneate: { name: 'すねあて', stack: 1, rarity: 'rare', cat: 'armor', wear: 195, recipe: [['iron_ingot', 2], ['string', 1]] },
+};
+
+describe('登録表（ふつうの 道具・武器・防具）', () => {
+  it('全 id に ItemDef・絵が ある（16 個。id は ids.ts の 1 回だけ）', () => {
+    expect(GEAR_IDS).toHaveLength(16);
+    expect(Object.keys(G_EXPECT).sort()).toEqual([...GEAR_IDS].sort());
+    for (const id of GEAR_IDS) {
+      expect(itemDef(id), id).toBeDefined();
+      if (isM4Item(id)) expect(m4ItemPixels(id).length, id).toBeGreaterThan(0); // おの 3 本の 絵は heldAxes・itemArt の 別の 場所
+      expect(ITEM_INFO[id], id).toBeDefined();
+    }
+  });
+
+  it.each(GEAR_IDS)('%s: 名前・重ね数・レア度・分類・耐久・作り方が 今の表と同じ', (id) => {
+    const e = G_EXPECT[id];
+    expect(itemType(id)).toEqual({ id, name: e.name, maxStack: e.stack, placeBlock: null });
+    expect(itemRarity(id)).toBe(e.rarity);
+    expect(itemCategory(id)).toBe(e.cat);
+    expect(W2_SETTING_DEFAULTS.toolDurability[id]).toBe(e.wear);
+    expect(itemClassOf(id)).toBe(e.wear === undefined ? 'consumable' : 'durable');
+    expect(CRAFT_RECIPES.find((r) => r.id === id)).toEqual({
+      id,
+      output: { item: id, count: e.count ?? 1 },
+      inputs: e.recipe.map(([item, count]) => ({ item, count })),
+      works: true,
+      station: 'craft',
+    });
+  });
+
+  it('説明の行（今の表の 写し）', () => {
+    expect(ITEM_INFO.wood_pickaxe).toEqual({ use: 'ブロック を はやく ほれる', how: PICK_HOW, buttons: ['1-9', 'leftHold'], stats: 'pickaxe' });
+    expect(ITEM_INFO.iron_axe).toEqual({ use: 'いちばん はやく き を きれる', how: PICK_HOW, buttons: ['1-9', 'leftHold'], stats: 'pickaxe' });
+    expect(ITEM_INFO.katana).toEqual({ use: 'ようかい を つよく たたく', how: KATANA_HOW, buttons: ['1-9', 'left'], stats: 'blade' });
+    expect(ITEM_INFO.naginata).toEqual({
+      use: 'とおく まで とどく。つく と はらう を かわりばんこ',
+      how: 'えらんで、ようかい に むけて ひだりクリック（おしつづけると つづけて ふる）',
+      buttons: ['1-9', 'left'],
+      stats: 'blade',
+    });
+    expect(ITEM_INFO.yumi).toEqual({ use: 'や を とばして とおく の ようかい を たおす。や が いる', how: BOW_HOW, buttons: ['1-9', 'left'], stats: 'bow' });
+    expect(ITEM_INFO.ya).toEqual({ use: 'ゆみ で とばす', how: 'もちもの に いれて おく だけ。ゆみ が つかう', buttons: [], stats: 'arrow' });
+    expect(ITEM_INFO.suneate).toEqual({ use: 'たかい ところ から おちた いたみ を へらす（あし）', how: WEAR_HOW, buttons: ['1-9', 'right'], stats: 'armor' });
+  });
+
+  it('道具の数: ほる強さ・レベル・たたく強さ・なぎなたの 届く長さと 当たるまで・あう ブロックの なかま', () => {
+    const t = TOOL_DEFAULTS;
+    expect(t.toolPower).toMatchObject({ wood_pickaxe: 2, stone_pickaxe: 4, iron_pickaxe: 6, wood_axe: 2, stone_axe: 4, iron_axe: 6, kuwa: 4 });
+    expect(t.toolLevel).toMatchObject({ wood_pickaxe: 0, stone_pickaxe: 1, iron_pickaxe: 2, wood_axe: 0, stone_axe: 0, iron_axe: 0 });
+    expect(t.weaponDamage).toMatchObject({ bokuto: 2, katana: 4, naginata: 3, crystal_katana: 4 });
+    expect(t.weaponReach).toEqual({ naginata: 5.0 });
+    expect(t.weaponTicks).toEqual({ naginata: 40 });
+    expect(t.toolPower.katana).toBeUndefined();
+    for (const id of ['wood_axe', 'stone_axe', 'iron_axe'] as const) expect(toolFamily(id), id).toBe('log');
+    for (const id of ['wood_pickaxe', 'stone_pickaxe', 'iron_pickaxe'] as const) expect(toolFamily(id), id).toBe('stone');
+    expect(toolFamily('kuwa')).toBe('dirt');
+    expect(toolFamily('katana')).toBeNull();
+  });
+
+  it('刀: 届く長さ・軌跡。なぎなたは 軌跡だけ（BLADE_ITEMS に 入らず BLADE_LIKE_ITEMS に 入る）。並びは 今のまま', () => {
+    const w = W2_SETTING_DEFAULTS;
+    expect(w.bladeReach).toEqual({ bokuto: 2.2, katana: 2.2, crystal_katana: 2.2, raijin_ken: 2.2, fujin_ken: 2.2, niji: 2.2, kin_katana: 2.2 });
+    expect(w.bladeTrail.bokuto).toEqual({ color: 0x9c6b3a, glow: 0xe8c08a, blade: 0xb98b54, bladeShine: 0xe0bc86, style: 'plain' });
+    expect(w.bladeTrail.katana).toEqual({ color: 0xe8f1fa, glow: 0xffffff, blade: 0xc8cdd8, bladeShine: 0xffffff, style: 'plain' });
+    expect(w.bladeTrail.crystal_katana).toEqual({ color: 0x7fdcff, glow: 0xe6faff, blade: 0x6fcdf5, bladeShine: 0xe6faff, style: 'star' });
+    expect(w.bladeTrail.naginata).toEqual({ color: 0xcfe8ff, glow: 0xffffff, blade: 0xb8cce0, bladeShine: 0xeef6ff, style: 'long' });
+    expect(w.bladeReach.naginata).toBeUndefined();
+    expect([...BLADE_ITEMS]).toEqual(['bokuto', 'katana', 'crystal_katana', 'raijin_ken', 'fujin_ken', 'niji', 'kin_katana']);
+    expect([...BLADE_LIKE_ITEMS]).toEqual([...BLADE_ITEMS, 'naginata']);
+    // ゆみ は 設定 bowDamage（ゆみごとの 上書きは なし）
+    expect(w.bowDamageByItem.yumi).toBeUndefined();
+  });
+
+  it('防具: 部位・防ぐ量・種類が 今の表と同じ', () => {
+    const A = {
+      kabuto: ['head', 'ball', { normal: 0, ball: 2, fall: 0 }],
+      yoroi: ['body', 'normal', { normal: 2, ball: 0, fall: 0 }],
+      kote: ['arms', 'normal', { normal: 1, ball: 0, fall: 0 }],
+      suneate: ['legs', 'fall', { normal: 0, ball: 0, fall: 2 }],
+    } as const;
+    for (const [id, [slot, kind, value]] of Object.entries(A)) {
+      expect(ARMOR_SLOT_OF[id], id).toBe(slot);
+      expect(ARMOR_KIND[id], id).toBe(kind);
+      expect(CRAFT_DEFAULTS.armorValue[id as 'kabuto'], id).toEqual(value);
+    }
+  });
+
+  it('ITEM_TYPES: つるはし・おの 6 → てつの かたまり → 刀 4・ゆみ・や・防具 4 → 忍者 4・侍 4 の 順', () => {
+    const ids = ITEM_TYPES.map((t) => t.id as string);
+    const i = ids.indexOf('wood_pickaxe');
+    expect(ids.slice(i, i + 17)).toEqual([...TOOL_ITEM_IDS, 'iron_ingot', ...SWORD_IDS, ...BOW_IDS, ...ARMOR_ITEM_IDS]);
+    expect(ids.slice(i + 17, i + 25)).toEqual([...NINJA_ITEM_IDS, ...SAMURAI_ITEM_IDS]);
+  });
+
+  it('色分け: 道具は くわの 前、武器は 刀 4 → レジェンダリー 3 → ゆみ・や → 金、防具は 忍者・侍・金の 前', () => {
+    expect(CATEGORY_ITEMS.tool.slice(0, 7)).toEqual([...TOOL_ITEM_IDS, 'kuwa']);
+    expect(CATEGORY_ITEMS.weapon).toEqual([...SWORD_IDS, ...LEGEND_IDS, ...BOW_IDS, 'kin_katana', 'kin_yumi']);
+    expect(CATEGORY_ITEMS.armor.slice(0, 5)).toEqual([...ARMOR_ITEM_IDS, 'ninja_zukin']);
+  });
+
+  it('作業台のカードの順: つるはし・おの 6 → かまど → 刀 4・ゆみ・や・防具 4 → たいまつ', () => {
+    const ids = CRAFT_RECIPES.map((r) => r.id);
+    expect(ids.slice(0, 17)).toEqual([...TOOL_ITEM_IDS, 'furnace', ...SWORD_IDS, ...BOW_IDS, ...ARMOR_ITEM_IDS]);
+    expect(ids[17]).toBe('torch');
+  });
+});
+
+// ---------------------------------------------------------------- 設定の 複製は 登録表と 別の 入れ物
+
+/** 入れ子の 中の 数を ぜんぶ 書きかえ、配列には 足し、オブジェクトには 足す（関数は 触らない） */
+function scribble(v: unknown, seen = new WeakSet<object>()): void {
+  if (v === null || typeof v !== 'object' || seen.has(v)) return;
+  seen.add(v);
+  if (Array.isArray(v)) {
+    for (let i = 0; i < v.length; i++) {
+      if (typeof v[i] === 'number') v[i] = (v[i] as number) + 1000;
+      else scribble(v[i], seen);
+    }
+    v.push(-1);
+    return;
+  }
+  const o = v as Record<string, unknown>;
+  for (const k of Object.keys(o)) {
+    if (typeof o[k] === 'number') o[k] = (o[k] as number) + 1000;
+    else scribble(o[k], seen);
+  }
+  o.__scribble = 1;
+}
+
+describe('設定の 複製と 登録表', () => {
+  it('createW2Settings・createCraftConfig・createToolConfig の 複製を 書きかえても、登録表と 次の 複製は 変わらない', () => {
+    const snap = () => JSON.stringify({ defs: ITEM_DEFS, w2: createW2Settings(), craft: createCraftConfig(), tool: createToolConfig() });
+    const before = snap();
+    const w2 = createW2Settings();
+    const craft = createCraftConfig();
+    const tool = createToolConfig();
+    scribble(w2);
+    scribble(craft);
+    scribble(tool);
+    // 書きかえが 効いている（入れ子の armorValue・bladeTrail・bladeReach・toolLevel も）
+    expect(craft.armorValue.kabuto!.ball).toBe(1002);
+    expect(w2.bladeTrail.katana!.style).toBe('plain');
+    expect((w2.bladeTrail.katana as unknown as Record<string, unknown>).__scribble).toBe(1);
+    expect(w2.bladeReach.katana).toBe(1002.2);
+    expect(tool.toolLevel.iron_pickaxe).toBe(1002);
+    expect(snap()).toBe(before);
+    // 初期値の 表そのものも 変わらない
+    expect(CRAFT_DEFAULTS.armorValue.kabuto).toEqual({ normal: 0, ball: 2, fall: 0 });
+    expect(W2_SETTING_DEFAULTS.bladeReach.katana).toBe(2.2);
+    expect(TOOL_DEFAULTS.toolLevel.iron_pickaxe).toBe(2);
   });
 });

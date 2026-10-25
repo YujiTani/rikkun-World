@@ -1,5 +1,5 @@
 import type { BlockId, ItemType } from '../contracts';
-import { GOLD_DEFS, LEGEND_DEFS, NINJA_SAMURAI_DEFS, itemTypesOf, noteDuplicates } from '../content/items/registry';
+import { ARMOR_DEFS, BOW_DEFS, GOLD_DEFS, LEGEND_DEFS, NINJA_SAMURAI_DEFS, SWORD_DEFS, TOOL_DEFS, itemTypesOf, noteDuplicates } from '../content/items/registry';
 import { BLOCK_TYPES } from '../world/blocks/blockTypes';
 
 export const INVENTORY_SIZE = 36;
@@ -46,25 +46,9 @@ const M4_BLOCKS: readonly ItemType[] = [
   { id: 'tansu', name: 'たんす', maxStack: BLOCK_MAX_STACK, placeBlock: 'tansu' },
 ];
 
-/** M4: 道具・武器・防具・作れるだけのもの 19 種（置けない） */
+/** M4: てつの かたまり（置けない）。前後の 道具・刀・ゆみ・防具 16 個は 登録表（content/items/tools.ts・weapons.ts・armor.ts）から（ITEM_TYPES で この 前後に 入れて、並びを 変えない） */
 const M4_ITEMS: readonly ItemType[] = [
-  { id: 'wood_pickaxe', name: 'きの つるはし', maxStack: 1, placeBlock: null },
-  { id: 'stone_pickaxe', name: 'いしの つるはし', maxStack: 1, placeBlock: null },
-  { id: 'iron_pickaxe', name: 'てつの つるはし', maxStack: 1, placeBlock: null },
-  { id: 'wood_axe', name: 'きの おの', maxStack: 1, placeBlock: null },
-  { id: 'stone_axe', name: 'いしの おの', maxStack: 1, placeBlock: null },
-  { id: 'iron_axe', name: 'てつの おの', maxStack: 1, placeBlock: null },
   { id: 'iron_ingot', name: 'てつの かたまり', maxStack: BLOCK_MAX_STACK, placeBlock: null },
-  { id: 'bokuto', name: 'ぼくとう', maxStack: 1, placeBlock: null },
-  { id: 'katana', name: 'かたな', maxStack: 1, placeBlock: null },
-  { id: 'naginata', name: 'なぎなた', maxStack: 1, placeBlock: null },
-  { id: 'crystal_katana', name: 'きらめく カタナ', maxStack: 1, placeBlock: null },
-  { id: 'yumi', name: 'ゆみ', maxStack: 1, placeBlock: null },
-  { id: 'ya', name: 'や', maxStack: BLOCK_MAX_STACK, placeBlock: null },
-  { id: 'kabuto', name: 'かぶと', maxStack: 1, placeBlock: null },
-  { id: 'yoroi', name: 'よろい', maxStack: 1, placeBlock: null },
-  { id: 'kote', name: 'こて', maxStack: 1, placeBlock: null },
-  { id: 'suneate', name: 'すねあて', maxStack: 1, placeBlock: null },
 ];
 
 /** M4 のつづき。すねあての 次の 忍者・侍装備 8 つは 登録表（content/items/ninja.ts・samurai.ts）から（ITEM_TYPES で この 前に 入れて、並びを 変えない） */
@@ -129,7 +113,12 @@ export const ITEM_TYPES: readonly ItemType[] = [
   ...PLACEABLE_TYPES,
   ...ITEM_ONLY,
   ...M4_BLOCKS,
+  // M4: つるはし 3 本・おの 3 本 → てつの かたまり → 刀 4 つ・ゆみ・や・防具 4 つ は 登録表（content/items/）から（古い表と 同じ 位置）
+  ...itemTypesOf(TOOL_DEFS),
   ...M4_ITEMS,
+  ...itemTypesOf(SWORD_DEFS),
+  ...itemTypesOf(BOW_DEFS),
+  ...itemTypesOf(ARMOR_DEFS),
   // NINJA-1（#299）・SAMURAI-1（#300）: 忍者装備 4 つ・侍装備 4 つは 登録表から（古い表と 同じ 位置）
   ...itemTypesOf(NINJA_SAMURAI_DEFS),
   ...M4_ITEMS_AFTER_GEAR,

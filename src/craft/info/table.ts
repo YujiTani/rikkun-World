@@ -4,19 +4,14 @@
  * 字は ひらがな・カタカナ・数字。漢字は 名前の ［漢字｜よみ］ だけ（出す ときに `withRuby`。WEAPON-7 §2.7）。
  * 「どこで」「つかいみち」「つよさ」の数は、ここには書かない（レシピ・ドロップ表・設定から `build.ts` が作る）。
  */
-import { BLADE_HOW, BOW_HOW, CRAFT_E, KATANA_HOW, PICK_HOW, WEAR_HOW } from '../../content/items/howText';
+import { CRAFT_E } from '../../content/items/howText';
 import { registryArmorKind, registryInfo, withRegistry } from '../../content/items/registry';
 
 /** ボタンの絵の種類: `1-9` = ホットバーで えらぶ、`left` = ひだりクリック、`leftHold` = ひだりを おしつづける、`right` = みぎクリック、`E` = もちもの画面 */
 export type ButtonKey = '1-9' | 'left' | 'leftHold' | 'right' | 'E';
 
 /** ぼうぐ が ふせぐ ダメージの種類（`CraftConfig.armorValue` の種類。かぶと=玉、よろい・こて=ふつう、すねあて=落下） */
-export const ARMOR_KIND: Readonly<Record<string, 'normal' | 'ball' | 'fall'>> = withRegistry('ARMOR_KIND', {
-  kabuto: 'ball',
-  yoroi: 'normal',
-  kote: 'normal',
-  suneate: 'fall',
-}, registryArmorKind()); // 忍者・侍・金の 防具は 登録表（content/items/）から
+export const ARMOR_KIND: Readonly<Record<string, 'normal' | 'ball' | 'fall'>> = registryArmorKind(); // 防具は ぜんぶ 登録表（content/items/armor.ts・ninja.ts・samurai.ts・gold.ts）から
 
 /** なかま の 文（WEAPON-2 §4.6 (8)）。「なにに つかう」の 下に 出す */
 export const CLASS_TEXT = {
@@ -112,33 +107,7 @@ const OLD_ITEM_INFO: Record<string, InfoRow> = {
   crystal: { use: 'きらめく カタナ・おまもり の ざいりょう。ハイパーレア', how: CRAFT_E, buttons: ['E'] },
   iron_ingot: { use: 'てつの つるはし・ぶき・ぼうぐ・たんす の ざいりょう', how: CRAFT_E, buttons: ['E'] },
 
-  // ---- どうぐ・ぶき・ぼうぐ（13）
-  wood_pickaxe: { use: 'ブロック を はやく ほれる', how: PICK_HOW, buttons: ['1-9', 'leftHold'], stats: 'pickaxe' },
-  stone_pickaxe: { use: 'もっと はやく ほれる。てつ も ほれる', how: PICK_HOW, buttons: ['1-9', 'leftHold'], stats: 'pickaxe' },
-  iron_pickaxe: { use: 'いちばん はやく ほれる。てつ も ほれる', how: PICK_HOW, buttons: ['1-9', 'leftHold'], stats: 'pickaxe' },
-  wood_axe: { use: 'き を はやく きれる', how: PICK_HOW, buttons: ['1-9', 'leftHold'], stats: 'pickaxe' },
-  stone_axe: { use: 'もっと はやく き を きれる', how: PICK_HOW, buttons: ['1-9', 'leftHold'], stats: 'pickaxe' },
-  iron_axe: { use: 'いちばん はやく き を きれる', how: PICK_HOW, buttons: ['1-9', 'leftHold'], stats: 'pickaxe' },
-  bokuto: { use: 'ようかい を たたく', how: KATANA_HOW, buttons: ['1-9', 'left'], stats: 'blade' },
-  katana: { use: 'ようかい を つよく たたく', how: KATANA_HOW, buttons: ['1-9', 'left'], stats: 'blade' },
-  naginata: {
-    use: 'とおく まで とどく。つく と はらう を かわりばんこ',
-    how: `${BLADE_HOW}（おしつづけると つづけて ふる）`,
-    buttons: ['1-9', 'left'],
-    stats: 'blade',
-  },
-  crystal_katana: { use: 'れんぞく で ふると 3 だん わざ に なる かたな', how: `${KATANA_HOW}。ひだりクリック を つづけて おすと 3 だん わざ`, buttons: ['1-9', 'left'], stats: 'blade' },
-  yumi: {
-    use: 'や を とばして とおく の ようかい を たおす。や が いる',
-    how: BOW_HOW,
-    buttons: ['1-9', 'left'],
-    stats: 'bow',
-  },
-  ya: { use: 'ゆみ で とばす', how: 'もちもの に いれて おく だけ。ゆみ が つかう', buttons: [], stats: 'arrow' },
-  kabuto: { use: 'ようかい の ひのたま を へらす（あたま）', how: WEAR_HOW, buttons: ['1-9', 'right'], stats: 'armor' },
-  yoroi: { use: 'ようかい の こうげき を へらす（からだ）', how: WEAR_HOW, buttons: ['1-9', 'right'], stats: 'armor' },
-  kote: { use: 'ようかい の こうげき を へらす（うで）', how: WEAR_HOW, buttons: ['1-9', 'right'], stats: 'armor' },
-  suneate: { use: 'たかい ところ から おちた いたみ を へらす（あし）', how: WEAR_HOW, buttons: ['1-9', 'right'], stats: 'armor' },
+  // ---- どうぐ・ぶき・ぼうぐ（16）は 登録表（content/items/tools.ts・weapons.ts・armor.ts）に ある
 
   // ---- 働きが あとのもの（6）
   lantern: later('おいて あかるく できるように なるよ（もうすぐ）'),
