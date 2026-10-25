@@ -5,6 +5,9 @@
  * 担当の割り振り: docs/tickets/M1-dev-split.md
  */
 
+import type { GoldId } from './content/items/ids';
+import { registryBladeReach, registryBladeTrail, registryBowDamage, registryWear, withRegistry } from './content/items/registry';
+
 export interface Vec3 {
   x: number;
   y: number;
@@ -263,17 +266,8 @@ export type ItemOnlyId =
   | 'raijin_ken' // 雷神剣（ヌシが おとす）
   | 'fujin_ken' // 風神剣（ヌシが おとす。WEAPON-7 PR2）
   | 'niji' // 虹（ヌシが おとす。WEAPON-9。強さは 1 本ごと 4〜10）
-  // GOLD-1 試作（#222。見せるための 最小の 登録）
-  | 'kin'
-  | 'kin_katana'
-  | 'kin_yumi'
-  | 'kin_pickaxe'
-  | 'kin_axe'
-  | 'kin_kabuto'
-  | 'kin_yoroi'
-  | 'kin_kote'
-  | 'kin_suneate'
-  | 'harapan_mimizu';
+  // GOLD-1（#222）: 金シリーズの id は content/items/ids.ts の 1 か所（#306）
+  | GoldId;
 
 /** アイテムの種類。ブロックとアイテムだけのもの */
 export type ItemId = BlockId | ItemOnlyId;
@@ -2053,7 +2047,8 @@ export const W2_SETTING_DEFAULTS: Readonly<W2Settings> = {
     },
   },
   bladeAimReach: 4.5,
-  bladeReach: { bokuto: 2.2, katana: 2.2, crystal_katana: 2.2, raijin_ken: 2.2, fujin_ken: 2.2, niji: 2.2, kin_katana: 2.2 },
+  // 金シリーズの 分は 登録表（content/items/gold.ts）から
+  bladeReach: withRegistry('bladeReach', { bokuto: 2.2, katana: 2.2, crystal_katana: 2.2, raijin_ken: 2.2, fujin_ken: 2.2, niji: 2.2 }, registryBladeReach()),
   bladeShape: {
     thrust: { length: 2.2, radius: 0.2 },
     kesa: { halfAngleDeg: 75, rMin: 0.3, rMax: 2.2, yMin: -0.5, yMax: 2.6 },
@@ -2064,7 +2059,7 @@ export const W2_SETTING_DEFAULTS: Readonly<W2Settings> = {
   bowStageTicks: [10, 25, 40],
   bowSpeed: [12, 20, 28],
   bowDamage: [1, 2, 3],
-  bowDamageByItem: { kin_yumi: [2, 3, 5] },
+  bowDamageByItem: { ...registryBowDamage() },
   bowKnock: [0.5, 1.0, 1.5],
   arrowGravity: 20,
   arrowLifeTicks: 600,
@@ -2074,7 +2069,7 @@ export const W2_SETTING_DEFAULTS: Readonly<W2Settings> = {
   arrowPickupRange: [1.2, 2],
   bowMoveMul: 0.5,
   bowBend: { pull: [0.4, 0.7, 1.0], bendDeg: [12, 22, 32], blendTicks: 6 },
-  toolDurability: {
+  toolDurability: withRegistry('toolDurability', {
     wood_pickaxe: 59,
     stone_pickaxe: 131,
     iron_pickaxe: 250,
@@ -2104,16 +2099,8 @@ export const W2_SETTING_DEFAULTS: Readonly<W2Settings> = {
     raijin_ken: 10000, // WEAPON-7 §2.4: つくれず ヌシでしか 手に 入らない 武器だけの 例外
     fujin_ken: 10000,
     niji: 10000,
-    // GOLD-1 §4.3: きん の 装備 は 8 こ とも 500
-    kin_katana: 500,
-    kin_yumi: 500,
-    kin_pickaxe: 500,
-    kin_axe: 500,
-    kin_kabuto: 500,
-    kin_yoroi: 500,
-    kin_kote: 500,
-    kin_suneate: 500,
-  },
+    // GOLD-1 §4.3: きん の 装備 8 こ（500）は 登録表（content/items/gold.ts）から（下の withRegistry）
+  }, registryWear()),
   toolWear: {
     pickaxe: { block: 1, hit: 2 },
     blade: { block: 2, hit: 1 },
@@ -2130,7 +2117,7 @@ export const W2_SETTING_DEFAULTS: Readonly<W2Settings> = {
   ],
   legendaryChargeWalk: 0.5,
   shiningCamDistance: 14,
-  bladeTrail: {
+  bladeTrail: withRegistry('bladeTrail', {
     bokuto: { color: 0x9c6b3a, glow: 0xe8c08a, blade: 0xb98b54, bladeShine: 0xe0bc86, style: 'plain' },
     katana: { color: 0xe8f1fa, glow: 0xffffff, blade: 0xc8cdd8, bladeShine: 0xffffff, style: 'plain' },
     crystal_katana: { color: 0x7fdcff, glow: 0xe6faff, blade: 0x6fcdf5, bladeShine: 0xe6faff, style: 'star' },
@@ -2140,9 +2127,8 @@ export const W2_SETTING_DEFAULTS: Readonly<W2Settings> = {
     // WEAPON-7 PR2: 風神剣。ふつうの 斬撃の 形（plain）で 白〜みずいろ
     fujin_ken: { color: 0xe6f8ff, glow: 0xffffff, blade: 0xcfefff, bladeShine: 0xffffff, style: 'plain' },
     niji: { color: 0xd16be6, glow: 0xffffff, blade: 0xc3cee2, bladeShine: 0x5fd98e, style: 'plain' },
-    // GOLD-1 試作 案 B: 金 ＋ こん色の 下地（2 回に 1 回 きらり）
-    kin_katana: { color: 0xf2b938, glow: 0xfff0b4, blade: 0xebb840, bladeShine: 0xfff0b4, style: 'gold', under: 0x2a2238 },
-  },
+    // GOLD-1 試作 案 B（きんの かたな）は 登録表（content/items/gold.ts）から
+  }, registryBladeTrail()),
   bladeFaceAssistDeg: 30,
   thrustTiltMaxDeg: 45,
   punchShape: { halfAngleDeg: 45, yMin: -0.5, yMax: 3.0 },

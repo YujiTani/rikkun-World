@@ -1,4 +1,5 @@
 import type { ItemId } from '../contracts';
+import { noteDuplicates, registryBladeIds } from '../content/items/registry';
 
 /**
  * 刀の集まりの「ひとつだけの出どころ」（#305）。ほかの場所で同じ並びを写さず、ここから読む。
@@ -9,8 +10,11 @@ import type { ItemId } from '../contracts';
  * 刀（わざ・かまえ・刃の軌跡が ある もの）。なぎなたは入れない（今のパンチのまま）。
  * わざの判定（isBladeItem）・刃の軌跡・手甲の倍率などは、こちらを読む。
  */
+const OLD_BLADES: readonly ItemId[] = ['bokuto', 'katana', 'crystal_katana', 'raijin_ken', 'fujin_ken', 'niji'];
+noteDuplicates('BLADE_ITEMS', [...OLD_BLADES, ...registryBladeIds()]);
 export const BLADE_ITEMS: ReadonlySet<ItemId> = new Set<ItemId>([
-  'bokuto', 'katana', 'crystal_katana', 'raijin_ken', 'fujin_ken', 'niji', 'kin_katana',
+  ...OLD_BLADES,
+  ...registryBladeIds(), // 登録表（content/items/）に うつした シリーズの 刀（金の かたな …）
 ]);
 
 /**

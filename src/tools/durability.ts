@@ -1,8 +1,9 @@
 import type { Inventory, ItemClass, ItemId, ItemStack } from '../contracts';
 import { M7_SETTING_DEFAULTS, W2_SETTING_DEFAULTS } from '../contracts';
+import { noteDuplicates, registryPermanent } from '../content/items/registry';
 
 /** ずっと へらない もの（§4.6 (1)） */
-const PERMANENT: ReadonlySet<ItemId> = new Set<ItemId>([
+const OLD_PERMANENT: readonly ItemId[] = [
   'lantern',
   'kite',
   'futon',
@@ -16,7 +17,9 @@ const PERMANENT: ReadonlySet<ItemId> = new Set<ItemId>([
   'water_bucket',
   // LIVE-1 版 3.2: むしとりあみ（こわれない。6 歳が なくして 泣かない）
   'mushi_ami',
-]);
+];
+noteDuplicates('PERMANENT', [...OLD_PERMANENT, ...registryPermanent()]);
+const PERMANENT: ReadonlySet<ItemId> = new Set<ItemId>([...OLD_PERMANENT, ...registryPermanent()]); // 登録表（content/items/）で wear: 'permanent' の 物も
 
 /** たいきゅうで へる もの（§4.6 (2) の 表の 道具・防具）。新品の 値の 表と 同じ 名前 */
 const DURABLE: ReadonlySet<ItemId> = new Set<ItemId>(Object.keys(W2_SETTING_DEFAULTS.toolDurability) as ItemId[]);

@@ -1,4 +1,5 @@
 import type { ItemId } from '../contracts';
+import { registryTool, withRegistry } from '../content/items/registry';
 
 /**
  * 道具・武器の数値（M4 §4.3・§4.5）。ここ 1 か所にまとめる。
@@ -27,10 +28,10 @@ export interface ToolConfig {
 }
 
 export const TOOL_DEFAULTS: Readonly<ToolConfig> = {
-  toolPower: { wood_pickaxe: 2, stone_pickaxe: 4, iron_pickaxe: 6, wood_axe: 2, stone_axe: 4, iron_axe: 6, kin_pickaxe: 6, kin_axe: 6, kuwa: 4 },
-  toolLevel: { wood_pickaxe: 0, stone_pickaxe: 1, iron_pickaxe: 2, wood_axe: 0, stone_axe: 0, iron_axe: 0, kin_pickaxe: 2, kin_axe: 0 },
-  // GOLD-1 §4.3: 強さ 5（ほる はやさ は てつ と 同じ）
-  weaponDamage: { bokuto: 2, katana: 4, naginata: 3, crystal_katana: 4, kin_katana: 5, kin_pickaxe: 5, kin_axe: 5 },
+  toolPower: withRegistry('toolPower', { wood_pickaxe: 2, stone_pickaxe: 4, iron_pickaxe: 6, wood_axe: 2, stone_axe: 4, iron_axe: 6, kuwa: 4 }, registryTool('power')),
+  toolLevel: withRegistry('toolLevel', { wood_pickaxe: 0, stone_pickaxe: 1, iron_pickaxe: 2, wood_axe: 0, stone_axe: 0, iron_axe: 0 }, registryTool('level')),
+  // GOLD-1 §4.3（きんの 道具の 強さ 5）は 登録表（content/items/gold.ts）から
+  weaponDamage: withRegistry('weaponDamage', { bokuto: 2, katana: 4, naginata: 3, crystal_katana: 4 }, registryTool('damage')),
   weaponReach: { naginata: 5.0 },
   weaponTicks: { naginata: 40 },
   naginataComboReset: 60,

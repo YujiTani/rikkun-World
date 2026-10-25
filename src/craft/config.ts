@@ -1,4 +1,5 @@
 import type { ArmorSlot, BlockId, DamageKind, ItemId } from '../contracts';
+import { registryArmorSlot, registryArmorValue, withRegistry } from '../content/items/registry';
 import { NINJA_TUNING } from './ninjaTuning';
 
 /**
@@ -27,16 +28,11 @@ export const CRAFT_DEFAULTS: Readonly<CraftConfig> = {
   bakeQueueMax: 8,
   fuelOrder: ['coal_ore', 'oil', 'log'],
   fixedDrop: { furnace: 1, kawara: 1, brick: 1, tansu: 1, nukunuku: 1 },
-  armorValue: {
+  armorValue: withRegistry('armorValue', {
     kabuto: { normal: 0, ball: 2, fall: 0 },
     yoroi: { normal: 2, ball: 0, fall: 0 },
     kote: { normal: 1, ball: 0, fall: 0 },
     suneate: { normal: 0, ball: 0, fall: 2 },
-    // GOLD-1 §4.3: てつ より 1 多く ふせぐ（てつ で 0 の 種類 は 0 の まま）
-    kin_kabuto: { normal: 0, ball: 3, fall: 0 },
-    kin_yoroi: { normal: 3, ball: 0, fall: 0 },
-    kin_kote: { normal: 2, ball: 0, fall: 0 },
-    kin_suneate: { normal: 0, ball: 0, fall: 3 },
     // NINJA-1 §4.1: 忍者装備。数は ninjaTuning.ts の 表（頭巾 ball・装束 normal・手甲 normal は てつの かぶと・よろい・こてと 同じ）。足袋の fall は どんな 落下より 大きい 数 = ぜんぶ ふせぐ
     ninja_zukin: { normal: 0, ball: NINJA_TUNING.zukinBallCut, fall: 0 },
     ninja_shozoku: { normal: NINJA_TUNING.shozokuNormalCut, ball: 0, fall: 0 },
@@ -47,7 +43,8 @@ export const CRAFT_DEFAULTS: Readonly<CraftConfig> = {
     samurai_haori: { normal: NINJA_TUNING.haoriNormalCut, ball: 0, fall: 0 },
     samurai_tekko: { normal: NINJA_TUNING.samuraiTekkoNormalCut, ball: 0, fall: 0 },
     samurai_geta: { normal: 0, ball: 0, fall: NINJA_TUNING.getaFallCut },
-  },
+    // GOLD-1 §4.3（きんの 防具 4 つ）は 登録表（content/items/gold.ts）から
+  }, registryArmorValue()),
   pickupLogTicks: 180,
   pickupLogMax: 5,
 };
@@ -68,16 +65,11 @@ export const NINJA_GEAR = { head: 'ninja_zukin', body: 'ninja_shozoku', arms: 'n
 export const SAMURAI_GEAR = { head: 'samurai_jingasa', body: 'samurai_haori', arms: 'samurai_tekko', legs: 'samurai_geta' } as const satisfies Record<ArmorSlot, string>;
 
 /** そうびのマスに入れられるアイテム */
-export const ARMOR_SLOT_OF: Readonly<Record<string, ArmorSlot>> = {
+export const ARMOR_SLOT_OF: Readonly<Record<string, ArmorSlot>> = withRegistry('ARMOR_SLOT_OF', {
   kabuto: 'head',
   yoroi: 'body',
   kote: 'arms',
   suneate: 'legs',
-  // GOLD-1: てつ と 同じ マス
-  kin_kabuto: 'head',
-  kin_yoroi: 'body',
-  kin_kote: 'arms',
-  kin_suneate: 'legs',
   // 忍者装備（NINJA-1）
   ninja_zukin: 'head',
   ninja_shozoku: 'body',
@@ -88,7 +80,7 @@ export const ARMOR_SLOT_OF: Readonly<Record<string, ArmorSlot>> = {
   samurai_haori: 'body',
   samurai_tekko: 'arms',
   samurai_geta: 'legs',
-};
+}, registryArmorSlot()); // GOLD-1（きんの 防具）は 登録表（content/items/gold.ts）から
 
 /** そうびの部位の順（画面・保存・落とす順） */
 export const ARMOR_SLOTS: readonly ArmorSlot[] = ['head', 'body', 'arms', 'legs'];

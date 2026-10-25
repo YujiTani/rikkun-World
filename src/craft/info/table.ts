@@ -4,20 +4,18 @@
  * 字は ひらがな・カタカナ・数字。漢字は 名前の ［漢字｜よみ］ だけ（出す ときに `withRuby`。WEAPON-7 §2.7）。
  * 「どこで」「つかいみち」「つよさ」の数は、ここには書かない（レシピ・ドロップ表・設定から `build.ts` が作る）。
  */
+import { BLADE_HOW, BOW_HOW, CRAFT_E, KATANA_HOW, PICK_HOW, WEAR_HOW } from '../../content/items/howText';
+import { registryArmorKind, registryInfo, withRegistry } from '../../content/items/registry';
 
 /** ボタンの絵の種類: `1-9` = ホットバーで えらぶ、`left` = ひだりクリック、`leftHold` = ひだりを おしつづける、`right` = みぎクリック、`E` = もちもの画面 */
 export type ButtonKey = '1-9' | 'left' | 'leftHold' | 'right' | 'E';
 
 /** ぼうぐ が ふせぐ ダメージの種類（`CraftConfig.armorValue` の種類。かぶと=玉、よろい・こて=ふつう、すねあて=落下） */
-export const ARMOR_KIND: Readonly<Record<string, 'normal' | 'ball' | 'fall'>> = {
+export const ARMOR_KIND: Readonly<Record<string, 'normal' | 'ball' | 'fall'>> = withRegistry('ARMOR_KIND', {
   kabuto: 'ball',
   yoroi: 'normal',
   kote: 'normal',
   suneate: 'fall',
-  kin_kabuto: 'ball',
-  kin_yoroi: 'normal',
-  kin_kote: 'normal',
-  kin_suneate: 'fall',
   ninja_zukin: 'ball',
   ninja_shozoku: 'normal',
   ninja_tekko: 'normal',
@@ -26,7 +24,7 @@ export const ARMOR_KIND: Readonly<Record<string, 'normal' | 'ball' | 'fall'>> = 
   samurai_haori: 'normal',
   samurai_tekko: 'normal',
   samurai_geta: 'fall',
-};
+}, registryArmorKind()); // 金の 防具は 登録表（content/items/gold.ts）から
 
 /** なかま の 文（WEAPON-2 §4.6 (8)）。「なにに つかう」の 下に 出す */
 export const CLASS_TEXT = {
@@ -58,11 +56,6 @@ export interface InfoRow {
 
 const PLACE = 'てに もって みぎクリック で おく';
 const PLACE_BTN: ButtonKey[] = ['1-9', 'right'];
-const CRAFT_E = 'E の つくる で つかう';
-const PICK_HOW = 'えらんで、ブロック に むけて ひだりクリック を おしつづける';
-const BLADE_HOW = 'えらんで、ようかい に むけて ひだりクリック';
-const KATANA_HOW = `${BLADE_HOW}。R で かまえ を かえると わざ が かわる`;
-const WEAR_HOW = 'ダブルクリック か、てに もって みぎクリック で きる。E の そうび の マス に いれても よい';
 const LATER_HOW = 'いまは もてる だけ';
 
 const later = (row: string): InfoRow => ({ use: row, how: LATER_HOW, buttons: [], later: row });
@@ -74,7 +67,7 @@ const VEG_ROW = (hearts: number): InfoRow => ({
   buttons: ['1-9', 'right'],
 });
 
-export const ITEM_INFO: Readonly<Record<string, InfoRow>> = {
+const OLD_ITEM_INFO: Record<string, InfoRow> = {
   // ---- ブロック（13）
   grass: { use: 'ブロック として おける。わらじ の ざいりょう', how: PLACE, buttons: PLACE_BTN, dig: true },
   dirt: { use: 'ブロック として おける', how: PLACE, buttons: PLACE_BTN, dig: true },
@@ -151,7 +144,7 @@ export const ITEM_INFO: Readonly<Record<string, InfoRow>> = {
   raijin_ken: { use: 'ようかい を つよく たたく', special: 'ためて はなすと そら から かみなり が おちる', how: `${KATANA_HOW}。ながおし して はなすと ためわざ`, buttons: ['1-9', 'left'], stats: 'blade' },
   yumi: {
     use: 'や を とばして とおく の ようかい を たおす。や が いる',
-    how: 'えらんで ひだりクリック を おしつづけて ながく ひく。はなすと とぶ',
+    how: BOW_HOW,
     buttons: ['1-9', 'left'],
     stats: 'bow',
   },
@@ -219,22 +212,6 @@ export const ITEM_INFO: Readonly<Record<string, InfoRow>> = {
   toriya: { use: 'にわとり の いえ', how: 'おいて、ひよこ を つれて いく', buttons: ['1-9', 'right'] },
   kin_tamago: { use: 'だいじ な たから。こたつ で あたためる と マッチョ ひよこ', how: 'こたつ に いれる', buttons: ['1-9', 'right'] },
 
-  // ---- GOLD-1（#222 §4.1）。強さ・たいきゅう の 数 は 設定 から（てつ の 道具 と 同じ 形）
-  kin: { use: 'きん の そうび の ざいりょう', how: CRAFT_E, buttons: ['E'] },
-  kin_katana: { use: 'ようかい を いちばん つよく たたく', how: KATANA_HOW, buttons: ['1-9', 'left'], stats: 'blade' },
-  kin_yumi: {
-    use: 'や を とばして とおく の ようかい を たおす。や が いる',
-    how: 'えらんで ひだりクリック を おしつづけて ながく ひく。はなすと とぶ',
-    buttons: ['1-9', 'left'],
-    stats: 'bow',
-  },
-  kin_pickaxe: { use: 'いちばん はやく ほれる。てつ も ほれる', how: PICK_HOW, buttons: ['1-9', 'leftHold'], stats: 'pickaxe' },
-  kin_axe: { use: 'いちばん はやく き を きれる', how: PICK_HOW, buttons: ['1-9', 'leftHold'], stats: 'pickaxe' },
-  kin_kabuto: { use: 'ようかい の ひのたま を へらす（あたま）', how: WEAR_HOW, buttons: ['1-9', 'right'], stats: 'armor' },
-  kin_yoroi: { use: 'ようかい の こうげき を へらす（からだ）', how: WEAR_HOW, buttons: ['1-9', 'right'], stats: 'armor' },
-  kin_kote: { use: 'ようかい の こうげき を へらす（うで）', how: WEAR_HOW, buttons: ['1-9', 'right'], stats: 'armor' },
-  kin_suneate: { use: 'たかい ところ から おちた いたみ を へらす（あし）', how: WEAR_HOW, buttons: ['1-9', 'right'], stats: 'armor' },
-  harapan_mimizu: { use: 'なかま の にわとり に あげる と なかよし が いっぱい に なる', how: 'もって なかま の おとな の にわとり に みぎクリック', buttons: ['1-9', 'right'] },
   // ---- LIVE-3（§3.1）: もも にく
   momo_nama: { use: 'かまど で やく と たべられる', how: 'かまど に みぎクリック して やく', buttons: ['right'] },
   momo_yaki: { use: 'たべると ハート が 5 こ もどる', how: 'もって みぎクリック', buttons: ['1-9', 'right'] },
@@ -242,6 +219,9 @@ export const ITEM_INFO: Readonly<Record<string, InfoRow>> = {
   // ---- ようかいだま（§5。いまは 手に入らない。古い保存用）
   yokai_orb: { use: 'いまは つかえない よ', how: '', buttons: [] },
 };
+
+// 登録表（content/items/）に うつした シリーズ（金 …）の 行は そちらに 書く（ここへは 自動で 入る）
+export const ITEM_INFO: Readonly<Record<string, InfoRow>> = withRegistry('ITEM_INFO', OLD_ITEM_INFO, registryInfo());
 
 /** 「どこで」の ようかいだま だけの文（§5） */
 export const ORB_SOURCE = 'むかし の ようかい が おとした';
