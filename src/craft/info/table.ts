@@ -4,7 +4,6 @@
  * 字は ひらがな・カタカナ・数字。漢字は 名前の ［漢字｜よみ］ だけ（出す ときに `withRuby`。WEAPON-7 §2.7）。
  * 「どこで」「つかいみち」「つよさ」の数は、ここには書かない（レシピ・ドロップ表・設定から `build.ts` が作る）。
  */
-import { vegRow } from '../../content/items/howText';
 import { registryArmorKind, registryInfo, withRegistry } from '../../content/items/registry';
 
 /** ボタンの絵の種類: `1-9` = ホットバーで えらぶ、`left` = ひだりクリック、`leftHold` = ひだりを おしつづける、`right` = みぎクリック、`E` = もちもの画面 */
@@ -41,52 +40,8 @@ export interface InfoRow {
   special?: string;
 }
 
-const PLACE = 'てに もって みぎクリック で おく';
-const PLACE_BTN: ButtonKey[] = ['1-9', 'right'];
-
 const OLD_ITEM_INFO: Record<string, InfoRow> = {
-  // ---- ブロック（13）
-  grass: { use: 'ブロック として おける。わらじ の ざいりょう', how: PLACE, buttons: PLACE_BTN, dig: true },
-  dirt: { use: 'ブロック として おける', how: PLACE, buttons: PLACE_BTN, dig: true },
-  stone: { use: 'おける。つるはし・かまど・や の ざいりょう', how: PLACE, buttons: PLACE_BTN, dig: true },
-  sand: { use: 'おける', how: PLACE, buttons: PLACE_BTN, dig: true },
-  log: {
-    use: 'おける。いろんな もの の ざいりょう。かまど の ねんりょう にも なる',
-    how: `${PLACE}。ねんりょう は かまど が かってに つかう`,
-    buttons: PLACE_BTN,
-    dig: true,
-  },
-  leaves: { use: 'おける', how: PLACE, buttons: PLACE_BTN, dig: true },
-  coal_ore: {
-    use: 'かまど の ねんりょう（いちばん さきに つかう）。おける',
-    how: 'かまど で やく と かってに つかう。おくのは てに もって みぎクリック',
-    buttons: PLACE_BTN,
-    dig: true,
-  },
-  iron_ore: {
-    use: 'かまど で やくと てつの かたまり に なる。おける',
-    how: 'かまど に みぎクリック して やく',
-    buttons: ['right'],
-    dig: true,
-  },
-  furnace: {
-    use: 'おいて、てつ や ねんど を やく',
-    how: 'おいて、かまど に むけて みぎクリック（E でも）',
-    buttons: PLACE_BTN,
-  },
-  kawara: { use: 'ブロック として おける（やね に ぴったり）', how: PLACE, buttons: PLACE_BTN },
-  brick: { use: 'ブロック として おける（かべ に ぴったり）', how: PLACE, buttons: PLACE_BTN },
-  torch: {
-    use: 'おくと まわり が あかるく なる。あかるい ところ には ようかい が でない',
-    how: PLACE,
-    buttons: PLACE_BTN,
-  },
-  tansu: {
-    use: 'おいて、もちもの を たくさん（54 こ の マス）しまえる',
-    how: 'おいて、たんす に むけて みぎクリック で ひらく（E でも）。シフト を おしながら クリック で いっきに うつす',
-    buttons: PLACE_BTN,
-    stats: 'tansu',
-  },
+  // ---- 置ける ブロックの 説明 13 個（くさ・つち・いし・すな・き・はっぱ・せきたん・てつ・かまど・かわら・レンガ・たいまつ・たんす）は 登録表（content/items/blocks.ts）に ある。地形・かざりの 9 個は 説明なし
 
   // ---- ざいりょう（ようかいだま・かみ・あぶら・いと・ぬの・ねんど・すいしょう・てつの かたまり 8 個）は 登録表（content/items/materials.ts）に ある
 
@@ -96,20 +51,7 @@ const OLD_ITEM_INFO: Record<string, InfoRow> = {
 
   // ---- 農業（たね・やさい・くわ・じょうろ・スプリンクラー・バケツ 14 個）は 登録表（content/items/farm.ts）に ある
 
-  // ---- LIVE-1 たまご
-  egg: vegRow(1),
-  // ---- LIVE-1 版 3.2（§3.1）
-  mushi: { use: 'にわとり に あげる と なかよく なる', how: 'もって にわとり に みぎクリック', buttons: ['1-9', 'right'] },
-  mushi_ami: { use: 'き から むし を とる', how: 'もって き に みぎクリック', buttons: ['1-9', 'right'] },
-
-  // ---- LIVE-2（§3.1）。名前は こたつ・とりごや・きん の たまご（画面に ぬくぬく・育成 は 出さない）
-  nukunuku: { use: 'たまご を あたためる', how: 'おいて、たまご を もって みぎクリック', buttons: ['1-9', 'right'] },
-  toriya: { use: 'にわとり の いえ', how: 'おいて、ひよこ を つれて いく', buttons: ['1-9', 'right'] },
-  kin_tamago: { use: 'だいじ な たから。こたつ で あたためる と マッチョ ひよこ', how: 'こたつ に いれる', buttons: ['1-9', 'right'] },
-
-  // ---- LIVE-3（§3.1）: もも にく
-  momo_nama: { use: 'かまど で やく と たべられる', how: 'かまど に みぎクリック して やく', buttons: ['right'] },
-  momo_yaki: { use: 'たべると ハート が 5 こ もどる', how: 'もって みぎクリック', buttons: ['1-9', 'right'] },
+  // ---- LIVE-1〜3（たまご・むし・むしとりあみ・こたつ・とりごや・きんの たまご・もも にく 2 つ 8 個）は 登録表（content/items/live.ts）に ある
 };
 
 // 登録表（content/items/）に うつした シリーズ（忍者・侍・金 …）の 行は そちらに 書く（ここへは 自動で 入る）

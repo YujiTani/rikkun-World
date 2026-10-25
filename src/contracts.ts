@@ -5,8 +5,8 @@
  * 担当の割り振り: docs/tickets/M1-dev-split.md
  */
 
-import { SAMURAI_ITEM_IDS, type ArmorItemId, type BowId, type FarmBucketId, type FarmToolId, type GadgetId, type GoldId, type IngotId, type LegendId, type MaterialId, type NinjaId, type OrbId, type SamuraiId, type SeedItemId, type SwordId, type ToolItemId, type VegItemId } from './content/items/ids';
-import { registryBladeReach, registryBladeTrail, registryBowDamage, registryCan, registryLegend, registryWear } from './content/items/registry';
+import { SAMURAI_ITEM_IDS, type ArmorItemId, type BowId, type FarmBucketId, type FarmToolId, type GadgetId, type GoldId, type IngotId, type LegendId, type LiveItemId, type MaterialId, type NinjaId, type OrbId, type SamuraiId, type SeedItemId, type SwordId, type ToolItemId, type VegItemId } from './content/items/ids';
+import { registryBladeReach, registryBladeTrail, registryBowDamage, registryCan, registryHeal, registryLegend, registryWear } from './content/items/registry';
 
 export interface Vec3 {
   x: number;
@@ -214,17 +214,8 @@ export type ItemOnlyId =
   | VegItemId
   | FarmToolId
   | FarmBucketId
-  // LIVE-1（うしろに足す）
-  | 'egg' // たまご
-  // LIVE-1 版 3.2（§4.2。egg の うしろ）
-  | 'mushi' // むし
-  | 'mushi_ami' // むしとりあみ
-  // LIVE-2（§4.2。mushi_ami の うしろ。こたつ は ブロック `nukunuku`）
-  | 'toriya' // とりごや（持って 右クリック で 5×5 の 小屋 を 置く。ブロック では ない）
-  | 'kin_tamago' // きん の たまご（epic。たべられない）
-  // LIVE-3（§4.2）: もも にく
-  | 'momo_nama' // なま もも にく（たべられない。かまど で やく）
-  | 'momo_yaki' // やいた もも にく（たべる と 体力 meatHeal）
+  // LIVE-1〜3: たまご・むし・むしとりあみ・とりごや・きんの たまご・もも にく 2 つの id は content/items/ids.ts の 1 か所（#306）。こたつ（nukunuku）は ブロック
+  | LiveItemId
   // WEAPON-7/8/9（うしろに足す）: レジェンダリー 3 つ（雷神剣・風神剣・虹）の id は content/items/ids.ts の 1 か所（#306）
   | LegendId
   // GOLD-1（#222）: 金シリーズの id は content/items/ids.ts の 1 か所（#306）
@@ -2613,7 +2604,7 @@ export const LIVE_SETTING_DEFAULTS: Readonly<LiveSettings> = {
   animalFriendMax: 8,
   animalReactTicks: 30,
   animalEggDelay: 60,
-  animalEggHeal: 2,
+  animalEggHeal: registryHeal('egg'), // たまごの 回復量は 登録表（content/items/live.ts）から
   animalFollowStart: 4,
   animalFollowStop: 2.5,
   animalFollowSpeed: 4.0,
@@ -2665,7 +2656,7 @@ export const LIVE_SETTING_DEFAULTS: Readonly<LiveSettings> = {
   harapanLog: 0.002,
   harapanUnderY: SEA_Y,
   meatPerBird: 2,
-  meatHeal: 10,
+  meatHeal: registryHeal('momo_yaki'), // 10 = ハート 5 こ。登録表（content/items/live.ts）から
   meatTicks: 220,
   machoAtk: 2,
   machoReach: 1.2,

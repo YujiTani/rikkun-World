@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LEGENDARY_DEFAULTS, M7_SETTING_DEFAULTS, W2_SETTING_DEFAULTS, createM7Settings, createW2Settings } from '../../contracts';
+import { LEGENDARY_DEFAULTS, LIVE_SETTING_DEFAULTS, M7_SETTING_DEFAULTS, W2_SETTING_DEFAULTS, createLiveSettings, createM7Settings, createW2Settings } from '../../contracts';
 import { ARMOR_SLOT_OF, CRAFT_DEFAULTS, NINJA_GEAR, SAMURAI_GEAR, createCraftConfig } from '../../craft/config';
 import { ARMOR_KIND, ITEM_INFO } from '../../craft/info/table';
 import { ALL_RECIPES, BAKE_RECIPES, CRAFT_RECIPES, TORCH_COAL } from '../../craft/recipes';
@@ -13,9 +13,10 @@ import { goldItemPixels, isGoldItem } from '../../ui/itemArtGold';
 import { isNinjaItem, ninjaItemPixels } from '../../ui/itemArtNinja';
 import { isSamuraiItem, samuraiItemPixels } from '../../ui/itemArtSamurai';
 import { NINJA_TUNING } from '../../craft/ninjaTuning';
-import { ARMOR_ITEM_IDS, BOW_IDS, FARM_BUCKET_IDS, FARM_TOOL_IDS, GADGET_IDS, GOLD_IDS, INGOT_IDS, LEGEND_IDS, MATERIAL_ITEM_IDS, NINJA_ITEM_IDS, ORB_IDS, SAMURAI_ITEM_IDS, SEED_ITEM_IDS, SWORD_IDS, TOOL_ITEM_IDS, VEG_ITEM_IDS, type GoldId } from './ids';
+import { ARMOR_ITEM_IDS, BOW_IDS, FARM_BUCKET_IDS, FARM_TOOL_IDS, GADGET_IDS, GOLD_IDS, INGOT_IDS, LEGEND_IDS, LIVE_ITEM_IDS, MATERIAL_ITEM_IDS, NINJA_ITEM_IDS, ORB_IDS, SAMURAI_ITEM_IDS, SEED_ITEM_IDS, SWORD_IDS, TOOL_ITEM_IDS, VEG_ITEM_IDS, type GoldId } from './ids';
+import { GEYSER, M4_BLOCKS, PLACEABLE, VOX_I } from './blocks';
 import { LEGEND } from './legend';
-import { ITEM_DEFS, REGISTRY_OVERLAPS, itemDef } from './registry';
+import { ITEM_DEFS, REGISTRY_OVERLAPS, itemDef, registryHeal } from './registry';
 import { toolFamily } from '../../dig/toolFamily';
 import { isM4Item, m4ItemPixels } from '../../ui/itemArtM4';
 import { isW7Item, w7ItemPixels } from '../../ui/itemArtW7';
@@ -71,6 +72,8 @@ const CRAFTS: ReadonlyArray<[GoldId, Array<[string, number]>]> = [
   ['kin_suneate', [['kin', 2], ['string', 1]]],
 ];
 
+/** 置けるブロック 22 個（content/items/blocks.ts） */
+const BLOCK_ITEM_IDS = [...Object.keys(PLACEABLE), ...Object.keys(M4_BLOCKS), ...Object.keys(GEYSER), ...Object.keys(VOX_I)];
 const GEAR_IDS = [...TOOL_ITEM_IDS, ...SWORD_IDS, ...BOW_IDS, ...ARMOR_ITEM_IDS] as const;
 const FARM_IDS = [...SEED_ITEM_IDS, ...VEG_ITEM_IDS, ...FARM_TOOL_IDS, 'sprinkler', ...FARM_BUCKET_IDS] as const;
 
@@ -78,7 +81,7 @@ describe('登録表（金シリーズ）', () => {
   it('金の全 id に ItemDef がある（10 個・id は ids.ts の 1 回だけ）', () => {
     expect(GOLD_IDS).toHaveLength(10);
     for (const id of GOLD_IDS) expect(itemDef(id), id).toBeDefined();
-    expect(Object.keys(ITEM_DEFS).sort()).toEqual([...GOLD_IDS, ...LEGEND_IDS, ...NINJA_ITEM_IDS, ...SAMURAI_ITEM_IDS, ...GEAR_IDS, ...FARM_IDS, ...ORB_IDS, ...MATERIAL_ITEM_IDS, ...INGOT_IDS, ...GADGET_IDS].sort());
+    expect(Object.keys(ITEM_DEFS).sort()).toEqual([...GOLD_IDS, ...LEGEND_IDS, ...NINJA_ITEM_IDS, ...SAMURAI_ITEM_IDS, ...GEAR_IDS, ...FARM_IDS, ...ORB_IDS, ...MATERIAL_ITEM_IDS, ...INGOT_IDS, ...GADGET_IDS, ...LIVE_ITEM_IDS, 'nukunuku', ...BLOCK_ITEM_IDS].sort());
     expect(Object.keys(EXPECT).sort()).toEqual([...GOLD_IDS].sort());
   });
 
@@ -86,7 +89,8 @@ describe('登録表（金シリーズ）', () => {
     const types = new Set(ITEM_TYPES.map((t) => t.id as string));
     for (const id of Object.keys(ITEM_DEFS)) {
       expect(types.has(id), `${id} が ITEM_TYPES に無い`).toBe(true);
-      expect(ITEM_INFO[id], `${id} の 説明が 無い`).toBeDefined();
+      // 地形・かざりの 9 個は 説明なし（completeness.test.ts の 許可リストと 同じ）
+      if (!['geyser_dirt', 'snow', 'momiji_leaves', 'matsu_leaves', 'flower_y', 'flower_o', 'flower_p', 'bamboo', 'nobana'].includes(id)) expect(ITEM_INFO[id], `${id} の 説明が 無い`).toBeDefined();
     }
     for (const id of GOLD_IDS) {
       expect(isGoldItem(id), id).toBe(true);
@@ -104,8 +108,9 @@ describe('登録表（金シリーズ）', () => {
   });
 
   it('itemDef は 登録の ない id では undefined', () => {
-    expect(itemDef('torch')).toBeUndefined();
-    expect(itemDef('kin_tamago')).toBeUndefined();
+    // 全アイテムが 登録表に 入ったので、ない id は 書きまちがいだけ
+    expect(itemDef('no_such_item')).toBeUndefined();
+    expect(itemDef('zzz')).toBeUndefined();
   });
 
   it.each(GOLD_IDS)('%s: 名前・重ね数・置けない・レア度・分類が 今の表と同じ', (id) => {
@@ -495,16 +500,18 @@ function scribble(v: unknown, seen = new WeakSet<object>()): void {
 
 describe('設定の 複製と 登録表', () => {
   it('createW2Settings・createCraftConfig・createToolConfig の 複製を 書きかえても、登録表と 次の 複製は 変わらない', () => {
-    const snap = () => JSON.stringify({ defs: ITEM_DEFS, w2: createW2Settings(), craft: createCraftConfig(), tool: createToolConfig(), m7: createM7Settings() });
+    const snap = () => JSON.stringify({ defs: ITEM_DEFS, w2: createW2Settings(), craft: createCraftConfig(), tool: createToolConfig(), m7: createM7Settings(), live: createLiveSettings(), heal: [registryHeal('egg'), registryHeal('momo_yaki')] });
     const before = snap();
     const w2 = createW2Settings();
     const craft = createCraftConfig();
     const tool = createToolConfig();
     const m7 = createM7Settings();
+    const live = createLiveSettings();
     scribble(w2);
     scribble(craft);
     scribble(tool);
     scribble(m7);
+    scribble(live);
     // 書きかえが 効いている（入れ子の armorValue・bladeTrail・bladeReach・toolLevel も）
     expect(craft.armorValue.kabuto!.ball).toBe(1002);
     expect(w2.bladeTrail.katana!.style).toBe('plain');
@@ -513,6 +520,7 @@ describe('設定の 複製と 登録表', () => {
     expect(tool.toolLevel.iron_pickaxe).toBe(1002);
     expect(m7.farmCanCapacity.watering_can).toBe(1010);
     expect(m7.farmCanTiles.long_watering_can).toBe(1002);
+    expect(live.meatHeal).toBe(1010);
     expect(snap()).toBe(before);
     // 初期値の 表そのものも 変わらない
     expect(CRAFT_DEFAULTS.armorValue.kabuto).toEqual({ normal: 0, ball: 2, fall: 0 });
@@ -520,5 +528,7 @@ describe('設定の 複製と 登録表', () => {
     expect(TOOL_DEFAULTS.toolLevel.iron_pickaxe).toBe(2);
     expect(M7_SETTING_DEFAULTS.farmCanCapacity).toEqual({ watering_can: 10, long_watering_can: 20 });
     expect(M7_SETTING_DEFAULTS.farmCanTiles).toEqual({ watering_can: 1, long_watering_can: 2 });
+    expect(LIVE_SETTING_DEFAULTS.meatHeal).toBe(10);
+    expect(LIVE_SETTING_DEFAULTS.animalEggHeal).toBe(2);
   });
 });

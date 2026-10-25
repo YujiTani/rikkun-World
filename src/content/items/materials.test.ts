@@ -117,6 +117,6 @@ describe('登録表（素材 8 個・小物 6 個）', () => {
 
   it('pickDefs: 指定の 順に 取り出す。登録に ない id は 投げる', () => {
     expect(Object.keys(pickDefs(ITEM_DEFS, ['kite', 'lantern']))).toEqual(['kite', 'lantern']);
-    expect(() => pickDefs(ITEM_DEFS, ['torch'])).toThrow();
+    expect(() => pickDefs(ITEM_DEFS, ['no_such_item' as never])).toThrow(); // 全アイテムが 登録表に 入ったので、ない id は 書きまちがいだけ
   });
 });
