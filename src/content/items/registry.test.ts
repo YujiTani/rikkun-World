@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { W2_SETTING_DEFAULTS } from '../../contracts';
-import { ARMOR_SLOT_OF, CRAFT_DEFAULTS } from '../../craft/config';
+import { ARMOR_SLOT_OF, CRAFT_DEFAULTS, NINJA_GEAR, SAMURAI_GEAR } from '../../craft/config';
 import { ARMOR_KIND, ITEM_INFO } from '../../craft/info/table';
 import { ALL_RECIPES, BAKE_RECIPES, CRAFT_RECIPES, TORCH_COAL } from '../../craft/recipes';
 import { itemRarity } from '../../drops/rarity';
@@ -10,7 +10,10 @@ import { BLADE_ITEMS, BLADE_LIKE_ITEMS } from '../../tools/bladeSets';
 import { itemClassOf } from '../../tools/durability';
 import { CATEGORY_ITEMS, itemCategory } from '../../ui/itemCategory';
 import { goldItemPixels, isGoldItem } from '../../ui/itemArtGold';
-import { GOLD_IDS, type GoldId } from './ids';
+import { isNinjaItem, ninjaItemPixels } from '../../ui/itemArtNinja';
+import { isSamuraiItem, samuraiItemPixels } from '../../ui/itemArtSamurai';
+import { NINJA_TUNING } from '../../craft/ninjaTuning';
+import { GOLD_IDS, NINJA_ITEM_IDS, SAMURAI_ITEM_IDS, type GoldId } from './ids';
 import { ITEM_DEFS, REGISTRY_OVERLAPS, itemDef } from './registry';
 
 // #306a: 登録表（金シリーズ）から作った「見せ方」が、これまでの表と同じ値になること。
@@ -67,7 +70,7 @@ describe('登録表（金シリーズ）', () => {
   it('金の全 id に ItemDef がある（10 個・id は ids.ts の 1 回だけ）', () => {
     expect(GOLD_IDS).toHaveLength(10);
     for (const id of GOLD_IDS) expect(itemDef(id), id).toBeDefined();
-    expect(Object.keys(ITEM_DEFS).sort()).toEqual([...GOLD_IDS].sort());
+    expect(Object.keys(ITEM_DEFS).sort()).toEqual([...GOLD_IDS, ...NINJA_ITEM_IDS, ...SAMURAI_ITEM_IDS].sort());
     expect(Object.keys(EXPECT).sort()).toEqual([...GOLD_IDS].sort());
   });
 
@@ -185,5 +188,82 @@ describe('登録表（金シリーズ）', () => {
     expect(BAKE_RECIPES.map((r) => r.id)).toEqual(['iron_ingot', 'kawara', 'brick', 'haniwa', 'kin', 'momo_yaki']);
     expect(BAKE_RECIPES.find((r) => r.id === 'kin')).toEqual({ id: 'kin', output: { item: 'kin', count: 1 }, inputs: [{ item: 'kin_tamago', count: 1 }], works: true, station: 'furnace' });
     expect(ALL_RECIPES).toHaveLength(CRAFT_RECIPES.length + BAKE_RECIPES.length);
+  });
+});
+
+// ---------------------------------------------------------------- 忍者・侍シリーズ（#306a 段階 3 の 1 本目）
+// 期待は これまでの 表（2026-10-25 の写し JSON）から 手で 写した 値。
+
+const NS_ARMOR = {
+  ninja_zukin: { name: '［黒頭巾｜くろずきん］', slot: 'head', kind: 'ball', value: { normal: 0, ball: 2, fall: 0 }, use: 'こうげき から まもる（あたま）' },
+  ninja_shozoku: { name: '［忍｜しの］び［装束｜しょうぞく］', slot: 'body', kind: 'normal', value: { normal: 2, ball: 0, fall: 0 }, use: 'こうげき から まもる（からだ）' },
+  ninja_tekko: { name: '［忍｜しの］びの ［手甲｜てっこう］', slot: 'arms', kind: 'normal', value: { normal: 1, ball: 0, fall: 0 }, use: 'こうげき から まもる（うで）' },
+  ninja_tabi: { name: '［忍｜しの］びの ［足袋｜たび］', slot: 'legs', kind: 'fall', value: { normal: 0, ball: 0, fall: 100000 }, use: 'こうげき から まもる（あし）' },
+  samurai_jingasa: { name: '［明珍｜みょうちん］［陣笠｜じんがさ］', slot: 'head', kind: 'ball', value: { normal: 0, ball: 2, fall: 0 }, use: 'こうげき から まもる（あたま）' },
+  samurai_haori: { name: '［明珍｜みょうちん］［羽織｜はおり］', slot: 'body', kind: 'normal', value: { normal: 2, ball: 0, fall: 0 }, use: 'こうげき から まもる（からだ）' },
+  samurai_tekko: { name: '［明珍｜みょうちん］［手甲｜てっこう］', slot: 'arms', kind: 'normal', value: { normal: 1, ball: 0, fall: 0 }, use: 'こうげき から まもる（うで）' },
+  samurai_geta: { name: '［明珍｜みょうちん］［下駄｜げた］', slot: 'legs', kind: 'fall', value: { normal: 0, ball: 0, fall: 2 }, use: 'こうげき から まもる（あし）' },
+} as const;
+const NS_IDS = [...NINJA_ITEM_IDS, ...SAMURAI_ITEM_IDS] as const;
+
+describe('登録表（忍者・侍シリーズ）', () => {
+  it('全 id に ItemDef・絵が ある（忍者 4・侍 4）', () => {
+    expect(NINJA_ITEM_IDS).toHaveLength(4);
+    expect(SAMURAI_ITEM_IDS).toHaveLength(4);
+    expect(Object.keys(NS_ARMOR).sort()).toEqual([...NS_IDS].sort());
+    for (const id of NINJA_ITEM_IDS) {
+      expect(itemDef(id), id).toBeDefined();
+      expect(isNinjaItem(id), id).toBe(true);
+      expect(ninjaItemPixels(id).length, id).toBeGreaterThan(0);
+    }
+    for (const id of SAMURAI_ITEM_IDS) {
+      expect(itemDef(id), id).toBeDefined();
+      expect(isSamuraiItem(id), id).toBe(true);
+      expect(samuraiItemPixels(id).length, id).toBeGreaterThan(0);
+    }
+  });
+
+  it.each(NS_IDS)('%s: 名前・レア度・分類・耐久・説明・防具が 今の表と同じ', (id) => {
+    const e = NS_ARMOR[id];
+    expect(itemType(id)).toEqual({ id, name: e.name, maxStack: 1, placeBlock: null });
+    expect(itemRarity(id)).toBe('legendary');
+    expect(itemCategory(id)).toBe('armor');
+    expect(CATEGORY_ITEMS.armor).toContain(id);
+    expect(W2_SETTING_DEFAULTS.toolDurability[id]).toBe(10000);
+    expect(itemClassOf(id)).toBe('durable');
+    expect(ITEM_INFO[id]!.use).toBe(e.use);
+    expect(ITEM_INFO[id]!.stats).toBe('armor');
+    expect(ITEM_INFO[id]!.special).toBeTruthy();
+    expect(ARMOR_SLOT_OF[id]).toBe(e.slot);
+    expect(ARMOR_KIND[id]).toBe(e.kind);
+    expect(CRAFT_DEFAULTS.armorValue[id]).toEqual(e.value);
+    // 作れない（レシピなし）・刀でも ゆみでも 道具でもない
+    expect(CRAFT_RECIPES.some((r) => r.id === id)).toBe(false);
+    expect(BLADE_ITEMS.has(id)).toBe(false);
+  });
+
+  it('防ぐ量は 調整表 NINJA_TUNING の 数を 読む', () => {
+    expect(CRAFT_DEFAULTS.armorValue.ninja_zukin!.ball).toBe(NINJA_TUNING.zukinBallCut);
+    expect(CRAFT_DEFAULTS.armorValue.ninja_tabi!.fall).toBe(NINJA_TUNING.tabiFallCut);
+    expect(CRAFT_DEFAULTS.armorValue.samurai_geta!.fall).toBe(NINJA_TUNING.getaFallCut);
+  });
+
+  it('NINJA_GEAR・SAMURAI_GEAR（部位 → id）は 登録表の armor.slot と 同じ', () => {
+    for (const [gear, ids] of [[NINJA_GEAR, NINJA_ITEM_IDS], [SAMURAI_GEAR, SAMURAI_ITEM_IDS]] as const) {
+      expect(Object.values(gear).sort()).toEqual([...ids].sort());
+      for (const [slot, id] of Object.entries(gear)) expect(itemDef(id)!.armor!.slot, id).toBe(slot);
+    }
+  });
+
+  it('ITEM_TYPES: 忍者 4・侍 4 は すねあての 次（古い表の 位置）に この順で ならぶ', () => {
+    const ids = ITEM_TYPES.map((t) => t.id as string);
+    const from = ids.indexOf('suneate') + 1;
+    expect(ids.slice(from, from + 8)).toEqual([...NS_IDS]);
+    expect(ids[from + 8]).toBe('geyser_dirt');
+  });
+
+  it('ヌシが おとす 侍装備 4 行は 武器 3 行の あと（weight 1）', () => {
+    const rows = W2_SETTING_DEFAULTS.nushiDrops;
+    expect(rows.slice(-4)).toEqual(SAMURAI_ITEM_IDS.map((item) => ({ item, weight: 1 })));
   });
 });

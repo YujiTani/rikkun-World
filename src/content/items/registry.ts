@@ -2,6 +2,8 @@ import type { ArmorSlot, BladeTrailStyle, DamageKind, ItemId, ItemType, Rarity, 
 import type { InfoRow } from '../../craft/info/table';
 import type { ItemCategory } from '../../ui/itemCategory';
 import { GOLD } from './gold';
+import { NINJA } from './ninja';
+import { SAMURAI } from './samurai';
 import type { ItemDef } from './types';
 
 /**
@@ -11,15 +13,18 @@ import type { ItemDef } from './types';
  * 実行時に contracts.ts を import しない（import の輪を 作らない）。型だけを読む。
  *
  * 新しい金を足すとき: ids.ts に id → gold.ts に値 → ui/itemArtGold.ts に絵（Record<GoldId> なので 書き忘れは 型エラー）。
+ * 忍者・侍も 同じ（ninja.ts・samurai.ts。絵は ui/itemArtNinja.ts・itemArtSamurai.ts）。
  * のこりのシリーズは 段階 3 で 1 本ずつ ここへ うつす（全部 うまったら ITEM_DEFS を 全件 Record に する）。
  */
 export type ItemDefs = Readonly<Partial<Record<ItemId, ItemDef>>>;
 
 /** シリーズごとの定義（ITEM_TYPES・作業台のカードの 順は シリーズの 位置で 決まるので、シリーズ単位でも 出す） */
 export const GOLD_DEFS: ItemDefs = GOLD;
+/** 忍者・侍（ITEM_TYPES では 古い表の 同じ 位置（すねあての 次）に 入れる） */
+export const NINJA_SAMURAI_DEFS: ItemDefs = { ...NINJA, ...SAMURAI };
 
-/** 登録された 全アイテム（いまは 金だけ） */
-export const ITEM_DEFS: ItemDefs = { ...GOLD_DEFS };
+/** 登録された 全アイテム（忍者・侍・金。カテゴリーの 中の 並びは この順） */
+export const ITEM_DEFS: ItemDefs = { ...NINJA_SAMURAI_DEFS, ...GOLD_DEFS };
 
 /**
  * うつしかえの 途中で、同じ id を 古い表と 登録表の 両方に 書いてしまった所の 一覧（"表の名前:id"）。

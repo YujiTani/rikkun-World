@@ -5,7 +5,7 @@
  * 担当の割り振り: docs/tickets/M1-dev-split.md
  */
 
-import type { GoldId } from './content/items/ids';
+import { SAMURAI_ITEM_IDS, type GoldId, type NinjaId, type SamuraiId } from './content/items/ids';
 import { registryBladeReach, registryBladeTrail, registryBowDamage, registryWear, withRegistry } from './content/items/registry';
 
 export interface Vec3 {
@@ -220,14 +220,9 @@ export type ItemOnlyId =
   | 'yoroi'
   | 'kote' // こて（籠手）
   | 'suneate' // すねあて（脛当て）
-  | 'ninja_zukin' // 黒頭巾（NINJA-1 #299・あたま。ひのたまを ふせぐ・酸素が ながく もつ）
-  | 'ninja_shozoku' // 忍び装束（からだ。妖怪に 気づかれにくい）
-  | 'ninja_tekko' // 忍びの手甲（うで。刀・素手の 当たりの あとに 小太刀で 追い打ち）
-  | 'ninja_tabi' // 忍びの足袋（あし。落下ダメージ 0。#293 試作 → NINJA-1。作れない・ステータスだけ）
-  | 'samurai_jingasa' // 明珍陣笠（SAMURAI-1 #300・あたま。ひのたまを ふせぐ・パリィの 受けが 長い）
-  | 'samurai_haori' // 明珍羽織（からだ。とばされにくい）
-  | 'samurai_tekko' // 明珍手甲（うで。刀が 1.5 倍・防御力 10 無視）
-  | 'samurai_geta' // 明珍下駄（あし。落下の いたみを へらす・走ると カランコロン）
+  // NINJA-1（#299）・SAMURAI-1（#300）: 忍者装備 4 つ・侍装備 4 つの id は content/items/ids.ts の 1 か所（#306）
+  | NinjaId
+  | SamuraiId
   | 'torch'
   | 'lantern'
   | 'kite'
@@ -2086,16 +2081,7 @@ export const W2_SETTING_DEFAULTS: Readonly<W2Settings> = {
     yoroi: 240,
     kote: 225,
     suneate: 195,
-    // NINJA-1 §4.1: 忍者装備 4 つは たいきゅう 10000（つくれず 手に 入れ方が 限られる ので 事実上 こわれない。足袋の 390 から かえた）
-    ninja_zukin: 10000,
-    ninja_shozoku: 10000,
-    ninja_tekko: 10000,
-    ninja_tabi: 10000,
-    // SAMURAI-1 §4.1: 侍装備 4 つも たいきゅう 10000（NINJA-1 と 同じ）
-    samurai_jingasa: 10000,
-    samurai_haori: 10000,
-    samurai_tekko: 10000,
-    samurai_geta: 10000,
+    // NINJA-1 §4.1・SAMURAI-1 §4.1: 忍者・侍装備 8 つ（たいきゅう 10000）は 登録表（content/items/ninja.ts・samurai.ts）から（下の withRegistry）
     raijin_ken: 10000, // WEAPON-7 §2.4: つくれず ヌシでしか 手に 入らない 武器だけの 例外
     fujin_ken: 10000,
     niji: 10000,
@@ -2113,7 +2099,7 @@ export const W2_SETTING_DEFAULTS: Readonly<W2Settings> = {
   // SAMURAI-1 §4.2: 武器 3 行（雷神剣・風神剣・虹）の あとに 侍装備 4 行（陣笠・羽織・手甲・下駄）。ぜんぶ weight 1（はじめての ヌシで 侍装備は 4/7）
   nushiDrops: [
     ...LEGENDARY_DEFAULTS.map((d) => ({ item: d.item, weight: 1 })),
-    ...(['samurai_jingasa', 'samurai_haori', 'samurai_tekko', 'samurai_geta'] as const).map((item) => ({ item: item as ItemId, weight: 1 })),
+    ...SAMURAI_ITEM_IDS.map((item) => ({ item: item as ItemId, weight: 1 })),
   ],
   legendaryChargeWalk: 0.5,
   shiningCamDistance: 14,

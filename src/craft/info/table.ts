@@ -16,15 +16,7 @@ export const ARMOR_KIND: Readonly<Record<string, 'normal' | 'ball' | 'fall'>> = 
   yoroi: 'normal',
   kote: 'normal',
   suneate: 'fall',
-  ninja_zukin: 'ball',
-  ninja_shozoku: 'normal',
-  ninja_tekko: 'normal',
-  ninja_tabi: 'fall',
-  samurai_jingasa: 'ball',
-  samurai_haori: 'normal',
-  samurai_tekko: 'normal',
-  samurai_geta: 'fall',
-}, registryArmorKind()); // 金の 防具は 登録表（content/items/gold.ts）から
+}, registryArmorKind()); // 忍者・侍・金の 防具は 登録表（content/items/）から
 
 /** なかま の 文（WEAPON-2 §4.6 (8)）。「なにに つかう」の 下に 出す */
 export const CLASS_TEXT = {
@@ -153,15 +145,6 @@ const OLD_ITEM_INFO: Record<string, InfoRow> = {
   yoroi: { use: 'ようかい の こうげき を へらす（からだ）', how: WEAR_HOW, buttons: ['1-9', 'right'], stats: 'armor' },
   kote: { use: 'ようかい の こうげき を へらす（うで）', how: WEAR_HOW, buttons: ['1-9', 'right'], stats: 'armor' },
   suneate: { use: 'たかい ところ から おちた いたみ を へらす（あし）', how: WEAR_HOW, buttons: ['1-9', 'right'], stats: 'armor' },
-  // #293 試作: 忍者の足袋（すねあてと おなじ あしの マス。どちらか 1 つ）
-  ninja_zukin: { use: 'こうげき から まもる（あたま）', special: 'ひのたま を ふせぐ。みず の なか で いき が ながく もつ', how: WEAR_HOW, buttons: ['1-9', 'right'], stats: 'armor' },
-  ninja_shozoku: { use: 'こうげき から まもる（からだ）', special: 'ようかい に きづかれ にくい', how: WEAR_HOW, buttons: ['1-9', 'right'], stats: 'armor' },
-  ninja_tekko: { use: 'こうげき から まもる（うで）', special: 'かたな・すで で こうげき した とき に ［小太刀｜こだち］ で おいうち', how: WEAR_HOW, buttons: ['1-9', 'right'], stats: 'armor' },
-  samurai_jingasa: { use: 'こうげき から まもる（あたま）', special: 'ひのたま を ふせぐ。パリィ で はじく じかん が ながく なる', how: WEAR_HOW, buttons: ['1-9', 'right'], stats: 'armor' },
-  samurai_haori: { use: 'こうげき から まもる（からだ）', special: 'ようかい の こうげき を ふせぐ。［吹｜ふ］き［飛｜と］ばされ にくく なる', how: WEAR_HOW, buttons: ['1-9', 'right'], stats: 'armor' },
-  samurai_tekko: { use: 'こうげき から まもる（うで）', special: 'かたな の あつかい が うまく なる。かたい あいて にも こうか ばつぐん', how: WEAR_HOW, buttons: ['1-9', 'right'], stats: 'armor' },
-  samurai_geta: { use: 'こうげき から まもる（あし）', special: 'おちた とき の いたさ を へらす。はしる と カランコロン と ［心地｜ここち］よい おと が する', how: WEAR_HOW, buttons: ['1-9', 'right'], stats: 'armor' },
-  ninja_tabi: { use: 'こうげき から まもる（あし）', special: 'たかい ところ から おちても いたく ない', how: WEAR_HOW, buttons: ['1-9', 'right'], stats: 'armor' },
 
   // ---- 働きが あとのもの（6）
   lantern: later('おいて あかるく できるように なるよ（もうすぐ）'),
@@ -220,7 +203,7 @@ const OLD_ITEM_INFO: Record<string, InfoRow> = {
   yokai_orb: { use: 'いまは つかえない よ', how: '', buttons: [] },
 };
 
-// 登録表（content/items/）に うつした シリーズ（金 …）の 行は そちらに 書く（ここへは 自動で 入る）
+// 登録表（content/items/）に うつした シリーズ（忍者・侍・金 …）の 行は そちらに 書く（ここへは 自動で 入る）
 export const ITEM_INFO: Readonly<Record<string, InfoRow>> = withRegistry('ITEM_INFO', OLD_ITEM_INFO, registryInfo());
 
 /** 「どこで」の ようかいだま だけの文（§5） */

@@ -1,12 +1,14 @@
 import type { ItemId } from '../contracts';
+import { SAMURAI_ITEM_IDS, type SamuraiId } from '../content/items/ids';
 import type { Rgba } from '../world/blocks/textures';
 
 /**
  * SAMURAI-1（#300）侍装備 4 つの 16x16 アイコン（オーナー OK 済みの 絵。もとは 共有フォルダ samurai-gear/final/rows.ts.txt。
  * 陣笠・羽織 = B 案、手甲・下駄 = A 案。絵の 中の 名前 myochin_* は 仕様の id samurai_* に そろえた）。形は itemArtNinja.ts と 同じ。
  */
-export const SAMURAI_ITEMS = ['samurai_jingasa', 'samurai_haori', 'samurai_tekko', 'samurai_geta'] as const;
-export type SamuraiItemId = (typeof SAMURAI_ITEMS)[number];
+// id の出どころは content/items/ids.ts（ここでは 同じ名前で 読めるように するだけ）
+export const SAMURAI_ITEMS = SAMURAI_ITEM_IDS;
+export type SamuraiItemId = SamuraiId;
 
 export function isSamuraiItem(item: ItemId): item is SamuraiItemId & ItemId {
   return (SAMURAI_ITEMS as readonly string[]).includes(item);
