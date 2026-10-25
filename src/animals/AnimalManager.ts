@@ -2,7 +2,6 @@ import { isBigKotatsu, kotatsuAnchorOf } from '../world/blocks/kotatsu';
 import type {
   AnimalApi,
   AnimalBirdSave,
-  AnimalBreed,
   AnimalDeps,
   AnimalEvent,
   FightCues,
@@ -12,7 +11,6 @@ import type {
   AnimalSaveV4,
   AnimalSpawnOpts,
   NatsukiView,
-  AnimalStage,
   CoopBreakResult,
   CoopInfo,
   CoopPlacePreview,
@@ -30,7 +28,6 @@ import type {
   ItemStack,
   LiveSettings,
   Vec3,
-  VoxelWorld,
 } from '../contracts';
 import { createLiveSettings } from '../contracts';
 import { createRng, type Rng } from '../world/gen/random';
@@ -45,319 +42,11 @@ import { aimBox, bodySize } from './size';
 import { parseAnimalSave, type ParsedBird } from './saveV3';
 import { FIGHT, inReach, isUpperPunch, pickFighters, punchDamage, punchPlan, resolveCue } from './fight';
 
-const DT = 1 / 60;
-const TAU = Math.PI * 2;
-/** 妖怪 とは べつ の 乱数 の 流れ（シード に まぜる 数） */
-const RNG_SALT = 0x11fe0001;
-/** なかま どうし の 中心 の 最小 すき間（PO 2026-10-18: 0.5 → 0.8。重なって 1 わ しか 見えない ため） */
-const FRIEND_MIN_GAP = 0.8;
-/** 止まる 距離 の ばらつき（なかま に なった 順 で 0・0.5・1.0 を くり返す） */
-const STOP_STEP = 0.5;
-const STOP_KINDS = 3;
-const APPEAR_TICKS = 30;
-const EVENT_CAP = 512;
-const FALL_G = 25;
-/** ハート 1 以上 の やせい が 消える 距離（§2.1。台帳 G4） */
-const HEART_REMOVE_DIST = 96;
-/** ついてくる 時間 が 0 の なかま が はなれない はんい（§2.7） */
-const HOME_RADIUS = 6;
-/** おなかいっぱい の 動き（§3.5） */
-const FULL_REACT_TICKS = 20;
-/** おろす 動き（§3.5） */
-const PUT_DOWN_TICKS = 20;
-/** あみ で とれた むし が 持ち物 に 入る まで。ふった ステップ を 1 と 数えて 30 ステップ 目（ふった あと の update は 29 回） */
-const BUG_CATCH_UPDATES = 29;
-/** パタパタ と みなす 下向き の 速さ（マス/秒） */
-const FLUTTER_MIN_VY = 0.3;
-/** なげる（LIVE-2.1 §2.2）: もちあげ ステップ・はなれる 高さ（足＋）・着地点 の まん中 の 高さ（足＋）・てっぺん の 余り・とぶ ステップ の 土台 と きょり ごと */
-const THROW_LIFT_TICKS = 10;
-const THROW_HAND_Y = 2.2;
-const THROW_LAND_Y = 2.0;
-const THROW_APEX_UP = 0.5;
-const THROW_BASE_TICKS = 20;
-const THROW_TICKS_PER_M = 5;
-/** さく ごし の ねらい: さく に 入って から この きょり 以内 の 床 */
-const THROW_THROUGH = 4;
-/** 何も ねらわない とき の 前 の きょり・下 へ 見る 高さ */
-const THROW_FRONT = 3;
-const THROW_SCAN_DOWN = 8;
-/** d が これ より 近い とき は なげず に そっと おろす */
-const THROW_SOFT_DIST = 1;
-/** さく の 上 に 着いた 子 を 中 へ よせる 速さ（0.5 マス / 12 ステップ） */
-const GLIDE_STEP = 0.5 / 12;
-/** 小屋 の 子 に なった しゅんかん の 大きな しるし が 消える まで（ステップ） */
-const POP_TICKS = 40;
+import type { LockKind, KitEggRow, Kit, Coop, Ent, AnimalManagerOptions } from './animalTypes';
+import { DT, TAU, RNG_SALT, FRIEND_MIN_GAP, STOP_STEP, STOP_KINDS, APPEAR_TICKS, EVENT_CAP, FALL_G, HEART_REMOVE_DIST, HOME_RADIUS, FULL_REACT_TICKS, PUT_DOWN_TICKS, BUG_CATCH_UPDATES, FLUTTER_MIN_VY, THROW_LIFT_TICKS, THROW_HAND_Y, THROW_LAND_Y, THROW_APEX_UP, THROW_BASE_TICKS, THROW_TICKS_PER_M, THROW_THROUGH, THROW_FRONT, THROW_SCAN_DOWN, THROW_SOFT_DIST, GLIDE_STEP, POP_TICKS, HATCH_TICKS, KIT_HATCH_GAP, KIT_ICON_DIST, HATCH_MACHO_TICKS, GROW_TICKS, ROLL_TICKS, ROLL_MIN_DROP, COOP_CHECK_EVERY, KID_MARGIN, FRIEND_FULL_REPEAT, SPOT_RETRY, BREED_SALT, GOLD_SALT, NATSUKI_HINT_GAP, BLOCK_NUKUNUKU, MEAT_WALK, MEAT_DOOR_FROM, MEAT_DOOR_TICKS, MEAT_SAY_AT, MEAT_SAY_FADE, MEAT_NEST_DIST, NO_FIGHT, ZERO_KNOCK } from './animalConsts';
+import { slab, FOLLOW_OFFS, SEP_OFFS, inFootprintAny, dist2d, round2, angleDiff, yawTo } from './animalMath';
 
-type LockKind = 'appear' | 'eat' | 'pet' | 'cheer' | 'full' | 'putDown' | 'hatch' | 'grow';
-
-/** かえる 動き（ふつう 60・マッチョ は ポーズ 20 を 足して 80）と 大人 に なる 動き の ステップ（§3.5） */
-const HATCH_TICKS = 60;
-/** 1 台 で 次 の たまご が かえる まで の 間（前 の 子 の かえる 動き が おわって から。LIVE-2.1 §2.4） */
-const KIT_HATCH_GAP = 20;
-/** こたつ の 天板 の 3 わく を 出す プレイヤー との 水平 の きょり */
-const KIT_ICON_DIST = 8;
-const HATCH_MACHO_TICKS = 80;
-const GROW_TICKS = 60;
-/** 着地 の コロン（§2.9）と、コロン に なる 落ちた 高さ（これ より 低い 段差 では ころがらない） */
-const ROLL_TICKS = 12;
-const ROLL_MIN_DROP = 1.5;
-/** 小屋 の ブロック が まだ ある か 見る 間かく（ステップ） */
-const COOP_CHECK_EVERY = 30;
-/** 小屋 の 子 の 動ける はんい（中 3×3 の ふち から の よゆう） */
-const KID_MARGIN = 0.25;
-/** こたつ の 友だち いっぱい の 合図 を くり返す 間（§2.1） */
-const FRIEND_FULL_REPEAT = 600;
-/** こたつ の かえる 場所 が 無い とき の さがし直し */
-const SPOT_RETRY = 60;
-const BREED_SALT = 0x11fe0004;
-const GOLD_SALT = 0x11fe0005;
-/** GOLD-1 §3.4: 合図 natsukiWait は 600 ステップ に 1 回 まで */
-const NATSUKI_HINT_GAP = 600;
-const BLOCK_NUKUNUKU = 'nukunuku';
-/** LIVE-3 §2.4: ねぐら へ 歩く（この ステップ で 着く）・とびら が おりる 区間・一言 が 出る・とびら の 上下 の ながさ */
-const MEAT_WALK = 60;
-const MEAT_DOOR_FROM = 60;
-const MEAT_DOOR_TICKS = 20;
-const MEAT_SAY_AT = 80;
-const MEAT_SAY_FADE = 20;
-/** ねぐら の 中: 小屋 の まん中 から うしろ へ この きょり（中 3×3 の 中。AC6 の「ねぐら の 中」） */
-const MEAT_NEST_DIST = 1.3;
-
-
-/** なげる の とびかた（山なり。乱数 なし） */
-interface Flight {
-  sx: number;
-  sy: number;
-  sz: number;
-  /** 着地点 の 足もと */
-  tx: number;
-  ty: number;
-  tz: number;
-  /** 山なり の ふくらみ（y(u) = sy + (py - sy)·u + c·u·(1-u)） */
-  c: number;
-  /** P の 高さ（着地点 の 足 ＋ 2.0） */
-  py: number;
-  /** かかる ステップ */
-  T: number;
-  k: number;
-  phase: 'arc' | 'fall';
-}
-
-/** こたつ に 入って いる たまご 1 こ（LIVE-2.1: 時計 は たまご ごと） */
-interface KitEggRow {
-  egg: KitEgg;
-  left: number;
-  /** 入れた ときの あたためる 時間（ゆれ の 段階 の 分母） */
-  total: number;
-}
-
-/** こたつ 1 つ（たまご が 入った もの だけ。1〜3 こ） */
-interface Kit {
-  x: number;
-  y: number;
-  z: number;
-  /** 入れた 順 */
-  eggs: KitEggRow[];
-  /** 1 辺 の マス の 数（こわれた あと の たまご の おちる 場所 の ため、本体 が ある 間 に 覚える） */
-  size?: 1 | 2;
-  /** かえる 動き 中 の ひよこ の id（0 = まだ） */
-  chick: number;
-  /** かえる 動き 中 の たまご（`eggs` の 1 つ） */
-  hatch: KitEggRow | null;
-  /** 次 の たまご が かえる まで の 間（前 の 子 の 動き が おわって から 20 ステップ） */
-  gap: number;
-  /** `friendFull` を 次 に 出す まで */
-  fullWait: number;
-  /** かえる 場所 を さがし直す まで */
-  retry: number;
-}
-
-/** とりごや 1 つ（子 は ents の `home` で 数える） */
-interface Coop {
-  id: number;
-  x: number;
-  y: number;
-  z: number;
-  dir: CoopDir;
-  egg: number;
-  gold: number;
-  /** LIVE-3: いただきます の 演出（1 つ の 小屋 で 同時 に 1 わ）。保存 しない */
-  meat: MeatJob | null;
-}
-
-/** いただきます の 演出 1 つ（`t` = 押してから の ステップ） */
-interface MeatJob {
-  id: number;
-  t: number;
-  /** はじめ の 位置（ねぐら へ 歩く 出だし） */
-  sx: number;
-  sz: number;
-}
-
-interface Ent {
-  id: number;
-  x: number;
-  y: number;
-  z: number;
-  yaw: number;
-  headYaw: number;
-  friend: boolean;
-  hearts: 0 | 1 | 2;
-  state: AnimalState;
-  stateTicks: number;
-  look: boolean;
-  inWater: boolean;
-  /** 上下 の 速さ（マス/秒。下 が 負） */
-  vy: number;
-  /** ついてくる 残り ステップ（なかま） */
-  follow: number;
-  /** おなかいっぱい の 残り ステップ */
-  fullLeft: number;
-  carried: boolean;
-  fluttering: boolean;
-  /** たまご の くじ の「つづけて うまなかった 数」（保存 しない） */
-  eggMiss: number;
-  /** ついてくる 時間 が 0 の とき の まん中（うろうろ の はんい） */
-  homeX: number;
-  homeZ: number;
-  /** うごき の ロック（のこり ステップ）と 種類 */
-  lock: number;
-  lockKind: LockKind;
-  /** ロック の おわりに たまご を おとす（ロック の 後半 30 は 'lay'） */
-  egg: boolean;
-  /** ロック の おわりに なかま に なる（3 つ目 の やさい） */
-  becomeFriend: boolean;
-  walking: boolean;
-  walkLeft: number;
-  restLeft: number;
-  walkYaw: number;
-  blocked: number;
-  following: boolean;
-  bestDist: number;
-  stuck: number;
-  warpWait: number;
-  /** 止まる 距離 に 足す 分（なかま の 順番 で 決まる） */
-  stopOff: number;
-  // ---- LIVE-2
-  stage: AnimalStage;
-  breed: AnimalBreed;
-  /** 小屋 の 子 なら 小屋 id */
-  home: number | null;
-  raised: boolean;
-  bugs: number;
-  goldMiss: number;
-  grow: number;
-  /** 小屋 の 中 に いた ステップ（coopEnterTicks で 小屋 の 子） */
-  enterT: number;
-  /** ロック の 全ステップ（かえる・大人 に なる の 進み 0〜1 の 分母） */
-  lockTotal: number;
-  /** かえる 動き が 金 の たまご から か */
-  fromGold: boolean;
-  /** 着地 の コロン の のこり */
-  rollLeft: number;
-  /** 空中 に 出た 高さ（-1 = 空中 で ない） */
-  airFrom: number;
-  // ---- LIVE-2.1
-  /** なげる もちあげ の のこり（手 の 中。0 = なし） */
-  liftLeft: number;
-  /** そっと おろす の のこり（手 の 中。0 = なし） */
-  putLeft: number;
-  /** なげる／おろす の 着地点（もちあげ・おろす の あいだ） */
-  plan: ThrowSpot | null;
-  /** とんで いる あいだ */
-  flight: Flight | null;
-  /** さく の 上 から 中（か 外）へ よせて いる 行き先 */
-  glide: { x: number; z: number } | null;
-  /** 小屋 の 子 に なって から の ステップ（-1 = なし）。大きな しるし の 段 */
-  popAge: number;
-  // ---- GOLD-1（なかま の 大人 だけ 動く）
-  natsuki: number;
-  natsukiBugWait: number;
-  natsukiPetWait: number;
-  natsukiDecayLeft: number;
-  // ---- LIVE-3
-  /** いただきます の 演出 中（ねらえない・なでる／むし／だっこ できない） */
-  meat: boolean;
-  // ---- LIVE-4（いっしょ に たたかう マッチョ）
-  /** なかま に なった 順（小さい ほど 早い）。たたかう 子 を えらぶ もと */
-  joinNo: number;
-  /** ねらって いる 妖怪 の id */
-  target: number | null;
-  /** その ねらい で 当てた パンチ の 数 */
-  hits: number;
-  /** たたかい の 段: はしる・パンチ（きりあげ ふくむ）・おうえん・かちポーズ */
-  fs: FightPhase;
-  /** その 段 の 経過 ステップ（パンチ は 0 が とどいた ステップ） */
-  ft: number;
-  /** いまの パンチ が きりあげ か */
-  upper: boolean;
-  /** いまの パンチ の 当たる コマ と ながさ（パンチ を はじめる とき に 刀 の 突き から 読む） */
-  punchAt: number;
-  punchLen: number;
-  /** ねらい を わすれる まで の のこり ステップ（きっかけ で もどる） */
-  forgetLeft: number;
-  /** 「！」 の のこり ステップ */
-  bangLeft: number;
-  /** かちポーズ の のこり ステップ */
-  flexLeft: number;
-  /** おうえん を はじめた とき の 妖怪 の 位置（そこ から 大きく うごいたら また はしる） */
-  cheerX: number;
-  cheerZ: number;
-}
-
-type FightPhase = 'none' | 'run' | 'punch' | 'cheer' | 'flex';
-const NO_FIGHT: number[] = [];
-const ZERO_KNOCK = { dist: 0, up: 0 } as const;
-
-export interface AnimalManagerOptions {
-  world: VoxelWorld | AnimalWorld;
-  deps: AnimalDeps;
-  /** 足もと の 中央 */
-  getPlayer: () => { position: Vec3 };
-}
-
-const SLAB: [number, number] = [0, 0];
-/** 1 つの 軸 の 区間 [t0,t1] を 箱 [lo,hi] で せばめる。当たらなければ null（返す 配列は 使いまわし） */
-function slab(o: number, d: number, lo: number, hi: number, t0: number, t1: number): [number, number] | null {
-  if (Math.abs(d) < 1e-9) {
-    if (o < lo || o > hi) return null;
-  } else {
-    let ta = (lo - o) / d;
-    let tb = (hi - o) / d;
-    if (ta > tb) {
-      const x = ta;
-      ta = tb;
-      tb = x;
-    }
-    if (ta > t0) t0 = ta;
-    if (tb < t1) t1 = tb;
-    if (t0 > t1) return null;
-  }
-  SLAB[0] = t0;
-  SLAB[1] = t1;
-  return SLAB;
-}
-const FOLLOW_OFFS: readonly number[] = [0, 0.5, -0.5, 1.0, -1.0, 1.6, -1.6];
-const SEP_OFFS: readonly number[] = [0, 0.8, -0.8, 1.6, -1.6];
-
-function inFootprintAny(coops: readonly { x: number; z: number }[], px: number, pz: number): boolean {
-  for (const c of coops) if (inFootprint(c, px, pz)) return true;
-  return false;
-}
-
-const dist2d = (ax: number, az: number, bx: number, bz: number) => Math.hypot(ax - bx, az - bz);
-const round2 = (n: number) => Math.round(n * 100) / 100;
-
-function angleDiff(a: number, b: number): number {
-  let d = (b - a) % TAU;
-  if (d > Math.PI) d -= TAU;
-  if (d < -Math.PI) d += TAU;
-  return d;
-}
-
-/** 0 = 北(-Z)・時計まわり（妖怪 と 同じ） */
-const yawTo = (dx: number, dz: number) => Math.atan2(dx, -dz);
-
+export type { AnimalManagerOptions } from './animalTypes';
 /**
  * LIVE-1 A: にわとり の しくみ（出る・うろうろ・見る・ついてくる・ワープ・なかよし・たまご・保存）。
  * 見た目・音・ふりわけ は 持たない。`AnimalApi`（rayHit・preview・feed・pet・forEachVisible）と `SaveExtra` を 実装。
@@ -3044,3 +2733,4 @@ export class AnimalManager implements AnimalApi {
 export function createAnimalManager(o: AnimalManagerOptions): AnimalManager {
   return new AnimalManager(o);
 }
+
