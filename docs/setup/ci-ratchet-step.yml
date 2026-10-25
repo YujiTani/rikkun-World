@@ -1,6 +1,0 @@
-# ラチェット（#310）を CI に 入れる 手順。.github/workflows/ci.yml の check ジョブ
-# （npm ci の あと、typecheck / ユニットテストの 近く）に 下の step を 足す。
-# 手で 足す（yuzu）。約 25 秒。ふえたら 失敗する。減らしたら `npm run check:ratchet -- --update` で
-# ratchet.json の 上限を 下げて コミットする。
-      - name: コードのきまり（ラチェット）
-        run: npm run check:ratchet
