@@ -239,7 +239,8 @@ describe('段差の下の面（#142）: 見えるはずの小ブロックの面�
     const flat = terrain(() => TOP);
     const cliff = terrain((x) => (x < 24 ? TOP : TOP + 2));
     expect(countWorld(flat, SIZE, SIZE).checked).toBe(0);
-    expect(countWorld(cliff, SIZE, SIZE).checked).toBeGreaterThan(100);
+    // #309: 1 段の段差が 坂でなく 崖だけに なり 調べる面が へった（60 面ほど）。平ら（0）より 十分 多ければ 数え方の確認に なる
+    expect(countWorld(cliff, SIZE, SIZE).checked).toBeGreaterThan(30);
   });
 
   // ---- 崖: 1・2・3 ブロックの高さの段差（x の向き・z の向き）
@@ -397,7 +398,7 @@ describe('いつもの世界（seed 20261012）: 小ブロック段の全セク�
     populateWorld(w, 20261012);
     const h = countWorld(w, 128, 128);
     console.log(`SEETHRU island: checked=${h.checked} 穴のある面=${h.faces} 穴のあるブロック=${h.blocks} 向きごと=${h.byDir}`);
-    expect(h.checked, '調べた面が 0 だと何も確かめていない').toBeGreaterThan(3_000); // 調べる面は VOX-D で 約 4,100（VOX-B は 約 9,000。仮の海のふちの 段差が無くなり 面が へった）。半分より下に ならなければ 何も確かめていない ことには ならない
+    expect(h.checked, '調べた面が 0 だと何も確かめていない').toBeGreaterThan(1_000); // #309: 坂・丘・くぼ地が なくなり 約 1,850 に へった（下限 3,000 → 1,000。半分ほど）。 前: 調べる面は VOX-D で 約 4,100（VOX-B は 約 9,000。仮の海のふちの 段差が無くなり 面が へった）。半分より下に ならなければ 何も確かめていない ことには ならない
     expect(h.faces, `ぬけている小ブロックの面（向きごと ${h.byDir}）`).toBe(0);
     expect(h.blocks, '穴のあるブロック').toBe(0);
   });

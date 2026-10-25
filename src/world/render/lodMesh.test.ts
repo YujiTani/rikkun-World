@@ -4,7 +4,7 @@ import { ArrayVoxelWorld, CHUNK_SIZE } from '../VoxelWorld';
 import { WorldRenderer } from './WorldRenderer';
 import { meshChunk } from './meshChunk';
 import { meshChunkLod } from './lodMesh';
-import { CHUNK_DRAW_DISTANCE } from './config';
+import { CHUNK_DRAW_DISTANCE, FACE_SHADE_BY_INDEX } from './config';
 import { chunkNearDistance } from './visibility';
 import { BOX_OUTER, TIER_HYSTERESIS } from './voxel/tier';
 
@@ -68,8 +68,8 @@ describe('LOD メッシュ（遠くのかんたんメッシュ）', () => {
     expect(r2.opaque.faceCount).toBe(2);
   });
 
-  // TEX-A（#146）: 横の明るさは 南北 0.8・東西 0.6（面の向きで 2 つ）
-  it('横の面の明るさは 南北 0.8・東西 0.6（東西 ÷ 南北 = 0.75）。上は 1.0（TEX-A）', () => {
+  // TEX-A（#146）: 横の明るさは 面の向きで 2 つ（南北・東西）。数は config の FACE_SHADE_BY_INDEX（#309 で 南北 0.68・東西 0.5）
+  it('横の面の明るさは 南北・東西で ちがい（東西 < 南北 < 上 1.0）、比は config の表どおり（TEX-A）', () => {
     const w = new ArrayVoxelWorld({ x: 48, y: 16, z: 48 });
     w.fill(0, 0, 0, 47, 3, 47, 'stone');
     w.fill(16, 4, 16, 31, 6, 31, 'stone'); // 台: -x 側の面と -z 側の面が 16 のところに出る
@@ -88,8 +88,9 @@ describe('LOD メッシュ（遠くのかんたんメッシュ）', () => {
     const top = quads.find((v) => v.axis === 'y' && v.at === 7);
     expect(west && north && top).toBeTruthy();
     // 同じ石の平均色に面の明るさがかかる。色の比 = 明るさの比
-    expect(west!.r / north!.r).toBeCloseTo(0.6 / 0.8, 2);
-    expect(north!.r / top!.r).toBeCloseTo(0.8, 1);
+    const [, , , shadeWest, , shadeNorth] = FACE_SHADE_BY_INDEX; // 順番: 上, 下, +x, -x, +z, -z（north = -z、west = -x）
+    expect(west!.r / north!.r).toBeCloseTo(shadeWest! / shadeNorth!, 2);
+    expect(north!.r / top!.r).toBeCloseTo(shadeNorth!, 1);
   });
 
   it('光（空の光）が頂点にそのまま入る', () => {

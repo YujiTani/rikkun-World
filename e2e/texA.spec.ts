@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import {
-  FACE_SHADE, FLAT_BLOCKS, FY, SCORE_VIEWS, SPOT, buildArena, countSky, enc, expectedRgb, faceCorners, faceFacesCamera, faceGridPoints, goView, grab,
+  AO_STEPS, FACE_SHADE, FLAT_BLOCKS, SHADE_VALUES, FY, SCORE_VIEWS, SPOT, buildArena, countSky, enc, expectedRgb, faceCorners, faceFacesCamera, faceGridPoints, goView, grab,
   legibilityScore, lightTriple, lin, linLum, matches, matchesPalette, missingHooks, near, openTex, quadMean, quiet, sampleFace, saveShot, setBlock, tilePalette,
   setPose, setPoseSettled, shotPixels, stage, usable, type Face, type Rgb,
 } from './helpers/tex';
@@ -108,7 +108,7 @@ test.describe('TEX-A', () => {
     const px = (await shotPixels(page, pts)).filter((p): p is Rgb => p !== null);
     const light = lightTriple(15, 0, 0);
     // 面の明るさ 4 つ × AO 4 段 × 光（昼の外は 1.0）。見える面は ほとんど 上の面（1.0）か 横
-    const ok = px.filter((p) => pal.some((c) => [1, 0.8, 0.6, 0.5].some((sh) => [1, 0.82, 0.68, 0.55].some((ao) => near(p, expectedRgb(c, sh, light, ao), 8)))));
+    const ok = px.filter((p) => pal.some((c) => SHADE_VALUES.some((sh) => AO_STEPS.some((ao) => near(p, expectedRgb(c, sh, light, ao), 8)))));
     console.log('AC1b', ok.length, px.length);
     expect(ok.length / px.length, '地面の画素のうち 草のタイルの色に合う割合').toBeGreaterThan(0.6);
   });
@@ -197,7 +197,7 @@ test.describe('TEX-A', () => {
     }
   });
 
-  test('AC6: 面の明るさ 上 1.0・南北 0.8・東西 0.6・下 0.5（東 ÷ 北 = 0.75）', async ({ page }) => {
+  test('AC6: 面の明るさ は config の FACE_SHADE_BY_INDEX（#309: 上 1.0・南北 0.68・東西 0.5・下 0.45）。画素の比も 同じ', async ({ page }) => {
     await ready(page);
     const fs = await page.evaluate(() => (window as any).__rikkun.render.faceShade() as Record<string, number>);
     expect(fs).toEqual(FACE_SHADE);
@@ -213,13 +213,15 @@ test.describe('TEX-A', () => {
       expect(use.length).toBe(16);
       med[f] = median(use.map((r) => linLum(r.pixel!) / linLum(r.cands[4])));
     }
-    expect(med.east / med.north).toBeGreaterThan(0.75 * 0.97);
-    expect(med.east / med.north).toBeLessThan(0.75 * 1.03);
-    expect(med.north / med.top).toBeGreaterThan(0.8 * 0.97);
-    expect(med.north / med.top).toBeLessThan(0.8 * 1.03);
+    const en = FACE_SHADE.east / FACE_SHADE.north;
+    const nt = FACE_SHADE.north / FACE_SHADE.top;
+    expect(med.east / med.north).toBeGreaterThan(en * 0.97);
+    expect(med.east / med.north).toBeLessThan(en * 1.03);
+    expect(med.north / med.top).toBeGreaterThan(nt * 0.97);
+    expect(med.north / med.top).toBeLessThan(nt * 1.03);
   });
 
-  test('AC7: AO（角の暗がり）= 内かど 0.55・かべぞい 0.82 / 0.68・開けた所 1.0。箱の段は 1.0。ON / OFF で三角形・描画回数が同じ（S1）', async ({ page }) => {
+  test('AC7: AO（角の暗がり）= config の AO_LEVELS（#309: 内かど 0.45・かべぞい 0.75 / 0.58）・開けた所 1.0。箱の段は 1.0。ON / OFF で三角形・描画回数が同じ（S1）', async ({ page }) => {
     await ready(page);
     const ao = await page.evaluate(() => (window as any).__rikkun.render.aoStats() as { mode: string; radius: number; textureBytes: number; sections: number });
     expect(ao.mode).not.toBe('off');
@@ -241,9 +243,11 @@ test.describe('TEX-A', () => {
     for (let j = 0; j < 27; j++) for (let i = 0; i < 27; i++) pts.push({ x: 37 + (i + 0.5) / 9, y: FY + 1, z: 31 + (j + 0.5) / 9 }); // かべの中は のぞく
     const recs = await sampleFace(page, pts, 'top');
     const aos = recs.map((r) => r.ao);
-    expect(Math.min(...aos), '内かどに 0.55 に近い点がある').toBeLessThanOrEqual(0.6);
-    expect(aos.some((a) => Math.abs(a - 0.82) < 0.04), 'かべぞい 0.82').toBe(true);
-    expect(aos.some((a) => Math.abs(a - 0.68) < 0.04), 'かべぞい 0.68').toBe(true);
+    const [, aoWall1, aoWall2, aoCorner] = AO_STEPS;
+    // 点は 小ブロックの まんなかで とるので 角の値そのものには ならない。かべ 1 まいの段（aoWall2）より 暗い点が あれば 内かど
+    expect(Math.min(...aos), `内かどに ${aoWall2} より暗い（${aoCorner} に近い）点がある`).toBeLessThan(aoWall2);
+    expect(aos.some((a) => Math.abs(a - aoWall1) < 0.04), `かべぞい ${aoWall1}`).toBe(true);
+    expect(aos.some((a) => Math.abs(a - aoWall2) < 0.04), `かべぞい ${aoWall2}`).toBe(true);
     expect(aos.some((a) => a > 0.999), '開けた所 1.0').toBe(true);
     // AO の ON と OFF の 同じ画面の位置の 画素の比（絵の模様が 打ち消しあうので、位置のずれは AO の ずれだけになる）が hook の AO に合う。
     // でこぼこの床は 斜めから見ると 位置が ずれて見えるので、まわり ±0.09 ブロックの AO のどれかに ±0.04 で合えばよい
@@ -265,7 +269,9 @@ test.describe('TEX-A', () => {
     console.log('AC7', good.length, shaded.length);
     expect(good.length / shaded.length, `暗い所の点のうち hook の AO（±0.04）に合う割合 (${good.length}/${shaded.length})`).toBeGreaterThan(0.6);
     const corner = [...idx].sort((a, b) => use[a].ao - use[b].ao)[0];
-    expect(Math.abs(ratioOf(corner) - 0.55), '内かど（いちばん暗い点）は 0.55 ± 0.04').toBeLessThanOrEqual(0.04);
+    // 画面の 暗さが hook の AO（その点の値）に 合う。点は 小ブロックの まんなかなので 角の値 aoCorner そのものではない
+    expect(Math.abs(ratioOf(corner) - use[corner].ao), `内かど（いちばん暗い点）は hook の AO ${use[corner].ao} ± 0.04`).toBeLessThanOrEqual(0.04);
+    expect(use[corner].ao, `いちばん暗い点は かべ 1 まいの段 ${aoWall2} より暗い`).toBeLessThan(aoWall2);
     // ON / OFF で 三角形・描画回数が同じ（S1 / S1b）
     if (ao.mode === 'shader' || ao.mode === 'lightmap') {
       const on = await stats(page);

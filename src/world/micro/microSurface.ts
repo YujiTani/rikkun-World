@@ -17,16 +17,20 @@ import { mix } from './hash';
  *  5. はんい: そのブロックの 3 マス上〜 ブロックの上のへり＋reach（上が空気なら 8）。
  *
  * 形をアートが調整するときは、下の MICRO_PARAMS の数だけを変える。
+ *
+ * #309（2026-10-25 yuzu OK「ごつごつ控えめ」）: 見た目の高さを 本当の高さ（1 ブロック）に 近づけた。
+ * 1 段の段差は 崖だけ（坂 0）、丘・くぼ地 なし、うねり・ごつごつ・草むら・岩を 低く。
+ * 前の数: slopeRate 0.6・swell 1.6・rough 0.6・hillHeight 7・hollowDepth 5・tuft 2・rock 6。
  */
 export const MICRO_PARAMS = {
   /** 全部の乱数の元（世界のシードとは別。形の模様を変えたいときに変える） */
   seed: 4242,
   /** 1 ブロックの段差のうち、坂にする辺の割合（0〜1）。のこりは崖のまま */
-  slopeRate: 0.6,
+  slopeRate: 0,
   /** 大きいうねり: 波の長さ（小ブロック）と ふれはば（± 小ブロック）。平らな所は おだやかに（でこぼこは 下の「表情」で出す） */
-  swell: { wavelength: 34, amplitude: 1.6 },
+  swell: { wavelength: 34, amplitude: 0.4 },
   /** 小さいごつごつ: 波の長さと ふれはば */
-  rough: { wavelength: 9, amplitude: 0.6 },
+  rough: { wavelength: 9, amplitude: 0.3 },
   /** 3×3 のかたまりごとのずれ（± この数）。カクカクの もと */
   chunky: { cell: 3, amplitude: 1 },
   /**
@@ -36,13 +40,13 @@ export const MICRO_PARAMS = {
    * - 草むら: 波が threshold より上の所で、3×3 のかたまりごとに 0〜maxHeight マス もり上がる（すきまが 暗い）
    * - 土が見える所: 波が threshold より下の所で、sink マス へこんで 土の色（色は looks の terrainColor が microSoil で見る）
    */
-  mound: { wavelength: 44, hill: 0.66, hollow: 0.32, span: 0.2, hillHeight: 7, hollowDepth: 5, terrace: 2 },
-  tuft: { wavelength: 23, threshold: 0.6, maxHeight: 2 },
+  mound: { wavelength: 44, hill: 0.66, hollow: 0.32, span: 0.2, hillHeight: 0, hollowDepth: 0, terrace: 2 },
+  tuft: { wavelength: 23, threshold: 0.6, maxHeight: 1 },
   soil: { wavelength: 13, threshold: 0.22, sink: 1 },
   /** 崖の下の がれき（高さ・割合）と 上のふちの かけ（深さ・割合） */
   cliff: { rubbleHeight: 3, rubbleRate: 0.5, notchDepth: 3, notchRate: 0.34 },
   /** 岩: マスの大きさ（半径）と、高さ、出る割合（36×36 小ブロックに 1 つ ためす） */
-  rock: { cell: 36, chance: 0.4, minRadius: 1.5, maxRadius: 6, minHeight: 2, maxHeight: 6 },
+  rock: { cell: 36, chance: 0.4, minRadius: 1.5, maxRadius: 6, minHeight: 2, maxHeight: 3 },
   /** 上が空気のとき 上のブロックに はみ出してよい高さ（小ブロック）／ 十字の板（草花）のとき */
   reachAir: 8,
   reachCross: 3,

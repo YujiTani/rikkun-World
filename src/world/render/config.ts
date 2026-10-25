@@ -5,8 +5,9 @@ export const CHUNK_DRAW_DISTANCE = 88;
  * 面の明るさ（TEX-A、docs/art/DESIGN.md 3.1。マイクラ式）。世界のブロックの面は ぜんぶ この値
  * （小ブロック・箱の段・平らな箱・LOD）。順番は 面の向きの番号: 上, 下, +x（東）, -x（西）, +z（南）, -z（北）。
  * 「最初より暗い」と感じたら 東西 0.8・下 0.6 に もどせる（数字の置きかえだけ）。
+ * #309（2026-10-25 yuzu OK）: 段差の 横の面を 少し 暗くして、1 段ずつの さかいを 見やすく した（前は 0.5, 0.6, 0.6, 0.8, 0.8）。
  */
-export const FACE_SHADE_BY_INDEX: readonly number[] = [1.0, 0.5, 0.6, 0.6, 0.8, 0.8];
+export const FACE_SHADE_BY_INDEX: readonly number[] = [1.0, 0.45, 0.5, 0.5, 0.68, 0.68];
 
 /** 面の向きの名前（テストの hook 用）。north = -z */
 export type FaceName = 'top' | 'bottom' | 'north' | 'south' | 'east' | 'west';
@@ -21,8 +22,8 @@ export function faceShadeTable(): Record<FaceName, number> {
   return out;
 }
 
-/** 角の暗がり（AO）の 4 だん: 0 → 1.0 … 3 → 0.55（DESIGN 3.2） */
-export const AO_LEVELS: readonly number[] = [1.0, 0.82, 0.68, 0.55];
+/** 角の暗がり（AO）の 4 だん: 0 → 1.0 … 3 → 0.45（DESIGN 3.2。#309 で 少し 強く した。前は 0.82, 0.68, 0.55） */
+export const AO_LEVELS: readonly number[] = [1.0, 0.75, 0.58, 0.45];
 /** AO を消しはじめる距離（小ブロックの半径 r の 8 ブロック手前から r で 1.0 へ） */
 export const AO_FADE_BLOCKS = 8;
 

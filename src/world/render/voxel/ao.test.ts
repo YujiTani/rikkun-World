@@ -37,30 +37,30 @@ describe('角の暗がり（AO）の段（TEX-A 基準 7）', () => {
     expect(aoLevel(false, true, true)).toBe(2);
     expect(aoLevel(false, false, true)).toBe(1);
   });
-  it('4 段の明るさ: 1.0 / 0.82 / 0.68 / 0.55', () => {
-    expect([...AO_LEVELS]).toEqual([1.0, 0.82, 0.68, 0.55]);
+  it('4 段の明るさ: 1.0 / 0.75 / 0.58 / 0.45（#309）', () => {
+    expect([...AO_LEVELS]).toEqual([1.0, 0.75, 0.58, 0.45]);
   });
   it('開けた所は 1.0', () => {
     const occ = floorAnd([]);
     for (const f of [0.1, 0.5, 0.9]) expect(aoAtCell(occ, 10, 4, 10, 0, f, f)).toBe(1);
   });
-  it('かべの前の床: かべに ふれる角は 0.68（s1 + c）、かべから はなれた角は 1.0。面の中は 双線形', () => {
+  it('かべの前の床: かべに ふれる角は AO_LEVELS[2]（s1 + c）、かべから はなれた角は 1.0。面の中は 双線形', () => {
     const occ = floorAnd(wallX(11, 0, 29)); // x = 11 に かべ。床の上の面 = y 4 の 小ブロック
     // 小ブロック (10, 4, 10) の上の面: +x がわの 2 つの角が かべに ふれる
-    expect(aoAtCell(occ, 10, 4, 10, 0, 1, 0)).toBeCloseTo(0.68, 5); // +x, -z の角
-    expect(aoAtCell(occ, 10, 4, 10, 0, 1, 1)).toBeCloseTo(0.68, 5);
+    expect(aoAtCell(occ, 10, 4, 10, 0, 1, 0)).toBeCloseTo(AO_LEVELS[2]!, 5); // +x, -z の角
+    expect(aoAtCell(occ, 10, 4, 10, 0, 1, 1)).toBeCloseTo(AO_LEVELS[2]!, 5);
     expect(aoAtCell(occ, 10, 4, 10, 0, 0, 0)).toBe(1);
     expect(aoAtCell(occ, 10, 4, 10, 0, 0, 1)).toBe(1);
     // 面のまんなか: 4 つの角の平均
-    expect(aoAtCell(occ, 10, 4, 10, 0, 0.5, 0.5)).toBeCloseTo((0.68 + 0.68 + 1 + 1) / 4, 5);
-    // 双線形: x の向きに 1.0 → 0.68
-    expect(aoAtCell(occ, 10, 4, 10, 0, 0.25, 0.5)).toBeCloseTo(1 - 0.32 * 0.25, 5);
+    expect(aoAtCell(occ, 10, 4, 10, 0, 0.5, 0.5)).toBeCloseTo((AO_LEVELS[2]! + AO_LEVELS[2]! + 1 + 1) / 4, 5);
+    // 双線形: x の向きに 1.0 → AO_LEVELS[2]
+    expect(aoAtCell(occ, 10, 4, 10, 0, 0.25, 0.5)).toBeCloseTo(1 - (1 - AO_LEVELS[2]!) * 0.25, 5);
   });
-  it('内かど（かべが 2 まい）の すみの角は 0.55', () => {
+  it('内かど（かべが 2 まい）の すみの角は AO_LEVELS[3]', () => {
     const occ = floorAnd([...wallX(11, 0, 29), ...wallZ(9, 0, 29)]);
     // (10, 4, 10): +x に かべ、-z に かべ（z = 9）。+x, -z の角が 両方に ふれる
-    expect(aoAtCell(occ, 10, 4, 10, 0, 1, 0)).toBeCloseTo(0.55, 5);
-    expect(aoAtCell(occ, 10, 4, 10, 0, 0, 0)).toBeCloseTo(0.68, 5); // かべ z だけ
+    expect(aoAtCell(occ, 10, 4, 10, 0, 1, 0)).toBeCloseTo(AO_LEVELS[3]!, 5);
+    expect(aoAtCell(occ, 10, 4, 10, 0, 0, 0)).toBeCloseTo(AO_LEVELS[2]!, 5); // かべ z だけ
     expect(aoAtCell(occ, 10, 4, 10, 0, 0, 1)).toBe(1);
   });
   it('かべの横の面（東西・南北）でも 同じ式。かべの すその角が 暗い', () => {
@@ -117,9 +117,9 @@ describe('うまりの 3D テクスチャ（S1）', () => {
 });
 
 describe('面の明るさ（TEX-A 基準 6）', () => {
-  it('上 1.0・南北 0.8・東西 0.6・下 0.5', () => {
-    expect(faceShadeTable()).toEqual({ top: 1, bottom: 0.5, north: 0.8, south: 0.8, east: 0.6, west: 0.6 });
-    expect([...FACE_SHADE_BY_INDEX]).toEqual([1, 0.5, 0.6, 0.6, 0.8, 0.8]);
+  it('上 1.0・南北 0.68・東西 0.5・下 0.45（#309）', () => {
+    expect(faceShadeTable()).toEqual({ top: 1, bottom: 0.45, north: 0.68, south: 0.68, east: 0.5, west: 0.5 });
+    expect([...FACE_SHADE_BY_INDEX]).toEqual([1, 0.45, 0.5, 0.5, 0.68, 0.68]);
     expect(FACE_NAMES.length).toBe(6);
   });
 });
