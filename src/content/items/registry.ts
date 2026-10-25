@@ -6,6 +6,7 @@ import { ARMOR } from './armor';
 import { BUCKETS, FARM_TOOLS, SEEDS, SPRINKLER, VEGGIES } from './farm';
 import { GOLD } from './gold';
 import { LEGEND } from './legend';
+import { KOTATSU, LIVE } from './live';
 import { INGOT, MATERIALS, ORB } from './materials';
 import { GADGETS } from './misc';
 import { NINJA } from './ninja';
@@ -26,6 +27,7 @@ import { BOWS, SWORDS } from './weapons';
  * ふつうの 道具・武器・防具（M4）は tools.ts（つるはし・おの）・weapons.ts（刀・なぎなた／ゆみ・や）・armor.ts。絵は ui/itemArtM4.ts。
  * 畑（たね・やさい・くわ・じょうろ・スプリンクラー・バケツ 14 個）は farm.ts。絵は ui/itemArtM7.ts・itemArtM72.ts・bucketArt.ts。
  * ざいりょう（ようかいだま・かみ・あぶら・いと・ぬの・ねんど・すいしょう・てつの かたまり）は materials.ts、小物（ちょうちん・たこ・ふとん・おまもり・わらじ・はにわ）は misc.ts。
+ * 生き物（たまご・むし・むしとりあみ・こたつ・とりごや・きんの たまご・もも にく 2 つ）は live.ts（食べた ときの 回復量は `food` 部品）。絵は ui/itemArtLive1〜3.ts。
  * のこりのシリーズは 段階 3 で 1 本ずつ ここへ うつす（全部 うまったら ITEM_DEFS を 全件 Record に する）。
  */
 export type ItemDefs = Readonly<Partial<Record<ItemId, ItemDef>>>;
@@ -64,13 +66,19 @@ export const INGOT_DEFS: ItemDefs = INGOT;
 /** ちょうちん・たこ・ふとん・おまもり・わらじ・はにわ（ITEM_TYPES では 間欠泉の つちの 次。作業台では たいまつの 次） */
 export const GADGET_DEFS: ItemDefs = GADGETS;
 
+/**
+ * たまご・むし・むしとりあみ・こたつ・とりごや・きんの たまご・なま／やいた もも にく（ITEM_TYPES では 古い表の 同じ 位置（花の ブロックの 次）。
+ * この 並びは ITEM_TYPES の 順。こたつ（nukunuku）は 置ける ブロック（BlockId 側）なので 別の 表 KOTATSU から 入れる）
+ */
+export const LIVE_DEFS: ItemDefs = pickDefs({ ...LIVE, ...KOTATSU }, ['egg', 'mushi', 'mushi_ami', 'nukunuku', 'toriya', 'kin_tamago', 'momo_nama', 'momo_yaki']);
+
 /** レジェンダリー武器（ITEM_TYPES・武器の 色分けでは 古い表の 同じ 位置（crystal_katana の 次）に 入れる） */
 export const LEGEND_DEFS: ItemDefs = LEGEND;
-/** 登録された 全アイテム（道具・刀・ゆみ・防具・忍者・侍・畑・ざいりょう・小物・レジェンダリー・金。刀の集まり BLADE_ITEMS の 並びは この 順） */
+/** 登録された 全アイテム（道具・刀・ゆみ・防具・忍者・侍・畑・ざいりょう・小物・生き物・レジェンダリー・金。刀の集まり BLADE_ITEMS の 並びは この 順） */
 export const ITEM_DEFS: ItemDefs = {
   ...TOOL_DEFS, ...SWORD_DEFS, ...BOW_DEFS, ...ARMOR_DEFS, ...NINJA_SAMURAI_DEFS,
   ...SEED_DEFS, ...VEG_DEFS, ...FARM_TOOL_DEFS, ...SPRINKLER_DEFS, ...BUCKET_DEFS,
-  ...MATERIAL_DEFS, ...INGOT_DEFS, ...GADGET_DEFS, ...LEGEND_DEFS, ...GOLD_DEFS,
+  ...MATERIAL_DEFS, ...INGOT_DEFS, ...GADGET_DEFS, ...LIVE_DEFS, ...LEGEND_DEFS, ...GOLD_DEFS,
 };
 
 /**
@@ -189,6 +197,13 @@ export function registryToolFamily(): Partial<Record<ItemId, ToolFamily>> {
 /** じょうろ: 水の 入る 回数・いちどに まく マス数（M7 の farmCanCapacity・farmCanTiles。じょうろの 登録の 順） */
 export function registryCan(key: 'capacity' | 'tiles'): Partial<Record<ItemId, number>> {
   return pickAll(ITEM_DEFS, (d) => d.can?.[key]);
+}
+
+/** たべもの: たべた ときに もどる 体力の 初期値（たまご・やいた もも にく。LIVE_SETTING_DEFAULTS の animalEggHeal・meatHeal） */
+export function registryHeal(id: ItemId): number {
+  const heal = ITEM_DEFS[id]?.food?.heal;
+  if (heal === undefined) throw new Error(`登録表に ${id} の food が ない`);
+  return heal;
 }
 
 /** 刀: 届く長さ（W2 bladeReach） */

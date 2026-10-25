@@ -47,6 +47,8 @@ export interface ItemDef {
   legend?: Omit<LegendaryDef, 'item'>;
   /** じょうろ: 水の 入る 回数・いちどに まく はたけの マス数 */
   can?: { capacity: number; tiles: number };
+  /** たべもの（やさい以外）: たべた ときに もどる 体力（2 = ハート 1 こ）。やさいの 回復量は 作物ごとの 設定 eatHeal */
+  food?: { heal: number };
   /** 防具: 入る 部位・ふせぐ量（ダメージの種類ごと）・説明に出す 種類 */
   armor?: { slot: ArmorSlot; value: Readonly<Record<DamageKind, number>>; kind: DamageKind };
 }

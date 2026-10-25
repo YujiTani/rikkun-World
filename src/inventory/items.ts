@@ -1,5 +1,5 @@
 import type { BlockId, ItemType } from '../contracts';
-import { ARMOR_DEFS, BOW_DEFS, BUCKET_DEFS, FARM_TOOL_DEFS, GADGET_DEFS, GOLD_DEFS, INGOT_DEFS, LEGEND_DEFS, MATERIAL_DEFS, NINJA_SAMURAI_DEFS, SEED_DEFS, SPRINKLER_DEFS, SWORD_DEFS, TOOL_DEFS, VEG_DEFS, itemTypesOf, noteDuplicates } from '../content/items/registry';
+import { ARMOR_DEFS, BOW_DEFS, BUCKET_DEFS, FARM_TOOL_DEFS, GADGET_DEFS, GOLD_DEFS, INGOT_DEFS, LEGEND_DEFS, LIVE_DEFS, MATERIAL_DEFS, NINJA_SAMURAI_DEFS, SEED_DEFS, SPRINKLER_DEFS, SWORD_DEFS, TOOL_DEFS, VEG_DEFS, itemTypesOf, noteDuplicates } from '../content/items/registry';
 import { BLOCK_TYPES } from '../world/blocks/blockTypes';
 
 export const INVENTORY_SIZE = 36;
@@ -46,21 +46,6 @@ const VOX_I_BLOCKS: readonly ItemType[] = (
   ['snow', 'momiji_leaves', 'matsu_leaves', 'flower_y', 'flower_o', 'flower_p', 'bamboo', 'nobana'] as const
 ).map((id): ItemType => ({ id, name: BLOCK_TYPES.find((b) => b.id === id)!.name, maxStack: BLOCK_MAX_STACK, placeBlock: id }));
 
-/** LIVE-1: たまご（なかま の にわとり が くれる。たべる。置けない） */
-const LIVE_ITEMS: readonly ItemType[] = [
-  { id: 'egg', name: 'たまご', maxStack: BLOCK_MAX_STACK, placeBlock: null },
-  // 版 3.2（§4.2）: むし（えさ。上限は やさい と 同じ）・むしとりあみ（1 本。こわれない）
-  { id: 'mushi', name: 'むし', maxStack: BLOCK_MAX_STACK, placeBlock: null },
-  { id: 'mushi_ami', name: 'むしとりあみ', maxStack: 1, placeBlock: null },
-  // LIVE-2（§4.2。mushi_ami の うしろ）: こたつ（ブロック。id は nukunuku のまま）・とりごや（5×5 の 小屋 を 置く。ブロック では ない）・きん の たまご
-  { id: 'nukunuku', name: 'こたつ', maxStack: BLOCK_MAX_STACK, placeBlock: 'nukunuku' },
-  { id: 'toriya', name: 'とりごや', maxStack: 1, placeBlock: null },
-  { id: 'kin_tamago', name: 'きん の たまご', maxStack: BLOCK_MAX_STACK, placeBlock: null },
-  // LIVE-3（仮）: もも にく（なま・やいた）
-  { id: 'momo_nama', name: 'なま もも にく', maxStack: BLOCK_MAX_STACK, placeBlock: null },
-  { id: 'momo_yaki', name: 'やいた もも にく', maxStack: BLOCK_MAX_STACK, placeBlock: null },
-];
-
 export const ITEM_TYPES: readonly ItemType[] = [
   ...PLACEABLE_TYPES,
   // M3・M4: ようかいだま → かみ・あぶら・いと・ぬの・ねんど・すいしょう（置けない）は 登録表（content/items/materials.ts）から
@@ -84,7 +69,8 @@ export const ITEM_TYPES: readonly ItemType[] = [
   ...itemTypesOf(SPRINKLER_DEFS),
   ...itemTypesOf(BUCKET_DEFS),
   ...VOX_I_BLOCKS,
-  ...LIVE_ITEMS,
+  // LIVE-1〜3: たまご・むし・むしとりあみ・こたつ（ブロック）・とりごや・きんの たまご・もも にく 2 つ は 登録表（content/items/live.ts）から（古い表と 同じ 位置）
+  ...itemTypesOf(LIVE_DEFS),
   // WEAPON-7/8/9: レジェンダリー武器 3 つ（雷神剣・風神剣・虹）は 登録表（content/items/legend.ts）から
   ...itemTypesOf(LEGEND_DEFS),
   // GOLD-1（#222）: きん・きんの そうび 8 こ・はらぱんみみず は 登録表（content/items/gold.ts）から

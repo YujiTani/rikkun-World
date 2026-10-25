@@ -16,16 +16,7 @@ const OLD_ITEM_ONLY_RARITY: Record<string, Rarity> = {
   // M4（docs/design/M4-craft.md §4.4）。かまど・かわら・レンガは ほる設定（DIG_DEFAULTS.rarity）にある
   torch: 'common',
   // M7・M7-2・BUCKET-1（たね・やさい・くわ・じょうろ・スプリンクラー・バケツ）は 登録表（content/items/farm.ts）にある
-  // LIVE-1
-  egg: 'common',
-  mushi: 'common',
-  mushi_ami: 'common',
-  // LIVE-2（§4.2）。こたつ は たんす・かまど と 同じ 段、きん の たまご は 7 段中 5 つ目（ほし 5・RARITY-7）
-  nukunuku: 'uncommon',
-  toriya: 'uncommon',
-  kin_tamago: 'epic',
-  momo_nama: 'common', // LIVE-3 仮
-  momo_yaki: 'common',
+  // LIVE-1〜3（たまご・むし・むしとりあみ・こたつ・とりごや・きんの たまご・もも にく 2 つ）は 登録表（content/items/live.ts）にある
 };
 // 登録表に うつした シリーズ（忍者・侍・金 …）の めずらしさは content/items/ から
 const ITEM_ONLY_RARITY: Record<string, Rarity> = withRegistry('ITEM_ONLY_RARITY', OLD_ITEM_ONLY_RARITY, registryRarity());

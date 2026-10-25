@@ -1,5 +1,5 @@
 import type { ItemId, Recipe } from '../contracts';
-import { ARMOR_DEFS, BOW_DEFS, BUCKET_DEFS, FARM_TOOL_DEFS, GADGET_DEFS, GOLD_DEFS, INGOT_DEFS, SEED_DEFS, SPRINKLER_DEFS, SWORD_DEFS, TOOL_DEFS, noteDuplicates, recipesOf } from '../content/items/registry';
+import { ARMOR_DEFS, BOW_DEFS, BUCKET_DEFS, FARM_TOOL_DEFS, GADGET_DEFS, GOLD_DEFS, INGOT_DEFS, LIVE_DEFS, SEED_DEFS, SPRINKLER_DEFS, SWORD_DEFS, TOOL_DEFS, noteDuplicates, recipesOf } from '../content/items/registry';
 
 const r = (
   id: ItemId,
@@ -38,11 +38,8 @@ export const CRAFT_RECIPES: readonly Recipe[] = [
   ...recipesOf(SPRINKLER_DEFS, 'craft'),
   ...recipesOf(BUCKET_DEFS, 'craft'),
   ...recipesOf(SEED_DEFS, 'craft'),
-  // LIVE-1 版 3.2: むしとりあみ（き 1・いと 2。カードの いちばん うしろ。こわれない）
-  r('mushi_ami', 1, [['log', 1], ['string', 2]], true),
-  // LIVE-2（§4.2）: こたつ（くさ 3・き 2・たいまつ 1）・とりごや（き 8・くさ 4）。カードの いちばん うしろ（この 順）
-  r('nukunuku', 1, [['grass', 3], ['log', 2], ['torch', 1]], true),
-  r('toriya', 1, [['log', 8], ['grass', 4]], true),
+  // 生き物は 登録表（content/items/live.ts）から。むしとりあみ（き 1・いと 2。こわれない）→ こたつ（くさ 3・き 2・たいまつ 1）→ とりごや（き 8・くさ 4）の 順。カードの いちばん うしろ
+  ...recipesOf(LIVE_DEFS, 'craft'),
   // GOLD-1（#222 §4.2。きんの 装備 8 つ）は 登録表（content/items/gold.ts）から。順は 登録の 順（この 位置を かえない）
   ...recipesOf(GOLD_DEFS, 'craft'),
   // CRAFT-PAGE（#277）: たいまつの 足した作り方 2 つ（いちばん うしろ。番号を ずらさない）。カードは 元の torch の 1 枚のまま
@@ -60,8 +57,8 @@ export const BAKE_RECIPES: readonly Recipe[] = [
   ...recipesOf(GADGET_DEFS, 'furnace'),
   // GOLD-1（§4.2）: きん の たまご を やく と きん 1 は 登録表（content/items/gold.ts）から
   ...recipesOf(GOLD_DEFS, 'furnace'),
-  // LIVE-3（§4.2）: なま もも にく → やいた もも にく（ねんりょう 1・60 ステップ）
-  r('momo_yaki', 1, [['momo_nama', 1]], true, 'furnace'),
+  // LIVE-3（§4.2）: なま もも にく → やいた もも にく（ねんりょう 1・60 ステップ）は 登録表（content/items/live.ts）から
+  ...recipesOf(LIVE_DEFS, 'furnace'),
 ];
 
 export const ALL_RECIPES: readonly Recipe[] = [...CRAFT_RECIPES, ...BAKE_RECIPES];

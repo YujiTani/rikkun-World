@@ -4,7 +4,6 @@
  * 字は ひらがな・カタカナ・数字。漢字は 名前の ［漢字｜よみ］ だけ（出す ときに `withRuby`。WEAPON-7 §2.7）。
  * 「どこで」「つかいみち」「つよさ」の数は、ここには書かない（レシピ・ドロップ表・設定から `build.ts` が作る）。
  */
-import { vegRow } from '../../content/items/howText';
 import { registryArmorKind, registryInfo, withRegistry } from '../../content/items/registry';
 
 /** ボタンの絵の種類: `1-9` = ホットバーで えらぶ、`left` = ひだりクリック、`leftHold` = ひだりを おしつづける、`right` = みぎクリック、`E` = もちもの画面 */
@@ -96,20 +95,7 @@ const OLD_ITEM_INFO: Record<string, InfoRow> = {
 
   // ---- 農業（たね・やさい・くわ・じょうろ・スプリンクラー・バケツ 14 個）は 登録表（content/items/farm.ts）に ある
 
-  // ---- LIVE-1 たまご
-  egg: vegRow(1),
-  // ---- LIVE-1 版 3.2（§3.1）
-  mushi: { use: 'にわとり に あげる と なかよく なる', how: 'もって にわとり に みぎクリック', buttons: ['1-9', 'right'] },
-  mushi_ami: { use: 'き から むし を とる', how: 'もって き に みぎクリック', buttons: ['1-9', 'right'] },
-
-  // ---- LIVE-2（§3.1）。名前は こたつ・とりごや・きん の たまご（画面に ぬくぬく・育成 は 出さない）
-  nukunuku: { use: 'たまご を あたためる', how: 'おいて、たまご を もって みぎクリック', buttons: ['1-9', 'right'] },
-  toriya: { use: 'にわとり の いえ', how: 'おいて、ひよこ を つれて いく', buttons: ['1-9', 'right'] },
-  kin_tamago: { use: 'だいじ な たから。こたつ で あたためる と マッチョ ひよこ', how: 'こたつ に いれる', buttons: ['1-9', 'right'] },
-
-  // ---- LIVE-3（§3.1）: もも にく
-  momo_nama: { use: 'かまど で やく と たべられる', how: 'かまど に みぎクリック して やく', buttons: ['right'] },
-  momo_yaki: { use: 'たべると ハート が 5 こ もどる', how: 'もって みぎクリック', buttons: ['1-9', 'right'] },
+  // ---- LIVE-1〜3（たまご・むし・むしとりあみ・こたつ・とりごや・きんの たまご・もも にく 2 つ 8 個）は 登録表（content/items/live.ts）に ある
 };
 
 // 登録表（content/items/）に うつした シリーズ（忍者・侍・金 …）の 行は そちらに 書く（ここへは 自動で 入る）

@@ -78,3 +78,10 @@ export type IngotId = (typeof INGOT_IDS)[number];
 /** 小物 6 つ（M4。働きは あとで 入る）: ちょうちん・たこ・ふとん・おまもり・わらじ・はにわ（この順が ITEM_TYPES・作業台の カード・たいきゅうの 並び） */
 export const GADGET_IDS = ['lantern', 'kite', 'futon', 'omamori', 'waraji', 'haniwa'] as const;
 export type GadgetId = (typeof GADGET_IDS)[number];
+
+/**
+ * 生き物のアイテム 7 つ（LIVE-1〜3）: たまご・むし・むしとりあみ・とりごや・きんの たまご・なま／やいた もも にく
+ * （こたつ nukunuku は 置ける ブロックなので BlockId 側（contracts.ts）に ある。ITEM_TYPES では むしとりあみの 次）
+ */
+export const LIVE_ITEM_IDS = ['egg', 'mushi', 'mushi_ami', 'toriya', 'kin_tamago', 'momo_nama', 'momo_yaki'] as const;
+export type LiveItemId = (typeof LIVE_ITEM_IDS)[number];
