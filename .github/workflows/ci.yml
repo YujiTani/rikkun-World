@@ -53,11 +53,19 @@ jobs:
           files=$(git diff --name-only "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}")
           echo "$files"
           if echo "$files" | grep -qvE '^docs/|\.md$|^\.claude/'; then echo "code=true" >> "$GITHUB_OUTPUT"; else echo "code=false" >> "$GITHUB_OUTPUT"; fi
+
       # いちばん 新しい 緑の main の CI が 残した spec ごとの 時間（#311）。5 つの シャードが 同じ 表で 分けるよう、ここで 1 つに まとめて わたす
       - id: last
         env:
           GH_TOKEN: ${{ github.token }}
-        run: echo "run=$(gh run list -R "${{ github.repository }}" -w CI -b main -s success -L 1 --json databaseId -q '.[0].databaseId' || true)" >> "$GITHUB_OUTPUT"
+          REPO: ${{ github.repository }}
+        run: |
+          run=""
+          for id in $(gh run list -R "$REPO" -w CI -b main -L 10 --json databaseId -q '.[].databaseId' || true); do
+            if gh api "repos/$REPO/actions/runs/$id/artifacts" -q '.artifacts[].name' 2>/dev/null | grep -q '^e2e-times-'; then run=$id; break; fi
+          done
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+      
       - if: steps.last.outputs.run != ''
         uses: actions/download-artifact@v4
         continue-on-error: true
