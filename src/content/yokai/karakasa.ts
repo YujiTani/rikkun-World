@@ -43,4 +43,7 @@ export const KARAKASA: YokaiDef = {
   head: { bandY: 1.43, bandW: 0.74, bandD: 0.74, crownY: 1.6, crownW: 0.4, crownD: 0.4 },
   country: { base: 30 }, // はらっぱの 重み
   achievement: { name: 'からかさ' },
+  traits: {
+    floatsDown: true, // 高い所から ゆらゆら落ちて ダメージなし
+  },
 };

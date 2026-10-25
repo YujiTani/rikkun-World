@@ -38,4 +38,7 @@ export const CHOCHIN: YokaiDef = {
   head: { bandY: -0.27, bandW: 0.5, bandD: 0.5, crownY: -0.3, crownW: 0.44, crownD: 0.44 },
   country: { base: 25 }, // はらっぱの 重み
   achievement: { name: 'ちょうちん' },
+  traits: {
+    glowColors: [0xffb347, 0xfff2a0], // 胴の色（ふつう / 明るい）は 夜でも 暗くしない
+  },
 };

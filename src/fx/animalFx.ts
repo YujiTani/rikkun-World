@@ -1,6 +1,17 @@
-import type { AnimalEvent, AnimalFxRecord, AnimalMark, AnimalView, CoopInfo, KitInfo, SwingReason, Vec3 } from '../contracts';
+import type { AnimalEvent, AnimalFxRecord, AnimalMark, AnimalView, CoopInfo, KitInfo, Vec3 } from '../contracts';
 import { playAnimal, type AnimalSoundName } from './animalSounds';
+import { ANIMAL_FX, TILE } from './animalFxConfig';
+import { startFlight, stepFlights } from './animalBugFlight';
+import { headYOf, mix, rngOf } from './animalFxMath';
+import type { AnimalFxCounts, BugFlight, MarkRow, Pending, Seen, ZzzRow } from './animalFxTypes';
+import { headHeartsInto, type HeadHeart } from './animalHeadHearts';
+import { AnimalParticles, type ParticleOut } from './animalParticles';
 import type { SoundFx } from './sound';
+
+export { ANIMAL_FX, TILE, TILE_COUNT } from './animalFxConfig';
+export { headHeartProgress, headHeartsInto, type HeadHeart } from './animalHeadHearts';
+export { AnimalParticles, type ParticleOut } from './animalParticles';
+export type { AnimalFxCounts, BugFlight } from './animalFxTypes';
 
 /**
  * LIVE-1（にわとり）の 音・つぶ・頭の 上の ハート（仕様 §3.3・§3.6・§3.7）。Three.js なし の 計算の 係。
@@ -8,211 +19,13 @@ import type { SoundFx } from './sound';
  * つなぎ込みは 毎ステップ: `fx.onEvents(animals.events())` → `fx.step(views, eye, animals.kits(), animals.coops())`（LIVE-2: こたつ・小屋 は 省略 できる）。
  * 乱数は シード つき（同じ 操作なら 同じ つぶ）。毎ステップ new しない。
  */
-export const ANIMAL_FX = {
-  /** 頭の 上の ハートが 出る 近さ（水平。設定 animalLookDist の 初期値） */
-  lookDist: 6,
-  /** 声（コッコッ）が 聞こえる 近さ */
-  cluckRange: 16,
-  /** 声の 間 = 300〜600 ステップ（にわとり ごとに 決まる） */
-  cluckMin: 300,
-  cluckSpan: 301,
-  /** 頭の 上の ハート: 3 つ。同時に 出る のは やせいの 数（3）まで */
-  headHearts: 3,
-  headHeartGap: 0.23,
-  /** 頭の 上 0.3 マス（にわとり の 高さ 0.80 の 上） */
-  headHeartY: 0.8 + 0.3,
-  headHeartSize: 0.26,
-  /** はじけ: はじめて 8・2 わ目から 5 */
-  burstFirst: 8,
-  burstNext: 5,
-  /** 紙ふぶき: はじめての なかま だけ。1 回 60 つぶ まで */
-  confetti: 60,
-  puffEach: 6,
-  sparkle: 4,
-  // ---- 版 3.2（§3.3・§3.7）
-  /** あしあと・おなかいっぱい の しるし が 出る 近さ（水平） */
-  markDist: 8,
-  /** ついてくる おわり の けむり */
-  puffFollowEnd: 4,
-  /** あみ の はっぱ・とれた ときの キラッ */
-  leaf: 4,
-  sparkleBug: 3,
-  /** あしあと の まるい 数の きざみ（のこり > 12,000 → 3、> 6,000 → 2、> 0 → 1） */
-  stepsHigh: 12000,
-  stepsMid: 6000,
-  /** のこり この 以下 の あしあと は ゆっくり うすく・こく（1 しゅう 60 ステップ） */
-  stepsFade: 1800,
-  fadePeriod: 60,
-  /** おなかいっぱい（初期値 600 ステップ。しるし が 小さく なって いく 目安） */
-  fullTicks: 600,
-  /** あみ: ふって から むし が とび出す まで・とんで くる 長さ（ステップ。§2.4） */
-  bugPop: 10,
-  bugFly: 20,
-  /** パタパタ の 音の 間（ステップ） */
-  flutterGap: 16,
-  flutterRange: 16,
-  // ---- LIVE-2（§3.6・§3.7）
-  /** こたつ の ゆれ の 音・ねる 音・ひよこ の 声 が 聞こえる 近さ */
-  kitRange: 8,
-  sleepRange: 8,
-  /** ねる 音 の 間（ステップ。いき の 1 しゅう 90 と そろえる） */
-  snoreGap: 90,
-  /** ひよこ（頭 の 上 の しるし の 高さ） */
-  chickHeadY: 0.35 + 0.3,
-  machoChickHeadY: 0.4 + 0.3,
-  machoHeadY: 0.8 * 1.15 + 0.3,
-  /** から の かけら: かえる 動き の 20 ステップ 目（ぽんっ）に 6 つ */
-  shell: 6,
-  shellAt: 20,
-  /** 小屋 の 子 に なる ハート 3・大人 の キラッ 8・金 の たまご の キラッ 8 */
-  homeHearts: 3,
-  growSparkle: 8,
-  goldSparkle: 8,
-  // ---- GOLD-1（§3.4）: なかよし が きんいろ に なった ときの キラッ・はらぱんみみず を あげた ときの ハート（どちらも 8 こ）
-  natsukiSparkle: 8,
-  harapanHearts: 8,
-  /** 金 の たまご が すばこ に ある 小屋 の キラッ（ステップ ごと） */
-  goldCoopGap: 45,
-  /** あつめた 数 が これ 以上 なら 長い ころころ */
-  collectMany: 5,
-} as const;
-
-/** つぶの 絵の 番号（描く 側の 絵の 並びと そろえる。8 まい 並び） */
-export const TILE = { heartFull: 0, heartEmpty: 1, star: 2, dot: 3, footFull: 4, footEmpty: 5, belly: 6, zzz: 7, houseEmpty: 8, house1: 9, house2: 10, house3: 11 } as const;
-/** 描く 側 の 絵 の 数（`atlasTexture` の 横の 枚数） */
-export const TILE_COUNT = 12;
-
-const CAP = 256;
 /** 小屋 の 子 の しるし: 大きい のは 20 ステップ まで、40 で 消える */
 const POP_BIG = 20;
 const POP_END = 40;
 /** 土けむり の 上限 */
 const DUST_MAX = 25;
-const DT = 1 / 60;
-
-type Kind = 1 | 2 | 3 | 4 | 5 | 6; // 1 ハート 2 紙ふぶき 3 けむり 4 キラッ 5 はっぱ 6 から の かけら
 
 const CONFETTI_COLORS = [0xe8553d, 0xf2b33d, 0x5fbf6a, 0x4a90d9, 0xf08fb4, 0xf28a2e] as const;
-
-/** つぶの 一覧（struct of arrays のリング）。時間で 消える */
-export class AnimalParticles {
-  readonly cap = CAP;
-  private readonly kind = new Uint8Array(CAP);
-  private readonly px = new Float32Array(CAP);
-  private readonly py = new Float32Array(CAP);
-  private readonly pz = new Float32Array(CAP);
-  private readonly vx = new Float32Array(CAP);
-  private readonly vy = new Float32Array(CAP);
-  private readonly vz = new Float32Array(CAP);
-  private readonly age = new Int16Array(CAP);
-  private readonly life = new Int16Array(CAP); // 0 = 使っていない
-  private readonly size = new Float32Array(CAP);
-  private readonly rgb = new Uint32Array(CAP);
-  private cursor = 0;
-
-  spawn(kind: Kind, x: number, y: number, z: number, vx: number, vy: number, vz: number, life: number, size: number, rgb: number): void {
-    let slot = -1;
-    for (let k = 0; k < CAP; k++) {
-      const i = (this.cursor + k) % CAP;
-      if (this.life[i] === 0) {
-        slot = i;
-        break;
-      }
-    }
-    if (slot < 0) slot = this.cursor; // いっぱい: いちばん 古い 所に 上書き
-    this.cursor = (slot + 1) % CAP;
-    this.kind[slot] = kind;
-    this.px[slot] = x;
-    this.py[slot] = y;
-    this.pz[slot] = z;
-    this.vx[slot] = vx;
-    this.vy[slot] = vy;
-    this.vz[slot] = vz;
-    this.age[slot] = 0;
-    this.life[slot] = life;
-    this.size[slot] = size;
-    this.rgb[slot] = rgb;
-  }
-
-  /** 1 ステップ */
-  step(): void {
-    for (let i = 0; i < CAP; i++) {
-      if (this.life[i] === 0) continue;
-      if (++this.age[i] >= this.life[i]) {
-        this.life[i] = 0;
-        continue;
-      }
-      const k = this.kind[i];
-      if (k === 2) this.vy[i] -= 7 * DT; // 紙ふぶき: 落ちる
-      if (k === 5) this.vy[i] -= 4 * DT; // はっぱ: ひらひら 落ちる
-      if (k === 6) this.vy[i] -= 9 * DT; // から の かけら: ころんと 落ちる
-      if (k === 2 || k === 1 || k === 5 || k === 6) {
-        const d = k === 2 ? 0.985 : k === 5 ? 0.95 : k === 6 ? 0.93 : 0.97; // 空気の ていこう
-        this.vx[i] *= d;
-        this.vz[i] *= d;
-      }
-      if (k === 1) this.vy[i] *= 0.985;
-      this.px[i] += this.vx[i] * DT;
-      this.py[i] += this.vy[i] * DT;
-      this.pz[i] += this.vz[i] * DT;
-    }
-  }
-
-  active(kind?: Kind): number {
-    let n = 0;
-    for (let i = 0; i < CAP; i++) if (this.life[i] !== 0 && (kind === undefined || this.kind[i] === kind)) n++;
-    return n;
-  }
-
-  clear(): void {
-    this.life.fill(0);
-  }
-
-  /** `out` に 書く。戻り値 = 書いた 数 */
-  write(out: ParticleOut, start: number, cap: number): number {
-    let n = start;
-    for (let i = 0; i < CAP && n < cap; i++) {
-      if (this.life[i] === 0) continue;
-      const t = this.age[i] / this.life[i];
-      const k = this.kind[i];
-      let s = this.size[i];
-      let tile: number = TILE.dot;
-      if (k === 1) {
-        tile = TILE.heartFull;
-        if (t > 0.6) s *= 1 - (t - 0.6) / 0.4;
-      } else if (k === 2) {
-        if (t > 0.75) s *= 1 - (t - 0.75) / 0.25;
-      } else if (k === 3) {
-        s *= 0.6 + 1.2 * Math.sin(Math.PI * Math.min(1, t * 0.8 + 0.1));
-      } else if (k === 5 || k === 6) {
-        if (t > 0.6) s *= 1 - (t - 0.6) / 0.4;
-      } else {
-        tile = TILE.star;
-        if (t > 0.5) s *= 1 - (t - 0.5) / 0.5;
-      }
-      const j = n * 3;
-      out.pos[j] = this.px[i];
-      out.pos[j + 1] = this.py[i];
-      out.pos[j + 2] = this.pz[i];
-      const c = this.rgb[i];
-      out.col[j] = ((c >> 16) & 255) / 255;
-      out.col[j + 1] = ((c >> 8) & 255) / 255;
-      out.col[j + 2] = (c & 255) / 255;
-      out.size[n] = s;
-      out.tile[n] = tile;
-      n++;
-    }
-    return n;
-  }
-}
-
-/** 描く 配列（`Points` の 属性 に そのまま 合う） */
-export interface ParticleOut {
-  pos: Float32Array;
-  col: Float32Array;
-  size: Float32Array;
-  tile: Float32Array;
-}
 
 export interface AnimalFxDeps {
   sound: Pick<SoundFx, 'playTones'>;
@@ -226,183 +39,8 @@ export interface AnimalFxDeps {
   seed?: number;
 }
 
-export interface HeadHeart {
-  id: number;
-  filled: number;
-  empty: number;
-  x: number;
-  y: number;
-  z: number;
-  d2: number;
-}
-
-/**
- * 頭の 上の ハート に する にわとり を えらぶ（AC18）。やせい（なかまでない）で hearts ≥ 1、
- * プレイヤー から 水平 `dist` 以内、近い 順に 3 わ まで。`out` を 書きかえて 数を 返す。
- */
-export function headHeartsInto(out: HeadHeart[], views: readonly AnimalView[], eye: Vec3, dist: number): number {
-  let n = 0;
-  const lim = ANIMAL_FX.headHearts;
-  const r2 = dist * dist;
-  while (out.length < lim) out.push({ id: 0, filled: 0, empty: 0, x: 0, y: 0, z: 0, d2: 0 });
-  for (const v of views) {
-    if (v.friend || v.hearts < 1) continue;
-    const dx = v.x - eye.x;
-    const dz = v.z - eye.z;
-    const d2 = dx * dx + dz * dz;
-    if (d2 > r2) continue;
-    // 近い 順に 並べて 入れる（最大 3）
-    let at = n;
-    while (at > 0 && out[at - 1].d2 > d2) at--;
-    if (at >= lim) continue;
-    if (n < lim) n++;
-    // うしろに ずらす
-    for (let k = n - 1; k > at; k--) copyHeart(out[k], out[k - 1]);
-    const o = out[at];
-    o.id = v.id;
-    o.filled = v.hearts;
-    o.empty = ANIMAL_FX.headHearts - v.hearts;
-    o.x = v.x;
-    o.y = v.y;
-    o.z = v.z;
-    o.d2 = d2;
-  }
-  return n;
-}
-
-function copyHeart(to: HeadHeart, from: HeadHeart): void {
-  to.id = from.id;
-  to.filled = from.filled;
-  to.empty = from.empty;
-  to.x = from.x;
-  to.y = from.y;
-  to.z = from.z;
-  to.d2 = from.d2;
-}
-
-/** テスト用: `headHeartsInto` の 結果を `{ id, filled, empty }` の 配列で */
-export function headHeartProgress(views: readonly AnimalView[], eye: Vec3, dist: number): Array<{ id: number; filled: number; empty: number }> {
-  const buf: HeadHeart[] = [];
-  const n = headHeartsInto(buf, views, eye, dist);
-  return buf.slice(0, n).map((h) => ({ id: h.id, filled: h.filled, empty: h.empty }));
-}
-
-function mix(a: number, b: number): number {
-  let h = Math.imul(a | 0, 73856093) ^ Math.imul(b | 0, 19349663);
-  h = Math.imul(h ^ (h >>> 13), 1274126177);
-  return (h ^ (h >>> 16)) >>> 0;
-}
-
-function rngOf(seed: number): () => number {
-  let a = seed >>> 0;
-  return () => {
-    a = (a + 0x6d2b79f5) >>> 0;
-    let t = a;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-/** 窓口 `animals.fx()` の 数（`fxReset()` で 0） */
-export interface AnimalFxCounts {
-  hearts: number;
-  burst: number;
-  confetti: number;
-  puff: number;
-  sparkle: number;
-  /** 版 3.2: あみ を ふった ときの はっぱ の つぶ */
-  leaf: number;
-  /** LIVE-2: から の かけら（かえる たび 6） */
-  shell: number;
-  /** LIVE-2.1: たいら に した ときの 土けむり の つぶ（`flattenDust`。1 列 1 つ・25 まで） */
-  dust: number;
-}
-
-interface Seen {
-  x: number;
-  y: number;
-  z: number;
-  gen: number;
-  /** パタパタ の 音を 最後に 鳴らした ステップ */
-  flutterAt: number;
-}
-
-/** 頭の 上の しるし 1 組（1 わ ぶん。ハート／あしあと・おなかいっぱい）。使いまわす */
-interface MarkRow {
-  id: number;
-  x: number;
-  y: number;
-  z: number;
-  /** 0 = ハート なし */
-  hearts: number;
-  /** 0 = あしあと なし */
-  steps: number;
-  follow: number;
-  fullLeft: number;
-  /** LIVE-2: いえ の しるし の うまり（0 = なし） */
-  home: number;
-  /** 頭 の 上 の しるし の 高さ（ひよこ は ひくい） */
-  headY: number;
-  /** LIVE-2.1: 小屋 の 子 に なって から の ステップ（-1 = 出さない） */
-  pop: number;
-  /** LIVE-3: メニュー ページ 2 で えらんで いる 子（▼ は 描く 側 が 3D で 出す。ここ は 数 だけ） */
-  pick: boolean;
-  /** LIVE-4: 「！」（絵 は HTML〈`ui/machoMarks`〉。ここ は 窓口 `fx().marks` の 行 だけ） */
-  bang: boolean;
-  /** LIVE-4: ねらい の しるし の 行（`id` = ねらわれて いる 妖怪 の id） */
-  machoTarget: boolean;
-}
-
-/** ねて いる 子 の Z 1 つ ぶん */
-interface ZzzRow {
-  id: number;
-  x: number;
-  y: number;
-  z: number;
-}
-
-/** とんで くる むし 1 ぴき（§2.4。ふって 10 ステップ 目 から 20 ステップ） */
-export interface BugFlight {
-  x: number;
-  y: number;
-  z: number;
-  /** とぶ 向き（Three.js の `rotation.y`。頭 = −z が すすむ 向きを 向く） */
-  yaw: number;
-  /** 上下 の かたむき（ラジアン。上へ とぶ と 正） */
-  pitch: number;
-  /** 大きさ の 倍率（ぴょんと 出て くる） */
-  scale: number;
-  /** 空中 で まるまる（体を たてに ちぢめる 割合 0..0.25） */
-  curl: number;
-  age: number;
-  sx: number;
-  sy: number;
-  sz: number;
-}
-
-interface Pending {
-  at: number;
-  x: number;
-  y: number;
-  z: number;
-  caught: boolean;
-  reason: SwingReason;
-  /** なにを 流すか（なければ あみ） */
-  act?: 'shell' | 'hatchSnd';
-}
-
 const RUSTLES = ['rustle', 'rustle2', 'rustle3'] as const;
-const FLIGHT_SLOTS = 4;
 
-const ease = (t: number): number => t * t * (3 - 2 * t);
-
-/** 頭 の 上の しるし の 高さ（足もと から）。ひよこ は ひくく、マッチョ の 大人 は たかく */
-function headYOf(v: AnimalView): number {
-  const macho = v.breed === 'macho';
-  if (v.stage === 'chick') return macho ? ANIMAL_FX.machoChickHeadY : ANIMAL_FX.chickHeadY;
-  return macho ? ANIMAL_FX.machoHeadY : ANIMAL_FX.headHeartY;
-}
 
 export class AnimalFx {
   /** 鳴らした 音の 名前（テスト用。長くなりすぎない） */
@@ -506,7 +144,7 @@ export class AnimalFx {
     this.collectMarks(views, eye);
     this.stepKits(kits, eye);
     this.stepCoops(coops, eye);
-    this.stepFlights();
+    stepFlights(this.flights, this.eye);
     this.runPending(); // とび出した ステップ の 経過は 0（次の ステップ から 動く）
     this.particles.step();
   }
@@ -642,7 +280,7 @@ export class AnimalFx {
       this.particles.spawn(5, cx + Math.cos(a) * 0.5, cy + 0.3 + g * 0.3, cz + Math.sin(a) * 0.5, Math.cos(a) * 0.5, 0.9 + g * 0.6, Math.sin(a) * 0.5, 28 + Math.floor(g * 10), 0.13, g < 0.5 ? 0x6ea04a : 0x8cc152);
     }
     if (p.caught) {
-      this.startFlight(cx, cy, cz);
+      if (this.motion() > 0) startFlight(this.flights, this.eye, cx, cy, cz); // むし は すぐ 持ち物 へ（動き 0 は 弧 を 止める）
       return;
     }
     // とれなかった: がさがさ（3 しゅるい から 直前と ちがう もの）
@@ -663,47 +301,6 @@ export class AnimalFx {
       const a = (i / ANIMAL_FX.shell) * Math.PI * 2 + this.rnd();
       const sp = 0.8 + this.rnd() * 0.8;
       this.particles.spawn(6, p.x, p.y + 0.25, p.z, Math.cos(a) * sp, 1.6 + this.rnd(), Math.sin(a) * sp, 36 + Math.floor(this.rnd() * 10), 0.1, i % 3 === 2 ? 0xe2d6b8 : 0xf5ecd8);
-    }
-  }
-
-  private startFlight(cx: number, cy: number, cz: number): void {
-    if (this.motion() <= 0) return; // むし は すぐ 持ち物 へ（弧 を 止める）
-    if (this.flights.length >= FLIGHT_SLOTS) this.flights.shift();
-    // ねらった ブロック の プレイヤー がわ の 面 から ぴょん と 出る
-    const dx = this.eye.x - cx;
-    const dz = this.eye.z - cz;
-    const len = Math.hypot(dx, dz) || 1;
-    const sx = cx + (dx / len) * 0.55;
-    const sz = cz + (dz / len) * 0.55;
-    this.flights.push({ x: sx, y: cy, z: sz, yaw: Math.atan2(-dx, -dz), pitch: 0, scale: 0.4, curl: 0, age: 0, sx, sy: cy, sz });
-  }
-
-  private stepFlights(): void {
-    for (let i = this.flights.length - 1; i >= 0; i--) {
-      const f = this.flights[i];
-      f.age++;
-      if (f.age >= ANIMAL_FX.bugFly) {
-        this.flights.splice(i, 1);
-        continue;
-      }
-      const t = f.age / ANIMAL_FX.bugFly;
-      const k = ease(t);
-      // 行き先 = プレイヤー の 胸（毎ステップ 読みなおす）
-      const tx = this.eye.x;
-      const ty = this.eye.y - 0.35;
-      const tz = this.eye.z;
-      const px = f.x;
-      const py = f.y;
-      const pz = f.z;
-      f.x = f.sx + (tx - f.sx) * k;
-      f.z = f.sz + (tz - f.sz) * k;
-      f.y = f.sy + (ty - f.sy) * k + 0.55 * Math.sin(Math.PI * t); // 弧
-      const mx = f.x - px;
-      const mz = f.z - pz;
-      if (mx * mx + mz * mz > 1e-8) f.yaw = Math.atan2(-mx, -mz); // 頭（−z）が すすむ 向き
-      f.pitch = Math.atan2(f.y - py, Math.hypot(mx, mz) + 1e-4) * 0.6;
-      f.scale = t < 0.2 ? 0.4 + 0.6 * ease(t / 0.2) : 1 - 0.35 * ease((t - 0.2) / 0.8);
-      f.curl = 0.25 * Math.sin(Math.PI * Math.min(1, t * 1.6)); // 空中 で まるまる
     }
   }
 
@@ -1137,3 +734,4 @@ export class AnimalFx {
     return this.particles.write(out, n, cap);
   }
 }
+

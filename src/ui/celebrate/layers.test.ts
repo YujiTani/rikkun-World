@@ -44,8 +44,8 @@ describe('実績の おしらせの 重なり順', () => {
   it('#hud は z-index を 持たない（持つと 体力ゲージや スタートメニューとの 順番が 変わる）', () => {
     expect(blockOf(read('../style.css'), '#hud')).not.toMatch(/z-index/);
   });
-  it('帯は body 直下に 置く（main.ts が topLayer に body を 渡す）', () => {
-    const main = read('../../main.ts');
+  it('帯は body 直下に 置く（game/wire/ui.ts が topLayer に body を 渡す）', () => {
+    const main = read('../../game/wire/ui.ts');
     expect(main).toMatch(/new CelebrateUi\(\{[^]*?topLayer: document\.body/);
   });
   it('帯は #hud の 外でも 字の 色と ふちが 同じ（#hud から 受けていた 分を 帯に 持たせる）', () => {

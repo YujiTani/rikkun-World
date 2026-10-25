@@ -39,4 +39,7 @@ export const ROKUROKUBI: YokaiDef = {
   head: { bandY: 0.465, bandW: 0.55, bandD: 0.55, crownY: 0.7, crownW: 0.4, crownD: 0.4 },
   country: { base: 25 }, // はらっぱの 重み
   achievement: { name: 'ろくろくび' },
+  traits: {
+    longNeck: true, // 首をのばして攻撃（首の道すじを調べる・パリィは 頭からの向き）
+  },
 };

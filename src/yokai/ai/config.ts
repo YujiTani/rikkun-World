@@ -2,6 +2,7 @@ import { mapKinds, yokaiAi, yokaiDrops } from '../../content/yokai/registry';
 import type { DropRow, YokaiAi } from '../../content/yokai/types';
 import type { YokaiKind } from '../../contracts';
 import { yokaiStrength } from '../stats';
+import { KIND_TRAITS } from '../traits';
 
 export type { DropRow };
 
@@ -102,8 +103,8 @@ export const AI_CONST = {
   stoneSlowMin: 0.2,
   /** ぬりかべ: かたまりがこの値以上だと 攻撃しない */
   stoneNoAttack: 0.5,
-  /** ぬりかべ: 体当たり（ふれる）ダメージの倍率 */
-  nurikabeContactMul: 4,
+  /** ぬりかべ: 体当たり（ふれる）ダメージの倍率（値は content/yokai/nurikabe.ts の traits.contactMul） */
+  nurikabeContactMul: KIND_TRAITS.nurikabe.contactMul,
   /** 攻撃の当たり: 上下に広げる（片側） */
   attackPadY: 0.2,
   /** うろうろはふつうの半分の速さ */

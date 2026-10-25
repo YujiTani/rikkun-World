@@ -3,7 +3,7 @@ import { YOKAI_IDS, type YokaiKind } from './ids';
 import { KARAKASA } from './karakasa';
 import { NURIKABE } from './nurikabe';
 import { ROKUROKUBI } from './rokurokubi';
-import type { DropRow, HeadSpec, VariantColors, YokaiAi, YokaiBasis, YokaiDef, YokaiMotion, YokaiSense } from './types';
+import type { DropRow, HeadSpec, VariantColors, YokaiAi, YokaiBasis, YokaiDef, YokaiMotion, YokaiSense, YokaiTraits } from './types';
 
 /**
  * 妖怪の登録表（#307・ルール #304「1 つのデータは 1 か所」）。
@@ -11,6 +11,7 @@ import type { DropRow, HeadSpec, VariantColors, YokaiAi, YokaiBasis, YokaiDef, Y
  * YOKAI_VARIANT_COLORS・HEADS・国の重みの土台 BASE・実績の名前）が 中身を ここから 作れるように 「見せ方」の 関数を 出す。
  * 実行時に contracts.ts を import しない（import の輪を 作らない）。型だけを読む。
  *
+ * 動きの分かれ道（浮く・石になる・重い攻撃だけでのけぞる など）は <kind>.ts の traits（印）に書く。
  * 新しい妖怪を足すとき: ids.ts に id → <kind>.ts に値 → registry.ts の YOKAI_DEFS に 1 行（Record<YokaiKind, …> なので 書き忘れは 型エラー）
  * → yokai/models/<kind>.ts に形 ＋ createYokai・YokaiManager の switch（never で 書き忘れは 型エラー）→ ui/medalArt.ts の メダルの絵（switch が 型エラー）。
  * 国の 出やすさ（COUNTRY_TABLE の 行）と 抽選の順（yokai/countryPick.ts の YOKAI_DRAW_ORDER）は 乱数の 結果が 変わるので 手で 足す（registry.test.ts が 見張る）。
@@ -82,4 +83,22 @@ export function yokaiCountryBase(): Record<YokaiKind, number> {
 /** 「たおした」実績の 名前（achievements/defs.ts。ids.ts の 順） */
 export function yokaiAchievementNames(): ReadonlyArray<readonly [YokaiKind, string]> {
   return YOKAI_IDS.map((k) => [k, YOKAI_DEFS[k].achievement.name] as const);
+}
+
+/** 動きの分かれ道の印（書かなかった印は なし: false・1・空）。ai/ の動きは `kind === '…'` ではなく ここを 読む */
+export function yokaiTraits(): Record<YokaiKind, Required<YokaiTraits>> {
+  return mapKinds((k) => {
+    const t = YOKAI_DEFS[k].traits ?? {};
+    return {
+      floatsDown: t.floatsDown ?? false,
+      knockOnlyHeavy: t.knockOnlyHeavy ?? false,
+      walksFacing: t.walksFacing ?? false,
+      turnsToStone: t.turnsToStone ?? false,
+      contactMul: t.contactMul ?? 1,
+      crushesBlocks: t.crushesBlocks ?? false,
+      limitedCount: t.limitedCount ?? false,
+      longNeck: t.longNeck ?? false,
+      glowColors: t.glowColors ?? [],
+    };
+  });
 }

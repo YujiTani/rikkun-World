@@ -1,15 +1,20 @@
 import * as THREE from 'three';
-import type { AnimalView, CoopInfo, CoopPlacePreview, KitInfo } from '../../contracts';
-import { ANIMAL_FX, TILE, TILE_COUNT, type AnimalFx, type ParticleOut } from '../../fx/animalFx';
+import type { AnimalView, CoopInfo, CoopPlacePreview } from '../../contracts';
+import { ANIMAL_FX } from '../../fx/animalFxConfig';
 import { MODEL_SCALE, getAnimalModel, modelKindOf, type AnimalModelKind } from './chickenModel';
 import { NEST_EGG_SCALE, getCoopDoorModel, getCoopModel, getNestEggsModel } from './coopSpec';
 import { ICON_H, ICON_PER_BLOCK, ICON_W, kitIconKey, rasterKitIcon, type KitIconRow } from './kitIcons';
 import { RING_TEX, rasterRing, ringState, type RingState, type ThrowSpotLike } from './throwRing';
 import { getBugModel } from './bugNetModel';
-import { LAND_TICKS, createPose, poseChicken, type PoseBuf } from './chickenPose';
+import { LAND_TICKS, createPose, poseChicken } from './chickenPose';
 import { CHICKEN_BONES, CHICKEN_SCALE, COL, V } from './chickenSpec';
 import { fightPoseOf, makeFightPose } from './fightPose';
 import type { BuiltModel } from './voxelMesh';
+import { POINT_CAP, blobTexture, makePoints, shadeMat } from './animalRenderParts';
+import { CARRY, wrapAngle, type AnimalRendererOpts, type AnimalRendererStats, type CarryInfo, type CoopProp, type Entry } from './animalRendererShared';
+
+export { CARRY, wrapAngle, type AnimalRendererStats, type CarryInfo } from './animalRendererShared';
+export { ViewBuffer } from './viewBuffer';
 
 /**
  * LIVE-1 にわとり を 描く 係（DESIGN 16.6・16.8）。`AnimalView` の 配列を 受けて 描く（しくみ側 `src/animals/` は 読まない）。
@@ -25,7 +30,6 @@ const FIGHT_SCRATCH = makeFightPose();
 
 /** 影が 出る にわとり の 数の 上限（InstancedMesh の 大きさ） */
 const MAX_SHADOWS = 64;
-const POINT_CAP = 480;
 /** こたつ の 天板 の たまご の 表示 を 描く 数の 上限（`kitActiveMax` の 6 こ = 1 こ ずつ の こたつ 6 台） */
 const MAX_KIT_ICONS = 6;
 /** LIVE-3: ▼（4 かく すい。底 4 ＋ 側 4） */
@@ -39,315 +43,6 @@ const KIND_INDEX: Readonly<Record<AnimalModelKind, number>> = { chicken: 0, chic
 /** 天板 の 上 の たまご の 表示: 天板 の 上 0.5 マス が 絵 の 下 の はし（LIVE-2.1 §3.2）。こたつ の 高さ = 1 */
 const KIT_ICON_LIFT = 1.5;
 const COOP_YAW = [0, -Math.PI / 2, Math.PI, Math.PI / 2] as const;
-
-/** 面の 明るさ（動いた あとの 向き: 上 1.0・南北 0.8・東西 0.6・下 0.5）を かける 材料 */
-function shadeMat(): THREE.MeshBasicMaterial {
-  const m = new THREE.MeshBasicMaterial({ vertexColors: true });
-  m.onBeforeCompile = (s) => {
-    s.vertexShader = s.vertexShader
-      .replace('#include <common>', '#include <common>\nvarying float vShade;')
-      .replace(
-        '#include <project_vertex>',
-        `#include <project_vertex>
-        vec3 wn = normalize(mat3(modelMatrix) * objectNormal);
-        vShade = wn.y * wn.y * (wn.y > 0.0 ? 1.0 : 0.5) + wn.z * wn.z * 0.8 + wn.x * wn.x * 0.6;`,
-      );
-    s.fragmentShader = s.fragmentShader
-      .replace('#include <common>', '#include <common>\nvarying float vShade;')
-      .replace('#include <color_fragment>', '#include <color_fragment>\n diffuseColor.rgb *= vShade;');
-  };
-  return m;
-}
-
-/** 丸い 影の 絵（DOM なし。中心 0.5 → ふちで 0） */
-function blobTexture(): THREE.DataTexture {
-  const N = 32;
-  const data = new Uint8Array(N * N * 4);
-  for (let y = 0; y < N; y++) {
-    for (let x = 0; x < N; x++) {
-      const d = Math.hypot(x + 0.5 - N / 2, y + 0.5 - N / 2) / (N / 2);
-      const a = d >= 1 ? 0 : d < 0.6 ? 0.5 - (0.12 * d) / 0.6 : 0.38 * (1 - (d - 0.6) / 0.4);
-      const o = (y * N + x) * 4;
-      data[o + 3] = Math.round(a * 255);
-    }
-  }
-  const t = new THREE.DataTexture(data, N, N, THREE.RGBAFormat);
-  t.magFilter = THREE.LinearFilter;
-  t.minFilter = THREE.LinearFilter;
-  t.needsUpdate = true;
-  return t;
-}
-
-// ハート 7×6 点（DESIGN 16.6）。うまった = あか、ふち だけ = うすい 白
-const HEART_ROWS = ['.XX.XX.', 'XXXXXXX', 'XXXXXXX', '.XXXXX.', '..XXX..', '...X...'];
-/** とりの 足あと 7×7（3 本 の 指 ＋ かかと） */
-const FOOT_ROWS = ['.X.X.X.', '.X.X.X.', '..XXX..', '...X...', '...X...', '..XXX..', '.......'];
-const STAR_ROWS = [
-  '...XX...',
-  '...XX...',
-  '..XXXX..',
-  'XXXXXXXX',
-  'XXXXXXXX',
-  '..XXXX..',
-  '...XX...',
-  '...XX...',
-];
-
-/** Z（ねて いる）5×6 点・いえ の しるし 6×6 点（屋根 ＋ 家） */
-const Z_ROWS = ['XXXXXX', '...XX.', '..XX..', '.XX...', 'XXXXXX'];
-const HOUSE_ROWS = ['..XX..', '.XXXX.', 'XXXXXX', '.XXXX.', '.XXXX.', '.XXXX.'];
-
-/** つぶの 絵の 並び（左から: 赤ハート・白ハート・星・四角）。1 まい 16×16 × 4 */
-function atlasTexture(): THREE.DataTexture {
-  const T = 16;
-  const W = T * TILE_COUNT;
-  const data = new Uint8Array(W * T * 4);
-  const put = (tile: number, x: number, y: number, rgb: number): void => {
-    const o = (y * W + tile * T + x) * 4;
-    data[o] = (rgb >> 16) & 255;
-    data[o + 1] = (rgb >> 8) & 255;
-    data[o + 2] = rgb & 255;
-    data[o + 3] = 255;
-  };
-  const footprint = (tile: number, fill: number, edge: number): void => {
-    const ox = 1;
-    const oy = 1;
-    const cell = (cx: number, cy: number): boolean => cy >= 0 && cy < FOOT_ROWS.length && cx >= 0 && cx < 7 && FOOT_ROWS[cy][cx] === 'X';
-    for (let cy = -1; cy <= FOOT_ROWS.length; cy++) {
-      for (let cx = -1; cx <= 7; cx++) {
-        const edgeCell = !cell(cx, cy) && (cell(cx - 1, cy) || cell(cx + 1, cy) || cell(cx, cy - 1) || cell(cx, cy + 1));
-        if (!cell(cx, cy) && !edgeCell) continue;
-        for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) {
-          const px = ox + cx * 2 + dx;
-          const py = oy + cy * 2 + dy;
-          if (px >= 0 && px < T && py >= 0 && py < T) put(tile, px, py, cell(cx, cy) ? fill : edge);
-        }
-      }
-    }
-  };
-  const heart = (tile: number, fill: number): void => {
-    // 1 点 = 2×2。まわり 1 点 の ふちを こい色で
-    const ox = 1;
-    const oy = 2;
-    const cell = (cx: number, cy: number): boolean => cy >= 0 && cy < 6 && cx >= 0 && cx < 7 && HEART_ROWS[cy][cx] === 'X';
-    for (let cy = -1; cy <= 6; cy++) {
-      for (let cx = -1; cx <= 7; cx++) {
-        const edge = !cell(cx, cy) && (cell(cx - 1, cy) || cell(cx + 1, cy) || cell(cx, cy - 1) || cell(cx, cy + 1));
-        if (!cell(cx, cy) && !edge) continue;
-        for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) {
-          const px = ox + cx * 2 + dx;
-          const py = oy + cy * 2 + dy;
-          if (px >= 0 && px < T && py >= 0 && py < T) put(tile, px, py, cell(cx, cy) ? fill : 0x5a2430);
-        }
-      }
-    }
-  };
-  heart(TILE.heartFull, 0xf0503c);
-  heart(TILE.heartEmpty, 0xfff4e6);
-  // あしあと（とりの 足あと = 3 本 の 指）: うまった = 藍（なかま の 色）、から の わく = うすい 白（ハート と 形が ちがう）
-  footprint(TILE.footFull, 0x5b7bc4, 0x23325a);
-  footprint(TILE.footEmpty, 0xe9e3d3, 0x7a7f94);
-  // おなかいっぱい = まるい おなか（クリーム色。おこった 赤・× は 使わない）
-  for (let y = 0; y < T; y++) {
-    for (let x = 0; x < T; x++) {
-      const d = Math.hypot(x + 0.5 - 8, y + 0.5 - 8.5);
-      if (d > 6.4) continue;
-      let c = d > 5.2 ? 0x8a6a3a : 0xfff0cf;
-      if (c === 0xfff0cf && d > 3.2 && x + y > 17) c = 0xf0d9a8; // 右下 の かげ
-      if (c === 0xfff0cf && Math.hypot(x + 0.5 - 6, y + 0.5 - 6.5) < 1.6) c = 0xffffff; // つや
-      if (x >= 9 && x <= 11 && y === 10 && d < 5) c = 0xe3c690; // おへそ の せん
-      put(TILE.belly, x, y, c);
-    }
-  }
-  // 1 点 = 2×2。まわり 1 点 の ふち。`fillAt(cy)` = その 行 の 中 の 色
-  const glyph = (tile: number, rows: readonly string[], ox: number, oy: number, fillAt: (cy: number) => number, edge: number): void => {
-    const cell = (cx: number, cy: number): boolean => cy >= 0 && cy < rows.length && cx >= 0 && cx < rows[cy].length && rows[cy][cx] === 'X';
-    for (let cy = -1; cy <= rows.length; cy++) {
-      for (let cx = -1; cx <= 6; cx++) {
-        const isCell = cell(cx, cy);
-        if (!isCell && !(cell(cx - 1, cy) || cell(cx + 1, cy) || cell(cx, cy - 1) || cell(cx, cy + 1))) continue;
-        for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) {
-          const px = ox + cx * 2 + dx;
-          const py = oy + cy * 2 + dy;
-          if (px >= 0 && px < T && py >= 0 && py < T) put(tile, px, py, isCell ? fillAt(cy) : edge);
-        }
-      }
-    }
-  };
-  glyph(TILE.zzz, Z_ROWS, 2, 3, () => 0xeaf2ff, 0x3b4a7a);
-  // いえ の しるし: 下から 1/3・2/3・ぜんぶ うまる（おび の 色 = 木）。うまって いない ぶん は 白
-  const houseFill = (rowsFilled: number) => (cy: number): number => (cy >= HOUSE_ROWS.length - rowsFilled ? 0xe0a050 : 0xfff4e6);
-  glyph(TILE.houseEmpty, HOUSE_ROWS, 2, 2, houseFill(0), 0x5a3a24);
-  glyph(TILE.house1, HOUSE_ROWS, 2, 2, houseFill(2), 0x5a3a24);
-  glyph(TILE.house2, HOUSE_ROWS, 2, 2, houseFill(4), 0x5a3a24);
-  glyph(TILE.house3, HOUSE_ROWS, 2, 2, houseFill(6), 0x5a3a24);
-  for (let cy = 0; cy < 8; cy++) for (let cx = 0; cx < 8; cx++) if (STAR_ROWS[cy][cx] === 'X') for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) put(TILE.star, cx * 2 + dx, cy * 2 + dy, 0xffffff);
-  for (let y = 2; y < 14; y++) for (let x = 2; x < 14; x++) put(TILE.dot, x, y, 0xffffff);
-  const t = new THREE.DataTexture(data, W, T, THREE.RGBAFormat);
-  t.magFilter = THREE.NearestFilter;
-  t.minFilter = THREE.NearestFilter;
-  t.generateMipmaps = false;
-  t.colorSpace = THREE.SRGBColorSpace;
-  t.flipY = false;
-  t.needsUpdate = true;
-  return t;
-}
-
-/** 紙ふぶき・ハート・けむり・キラッ・頭の 上の ハート を 1 回で 描く Points（光の しくみに 入れない） */
-function makePoints(): { points: THREE.Points; out: ParticleOut; attrs: THREE.BufferAttribute[] } {
-  const out: ParticleOut = {
-    pos: new Float32Array(POINT_CAP * 3),
-    col: new Float32Array(POINT_CAP * 3),
-    size: new Float32Array(POINT_CAP),
-    tile: new Float32Array(POINT_CAP),
-  };
-  const g = new THREE.BufferGeometry();
-  const attrs = [
-    new THREE.BufferAttribute(out.pos, 3).setUsage(THREE.DynamicDrawUsage),
-    new THREE.BufferAttribute(out.col, 3).setUsage(THREE.DynamicDrawUsage),
-    new THREE.BufferAttribute(out.size, 1).setUsage(THREE.DynamicDrawUsage),
-    new THREE.BufferAttribute(out.tile, 1).setUsage(THREE.DynamicDrawUsage),
-  ];
-  g.setAttribute('position', attrs[0]);
-  g.setAttribute('color', attrs[1]);
-  g.setAttribute('aSize', attrs[2]);
-  g.setAttribute('aTile', attrs[3]);
-  g.setDrawRange(0, 0);
-  const m = new THREE.PointsMaterial({ size: 1, map: atlasTexture(), vertexColors: true, transparent: true, depthWrite: false, sizeAttenuation: true, alphaTest: 0.5 });
-  m.onBeforeCompile = (sh) => {
-    sh.vertexShader = sh.vertexShader
-      .replace('void main() {', 'attribute float aSize;\nattribute float aTile;\nvarying float vTile;\nvoid main() {\n  vTile = aTile;')
-      .replace('gl_PointSize = size;', 'gl_PointSize = size * aSize;');
-    sh.fragmentShader = sh.fragmentShader
-      .replace('void main() {', 'varying float vTile;\nvoid main() {')
-      .replace(
-        '#include <map_particle_fragment>',
-        `vec2 tileUv = vec2((gl_PointCoord.x + vTile) / ${TILE_COUNT}.0, gl_PointCoord.y);
-         diffuseColor *= texture2D( map, tileUv );`,
-      );
-  };
-  m.userData.noDim = true; // 夜でも 同じ 明るさ・光の しくみに 入れない
-  const points = new THREE.Points(g, m);
-  points.frustumCulled = false;
-  points.renderOrder = 4;
-  points.visible = false;
-  return { points, out, attrs };
-}
-
-interface Entry {
-  id: number;
-  /** 形の 種類 × リボン の ある なし（`kindIndex * 2 + mark`） */
-  key: number;
-  kind: AnimalModelKind;
-  /** 形の 骨 → 動き の 骨 番号 */
-  bmap: Int16Array;
-  gen: number;
-  root: THREE.Group;
-  rig: THREE.Group;
-  bones: THREE.Bone[];
-  mesh: THREE.SkinnedMesh;
-  hull: THREE.SkinnedMesh;
-  pose: PoseBuf;
-  model: BuiltModel;
-  /** 版 3.2: パタパタ の はじまり・着地 の 時刻（ms） */
-  flutterOn: boolean;
-  flutterStart: number;
-  landStart: number;
-}
-
-/** 角度を −π〜π に */
-export function wrapAngle(a: number): number {
-  let x = a % (Math.PI * 2);
-  if (x > Math.PI) x -= Math.PI * 2;
-  else if (x < -Math.PI) x += Math.PI * 2;
-  return x;
-}
-
-export interface AnimalRendererStats {
-  /** 見えている にわとり の 数 */
-  animals: number;
-  /** 今フレーム 描く もの（メッシュ・Points）の 数 = 描画回数 */
-  draws: number;
-  /** 描く 三角形 の 数（つぶ・影 込み） */
-  triangles: number;
-}
-
-export interface AnimalRendererOpts {
-  /** 音・つぶ・頭の 上の ハート の 計算 */
-  fx: AnimalFx;
-  /** 「動きの 強さ」0〜1。なければ 1 */
-  motion?: () => number;
-  /** 時計（ミリ秒。パタパタ・着地 ぽよん の 経過に 使う。なければ performance.now） */
-  now?: () => number;
-  /**
-   * プレイヤー の 足もと（だっこ の 置き場所 を きめる）。カメラ が プレイヤー の 目 に 近ければ 1 人称（画面 の 下 25% に 顔 が 見える）、
-   * はなれて いれば 3 人称（プレイヤー の 胸 の 前）。なければ いつも カメラ の 前（1 人称）。
-   */
-  player?: () => { x: number; y: number; z: number } | null;
-  /**
-   * LIVE-2: こたつ の たまご（`forEachKit`）・小屋（`forEachCoop`）の もと。`animals` を そのまま わたす。
-   * なければ こたつ の たまご・小屋 は 描かない。
-   */
-  source?: {
-    forEachKit(fn: (k: KitInfo & { hatchT: number }) => void): void;
-    forEachCoop(fn: (c: CoopInfo) => void): void;
-  };
-  /**
-   * LIVE-2: 小屋 を ここで 描く（1 つ 2 回: 小屋 ＋ すばこ の たまご）。ふだん は false（小屋 は ブロック の 面で 描く。
-   * その ときは すばこ の たまご だけ 描く）。
-   */
-  drawCoops?: boolean;
-}
-
-/** 小屋 1 つ */
-interface CoopProp {
-  root: THREE.Group;
-  coop: THREE.Group;
-  nest: THREE.Group;
-  door: THREE.Group;
-  nestMesh: THREE.SkinnedMesh;
-  nestKey: string;
-}
-
-/** だっこ の 置きかた（DESIGN 16.16・LIVE-1 §2.8・AC28） */
-export const CARRY = {
-  /** だっこ中 の 大きさ（ふつう より 小さい） */
-  scale: 0.7,
-  /** にわとり の 高さ（ブロック。コーム まで） */
-  height: 0.8,
-  /** 1 人称: カメラ から の 前 の 距離 */
-  front: 1.2,
-  /** 1 人称: にわとり の 上の はし が 来る 画面 の 高さ（ndc。−1 = 下の はし。−0.5 = 下 25% の さかい） */
-  topNdc: -0.1,
-  /** 1 人称: だっこ中 の 大きさ（ステータス板 の 上 に おさまる ように 小さめ） */
-  firstScale: 0.45,
-  /** 3 人称: 胸 の 高さ・前 への 出し */
-  chestY: 1.0,
-  chestFront: 0.3,
-  /** 3 人称: カメラ から 見て 右 へ（プレイヤー の かげ に ならない） */
-  chestSide: 0.8,
-  /** プレイヤー の 目 の 高さ（足もと から） */
-  eyeY: 1.6,
-  /** カメラ が この 距離 より 近ければ 1 人称（`DOLL_HIDE_DISTANCE`） */
-  firstPersonDist: 1.2,
-} as const;
-
-/** `carryInfo()` の 中身（テスト・UI 検査用） */
-export interface CarryInfo {
-  firstPerson: boolean;
-  /** にわとり の 足もと の 位置（世界） */
-  x: number;
-  y: number;
-  z: number;
-  /** 上の はし の 画面 の 高さ（ndc。−1 = 下の はし） */
-  topNdcY: number;
-  /** 下の はし の 画面 の 高さ（ndc） */
-  bottomNdcY: number;
-  /** まん中 の 画面 の よこ（ndc） */
-  centerNdcX: number;
-  /** にわとり の 前（−z）と カメラ の ほう の 向きの 内積（1 = まっすぐ カメラ を 向く） */
-  faceToCamera: number;
-}
 
 export class AnimalRenderer {
   readonly group = new THREE.Group();
@@ -1049,28 +744,5 @@ export class AnimalRenderer {
       this.kitGhost.mesh.geometry.dispose();
     }
     this.group.removeFromParent();
-  }
-}
-
-/**
- * `animals.forEachVisible(fn)` の 結果を 使いまわしの 配列に 集める（しくみ側が 同じ 入れ物を 使いまわしても 安全 に
- * コピーする）。毎ステップ `fill()` → `fx.step(views, eye)`、描く ときは 同じ 配列を `update()` に わたす。
- */
-export class ViewBuffer {
-  private readonly items: AnimalView[] = [];
-  private n = 0;
-  readonly views: AnimalView[] = [];
-
-  fill(api: { forEachVisible(fn: (v: AnimalView) => void): void }): readonly AnimalView[] {
-    this.n = 0;
-    api.forEachVisible((v) => {
-      let o = this.items[this.n];
-      if (!o) o = this.items[this.n] = { ...v };
-      else Object.assign(o, v);
-      this.n++;
-    });
-    this.views.length = this.n;
-    for (let i = 0; i < this.n; i++) this.views[i] = this.items[i];
-    return this.views;
   }
 }
