@@ -1,11 +1,15 @@
 import type { ArmorSlot, BladeTrailStyle, DamageKind, ItemId, ItemType, LegendaryDef, Rarity, Recipe } from '../../contracts';
 import type { InfoRow } from '../../craft/info/table';
+import type { ToolFamily } from '../../dig/toolFamily';
 import type { ItemCategory } from '../../ui/itemCategory';
+import { ARMOR } from './armor';
 import { GOLD } from './gold';
 import { LEGEND } from './legend';
 import { NINJA } from './ninja';
 import { SAMURAI } from './samurai';
+import { TOOLS } from './tools';
 import type { ItemDef } from './types';
+import { BOWS, SWORDS } from './weapons';
 
 /**
  * アイテムの登録表（#306・ルール #304「1 つのデータは 1 か所」）。
@@ -16,22 +20,31 @@ import type { ItemDef } from './types';
  * 新しい金を足すとき: ids.ts に id → gold.ts に値 → ui/itemArtGold.ts に絵（Record<GoldId> なので 書き忘れは 型エラー）。
  * 忍者・侍も 同じ（ninja.ts・samurai.ts。絵は ui/itemArtNinja.ts・itemArtSamurai.ts）。
  * レジェンダリー武器（雷神剣・風神剣・虹）は legend.ts（ためわざ・効果は `legend` の部品。絵は ui/itemArtW7.ts）。
+ * ふつうの 道具・武器・防具（M4）は tools.ts（つるはし・おの）・weapons.ts（刀・なぎなた／ゆみ・や）・armor.ts。絵は ui/itemArtM4.ts。
  * のこりのシリーズは 段階 3 で 1 本ずつ ここへ うつす（全部 うまったら ITEM_DEFS を 全件 Record に する）。
  */
 export type ItemDefs = Readonly<Partial<Record<ItemId, ItemDef>>>;
 
-/** シリーズごとの定義（ITEM_TYPES・作業台のカードの 順は シリーズの 位置で 決まるので、シリーズ単位でも 出す） */
+/**
+ * シリーズごとの定義（ITEM_TYPES・作業台のカード・色分けの 順は 古い表の どの 位置に 入れるかで 決まるので、シリーズ単位でも 出す。
+ * 古い表の 間に 差し込む 側（inventory/items.ts・craft/recipes.ts・ui/itemCategory.ts）が、どの 並びで 入れるかを 自分で 書く）
+ */
 export const GOLD_DEFS: ItemDefs = GOLD;
+/** つるはし 3 本・おの 3 本（古い表の 同じ 位置（M4 の 先頭）に 入れる） */
+export const TOOL_DEFS: ItemDefs = TOOLS;
+/** ぼくとう・かたな・なぎなた・きらめく カタナ（てつの かたまりの 次） */
+export const SWORD_DEFS: ItemDefs = SWORDS;
+/** ゆみ・や（刀の 次。武器の 色分けでは レジェンダリーの 次） */
+export const BOW_DEFS: ItemDefs = BOWS;
+/** かぶと・よろい・こて・すねあて（ゆみ・やの 次） */
+export const ARMOR_DEFS: ItemDefs = ARMOR;
 /** 忍者・侍（ITEM_TYPES では 古い表の 同じ 位置（すねあての 次）に 入れる） */
 export const NINJA_SAMURAI_DEFS: ItemDefs = { ...NINJA, ...SAMURAI };
 
 /** レジェンダリー武器（ITEM_TYPES・武器の 色分けでは 古い表の 同じ 位置（crystal_katana の 次）に 入れる） */
 export const LEGEND_DEFS: ItemDefs = LEGEND;
-/** 古い表の うしろに ならぶ 分（忍者・侍・金） */
-const LATER_DEFS: ItemDefs = { ...NINJA_SAMURAI_DEFS, ...GOLD_DEFS };
-
-/** 登録された 全アイテム（忍者・侍・レジェンダリー・金） */
-export const ITEM_DEFS: ItemDefs = { ...NINJA_SAMURAI_DEFS, ...LEGEND_DEFS, ...GOLD_DEFS };
+/** 登録された 全アイテム（道具・刀・ゆみ・防具・忍者・侍・レジェンダリー・金。刀の集まり BLADE_ITEMS の 並びは この 順） */
+export const ITEM_DEFS: ItemDefs = { ...TOOL_DEFS, ...SWORD_DEFS, ...BOW_DEFS, ...ARMOR_DEFS, ...NINJA_SAMURAI_DEFS, ...LEGEND_DEFS, ...GOLD_DEFS };
 
 /**
  * うつしかえの 途中で、同じ id を 古い表と 登録表の 両方に 書いてしまった所の 一覧（"表の名前:id"）。
@@ -103,8 +116,8 @@ export function registryRarity(): Record<string, Rarity> {
   return pickAll(ITEM_DEFS, (d) => d.rarity) as Record<string, Rarity>;
 }
 
-/** カテゴリー別の id（CATEGORY_ITEMS の うしろに 足す。defs を 書かないと 古い表の うしろに ならぶ 分） */
-export function registryCategoryIds(cat: ItemCategory, defs: ItemDefs = LATER_DEFS): string[] {
+/** カテゴリー別の id（defs の 登録の 順。CATEGORY_ITEMS の どこに 入れるかは 呼ぶ 側が 決める） */
+export function registryCategoryIds(cat: ItemCategory, defs: ItemDefs): string[] {
   return entriesOf(defs).filter(([, d]) => d.category === cat).map(([id]) => id);
 }
 
@@ -125,9 +138,14 @@ export function registryPermanent(): ItemId[] {
   return entriesOf(ITEM_DEFS).filter(([, d]) => d.wear === 'permanent').map(([id]) => id);
 }
 
-/** 道具の数（TOOL_DEFAULTS の toolPower・toolLevel・weaponDamage） */
-export function registryTool(key: 'power' | 'level' | 'damage'): Partial<Record<ItemId, number>> {
+/** 道具の数（TOOL_DEFAULTS の toolPower・toolLevel・weaponDamage・weaponReach・weaponTicks） */
+export function registryTool(key: 'power' | 'level' | 'damage' | 'reach' | 'ticks'): Partial<Record<ItemId, number>> {
   return pickAll(ITEM_DEFS, (d) => d.tool?.[key]);
+}
+
+/** 道具の あう ブロックの なかま（dig/toolFamily.ts の TOOL_FAMILY） */
+export function registryToolFamily(): Partial<Record<ItemId, ToolFamily>> {
+  return pickAll(ITEM_DEFS, (d) => d.tool?.family);
 }
 
 /** 刀: 届く長さ（W2 bladeReach） */
@@ -140,9 +158,14 @@ export function registryBladeTrail(): Partial<Record<ItemId, BladeTrailStyle>> {
   return pickAll(ITEM_DEFS, (d) => (d.blade ? { ...d.blade.trail } : undefined));
 }
 
-/** 刀の id（BLADE_ITEMS に 足す） */
+/** 刀の id（BLADE_ITEMS。「軌跡だけ」の 物は 入らない） */
 export function registryBladeIds(): ItemId[] {
-  return entriesOf(ITEM_DEFS).filter(([, d]) => d.blade !== undefined).map(([id]) => id);
+  return entriesOf(ITEM_DEFS).filter(([, d]) => d.blade !== undefined && !d.blade.trailOnly).map(([id]) => id);
+}
+
+/** 「軌跡だけ」の 物の id（なぎなた。BLADE_LIKE_ITEMS で BLADE_ITEMS の うしろに 足す） */
+export function registryTrailOnlyIds(): ItemId[] {
+  return entriesOf(ITEM_DEFS).filter(([, d]) => d.blade?.trailOnly).map(([id]) => id);
 }
 
 /** ゆみ: 段ごとの ダメージ（W2 bowDamageByItem） */

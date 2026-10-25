@@ -1,6 +1,6 @@
 import type { ArmorSlot, BlockId, DamageKind, ItemId } from '../contracts';
 import type { NinjaId, SamuraiId } from '../content/items/ids';
-import { registryArmorSlot, registryArmorValue, withRegistry } from '../content/items/registry';
+import { registryArmorSlot, registryArmorValue } from '../content/items/registry';
 
 /**
  * つくる・やく・防具・拾ったログの数値（M4 §4.5）。ここ 1 か所にまとめる。
@@ -28,13 +28,7 @@ export const CRAFT_DEFAULTS: Readonly<CraftConfig> = {
   bakeQueueMax: 8,
   fuelOrder: ['coal_ore', 'oil', 'log'],
   fixedDrop: { furnace: 1, kawara: 1, brick: 1, tansu: 1, nukunuku: 1 },
-  armorValue: withRegistry('armorValue', {
-    kabuto: { normal: 0, ball: 2, fall: 0 },
-    yoroi: { normal: 2, ball: 0, fall: 0 },
-    kote: { normal: 1, ball: 0, fall: 0 },
-    suneate: { normal: 0, ball: 0, fall: 2 },
-    // 忍者・侍・金（GOLD-1 §4.3）の 防具は 登録表（content/items/ninja.ts・samurai.ts・gold.ts）から
-  }, registryArmorValue()),
+  armorValue: registryArmorValue(), // 防具は ぜんぶ 登録表（content/items/armor.ts・ninja.ts・samurai.ts・gold.ts）から
   pickupLogTicks: 180,
   pickupLogMax: 5,
 };
@@ -55,12 +49,7 @@ export const NINJA_GEAR = { head: 'ninja_zukin', body: 'ninja_shozoku', arms: 'n
 export const SAMURAI_GEAR = { head: 'samurai_jingasa', body: 'samurai_haori', arms: 'samurai_tekko', legs: 'samurai_geta' } as const satisfies Record<ArmorSlot, SamuraiId>;
 
 /** そうびのマスに入れられるアイテム */
-export const ARMOR_SLOT_OF: Readonly<Record<string, ArmorSlot>> = withRegistry('ARMOR_SLOT_OF', {
-  kabuto: 'head',
-  yoroi: 'body',
-  kote: 'arms',
-  suneate: 'legs',
-}, registryArmorSlot()); // 忍者・侍・金の 防具は 登録表（content/items/）から
+export const ARMOR_SLOT_OF: Readonly<Record<string, ArmorSlot>> = registryArmorSlot(); // 防具は ぜんぶ 登録表（content/items/）から
 
 /** そうびの部位の順（画面・保存・落とす順） */
 export const ARMOR_SLOTS: readonly ArmorSlot[] = ['head', 'body', 'arms', 'legs'];

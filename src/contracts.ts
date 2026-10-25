@@ -5,7 +5,7 @@
  * 担当の割り振り: docs/tickets/M1-dev-split.md
  */
 
-import { SAMURAI_ITEM_IDS, type GoldId, type LegendId, type NinjaId, type SamuraiId } from './content/items/ids';
+import { SAMURAI_ITEM_IDS, type ArmorItemId, type BowId, type GoldId, type LegendId, type NinjaId, type SamuraiId, type SwordId, type ToolItemId } from './content/items/ids';
 import { registryBladeReach, registryBladeTrail, registryBowDamage, registryLegend, registryWear, withRegistry } from './content/items/registry';
 
 export interface Vec3 {
@@ -202,24 +202,12 @@ export type ItemOnlyId =
   | 'clay' // ねんど
   | 'crystal' // すいしょう（レア度の低い宝石）
   // M4（docs/design/M4-craft.md §4.4）
-  | 'wood_pickaxe'
-  | 'stone_pickaxe'
-  | 'iron_pickaxe'
-  // BAL-D（BALANCE.md §2.8）: おの 3 本
-  | 'wood_axe'
-  | 'stone_axe'
-  | 'iron_axe'
+  // 道具（つるはし 3・おの 3）・刀 4・ゆみ・や・防具 4 の id は content/items/ids.ts の 1 か所（#306）
+  | ToolItemId
+  | SwordId
+  | BowId
+  | ArmorItemId
   | 'iron_ingot'
-  | 'bokuto'
-  | 'katana'
-  | 'naginata'
-  | 'crystal_katana'
-  | 'yumi'
-  | 'ya'
-  | 'kabuto'
-  | 'yoroi'
-  | 'kote' // こて（籠手）
-  | 'suneate' // すねあて（脛当て）
   // NINJA-1（#299）・SAMURAI-1（#300）: 忍者装備 4 つ・侍装備 4 つの id は content/items/ids.ts の 1 か所（#306）
   | NinjaId
   | SamuraiId
@@ -2018,7 +2006,7 @@ export const W2_SETTING_DEFAULTS: Readonly<W2Settings> = {
   },
   bladeAimReach: 4.5,
   // 金シリーズ・レジェンダリー 3 つの 分は 登録表（content/items/gold.ts・legend.ts）から
-  bladeReach: withRegistry('bladeReach', { bokuto: 2.2, katana: 2.2, crystal_katana: 2.2 }, registryBladeReach()),
+  bladeReach: registryBladeReach(), // 刀の 届く 長さは ぜんぶ 登録表（content/items/weapons.ts・legend.ts・gold.ts）から
   bladeShape: {
     thrust: { length: 2.2, radius: 0.2 },
     kesa: { halfAngleDeg: 75, rMin: 0.3, rMax: 2.2, yMin: -0.5, yMax: 2.6 },
@@ -2040,22 +2028,8 @@ export const W2_SETTING_DEFAULTS: Readonly<W2Settings> = {
   bowMoveMul: 0.5,
   bowBend: { pull: [0.4, 0.7, 1.0], bendDeg: [12, 22, 32], blendTicks: 6 },
   toolDurability: withRegistry('toolDurability', {
-    wood_pickaxe: 59,
-    stone_pickaxe: 131,
-    iron_pickaxe: 250,
-    wood_axe: 59,
-    stone_axe: 131,
-    iron_axe: 250,
-    bokuto: 59,
-    katana: 250,
-    naginata: 250,
-    crystal_katana: 400,
-    yumi: 384,
+    // つるはし・おの・刀・なぎなた・ゆみ・かぶと など（M4）は 登録表（content/items/tools.ts・weapons.ts・armor.ts）から。くわ（M7）だけ ここ
     kuwa: 131,
-    kabuto: 165,
-    yoroi: 240,
-    kote: 225,
-    suneate: 195,
     // NINJA-1 §4.1・SAMURAI-1 §4.1: 忍者・侍装備 8 つ（たいきゅう 10000）は 登録表（content/items/ninja.ts・samurai.ts）から（下の withRegistry）
     // WEAPON-7 §2.4: 雷神剣・風神剣・虹（10000。つくれず ヌシでしか 手に 入らない 武器だけの 例外）も 登録表（content/items/legend.ts）から
     // GOLD-1 §4.3: きん の 装備 8 こ（500）は 登録表（content/items/gold.ts）から（下の withRegistry）
@@ -2076,14 +2050,8 @@ export const W2_SETTING_DEFAULTS: Readonly<W2Settings> = {
   ],
   legendaryChargeWalk: 0.5,
   shiningCamDistance: 14,
-  bladeTrail: withRegistry('bladeTrail', {
-    bokuto: { color: 0x9c6b3a, glow: 0xe8c08a, blade: 0xb98b54, bladeShine: 0xe0bc86, style: 'plain' },
-    katana: { color: 0xe8f1fa, glow: 0xffffff, blade: 0xc8cdd8, bladeShine: 0xffffff, style: 'plain' },
-    crystal_katana: { color: 0x7fdcff, glow: 0xe6faff, blade: 0x6fcdf5, bladeShine: 0xe6faff, style: 'star' },
-    naginata: { color: 0xcfe8ff, glow: 0xffffff, blade: 0xb8cce0, bladeShine: 0xeef6ff, style: 'long' },
-    // WEAPON-7: 雷神剣・風神剣・虹の 軌跡は 登録表（content/items/legend.ts）から
-    // GOLD-1 試作 案 B（きんの かたな）は 登録表（content/items/gold.ts）から
-  }, registryBladeTrail()),
+  // 刀・なぎなた・雷神剣・風神剣・虹・きんの かたなの 軌跡は ぜんぶ 登録表（content/items/weapons.ts・legend.ts・gold.ts）から
+  bladeTrail: registryBladeTrail(),
   bladeFaceAssistDeg: 30,
   thrustTiltMaxDeg: 45,
   punchShape: { halfAngleDeg: 45, yMin: -0.5, yMax: 3.0 },

@@ -28,12 +28,12 @@ export interface ToolConfig {
 }
 
 export const TOOL_DEFAULTS: Readonly<ToolConfig> = {
-  toolPower: withRegistry('toolPower', { wood_pickaxe: 2, stone_pickaxe: 4, iron_pickaxe: 6, wood_axe: 2, stone_axe: 4, iron_axe: 6, kuwa: 4 }, registryTool('power')),
-  toolLevel: withRegistry('toolLevel', { wood_pickaxe: 0, stone_pickaxe: 1, iron_pickaxe: 2, wood_axe: 0, stone_axe: 0, iron_axe: 0 }, registryTool('level')),
-  // GOLD-1 §4.3（きんの 道具の 強さ 5）は 登録表（content/items/gold.ts）から
-  weaponDamage: withRegistry('weaponDamage', { bokuto: 2, katana: 4, naginata: 3, crystal_katana: 4 }, registryTool('damage')),
-  weaponReach: { naginata: 5.0 },
-  weaponTicks: { naginata: 40 },
+  // つるはし・おの・刀・なぎなた・きんの 道具の 強さ（GOLD-1 §4.3）は 登録表（content/items/tools.ts・weapons.ts・gold.ts）から。くわ（M7）だけ ここ
+  toolPower: withRegistry('toolPower', { kuwa: 4 }, registryTool('power')),
+  toolLevel: registryTool('level'),
+  weaponDamage: registryTool('damage'),
+  weaponReach: registryTool('reach'),
+  weaponTicks: registryTool('ticks'),
   naginataComboReset: 60,
   arrowDamage: 2,
   arrowRange: 24,

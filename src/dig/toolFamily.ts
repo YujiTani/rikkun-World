@@ -1,4 +1,5 @@
 import type { BlockId, ItemId } from '../contracts';
+import { registryToolFamily } from '../content/items/registry';
 import type { ToolConfig } from '../tools/config';
 import type { DigConfig } from './config';
 
@@ -35,15 +36,8 @@ const BLOCK_FAMILY: Partial<Record<BlockId, ToolFamily>> = {
   geyser_dirt: 'dirt',
 };
 
-const TOOL_FAMILY: Partial<Record<ItemId, ToolFamily>> = {
-  wood_axe: 'log',
-  stone_axe: 'log',
-  iron_axe: 'log',
-  wood_pickaxe: 'stone',
-  stone_pickaxe: 'stone',
-  iron_pickaxe: 'stone',
-  kuwa: 'dirt',
-};
+// おの・つるはしの なかまは 登録表（content/items/tools.ts の tool.family）から。くわ（M7）だけ ここ
+const TOOL_FAMILY: Partial<Record<ItemId, ToolFamily>> = { kuwa: 'dirt', ...registryToolFamily() };
 
 /** ブロックのなかま（どれでもない物は null） */
 export function blockFamily(id: BlockId): ToolFamily | null {

@@ -1,6 +1,6 @@
 import { CROP_KINDS, SEED_ITEM, VEG_ITEM } from '../contracts';
 import type { ItemId, Recipe } from '../contracts';
-import { GOLD_DEFS, noteDuplicates, recipesOf } from '../content/items/registry';
+import { ARMOR_DEFS, BOW_DEFS, GOLD_DEFS, SWORD_DEFS, TOOL_DEFS, noteDuplicates, recipesOf } from '../content/items/registry';
 
 const r = (
   id: ItemId,
@@ -22,24 +22,13 @@ export const TORCH_LOG = 'torch_log';
 
 /** つくる 38 こ（カードは 36 枚。たいまつの 作り方が 3 つ）（M4 §4.1 の 22 こ + BAL-D の おの 3 こ + M7-2 の 3 こ + #63 の たね 4 こ + むしとりあみ + こたつ・とりごや。カードの順） */
 export const CRAFT_RECIPES: readonly Recipe[] = [
-  r('wood_pickaxe', 1, [['log', 3]], true),
-  r('stone_pickaxe', 1, [['stone', 3], ['log', 2]], true),
-  r('iron_pickaxe', 1, [['iron_ingot', 3], ['log', 2]], true),
-  // BAL-D: おの 3 本（てつの つるはし のすぐ後ろ）
-  r('wood_axe', 1, [['log', 3]], true),
-  r('stone_axe', 1, [['stone', 3], ['log', 2]], true),
-  r('iron_axe', 1, [['iron_ingot', 3], ['log', 2]], true),
+  // M4・BAL-D: つるはし 3 本・おの 3 本は 登録表（content/items/tools.ts）から。順は 登録の 順
+  ...recipesOf(TOOL_DEFS, 'craft'),
   r('furnace', 1, [['stone', 5]], true),
-  r('bokuto', 1, [['log', 2]], true),
-  r('katana', 1, [['iron_ingot', 2], ['log', 1]], true),
-  r('naginata', 1, [['iron_ingot', 1], ['log', 3]], true),
-  r('crystal_katana', 1, [['crystal', 2], ['iron_ingot', 2], ['log', 2]], true),
-  r('yumi', 1, [['log', 3], ['string', 3]], true),
-  r('ya', 4, [['log', 1], ['stone', 1], ['paper', 1]], true),
-  r('kabuto', 1, [['iron_ingot', 2], ['cloth', 1]], true),
-  r('yoroi', 1, [['iron_ingot', 3], ['string', 2], ['cloth', 2]], true),
-  r('kote', 1, [['iron_ingot', 1], ['cloth', 1]], true),
-  r('suneate', 1, [['iron_ingot', 2], ['string', 1]], true),
+  // M4: ぼくとう・かたな・なぎなた・きらめく カタナ・ゆみ・や・かぶと・よろい・こて・すねあては 登録表（content/items/weapons.ts・armor.ts）から。順は 刀 → ゆみ・や → 防具
+  ...recipesOf(SWORD_DEFS, 'craft'),
+  ...recipesOf(BOW_DEFS, 'craft'),
+  ...recipesOf(ARMOR_DEFS, 'craft'),
   r('torch', 4, [['log', 1], ['oil', 1]], true),
   r('lantern', 1, [['paper', 2], ['log', 1], ['oil', 1]], false),
   r('kite', 1, [['paper', 3], ['string', 2], ['log', 1]], false),

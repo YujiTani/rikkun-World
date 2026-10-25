@@ -1,5 +1,6 @@
 import type { ArmorSlot, BladeTrailStyle, BlockId, DamageKind, ItemId, LegendaryDef, Rarity } from '../../contracts';
 import type { InfoRow } from '../../craft/info/table';
+import type { ToolFamily } from '../../dig/toolFamily';
 import type { ItemCategory } from '../../ui/itemCategory';
 
 /**
@@ -30,12 +31,18 @@ export interface ItemDef {
     station?: 'craft' | 'furnace';
     works?: boolean;
   };
-  /** 刀（わざ・かまえ・刃の軌跡が ある 物）: 届く長さ・軌跡の 色 */
-  blade?: { reach: number; trail: Readonly<BladeTrailStyle> };
+  /**
+   * 刀（わざ・かまえ・刃の軌跡が ある 物）: 届く長さ・軌跡の 色。
+   * `trailOnly: true` は 「軌跡だけ」の 物（なぎなた）: BLADE_ITEMS には 入らず BLADE_LIKE_ITEMS に 入る。届く長さ（reach）は 書かない（tool.reach を 使う）
+   */
+  blade?: { reach?: number; trail: Readonly<BladeTrailStyle>; trailOnly?: true };
   /** ゆみ: 段ごとの ダメージ [1 段, 2 段, 3 段] */
   bow?: { damage: readonly [number, number, number] };
-  /** 道具の数: ほる強さ・ほれるレベル・たたく強さ（書かない = 手と同じ） */
-  tool?: { power?: number; level?: number; damage?: number };
+  /**
+   * 道具の数: ほる強さ・ほれるレベル・たたく強さ・とどく距離・当たるまでのステップ（書かない = 手と同じ）。
+   * family = あう ブロックの なかま（おの = log・つるはし = stone。あわない ブロックは 強さが 半分）
+   */
+  tool?: { power?: number; level?: number; damage?: number; reach?: number; ticks?: number; family?: ToolFamily };
   /** レジェンダリー（ヌシが おとす 武器）: 強さ・ためわざ・こうげき時の 効果・ずっと 効く 力（LegendaryDef から item を 除いた もの） */
   legend?: Omit<LegendaryDef, 'item'>;
   /** 防具: 入る 部位・ふせぐ量（ダメージの種類ごと）・説明に出す 種類 */
