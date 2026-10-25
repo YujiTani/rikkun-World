@@ -1,10 +1,17 @@
 /**
  * #293 リリース: がしゃどくろを たおした ごほうび（コアを こわした 一山の 中身）。何が 何個かは releaseTuning.ts の reward。
- * かならず 入る もの(いまは 忍者の足袋 1 つ。部位が できたら 表に 行を 足すだけ)、レア素材は 表の 行ごとに 最小〜最大の 個数。乱数は シード付き。
+ * かならず 入る もの(guaranteed。今は 空。行を 足すだけで 入る)、忍者装備 1 つ(NINJA-1 §4.2: まだ 手に 入れて いない 物から くじ。src/craft/ninjaDrop.ts)、レア素材は 表の 行ごとに 最小〜最大の 個数。乱数は シード付き。
  */
-import type { ItemStack } from '../contracts';
+import type { ItemId, ItemStack } from '../contracts';
+import { pickNinjaGear } from '../craft/ninjaDrop';
 import { createRng, randInt, type Rng } from '../world/gen/random';
 import { RELEASE } from './releaseTuning';
+
+/** 忍者装備の くじの 材料: book = 手に 入れた ことの ある 物（忍者帳）、have = いま 持って いる 物（もちもの・防具の マス・手に もった 物） */
+export interface NinjaCtx {
+  book: readonly ItemId[];
+  have: readonly ItemId[];
+}
 
 export type RewardTune = (typeof RELEASE)['reward'];
 
@@ -16,8 +23,10 @@ export function rewardRng(worldSeed: number, n: number, salt: number = RELEASE.r
 }
 
 /** コアを こわした 一山の 中身（持ち物の 山の 一覧）。かならず 入る もの → レア素材の じゅん */
-export function rollReward(rng: Rng, tune: RewardTune = RELEASE.reward): ItemStack[] {
+export function rollReward(rng: Rng, tune: RewardTune = RELEASE.reward, ninja: NinjaCtx = { book: [], have: [] }): ItemStack[] {
   const out: ItemStack[] = tune.guaranteed.map((g) => ({ item: g.item, count: g.count }));
-  for (const row of tune.rare) out.push({ item: row.item, count: randInt(rng, row.min, Math.max(row.min, row.max)) });
-  return out;
+  const rare: ItemStack[] = tune.rare.map((row) => ({ item: row.item, count: randInt(rng, row.min, Math.max(row.min, row.max)) }));
+  const gear = pickNinjaGear(rng, ninja.book, ninja.have);
+  if (gear) out.push({ item: gear, count: 1 });
+  return [...out, ...rare];
 }

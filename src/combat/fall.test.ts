@@ -108,10 +108,11 @@ describe('落下ダメージ（プレイヤー）', () => {
   });
 });
 
-describe('忍者の足袋（#293 試作・レア装備）', () => {
-  it('着ていると どんな高さから落ちても 体力が へらない', () => {
-    for (const h of [5, 10, 20]) {
+describe('忍びの足袋（#293 試作 → NINJA-1 #299・レア装備）', () => {
+  it('着ていると どんな高さから落ちても 体力が へらない（NINJA-1 AC5: 99 の 限界を なくし、高さ 200 でも 0）', () => {
+    for (const h of [5, 10, 20, 200]) {
       const r = rig(['ninja_tabi']);
+      r.player.position.y = h + 40; // 高さ 200 でも 世界の 下に つき抜けない よう 出だしを たかく
       r.drop(h);
       expect(r.combat.hp()).toBe(20);
       expect(r.combat.drainEvents().some((e) => e.type === 'fallHurt')).toBe(false);
@@ -138,17 +139,19 @@ describe('忍者の足袋（#293 試作・レア装備）', () => {
     r.drop(10);
     expect(r.combat.hp()).toBe(13);
   });
-  it('ふつう・たま は すねあてと 同じ（0）。たいきゅうは すねあての 2 倍', () => {
+  it('ふつう・たま は すねあてと 同じ（0）。fall は 99 より 大きい。たいきゅうは 10000（NINJA-1 AC3: 390 から かわる）', () => {
     const t = CRAFT_DEFAULTS.armorValue.ninja_tabi!;
     expect([t.normal, t.ball]).toEqual([0, 0]);
-    expect(maxDurability('ninja_tabi' as never, W2_SETTING_DEFAULTS.toolDurability)).toBe(maxDurability('suneate', W2_SETTING_DEFAULTS.toolDurability)! * 2);
+    expect(t.fall).toBeGreaterThan(99);
+    expect(maxDurability('ninja_tabi' as never, W2_SETTING_DEFAULTS.toolDurability)).toBe(10000);
   });
   it('名前・めずらしさ・説明・絵が そろっている', () => {
     expect(itemType('ninja_tabi')?.maxStack).toBe(1);
-    expect(itemType('ninja_tabi')?.name).toContain('忍者');
+    expect(itemType('ninja_tabi')?.name).toBe('［忍｜しの］びの ［足袋｜たび］'); // NINJA-1: 「忍者の足袋」から かわった
+    expect(itemType('ninja_tabi')?.name).not.toContain('忍者');
     expect(itemRarity('ninja_tabi' as never)).toBe('legendary'); // yuzu: レア度 7（7 段目）
     expect(itemCategory('ninja_tabi')).toBe('armor');
-    expect(ITEM_INFO.ninja_tabi?.use).toContain('おちて');
+    expect(ITEM_INFO.ninja_tabi?.use).toBe('こうげき から まもる（あし）'); // NINJA-1: 「おちても いたく ない」は とくべつな ちから（special）へ
     expect(itemIconPixels('ninja_tabi' as never)).toHaveLength(256);
   });
 });

@@ -475,6 +475,12 @@
 .cp-pg-desc .cp-text {
   font-size: var(--rk-fs-small); /* 1 ページに 入る行を ふやす（CI と 手元で 字の幅が ちがっても 余白が のこる） */
 }
+.cp-special-text rt {
+  font-size: var(--rk-fs-rt);
+}
+.cp-special-head {
+  font-weight: 800;
+}
 .cp-btns {
   display: inline-flex;
   align-items: center;

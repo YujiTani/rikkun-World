@@ -125,7 +125,7 @@ test.describe('とどめの 直後', () => {
 });
 
 test.describe('コアの ドロップ', () => {
-  test('コアを たたく たびに レア素材を ばらまく（量は 調整表）。こわすと 大きな 一山（忍者の あし ＋ レア素材）', async ({ page }) => {
+  test('コアを たたく たびに レア素材を ばらまく（量は 調整表）。こわすと 大きな 一山（忍者装備 1 つ ＋ レア素材。NINJA-1 で 足袋ぴったり から かわった）', async ({ page }) => {
     const errs = await ready(page);
     await quiet(page);
     await quickCore(page, CORE.hits, CORE.hitGapSec);
@@ -158,6 +158,8 @@ test.describe('コアの ドロップ', () => {
     const big: Record<string, number> = {};
     for (const b of now.filter((b) => !seen.has(b.id))) for (const s of b.slots) big[s.item] = (big[s.item] ?? 0) + s.count;
     for (const g of RELEASE.reward.guaranteed) expect(big[g.item] ?? 0, 'かならず 入る もの ' + g.item).toBeGreaterThanOrEqual(g.count);
+    const ninja = Object.entries(big).filter(([k]) => k.startsWith('ninja_'));
+    expect(ninja, '忍者装備は ちょうど 1 つ').toEqual([[ninja[0]?.[0], 1]]);
     for (const row of RARE) expect(big[row.item] ?? 0, 'レア素材 ' + row.item).toBeGreaterThanOrEqual(row.min);
     expect((await info(page)).kills).toBe(1);
     expect(errs).toEqual([]);

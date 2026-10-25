@@ -1,5 +1,4 @@
 import type { ItemId } from '../contracts';
-import { NINJA_GEAR } from '../craft/config';
 
 /**
  * #293 リリース: がしゃどくろを ふだんの ゲームに 出す 数の 表（調整表）。値を かえる だけで 出方・ごほうびを 直せる。
@@ -50,11 +49,11 @@ export const RELEASE = {
     scatterUp: [6, 9] as [number, number], // ブロック/秒: とびあがる 速さ(最小, 最大)
   },
   /**
-   * コアの ドロップの 中身は ここ 1 か所(仮)。忍者の 頭・体・うで・あしが できたら、guaranteed に { item, count } の 行を 足すだけで
+   * コアの ドロップの 中身は ここ 1 か所(仮)。ほかの かならず 入る 物が ほしく なったら、guaranteed に { item, count } の 行を 足すだけで
    * コアを こわした 一山に 入る(コードは かえない)。たたく たびの 小さな ばらまきは rare の 一部(core.hitScale)
    */
   reward: {
-    guaranteed: [{ item: NINJA_GEAR.legs, count: 1 }] as { item: ItemId; count: number }[], // かならず 入る もの（個。コアを こわした 一山だけ。忍者装備の id は src/craft/config.ts の NINJA_GEAR から 読む。部位が ふえたら ここに 行を 足す）
+    guaranteed: [] as { item: ItemId; count: number }[], // かならず 入る もの（個。コアを こわした 一山だけ。忍者装備は ここでは なく 「まだ 手に 入れて いない 物から 1 つ」の くじ（NINJA-1。src/craft/ninjaTuning.ts・ninjaDrop.ts）で 毎回 1 つ 入る）
     rare: [
       { item: 'crystal', min: 3, max: 5 }, // すいしょう（個の はんい。最小〜最大の 一様）
       { item: 'iron_ingot', min: 6, max: 10 }, // てつの かたまり（個）

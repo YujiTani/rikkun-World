@@ -167,7 +167,7 @@ export function boxTouchesFan(b: BoxLike, f: Fan, margin = 0): boolean {
 /** 妖怪の 世界の うち、割りこむ 2 つ */
 export interface YokaiWorldLike {
   raycast(origin: Vec3, dir: Vec3, maxDistance: number): YokaiRayHit | null;
-  damage(id: number, amount: number, from: Vec3, knock?: unknown): number | void;
+  damage(id: number, amount: number, from: Vec3, knock?: unknown, by?: unknown): number | void;
 }
 
 export interface HitSources {
@@ -199,6 +199,8 @@ export interface HitEnv {
   bodyGuard?(): boolean;
   /** bodyGuard で はじいた(at = 当たった 点。なければ null)。バリアの 波紋・音に つなぐ */
   onDeflect?(at: Vec3 | null, part: string): void;
+  /** NINJA-1: 刀（blade）・パンチ（ray。矢・マッチョの パンチは 除く）が 部位に 当たった（忍びの手甲の 追い打ち用）。波・雷・ドーム・追い打ち自身は 知らせない */
+  onStrike?(info: { part: string; source: string }): void;
   /** 刀が ガラスの 雲に 当たった（ダメージの ある 部位に 当たらなかった とき）。当たった 点（世界の 座標） */
   onCloud?(at: Vec3): void;
   sources?: HitSources;
@@ -237,6 +239,8 @@ export class BigHit {
   private sparkMat: MeshBasicMaterial | null = null;
   private bar: HpBar | null = null;
   private installed = false;
+  /** 今の ray の 当たりが 矢か（パンチは knock を わたさない・矢は わたす） */
+  private viaArrow = false;
   /** とどめの あとの モード: off = ふつう / lock = どこに 当たっても ダメージ 0 / core = コアだけ onCoreHit に 知らせる */
   private finish: 'off' | 'lock' | 'core' = 'off';
   /** コアの 当たりを 太らせる ぶん（ブロック。たおれた あと） */
@@ -349,6 +353,7 @@ export class BigHit {
     this.hp = Math.max(0, round2(this.hp - dealt));
     this.hits++;
     this.last = { part: part as Part, mul, dealt, source, at: at ? { ...at } : null, hp: this.hp };
+    if (source === 'blade' || (source === 'ray' && !this.viaArrow)) this.env.onStrike?.({ part, source });
     this.env.angry();
     if (part === 'core') this.env.onCore?.();
     if (!at) {
@@ -413,12 +418,19 @@ export class BigHit {
       }
       return bi >= 0 ? { id: BIG_ID_BASE + bi, kind: 'nurikabe', distance: bt } : real;
     };
-    ym.damage = (id: number, amount: number, from: Vec3, knock?: unknown): number | void => {
+    ym.damage = (id: number, amount: number, from: Vec3, knock?: unknown, by?: unknown): number | void => {
       if (id >= BIG_ID_BASE && id < BIG_ID_BASE + GHOST_ID_SPAN) {
         const i = id - BIG_ID_BASE;
-        return this.boxes[i] ? this.strike(i, amount, from, 'ray') : 0;
+        if (!this.boxes[i]) return 0;
+        // NINJA-1: 矢（knock を わたす）・マッチョの パンチ（by = macho）は 手甲の 追い打ちに しない
+        this.viaArrow = knock !== undefined || by === 'macho';
+        try {
+          return this.strike(i, amount, from, 'ray');
+        } finally {
+          this.viaArrow = false;
+        }
       }
-      return dmgOrig(id, amount, from, knock);
+      return (dmgOrig as (...a: unknown[]) => number | void)(id, amount, from, knock, by);
     };
   }
 
