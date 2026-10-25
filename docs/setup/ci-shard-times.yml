@@ -1,5 +1,5 @@
 # #311 シャードの 時間の 表を 自動に する ci.yml（これで .github/workflows/ci.yml を まるごと 置きかえる。yuzu が 画面で）。
-# 前と ちがう 所: permissions に actions: read / 「変更の 中身」で いちばん 新しい 緑の main の 時間を 集める /
+# 前と ちがう 所: permissions に actions: read / 「変更の 中身」で 時間が 残って いる いちばん 新しい main の 回の 時間を 集める /
 # E2E の 各シャードが その 時間で 分ける（E2E_TIMES_DIR）・自分の 時間を e2e-times-<n> に 残す。
 # 時間が とれない ときは 今までどおり e2e/shard-times.json で 分ける（落ちない）。
 # ラチェット（#310）の step も ここに 入れてある（yuzu の 手間を 1 回に）。
@@ -54,10 +54,18 @@ jobs:
           echo "$files"
           if echo "$files" | grep -qvE '^docs/|\.md$|^\.claude/'; then echo "code=true" >> "$GITHUB_OUTPUT"; else echo "code=false" >> "$GITHUB_OUTPUT"; fi
       # いちばん 新しい 緑の main の CI が 残した spec ごとの 時間（#311）。5 つの シャードが 同じ 表で 分けるよう、ここで 1 つに まとめて わたす
+      # main の CI は 次の マージで とちゅうで 止まる（cancel-in-progress）ことが 多く、「緑で 終わった 回」が なかなか ない。
+      # なので 終わり方は 見ず、e2e-times-* が 1 つでも 残って いる いちばん 新しい main の 回を つかう（足りない シャードの 分は 表で おぎなう）
       - id: last
         env:
           GH_TOKEN: ${{ github.token }}
-        run: echo "run=$(gh run list -R "${{ github.repository }}" -w CI -b main -s success -L 1 --json databaseId -q '.[0].databaseId' || true)" >> "$GITHUB_OUTPUT"
+          REPO: ${{ github.repository }}
+        run: |
+          run=""
+          for id in $(gh run list -R "$REPO" -w CI -b main -L 10 --json databaseId -q '.[].databaseId' || true); do
+            if gh api "repos/$REPO/actions/runs/$id/artifacts" -q '.artifacts[].name' 2>/dev/null | grep -q '^e2e-times-'; then run=$id; break; fi
+          done
+          echo "run=$run" >> "$GITHUB_OUTPUT"
       - if: steps.last.outputs.run != ''
         uses: actions/download-artifact@v4
         continue-on-error: true
