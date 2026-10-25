@@ -31,16 +31,16 @@ describe('content snapshot（その 2）', () => {
     expect(out).toEqual({ a: 'Infinity', b: '-Infinity', c: 'NaN', d: 'undefined', e: null, f: ['Infinity', 'undefined', null], g: 0 });
   });
 
-  // settings.json の hint・aimCfg・dig の名前は main.ts から書き写した物。main.ts を変えたら、ここで落ちて気づく
-  it('main.ts から書き写した設定（dig の名前・hint・aimCfg）が main.ts と同じ', () => {
-    const main = readFileSync(new URL('../main.ts', import.meta.url), 'utf8');
+  // settings.json の hint・aimCfg・dig の名前は main.ts の流れ（game/wire/*.ts）から書き写した物。そこを変えたら、ここで落ちて気づく
+  it('main.ts の流れから書き写した設定（dig の名前・hint・aimCfg）が元と同じ', () => {
+    const main = ['../game/wire/combat.ts', '../game/wire/ui.ts', '../debug/settingsViews.ts'].map((f) => readFileSync(new URL(f, import.meta.url), 'utf8')).join('\n');
     const settings = buildSettingsSnapshot() as { hint: unknown; aimCfg: unknown; dig: Record<string, unknown> };
-    expect(main).toMatch(/^const aimCfg = \{ aimAssistDeg: 4 \};$/m);
+    expect(main).toMatch(/^\s*const aimCfg = \{ aimAssistDeg: 4 \};$/m);
     expect(settings.aimCfg).toEqual({ aimAssistDeg: 4 });
-    expect(main).toMatch(/^const hintSettings = \{ actionHint: true \};$/m);
+    expect(main).toMatch(/^\s*const hintSettings = \{ actionHint: true \};$/m);
     expect(settings.hint).toEqual({ actionHint: true });
     const arr = /function digSettingsView\([^)]*\)[^{]*\{\s*const names = \[([^\]]*)\] as const;/.exec(main);
-    expect(arr, 'main.ts の digSettingsView の names 配列が見つからない').not.toBeNull();
+    expect(arr, 'digSettingsView の names 配列が見つからない').not.toBeNull();
     const names = [...arr![1].matchAll(/'([^']+)'/g)].map((m) => m[1]);
     expect(Object.keys(settings.dig).sort()).toEqual([...names].sort());
   });
