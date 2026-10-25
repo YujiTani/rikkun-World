@@ -23,6 +23,11 @@ export interface ShockDeps {
   hurt?(amount: number, from: V3): boolean;
   /** プレイヤーの 速さを かえる（はじく） */
   setPlayerVelocity?(v: V3): void;
+  /**
+   * SAMURAI-1 §4.4: 「とばされにくさ」の 倍率（0〜1。羽織 0.3。つなぎ込みが `() => knockbackMulOf(armor)` を わたす。なければ 1）。
+   * 打撃・衝撃波・小さい 衝撃・払いの 横の 速さだけに かける（上への はね・ダメージ・ひるみは そのまま）
+   */
+  knockbackMul?(): number;
 }
 
 /** 手が 地面を たたいた 1 回（輪の 見た目も これを 読む） */
@@ -143,7 +148,8 @@ export class BigShock {
     if (this.hits.length > 16) this.hits.length = 16;
     if (!ok) return false;
     this.staggerLeft = Math.max(this.staggerLeft, S.staggerSec);
-    this.lastPush = { x: dx * S.knockSpeed, y: S.knockUp, z: dz * S.knockSpeed };
+    const km = this.d.knockbackMul?.() ?? 1;
+    this.lastPush = { x: dx * S.knockSpeed * km, y: S.knockUp, z: dz * S.knockSpeed * km };
     this.d.setPlayerVelocity?.(this.lastPush);
     this.shakes.push({ amp: S.shakeDeg, sec: Math.max(1e-3, G.shakeSec), age: 0 });
     return true;
@@ -162,7 +168,8 @@ export class BigShock {
     let dx = p.x - imp.x, dz = p.z - imp.z;
     const len = Math.hypot(dx, dz);
     if (len < 1e-6) { dx = 1; dz = 0; } else { dx /= len; dz /= len; }
-    this.lastPush = { x: dx * knock, y: G.knockUp, z: dz * knock };
+    const km = this.d.knockbackMul?.() ?? 1;
+    this.lastPush = { x: dx * knock * km, y: G.knockUp, z: dz * knock * km };
     this.d.setPlayerVelocity?.(this.lastPush);
     this.shakes.push({ amp: G.shakeDeg, sec: Math.max(1e-3, G.shakeSec), age: 0 });
   }

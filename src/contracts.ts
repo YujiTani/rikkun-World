@@ -221,6 +221,10 @@ export type ItemOnlyId =
   | 'ninja_shozoku' // 忍び装束（からだ。妖怪に 気づかれにくい）
   | 'ninja_tekko' // 忍びの手甲（うで。刀・素手の 当たりの あとに 小太刀で 追い打ち）
   | 'ninja_tabi' // 忍びの足袋（あし。落下ダメージ 0。#293 試作 → NINJA-1。作れない・ステータスだけ）
+  | 'samurai_jingasa' // 明珍陣笠（SAMURAI-1 #300・あたま。ひのたまを ふせぐ・パリィの 受けが 長い）
+  | 'samurai_haori' // 明珍羽織（からだ。とばされにくい）
+  | 'samurai_tekko' // 明珍手甲（うで。刀が 1.5 倍・防御力 10 無視）
+  | 'samurai_geta' // 明珍下駄（あし。落下の いたみを へらす・走ると カランコロン）
   | 'torch'
   | 'lantern'
   | 'kite'
@@ -871,6 +875,7 @@ export type StatKey =
   | 'bladeCombo3' // WEAPON-6: 3 段 ぜんぶ 当てた
   | `get:${string}` // WEAPON-7: レジェンダリーを はじめて 手に 入れた（`get:raijin_ken`）
   | 'ninjaKinds' // NINJA-1: 手に 入れた ことの ある 忍者装備の しゅるいの 数
+  | 'samuraiKinds' // SAMURAI-1: 手に 入れた ことの ある 侍装備の しゅるいの 数
   | 'legendKinds' // WEAPON-7: 手に 入れた ことの ある レジェンダリーの しゅるいの 数
   | 'wearAll'
   | 'death'
@@ -2091,6 +2096,11 @@ export const W2_SETTING_DEFAULTS: Readonly<W2Settings> = {
     ninja_shozoku: 10000,
     ninja_tekko: 10000,
     ninja_tabi: 10000,
+    // SAMURAI-1 §4.1: 侍装備 4 つも たいきゅう 10000（NINJA-1 と 同じ）
+    samurai_jingasa: 10000,
+    samurai_haori: 10000,
+    samurai_tekko: 10000,
+    samurai_geta: 10000,
     raijin_ken: 10000, // WEAPON-7 §2.4: つくれず ヌシでしか 手に 入らない 武器だけの 例外
     fujin_ken: 10000,
     niji: 10000,
@@ -2113,7 +2123,11 @@ export const W2_SETTING_DEFAULTS: Readonly<W2Settings> = {
   },
   wearLowRatio: 0.1,
   legendary: LEGENDARY_DEFAULTS as LegendaryDef[],
-  nushiDrops: LEGENDARY_DEFAULTS.map((d) => ({ item: d.item, weight: 1 })),
+  // SAMURAI-1 §4.2: 武器 3 行（雷神剣・風神剣・虹）の あとに 侍装備 4 行（陣笠・羽織・手甲・下駄）。ぜんぶ weight 1（はじめての ヌシで 侍装備は 4/7）
+  nushiDrops: [
+    ...LEGENDARY_DEFAULTS.map((d) => ({ item: d.item, weight: 1 })),
+    ...(['samurai_jingasa', 'samurai_haori', 'samurai_tekko', 'samurai_geta'] as const).map((item) => ({ item: item as ItemId, weight: 1 })),
+  ],
   legendaryChargeWalk: 0.5,
   shiningCamDistance: 14,
   bladeTrail: {

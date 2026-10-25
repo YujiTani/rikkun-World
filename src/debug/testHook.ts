@@ -92,6 +92,12 @@ export interface TestHook {
     book: { got(): string[]; set(items: string[]): void };
     pending(): number;
   };
+  /** SAMURAI-1（#300）: 侍帳（`book`）・いまの とばされにくさの 倍率・下駄の 数え。調整表の 上書きは `ninja.tune`（同じ 表） */
+  samurai: {
+    book: { got(): string[]; set(items: string[]): void };
+    knockbackMul(): number;
+    getaTicks(): number;
+  };
   /** M4 §6.1 */
   craft: Omit<ReturnType<typeof createCraftHook>, 'click'> & ReturnType<typeof createCraftUiHook>['craft'];
   furnace: ReturnType<typeof createFurnaceHook>;
@@ -185,7 +191,7 @@ declare global {
   }
 }
 
-export type TestHookGroups = Pick<TestHook, 'start' | 'work' | 'shadow' | 'char' | 'world' | 'biome' | 'render' | 'player' | 'camera' | 'aim' | 'input' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'attack' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm' | 'log' | 'ui' | 'audio' | 'rarity' | 'animals' | 'parry' | 'legend' | 'thunder' | 'impact' | 'ninja'>;
+export type TestHookGroups = Pick<TestHook, 'start' | 'work' | 'shadow' | 'char' | 'world' | 'biome' | 'render' | 'player' | 'camera' | 'aim' | 'input' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'attack' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm' | 'log' | 'ui' | 'audio' | 'rarity' | 'animals' | 'parry' | 'legend' | 'thunder' | 'impact' | 'ninja' | 'samurai'>;
 
 export function installTestHook(game: Game, overlay: PerfOverlay, isReady: () => boolean, groups: TestHookGroups, clock: FrameClock = 'time'): void {
   window.__rikkun = {

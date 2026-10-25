@@ -10,8 +10,8 @@ const mk = () => {
 };
 
 describe('LIVE-2 実績（§4.5）', () => {
-  it('数（AC24。LIVE-3 で ＋1 ふえた）: 282（NINJA-1 で ＋2・小 ＋0。#293 の ＋1・COUNTRY-1 で ＋13）・小 88・そだてる 63・小 17', () => {
-    expect(ACHIEVEMENT_DEFS.length).toBe(282);
+  it('数（AC24。LIVE-3 で ＋1 ふえた）: 284（SAMURAI-1 で ＋2・NINJA-1 で ＋2・小 ＋0。#293 の ＋1・COUNTRY-1 で ＋13）・小 88・そだてる 63・小 17', () => {
+    expect(ACHIEVEMENT_DEFS.length).toBe(284);
     expect(ACHIEVEMENT_DEFS.filter((d) => d.small).length).toBe(89);
     const farm = ACHIEVEMENT_DEFS.filter((d) => d.category === 'farm');
     expect(farm.length).toBe(64);

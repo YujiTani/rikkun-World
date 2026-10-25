@@ -1,5 +1,8 @@
 import type { ItemId, Vec3, W2Settings } from '../contracts';
 import { isBladeItem } from '../tools/blade/BladeSystem';
+import { NINJA_TUNING } from '../craft/ninjaTuning';
+
+export { parryShownFrame } from './parryShown';
 
 /**
  * 刀の パリィ（WEAPON-5。仕様 docs/design/WEAPON-5.md）。
@@ -103,6 +106,8 @@ export interface ParryStateView {
   slowLeft: number;
   timeScale: number;
   glowLeft: number;
+  /** SAMURAI-1: この パリィを 陣笠を 着て 始めたか（絵の 引きのばしに つかう。パリィの 間 かわらない） */
+  jingasa: boolean;
 }
 
 export interface ParryInput {
@@ -120,6 +125,8 @@ export interface ParryInput {
   bladeBusy?: boolean;
   /** 刀の わざが 先行入力を 受けつける とき（パリィも 先行入力に できる） */
   bladeAccepts?: boolean;
+  /** SAMURAI-1: 明珍陣笠を 着ている か。パリィを 始めた ステップの 値を そのパリィの 間 ずっと つかう（受けの 長さ = 調整表 jingasaGuardTicks） */
+  jingasa?: boolean;
 }
 
 export interface ParryHit {
@@ -183,7 +190,7 @@ export function createParry(S: ParrySettings & Pick<W2Settings, 'parryKimeTicks'
   let buffered = false;
   let started = false;
   /** 始めた ステップの 設定（そのパリィの間 つかう） */
-  let snap = { ready: 2, guard: 18, recover: 20, early: 12, kime: 8, mul: 0.5, arc: 90 };
+  let snap = { ready: 2, guard: 18, recover: 20, early: 12, kime: 8, mul: 0.5, arc: 90, jingasa: false };
   let total = 0;
   let succeeded = false;
   let firstDone = false;
@@ -208,15 +215,16 @@ export function createParry(S: ParrySettings & Pick<W2Settings, 'parryKimeTicks'
     parryArcDeg: snap.arc,
   });
 
-  const start = (tick: number): void => {
+  const start = (tick: number, jingasa = false): void => {
     snap = {
       ready: S.parryTicks.ready,
-      guard: S.parryTicks.guard,
+      guard: jingasa ? NINJA_TUNING.jingasaGuardTicks : S.parryTicks.guard,
       recover: S.parryTicks.recover,
       early: S.parryEarlyTicks,
       kime: S.parryKimeTicks,
       mul: S.parryEarlyMul,
       arc: S.parryArcDeg,
+      jingasa,
     };
     total = snap.ready + snap.guard + snap.recover;
     phase = 'ready';
@@ -288,14 +296,14 @@ export function createParry(S: ParrySettings & Pick<W2Settings, 'parryKimeTicks'
       const press = i.active && routeAttackInput(i) === 'parry';
       if (press) {
         if (phase === 'idle') {
-          if (!i.bladeBusy) start(i.tick);
+          if (!i.bladeBusy) start(i.tick, !!i.jingasa);
           else if (i.bladeAccepts) buffered = true;
         } else if (phase === 'kime' || frame >= windowStart()) buffered = true;
       }
       // きめ明け・すき明け: 先行入力は 次のステップではなく そのステップに 出す
       if (phase === 'idle' && buffered && i.active && isBladeItem(i.item) && !i.bladeBusy) {
         buffered = false;
-        start(i.tick);
+        start(i.tick, !!i.jingasa);
       }
     },
 
@@ -334,6 +342,7 @@ export function createParry(S: ParrySettings & Pick<W2Settings, 'parryKimeTicks'
         slowLeft,
         timeScale: slowLeft > 0 && !reduced() ? S.parrySlow.scale : 1,
         glowLeft,
+        jingasa: snap.jingasa,
       };
     },
     events(): ParryEvent[] {

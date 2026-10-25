@@ -28,6 +28,8 @@ export interface WireRefs {
   settings: Pick<W2Settings, 'legendary' | 'bladeDamageMul'>;
   /** ふだんの 武器の 強さ（BladeSystem の weaponDamage と おなじ もの） */
   weaponDamage(item: ItemId): number;
+  /** SAMURAI-1: 明珍手甲の 刀の 強さの 倍率（雷・ドームの 強さに かける。なければ 1。刀の ふつうの わざは weaponDamage に、波は 波が もつ 数に もう 入っている） */
+  powerMul?(item: ItemId): number;
   yokai(): YokaiWorldLike | null;
   sound?(): void;
 }
@@ -35,6 +37,8 @@ export interface WireRefs {
 export function makeHitSources(r: WireRefs): HitSources {
   let seenTick = -Infinity;
   let primed = false;
+  /** SAMURAI-1 §4.5: ドームの 手甲の 倍率は 始めた（球が 出た）ときの 値を ドームの 間 つかう（途中で 手甲を ぬいでも 強さは かわらない） */
+  let domeMul: number | null = null;
   return {
     blade: () => {
       const shape = r.blade.shape();
@@ -56,7 +60,7 @@ export function makeHitSources(r: WireRefs): HitSources {
         if (e.type !== 'lightningStrike' || e.tick <= seenTick) continue;
         if (primed && L && L.kind === 'lightning' && h) {
           const S = (e as unknown as { S?: Vec3 | null }).S;
-          if (S) out.push({ center: { ...S }, radius: L.radius, damage: Math.round((legendPowerOf(r.settings, h.item, h.power ?? null) ?? 1) * L.damageMul * 100 + 1e-7) / 100 });
+          if (S) out.push({ center: { ...S }, radius: L.radius, damage: Math.round((legendPowerOf(r.settings, h.item, h.power ?? null) ?? 1) * (r.powerMul?.(h.item) ?? 1) * L.damageMul * 100 + 1e-7) / 100 });
         }
       }
       for (const e of evs) if (e.type === 'lightningStrike' && e.tick > seenTick) seenTick = e.tick;
@@ -65,10 +69,12 @@ export function makeHitSources(r: WireRefs): HitSources {
     },
     dome: () => {
       const d = r.legend.dome();
+      if (!d) domeMul = null;
       const h = r.held();
       const L = h ? chargeOf(r.settings, h.item) : null;
       if (!d || !h || !L || L.kind !== 'shining') return null;
-      return { center: { x: d.x, y: d.y, z: d.z }, radius: d.r, damage: Math.round((legendPowerOf(r.settings, h.item, h.power ?? null) ?? 1) * L.damageMul * 100 + 1e-7) / 100, everySteps: L.hitEvery };
+      domeMul ??= r.powerMul?.(h.item) ?? 1;
+      return { center: { x: d.x, y: d.y, z: d.z }, radius: d.r, damage: Math.round((legendPowerOf(r.settings, h.item, h.power ?? null) ?? 1) * domeMul * L.damageMul * 100 + 1e-7) / 100, everySteps: L.hitEvery };
     },
     yokai: r.yokai,
     sound: r.sound,

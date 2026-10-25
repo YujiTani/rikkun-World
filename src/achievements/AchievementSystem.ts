@@ -528,6 +528,11 @@ export class AchievementSystem implements AchievementShowSource {
     this.run(() => this.setMax('ninjaKinds', kinds));
   }
 
+  /** SAMURAI-1: 侍装備が もちものに 入った（しゅるいの 数 `samuraiKinds`。侍帳 SamuraiBook.add の kinds。忍者の 実績・legend.kinds・get.* には 数えない） */
+  feedSamurai(_item: string, kinds: number): void {
+    this.run(() => this.setMax('samuraiKinds', kinds));
+  }
+
   /** 「もちもの が いっぱい」の合図が出た */
   feedFull(): void {
     this.run(() => this.bump('full', 1));
