@@ -2,6 +2,7 @@
 # 前と ちがう 所: permissions に actions: read / 「変更の 中身」で いちばん 新しい 緑の main の 時間を 集める /
 # E2E の 各シャードが その 時間で 分ける（E2E_TIMES_DIR）・自分の 時間を e2e-times-<n> に 残す。
 # 時間が とれない ときは 今までどおり e2e/shard-times.json で 分ける（落ちない）。
+# ラチェット（#310）の step も ここに 入れてある（yuzu の 手間を 1 回に）。
 name: CI
 
 on:
@@ -31,6 +32,9 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run check:fast
+      # ラチェット（#310）: コードのきまり違反の数が ratchet.json の上限より ふえたら 失敗。約 25 秒
+      - name: コードのきまり（ラチェット）
+        run: npm run check:ratchet
 
   # PR の 変更が ドキュメントだけ（docs/・.md・.claude/）なら E2E を とばす。main への push は いつも 全部 回す
   changes:
