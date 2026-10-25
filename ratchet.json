@@ -1,9 +1,9 @@
 {
-  "idCompare": 299,
+  "idCompare": 295,
   "idCase": 85,
   "switchExhaustive": 21,
   "cycles": 8,
-  "unusedExports": 423,
+  "unusedExports": 422,
   "unusedTypes": 165,
   "eslintDisable": 1,
   "filesOver800": 17

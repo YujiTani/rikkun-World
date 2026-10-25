@@ -1,3 +1,4 @@
+import { mapKinds, yokaiCountryBase } from '../../content/yokai/registry';
 import type { YokaiKind } from '../../contracts';
 import { ruby } from '../../ui/text';
 import { COUNTRY_KINDS, type CountryKind } from './config';
@@ -22,16 +23,11 @@ export interface CountryRow {
   yokai: Partial<Record<YokaiKind, number>>;
 }
 
-/** 重みの ものさし（はらっぱ）。国ごとの行は これに「多め +15・ほか −5」 */
-const BASE = { karakasa: 30, chochin: 25, rokurokubi: 25, nurikabe: 20 } as const;
+/** 重みの ものさし（はらっぱ）。値は 登録表の country.base（content/yokai/<kind>.ts）。国ごとの行は これに「多め +15・ほか −5」 */
+const BASE = yokaiCountryBase();
 const MANY = 15;
 const FEW = 5;
-const emphasis = (kind: YokaiKind): Partial<Record<YokaiKind, number>> => ({
-  karakasa: BASE.karakasa + (kind === 'karakasa' ? MANY : -FEW),
-  chochin: BASE.chochin + (kind === 'chochin' ? MANY : -FEW),
-  rokurokubi: BASE.rokurokubi + (kind === 'rokurokubi' ? MANY : -FEW),
-  nurikabe: BASE.nurikabe + (kind === 'nurikabe' ? MANY : -FEW),
-});
+const emphasis = (kind: YokaiKind): Partial<Record<YokaiKind, number>> => mapKinds((k) => BASE[k] + (k === kind ? MANY : -FEW));
 
 export const COUNTRY_TABLE: readonly CountryRow[] = [
   { kind: 'harappa', name: `はじまりの ${ruby('原', 'はら')}っぱ`, yomi: 'はじまりの はらっぱ', boss: 'tsuchigumo', yokai: { ...BASE } },

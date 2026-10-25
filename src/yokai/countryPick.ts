@@ -3,11 +3,12 @@ import type { YokaiKind } from '../contracts';
 /**
  * 妖怪の 種類の えらび方（COUNTRY-1 §3.3）。国の行（種類 → 重み）× 全体の倍率で 1 つ えらぶ。
  * 順番は 昔から この 4 つ（乱数の 並びを きめる。見本ページの並びの yokai/index.ts の YOKAI_ORDER とは別もの）。表に ない 種類は 重み 0。
+ * 新しい 妖怪は ここにも 手で 足す（足し忘れると 一度も 出ない）。全種類が 1 回ずつ 入っているかは content/yokai/registry.test.ts が 見張る。
  */
-export const YOKAI_DRAW_ORDER: readonly YokaiKind[] = ['karakasa', 'chochin', 'rokurokubi', 'nurikabe'];
+export const YOKAI_DRAW_ORDER = ['karakasa', 'chochin', 'rokurokubi', 'nurikabe'] as const satisfies readonly YokaiKind[];
 
 export type YokaiRow = Partial<Record<YokaiKind, number>>;
-export type YokaiScale = Record<string, number | null | undefined>;
+export type YokaiScale = Partial<Record<YokaiKind, number | null>>;
 
 /** 倍率: 0 か null は 出さない。書いて いない 種類は 1 倍 */
 function scaleOf(scale: YokaiScale, k: YokaiKind): number {

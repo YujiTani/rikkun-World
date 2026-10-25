@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { YokaiTitle } from '../contracts';
+import type { YokaiKind, YokaiTitle } from '../contracts';
 import { buildNickMarks, createNushiFlames, updateNushiFlames, type NickMarkKind, type NickMarks } from './nickMarks';
 
 export const DEG = Math.PI / 180;
@@ -184,7 +184,7 @@ export interface YokaiPoseInput {
  * たたかれた（白く光る・下がる）は上に重なるだけで、攻撃は止まらない。
  */
 export abstract class YokaiBase {
-  abstract readonly id: string;
+  abstract readonly id: YokaiKind;
   abstract readonly displayName: string;
   /** 攻撃の長さ（秒） */
   abstract readonly attackSeconds: number;

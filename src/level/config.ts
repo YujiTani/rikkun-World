@@ -1,3 +1,4 @@
+import { mapKinds } from '../content/yokai/registry';
 import type { YokaiKind } from '../contracts';
 import { yokaiStrength } from '../yokai/stats';
 
@@ -12,12 +13,7 @@ export interface LevelConfig {
 }
 
 export const LEVEL_DEFAULTS: Readonly<LevelConfig> = {
-  xp: {
-    chochin: yokaiStrength('chochin').xp,
-    karakasa: yokaiStrength('karakasa').xp,
-    rokurokubi: yokaiStrength('rokurokubi').xp,
-    nurikabe: yokaiStrength('nurikabe').xp,
-  },
+  xp: mapKinds((k) => yokaiStrength(k).xp), // 全種類（足し忘れない）。値は 強さの式（content/yokai/<kind>.ts の basis）
   perLevel: 5,
   maxLevel: 99,
 };

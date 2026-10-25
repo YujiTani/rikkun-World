@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { boxGeo, makePixelTexture } from './common';
-import type { YokaiTitle } from '../contracts';
+import { yokaiHeads } from '../content/yokai/registry';
+import type { HeadSpec } from '../content/yokai/types';
+import type { YokaiKind, YokaiTitle } from '../contracts';
 
 /**
  * 二つ名の 頭の印と、ヌシの ふんわり光（DESIGN 13.2、BALANCE §2.5）。
@@ -15,31 +17,8 @@ export interface NickMarks {
   kind: NickMarkKind;
 }
 
-/** 頭の グループの中での 印の位置の めやす（箱の大きさ・高さ） */
-interface HeadSpec {
-  /** はちまき: 帯の中心の高さ・横と奥行き */
-  bandY: number;
-  bandW: number;
-  bandD: number;
-  /** かんむり: 台の下の高さ・横と奥行き */
-  crownY: number;
-  crownW: number;
-  crownD: number;
-  /** 印の中心の ずれ（頭の グループの 原点が 体の中心でないとき）。なければ 0 */
-  z?: number;
-  /** 印ぜんたいの 大きさの 倍率（大きな体に 合わせる）。なければ 1。ここの 数は 倍率で 割った 値で 書く */
-  k?: number;
-}
-const HEADS: Record<string, HeadSpec> = {
-  // かさの 2 段め（y 1.43）・てっぺん（y 1.6）
-  karakasa: { bandY: 1.43, bandW: 0.74, bandD: 0.74, crownY: 1.6, crownW: 0.4, crownD: 0.4 },
-  // ちょうちん: どうの 上（ふたの上・えの まわり。つり手の グループの 中心から見た高さ）
-  chochin: { bandY: -0.27, bandW: 0.5, bandD: 0.5, crownY: -0.3, crownW: 0.44, crownD: 0.44 },
-  // ろくろくび: 頭（0〜0.5）の おでこ・まげの 上
-  rokurokubi: { bandY: 0.465, bandW: 0.55, bandD: 0.55, crownY: 0.7, crownW: 0.4, crownD: 0.4 },
-  // ぬりかべ: かべ（はば 2.6・高さ 2.7・あつさ 0.8、かべの グループの 中で y 0〜2.7・z 0.4 が中心）。目の上（y 2.5）に帯、てっぺん（y 2.7）に かんむり
-  nurikabe: { bandY: 1.25, bandW: 1.34, bandD: 0.44, crownY: 1.35, crownW: 0.45, crownD: 0.3, z: 0.4, k: 2 },
-};
+/** 頭の グループの中での 印の位置の めやす（箱の大きさ・高さ。値は content/yokai/<kind>.ts の head） */
+const HEADS: Record<YokaiKind, HeadSpec> = yokaiHeads();
 
 const KINARI = 0xfff6e0;
 const AI = 0x3d5a9e;
@@ -54,9 +33,9 @@ function box(g: THREE.Group, w: number, h: number, d: number, x: number, y: numb
 }
 
 /** 頭の印。おやぶん・二つ名なし は null。顔は 前（-Z）なので 結び目は うしろ（+Z） */
-export function buildNickMarks(kind: string, title: YokaiTitle): NickMarks | null {
+export function buildNickMarks(kind: YokaiKind, title: YokaiTitle): NickMarks | null {
   const s = HEADS[kind];
-  if (!s || (title !== 'taisho' && title !== 'nushi')) return null;
+  if (title !== 'taisho' && title !== 'nushi') return null;
   const group = new THREE.Group();
   group.name = 'nickMarks';
   group.position.z = s.z ?? 0;

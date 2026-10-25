@@ -5,6 +5,7 @@
  * 担当の割り振り: docs/tickets/M1-dev-split.md
  */
 
+import type { YokaiKind as YokaiKindFromIds } from './content/yokai/ids';
 import { SAMURAI_ITEM_IDS, type ArmorItemId, type BowId, type FarmBucketId, type FarmToolId, type GadgetId, type GoldId, type IngotId, type LegendId, type LiveItemId, type MaterialId, type NinjaId, type OrbId, type SamuraiId, type SeedItemId, type SwordId, type ToolItemId, type VegItemId } from './content/items/ids';
 import { registryBladeReach, registryBladeTrail, registryBowDamage, registryCan, registryHeal, registryLegend, registryWear } from './content/items/registry';
 
@@ -399,7 +400,8 @@ export interface TimeOfDay {
   onPhaseChange(fn: (phase: DayPhase) => void): () => void;
 }
 
-export type YokaiKind = 'karakasa' | 'chochin' | 'nurikabe' | 'rokurokubi';
+// 妖怪の種類は content/yokai/ids.ts の 1 か所（#307）。ここは 別名
+export type YokaiKind = YokaiKindFromIds;
 
 export type YokaiState =
   | 'appear'
