@@ -56,8 +56,7 @@ describe('AC18 侍装備の 実績', () => {
     expect(ACHIEVEMENT_DEFS.filter((d) => d.id.startsWith('get.')).map((d) => d.id)).toEqual(['get.raijin_ken.1', 'get.fujin_ken.1', 'get.niji.1']);
     expect(ACHIEVEMENT_DEFS.filter((d) => d.id.startsWith('legend.kinds.')).map((d) => d.id)).toEqual(['legend.kinds.1', 'legend.kinds.2', 'legend.kinds.3']);
   });
-  it('実績は ぜんぶで 284（NINJA-1 の 282 ＋ 2）で、samurai.* は 2 つだけ', () => {
+  it('samurai.* の 実績は 2 つだけ', () => {
     expect(ACHIEVEMENT_DEFS.filter((d) => d.id.startsWith('samurai.')).map((d) => d.id)).toEqual(['samurai.first.1', 'samurai.all.4']);
-    expect(ACHIEVEMENT_DEFS).toHaveLength(284);
   });
 });

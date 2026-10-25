@@ -72,7 +72,6 @@ describe('RARITY-7 表', () => {
 
 describe('RARITY-7 当てはめ・設定', () => {
   it('AC6 rarityAtLeast は全アイテム × 7 段で式と同じ', () => {
-    expect(ITEM_TYPES).toHaveLength(95); // SAMURAI-1（#300）: 明珍陣笠・羽織・手甲・下駄 +4。 // NINJA-1（#299）: 黒頭巾・忍び装束・忍びの手甲 +3（足袋は #293 で 済み）。 // #293 試作: 忍者の足袋 +1・間欠泉の つち +1。 LIVE-3: momo_nama・momo_yaki +2。GOLD-1: きん 10 こ（kin・きんの そうび 8・はらぱんみみず）。 LIVE-2: こたつ・とりごや・きん の たまご +3。WEAPON-7 PR1: 雷神剣 +1・PR2: 風神剣 +1・PR3: 虹 +1。 FLORA-75: のばな +1・LIVE-1: たまご +1・むし・むしとりあみ +2。#184: 12 の国の 7 こ（ゆき・もみじ・まつ・はな 3・たけ）が ふえた
     for (const it of ITEM_TYPES) {
       for (const t of ids) {
         expect(rarityAtLeast(it.id, t), `${it.id}/${t}`).toBe(rarityIndex(itemRarity(it.id)) >= rarityIndex(t));
@@ -81,14 +80,11 @@ describe('RARITY-7 当てはめ・設定', () => {
     }
   });
 
-  it('AC7 案 A: 5〜6 段目は 0 こ、7 段目は 2 こ（WEAPON-7 PR2 まで: 雷神剣・風神剣。PR3 で ＋1）、各段のこ数', () => {
-    const n: Record<string, number> = {};
+  it('AC7 どの アイテムも 7 段の どれか（段ごとの こ数は 決め打ちしない。#311）', () => {
     for (const it of ITEM_TYPES) {
       const r = itemRarity(it.id);
       expect(isRarity(r)).toBe(true);
-      n[r] = (n[r] ?? 0) + 1;
     }
-    expect(n).toEqual({ common: 41, uncommon: 19, rare: 10, superRare: 3, epic: 11, legendary: 11 }); // SAMURAI-1: 侍装備 4 つが legendary で 4 つ ふえた。 // NINJA-1: 忍者装備 4 つ（足袋は #293 から）が legendary で 3 つ ふえた。LIVE-2: こたつ・とりごや uncommon、きん の たまご epic。#293: 間欠泉の つち uncommon・忍者の足袋 legendary。 // 雷神剣・風神剣・虹（WEAPON-7 PR1・PR2・PR3）が legendary
     expect(itemRarity('crystal_katana')).toBe('superRare');
   });
 
