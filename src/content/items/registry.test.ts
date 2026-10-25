@@ -13,7 +13,7 @@ import { goldItemPixels, isGoldItem } from '../../ui/itemArtGold';
 import { isNinjaItem, ninjaItemPixels } from '../../ui/itemArtNinja';
 import { isSamuraiItem, samuraiItemPixels } from '../../ui/itemArtSamurai';
 import { NINJA_TUNING } from '../../craft/ninjaTuning';
-import { ARMOR_ITEM_IDS, BOW_IDS, FARM_BUCKET_IDS, FARM_TOOL_IDS, GOLD_IDS, LEGEND_IDS, NINJA_ITEM_IDS, SAMURAI_ITEM_IDS, SEED_ITEM_IDS, SWORD_IDS, TOOL_ITEM_IDS, VEG_ITEM_IDS, type GoldId } from './ids';
+import { ARMOR_ITEM_IDS, BOW_IDS, FARM_BUCKET_IDS, FARM_TOOL_IDS, GADGET_IDS, GOLD_IDS, INGOT_IDS, LEGEND_IDS, MATERIAL_ITEM_IDS, NINJA_ITEM_IDS, ORB_IDS, SAMURAI_ITEM_IDS, SEED_ITEM_IDS, SWORD_IDS, TOOL_ITEM_IDS, VEG_ITEM_IDS, type GoldId } from './ids';
 import { LEGEND } from './legend';
 import { ITEM_DEFS, REGISTRY_OVERLAPS, itemDef } from './registry';
 import { toolFamily } from '../../dig/toolFamily';
@@ -78,7 +78,7 @@ describe('登録表（金シリーズ）', () => {
   it('金の全 id に ItemDef がある（10 個・id は ids.ts の 1 回だけ）', () => {
     expect(GOLD_IDS).toHaveLength(10);
     for (const id of GOLD_IDS) expect(itemDef(id), id).toBeDefined();
-    expect(Object.keys(ITEM_DEFS).sort()).toEqual([...GOLD_IDS, ...LEGEND_IDS, ...NINJA_ITEM_IDS, ...SAMURAI_ITEM_IDS, ...GEAR_IDS, ...FARM_IDS].sort());
+    expect(Object.keys(ITEM_DEFS).sort()).toEqual([...GOLD_IDS, ...LEGEND_IDS, ...NINJA_ITEM_IDS, ...SAMURAI_ITEM_IDS, ...GEAR_IDS, ...FARM_IDS, ...ORB_IDS, ...MATERIAL_ITEM_IDS, ...INGOT_IDS, ...GADGET_IDS].sort());
     expect(Object.keys(EXPECT).sort()).toEqual([...GOLD_IDS].sort());
   });
 
@@ -104,7 +104,7 @@ describe('登録表（金シリーズ）', () => {
   });
 
   it('itemDef は 登録の ない id では undefined', () => {
-    expect(itemDef('iron_ingot')).toBeUndefined();
+    expect(itemDef('torch')).toBeUndefined();
     expect(itemDef('kin_tamago')).toBeUndefined();
   });
 

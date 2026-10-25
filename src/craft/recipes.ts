@@ -1,5 +1,5 @@
 import type { ItemId, Recipe } from '../contracts';
-import { ARMOR_DEFS, BOW_DEFS, BUCKET_DEFS, FARM_TOOL_DEFS, GOLD_DEFS, SEED_DEFS, SPRINKLER_DEFS, SWORD_DEFS, TOOL_DEFS, noteDuplicates, recipesOf } from '../content/items/registry';
+import { ARMOR_DEFS, BOW_DEFS, BUCKET_DEFS, FARM_TOOL_DEFS, GADGET_DEFS, GOLD_DEFS, INGOT_DEFS, SEED_DEFS, SPRINKLER_DEFS, SWORD_DEFS, TOOL_DEFS, noteDuplicates, recipesOf } from '../content/items/registry';
 
 const r = (
   id: ItemId,
@@ -29,11 +29,8 @@ export const CRAFT_RECIPES: readonly Recipe[] = [
   ...recipesOf(BOW_DEFS, 'craft'),
   ...recipesOf(ARMOR_DEFS, 'craft'),
   r('torch', 4, [['log', 1], ['oil', 1]], true),
-  r('lantern', 1, [['paper', 2], ['log', 1], ['oil', 1]], false),
-  r('kite', 1, [['paper', 3], ['string', 2], ['log', 1]], false),
-  r('futon', 1, [['cloth', 3], ['string', 1]], false),
-  r('omamori', 1, [['crystal', 1], ['cloth', 1], ['string', 1]], false),
-  r('waraji', 1, [['grass', 3], ['string', 1]], false),
+  // 小物（ちょうちん・たこ・ふとん・おまもり・わらじ。はにわは かまど）は 登録表（content/items/misc.ts）から。順は 登録の 順
+  ...recipesOf(GADGET_DEFS, 'craft'),
   // M6: たんす（き 8・てつの かたまり 2）
   r('tansu', 1, [['log', 8], ['iron_ingot', 2]], true),
   // 畑は 登録表（content/items/farm.ts）から。順は くわ → じょうろ → ながい じょうろ → スプリンクラー → バケツ（29 こ目）→ たね 4 こ（やさい 1 こ → たね 4 こ。作物の 順）
@@ -56,10 +53,11 @@ export const CRAFT_RECIPES: readonly Recipe[] = [
 
 /** やく 6 こ（M4 §4.2 の 4 こ ＋ LIVE-3 の やいた もも にく ＋ GOLD-1 の きん。かまど で。ねんりょう 1 こ・60 ステップ。やいた もも にく は いちばん うしろ） */
 export const BAKE_RECIPES: readonly Recipe[] = [
-  r('iron_ingot', 1, [['iron_ore', 1]], true, 'furnace'),
+  // てつの かたまりは 登録表（content/items/materials.ts）から。かわら・レンガの 次の はにわは 登録表（content/items/misc.ts）から
+  ...recipesOf(INGOT_DEFS, 'furnace'),
   r('kawara', 2, [['clay', 1]], true, 'furnace'),
   r('brick', 2, [['clay', 1]], true, 'furnace'),
-  r('haniwa', 1, [['clay', 2]], false, 'furnace'),
+  ...recipesOf(GADGET_DEFS, 'furnace'),
   // GOLD-1（§4.2）: きん の たまご を やく と きん 1 は 登録表（content/items/gold.ts）から
   ...recipesOf(GOLD_DEFS, 'furnace'),
   // LIVE-3（§4.2）: なま もも にく → やいた もも にく（ねんりょう 1・60 ステップ）

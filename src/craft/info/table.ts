@@ -4,7 +4,7 @@
  * 字は ひらがな・カタカナ・数字。漢字は 名前の ［漢字｜よみ］ だけ（出す ときに `withRuby`。WEAPON-7 §2.7）。
  * 「どこで」「つかいみち」「つよさ」の数は、ここには書かない（レシピ・ドロップ表・設定から `build.ts` が作る）。
  */
-import { CRAFT_E, vegRow } from '../../content/items/howText';
+import { vegRow } from '../../content/items/howText';
 import { registryArmorKind, registryInfo, withRegistry } from '../../content/items/registry';
 
 /** ボタンの絵の種類: `1-9` = ホットバーで えらぶ、`left` = ひだりクリック、`leftHold` = ひだりを おしつづける、`right` = みぎクリック、`E` = もちもの画面 */
@@ -43,9 +43,6 @@ export interface InfoRow {
 
 const PLACE = 'てに もって みぎクリック で おく';
 const PLACE_BTN: ButtonKey[] = ['1-9', 'right'];
-const LATER_HOW = 'いまは もてる だけ';
-
-const later = (row: string): InfoRow => ({ use: row, how: LATER_HOW, buttons: [], later: row });
 
 const OLD_ITEM_INFO: Record<string, InfoRow> = {
   // ---- ブロック（13）
@@ -91,24 +88,11 @@ const OLD_ITEM_INFO: Record<string, InfoRow> = {
     stats: 'tansu',
   },
 
-  // ---- ざいりょう（7）
-  paper: { use: 'や・ちょうちん・たこ の ざいりょう', how: CRAFT_E, buttons: ['E'] },
-  oil: { use: 'たいまつ・ちょうちん の ざいりょう。かまど の ねんりょう にも なる', how: `${CRAFT_E}。ねんりょう は かってに つかう`, buttons: ['E'] },
-  string: { use: 'ゆみ・よろい・すねあて・たこ・ふとん・おまもり・わらじ の ざいりょう', how: CRAFT_E, buttons: ['E'] },
-  cloth: { use: 'かぶと・よろい・こて・ふとん・おまもり の ざいりょう', how: CRAFT_E, buttons: ['E'] },
-  clay: { use: 'かまど で やくと かわら・レンガ・はにわ に なる', how: 'かまど に みぎクリック して やく', buttons: ['right'] },
-  crystal: { use: 'きらめく カタナ・おまもり の ざいりょう。ハイパーレア', how: CRAFT_E, buttons: ['E'] },
-  iron_ingot: { use: 'てつの つるはし・ぶき・ぼうぐ・たんす の ざいりょう', how: CRAFT_E, buttons: ['E'] },
+  // ---- ざいりょう（ようかいだま・かみ・あぶら・いと・ぬの・ねんど・すいしょう・てつの かたまり 8 個）は 登録表（content/items/materials.ts）に ある
 
   // ---- どうぐ・ぶき・ぼうぐ（16）は 登録表（content/items/tools.ts・weapons.ts・armor.ts）に ある
 
-  // ---- 働きが あとのもの（6）
-  lantern: later('おいて あかるく できるように なるよ（もうすぐ）'),
-  kite: later('そら に あげて あそべるように なるよ（もうすぐ）'),
-  futon: later('よる に ねると あさ に なるように なるよ（もうすぐ）'),
-  omamori: later('もっていると やられても もちもの を おとさなく なるよ（もうすぐ）'),
-  waraji: later('はくと すこし はやく あるけるように なるよ（もうすぐ）'),
-  haniwa: later('おいて かざれるように なるよ（もうすぐ）'),
+  // ---- 働きが あとのもの（ちょうちん・たこ・ふとん・おまもり・わらじ・はにわ 6 個）は 登録表（content/items/misc.ts）に ある
 
   // ---- 農業（たね・やさい・くわ・じょうろ・スプリンクラー・バケツ 14 個）は 登録表（content/items/farm.ts）に ある
 
@@ -126,9 +110,6 @@ const OLD_ITEM_INFO: Record<string, InfoRow> = {
   // ---- LIVE-3（§3.1）: もも にく
   momo_nama: { use: 'かまど で やく と たべられる', how: 'かまど に みぎクリック して やく', buttons: ['right'] },
   momo_yaki: { use: 'たべると ハート が 5 こ もどる', how: 'もって みぎクリック', buttons: ['1-9', 'right'] },
-
-  // ---- ようかいだま（§5。いまは 手に入らない。古い保存用）
-  yokai_orb: { use: 'いまは つかえない よ', how: '', buttons: [] },
 };
 
 // 登録表（content/items/）に うつした シリーズ（忍者・侍・金 …）の 行は そちらに 書く（ここへは 自動で 入る）

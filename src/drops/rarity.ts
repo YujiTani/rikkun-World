@@ -12,22 +12,9 @@ export { RARITY_COLOR, RARITY_ORDER, RARITY_TIERS, defaultDropMax, isRarity, rar
  * アイテムを足すときは、ここに めずらしさを必ず書く（登録表 content/items/ に うつした シリーズは そちらに 書く）。
  */
 const OLD_ITEM_ONLY_RARITY: Record<string, Rarity> = {
-  yokai_orb: 'uncommon',
-  paper: 'common',
-  string: 'common',
-  cloth: 'common',
-  oil: 'uncommon',
-  clay: 'uncommon',
-  crystal: 'superRare',
+  // ようかいだま・ざいりょう 6・てつの かたまり・小物 6 は 登録表（content/items/materials.ts・misc.ts）にある
   // M4（docs/design/M4-craft.md §4.4）。かまど・かわら・レンガは ほる設定（DIG_DEFAULTS.rarity）にある
-  iron_ingot: 'rare',
   torch: 'common',
-  lantern: 'uncommon',
-  kite: 'uncommon',
-  futon: 'uncommon',
-  omamori: 'superRare',
-  waraji: 'common',
-  haniwa: 'uncommon',
   // M7・M7-2・BUCKET-1（たね・やさい・くわ・じょうろ・スプリンクラー・バケツ）は 登録表（content/items/farm.ts）にある
   // LIVE-1
   egg: 'common',

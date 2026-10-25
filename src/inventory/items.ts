@@ -1,5 +1,5 @@
 import type { BlockId, ItemType } from '../contracts';
-import { ARMOR_DEFS, BOW_DEFS, BUCKET_DEFS, FARM_TOOL_DEFS, GOLD_DEFS, LEGEND_DEFS, NINJA_SAMURAI_DEFS, SEED_DEFS, SPRINKLER_DEFS, SWORD_DEFS, TOOL_DEFS, VEG_DEFS, itemTypesOf, noteDuplicates } from '../content/items/registry';
+import { ARMOR_DEFS, BOW_DEFS, BUCKET_DEFS, FARM_TOOL_DEFS, GADGET_DEFS, GOLD_DEFS, INGOT_DEFS, LEGEND_DEFS, MATERIAL_DEFS, NINJA_SAMURAI_DEFS, SEED_DEFS, SPRINKLER_DEFS, SWORD_DEFS, TOOL_DEFS, VEG_DEFS, itemTypesOf, noteDuplicates } from '../content/items/registry';
 import { BLOCK_TYPES } from '../world/blocks/blockTypes';
 
 export const INVENTORY_SIZE = 36;
@@ -25,17 +25,6 @@ const PLACEABLE_TYPES: readonly ItemType[] = PLACEABLE.map((id): ItemType => ({
   placeBlock: id,
 }));
 
-/** アイテムだけのもの（置けない）。M3: ようかいだま（M4 のクラフトの材料） */
-const ITEM_ONLY: readonly ItemType[] = [
-  { id: 'yokai_orb', name: 'ようかいだま', maxStack: BLOCK_MAX_STACK, placeBlock: null },
-  { id: 'paper', name: 'かみ', maxStack: BLOCK_MAX_STACK, placeBlock: null },
-  { id: 'oil', name: 'あぶら', maxStack: BLOCK_MAX_STACK, placeBlock: null },
-  { id: 'string', name: 'いと', maxStack: BLOCK_MAX_STACK, placeBlock: null },
-  { id: 'cloth', name: 'ぬの', maxStack: BLOCK_MAX_STACK, placeBlock: null },
-  { id: 'clay', name: 'ねんど', maxStack: BLOCK_MAX_STACK, placeBlock: null },
-  { id: 'crystal', name: 'すいしょう', maxStack: BLOCK_MAX_STACK, placeBlock: null },
-];
-
 /** M4（docs/design/M4-craft.md §4.4）: 置けるブロック 3 種（かまど・かわら・レンガ） */
 const M4_BLOCKS: readonly ItemType[] = [
   { id: 'furnace', name: 'かまど', maxStack: BLOCK_MAX_STACK, placeBlock: 'furnace' },
@@ -46,21 +35,10 @@ const M4_BLOCKS: readonly ItemType[] = [
   { id: 'tansu', name: 'たんす', maxStack: BLOCK_MAX_STACK, placeBlock: 'tansu' },
 ];
 
-/** M4: てつの かたまり（置けない）。前後の 道具・刀・ゆみ・防具 16 個は 登録表（content/items/tools.ts・weapons.ts・armor.ts）から（ITEM_TYPES で この 前後に 入れて、並びを 変えない） */
-const M4_ITEMS: readonly ItemType[] = [
-  { id: 'iron_ingot', name: 'てつの かたまり', maxStack: BLOCK_MAX_STACK, placeBlock: null },
-];
-
-/** M4 のつづき。すねあての 次の 忍者・侍装備 8 つは 登録表（content/items/ninja.ts・samurai.ts）から（ITEM_TYPES で この 前に 入れて、並びを 変えない） */
+/** M4 のつづき。すねあての 次の 忍者・侍装備 8 つは 登録表（content/items/ninja.ts・samurai.ts）から（ITEM_TYPES で この 前に 入れて、並びを 変えない）。小物 6 つは この 次に 登録表から 入れる */
 const M4_ITEMS_AFTER_GEAR: readonly ItemType[] = [
   // #293 試作: 間欠泉の つち（置ける。置けば どこでも 間欠泉。名前は ［漢字｜よみ］ — withRuby で 画面に 出す）
   { id: 'geyser_dirt', name: '［間欠泉｜かんけつせん］の つち', maxStack: BLOCK_MAX_STACK, placeBlock: 'geyser_dirt' },
-  { id: 'lantern', name: 'ちょうちん', maxStack: BLOCK_MAX_STACK, placeBlock: null },
-  { id: 'kite', name: 'たこ', maxStack: 1, placeBlock: null },
-  { id: 'futon', name: 'ふとん', maxStack: 1, placeBlock: null },
-  { id: 'omamori', name: 'おまもり', maxStack: 1, placeBlock: null },
-  { id: 'waraji', name: 'わらじ', maxStack: 1, placeBlock: null },
-  { id: 'haniwa', name: 'はにわ', maxStack: BLOCK_MAX_STACK, placeBlock: null },
 ];
 
 /** VOX-I-1: 12 の国のブロック（置ける）。すすき・くさ は こわすと 消えるので 持ち物にならない（のばな は 持てる。FLORA-75） */
@@ -85,17 +63,20 @@ const LIVE_ITEMS: readonly ItemType[] = [
 
 export const ITEM_TYPES: readonly ItemType[] = [
   ...PLACEABLE_TYPES,
-  ...ITEM_ONLY,
+  // M3・M4: ようかいだま → かみ・あぶら・いと・ぬの・ねんど・すいしょう（置けない）は 登録表（content/items/materials.ts）から
+  ...itemTypesOf(MATERIAL_DEFS),
   ...M4_BLOCKS,
-  // M4: つるはし 3 本・おの 3 本 → てつの かたまり → 刀 4 つ・ゆみ・や・防具 4 つ は 登録表（content/items/）から（古い表と 同じ 位置）
+  // M4: つるはし 3 本・おの 3 本 → てつの かたまり（置けない） → 刀 4 つ・ゆみ・や・防具 4 つ は 登録表（content/items/）から（古い表と 同じ 位置）
   ...itemTypesOf(TOOL_DEFS),
-  ...M4_ITEMS,
+  ...itemTypesOf(INGOT_DEFS),
   ...itemTypesOf(SWORD_DEFS),
   ...itemTypesOf(BOW_DEFS),
   ...itemTypesOf(ARMOR_DEFS),
   // NINJA-1（#299）・SAMURAI-1（#300）: 忍者装備 4 つ・侍装備 4 つは 登録表から（古い表と 同じ 位置）
   ...itemTypesOf(NINJA_SAMURAI_DEFS),
   ...M4_ITEMS_AFTER_GEAR,
+  // M4: 小物 6 つ（ちょうちん・たこ・ふとん・おまもり・わらじ・はにわ）は 登録表（content/items/misc.ts）から（間欠泉の つちの 次）
+  ...itemTypesOf(GADGET_DEFS),
   // M7・M7-2・BUCKET-1: たね 4・やさい 4・くわ・じょうろ 2・スプリンクラー・バケツ 2 は 登録表（content/items/farm.ts）から（古い表と 同じ 位置）
   ...itemTypesOf(SEED_DEFS),
   ...itemTypesOf(VEG_DEFS),

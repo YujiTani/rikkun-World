@@ -5,7 +5,7 @@
  * 担当の割り振り: docs/tickets/M1-dev-split.md
  */
 
-import { SAMURAI_ITEM_IDS, type ArmorItemId, type BowId, type FarmBucketId, type FarmToolId, type GoldId, type LegendId, type NinjaId, type SamuraiId, type SeedItemId, type SwordId, type ToolItemId, type VegItemId } from './content/items/ids';
+import { SAMURAI_ITEM_IDS, type ArmorItemId, type BowId, type FarmBucketId, type FarmToolId, type GadgetId, type GoldId, type IngotId, type LegendId, type MaterialId, type NinjaId, type OrbId, type SamuraiId, type SeedItemId, type SwordId, type ToolItemId, type VegItemId } from './content/items/ids';
 import { registryBladeReach, registryBladeTrail, registryBowDamage, registryCan, registryLegend, registryWear } from './content/items/registry';
 
 export interface Vec3 {
@@ -194,30 +194,21 @@ export type HookNamespace = Record<string, (...args: never[]) => unknown>;
  * yokai_orb は M3 第 1 版の名残り（使わなくなったが、型を壊さないため残す）
  */
 export type ItemOnlyId =
-  | 'yokai_orb'
-  | 'paper' // かみ
-  | 'oil' // あぶら
-  | 'string' // いと
-  | 'cloth' // ぬの
-  | 'clay' // ねんど
-  | 'crystal' // すいしょう（レア度の低い宝石）
+  // ようかいだま（M3 第 1 版の 名残り）・ざいりょう 6（かみ・あぶら・いと・ぬの・ねんど・すいしょう）・てつの かたまり・小物 6（ちょうちん・たこ・ふとん・おまもり・わらじ・はにわ）の id は content/items/ids.ts の 1 か所（#306）
+  | OrbId
+  | MaterialId
   // M4（docs/design/M4-craft.md §4.4）
   // 道具（つるはし 3・おの 3）・刀 4・ゆみ・や・防具 4 の id は content/items/ids.ts の 1 か所（#306）
   | ToolItemId
   | SwordId
   | BowId
   | ArmorItemId
-  | 'iron_ingot'
+  | IngotId
   // NINJA-1（#299）・SAMURAI-1（#300）: 忍者装備 4 つ・侍装備 4 つの id は content/items/ids.ts の 1 か所（#306）
   | NinjaId
   | SamuraiId
   | 'torch'
-  | 'lantern'
-  | 'kite'
-  | 'futon'
-  | 'omamori'
-  | 'waraji'
-  | 'haniwa'
+  | GadgetId
   // M7・M7-2・BUCKET-1: たね 4・やさい 4・くわ・じょうろ 2・バケツ 2 の id は content/items/ids.ts の 1 か所（#306）。スプリンクラーは ブロック
   | SeedItemId
   | VegItemId

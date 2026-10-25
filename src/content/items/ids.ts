@@ -62,3 +62,19 @@ export type FarmToolId = (typeof FARM_TOOL_IDS)[number];
 /** バケツ（BUCKET-1）: から・みず（この順） */
 export const FARM_BUCKET_IDS = ['bucket', 'water_bucket'] as const;
 export type FarmBucketId = (typeof FARM_BUCKET_IDS)[number];
+
+/** ようかいだま（M3 の 名残り。いまは 手に入らない 古い保存用）。ITEM_TYPES では ざいりょうの 先頭 */
+export const ORB_IDS = ['yokai_orb'] as const;
+export type OrbId = (typeof ORB_IDS)[number];
+
+/** ざいりょう 6 つ（M3・M4）: かみ・あぶら・いと・ぬの・ねんど・すいしょう（この順が ITEM_TYPES の 並び。ようかいだまの 次） */
+export const MATERIAL_ITEM_IDS = ['paper', 'oil', 'string', 'cloth', 'clay', 'crystal'] as const;
+export type MaterialId = (typeof MATERIAL_ITEM_IDS)[number];
+
+/** てつの かたまり（M4。かまどで 鉄鉱石を やく。ITEM_TYPES では つるはし・おのの 次） */
+export const INGOT_IDS = ['iron_ingot'] as const;
+export type IngotId = (typeof INGOT_IDS)[number];
+
+/** 小物 6 つ（M4。働きは あとで 入る）: ちょうちん・たこ・ふとん・おまもり・わらじ・はにわ（この順が ITEM_TYPES・作業台の カード・たいきゅうの 並び） */
+export const GADGET_IDS = ['lantern', 'kite', 'futon', 'omamori', 'waraji', 'haniwa'] as const;
+export type GadgetId = (typeof GADGET_IDS)[number];

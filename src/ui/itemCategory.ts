@@ -5,7 +5,7 @@
  * 新しいアイテムを足すときは、ここにも 1 行足す（表に無いアイテムは `material` = そざい）。
  * 登録表（content/items/）に うつしたシリーズは、そちらの `category` に 書く（ここへは 自動で 入る）。
  */
-import { ARMOR_DEFS, BOW_DEFS, BUCKET_DEFS, FARM_TOOL_DEFS, GOLD_DEFS, LEGEND_DEFS, NINJA_SAMURAI_DEFS, SEED_DEFS, SPRINKLER_DEFS, SWORD_DEFS, TOOL_DEFS, VEG_DEFS, noteDuplicates, registryCategoryIds } from '../content/items/registry';
+import { ARMOR_DEFS, BOW_DEFS, BUCKET_DEFS, FARM_TOOL_DEFS, GADGET_DEFS, GOLD_DEFS, ITEM_DEFS, LEGEND_DEFS, NINJA_SAMURAI_DEFS, SEED_DEFS, SPRINKLER_DEFS, SWORD_DEFS, TOOL_DEFS, VEG_DEFS, noteDuplicates, pickDefs, registryCategoryIds } from '../content/items/registry';
 
 export type ItemCategory =
   | 'soil'
@@ -48,13 +48,14 @@ const OLD_CATEGORY_ITEMS: Readonly<Record<ItemCategory, readonly string[]>> = {
   plant: ['grass', 'log', 'leaves', ...registryCategoryIds('plant', SEED_DEFS), 'momiji_leaves', 'matsu_leaves', 'flower_y', 'flower_o', 'flower_p', 'bamboo', 'mushi', 'nobana'],
   ore: ['coal_ore', 'iron_ore'],
   build: ['kawara', 'brick'],
-  material: ['paper', 'string', 'cloth', 'oil', 'clay', 'yokai_orb', 'kin_tamago'],
-  metal: ['iron_ingot', 'crystal'],
+  // ざいりょう・てつの かたまり・すいしょうは 登録表（content/items/materials.ts）から。並びは 古い表と 同じに ここで 決める
+  material: [...registryCategoryIds('material', pickDefs(ITEM_DEFS, ['paper', 'string', 'cloth', 'oil', 'clay', 'yokai_orb'])), 'kin_tamago'],
+  metal: registryCategoryIds('metal', pickDefs(ITEM_DEFS, ['iron_ingot', 'crystal'])),
   tool: [...registryCategoryIds('tool', TOOL_DEFS), ...registryCategoryIds('tool', FARM_TOOL_DEFS), ...registryCategoryIds('tool', BUCKET_DEFS), 'mushi_ami'],
   weapon: [...registryCategoryIds('weapon', SWORD_DEFS), ...registryCategoryIds('weapon', LEGEND_DEFS), ...registryCategoryIds('weapon', BOW_DEFS)], // 刀 4 つ → レジェンダリー 3 つ → ゆみ・や（古い表と 同じ 並び）
   armor: registryCategoryIds('armor', ARMOR_DEFS),
-  light: ['torch', 'lantern'],
-  home: ['furnace', 'tansu', 'futon', 'haniwa', 'kite', 'waraji', 'omamori', ...registryCategoryIds('home', SPRINKLER_DEFS), 'nukunuku', 'toriya'],
+  light: ['torch', ...registryCategoryIds('light', GADGET_DEFS)],
+  home: ['furnace', 'tansu', ...registryCategoryIds('home', pickDefs(GADGET_DEFS, ['futon', 'haniwa', 'kite', 'waraji', 'omamori'])), ...registryCategoryIds('home', SPRINKLER_DEFS), 'nukunuku', 'toriya'],
   food: [...registryCategoryIds('food', VEG_DEFS), 'egg', 'momo_nama', 'momo_yaki'],
 };
 
