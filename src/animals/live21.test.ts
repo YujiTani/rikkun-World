@@ -214,6 +214,44 @@ describe('なげる（通し）', () => {
     expect(inInterior(c, r.x, r.z, 0)).toBe(false);
     expect(r.carried).toBe(false);
   });
+  for (const stage of ['chick', 'adult'] as const) {
+    it(`AC4 （${stage}）さく の 外 1 マス から 中 3×3 へ → 10 ステップ目 に toss・20＋5d ステップ で P・下向き 速さ は 設定 以下`, () => {
+      const s = setup({ px: 46.5, pz: 50.5 });
+      const c = place(s, 50, 50, 0);
+      const id = carry(s, 47.5, 50.5, stage);
+      s.m.events();
+      expect(s.m.startThrow(aimEast(s, { x: 50, y: 9, z: 50 }))).toBe(true);
+      let tossAt = -1;
+      let arcEnd = -1;
+      let to: Vec3 | null = null;
+      let minVy = 0;
+      let sawThrown = false;
+      for (let i = 1; i <= 300 && arcEnd < 0; i++) {
+        s.step(1);
+        const r = s.one(id);
+        if (r.state === 'thrown') sawThrown = true;
+        for (const e of s.m.events()) {
+          if (e.type === 'toss') {
+            tossAt = i;
+            to = e.to;
+          }
+        }
+        if (tossAt >= 0 && r.fluttering) arcEnd = i;
+      }
+      for (let i = 0; i < 120; i++) {
+        s.step(1);
+        const r = s.one(id);
+        if (r.fluttering) minVy = Math.min(minVy, r.vy);
+      }
+      const speed = stage === 'chick' ? s.settings.chickFlutterFallSpeed : s.settings.animalFlutterFallSpeed;
+      expect(tossAt).toBe(10);
+      expect(sawThrown, 'list() の state が thrown').toBe(true);
+      const d = Math.hypot(to!.x - 47.5, to!.z - 50.5);
+      expect(Math.abs(arcEnd - tossAt - (20 + 5 * d)), '20＋5d ステップ').toBeLessThanOrEqual(3);
+      expect(minVy, 'そのあと 下向き の 速さ').toBeGreaterThanOrEqual(-(speed + 0.05));
+      expect(s.one(id).home).toBe(c.id);
+    });
+  }
   it('d＜1 → なげず に 20 ステップ で そっと おろす（toss なし・putDown は 20 ステップ後）', () => {
     const s = setup();
     const id = carry(s, 20.5, 20.5);
@@ -241,6 +279,18 @@ describe('なげる（通し）', () => {
     s.m.events();
     expect(s.m.startThrow(aimEast(s, null))).toBe(false);
     expect(s.m.lastHint()).toBe('cantPutHere');
+    expect(s.m.carrying()).toBe(id);
+    s.step(30);
+    expect(s.ev('toss')).toHaveLength(0);
+  });
+  it('AC5d 6 わ の 小屋 の 中 を ねらう → startThrow false・coopFull・だっこ の まま', () => {
+    const s = setup({ px: 46.5, pz: 50.5 });
+    const c = place(s, 50, 50, 0);
+    for (let i = 0; i < 6; i++) s.m.spawn(49.5 + (i % 3), 9, 49.5 + Math.floor(i / 3), { home: c.id });
+    const id = carry(s, 47.5, 50.5);
+    s.m.events();
+    expect(s.m.startThrow(aimEast(s, { x: 50, y: 9, z: 50 }))).toBe(false);
+    expect(s.m.lastHint()).toBe('coopFull');
     expect(s.m.carrying()).toBe(id);
     s.step(30);
     expect(s.ev('toss')).toHaveLength(0);

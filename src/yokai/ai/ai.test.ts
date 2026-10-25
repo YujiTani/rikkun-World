@@ -867,3 +867,133 @@ describe('列を捨てる・出てよい列（VOX-D）', () => {
     expect(s.m.drainEvents().filter((e) => e.type === 'defeat')).toHaveLength(0);
   });
 });
+
+describe('LIVE-4: マッチョ に 知らせる きっかけ（takeCues）と マッチョ の 一撃（#311）', () => {
+  const from = { x: 2.5, y: 9, z: 6.5 };
+  const runUntilHit = (s: ReturnType<typeof setup>, n = 400) => {
+    for (let i = 0; i < n && s.combat.hits.length === 0; i++) s.step();
+  };
+  it('AC2 りっくん が たたいた: hit に id。マッチョ の 一撃・小太刀 は きっかけ に ならない。呼ぶと 空', () => {
+    const s = setup();
+    const id = s.m.spawn('karakasa', 4.5, 9, 6.5, { ai: false });
+    s.m.setHp(id, 99);
+    s.m.damage(id, 1, from, { dist: 0, up: 0 }, 'macho');
+    s.m.damage(id, 1, from, { dist: 0, up: 0 }, 'kodachi');
+    expect(s.m.takeCues()).toBeNull();
+    s.m.damage(id, 1, from);
+    expect(s.m.takeCues()).toEqual({ hit: [id], hurt: [] });
+    expect(s.m.takeCues()).toBeNull();
+  });
+  it('AC3 からかさ に たたかれた: hurt に その からかさ の id。むてき で 体力 が へらない ときは なし', () => {
+    const s = setup();
+    s.player.position = { x: 2.5, y: 9, z: 6.5 };
+    const id = s.m.spawn('karakasa', 2.5, 9, 8.0, { ai: false });
+    s.m.attackNow(id);
+    runUntilHit(s);
+    expect(s.m.drainEvents().filter((e) => e.type === 'attackHit').map((e) => (e as { hitPlayer: boolean }).hitPlayer), '体当たり でなく こうげき が 当たった').toEqual([true]);
+    expect(s.combat.hits).toHaveLength(1);
+    expect(s.m.takeCues()).toEqual({ hit: [], hurt: [id] });
+    const t = setup();
+    t.combat.damage = () => false; // 体力 が へらなかった
+    t.player.position = { x: 2.5, y: 9, z: 6.5 };
+    const id2 = t.m.spawn('karakasa', 2.5, 9, 8.0, { ai: false });
+    t.m.attackNow(id2);
+    for (let i = 0; i < 400; i++) t.step();
+    expect(t.m.takeCues()).toBeNull();
+  });
+  it('AC3 ちょうちん の 火の玉 で たたかれた: hurt に その ちょうちん の id', () => {
+    const s = setup();
+    s.player.position = { x: 2.5, y: 9, z: 6.5 };
+    const id = s.m.spawn('chochin', 7.5, 9, 6.5, { yawDeg: 270 });
+    expect(s.m.attackNow(id)).not.toBeNull();
+    runUntilHit(s, 600);
+    expect(s.combat.hits).toHaveLength(1);
+    expect(s.m.takeCues()).toEqual({ hit: [], hurt: [id] });
+  });
+  it('AC14 (a) パリィ で はじいた こうげき は きっかけ に ならない（体力 も へらない）', () => {
+    const s = setup();
+    const asked: string[] = [];
+    const m = new YokaiManager({
+      world: s.world, time: s.time, getPlayer: () => s.player, combat: s.combat, inventory: s.inv, seed: 1,
+      parry: { hit: (h) => (asked.push(h.by), { result: 'success', amount: 0 }) },
+    });
+    m.config.yokaiAutoSpawn = false;
+    m.config.yokaiWander = false;
+    s.player.position = { x: 2.5, y: 9, z: 6.5 };
+    const id = m.spawn('karakasa', 2.5, 9, 8.0, { ai: false });
+    m.attackNow(id);
+    for (let i = 0; i < 400; i++) m.update(1 / 60);
+    expect(asked, 'パリィ に きいた').toContain('attack');
+    expect(s.combat.hits).toHaveLength(0);
+    expect(m.takeCues()).toBeNull();
+  });
+  it('AC14 (b) ちょうちん の 火の玉 を パリィ で はね返す: きっかけ に ならない（はね返した 火の玉 が 当たっても）', () => {
+    const s = setup();
+    const asked: string[] = [];
+    const m = new YokaiManager({
+      world: s.world, time: s.time, getPlayer: () => s.player, combat: s.combat, inventory: s.inv, seed: 1,
+      parry: { hit: (h) => (asked.push(h.by), { result: 'success', amount: 0 }) },
+    });
+    m.config.yokaiAutoSpawn = false;
+    m.config.yokaiWander = false;
+    s.player.position = { x: 2.5, y: 9, z: 6.5 };
+    const id = m.spawn('chochin', 7.5, 9, 6.5, { yawDeg: 270 });
+    m.attackNow(id);
+    for (let i = 0; i < 600; i++) {
+      m.update(1 / 60);
+      expect(m.takeCues(), `ステップ ${i}`).toBeNull();
+    }
+    expect(asked, 'パリィ に きいた').toContain('fireball');
+    expect(s.combat.hits).toHaveLength(0);
+  });
+  it('AC13 マッチョ は 的 に ならない: プレイヤー が とおい とき の こうげき は hitPlayer false・体力 も きっかけ も なし', () => {
+    const s = setup();
+    s.player.position = { x: 2.5, y: 9, z: 20.5 };
+    const id = s.m.spawn('karakasa', 3.5, 9, 6.5, { ai: false });
+    s.m.attackNow(id);
+    const hits: boolean[] = [];
+    for (let i = 0; i < 200; i++) {
+      s.step();
+      for (const e of s.m.drainEvents()) if (e.type === 'attackHit') hits.push(e.hitPlayer);
+    }
+    expect(hits).toEqual([false]);
+    expect(s.combat.hits).toHaveLength(0);
+    expect(s.m.takeCues()).toBeNull();
+  });
+  it('AC4 マッチョ の 一撃: hurt の by は macho・knock 0 なら 動かない・うかない', () => {
+    const s = setup();
+    const id = s.m.spawn('karakasa', 4.5, 9, 6.5, { ai: false });
+    s.m.setHp(id, 99);
+    const p0 = { ...s.m.list()[0]!.position };
+    s.m.drainEvents();
+    expect(s.m.damage(id, 2, from, { dist: 0, up: 0 }, 'macho')).toBe(2);
+    expect(s.m.list()[0]!.hp).toBe(97);
+    expect(s.m.drainEvents().filter((e) => e.type === 'hurt').map((e) => (e as { by?: string }).by)).toEqual(['macho']);
+    s.step(30);
+    const p1 = s.m.list()[0]!.position;
+    expect(Math.hypot(p1.x - p0.x, p1.z - p0.z)).toBeLessThanOrEqual(0.05);
+    expect(Math.abs(p1.y - p0.y)).toBeLessThanOrEqual(0.05);
+  });
+  it('AC7 マッチョ が たおした ごほうび（経験値・defeat の reward）は りっくん が たおした のと 同じ', () => {
+    const kill = (by: 'player' | 'macho') => {
+      const s = setup();
+      const got: { kind: string; xp: number }[] = [];
+      const m = new YokaiManager({
+        world: s.world, time: s.time, getPlayer: () => s.player, combat: s.combat, inventory: s.inv, seed: 1,
+        onDefeat: (kind, info) => got.push({ kind, xp: info.xp }),
+      });
+      const id = m.spawn('karakasa', 4.5, 9, 6.5, { ai: false });
+      m.setHp(id, 1);
+      m.drainEvents();
+      m.damage(id, 2, from, { dist: 0, up: 0 }, by);
+      const d = m.drainEvents().filter((e) => e.type === 'defeat') as { reward: number; kind: string; title: string }[];
+      return { got, d: d.map((e) => ({ reward: e.reward, kind: e.kind, title: e.title })), cues: m.takeCues() };
+    };
+    const a = kill('player');
+    const b = kill('macho');
+    expect(b.got).toHaveLength(1);
+    expect(b.got[0]!.xp).toBeGreaterThan(0);
+    expect(b.got).toEqual(a.got);
+    expect(b.d).toEqual(a.d);
+  });
+});

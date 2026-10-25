@@ -5,110 +5,14 @@ import { openAnimals } from './helpers/animals';
  * LIVE-1 畜産（にわとり）の E2E その 1（docs/design/LIVE-1.md 版 3.2 §6）: AC1 出てくる 30 ステップ・AC2 であう・AC4 見る・AC5 たたけない・
  * AC11 むしを あげる／おなかいっぱい／なかまに なる・AC12 やさいは あげられない／なかまの はなした 瞬間・AC14 なかま いっぱい・AC27 合図の 文字。
  * （版 2 の AC6〜AC9 は やさいで なかよく なる 動きなので、むしの AC11・AC12・AC14 に おきかえた）
+ * #311: 数・状態だけの 確認（AC1 AC2 AC4 AC11b AC13 AC14）は ユニットへ（src/animals/animals.test.ts・src/fx/animalFx.test.ts・src/dig/rightClick.live1.test.ts）。
+ * ここには 入力→ゲーム→窓口の 通し（AC5・AC5b・AC11・AC12）と 画面の 文字（AC27）だけ 残す。
  * 数は 設定（`settings.get`）から 読み、ねらいは `animals.target()` に 聞いて 確かめる。
  * 台帳 G6 の 決め: 出てくる 30 ステップ（`appear`）の あいだは ねらえない（`target()` null）・右クリックは 何も 起きない。
  */
 test.describe('LIVE-1 にわとり（であう・あげる・たたけない）', () => {
   // 3 並列の SwiftShader で 30〜60 秒かかる テストが あり、60 秒だと 時間切れに なる（期待は 変えない）
   test.describe.configure({ timeout: 150_000 });
-  test('AC2 であう: ひる・はじまりの 場所で 3,600 ステップ → くさの 上の やせい（3 わ 以下・出てくる 30 ステップ）', async ({ page }) => {
-    await openAnimals(page); // ?nosave=1 の まま = 毎回 同じ シード・はじまりの 場所（はらっぱ）
-    const r = await page.evaluate(() => {
-      const h = (window as any).__rikkun;
-      h.pause();
-      h.lock.simulate(true);
-      h.settings.set('yokaiAutoSpawn', false);
-      h.animals.clear();
-      h.settings.set('animalAutoSpawn', true);
-      h.time.set(1000); // 台帳 G3: ひるの はじまり（ひるは 54,000 ステップ。3,600 の あいだ ひるの まま）
-      h.step(2);
-      const out: any = { maxWild: 0, appear: null as any, first: null as any };
-      for (let i = 0; i < 3600; i++) {
-        h.step(1);
-        const wild = h.animals.list().filter((a: any) => !a.friend);
-        out.maxWild = Math.max(out.maxWild, wild.length);
-        if (!out.first && wild.length > 0) {
-          out.first = { tick: i, ...wild[0] };
-          out.appear = wild[0].state;
-        }
-      }
-      const wild = h.animals.list().filter((a: any) => !a.friend);
-      out.n = wild.length;
-      out.rows = wild.map((a: any) => ({
-        id: a.id,
-        below: h.world.getBlock(Math.floor(a.x), Math.floor(a.y) - 1, Math.floor(a.z)),
-        kind: h.biome.at(a.x, a.z).kind,
-      }));
-      out.spawnEvents = h.animals.events().filter((e: any) => e.type === 'spawn').length;
-      return out;
-    });
-    expect(r.n, 'やせいが 1 わ 以上').toBeGreaterThanOrEqual(1);
-    expect(r.maxWild, 'やせいは いつも 3 以下').toBeLessThanOrEqual(3);
-    expect(r.spawnEvents).toBeGreaterThanOrEqual(1);
-    for (const row of r.rows) {
-      expect(row.below, '足もとは くさ').toBe('grass');
-      expect(['harappa', 'hana']).toContain(row.kind);
-    }
-    expect(r.appear, '出た ばかりは appear').toBe('appear');
-  });
-
-  test('AC1 AC2b 出てくる 30 ステップの あいだは ねらえない・30 ステップで appear が おわる（G6）', async ({ page }) => {
-    await openAnimals(page);
-    const r = await page.evaluate(() => {
-      const h = (window as any).__rikkun;
-      const A = (window as any).__A;
-      A.base();
-      h.settings.set('animalSpawnMinDist', 3);
-      h.settings.set('animalSpawnMaxDist', 8);
-      let id: number | null = null;
-      for (let i = 0; i < 40 && id === null; i++) id = h.animals.trySpawn();
-      if (id === null) return { id };
-      const out: any = { id, state0: A.one(id).state };
-      A.aim(id);
-      out.targetDuring = h.animals.target();
-      A.hold('mushi', 3);
-      A.tap();
-      out.heartsDuring = A.one(id).hearts;
-      out.mushiDuring = h.inventory.count('mushi');
-      h.step(40);
-      out.stateAfter = A.one(id).state;
-      return out;
-    });
-    expect(r.id, 'trySpawn で 出る').not.toBeNull();
-    expect(r.state0).toBe('appear');
-    expect(r.targetDuring, 'appear の あいだは ねらえない').toBeNull();
-    expect(r.heartsDuring).toBe(0);
-    expect(r.mushiDuring, 'むしは へらない（ねらえず うしろへ 通る）').toBe(3);
-    expect(r.stateAfter).not.toBe('appear');
-  });
-
-  test('AC4 見る: 5 マスで 30 ステップ以内に こっちを 見る・止まる・8 マスで うろうろ に もどる', async ({ page }) => {
-    await openAnimals(page);
-    const r = await page.evaluate(() => {
-      const h = (window as any).__rikkun;
-      const A = (window as any).__A;
-      A.base();
-      const look = h.settings.get('animalLookDist');
-      const id = h.animals.spawn(12.5, 9, 6.5);
-      h.player.set({ position: { x: 12.5 - (look - 1), y: 9, z: 6.5 }, yaw: 90, pitch: 0 });
-      h.step(30);
-      const a = A.one(id);
-      const out: any = { look, d: A.dist(a, h.player.get().position), looking: a.lookingAtPlayer, state: a.state };
-      h.step(60);
-      const b = A.one(id);
-      out.drift = Math.hypot(b.x - a.x, b.z - a.z);
-      h.player.set({ position: { x: 12.5 - (look + 2), y: 9, z: 6.5 } });
-      h.step(30);
-      out.farLooking = A.one(id).lookingAtPlayer;
-      return out;
-    });
-    expect(r.d).toBeLessThanOrEqual(r.look);
-    expect(r.looking).toBe(true);
-    expect(r.state).toBe('look');
-    expect(r.drift).toBeLessThanOrEqual(0.05);
-    expect(r.farLooking).toBe(false);
-  });
-
   test('AC5 たたけない: すで・つるはし・刀・や で 当たらない・うしろの ブロックは ほれる・すりぬけ・妖怪は ねらわない', async ({ page }) => {
     await openAnimals(page);
     const r = await page.evaluate(() => {
@@ -282,44 +186,6 @@ test.describe('LIVE-1 にわとり（であう・あげる・たたけない）'
     expect(r.modalSeen, 'おめでとう画面が 出た').toBe(true);
   });
 
-  test('AC11b お祝い: はじめては confetti・burst 8・friendFirst・carryHint、2 わ目は confetti 0・burst 5・friend', async ({ page }) => {
-    await openAnimals(page);
-    const r = await page.evaluate(() => {
-      const h = (window as any).__rikkun;
-      const A = (window as any).__A;
-      A.base();
-      const react = h.settings.get('animalReactTicks');
-      const one = (x: number, z: number) => {
-        const id = h.animals.spawn(x, 9, z, { hearts: 2 });
-        h.step(35);
-        A.aim(id);
-        A.hold('mushi', 3);
-        h.animals.fxReset();
-        h.audio.sfx();
-        A.tap();
-        h.step(react + 2);
-        return { fx: h.animals.fx(), sfx: A.sfx(), friend: A.one(id).friend, id };
-      };
-      const first = one(4.5, 6.5);
-      h.step(60);
-      const carryHint = A.events('hint').some((e: any) => e.hint === 'carryHint');
-      h.player.set({ position: { x: 2.5, y: 9, z: 14.5 } });
-      (window as any).__aim.standForS(2.5, 14.5, 90, -20, 9);
-      const second = one(4.5, 14.5);
-      return { first, second, carryHint };
-    });
-    expect(r.first.friend).toBe(true);
-    expect(r.first.fx.confetti).toBeGreaterThan(0);
-    expect(r.first.fx.burst).toBe(8);
-    expect(r.first.sfx).toContain('friendFirst');
-    expect(r.carryHint, 'はじめての お祝いが おわると carryHint').toBe(true);
-    expect(r.second.friend).toBe(true);
-    expect(r.second.fx.confetti).toBe(0);
-    expect(r.second.fx.burst).toBe(5);
-    expect(r.second.sfx).toContain('friend');
-    expect(r.second.sfx).not.toContain('friendFirst');
-  });
-
   test.fixme('AC11c 動きの 強さ 0 で はじめて → confetti 0・ハート 1 と 音（「動きの強さ」設定が まだ ない。できたら 書く）', async () => {});
 
   test('AC12 やさいは あげられない: やせい+トマト → pet・feedHint（むしの 文）。なかまは はなした 瞬間に pet／feed', async ({ page }) => {
@@ -387,83 +253,6 @@ test.describe('LIVE-1 にわとり（であう・あげる・たたけない）'
     expect(r.holdFeed).toBe(0);
     expect(r.relMushi, 'はなした ステップに むし −1').toBe(2);
     expect(r.relFeed).toBe(1);
-  });
-
-  test('AC13 照準の 下の 案内: やせい+むし=あげる、おなかいっぱい=まってね、なかま+すで=なでる。実際に 起きる ことと 同じ', async ({ page }) => {
-    await openAnimals(page);
-    const r = await page.evaluate(() => {
-      const h = (window as any).__rikkun;
-      const A = (window as any).__A;
-      A.base();
-      const wild = A.chicken(4.5, 6.5);
-      const out: any = {};
-      A.hold('mushi', 5);
-      A.aim(wild);
-      out.feed = h.hud.actionHint().right;
-      A.tap();
-      out.fedHearts = A.one(wild).hearts;
-      // おなかいっぱい
-      h.step(40);
-      A.aim(wild);
-      out.full = h.hud.actionHint().right;
-      A.tap();
-      out.mushiAfterFull = h.inventory.count('mushi');
-      h.animals.clear();
-      const fr = A.friend(4.5, 6.5);
-      h.inventory.clear();
-      A.aim(fr);
-      out.petHand = h.hud.actionHint().right;
-      h.animals.events();
-      A.tap();
-      out.petEv = A.events('pet').length;
-      return out;
-    });
-    expect(r.feed).toMatchObject({ icon: 'mushi', word: 'あげる' });
-    expect(r.fedHearts).toBe(1);
-    expect(r.full).toMatchObject({ word: 'まってね' });
-    expect(r.full.icon, 'あげる の 絵 ではない').not.toBe('mushi');
-    expect(r.mushiAfterFull, 'まってね の とき むしは へらない').toBe(4);
-    expect(r.petHand).toMatchObject({ icon: 'heart', word: 'なでる' });
-    expect(r.petEv).toBe(1);
-  });
-
-  test('AC14 なかま いっぱい: 8 わ・ハート 2 + むし → たべない・むし へらず・fullLeft 0・friendFull。ハート 0 は ふつうに たべる', async ({ page }) => {
-    await openAnimals(page);
-    const r = await page.evaluate(() => {
-      const h = (window as any).__rikkun;
-      const A = (window as any).__A;
-      A.base(30);
-      const max = h.settings.get('animalFriendMax');
-      for (let i = 0; i < max; i++) h.animals.spawn(2 + (i % 4), 9, 14 + Math.floor(i / 4) * 2, { friend: true, follow: 0 });
-      const w = h.animals.spawn(4.5, 9, 6.5, { hearts: 2 });
-      const w0 = h.animals.spawn(4.5, 9, 10.5, { hearts: 0 });
-      h.step(35);
-      const out: any = { max, friends: h.animals.list().filter((a: any) => a.friend).length };
-      A.hold('mushi', 3);
-      A.aim(w);
-      h.animals.events();
-      A.tap();
-      h.step(35);
-      out.mushi = h.inventory.count('mushi');
-      out.hearts = A.one(w).hearts;
-      out.friend = A.one(w).friend;
-      out.fullLeft = A.one(w).fullLeft;
-      out.hint = h.animals.lastHint();
-      (window as any).__aim.standForS(2.5, 10.5, 90, -20, 9);
-      h.step(35);
-      A.hold('mushi', 3);
-      A.aim(w0);
-      A.tap();
-      out.h0 = A.one(w0).hearts;
-      return out;
-    });
-    expect(r.friends).toBe(r.max);
-    expect(r.mushi).toBe(3);
-    expect(r.hearts).toBe(2);
-    expect(r.friend).toBe(false);
-    expect(r.fullLeft).toBe(0);
-    expect(r.hint).toBe('friendFull');
-    expect(r.h0).toBe(1);
   });
 
   test('AC27 おなかいっぱいの チップ: 漢字は ふりがな つき・3 つの 大きさで はみ出し 0px・eggLater の 文は どこにも 無い', async ({ page }) => {

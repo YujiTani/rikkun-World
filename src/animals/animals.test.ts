@@ -6,10 +6,11 @@ import { AnimalManager } from './AnimalManager';
 
 const SIZE = 100;
 
-function setup(opts: { floor?: BlockId; kind?: string; phase?: DayPhase; px?: number; pz?: number; seed?: number } = {}) {
-  const world = new ArrayVoxelWorld({ x: SIZE, y: 40, z: SIZE });
+function setup(opts: { floor?: BlockId; kind?: string; phase?: DayPhase; px?: number; pz?: number; seed?: number; wx?: number } = {}) {
+  const wx = opts.wx ?? SIZE;
+  const world = new ArrayVoxelWorld({ x: wx, y: 40, z: SIZE });
   const floor = opts.floor ?? 'grass';
-  for (let x = 0; x < SIZE; x++) for (let z = 0; z < SIZE; z++) world.setBlock(x, 8, z, floor);
+  for (let x = 0; x < wx; x++) for (let z = 0; z < SIZE; z++) world.setBlock(x, 8, z, floor);
   const st = { day: 0, phase: (opts.phase ?? 'day') as DayPhase, kind: opts.kind ?? 'harappa' };
   const player = { position: { x: opts.px ?? 50.5, y: 9, z: opts.pz ?? 50.5 } as Vec3 };
   const eggs: Vec3[] = [];
@@ -277,6 +278,22 @@ describe('AC3 うろうろ・消える', () => {
     expect(ids).toContain(near);
     expect(ids).not.toContain(zero);
     expect(ids).not.toContain(far);
+  });
+});
+
+describe('AC1 AC2b 出てくる 30 ステップ', () => {
+  it('AC1 AC2b 出た ばかり（appear）の あいだ は ねらえない・40 ステップ たつと appear が おわって ねらえる', () => {
+    const s = setup();
+    const id = s.m.trySpawn()!;
+    const aim = () => {
+      const a = s.one(id);
+      return s.m.rayHit({ x: a.x - 2, y: a.y + 0.5, z: a.z }, { x: 1, y: 0, z: 0 }, 5);
+    };
+    expect(s.one(id).state).toBe('appear');
+    expect(aim()).toBeNull();
+    s.step(40);
+    expect(s.one(id).state).not.toBe('appear');
+    expect(aim()?.id).toBe(id);
   });
 });
 
@@ -1027,6 +1044,15 @@ describe('AC10・AC11・AC12 ついてくる・ワープ・重ならない', () 
     expect(d).toBeLessThanOrEqual(3 + 1e-6);
     expect(Math.abs(a.y - s.player.position.y)).toBeLessThanOrEqual(1);
     expect(s.world.isSolid(Math.floor(a.x), Math.floor(a.y) - 1, Math.floor(a.z))).toBe(true);
+  });
+
+  it('AC11 (4) 200 マス はなれても 消えない・ワープ して プレイヤー の そば（4 以内）に もどる', () => {
+    const s = setup({ wx: 300 });
+    const id = s.m.spawn(20.5, 9, 50.5, { friend: true })!;
+    s.player.position.x = 210.5;
+    s.step(120);
+    expect(s.m.list().some((a) => a.id === id)).toBe(true);
+    expect(hd(s.one(id), s.player.position)).toBeLessThanOrEqual(4);
   });
 
   it('2 段 の かべ の むこう(近づけない)→ 120〜240 ステップ で warp', () => {

@@ -109,6 +109,23 @@ describe('AC1 追加・AC13 ユニット', () => {
     expect(s.fighters()).toEqual([]);
   });
 
+  it('AC1 だっこ → fighters は 空（1 わ だけ の とき）。3 わ の いちばん 早い 子 を だっこ → 次 の ステップ に 2 番目', () => {
+    const one = setup();
+    const only = one.macho(0);
+    one.step(3);
+    expect(one.fighters()).toEqual([only]);
+    expect(one.m.carryHold(only, 40)).toBe('lifted');
+    one.step(1);
+    expect(one.fighters(), 'だっこ 中 は たたかわない').toEqual([]);
+    const s = setup();
+    const ids = [s.macho(-2), s.macho(0), s.macho(2)];
+    s.step(3);
+    expect(s.fighters()).toEqual([ids[0]]);
+    expect(s.m.carryHold(ids[0]!, 40)).toBe('lifted');
+    s.step(1);
+    expect(s.fighters(), '次 の ステップ に 2 番目').toEqual([ids[1]]);
+  });
+
   it('(g) いただきます 中 の とりごや の 子 は たたかわない（fighters に 入らない）', () => {
     const s = setup();
     const a = s.macho(-2);

@@ -109,6 +109,22 @@ describe('出来事 → 音・つぶ（§3.6・§3.7）', () => {
     const f = run({ type: 'spawn', id: 3, x: 0, y: 9, z: 0 }, { type: 'remove', id: 3, reason: 'far' });
     expect(f.played).toEqual([]);
   });
+  it('LIVE-4 AC2 ねらい = machoGo が 1 回（ねらい 1 つ に 出来事 1 つ）。やめる・たおす 出来事 は 音なし', () => {
+    const f = run({ type: 'machoTarget', id: 1, yokai: 9, cause: 'playerHit' });
+    expect(f.played).toEqual(['machoGo']);
+    const g = run({ type: 'machoGiveUp', id: 1, reason: 'forget' }, { type: 'machoKO', id: 1, yokai: 9 });
+    expect(g.played).toEqual([]);
+  });
+  it('LIVE-4 AC4・AC5 パンチ = machoPunch だけ、きりあげ = machoUpper だけ。かちポーズ = machoFlex', () => {
+    const punch = { type: 'machoPunch', id: 1, yokai: 9, x: 0, y: 9, z: 0, hit: true, damage: 2 } as const;
+    expect(run({ ...punch, upper: false }).played).toEqual(['machoPunch']);
+    expect(run({ ...punch, upper: true, damage: 2.3 }).played).toEqual(['machoUpper']);
+    expect(run({ type: 'machoFlex', id: 1 }).played).toEqual(['machoFlex']);
+  });
+  it('LIVE-2.1 AC4・AC6 なげる = toss の音、かべ に 当たる = bonk の音', () => {
+    expect(run({ type: 'toss', id: 1, to: { x: 1, y: 9, z: 1 } } as AnimalEvent).played).toEqual(['toss']);
+    expect(run({ type: 'bonk', id: 1, x: 1, y: 9, z: 1 } as AnimalEvent).played).toEqual(['bonk']);
+  });
   it('音は SoundFx の 表(ANIMAL_SOUNDS)の 配列そのもので 鳴らす', () => {
     const { fx, played } = make();
     fx.onEvents(ev({ type: 'hint', hint: 'friendFull' }));

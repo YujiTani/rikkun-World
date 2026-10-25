@@ -87,6 +87,18 @@ describe('持ち物の たいきゅう (AC26〜AC28・AC30)', () => {
     expect(inv.peekWearEvents().at(-1)).toEqual({ type: 'toolBreak', tick: 9, item: 'katana', slot: 0 });
     expect(inv.wearHeld(1)).toBeNull();
   });
+  it('WEAPON-7 AC8: 雷神剣 10000。のこり 1000 に なった とき wearLow 1 回・のこり 0 で toolBreak・もちものから 消える', () => {
+    const inv = new InventoryImpl();
+    inv.setSlot(0, { item: 'raijin_ken', count: 1 });
+    expect(inv.durability(0)).toEqual({ max: 10000, left: 10000 });
+    inv.setDurability(0, 1001);
+    expect(inv.wearHeld(1)).toMatchObject({ left: 1000, low: true });
+    expect(inv.peekWearEvents().filter((e) => e.type === 'wearLow' && e.item === 'raijin_ken')).toHaveLength(1);
+    inv.setDurability(0, 1);
+    expect(inv.wearHeld(1)).toMatchObject({ left: 0, broke: true });
+    expect(inv.peekWearEvents().filter((e) => e.type === 'toolBreak' && e.item === 'raijin_ken')).toHaveLength(1);
+    expect(inv.count('raijin_ken')).toBe(0);
+  });
   it('きの つるはし(59) は 6 で 合図', () => {
     const inv = new InventoryImpl();
     inv.setSlot(0, { item: 'wood_pickaxe', count: 1 });

@@ -107,6 +107,15 @@ describe('たんす の素材（CRAFT-2 §2.2〜§2.4）', () => {
     expect(s[0]).toEqual(log(1));
   });
 
+  it('AC3 (b) 同じ きょり: x の小さい たんす から 先に へらす（2 こ）、のこり 1 こを もう一方から', () => {
+    const { craft, put, st } = rig();
+    put(0, 5, 4, 0, log(2)); // dist 4 (z)
+    put(4, 5, 0, 0, log(2)); // dist 4 (x)
+    expect(craft.make('wood_pickaxe').ok).toBe(true);
+    expect(st.get(0, 5, 4)!.slots[0]).toBeNull();
+    expect(st.get(4, 5, 0)!.slots[0]).toEqual(log(1));
+  });
+
   it('AC4/AC5: 足りなければ何も変えない', () => {
     const { inv, craft, put, st } = rig();
     inv.setSlot(0, log(1));
@@ -145,6 +154,16 @@ describe('たんす の素材（CRAFT-2 §2.2〜§2.4）', () => {
     expect(inv.count('log')).toBe(5);
     for (let i = 0; i < 60; i++) craft.update();
     expect(inv.count('iron_ingot')).toBe(1);
+  });
+
+  it('AC7b: ねんりょう の数に たんす の分が入る（パネルの ねんりょう チップ: counts と inTansu）', () => {
+    const { inv, craft, put, world } = rig();
+    put(3, 5, 0, 0, { item: 'coal_ore', count: 1 });
+    inv.setSlot(0, { item: 'iron_ore', count: 1 });
+    world.setBlock(0, 5, 3, 'furnace');
+    craft.openFurnace(0, 5, 3);
+    expect(craft.total('coal_ore')).toBe(1);
+    expect(craft.fuelInTansu().coal_ore).toBe(1);
   });
 
   it('AC8: きょり ちょうど 40 は使える・41 は使えない・壁ごしでも使える・設定で かわる', () => {
