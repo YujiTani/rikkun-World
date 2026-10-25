@@ -1,15 +1,9 @@
 import type { Inventory, ItemClass, ItemId, ItemStack } from '../contracts';
 import { M7_SETTING_DEFAULTS, W2_SETTING_DEFAULTS } from '../contracts';
-import { noteDuplicates, registryPermanent } from '../content/items/registry';
+import { registryPermanent } from '../content/items/registry';
 
-/** ずっと へらない もの（§4.6 (1)） */
-const OLD_PERMANENT: readonly ItemId[] = [
-  // ちょうちん・たこ・ふとん・おまもり・わらじ・はにわは 登録表（content/items/misc.ts）で wear: 'permanent'
-  'tansu',
-  // むしとりあみは 登録表（content/items/live.ts）で wear: 'permanent'
-];
-noteDuplicates('PERMANENT', [...OLD_PERMANENT, ...registryPermanent()]);
-const PERMANENT: ReadonlySet<ItemId> = new Set<ItemId>([...OLD_PERMANENT, ...registryPermanent()]); // 登録表（content/items/）で wear: 'permanent' の 物も
+/** ずっと へらない もの（§4.6 (1)）。登録表（content/items/）で wear: 'permanent' の 物 */
+const PERMANENT: ReadonlySet<ItemId> = new Set<ItemId>(registryPermanent());
 
 /** たいきゅうで へる もの（§4.6 (2) の 表の 道具・防具）。新品の 値の 表と 同じ 名前 */
 const DURABLE: ReadonlySet<ItemId> = new Set<ItemId>(Object.keys(W2_SETTING_DEFAULTS.toolDurability) as ItemId[]);

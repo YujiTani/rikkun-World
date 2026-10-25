@@ -772,7 +772,7 @@ export class DigSystemImpl implements DigSystem {
     const farmDrop = FARM_BREAK_DROP[t.id] ?? null;
     const fixed = farmDrop ? farmDrop.count : (craft?.fixedDrop(dropId) ?? null);
     const dropItem: ItemId = farmDrop ? farmDrop.item : dropId;
-    const max = Math.max(1, this.config.dropMax[this.config.rarity[dropId] ?? 'common'] ?? 1);
+    const max = Math.max(1, this.config.dropMax[this.config.rarity[dropId]] ?? 1);
     const n = NO_DROP_BLOCKS.has(dropId) ? 0 : fixed !== null ? fixed : randInt(this.rng, 1, max);
     const got = n - this.inventory.add(dropItem, n);
     if (got > 0) this.m4.onPickup?.(dropItem, got);

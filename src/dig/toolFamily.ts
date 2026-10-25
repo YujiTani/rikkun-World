@@ -36,7 +36,7 @@ const BLOCK_FAMILY: Partial<Record<BlockId, ToolFamily>> = {
   geyser_dirt: 'dirt',
 };
 
-// おの・つるはしの なかまは 登録表（content/items/tools.ts の tool.family）から。くわ（M7）だけ ここ
+// おの・つるはし・くわの なかまは 登録表（content/items/tools.ts・farm.ts の tool.family）から
 const TOOL_FAMILY: Partial<Record<ItemId, ToolFamily>> = registryToolFamily();
 
 /** ブロックのなかま（どれでもない物は null） */

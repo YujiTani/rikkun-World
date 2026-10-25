@@ -2,25 +2,12 @@ import { describe, expect, it } from 'vitest';
 import type { YokaiKind } from '../contracts';
 import { ITEM_INFO } from '../craft/info/table';
 import { ITEM_TYPES } from '../inventory/items';
+import { NO_INFO_OK } from './items/noInfoOk';
 import { BLADE_ITEMS, BLADE_LIKE_ITEMS } from '../tools/bladeSets';
 import { YOKAI_NAME, YOKAI_STATS } from '../yokai/stats';
 import { YOKAI_VARIANT_COLORS, type YokaiKindId } from '../yokai/variants';
 
 // #305: 足し忘れが無言でバグになる所をふさぐ
-
-/** ITEM_INFO（説明の表）に行が無くてよい id。理由つき。ここに足すときは理由を書く */
-const NO_INFO_OK: Readonly<Record<string, string>> = {
-  // 地形・かざりのブロック。説明の行は もともと なくて、build.ts は ITEM_INFO[item]?. で読むので なくても こわれない
-  geyser_dirt: '地形のブロック',
-  snow: '地形のブロック',
-  momiji_leaves: '地形のブロック',
-  matsu_leaves: '地形のブロック',
-  flower_y: 'かざりのブロック',
-  flower_o: 'かざりのブロック',
-  flower_p: 'かざりのブロック',
-  bamboo: 'かざりのブロック',
-  nobana: 'かざりのブロック',
-};
 
 describe('足し忘れ防止', () => {
   it('ITEM_TYPES の全 id が ITEM_INFO に行を持つ（許可リスト以外）', () => {

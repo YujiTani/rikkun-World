@@ -8,7 +8,8 @@ import { itemClassOf } from '../../tools/durability';
 import { CATEGORY_ITEMS, itemCategory } from '../../ui/itemCategory';
 import { BLOCK_TYPES } from '../../world/blocks/blockTypes';
 import { GEYSER, M4_BLOCKS, PLACEABLE, VOX_I } from './blocks';
-import { ITEM_DEFS, REGISTRY_OVERLAPS, itemDef } from './registry';
+import { NO_INFO_OK } from './noInfoOk';
+import { ITEM_DEFS, itemDef } from './registry';
 
 // #306 段階 3 列 A（最後）: 置けるブロック 22 個。期待は これまでの表（2026-10-25 の写し JSON）から 手で 写した 値。
 // blocks.ts を 直すと ここが 落ちる。名前の 出どころ（BLOCK_TYPES）・レア度の 出どころ（DIG_DEFAULTS）は 動かさない。
@@ -77,14 +78,15 @@ describe('登録表（置けるブロック 22 個）', () => {
     expect(itemClassOf(id as never), id).toBe(id === 'tansu' ? 'permanent' : 'consumable');
   });
 
-  it('名前は BLOCK_TYPES から（置けるブロック 8 つ・12 の国の 8 つ。ほかは 登録表に 直接）、レア度は DIG_DEFAULTS.rarity から（二重に 書かない）', () => {
-    const fromTypes = [...Object.keys(PLACEABLE), ...Object.keys(VOX_I)];
+  it('名前は BLOCK_TYPES から（間欠泉の つち以外の 21 個。間欠泉の つちだけ ルビつきで 登録表に 直接）、レア度は DIG_DEFAULTS.rarity から（二重に 書かない）', () => {
+    const fromTypes = [...Object.keys(PLACEABLE), ...Object.keys(M4_BLOCKS), ...Object.keys(VOX_I)];
     for (const id of fromTypes) expect(itemDef(id)!.name, id).toBe(BLOCK_TYPES.find((b) => b.id === id)!.name);
     for (const id of IDS) expect(itemDef(id)!.rarity, id).toBe((DIG_DEFAULTS.rarity as Record<string, string>)[id]);
   });
 
-  it('説明が 無い 9 個は 地形・かざり（geyser_dirt と 12 の国の 8 つ）', () => {
-    expect(IDS.filter((id) => !itemDef(id)!.info).sort()).toEqual(['bamboo', 'flower_o', 'flower_p', 'flower_y', 'geyser_dirt', 'matsu_leaves', 'momiji_leaves', 'nobana', 'snow']);
+  it('説明が 無い 9 個は 地形・かざり（geyser_dirt と 12 の国の 8 つ。許可リストは noInfoOk.ts の 1 か所）', () => {
+    expect(IDS.filter((id) => !itemDef(id)!.info).sort()).toEqual(Object.keys(NO_INFO_OK).sort());
+    expect(Object.keys(NO_INFO_OK)).toHaveLength(9);
   });
 
   it('ITEM_TYPES の 並び: 先頭 8 → ざいりょう 7 → かまど・かわら・レンガ・たいまつ・たんす / 侍装備の 次に 間欠泉の つち / バケツの 次に 12 の国の 8 つ', () => {
@@ -140,9 +142,5 @@ describe('登録表（置けるブロック 22 個）', () => {
     const types = new Set(ITEM_TYPES.map((t) => t.id as string));
     expect(Object.keys(ITEM_DEFS).filter((id) => !types.has(id))).toEqual([]);
     expect(Object.keys(ITEM_DEFS).length).toBe(ITEM_TYPES.length);
-  });
-
-  it('うつしかえの 重なり（古い表と 登録表の 二重書き）が ない', () => {
-    expect(REGISTRY_OVERLAPS).toEqual([]);
   });
 });

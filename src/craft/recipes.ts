@@ -1,5 +1,5 @@
 import type { ItemId, Recipe } from '../contracts';
-import { ARMOR_DEFS, BOW_DEFS, BUCKET_DEFS, FARM_TOOL_DEFS, GADGET_DEFS, GOLD_DEFS, INGOT_DEFS, LIVE_DEFS, M4_BLOCK_DEFS, SEED_DEFS, SPRINKLER_DEFS, SWORD_DEFS, TOOL_DEFS, noteDuplicates, pickDefs, recipesOf } from '../content/items/registry';
+import { ARMOR_DEFS, BOW_DEFS, BUCKET_DEFS, FARM_TOOL_DEFS, GADGET_DEFS, GOLD_DEFS, INGOT_DEFS, LIVE_DEFS, M4_BLOCK_DEFS, SEED_DEFS, SPRINKLER_DEFS, SWORD_DEFS, TOOL_DEFS, pickDefs, recipesOf } from '../content/items/registry';
 
 const r = (
   id: ItemId,
@@ -62,7 +62,6 @@ export const BAKE_RECIPES: readonly Recipe[] = [
 ];
 
 export const ALL_RECIPES: readonly Recipe[] = [...CRAFT_RECIPES, ...BAKE_RECIPES];
-noteDuplicates('ALL_RECIPES', ALL_RECIPES.map((x) => x.id));
 
 /** カード 1 枚に まとまる作り方の グループ（同じ台・同じ出来る物）。先頭の id（カードの id）→ 作り方の id（先頭が元の作り方、あとは足した順） */
 export function groupRecipes(recipes: readonly Recipe[]): Map<string, string[]> {

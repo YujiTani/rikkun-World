@@ -4,10 +4,29 @@ import type { ToolFamily } from '../../dig/toolFamily';
 import type { ItemCategory } from '../../ui/itemCategory';
 
 /**
+ * アイテムに ならない ブロック（持ち物に 入らない。みず・そこいし・作物・小屋の 部品 …）。
+ * ItemId = BlockId | ItemOnlyId の うち、これ以外は ぜんぶ ItemDef が 必要（ITEM_DEFS は Record<ItemDefId, ItemDef>）。
+ * 新しい BlockId を 足すと、ItemDef を 書くか ここに 足すか を 型エラーが 決めさせる。
+ */
+export const BLOCK_ONLY_IDS = [
+  'air', 'water', 'bedrock', 'start_torch',
+  'farmland', 'farmland_wet',
+  'crop_onion', 'crop_tomato', 'crop_pumpkin', 'crop_eggplant',
+  'wild_onion', 'wild_tomato', 'wild_pumpkin', 'wild_eggplant',
+  'kakashi', 'kakashi_head', 'saku', 'susuki', 'kusa',
+  'toriya_fence', 'toriya_gate', 'toriya_nest', 'toriya_box',
+  'nukunuku_e', 'nukunuku_s', 'nukunuku_se',
+] as const satisfies readonly BlockId[];
+type BlockOnlyId = (typeof BLOCK_ONLY_IDS)[number];
+
+/** ItemDef が 必要な id（= アイテム）。ITEM_TYPES の 全 id と 同じ 集まり */
+export type ItemDefId = Exclude<ItemId, BlockOnlyId>;
+
+/**
  * アイテム 1 つの「全部の値」を 1 か所に書くための型（#306・ルール #304）。
  * 型だけを import する（実行時の import は 作らない = import の輪を 作らない）。
- * 書くのは シリーズごとのファイル（gold.ts など）。古い表（ITEM_TYPES・ITEM_INFO・TOOL_DEFAULTS…）は
- * registry.ts の「見せ方」から 作った分を 合わせて 読む。
+ * 書くのは シリーズごとのファイル（gold.ts など）。窓口の 表（ITEM_TYPES・ITEM_INFO・TOOL_DEFAULTS…）は
+ * registry.ts の「見せ方」が 登録表だけから 作る。
  */
 export interface ItemDef {
   /** 画面に出す名前（ひらがな。漢字は ［漢字｜よみ］。今の ITEM_TYPES の name） */

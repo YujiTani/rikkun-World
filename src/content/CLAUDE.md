@@ -4,30 +4,27 @@
 
 ## アイテム
 
-**登録表に入ったシリーズ**（`src/content/items/`。今は金・忍者・侍・伝説の武器・ふつうの道具／武器／防具 16 個（`tools.ts`・`weapons.ts`・`armor.ts`）・畑 14 個（`farm.ts`。たね・やさい・くわ・じょうろ・スプリンクラー・バケツ。じょうろの水の数は `can` 部品）・ざいりょう 8 個（`materials.ts`。ようかいだま・かみ・あぶら・いと・ぬの・ねんど・すいしょう・てつの かたまり）・小物 6 個（`misc.ts`。ちょうちん・たこ・ふとん・おまもり・わらじ・はにわ）・生き物 8 個（`live.ts`。たまご・むし・むしとりあみ・こたつ・とりごや・きんの たまご・もも にく 2 つ。たべた ときの 回復量は `food` 部品）。置けるブロック 22 個（`blocks.ts`。くさ・つち・いし・すな・き・はっぱ・せきたん・てつ／かまど・かわら・レンガ・たいまつ・たんす／間欠泉の つち／12 の国の 8 つ）。これで ITEM_TYPES の全 id が登録表に入った）:
+**ぜんぶ 登録表に 入っている**（`src/content/items/`）。シリーズ: 金・忍者・侍・伝説の武器・ふつうの道具／武器／防具 16 個（`tools.ts`・`weapons.ts`・`armor.ts`）・畑 14 個（`farm.ts`。じょうろの水の数は `can` 部品）・ざいりょう 8 個（`materials.ts`）・小物 6 個（`misc.ts`）・生き物 8 個（`live.ts`。たべた ときの 回復量は `food` 部品）・置けるブロック 22 個（`blocks.ts`）。`ITEM_DEFS` は `Record<ItemDefId, ItemDef>`（全件を型で強制）。`ItemDefId` は `ItemId` から「アイテムにならないブロック」（`types.ts` の `BLOCK_ONLY_IDS`。みず・そこいし・作物・小屋の部品など）を除いたもの。窓口の表・関数（`ITEM_TYPES`・`itemRarity`・`itemCategory`・`ITEM_INFO`・`TOOL_DEFAULTS`・`toolDurability`・`CRAFT_RECIPES` …）は登録表だけから作る。古い表は無い。
 
 **置けるブロックのアイテムは `blocks.ts`。ブロックとしての性質（固さ・見た目・id の番号）は `BLOCK_TYPES`（`world/blocks/blockTypes.ts`）と `DIG_DEFAULTS`（`dig/config.ts`。ほる固さ・道具・ブロックのレア度）に残る。** アイテムの名前の出どころが BLOCK_TYPES の物と、レア度の出どころが DIG_DEFAULTS の物は、`blocks.ts` からそこを読む（2 か所に書かない）。ブロック id の型は `contracts.ts` の `BlockId`。
 
-1. `content/items/ids.ts` — id を書くのはここ 1 回（シリーズの配列に足す）。
-2. `content/items/<シリーズ>.ts` — 名前・重ね数・レア度・分類・説明・耐久・レシピ・部品（`blade`／`bow`／`tool`／`armor`）を 1 行に。戦闘の数は日本語の単位つきコメントで。
-3. 絵: `ui/itemArt<シリーズ>.ts`（`Record<…Id>` なので書き忘れは型エラー）。手に持つ形がある物だけ `camera/held<シリーズ>.ts`。
+アイテム 1 つを足すとき（足し忘れは型エラーかテストが落とす）:
 
-**まだ古い表のシリーズ**（足し忘れは黙って「ふつう」「そざい」「石の絵」に落ちるので、全部に書く）:
+1. `content/items/ids.ts` — id を書くのはここ 1 回（シリーズの配列に足す）。置けるブロックなら `BlockId`（`contracts.ts`）に足し、持ち物に入らないブロックなら `types.ts` の `BLOCK_ONLY_IDS` に足す（新しい `BlockId` は、`ItemDef` を書くか `BLOCK_ONLY_IDS` に足すかを型エラーが決めさせる）。
+2. `content/items/<シリーズ>.ts` — 名前・重ね数・レア度・分類・説明・耐久・レシピ・部品（`blade`／`bow`／`tool`／`armor`）を 1 行に。戦闘の数は日本語の単位つきコメントで。`satisfies Record<…Id, ItemDef>` なので書き忘れは型エラー（置けるブロックでもある物は `Partial<Record<BlockId, ItemDef>>` だが、抜けは `ITEM_DEFS` の型が捕まえる）。新しいシリーズのファイルなら `registry.ts` の `ITEM_DEFS` に 1 行（`Record<ItemDefId, …>` なので入れ忘れも型エラー）。
+3. 並び: 持ち物の順は `inventory/items.ts` の `ITEM_TYPES`、作業台のカードの順は `craft/recipes.ts`、色分けの順は `ui/itemCategory.ts`（`registry.test.ts`・`itemCategory.test.ts` が全アイテムが 1 回ずつ入っているか確かめる。順番は画面の順なので変えない）。
+4. 絵: `ui/itemArt<シリーズ>.ts`（`Record<…Id>` なので書き忘れは型エラー）。手に持つ形がある物だけ `camera/held<シリーズ>.ts`。2D の絵が無くて石の絵に落ちると `registry.test.ts` が落とす。
+
+**まだ 登録表の 外に 手で 書く 所**（登録表が出どころでない物）:
 
 | 何 | 場所 |
 |---|---|
-| id の型 | `contracts.ts` の `ItemOnlyId` |
-| 名前・重ね数・置くブロック | `inventory/items.ts` の `ITEM_TYPES` |
-| レア度 | `drops/rarity.ts` の `ITEM_ONLY_RARITY` |
-| マスの色の分類 | `ui/itemCategory.ts` の `CATEGORY_ITEMS` |
-| せつめい | `craft/info/table.ts` の `ITEM_INFO`（防具は `ARMOR_KIND` も） |
-| 絵 | `ui/itemIcon.ts` の振り分け（シリーズの絵ファイル） |
-| 耐久 | `contracts.ts` の `toolDurability` |
-| レシピ | `craft/recipes.ts`（並び順＝作業台のカードの順） |
-| 防具 | `craft/config.ts` の `armorValue`・`ARMOR_SLOT_OF` |
-| 刀・武器 | `tools/config.ts` の強さ、`tools/bladeSets.ts` の `BLADE_ITEMS`、`contracts.ts` の `bladeTrail`、手に持つ形 `camera/heldTools.ts` |
 | ヌシのドロップ | `contracts.ts` の `nushiDrops`（伝説の武器の強さ・ためわざは `content/items/legend.ts` の `legend` 部品。`LEGENDARY_DEFAULTS` はそこから作る） |
 | 実績の名前 | `achievements/defs.ts` |
+| 忍者・侍の装備の部位 | `craft/config.ts` の `NINJA_GEAR`・`SAMURAI_GEAR`（部位は登録表の `armor.slot` とそろう。`registry.test.ts` が確かめる） |
+| たいまつの足した作り方 | `craft/recipes.ts` の `TORCH_COAL`・`TORCH_LOG`（カードは元の `torch` の 1 枚のまま） |
+
+**黙って落ちる所の守りは、型で守れない id のために 3 か所だけ残してある**（`drops/rarity.ts` の `?? 'common'`、`ui/itemCategory.ts` の `?? 'material'`、`ui/itemIcon.ts` の石の絵）。アイテムにならないブロック（みず など）と、セーブや外から来た知らない id を受ける所。アイテムの id がここに落ちないことはテストが確かめる。
 
 ## 妖怪（登録表。`src/content/yokai/`。設計は `docs/design/YOKAI-REGISTRY.md`）
 
@@ -46,7 +43,7 @@
 
 ## たしかめ
 
-- `npm run check:fast`（型＋ユニット）。`content/completeness.test.ts` が説明の書き忘れ・妖怪の型ずれを落とす。
+- `npm run check:fast`（型＋ユニット）。`content/completeness.test.ts` が説明の書き忘れ・妖怪の型ずれを落とす（説明を持たなくてよい 9 個の許可リストは `content/items/noInfoOk.ts` の 1 か所）。
 - 値の写し `content/__snapshots__/content.json` が変わる。わざと変えたときだけ `npx vitest run -u src/content` で更新し、差分を読んでからコミット（意図しない差分が出たら書きまちがい）。
 - `npm run check:ratchet`: `item === 'new_id'`・`case 'kind':` のような id の直書きを足すと数が増えて落ちる。部品（`blade` など）や表で分ける。
 - 件数を数えるテスト（例 `drops/rarity7.test.ts`・`ui/itemCategory.test.ts` の全アイテム数）は 1 ふやす。

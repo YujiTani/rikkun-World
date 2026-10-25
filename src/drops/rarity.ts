@@ -1,5 +1,6 @@
 import type { ItemId, Rarity } from '../contracts';
-import { registryRarity, withRegistry } from '../content/items/registry';
+import { ITEM_DEFS, itemDef } from '../content/items/registry';
+import type { ItemDefId } from '../content/items/types';
 import { DIG_DEFAULTS } from '../dig/config';
 import { ITEM_TYPES } from '../inventory/items';
 import { RARITY_ORDER, rarityIndex } from './rarityTable';
@@ -8,22 +9,14 @@ export { RARITY_COLOR, RARITY_ORDER, RARITY_TIERS, defaultDropMax, isRarity, rar
 
 /**
  * アイテムのめずらしさ（光の柱の色がこれできまる）。
- * ブロックは ほる設定（`src/dig/config.ts` の rarity）と同じ値。
- * アイテムを足すときは、ここに めずらしさを必ず書く（登録表 content/items/ に うつした シリーズは そちらに 書く）。
+ * 値は ぜんぶ 登録表（content/items/）の `rarity`（ブロックの アイテムは ほる設定 `src/dig/config.ts` の rarity と 同じ値）。
+ * アイテムを足すときは、登録表の ItemDef に めずらしさを 必ず書く（書き忘れは 型エラー）。
  */
-const OLD_ITEM_ONLY_RARITY: Record<string, Rarity> = {
-  // ようかいだま・ざいりょう 6・てつの かたまり・小物 6 は 登録表（content/items/materials.ts・misc.ts）にある
-  // 置ける ブロック 22 個（かまど・かわら・レンガ・たいまつ …）は 登録表（content/items/blocks.ts）にある。値は ほる設定（DIG_DEFAULTS.rarity）から 取る（二重に 書かない）
-  // M7・M7-2・BUCKET-1（たね・やさい・くわ・じょうろ・スプリンクラー・バケツ）は 登録表（content/items/farm.ts）にある
-  // LIVE-1〜3（たまご・むし・むしとりあみ・こたつ・とりごや・きんの たまご・もも にく 2 つ）は 登録表（content/items/live.ts）にある
-};
-// 登録表に うつした シリーズ（忍者・侍・金 …）の めずらしさは content/items/ から
-const ITEM_ONLY_RARITY: Record<string, Rarity> = withRegistry('ITEM_ONLY_RARITY', OLD_ITEM_ONLY_RARITY, registryRarity());
 
 /** 今の当てはめ（設定 itemRarity。ゲームに 1 つ。全アイテム → Rarity） */
 function initialItemRarity(): Record<string, Rarity> {
   const out: Record<string, Rarity> = {};
-  for (const t of ITEM_TYPES) out[t.id] = ITEM_ONLY_RARITY[t.id] ?? (DIG_DEFAULTS.rarity as Record<string, Rarity>)[t.id] ?? 'common';
+  for (const t of ITEM_TYPES) out[t.id] = ITEM_DEFS[t.id as ItemDefId].rarity; // ITEM_TYPES は ITEM_DEFS の 全 id（blocks.test.ts が 確かめる）
   return out;
 }
 const current: Record<string, Rarity> = initialItemRarity();
@@ -37,7 +30,9 @@ export function resetItemRarity(): void {
 }
 
 export function itemRarity(item: ItemId): Rarity {
-  return current[item] ?? ITEM_ONLY_RARITY[item] ?? (DIG_DEFAULTS.rarity as Record<string, Rarity>)[item] ?? 'common';
+  // current は 全アイテム（ITEM_TYPES）の 分。アイテムに ならない ブロック（みず・そこいし …）は ほる設定、
+  // セーブや 外から 来た 知らない id は 'common'（ここは 型では 守れないので 残す）
+  return current[item] ?? (DIG_DEFAULTS.rarity as Record<string, Rarity>)[item] ?? 'common';
 }
 
 /** item が tier 以上にめずらしいか（#69・#70 用） */
@@ -53,5 +48,5 @@ export function topRarity(items: readonly ItemId[]): Rarity {
 }
 
 export function isKnownItemRarity(item: ItemId): boolean {
-  return item in ITEM_ONLY_RARITY || item in DIG_DEFAULTS.rarity;
+  return itemDef(item) !== undefined || item in DIG_DEFAULTS.rarity;
 }
