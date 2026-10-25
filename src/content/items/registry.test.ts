@@ -14,9 +14,24 @@ import { isNinjaItem, ninjaItemPixels } from '../../ui/itemArtNinja';
 import { isSamuraiItem, samuraiItemPixels } from '../../ui/itemArtSamurai';
 import { NINJA_TUNING } from '../../craft/ninjaTuning';
 import { ARMOR_ITEM_IDS, BOW_IDS, FARM_BUCKET_IDS, FARM_TOOL_IDS, GADGET_IDS, GOLD_IDS, INGOT_IDS, LEGEND_IDS, LIVE_ITEM_IDS, MATERIAL_ITEM_IDS, NINJA_ITEM_IDS, ORB_IDS, SAMURAI_ITEM_IDS, SEED_ITEM_IDS, SWORD_IDS, TOOL_ITEM_IDS, VEG_ITEM_IDS, type GoldId } from './ids';
+import { itemIconPixels } from '../../ui/itemIcon';
+import { BLOCK_TYPES } from '../../world/blocks/blockTypes';
+import { getTilePixels } from '../../world/blocks/textures';
+import { ARMOR as ARMOR_DEFS_RAW } from './armor';
 import { GEYSER, M4_BLOCKS, PLACEABLE, VOX_I } from './blocks';
+import { BUCKETS, FARM_TOOLS, SEEDS, SPRINKLER, VEGGIES } from './farm';
+import { GOLD } from './gold';
+import { KOTATSU, LIVE } from './live';
+import { INGOT, MATERIALS, ORB } from './materials';
+import { GADGETS } from './misc';
+import { NINJA } from './ninja';
+import { SAMURAI } from './samurai';
+import { TOOLS } from './tools';
+import { BLOCK_ONLY_IDS } from './types';
+import { BOWS, SWORDS } from './weapons';
 import { LEGEND } from './legend';
-import { ITEM_DEFS, REGISTRY_OVERLAPS, itemDef, registryHeal } from './registry';
+import { NO_INFO_OK } from './noInfoOk';
+import { ITEM_DEFS, itemDef, registryHeal } from './registry';
 import { toolFamily } from '../../dig/toolFamily';
 import { isM4Item, m4ItemPixels } from '../../ui/itemArtM4';
 import { isW7Item, w7ItemPixels } from '../../ui/itemArtW7';
@@ -89,8 +104,8 @@ describe('登録表（金シリーズ）', () => {
     const types = new Set(ITEM_TYPES.map((t) => t.id as string));
     for (const id of Object.keys(ITEM_DEFS)) {
       expect(types.has(id), `${id} が ITEM_TYPES に無い`).toBe(true);
-      // 地形・かざりの 9 個は 説明なし（completeness.test.ts の 許可リストと 同じ）
-      if (!['geyser_dirt', 'snow', 'momiji_leaves', 'matsu_leaves', 'flower_y', 'flower_o', 'flower_p', 'bamboo', 'nobana'].includes(id)) expect(ITEM_INFO[id], `${id} の 説明が 無い`).toBeDefined();
+      // 地形・かざりの 9 個は 説明なし（許可リストは noInfoOk.ts の 1 か所）
+      if (!(id in NO_INFO_OK)) expect(ITEM_INFO[id], `${id} の 説明が 無い`).toBeDefined();
     }
     for (const id of GOLD_IDS) {
       expect(isGoldItem(id), id).toBe(true);
@@ -100,11 +115,29 @@ describe('登録表（金シリーズ）', () => {
     expect(new Set(ITEM_TYPES.map((t) => t.id)).size).toBe(ITEM_TYPES.length);
   });
 
-  it('うつしかえ: 登録表の id が 古い表にも 書いてあったら 落ちる（片方を 消す）', () => {
-    // 合わせる側の 古い表（ITEM_TYPES・ITEM_ONLY_RARITY・CATEGORY_ITEMS・ITEM_INFO・ARMOR_KIND・ARMOR_SLOT_OF・
-    // armorValue・toolPower/Level・weaponDamage・bladeReach・toolDurability・bladeTrail・PERMANENT・BLADE_ITEMS・レシピ）が
-    // 組み立てるときに 重なりを REGISTRY_OVERLAPS に 記録する
-    expect(REGISTRY_OVERLAPS).toEqual([]);
+  it('同じ id が 2 つの シリーズに 入っていない（シリーズごとの 数の 合計 = ITEM_DEFS の 数）', () => {
+    const series = [PLACEABLE, M4_BLOCKS, GEYSER, VOX_I, TOOLS, SWORDS, BOWS, ARMOR_DEFS_RAW, NINJA, SAMURAI, SEEDS, VEGGIES, FARM_TOOLS, SPRINKLER, BUCKETS, ORB, MATERIALS, INGOT, GADGETS, LIVE, KOTATSU, LEGEND, GOLD];
+    expect(series.reduce((n, d) => n + Object.keys(d).length, 0)).toBe(Object.keys(ITEM_DEFS).length);
+  });
+
+  it('アイテムに ならない ブロック（BLOCK_ONLY_IDS）: 登録表に 無く、ITEM_TYPES にも 無い。それ以外の ブロックは 全部 アイテム', () => {
+    const types = new Set(ITEM_TYPES.map((t) => t.id as string));
+    for (const id of BLOCK_ONLY_IDS) {
+      expect(id in ITEM_DEFS, `${id} が 登録表に ある。BLOCK_ONLY_IDS から 外す`).toBe(false);
+      expect(types.has(id), `${id} が ITEM_TYPES に ある`).toBe(false);
+    }
+    const blockOnly = new Set<string>(BLOCK_ONLY_IDS);
+    for (const b of BLOCK_TYPES) expect(blockOnly.has(b.id) || b.id in ITEM_DEFS, `${b.id} は アイテムでも BLOCK_ONLY_IDS でも ない`).toBe(true);
+  });
+
+  it('全アイテムの 2D の絵が ある（石の絵に 落ちるのは いしだけ）', () => {
+    const stone = JSON.stringify(getTilePixels('stone'));
+    expect(ITEM_TYPES.filter((t) => JSON.stringify(itemIconPixels(t.id)) === stone).map((t) => t.id)).toEqual(['stone']);
+  });
+
+  it('作り方の id が かさならない（作業台 ＋ かまど）', () => {
+    const ids = ALL_RECIPES.map((r) => r.id);
+    expect(new Set(ids).size).toBe(ids.length);
   });
 
   it('itemDef は 登録の ない id では undefined', () => {

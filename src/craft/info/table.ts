@@ -4,7 +4,7 @@
  * 字は ひらがな・カタカナ・数字。漢字は 名前の ［漢字｜よみ］ だけ（出す ときに `withRuby`。WEAPON-7 §2.7）。
  * 「どこで」「つかいみち」「つよさ」の数は、ここには書かない（レシピ・ドロップ表・設定から `build.ts` が作る）。
  */
-import { registryArmorKind, registryInfo, withRegistry } from '../../content/items/registry';
+import { registryArmorKind, registryInfo } from '../../content/items/registry';
 
 /** ボタンの絵の種類: `1-9` = ホットバーで えらぶ、`left` = ひだりクリック、`leftHold` = ひだりを おしつづける、`right` = みぎクリック、`E` = もちもの画面 */
 export type ButtonKey = '1-9' | 'left' | 'leftHold' | 'right' | 'E';
@@ -40,22 +40,8 @@ export interface InfoRow {
   special?: string;
 }
 
-const OLD_ITEM_INFO: Record<string, InfoRow> = {
-  // ---- 置ける ブロックの 説明 13 個（くさ・つち・いし・すな・き・はっぱ・せきたん・てつ・かまど・かわら・レンガ・たいまつ・たんす）は 登録表（content/items/blocks.ts）に ある。地形・かざりの 9 個は 説明なし
-
-  // ---- ざいりょう（ようかいだま・かみ・あぶら・いと・ぬの・ねんど・すいしょう・てつの かたまり 8 個）は 登録表（content/items/materials.ts）に ある
-
-  // ---- どうぐ・ぶき・ぼうぐ（16）は 登録表（content/items/tools.ts・weapons.ts・armor.ts）に ある
-
-  // ---- 働きが あとのもの（ちょうちん・たこ・ふとん・おまもり・わらじ・はにわ 6 個）は 登録表（content/items/misc.ts）に ある
-
-  // ---- 農業（たね・やさい・くわ・じょうろ・スプリンクラー・バケツ 14 個）は 登録表（content/items/farm.ts）に ある
-
-  // ---- LIVE-1〜3（たまご・むし・むしとりあみ・こたつ・とりごや・きんの たまご・もも にく 2 つ 8 個）は 登録表（content/items/live.ts）に ある
-};
-
-// 登録表（content/items/）に うつした シリーズ（忍者・侍・金 …）の 行は そちらに 書く（ここへは 自動で 入る）
-export const ITEM_INFO: Readonly<Record<string, InfoRow>> = withRegistry('ITEM_INFO', OLD_ITEM_INFO, registryInfo());
+/** 全アイテムの 説明の 行。ぜんぶ 登録表（content/items/）の `info` から 作る（説明の ない 9 個 = 地形・かざりは 行を 持たない） */
+export const ITEM_INFO: Readonly<Record<string, InfoRow>> = registryInfo();
 
 /** 「どこで」の ようかいだま だけの文（§5） */
 export const ORB_SOURCE = 'むかし の ようかい が おとした';

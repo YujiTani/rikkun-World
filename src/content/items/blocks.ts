@@ -10,7 +10,7 @@ import type { ItemDef } from './types';
  *   - 世界での 性質・名前（BLOCK_TYPES）… world/blocks/blockTypes.ts
  *   - ほる 固さ・ほれる 道具・ブロックの レア度（DIG_DEFAULTS）… dig/config.ts
  *   - id の 型・セーブの 番号（BlockId・BLOCK_IDS_V1）… contracts.ts
- * 名前は これまでどおり BLOCK_TYPES から（置けるブロック 8 つ・12 の国の 8 つ）。レア度は DIG_DEFAULTS.rarity から。
+ * 名前は BLOCK_TYPES から（間欠泉の つち以外の 21 個。間欠泉の つちだけ ルビつきの 名前を ここに 直接）。レア度は DIG_DEFAULTS.rarity から。
  * 絵は ブロックの テクスチャ（world/blocks/textures.ts）。値は これまでの 表から そのまま 写した もの（2026-10-25）。
  */
 
@@ -102,7 +102,7 @@ export const PLACEABLE = {
 /** M4・M6 の 置ける ブロック 5 つ（かまど・かわら・レンガ・たいまつ・たんす）。かわら・レンガは かまどで やく（ねんど 1 → 2 こ） */
 export const M4_BLOCKS = {
   furnace: {
-    name: 'かまど',
+    name: blockName('furnace'),
     maxStack: BLOCK_STACK,
     placeBlock: 'furnace',
     rarity: blockRarity('furnace'),
@@ -111,7 +111,7 @@ export const M4_BLOCKS = {
     recipe: { count: 1, inputs: [['stone', 5]] },
   },
   kawara: {
-    name: 'かわら',
+    name: blockName('kawara'),
     maxStack: BLOCK_STACK,
     placeBlock: 'kawara',
     rarity: blockRarity('kawara'),
@@ -120,7 +120,7 @@ export const M4_BLOCKS = {
     recipe: { count: 2, inputs: [['clay', 1]], station: 'furnace' }, // ねんりょう 1・60 ステップ
   },
   brick: {
-    name: 'レンガ',
+    name: blockName('brick'),
     maxStack: BLOCK_STACK,
     placeBlock: 'brick',
     rarity: blockRarity('brick'),
@@ -129,7 +129,7 @@ export const M4_BLOCKS = {
     recipe: { count: 2, inputs: [['clay', 1]], station: 'furnace' },
   },
   torch: {
-    name: 'たいまつ',
+    name: blockName('torch'),
     maxStack: BLOCK_STACK,
     placeBlock: 'torch',
     rarity: blockRarity('torch'),
@@ -139,11 +139,12 @@ export const M4_BLOCKS = {
     recipe: { count: 4, inputs: [['log', 1], ['oil', 1]] },
   },
   tansu: {
-    name: 'たんす',
+    name: blockName('tansu'),
     maxStack: BLOCK_STACK,
     placeBlock: 'tansu',
     rarity: blockRarity('tansu'),
     category: 'home',
+    wear: 'permanent', // たんすは へらない（itemClassOf が 'permanent' を 返す）
     info: placeInfo('おいて、もちもの を たくさん（54 こ の マス）しまえる', {
       how: 'おいて、たんす に むけて みぎクリック で ひらく（E でも）。シフト を おしながら クリック で いっきに うつす',
       stats: 'tansu',

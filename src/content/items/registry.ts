@@ -1,4 +1,4 @@
-import type { ArmorSlot, BladeTrailStyle, DamageKind, ItemId, ItemType, LegendaryDef, Rarity, Recipe } from '../../contracts';
+import type { ArmorSlot, BladeTrailStyle, DamageKind, ItemId, ItemType, LegendaryDef, Recipe } from '../../contracts';
 import type { InfoRow } from '../../craft/info/table';
 import type { ToolFamily } from '../../dig/toolFamily';
 import type { ItemCategory } from '../../ui/itemCategory';
@@ -13,13 +13,13 @@ import { GADGETS } from './misc';
 import { NINJA } from './ninja';
 import { SAMURAI } from './samurai';
 import { TOOLS } from './tools';
-import type { ItemDef } from './types';
+import type { ItemDef, ItemDefId } from './types';
 import { BOWS, SWORDS } from './weapons';
 
 /**
  * アイテムの登録表（#306・ルール #304「1 つのデータは 1 か所」）。
- * シリーズごとの定義（gold.ts …）を ならべ、古い表（ITEM_TYPES・ITEM_INFO・TOOL_DEFAULTS…）が
- * 「古い表 ＋ 登録表から作った分」を 合わせて 読めるように 「見せ方」の 関数を 出す。
+ * シリーズごとの定義（gold.ts …）を ならべ、窓口の 表（ITEM_TYPES・ITEM_INFO・TOOL_DEFAULTS…）が
+ * 登録表だけから 作れるように 「見せ方」の 関数を 出す。
  * 実行時に contracts.ts を import しない（import の輪を 作らない）。型だけを読む。
  *
  * 新しい金を足すとき: ids.ts に id → gold.ts に値 → ui/itemArtGold.ts に絵（Record<GoldId> なので 書き忘れは 型エラー）。
@@ -30,16 +30,18 @@ import { BOWS, SWORDS } from './weapons';
  * ざいりょう（ようかいだま・かみ・あぶら・いと・ぬの・ねんど・すいしょう・てつの かたまり）は materials.ts、小物（ちょうちん・たこ・ふとん・おまもり・わらじ・はにわ）は misc.ts。
  * 生き物（たまご・むし・むしとりあみ・こたつ・とりごや・きんの たまご・もも にく 2 つ）は live.ts（食べた ときの 回復量は `food` 部品）。絵は ui/itemArtLive1〜3.ts。
  * 置ける ブロック 22 個（くさ・つち・いし・すな・き・はっぱ・せきたん・てつ・かまど・かわら・レンガ・たいまつ・たんす・間欠泉の つち・12 の国の ブロック 8 つ）は blocks.ts（ブロックとしての 性質は BLOCK_TYPES と DIG_DEFAULTS のまま）。
- * これで ITEM_TYPES の 全 id に 登録が ある（全部 うまったので ITEM_DEFS は 全件 Record に できる）。
+ * ITEM_DEFS は Record<ItemDefId, ItemDef>（全件を 型で 強制）。ItemId の うち アイテムに ならない ブロック（BLOCK_ONLY_IDS）以外は
+ * 1 つでも 書き忘れると 型エラー。
  */
-export type ItemDefs = Readonly<Partial<Record<ItemId, ItemDef>>>;
+/** シリーズ（登録表の 一部） */
+export type ItemDefs = Readonly<Partial<Record<ItemDefId, ItemDef>>>;
 
 /**
- * シリーズごとの定義（ITEM_TYPES・作業台のカード・色分けの 順は 古い表の どの 位置に 入れるかで 決まるので、シリーズ単位でも 出す。
- * 古い表の 間に 差し込む 側（inventory/items.ts・craft/recipes.ts・ui/itemCategory.ts）が、どの 並びで 入れるかを 自分で 書く）
+ * シリーズごとの定義（ITEM_TYPES・作業台のカード・色分けの 順は どの 位置に 入れるかで 決まるので、シリーズ単位でも 出す。
+ * 並びを 決める 側（inventory/items.ts・craft/recipes.ts・ui/itemCategory.ts）が、どの 並びで 入れるかを 自分で 書く）
  */
 export const GOLD_DEFS: ItemDefs = GOLD;
-/** つるはし 3 本・おの 3 本（古い表の 同じ 位置（M4 の 先頭）に 入れる） */
+/** つるはし 3 本・おの 3 本（これまでと 同じ 位置（M4 の 先頭）に 入れる） */
 export const TOOL_DEFS: ItemDefs = TOOLS;
 /** ぼくとう・かたな・なぎなた・きらめく カタナ（てつの かたまりの 次） */
 export const SWORD_DEFS: ItemDefs = SWORDS;
@@ -47,10 +49,10 @@ export const SWORD_DEFS: ItemDefs = SWORDS;
 export const BOW_DEFS: ItemDefs = BOWS;
 /** かぶと・よろい・こて・すねあて（ゆみ・やの 次） */
 export const ARMOR_DEFS: ItemDefs = ARMOR;
-/** 忍者・侍（ITEM_TYPES では 古い表の 同じ 位置（すねあての 次）に 入れる） */
+/** 忍者・侍（ITEM_TYPES では これまでと 同じ 位置（すねあての 次）に 入れる） */
 export const NINJA_SAMURAI_DEFS: ItemDefs = { ...NINJA, ...SAMURAI };
 
-/** 畑のたね 4（ITEM_TYPES では 古い表の 同じ 位置（M7）の 先頭。作業台では ずっと うしろ（バケツの 次）） */
+/** 畑のたね 4（ITEM_TYPES では これまでと 同じ 位置（M7）の 先頭。作業台では ずっと うしろ（バケツの 次）） */
 export const SEED_DEFS: ItemDefs = SEEDS;
 /** 畑のやさい 4（たねの 次） */
 export const VEG_DEFS: ItemDefs = VEGGIES;
@@ -61,7 +63,7 @@ export const SPRINKLER_DEFS: ItemDefs = SPRINKLER;
 /** バケツ・みずの バケツ（スプリンクラーの 次。道具の 色分けでは じょうろの 次） */
 export const BUCKET_DEFS: ItemDefs = BUCKETS;
 
-/** ようかいだま・かみ・あぶら・いと・ぬの・ねんど・すいしょう 7（ITEM_TYPES では 古い表の 同じ 位置（道具の 前の 先頭）に 入れる。色分けの 並びは 呼び出し側で 決める） */
+/** ようかいだま・かみ・あぶら・いと・ぬの・ねんど・すいしょう 7（ITEM_TYPES では これまでと 同じ 位置（道具の 前の 先頭）に 入れる。色分けの 並びは 呼び出し側で 決める） */
 export const MATERIAL_DEFS: ItemDefs = { ...ORB, ...MATERIALS };
 /** てつの かたまり（つるはし・おの 6 本の 次。かまどで やく 作り方） */
 export const INGOT_DEFS: ItemDefs = INGOT;
@@ -69,7 +71,7 @@ export const INGOT_DEFS: ItemDefs = INGOT;
 export const GADGET_DEFS: ItemDefs = GADGETS;
 
 /**
- * たまご・むし・むしとりあみ・こたつ・とりごや・きんの たまご・なま／やいた もも にく（ITEM_TYPES では 古い表の 同じ 位置（花の ブロックの 次）。
+ * たまご・むし・むしとりあみ・こたつ・とりごや・きんの たまご・なま／やいた もも にく（ITEM_TYPES では これまでと 同じ 位置（花の ブロックの 次）。
  * この 並びは ITEM_TYPES の 順。こたつ（nukunuku）は 置ける ブロック（BlockId 側）なので 別の 表 KOTATSU から 入れる）
  */
 export const LIVE_DEFS: ItemDefs = pickDefs({ ...LIVE, ...KOTATSU }, ['egg', 'mushi', 'mushi_ami', 'nukunuku', 'toriya', 'kin_tamago', 'momo_nama', 'momo_yaki']);
@@ -83,41 +85,24 @@ export const GEYSER_DEFS: ItemDefs = GEYSER;
 /** 12 の国の ブロック 8 つ（ITEM_TYPES では バケツの 次） */
 export const VOX_I_DEFS: ItemDefs = VOX_I;
 
-/** レジェンダリー武器（ITEM_TYPES・武器の 色分けでは 古い表の 同じ 位置（crystal_katana の 次）に 入れる） */
+/** レジェンダリー武器（ITEM_TYPES・武器の 色分けでは これまでと 同じ 位置（crystal_katana の 次）に 入れる） */
 export const LEGEND_DEFS: ItemDefs = LEGEND;
-/** 登録された 全アイテム（置ける ブロック・道具・刀・ゆみ・防具・忍者・侍・畑・ざいりょう・小物・生き物・レジェンダリー・金。刀の集まり BLADE_ITEMS の 並びは この 順） */
-export const ITEM_DEFS: ItemDefs = {
-  ...PLACEABLE_DEFS, ...M4_BLOCK_DEFS, ...GEYSER_DEFS, ...VOX_I_DEFS,
-  ...TOOL_DEFS, ...SWORD_DEFS, ...BOW_DEFS, ...ARMOR_DEFS, ...NINJA_SAMURAI_DEFS,
-  ...SEED_DEFS, ...VEG_DEFS, ...FARM_TOOL_DEFS, ...SPRINKLER_DEFS, ...BUCKET_DEFS,
-  ...MATERIAL_DEFS, ...INGOT_DEFS, ...GADGET_DEFS, ...LIVE_DEFS, ...LEGEND_DEFS, ...GOLD_DEFS,
-};
 
 /**
- * うつしかえの 途中で、同じ id を 古い表と 登録表の 両方に 書いてしまった所の 一覧（"表の名前:id"）。
- * 空で なければ registry.test.ts が 落ちる（片方を 消す）。
- * 移しかえの 途中だけ 要る（段階 3 で 全シリーズが 登録表に 入り、古い表が 無くなったら withRegistry・noteDuplicates ごと 外す）。
+ * 登録された 全アイテム（置ける ブロック・道具・刀・ゆみ・防具・忍者・侍・畑・ざいりょう・小物・生き物・レジェンダリー・金。刀の集まり BLADE_ITEMS の 並びは この 順）。
+ * 全件 Record なので、ItemId を 足して ここに 書き忘れる（シリーズの ファイルに 入れ忘れる）と 型エラー。
+ * 同じ id が 2 つの シリーズに あると あとの 物が かつので、registry.test.ts が シリーズごとの 数の 合計と 突き合わせる。
  */
-export const REGISTRY_OVERLAPS: string[] = [];
-
-/** 古い表 ＋ 登録表から 作った分 を 合わせる（古い表と 登録表に 同じ id が あれば REGISTRY_OVERLAPS に 記録） */
-export function withRegistry<T extends object, R extends object>(table: string, old: T, fromRegistry: R): T & R {
-  for (const id of Object.keys(fromRegistry)) if (id in old) REGISTRY_OVERLAPS.push(`${table}:${id}`);
-  return { ...old, ...fromRegistry };
-}
-
-/** 並びの 中で 同じ id が 2 回 出たら REGISTRY_OVERLAPS に 記録（古い配列 ＋ 登録表の 分を つないだ 並びを わたす） */
-export function noteDuplicates(table: string, ids: Iterable<string>): void {
-  const seen = new Set<string>();
-  for (const id of ids) {
-    if (seen.has(id)) REGISTRY_OVERLAPS.push(`${table}:${id}`);
-    seen.add(id);
-  }
-}
+export const ITEM_DEFS: Readonly<Record<ItemDefId, ItemDef>> = {
+  ...PLACEABLE, ...M4_BLOCKS, ...GEYSER, ...VOX_I,
+  ...TOOLS, ...SWORDS, ...BOWS, ...ARMOR, ...NINJA, ...SAMURAI,
+  ...SEEDS, ...VEGGIES, ...FARM_TOOLS, ...SPRINKLER, ...BUCKETS,
+  ...ORB, ...MATERIALS, ...INGOT, ...GADGETS, ...LIVE, ...KOTATSU, ...LEGEND, ...GOLD,
+};
 
 /** 登録の 中から、ids の 順に 取り出した 登録（並びを 呼び出し側で 決めたい とき。登録に 無い id は 書きまちがいなので 投げる） */
-export function pickDefs(defs: ItemDefs, ids: readonly ItemId[]): ItemDefs {
-  const out: Partial<Record<ItemId, ItemDef>> = {};
+export function pickDefs(defs: ItemDefs, ids: readonly ItemDefId[]): ItemDefs {
+  const out: Partial<Record<ItemDefId, ItemDef>> = {};
   for (const id of ids) {
     const d = defs[id];
     if (!d) throw new Error(`登録表に ${id} が ない`);
@@ -128,7 +113,7 @@ export function pickDefs(defs: ItemDefs, ids: readonly ItemId[]): ItemDefs {
 
 const BY_ID = new Map<string, ItemDef>(Object.entries(ITEM_DEFS) as Array<[string, ItemDef]>);
 
-/** id の 登録（まだ うつしていない アイテムは undefined） */
+/** 文字列の id の 登録（アイテムに ならない ブロックの id・知らない id は undefined。id の 型が わかる なら ITEM_DEFS[id] を 直接 読む） */
 export function itemDef(id: string): ItemDef | undefined {
   return BY_ID.get(id);
 }
@@ -145,7 +130,7 @@ function pickAll<T>(defs: ItemDefs, pick: (d: ItemDef) => T | undefined): Partia
   return out;
 }
 
-// ---------------------------------------------------------------- 見せ方（古い表に 合わせる形）。どれも 新しい コピーを 返す
+// ---------------------------------------------------------------- 見せ方（窓口の 表に 合わせる形）。どれも 新しい コピーを 返す
 
 /** ITEM_TYPES の 行（置けない = null） */
 export function itemTypesOf(defs: ItemDefs): ItemType[] {
@@ -167,11 +152,6 @@ export function recipesOf(defs: ItemDefs, station: 'craft' | 'furnace'): Recipe[
     });
   }
   return out;
-}
-
-/** めずらしさ（ITEM_ONLY_RARITY に 合わせる） */
-export function registryRarity(): Record<string, Rarity> {
-  return pickAll(ITEM_DEFS, (d) => d.rarity) as Record<string, Rarity>;
 }
 
 /** カテゴリー別の id（defs の 登録の 順。CATEGORY_ITEMS の どこに 入れるかは 呼ぶ 側が 決める） */
@@ -212,8 +192,8 @@ export function registryCan(key: 'capacity' | 'tiles'): Partial<Record<ItemId, n
 }
 
 /** たべもの: たべた ときに もどる 体力の 初期値（たまご・やいた もも にく。LIVE_SETTING_DEFAULTS の animalEggHeal・meatHeal） */
-export function registryHeal(id: ItemId): number {
-  const heal = ITEM_DEFS[id]?.food?.heal;
+export function registryHeal(id: ItemDefId): number {
+  const heal = ITEM_DEFS[id].food?.heal;
   if (heal === undefined) throw new Error(`登録表に ${id} の food が ない`);
   return heal;
 }

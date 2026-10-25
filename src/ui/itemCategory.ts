@@ -1,12 +1,11 @@
 
 /**
- * マスの色分け（M6 §3.5 (7)）。アイテム id → カテゴリー → 色 を 1 か所で持つ。
+ * マスの色分け（M6 §3.5 (7)）。アイテム id → カテゴリー → 色。
  * カテゴリー名は画面には出さない。色は CSS 変数 `--rk-cat-<名前>`（tokens.css）。
- * 新しいアイテムを足すときは、ここにも 1 行足す（表に無いアイテムは `material` = そざい）。
- * 登録表（content/items/）に うつしたシリーズは、そちらの `category` に 書く（ここへは 自動で 入る）。
+ * 分類は 登録表（content/items/）の ItemDef の `category` に 書く（書き忘れは 型エラー）。ここは 色分けの 並びを 決めるだけ。
  */
-import type { ItemId } from '../contracts';
-import { ARMOR_DEFS, BOW_DEFS, BUCKET_DEFS, FARM_TOOL_DEFS, GADGET_DEFS, GOLD_DEFS, ITEM_DEFS, LEGEND_DEFS, LIVE_DEFS, NINJA_SAMURAI_DEFS, SEED_DEFS, SPRINKLER_DEFS, SWORD_DEFS, TOOL_DEFS, VEG_DEFS, noteDuplicates, pickDefs, registryCategoryIds } from '../content/items/registry';
+import type { ItemDefId } from '../content/items/types';
+import { ARMOR_DEFS, BOW_DEFS, BUCKET_DEFS, FARM_TOOL_DEFS, GADGET_DEFS, GOLD_DEFS, ITEM_DEFS, LEGEND_DEFS, LIVE_DEFS, NINJA_SAMURAI_DEFS, SEED_DEFS, SPRINKLER_DEFS, SWORD_DEFS, TOOL_DEFS, VEG_DEFS, itemDef, pickDefs, registryCategoryIds } from '../content/items/registry';
 
 export type ItemCategory =
   | 'soil'
@@ -40,20 +39,20 @@ export const ITEM_CATEGORIES: readonly ItemCategory[] = [
 ];
 
 /** 登録表の 置ける ブロックのうち、ids の 順に cat の 分類の 物だけ（登録に 無い id は 書きまちがいなので 投げる） */
-const blocksIn = (cat: ItemCategory, ids: readonly ItemId[]): string[] => registryCategoryIds(cat, pickDefs(ITEM_DEFS, ids));
+const blocksIn = (cat: ItemCategory, ids: readonly ItemDefId[]): string[] => registryCategoryIds(cat, pickDefs(ITEM_DEFS, ids));
 
 /**
- * まだ 登録表（content/items/）に うつしていない アイテムの カテゴリー（§3.5 (7) の表）。
- * 古い表の 先頭・まん中に 入る 登録表の 分（道具・刀・レジェンダリー・ゆみ・防具）は ここで 場所を 書いて 差し込む（うしろに ならぶ 分は 下の CATEGORY_ITEMS）
+ * 色分けの 中の 並び（§3.5 (7)）。登録表の シリーズを どの 順に ならべるかを ここで 決める
+ * （マスの 色の グループ内の 並びは 画面の 順なので かえない）。忍者・侍・金は うしろに ならぶ
  */
-const OLD_CATEGORY_ITEMS: Readonly<Record<ItemCategory, readonly string[]>> = {
-  // 置ける ブロック 22 個の 分類は 登録表（content/items/blocks.ts）の category から。並びは 古い表と 同じに ここで 決める
+const ORDER_ITEMS: Readonly<Record<ItemCategory, readonly string[]>> = {
+  // 置ける ブロックの 分類は 登録表（content/items/blocks.ts）の category から
   soil: blocksIn('soil', ['dirt', 'sand', 'snow', 'geyser_dirt']),
   stone: blocksIn('stone', ['stone']),
   plant: [...blocksIn('plant', ['grass', 'log', 'leaves']), ...registryCategoryIds('plant', SEED_DEFS), ...blocksIn('plant', ['momiji_leaves', 'matsu_leaves', 'flower_y', 'flower_o', 'flower_p', 'bamboo']), ...registryCategoryIds('plant', LIVE_DEFS), ...blocksIn('plant', ['nobana'])],
   ore: blocksIn('ore', ['coal_ore', 'iron_ore']),
   build: blocksIn('build', ['kawara', 'brick']),
-  // ざいりょう・てつの かたまり・すいしょうは 登録表（content/items/materials.ts）から。並びは 古い表と 同じに ここで 決める
+  // ざいりょう・てつの かたまり・すいしょうも 登録表（content/items/materials.ts）から
   material: [...registryCategoryIds('material', pickDefs(ITEM_DEFS, ['paper', 'string', 'cloth', 'oil', 'clay', 'yokai_orb'])), ...registryCategoryIds('material', LIVE_DEFS)],
   metal: registryCategoryIds('metal', pickDefs(ITEM_DEFS, ['iron_ingot', 'crystal'])),
   tool: [...registryCategoryIds('tool', TOOL_DEFS), ...registryCategoryIds('tool', FARM_TOOL_DEFS), ...registryCategoryIds('tool', BUCKET_DEFS), ...registryCategoryIds('tool', LIVE_DEFS)],
@@ -64,19 +63,14 @@ const OLD_CATEGORY_ITEMS: Readonly<Record<ItemCategory, readonly string[]>> = {
   food: [...registryCategoryIds('food', VEG_DEFS), ...registryCategoryIds('food', LIVE_DEFS)],
 };
 
-/** カテゴリーごとの アイテム（§3.5 (7) の表 ＋ 忍者・侍・金。忍者・侍・金は うしろに ならぶ） */
+/** カテゴリーごとの アイテム（色分けの 並び。登録表の 全アイテムが ちょうど 1 回ずつ 入る = itemCategory.test.ts が 確かめる） */
 export const CATEGORY_ITEMS: Readonly<Record<ItemCategory, readonly string[]>> = Object.fromEntries(
-  ITEM_CATEGORIES.map((c) => [c, [...OLD_CATEGORY_ITEMS[c], ...registryCategoryIds(c, NINJA_SAMURAI_DEFS), ...registryCategoryIds(c, GOLD_DEFS)]]),
+  ITEM_CATEGORIES.map((c) => [c, [...ORDER_ITEMS[c], ...registryCategoryIds(c, NINJA_SAMURAI_DEFS), ...registryCategoryIds(c, GOLD_DEFS)]]),
 ) as unknown as Record<ItemCategory, readonly string[]>;
 
-noteDuplicates('CATEGORY_ITEMS', ITEM_CATEGORIES.flatMap((c) => CATEGORY_ITEMS[c]));
-
-const BY_ITEM = new Map<string, ItemCategory>();
-for (const cat of ITEM_CATEGORIES) for (const id of CATEGORY_ITEMS[cat]) BY_ITEM.set(id, cat);
-
-/** アイテムのカテゴリー（表に無いものは そざい） */
+/** アイテムのカテゴリー（登録表の `category`）。アイテムに ならない ブロックの id（みず など）と、セーブや 外から 来た 知らない id は そざい（型では 守れないので 残す） */
 export function itemCategory(item: string): ItemCategory {
-  return BY_ITEM.get(item) ?? 'material';
+  return itemDef(item)?.category ?? 'material';
 }
 
 /** カテゴリーの色の CSS 変数名（先頭の -- つき） */
