@@ -1,12 +1,14 @@
 import type { ItemId } from '../contracts';
+import { GOLD_IDS, type GoldId } from '../content/items/ids';
 import type { Rgba } from '../world/blocks/textures';
 
 /**
  * #222 きんの そうび（案 B「くろうるし に きん」）の 16x16 アイコン。もとの 絵は 共有フォルダ gold/directions/src/icons.py の B()。
  * 色は 全部 1 つの 表（金 4 段・きらり・ふち・くろうるし 3 段・みみずの あか）。
  */
-export const GOLD_ITEMS = ['kin', 'kin_katana', 'kin_yumi', 'kin_pickaxe', 'kin_axe', 'kin_kabuto', 'kin_yoroi', 'kin_kote', 'kin_suneate', 'harapan_mimizu'] as const;
-export type GoldItemId = (typeof GOLD_ITEMS)[number];
+// 金の id の出どころは content/items/ids.ts（ここでは 同じ名前で 読めるように するだけ）
+export const GOLD_ITEMS = GOLD_IDS;
+export type GoldItemId = GoldId;
 
 export function isGoldItem(item: ItemId): item is GoldItemId & ItemId {
   return (GOLD_ITEMS as readonly string[]).includes(item);

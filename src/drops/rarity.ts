@@ -1,4 +1,5 @@
 import type { ItemId, Rarity } from '../contracts';
+import { registryRarity, withRegistry } from '../content/items/registry';
 import { DIG_DEFAULTS } from '../dig/config';
 import { ITEM_TYPES } from '../inventory/items';
 import { RARITY_ORDER, rarityIndex } from './rarityTable';
@@ -8,9 +9,9 @@ export { RARITY_COLOR, RARITY_ORDER, RARITY_TIERS, defaultDropMax, isRarity, rar
 /**
  * アイテムのめずらしさ（光の柱の色がこれできまる）。
  * ブロックは ほる設定（`src/dig/config.ts` の rarity）と同じ値。
- * アイテムを足すときは、ここに めずらしさを必ず書く。
+ * アイテムを足すときは、ここに めずらしさを必ず書く（登録表 content/items/ に うつした シリーズは そちらに 書く）。
  */
-const ITEM_ONLY_RARITY: Record<string, Rarity> = {
+const OLD_ITEM_ONLY_RARITY: Record<string, Rarity> = {
   yokai_orb: 'uncommon',
   paper: 'common',
   string: 'common',
@@ -79,21 +80,12 @@ const ITEM_ONLY_RARITY: Record<string, Rarity> = {
   raijin_ken: 'legendary',
   fujin_ken: 'legendary',
   niji: 'legendary',
-  // GOLD-1 §4.1（ぜんぶ ほし 5）
-  kin: 'epic',
-  kin_katana: 'epic',
-  kin_yumi: 'epic',
-  kin_pickaxe: 'epic',
-  kin_axe: 'epic',
-  kin_kabuto: 'epic',
-  kin_yoroi: 'epic',
-  kin_kote: 'epic',
-  kin_suneate: 'epic',
-  harapan_mimizu: 'epic',
   // BUCKET-1
   bucket: 'common',
   water_bucket: 'common',
 };
+// 登録表に うつした シリーズ（金 …）の めずらしさは content/items/ から
+const ITEM_ONLY_RARITY: Record<string, Rarity> = withRegistry('ITEM_ONLY_RARITY', OLD_ITEM_ONLY_RARITY, registryRarity());
 
 /** 今の当てはめ（設定 itemRarity。ゲームに 1 つ。全アイテム → Rarity） */
 function initialItemRarity(): Record<string, Rarity> {
