@@ -16,6 +16,7 @@ model: sonnet
 - 差し戻しのときは、指摘台帳 `docs/loop-ledger/<ID>.md` の該当指摘を読み、**同じ原因が再発しないように根本から**直す。
 
 ## きまり
+- **アイテム・妖怪を足すときは `src/content/CLAUDE.md`（足し方の手引き）を読み、そのとおりの場所に書く。**
 - 入力は `src/input/actions.ts` の Action 経由で読む（キーを直接見ない）。
 - 更新は固定ステップ（`Game.onUpdate`）。乱数はシード付き。
 - 画面の文字は HTML（`#hud`）で出し、漢字は `ruby()` を使う。

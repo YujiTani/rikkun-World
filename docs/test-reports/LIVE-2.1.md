@@ -1,6 +1,6 @@
 # LIVE-2.1 テストレポート（テストの準備。実装の前。tester）
 
-- 対象: `docs/design/LIVE-2.1.md` 版 1.1 §6・§6.1・§6.2。ブランチ `claude/project-thread-rcfe6n`。
+- 対象: `docs/archive/design/LIVE-2.1.md` 版 1.1 §6・§6.1・§6.2。ブランチ `claude/project-thread-rcfe6n`。
 - 実行: `npx playwright test e2e/live21-*.spec.ts e2e/live2-*.spec.ts e2e/live1-carry.spec.ts e2e/smoke.spec.ts`（`--workers` なし）。
   別スレッドが `src/` に さく の 板（試作）を 入れている ため、実行は HEAD（`fe454e5`）の 別 worktree で した。
 - 新しい spec（6 ファイル）: `live21-flat`（AC1〜3）・`live21-throw`（AC4〜6・9）・`live21-home`（AC7・8・18）・`live21-kit`（AC10〜14）・`live21-text`（AC16）・`live21-fence`（AC15 の 当たり）。

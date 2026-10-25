@@ -10,12 +10,12 @@
 「今の武器での攻撃が、つねに +マークの方に出る仕様だったんですけど。それだと、いろんな角度の攻撃が出せないので、やっぱりプレイヤーキャラクターの向いている方で出るというふうにしたい」「ダンジョンズふうで！」
 
 ## やること
-- 計画 `docs/design/WEAPON-3-plan.md` §2〜§4 の推奨（決定 `docs/decisions/2026-10-17-attack-facing.md`）を仕様書 `docs/design/WEAPON-3.md` にする。
+- 計画 `docs/archive/design/WEAPON-3-plan.md` §2〜§4 の推奨（決定 `docs/decisions/2026-10-17-attack-facing.md`）を仕様書 `docs/design/WEAPON-3.md` にする。
 - 試作のスクショ（横・うしろへ切る所）で yuzu の OK → テスト準備 → 実装 → 検証。
 
 ## 関連
 - issue: #166
-- 計画: `docs/design/WEAPON-3-plan.md`
+- 計画: `docs/archive/design/WEAPON-3-plan.md`
 - 仕様書: `docs/design/WEAPON-3.md`（これから）
 - 重なる作業: CHAR-4 #161（刃の軌跡。先に入れる）
 

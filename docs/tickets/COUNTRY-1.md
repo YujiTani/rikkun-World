@@ -11,7 +11,7 @@
 - 仕様書: `docs/design/COUNTRY-1.md`（2 版）
 - 決定: `docs/decisions/2026-10-23-adventure-core-four-bosses.md`（気ままな冒険＋4 大妖怪）。名前のふだは 作らない（2026-10-23 yuzu。仕様の頭）
 - もとの仕様: `docs/design/VOX-I.md` §2、`docs/design/M6-ui-achievements.md` §2.6・§4.2 J、`docs/design/BALANCE.md`（変えない）
-- 今の国の整理: `docs/design/COUNTRY-inventory.md`
+- 今の国の整理: `docs/archive/design/COUNTRY-inventory.md`
 - 指摘台帳: `docs/loop-ledger/COUNTRY-1.md`
 
 ## やること

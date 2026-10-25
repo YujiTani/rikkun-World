@@ -4,7 +4,7 @@
 - ゲームの芯（オーナー決定）: `docs/decisions/2026-10-23-adventure-core-four-bosses.md`（「気ままな冒険＋4 大妖怪をたおす」。1 国 = 見どころ（しるし）・国の妖怪 3 体・宝箱）。
 - **名前のふだは 作らない**（2026-10-23 yuzu: 実績「はじめて ○○ に きた！」の おしらせで 足りる）。VOX-I §4・§4.1・§8.2 の ふだ・`plate()`・`celebrated()`・「ぜんぶ みつけた！」の紙ふぶき は この仕様で やめる。「入った」の判定と 見つけた国の並び（`found`・`setFound`）だけ 実績のために のこす。
 - 土台にする仕様: `docs/design/VOX-I.md` §2（12 の国）、`docs/design/M6-ui-achievements.md` §2.6・§2.7・§4.2 J（ばしょ の実績・知らせ方）、`docs/design/BALANCE.md`（妖怪の強さ。**変えない**）。
-- 今の国の中身の整理: `docs/design/COUNTRY-inventory.md`。指摘台帳: `docs/loop-ledger/COUNTRY-1.md`。
+- 今の国の中身の整理: `docs/archive/design/COUNTRY-inventory.md`。指摘台帳: `docs/loop-ledger/COUNTRY-1.md`。
 - この issue で **やらない** こと（つながりだけ書く。§6）: しるし・見どころ（#187）、国の妖怪 36 体の本体、宝箱（#195）、4 大妖怪の本体・すみか・コンパス、がしゃどくろ。
 
 ## 1. ねらい（りっくんがどう楽しむか）

@@ -1,4 +1,6 @@
-## 3. docs/design/M7-farming.md
+## 3. docs/design/M7/farming.md
+
+> この資料はオーナーの元資料・最初の案。実装した決まりの正は M7-farm.md・M7-2-farm.md・BUCKET-1.md（ちがう所は仕様書が正。例: 耕すのは 3 回、作物は stageTicks）。果物・料理・バフ・季節などフェーズ 3 以降の案はここにだけある。
 
 # M7: 農業・料理システム 仕様書（案）
 
