@@ -1,0 +1,5443 @@
+{
+  "items": {
+    "grass": {
+      "DIG_DEFAULTS.hardness.grass": 0.5,
+      "DIG_DEFAULTS.harvestLevel.grass": 0,
+      "DIG_DEFAULTS.rarity.grass": "common",
+      "ITEM_INFO.grass": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "dig": true,
+        "how": "てに もって みぎクリック で おく",
+        "use": "ブロック として おける。わらじ の ざいりょう"
+      },
+      "category": "plant",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "くさ",
+      "placeBlock": "grass",
+      "rarity": "common",
+      "recipes": [
+        {
+          "id": "waraji",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "grass"
+            },
+            {
+              "count": 1,
+              "item": "string"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "waraji"
+          },
+          "station": "craft",
+          "works": false
+        },
+        {
+          "id": "nukunuku",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "grass"
+            },
+            {
+              "count": 2,
+              "item": "log"
+            },
+            {
+              "count": 1,
+              "item": "torch"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "nukunuku"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "toriya",
+          "inputs": [
+            {
+              "count": 8,
+              "item": "log"
+            },
+            {
+              "count": 4,
+              "item": "grass"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "toriya"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "dirt": {
+      "DIG_DEFAULTS.hardness.dirt": 0.5,
+      "DIG_DEFAULTS.harvestLevel.dirt": 0,
+      "DIG_DEFAULTS.rarity.dirt": "common",
+      "ITEM_INFO.dirt": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "dig": true,
+        "how": "てに もって みぎクリック で おく",
+        "use": "ブロック として おける"
+      },
+      "category": "soil",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "つち",
+      "placeBlock": "dirt",
+      "rarity": "common",
+      "recipes": []
+    },
+    "stone": {
+      "DIG_DEFAULTS.hardness.stone": 6,
+      "DIG_DEFAULTS.harvestLevel.stone": 0,
+      "DIG_DEFAULTS.rarity.stone": "common",
+      "ITEM_INFO.stone": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "dig": true,
+        "how": "てに もって みぎクリック で おく",
+        "use": "おける。つるはし・かまど・や の ざいりょう"
+      },
+      "category": "stone",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "いし",
+      "placeBlock": "stone",
+      "rarity": "common",
+      "recipes": [
+        {
+          "id": "stone_pickaxe",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "stone"
+            },
+            {
+              "count": 2,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "stone_pickaxe"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "stone_axe",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "stone"
+            },
+            {
+              "count": 2,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "stone_axe"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "furnace",
+          "inputs": [
+            {
+              "count": 5,
+              "item": "stone"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "furnace"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "ya",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "log"
+            },
+            {
+              "count": 1,
+              "item": "stone"
+            },
+            {
+              "count": 1,
+              "item": "paper"
+            }
+          ],
+          "output": {
+            "count": 4,
+            "item": "ya"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "kuwa",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "log"
+            },
+            {
+              "count": 1,
+              "item": "stone"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kuwa"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "watering_can",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "iron_ingot"
+            },
+            {
+              "count": 2,
+              "item": "stone"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "watering_can"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "sprinkler",
+          "inputs": [
+            {
+              "count": 4,
+              "item": "iron_ingot"
+            },
+            {
+              "count": 2,
+              "item": "stone"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "sprinkler"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "sand": {
+      "DIG_DEFAULTS.hardness.sand": 0.5,
+      "DIG_DEFAULTS.harvestLevel.sand": 0,
+      "DIG_DEFAULTS.rarity.sand": "common",
+      "ITEM_INFO.sand": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "dig": true,
+        "how": "てに もって みぎクリック で おく",
+        "use": "おける"
+      },
+      "category": "soil",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "すな",
+      "placeBlock": "sand",
+      "rarity": "common",
+      "recipes": []
+    },
+    "log": {
+      "CRAFT_DEFAULTS.fuelOrder": true,
+      "DIG_DEFAULTS.hardness.log": 5,
+      "DIG_DEFAULTS.harvestLevel.log": 0,
+      "DIG_DEFAULTS.rarity.log": "uncommon",
+      "ITEM_INFO.log": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "dig": true,
+        "how": "てに もって みぎクリック で おく。ねんりょう は かまど が かってに つかう",
+        "use": "おける。いろんな もの の ざいりょう。かまど の ねんりょう にも なる"
+      },
+      "category": "plant",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "き",
+      "placeBlock": "log",
+      "rarity": "uncommon",
+      "recipes": [
+        {
+          "id": "wood_pickaxe",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "wood_pickaxe"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "stone_pickaxe",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "stone"
+            },
+            {
+              "count": 2,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "stone_pickaxe"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "iron_pickaxe",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "iron_ingot"
+            },
+            {
+              "count": 2,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "iron_pickaxe"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "wood_axe",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "wood_axe"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "stone_axe",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "stone"
+            },
+            {
+              "count": 2,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "stone_axe"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "iron_axe",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "iron_ingot"
+            },
+            {
+              "count": 2,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "iron_axe"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "bokuto",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "bokuto"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "katana",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "iron_ingot"
+            },
+            {
+              "count": 1,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "katana"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "naginata",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "iron_ingot"
+            },
+            {
+              "count": 3,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "naginata"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "crystal_katana",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "crystal"
+            },
+            {
+              "count": 2,
+              "item": "iron_ingot"
+            },
+            {
+              "count": 2,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "crystal_katana"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "yumi",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "log"
+            },
+            {
+              "count": 3,
+              "item": "string"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "yumi"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "ya",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "log"
+            },
+            {
+              "count": 1,
+              "item": "stone"
+            },
+            {
+              "count": 1,
+              "item": "paper"
+            }
+          ],
+          "output": {
+            "count": 4,
+            "item": "ya"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "torch",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "log"
+            },
+            {
+              "count": 1,
+              "item": "oil"
+            }
+          ],
+          "output": {
+            "count": 4,
+            "item": "torch"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "lantern",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "paper"
+            },
+            {
+              "count": 1,
+              "item": "log"
+            },
+            {
+              "count": 1,
+              "item": "oil"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "lantern"
+          },
+          "station": "craft",
+          "works": false
+        },
+        {
+          "id": "kite",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "paper"
+            },
+            {
+              "count": 2,
+              "item": "string"
+            },
+            {
+              "count": 1,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kite"
+          },
+          "station": "craft",
+          "works": false
+        },
+        {
+          "id": "tansu",
+          "inputs": [
+            {
+              "count": 8,
+              "item": "log"
+            },
+            {
+              "count": 2,
+              "item": "iron_ingot"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "tansu"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "kuwa",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "log"
+            },
+            {
+              "count": 1,
+              "item": "stone"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kuwa"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "long_watering_can",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "iron_ingot"
+            },
+            {
+              "count": 1,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "long_watering_can"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "mushi_ami",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "log"
+            },
+            {
+              "count": 2,
+              "item": "string"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "mushi_ami"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "nukunuku",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "grass"
+            },
+            {
+              "count": 2,
+              "item": "log"
+            },
+            {
+              "count": 1,
+              "item": "torch"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "nukunuku"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "toriya",
+          "inputs": [
+            {
+              "count": 8,
+              "item": "log"
+            },
+            {
+              "count": 4,
+              "item": "grass"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "toriya"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "kin_katana",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "kin"
+            },
+            {
+              "count": 1,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kin_katana"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "kin_pickaxe",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "kin"
+            },
+            {
+              "count": 2,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kin_pickaxe"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "kin_axe",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "kin"
+            },
+            {
+              "count": 2,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kin_axe"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "torch_coal",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "log"
+            },
+            {
+              "count": 1,
+              "item": "coal_ore"
+            }
+          ],
+          "output": {
+            "count": 4,
+            "item": "torch"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "torch_log",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "torch"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "leaves": {
+      "DIG_DEFAULTS.hardness.leaves": 0.25,
+      "DIG_DEFAULTS.harvestLevel.leaves": 0,
+      "DIG_DEFAULTS.rarity.leaves": "common",
+      "ITEM_INFO.leaves": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "dig": true,
+        "how": "てに もって みぎクリック で おく",
+        "use": "おける"
+      },
+      "category": "plant",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "はっぱ",
+      "placeBlock": "leaves",
+      "rarity": "common",
+      "recipes": []
+    },
+    "coal_ore": {
+      "CRAFT_DEFAULTS.fuelOrder": true,
+      "DIG_DEFAULTS.hardness.coal_ore": 10,
+      "DIG_DEFAULTS.harvestLevel.coal_ore": 0,
+      "DIG_DEFAULTS.rarity.coal_ore": "uncommon",
+      "ITEM_INFO.coal_ore": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "dig": true,
+        "how": "かまど で やく と かってに つかう。おくのは てに もって みぎクリック",
+        "use": "かまど の ねんりょう（いちばん さきに つかう）。おける"
+      },
+      "category": "ore",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "せきたん",
+      "placeBlock": "coal_ore",
+      "rarity": "uncommon",
+      "recipes": [
+        {
+          "id": "torch_coal",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "log"
+            },
+            {
+              "count": 1,
+              "item": "coal_ore"
+            }
+          ],
+          "output": {
+            "count": 4,
+            "item": "torch"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "iron_ore": {
+      "DIG_DEFAULTS.hardness.iron_ore": 15,
+      "DIG_DEFAULTS.harvestLevel.iron_ore": 1,
+      "DIG_DEFAULTS.rarity.iron_ore": "rare",
+      "ITEM_INFO.iron_ore": {
+        "buttons": [
+          "right"
+        ],
+        "dig": true,
+        "how": "かまど に みぎクリック して やく",
+        "use": "かまど で やくと てつの かたまり に なる。おける"
+      },
+      "category": "ore",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "てつ",
+      "placeBlock": "iron_ore",
+      "rarity": "rare",
+      "recipes": [
+        {
+          "id": "iron_ingot",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "iron_ore"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "iron_ingot"
+          },
+          "station": "furnace",
+          "works": true
+        }
+      ]
+    },
+    "yokai_orb": {
+      "ITEM_INFO.yokai_orb": {
+        "buttons": [],
+        "how": "",
+        "use": "いまは つかえない よ"
+      },
+      "category": "material",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "ようかいだま",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "paper": {
+      "ITEM_INFO.paper": {
+        "buttons": [
+          "E"
+        ],
+        "how": "E の つくる で つかう",
+        "use": "や・ちょうちん・たこ の ざいりょう"
+      },
+      "category": "material",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "かみ",
+      "placeBlock": null,
+      "rarity": "common",
+      "recipes": [
+        {
+          "id": "ya",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "log"
+            },
+            {
+              "count": 1,
+              "item": "stone"
+            },
+            {
+              "count": 1,
+              "item": "paper"
+            }
+          ],
+          "output": {
+            "count": 4,
+            "item": "ya"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "lantern",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "paper"
+            },
+            {
+              "count": 1,
+              "item": "log"
+            },
+            {
+              "count": 1,
+              "item": "oil"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "lantern"
+          },
+          "station": "craft",
+          "works": false
+        },
+        {
+          "id": "kite",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "paper"
+            },
+            {
+              "count": 2,
+              "item": "string"
+            },
+            {
+              "count": 1,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kite"
+          },
+          "station": "craft",
+          "works": false
+        }
+      ]
+    },
+    "oil": {
+      "CRAFT_DEFAULTS.fuelOrder": true,
+      "ITEM_INFO.oil": {
+        "buttons": [
+          "E"
+        ],
+        "how": "E の つくる で つかう。ねんりょう は かってに つかう",
+        "use": "たいまつ・ちょうちん の ざいりょう。かまど の ねんりょう にも なる"
+      },
+      "category": "material",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "あぶら",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": [
+        {
+          "id": "torch",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "log"
+            },
+            {
+              "count": 1,
+              "item": "oil"
+            }
+          ],
+          "output": {
+            "count": 4,
+            "item": "torch"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "lantern",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "paper"
+            },
+            {
+              "count": 1,
+              "item": "log"
+            },
+            {
+              "count": 1,
+              "item": "oil"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "lantern"
+          },
+          "station": "craft",
+          "works": false
+        }
+      ]
+    },
+    "string": {
+      "ITEM_INFO.string": {
+        "buttons": [
+          "E"
+        ],
+        "how": "E の つくる で つかう",
+        "use": "ゆみ・よろい・すねあて・たこ・ふとん・おまもり・わらじ の ざいりょう"
+      },
+      "category": "material",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "いと",
+      "placeBlock": null,
+      "rarity": "common",
+      "recipes": [
+        {
+          "id": "yumi",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "log"
+            },
+            {
+              "count": 3,
+              "item": "string"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "yumi"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "yoroi",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "iron_ingot"
+            },
+            {
+              "count": 2,
+              "item": "string"
+            },
+            {
+              "count": 2,
+              "item": "cloth"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "yoroi"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "suneate",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "iron_ingot"
+            },
+            {
+              "count": 1,
+              "item": "string"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "suneate"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "kite",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "paper"
+            },
+            {
+              "count": 2,
+              "item": "string"
+            },
+            {
+              "count": 1,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kite"
+          },
+          "station": "craft",
+          "works": false
+        },
+        {
+          "id": "futon",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "cloth"
+            },
+            {
+              "count": 1,
+              "item": "string"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "futon"
+          },
+          "station": "craft",
+          "works": false
+        },
+        {
+          "id": "omamori",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "crystal"
+            },
+            {
+              "count": 1,
+              "item": "cloth"
+            },
+            {
+              "count": 1,
+              "item": "string"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "omamori"
+          },
+          "station": "craft",
+          "works": false
+        },
+        {
+          "id": "waraji",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "grass"
+            },
+            {
+              "count": 1,
+              "item": "string"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "waraji"
+          },
+          "station": "craft",
+          "works": false
+        },
+        {
+          "id": "mushi_ami",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "log"
+            },
+            {
+              "count": 2,
+              "item": "string"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "mushi_ami"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "kin_yumi",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "kin"
+            },
+            {
+              "count": 3,
+              "item": "string"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kin_yumi"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "kin_yoroi",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "kin"
+            },
+            {
+              "count": 2,
+              "item": "string"
+            },
+            {
+              "count": 2,
+              "item": "cloth"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kin_yoroi"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "kin_suneate",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "kin"
+            },
+            {
+              "count": 1,
+              "item": "string"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kin_suneate"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "cloth": {
+      "ITEM_INFO.cloth": {
+        "buttons": [
+          "E"
+        ],
+        "how": "E の つくる で つかう",
+        "use": "かぶと・よろい・こて・ふとん・おまもり の ざいりょう"
+      },
+      "category": "material",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "ぬの",
+      "placeBlock": null,
+      "rarity": "common",
+      "recipes": [
+        {
+          "id": "kabuto",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "iron_ingot"
+            },
+            {
+              "count": 1,
+              "item": "cloth"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kabuto"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "yoroi",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "iron_ingot"
+            },
+            {
+              "count": 2,
+              "item": "string"
+            },
+            {
+              "count": 2,
+              "item": "cloth"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "yoroi"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "kote",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "iron_ingot"
+            },
+            {
+              "count": 1,
+              "item": "cloth"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kote"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "futon",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "cloth"
+            },
+            {
+              "count": 1,
+              "item": "string"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "futon"
+          },
+          "station": "craft",
+          "works": false
+        },
+        {
+          "id": "omamori",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "crystal"
+            },
+            {
+              "count": 1,
+              "item": "cloth"
+            },
+            {
+              "count": 1,
+              "item": "string"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "omamori"
+          },
+          "station": "craft",
+          "works": false
+        },
+        {
+          "id": "kin_kabuto",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "kin"
+            },
+            {
+              "count": 1,
+              "item": "cloth"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kin_kabuto"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "kin_yoroi",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "kin"
+            },
+            {
+              "count": 2,
+              "item": "string"
+            },
+            {
+              "count": 2,
+              "item": "cloth"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kin_yoroi"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "kin_kote",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "kin"
+            },
+            {
+              "count": 1,
+              "item": "cloth"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kin_kote"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "clay": {
+      "ITEM_INFO.clay": {
+        "buttons": [
+          "right"
+        ],
+        "how": "かまど に みぎクリック して やく",
+        "use": "かまど で やくと かわら・レンガ・はにわ に なる"
+      },
+      "category": "material",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "ねんど",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": [
+        {
+          "id": "kawara",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "clay"
+            }
+          ],
+          "output": {
+            "count": 2,
+            "item": "kawara"
+          },
+          "station": "furnace",
+          "works": true
+        },
+        {
+          "id": "brick",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "clay"
+            }
+          ],
+          "output": {
+            "count": 2,
+            "item": "brick"
+          },
+          "station": "furnace",
+          "works": true
+        },
+        {
+          "id": "haniwa",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "clay"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "haniwa"
+          },
+          "station": "furnace",
+          "works": false
+        }
+      ]
+    },
+    "crystal": {
+      "ITEM_INFO.crystal": {
+        "buttons": [
+          "E"
+        ],
+        "how": "E の つくる で つかう",
+        "use": "きらめく カタナ・おまもり の ざいりょう。ハイパーレア"
+      },
+      "category": "metal",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "すいしょう",
+      "placeBlock": null,
+      "rarity": "superRare",
+      "recipes": [
+        {
+          "id": "crystal_katana",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "crystal"
+            },
+            {
+              "count": 2,
+              "item": "iron_ingot"
+            },
+            {
+              "count": 2,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "crystal_katana"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "omamori",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "crystal"
+            },
+            {
+              "count": 1,
+              "item": "cloth"
+            },
+            {
+              "count": 1,
+              "item": "string"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "omamori"
+          },
+          "station": "craft",
+          "works": false
+        }
+      ]
+    },
+    "furnace": {
+      "CRAFT_DEFAULTS.fixedDrop.furnace": 1,
+      "DIG_DEFAULTS.hardness.furnace": 6,
+      "DIG_DEFAULTS.harvestLevel.furnace": 0,
+      "DIG_DEFAULTS.rarity.furnace": "uncommon",
+      "ITEM_INFO.furnace": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "おいて、かまど に むけて みぎクリック（E でも）",
+        "use": "おいて、てつ や ねんど を やく"
+      },
+      "category": "home",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "かまど",
+      "placeBlock": "furnace",
+      "rarity": "uncommon",
+      "recipes": [
+        {
+          "id": "furnace",
+          "inputs": [
+            {
+              "count": 5,
+              "item": "stone"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "furnace"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "kawara": {
+      "CRAFT_DEFAULTS.fixedDrop.kawara": 1,
+      "DIG_DEFAULTS.hardness.kawara": 4,
+      "DIG_DEFAULTS.harvestLevel.kawara": 0,
+      "DIG_DEFAULTS.rarity.kawara": "uncommon",
+      "ITEM_INFO.kawara": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって みぎクリック で おく",
+        "use": "ブロック として おける（やね に ぴったり）"
+      },
+      "category": "build",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "かわら",
+      "placeBlock": "kawara",
+      "rarity": "uncommon",
+      "recipes": [
+        {
+          "id": "kawara",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "clay"
+            }
+          ],
+          "output": {
+            "count": 2,
+            "item": "kawara"
+          },
+          "station": "furnace",
+          "works": true
+        }
+      ]
+    },
+    "brick": {
+      "CRAFT_DEFAULTS.fixedDrop.brick": 1,
+      "DIG_DEFAULTS.hardness.brick": 6,
+      "DIG_DEFAULTS.harvestLevel.brick": 0,
+      "DIG_DEFAULTS.rarity.brick": "uncommon",
+      "ITEM_INFO.brick": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって みぎクリック で おく",
+        "use": "ブロック として おける（かべ に ぴったり）"
+      },
+      "category": "build",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "レンガ",
+      "placeBlock": "brick",
+      "rarity": "uncommon",
+      "recipes": [
+        {
+          "id": "brick",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "clay"
+            }
+          ],
+          "output": {
+            "count": 2,
+            "item": "brick"
+          },
+          "station": "furnace",
+          "works": true
+        }
+      ]
+    },
+    "torch": {
+      "DIG_DEFAULTS.hardness.torch": 0.05,
+      "DIG_DEFAULTS.harvestLevel.torch": 0,
+      "DIG_DEFAULTS.rarity.torch": "common",
+      "ITEM_INFO.torch": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって みぎクリック で おく",
+        "use": "おくと まわり が あかるく なる。あかるい ところ には ようかい が でない"
+      },
+      "category": "light",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "たいまつ",
+      "placeBlock": "torch",
+      "rarity": "common",
+      "recipes": [
+        {
+          "id": "torch",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "log"
+            },
+            {
+              "count": 1,
+              "item": "oil"
+            }
+          ],
+          "output": {
+            "count": 4,
+            "item": "torch"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "nukunuku",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "grass"
+            },
+            {
+              "count": 2,
+              "item": "log"
+            },
+            {
+              "count": 1,
+              "item": "torch"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "nukunuku"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "torch_coal",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "log"
+            },
+            {
+              "count": 1,
+              "item": "coal_ore"
+            }
+          ],
+          "output": {
+            "count": 4,
+            "item": "torch"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "torch_log",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "torch"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "tansu": {
+      "CRAFT_DEFAULTS.fixedDrop.tansu": 1,
+      "DIG_DEFAULTS.hardness.tansu": 5,
+      "DIG_DEFAULTS.harvestLevel.tansu": 0,
+      "DIG_DEFAULTS.rarity.tansu": "uncommon",
+      "ITEM_INFO.tansu": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "おいて、たんす に むけて みぎクリック で ひらく（E でも）。シフト を おしながら クリック で いっきに うつす",
+        "stats": "tansu",
+        "use": "おいて、もちもの を たくさん（54 こ の マス）しまえる"
+      },
+      "category": "home",
+      "durabilityClass": "permanent",
+      "maxStack": 64,
+      "name": "たんす",
+      "placeBlock": "tansu",
+      "rarity": "uncommon",
+      "recipes": [
+        {
+          "id": "tansu",
+          "inputs": [
+            {
+              "count": 8,
+              "item": "log"
+            },
+            {
+              "count": 2,
+              "item": "iron_ingot"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "tansu"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "wood_pickaxe": {
+      "ITEM_INFO.wood_pickaxe": {
+        "buttons": [
+          "1-9",
+          "leftHold"
+        ],
+        "how": "えらんで、ブロック に むけて ひだりクリック を おしつづける",
+        "stats": "pickaxe",
+        "use": "ブロック を はやく ほれる"
+      },
+      "TOOL_DEFAULTS.toolLevel.wood_pickaxe": 0,
+      "TOOL_DEFAULTS.toolPower.wood_pickaxe": 2,
+      "TOOL_NUMBERS.toolLevel.wood_pickaxe": 0,
+      "TOOL_NUMBERS.toolPower.wood_pickaxe": 2,
+      "W2.toolDurability.wood_pickaxe": 59,
+      "category": "tool",
+      "durabilityClass": "durable",
+      "maxStack": 1,
+      "name": "きの つるはし",
+      "placeBlock": null,
+      "rarity": "common",
+      "recipes": [
+        {
+          "id": "wood_pickaxe",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "wood_pickaxe"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "stone_pickaxe": {
+      "ITEM_INFO.stone_pickaxe": {
+        "buttons": [
+          "1-9",
+          "leftHold"
+        ],
+        "how": "えらんで、ブロック に むけて ひだりクリック を おしつづける",
+        "stats": "pickaxe",
+        "use": "もっと はやく ほれる。てつ も ほれる"
+      },
+      "TOOL_DEFAULTS.toolLevel.stone_pickaxe": 1,
+      "TOOL_DEFAULTS.toolPower.stone_pickaxe": 4,
+      "TOOL_NUMBERS.toolLevel.stone_pickaxe": 1,
+      "TOOL_NUMBERS.toolPower.stone_pickaxe": 4,
+      "W2.toolDurability.stone_pickaxe": 131,
+      "category": "tool",
+      "durabilityClass": "durable",
+      "maxStack": 1,
+      "name": "いしの つるはし",
+      "placeBlock": null,
+      "rarity": "common",
+      "recipes": [
+        {
+          "id": "stone_pickaxe",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "stone"
+            },
+            {
+              "count": 2,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "stone_pickaxe"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "iron_pickaxe": {
+      "ITEM_INFO.iron_pickaxe": {
+        "buttons": [
+          "1-9",
+          "leftHold"
+        ],
+        "how": "えらんで、ブロック に むけて ひだりクリック を おしつづける",
+        "stats": "pickaxe",
+        "use": "いちばん はやく ほれる。てつ も ほれる"
+      },
+      "TOOL_DEFAULTS.toolLevel.iron_pickaxe": 2,
+      "TOOL_DEFAULTS.toolPower.iron_pickaxe": 6,
+      "TOOL_NUMBERS.toolLevel.iron_pickaxe": 2,
+      "TOOL_NUMBERS.toolPower.iron_pickaxe": 6,
+      "W2.toolDurability.iron_pickaxe": 250,
+      "category": "tool",
+      "durabilityClass": "durable",
+      "maxStack": 1,
+      "name": "てつの つるはし",
+      "placeBlock": null,
+      "rarity": "rare",
+      "recipes": [
+        {
+          "id": "iron_pickaxe",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "iron_ingot"
+            },
+            {
+              "count": 2,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "iron_pickaxe"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "wood_axe": {
+      "ITEM_INFO.wood_axe": {
+        "buttons": [
+          "1-9",
+          "leftHold"
+        ],
+        "how": "えらんで、ブロック に むけて ひだりクリック を おしつづける",
+        "stats": "pickaxe",
+        "use": "き を はやく きれる"
+      },
+      "TOOL_DEFAULTS.toolLevel.wood_axe": 0,
+      "TOOL_DEFAULTS.toolPower.wood_axe": 2,
+      "TOOL_NUMBERS.toolLevel.wood_axe": 0,
+      "TOOL_NUMBERS.toolPower.wood_axe": 2,
+      "W2.toolDurability.wood_axe": 59,
+      "category": "tool",
+      "durabilityClass": "durable",
+      "maxStack": 1,
+      "name": "きの おの",
+      "placeBlock": null,
+      "rarity": "common",
+      "recipes": [
+        {
+          "id": "wood_axe",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "wood_axe"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "stone_axe": {
+      "ITEM_INFO.stone_axe": {
+        "buttons": [
+          "1-9",
+          "leftHold"
+        ],
+        "how": "えらんで、ブロック に むけて ひだりクリック を おしつづける",
+        "stats": "pickaxe",
+        "use": "もっと はやく き を きれる"
+      },
+      "TOOL_DEFAULTS.toolLevel.stone_axe": 0,
+      "TOOL_DEFAULTS.toolPower.stone_axe": 4,
+      "TOOL_NUMBERS.toolLevel.stone_axe": 0,
+      "TOOL_NUMBERS.toolPower.stone_axe": 4,
+      "W2.toolDurability.stone_axe": 131,
+      "category": "tool",
+      "durabilityClass": "durable",
+      "maxStack": 1,
+      "name": "いしの おの",
+      "placeBlock": null,
+      "rarity": "common",
+      "recipes": [
+        {
+          "id": "stone_axe",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "stone"
+            },
+            {
+              "count": 2,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "stone_axe"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "iron_axe": {
+      "ITEM_INFO.iron_axe": {
+        "buttons": [
+          "1-9",
+          "leftHold"
+        ],
+        "how": "えらんで、ブロック に むけて ひだりクリック を おしつづける",
+        "stats": "pickaxe",
+        "use": "いちばん はやく き を きれる"
+      },
+      "TOOL_DEFAULTS.toolLevel.iron_axe": 0,
+      "TOOL_DEFAULTS.toolPower.iron_axe": 6,
+      "TOOL_NUMBERS.toolLevel.iron_axe": 0,
+      "TOOL_NUMBERS.toolPower.iron_axe": 6,
+      "W2.toolDurability.iron_axe": 250,
+      "category": "tool",
+      "durabilityClass": "durable",
+      "maxStack": 1,
+      "name": "てつの おの",
+      "placeBlock": null,
+      "rarity": "rare",
+      "recipes": [
+        {
+          "id": "iron_axe",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "iron_ingot"
+            },
+            {
+              "count": 2,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "iron_axe"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "iron_ingot": {
+      "ITEM_INFO.iron_ingot": {
+        "buttons": [
+          "E"
+        ],
+        "how": "E の つくる で つかう",
+        "use": "てつの つるはし・ぶき・ぼうぐ・たんす の ざいりょう"
+      },
+      "category": "metal",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "てつの かたまり",
+      "placeBlock": null,
+      "rarity": "rare",
+      "recipes": [
+        {
+          "id": "iron_pickaxe",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "iron_ingot"
+            },
+            {
+              "count": 2,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "iron_pickaxe"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "iron_axe",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "iron_ingot"
+            },
+            {
+              "count": 2,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "iron_axe"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "katana",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "iron_ingot"
+            },
+            {
+              "count": 1,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "katana"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "naginata",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "iron_ingot"
+            },
+            {
+              "count": 3,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "naginata"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "crystal_katana",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "crystal"
+            },
+            {
+              "count": 2,
+              "item": "iron_ingot"
+            },
+            {
+              "count": 2,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "crystal_katana"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "kabuto",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "iron_ingot"
+            },
+            {
+              "count": 1,
+              "item": "cloth"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kabuto"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "yoroi",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "iron_ingot"
+            },
+            {
+              "count": 2,
+              "item": "string"
+            },
+            {
+              "count": 2,
+              "item": "cloth"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "yoroi"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "kote",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "iron_ingot"
+            },
+            {
+              "count": 1,
+              "item": "cloth"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kote"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "suneate",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "iron_ingot"
+            },
+            {
+              "count": 1,
+              "item": "string"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "suneate"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "tansu",
+          "inputs": [
+            {
+              "count": 8,
+              "item": "log"
+            },
+            {
+              "count": 2,
+              "item": "iron_ingot"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "tansu"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "watering_can",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "iron_ingot"
+            },
+            {
+              "count": 2,
+              "item": "stone"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "watering_can"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "long_watering_can",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "iron_ingot"
+            },
+            {
+              "count": 1,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "long_watering_can"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "sprinkler",
+          "inputs": [
+            {
+              "count": 4,
+              "item": "iron_ingot"
+            },
+            {
+              "count": 2,
+              "item": "stone"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "sprinkler"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "bucket",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "iron_ingot"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "bucket"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "iron_ingot",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "iron_ore"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "iron_ingot"
+          },
+          "station": "furnace",
+          "works": true
+        }
+      ]
+    },
+    "bokuto": {
+      "BLADES": true,
+      "BLADE_ITEMS": true,
+      "BLADE_TRAIL_ITEMS": true,
+      "ITEM_INFO.bokuto": {
+        "buttons": [
+          "1-9",
+          "left"
+        ],
+        "how": "えらんで、ようかい に むけて ひだりクリック。R で かまえ を かえると わざ が かわる",
+        "stats": "blade",
+        "use": "ようかい を たたく"
+      },
+      "TOOL_DEFAULTS.weaponDamage.bokuto": 2,
+      "TOOL_NUMBERS.weaponDamage.bokuto": 2,
+      "W2.bladeReach.bokuto": 2.2,
+      "W2.bladeTrail.bokuto": {
+        "blade": 12159828,
+        "bladeShine": 14728326,
+        "color": 10251066,
+        "glow": 15253642,
+        "style": "plain"
+      },
+      "W2.toolDurability.bokuto": 59,
+      "category": "weapon",
+      "durabilityClass": "durable",
+      "maxStack": 1,
+      "name": "ぼくとう",
+      "placeBlock": null,
+      "rarity": "common",
+      "recipes": [
+        {
+          "id": "bokuto",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "bokuto"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "katana": {
+      "BLADES": true,
+      "BLADE_ITEMS": true,
+      "BLADE_TRAIL_ITEMS": true,
+      "ITEM_INFO.katana": {
+        "buttons": [
+          "1-9",
+          "left"
+        ],
+        "how": "えらんで、ようかい に むけて ひだりクリック。R で かまえ を かえると わざ が かわる",
+        "stats": "blade",
+        "use": "ようかい を つよく たたく"
+      },
+      "TOOL_DEFAULTS.weaponDamage.katana": 4,
+      "TOOL_NUMBERS.weaponDamage.katana": 4,
+      "W2.bladeReach.katana": 2.2,
+      "W2.bladeTrail.katana": {
+        "blade": 13159896,
+        "bladeShine": 16777215,
+        "color": 15266298,
+        "glow": 16777215,
+        "style": "plain"
+      },
+      "W2.toolDurability.katana": 250,
+      "category": "weapon",
+      "durabilityClass": "durable",
+      "maxStack": 1,
+      "name": "かたな",
+      "placeBlock": null,
+      "rarity": "rare",
+      "recipes": [
+        {
+          "id": "katana",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "iron_ingot"
+            },
+            {
+              "count": 1,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "katana"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "naginata": {
+      "BLADES": true,
+      "ITEM_INFO.naginata": {
+        "buttons": [
+          "1-9",
+          "left"
+        ],
+        "how": "えらんで、ようかい に むけて ひだりクリック（おしつづけると つづけて ふる）",
+        "stats": "blade",
+        "use": "とおく まで とどく。つく と はらう を かわりばんこ"
+      },
+      "TOOL_DEFAULTS.weaponDamage.naginata": 3,
+      "TOOL_DEFAULTS.weaponReach.naginata": 5,
+      "TOOL_DEFAULTS.weaponTicks.naginata": 40,
+      "TOOL_NUMBERS.weaponDamage.naginata": 3,
+      "W2.bladeTrail.naginata": {
+        "blade": 12111072,
+        "bladeShine": 15660799,
+        "color": 13625599,
+        "glow": 16777215,
+        "style": "long"
+      },
+      "W2.toolDurability.naginata": 250,
+      "category": "weapon",
+      "durabilityClass": "durable",
+      "maxStack": 1,
+      "name": "なぎなた",
+      "placeBlock": null,
+      "rarity": "rare",
+      "recipes": [
+        {
+          "id": "naginata",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "iron_ingot"
+            },
+            {
+              "count": 3,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "naginata"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "crystal_katana": {
+      "BLADES": true,
+      "BLADE_ITEMS": true,
+      "BLADE_TRAIL_ITEMS": true,
+      "ITEM_INFO.crystal_katana": {
+        "buttons": [
+          "1-9",
+          "left"
+        ],
+        "how": "えらんで、ようかい に むけて ひだりクリック。R で かまえ を かえると わざ が かわる。ひだりクリック を つづけて おすと 3 だん わざ",
+        "stats": "blade",
+        "use": "れんぞく で ふると 3 だん わざ に なる かたな"
+      },
+      "TOOL_DEFAULTS.weaponDamage.crystal_katana": 4,
+      "TOOL_NUMBERS.weaponDamage.crystal_katana": 4,
+      "W2.bladeCombo.items": true,
+      "W2.bladeReach.crystal_katana": 2.2,
+      "W2.bladeTrail.crystal_katana": {
+        "blade": 7327221,
+        "bladeShine": 15137535,
+        "color": 8379647,
+        "glow": 15137535,
+        "style": "star"
+      },
+      "W2.toolDurability.crystal_katana": 400,
+      "category": "weapon",
+      "durabilityClass": "durable",
+      "maxStack": 1,
+      "name": "きらめく カタナ",
+      "placeBlock": null,
+      "rarity": "superRare",
+      "recipes": [
+        {
+          "id": "crystal_katana",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "crystal"
+            },
+            {
+              "count": 2,
+              "item": "iron_ingot"
+            },
+            {
+              "count": 2,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "crystal_katana"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "yumi": {
+      "ITEM_INFO.yumi": {
+        "buttons": [
+          "1-9",
+          "left"
+        ],
+        "how": "えらんで ひだりクリック を おしつづけて ながく ひく。はなすと とぶ",
+        "stats": "bow",
+        "use": "や を とばして とおく の ようかい を たおす。や が いる"
+      },
+      "W2.toolDurability.yumi": 384,
+      "category": "weapon",
+      "durabilityClass": "durable",
+      "maxStack": 1,
+      "name": "ゆみ",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": [
+        {
+          "id": "yumi",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "log"
+            },
+            {
+              "count": 3,
+              "item": "string"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "yumi"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "ya": {
+      "ITEM_INFO.ya": {
+        "buttons": [],
+        "how": "もちもの に いれて おく だけ。ゆみ が つかう",
+        "stats": "arrow",
+        "use": "ゆみ で とばす"
+      },
+      "category": "weapon",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "や",
+      "placeBlock": null,
+      "rarity": "common",
+      "recipes": [
+        {
+          "id": "ya",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "log"
+            },
+            {
+              "count": 1,
+              "item": "stone"
+            },
+            {
+              "count": 1,
+              "item": "paper"
+            }
+          ],
+          "output": {
+            "count": 4,
+            "item": "ya"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "kabuto": {
+      "ARMOR_SLOT_OF.kabuto": "head",
+      "CRAFT_DEFAULTS.armorValue.kabuto": {
+        "ball": 2,
+        "fall": 0,
+        "normal": 0
+      },
+      "ITEM_INFO.kabuto": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "ダブルクリック か、てに もって みぎクリック で きる。E の そうび の マス に いれても よい",
+        "stats": "armor",
+        "use": "ようかい の ひのたま を へらす（あたま）"
+      },
+      "W2.toolDurability.kabuto": 165,
+      "category": "armor",
+      "durabilityClass": "durable",
+      "maxStack": 1,
+      "name": "かぶと",
+      "placeBlock": null,
+      "rarity": "rare",
+      "recipes": [
+        {
+          "id": "kabuto",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "iron_ingot"
+            },
+            {
+              "count": 1,
+              "item": "cloth"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kabuto"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "yoroi": {
+      "ARMOR_SLOT_OF.yoroi": "body",
+      "CRAFT_DEFAULTS.armorValue.yoroi": {
+        "ball": 0,
+        "fall": 0,
+        "normal": 2
+      },
+      "ITEM_INFO.yoroi": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "ダブルクリック か、てに もって みぎクリック で きる。E の そうび の マス に いれても よい",
+        "stats": "armor",
+        "use": "ようかい の こうげき を へらす（からだ）"
+      },
+      "W2.toolDurability.yoroi": 240,
+      "category": "armor",
+      "durabilityClass": "durable",
+      "maxStack": 1,
+      "name": "よろい",
+      "placeBlock": null,
+      "rarity": "rare",
+      "recipes": [
+        {
+          "id": "yoroi",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "iron_ingot"
+            },
+            {
+              "count": 2,
+              "item": "string"
+            },
+            {
+              "count": 2,
+              "item": "cloth"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "yoroi"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "kote": {
+      "ARMOR_SLOT_OF.kote": "arms",
+      "CRAFT_DEFAULTS.armorValue.kote": {
+        "ball": 0,
+        "fall": 0,
+        "normal": 1
+      },
+      "ITEM_INFO.kote": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "ダブルクリック か、てに もって みぎクリック で きる。E の そうび の マス に いれても よい",
+        "stats": "armor",
+        "use": "ようかい の こうげき を へらす（うで）"
+      },
+      "W2.toolDurability.kote": 225,
+      "category": "armor",
+      "durabilityClass": "durable",
+      "maxStack": 1,
+      "name": "こて",
+      "placeBlock": null,
+      "rarity": "rare",
+      "recipes": [
+        {
+          "id": "kote",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "iron_ingot"
+            },
+            {
+              "count": 1,
+              "item": "cloth"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kote"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "suneate": {
+      "ARMOR_SLOT_OF.suneate": "legs",
+      "CRAFT_DEFAULTS.armorValue.suneate": {
+        "ball": 0,
+        "fall": 2,
+        "normal": 0
+      },
+      "ITEM_INFO.suneate": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "ダブルクリック か、てに もって みぎクリック で きる。E の そうび の マス に いれても よい",
+        "stats": "armor",
+        "use": "たかい ところ から おちた いたみ を へらす（あし）"
+      },
+      "W2.toolDurability.suneate": 195,
+      "category": "armor",
+      "durabilityClass": "durable",
+      "maxStack": 1,
+      "name": "すねあて",
+      "placeBlock": null,
+      "rarity": "rare",
+      "recipes": [
+        {
+          "id": "suneate",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "iron_ingot"
+            },
+            {
+              "count": 1,
+              "item": "string"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "suneate"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "ninja_zukin": {
+      "ARMOR_SLOT_OF.ninja_zukin": "head",
+      "CRAFT_DEFAULTS.armorValue.ninja_zukin": {
+        "ball": 2,
+        "fall": 0,
+        "normal": 0
+      },
+      "ITEM_INFO.ninja_zukin": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "ダブルクリック か、てに もって みぎクリック で きる。E の そうび の マス に いれても よい",
+        "special": "ひのたま を ふせぐ。みず の なか で いき が ながく もつ",
+        "stats": "armor",
+        "use": "こうげき から まもる（あたま）"
+      },
+      "W2.toolDurability.ninja_zukin": 10000,
+      "category": "armor",
+      "durabilityClass": "durable",
+      "maxStack": 1,
+      "name": "［黒頭巾｜くろずきん］",
+      "placeBlock": null,
+      "rarity": "legendary",
+      "recipes": []
+    },
+    "ninja_shozoku": {
+      "ARMOR_SLOT_OF.ninja_shozoku": "body",
+      "CRAFT_DEFAULTS.armorValue.ninja_shozoku": {
+        "ball": 0,
+        "fall": 0,
+        "normal": 2
+      },
+      "ITEM_INFO.ninja_shozoku": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "ダブルクリック か、てに もって みぎクリック で きる。E の そうび の マス に いれても よい",
+        "special": "ようかい に きづかれ にくい",
+        "stats": "armor",
+        "use": "こうげき から まもる（からだ）"
+      },
+      "W2.toolDurability.ninja_shozoku": 10000,
+      "category": "armor",
+      "durabilityClass": "durable",
+      "maxStack": 1,
+      "name": "［忍｜しの］び［装束｜しょうぞく］",
+      "placeBlock": null,
+      "rarity": "legendary",
+      "recipes": []
+    },
+    "ninja_tekko": {
+      "ARMOR_SLOT_OF.ninja_tekko": "arms",
+      "CRAFT_DEFAULTS.armorValue.ninja_tekko": {
+        "ball": 0,
+        "fall": 0,
+        "normal": 1
+      },
+      "ITEM_INFO.ninja_tekko": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "ダブルクリック か、てに もって みぎクリック で きる。E の そうび の マス に いれても よい",
+        "special": "かたな・すで で こうげき した とき に ［小太刀｜こだち］ で おいうち",
+        "stats": "armor",
+        "use": "こうげき から まもる（うで）"
+      },
+      "W2.toolDurability.ninja_tekko": 10000,
+      "category": "armor",
+      "durabilityClass": "durable",
+      "maxStack": 1,
+      "name": "［忍｜しの］びの ［手甲｜てっこう］",
+      "placeBlock": null,
+      "rarity": "legendary",
+      "recipes": []
+    },
+    "ninja_tabi": {
+      "ARMOR_SLOT_OF.ninja_tabi": "legs",
+      "CRAFT_DEFAULTS.armorValue.ninja_tabi": {
+        "ball": 0,
+        "fall": 100000,
+        "normal": 0
+      },
+      "ITEM_INFO.ninja_tabi": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "ダブルクリック か、てに もって みぎクリック で きる。E の そうび の マス に いれても よい",
+        "special": "たかい ところ から おちても いたく ない",
+        "stats": "armor",
+        "use": "こうげき から まもる（あし）"
+      },
+      "W2.toolDurability.ninja_tabi": 10000,
+      "category": "armor",
+      "durabilityClass": "durable",
+      "maxStack": 1,
+      "name": "［忍｜しの］びの ［足袋｜たび］",
+      "placeBlock": null,
+      "rarity": "legendary",
+      "recipes": []
+    },
+    "samurai_jingasa": {
+      "ARMOR_SLOT_OF.samurai_jingasa": "head",
+      "CRAFT_DEFAULTS.armorValue.samurai_jingasa": {
+        "ball": 2,
+        "fall": 0,
+        "normal": 0
+      },
+      "ITEM_INFO.samurai_jingasa": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "ダブルクリック か、てに もって みぎクリック で きる。E の そうび の マス に いれても よい",
+        "special": "ひのたま を ふせぐ。パリィ で はじく じかん が ながく なる",
+        "stats": "armor",
+        "use": "こうげき から まもる（あたま）"
+      },
+      "W2.toolDurability.samurai_jingasa": 10000,
+      "category": "armor",
+      "durabilityClass": "durable",
+      "maxStack": 1,
+      "name": "［明珍｜みょうちん］［陣笠｜じんがさ］",
+      "placeBlock": null,
+      "rarity": "legendary",
+      "recipes": []
+    },
+    "samurai_haori": {
+      "ARMOR_SLOT_OF.samurai_haori": "body",
+      "CRAFT_DEFAULTS.armorValue.samurai_haori": {
+        "ball": 0,
+        "fall": 0,
+        "normal": 2
+      },
+      "ITEM_INFO.samurai_haori": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "ダブルクリック か、てに もって みぎクリック で きる。E の そうび の マス に いれても よい",
+        "special": "ようかい の こうげき を ふせぐ。［吹｜ふ］き［飛｜と］ばされ にくく なる",
+        "stats": "armor",
+        "use": "こうげき から まもる（からだ）"
+      },
+      "W2.toolDurability.samurai_haori": 10000,
+      "category": "armor",
+      "durabilityClass": "durable",
+      "maxStack": 1,
+      "name": "［明珍｜みょうちん］［羽織｜はおり］",
+      "placeBlock": null,
+      "rarity": "legendary",
+      "recipes": []
+    },
+    "samurai_tekko": {
+      "ARMOR_SLOT_OF.samurai_tekko": "arms",
+      "CRAFT_DEFAULTS.armorValue.samurai_tekko": {
+        "ball": 0,
+        "fall": 0,
+        "normal": 1
+      },
+      "ITEM_INFO.samurai_tekko": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "ダブルクリック か、てに もって みぎクリック で きる。E の そうび の マス に いれても よい",
+        "special": "かたな の あつかい が うまく なる。かたい あいて にも こうか ばつぐん",
+        "stats": "armor",
+        "use": "こうげき から まもる（うで）"
+      },
+      "W2.toolDurability.samurai_tekko": 10000,
+      "category": "armor",
+      "durabilityClass": "durable",
+      "maxStack": 1,
+      "name": "［明珍｜みょうちん］［手甲｜てっこう］",
+      "placeBlock": null,
+      "rarity": "legendary",
+      "recipes": []
+    },
+    "samurai_geta": {
+      "ARMOR_SLOT_OF.samurai_geta": "legs",
+      "CRAFT_DEFAULTS.armorValue.samurai_geta": {
+        "ball": 0,
+        "fall": 2,
+        "normal": 0
+      },
+      "ITEM_INFO.samurai_geta": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "ダブルクリック か、てに もって みぎクリック で きる。E の そうび の マス に いれても よい",
+        "special": "おちた とき の いたさ を へらす。はしる と カランコロン と ［心地｜ここち］よい おと が する",
+        "stats": "armor",
+        "use": "こうげき から まもる（あし）"
+      },
+      "W2.toolDurability.samurai_geta": 10000,
+      "category": "armor",
+      "durabilityClass": "durable",
+      "maxStack": 1,
+      "name": "［明珍｜みょうちん］［下駄｜げた］",
+      "placeBlock": null,
+      "rarity": "legendary",
+      "recipes": []
+    },
+    "geyser_dirt": {
+      "DIG_DEFAULTS.hardness.geyser_dirt": 0.5,
+      "DIG_DEFAULTS.harvestLevel.geyser_dirt": 0,
+      "DIG_DEFAULTS.rarity.geyser_dirt": "uncommon",
+      "category": "soil",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "［間欠泉｜かんけつせん］の つち",
+      "placeBlock": "geyser_dirt",
+      "rarity": "uncommon",
+      "recipes": []
+    },
+    "lantern": {
+      "ITEM_INFO.lantern": {
+        "buttons": [],
+        "how": "いまは もてる だけ",
+        "later": "おいて あかるく できるように なるよ（もうすぐ）",
+        "use": "おいて あかるく できるように なるよ（もうすぐ）"
+      },
+      "category": "light",
+      "durabilityClass": "permanent",
+      "maxStack": 64,
+      "name": "ちょうちん",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": [
+        {
+          "id": "lantern",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "paper"
+            },
+            {
+              "count": 1,
+              "item": "log"
+            },
+            {
+              "count": 1,
+              "item": "oil"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "lantern"
+          },
+          "station": "craft",
+          "works": false
+        }
+      ]
+    },
+    "kite": {
+      "ITEM_INFO.kite": {
+        "buttons": [],
+        "how": "いまは もてる だけ",
+        "later": "そら に あげて あそべるように なるよ（もうすぐ）",
+        "use": "そら に あげて あそべるように なるよ（もうすぐ）"
+      },
+      "category": "home",
+      "durabilityClass": "permanent",
+      "maxStack": 1,
+      "name": "たこ",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": [
+        {
+          "id": "kite",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "paper"
+            },
+            {
+              "count": 2,
+              "item": "string"
+            },
+            {
+              "count": 1,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kite"
+          },
+          "station": "craft",
+          "works": false
+        }
+      ]
+    },
+    "futon": {
+      "ITEM_INFO.futon": {
+        "buttons": [],
+        "how": "いまは もてる だけ",
+        "later": "よる に ねると あさ に なるように なるよ（もうすぐ）",
+        "use": "よる に ねると あさ に なるように なるよ（もうすぐ）"
+      },
+      "category": "home",
+      "durabilityClass": "permanent",
+      "maxStack": 1,
+      "name": "ふとん",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": [
+        {
+          "id": "futon",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "cloth"
+            },
+            {
+              "count": 1,
+              "item": "string"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "futon"
+          },
+          "station": "craft",
+          "works": false
+        }
+      ]
+    },
+    "omamori": {
+      "ITEM_INFO.omamori": {
+        "buttons": [],
+        "how": "いまは もてる だけ",
+        "later": "もっていると やられても もちもの を おとさなく なるよ（もうすぐ）",
+        "use": "もっていると やられても もちもの を おとさなく なるよ（もうすぐ）"
+      },
+      "category": "home",
+      "durabilityClass": "permanent",
+      "maxStack": 1,
+      "name": "おまもり",
+      "placeBlock": null,
+      "rarity": "superRare",
+      "recipes": [
+        {
+          "id": "omamori",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "crystal"
+            },
+            {
+              "count": 1,
+              "item": "cloth"
+            },
+            {
+              "count": 1,
+              "item": "string"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "omamori"
+          },
+          "station": "craft",
+          "works": false
+        }
+      ]
+    },
+    "waraji": {
+      "ITEM_INFO.waraji": {
+        "buttons": [],
+        "how": "いまは もてる だけ",
+        "later": "はくと すこし はやく あるけるように なるよ（もうすぐ）",
+        "use": "はくと すこし はやく あるけるように なるよ（もうすぐ）"
+      },
+      "category": "home",
+      "durabilityClass": "permanent",
+      "maxStack": 1,
+      "name": "わらじ",
+      "placeBlock": null,
+      "rarity": "common",
+      "recipes": [
+        {
+          "id": "waraji",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "grass"
+            },
+            {
+              "count": 1,
+              "item": "string"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "waraji"
+          },
+          "station": "craft",
+          "works": false
+        }
+      ]
+    },
+    "haniwa": {
+      "ITEM_INFO.haniwa": {
+        "buttons": [],
+        "how": "いまは もてる だけ",
+        "later": "おいて かざれるように なるよ（もうすぐ）",
+        "use": "おいて かざれるように なるよ（もうすぐ）"
+      },
+      "category": "home",
+      "durabilityClass": "permanent",
+      "maxStack": 64,
+      "name": "はにわ",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": [
+        {
+          "id": "haniwa",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "clay"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "haniwa"
+          },
+          "station": "furnace",
+          "works": false
+        }
+      ]
+    },
+    "seed_onion": {
+      "ITEM_INFO.seed_onion": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "もって はたけ に みぎクリック",
+        "use": "はたけ に まくと やさい が そだつ"
+      },
+      "category": "plant",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "たまねぎの たね",
+      "placeBlock": null,
+      "rarity": "common",
+      "recipes": [
+        {
+          "id": "seed_onion",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "onion"
+            }
+          ],
+          "output": {
+            "count": 4,
+            "item": "seed_onion"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "seed_tomato": {
+      "ITEM_INFO.seed_tomato": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "もって はたけ に みぎクリック",
+        "use": "はたけ に まくと やさい が そだつ"
+      },
+      "category": "plant",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "トマトの たね",
+      "placeBlock": null,
+      "rarity": "common",
+      "recipes": [
+        {
+          "id": "seed_tomato",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "tomato"
+            }
+          ],
+          "output": {
+            "count": 4,
+            "item": "seed_tomato"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "seed_pumpkin": {
+      "ITEM_INFO.seed_pumpkin": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "もって はたけ に みぎクリック",
+        "use": "はたけ に まくと やさい が そだつ"
+      },
+      "category": "plant",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "かぼちゃの たね",
+      "placeBlock": null,
+      "rarity": "common",
+      "recipes": [
+        {
+          "id": "seed_pumpkin",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "pumpkin"
+            }
+          ],
+          "output": {
+            "count": 4,
+            "item": "seed_pumpkin"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "seed_eggplant": {
+      "ITEM_INFO.seed_eggplant": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "もって はたけ に みぎクリック",
+        "use": "はたけ に まくと やさい が そだつ"
+      },
+      "category": "plant",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "なすの たね",
+      "placeBlock": null,
+      "rarity": "common",
+      "recipes": [
+        {
+          "id": "seed_eggplant",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "eggplant"
+            }
+          ],
+          "output": {
+            "count": 4,
+            "item": "seed_eggplant"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "onion": {
+      "ITEM_INFO.onion": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "もって みぎクリック",
+        "use": "たべると ハート が 1 こ もどる"
+      },
+      "M7.eatHeal.onion": 2,
+      "M7.farmGrowDays.dry.onion": 1.875,
+      "M7.farmGrowDays.wet.onion": 1.275,
+      "M7.farmYield.onion": [
+        1,
+        2
+      ],
+      "category": "food",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "たまねぎ",
+      "placeBlock": null,
+      "rarity": "common",
+      "recipes": [
+        {
+          "id": "seed_onion",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "onion"
+            }
+          ],
+          "output": {
+            "count": 4,
+            "item": "seed_onion"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "tomato": {
+      "ITEM_INFO.tomato": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "もって みぎクリック",
+        "use": "たべると ハート が 1 こ もどる"
+      },
+      "M7.eatHeal.tomato": 2,
+      "M7.farmGrowDays.dry.tomato": 1.125,
+      "M7.farmGrowDays.wet.tomato": 0.75,
+      "M7.farmYield.tomato": [
+        1,
+        2
+      ],
+      "category": "food",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "トマト",
+      "placeBlock": null,
+      "rarity": "common",
+      "recipes": [
+        {
+          "id": "seed_tomato",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "tomato"
+            }
+          ],
+          "output": {
+            "count": 4,
+            "item": "seed_tomato"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "pumpkin": {
+      "ITEM_INFO.pumpkin": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "もって みぎクリック",
+        "use": "たべると ハート が 2 こ もどる"
+      },
+      "M7.eatHeal.pumpkin": 4,
+      "M7.farmGrowDays.dry.pumpkin": 3,
+      "M7.farmGrowDays.wet.pumpkin": 1.95,
+      "M7.farmYield.pumpkin": [
+        1,
+        1
+      ],
+      "category": "food",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "かぼちゃ",
+      "placeBlock": null,
+      "rarity": "common",
+      "recipes": [
+        {
+          "id": "seed_pumpkin",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "pumpkin"
+            }
+          ],
+          "output": {
+            "count": 4,
+            "item": "seed_pumpkin"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "eggplant": {
+      "ITEM_INFO.eggplant": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "もって みぎクリック",
+        "use": "たべると ハート が 1 こ もどる"
+      },
+      "M7.eatHeal.eggplant": 2,
+      "M7.farmGrowDays.dry.eggplant": 1.875,
+      "M7.farmGrowDays.wet.eggplant": 1.275,
+      "M7.farmYield.eggplant": [
+        1,
+        2
+      ],
+      "category": "food",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "なす",
+      "placeBlock": null,
+      "rarity": "common",
+      "recipes": [
+        {
+          "id": "seed_eggplant",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "eggplant"
+            }
+          ],
+          "output": {
+            "count": 4,
+            "item": "seed_eggplant"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "kuwa": {
+      "ITEM_INFO.kuwa": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "もって くさ・つち に みぎクリック",
+        "use": "くさ や つち を はたけ に する"
+      },
+      "TOOL_DEFAULTS.toolPower.kuwa": 4,
+      "TOOL_NUMBERS.toolPower.kuwa": 4,
+      "W2.toolDurability.kuwa": 131,
+      "W2.toolWear.kuwa": {
+        "block": 2,
+        "hit": 2,
+        "till": 1
+      },
+      "category": "tool",
+      "durabilityClass": "durable",
+      "maxStack": 1,
+      "name": "くわ",
+      "placeBlock": null,
+      "rarity": "common",
+      "recipes": [
+        {
+          "id": "kuwa",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "log"
+            },
+            {
+              "count": 1,
+              "item": "stone"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kuwa"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "watering_can": {
+      "ITEM_INFO.watering_can": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "みず に みぎクリック で くむ、はたけ に みぎクリック",
+        "stats": "can",
+        "use": "はたけ 1 マス に みず を まく"
+      },
+      "M7.farmCanCapacity.watering_can": 10,
+      "M7.farmCanTiles.watering_can": 1,
+      "category": "tool",
+      "durabilityClass": "permanent",
+      "maxStack": 1,
+      "name": "じょうろ",
+      "placeBlock": null,
+      "rarity": "common",
+      "recipes": [
+        {
+          "id": "watering_can",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "iron_ingot"
+            },
+            {
+              "count": 2,
+              "item": "stone"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "watering_can"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "long_watering_can": {
+      "ITEM_INFO.long_watering_can": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "みず に みぎクリック で くむ、はたけ に みぎクリック",
+        "stats": "can",
+        "use": "はたけ 2 マス（ねらった はたけ と その むこう）に みず を まく"
+      },
+      "M7.farmCanCapacity.long_watering_can": 20,
+      "M7.farmCanTiles.long_watering_can": 2,
+      "category": "tool",
+      "durabilityClass": "permanent",
+      "maxStack": 1,
+      "name": "ながい じょうろ",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": [
+        {
+          "id": "long_watering_can",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "iron_ingot"
+            },
+            {
+              "count": 1,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "long_watering_can"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "sprinkler": {
+      "DIG_DEFAULTS.hardness.sprinkler": 3,
+      "DIG_DEFAULTS.harvestLevel.sprinkler": 0,
+      "DIG_DEFAULTS.rarity.sprinkler": "uncommon",
+      "ITEM_INFO.sprinkler": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "もって みぎクリック で おく",
+        "use": "まわり の はたけ を ずっと しめらせる"
+      },
+      "category": "home",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "スプリンクラー",
+      "placeBlock": "sprinkler",
+      "rarity": "uncommon",
+      "recipes": [
+        {
+          "id": "sprinkler",
+          "inputs": [
+            {
+              "count": 4,
+              "item": "iron_ingot"
+            },
+            {
+              "count": 2,
+              "item": "stone"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "sprinkler"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "bucket": {
+      "ITEM_INFO.bucket": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "みず に みぎクリック で くむ",
+        "use": "みず を くんで はこぶ"
+      },
+      "category": "tool",
+      "durabilityClass": "permanent",
+      "maxStack": 1,
+      "name": "バケツ",
+      "placeBlock": null,
+      "rarity": "common",
+      "recipes": [
+        {
+          "id": "bucket",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "iron_ingot"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "bucket"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "water_bucket": {
+      "ITEM_INFO.water_bucket": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "もって みぎクリック で おく",
+        "use": "はたけ の そば に みず を おく"
+      },
+      "category": "tool",
+      "durabilityClass": "permanent",
+      "maxStack": 1,
+      "name": "みずの バケツ",
+      "placeBlock": null,
+      "rarity": "common",
+      "recipes": []
+    },
+    "snow": {
+      "DIG_DEFAULTS.hardness.snow": 0.5,
+      "DIG_DEFAULTS.harvestLevel.snow": 0,
+      "DIG_DEFAULTS.rarity.snow": "common",
+      "category": "soil",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "ゆき",
+      "placeBlock": "snow",
+      "rarity": "common",
+      "recipes": []
+    },
+    "momiji_leaves": {
+      "DIG_DEFAULTS.hardness.momiji_leaves": 0.25,
+      "DIG_DEFAULTS.harvestLevel.momiji_leaves": 0,
+      "DIG_DEFAULTS.rarity.momiji_leaves": "common",
+      "category": "plant",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "もみじの はっぱ",
+      "placeBlock": "momiji_leaves",
+      "rarity": "common",
+      "recipes": []
+    },
+    "matsu_leaves": {
+      "DIG_DEFAULTS.hardness.matsu_leaves": 0.25,
+      "DIG_DEFAULTS.harvestLevel.matsu_leaves": 0,
+      "DIG_DEFAULTS.rarity.matsu_leaves": "common",
+      "category": "plant",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "まつの はっぱ",
+      "placeBlock": "matsu_leaves",
+      "rarity": "common",
+      "recipes": []
+    },
+    "flower_y": {
+      "DIG_DEFAULTS.hardness.flower_y": 0.05,
+      "DIG_DEFAULTS.harvestLevel.flower_y": 0,
+      "DIG_DEFAULTS.rarity.flower_y": "common",
+      "category": "plant",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "はな",
+      "placeBlock": "flower_y",
+      "rarity": "common",
+      "recipes": []
+    },
+    "flower_o": {
+      "DIG_DEFAULTS.hardness.flower_o": 0.05,
+      "DIG_DEFAULTS.harvestLevel.flower_o": 0,
+      "DIG_DEFAULTS.rarity.flower_o": "common",
+      "category": "plant",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "はな",
+      "placeBlock": "flower_o",
+      "rarity": "common",
+      "recipes": []
+    },
+    "flower_p": {
+      "DIG_DEFAULTS.hardness.flower_p": 0.05,
+      "DIG_DEFAULTS.harvestLevel.flower_p": 0,
+      "DIG_DEFAULTS.rarity.flower_p": "common",
+      "category": "plant",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "はな",
+      "placeBlock": "flower_p",
+      "rarity": "common",
+      "recipes": []
+    },
+    "bamboo": {
+      "DIG_DEFAULTS.hardness.bamboo": 1.5,
+      "DIG_DEFAULTS.harvestLevel.bamboo": 0,
+      "DIG_DEFAULTS.rarity.bamboo": "common",
+      "category": "plant",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "たけ",
+      "placeBlock": "bamboo",
+      "rarity": "common",
+      "recipes": []
+    },
+    "nobana": {
+      "DIG_DEFAULTS.hardness.nobana": 0.05,
+      "DIG_DEFAULTS.harvestLevel.nobana": 0,
+      "DIG_DEFAULTS.rarity.nobana": "common",
+      "category": "plant",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "のばな",
+      "placeBlock": "nobana",
+      "rarity": "common",
+      "recipes": []
+    },
+    "egg": {
+      "ITEM_INFO.egg": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "もって みぎクリック",
+        "use": "たべると ハート が 1 こ もどる"
+      },
+      "category": "food",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "たまご",
+      "placeBlock": null,
+      "rarity": "common",
+      "recipes": []
+    },
+    "mushi": {
+      "ITEM_INFO.mushi": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "もって にわとり に みぎクリック",
+        "use": "にわとり に あげる と なかよく なる"
+      },
+      "category": "plant",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "むし",
+      "placeBlock": null,
+      "rarity": "common",
+      "recipes": []
+    },
+    "mushi_ami": {
+      "ITEM_INFO.mushi_ami": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "もって き に みぎクリック",
+        "use": "き から むし を とる"
+      },
+      "category": "tool",
+      "durabilityClass": "permanent",
+      "maxStack": 1,
+      "name": "むしとりあみ",
+      "placeBlock": null,
+      "rarity": "common",
+      "recipes": [
+        {
+          "id": "mushi_ami",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "log"
+            },
+            {
+              "count": 2,
+              "item": "string"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "mushi_ami"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "nukunuku": {
+      "CRAFT_DEFAULTS.fixedDrop.nukunuku": 1,
+      "DIG_DEFAULTS.hardness.nukunuku": 2,
+      "DIG_DEFAULTS.harvestLevel.nukunuku": 0,
+      "DIG_DEFAULTS.rarity.nukunuku": "uncommon",
+      "ITEM_INFO.nukunuku": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "おいて、たまご を もって みぎクリック",
+        "use": "たまご を あたためる"
+      },
+      "category": "home",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "こたつ",
+      "placeBlock": "nukunuku",
+      "rarity": "uncommon",
+      "recipes": [
+        {
+          "id": "nukunuku",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "grass"
+            },
+            {
+              "count": 2,
+              "item": "log"
+            },
+            {
+              "count": 1,
+              "item": "torch"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "nukunuku"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "toriya": {
+      "ITEM_INFO.toriya": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "おいて、ひよこ を つれて いく",
+        "use": "にわとり の いえ"
+      },
+      "category": "home",
+      "durabilityClass": "consumable",
+      "maxStack": 1,
+      "name": "とりごや",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": [
+        {
+          "id": "toriya",
+          "inputs": [
+            {
+              "count": 8,
+              "item": "log"
+            },
+            {
+              "count": 4,
+              "item": "grass"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "toriya"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "kin_tamago": {
+      "ITEM_INFO.kin_tamago": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "こたつ に いれる",
+        "use": "だいじ な たから。こたつ で あたためる と マッチョ ひよこ"
+      },
+      "category": "material",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "きん の たまご",
+      "placeBlock": null,
+      "rarity": "epic",
+      "recipes": [
+        {
+          "id": "kin",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "kin_tamago"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kin"
+          },
+          "station": "furnace",
+          "works": true
+        }
+      ]
+    },
+    "momo_nama": {
+      "ITEM_INFO.momo_nama": {
+        "buttons": [
+          "right"
+        ],
+        "how": "かまど に みぎクリック して やく",
+        "use": "かまど で やく と たべられる"
+      },
+      "category": "food",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "なま もも にく",
+      "placeBlock": null,
+      "rarity": "common",
+      "recipes": [
+        {
+          "id": "momo_yaki",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "momo_nama"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "momo_yaki"
+          },
+          "station": "furnace",
+          "works": true
+        }
+      ]
+    },
+    "momo_yaki": {
+      "ITEM_INFO.momo_yaki": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "もって みぎクリック",
+        "use": "たべると ハート が 5 こ もどる"
+      },
+      "category": "food",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "やいた もも にく",
+      "placeBlock": null,
+      "rarity": "common",
+      "recipes": [
+        {
+          "id": "momo_yaki",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "momo_nama"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "momo_yaki"
+          },
+          "station": "furnace",
+          "works": true
+        }
+      ]
+    },
+    "raijin_ken": {
+      "BLADES": true,
+      "BLADE_ITEMS": true,
+      "BLADE_TRAIL_ITEMS": true,
+      "ITEM_INFO.raijin_ken": {
+        "buttons": [
+          "1-9",
+          "left"
+        ],
+        "how": "えらんで、ようかい に むけて ひだりクリック。R で かまえ を かえると わざ が かわる。ながおし して はなすと ためわざ",
+        "special": "ためて はなすと そら から かみなり が おちる",
+        "stats": "blade",
+        "use": "ようかい を つよく たたく"
+      },
+      "W2.bladeCombo.items": true,
+      "W2.bladeReach.raijin_ken": 2.2,
+      "W2.bladeTrail.raijin_ken": {
+        "blade": 11563263,
+        "bladeShine": 15127295,
+        "color": 16774848,
+        "glow": 16777215,
+        "style": "thunder"
+      },
+      "W2.toolDurability.raijin_ken": 10000,
+      "category": "weapon",
+      "durabilityClass": "durable",
+      "maxStack": 1,
+      "name": "［雷神剣｜らいじんけん］",
+      "placeBlock": null,
+      "rarity": "legendary",
+      "recipes": []
+    },
+    "fujin_ken": {
+      "BLADES": true,
+      "BLADE_ITEMS": true,
+      "BLADE_TRAIL_ITEMS": true,
+      "ITEM_INFO.fujin_ken": {
+        "buttons": [
+          "1-9",
+          "left"
+        ],
+        "how": "えらんで、ようかい に むけて ひだりクリック。R で かまえ を かえると わざ が かわる。ながおし して はなすと ためわざ",
+        "special": "てに もつと はやく はしれる。ためて はなすと かぜ が とぶ",
+        "stats": "blade",
+        "use": "ようかい を つよく たたく"
+      },
+      "W2.bladeCombo.items": true,
+      "W2.bladeReach.fujin_ken": 2.2,
+      "W2.bladeTrail.fujin_ken": {
+        "blade": 13627391,
+        "bladeShine": 16777215,
+        "color": 15137023,
+        "glow": 16777215,
+        "style": "plain"
+      },
+      "W2.toolDurability.fujin_ken": 10000,
+      "category": "weapon",
+      "durabilityClass": "durable",
+      "maxStack": 1,
+      "name": "［風神剣｜ふうじんけん］",
+      "placeBlock": null,
+      "rarity": "legendary",
+      "recipes": []
+    },
+    "niji": {
+      "BLADES": true,
+      "BLADE_ITEMS": true,
+      "BLADE_TRAIL_ITEMS": true,
+      "ITEM_INFO.niji": {
+        "buttons": [
+          "1-9",
+          "left"
+        ],
+        "how": "えらんで、ようかい に むけて ひだりクリック。R で かまえ を かえると わざ が かわる。ながおし して はなすと ためわざ",
+        "special": "ためて はなすと ひかり の ドーム",
+        "stats": "blade",
+        "use": "ようかい を つよく たたく"
+      },
+      "W2.bladeCombo.items": true,
+      "W2.bladeReach.niji": 2.2,
+      "W2.bladeTrail.niji": {
+        "blade": 12832482,
+        "bladeShine": 6281614,
+        "color": 13724646,
+        "glow": 16777215,
+        "style": "plain"
+      },
+      "W2.toolDurability.niji": 10000,
+      "category": "weapon",
+      "durabilityClass": "durable",
+      "maxStack": 1,
+      "name": "［虹｜にじ］",
+      "placeBlock": null,
+      "rarity": "legendary",
+      "recipes": []
+    },
+    "kin": {
+      "ITEM_INFO.kin": {
+        "buttons": [
+          "E"
+        ],
+        "how": "E の つくる で つかう",
+        "use": "きん の そうび の ざいりょう"
+      },
+      "category": "metal",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "きん",
+      "placeBlock": null,
+      "rarity": "epic",
+      "recipes": [
+        {
+          "id": "kin_katana",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "kin"
+            },
+            {
+              "count": 1,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kin_katana"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "kin_yumi",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "kin"
+            },
+            {
+              "count": 3,
+              "item": "string"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kin_yumi"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "kin_pickaxe",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "kin"
+            },
+            {
+              "count": 2,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kin_pickaxe"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "kin_axe",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "kin"
+            },
+            {
+              "count": 2,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kin_axe"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "kin_kabuto",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "kin"
+            },
+            {
+              "count": 1,
+              "item": "cloth"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kin_kabuto"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "kin_yoroi",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "kin"
+            },
+            {
+              "count": 2,
+              "item": "string"
+            },
+            {
+              "count": 2,
+              "item": "cloth"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kin_yoroi"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "kin_kote",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "kin"
+            },
+            {
+              "count": 1,
+              "item": "cloth"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kin_kote"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "kin_suneate",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "kin"
+            },
+            {
+              "count": 1,
+              "item": "string"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kin_suneate"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "kin",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "kin_tamago"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kin"
+          },
+          "station": "furnace",
+          "works": true
+        }
+      ]
+    },
+    "kin_katana": {
+      "BLADES": true,
+      "BLADE_ITEMS": true,
+      "BLADE_TRAIL_ITEMS": true,
+      "ITEM_INFO.kin_katana": {
+        "buttons": [
+          "1-9",
+          "left"
+        ],
+        "how": "えらんで、ようかい に むけて ひだりクリック。R で かまえ を かえると わざ が かわる",
+        "stats": "blade",
+        "use": "ようかい を いちばん つよく たたく"
+      },
+      "TOOL_DEFAULTS.weaponDamage.kin_katana": 5,
+      "TOOL_NUMBERS.weaponDamage.kin_katana": 5,
+      "W2.bladeReach.kin_katana": 2.2,
+      "W2.bladeTrail.kin_katana": {
+        "blade": 15448128,
+        "bladeShine": 16773300,
+        "color": 15907128,
+        "glow": 16773300,
+        "style": "gold",
+        "under": 2761272
+      },
+      "W2.toolDurability.kin_katana": 500,
+      "category": "weapon",
+      "durabilityClass": "durable",
+      "maxStack": 1,
+      "name": "きんの かたな",
+      "placeBlock": null,
+      "rarity": "epic",
+      "recipes": [
+        {
+          "id": "kin_katana",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "kin"
+            },
+            {
+              "count": 1,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kin_katana"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "kin_yumi": {
+      "ITEM_INFO.kin_yumi": {
+        "buttons": [
+          "1-9",
+          "left"
+        ],
+        "how": "えらんで ひだりクリック を おしつづけて ながく ひく。はなすと とぶ",
+        "stats": "bow",
+        "use": "や を とばして とおく の ようかい を たおす。や が いる"
+      },
+      "W2.bowDamageByItem.kin_yumi": [
+        2,
+        3,
+        5
+      ],
+      "W2.toolDurability.kin_yumi": 500,
+      "category": "weapon",
+      "durabilityClass": "durable",
+      "maxStack": 1,
+      "name": "きんの ゆみ",
+      "placeBlock": null,
+      "rarity": "epic",
+      "recipes": [
+        {
+          "id": "kin_yumi",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "kin"
+            },
+            {
+              "count": 3,
+              "item": "string"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kin_yumi"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "kin_pickaxe": {
+      "ITEM_INFO.kin_pickaxe": {
+        "buttons": [
+          "1-9",
+          "leftHold"
+        ],
+        "how": "えらんで、ブロック に むけて ひだりクリック を おしつづける",
+        "stats": "pickaxe",
+        "use": "いちばん はやく ほれる。てつ も ほれる"
+      },
+      "TOOL_DEFAULTS.toolLevel.kin_pickaxe": 2,
+      "TOOL_DEFAULTS.toolPower.kin_pickaxe": 6,
+      "TOOL_DEFAULTS.weaponDamage.kin_pickaxe": 5,
+      "TOOL_NUMBERS.toolLevel.kin_pickaxe": 2,
+      "TOOL_NUMBERS.toolPower.kin_pickaxe": 6,
+      "TOOL_NUMBERS.weaponDamage.kin_pickaxe": 5,
+      "W2.toolDurability.kin_pickaxe": 500,
+      "category": "tool",
+      "durabilityClass": "durable",
+      "maxStack": 1,
+      "name": "きんの つるはし",
+      "placeBlock": null,
+      "rarity": "epic",
+      "recipes": [
+        {
+          "id": "kin_pickaxe",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "kin"
+            },
+            {
+              "count": 2,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kin_pickaxe"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "kin_axe": {
+      "ITEM_INFO.kin_axe": {
+        "buttons": [
+          "1-9",
+          "leftHold"
+        ],
+        "how": "えらんで、ブロック に むけて ひだりクリック を おしつづける",
+        "stats": "pickaxe",
+        "use": "いちばん はやく き を きれる"
+      },
+      "TOOL_DEFAULTS.toolLevel.kin_axe": 0,
+      "TOOL_DEFAULTS.toolPower.kin_axe": 6,
+      "TOOL_DEFAULTS.weaponDamage.kin_axe": 5,
+      "TOOL_NUMBERS.toolLevel.kin_axe": 0,
+      "TOOL_NUMBERS.toolPower.kin_axe": 6,
+      "TOOL_NUMBERS.weaponDamage.kin_axe": 5,
+      "W2.toolDurability.kin_axe": 500,
+      "category": "tool",
+      "durabilityClass": "durable",
+      "maxStack": 1,
+      "name": "きんの おの",
+      "placeBlock": null,
+      "rarity": "epic",
+      "recipes": [
+        {
+          "id": "kin_axe",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "kin"
+            },
+            {
+              "count": 2,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kin_axe"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "kin_kabuto": {
+      "ARMOR_SLOT_OF.kin_kabuto": "head",
+      "CRAFT_DEFAULTS.armorValue.kin_kabuto": {
+        "ball": 3,
+        "fall": 0,
+        "normal": 0
+      },
+      "ITEM_INFO.kin_kabuto": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "ダブルクリック か、てに もって みぎクリック で きる。E の そうび の マス に いれても よい",
+        "stats": "armor",
+        "use": "ようかい の ひのたま を へらす（あたま）"
+      },
+      "W2.toolDurability.kin_kabuto": 500,
+      "category": "armor",
+      "durabilityClass": "durable",
+      "maxStack": 1,
+      "name": "きんの かぶと",
+      "placeBlock": null,
+      "rarity": "epic",
+      "recipes": [
+        {
+          "id": "kin_kabuto",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "kin"
+            },
+            {
+              "count": 1,
+              "item": "cloth"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kin_kabuto"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "kin_yoroi": {
+      "ARMOR_SLOT_OF.kin_yoroi": "body",
+      "CRAFT_DEFAULTS.armorValue.kin_yoroi": {
+        "ball": 0,
+        "fall": 0,
+        "normal": 3
+      },
+      "ITEM_INFO.kin_yoroi": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "ダブルクリック か、てに もって みぎクリック で きる。E の そうび の マス に いれても よい",
+        "stats": "armor",
+        "use": "ようかい の こうげき を へらす（からだ）"
+      },
+      "W2.toolDurability.kin_yoroi": 500,
+      "category": "armor",
+      "durabilityClass": "durable",
+      "maxStack": 1,
+      "name": "きんの よろい",
+      "placeBlock": null,
+      "rarity": "epic",
+      "recipes": [
+        {
+          "id": "kin_yoroi",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "kin"
+            },
+            {
+              "count": 2,
+              "item": "string"
+            },
+            {
+              "count": 2,
+              "item": "cloth"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kin_yoroi"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "kin_kote": {
+      "ARMOR_SLOT_OF.kin_kote": "arms",
+      "CRAFT_DEFAULTS.armorValue.kin_kote": {
+        "ball": 0,
+        "fall": 0,
+        "normal": 2
+      },
+      "ITEM_INFO.kin_kote": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "ダブルクリック か、てに もって みぎクリック で きる。E の そうび の マス に いれても よい",
+        "stats": "armor",
+        "use": "ようかい の こうげき を へらす（うで）"
+      },
+      "W2.toolDurability.kin_kote": 500,
+      "category": "armor",
+      "durabilityClass": "durable",
+      "maxStack": 1,
+      "name": "きんの こて",
+      "placeBlock": null,
+      "rarity": "epic",
+      "recipes": [
+        {
+          "id": "kin_kote",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "kin"
+            },
+            {
+              "count": 1,
+              "item": "cloth"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kin_kote"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "kin_suneate": {
+      "ARMOR_SLOT_OF.kin_suneate": "legs",
+      "CRAFT_DEFAULTS.armorValue.kin_suneate": {
+        "ball": 0,
+        "fall": 3,
+        "normal": 0
+      },
+      "ITEM_INFO.kin_suneate": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "ダブルクリック か、てに もって みぎクリック で きる。E の そうび の マス に いれても よい",
+        "stats": "armor",
+        "use": "たかい ところ から おちた いたみ を へらす（あし）"
+      },
+      "W2.toolDurability.kin_suneate": 500,
+      "category": "armor",
+      "durabilityClass": "durable",
+      "maxStack": 1,
+      "name": "きんの すねあて",
+      "placeBlock": null,
+      "rarity": "epic",
+      "recipes": [
+        {
+          "id": "kin_suneate",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "kin"
+            },
+            {
+              "count": 1,
+              "item": "string"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kin_suneate"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "harapan_mimizu": {
+      "ITEM_INFO.harapan_mimizu": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "もって なかま の おとな の にわとり に みぎクリック",
+        "use": "なかま の にわとり に あげる と なかよし が いっぱい に なる"
+      },
+      "category": "plant",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "はらぱんみみず",
+      "placeBlock": null,
+      "rarity": "epic",
+      "recipes": []
+    }
+  },
+  "yokai": {
+    "karakasa": {
+      "ATTACK_DAMAGE.karakasa": 2,
+      "KIND_AI.karakasa": {
+        "eyeHeight": 1.1,
+        "flies": false,
+        "height": 1.6,
+        "marksHeight": 2.1,
+        "radius": 0.6,
+        "stepUp": 2,
+        "turnDegPerSec": 360
+      },
+      "SENSE.kinds.karakasa": {
+        "giveUp": 24,
+        "shinobi": true,
+        "sight": 18
+      },
+      "VARIANT.karakasa": {
+        "2": {
+          "9128491": 4937400,
+          "10514492": 8029900,
+          "14700602": 10136319,
+          "15909198": 14871295
+        },
+        "3": {
+          "9128491": 16738877,
+          "10514492": 15243824,
+          "14700602": 16762941,
+          "15909198": 16773808
+        }
+      },
+      "WEIGHTS.karakasa": 1,
+      "XP.karakasa": 3,
+      "YOKAI_DROPS.karakasa": [
+        {
+          "chance": 0.7,
+          "item": "paper",
+          "max": 4
+        },
+        {
+          "chance": 0.7,
+          "item": "string",
+          "max": 4
+        },
+        {
+          "chance": 0.4,
+          "item": "log",
+          "max": 3
+        },
+        {
+          "chance": 0.15,
+          "item": "oil",
+          "max": 2
+        },
+        {
+          "chance": 0.05,
+          "item": "iron_ore",
+          "max": 1
+        },
+        {
+          "chance": 0.05,
+          "item": "seed_tomato",
+          "max": 1
+        },
+        {
+          "chance": 0.05,
+          "item": "seed_pumpkin",
+          "max": 1
+        }
+      ],
+      "YOKAI_NAME.karakasa": "からかさ",
+      "YOKAI_STATS.karakasa": {
+        "attackSeconds": 1.2,
+        "avoidsWater": true,
+        "cooldownSeconds": 2,
+        "hitSeconds": 0.5,
+        "hp": 8,
+        "reach": 2.5,
+        "speed": 1.5
+      },
+      "countryWeights": {
+        "hana": 25,
+        "harappa": 30,
+        "iwayama": 25,
+        "kappa": 45,
+        "momiji": 25,
+        "mori": 25,
+        "ookina": 25,
+        "sunahama": 45,
+        "susuki": 25,
+        "take": 45,
+        "tengu": 25,
+        "yuki": 25
+      },
+      "strength": {
+        "easy": {
+          "attack": 1,
+          "dropRolls": 1,
+          "fear": 1,
+          "hp": 4,
+          "speedMul": 1,
+          "strength": 1,
+          "xp": 3
+        },
+        "hard": {
+          "attack": 3,
+          "dropRolls": 1,
+          "fear": 1,
+          "hp": 12,
+          "speedMul": 1,
+          "strength": 1,
+          "xp": 3
+        },
+        "normal": {
+          "attack": 2,
+          "dropRolls": 1,
+          "fear": 1,
+          "hp": 8,
+          "speedMul": 1,
+          "strength": 1,
+          "xp": 3
+        }
+      },
+      "titles": {
+        "none": {
+          "attackSeconds": 1.2,
+          "avoidsWater": true,
+          "cooldownSeconds": 2,
+          "hitSeconds": 0.5,
+          "hp": 8,
+          "reach": 2.5,
+          "speed": 1.5
+        },
+        "nushi": {
+          "attackSeconds": 1.2,
+          "avoidsWater": true,
+          "cooldownSeconds": 2,
+          "hitSeconds": 0.5,
+          "hp": 8,
+          "reach": 2.5,
+          "speed": 1.7999999999999998
+        },
+        "oyabun": {
+          "attackSeconds": 1.2,
+          "avoidsWater": true,
+          "cooldownSeconds": 2,
+          "hitSeconds": 0.5,
+          "hp": 8,
+          "reach": 2.5,
+          "speed": 1.5
+        },
+        "taisho": {
+          "attackSeconds": 1.2,
+          "avoidsWater": true,
+          "cooldownSeconds": 2,
+          "hitSeconds": 0.5,
+          "hp": 8,
+          "reach": 2.5,
+          "speed": 1.6500000000000001
+        }
+      }
+    },
+    "chochin": {
+      "ATTACK_DAMAGE.chochin": 2,
+      "KIND_AI.chochin": {
+        "eyeHeight": 0.95,
+        "flies": true,
+        "height": 1.7,
+        "marksHeight": 2.3,
+        "radius": 0.4,
+        "stepUp": 0,
+        "turnDegPerSec": 180
+      },
+      "SENSE.kinds.chochin": {
+        "giveUp": 27,
+        "shinobi": true,
+        "sight": 21
+      },
+      "VARIANT.chochin": {
+        "2": {
+          "3816010": 3423628,
+          "12872222": 6257638,
+          "16757575": 12374783,
+          "16773792": 15003391
+        },
+        "3": {
+          "3816010": 14260762,
+          "12872222": 16734780,
+          "16757575": 16773210,
+          "16773792": 16775368
+        }
+      },
+      "WEIGHTS.chochin": 1,
+      "XP.chochin": 2,
+      "YOKAI_DROPS.chochin": [
+        {
+          "chance": 0.7,
+          "item": "paper",
+          "max": 4
+        },
+        {
+          "chance": 0.4,
+          "item": "string",
+          "max": 3
+        },
+        {
+          "chance": 0.15,
+          "item": "coal_ore",
+          "max": 2
+        }
+      ],
+      "YOKAI_NAME.chochin": "ちょうちん",
+      "YOKAI_STATS.chochin": {
+        "attackSeconds": 0.8,
+        "avoidsWater": true,
+        "cooldownSeconds": 3,
+        "hitSeconds": 0.5,
+        "hp": 5,
+        "reach": 8,
+        "speed": 1
+      },
+      "countryWeights": {
+        "hana": 40,
+        "harappa": 25,
+        "iwayama": 20,
+        "kappa": 20,
+        "momiji": 40,
+        "mori": 20,
+        "ookina": 20,
+        "sunahama": 20,
+        "susuki": 40,
+        "take": 20,
+        "tengu": 20,
+        "yuki": 20
+      },
+      "strength": {
+        "easy": {
+          "attack": 1,
+          "dropRolls": 1,
+          "fear": 2,
+          "hp": 3,
+          "speedMul": 1,
+          "strength": 1.25,
+          "xp": 2
+        },
+        "hard": {
+          "attack": 3,
+          "dropRolls": 1,
+          "fear": 2,
+          "hp": 8,
+          "speedMul": 1,
+          "strength": 1.25,
+          "xp": 2
+        },
+        "normal": {
+          "attack": 2,
+          "dropRolls": 1,
+          "fear": 2,
+          "hp": 5,
+          "speedMul": 1,
+          "strength": 1.25,
+          "xp": 2
+        }
+      },
+      "titles": {
+        "none": {
+          "attackSeconds": 0.8,
+          "avoidsWater": true,
+          "cooldownSeconds": 3,
+          "hitSeconds": 0.5,
+          "hp": 5,
+          "reach": 8,
+          "speed": 1
+        },
+        "nushi": {
+          "attackSeconds": 0.8,
+          "avoidsWater": true,
+          "cooldownSeconds": 3,
+          "hitSeconds": 0.5,
+          "hp": 5,
+          "reach": 8,
+          "speed": 1.2
+        },
+        "oyabun": {
+          "attackSeconds": 0.8,
+          "avoidsWater": true,
+          "cooldownSeconds": 3,
+          "hitSeconds": 0.5,
+          "hp": 5,
+          "reach": 8,
+          "speed": 1
+        },
+        "taisho": {
+          "attackSeconds": 0.8,
+          "avoidsWater": true,
+          "cooldownSeconds": 3,
+          "hitSeconds": 0.5,
+          "hp": 5,
+          "reach": 8,
+          "speed": 1.1
+        }
+      }
+    },
+    "nurikabe": {
+      "ATTACK_DAMAGE.nurikabe": 16,
+      "KIND_AI.nurikabe": {
+        "eyeHeight": 1.9,
+        "flies": false,
+        "height": 3,
+        "marksHeight": 3.5,
+        "radius": 0.9,
+        "stepUp": 1,
+        "turnDegPerSec": 45
+      },
+      "SENSE.kinds.nurikabe": {
+        "giveUp": 18,
+        "shinobi": true,
+        "sight": 12
+      },
+      "VARIANT.nurikabe": {
+        "2": {
+          "5941306": 8377074,
+          "7192133": 11595007,
+          "9077363": 9345484,
+          "9340534": 9213900,
+          "10722187": 11713766
+        },
+        "3": {
+          "5941306": 16744512,
+          "7192133": 16751184,
+          "9077363": 14264640,
+          "9340534": 14528072,
+          "10722187": 15912042
+        }
+      },
+      "WEIGHTS.nurikabe": 1,
+      "XP.nurikabe": 6,
+      "YOKAI_DROPS.nurikabe": [
+        {
+          "chance": 0.7,
+          "item": "dirt",
+          "max": 4
+        },
+        {
+          "chance": 0.7,
+          "item": "stone",
+          "max": 4
+        },
+        {
+          "chance": 0.15,
+          "item": "clay",
+          "max": 2
+        }
+      ],
+      "YOKAI_NAME.nurikabe": "ぬりかべ",
+      "YOKAI_STATS.nurikabe": {
+        "attackSeconds": 4,
+        "avoidsWater": false,
+        "cooldownSeconds": 2,
+        "hitSeconds": 1.5,
+        "hp": 40,
+        "reach": 3,
+        "speed": 0.5
+      },
+      "countryWeights": {
+        "hana": 15,
+        "harappa": 20,
+        "iwayama": 35,
+        "kappa": 15,
+        "momiji": 15,
+        "mori": 15,
+        "ookina": 15,
+        "sunahama": 15,
+        "susuki": 15,
+        "take": 15,
+        "tengu": 35,
+        "yuki": 35
+      },
+      "strength": {
+        "easy": {
+          "attack": 8,
+          "dropRolls": 1,
+          "fear": 1,
+          "hp": 20,
+          "speedMul": 1,
+          "strength": 5,
+          "xp": 6
+        },
+        "hard": {
+          "attack": 16,
+          "dropRolls": 1,
+          "fear": 1,
+          "hp": 60,
+          "speedMul": 1,
+          "strength": 5,
+          "xp": 6
+        },
+        "normal": {
+          "attack": 16,
+          "dropRolls": 1,
+          "fear": 1,
+          "hp": 40,
+          "speedMul": 1,
+          "strength": 5,
+          "xp": 6
+        }
+      },
+      "titles": {
+        "none": {
+          "attackSeconds": 4,
+          "avoidsWater": false,
+          "cooldownSeconds": 2,
+          "hitSeconds": 1.5,
+          "hp": 40,
+          "reach": 3,
+          "speed": 0.5
+        },
+        "nushi": {
+          "attackSeconds": 4,
+          "avoidsWater": false,
+          "cooldownSeconds": 2,
+          "hitSeconds": 1.5,
+          "hp": 40,
+          "reach": 3,
+          "speed": 0.6
+        },
+        "oyabun": {
+          "attackSeconds": 4,
+          "avoidsWater": false,
+          "cooldownSeconds": 2,
+          "hitSeconds": 1.5,
+          "hp": 40,
+          "reach": 3,
+          "speed": 0.5
+        },
+        "taisho": {
+          "attackSeconds": 4,
+          "avoidsWater": false,
+          "cooldownSeconds": 2,
+          "hitSeconds": 1.5,
+          "hp": 40,
+          "reach": 3,
+          "speed": 0.55
+        }
+      }
+    },
+    "rokurokubi": {
+      "ATTACK_DAMAGE.rokurokubi": 2,
+      "KIND_AI.rokurokubi": {
+        "eyeHeight": 1.6,
+        "flies": false,
+        "height": 2.9,
+        "marksHeight": 3.3,
+        "radius": 0.4,
+        "stepUp": 1,
+        "turnDegPerSec": 240
+      },
+      "SENSE.kinds.rokurokubi": {
+        "giveUp": 24,
+        "shinobi": true,
+        "sight": 18
+      },
+      "VARIANT.rokurokubi": {
+        "2": {
+          "5992406": 10451168,
+          "7308520": 12754162,
+          "15909198": 15265535
+        },
+        "3": {
+          "5992406": 15771696,
+          "7308520": 16762941,
+          "15909198": 16738877
+        }
+      },
+      "WEIGHTS.rokurokubi": 1,
+      "XP.rokurokubi": 3,
+      "YOKAI_DROPS.rokurokubi": [
+        {
+          "chance": 0.7,
+          "item": "cloth",
+          "max": 4
+        },
+        {
+          "chance": 0.05,
+          "item": "crystal",
+          "max": 1
+        },
+        {
+          "chance": 0.05,
+          "item": "seed_onion",
+          "max": 1
+        },
+        {
+          "chance": 0.05,
+          "item": "seed_eggplant",
+          "max": 1
+        }
+      ],
+      "YOKAI_NAME.rokurokubi": "ろくろくび",
+      "YOKAI_STATS.rokurokubi": {
+        "attackSeconds": 1.6,
+        "avoidsWater": false,
+        "cooldownSeconds": 2.5,
+        "hitSeconds": 0.5,
+        "hp": 12,
+        "reach": 8,
+        "speed": 1
+      },
+      "countryWeights": {
+        "hana": 20,
+        "harappa": 25,
+        "iwayama": 20,
+        "kappa": 20,
+        "momiji": 20,
+        "mori": 40,
+        "ookina": 40,
+        "sunahama": 20,
+        "susuki": 20,
+        "take": 20,
+        "tengu": 20,
+        "yuki": 20
+      },
+      "strength": {
+        "easy": {
+          "attack": 1,
+          "dropRolls": 1,
+          "fear": 1,
+          "hp": 6,
+          "speedMul": 1,
+          "strength": 1.5,
+          "xp": 3
+        },
+        "hard": {
+          "attack": 3,
+          "dropRolls": 1,
+          "fear": 1,
+          "hp": 18,
+          "speedMul": 1,
+          "strength": 1.5,
+          "xp": 3
+        },
+        "normal": {
+          "attack": 2,
+          "dropRolls": 1,
+          "fear": 1,
+          "hp": 12,
+          "speedMul": 1,
+          "strength": 1.5,
+          "xp": 3
+        }
+      },
+      "titles": {
+        "none": {
+          "attackSeconds": 1.6,
+          "avoidsWater": false,
+          "cooldownSeconds": 2.5,
+          "hitSeconds": 0.5,
+          "hp": 12,
+          "reach": 8,
+          "speed": 1
+        },
+        "nushi": {
+          "attackSeconds": 1.6,
+          "avoidsWater": false,
+          "cooldownSeconds": 2.5,
+          "hitSeconds": 0.5,
+          "hp": 12,
+          "reach": 8,
+          "speed": 1.2
+        },
+        "oyabun": {
+          "attackSeconds": 1.6,
+          "avoidsWater": false,
+          "cooldownSeconds": 2.5,
+          "hitSeconds": 0.5,
+          "hp": 12,
+          "reach": 8,
+          "speed": 1
+        },
+        "taisho": {
+          "attackSeconds": 1.6,
+          "avoidsWater": false,
+          "cooldownSeconds": 2.5,
+          "hitSeconds": 0.5,
+          "hp": 12,
+          "reach": 8,
+          "speed": 1.1
+        }
+      }
+    }
+  },
+  "levelConfig": {
+    "maxLevel": 99,
+    "perLevel": 5
+  }
+}
