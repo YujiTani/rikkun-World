@@ -1,0 +1,146 @@
+# #311 シャードの 時間の 表を 自動に する ci.yml（これで .github/workflows/ci.yml を まるごと 置きかえる。yuzu が 画面で）。
+# 前と ちがう 所: permissions に actions: read / 「変更の 中身」で いちばん 新しい 緑の main の 時間を 集める /
+# E2E の 各シャードが その 時間で 分ける（E2E_TIMES_DIR）・自分の 時間を e2e-times-<n> に 残す。
+# 時間が とれない ときは 今までどおり e2e/shard-times.json で 分ける（落ちない）。
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  actions: read # 前の main の E2E の 時間（e2e-times-*）を もらう
+
+jobs:
+  check-fast:
+    name: 型チェックとユニットテスト
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          check-latest: true
+          cache: npm
+      - run: npm ci
+      - run: npm run check:fast
+
+  # PR の 変更が ドキュメントだけ（docs/・.md・.claude/）なら E2E を とばす。main への push は いつも 全部 回す
+  changes:
+    name: 変更の 中身
+    runs-on: ubuntu-24.04
+    outputs:
+      code: ${{ steps.diff.outputs.code }}
+      times: ${{ steps.times.outputs.times }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: diff
+        run: |
+          if [ "${{ github.event_name }}" != "pull_request" ]; then echo "code=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+          files=$(git diff --name-only "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}")
+          echo "$files"
+          if echo "$files" | grep -qvE '^docs/|\.md$|^\.claude/'; then echo "code=true" >> "$GITHUB_OUTPUT"; else echo "code=false" >> "$GITHUB_OUTPUT"; fi
+      # いちばん 新しい 緑の main の CI が 残した spec ごとの 時間（#311）。5 つの シャードが 同じ 表で 分けるよう、ここで 1 つに まとめて わたす
+      - id: last
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: echo "run=$(gh run list -R "${{ github.repository }}" -w CI -b main -s success -L 1 --json databaseId -q '.[0].databaseId' || true)" >> "$GITHUB_OUTPUT"
+      - if: steps.last.outputs.run != ''
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          pattern: e2e-times-*
+          merge-multiple: true
+          path: e2e-times-prev
+          run-id: ${{ steps.last.outputs.run }}
+          github-token: ${{ github.token }}
+      - id: times
+        run: |
+          if ls e2e-times-prev/*.json >/dev/null 2>&1; then echo "times=$(jq -sc 'add' e2e-times-prev/*.json || true)" >> "$GITHUB_OUTPUT"; fi
+
+  e2e:
+    name: E2E（${{ matrix.shard }}/5）
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-24.04
+    # Chromium と その部品が 入った Playwright の コンテナで 動かす（毎回 apt で 入れると ときどき 10 分 以上 かかる）。
+    # 版は package.json の @playwright/test と 同じに する（上げる ときは ここも 上げる）
+    container:
+      image: mcr.microsoft.com/playwright:v1.56.1-noble
+      options: --ipc=host
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          check-latest: true
+          cache: npm
+      - run: npm ci
+      - name: 前の main の 時間を おく
+        env:
+          TIMES: ${{ needs.changes.outputs.times }}
+        run: |
+          mkdir -p e2e-times-prev
+          if [ -n "$TIMES" ]; then printf '%s' "$TIMES" > e2e-times-prev/main.json; fi
+      # 件数でなく 時間で 5 つに 分ける（scripts/e2e-shard.mjs）。前の main の 時間 → e2e/shard-times.json → テストの 本数で 見つもり の 順
+      - name: E2E（5 つに分けた ${{ matrix.shard }} つ目）
+        run: npx playwright test $(node scripts/e2e-shard.mjs ${{ matrix.shard }} 5) --reporter=list,html,json
+        env:
+          PLAYWRIGHT_HTML_OPEN: never
+          PLAYWRIGHT_JSON_OUTPUT_FILE: e2e-result.json
+          E2E_TIMES_DIR: e2e-times-prev
+      - name: この シャードの 時間を 作る（次の CI が 使う）
+        if: always()
+        run: mkdir -p e2e-times && node scripts/e2e-shard-times.mjs --out e2e-times/shard-${{ matrix.shard }}.json e2e-result.json || true
+      - name: この シャードの 時間を 残す
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-times-${{ matrix.shard }}
+          path: e2e-times/
+          if-no-files-found: ignore
+          retention-days: 30
+      - name: 失敗したときのレポートとスクショ
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ matrix.shard }}
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+      - name: UI 検査の結果とスクショ
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-gate-report-${{ matrix.shard }}
+          path: ui-gate-report/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # 5 つ全部が通ったかを、前と同じ名前の 1 つのチェックにまとめる（必須チェックの名前を変えないため）
+  e2e-all:
+    name: E2E（全部）
+    needs: [changes, e2e]
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      # ドキュメントだけの PR は E2E を とばして 緑（変更の 中身の ジョブが 落ちたら 赤）
+      - name: 5 つの結果をたしかめる
+        run: |
+          test "${{ needs.changes.result }}" = "success"
+          if [ "${{ needs.changes.outputs.code }}" = "true" ]; then test "${{ needs.e2e.result }}" = "success"; fi

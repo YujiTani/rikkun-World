@@ -54,7 +54,7 @@
 | 速い E2E（smoke など） | `npm run test:e2e:fast` |
 | UI 検査（全画面×3 つの大きさ、約 30 秒） | `npm run check:ui` → 結果とスクショは `ui-gate-report/` |
 | 全部（E2E 込み。手元では回さず CI にまかせる） | `npm run check` |
-| CI の E2E を時間で 4 つに分ける表を作りなおす（spec が大きく変わったとき） | `node scripts/e2e-shard-times.mjs <4 つのシャードのログ>` → `e2e/shard-times.json` |
+| CI の E2E を時間で分ける表（ふだんは CI が前の main の時間を自動で使う。#311。手で作りなおすときだけ） | `node scripts/e2e-shard-times.mjs <全シャードのログか JSON>` → `e2e/shard-times.json` |
 
 ## コードのきまり
 
