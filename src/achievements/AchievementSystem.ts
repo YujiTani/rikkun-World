@@ -20,7 +20,6 @@ import type {
   WorldRegions,
   YokaiKind,
 } from '../contracts';
-import { CROP_KINDS } from '../contracts';
 import { COUNTRY_KINDS } from '../world/gen/config';
 import { baseRecipeId } from '../craft/recipes';
 import {
@@ -36,6 +35,7 @@ import {
   PICKAXE_RECIPES,
   WEAPON_RECIPES,
 } from './defs';
+import { applyAnimalEvents, applyFarmEvents, type StatSink } from './feedStats';
 
 /** 記録の上限（§5） */
 export const STAT_CAP = 2_000_000_000;
@@ -146,6 +146,13 @@ export class AchievementSystem implements AchievementShowSource {
 
   private modal: AchievementModalPort | null = null;
   private busy: CelebrateBusyPort | null = null;
+
+  /** 出来事の読みほどき（feedStats.ts）に見せる、記録の数え方だけの口 */
+  private readonly sink: StatSink = {
+    bump: (key, n) => this.bump(key, n),
+    setMax: (key, v) => this.setMax(key, v),
+    stat: (key) => this.stat(key),
+  };
 
   constructor(private readonly settings: () => AchSettings) {}
 
@@ -341,58 +348,7 @@ export class AchievementSystem implements AchievementShowSource {
   /** 農業の出来事（M7 §4.7）。つなぎ込みが `farm.drainEvents()` の列を わたす */
   feedFarm(events: readonly FarmEvent[]): void {
     if (events.length === 0) return;
-    this.run(() => {
-      for (const e of events) {
-        switch (e.type) {
-          case 'till':
-            this.bump('till', 1);
-            break;
-          case 'plant':
-            this.bump(`plant:${e.kind}`, 1);
-            this.bump('plant:*', 1);
-            break;
-          case 'harvest':
-            this.bump(`harvest:${e.kind}`, 1);
-            this.bump('harvest:*', 1);
-            if (e.wet) this.bump('harvestWet', 1);
-            // M7-2: ごきげん の 作物（A が `happy` を 入れる。契約 の 型に 無い 間 は 読み取り だけ）
-            if (e.happy) this.bump('harvestPet', 1);
-            this.setMax('harvest:kinds', CROP_KINDS.filter((k) => this.stat(`harvest:${k}`) > 0).length);
-            break;
-          case 'wild':
-            this.bump(`wild:${e.kind}`, 1);
-            this.bump('wild:*', 1);
-            this.setMax('wild:kinds', CROP_KINDS.filter((k) => this.stat(`wild:${k}`) > 0).length);
-            this.derivedFind();
-            break;
-          case 'eat':
-            this.bump(`eat:${e.item}`, 1);
-            // LIVE-1 §4.5: `eat:*` は やさい だけ（たまご では ふやさない）。LIVE-3: やいた もも にく も ふやさない
-            if (e.item !== 'egg' && e.item !== 'momo_yaki') this.bump('eat:*', 1);
-            break;
-          case 'seedFound':
-            this.bump(`seedFrom:${e.from}`, 1);
-            this.derivedFind();
-            break;
-          case 'visitOldFarm':
-            this.bump('visit:oldfarm', 1);
-            break;
-          case 'pour':
-            // はたけ 0 の まく は 数えない
-            if (e.tiles > 0) this.bump('water:*', 1);
-            break;
-          case 'bucketPlace':
-            this.bump('bucketPlace', 1);
-            break;
-          case 'pet':
-            // ごきげん に した 回数（'again'・'wild' は 数えない）
-            if (e.result === 'happy') this.bump('pet:*', 1);
-            break;
-          default:
-            break;
-        }
-      }
-    });
+    this.run(() => applyFarmEvents(this.sink, events));
   }
 
   /**
@@ -401,73 +357,7 @@ export class AchievementSystem implements AchievementShowSource {
    */
   feedAnimals(events: readonly AnimalEvent[]): void {
     if (events.length === 0) return;
-    this.run(() => {
-      for (const e of events) {
-        switch (e.type) {
-          case 'feed':
-            this.bump('feed:chicken', 1);
-            this.bump('feed:*', 1);
-            break;
-          case 'friend':
-            this.bump('friend:chicken', 1);
-            this.bump('friend:*', 1);
-            break;
-          case 'pet':
-            if (e.friend) {
-              this.bump('petAnimal:chicken', 1);
-              this.bump('petAnimal:*', 1);
-            }
-            break;
-          case 'egg':
-            this.bump('egg:chicken', 1);
-            this.bump('egg:*', 1);
-            break;
-          // 版 3.2: 持ち物 に 入った か 足もと に おちた むし の 数 / だっこ した 回数
-          case 'bugCatch':
-            this.bump('bug:*', 1);
-            break;
-          case 'carry':
-            this.bump('carry:chicken', 1);
-            this.bump('carry:*', 1);
-            break;
-          // LIVE-2（§4.5）: かえった（マッチョ は 別の 記録）・小屋 の 子 に なった・大人 に なった・金 の たまご
-          case 'hatch':
-            this.bump('hatch:chicken', 1);
-            this.bump('hatch:*', 1);
-            if (e.breed === 'macho') this.bump('hatch:macho', 1);
-            break;
-          case 'home':
-            this.bump('home:chicken', 1);
-            this.bump('home:*', 1);
-            break;
-          case 'grow':
-            this.bump('grow:chicken', 1);
-            this.bump('grow:*', 1);
-            break;
-          // LIVE-3（§4.4）: いただいた 数 を 数える だけ（実績 は 作らない。命 を ごほうび に しない）
-          case 'meat':
-            this.bump('meat:chicken', 1);
-            this.bump('meat:*', 1);
-            break;
-          // LIVE-4（§2.4・§4.5）: マッチョ の パンチ で たおした（2 回目 から も 数える。実績 は はじめて だけ）
-          case 'machoKO':
-            this.bump('machoKO:*', 1);
-            break;
-          default:
-            break;
-        }
-        if (e.type === 'egg' && e.gold) {
-          this.bump('goldenEgg:chicken', 1);
-          this.bump('goldenEgg:*', 1);
-        }
-      }
-    });
-  }
-
-  /** たね の ありか 4 つ（ふるい たんす・やせい・くさ・ようかい） */
-  private derivedFind(): void {
-    const n = [this.stat('seedFrom:oldfarm'), this.stat('wild:*'), this.stat('seedFrom:grass'), this.stat('seedFrom:yokai')].filter((v) => v > 0).length;
-    this.setMax('seedFrom:all', n);
+    this.run(() => applyAnimalEvents(this.sink, events));
   }
 
   /** WEAPON-2: たいきゅうの 出来事（持ち物と 防具の 2 本をまとめて わたす）。こわれた: マス番号 = 道具、部位 = 防具 */

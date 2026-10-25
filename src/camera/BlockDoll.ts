@@ -32,11 +32,11 @@ import {
   type BowDollPose,
 } from './weaponPose';
 import type { BladeState, BowPose } from '../contracts';
+import { FALLEN_ROLL_DEG, buildDollArcs, updateDollArcs, updateDollStars, type DollArcs } from './dollFx';
 
 const DEG = Math.PI / 180;
 
-/** たおれたとき（やられた）横になる角度と、からだが地面にしずまないよう上げる高さ */
-const FALLEN_ROLL_DEG = 90;
+/** たおれたとき（やられた）、からだが地面にしずまないよう上げる高さ */
 const FALLEN_LIFT = 0.25;
 
 /** ようかいだまを手に持つ形（むらさきの玉・つや・目）。形と材料は使いまわす */
@@ -87,7 +87,7 @@ export class BlockDoll {
   private kabutoMesh: THREE.Group | null = null;
   private yoroiMesh: THREE.Group | null = null;
   private readonly shoulders: THREE.Group[] = [];
-  private arcMeshes: { slash: THREE.Mesh; sweep: THREE.Mesh } | null = null;
+  private arcMeshes: DollArcs | null = null;
   /** WEAPON-3: 白い弧を出す向き（パンチの向き u。null = 人形の向き = カメラの yaw） */
   private arcDirDeg: number | null = null;
   private lastYawDeg = 0;
@@ -738,61 +738,13 @@ export class BlockDoll {
   /** 白い弧と、やられたときの星 */
   private updateFx(): void {
     const kind = this.animator.arc;
-    if (kind !== 'none' && !this.arcMeshes) this.arcMeshes = this.buildArcs();
+    if (kind !== 'none' && !this.arcMeshes) this.arcMeshes = buildDollArcs(this.group);
     if (this.arcMeshes) {
-      for (const k of ['slash', 'sweep'] as const) {
-        const m = this.arcMeshes[k];
-        m.visible = kind === k && this.mode !== 'hidden';
-        m.rotation.y = this.arcDirDeg === null ? 0 : -(this.arcDirDeg - this.lastYawDeg) * DEG;
-        if (m.visible) {
-          (m.material as THREE.MeshBasicMaterial).opacity = 1 - this.animator.arcAge / (DOLL_ANIM.arcTicks + 1);
-        }
-      }
+      updateDollArcs(this.arcMeshes, kind, this.mode !== 'hidden', this.arcDirDeg, this.lastYawDeg, this.animator.arcAge);
     }
     const downShown = this.fallen > 0 && this.mode === 'third';
     this.stars.visible = downShown;
-    if (downShown) {
-      const th = this.fallen * FALLEN_ROLL_DEG * DEG;
-      const headCenterY = DOLL_SIZES.leg[1] + DOLL_SIZES.body[1] + DOLL_SIZES.head[1] / 2;
-      // まわりの中心（頭の真上）を、倒れた人形の座標にもどす
-      const wx = -headCenterY * Math.sin(th);
-      const wy = headCenterY * Math.cos(th) + 0.45;
-      this.stars.position.set(wx * Math.cos(th) + wy * Math.sin(th), -wx * Math.sin(th) + wy * Math.cos(th), 0);
-      this.stars.rotation.z = -th;
-      const n = this.stars.children.length;
-      const spin = this.animator.tickCount * DOLL_ANIM.starSpinDegPerTick * DEG;
-      for (let i = 0; i < n; i++) {
-        const a = spin + (i * 2 * Math.PI) / n;
-        this.stars.children[i].position.set(Math.cos(a) * DOLL_ANIM.starRadius, 0, Math.sin(a) * DOLL_ANIM.starRadius);
-        this.stars.children[i].rotation.y = a;
-      }
-    }
-  }
-
-  private buildArcs(): { slash: THREE.Mesh; sweep: THREE.Mesh } {
-    const make = (c: { radius: number; width: number; fromDeg: number; toDeg: number }) => {
-      const geo = new THREE.RingGeometry(
-        c.radius - c.width / 2,
-        c.radius + c.width / 2,
-        20,
-        1,
-        c.fromDeg * DEG,
-        (c.toDeg - c.fromDeg) * DEG,
-      );
-      const m = new THREE.Mesh(
-        geo,
-        new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, side: THREE.DoubleSide, depthWrite: false }),
-      );
-      // 平らな輪を横にねかせ（前が輪の上）、少しななめにして見えるように
-      m.rotation.order = 'YXZ';
-      m.rotation.x = -Math.PI / 2 + 0.35;
-      m.position.set(0, DOLL_ANIM.arcHeight, 0);
-      m.userData.noAlpha = true;
-      m.visible = false;
-      this.group.add(m);
-      return m;
-    };
-    return { slash: make(DOLL_ANIM.slashArc), sweep: make(DOLL_ANIM.sweepArc) };
+    if (downShown) updateDollStars(this.stars, this.fallen, this.animator.tickCount);
   }
 
   /** 先に向き（y）、そのあと自分のよこ向き（z）の順にまわす */
