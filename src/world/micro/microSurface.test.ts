@@ -35,39 +35,32 @@ describe('S（小ブロックの表面の高さ）', () => {
     for (let mx = 0; mx < 80; mx++) expect(microSurfaceHeight(mx, 7, noReach)).toBeLessThanOrEqual(5 * 9);
   });
 
-  it('1 ブロックの段差: 坂（となりあう列の差が 1 マス）と 崖（差が 4 マス以上）が まざる', () => {
+  it('1 ブロックの段差は 崖だけ（slopeRate 0: 坂はない）。となりあう列の差は ほぼ 1 ブロック分', () => {
+    expect(MICRO_PARAMS.slopeRate).toBe(0);
     // x = 0 の境目（mx = -1 と 0）を z に沿って 見る。辺は 9 マスごとに 別の辺（bz）
-    const diffs = new Map<number, number>();
+    let cliff = 0;
+    let slope = 0;
     for (let bz = -60; bz < 60; bz++) {
       let d = 0;
       for (let k = 0; k < 9; k++) d += microSurfaceHeight(0, bz * 9 + k, stepSource) - microSurfaceHeight(-1, bz * 9 + k, stepSource);
       const avg = Math.round(d / 9);
-      diffs.set(avg, (diffs.get(avg) ?? 0) + 1);
+      if (avg <= 3) slope++;
+      else cliff++;
     }
-    let slope = 0;
-    let cliff = 0;
-    for (const [d, n] of diffs) {
-      if (d <= 3) slope += n;
-      else cliff += n;
-    }
-    expect(slope).toBeGreaterThan(10);
-    expect(cliff).toBeGreaterThan(10);
+    expect(cliff).toBeGreaterThan(100);
+    expect(slope).toBeLessThan(5);
   });
 
-  it('ゆるい坂: 1 小ブロックずつ上がる（隣の列との差は ほとんど 0〜2）', () => {
+  it('段差の ない 平らな所は おだやか（隣の列との差は ほとんど 0〜2）', () => {
     let small = 0;
     let total = 0;
-    for (let bz = -40; bz < 40; bz++) {
-      const z = bz * 9 + 4;
-      const a = microSurfaceHeight(-1, z, stepSource);
-      const b = microSurfaceHeight(0, z, stepSource);
-      if (b - a <= 3) {
-        total++;
-        if (Math.abs(b - a) <= 2) small++;
-      }
+    for (let mz = -200; mz < 200; mz++) {
+      const a = microSurfaceHeight(-20, mz, flat);
+      const b = microSurfaceHeight(-19, mz, flat);
+      total++;
+      if (Math.abs(b - a) <= 2) small++;
     }
-    expect(total).toBeGreaterThan(10);
-    expect(small / total).toBeGreaterThan(0.7);
+    expect(small / total).toBeGreaterThan(0.95);
   });
 
   it('岩: ブロックをまたぐ大きさ（3〜12 マス）で出っぱる', () => {
@@ -117,8 +110,10 @@ describe('S（小ブロックの表面の高さ）', () => {
 
 // ---- VOX-B 基準 21: 草原の S は今の S と同じ・森の境目で MICRO_PARAMS がまざる
 
-/** 今の S（VOX-B より前の microSurface.ts）で 同じ入力から 出した 値の FNV-1a（-300〜299 の 600×600 小ブロック。h・ground・rock） */
-const GOLDEN: Record<string, number> = { flat: 20207809, step: 1800674323, hilly: 991219573 };
+/** #309（2026-10-25）で MICRO_PARAMS を変えたので 表を作りなおした（前: flat 20207809・step 1800674323・hilly 991219573）。
+ *  もとの意味: 森の重み 0 の S は forest なしの S と同じ。
+ * 今の S（VOX-B より前の microSurface.ts）で 同じ入力から 出した 値の FNV-1a（-300〜299 の 600×600 小ブロック。h・ground・rock） */
+const GOLDEN: Record<string, number> = { flat: 1186886997, step: -566829351, hilly: -813440698 };
 const SOURCES: Record<string, (bx: number, bz: number) => number> = {
   flat: () => 5,
   step: (bx) => (bx < 0 ? 5 : 6),

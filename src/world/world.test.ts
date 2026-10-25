@@ -6,6 +6,7 @@ import { BLOCK_TYPES } from './blocks/blockTypes';
 import { BLOCK_TILES, TILE_NAMES, buildAtlasData, getTilePixels, ATLAS_WIDTH, ATLAS_HEIGHT } from './blocks/textures';
 import { createWorldHook } from './hook';
 import { meshChunk } from './render/meshChunk';
+import { FACE_SHADE_BY_INDEX } from './render/config';
 import { WorldRenderer } from './render/WorldRenderer';
 import { ArrayVoxelWorld } from './VoxelWorld';
 
@@ -153,7 +154,7 @@ describe('メッシュ（見えない面を描かない）', () => {
     w.setBlock(0, 0, 0, 'bedrock');
     expect(meshChunk(w, 0, 0).opaque.faceCount).toBe(3);
   });
-  it('面の頂点・index・色の数が合い、明るさは上 1.0・南北 0.8・東西 0.6・下 0.5', () => {
+  it('面の頂点・index・色の数が合い、明るさは config の表どおり（上 1.0・南北 0.68・東西 0.5・下 0.45。#309）', () => {
     const w = new ArrayVoxelWorld(OLD_SIZE);
     w.setBlock(5, 5, 5, 'grass');
     const m = meshChunk(w, 0, 0).opaque;
@@ -161,8 +162,8 @@ describe('メッシュ（見えない面を描かない）', () => {
     expect(m.uvs).toHaveLength(6 * 4 * 2);
     expect(m.indices).toHaveLength(6 * 6);
     const shades = new Set(m.colors.filter((_, i) => i % 3 === 0));
-    // TEX-A（#146）: 面の明るさが マイクラ式（上 1.0・南北 0.8・東西 0.6・下 0.5）になった
-    expect([...shades].sort()).toEqual([0.5, 0.6, 0.8, 1]);
+    // TEX-A（#146）: 面の明るさが マイクラ式（#309 で 上 1.0・南北 0.68・東西 0.5・下 0.45）
+    expect([...shades].sort()).toEqual([...new Set(FACE_SHADE_BY_INDEX)].sort());
   });
   it('水は別メッシュ。海の水は上の面だけ', () => {
     const w = new ArrayVoxelWorld(OLD_SIZE);
