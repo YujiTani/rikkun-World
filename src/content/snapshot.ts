@@ -8,13 +8,11 @@ import { YOKAI_NAME } from '../craft/info/table';
 import { ALL_RECIPES } from '../craft/recipes';
 import { DIG_DEFAULTS } from '../dig/config';
 import { itemRarity } from '../drops/rarity';
-import { BLADE_TRAIL_ITEMS } from '../fx/bladeTrailModel';
 import { TOOL_NUMBERS } from '../fx/craftConfig';
 import { ITEM_TYPES } from '../inventory/items';
 import { LEVEL_DEFAULTS } from '../level/config';
 import { TOOL_DEFAULTS } from '../tools/config';
-import { BLADE_ITEMS } from '../tools/blade';
-import { BLADES } from '../tools/ToolSystem';
+import { BLADE_ITEMS, BLADE_LIKE_ITEMS } from '../tools/bladeSets';
 import { itemClassOf } from '../tools/durability';
 import { itemCategory } from '../ui/itemCategory';
 import { COUNTRY_TABLE } from '../world/gen/countryTable';
@@ -69,7 +67,7 @@ function pick(out: Record<string, unknown>, src: string, root: unknown, id: stri
 const ITEM_SOURCES: Record<string, unknown> = {
   TOOL_DEFAULTS, TOOL_NUMBERS, CRAFT_DEFAULTS, ARMOR_SLOT_OF, ITEM_INFO, DIG_DEFAULTS,
   M6: M6_SETTING_DEFAULTS, M7: M7_SETTING_DEFAULTS, W2: W2_SETTING_DEFAULTS, LIVE: LIVE_SETTING_DEFAULTS, CRAFT2: CRAFT2_SETTING_DEFAULTS,
-  LEGENDARY: LEGENDARY_DEFAULTS, BLADES, BLADE_ITEMS, BLADE_TRAIL_ITEMS,
+  LEGENDARY: LEGENDARY_DEFAULTS, BLADES: BLADE_LIKE_ITEMS, BLADE_ITEMS, BLADE_TRAIL_ITEMS: BLADE_ITEMS,
 };
 
 /** 妖怪の種類を「キー」に持つ表 */

@@ -11,7 +11,7 @@ export const MARK_KINDS = [
   'karakasa',
   'chochin',
   'nurikabe',
-  'rokuro',
+  'rokurokubi',
   'heart',
   'shield',
   'clock',
@@ -103,7 +103,7 @@ function build(kind: MarkKind): Pixels {
       c.rect(2, 1, 12, 14, C.gray).rect(2, 1, 12, 1, C.white).rect(2, 14, 12, 1, C.dark).smile(5);
       c.rect(4, 12, 8, 1, C.dark);
       break;
-    case 'rokuro': // ろくろくび
+    case 'rokurokubi': // ろくろくび
       c.disc(8, 5, 4, C.sand).rect(7, 9, 2, 5, C.sand).rect(4, 13, 8, 3, C.purple).rect(5, 1, 6, 2, C.ink);
       c.rect(6, 4, 1, 2, C.ink).rect(9, 4, 1, 2, C.ink).rect(7, 7, 2, 1, C.ink);
       break;

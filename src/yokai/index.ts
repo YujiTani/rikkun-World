@@ -25,6 +25,10 @@ export function createYokai(id: YokaiId): YokaiBase {
       return new Nurikabe();
     case 'rokurokubi':
       return new Rokurokubi();
+    default: {
+      const unreachable: never = id;
+      throw new Error(`createYokai: 知らない妖怪 ${String(unreachable)}`);
+    }
   }
 }
 

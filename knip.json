@@ -1,0 +1,15 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": [
+    "src/main.ts",
+    "src/preview/main.ts",
+    "src/audioPreview/main.ts",
+    "src/proto/voxel/main.ts",
+    "src/**/*.test.ts",
+    "e2e/**/*.ts",
+    "e2e-perf/**/*.ts"
+  ],
+  "project": ["src/**/*.ts"],
+  "include": ["exports", "types"],
+  "ignoreDependencies": [".*"]
+}
