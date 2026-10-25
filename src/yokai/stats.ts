@@ -1,32 +1,17 @@
+import { mapKinds, yokaiBasis, yokaiMotion, yokaiNames } from '../content/yokai/registry';
+import type { YokaiMotion } from '../content/yokai/types';
 import type { YokaiKind, YokaiTitle } from '../contracts';
 import { TITLE_RULES } from './title';
 
 export type { YokaiTitle };
 
 /** 妖怪の名前（ひらがな）。画面・ログ・ドロップ表の文で使う、ひとつだけの表 */
-export const YOKAI_NAME: Readonly<Record<YokaiKind, string>> = {
-  karakasa: 'からかさ',
-  chochin: 'ちょうちん',
-  nurikabe: 'ぬりかべ',
-  rokurokubi: 'ろくろくび',
-};
+export const YOKAI_NAME: Readonly<Record<YokaiKind, string>> = yokaiNames();
 
-/** 妖怪の強さ（設計書 3 章の表）。M3 本番の AI が使う */
-export interface YokaiStats {
+/** 妖怪の強さ（設計書 3 章の表）。M3 本番の AI が使う。動きの数（秒・距離・速さ）は 登録表の YokaiMotion */
+export interface YokaiStats extends YokaiMotion {
   /** 体力（素手で何回たたくとたおれるか） */
   hp: number;
-  /** 攻撃を始めてから当たるまで（秒） */
-  hitSeconds: number;
-  /** 攻撃の合計の長さ（秒。起き上がり・首のもどりまで） */
-  attackSeconds: number;
-  /** とどく距離（ブロック） */
-  reach: number;
-  /** 移動の速さ（ブロック/秒） */
-  speed: number;
-  /** 次の攻撃まで（秒） */
-  cooldownSeconds: number;
-  /** みず が苦手（入らない・落ちる先が みず なら降りない）。false は みず の中まで追いかける */
-  avoidsWater: boolean;
 }
 
 /** 攻撃力の上限（ぬりかべ の今。防具なしでも 1 回は たえる。§2.3） */
@@ -49,35 +34,11 @@ export const FEAR_RULES = {
   longWindupMul: 0.5,
 } as const;
 
-/** 妖怪ごとの元の数。体力・攻撃力・経験値は、ここと上の式から計算する（手で書かない） */
-interface Basis {
-  /** 目標の強さ（オーナーのことば） */
-  target: number;
-  /** 1 回の攻撃力（体力。1 = ハート半分） */
-  attack: number;
-  /** 経験値（M = 1・二つ名なし） */
-  xp: number;
-  /** 飛び道具か */
-  projectile: boolean;
-  /** 前にしか攻撃しないか */
-  frontOnly: boolean;
-}
-
-const BASIS: Record<YokaiKind, Basis> = {
-  karakasa: { target: 1, attack: 2, xp: 3, projectile: false, frontOnly: false },
-  chochin: { target: 1.25, attack: 2, xp: 2, projectile: true, frontOnly: false },
-  rokurokubi: { target: 1.5, attack: 2, xp: 3, projectile: false, frontOnly: false },
-  nurikabe: { target: 5, attack: 16, xp: 6, projectile: false, frontOnly: true },
-};
+/** 妖怪ごとの元の数（目標の強さ・攻撃力・経験値・飛び道具か・前だけか）。体力・攻撃力・経験値は、ここと上の式から計算する（手で書かない）。値は content/yokai/<kind>.ts */
+const BASIS = yokaiBasis();
 
 /** 動きの数（今のまま）。hp は下で計算して入れる */
-type Motion = Omit<YokaiStats, 'hp'>;
-const MOTION: Record<YokaiKind, Motion> = {
-  karakasa: { hitSeconds: 0.5, attackSeconds: 1.2, reach: 2.5, speed: 1.5, cooldownSeconds: 2.0, avoidsWater: true },
-  chochin: { hitSeconds: 0.5, attackSeconds: 0.8, reach: 8, speed: 1.0, cooldownSeconds: 3.0, avoidsWater: true },
-  nurikabe: { hitSeconds: 1.5, attackSeconds: 4.0, reach: 3, speed: 0.5, cooldownSeconds: 2.0, avoidsWater: false },
-  rokurokubi: { hitSeconds: 0.5, attackSeconds: 1.6, reach: 8, speed: 1.0, cooldownSeconds: 2.5, avoidsWater: false },
-};
+const MOTION = yokaiMotion();
 
 /** 切り上げ（浮動小数の誤差で 1 ふえないように） */
 function ceilEps(x: number): number {
@@ -147,9 +108,4 @@ function build(kind: YokaiKind): YokaiStats {
   return { hp: r.hp, ...MOTION[kind] };
 }
 
-export const YOKAI_STATS: Record<YokaiKind, YokaiStats> = {
-  karakasa: build('karakasa'),
-  chochin: build('chochin'),
-  nurikabe: build('nurikabe'),
-  rokurokubi: build('rokurokubi'),
-};
+export const YOKAI_STATS: Record<YokaiKind, YokaiStats> = mapKinds(build);

@@ -1,3 +1,5 @@
+import { yokaiSense } from '../../content/yokai/registry';
+import type { YokaiSense } from '../../content/yokai/types';
 import type { YokaiKind } from '../../contracts';
 
 /**
@@ -6,11 +8,7 @@ import type { YokaiKind } from '../../contracts';
  * 単位: ブロック = 1 ブロック（1 = 1 m）、割合 = 倍率（1 = そのまま）。
  * 開発中は コンソールで `Object.assign(__rikkun.ninja.sense, { shinobiSightMul: 1 })` のように その場で 上書きできる。
  */
-export interface KindSense {
-  sight: number; // ブロック: これ 以内（よこ の 距離）に 来たら 気づく（うろうろ・さがす とき）
-  giveUp: number; // ブロック: 追って いる とき、これ より はなれたら あきらめる（よこ の 距離）
-  shinobi: boolean; // 忍び装束が 「気づく 距離」を 半分に できる 妖怪か（がしゃどくろ など 大妖怪は この AI を 使わない ので 効かない。あとで 足す ときは false）
-}
+export type KindSense = YokaiSense;
 
 export const SENSE: {
   kinds: Record<YokaiKind, KindSense>;
@@ -18,12 +16,8 @@ export const SENSE: {
   giveUpDyMul: number;
   shinobiSightMul: number;
 } = {
-  kinds: {
-    karakasa: { sight: 18, giveUp: 24, shinobi: true }, // からかさ
-    chochin: { sight: 21, giveUp: 27, shinobi: true }, // ちょうちん
-    nurikabe: { sight: 12, giveUp: 18, shinobi: true }, // ぬりかべ
-    rokurokubi: { sight: 18, giveUp: 24, shinobi: true }, // ろくろくび
-  },
+  // 妖怪ごとの 数は content/yokai/<kind>.ts（登録表の 複製。開発用に その場で 書きかえて よい）
+  kinds: yokaiSense(),
   sightDy: 6, // ブロック: 気づく 高さの 差（これ 以内の 高さの 妖怪だけ 気づく）
   giveUpDyMul: 2, // 倍: あきらめる 高さの 差 = sightDy × これ（追って いる とき）
   shinobiSightMul: 0.5, // 倍: 忍び装束を 着て いる とき、気づく 距離に かける（0.5 = 半分。あきらめる 距離・高さの 差は かえない）

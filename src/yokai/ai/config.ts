@@ -1,5 +1,9 @@
-import type { ItemId, YokaiKind } from '../../contracts';
+import { mapKinds, yokaiAi, yokaiDrops } from '../../content/yokai/registry';
+import type { DropRow, YokaiAi } from '../../content/yokai/types';
+import type { YokaiKind } from '../../contracts';
 import { yokaiStrength } from '../stats';
+
+export type { DropRow };
 
 /**
  * 妖怪の数値（仕様 M3-combat §4.2・§4.3・§4.5・§4.6 の「設定の名前」と同じ）。
@@ -12,7 +16,7 @@ export interface YokaiConfig {
   yokaiMax: number;
   nurikabeMax: number;
   /** 全体の 倍率（COUNTRY-1。種類 → 数）。1 = そのまま・2 = どの国でも 2 倍・null か 0 は どの国にも 出さない */
-  yokaiWeights: Record<string, number | null>;
+  yokaiWeights: Partial<Record<YokaiKind, number | null>>;
   yokaiSpawnMinDist: number;
   yokaiSpawnMaxDist: number;
   /** プレイヤーのこの近く（水平）には出さない */
@@ -33,35 +37,8 @@ export interface YokaiConfig {
   waterSpeedMul: number;
 }
 
-export type DropRow = { item: ItemId; chance: number; max: number };
-/** ドロップ表（オーナー決定）。1 回たおすと各行を chance で判定し、数は 1〜max。高 0.7・中 0.4・低 0.15・とても低 0.05 */
-export const YOKAI_DROPS: Record<YokaiKind, readonly DropRow[]> = {
-  karakasa: [
-    { item: 'paper', chance: 0.7, max: 4 },
-    { item: 'string', chance: 0.7, max: 4 },
-    { item: 'log', chance: 0.4, max: 3 },
-    { item: 'oil', chance: 0.15, max: 2 },
-    { item: 'iron_ore', chance: 0.05, max: 1 },
-    { item: 'seed_tomato', chance: 0.05, max: 1 },
-    { item: 'seed_pumpkin', chance: 0.05, max: 1 },
-  ],
-  chochin: [
-    { item: 'paper', chance: 0.7, max: 4 },
-    { item: 'string', chance: 0.4, max: 3 },
-    { item: 'coal_ore', chance: 0.15, max: 2 },
-  ],
-  nurikabe: [
-    { item: 'dirt', chance: 0.7, max: 4 },
-    { item: 'stone', chance: 0.7, max: 4 },
-    { item: 'clay', chance: 0.15, max: 2 },
-  ],
-  rokurokubi: [
-    { item: 'cloth', chance: 0.7, max: 4 },
-    { item: 'crystal', chance: 0.05, max: 1 },
-    { item: 'seed_onion', chance: 0.05, max: 1 },
-    { item: 'seed_eggplant', chance: 0.05, max: 1 },
-  ],
-};
+/** ドロップ表（オーナー決定）。1 回たおすと各行を chance で判定し、数は 1〜max。高 0.7・中 0.4・低 0.15・とても低 0.05。値は content/yokai/<kind>.ts */
+export const YOKAI_DROPS: Record<YokaiKind, readonly DropRow[]> = yokaiDrops();
 
 export function createYokaiConfig(): YokaiConfig {
   return {
@@ -84,31 +61,10 @@ export function createYokaiConfig(): YokaiConfig {
   };
 }
 
-/** 妖怪ごとの AI の数（仕様 §4.3、§2.5） */
-export interface KindAi {
-  // 見つける距離（sight）・あきらめる距離（giveUp）は 感知の 表 senseTuning.ts（NINJA-1）
-  /** のぼれる段 */
-  stepUp: number;
-  /** 動くときの体の半分のはば（ぶつかり用） */
-  radius: number;
-  /** 体の高さ（くうきがあるか調べる用。ちょうちんは地面からの高さ） */
-  height: number;
-  /** 目の高さ（見つける線の始まり） */
-  eyeHeight: number;
-  /** 向きを変える速さ（度/秒） */
-  turnDegPerSec: number;
-  /** 頭の上の「まる」の高さ */
-  marksHeight: number;
-  /** 浮いて水の上も行けるか */
-  flies: boolean;
-}
+/** 妖怪ごとの AI の数（仕様 §4.3、§2.5）。見つける距離（sight）・あきらめる距離（giveUp）は 感知の 表 senseTuning.ts（NINJA-1）。値は content/yokai/<kind>.ts */
+export type KindAi = YokaiAi;
 
-export const KIND_AI: Record<YokaiKind, KindAi> = {
-  karakasa: { stepUp: 2, radius: 0.6, height: 1.6, eyeHeight: 1.1, turnDegPerSec: 360, marksHeight: 2.1, flies: false },
-  chochin: { stepUp: 0, radius: 0.4, height: 1.7, eyeHeight: 0.95, turnDegPerSec: 180, marksHeight: 2.3, flies: true },
-  nurikabe: { stepUp: 1, radius: 0.9, height: 3.0, eyeHeight: 1.9, turnDegPerSec: 45, marksHeight: 3.5, flies: false },
-  rokurokubi: { stepUp: 1, radius: 0.4, height: 2.9, eyeHeight: 1.6, turnDegPerSec: 240, marksHeight: 3.3, flies: false },
-};
+export const KIND_AI: Record<YokaiKind, KindAi> = yokaiAi();
 
 /** そのほかの決まった数 */
 export const AI_CONST = {
@@ -178,9 +134,4 @@ export const AI_CONST = {
 } as const;
 
 /** 攻撃のダメージ（体力の数。ハート半分 = 1。オーナー決定で M3 の 2 倍） */
-export const ATTACK_DAMAGE: Record<YokaiKind, number> = {
-  karakasa: yokaiStrength('karakasa').attack,
-  chochin: yokaiStrength('chochin').attack,
-  rokurokubi: yokaiStrength('rokurokubi').attack,
-  nurikabe: yokaiStrength('nurikabe').attack,
-};
+export const ATTACK_DAMAGE: Record<YokaiKind, number> = mapKinds((k) => yokaiStrength(k).attack);

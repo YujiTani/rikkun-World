@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import type { YokaiKind } from '../../contracts';
 import type { YokaiBase } from '../common';
 import { baseColorOf, variantColor } from '../variants';
 
@@ -10,7 +11,7 @@ const CHOCHIN_BODY = [0xffb347, 0xfff2a0];
  * 暗くしないもの: ちょうちんの胴（3 段階とも）、白いけむり・白く光るときの共通の材料。
  * 材料のもとの色は userData に覚えておき、毎回「もとの色 × 明るさ」にする（材料は使いまわしても重ならない）。
  */
-export function applyDollBrightness(model: YokaiBase, kindId: string, brightness: number, stage: 1 | 2 | 3 = 1): void {
+export function applyDollBrightness(model: YokaiBase, kindId: YokaiKind, brightness: number, stage: 1 | 2 | 3 = 1): void {
   model.stage = stage;
   model.root.traverse((o) => {
     if (!(o instanceof THREE.Mesh)) return;

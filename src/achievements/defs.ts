@@ -1,3 +1,4 @@
+import { yokaiAchievementNames } from '../content/yokai/registry';
 import { COUNTRY_TABLE } from '../world/gen/countryTable';
 import { CROP_KINDS, type AchievementCategory, type AchievementDef, type CropKind, type MedalTier, type StatKey } from '../contracts';
 
@@ -263,12 +264,7 @@ function build(): AchievementDef[] {
     tiers: [t(1), t(10), t(50), t(100), t(500)],
     name: firstOrN('はじめて ようかい を たおした！', (g) => `ようかい を ${g} たい たおした！`),
   });
-  for (const [kind, name] of [
-    ['karakasa', 'からかさ'],
-    ['chochin', 'ちょうちん'],
-    ['nurikabe', 'ぬりかべ'],
-    ['rokurokubi', 'ろくろくび'],
-  ] as const) {
+  for (const [kind, name] of yokaiAchievementNames()) {
     add({
       series: `defeat.${kind}`,
       category: 'fight',

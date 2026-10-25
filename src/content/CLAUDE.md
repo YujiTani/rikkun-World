@@ -1,6 +1,6 @@
 # アイテム・妖怪の足し方（1 画面の手引き）
 
-ルール #304「1 つのデータは 1 か所」。設計は `docs/design/ITEM-REGISTRY.md`。足し方が変わる PR は、この手引きも同じ PR で直す。
+ルール #304「1 つのデータは 1 か所」。設計は `docs/design/ITEM-REGISTRY.md`（アイテム）・`docs/design/YOKAI-REGISTRY.md`（妖怪）。足し方が変わる PR は、この手引きも同じ PR で直す。
 
 ## アイテム
 
@@ -29,10 +29,16 @@
 | ヌシのドロップ | `contracts.ts` の `nushiDrops`（伝説の武器の強さ・ためわざは `content/items/legend.ts` の `legend` 部品。`LEGENDARY_DEFAULTS` はそこから作る） |
 | 実績の名前 | `achievements/defs.ts` |
 
-## 妖怪（#307 で登録表に移るまでの今の形）
+## 妖怪（登録表。`src/content/yokai/`。設計は `docs/design/YOKAI-REGISTRY.md`）
 
-- **型で落ちる所**（書き忘れは `npm run typecheck` が教える）: `contracts.ts` の `YokaiKind` を足すと、`yokai/stats.ts`（名前・強さ・動き）、`yokai/ai/config.ts`（ドロップ・AI・攻撃）、`yokai/ai/senseTuning.ts`、`level/config.ts`、`yokai/ai/YokaiManager.ts`、`yokai/index.ts` が求めてくる。形は `yokai/models/<名前>.ts` を新しく作る（箱の組み合わせ、シルエットで分かる形）。
-- **黙って落ちる所**（手で足す）: `yokai/variants.ts` の `YokaiKindId`（`completeness.test.ts` が見張る）、出る国 `world/gen/countryTable.ts`、抽選の順 `yokai/countryPick.ts`、出やすさ `yokai/ai/config.ts` の `yokaiWeights`、二つ名の印 `yokai/nickMarks.ts`、メダル `ui/medalArt.ts`、討伐の実績 `achievements/defs.ts`。音は共通（`fx/combatSounds.ts`）なので足さない。
+妖怪 1 種を足すとき、まず 触るのは この 4 か所（名前・強さ・動き・AI・感知・ドロップ・色ちがい・頭の印・国の土台・実績の名前は ぜんぶ `<kind>.ts` 1 つ）:
+
+1. `content/yokai/ids.ts` — 種類を 書くのは ここ 1 回。`YokaiKind`（contracts.ts）・`YokaiId`・`YokaiKindId` は ここからの 別名。
+2. `content/yokai/<kind>.ts` — 値を 1 種 1 ファイルで（`YokaiDef`。戦闘の数は 単位つきコメントで）→ `content/yokai/registry.ts` の `YOKAI_DEFS` に 1 行（`Record<YokaiKind, …>` なので 書き忘れは 型エラー）。古い表（`YOKAI_NAME`・`YOKAI_STATS`・`KIND_AI`・`SENSE.kinds`・`YOKAI_DROPS`・`YOKAI_VARIANT_COLORS`・`HEADS`・`BASE`）は ここから 作る ので 触らない。
+3. 形: `yokai/models/<kind>.ts`（箱の組み合わせ、シルエットで分かる形）と、`createYokai`（`yokai/index.ts`）・`YokaiManager` の switch（`never` で 書き忘れは 型エラー）。
+4. メダルの絵: `ui/medalArt.ts` の `build()`（switch が 型エラーで 教える）。
+
+**手で足す所（乱数の 結果が 変わる ので 自動に しない）**: 国の 出やすさ `world/gen/countryTable.ts` の `emphasis()` を 強める 国、抽選の順 `yokai/countryPick.ts` の `YOKAI_DRAW_ORDER`（うしろに 足す）、見本の並び `yokai/index.ts` の `YOKAI_ORDER`、全体の 倍率 `yokai/ai/config.ts` の `yokaiWeights`（書かないと 1 倍）。足し忘れは `content/yokai/registry.test.ts`（全種類が 並びに 1 回ずつ・どこかの国で 重み > 0）が 落とす。音は共通（`fx/combatSounds.ts`）なので足さない。
 
 ## 文字のきまり
 
@@ -42,5 +48,5 @@
 
 - `npm run check:fast`（型＋ユニット）。`content/completeness.test.ts` が説明の書き忘れ・妖怪の型ずれを落とす。
 - 値の写し `content/__snapshots__/content.json` が変わる。わざと変えたときだけ `npx vitest run -u src/content` で更新し、差分を読んでからコミット（意図しない差分が出たら書きまちがい）。
-- `npm run check:ratchet`: `item === 'new_id'` のような id の直書きを足すと数が増えて落ちる。部品（`blade` など）や表で分ける。
+- `npm run check:ratchet`: `item === 'new_id'`・`case 'kind':` のような id の直書きを足すと数が増えて落ちる。部品（`blade` など）や表で分ける。
 - 件数を数えるテスト（例 `drops/rarity7.test.ts`・`ui/itemCategory.test.ts` の全アイテム数）は 1 ふやす。
