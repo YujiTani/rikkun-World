@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { M6_SETTING_DEFAULTS } from '../contracts';
-import { ACHIEVEMENT_DEFS, KIN_RECIPES } from './defs';
+import { ACHIEVEMENT_DEFS, CRAFT_RECIPE_NAMES, KIN_RECIPES } from './defs';
 import { AchievementSystem } from './AchievementSystem';
 
 const mk = () => {
@@ -45,7 +45,7 @@ describe('GOLD-1 実績（§4.8・AC15）', () => {
     expect(s.stat('craft:weapons')).toBe(0);
     expect(s.stat('craft:armors')).toBe(0);
     expect(s.stat('craft:everything')).toBe(0);
-    expect(ACHIEVEMENT_DEFS.find((x) => x.series === 'craft.everything')?.goal).toBe(28);
+    expect(ACHIEVEMENT_DEFS.find((x) => x.series === 'craft.everything')?.goal).toBe(CRAFT_RECIPE_NAMES.length);
   });
   it('はらぱんみみず を ひろう → obtain.harapan_mimizu', () => {
     const s = mk();

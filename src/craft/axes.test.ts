@@ -17,14 +17,12 @@ describe('BAL-D おの のレシピ（AC17）', () => {
     expect(text('stone_axe')).toEqual([1, 'stone3,log2', true, 'craft']);
     expect(text('iron_axe')).toEqual([1, 'iron_ingot3,log2', true, 'craft']);
   });
-  it('カードは 33 枚。おの 3 枚は てつの つるはし のすぐ後ろ', () => {
-    expect(BASE_RECIPES).toHaveLength(44);
+  it('おの 3 枚は てつの つるはし のすぐ後ろ', () => {
     expect(BASE_RECIPES.slice(0, 7).map((r) => r.id)).toEqual([
       'wood_pickaxe', 'stone_pickaxe', 'iron_pickaxe', 'wood_axe', 'stone_axe', 'iron_axe', 'furnace',
     ]);
   });
-  it('「ぜんぶ つくる」は 28（+3）。おの の名前', () => {
-    expect(CRAFT_RECIPE_NAMES).toHaveLength(28);
+  it('「ぜんぶ つくる」に おの 3 つ。おの の名前', () => {
     expect(CRAFT_RECIPE_NAMES.slice(3, 6)).toEqual([['wood_axe', 'きの おの'], ['stone_axe', 'いしの おの'], ['iron_axe', 'てつの おの']]);
   });
   it('アイテム名・たいきゅう（き 59・いし 131・てつ 250）', () => {

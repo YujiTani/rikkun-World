@@ -38,10 +38,10 @@ describe('LIVE-2 アイテム（AC23）', () => {
   });
 
   it('レシピ: こたつ = くさ 3・き 2・たいまつ 1、とりごや = き 8・くさ 4。いちばん うしろ（mushi_ami の うしろ）', () => {
-    const tail = BASE_RECIPES.slice(-11, -8); // GOLD-1: うしろに きんの そうび 8 こ
+    // うしろに レシピが ふえても こわれないよう、mushi_ami の 位置から 見る（#311）
+    const at = BASE_RECIPES.findIndex((r) => r.id === 'mushi_ami');
+    const tail = BASE_RECIPES.slice(at, at + 3);
     expect(tail.map((r) => r.id)).toEqual(['mushi_ami', 'nukunuku', 'toriya']);
-    expect(BASE_RECIPES).toHaveLength(44);
-    expect(CRAFT_RECIPES).toHaveLength(46);
     expect(tail[1].inputs).toEqual([{ item: 'grass', count: 3 }, { item: 'log', count: 2 }, { item: 'torch', count: 1 }]);
     expect(tail[2].inputs).toEqual([{ item: 'log', count: 8 }, { item: 'grass', count: 4 }]);
     expect(tail[1].output).toEqual({ item: 'nukunuku', count: 1 });

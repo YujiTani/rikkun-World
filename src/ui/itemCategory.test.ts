@@ -9,11 +9,10 @@ import { GEM_SHAPES, gemPixels, gemShape } from './gemArt';
 const rgb = (h: string) => parseCssColor(`rgb(${parseInt(h.slice(1, 3), 16)}, ${parseInt(h.slice(3, 5), 16)}, ${parseInt(h.slice(5, 7), 16)})`)!;
 
 describe('マスの カテゴリー（§3.5 (7)）', () => {
-  it('13 カテゴリーで 95 こ（SAMURAI-1: 侍装備 4 こ ふえた。NINJA-1: 忍者装備 3 こ ふえた）。以前は 84 こ（GOLD-1: きん 10 こ・LIVE-2: こたつ・とりごや・きん の たまご 込み）（WEAPON-7: 雷神剣・風神剣・虹・FLORA-75: のばな・LIVE-1: たまご・むし・あみ 込み）（ようかいだま 込み。#184: 12 の国の 7 こ をふくむ）。同じ id が 2 つの カテゴリーに無い', () => {
+  it('13 カテゴリー。同じ id が 2 つの カテゴリーに無い（アイテムの 数は 決め打ちしない。#311）', () => {
     expect(ITEM_CATEGORIES.length).toBe(13);
     const all = ITEM_CATEGORIES.flatMap((c) => CATEGORY_ITEMS[c]);
-    expect(all.length).toBe(95); // SAMURAI-1（#300）: 明珍陣笠・羽織・手甲・下駄（armor）が ふえた。 // NINJA-1（#299）: 黒頭巾・忍び装束・忍びの手甲（armor）が ふえた。 // GOLD-1 の きん 10 こ込み。#293: 忍者の足袋（armor）・間欠泉の つち（soil）が ふえた
-    expect(new Set(all).size).toBe(95);
+    expect(new Set(all).size).toBe(all.length);
   });
   it('今ある全アイテムが 表にある（たんす は D が足す）。表に無いものは そざい', () => {
     for (const t of ITEM_TYPES) expect(CATEGORY_ITEMS[itemCategory(t.id)], t.id).toContain(t.id);

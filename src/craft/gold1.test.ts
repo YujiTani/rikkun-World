@@ -8,7 +8,7 @@ import { findUnrubiedKanji } from '../ui/text';
 import { TOOL_DEFAULTS } from '../tools/config';
 import { ArmorSystemImpl } from './ArmorSystem';
 import { CRAFT_DEFAULTS, ARMOR_SLOT_OF } from './config';
-import { ALL_RECIPES, BAKE_RECIPES, CRAFT_RECIPES } from './recipes';
+import { ALL_RECIPES, BAKE_RECIPES } from './recipes';
 import { createItemInfo, defaultInfoNumbers } from './info/build';
 import { CRAFT_RECIPE_NAMES, BAKE_RECIPE_NAMES } from '../achievements/defs';
 
@@ -30,9 +30,7 @@ describe('GOLD-1 アイテム・めずらしさ（AC1・AC2）', () => {
 });
 
 describe('GOLD-1 レシピ（AC3）', () => {
-  it('つくる 46（カード 44）・やく 6（LIVE-3 の momo_yaki 込み）。きん の やきかた は かまど で kin_tamago 1 → kin 1', () => {
-    expect(CRAFT_RECIPES).toHaveLength(46); // CRAFT-PAGE の たいまつ 2 つ ＋ GOLD-1 の 8 こ
-    expect(BAKE_RECIPES).toHaveLength(6);
+  it('きん の やきかた は かまど で kin_tamago 1 → kin 1', () => {
     const k = BAKE_RECIPES.find((r) => r.id === 'kin')!;
     expect(k.station).toBe('furnace');
     expect(k.inputs).toEqual([{ item: 'kin_tamago', count: 1 }]);
@@ -49,8 +47,7 @@ describe('GOLD-1 レシピ（AC3）', () => {
     expect(t('kin_kote')).toBe('kin1,cloth1');
     expect(t('kin_suneate')).toBe('kin2,string1');
   });
-  it('「ぜんぶ つくる」の 表 は 28・やく の 1 こ ごと の 表 は ふえない', () => {
-    expect(CRAFT_RECIPE_NAMES).toHaveLength(28);
+  it('きん の そうび は「ぜんぶ つくる」にも やく の 1 こ ごと の 表にも 入らない', () => {
     expect(BAKE_RECIPE_NAMES.some(([id]) => id === 'kin')).toBe(false);
     expect(CRAFT_RECIPE_NAMES.some(([id]) => id.startsWith('kin'))).toBe(false);
   });

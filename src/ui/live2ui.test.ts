@@ -25,9 +25,8 @@ describe('LIVE-2 合図 9 つ（§3.1）', () => {
       expect(ANIMAL_HINT_VIEW[k].art.length, `${k} は 絵 が 先`).toBeGreaterThan(0);
     }
   });
-  it('合図 は 全部で 22（GOLD-1 の 3 ＋ LIVE-3 の rawMeat を 足した。LIVE-1 の 8 ＋ 9 ＋ LIVE-2.1 の kitFull）。画面 に 禁止語 と 小屋・大人 の 漢字 が 無い', () => {
+  it('どの 合図 も 画面 に 禁止語 と 小屋・大人 の 漢字 が 無い', () => {
     const all = Object.keys(ANIMAL_HINT_VIEW) as AnimalWindowHint[];
-    expect(all.length).toBe(22);
     for (const k of all) {
       const t = ANIMAL_HINT_VIEW[k].html;
       for (const bad of ['ぬくぬく', '育成', 'たまご こたつ', 'きん の ひよこ', 'きん の にわとり', '小屋', '大人']) expect(t.includes(bad), `${k} ${bad}`).toBe(false);
