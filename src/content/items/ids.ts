@@ -46,3 +46,35 @@ export type BowId = (typeof BOW_IDS)[number];
 /** 防具（M4）: かぶと・よろい・こて・すねあて（あたま・からだ・うで・あし の じゅん） */
 export const ARMOR_ITEM_IDS = ['kabuto', 'yoroi', 'kote', 'suneate'] as const;
 export type ArmorItemId = (typeof ARMOR_ITEM_IDS)[number];
+
+/** 畑のたね（M7・#63）: たまねぎ・トマト・かぼちゃ・なす（作物 CropKind と同じ 順。この順が ITEM_TYPES・色分け・作業台のカードの 並び） */
+export const SEED_ITEM_IDS = ['seed_onion', 'seed_tomato', 'seed_pumpkin', 'seed_eggplant'] as const;
+export type SeedItemId = (typeof SEED_ITEM_IDS)[number];
+
+/** 畑のやさい（M7）: たべられる。id は 作物の 名前そのまま */
+export const VEG_ITEM_IDS = ['onion', 'tomato', 'pumpkin', 'eggplant'] as const;
+export type VegItemId = (typeof VEG_ITEM_IDS)[number];
+
+/** 畑の道具（M7・M7-2）: くわ・じょうろ・ながい じょうろ（この順）。スプリンクラーは 置ける ブロックなので BlockId 側（contracts.ts）に ある */
+export const FARM_TOOL_IDS = ['kuwa', 'watering_can', 'long_watering_can'] as const;
+export type FarmToolId = (typeof FARM_TOOL_IDS)[number];
+
+/** バケツ（BUCKET-1）: から・みず（この順） */
+export const FARM_BUCKET_IDS = ['bucket', 'water_bucket'] as const;
+export type FarmBucketId = (typeof FARM_BUCKET_IDS)[number];
+
+/** ようかいだま（M3 の 名残り。いまは 手に入らない 古い保存用）。ITEM_TYPES では ざいりょうの 先頭 */
+export const ORB_IDS = ['yokai_orb'] as const;
+export type OrbId = (typeof ORB_IDS)[number];
+
+/** ざいりょう 6 つ（M3・M4）: かみ・あぶら・いと・ぬの・ねんど・すいしょう（この順が ITEM_TYPES の 並び。ようかいだまの 次） */
+export const MATERIAL_ITEM_IDS = ['paper', 'oil', 'string', 'cloth', 'clay', 'crystal'] as const;
+export type MaterialId = (typeof MATERIAL_ITEM_IDS)[number];
+
+/** てつの かたまり（M4。かまどで 鉄鉱石を やく。ITEM_TYPES では つるはし・おのの 次） */
+export const INGOT_IDS = ['iron_ingot'] as const;
+export type IngotId = (typeof INGOT_IDS)[number];
+
+/** 小物 6 つ（M4。働きは あとで 入る）: ちょうちん・たこ・ふとん・おまもり・わらじ・はにわ（この順が ITEM_TYPES・作業台の カード・たいきゅうの 並び） */
+export const GADGET_IDS = ['lantern', 'kite', 'futon', 'omamori', 'waraji', 'haniwa'] as const;
+export type GadgetId = (typeof GADGET_IDS)[number];

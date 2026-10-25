@@ -1,5 +1,5 @@
 import type { ItemId } from '../contracts';
-import { registryTool, withRegistry } from '../content/items/registry';
+import { registryTool } from '../content/items/registry';
 
 /**
  * 道具・武器の数値（M4 §4.3・§4.5）。ここ 1 か所にまとめる。
@@ -28,8 +28,8 @@ export interface ToolConfig {
 }
 
 export const TOOL_DEFAULTS: Readonly<ToolConfig> = {
-  // つるはし・おの・刀・なぎなた・きんの 道具の 強さ（GOLD-1 §4.3）は 登録表（content/items/tools.ts・weapons.ts・gold.ts）から。くわ（M7）だけ ここ
-  toolPower: withRegistry('toolPower', { kuwa: 4 }, registryTool('power')),
+  // つるはし・おの・刀・なぎなた・きんの 道具・くわ（M7）の 強さ（GOLD-1 §4.3）は 登録表（content/items/tools.ts・weapons.ts・farm.ts・gold.ts）から
+  toolPower: registryTool('power'),
   toolLevel: registryTool('level'),
   weaponDamage: registryTool('damage'),
   weaponReach: registryTool('reach'),

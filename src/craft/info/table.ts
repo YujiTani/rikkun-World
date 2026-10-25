@@ -4,7 +4,7 @@
  * 字は ひらがな・カタカナ・数字。漢字は 名前の ［漢字｜よみ］ だけ（出す ときに `withRuby`。WEAPON-7 §2.7）。
  * 「どこで」「つかいみち」「つよさ」の数は、ここには書かない（レシピ・ドロップ表・設定から `build.ts` が作る）。
  */
-import { CRAFT_E } from '../../content/items/howText';
+import { vegRow } from '../../content/items/howText';
 import { registryArmorKind, registryInfo, withRegistry } from '../../content/items/registry';
 
 /** ボタンの絵の種類: `1-9` = ホットバーで えらぶ、`left` = ひだりクリック、`leftHold` = ひだりを おしつづける、`right` = みぎクリック、`E` = もちもの画面 */
@@ -43,16 +43,6 @@ export interface InfoRow {
 
 const PLACE = 'てに もって みぎクリック で おく';
 const PLACE_BTN: ButtonKey[] = ['1-9', 'right'];
-const LATER_HOW = 'いまは もてる だけ';
-
-const later = (row: string): InfoRow => ({ use: row, how: LATER_HOW, buttons: [], later: row });
-
-const SEED_ROW: InfoRow = { use: 'はたけ に まくと やさい が そだつ', how: 'もって はたけ に みぎクリック', buttons: ['1-9', 'right'] };
-const VEG_ROW = (hearts: number): InfoRow => ({
-  use: `たべると ハート が ${hearts} こ もどる`,
-  how: 'もって みぎクリック',
-  buttons: ['1-9', 'right'],
-});
 
 const OLD_ITEM_INFO: Record<string, InfoRow> = {
   // ---- ブロック（13）
@@ -98,57 +88,16 @@ const OLD_ITEM_INFO: Record<string, InfoRow> = {
     stats: 'tansu',
   },
 
-  // ---- ざいりょう（7）
-  paper: { use: 'や・ちょうちん・たこ の ざいりょう', how: CRAFT_E, buttons: ['E'] },
-  oil: { use: 'たいまつ・ちょうちん の ざいりょう。かまど の ねんりょう にも なる', how: `${CRAFT_E}。ねんりょう は かってに つかう`, buttons: ['E'] },
-  string: { use: 'ゆみ・よろい・すねあて・たこ・ふとん・おまもり・わらじ の ざいりょう', how: CRAFT_E, buttons: ['E'] },
-  cloth: { use: 'かぶと・よろい・こて・ふとん・おまもり の ざいりょう', how: CRAFT_E, buttons: ['E'] },
-  clay: { use: 'かまど で やくと かわら・レンガ・はにわ に なる', how: 'かまど に みぎクリック して やく', buttons: ['right'] },
-  crystal: { use: 'きらめく カタナ・おまもり の ざいりょう。ハイパーレア', how: CRAFT_E, buttons: ['E'] },
-  iron_ingot: { use: 'てつの つるはし・ぶき・ぼうぐ・たんす の ざいりょう', how: CRAFT_E, buttons: ['E'] },
+  // ---- ざいりょう（ようかいだま・かみ・あぶら・いと・ぬの・ねんど・すいしょう・てつの かたまり 8 個）は 登録表（content/items/materials.ts）に ある
 
   // ---- どうぐ・ぶき・ぼうぐ（16）は 登録表（content/items/tools.ts・weapons.ts・armor.ts）に ある
 
-  // ---- 働きが あとのもの（6）
-  lantern: later('おいて あかるく できるように なるよ（もうすぐ）'),
-  kite: later('そら に あげて あそべるように なるよ（もうすぐ）'),
-  futon: later('よる に ねると あさ に なるように なるよ（もうすぐ）'),
-  omamori: later('もっていると やられても もちもの を おとさなく なるよ（もうすぐ）'),
-  waraji: later('はくと すこし はやく あるけるように なるよ（もうすぐ）'),
-  haniwa: later('おいて かざれるように なるよ（もうすぐ）'),
+  // ---- 働きが あとのもの（ちょうちん・たこ・ふとん・おまもり・わらじ・はにわ 6 個）は 登録表（content/items/misc.ts）に ある
 
-  // ---- M7 農業（9）
-  seed_onion: SEED_ROW,
-  seed_tomato: SEED_ROW,
-  seed_pumpkin: SEED_ROW,
-  seed_eggplant: SEED_ROW,
-  onion: VEG_ROW(1),
-  tomato: VEG_ROW(1),
-  eggplant: VEG_ROW(1),
-  pumpkin: VEG_ROW(2),
-  kuwa: { use: 'くさ や つち を はたけ に する', how: 'もって くさ・つち に みぎクリック', buttons: ['1-9', 'right'] },
-
-  // ---- M7-2 農業 フェーズ 2（3。仕様 §4.8）
-  watering_can: {
-    use: 'はたけ 1 マス に みず を まく',
-    how: 'みず に みぎクリック で くむ、はたけ に みぎクリック',
-    buttons: ['1-9', 'right'],
-    stats: 'can',
-  },
-  long_watering_can: {
-    use: 'はたけ 2 マス（ねらった はたけ と その むこう）に みず を まく',
-    how: 'みず に みぎクリック で くむ、はたけ に みぎクリック',
-    buttons: ['1-9', 'right'],
-    stats: 'can',
-  },
-  sprinkler: { use: 'まわり の はたけ を ずっと しめらせる', how: 'もって みぎクリック で おく', buttons: PLACE_BTN },
-
-  // ---- BUCKET-1
-  bucket: { use: 'みず を くんで はこぶ', how: 'みず に みぎクリック で くむ', buttons: ['1-9', 'right'] },
-  water_bucket: { use: 'はたけ の そば に みず を おく', how: 'もって みぎクリック で おく', buttons: ['1-9', 'right'] },
+  // ---- 農業（たね・やさい・くわ・じょうろ・スプリンクラー・バケツ 14 個）は 登録表（content/items/farm.ts）に ある
 
   // ---- LIVE-1 たまご
-  egg: VEG_ROW(1),
+  egg: vegRow(1),
   // ---- LIVE-1 版 3.2（§3.1）
   mushi: { use: 'にわとり に あげる と なかよく なる', how: 'もって にわとり に みぎクリック', buttons: ['1-9', 'right'] },
   mushi_ami: { use: 'き から むし を とる', how: 'もって き に みぎクリック', buttons: ['1-9', 'right'] },
@@ -161,9 +110,6 @@ const OLD_ITEM_INFO: Record<string, InfoRow> = {
   // ---- LIVE-3（§3.1）: もも にく
   momo_nama: { use: 'かまど で やく と たべられる', how: 'かまど に みぎクリック して やく', buttons: ['right'] },
   momo_yaki: { use: 'たべると ハート が 5 こ もどる', how: 'もって みぎクリック', buttons: ['1-9', 'right'] },
-
-  // ---- ようかいだま（§5。いまは 手に入らない。古い保存用）
-  yokai_orb: { use: 'いまは つかえない よ', how: '', buttons: [] },
 };
 
 // 登録表（content/items/）に うつした シリーズ（忍者・侍・金 …）の 行は そちらに 書く（ここへは 自動で 入る）

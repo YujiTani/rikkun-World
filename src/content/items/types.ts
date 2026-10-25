@@ -45,6 +45,8 @@ export interface ItemDef {
   tool?: { power?: number; level?: number; damage?: number; reach?: number; ticks?: number; family?: ToolFamily };
   /** レジェンダリー（ヌシが おとす 武器）: 強さ・ためわざ・こうげき時の 効果・ずっと 効く 力（LegendaryDef から item を 除いた もの） */
   legend?: Omit<LegendaryDef, 'item'>;
+  /** じょうろ: 水の 入る 回数・いちどに まく はたけの マス数 */
+  can?: { capacity: number; tiles: number };
   /** 防具: 入る 部位・ふせぐ量（ダメージの種類ごと）・説明に出す 種類 */
   armor?: { slot: ArmorSlot; value: Readonly<Record<DamageKind, number>>; kind: DamageKind };
 }

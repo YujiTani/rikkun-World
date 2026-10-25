@@ -5,8 +5,8 @@
  * 担当の割り振り: docs/tickets/M1-dev-split.md
  */
 
-import { SAMURAI_ITEM_IDS, type ArmorItemId, type BowId, type GoldId, type LegendId, type NinjaId, type SamuraiId, type SwordId, type ToolItemId } from './content/items/ids';
-import { registryBladeReach, registryBladeTrail, registryBowDamage, registryLegend, registryWear, withRegistry } from './content/items/registry';
+import { SAMURAI_ITEM_IDS, type ArmorItemId, type BowId, type FarmBucketId, type FarmToolId, type GadgetId, type GoldId, type IngotId, type LegendId, type MaterialId, type NinjaId, type OrbId, type SamuraiId, type SeedItemId, type SwordId, type ToolItemId, type VegItemId } from './content/items/ids';
+import { registryBladeReach, registryBladeTrail, registryBowDamage, registryCan, registryLegend, registryWear } from './content/items/registry';
 
 export interface Vec3 {
   x: number;
@@ -194,46 +194,26 @@ export type HookNamespace = Record<string, (...args: never[]) => unknown>;
  * yokai_orb は M3 第 1 版の名残り（使わなくなったが、型を壊さないため残す）
  */
 export type ItemOnlyId =
-  | 'yokai_orb'
-  | 'paper' // かみ
-  | 'oil' // あぶら
-  | 'string' // いと
-  | 'cloth' // ぬの
-  | 'clay' // ねんど
-  | 'crystal' // すいしょう（レア度の低い宝石）
+  // ようかいだま（M3 第 1 版の 名残り）・ざいりょう 6（かみ・あぶら・いと・ぬの・ねんど・すいしょう）・てつの かたまり・小物 6（ちょうちん・たこ・ふとん・おまもり・わらじ・はにわ）の id は content/items/ids.ts の 1 か所（#306）
+  | OrbId
+  | MaterialId
   // M4（docs/design/M4-craft.md §4.4）
   // 道具（つるはし 3・おの 3）・刀 4・ゆみ・や・防具 4 の id は content/items/ids.ts の 1 か所（#306）
   | ToolItemId
   | SwordId
   | BowId
   | ArmorItemId
-  | 'iron_ingot'
+  | IngotId
   // NINJA-1（#299）・SAMURAI-1（#300）: 忍者装備 4 つ・侍装備 4 つの id は content/items/ids.ts の 1 か所（#306）
   | NinjaId
   | SamuraiId
   | 'torch'
-  | 'lantern'
-  | 'kite'
-  | 'futon'
-  | 'omamori'
-  | 'waraji'
-  | 'haniwa'
-  // M7（うしろに足す）
-  | 'seed_onion'
-  | 'seed_tomato'
-  | 'seed_pumpkin'
-  | 'seed_eggplant'
-  | 'onion'
-  | 'tomato'
-  | 'pumpkin'
-  | 'eggplant'
-  | 'kuwa'
-  // M7-2（うしろに足す）
-  | 'watering_can'
-  | 'long_watering_can'
-  // BUCKET-1（うしろに足す）
-  | 'bucket' // バケツ（から）
-  | 'water_bucket' // みずの バケツ
+  | GadgetId
+  // M7・M7-2・BUCKET-1: たね 4・やさい 4・くわ・じょうろ 2・バケツ 2 の id は content/items/ids.ts の 1 か所（#306）。スプリンクラーは ブロック
+  | SeedItemId
+  | VegItemId
+  | FarmToolId
+  | FarmBucketId
   // LIVE-1（うしろに足す）
   | 'egg' // たまご
   // LIVE-1 版 3.2（§4.2。egg の うしろ）
@@ -1473,8 +1453,9 @@ export const M7_SETTING_DEFAULTS: Readonly<M7Settings> = {
   eatHeal: { onion: 2, tomato: 2, pumpkin: 4, eggplant: 2 },
   farmRipeMinBrightness: 0,
   farmWaterDays: 1,
-  farmCanCapacity: { watering_can: 10, long_watering_can: 20 },
-  farmCanTiles: { watering_can: 1, long_watering_can: 2 },
+  // じょうろの 水の 回数・まく マス数は 登録表（content/items/farm.ts の `can`）から
+  farmCanCapacity: registryCan('capacity') as Record<WateringCanId, number>,
+  farmCanTiles: registryCan('tiles') as Record<WateringCanId, number>,
   farmCanYReach: 1,
   farmPourRepeatTicks: 30,
   farmWetSoonRatio: 0.25,
@@ -2027,13 +2008,8 @@ export const W2_SETTING_DEFAULTS: Readonly<W2Settings> = {
   arrowPickupRange: [1.2, 2],
   bowMoveMul: 0.5,
   bowBend: { pull: [0.4, 0.7, 1.0], bendDeg: [12, 22, 32], blendTicks: 6 },
-  toolDurability: withRegistry('toolDurability', {
-    // つるはし・おの・刀・なぎなた・ゆみ・かぶと など（M4）は 登録表（content/items/tools.ts・weapons.ts・armor.ts）から。くわ（M7）だけ ここ
-    kuwa: 131,
-    // NINJA-1 §4.1・SAMURAI-1 §4.1: 忍者・侍装備 8 つ（たいきゅう 10000）は 登録表（content/items/ninja.ts・samurai.ts）から（下の withRegistry）
-    // WEAPON-7 §2.4: 雷神剣・風神剣・虹（10000。つくれず ヌシでしか 手に 入らない 武器だけの 例外）も 登録表（content/items/legend.ts）から
-    // GOLD-1 §4.3: きん の 装備 8 こ（500）は 登録表（content/items/gold.ts）から（下の withRegistry）
-  }, registryWear()),
+  // つるはし・おの・刀・なぎなた・ゆみ・かぶと など（M4）・くわ（M7）・忍者・侍装備（10000）・雷神剣・風神剣・虹（10000。つくれず ヌシでしか 手に 入らない 武器だけの 例外）・きんの 装備（500）は ぜんぶ 登録表（content/items/）から
+  toolDurability: registryWear(),
   toolWear: {
     pickaxe: { block: 1, hit: 2 },
     blade: { block: 2, hit: 1 },

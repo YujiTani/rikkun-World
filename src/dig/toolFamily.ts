@@ -37,7 +37,7 @@ const BLOCK_FAMILY: Partial<Record<BlockId, ToolFamily>> = {
 };
 
 // おの・つるはしの なかまは 登録表（content/items/tools.ts の tool.family）から。くわ（M7）だけ ここ
-const TOOL_FAMILY: Partial<Record<ItemId, ToolFamily>> = { kuwa: 'dirt', ...registryToolFamily() };
+const TOOL_FAMILY: Partial<Record<ItemId, ToolFamily>> = registryToolFamily();
 
 /** ブロックのなかま（どれでもない物は null） */
 export function blockFamily(id: BlockId): ToolFamily | null {

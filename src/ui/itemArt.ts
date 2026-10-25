@@ -1,10 +1,12 @@
+import { MATERIAL_ITEM_IDS, type MaterialId } from '../content/items/ids';
 import type { ItemId } from '../contracts';
 import type { Rgba } from '../world/blocks/textures';
 
 /** ブロックでない材料（M4 のクラフトの材料）。絵と、手に持つ見た目をここに集める */
-export type MaterialItemId = 'paper' | 'oil' | 'string' | 'cloth' | 'clay' | 'crystal';
+export type MaterialItemId = MaterialId;
 
-export const MATERIAL_ITEMS: readonly MaterialItemId[] = ['paper', 'oil', 'string', 'cloth', 'clay', 'crystal'];
+/** id の 出どころは content/items/ids.ts（値は content/items/materials.ts） */
+export const MATERIAL_ITEMS: readonly MaterialItemId[] = MATERIAL_ITEM_IDS;
 
 export function isMaterialItem(item: ItemId): item is MaterialItemId {
   return (MATERIAL_ITEMS as readonly string[]).includes(item);

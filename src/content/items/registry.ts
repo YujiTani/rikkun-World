@@ -3,8 +3,11 @@ import type { InfoRow } from '../../craft/info/table';
 import type { ToolFamily } from '../../dig/toolFamily';
 import type { ItemCategory } from '../../ui/itemCategory';
 import { ARMOR } from './armor';
+import { BUCKETS, FARM_TOOLS, SEEDS, SPRINKLER, VEGGIES } from './farm';
 import { GOLD } from './gold';
 import { LEGEND } from './legend';
+import { INGOT, MATERIALS, ORB } from './materials';
+import { GADGETS } from './misc';
 import { NINJA } from './ninja';
 import { SAMURAI } from './samurai';
 import { TOOLS } from './tools';
@@ -21,6 +24,8 @@ import { BOWS, SWORDS } from './weapons';
  * 忍者・侍も 同じ（ninja.ts・samurai.ts。絵は ui/itemArtNinja.ts・itemArtSamurai.ts）。
  * レジェンダリー武器（雷神剣・風神剣・虹）は legend.ts（ためわざ・効果は `legend` の部品。絵は ui/itemArtW7.ts）。
  * ふつうの 道具・武器・防具（M4）は tools.ts（つるはし・おの）・weapons.ts（刀・なぎなた／ゆみ・や）・armor.ts。絵は ui/itemArtM4.ts。
+ * 畑（たね・やさい・くわ・じょうろ・スプリンクラー・バケツ 14 個）は farm.ts。絵は ui/itemArtM7.ts・itemArtM72.ts・bucketArt.ts。
+ * ざいりょう（ようかいだま・かみ・あぶら・いと・ぬの・ねんど・すいしょう・てつの かたまり）は materials.ts、小物（ちょうちん・たこ・ふとん・おまもり・わらじ・はにわ）は misc.ts。
  * のこりのシリーズは 段階 3 で 1 本ずつ ここへ うつす（全部 うまったら ITEM_DEFS を 全件 Record に する）。
  */
 export type ItemDefs = Readonly<Partial<Record<ItemId, ItemDef>>>;
@@ -41,10 +46,32 @@ export const ARMOR_DEFS: ItemDefs = ARMOR;
 /** 忍者・侍（ITEM_TYPES では 古い表の 同じ 位置（すねあての 次）に 入れる） */
 export const NINJA_SAMURAI_DEFS: ItemDefs = { ...NINJA, ...SAMURAI };
 
+/** 畑のたね 4（ITEM_TYPES では 古い表の 同じ 位置（M7）の 先頭。作業台では ずっと うしろ（バケツの 次）） */
+export const SEED_DEFS: ItemDefs = SEEDS;
+/** 畑のやさい 4（たねの 次） */
+export const VEG_DEFS: ItemDefs = VEGGIES;
+/** くわ・じょうろ・ながい じょうろ（やさいの 次。道具の 色分けでは つるはしの 次） */
+export const FARM_TOOL_DEFS: ItemDefs = FARM_TOOLS;
+/** スプリンクラー（置ける ブロック。じょうろの 次） */
+export const SPRINKLER_DEFS: ItemDefs = SPRINKLER;
+/** バケツ・みずの バケツ（スプリンクラーの 次。道具の 色分けでは じょうろの 次） */
+export const BUCKET_DEFS: ItemDefs = BUCKETS;
+
+/** ようかいだま・かみ・あぶら・いと・ぬの・ねんど・すいしょう 7（ITEM_TYPES では 古い表の 同じ 位置（道具の 前の 先頭）に 入れる。色分けの 並びは 呼び出し側で 決める） */
+export const MATERIAL_DEFS: ItemDefs = { ...ORB, ...MATERIALS };
+/** てつの かたまり（つるはし・おの 6 本の 次。かまどで やく 作り方） */
+export const INGOT_DEFS: ItemDefs = INGOT;
+/** ちょうちん・たこ・ふとん・おまもり・わらじ・はにわ（ITEM_TYPES では 間欠泉の つちの 次。作業台では たいまつの 次） */
+export const GADGET_DEFS: ItemDefs = GADGETS;
+
 /** レジェンダリー武器（ITEM_TYPES・武器の 色分けでは 古い表の 同じ 位置（crystal_katana の 次）に 入れる） */
 export const LEGEND_DEFS: ItemDefs = LEGEND;
-/** 登録された 全アイテム（道具・刀・ゆみ・防具・忍者・侍・レジェンダリー・金。刀の集まり BLADE_ITEMS の 並びは この 順） */
-export const ITEM_DEFS: ItemDefs = { ...TOOL_DEFS, ...SWORD_DEFS, ...BOW_DEFS, ...ARMOR_DEFS, ...NINJA_SAMURAI_DEFS, ...LEGEND_DEFS, ...GOLD_DEFS };
+/** 登録された 全アイテム（道具・刀・ゆみ・防具・忍者・侍・畑・ざいりょう・小物・レジェンダリー・金。刀の集まり BLADE_ITEMS の 並びは この 順） */
+export const ITEM_DEFS: ItemDefs = {
+  ...TOOL_DEFS, ...SWORD_DEFS, ...BOW_DEFS, ...ARMOR_DEFS, ...NINJA_SAMURAI_DEFS,
+  ...SEED_DEFS, ...VEG_DEFS, ...FARM_TOOL_DEFS, ...SPRINKLER_DEFS, ...BUCKET_DEFS,
+  ...MATERIAL_DEFS, ...INGOT_DEFS, ...GADGET_DEFS, ...LEGEND_DEFS, ...GOLD_DEFS,
+};
 
 /**
  * うつしかえの 途中で、同じ id を 古い表と 登録表の 両方に 書いてしまった所の 一覧（"表の名前:id"）。
@@ -66,6 +93,17 @@ export function noteDuplicates(table: string, ids: Iterable<string>): void {
     if (seen.has(id)) REGISTRY_OVERLAPS.push(`${table}:${id}`);
     seen.add(id);
   }
+}
+
+/** 登録の 中から、ids の 順に 取り出した 登録（並びを 呼び出し側で 決めたい とき。登録に 無い id は 書きまちがいなので 投げる） */
+export function pickDefs(defs: ItemDefs, ids: readonly ItemId[]): ItemDefs {
+  const out: Partial<Record<ItemId, ItemDef>> = {};
+  for (const id of ids) {
+    const d = defs[id];
+    if (!d) throw new Error(`登録表に ${id} が ない`);
+    out[id] = d;
+  }
+  return out;
 }
 
 const BY_ID = new Map<string, ItemDef>(Object.entries(ITEM_DEFS) as Array<[string, ItemDef]>);
@@ -146,6 +184,11 @@ export function registryTool(key: 'power' | 'level' | 'damage' | 'reach' | 'tick
 /** 道具の あう ブロックの なかま（dig/toolFamily.ts の TOOL_FAMILY） */
 export function registryToolFamily(): Partial<Record<ItemId, ToolFamily>> {
   return pickAll(ITEM_DEFS, (d) => d.tool?.family);
+}
+
+/** じょうろ: 水の 入る 回数・いちどに まく マス数（M7 の farmCanCapacity・farmCanTiles。じょうろの 登録の 順） */
+export function registryCan(key: 'capacity' | 'tiles'): Partial<Record<ItemId, number>> {
+  return pickAll(ITEM_DEFS, (d) => d.can?.[key]);
 }
 
 /** 刀: 届く長さ（W2 bladeReach） */

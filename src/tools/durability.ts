@@ -4,17 +4,8 @@ import { noteDuplicates, registryPermanent } from '../content/items/registry';
 
 /** ずっと へらない もの（§4.6 (1)） */
 const OLD_PERMANENT: readonly ItemId[] = [
-  'lantern',
-  'kite',
-  'futon',
-  'omamori',
-  'waraji',
-  'haniwa',
+  // ちょうちん・たこ・ふとん・おまもり・わらじ・はにわは 登録表（content/items/misc.ts）で wear: 'permanent'
   'tansu',
-  'watering_can',
-  'long_watering_can',
-  'bucket',
-  'water_bucket',
   // LIVE-1 版 3.2: むしとりあみ（こわれない。6 歳が なくして 泣かない）
   'mushi_ami',
 ];
