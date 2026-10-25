@@ -46,3 +46,19 @@ export type BowId = (typeof BOW_IDS)[number];
 /** 防具（M4）: かぶと・よろい・こて・すねあて（あたま・からだ・うで・あし の じゅん） */
 export const ARMOR_ITEM_IDS = ['kabuto', 'yoroi', 'kote', 'suneate'] as const;
 export type ArmorItemId = (typeof ARMOR_ITEM_IDS)[number];
+
+/** 畑のたね（M7・#63）: たまねぎ・トマト・かぼちゃ・なす（作物 CropKind と同じ 順。この順が ITEM_TYPES・色分け・作業台のカードの 並び） */
+export const SEED_ITEM_IDS = ['seed_onion', 'seed_tomato', 'seed_pumpkin', 'seed_eggplant'] as const;
+export type SeedItemId = (typeof SEED_ITEM_IDS)[number];
+
+/** 畑のやさい（M7）: たべられる。id は 作物の 名前そのまま */
+export const VEG_ITEM_IDS = ['onion', 'tomato', 'pumpkin', 'eggplant'] as const;
+export type VegItemId = (typeof VEG_ITEM_IDS)[number];
+
+/** 畑の道具（M7・M7-2）: くわ・じょうろ・ながい じょうろ（この順）。スプリンクラーは 置ける ブロックなので BlockId 側（contracts.ts）に ある */
+export const FARM_TOOL_IDS = ['kuwa', 'watering_can', 'long_watering_can'] as const;
+export type FarmToolId = (typeof FARM_TOOL_IDS)[number];
+
+/** バケツ（BUCKET-1）: から・みず（この順） */
+export const FARM_BUCKET_IDS = ['bucket', 'water_bucket'] as const;
+export type FarmBucketId = (typeof FARM_BUCKET_IDS)[number];

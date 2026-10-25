@@ -4,7 +4,7 @@
  * 字は ひらがな・カタカナ・数字。漢字は 名前の ［漢字｜よみ］ だけ（出す ときに `withRuby`。WEAPON-7 §2.7）。
  * 「どこで」「つかいみち」「つよさ」の数は、ここには書かない（レシピ・ドロップ表・設定から `build.ts` が作る）。
  */
-import { CRAFT_E } from '../../content/items/howText';
+import { CRAFT_E, vegRow } from '../../content/items/howText';
 import { registryArmorKind, registryInfo, withRegistry } from '../../content/items/registry';
 
 /** ボタンの絵の種類: `1-9` = ホットバーで えらぶ、`left` = ひだりクリック、`leftHold` = ひだりを おしつづける、`right` = みぎクリック、`E` = もちもの画面 */
@@ -46,13 +46,6 @@ const PLACE_BTN: ButtonKey[] = ['1-9', 'right'];
 const LATER_HOW = 'いまは もてる だけ';
 
 const later = (row: string): InfoRow => ({ use: row, how: LATER_HOW, buttons: [], later: row });
-
-const SEED_ROW: InfoRow = { use: 'はたけ に まくと やさい が そだつ', how: 'もって はたけ に みぎクリック', buttons: ['1-9', 'right'] };
-const VEG_ROW = (hearts: number): InfoRow => ({
-  use: `たべると ハート が ${hearts} こ もどる`,
-  how: 'もって みぎクリック',
-  buttons: ['1-9', 'right'],
-});
 
 const OLD_ITEM_INFO: Record<string, InfoRow> = {
   // ---- ブロック（13）
@@ -117,38 +110,10 @@ const OLD_ITEM_INFO: Record<string, InfoRow> = {
   waraji: later('はくと すこし はやく あるけるように なるよ（もうすぐ）'),
   haniwa: later('おいて かざれるように なるよ（もうすぐ）'),
 
-  // ---- M7 農業（9）
-  seed_onion: SEED_ROW,
-  seed_tomato: SEED_ROW,
-  seed_pumpkin: SEED_ROW,
-  seed_eggplant: SEED_ROW,
-  onion: VEG_ROW(1),
-  tomato: VEG_ROW(1),
-  eggplant: VEG_ROW(1),
-  pumpkin: VEG_ROW(2),
-  kuwa: { use: 'くさ や つち を はたけ に する', how: 'もって くさ・つち に みぎクリック', buttons: ['1-9', 'right'] },
-
-  // ---- M7-2 農業 フェーズ 2（3。仕様 §4.8）
-  watering_can: {
-    use: 'はたけ 1 マス に みず を まく',
-    how: 'みず に みぎクリック で くむ、はたけ に みぎクリック',
-    buttons: ['1-9', 'right'],
-    stats: 'can',
-  },
-  long_watering_can: {
-    use: 'はたけ 2 マス（ねらった はたけ と その むこう）に みず を まく',
-    how: 'みず に みぎクリック で くむ、はたけ に みぎクリック',
-    buttons: ['1-9', 'right'],
-    stats: 'can',
-  },
-  sprinkler: { use: 'まわり の はたけ を ずっと しめらせる', how: 'もって みぎクリック で おく', buttons: PLACE_BTN },
-
-  // ---- BUCKET-1
-  bucket: { use: 'みず を くんで はこぶ', how: 'みず に みぎクリック で くむ', buttons: ['1-9', 'right'] },
-  water_bucket: { use: 'はたけ の そば に みず を おく', how: 'もって みぎクリック で おく', buttons: ['1-9', 'right'] },
+  // ---- 農業（たね・やさい・くわ・じょうろ・スプリンクラー・バケツ 14 個）は 登録表（content/items/farm.ts）に ある
 
   // ---- LIVE-1 たまご
-  egg: VEG_ROW(1),
+  egg: vegRow(1),
   // ---- LIVE-1 版 3.2（§3.1）
   mushi: { use: 'にわとり に あげる と なかよく なる', how: 'もって にわとり に みぎクリック', buttons: ['1-9', 'right'] },
   mushi_ami: { use: 'き から むし を とる', how: 'もって き に みぎクリック', buttons: ['1-9', 'right'] },

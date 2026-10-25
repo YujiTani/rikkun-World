@@ -1,5 +1,5 @@
 import type { BlockId, ItemType } from '../contracts';
-import { ARMOR_DEFS, BOW_DEFS, GOLD_DEFS, LEGEND_DEFS, NINJA_SAMURAI_DEFS, SWORD_DEFS, TOOL_DEFS, itemTypesOf, noteDuplicates } from '../content/items/registry';
+import { ARMOR_DEFS, BOW_DEFS, BUCKET_DEFS, FARM_TOOL_DEFS, GOLD_DEFS, LEGEND_DEFS, NINJA_SAMURAI_DEFS, SEED_DEFS, SPRINKLER_DEFS, SWORD_DEFS, TOOL_DEFS, VEG_DEFS, itemTypesOf, noteDuplicates } from '../content/items/registry';
 import { BLOCK_TYPES } from '../world/blocks/blockTypes';
 
 export const INVENTORY_SIZE = 36;
@@ -63,32 +63,6 @@ const M4_ITEMS_AFTER_GEAR: readonly ItemType[] = [
   { id: 'haniwa', name: 'はにわ', maxStack: BLOCK_MAX_STACK, placeBlock: null },
 ];
 
-/** M7: たね 4・やさい 4・くわ（置けない。たねは はたけ に まく） */
-const M7_ITEMS: readonly ItemType[] = [
-  { id: 'seed_onion', name: 'たまねぎの たね', maxStack: BLOCK_MAX_STACK, placeBlock: null },
-  { id: 'seed_tomato', name: 'トマトの たね', maxStack: BLOCK_MAX_STACK, placeBlock: null },
-  { id: 'seed_pumpkin', name: 'かぼちゃの たね', maxStack: BLOCK_MAX_STACK, placeBlock: null },
-  { id: 'seed_eggplant', name: 'なすの たね', maxStack: BLOCK_MAX_STACK, placeBlock: null },
-  { id: 'onion', name: 'たまねぎ', maxStack: BLOCK_MAX_STACK, placeBlock: null },
-  { id: 'tomato', name: 'トマト', maxStack: BLOCK_MAX_STACK, placeBlock: null },
-  { id: 'pumpkin', name: 'かぼちゃ', maxStack: BLOCK_MAX_STACK, placeBlock: null },
-  { id: 'eggplant', name: 'なす', maxStack: BLOCK_MAX_STACK, placeBlock: null },
-  { id: 'kuwa', name: 'くわ', maxStack: 1, placeBlock: null },
-];
-
-/** M7-2: じょうろ 2 しゅるい（置けない・上限 1）と スプリンクラー（ブロック・64） */
-const M72_ITEMS: readonly ItemType[] = [
-  { id: 'watering_can', name: 'じょうろ', maxStack: 1, placeBlock: null },
-  { id: 'long_watering_can', name: 'ながい じょうろ', maxStack: 1, placeBlock: null },
-  { id: 'sprinkler', name: 'スプリンクラー', maxStack: BLOCK_MAX_STACK, placeBlock: 'sprinkler' },
-];
-
-/** BUCKET-1: バケツ（から・みず）。置けない・上限 1 */
-const BUCKET_ITEMS: readonly ItemType[] = [
-  { id: 'bucket', name: 'バケツ', maxStack: 1, placeBlock: null },
-  { id: 'water_bucket', name: 'みずの バケツ', maxStack: 1, placeBlock: null },
-];
-
 /** VOX-I-1: 12 の国のブロック（置ける）。すすき・くさ は こわすと 消えるので 持ち物にならない（のばな は 持てる。FLORA-75） */
 const VOX_I_BLOCKS: readonly ItemType[] = (
   ['snow', 'momiji_leaves', 'matsu_leaves', 'flower_y', 'flower_o', 'flower_p', 'bamboo', 'nobana'] as const
@@ -122,9 +96,12 @@ export const ITEM_TYPES: readonly ItemType[] = [
   // NINJA-1（#299）・SAMURAI-1（#300）: 忍者装備 4 つ・侍装備 4 つは 登録表から（古い表と 同じ 位置）
   ...itemTypesOf(NINJA_SAMURAI_DEFS),
   ...M4_ITEMS_AFTER_GEAR,
-  ...M7_ITEMS,
-  ...M72_ITEMS,
-  ...BUCKET_ITEMS,
+  // M7・M7-2・BUCKET-1: たね 4・やさい 4・くわ・じょうろ 2・スプリンクラー・バケツ 2 は 登録表（content/items/farm.ts）から（古い表と 同じ 位置）
+  ...itemTypesOf(SEED_DEFS),
+  ...itemTypesOf(VEG_DEFS),
+  ...itemTypesOf(FARM_TOOL_DEFS),
+  ...itemTypesOf(SPRINKLER_DEFS),
+  ...itemTypesOf(BUCKET_DEFS),
   ...VOX_I_BLOCKS,
   ...LIVE_ITEMS,
   // WEAPON-7/8/9: レジェンダリー武器 3 つ（雷神剣・風神剣・虹）は 登録表（content/items/legend.ts）から

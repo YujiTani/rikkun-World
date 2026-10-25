@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LEGENDARY_DEFAULTS, W2_SETTING_DEFAULTS, createW2Settings } from '../../contracts';
+import { LEGENDARY_DEFAULTS, M7_SETTING_DEFAULTS, W2_SETTING_DEFAULTS, createM7Settings, createW2Settings } from '../../contracts';
 import { ARMOR_SLOT_OF, CRAFT_DEFAULTS, NINJA_GEAR, SAMURAI_GEAR, createCraftConfig } from '../../craft/config';
 import { ARMOR_KIND, ITEM_INFO } from '../../craft/info/table';
 import { ALL_RECIPES, BAKE_RECIPES, CRAFT_RECIPES, TORCH_COAL } from '../../craft/recipes';
@@ -13,7 +13,7 @@ import { goldItemPixels, isGoldItem } from '../../ui/itemArtGold';
 import { isNinjaItem, ninjaItemPixels } from '../../ui/itemArtNinja';
 import { isSamuraiItem, samuraiItemPixels } from '../../ui/itemArtSamurai';
 import { NINJA_TUNING } from '../../craft/ninjaTuning';
-import { ARMOR_ITEM_IDS, BOW_IDS, GOLD_IDS, LEGEND_IDS, NINJA_ITEM_IDS, SAMURAI_ITEM_IDS, SWORD_IDS, TOOL_ITEM_IDS, type GoldId } from './ids';
+import { ARMOR_ITEM_IDS, BOW_IDS, FARM_BUCKET_IDS, FARM_TOOL_IDS, GOLD_IDS, LEGEND_IDS, NINJA_ITEM_IDS, SAMURAI_ITEM_IDS, SEED_ITEM_IDS, SWORD_IDS, TOOL_ITEM_IDS, VEG_ITEM_IDS, type GoldId } from './ids';
 import { LEGEND } from './legend';
 import { ITEM_DEFS, REGISTRY_OVERLAPS, itemDef } from './registry';
 import { toolFamily } from '../../dig/toolFamily';
@@ -72,12 +72,13 @@ const CRAFTS: ReadonlyArray<[GoldId, Array<[string, number]>]> = [
 ];
 
 const GEAR_IDS = [...TOOL_ITEM_IDS, ...SWORD_IDS, ...BOW_IDS, ...ARMOR_ITEM_IDS] as const;
+const FARM_IDS = [...SEED_ITEM_IDS, ...VEG_ITEM_IDS, ...FARM_TOOL_IDS, 'sprinkler', ...FARM_BUCKET_IDS] as const;
 
 describe('登録表（金シリーズ）', () => {
   it('金の全 id に ItemDef がある（10 個・id は ids.ts の 1 回だけ）', () => {
     expect(GOLD_IDS).toHaveLength(10);
     for (const id of GOLD_IDS) expect(itemDef(id), id).toBeDefined();
-    expect(Object.keys(ITEM_DEFS).sort()).toEqual([...GOLD_IDS, ...LEGEND_IDS, ...NINJA_ITEM_IDS, ...SAMURAI_ITEM_IDS, ...GEAR_IDS].sort());
+    expect(Object.keys(ITEM_DEFS).sort()).toEqual([...GOLD_IDS, ...LEGEND_IDS, ...NINJA_ITEM_IDS, ...SAMURAI_ITEM_IDS, ...GEAR_IDS, ...FARM_IDS].sort());
     expect(Object.keys(EXPECT).sort()).toEqual([...GOLD_IDS].sort());
   });
 
@@ -494,24 +495,30 @@ function scribble(v: unknown, seen = new WeakSet<object>()): void {
 
 describe('設定の 複製と 登録表', () => {
   it('createW2Settings・createCraftConfig・createToolConfig の 複製を 書きかえても、登録表と 次の 複製は 変わらない', () => {
-    const snap = () => JSON.stringify({ defs: ITEM_DEFS, w2: createW2Settings(), craft: createCraftConfig(), tool: createToolConfig() });
+    const snap = () => JSON.stringify({ defs: ITEM_DEFS, w2: createW2Settings(), craft: createCraftConfig(), tool: createToolConfig(), m7: createM7Settings() });
     const before = snap();
     const w2 = createW2Settings();
     const craft = createCraftConfig();
     const tool = createToolConfig();
+    const m7 = createM7Settings();
     scribble(w2);
     scribble(craft);
     scribble(tool);
+    scribble(m7);
     // 書きかえが 効いている（入れ子の armorValue・bladeTrail・bladeReach・toolLevel も）
     expect(craft.armorValue.kabuto!.ball).toBe(1002);
     expect(w2.bladeTrail.katana!.style).toBe('plain');
     expect((w2.bladeTrail.katana as unknown as Record<string, unknown>).__scribble).toBe(1);
     expect(w2.bladeReach.katana).toBe(1002.2);
     expect(tool.toolLevel.iron_pickaxe).toBe(1002);
+    expect(m7.farmCanCapacity.watering_can).toBe(1010);
+    expect(m7.farmCanTiles.long_watering_can).toBe(1002);
     expect(snap()).toBe(before);
     // 初期値の 表そのものも 変わらない
     expect(CRAFT_DEFAULTS.armorValue.kabuto).toEqual({ normal: 0, ball: 2, fall: 0 });
     expect(W2_SETTING_DEFAULTS.bladeReach.katana).toBe(2.2);
     expect(TOOL_DEFAULTS.toolLevel.iron_pickaxe).toBe(2);
+    expect(M7_SETTING_DEFAULTS.farmCanCapacity).toEqual({ watering_can: 10, long_watering_can: 20 });
+    expect(M7_SETTING_DEFAULTS.farmCanTiles).toEqual({ watering_can: 1, long_watering_can: 2 });
   });
 });

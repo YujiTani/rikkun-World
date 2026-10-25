@@ -1,6 +1,5 @@
-import { CROP_KINDS, SEED_ITEM, VEG_ITEM } from '../contracts';
 import type { ItemId, Recipe } from '../contracts';
-import { ARMOR_DEFS, BOW_DEFS, GOLD_DEFS, SWORD_DEFS, TOOL_DEFS, noteDuplicates, recipesOf } from '../content/items/registry';
+import { ARMOR_DEFS, BOW_DEFS, BUCKET_DEFS, FARM_TOOL_DEFS, GOLD_DEFS, SEED_DEFS, SPRINKLER_DEFS, SWORD_DEFS, TOOL_DEFS, noteDuplicates, recipesOf } from '../content/items/registry';
 
 const r = (
   id: ItemId,
@@ -37,16 +36,11 @@ export const CRAFT_RECIPES: readonly Recipe[] = [
   r('waraji', 1, [['grass', 3], ['string', 1]], false),
   // M6: たんす（き 8・てつの かたまり 2）
   r('tansu', 1, [['log', 8], ['iron_ingot', 2]], true),
-  // M7: くわ（き 2・いし 1。カードの いちばん うしろ）
-  r('kuwa', 1, [['log', 2], ['stone', 1]], true),
-  // M7-2: じょうろ・ながい じょうろ（からっぽ）・スプリンクラー（23〜25 こ目）
-  r('watering_can', 1, [['iron_ingot', 1], ['stone', 2]], true),
-  r('long_watering_can', 1, [['iron_ingot', 3], ['log', 1]], true),
-  r('sprinkler', 1, [['iron_ingot', 4], ['stone', 2]], true),
-  // BUCKET-1: バケツ（29 こ目 = スプリンクラー の すぐ うしろ）
-  r('bucket', 1, [['iron_ingot', 3]], true),
-  // #63: やさい 1 こ → たね 4 こ（いちばん うしろ）
-  ...CROP_KINDS.map((k) => r(SEED_ITEM[k], 4, [[VEG_ITEM[k], 1]], true)),
+  // 畑は 登録表（content/items/farm.ts）から。順は くわ → じょうろ → ながい じょうろ → スプリンクラー → バケツ（29 こ目）→ たね 4 こ（やさい 1 こ → たね 4 こ。作物の 順）
+  ...recipesOf(FARM_TOOL_DEFS, 'craft'),
+  ...recipesOf(SPRINKLER_DEFS, 'craft'),
+  ...recipesOf(BUCKET_DEFS, 'craft'),
+  ...recipesOf(SEED_DEFS, 'craft'),
   // LIVE-1 版 3.2: むしとりあみ（き 1・いと 2。カードの いちばん うしろ。こわれない）
   r('mushi_ami', 1, [['log', 1], ['string', 2]], true),
   // LIVE-2（§4.2）: こたつ（くさ 3・き 2・たいまつ 1）・とりごや（き 8・くさ 4）。カードの いちばん うしろ（この 順）

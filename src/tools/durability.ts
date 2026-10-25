@@ -11,10 +11,6 @@ const OLD_PERMANENT: readonly ItemId[] = [
   'waraji',
   'haniwa',
   'tansu',
-  'watering_can',
-  'long_watering_can',
-  'bucket',
-  'water_bucket',
   // LIVE-1 版 3.2: むしとりあみ（こわれない。6 歳が なくして 泣かない）
   'mushi_ami',
 ];
