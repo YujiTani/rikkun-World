@@ -73,7 +73,7 @@ interface ItemDef {
 
 - 写し JSON が 1 文字も変わらない（`npm test` の `snapshot.test.ts`）。
 - 既存テストの期待を 1 つも変えない。`npm run check:fast` 緑。
-- `npm run check:ratchet` の数が増えない（`idCompare`・`idCase` は減るはず。減った分は `ratchet.json` を下げる）。
+- `npm run check:ratchet` の数が増えない（#306a では読む側を触らないので `idCompare`・`idCase` は同じ数のまま。読む側の id 直書きを部品で置きかえる段階 3 で減らし、減った分は `ratchet.json` を下げる）。
 - 画面・音・遊びは変わらない → CI 緑で自動マージ。
 - 1 ファイル 800 行まで。
 

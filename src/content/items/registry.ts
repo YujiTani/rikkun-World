@@ -24,6 +24,7 @@ export const ITEM_DEFS: ItemDefs = { ...GOLD_DEFS };
 /**
  * うつしかえの 途中で、同じ id を 古い表と 登録表の 両方に 書いてしまった所の 一覧（"表の名前:id"）。
  * 空で なければ registry.test.ts が 落ちる（片方を 消す）。
+ * 移しかえの 途中だけ 要る（段階 3 で 全シリーズが 登録表に 入り、古い表が 無くなったら withRegistry・noteDuplicates ごと 外す）。
  */
 export const REGISTRY_OVERLAPS: string[] = [];
 
