@@ -104,8 +104,14 @@ test.describe('BGM', () => {
     const errs = await open(page);
     expect(await startBgm(page), 'BGM が 流れる').toBe(true);
     // 流れはじめは フェードインの 途中（音の 時計で ゆっくり 上がる）。CI が 重いと まだ 小さい ので、上がりきる まで 条件で 待つ
-    await page.waitForFunction(() => { const w = window as any; return w.__kamiGain() > 0.01; });
-    const on = await bgmGain(page);
+    // 待つ ときと 測る ときを 同じ 1 回の 読みに する（別々に 読むと、その 間に CI では 小さく なる ことが あった）
+    const on = await (await page.waitForFunction(() => {
+      const w = window as any, s = w.__kami();
+      if (!s) return null;
+      const routes = w.__route(s) as { gain: number; limiter: boolean }[];
+      const max = Math.max(...routes.map((r) => r.gain));
+      return max > 0.01 ? { n: routes.length, max, limiter: routes.every((r) => r.limiter) } : null;
+    })).jsonValue();
     expect(on).not.toBeNull();
     expect(on!.n).toBeGreaterThan(0);
     expect(on!.limiter, 'ぜんぶ リミッターを 通る').toBe(true);
