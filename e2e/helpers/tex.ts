@@ -3,6 +3,7 @@ import { blockLightBrightness, lightBrightness } from '../../src/world/light/cur
 import { LIGHT_CONFIG } from '../../src/world/light/config';
 import { SCENERY_CONFIG } from '../../src/game/config';
 import { fine } from './fine';
+import { AO_LEVELS, FACE_SHADE_BY_INDEX, faceShadeTable } from '../../src/world/render/config';
 
 /**
  * TEX-A（#146、docs/tickets/TEX-A.md）の E2E の共通の道具。
@@ -30,7 +31,11 @@ export interface Texel {
 }
 
 /** (1) 面の明るさ（DESIGN 3.1）。north = −z */
-export const FACE_SHADE: Record<Face, number> = { top: 1, bottom: 0.5, north: 0.8, south: 0.8, east: 0.6, west: 0.6 };
+export const FACE_SHADE: Record<Face, number> = faceShadeTable();
+/** 面の明るさの ちがう値（上・下・東西・南北。#309 で 値を config から読む形に） */
+export const SHADE_VALUES: number[] = [...new Set(FACE_SHADE_BY_INDEX)];
+/** (3) AO の 4 段（DESIGN 3.2） */
+export const AO_STEPS: readonly number[] = AO_LEVELS;
 
 /** 平らな箱で描く 14 種（道具 7 種 DESIGN 5.3 + LIVE-2 のこたつ・小屋 2 ブロック + こたつ 2×2 の のこり 3 マス。3 マス は 1 つ だけ 置くと ふつう の 箱。さく・とびら は LIVE-2.1 で 板 に なった ので 入らない + geyser_dirt = #293 間欠泉の 土: 赤ちゃ色＋ひび＋水色の すきまの 専用の 絵で 土と 見分けるため ごつごつに せず 平らな 箱） */
 export const FLAT_BLOCKS = ['brick', 'farmland', 'farmland_wet', 'furnace', 'geyser_dirt', 'kawara', 'nukunuku', 'nukunuku_e', 'nukunuku_s', 'nukunuku_se', 'sprinkler', 'tansu', 'toriya_box', 'toriya_nest'];
@@ -550,7 +555,7 @@ export async function tilePalette(page: Page, bx: number, by: number, bz: number
 export function matchesPalette(r: Rec, face: Face, pal: Rgb[], o: { tol?: number; anyShade?: boolean } = {}): boolean {
   if (!r.pixel) return false;
   const light = lightTriple(r.sky, r.darken, r.block);
-  const shades = o.anyShade ? [1, 0.8, 0.6, 0.5] : [FACE_SHADE[face]];
+  const shades = o.anyShade ? SHADE_VALUES : [FACE_SHADE[face]];
   return pal.some((c) => shades.some((sh) => near(r.pixel!, expectedRgb(c, sh, light, 1), o.tol ?? 6)));
 }
 
