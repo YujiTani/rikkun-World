@@ -1,0 +1,128 @@
+{
+  "v": 1,
+  "gen": 3,
+  "seed": 12345,
+  "spawn": {
+    "x": 6.5,
+    "y": 30,
+    "z": 6.5
+  },
+  "inventory": {
+    "slots": [
+      {
+        "item": "wood_pickaxe",
+        "count": 1,
+        "wear": 3
+      },
+      {
+        "item": "katana",
+        "count": 1
+      },
+      {
+        "item": "torch",
+        "count": 5
+      },
+      {
+        "item": "water_bucket",
+        "count": 1
+      },
+      null,
+      {
+        "item": "dirt",
+        "count": 40
+      },
+      {
+        "item": "stone",
+        "count": 12
+      },
+      {
+        "item": "log",
+        "count": 7
+      },
+      {
+        "item": "onion",
+        "count": 3
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "item": "paper",
+        "count": 9
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "item": "iron_ingot",
+        "count": 2
+      }
+    ],
+    "selected": 2
+  },
+  "player": {
+    "x": 6.5,
+    "y": 300,
+    "z": 6.5,
+    "yaw": 90,
+    "pitch": -10
+  },
+  "bags": [],
+  "furnaces": [],
+  "armor": null,
+  "level": null,
+  "storage": null,
+  "achievements": {
+    "v": 1,
+    "stats": {
+      "break:dirt": 120,
+      "break:*": 150,
+      "craft:wood_pickaxe": 1,
+      "craft:*": 1,
+      "defeat:karakasa": 1,
+      "defeat:*": 1,
+      "walk": 345
+    },
+    "walk": 345,
+    "unlocked": {
+      "break.dirt.1": 0,
+      "break.dirt.10": 0,
+      "break.dirt.100": 1,
+      "craft.wood_pickaxe.1": 0,
+      "defeat.karakasa.1": 1
+    },
+    "seen": [
+      "break.dirt.1",
+      "break.dirt.10",
+      "craft.wood_pickaxe.1"
+    ],
+    "viewed": [
+      "break.dirt.1"
+    ],
+    "pending": [
+      "break.dirt.100",
+      "defeat.karakasa.1"
+    ],
+    "foundCountries": []
+  },
+  "farm": null
+}

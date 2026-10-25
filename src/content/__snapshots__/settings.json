@@ -1,0 +1,1382 @@
+{
+  "aimCfg": {
+    "aimAssistDeg": 4
+  },
+  "audio": {
+    "audioMuted": false,
+    "battleEnterTicks": 30,
+    "battleExitTicks": 240,
+    "battleRange": 16,
+    "bgmVolume": 0.4,
+    "masterVolume": 0.6
+  },
+  "camera": {
+    "eyeHeight": 1.62,
+    "fov": 75,
+    "thirdPersonDistance": 4,
+    "thirdPersonHeight": 0.5
+  },
+  "clockPhases": {
+    "clockPhases": {
+      "morningEnd": 0.4,
+      "noonEnd": 0.7
+    }
+  },
+  "combat": {
+    "dropBagTicks": 36000,
+    "dropChance": 0.5,
+    "fallDamagePerBlock": 1,
+    "hurtFlinchTicks": 24,
+    "hurtInvincibleTicks": 90,
+    "knockback": 1.8,
+    "knockbackUp": 4.5,
+    "pickupRadius": 1.5,
+    "playerMaxHp": 20,
+    "punchDamage": 1,
+    "punchReach": 3.5,
+    "punchTicks": 30,
+    "regenDelayTicks": 600,
+    "regenIntervalTicks": 900,
+    "regenMaxRatio": 0.5,
+    "respawnDelayTicks": 120,
+    "respawnInvincibleTicks": 180,
+    "safeFallHeight": 3
+  },
+  "craft": {
+    "armorValue": {
+      "kabuto": {
+        "ball": 2,
+        "fall": 0,
+        "normal": 0
+      },
+      "kin_kabuto": {
+        "ball": 3,
+        "fall": 0,
+        "normal": 0
+      },
+      "kin_kote": {
+        "ball": 0,
+        "fall": 0,
+        "normal": 2
+      },
+      "kin_suneate": {
+        "ball": 0,
+        "fall": 3,
+        "normal": 0
+      },
+      "kin_yoroi": {
+        "ball": 0,
+        "fall": 0,
+        "normal": 3
+      },
+      "kote": {
+        "ball": 0,
+        "fall": 0,
+        "normal": 1
+      },
+      "ninja_shozoku": {
+        "ball": 0,
+        "fall": 0,
+        "normal": 2
+      },
+      "ninja_tabi": {
+        "ball": 0,
+        "fall": 100000,
+        "normal": 0
+      },
+      "ninja_tekko": {
+        "ball": 0,
+        "fall": 0,
+        "normal": 1
+      },
+      "ninja_zukin": {
+        "ball": 2,
+        "fall": 0,
+        "normal": 0
+      },
+      "samurai_geta": {
+        "ball": 0,
+        "fall": 2,
+        "normal": 0
+      },
+      "samurai_haori": {
+        "ball": 0,
+        "fall": 0,
+        "normal": 2
+      },
+      "samurai_jingasa": {
+        "ball": 2,
+        "fall": 0,
+        "normal": 0
+      },
+      "samurai_tekko": {
+        "ball": 0,
+        "fall": 0,
+        "normal": 1
+      },
+      "suneate": {
+        "ball": 0,
+        "fall": 2,
+        "normal": 0
+      },
+      "yoroi": {
+        "ball": 0,
+        "fall": 0,
+        "normal": 2
+      }
+    },
+    "bakeQueueMax": 8,
+    "bakeTicks": 60,
+    "fixedDrop": {
+      "brick": 1,
+      "furnace": 1,
+      "kawara": 1,
+      "nukunuku": 1,
+      "tansu": 1
+    },
+    "pickupLogMax": 5,
+    "pickupLogTicks": 180
+  },
+  "craft2": {
+    "craftTansuRange": 40,
+    "logHistoryMax": 100,
+    "logMergeTicks": 180,
+    "logScrollRows": 3,
+    "uiAlphaMin": 0.6,
+    "uiHudAlpha": 0.6,
+    "uiPanelAlpha": 0.8,
+    "uiScrimAlpha": 0.2
+  },
+  "craftUi": {
+    "crackleMaxInterval": 0.35,
+    "crackleMinInterval": 0.12,
+    "crackleRange": 8,
+    "fireMaxFurnaces": 8,
+    "flameHz1": 1.7,
+    "flameHz2": 2.4,
+    "glowSeconds": 1.5,
+    "hintHopSeconds": 0.35,
+    "pickupLogFadeTicks": 30,
+    "smokeLife": 1.6,
+    "smokeMax": 48,
+    "smokePerSecond": 5,
+    "smokeRise": 0.9
+  },
+  "dig": {
+    "crackStages": 3,
+    "digCooldown": 6,
+    "digDecayRate": 1,
+    "dropMax": {
+      "common": 4,
+      "epic": 1,
+      "legendary": 1,
+      "mythic": 1,
+      "rare": 2,
+      "superRare": 1,
+      "uncommon": 3
+    },
+    "handLevel": 0,
+    "handPower": 1,
+    "hardness": {
+      "air": null,
+      "bamboo": 1.5,
+      "bedrock": null,
+      "brick": 6,
+      "coal_ore": 10,
+      "crop_eggplant": null,
+      "crop_onion": null,
+      "crop_pumpkin": null,
+      "crop_tomato": null,
+      "dirt": 0.5,
+      "farmland": 0.5,
+      "farmland_wet": 0.5,
+      "flower_o": 0.05,
+      "flower_p": 0.05,
+      "flower_y": 0.05,
+      "furnace": 6,
+      "geyser_dirt": 0.5,
+      "grass": 0.5,
+      "iron_ore": 15,
+      "kakashi": null,
+      "kakashi_head": null,
+      "kawara": 4,
+      "kusa": 0.05,
+      "leaves": 0.25,
+      "log": 5,
+      "matsu_leaves": 0.25,
+      "momiji_leaves": 0.25,
+      "nobana": 0.05,
+      "nukunuku": 2,
+      "nukunuku_e": 2,
+      "nukunuku_s": 2,
+      "nukunuku_se": 2,
+      "saku": 1,
+      "sand": 0.5,
+      "snow": 0.5,
+      "sprinkler": 3,
+      "start_torch": null,
+      "stone": 6,
+      "susuki": 0.05,
+      "tansu": 5,
+      "torch": 0.05,
+      "toriya_box": 5,
+      "toriya_fence": 5,
+      "toriya_gate": 5,
+      "toriya_nest": 5,
+      "water": null,
+      "wild_eggplant": null,
+      "wild_onion": null,
+      "wild_pumpkin": null,
+      "wild_tomato": null
+    },
+    "harvestLevel": {
+      "air": 0,
+      "bamboo": 0,
+      "bedrock": 0,
+      "brick": 0,
+      "coal_ore": 0,
+      "crop_eggplant": 0,
+      "crop_onion": 0,
+      "crop_pumpkin": 0,
+      "crop_tomato": 0,
+      "dirt": 0,
+      "farmland": 0,
+      "farmland_wet": 0,
+      "flower_o": 0,
+      "flower_p": 0,
+      "flower_y": 0,
+      "furnace": 0,
+      "geyser_dirt": 0,
+      "grass": 0,
+      "iron_ore": 1,
+      "kakashi": 0,
+      "kakashi_head": 0,
+      "kawara": 0,
+      "kusa": 0,
+      "leaves": 0,
+      "log": 0,
+      "matsu_leaves": 0,
+      "momiji_leaves": 0,
+      "nobana": 0,
+      "nukunuku": 0,
+      "nukunuku_e": 0,
+      "nukunuku_s": 0,
+      "nukunuku_se": 0,
+      "saku": 0,
+      "sand": 0,
+      "snow": 0,
+      "sprinkler": 0,
+      "start_torch": 0,
+      "stone": 0,
+      "susuki": 0,
+      "tansu": 0,
+      "torch": 0,
+      "toriya_box": 0,
+      "toriya_fence": 0,
+      "toriya_gate": 0,
+      "toriya_nest": 0,
+      "water": 0,
+      "wild_eggplant": 0,
+      "wild_onion": 0,
+      "wild_pumpkin": 0,
+      "wild_tomato": 0
+    },
+    "placeRepeatTicks": 30,
+    "rarity": {
+      "air": "common",
+      "bamboo": "common",
+      "bedrock": "common",
+      "brick": "uncommon",
+      "coal_ore": "uncommon",
+      "crop_eggplant": "common",
+      "crop_onion": "common",
+      "crop_pumpkin": "common",
+      "crop_tomato": "common",
+      "dirt": "common",
+      "farmland": "common",
+      "farmland_wet": "common",
+      "flower_o": "common",
+      "flower_p": "common",
+      "flower_y": "common",
+      "furnace": "uncommon",
+      "geyser_dirt": "uncommon",
+      "grass": "common",
+      "iron_ore": "rare",
+      "kakashi": "common",
+      "kakashi_head": "common",
+      "kawara": "uncommon",
+      "kusa": "common",
+      "leaves": "common",
+      "log": "uncommon",
+      "matsu_leaves": "common",
+      "momiji_leaves": "common",
+      "nobana": "common",
+      "nukunuku": "uncommon",
+      "nukunuku_e": "uncommon",
+      "nukunuku_s": "uncommon",
+      "nukunuku_se": "uncommon",
+      "saku": "common",
+      "sand": "common",
+      "snow": "common",
+      "sprinkler": "uncommon",
+      "start_torch": "common",
+      "stone": "common",
+      "susuki": "common",
+      "tansu": "uncommon",
+      "torch": "common",
+      "toriya_box": "uncommon",
+      "toriya_fence": "uncommon",
+      "toriya_gate": "uncommon",
+      "toriya_nest": "uncommon",
+      "water": "common",
+      "wild_eggplant": "common",
+      "wild_onion": "common",
+      "wild_pumpkin": "common",
+      "wild_tomato": "common"
+    },
+    "reach": 5
+  },
+  "fx": {
+    "comboMax": 12,
+    "comboResetSeconds": 2.5,
+    "comboSemitones": 1,
+    "crackWobble": 0.03,
+    "crackWobbleSeconds": 0.1,
+    "digSoundInterval": 0.25,
+    "flySeconds": 0.45,
+    "fxShake": 1,
+    "fxVolume": 0.5,
+    "nameSeconds": 1.5,
+    "particleCount": 18,
+    "particleLife": 0.5,
+    "particleSize": 0.15,
+    "particleSpeed": 3.2,
+    "placeScale": 1.15,
+    "placeSeconds": 0.18,
+    "puffScale": 1.18,
+    "puffSeconds": 0.07,
+    "readyPulseSeconds": 0.9,
+    "readyTremble": 0.012,
+    "redSeconds": 0.5,
+    "shakeSeconds": 0.1,
+    "shakeStrength": 0.004,
+    "signalSeconds": 1,
+    "slotPopScale": 1.3,
+    "slotPopSeconds": 0.25
+  },
+  "hint": {
+    "actionHint": true
+  },
+  "itemRarity": {
+    "itemRarity": {
+      "bamboo": "common",
+      "bokuto": "common",
+      "brick": "uncommon",
+      "bucket": "common",
+      "clay": "uncommon",
+      "cloth": "common",
+      "coal_ore": "uncommon",
+      "crystal": "superRare",
+      "crystal_katana": "superRare",
+      "dirt": "common",
+      "egg": "common",
+      "eggplant": "common",
+      "flower_o": "common",
+      "flower_p": "common",
+      "flower_y": "common",
+      "fujin_ken": "legendary",
+      "furnace": "uncommon",
+      "futon": "uncommon",
+      "geyser_dirt": "uncommon",
+      "grass": "common",
+      "haniwa": "uncommon",
+      "harapan_mimizu": "epic",
+      "iron_axe": "rare",
+      "iron_ingot": "rare",
+      "iron_ore": "rare",
+      "iron_pickaxe": "rare",
+      "kabuto": "rare",
+      "katana": "rare",
+      "kawara": "uncommon",
+      "kin": "epic",
+      "kin_axe": "epic",
+      "kin_kabuto": "epic",
+      "kin_katana": "epic",
+      "kin_kote": "epic",
+      "kin_pickaxe": "epic",
+      "kin_suneate": "epic",
+      "kin_tamago": "epic",
+      "kin_yoroi": "epic",
+      "kin_yumi": "epic",
+      "kite": "uncommon",
+      "kote": "rare",
+      "kuwa": "common",
+      "lantern": "uncommon",
+      "leaves": "common",
+      "log": "uncommon",
+      "long_watering_can": "uncommon",
+      "matsu_leaves": "common",
+      "momiji_leaves": "common",
+      "momo_nama": "common",
+      "momo_yaki": "common",
+      "mushi": "common",
+      "mushi_ami": "common",
+      "naginata": "rare",
+      "niji": "legendary",
+      "ninja_shozoku": "legendary",
+      "ninja_tabi": "legendary",
+      "ninja_tekko": "legendary",
+      "ninja_zukin": "legendary",
+      "nobana": "common",
+      "nukunuku": "uncommon",
+      "oil": "uncommon",
+      "omamori": "superRare",
+      "onion": "common",
+      "paper": "common",
+      "pumpkin": "common",
+      "raijin_ken": "legendary",
+      "samurai_geta": "legendary",
+      "samurai_haori": "legendary",
+      "samurai_jingasa": "legendary",
+      "samurai_tekko": "legendary",
+      "sand": "common",
+      "seed_eggplant": "common",
+      "seed_onion": "common",
+      "seed_pumpkin": "common",
+      "seed_tomato": "common",
+      "snow": "common",
+      "sprinkler": "uncommon",
+      "stone": "common",
+      "stone_axe": "common",
+      "stone_pickaxe": "common",
+      "string": "common",
+      "suneate": "rare",
+      "tansu": "uncommon",
+      "tomato": "common",
+      "torch": "common",
+      "toriya": "uncommon",
+      "waraji": "common",
+      "water_bucket": "common",
+      "watering_can": "common",
+      "wood_axe": "common",
+      "wood_pickaxe": "common",
+      "ya": "common",
+      "yokai_orb": "uncommon",
+      "yoroi": "rare",
+      "yumi": "uncommon"
+    }
+  },
+  "live": {
+    "animalAutoSpawn": true,
+    "animalEggChance": 0.25,
+    "animalEggDelay": 60,
+    "animalEggHeal": 2,
+    "animalEggPity": 7,
+    "animalFlutterFallSpeed": 2,
+    "animalFollowSpeed": 4,
+    "animalFollowStart": 4,
+    "animalFollowStop": 2.5,
+    "animalFollowTicks": 18000,
+    "animalFriendFeeds": 3,
+    "animalFriendMax": 8,
+    "animalFullTicks": 600,
+    "animalLookDist": 6,
+    "animalReactTicks": 30,
+    "animalRemoveDist": 64,
+    "animalSpawnInterval": 600,
+    "animalSpawnMaxDist": 40,
+    "animalSpawnMinDist": 16,
+    "animalStuckTicks": 120,
+    "animalWanderSpeed": 1,
+    "animalWarpDist": 16,
+    "animalWildMax": 3,
+    "bugChance": 0.3333333333333333,
+    "bugPity": 2,
+    "bugTreeCooldown": 1800,
+    "bugTreeRadius": 4,
+    "carryHoldTicks": 40,
+    "chickFlutterFallSpeed": 2.5,
+    "chickGrowDays": 2,
+    "coopCountMax": 3,
+    "coopEnterTicks": 0,
+    "coopMax": 6,
+    "coopNestMax": 12,
+    "goldBaseRaised": 0.04,
+    "goldBaseWild": 0.01,
+    "goldBugMax": 0.04,
+    "goldCap": 0.08,
+    "goldMachoMul": 2,
+    "goldPerBug": 0.0005,
+    "goldPity": 30,
+    "harapanBlock": 0.005,
+    "harapanChest": 0.03,
+    "harapanLog": 0.002,
+    "harapanUnderY": 144,
+    "harapanYokai": 0.07,
+    "kitActiveMax": 6,
+    "kitEggMax": 3,
+    "kitHatchDist": 16,
+    "kitHatchTicks": 7200,
+    "machoAtk": 2,
+    "machoChance": 0.05,
+    "machoFighters": 1,
+    "machoForget": 600,
+    "machoLeash": 12,
+    "machoPity": 19,
+    "machoReach": 1.2,
+    "machoRunSpeed": 5,
+    "meatHeal": 10,
+    "meatPerBird": 2,
+    "meatTicks": 220,
+    "natsukiBug": 15,
+    "natsukiBugWaitTicks": 18000,
+    "natsukiDecay": 5,
+    "natsukiDecayTicks": 36000,
+    "natsukiGoldMin": 70,
+    "natsukiMax": 100,
+    "natsukiPet": 10,
+    "natsukiPetWaitTicks": 18000,
+    "netSwingTicks": 20,
+    "placeStepMax": 2,
+    "throwRange": 4
+  },
+  "m6": {
+    "achieveCalmHurtTicks": 120,
+    "achieveCalmMaxWait": 1800,
+    "achieveCalmYokaiDist": 8,
+    "achieveChainCount": 3,
+    "achieveChainTicks": 600,
+    "achieveCooldown": 1800,
+    "achieveCooldownEarly": 5400,
+    "achieveEarlyTicks": 18000,
+    "achieveLowHp": 3,
+    "achieveModalRows": 5,
+    "achieveSmallBatch": 5,
+    "achieveSmallMaxWait": 18000,
+    "achieveToastTicks": 240,
+    "bannerInTicks": 36,
+    "bannerOutTicks": 30,
+    "bannerTicks": 180,
+    "craftComboMax": 8,
+    "craftComboTicks": 120,
+    "dropPickupDelay": 60,
+    "dropThrowSpeed": 4,
+    "dropThrowUp": 2,
+    "legendTelopTicks": 300,
+    "tansuCloseDist": 6,
+    "tansuSlots": 54
+  },
+  "m7": {
+    "eatHeal": {
+      "eggplant": 2,
+      "onion": 2,
+      "pumpkin": 4,
+      "tomato": 2
+    },
+    "farmCanCapacity": {
+      "long_watering_can": 20,
+      "watering_can": 10
+    },
+    "farmCanTiles": {
+      "long_watering_can": 2,
+      "watering_can": 1
+    },
+    "farmCanYReach": 1,
+    "farmGrassSeedChance": 0.125,
+    "farmGrassSeedWeight": 4,
+    "farmGrowDays": {
+      "dry": {
+        "eggplant": 1.875,
+        "onion": 1.875,
+        "pumpkin": 3,
+        "tomato": 1.125
+      },
+      "wet": {
+        "eggplant": 1.275,
+        "onion": 1.275,
+        "pumpkin": 1.95,
+        "tomato": 0.75
+      }
+    },
+    "farmHandTillPresses": 3,
+    "farmHandTillResetTicks": 120,
+    "farmHeartEvery": 180,
+    "farmHeartMax": 32,
+    "farmHeartRange": 16,
+    "farmMaxWaitFactor": 3,
+    "farmMinLight": 9,
+    "farmPetDays": 1,
+    "farmPetGrowBonus": 0.1,
+    "farmPourRepeatTicks": 30,
+    "farmRipeMinBrightness": 0,
+    "farmSeedYield": [
+      1,
+      2
+    ],
+    "farmSparkleEvery": 45,
+    "farmSparkleMax": 96,
+    "farmSparkleRange": 24,
+    "farmSprinklerRadius": 2,
+    "farmSprinklerSprayTicks": 120,
+    "farmWaterDays": 1,
+    "farmWetRange": 4,
+    "farmWetRecheckTicks": 60,
+    "farmWetSoonRatio": 0.25,
+    "farmYield": {
+      "eggplant": [
+        1,
+        2
+      ],
+      "onion": [
+        1,
+        2
+      ],
+      "pumpkin": [
+        1,
+        1
+      ],
+      "tomato": [
+        1,
+        2
+      ]
+    }
+  },
+  "player": {
+    "accelTime": 0.1,
+    "autoJump": true,
+    "eyeHeight": 1.62,
+    "fov": 75,
+    "gravity": 28,
+    "jumpHeight": 1.25,
+    "maxFallSpeed": 30,
+    "mouseSensitivity": 0.12,
+    "runSpeed": 5.6,
+    "thirdPersonDistance": 4,
+    "thirdPersonHeight": 0.5,
+    "turnDegPerSecond": 720,
+    "walkSpeed": 4,
+    "waterJumpMul": 0.85,
+    "waterSpeedMul": 0.5
+  },
+  "renderer": {
+    "microRadius": 28
+  },
+  "screen": {
+    "inventoryTimeScale": 0.25,
+    "saveIntervalTicks": 600
+  },
+  "time": {
+    "dawnTicks": 5400,
+    "dayTicks": 54000,
+    "duskTicks": 5400,
+    "nightBrightness": 0.25,
+    "nightDollBrightness": 0.75,
+    "nightTicks": 27000,
+    "yokaiLeaveTicks": 600
+  },
+  "tool": {
+    "arrowDamage": 2,
+    "arrowRange": 24,
+    "naginataComboReset": 60,
+    "toolLevel": {
+      "iron_axe": 0,
+      "iron_pickaxe": 2,
+      "kin_axe": 0,
+      "kin_pickaxe": 2,
+      "stone_axe": 0,
+      "stone_pickaxe": 1,
+      "wood_axe": 0,
+      "wood_pickaxe": 0
+    },
+    "toolPower": {
+      "iron_axe": 6,
+      "iron_pickaxe": 6,
+      "kin_axe": 6,
+      "kin_pickaxe": 6,
+      "kuwa": 4,
+      "stone_axe": 4,
+      "stone_pickaxe": 4,
+      "wood_axe": 2,
+      "wood_pickaxe": 2
+    },
+    "weaponDamage": {
+      "bokuto": 2,
+      "crystal_katana": 4,
+      "katana": 4,
+      "kin_axe": 5,
+      "kin_katana": 5,
+      "kin_pickaxe": 5,
+      "naginata": 3
+    },
+    "weaponReach": {
+      "naginata": 5
+    },
+    "weaponTicks": {
+      "naginata": 40
+    }
+  },
+  "w2": {
+    "arrowGravity": 20,
+    "arrowLifeTicks": 600,
+    "arrowPickupRange": [
+      1.2,
+      2
+    ],
+    "arrowStuckMax": 32,
+    "arrowStuckTicks": 1800,
+    "bladeAdvance": {
+      "kesa": {
+        "advance": [
+          0,
+          0,
+          0,
+          0.02,
+          0.04,
+          0.08,
+          0.4,
+          1.4,
+          2.4,
+          3.1,
+          3.1,
+          3.1,
+          3.1,
+          3.1,
+          3.1,
+          3.1
+        ],
+        "step": 3.1,
+        "ticks": [
+          4,
+          4,
+          6,
+          5,
+          4,
+          5,
+          2,
+          2,
+          2,
+          5,
+          28,
+          8,
+          8,
+          8,
+          8,
+          7
+        ]
+      },
+      "kiriage": {
+        "advance": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "step": 0,
+        "ticks": [
+          3,
+          4,
+          6,
+          3,
+          3,
+          1,
+          2,
+          7,
+          6,
+          5,
+          4,
+          4,
+          4
+        ]
+      },
+      "thrust": {
+        "advance": [
+          0,
+          0.08,
+          0.255,
+          0.26,
+          0.29,
+          0.32,
+          0.285,
+          0.241,
+          0.16,
+          0.073,
+          0.002
+        ],
+        "step": 0,
+        "ticks": [
+          2,
+          2,
+          1,
+          1,
+          3,
+          11,
+          4,
+          4,
+          4,
+          4,
+          5
+        ]
+      }
+    },
+    "bladeAimReach": 4.5,
+    "bladeBufferTicks": 8,
+    "bladeCombo": {
+      "follow": {
+        "kesa": 12,
+        "kiriage": 12,
+        "thrust": 14
+      },
+      "items": [
+        "crystal_katana",
+        "raijin_ken",
+        "fujin_ken",
+        "niji"
+      ],
+      "order": {
+        "chudan": [
+          "thrust",
+          "kiriage",
+          "kesa"
+        ],
+        "gedan": [
+          "kiriage",
+          "thrust",
+          "kesa"
+        ],
+        "jodan": [
+          "kesa"
+        ]
+      },
+      "step2Advance": {
+        "kiriage": {
+          "advance": [
+            0,
+            0,
+            0,
+            0.1,
+            0.4,
+            1,
+            1.4,
+            1.4,
+            1.4,
+            1.4,
+            1.4,
+            1.4,
+            1.4
+          ],
+          "step": 1.4,
+          "ticks": [
+            3,
+            4,
+            6,
+            3,
+            3,
+            1,
+            2,
+            7,
+            6,
+            5,
+            4,
+            4,
+            4
+          ]
+        },
+        "thrust": {
+          "advance": [
+            0,
+            0.5,
+            1.1,
+            1.4,
+            1.4,
+            1.4,
+            1.4,
+            1.4,
+            1.4,
+            1.4,
+            1.4
+          ],
+          "step": 1.4,
+          "ticks": [
+            2,
+            2,
+            1,
+            1,
+            3,
+            11,
+            4,
+            4,
+            4,
+            4,
+            5
+          ]
+        }
+      },
+      "stepStartup": {
+        "kesa": 20,
+        "kiriage": 12,
+        "thrust": 4
+      }
+    },
+    "bladeDamageMul": {
+      "kesa": 2.5,
+      "kiriage": 1.15,
+      "thrust": 0.75
+    },
+    "bladeFaceAssistDeg": 30,
+    "bladeKnock": {
+      "kesa": [
+        6,
+        3
+      ],
+      "kiriage": [
+        1,
+        7
+      ],
+      "thrust": [
+        0.8,
+        0
+      ]
+    },
+    "bladeMoveMul": {
+      "kesaRecovery": 0,
+      "kesaStartupActive": 0,
+      "kiriage": 0,
+      "thrust": 0
+    },
+    "bladeReach": {
+      "bokuto": 2.2,
+      "crystal_katana": 2.2,
+      "fujin_ken": 2.2,
+      "katana": 2.2,
+      "kin_katana": 2.2,
+      "niji": 2.2,
+      "raijin_ken": 2.2
+    },
+    "bladeShape": {
+      "kesa": {
+        "halfAngleDeg": 75,
+        "rMax": 2.2,
+        "rMin": 0.3,
+        "yMax": 2.6,
+        "yMin": -0.5
+      },
+      "kiriage": {
+        "halfAngleDeg": 45,
+        "rMax": 2.2,
+        "rMin": 0.3,
+        "yMax": 6,
+        "yMin": -0.3
+      },
+      "thrust": {
+        "length": 2.2,
+        "radius": 0.2
+      }
+    },
+    "bladeTech": {
+      "kesa": {
+        "active": 6,
+        "recovery": 72,
+        "startup": 28
+      },
+      "kiriage": {
+        "active": 3,
+        "recovery": 30,
+        "startup": 19
+      },
+      "thrust": {
+        "active": 2,
+        "recovery": 35,
+        "startup": 4
+      }
+    },
+    "bladeTrail": {
+      "bokuto": {
+        "blade": 12159828,
+        "bladeShine": 14728326,
+        "color": 10251066,
+        "glow": 15253642,
+        "style": "plain"
+      },
+      "crystal_katana": {
+        "blade": 7327221,
+        "bladeShine": 15137535,
+        "color": 8379647,
+        "glow": 15137535,
+        "style": "star"
+      },
+      "fujin_ken": {
+        "blade": 13627391,
+        "bladeShine": 16777215,
+        "color": 15137023,
+        "glow": 16777215,
+        "style": "plain"
+      },
+      "katana": {
+        "blade": 13159896,
+        "bladeShine": 16777215,
+        "color": 15266298,
+        "glow": 16777215,
+        "style": "plain"
+      },
+      "kin_katana": {
+        "blade": 15448128,
+        "bladeShine": 16773300,
+        "color": 15907128,
+        "glow": 16773300,
+        "style": "gold",
+        "under": 2761272
+      },
+      "naginata": {
+        "blade": 12111072,
+        "bladeShine": 15660799,
+        "color": 13625599,
+        "glow": 16777215,
+        "style": "long"
+      },
+      "niji": {
+        "blade": 12832482,
+        "bladeShine": 6281614,
+        "color": 13724646,
+        "glow": 16777215,
+        "style": "plain"
+      },
+      "raijin_ken": {
+        "blade": 11563263,
+        "bladeShine": 15127295,
+        "color": 16774848,
+        "glow": 16777215,
+        "style": "thunder"
+      }
+    },
+    "bladeTrailShape": {
+      "bandAlpha": [
+        1,
+        0.85,
+        0.5,
+        0.22
+      ],
+      "bandEdges": [
+        0.16666666666666666,
+        0.5,
+        0.8333333333333334
+      ],
+      "fadeAges": [
+        2.25,
+        4.5,
+        6.75
+      ],
+      "lifeSteps": 9,
+      "maxSegs": 36,
+      "minWidth": 0.1,
+      "segPerStep": 6,
+      "starAt": [
+        0.25,
+        0.55,
+        0.85
+      ],
+      "starMaxAge": 8.55,
+      "widthRatio": 0.45
+    },
+    "bladeTrailWindow": {
+      "kesa": [
+        28,
+        34
+      ],
+      "kiriage": [
+        19,
+        22
+      ],
+      "thrust": [
+        2,
+        6
+      ]
+    },
+    "bowBend": {
+      "bendDeg": [
+        12,
+        22,
+        32
+      ],
+      "blendTicks": 6,
+      "pull": [
+        0.4,
+        0.7,
+        1
+      ]
+    },
+    "bowDamage": [
+      1,
+      2,
+      3
+    ],
+    "bowDamageByItem": {
+      "kin_yumi": [
+        2,
+        3,
+        5
+      ]
+    },
+    "bowKnock": [
+      0.5,
+      1,
+      1.5
+    ],
+    "bowMoveMul": 0.5,
+    "bowNockTicks": 10,
+    "bowSpeed": [
+      12,
+      20,
+      28
+    ],
+    "bowStageTicks": [
+      10,
+      25,
+      40
+    ],
+    "legendary": [
+      {
+        "charge": {
+          "boltSteps": 12,
+          "chargeTicks": 60,
+          "damageMul": 2,
+          "kind": "lightning",
+          "knock": [
+            2,
+            4
+          ],
+          "radius": 5,
+          "range": 20,
+          "recovery": 40,
+          "strikeF": 8
+        },
+        "item": "raijin_ken",
+        "onAttack": [
+          {
+            "kind": "trail",
+            "style": "thunder"
+          }
+        ],
+        "passive": [],
+        "power": 8
+      },
+      {
+        "charge": {
+          "chargeTicks": 60,
+          "damageMul": 2,
+          "kind": "spiral",
+          "knock": [
+            3,
+            1
+          ],
+          "launchF": 6,
+          "radius": 1,
+          "range": 12,
+          "recovery": 40,
+          "speed": 12
+        },
+        "item": "fujin_ken",
+        "onAttack": [
+          {
+            "damageMul": 0.3,
+            "kind": "wave",
+            "knock": [
+              0.5,
+              0
+            ],
+            "radius": 0.5,
+            "range": 5,
+            "speed": 15
+          }
+        ],
+        "passive": [
+          {
+            "kind": "moveMul",
+            "mul": 1.2
+          }
+        ],
+        "power": 6
+      },
+      {
+        "charge": {
+          "chargeTicks": 150,
+          "cooldown": 600,
+          "damageMul": 2.5,
+          "fallSteps": 40,
+          "hitEvery": 60,
+          "holdSteps": 160,
+          "kind": "shining",
+          "pullRange": 12,
+          "pullSpeed": 3,
+          "push": [
+            9,
+            6
+          ],
+          "radius": 7,
+          "rise": 2,
+          "riseSteps": 40,
+          "takenMul": 0.3333333333333333
+        },
+        "item": "niji",
+        "onAttack": [
+          {
+            "kind": "trail",
+            "style": "rainbow"
+          }
+        ],
+        "passive": [],
+        "power": [
+          4,
+          10
+        ]
+      }
+    ],
+    "legendaryChargeWalk": 0.5,
+    "nushiDrops": [
+      {
+        "item": "raijin_ken",
+        "weight": 1
+      },
+      {
+        "item": "fujin_ken",
+        "weight": 1
+      },
+      {
+        "item": "niji",
+        "weight": 1
+      },
+      {
+        "item": "samurai_jingasa",
+        "weight": 1
+      },
+      {
+        "item": "samurai_haori",
+        "weight": 1
+      },
+      {
+        "item": "samurai_tekko",
+        "weight": 1
+      },
+      {
+        "item": "samurai_geta",
+        "weight": 1
+      }
+    ],
+    "parryArcDeg": 90,
+    "parryEarlyMul": 0.5,
+    "parryEarlyTicks": 12,
+    "parryGlowTicks": 20,
+    "parryKimeTicks": 8,
+    "parrySlow": {
+      "scale": 0.25,
+      "ticks": 6
+    },
+    "parryTicks": {
+      "guard": 18,
+      "ready": 2,
+      "recover": 20
+    },
+    "punchShape": {
+      "halfAngleDeg": 45,
+      "yMax": 3,
+      "yMin": -0.5
+    },
+    "reflectFireball": {
+      "damageMul": 1,
+      "range": 8,
+      "speed": 10
+    },
+    "shiningCamDistance": 14,
+    "staggerDamageMul": 2,
+    "staggerTicks": 90,
+    "stanceSwitchTicks": 8,
+    "thrustTiltMaxDeg": 45,
+    "toolDurability": {
+      "bokuto": 59,
+      "crystal_katana": 400,
+      "fujin_ken": 10000,
+      "iron_axe": 250,
+      "iron_pickaxe": 250,
+      "kabuto": 165,
+      "katana": 250,
+      "kin_axe": 500,
+      "kin_kabuto": 500,
+      "kin_katana": 500,
+      "kin_kote": 500,
+      "kin_pickaxe": 500,
+      "kin_suneate": 500,
+      "kin_yoroi": 500,
+      "kin_yumi": 500,
+      "kote": 225,
+      "kuwa": 131,
+      "naginata": 250,
+      "niji": 10000,
+      "ninja_shozoku": 10000,
+      "ninja_tabi": 10000,
+      "ninja_tekko": 10000,
+      "ninja_zukin": 10000,
+      "raijin_ken": 10000,
+      "samurai_geta": 10000,
+      "samurai_haori": 10000,
+      "samurai_jingasa": 10000,
+      "samurai_tekko": 10000,
+      "stone_axe": 131,
+      "stone_pickaxe": 131,
+      "suneate": 195,
+      "wood_axe": 59,
+      "wood_pickaxe": 59,
+      "yoroi": 240,
+      "yumi": 384
+    },
+    "toolWear": {
+      "armorDiv": 4,
+      "blade": {
+        "block": 2,
+        "hit": 1
+      },
+      "bow": {
+        "shot": 1
+      },
+      "kuwa": {
+        "block": 2,
+        "hit": 2,
+        "till": 1
+      },
+      "pickaxe": {
+        "block": 1,
+        "hit": 2
+      }
+    },
+    "wearLowRatio": 0.1
+  },
+  "yokai": {
+    "contactDamage": 1,
+    "fallDamagePerBlock": 1,
+    "knockback": 1,
+    "nurikabeMax": 1,
+    "safeFallHeight": 3,
+    "waterSpeedMul": 0.5,
+    "yokaiAutoSpawn": true,
+    "yokaiLeaveTicks": 600,
+    "yokaiMax": 5,
+    "yokaiSpawnInterval": 300,
+    "yokaiSpawnMaxDist": 28,
+    "yokaiSpawnMinDist": 12,
+    "yokaiSpawnNearExclude": 8,
+    "yokaiWander": true,
+    "yokaiWeights": {
+      "chochin": 1,
+      "karakasa": 1,
+      "nurikabe": 1,
+      "rokurokubi": 1
+    }
+  }
+}

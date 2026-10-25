@@ -4,5 +4,7 @@
   "switchExhaustive": 21,
   "cycles": 8,
   "unusedExports": 425,
-  "unusedTypes": 165
+  "unusedTypes": 165,
+  "eslintDisable": 1,
+  "filesOver800": 17
 }

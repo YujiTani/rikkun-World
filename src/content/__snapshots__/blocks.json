@@ -1,0 +1,601 @@
+{
+  "BLOCK_IDS_V1": [
+    "air",
+    "grass",
+    "dirt",
+    "stone",
+    "sand",
+    "log",
+    "leaves",
+    "coal_ore",
+    "iron_ore",
+    "water",
+    "bedrock",
+    "furnace",
+    "kawara",
+    "brick",
+    "torch",
+    "start_torch",
+    "tansu",
+    "farmland",
+    "farmland_wet",
+    "crop_onion",
+    "crop_tomato",
+    "crop_pumpkin",
+    "crop_eggplant",
+    "wild_onion",
+    "wild_tomato",
+    "wild_pumpkin",
+    "wild_eggplant",
+    "kakashi",
+    "kakashi_head",
+    "saku",
+    "sprinkler"
+  ],
+  "BLOCK_INDEX": {
+    "air": 0,
+    "bamboo": 37,
+    "bedrock": 10,
+    "brick": 13,
+    "coal_ore": 7,
+    "crop_eggplant": 22,
+    "crop_onion": 19,
+    "crop_pumpkin": 21,
+    "crop_tomato": 20,
+    "dirt": 2,
+    "farmland": 17,
+    "farmland_wet": 18,
+    "flower_o": 35,
+    "flower_p": 36,
+    "flower_y": 34,
+    "furnace": 11,
+    "geyser_dirt": 49,
+    "grass": 1,
+    "iron_ore": 8,
+    "kakashi": 27,
+    "kakashi_head": 28,
+    "kawara": 12,
+    "kusa": 39,
+    "leaves": 6,
+    "log": 5,
+    "matsu_leaves": 33,
+    "momiji_leaves": 32,
+    "nobana": 40,
+    "nukunuku": 41,
+    "nukunuku_e": 46,
+    "nukunuku_s": 47,
+    "nukunuku_se": 48,
+    "saku": 29,
+    "sand": 4,
+    "snow": 31,
+    "sprinkler": 30,
+    "start_torch": 15,
+    "stone": 3,
+    "susuki": 38,
+    "tansu": 16,
+    "torch": 14,
+    "toriya_box": 45,
+    "toriya_fence": 42,
+    "toriya_gate": 43,
+    "toriya_nest": 44,
+    "water": 9,
+    "wild_eggplant": 26,
+    "wild_onion": 23,
+    "wild_pumpkin": 25,
+    "wild_tomato": 24
+  },
+  "BLOCK_TYPES": [
+    {
+      "breakable": false,
+      "id": "air",
+      "name": "くうき",
+      "solid": false
+    },
+    {
+      "breakable": true,
+      "id": "grass",
+      "name": "くさ",
+      "solid": true
+    },
+    {
+      "breakable": true,
+      "id": "dirt",
+      "name": "つち",
+      "solid": true
+    },
+    {
+      "breakable": true,
+      "id": "stone",
+      "name": "いし",
+      "solid": true
+    },
+    {
+      "breakable": true,
+      "id": "sand",
+      "name": "すな",
+      "solid": true
+    },
+    {
+      "breakable": true,
+      "id": "log",
+      "name": "き",
+      "solid": true
+    },
+    {
+      "breakable": true,
+      "id": "leaves",
+      "name": "はっぱ",
+      "solid": true
+    },
+    {
+      "breakable": true,
+      "id": "coal_ore",
+      "name": "せきたん",
+      "solid": true
+    },
+    {
+      "breakable": true,
+      "id": "iron_ore",
+      "name": "てつ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "water",
+      "name": "みず",
+      "solid": false
+    },
+    {
+      "breakable": false,
+      "id": "bedrock",
+      "name": "そこいし",
+      "solid": true
+    },
+    {
+      "breakable": true,
+      "id": "furnace",
+      "name": "かまど",
+      "solid": true
+    },
+    {
+      "breakable": true,
+      "id": "kawara",
+      "name": "かわら",
+      "solid": true
+    },
+    {
+      "breakable": true,
+      "id": "brick",
+      "name": "レンガ",
+      "solid": true
+    },
+    {
+      "breakable": true,
+      "id": "torch",
+      "name": "たいまつ",
+      "solid": false
+    },
+    {
+      "breakable": false,
+      "id": "start_torch",
+      "name": "こわれない たいまつ",
+      "solid": false
+    },
+    {
+      "breakable": true,
+      "id": "tansu",
+      "name": "たんす",
+      "solid": true
+    },
+    {
+      "breakable": true,
+      "id": "farmland",
+      "name": "はたけ",
+      "solid": true
+    },
+    {
+      "breakable": true,
+      "id": "farmland_wet",
+      "name": "はたけ",
+      "solid": true
+    },
+    {
+      "breakable": false,
+      "id": "crop_onion",
+      "name": "たまねぎ",
+      "solid": false
+    },
+    {
+      "breakable": false,
+      "id": "crop_tomato",
+      "name": "トマト",
+      "solid": false
+    },
+    {
+      "breakable": false,
+      "id": "crop_pumpkin",
+      "name": "かぼちゃ",
+      "solid": false
+    },
+    {
+      "breakable": false,
+      "id": "crop_eggplant",
+      "name": "なす",
+      "solid": false
+    },
+    {
+      "breakable": false,
+      "id": "wild_onion",
+      "name": "やせいの たまねぎ",
+      "solid": false
+    },
+    {
+      "breakable": false,
+      "id": "wild_tomato",
+      "name": "やせいの トマト",
+      "solid": false
+    },
+    {
+      "breakable": false,
+      "id": "wild_pumpkin",
+      "name": "やせいの かぼちゃ",
+      "solid": false
+    },
+    {
+      "breakable": false,
+      "id": "wild_eggplant",
+      "name": "やせいの なす",
+      "solid": false
+    },
+    {
+      "breakable": false,
+      "id": "kakashi",
+      "name": "かかし",
+      "solid": false
+    },
+    {
+      "breakable": false,
+      "id": "kakashi_head",
+      "name": "かかし",
+      "solid": false
+    },
+    {
+      "breakable": true,
+      "id": "saku",
+      "name": "さく",
+      "solid": false
+    },
+    {
+      "breakable": true,
+      "id": "sprinkler",
+      "name": "スプリンクラー",
+      "solid": true
+    },
+    {
+      "breakable": true,
+      "id": "snow",
+      "name": "ゆき",
+      "solid": true
+    },
+    {
+      "breakable": true,
+      "id": "momiji_leaves",
+      "name": "もみじの はっぱ",
+      "solid": true
+    },
+    {
+      "breakable": true,
+      "id": "matsu_leaves",
+      "name": "まつの はっぱ",
+      "solid": true
+    },
+    {
+      "breakable": true,
+      "id": "flower_y",
+      "name": "はな",
+      "solid": false
+    },
+    {
+      "breakable": true,
+      "id": "flower_o",
+      "name": "はな",
+      "solid": false
+    },
+    {
+      "breakable": true,
+      "id": "flower_p",
+      "name": "はな",
+      "solid": false
+    },
+    {
+      "breakable": true,
+      "id": "bamboo",
+      "name": "たけ",
+      "solid": true
+    },
+    {
+      "breakable": true,
+      "id": "susuki",
+      "name": "すすき",
+      "solid": false
+    },
+    {
+      "breakable": true,
+      "id": "kusa",
+      "name": "くさ",
+      "solid": false
+    },
+    {
+      "breakable": true,
+      "id": "nobana",
+      "name": "のばな",
+      "solid": false
+    },
+    {
+      "breakable": true,
+      "id": "nukunuku",
+      "name": "こたつ",
+      "solid": true
+    },
+    {
+      "breakable": true,
+      "id": "toriya_fence",
+      "name": "とりごや",
+      "solid": true
+    },
+    {
+      "breakable": true,
+      "id": "toriya_gate",
+      "name": "とりごや",
+      "solid": false
+    },
+    {
+      "breakable": true,
+      "id": "toriya_nest",
+      "name": "とりごや",
+      "solid": true
+    },
+    {
+      "breakable": true,
+      "id": "toriya_box",
+      "name": "とりごや",
+      "solid": true
+    },
+    {
+      "breakable": true,
+      "id": "nukunuku_e",
+      "name": "こたつ",
+      "solid": true
+    },
+    {
+      "breakable": true,
+      "id": "nukunuku_s",
+      "name": "こたつ",
+      "solid": true
+    },
+    {
+      "breakable": true,
+      "id": "nukunuku_se",
+      "name": "こたつ",
+      "solid": true
+    },
+    {
+      "breakable": true,
+      "id": "geyser_dirt",
+      "name": "かんけつせんの つち",
+      "solid": true
+    }
+  ],
+  "DIG_DEFAULTS": {
+    "crackStages": 3,
+    "digCooldown": 6,
+    "digDecayRate": 1,
+    "digResumeTicks": 0,
+    "dropMax": {
+      "common": 4,
+      "epic": 1,
+      "legendary": 1,
+      "mythic": 1,
+      "rare": 2,
+      "superRare": 1,
+      "uncommon": 3
+    },
+    "handLevel": 0,
+    "handPower": 1,
+    "hardness": {
+      "air": null,
+      "bamboo": 1.5,
+      "bedrock": null,
+      "brick": 6,
+      "coal_ore": 10,
+      "crop_eggplant": null,
+      "crop_onion": null,
+      "crop_pumpkin": null,
+      "crop_tomato": null,
+      "dirt": 0.5,
+      "farmland": 0.5,
+      "farmland_wet": 0.5,
+      "flower_o": 0.05,
+      "flower_p": 0.05,
+      "flower_y": 0.05,
+      "furnace": 6,
+      "geyser_dirt": 0.5,
+      "grass": 0.5,
+      "iron_ore": 15,
+      "kakashi": null,
+      "kakashi_head": null,
+      "kawara": 4,
+      "kusa": 0.05,
+      "leaves": 0.25,
+      "log": 5,
+      "matsu_leaves": 0.25,
+      "momiji_leaves": 0.25,
+      "nobana": 0.05,
+      "nukunuku": 2,
+      "nukunuku_e": 2,
+      "nukunuku_s": 2,
+      "nukunuku_se": 2,
+      "saku": 1,
+      "sand": 0.5,
+      "snow": 0.5,
+      "sprinkler": 3,
+      "start_torch": null,
+      "stone": 6,
+      "susuki": 0.05,
+      "tansu": 5,
+      "torch": 0.05,
+      "toriya_box": 5,
+      "toriya_fence": 5,
+      "toriya_gate": 5,
+      "toriya_nest": 5,
+      "water": null,
+      "wild_eggplant": null,
+      "wild_onion": null,
+      "wild_pumpkin": null,
+      "wild_tomato": null
+    },
+    "harvestLevel": {
+      "air": 0,
+      "bamboo": 0,
+      "bedrock": 0,
+      "brick": 0,
+      "coal_ore": 0,
+      "crop_eggplant": 0,
+      "crop_onion": 0,
+      "crop_pumpkin": 0,
+      "crop_tomato": 0,
+      "dirt": 0,
+      "farmland": 0,
+      "farmland_wet": 0,
+      "flower_o": 0,
+      "flower_p": 0,
+      "flower_y": 0,
+      "furnace": 0,
+      "geyser_dirt": 0,
+      "grass": 0,
+      "iron_ore": 1,
+      "kakashi": 0,
+      "kakashi_head": 0,
+      "kawara": 0,
+      "kusa": 0,
+      "leaves": 0,
+      "log": 0,
+      "matsu_leaves": 0,
+      "momiji_leaves": 0,
+      "nobana": 0,
+      "nukunuku": 0,
+      "nukunuku_e": 0,
+      "nukunuku_s": 0,
+      "nukunuku_se": 0,
+      "saku": 0,
+      "sand": 0,
+      "snow": 0,
+      "sprinkler": 0,
+      "start_torch": 0,
+      "stone": 0,
+      "susuki": 0,
+      "tansu": 0,
+      "torch": 0,
+      "toriya_box": 0,
+      "toriya_fence": 0,
+      "toriya_gate": 0,
+      "toriya_nest": 0,
+      "water": 0,
+      "wild_eggplant": 0,
+      "wild_onion": 0,
+      "wild_pumpkin": 0,
+      "wild_tomato": 0
+    },
+    "placeRepeatTicks": 30,
+    "rarity": {
+      "air": "common",
+      "bamboo": "common",
+      "bedrock": "common",
+      "brick": "uncommon",
+      "coal_ore": "uncommon",
+      "crop_eggplant": "common",
+      "crop_onion": "common",
+      "crop_pumpkin": "common",
+      "crop_tomato": "common",
+      "dirt": "common",
+      "farmland": "common",
+      "farmland_wet": "common",
+      "flower_o": "common",
+      "flower_p": "common",
+      "flower_y": "common",
+      "furnace": "uncommon",
+      "geyser_dirt": "uncommon",
+      "grass": "common",
+      "iron_ore": "rare",
+      "kakashi": "common",
+      "kakashi_head": "common",
+      "kawara": "uncommon",
+      "kusa": "common",
+      "leaves": "common",
+      "log": "uncommon",
+      "matsu_leaves": "common",
+      "momiji_leaves": "common",
+      "nobana": "common",
+      "nukunuku": "uncommon",
+      "nukunuku_e": "uncommon",
+      "nukunuku_s": "uncommon",
+      "nukunuku_se": "uncommon",
+      "saku": "common",
+      "sand": "common",
+      "snow": "common",
+      "sprinkler": "uncommon",
+      "start_torch": "common",
+      "stone": "common",
+      "susuki": "common",
+      "tansu": "uncommon",
+      "torch": "common",
+      "toriya_box": "uncommon",
+      "toriya_fence": "uncommon",
+      "toriya_gate": "uncommon",
+      "toriya_nest": "uncommon",
+      "water": "common",
+      "wild_eggplant": "common",
+      "wild_onion": "common",
+      "wild_pumpkin": "common",
+      "wild_tomato": "common"
+    },
+    "reach": 5
+  },
+  "FARM_BREAK_DROP": {
+    "farmland": {
+      "count": 1,
+      "item": "dirt"
+    },
+    "farmland_wet": {
+      "count": 1,
+      "item": "dirt"
+    },
+    "geyser_dirt": {
+      "count": 1,
+      "item": "geyser_dirt"
+    },
+    "nobana": {
+      "count": 1,
+      "item": "nobana"
+    },
+    "saku": {
+      "count": 1,
+      "item": "log"
+    },
+    "sprinkler": {
+      "count": 1,
+      "item": "sprinkler"
+    }
+  },
+  "NO_DROP_BLOCKS": [
+    "kusa",
+    "susuki"
+  ],
+  "fixedDrop": {
+    "brick": 1,
+    "furnace": 1,
+    "kawara": 1,
+    "nukunuku": 1,
+    "tansu": 1
+  }
+}
