@@ -5,8 +5,8 @@
  * 担当の割り振り: docs/tickets/M1-dev-split.md
  */
 
-import type { GoldId } from './content/items/ids';
-import { registryBladeReach, registryBladeTrail, registryBowDamage, registryWear, withRegistry } from './content/items/registry';
+import { SAMURAI_ITEM_IDS, type GoldId, type LegendId, type NinjaId, type SamuraiId } from './content/items/ids';
+import { registryBladeReach, registryBladeTrail, registryBowDamage, registryLegend, registryWear, withRegistry } from './content/items/registry';
 
 export interface Vec3 {
   x: number;
@@ -220,14 +220,9 @@ export type ItemOnlyId =
   | 'yoroi'
   | 'kote' // こて（籠手）
   | 'suneate' // すねあて（脛当て）
-  | 'ninja_zukin' // 黒頭巾（NINJA-1 #299・あたま。ひのたまを ふせぐ・酸素が ながく もつ）
-  | 'ninja_shozoku' // 忍び装束（からだ。妖怪に 気づかれにくい）
-  | 'ninja_tekko' // 忍びの手甲（うで。刀・素手の 当たりの あとに 小太刀で 追い打ち）
-  | 'ninja_tabi' // 忍びの足袋（あし。落下ダメージ 0。#293 試作 → NINJA-1。作れない・ステータスだけ）
-  | 'samurai_jingasa' // 明珍陣笠（SAMURAI-1 #300・あたま。ひのたまを ふせぐ・パリィの 受けが 長い）
-  | 'samurai_haori' // 明珍羽織（からだ。とばされにくい）
-  | 'samurai_tekko' // 明珍手甲（うで。刀が 1.5 倍・防御力 10 無視）
-  | 'samurai_geta' // 明珍下駄（あし。落下の いたみを へらす・走ると カランコロン）
+  // NINJA-1（#299）・SAMURAI-1（#300）: 忍者装備 4 つ・侍装備 4 つの id は content/items/ids.ts の 1 か所（#306）
+  | NinjaId
+  | SamuraiId
   | 'torch'
   | 'lantern'
   | 'kite'
@@ -262,10 +257,8 @@ export type ItemOnlyId =
   // LIVE-3（§4.2）: もも にく
   | 'momo_nama' // なま もも にく（たべられない。かまど で やく）
   | 'momo_yaki' // やいた もも にく（たべる と 体力 meatHeal）
-  // WEAPON-7（うしろに足す。レジェンダリー）
-  | 'raijin_ken' // 雷神剣（ヌシが おとす）
-  | 'fujin_ken' // 風神剣（ヌシが おとす。WEAPON-7 PR2）
-  | 'niji' // 虹（ヌシが おとす。WEAPON-9。強さは 1 本ごと 4〜10）
+  // WEAPON-7/8/9（うしろに足す）: レジェンダリー 3 つ（雷神剣・風神剣・虹）の id は content/items/ids.ts の 1 か所（#306）
+  | LegendId
   // GOLD-1（#222）: 金シリーズの id は content/items/ids.ts の 1 か所（#306）
   | GoldId;
 
@@ -1953,31 +1946,8 @@ export interface NushiDropRow {
   weight: number;
 }
 
-export const LEGENDARY_DEFAULTS: readonly LegendaryDef[] = [
-  {
-    item: 'raijin_ken',
-    power: 8,
-    charge: { kind: 'lightning', chargeTicks: 60, range: 20, radius: 5, damageMul: 2.0, knock: [2, 4], strikeF: 8, boltSteps: 12, recovery: 40 },
-    onAttack: [{ kind: 'trail', style: 'thunder' }],
-    passive: [],
-  },
-  {
-    item: 'fujin_ken',
-    power: 6,
-    // WEAPON-8: 風神剣の ためわざ「らせんの かぜ」（前へ まっすぐ 12 マス・つらぬく・12 ダメージ）
-    charge: { kind: 'spiral', chargeTicks: 60, launchF: 6, recovery: 40, speed: 12, range: 12, radius: 1.0, damageMul: 2.0, knock: [3, 1] },
-    onAttack: [{ kind: 'wave', speed: 15, range: 5, radius: 0.5, damageMul: 0.3, knock: [0.5, 0] }],
-    passive: [{ kind: 'moveMul', mul: 1.2 }],
-  },
-  {
-    item: 'niji',
-    power: [4, 10],
-    // WEAPON-9 §5.1: 虹。ため 2.5 秒 → シャイニング（うかぶ 40・とどまる 160・おりる 40・もどり 20）。休み 600
-    charge: { kind: 'shining', chargeTicks: 150, rise: 2.0, riseSteps: 40, holdSteps: 160, fallSteps: 40, radius: 7, damageMul: 2.5, hitEvery: 60, push: [9, 6], cooldown: 600, takenMul: 1 / 3, pullRange: 12, pullSpeed: 3 },
-    onAttack: [{ kind: 'trail', style: 'rainbow' }],
-    passive: [],
-  },
-];
+/** レジェンダリーの 初期値（雷神剣・風神剣・虹）。値は 登録表（content/items/legend.ts）の `legend` から。写して 作るので 登録表の 物とは 別の 入れ物 */
+export const LEGENDARY_DEFAULTS: readonly LegendaryDef[] = registryLegend().map(cloneLegendary);
 
 export function cloneLegendary(d: LegendaryDef): LegendaryDef {
   return {
@@ -2047,8 +2017,8 @@ export const W2_SETTING_DEFAULTS: Readonly<W2Settings> = {
     },
   },
   bladeAimReach: 4.5,
-  // 金シリーズの 分は 登録表（content/items/gold.ts）から
-  bladeReach: withRegistry('bladeReach', { bokuto: 2.2, katana: 2.2, crystal_katana: 2.2, raijin_ken: 2.2, fujin_ken: 2.2, niji: 2.2 }, registryBladeReach()),
+  // 金シリーズ・レジェンダリー 3 つの 分は 登録表（content/items/gold.ts・legend.ts）から
+  bladeReach: withRegistry('bladeReach', { bokuto: 2.2, katana: 2.2, crystal_katana: 2.2 }, registryBladeReach()),
   bladeShape: {
     thrust: { length: 2.2, radius: 0.2 },
     kesa: { halfAngleDeg: 75, rMin: 0.3, rMax: 2.2, yMin: -0.5, yMax: 2.6 },
@@ -2086,19 +2056,8 @@ export const W2_SETTING_DEFAULTS: Readonly<W2Settings> = {
     yoroi: 240,
     kote: 225,
     suneate: 195,
-    // NINJA-1 §4.1: 忍者装備 4 つは たいきゅう 10000（つくれず 手に 入れ方が 限られる ので 事実上 こわれない。足袋の 390 から かえた）
-    ninja_zukin: 10000,
-    ninja_shozoku: 10000,
-    ninja_tekko: 10000,
-    ninja_tabi: 10000,
-    // SAMURAI-1 §4.1: 侍装備 4 つも たいきゅう 10000（NINJA-1 と 同じ）
-    samurai_jingasa: 10000,
-    samurai_haori: 10000,
-    samurai_tekko: 10000,
-    samurai_geta: 10000,
-    raijin_ken: 10000, // WEAPON-7 §2.4: つくれず ヌシでしか 手に 入らない 武器だけの 例外
-    fujin_ken: 10000,
-    niji: 10000,
+    // NINJA-1 §4.1・SAMURAI-1 §4.1: 忍者・侍装備 8 つ（たいきゅう 10000）は 登録表（content/items/ninja.ts・samurai.ts）から（下の withRegistry）
+    // WEAPON-7 §2.4: 雷神剣・風神剣・虹（10000。つくれず ヌシでしか 手に 入らない 武器だけの 例外）も 登録表（content/items/legend.ts）から
     // GOLD-1 §4.3: きん の 装備 8 こ（500）は 登録表（content/items/gold.ts）から（下の withRegistry）
   }, registryWear()),
   toolWear: {
@@ -2113,7 +2072,7 @@ export const W2_SETTING_DEFAULTS: Readonly<W2Settings> = {
   // SAMURAI-1 §4.2: 武器 3 行（雷神剣・風神剣・虹）の あとに 侍装備 4 行（陣笠・羽織・手甲・下駄）。ぜんぶ weight 1（はじめての ヌシで 侍装備は 4/7）
   nushiDrops: [
     ...LEGENDARY_DEFAULTS.map((d) => ({ item: d.item, weight: 1 })),
-    ...(['samurai_jingasa', 'samurai_haori', 'samurai_tekko', 'samurai_geta'] as const).map((item) => ({ item: item as ItemId, weight: 1 })),
+    ...SAMURAI_ITEM_IDS.map((item) => ({ item: item as ItemId, weight: 1 })),
   ],
   legendaryChargeWalk: 0.5,
   shiningCamDistance: 14,
@@ -2122,11 +2081,7 @@ export const W2_SETTING_DEFAULTS: Readonly<W2Settings> = {
     katana: { color: 0xe8f1fa, glow: 0xffffff, blade: 0xc8cdd8, bladeShine: 0xffffff, style: 'plain' },
     crystal_katana: { color: 0x7fdcff, glow: 0xe6faff, blade: 0x6fcdf5, bladeShine: 0xe6faff, style: 'star' },
     naginata: { color: 0xcfe8ff, glow: 0xffffff, blade: 0xb8cce0, bladeShine: 0xeef6ff, style: 'long' },
-    // WEAPON-7: 雷神剣。刃は むらさき（0xb070ff 系）、軌跡は 白〜うすい 黄（雷 v4 の 色）
-    raijin_ken: { color: 0xfff6c0, glow: 0xffffff, blade: 0xb070ff, bladeShine: 0xe6d2ff, style: 'thunder' },
-    // WEAPON-7 PR2: 風神剣。ふつうの 斬撃の 形（plain）で 白〜みずいろ
-    fujin_ken: { color: 0xe6f8ff, glow: 0xffffff, blade: 0xcfefff, bladeShine: 0xffffff, style: 'plain' },
-    niji: { color: 0xd16be6, glow: 0xffffff, blade: 0xc3cee2, bladeShine: 0x5fd98e, style: 'plain' },
+    // WEAPON-7: 雷神剣・風神剣・虹の 軌跡は 登録表（content/items/legend.ts）から
     // GOLD-1 試作 案 B（きんの かたな）は 登録表（content/items/gold.ts）から
   }, registryBladeTrail()),
   bladeFaceAssistDeg: 30,

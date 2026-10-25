@@ -1,5 +1,5 @@
 import type { BlockId, ItemType } from '../contracts';
-import { GOLD_DEFS, itemTypesOf, noteDuplicates } from '../content/items/registry';
+import { GOLD_DEFS, LEGEND_DEFS, NINJA_SAMURAI_DEFS, itemTypesOf, noteDuplicates } from '../content/items/registry';
 import { BLOCK_TYPES } from '../world/blocks/blockTypes';
 
 export const INVENTORY_SIZE = 36;
@@ -65,16 +65,10 @@ const M4_ITEMS: readonly ItemType[] = [
   { id: 'yoroi', name: 'よろい', maxStack: 1, placeBlock: null },
   { id: 'kote', name: 'こて', maxStack: 1, placeBlock: null },
   { id: 'suneate', name: 'すねあて', maxStack: 1, placeBlock: null },
-  // NINJA-1（#299）: 忍者装備 4 つ
-  { id: 'ninja_zukin', name: '［黒頭巾｜くろずきん］', maxStack: 1, placeBlock: null },
-  { id: 'ninja_shozoku', name: '［忍｜しの］び［装束｜しょうぞく］', maxStack: 1, placeBlock: null },
-  { id: 'ninja_tekko', name: '［忍｜しの］びの ［手甲｜てっこう］', maxStack: 1, placeBlock: null },
-  { id: 'ninja_tabi', name: '［忍｜しの］びの ［足袋｜たび］', maxStack: 1, placeBlock: null },
-  // SAMURAI-1（#300）: 侍装備 4 つ
-  { id: 'samurai_jingasa', name: '［明珍｜みょうちん］［陣笠｜じんがさ］', maxStack: 1, placeBlock: null },
-  { id: 'samurai_haori', name: '［明珍｜みょうちん］［羽織｜はおり］', maxStack: 1, placeBlock: null },
-  { id: 'samurai_tekko', name: '［明珍｜みょうちん］［手甲｜てっこう］', maxStack: 1, placeBlock: null },
-  { id: 'samurai_geta', name: '［明珍｜みょうちん］［下駄｜げた］', maxStack: 1, placeBlock: null },
+];
+
+/** M4 のつづき。すねあての 次の 忍者・侍装備 8 つは 登録表（content/items/ninja.ts・samurai.ts）から（ITEM_TYPES で この 前に 入れて、並びを 変えない） */
+const M4_ITEMS_AFTER_GEAR: readonly ItemType[] = [
   // #293 試作: 間欠泉の つち（置ける。置けば どこでも 間欠泉。名前は ［漢字｜よみ］ — withRuby で 画面に 出す）
   { id: 'geyser_dirt', name: '［間欠泉｜かんけつせん］の つち', maxStack: BLOCK_MAX_STACK, placeBlock: 'geyser_dirt' },
   { id: 'lantern', name: 'ちょうちん', maxStack: BLOCK_MAX_STACK, placeBlock: null },
@@ -131,24 +125,21 @@ const LIVE_ITEMS: readonly ItemType[] = [
   { id: 'momo_yaki', name: 'やいた もも にく', maxStack: BLOCK_MAX_STACK, placeBlock: null },
 ];
 
-/** WEAPON-7: レジェンダリー武器（ヌシが おとす。名前は ［漢字｜よみ］ — src/ui/text.ts の withRuby で 画面に 出す） */
-const WEAPON7_ITEMS: readonly ItemType[] = [
-  { id: 'raijin_ken', name: '［雷神剣｜らいじんけん］', maxStack: 1, placeBlock: null },
-  { id: 'fujin_ken', name: '［風神剣｜ふうじんけん］', maxStack: 1, placeBlock: null },
-  { id: 'niji', name: '［虹｜にじ］', maxStack: 1, placeBlock: null },
-];
-
 export const ITEM_TYPES: readonly ItemType[] = [
   ...PLACEABLE_TYPES,
   ...ITEM_ONLY,
   ...M4_BLOCKS,
   ...M4_ITEMS,
+  // NINJA-1（#299）・SAMURAI-1（#300）: 忍者装備 4 つ・侍装備 4 つは 登録表から（古い表と 同じ 位置）
+  ...itemTypesOf(NINJA_SAMURAI_DEFS),
+  ...M4_ITEMS_AFTER_GEAR,
   ...M7_ITEMS,
   ...M72_ITEMS,
   ...BUCKET_ITEMS,
   ...VOX_I_BLOCKS,
   ...LIVE_ITEMS,
-  ...WEAPON7_ITEMS,
+  // WEAPON-7/8/9: レジェンダリー武器 3 つ（雷神剣・風神剣・虹）は 登録表（content/items/legend.ts）から
+  ...itemTypesOf(LEGEND_DEFS),
   // GOLD-1（#222）: きん・きんの そうび 8 こ・はらぱんみみず は 登録表（content/items/gold.ts）から
   ...itemTypesOf(GOLD_DEFS),
 ];

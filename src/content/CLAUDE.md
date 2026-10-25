@@ -4,7 +4,7 @@
 
 ## アイテム
 
-**登録表に入ったシリーズ**（`src/content/items/`。今は金シリーズ。のこりは #306 で 1 本ずつ移る）:
+**登録表に入ったシリーズ**（`src/content/items/`。今は金・忍者・侍・伝説の武器。のこりは #306 で 1 本ずつ移る）:
 
 1. `content/items/ids.ts` — id を書くのはここ 1 回（シリーズの配列に足す）。
 2. `content/items/<シリーズ>.ts` — 名前・重ね数・レア度・分類・説明・耐久・レシピ・部品（`blade`／`bow`／`tool`／`armor`）を 1 行に。戦闘の数は日本語の単位つきコメントで。
@@ -24,7 +24,7 @@
 | レシピ | `craft/recipes.ts`（並び順＝作業台のカードの順） |
 | 防具 | `craft/config.ts` の `armorValue`・`ARMOR_SLOT_OF` |
 | 刀・武器 | `tools/config.ts` の強さ、`tools/bladeSets.ts` の `BLADE_ITEMS`、`contracts.ts` の `bladeTrail`、手に持つ形 `camera/heldTools.ts` |
-| ヌシのドロップ | `contracts.ts` の `LEGENDARY_DEFAULTS`・`nushiDrops` |
+| ヌシのドロップ | `contracts.ts` の `nushiDrops`（伝説の武器の強さ・ためわざは `content/items/legend.ts` の `legend` 部品。`LEGENDARY_DEFAULTS` はそこから作る） |
 | 実績の名前 | `achievements/defs.ts` |
 
 ## 妖怪（#307 で登録表に移るまでの今の形）

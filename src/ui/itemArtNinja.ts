@@ -1,12 +1,14 @@
 import type { ItemId } from '../contracts';
+import { NINJA_ITEM_IDS, type NinjaId } from '../content/items/ids';
 import type { Rgba } from '../world/blocks/textures';
 
 /**
  * NINJA-1（#299）忍者装備 4 つの 16x16 アイコン（オーナー OK 済みの 絵。もとは 共有フォルダ ninja-gear/final/rows.ts.txt）。
  * 形は itemArtGold.ts と 同じ（ROWS = 文字の 絵、PAL = 色の 表）。
  */
-export const NINJA_ITEMS = ['ninja_zukin', 'ninja_shozoku', 'ninja_tekko', 'ninja_tabi'] as const;
-export type NinjaItemId = (typeof NINJA_ITEMS)[number];
+// id の出どころは content/items/ids.ts（ここでは 同じ名前で 読めるように するだけ）
+export const NINJA_ITEMS = NINJA_ITEM_IDS;
+export type NinjaItemId = NinjaId;
 
 export function isNinjaItem(item: ItemId): item is NinjaItemId & ItemId {
   return (NINJA_ITEMS as readonly string[]).includes(item);

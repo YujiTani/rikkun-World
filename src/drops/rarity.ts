@@ -37,14 +37,6 @@ const OLD_ITEM_ONLY_RARITY: Record<string, Rarity> = {
   yoroi: 'rare',
   kote: 'rare',
   suneate: 'rare',
-  ninja_zukin: 'legendary', // NINJA-1: 忍者装備 4 つ（7 段目）
-  ninja_shozoku: 'legendary',
-  ninja_tekko: 'legendary',
-  samurai_jingasa: 'legendary', // SAMURAI-1: 侍装備 4 つ（7 段目）
-  samurai_haori: 'legendary',
-  samurai_tekko: 'legendary',
-  samurai_geta: 'legendary',
-  ninja_tabi: 'legendary', // #293 試作: 忍者装備（レア度 7 = 7 段目。yuzu 2026-10-24）
   torch: 'common',
   lantern: 'uncommon',
   kite: 'uncommon',
@@ -76,15 +68,11 @@ const OLD_ITEM_ONLY_RARITY: Record<string, Rarity> = {
   kin_tamago: 'epic',
   momo_nama: 'common', // LIVE-3 仮
   momo_yaki: 'common',
-  // WEAPON-7（ヌシが おとす。7 段目）
-  raijin_ken: 'legendary',
-  fujin_ken: 'legendary',
-  niji: 'legendary',
   // BUCKET-1
   bucket: 'common',
   water_bucket: 'common',
 };
-// 登録表に うつした シリーズ（金 …）の めずらしさは content/items/ から
+// 登録表に うつした シリーズ（忍者・侍・金 …）の めずらしさは content/items/ から
 const ITEM_ONLY_RARITY: Record<string, Rarity> = withRegistry('ITEM_ONLY_RARITY', OLD_ITEM_ONLY_RARITY, registryRarity());
 
 /** 今の当てはめ（設定 itemRarity。ゲームに 1 つ。全アイテム → Rarity） */

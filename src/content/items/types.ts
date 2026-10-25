@@ -1,4 +1,4 @@
-import type { ArmorSlot, BladeTrailStyle, BlockId, DamageKind, ItemId, Rarity } from '../../contracts';
+import type { ArmorSlot, BladeTrailStyle, BlockId, DamageKind, ItemId, LegendaryDef, Rarity } from '../../contracts';
 import type { InfoRow } from '../../craft/info/table';
 import type { ItemCategory } from '../../ui/itemCategory';
 
@@ -36,6 +36,8 @@ export interface ItemDef {
   bow?: { damage: readonly [number, number, number] };
   /** 道具の数: ほる強さ・ほれるレベル・たたく強さ（書かない = 手と同じ） */
   tool?: { power?: number; level?: number; damage?: number };
+  /** レジェンダリー（ヌシが おとす 武器）: 強さ・ためわざ・こうげき時の 効果・ずっと 効く 力（LegendaryDef から item を 除いた もの） */
+  legend?: Omit<LegendaryDef, 'item'>;
   /** 防具: 入る 部位・ふせぐ量（ダメージの種類ごと）・説明に出す 種類 */
   armor?: { slot: ArmorSlot; value: Readonly<Record<DamageKind, number>>; kind: DamageKind };
 }
