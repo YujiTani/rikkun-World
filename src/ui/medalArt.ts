@@ -1,3 +1,4 @@
+import { YOKAI_IDS } from '../content/yokai/ids';
 import type { Rgba } from '../world/blocks/textures';
 import { drawPixels, type Pixels } from './itemIcon';
 
@@ -8,10 +9,7 @@ import { drawPixels, type Pixels } from './itemIcon';
  */
 
 export const MARK_KINDS = [
-  'karakasa',
-  'chochin',
-  'nurikabe',
-  'rokurokubi',
+  ...YOKAI_IDS, // 妖怪の メダルの 印は 種類ごと（足すと build() の switch が 型エラーで 絵を 求める）
   'heart',
   'shield',
   'clock',
@@ -186,6 +184,11 @@ function build(kind: MarkKind): Pixels {
     case 'medal': // メダルの印（ホットバーの右上）
       c.rect(5, 0, 2, 6, C.red).rect(9, 0, 2, 6, C.blue).disc(8, 10, 5.5, C.ink).disc(8, 10, 4.5, C.yellow).map(['..X..', '.XXX.', 'XXXXX', '.XXX.', '.X.X.'], { X: C.orange }, 6, 8);
       break;
+    default: {
+      // 印を 足したのに 絵を 書き忘れたら 型エラー（白い絵にしない）
+      const unreachable: never = kind;
+      throw new Error(`medalArt: 絵の ない 印 ${String(unreachable)}`);
+    }
   }
   return c.p;
 }

@@ -1,3 +1,4 @@
+import type { YokaiKind } from '../contracts';
 import type { YokaiBase } from './common';
 import { Chochin } from './models/chochin';
 import { Karakasa } from './models/karakasa';
@@ -11,9 +12,10 @@ export type { CourseState } from './models/karakasa';
 export { FIREBALL_BOX, FIREBALL_RANGE, FIREBALL_SPEED, Fireball } from './models/chochin';
 export { Chochin, Karakasa, Nurikabe, Rokurokubi };
 
-/** 見本ページでの並び順 */
-export const YOKAI_ORDER = ['karakasa', 'chochin', 'nurikabe', 'rokurokubi'] as const;
-export type YokaiId = (typeof YOKAI_ORDER)[number];
+/** 見本ページでの並び順（種類は content/yokai/ids.ts の 1 か所。全種類が 1 回ずつ 入っているかは content/yokai/registry.test.ts が 見張る） */
+export const YOKAI_ORDER = ['karakasa', 'chochin', 'nurikabe', 'rokurokubi'] as const satisfies readonly YokaiKind[];
+/** YokaiKind の 別名 */
+export type YokaiId = YokaiKind;
 
 export function createYokai(id: YokaiId): YokaiBase {
   switch (id) {
