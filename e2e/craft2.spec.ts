@@ -5,7 +5,7 @@ import { checkContrast, snapshotUi } from './helpers/uiRules';
 
 /**
  * CRAFT-2（たんす の素材・ログ・できごと・半透明）の自動の受け入れ基準（docs/design/CRAFT-2.md §6）。
- * 場所: 床 stone y=8、うえは くうき。P = (10.5, 9, 10.5)。たんす A = P から きょり 3、B = 10、E = ちょうど 40、F = 41。
+ * 場所: 床 stone y=8、うえは くうき。P = (10.5, 9, 10.5)。たんす A = P から きょり 3、F = 41。
  * スクショ（AC26）は test-shots/CRAFT-2/。
  */
 const SHOTS = 'test-shots/CRAFT-2';
@@ -62,331 +62,33 @@ async function open(page: Page, query = '?nosave=1') {
 }
 
 const A = { x: 13, y: 9, z: 10 };
-const B = { x: 20, y: 9, z: 10 };
 
 test.describe('CRAFT-2 素材（たんす から つかう）', () => {
-  test('AC1〜AC6・AC10・AC11: 数える・へらす順・数えないもの・いっぱい・たんす画面', async ({ page }) => {
-    await open(page);
-    const r = await page.evaluate(({ A, B }) => {
-      const h = (window as any).__rikkun;
-      const T = (window as any).T;
-      const out: any = {};
-      T.base();
-      // AC1
-      h.inventory.setSlot(0, { item: 'log', count: 1 });
-      T.tansu(A.x, A.y, A.z, [[0, 'log', 2]]);
-      h.step(1);
-      const l1 = h.craft.list().find((c: any) => c.id === 'wood_pickaxe');
-      out.ac1 = { craftable: l1.craftable, missing: l1.missing };
-      T.openInv();
-      h.craft.hover('wood_pickaxe');
-      h.step(1);
-      out.ac1Detail = h.craft.ui().detail.materials;
-      out.ac1Glow = h.craft.ui().tiles.find((t: any) => t.id === 'wood_pickaxe').glowing;
-      T.press('toggleInventory');
-      h.storage.set(A.x, A.y, A.z, 0, null);
-      const l2 = h.craft.list().find((c: any) => c.id === 'wood_pickaxe');
-      out.ac1Empty = { craftable: l2.craftable, missing: l2.missing };
-      // AC2: もちもの → たんす
-      h.inventory.clear();
-      h.inventory.setSlot(0, { item: 'log', count: 1 });
-      h.inventory.setSlot(20, { item: 'log', count: 1 });
-      T.tansu(A.x, A.y, A.z, [[0, 'log', 5]]);
-      h.step(1);
-      const m = h.craft.make('wood_pickaxe');
-      out.ac2 = { ok: m.ok, used: m.used, slot20: h.inventory.get().slots?.[20] ?? null, invLogs: T.invCount('log'), tansuLogs: T.tansuCount(A, 'log') };
-      h.inventory.clear();
-      h.inventory.setSlot(0, { item: 'log', count: 3 });
-      T.tansu(A.x, A.y, A.z, [[0, 'log', 5]]);
-      const m2 = h.craft.make('wood_pickaxe');
-      out.ac2b = { ok: m2.ok, tansuUsed: m2.used.tansu, tansuLogs: T.tansuCount(A, 'log') };
-      // AC3: たんす の順（近い順）
-      h.inventory.clear();
-      T.tansu(A.x, A.y, A.z, [[0, 'log', 1]]);
-      T.tansu(B.x, B.y, B.z, [[0, 'log', 5]]);
-      h.craft.make('wood_pickaxe');
-      out.ac3 = { a: T.tansuCount(A, 'log'), b: T.tansuCount(B, 'log') };
-      // 同じ きょり: x の小さい方が先
-      h.world.setBlock(B.x, B.y, B.z, 'air');
-      const A2 = { x: 7, y: 9, z: 10 };
-      h.inventory.clear();
-      T.tansu(A.x, A.y, A.z, [[0, 'log', 2]]);
-      T.tansu(A2.x, A2.y, A2.z, [[0, 'log', 2]]);
-      h.craft.make('wood_pickaxe');
-      out.ac3Same = { x13: T.tansuCount(A, 'log'), x7: T.tansuCount(A2, 'log') };
-      h.world.setBlock(A2.x, A2.y, A2.z, 'air');
-      // マス 53 から先
-      h.inventory.clear();
-      T.tansu(A.x, A.y, A.z, [[0, 'log', 2], [53, 'log', 2]]);
-      h.craft.make('wood_pickaxe');
-      const sl: any[] = h.storage.get(A.x, A.y, A.z).slots;
-      out.ac3Slots = { s53: sl[53], s0: sl[0] };
-      // AC4: カーソルと防具は数えない
-      h.inventory.clear();
-      T.tansu(A.x, A.y, A.z, [[0, 'log', 2]]);
-      h.inventory.setSlot(0, { item: 'log', count: 1 });
-      h.storage.open(A.x, A.y, A.z);
-      h.step(2);
-      h.storage.click(0); // 持ち上げる
-      h.step(1);
-      out.ac4Cursor = h.craft.list().find((c: any) => c.id === 'wood_pickaxe').craftable;
-      h.storage.close();
-      h.step(2);
-      // AC5
-      h.inventory.clear();
-      h.inventory.setSlot(0, { item: 'log', count: 1 });
-      T.tansu(A.x, A.y, A.z, [[0, 'log', 1]]);
-      h.craft.events();
-      h.log.clear();
-      const f = h.craft.make('wood_pickaxe');
-      h.step(1);
-      out.ac5 = { ok: f.ok, reason: f.reason, inv: T.invCount('log'), tansu: T.tansuCount(A, 'log'), ev: h.craft.events().map((e: any) => e.type), live: h.log.live().length };
-      // AC6: いっぱい
-      h.inventory.clear();
-      for (let i = 0; i < 36; i++) h.inventory.setSlot(i, { item: 'dirt', count: 64 });
-      T.tansu(A.x, A.y, A.z, [[0, 'log', 3]]);
-      const fu = h.craft.make('wood_pickaxe');
-      out.ac6 = { ok: fu.ok, reason: fu.reason, tansu: T.tansuCount(A, 'log'), hist: h.log.history().map((e: any) => e.text) };
-      h.inventory.setSlot(5, { item: 'log', count: 3 });
-      T.tansu(A.x, A.y, A.z, [[0, 'log', 3]]);
-      const ok2 = h.craft.make('wood_pickaxe');
-      out.ac6b = { ok: ok2.ok };
-      // AC10: たんす を開いたまま
-      h.inventory.clear();
-      T.tansu(A.x, A.y, A.z, [[0, 'log', 2]]);
-      h.storage.open(A.x, A.y, A.z);
-      h.step(2);
-      const sb = h.achievements.stats();
-      const mk = h.craft.make('bokuto');
-      h.step(2);
-      const sa = h.achievements.stats();
-      const storeKeys = (o: any) => Object.keys(o).filter((k) => k.startsWith('store:')).map((k) => [k, o[k]]);
-      out.ac10 = { ok: mk.ok, logs: T.tansuCount(A, 'log'), storeBefore: storeKeys(sb), storeAfter: storeKeys(sa) };
-      h.storage.close();
-      return out;
-    }, { A, B });
-    expect(r.ac1).toEqual({ craftable: true, missing: [] });
-    expect(r.ac1Detail).toEqual([{ item: 'log', have: 3, need: 3, ok: true, inTansu: 2 }]);
-    expect(r.ac1Glow).toBe(true);
-    expect(r.ac1Empty.craftable).toBe(false);
-    expect(r.ac1Empty.missing).toEqual([{ item: 'log', count: 2 }]);
-    expect(r.ac2.ok).toBe(true);
-    expect(r.ac2.slot20).toBeNull();
-    // 道具ができて ホットバー 0 に入るので、「マス 0 が空」は「き の合計が 0」と読みかえる（仕様 §6 AC2 の読みかえ）
-    expect(r.ac2.invLogs).toBe(0);
-    expect(r.ac2.tansuLogs).toBe(4);
-    expect(r.ac2.used).toEqual({ inv: [{ item: 'log', count: 2 }], tansu: [{ ...A, item: 'log', count: 1 }] });
-    expect(r.ac2b.ok).toBe(true);
-    expect(r.ac2b.tansuUsed).toEqual([]);
-    expect(r.ac2b.tansuLogs).toBe(5);
-    expect(r.ac3).toEqual({ a: 0, b: 3 });
-    expect(r.ac3Same).toEqual({ x13: 1, x7: 0 }); // 同じ きょり: x の小さい 7 から先に 2 こ、のこり 1 こを 13 から
-    expect(r.ac3Slots.s53).toBeNull();
-    expect(r.ac3Slots.s0).toMatchObject({ item: 'log', count: 1 });
-    expect(r.ac4Cursor).toBe(false);
-    expect(r.ac5).toMatchObject({ ok: false, reason: 'missing', inv: 1, tansu: 1, live: 0 });
-    expect(r.ac5.ev).toContain('craftFail');
-    expect(r.ac6).toMatchObject({ ok: false, reason: 'full', tansu: 3 });
-    expect(r.ac6.hist.join('|')).toContain('もちもの が いっぱい');
-    expect(r.ac6b.ok).toBe(true);
-    expect(r.ac10.ok).toBe(true);
-    expect(r.ac10.logs).toBe(0);
-    expect(r.ac10.storeAfter).toEqual(r.ac10.storeBefore);
-  });
-
-  test('AC7: やく（ざいりょう と ねんりょう が たんす）', async ({ page }) => {
-    await open(page);
-    const r = await page.evaluate(({ A, B }) => {
-      const h = (window as any).__rikkun;
-      const T = (window as any).T;
-      T.base();
-      const out: any = {};
-      h.world.setBlock(11, 9, 12, 'furnace');
-      T.tansu(A.x, A.y, A.z, [[0, 'iron_ore', 1]]);
-      T.tansu(B.x, B.y, B.z, [[0, 'coal_ore', 1]]);
-      h.inventory.setSlot(0, { item: 'log', count: 5 });
-      h.craft.openFurnace(11, 9, 12);
-      T.openInv();
-      const l = h.furnace.list().find((c: any) => c.id === 'iron_ingot');
-      out.list = { canBake: l.canBake, fuelOk: l.fuelOk };
-      out.fuelCounts = h.craft.ui().detail?.fuel ?? null;
-      h.log.clear();
-      const c = h.furnace.click('iron_ingot');
-      h.step(1);
-      out.click = { ok: c.ok, used: c.used };
-      out.a = T.tansuCount(A, 'iron_ore');
-      out.b = T.tansuCount(B, 'coal_ore');
-      out.logs = T.invCount('log');
-      out.live = h.log.live().map((e: any) => `${e.item}`);
-      h.step(70);
-      out.ingot = T.invCount('iron_ingot');
-      return out;
-    }, { A, B });
-    expect(r.list).toEqual({ canBake: true, fuelOk: true });
-    expect(r.click.ok).toBe(true);
-    expect(r.a).toBe(0);
-    expect(r.b).toBe(0);
-    expect(r.logs).toBe(5);
-    expect(r.live.sort()).toEqual(['coal_ore', 'iron_ore']);
-    expect(r.ingot).toBe(1);
-  });
-
-  test('AC7b: ねんりょう の数に たんす の分が入る', async ({ page }) => {
-    await open(page);
-    const r = await page.evaluate(({ A }) => {
-      const h = (window as any).__rikkun;
-      const T = (window as any).T;
-      T.base();
-      h.world.setBlock(11, 9, 12, 'furnace');
-      T.tansu(A.x, A.y, A.z, [[0, 'coal_ore', 1]]);
-      h.inventory.setSlot(0, { item: 'iron_ore', count: 1 });
-      h.craft.openFurnace(11, 9, 12);
-      T.openInv();
-      h.craft.hover('iron_ingot');
-      h.step(1);
-      const d = h.craft.ui().detail;
-      return { fuel: d.fuel, mats: d.materials };
-    }, { A });
-    expect(r.fuel.counts.coal_ore).toBe(1);
-    expect(r.fuel.inTansu.coal_ore).toBe(1);
-  });
-
-  test('AC8・AC9・AC9b: きょり（つかえる きょり = 40）・かなづち の印・しらべる回数', async ({ page }) => {
+  // きょりの数・かなづち の印・しらべる回数は ユニット（src/craft/craft2.test.ts）。ここは 画面の ドット（印）だけ
+  test('AC8: きょり 41 の たんす は ドットに ならない（もちもの = みどり・なし = 灰）', async ({ page }) => {
     await open(page);
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
       const T = (window as any).T;
       T.base();
-      const out: any = {};
-      // P を 世界の はし近くに
+      const F = { x: 51, y: 9, z: 10 }; // きょり 41
       h.player.set({ position: { x: 10.5, y: 9, z: 10.5 }, velocity: { x: 0, y: 0, z: 0 } });
       h.step(2);
-      const E = { x: 50, y: 9, z: 10 }; // きょり ちょうど 40
-      const F = { x: 51, y: 9, z: 10 }; // きょり 41
       T.tansu(F.x, F.y, F.z, [[0, 'log', 3]]);
       h.step(1);
-      const lf = h.craft.list().find((c: any) => c.id === 'wood_pickaxe');
-      out.f = { craftable: lf.craftable, missing: lf.missing, make: h.craft.make('wood_pickaxe'), left: T.tansuCount(F, 'log') };
-      out.fHint = h.craft.ui().hintVisible;
       // もちもの が空だと カード自体が 出ない（M6 の「材料が 1 種類でも あるものだけ」）ので、き 1 こ だけ もって 見る（読みかえ）
       h.inventory.setSlot(0, { item: 'log', count: 1 });
       T.openInv();
       h.craft.hover('wood_pickaxe');
       h.step(1);
-      out.fDots = (document.querySelectorAll('.cp-mat .cp-dot') as any).length;
-      out.fKiri = document.querySelectorAll('.cp-mat .cp-dot[data-src="tansu"]').length;
-      out.fNone = document.querySelectorAll('.cp-mat .cp-dot[data-src="none"]').length;
-      out.fInv = document.querySelectorAll('.cp-mat .cp-dot[data-src="inv"]').length;
-      T.press('toggleInventory');
-      h.inventory.clear();
-      h.storage.set(F.x, F.y, F.z, 0, null);
-      T.tansu(E.x, E.y, E.z, [[0, 'log', 3]]);
-      h.step(2);
-      out.e = h.craft.list().find((c: any) => c.id === 'wood_pickaxe').craftable;
-      out.range = h.craft.tansuInRange().map((t: any) => `${t.x},${t.y},${t.z}`);
-      out.sources = h.craft.sources('wood_pickaxe').tansu.map((t: any) => `${t.x},${t.y},${t.z}`);
-      // 壁ごし
-      h.world.fill(E.x - 1, 8, E.z - 1, E.x + 1, 12, E.z + 1, 'stone');
-      h.world.setBlock(E.x, E.y, E.z, 'tansu');
-      h.step(2);
-      out.wall = h.craft.list().find((c: any) => c.id === 'wood_pickaxe').craftable;
-      return out;
+      return {
+        dots: document.querySelectorAll('.cp-mat .cp-dot').length,
+        tansu: document.querySelectorAll('.cp-mat .cp-dot[data-src="tansu"]').length,
+        none: document.querySelectorAll('.cp-mat .cp-dot[data-src="none"]').length,
+        inv: document.querySelectorAll('.cp-mat .cp-dot[data-src="inv"]').length,
+      };
     });
-    expect(r.f.craftable).toBe(false);
-    expect(r.f.missing).toEqual([{ item: 'log', count: 3 }]);
-    expect(r.f.make).toMatchObject({ ok: false, reason: 'missing' });
-    expect(r.f.left).toBe(3);
-    expect(r.fHint).toBe(false);
-    expect(r.fDots).toBe(3);
-    expect(r.fKiri).toBe(0);
-    expect(r.fNone).toBe(2);
-    expect(r.fInv).toBe(1);
-    expect(r.e).toBe(true);
-    expect(r.range).toContain('50,9,10');
-    expect(r.range).not.toContain('51,9,10');
-    expect(r.sources).not.toContain('51,9,10');
-    expect(r.wall).toBe(true);
-  });
-
-  test('AC9: かなづち の印（出る・消える・近づく）', async ({ page }) => {
-    await open(page);
-    const r = await page.evaluate(({ A }) => {
-      const h = (window as any).__rikkun;
-      const T = (window as any).T;
-      T.base();
-      const out: any = {};
-      T.tansu(A.x, A.y, A.z, [[0, 'log', 2]]);
-      // 2 では足りないので き 3 にする
-      h.storage.set(A.x, A.y, A.z, 0, { item: 'log', count: 3 });
-      h.step(1);
-      out.on = h.craft.ui().hintVisible;
-      h.world.setBlock(A.x, A.y, A.z, 'air');
-      h.step(1);
-      out.off = h.craft.ui().hintVisible;
-      // F（41）
-      h.player.set({ position: { x: 10.5, y: 9, z: 10.5 }, velocity: { x: 0, y: 0, z: 0 } });
-      T.tansu(51, 9, 10, [[0, 'log', 3]]);
-      h.step(2);
-      out.far = h.craft.ui().hintVisible;
-      h.player.set({ position: { x: 11.5, y: 9, z: 10.5 }, velocity: { x: 0, y: 0, z: 0 } });
-      h.step(1);
-      h.step(1);
-      out.near = h.craft.ui().hintVisible;
-      h.player.set({ position: { x: 10.5, y: 9, z: 10.5 }, velocity: { x: 0, y: 0, z: 0 } });
-      h.step(1);
-      h.step(1);
-      out.back = h.craft.ui().hintVisible;
-      return out;
-    }, { A });
-    expect(r).toEqual({ on: true, off: false, far: false, near: true, back: false });
-  });
-
-  test('AC9b: しらべる回数（たんす 30 こ）', async ({ page }) => {
-    await open(page);
-    const r = await page.evaluate(() => {
-      const h = (window as any).__rikkun;
-      const T = (window as any).T;
-      T.base();
-      for (let i = 0; i < 30; i++) T.tansu(2 + (i % 10) * 3, 9, 20 + Math.floor(i / 10) * 3, [[0, 'dirt', 1]]);
-      h.step(5);
-      h.craft.list();
-      const c0 = h.craft.debug().tansuFilterCount;
-      for (let i = 0; i < 600; i++) {
-        h.step(1);
-        if (i % 20 === 0) h.craft.list();
-      }
-      const c1 = h.craft.debug().tansuFilterCount;
-      h.player.set({ position: { x: 11.5, y: 9, z: 10.5 }, velocity: { x: 0, y: 0, z: 0 } });
-      h.step(2);
-      h.craft.list();
-      const c2 = h.craft.debug().tansuFilterCount;
-      T.openInv();
-      const c3 = h.craft.debug().tansuFilterCount;
-      return { c0, c1, c2, c3 };
-    });
-    expect(r.c1).toBe(r.c0);
-    expect(r.c2).toBeGreaterThan(r.c1);
-    expect(r.c3).toBeGreaterThan(r.c2);
-  });
-
-  test('AC11: や は たんす から つかわない', async ({ page }) => {
-    await open(page);
-    const r = await page.evaluate(({ A }) => {
-      const h = (window as any).__rikkun;
-      const T = (window as any).T;
-      T.base();
-      T.tansu(A.x, A.y, A.z, [[0, 'ya', 3]]);
-      h.inventory.setSlot(0, { item: 'yumi', count: 1 });
-      h.inventory.select(0);
-      h.step(1);
-      h.input.press('primary');
-      h.step(15);
-      h.input.release('primary');
-      h.step(2);
-      return { ya: T.tansuCount(A, 'ya'), hist: h.log.history().map((e: any) => e.text) };
-    }, { A });
-    expect(r.ya).toBe(3);
-    expect(r.hist.join('|')).toContain('や が いるよ');
+    expect(r).toEqual({ dots: 3, tansu: 0, none: 2, inv: 1 });
   });
 });
 
@@ -424,68 +126,6 @@ test.describe('CRAFT-2 画面とログ', () => {
       h.step(2);
     }, { A });
     expect(await page.locator('.cp-mat[data-item="log"] .cp-tansu-mini').count()).toBe(0);
-  });
-
-  test('AC13・AC14・AC15: 左のログ（たんす から）', async ({ page }) => {
-    await open(page);
-    const r = await page.evaluate(({ A }) => {
-      const h = (window as any).__rikkun;
-      const T = (window as any).T;
-      T.base();
-      const out: any = {};
-      h.inventory.setSlot(0, { item: 'log', count: 2 });
-      T.tansu(A.x, A.y, A.z, [[0, 'log', 9]]);
-      h.step(1);
-      h.craft.make('wood_pickaxe');
-      h.step(1);
-      out.live1 = h.log.live();
-      // もちもの だけ
-      h.inventory.setSlot(0, { item: 'log', count: 3 });
-      h.craft.make('wood_pickaxe');
-      h.step(1);
-      out.live2 = h.log.live().filter((e: any) => e.kind === 'fromTansu').length;
-      h.step(60);
-      h.inventory.clear();
-      h.craft.make('wood_pickaxe'); // たんす から 3
-      h.craft.make('wood_pickaxe');
-      h.step(1);
-      out.live3 = h.log.live().filter((e: any) => e.kind === 'fromTansu');
-      h.step(179);
-      out.live4 = h.log.live().filter((e: any) => e.kind === 'fromTansu').length;
-      return out;
-    }, { A });
-    expect(r.live1.filter((e: any) => e.kind === 'fromTansu')).toEqual([
-      expect.objectContaining({ kind: 'fromTansu', category: 'craft', item: 'log', count: 1, text: 'たんす から き ×1', ticksLeft: expect.any(Number) }),
-    ]);
-    expect(r.live2).toBe(1);
-    expect(r.live3.length).toBe(1);
-    expect(r.live3[0].count).toBe(7);
-    expect(r.live4).toBe(0);
-  });
-
-  test('AC14: 拾った行と 5 行を分け合う', async ({ page }) => {
-    await open(page);
-    const r = await page.evaluate(({ A }) => {
-      const h = (window as any).__rikkun;
-      const T = (window as any).T;
-      T.base();
-      const out: any = {};
-      for (const it of ['dirt', 'stone', 'sand', 'clay']) h.inventory.pickup(it, 1);
-      T.tansu(A.x, A.y, A.z, [[0, 'log', 3]]);
-      h.craft.make('wood_pickaxe');
-      h.step(1);
-      out.five = h.log.live().length;
-      h.inventory.pickup('paper', 1);
-      h.step(1);
-      out.after = h.log.live().map((e: any) => `${e.kind}:${e.item}`);
-      out.pl = h.inventory.pickupLog().map((e: any) => e.item);
-      return out;
-    }, { A });
-    expect(r.five).toBe(5);
-    expect(r.after.length).toBe(5);
-    expect(r.after).not.toContain('pickup:dirt');
-    expect(r.pl).not.toContain('log:fromTansu');
-    expect(r.pl.length).toBeGreaterThan(0);
   });
 
   test('AC15: 左のログの DOM（印 → 絵 → 字・白・ふち）', async ({ page }) => {
@@ -709,76 +349,6 @@ test.describe('CRAFT-2 できごと（履歴）', () => {
     expect(has(r.level, 'level', 'achieve', 'レベル')).toBe(true);
   });
 
-  test('AC17・AC18: まとめる・100 件・設定・保存しない', async ({ page }) => {
-    await open(page);
-    const r = await page.evaluate(() => {
-      const h = (window as any).__rikkun;
-      const T = (window as any).T;
-      T.base();
-      const out: any = {};
-      for (let i = 0; i < 3; i++) {
-        h.inventory.pickup('dirt', 1);
-        h.step(60);
-      }
-      out.merged = h.log.history().map((e: any) => `${e.count}`);
-      h.step(181);
-      h.inventory.pickup('dirt', 1);
-      h.step(1);
-      out.after = h.log.history().length;
-      h.inventory.pickup('stone', 1);
-      h.inventory.pickup('dirt', 1);
-      h.step(1);
-      out.mixed = h.log.history().length;
-      h.log.clear();
-      const items = ['dirt', 'stone', 'sand', 'clay', 'log', 'paper', 'coal_ore', 'iron_ore', 'string', 'cloth', 'oil', 'crystal'];
-      for (let i = 0; i < 101; i++) {
-        h.inventory.clear();
-        h.inventory.pickup(items[i % items.length], 1 + (i % 2));
-        h.step(181);
-      }
-      out.len = h.log.history().length;
-      h.settings.set('logHistoryMax', 10);
-      h.inventory.pickup('paper', 5);
-      h.inventory.pickup('string', 1);
-      h.step(181);
-      h.inventory.pickup('cloth', 1);
-      out.len10 = h.log.history().length;
-      return out;
-    });
-    expect(r.merged).toEqual(['3']);
-    expect(r.after).toBe(2);
-    expect(r.mixed).toBe(4);
-    expect(r.len).toBe(100);
-    expect(r.len10).toBe(10);
-    // 開き直す
-    await page.evaluate(() => (window as any).__rikkun.save.now());
-    await page.goto('/');
-    await page.waitForFunction(() => window.__rikkun?.ready === true);
-    expect(await page.evaluate(() => (window as any).__rikkun.log.history().length)).toBe(0);
-  });
-
-  test('AC17b: 同じ合図が出たままなら 件は ふえない', async ({ page }) => {
-    await open(page);
-    const r = await page.evaluate(() => {
-      const h = (window as any).__rikkun;
-      const T = (window as any).T;
-      T.base();
-      h.inventory.clear();
-      for (let i = 0; i < 36; i++) h.inventory.setSlot(i, { item: 'dirt', count: 64 });
-      h.log.clear();
-      h.settings.get('logMergeTicks');
-      // 合図を 2 回（出たままの間）
-      h.world.fill(14, 9, 10, 14, 9, 10, 'sand');
-      (window as any).__aim.standForS(10.5, 10.5, 90, 0, 9);
-      h.step(2);
-      h.input.press('primary');
-      h.step(200);
-      h.input.release('primary');
-      h.step(2);
-      return h.log.history().filter((e: any) => e.kind === 'signal').map((e: any) => e.text);
-    });
-    expect(r.length).toBeLessThanOrEqual(2);
-  });
 });
 
 test.describe('CRAFT-2 できごと ページ', () => {

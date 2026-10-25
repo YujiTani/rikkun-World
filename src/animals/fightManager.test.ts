@@ -78,7 +78,7 @@ function setup() {
   const yokai = (id: number, x: number, z: number, hp = 99) => ys.set(id, { x, y: 9, z, hp, state: 'alive' });
   const one = (id: number) => m.list().find((a) => a.id === id)!;
   const of = <T extends AnimalEvent['type']>(t: T) => evs.filter((e): e is Extract<AnimalEvent, { type: T }> => e.type === t);
-  return { m, settings, step, macho, yokai, one, of, evs, ys, calls, player, states, views, blade, flags, now: () => now };
+  return { world, m, settings, step, macho, yokai, one, of, evs, ys, calls, player, states, views, blade, flags, now: () => now };
 }
 
 describe('AC2 きっかけ 1/2 → ねらう', () => {
@@ -355,5 +355,75 @@ describe('AC13 見た目 の 窓口', () => {
     s.ys.delete(77);
     s.step(1, a);
     expect(s.views[s.views.length - 1]!.target).toBeUndefined();
+  });
+});
+
+describe('LIVE-4 E2E から うつした 数（#311）', () => {
+  it('AC8 (d) だっこ → stop（パンチ中 でも）。ねらい は null・fighters から はずれる', () => {
+    const s = setup();
+    const a = s.macho(0, -2);
+    s.macho(3, -2); // 2 番目（だっこ の あと 次 の ステップ に 入る）
+    s.yokai(77, 30.5, 28.5, 99999);
+    s.step(35);
+    s.m.fightCue!({ hit: [77], hurt: [] });
+    for (let i = 0; i < 200 && s.one(a).state !== 'punch'; i++) s.step(1, a);
+    expect(s.one(a).state, 'パンチ 中').toBe('punch');
+    expect(s.one(a).target, 'だっこ の 前 は ねらって いる').toBe(77);
+    expect(s.m.carryHold(a, 40)).toBe('lifted');
+    s.step(3, a);
+    expect(s.of('machoGiveUp').map((e) => e.reason)).toContain('stop');
+    expect(s.one(a).target).toBeNull();
+    expect(s.m.fighters!()).not.toContain(a);
+  });
+  it('AC9 のりかえ: A を たたく → B に たたかれた → target は B・machoTarget 2 回（playerHit → playerHurt）', () => {
+    const s = setup();
+    const a = s.macho(0, -2);
+    s.yokai(5, 30.5, 29.5, 9999);
+    s.yokai(9, 33.5, 29.5, 9999);
+    s.step(35);
+    s.m.fightCue!({ hit: [5], hurt: [] });
+    s.step(1);
+    expect(s.one(a).target).toBe(5);
+    s.step(10);
+    s.m.fightCue!({ hit: [], hurt: [9] });
+    s.step(1);
+    expect(s.one(a).target).toBe(9);
+    expect(s.of('machoTarget')).toEqual([
+      { type: 'machoTarget', id: a, yokai: 5, cause: 'playerHit' },
+      { type: 'machoTarget', id: a, yokai: 9, cause: 'playerHurt' },
+    ]);
+  });
+  it('AC15 パンチ は ねらい の 1 体 だけ: 横 0.8 の 妖怪 の 体力 は へらない・hit の 口 は ねらい の id だけ', () => {
+    const s = setup();
+    const a = s.macho(0, -2);
+    s.yokai(77, 30.5, 28.5, 99999);
+    s.yokai(88, 30.5, 29.3, 99999); // ねらい の 横 0.8
+    s.step(35);
+    s.m.fightCue!({ hit: [77], hurt: [] });
+    s.step(260, a);
+    expect(s.calls.length).toBeGreaterThanOrEqual(4);
+    expect(s.calls.every((c) => c.id === 77)).toBe(true);
+    expect(s.ys.get(88)!.hp).toBe(99999);
+  });
+  it('AC11 水 の 上 の ちょうちん: 水 には 入れない ので とどかない → 180 ステップ で cheer・プレイヤー の そば・target は のこる', () => {
+    const s = setup();
+    for (let x = 24; x <= 37; x++) for (let z = 22; z <= 32; z++) {
+      s.world.setBlock(x, 7, z, 'water');
+      s.world.setBlock(x, 8, z, 'water');
+    }
+    const a = s.macho(0, -2);
+    s.yokai(77, 30.5, 28.5, 99999);
+    s.ys.get(77)!.y = 13;
+    s.step(35);
+    s.m.fightCue!({ hit: [77], hurt: [] });
+    s.step(300, a);
+    const r0 = s.states.indexOf('run');
+    expect(r0, 'はしり はじめた').toBeGreaterThanOrEqual(0);
+    expect(s.states.slice(0, r0 + 150)).not.toContain('cheer');
+    const cheer = s.states.indexOf('cheer', r0);
+    expect(cheer - r0, 'はしり はじめて 180 ステップ 目').toBe(180);
+    const mm = s.one(a);
+    expect(Math.hypot(mm.x - s.player.position.x, mm.z - s.player.position.z)).toBeLessThanOrEqual(4);
+    expect(mm.target).toBe(77);
   });
 });

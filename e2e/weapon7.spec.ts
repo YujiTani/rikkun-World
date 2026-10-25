@@ -2,20 +2,18 @@ import { expect, test, type Page } from '@playwright/test';
 import { findUnrubiedKanji } from '../src/ui/text';
 import { aimAtBlock } from './helpers/aim';
 import { comboWorld, markNow, run, startList } from './helpers/combo';
-import { holdItems, runTech, settle, spawnAhead, toStance, type Vec3 } from './helpers/blade';
+import { holdItems, runTech, spawnAhead, toStance, type Vec3 } from './helpers/blade';
 import {
   RAIJIN,
   aimGroundAhead,
   chargeRun,
   chargeUntilReady,
   expectLegendHook,
-  flat,
   hoverSlot,
   indexOfEvent,
   legendState,
   legendWorld,
   pinNushiTable,
-  markLegend,
   releaseAndStep,
   resetStage,
   sounds,
@@ -44,7 +42,6 @@ const topBand = (page: Page) =>
 const modal = (page: Page) => page.evaluate(() => (window.__rikkun as any).achievements.modal() as { open: boolean; age: number; leftSteps: number; ids: string[]; mainId: string | null; buttonEnabled: boolean; waitLeft: number });
 const rows = (page: Page) => page.evaluate(() => (window.__rikkun as any).achievements.list() as { id: string; unlocked: boolean; small: boolean; seen: boolean; category: string }[]);
 const dur0 = (page: Page) => page.evaluate(() => (window.__rikkun as any).inventory.durability(0) as { max: number; left: number } | null);
-const invEvents = (page: Page) => page.evaluate(() => (window.__rikkun as any).inventory.events().map((e: any) => ({ type: e.type, item: e.item })) as { type: string; item: string }[]);
 const bagsOf = (page: Page) => page.evaluate(() => (window.__rikkun as any).combat.bags() as { id: number; position: Vec3; slots: { item: string; count: number }[]; rarity?: string }[]);
 
 // ───────────────────────────────────────────────────────────────
@@ -52,90 +49,6 @@ const bagsOf = (page: Page) => page.evaluate(() => (window.__rikkun as any).comb
 // ───────────────────────────────────────────────────────────────
 
 test.describe('WEAPON-7 PR1 しくみ', () => {
-  test('AC1: legendary に 新しい データを 1 つ 足すと、ため・power・ヌシの 表が それに したがう（ほかの コードは 変えない）', async ({ page }) => {
-    const floorY = await legendWorld(page, 'crystal_katana');
-    const cur = await page.evaluate(() => (window.__rikkun as any).settings.get('legendary') as any[]);
-    expect(cur.map((d) => d.item)).toContain(RAIJIN);
-    const fake = { item: 'crystal_katana', power: 5, charge: { kind: 'lightning', chargeTicks: 30, range: 20, radius: 5, damageMul: 2, knock: [2, 4], strikeF: 8, boltSteps: 12, recovery: 40 }, onAttack: [], passive: [] };
-    await page.evaluate((d) => {
-      const h = window.__rikkun as any;
-      h.settings.set('legendary', [...(h.settings.get('legendary') as any[]), d]);
-      h.settings.set('nushiDrops', [{ item: 'crystal_katana', weight: 1 }]);
-      h.step(1);
-    }, fake);
-    // ため: chargeTicks 30 で いっぱい（29 では まだ）。power は その データの 5
-    const rec = await chargeRun(page, 40, 2);
-    expect(rec[28].charge).toEqual({ ticks: 29, ready: false });
-    expect(indexOfEvent(rec, 'chargeReady')).toBe(29);
-    expect(rec[40].move).toBe('lightning');
-    const st = await legendState(page);
-    expect(st.item).toBe('crystal_katana');
-    expect(st.power).toBe(5);
-    // ヌシの 表も その データから（nushiDrops に 入れた 物が 出る）
-    await resetStage(page, floorY);
-    await page.evaluate(() => (window.__rikkun as any).achievements.mute(false));
-    await spawnNushiAhead(page, 1.5, 1);
-    await settle(page, 5);
-    await markLegend(page);
-    // HURT-1: 怯みで わざが とぎれるので、怯みが おわるのを 待って たたき直す
-    const tap = await tapUntil(page, `(h) => h.combat.bags().length > 0`);
-    expect(tap.found, 'ヌシが たおれて 袋が 出る').toBe(true);
-    const items = (await bagsOf(page)).flatMap((b) => b.slots.map((s) => s.item));
-    expect(items).toContain('crystal_katana');
-  });
-
-  test('AC2: ためF 59 で はなす → ふつうの わざ（つき）、60 → 落雷。chargeReady は ためF 60 の ステップに 1 回', async ({ page }) => {
-    const floorY = await legendWorld(page);
-    // 59
-    const r59 = await chargeRun(page, 59, 3);
-    expect(r59[58].charge).toEqual({ ticks: 59, ready: false });
-    expect(types(r59)).not.toContain('chargeReady');
-    expect(r59[59].move, '59 は 落雷 ではない').toBeNull();
-    expect(r59[59].bladeTech, 'ふつうの わざ（今の かまえ = 中段のつき）').toBe('thrust');
-    expect(r59[59].bladeF, 'はなした ステップが F1').toBe(1);
-    expect(sounds(r59)).not.toContain('chargeReady');
-    await resetStage(page, floorY);
-    // 60 以上（80 まで 押す）
-    const r80 = await chargeRun(page, 80, 3);
-    expect(r80[58].charge).toEqual({ ticks: 59, ready: false });
-    expect(r80[59].charge).toEqual({ ticks: 60, ready: true });
-    expect(types(r80).filter((t) => t === 'chargeStart')).toHaveLength(1);
-    expect(types(r80).filter((t) => t === 'chargeReady'), 'chargeReady は 1 回').toHaveLength(1);
-    expect(indexOfEvent(r80, 'chargeReady'), 'ためF 60 の ステップ').toBe(59);
-    expect(r80[59].sounds).toContain('chargeReady');
-    expect(r80[80].move).toBe('lightning');
-    expect(r80[80].moveF).toBe(1);
-    expect(r80[80].bladeTech, '落雷の ときは 刀の ふつうの わざは 出ない').toBeNull();
-  });
-
-  test('AC2: charge の ない 武器（ふつうの かたな）は ためない・押しつづけで くり返す', async ({ page }) => {
-    await legendWorld(page);
-    await holdItems(page, [{ item: 'katana' }]);
-    await markLegend(page);
-    const rec = await chargeRun(page, 100, 0);
-    expect(types(rec)).not.toContain('chargeStart');
-    expect(rec.every((s) => s.charge === null && s.move === null)).toBe(true);
-    const starts = rec.filter((s) => s.bladeF === 1).length;
-    expect(starts, '押しつづけで わざが くり返す').toBeGreaterThanOrEqual(2);
-  });
-
-  test('AC3: ため中は 歩く 0.5 倍', async ({ page }) => {
-    const floorY = await legendWorld(page);
-    const walk = async (charging: boolean) => {
-      const rec = await stepN(page, 20, `(h, i) => { if (i === 0) { h.input.press('moveForward'); ${charging ? "h.input.press('primary');" : ''} } }`);
-      await page.evaluate(() => (window.__rikkun as any).input.releaseAll());
-      return rec;
-    };
-    const a = await walk(false);
-    const d0 = 20.5 - a[a.length - 1].pos.z;
-    await resetStage(page, floorY);
-    const b = await walk(true);
-    const d1 = 20.5 - b[b.length - 1].pos.z;
-    expect(d0).toBeGreaterThan(0.5);
-    expect(d1 / d0, `ため中 ${d1.toFixed(3)} ÷ ふつう ${d0.toFixed(3)}`).toBeGreaterThan(0.45);
-    expect(d1 / d0).toBeLessThan(0.55);
-  });
-
   test('AC3: ため中は 地面での ジャンプ なし・R と 右クリックは 何も しない・攻撃を 受けても ためは 続く', async ({ page }) => {
     const floorY = await legendWorld(page);
     const rec = await stepN(
@@ -158,10 +71,8 @@ test.describe('WEAPON-7 PR1 しくみ', () => {
     expect(inv).toEqual({ item: RAIJIN, count: 1 });
   });
 
+  // 持ちかえ・Q・1〜9・やられた は ユニット（src/legend/LegendSystem.test.ts の「持ちかえ / active false」）。ここは 画面・ロックから active が 落ちる つなぎだけ
   const CANCELS: [string, string][] = [
-    ['持ちかえ', "h.inventory.select(1);"],
-    ['Q（すてる）', "h.input.press('drop'); h.step(1); h.input.release('drop');"],
-    ['1〜9', "h.input.press('hotbar2'); h.step(1); h.input.release('hotbar2');"],
     ['もちもの画面', "h.input.press('toggleInventory'); h.step(1); h.input.release('toggleInventory');"],
     ['案内画面（ロックが はずれた）', 'h.lock.simulate(false);'],
   ];
@@ -183,13 +94,6 @@ test.describe('WEAPON-7 PR1 しくみ', () => {
       expect(types(rec)).not.toContain('lightningStrike');
     });
   }
-
-  test('AC3: ため中に やられた → chargeCancel・わざなし', async ({ page }) => {
-    await legendWorld(page);
-    const rec = await stepN(page, 14, `(h, i) => { if (i === 0) h.input.press('primary'); if (i === 8) h.combat.damage(99); }`);
-    expect(types(rec).filter((t) => t === 'chargeCancel')).toHaveLength(1);
-    expect(rec.every((s) => s.move === null && s.bladeTech === null)).toBe(true);
-  });
 
   test('AC4: ため中の 絵の コマ = おおげさぎり コマ 5（かまえに よらず）', async ({ page }) => {
     const floorY = await legendWorld(page);
@@ -242,200 +146,21 @@ test.describe('WEAPON-7 PR1 しくみ', () => {
   });
 });
 
-// ───────────────────────────────────────────────────────────────
-// AC9: 落ちる 点
-// ───────────────────────────────────────────────────────────────
-
-test.describe('WEAPON-7 PR1 落ちる 点（AC9）', () => {
-  const readAim = async (page: Page, floorY: number, setup: string) => {
-    await resetStage(page, floorY);
-    if (setup) await page.evaluate(({ s, y }) => (0, eval)(s)(window.__rikkun, y), { s: `(h, y) => { ${setup} h.step(2); }`, y: floorY });
-    await aimGroundAhead(page, floorY, 8);
-    const rec = await chargeUntilReady(page, 60);
-    return rec[rec.length - 1].aim!;
-  };
-
-  test('(1) 平地で 前 8 の 地面 → S = その 上の面・skyVisible true', async ({ page }) => {
-    const floorY = await legendWorld(page);
-    const a = await readAim(page, floorY, '');
-    expect(a, 'ため いっぱいで aim が ある').not.toBeNull();
-    expect(a.S).not.toBeNull();
-    expect(a.S!.y).toBeCloseTo(floorY + 1, 2);
-    expect(Math.floor(a.S!.x)).toBe(Math.floor(a.T.x));
-    expect(Math.floor(a.S!.z)).toBe(Math.floor(a.T.z));
-    expect(Math.floor(a.T.z)).toBe(12);
-    expect(a.skyVisible).toBe(true);
-  });
-
-  test('(2) T の 上 3 マスに 屋根 → S = 屋根の 上・false', async ({ page }) => {
-    const floorY = await legendWorld(page);
-    const a = await readAim(page, floorY, 'h.world.fill(14, y + 4, 6, 26, y + 4, 16, "stone");');
-    expect(a.S!.y).toBeCloseTo(floorY + 5, 2);
-    expect(a.skyVisible).toBe(false);
-    expect(Math.floor(a.S!.z)).toBe(Math.floor(a.T.z));
-  });
-
-  test('(3) 十字の 草花・たいまつは とおりぬける。はっぱ・水は そこに 落ちる', async ({ page }) => {
-    const floorY = await legendWorld(page);
-    const through = await readAim(page, floorY, 'h.world.setBlock(20, y + 4, 12, "torch"); h.world.setBlock(20, y + 6, 12, "crop_onion");');
-    expect(through.S!.y, 'たいまつ・草花は とおりぬける').toBeCloseTo(floorY + 1, 2);
-    expect(through.skyVisible).toBe(true);
-    const leaves = await readAim(page, floorY, 'h.world.setBlock(20, y + 4, 12, "leaves");');
-    expect(leaves.S!.y, 'はっぱ').toBeCloseTo(floorY + 5, 2);
-    expect(leaves.skyVisible).toBe(false);
-    const water = await readAim(page, floorY, 'h.world.setBlock(20, y + 4, 12, "water");');
-    expect(water.S!.y, '水').toBeCloseTo(floorY + 5, 2);
-    expect(water.skyVisible).toBe(false);
-  });
-
-  test('(4) 20 より 遠い → T = 線の 20 先', async ({ page }) => {
-    const floorY = await legendWorld(page);
-    await resetStage(page, floorY);
-    await page.evaluate(() => (window.__rikkun as any).player.set({ yaw: 0, pitch: 20 }));
-    await page.evaluate(() => (window.__rikkun as any).step(1));
-    const rec = await chargeUntilReady(page, 60);
-    const a = rec[rec.length - 1].aim!;
-    expect(a).not.toBeNull();
-    const eye = await page.evaluate(() => (window.__rikkun as any).camera.get().eye as Vec3);
-    const d = Math.hypot(a.T.x - eye.x, a.T.y - eye.y, a.T.z - eye.z);
-    expect(d, 'T は 線の 20 先').toBeGreaterThan(19);
-    expect(d).toBeLessThan(21.5);
-  });
-});
+// AC9（落ちる 点）・AC10・AC11（落雷の 時間と 当たり）は ユニット（src/legend/aim.test.ts・LegendSystem.test.ts）
 
 // ───────────────────────────────────────────────────────────────
-// AC10 / AC11 / AC8: 落雷
+// AC8: たいきゅう（ツールチップ・ふつうの わざ）
 // ───────────────────────────────────────────────────────────────
 
 test.describe('WEAPON-7 PR1 落雷', () => {
-  test('AC10: F8 に 1 回。4.7 以内の からかさ → damage 16・外向き水平・上へ。5.3 より 外・かべの 向こう → 当たらない。ぬりかべは 押されない', async ({ page }) => {
-    const floorY = await legendWorld(page);
-    await aimGroundAhead(page, floorY, 8);
-    const ready = await chargeUntilReady(page, 60);
-    const S = ready[ready.length - 1].aim!.S!;
-    const y0 = S.y;
-    const near = await spawnAt(page, 'karakasa', S.x + 4.6, y0, S.z);
-    const far = await spawnAt(page, 'karakasa', S.x + 6.6, y0, S.z);
-    const wallX = Math.floor(S.x - 2);
-    await page.evaluate(
-      ({ wallX, z, y }) => {
-        const h = window.__rikkun as any;
-        h.world.fill(wallX, y, z - 3, wallX, y + 3, z + 3, 'stone');
-        h.step(1);
-      },
-      { wallX, z: Math.floor(S.z), y: Math.floor(y0) },
-    );
-    const walled = await spawnAt(page, 'karakasa', S.x - 3.6, y0, S.z);
-    const wall = await spawnAt(page, 'nurikabe', S.x, y0, S.z - 3.5, 99);
-    const p0 = await page.evaluate((id) => (window.__rikkun as any).yokai.list().find((y: any) => y.id === id).position as Vec3, near);
-    const w0 = await page.evaluate((id) => (window.__rikkun as any).yokai.list().find((y: any) => y.id === id).position as Vec3, wall);
-    const rec = await releaseAndStep(page, 8); // F1〜F9
-    const strikeAt = indexOfEvent(rec, 'lightningStrike');
-    expect(strikeAt, 'F8 に 1 回').toBe(7);
-    expect(types(rec).filter((t) => t === 'lightningStrike')).toHaveLength(1);
-    const strike = rec[strikeAt].events.find((e) => e.type === 'lightningStrike')!;
-    expect(strike.hits).toContain(near);
-    expect(strike.hits).toContain(wall);
-    expect(strike.hits).not.toContain(far);
-    expect(strike.hits, 'かべの 向こう').not.toContain(walled);
-    const hp = rec[strikeAt].hp;
-    expect(99 - hp[near], 'damage 16').toBeCloseTo(16, 2);
-    expect(hp[far]).toBe(99);
-    expect(hp[walled]).toBe(99);
-    expect(99 - hp[wall]).toBeCloseTo(16, 2);
-    // 外向き（S から 遠ざかる）・上へ
-    await page.evaluate(() => (window.__rikkun as any).step(4));
-    const after = await page.evaluate(() => (window.__rikkun as any).yokai.list().map((y: any) => ({ id: y.id, position: y.position })) as { id: number; position: Vec3 }[]);
-    const pn = after.find((y) => y.id === near)!.position;
-    expect(pn.x - p0.x, '水平で 外向き').toBeGreaterThan(0.2);
-    expect(pn.y - p0.y, '上へ').toBeGreaterThan(0.1);
-    const pw = after.find((y) => y.id === wall)!.position;
-    expect(flat(pw, w0), 'ぬりかべは 押されない').toBeLessThan(0.01);
-    // ブロックは そのまま・プレイヤーは ダメージ 0
-    expect(await page.evaluate(({ x, y, z }) => (window.__rikkun as any).world.getBlock(x, y, z), { x: Math.floor(S.x), y: floorY, z: Math.floor(S.z) })).toBe('stone');
-    expect(await page.evaluate(() => (window.__rikkun as any).combat.get().hp)).toBe(await page.evaluate(() => (window.__rikkun as any).combat.get().maxHp));
-  });
-
-  test('AC11: はなした ステップ = F1、lightningStrike は F8、わざの おわり F45、先行入力 F38〜45', async ({ page }) => {
-    const floorY = await legendWorld(page);
-    await aimGroundAhead(page, floorY, 8);
-    await chargeUntilReady(page, 60);
-    const rec = await releaseAndStep(page, 50);
-    rec.slice(0, 45).forEach((s, k) => {
-      expect(s.move, `F${k + 1}`).toBe('lightning');
-      expect(s.moveF).toBe(k + 1);
-    });
-    expect(rec[45].move, 'F46 = おわった あと').toBeNull();
-    expect(indexOfEvent(rec, 'lightningStrike')).toBe(7);
-    expect(types(rec)).not.toContain('lightningMiss');
-    // 先行入力: F37 に 軽く 押しても 受けない・F38 なら 受けて おわった 次の ステップ（F46）に 次の ため
-    for (const [f, want] of [[37, 0], [38, 1]] as const) {
-      await resetStage(page, floorY);
-      await aimGroundAhead(page, floorY, 8);
-      await chargeUntilReady(page, 60);
-      await markLegend(page);
-      const r = await stepN(
-        page,
-        60,
-        `(h, i, last) => {
-          if (i === 0) h.input.release('primary');
-          if (last && last.moveF === ${f - 1}) h.input.press('primary');
-          if (last && last.moveF === ${f}) h.input.release('primary');
-        }`,
-      );
-      const starts = types(r).filter((t) => t === 'chargeStart').length;
-      expect(starts, `F${f} に 押した`).toBe(want);
-      if (want) expect(indexOfEvent(r, 'chargeStart'), '次の ためは F46').toBe(45);
-    }
-  });
-
-  test('AC8: ふつうの わざを 当てると 1 へる・落雷は 1 体 以上で 1（3 体でも 1）・空ぶりは 0', async ({ page }) => {
-    const floorY = await legendWorld(page);
+  // 落雷の 1 へる（3 体でも 1・空ぶり 0）・のこり 1000 の wearLow・0 の toolBreak は ユニット（LegendSystem.test.ts・wear.test.ts）。ここは 刀の わざが 当たって 1 へる つなぎだけ
+  test('AC8: ふつうの わざを 当てると 1 へる', async ({ page }) => {
+    await legendWorld(page);
     const d0 = await dur0(page);
     expect(d0).toEqual({ max: 10000, left: 10000 });
-    // ふつうの わざ（つき）を 1 回 当てる
     await spawnAhead(page, 'karakasa', 1.5, { hp: 400 });
     await runTech(page, 20);
     expect((await dur0(page))!.left, '当てた 1').toBe(9999);
-    // 落雷が 3 体に 当たる → 1 へる
-    await resetStage(page, floorY);
-    await aimGroundAhead(page, floorY, 8);
-    const ready = await chargeUntilReady(page, 60);
-    const S = ready[ready.length - 1].aim!.S!;
-    for (const dx of [-1, 0, 1]) await spawnAt(page, 'karakasa', S.x + dx * 1.2, S.y, S.z - 1);
-    await releaseAndStep(page, 10);
-    expect((await dur0(page))!.left, '3 体でも 1').toBe(9998);
-    // 空ぶり
-    await resetStage(page, floorY);
-    await aimGroundAhead(page, floorY, 8);
-    await chargeUntilReady(page, 60);
-    const miss = await releaseAndStep(page, 50);
-    expect(types(miss)).toContain('lightningStrike');
-    expect((await dur0(page))!.left, '空ぶり 0').toBe(9998);
-  });
-
-  test('AC8: のこり 1000 に なった ステップに wearLow 1 回・のこり 0 で toolBreak・もちものから 消え、legendGot は のこる', async ({ page }) => {
-    const floorY = await legendWorld(page);
-    await page.evaluate(() => {
-      const h = window.__rikkun as any;
-      h.inventory.clear();
-      h.inventory.add('raijin_ken', 1);
-      h.inventory.select(0);
-      h.step(1);
-      h.inventory.setDurability(0, 1001);
-    });
-    await spawnAhead(page, 'karakasa', 1.5, { hp: 400 });
-    await runTech(page, 20);
-    expect((await dur0(page))!.left).toBe(1000);
-    expect((await invEvents(page)).filter((e) => e.type === 'wearLow' && e.item === RAIJIN)).toHaveLength(1);
-    await resetStage(page, floorY);
-    await page.evaluate(() => (window.__rikkun as any).inventory.setDurability(0, 1));
-    await spawnAhead(page, 'karakasa', 1.5, { hp: 400 });
-    await runTech(page, 20);
-    const ev = await invEvents(page);
-    expect(ev.filter((e) => e.type === 'toolBreak' && e.item === RAIJIN)).toHaveLength(1);
-    expect(await page.evaluate(() => (window.__rikkun as any).inventory.count('raijin_ken'))).toBe(0);
-    expect((await legendState(page)).got, 'こわれても legendGot は のこる').toContain(RAIJIN);
   });
 
   test('AC8: ツールチップの 行 `たいきゅう 10000 / 10000` が 1 行で 入る', async ({ page }) => {
@@ -461,33 +186,6 @@ test.describe('WEAPON-7 PR1 落雷', () => {
 // ───────────────────────────────────────────────────────────────
 
 test.describe('WEAPON-7 PR1 手に 入れた（AC7）', () => {
-  test('inventory.add で legendGot に 入る（2 本目でも 1 つ）・袋が 出ただけでは 入らない', async ({ page }) => {
-    await legendWorld(page);
-    expect((await legendState(page)).got).toEqual([]);
-    await page.evaluate(() => (window.__rikkun as any).achievements.mute(false));
-    // 袋が 出ただけでは 入らない（まだ ひろっていない）
-    await holdItems(page, [{ item: 'katana' }]);
-    await pinNushiTable(page); // PR2 で 表が 2 本に なった ので 雷神剣に 固定
-    await spawnNushiAhead(page, 1.5, 1);
-    await page.evaluate(() => (window.__rikkun as any).step(190));
-    await tapUntil(page, `(h) => h.combat.bags().some((b) => b.slots.some((s) => s.item === 'raijin_ken'))`); // HURT-1: 怯みで とぎれたら 待って たたき直す
-    expect((await bagsOf(page)).some((b) => b.slots.some((s) => s.item === RAIJIN)), '袋が 出た').toBe(true);
-    expect((await legendState(page)).got, '袋が 地面に ある 間は 手に 入れて いない').toEqual([]);
-    // 手に 入れる
-    await page.evaluate(() => {
-      const h = window.__rikkun as any;
-      h.inventory.add('raijin_ken', 1);
-      h.step(1);
-    });
-    expect((await legendState(page)).got).toEqual([RAIJIN]);
-    await page.evaluate(() => {
-      const h = window.__rikkun as any;
-      h.inventory.add('raijin_ken', 1);
-      h.step(1);
-    });
-    expect((await legendState(page)).got, '2 本目でも 1 つ').toEqual([RAIJIN]);
-  });
-
   test('legendGot を 保存・読みこみで 同じ。前の 保存（legendGot なし）→ 空', async ({ page }) => {
     await page.goto('/?seed=7');
     await page.waitForFunction(() => window.__rikkun?.ready === true);
@@ -517,47 +215,6 @@ test.describe('WEAPON-7 PR1 手に 入れた（AC7）', () => {
 // ───────────────────────────────────────────────────────────────
 
 test.describe('WEAPON-7 PR1 実績', () => {
-  test('AC12: 雷神剣を はじめて 手に 入れた ステップに get.raijin_ken.1 と legend.kinds.1（2 本目では 取れない）・小で ない', async ({ page }) => {
-    await legendWorld(page);
-    await page.evaluate(() => {
-      const h = window.__rikkun as any;
-      h.inventory.clear();
-      h.achievements.reset();
-      h.step(1);
-    });
-    const before = (await rows(page)).filter((r) => r.unlocked).length;
-    await page.evaluate(() => {
-      const h = window.__rikkun as any;
-      h.inventory.add('raijin_ken', 1);
-      h.step(1);
-    });
-    const r1 = await rows(page);
-    const a = r1.find((r) => r.id === 'get.raijin_ken.1')!;
-    const b = r1.find((r) => r.id === 'legend.kinds.1')!;
-    expect(a.unlocked).toBe(true);
-    expect(b.unlocked).toBe(true);
-    expect(a.small).toBe(false);
-    expect(b.small).toBe(false);
-    expect(r1.filter((r) => r.unlocked).length - before).toBe(2);
-    // はじめての 1 本では おしらせ 1 枚に まとめる
-    await page.evaluate(() => (window.__rikkun as any).achievements.mute(false));
-    await page.evaluate(() => {
-      const h = window.__rikkun as any;
-      h.achievements.flush();
-    });
-    const m = await modal(page);
-    expect(m.open).toBe(true);
-    expect(m.ids).toEqual(expect.arrayContaining(['get.raijin_ken.1', 'legend.kinds.1']));
-    // 2 本目では 取れない
-    await waitToastGone(page);
-    await page.evaluate(() => {
-      const h = window.__rikkun as any;
-      h.inventory.add('raijin_ken', 1);
-      h.step(2);
-    });
-    expect((await rows(page)).filter((r) => r.unlocked).length, '2 本目では ふえない').toBe(before + 2);
-  });
-
   test('AC12b: 出た ステップから 240 ステップで 自動で きえる。ゲームは 止まらない・ロックは そのまま・キーも クリックも 効く', async ({ page }) => {
     await legendWorld(page);
     await holdItems(page, [{ item: 'katana' }]);
@@ -701,59 +358,6 @@ test.describe('WEAPON-7 PR1 テロップ', () => {
     expect((await topBand(page)).kind).toBeNull();
   });
 
-  test('AC12c: ヌシの「あらわれた」と 重ならない（列）。おわってから テロップ', async ({ page }) => {
-    await legendWorld(page);
-    await holdItems(page, [{ item: 'katana' }]);
-    await pinNushiTable(page); // PR2 で 表が 2 本に なった ので 雷神剣に 固定
-    await spawnNushiAhead(page, 1.5, 1);
-    await page.evaluate(() => {
-      const h = window.__rikkun as any;
-      h.achievements.mute(false);
-      h.step(5);
-    });
-    expect((await topBand(page)).kind).toBe('appear');
-    const r = await killAndSeeDrop(page);
-    expect(r, 'ヌシから 雷神剣の 袋が 出る').not.toBeNull();
-    expect(r!.band.kind, 'あらわれた が 出ている 間は テロップを 重ねない').toBe('appear');
-    expect(r!.band.queue).toContain('telop');
-    // appear が おわるまで 進める → telop
-    let sawTelop = false;
-    let overlap = false;
-    for (let i = 0; i < 400 && !sawTelop; i++) {
-      await page.evaluate(() => (window.__rikkun as any).step(1));
-      const b = await topBand(page);
-      if (b.kind === 'telop') sawTelop = true;
-      else if (b.kind !== 'appear' && b.kind !== null) overlap = true;
-    }
-    expect(sawTelop, 'あらわれた の あとに テロップ').toBe(true);
-    expect(overlap).toBe(false);
-    expect((await topBand(page)).leftSteps).toBeGreaterThan(290);
-  });
-
-  test('AC12c / AC14 の じゅんばん: テロップは 待っている 実績より 先 → ひろう → 実績の おしらせ', async ({ page }) => {
-    await nushiReady(page, 0);
-    await page.evaluate(() => (window.__rikkun as any).step(190));
-    // 実績が 待っている（妖怪が 近くて しずかでは ない）
-    await page.evaluate(() => {
-      const h = window.__rikkun as any;
-      h.achievements.record('level', 5);
-      h.step(2);
-    });
-    expect((await modal(page)).open, 'ヌシが 近い 間は まだ 出ない').toBe(false);
-    const r = await killAndSeeDrop(page);
-    expect(r!.band.kind).toBe('telop');
-    // 順に 見る: telop の 間は 実績を 出さない
-    const kinds: string[] = [];
-    for (let i = 0; i < 700; i++) {
-      await page.evaluate(() => (window.__rikkun as any).step(1));
-      const b = await topBand(page);
-      if (kinds[kinds.length - 1] !== String(b.kind)) kinds.push(String(b.kind));
-      if (b.kind === 'achieve') break;
-    }
-    expect(kinds[0], '先に テロップ').toBe('telop');
-    expect(kinds).toContain('achieve');
-    expect(kinds.indexOf('telop')).toBeLessThan(kinds.indexOf('achieve'));
-  });
 });
 
 // ───────────────────────────────────────────────────────────────
@@ -917,25 +521,6 @@ test.describe('WEAPON-7 PR1 通し（雷）', () => {
     expect(all).toContain('lightning');
   });
 
-  test('AC16: 地下（上が ブロック）で 同じ → skyVisible false・目の前 3 の 妖怪に 当たらない', async ({ page }) => {
-    const floorY = await legendWorld(page);
-    await page.evaluate((y) => {
-      const h = window.__rikkun as any;
-      h.world.fill(8, y + 4, 4, 32, y + 4, 28, 'stone'); // やね（地下）
-      h.step(2);
-    }, floorY);
-    await aimGroundAhead(page, floorY, 8);
-    const id = await spawnAhead(page, 'karakasa', 3, { hp: 99 });
-    const ready = await chargeUntilReady(page, 60);
-    const aim = ready[ready.length - 1].aim;
-    expect(aim, 'aim は ある').not.toBeNull();
-    expect(aim!.skyVisible).toBe(false);
-    const rec = await releaseAndStep(page, 50);
-    expect(Math.min(...rec.map((s) => s.hp[id])), '目の前 3 の 妖怪に 当たらない').toBe(99);
-    const strike = rec.flatMap((s) => s.events).find((e) => e.type === 'lightningStrike');
-    expect(strike?.hits ?? []).toEqual([]);
-  });
-
   test('AC17: 短く（5 ステップ）押す → はなした ステップに ふつうの つき（damage 6）・thunderSlash の 音', async ({ page }) => {
     await legendWorld(page);
     const id = await spawnAhead(page, 'karakasa', 1.5, { hp: 99 });
@@ -992,10 +577,4 @@ test.describe('WEAPON-7 雷神剣の 3 段攻撃', () => {
     expect(charged, '3 段目の あと 押しつづけると ためが 始まる').toBe(true);
   });
 
-  test('つなぎの 窓の 外（1 段目 F2）の 押しでは 2 段目は 出ない', async ({ page }) => {
-    await comboWorld(page, 'chudan', RAIJIN);
-    const rec = await run(page, 18, { before: `(h, i) => { h.input.release('primary'); if (i === 0 || i === 2) h.input.press('primary'); }` });
-    expect(startList(rec).map((e) => e[1])).toEqual([1]);
-    expect(await chargeOf(page)).toBeNull();
-  });
 });

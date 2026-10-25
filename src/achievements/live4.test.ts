@@ -24,6 +24,18 @@ describe('LIVE-4 実績（§4.5）', () => {
     expect(s.stat('machoKO:*')).toBe(2);
   });
 
+  it('AC7b 出来事 machoKO を 2 回 → 記録 machoKO:* は 2・実績 は はじめて の 1 回 だけ ひらく（machoFlex などは 数えない）', () => {
+    const s = new AchievementSystem(() => ({ ...M6_SETTING_DEFAULTS, achieveCooldown: 0, achieveCooldownEarly: 0 }));
+    s.feedAnimals([{ type: 'machoFlex', id: 1 }, { type: 'machoGiveUp', id: 1, reason: 'defeat' }]);
+    expect(s.stat('machoKO:*')).toBe(0);
+    s.feedAnimals([{ type: 'machoKO', id: 1, yokai: 7 }]);
+    expect(s.stat('machoKO:*')).toBe(1);
+    expect(s.list().find((x) => x.id === 'animal.machoKO.1')?.unlocked).toBe(true);
+    s.feedAnimals([{ type: 'machoKO', id: 1, yokai: 8 }]);
+    expect(s.stat('machoKO:*')).toBe(2);
+    expect(s.list().find((x) => x.id === 'animal.machoKO.1')?.unlocked).toBe(true);
+  });
+
   it('画面 の 文 に 強い ことば（ころす・しぬ・やっつけろ）が 無い', () => {
     const d = ACHIEVEMENT_DEFS.find((x) => x.id === 'animal.machoKO.1');
     expect(d, '実績 が ある').toBeTruthy();
