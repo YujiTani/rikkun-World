@@ -42,6 +42,11 @@ export const CRAFT_DEFAULTS: Readonly<CraftConfig> = {
     ninja_shozoku: { normal: NINJA_TUNING.shozokuNormalCut, ball: 0, fall: 0 },
     ninja_tekko: { normal: NINJA_TUNING.tekkoNormalCut, ball: 0, fall: 0 },
     ninja_tabi: { normal: 0, ball: 0, fall: NINJA_TUNING.tabiFallCut },
+    // SAMURAI-1 §4.1: 侍装備。陣笠 ball・羽織 normal・下駄 fall は てつの かぶと・よろい・すねあてと 同じ、手甲 normal 1 は てつの こてと 同じ（数は ninjaTuning.ts の 表）
+    samurai_jingasa: { normal: 0, ball: NINJA_TUNING.jingasaBallCut, fall: 0 },
+    samurai_haori: { normal: NINJA_TUNING.haoriNormalCut, ball: 0, fall: 0 },
+    samurai_tekko: { normal: NINJA_TUNING.samuraiTekkoNormalCut, ball: 0, fall: 0 },
+    samurai_geta: { normal: 0, ball: 0, fall: NINJA_TUNING.getaFallCut },
   },
   pickupLogTicks: 180,
   pickupLogMax: 5,
@@ -59,6 +64,9 @@ export function createCraftConfig(): CraftConfig {
 /** 忍者装備（NINJA-1 #299）。4 マス 1 つずつ。数は ninjaTuning.ts */
 export const NINJA_GEAR = { head: 'ninja_zukin', body: 'ninja_shozoku', arms: 'ninja_tekko', legs: 'ninja_tabi' } as const satisfies Record<ArmorSlot, string>;
 
+/** 侍装備（SAMURAI-1 #300）。4 マス 1 つずつ。数は ninjaTuning.ts */
+export const SAMURAI_GEAR = { head: 'samurai_jingasa', body: 'samurai_haori', arms: 'samurai_tekko', legs: 'samurai_geta' } as const satisfies Record<ArmorSlot, string>;
+
 /** そうびのマスに入れられるアイテム */
 export const ARMOR_SLOT_OF: Readonly<Record<string, ArmorSlot>> = {
   kabuto: 'head',
@@ -75,6 +83,11 @@ export const ARMOR_SLOT_OF: Readonly<Record<string, ArmorSlot>> = {
   ninja_shozoku: 'body',
   ninja_tekko: 'arms',
   ninja_tabi: 'legs',
+  // 侍装備（SAMURAI-1）
+  samurai_jingasa: 'head',
+  samurai_haori: 'body',
+  samurai_tekko: 'arms',
+  samurai_geta: 'legs',
 };
 
 /** そうびの部位の順（画面・保存・落とす順） */

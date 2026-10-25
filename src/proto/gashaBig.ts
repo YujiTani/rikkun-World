@@ -77,6 +77,10 @@ export interface GashaBigDeps {
   /** 間欠泉（gashaGeyser.ts）の 口: プレイヤーの 体（足もと・速さ・地面）。4 つ そろった ときだけ 間欠泉が わく */
   playerBody?(): { position: { x: number; y: number; z: number }; velocity: { x: number; y: number; z: number }; onGround?: boolean };
   setPlayerVelocity?(v: { x: number; y: number; z: number }): void;
+  /** SAMURAI-1 §4.4: 「とばされにくさ」の 倍率（羽織 0.3。main.ts が `() => knockbackMulOf(armor)` を わたす。なければ 1）。打撃・衝撃波・小さい 衝撃・払いの 横の 速さだけ。コアの ふり落とし・とどめの はじきには かけない */
+  knockbackMul?(): number;
+  /** SAMURAI-1 §4.5: 明珍手甲の「防御力 無視」の 数（着て いなければ 0）。刀・波・雷・ドームの 当たりだけ（BigHit の defIgnore）。main.ts が `() => tekkoDefIgnoreOf(armor)` を わたす */
+  defIgnore?(): number;
   nudgePlayer?(dx: number, dz: number): void;
   /** 落下ダメージを 受けない（combat の noFall に 重ねる） */
   setNoFall?(on: boolean): void;
@@ -1383,7 +1387,7 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
   const bodyGuardOn = (): boolean => !!actor && !hidden && actor.held && fin.phase === 'off' && T.freeze.bodyInvincible && !!deps.onHeld;
   const bh = new BigHit({ scene: deps.scene, angry: () => { isAngry = true; actor?.hit(); }, onCore: throwOff, coreGuard: () => warnLeft > 0,
     bodyGuard: bodyGuardOn,
-    onDeflect: (at) => { if (at) barrier.ripple(at.x, at.y, at.z); else { const p = deps.player(); barrier.ripple(p.x, p.y + 1, p.z); } }, onCloud: (at) => { breakGlass(at, T.glass.swordRadius); }, onCoreHit: (at) => coreStruck(at), onStrike: deps.onStrike, sources: deps.hit });
+    onDeflect: (at) => { if (at) barrier.ripple(at.x, at.y, at.z); else { const p = deps.player(); barrier.ripple(p.x, p.y + 1, p.z); } }, onCloud: (at) => { breakGlass(at, T.glass.swordRadius); }, onCoreHit: (at) => coreStruck(at), onStrike: deps.onStrike, defIgnore: deps.defIgnore, sources: deps.hit });
   let pos = new Vector3(), yaw = 0;
   const { blockAt, setGeyserBlock, scanGeyserBlocks } = deps;
   const geysers = deps.onUpdate && deps.playerBody && deps.setPlayerVelocity && deps.nudgePlayer && deps.setNoFall && blockAt && setGeyserBlock && scanGeyserBlocks
@@ -1397,7 +1401,7 @@ export function startGashaBig(deps: GashaBigDeps, first?: { x: number; z: number
   if (geysers) deps.onSaveOverrides?.(() => geysers.saveOverrides());
   // 手が 地面を たたいた ときの 打撃・衝撃波・小さい 衝撃・ひるみ（gashaBigShock.ts）と 見た目（gashaBigShockFx.ts）
   const shock = new BigShock({
-    player: deps.player, groundY: deps.groundY, hurt: deps.hurt, setPlayerVelocity: deps.setPlayerVelocity,
+    player: deps.player, groundY: deps.groundY, hurt: deps.hurt, setPlayerVelocity: deps.setPlayerVelocity, knockbackMul: deps.knockbackMul,
     onGround: deps.playerBody ? () => deps.playerBody!().onGround ?? true : undefined,
   });
   const shockFx = new ShockFx(deps.scene, deps.camera);

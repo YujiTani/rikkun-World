@@ -43,6 +43,8 @@ export interface WaveDeps {
   reducedMotion?: () => boolean;
   /** 真空波の 絵の 向きを 決める カメラ */
   view?: () => WaveView3D | null;
+  /** SAMURAI-1 §4.5: 刀の 強さ P に かける 倍率（明珍手甲 1.5。なければ 1）。波を 出した ステップに 1 回 読み、飛んでいる 途中で ぬいでも 出した ときの 強さの まま */
+  powerMul?: (item: ItemId | null) => number;
   seed?: number;
 }
 
@@ -289,7 +291,7 @@ export function createWaveSystem(deps: WaveDeps): WaveSystem {
         w.speed = def.speed;
         w.range = def.range;
         w.radius = def.radius;
-        w.damage = round2((legendPowerOf(deps.settings, ctx.item) ?? 1) * def.damageMul);
+        w.damage = round2((legendPowerOf(deps.settings, ctx.item) ?? 1) * (deps.powerMul?.(ctx.item) ?? 1) * def.damageMul);
         w.knock = [def.knock[0], def.knock[1]];
         deps.emit({ type: 'waveStart', tick: deps.tick(), id: w.id, position: { ...w.position }, dir: { ...w.dir } });
         // 高さ: 3 つの 中から 前と ちがう 物
@@ -317,7 +319,7 @@ export function createWaveSystem(deps: WaveDeps): WaveSystem {
       w.speed = c.speed;
       w.range = c.range;
       w.radius = c.radius;
-      w.damage = round2((legendPowerOf(deps.settings, a.item) ?? 1) * c.damageMul);
+      w.damage = round2((legendPowerOf(deps.settings, a.item) ?? 1) * (deps.powerMul?.(a.item) ?? 1) * c.damageMul);
       w.knock = [c.knock[0], c.knock[1]];
       w.bornTick = deps.tick();
       spiralPoint(w, 0, w.position);

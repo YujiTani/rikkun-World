@@ -49,6 +49,8 @@ export interface LegendDeps {
   loop?: (name: LegendLoopName) => LegendLoopHandle | void;
   /** WEAPON-8: らせんの かぜを 出す（F6）。つなぎ込みが 体の 点 B から `WaveSystem.launchSpiral` を 呼ぶ */
   launchSpiral?: (a: { item: ItemId; dirDeg: number }) => void;
+  /** SAMURAI-1 §4.5: 刀の 強さ P に かける 倍率（明珍手甲 1.5。なければ 1）。雷は 落ちる とき、ドームは 始めた ときに 1 回 読む */
+  powerMul?: (item: ItemId | null) => number;
   /** 雷の 形（4 通り）を えらぶ 乱数の もと（シード付き） */
   seed?: number;
 }
@@ -299,7 +301,7 @@ export function createLegendSystem(deps: LegendDeps): LegendSystem {
     const S = m.S;
     const yw = deps.yokai();
     const ids = thunderTargets(deps.world, yw.list(), S, L.radius);
-    const P = legendPowerOf(deps.settings, item) ?? 1;
+    const P = (legendPowerOf(deps.settings, item) ?? 1) * (deps.powerMul?.(item) ?? 1);
     const dmg = round2(P * L.damageMul);
     const hits: number[] = [];
     for (const id of ids) {
@@ -490,7 +492,7 @@ export function createLegendSystem(deps: LegendDeps): LegendSystem {
         if (!ready) return { busy: false, fireTech: true };
         if (L.kind === 'shining') {
           // WEAPON-9: シャイニング。はなした ステップが F1（ドームは 小さく 出はじめる）
-          sh = { baseY: ctx.position.y, power: legendPowerOf(deps.settings, ctx.item, ctx.power) ?? 1, lastHit: new Map(), def: L, worn: false };
+          sh = { baseY: ctx.position.y, power: (legendPowerOf(deps.settings, ctx.item, ctx.power) ?? 1) * (deps.powerMul?.(ctx.item) ?? 1), lastHit: new Map(), def: L, worn: false };
           move = { kind: 'shining', F: 1, S: null, skyVisible: true, variant: 0, yaw: ctx.yawDeg, total: L.riseSteps + L.holdSteps + L.fallSteps + SHINING_RECOVER, strikeF: 0 };
           camBack = null;
           shiningTick(1);

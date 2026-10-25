@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { Vec3 } from '../contracts';
 import bladePath from './bladePath.json';
+import { parryShownFrame } from '../combat/parryShown';
 import { makeRng } from './sfxVary';
 
 /**
@@ -41,8 +42,8 @@ type PathPoint = { base: number[]; tip: number[] };
 const PARRY_PATH = (bladePath as unknown as { parry: { perTick: PathPoint[] } }).parry.perTick;
 
 /** 受けの 刀の まん中（足もと P・向き facingDeg から。右・上・前 の 軸） */
-export function bladeMidInto(out: Vec3, p: Vec3, facingDeg: number, tick = 10): Vec3 {
-  const pt = PARRY_PATH[Math.min(PARRY_PATH.length - 1, Math.max(0, tick))]!;
+export function bladeMidInto(out: Vec3, p: Vec3, facingDeg: number, tick = 10, jingasa = false): Vec3 {
+  const pt = PARRY_PATH[Math.min(PARRY_PATH.length - 1, Math.max(0, parryShownFrame(tick, jingasa)))]!; // SAMURAI-1: 陣笠は 受けの 絵を のばす
   const r = (pt.base[0]! + pt.tip[0]!) / 2;
   const u = (pt.base[1]! + pt.tip[1]!) / 2;
   const f = (pt.base[2]! + pt.tip[2]!) / 2;

@@ -52,12 +52,18 @@ export const mulOf = (part: string): number => Math.max(0, T.hit.partMul[part] ?
 /** 部位の 防御力（受ける ダメージから ひく 数。表に なければ 0） */
 export const defOf = (part: string): number => Math.max(0, T.hit.partDef[part] ?? 0);
 
-/** ダメージ = 最低 1（武器の 強さ × 部位の 倍率 − 部位の 防御力）。倍率が 0 の 部位・強さが 0 いかは 0（当たらない） */
-export function damageOf(part: string, amount: number): number {
+/**
+ * ダメージ = 最低 1（武器の 強さ × 部位の 倍率 − 部位の 防御力）。倍率が 0 の 部位・強さが 0 いかは 0（当たらない）。
+ * SAMURAI-1 §4.5: defIgnore = 明珍手甲の「防御力 無視」。防御力から この 数を ひく（0 より 下には しない）。防御力を ひく 所は ここ 1 か所
+ */
+export function damageOf(part: string, amount: number, defIgnore = 0): number {
   const mul = mulOf(part);
   if (!(mul > 0) || !(amount > 0)) return 0;
-  return round2(Math.max(1, amount * mul - defOf(part)));
+  return round2(Math.max(1, amount * mul - Math.max(0, defOf(part) - Math.max(0, defIgnore))));
 }
+
+/** 防御力無視が 効く 当たり（刀・真空波らせん・雷・ドーム）。矢・パンチ（ray）は 効かない */
+const DEF_IGNORE_SOURCES: ReadonlySet<string> = new Set(['blade', 'wave', 'strike', 'dome']);
 
 /** 仮の 妖怪 id の はじまり（本物の 妖怪の id と ぶつからない 大きい 数） */
 export const BIG_ID_BASE = GHOST_BIG_BASE;
@@ -201,6 +207,8 @@ export interface HitEnv {
   onDeflect?(at: Vec3 | null, part: string): void;
   /** NINJA-1: 刀（blade）・パンチ（ray。矢・マッチョの パンチは 除く）が 部位に 当たった（忍びの手甲の 追い打ち用）。波・雷・ドーム・追い打ち自身は 知らせない */
   onStrike?(info: { part: string; source: string }): void;
+  /** SAMURAI-1: 明珍手甲の「防御力 無視」の 数（着て いなければ 0 / なし）。刀・波・雷・ドーム（blade・wave・strike・dome）の 当たりだけに 効く。矢・パンチ（ray）には かけない */
+  defIgnore?(): number;
   /** 刀が ガラスの 雲に 当たった（ダメージの ある 部位に 当たらなかった とき）。当たった 点（世界の 座標） */
   onCloud?(at: Vec3): void;
   sources?: HitSources;
@@ -348,7 +356,7 @@ export class BigHit {
       return 0;
     }
     const mul = mulOf(part);
-    const dealt = damageOf(part, amount);
+    const dealt = damageOf(part, amount, DEF_IGNORE_SOURCES.has(source) ? (this.env.defIgnore?.() ?? 0) : 0);
     if (dealt <= 0) return 0;
     this.hp = Math.max(0, round2(this.hp - dealt));
     this.hits++;

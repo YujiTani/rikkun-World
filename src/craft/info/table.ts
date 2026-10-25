@@ -24,6 +24,10 @@ export const ARMOR_KIND: Readonly<Record<string, 'normal' | 'ball' | 'fall'>> = 
   ninja_shozoku: 'normal',
   ninja_tekko: 'normal',
   ninja_tabi: 'fall',
+  samurai_jingasa: 'ball',
+  samurai_haori: 'normal',
+  samurai_tekko: 'normal',
+  samurai_geta: 'fall',
 };
 
 /** なかま の 文（WEAPON-2 §4.6 (8)）。「なにに つかう」の 下に 出す */
@@ -162,6 +166,10 @@ export const ITEM_INFO: Readonly<Record<string, InfoRow>> = {
   ninja_zukin: { use: 'こうげき から まもる（あたま）', special: 'ひのたま を ふせぐ。みず の なか で いき が ながく もつ', how: WEAR_HOW, buttons: ['1-9', 'right'], stats: 'armor' },
   ninja_shozoku: { use: 'こうげき から まもる（からだ）', special: 'ようかい に きづかれ にくい', how: WEAR_HOW, buttons: ['1-9', 'right'], stats: 'armor' },
   ninja_tekko: { use: 'こうげき から まもる（うで）', special: 'かたな・すで で こうげき した とき に ［小太刀｜こだち］ で おいうち', how: WEAR_HOW, buttons: ['1-9', 'right'], stats: 'armor' },
+  samurai_jingasa: { use: 'こうげき から まもる（あたま）', special: 'ひのたま を ふせぐ。パリィ で はじく じかん が ながく なる', how: WEAR_HOW, buttons: ['1-9', 'right'], stats: 'armor' },
+  samurai_haori: { use: 'こうげき から まもる（からだ）', special: 'ようかい の こうげき を ふせぐ。［吹｜ふ］き［飛｜と］ばされ にくく なる', how: WEAR_HOW, buttons: ['1-9', 'right'], stats: 'armor' },
+  samurai_tekko: { use: 'こうげき から まもる（うで）', special: 'かたな の あつかい が うまく なる。かたい あいて にも こうか ばつぐん', how: WEAR_HOW, buttons: ['1-9', 'right'], stats: 'armor' },
+  samurai_geta: { use: 'こうげき から まもる（あし）', special: 'おちた とき の いたさ を へらす。はしる と カランコロン と ［心地｜ここち］よい おと が する', how: WEAR_HOW, buttons: ['1-9', 'right'], stats: 'armor' },
   ninja_tabi: { use: 'こうげき から まもる（あし）', special: 'たかい ところ から おちても いたく ない', how: WEAR_HOW, buttons: ['1-9', 'right'], stats: 'armor' },
 
   // ---- 働きが あとのもの（6）

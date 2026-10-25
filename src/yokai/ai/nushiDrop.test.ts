@@ -55,7 +55,8 @@ function kill(r: Rig, kind: YokaiKind, title: 'none' | 'oyabun' | 'taisho' | 'nu
 
 /** PR2 で 表が 2 本（雷神剣・風神剣）に なった ので、「レジェンダリーが 1 本」は どちらかで 数える */
 // WEAPON-9 で 虹も 表に 入った（3 本）
-const LEGENDS = ['raijin_ken', 'fujin_ken', 'niji'] as ItemId[];
+// SAMURAI-1（#300）: 表に 侍装備 4 つも 入った（帳が 空の この 準備では 7 行から 1 つ）。「レジェンダリーが 1 本」は 武器 3 ＋ 侍装備 4 の どれか 1 つで 数える
+const LEGENDS = ['raijin_ken', 'fujin_ken', 'niji', 'samurai_jingasa', 'samurai_haori', 'samurai_tekko', 'samurai_geta'] as ItemId[];
 const isLegend = (x: ItemId) => LEGENDS.includes(x);
 
 describe('WEAPON-7 AC5: ヌシの 表（かならず 1 本）', () => {
@@ -156,8 +157,8 @@ describe('WEAPON-7 AC6: 選び方（ランダム・持っている かは 見な
   });
 });
 
-describe('WEAPON-7 PR2・PR3 AC21: ヌシの 既定の 表（雷神剣・風神剣・虹 weight 1 ずつ）', () => {
-  it('既定の 表で 3,000 回 → 3 本 それぞれ 900〜1,100 回・かならず どれか 1 本', () => {
+describe('WEAPON-7 PR2・PR3 AC21: ヌシの 既定の 表（雷神剣・風神剣・虹 ＋ SAMURAI-1 の 侍装備 4 つ・weight 1 ずつ）', () => {
+  it('既定の 表で 3,000 回 → 7 つ それぞれ 330〜530 回（3,000 ÷ 7 ≒ 429。SAMURAI-1 で 期待が 変わった）・かならず どれか 1 つ', () => {
     const r = rig({ seed: 31 });
     const n: Record<string, number> = {};
     for (let i = 0; i < 3000; i++) {
@@ -165,9 +166,9 @@ describe('WEAPON-7 PR2・PR3 AC21: ヌシの 既定の 表（雷神剣・風神�
       expect(got, `${i} 回目`).toHaveLength(1);
       n[got[0]!] = (n[got[0]!] ?? 0) + 1;
     }
-    for (const k of ['raijin_ken', 'fujin_ken', 'niji']) {
-      expect(n[k], k).toBeGreaterThanOrEqual(900);
-      expect(n[k], k).toBeLessThanOrEqual(1100);
+    for (const k of LEGENDS) {
+      expect(n[k], k).toBeGreaterThanOrEqual(330);
+      expect(n[k], k).toBeLessThanOrEqual(530);
     }
   });
 });
