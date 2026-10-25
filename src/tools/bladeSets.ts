@@ -10,7 +10,7 @@ import { noteDuplicates, registryBladeIds } from '../content/items/registry';
  * 刀（わざ・かまえ・刃の軌跡が ある もの）。なぎなたは入れない（今のパンチのまま）。
  * わざの判定（isBladeItem）・刃の軌跡・手甲の倍率などは、こちらを読む。
  */
-const OLD_BLADES: readonly ItemId[] = ['bokuto', 'katana', 'crystal_katana', 'raijin_ken', 'fujin_ken', 'niji'];
+const OLD_BLADES: readonly ItemId[] = ['bokuto', 'katana', 'crystal_katana'];
 noteDuplicates('BLADE_ITEMS', [...OLD_BLADES, ...registryBladeIds()]);
 export const BLADE_ITEMS: ReadonlySet<ItemId> = new Set<ItemId>([
   ...OLD_BLADES,

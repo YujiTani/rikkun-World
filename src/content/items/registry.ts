@@ -1,7 +1,8 @@
-import type { ArmorSlot, BladeTrailStyle, DamageKind, ItemId, ItemType, Rarity, Recipe } from '../../contracts';
+import type { ArmorSlot, BladeTrailStyle, DamageKind, ItemId, ItemType, LegendaryDef, Rarity, Recipe } from '../../contracts';
 import type { InfoRow } from '../../craft/info/table';
 import type { ItemCategory } from '../../ui/itemCategory';
 import { GOLD } from './gold';
+import { LEGEND } from './legend';
 import { NINJA } from './ninja';
 import { SAMURAI } from './samurai';
 import type { ItemDef } from './types';
@@ -14,6 +15,7 @@ import type { ItemDef } from './types';
  *
  * 新しい金を足すとき: ids.ts に id → gold.ts に値 → ui/itemArtGold.ts に絵（Record<GoldId> なので 書き忘れは 型エラー）。
  * 忍者・侍も 同じ（ninja.ts・samurai.ts。絵は ui/itemArtNinja.ts・itemArtSamurai.ts）。
+ * レジェンダリー武器（雷神剣・風神剣・虹）は legend.ts（ためわざ・効果は `legend` の部品。絵は ui/itemArtW7.ts）。
  * のこりのシリーズは 段階 3 で 1 本ずつ ここへ うつす（全部 うまったら ITEM_DEFS を 全件 Record に する）。
  */
 export type ItemDefs = Readonly<Partial<Record<ItemId, ItemDef>>>;
@@ -23,8 +25,13 @@ export const GOLD_DEFS: ItemDefs = GOLD;
 /** 忍者・侍（ITEM_TYPES では 古い表の 同じ 位置（すねあての 次）に 入れる） */
 export const NINJA_SAMURAI_DEFS: ItemDefs = { ...NINJA, ...SAMURAI };
 
-/** 登録された 全アイテム（忍者・侍・金。カテゴリーの 中の 並びは この順） */
-export const ITEM_DEFS: ItemDefs = { ...NINJA_SAMURAI_DEFS, ...GOLD_DEFS };
+/** レジェンダリー武器（ITEM_TYPES・武器の 色分けでは 古い表の 同じ 位置（crystal_katana の 次）に 入れる） */
+export const LEGEND_DEFS: ItemDefs = LEGEND;
+/** 古い表の うしろに ならぶ 分（忍者・侍・金） */
+const LATER_DEFS: ItemDefs = { ...NINJA_SAMURAI_DEFS, ...GOLD_DEFS };
+
+/** 登録された 全アイテム（忍者・侍・レジェンダリー・金） */
+export const ITEM_DEFS: ItemDefs = { ...NINJA_SAMURAI_DEFS, ...LEGEND_DEFS, ...GOLD_DEFS };
 
 /**
  * うつしかえの 途中で、同じ id を 古い表と 登録表の 両方に 書いてしまった所の 一覧（"表の名前:id"）。
@@ -96,9 +103,9 @@ export function registryRarity(): Record<string, Rarity> {
   return pickAll(ITEM_DEFS, (d) => d.rarity) as Record<string, Rarity>;
 }
 
-/** カテゴリー別の id（CATEGORY_ITEMS の うしろに 足す） */
-export function registryCategoryIds(cat: ItemCategory): string[] {
-  return entriesOf(ITEM_DEFS).filter(([, d]) => d.category === cat).map(([id]) => id);
+/** カテゴリー別の id（CATEGORY_ITEMS の うしろに 足す。defs を 書かないと 古い表の うしろに ならぶ 分） */
+export function registryCategoryIds(cat: ItemCategory, defs: ItemDefs = LATER_DEFS): string[] {
+  return entriesOf(defs).filter(([, d]) => d.category === cat).map(([id]) => id);
 }
 
 /** 説明の行（ITEM_INFO に 合わせる） */
@@ -156,4 +163,11 @@ export function registryArmorSlot(): Record<string, ArmorSlot> {
 /** 防具: 説明に出す 種類（ARMOR_KIND） */
 export function registryArmorKind(): Record<string, DamageKind> {
   return pickAll(ITEM_DEFS, (d) => d.armor?.kind) as Record<string, DamageKind>;
+}
+
+/** レジェンダリー: ためわざ・効果・ずっと 効く 力（LEGENDARY_DEFAULTS。登録の 順 = ドロップ表の 順）。中身は 登録表の 物を そのまま わたす ので、受け取る 側が 写して 使う */
+export function registryLegend(): LegendaryDef[] {
+  const out: LegendaryDef[] = [];
+  for (const [id, d] of entriesOf(ITEM_DEFS)) if (d.legend) out.push({ item: id, ...d.legend });
+  return out;
 }

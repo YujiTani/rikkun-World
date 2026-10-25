@@ -1,5 +1,5 @@
 import type { BlockId, ItemType } from '../contracts';
-import { GOLD_DEFS, NINJA_SAMURAI_DEFS, itemTypesOf, noteDuplicates } from '../content/items/registry';
+import { GOLD_DEFS, LEGEND_DEFS, NINJA_SAMURAI_DEFS, itemTypesOf, noteDuplicates } from '../content/items/registry';
 import { BLOCK_TYPES } from '../world/blocks/blockTypes';
 
 export const INVENTORY_SIZE = 36;
@@ -125,13 +125,6 @@ const LIVE_ITEMS: readonly ItemType[] = [
   { id: 'momo_yaki', name: 'やいた もも にく', maxStack: BLOCK_MAX_STACK, placeBlock: null },
 ];
 
-/** WEAPON-7: レジェンダリー武器（ヌシが おとす。名前は ［漢字｜よみ］ — src/ui/text.ts の withRuby で 画面に 出す） */
-const WEAPON7_ITEMS: readonly ItemType[] = [
-  { id: 'raijin_ken', name: '［雷神剣｜らいじんけん］', maxStack: 1, placeBlock: null },
-  { id: 'fujin_ken', name: '［風神剣｜ふうじんけん］', maxStack: 1, placeBlock: null },
-  { id: 'niji', name: '［虹｜にじ］', maxStack: 1, placeBlock: null },
-];
-
 export const ITEM_TYPES: readonly ItemType[] = [
   ...PLACEABLE_TYPES,
   ...ITEM_ONLY,
@@ -145,7 +138,8 @@ export const ITEM_TYPES: readonly ItemType[] = [
   ...BUCKET_ITEMS,
   ...VOX_I_BLOCKS,
   ...LIVE_ITEMS,
-  ...WEAPON7_ITEMS,
+  // WEAPON-7/8/9: レジェンダリー武器 3 つ（雷神剣・風神剣・虹）は 登録表（content/items/legend.ts）から
+  ...itemTypesOf(LEGEND_DEFS),
   // GOLD-1（#222）: きん・きんの そうび 8 こ・はらぱんみみず は 登録表（content/items/gold.ts）から
   ...itemTypesOf(GOLD_DEFS),
 ];

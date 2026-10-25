@@ -68,10 +68,6 @@ const OLD_ITEM_ONLY_RARITY: Record<string, Rarity> = {
   kin_tamago: 'epic',
   momo_nama: 'common', // LIVE-3 仮
   momo_yaki: 'common',
-  // WEAPON-7（ヌシが おとす。7 段目）
-  raijin_ken: 'legendary',
-  fujin_ken: 'legendary',
-  niji: 'legendary',
   // BUCKET-1
   bucket: 'common',
   water_bucket: 'common',

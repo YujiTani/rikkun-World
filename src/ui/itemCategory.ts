@@ -5,7 +5,7 @@
  * 新しいアイテムを足すときは、ここにも 1 行足す（表に無いアイテムは `material` = そざい）。
  * 登録表（content/items/）に うつしたシリーズは、そちらの `category` に 書く（ここへは 自動で 入る）。
  */
-import { noteDuplicates, registryCategoryIds } from '../content/items/registry';
+import { LEGEND_DEFS, noteDuplicates, registryCategoryIds } from '../content/items/registry';
 
 export type ItemCategory =
   | 'soil'
@@ -38,7 +38,7 @@ export const ITEM_CATEGORIES: readonly ItemCategory[] = [
   'food',
 ];
 
-/** まだ 登録表（content/items/）に うつしていない アイテムの カテゴリー（§3.5 (7) の表） */
+/** まだ 登録表（content/items/）に うつしていない アイテムの カテゴリー（§3.5 (7) の表）。レジェンダリーだけは 古い表の まん中に 登録表の 分が 入る */
 const OLD_CATEGORY_ITEMS: Readonly<Record<ItemCategory, readonly string[]>> = {
   soil: ['dirt', 'sand', 'snow', 'geyser_dirt'],
   stone: ['stone'],
@@ -48,7 +48,7 @@ const OLD_CATEGORY_ITEMS: Readonly<Record<ItemCategory, readonly string[]>> = {
   material: ['paper', 'string', 'cloth', 'oil', 'clay', 'yokai_orb', 'kin_tamago'],
   metal: ['iron_ingot', 'crystal'],
   tool: ['wood_pickaxe', 'stone_pickaxe', 'iron_pickaxe', 'wood_axe', 'stone_axe', 'iron_axe', 'kuwa', 'watering_can', 'long_watering_can', 'bucket', 'water_bucket', 'mushi_ami'],
-  weapon: ['bokuto', 'katana', 'naginata', 'crystal_katana', 'raijin_ken', 'fujin_ken', 'niji', 'yumi', 'ya'],
+  weapon: ['bokuto', 'katana', 'naginata', 'crystal_katana', ...registryCategoryIds('weapon', LEGEND_DEFS), 'yumi', 'ya'], // レジェンダリー 3 つは 登録表（content/items/legend.ts）から（古い表と 同じ 位置）
   armor: ['kabuto', 'yoroi', 'kote', 'suneate'],
   light: ['torch', 'lantern'],
   home: ['furnace', 'tansu', 'futon', 'haniwa', 'kite', 'waraji', 'omamori', 'sprinkler', 'nukunuku', 'toriya'],

@@ -1,4 +1,5 @@
 import type { ItemId } from '../contracts';
+import { LEGEND_IDS, type LegendId } from '../content/items/ids';
 import type { Rgba } from '../world/blocks/textures';
 import { fromRows } from './itemArtM4';
 
@@ -7,8 +8,8 @@ import { fromRows } from './itemArtM4';
  * 雷神剣は オーナー決定 v3-A（2026-10-18 18:22）: そった むらさきの 刃 ＋ 金の 小さな つば ＋ 短い こん色の 柄。ART-PIPE-1 で 稲妻の 刃文を 足した。
  * 柄なし・大きな 丸い つばは NG。もとの 絵は 共有フォルダ `weapon7/art/raijin_ken_icon_v3_A.png`（`tools/icon3.py` の `A3()`・`tools/icon2.py` の PAL）。
  */
-export const W7_ITEMS = ['raijin_ken', 'fujin_ken', 'niji'] as const;
-export type W7ItemId = (typeof W7_ITEMS)[number];
+export const W7_ITEMS = LEGEND_IDS; // 雷神剣・風神剣・虹（出どころは content/items/ids.ts）
+export type W7ItemId = LegendId;
 
 export function isW7Item(item: ItemId): item is W7ItemId {
   return (W7_ITEMS as readonly string[]).includes(item);
