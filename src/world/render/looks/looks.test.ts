@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { BLOCK_TYPES } from '../../../world/blocks/blockTypes';
-import '../meshVoxel';
+import { BLOCK_TYPES } from '../../blocks/blockTypes';
+import '../../../proto/voxel/meshVoxel';
 import {
   ALL_FACES,
   ALL_LOOKS,

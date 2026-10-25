@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { BoxGeometry, Group, Mesh, MeshBasicMaterial, ShaderLib } from 'three';
-import { hazePatch } from '../proto/gashaBig';
-import { TUNE as BIG } from '../proto/gashaBigTuning';
+import { hazePatch } from './gashaBig';
+import { TUNE as BIG } from './gashaBigTuning';
 import { RELEASE } from './releaseTuning';
 import { applySilhouette, silhouetteShader, updateSilhouette } from './silhouette';
 

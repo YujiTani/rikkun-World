@@ -3,6 +3,7 @@
 //         node scripts/ratchet.mjs --update … 上限を 今の数まで 下げる（上げることは しない）
 import { spawn } from 'node:child_process';
 import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
 
 const LIMIT_FILE = new URL('../ratchet.json', import.meta.url);
 const ROOT = new URL('..', import.meta.url).pathname;
@@ -82,6 +83,20 @@ function countFiles() {
   return { eslintDisable, filesOver800 };
 }
 
+/** 本番（src/proto/ の外、テストを のぞく）から src/proto/ への import の数（import 文・再輸出・動的 import を 1 つずつ数える。#308 段階 4） */
+function countProtoImports() {
+  const protoDir = `${ROOT}src/proto/`;
+  const re = /(?:\bfrom\s+|\bimport\s*\(\s*|\bimport\s+)['"](\.{1,2}\/[^'"]*)['"]/g;
+  let protoImports = 0;
+  for (const f of walkSrc(`${ROOT}src/`)) {
+    if (f.endsWith('.test.ts') || f.startsWith(protoDir)) continue;
+    for (const m of readFileSync(f, 'utf8').matchAll(re)) {
+      if (`${resolve(dirname(f), m[1])}/`.startsWith(protoDir) || resolve(dirname(f), m[1]) === protoDir.slice(0, -1)) protoImports++;
+    }
+  }
+  return { protoImports };
+}
+
 const LABELS = {
   idCompare: 'id の === / !== 直書き',
   idCase: 'id の case 直書き',
@@ -91,10 +106,11 @@ const LABELS = {
   unusedTypes: '使われない type の export',
   eslintDisable: 'eslint-disable の 行',
   filesOver800: '800 行を こえる .ts ファイル（テストは のぞく）',
+  protoImports: '本番から src/proto/ への import（テストは のぞく）',
 };
 
 const t0 = Date.now();
-const results = [...(await Promise.all([countEslint(), countMadge(), countKnip()])), countFiles()];
+const results = [...(await Promise.all([countEslint(), countMadge(), countKnip()])), countFiles(), countProtoImports()];
 const counts = Object.assign({}, ...results);
 const update = process.argv.includes('--update');
 const limits = existsSync(LIMIT_FILE) ? JSON.parse(readFileSync(LIMIT_FILE, 'utf8')) : {};

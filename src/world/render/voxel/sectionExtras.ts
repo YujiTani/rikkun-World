@@ -1,6 +1,6 @@
 import type { CropStageSource } from '../../../contracts';
 import { cropKindOfBlock } from '../../../contracts';
-import { hasLook, occludes } from '../../../proto/voxel/looks';
+import { hasLook, occludes } from '../looks';
 import { AIR, BLOCK_TYPES, WATER, isCrossIndex, isOpaqueIndex, isTorchIndex, isWildIndex } from '../../blocks/blockTypes';
 import type { TileName } from '../../blocks/textures';
 import type { WorldLight } from '../../light/WorldLight';

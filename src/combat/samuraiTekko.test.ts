@@ -11,9 +11,9 @@ import { techDamage } from '../tools/blade/BladeSystem';
 import { legendPowerOf } from '../legend/defs';
 import { createLegendSystem, type LegendStepCtx } from '../legend/LegendSystem';
 import { createWaveSystem, type WaveStepCtx } from '../legend/WaveSystem';
-import { buildBig, worldHits } from '../proto/gashaBig';
-import { BigHit, damageOf, type BoxLike } from '../proto/gashaBigHit';
-import { TUNE as T } from '../proto/gashaBigTuning';
+import { buildBig, worldHits } from '../gasha/gashaBig';
+import { BigHit, damageOf, type BoxLike } from '../gasha/gashaBigHit';
+import { TUNE as T } from '../gasha/gashaBigTuning';
 
 /**
  * SAMURAI-1（#300）AC10〜AC13: 明珍手甲（刀 × 1.5・防御力 10 無視）。実装の 前の テスト（赤）。

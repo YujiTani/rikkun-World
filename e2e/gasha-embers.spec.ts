@@ -2,7 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { openGasha, setupBoss, quietCycle } from './helpers/gasha';
 import { installAimHelpers } from './helpers/aim';
 import { takeKatana, runTech, settle } from './helpers/blade';
-import { TUNE } from '../src/proto/gashaBigTuning';
+import { TUNE } from '../src/gasha/gashaBigTuning';
 
 /**
  * #293 噴火の 燃えかす: 約 5 分で 消える・殴ると 消える・触れると ドットダメージ・灰が 落ちた 点の 植物が 燃える。

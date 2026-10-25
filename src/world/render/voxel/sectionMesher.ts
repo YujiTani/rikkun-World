@@ -1,5 +1,5 @@
 import type { CropStageSource } from '../../../contracts';
-import { LOOK_N, LOOK_VOLUME, fillBlockLookKata, hasLook, initLooks, kataOf, occludes } from '../../../proto/voxel/looks';
+import { LOOK_N, LOOK_VOLUME, fillBlockLookKata, hasLook, initLooks, kataOf, occludes } from '../looks';
 import { newSample, sampleSurface, type ColumnSource, type SurfaceSample } from '../../micro/microSurface';
 import { scanColumn, type ColumnInfo } from '../../micro/worldColumns';
 import { BLOCK_TYPES, WATER, isLeafIndex, isOpaqueIndex } from '../../blocks/blockTypes';

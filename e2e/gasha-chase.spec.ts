@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { openGasha } from './helpers/gasha';
-import { TUNE } from '../src/proto/gashaBigTuning';
+import { TUNE } from '../src/gasha/gashaBigTuning';
 
 /**
  * #293 怒った がしゃどくろは 追いかける: うしろに 回ると 振り返る・近づきすぎると 止まる・出現した 高さを 保つ（地面が 掘られても 落ちない）。

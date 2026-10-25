@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { openGasha, setupBoss } from './helpers/gasha';
-import { TUNE } from '../src/proto/gashaBigTuning';
+import { TUNE } from '../src/gasha/gashaBigTuning';
 
 /**
  * #293 怒り → 攻撃を 3〜5 回 → つかれて 休む（くるくる目・30〜40 秒）→ また 怒りの ならし、の くり返し。

@@ -1,0 +1,86 @@
+/**
+ * LIVE の設定の初期値。`src/contracts.ts` から分けた（中身は移しただけ）。
+ */
+
+import { registryHeal } from '../content/items/registry';
+import type { LiveSettings } from '../contracts/animals';
+import { SEA_Y } from '../world/constants';
+
+export const LIVE_SETTING_DEFAULTS: Readonly<LiveSettings> = {
+  animalAutoSpawn: true,
+  animalSpawnInterval: 600,
+  animalWildMax: 3,
+  animalSpawnMinDist: 16,
+  animalSpawnMaxDist: 40,
+  animalRemoveDist: 64,
+  animalWanderSpeed: 1.0,
+  animalLookDist: 6,
+  animalFriendFeeds: 3,
+  animalFriendMax: 8,
+  animalReactTicks: 30,
+  animalEggDelay: 60,
+  animalEggHeal: registryHeal('egg'), // たまごの 回復量は 登録表（content/items/live.ts）から
+  animalFollowStart: 4,
+  animalFollowStop: 2.5,
+  animalFollowSpeed: 4.0,
+  animalWarpDist: 16,
+  animalStuckTicks: 120,
+  animalFollowTicks: 18000,
+  animalFullTicks: 600,
+  animalEggChance: 0.25,
+  animalEggPity: 7,
+  bugChance: 1 / 3,
+  bugPity: 2,
+  bugTreeCooldown: 1800,
+  bugTreeRadius: 4,
+  netSwingTicks: 20,
+  carryHoldTicks: 40,
+  animalFlutterFallSpeed: 2.0,
+  kitHatchTicks: 7200,
+  kitHatchDist: 16,
+  chickGrowDays: 2,
+  chickFlutterFallSpeed: 2.5,
+  coopMax: 6,
+  coopCountMax: 3,
+  coopEnterTicks: 0,
+  kitActiveMax: 6,
+  coopNestMax: 12,
+  machoChance: 0.05,
+  machoPity: 19,
+  goldBaseWild: 0.01,
+  goldBaseRaised: 0.04,
+  goldPerBug: 0.0005,
+  goldBugMax: 0.04,
+  goldCap: 0.08,
+  goldPity: 30,
+  placeStepMax: 2,
+  kitEggMax: 3,
+  throwRange: 4,
+  natsukiMax: 100,
+  natsukiBug: 15,
+  natsukiPet: 10,
+  natsukiBugWaitTicks: 18000,
+  natsukiPetWaitTicks: 18000,
+  natsukiDecay: 5,
+  natsukiDecayTicks: 36000,
+  natsukiGoldMin: 70,
+  goldMachoMul: 2,
+  harapanYokai: 0.07,
+  harapanChest: 0.03,
+  harapanBlock: 0.005,
+  harapanLog: 0.002,
+  harapanUnderY: SEA_Y,
+  meatPerBird: 2,
+  meatHeal: registryHeal('momo_yaki'), // 10 = ハート 5 こ。登録表（content/items/live.ts）から
+  meatTicks: 220,
+  machoAtk: 2,
+  machoReach: 1.2,
+  machoRunSpeed: 5.0,
+  machoLeash: 12,
+  machoForget: 600,
+  machoFighters: 1,
+};
+
+export function createLiveSettings(): LiveSettings {
+  return { ...LIVE_SETTING_DEFAULTS };
+}

@@ -23,7 +23,7 @@ import type { IslandInfo } from '../../contracts';
 import { VoxelChunkMesher, type QuadPiece, type VoxelMode } from './meshVoxel';
 import { createShapeTexture } from './shapeTexture';
 import { createVoxelMaterial, setVoxelFog } from './voxelMaterial';
-import { currentLook, setCurrentLook } from './looks';
+import { currentLook, setCurrentLook } from '../../world/render/looks';
 import type { Data3DTexture } from 'three';
 import { stretchHeight, type HeightFactor } from './terrain/stretchHeight';
 

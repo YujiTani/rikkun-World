@@ -2,7 +2,7 @@ import type { PerspectiveCamera, WebGLRenderer } from 'three';
 import { Vector3 } from 'three';
 import { BLOCK_TYPES, isOpaqueIndex } from '../blocks/blockTypes';
 import { TILE_NAMES, getTilePixels } from '../blocks/textures';
-import { hasLook } from '../../proto/voxel/looks';
+import { hasLook } from './looks';
 import { sampleSurface, newSample } from '../micro/microSurface';
 import { microTerrain, scanColumn, worldColumnSource, type ColumnInfo } from '../micro/worldColumns';
 import type { ArrayVoxelWorld } from '../VoxelWorld';

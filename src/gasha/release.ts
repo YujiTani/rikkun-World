@@ -14,8 +14,8 @@
  */
 import type { Object3D } from 'three';
 import type { ItemId, ItemStack } from '../contracts';
-import type { GashaBigDeps } from '../proto/gashaBig';
-import { TUNE as BIG } from '../proto/gashaBigTuning';
+import type { GashaBigDeps } from './gashaBig';
+import { TUNE as BIG } from './gashaBigTuning';
 import { rewardRng, rollReward } from './reward';
 import { isNinjaGear } from '../craft/NinjaBook';
 import { createRng, randInt } from '../world/gen/random';

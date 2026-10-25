@@ -2,7 +2,7 @@ import type { BlockId, Vec3 } from '../contracts';
 
 /**
  * #293 試作: 大きい がしゃどくろの 体の 上に ブロックを 置く・こわす 口（ワールドの ブロックでは なく、体の 関節に ついて 動く）。
- * つなぎは src/proto/gashaBigPlaced.ts。DigSystem は ワールドの ねらいと くらべて 近い 方を ねらう。
+ * つなぎは src/gasha/gashaBigPlaced.ts。DigSystem は ワールドの ねらいと くらべて 近い 方を ねらう。
  */
 export interface BodyAim {
   /** ねらった 体の マス（世界の マスの 座標） */

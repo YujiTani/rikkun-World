@@ -1,7 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { openGasha, reopenGasha, setupBoss, installGirlTools, loadGirl, leftovers, bare, CLEAN } from './helpers/gasha';
 import { RELEASE } from '../src/gasha/releaseTuning';
-import { TUNE as BT } from '../src/proto/gashaBigTuning';
+import { TUNE as BT } from '../src/gasha/gashaBigTuning';
 
 /**
  * #293 段 5: とどめ（体力 0 の 一撃）→ はじく → 少女は 座りこむ（無敵）→ 大きな 姿が 倒れる → 赤い コア → 8 回 たたく たびに ばらまく → こわすと くずれて 消える → 保存 v2。

@@ -1,7 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { openGasha, setupBoss, installGirlTools, loadGirl } from './helpers/gasha';
 import { takeKatana, runTech, settle } from './helpers/blade';
-import { TUNE as BT } from '../src/proto/gashaBigTuning';
+import { TUNE as BT } from '../src/gasha/gashaBigTuning';
 
 /**
  * #293 直し 4（オーナーが 遊んで 見つけた バグ）の E2E。時間では 待たず、コマで 進める。

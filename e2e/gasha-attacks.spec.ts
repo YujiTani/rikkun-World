@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { openGasha, setupBoss, leftovers, bare, CLEAN, quietCycle } from './helpers/gasha';
-import { TUNE } from '../src/proto/gashaBigTuning';
+import { TUNE } from '../src/gasha/gashaBigTuning';
 
 /**
  * #293 がしゃどくろ: 5 つの 攻撃（slam2・sweep・beam・eruption・thunder）。

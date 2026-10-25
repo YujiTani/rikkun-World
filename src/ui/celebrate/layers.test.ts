@@ -16,7 +16,7 @@ const blockOf = (css: string, selector: string): string => {
 
 describe('実績の おしらせの 重なり順', () => {
   const celCss = read('./celebrate.css');
-  const hpBar = read('../../proto/gashaBigHpBar.ts');
+  const hpBar = read('../../gasha/gashaBigHpBar.ts');
   const startMenu = read('../../start/startMenu.css');
   const hpZ = Number(/position:fixed;[^`]*z-index:(\d+)/.exec(hpBar)![1]);
   const zOf = (css: string): number => Number(/z-index:\s*(\d+)/.exec(css)![1]);

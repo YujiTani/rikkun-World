@@ -4,7 +4,7 @@ import type { ArmorSlot, CombatEvent, DayPhase, Inventory, ItemId, PlayerCombat,
 import { ArrayVoxelWorld } from '../world/VoxelWorld';
 import { YokaiManager } from '../yokai/ai/YokaiManager';
 import { NINJA_TUNING } from '../craft/ninjaTuning';
-import { BigHit, damageOf, type BoxLike } from '../proto/gashaBigHit';
+import { BigHit, damageOf, type BoxLike } from '../gasha/gashaBigHit';
 import { Kodachi } from './Kodachi';
 
 /**
