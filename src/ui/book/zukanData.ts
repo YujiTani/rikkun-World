@@ -83,7 +83,7 @@ export function filterZukan(entries: readonly ZukanEntry[], query: string, group
 
 /** 1 見開きの マスの 数（左 12・右 16） */
 export const ZUKAN_LEFT = 12;
-export const ZUKAN_RIGHT = 16;
+const ZUKAN_RIGHT = 16;
 export const ZUKAN_SPREAD = ZUKAN_LEFT + ZUKAN_RIGHT;
 
 /** 一覧の 見開きの 数（0 こ でも 1） */
