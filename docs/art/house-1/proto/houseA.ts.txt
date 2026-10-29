@@ -1,0 +1,253 @@
+// HOUSE-1 案 A（オーナー決定 2026-10-29）の 形・色・うなずき の 数。
+// 見本 `docs/art/house-1/A.png`・`A-nod.gif` を 描いた コード（/mnt/project-files/housing-art/proto/main.ts）から
+// 案 A の 分だけ を ぬき出した もの。ゲームの コード では ない（.txt）。src/ に 入れる ときの 数の 元（DESIGN §19）。
+// 3 か所 だけ 見本から なおした: ① おふろの 水の 上を 5.2 → 5（1/9 に そろえる）② 本の 絵を「ベタ ＋ 帯」に まとめた（絵は 同じ）③ 型の 名前。
+import type { Part, Prim, V3 } from '../animals/models/chickenSpec'; // ゲームでは 置いた 場所から の パスに する
+
+// ============================================================ 建築士さん（1/16 ブロック の 小キューブ。前 = −z、足もと の まん中 = 原点）
+
+/** 色の 表（DESIGN 19.3） */
+export const ARCH_COL = {
+  ai: 0x2f4780, // あい（はっぴ）
+  aiL: 0x3d5a9e, // すその 線
+  eri: 0xefe7d4, // えり・せなかの しるし
+  skin: 0xf0c49a,
+  hair: 0x3a2a22,
+  pants: 0x3a3f52, // ももひき
+  tabi: 0x2a2a30, // 地下足袋
+  obi: 0xa87b4f, // 帯
+  wood: 0x9c7040, // 木づちの 柄
+  woodL: 0xc89a62, // 木づちの 頭
+  band: 0x5a3a22, // 木づちの 頭の 帯
+  eye: 0x2e2438, // 目（どうぶつと 同じ）
+  mouth: 0x9a5034,
+  hachi: 0xf4f0e6, // はちまき
+  outline: 0x7fe0ff, // ねらい中の ふちどり（どうぶつと 同じ。妖怪の 黄と 分ける）
+} as const;
+
+const box = (a: V3, b: V3, col: number, paint?: boolean): Prim => ({ k: 'box', a, b, col, paint });
+const ell = (c: V3, r: V3, col: number, p?: number): Prim => ({ k: 'ell', c, r, col, p });
+
+/** 骨の 並び。`buildModel(architectSpec())` で 三角形 514・ふちどり 430（見本で はかった 数） */
+export function architectSpec(): Part[] {
+  const K = ARCH_COL;
+  return [
+    { name: 'body', pivot: [0, 7, 0], prims: [
+      box([-4.5, 7, -2.5], [4.5, 15, 2.5], K.ai),
+      box([-5, 7, -3], [5, 9, 3], K.ai),
+      box([-4.6, 9, -2.6], [4.6, 10.5, 2.6], K.obi),
+      box([-3, 10.5, -2.8], [-1, 15, -2.4], K.eri),
+      box([1, 10.5, -2.8], [3, 15, -2.4], K.eri),
+      box([-4.6, 7, -3.1], [4.6, 7.8, 3.1], K.aiL),
+      // せなかの しるし（白い 四角 の まん中 に 藍 = 「回」の 形）
+      box([-2, 10.5, 2.4], [2, 14.5, 2.9], K.eri),
+      box([-1, 11.5, 2.4], [1, 13.5, 3.0], K.ai),
+    ] },
+    { name: 'legL', pivot: [-2, 7, 0], prims: [box([-4, 1.5, -1.5], [-0.5, 7, 1.5], K.pants), box([-4, 0, -2.5], [-0.5, 1.5, 1.5], K.tabi)] },
+    { name: 'legR', pivot: [2, 7, 0], prims: [box([0.5, 1.5, -1.5], [4, 7, 1.5], K.pants), box([0.5, 0, -2.5], [4, 1.5, 1.5], K.tabi)] },
+    { name: 'armL', parent: 'body', pivot: [-5.5, 14, 0], hideIn: ['body'], prims: [box([-7, 9.5, -1.5], [-4.5, 15, 1.5], K.ai), box([-6.8, 8, -1.2], [-4.7, 9.5, 1.2], K.skin)] },
+    { name: 'armR', parent: 'body', pivot: [5.5, 14, 0], hideIn: ['body'], prims: [box([4.5, 9.5, -1.5], [7, 15, 1.5], K.ai), box([4.7, 8, -1.2], [6.8, 9.5, 1.2], K.skin)] },
+    { name: 'tool', parent: 'armR', pivot: [5.8, 9, 0], prims: [
+      // 木づち: 手から かたの 上を 通って せなかへ（ARCH_TOOL_REST の 向きで。前から T、横から せなかに 頭）
+      box([5.2, 8, -0.6], [6.4, 22, 0.6], K.wood),
+      box([2.5, 21, -2.4], [11, 25.5, 2.4], K.woodL),
+      box([2.3, 20.9, -2.6], [3.3, 25.6, 2.6], K.band),
+      box([10.2, 20.9, -2.6], [11.2, 25.6, 2.6], K.band),
+    ] },
+    { name: 'head', parent: 'body', pivot: [0, 15, 0], hideIn: ['body'], prims: [
+      ell([0, 19.5, 0], [4.2, 4.3, 4], K.skin, 4),
+      ell([0, 20.6, 0.7], [4.5, 4, 3.9], K.hair, 4),
+      box([-4.3, 22, -4.3], [4.3, 24, -2.5], K.hair),
+      { k: 'ring', c: [0, 21.8, 0.2], ro: [4.9, 0.8, 4.7], ri: 3.4, col: K.hachi },
+      box([-1, 21, 4.4], [1, 22.6, 5.4], K.hachi),
+      box([0.4, 19.4, 4.8], [1.4, 21, 5.6], K.hachi),
+      box([-1.6, 19.6, 4.8], [-0.6, 21, 5.6], K.hachi),
+      // 目・口 は 顔に ぬる（paint。顔から 出さない）
+      box([-2.6, 18, -4], [-1.6, 20, -3], K.eye, true),
+      box([1.6, 18, -4], [2.6, 20, -3], K.eye, true),
+      box([-1, 16.2, -4], [1, 17, -3], K.mouth, true),
+    ] },
+  ];
+}
+
+/** 木づちの 待機の 向き（度）。骨 `tool` に いつも かける（x = うしろへ ねかせる、z = 外へ） */
+export const ARCH_TOOL_REST = { x: 28, z: -10 } as const;
+
+// ------------------------------------------------------------ うなずき（DESIGN 19.5。1 コマ = 1 ステップ = 1/60 秒）
+export const NOD_FRAMES = 20; // 頭。体は 2 コマ おくれて 22 で おわる
+
+function ease(t: number): number {
+  return t * t * (3 - 2 * t);
+}
+
+/** f コマ目（0〜22）の 角度（度）。head = 頭の 前への かたむき（＋ = 下を 向く）、roll = 頭の 横の かしげ、body = 体の 前への かたむき */
+export function nodPose(f: number): { head: number; roll: number; body: number } {
+  const keys: Array<[number, number]> = [[0, 0], [4, -9], [8, 26], [12, 26], [20, 0]];
+  let head = 0;
+  for (let i = 0; i < keys.length - 1; i++) {
+    const [f0, v0] = keys[i];
+    const [f1, v1] = keys[i + 1];
+    if (f >= f0 && f <= f1) {
+      const t = (f - f0) / (f1 - f0);
+      head = v0 + (v1 - v0) * (i === 1 ? t * t : ease(t)); // 下げる 区間は 加速（こくっ）、ほかは なめらか
+    }
+  }
+  // 体は 2 コマ おくれて 小さく ついていく（MOTION #13: 1 つの 軸・同じ タイミング に しない）
+  const g = Math.max(0, f - 2);
+  let body = 0;
+  if (g > 4 && g <= 8) body = 6 * ease((g - 4) / 4);
+  else if (g > 8 && g <= 12) body = 6;
+  else if (g > 12 && g <= 20) body = 6 * (1 - ease((g - 12) / 8));
+  return { head, roll: head * 0.18, body };
+}
+
+/** 骨（three.js の Object3D。前 = −z）に かける。下を 向く = x 軸 まわり に − */
+export function applyNod(bones: Record<'head' | 'body' | 'armL' | 'tool', { rotation: { set(x: number, y: number, z: number): unknown } }>, f: number): void {
+  const D = Math.PI / 180;
+  const p = nodPose(f);
+  bones.head.rotation.set(-p.head * D, 0, p.roll * D);
+  bones.body.rotation.set(-p.body * D, 0, 0);
+  bones.armL.rotation.set(-p.body * 0.8 * D, 0, 0);
+  bones.tool.rotation.set(ARCH_TOOL_REST.x * D, 0, ARCH_TOOL_REST.z * D);
+}
+
+// ============================================================ 家具 5 つ（形 = 1/9 ブロック、0.5 きざみ。絵 = 16×16 の タイル を 場所で うつす）
+// 原点 = 家具の 左前 下の かど（x・z の 小さい 方）。前 = −z（いすに 座る 向き・ほんだなの あいた 面）。
+// 絵の うつし方（ローカルの 座標。家具を まわすと 絵も いっしょに まわる。1 ブロック ごとに くり返す）:
+//   上・下の 面 (u, v) = (x, −z) ／ −z の 面 (x, y) ／ +z の 面 (−x, y) ／ +x の 面 (z, y) ／ −x の 面 (−z, y)
+//   画素 = floor(frac(u)·16)、行 = 15 − floor(frac(v)·16)（絵の 上 = 上）
+// 面の 明るさ = ブロックと 同じ（上 1.0・南北 0.68・東西 0.5・下 0.45）。glow の 面は 1.0（あんどんの 紙）。
+
+export type Px = number[]; // 16×16 = 256 の 0xRRGGBB（上の 行 から）
+
+function rng(seed: number): () => number {
+  let s = seed >>> 0 || 1;
+  return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);
+}
+const H = (s: string): number => parseInt(s.replace('#', ''), 16);
+function speck(base: string, others: string[], seed: number, rate = 0.25): Px {
+  const r = rng(seed);
+  return Array.from({ length: 256 }, () => (r() < rate ? H(others[Math.floor(r() * others.length)]) : H(base)));
+}
+function rect(t: Px, x: number, y: number, w: number, h: number, c: string): void {
+  for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) if (i >= 0 && j >= 0 && i < 16 && j < 16) t[j * 16 + i] = H(c);
+}
+/** 木目（横 か たて の 線 4 本）。ループ の 形は この まま（条件 の 中で r() を よぶ ので 線の 長さが 決まる） */
+function grain(base: string, dark: string, light: string, seed: number, vertical = false): Px {
+  const t = speck(base, [light], seed, 0.12);
+  const r = rng(seed + 7);
+  for (let k = 0; k < 4; k++) {
+    const p = Math.floor(r() * 16);
+    const s = Math.floor(r() * 12);
+    for (let q = s; q < Math.min(16, s + 4 + Math.floor(r() * 8)); q++) {
+      const [x, y] = vertical ? [p, q] : [q, p];
+      t[y * 16 + x] = H(dark);
+    }
+  }
+  return t;
+}
+function solid(c: string): Px {
+  return new Array(256).fill(H(c));
+}
+
+export type HouseTile =
+  | 'wood_top' | 'wood_side' | 'wood_v' | 'wood_end' | 'zabuton' | 'shoji' | 'andon_top' | 'water' | 'bath_side'
+  | 'book_r' | 'book_b' | 'book_g' | 'book_y';
+
+/** 家具の 絵 13 まい（名前は 案。atlas に 足す ときは developer が 決める） */
+export function houseTiles(): Record<HouseTile, Px> {
+  const shoji = speck('#F4EBD2', ['#EBDDBA'], 16, 0.15);
+  rect(shoji, 0, 7, 16, 1, '#8A5A36');
+  rect(shoji, 7, 0, 1, 16, '#8A5A36');
+  const andonTop = solid('#5A3A22');
+  rect(andonTop, 3, 3, 10, 10, '#FFE9A8');
+  const bath = grain('#B98F5E', '#9C7040', '#D2B07E', 18, true);
+  rect(bath, 0, 2, 16, 2, '#3A3A44');
+  rect(bath, 0, 11, 16, 2, '#3A3A44');
+  const book = (c: string): Px => {
+    const t = solid(c);
+    rect(t, 0, 3, 16, 1, '#F0E0B0'); // せの 帯
+    return t;
+  };
+  return {
+    wood_side: grain('#8A5A36', '#6A3E26', '#9C6A42', 11),
+    wood_top: grain('#9C6A42', '#7A4C2E', '#AE7C50', 12),
+    wood_v: grain('#8A5A36', '#6A3E26', '#9C6A42', 13, true),
+    wood_end: speck('#7A4C2E', ['#6A3E26', '#8A5A36'], 14, 0.3),
+    zabuton: speck('#3D5A9E', ['#2F4780', '#5B7BC4'], 15, 0.2),
+    shoji,
+    andon_top: andonTop,
+    water: speck('#6FB8E0', ['#8FD0F0', '#5BA6D2'], 17, 0.2),
+    bath_side: bath,
+    book_r: book('#B8452E'),
+    book_b: book('#3D5A9E'),
+    book_g: book('#5E8A3A'),
+    book_y: book('#D9A030'),
+  };
+}
+
+export interface FurnBox {
+  a: V3; // 1/9 ブロック
+  b: V3;
+  top: HouseTile; // 上（と 下）の 面
+  side: HouseTile; // 横の 4 面
+  glow?: boolean; // 面の 明るさを かけない
+}
+export type FurnKind = 'table' | 'chair' | 'andon' | 'shelf' | 'ofuro';
+/** 方眼の 大きさ（まわす 前。x × z） */
+export const FURN_CELLS: Record<FurnKind, readonly [number, number]> = { table: [2, 1], chair: [1, 1], andon: [1, 1], shelf: [1, 1], ofuro: [2, 1] };
+
+function legs4(x0: number, x1: number, z0: number, z1: number, t: number, h: number): FurnBox[] {
+  return [[x0, z0], [x1 - t, z0], [x0, z1 - t], [x1 - t, z1 - t]].map(([x, z]) => ({ a: [x, 0, z] as V3, b: [x + t, h, z + t] as V3, top: 'wood_end', side: 'wood_v' }));
+}
+
+/** 箱 の ならび（見本の 三角形 = 箱 × 12: テーブル 60・いす 108・あんどん 84・ほんだな 264・おふろ 60） */
+export function furnitureBoxes(): Record<FurnKind, FurnBox[]> {
+  const shelf: FurnBox[] = [
+    { a: [0, 0, 1], b: [1.5, 9, 9], top: 'wood_end', side: 'wood_v' },
+    { a: [7.5, 0, 1], b: [9, 9, 9], top: 'wood_end', side: 'wood_v' },
+    { a: [1.5, 0, 8], b: [7.5, 9, 9], top: 'wood_end', side: 'wood_v' },
+    ...[0, 3, 6, 8].map((y) => ({ a: [1.5, y, 1] as V3, b: [7.5, y + 1, 8] as V3, top: 'wood_top' as HouseTile, side: 'wood_side' as HouseTile })),
+  ];
+  // 本: シード 5（見本と 同じ 並び。r() を よぶ 順番を かえない）
+  const books: HouseTile[] = ['book_r', 'book_b', 'book_g', 'book_y'];
+  const r = rng(5);
+  for (const y of [1, 4, 7]) {
+    let x = 1.5;
+    while (x < 7.4) {
+      const w = Math.min(7.5 - x, 1 + Math.floor(r() * 2) * 0.5);
+      const h = y === 7 ? 1 : 1.5 + Math.floor(r() * 2) * 0.5;
+      const t = books[Math.floor(r() * 4)];
+      shelf.push({ a: [x, y, 2], b: [x + w, y + h, 7.5], top: t, side: t });
+      x += w;
+    }
+  }
+  return {
+    table: [
+      { a: [0, 5, 0], b: [18, 7, 9], top: 'wood_top', side: 'wood_side' },
+      ...legs4(0.5, 17.5, 0.5, 8.5, 3, 5),
+    ],
+    chair: [
+      ...legs4(1, 8, 1, 8, 2, 3),
+      { a: [0.5, 3, 0.5], b: [8.5, 5, 8.5], top: 'zabuton', side: 'wood_side' },
+      { a: [0.5, 5, 6.5], b: [2.5, 9, 8.5], top: 'wood_end', side: 'wood_v' },
+      { a: [6.5, 5, 6.5], b: [8.5, 9, 8.5], top: 'wood_end', side: 'wood_v' },
+      { a: [0.5, 9, 6.5], b: [8.5, 11, 8.5], top: 'wood_top', side: 'wood_side' }, // 上の 2/9 は 見た目 だけ（当たりは 1×1×1）
+      { a: [2.5, 6.5, 7], b: [6.5, 7.5, 8], top: 'wood_top', side: 'wood_side' },
+    ],
+    andon: [
+      ...legs4(1.5, 7.5, 1.5, 7.5, 1.5, 1.5),
+      { a: [2, 1.5, 2], b: [7, 8, 7], top: 'andon_top', side: 'shoji', glow: true },
+      { a: [1.5, 1, 1.5], b: [7.5, 2, 7.5], top: 'wood_top', side: 'wood_side' },
+      { a: [1.5, 8, 1.5], b: [7.5, 9, 7.5], top: 'andon_top', side: 'wood_side' },
+    ],
+    shelf,
+    ofuro: [
+      { a: [0, 0, 0], b: [18, 6, 2], top: 'wood_top', side: 'bath_side' },
+      { a: [0, 0, 7], b: [18, 6, 9], top: 'wood_top', side: 'bath_side' },
+      { a: [0, 0, 2], b: [2, 6, 7], top: 'wood_top', side: 'bath_side' },
+      { a: [16, 0, 2], b: [18, 6, 7], top: 'wood_top', side: 'bath_side' },
+      { a: [2, 0, 2], b: [16, 5, 7], top: 'water', side: 'water' }, // 見本は 5.2。1/9 に そろえて ふちの 1/9 下
+    ],
+  };
+}
