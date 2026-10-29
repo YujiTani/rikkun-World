@@ -61,3 +61,45 @@ export interface ColState {
   /** 自分と 8 つのとなりの光がそろっている（ストリーミングのとき、メッシュを作ってよい。S2） */
   meshable: boolean;
 }
+
+/** 列 1 つぶんの状態を作る（セクションは nSections 個。まだ何も作っていない） */
+export function newColState(cx: number, cz: number, nSections: number): ColState {
+  const col: ColState = {
+    cx,
+    cz,
+    secs: [],
+    tier: null,
+    dist: 0,
+    lodOpaque: null,
+    lodWater: null,
+    lodStale: true,
+    lodHold: false,
+    work: new Set(),
+    ring: 0,
+    inDraw: false,
+    meshable: false,
+  };
+  for (let sy = 0; sy < nSections; sy++) {
+    col.secs.push({
+      col, cx, sy, cz,
+      cls: CLS_UNKNOWN,
+      built: null,
+      dirty: true,
+      player: false,
+      byChange: false,
+      gen: 0,
+      faceless: false,
+      evicted: false,
+      queued: false,
+      voxel: null,
+      extras: null,
+      water: null,
+      voxMat: null,
+      aoTex: null,
+      occ: null,
+      bytes: 0,
+      tris: 0,
+    });
+  }
+  return col;
+}

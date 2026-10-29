@@ -6,6 +6,6 @@
   "unusedExports": 422,
   "unusedTypes": 162,
   "eslintDisable": 1,
-  "filesOver800": 7,
+  "filesOver800": 4,
   "protoImports": 0
 }

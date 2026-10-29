@@ -14,7 +14,7 @@ export const BW = 20;
 export const OWN = 16 * N; // 144
 export const ROWS_ALL = 17 * N; // 153: 自分の高さ + 上のはみ出しの 1 ブロック
 export const CUBE = BL * BL * BL;
-export const NB = BLOCK_TYPES.length;
+const NB = BLOCK_TYPES.length;
 
 initLooks(BLOCK_TYPES.map((t) => t.id));
 

@@ -9,16 +9,17 @@ import type { WorldLight } from '../../light/WorldLight';
 import type { ArrayVoxelWorld } from '../../VoxelWorld';
 import { meshSectionExtras } from './sectionExtras';
 import type { MeshData } from '../meshChunk';
+import { BlockCube } from './sectionCube';
+import { BoxMesher } from './sectionBox';
 import * as K from './sectionConsts';
 import { QuadBuilder, type VoxelPiece } from './sectionQuads';
 
 // vitest の import は 読むたびに getter を通って 遅い。内側のループが読む定数は このファイルの const に写す（本番のビルドでは同じ）
 const {
   AXIS_OF, BL, BW, CUBE, DIR, EXPOSE_ROWS, FILL_BLOCKS, G_BASE, GSTRIDE, LAYERS, LEAF, N, NBLOCKS, NEIGHBOR_OFF,
-  OCC, OCC_ROWS, OPAQUE_LIGHT, OWN, PH_BOX, PH_EXPOSE, PH_FILL, PH_FINISH, PH_IDLE, PH_LIGHT2, PH_OCC, PH_PLANES, PH_READ,
-  PH_SAMPLE, PH_SCAN, PH_TFILL, PLANES_PER_STEP, READ_ROWS, ROWS_ALL, S, SAMPLE_ROWS, SCAN_ROWS, SS, TFILL_ROWS, EDGE_UNKNOWN, FACE_VERTS,
+  OCC, OCC_ROWS, OWN, PH_BOX, PH_EXPOSE, PH_FILL, PH_FINISH, PH_IDLE, PH_LIGHT2, PH_OCC, PH_PLANES, PH_READ,
+  PH_SAMPLE, PH_SCAN, PH_TFILL, PLANES_PER_STEP, READ_ROWS, ROWS_ALL, S, SAMPLE_ROWS, SCAN_ROWS, SS, TFILL_ROWS,
 } = K;
-
 
 /**
  * セクション（16³）1 つぶんのメッシュ作り（three に依存しない。型付き配列で返す）。VOX-E。
@@ -66,24 +67,20 @@ export class SectionMesher {
   private readonly tflag = new Uint16Array(S * SS);
   private useMin = 99;
   private useMax = -1;
-  private readonly bk = new Int16Array(CUBE);
   private readonly expo = new Uint8Array(CUBE);
   /** 1 = 地形のとなりで 面を作る つまった ブロック（地形のへこみから 横の面が 見える） */
   private readonly gap = new Uint8Array(CUBE);
   /** #202: 1 = 水のそば（型を使わず 毎回計算）、2 = 地下・ほらあな（表の @under） */
   private readonly uniq = new Uint8Array(CUBE);
-  /** ブロックごとの光（空 << 4 | ブロック）。光を通さないマスは まわりの光を かりる */
-  private readonly lg = new Uint8Array(CUBE);
-  private readonly lsky = new Uint8Array(CUBE);
-  private readonly lblk = new Uint8Array(CUBE);
   private readonly scratch = new Uint8Array(LOOK_VOLUME);
   /** 自分のブロックの高さ 0〜16（16 = 地形のとび出し）: 面を作る必要があるか／種類 */
   private readonly active = new Uint8Array(17 * 16 * 16);
   private readonly kinds = new Uint8Array(17 * 16 * 16);
   private readonly mask = new Int32Array(OWN * ROWS_ALL);
-  private readonly smooth = new Uint8Array(256 * 8);
   private readonly builder = new QuadBuilder();
-  private readonly cornerOut = new Uint8Array(8);
+  /** まわり 1 ブロックをふくむ 18³ の種類と光 */
+  private readonly cube: BlockCube;
+  private readonly boxer: BoxMesher;
   // 小ブロック地形の作業用
   private readonly colTy = new Int16Array(BW * BW);
   private readonly colKind = new Uint8Array(BW * BW);
@@ -133,7 +130,10 @@ export class SectionMesher {
   constructor(
     private readonly world: ArrayVoxelWorld,
     private readonly light?: WorldLight,
-  ) {}
+  ) {
+    this.cube = new BlockCube(world, light);
+    this.boxer = new BoxMesher(world, this.cube, this.builder, this.mask);
+  }
 
   /** 世界のブロックの (x, z) → 作業用の列の番号（範囲外は -1） */
   private colIndex(bx: number, bz: number): number {
@@ -155,6 +155,7 @@ export class SectionMesher {
     this.ox = cx * 16;
     this.oy = sy * 16;
     this.oz = cz * 16;
+    this.cube.setOrigin(this.ox, this.oy, this.oz);
     this.jcx = cx;
     this.jsy = sy;
     this.jcz = cz;
@@ -203,29 +204,30 @@ export class SectionMesher {
   private step(): void {
     switch (this.phase) {
       case PH_BOX: {
-        for (let r = 0; r < BL; r++) this.readRow(r);
-        if (this.light) for (let r = 0; r < BL; r++) this.lightRow2(r);
-        else this.lightNone();
-        this.meshBox();
+        const cube = this.cube;
+        for (let r = 0; r < BL; r++) cube.readRow(r);
+        if (this.light) for (let r = 0; r < BL; r++) cube.lightRow2(r);
+        else cube.lightNone();
+        this.boxer.mesh();
         this.stepFinish();
         break;
       }
       case PH_READ: {
         const r1 = Math.min(this.cur + READ_ROWS, BL);
-        for (let r = this.cur; r < r1; r++) this.readRow(r);
+        for (let r = this.cur; r < r1; r++) this.cube.readRow(r);
         this.cur = r1;
         if (r1 < BL) break;
         this.cur = 0;
         if (this.light) this.phase = PH_LIGHT2;
         else {
-          this.lightNone();
+          this.cube.lightNone();
           this.phase = PH_SCAN;
         }
         break;
       }
       case PH_LIGHT2: {
         const r1 = Math.min(this.cur + READ_ROWS, BL);
-        for (let r = this.cur; r < r1; r++) this.lightRow2(r);
+        for (let r = this.cur; r < r1; r++) this.cube.lightRow2(r);
         this.cur = r1;
         if (r1 >= BL) {
           this.cur = 0;
@@ -342,74 +344,6 @@ export class SectionMesher {
     } else this.done(d);
   }
 
-  /** まわり 1 ブロックをふくむ 18³ のブロックの種類（行 byi。読みこんでいない・世界の底の下 = -1、世界の上 = 空気）と、ブロックごとの光の 1 まわり目 */
-  private readRow(byi: number): void {
-    const w = this.world;
-    const H = w.size.y;
-    const bk = this.bk;
-    const wy = this.oy + byi - 1;
-    const row0 = byi * BL * BL;
-    let i = row0;
-    for (let bzi = 0; bzi < BL; bzi++) {
-      const wz = this.oz + bzi - 1;
-      for (let bxi = 0; bxi < BL; bxi++) {
-        bk[i++] = wy >= H ? 0 : w.getIndex(this.ox + bxi - 1, wy, wz);
-      }
-    }
-    const { lg, lsky, lblk, light } = this;
-    if (!light) return;
-    i = row0;
-    for (let bzi = 0; bzi < BL; bzi++) {
-      const wz = this.oz + bzi - 1;
-      for (let bxi = 0; bxi < BL; bxi++, i++) {
-        const k = bk[i];
-        if (k < 0 || OPAQUE_LIGHT[k] === 1) {
-          lsky[i] = 0;
-          lblk[i] = 0;
-          lg[i] = 0;
-          continue;
-        }
-        const v = light.packedAt(this.ox + bxi - 1, wy, wz);
-        lg[i] = v;
-        lsky[i] = v >> 4;
-        lblk[i] = v & 15;
-      }
-    }
-  }
-
-  /** 光なしは 空 15・ブロック 0 */
-  private lightNone(): void {
-    this.lg.fill(0xf0);
-    this.lsky.fill(15);
-    this.lblk.fill(0);
-  }
-
-  /** 光を通さないマス（行 byi）: まわり 6 つのうち光のあるマスの 空・ブロックそれぞれの大きいほう（光の 1 まわり目が ぜんぶ終わってから） */
-  private lightRow2(byi: number): void {
-    const { bk, lg, lsky, lblk } = this;
-    let i = byi * BL * BL;
-    for (let bzi = 0; bzi < BL; bzi++) {
-      for (let bxi = 0; bxi < BL; bxi++, i++) {
-        const k = bk[i];
-        if (k >= 0 && OPAQUE_LIGHT[k] === 0) continue;
-        let s = 0;
-        let bl = 0;
-        for (let f = 0; f < 6; f++) {
-          const nx = bxi + DIR[f][0];
-          const ny = byi + DIR[f][1];
-          const nz = bzi + DIR[f][2];
-          if (nx < 0 || ny < 0 || nz < 0 || nx >= BL || ny >= BL || nz >= BL) continue;
-          const j = (ny * BL + nz) * BL + nx;
-          const nk = bk[j];
-          if (nk < 0 || OPAQUE_LIGHT[nk] === 1) continue;
-          if (lsky[j] > s) s = lsky[j];
-          if (lblk[j] > bl) bl = lblk[j];
-        }
-        lg[i] = (s << 4) | bl;
-      }
-    }
-  }
-
   // ------------------------------------------------------------ 格子
 
   private markRows(byiLo: number, byiHi: number): void {
@@ -448,17 +382,6 @@ export class SectionMesher {
         for (let x = 0; x < N; x++) g[s + x] = src[i++];
       }
     }
-  }
-
-  /** ブロックの種類 → となりの種類。18³ の外は 世界から読む */
-  private kindNear(bxi: number, byi: number, bzi: number, f: number): number {
-    const nx = bxi + DIR[f][0];
-    const ny = byi + DIR[f][1];
-    const nz = bzi + DIR[f][2];
-    if (nx >= 0 && ny >= 0 && nz >= 0 && nx < BL && ny < BL && nz < BL) return this.bk[(ny * BL + nz) * BL + nx];
-    const wy = this.oy + ny - 1;
-    if (wy >= this.world.size.y) return 0;
-    return this.world.getIndex(this.ox + nx - 1, wy, this.oz + nz - 1);
   }
 
   /** まわり 26 マスのどれかに 見える面のあるブロックが あるか（角の暗がりが となりの となりまで 見るため 斜めも） */
@@ -512,7 +435,9 @@ export class SectionMesher {
 
   /** 見える面の印（fillGrid の 1.）: ブロックの行 byi0 〜 byi1 の手前 */
   private exposeRows(byi0: number, byi1: number): void {
-    const { bk, expo } = this;
+    const { expo } = this;
+    const cube = this.cube;
+    const bk = cube.bk;
     const terrain = this.terrain;
     let i = byi0 * BL * BL;
     for (let byi = byi0; byi < byi1; byi++) {
@@ -529,7 +454,7 @@ export class SectionMesher {
           let e = 0;
           let wet = false;
           for (let f = 0; f < 6; f++) {
-            const n = this.kindNear(bxi, byi, bzi, f);
+            const n = cube.kindNear(bxi, byi, bzi, f);
             if (n >= 0 && OCC[n] === 0) e |= 1 << f;
             if (n === WATER) wet = true;
           }
@@ -576,7 +501,9 @@ export class SectionMesher {
 
   /** 形をうめる（fillGrid の 2.）: ブロック i0 〜 i1 の手前（番号 = (byi * BL + bzi) * BL + bxi） */
   private fillBlocks(i0: number, i1: number): void {
-    const { bk, expo } = this;
+    const { expo } = this;
+    const cube = this.cube;
+    const bk = cube.bk;
     const terrain = this.terrain;
     const scratch = this.scratch;
     for (let i = i0; i < i1; i++) {
@@ -676,7 +603,7 @@ export class SectionMesher {
   private exposeBelow(bxl: number, bzl: number, ty: number): void {
     const by = ty - 1 - this.oy;
     if (by < 0 || by > 15) return;
-    const k = this.bk[((by + 1) * BL + (bzl + 1)) * BL + (bxl + 1)];
+    const k = this.cube.bk[((by + 1) * BL + (bzl + 1)) * BL + (bxl + 1)];
     if (k > 0 && OCC[k] === 1) this.flatActive(bxl + 1, by + 1, bzl + 1, k);
   }
 
@@ -756,7 +683,7 @@ export class SectionMesher {
     const tf = this.tflag;
     const b = this.builder;
     const mask = this.mask;
-    const lg = this.lg;
+    const lg = this.cube.lg;
     const ax = AXIS_OF[f];
     const plus = (f & 1) === 0;
     const uAx = ax === 0 ? 2 : 0;
@@ -867,162 +794,5 @@ export class SectionMesher {
         b.quad(f, lo[0], hi[0], lo[1], hi[1], lo[2], hi[2], base & 63, base >> 6, 0, 0, sky, blk, null);
       }
     }
-  }
-
-  // ------------------------------------------------------------ box（形は 1 マス）
-
-  /** 面の角の光（なめらかな平均）を out[0..1] に（0〜255 の バイト）。面の前のマスと、角のまわりの 3 マスのうち光を通すものの平均 */
-  private corner(bxi: number, byi: number, bzi: number, f: number, v: readonly [number, number, number], out: Uint8Array, o: number, dy = 0): void {
-    const fx = bxi + DIR[f][0];
-    const fy = byi + DIR[f][1] + dy;
-    const fz = bzi + DIR[f][2];
-    let ax = 0;
-    let ay = 0;
-    let az = 0;
-    let bx = 0;
-    let by = 0;
-    let bz = 0;
-    if (DIR[f][0] !== 0) {
-      ay = v[1] ? 1 : -1;
-      bz = v[2] ? 1 : -1;
-    } else if (DIR[f][1] !== 0) {
-      ax = v[0] ? 1 : -1;
-      bz = v[2] ? 1 : -1;
-    } else {
-      ax = v[0] ? 1 : -1;
-      by = v[1] ? 1 : -1;
-    }
-    let s = 0;
-    let bl = 0;
-    let n = 0;
-    for (let k = 0; k < 4; k++) {
-      const x = fx + (k & 1 ? ax : 0) + (k & 2 ? bx : 0);
-      const y = fy + (k & 1 ? ay : 0) + (k & 2 ? by : 0);
-      const z = fz + (k & 1 ? az : 0) + (k & 2 ? bz : 0);
-      if (x < 0 || y < 0 || z < 0 || x >= BL || y >= BL || z >= BL) continue;
-      const j = (y * BL + z) * BL + x;
-      const t = this.bk[j];
-      if (t < 0 || OPAQUE_LIGHT[t] === 1) continue;
-      s += this.lsky[j];
-      bl += this.lblk[j];
-      n++;
-    }
-    if (n === 0) {
-      out[o] = 0;
-      out[o + 1] = 0;
-      return;
-    }
-    out[o] = Math.round((s / n) * 17);
-    out[o + 1] = Math.round((bl / n) * 17);
-  }
-
-  private meshBox(): void {
-    const b = this.builder;
-    const mask = this.mask;
-    const bk = this.bk;
-    const smooth = this.smooth;
-    const co = this.cornerOut;
-    this.edgeTy.fill(EDGE_UNKNOWN);
-    for (let f = 0; f < 6; f++) {
-      const ax = AXIS_OF[f];
-      const plus = (f & 1) === 0;
-      const uAx = ax === 0 ? 2 : 0;
-      const vAx = ax === 1 ? 2 : 1;
-      for (let l = 0; l < 16; l++) {
-        let any = false;
-        for (let v = 0; v < 16; v++) {
-          for (let u = 0; u < 16; u++) {
-            const bX = ax === 1 ? u : ax === 0 ? l : u;
-            const bY = ax === 1 ? l : v;
-            const bZ = ax === 1 ? v : ax === 0 ? u : l;
-            const bxi = bX + 1;
-            const byi = bY + 1;
-            const bzi = bZ + 1;
-            const kind = bk[(byi * BL + bzi) * BL + bxi];
-            if (kind <= 0 || !hasLook(kind)) continue;
-            const n = this.kindNear(bxi, byi, bzi, f);
-            // となりが 不透明な表面ブロックで 描く面（#143）は、前のマスの光が 0 なので 1 段上（空気）から光を取る
-            const edge = OCC[n] === 1;
-            if (n < 0 || (edge && !this.edgeSurface(bxi, byi, bzi, f))) continue;
-            // 角の光。4 つ同じなら まとめてよい
-            let flat = true;
-            for (let i = 0; i < 4; i++) {
-              this.corner(bxi, byi, bzi, f, FACE_VERTS[f][i], co, i * 2, edge ? 1 : 0);
-              if (i > 0 && (co[i * 2] !== co[0] || co[i * 2 + 1] !== co[1])) flat = false;
-            }
-            const cell = v * 16 + u;
-            if (flat) {
-              mask[cell] = (kind + 1) | (co[0] << 9) | (co[1] << 17);
-            } else {
-              mask[cell] = (1 << 30) | cell;
-              smooth.set(co, cell * 8);
-            }
-            any = true;
-          }
-        }
-        if (!any) continue;
-        const plane = (l + (plus ? 1 : 0)) * N;
-        for (let v = 0; v < 16; v++) {
-          for (let u = 0; u < 16; u++) {
-            const k = mask[v * 16 + u];
-            if (k === 0) continue;
-            let w = 1;
-            while (u + w < 16 && mask[v * 16 + u + w] === k) w++;
-            let h = 1;
-            outer: while (v + h < 16) {
-              for (let i = 0; i < w; i++) if (mask[(v + h) * 16 + u + i] !== k) break outer;
-              h++;
-            }
-            for (let dv = 0; dv < h; dv++) mask.fill(0, (v + dv) * 16 + u, (v + dv) * 16 + u + w);
-            const lo = [0, 0, 0];
-            const hi = [0, 0, 0];
-            lo[ax] = plane;
-            hi[ax] = plane;
-            lo[uAx] = u * N;
-            hi[uAx] = (u + w) * N;
-            lo[vAx] = v * N;
-            hi[vAx] = (v + h) * N;
-            if (k >= 1 << 30) {
-              const cell = k & 0xffff;
-              const kindHere = this.kindOfCell(ax, l, u, v);
-              b.quad(f, lo[0], hi[0], lo[1], hi[1], lo[2], hi[2], kindHere, ROW_NONE, 0, 0, 0, 0, smooth.subarray(cell * 8, cell * 8 + 8));
-            } else {
-              b.quad(f, lo[0], hi[0], lo[1], hi[1], lo[2], hi[2], (k & 511) - 1, ROW_NONE, 0, 0, (k >> 9) & 255, (k >> 17) & 255, null);
-            }
-          }
-        }
-      }
-    }
-  }
-
-  /** box: セクションの外の 1 周の列の 地面の表面ブロックの高さ (ty)。bk と同じ添字 (nz * BL + nx)。1 回の build の中で 列ごとに 1 度だけ調べる */
-  private readonly edgeTy = new Int32Array(BL * BL);
-  private readonly edgeInfo: ColumnInfo = { ty: -1, kind: 0, reach: 0, rockOk: false };
-
-  /**
-   * box: 横の面の となり（セクションの外）が その列の地面の表面ブロックなら true。
-   * となりが 小ブロックの段だと S が 上のへりより下にへこむので、OCC でも横の面を描く。
-   * 描かないと S と上のへりの間に穴があく（#143）。となりの列は build の中でキャッシュする
-   */
-  private edgeSurface(bxi: number, byi: number, bzi: number, f: number): boolean {
-    if (f < 2) return false;
-    const nx = bxi + DIR[f][0];
-    const nz = bzi + DIR[f][2];
-    if (nx >= 1 && nx <= 16 && nz >= 1 && nz <= 16) return false;
-    const ei = nz * BL + nx;
-    let ty = this.edgeTy[ei];
-    if (ty === EDGE_UNKNOWN) {
-      scanColumn(this.world, this.ox + nx - 1, this.oz + nz - 1, this.edgeInfo);
-      ty = this.edgeTy[ei] = this.edgeInfo.ty;
-    }
-    return ty === this.oy + byi - 1;
-  }
-
-  /** box: 層 l の (u, v) のブロックの種類 */
-  private kindOfCell(ax: number, l: number, u: number, v: number): number {
-    const bX = ax === 1 ? u : ax === 0 ? l : u;
-    const bY = ax === 1 ? l : v;
-    const bZ = ax === 1 ? v : ax === 0 ? u : l;
-    return this.bk[((bY + 1) * BL + (bZ + 1)) * BL + (bX + 1)];
   }
 }
