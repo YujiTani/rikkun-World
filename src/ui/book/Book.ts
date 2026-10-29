@@ -6,6 +6,9 @@ import { bookLayout, type BookLayout } from './bookLayout';
 import { BookModel } from './bookModel';
 import { buildBook } from './bookNav';
 import { BookUi, plainCaption } from './bookUi';
+import { createDefaultItemInfo, type ItemInfoSource } from '../../craft/info/build';
+import { itemType } from '../../inventory/items';
+import type { ItemId } from '../../contracts';
 
 /**
  * BOOK-1: 3D の 本の まとめ役。モデル（流れ）・3D（本）・HTML（字とボタン）をつなぎ、
@@ -21,6 +24,8 @@ export interface BookOptions {
   onVisible?: (visible: boolean) => void;
   /** 「うごきを へらす」か */
   reduced?: () => boolean;
+  /** ZUKAN-1: アイテムの 説明（なければ 初期値の レシピ・設定で 作る） */
+  itemInfo?: ItemInfoSource;
 }
 
 /** 窓口に 出す 四角（DOMRect と 同じ 名前も つける） */
@@ -35,6 +40,7 @@ export class Book {
   private layout: BookLayout | null = null;
   private shown = false;
   private sig = '';
+  private info: ItemInfoSource | null = null;
   /** 本が 鳴らした 音の 記録（テスト用。さいごの 256 こ） */
   readonly soundLog: string[] = [];
 
@@ -57,6 +63,13 @@ export class Book {
       close: () => this.model.close(),
       prev: () => this.model.step(-1),
       next: () => this.model.step(1),
+      zukan: () => this.model.openZukan(),
+      zukanItem: (id) => this.model.openZukanItem(id),
+      zukanFilter: (q, g) => this.model.setZukanFilter(q, g),
+      info: (id) => {
+        this.info ??= o.itemInfo ?? createDefaultItemInfo((i: ItemId) => itemType(i)?.name ?? i);
+        return this.info.info(id);
+      },
     });
     window.addEventListener('resize', () => {
       if (this.shown) this.relayout();
@@ -131,6 +144,13 @@ export class Book {
       guideItems: m.guideItems(),
       guideTabs: BOOK_CHAPTERS.map((c) => c.label),
       guideTabIds: BOOK_CHAPTERS.map((c) => c.id),
+      // ZUKAN-1
+      zukanQuery: m.zukanQuery,
+      zukanGroup: m.zukanGroup,
+      zukanPage: m.zukanPage,
+      zukanItem: m.view === 'zukanItem' ? m.item : null,
+      zukanIds: m.view === 'zukan' || m.view === 'zukanItem' ? m.zukanIds() : [],
+      zukanShadow: m.zukanEntries().filter((e) => e.shadow).map((e) => e.id as string),
     };
   }
 
@@ -179,7 +199,8 @@ export class Book {
     }
     if (!this.shown) return;
     this.three?.update(m);
-    const sig = `${m.anim}|${m.view}|${m.chapter}|${m.item}|${m.listPage}|${m.lastChapter}|${m.arrows().prevEdge}|${m.arrows().nextEdge}`;
+    const a = m.arrows();
+    const sig = `${m.anim}|${m.view}|${m.chapter}|${m.item}|${m.listPage}|${m.lastChapter}|${m.zukanQuery}|${m.zukanGroup}|${m.zukanPage}|${a.show}|${a.prevEdge}|${a.nextEdge}`;
     if (sig !== this.sig) {
       this.sig = sig;
       this.ui.render(m);
