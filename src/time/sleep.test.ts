@@ -84,3 +84,19 @@ describe('ひる・あさは ねられない（AC7）', () => {
     });
   }
 });
+
+describe('ねた日づけの 保存（印）', () => {
+  it('ねたあと 区切りの 前に 保存 → 読みこみ しても 日づけは 合計 +1 のまま', () => {
+    const a = new TimeOfDayImpl();
+    a.set(S.dayTicks + S.duskTicks + 500);
+    const day = a.day();
+    a.sleepToMorning();
+    const saved = { day: a.day(), dayTick: a.dayTick(), slept: a.sleptMark() };
+    const b = new TimeOfDayImpl();
+    b.setDay(saved.day);
+    b.set(saved.dayTick);
+    b.setSleptMark(saved.slept);
+    for (let i = 0; i < S.dawnTicks + 5; i++) b.update();
+    expect(b.day()).toBe(day + 1);
+  });
+});

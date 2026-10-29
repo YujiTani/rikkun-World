@@ -45,6 +45,14 @@ export class TimeOfDayImpl implements TimeOfDay {
     this.notify();
   }
 
+  /** ねて 日づけを 進めた 印（保存用。読みこみは set のあとに setSleptMark） */
+  sleptMark(): boolean {
+    return this.slept;
+  }
+  setSleptMark(on: boolean): void {
+    this.slept = on;
+  }
+
   /** 何日目かをすぐ変える（読みこみ用） */
   setDay(day: number): void {
     this.dayNo = Math.max(0, Math.floor(day));

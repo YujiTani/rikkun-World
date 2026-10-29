@@ -235,6 +235,8 @@ export class InventoryImpl implements Inventory {
     if (!Number.isInteger(index) || index < 0 || index >= this.size) return;
     const slot = this.arr[index];
     const cur = this.cur;
+    // ITEM-FX-1: 持ち物 全体で 数が きまって いる 物（おまもり）が もう あれば、カーソルの それは おけない
+    if (cur && this.ownedFull(cur.item)) return;
     if (!cur) {
       if (!slot) return;
       this.cur = slot;
@@ -256,6 +258,10 @@ export class InventoryImpl implements Inventory {
       this.cur = slot;
     }
     this.notify();
+  }
+  private ownedFull(item: ItemId): boolean {
+    const cap = maxOwnedOf(item);
+    return cap !== null && this.count(item) >= cap;
   }
   cursor(): ItemStack | null {
     return this.cur;
