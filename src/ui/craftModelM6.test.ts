@@ -35,12 +35,12 @@ describe('マスの一覧', () => {
     expect(b.glowing).toBe(true);
     expect(b.dim).toBe(false);
   });
-  it('later は 働きがあとの 5 こ（つくる）＋はにわ（やく）', () => {
+  it('later は 1 こも 無い（ITEM-FX-1: ちょうちん・たこ・ふとん・おまもり・わらじ・はにわ に 働きが 入った。works:false の レシピが 無い）', () => {
     const e = world({});
     const t = buildTiles(buildCards(craftRecipes, e.craft, e.inv), null, () => false);
-    expect(t.filter((x) => x.later).map((x) => x.id)).toEqual(['lantern', 'kite', 'futon', 'omamori', 'waraji']);
+    expect(t.filter((x) => x.later).map((x) => x.id)).toEqual([]);
     const k = buildTiles(buildCards(bakeRecipes, e.craft, e.inv, { bake: true }), null, () => false);
-    expect(k.find((x) => x.id === 'haniwa')!.later).toBe(true);
+    expect(k.filter((x) => x.later).map((x) => x.id)).toEqual([]);
   });
   it('えらぶ: 前のマス → つくれる いちばん前 → 1 つ目', () => {
     const e = world({});
