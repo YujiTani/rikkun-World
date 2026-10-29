@@ -21,7 +21,7 @@ export interface Recipe {
 
 export type CraftEvent =
   | { type: 'craft'; tick: number; recipe: string; item: ItemId; count: number; /** CRAFT-2: たんす から使った分（空 = 使っていない。省くと 空と同じ） */ fromTansu?: (TansuPos & { item: ItemId; count: number })[] }
-  | { type: 'craftFail'; tick: number; recipe: string; reason: 'missing' | 'full' | 'unknown' }
+  | { type: 'craftFail'; tick: number; recipe: string; reason: 'missing' | 'full' | 'unknown' | 'haveOne' }
   | { type: 'bakeStart'; tick: number; recipe: string; fuel: ItemId; position: Vec3 }
   | { type: 'bakeDone'; tick: number; recipe: string; item: ItemId; count: number; position: Vec3 }
   /** 拾った・焼けて入った（ログ用。つくったもの・テスト用の add は出さない） */
@@ -31,8 +31,8 @@ export type CraftEvent =
 export interface CraftSystem {
   recipes(): Recipe[];
   /** 今の持ち物で作れるか・足りないもの */
-  status(recipeId: string): { craftable: boolean; missing: ItemStack[] };
-  make(recipeId: string): { ok: boolean; reason: null | 'missing' | 'full' | 'unknown' | 'noFuel' | 'queueFull'; /** CRAFT-2: ok のときだけ（ねんりょう もふくむ） */ used?: MaterialUse | null };
+  status(recipeId: string): { craftable: boolean; missing: ItemStack[]; /** ITEM-FX-1: 持ち物 全体で 1 つだけの 物（おまもり）を もう 持っている */ limit?: 'haveOne' };
+  make(recipeId: string): { ok: boolean; reason: null | 'missing' | 'full' | 'unknown' | 'noFuel' | 'queueFull' | 'haveOne'; /** CRAFT-2: ok のときだけ（ねんりょう もふくむ） */ used?: MaterialUse | null };
   /** CRAFT-2: 今 つくったら どこから何こ取るかの 予定（何も変えない） */
   sources(recipeId: string): MaterialSources;
   /** CRAFT-2: 今の位置で `fogFar` 以内に しぼった 使える たんす（取る順。§2.4 (3)） */

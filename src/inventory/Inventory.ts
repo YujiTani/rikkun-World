@@ -1,5 +1,6 @@
 import type { Durability, Inventory, ItemId, ItemStack, ItemType, W2Settings, WearEvent, WearResult } from '../contracts';
 import { W2_SETTING_DEFAULTS } from '../contracts';
+import { maxOwnedOf } from '../content/items/registry';
 import { copyStack, isLow, maxDurability, readPower, readWater, readWear } from '../tools/durability';
 import { HOTBAR_SIZE, INVENTORY_SIZE, ITEM_TYPES, itemType } from './items';
 
@@ -147,6 +148,15 @@ export class InventoryImpl implements Inventory {
   add(item: ItemId, count: number, opts?: { power?: number }): number {
     const n = Math.floor(count);
     if (!(n > 0)) return 0; // 0 以下は なにもしない（「入った数 = n − 返り値」が マイナスにならないように）
+    // ITEM-FX-1: 持ち物 全体で 持てる 数が きまって いる 物（おまもり = 1）は、いっぱいなら 1 つも 入れない
+    const cap = maxOwnedOf(item);
+    if (cap !== null) {
+      const room = Math.max(0, cap - this.count(item));
+      if (room < n) {
+        const put = room > 0 ? this.add(item, room, opts) : 0;
+        return n - put;
+      }
+    }
     // WEAPON-9: 強さが 1 本ごとの 武器（虹）は 強さを 持たせる（わたさなければ まん中の 7）
     const left = addInto(this.arr, item, n, 0, this.arr.length, 0, 0, readPower(opts?.power, item));
     if (left !== n) {
@@ -178,6 +188,8 @@ export class InventoryImpl implements Inventory {
   canAdd(item: ItemId): boolean {
     const max = itemType(item)?.maxStack;
     if (!max) return false;
+    const cap = maxOwnedOf(item);
+    if (cap !== null && this.count(item) >= cap) return false; // ITEM-FX-1: もう 持っている
     return this.arr.some((s) => !s || (s.item === item && s.count < max));
   }
   held(): ItemStack | null {

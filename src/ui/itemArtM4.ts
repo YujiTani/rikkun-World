@@ -27,9 +27,17 @@ export const M4_ITEMS = [
 ] as const;
 export type M4ItemId = (typeof M4_ITEMS)[number];
 
-export function isM4Item(item: ItemId): item is M4ItemId {
-  return (M4_ITEMS as readonly string[]).includes(item);
+/** ITEM-FX-1: やぶれた おまもり（記念の品）。M4 の 絵と いっしょに この ファイルで 描く */
+const FX1_ITEMS = ['omamori_torn'] as const;
+type Fx1ItemId = (typeof FX1_ITEMS)[number];
+
+export function isM4Item(item: ItemId): item is M4ItemId | Fx1ItemId {
+  return (M4_ITEMS as readonly string[]).includes(item) || (FX1_ITEMS as readonly string[]).includes(item);
 }
+
+const FX1_ART: Readonly<Record<Fx1ItemId, () => Rgba[]>> = {
+  omamori_torn: () => fromRows(OMAMORI_TORN_C, PAL_OMAMORI_TORN_C),
+};
 
 const S = 16;
 const CLEAR: Rgba = [0, 0, 0, 0];
@@ -498,7 +506,9 @@ const PAL_COMMON = {
 };
 
 /** M4 のアイテムの 16x16。pixels[y * 16 + x]、y = 0 が上 */
-export function m4ItemPixels(item: M4ItemId): Rgba[] {
+export function m4ItemPixels(any: M4ItemId | Fx1ItemId): Rgba[] {
+  if ((FX1_ITEMS as readonly string[]).includes(any)) return FX1_ART[any as Fx1ItemId]();
+  const item = any as M4ItemId;
   switch (item) {
     case 'wood_pickaxe':
       return pickaxe(0xa0703c, 0x7a5530);
@@ -564,6 +574,28 @@ export function m4ItemPixels(item: M4ItemId): Rgba[] {
       return fromRows(HANIWA, { K: 0x4a2a14, B: 0xc9783f, L: 0xe3a06a });
   }
 }
+
+/** やぶれた おまもり（ITEM-FX-1）。yuzu が C 案（ほつれて 光る）を えらんだ */
+const OMAMORI_TORN_C = [
+  '.H....YY..H.....',
+  '.H....Y..Y....H.',
+  '......Y..Y......',
+  '.H...KYYYYK...H.',
+  '....KRRRRRRK....',
+  '...KRRRYYRRRK...',
+  '...KRRYRRYRRK...',
+  '...KRRRYYRRRK...',
+  '...KRRRKKRRRK...',
+  '...KRRRK.KRRRK..',
+  '...KRRRK.HKRRK..',
+  '....KRRK..KRRK..',
+  '.....KKK...KK...',
+  '................',
+  '................',
+  '................',
+];
+/** やぶれた おまもり（ITEM-FX-1）。yuzu が C 案（ほつれて 光る）を えらんだ */
+const PAL_OMAMORI_TORN_C = { K: 0x5a1f1a, R: 0xd8382d, Y: 0xf2c230, H: 0xfff2a8 };
 
 const HAMMER = [
   '................',

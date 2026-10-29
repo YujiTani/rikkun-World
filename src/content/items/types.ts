@@ -33,6 +33,8 @@ export interface ItemDef {
   name: string;
   /** 1 マスに 重ねられる数 */
   maxStack: number;
+  /** 持ち物 全体で 持てる 数（なし = 制限なし。おまもり = 1。ITEM-FX-1） */
+  maxOwned?: number;
   /** 置くと なるブロック（なし = 置けない） */
   placeBlock?: BlockId;
   /** めずらしさ（光の柱の色） */

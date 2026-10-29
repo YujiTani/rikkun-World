@@ -47,6 +47,14 @@ export class TimeOfDayImpl implements TimeOfDay {
     this.dayNo = Math.max(0, Math.floor(day));
   }
 
+  /** ふとんで ねた: あさ（dawn）の はじまりに すぐ とぶ。日づけが 1 進む（ITEM-FX-1） */
+  sleepToMorning(): void {
+    const s = this.settings;
+    this.tick = s.dayTicks + s.duskTicks + s.nightTicks;
+    this.dayNo++;
+    this.notify();
+  }
+
   update(): void {
     this.tick++;
     if (this.tick >= dayLength(this.settings)) {

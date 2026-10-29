@@ -37,7 +37,7 @@
             "item": "waraji"
           },
           "station": "craft",
-          "works": false
+          "works": true
         },
         {
           "id": "nukunuku",
@@ -565,7 +565,7 @@
             "item": "lantern"
           },
           "station": "craft",
-          "works": false
+          "works": true
         },
         {
           "id": "kite",
@@ -588,7 +588,7 @@
             "item": "kite"
           },
           "station": "craft",
-          "works": false
+          "works": true
         },
         {
           "id": "tansu",
@@ -973,7 +973,7 @@
             "item": "lantern"
           },
           "station": "craft",
-          "works": false
+          "works": true
         },
         {
           "id": "kite",
@@ -996,7 +996,7 @@
             "item": "kite"
           },
           "station": "craft",
-          "works": false
+          "works": true
         }
       ]
     },
@@ -1056,7 +1056,7 @@
             "item": "lantern"
           },
           "station": "craft",
-          "works": false
+          "works": true
         }
       ]
     },
@@ -1157,7 +1157,7 @@
             "item": "kite"
           },
           "station": "craft",
-          "works": false
+          "works": true
         },
         {
           "id": "futon",
@@ -1176,21 +1176,25 @@
             "item": "futon"
           },
           "station": "craft",
-          "works": false
+          "works": true
         },
         {
           "id": "omamori",
           "inputs": [
             {
-              "count": 1,
+              "count": 3,
               "item": "crystal"
             },
             {
               "count": 1,
+              "item": "kin"
+            },
+            {
+              "count": 2,
               "item": "cloth"
             },
             {
-              "count": 1,
+              "count": 2,
               "item": "string"
             }
           ],
@@ -1199,7 +1203,7 @@
             "item": "omamori"
           },
           "station": "craft",
-          "works": false
+          "works": true
         },
         {
           "id": "waraji",
@@ -1218,7 +1222,7 @@
             "item": "waraji"
           },
           "station": "craft",
-          "works": false
+          "works": true
         },
         {
           "id": "mushi_ami",
@@ -1395,21 +1399,25 @@
             "item": "futon"
           },
           "station": "craft",
-          "works": false
+          "works": true
         },
         {
           "id": "omamori",
           "inputs": [
             {
-              "count": 1,
+              "count": 3,
               "item": "crystal"
             },
             {
               "count": 1,
+              "item": "kin"
+            },
+            {
+              "count": 2,
               "item": "cloth"
             },
             {
-              "count": 1,
+              "count": 2,
               "item": "string"
             }
           ],
@@ -1418,7 +1426,7 @@
             "item": "omamori"
           },
           "station": "craft",
-          "works": false
+          "works": true
         },
         {
           "id": "kin_kabuto",
@@ -1541,7 +1549,7 @@
             "item": "haniwa"
           },
           "station": "furnace",
-          "works": false
+          "works": true
         }
       ]
     },
@@ -1587,15 +1595,19 @@
           "id": "omamori",
           "inputs": [
             {
-              "count": 1,
+              "count": 3,
               "item": "crystal"
             },
             {
               "count": 1,
+              "item": "kin"
+            },
+            {
+              "count": 2,
               "item": "cloth"
             },
             {
-              "count": 1,
+              "count": 2,
               "item": "string"
             }
           ],
@@ -1604,7 +1616,7 @@
             "item": "omamori"
           },
           "station": "craft",
-          "works": false
+          "works": true
         }
       ]
     },
@@ -3101,17 +3113,22 @@
       "recipes": []
     },
     "lantern": {
+      "DIG_DEFAULTS.hardness.lantern": 0.05,
+      "DIG_DEFAULTS.harvestLevel.lantern": 0,
+      "DIG_DEFAULTS.rarity.lantern": "uncommon",
       "ITEM_INFO.lantern": {
-        "buttons": [],
-        "how": "いまは もてる だけ",
-        "later": "おいて あかるく できるように なるよ（もうすぐ）",
-        "use": "おいて あかるく できるように なるよ（もうすぐ）"
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって みぎクリック で おく（した・よこ・うえ に かたい ブロック が いるよ）",
+        "use": "おくと たいまつ より あかるい。まわり に ようかい が でない"
       },
       "category": "light",
       "durabilityClass": "permanent",
       "maxStack": 64,
       "name": "ちょうちん",
-      "placeBlock": null,
+      "placeBlock": "lantern",
       "rarity": "uncommon",
       "recipes": [
         {
@@ -3135,16 +3152,18 @@
             "item": "lantern"
           },
           "station": "craft",
-          "works": false
+          "works": true
         }
       ]
     },
     "kite": {
       "ITEM_INFO.kite": {
-        "buttons": [],
-        "how": "いまは もてる だけ",
-        "later": "そら に あげて あそべるように なるよ（もうすぐ）",
-        "use": "そら に あげて あそべるように なるよ（もうすぐ）"
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって みぎクリック で あげる。もういちど か、ほかの ものを もつと もどる",
+        "use": "そら に あげて あそべる"
       },
       "category": "home",
       "durabilityClass": "permanent",
@@ -3174,22 +3193,26 @@
             "item": "kite"
           },
           "station": "craft",
-          "works": false
+          "works": true
         }
       ]
     },
     "futon": {
+      "DIG_DEFAULTS.hardness.futon": 0.25,
+      "DIG_DEFAULTS.harvestLevel.futon": 0,
+      "DIG_DEFAULTS.rarity.futon": "uncommon",
       "ITEM_INFO.futon": {
-        "buttons": [],
-        "how": "いまは もてる だけ",
-        "later": "よる に ねると あさ に なるように なるよ（もうすぐ）",
-        "use": "よる に ねると あさ に なるように なるよ（もうすぐ）"
+        "buttons": [
+          "right"
+        ],
+        "how": "おいて、ふとん に むけて みぎクリック",
+        "use": "ゆうがた と よる に ねると あさ に なる"
       },
       "category": "home",
       "durabilityClass": "permanent",
       "maxStack": 1,
       "name": "ふとん",
-      "placeBlock": null,
+      "placeBlock": "futon",
       "rarity": "uncommon",
       "recipes": [
         {
@@ -3209,16 +3232,15 @@
             "item": "futon"
           },
           "station": "craft",
-          "works": false
+          "works": true
         }
       ]
     },
     "omamori": {
       "ITEM_INFO.omamori": {
         "buttons": [],
-        "how": "いまは もてる だけ",
-        "later": "もっていると やられても もちもの を おとさなく なるよ（もうすぐ）",
-        "use": "もっていると やられても もちもの を おとさなく なるよ（もうすぐ）"
+        "how": "もちもの の どこか に いれておく。ひとつ だけ もてるよ",
+        "use": "もっていると やられても もちもの と ぼうぐ を おとさない（まもると やぶれる）"
       },
       "category": "home",
       "durabilityClass": "permanent",
@@ -3231,15 +3253,19 @@
           "id": "omamori",
           "inputs": [
             {
-              "count": 1,
+              "count": 3,
               "item": "crystal"
             },
             {
               "count": 1,
+              "item": "kin"
+            },
+            {
+              "count": 2,
               "item": "cloth"
             },
             {
-              "count": 1,
+              "count": 2,
               "item": "string"
             }
           ],
@@ -3248,16 +3274,38 @@
             "item": "omamori"
           },
           "station": "craft",
-          "works": false
+          "works": true
         }
       ]
     },
-    "waraji": {
-      "ITEM_INFO.waraji": {
+    "omamori_torn": {
+      "ITEM_INFO.omamori_torn": {
         "buttons": [],
-        "how": "いまは もてる だけ",
-        "later": "はくと すこし はやく あるけるように なるよ（もうすぐ）",
-        "use": "はくと すこし はやく あるけるように なるよ（もうすぐ）"
+        "how": "もっていても なにも おこらない",
+        "use": "おまもり が まもって くれた しるし。きねん の しな"
+      },
+      "category": "home",
+      "durabilityClass": "permanent",
+      "maxStack": 64,
+      "name": "やぶれた おまもり",
+      "placeBlock": null,
+      "rarity": "common",
+      "recipes": []
+    },
+    "waraji": {
+      "ARMOR_SLOT_OF.waraji": "legs",
+      "CRAFT_DEFAULTS.armorValue.waraji": {
+        "ball": 0,
+        "fall": 0,
+        "normal": 0
+      },
+      "ITEM_INFO.waraji": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "ダブルクリック か、てに もって みぎクリック で はく。E の そうび の マス に いれても よい",
+        "use": "はくと ジャンプ が すこし たかく なる（あし）"
       },
       "category": "home",
       "durabilityClass": "permanent",
@@ -3283,22 +3331,27 @@
             "item": "waraji"
           },
           "station": "craft",
-          "works": false
+          "works": true
         }
       ]
     },
     "haniwa": {
+      "DIG_DEFAULTS.hardness.haniwa": 1,
+      "DIG_DEFAULTS.harvestLevel.haniwa": 0,
+      "DIG_DEFAULTS.rarity.haniwa": "uncommon",
       "ITEM_INFO.haniwa": {
-        "buttons": [],
-        "how": "いまは もてる だけ",
-        "later": "おいて かざれるように なるよ（もうすぐ）",
-        "use": "おいて かざれるように なるよ（もうすぐ）"
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって みぎクリック で おく",
+        "use": "おいて かざれる"
       },
       "category": "home",
       "durabilityClass": "permanent",
       "maxStack": 64,
       "name": "はにわ",
-      "placeBlock": null,
+      "placeBlock": "haniwa",
       "rarity": "uncommon",
       "recipes": [
         {
@@ -3314,7 +3367,7 @@
             "item": "haniwa"
           },
           "station": "furnace",
-          "works": false
+          "works": true
         }
       ]
     },
@@ -4283,6 +4336,33 @@
       "placeBlock": null,
       "rarity": "epic",
       "recipes": [
+        {
+          "id": "omamori",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "crystal"
+            },
+            {
+              "count": 1,
+              "item": "kin"
+            },
+            {
+              "count": 2,
+              "item": "cloth"
+            },
+            {
+              "count": 2,
+              "item": "string"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "omamori"
+          },
+          "station": "craft",
+          "works": true
+        },
         {
           "id": "kin_katana",
           "inputs": [

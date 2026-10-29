@@ -2,7 +2,7 @@ import type { BlockId } from '../contracts';
 import { itemType } from '../inventory/items';
 import { KOTATSU_CELLS } from '../world/blocks/kotatsu';
 import { applyFlatten, planFlatten, type FlattenPlan } from '../world/flatten';
-import { overlapsBody, torchSupported, type DigCore } from './digCore';
+import { HANGING_SUPPORT, overlapsBody, type DigCore } from './digCore';
 
 /** 置く場所とブロック（置けないなら null）。tryPlace とヒントが同じ判定を使う */
 export interface PlaceSpot {
@@ -49,9 +49,10 @@ export class BlockPlacer {
       const under = c.world.getBlock(x, y - 1, z);
       if (under !== 'grass' && under !== 'dirt') return null;
     }
-    if (block === 'torch') {
-      // たいまつ: 固くない（体と重なっても置ける）。下か横に固いブロックが要る
-      if (!torchSupported(c.world, x, y, z)) return null;
+    // たいまつ・ちょうちん: 固くない（体と重なっても置ける）。支えが要る（たいまつ = 下か横、ちょうちん = 下・横・上）
+    const support = HANGING_SUPPORT[block];
+    if (support) {
+      if (!support(c.world, x, y, z)) return null;
     } else if (this.overlapsBody(x, y, z)) return null;
     if (c.gate?.placeBlocked(x, y, z)) return null; // 妖怪の箱の所には置けない
     return { x, y, z, block };

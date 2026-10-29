@@ -36,7 +36,7 @@ export function createStep(deps: WiredFrame): (dt: number) => void {
     yokaiFocus, hintVisible, titleAnnounce, machoMarkIn, machoMarks, yokaiNameplates, plateBuf,
     staggerIcons, stagIconBuf, natsukiPanel, actionHint, farmHint, plainReading, farmAimHud, nameOf,
     hotbar, shiningCooldownOf, inventoryScreen, storageScreen, achievementsPage, logPage, inventoryTabs,
-    updateAchievements, save,
+    updateAchievements, save, gadgets,
   } = deps;
   /** シャイニングの ドーム: 始めてから まだ 当たって いない（最初の 当たりだけ 大） */
   let domeFirstHit = true;
@@ -46,6 +46,7 @@ export function createStep(deps: WiredFrame): (dt: number) => void {
     audioStep();
     applyUiAlpha(craft2Settings);
     time.update();
+    gadgets.step(dt); // ITEM-FX-1: ふとん（ねる）・たこ・わらじ（ジャンプの高さ）
     // WEAPON-5: パリィの 入力は 妖怪の 更新の 前（このステップの 当たりが F1 になる）
     const parryIn = dig.parryInput(game.tick + 1);
     // Shift を 押した 時点で パリィの 絵を 先読みする（刀を 持っただけでは 読まない。初回から 受けの 絵が 出るように）

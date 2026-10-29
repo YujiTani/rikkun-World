@@ -47,6 +47,10 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     nukunuku_s: 2,
     nukunuku_se: 2,
     geyser_dirt: 0.5, // つちと おなじ
+    // ITEM-FX-1（#342）: 小物 3 つの ブロック
+    lantern: 0.05, // ほぼすぐこわれる（たいまつと おなじ）
+    futon: 0.25, // やわらかい（はっぱと おなじ）
+    haniwa: 1, // 土の 人形
     toriya_fence: 5,
     toriya_gate: 5,
     toriya_nest: 5,
@@ -102,6 +106,9 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     nukunuku_s: 0,
     nukunuku_se: 0,
     geyser_dirt: 0,
+    lantern: 0,
+    futon: 0,
+    haniwa: 0,
     toriya_fence: 0,
     toriya_gate: 0,
     toriya_nest: 0,
@@ -163,6 +170,9 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     nukunuku_s: 'uncommon',
     nukunuku_se: 'uncommon',
     geyser_dirt: 'uncommon',
+    lantern: 'uncommon',
+    futon: 'uncommon',
+    haniwa: 'uncommon',
     toriya_fence: 'uncommon',
     toriya_gate: 'uncommon',
     toriya_nest: 'uncommon',
@@ -215,6 +225,10 @@ export const FARM_BREAK_DROP: Readonly<Partial<Record<BlockId, { item: ItemId; c
   sprinkler: { item: 'sprinkler', count: 1 },
   // #293 試作: 間欠泉の つちは いつも 1 こ（そのまま 置きなおせる）
   geyser_dirt: { item: 'geyser_dirt', count: 1 },
+  // ITEM-FX-1（#342）: 小物 3 つは こわすと 同じ アイテム 1 こ
+  lantern: { item: 'lantern', count: 1 },
+  futon: { item: 'futon', count: 1 },
+  haniwa: { item: 'haniwa', count: 1 },
   // FLORA-75: のばな は いつも 1 こ（ランダムな数にしない）
   nobana: { item: 'nobana', count: 1 },
 };

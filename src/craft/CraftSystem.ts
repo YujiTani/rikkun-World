@@ -1,5 +1,6 @@
 import type { BlockId, CraftEvent, CraftSystem, Inventory, MaterialSources, MaterialUse, TansuMaterialStore, TansuPos, ItemId, ItemStack, Recipe, Vec3, VoxelWorld } from '../contracts';
 import { CRAFT2_SETTING_DEFAULTS } from '../contracts';
+import { maxOwnedOf } from '../content/items/registry';
 import { itemType } from '../inventory/items';
 import { PickupLog } from '../inventory/pickupLog';
 import { ALL_RECIPES, BAKE_RECIPES, CRAFT_RECIPES } from './recipes';
@@ -7,7 +8,7 @@ import { createCraftConfig, type CraftConfig } from './config';
 
 const MAX_QUEUE = 256;
 
-export type MakeReason = null | 'missing' | 'full' | 'unknown' | 'noFuel' | 'queueFull';
+export type MakeReason = null | 'missing' | 'full' | 'unknown' | 'noFuel' | 'queueFull' | 'haveOne';
 export type BakeReason = null | 'missing' | 'noFuel' | 'queueFull' | 'closed' | 'notFurnace' | 'unknown';
 
 /** かまど の じゅんばん 1 こ（ねんりょうは押した時点で使ってある） */
@@ -309,11 +310,18 @@ export class CraftSystemImpl implements CraftSystem {
     return ALL_RECIPES.find((r) => r.id === id);
   }
 
-  status(recipeId: string): { craftable: boolean; missing: ItemStack[] } {
+  status(recipeId: string): { craftable: boolean; missing: ItemStack[]; /** ITEM-FX-1: 持ち物 全体で 1 つだけの 物（おまもり）を もう 持っている */ limit?: 'haveOne' } {
     const r = this.recipe(recipeId);
     if (!r) return { craftable: false, missing: [] };
     const missing: ItemStack[] = this.plan(r.inputs, false).missing.map((m) => ({ item: m.item, count: m.count }));
+    if (this.haveOne(r)) return { craftable: false, missing, limit: 'haveOne' };
     return { craftable: missing.length === 0, missing };
+  }
+
+  /** 持ち物 全体で 持てる 数が きまって いる 物（おまもり）を、もう その 数 だけ 持っているか */
+  private haveOne(r: Recipe): boolean {
+    const cap = maxOwnedOf(r.output.item);
+    return cap !== null && this.total(r.output.item) + r.output.count > cap;
   }
 
   /** `craft.list()`（M4 §6.1）: つくる 18 こ */
@@ -388,6 +396,10 @@ export class CraftSystemImpl implements CraftSystem {
       return { ok: res.ok, reason, used: res.used };
     }
     const inv = this.d.inventory;
+    if (this.haveOne(r)) {
+      this.emit({ type: 'craftFail', tick: this.tickCount, recipe: r.id, reason: 'haveOne' }, 'craft');
+      return { ok: false, reason: 'haveOne', used: null };
+    }
     const p = this.plan(r.inputs, false);
     if (!p.ok) {
       this.emit({ type: 'craftFail', tick: this.tickCount, recipe: r.id, reason: 'missing' }, 'craft');
@@ -504,7 +516,7 @@ export class CraftSystemImpl implements CraftSystem {
     if (ver !== -2 && key === this.hint.key) return this.hint.value;
     let any = false;
     for (const r of ALL_RECIPES) {
-      if (r.station !== 'craft') continue;
+      if (r.station !== 'craft' || this.haveOne(r)) continue;
       let ok = true;
       for (const inp of r.inputs) {
         if (this.total(inp.item) < inp.count) {

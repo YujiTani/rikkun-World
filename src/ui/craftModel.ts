@@ -37,6 +37,8 @@ export interface CardView {
   countLabel: string;
   /** そのレシピで待っている数（かまど のカードだけ） */
   queued: number;
+  /** ITEM-FX-1: 持ち物 全体で 1 つだけの 物（おまもり）を もう 持っている（作れない） */
+  limit?: 'haveOne';
 }
 
 export function materialViews(inputs: readonly ItemStack[], countOf: (item: ItemId) => number, tansuOf?: (item: ItemId) => number): MaterialView[] {
@@ -91,6 +93,7 @@ export function buildCards(
       redItems: st.missing.map((m) => m.item),
       countLabel: r.output.count >= 2 ? `×${r.output.count}` : '',
       queued: q ?? 0,
+      ...(st.limit ? { limit: st.limit } : {}),
     };
   });
 }
@@ -338,6 +341,7 @@ export const HINT_SELECT = 'クリック で えらぶ';
 
 /** つくる／やく ボタンの 文字とおせるか（えらんでいるマスで決める） */
 export function buttonState(sel: CardView, bake: boolean, fuelNext: ItemIdM6 | null): { enabled: boolean; label: string } {
+  if (sel.limit === 'haveOne') return { enabled: false, label: 'もう もっているよ' };
   const matsOk = sel.redItems.length === 0;
   if (!matsOk) return { enabled: false, label: 'ざいりょう が たりない' };
   if (bake && fuelNext === null) return { enabled: false, label: 'ねんりょう が たりない' };

@@ -1,4 +1,4 @@
-import { AIR, BLOCK_INDEX, WATER, isCrossIndex, isLeafIndex, isTorchIndex } from '../blocks/blockTypes';
+import { AIR, BLOCK_INDEX, WATER, isCrossIndex, isLeafIndex, isPropIndex, isTorchIndex } from '../blocks/blockTypes';
 import type { ArrayVoxelWorld } from '../VoxelWorld';
 import { MICRO_PARAMS, type ColumnSource } from './microSurface';
 
@@ -34,7 +34,7 @@ export function scanColumn(world: ArrayVoxelWorld, wx: number, wz: number, out: 
   for (let y = world.topY(wx, wz); y >= 0; y--) {
     const k = world.getIndex(wx, y, wz);
     if (k < 0) return;
-    if (k === AIR || k === WATER || isLeafIndex(k) || k === LOG || k === BAMBOO || isCrossIndex(k) || isTorchIndex(k)) continue;
+    if (k === AIR || k === WATER || isLeafIndex(k) || k === LOG || k === BAMBOO || isCrossIndex(k) || isTorchIndex(k) || isPropIndex(k)) continue;
     if (!GROUND.has(k)) return; // 建物・畑など
     out.ty = y;
     out.kind = k;

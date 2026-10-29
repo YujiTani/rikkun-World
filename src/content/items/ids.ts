@@ -75,8 +75,11 @@ export type MaterialId = (typeof MATERIAL_ITEM_IDS)[number];
 export const INGOT_IDS = ['iron_ingot'] as const;
 export type IngotId = (typeof INGOT_IDS)[number];
 
-/** 小物 6 つ（M4。働きは あとで 入る）: ちょうちん・たこ・ふとん・おまもり・わらじ・はにわ（この順が ITEM_TYPES・作業台の カード・たいきゅうの 並び） */
-export const GADGET_IDS = ['lantern', 'kite', 'futon', 'omamori', 'waraji', 'haniwa'] as const;
+/**
+ * 小物 6 つ（M4。働きは ITEM-FX-1 で 入った）＋ やぶれた おまもり（記念の品）:
+ * ちょうちん・たこ・ふとん・おまもり・やぶれた おまもり・わらじ・はにわ（この順が ITEM_TYPES・作業台の カード・たいきゅうの 並び）
+ */
+export const GADGET_IDS = ['lantern', 'kite', 'futon', 'omamori', 'omamori_torn', 'waraji', 'haniwa'] as const;
 export type GadgetId = (typeof GADGET_IDS)[number];
 
 /**

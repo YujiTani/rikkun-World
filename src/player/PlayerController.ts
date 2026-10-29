@@ -52,6 +52,8 @@ type Vec = Partial<{ x: number; y: number; z: number }>;
 export class PlayerController {
   readonly state: PlayerState;
   readonly settings: PlayerSettings;
+  /** わらじ（ITEM-FX-1）: はいている 間の ジャンプの 高さ（null = 設定の jumpHeight） */
+  private jumpOverride: number | null = null;
   /** WEAPON-2: 刀・弓が かける 歩く倍率と ジャンプ止め（つなぎ込みが 毎ステップ 書く） */
   readonly motion: { speedMul: number; jumpLocked: boolean; faceDeg: number | null; stopNow: boolean; leftAims: boolean; noRun: boolean; hoverY: number | null; noMoveInput: boolean } = {
     speedMul: 1,
@@ -120,6 +122,11 @@ export class PlayerController {
     st.onGround = false;
     st.moving = false;
     this.updateWater();
+  }
+
+  /** ジャンプの 高さを かえる（わらじ）。null で 設定の 高さに もどる */
+  setJumpHeight(h: number | null): void {
+    this.jumpOverride = h;
   }
 
   /** テスト用: 置き直す。書かなかった項目はそのまま */
@@ -289,7 +296,7 @@ export class PlayerController {
     p[2] = st.position.z;
     let vy = st.velocity.y;
     if (st.onGround && !this.motion.jumpLocked && (jumpHeld || (wlen > 0 && cfg.autoJump && this.shouldAutoJump(wx, wz)))) {
-      vy = Math.sqrt(2 * cfg.gravity * cfg.jumpHeight * (st.inWater ? cfg.waterJumpMul : 1));
+      vy = Math.sqrt(2 * cfg.gravity * (this.jumpOverride ?? cfg.jumpHeight) * (st.inWater ? cfg.waterJumpMul : 1));
     }
 
     // 上下: はじめと終わりの速さの平均で動かす（§4.5）

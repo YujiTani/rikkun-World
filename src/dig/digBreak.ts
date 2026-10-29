@@ -4,7 +4,7 @@ import { KOTATSU_CELLS, isKotatsuBlock, kotatsuAnchorOf } from '../world/blocks/
 import { BLADE_LIKE_ITEMS } from '../tools/bladeSets';
 import { randInt, type Rng } from '../world/gen/random';
 import { FARM_BREAK_DROP, NO_DROP_BLOCKS } from './config';
-import { COOP_BLOCKS, TORCH_NEIGHBORS, torchSupported, type DigCore } from './digCore';
+import { COOP_BLOCKS, HANGING_SUPPORT, TORCH_NEIGHBORS, type DigCore } from './digCore';
 
 /** こわしたあとの しめくくり: abort = こわせなかった（クールダウンなし）、bodyDone = 体の上の ブロック、done = ふつうにこわした */
 export type BreakEnd = 'abort' | 'bodyDone' | 'done';
@@ -135,21 +135,23 @@ export class BlockBreaker {
     if (n > 0) this.c.inventory.wearHeld?.(n);
   }
 
-  /** (x, y, z) をこわした。下や横の支えをなくした たいまつ は落ちて アイテム になる（start_torch は こわれない） */
+  /** (x, y, z) をこわした。支えをなくした たいまつ・ちょうちん は落ちて アイテム になる（start_torch は こわれない） */
   private dropUnsupportedTorches(x: number, y: number, z: number): void {
     const c = this.c;
     for (const [dx, dy, dz] of TORCH_NEIGHBORS) {
       const tx = x + dx;
       const ty = y + dy;
       const tz = z + dz;
-      if (c.world.getBlock(tx, ty, tz) !== 'torch' || torchSupported(c.world, tx, ty, tz)) continue;
+      const id = c.world.getBlock(tx, ty, tz);
+      if (id === 'outside') continue;
+      const support = HANGING_SUPPORT[id];
+      if (!support || support(c.world, tx, ty, tz)) continue;
       c.world.setBlock(tx, ty, tz, 'air');
-      if (c.m4.scatterItem) c.m4.scatterItem({ x: tx + 0.5, y: ty, z: tz + 0.5 }, 'torch', 1);
+      if (c.m4.scatterItem) c.m4.scatterItem({ x: tx + 0.5, y: ty, z: tz + 0.5 }, id, 1);
       else {
-        const left = c.inventory.add('torch', 1);
-        if (left === 0) c.m4.onPickup?.('torch', 1);
+        const left = c.inventory.add(id, 1);
+        if (left === 0) c.m4.onPickup?.(id, 1);
       }
     }
   }
 }
-

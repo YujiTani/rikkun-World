@@ -1,13 +1,13 @@
 import type { CropStageSource } from '../../../contracts';
 import { cropKindOfBlock } from '../../../contracts';
 import { hasLook, occludes } from '../looks';
-import { AIR, BLOCK_TYPES, WATER, isCrossIndex, isOpaqueIndex, isTorchIndex, isWildIndex } from '../../blocks/blockTypes';
+import { AIR, BLOCK_TYPES, WATER, isCrossIndex, isOpaqueIndex, isPropIndex, isTorchIndex, isWildIndex } from '../../blocks/blockTypes';
 import type { TileName } from '../../blocks/textures';
 import type { WorldLight } from '../../light/WorldLight';
 import type { ArrayVoxelWorld } from '../../VoxelWorld';
 import { isKotatsuBlock } from '../../blocks/kotatsu';
 import { pushKotatsuCell } from '../kotatsuMesh';
-import { FACES, LIGHT_MAX, RIPE_FLAG, TILE_UV, crossTileName, emptyMesh, isCoopLineIndex, pushCoopPanels, pushCross, pushFace, pushTorch, type MeshData } from '../meshChunk';
+import { FACES, LIGHT_MAX, RIPE_FLAG, TILE_UV, crossTileName, emptyMesh, isCoopLineIndex, pushCoopPanels, pushCross, pushFace, pushProp, pushTorch, type MeshData } from '../meshChunk';
 
 /**
  * セクション 1 つぶんの「絵（atlas）で描くもの」: たいまつ・十字の板（作物・やせいの やさい・かかし・さく）・
@@ -45,6 +45,10 @@ export function meshSectionExtras(
         if (b <= AIR) continue;
         if (isTorchIndex(b)) {
           pushTorch(opaque, x, y, z, BLOCK_TYPES[b].id as TileName, light ? light.skyAt(x, y, z) / LIGHT_MAX : 1);
+          continue;
+        }
+        if (isPropIndex(b)) {
+          pushProp(opaque, x, y, z, BLOCK_TYPES[b].id, light ? light.skyAt(x, y, z) / LIGHT_MAX : 1, light ? light.blockAt(x, y, z) / LIGHT_MAX : 0);
           continue;
         }
         if (isCoopLineIndex(b)) {

@@ -15,6 +15,7 @@ import type {
   YokaiWorld,
 } from '../contracts';
 import { createW2Settings } from '../contracts';
+import { GADGET_ID } from '../content/items/gadgetTuning';
 import { isBladeItem } from '../tools/blade';
 import { copyStack } from '../tools/durability';
 import { DropField, type DropView } from '../drops';
@@ -596,8 +597,16 @@ export class PlayerCombatImpl implements PlayerCombat, PunchGate {
     const pos = this.d.player.get().position;
     this.deathPos = { x: pos.x, y: pos.y, z: pos.z };
 
-    // 持ち物を落とす（えらんでいるマス以外。マスごとに dropChance）
+    // ITEM-FX-1: 持ち物の どこかに おまもりが あれば、なにも おとさない。おまもり 1 つは やぶれた おまもり に かわる
     const inv = this.d.inventory;
+    const charm = inv.slots().findIndex((s) => s?.item === GADGET_ID.omamori);
+    if (charm >= 0) {
+      inv.setSlot(charm, { item: GADGET_ID.omamoriTorn, count: 1 }); // おまもりは 1 こ だけ（重ねられない）
+      this.emit({ type: 'death', tick: this.tickCount, dropped: [], protectedBy: 'omamori' });
+      this.d.requestSave?.();
+      return;
+    }
+    // 持ち物を落とす（えらんでいるマス以外。マスごとに dropChance）
     const sel = inv.selected();
     const dropped: number[] = [];
     const stacks: ItemStack[] = [];

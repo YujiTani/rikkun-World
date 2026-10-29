@@ -4,7 +4,7 @@
 
 ## アイテム
 
-**ぜんぶ 登録表に 入っている**（`src/content/items/`）。シリーズ: 金・忍者・侍・伝説の武器・ふつうの道具／武器／防具 16 個（`tools.ts`・`weapons.ts`・`armor.ts`）・畑 14 個（`farm.ts`。じょうろの水の数は `can` 部品）・ざいりょう 8 個（`materials.ts`）・小物 6 個（`misc.ts`）・生き物 8 個（`live.ts`。たべた ときの 回復量は `food` 部品）・置けるブロック 22 個（`blocks.ts`）。`ITEM_DEFS` は `Record<ItemDefId, ItemDef>`（全件を型で強制）。`ItemDefId` は `ItemId` から「アイテムにならないブロック」（`types.ts` の `BLOCK_ONLY_IDS`。みず・そこいし・作物・小屋の部品など）を除いたもの。窓口の表・関数（`ITEM_TYPES`・`itemRarity`・`itemCategory`・`ITEM_INFO`・`TOOL_DEFAULTS`・`toolDurability`・`CRAFT_RECIPES` …）は登録表だけから作る。古い表は無い。
+**ぜんぶ 登録表に 入っている**（`src/content/items/`）。シリーズ: 金・忍者・侍・伝説の武器・ふつうの道具／武器／防具 16 個（`tools.ts`・`weapons.ts`・`armor.ts`）・畑 14 個（`farm.ts`。じょうろの水の数は `can` 部品）・ざいりょう 8 個（`materials.ts`）・小物 7 個（`misc.ts`。ちょうちん・たこ・ふとん・おまもり・やぶれた おまもり・わらじ・はにわ。働きの数 = 光・半径・高さ・時間・持てる数は `gadgetTuning.ts` の 1 つの表 `GADGET_TUNING`。ちょうちん・ふとん・はにわは 置けるブロックでもある = `BLOCK_TYPES` にも入っていて、`placeBlock` で つながる）・生き物 8 個（`live.ts`。たべた ときの 回復量は `food` 部品）・置けるブロック 22 個（`blocks.ts`）。`ITEM_DEFS` は `Record<ItemDefId, ItemDef>`（全件を型で強制）。`ItemDefId` は `ItemId` から「アイテムにならないブロック」（`types.ts` の `BLOCK_ONLY_IDS`。みず・そこいし・作物・小屋の部品など）を除いたもの。窓口の表・関数（`ITEM_TYPES`・`itemRarity`・`itemCategory`・`ITEM_INFO`・`TOOL_DEFAULTS`・`toolDurability`・`CRAFT_RECIPES` …）は登録表だけから作る。古い表は無い。
 
 **置けるブロックのアイテムは `blocks.ts`。ブロックとしての性質（固さ・見た目・id の番号）は `BLOCK_TYPES`（`world/blocks/blockTypes.ts`）と `DIG_DEFAULTS`（`dig/config.ts`。ほる固さ・道具・ブロックのレア度）に残る。** アイテムの名前の出どころが BLOCK_TYPES の物と、レア度の出どころが DIG_DEFAULTS の物は、`blocks.ts` からそこを読む（2 か所に書かない）。ブロック id の型は `contracts.ts` の `BlockId`。
 
