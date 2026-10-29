@@ -37,7 +37,7 @@ const EXPECT: Record<string, Expect> = {
   iron_ingot: { name: 'てつの かたまり', maxStack: 64, rarity: 'rare', category: 'metal', info: { use: 'てつの つるはし・ぶき・ぼうぐ・たんす の ざいりょう', how: E, buttons: ['E'] } },
   lantern: { name: 'ちょうちん', maxStack: 64, rarity: 'uncommon', category: 'light', info: null, placeBlock: 'lantern' },
   kite: { name: 'たこ', maxStack: 1, rarity: 'uncommon', category: 'home', info: null },
-  futon: { name: 'ふとん', maxStack: 1, rarity: 'uncommon', category: 'home', info: null, placeBlock: 'futon' },
+  futon: { name: 'ふとん', maxStack: 64, rarity: 'uncommon', category: 'home', info: null, placeBlock: 'futon' },
   omamori: { name: 'おまもり', maxStack: 1, rarity: 'superRare', category: 'home', info: null },
   waraji: { name: 'わらじ', maxStack: 1, rarity: 'common', category: 'home', info: null },
   haniwa: { name: 'はにわ', maxStack: 64, rarity: 'uncommon', category: 'home', info: null, placeBlock: 'haniwa' },

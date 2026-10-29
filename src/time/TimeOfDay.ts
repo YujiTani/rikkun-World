@@ -7,6 +7,8 @@ export class TimeOfDayImpl implements TimeOfDay {
   private tick = START_DAY_TICK;
   private dayNo = 0;
   private lastPhase: DayPhase = 'day';
+  /** ふとんで ねて 日づけを もう 進めた: 次の 日の 区切りでは 進めない（合計 +1） */
+  private slept = false;
   private readonly listeners = new Set<(phase: DayPhase) => void>();
 
   constructor(readonly settings: TimeSettings = createTimeSettings()) {}
@@ -39,6 +41,7 @@ export class TimeOfDayImpl implements TimeOfDay {
     const len = dayLength(this.settings);
     const t = Math.floor(dayTick);
     this.tick = ((t % len) + len) % len;
+    this.slept = false;
     this.notify();
   }
 
@@ -52,6 +55,7 @@ export class TimeOfDayImpl implements TimeOfDay {
     const s = this.settings;
     this.tick = s.dayTicks + s.duskTicks + s.nightTicks;
     this.dayNo++;
+    this.slept = true;
     this.notify();
   }
 
@@ -59,7 +63,8 @@ export class TimeOfDayImpl implements TimeOfDay {
     this.tick++;
     if (this.tick >= dayLength(this.settings)) {
       this.tick = 0;
-      this.dayNo++;
+      if (this.slept) this.slept = false;
+      else this.dayNo++;
     }
     this.notify();
   }

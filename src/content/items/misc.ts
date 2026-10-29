@@ -30,7 +30,7 @@ export const GADGETS = {
   },
   futon: {
     name: 'ふとん',
-    maxStack: 1,
+    maxStack: 64, // 置けるブロックなので ブロックと 同じ（PO 判断）
     rarity: 'uncommon',
     category: 'home',
     placeBlock: 'futon',

@@ -3210,7 +3210,7 @@
       },
       "category": "home",
       "durabilityClass": "permanent",
-      "maxStack": 1,
+      "maxStack": 64,
       "name": "ふとん",
       "placeBlock": "futon",
       "rarity": "uncommon",
