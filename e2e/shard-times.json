@@ -111,5 +111,6 @@
   "e2e/weapon7.spec.ts": 386,
   "e2e/weapon8.spec.ts": 382,
   "e2e/weapon9-niji.spec.ts": 185,
-  "e2e/windWave-fx.spec.ts": 72
+  "e2e/windWave-fx.spec.ts": 72,
+  "e2e/zukan1.spec.ts": 15
 }

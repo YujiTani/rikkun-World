@@ -163,10 +163,18 @@ export interface KeyboardBindOptions {
   preventExtra?: (action: Action) => boolean;
 }
 
+/** 字を 入れる らん か */
+function isTextField(t: EventTarget | null): boolean {
+  const el = t as { tagName?: string; isContentEditable?: boolean } | null;
+  return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable === true);
+}
+
 export function bindKeyboardAndMouse(target: Window, state: ActionState, wheel?: WheelAccumulator, opts: KeyboardBindOptions = {}): () => void {
   // 押しているキー → 押したときに決めた Action（Shift を先にはなしても、同じ Action をはなす）
   const downKeys = new Map<string, Action[]>();
   const onKeyDown = (e: KeyboardEvent) => {
+    // ZUKAN-1: 字を 入れる らん（ずかんの さがす）では Esc いがい ゲームの キーに しない
+    if (isTextField(e.target) && e.code !== 'Escape') return;
     const main = actionForKey(e.code, e.shiftKey);
     const extra = EXTRA_KEY_BINDINGS[e.code];
     if (!main && !extra) return;

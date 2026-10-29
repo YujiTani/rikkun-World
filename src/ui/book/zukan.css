@@ -1,0 +1,162 @@
+/* ZUKAN-1: 本の アイテム ずかん（book.css の 紙・札の 色に そろえる） */
+.zk-open {
+  margin-top: 16px;
+  align-self: center;
+  width: 80%;
+  min-height: 64px;
+  padding: 8px 16px;
+  gap: 12px;
+}
+.zk-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  font-size: 20px;
+}
+.zk-search input {
+  flex: 1;
+  min-width: 0;
+  box-sizing: border-box;
+  height: 40px;
+  padding: 0 12px;
+  border: 3px solid #e0b545;
+  border-radius: 12px;
+  background: #fff;
+  color: #3a2614;
+  font: inherit;
+  font-size: 20px;
+  font-weight: 700;
+}
+.zk-groups {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  flex: none;
+}
+.zk-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  box-sizing: border-box;
+  height: 34px;
+  padding: 0 2px;
+  border: 2px solid #e0b545;
+  border-radius: 10px;
+  background: #fffdf6;
+  color: #3a2614;
+  font: inherit;
+  font-size: clamp(9px, calc(var(--pw) * 0.026), 13px);
+  letter-spacing: -0.04em;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  cursor: pointer;
+}
+.zk-group[aria-pressed='true'] {
+  background: #f6d77a;
+  border-color: #b8862a;
+}
+.zk-gicon {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  image-rendering: pixelated;
+}
+.zk-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-auto-rows: 1fr;
+  gap: 6px;
+  flex: 1;
+  min-height: 0;
+}
+.zk-grid-l {
+  grid-template-rows: repeat(3, 1fr);
+}
+.zk-grid-r {
+  grid-template-rows: repeat(4, 1fr);
+}
+.zk-tile {
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  padding: 4px 2px;
+  min-height: 0;
+  border-top: 6px solid var(--zk-r, #e0b545);
+  text-align: center;
+}
+.zk-icon {
+  width: 40px;
+  height: 40px;
+  image-rendering: pixelated;
+  flex: none;
+}
+.zk-name {
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.25;
+  overflow: hidden;
+  max-height: 3.2em;
+}
+.zk-name rt {
+  font-size: 8px;
+}
+/* レア度 7 以上: 絵は ずっと 影（yuzu 2026-10-29） */
+.zk-shadow {
+  filter: brightness(0);
+  opacity: 0.8;
+}
+.zk-count {
+  text-align: center;
+  font-size: 22px;
+  font-weight: 800;
+  color: #7a4c22;
+}
+.zk-big {
+  align-self: center;
+  margin-top: 16px;
+  padding: 16px;
+  border: 5px solid #e0b545;
+  border-top: 10px solid var(--zk-r, #e0b545);
+  border-radius: 14px;
+  background: #fffdf6;
+  line-height: 0;
+}
+.zk-bigicon {
+  width: 160px;
+  height: 160px;
+  image-rendering: pixelated;
+}
+.zk-title {
+  text-align: center;
+}
+.zk-stars {
+  text-align: center;
+  font-size: 24px;
+  color: var(--zk-r, #e0b545);
+  text-shadow: 0 0 2px #3a2614, 0 0 2px #3a2614;
+}
+.zk-word {
+  margin-left: 8px;
+  font-size: 18px;
+  font-weight: 800;
+  color: #3a2614;
+  text-shadow: none;
+}
+.zk-item {
+  gap: 4px;
+}
+.zk-h {
+  margin: 12px 0 0;
+  font-size: 22px;
+  font-weight: 800;
+  color: #7a4c22;
+}
+.zk-cap {
+  margin: 4px 0 0;
+}
+.zk-open .bk-label {
+  font-size: 28px;
+  font-weight: 800;
+}
