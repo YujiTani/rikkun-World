@@ -2,7 +2,7 @@
 
 - issue: #338 / 仕様: `docs/design/HOUSE-1.md`（§2.1〜2.4、§3.2、§3.5〜3.6 の 建築士さん、§4.8、§5 の 建築士さん・くらの 行、§6）
 - 見た目: 案 A「はっぴの だいくさん」（決定 `docs/decisions/2026-10-29-housing-look.md`、スタイルガイド `docs/art/design/06-housing.md` §19、依頼メモ `docs/art/requests/HOUSE-1-architect-furniture.md`、数の 元 `docs/art/house-1/proto/houseA.ts.txt`）。
-- ゲームに 入れた 試作（`/mnt/project-files/housing-art/ingame/`、`?proto=house`）の 見た目は yuzu OK（2026-10-29）。本実装は この 見た目の まま。atlas に 13 まい 足すと `calm.test.ts` の 表と `sectionMesher.slice.test.ts` の golden が 変わる（表を 更新する）。
+- ゲームに 入れた 試作（`/mnt/project-files/housing-art/ingame/`、`?proto=house`）の 見た目は yuzu OK（2026-10-29）。本実装は この 見た目の まま。この 票で 入れるのは 建築士さんだけ（家具は #340。試作の `proto.diff` の 建築士さんの 部分を 元に してよい）。
 - つづき: #339 HOUSE-1B（エディター）、#340 HOUSE-1C（地盤・建築）、#341 HOUSE-1D（家具の はたらき）。
 
 ## やること
