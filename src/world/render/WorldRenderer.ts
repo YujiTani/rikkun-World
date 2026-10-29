@@ -1,21 +1,19 @@
 import {
-  BufferAttribute,
-  BufferGeometry,
-  DoubleSide,
   Group,
   Mesh,
   MeshBasicMaterial,
+  DoubleSide,
+  BufferAttribute,
   type Data3DTexture,
   type Scene,
   type Texture,
 } from 'three';
-import type { CropStageSource, SectionData } from '../../contracts';
+import type { CropStageSource } from '../../contracts';
 import { cropKindOfBlock } from '../../contracts';
 import { BLOCK_TYPES, isCrossIndex, isWildIndex } from '../blocks/blockTypes';
 import { createAtlasTexture, WATER_ALPHA } from '../blocks/textures';
 import { COUNT_MESH_MAX, COUNT_MESH_TOTAL_MAX, type FrameClock } from '../frameClock';
 import { WorldLight } from '../light/WorldLight';
-import { sectionGet } from '../sections';
 import { lodSortKey, sectionSortKey } from './drawOrder';
 import { columnKey, CHUNK_SIZE, type ArrayVoxelWorld } from '../VoxelWorld';
 import type { StreamLight, StreamMesh } from '../stream/ChunkStream';
@@ -26,97 +24,22 @@ import { applyLightShader } from './lightShader';
 import { CropSwayMesh, SWAY_POOL_MAX, type SwayItem } from './cropSway';
 import { meshChunkLod } from './lodMesh';
 import { crossTileName, RIPE_FLAG, type MeshData } from './meshChunk';
+import { bytesOf, sectionAllAir, sectionHasCross, toGeometry, trisOf, voxelGeometry } from './rendererGeometry';
+import type {
+  ChunkStats, MeshJobStats, MeshStats, NoneReason, RebuildLogEntry, RebuildStats, SectionInfo, SectionStats, WorldRenderConfig,
+} from './rendererTypes';
+import {
+  CLS_AIR, CLS_HIDDEN, CLS_NORMAL, CLS_UNKNOWN, type Cls, type ColState, type SecState,
+} from './sectionState';
 import { pickEvictions } from './voxel/geometryBudget';
 import { setAoCenter, setAoRadius } from './voxel/aoUniforms';
-import { SectionMesher, type SectionMeshData, type VoxelPiece } from './voxel/sectionMesher';
-import { DEFAULT_MICRO_R, columnDistance, nextTier, normalizeMicroR, type Tier } from './voxel/tier';
+import { SectionMesher, type SectionMeshData } from './voxel/sectionMesher';
+import { DEFAULT_MICRO_R, columnDistance, nextTier, normalizeMicroR } from './voxel/tier';
 import { createOccupancyTexture, createVoxelMaterial, createVoxelShared, type VoxelShared } from './voxel/voxelMaterial';
 
-export interface RebuildStats {
-  /** いちばん最近の作り直し（セクション 1 つ分のメッシュ作り）にかかったミリ秒（描画そのものはふくまない） */
-  lastMs: number;
-  /** ブロックや光が変わって作り直したセクションの数（最初の全部の分・段の切りかえはふくまない） */
-  count: number;
-}
-
-/** render.chunks() の答え（M5 AC15）。「チャンク」は 列（16×16 の縦ぜんぶ） */
-export interface ChunkStats {
-  /** 列の数（8×8 = 64） */
-  total: number;
-  /** 遠くを かんたんメッシュ（LOD）で描いている列の数 */
-  lodDrawn: number;
-  /** 距離が 88 以下で、いま描いている（メッシュがあって見える）列の数 */
-  drawn: number;
-  /** 距離が 88 以下の列の数 */
-  inRange: number;
-  /** 描く距離（88） */
-  maxDistance: number;
-  /** 描いている列の番号（colKey(cx, cz)。負の列でも ちがう数） */
-  drawnIndices: number[];
-}
-
-export type SectionTier = 'micro' | 'box' | 'lod' | 'none';
-export type NoneReason = 'empty' | 'hidden' | 'unlit';
-
-/** window.__rikkun.world.sectionInfo の答え（VOX-E） */
-export interface SectionInfo {
-  tier: SectionTier;
-  reason: NoneReason | null;
-  meshes: number;
-  triangles: number;
-  dist: number;
-}
-
-export interface SectionStats {
-  microR: number;
-  total: number;
-  micro: number;
-  box: number;
-  lod: number;
-  none: number;
-  noneBy: { empty: number; hidden: number; unlit: number };
-  microMaxDist: number;
-  boxMinDist: number;
-  boxMaxDist: number;
-}
-
-export interface MeshStats {
-  geometryBytes: number;
-  geometryBytesLimit: number;
-  meshCount: number;
-  disposedTotal: number;
-  pending: number;
-}
-
-export interface RebuildLogEntry {
-  x: number;
-  y: number;
-  z: number;
-  kind: 'micro' | 'box' | 'water';
-  frame: number;
-}
-
-/** 描画まわりの設定（F3 の設定・URL・テストから書きかえられる。毎コマ読む） */
-export interface WorldRenderConfig {
-  /** 小ブロックの半径（16 / 24 / 32。ほかは近い値になる） */
-  microRadius: number;
-  /** 小ブロックの 1 セクションを 途中で止められる仕事に分けて作るか（既定 true。?meshSlice=off で false。見くらべと perf 用。PERF-2） */
-  meshSlice?: boolean;
-}
-
-/** 分けて作る小ブロックの仕事の様子（window.__rikkun.world.meshJob。PERF-2） */
-export interface MeshJobStats {
-  /** いま作っている途中のセクション（無ければ null） */
-  active: { cx: number; sy: number; cz: number } | null;
-  /** 分けて作りおえた数 */
-  finished: number;
-  /** 途中で捨てた数 */
-  cancelled: number;
-  /** resume を呼んだ回数の合計 */
-  slices: number;
-  /** 1 回の resume にかかった いちばん長いミリ秒 */
-  maxSliceMs: number;
-}
+export type {
+  ChunkStats, MeshJobStats, MeshStats, NoneReason, RebuildLogEntry, RebuildStats, SectionInfo, SectionStats, SectionTier, WorldRenderConfig,
+} from './rendererTypes';
 
 /** 1 コマの作り直しの予算（ミリ秒）。VOX-E §5 */
 const FRAME_BUDGET_MS = 8;
@@ -126,115 +49,6 @@ export const GEOMETRY_BYTES_LIMIT = 192 * 1024 * 1024;
 const REVIVE_RATIO = 0.75;
 const LOG_CAP = 20000;
 const LIGHT_MAX_N = 15;
-
-type Cls = 0 | 1 | 2 | 3; // 0 = まだ見ていない / 1 = 全部空気 / 2 = 見えない / 3 = ふつう
-const CLS_UNKNOWN = 0;
-const CLS_AIR = 1;
-const CLS_HIDDEN = 2;
-const CLS_NORMAL = 3;
-
-interface SecState {
-  readonly col: ColState;
-  readonly cx: number;
-  readonly sy: number;
-  readonly cz: number;
-  cls: Cls;
-  /** 最後に作った段（null = まだ・捨てた）。面が 0 でも入る */
-  built: 'micro' | 'box' | null;
-  /** 中身（ブロック・光）が変わって、作り直しが要る */
-  dirty: boolean;
-  /** プレイヤーがブロックを変えた（先に作る） */
-  player: boolean;
-  /** ブロックや光の変化による作り直し（rebuildStats の count に入れる） */
-  byChange: boolean;
-  /** markDirty のたびに 1 増える（分けて作っている間に 中身が変わったかを見る。PERF-2） */
-  gen: number;
-  /** 作ったが 見える面が 0 だった */
-  faceless: boolean;
-  evicted: boolean;
-  queued: boolean;
-  voxel: Mesh | null;
-  extras: Mesh | null;
-  water: Mesh | null;
-  /** 小ブロックの段の材料（このセクションの「うまり」のテクスチャを持つ）と、うまりの中身（角の暗がり用。TEX-A） */
-  voxMat: MeshBasicMaterial | null;
-  aoTex: Data3DTexture | null;
-  occ: Uint8Array | null;
-  bytes: number;
-  tris: number;
-}
-
-interface ColState {
-  readonly cx: number;
-  readonly cz: number;
-  readonly secs: SecState[];
-  tier: Tier | null;
-  dist: number;
-  /** 遠くで使う かんたんメッシュ（LOD。列ごと 1 まい） */
-  lodOpaque: Mesh | null;
-  lodWater: Mesh | null;
-  lodStale: boolean;
-  /** LOD をやめて 箱・小ブロックにした直後: セクションができるまで LOD を見せておく */
-  lodHold: boolean;
-  /** この列の作り直し待ち（queue の列ごとの分。ストリーミングの仕事えらび用） */
-  readonly work: Set<SecState>;
-  /** 描く輪の中心から この列までのチェビシェフ距離（ストリーミングのとき） */
-  ring: number;
-  /** ring ≤ R_DRAW（ストリーミングのとき、作る対象） */
-  inDraw: boolean;
-  /** 自分と 8 つのとなりの光がそろっている（ストリーミングのとき、メッシュを作ってよい。S2） */
-  meshable: boolean;
-}
-
-function toGeometry(data: MeshData): BufferGeometry {
-  const g = new BufferGeometry();
-  g.setAttribute('position', new BufferAttribute(new Float32Array(data.positions), 3));
-  if (data.uvs.length > 0) g.setAttribute('uv', new BufferAttribute(new Float32Array(data.uvs), 2));
-  g.setAttribute('color', new BufferAttribute(new Float32Array(data.colors), 3));
-  g.setAttribute('aLight', new BufferAttribute(new Float32Array(data.lights), 2));
-  g.setAttribute('aDark', new BufferAttribute(new Float32Array(data.darks), 1));
-  g.setIndex(new BufferAttribute(new Uint32Array(data.indices), 1));
-  g.computeBoundingSphere();
-  g.computeBoundingBox();
-  return g;
-}
-
-function voxelGeometry(p: VoxelPiece): BufferGeometry {
-  const g = new BufferGeometry();
-  g.setAttribute('position', new BufferAttribute(p.positions, 3));
-  g.setAttribute('aData', new BufferAttribute(p.data, 4, false));
-  g.setAttribute('aLight', new BufferAttribute(p.light, 2, true));
-  g.setIndex(new BufferAttribute(p.indices, 1));
-  g.computeBoundingSphere();
-  return g;
-}
-
-function bytesOf(g: BufferGeometry): number {
-  let n = g.index ? g.index.array.byteLength : 0;
-  for (const k of Object.keys(g.attributes)) n += (g.attributes[k] as BufferAttribute).array.byteLength;
-  return n;
-}
-
-function trisOf(m: Mesh | null): number {
-  const idx = m?.geometry.getIndex();
-  return idx ? idx.count / 3 : 0;
-}
-
-function sectionAllAir(s: SectionData): boolean {
-  if (s.kind === 'uniform') return s.block === 0;
-  for (let i = 0; i < 4096; i++) if (sectionGet(s, i) !== 0) return false;
-  return true;
-}
-
-function sectionHasCross(s: SectionData): boolean {
-  if (s.kind === 'uniform') return isCrossIndex(s.block);
-  if (s.kind === 'palette') {
-    for (const b of s.palette) if (isCrossIndex(b)) return true;
-    return false;
-  }
-  for (let i = 0; i < 4096; i++) if (isCrossIndex(s.data[i])) return true;
-  return false;
-}
 
 /**
  * 世界をセクション（16³）ごとのメッシュで描く（VOX-E。docs/design/VOX-plan.md §5・§6）。

@@ -1,15 +1,24 @@
 import type { CropStageSource } from '../../../contracts';
-import { LOOK_N, LOOK_VOLUME, fillBlockLookKata, hasLook, initLooks, kataOf, occludes } from '../looks';
+import { LOOK_VOLUME, fillBlockLookKata, hasLook, kataOf } from '../looks';
 import { newSample, sampleSurface, type ColumnSource, type SurfaceSample } from '../../micro/microSurface';
 import { scanColumn, type ColumnInfo } from '../../micro/worldColumns';
-import { BLOCK_TYPES, WATER, isLeafIndex, isOpaqueIndex } from '../../blocks/blockTypes';
+import { WATER } from '../../blocks/blockTypes';
 import { OCC_BYTES, OCC_NY, packOccupancy } from './ao';
 import { ROW_NONE, rowCodeOf, terrainKindOf } from './projection';
-import { OPACITY } from '../../light/opacity';
 import type { WorldLight } from '../../light/WorldLight';
 import type { ArrayVoxelWorld } from '../../VoxelWorld';
 import { meshSectionExtras } from './sectionExtras';
 import type { MeshData } from '../meshChunk';
+import * as K from './sectionConsts';
+import { QuadBuilder, type VoxelPiece } from './sectionQuads';
+
+// vitest の import は 読むたびに getter を通って 遅い。内側のループが読む定数は このファイルの const に写す（本番のビルドでは同じ）
+const {
+  AXIS_OF, BL, BW, CUBE, DIR, EXPOSE_ROWS, FILL_BLOCKS, G_BASE, GSTRIDE, LAYERS, LEAF, N, NBLOCKS, NEIGHBOR_OFF,
+  OCC, OCC_ROWS, OPAQUE_LIGHT, OWN, PH_BOX, PH_EXPOSE, PH_FILL, PH_FINISH, PH_IDLE, PH_LIGHT2, PH_OCC, PH_PLANES, PH_READ,
+  PH_SAMPLE, PH_SCAN, PH_TFILL, PLANES_PER_STEP, READ_ROWS, ROWS_ALL, S, SAMPLE_ROWS, SCAN_ROWS, SS, TFILL_ROWS, EDGE_UNKNOWN, FACE_VERTS,
+} = K;
+
 
 /**
  * セクション（16³）1 つぶんのメッシュ作り（three に依存しない。型付き配列で返す）。VOX-E。
@@ -26,16 +35,7 @@ import type { MeshData } from '../meshChunk';
  *   表面の高さ S は ブロックの上のへりより下へへこむので、そこは 1 ブロック単位では「見えない面」でも 帯が見える（#142）。
  */
 
-export interface VoxelPiece {
-  /** セクションの中の小ブロック座標 */
-  positions: Uint16Array;
-  /** aData = [ブロックの種類, 地形の横の面の行の符号（255 = 世界の高さで決める）, 0, 面の番号] */
-  data: Uint8Array;
-  /** aLight = [空の光, ブロックの光]（0〜255。255 = 15 を 17 倍） */
-  light: Uint8Array;
-  indices: Uint16Array | Uint32Array;
-  vertexCount: number;
-}
+export type { VoxelPiece };
 
 export interface SectionMeshData {
   pieces: VoxelPiece[];
@@ -52,191 +52,12 @@ export interface SectionMeshData {
 
 export type MeshTier = 'micro' | 'box';
 
-const N = LOOK_N;
-/** まわり 1 ブロックをふくむ 1 辺のブロック数と、小ブロック数 */
-const BL = 18;
-const S = BL * N;
-const SS = S * S;
-/** 小ブロック地形で調べる列の幅（ブロック）: セクション + まわり 2 ブロック */
-const BW = 20;
-const OWN = 16 * N; // 144
-const ROWS_ALL = 17 * N; // 153: 自分の高さ + 上のはみ出しの 1 ブロック
-const CUBE = BL * BL * BL;
-const NB = BLOCK_TYPES.length;
-
-initLooks(BLOCK_TYPES.map((t) => t.id));
-
-/** 面の向きの順: 上, 下, +x, -x, +z, -z（meshChunk の FACES と同じ） */
-const DIR: readonly (readonly [number, number, number])[] = [
-  [0, 1, 0],
-  [0, -1, 0],
-  [1, 0, 0],
-  [-1, 0, 0],
-  [0, 0, 1],
-  [0, 0, -1],
-];
-const FACE_VERTS: readonly (readonly [number, number, number])[][] = [
-  [[0, 1, 1], [1, 1, 1], [1, 1, 0], [0, 1, 0]],
-  [[0, 0, 0], [1, 0, 0], [1, 0, 1], [0, 0, 1]],
-  [[1, 0, 1], [1, 0, 0], [1, 1, 0], [1, 1, 1]],
-  [[0, 0, 0], [0, 0, 1], [0, 1, 1], [0, 1, 0]],
-  [[0, 0, 1], [1, 0, 1], [1, 1, 1], [0, 1, 1]],
-  [[1, 0, 0], [0, 0, 0], [0, 1, 0], [1, 1, 0]],
-];
-const AXIS_OF = [1, 1, 0, 0, 2, 2];
-const NEIGHBOR_OFF = [SS, -SS, 1, -1, S, -S];
-const GSTRIDE = [1, SS, S];
-
-/** この種類は となりの面をかくすか（形のある種類は look、形のない固いブロック（絵のブロック）は かくす） */
-function buildOcc(): Uint8Array {
-  const t = new Uint8Array(NB);
-  for (let i = 0; i < NB; i++) t[i] = hasLook(i) ? (occludes(i) ? 1 : 0) : isOpaqueIndex(i) ? 1 : 0;
-  return t;
-}
-const OCC = buildOcc();
-/** はっぱの種類（#202: はっぱは 地下あつかいしない） */
-const LEAF = Uint8Array.from(BLOCK_TYPES, (_t, i) => (isLeafIndex(i) ? 1 : 0));
-/** 光を通さない（光の読みを まわりからかりる） */
-const OPAQUE_LIGHT = Uint8Array.from(OPACITY, (o) => (o >= 15 ? 1 : 0));
-
-/** 四角を貯める入れもの（大きくなったら 倍にひろげる） */
-class QuadBuilder {
-  private cap = 8192;
-  private pos = new Uint16Array(3 * this.cap);
-  private dat = new Uint8Array(4 * this.cap);
-  private lit = new Uint8Array(2 * this.cap);
-  private idx = new Uint32Array((this.cap / 4) * 6);
-  private nv = 0;
-  private ni = 0;
-  faces = 0;
-
-  reset(): void {
-    this.nv = 0;
-    this.ni = 0;
-    this.faces = 0;
-  }
-
-  private grow(): void {
-    this.cap *= 2;
-    const p = new Uint16Array(3 * this.cap);
-    p.set(this.pos);
-    this.pos = p;
-    const d = new Uint8Array(4 * this.cap);
-    d.set(this.dat);
-    this.dat = d;
-    const l = new Uint8Array(2 * this.cap);
-    l.set(this.lit);
-    this.lit = l;
-    const i = new Uint32Array((this.cap / 4) * 6);
-    i.set(this.idx);
-    this.idx = i;
-  }
-
-  /** 角ごとの光 lights = [空0, ブロック0, 空1, ブロック1, …]（4 つぶん）。lights が null なら 全部 (sky, blk) */
-  quad(
-    f: number,
-    x0: number,
-    x1: number,
-    y0: number,
-    y1: number,
-    z0: number,
-    z1: number,
-    d0: number,
-    d1: number,
-    d2: number,
-    flag: number,
-    sky: number,
-    blk: number,
-    lights: ArrayLike<number> | null,
-  ): void {
-    if (this.nv + 4 > this.cap) this.grow();
-    const verts = FACE_VERTS[f];
-    let p = this.nv * 3;
-    let d = this.nv * 4;
-    let l = this.nv * 2;
-    for (let i = 0; i < 4; i++) {
-      const v = verts[i];
-      this.pos[p++] = v[0] ? x1 : x0;
-      this.pos[p++] = v[1] ? y1 : y0;
-      this.pos[p++] = v[2] ? z1 : z0;
-      this.dat[d++] = d0;
-      this.dat[d++] = d1;
-      // 角の印（x, y, z の どちら側か: ビット 0, 1, 2）。シェーダーが 面の中で ごく少し ひろげて 面どうしの つぎ目の 空の色を ふさぐ
-      this.dat[d++] = v[0] | (v[1] << 1) | (v[2] << 2) | d2;
-      this.dat[d++] = f | flag;
-      if (lights) {
-        this.lit[l++] = lights[i * 2];
-        this.lit[l++] = lights[i * 2 + 1];
-      } else {
-        this.lit[l++] = sky;
-        this.lit[l++] = blk;
-      }
-    }
-    const base = this.nv;
-    let q = this.ni;
-    const idx = this.idx;
-    idx[q++] = base;
-    idx[q++] = base + 1;
-    idx[q++] = base + 2;
-    idx[q++] = base;
-    idx[q++] = base + 2;
-    idx[q++] = base + 3;
-    this.nv += 4;
-    this.ni = q;
-    this.faces++;
-  }
-
-  finish(): VoxelPiece[] {
-    if (this.nv === 0) return [];
-    const idx = this.nv <= 65535 ? Uint16Array.from(this.idx.subarray(0, this.ni)) : this.idx.slice(0, this.ni);
-    return [
-      {
-        positions: this.pos.slice(0, this.nv * 3),
-        data: this.dat.slice(0, this.nv * 4),
-        light: this.lit.slice(0, this.nv * 2),
-        indices: idx,
-        vertexCount: this.nv,
-      },
-    ];
-  }
-}
-
 export interface BuildOptions {
   crops?: CropStageSource;
   hide?: (x: number, y: number, z: number) => boolean;
 }
 
-/** 面ごとの層の数（上下 = 17 ブロック、ほかは 16 ブロック。小ブロック数） */
-const NBLOCKS = [16, 17, 16];
-const LAYERS = [0, 1, 2, 3, 4, 5].map((f) => NBLOCKS[AXIS_OF[f]] * N);
-const G_BASE = N + N * S + N * SS;
 const perfNow = (): number => performance.now();
-
-// 段（続きから再開できる仕事。PERF-2）と、止めてよい 1 単位の大きさ
-const PH_IDLE = 0;
-const PH_BOX = 1;
-const PH_READ = 2;
-const PH_LIGHT2 = 3;
-const PH_SCAN = 4;
-const PH_SAMPLE = 5;
-const PH_EXPOSE = 6;
-const PH_FILL = 7;
-const PH_TFILL = 8;
-const PH_PLANES = 9;
-const PH_FINISH = 10;
-const PH_OCC = 11;
-const READ_ROWS = 3;
-const SCAN_ROWS = 2;
-const SAMPLE_ROWS = 8;
-const EXPOSE_ROWS = 3;
-/** 1 行に 地面が集まると 重いので、行では切らず ブロックの数で切る */
-const FILL_BLOCKS = 8;
-const TFILL_ROWS = 8;
-const PLANES_PER_STEP = 2;
-const OCC_ROWS = 4;
-
-/** edgeTy の「まだ調べていない」しるし */
-const EDGE_UNKNOWN = -2147483648;
 
 export class SectionMesher {
   /** 小ブロックの格子: (y * S + z) * S + x。0 = 空。まわり 1 ブロックの余白つき（余白はとなりのセクションのぶん） */
