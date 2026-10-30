@@ -1,6 +1,7 @@
 import type { ActionHintItem, ActionHintLines } from './actionHintModel';
 import { animalIconUrl } from './animalArt';
 import { heartPixels } from './heartsModel';
+import { houseTalkIconUrl } from './houseMenuArt';
 import { drawPixels, itemIconUrl } from './itemIcon';
 import './actionHint.css';
 
@@ -77,6 +78,7 @@ export class ActionHint {
 /** 'full'・'carry' の 専用 の 絵 が できるまで は にわとり の 絵（ひとめ で 分かる ように 語 を そえる） */
 function iconUrl(icon: ActionHintItem['icon']): string {
   if (icon === 'heart') return heartUrl();
+  if (icon === 'talk') return houseTalkIconUrl();
   if (icon === 'chicken' || icon === 'carry' || icon === 'full') return animalIconUrl('chicken');
   return itemIconUrl(icon);
 }
