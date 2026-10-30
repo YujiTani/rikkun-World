@@ -7,13 +7,8 @@ import { AchievementSystem } from './AchievementSystem';
 const mk = () => new AchievementSystem(() => ({ ...M6_SETTING_DEFAULTS, achieveCooldown: 0, achieveCooldownEarly: 0 }));
 const at = { tick: 0, x: 0, y: 0, z: 0 };
 
-import { SAVE_GEN } from '../save/SaveManager';
-
-describe('LIVE-3 保存（AC10）', () => {
-  it('SAVE_GEN は かえない（3 の まま）', () => {
-    expect(SAVE_GEN).toBe(3);
-  });
-});
+// 「SAVE_GEN は かえない（3 の まま）」の テストは MINE-1A（#348）で 消した。地下の 作り方が かわる ので SAVE_GEN は 3 → 4 に 上がる（A11）。
+// 上げた 値の 確かめは src/save/mineSave.test.ts。LIVE-3 自身が 版を 上げて いない ことは 当時の PR で 確かめずみ。
 
 describe('LIVE-3 実績（§4.5・AC15）', () => {
   it('animal.eatMeat は animal.eatEgg の すぐ うしろ・小・名前・記録 eat:momo_yaki・段階 1', () => {

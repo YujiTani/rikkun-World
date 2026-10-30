@@ -2,7 +2,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import type { CropStage, CropStageSource } from '../../../contracts';
-import { AIR, BLOCK_INDEX, WATER, isOpaqueIndex } from '../../blocks/blockTypes';
+import { AIR, BLOCK_INDEX, BLOCK_TYPES, WATER, isOpaqueIndex } from '../../blocks/blockTypes';
 import { populateWorld } from '../../gen/populate';
 import { regionRect } from '../../gen/region';
 import { WorldLight } from '../../light/WorldLight';
@@ -17,6 +17,9 @@ import { SectionMesher, type MeshTier, type SectionMeshData } from './sectionMes
  *      表の作り直し（ふだんはしない）: GOLDEN_WRITE=1 npx vitest run src/world/render/voxel/sectionMesher.slice.test.ts
  *      作り直しの記録: #293（間欠泉の つち の 絵 2 まいで アトラスが 21 → 22 行に ふえ、extras の UV の 縦の 目盛りが かわった。
  *      2 まいを 外すと 表は そのまま 通る = 地形の 形・ライトは かわって いない ことを 確かめて 作り直した）。
+ *      作り直しの記録: MINE-1A（#348）。鉱石の 置き方が かわる〔かたまり・3 倍・置く 順〕ので、世界の 鉱石は ぜんぶ いしに 読みかえてから
+ *      使う ことに した（鉱石の 置き方が また かわっても この 表は かわらない）。表は 鉱石を いしに 読みかえた 世界から 作った
+ *      〔前の 表とは 鉱石の ある セクションの ハッシュだけ ちがい、鉱石の ない セクションは そのまま〕。
  *  (2) start → resume（偽物の時計で 止める所を変える）が build() と同じ。
  *  (3) 途中の cancel → 別のセクションが build() と同じ（前の仕事の残りがまざらない）。
  */
@@ -108,9 +111,16 @@ function topOf(w: ArrayVoxelWorld, x: number, z: number): number {
   return -1;
 }
 
+/** 鉱石（名前が `_ore` で 終わる 物。せきたん・てつ・MINE-1B の 新しい 鉱物） */
+const ORE_INDEXES: ReadonlySet<number> = new Set(BLOCK_TYPES.flatMap((t, i) => (t.id.endsWith('_ore') ? [i] : [])));
+
 function makeScene(seed: number): Scene {
   const w = new ArrayVoxelWorld({ x: 0, z: 0 });
   populateWorld(w, seed);
+  // 鉱石は ぜんぶ いしに 読みかえる（MINE-1A: 鉱石の 置き方に 表が 左右されない ように）
+  const ores: [number, number, number][] = [];
+  w.scanBlocks((i) => ORE_INDEXES.has(i), (x, y, z) => ores.push([x, y, z]));
+  for (const [x, y, z] of ores) w.setBlock(x, y, z, 'stone');
   const R = regionRect(seed);
   // 水: 島の中に 池を 2 つほる（5×5 の 2 段ぶんを 水に。まわりは 地面）。島に水の無い seed があるため
   for (const [fx, fz] of [[0.3, 0.4], [0.62, 0.7]]) {

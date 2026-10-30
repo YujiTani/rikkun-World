@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { DayPhase, ItemId, Vec3 } from '../contracts';
 import { createLiveSettings, W2_SETTING_DEFAULTS } from '../contracts';
-import { SAVE_GEN } from '../save/SaveManager';
 import { ArrayVoxelWorld } from '../world/VoxelWorld';
 import { AnimalManager } from './AnimalManager';
 import { coopBlocks } from './coop';
@@ -149,7 +148,7 @@ describe('AC1 追加・AC13 ユニット', () => {
 });
 
 describe('AC17 保存（§4.3）', () => {
-  it('animals は v 4 の まま・新しい 項目 なし（target・hits・punch を 保存 しない）。SAVE_GEN は かえない', () => {
+  it('animals は v 4 の まま・新しい 項目 なし（target・hits・punch を 保存 しない）。〔SAVE_GEN の 固定は MINE-1A で 外した〕', () => {
     const s = setup();
     s.macho(0, { follow: 5000 });
     s.step(3);
@@ -159,7 +158,6 @@ describe('AC17 保存（§4.3）', () => {
     expect(row, '保存 の なかま').toBeTruthy();
     for (const k of ['target', 'hits', 'punch', 'macho', 'fight']) expect(k in row, k).toBe(false);
     expect(Object.keys(sv).sort()).toEqual(['coops', 'friends', 'kits', 'machoMiss', 'v']);
-    expect(SAVE_GEN).toBe(3);
   });
 });
 
