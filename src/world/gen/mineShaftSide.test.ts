@@ -137,8 +137,9 @@ describe('C6: 横穴', () => {
           let full = true;
           for (let dx = 0; dx < 3 && full; dx++) for (let dz = 0; dz < 3; dz++) if (!has(x0 + dx, z0 + dz)) full = false;
           if (!full) continue;
-          const alongX = has(x0 - 1, z0 + 1) || has(x0 + 3, z0 + 1);
-          const alongZ = has(x0 + 1, z0 - 1) || has(x0 + 1, z0 + 3);
+          // 角 = どちらの 軸も 片側だけ つながる（うでへ 1 マス ずれた 窓は 角に しない）
+          const alongX = has(x0 - 1, z0 + 1) !== has(x0 + 3, z0 + 1);
+          const alongZ = has(x0 + 1, z0 - 1) !== has(x0 + 1, z0 + 3);
           if (!(alongX && alongZ)) continue; // まっすぐ
           const ys = new Set<number>();
           for (let dx = 0; dx < 3; dx++) for (let dz = 0; dz < 3; dz++) for (const y of at.get(`${x0 + dx},${z0 + dz}`)!) ys.add(y);
