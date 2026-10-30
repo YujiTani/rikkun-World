@@ -33,6 +33,16 @@ export interface DigToolPort {
   punchParams?(): { damage: number; reach: number; ticks: number };
 }
 
+/** HOUSE-1A: 建築士さん（`ArchitectManager` / `HouseSystem` が 合う）。ねらう・話しかける・たたく */
+export interface DigArchitectPort {
+  /** 目から の 線が reach マス いないで 当たる いちばん 近い 建築士さん（distance は 目から） */
+  rayHit(origin: Vec3, dir: Vec3, reach: number): { id: string; distance: number } | null;
+  /** 右クリックで 話しかける。話しはじめたら true */
+  talk(id: string): boolean;
+  /** 左クリックを 押した（体力は ない。おっとっと と よろけるだけ） */
+  hit?(id: string): void;
+}
+
 /** M4 の つなぎ目（どれもなくてよい。なければ M2 のとおり） */
 export interface DigM4Deps {
   /** #293 試作: 大きい がしゃどくろの 体の 上に ブロックを 置く・こわす（ワールドの ブロックと 同じ ねらい・置き方。なければ 何も しない） */
@@ -61,6 +71,8 @@ export interface DigM4Deps {
   bucket?: BucketPort;
   /** LIVE-1: にわとり（A の `AnimalApi`。ふりわけ 0 は 口 を 呼ぶ だけ。なければ M7-2 のとおり） */
   animals?: AnimalApi;
+  /** HOUSE-1A: 建築士さん（ブロック・にわとり より 手前 なら 右クリックで 話しかける。なければ 何も しない） */
+  architects?: DigArchitectPort;
   /** LIVE-1 版 3.2: あみ を ふる 長さ・だっこ まで の 押しつづけ（設定 を すぐ 読む）。なければ 初期値 */
   live?: () => { netSwingTicks: number; carryHoldTicks: number; /** LIVE-2: 小屋 の 数 の 上限（なければ 初期値 3） */ coopCountMax?: number; /** LIVE-2: 1 つ の 小屋 の 子 の 上限（なければ 初期値 6） */ coopMax?: number; /** LIVE-2.1: こたつ 1 台 の たまご の 上限（なければ 初期値 3） */ kitEggMax?: number; /** LIVE-2.1: 置き物 で けずる・うめる 高さ の 上限（なければ 2） */ placeStepMax?: number };
   /** LIVE-3: とりごや の メニュー を ひらく（小屋 id）。なければ 何も しない */
