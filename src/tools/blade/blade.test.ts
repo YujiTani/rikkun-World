@@ -4,7 +4,7 @@ import { createW2Settings } from '../../contracts';
 import { ArrayVoxelWorld } from '../../world/VoxelWorld';
 import { createBladeSystem, techDamage } from './BladeSystem';
 
-const R: Record<YokaiKind, [number, number]> = { karakasa: [0.6, 1.6], chochin: [0.4, 1.7], nurikabe: [0.9, 3.0], rokurokubi: [0.4, 2.9] };
+const R: Record<YokaiKind, [number, number]> = { karakasa: [0.6, 1.6], chochin: [0.4, 1.7], nurikabe: [0.9, 3.0], rokurokubi: [0.4, 2.9], tako_hachimaki: [0.5, 1.7] };
 
 class FakeYokai implements YokaiWorld {
   items: YokaiInfo[] = [];

@@ -60,6 +60,9 @@ export function boxesOf(e: Ent, out: OBox[]): OBox[] {
       out.push({ cx: h.x, cy: h.y, cz: h.z, hx: 0.3, hy: 0.3, hz: 0.3 });
       break;
     }
+    case 'tako_hachimaki':
+      out.push({ cx: 0, cy: 0.95, cz: 0, hx: 0.6, hy: 0.9, hz: 0.55 });
+      break;
     default: {
       const unreachable: never = e.kind;
       throw new Error(`boxesOf: 知らない妖怪 ${String(unreachable)}`);

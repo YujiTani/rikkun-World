@@ -94,3 +94,21 @@ export async function aimAtBlock(page: Page, x: number, y: number, z: number, to
     { x, y, z, top },
   );
 }
+
+/** 水の中の 妖怪と 同じ ふかさ（足もと 同じ）に りっくんを 置き、よこから 当たる 向きを 窓口で さがして 置く。のけぞって うごいても 呼びなおせば ねらいなおす。当たるなら true */
+export const aimAtYokaiInWater = (page: Page, id: number) =>
+  page.evaluate((id) => {
+    const h = (window as any).__rikkun;
+    const y = h.yokai.list().find((e: any) => e.id === id);
+    if (!y) return false;
+    const stand = (pitch: number) => {
+      h.player.set({ position: { x: y.position.x - 1.5, y: y.position.y, z: y.position.z }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch });
+      h.step(1);
+      const eye = h.camera.get().eye;
+      const hit = h.yokai.raycast(eye, { x: Math.cos((pitch * Math.PI) / 180), y: Math.sin((pitch * Math.PI) / 180), z: 0 }, 4.5);
+      return hit?.id === id;
+    };
+    for (let p = 0; p >= -80; p -= 2) if (stand(p)) return true;
+    for (let p = 2; p <= 40; p += 2) if (stand(p)) return true;
+    return false;
+  }, id);

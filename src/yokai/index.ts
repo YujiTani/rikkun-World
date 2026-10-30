@@ -4,6 +4,7 @@ import { Chochin } from './models/chochin';
 import { Karakasa } from './models/karakasa';
 import { Nurikabe } from './models/nurikabe';
 import { Rokurokubi } from './models/rokurokubi';
+import { TakoHachimaki } from './models/tako_hachimaki';
 
 export * from './common';
 export * from './stats';
@@ -13,7 +14,7 @@ export { FIREBALL_BOX, FIREBALL_RANGE, FIREBALL_SPEED, Fireball } from './models
 export { Chochin, Karakasa, Nurikabe, Rokurokubi };
 
 /** 見本ページでの並び順（種類は content/yokai/ids.ts の 1 か所。全種類が 1 回ずつ 入っているかは content/yokai/registry.test.ts が 見張る） */
-export const YOKAI_ORDER = ['karakasa', 'chochin', 'nurikabe', 'rokurokubi'] as const satisfies readonly YokaiKind[];
+export const YOKAI_ORDER = ['karakasa', 'chochin', 'nurikabe', 'rokurokubi', 'tako_hachimaki'] as const satisfies readonly YokaiKind[];
 /** YokaiKind の 別名 */
 export type YokaiId = YokaiKind;
 
@@ -27,6 +28,8 @@ export function createYokai(id: YokaiId): YokaiBase {
       return new Nurikabe();
     case 'rokurokubi':
       return new Rokurokubi();
+    case 'tako_hachimaki':
+      return new TakoHachimaki();
     default: {
       const unreachable: never = id;
       throw new Error(`createYokai: 知らない妖怪 ${String(unreachable)}`);

@@ -9,7 +9,8 @@ import { YOKAI_STATS, yokaiStrength } from './stats';
 import { createW2Settings } from '../contracts';
 import type { YokaiKind } from '../contracts';
 
-const KINDS: YokaiKind[] = ['karakasa', 'chochin', 'rokurokubi', 'nurikabe'];
+// 既存の 4 種の 強さの 表（タコはちまきは 下の TAKO-1 と content/yokai/tako_hachimaki.test.ts）
+const KINDS = ['karakasa', 'chochin', 'rokurokubi', 'nurikabe'] as const satisfies readonly YokaiKind[];
 
 describe('BAL-A AC1: M=1・二つ名なしの 4 種', () => {
   it('体力・攻撃力・経験値・強さ', () => {
@@ -111,6 +112,7 @@ describe('BAL-A AC6: たおす回数 56 こ（WEAPON-4 で 切り上げの 3 行
       chochin: [10, 20],
       rokurokubi: [10, 20],
       nurikabe: [2, 2],
+      tako_hachimaki: [10, 20], // からかさ と 同じ
     };
     for (const k of KINDS) {
       const a = yokaiStrength(k).attack;

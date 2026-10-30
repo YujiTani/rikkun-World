@@ -18,9 +18,9 @@ import { ALL_RECIPES, BAKE_RECIPES, CRAFT_RECIPES, baseRecipeId, groupRecipes } 
  * ・カードの 数は 決め打ちしない〔#311〕。下の 凍らせた 並びは「1A までの ゲームの カード」で、ずれると 保存・実績の 記録が こわれる
  */
 
-/** MINE-1A までの 作業台の カード（先頭の 作り方の id）の 並び。書きかえて 通さない */
+/** MINE-1A と TAKO-1〔ふで。道具の さいご〕までの 作業台の カード（先頭の 作り方の id）の 並び。書きかえて 通さない */
 const CRAFT_CARDS_1A: readonly string[] = [
-  'wood_pickaxe', 'stone_pickaxe', 'iron_pickaxe', 'wood_axe', 'stone_axe', 'iron_axe', 'furnace',
+  'wood_pickaxe', 'stone_pickaxe', 'iron_pickaxe', 'wood_axe', 'stone_axe', 'iron_axe', 'fude', 'furnace',
   'bokuto', 'katana', 'naginata', 'crystal_katana', 'yumi', 'ya', 'kabuto', 'yoroi', 'kote', 'suneate',
   'torch', 'lantern', 'kite', 'futon', 'omamori', 'waraji', 'tansu',
   'kuwa', 'watering_can', 'long_watering_can', 'sprinkler', 'bucket', 'seed_onion', 'seed_tomato', 'seed_pumpkin', 'seed_eggplant',

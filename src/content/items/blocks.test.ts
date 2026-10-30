@@ -93,7 +93,7 @@ describe('登録表（置けるブロック 22 個）', () => {
     const ids = ITEM_TYPES.map((t) => t.id as string);
     expect(ids.slice(0, 8)).toEqual(['grass', 'dirt', 'stone', 'sand', 'log', 'leaves', 'coal_ore', 'iron_ore']);
     const f = ids.indexOf('furnace');
-    expect(ids.slice(f - 1, f + 6)).toEqual(['crystal', 'furnace', 'kawara', 'brick', 'torch', 'tansu', 'wood_pickaxe']);
+    expect(ids.slice(f - 1, f + 6)).toEqual(['sumi', 'furnace', 'kawara', 'brick', 'torch', 'tansu', 'wood_pickaxe']); // TAKO-1: すみは ざいりょうの さいご
     const g = ids.indexOf('geyser_dirt');
     expect(ids.slice(g - 1, g + 2)).toEqual(['samurai_geta', 'geyser_dirt', 'lantern']);
     const s = ids.indexOf('snow');
@@ -117,7 +117,7 @@ describe('登録表（置けるブロック 22 個）', () => {
 
   it('作り方: かまど（石 5）・たいまつ（き 1・あぶら 1 → 4）・たんす（き 8・てつの かたまり 2）は 作業台、かわら・レンガは かまど（ねんど 1 → 2）', () => {
     const craft = CRAFT_RECIPES.map((r) => r.id as string);
-    expect(craft[6]).toBe('furnace');
+    expect(craft[7]).toBe('furnace'); // TAKO-1: ふでが 道具の さいごに 入った
     expect(craft[craft.indexOf('furnace') + 1]).toBe('bokuto');
     expect(craft[craft.indexOf('torch') - 1]).toBe('suneate');
     expect(craft[craft.indexOf('tansu') - 1]).toBe('waraji');

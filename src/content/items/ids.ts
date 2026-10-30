@@ -50,8 +50,8 @@ export type SamuraiId = (typeof SAMURAI_ITEM_IDS)[number];
 export const LEGEND_IDS = ['raijin_ken', 'fujin_ken', 'niji'] as const;
 export type LegendId = (typeof LEGEND_IDS)[number];
 
-/** 道具（M4・BAL-D）: つるはし 3 本・おの 3 本（この順が ITEM_TYPES・作業台のカード・色分けの 並び） */
-export const TOOL_ITEM_IDS = ['wood_pickaxe', 'stone_pickaxe', 'iron_pickaxe', 'wood_axe', 'stone_axe', 'iron_axe'] as const;
+/** 道具（M4・BAL-D）: つるはし 3 本・おの 3 本・ふで（TAKO-1。せっけいずを かく どうぐ）（この順が ITEM_TYPES・作業台のカード・色分けの 並び） */
+export const TOOL_ITEM_IDS = ['wood_pickaxe', 'stone_pickaxe', 'iron_pickaxe', 'wood_axe', 'stone_axe', 'iron_axe', 'fude'] as const;
 export type ToolItemId = (typeof TOOL_ITEM_IDS)[number];
 
 /** 刀・なぎなた（M4）: ぼくとう・かたな・なぎなた・きらめく カタナ（この順） */
@@ -87,7 +87,7 @@ export const ORB_IDS = ['yokai_orb'] as const;
 export type OrbId = (typeof ORB_IDS)[number];
 
 /** ざいりょう 6 つ（M3・M4）: かみ・あぶら・いと・ぬの・ねんど・すいしょう（この順が ITEM_TYPES の 並び。ようかいだまの 次） */
-export const MATERIAL_ITEM_IDS = ['paper', 'oil', 'string', 'cloth', 'clay', 'crystal'] as const;
+export const MATERIAL_ITEM_IDS = ['paper', 'oil', 'string', 'cloth', 'clay', 'crystal', 'sumi'] as const;
 export type MaterialId = (typeof MATERIAL_ITEM_IDS)[number];
 
 /** てつの かたまり（M4。かまどで 鉄鉱石を やく。ITEM_TYPES では つるはし・おのの 次） */

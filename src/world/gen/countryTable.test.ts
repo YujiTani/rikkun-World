@@ -68,6 +68,6 @@ describe('国の表（AC1〜AC3）', () => {
       expect(w.reduce((a, b) => a + b, 0)).toBe(100);
       for (const v of w) expect(v).toBeGreaterThanOrEqual(15);
     }
-    expect(createYokaiConfig().yokaiWeights).toEqual({ karakasa: 1, chochin: 1, rokurokubi: 1, nurikabe: 1 });
+    expect(createYokaiConfig().yokaiWeights).toEqual({ karakasa: 1, chochin: 1, rokurokubi: 1, nurikabe: 1, tako_hachimaki: 1 });
   });
 });

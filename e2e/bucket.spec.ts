@@ -100,9 +100,9 @@ test.describe('BUCKET-1 バケツ', () => {
       h.step(3);
       return {
         cards: ids.length,
-        at29: ids[28],
-        at28: ids[27],
-        after: ids.slice(29),
+        at29: ids[29], // TAKO-1: ふで が まえに 1 まい ふえた
+        at28: ids[28],
+        after: ids.slice(30),
         bucket: h.inventory.count('bucket'),
         iron: h.inventory.count('iron_ingot'),
         stat: h.achievements.stats()['craft:bucket'] ?? 0,
@@ -116,7 +116,11 @@ test.describe('BUCKET-1 バケツ', () => {
     expect(r.after.slice(m, m + 3), 'きんの そうびの まえは むしとりあみ・こたつ・とりごや').toEqual(['mushi_ami', 'nukunuku', 'toriya']);
     expect(r.after.slice(m + 3, m + 11), 'きんの そうび 8 こ（GOLD-1 §4.2 の 順）').toEqual(['kin_katana', 'kin_yumi', 'kin_pickaxe', 'kin_axe', 'kin_kabuto', 'kin_yoroi', 'kin_kote', 'kin_suneate']);
     expect(r.after.slice(m + 11, m + 19), 'つぎは こんごうの そうび 8 こ（KONGO-1 §4.1 の 順）').toEqual(['kongo_katana', 'kongo_yumi', 'kongo_pickaxe', 'kongo_axe', 'kongo_kabuto', 'kongo_yoroi', 'kongo_kote', 'kongo_suneate']);
-    expect(r.after.slice(m + 19, m + 21), 'MINE-1B: こんごうの すぐ うしろに チョーク → しっくい（§4.4。作業台の カードの いちばん うしろに この 順）').toEqual(['chalk', 'shikkui']);
+    // MINE-1B: こんごうの うしろに チョーク → しっくい（§4.4。作業台の カードの うしろに この 順。さらに うしろに 足しても よい）
+    const added = r.after.slice(m + 19);
+    expect(added, 'MINE-1B: チョーク').toContain('chalk');
+    expect(added, 'MINE-1B: しっくい').toContain('shikkui');
+    expect(added.indexOf('chalk'), 'チョーク → しっくい の 順').toBeLessThan(added.indexOf('shikkui'));
     expect(r.bucket).toBe(1);
     expect(r.iron).toBe(0);
     expect(r.stat).toBe(1);

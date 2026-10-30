@@ -26,6 +26,8 @@ export function createYokaiHook(m: YokaiManager) {
       fireballList: () => m.fireballList(),
       /** COUNTRY-1 §8: その場所で 使う 国の行 × 全体の倍率 */
       spawnWeights: (x: number, z: number) => m.spawnWeights(x, z),
+      /** TAKO-1: すみの けむり（中心・半径・はいてからの 秒）と 画面の 暗さ */
+      ink: () => m.inkInfo(),
       /** 線にふれる妖怪（テスト用） */
       raycast: (origin: Vec3, dir: Vec3, max: number) => m.raycast(origin, dir, max),
     },

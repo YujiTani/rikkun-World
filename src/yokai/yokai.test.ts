@@ -18,6 +18,7 @@ describe('妖怪の大きさ（AC2）', () => {
     chochin: { w: 0.74, h: 1.7 },
     nurikabe: { w: 3.1, h: 3.05 },
     rokurokubi: { w: 1.1, h: 2.9 },
+    tako_hachimaki: { w: 1.06, h: 1.7 }, // TAKO-1: 足を たらした とき（箱 24。足が たれても 足もとの 下に 出ない ように 0.3 持ち上げ）
   };
   for (const id of YOKAI_ORDER) {
     it(`${id} は表の大きさ ±0.05`, () => {
@@ -105,7 +106,7 @@ describe('動き（AC4）', () => {
     }
   });
   it('こうげきの長さ: 1.2 / 0.8 / 4.0 / 1.6 秒', () => {
-    const lens: Record<string, number> = { karakasa: 1.2, chochin: 0.8, nurikabe: 4.0, rokurokubi: 1.6 };
+    const lens: Record<string, number> = { karakasa: 1.2, chochin: 0.8, nurikabe: 4.0, rokurokubi: 1.6, tako_hachimaki: 0.8 };
     for (const id of YOKAI_ORDER) {
       const y = createYokai(id);
       y.attack();
@@ -182,7 +183,7 @@ describe('攻撃（AC4〜AC7）', () => {
   it('AC4: 当たりまで からかさ・ちょうちん・ろくろくびは 30、ぬりかべは 90 ステップ', () => {
     for (const id of YOKAI_ORDER) {
       const steps = stepsToHit(createYokai(id));
-      const want = id === 'nurikabe' ? 90 : 30;
+      const want = id === 'nurikabe' ? 90 : id === 'tako_hachimaki' ? 18 : 30; // TAKO-1: ぺちんは 0.3 秒
       expect(Math.abs(steps - want)).toBeLessThanOrEqual(1);
     }
   });
@@ -206,6 +207,7 @@ describe('攻撃（AC4〜AC7）', () => {
       chochin: [0.5, 0.5, 0.5],
       nurikabe: [2.6, 1, 3],
       rokurokubi: [0.6, 0.6, 0.6],
+      tako_hachimaki: [1, 1, 1],
     };
     for (const id of YOKAI_ORDER) {
       const y = createYokai(id);
