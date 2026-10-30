@@ -4,8 +4,10 @@ import { BLOCK_INDEX, blockIdFromIndex, BLOCK_TYPES } from '../blocks/blockTypes
 import { SECTION_VOLUME, sectionToArray } from '../sections';
 import { generateChunk } from './chunk';
 import { createMineHook, type MineHook } from './mineHook';
+import { shaftCoveredCols } from './mineShaftKit';
 import type { OreCluster } from './mineOres';
 import { terrainFor } from './terrain';
+import { colKey } from '../stream/ring';
 import golden from './__fixtures__/mine1a-before.json';
 
 /**
@@ -99,11 +101,20 @@ describe('A4: 形は かわらない（鉱石を いしに 読みかえた 列�
   };
   const cellAt = (seed: number, x: number, y: number, z: number): number => col(seed, x >> 4, z >> 4)[(y * 16 + (z & 15)) * 16 + (x & 15)]!;
 
-  it('シード 3 つ × はじまりの まわり・洞くつの 口・山の ある 列: 地形・ふつうの ほらあな・洞くつの 口が 同じ', () => {
+  // MINE-1C: 坑道〔道・山。まわり 2 マス〕が かかる 列は 前と 形が ちがう ので くらべない〔C3〜C7 が 見る〕。1C が 入る 前は 空 ＝ ぜんぶ くらべる
+  const covered = new Map<number, Set<number>>();
+  const coveredOf = (seed: number): Set<number> => {
+    let c = covered.get(seed);
+    if (!c) covered.set(seed, (c = shaftCoveredCols(seed, -640, -640, 1280, 1280)));
+    return c;
+  };
+
+  it('シード 3 つ × はじまりの まわり・洞くつの 口・山の ある 列: 地形・ふつうの ほらあな・洞くつの 口が 同じ〔坑道が かかる 列は のぞく〕', () => {
     const bad: string[] = [];
     let n = 0;
     for (const seed of G.seeds) {
       for (const [cx, cz, h] of G.columns[String(seed)]!) {
+        if (coveredOf(seed).has(colKey(cx, cz))) continue;
         n++;
         const now = stoneHash(col(seed, cx, cz));
         if (now !== h) bad.push(`seed ${seed} 列 (${cx}, ${cz}): ${h} → ${now}`);
@@ -118,6 +129,7 @@ describe('A4: 形は かわらない（鉱石を いしに 読みかえた 列�
     let n = 0;
     for (const seed of G.seeds) {
       for (const [x, y, z, kind] of G.surface[String(seed)]!) {
+        if (coveredOf(seed).has(colKey(x >> 4, z >> 4))) continue;
         n++;
         const want = kind === 1 ? COAL : IRON;
         const got = cellAt(seed, x, y, z);
@@ -133,6 +145,7 @@ describe('A4: 形は かわらない（鉱石を いしに 読みかえた 列�
     let n = 0;
     for (const seed of G.seeds) {
       for (const [x, y, z] of G.rock[String(seed)]!) {
+        if (coveredOf(seed).has(colKey(x >> 4, z >> 4))) continue;
         n++;
         if (cellAt(seed, x, y, z) !== COAL) bad.push(`seed ${seed} (${x}, ${y}, ${z})`);
       }

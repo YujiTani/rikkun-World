@@ -18,6 +18,8 @@ import { SAVE_GEN, SaveManager, type KeyValueStore } from './SaveManager';
  * MINE-1B（docs/design/MINE-1.md §4.8・受け入れ基準 B10）: 古い 保存の 列を 読める・ブロックの 番号が ずれない・1B は 版を 上げない。
  *
  *   1B は 新しい ブロック 8 つを 今の いちばん うしろに 足す だけで、保存の 版は 1A の まま〔SAVE_GEN 4〕。
+ *   〔1C〔#350〕が 坑道で 版を 5 に 上げる ので、「版は 1A と 同じ」は「1A の 版 4 より 下に ならない」に 直した。
+ *   1C の 版 5 は src/save/mine1cSave.test.ts〔C9〕が 見る。ここは 1B が 版を 下げたり 古い fixture を こわして いない ことだけ〕
  *   古い 保存〔新しい ブロックが ない〕は 版 3〔MINE-1 の 前〕と 版 4〔MINE-1A〕の fixture の 2 つ。どちらも 開けて、保存に ある 列は 保存の とおり。
  *   新しい ブロックを 置いて 保存した 世界も 開きなおせる〔id の 文字で 書く 保存なので、番号が ずれても 読める〕。
  *
@@ -30,7 +32,7 @@ import { SAVE_GEN, SaveManager, type KeyValueStore } from './SaveManager';
 
 const SEED = GEN_CONFIG.defaultSeed;
 const NS = WORLD_HEIGHT / 16;
-/** MINE-1A が 上げた 保存の 版〔仕様 §4.8: 1A 4・1B 上げない〕。1C が 上げる ときは 1C の 先行テストで かえる */
+/** MINE-1A が 上げた 保存の 版〔仕様 §4.8: 1A 4・1B 上げない〕。この 版〔と それより 古い 版〕の fixture を 今も 開ける ことを 見る */
 const GEN_1A = 4;
 
 const FIXTURES = [
@@ -92,9 +94,9 @@ const OLD_NUMBERS: Readonly<Record<number, string>> = {
 /** fixture の スタートの 列〔シード 20261012 の スタートは x=64・z=64〕 */
 const SPAWN = { x: 64, z: 64 } as const;
 
-describe('B10: 保存の 版は 1A の まま（1B は 上げない）', () => {
-  it('SAVE_GEN が 1A と 同じ', () => {
-    expect(SAVE_GEN).toBe(GEN_1A);
+describe('B10: 保存の 版（1B は 上げない。1C が 上げた あとも 1A の 版 4 より 下に ならない）', () => {
+  it('SAVE_GEN は 1A の 版 4 いじょう〔1C で 5 に 上がっても この 見張りは 通る。5 かどうかは mine1cSave.test.ts〕', () => {
+    expect(SAVE_GEN).toBeGreaterThanOrEqual(GEN_1A);
   });
 });
 
