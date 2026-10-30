@@ -25,7 +25,7 @@ export interface ColumnInfo {
 export const microTerrain = { enabled: true };
 
 /** ワールドの 1 列を見て、小ブロック地形の地面があるか調べる（上から下へ。空気・水・草花・たいまつ・木・葉は とばす） */
-export function scanColumn(world: ArrayVoxelWorld, wx: number, wz: number, out: ColumnInfo): void {
+export function scanColumn(world: Pick<ArrayVoxelWorld, 'topY' | 'getIndex'>, wx: number, wz: number, out: ColumnInfo): void {
   out.ty = -1;
   out.kind = AIR;
   out.reach = 0;
