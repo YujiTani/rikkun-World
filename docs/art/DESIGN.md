@@ -28,6 +28,7 @@
 | §16 どうぶつ（にわとり・ひよこ・マッチョ・とりごや・育成キット・むし・あみ） | `docs/art/design/04-animals.md` | 畜産・どうぶつ・なかま |
 | §17・18 ドット絵の板のエフェクトは十字・雷神剣の雷 B・エフェクトの数と点の大きさ | `docs/art/design/05-effects.md` | エフェクト・わざの光（`docs/art/EFFECT-KNOWLEDGE.md` もいっしょに） |
 | §19 ハウジング（建築士さん・テーブル・いす・あんどん・ほんだな・おふろ。形・色・うなずき・ほかの動きの目安・三角形） | `docs/art/design/06-housing.md` | 建築士さん・家具・家の中の物（作る係への依頼は `docs/art/requests/HOUSE-1-architect-furniture.md`） |
+| §20 炭鉱（鉱石は B「とびだす つぶ」〔ダイヤも〕・ねんど／せっかいせき／しっくい／坑道のわくは A・つらら・ほたるいしの光 7・宝箱 4 段階〔2・4 の見た目は yuzu 待ち〕） | `docs/art/design/07-mine.md` | 地下・鉱石・坑道・ほらあなのブロック・宝箱（MINE-1。作る係への依頼は `docs/art/requests/MINE-1-blocks.md`） |
 
 - 新しい章を足すときは `docs/art/design/` に 1 本足し、この表に 1 行足す。決まったことは章のファイルを直して「今の 1 本」にする（版ごとに別ファイルを作らない）。
 - 動きのものさしは `docs/art/MOTION.md`・`docs/art/MOTION-NOTES.md`、見た目のものさしは `docs/art/CRITERIA.md`、作り方は `docs/art/PIPELINE.md`。
