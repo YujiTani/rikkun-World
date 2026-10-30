@@ -108,12 +108,13 @@ test.describe('BUCKET-1 バケツ', () => {
         stat: h.achievements.stats()['craft:bucket'] ?? 0,
       };
     });
-    expect(r.cards).toBe(44);
+    expect(r.cards).toBe(52); // KONGO-1: こんごうの そうび 8 こ が いちばん うしろに ふえた（44 → 52）
     expect(r.at29).toBe('bucket');
     expect(r.at28).toBe('sprinkler');
-    expect(r.after).toHaveLength(15);
-    expect(r.after.slice(-11, -8), 'きんの そうびの まえは むしとりあみ・こたつ・とりごや').toEqual(['mushi_ami', 'nukunuku', 'toriya']);
-    expect(r.after.slice(-8), 'いちばん うしろは きんの そうび 8 こ（GOLD-1 §4.2 の 順）').toEqual(['kin_katana', 'kin_yumi', 'kin_pickaxe', 'kin_axe', 'kin_kabuto', 'kin_yoroi', 'kin_kote', 'kin_suneate']);
+    expect(r.after).toHaveLength(23);
+    expect(r.after.slice(-19, -16), 'きんの そうびの まえは むしとりあみ・こたつ・とりごや').toEqual(['mushi_ami', 'nukunuku', 'toriya']);
+    expect(r.after.slice(-16, -8), 'きんの そうび 8 こ（GOLD-1 §4.2 の 順）').toEqual(['kin_katana', 'kin_yumi', 'kin_pickaxe', 'kin_axe', 'kin_kabuto', 'kin_yoroi', 'kin_kote', 'kin_suneate']);
+    expect(r.after.slice(-8), 'いちばん うしろは こんごうの そうび 8 こ（KONGO-1 §4.1 の 順）').toEqual(['kongo_katana', 'kongo_yumi', 'kongo_pickaxe', 'kongo_axe', 'kongo_kabuto', 'kongo_yoroi', 'kongo_kote', 'kongo_suneate']);
     expect(r.bucket).toBe(1);
     expect(r.iron).toBe(0);
     expect(r.stat).toBe(1);

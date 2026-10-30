@@ -987,7 +987,7 @@ test.describe('M7-2 画面', () => {
         return {
           open: ui.panelVisible,
           cards: ids.length,
-          tail: ids.slice(-18, -15),
+          tail: ids.slice(-26, -23),
           tiles: ui.tiles.length,
           cols: new Set(Object.values(ui.tileRects).map((r: any) => Math.round(r.x))).size,
           over,
@@ -997,7 +997,7 @@ test.describe('M7-2 画面', () => {
         };
       });
       expect(r.open).toBe(true);
-      expect(r.cards).toBe(44); // CRAFT-PAGE: たいまつは 1 枚のまま。LIVE-1 版 3: mushi_ami、LIVE-2: nukunuku・toriya、GOLD-1: きんの そうび 8 こ（いちばん うしろ）
+      expect(r.cards).toBe(52); // KONGO-1: こんごうの そうび 8 こ（いちばん うしろ）。CRAFT-PAGE: たいまつは 1 枚のまま。LIVE-1 版 3: mushi_ami、LIVE-2: nukunuku・toriya、GOLD-1: きんの そうび 8 こ（いちばん うしろ）
       expect(r.tail).toEqual(['long_watering_can', 'sprinkler', 'bucket']);
       expect(r.over).toBe(0);
       expect(r.sw).toBeLessThanOrEqual(0);
