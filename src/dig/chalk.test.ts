@@ -32,7 +32,9 @@ import type { DigToolPort } from './digPorts';
  *   しるしの マスに ブロックを 置ける〔しるしは 消える。草と 同じ〕・同じ マスに かくと 新しい やじるしに かわる・保存して 開いても のこる〔向きも〕。
  *   ねらうと ヒント「かく」。
  *
- * 見た目〔形・色〕は yuzu が えらんで いる 所なので 決め打ちしない〔B11 は オーナー確認〕。しるしの ブロックの id は `chalk_mark` か 向きごとの id〔先頭が chalk_mark〕。
+ * 見た目〔形・色〕は B2「てがき」に 決まった〔仕様 §3.2。絵 3 まいから しるしの マスの 場所で 1 まい〕が、形・色は テストで 決め打ちしない
+ * 〔B11 は 検証の とき art-reviewer が ゲームの スクショと 見本 chalk-b2.png を 見くらべる。オーナーの スクショ確認は しない〕。
+ * しるしの ブロックの id は `chalk_mark` か 向きごとの id〔先頭が chalk_mark〕。
  *
  * 【名前を 自分で 決めた 所】 developer が ちがう 形に した ときは、下の「つなぎ」の 2 か所だけ あわせる。
  *   ① `chalkAt` を よぶ 所: `createMineHook({ seed, world })` の 窓口〔仕様 §6.1 は window.__rikkun.mine.chalkAt。いきている 世界を 読む ので world を わたす 形に した〕
@@ -75,10 +77,15 @@ interface Rig {
   inv: InventoryImpl;
   actions: ActionState;
   player: PlayerState;
+  /** かまどが あいた 場所 */
   opened: string[];
+  /** たんすが あいた 場所 */
+  tansuOpened: string[];
   mine?: { chalkAt?: (x: number, y: number, z: number) => Mark };
   tick(n?: number): void;
   tap(): void;
+  /** 右ボタンを n ステップ おしっぱなしに して はなす */
+  hold(n: number): void;
 }
 
 function rig(o: { held?: ItemId | null; count?: number; at?: [number, number]; world?: ArrayVoxelWorld; floor?: number; extra?: Array<[ItemId, number]> } = {}): Rig {
@@ -120,7 +127,15 @@ function rig(o: { held?: ItemId | null; count?: number; at?: [number, number]; w
     furnaceBroken: () => undefined,
     fixedDrop: () => null,
   };
-  const dig = new DigSystemImpl(world as never, () => player, actions, lock, inv, () => EYE, createDigConfig(), createRng(1), null, { tools, craft: craft as never });
+  // たんす〔右クリックで あく 入れ物。本番は StorageSystem〕の 窓口。あいた 場所だけ おぼえる
+  const tansuOpened: string[] = [];
+  const storage = {
+    isTansu: (x: number, y: number, z: number) => world.getBlock(x, y, z) === 'tansu',
+    open: (x: number, y: number, z: number) => (tansuOpened.push(`${x},${y},${z}`), true),
+    placed: () => undefined,
+    broken: () => 0,
+  };
+  const dig = new DigSystemImpl(world as never, () => player, actions, lock, inv, () => EYE, createDigConfig(), createRng(1), null, { tools, craft: craft as never, storage });
   const tick = (n = 1): void => {
     for (let i = 0; i < n; i++) {
       dig.update();
@@ -133,7 +148,13 @@ function rig(o: { held?: ItemId | null; count?: number; at?: [number, number]; w
     actions.release('secondary');
     actions.endFrame();
   };
-  const r: Rig = { dig, world, inv, actions, player, opened, tick, tap };
+  const hold = (n: number): void => {
+    actions.press('secondary');
+    tick(n);
+    actions.release('secondary');
+    actions.endFrame();
+  };
+  const r: Rig = { dig, world, inv, actions, player, opened, tansuOpened, tick, tap, hold };
   tick(2);
   return r;
 }
@@ -358,6 +379,35 @@ describe('B13: かべ〔北を 向いた 面〕に かくと、かべに そっ�
   });
 });
 
+/** 東を 向いた かべ〔x=18 の 面。z 10〜40・高さ 5 マス〕。しるしは その 東がわ x=19 の マス */
+function eastWallRig(at: [number, number]): Rig {
+  const r = rig({ at });
+  r.world.fill(18, FLOOR, 10, 18, FLOOR + 4, 40, 'stone');
+  return r;
+}
+
+describe('B13: かべ〔東を 向いた 面〕に かくと、かべに そって 北か 南の 来た ほう', () => {
+  it('かべ〔西〕を ねらうと 東がわの マスに しるし〔face e〕・チョーク 1 へる', () => {
+    const r = eastWallRig([21.5, 24.5]);
+    draw(r, 19, FLOOR + 1.5, 24.5);
+    expect(isMark(r.world.getBlock(19, FLOOR + 1, 24))).toBe(true);
+    expect(chalkAt(r, 19, FLOOR + 1, 24)?.face).toBe('e');
+    expect(r.inv.count(CHALK)).toBe(4);
+    expect(r.world.getBlock(18, FLOOR + 1, 24)).toBe('stone');
+  });
+
+  it('北から 来て かべを 見る → dir n／南から 来て かべを 見る → dir s〔東西の かべ ＝ かべに そう 向きは 北か 南〕', () => {
+    for (const [from, z0] of [['n', 19.5], ['s', 29.5]] as const) {
+      const r = eastWallRig([21.5, z0]);
+      walk(r, 21.5, 24.5); // 北〔か 南〕から 5 マス 歩いて くる〔かべに そって〕
+      draw(r, 19, FLOOR + 1.5, 24.5); // 西の かべの 面を ねらって かく
+      const m = chalkAt(r, 19, FLOOR + 1, 24);
+      expect(m?.face, from).toBe('e');
+      expect(m?.dir, `${from} から 来た`).toBe(from);
+    }
+  });
+});
+
 // ------------------------------------------------------------------ かけない 所
 
 describe('B13: かけない 所〔チョークは へらない・しるしは つかない・ヒントも 出ない〕', () => {
@@ -405,6 +455,33 @@ describe('B13: かけない 所〔チョークは へらない・しるしは �
     expect(r.opened, 'かまどが あく').toEqual([`26,${FLOOR},24`]);
     expect(r.world.getBlock(26, FLOOR + 1, 24)).toBe('air');
     expect(r.inv.count(CHALK)).toBe(5);
+  });
+
+  it('たんす〔右クリックで 使う ブロック。仕様 §4.4〕は あく・しるしは つかない・チョークは へらない。ヒントは「ひらく」', () => {
+    const r = rig();
+    r.world.setBlock(26, FLOOR, 24, 'tansu');
+    look(r, 26.5, FLOOR + 1, 24.5);
+    expect(r.dig.target()).toMatchObject({ id: 'tansu', face: { x: 0, y: 1, z: 0 } });
+    expect(hintWord(r)).toBe('ひらく');
+    r.tap();
+    expect(r.tansuOpened, 'たんすが あく').toEqual([`26,${FLOOR},24`]);
+    expect(r.world.getBlock(26, FLOOR + 1, 24), 'しるしは つかない').toBe('air');
+    expect(r.inv.count(CHALK)).toBe(5);
+  });
+
+  it('押しっぱなしでも 同じ マスには 1 回 だけ かく〔チョークは 1 こ だけ へる〕。かきなおしは 押しなおした とき', () => {
+    const r = rig({ count: 5 });
+    look(r, 26.5, FLOOR, 24.5);
+    r.hold(180); // 3 秒 おしっぱなし
+    expect(isMark(r.world.getBlock(26, FLOOR, 24)), 'しるし').toBe(true);
+    expect(r.inv.count(CHALK), '1 こ だけ へる').toBe(4);
+    expect(chalkAt(r, 26, FLOOR, 24)?.dir, '足あとが ない → 見て いる 向き〔東〕の 反対').toBe('w');
+    // はなして、来た ほうを かえて 押しなおすと かきなおせる〔新しい やじるし〕。へるのは 1 こ まで
+    walk(r, 24.5, 29.5); // 南へ 5 マス
+    walk(r, 24.5, 24.5); // 北へ 5 マス もどる → 来た ほうは 南
+    drawFloor(r, 26, 24);
+    expect(chalkAt(r, 26, FLOOR, 24)?.dir, '押しなおしで かきなおし').toBe('s');
+    expect([3, 4], 'へるのは 0〜1 こ').toContain(r.inv.count(CHALK));
   });
 
   it('チョークを 持たずに 右クリックしても しるしは つかない', () => {

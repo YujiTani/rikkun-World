@@ -46,16 +46,19 @@ const makingOf = (recipes: readonly Recipe[], item: string): Recipe[] => recipes
 const inputsOf = (r: Recipe): string[] => r.inputs.map((i) => `${i.item}×${i.count}`).sort();
 
 describe('B4: カード（今の 並びは かわらず、いちばん うしろに 足す）', () => {
-  it('作業台: 今の カードが 同じ 順で 先頭に あり、いちばん うしろに チョーク → しっくい', () => {
+  it('作業台: 今の カードが 同じ 順で 先頭に あり、その うしろに チョーク → しっくい（この 順。さらに うしろに 1C いこうが 足しても よい）', () => {
     const outs = cards(CRAFT_RECIPES);
     expect(outs.slice(0, CRAFT_CARDS_1A.length).map((c) => c.card)).toEqual(CRAFT_CARDS_1A);
-    expect(outs.slice(CRAFT_CARDS_1A.length).map((c) => c.output)).toEqual(['chalk', 'shikkui']);
+    const added = outs.slice(CRAFT_CARDS_1A.length).map((c) => c.output);
+    expect(added, '新しい カード チョーク').toContain('chalk');
+    expect(added, '新しい カード しっくい').toContain('shikkui');
+    expect(added.indexOf('chalk'), 'チョーク → しっくい の 順').toBeLessThan(added.indexOf('shikkui'));
   });
 
-  it('かまど: 今の カードが 同じ 順で 先頭に あり、いちばん うしろに いしばい（きんは 同じ カードの まま）', () => {
+  it('かまど: 今の カードが 同じ 順で 先頭に あり、その うしろに いしばい（きんは 同じ カードの まま。さらに うしろに 足しても よい）', () => {
     const outs = cards(BAKE_RECIPES);
     expect(outs.slice(0, BAKE_CARDS_1A.length).map((c) => c.card)).toEqual(BAKE_CARDS_1A);
-    expect(outs.slice(BAKE_CARDS_1A.length).map((c) => c.output)).toEqual(['ishibai']);
+    expect(outs.slice(BAKE_CARDS_1A.length).map((c) => c.output), '新しい カード いしばい').toContain('ishibai');
   });
 
   it('作り方の id は どれも 1 つだけ（同じ id で 2 つ 登録しない）', () => {

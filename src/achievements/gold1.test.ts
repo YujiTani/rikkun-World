@@ -22,10 +22,17 @@ describe('GOLD-1 実績（§4.8・AC15）', () => {
     expect(d('obtain.harapan_mimizu.1')?.name).toBe('はじめて はらぱんみみず を てにいれた！');
     expect(d('rarity.star5.1')?.name).toBe('はじめて ほし 5 を ゲット！');
   });
-  it('各 なかま の いちばん うしろ', () => {
-    for (const [cat, id] of [['craft', 'gold.all.8'], ['collect', 'rarity.star5.1'], ['farm', 'obtain.harapan_mimizu.1']] as const) {
-      const l = ACHIEVEMENT_DEFS.filter((x) => x.category === cat);
-      expect(l[l.length - 1].id).toBe(id);
+  it('各 なかま に ある・GOLD の 前から ある 実績より うしろ（「いちばん うしろ」とは 決めない。MINE-1B 以降 うしろに ふえる #311）', () => {
+    // [なかま, GOLD-1 の 実績, GOLD-1 の 前に いちばん うしろだった 実績]
+    for (const [cat, id, before] of [
+      ['craft', 'gold.all.8', 'bake.iron_ingot.50'],
+      ['collect', 'rarity.star5.1', 'store.full.1'],
+      ['farm', 'obtain.harapan_mimizu.1', 'animal.macho.1'],
+    ] as const) {
+      const ids = ACHIEVEMENT_DEFS.filter((x) => x.category === cat).map((x) => x.id);
+      expect(ids, `${cat} に ${before}`).toContain(before);
+      expect(ids, `${cat} に ${id}`).toContain(id);
+      expect(ids.indexOf(id), `${id} は ${before} より うしろ`).toBeGreaterThan(ids.indexOf(before));
     }
   });
   it('kin_katana → gold.first・8 こ ぜんぶ → gold.all（7 こ では まだ）', () => {

@@ -8,6 +8,7 @@ import { ArrayVoxelWorld } from '../world/VoxelWorld';
 import { columnHash } from '../world/gen/chunk';
 import { GEN_CONFIG } from '../world/gen/config';
 import { terrainFor } from '../world/gen/terrain';
+import { localIndex, sectionToArray } from '../world/sections';
 import { MemoryBackend, SAVE_ID, unpackColumn } from './backend';
 import { exportSave, importSave } from './portable';
 import { restoreStoredWorld } from './restore';
@@ -78,8 +79,18 @@ async function openGame(db: MemoryBackend, store: MemoryStore) {
   return { world, restored, save, loaded: save.load() };
 }
 
-/** 1B で 足す 新しい ブロックのうち、アイテムに できる 4 つ〔置いて 保存する〕 */
-const NEW_BLOCKS = ['nendo', 'sekkaiseki', 'kin_ore', 'hotaruishi'] as const;
+/** 1B で 足す 新しい ブロック 8 つ ぜんぶ〔ねんど・せっかいせき・しっくい・ほたるいし・きんの いし・すいしょうの いし・ダイヤの いし・チョークの しるし〕。置いて 保存する */
+const NEW_BLOCKS = ['nendo', 'sekkaiseki', 'shikkui', 'hotaruishi', 'kin_ore', 'suisho_ore', 'diamond_ore', 'chalk_mark'] as const;
+
+/**
+ * fixture の 列に 書いてある 番号 → そのとき〔MINE-1A までの ゲーム〕の ブロック。fixture に 出てくる 番号だけ。
+ * src/world/blocks/mineBlocks.test.ts の 凍らせた 一覧〔番号 ＝ 並びの 位置〕と 同じ 番号。書きかえて 通さない
+ */
+const OLD_NUMBERS: Readonly<Record<number, string>> = {
+  0: 'air', 1: 'grass', 2: 'dirt', 3: 'stone', 5: 'log', 6: 'leaves', 7: 'coal_ore', 8: 'iron_ore', 10: 'bedrock', 15: 'start_torch', 37: 'bamboo', 39: 'kusa', 40: 'nobana',
+};
+/** fixture の スタートの 列〔シード 20261012 の スタートは x=64・z=64〕 */
+const SPAWN = { x: 64, z: 64 } as const;
 
 describe('B10: 保存の 版は 1A の まま（1B は 上げない）', () => {
   it('SAVE_GEN が 1A と 同じ', () => {
@@ -106,7 +117,7 @@ describe.each(FIXTURES)('B10: $name の fixture（新しい ブロックが な�
     expect(await findContinue({ db, store, search: '', nSections: NS })).toEqual({ seed: SEED, strength: 'normal' });
   });
 
-  it('開ける: 保存に ある 列の 中身は 保存の とおり〔ハッシュ 同じ〕。ブロックの 番号が ずれない', async () => {
+  it('開ける: 保存に ある 列の 中身は 保存の とおり〔ハッシュ 同じ。番号が ずれない ことは 下の「番号が ずれない」〕', async () => {
     const { db, store } = await openFile(f);
     const { world, loaded, restored } = await openGame(db, store);
     expect(loaded).toBe(true);
@@ -117,6 +128,45 @@ describe.each(FIXTURES)('B10: $name の fixture（新しい ブロックが な�
       const stored = await unpackColumn(rec, NS);
       expect(columnHash(world.column(rec.cx, rec.cz)!), `列 (${rec.cx}, ${rec.cz})`).toBe(columnHash(stored));
     }
+  });
+
+  it('番号が ずれない: 保存の 列に 書いてある 番号〔数字〕が、今の ゲームでも 書いた ときと 同じ ブロックに なる〔スタートの 列と もう 1 列を 1 マスずつ〕', async () => {
+    const { db, store } = await openFile(f);
+    const { world } = await openGame(db, store);
+    const all = await db.readAll(SAVE_ID);
+    const spawn = all.chunks.find((c) => c.cx === SPAWN.x >> 4 && c.cz === SPAWN.z >> 4)!;
+    expect(spawn, 'スタートの 列').toBeDefined();
+    const other = all.chunks.find((c) => c !== spawn)!;
+    for (const rec of [spawn, other]) {
+      const stored = await unpackColumn(rec, NS);
+      const bad: string[] = [];
+      let cells = 0;
+      stored.sections.forEach((s, sy) => {
+        const arr = sectionToArray(s);
+        for (let ly = 0; ly < 16; ly++) {
+          for (let lz = 0; lz < 16; lz++) {
+            for (let lx = 0; lx < 16; lx++) {
+              const n = arr[localIndex(lx, ly, lz)]!;
+              const want = OLD_NUMBERS[n];
+              const x = rec.cx * 16 + lx;
+              const y = sy * 16 + ly;
+              const z = rec.cz * 16 + lz;
+              const got = world.getBlock(x, y, z);
+              cells++;
+              if (want === undefined || got !== want) bad.push(`(${x}, ${y}, ${z}): 番号 ${n} → ${got}（${want ?? '表に ない 番号'} の はず）`);
+            }
+          }
+        }
+      });
+      expect(cells, `列 (${rec.cx}, ${rec.cz}) の マス`).toBeGreaterThan(0);
+      expect(bad.slice(0, 8), `列 (${rec.cx}, ${rec.cz}): ${bad.length} マスが ちがう`).toEqual([]);
+    }
+    // 数字で 見る スタートの 足もと〔x=64・z=64〕: 下から 岩盤〔10〕・石〔3〕… 土〔2〕2 マス・草〔1〕・空気〔0〕。今の ゲームでも 同じ 名前
+    const col = await unpackColumn(spawn, NS);
+    const ys = [0, 100, 149, 150, 151, 152];
+    const raw = ys.map((y) => sectionToArray(col.sections[y >> 4]!)[localIndex(SPAWN.x & 15, y & 15, SPAWN.z & 15)]!);
+    expect(raw, '保存の 数字').toEqual([10, 3, 2, 2, 1, 0]);
+    expect(ys.map((y) => world.getBlock(SPAWN.x, y, SPAWN.z)), '今の ゲームでの 名前').toEqual(['bedrock', 'stone', 'dirt', 'dirt', 'grass', 'air']);
   });
 
   it('開いて すぐ 保存しても、保存の 列は かわらない', async () => {
