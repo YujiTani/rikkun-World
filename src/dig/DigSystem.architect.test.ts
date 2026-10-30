@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { AnimalApi, BlockId, ItemId, LockStatus, PlayerState, Vec3 } from '../contracts';
 import { ActionState } from '../input/actions';
 import { InventoryImpl } from '../inventory/Inventory';
+import { actionHintLines } from '../ui/actionHintModel';
 import { createDigConfig } from './config';
 import { DigSystemImpl } from './DigSystem';
 
@@ -13,6 +14,8 @@ interface Opts {
   hit?: number | null;
   /** 目の 前の ブロック（x=5 の 壁）を 置くか */
   wall?: boolean;
+  /** 壁の ブロック（初期値 stone。素手で ほれる やわらかい もの = dirt を 使う テストも ある） */
+  wallBlock?: BlockId;
   /** にわとりの 当たる 距離（null = いない） */
   animal?: number | null;
   carrying?: boolean;
@@ -32,7 +35,7 @@ function rig(o: Opts = {}) {
     },
   };
   for (let x = 0; x <= 12; x++) for (let z = 0; z <= 12; z++) blocks.set(key(x, 8, z), 'stone');
-  if (o.wall) blocks.set(key(5, 10, 6), 'stone');
+  if (o.wall) blocks.set(key(5, 10, 6), o.wallBlock ?? 'stone');
   const player: PlayerState = {
     position: { x: 2.5, y: 9, z: 6.5 },
     velocity: { x: 0, y: 0, z: 0 },
@@ -149,12 +152,41 @@ describe('ねらい・案内', () => {
     expect(r.dig.aimedArchitect()).toBeNull();
   });
 
-  it('ねらって いる 間は 右クリックの 案内（置く など）を 出さない。はずれると 出る', () => {
+  it('ねらって いる 間の 右クリックの 案内は「はなす」（置く など は 出さない）。はずれると 置くに もどる', () => {
     const r = rig({ wall: true, hit: 2 });
-    expect(r.dig.previewRightClick()).toBeNull();
+    expect(r.dig.previewRightClick()).toEqual({ kind: 'talk', item: null });
     r.setHit(null);
     r.step();
     expect(r.dig.previewRightClick()).toEqual({ kind: 'place', item: 'dirt' });
+  });
+
+  it('ブロックを ねらう 線が なくても（空を むいて 建築士さんだけ）案内は「はなす」', () => {
+    const r = rig({ hit: 2 });
+    expect(r.dig.previewRightClick()).toEqual({ kind: 'talk', item: null });
+  });
+
+  it('にわとりを だっこ している 間は 案内も にわとりが さき（はなす は 出ない）', () => {
+    const r = rig({ hit: 2, carrying: true });
+    expect(r.dig.previewRightClick()?.kind).not.toBe('talk');
+  });
+
+  it('左クリックの 案内は 後ろの ブロックが あっても「ほる」を 出さない。はずれると「ほる」が 出る', () => {
+    const r = rig({ wall: true, wallBlock: 'dirt', hit: 2 });
+    expect(r.dig.previewLeftClick()).toBeNull();
+    r.setHit(null);
+    r.step();
+    expect(r.dig.previewLeftClick()).toBe('dig');
+  });
+
+  it('画面の 案内: 右 =「はなす」（ふきだしの 絵）、左 = なし。はずれると 右 =「おく」・左 =「ほる」', () => {
+    const r = rig({ wall: true, wallBlock: 'dirt', hit: 2 });
+    const ctx = { held: 'dirt' as ItemId, heldIsPickaxe: false, heldIsBlade: false };
+    expect(actionHintLines(r.dig.previewRightClick(), r.dig.previewLeftClick(), ctx)).toEqual({ right: { icon: 'talk', word: 'はなす' } });
+    r.setHit(null);
+    r.step();
+    const away = actionHintLines(r.dig.previewRightClick(), r.dig.previewLeftClick(), ctx);
+    expect(away.right?.word).toBe('おく');
+    expect(away.left?.word).toBe('ほる');
   });
 
   it('にわとりと 建築士さんが 同じ 線に 重なる ときは 近い 方だけ', () => {
@@ -192,5 +224,88 @@ describe('左クリック: たたく', () => {
     r.actions.press('primary');
     r.step(3);
     expect(r.log).toEqual([]);
+  });
+});
+
+describe('左クリックを おしつづけても 後ろの ブロックは ほらない', () => {
+  // 壁（やわらかい dirt）は 目から 約 2.5 マス。建築士さんは 2 マスで 手前。
+  // ほる ときは ひびが MAX（ready）で 止まり、押し直した しゅんかんに こわれる（押しっぱなしでは こわれない）
+  const dirtAt = (r: ReturnType<typeof rig>): BlockId | 'outside' => r.world.getBlock(5, 10, 6);
+  const repress = (r: ReturnType<typeof rig>): void => {
+    r.actions.release('primary');
+    r.step();
+    r.actions.press('primary');
+    r.step();
+  };
+
+  it('対照: 建築士さんを ねらって いなければ おしつづけで ひびが MAX に なり、押し直すと こわれる', () => {
+    const r = rig({ wall: true, wallBlock: 'dirt', hit: null });
+    r.actions.press('primary');
+    r.step(400);
+    expect(r.dig.state()).toMatchObject({ ready: true, crackStage: 3, block: { x: 5, y: 10, z: 6 } });
+    expect(dirtAt(r)).toBe('dirt');
+    repress(r);
+    expect(dirtAt(r)).toBe('air');
+  });
+
+  it('建築士さんを ねらって いる 間は 400 ステップ おしつづけても ひびも 入らず、押し直しても こわれない', () => {
+    const r = rig({ wall: true, wallBlock: 'dirt', hit: 2 });
+    r.actions.press('primary');
+    r.step(400);
+    expect(r.dig.state()).toMatchObject({ active: false, ready: false, progress: 0, crackStage: 0, block: null });
+    for (let i = 0; i < 6; i++) repress(r);
+    r.step(400);
+    expect(dirtAt(r)).toBe('dirt');
+    expect(r.dig.state()).toMatchObject({ active: false, ready: false, progress: 0, block: null });
+    expect(r.dig.peekEvents().filter((e) => e.type === 'break' || e.type === 'ready')).toEqual([]);
+  });
+
+  it('ほりかけの 所へ 建築士さんが 入って きたら 止まり ひびは もどる。出て いったら また ほれる', () => {
+    const r = rig({ wall: true, wallBlock: 'dirt', hit: null });
+    r.actions.press('primary');
+    r.step(6);
+    expect(r.dig.state().progress).toBeGreaterThan(0);
+    expect(r.dig.state().active).toBe(true);
+    r.setHit(2);
+    r.step(200);
+    expect(r.dig.state()).toMatchObject({ active: false, progress: 0, block: null });
+    expect(dirtAt(r)).toBe('dirt');
+    r.setHit(null);
+    r.step(400);
+    expect(r.dig.state().ready).toBe(true);
+    repress(r);
+    expect(dirtAt(r)).toBe('air');
+  });
+
+  it('建築士さんが ブロックの 向こうなら（ブロックが 手前）ふつうに ほれる。話しかけも たたきも しない', () => {
+    const r = rig({ wall: true, wallBlock: 'dirt', hit: 4 });
+    r.actions.press('primary');
+    r.step(400);
+    expect(r.dig.state().ready).toBe(true);
+    expect(r.log).toEqual([]);
+  });
+
+  it('建築士さんを たたく 左クリックは 腕を ふる（空ぶり）。おしつづけると 0.5 秒ごとに もう 1 回', () => {
+    const r = rig({ wall: true, wallBlock: 'dirt', hit: 2 });
+    r.actions.press('primary');
+    r.step();
+    expect(r.dig.whiffCount()).toBe(1);
+    r.step(200);
+    expect(r.dig.whiffCount()).toBeGreaterThan(3);
+    const away = rig({ wall: true, wallBlock: 'dirt', hit: null });
+    away.actions.press('primary');
+    away.step(3);
+    expect(away.dig.whiffCount()).toBe(0); // 建築士さんが いなければ 腕は ふらずに ほる
+  });
+
+  it('左クリックを おしつづけて いても 右クリックの「はなす」は 1 回だけ 話しかける。ブロックは そのまま', () => {
+    const r = rig({ wall: true, wallBlock: 'dirt', hit: 2 });
+    r.actions.press('primary');
+    r.step(5);
+    r.actions.press('secondary');
+    r.step(50);
+    expect(r.log.filter((l) => l.startsWith('talk'))).toEqual(['talk first']);
+    expect(dirtAt(r)).toBe('dirt');
+    expect(r.dig.state().ready).toBe(false);
   });
 });

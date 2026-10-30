@@ -310,7 +310,7 @@ export class DigSystemImpl implements DigSystem {
   /** 何もねらっていない（ブロックも妖怪もない）ときのクリックで腕を振る。押した瞬間と、押しっぱなしの 0.5 秒ごと */
   private updateWhiff(primary: boolean, secondary: boolean): void {
     if (!primary) this.whiffHold = -1;
-    else if (!this.input.punching && (!this.aim.tgt || this.input.yokaiBlocks)) {
+    else if (!this.input.punching && (!this.aim.tgt || this.input.yokaiBlocks || this.aim.architectHit !== null)) {
       const every = this.m4.tools?.current().ticks ?? WHIFF_REPEAT_TICKS;
       if (this.whiffHold < 0 || this.whiffHold >= every) {
         this.whiffs++;
@@ -330,7 +330,8 @@ export class DigSystemImpl implements DigSystem {
     this.active = false;
     this.blockedReason = null;
 
-    if (this.input.punching || this.input.yokaiBlocks) {
+    // HOUSE-1A: 建築士さんを ねらって いる 間は 後ろの ブロックを ほらない（左クリックを 押しつづけても。ほりかけの ひびは もどる）
+    if (this.input.punching || this.input.yokaiBlocks || (primary && this.aim.architectHit !== null)) {
       this.decay();
       return;
     }
@@ -559,9 +560,9 @@ export class DigSystemImpl implements DigSystem {
    */
   previewRightClick(repeat = false): RightClickPreview | null {
     if (!this.lock.playInputEnabled() || this.gate?.blocksInput()) return null;
+    // HOUSE-1A: 建築士さんを ねらって いる とき の 右クリックは 話しかけるだけ（置く・耕す などの 案内は 出さない。実行 updatePlace と 同じ 順）
+    if (this.aim.architectHit && !this.animals.isCarrying()) return { kind: 'talk', item: null };
     if (this.aim.bodyTgt) return this.placer.spot() ? { kind: 'place', item: this.inventory.held()!.item } : null;
-    // HOUSE-1A: 建築士さんを ねらって いる とき の 右クリックは 話しかけるだけ（置く・耕す などの 案内は 出さない）
-    if (this.aim.architectHit && !this.animals.isCarrying()) return null;
     const st = this.m4.storage;
     const craft = this.m4.craft;
     const armor = this.m4.armor;
@@ -615,6 +616,8 @@ export class DigSystemImpl implements DigSystem {
     if (tool?.kind === 'bow') return 'shoot';
     const t = this.aim.tgt;
     if (this.aimedYokaiId() !== null) return 'hit';
+    // HOUSE-1A: 建築士さんを ねらって いる 間は 後ろの ブロックを ほらない ので「ほる」は 出さない
+    if (this.aim.architectHit) return null;
     if (!t) return null;
     // ＋マークの線で ブロックより手前に 妖怪 → ほらない（#34）ので 案内も 出さない
     if (this.attack.freshDecision()?.use === 'whiff') return null;

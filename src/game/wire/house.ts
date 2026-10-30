@@ -24,7 +24,7 @@ export function wireHouse(deps: WiredYokai) {
     },
     player: () => controller.state.position,
     bag: inventory,
-    // 【仮の 声】サウンド係の 3 案から yuzu が 選ぶまでの 開発の 1 案（src/fx/architectSounds.ts）
+    // 建築士さんの 声: yuzu が 決めた 案 C「ハミング」（話すたびに 3 しゅるいを じゅんばんに。src/fx/architectSounds.ts）
     voice: () => playArchitect(fxSound, 'architect_voice'),
     // 道具を わたした: 「拾った」ログ・知らせと 同じ 道を 通す（持ち物には もう 入れてある）
     gave: (item) => shared.onDropPicked(item, 1, false),

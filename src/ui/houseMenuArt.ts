@@ -5,6 +5,7 @@ import { drawPixels, extraIconUrl, itemIconUrl } from './itemIcon';
  * 建築士さんの メニューの ボタンの 絵（HOUSE-1A。docs/design/HOUSE-1.md §2.3）。16x16 のドット絵。
  * 【仮の 絵】アートの 3 案が 決まる まで コードで 描いた もの。形と 色は 本番の 絵に かわる。
  *   kura: 蔵（白い かべ・黒い かわらの 屋根・とびら）／ editor: 方眼と 家 ／ rename: えんぴつ
+ *   talk: ふきだし（メニューではなく、建築士さんを ねらった とき 照準の 下の 案内「はなす」の 絵）
  *   build は とんかち（extraIconUrl('hammer')）、tools は みずもり ＋ どうづき（itemIconUrl）を そのまま 使う。
  */
 
@@ -65,6 +66,30 @@ const EDITOR = [
   '................',
 ];
 
+const TALK_PAL: Record<string, number> = {
+  O: 0x3b2a1a, // ふち
+  W: 0xfffaf0, // ふきだし
+  D: 0xe07a3a, // 「…」の 点
+};
+const TALK = [
+  '................',
+  '...OOOOOOOOOO...',
+  '..OWWWWWWWWWWO..',
+  '.OWWWWWWWWWWWWO.',
+  '.OWWWWWWWWWWWWO.',
+  '.OWDDWWDDWWDDWO.',
+  '.OWDDWWDDWWDDWO.',
+  '.OWWWWWWWWWWWWO.',
+  '.OWWWWWWWWWWWWO.',
+  '..OWWWWWWWWWWO..',
+  '...OWWOOOOOOO...',
+  '..OWWO..........',
+  '.OWO............',
+  '.OO.............',
+  '................',
+  '................',
+];
+
 /** 文字の 絵 → 色。16 行 × 16 字でないもの・表に ない 字は 書きまちがいなので 投げる */
 const fromRows = (rows: readonly string[], pal: Record<string, number>): Rgba[] => {
   if (rows.length !== 16) throw new Error(`絵の 行が ${rows.length} 本（16 本）`);
@@ -107,26 +132,34 @@ function pencil(): Rgba[] {
 }
 
 /** メニューの 絵（ドット絵）。DOM なし */
-export function houseMenuPixels(kind: 'kura' | 'editor' | 'rename'): Rgba[] {
+export function houseMenuPixels(kind: 'kura' | 'editor' | 'rename' | 'talk'): Rgba[] {
   if (kind === 'kura') return fromRows(KURA, KURA_PAL);
   if (kind === 'editor') return fromRows(EDITOR, EDITOR_PAL);
+  if (kind === 'talk') return fromRows(TALK, TALK_PAL);
   return pencil();
 }
 
 const cache = new Map<string, string>();
 
+function urlOf(kind: 'kura' | 'editor' | 'rename' | 'talk'): string {
+  let url = cache.get(kind);
+  if (!url) {
+    const c = document.createElement('canvas');
+    drawPixels(c, houseMenuPixels(kind));
+    url = c.toDataURL();
+    cache.set(kind, url);
+  }
+  return url;
+}
+
+/** 照準の 下の 案内「はなす」の ふきだしの 絵（data URL。DOM の ある 所で だけ 呼ぶ） */
+export function houseTalkIconUrl(): string {
+  return urlOf('talk');
+}
+
 /** ボタンの 絵の URL（data URL。DOM の ある 所で だけ 呼ぶ）。ボタンの id → 絵。close は 絵なし（✕ の 字） */
 export function houseButtonIcons(id: string): string[] {
-  if (id === 'kura' || id === 'editor' || id === 'rename') {
-    let url = cache.get(id);
-    if (!url) {
-      const c = document.createElement('canvas');
-      drawPixels(c, houseMenuPixels(id));
-      url = c.toDataURL();
-      cache.set(id, url);
-    }
-    return [url];
-  }
+  if (id === 'kura' || id === 'editor' || id === 'rename') return [urlOf(id)];
   if (id === 'build') return [extraIconUrl('hammer')];
   if (id === 'tools') return [itemIconUrl('mizumori'), itemIconUrl('dotsuki')];
   return [];

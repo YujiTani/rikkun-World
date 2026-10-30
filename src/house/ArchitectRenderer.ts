@@ -43,7 +43,7 @@ interface Entry {
 export interface ArchitectRenderStats {
   /** 描いている 建築士さんの 数 */
   shown: number;
-  /** 描画回数（体 ＋ ふちどり）と 三角形（影は にわとりの 影に 入る ので 数えない） */
+  /** 描画回数（体 ＋ ふちどり）と 三角形（影は プレイヤーの 足もとの 影（BlobShadow）に まぜる ので 数えない） */
   draws: number;
   triangles: number;
 }

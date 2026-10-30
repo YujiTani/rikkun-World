@@ -44,6 +44,10 @@
   font-weight: 800;
   line-height: 1.3;
   text-align: center;
+  /* 折り返しは ことばの 切れ目（字の あいだの スペースと「。」）だけ。「だよ」の「よ」だけ 次の 行に 落ちない。長すぎる 1 語だけ 字の 途中で 折る */
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  text-wrap: pretty;
   color: var(--rk-ink);
   background: var(--rk-text);
   border: var(--rk-bw) solid var(--rk-line);

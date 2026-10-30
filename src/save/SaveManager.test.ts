@@ -946,6 +946,8 @@ describe('HOUSE-1A AC32・AC33（くら・建築士さんの 記録の 保存）
     expect(h.kura.totals()).toEqual({});
     expect(h.record).toEqual({ first: null, toolsGiven: false });
     expect(after.loaded).toBeTruthy();
+    // ほかの 中身（もちもの の log 5）は そのまま 読めた（この 試験用の もちものは serialize だけ 持つ）
+    expect(after.inventory.serialize()).toEqual({ slots: [{ item: 'log', count: 5 }], selected: 0 });
   });
 
   it('house の 読みこみが 例外を 出しても 保存は 開ける（くらは 空）', async () => {
