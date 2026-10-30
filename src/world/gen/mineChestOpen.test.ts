@@ -4,6 +4,7 @@ import { itemDef } from '../../content/items/registry';
 import { RARITY_ORDER } from '../../drops/rarityTable';
 import { InventoryImpl } from '../../inventory/Inventory';
 import { ArrayVoxelWorld } from '../VoxelWorld';
+import { NINJA_TUNING } from '../../craft/ninjaTuning';
 import { createMineHook } from './mineHook';
 import { SEEDS_20, genColumn, hook1c, ptKey, type ChestRoll, type MineHook1C, type Shaft } from './mineShaftKit';
 import { spawnOf } from './terrain';
@@ -19,9 +20,15 @@ import { spawnOf } from './terrain';
  *     drop(item, count) → 足もとに 落とし物
  *     say(text) → ログ〔「からっぽ だよ」〕   telop(item) → ハイパーレア 以上の テロップ〔いちばん めずらしい 物 1 つ〕
  *     opened(tier) → 実績「はじめて たからばこ を あけた！」の 出来事〔C11 は src/achievements/mine1c.test.ts〕
- *   ふたの 動き〔0.46 秒〕・手に ブロックを 持った 右クリック・ヒント「あける」は 画面が いる ので E2E〔e2e/mine1c.spec.ts C13〕。
- *   こわれない は ブロックの 表〔src/world/blocks/mineChestBlocks.test.ts〕。2 マスの 片方を こわす 処理を 直接 よぶ 確かめは、
- *   本番の 部品の 形が 決まって から〔検証の とき〕足す。
+ *   画面が いる 分は E2E〔e2e/mine1c.spec.ts C13〕: ヒント「あける」〔2 マス どちらでも・あいたら 右なし〕・手に ブロックを 持った 右クリック〔あいた 宝箱でも 置かれない〕・
+ *   ふたが 動いて いる 間〔0.46 秒〕の 2 回目。ここ〔ユニット〕では「くじの 設定〔忍者・侍〕を 1 に しても 中身が かわらない」まで。
+ *   こわれない は ブロックの 表〔src/world/blocks/mineChestBlocks.test.ts〕。
+ *
+ *   【検証で 見る】〔本番の 部品の 形が 決まって から。テストの 準備では 書けない C8 の 項目。PO が 台帳に 写す〕:
+ *     ・ぬりかべが たおれこんでも 2 マス とも こわれない
+ *     ・こわす 処理を 直接 よんで 1 マスを こわすと 2 マス とも 消える〔こたつと 同じ〕
+ *     ・テスト用の 表を 足すと その 中身の 宝箱に なる〔#195 の ため。表を 足す 窓口が 仕様に 無い〕
+ *     ・くじの 設定の うち はらぱん〔GOLD-1 harapanChest は ゲームごとの 設定で 窓口に 渡らない〕を 1 に しても 変わらない
  */
 
 interface Ports {
@@ -222,6 +229,26 @@ describe('C8: 宝箱を あける', () => {
       expect(hook1c(f.seed).chestPreview(c.x, c.y, c.z)).toEqual(f.preview);
     }
     expect(new Set(found.map((f) => JSON.stringify(f.preview))).size).toBeGreaterThan(found.length / 2);
+  });
+
+  it('くじの 設定〔忍者・侍の 宝箱の 確率〕を 1 に しても、坑道の 宝箱の 中身は かわらない〔くじの 箱から だけ 引く〕', () => {
+    const keep = { ninja: NINJA_TUNING.ninjaChestChance, samurai: NINJA_TUNING.samuraiChestChance };
+    const base = found.slice(0, 6).map((f) => ({ f, roll: hook1c(f.seed).rollChest('kodo', 777, 3), preview: f.preview }));
+    try {
+      NINJA_TUNING.ninjaChestChance = 1;
+      NINJA_TUNING.samuraiChestChance = 1;
+      for (const { f, roll, preview } of base) {
+        expect(hook1c(f.seed).rollChest('kodo', 777, 3), `${f.shaft.id}: rollChest`).toEqual(roll);
+        const c = f.shaft.chest!.cells[0]!;
+        expect(hook1c(f.seed).chestPreview(c.x, c.y, c.z), `${f.shaft.id}: chestPreview`).toEqual(preview);
+        const r = rig(f.seed, f.shaft);
+        r.mine.open(c.x, c.y, c.z);
+        expect(bagOf(r.inv), `${f.shaft.id}: あけた 持ち物`).toEqual(expectedBag(preview).bag);
+      }
+    } finally {
+      NINJA_TUNING.ninjaChestChance = keep.ninja;
+      NINJA_TUNING.samuraiChestChance = keep.samurai;
+    }
   });
 
   it('宝箱でない マスを open しても 何も おきない', () => {

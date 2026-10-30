@@ -11,11 +11,13 @@ import { drainRebuilds, openStream, settleWorld } from './helpers/stream';
  *       `mine.chestPreview` を 読む → 宝箱の「本体で ない ほうの マス」を 右クリック〔secondary〕→ 持ち物が プレビューの とおり ふえる・
  *       2 マス とも あいた 宝箱〔`mine.chestAt(...).opened`〕・実績「はじめて たからばこ を あけた！」→ セーブして 開きなおす →
  *       2 マス とも あいた まま・持ち物も そのまま・本体を もう 1 回 右クリックしても ふえない。
+ *       〔C8 の 画面の 分も ここで 見る: ねらうと ヒントの 右が「あける」〔2 マス どちらでも・あいたら 右なし〕・手に ブロック〔dirt〕を 持った 右クリックでも
+ *       置かれず あく〔あいた 宝箱でも 置かれない〕・ふたが 動いて いる 間〔0.46 秒〕の 2 回目の 右クリックで ふえない〕
  *
  * 歩く 時間〔300 ステップ〕・右クリックの 長さは 仕様の とおりの ステップ数。時間〔ms〕では 合否を 決めない。座標・向き・個数は ゲームの 窓口に 聞く。
  *
  * 窓口〔仕様 §6.1〕: mine.startShaft／shafts／chestAt／chestPreview／caveAt、world.lightAt／teleport／settle、combat.get、save.now、
- *   inventory.get／count、achievements.list、input.press。名前の 案は src/world/gen/mineShaftKit.ts の 先頭。
+ *   inventory.get／setSlot／select、achievements.list、input.press、hud.actionHint、target.get〔block・place〕、world.getBlock。名前の 案は src/world/gen/mineShaftKit.ts の 先頭。
  * 赤の 確かめ（テストの 準備）: 1C の 前は `mine.startShaft`／`mine.shafts` が 無く「窓口が ない」で 落ちる。
  */
 test.describe.configure({ timeout: 180_000 });
@@ -198,8 +200,25 @@ test.describe('MINE-1C 通し', () => {
     expect(rows, `実績「${ACHIEVEMENT}」の 行`).toHaveLength(1);
     expect(rows[0], '最初は まだ').toBe(false);
 
-    // --- 右クリック〔本体で ない ほうの マスを ねらう〕 ---
-    const want = new Map<string, number>();
+    // --- ヒント「あける」〔2 マス どちらを ねらっても〕 ---
+    const hintAt = async (at: Pt): Promise<{ word: string | null; aimed: Pt | null }> => {
+      await aimAtBlock(page, at.x, at.y, at.z, 0.5);
+      return page.evaluate(() => {
+        const h = (window as any).__rikkun;
+        h.step(2);
+        const t = h.target.get();
+        return { word: (h.hud.actionHint().right?.word ?? null) as string | null, aimed: t ? (t.block as Pt) : null };
+      });
+    };
+    for (const [name, at] of [['のこりの マス', rest], ['本体', main]] as const) {
+      const hint = await hintAt(at);
+      expect(hint.aimed, `ねらいが ${name}に 乗った`).toEqual(at);
+      expect(hint.word, `ヒント〔${name}を ねらう〕`).toBe('あける');
+    }
+
+    // --- 右クリック〔本体で ない ほうの マスを ねらう。手には ブロック〔dirt〕を 持つ。置かれず 宝箱が あく〕 ---
+    const HAND = { item: 'dirt', count: 5 } as const;
+    const want = new Map<string, number>([[HAND.item, HAND.count]]);
     for (const it of before.preview!.items) want.set(it.item, (want.get(it.item) ?? 0) + it.count);
     const bag = (): Promise<Record<string, number>> =>
       page.evaluate(() => {
@@ -208,7 +227,14 @@ test.describe('MINE-1C 通し', () => {
         return out;
       });
     expect(await bag(), '持ち物は からっぽ').toEqual({});
-    const click = async (at: Pt): Promise<{ aimed: Pt | null }> => {
+    await page.evaluate((hand) => {
+      const h = (window as any).__rikkun;
+      h.inventory.setSlot(0, { ...hand });
+      h.inventory.select(0);
+      h.step(2);
+    }, HAND);
+    /** 右クリック 1 回〔おして 2 ステップ・はなす〕。置く 場所〔place〕も 返す。待ちは 呼ぶ 側が `wait` で */
+    const click = async (at: Pt): Promise<{ aimed: Pt | null; place: Pt | null }> => {
       await aimAtBlock(page, at.x, at.y, at.z, 0.5);
       return page.evaluate(() => {
         const h = (window as any).__rikkun;
@@ -216,14 +242,22 @@ test.describe('MINE-1C 通し', () => {
         h.input.press('secondary');
         h.step(2);
         h.input.release('secondary');
-        h.step(30); // 持ち物に 入る まで
-        return { aimed: t ? (t.block as Pt) : null };
+        h.step(1);
+        return { aimed: t ? (t.block as Pt) : null, place: t ? (t.place as Pt) : null };
       });
     };
+    const wait = (n: number): Promise<void> => page.evaluate((n) => void (window as any).__rikkun.step(n), n);
+    const blockAt = (p: Pt): Promise<string> => page.evaluate((p) => (window as any).__rikkun.world.getBlock(p.x, p.y, p.z) as string, p);
+
     const first = await click(rest);
     expect(first.aimed, 'ねらいが のこりの マスに 乗った').toEqual(rest);
+    // ふたが 動いて いる 間〔0.46 秒 ＝ 約 28 ステップ。ここまで 3 ステップ〕に 本体を もう 1 回 右クリック → ふえない・置かれない
+    const during = await click(main);
+    expect(during.aimed, 'ねらいが 本体に 乗った〔ふたの 動き中〕').toEqual(main);
+    await wait(40); // 動きが 終わり 持ち物に 入る まで
     const got = await bag();
-    expect(got, '持ち物が プレビューの とおり ふえる').toEqual(Object.fromEntries(want));
+    expect(got, '持ち物が プレビューの とおり ふえる・手の ブロックは へらない〔置かれない〕・動き中の 2 回目で ふえない').toEqual(Object.fromEntries(want));
+    for (const p of [first.place, during.place]) if (p) expect(await blockAt(p), `手の ブロックが 置かれていない ${JSON.stringify(p)}`).not.toBe('dirt');
 
     const after = await page.evaluate(
       ({ main, rest, name }) => {
@@ -239,6 +273,12 @@ test.describe('MINE-1C 通し', () => {
     expect(after.mainOpened, '本体も あく').toBe(true);
     expect(after.restOpened, 'のこりの マスも あく').toBe(true);
     expect(after.unlocked, `実績「${ACHIEVEMENT}」`).toEqual([true]);
+    // あいた 宝箱を ねらっても ヒントの 右は 出ない〔2 マス どちらでも〕
+    for (const [name, at] of [['のこりの マス', rest], ['本体', main]] as const) {
+      const hint = await hintAt(at);
+      expect(hint.aimed, `ねらいが ${name}に 乗った〔あいた あと〕`).toEqual(at);
+      expect(hint.word, `ヒント〔あいた ${name}〕は 右なし`).toBeNull();
+    }
 
     // --- セーブして 開きなおす ---
     await page.evaluate(() => (window as any).__rikkun.save.now());
@@ -268,19 +308,19 @@ test.describe('MINE-1C 通し', () => {
     expect(reopened.restOpened, '開きなおしても のこりの マスも あいた まま').toBe(true);
     expect(await bag(), '持ち物も そのまま').toEqual(got);
 
-    // --- 本体を もう 1 回 右クリック → ふえない ---
-    await page.evaluate(() => (window as any).__rikkun.step(2)); // 開きなおした あとの 落ちつき
-    // 手には 何も 持たない〔あいた 宝箱の 右クリックで 手の 物が 置かれる のとは べつの 話。ふえない ことだけ 見る〕
-    const empty = await page.evaluate(() => {
+    // --- 本体を もう 1 回 右クリック〔手に ブロック〕→ ふえない・置かれない ---
+    const hand = await page.evaluate(() => {
       const h = (window as any).__rikkun;
-      const slots = h.inventory.get().slots as ({ item: string } | null)[];
-      const at = slots.findIndex((s) => s === null);
+      const at = (h.inventory.get().slots as ({ item: string } | null)[]).findIndex((s) => s?.item === 'dirt');
       if (at >= 0) h.inventory.select(at);
+      h.step(2);
       return at;
     });
-    expect(empty, '空の マス').toBeGreaterThanOrEqual(0);
+    expect(hand, '手に 持つ ブロック〔dirt〕').toBeGreaterThanOrEqual(0);
     const second = await click(main);
     expect(second.aimed, 'ねらいが 本体に 乗った').toEqual(main);
-    expect(await bag(), 'あいた 宝箱は もう ふえない').toEqual(got);
+    await wait(40);
+    expect(await bag(), 'あいた 宝箱は もう ふえない・手の ブロックも 置かれない').toEqual(got);
+    if (second.place) expect(await blockAt(second.place), '手の ブロックが 置かれていない').not.toBe('dirt');
   });
 });
