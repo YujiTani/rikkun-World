@@ -1,0 +1,231 @@
+# 宝箱 v2（yuzu 2026-10-30 04:33「全部 2 の形がよくて、そのかわりレア度で装飾や色などが豪華に。2 マスの大きさにして、その分装飾をがんばって」）
+# - 4 段階とも 2a の 形: ひくく ひろい 箱（からだ 4）＋ かまぼこの ふた（3）＋ たての おび。大きさは 2 マス（よこ 2・おく 1・高さ 1 以下）
+# - 2 マスの 作りは こたつ 2×2 と 同じ「本体 ＋ のこりの マス」: 本体 = 左の マス（x 0..8）、のこり = 右の マス（x 9..17）。前 = +z
+# - 段が 上がるほど ごうか: 1 木＋てつ → 2 はがねの おび・すみ金具・びょう → 3 くろうるし＋きん・ふたの ふち・つまみ → 4 きん＋しゅ・ほのおの かざり
+# - 影の 目じるし: 1 なし → 2 すみ金具の でっぱり → 3 ＋ ふたの 上の つまみ → 4 ＋ ふたの 上の ほのお
+# 小ブロックの 座標: x 0..17、y 0..8、z 0..8。ふたの ちょうつがい = y 4 の 下の 面・z 3 の うしろの 面（x に そった 線）
+import numpy as np
+from base import N, solid, calm, speckle
+from render import Mat, Block
+from designs import GOLD, STEEL, IRONWOOD, MIRACLE, SHU, ROYAL, URUSHI, CHEST
+
+GX = 2 * N           # 2 マス 分の はば（小ブロック）
+HINGE = (4.0, 3.0)   # ちょうつがいの 線（y, z。小ブロック 単位）
+
+NAMES = {1: 'きの たからばこ', 2: 'てつの たからばこ', 3: 'うるしの たからばこ', 4: 'ミラクルの たからばこ'}
+
+# 段ごとの 色（W からだ・L ふた・S おび・C すみ金具・R びょう・P じょう前の 板・K かぎあな・G ふち／つまみ・F Y T ほのお・I 中）
+PAL = {
+    1: dict(W=CHEST['wood'], L=CHEST['lid'], S='#4A4650', P='#5E5A66', K='#1E1C22', I='#5E3A1E'),
+    2: dict(W=IRONWOOD['body'], L=IRONWOOD['lid'], S=STEEL['main'], R=STEEL['lo'], H=STEEL['lo'], K=STEEL['dk'], I=IRONWOOD['inside']),
+    3: dict(W=URUSHI['main'], L=URUSHI['lid'], S=GOLD['main'], H=GOLD['lo'], K='#2A1A10', I=URUSHI['red']),
+    4: dict(W=GOLD['main'], L=SHU['main'], S=GOLD['lo'], G='#F5CD55', F=MIRACLE['fire'], Y=MIRACLE['core'], I=ROYAL),
+}
+WOODY = {1: (['#8A5229', '#A8693A'], ['#965A30', '#B57444']), 2: (['#66401F', '#7E4F2E'], ['#6E4426', '#8A5A36'])}
+
+FEAT = {
+    1: dict(straps=(4, 13), corners=False, rivets=False, rim=False, top=None, lock='hasp'),
+    2: dict(straps=(4, 13), corners=True, rivets=True, rim=False, top=None, lock='plate'),
+    3: dict(straps=(4, 5, 12, 13), corners=True, rivets=False, rim=True, top='knob', lock='plate'),
+    4: dict(straps=(4, 5, 12, 13), corners=True, corner_h=2, rivets=False, rim=True, top='flame', lock='flame'),
+}
+
+
+def mats_of(tier, prefix=None):
+    prefix = prefix or f'c2t{tier}'
+    out = []
+    for k, c in PAL[tier].items():
+        if tier in WOODY and k in ('W', 'L'):
+            dots = WOODY[tier][0 if k == 'W' else 1]
+            t = calm(speckle(c, dots, 171 + tier * 7 + (k == 'L'), 30), c)
+            out.append(Mat(f'{prefix}_{k}', t))
+        else:
+            out.append(Mat(f'{prefix}_{k}', solid(c)))
+    return out
+
+
+def parts(tier):
+    """戻り値: body（とじた からだ）、body_open（中を あけた からだ）、lid（とじた 位置の ふた）。どれも 18×9×9（0 = 空、k = PAL の k 番め）"""
+    pal, ft = PAL[tier], FEAT[tier]
+    ix = {k: i + 1 for i, k in enumerate(pal)}
+    body = np.zeros((GX, N, N), np.int16)
+    lid = np.zeros((GX, N, N), np.int16)
+
+    def B(g, x0, x1, y0, y1, z0, z1, k):
+        g[x0:x1 + 1, y0:y1 + 1, z0:z1 + 1] = ix[k] if k else 0
+
+    def P(g, x, y, z, k):
+        g[x, y, z] = ix[k] if k else 0
+    metal = 'S'
+    # からだ（はば 16・高さ 4・おく 5）と かまぼこの ふた（下 2 だん おく 5 ＋ 上 1 だん おく 3）
+    B(body, 1, 16, 0, 3, 3, 7, 'W')
+    B(lid, 1, 16, 4, 5, 3, 7, 'L')
+    B(lid, 1, 16, 6, 6, 4, 6, 'L')
+    B(lid, 2, 15, 4, 4, 4, 6, 'I')                 # ふたの うら（あけると 前を 向く）
+    if ft['rim']:                                  # ふたの ふち（きん）
+        g = 'G' if 'G' in pal else metal
+        B(lid, 1, 16, 4, 4, 3, 3, g)
+        B(lid, 1, 16, 4, 4, 7, 7, g)
+        B(lid, 1, 1, 4, 4, 3, 7, g)
+        B(lid, 16, 16, 4, 4, 3, 7, g)
+    # たての おび（前・上・うしろを まわる。前と うしろは 1 小ブロック とびだす、上は ふたと たいら）
+    for x in ft['straps']:
+        B(body, x, x, 0, 3, 8, 8, metal)
+        B(body, x, x, 0, 3, 2, 2, metal)
+        B(lid, x, x, 4, 5, 8, 8, metal)
+        B(lid, x, x, 4, 5, 2, 2, metal)
+        B(lid, x, x, 6, 6, 3, 7, metal)
+        if ft['rivets']:
+            P(body, x, 1, 8, 'R')
+            P(lid, x, 5, 8, 'R')
+    # すみ金具（8 すみ。かどを L の 字に つつんで 1 小ブロック とびだす。からだの 下 と ふたの かた。2・3 段 = 1 だん、4 段 = 2 だん）
+    if ft['corners']:
+        cm = 'G' if 'G' in pal else metal
+        hh = ft.get('corner_h', 1)
+        for xc, sx in ((1, -1), (16, 1)):
+            for zc, sz in ((3, -1), (7, 1)):
+                for g, ys in ((body, (0, 1)[:hh]), (lid, (5, 4)[:hh])):
+                    for y in ys:
+                        P(g, xc + sx, y, zc, cm)
+                        P(g, xc, y, zc + sz, cm)
+                        P(g, xc + sx, y, zc + sz, cm)
+    # じょう前
+    if ft['lock'] == 'hasp':                       # 1: てつの かけがね（ふたから たれる）と かぎあな
+        B(lid, 8, 9, 4, 5, 8, 8, 'P')
+        B(body, 8, 9, 3, 3, 8, 8, 'P')
+        B(body, 8, 9, 2, 2, 8, 8, 'K')
+    elif ft['lock'] == 'plate':                    # 2・3: 板（4×3）の まん中に かぎあな ＋ ふたの かけがね（1 段 こい 色）
+        B(body, 7, 10, 1, 3, 8, 8, metal)
+        B(body, 8, 9, 2, 2, 8, 8, 'K')
+        B(lid, 8, 9, 4, 5, 8, 8, 'H')
+    else:                                          # 4: しゅの 板に ほのお色の 宝石（かぎあなの かわり。かけがねは なし = ふたの ほのおが 見える）
+        B(body, 7, 10, 1, 3, 8, 8, 'L')
+        B(body, 8, 9, 2, 2, 8, 8, 'Y')
+    # ふたの 上の かざり（y 7..8。高さ 1 マス 以下）
+    if ft['top'] == 'knob':                        # 3: きんの つまみ（台 4 ＋ つまみ 2）
+        B(lid, 7, 10, 6, 6, 4, 6, metal)
+        B(lid, 8, 9, 7, 7, 4, 6, metal)
+    elif ft['top'] == 'flame':                     # 4: ほのお（ふたの 前の 面から 上へ 4 → 6 → 4 → 2。しずくの 形で、しんは きいろ）
+        B(lid, 7, 10, 5, 5, 7, 7, 'F')             # ふたの 前の 面（たいら）
+        B(lid, 6, 11, 6, 6, 4, 7, 'F')             # ふたの 上の だん ＋ 前の だんの すき間
+        B(lid, 7, 10, 7, 7, 4, 6, 'F')
+        B(lid, 8, 9, 8, 8, 5, 6, 'F')
+        B(lid, 8, 9, 5, 7, 7, 7, 'Y')              # しん（前から 見える）
+        B(lid, 8, 9, 7, 8, 6, 6, 'Y')
+    # あけた からだ: 中を あける（床と おくの かべの 内がわ = 中の 色）
+    body_open = body.copy()
+    B(body_open, 2, 15, 1, 3, 4, 6, None)
+    B(body_open, 2, 15, 0, 0, 4, 6, 'I')
+    B(body_open, 2, 15, 1, 3, 3, 3, 'I')
+    return body, body_open, lid, list(pal)
+
+
+def lid_rot90(lid):
+    """ふたを うしろへ 90 度 あけた 形（小ブロックの 回転）。(x, y, z) → (x, z + 1, 6 - y)。
+    マスの 外に 出る 所（前に とびだす 金具 → y 9、上の かざり → z < 0）は のぞく（あけると うしろの かべ側に かくれる）"""
+    out = np.zeros_like(lid)
+    xs, ys, zs = np.nonzero(lid)
+    ny, nz = zs + 1, 6 - ys
+    ok = (ny >= 0) & (ny < N) & (nz >= 0) & (nz < N)
+    out[xs[ok], ny[ok], nz[ok]] = lid[xs[ok], ys[ok], zs[ok]]
+    return out
+
+
+def grids(tier):
+    body, body_open, lid, keys = parts(tier)
+    closed = np.where(lid > 0, lid, body)
+    lo = lid_rot90(lid)
+    opened = np.where(lo > 0, lo, body_open)
+    return dict(closed=closed, open=opened, body_open=body_open, lid=lid, keys=keys)
+
+
+def blocks(tier, prefix=None):
+    """シーンに 置く ブロック: closed / open / body_open / lid それぞれ (本体, のこり)"""
+    prefix = prefix or f'c2t{tier}'
+    mats = mats_of(tier, prefix)
+    g = grids(tier)
+    out = {}
+    for kind in ('closed', 'open', 'body_open', 'lid'):
+        arr = g[kind]
+        pair = []
+        for half in (0, 1):
+            sub = arr[half * N:(half + 1) * N].copy()
+            pair.append(Block(f'{prefix}_{kind}_{half}', mats, (lambda s: (lambda bx, by, bz, e: s))(sub), opaque=False))
+        out[kind] = tuple(pair)
+    return out
+
+
+def put_chest(sc, pos, bl, kind='closed'):
+    x, y, z = pos
+    sc.put((x, y, z), bl[kind][0])
+    sc.put((x + 1, y, z), bl[kind][1])
+
+
+# ------------------------------------------------------------------ こたつ 2×2（くらべる 用の だいたいの 形。ほんとうは 台形の 面 18 まい）
+KOT = dict(hem='#EFE7D4', futon='#3D5A9E', top='#A87B4F')
+
+
+def kotatsu_blocks():
+    inset = [0, 0, 1, 1, 2, 2, 2, 3, 3]
+    m = [Mat('kot_hem', solid(KOT['hem'])), Mat('kot_futon', solid(KOT['futon'])), Mat('kot_top', solid(KOT['top']))]
+    big = np.zeros((GX, N, GX), np.int16)
+    for y in range(N):
+        s = inset[y]
+        k = 1 if y <= 1 else (3 if y == N - 1 else 2)
+        big[s:GX - s, y, s:GX - s] = k
+    out = {}
+    for qx in (0, 1):
+        for qz in (0, 1):
+            sub = big[qx * N:(qx + 1) * N, :, qz * N:(qz + 1) * N].copy()
+            out[(qx, qz)] = Block(f'kot_{qx}{qz}', m, (lambda s: (lambda bx, by, bz, e: s))(sub), opaque=False)
+    return out
+
+
+def put_kotatsu(sc, pos, kb):
+    x, y, z = pos
+    for (qx, qz), b in kb.items():
+        sc.put((x + qx, y, z + qz), b)
+
+
+# ------------------------------------------------------------------ 三角形（同じ 平面・同じ 材料の 面を 四角に つなぐ。マスの さかいで 切る ＝ ゲームの マスごとの 形と 同じ）
+def tris(g, split=True):
+    G = np.asarray(g, np.int32)
+    X, Y, Z = G.shape
+    quads = 0
+    for axis in range(3):
+        o = [i for i in range(3) if i != axis]
+        for sgn in (1, -1):
+            for s in range(G.shape[axis]):
+                idx = [slice(None)] * 3
+                idx[axis] = s
+                sl = G[tuple(idx)]
+                nb = np.zeros_like(sl)
+                t = s + sgn
+                if 0 <= t < G.shape[axis]:
+                    idx[axis] = t
+                    nb = G[tuple(idx)]
+                vis = (sl > 0) & (nb == 0)
+                A, Bn = sl.shape
+                mask = {}
+                for a in range(A):
+                    for b in range(Bn):
+                        if vis[a, b]:
+                            mask[(a, b)] = int(sl[a, b])
+                # マスの さかい（x = 9）で 切る: x の 向きの 座標が どちらの マスか で ちがう 材料に する
+                if split and 0 in o:
+                    xa = o.index(0)
+                    mask = {k: (v, (k[xa] >= N)) for k, v in mask.items()}
+                while mask:
+                    (a, b) = min(mask)
+                    m = mask[(a, b)]
+                    w = 1
+                    while mask.get((a, b + w)) == m:
+                        w += 1
+                    h = 1
+                    while all(mask.get((a + h, b + k)) == m for k in range(w)):
+                        h += 1
+                    for i in range(h):
+                        for k in range(w):
+                            mask.pop((a + i, b + k))
+                    quads += 1
+    return quads * 2
