@@ -31,6 +31,7 @@
 | 畜産 3: お肉をやいて食べる | `LIVE-3.md` | LIVE-2 | — |
 | 畜産 4: マッチョといっしょに戦う | `LIVE-4.md` | LIVE-1〜3 | — |
 | 金の装備・なつき度・はらぱんみみず | `GOLD-1.md` | — | `ITEM-REGISTRY.md`（値の置き場所） |
+| こんごう（ダイヤ）の装備 ★6 | `KONGO-1.md` | GOLD-1・MINE-1・RARITY-7 | `ITEM-REGISTRY.md`（値の置き場所） |
 | 忍者の防具 | `NINJA-1.md` | — | — |
 | 侍の防具 | `SAMURAI-1.md` | NINJA-1 | — |
 | 弓矢と刀の作り直し | `WEAPON-2.md` | M4 | `WEAPON-3.md`・`WEAPON-4.md` |
