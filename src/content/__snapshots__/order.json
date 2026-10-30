@@ -400,7 +400,11 @@
       "kin_kabuto",
       "kin_yoroi",
       "kin_kote",
-      "kin_suneate"
+      "kin_suneate",
+      "kongo_kabuto",
+      "kongo_yoroi",
+      "kongo_kote",
+      "kongo_suneate"
     ],
     "build": [
       "kawara",
@@ -444,7 +448,8 @@
     "metal": [
       "iron_ingot",
       "crystal",
-      "kin"
+      "kin",
+      "diamond"
     ],
     "ore": [
       "coal_ore",
@@ -492,6 +497,8 @@
       "mushi_ami",
       "kin_pickaxe",
       "kin_axe",
+      "kongo_pickaxe",
+      "kongo_axe",
       "mizumori",
       "dotsuki"
     ],
@@ -506,7 +513,9 @@
       "yumi",
       "ya",
       "kin_katana",
-      "kin_yumi"
+      "kin_yumi",
+      "kongo_katana",
+      "kongo_yumi"
     ]
   },
   "CRAFT_RECIPES": [
@@ -554,6 +563,14 @@
     "kin_yoroi",
     "kin_kote",
     "kin_suneate",
+    "kongo_katana",
+    "kongo_yumi",
+    "kongo_pickaxe",
+    "kongo_axe",
+    "kongo_kabuto",
+    "kongo_yoroi",
+    "kongo_kote",
+    "kongo_suneate",
     "torch_coal",
     "torch_log"
   ],
@@ -773,6 +790,7 @@
     "raijin_ken",
     "fujin_ken",
     "niji",
+    "harapan_mimizu",
     "kin",
     "kin_katana",
     "kin_yumi",
@@ -782,7 +800,15 @@
     "kin_yoroi",
     "kin_kote",
     "kin_suneate",
-    "harapan_mimizu",
+    "diamond",
+    "kongo_katana",
+    "kongo_yumi",
+    "kongo_pickaxe",
+    "kongo_axe",
+    "kongo_kabuto",
+    "kongo_yoroi",
+    "kongo_kote",
+    "kongo_suneate",
     "mizumori",
     "dotsuki"
   ],

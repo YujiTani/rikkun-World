@@ -133,7 +133,7 @@ describe('ストリーミングのメッシュ', () => {
     run();
     expect(r.sectionInfo(-4, 0, 0).meshes).toBe(0);
     expect(w.column(-4, 0)).toBeUndefined();
-  });
+  }, 20_000); // ひとりで約 3 秒。CI で全部を並べて回すと 5 秒をこえることがある（ミリ秒）
 
   it('プレイヤーが変えた所は 先に作り直す (距離 −1)', () => {
     const { w, r, stream, view, run } = make();

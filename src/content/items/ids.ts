@@ -6,6 +6,7 @@
 
 /** 金シリーズ（GOLD-1 #222）: きん・きんの そうび 8 こ・はらぱんみみず */
 export const GOLD_IDS = [
+  'harapan_mimizu', // こんごうの そうびを 金の そうびの すぐ うしろに ならべる ため、そうびの 前に 置く（KONGO-1）
   'kin',
   'kin_katana',
   'kin_yumi',
@@ -15,9 +16,27 @@ export const GOLD_IDS = [
   'kin_yoroi',
   'kin_kote',
   'kin_suneate',
-  'harapan_mimizu',
 ] as const;
 export type GoldId = (typeof GOLD_IDS)[number];
+
+/**
+ * こんごうシリーズ（KONGO-1）: ダイヤ（材料。炭鉱 MINE-1B と そろえた id）・こんごうの そうび 8 こ（金と 同じ 順）
+ */
+export const KONGO_IDS = [
+  'diamond',
+  'kongo_katana',
+  'kongo_yumi',
+  'kongo_pickaxe',
+  'kongo_axe',
+  'kongo_kabuto',
+  'kongo_yoroi',
+  'kongo_kote',
+  'kongo_suneate',
+] as const;
+export type KongoId = (typeof KONGO_IDS)[number];
+
+/** ゆみ（や を とばす 物）か。ゆみ・きんの ゆみ・こんごうの ゆみ … 名前が「ゆみ」で おわる ゆみの なかま（手に持つ形・ひく ポーズ・弓の 種類の 見分け） */
+export const isBowItem = (item: string | null | undefined): boolean => item === 'yumi' || (item?.endsWith('_yumi') ?? false);
 
 /** 忍者シリーズ（NINJA-1 #299）: 忍者装備 4 つ（あたま・からだ・うで・あし の じゅん） */
 export const NINJA_ITEM_IDS = ['ninja_zukin', 'ninja_shozoku', 'ninja_tekko', 'ninja_tabi'] as const;

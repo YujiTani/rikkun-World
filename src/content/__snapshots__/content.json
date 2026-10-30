@@ -766,6 +766,63 @@
           "works": true
         },
         {
+          "id": "kongo_katana",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "diamond"
+            },
+            {
+              "count": 1,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kongo_katana"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "kongo_pickaxe",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "diamond"
+            },
+            {
+              "count": 2,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kongo_pickaxe"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "kongo_axe",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "diamond"
+            },
+            {
+              "count": 2,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kongo_axe"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
           "id": "torch_coal",
           "inputs": [
             {
@@ -1303,6 +1360,67 @@
           },
           "station": "craft",
           "works": true
+        },
+        {
+          "id": "kongo_yumi",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "diamond"
+            },
+            {
+              "count": 3,
+              "item": "string"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kongo_yumi"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "kongo_yoroi",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "diamond"
+            },
+            {
+              "count": 2,
+              "item": "string"
+            },
+            {
+              "count": 2,
+              "item": "cloth"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kongo_yoroi"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "kongo_suneate",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "diamond"
+            },
+            {
+              "count": 1,
+              "item": "string"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kongo_suneate"
+          },
+          "station": "craft",
+          "works": true
         }
       ]
     },
@@ -1485,6 +1603,67 @@
           "output": {
             "count": 1,
             "item": "kin_kote"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "kongo_kabuto",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "diamond"
+            },
+            {
+              "count": 1,
+              "item": "cloth"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kongo_kabuto"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "kongo_yoroi",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "diamond"
+            },
+            {
+              "count": 2,
+              "item": "string"
+            },
+            {
+              "count": 2,
+              "item": "cloth"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kongo_yoroi"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "kongo_kote",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "diamond"
+            },
+            {
+              "count": 1,
+              "item": "cloth"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kongo_kote"
           },
           "station": "craft",
           "works": true
@@ -4321,6 +4500,23 @@
       "rarity": "legendary",
       "recipes": []
     },
+    "harapan_mimizu": {
+      "ITEM_INFO.harapan_mimizu": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "もって なかま の おとな の にわとり に みぎクリック",
+        "use": "なかま の にわとり に あげる と なかよし が いっぱい に なる"
+      },
+      "category": "plant",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "はらぱんみみず",
+      "placeBlock": null,
+      "rarity": "epic",
+      "recipes": []
+    },
     "kin": {
       "ITEM_INFO.kin": {
         "buttons": [
@@ -4907,22 +5103,549 @@
         }
       ]
     },
-    "harapan_mimizu": {
-      "ITEM_INFO.harapan_mimizu": {
+    "diamond": {
+      "ITEM_INFO.diamond": {
+        "buttons": [
+          "E"
+        ],
+        "how": "E の つくる で つかう",
+        "use": "こんごう の そうび の ざいりょう"
+      },
+      "category": "metal",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "ダイヤ",
+      "placeBlock": null,
+      "rarity": "mythic",
+      "recipes": [
+        {
+          "id": "kongo_katana",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "diamond"
+            },
+            {
+              "count": 1,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kongo_katana"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "kongo_yumi",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "diamond"
+            },
+            {
+              "count": 3,
+              "item": "string"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kongo_yumi"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "kongo_pickaxe",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "diamond"
+            },
+            {
+              "count": 2,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kongo_pickaxe"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "kongo_axe",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "diamond"
+            },
+            {
+              "count": 2,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kongo_axe"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "kongo_kabuto",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "diamond"
+            },
+            {
+              "count": 1,
+              "item": "cloth"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kongo_kabuto"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "kongo_yoroi",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "diamond"
+            },
+            {
+              "count": 2,
+              "item": "string"
+            },
+            {
+              "count": 2,
+              "item": "cloth"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kongo_yoroi"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "kongo_kote",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "diamond"
+            },
+            {
+              "count": 1,
+              "item": "cloth"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kongo_kote"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "kongo_suneate",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "diamond"
+            },
+            {
+              "count": 1,
+              "item": "string"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kongo_suneate"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "kongo_katana": {
+      "BLADES": true,
+      "BLADE_ITEMS": true,
+      "BLADE_TRAIL_ITEMS": true,
+      "ITEM_INFO.kongo_katana": {
+        "buttons": [
+          "1-9",
+          "left"
+        ],
+        "how": "えらんで、ようかい に むけて ひだりクリック。R で かまえ を かえると わざ が かわる",
+        "stats": "blade",
+        "use": "ようかい を いちばん つよく たたく"
+      },
+      "TOOL_DEFAULTS.weaponDamage.kongo_katana": 7,
+      "TOOL_NUMBERS.weaponDamage.kongo_katana": 7,
+      "W2.bladeReach.kongo_katana": 2.2,
+      "W2.bladeTrail.kongo_katana": {
+        "blade": 8050928,
+        "bladeShine": 14220287,
+        "color": 8050928,
+        "glow": 14220287,
+        "style": "gold",
+        "under": 1710656
+      },
+      "W2.toolDurability.kongo_katana": 1500,
+      "category": "weapon",
+      "durabilityClass": "durable",
+      "maxStack": 1,
+      "name": "こんごうの かたな",
+      "placeBlock": null,
+      "rarity": "mythic",
+      "recipes": [
+        {
+          "id": "kongo_katana",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "diamond"
+            },
+            {
+              "count": 1,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kongo_katana"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "kongo_yumi": {
+      "ITEM_INFO.kongo_yumi": {
+        "buttons": [
+          "1-9",
+          "left"
+        ],
+        "how": "えらんで ひだりクリック を おしつづけて ながく ひく。はなすと とぶ",
+        "stats": "bow",
+        "use": "や を とばして とおく の ようかい を たおす。や が いる"
+      },
+      "W2.bowDamageByItem.kongo_yumi": [
+        3,
+        4,
+        7
+      ],
+      "W2.toolDurability.kongo_yumi": 1500,
+      "category": "weapon",
+      "durabilityClass": "durable",
+      "maxStack": 1,
+      "name": "こんごうの ゆみ",
+      "placeBlock": null,
+      "rarity": "mythic",
+      "recipes": [
+        {
+          "id": "kongo_yumi",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "diamond"
+            },
+            {
+              "count": 3,
+              "item": "string"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kongo_yumi"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "kongo_pickaxe": {
+      "ITEM_INFO.kongo_pickaxe": {
+        "buttons": [
+          "1-9",
+          "leftHold"
+        ],
+        "how": "えらんで、ブロック に むけて ひだりクリック を おしつづける",
+        "stats": "pickaxe",
+        "use": "いちばん はやく ほれる。ダイヤ も ほれる"
+      },
+      "TOOL_DEFAULTS.toolLevel.kongo_pickaxe": 2,
+      "TOOL_DEFAULTS.toolPower.kongo_pickaxe": 8,
+      "TOOL_DEFAULTS.weaponDamage.kongo_pickaxe": 6,
+      "TOOL_NUMBERS.toolLevel.kongo_pickaxe": 2,
+      "TOOL_NUMBERS.toolPower.kongo_pickaxe": 8,
+      "TOOL_NUMBERS.weaponDamage.kongo_pickaxe": 6,
+      "W2.toolDurability.kongo_pickaxe": 1500,
+      "category": "tool",
+      "durabilityClass": "durable",
+      "maxStack": 1,
+      "name": "こんごうの つるはし",
+      "placeBlock": null,
+      "rarity": "mythic",
+      "recipes": [
+        {
+          "id": "kongo_pickaxe",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "diamond"
+            },
+            {
+              "count": 2,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kongo_pickaxe"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "kongo_axe": {
+      "ITEM_INFO.kongo_axe": {
+        "buttons": [
+          "1-9",
+          "leftHold"
+        ],
+        "how": "えらんで、ブロック に むけて ひだりクリック を おしつづける",
+        "stats": "pickaxe",
+        "use": "いちばん はやく き を きれる"
+      },
+      "TOOL_DEFAULTS.toolLevel.kongo_axe": 0,
+      "TOOL_DEFAULTS.toolPower.kongo_axe": 8,
+      "TOOL_DEFAULTS.weaponDamage.kongo_axe": 6,
+      "TOOL_NUMBERS.toolLevel.kongo_axe": 0,
+      "TOOL_NUMBERS.toolPower.kongo_axe": 8,
+      "TOOL_NUMBERS.weaponDamage.kongo_axe": 6,
+      "W2.toolDurability.kongo_axe": 1500,
+      "category": "tool",
+      "durabilityClass": "durable",
+      "maxStack": 1,
+      "name": "こんごうの おの",
+      "placeBlock": null,
+      "rarity": "mythic",
+      "recipes": [
+        {
+          "id": "kongo_axe",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "diamond"
+            },
+            {
+              "count": 2,
+              "item": "log"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kongo_axe"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "kongo_kabuto": {
+      "ARMOR_SLOT_OF.kongo_kabuto": "head",
+      "CRAFT_DEFAULTS.armorValue.kongo_kabuto": {
+        "ball": 4,
+        "fall": 0,
+        "normal": 0
+      },
+      "ITEM_INFO.kongo_kabuto": {
         "buttons": [
           "1-9",
           "right"
         ],
-        "how": "もって なかま の おとな の にわとり に みぎクリック",
-        "use": "なかま の にわとり に あげる と なかよし が いっぱい に なる"
+        "how": "ダブルクリック か、てに もって みぎクリック で きる。E の そうび の マス に いれても よい",
+        "stats": "armor",
+        "use": "ようかい の ひのたま を へらす（あたま）"
       },
-      "category": "plant",
-      "durabilityClass": "consumable",
-      "maxStack": 64,
-      "name": "はらぱんみみず",
+      "W2.toolDurability.kongo_kabuto": 1500,
+      "category": "armor",
+      "durabilityClass": "durable",
+      "maxStack": 1,
+      "name": "こんごうの かぶと",
       "placeBlock": null,
-      "rarity": "epic",
-      "recipes": []
+      "rarity": "mythic",
+      "recipes": [
+        {
+          "id": "kongo_kabuto",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "diamond"
+            },
+            {
+              "count": 1,
+              "item": "cloth"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kongo_kabuto"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "kongo_yoroi": {
+      "ARMOR_SLOT_OF.kongo_yoroi": "body",
+      "CRAFT_DEFAULTS.armorValue.kongo_yoroi": {
+        "ball": 0,
+        "fall": 0,
+        "normal": 4
+      },
+      "ITEM_INFO.kongo_yoroi": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "ダブルクリック か、てに もって みぎクリック で きる。E の そうび の マス に いれても よい",
+        "stats": "armor",
+        "use": "ようかい の こうげき を へらす（からだ）"
+      },
+      "W2.toolDurability.kongo_yoroi": 1500,
+      "category": "armor",
+      "durabilityClass": "durable",
+      "maxStack": 1,
+      "name": "こんごうの よろい",
+      "placeBlock": null,
+      "rarity": "mythic",
+      "recipes": [
+        {
+          "id": "kongo_yoroi",
+          "inputs": [
+            {
+              "count": 3,
+              "item": "diamond"
+            },
+            {
+              "count": 2,
+              "item": "string"
+            },
+            {
+              "count": 2,
+              "item": "cloth"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kongo_yoroi"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "kongo_kote": {
+      "ARMOR_SLOT_OF.kongo_kote": "arms",
+      "CRAFT_DEFAULTS.armorValue.kongo_kote": {
+        "ball": 0,
+        "fall": 0,
+        "normal": 3
+      },
+      "ITEM_INFO.kongo_kote": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "ダブルクリック か、てに もって みぎクリック で きる。E の そうび の マス に いれても よい",
+        "stats": "armor",
+        "use": "ようかい の こうげき を へらす（うで）"
+      },
+      "W2.toolDurability.kongo_kote": 1500,
+      "category": "armor",
+      "durabilityClass": "durable",
+      "maxStack": 1,
+      "name": "こんごうの こて",
+      "placeBlock": null,
+      "rarity": "mythic",
+      "recipes": [
+        {
+          "id": "kongo_kote",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "diamond"
+            },
+            {
+              "count": 1,
+              "item": "cloth"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kongo_kote"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "kongo_suneate": {
+      "ARMOR_SLOT_OF.kongo_suneate": "legs",
+      "CRAFT_DEFAULTS.armorValue.kongo_suneate": {
+        "ball": 0,
+        "fall": 4,
+        "normal": 0
+      },
+      "ITEM_INFO.kongo_suneate": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "ダブルクリック か、てに もって みぎクリック で きる。E の そうび の マス に いれても よい",
+        "stats": "armor",
+        "use": "たかい ところ から おちた いたみ を へらす（あし）"
+      },
+      "W2.toolDurability.kongo_suneate": 1500,
+      "category": "armor",
+      "durabilityClass": "durable",
+      "maxStack": 1,
+      "name": "こんごうの すねあて",
+      "placeBlock": null,
+      "rarity": "mythic",
+      "recipes": [
+        {
+          "id": "kongo_suneate",
+          "inputs": [
+            {
+              "count": 2,
+              "item": "diamond"
+            },
+            {
+              "count": 1,
+              "item": "string"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kongo_suneate"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
     },
     "mizumori": {
       "ITEM_INFO.mizumori": {

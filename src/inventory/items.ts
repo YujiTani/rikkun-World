@@ -1,5 +1,5 @@
 import type { ItemType } from '../contracts';
-import { ARMOR_DEFS, BOW_DEFS, BUCKET_DEFS, FARM_TOOL_DEFS, GADGET_DEFS, GEYSER_DEFS, GOLD_DEFS, HOUSE_TOOL_DEFS, INGOT_DEFS, LEGEND_DEFS, LIVE_DEFS, M4_BLOCK_DEFS, MATERIAL_DEFS, NINJA_SAMURAI_DEFS, PLACEABLE_DEFS, SEED_DEFS, SPRINKLER_DEFS, SWORD_DEFS, TOOL_DEFS, VEG_DEFS, VOX_I_DEFS, itemTypesOf } from '../content/items/registry';
+import { ARMOR_DEFS, BOW_DEFS, BUCKET_DEFS, FARM_TOOL_DEFS, GADGET_DEFS, GEYSER_DEFS, GOLD_DEFS, HOUSE_TOOL_DEFS, INGOT_DEFS, KONGO_DEFS, LEGEND_DEFS, LIVE_DEFS, M4_BLOCK_DEFS, MATERIAL_DEFS, NINJA_SAMURAI_DEFS, PLACEABLE_DEFS, SEED_DEFS, SPRINKLER_DEFS, SWORD_DEFS, TOOL_DEFS, VEG_DEFS, VOX_I_DEFS, itemTypesOf } from '../content/items/registry';
 
 export const INVENTORY_SIZE = 36;
 export const HOTBAR_SIZE = 9;
@@ -38,7 +38,9 @@ export const ITEM_TYPES: readonly ItemType[] = [
   ...itemTypesOf(LEGEND_DEFS),
   // GOLD-1（#222）: きん・きんの そうび 8 こ・はらぱんみみず は 登録表（content/items/gold.ts）から
   ...itemTypesOf(GOLD_DEFS),
-  // HOUSE-1A（#338）: みずもり・どうづき（建築士さんが くれる）は 登録表（content/items/house.ts）から
+  // KONGO-1: ダイヤ・こんごうの そうび 8 こ（金の すぐ うしろ）は 登録表（content/items/kongo.ts）から
+  ...itemTypesOf(KONGO_DEFS),
+  // HOUSE-1A（#338）: みずもり・どうづき（建築士さんが くれる 道具）は 登録表（content/items/house.ts）から
   ...itemTypesOf(HOUSE_TOOL_DEFS),
 ];
 

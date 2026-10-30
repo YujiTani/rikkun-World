@@ -40,7 +40,7 @@ describe('足し忘れ防止', () => {
   });
 
   it('刀の集まり: BLADE_LIKE_ITEMS = BLADE_ITEMS + なぎなた', () => {
-    expect(BLADE_ITEMS.size).toBe(7);
+    expect(BLADE_ITEMS.size).toBe(8);
     expect(BLADE_ITEMS.has('naginata')).toBe(false);
     expect([...BLADE_LIKE_ITEMS].sort()).toEqual([...BLADE_ITEMS, 'naginata'].sort());
   });

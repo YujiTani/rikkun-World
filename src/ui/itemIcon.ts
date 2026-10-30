@@ -9,6 +9,7 @@ import { isLive3Item, live3ItemPixels } from './itemArtLive3';
 import { isW7Item, w7ItemPixels } from './itemArtW7';
 import { goldItemPixels, isGoldItem } from './itemArtGold';
 import { houseToolPixels, isHouseToolItem } from './itemArtHouse';
+import { isKongoItem, kongoItemPixels } from './itemArtKongo';
 import { isNinjaItem, ninjaItemPixels } from './itemArtNinja';
 import { isSamuraiItem, samuraiItemPixels } from './itemArtSamurai';
 import { bucketItemPixels, isBucketItem } from './bucketArt';
@@ -38,6 +39,7 @@ export function itemIconPixels(item: ItemId): Pixels {
   if (item === 'kin_tamago') return kinTamagoPixels();
   if (isGoldItem(item)) return goldItemPixels(item);
   if (isHouseToolItem(item)) return houseToolPixels(item); // HOUSE-1A: 仮の 絵
+  if (isKongoItem(item)) return kongoItemPixels(item);
   if (isLive3Item(item)) return live3ItemPixels(item);
   if (isW7Item(item)) return w7ItemPixels(item);
   if (isM7Item(item)) return m7ItemPixels(item);

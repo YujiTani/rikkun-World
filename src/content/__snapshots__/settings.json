@@ -69,6 +69,26 @@
         "fall": 0,
         "normal": 3
       },
+      "kongo_kabuto": {
+        "ball": 4,
+        "fall": 0,
+        "normal": 0
+      },
+      "kongo_kote": {
+        "ball": 0,
+        "fall": 0,
+        "normal": 3
+      },
+      "kongo_suneate": {
+        "ball": 0,
+        "fall": 4,
+        "normal": 0
+      },
+      "kongo_yoroi": {
+        "ball": 0,
+        "fall": 0,
+        "normal": 4
+      },
       "kote": {
         "ball": 0,
         "fall": 0,
@@ -413,6 +433,7 @@
       "coal_ore": "uncommon",
       "crystal": "superRare",
       "crystal_katana": "superRare",
+      "diamond": "mythic",
       "dirt": "common",
       "dotsuki": "common",
       "egg": "common",
@@ -445,6 +466,14 @@
       "kin_yoroi": "epic",
       "kin_yumi": "epic",
       "kite": "uncommon",
+      "kongo_axe": "mythic",
+      "kongo_kabuto": "mythic",
+      "kongo_katana": "mythic",
+      "kongo_kote": "mythic",
+      "kongo_pickaxe": "mythic",
+      "kongo_suneate": "mythic",
+      "kongo_yoroi": "mythic",
+      "kongo_yumi": "mythic",
       "kote": "rare",
       "kuwa": "common",
       "lantern": "uncommon",
@@ -721,6 +750,8 @@
       "iron_pickaxe": 2,
       "kin_axe": 0,
       "kin_pickaxe": 2,
+      "kongo_axe": 0,
+      "kongo_pickaxe": 2,
       "stone_axe": 0,
       "stone_pickaxe": 1,
       "wood_axe": 0,
@@ -731,6 +762,8 @@
       "iron_pickaxe": 6,
       "kin_axe": 6,
       "kin_pickaxe": 6,
+      "kongo_axe": 8,
+      "kongo_pickaxe": 8,
       "kuwa": 4,
       "stone_axe": 4,
       "stone_pickaxe": 4,
@@ -744,6 +777,9 @@
       "kin_axe": 5,
       "kin_katana": 5,
       "kin_pickaxe": 5,
+      "kongo_axe": 6,
+      "kongo_katana": 7,
+      "kongo_pickaxe": 6,
       "naginata": 3
     },
     "weaponReach": {
@@ -996,6 +1032,7 @@
       "fujin_ken": 2.2,
       "katana": 2.2,
       "kin_katana": 2.2,
+      "kongo_katana": 2.2,
       "niji": 2.2,
       "raijin_ken": 2.2
     },
@@ -1072,6 +1109,14 @@
         "glow": 16773300,
         "style": "gold",
         "under": 2761272
+      },
+      "kongo_katana": {
+        "blade": 8050928,
+        "bladeShine": 14220287,
+        "color": 8050928,
+        "glow": 14220287,
+        "style": "gold",
+        "under": 1710656
       },
       "naginata": {
         "blade": 12111072,
@@ -1161,6 +1206,11 @@
         2,
         3,
         5
+      ],
+      "kongo_yumi": [
+        3,
+        4,
+        7
       ]
     },
     "bowKnock": [
@@ -1353,6 +1403,14 @@
       "kin_suneate": 500,
       "kin_yoroi": 500,
       "kin_yumi": 500,
+      "kongo_axe": 1500,
+      "kongo_kabuto": 1500,
+      "kongo_katana": 1500,
+      "kongo_kote": 1500,
+      "kongo_pickaxe": 1500,
+      "kongo_suneate": 1500,
+      "kongo_yoroi": 1500,
+      "kongo_yumi": 1500,
       "kote": 225,
       "kuwa": 131,
       "naginata": 250,

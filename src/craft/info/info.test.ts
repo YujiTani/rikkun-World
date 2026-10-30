@@ -72,7 +72,7 @@ describe('つよさ は設定から（U7〜U10）', () => {
   it('katana: AC4 の形。設定を変えると数も変わる', () => {
     const a = make().info('katana');
     expect(a.stats.map(({ key, value, max }) => ({ key, value, max }))).toEqual([
-      { key: 'damage', value: 4, max: 6 },
+      { key: 'damage', value: 4, max: 8 },
       { key: 'reach', value: 2.2, max: undefined }, // WEAPON-4: 刀の 射程 bladeReach
       { key: 'speed', value: 'ふつう', max: undefined },
       { key: 'durability', value: 250, max: undefined },

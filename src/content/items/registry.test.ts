@@ -13,7 +13,7 @@ import { goldItemPixels, isGoldItem } from '../../ui/itemArtGold';
 import { isNinjaItem, ninjaItemPixels } from '../../ui/itemArtNinja';
 import { isSamuraiItem, samuraiItemPixels } from '../../ui/itemArtSamurai';
 import { NINJA_TUNING } from '../../craft/ninjaTuning';
-import { ARMOR_ITEM_IDS, BOW_IDS, FARM_BUCKET_IDS, FARM_TOOL_IDS, GADGET_IDS, GOLD_IDS, HOUSE_TOOL_IDS, INGOT_IDS, LEGEND_IDS, LIVE_ITEM_IDS, MATERIAL_ITEM_IDS, NINJA_ITEM_IDS, ORB_IDS, SAMURAI_ITEM_IDS, SEED_ITEM_IDS, SWORD_IDS, TOOL_ITEM_IDS, VEG_ITEM_IDS, type GoldId } from './ids';
+import { ARMOR_ITEM_IDS, BOW_IDS, FARM_BUCKET_IDS, FARM_TOOL_IDS, GADGET_IDS, GOLD_IDS, HOUSE_TOOL_IDS, INGOT_IDS, KONGO_IDS, LEGEND_IDS, LIVE_ITEM_IDS, MATERIAL_ITEM_IDS, NINJA_ITEM_IDS, ORB_IDS, SAMURAI_ITEM_IDS, SEED_ITEM_IDS, SWORD_IDS, TOOL_ITEM_IDS, VEG_ITEM_IDS, type GoldId } from './ids';
 import { itemIconPixels } from '../../ui/itemIcon';
 import { BLOCK_TYPES } from '../../world/blocks/blockTypes';
 import { getTilePixels } from '../../world/blocks/textures';
@@ -22,6 +22,7 @@ import { GEYSER, M4_BLOCKS, PLACEABLE, VOX_I } from './blocks';
 import { BUCKETS, FARM_TOOLS, SEEDS, SPRINKLER, VEGGIES } from './farm';
 import { GOLD } from './gold';
 import { HOUSE_TOOLS } from './house';
+import { KONGO } from './kongo';
 import { KOTATSU, LIVE } from './live';
 import { INGOT, MATERIALS, ORB } from './materials';
 import { GADGETS } from './misc';
@@ -97,7 +98,7 @@ describe('登録表（金シリーズ）', () => {
   it('金の全 id に ItemDef がある（10 個・id は ids.ts の 1 回だけ）', () => {
     expect(GOLD_IDS).toHaveLength(10);
     for (const id of GOLD_IDS) expect(itemDef(id), id).toBeDefined();
-    expect(Object.keys(ITEM_DEFS).sort()).toEqual([...GOLD_IDS, ...LEGEND_IDS, ...NINJA_ITEM_IDS, ...SAMURAI_ITEM_IDS, ...GEAR_IDS, ...FARM_IDS, ...ORB_IDS, ...MATERIAL_ITEM_IDS, ...INGOT_IDS, ...GADGET_IDS, ...LIVE_ITEM_IDS, ...HOUSE_TOOL_IDS, 'nukunuku', ...BLOCK_ITEM_IDS].sort());
+    expect(Object.keys(ITEM_DEFS).sort()).toEqual([...GOLD_IDS, ...KONGO_IDS, ...LEGEND_IDS, ...NINJA_ITEM_IDS, ...SAMURAI_ITEM_IDS, ...GEAR_IDS, ...FARM_IDS, ...ORB_IDS, ...MATERIAL_ITEM_IDS, ...INGOT_IDS, ...GADGET_IDS, ...LIVE_ITEM_IDS, ...HOUSE_TOOL_IDS, 'nukunuku', ...BLOCK_ITEM_IDS].sort());
     expect(Object.keys(EXPECT).sort()).toEqual([...GOLD_IDS].sort());
   });
 
@@ -117,7 +118,7 @@ describe('登録表（金シリーズ）', () => {
   });
 
   it('同じ id が 2 つの シリーズに 入っていない（シリーズごとの 数の 合計 = ITEM_DEFS の 数）', () => {
-    const series = [PLACEABLE, M4_BLOCKS, GEYSER, VOX_I, TOOLS, SWORDS, BOWS, ARMOR_DEFS_RAW, NINJA, SAMURAI, SEEDS, VEGGIES, FARM_TOOLS, SPRINKLER, BUCKETS, ORB, MATERIALS, INGOT, GADGETS, LIVE, KOTATSU, LEGEND, GOLD, HOUSE_TOOLS];
+    const series = [PLACEABLE, M4_BLOCKS, GEYSER, VOX_I, TOOLS, SWORDS, BOWS, ARMOR_DEFS_RAW, NINJA, SAMURAI, SEEDS, VEGGIES, FARM_TOOLS, SPRINKLER, BUCKETS, ORB, MATERIALS, INGOT, GADGETS, LIVE, KOTATSU, LEGEND, GOLD, KONGO, HOUSE_TOOLS];
     expect(series.reduce((n, d) => n + Object.keys(d).length, 0)).toBe(Object.keys(ITEM_DEFS).length);
   });
 
@@ -164,9 +165,9 @@ describe('登録表（金シリーズ）', () => {
     expect(row.stats).toBe(e.stats);
   });
 
-  it('ITEM_TYPES: 金の 10 個は この順で ならぶ（そのあとは あたらしい シリーズ）', () => {
-    const i = ITEM_TYPES.findIndex((t) => t.id === GOLD_IDS[0]);
-    expect(ITEM_TYPES.slice(i, i + GOLD_IDS.length).map((t) => t.id)).toEqual([...GOLD_IDS]);
+  it('ITEM_TYPES: 金の 10 個は こんごうの 9 個の すぐ前に この順で ならぶ（KONGO-1）', () => {
+    const k = ITEM_TYPES.findIndex((t) => t.id === KONGO_IDS[0]);
+    expect(ITEM_TYPES.slice(k - GOLD_IDS.length, k).map((t) => t.id)).toEqual([...GOLD_IDS]);
   });
 
   it('耐久: 金の装備 8 個は 500、きん・みみずは 耐久なし（へる 物）', () => {
@@ -214,10 +215,10 @@ describe('登録表（金シリーズ）', () => {
     const w = W2_SETTING_DEFAULTS;
     expect(w.bladeReach.kin_katana).toBe(2.2);
     expect(w.bladeTrail.kin_katana).toEqual({ color: 0xf2b938, glow: 0xfff0b4, blade: 0xebb840, bladeShine: 0xfff0b4, style: 'gold', under: 0x2a2238 });
-    expect(w.bowDamageByItem).toEqual({ kin_yumi: [2, 3, 5] });
+    expect(w.bowDamageByItem).toEqual({ kin_yumi: [2, 3, 5], kongo_yumi: [3, 4, 7] });
     expect(BLADE_ITEMS.has('kin_katana')).toBe(true);
-    expect(BLADE_ITEMS.size).toBe(7);
-    expect(BLADE_LIKE_ITEMS.size).toBe(8);
+    expect(BLADE_ITEMS.size).toBe(8); // KONGO-1: こんごうの かたなが ふえた
+    expect(BLADE_LIKE_ITEMS.size).toBe(9);
     for (const id of ['kin_yumi', 'kin_pickaxe', 'kin_axe']) expect(BLADE_ITEMS.has(id as GoldId), id).toBe(false);
   });
 
@@ -225,7 +226,8 @@ describe('登録表（金シリーズ）', () => {
     const ids = CRAFT_RECIPES.map((r) => r.id);
     const from = ids.indexOf('toriya') + 1;
     expect(ids.slice(from, from + 8)).toEqual(CRAFTS.map(([id]) => id));
-    expect(ids[from + 8]).toBe(TORCH_COAL);
+    expect(ids[from + 8]).toBe('kongo_katana'); // KONGO-1: 金の すぐ うしろに こんごうの 8 つ
+    expect(ids[from + 16]).toBe(TORCH_COAL);
     for (const [id, inputs] of CRAFTS) {
       const r = CRAFT_RECIPES.find((x) => x.id === id)!;
       expect(r).toEqual({ id, output: { item: id, count: 1 }, inputs: inputs.map(([item, count]) => ({ item, count })), works: true, station: 'craft' });
@@ -371,13 +373,13 @@ describe('登録表（レジェンダリー武器）', () => {
     }
   });
 
-  it('ITEM_TYPES: 3 つは 金の 10 個の すぐ前。武器の 色分けは crystal_katana の 次', () => {
+  it('ITEM_TYPES: 3 つは 金の 10 個の すぐ前（その うしろに こんごうの 9 個）。武器の 色分けは crystal_katana の 次', () => {
     const g = ITEM_TYPES.findIndex((t) => t.id === GOLD_IDS[0]);
-    expect(ITEM_TYPES.slice(g - 3, g).map((t) => t.id)).toEqual([...LEGEND_IDS]);
+    expect(ITEM_TYPES.slice(g - LEGEND_IDS.length, g).map((t) => t.id)).toEqual([...LEGEND_IDS]);
     const w = CATEGORY_ITEMS.weapon;
     const i = w.indexOf('crystal_katana');
     expect(w.slice(i + 1, i + 4)).toEqual([...LEGEND_IDS]);
-    expect(w.slice(i + 4)).toEqual(['yumi', 'ya', 'kin_katana', 'kin_yumi']);
+    expect(w.slice(i + 4)).toEqual(['yumi', 'ya', 'kin_katana', 'kin_yumi', 'kongo_katana', 'kongo_yumi']);
   });
 
   it('ヌシの ドロップ表: 先頭 3 行が レジェンダリー（weight 1）', () => {
@@ -466,13 +468,13 @@ describe('登録表（ふつうの 道具・武器・防具）', () => {
 
   it('刀: 届く長さ・軌跡。なぎなたは 軌跡だけ（BLADE_ITEMS に 入らず BLADE_LIKE_ITEMS に 入る）。並びは 今のまま', () => {
     const w = W2_SETTING_DEFAULTS;
-    expect(w.bladeReach).toEqual({ bokuto: 2.2, katana: 2.2, crystal_katana: 2.2, raijin_ken: 2.2, fujin_ken: 2.2, niji: 2.2, kin_katana: 2.2 });
+    expect(w.bladeReach).toEqual({ bokuto: 2.2, katana: 2.2, crystal_katana: 2.2, raijin_ken: 2.2, fujin_ken: 2.2, niji: 2.2, kin_katana: 2.2, kongo_katana: 2.2 });
     expect(w.bladeTrail.bokuto).toEqual({ color: 0x9c6b3a, glow: 0xe8c08a, blade: 0xb98b54, bladeShine: 0xe0bc86, style: 'plain' });
     expect(w.bladeTrail.katana).toEqual({ color: 0xe8f1fa, glow: 0xffffff, blade: 0xc8cdd8, bladeShine: 0xffffff, style: 'plain' });
     expect(w.bladeTrail.crystal_katana).toEqual({ color: 0x7fdcff, glow: 0xe6faff, blade: 0x6fcdf5, bladeShine: 0xe6faff, style: 'star' });
     expect(w.bladeTrail.naginata).toEqual({ color: 0xcfe8ff, glow: 0xffffff, blade: 0xb8cce0, bladeShine: 0xeef6ff, style: 'long' });
     expect(w.bladeReach.naginata).toBeUndefined();
-    expect([...BLADE_ITEMS]).toEqual(['bokuto', 'katana', 'crystal_katana', 'raijin_ken', 'fujin_ken', 'niji', 'kin_katana']);
+    expect([...BLADE_ITEMS]).toEqual(['bokuto', 'katana', 'crystal_katana', 'raijin_ken', 'fujin_ken', 'niji', 'kin_katana', 'kongo_katana']);
     expect([...BLADE_LIKE_ITEMS]).toEqual([...BLADE_ITEMS, 'naginata']);
     // ゆみ は 設定 bowDamage（ゆみごとの 上書きは なし）
     expect(w.bowDamageByItem.yumi).toBeUndefined();
@@ -501,7 +503,7 @@ describe('登録表（ふつうの 道具・武器・防具）', () => {
 
   it('色分け: 道具は くわの 前、武器は 刀 4 → レジェンダリー 3 → ゆみ・や → 金、防具は 忍者・侍・金の 前', () => {
     expect(CATEGORY_ITEMS.tool.slice(0, 7)).toEqual([...TOOL_ITEM_IDS, 'kuwa']);
-    expect(CATEGORY_ITEMS.weapon).toEqual([...SWORD_IDS, ...LEGEND_IDS, ...BOW_IDS, 'kin_katana', 'kin_yumi']);
+    expect(CATEGORY_ITEMS.weapon).toEqual([...SWORD_IDS, ...LEGEND_IDS, ...BOW_IDS, 'kin_katana', 'kin_yumi', 'kongo_katana', 'kongo_yumi']);
     expect(CATEGORY_ITEMS.armor.slice(0, 5)).toEqual([...ARMOR_ITEM_IDS, 'ninja_zukin']);
   });
 
