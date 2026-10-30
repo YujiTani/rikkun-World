@@ -125,17 +125,6 @@
   display: none;
 }
 
-/* 宝石の印: 右上、マスのはしから 2px（ふち 3px の内がわから -1px） */
-.slot-gem {
-  position: absolute;
-  top: -1px;
-  right: -1px;
-  width: var(--rk-sp-4);
-  height: var(--rk-sp-4);
-  image-rendering: pixelated;
-  pointer-events: none;
-}
-
 .slot-key {
   position: absolute;
   left: var(--rk-sp-1);
@@ -179,25 +168,10 @@
 }
 
 /*
- * 5〜7 段目のうごき（RARITY-7 案 A）。どれも ゆっくり・強い点滅なし（1 秒に 1 回より おそい）。
- * 5 段 = 宝石に 小さな きらり（3 秒に 1 回）、6 段 = ふちの まわりが ふんわり光る（2.5 秒）、
+ * 6〜7 段目のうごき（RARITY-7 案 A）。どれも ゆっくり・強い点滅なし（1 秒に 1 回より おそい）。
+ * 6 段 = ふちの まわりが ふんわり光る（2.5 秒）、
  * 7 段 = ふちが にじ色に ゆっくり まわる（8 秒で 1 周）。「うごきを へらす」では 止める。
  */
-.slot[data-rarity='4'] .slot-gem {
-  animation: gem-twinkle 3s ease-in-out infinite;
-}
-@keyframes gem-twinkle {
-  0%,
-  82%,
-  100% {
-    filter: none;
-    transform: none;
-  }
-  91% {
-    filter: brightness(1.7);
-    transform: scale(1.18);
-  }
-}
 .slot[data-rarity='5']::before {
   content: '';
   position: absolute;
@@ -238,7 +212,6 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .slot[data-rarity='4'] .slot-gem,
   .slot[data-rarity='5']::before,
   .slot[data-rarity='6']::before {
     animation: none;
