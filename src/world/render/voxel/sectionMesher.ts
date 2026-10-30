@@ -751,6 +751,7 @@ export class SectionMesher {
               if (l + 1 < ROWS_ALL && g[idx + off] !== 0) continue;
             } else if (g[idx + off] !== 0) continue;
             const t = tf[idx];
+            // 地形のマスの 種類は 6 ビット〔`t & 63`。地面に できるのは 64 番より 前だけ。micro/worldColumns.ts の GROUND が 起動の ときに 見る〕
             // 地形のマス: 種類 + 行の符号（上下の面は 行を使わない）。形のマス: ブロックの種類（つぶの ある 種類は 格子の 値 - 1 = つぶの 印。1 = 地の 石）
             mask[lv * widthU + lu] = (t !== 0 ? (t & 63) | ((f < 2 ? ROW_NONE : t >> 6) << MK_ROW) : key | (ROW_NONE << MK_ROW) | (gk && g[idx] > 1 ? (g[idx] - 1) << MK_GRAIN : 0)) | lk;
             touched = true;

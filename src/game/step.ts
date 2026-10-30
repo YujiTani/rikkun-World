@@ -1,5 +1,6 @@
 // 毎ステップの 本体（main.ts から 移した）。順番は そのまま。まとまりは 最初に 1 回だけ 作る。
 import { isBladeItem } from '../tools/blade/BladeSystem';
+import { STEPS_PER_SECOND } from '../tools/config';
 import { parryGlowLevel } from '../combat/parry';
 import { isParrySound, playParry } from '../fx/parrySounds';
 import { parryCellOf } from '../char/parryCells';
@@ -421,6 +422,7 @@ export function createStep(deps: WiredFrame): (dt: number) => void {
     celebrate.step();
     notice.update(dt);
     const pp = controller.state.position;
+    renderer.setGlowTime(game.tick / STEPS_PER_SECOND); // ほたるいしの いき（一時停止で とまる。スクショが きまる）
     renderer.update({ x: pp.x, z: pp.z });
     save.update(game.tick + 1);
     // #276: このステップの 当たりを まとめて 1 回（ヒットストップ・画面の ゆれ）

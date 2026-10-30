@@ -241,6 +241,11 @@ export class WorldRenderer {
     setRipeMinBrightness(v);
   }
 
+  /** ほたるいしの いきの 時間（ゲームの 秒。一時停止で とまり、コマ送りで 進む）。毎ステップ 呼ぶ */
+  setGlowTime(sec: number): void {
+    updateGlow(sec);
+  }
+
   private markDirty(st: SecState, player: boolean): void {
     st.dirty = true;
     st.gen++;
@@ -277,7 +282,6 @@ export class WorldRenderer {
       this.retier();
     }
     this.light.update();
-    updateGlow(performance.now() / 1000); // ほたるいしの いき（見た目だけ。ゲームの 時間には 関係しない）
     if (!this.attached) return;
     this.syncColumns();
     this.sway.sync();

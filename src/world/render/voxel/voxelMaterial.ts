@@ -168,6 +168,7 @@ const FRAG_BODY = `
       ao = mix(1.0, mix(mix(v00, v10, fa), mix(v01, v11, fa), fb), fk);
     }
   }
+  // 次の 行を かえたら shadow/shadowPatch.ts の 差し込み先も 合わせる（shadowPatchMaterials.test.ts が 見る）
   vec3 lit = c * vShade * ao * vLit;
   if (glowK > 0.0) {
     // 光る つぶ: 自分の 色で 光る（暗い 所でも 見える）。いきは 3×3×3 小ブロックの まとまりごとに ずらす

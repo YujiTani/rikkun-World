@@ -459,7 +459,7 @@ export const BLOCK_TILES: Readonly<Partial<Record<BlockId, readonly [TileName, T
   sand: ['sand', 'sand', 'sand'],
   log: ['log_top', 'log_top', 'log_side'],
   leaves: ['leaves', 'leaves', 'leaves'],
-  // MINE-1B: せきたん・てつも B「とびだす つぶ」の 平らな 絵に 直す（近くの つぶは render/looks/oreGrains.ts。今の 絵 `coal_ore`・`iron_ore` は かえずに のこす）
+  // MINE-1B: せきたん・てつも B「とびだす つぶ」の 平らな 絵に 直す（近くの つぶは render/looks/mineLooks.ts。今の 絵 `coal_ore`・`iron_ore` は かえずに のこす）
   coal_ore: ['coal_ore_b', 'coal_ore_b', 'coal_ore_b'],
   iron_ore: ['iron_ore_b', 'iron_ore_b', 'iron_ore_b'],
   water: ['water', 'water', 'water'],

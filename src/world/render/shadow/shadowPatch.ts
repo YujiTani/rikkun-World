@@ -27,8 +27,9 @@ export function patchVoxelShader(shader: WebGLProgramParametersWithUniforms): vo
   );
   shader.fragmentShader = mustReplace(
     mustReplace(shader.fragmentShader, '#include <common>', `#include <common>\n${SHADOW_VARYINGS}\n${SHADOW_FRAG_PARS}`, 'voxel フラグメント common'),
-    'diffuseColor.rgb *= c * vShade * ao * vLit;',
-    'diffuseColor.rgb *= c * vShade * ao * vLit * shRatio(vShSB, vShBB, 0.0, vShSky, vWorld, normalize(vShN));',
+    // 影は 地の 色の 行に だけ かける（そのあとの 光る つぶ〔max〕には かけない。voxelMaterial.ts の lit の 行と そろえる）
+    'vec3 lit = c * vShade * ao * vLit;',
+    'vec3 lit = c * vShade * ao * vLit * shRatio(vShSB, vShBB, 0.0, vShSky, vWorld, normalize(vShN));',
     'voxel フラグメント光',
   );
 }
