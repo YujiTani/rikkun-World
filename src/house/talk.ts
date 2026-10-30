@@ -80,8 +80,14 @@ export class HouseTalk {
   private say = '';
   private timer = 0;
   private who = '';
+  private ver = 0;
 
   constructor(private readonly d: HouseTalkDeps) {}
+
+  /** menu() の 見た目が かわる たびに ふえる 数（画面の 描きなおしの 目印。うなずき・あいさつの カウントダウンでは ふえない） */
+  version(): number {
+    return this.ver;
+  }
 
   /** 話しはじめる。もう 話して いる（うなずき・あいさつ・メニュー）なら 何もせず false */
   start(id: string): boolean {
@@ -89,6 +95,7 @@ export class HouseTalk {
     this.who = id;
     this.phase = 'nod';
     this.say = this.d.record.toolsGiven ? SAY.menu : SAY.hello;
+    this.ver++;
     this.d.voice();
     return true;
   }
@@ -136,8 +143,10 @@ export class HouseTalk {
     if (id === 'kura') {
       this.page = 'kura';
       this.say = SAY.kura;
+      this.ver++;
     } else if (id === 'tools' && this.missingTool()) {
       this.say = this.giveMissing() ? SAY.tools : SAY.bagFull;
+      this.ver++;
     }
   }
 
@@ -150,6 +159,7 @@ export class HouseTalk {
     this.page = null;
     this.say = '';
     this.timer = 0;
+    this.ver++;
     if (wasOpen) this.d.onClose();
     this.d.endTalk(who);
   }
@@ -157,6 +167,7 @@ export class HouseTalk {
   /** くらへ あずける。動いた 数。メニューが とじて いても 使える。999 こで 入りきらない 分は のこり、ふきだしで 知らせる */
   deposit(item: ItemId, want: number): number {
     const moved = this.d.kura.deposit(this.d.bag, item, want);
+    this.ver++;
     if (this.phase === 'menu') this.say = moved < Math.floor(want) && this.d.kura.count(item) >= KURA_MAX ? SAY.kuraFull : SAY.kura;
     return moved;
   }
@@ -165,6 +176,7 @@ export class HouseTalk {
   withdraw(item: ItemId, want: number): number {
     const had = this.d.kura.count(item);
     const moved = this.d.kura.withdraw(this.d.bag, item, want);
+    this.ver++;
     if (this.phase === 'menu') this.say = moved < Math.min(Math.floor(want), had) ? SAY.bagFull : SAY.kura;
     return moved;
   }
@@ -185,12 +197,14 @@ export class HouseTalk {
     this.timer = GREET_STEPS;
     this.d.record.toolsGiven = true;
     this.say = this.giveMissing() ? SAY.gift : SAY.bagFull;
+    this.ver++;
   }
 
   private open(): void {
     this.phase = 'menu';
     this.page = 'top';
     this.say = SAY.menu;
+    this.ver++;
     this.d.onOpen();
   }
 

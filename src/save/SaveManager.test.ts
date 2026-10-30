@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Inventory, PlayerState, SpawnPoint } from '../contracts';
+import { HouseState } from '../house/state';
 import { ArrayVoxelWorld } from '../world/VoxelWorld';
 import { populateWorld } from '../world/gen/populate';
 import { SAVE_ID, MemoryBackend, packColumn } from './backend';
@@ -45,6 +46,7 @@ interface Opts {
   streaming?: boolean;
   animals?: { serialize(): unknown; deserialize(d: unknown): void; prepare?(): void };
   gasha?: { serialize(): unknown; deserialize(d: unknown): void };
+  house?: { serialize(): unknown; deserialize(d: unknown): void };
 }
 
 /** 1 回のページ表示に当たるもの（世界・持ち物・プレイヤー・保存係）を作る。main.ts と同じ順 */
@@ -98,6 +100,7 @@ async function session(store: KeyValueStore | null, db: MemoryBackend | null, o:
     streaming: o.streaming,
     animals: o.animals,
     gasha: o.gasha,
+    house: o.house,
     clock: clock && {
       dayTick: () => clock.t,
       day: () => clock.d,
@@ -911,5 +914,56 @@ describe('SaveManager #293（がしゃどくろを たおした 回数の 保存
     let got2: unknown = 'unset';
     await session(store2, db2, { gasha: { serialize: () => null, deserialize: (d) => { got2 = d; } } });
     expect(got2 ?? null).toBeNull();
+  });
+});
+
+describe('HOUSE-1A AC32・AC33（くら・建築士さんの 記録の 保存）', () => {
+  it('house の キーに 書いて、つぎの ページ表示で 同じ くら・最初の 1 人・道具の 記録に もどる', async () => {
+    const store = new MemoryStore();
+    const db = new MemoryBackend();
+    const h1 = new HouseState();
+    h1.kura.restore({ log: 30, dirt: 12 });
+    h1.record.first = { x: 70, z: -12 };
+    h1.record.toolsGiven = true;
+    const s1 = await session(store, db, { house: h1 });
+    await s1.save.now();
+    const h2 = new HouseState();
+    await session(store, db, { house: h2 });
+    expect(h2.kura.totals()).toEqual({ log: 30, dirt: 12 });
+    expect(h2.record).toEqual({ first: { x: 70, z: -12 }, toolsGiven: true });
+  });
+
+  it('古い 保存（house の キーなし）を 開くと くら 空・最初の 1 人は まだ 決まって いない・道具は まだ。ほかの 中身は そのまま', async () => {
+    const store = new MemoryStore();
+    const db = new MemoryBackend();
+    const before = await session(store, db);
+    before.inventory.deserialize({ slots: [{ item: 'log', count: 5 }], selected: 0 });
+    await before.save.now();
+    const h = new HouseState();
+    h.kura.restore({ log: 9 }); // 読む前の ごみ（読みこみで 空に もどる）
+    h.record.toolsGiven = true;
+    const after = await session(store, db, { house: h });
+    expect(h.kura.totals()).toEqual({});
+    expect(h.record).toEqual({ first: null, toolsGiven: false });
+    expect(after.loaded).toBeTruthy();
+  });
+
+  it('house の 読みこみが 例外を 出しても 保存は 開ける（くらは 空）', async () => {
+    const store = new MemoryStore();
+    const db = new MemoryBackend();
+    const s1 = await session(store, db, { house: { serialize: () => ({ v: 1, kura: { log: 1 } }), deserialize: () => {} } });
+    await s1.save.now();
+    const calls: unknown[] = [];
+    const s2 = await session(store, db, {
+      house: {
+        serialize: () => null,
+        deserialize: (d) => {
+          calls.push(d);
+          if (calls.length === 1) throw new Error('こわれた');
+        },
+      },
+    });
+    expect(calls).toEqual([{ v: 1, kura: { log: 1 } }, null]);
+    expect(s2.loaded).toBeTruthy();
   });
 });
