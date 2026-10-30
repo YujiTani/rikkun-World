@@ -1,9 +1,21 @@
-import { escapeHtml } from '../text';
+import type { ItemId } from '../../contracts';
+import { escapeHtml, withRuby } from '../text';
+import { itemIconUrl } from '../itemIcon';
+import { rarityTier } from '../../drops/rarityTable';
 import { BOOK_CHAPTERS, BOOK_ITEMS } from './bookData';
 import type { BookLayout, Rect } from './bookLayout';
 import type { BookModel } from './bookModel';
 import { listSpreads } from './bookNav';
+import { ZUKAN_GROUPS, ZUKAN_LEFT, ZUKAN_NO_SOURCE, ZUKAN_NO_USE, ZUKAN_SECRET, type ZukanGroup } from './zukanData';
 import './book.css';
+import './zukan.css';
+
+/** ZUKAN-1: アイテムの 説明と てに いれかた（作る画面の 説明と 同じ データ） */
+interface ZukanInfo {
+  use: string;
+  special?: string;
+  source: string;
+}
 
 /**
  * BOOK-1: 本の 外がわの ボタンと、止まっている 間だけ 紙に かさねる HTML（仕様 §3.5 候補 1）。
@@ -17,6 +29,11 @@ export interface BookUiHandlers {
   close(): void;
   prev(): void;
   next(): void;
+  /** ZUKAN-1 */
+  zukan(): void;
+  zukanItem(id: string): void;
+  zukanFilter(query: string, group: ZukanGroup | null): void;
+  info(id: ItemId): ZukanInfo;
 }
 
 type BtnName = 'back' | 'toc' | 'close' | 'prev' | 'next';
@@ -47,6 +64,7 @@ export class BookUi {
   private readonly content: HTMLDivElement;
   private readonly buttons = {} as Record<BtnName, HTMLButtonElement>;
   private key = '';
+  private gridKey = '';
 
   constructor(parent: HTMLElement, private readonly h: BookUiHandlers) {
     this.layer = document.createElement('div');
@@ -84,7 +102,22 @@ export class BookUi {
       if (!el || el.hidden) return;
       const id = el.dataset.bookLink!;
       if (el.dataset.kind === 'chapter') this.h.chapter(id);
+      else if (el.dataset.kind === 'zukan') this.h.zukanItem(id);
       else this.h.item(id);
+    });
+    // ZUKAN-1: ずかんを ひらく・組の ボタン・さがす 字
+    this.content.addEventListener('click', (e) => {
+      const t = e.target as Element;
+      if (t.closest('[data-zukan-open]')) this.h.zukan();
+      const g = t.closest<HTMLElement>('[data-zukan-group]');
+      if (g) {
+        const id = g.dataset.zukanGroup as ZukanGroup;
+        this.h.zukanFilter(this.query(), g.getAttribute('aria-pressed') === 'true' ? null : id);
+      }
+    });
+    this.content.addEventListener('input', (e) => {
+      const el = e.target as HTMLInputElement;
+      if (el.matches('[data-zukan-search]')) this.h.zukanFilter(el.value, this.pressedGroup());
     });
     this.layer.appendChild(this.book);
     parent.appendChild(this.layer);
@@ -131,7 +164,16 @@ export class BookUi {
     const key = `${m.view}|${m.chapter}|${m.item}|${m.listPage}|${m.lastChapter}`;
     if (key !== this.key && m.view !== 'closed') {
       this.key = key;
+      this.gridKey = '';
       this.content.innerHTML = this.pagesHtml(m);
+    }
+    // ZUKAN-1: 一覧の マスだけ 作りなおす（さがす 字の らんは そのまま。入力中の 字が 消えない）
+    if (m.view === 'zukan') {
+      const gk = `${m.zukanQuery}|${m.zukanGroup}|${m.zukanPage}`;
+      if (gk !== this.gridKey) {
+        this.gridKey = gk;
+        this.zukanGrid(m);
+      }
     }
     // 動きの 間は 字と リンクを かくす
     this.content.hidden = moving || m.view === 'closed';
@@ -157,6 +199,8 @@ export class BookUi {
     if (m.view === 'toc') return this.tocHtml(m);
     if (m.view === 'chapter') return this.chapterHtml(m);
     if (m.view === 'item') return this.itemHtml(m);
+    if (m.view === 'zukan') return this.zukanHtml(m);
+    if (m.view === 'zukanItem') return this.zukanItemHtml(m);
     return '';
   }
 
@@ -176,6 +220,7 @@ export class BookUi {
     return (
       `<div class="bk-pg bk-pg-l"><h1 class="bk-name">あそびかたの ほん</h1>` +
       (hero ? `<div class="bk-frame"><img class="bk-art" src="${artUrl(hero.art)}" alt=""></div>` : '') +
+      `<button type="button" class="bk-link zk-open" data-zukan-open><span class="bk-ic" aria-hidden="true">📖</span><span class="bk-label">アイテム ずかん</span></button>` +
       `</div>` +
       `<div class="bk-pg bk-pg-r"><div class="bk-rows bk-rows-toc">${rows}</div></div>`
     );
@@ -214,6 +259,79 @@ export class BookUi {
       `<div class="bk-frame"><img class="bk-art" src="${artUrl(it.art)}" alt=""></div></div>` +
       `<div class="bk-pg bk-pg-r"><div class="bk-item" data-item-id="${it.id}"><h2 class="bk-title">${escapeHtml(it.title)}</h2><p class="bk-cap">${it.caption}</p></div>` +
       `<div class="bk-dots">${dots}</div></div>`
+    );
+  }
+
+  // ------------------------------------------------------------------ ZUKAN-1 アイテム ずかん
+
+  private query(): string {
+    return this.content.querySelector<HTMLInputElement>('[data-zukan-search]')?.value ?? '';
+  }
+
+  private pressedGroup(): ZukanGroup | null {
+    return (this.content.querySelector<HTMLElement>('[data-zukan-group][aria-pressed="true"]')?.dataset.zukanGroup as ZukanGroup | undefined) ?? null;
+  }
+
+  private zukanHead(): string {
+    return `<div class="bk-head">${this.ic('📖')}<span class="bk-chname">アイテム ずかん</span></div>`;
+  }
+
+  private zukanHtml(m: BookModel): string {
+    const all = m.zukanEntries();
+    const groups = ZUKAN_GROUPS.map((g) => {
+      const sample = all.find((e) => e.group === g.id && !e.shadow) ?? all.find((e) => e.group === g.id);
+      const icon = sample ? `<img class="zk-gicon" src="${itemIconUrl(sample.id)}" alt="">` : '';
+      return `<button type="button" class="zk-group" data-zukan-group="${g.id}" aria-pressed="${m.zukanGroup === g.id}">${icon}<span>${escapeHtml(g.label)}</span></button>`;
+    }).join('');
+    return (
+      `<div class="bk-pg bk-pg-l">${this.zukanHead()}` +
+      `<label class="zk-search"><span aria-hidden="true">🔍</span><input type="search" data-zukan-search placeholder="なまえ で さがす" value="${escapeHtml(m.zukanQuery)}" autocomplete="off" spellcheck="false"></label>` +
+      `<div class="zk-groups">${groups}</div>` +
+      `<div class="zk-grid zk-grid-l" data-zukan-grid="l"></div></div>` +
+      `<div class="bk-pg bk-pg-r"><div class="zk-grid zk-grid-r" data-zukan-grid="r"></div><div class="zk-count" data-zukan-count></div></div>`
+    );
+  }
+
+  private zukanGrid(m: BookModel): void {
+    const ids = m.zukanVisible();
+    const byId = new Map(m.zukanEntries().map((e) => [e.id as string, e]));
+    const tile = (id: string) => {
+      const e = byId.get(id)!;
+      const t = rarityTier(e.rarity);
+      return (
+        `<button type="button" class="bk-link zk-tile" data-book-link="${id}" data-kind="zukan" style="--zk-r: var(${t.cssVar})">` +
+        `<img class="zk-icon${e.shadow ? ' zk-shadow' : ''}" src="${itemIconUrl(e.id)}" alt="">` +
+        `<span class="zk-name">${withRuby(e.name)}</span></button>`
+      );
+    };
+    const l = this.content.querySelector('[data-zukan-grid="l"]');
+    const r = this.content.querySelector('[data-zukan-grid="r"]');
+    if (l) l.innerHTML = ids.slice(0, ZUKAN_LEFT).map(tile).join('');
+    if (r) r.innerHTML = ids.slice(ZUKAN_LEFT).map(tile).join('');
+    const total = m.zukanIds().length;
+    const c = this.content.querySelector('[data-zukan-count]');
+    if (c) c.textContent = total === 0 ? 'みつからない よ' : '';
+    for (const b of this.content.querySelectorAll<HTMLElement>('[data-zukan-group]')) b.setAttribute('aria-pressed', String(b.dataset.zukanGroup === m.zukanGroup));
+  }
+
+  private zukanItemHtml(m: BookModel): string {
+    const e = m.zukanEntries().find((x) => x.id === m.item);
+    if (!e) return '';
+    const t = rarityTier(e.rarity);
+    const info = this.h.info(e.id);
+    const use = info.use || ZUKAN_NO_USE;
+    const source = e.shadow ? ZUKAN_SECRET : info.source || ZUKAN_NO_SOURCE;
+    const ids = m.zukanIds();
+    const k = ids.indexOf(e.id);
+    return (
+      `<div class="bk-pg bk-pg-l">${this.zukanHead()}` +
+      `<div class="zk-big" style="--zk-r: var(${t.cssVar})"><img class="zk-bigicon${e.shadow ? ' zk-shadow' : ''}" src="${itemIconUrl(e.id)}" alt=""></div>` +
+      `<h2 class="bk-title zk-title">${withRuby(e.name)}</h2>` +
+      `<div class="zk-stars" style="--zk-r: var(${t.cssVar})">${'★'.repeat(t.stars)}<span class="zk-word">${escapeHtml(t.word)}</span></div></div>` +
+      `<div class="bk-pg bk-pg-r"><div class="bk-item zk-item" data-item-id="${e.id}">` +
+      `<h3 class="zk-h">どんな もの</h3><p class="bk-cap zk-cap" data-zukan-use>${withRuby(use)}${info.special ? `<br>${withRuby(info.special)}` : ''}</p>` +
+      `<h3 class="zk-h">てに いれかた</h3><p class="bk-cap zk-cap" data-zukan-source>${withRuby(source)}</p></div>` +
+      `<div class="bk-dots"><span class="bk-count">${k + 1} / ${ids.length}</span></div></div>`
     );
   }
 }

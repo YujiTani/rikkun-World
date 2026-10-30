@@ -15,9 +15,8 @@ import { raycastBlocks } from '../dig/raycast';
 import type { BodyAim, BodyBlocksPort } from '../dig/bodyBlocks';
 import { BLOCK_TILES, createAtlasTexture, tileUv } from '../world/blocks/textures';
 import type { BigActor, ExtraHit } from './gashaBigActor';
-import type { BigModel, JointName } from './gashaBig';
+import { maskHas, type BigModel, type JointName } from './gashaBigTypes';
 import { rayBox } from './gashaBigHit';
-import { maskHas } from './gashaBig';
 import { TUNE as T } from './gashaBigTuning';
 
 /** 体に 置ける ブロック（ふつうの 立方体の ブロックだけ。こたつ・たんす・はたけ・たいまつ・草 などは ふくまない） */

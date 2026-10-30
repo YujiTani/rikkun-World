@@ -17,6 +17,7 @@ model: sonnet
 
 ## きまり
 - **アイテム・妖怪を足すときは `src/content/CLAUDE.md`（足し方の手引き）を読み、そのとおりの場所に書く。**
+- **書くときに守る（#304、`docs/design/CODE-RULES.md`）**: データは 1 か所（id ごとの表は `satisfies Record<…>`、switch は最後に `never`、無言の `default` を作らない）。数は 1 か所の表に単位つきの日本語コメント。ファイルは 500 行目安・800 行こえ禁止。本番から `src/proto/` を import しない。部品に `this` 全体を渡さない。import の輪を増やさない。`src/` を変えたらコミット前に `npm run check:ratchet` と `npx eslint src`（`max-lines`・`no-restricted-imports` が 0 件）。
 - 入力は `src/input/actions.ts` の Action 経由で読む（キーを直接見ない）。
 - 更新は固定ステップ（`Game.onUpdate`）。乱数はシード付き。
 - 画面の文字は HTML（`#hud`）で出し、漢字は `ruby()` を使う。

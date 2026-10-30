@@ -2,10 +2,10 @@
   "idCompare": 277,
   "idCase": 85,
   "switchExhaustive": 21,
-  "cycles": 8,
+  "cycles": 6,
   "unusedExports": 422,
   "unusedTypes": 162,
   "eslintDisable": 1,
-  "filesOver800": 7,
+  "filesOver800": 0,
   "protoImports": 0
 }

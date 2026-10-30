@@ -9,6 +9,7 @@
 **雷神剣の 雷**（18 章）は オーナー決定 2026-10-21 B「ひかりの たま」・カメラ正面の 板（`docs/decisions/2026-10-21-thunder-b-billboard.md`。ゲームの 中の スクショで オーナーが 確かめる 前）。新しい 絵の 作り方は `docs/art/PIPELINE.md`。
 **どうぶつ**（16 章）は オーナー決定 2026-10-18「A おもち」（`docs/decisions/2026-10-18-livestock-look.md`）を 本番の 形 A2 に 直した もの（ゲームの 中の スクショで オーナーが 確かめる 前）。
   ひよこ・マッチョ・とりごや・育成キット（ぬくぬく かご）・むしとりあみ・むし（16.11〜16.17）は オーナー決定 2026-10-18 v3（`docs/decisions/2026-10-18-livestock-look-v3.md`）。
+**建築士さん・新しい 家具 5 つ**（19 章）は オーナー決定 2026-10-29 案 A「はっぴの だいくさん ＋ ごつごつの くりの 木」（`docs/decisions/2026-10-29-housing-look.md`。ゲームの 中の スクショで オーナーが 確かめる 前）。
 
 - 絵（16×16 の タイル）: `src/world/blocks/textures.ts`（コードで 描いた 絵。9×9×9 の 前の main と 同じ）
 - 形: `src/proto/voxel/looks/gotsugotsu.ts` の `fill`（形だけ 使う）・小ブロック地形 `src/proto/voxel/terrain/microSurface.ts`
@@ -26,6 +27,7 @@
 | §14・15 本番への申し送り・ブロックの予算（三角形・タイル・動き・安全） | `docs/art/design/03-budget.md` | 国のブロック・新しいブロックの数の上限 |
 | §16 どうぶつ（にわとり・ひよこ・マッチョ・とりごや・育成キット・むし・あみ） | `docs/art/design/04-animals.md` | 畜産・どうぶつ・なかま |
 | §17・18 ドット絵の板のエフェクトは十字・雷神剣の雷 B・エフェクトの数と点の大きさ | `docs/art/design/05-effects.md` | エフェクト・わざの光（`docs/art/EFFECT-KNOWLEDGE.md` もいっしょに） |
+| §19 ハウジング（建築士さん・テーブル・いす・あんどん・ほんだな・おふろ。形・色・うなずき・ほかの動きの目安・三角形） | `docs/art/design/06-housing.md` | 建築士さん・家具・家の中の物（作る係への依頼は `docs/art/requests/HOUSE-1-architect-furniture.md`） |
 
 - 新しい章を足すときは `docs/art/design/` に 1 本足し、この表に 1 行足す。決まったことは章のファイルを直して「今の 1 本」にする（版ごとに別ファイルを作らない）。
 - 動きのものさしは `docs/art/MOTION.md`・`docs/art/MOTION-NOTES.md`、見た目のものさしは `docs/art/CRITERIA.md`、作り方は `docs/art/PIPELINE.md`。

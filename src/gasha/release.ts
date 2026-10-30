@@ -89,7 +89,7 @@ export interface ReleaseEnv {
   dropped?(item: ItemId, from: 'gasha'): void;
 }
 
-/** 少女の 形態の 係（gashaGirl.ts の GirlController） */
+/** 少女の 形態の 係（gashaGirlTypes.ts の GirlController） */
 export interface GirlControl {
   /** 少女の 登場を はじめる（笑い声 → ワープで 飛びまわる → 決めポーズ → 5 回の 魔法 → 大きな 姿の かたに 座って 休む → また 魔法） */
   summon(): void;
