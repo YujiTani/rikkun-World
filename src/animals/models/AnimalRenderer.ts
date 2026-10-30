@@ -212,9 +212,6 @@ export class AnimalRenderer {
       }
       if (!carried && n < MAX_SHADOWS) this.shadow(n++, e, v); // だっこ 中は かげ なし
     }
-    // HOUSE-1A: 建築士さんの 影も 同じ 1 回の 描画に まぜる
-    const extra = this.o.extraShadows?.();
-    if (extra) for (const s of extra) if (n < MAX_SHADOWS) this.shadowAt(n++, s.x, s.y, s.z, s.yaw, s.sx, s.sz);
     // LIVE-3: ▼（えらんで いる 子 の 頭 の 上）。点滅 しない・1 回 の 描画
     if (arrowAt) {
       const a = (this.arrow ??= this.makeArrow());
@@ -706,15 +703,10 @@ export class AnimalRenderer {
     const sz = (bb.max.z - bb.min.z) * 1.25 + 0.1;
     const k = e.pose.scale[0] / CHICKEN_SCALE; // 出てくる・しゃがむ に 合わせる
     const shrink = Math.max(0.5, 1 - e.pose.rigY * 0.6); // とぶと 影は 小さく
-    this.shadowAt(i, v.x, v.y, v.z, v.yaw, sx * k * shrink, sz * k * shrink);
-  }
-
-  /** i 番目の 影を (x, y, z) の 足もとに 置く（はば sx・sz。向き yaw） */
-  private shadowAt(i: number, x: number, y: number, z: number, yaw: number, sx: number, sz: number): void {
-    this.tmpP.set(x, y + 0.012, z);
-    this.tmpQ.setFromAxisAngle(this.up, -yaw);
+    this.tmpP.set(v.x, v.y + 0.012, v.z);
+    this.tmpQ.setFromAxisAngle(this.up, -v.yaw);
     this.tmpQ2.copy(this.tmpQ).multiply(this.flat);
-    this.tmpS.set(sx, sz, 1);
+    this.tmpS.set(sx * k * shrink, sz * k * shrink, 1);
     this.tmpM.compose(this.tmpP, this.tmpQ2, this.tmpS);
     this.shadows.setMatrixAt(i, this.tmpM);
   }

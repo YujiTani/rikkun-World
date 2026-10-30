@@ -12,7 +12,7 @@ import type { WiredYokai } from './creatures';
 const HEAD_TOP = 1.8;
 
 export function wireHouse(deps: WiredYokai) {
-  const { shared, world, seed, island, game, fxSound, hud, lock, pointerLock, controller, inventory, lighting, combat, dig, screen } = deps;
+  const { shared, world, seed, island, game, fxSound, hud, lock, pointerLock, controller, inventory, lighting, combat, dig, screen, blobShadow } = deps;
 
   const house = new HouseSystem({
     seed,
@@ -84,7 +84,7 @@ export function wireHouse(deps: WiredYokai) {
   });
   house.setOnChange(() => houseUi.refresh());
 
-  // 見た目: 1 人 = 1 描画。足もとの 影は にわとりの 影の 描画に まぜる（wireAnimalView が shadowSpots を 読む）ので、これより 先に 動かす
+  // 見た目: 1 人 = 1 描画。足もとの 影は プレイヤーの 影（blobShadow）の 描画に まぜる（描画回数 +0）
   const architectRenderer = new ArchitectRenderer((x, z) => shared.streamHost?.stream.isDrawn(Math.floor(x) >> 4, Math.floor(z) >> 4) ?? true);
   game.scene.add(architectRenderer.group);
   lighting.register(architectRenderer.bodyMaterial, 'doll');
@@ -93,6 +93,7 @@ export function wireHouse(deps: WiredYokai) {
   game.onUpdate(() => house.update());
   game.onBeforeRender(() => {
     architectRenderer.update(house.manager.all(), game.camera, dig.aimedArchitect());
+    blobShadow.setExtras(architectRenderer.shadowSpots());
     houseUi.placeBubble();
   });
 

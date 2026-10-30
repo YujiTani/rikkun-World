@@ -43,21 +43,9 @@ export interface AnimalRendererStats {
   triangles: number;
 }
 
-/** 足もとの 丸い 影 1 つ（ほかの 係が 自分の 影を にわとりの 影と 同じ 1 回の 描画に まぜる ため）。x・y・z = 足もと、sx・sz = 影の はば（ブロック） */
-export interface ShadowSpot {
-  x: number;
-  y: number;
-  z: number;
-  yaw: number;
-  sx: number;
-  sz: number;
-}
-
 export interface AnimalRendererOpts {
   /** 音・つぶ・頭の 上の ハート の 計算 */
   fx: AnimalFx;
-  /** HOUSE-1A: 建築士さんの 影（あれば にわとりの 影と いっしょに 描く。描画回数を ふやさない）。毎フレーム `update` の 中で 1 回 読む */
-  extraShadows?: () => readonly ShadowSpot[];
   /** 「動きの 強さ」0〜1。なければ 1 */
   motion?: () => number;
   /** 時計（ミリ秒。パタパタ・着地 ぽよん の 経過に 使う。なければ performance.now） */

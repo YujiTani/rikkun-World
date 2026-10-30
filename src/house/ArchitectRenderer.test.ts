@@ -28,13 +28,13 @@ describe('描く かず', () => {
     expect(r.stats().draws).toBe(1);
   });
 
-  it('影は 自分で 描かない。足もとの 影の 位置だけ わたす（にわとりの 影に まざる）', () => {
+  it('影は 自分で 描かない。足もとの 影の 位置だけ わたす（プレイヤーの 影に まざる）', () => {
     const r = new ArchitectRenderer();
     const a = arch('first', 1.5, -8.5, true);
     a.y = 3;
     a.yaw = 0.7;
     r.update([a], camera(), null);
-    expect(r.shadowSpots()).toEqual([{ x: 1.5, y: 3, z: -8.5, yaw: 0.7, sx: 0.9, sz: 0.9 }]);
+    expect(r.shadowSpots()).toEqual([{ x: 1.5, y: 3, z: -8.5, size: 0.9 }]);
     expect(r.group.children.every((c) => !(c instanceof THREE.InstancedMesh))).toBe(true);
   });
 });
