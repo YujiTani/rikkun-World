@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Inventory, PlayerState, SpawnPoint } from '../contracts';
+import { WORLD_HEIGHT, type Inventory, type PlayerState, type SpawnPoint } from '../contracts';
 import { HouseState } from '../house/state';
 import { ArrayVoxelWorld } from '../world/VoxelWorld';
 import { populateWorld } from '../world/gen/populate';
@@ -819,10 +819,12 @@ describe('SAVE-30: id の文字で読む保存', () => {
     const a = await session(store, db);
     a.world.setBlock(2, 300, 2, 'dirt');
     a.world.setBlock(3, 300, 3, 'farmland');
-    // FLORA-75: くさ・のばな は 版 1 の表（凍らせた物）に ない新しいブロック。昔の保存には 出てこないので、この列から どける
-    for (let x = 0; x < 16; x++) for (let z = 0; z < 16; z++) for (let y = 40; y < 300; y++) {
+    // FLORA-75・MINE-1B: くさ・のばな・新しい 鉱物〔ねんど・せっかいせき …〕は 版 1 の表（凍らせた物）に ない新しいブロック。昔の保存には 出てこないので、この列から どける
+    // （MINE-1B の 鉱物は 地下の ふかい 所〔y 1〜〕まで あるので、y は 1 から 見る）
+    const inV1 = new Set(BLOCK_IDS_V1);
+    for (let x = 0; x < 16; x++) for (let z = 0; z < 16; z++) for (let y = 1; y < WORLD_HEIGHT; y++) {
       const b = a.world.getBlock(x, y, z);
-      if (b === 'kusa' || b === 'nobana') a.world.setBlock(x, y, z, 'air');
+      if (b !== 'outside' && !inV1.has(b)) a.world.setBlock(x, y, z, 'air');
     }
     await a.save.now();
     // 版 1 で書きなおす: 番号を 凍らせた表の番号にして encode → 版 1 の生バイトに 戻す

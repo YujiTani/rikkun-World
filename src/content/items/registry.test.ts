@@ -93,12 +93,18 @@ const CRAFTS: ReadonlyArray<[GoldId, Array<[string, number]>]> = [
 const BLOCK_ITEM_IDS = [...Object.keys(PLACEABLE), ...Object.keys(M4_BLOCKS), ...Object.keys(GEYSER), ...Object.keys(VOX_I)];
 const GEAR_IDS = [...TOOL_ITEM_IDS, ...SWORD_IDS, ...BOW_IDS, ...ARMOR_ITEM_IDS] as const;
 const FARM_IDS = [...SEED_ITEM_IDS, ...VEG_ITEM_IDS, ...FARM_TOOL_IDS, 'sprinkler', ...FARM_BUCKET_IDS] as const;
+/**
+ * MINE-1B で はじめて 登録表に 入る アイテム 6 つ（ダイヤは KONGO-1 で もう ある）。どの シリーズ（ファイル）に 入れるかは developer が 決める ので、
+ * 下の「シリーズの 一覧」とは 別に 数える（登録された ことと 値は src/content/items/mine1b.test.ts）
+ */
+const MINE_1B_IDS: readonly string[] = ['sekkaiseki', 'shikkui', 'hotaruishi', 'kin_ore', 'chalk', 'ishibai'];
+const strip1B = (ids: readonly string[]): string[] => ids.filter((id) => !MINE_1B_IDS.includes(id));
 
 describe('登録表（金シリーズ）', () => {
   it('金の全 id に ItemDef がある（10 個・id は ids.ts の 1 回だけ）', () => {
     expect(GOLD_IDS).toHaveLength(10);
     for (const id of GOLD_IDS) expect(itemDef(id), id).toBeDefined();
-    expect(Object.keys(ITEM_DEFS).sort()).toEqual([...GOLD_IDS, ...KONGO_IDS, ...LEGEND_IDS, ...NINJA_ITEM_IDS, ...SAMURAI_ITEM_IDS, ...GEAR_IDS, ...FARM_IDS, ...ORB_IDS, ...MATERIAL_ITEM_IDS, ...INGOT_IDS, ...GADGET_IDS, ...LIVE_ITEM_IDS, ...HOUSE_TOOL_IDS, 'nukunuku', ...BLOCK_ITEM_IDS].sort());
+    expect(strip1B(Object.keys(ITEM_DEFS)).sort()).toEqual(strip1B([...GOLD_IDS, ...KONGO_IDS, ...LEGEND_IDS, ...NINJA_ITEM_IDS, ...SAMURAI_ITEM_IDS, ...GEAR_IDS, ...FARM_IDS, ...ORB_IDS, ...MATERIAL_ITEM_IDS, ...INGOT_IDS, ...GADGET_IDS, ...LIVE_ITEM_IDS, ...HOUSE_TOOL_IDS, 'nukunuku', ...BLOCK_ITEM_IDS]).sort()); // MINE-1B の 6 つは 別（MINE_1B_IDS）
     expect(Object.keys(EXPECT).sort()).toEqual([...GOLD_IDS].sort());
   });
 
@@ -119,7 +125,10 @@ describe('登録表（金シリーズ）', () => {
 
   it('同じ id が 2 つの シリーズに 入っていない（シリーズごとの 数の 合計 = ITEM_DEFS の 数）', () => {
     const series = [PLACEABLE, M4_BLOCKS, GEYSER, VOX_I, TOOLS, SWORDS, BOWS, ARMOR_DEFS_RAW, NINJA, SAMURAI, SEEDS, VEGGIES, FARM_TOOLS, SPRINKLER, BUCKETS, ORB, MATERIALS, INGOT, GADGETS, LIVE, KOTATSU, LEGEND, GOLD, KONGO, HOUSE_TOOLS];
-    expect(series.reduce((n, d) => n + Object.keys(d).length, 0)).toBe(Object.keys(ITEM_DEFS).length);
+    // MINE-1B の 6 つは 一覧の どれかに 入れても、新しい シリーズの ファイルに 入れても よい。一覧の 外に ある 分だけ 足して 合わせる
+    const listed = new Set(series.flatMap((d) => Object.keys(d)));
+    const outside = MINE_1B_IDS.filter((id) => id in ITEM_DEFS && !listed.has(id)).length;
+    expect(series.reduce((n, d) => n + Object.keys(d).length, 0) + outside).toBe(Object.keys(ITEM_DEFS).length);
   });
 
   it('アイテムに ならない ブロック（BLOCK_ONLY_IDS）: 登録表に 無く、ITEM_TYPES にも 無い。それ以外の ブロックは 全部 アイテム', () => {
@@ -235,7 +244,9 @@ describe('登録表（金シリーズ）', () => {
   });
 
   it('かまど: きん は きんの たまご から。焼く順は 今のまま', () => {
-    expect(BAKE_RECIPES.map((r) => r.id)).toEqual(['iron_ingot', 'kawara', 'brick', 'haniwa', 'kin', 'momo_yaki']);
+    // MINE-1B: やく 作り方が うしろに ふえる（いしばい・きんの いし → きん）。MINE-1A までの 並びは かわらない（ふえた 分は src/craft/mineRecipes.test.ts）
+    const bake1A = ['iron_ingot', 'kawara', 'brick', 'haniwa', 'kin', 'momo_yaki'];
+    expect(BAKE_RECIPES.map((r) => r.id).slice(0, bake1A.length)).toEqual(bake1A);
     expect(BAKE_RECIPES.find((r) => r.id === 'kin')).toEqual({ id: 'kin', output: { item: 'kin', count: 1 }, inputs: [{ item: 'kin_tamago', count: 1 }], works: true, station: 'furnace' });
     expect(ALL_RECIPES).toHaveLength(CRAFT_RECIPES.length + BAKE_RECIPES.length);
   });

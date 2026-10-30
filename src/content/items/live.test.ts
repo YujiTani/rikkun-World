@@ -66,7 +66,8 @@ describe('登録表（生き物 8 個）', () => {
   it('色分けの 並び: 古い表と 同じ', () => {
     const plant = CATEGORY_ITEMS.plant;
     expect(plant.slice(plant.indexOf('bamboo'), plant.indexOf('bamboo') + 3)).toEqual(['bamboo', 'mushi', 'nobana']);
-    expect(CATEGORY_ITEMS.material).toEqual(['paper', 'string', 'cloth', 'oil', 'clay', 'yokai_orb', 'kin_tamago']);
+    // MINE-1B: ざいりょうの 分けに いしばいが ふえる。今の 物の 並びは かわらない（新しい 物の 位置は 決めない）
+    expect(CATEGORY_ITEMS.material.filter((id) => ['paper', 'string', 'cloth', 'oil', 'clay', 'yokai_orb', 'kin_tamago'].includes(id))).toEqual(['paper', 'string', 'cloth', 'oil', 'clay', 'yokai_orb', 'kin_tamago']);
     const at = (cat: readonly string[], id: string, n: number) => cat.slice(cat.indexOf(id), cat.indexOf(id) + n);
     expect(at(CATEGORY_ITEMS.tool, 'bucket', 3)).toEqual(['bucket', 'water_bucket', 'mushi_ami']);
     expect(at(CATEGORY_ITEMS.home, 'sprinkler', 3)).toEqual(['sprinkler', 'nukunuku', 'toriya']);
@@ -89,8 +90,10 @@ describe('登録表（生き物 8 個）', () => {
       expect(r.works, id).toBe(true);
       expect(r.station, id).toBe('craft');
     }
-    expect(BAKE_RECIPES.map((r) => r.id).at(-1)).toBe('momo_yaki');
-    expect(BAKE_RECIPES.at(-1)).toEqual({ id: 'momo_yaki', output: { item: 'momo_yaki', count: 1 }, inputs: [{ item: 'momo_nama', count: 1 }], works: true, station: 'furnace' });
+    // MINE-1B: やく 作り方は うしろに 足される（いしばい・きんの いし）。MINE-1A までの 6 つの いちばん うしろが やいた もも にく
+    const baked = BAKE_RECIPES.map((r) => r.id);
+    expect(baked.slice(0, baked.indexOf('momo_yaki') + 1)).toEqual(['iron_ingot', 'kawara', 'brick', 'haniwa', 'kin', 'momo_yaki']);
+    expect(BAKE_RECIPES.find((r) => r.id === 'momo_yaki')).toEqual({ id: 'momo_yaki', output: { item: 'momo_yaki', count: 1 }, inputs: [{ item: 'momo_nama', count: 1 }], works: true, station: 'furnace' });
     for (const id of ['egg', 'mushi', 'kin_tamago', 'momo_nama']) expect(ALL_RECIPES.some((x) => x.id === id), id).toBe(false);
   });
 

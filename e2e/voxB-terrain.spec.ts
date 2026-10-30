@@ -168,7 +168,8 @@ test.describe('VOX-B 地形（つないだ後）', () => {
             if (at(2) !== 'dirt' && at(2) !== 'stone') bad.push(`dirt2 ${x},${z} ${at(2)}`);
             for (let d = 3; d <= 7; d++) {
               const b = at(d);
-              if (b !== 'stone' && b !== 'coal_ore' && b !== 'iron_ore') bad.push(`under ${x},${H - d},${z} ${b}`);
+              // MINE-1B: あさい 層に ★ねんど（nendo）が かたまりで 入る〔§4.2〕。ほかの ★は なかほど いかの 層なので ここ〔地面の 下 3〜7〕には 出ない
+              if (b !== 'stone' && b !== 'coal_ore' && b !== 'iron_ore' && b !== 'nendo') bad.push(`under ${x},${H - d},${z} ${b}`);
             }
           }
         return { land, bad: bad.slice(0, 5), n: bad.length };

@@ -72,7 +72,8 @@ describe('登録表（素材 8 個・小物 6 個）', () => {
   });
 
   it('色分け: 並びは 古い表と 同じ', () => {
-    expect(CATEGORY_ITEMS.material).toEqual(['paper', 'string', 'cloth', 'oil', 'clay', 'yokai_orb', 'kin_tamago']);
+    // MINE-1B: ざいりょうの 分けに いしばいが ふえる。今の 物の 並びは かわらない（新しい 物の 位置は 決めない）
+    expect(CATEGORY_ITEMS.material.filter((id) => ['paper', 'string', 'cloth', 'oil', 'clay', 'yokai_orb', 'kin_tamago'].includes(id))).toEqual(['paper', 'string', 'cloth', 'oil', 'clay', 'yokai_orb', 'kin_tamago']);
     expect(CATEGORY_ITEMS.metal.slice(0, 2)).toEqual(['iron_ingot', 'crystal']);
     expect(CATEGORY_ITEMS.light).toEqual(['torch', 'lantern']);
     expect(CATEGORY_ITEMS.home.slice(0, 7)).toEqual(['furnace', 'tansu', 'futon', 'haniwa', 'kite', 'waraji', 'omamori']);

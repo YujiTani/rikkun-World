@@ -15,6 +15,8 @@ const DIRT = BLOCK_INDEX.dirt;
 const BEDROCK = BLOCK_INDEX.bedrock;
 const COAL = BLOCK_INDEX.coal_ore;
 const IRON = BLOCK_INDEX.iron_ore;
+/** 表の 鉱石 ぜんぶ の 番号（MINE-1B: せきたん・てつ に ねんど・せっかいせき … が ふえる。表から 読む ので 足しても この テストは かわらない） */
+const ORE_IDS: ReadonlySet<number> = new Set(MINE_CONFIG.ores.map((r) => BLOCK_INDEX[r.block]));
 const GROUND = 150;
 const NB6 = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]] as const;
 
@@ -52,7 +54,7 @@ describe('placeMineOres: 置く 場所', () => {
       ore++;
       const { y } = at(i);
       expect(before[i], `y=${y} は 石だった`).toBe(STONE);
-      expect(out[i] === COAL || out[i] === IRON, `y=${y} は せきたんか てつ`).toBe(true);
+      expect(ORE_IDS.has(out[i]!), `y=${y} は 表の 鉱石`).toBe(true);
       expect(y, '地面より 1 つ 下まで').toBeLessThanOrEqual(GROUND - 1);
       expect(y, 'そこいしの 上').toBeGreaterThanOrEqual(1);
       if (out[i] === COAL) expect(layerOf(y), 'せきたんの 層').toBe('asai');
@@ -105,7 +107,7 @@ describe('placeMineOres: かたまり', () => {
         expect(c.cells.length).toBeLessThanOrEqual(c.target);
         for (const m of c.cells) {
           const i = ((m.y * 16 + (m.z - cz * 16)) * 16 + (m.x - cx * 16)) | 0;
-          expect(out[i], `(${m.x}, ${m.y}, ${m.z})`).toBe(c.block === 'coal_ore' ? COAL : IRON);
+          expect(out[i], `(${m.x}, ${m.y}, ${m.z})`).toBe(BLOCK_INDEX[c.block]);
           expect(cells.has(i), '同じ マスを 2 回 数えない').toBe(false);
           cells.set(i, c.block);
         }
@@ -123,7 +125,7 @@ describe('placeMineOres: かたまり', () => {
         expect(left.size, `つながって いない かたまり（${c.block}）`).toBe(0);
       }
       let inColumn = 0;
-      for (let i = 0; i < COL_VOLUME; i++) if (out[i] === COAL || out[i] === IRON) inColumn++;
+      for (let i = 0; i < COL_VOLUME; i++) if (ORE_IDS.has(out[i]!)) inColumn++;
       expect(cells.size, '列の 鉱石 ＝ かたまりの マスの 合計').toBe(inColumn);
     }
   });
@@ -163,7 +165,7 @@ describe('placeMineOres: かたまり', () => {
     expect(cells / n).toBeLessThanOrEqual(3.15);
   });
 
-  it('1 列の 鉱石の 数は 表の ぜんぶ（せきたん・てつの 合計）に ちかい', () => {
+  it('1 列の 鉱石の 数は 表の ぜんぶ（表の 全部の 鉱石の 合計）に ちかい', () => {
     const want = MINE_CONFIG.ores.reduce((p, r) => p + r.all, 0);
     let got = 0;
     const cols = 24;

@@ -2,7 +2,8 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import type { CropStage, CropStageSource } from '../../../contracts';
-import { AIR, BLOCK_INDEX, BLOCK_TYPES, WATER, isOpaqueIndex } from '../../blocks/blockTypes';
+import { AIR, BLOCK_INDEX, WATER, isOpaqueIndex } from '../../blocks/blockTypes';
+import { createMineHook } from '../../gen/mineHook';
 import { populateWorld } from '../../gen/populate';
 import { regionRect } from '../../gen/region';
 import { WorldLight } from '../../light/WorldLight';
@@ -20,6 +21,8 @@ import { SectionMesher, type MeshTier, type SectionMeshData } from './sectionMes
  *      作り直しの記録: MINE-1A（#348）。鉱石の 置き方が かわる〔かたまり・3 倍・置く 順〕ので、世界の 鉱石は ぜんぶ いしに 読みかえてから
  *      使う ことに した（鉱石の 置き方が また かわっても この 表は かわらない）。表は 鉱石を いしに 読みかえた 世界から 作った
  *      〔前の 表とは 鉱石の ある セクションの ハッシュだけ ちがい、鉱石の ない セクションは そのまま〕。
+ *      MINE-1B（#349）: 読みかえる 鉱石を「名前が `_ore` で 終わる 物」から「表 `oreTable()` の ブロック」に した
+ *      〔ねんど・せっかいせき・ほたるいしを 足しても 表は かわらない。表の 数は そのまま〕。
  *  (2) start → resume（偽物の時計で 止める所を変える）が build() と同じ。
  *  (3) 途中の cancel → 別のセクションが build() と同じ（前の仕事の残りがまざらない）。
  */
@@ -111,9 +114,13 @@ function topOf(w: ArrayVoxelWorld, x: number, z: number): number {
   return -1;
 }
 
-/** 鉱石（名前が `_ore` で 終わる 物。せきたん・てつ・MINE-1B の 新しい 鉱物） */
-// 1B で 末尾が _ore で ない 新しい 鉱物を 足す ときは ここも 見る（src/world/gen/mineOres.test.ts の TO_STONE も 同じ）
-const ORE_INDEXES: ReadonlySet<number> = new Set(BLOCK_TYPES.flatMap((t, i) => (t.id.endsWith('_ore') ? [i] : [])));
+/**
+ * 鉱石（表 `oreTable()` の ブロックぜんぶ ＋ せきたん・てつ。MINE-1B の 新しい 鉱物も 自然に 入る。src/world/gen/mineOres.test.ts の 読みかえも 同じ）。
+ * 名前の 終わり〔`_ore`〕では 決めない: 1B の ねんど・せっかいせき・ほたるいしは `_ore` で 終わらない
+ */
+const ORE_INDEXES: ReadonlySet<number> = new Set(
+  [...createMineHook({ seed: 1 }).oreTable().map((r) => r.block), 'coal_ore' as const, 'iron_ore' as const].map((b) => BLOCK_INDEX[b]),
+);
 
 function makeScene(seed: number): Scene {
   const w = new ArrayVoxelWorld({ x: 0, z: 0 });

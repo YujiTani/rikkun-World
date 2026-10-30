@@ -7,6 +7,7 @@ import { SECTION_VOLUME, sectionToArray } from '../sections';
 import { columnHash, generateChunk } from './chunk';
 import { inMouthFootprint, mouthsNear } from './mouths';
 import { countryAt } from './biome';
+import { createMineHook } from './mineHook';
 import { clearTerrainCache, terrainFor } from './terrain';
 import { treesInRect } from './trees';
 
@@ -25,6 +26,12 @@ const COAL = BLOCK_INDEX.coal_ore;
 const IRON = BLOCK_INDEX.iron_ore;
 const WATER = BLOCK_INDEX.water;
 const BEDROCK = BLOCK_INDEX.bedrock;
+
+/**
+ * 鉱石の ブロック番号（表 `mine.oreTable()` の ブロック ＋ せきたん・てつ）。鉱石は 石を 置きかえる ので、石が ある 所なら どの 鉱石が あっても よい
+ * （MINE-1B で ねんど〔あさい 層。地面の すぐ 下にも 出る〕などが 足されても 地層の 確かめが 落ちない ように、せきたん・てつだけで 決めない）
+ */
+const ORE_SET: ReadonlySet<number> = new Set([...createMineHook({ seed: 1 }).oreTable().map((r) => BLOCK_INDEX[r.block]), COAL, IRON]);
 
 const SEEDS_20 = [20261012, ...Array.from({ length: 19 }, (_, i) => i + 1)];
 const SEEDS_10 = SEEDS_20.slice(0, 10);
@@ -289,17 +296,17 @@ describe('基準 3・4・6・7・9: 作った列のブロック（10 シード �
                 if (topB === GRASS) {
                   if (at(H - 1) !== DIRT) bad(`dirt ${at(H - 1)}`);
                   const second = at(H - 2);
-                  if (H >= SEA_Y + 50 ? second !== STONE && second !== COAL && second !== IRON && second !== DIRT : second !== DIRT) bad(`dirt2 ${second}`);
+                  if (H >= SEA_Y + 50 ? second !== STONE && !ORE_SET.has(second) && second !== DIRT : second !== DIRT) bad(`dirt2 ${second}`);
                 } else if (topB !== SAND && topB !== STONE && topB !== BLOCK_INDEX.snow) bad(`top ${topB}`);
                 for (let d = 3; d <= 7; d++) {
                   const b = at(H - d);
-                  if (b !== STONE && b !== COAL && b !== IRON && b !== DIRT && b !== SAND && b !== BLOCK_INDEX.snow) bad(`under d${d}=${b}`);
+                  if (b !== STONE && !ORE_SET.has(b) && b !== DIRT && b !== SAND && b !== BLOCK_INDEX.snow) bad(`under d${d}=${b}`);
                 }
               } else if (H >= SEA_Y) {
                 if (at(H) !== SAND || at(H - 1) !== SAND) bad(`浜 ${at(H)} ${at(H - 1)}`);
                 for (let d = 2; d <= 7; d++) {
                   const b = at(H - d);
-                  if (b !== STONE && b !== COAL && b !== IRON) bad(`浜の下 d${d}=${b}`);
+                  if (b !== STONE && !ORE_SET.has(b)) bad(`浜の下 d${d}=${b}`);
                 }
               } else {
                 if (at(H) !== SAND || at(H - 1) !== SAND) bad(`海の底 ${at(H)} ${at(H - 1)}`);
@@ -307,7 +314,7 @@ describe('基準 3・4・6・7・9: 作った列のブロック（10 シード �
                 if (at(SEA_Y + 1) !== AIR) bad('水の上');
                 for (let d = 2; d <= 9; d++) {
                   const b = at(H - d);
-                  if (b !== STONE && b !== COAL && b !== IRON) bad(`海の下 d${d}=${b}`);
+                  if (b !== STONE && !ORE_SET.has(b)) bad(`海の下 d${d}=${b}`);
                 }
               }
               // 基準 7: 洞くつ
