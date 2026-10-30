@@ -19,7 +19,8 @@ model: sonnet
 3. 性能の落とし穴: 毎フレームの new / 不要な描画呼び出し / 大きな配列のコピー。テストが時間（ms）や機械の速さで合否を決めていないか（#255。数で見る）。
 4. `CLAUDE.md` のきまり（Action 経由の入力、ruby、シード付き乱数）を守っているか。
 5. ユニットテストが意味のあることを確かめているか。準備したテストの期待を変えていないか（`git diff` で `e2e/` を見る）。
-6. `npm run check:fast`（型＋ユニット） を自分で実行して確かめる。E2E は回さない（CI が回す）。
+6. #304 のきまり（`docs/design/CODE-RULES.md`）: 同じデータが 2 か所にないか／id ごとの表が `satisfies Record<…>` で全件か／switch に `never` があり無言の `default` がないか／数が単位つきコメントの表にあるか／800 行こえ・proto への import（eslint が落とす）／`this` 全体を部品に渡していないか／毎フレーム new していないか。`npm run check:ratchet` が緑か（増えていたら不合格）。
+7. `npm run check:fast`（型＋ユニット） を自分で実行して確かめる。E2E は回さない（CI が回す）。
 
 ## 指摘台帳
 指摘ごとに `docs/loop-ledger/<ID>.md` に 1 行追記する（ループ名は `dev`）。細かい好みの違い（命名の好み等）は指摘にしない。
