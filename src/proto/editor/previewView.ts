@@ -1,5 +1,6 @@
 // HOUSE-1B 試作: 見本の 見る 向き（まわす・見おろす 角度）。three なし。
-//   ふれる 前 ＝ ゆっくり 自動で 回る / ドラッグ ＝ 自分で 向きを きめる（はなした 向きで 止まり、形が かわっても その まま）/
+//   ふれる 前 ＝ ゆっくり 自動で 回る / ドラッグ ＝ 自分で 向きを きめる（はなした 向きで 止まり、形が かわっても その まま。
+//   さわらない まま 10 秒（resumeFrames）たつと、その 向き・見おろす 角度の まま また 自動で 回る。見おろす 角度は もどさない）/
 //   窓が かわった とき ＝ その かべが 見える 向きへ なめらかに 回る（回りおわる まで 自動の 回りは 止める）。
 import { PREVIEW, WALL_YAW_DEG, WALLS, type Wall } from './tuning';
 
@@ -73,8 +74,12 @@ interface Turn {
 export class ViewCtl {
   yaw: number = PREVIEW.stillYawDeg;
   elev: number;
-  /** ドラッグで さわった（自動の 回りを やめて、はなした 向きの まま） */
+  /** ドラッグで さわった（自動の 回りを やめて、はなした 向きの まま。さわらない 10 秒で また 回る） */
   touched = false;
+  /** さわった あと、さわって いない コマ数（resumeFrames に なったら touched を おろす） */
+  private idle = 0;
+  /** 指・ボタンを 押した まま（動かさなくても さわって いる ことに する） */
+  private held = false;
   private turn: Turn | null = null;
   /** この コマ数の 間は 自動で 回らない（窓を 見せて いる 間） */
   private hold = 0;
@@ -88,12 +93,18 @@ export class ViewCtl {
     this.yaw = PREVIEW.stillYawDeg;
     this.elev = this.elev0;
     this.touched = false;
+    this.idle = 0;
+    this.held = false;
     this.turn = null;
     this.hold = 0;
   }
 
   /** 1 コマ。spin ＝ 自動で 回って よいか（動きを へらす 設定では false） */
   step(spin: boolean): void {
+    if (this.touched && !this.held && ++this.idle >= PREVIEW.resumeFrames) {
+      this.touched = false; // 向き・見おろす 角度は そのまま。ここから また 回る
+      this.idle = 0;
+    }
     if (this.turn) {
       const k = this.turn;
       k.t++;
@@ -114,10 +125,20 @@ export class ViewCtl {
   /** ドラッグ（px）: よこ ＝ 家の まわりを まわる、たて ＝ 見おろす 角度（下へ ひく ほど 上から 見る）。はなした 向きで 止まる */
   drag(dx: number, dy: number): void {
     this.touched = true;
+    this.idle = 0;
     this.turn = null;
     this.hold = 0;
     this.yaw = wrap(this.yaw - dx * PREVIEW.dragYawPerPx);
     this.elev = clamp(this.elev + dy * PREVIEW.dragElevPerPx, PREVIEW.elevMinDeg, PREVIEW.elevMaxDeg);
+  }
+
+  /** 押している 間は さわって いる（はなした ときから 10 秒を 数える） */
+  press(on: boolean): void {
+    this.held = on;
+    if (on) {
+      this.touched = true;
+      this.idle = 0;
+    }
   }
 
   /** なめらかに 向きを かえる（frames コマ）。hold コマの 間は 自動で 回らない。frames が 1 なら すぐ かわる */

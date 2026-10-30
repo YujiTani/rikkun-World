@@ -1,5 +1,6 @@
 // HOUSE-1B 試作: 見本を ドラッグで まわす（マウス・トラックパッドの ドラッグ・ゆびの ドラッグ・2 本ゆびの スクロール）。
 // よこ ＝ 家の まわりを まわる、たて ＝ 見おろす 角度。動きを へらす 設定でも きく（さわった 向きに すぐ かわる だけで、自動の 回りは しない）。
+// さわった あと 10 秒 さわらなければ、その 向き・角度の まま また 自動で 回る（押している 間は 数えない。previewView.ts）。
 // さわる 前は 見本の すみに 小さな「手の しるし」（手が よこに ゆらゆら）を 出し、さわったら（押す・2 本ゆびの スクロール）消す。
 import { el } from './dom';
 import { ICONS } from './icons';
@@ -18,6 +19,7 @@ export function bindDrag(view: HTMLElement, preview: Preview3D): void {
     lx = e.clientX;
     ly = e.clientY;
     view.classList.add('is-drag');
+    preview.holdView(true);
     try {
       view.setPointerCapture(e.pointerId);
     } catch {
@@ -34,6 +36,7 @@ export function bindDrag(view: HTMLElement, preview: Preview3D): void {
     if (e.pointerId !== id) return;
     id = null;
     view.classList.remove('is-drag');
+    preview.holdView(false);
   };
   view.addEventListener('pointerup', end);
   view.addEventListener('pointercancel', end);

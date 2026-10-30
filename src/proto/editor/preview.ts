@@ -1,8 +1,8 @@
 // HOUSE-1B 試作: エディターの 見本（3D）。ゲームの レンダラー（game.renderer）で、画面の「穴」（HTML の 見本の 場所）に
 // 切りぬいて 描く（2 つ目の WebGL を 作らない）。面は ゲームの 区の メッシュと 同じ 材料（MeshData → toGeometry）。
 // 毎コマ: 画面ぜんぶを 地の 色で ぬる → 穴の 四角だけ viewport＋scissor で 空の 色に して 見本を 描く。
-//   そと ＝ 屋根つき・低めの 角度、なか ＝ 屋根なし・50°・カメラに 近い かべが すっと さがる（ドールハウスの 切り口）。
-//   向き ＝ ふれる 前は ゆっくり 回る・ドラッグで 自分で きめる・窓が かわったら その かべへ なめらかに 回って 窓が ぴかっ（previewView.ts・previewGlow.ts）。
+//   そと ＝ 屋根つき・低めの 角度、なか ＝ 屋根なし・50°・カメラがわ（手前）の かべは 引っこめず 白っぽい 半透明（ドールハウスの 切り口）。
+//   向き ＝ ふれる 前は ゆっくり 回る・ドラッグで 自分で きめる（さわらない 10 秒で また 回る）・窓が かわったら その かべへ なめらかに 回って 窓が ぴかっ（previewView.ts・previewGlow.ts）。
 import {
   BufferGeometry, Color, Mesh, MeshBasicMaterial, PerspectiveCamera, Scene, Vector2, Vector3, Vector4,
   type DataTexture, type WebGLRenderer,
@@ -14,8 +14,9 @@ import { HOUSE_LOOK } from './houseLook';
 import { openingChange, windowCells, type EditorState } from './model';
 import { cueLevel, GlowMeshes, hoverWave, type GlowCell } from './previewGlow';
 import { buildPreview, type PreviewMode, type PreviewParts } from './previewMesh';
+import { GhostWall } from './previewGhost';
 import { OUTWARD, pickView, ViewCtl, type ViewTarget } from './previewView';
-import { GLOW, PREVIEW, ROOF_Y, WALLS, type FurnKind, type Rot, type Wall } from './tuning';
+import { GLOW, PREVIEW, ROOF_Y, WALL_GHOST, WALLS, type FurnKind, type Rot, type Wall } from './tuning';
 
 export type { FurnImage };
 
@@ -49,11 +50,18 @@ export class Preview3D {
   private readonly probe = new PerspectiveCamera(PREVIEW.fovDeg, 1, 0.5, 400);
   private readonly baseMesh = new Mesh(undefined, this.material);
   private readonly roofMesh = new Mesh(undefined, this.material);
+  /** かべ 4 まい（かべごとに 白っぽさ・透け方を かえられる 材料。形は 回しても 変えない） */
+  private readonly ghosts: Record<Wall, GhostWall> = {
+    front: new GhostWall(this.atlas),
+    right: new GhostWall(this.atlas),
+    back: new GhostWall(this.atlas),
+    left: new GhostWall(this.atlas),
+  };
   private readonly wallMesh: Record<Wall, Mesh> = {
-    front: new Mesh(undefined, this.material),
-    right: new Mesh(undefined, this.material),
-    back: new Mesh(undefined, this.material),
-    left: new Mesh(undefined, this.material),
+    front: this.ghosts.front.mesh,
+    right: this.ghosts.right.mesh,
+    back: this.ghosts.back.mesh,
+    left: this.ghosts.left.mesh,
   };
   private readonly glow = new GlowMeshes();
   private readonly icons: FurnitureIcons;
@@ -111,11 +119,7 @@ export class Preview3D {
     set(this.roofMesh, this.parts.roof);
     for (const w of WALLS) set(this.wallMesh[w], this.parts.walls[w]);
     this.roofMesh.visible = mode === 'outside';
-    for (const w of WALLS) {
-      this.wallMesh[w].visible = true;
-      this.wallMesh[w].scale.y = 1;
-      this.wallMesh[w].position.y = 0;
-    }
+    for (const w of WALLS) this.ghosts[w].set(0);
     this.glow.setHover(windowCells(s), s.w, s.d);
     this.center.set(this.parts.w / 2, mode === 'outside' ? 2 : 1.5, this.parts.d / 2);
     this.fitKey = '';
@@ -156,9 +160,14 @@ export class Preview3D {
     this.hoverT = this.hoverK > 0 || this.hoverOn ? this.hoverT + 1 : 0;
   }
 
-  /** ドラッグ（px。よこ ＝ 家の まわり、たて ＝ 見おろす 角度）。さわった 向きの まま 止まる */
+  /** ドラッグ（px。よこ ＝ 家の まわり、たて ＝ 見おろす 角度）。さわった 向きの まま 止まる（さわらない 10 秒で また 回る） */
   dragBy(dx: number, dy: number): void {
     this.views[this.mode].drag(dx, dy);
+  }
+
+  /** 見本を 押している 間（指・ボタン）は 10 秒を 数えない。はなした ときから 数える */
+  holdView(on: boolean): void {
+    for (const v of Object.values(this.views)) v.press(on);
   }
 
   /** まどの ボタンに 手を おいて いる 間 ＝ 見本の 窓を ぜんぶ 光らせる（そと だけ） */
@@ -258,18 +267,19 @@ export class Preview3D {
 
   // ------------------------------------------------------------ 描く
 
-  /** かべ 4 まいの 高さ（なかの 見本: カメラに 近い かべは さがる）。0〜1 */
-  private wallHeights(yawDeg: number): Record<Wall, number> {
+  /** かべ 4 まいの 白っぽさ（なかの 見本: カメラがわの かべほど 1 に ちかい。0〜1。向きに ついて なめらかに かわる） */
+  private wallGhosts(yawDeg: number): Record<Wall, number> {
     const y = rad(yawDeg);
     const cam = [Math.sin(y), Math.cos(y)] as const;
     const out = {} as Record<Wall, number>;
     for (const w of WALLS) {
       if (this.mode === 'outside') {
-        out[w] = 1;
+        out[w] = 0;
         continue;
       }
       const dot = cam[0] * OUTWARD[w][0] + cam[1] * OUTWARD[w][1];
-      out[w] = Math.min(1, Math.max(0, (PREVIEW.wallDropTo - dot) / (PREVIEW.wallDropTo - PREVIEW.wallDropFrom)));
+      const k = clamp01((dot - WALL_GHOST.from) / (WALL_GHOST.to - WALL_GHOST.from));
+      out[w] = k * k * (3 - 2 * k);
     }
     return out;
   }
@@ -310,14 +320,8 @@ export class Preview3D {
       }
       const view = this.views[this.mode];
       this.place(view.yaw, view.elev, this.distFor(view.elev), this.camera);
-      const heights = this.wallHeights(view.yaw);
-      for (const w of WALLS) {
-        const m = this.wallMesh[w];
-        const h = heights[w];
-        m.visible = h > 0.02;
-        m.scale.y = Math.max(h, 0.001);
-        m.position.y = 1 - h;
-      }
+      const ghost = this.wallGhosts(view.yaw);
+      for (const w of WALLS) this.ghosts[w].set(ghost[w]);
       this.glow.setLevels(this.cueNow(), this.hoverNow(), this.mode === 'outside');
       const y0 = size.y - rect.y - rect.h;
       r.setViewport(rect.x, y0, rect.w, rect.h);
@@ -351,6 +355,7 @@ export class Preview3D {
 
   dispose(): void {
     for (const m of [this.baseMesh, this.roofMesh, ...WALLS.map((w) => this.wallMesh[w])]) m.geometry.dispose();
+    for (const w of WALLS) this.ghosts[w].dispose();
     this.glow.dispose();
     this.material.dispose();
     this.atlas.dispose();

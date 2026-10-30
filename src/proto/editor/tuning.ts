@@ -109,9 +109,8 @@ export const PREVIEW = {
   stillYawDeg: 28,
   /** 画面に 入れる 余白（1 ＝ ぴったり） */
   fitMargin: 1.06,
-  /** なかの 見本で、カメラに 近い かべが さがりはじめる・きえる 向き（かべの 外向きと カメラの 向きの 内積） */
-  wallDropFrom: 0.1,
-  wallDropTo: 0.45,
+  /** さわった あと、この コマ数（600 ＝ 10 秒）の あいだ さわらなければ、その 向き・見おろす 角度の まま また 自動で 回りはじめる */
+  resumeFrames: 600,
   /** ドラッグ: 1 px で まわる 度（よこ ＝ 家の まわり、たて ＝ 見おろす 角度。下へ ひく ほど 上から 見る） */
   dragYawPerPx: 0.5,
   dragElevPerPx: 0.4,
@@ -122,6 +121,13 @@ export const PREVIEW = {
   turnFrames: 30,
   cueElevMaxDeg: 45,
 } as const;
+
+/**
+ * なかの 見本で、カメラがわ（手前）の かべ。引っこめず、白っぽい 半透明に する（yuzu 2026-10-30 22:11）。
+ * かべの 外向きと カメラの 向きの 内積が from から to へ ふえる あいだに なめらかに（0 ＝ ふつうの かべ、1 ＝ 白っぽい 半透明）。
+ * white ＝ 白へ まぜる 量（0〜1）、alpha ＝ 不透明さ（1 ＝ 透けない）。回しても かべの 形は 変わらない
+ */
+export const WALL_GHOST = { from: 0.1, to: 0.45, white: 0.7, alpha: 0.5 } as const;
 
 /** 窓・戸の ぴかっ（見本の 光り方。色は 0〜1 の RGB を 足しがけ。時間は コマ ＝ 1/60 秒） */
 export const GLOW = {
