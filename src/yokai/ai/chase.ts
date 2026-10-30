@@ -239,6 +239,9 @@ export class YokaiChaser {
         else this.turn(e, yawToward(ux, uz), dt);
         break;
       }
+      case 'tako_hachimaki':
+        // およぐ 妖怪は ここに 来ない（YokaiManager が ai/swim.ts に まかせる）
+        return 0;
       default: {
         const unreachable: never = e.kind;
         throw new Error(`chaseTick: 知らない妖怪 ${String(unreachable)}`);

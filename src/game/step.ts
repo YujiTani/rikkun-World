@@ -346,6 +346,7 @@ export function createStep(deps: WiredFrame): (dt: number) => void {
       const ps = parry.state();
       parryFx.step({ visible: ps.glowLeft > 0, level: parryGlowLevel(ps.glowLeft, w2), position: controller.state.position, reduced: reducedMotionMq?.matches ?? false, facingDeg: controller.state.facingDeg });
     }
+    combatUi.inkDim.set(yokaiM.inkDim());
     combatUi.hearts.setArmor(armor.snapshot().hudIcons);
     craftHud.update(dt);
     fx.update(dt);

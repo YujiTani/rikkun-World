@@ -33,7 +33,7 @@ describe('たいまつの 作り方（CRAFT-PAGE A）', () => {
   });
   it('カードの グループ: たいまつ だけが 3 つ。それ以外は 1 つずつ。baseRecipeId は 元の id', () => {
     const g = groupRecipes(craftRecipes);
-    expect(g.size).toBe(52); // GOLD-1: きんの そうび 8 こ。KONGO-1: こんごうの そうび 8 こ
+    expect(g.size).toBe(53); // GOLD-1: きんの そうび 8 こ。KONGO-1: こんごうの そうび 8 こ
     expect(g.get('torch')).toEqual(['torch', TORCH_COAL, TORCH_LOG]);
     expect(g.get('katana')).toEqual(['katana']);
     expect(baseRecipeId(TORCH_COAL)).toBe('torch');

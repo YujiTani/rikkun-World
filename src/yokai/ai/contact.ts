@@ -43,6 +43,7 @@ export class YokaiContact {
     if (!(dmg > 0) || combat.dead()) return;
     const pb = playerBox(f, tmpBox);
     for (const e of f.ents) {
+      if (KIND_TRAITS[e.kind].swims) continue; // およぐ 妖怪は 体当たりしない（ぺちんだけ）
       if (e.state === 'dying' || e.state === 'leaving' || e.state === 'appear' || e.state === 'attack' || e.stag) continue; // 攻撃中は攻撃のダメージだけ。よろけ中は 体当たりしない
       for (const b of boxesOf(e, this.boxList)) {
         if (aabbOverlap(obbBounds(b, e.x, e.y, e.z, e.yaw, tmpBox2), pb) && localOverlap(f, e, b)) {

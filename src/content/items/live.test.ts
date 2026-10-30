@@ -66,7 +66,7 @@ describe('登録表（生き物 8 個）', () => {
   it('色分けの 並び: 古い表と 同じ', () => {
     const plant = CATEGORY_ITEMS.plant;
     expect(plant.slice(plant.indexOf('bamboo'), plant.indexOf('bamboo') + 3)).toEqual(['bamboo', 'mushi', 'nobana']);
-    expect(CATEGORY_ITEMS.material).toEqual(['paper', 'string', 'cloth', 'oil', 'clay', 'yokai_orb', 'kin_tamago']);
+    expect(CATEGORY_ITEMS.material).toEqual(['paper', 'string', 'cloth', 'oil', 'clay', 'yokai_orb', 'sumi', 'kin_tamago']);
     const at = (cat: readonly string[], id: string, n: number) => cat.slice(cat.indexOf(id), cat.indexOf(id) + n);
     expect(at(CATEGORY_ITEMS.tool, 'bucket', 3)).toEqual(['bucket', 'water_bucket', 'mushi_ami']);
     expect(at(CATEGORY_ITEMS.home, 'sprinkler', 3)).toEqual(['sprinkler', 'nukunuku', 'toriya']);

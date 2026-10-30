@@ -4,7 +4,7 @@
 
 ## アイテム
 
-**ぜんぶ 登録表に 入っている**（`src/content/items/`）。シリーズ: 金・忍者・侍・伝説の武器・ふつうの道具／武器／防具 16 個（`tools.ts`・`weapons.ts`・`armor.ts`）・畑 14 個（`farm.ts`。じょうろの水の数は `can` 部品）・ざいりょう 8 個（`materials.ts`）・小物 7 個（`misc.ts`。ちょうちん・たこ・ふとん・おまもり・やぶれた おまもり・わらじ・はにわ。働きの数 = 光・半径・高さ・時間・持てる数は `gadgetTuning.ts` の 1 つの表 `GADGET_TUNING`。ちょうちん・ふとん・はにわは 置けるブロックでもある = `BLOCK_TYPES` にも入っていて、`placeBlock` で つながる）・生き物 8 個（`live.ts`。たべた ときの 回復量は `food` 部品）・家づくりの道具 2 個（`house.ts`。みずもり・どうづき。建築士さんが はじめて 話した ときに くれる 物で、作れない ので レシピは なし。`wear: 'permanent'`〔こわれない〕。id は `ids.ts` の `HOUSE_TOOL_IDS`、働きは HOUSE-1C〔#340〕で 入る）・置けるブロック 22 個（`blocks.ts`）。`ITEM_DEFS` は `Record<ItemDefId, ItemDef>`（全件を型で強制）。`ItemDefId` は `ItemId` から「アイテムにならないブロック」（`types.ts` の `BLOCK_ONLY_IDS`。みず・そこいし・作物・小屋の部品など）を除いたもの。窓口の表・関数（`ITEM_TYPES`・`itemRarity`・`itemCategory`・`ITEM_INFO`・`TOOL_DEFAULTS`・`toolDurability`・`CRAFT_RECIPES` …）は登録表だけから作る。古い表は無い。
+**ぜんぶ 登録表に 入っている**（`src/content/items/`）。シリーズ: 金・忍者・侍・伝説の武器・ふつうの道具／武器／防具 17 個（`tools.ts`・`weapons.ts`・`armor.ts`。ふで = TAKO-1。2D の 絵は `ui/itemArtTako.ts`）・畑 14 個（`farm.ts`。じょうろの水の数は `can` 部品）・ざいりょう 9 個（`materials.ts`。すみ = TAKO-1）・小物 7 個（`misc.ts`。ちょうちん・たこ・ふとん・おまもり・やぶれた おまもり・わらじ・はにわ。働きの数 = 光・半径・高さ・時間・持てる数は `gadgetTuning.ts` の 1 つの表 `GADGET_TUNING`。ちょうちん・ふとん・はにわは 置けるブロックでもある = `BLOCK_TYPES` にも入っていて、`placeBlock` で つながる）・生き物 8 個（`live.ts`。たべた ときの 回復量は `food` 部品）・家づくりの道具 2 個（`house.ts`。みずもり・どうづき。建築士さんが はじめて 話した ときに くれる 物で、作れない ので レシピは なし。`wear: 'permanent'`〔こわれない〕。id は `ids.ts` の `HOUSE_TOOL_IDS`、働きは HOUSE-1C〔#340〕で 入る）・置けるブロック 22 個（`blocks.ts`）。`ITEM_DEFS` は `Record<ItemDefId, ItemDef>`（全件を型で強制）。`ItemDefId` は `ItemId` から「アイテムにならないブロック」（`types.ts` の `BLOCK_ONLY_IDS`。みず・そこいし・作物・小屋の部品など）を除いたもの。窓口の表・関数（`ITEM_TYPES`・`itemRarity`・`itemCategory`・`ITEM_INFO`・`TOOL_DEFAULTS`・`toolDurability`・`CRAFT_RECIPES` …）は登録表だけから作る。古い表は無い。
 
 **置けるブロックのアイテムは `blocks.ts`。ブロックとしての性質（固さ・見た目・id の番号）は `BLOCK_TYPES`（`world/blocks/blockTypes.ts`）と `DIG_DEFAULTS`（`dig/config.ts`。ほる固さ・道具・ブロックのレア度）に残る。** アイテムの名前の出どころが BLOCK_TYPES の物と、レア度の出どころが DIG_DEFAULTS の物は、`blocks.ts` からそこを読む（2 か所に書かない）。ブロック id の型は `contracts.ts` の `BlockId`。
 
@@ -34,6 +34,8 @@
 2. `content/yokai/<kind>.ts` — 値を 1 種 1 ファイルで（`YokaiDef`。戦闘の数は 単位つきコメントで）→ `content/yokai/registry.ts` の `YOKAI_DEFS` に 1 行（`Record<YokaiKind, …>` なので 書き忘れは 型エラー）。古い表（`YOKAI_NAME`・`YOKAI_STATS`・`KIND_AI`・`SENSE.kinds`・`YOKAI_DROPS`・`YOKAI_VARIANT_COLORS`・`HEADS`・`BASE`）は ここから 作る ので 触らない。
 3. 形: `yokai/models/<kind>.ts`（箱の組み合わせ、シルエットで分かる形）と、`createYokai`（`yokai/index.ts`）・`YokaiManager` の switch（`never` で 書き忘れは 型エラー）。
 4. メダルの絵: `ui/medalArt.ts` の `build()`（switch が 型エラーで 教える）。
+
+**およぐ 妖怪（TAKO-1。タコはちまき）**: `traits.swims` の 印と `swim`（およぐ・すみ・ぺちん・けむり・画面の 暗さの 数。ぜんぶ `<kind>.ts` 1 か所）を 書く。動きは `yokai/ai/swim.ts`・水の 見方は `yokai/ai/swimTerrain.ts`、水の 列の わき方の 上限は `yokai/ai/config.ts` の `takoHachimakiMax`（陸の くじには 入らない = `countryPick.ts`）。すなはまで 多めに するのは `countryTable.ts` の `emphasis(...)` に 種類を 足す。
 
 **手で足す所（乱数の 結果が 変わる ので 自動に しない）**: 国の 出やすさ `world/gen/countryTable.ts` の `emphasis()` を 強める 国、抽選の順 `yokai/countryPick.ts` の `YOKAI_DRAW_ORDER`（うしろに 足す）、見本の並び `yokai/index.ts` の `YOKAI_ORDER`、全体の 倍率 `yokai/ai/config.ts` の `yokaiWeights`（書かないと 1 倍）。足し忘れは `content/yokai/registry.test.ts`（全種類が 並びに 1 回ずつ・どこかの国で 重み > 0）が 落とす。音は共通（`fx/combatSounds.ts`）なので足さない。
 

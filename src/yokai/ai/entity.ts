@@ -11,6 +11,33 @@ export const DEG = Math.PI / 180;
 export const HEAVY_G = 75;
 
 /**
+ * およぐ 妖怪（traits.swims）の 1 体ぶんの 状態（TAKO-1。ai/swim.ts が 読み書きする）。数は content/yokai/<kind>.ts の swim。
+ * 時間は ぜんぶ ステップ（1/60 秒）で 数える。
+ */
+export interface SwimState {
+  /** 'cycle' = はやく → とまる のくり返し / 'charge' = すみの ため / 'flee' = すみの あと にげる */
+  mode: 'cycle' | 'charge' | 'flee';
+  /** cycle の 何ステップ目か（0〜go+rest-1。go ステップ 未満が はやく すすむ） */
+  cycleStep: number;
+  /** 次に すすむ 向き（ラジアン。とまっている 間に ここへ 向きを かえる） */
+  heading: number;
+  /** charge / flee ののこり ステップ */
+  modeLeft: number;
+  /** すみを また はけるように なるまで（ステップ） */
+  inkCool: number;
+  /** ぺちんまで のこり（-1 = 予定なし）・ぺちんの まち時間のこり */
+  slapLeft: number;
+  slapCool: number;
+  /** 前のステップの 体力（たたかれたかを 見る） */
+  lastHp: number;
+  /** 体が 水の 外に いる ステップ数 */
+  dry: number;
+  /** flee の 向き（単位ベクトル。りっくんから はなれる 向き） */
+  fleeX: number;
+  fleeZ: number;
+}
+
+/**
  * 妖怪 1 体ぶんの 状態（YokaiManager が 持ち、各「係」の 部品が 1 体ずつ 受けとって 読み書きする）。
  */
 export interface Ent {
@@ -86,6 +113,8 @@ export interface Ent {
   stag: boolean;
   /** WEAPON-5: よろけの ふらつきの 位相 */
   stagPhase: number;
+  /** TAKO-1: およぐ 妖怪（traits.swims）だけ。ほかは null */
+  swim: SwimState | null;
   /** MINE-1A §4.3: 自動で 出た 妖怪か（手で 出した 物は false。見つけられなくても 消えない） */
   auto: boolean;
   /** MINE-1A §4.3: 出た とき、または 最後に プレイヤーを 見つけて いた ステップ（YokaiField.steps）。ここから yokaiForgetSteps たつと 去る */

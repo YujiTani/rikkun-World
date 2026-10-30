@@ -64,6 +64,14 @@ export const MATERIALS = {
     category: 'metal',
     info: { use: 'きらめく カタナ・おまもり の ざいりょう。ハイパーレア', how: CRAFT_E, buttons: ['E'] },
   },
+  // TAKO-1: タコはちまきを たおすと かならず 1〜2 こ（ドロップは content/yokai/tako_hachimaki.ts）。ふでの ざいりょう
+  sumi: {
+    name: 'すみ',
+    maxStack: 64,
+    rarity: 'common',
+    category: 'material',
+    info: { use: 'ふで を つくる ざいりょう', how: 'タコはちまき を たおすと でる', buttons: [] },
+  },
 } satisfies Record<MaterialId, ItemDef>;
 
 /** てつの かたまり: てつこうせきを かまどで やく（works: 本当） */

@@ -8,6 +8,7 @@ import { Chochin } from '../models/chochin';
 import { Karakasa } from '../models/karakasa';
 import { Nurikabe } from '../models/nurikabe';
 import { Rokurokubi } from '../models/rokurokubi';
+import { TakoHachimaki } from '../models/tako_hachimaki';
 import type { YokaiBase } from '../common';
 import type { StaggerBook } from '../stagger';
 import { YOKAI_STATS, yokaiStrength } from '../stats';
@@ -18,7 +19,11 @@ import { DEG, type Ent, type YokaiField } from './entity';
 import type { YokaiEvents } from './events';
 import type { SpawnOptions, YokaiManagerOptions } from './managerTypes';
 import type { YokaiPlacement } from './placement';
+import { swimOf, swimTarget, waterDepthBelow, swimYAt } from './swimTerrain';
 import { collectFloors, groundSupport, isRoofed, isUnderground } from './terrain';
+
+/** 水の 列で 出る 確率の 分母（重み ÷ 100） */
+const SWIM_WEIGHT_UNIT = 100;
 
 interface SpawnerDeps {
   world: VoxelWorld;
@@ -46,6 +51,14 @@ const FOUND_STATES: ReadonlySet<YokaiState> = new Set<YokaiState>(['chase', 'att
 /**
  * 出現と片づけの係: 妖怪を作る、自動で出す（場所・国・種類のくじ）、遠すぎる妖怪を消す、あさに帰らせる。
  */
+const MODEL_OF = {
+  karakasa: () => new Karakasa(),
+  chochin: () => new Chochin(),
+  nurikabe: () => new Nurikabe(),
+  rokurokubi: () => new Rokurokubi(),
+  tako_hachimaki: () => new TakoHachimaki(),
+} satisfies Record<YokaiKind, () => YokaiBase>;
+
 export class YokaiSpawner {
   private nextId = 1;
   private spawnCountdown = 0;
@@ -67,26 +80,8 @@ export class YokaiSpawner {
 
   private create(kind: YokaiKind, x: number, y: number, z: number, yaw: number, appear: boolean): Ent {
     const { f, group, rng } = this.d;
-    let model: YokaiBase;
-    switch (kind) {
-      case 'karakasa':
-        model = new Karakasa();
-        break;
-      case 'chochin':
-        model = new Chochin();
-        (model as Chochin).fireLayer = group;
-        break;
-      case 'nurikabe':
-        model = new Nurikabe();
-        break;
-      case 'rokurokubi':
-        model = new Rokurokubi();
-        break;
-      default: {
-        const unreachable: never = kind;
-        throw new Error(`create: 知らない妖怪 ${String(unreachable)}`);
-      }
-    }
+    const model = MODEL_OF[kind]();
+    if (model instanceof Chochin) model.fireLayer = group;
     const hp = YOKAI_STATS[kind].hp;
     const st = yokaiStrength(kind);
     const e: Ent = {
@@ -144,6 +139,7 @@ export class YokaiSpawner {
       stone: 0,
       stag: false,
       stagPhase: 0,
+      swim: null,
       // 自動で 出た 妖怪だけ 見つけられない まま 去る（MINE-1A §4.3。ふくらんで 出てくるのも 自動の 出現だけ）
       auto: appear,
       foundAt: f.steps,
@@ -221,9 +217,17 @@ export class YokaiSpawner {
       if (opts.canSpawnAt && !opts.canSpawnAt(x, z)) continue;
       // 立てる床（固くて、はっぱ・水でない、上が空気）を 足 ±yokaiSpawnHeight の 中だけ 列から集めて、1 つえらぶ
       const floors = this.floorScratch;
-      const water = collectFloors(world, Math.floor(x), Math.floor(z), lo, hi, floors);
-      // M5: みず の列（うみ・かわ・いずみ・いけ）には出ない。見るのは 足 ±yokaiSpawnHeight の 中だけ（はんいの 外の 海・池は 見ない）
-      if (water || floors.length === 0) continue;
+      const ix = Math.floor(x);
+      const iz = Math.floor(z);
+      const water = collectFloors(world, ix, iz, lo, hi, floors);
+      // M5: みず の列（うみ・かわ・いずみ・いけ）には 陸の 妖怪は 出ない。およぐ 妖怪（TAKO-1）だけ 出る。見るのは 足 ±yokaiSpawnHeight の 中だけ
+      if (water) {
+        let waterTop = -1; // はんいの 中で 列の いちばん 上の 水の マスの 高さ
+        for (let y = Math.min(hi, world.size.y - 1); y >= lo && waterTop < 0; y--) if (world.getBlock(ix, y, iz) === 'water') waterTop = y;
+        if (waterTop >= 0 && this.trySpawnSwimmer(x, z, waterTop)) return;
+        continue;
+      }
+      if (floors.length === 0) continue;
       const top = floors[Math.floor(rng() * floors.length)]!;
       // COUNTRY-1 §3.3: 場所 → 国 → 種類。種類は その場所の 国の行で えらぶ（だめなら この ためしは しっぱい）
       const limitedFull = this.countLimited() >= config.nurikabeMax;
@@ -246,6 +250,39 @@ export class YokaiSpawner {
     }
   }
 
+  /**
+   * TAKO-1 §4.3: 水の 列に およぐ 妖怪を 出す。ひる・よる どちらも（暗さ・屋根は 見ない）。
+   * 出る 確率 = その 国の 行の 重み ÷ 100（重みの 倍率も かける）。同時の 数の 上限は config.takoHachimakiMax。
+   * 水の 深さが たりない 列・体が 入らない 所には 出さない。出せたら true。
+   */
+  private trySpawnSwimmer(x: number, z: number, waterTop: number): boolean {
+    const { world, config, events, rng } = this.d;
+    const { row } = this.rowAt(x, z);
+    for (const kind of YOKAI_DRAW_ORDER) {
+      const sw = swimOf({ kind });
+      if (!sw) continue;
+      if (this.countSwimmers() >= config.takoHachimakiMax) return false;
+      if (!(rng() < weightOf(row, config.yokaiWeights, kind) / SWIM_WEIGHT_UNIT)) continue;
+      const surface = waterTop + 1;
+      if (waterDepthBelow(world, x, z, surface, sw.minWaterDepth) < sw.minWaterDepth) return false;
+      const ai = KIND_AI[kind];
+      const y = swimYAt(surface, ai, sw.depthSpawn);
+      if (Number.isNaN(swimTarget(world, ai, sw, x, z, y, 0))) return false;
+      const e = this.create(kind, x, y, z, rng() * Math.PI * 2, true);
+      events.emit({ type: 'spawn', tick: events.tick(), id: e.id, kind, position: { x, y, z } });
+      this.d.placement.decidePlace(e, null);
+      return true;
+    }
+    return false;
+  }
+
+  /** およぐ 妖怪が 今 何体 いるか */
+  private countSwimmers(): number {
+    let n = 0;
+    for (const e of this.d.f.ents) if (KIND_TRAITS[e.kind].swims) n++;
+    return n;
+  }
+
   /** M5: プレイヤーから水平 64 より遠い妖怪は、そのステップで静かに消える（落とし物なし） */
   farTick(): void {
     const { world, f } = this.d;
@@ -264,6 +301,7 @@ export class YokaiSpawner {
     const { world, time, f, config, rng, stag } = this.d;
     if (time.phase() !== 'dawn') return;
     for (const e of f.ents) {
+      if (KIND_TRAITS[e.kind].swims) continue; // 水の 中の 妖怪は ひるも いる（あさに 帰らない）
       if (e.leaveAt < 0 && e.state !== 'dying' && e.state !== 'leaving') {
         if (isRoofed(world, e.x, e.y, e.z, e.dims.height)) {
           e.leaveAt = -2; // 屋根の下の妖怪は残ってよい

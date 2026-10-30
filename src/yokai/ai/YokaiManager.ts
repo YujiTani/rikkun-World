@@ -39,6 +39,7 @@ import { YokaiPresenter } from './presenter';
 import { YokaiReeler } from './reeler';
 import { YokaiSpawner } from './spawner';
 import { YokaiStone } from './stone';
+import { YokaiSwimmer } from './swim';
 
 // 外から使う型の名前は、これまでどおり この ファイルから 読める
 export type { HookYokaiEvent, SpawnOptions, YokaiManagerOptions } from './managerTypes';
@@ -81,6 +82,7 @@ export class YokaiManager implements YokaiWorld {
   private readonly chaser: YokaiChaser;
   private readonly placement: YokaiPlacement;
   private readonly spawner: YokaiSpawner;
+  private readonly swimmer: YokaiSwimmer;
 
   private readonly boxList: OBox[] = [];
   private readonly aimPool: { id: number; min: Vec3; max: Vec3 }[] = [];
@@ -126,6 +128,7 @@ export class YokaiManager implements YokaiWorld {
     const fireballs = (this.fireballs = new YokaiFireballs({ world, f, combat: opts.combat, events, opts, settings: this.S, hurt: this.hurt, reeler, burst: this.burst }));
     const contact = (this.contact = new YokaiContact({ f, combat: opts.combat, config: this.config, events, opts, reeler, stone, fireballs }));
     this.chaser = new YokaiChaser({ world, f, combat: opts.combat, config: this.config, events, opts, rng, mover, fall });
+    this.swimmer = new YokaiSwimmer({ world, f, combat: opts.combat, events, group: this.group, rng });
     const placement = (this.placement = new YokaiPlacement({ world, f, events, opts, titleRng, marks: presenter }));
     this.spawner = new YokaiSpawner({
       world,
@@ -279,6 +282,7 @@ export class YokaiManager implements YokaiWorld {
     for (const e of this.ents) this.disposeEnt(e);
     this.f.ents = [];
     this.fireballs.clear();
+    this.swimmer.clear();
     this.stagBook.clear();
   }
 
@@ -320,6 +324,7 @@ export class YokaiManager implements YokaiWorld {
     this.mover.separate();
     this.contact.contactTick();
     this.fireballs.tick(dt);
+    this.swimmer.tickWorld();
     this.burst.update(dt);
 
     this.presenter.applyLight();
@@ -365,13 +370,21 @@ export class YokaiManager implements YokaiWorld {
       this.reeler.pose(e);
     } else {
       this.reeler.clear(e);
-      if (e.ai) this.chaser.think(e, dt);
+      if (e.ai) {
+        if (KIND_TRAITS[e.kind].swims) this.swimmer.tick(e);
+        else this.chaser.think(e, dt);
+      }
     }
     if (KIND_TRAITS[e.kind].turnsToStone && this.stone.stoneTick(e)) return;
     this.mover.applyKnock(e);
-    // よろけ中の ちょうちんは その場で ふわふわ（高さも かえない）
-    if (!this.fall.rise(e, dt) && !(e.stag && e.dims.flies)) this.fall.settle(e, dt);
-    this.fall.endAirSafe(e);
+    if (KIND_TRAITS[e.kind].swims) {
+      e.knockUpV = 0; // およぐ 妖怪は 落ちない・うきあがらない（高さは 水面に 合わせる = swim.ts）
+      e.airSafe = false;
+    } else {
+      // よろけ中の ちょうちんは その場で ふわふわ（高さも かえない）
+      if (!this.fall.rise(e, dt) && !(e.stag && e.dims.flies)) this.fall.settle(e, dt);
+      this.fall.endAirSafe(e);
+    }
     if (e.y < AI_CONST.voidY) {
       e.remove = true;
       return;
@@ -428,6 +441,16 @@ export class YokaiManager implements YokaiWorld {
   /** テストの窓口 `yokai.spawnWeights(x, z)`: その場所で 使う 行 × 全体の倍率（ぬりかべ の 同時の数は 入れない） */
   spawnWeights(x: number, z: number): { country: string; weights: Record<string, number> } {
     return this.spawner.spawnWeights(x, z);
+  }
+
+  /** 画面を 暗くする 黒い 板の こさ（0〜1。タコはちまきの すみの けむりの 中に 目が ある とき 0.4。TAKO-1） */
+  inkDim(): number {
+    return this.swimmer.inkDim();
+  }
+
+  /** テスト窓口 `yokai.ink()`: 出ている すみの けむり（中心・半径・はいてからの 秒）と 画面の 暗さ */
+  inkInfo(): { dim: number; clouds: { x: number; y: number; z: number; radius: number; age: number }[] } {
+    return { dim: this.swimmer.inkDim(), clouds: this.swimmer.cloudList() };
   }
 
   // ---------------------------------------------------------------- 火の玉・よろけの窓口
