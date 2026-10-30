@@ -37,7 +37,7 @@ export function wireSave(deps: WiredAchievements) {
     strengthToWrite, screenSettings, combat, time, craft, armor, level, storage, achievements,
     countryWatch, animals, deliverAnimalEvents, legendBook, ninjaBook, kodachi, ninjaHave, samuraiBook,
     samuraiHave, farm, saveOptions, island, hud, renderer, frameClock, raiseAboveBlocks, startPoint,
-    playOverlay, m7, celebrate, lock, book, screen, inventoryScreen, toItemsTab,
+    playOverlay, m7, celebrate, lock, book, screen, inventoryScreen, toItemsTab, house,
   } = deps;
   // 自動セーブ（?nosave=1 は保存しない、?reset=1 は消してから始める。消すのは開発サーバーだけ）
   const save = new SaveManager({
@@ -86,6 +86,8 @@ export function wireSave(deps: WiredAchievements) {
       },
     },
     legend: { serialize: () => legendBook.serialize(), deserialize: (d) => legendBook.deserialize(d) },
+    // HOUSE-1A: くら・建築士さんの 記録。前の 保存（キーなし）は 空の くら・最初の 1 人は 決まった 場所に 出る
+    house: { serialize: () => house.state.serialize(), deserialize: (d) => house.state.deserialize(d) },
     // NINJA-1: 忍者帳。前の 保存（帳なし）は 空。読んだ とき もちもの・防具の マスに ある 忍者装備は 帳に 入れる（#298 で もう 足袋を 持って いる 人に 2 こ目を 出さない）
     ninja: { serialize: () => ninjaBook.serialize(), deserialize: (d) => { kodachi.clear(); ninjaBook.deserialize(d, ninjaHave()); const k = ninjaBook.got().length; if (k > 0) achievements.feedNinja('', k); } },
     // SAMURAI-1: 侍帳。前の 保存（帳なし）は 空。読んだ とき もちもの・防具の マスに ある 侍装備は 帳に 入れる

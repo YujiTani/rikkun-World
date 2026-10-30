@@ -19,6 +19,7 @@ import { Notice } from '../../ui/notice';
 import { PlayerController } from '../../player/PlayerController';
 import type { BossHandle, GashaRelease } from '../../gasha/release';
 import { ShadowSystem } from '../../world/render/shadow/ShadowSystem';
+import type { HouseSystem } from '../../house/system';
 
 // WEAPON-7: 雷の 見た目（十字の ドット絵・着地の 光・光の つぶ）
 export const IDLE_THUNDER_LOOK = { charging: false, ready: false, aimS: null };
@@ -42,6 +43,10 @@ interface Shared {
   coopMenuIsOpen: () => boolean;
   /** LIVE-3: 右クリック で とりごや の メニュー を ひらく（メニュー は あとで 作る） */
   openCoopMenu: (coopId: number) => void;
+  /** HOUSE-1A: 建築士さん（wireHouse で 作る。作る 前は null）。右クリックの 窓口（combat.ts の dig）が あとから 読む */
+  house: HouseSystem | null;
+  /** HOUSE-1A: 建築士さんの メニュー・くらが 開いて いる（ゲームの 時間・妖怪を 止める。本の 画面と 同じ あつかい。player.ts の 窓が 読む） */
+  houseFrozen: () => boolean;
   requestSave: () => void;
   skipSignalLog: boolean;
   onDropPicked: (item: ItemId, count: number, fromYokai: boolean) => void;
@@ -94,6 +99,8 @@ export function createShared(): Shared {
     tryOpenTansu: () => false,
     coopMenuIsOpen: () => false,
     openCoopMenu: () => {},
+    house: null,
+    houseFrozen: () => false,
     requestSave: () => {},
     skipSignalLog: false,
     onDropPicked: () => {},

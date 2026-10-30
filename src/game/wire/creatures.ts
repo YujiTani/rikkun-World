@@ -15,6 +15,7 @@ import { MachoMarks } from '../../ui/machoMarks';
 import { FX_SETTINGS } from '../../fx/config';
 import { playKodachi } from '../../fx/weaponSounds';
 import type { WiredFighters } from './combat';
+import type { WiredHouse } from './house';
 
 export function wireYokai(deps: WiredFighters) {
   const {
@@ -120,17 +121,18 @@ export function wireYokai(deps: WiredFighters) {
   return { yokaiM, kodachiFx, kodachi, kodachiHookBuf };
 }
 
-type WiredYokai = WiredFighters & ReturnType<typeof wireYokai>;
+export type WiredYokai = WiredFighters & ReturnType<typeof wireYokai>;
 
-export function wireAnimalView(deps: WiredYokai) {
+export function wireAnimalView(deps: WiredHouse) {
   const {
     shared, fxSound, live, seed, controller, animals, hud, game, lighting, dig, world, rig, inventory,
-    blade, tools,
+    blade, tools, architectRenderer,
   } = deps;
   // LIVE-1: にわとり の 見た目・音（動きの強さの 設定は まだ ない。できたら ここで つなぐ）
   const animalMotion = (): number => 1;
   const animalFx = new AnimalFx({ sound: fxSound, motion: animalMotion, lookDist: () => live.animalLookDist, fullTicks: () => live.animalFullTicks, seed });
-  const animalRenderer = new AnimalRenderer({ fx: animalFx, motion: animalMotion, player: () => controller.state.position, source: animals });
+  // HOUSE-1A: 建築士さんの 足もとの 影は にわとりの 影の 描画に まぜる（建築士さんの 更新が 先。wireHouse は これより 前に 登録する）
+  const animalRenderer = new AnimalRenderer({ fx: animalFx, motion: animalMotion, player: () => controller.state.position, source: animals, extraShadows: () => architectRenderer.shadowSpots() });
   const animalViews = new ViewBuffer();
   // LIVE-4: マッチョ の「！」と、ねらって いる 妖怪 の 上 の 顔（HTML）
   const machoMarks = new MachoMarks(hud);
@@ -189,4 +191,4 @@ export function wireAnimalView(deps: WiredYokai) {
   };
 }
 
-export type WiredAnimalView = WiredYokai & ReturnType<typeof wireAnimalView>;
+export type WiredAnimalView = WiredHouse & ReturnType<typeof wireAnimalView>;
