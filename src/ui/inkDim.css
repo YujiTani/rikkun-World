@@ -1,0 +1,9 @@
+/* すみの けむりの 中に 目が ある とき だけ、画面が 少し 暗くなる（TAKO-1）。ふちから じわっと（中央は うすい）。点滅しない。ダメージなし */
+#ink-dim {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, rgba(20, 16, 36, 0.45) 0%, rgba(20, 16, 36, 0.85) 100%);
+  z-index: 3;
+  opacity: 0;
+}

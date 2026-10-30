@@ -16,6 +16,8 @@ export interface YokaiConfig {
   /** 同時の数 */
   yokaiMax: number;
   nurikabeMax: number;
+  /** およぐ 妖怪（タコはちまき）の 同時に いる 数の 上限（yokaiMax の 中に 入る。TAKO-1） */
+  takoHachimakiMax: number;
   /** 全体の 倍率（COUNTRY-1。種類 → 数）。1 = そのまま・2 = どの国でも 2 倍・null か 0 は どの国にも 出さない */
   yokaiWeights: Partial<Record<YokaiKind, number | null>>;
   yokaiSpawnMinDist: number;
@@ -46,8 +48,9 @@ export function createYokaiConfig(): YokaiConfig {
     yokaiSpawnInterval: 300,
     yokaiMax: 5,
     nurikabeMax: 1,
+    takoHachimakiMax: 2,
     // COUNTRY-1: 全体の 倍率（4 種とも 1）。30・25・25・20 の 数は 国の表の ものさしの行（countryTable.ts）
-    yokaiWeights: { karakasa: 1, chochin: 1, rokurokubi: 1, nurikabe: 1 },
+    yokaiWeights: { karakasa: 1, chochin: 1, rokurokubi: 1, nurikabe: 1, tako_hachimaki: 1 },
     yokaiSpawnMinDist: 12,
     yokaiSpawnMaxDist: 28,
     yokaiSpawnNearExclude: 8,

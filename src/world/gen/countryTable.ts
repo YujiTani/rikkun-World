@@ -27,14 +27,14 @@ export interface CountryRow {
 const BASE = yokaiCountryBase();
 const MANY = 15;
 const FEW = 5;
-const emphasis = (kind: YokaiKind): Partial<Record<YokaiKind, number>> => mapKinds((k) => BASE[k] + (k === kind ? MANY : -FEW));
+const emphasis = (...kinds: YokaiKind[]): Partial<Record<YokaiKind, number>> => mapKinds((k) => BASE[k] + (kinds.includes(k) ? MANY : -FEW));
 
 export const COUNTRY_TABLE: readonly CountryRow[] = [
   { kind: 'harappa', name: `はじまりの ${ruby('原', 'はら')}っぱ`, yomi: 'はじまりの はらっぱ', boss: 'tsuchigumo', yokai: { ...BASE } },
   { kind: 'mori', name: ruby('森', 'もり'), yomi: 'もり', boss: 'tsuchigumo', yokai: emphasis('rokurokubi') },
   { kind: 'ookina', name: `${ruby('大', 'おお')}きな ${ruby('木', 'き')}の ${ruby('森', 'もり')}`, yomi: 'おおきな きの もり', boss: 'byakko', yokai: emphasis('rokurokubi') },
   { kind: 'hana', name: ruby('花畑', 'はなばたけ'), yomi: 'はなばたけ', boss: 'byakko', yokai: emphasis('chochin') },
-  { kind: 'sunahama', name: ruby('砂浜', 'すなはま'), yomi: 'すなはま', boss: 'omukade', yokai: emphasis('karakasa') },
+  { kind: 'sunahama', name: ruby('砂浜', 'すなはま'), yomi: 'すなはま', boss: 'omukade', yokai: emphasis('karakasa', 'tako_hachimaki') },
   { kind: 'susuki', name: `すすきの ${ruby('原', 'はら')}`, yomi: 'すすきの はら', boss: 'itsumade', yokai: emphasis('chochin') },
   { kind: 'take', name: `${ruby('竹', 'たけ')}やぶ`, yomi: 'たけやぶ', boss: 'tsuchigumo', yokai: emphasis('karakasa') },
   { kind: 'kappa', name: `かっぱの ${ruby('沼', 'ぬま')}`, yomi: 'かっぱの ぬま', boss: 'omukade', yokai: emphasis('karakasa') },

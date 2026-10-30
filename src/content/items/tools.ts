@@ -71,4 +71,15 @@ export const TOOLS = {
     recipe: { count: 1, inputs: [['iron_ingot', 3], ['log', 2]] },
     tool: { power: 6, level: 0, family: 'log' }, // ほる強さ 6・レベル 0
   },
+  // TAKO-1: せっけいず（ハウジング #339）を かく どうぐ。たたく強さ・ほる強さは 持たない（素手と 同じ）。
+  // たいきゅう 5 は ここ 1 か所（せっけいず 1 まいで 1 へらす 処理は #339 が この 数を 読んで 作る。TAKO-1 では へらさない）
+  fude: {
+    name: 'ふで',
+    maxStack: 1,
+    rarity: 'uncommon',
+    category: 'tool',
+    info: { use: 'せっけいず を かく どうぐ', how: 'さぎょうだい で つくる', buttons: [] },
+    wear: 5, // せっけいず 5 まい かくと こわれる（5 かい）
+    recipe: { count: 1, inputs: [['sumi', 1], ['bamboo', 2]] }, // すみ 1 ＋ たけ 2
+  },
 } satisfies Record<ToolItemId, ItemDef>;

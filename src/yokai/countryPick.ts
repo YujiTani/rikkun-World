@@ -6,7 +6,7 @@ import { KIND_TRAITS } from './traits';
  * 順番は 昔から この 4 つ（乱数の 並びを きめる。見本ページの並びの yokai/index.ts の YOKAI_ORDER とは別もの）。表に ない 種類は 重み 0。
  * 新しい 妖怪は ここにも 手で 足す（足し忘れると 一度も 出ない）。全種類が 1 回ずつ 入っているかは content/yokai/registry.test.ts が 見張る。
  */
-export const YOKAI_DRAW_ORDER = ['karakasa', 'chochin', 'rokurokubi', 'nurikabe'] as const satisfies readonly YokaiKind[];
+export const YOKAI_DRAW_ORDER = ['karakasa', 'chochin', 'rokurokubi', 'nurikabe', 'tako_hachimaki'] as const satisfies readonly YokaiKind[];
 
 export type YokaiRow = Partial<Record<YokaiKind, number>>;
 export type YokaiScale = Partial<Record<YokaiKind, number | null>>;
@@ -25,7 +25,7 @@ export function weightOf(row: YokaiRow, scale: YokaiScale, k: YokaiKind): number
 
 export function rowTotal(row: YokaiRow, scale: YokaiScale): number {
   let t = 0;
-  for (const k of YOKAI_DRAW_ORDER) t += weightOf(row, scale, k);
+  for (const k of YOKAI_DRAW_ORDER) if (!KIND_TRAITS[k].swims) t += weightOf(row, scale, k); // およぐ 妖怪は 陸の くじに 入らない
   return t;
 }
 
@@ -42,7 +42,8 @@ export function pickYokaiKind(row: YokaiRow, scale: YokaiScale, limitedFull: boo
   const w: number[] = [];
   let total = 0;
   for (const k of YOKAI_DRAW_ORDER) {
-    const v = KIND_TRAITS[k].limitedCount && limitedFull ? 0 : weightOf(row, scale, k);
+    // およぐ 妖怪は 陸の くじでは 重み 0（水の 列には ai/spawner.ts が 別に 出す）
+    const v = KIND_TRAITS[k].swims || (KIND_TRAITS[k].limitedCount && limitedFull) ? 0 : weightOf(row, scale, k);
     w.push(v);
     total += v;
   }

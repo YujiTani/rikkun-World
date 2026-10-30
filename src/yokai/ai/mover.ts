@@ -4,6 +4,7 @@ import { bodyInWall } from '../../world/wall';
 import { YOKAI_STATS } from '../stats';
 import { KIND_TRAITS } from '../traits';
 import { boxFreeAt } from './body';
+import { swimOf, swimTarget } from './swimTerrain';
 import { AI_CONST, KIND_AI, type YokaiConfig } from './config';
 import { DT, type Ent, type YokaiField } from './entity';
 import { flySurface, groundSupport } from './terrain';
@@ -34,6 +35,16 @@ export class YokaiMover {
   private place(e: Ent, x: number, z: number): boolean {
     const { world, f, config } = this.d;
     const ai = e.dims;
+    const swim = swimOf(e);
+    if (swim) {
+      // およぐ 妖怪（TAKO-1）: 体の 箱が ぜんぶ 水の マスの ときだけ 動く。水の 外へは 出ない
+      const ny = swimTarget(world, ai, swim, x, z, e.y, 2 * DT);
+      if (Number.isNaN(ny)) return false;
+      e.x = x;
+      e.z = z;
+      e.y = ny;
+      return true;
+    }
     if (ai.flies) {
       const r = ai.radius;
       if (!bodyInWall(x, z, r, AI_CONST.edgeMargin)) return false;

@@ -105,6 +105,11 @@ function build(kind: MarkKind): Pixels {
       c.disc(8, 5, 4, C.sand).rect(7, 9, 2, 5, C.sand).rect(4, 13, 8, 3, C.purple).rect(5, 1, 6, 2, C.ink);
       c.rect(6, 4, 1, 2, C.ink).rect(9, 4, 1, 2, C.ink).rect(7, 7, 2, 1, C.ink);
       break;
+    case 'tako_hachimaki': // タコはちまき: 赤い 頭 ＋ 白い はちまき ＋ 足（にこにこ）
+      c.rect(3, 2, 10, 8, C.red).rect(3, 4, 10, 2, C.white).rect(11, 3, 2, 3, C.white).smile(6);
+      c.rect(3, 10, 2, 5, C.red).rect(6, 10, 2, 5, C.red).rect(9, 10, 2, 5, C.red).rect(12, 10, 1, 5, C.red);
+      c.rect(3, 14, 2, 1, C.white).rect(9, 14, 2, 1, C.white);
+      break;
     case 'heart':
       c.map(
         ['..XXX...XXX....', '.XXXXX.XXXXX...', 'XXXXXXXXXXXXX..', 'XXXXXXXXXXXXX..', 'XXXXXXXXXXXXX..', '.XXXXXXXXXXX...', '..XXXXXXXXX....', '...XXXXXXX.....', '....XXXXX......', '.....XXX.......', '......X........'],

@@ -395,6 +395,7 @@ const G_EXPECT: Record<G, { name: string; stack: number; rarity: string; cat: st
   wood_axe: { name: 'きの おの', stack: 1, rarity: 'common', cat: 'tool', wear: 59, recipe: [['log', 3]] },
   stone_axe: { name: 'いしの おの', stack: 1, rarity: 'common', cat: 'tool', wear: 131, recipe: [['stone', 3], ['log', 2]] },
   iron_axe: { name: 'てつの おの', stack: 1, rarity: 'rare', cat: 'tool', wear: 250, recipe: [['iron_ingot', 3], ['log', 2]] },
+  fude: { name: 'ふで', stack: 1, rarity: 'uncommon', cat: 'tool', wear: 5, recipe: [['sumi', 1], ['bamboo', 2]] }, // TAKO-1
   bokuto: { name: 'ぼくとう', stack: 1, rarity: 'common', cat: 'weapon', wear: 59, recipe: [['log', 2]] },
   katana: { name: 'かたな', stack: 1, rarity: 'rare', cat: 'weapon', wear: 250, recipe: [['iron_ingot', 2], ['log', 1]] },
   naginata: { name: 'なぎなた', stack: 1, rarity: 'rare', cat: 'weapon', wear: 250, recipe: [['iron_ingot', 1], ['log', 3]] },
