@@ -152,7 +152,7 @@ export function actionHintLines(right: RightClickPreview | null, left: LeftClick
         out.right = { icon: right.item!, word: 'おく' };
         break;
       // MINE-1B: チョークで かく・いしばいを まく（持っている 物の 絵）
-      case 'chalk':
+      case 'chalkDraw':
         out.right = { icon: right.item!, word: 'かく' };
         break;
       case 'ripen':

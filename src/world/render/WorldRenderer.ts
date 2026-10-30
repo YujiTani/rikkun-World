@@ -22,6 +22,7 @@ import { StreamDriver } from './streamDriver';
 import { SwayDriver } from './swayDriver';
 import { pickEvictions } from './voxel/geometryBudget';
 import { setAoCenter, setAoRadius } from './voxel/aoUniforms';
+import { updateGlow } from './voxel/glowUniforms';
 import { SectionMesher } from './voxel/sectionMesher';
 import { DEFAULT_MICRO_R, columnDistance, nextTier, normalizeMicroR } from './voxel/tier';
 
@@ -276,6 +277,7 @@ export class WorldRenderer {
       this.retier();
     }
     this.light.update();
+    updateGlow(performance.now() / 1000); // ほたるいしの いき（見た目だけ。ゲームの 時間には 関係しない）
     if (!this.attached) return;
     this.syncColumns();
     this.sway.sync();

@@ -38,8 +38,8 @@ export function patchAtlasShader(shader: WebGLProgramParametersWithUniforms): vo
   Object.assign(shader.uniforms, shadowPatch.uniforms);
   shader.vertexShader = mustReplace(
     mustReplace(shader.vertexShader, '#include <common>', `#include <common>\n${SHADOW_VARYINGS}`, 'atlas 頂点 common'),
-    'vColor.rgb *= max(max(sb, bb), ripe * uRipeMin) * tint * (1.0 - aoD);',
-    'vColor.rgb *= max(max(sb, bb), ripe * uRipeMin) * tint * (1.0 - aoD);\n  vShSB = sb; vShBB = bb; vShFloor = ripe * uRipeMin; vShSky = aLight.x; vShW = (modelMatrix * vec4(position, 1.0)).xyz;',
+    'vColor.rgb *= max(max(sb, bb), rmin) * tint * (1.0 - aoD);',
+    'vColor.rgb *= max(max(sb, bb), rmin) * tint * (1.0 - aoD);\n  vShSB = sb; vShBB = bb; vShFloor = rmin; vShSky = aLight.x; vShW = (modelMatrix * vec4(position, 1.0)).xyz;',
     'atlas 頂点 光',
   );
   shader.fragmentShader = mustReplace(

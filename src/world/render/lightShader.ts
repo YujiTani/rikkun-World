@@ -69,16 +69,18 @@ ${LIGHT_GLSL_FUNCS}`,
         '#include <color_vertex>',
         `#include <color_vertex>
 {
-  float ripe = step(1.5, aLight.y);
+  float chalk = step(3.5, aLight.y);
+  float ripe = step(1.5, aLight.y) - chalk;
   float s = max(aLight.x * 15.0 - uDarken, 0.0);
-  float bl = (aLight.y - ripe * 2.0) * 15.0;
+  float bl = (aLight.y - ripe * 2.0 - chalk * 4.0) * 15.0;
+  float rmin = ripe * uRipeMin + chalk * ${f(LC.dollMin)}; // 明るさの 下限（みのった作物・チョークの しるし〔MINE-1B〕）
   float sb = skyCurve(s) * skyNight(aLight.x * 15.0);
   float bb = blockTier(bl);
   float w = clamp((bb - sb) * 3.0, 0.0, 1.0) * ${f(LC.warmTintStrength)};
   vec3 tint = mix(vec3(1.0), vec3(${f(LC.warmTint[0])}, ${f(LC.warmTint[1])}, ${f(LC.warmTint[2])}), w);
   // 角の暗がり（平らな箱の面。小ブロックの半径の外では 1.0 に消える）
   float aoD = aDark * uAoOn * (1.0 - smoothstep(uAoFade.x, uAoFade.y, length((modelMatrix * vec4(position, 1.0)).xz - uAoCenter)));
-  vColor.rgb *= max(max(sb, bb), ripe * uRipeMin) * tint * (1.0 - aoD);
+  vColor.rgb *= max(max(sb, bb), rmin) * tint * (1.0 - aoD);
 }`,
       );
     if (shadowPatch.active) patchAtlasShader(shader); // SHADOW-1: 光に影をかける（作らないときは今のまま）

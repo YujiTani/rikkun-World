@@ -32,6 +32,53 @@ function rebind(): void {
   kataK = ids.map((id) => kata[id] ?? 0);
   kataUnder = kata[KATA_UNDER] ?? 0;
   kataCache.clear();
+  rebindGrains();
+}
+
+// ---- つぶ（B「とびだす つぶ」。MINE-1B #349）
+/** つぶの 通し番号（全部の 種類で 数える）の 上限。mesher の 格子の 値と 頂点の 印〔5 ビット〕に 入る 数 */
+export const MAX_GRAINS = 30;
+/** 格子の 値: 0 = 空、GRAIN_BODY = つぶの ある 種類の 地の 石、GRAIN_FIRST + n = 通し番号 n（0 から）の つぶ */
+export const GRAIN_BODY = 2;
+export const GRAIN_FIRST = 3;
+
+/** 通しの つぶ 1 色: sRGB 0〜255 と 光る 強さ */
+export interface GrainColor {
+  r: number;
+  g: number;
+  b: number;
+  glow: number;
+}
+
+let grainMaps: (Uint8Array | undefined)[] = [];
+let grainColors: GrainColor[] = [];
+
+function rebindGrains(): void {
+  grainMaps = [];
+  grainColors = [];
+  const rgb = current.palette;
+  specs.forEach((s, kind) => {
+    if (!s?.grains) return;
+    // 色番号 → 格子の 値。つぶ では ない 色は ぜんぶ 地の 石
+    const m = new Uint8Array(256).fill(GRAIN_BODY);
+    m[0] = 0;
+    for (const g of s.grains) {
+      if (grainColors.length >= MAX_GRAINS) throw new Error(`つぶの 色が 多すぎる（${MAX_GRAINS} まで）`);
+      m[g.index] = GRAIN_FIRST + grainColors.length;
+      grainColors.push({ r: rgb[g.index * 3]!, g: rgb[g.index * 3 + 1]!, b: rgb[g.index * 3 + 2]!, glow: g.glow ?? 0 });
+    }
+    grainMaps[kind] = m;
+  });
+}
+
+/** この種類の「色番号 → 格子の 値」の 表（つぶの ある 種類だけ。ない 種類は undefined） */
+export function grainMapOf(kind: number): Uint8Array | undefined {
+  return grainMaps[kind];
+}
+
+/** 通しの つぶの 色（番号 n の 色は n 番目）。シェーダーの 表に する */
+export function grainList(): readonly GrainColor[] {
+  return grainColors;
 }
 
 // ---- 型（#202）

@@ -467,7 +467,7 @@ export function createFarmSystem(deps: FarmDepsM7): FarmSystemImpl {
       const c = cropAt(x, y, z);
       if (!c || !c.rec || c.stage >= 3) return false;
       changeStage(c.rec, 3); // 絵の 作り直しと 出来事 stage は 自然に 育つ ときと 同じ
-      emit({ type: 'ishibai', tick: deps.tick(), x, y, z, kind: c.kind });
+      emit({ type: 'ripened', tick: deps.tick(), x, y, z, kind: c.kind });
       return true;
     },
     harvest(x, y, z): FarmHarvestResult {

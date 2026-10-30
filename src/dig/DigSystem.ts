@@ -517,7 +517,7 @@ export class DigSystemImpl implements DigSystem {
       if (due) this.farm.doRipen(); // MINE-1B: いしばい。みのる 前の 作物 1 つに 1 こ（みのった あとは この 種類に ならない）
       return;
     }
-    if (pv.kind === 'chalk') {
+    if (pv.kind === 'chalkDraw') {
       if (due && t) this.chalk.draw(t, first); // MINE-1B: チョーク。同じ マスは 押しつづけても 1 回
       return;
     }

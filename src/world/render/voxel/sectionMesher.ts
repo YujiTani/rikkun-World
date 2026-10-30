@@ -12,12 +12,13 @@ import type { MeshData } from '../meshChunk';
 import { BlockCube } from './sectionCube';
 import { BoxMesher } from './sectionBox';
 import * as K from './sectionConsts';
+import { emitGreedy } from './sectionGreedy';
 import { QuadBuilder, type VoxelPiece } from './sectionQuads';
 
 // vitest の import は 読むたびに getter を通って 遅い。内側のループが読む定数は このファイルの const に写す（本番のビルドでは同じ）
 const {
-  AXIS_OF, BL, BW, CUBE, DIR, EXPOSE_ROWS, FILL_BLOCKS, G_BASE, GSTRIDE, LAYERS, LEAF, N, NBLOCKS, NEIGHBOR_OFF,
-  OCC, OCC_ROWS, OWN, PH_BOX, PH_EXPOSE, PH_FILL, PH_FINISH, PH_IDLE, PH_LIGHT2, PH_OCC, PH_PLANES, PH_READ,
+  AXIS_OF, BL, BW, CUBE, DIR, EXPOSE_ROWS, FILL_BLOCKS, G_BASE, GRAIN_KIND, GRAIN_MAPS, GSTRIDE, LAYERS, LEAF, MK_GRAIN, MK_LIGHT, MK_ROW,
+  N, NBLOCKS, NEIGHBOR_OFF, OCC, OCC_ROWS, OWN, PH_BOX, PH_EXPOSE, PH_FILL, PH_FINISH, PH_IDLE, PH_LIGHT2, PH_OCC, PH_PLANES, PH_READ,
   PH_SAMPLE, PH_SCAN, PH_TFILL, PLANES_PER_STEP, READ_ROWS, ROWS_ALL, S, SAMPLE_ROWS, SCAN_ROWS, SS, TFILL_ROWS,
 } = K;
 
@@ -546,6 +547,8 @@ export class SectionMesher {
       const wy = this.oy + byi - 1;
       const wz = this.oz + bzi - 1;
       fillBlockLookKata(k, wx, wy, wz, e, this.uniq[i] !== 0, scratch, this.uniq[i] === 2);
+      const gm = GRAIN_MAPS[k];
+      if (gm) for (let j = 0; j < LOOK_VOLUME; j++) scratch[j] = gm[scratch[j]]; // つぶの ある 種類: 色番号 → 地の 石・つぶの 番号（格子の 値）
       this.copyBlock(scratch, gx, gy, gz);
       this.markRows(byi, byi);
       if (bxi >= 1 && bxi <= 16 && byi >= 1 && byi <= 16 && bzi >= 1 && bzi <= 16) {
@@ -727,6 +730,7 @@ export class SectionMesher {
         const bi = (bY * 16 + bZ) * 16 + bX;
         if (!this.active[bi]) continue;
         const key = this.kinds[bi];
+        const gk = GRAIN_KIND[key] === 1;
         const ci = ((bY + 1) * BL + (bZ + 1)) * BL + (bX + 1);
         let lightB = lg[ci];
         if (edge) {
@@ -735,7 +739,7 @@ export class SectionMesher {
           const nz = bZ + 1 + dz;
           lightB = lg[(ny * BL + nz) * BL + nx];
         }
-        const lk = lightB << 14;
+        const lk = lightB << MK_LIGHT;
         let touched = false;
         for (let vi = 0; vi < N; vi++) {
           const lv = vb * N + vi;
@@ -747,8 +751,8 @@ export class SectionMesher {
               if (l + 1 < ROWS_ALL && g[idx + off] !== 0) continue;
             } else if (g[idx + off] !== 0) continue;
             const t = tf[idx];
-            // 地形のマス: 種類 + 行の符号（上下の面は 行を使わない）。形のマス: ブロックの種類
-            mask[lv * widthU + lu] = (t !== 0 ? (t & 63) | ((f < 2 ? ROW_NONE : t >> 6) << 6) : key | (ROW_NONE << 6)) | lk;
+            // 地形のマス: 種類 + 行の符号（上下の面は 行を使わない）。形のマス: ブロックの種類（つぶの ある 種類は 格子の 値 - 1 = つぶの 印。1 = 地の 石）
+            mask[lv * widthU + lu] = (t !== 0 ? (t & 63) | ((f < 2 ? ROW_NONE : t >> 6) << MK_ROW) : key | (ROW_NONE << MK_ROW) | (gk && g[idx] > 1 ? (g[idx] - 1) << MK_GRAIN : 0)) | lk;
             touched = true;
           }
         }
@@ -765,34 +769,6 @@ export class SectionMesher {
     const uHi = (maxU + 1) * N;
     const vLo = minV * N;
     const vHi = Math.min((maxV + 1) * N, sizeV);
-    const plane = l + (plus ? 1 : 0);
-    for (let v = vLo; v < vHi; v++) {
-      for (let u = uLo; u < uHi; u++) {
-        const k = mask[v * widthU + u];
-        if (k === 0) continue;
-        let w = 1;
-        while (u + w < uHi && mask[v * widthU + u + w] === k) w++;
-        let h = 1;
-        outer: while (v + h < vHi) {
-          const row = (v + h) * widthU + u;
-          for (let i = 0; i < w; i++) if (mask[row + i] !== k) break outer;
-          h++;
-        }
-        for (let dv = 0; dv < h; dv++) mask.fill(0, (v + dv) * widthU + u, (v + dv) * widthU + u + w);
-        const lo = [0, 0, 0];
-        const hi = [0, 0, 0];
-        lo[ax] = plane;
-        hi[ax] = plane;
-        lo[uAx] = u;
-        hi[uAx] = u + w;
-        lo[vAx] = v;
-        hi[vAx] = v + h;
-        const lbyte = (k >> 14) & 255;
-        const sky = (lbyte >> 4) * 17;
-        const blk = (lbyte & 15) * 17;
-        const base = k & 0x3fff;
-        b.quad(f, lo[0], hi[0], lo[1], hi[1], lo[2], hi[2], base & 63, base >> 6, 0, 0, sky, blk, null);
-      }
-    }
+    emitGreedy(b, mask, f, ax, uAx, vAx, widthU, uLo, uHi, vLo, vHi, l + (plus ? 1 : 0));
   }
 }

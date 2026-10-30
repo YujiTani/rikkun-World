@@ -1,4 +1,4 @@
-import { Data3DTexture, MeshBasicMaterial, NearestFilter, RedIntegerFormat, UnsignedByteType, Vector3, type Texture } from 'three';
+import { Data3DTexture, MeshBasicMaterial, NearestFilter, RedIntegerFormat, UnsignedByteType, Vector3, Vector4, type Texture } from 'three';
 import { TILE_NAMES, ATLAS_COLS } from '../../blocks/textures';
 import { BLOCK_INDEX } from '../../blocks/blockTypes';
 import { skyDarkness } from '../../light/skyDarkness';
@@ -7,7 +7,9 @@ import { LIGHT_GLSL_FUNCS, LIGHT_GLSL_LIT } from '../lightShader';
 import { patchVoxelShader, shadowCacheKey, shadowPatch } from '../shadow/shadowPatch';
 import { OCC_NY, OCC_NZ, OCC_W } from './ao';
 import { aoUniforms } from './aoUniforms';
-import { FADE_FAR, FADE_NEAR, KINDS, tileAverageTable, tileTable } from './projection';
+import { GLOW_PERIOD_SEC, glowUniforms } from './glowUniforms';
+import { FADE_FAR, FADE_NEAR, GRAIN_BODY_TILE, GRAIN_NEAR, KINDS, srgbToLinear, tileAverageTable, tileTable } from './projection';
+import { MAX_GRAINS, grainList } from '../looks';
 
 /**
  * 小ブロック・箱のメッシュ用の材料（TEX-A）。色 = 16×16 の絵（atlas）の画素 × 面の明るさ × 角の暗がり（AO）× 光。
@@ -16,6 +18,9 @@ import { FADE_FAR, FADE_NEAR, KINDS, tileAverageTable, tileTable } from './proje
  * - aLight = [空の光, ブロックの光]（0〜1 に正規化した Uint8。15 を 17 倍して 255）。昼夜は uniform（uDarken）で毎コマ。
  * - 絵: 面の向きで [上, 下, 横] のタイル（uTileOf）を選び、ワールド座標の小数部から 16×16 の画素を texelFetch（atlas は sRGB の
  *   テクスチャなので 読むと 線形になる）。式の TS 写しは projection.ts（`render.texelAt`）。
+ * - 鉱石の つぶ（B。MINE-1B）: aData.z の 上の 5 ビット〔8 倍〕= つぶの 印（0 = ふつう、1 = つぶの ある 種類の 地の 石、2 以上 = つぶ）。
+ *   プレイヤーから 16 ブロック以内は 地の 石 = いしの 絵、つぶ = 表 uGrain の 色〔小ブロックごと〕。光る つぶ（uGrain.a > 0）は 自分の
+ *   明るさで 光り、面の 明るさ・AO を かけず、3×3×3 小ブロックごとに ずれた サインで ゆっくり 明るさが かわる（glowUniforms）。それより 遠くは 平らな 絵。
  * - 遠く: 40 → 80 ブロックで 画素の色を タイルの平均色へよせる（ちらつき止め）。
  * - AO: セクションごとの「うまり」の 3D テクスチャ（uAo。ao.ts）から 面の前の層の となり 8 こを読んで 4 すみの段を出し、
  *   面の中は 双線形。三角形は ふえない。半径 r の 8 ブロック手前から 1.0 へ消す。TS 写しは ao.ts（`render.aoAt`）。
@@ -41,6 +46,7 @@ varying vec3 vWorld;
 varying vec3 vLocal;
 flat varying vec4 vInfo;
 flat varying vec3 vAvg;
+flat varying float vGrain;
 vec3 voxGrow = vec3(0.0);
 const float SHADE[6] = ${SHADE_GLSL};
 const vec3 NRM[6] = vec3[6](
@@ -59,6 +65,7 @@ const VERT_BODY = `
   float tile = uTileOf[kind][f == 0 ? 0 : (f == 1 ? 1 : 2)];
   vShade = SHADE[f];
   vInfo = vec4(tile, aData.y, float(f), aData.x);
+  vGrain = floor(aData.z / 8.0 + 0.001);
   vAvg = tile < -0.5 ? vec3(1.0) : uTileAvg[int(tile + 0.5)];
   vWorld = (modelMatrix * vec4(position, 1.0)).xyz;
   vLocal = position;
@@ -74,6 +81,10 @@ varying vec3 vWorld;
 varying vec3 vLocal;
 flat varying vec4 vInfo;
 flat varying vec3 vAvg;
+flat varying float vGrain;
+uniform vec4 uGrain[${MAX_GRAINS + 2}];
+uniform float uGlowTime;
+uniform float uGlowAmp;
 uniform sampler2D uAtlas;
 uniform highp usampler3D uAo;
 uniform float uHasAo;
@@ -116,9 +127,18 @@ const FRAG_BODY = `
   py = clamp(py, 0.0, 15.0);
   float px = clamp(floor(u * 16.0), 0.0, 15.0);
   vec3 c = vec3(1.0, 0.0, 1.0);
-  if (vDist >= ${FADE_FAR.toFixed(1)}) {
+  float glowK = 0.0;
+  bool nearGrain = vGrain > 0.5 && vDist < ${GRAIN_NEAR.toFixed(1)};
+  if (nearGrain && vGrain > 1.5) {
+    // 鉱石の つぶ: 小ブロックごとの 色（rgb は 線形、a = 光る 強さ）
+    vec4 gr = uGrain[int(vGrain + 0.5)];
+    c = gr.rgb;
+    glowK = gr.a;
+  } else if (vDist >= ${FADE_FAR.toFixed(1)}) {
     c = vAvg; // 遠くは 絵を引かない（かすみで平均の色になるので同じ）
-  } else if (tile > -0.5) {
+  } else if (tile > -0.5 || nearGrain) {
+    if (nearGrain) tile = ${GRAIN_BODY_TILE}.0; // つぶの ある 種類の 地の 石
+
     float tcol = mod(tile, ${ATLAS_COLS}.0);
     float trow = floor(tile / ${ATLAS_COLS}.0);
     c = texelFetch(uAtlas, ivec2(int(tcol * 16.0 + px), int(trow * 16.0 + 15.0 - py)), 0).rgb;
@@ -148,7 +168,15 @@ const FRAG_BODY = `
       ao = mix(1.0, mix(mix(v00, v10, fa), mix(v01, v11, fa), fb), fk);
     }
   }
-  diffuseColor.rgb *= c * vShade * ao * vLit;
+  vec3 lit = c * vShade * ao * vLit;
+  if (glowK > 0.0) {
+    // 光る つぶ: 自分の 色で 光る（暗い 所でも 見える）。いきは 3×3×3 小ブロックの まとまりごとに ずらす
+    vec3 cl = floor((vWorld - nrm * 0.001) * 3.0);
+    float ph = fract(sin(dot(cl, vec3(12.9898, 78.233, 37.719))) * 43758.5453) * 6.2831853;
+    float br = 1.0 + uGlowAmp * sin(uGlowTime * ${(2 * Math.PI / GLOW_PERIOD_SEC).toFixed(7)} + ph);
+    lit = max(lit, c * glowK * br);
+  }
+  diffuseColor.rgb *= lit;
 }`;
 
 /** 全部の材料で 共有する 値 */
@@ -178,7 +206,13 @@ export function createVoxelShared(atlas: Texture): VoxelShared {
 
 let TILE_OF: Vector3[] | null = null;
 let TILE_AVG: Vector3[] | null = null;
-function tables(): { of: Vector3[]; avg: Vector3[] } {
+let GRAIN: Vector4[] | null = null;
+function tables(): { of: Vector3[]; avg: Vector3[]; grain: Vector4[] } {
+  if (!GRAIN) {
+    // 通しの つぶ n の 色は 表の n + 2 番〔頂点の 印: 0 ふつう・1 地の 石・2 以上 つぶ〕。色は 線形、a = 光る 強さ
+    GRAIN = Array.from({ length: MAX_GRAINS + 2 }, () => new Vector4(0, 0, 0, 0));
+    grainList().forEach((g, n) => GRAIN![n + 2]!.set(srgbToLinear(g.r), srgbToLinear(g.g), srgbToLinear(g.b), g.glow));
+  }
   if (!TILE_OF || !TILE_AVG) {
     const t = tileTable();
     TILE_OF = [];
@@ -187,7 +221,7 @@ function tables(): { of: Vector3[]; avg: Vector3[] } {
     TILE_AVG = [];
     for (let i = 0; i < N_TILES; i++) TILE_AVG.push(new Vector3(a[i * 3], a[i * 3 + 1], a[i * 3 + 2]));
   }
-  return { of: TILE_OF, avg: TILE_AVG };
+  return { of: TILE_OF, avg: TILE_AVG, grain: GRAIN };
 }
 
 /**
@@ -204,6 +238,9 @@ export function createVoxelMaterial(shared: VoxelShared, ao: Data3DTexture | nul
     shader.uniforms.uAtlas = { value: shared.atlas };
     shader.uniforms.uTileOf = { value: t.of };
     shader.uniforms.uTileAvg = { value: t.avg };
+    shader.uniforms.uGrain = { value: t.grain };
+    shader.uniforms.uGlowTime = glowUniforms.time;
+    shader.uniforms.uGlowAmp = glowUniforms.amp;
     shader.uniforms.uAo = { value: ao ?? shared.dummyAo };
     shader.uniforms.uHasAo = { value: ao ? 1 : 0 };
     shader.uniforms.uAoOn = aoUniforms.on;

@@ -21,7 +21,7 @@ import { skyDarkness, type SkyDarkness } from './skyDarkness';
  * - ブロックが変わったら、15 マス以内にかかるセクションを「作り直し待ち」に入れ、1 コマに BUDGET 個ずつ計算する。
  *   光が変わったセクション（と、ふちのとなり）は、描画側に作り直しを伝える（world.markSectionDirty）。
  * - ぜんぶ光を通さないブロックのセクション（VOX-A の isSectionHidden より少し広い。光は 0 のまま）は計算せず、持たない。
- *   ただし 光る 固い ブロック（ほたるいし。MINE-1B）を ふくむ セクションは 持つ（その マスの 光 7 を 前の 光と 同じに 答えるため）。
+ *   ただし 光る 固い ブロック〔ほたるいし。MINE-1B〕を ふくむ セクションは 持つ。
  *   となりをほっても そのセクション自身の光は 0 のまま。ほった側のセクションは 作り直し待ちで計算される。
  * - 読みこんだばかりの列は 計算されるまで isSectionReady / isColumnLit が false。描画側はそれまでメッシュを作らない。
  */
@@ -72,6 +72,8 @@ export class WorldLight implements LightField {
   private readonly lanterns = new Map<string, { x: number; y: number; z: number }>();
   /** 最後の update() で計算し直したマスの数（計測・テスト用） */
   lastRecomputeCells = 0;
+  /** 最後の update() / flush() で ブロックの光を 書いた マスの 数（光る マス ＋ 広げた マス。空の光は 数えない）。MINE-1B B12「光を 広げた マスの 数」の 窓口 */
+  lastSpreadCells = 0;
   /** 最初の全部の光の計算にかかったミリ秒（M5 AC14。世界を作る時間と合わせて 2,500 以下） */
   readonly initMs: number;
 
@@ -245,6 +247,7 @@ export class WorldLight implements LightField {
   update(): void {
     this.collect();
     this.lastRecomputeCells = 0;
+    this.lastSpreadCells = 0;
     if (this.pending.size === 0) return;
     // 数えるのは「ほんとうに計算した」セクションだけ。ふさがり・空だけは ただで片づける（時間の上限つき）
     const t0 = performance.now();
@@ -289,6 +292,7 @@ export class WorldLight implements LightField {
   flush(): void {
     this.collect();
     this.lastRecomputeCells = 0;
+    this.lastSpreadCells = 0;
     while (this.pending.size > 0) {
       const key = this.pickNext();
       this.pending.delete(key);
@@ -736,16 +740,19 @@ export class WorldLight implements LightField {
       const e = EMIT[blk[i]];
       if (e > 0) {
         block[i] = e;
+        this.lastSpreadCells++;
         if (e > 1) blockQ.push(i);
       }
     }
 
     // 3. 1 マスごとに 1 弱めて広げる
     this.spread(sky, skyQ);
-    this.spread(block, blockQ);
+    this.lastSpreadCells += this.spread(block, blockQ);
   }
 
-  private spread(arr: Uint8Array, q: number[]): void {
+  /** 1 マスずつ 弱めて 広げる（書いた マスの 数を 返す） */
+  private spread(arr: Uint8Array, q: number[]): number {
+    let written = 0;
     const { blk, rx, rz } = this;
     const ry = this.ry;
     const RL = rx * rz;
@@ -782,10 +789,12 @@ export class WorldLight implements LightField {
         const nv = v - (op > 1 ? op : 1);
         if (nv > arr[j]) {
           arr[j] = nv;
+          written++;
           q.push(j);
         }
       }
     }
     q.length = 0;
+    return written;
   }
 }

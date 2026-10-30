@@ -14,7 +14,7 @@ import type { DigCore } from './digCore';
 /**
  * チョークの 数（MINE-1B #349。docs/design/MINE-1.md §4.4「チョーク」）。1 か所の 表。
  */
-export const CHALK_TUNING = {
+const CHALK_TUNING = {
   /** チョークの アイテム id */
   item: 'chalk',
   /** 足あとを 1 つ おぼえる 間かく（歩数。60 歩数 = 1 秒 なので 0.1 秒ごと） */

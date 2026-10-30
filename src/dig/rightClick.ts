@@ -98,7 +98,7 @@ export function previewRightClick(c: RightClickCtx): RightClickPreview | null {
   if (t && isFutonId(t.id)) return { kind: 'sleep', item: null };
   if (c.held === GADGET_ID.kite) return { kind: 'kite', item: c.held };
   if (c.held && c.canEquip(c.held)) return { kind: 'armor', item: c.held };
-  if (t && c.canChalk?.()) return { kind: 'chalk', item: c.held }; // MINE-1B: たんす・かまど・ふとん の あと（そちらの 働きが 先）
+  if (t && c.canChalk?.()) return { kind: 'chalkDraw', item: c.held }; // MINE-1B: たんす・かまど・ふとん の あと（そちらの 働きが 先）
   const b = c.bucket?.();
   if (b) return b === 'idle' ? null : { kind: b, item: c.held };
   const w = c.water?.();

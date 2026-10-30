@@ -1,4 +1,4 @@
-import { LOOK_N, hasLook, initLooks, occludes } from '../looks';
+import { LOOK_N, grainMapOf, hasLook, initLooks, occludes } from '../looks';
 import { BLOCK_TYPES, isLeafIndex, isOpaqueIndex } from '../../blocks/blockTypes';
 import { OPACITY } from '../../light/opacity';
 
@@ -46,6 +46,14 @@ function buildOcc(): Uint8Array {
   return t;
 }
 export const OCC = buildOcc();
+/** つぶ〔B「とびだす つぶ」。MINE-1B〕の ある 種類か（格子の 値 2 = 地の 石、3 以上 = つぶ）と、色番号 → 格子の 値の 表 */
+export const GRAIN_MAPS: readonly (Uint8Array | undefined)[] = Array.from({ length: NB }, (_t, i) => grainMapOf(i));
+export const GRAIN_KIND = Uint8Array.from(GRAIN_MAPS, (m) => (m ? 1 : 0));
+
+/** 1 平面の mask〔Int32〕の ビット: 種類 0〜7（MINE-1B で 6 → 8 ビットに ひろげた）・行の符号 8〜15・光 16〜23・つぶの 印 24〜28 */
+export const MK_ROW = 8;
+export const MK_LIGHT = 16;
+export const MK_GRAIN = 24;
 /** はっぱの種類（#202: はっぱは 地下あつかいしない） */
 export const LEAF = Uint8Array.from(BLOCK_TYPES, (_t, i) => (isLeafIndex(i) ? 1 : 0));
 /** 光を通さない（光の読みを まわりからかりる） */

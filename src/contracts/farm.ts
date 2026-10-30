@@ -67,7 +67,7 @@ export type FarmEvent =
   | { type: 'bucketNo'; tick: number; x: number; y: number; z: number }
   // ---- MINE-1B
   /** いしばい を まいて 作物が すぐ みのった（x,y,z = 作物の マス。自然に みのった ときの `stage` とは べつ。実績用） */
-  | { type: 'ishibai'; tick: number; x: number; y: number; z: number; kind: CropKind };
+  | { type: 'ripened'; tick: number; x: number; y: number; z: number; kind: CropKind };
 
 /** BUCKET-1: バケツ 2 しゅるい */
 export type BucketId = 'bucket' | 'water_bucket';
@@ -381,7 +381,7 @@ export type RightClickKind =
   // HOUSE-1A: 建築士さんを ねらって いる（右クリック = はなす。置く・耕す などの 案内は 出さない）
   | 'talk'
   // MINE-1B: チョークで かく・いしばいを まく
-  | 'chalk' | 'ripen';
+  | 'chalkDraw' | 'ripen';
 
 // ---------------------------------------------------------------- 設定（§4.3・§4.4・§4.5）
 

@@ -19,7 +19,7 @@ const r = (
 export const TORCH_COAL = 'torch_coal';
 export const TORCH_LOG = 'torch_log';
 /** きんの 足した作り方の id（MINE-1B。もとの `kin` は きんの たまご 1 → 1。足すのは きんの いし 1 → 1）。カードは 元の kin の 1 枚のまま */
-export const KIN_FROM_ORE = 'kin_from_ore';
+const KIN_FROM_ORE = 'kin_from_ore';
 
 /** つくる 38 こ（カードは 36 枚。たいまつの 作り方が 3 つ）（M4 §4.1 の 22 こ + BAL-D の おの 3 こ + M7-2 の 3 こ + #63 の たね 4 こ + むしとりあみ + こたつ・とりごや。カードの順） */
 export const CRAFT_RECIPES: readonly Recipe[] = [

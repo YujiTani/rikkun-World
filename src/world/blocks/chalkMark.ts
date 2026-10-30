@@ -92,9 +92,6 @@ export const COMPASS_STEP: Readonly<Record<Compass, readonly [number, number]>> 
   w: [-1, 0],
 };
 
-/** 向きの 並び（北・東・南・西）。順番に 意味は ない（くりかえしで 使う） */
-export const COMPASS_ORDER: readonly Compass[] = ['n', 'e', 's', 'w'];
-
 /** 面の 外向きの 向きから 面を 決める（ゆか・かべの 4 方向 以外は null） */
 export function chalkFaceOfNormal(nx: number, ny: number, nz: number): ChalkFace | null {
   if (ny === 1 && nx === 0 && nz === 0) return 'up';

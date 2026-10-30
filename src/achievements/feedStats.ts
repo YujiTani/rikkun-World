@@ -58,7 +58,7 @@ export function applyFarmEvents(s: StatSink, events: readonly FarmEvent[]): void
       case 'bucketPlace':
         s.bump('bucketPlace', 1);
         break;
-      case 'ishibai':
+      case 'ripened':
         s.bump('ishibai', 1); // MINE-1B: 自然に みのった 'stage' は 数えない
         break;
       case 'pet':
