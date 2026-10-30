@@ -1,5 +1,5 @@
 import type { ItemId, Recipe } from '../contracts';
-import { ARMOR_DEFS, BOW_DEFS, BUCKET_DEFS, FARM_TOOL_DEFS, GADGET_DEFS, GOLD_DEFS, INGOT_DEFS, LIVE_DEFS, M4_BLOCK_DEFS, SEED_DEFS, SPRINKLER_DEFS, SWORD_DEFS, TOOL_DEFS, pickDefs, recipesOf } from '../content/items/registry';
+import { ARMOR_DEFS, BOW_DEFS, BUCKET_DEFS, FARM_TOOL_DEFS, GADGET_DEFS, GOLD_DEFS, INGOT_DEFS, KONGO_DEFS, LIVE_DEFS, M4_BLOCK_DEFS, SEED_DEFS, SPRINKLER_DEFS, SWORD_DEFS, TOOL_DEFS, pickDefs, recipesOf } from '../content/items/registry';
 
 const r = (
   id: ItemId,
@@ -43,6 +43,8 @@ export const CRAFT_RECIPES: readonly Recipe[] = [
   ...recipesOf(LIVE_DEFS, 'craft'),
   // GOLD-1（#222 §4.2。きんの 装備 8 つ）は 登録表（content/items/gold.ts）から。順は 登録の 順（この 位置を かえない）
   ...recipesOf(GOLD_DEFS, 'craft'),
+  // KONGO-1（§4.2。こんごうの 装備 8 つ。ダイヤは 作る 物でないので カードなし）
+  ...recipesOf(KONGO_DEFS, 'craft'),
   // CRAFT-PAGE（#277）: たいまつの 足した作り方 2 つ（いちばん うしろ。番号を ずらさない）。カードは 元の torch の 1 枚のまま
   // （作り方は せつめい欄のページで えらぶ）。出来る物は どれも torch
   { ...r('torch', 4, [['log', 1], ['coal_ore', 1]], true), id: TORCH_COAL },

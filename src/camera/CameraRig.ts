@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { isBowItem } from '../content/items/ids';
 import type { Vec3, WeaponVisualSource, ArmorSlot, CombatEvent, CraftEvent, ItemId, PlayerState, SwingAnim, VoxelWorld } from '../contracts';
 import type { ActionState } from '../input/actions';
 import { aimPivot } from './pivot';
@@ -172,7 +173,7 @@ export class CameraRig {
       };
     }
     const w = this.weaponSource?.bowPose();
-    if (w && (w.stage > 0 || w.pull > 0.001) && (this.doll.heldItem === 'yumi' || this.doll.heldItem === 'kin_yumi')) {
+    if (w && (w.stage > 0 || w.pull > 0.001) && isBowItem(this.doll.heldItem)) {
       const p = bowDollAt(w, this.bowScratch);
       return { rx: p.rx, rz: p.rz, lx: p.lx, lz: p.lz, swordPitch: 0, twist: p.twist, legFront: { right: 0, left: 0 }, knee: 0 };
     }

@@ -314,7 +314,7 @@ test.describe('できごと タブ・印', () => {
       for (const e of Array.from(document.querySelectorAll('.log-row [data-cat][data-shape]')) as HTMLElement[]) out.push([e.dataset.cat!, e.dataset.shape!]);
       return out;
     });
-    const map: Record<string, string> = { pickup: 'circle', craft: 'square', fight: 'hexagon', achieve: 'star', info: 'diamond', warn: 'triangle' };
+    const map: Record<string, string> = { pickup: 'circle', craft: 'square', fight: 'hexagon', achieve: 'star', info: 'rhombus', warn: 'triangle' };
     const seen = new Set<string>();
     for (const [c, s] of shapes) {
       expect(s).toBe(map[c]);

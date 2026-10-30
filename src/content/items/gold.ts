@@ -9,6 +9,14 @@ import type { ItemDef } from './types';
  * 値は これまでの 表から そのまま 写した もの（2026-10-25）。
  */
 export const GOLD = {
+  // はらぱんみみず: ちか で ようかい を たおす・ブロック を こわす と ときどき でる。なかま の にわとり に あげる
+  harapan_mimizu: {
+    name: 'はらぱんみみず',
+    maxStack: 64,
+    rarity: 'epic',
+    category: 'plant',
+    info: { use: 'なかま の にわとり に あげる と なかよし が いっぱい に なる', how: 'もって なかま の おとな の にわとり に みぎクリック', buttons: ['1-9', 'right'] },
+  },
   // きん: かまどで きんの たまご（LIVE-2）を やく（てつ と 同じ 60 ステップ）
   kin: {
     name: 'きん',
@@ -104,13 +112,5 @@ export const GOLD = {
     wear: 500,
     recipe: { count: 1, inputs: [['kin', 2], ['string', 1]] },
     armor: { slot: 'legs', kind: 'fall', value: { normal: 0, ball: 0, fall: 3 } },
-  },
-  // はらぱんみみず: ちか で ようかい を たおす・ブロック を こわす と ときどき でる。なかま の にわとり に あげる
-  harapan_mimizu: {
-    name: 'はらぱんみみず',
-    maxStack: 64,
-    rarity: 'epic',
-    category: 'plant',
-    info: { use: 'なかま の にわとり に あげる と なかよし が いっぱい に なる', how: 'もって なかま の おとな の にわとり に みぎクリック', buttons: ['1-9', 'right'] },
   },
 } satisfies Record<GoldId, ItemDef>;

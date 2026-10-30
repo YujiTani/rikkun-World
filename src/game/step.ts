@@ -12,6 +12,7 @@ import { legendMoveMulOf, chargeOf } from '../legend/defs';
 import { shiningBodyPose, lightningPoseFrame } from '../legend/pose';
 import { handleCraftEvents, playSwing, handleGuardEvents } from '../ui/craftUi';
 import { applyUiAlpha } from '../ui/theme';
+import { isBowItem } from '../content/items/ids';
 import { type ItemId, cropKindOfBlock, VEG_ITEM } from '../contracts';
 import { FARM_HINT_VIEW } from '../ui/farmHintModel';
 import { actionHintLines } from '../ui/actionHintModel';
@@ -150,7 +151,7 @@ export function createStep(deps: WiredFrame): (dt: number) => void {
       if ((bs.move !== null && bs.frame === 1) || parry.startedNow() || lstrike?.F === 1) st.velocity.x = st.velocity.z = 0;
       const bowPose = tools.bow().state();
       const held = inventory.held()?.item ?? null;
-      const weapon = bs.item !== null ? 'katana' : held === 'yumi' || held === 'kin_yumi' ? 'bow' : 'none';
+      const weapon = bs.item !== null ? 'katana' : isBowItem(held) ? 'bow' : 'none';
       sprite?.step({
         position: st.position,
         velocity: st.velocity,
