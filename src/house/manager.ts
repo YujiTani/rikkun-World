@@ -83,6 +83,23 @@ export class ArchitectManager {
     for (const a of this.list_) a.update(this.d.world, p);
   }
 
+  /**
+   * 列 (x, z) の ブロックが かわった（置いた・ほった。`watchBlocks` が 世界から 知らせる）。
+   * 足もとに かかる 建築士さんだけ 次の ステップで 足もとを しらべなおす（立って いる 間は 世界を 読まない）
+   */
+  blockChanged(x: number, z: number): void {
+    for (const a of this.list_) a.groundChanged(x, z);
+  }
+
+  /** 箱（2 つの 角の 列。fill など。小数でも、角の 順は どちらでも よい）の 中が かわった */
+  blocksChanged(x0: number, z0: number, x1: number, z1: number): void {
+    const ax = Math.floor(Math.min(x0, x1));
+    const az = Math.floor(Math.min(z0, z1));
+    const bx = Math.floor(Math.max(x0, x1));
+    const bz = Math.floor(Math.max(z0, z1));
+    for (const a of this.list_) a.groundChanged(ax, az, bx, bz);
+  }
+
   /** 見直しを 今すぐ（テスト・やり直し用）。一覧に 載せる・はずす */
   refresh(p: Vec3 = this.d.player()): void {
     this.since = 0;

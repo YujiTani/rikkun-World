@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ARCHITECT_HIT } from './architect';
 import { makeFakeWorld, type FakeWorld } from './fakeWorld';
+import { standY } from './ground';
 import { ArchitectManager, type ArchitectManagerDeps } from './manager';
 import { placeFirst, placeInRegion, regionHasArchitect, regionIndex } from './placement';
 import type { HouseRecord } from './talk';
@@ -311,5 +312,74 @@ describe('AC40 10,000 ステップ: 一覧に 載った まま 自分の 場所�
       const a = m.list()[0]!;
       expect(dist(a, home), `step ${i}`).toBeLessThanOrEqual(3);
     }
+  });
+});
+
+/** 足もとの しらべ（#355 の CI: live4-perf AC20）: 立って いる 建築士さんは 世界を 読まない。ブロックが かわった ことを 知らされた 列だけ 読みなおす */
+describe('ブロックが かわった ことの 知らせ（blockChanged・blocksChanged）', () => {
+  /** 出して、まわりの 列を おぼえさせて、見直し（20 ステップごと）に ならない 間だけ 数える */
+  const standing = () => {
+    const t = make();
+    t.m.update(); // 出てくる + まわりの 列を まとめて 読む
+    t.m.update();
+    const f = t.m.get('first')!;
+    expect(f.state).toBe('idle');
+    const cx = Math.floor(f.x);
+    const cz = Math.floor(f.z);
+    t.world.reads = 0;
+    standY(t.world, cx, cz);
+    const col = t.world.reads; // 列 1 つぶんの 読み（平らな 世界）
+    t.world.reads = 0;
+    return { ...t, f, cx, cz, col };
+  };
+
+  it('立って いる 間は 世界を 読まない（見直しの ステップを のぞく）', () => {
+    const { m, world, f } = standing();
+    for (let i = 0; i < 15; i++) m.update();
+    expect(f.state).toBe('idle');
+    expect(world.reads).toBe(0);
+  });
+
+  it('足もとの 列が かわったと 知らされると 次の ステップで 高さを あわせる（ほられたら 落ちる）。はなれた 列の 知らせでは 読まない', () => {
+    const { m, world, f, cx, cz, col } = standing();
+    world.set(cx, 10, cz, 'air'); // 足もとの 草を ほった
+    m.blockChanged(cx + 8, cz); // ぶらぶらする はんいの 外
+    m.blockChanged(cx, cz - 9);
+    m.update();
+    expect(world.reads, 'はなれた 列の 知らせ').toBe(0);
+    expect(f.y).toBe(11);
+    m.blockChanged(cx, cz);
+    m.update();
+    expect(world.reads, 'かわった 列 1 つだけ しらべなおす').toBe(col);
+    expect(f.y, '落ちはじめる').toBeLessThan(11);
+    for (let i = 0; i < 4; i++) m.update();
+    expect(f.y).toBeCloseTo(10, 5);
+    world.reads = 0;
+    for (let i = 0; i < 5; i++) m.update();
+    expect(world.reads, 'おちつくと また 読まない').toBe(0);
+  });
+
+  it('ぶらぶらする はんいの 中の となりの 列の かわりは その 列だけ 読みなおす（足もと いがいの 列も おぼえて いる）', () => {
+    const { m, world, cx, cz, col } = standing();
+    m.blockChanged(cx + 1, cz);
+    m.update();
+    expect(world.reads).toBe(col);
+  });
+
+  it('箱（fill）で まとめて かわった: はんいの 中の 列だけ 読みなおす。箱の 角の 順は どちらでも、小数でも よい', () => {
+    const { m, world, f, cx, cz, col } = standing();
+    const readsAfter = (box: readonly [number, number, number, number]): number => {
+      world.reads = 0;
+      m.blocksChanged(...box);
+      m.update();
+      return world.reads;
+    };
+    expect(readsAfter([cx + 5, cz + 5, cx + 8, cz + 8]), 'はんいの 外').toBe(0);
+    expect(readsAfter([cx - 8, cz - 8, cx - 5, cz - 5]), 'はんいの 外').toBe(0);
+    expect(readsAfter([cx - 2, cz - 2, cx + 2, cz + 2]), '5 × 5 列').toBe(25 * col);
+    expect(readsAfter([cx + 2, cz + 2, cx - 2, cz - 2]), '角の 順が ぎゃく').toBe(25 * col);
+    expect(readsAfter([cx + 0.4, cz + 0.4, cx + 0.6, cz + 0.6]), '小数（1 列）').toBe(col);
+    expect(readsAfter([cx - 40, cz - 40, cx + 40, cz + 40]), 'はんい ぜんぶ（7 × 7 列）').toBe(49 * col);
+    expect(f.y).toBe(11);
   });
 });

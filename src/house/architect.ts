@@ -1,5 +1,5 @@
 import { createRng, hashInts, type Rng } from '../world/gen/random';
-import { canStand, standY, type HouseWorld } from './ground';
+import { ARCHITECT_BODY, Footing, standY, type HouseWorld } from './ground';
 
 /**
  * 建築士さん 1 人（HOUSE-1A。docs/design/HOUSE-1.md §2.2・AC4・AC40）。
@@ -38,6 +38,8 @@ const RISE = 0.18;
 const FALL = 0.35;
 /** 足もとが 立てない まま これだけ たつと 自分の 列の 地面に あわせ直す */
 const STUCK_STEPS = 30;
+/** ぶらぶらしても 体の 四すみが とどく はんい（home から マス）。この 中の 列の 足もとを おぼえて おく */
+const FOOT_REACH = WANDER_RADIUS + ARCHITECT_BODY.radius;
 
 export type ArchitectState = 'idle' | 'walk' | 'talk';
 
@@ -75,6 +77,8 @@ export class Architect {
   wobbleDir = 0;
 
   private readonly rng: Rng;
+  /** 足もとの しらべの おぼえ書き（立って いる 間・歩く 間・行き先を えらぶ 時も 世界を 読まない。`groundChanged` で かわった ことを 知らされる） */
+  private readonly foot: Footing;
   private wait: number;
   private tx = 0;
   private tz = 0;
@@ -92,6 +96,7 @@ export class Architect {
     this.y = o.y;
     this.z = o.z;
     this.rng = createRng(hashInts(o.seed, Math.floor(o.x * 2), Math.floor(o.z * 2), 0x4b1d));
+    this.foot = new Footing(Math.floor(o.x - FOOT_REACH), Math.floor(o.z - FOOT_REACH), Math.floor(o.x + FOOT_REACH), Math.floor(o.z + FOOT_REACH));
     this.wait = SETTLE_MIN + Math.floor(this.rng() * SETTLE_SPAN);
   }
 
@@ -121,6 +126,11 @@ export class Architect {
   hit(fromX: number, fromZ: number): void {
     this.wobble = 0;
     this.wobbleDir = Math.atan2(this.x - fromX, -(this.z - fromZ));
+  }
+
+  /** 列 (x0, z0)〜(x1, z1) の ブロックが かわった（置いた・ほった）。足もとに かかれば 次の ステップで しらべなおして 高さを あわせる */
+  groundChanged(x0: number, z0: number, x1 = x0, z1 = z0): void {
+    this.foot.touch(x0, z0, x1, z1);
   }
 
   /** 1 ステップ。look = 話しかけた 人の 足もと（話している 間 こちらを 向く） */
@@ -169,8 +179,8 @@ export class Architect {
     const step = Math.min(WALK_SPEED, dist);
     const nx = this.x + (dx / dist) * step;
     const nz = this.z + (dz / dist) * step;
-    // 世界が かわって（ブロックを 置かれて など）通れなく なったら そこで 止まる
-    if (canStand(world, nx, nz, this.y) === null) {
+    // 世界が かわって（ブロックを 置かれて など）通れなく なったら そこで 止まる（かわった ことは `groundChanged` で 知る）
+    if (this.foot.stand(world, nx, nz, this.y) === null) {
       this.stopWalking();
       return;
     }
@@ -206,7 +216,7 @@ export class Architect {
     const n = Math.max(1, Math.ceil(len / 0.2));
     let y = this.y;
     for (let i = 1; i <= n; i++) {
-      const gy = canStand(world, this.x + ((tx - this.x) * i) / n, this.z + ((tz - this.z) * i) / n, y);
+      const gy = this.foot.stand(world, this.x + ((tx - this.x) * i) / n, this.z + ((tz - this.z) * i) / n, y);
       if (gy === null) return false;
       y = gy;
     }
@@ -220,7 +230,7 @@ export class Architect {
 
   /** 足もとの 地面の 高さに あわせる（なめらかに）。地面が 立てない 形に かわって 長く たったら 自分の 列に あわせ直す */
   private followGround(world: HouseWorld): void {
-    const gy = canStand(world, this.x, this.z, this.y);
+    const gy = this.foot.stand(world, this.x, this.z, this.y);
     if (gy === null) {
       if (++this.stuck >= STUCK_STEPS) {
         const here = standY(world, Math.floor(this.x), Math.floor(this.z));

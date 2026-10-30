@@ -3,6 +3,7 @@ import { Vector3 } from 'three';
 import { playArchitect } from '../../fx/architectSounds';
 import { playCraft } from '../../fx/craftSounds';
 import { ArchitectRenderer } from '../../house/ArchitectRenderer';
+import { watchBlocks } from '../../house/blockWatch';
 import { KuraScreen } from '../../house/kuraScreen';
 import { HouseSystem } from '../../house/system';
 import { HouseUi } from '../../ui/houseUi';
@@ -53,6 +54,8 @@ export function wireHouse(deps: WiredYokai) {
   });
   shared.house = house;
   shared.houseFrozen = () => house.frozen();
+  // ブロックを 置く・ほる → 足もとに かかる 建築士さんが 高さを あわせる（立って いる 間は 毎ステップ 世界を 読まない ため。farm.onBlockChanged と 同じ 流れ）
+  watchBlocks(world, house.manager);
 
   const kuraScreen = new KuraScreen({
     slots: () => inventory.slots(),

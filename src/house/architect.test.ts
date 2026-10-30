@@ -3,7 +3,11 @@ import { Architect, NOD_STEPS, WANDER_RADIUS } from './architect';
 import { makeFakeWorld } from './fakeWorld';
 import { ARCHITECT_BODY, canStand, standY } from './ground';
 
-/** HOUSE-1A AC4・AC40: 体力なし・自分の 場所から 横 3 マス以内を ぶらぶら・うなずき 22 ステップ */
+/**
+ * HOUSE-1A AC4・AC40: 体力なし・自分の 場所から 横 3 マス以内を ぶらぶら・うなずき 22 ステップ。
+ * 足もとの しらべ（#355 の CI: live4-perf AC20・live3-perf AC17）: 立って いる 間も 歩いて いる 間も 世界を 毎ステップ 読まない。
+ *   しらべ直すのは「足もとの 近くの ブロックが かわった（`groundChanged` で 知らされた）とき」だけ。
+ */
 
 const HOME = { x: 50.5, z: 50.5 };
 const make = (world = makeFakeWorld(), seed = 1) => ({ world, a: new Architect({ id: 'first', first: true, x: HOME.x, y: 11, z: HOME.z, seed }) });
@@ -210,5 +214,155 @@ describe('地面に 合わせて 高さが かわる', () => {
     for (let i = 0; i < 20; i++) a.update(world);
     expect(a.y).toBeCloseTo(12, 2);
     expect(a.y).toBeLessThanOrEqual(12);
+  });
+});
+
+/** 世界を 読む 回数（FakeWorld.reads）。毎ステップ 読むと 建築士さんが 人数ぶん 仕事を ふやす（live4-perf AC20・live3-perf AC17） */
+describe('足もとの しらべ: 世界を 毎ステップ 読まない', () => {
+  /** 列 1 つぶんの 読み（平らな 世界なので どの 列も 同じ） */
+  const readsOfColumn = (world: ReturnType<typeof makeFakeWorld>): number => {
+    world.reads = 0;
+    standY(world, 50, 50);
+    const n = world.reads;
+    world.reads = 0;
+    return n;
+  };
+  /** ぶらぶらする はんいの まわりの 列（home の 列 50 から 横 2.8 マス → 列 47〜53 の 7 × 7） */
+  const WINDOW = 7 * 7;
+
+  it('はじめの 1 回で まわりの 列を まとめて 読み、そのあと 立って いる 間は 読まない', () => {
+    const { world, a } = make();
+    const col = readsOfColumn(world);
+    a.update(world);
+    expect(world.reads, 'はじめに まわりの 列を まとめて 読む').toBe(WINDOW * col);
+    world.reads = 0;
+    for (let i = 0; i < 50; i++) a.update(world); // はじめの 立ちどまり（60 ステップ いじょう）の 間
+    expect(a.state).toBe('idle');
+    expect(world.reads, '立って いる 間は 世界を 読まない').toBe(0);
+  });
+
+  it('話して いる 間（うなずき）も 読まない', () => {
+    const { world, a } = make();
+    a.update(world);
+    world.reads = 0;
+    a.beginTalk(HOME.x, HOME.z + 2);
+    for (let i = 0; i < 40; i++) a.update(world, { x: HOME.x, z: HOME.z + 2 });
+    expect(world.reads).toBe(0);
+  });
+
+  it('足もとの ブロックを こわすと（知らせが とどくと）次の ステップで 高さを あわせる（落ちる）。その 列だけ 読みなおし、そのあとは また 読まない', () => {
+    const { world, a } = make();
+    const col = readsOfColumn(world);
+    for (let i = 0; i < 10; i++) a.update(world);
+    expect(a.y).toBe(11);
+    world.set(50, 10, 50, 'air'); // 足もとの 草を ほった（地面 10 → 9。立つ 所は 11 → 10）
+    world.reads = 0;
+    a.groundChanged(50, 50);
+    a.update(world);
+    expect(a.y, '次の ステップで 落ちはじめる').toBeLessThan(11);
+    expect(world.reads, 'かわった 列 1 つだけ 読みなおす').toBe(col);
+    for (let i = 0; i < 5; i++) a.update(world);
+    expect(a.y).toBeCloseTo(10, 5);
+    world.reads = 0;
+    for (let i = 0; i < 20; i++) a.update(world);
+    expect(world.reads, 'おちつくと また 読まない').toBe(0);
+  });
+
+  it('知らせが なければ（こわしても）読まない = 知らせが とどくのが 前提', () => {
+    const { world, a } = make();
+    for (let i = 0; i < 10; i++) a.update(world);
+    world.set(50, 10, 50, 'air');
+    world.reads = 0;
+    a.update(world);
+    expect(world.reads).toBe(0);
+    expect(a.y).toBe(11);
+  });
+
+  it('足もとを 高く した とき（石を おいた）も 次の ステップで のぼりはじめる', () => {
+    const { world, a } = make();
+    for (let i = 0; i < 10; i++) a.update(world);
+    world.set(50, 11, 50, 'stone'); // 足もとに 石を 1 つ
+    a.groundChanged(50, 50, 50, 50);
+    a.update(world);
+    expect(a.y, '次の ステップで のぼりはじめる').toBeGreaterThan(11);
+  });
+
+  it('ぶらぶらする はんいの 外の かわりでは 読まない。はんいの 中は かわった 列だけ 読みなおす（箱でも 同じ）', () => {
+    const { world, a } = make();
+    const col = readsOfColumn(world);
+    a.update(world);
+    const reads = (): number => {
+      world.reads = 0;
+      a.update(world);
+      return world.reads;
+    };
+    a.groundChanged(60, 60);
+    a.groundChanged(40, 40, 46, 56); // 列 46 より 西
+    expect(reads(), 'はんいの 外').toBe(0);
+    a.groundChanged(52, 48, 54, 50); // はんいの 中は 列 52〜53 × 48〜50 の 6 列
+    expect(reads(), '箱の うち はんいの 中').toBe(6 * col);
+    a.groundChanged(45, 45, 55, 55); // はんい ぜんぶ
+    expect(reads(), 'はんい ぜんぶ').toBe(WINDOW * col);
+    expect(reads(), 'おちつくと また 読まない').toBe(0);
+  });
+
+  it('歩く とき・行き先を えらぶ ときも 読まない（ぶらぶらする はんいの 列を おぼえて いる）。何回 歩いても', () => {
+    const { world, a } = make();
+    a.update(world); // はじめの 1 回で まとめて 読む
+    world.reads = 0;
+    let walkSteps = 0;
+    let walks = 0;
+    let was = false;
+    for (let i = 0; i < 3_000; i++) {
+      a.update(world);
+      expect(world.reads, `step ${i}`).toBe(0);
+      if (a.state === 'walk') walkSteps++;
+      if (a.state === 'walk' && !was) walks++;
+      was = a.state === 'walk';
+    }
+    expect(walks, '何回も 歩きだした').toBeGreaterThan(3);
+    expect(walkSteps, '歩いた').toBeGreaterThan(200);
+  });
+
+  it('歩いて いる 間に まわりに ブロックを 置かれて 通れなく なったら、そこで 止まる（石に ぶつからない）', () => {
+    const { world, a } = make();
+    for (let i = 0; i < 400 && a.state !== 'walk'; i++) a.update(world);
+    expect(a.state).toBe('walk');
+    const cx = Math.floor(a.x);
+    const cz = Math.floor(a.z);
+    // 自分の 列の まわり 8 列に 石を 2 だん つむ（体は 自分の 列の まん中から 0.2 マスより 外へは 出られない）
+    for (let dz = -1; dz <= 1; dz++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        if (dx === 0 && dz === 0) continue;
+        world.set(cx + dx, 11, cz + dz, 'stone');
+        world.set(cx + dx, 12, cz + dz, 'stone');
+        a.groundChanged(cx + dx, cz + dz);
+      }
+    }
+    for (let i = 0; i < 1_000; i++) {
+      a.update(world);
+      expect(Math.abs(a.x - (cx + 0.5)), `x step ${i}`).toBeLessThanOrEqual(0.2 + 1e-6);
+      expect(Math.abs(a.z - (cz + 0.5)), `z step ${i}`).toBeLessThanOrEqual(0.2 + 1e-6);
+      expect(canStand(world, a.x, a.z, a.y) !== null, `step ${i} (${a.x.toFixed(2)}, ${a.z.toFixed(2)})`).toBe(true);
+    }
+  });
+
+  it('行き先を えらぶ とき、石が 置かれた 側へは 行かない（置かれた ことを 知らされて いれば）', () => {
+    const { world, a } = make();
+    a.update(world);
+    for (let z = 44; z <= 56; z++) {
+      for (let x = 52; x <= 56; x++) {
+        world.set(x, 11, z, 'stone');
+        world.set(x, 12, z, 'stone');
+        a.groundChanged(x, z);
+      }
+    }
+    let reach = 0;
+    for (let i = 0; i < 4_000; i++) {
+      a.update(world);
+      reach = Math.max(reach, a.x);
+      expect(a.x, `step ${i}`).toBeLessThan(52 - ARCHITECT_BODY.radius + 1e-6); // 体の 東の すみが 石の 列 52 に かからない
+    }
+    expect(reach, '西や 南北へは 歩いた').toBeGreaterThan(HOME.x);
   });
 });

@@ -31,18 +31,125 @@ export function standY(world: HouseWorld, ix: number, iz: number): number | null
   return y;
 }
 
+/** いまの 高さ fromY から、いちばん 高い 足もと hi へ 登れて、いちばん 低い 足もと lo へ おりられる か（四すみの 段差の きまりは この 2 つで 決まる） */
+function stepOk(lo: number, hi: number, fromY: number): boolean {
+  return !(hi - fromY > ARCHITECT_BODY.stepUp + 1e-6) && !(fromY - lo > ARCHITECT_BODY.stepDown + 1e-6);
+}
+
 /**
  * (x, z) に 足を おけるか。体の 四すみの 列が ぜんぶ 立てて、いまの 高さ fromY から 登れる・おりられる 段差 なら、足もとの y を 返す（四すみの いちばん 高い 地面）。
- * だめなら null
+ * だめなら null。毎回 世界を 読む（建築士さんの 毎ステップの しらべは `Footing` を 使う）
  */
 export function canStand(world: HouseWorld, x: number, z: number, fromY: number): number | null {
   const r = ARCHITECT_BODY.radius;
-  let top = -Infinity;
-  for (let i = 0; i < 4; i++) {
-    const y = standY(world, Math.floor(x + (i & 1 ? r : -r)), Math.floor(z + (i & 2 ? r : -r)));
-    if (y === null) return null;
-    if (y - fromY > ARCHITECT_BODY.stepUp + 1e-6 || fromY - y > ARCHITECT_BODY.stepDown + 1e-6) return null;
-    if (y > top) top = y;
+  const x1 = Math.floor(x + r);
+  const z1 = Math.floor(z + r);
+  let lo = Infinity;
+  let hi = -Infinity;
+  for (let iz = Math.floor(z - r); iz <= z1; iz++) {
+    for (let ix = Math.floor(x - r); ix <= x1; ix++) {
+      const y = standY(world, ix, iz);
+      if (y === null) return null;
+      if (y < lo) lo = y;
+      if (y > hi) hi = y;
+    }
   }
-  return top;
+  return stepOk(lo, hi, fromY) ? hi : null;
+}
+
+/** 列の おぼえ: まだ 知らない / 読みこみずみだが 立てない（木・水など）。0 以上は 立てる 足もとの y（`standY` は 1 以上） */
+const UNKNOWN = -1;
+const BLOCKED = -2;
+
+/**
+ * `canStand` と 同じ 答えを、世界を 読まずに 返す（建築士さん 1 人に 1 つ）。
+ * 立って いる・歩いて いる 建築士さんが 毎ステップ 世界を 読むと 人数ぶん 仕事が ふえる ため（live4-perf AC20・live3-perf AC17）。
+ *  - ぶらぶらする はんいの まわり（窓。列 x0〜x1・z0〜z1）の「列ごとの 立てる 足もと」を おぼえる。高さに よらないので、いまの 高さからの 段差は 毎回 たしかめる
+ *  - 世界が かわったら `touch` で 知らせる（ブロックを 置く・ほる）。次の `stand` で、かわった 列だけ まとめて 読みなおす。知らせの ない かわりは 見えない
+ *  - 読みこみ前の 列は おぼえない（読みこまれたら すぐ 立てる）。窓の 外に かかる ときは おぼえず `canStand` と 同じに 読む
+ */
+export class Footing {
+  private world: HouseWorld | null = null;
+  /** おぼえた 列が かわった（読みなおしが いる） */
+  private stale = true;
+  private readonly w: number;
+  private readonly h: number;
+  private readonly ys: Int16Array;
+
+  constructor(
+    private readonly x0: number,
+    private readonly z0: number,
+    x1: number,
+    z1: number,
+  ) {
+    this.w = x1 - x0 + 1;
+    this.h = z1 - z0 + 1;
+    this.ys = new Int16Array(this.w * this.h).fill(UNKNOWN);
+  }
+
+  stand(world: HouseWorld, x: number, z: number, fromY: number): number | null {
+    const r = ARCHITECT_BODY.radius;
+    const ax = Math.floor(x - r);
+    const bx = Math.floor(x + r);
+    const az = Math.floor(z - r);
+    const bz = Math.floor(z + r);
+    if (ax < this.x0 || az < this.z0 || bx >= this.x0 + this.w || bz >= this.z0 + this.h) return canStand(world, x, z, fromY);
+    if (this.world !== world) {
+      this.world = world;
+      this.ys.fill(UNKNOWN);
+      this.stale = true;
+    }
+    if (this.stale) this.refresh(world);
+    let lo = Infinity;
+    let hi = -Infinity;
+    for (let iz = az; iz <= bz; iz++) {
+      for (let ix = ax; ix <= bx; ix++) {
+        const y = this.column(world, ix, iz);
+        if (y === null) return null;
+        if (y < lo) lo = y;
+        if (y > hi) hi = y;
+      }
+    }
+    return stepOk(lo, hi, fromY) ? hi : null;
+  }
+
+  /** 列 (x0, z0)〜(x1, z1) の 箱の 中が かわった。窓と かさなる 列は 次の `stand` で 読みなおす */
+  touch(x0: number, z0: number, x1 = x0, z1 = z0): void {
+    const ax = Math.max(x0, this.x0);
+    const bx = Math.min(x1, this.x0 + this.w - 1);
+    const az = Math.max(z0, this.z0);
+    const bz = Math.min(z1, this.z0 + this.h - 1);
+    for (let iz = az; iz <= bz; iz++) {
+      for (let ix = ax; ix <= bx; ix++) {
+        const i = (iz - this.z0) * this.w + (ix - this.x0);
+        if (this.ys[i] !== UNKNOWN) {
+          this.ys[i] = UNKNOWN;
+          this.stale = true;
+        }
+      }
+    }
+  }
+
+  /** 窓の 中で まだ 知らない 列を まとめて 読む（行き先を えらぶ とき、歩く とき に 読まなくて すむ ように） */
+  private refresh(world: HouseWorld): void {
+    this.stale = false;
+    for (let i = 0; i < this.ys.length; i++) {
+      if (this.ys[i] === UNKNOWN) this.column(world, this.x0 + (i % this.w), this.z0 + Math.floor(i / this.w));
+    }
+  }
+
+  /** 窓の 中の 列 (ix, iz) の 立てる 足もと。おぼえて いなければ 読んで おぼえる（読みこみ前は おぼえない） */
+  private column(world: HouseWorld, ix: number, iz: number): number | null {
+    const i = (iz - this.z0) * this.w + (ix - this.x0);
+    const v = this.ys[i]!;
+    if (v >= 0) return v;
+    if (v === BLOCKED) return null;
+    const y = standY(world, ix, iz);
+    if (y !== null) {
+      this.ys[i] = y;
+      return y;
+    }
+    if (world.isLoaded(ix, iz)) this.ys[i] = BLOCKED;
+    return null;
+  }
 }
