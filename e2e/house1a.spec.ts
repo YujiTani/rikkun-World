@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { findUnrubiedKanji } from '../src/ui/text';
-import { BTN_ORDER, TID, clickUi, countOf, findOtherArchitect, htmlOf, kura, menuMismatch, menuState, openHouse, press, setBag, shownTid, spawnPoint, stepUi, talkTo, tid, voiceCount, waitArchitects } from './helpers/house';
+import { BTN_ORDER, TID, clickUi, clockOf, countOf, findOtherArchitect, fudeLeft, htmlOf, kura, menuMismatch, menuState, openHouse, press, setBag, shownTid, spawnPoint, stepUi, talkTo, tid, voiceCount, waitArchitects } from './helpers/house';
 
 /**
  * HOUSE-1A（#338。docs/design/HOUSE-1.md §2.1〜2.4・§5・§6、docs/tickets/HOUSE-1A.md）の E2E。
@@ -23,15 +23,8 @@ const shownCount = async (page: Page): Promise<number> =>
 const bagCell = (page: Page, item: string) => page.locator(`[data-testid="${TID.bag}"][data-item="${item}"]`).first();
 const storeCell = (page: Page, item: string) => page.locator(`[data-testid="${TID.store}"][data-item="${item}"]`);
 
-/** ゲームの 時計（1 日の 何 tick 目か ＋ 何日目か）。メニュー・くらが 開いて いる 間は 止まる（AC41） */
-const clockOf = (page: Page): Promise<{ day: number; dayTick: number }> =>
-  page.evaluate(() => {
-    const t = (window as any).__rikkun.time.get();
-    return { day: t.day as number, dayTick: t.dayTick as number };
-  });
-
 test.describe('HOUSE-1A 建築士さん・メニュー・くら', () => {
-  test('AC1・AC3: 新しい世界 → 最初の建築士さんを右クリック → うなずき → ふきだし・声 1 回 → メニュー → 道具 1 こずつ → 2 回目は ふえない → なくして「どうぐを もらう」でもどる', async ({ page }, testInfo) => {
+  test('AC1・AC3（1B の ふで も）: 新しい世界 → 最初の建築士さんを右クリック → うなずき → ふきだし・声 1 回 → メニュー → 道具（みずもり・どうづき・ふで）1 こずつ → 2 回目は ふえない → なくして「どうぐを もらう」でもどる（ふでは もどらない）', async ({ page }, testInfo) => {
     test.setTimeout(120_000);
     await openHouse(page);
 
@@ -50,6 +43,7 @@ test.describe('HOUSE-1A 建築士さん・メニュー・くら', () => {
     // はじめは 道具を 持っていない・メニューは 閉じている
     expect(await countOf(page, 'mizumori')).toBe(0);
     expect(await countOf(page, 'dotsuki')).toBe(0);
+    expect(await countOf(page, 'fude')).toBe(0);
     expect((await menuState(page)).open).toBe(false);
 
     // ---- AC3 (1) 1 回目: ねらって 右クリック → うなずき（メニューが 開くまで 1 ステップずつ）→ ふきだし・声 → メニュー
@@ -63,15 +57,26 @@ test.describe('HOUSE-1A 建築士さん・メニュー・くら', () => {
     expect(voiceCount(t1.sfx), `声の 音が ちょうど 1 回（鳴った 音: ${t1.sfx.join(', ') || 'なし'}）`).toBe(1);
     // つなぎ目の 約束: あいさつは クリック なしで 進む（ここまで 1 ステップずつ 進めた だけ）。open が true に なった ときには ボタンまで 出て いて、道具は もう わたして ある
     expect(t1.atOpen?.buttons, 'open が true に なった ときに ボタンまで 出て いる').toEqual(BTN_ORDER.filter((id) => id !== 'tools'));
-    expect({ mizumori: t1.atOpen?.mizumori, dotsuki: t1.atOpen?.dotsuki }, '道具は open が true に なる 前に わたす').toEqual({ mizumori: 1, dotsuki: 1 });
+    expect({ mizumori: t1.atOpen?.mizumori, dotsuki: t1.atOpen?.dotsuki, fude: t1.atOpen?.fude }, '道具（1B から ふでも）は open が true に なる 前に わたす').toEqual({ mizumori: 1, dotsuki: 1, fude: 1 });
     expect(await countOf(page, 'mizumori'), 'はじめて 話すと みずもり 1 こ').toBe(1);
     expect(await countOf(page, 'dotsuki'), 'どうづき 1 こ').toBe(1);
+    expect(await countOf(page, 'fude'), '1B から ふで 1 本（AC3・AC46）').toBe(1);
+    const fude1 = await fudeLeft(page);
+    expect(fude1, 'ふでは 新品（たいきゅうが まるまる のこって いる）').toHaveLength(1);
+    expect(fude1[0]!.left, 'ふでは 新品').toBe(fude1[0]!.max);
     // ボタンは §2.3 の 順。道具を 持って いるので「どうぐを もらう」は 出ない。この 票で 動くのは くら・とじる
     expect(
       t1.menu.buttons.map((b) => b.id),
       'ボタンの ならび（上から）',
     ).toEqual(BTN_ORDER.filter((id) => id !== 'tools'));
-    for (const id of ['kura', 'close']) expect(t1.menu.buttons.find((b) => b.id === id)?.enabled, `${id} は 押せる`).toBe(true);
+    for (const id of ['kura', 'editor', 'close']) expect(t1.menu.buttons.find((b) => b.id === id)?.enabled, `${id} は 押せる（1B から editor も 動く）`).toBe(true);
+    // 1B: メニューの ボタンの 名前が「いえを つくる」から「せっけいずを つくる」に かわった
+    const editorLabel = await shownTid(page, TID.btn('editor')).evaluate((el) => {
+      const c = el.cloneNode(true) as Element;
+      c.querySelectorAll('rt, rp').forEach((n) => n.remove());
+      return (c.textContent ?? '').replace(/\s+/g, '');
+    });
+    expect(editorLabel, 'editor の ボタンの 字').toBe('せっけいずをつくる');
     // 画面（DOM）が menu() と 同じ・ふりがなの ない 漢字が ない
     expect(await menuMismatch(page), '画面と menu() の ちがい').toEqual([]);
     // ふきだしは 画面の どこに あっても よい（house-menu の 外でも）ので、メニューと ふきだしの 両方を 見る
@@ -98,6 +103,7 @@ test.describe('HOUSE-1A 建築士さん・メニュー・くら', () => {
     expect(voiceCount(t2.sfx), `2 回目も 声は ちょうど 1 回（鳴った 音: ${t2.sfx.join(', ') || 'なし'}）`).toBe(1);
     expect(await countOf(page, 'mizumori'), '2 回目は ふえない').toBe(1);
     expect(await countOf(page, 'dotsuki'), '2 回目は ふえない').toBe(1);
+    expect(await countOf(page, 'fude'), '2 回目は ふでも ふえない').toBe(1);
     expect(
       t2.menu.buttons.map((b) => b.id),
       '道具を 持って いるので「どうぐを もらう」は 出ない',
@@ -106,15 +112,17 @@ test.describe('HOUSE-1A 建築士さん・メニュー・くら', () => {
     await clickUi(page, shownTid(page, TID.btn('close')), 'メニューの ✕（house-btn-close）');
     expect((await menuState(page)).open, '✕ を 押して とじる').toBe(false);
 
-    // ---- AC3 (3) 両方 なくした あと: 話すと「どうぐを もらう」が 出て、押すと 1 こずつ もどる
+    // ---- AC3 (3) 道具を なくした あと: 話すと「どうぐを もらう」が 出て、押すと みずもり・どうづきが 1 こずつ もどる。ふでは もどらない（AC46: はじめの 1 本を わたした あと）
     await page.evaluate(() => {
       const h = (window as any).__rikkun;
       h.inventory.remove('mizumori', 1);
       h.inventory.remove('dotsuki', 1);
+      h.inventory.remove('fude', 1);
       h.step(1);
     });
     expect(await countOf(page, 'mizumori')).toBe(0);
     expect(await countOf(page, 'dotsuki')).toBe(0);
+    expect(await countOf(page, 'fude')).toBe(0);
     const t3 = await talkTo(page, first.id, 'rightClick');
     expect(t3.menu.open).toBe(true);
     expect(
@@ -124,10 +132,12 @@ test.describe('HOUSE-1A 建築士さん・メニュー・くら', () => {
     expect(t3.menu.buttons.find((b) => b.id === 'tools')?.enabled, 'どうぐを もらう は 押せる').toBe(true);
     expect(await countOf(page, 'mizumori'), '話しただけでは もどらない').toBe(0);
     expect(await countOf(page, 'dotsuki'), '話しただけでは もどらない').toBe(0);
+    expect(await countOf(page, 'fude'), '話しただけでは もどらない（ふでは 2 回目以降 くれない）').toBe(0);
     expect(await menuMismatch(page), '画面と menu() の ちがい（ボタン 6 つ）').toEqual([]);
     await clickUi(page, tid(page, TID.btn('tools')));
     expect(await countOf(page, 'mizumori'), '「どうぐを もらう」で みずもり 1 こ').toBe(1);
     expect(await countOf(page, 'dotsuki'), '「どうぐを もらう」で どうづき 1 こ').toBe(1);
+    expect(await countOf(page, 'fude'), '「どうぐを もらう」では ふでは ふえない（はじめの 1 本を わたした あと。AC46）').toBe(0);
     expect((await press(page, 'close')).open, 'とじる').toBe(false);
   });
 

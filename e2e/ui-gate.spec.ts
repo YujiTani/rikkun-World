@@ -14,6 +14,7 @@ import { findUnrubiedKanji } from '../src/ui/text';
 import { openLive3 } from './helpers/live3';
 import { makeSavedWorld, openMenu as openStartMenu, pressDigits, tid as startTid, toNewScreen } from './helpers/start';
 import { TID as HOUSE_TID, houseUiIssues, openKuraScreen, openMenuScreen } from './helpers/house';
+import { EDITOR_GATE, editorGateIssues, openEditorScreen } from './helpers/houseEditor';
 
 /**
  * UI 検査ゲート（`npm run check:ui`）。
@@ -854,6 +855,24 @@ const HOUSE_KURA_ROOTS = [`[data-testid="${HOUSE_TID.kura}"]`];
 SCREENS.push(
   { id: 'house-menu', roots: HOUSE_MENU_ROOTS, open: openMenuScreen, extra: (page) => houseUiIssues(page, HOUSE_MENU_ROOTS) },
   { id: 'house-kura', roots: HOUSE_KURA_ROOTS, open: openKuraScreen, extra: (page) => houseUiIssues(page, HOUSE_KURA_ROOTS) },
+);
+
+/**
+ * HOUSE-1B AC35（docs/design/HOUSE-1.md §3.2・§6.2。#339 PR-1）: エディター ① そと（9×9・窓 上限）・② なか（9×9・窓 上限・家具 いっぱい・えらんだ 家具の そばの ボタン）・
+ * ③ なまえ（いちばん 長い 名前 8 字＋「ひみつきち」）、確かめの まど 2 つ、ひつような もの（9 行）、いちばん 長い ふきだし（① と ③）、持ち物の せっけいずの 名前（19 字）。
+ * 3 つの 大きさで はみ出さない・重ならない・色・字・部品の きまりは 上の 検査。字 24px 以上・ボタン 高さ 56px 以上・方眼の マス 48px 以上は `extra`（e2e/helpers/houseEditor.ts）。
+ * 'house-sekkeizu-name' だけは 今の 共有の ツールチップの まま（#339 の 票）。`extra` は 名前（`.tip-name`）が 見える・切れない・ほかの アイテムと 同じ 大きさ、だけを 見る（星・説明・「たいきゅう」は 見ない）。
+ * 見本は 動きを へらす 設定で 止める（open で emulateMedia）。方眼の マス・置いた 家具は 押せる物に 数えない div、ふきだしも ボタンに しない（AC35）。
+ * 'house-editor-beside' は 5×5 と 9×9 の 4 すみと まん中の 家具で そばの ボタンが 方眼から はみ出さない かを 見る（AC57）。
+ * 窓口 `__rikkun.house` と 画面の 名前（data-testid）の 約束は e2e/helpers/house.ts の 先頭。実装の 前は 窓口が 無くて 赤。
+ */
+SCREENS.push(
+  ...EDITOR_GATE.map((g) => ({
+    id: g.id,
+    roots: g.roots,
+    open: (page: Page) => openEditorScreen(page, g.kind),
+    extra: (page: Page) => editorGateIssues(page, g),
+  })),
 );
 
 interface Issue {
