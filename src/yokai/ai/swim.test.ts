@@ -356,7 +356,8 @@ describe('AC14: わき方', () => {
     expect(w.weights[KIND]).toBeGreaterThan(0); // 表の 重みは ある（水の 列で 使う）
   });
   it('水の 浅い 池（深さ 3）には わかない', () => {
-    const { m, world } = autoSpawn('sunahama', { phase: 'night' });
+    // ひる: 陸の 妖怪は 外に わかない ので、およぐ 妖怪の くじ だけを 見られる（よる だと 陸の 妖怪が 100 体 わいて 重い）
+    const { m, world } = autoSpawn('sunahama', { phase: 'day' });
     for (let x = 64; x < 128; x++) for (let z = 0; z < 64; z++) for (let y = 9; y <= 11; y++) world.setBlock(x, y, z, 'stone');
     for (let i = 0; i < 3000; i++) {
       m.update(1 / 60);
