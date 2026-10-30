@@ -63,4 +63,10 @@
 - 入力は `src/input/actions.ts` の Action 経由で読む（キー・マウス・将来のコントローラーを同じ扱いにするため）。
 - 乱数はシード付きにする（テストで再現できるように）。
 - 6 歳向けの画面: 文字はひらがな・カタカナ、漢字は `ruby()`（`src/ui/text.ts`）で必ずふりがな。UI は HTML で画面に重ねる（ルビを使うため）。こわすぎない（血の表現なし）。妖怪はシルエットで分かる形を、箱の組み合わせでコードで作る。
+- **データと置き場のきまり（#304、くわしくは `docs/design/CODE-RULES.md`）**:
+  - 1 つのデータは 1 か所。アイテム・妖怪はシリーズごとの定義ファイルに 1 レコード、登録表は並べるだけ（足し方は `src/content/CLAUDE.md`）。
+  - 足し忘れは型かテストで落とす（`satisfies Record<…>`、switch は最後に `never`、無言の `default` を作らない）。
+  - 数は 1 か所の表に、単位つきの日本語コメントで書く。
+  - ファイルは 500 行目安、800 行こえは禁止（eslint `max-lines`）。本番から `src/proto/` を import しない（eslint）。class の部品に `this` 全体を渡さない。毎フレーム新しい物を作らない。import の輪を増やさない。
+  - `npm run check:fast` で書きながら確かめ、`src/` を変えたら コミット前に `npm run check:ratchet`（約 25 秒、id 直書き・循環などは ratchet.json の上限より増やさない）と `npx eslint src`（`max-lines`・`no-restricted-imports` が 0 件）。
 - クラウドには GPU がない。fps は目安にならないので、性能は描画回数・ポリゴン数・処理時間で比べる。本当の fps はオーナーの Mac で F3 表示を見て確かめる。
