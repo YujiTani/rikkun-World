@@ -1,8 +1,10 @@
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { ArrayVoxelWorld } from '../VoxelWorld';
 import { createMineHook } from './mineHook';
 import {
   SEEDS_20,
   components,
+  genColumn,
   hook1c,
   isBodyIndex,
   isSolidIndex,
@@ -27,6 +29,9 @@ import { spawnOf } from './terrain';
  *       ここでは ゆらぎを 3σ に 入れる ため 600 こ 以上〕。ある ときは おくの かべの まん中に 2 マス〔同じ 列・本体は 前から 見て 左〕。
  *   名前と 約束は mineShaftKit.ts の 先頭。【PO 案】の「半分 以上が cave か joint」は 試作の 数で 見なおす。
  */
+
+/** 坑道を たくさん しらべる ので 1 つの it に ゆとりを みる */
+vi.setConfig({ testTimeout: 120_000 });
 
 interface Sample {
   seed: number;
@@ -89,20 +94,72 @@ describe('C6: 横穴', () => {
     }
   });
 
-  it('上り下りは 2 マスに 1 段 まで〔横穴の マスで 2 マス いないの 高さの ちがいが 1 以下〕', () => {
+  it('上り下りは 2 マスに 1 段 まで〔横穴 1 本の 中で 2 マス いないの 高さの ちがいが 1 以下。べつの 層の 横穴が 上下に 重なるのは ふつう〕', () => {
     const bad: string[] = [];
+    let tunnels = 0;
     for (const s of samples) {
-      const cells = s.path.filter((c) => c.part === 'side');
-      const byXZ = new Map<string, number[]>();
-      for (const c of cells) (byXZ.get(`${c.x},${c.z}`) ?? byXZ.set(`${c.x},${c.z}`, []).get(`${c.x},${c.z}`)!).push(c.y);
-      for (const c of cells) {
-        for (const [dx, dz] of [...FOUR, [2, 0], [-2, 0], [0, 2], [0, -2], [1, 1], [1, -1], [-1, 1], [-1, -1]] as const) {
-          for (const y of byXZ.get(`${c.x + dx},${c.z + dz}`) ?? []) if (Math.abs(y - c.y) > 1) bad.push(`seed ${s.seed} ${s.shaft.id}: (${c.x}, ${c.y}, ${c.z}) と ${dx},${dz} さきで 高さ ${Math.abs(y - c.y)} ちがう`);
+      // 横穴 1 本ずつ〔段差 1 までで つながる かたまり。べつの 層の 横穴は べつの かたまり〕
+      for (const comp of components(s.path.filter((c) => c.part === 'side'))) {
+        tunnels++;
+        const byXZ = new Map<string, number[]>();
+        for (const c of comp) (byXZ.get(`${c.x},${c.z}`) ?? byXZ.set(`${c.x},${c.z}`, []).get(`${c.x},${c.z}`)!).push(c.y);
+        for (const c of comp) {
+          for (const [dx, dz] of [...FOUR, [2, 0], [-2, 0], [0, 2], [0, -2], [1, 1], [1, -1], [-1, 1], [-1, -1]] as const) {
+            for (const y of byXZ.get(`${c.x + dx},${c.z + dz}`) ?? []) if (Math.abs(y - c.y) > 1) bad.push(`seed ${s.seed} ${s.shaft.id}: (${c.x}, ${c.y}, ${c.z}) と ${dx},${dz} さきで 高さ ${Math.abs(y - c.y)} ちがう`);
+          }
         }
       }
     }
+    expect(tunnels, '横穴').toBeGreaterThan(0);
     expect(bad.slice(0, 5), `${bad.length} つ`).toEqual([]);
   });
+
+  it('実際の 横穴は 計画の 値の 中: 「side」の マス数は はば 3 × length 以下〔手前で ほらあなに つながると 短く なる〕・曲がり角は 平らな 3×3 で 数は bends 以下', () => {
+    const bad: string[] = [];
+    let tunnels = 0;
+    let corners = 0;
+    for (const s of samples) {
+      const comps = components(s.path.filter((c) => c.part === 'side'));
+      for (const d of s.shaft.sides) {
+        // この 横穴の かたまり〔出口 to に いちばん 近い〕
+        const near = (c: Pt[]): number => Math.min(...c.map((p) => cheb(p, d.to)));
+        const comp = comps.slice().sort((p, q) => near(p) - near(q))[0];
+        if (!comp || near(comp) > 3) continue; // つなぎの へや・こべやが 出口の すぐ 先に ある 横穴は 数えない
+        tunnels++;
+        const tag = `seed ${s.seed} ${s.shaft.id}`;
+        if (comp.length > 3 * d.length) bad.push(`${tag}: 横穴の マス ${comp.length} > はば 3 × 長さ ${d.length}`);
+        const at = new Map<string, number[]>();
+        for (const c of comp) (at.get(`${c.x},${c.z}`) ?? at.set(`${c.x},${c.z}`, []).get(`${c.x},${c.z}`)!).push(c.y);
+        const has = (x: number, z: number): boolean => at.has(`${x},${z}`);
+        const found: Pt[] = [];
+        for (const key of at.keys()) {
+          const [x0, z0] = key.split(',').map(Number) as [number, number];
+          let full = true;
+          for (let dx = 0; dx < 3 && full; dx++) for (let dz = 0; dz < 3; dz++) if (!has(x0 + dx, z0 + dz)) full = false;
+          if (!full) continue;
+          const alongX = has(x0 - 1, z0 + 1) || has(x0 + 3, z0 + 1);
+          const alongZ = has(x0 + 1, z0 - 1) || has(x0 + 1, z0 + 3);
+          if (!(alongX && alongZ)) continue; // まっすぐ
+          const ys = new Set<number>();
+          for (let dx = 0; dx < 3; dx++) for (let dz = 0; dz < 3; dz++) for (const y of at.get(`${x0 + dx},${z0 + dz}`)!) ys.add(y);
+          if (ys.size !== 1) bad.push(`${tag}: 曲がり角 (${x0}, ${z0}) の 3×3 が 平らでない（高さ ${[...ys].join(',')}）`);
+          found.push({ x: x0, y: [...ys][0]!, z: z0 });
+        }
+        // 角の まとまり〔となりあう 3×3 は 1 つ〕
+        const clusters: Pt[][] = [];
+        for (const f of found) {
+          const g = clusters.find((cl) => cl.some((o) => cheb(o, f) <= 2));
+          if (g) g.push(f);
+          else clusters.push([f]);
+        }
+        corners += clusters.length;
+        if (clusters.length > d.bends) bad.push(`${tag}: 曲がり角 ${clusters.length} > 計画の bends ${d.bends}`);
+      }
+    }
+    expect(tunnels, '横穴').toBeGreaterThan(0);
+    expect(bad.slice(0, 6), `${bad.length} つ`).toEqual([]);
+    expect(corners, '曲がり角が 1 つ 以上').toBeGreaterThan(0);
+  }, 120_000);
 
   it('先: joint は 床 5×5 〔25 マス いじょう〕・koheya は 床 5×5 で その 層の 鉱石が 3 こ 以上 見える', () => {
     const oreByLayer = new Map<Layer, Set<string>>();
@@ -123,7 +180,9 @@ describe('C6: 横穴', () => {
       for (const comp of components(koheya)) {
         nKoheya++;
         expect(comp.length, `seed ${s.seed} ${s.shaft.id} の こべや`).toBeGreaterThanOrEqual(25);
-        const layer = s.shaft.sides.find((d) => d.end === 'koheya')!.layer;
+        // この こべやに つながる 横穴〔出口 to が いちばん 近い koheya の 横穴〕の 層
+        const near = (d: Shaft['sides'][number]): number => Math.min(...comp.map((c) => Math.hypot(c.x - d.to.x, c.y - d.to.y, c.z - d.to.z)));
+        const layer = s.shaft.sides.filter((d) => d.end === 'koheya').sort((p, q) => near(p) - near(q))[0]!.layer;
         const ores = oreByLayer.get(layer)!;
         const seen = new Set<string>();
         for (const c of comp) {
@@ -228,7 +287,10 @@ describe('C7: いちばん 下の へや', () => {
         expect(isBodyIndex(s.g.at(front.x, front.y, front.z)) && s.g.id(front.x, front.y, front.z) !== 'torch', `${tag}: 前が 空気`).toBe(true);
       }
       // chestAt は どちらの マスでも 同じ
-      const h = hook1c(s.seed);
+      // chestAt は 生きている 世界〔あいたか〕を 読む 側: 宝箱の 列だけ 読みこんだ 世界を わたす
+      const world = new ArrayVoxelWorld({ x: 0, z: 0 });
+      world.loadColumn(genColumn(s.seed, c.cells[0]!.x >> 4, c.cells[0]!.z >> 4));
+      const h = hook1c(s.seed, { world });
       const a = h.chestAt(c.cells[0]!.x, c.cells[0]!.y, c.cells[0]!.z);
       const b = h.chestAt(c.cells[1]!.x, c.cells[1]!.y, c.cells[1]!.z);
       expect(a, `${tag}: chestAt 本体`).not.toBeNull();

@@ -23,7 +23,7 @@ import { spawnOf } from '../world/gen/terrain';
 import { MemoryBackend, SAVE_ID, unpackColumn } from './backend';
 import { exportSave, importSave } from './portable';
 import * as SaveManagerModule from './SaveManager';
-import { SAVE_GEN, SaveManager, type KeyValueStore } from './SaveManager';
+import { SAVE_GEN, SAVE_VERSION, SaveManager, type KeyValueStore } from './SaveManager';
 import { openStoredKeys, type StreamRestore } from './streamRestore';
 
 /**
@@ -40,7 +40,8 @@ import { openStoredKeys, type StreamRestore } from './streamRestore';
  *   ・`KODO_GEN`〔SaveManager.ts。坑道の 版 ＝ 5。部屋の 版は 1D〕。`SAVE_GEN` は 5 いじょう。
  *   ・起動で 読む `openStoredKeys` の 答え `StreamRestore.oldCols: { kodo: Set<number>; heya: Set<number> }`〔colKey の 集まり〕
  *   ・meta の 書き方 `meta.oldCols: { kodo: number[]; heya?: number[] }`〔新しい 世界では なくても 空でも よい〕
- *   ・`generateChunk(seed, cx, cz, oldCols?)` と `createMineHook({ seed, oldCols })` に 一覧を わたす。窓口 `mine.oldCols(kind)`・`mine.isOld(kind, cx, cz)`・`mine.saveGens()`
+ *   ・`generateChunk(seed, cx, cz, oldCols?)` と `createMineHook({ seed, oldCols, metaGen })` に 一覧と 版を わたす。窓口 `mine.oldCols(kind)`・`mine.isOld(kind, cx, cz)`・`mine.saveGens()`
+ *   ・`SaveManager.metaGen(): number | null`〔開いて いる 世界の meta の 版。保存した あとは 書いた 値。meta が なければ null〕を `saveGens().meta` の もとに する〔案〕。
  */
 
 const SEED = GEN_CONFIG.defaultSeed;
@@ -153,6 +154,16 @@ describe.each(FIXTURES)('C9: $name の 古い 保存', (f) => {
     }
   });
 
+  it('saveGens().meta: 開いた ときは 保存の 版〔3／4〕・保存した あとは 今の 版。坑道の 版 kodo は 5', async () => {
+    const { db, store } = await openFile(f);
+    const { restored, save } = await openGame(db, store);
+    const metaGen = (): number | null => (save as unknown as { metaGen(): number | null }).metaGen();
+    const h = hook1c(SEED, { oldCols: restored.oldCols, metaGen });
+    expect(h.saveGens(), '開いた とき').toMatchObject({ current: SAVE_GEN, meta: f.gen, kodo: 5 });
+    await save.now();
+    expect(h.saveGens(), '保存した あと').toMatchObject({ current: SAVE_GEN, meta: SAVE_GEN, kodo: 5 });
+  });
+
   it('はじまりの 坑道は 古い 列に かからず〔道・山の まわり 2 マスの 列が どれも 古くない〕C3〜C7 を みたす。閉じて 2 回 開いても 同じ 場所', async () => {
     const { db, store } = await openFile(f);
     const { restored, save } = await openGame(db, store);
@@ -258,6 +269,26 @@ describe.each(FIXTURES)('C9: $name の 古い 保存', (f) => {
     expect(sorted(listOf(again.restored)), '保険から もどした 一覧').toEqual(want);
     const h = hook1c(SEED, { oldCols: again.restored.oldCols });
     expect(h.oldCols('kodo')).toBe(want.length);
+  });
+});
+
+describe('C9: 古い 保存の meta が ない・こわれて いる（§5）→ 版 3 と みなして、保存の 列 ぜんぶを 古い 列に する', () => {
+  const f = FIXTURES[1];
+  const cases: { name: string; make: (db: MemoryBackend) => void }[] = [
+    { name: 'meta が ない', make: (db) => void db.metas.delete(SAVE_ID) },
+    { name: 'meta に gen が ない', make: (db) => void db.metas.set(SAVE_ID, { v: SAVE_VERSION, seed: SEED } as never) },
+    { name: 'meta の gen が 数でない', make: (db) => void db.metas.set(SAVE_ID, { ...db.metas.get(SAVE_ID), gen: 'x' } as never) },
+    { name: 'meta の gen が 小数・負', make: (db) => void db.metas.set(SAVE_ID, { ...db.metas.get(SAVE_ID), gen: -1.5 } as never) },
+  ];
+  it.each(cases)('$name', async ({ make }) => {
+    const { db, store } = await openFile(f);
+    make(db);
+    const stored = await keysOf(db);
+    expect(stored.size, 'fixture の 列').toBeGreaterThan(0);
+    const { restored } = await openGame(db, store);
+    expect(sorted(listOf(restored)), '古い 列の 一覧').toEqual(sorted(stored));
+    const h = hook1c(SEED, { oldCols: restored.oldCols });
+    expect(h.oldCols('kodo')).toBe(stored.size);
   });
 });
 

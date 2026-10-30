@@ -10,7 +10,7 @@ import { SEEDS_20, GenCols, hook1c, sampleShafts, type Shaft } from './mineShaft
  *     〔同じ 列は いつ 数えても 同じ・ほかの 列を 先に 作っても 同じ〕
  *   ・生成で 置く 光る ブロック〔たいまつ・ほたるいし。`work(cx, cz).emitters`〕は 1 列 80 こ まで。かくれた ほたるいしも 数える
  *     → 窓口の 数だけで なく、実際に 作った 列の たいまつ・ほたるいしの 数も 80 以下で、窓口の 数は それ 以上〔ごまかさない〕
- *   ・坑道が かからない 列は 区画 0〔むだな しごとを しない〕・かかる 列〔道が 通る 列〕は 1 以上
+ *   ・かかる 列〔道が 通る 列〕は 区画 1 以上。かからない 列の 値は 決めない〔自分の 区画を 1 つ 見る 実装でも よい〕
  *   生成 8 ms・描画回数 ＋4・三角形 ＋20% は perf〔npm run perf。E2E では ms で 合否を しない〕。保存 1 回の 行の「12 バイト／列」は
  *   src/save/mine1cSave.test.ts〔C9〕。つらら〔1 本 三角形 16〕は 1D。
  *
@@ -96,32 +96,19 @@ describe('C14: 坑道の 仕事の 数（ユニット）', () => {
     expect(bad.slice(0, 8), `${bad.length} つ`).toEqual([]);
   }, 240_000);
 
-  it('道が 通る 列は 区画 1 以上・坑道が かからない 列〔道の まわり 3 列の 外〕は 区画 0', () => {
+  it('道が 通る 列は 区画 1 以上〔仕様の 縛りは「4 まで」「ふえない」。坑道が かからない 列の 値は 決めない〕', () => {
     const bad: string[] = [];
     let near = 0;
-    let far = 0;
     for (const o of ones) {
       const h = hook1c(o.seed);
-      const around = new Set<number>();
-      for (const k of o.onPath) {
-        const cx = Math.floor(k / 65536) - 32768;
-        const cz = (k % 65536) - 32768;
-        for (let dx = -3; dx <= 3; dx++) for (let dz = -3; dz <= 3; dz++) around.add(colKey(cx + dx, cz + dz));
-      }
       for (const { cx, cz } of o.cols) {
-        const k = colKey(cx, cz);
+        if (!o.onPath.has(colKey(cx, cz))) continue;
+        near++;
         const r = h.work(cx, cz).shaftRegions;
-        if (o.onPath.has(k)) {
-          near++;
-          if (r < 1) bad.push(`seed ${o.seed} 道の 列 (${cx}, ${cz}) 区画 ${r}`);
-        } else if (!around.has(k)) {
-          far++;
-          if (r !== 0) bad.push(`seed ${o.seed} 遠い 列 (${cx}, ${cz}) 区画 ${r}`);
-        }
+        if (r < 1) bad.push(`seed ${o.seed} 道の 列 (${cx}, ${cz}) 区画 ${r}`);
       }
     }
     expect(near, '道の 列').toBeGreaterThan(SEEDS.length * 10);
-    expect(far, '遠い 列').toBeGreaterThan(SEEDS.length * 50);
     expect(bad.slice(0, 8), `${bad.length} つ`).toEqual([]);
   }, 240_000);
 

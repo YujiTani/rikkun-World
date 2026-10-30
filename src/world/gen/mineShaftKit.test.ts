@@ -10,6 +10,7 @@ import {
   standable,
   stepTo,
   walkDist,
+  walkProblems,
   wallProblems,
   type PathCell,
   type Pt,
@@ -28,12 +29,19 @@ const WATER = BLOCK_INDEX.water;
 
 /** 手づくりの 世界。f が ブロックの 番号を 返す */
 class Fake extends GenCols {
-  constructor(private readonly f: (x: number, y: number, z: number) => number) {
+  constructor(
+    private readonly f: (x: number, y: number, z: number) => number,
+    private readonly groundOf?: (x: number, z: number) => number,
+  ) {
     super(1);
   }
   override at(x: number, y: number, z: number): number {
     if (y < 0) return -1;
     return this.f(x, y, z);
+  }
+  /** 手づくりの 世界の 地面の 高さ: 指定が なければ いちばん 上の 固い ブロック */
+  override ground(x: number, z: number): number {
+    return this.groundOf ? this.groundOf(x, z) : this.topSolid(x, z);
   }
 }
 const BOX = { x0: -50, x1: 50, z0: -50, z1: 50 };
@@ -147,9 +155,98 @@ describe('C3・C4 の しらべ（手づくりの 坑道）', () => {
   it('ふち: 4 以上 落ちる 所を 見つける。1 段ずつの 山は ふちでない', () => {
     // 地面 y=10 の 平野に、高さ 6 の 台と 1 段ずつの 山
     const cliff = new Fake((x, y, z) => (y < (x >= 0 && x <= 4 && z >= 0 && z <= 4 ? 16 : 10) ? STONE : AIR));
-    const s = { entrance: { x: 2, y: 10, z: 8, dir: 2, kind: 'mound' }, mound: null } as unknown as Shaft;
+    // 入口が 台の 上〔歩いて 行ける〕: ふちの 先が 6 低い
+    const s = { entrance: { x: 2, y: 16, z: 2, dir: 2, kind: 'mound' }, mound: null } as unknown as Shaft;
     expect(ledgeProblems(cliff, s).length, '6 落ちる').toBeGreaterThan(0);
+    // 入口が 台の 下: 台の 上は 歩いて 登れない ので 出発点に ならない
+    expect(ledgeProblems(cliff, { entrance: { x: 2, y: 10, z: 8, dir: 2, kind: 'mound' }, mound: null } as unknown as Shaft), '登れない 台の 上').toEqual([]);
+    expect(ledgeProblems(cliff, { entrance: { x: 2, y: 30, z: 8, dir: 2, kind: 'mound' }, mound: null } as unknown as Shaft), '入口が 空中').toHaveLength(1);
     const steps = new Fake((x, y, z) => (y < 10 + Math.max(0, 6 - Math.max(Math.abs(x - 2), Math.abs(z - 2))) ? STONE : AIR));
-    expect(ledgeProblems(steps, { entrance: { x: 2, y: 10, z: 8, dir: 2, kind: 'mound' }, mound: { x: 2, z: 2, top: 16, width: 9 } } as unknown as Shaft)).toEqual([]);
+    const stepShaft = { entrance: { x: 2, y: 10, z: 8, dir: 2, kind: 'mound' }, mound: { x: 2, z: 2, top: 16, width: 9 } } as unknown as Shaft;
+    expect(walkDist(steps, stepShaft.entrance, BOX).has('2,16,2'), '1 段ずつの 山は てっぺんまで 歩いて 登れる').toBe(true);
+    expect(ledgeProblems(steps, stepShaft)).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------- 手づくりの「正しい」坑道〔へや 9×9×5・ふちの ない さか道を 斜面に ほった 物〕
+
+/**
+ * 平らな 野原〔床 y 52〕の 西に、1 マスで 2 上がる 斜面の 山〔上限 80〕。入口〔足 y 53〕から 西へ、さか道〔2 マスで 1 段・はば 3〕を
+ * 19 マス ほり、いちばん 下に 9×9×5 の へや〔足 y 44〕。まわりは ぜんぶ 固い。キットが 「正しい 坑道は 0 件」を 返す かの 確かめ。
+ * 地下に ほらあなを 足せる〔さか道の かべの すぐ 外の 下〕。
+ */
+function handmadeShaft(opt: { cave?: boolean } = {}): { g: Fake; shaft: Shaft; path: PathCell[] } {
+  const EX = 0;
+  const EZ = 0;
+  const ground = (x: number): number => (x >= EX ? 52 : Math.min(80, 52 + 2 * (EX - x)));
+  const room = { x0: EX - 28, y: 44, z0: EZ - 4, x1: EX - 20, z1: EZ + 4 };
+  const path: PathCell[] = [];
+  const air = new Set<string>();
+  const add = (x: number, y: number, z: number, part: PathCell['part'], h: number): void => {
+    path.push({ x, y, z, part });
+    for (let k = 0; k < h; k++) air.add(`${x},${y + k},${z}`);
+  };
+  for (let w = -1; w <= 1; w++) add(EX, 53, EZ + w, 'entrance', 4);
+  for (let i = 1; i <= 19; i++) for (let w = -1; w <= 1; w++) add(EX - i, 53 - (i >> 1), EZ + w, 'ramp', 4);
+  for (let x = room.x0; x <= room.x1; x++) for (let z = room.z0; z <= room.z1; z++) add(x, room.y, z, 'room', 5);
+  const g = new Fake(
+    (x, y, z) => {
+      if (air.has(`${x},${y},${z}`)) return AIR;
+      // 地下の ほらあな〔さか道の かべの すぐ 外の 下。床の 上 3 マスが 空気〕
+      if (opt.cave && x >= EX - 12 && x <= EX - 3 && z >= EZ + 2 && z <= EZ + 6 && y >= 40 && y <= 42) return AIR;
+      return y <= ground(x) ? STONE : AIR;
+    },
+    (x) => ground(x),
+  );
+  const shaft = {
+    id: 'hand', start: false, entrance: { x: EX, y: 53, z: EZ, dir: 1, kind: 'slope' }, mound: null, room, chest: null, sides: [],
+    box: { x0: room.x0, z0: EZ - 4, x1: EX, z1: EZ + 4 },
+  } as Shaft;
+  return { g, shaft, path };
+}
+
+describe('手づくりの 正しい 坑道は 0 件〔レビューの 重大 1・2〕', () => {
+  it('形・かべ・ふち・道さがしが ぜんぶ 0 件', () => {
+    const { g, shaft, path } = handmadeShaft();
+    expect(shapeProblems(g, shaft, path)).toEqual([]);
+    expect(wallProblems(g, shaft, path)).toEqual([]);
+    expect(ledgeProblems(g, shaft)).toEqual([]);
+    expect(walkProblems(g, shaft, path)).toEqual([]);
+  });
+
+  it('へやの 天井は 足から 5 マス目〔高さ 5〕: 天井が 4 マス目だと 形の もんだい・5 マス目が 空気だと かべの もんだい', () => {
+    const { g, shaft, path } = handmadeShaft();
+    const room = shaft.room;
+    const inRoom = (x: number, z: number): boolean => x >= room.x0 && x <= room.x1 && z >= room.z0 && z <= room.z1;
+    const low = new Fake((x, y, z) => (inRoom(x, z) && y === room.y + 4 ? STONE : g.at(x, y, z)), (x) => g.ground(x, 0));
+    expect(shapeProblems(low, shaft, path).some((m) => m.includes('へや')), '高さ 4').toBe(true);
+    const open = new Fake((x, y, z) => (inRoom(x, z) && y === room.y + 5 && x === room.x0 + 4 && z === room.z0 + 4 ? AIR : g.at(x, y, z)), (x) => g.ground(x, 0));
+    expect(wallProblems(open, shaft, path).some((m) => m.includes('天井')), '天井に 穴').toBe(true);
+  });
+
+  it('ふち: 道の かべの すぐ 外の 下に ほらあなが あっても〔歩いて 入れない かべ〕ふちでは ない。地面を ひくく 見ても 同じ', () => {
+    const { g, shaft } = handmadeShaft({ cave: true });
+    expect(ledgeProblems(g, shaft)).toEqual([]);
+    const { g: low } = handmadeShaft({ cave: true });
+    const lowGround = new Fake((x, y, z) => low.at(x, y, z), () => 0); // 「地面より 下は 見ない」を 切って、歩いて 入れるかだけ 見る
+    expect(ledgeProblems(lowGround, shaft)).toEqual([]);
+  });
+
+  it('ふち: 本当の がけ〔入口から 歩いて 行ける 台の ふち。となりの 列が 4 以上 低い〕は 見つける。1 段ずつの 斜面は ふちでない', () => {
+    const { shaft } = handmadeShaft();
+    const plateau = (x: number, z: number): boolean => x >= 3 && x <= 7 && z >= -2 && z <= 2;
+    // 野原の 一部が 6 高い 台〔入口の 近く。台の 上に 入口〕
+    const cliff = new Fake((x, y, z) => (y <= (plateau(x, z) ? 58 : 52) ? STONE : AIR), (x, z) => (plateau(x, z) ? 58 : 52));
+    expect(ledgeProblems(cliff, { ...shaft, entrance: { ...shaft.entrance, x: 5, y: 59, z: 0 } }).length, '台の ふち').toBeGreaterThan(0);
+    const slope = new Fake((x, y) => (y <= 52 + Math.max(0, Math.min(3, x)) ? STONE : AIR), (x) => 52 + Math.max(0, Math.min(3, x)));
+    expect(ledgeProblems(slope, { ...shaft, entrance: { ...shaft.entrance, x: 0, y: 53, z: 0 } })).toEqual([]);
+  });
+
+  it('道さがし: 目的の マスを 見つけたら そこで 止まる〔ぜんぶ 数えない。打ちきりに ならない〕', () => {
+    const { g } = handmadeShaft();
+    const far = walkDist(g, { x: 0, y: 53, z: 0 }, { x0: -40, x1: 10, z0: -10, z1: 10 }, { x: -24, y: 44, z: 0 });
+    expect(far.has('-24,44,0'), '目的の マスを 見つけたら 止まる').toBe(true);
+    expect(far.size, 'ぜんぶは 数えない').toBeLessThan(walkDist(g, { x: 0, y: 53, z: 0 }, { x0: -40, x1: 10, z0: -10, z1: 10 }).size);
+    expect(far.capped).toBeUndefined();
   });
 });

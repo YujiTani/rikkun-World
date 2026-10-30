@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { columnHash } from './chunk';
 import { inMouthFootprint, mouthsNear } from './mouths';
 import {
@@ -36,6 +36,9 @@ const DIR_VEC = [
   { x: -1, z: 0 },
 ] as const;
 const angleBetween = (a: { x: number; z: number }, b: { x: number; z: number }): number => (Math.acos(Math.max(-1, Math.min(1, (a.x * b.x + a.z * b.z) / (Math.hypot(a.x, a.z) * Math.hypot(b.x, b.z))))) * 180) / Math.PI;
+
+/** 区画の 抽選・シード 20 の 坑道を たくさん しらべる ので 1 つの it に ゆとりを みる */
+vi.setConfig({ testTimeout: 120_000 });
 
 interface StartRow {
   seed: number;

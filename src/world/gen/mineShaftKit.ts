@@ -1,4 +1,4 @@
-import type { BlockId, ChunkColumn, ItemId, Rarity } from '../../contracts';
+import type { ChunkColumn, ItemId, Rarity } from '../../contracts';
 import { WORLD_HEIGHT } from '../../contracts';
 import { BLOCK_INDEX, BLOCK_TYPES } from '../blocks/blockTypes';
 import { SkyDarkness } from '../light/skyDarkness';
@@ -8,7 +8,7 @@ import { ArrayVoxelWorld } from '../VoxelWorld';
 import { generateChunk } from './chunk';
 import { createMineHook } from './mineHook';
 import { colKey } from '../stream/ring';
-import { spawnOf } from './terrain';
+import { heightAt, spawnOf } from './terrain';
 
 /**
  * MINE-1C（docs/design/MINE-1.md §4.5・§6.1・受け入れ基準 C1〜C16）の テスト用の 道具。ゲームの 外〔テスト〕だけで 使う。
@@ -42,7 +42,7 @@ export interface PathCell extends Pt {
 export type Tier = 1 | 2 | 3 | 4;
 export type Layer = 'asai' | 'nakahodo' | 'fukai';
 
-export interface ShaftSide {
+interface ShaftSide {
   layer: Layer;
   from: Pt;
   to: Pt;
@@ -52,7 +52,7 @@ export interface ShaftSide {
   /** 計画の 曲がり〔0〜2〕 */
   bends: number;
 }
-export interface ShaftChest {
+interface ShaftChest {
   x: number;
   y: number;
   z: number;
@@ -70,14 +70,14 @@ export interface Shaft {
   sides: ShaftSide[];
   box: { x0: number; z0: number; x1: number; z1: number };
 }
-export interface ShaftRoll {
+interface ShaftRoll {
   rx: number;
   rz: number;
   hit: boolean;
   land: number;
   placed: boolean;
 }
-export interface ChestTierRow {
+interface ChestTierRow {
   tier: Tier;
   chance: number;
   slots: number;
@@ -94,7 +94,7 @@ export interface ChestRoll {
   tier: Tier;
   items: { item: ItemId; count: number }[];
 }
-export interface ChestInfo {
+interface ChestInfo {
   table: string;
   tier: Tier;
   opened: boolean;
@@ -131,9 +131,9 @@ export interface MineHook1C {
   columnOres(cx: number, cz: number): { normal: boolean };
 }
 
-/** 窓口を 作る。`oldCols` は 古い 保存を 開いた とき の 一覧〔なければ 新しい 世界〕 */
-export function hook1c(seed: number, o: { oldCols?: OldCols; world?: unknown } = {}): MineHook1C {
-  return createMineHook({ seed, ...(o.oldCols ? { oldCols: o.oldCols } : {}), ...(o.world ? { world: o.world } : {}) } as never) as unknown as MineHook1C;
+/** 窓口を 作る。`oldCols` は 古い 保存を 開いた とき の 一覧〔なければ 新しい 世界〕。`metaGen` は 開いて いる 世界の meta の 版〔`saveGens().meta`。案: SaveManager.metaGen()〕 */
+export function hook1c(seed: number, o: { oldCols?: OldCols; world?: unknown; metaGen?: () => number | null } = {}): MineHook1C {
+  return createMineHook({ seed, ...(o.oldCols ? { oldCols: o.oldCols } : {}), ...(o.world ? { world: o.world } : {}), ...(o.metaGen ? { metaGen: o.metaGen } : {}) } as never) as unknown as MineHook1C;
 }
 
 /** 生成の 窓口。古い 列の 一覧を わたせる 形は 案〔`generateChunk(seed, cx, cz, oldCols)`〕 */
@@ -197,6 +197,10 @@ export class GenCols {
   id(x: number, y: number, z: number): string {
     return idOf(this.at(x, y, z));
   }
+  /** 地面の 高さ〔地形の 高さ。山は ふくまない。手づくりの 世界では topSolid に 置きかえる〕 */
+  ground(x: number, z: number): number {
+    return heightAt(this.seed, x, z);
+  }
   /** x・z の いちばん 上の 固い ブロックの y〔なければ -1〕 */
   topSolid(x: number, z: number): number {
     for (let y = WORLD_HEIGHT - 1; y >= 0; y--) if (isSolidIndex(this.at(x, y, z))) return y;
@@ -223,7 +227,11 @@ export function standable(g: GenCols, x: number, y: number, z: number): boolean 
   return isBodyIndex(g.at(x, y, z)) && isBodyIndex(g.at(x, y + 1, z)) && isSolidIndex(g.at(x, y - 1, z));
 }
 
-/** a から 東西南北 1 歩〔dx, dz〕: 同じ 高さ・1 下 → 行ける。1 上 → 自動ジャンプ〔足から 上 4 マスが 体の 通る マス〕。2 以上 → 歩けない */
+/**
+ * a から 東西南北 1 歩〔dx, dz〕: 同じ 高さ・1 下 → 行ける。1 上 → 自動ジャンプ〔足から 上 4 マスが 体の 通る マス〕。2 以上 → 歩けない。
+ * 【仕様 §6.1 より 1 つ きびしい】「1 下」は 行き先の 列の 足の 上〔a.y + 1〕も 体の 通る マスで ないと 行かない
+ * 〔頭が かべに ぶつかる 所へは 下りられない。体の 動きとしては 正しい〕。仕様への 1 行は PO が designer に 頼む。
+ */
 export function stepTo(g: GenCols, a: Pt, dx: number, dz: number): Pt | null {
   const x = a.x + dx;
   const z = a.z + dz;
@@ -240,13 +248,20 @@ export interface Box3 {
   z1: number;
 }
 
-/** from から 歩いて 行ける マス〔はんい box の 中。distance つき〕。limit 個で 打ちきる */
-export function walkDist(g: GenCols, from: Pt, box: Box3, limit = 80_000): Map<string, number> {
-  const dist = new Map<string, number>();
+/** 打ちきりの 数。ここまで 見ても 先が あるなら 打ちきる〔森・山でも 足りる 大きさ〕 */
+const WALK_LIMIT = 400_000;
+
+/**
+ * from から 歩いて 行ける マス〔はんい box の 中。distance つき〕。to を わたすと、見つけた ところで 止める〔速い〕。
+ * 打ちきりに なった ときは `capped` が true〔「行けない」と 言い切らない ため〕。
+ */
+export function walkDist(g: GenCols, from: Pt, box: Box3, to?: Pt): Map<string, number> & { capped?: boolean } {
+  const dist: Map<string, number> & { capped?: boolean } = new Map();
   if (!standable(g, from.x, from.y, from.z)) return dist;
+  const goal = to ? ptKey(to) : null;
   dist.set(ptKey(from), 0);
   let frontier: Pt[] = [from];
-  while (frontier.length > 0 && dist.size < limit) {
+  while (frontier.length > 0) {
     const next: Pt[] = [];
     for (const a of frontier) {
       const d = dist.get(ptKey(a))!;
@@ -256,20 +271,25 @@ export function walkDist(g: GenCols, from: Pt, box: Box3, limit = 80_000): Map<s
         const k = ptKey(b);
         if (dist.has(k)) continue;
         dist.set(k, d + 1);
+        if (k === goal) return dist;
         next.push(b);
       }
+    }
+    if (dist.size >= WALK_LIMIT) {
+      dist.capped = true;
+      return dist;
     }
     frontier = next;
   }
   return dist;
 }
 
-/** a から b へも b から a へも 歩いて 行ける〔上りの ほうが きびしいので かならず 両方〕 */
+/** a から b へも b から a へも 歩いて 行ける〔上りの ほうが きびしいので かならず 両方。見つけたら そこで 止める〕 */
 export function bothWays(g: GenCols, a: Pt, b: Pt, box: Box3): boolean {
-  return walkDist(g, a, box).has(ptKey(b)) && walkDist(g, b, box).has(ptKey(a));
+  return walkDist(g, a, box, b).has(ptKey(b)) && walkDist(g, b, box, a).has(ptKey(a));
 }
 
-export const boxAround = (s: Shaft, margin = 8): Box3 => ({ x0: s.box.x0 - margin, x1: s.box.x1 + margin, z0: s.box.z0 - margin, z1: s.box.z1 + margin });
+const boxAround = (s: Shaft, margin = 8): Box3 => ({ x0: s.box.x0 - margin, x1: s.box.x1 + margin, z0: s.box.z0 - margin, z1: s.box.z1 + margin });
 
 // ------------------------------------------------------------------ 坑道の 形・安全〔C3・C4・C5〕。直した ほうが よい 所を 文で 返す〔空なら 合格〕
 
@@ -315,7 +335,7 @@ export function components(cells: readonly Pt[]): Pt[][] {
   return out;
 }
 
-export const bbox = (cs: readonly Pt[]): { w: number; d: number; x0: number; x1: number; z0: number; z1: number } => {
+const bbox = (cs: readonly Pt[]): { w: number; d: number; x0: number; x1: number; z0: number; z1: number } => {
   const xs = cs.map((c) => c.x);
   const zs = cs.map((c) => c.z);
   const x0 = Math.min(...xs);
@@ -374,60 +394,70 @@ export function shapeProblems(g: GenCols, s: Shaft, path: PathCell[]): string[] 
   return bad;
 }
 
-/** C4 の うち 形の 安全: 床・かべ・天井 */
+/** 道の 足の マスから 上へ 空気で あるべき 高さ〔マス数〕。へやは 高さ 5〔C3〕、ほかは 4 */
+const airHeight = (c: PathCell): number => (c.part === 'room' ? 5 : 4);
+
+/** C4 の うち 形の 安全: 床・かべ・天井〔へやは 天井が 足から 5 マス目〕 */
 export function wallProblems(g: GenCols, s: Shaft, path: PathCell[]): string[] {
   const bad: string[] = [];
   const open = new Set<string>(); // 道の 空気の マス
-  for (const c of path) for (let k = 0; k < 4; k++) open.add(ptKey({ x: c.x, y: c.y + k, z: c.z }));
+  for (const c of path) for (let k = 0; k < airHeight(c); k++) open.add(ptKey({ x: c.x, y: c.y + k, z: c.z }));
   const chestCells = new Set((s.chest?.cells ?? []).map(ptKey));
   const mouths = [s.entrance, ...s.sides.flatMap((d) => [d.from, d.to])];
   const nearMouth = (p: Pt): boolean => mouths.some((m) => Math.abs(m.x - p.x) <= 2 && Math.abs(m.z - p.z) <= 2 && Math.abs(m.y - p.y) <= 6);
+  const solidAt = (p: Pt): boolean => open.has(ptKey(p)) || nearMouth(p) || chestCells.has(ptKey(p)) || isSolidIndex(g.at(p.x, p.y, p.z));
   for (const c of path) {
     // 床: 足の マスの 下 2 マス
     for (const d of [1, 2]) if (!isSolidIndex(g.at(c.x, c.y - d, c.z))) bad.push(`${c.part} (${c.x}, ${c.y}, ${c.z}) の 下 ${d} マスが 固くない: ${g.id(c.x, c.y - d, c.z)}`);
     if (c.part === 'entrance') continue; // 入口〔わくと 屋根。外へ ひらく〕
-    // かべ・天井: 道の 空気の まわり 1 マス
-    for (let k = 0; k < 5; k++) {
+    const h = airHeight(c);
+    // かべ: 道の 空気の まわり 1 マス〔足から 空気の 高さまで〕
+    for (let k = 0; k < h; k++) {
       for (const [dx, dz] of FOUR) {
         const p = { x: c.x + dx, y: c.y + k, z: c.z + dz };
-        if (k === 4 || open.has(ptKey(p)) || nearMouth(p) || chestCells.has(ptKey(p))) continue;
-        if (!isSolidIndex(g.at(p.x, p.y, p.z))) bad.push(`かべ (${p.x}, ${p.y}, ${p.z}) が 固くない: ${g.id(p.x, p.y, p.z)}（${c.part} の となり）`);
-      }
-      if (k === 4) {
-        const p = { x: c.x, y: c.y + 4, z: c.z };
-        if (!open.has(ptKey(p)) && !nearMouth(p) && !isSolidIndex(g.at(p.x, p.y, p.z))) bad.push(`天井 (${p.x}, ${p.y}, ${p.z}) が 固くない: ${g.id(p.x, p.y, p.z)}`);
+        if (!solidAt(p)) bad.push(`かべ (${p.x}, ${p.y}, ${p.z}) が 固くない: ${g.id(p.x, p.y, p.z)}（${c.part} の となり）`);
       }
     }
+    // 天井: 空気の すぐ 上
+    const top = { x: c.x, y: c.y + h, z: c.z };
+    if (!solidAt(top)) bad.push(`天井 (${top.x}, ${top.y}, ${top.z}) が 固くない: ${g.id(top.x, top.y, top.z)}`);
   }
   return bad;
 }
 
-/** C4: 入口の まわり 8 マス〔と 山の まわり 8 マス〕に 4 以上 落ちる ふち〔立てる マスの となりの 立てる マスが 4 以上 低い〕が ない */
+/**
+ * C4: 入口の まわり 8 マス〔と 山の まわり 8 マス〕に 4 以上 落ちる ふち〔立てる マスから 歩いて 入れる となりの 列で、立てる マスが 4 以上 低い〕が ない。
+ *   ・「歩いて 入れる」＝ となりの 列の 足と 頭の マス〔いまと 同じ 高さ〕が 体の 通る マス。かべなら 落ちない
+ *   ・見る のは「入口から 歩いて 行ける」地面の 上〔y が 地面の 高さ −1 以上〕の 立てる マスだけ。
+ *     地下の トンネルの 中の 床や、歩いて 登れない 屋根の 上は ふちの 出発点では ない〔かべの むこうの ほらあなの 床を「低い」と 数えて しまう のを ふせぐ〕
+ *   ・入口が 立てる マスでなければ、それ 自体を もんだいとして 返す〔からっぽで 通さない〕
+ */
 export function ledgeProblems(g: GenCols, s: Shaft): string[] {
   const bad: string[] = [];
   const e = s.entrance;
   const inRegion = (x: number, z: number): boolean => (Math.abs(x - e.x) <= 8 && Math.abs(z - e.z) <= 8) || (s.mound !== null && Math.abs(x - s.mound.x) <= s.mound.width / 2 + 8 && Math.abs(z - s.mound.z) <= s.mound.width / 2 + 8);
-  const x0 = Math.min(e.x - 8, s.mound ? s.mound.x - s.mound.width / 2 - 8 : e.x);
-  const x1 = Math.max(e.x + 8, s.mound ? s.mound.x + s.mound.width / 2 + 8 : e.x);
-  const z0 = Math.min(e.z - 8, s.mound ? s.mound.z - s.mound.width / 2 - 8 : e.z);
-  const z1 = Math.max(e.z + 8, s.mound ? s.mound.z + s.mound.width / 2 + 8 : e.z);
-  for (let x = Math.floor(x0); x <= x1; x++) {
-    for (let z = Math.floor(z0); z <= z1; z++) {
-      if (!inRegion(x, z)) continue;
-      for (let y = e.y - 8; y <= e.y + 12; y++) {
-        if (!standable(g, x, y, z)) continue;
-        for (const [dx, dz] of FOUR) {
-          // となりの 列で、y+1 から 下へ 見て はじめて 立てる マス
-          let found = -1;
-          for (let yy = y + 1; yy >= y - 40; yy--) {
-            if (standable(g, x + dx, yy, z + dz)) {
-              found = yy;
-              break;
-            }
-          }
-          if (found !== -1 && found <= y - 4) bad.push(`ふち (${x}, ${y}, ${z}) → (${x + dx}, ${found}, ${z + dz}) が ${y - found} 下がる`);
+  const box: Box3 = {
+    x0: Math.floor(Math.min(e.x - 8, s.mound ? s.mound.x - s.mound.width / 2 - 8 : e.x)),
+    x1: Math.max(e.x + 8, s.mound ? s.mound.x + s.mound.width / 2 + 8 : e.x),
+    z0: Math.floor(Math.min(e.z - 8, s.mound ? s.mound.z - s.mound.width / 2 - 8 : e.z)),
+    z1: Math.max(e.z + 8, s.mound ? s.mound.z + s.mound.width / 2 + 8 : e.z),
+  };
+  if (!standable(g, e.x, e.y, e.z)) return [`入口 (${e.x}, ${e.y}, ${e.z}) が 立てる マスでない`];
+  for (const key of walkDist(g, { x: e.x, y: e.y, z: e.z }, box).keys()) {
+    const [x, y, z] = key.split(',').map(Number) as [number, number, number];
+    if (!inRegion(x, z) || y < g.ground(x, z) - 1) continue;
+    for (const [dx, dz] of FOUR) {
+      const nx = x + dx;
+      const nz = z + dz;
+      if (!isBodyIndex(g.at(nx, y, nz)) || !isBodyIndex(g.at(nx, y + 1, nz))) continue; // かべ: 歩いて 入れない
+      let found = -1;
+      for (let yy = y; yy >= y - 40; yy--) {
+        if (standable(g, nx, yy, nz)) {
+          found = yy;
+          break;
         }
       }
+      if (found !== -1 && found <= y - 4) bad.push(`ふち (${x}, ${y}, ${z}) → (${nx}, ${found}, ${nz}) が ${y - found} 下がる`);
     }
   }
   return bad;
@@ -458,7 +488,7 @@ export function walkProblems(g: GenCols, s: Shaft, path: PathCell[]): string[] {
     for (const [k, dist] of out) {
       if (dist < 4 || all.has(k)) continue;
       const [x, y, z] = k.split(',').map(Number) as [number, number, number];
-      if (walkDist(g, { x, y, z }, box).has(ptKey(d.to))) {
+      if (walkDist(g, { x, y, z }, box, d.to).has(ptKey(d.to))) {
         found = true;
         break;
       }
@@ -472,7 +502,9 @@ export function walkProblems(g: GenCols, s: Shaft, path: PathCell[]): string[] {
 export function lightProblems(g: GenCols, s: Shaft, path: PathCell[]): string[] {
   const bad: string[] = [];
   const light = g.lit(s.box);
+  const chestCells = new Set((s.chest?.cells ?? []).map(ptKey)); // 宝箱の 2 マスは 立つ マスでない
   for (const c of path) {
+    if (chestCells.has(ptKey(c))) continue;
     const id = g.id(c.x, c.y, c.z);
     if (id === 'start_torch') bad.push(`こわれない たいまつ (${c.x}, ${c.y}, ${c.z})`);
     const l = light.blockLight(c.x, c.y, c.z);
@@ -480,13 +512,6 @@ export function lightProblems(g: GenCols, s: Shaft, path: PathCell[]): string[] 
     if (light.isDarkForSpawn(c.x, c.y, c.z)) bad.push(`${c.part} (${c.x}, ${c.y}, ${c.z}) は 妖怪が 出る 暗さ`);
   }
   return bad;
-}
-
-/** 箱の 中の ブロックを 数える */
-export function countIn(g: GenCols, box: { x0: number; x1: number; y0: number; y1: number; z0: number; z1: number }, ids: readonly string[]): number {
-  let n = 0;
-  for (let x = box.x0; x <= box.x1; x++) for (let y = box.y0; y <= box.y1; y++) for (let z = box.z0; z <= box.z1; z++) if (ids.includes(g.id(x, y, z))) n++;
-  return n;
 }
 
 /** 道に ならぶ 坑道を スタートに 近い 順に n こ〔はじまり ＋ ほか〕 */
@@ -501,9 +526,6 @@ export function sampleShafts(seed: number, others: number, o: { oldCols?: OldCol
     .slice(0, others);
   return { seed, hook, g: new GenCols(seed, o.oldCols), shafts: [start, ...near] };
 }
-
-/** blockId の 型の ため〔文字を BlockId に〕 */
-export const asBlock = (id: string): BlockId => id as BlockId;
 
 /** 坑道〔道・山。まわり 2 マス〕が かかる 列の 一覧〔colKey〕。古い 列に かかるか・形を 前と くらべない 列を 見分ける のに 使う〕 */
 export function touchedColKeys(s: Shaft, path: readonly { x: number; z: number }[]): Set<number> {
