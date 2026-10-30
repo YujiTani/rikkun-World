@@ -28,6 +28,7 @@ async function open(page: Page) {
     h.settings.set('yokaiAutoSpawn', false);
     h.settings.set('yokaiWander', false);
     h.yokai.clear();
+    h.player.set({ position: { x: 8.5, y: P.floor + 1, z: 6.5 }, velocity: { x: 0, y: 0, z: 0 } }); // 池の そば（遠いと 妖怪が 消える）
     h.world.fill(P.x0, P.floor, P.z0, P.x1, P.floor, P.z1, 'stone');
     h.world.fill(P.x0, P.floor + 1, P.z0, P.x1, h.world.size().y - 1, P.z1, 'air');
     h.world.fill(P.x0, P.floor + 1, P.z0, P.x1, P.top, P.z1, 'water');

@@ -90,7 +90,7 @@ const EXPECT: Record<YokaiKind, Expect> = {
     name: 'タコはちまき',
     basis: { target: 1, attack: 2, xp: 3, projectile: false, frontOnly: false },
     motion: { hitSeconds: 0.3, attackSeconds: 0.8, reach: 2.5, speed: 3, cooldownSeconds: 1.5, avoidsWater: false },
-    ai: { stepUp: 0, radius: 0.5, height: 2.4, eyeHeight: 1.0, turnDegPerSec: 180, marksHeight: 2.2, flies: false },
+    ai: { stepUp: 0, radius: 0.5, height: 1.7, eyeHeight: 1.0, turnDegPerSec: 180, marksHeight: 2.2, flies: false },
     sense: { sight: 12, giveUp: 16, shinobi: true },
     drops: [['sumi', 1, 2]],
     colors: {
@@ -207,7 +207,7 @@ describe('登録表（妖怪）', () => {
       chochin: { ...none, glowColors: [0xffb347, 0xfff2a0] },
       nurikabe: { ...none, knockOnlyHeavy: true, walksFacing: true, turnsToStone: true, contactMul: 4, crushesBlocks: true, limitedCount: true },
       rokurokubi: { ...none, longNeck: true },
-      tako_hachimaki: { ...none, swims: true, knockOnlyHeavy: true },
+      tako_hachimaki: { ...none, swims: true },
     });
   });
 });
