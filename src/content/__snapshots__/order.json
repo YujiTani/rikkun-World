@@ -490,7 +490,9 @@
       "water_bucket",
       "mushi_ami",
       "kin_pickaxe",
-      "kin_axe"
+      "kin_axe",
+      "mizumori",
+      "dotsuki"
     ],
     "weapon": [
       "bokuto",
@@ -778,7 +780,9 @@
     "kin_yoroi",
     "kin_kote",
     "kin_suneate",
-    "harapan_mimizu"
+    "harapan_mimizu",
+    "mizumori",
+    "dotsuki"
   ],
   "RARITY_ORDER": [
     "common",

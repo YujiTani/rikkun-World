@@ -41,6 +41,8 @@ export interface ItemDef {
   category: ItemCategory;
   /** 説明パネルの行（今の ITEM_INFO の行） */
   info?: InfoRow;
+  /** ずかんの「てにいれかた」の 文（作り方・妖怪の ドロップ・ほる などの 自動の 文を 使わない 物だけ。例: 建築士さんが くれる） */
+  source?: string;
   /** たいきゅう: 数 = 新品の値（へる 道具） / 'permanent' = こわれない。なし = つかうと 1 こ へる */
   wear?: number | 'permanent';
   /** 作り方（作業台 'craft' / かまど 'furnace'）。count = 出来る数。works: false = 働きが あと */

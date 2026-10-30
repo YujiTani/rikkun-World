@@ -2,7 +2,7 @@
  * アイテム・持ち物・耐久・よろいの型。`src/contracts.ts` から分けた（中身は移しただけ）。
  */
 
-import type { ArmorItemId, BowId, FarmBucketId, FarmToolId, GadgetId, GoldId, IngotId, LegendId, LiveItemId, MaterialId, NinjaId, OrbId, SamuraiId, SeedItemId, SwordId, ToolItemId, VegItemId } from '../content/items/ids';
+import type { ArmorItemId, BowId, FarmBucketId, FarmToolId, GadgetId, GoldId, HouseToolId, IngotId, LegendId, LiveItemId, MaterialId, NinjaId, OrbId, SamuraiId, SeedItemId, SwordId, ToolItemId, VegItemId } from '../content/items/ids';
 import type { BlockId } from './world';
 
 // ================================================================ M2（掘る・置く・持ち物）
@@ -38,7 +38,9 @@ export type ItemOnlyId =
   // WEAPON-7/8/9（うしろに足す）: レジェンダリー 3 つ（雷神剣・風神剣・虹）の id は content/items/ids.ts の 1 か所（#306）
   | LegendId
   // GOLD-1（#222）: 金シリーズの id は content/items/ids.ts の 1 か所（#306）
-  | GoldId;
+  | GoldId
+  // HOUSE-1A（#338）: みずもり・どうづき の id は content/items/ids.ts の 1 か所（#306）
+  | HouseToolId;
 
 /** アイテムの種類。ブロックとアイテムだけのもの */
 export type ItemId = BlockId | ItemOnlyId;
