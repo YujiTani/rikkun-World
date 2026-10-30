@@ -32,6 +32,8 @@ export class DigAim {
   bodyGlass = false;
   /** LIVE-1: ブロック より 手前 の ねらう 箱 に 当たった にわとり（毎ステップ 決め直す） */
   animalHit: { id: number; distance: number } | null = null;
+  /** HOUSE-1A: ブロック・にわとり より 手前 の ねらう 箱 に 当たった 建築士さん（毎ステップ 決め直す） */
+  architectHit: { id: string; distance: number } | null = null;
   readonly dir = { x: 0, y: 0, z: 0 };
   readonly originScratch = { x: 0, y: 0, z: 0 };
   private readonly reachScratch = { x: 0, y: 0, z: 0 };
@@ -45,6 +47,12 @@ export class DigAim {
     this.tgt = this.aimBlock(p, o, d);
     this.aimBody(enabled, o, d);
     this.animalHit = this.aimAnimal(o, d);
+    this.architectHit = this.aimArchitect(o, d);
+    // 建築士さんと にわとりが 同じ 線に 重なる ときは 近い 方だけ
+    if (this.animalHit && this.architectHit) {
+      if (this.architectHit.distance <= this.animalHit.distance) this.animalHit = null;
+      else this.architectHit = null;
+    }
   }
 
   origin(p: PlayerState, out: Vec3): Vec3 {
@@ -97,6 +105,15 @@ export class DigAim {
     this.bodyTgt = true;
     this.bodyPlaced = a.placed;
     this.bodyGlass = a.glass === true;
+  }
+
+  /** HOUSE-1A: 目 から の 線 が ブロック に 当たる より 手前 で 建築士さん の 箱 に 当たるか（とどく 距離 は ブロックを 置く 距離 と 同じ） */
+  private aimArchitect(o: Vec3, d: Vec3): { id: string; distance: number } | null {
+    const a = this.d.m4.architects;
+    if (!a) return null;
+    const h = a.rayHit(o, d, this.d.config.reach);
+    if (!h || (this.tgt && h.distance >= this.tgt.distance)) return null;
+    return h;
   }
 
   /** LIVE-1 §2.4: 目 から の 線 が ブロック に 当たる より 手前 で ねらう 箱 に 当たるか */

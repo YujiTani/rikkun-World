@@ -1,6 +1,5 @@
 import type * as THREE from 'three';
-import type { TimeOfDay, VoxelWorld, YokaiKind } from '../../contracts';
-import { isLeafId } from '../../world/blocks/blockTypes';
+import type { TimeOfDay, VoxelWorld, YokaiKind, YokaiState } from '../../contracts';
 import { COUNTRY_TABLE } from '../../world/gen/countryTable';
 import type { Rng } from '../../world/gen/random';
 import { bodyInWall } from '../../world/wall';
@@ -21,7 +20,7 @@ import type { YokaiEvents } from './events';
 import type { SpawnOptions, YokaiManagerOptions } from './managerTypes';
 import type { YokaiPlacement } from './placement';
 import { swimOf, swimTarget, waterDepthBelow, swimYAt } from './swimTerrain';
-import { groundSupport, isRoofed } from './terrain';
+import { collectFloors, groundSupport, isRoofed, isUnderground } from './terrain';
 
 /** 水の 列で 出る 確率の 分母（重み ÷ 100） */
 const SWIM_WEIGHT_UNIT = 100;
@@ -32,8 +31,8 @@ interface SpawnerDeps {
   f: YokaiField;
   config: YokaiConfig;
   events: Pick<YokaiEvents, 'emit' | 'tick'>;
-  /** countryTable・countryOf・canSpawnAt・light を 使うときに 読む */
-  opts: Pick<YokaiManagerOptions, 'countryTable' | 'countryOf' | 'canSpawnAt' | 'light'>;
+  /** countryTable・countryOf・canSpawnAt・light・groundY を 使うときに 読む */
+  opts: Pick<YokaiManagerOptions, 'countryTable' | 'countryOf' | 'canSpawnAt' | 'light' | 'groundY'>;
   /** 出した妖怪の 見た目・体力のバーを 入れる 入れ物 */
   group: THREE.Group;
   rng: Rng;
@@ -42,6 +41,12 @@ interface SpawnerDeps {
   /** 妖怪の攻撃が「当たりを見る」瞬間に 呼ぶ（model.onHit に つなぐ） */
   onModelHit: (e: Ent, box: { cx: number; cy: number; cz: number; w: number; h: number; d: number }) => void;
 }
+
+/** 高さの はんいを 整数に する ときの 誤差の ゆるし（足が 52.0000001 など でも ちょうどの 床を 外さない） */
+const HEIGHT_EPS = 1e-6;
+
+/** 「プレイヤーを 見つけている」状態（MINE-1A §4.3）。どれにも ならないまま 長く たつと 去る */
+const FOUND_STATES: ReadonlySet<YokaiState> = new Set<YokaiState>(['chase', 'attack', 'retreat', 'search']);
 
 /**
  * 出現と片づけの係: 妖怪を作る、自動で出す（場所・国・種類のくじ）、遠すぎる妖怪を消す、あさに帰らせる。
@@ -135,6 +140,9 @@ export class YokaiSpawner {
       stag: false,
       stagPhase: 0,
       swim: null,
+      // 自動で 出た 妖怪だけ 見つけられない まま 去る（MINE-1A §4.3。ふくらんで 出てくるのも 自動の 出現だけ）
+      auto: appear,
+      foundAt: f.steps,
     };
     model.onHit = (ev) => this.d.onModelHit(e, ev.box);
     model.root.scale.setScalar(Math.max(e.appearScale, 1e-4));
@@ -151,8 +159,17 @@ export class YokaiSpawner {
       this.spawnCountdown--;
       return;
     }
-    this.spawnCountdown = Math.max(1, this.d.config.yokaiSpawnInterval) - 1;
-    this.trySpawn();
+    // 間かくと 上限は プレイヤーが 今 いる 所（地上か 地下）の 数を 使う（MINE-1A §4.3）
+    const under = this.playerUnder();
+    const interval = under ? this.d.config.yokaiSpawnIntervalUnder : this.d.config.yokaiSpawnInterval;
+    this.spawnCountdown = Math.max(1, interval) - 1;
+    this.trySpawn(under);
+  }
+
+  /** プレイヤーは 地下に いるか。groundY（生成の 地形の 高さ）が なければ いつも 地上 */
+  private playerUnder(): boolean {
+    const { f, opts } = this.d;
+    return opts.groundY !== undefined && isUnderground(f.py, opts.groundY(f.px, f.pz));
   }
 
   /** COUNTRY-1: その場所の 国の行（行 × 倍率の 合計が 0 なら ものさしの行 = はらっぱ） */
@@ -180,12 +197,15 @@ export class YokaiSpawner {
     return n;
   }
 
-  private trySpawn(): void {
+  private trySpawn(under: boolean): void {
     const { world, time, f, config, opts, rng, events } = this.d;
-    if (f.ents.length >= config.yokaiMax) return;
+    if (f.ents.length >= (under ? config.yokaiMaxUnder : config.yokaiMax)) return;
     const night = time.phase() === 'night';
     const minD = Math.max(config.yokaiSpawnMinDist, config.yokaiSpawnNearExclude);
     const maxD = Math.max(minD, config.yokaiSpawnMaxDist);
+    // 出る 高さ: 床の 足の 高さが プレイヤーの 足 ±yokaiSpawnHeight の 中（地上も 地下も 同じ。MINE-1A §4.3）
+    const lo = Math.ceil(f.py - config.yokaiSpawnHeight - HEIGHT_EPS);
+    const hi = Math.floor(f.py + config.yokaiSpawnHeight + HEIGHT_EPS);
     for (let t = 0; t < AI_CONST.spawnTries; t++) {
       const a = rng() * Math.PI * 2;
       const d = minD + rng() * (maxD - minD);
@@ -195,29 +215,16 @@ export class YokaiSpawner {
       // 出る場所は 読みこんでいる列だけ。つなぎ込みが「描く輪のメッシュずみの列」を聞く窓口を渡す
       if (!world.isLoaded(Math.floor(x), Math.floor(z))) continue;
       if (opts.canSpawnAt && !opts.canSpawnAt(x, z)) continue;
-      // 立てる床（固くて、はっぱ・水でない、上が空気）を列から集めて、1 つえらぶ
+      // 立てる床（固くて、はっぱ・水でない、上が空気）を 足 ±yokaiSpawnHeight の 中だけ 列から集めて、1 つえらぶ
       const floors = this.floorScratch;
-      floors.length = 0;
       const ix = Math.floor(x);
       const iz = Math.floor(z);
-      let waterColumn = false;
-      let waterTop = -1; // 列の いちばん 上の 水の マスの 高さ
-      // 高さ 352 でも 速いように、あるなら 列のいちばん上の ブロックから 下へ見る
-      const topFn = (world as { topY?: (x: number, z: number) => number }).topY;
-      const yTop = typeof topFn === 'function' ? Math.min(world.size.y - 2, topFn.call(world, ix, iz)) : world.size.y - 2;
-      for (let y = yTop; y >= 0; y--) {
-        if (world.getBlock(ix, y, iz) === 'water') {
-          waterColumn = true;
-          if (waterTop < 0) waterTop = y;
-        }
-        if (!world.isSolid(ix, y, iz) || world.isSolid(ix, y + 1, iz)) continue;
-        const b = world.getBlock(ix, y, iz);
-        if (isLeafId(b) || b === 'water') continue;
-        floors.push(y + 1);
-      }
-      // M5: みず の列（うみ・かわ・いずみ・いけ）には 陸の 妖怪は 出ない。およぐ 妖怪（TAKO-1）だけ 出る
-      if (waterColumn) {
-        if (this.trySpawnSwimmer(x, z, waterTop)) return;
+      const water = collectFloors(world, ix, iz, lo, hi, floors);
+      // M5: みず の列（うみ・かわ・いずみ・いけ）には 陸の 妖怪は 出ない。およぐ 妖怪（TAKO-1）だけ 出る。見るのは 足 ±yokaiSpawnHeight の 中だけ
+      if (water) {
+        let waterTop = -1; // はんいの 中で 列の いちばん 上の 水の マスの 高さ
+        for (let y = Math.min(hi, world.size.y - 1); y >= lo && waterTop < 0; y--) if (world.getBlock(ix, y, iz) === 'water') waterTop = y;
+        if (waterTop >= 0 && this.trySpawnSwimmer(x, z, waterTop)) return;
         continue;
       }
       if (floors.length === 0) continue;
@@ -306,15 +313,33 @@ export class YokaiSpawner {
       }
       // よろけている 間は 帰らない（よろけが おわってから）
       if (e.leaveAt >= 0 && f.steps >= e.leaveAt && e.state !== 'attack' && e.state !== 'dying' && e.state !== 'leaving' && !stag.get(e.id)) {
-        this.startLeave(e);
+        this.startLeave(e, 'dawn');
       }
     }
   }
 
-  private startLeave(e: Ent): void {
+  /**
+   * MINE-1A §4.3: 自動で 出た 妖怪が プレイヤーを 見つけない まま yokaiForgetSteps ステップ たつと、夜明けと 同じ 去りかたで そっと 去る（おとし物は ない）。
+   * 見つけると（chase・attack・retreat・search）数えなおし。ヌシと 手で 出した 妖怪は 去らない。横 64 より 遠いと 消える きまり（farTick）とは べつ
+   */
+  forgetTick(): void {
+    const { f, config, stag } = this.d;
+    for (const e of f.ents) {
+      if (!e.auto || e.remove || e.state === 'dying' || e.state === 'leaving') continue;
+      if (FOUND_STATES.has(e.state)) {
+        e.foundAt = f.steps;
+        continue;
+      }
+      if (f.steps - e.foundAt < config.yokaiForgetSteps || e.title === 'nushi') continue;
+      // よろけている 間は 去らない（夜明けと 同じ。よろけが おわってから）
+      if (!stag.get(e.id)) this.startLeave(e, 'forget');
+    }
+  }
+
+  private startLeave(e: Ent, why: 'dawn' | 'forget'): void {
     const { events } = this.d;
     e.state = 'leaving';
     e.model.die();
-    events.emit({ type: 'leave', tick: events.tick(), id: e.id, kind: e.kind, position: { x: e.x, y: e.y, z: e.z } });
+    events.emit({ type: 'leave', tick: events.tick(), id: e.id, kind: e.kind, position: { x: e.x, y: e.y, z: e.z }, why });
   }
 }

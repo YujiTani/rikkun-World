@@ -58,6 +58,11 @@ export interface YokaiManagerOptions {
   lightMin?: number;
   /** プレイヤーが妖怪をたおした（経験値用。xp = 場所の倍率 M と二つ名を入れた数） */
   onDefeat?: (kind: YokaiKind, info: DefeatInfo) => void;
+  /**
+   * その x・z の「生成の 地形の 高さ」（地面。掘ったり 置いたり しても かわらない）。つなぎ込みは terrainFor(seed).height を わたす。
+   * 地下に いる ＝ プレイヤーの 足が これより 6 マス 以上 下（MINE-1A §4.3）。なければ いつも 地上
+   */
+  groundY?: (x: number, z: number) => number;
   /** あれば、妖怪が出てよい (x, z) か聞く（VOX-D: つなぎ込みが「描く輪のメッシュずみの列」を渡す。無ければ 読みこんでいる列ならどこでも） */
   canSpawnAt?: (x: number, z: number) => boolean;
   /** はじまりの場所（水平）。世界の設定から読む。複数なら いちばん近い所から d をはかる。省くと (0, 0) */

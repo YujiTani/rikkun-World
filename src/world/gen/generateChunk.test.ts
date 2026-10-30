@@ -28,6 +28,9 @@ const BEDROCK = BLOCK_INDEX.bedrock;
 
 const SEEDS_20 = [20261012, ...Array.from({ length: 19 }, (_, i) => i + 1)];
 const SEEDS_10 = SEEDS_20.slice(0, 10);
+/** MINE-1A（docs/design/MINE-1.md §4.1）: 層の 下の はし。あさい 96〜地面・なかほど 52〜95・ふかい 1〜51（窓口 mine.layers() と 同じ。mineLayers.test.ts が 見る） */
+const ASAI_MIN_Y = 96;
+const NAKAHODO_MIN_Y = 52;
 
 function flatten(sections: ReturnType<typeof generateChunk>['sections'], into: Uint8Array): Uint8Array {
   sections.forEach((s, sy) => into.set(sectionToArray(s), sy * SECTION_VOLUME));
@@ -159,10 +162,15 @@ interface Stats {
   chunks: number;
   coal: number;
   iron: number;
-  ironDeep: number;
-  ironShallow: number;
-  coalBelow80: number;
-  ironBad: number;
+  /** MINE-1A §4.1: 層ごとの てつの 数と、層ごとの マスの 数（地面より 下） */
+  ironAsai: number;
+  ironNakahodo: number;
+  ironFukai: number;
+  cellsAsai: number;
+  cellsNakahodo: number;
+  cellsFukai: number;
+  /** せきたんが あさい層（y ≥ 96）の 外に ある 数 */
+  coalOutsideAsai: number;
   strataBad: string[];
   caveAir: number;
   caveRange: number;
@@ -181,7 +189,7 @@ interface Stats {
 
 function fresh(): Stats {
   return {
-    chunks: 0, coal: 0, iron: 0, ironDeep: 0, ironShallow: 0, coalBelow80: 0, ironBad: 0, strataBad: [], caveAir: 0, caveRange: 0,
+    chunks: 0, coal: 0, iron: 0, ironAsai: 0, ironNakahodo: 0, ironFukai: 0, cellsAsai: 0, cellsNakahodo: 0, cellsFukai: 0, coalOutsideAsai: 0, strataBad: [], caveAir: 0, caveRange: 0,
     caveAirOcean: 0, caveRangeOcean: 0, caveAbove: [], gaps: 0, grassTrees: [], forestTrees: [], trunkClose: 0, trunks: 0, bedrockBad: 0, badId: 0, topMismatch: 0,
   };
 }
@@ -240,18 +248,22 @@ describe('基準 3・4・6・7・9: 作った列のブロック（10 シード �
               const at = (y: number): number => arr[(y * 16 + lz) * 16 + lx]!;
               const onMouth = mouths.some((m) => inMouthFootprint(m, x, z, 1));
               const rock = T.inRock(x, z, 1);
+              // 層ごとの マスの 数（MINE-1A §4.1: あさい 96〜地面・なかほど 52〜95・ふかい 1〜51）
+              st.cellsAsai += Math.max(0, H - ASAI_MIN_Y + 1);
+              st.cellsNakahodo += Math.max(0, Math.min(H, ASAI_MIN_Y - 1) - NAKAHODO_MIN_Y + 1);
+              st.cellsFukai += Math.max(0, Math.min(H, NAKAHODO_MIN_Y - 1));
               // 鉱石の数え（列ぜんぶ）
               for (let y = 1; y < WORLD_HEIGHT; y++) {
                 const b = at(y);
                 if (b === COAL) {
                   st.coal++;
-                  if (y < SEA_Y - 64) st.coalBelow80++;
+                  if (y < ASAI_MIN_Y) st.coalOutsideAsai++;
                 } else if (b === IRON) {
                   if (y >= SEA_Y + 40) continue; // 見える てつ（O5）
                   st.iron++;
-                  if (y > SEA_Y - 8) st.ironBad++;
-                  if (y < 96) st.ironDeep++;
-                  else st.ironShallow++;
+                  if (y >= ASAI_MIN_Y) st.ironAsai++;
+                  else if (y >= NAKAHODO_MIN_Y) st.ironNakahodo++;
+                  else st.ironFukai++;
                 } else if (b === LOG && at(y - 1) !== LOG) {
                   trunkCount++;
                   trunkSet.add(x * 100000 + z);
@@ -365,18 +377,28 @@ describe('基準 3・4・6・7・9: 作った列のブロック（10 シード �
     expect(st.strataBad).toEqual([]);
   });
 
-  it('基準 6: せきたん 1 列 24〜40・てつ 1 列 16〜30。せきたん y ≥ 80・てつ y ≤ 136。深い方がこい', () => {
+  it('基準 6（MINE-1A §4.1・§4.2）: せきたん・てつの ぜんぶは 今の 約 4 倍〔表 oreTable() の ぜんぶ〕。せきたんは あさい層（y ≥ 96）だけ・てつは 3 つの 層とも。ふかいほど こい', async () => {
+    // 前〔VOX-B〕は せきたん 1 列 24〜40・てつ 16〜30（せきたん y ≥ 80・てつ y ≤ 136）。今は 表〔§4.2〕の 1 列 ぜんぶ（窓口 oreTable() から 読む）。
+    // ここは 海の 列・山の 列も まざる 全部の 列の 平均 なので ゆるく 見る（表の 0.65〜1.45 倍。はらっぱ・もりの 陸の 列で 表と 細かく くらべるのは mineOres.test.ts の A2）
+    const { createMineHook } = await import('./mineHook'); // 窓口が まだ 無い うちは この 基準だけ 赤〔ほかの 基準は 通る〕
+    const table: { block: string; all: number }[] = createMineHook({ seed: SEEDS_10[0]! }).oreTable();
+    const allOf = (block: string): number => table.filter((r) => r.block === block).reduce((p, r) => p + r.all, 0);
     const coal = st.coal / st.chunks;
     const iron = st.iron / st.chunks;
-    expect(coal).toBeGreaterThanOrEqual(24);
-    expect(coal).toBeLessThanOrEqual(40);
-    expect(iron).toBeGreaterThanOrEqual(16);
-    expect(iron).toBeLessThanOrEqual(30);
-    expect(st.coalBelow80).toBe(0);
-    expect(st.ironBad).toBe(0);
-    const deep = st.ironDeep / (96 - 8);
-    const shallow = st.ironShallow / (SEA_Y - 8 - 96 + 1);
-    expect(deep).toBeGreaterThan(shallow);
+    expect(allOf('coal_ore'), '表の せきたん').toBeGreaterThan(0);
+    expect(allOf('iron_ore'), '表の てつ').toBeGreaterThan(0);
+    expect(coal, `せきたん 1 列 ${coal.toFixed(1)}（表 ${allOf('coal_ore')}）`).toBeGreaterThanOrEqual(allOf('coal_ore') * 0.65);
+    expect(coal, `せきたん 1 列 ${coal.toFixed(1)}（表 ${allOf('coal_ore')}）`).toBeLessThanOrEqual(allOf('coal_ore') * 1.45);
+    expect(iron, `てつ 1 列 ${iron.toFixed(1)}（表 ${allOf('iron_ore')}）`).toBeGreaterThanOrEqual(allOf('iron_ore') * 0.65);
+    expect(iron, `てつ 1 列 ${iron.toFixed(1)}（表 ${allOf('iron_ore')}）`).toBeLessThanOrEqual(allOf('iron_ore') * 1.45);
+    expect(st.coalOutsideAsai).toBe(0);
+    expect(st.ironAsai).toBeGreaterThan(0);
+    expect(st.ironNakahodo).toBeGreaterThan(0);
+    expect(st.ironFukai).toBeGreaterThan(0);
+    // 深い方がこい（1 マスあたり）
+    const asai = st.ironAsai / st.cellsAsai;
+    expect(st.ironNakahodo / st.cellsNakahodo).toBeGreaterThan(asai);
+    expect(st.ironFukai / st.cellsFukai).toBeGreaterThan(asai);
   });
 
   it('基準 7: 洞くつ（いしの 3〜5% が空気・H−7 より上に空気なし・たてに 1 マスだけの空気なし）', () => {

@@ -85,19 +85,25 @@ test.describe('ちょうちん（AC1〜AC3）', () => {
     expect(await dark(0, 0, R)).toBe(false);
     expect(await dark(0, R, 0)).toBe(false);
     expect(await dark(R + 1, 0, 0)).toBe(true);
-    // 夜のあいだ 長く進めても、ちょうちんの半径の中には 妖怪が 出ない
-    const seen = await page.evaluate((R) => {
+    // 夜のあいだ 長く進めても、ちょうちんの半径の中には 妖怪が 湧かない（AC3）。
+    // 見るのは「湧いた 場所」（yokai.events() の spawn）。いる 場所では 見ない:
+    // 妖怪は 足 ±8 の 床にも 湧くので（MINE-1A）、半径の 外に 湧いた 妖怪が プレイヤーを 追って 半径に 入って 来ることが ある（湧きでは ない）
+    const spawns = await page.evaluate(() => {
       const h = (window as any).__rikkun;
-      let near = 0;
+      h.yokai.events(); // ここまでの 出来事は すてて、この 間に 湧いた 物だけ 見る
+      const out: { x: number; y: number; z: number }[] = [];
       for (let i = 0; i < 1800; i++) {
         h.step(1);
-        for (const y of h.yokai.list()) {
-          if (Math.max(Math.abs(y.position.x - 6.5), Math.abs(y.position.z - 6.5), Math.abs(y.position.y - 9)) <= R) near++;
-        }
+        for (const ev of h.yokai.events()) if (ev.type === 'spawn') out.push(ev.position);
       }
-      return near;
-    }, R);
-    expect(seen).toBe(0);
+      return out;
+    });
+    // 半径の はんいは ゲームの きまり（WorldLight.isDarkForSpawn）と 同じ: 湧いた 足もとの マスが ちょうちんの マス（6, 9, 6）から 水平も 上下も R 以内
+    const inside = spawns.filter(
+      (p) => Math.abs(Math.floor(p.x) - 6) <= R && Math.abs(Math.floor(p.y) - 9) <= R && Math.abs(Math.floor(p.z) - 6) <= R,
+    );
+    expect(spawns.length, '対照: 同じ 間に 湧きは ある（0 回で 通って しまわない）').toBeGreaterThan(0);
+    expect(inside, '半径の中には 湧かない').toEqual([]);
     // こわすと 湧ける所に もどる
     await page.evaluate(() => (window as any).__rikkun.world.setBlock(6, 9, 6, 'air'));
     await settleLight(page);

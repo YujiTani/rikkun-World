@@ -112,6 +112,8 @@ export interface SaveDeps {
   saveOverrides?: () => readonly SaveBlockOverride[];
   /** #293: がしゃどくろを たおした 回数（{ v: 2, kills }。ボス本体は 保存しない。前の 版の 宝箱の 一覧は 読みこんでも むし）。前の 保存に ない ときは null */
   gasha?: SaveExtra;
+  /** HOUSE-1A: くら・建築士さんの 記録（`{ v: 1, kura, first, toolsGiven }`）。前の 保存に ない ときは 初期の まま（くら 空） */
+  house?: SaveExtra;
   /** M7: 作物・農業の乱数・「置きものを置いた」印。無い保存は 読んだあと 置きものを置く */
   farm?: SaveFarm;
   /** 時刻と何日目。なければ保存しない */
@@ -154,8 +156,18 @@ export interface SaveInfo {
 }
 
 export const SAVE_VERSION = 1;
-/** 地形の作り方の版。世界生成（src/world/gen）で地形が変わったら上げる。保存した列は そのまま読み、保存していない所だけ新しい生成。3 = VOX-B（無限の地形・高さ 352。前の世界（2）は読まない） */
-export const SAVE_GEN = 3;
+/**
+ * 地形の作り方の版。世界生成（src/world/gen）で地形が変わったら上げる。保存した列は そのまま読み、保存していない所だけ新しい生成。
+ * 3 = VOX-B（無限の地形・高さ 352。前の世界（2）は読まない）、4 = MINE-1A（地下の 3 つの層と 鉱石の かたまり。docs/design/MINE-1.md §4.8）
+ */
+export const SAVE_GEN = 4;
+/** 読める いちばん 古い 版（MINE-1 §4.8）。これ 以上 SAVE_GEN 以下の 保存は 読む（版 3 と 4 の 列が まざった 世界も）。1 か所に 書く（#304） */
+export const OLDEST_READABLE_GEN = 3;
+
+/** その 版の 保存の 列を 読めるか（OLDEST_READABLE_GEN から 今の 版 SAVE_GEN まで。今の 版より 新しい 保存は 読まない） */
+export function isReadableGen(gen: number): boolean {
+  return Number.isInteger(gen) && gen >= OLDEST_READABLE_GEN && gen <= SAVE_GEN;
+}
 
 /** 体の箱（M1-02 §4.1）。置き直しの重なり判定用 */
 const BODY = { halfWidth: 0.3, height: 1.8 } as const;
@@ -341,6 +353,11 @@ export class SaveManager {
       this.d.animals?.deserialize(data.animals);
     } catch {
       this.d.animals?.deserialize(null);
+    }
+    try {
+      this.d.house?.deserialize(data.house);
+    } catch {
+      this.d.house?.deserialize(null);
     }
   }
 
@@ -539,6 +556,7 @@ export class SaveManager {
       ninja: this.d.ninja?.serialize() ?? null,
       samurai: this.d.samurai?.serialize() ?? null,
       gasha: this.d.gasha?.serialize() ?? null,
+      house: this.d.house?.serialize() ?? null,
       farm,
       ...(this.d.strength ? { strength: this.d.strength } : {}),
     });

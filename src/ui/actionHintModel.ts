@@ -6,8 +6,9 @@ export interface ActionHintItem {
   /**
    * すること の絵にする アイテム（'heart' = ハート。LIVE-1 の なでる）。
    * 版 3.2: 'full' = おなかいっぱい・'carry' = だっこ・'chicken' = おろす（専用 の 絵 が できるまで にわとり で かわり）
+   * HOUSE-1A: 'talk' = ふきだし（建築士さんに はなす）
    */
-  icon: ItemId | 'heart' | 'full' | 'carry' | 'chicken';
+  icon: ItemId | 'heart' | 'full' | 'carry' | 'chicken' | 'talk';
   /** ひらがなの 1 語 */
   word: string;
   /** LIVE-2: 入らない 所 など（絵 を うすく する。押しても 合図 だけ） */
@@ -149,6 +150,10 @@ export function actionHintLines(right: RightClickPreview | null, left: LeftClick
         break;
       case 'place':
         out.right = { icon: right.item!, word: 'おく' };
+        break;
+      // HOUSE-1A: 建築士さんを ねらって いる = ふきだし ＋ はなす（左の「ほる」は DigSystem.previewLeftClick が 出さない）
+      case 'talk':
+        out.right = { icon: 'talk', word: 'はなす' };
         break;
     }
   }

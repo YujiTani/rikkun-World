@@ -29,10 +29,12 @@ import { createSettingsHook } from '../game/settings';
 import { createInputHook } from '../input';
 import { createPlayerHook } from '../player/hook';
 import { createBiomeHook } from '../world/gen/biomeHook';
+import { createMineHook } from '../world/gen/mineHook';
 import { createWorldHook } from '../world/hook';
 import { createRenderHook } from '../world/render/renderHook';
 import { createShadowHook } from '../world/render/shadow/shadowHook';
 import { createFarmHook } from '../farm';
+import { createHouseHook } from '../house/hook';
 import { lookDirection } from '../dig/raycast';
 import { computeFarmPlacement } from '../world/gen/farmPlacement';
 import { digSettingsView, settingsViewOf, sharedSettingsView } from './settingsViews';
@@ -50,7 +52,7 @@ export function installGameHook(deps: WiredLoop): void {
     waterFx, drops, store, level, yokaiM, blade, weaponFx, animals, deliverAnimalEvents, animalEvents,
     currentKitRows, animalFx, animalHint, aimPointInto, combat, lockHook, book, look, wheel, mixer, bgm,
     bgmScene, audioSettings, fxSound, craftConfig, toolConfig, craftUi, craft2Settings, screenSettings, m6,
-    m7, hintSettings, aimCfg, live, clockPhases, timeSettings, frameClock, gadgets,
+    m7, hintSettings, aimCfg, live, clockPhases, timeSettings, frameClock, house, gadgets,
   } = deps;
   installTestHook(game, overlay, () => host.everReady, {
     start: startBoot.hook,
@@ -77,6 +79,8 @@ export function installGameHook(deps: WiredLoop): void {
         quiet: (on) => countryWatch.quiet(on),
       },
     }),
+    // MINE-1A §6.1: 層・鉱石・かたまり・地下の判定。妖怪を 出す 高さの はばは 設定（yokaiSpawnHeight）の 今の 値
+    mine: createMineHook({ seed, player: () => controller.state.position, spawnHeight: () => yokaiM.config.yokaiSpawnHeight }),
     world: createWorldHook(world, renderer, island, {
       teleport: (x, z) => host.goTo({ x, y: null, z }, true),
       stream: () => host.info(),
@@ -315,6 +319,7 @@ export function installGameHook(deps: WiredLoop): void {
       sfxVoices: () => fxSound.activeVoices(),
     }),
     rarity: createRarityHook(() => dig.config.dropMax),
+    house: createHouseHook(house),
     settings: createSettingsHook(controller.settings, rig.config, [
         digSettingsView(dig.config),
         ITEM_RARITY_SETTINGS,

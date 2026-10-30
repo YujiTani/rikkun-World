@@ -86,6 +86,8 @@ export class DigSystemImpl implements DigSystem {
   private prevPrimary = false;
   /** secondary を押しつづけている歩数（押していなければ 0） */
   private secondaryTicks = 0;
+  /** HOUSE-1A: 今の 右クリックの 押しは 建築士さんに 話しかけた（はなす まで 置く・耕す などは しない） */
+  private talkLatch = false;
 
   /** 空振りの合計回数 */
   private whiffs = 0;
@@ -293,6 +295,8 @@ export class DigSystemImpl implements DigSystem {
     this.input.step(p, this.aim.originScratch, this.aim.dir, enabled);
     const primary = this.input.primary;
     const secondary = this.input.secondary;
+    // HOUSE-1A: 建築士さんを たたいた（左クリックを 押した ステップ）。体力は ない。よろけるだけ
+    if (enabled && this.aim.architectHit && this.actions.wasPressed('primary')) this.m4.architects?.hit?.(this.aim.architectHit.id);
     this.updateWhiff(primary, secondary);
     this.toolHintModel.tick(this.inventory.selected());
     this.updateDig(primary);
@@ -306,7 +310,7 @@ export class DigSystemImpl implements DigSystem {
   /** 何もねらっていない（ブロックも妖怪もない）ときのクリックで腕を振る。押した瞬間と、押しっぱなしの 0.5 秒ごと */
   private updateWhiff(primary: boolean, secondary: boolean): void {
     if (!primary) this.whiffHold = -1;
-    else if (!this.input.punching && (!this.aim.tgt || this.input.yokaiBlocks)) {
+    else if (!this.input.punching && (!this.aim.tgt || this.input.yokaiBlocks || this.aim.architectHit !== null)) {
       const every = this.m4.tools?.current().ticks ?? WHIFF_REPEAT_TICKS;
       if (this.whiffHold < 0 || this.whiffHold >= every) {
         this.whiffs++;
@@ -326,7 +330,8 @@ export class DigSystemImpl implements DigSystem {
     this.active = false;
     this.blockedReason = null;
 
-    if (this.input.punching || this.input.yokaiBlocks) {
+    // HOUSE-1A: 建築士さんを ねらって いる 間は 後ろの ブロックを ほらない（左クリックを 押しつづけても。ほりかけの ひびは もどる）
+    if (this.input.punching || this.input.yokaiBlocks || (primary && this.aim.architectHit !== null)) {
       this.decay();
       return;
     }
@@ -458,6 +463,7 @@ export class DigSystemImpl implements DigSystem {
     if (!secondary) {
       this.animals.releaseRight(this.secondaryTicks);
       this.secondaryTicks = 0;
+      this.talkLatch = false;
       return;
     }
     if (this.actions.wasPressed('secondary')) this.secondaryTicks = 0; // はなして すぐ押しなおした分も 新しい 1 回
@@ -468,8 +474,12 @@ export class DigSystemImpl implements DigSystem {
     if (first) {
       this.pressStartedEmpty = this.inventory.held() === null;
       this.animals.beginPress();
+      // HOUSE-1A: 建築士さんを ねらって いたら 話しかける（この 押しは それだけ。だっこ中は にわとりが さき）
+      this.talkLatch = this.aim.architectHit !== null && !this.animals.isCarrying();
+      if (this.talkLatch) this.m4.architects?.talk(this.aim.architectHit!.id);
     }
     this.secondaryTicks++;
+    if (this.talkLatch) return;
     if (this.aim.bodyTgt) {
       // 体の 上: 置く だけ（ワールドの 耕す・まく・開く などは しない）
       if (due && this.placer.spot()) this.placer.tryPlace();
@@ -550,6 +560,8 @@ export class DigSystemImpl implements DigSystem {
    */
   previewRightClick(repeat = false): RightClickPreview | null {
     if (!this.lock.playInputEnabled() || this.gate?.blocksInput()) return null;
+    // HOUSE-1A: 建築士さんを ねらって いる とき の 右クリックは 話しかけるだけ（置く・耕す などの 案内は 出さない。実行 updatePlace と 同じ 順）
+    if (this.aim.architectHit && !this.animals.isCarrying()) return { kind: 'talk', item: null };
     if (this.aim.bodyTgt) return this.placer.spot() ? { kind: 'place', item: this.inventory.held()!.item } : null;
     const st = this.m4.storage;
     const craft = this.m4.craft;
@@ -604,6 +616,8 @@ export class DigSystemImpl implements DigSystem {
     if (tool?.kind === 'bow') return 'shoot';
     const t = this.aim.tgt;
     if (this.aimedYokaiId() !== null) return 'hit';
+    // HOUSE-1A: 建築士さんを ねらって いる 間は 後ろの ブロックを ほらない ので「ほる」は 出さない
+    if (this.aim.architectHit) return null;
     if (!t) return null;
     // ＋マークの線で ブロックより手前に 妖怪 → ほらない（#34）ので 案内も 出さない
     if (this.attack.freshDecision()?.use === 'whiff') return null;
@@ -614,6 +628,11 @@ export class DigSystemImpl implements DigSystem {
   /** LIVE-1: 今 ねらっている にわとり の id（なければ null） */
   animalTarget(): number | null {
     return this.aim.animalHit ? this.aim.animalHit.id : null;
+  }
+
+  /** HOUSE-1A: 今 ねらっている 建築士さんの id（なければ null）。ふちどりを 出す */
+  aimedArchitect(): string | null {
+    return this.aim.architectHit ? this.aim.architectHit.id : null;
   }
 
   /** ねらっている（手前の・とどく距離内の）妖怪の id。たたく ヒントとふちどりが同じ判定を使う。遊べない間は null */

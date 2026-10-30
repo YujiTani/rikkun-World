@@ -320,6 +320,7 @@ export class YokaiManager implements YokaiWorld {
     this.spawner.farTick();
 
     for (const e of f.ents) this.stepEntity(e, dt);
+    this.spawner.forgetTick();
     this.mover.separate();
     this.contact.contactTick();
     this.fireballs.tick(dt);

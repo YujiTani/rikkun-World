@@ -115,6 +115,10 @@ export interface Ent {
   stagPhase: number;
   /** TAKO-1: およぐ 妖怪（traits.swims）だけ。ほかは null */
   swim: SwimState | null;
+  /** MINE-1A §4.3: 自動で 出た 妖怪か（手で 出した 物は false。見つけられなくても 消えない） */
+  auto: boolean;
+  /** MINE-1A §4.3: 出た とき、または 最後に プレイヤーを 見つけて いた ステップ（YokaiField.steps）。ここから yokaiForgetSteps たつと 去る */
+  foundAt: number;
 }
 
 export interface LiveFireball {

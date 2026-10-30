@@ -137,6 +137,11 @@
 | pour・sprinklerPlace | 角を丸めたノイズの「シャーッ」（今の四角い波の重ねをやめる。0.4 秒・0.6 秒） | − |
 | throw・drawerOpen・drawerClose | シャカ＋木・木がすべる音（ノイズ＋木の「コト」） | − |
 
+**建築士さん（`architectSounds.ts`。HOUSE-1A。yuzu が 3 案から C「ハミング」を選んだ）**
+| 音 | B の音色 | 和音 |
+|---|---|---|
+| architect_voice・architect_voice2・architect_voice3 | ハミング「ふん・ふん・ふーん♪」。sine ＋ 倍音 ×2・×3・×4（はじまり 0.03 秒）と「ふ」のごく小さな息。話しかけるたびに 3 しゅるいを じゅんばんに（`playArchitect('architect_voice')`）。高さは 半音 ±0.3 までを じゅんばんに ずらす（乱数なし）。1 回 約 0.55 秒。大きさは 先頭の `LEVEL`（0.133。「ひろう」より 4〜5 dB 小さい） | − |
+
 ### 6.3 同時に鳴る音の数
 | きまり | 数 |
 |---|---|

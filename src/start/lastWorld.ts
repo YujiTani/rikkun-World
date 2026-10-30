@@ -1,7 +1,7 @@
 // START-1 §4.1・§4.2: 前に 遊んだ 世界（「つづきから」）と 同じ シードの 保存を 調べる。読むだけ（保存は 消さない・書かない）。
 import { GEN_CONFIG } from '../world/gen/config';
 import { SAVE_ID, type PersistBackend } from '../save/backend';
-import { SAVE_GEN } from '../save/SaveManager';
+import { isReadableGen } from '../save/SaveManager';
 import { readSavedStrength } from '../yokai/strengthPref';
 import type { StrengthLevel } from '../yokai/stats';
 
@@ -62,7 +62,8 @@ async function findSavedInner(db: PersistBackend, seed: number, nSections: numbe
   const first = all.keys[0];
   if (!first) return null; // 列が 1 つも ない 保存は 読める 保存に 入れない（T5）
   const rec = await db.readChunk(id, first.cx, first.cz);
-  if (!rec || rec.gen !== SAVE_GEN || rec.h !== nSections) return null;
+  // 最初の 列の 版が 読める 版（3 から 今の 版まで。版 3 と 4 の 列が まざった 世界は どちらが 最初でも 出る）なら 読める 保存
+  if (!rec || !isReadableGen(rec.gen) || rec.h !== nSections) return null;
   return { strength: readSavedStrength(all.meta) ?? 'normal' };
 }
 
