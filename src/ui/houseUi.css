@@ -1,0 +1,367 @@
+/*
+ * HOUSE-1A 建築士さんの メニュー・くら（docs/design/HOUSE-1.md §2.3・§2.4・§3.2）。
+ * 色・ふち・角は src/ui/theme の 変数だけ。大きさは 3 つの 画面（1024×700・1280×800・1440×900）で 同じ 形に なる よう
+ * px で 決める（文字 24 / 32、押せる 物 64、くらの マス 48。coopMenu.css と 同じ やり方）。
+ */
+.house-ui {
+  position: fixed;
+  inset: 0;
+  z-index: 9;
+  display: none;
+  box-sizing: border-box;
+  color: var(--rk-text);
+  font-family: inherit;
+  pointer-events: none;
+}
+.house-ui *,
+.house-ui *::before,
+.house-ui *::after {
+  box-sizing: border-box;
+}
+.house-ui.is-float {
+  display: block;
+}
+/* メニュー: 画面の まん中に ふきだし → ボタンの たて 1 列 */
+.house-ui.is-menu {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 16px;
+}
+.house-ui.is-kura {
+  display: block;
+}
+
+/* ---- ふきだし（話して いる 間は 頭の 上、メニューでは ボタンの 上、くらでは 上の 帯） ---- */
+.house-bubble {
+  position: relative;
+  max-width: min(560px, calc(100vw - 32px));
+  margin: 0;
+  padding: 16px 24px;
+  font-size: 32px;
+  font-weight: 800;
+  line-height: 1.3;
+  text-align: center;
+  color: var(--rk-ink);
+  background: var(--rk-text);
+  border: var(--rk-bw) solid var(--rk-line);
+  border-radius: var(--rk-r-l);
+  box-shadow: var(--rk-shadow-1);
+  pointer-events: none;
+}
+.house-ui.is-float .house-bubble {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+.house-ui.is-float .house-bubble::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -14px;
+  margin-left: -12px;
+  border: 12px solid transparent;
+  border-top-color: var(--rk-text);
+  border-bottom-width: 0;
+}
+.house-ui.is-kura .house-bubble {
+  flex: 1;
+  min-width: 0;
+  max-width: none;
+  padding: 8px 16px;
+  font-size: 24px;
+  box-shadow: none;
+}
+
+/* ---- ボタン ---- */
+.house-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  min-height: 64px;
+  margin: 0;
+  padding: 8px 16px;
+  font-family: inherit;
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--rk-text);
+  background: var(--rk-bg-700);
+  border: var(--rk-bw) solid var(--rk-line);
+  border-radius: var(--rk-r-m);
+  box-shadow: var(--rk-shadow-1);
+  cursor: pointer;
+  pointer-events: auto;
+  transition: filter var(--rk-dur-fast) var(--rk-ease);
+}
+.house-btn:hover:not(:disabled) {
+  filter: brightness(1.12);
+}
+.house-btn:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: var(--rk-shadow-1-pressed);
+}
+.house-btn:focus-visible {
+  outline: var(--rk-bw-sel) solid var(--rk-accent);
+  outline-offset: 2px;
+}
+.house-btn:disabled,
+.house-btn.is-disabled {
+  color: var(--rk-text-sub);
+  border-style: dashed;
+  box-shadow: none;
+  cursor: default;
+}
+.house-btn:disabled img {
+  opacity: 0.45;
+}
+/* はたらく ボタン（あずける・どうぐを もらう など） */
+.house-btn--go {
+  color: var(--rk-ink);
+  background: var(--rk-accent-grad);
+  border-color: var(--rk-accent);
+}
+.house-btn img {
+  width: 48px;
+  height: 48px;
+  flex: none;
+  image-rendering: pixelated;
+}
+.house-btn .house-btn__pair img {
+  width: 40px;
+  height: 40px;
+}
+.house-btn__pair {
+  display: inline-flex;
+  gap: 4px;
+  flex: none;
+}
+.house-btn__x {
+  flex: none;
+  width: 48px;
+  font-size: 32px;
+  line-height: 1;
+  text-align: center;
+}
+
+/* ---- 上の メニュー ---- */
+.house-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(480px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  padding: 16px;
+  overflow-y: auto;
+  background: var(--rk-bg-900);
+  border: var(--rk-bw) solid var(--rk-line);
+  border-radius: var(--rk-r-l);
+  box-shadow: var(--rk-shadow-2);
+  pointer-events: auto;
+}
+.house-menu .house-btn {
+  justify-content: flex-start;
+}
+.house-menu .house-btn[data-testid='house-btn-close'] {
+  justify-content: center;
+}
+
+/* ---- くら ---- */
+.house-kura {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  background: var(--rk-bg-900);
+  pointer-events: auto;
+}
+.house-kura__head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: none;
+  min-height: 64px;
+}
+.house-kura__title {
+  flex: none;
+  margin: 0;
+  font-size: 32px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+.house-btn--close {
+  flex: none;
+  width: 64px;
+  height: 64px;
+  padding: 0;
+  font-size: 32px;
+  line-height: 1;
+}
+.house-kura__body {
+  display: flex;
+  flex: 1;
+  gap: 8px;
+  min-height: 0;
+}
+.house-kura__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 8px;
+  background: var(--rk-bg-800);
+  border: var(--rk-bw) solid var(--rk-line);
+  border-radius: var(--rk-r-m);
+}
+/* 持ち物: 9 こ × 4 れつ（マス 48・すきま 4 → はば 464） */
+.house-kura__panel--bag {
+  flex: none;
+}
+.house-kura__panel--store {
+  flex: 1;
+}
+.house-kura__label {
+  flex: none;
+  margin: 0;
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1.3;
+}
+.kura-grid {
+  display: grid;
+  grid-template-columns: repeat(9, 48px);
+  grid-auto-rows: 48px;
+  gap: 4px;
+  align-content: start;
+  justify-content: start;
+}
+/* くらは 種類が ふえたら たてに スクロール */
+.kura-grid--store {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--rk-line) transparent;
+}
+.kura-cell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  margin: 0;
+  padding: 0;
+  background: var(--rk-bg-700);
+  border: var(--rk-bw) solid var(--rk-line);
+  border-radius: var(--rk-r-s);
+  cursor: pointer;
+}
+.kura-cell.is-empty {
+  background: var(--rk-bg-900);
+  cursor: default;
+}
+.kura-cell.is-locked {
+  opacity: 0.45;
+  cursor: default;
+}
+.kura-cell:hover:not(.is-empty):not(.is-locked) {
+  border-color: var(--rk-accent);
+}
+.kura-cell.is-sel {
+  border-color: var(--rk-accent);
+  box-shadow: inset 0 0 0 2px var(--rk-accent);
+}
+.kura-cell img {
+  width: 32px;
+  height: 32px;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+.kura-cell__n {
+  position: absolute;
+  right: 2px;
+  bottom: -2px;
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -1px;
+  font-variant-numeric: tabular-nums;
+  text-shadow: var(--rk-text-outline);
+  pointer-events: none;
+}
+.kura-cell.is-pop {
+  animation: house-pop var(--rk-dur-pop) var(--rk-ease-pop);
+}
+@keyframes house-pop {
+  0% {
+    transform: scale(0.8);
+  }
+  60% {
+    transform: scale(1.14);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* 下の 帯: えらんだ 物 ＋ 数の えらび ＋ あずける / とりだす */
+.house-kura__foot {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  min-height: 72px;
+}
+.house-kura__pick {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1.3;
+}
+.house-kura__pick img {
+  width: 48px;
+  height: 48px;
+  flex: none;
+  image-rendering: pixelated;
+}
+.house-kura__controls {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+}
+.kura-num {
+  min-width: 72px;
+  font-size: 32px;
+  font-weight: 800;
+  line-height: 1.2;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 開いている 間は 遊びの HUD（ハート・ホットバー・合図 など）を 消す（もちもの画面と おなじ） */
+#hud:has(.house-ui.is-menu, .house-ui.is-kura)
+  > :is(#crosshair, #hud-self, #clock, #hotbar, #action-hint, #hud-notice, #farm-hint, #farm-aim, #pickup-log, #home-notice) {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kura-cell.is-pop {
+    animation: none;
+  }
+  .house-btn {
+    transition: none;
+  }
+}
