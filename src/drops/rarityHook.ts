@@ -14,12 +14,11 @@ export function createRarityHook(dropMax: () => Readonly<Record<Rarity, number>>
         word: t.word,
         color: hex(t.color),
         cssVar: t.cssVar,
-        gem: t.gem,
         dropMax: dropMax()[t.id],
       })),
     of: (item: ItemId) => {
       const t = rarityTier(itemRarity(item));
-      return { id: t.id, index: t.index, stars: t.stars, word: t.word, color: hex(t.color), gem: t.gem };
+      return { id: t.id, index: t.index, stars: t.stars, word: t.word, color: hex(t.color) };
     },
     atLeast: (item: ItemId, id: Rarity): boolean => rarityAtLeast(item, id),
   };

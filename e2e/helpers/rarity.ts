@@ -9,7 +9,6 @@ export interface TierRow {
   word: string;
   color: string; // '#rrggbb'
   cssVar: string;
-  gem: string;
   dropMax: number;
 }
 

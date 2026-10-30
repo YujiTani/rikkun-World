@@ -1,6 +1,5 @@
 import type { ItemId, ItemStack } from '../contracts';
 import { rarityTier } from '../drops/rarity';
-import { gemUrl } from './gemArt';
 import { anyIconUrl, itemIconUrl } from './itemIcon';
 import { withRuby } from './text';
 import { buildTooltip, rarityCss, starText, type TooltipData, type TooltipDeps } from './tooltipModel';
@@ -51,7 +50,6 @@ export class Tooltip {
   private readonly nameEl: HTMLDivElement;
   private readonly starsEl: HTMLDivElement;
   private readonly wordEl: HTMLDivElement;
-  private readonly wordImg: HTMLImageElement;
   private readonly wordText: HTMLSpanElement;
   private readonly body: HTMLDivElement;
   private readonly descEl: HTMLDivElement;
@@ -76,10 +74,8 @@ export class Tooltip {
     this.starsEl.className = 'tip-stars';
     this.wordEl = document.createElement('div');
     this.wordEl.className = 'tip-word';
-    this.wordImg = document.createElement('img');
-    this.wordImg.alt = '';
     this.wordText = document.createElement('span');
-    this.wordEl.append(this.wordImg, this.wordText);
+    this.wordEl.append(this.wordText);
     this.descEl = document.createElement('div');
     this.descEl.className = 'tip-desc rk-tooltip__desc';
     // NINJA-1: 虹色の「とくべつな ちから」の 行（レジェンダリーの 物だけ。「なにに」の 下）
@@ -145,7 +141,6 @@ export class Tooltip {
       this.starsEl.textContent = starText(t.stars);
       this.starsEl.style.color = col;
       const tier = rarityTier(t.rarity);
-      this.wordImg.src = gemUrl(tier.index);
       this.wordText.textContent = tier.word;
       this.wordEl.style.color = col;
       // 7 段目は 名前を にじ色に（案 A）

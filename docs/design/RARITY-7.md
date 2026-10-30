@@ -1,5 +1,7 @@
 # RARITY-7: アイテムのめずらしさ（レア度）を 7 段階にする（仕様書）
 
+> **2026-10-30 改訂（yuzu）**: 宝石の印（形 7 つ）は全部の画面でなくした（★6 の炎が「炎属性」に見えるため）。以下の「宝石の印・gem・GemShape・gemArt.ts・AC3」は **廃止**。レア度は ★の数 と ふちの色 だけで見せる。くわしくは `docs/decisions/2026-10-30-no-rarity-icon.md`。
+
 - issue: #80（土台）。これを使う: #69（レアな武器は 3 段攻撃）・#70（レジェンダリー武器はチャージアタック）
 - タスク票: `docs/tickets/RARITY-7.md`（PO の決めはここが正）
 - 見た目の 3 案: `/mnt/project-files/rarity-7/`（アート。オーナーが選ぶ）
@@ -14,9 +16,9 @@
 ## 2. 遊び方（プレイヤーから見た動き）
 
 - 遊び方は今と同じ。めずらしさが見える所は次の 8 つで、どこも同じ表から色・形・星・ことばを出す。
-  1. ホットバーのマス（ふちの色・右上の宝石の印）
-  2. もちもの・たんすのマス（ふちの色・宝石の印）
-  3. つくる画面のタイル（ふちの色・宝石の印）
+  1. ホットバーのマス（ふちの色）
+  2. もちもの・たんすのマス（ふちの色）
+  3. つくる画面のタイル（ふちの色）
   4. つくる画面のせつめい（ふち・名前の色・星・ことば）
   5. ツールチップ（ふち・名前の色・星）
   6. おいわい（はじめて作ったときの横断幕のまるい台の色・名前のうしろの星、つくったときの わっか）
@@ -99,7 +101,6 @@ export interface RarityTier {
   stars: number;          // index + 1
   color: number;          // 0xrrggbb（光の柱・ツールチップ・ふち。--rk-rarity-<index> と同じ値）
   cssVar: string;         // '--rk-rarity-<index>'
-  gem: GemShape;          // 宝石の形の名前（7 つ。名前はアート案で決める）
   word: string;           // 画面のことば
   dropMax: number;        // ほったときの最大数の既定値（設定 dropMax の初期値）
 }
@@ -115,7 +116,7 @@ export function rarityAtLeast(item: ItemId, tier: Rarity): boolean; // #69・#70
 ```
 
 - 今ある `topRarity`・`isKnownItemRarity`・`rarityCss`・`starText` は名前と形を変えない（中身が表を読む）。
-- `GemShape` の 0〜3 の名前（circle・diamond・hexagon・star）は、アートの案で形が変わらなければそのまま。
+- `GemShape`・`gemArt.ts` は 2026-10-30 に消した（廃止）。
 
 ### 4.3 設定（テストと調整の口）
 
@@ -142,8 +143,8 @@ export function rarityAtLeast(item: ItemId, tier: Rarity): boolean; // #69・#70
 
 | 関数 | かえすもの |
 |---|---|
-| `tiers()` | 7 行の配列 `{ index, id, stars, word, color: '#rrggbb', cssVar, gem, dropMax }`。dropMax は **今の設定** の値 |
-| `of(item)` | `{ id, index, stars, word, color: '#rrggbb', gem }`（設定 `itemRarity` を反映） |
+| `tiers()` | 7 行の配列 `{ index, id, stars, word, color: '#rrggbb', cssVar, dropMax }`。dropMax は **今の設定** の値 |
+| `of(item)` | `{ id, index, stars, word, color: '#rrggbb' }`（設定 `itemRarity` を反映） |
 | `atLeast(item, id)` | `rarityAtLeast` の結果（boolean） |
 
 今ある窓口はそのまま使う: `inventory.tooltip()`（rarity・stars）、`craft.info(item)`（rarity・stars・rarityWord）、`combat.bags()`（袋の rarity）、`settings.get/set`。
@@ -215,7 +216,7 @@ PO の基本の方針（案 A）: 今の 4 段の割りあては変えず、5〜
 |---|---|---|
 | AC1 | 表は 7 行で、index 0〜6 の順に id が common・uncommon・rare・superRare・epic・mythic・legendary、stars が 1〜7（= index+1）、dropMax が 4・3・2・1・1・1・1。`RARITY_ORDER` は表の id の順と同じ | 【ユニット】 |
 | AC2 | 7 つの color がぜんぶちがう。`palette.ts` の `--rk-rarity-0〜6` と表の color が同じで、`tokens.css` にも同じ値で 7 つある（`colorMath.test.ts` を広げる）。`RARITY_COLOR[id]` は表の color と同じ | 【ユニット】 |
-| AC3 | 宝石の印 7 つ: どれも 16×16、ぬりのドットが 40 こより多い、ふちのドットが切れない（端の列は とうめい か ふちの色）、7 つの形の模様がぜんぶちがう。`gemShape(i)` は表の gem と同じ。7 以上・負の数は 0〜6 におさめる | 【ユニット】 |
+| AC3 | 【廃止 2026-10-30】宝石の印 7 つ: どれも 16×16、ぬりのドットが 40 こより多い、ふちのドットが切れない（端の列は とうめい か ふちの色）、7 つの形の模様がぜんぶちがう。`gemShape(i)` は表の gem と同じ。7 以上・負の数は 0〜6 におさめる | 【ユニット】 |
 | AC4 | ことば 7 つ: ぜんぶちがい、空でなく、ひらがな・カタカナ・のばし棒・空白だけ（漢字なし。§3.1）、空白をのぞき 9 文字以下 | 【ユニット】 |
 | AC5 | どの段 id でも、ツールチップ（`buildTooltip`）の stars・`rarityCss` の色、せつめい（`createItemInfo().info`）の stars・rarityWord、`rarityIndex` が表の値と同じ（`rarityOf` に 7 つの id を順に返す仮の関数をわたして確かめる） | 【ユニット】 |
 | AC6 | `rarityAtLeast(item, tier)` は、全 57 アイテム × 7 段で `rarityIndex(itemRarity(item)) >= rarityIndex(tier)` と同じ。`rarityAtLeast(x, 'common')` はいつも true | 【ユニット】 |
@@ -226,7 +227,7 @@ PO の基本の方針（案 A）: 今の 4 段の割りあては変えず、5〜
 | AC11 | セーブ: 袋の rarity が `'superRare'`・`'legendary'` のセーブを読むと そのままの値。`'banana'` ならアイテムの今の段階 | 【ユニット】 |
 | AC12 | 光の柱・音: 7 段ぜんぶに キラキラの値と着地の光の値がある。5〜7 段目の `sparkleCount` と着地のつぶの数は 4 段目以下、ゆれは 3 回/秒 未満。袋が着地したときの音の名前は index 3 以上で `dropSuperRare`。つくったときのチャイムは index 3 以上で `chime4` | 【ユニット】 |
 | AC13 | 強さは変わらない: crystal_katana・katana・iron_pickaxe・kabuto を `itemRarity` で legendary にしても、`craft.info` の stats（たたく・ほる・まもる つよさ・たいきゅう）は変える前と同じ | 【ユニット】 |
-| AC14 | E2E（つなぎ）: `__rikkun.rarity.tiers()` が 7 行で AC1 と同じ id・stars・dropMax をかえす。7 つの段それぞれについて、`settings.set('itemRarity', {katana: id})` → かたな を ホットバーに入れると、そのマスの `data-rarity` = その段の index、宝石の `data-gem` = gem、ふちの計算された色 = color。同じ段で、ツールチップ（`inventory.hover` → `inventory.tooltip()`）の rarity・stars、`craft.info('katana')` の stars・rarityWord、つくる画面のせつめいの星の字（★ が stars こ）・ことばの字、たんすのマス（たんす画面の かたな が入ったマス）の `data-rarity` = index と、そのマスのふちの計算された色（`getComputedStyle(…).borderColor`）= color が表と同じ | 【E2E】 |
+| AC14 | E2E（つなぎ）: `__rikkun.rarity.tiers()` が 7 行で AC1 と同じ id・stars・dropMax をかえす。7 つの段それぞれについて、`settings.set('itemRarity', {katana: id})` → かたな を ホットバーに入れると、そのマスの `data-rarity` = その段の index、宝石の印の要素が 0 こ（出ない）、ふちの計算された色 = color。同じ段で、ツールチップ（`inventory.hover` → `inventory.tooltip()`）の rarity・stars、`craft.info('katana')` の stars・rarityWord、つくる画面のせつめいの星の字（★ が stars こ）・ことばの字、たんすのマス（たんす画面の かたな が入ったマス）の `data-rarity` = index と、そのマスのふちの計算された色（`getComputedStyle(…).borderColor`）= color が表と同じ | 【E2E】 |
 | AC15 | E2E（通し）: 初期のままでは `rarity.atLeast('katana', 'epic')` が案のとおり（案 A: false）、`rarity.of('katana').index` が 2。`itemRarity` で katana を legendary にすると `atLeast('katana','legendary')` が true。そのかたなを手に持って `drop` の入力で落とし、できた袋（`combat.bags()` の いちばん新しいもの）の rarity が `'legendary'`。はじめて作ったときの横断幕で（`itemRarity` で wood_pickaxe を legendary にして はじめて作る）名前のうしろの ★ が 7 こ | 【E2E】 |
 | AC16 | 画面の配置: 7 段目（★7・いちばん長いことば）の物を出した ツールチップ・つくる画面のせつめい・おいわいの横断幕・ホットバー が、3 つの大きさ（1024×700・1280×800・1440×900）で はみ出し・切れ・重なり なし。★ の列が途中で折り返さない。ことばが 1 行に入らないときは星の下の行に出る | 【UI 検査】（`e2e/ui-gate.spec.ts` に「7 段目」の画面を 1 行足す） |
 | AC17 | 今の 4 段の見た目は、アートの案で変えると決めた所のほかは、前のスクショと同じ（ホットバー・もちもの・つくる画面） | 【UI 検査】→ `ui-reviewer` |

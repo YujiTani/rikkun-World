@@ -2,7 +2,6 @@ import type { Durability, Inventory, ItemStack } from '../contracts';
 import { FX_SETTINGS, type FxSettings } from '../fx/config';
 import { HOTBAR_SIZE, gainedSlots, hotbarCells, snapshotSlots, type CooldownCell } from './hotbarModel';
 import { itemRarity } from '../drops/rarity';
-import { gemShape, gemUrl } from './gemArt';
 import { itemIconUrl } from './itemIcon';
 import { itemCategory, rarityIndex } from './itemCategory';
 import { paintWear, wearSignature } from './wearGauge';
@@ -14,8 +13,6 @@ export interface SlotEls {
   root: HTMLDivElement;
   icon: HTMLImageElement;
   count: HTMLSpanElement;
-  /** 宝石の印（アイテムが入っているときだけ root の中にある） */
-  gem: HTMLImageElement;
 }
 
 /**
@@ -37,11 +34,8 @@ export function createSlotEl(keyLabel?: string, size?: 'inv' | 'tansu'): SlotEls
     key.textContent = keyLabel;
     root.append(key);
   }
-  const gem = document.createElement('img');
-  gem.className = 'slot-gem';
-  gem.alt = '';
   root.append(icon, count);
-  return { root, icon, count, gem };
+  return { root, icon, count };
 }
 
 /**
@@ -59,17 +53,12 @@ export function paintSlot(els: SlotEls, stack: ItemStack | null, durability?: Du
     const r = rarityIndex(itemRarity(stack.item));
     els.root.dataset.cat = itemCategory(stack.item);
     els.root.dataset.rarity = String(r);
-    const gu = gemUrl(r);
-    if (els.gem.getAttribute('src') !== gu) els.gem.src = gu;
-    els.gem.dataset.gem = gemShape(r);
-    if (els.gem.parentElement !== els.root) els.root.append(els.gem);
   } else {
     els.icon.hidden = true;
     delete els.root.dataset.item;
     delete els.root.dataset.cat;
     delete els.root.dataset.rarity;
     els.count.textContent = '';
-    els.gem.remove();
   }
   // WEAPON-2 §3.6: たいきゅうで へる 道具の マスには ゲージを いつも 出す
   paintWear(els.root, stack, durability);
