@@ -282,6 +282,7 @@ export class YokaiSpawner {
     const lim = AI_CONST.farRemoveDist;
     for (const e of f.ents) {
       if (e.remove) continue;
+      if (!e.ai && KIND_TRAITS[e.kind].swims) continue; // テストで 置いた 動かない 水の 妖怪（ai: false）だけは 遠くても 消さない
       const dx = e.x - f.px;
       const dz = e.z - f.pz;
       if (dx * dx + dz * dz > lim * lim) e.remove = true;

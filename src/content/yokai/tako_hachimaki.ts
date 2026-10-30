@@ -19,7 +19,7 @@ export const TAKO_HACHIMAKI: YokaiDef = {
   ai: {
     stepUp: 0, // 段
     radius: 0.5, // ブロック
-    height: 1.7, // ブロック（体の いちばん 上まで。足が たれても 足もとの 下に 出ない）
+    height: 2.4, // ブロック（当たりの 高さ。見た目の 1.7 より 高く して、水面から ななめに 突いても 当たる）
     eyeHeight: 1.0, // ブロック
     turnDegPerSec: 180, // 度/秒
     marksHeight: 2.2, // ブロック
@@ -37,6 +37,7 @@ export const TAKO_HACHIMAKI: YokaiDef = {
   achievement: { name: 'タコはちまき' },
   traits: {
     swims: true,
+    knockOnlyHeavy: true, // ふつうの 攻撃では 水の 中で 流されない（虹の はじきだけ のけぞる）
   },
   swim: {
     goSeconds: 1.5, // 秒

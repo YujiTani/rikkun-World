@@ -333,6 +333,7 @@ export class CraftSystemImpl implements CraftSystem {
         output: { ...r.output },
         inputs: r.inputs.map((i) => ({ ...i })),
         works: r.works,
+        station: r.station,
         craftable: st.craftable,
         missing: st.missing,
       };
