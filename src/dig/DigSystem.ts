@@ -18,7 +18,7 @@ import type {
 import type { Action, ActionState } from '../input/actions';
 import { cropKindOfBlock } from '../contracts';
 import type { FlattenPlan } from '../world/flatten';
-import { createDigConfig, type DigConfig } from './config';
+import { IRON_HARVEST_LEVEL, createDigConfig, type DigConfig } from './config';
 import { createRng, type Rng } from '../world/gen/random';
 import type { PunchGate } from '../combat/PlayerCombat';
 import type { ParryInput } from '../combat/parry';
@@ -30,6 +30,7 @@ import { DigAim } from './digAim';
 import { DigAnimals } from './digAnimals';
 import { DigAttack } from './digAttack';
 import { BlockBreaker } from './digBreak';
+import { DigChalk } from './digChalk';
 import { COOP_BLOCKS, center, sameBlock, type DigCore } from './digCore';
 import { DigFarm } from './digFarm';
 import { DigInput } from './digInput';
@@ -62,7 +63,8 @@ export function digSteps(
 ): { steps: number } | { blocked: DigBlockedReason } {
   const h = cfg.hardness[id];
   if (h === null || h === undefined) return { blocked: 'unbreakable' };
-  if ((cfg.harvestLevel[id] ?? 0) > level) return { blocked: 'needTool' };
+  const need = cfg.harvestLevel[id] ?? 0;
+  if (need > level) return { blocked: need >= IRON_HARVEST_LEVEL ? 'needIron' : 'needTool' }; // MINE-1B: てつの つるはしが いる ブロックは べつの しらせ
   return { steps: Math.max(1, Math.ceil((h * 60) / cfg.handPower - 1e-9)) };
 }
 
@@ -124,6 +126,7 @@ export class DigSystemImpl implements DigSystem {
   private readonly aim: DigAim;
   private readonly breaker: BlockBreaker;
   private readonly placer: BlockPlacer;
+  private readonly chalk: DigChalk;
   private readonly animals: DigAnimals;
   private readonly farm: DigFarm;
   private readonly attack: DigAttack;
@@ -168,6 +171,7 @@ export class DigSystemImpl implements DigSystem {
     });
     this.breaker = new BlockBreaker(core, rng);
     this.placer = new BlockPlacer(core);
+    this.chalk = new DigChalk(core);
     this.animals = new DigAnimals({
       ...core,
       animalHit: () => this.aim.animalHit,
@@ -289,6 +293,7 @@ export class DigSystemImpl implements DigSystem {
 
     // ねらい（ステップごとに決め直す）
     const p = this.player();
+    this.chalk.step(p.position.x, p.position.z); // MINE-1B: チョークの「来た ほう」の 足あと
     this.aim.update(p, enabled);
     this.animals.tickNetLock();
     // 左クリックのふりわけ（パリィ・刀のわざ・ため・弓・パンチ）
@@ -508,6 +513,14 @@ export class DigSystemImpl implements DigSystem {
       if (due && t) this.farm.doPlant(t, pv.item);
       return;
     }
+    if (pv.kind === 'ripen') {
+      if (due) this.farm.doRipen(); // MINE-1B: いしばい。みのる 前の 作物 1 つに 1 こ（みのった あとは この 種類に ならない）
+      return;
+    }
+    if (pv.kind === 'chalk') {
+      if (due && t) this.chalk.draw(t, first); // MINE-1B: チョーク。同じ マスは 押しつづけても 1 回
+      return;
+    }
     if (pv.kind === 'pour') {
       if (pourDue && t) this.farm.doPour(t);
       return;
@@ -582,6 +595,8 @@ export class DigSystemImpl implements DigSystem {
       bucket: () => this.farm.bucketPreview(repeat),
       petSpot: () => this.farm.petSpot(),
       canPlace: () => this.placer.spot() !== null,
+      canChalk: () => this.chalk.canDraw(),
+      canRipen: () => this.farm.ripenSpot(),
       canTill: () => this.farm.tillSpot(),
       canPlant: () => this.farm.plantSpot(),
       isSeedHintSpot: () => this.farm.seedHintSpot(),

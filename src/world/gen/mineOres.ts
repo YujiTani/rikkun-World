@@ -1,7 +1,7 @@
 import { CHUNK_SIZE, type BlockId } from '../../contracts';
 import { BLOCK_INDEX } from '../blocks/blockTypes';
 import { COL_VOLUME, HW, LAYER } from './columnLayout';
-import { MINE_CONFIG, type MineLayerId, type MineOreRow } from './mineConfig';
+import { MINE_CONFIG, type MineClusterSize, type MineLayerId, type MineOreRow } from './mineConfig';
 import { layerSpan } from './mineLayers';
 import { createRng, hashInts, subSeed, type Rng } from './random';
 
@@ -21,12 +21,19 @@ const ROW = CHUNK_SIZE;
 /** 置いた マスの 一覧の 大きさ（こ）。owner を 0 に もどす ために 覚える。1 列に 置く 数は 300 こ くらい なので いつも あまる */
 const PLACED_CAP = 4096;
 
-/** かたまり 1 つの 大きさの 上限（こ）。足せる マスの 一覧の 大きさを きめる */
-const MAX_SIZE = Math.max(...MINE_CONFIG.cluster.sizes.map((s) => s.size));
-/** 目当ての 大きさの わりあい（%）の 合計 */
-const SIZE_TOTAL = MINE_CONFIG.cluster.sizes.reduce((p, s) => p + s.percent, 0);
-/** 目当ての 大きさの 平均（こ）。かたまりの 数 ＝ ぜんぶ ÷ これ */
-const MEAN_SIZE = MINE_CONFIG.cluster.sizes.reduce((p, s) => p + s.size * s.percent, 0) / SIZE_TOTAL;
+/** かたまりの 目当ての 大きさの 表 1 つ（わりあいの 合計・平均を 先に 計算） */
+interface SizeTable {
+  sizes: readonly MineClusterSize[];
+  /** わりあい（%）の 合計 */
+  total: number;
+  /** 目当ての 大きさの 平均（こ）。かたまりの 数 ＝ ぜんぶ ÷ これ */
+  mean: number;
+}
+function sizeTable(sizes: readonly MineClusterSize[]): SizeTable {
+  const total = sizes.reduce((p, s) => p + s.percent, 0);
+  return { sizes, total, mean: sizes.reduce((p, s) => p + s.size * s.percent, 0) / total };
+}
+const DEFAULT_SIZES = sizeTable(MINE_CONFIG.cluster.sizes);
 
 /** 窓口 `mine.oreClusters`（§6.1）が 返す 1 つの かたまり */
 export interface OreCluster {
@@ -40,6 +47,8 @@ export interface OreCluster {
 
 interface OreRowRt {
   row: MineOreRow;
+  /** この 行の かたまりの 大きさの 表（ダイヤの いしは 小さい） */
+  table: SizeTable;
   /** ブロックの 番号 */
   id: number;
   /** 層の いちばん 下・上の y（上は 世界の いちばん 上まで） */
@@ -49,8 +58,11 @@ interface OreRowRt {
 
 const ORE_ROWS: readonly OreRowRt[] = MINE_CONFIG.ores.map((row): OreRowRt => {
   const { lo, hi } = layerSpan(row.layer);
-  return { row, id: BLOCK_INDEX[row.block], lo, hi };
+  return { row, table: row.sizes ? sizeTable(row.sizes) : DEFAULT_SIZES, id: BLOCK_INDEX[row.block], lo, hi };
 });
+
+/** かたまり 1 つの 大きさの 上限（こ）。足せる マスの 一覧の 大きさを きめる */
+const MAX_SIZE = Math.max(...ORE_ROWS.flatMap((r) => r.table.sizes.map((s) => s.size)));
 
 /**
  * どの かたまりの マスか（かたまりごとの 番号。置いた マスだけ 書き、列を 作りおえたら 0 に もどす ＝ 前の 列に 左右されない）。
@@ -65,14 +77,13 @@ const members = new Int32Array(MAX_SIZE);
 const cands = new Int32Array(MAX_SIZE * 6);
 
 /** 目当ての 大きさを わりあい（%）どおりに 1 つ 引く */
-function pickTarget(rng: Rng): number {
-  const sizes = MINE_CONFIG.cluster.sizes;
-  let u = rng() * SIZE_TOTAL;
-  for (const s of sizes) {
+function pickTarget(rng: Rng, t: SizeTable): number {
+  let u = rng() * t.total;
+  for (const s of t.sizes) {
     if (u < s.percent) return s.size;
     u -= s.percent;
   }
-  return sizes[sizes.length - 1]!.size;
+  return t.sizes[t.sizes.length - 1]!.size;
 }
 
 /** マス c の d 番目の となり（0 x−・1 x+・2 z−・3 z+・4 y−・5 y+）。列の 外・世界の 外なら −1 */
@@ -152,11 +163,11 @@ function placeRows(out: Uint8Array, seed: number, cx: number, cz: number, height
     if (hi < r.lo) continue;
     // 行ごとに 別の 乱数（表の うしろに 行を 足しても 前の 行の 置き方は かわらない）
     const rng = createRng(hashInts(sO, cx, cz, ri));
-    const want = r.row.all / MEAN_SIZE;
+    const want = r.row.all / r.table.mean;
     let n = Math.floor(want);
     if (rng() < want - n) n++;
     for (let k = 0; k < n && nPlaced + MAX_SIZE <= PLACED_CAP; k++) {
-      const target = pickTarget(rng);
+      const target = pickTarget(rng, r.table);
       serial++;
       // 1 こ目: 層の 中の どこかを 一様に えらぶ（置けない マスなら えらびなおす）
       let first = -1;

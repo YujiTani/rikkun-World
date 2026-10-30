@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { DigEvent, DigSystem, ItemId, Vec3 } from '../contracts';
+import { isChalkMarkId } from '../world/blocks/chalkMark';
 import { ComboTracker } from './combo';
 import { FX_SETTINGS, type FxSettings } from './config';
 import { BlockPuffs, BreakParticles, CrackOverlay, TargetOutline } from './objects3d';
@@ -17,7 +18,7 @@ export interface DigFxDeps {
   /** カメラのごく弱いゆれ（ラジアン） */
   view: { setShake(yaw: number, pitch: number): void };
   /** 合図のアイコン */
-  notice: { showSignal(kind: 'needTool' | 'full'): void };
+  notice: { showSignal(kind: 'needTool' | 'needIron' | 'full'): void };
   /** アイテムが入った（ホットバーの「ぽよん」や飛ぶ絵） */
   onPickup?: (item: ItemId, count: number) => void;
   settings?: FxSettings;
@@ -103,16 +104,16 @@ export class DigFx {
     for (const ev of this.d.events ? this.d.events() : dig.drainEvents()) {
       if (ev.type === 'break') {
         const hadItem = ev.gotItem;
-        this.puffs.start(ev.block, ev.id, 1, c.puffScale, c.puffSeconds, () =>
-          this.particles.burst(ev.block, ev.id, c),
-        );
+        const mark = isChalkMarkId(ev.id); // MINE-1B: しるしは うすい 絵なので ぷくっと ふくらませず、こなの つぶだけ。何も 出なくても「いっぱい」では ない
+        if (mark) this.particles.burst(ev.block, ev.id, c);
+        else this.puffs.start(ev.block, ev.id, 1, c.puffScale, c.puffSeconds, () => this.particles.burst(ev.block, ev.id, c));
         sound.play('break');
         if (hadItem) {
           // 続けて取ると、和音の音を 1 つずつ上がる（comboStep。1 オクターブで止まる）。数が多いほど少し高く（0.5 半音ずつ）
           this.combo.hit(ev.id);
           sound.play('pickup', (ev.count - 1) * 0.5, { comboStep: this.combo.chain });
           this.d.onPickup?.(ev.id, ev.count);
-        } else {
+        } else if (!mark) {
           notice.showSignal('full');
           this.flashRed();
         }
@@ -123,13 +124,13 @@ export class DigFx {
       } else if (ev.type === 'ready') {
         sound.play('ready');
       } else if (ev.type === 'place') {
-        this.puffs.start(ev.block, ev.id, 1.002 + (c.placeScale - 1), 1.002, c.placeSeconds, null);
+        if (!isChalkMarkId(ev.id)) this.puffs.start(ev.block, ev.id, 1.002 + (c.placeScale - 1), 1.002, c.placeSeconds, null);
         sound.play('place');
         doll.swing();
       } else {
         sound.play('clink');
         this.flashRed();
-        if (ev.reason === 'needTool') notice.showSignal('needTool');
+        if (ev.reason === 'needTool' || ev.reason === 'needIron') notice.showSignal(ev.reason);
       }
     }
 

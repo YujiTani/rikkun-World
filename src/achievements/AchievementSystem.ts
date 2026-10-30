@@ -22,6 +22,7 @@ import type {
 } from '../contracts';
 import { COUNTRY_KINDS } from '../world/gen/config';
 import { baseRecipeId } from '../craft/recipes';
+import { isChalkMarkId } from '../world/blocks/chalkMark';
 import {
   ACHIEVEMENT_DEFS,
   ARMOR_ITEMS,
@@ -266,6 +267,7 @@ export class AchievementSystem implements AchievementShowSource {
     if (events.length === 0) return;
     this.run(() => {
       for (const e of events) {
+        if (isChalkMarkId(e.id)) continue; // MINE-1B: チョークの しるしは ブロックを おいた・こわした 数に 入れない
         if (e.type === 'break') {
           this.bump(`break:${e.id}`, 1);
           this.bump('break:*', 1);

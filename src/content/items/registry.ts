@@ -3,7 +3,7 @@ import type { InfoRow } from '../../craft/info/table';
 import type { ToolFamily } from '../../dig/toolFamily';
 import type { ItemCategory } from '../../ui/itemCategory';
 import { ARMOR } from './armor';
-import { GEYSER, M4_BLOCKS, PLACEABLE, VOX_I } from './blocks';
+import { GEYSER, M4_BLOCKS, MINE_BLOCKS, PLACEABLE, VOX_I } from './blocks';
 import { BUCKETS, FARM_TOOLS, SEEDS, SPRINKLER, VEGGIES } from './farm';
 import { GOLD } from './gold';
 import { HOUSE_TOOLS } from './house';
@@ -11,6 +11,7 @@ import { LEGEND } from './legend';
 import { KONGO } from './kongo';
 import { KOTATSU, LIVE } from './live';
 import { INGOT, MATERIALS, ORB } from './materials';
+import { MINE_ITEMS } from './mine';
 import { GADGETS } from './misc';
 import { NINJA } from './ninja';
 import { SAMURAI } from './samurai';
@@ -97,6 +98,12 @@ export const HOUSE_TOOL_DEFS: ItemDefs = HOUSE_TOOLS;
 export const LEGEND_DEFS: ItemDefs = LEGEND;
 
 /**
+ * MINE-1B（#349）: せっかいせき・しっくい・ほたるいし・きんの いし（置ける）・チョーク・いしばい。
+ * ITEM_TYPES・色分けでは いちばん うしろ（家づくりの 道具の 次）。作業台・かまどの カードも いちばん うしろ（チョーク → しっくい／いしばい）
+ */
+export const MINE_DEFS: ItemDefs = pickDefs({ ...MINE_BLOCKS, ...MINE_ITEMS }, ['sekkaiseki', 'hotaruishi', 'kin_ore', 'shikkui', 'chalk', 'ishibai']);
+
+/**
  * 登録された 全アイテム（置ける ブロック・道具・刀・ゆみ・防具・忍者・侍・畑・ざいりょう・小物・生き物・レジェンダリー・金。刀の集まり BLADE_ITEMS の 並びは この 順）。
  * 全件 Record なので、ItemId を 足して ここに 書き忘れる（シリーズの ファイルに 入れ忘れる）と 型エラー。
  * 同じ id が 2 つの シリーズに あると あとの 物が かつので、registry.test.ts が シリーズごとの 数の 合計と 突き合わせる。
@@ -106,6 +113,7 @@ export const ITEM_DEFS: Readonly<Record<ItemDefId, ItemDef>> = {
   ...TOOLS, ...SWORDS, ...BOWS, ...ARMOR, ...NINJA, ...SAMURAI,
   ...SEEDS, ...VEGGIES, ...FARM_TOOLS, ...SPRINKLER, ...BUCKETS,
   ...ORB, ...MATERIALS, ...INGOT, ...GADGETS, ...LIVE, ...KOTATSU, ...LEGEND, ...GOLD, ...KONGO, ...HOUSE_TOOLS,
+  ...MINE_BLOCKS, ...MINE_ITEMS,
 };
 
 /** 登録の 中から、ids の 順に 取り出した 登録（並びを 呼び出し側で 決めたい とき。登録に 無い id は 書きまちがいなので 投げる） */

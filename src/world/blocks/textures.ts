@@ -1,10 +1,12 @@
 import { DataTexture, NearestFilter, RGBAFormat, SRGBColorSpace, UnsignedByteType } from 'three';
 import type { BlockId } from '../../contracts';
+import { CHALK_MARK_IDS } from './chalkMark';
 import { tansuPixels } from '../../storage/tansuArt';
 import { FARM_TILE_NAMES, paintFarmTile } from './farmTextures';
 import { GADGET_TILE_NAMES, isGadgetTile, paintGadgetTile, type GadgetTileName } from './gadgetTextures';
 import { KOTATSU_ART_ROWS, kotatsuTileOrder, paintKotatsuArt, type KotatsuTileName } from './kotatsuArt';
 import { LIVE_TILE_NAMES, paintLiveTile, type LiveTileName } from './liveTextures';
+import { MINE_TILE_NAMES, isMineTile, paintMineTile, type MineTileName } from './mineTextures';
 
 /** 16x16 ドット絵をコードで描く（M1-01 4-2 の色）。 */
 export const TILE_SIZE = 16;
@@ -36,7 +38,8 @@ export type TileName =
   | LiveTileName
   | KotatsuTileName
   | 'geyser_dirt_top' | 'geyser_dirt_side'
-  | GadgetTileName;
+  | GadgetTileName
+  | MineTileName;
 
 /** VOX-I-1（12 の国）のふつうの絵（一ひねりの絵は #185） */
 export type VoxITileName = 'snow' | 'momiji_leaves' | 'matsu_leaves' | 'flower_y' | 'flower_o' | 'flower_p' | 'bamboo' | 'susuki' | 'kusa' | 'nobana';
@@ -85,6 +88,8 @@ let gadgetAt = 0;
 export const TILE_NAMES: readonly TileName[] = [
   ...TILE_NAMES_BASE,
   ...kotatsuTileOrder(TILE_NAMES_BASE.length).map((n): TileName => (n.startsWith('kotatsu_pad') && gadgetAt < GADGET_TILE_NAMES.length ? GADGET_TILE_NAMES[gadgetAt++]! : n)),
+  // MINE-1B（#349）: 鉱物・ねんど・チョークの しるしの 絵。さいごに 足す（今の 絵の 位置は かわらない。アトラスが 下に のびる）
+  ...MINE_TILE_NAMES,
 ];
 export const ATLAS_ROWS = Math.ceil(TILE_NAMES.length / ATLAS_COLS);
 export const ATLAS_WIDTH = ATLAS_COLS * TILE_SIZE;
@@ -324,6 +329,7 @@ function geyserDirt(top: boolean): Tile {
 
 function paintTile(name: TileName): Tile {
   if (isGadgetTile(name)) return paintGadgetTile(name).slice(); // ITEM-FX-1: 置き物の 絵
+  if (isMineTile(name)) return paintMineTile(name).slice(); // MINE-1B: 鉱物・ねんど・チョークの しるし
   switch (name) {
     case 'grass_top':
       return calm(speckle('#5DBB3F', ['#4CA332', '#73CC52'], 11), '#5DBB3F');
@@ -440,6 +446,11 @@ export function getTilePixels(name: TileName): readonly Rgba[] {
   return paintTile(name);
 }
 
+/** チョークの しるし 12 こ（MINE-1B）。どれも 同じ 絵 [上, 下, 横] */
+const CHALK_BLOCK_TILES: Partial<Record<BlockId, readonly [TileName, TileName, TileName]>> = Object.fromEntries(
+  CHALK_MARK_IDS.map((id) => [id, ['chalk_1_e', 'chalk_1_e', 'chalk_1_e'] as const]),
+);
+
 /** [上, 下, 横] のタイル。air は無し */
 export const BLOCK_TILES: Readonly<Partial<Record<BlockId, readonly [TileName, TileName, TileName]>>> = {
   grass: ['grass_top', 'dirt', 'grass_side'],
@@ -448,8 +459,9 @@ export const BLOCK_TILES: Readonly<Partial<Record<BlockId, readonly [TileName, T
   sand: ['sand', 'sand', 'sand'],
   log: ['log_top', 'log_top', 'log_side'],
   leaves: ['leaves', 'leaves', 'leaves'],
-  coal_ore: ['coal_ore', 'coal_ore', 'coal_ore'],
-  iron_ore: ['iron_ore', 'iron_ore', 'iron_ore'],
+  // MINE-1B: せきたん・てつも B「とびだす つぶ」の 平らな 絵に 直す（近くの つぶは render/looks/oreGrains.ts。今の 絵 `coal_ore`・`iron_ore` は かえずに のこす）
+  coal_ore: ['coal_ore_b', 'coal_ore_b', 'coal_ore_b'],
+  iron_ore: ['iron_ore_b', 'iron_ore_b', 'iron_ore_b'],
   water: ['water', 'water', 'water'],
   bedrock: ['bedrock', 'bedrock', 'bedrock'],
   furnace: ['furnace_top', 'furnace_top', 'furnace_side'],
@@ -507,6 +519,16 @@ export const BLOCK_TILES: Readonly<Partial<Record<BlockId, readonly [TileName, T
   futon_foot_w: ['futon_blanket', 'futon_side', 'futon_side'],
   futon_foot_n: ['futon_blanket', 'futon_side', 'futon_side'],
   haniwa: ['haniwa_head', 'haniwa', 'haniwa'],
+  // MINE-1B（#349）。ねんど・せっかいせき・しっくい は ふつうの 面の 絵、鉱物 は B の 平らな 絵（遠くと アイテムの 絵）
+  nendo: ['nendo', 'nendo', 'nendo'],
+  sekkaiseki: ['sekkaiseki', 'sekkaiseki', 'sekkaiseki'],
+  shikkui: ['shikkui', 'shikkui', 'shikkui'],
+  hotaruishi: ['hotaruishi', 'hotaruishi', 'hotaruishi'],
+  kin_ore: ['kin_ore', 'kin_ore', 'kin_ore'],
+  suisho_ore: ['suisho_ore', 'suisho_ore', 'suisho_ore'],
+  diamond_ore: ['diamond_ore', 'diamond_ore', 'diamond_ore'],
+  // チョークの しるし 12 こ: 立方体では ない（面に はる 板。render/chalkMesh.ts）。ここは かけらの 色・アイテムの 絵などの ため
+  ...CHALK_BLOCK_TILES,
 };
 
 /** タイルの UV の四角 [u0, v0, u1, v1]（v は下から。となりのタイルがにじまないよう少し内側） */

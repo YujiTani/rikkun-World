@@ -62,6 +62,7 @@ export const BAKE_RECIPE_NAMES: ReadonlyArray<readonly [string, string]> = [
   ['kawara', 'かわら'],
   ['brick', 'レンガ'],
   ['haniwa', 'はにわ'],
+  ['ishibai', 'いしばい'], // MINE-1B（せっかいせき 1 を かまどで やく）
 ];
 
 export const AXE_RECIPES = ['wood_axe', 'stone_axe', 'iron_axe'] as const;
@@ -153,6 +154,14 @@ function build(): AchievementDef[] {
     tiers: [t(1, true), t(10), t(50)],
     name: firstOrN('はじめて てつ ブロック を こわした！', (g) => `てつ ブロック を ${g} こ こわした！`),
   });
+  // MINE-1B（#349）§4.10: 新しい 鉱物を はじめて ほった（小。件数は 数えない）
+  for (const [b, name] of [
+    ['sekkaiseki', 'せっかいせき'],
+    ['hotaruishi', 'ほたるいし'],
+    ['kin_ore', 'きんの いし'],
+  ] as const) {
+    add({ series: `break.${b}`, category: 'break', stat: `break:${b}`, tiers: [t(1, true)], name: () => `はじめて ${name} を ほった！` });
+  }
   add({
     series: 'break.all',
     category: 'break',
@@ -209,6 +218,9 @@ function build(): AchievementDef[] {
   // LIVE-2 版 3（§4.5）: こたつ・とりごや。小 ＋2。craft.everything（28）には 入れない（mushi_ami と 同じ）
   add({ series: 'craft.nukunuku', category: 'craft', stat: 'craft:nukunuku', tiers: [t(1, true)], name: () => 'はじめて こたつ を つくった！' });
   add({ series: 'craft.toriya', category: 'craft', stat: 'craft:toriya', tiers: [t(1, true)], name: () => 'はじめて とりごや を つくった！' });
+  // MINE-1B §4.10: チョーク・しっくい。小 ＋2。craft.everything（28）には 入れない（mushi_ami と 同じ）
+  add({ series: 'craft.chalk', category: 'craft', stat: 'craft:chalk', tiers: [t(1, true)], name: () => 'はじめて チョーク を つくった！' });
+  add({ series: 'craft.shikkui', category: 'craft', stat: 'craft:shikkui', tiers: [t(1, true)], name: () => 'はじめて しっくい を つくった！' });
   add({ series: 'craft.all', category: 'craft', stat: 'craft:*', tiers: [t(10), t(50), t(100), t(500)], name: (g) => `${g} かい つくった！` });
   add({ series: 'craft.pickaxes', category: 'craft', stat: 'craft:pickaxes', tiers: [t(PICKAXE_RECIPES.length)], name: () => 'つるはし を ぜんぶ つくった！' });
   add({ series: 'craft.weapons', category: 'craft', stat: 'craft:weapons', tiers: [t(WEAPON_RECIPES.length)], name: () => 'ぶき を ぜんぶ つくった！' });
@@ -246,6 +258,7 @@ function build(): AchievementDef[] {
     ['cloth', 'ぬの', true],
     ['clay', 'ねんど', true],
     ['crystal', 'すいしょう', false],
+    ['diamond', 'ダイヤ', false], // MINE-1B §4.10（ひろった 出来事。宝箱から でも ほって でも 同じ）
   ] as const) {
     add({ series: `obtain.${id}`, category: 'collect', stat: `obtain:${id}`, tiers: [t(1, small)], name: () => `はじめて ${name} を てにいれた！` });
   }
@@ -443,6 +456,9 @@ function build(): AchievementDef[] {
   }
   add({ series: 'harvest.kinds', category: 'farm', stat: 'harvest:kinds', tiers: [t(CROP_KINDS.length)], name: () => 'やさい を ぜんぶ そだてた！' });
   add({ series: 'farm.wet', category: 'farm', stat: 'harvestWet', tiers: [t(1, true)], name: () => 'みず の そば で そだてた！' });
+  // MINE-1B §4.10: いしばいを まいて すぐ みのった（小。自然に みのった ときは 数えない）。
+  // 「そだてる」の うしろの 並び〔m72ui.test.ts が 末尾からの 位置で 見る〕を かえない ために、そだてる の 前の ほうに 置く
+  add({ series: 'farm.ishibai', category: 'farm', stat: 'ishibai', tiers: [t(1, true)], name: () => 'いしばい で はじめて やさい が みのった！' });
   add({
     series: 'eat.all',
     category: 'farm',

@@ -15,6 +15,7 @@ import { isSamuraiItem, samuraiItemPixels } from './itemArtSamurai';
 import { bucketItemPixels, isBucketItem } from './bucketArt';
 import { axeItemPixels, isAxeItem } from './itemArtBal';
 import { isTakoItem, takoItemPixels } from './itemArtTako';
+import { isMineItem, mineItemPixels } from './itemArtMine';
 import { tansuPixels } from '../storage/tansuArt';
 import { BLOCK_TILES, TILE_SIZE, getTilePixels, type Rgba, type TileName } from '../world/blocks/textures';
 
@@ -31,6 +32,7 @@ export function itemIconPixels(item: ItemId): Pixels {
   if (isMaterialItem(item)) return materialPixels(item);
   if (isAxeItem(item)) return axeItemPixels(item);
   if (isTakoItem(item)) return takoItemPixels(item); // TAKO-1: ふで
+  if (isMineItem(item)) return mineItemPixels(item); // MINE-1B: チョーク・いしばい
   if (isM4Item(item)) return m4ItemPixels(item);
   if (isNinjaItem(item)) return ninjaItemPixels(item); // NINJA-1: オーナー OK 済みの 絵
   if (isSamuraiItem(item)) return samuraiItemPixels(item); // SAMURAI-1: オーナー OK 済みの 絵
@@ -141,11 +143,11 @@ function bag(): Pixels {
   return p;
 }
 
-export type SignalKind = 'needTool' | 'full' | 'noArrow';
+export type SignalKind = 'needTool' | 'needIron' | 'full' | 'noArrow';
 
-/** 合図のアイコン: いしの つるはし＋赤い ✕ / ふくろ＋赤い ✕ / や＋赤い ✕（M4 で つるはし と や を足した） */
+/** 合図のアイコン: いしの つるはし＋赤い ✕ / てつの つるはし＋赤い ✕（MINE-1B） / ふくろ＋赤い ✕ / や＋赤い ✕（M4 で つるはし と や を足した） */
 export function signalIconPixels(kind: SignalKind): Pixels {
-  const p = kind === 'needTool' ? m4ItemPixels('stone_pickaxe') : kind === 'noArrow' ? m4ItemPixels('ya') : bag();
+  const p = kind === 'needTool' ? m4ItemPixels('stone_pickaxe') : kind === 'needIron' ? m4ItemPixels('iron_pickaxe') : kind === 'noArrow' ? m4ItemPixels('ya') : bag();
   // ✕ の下に白っぽい下地を引いて見やすくする
   redCross(p);
   return p;

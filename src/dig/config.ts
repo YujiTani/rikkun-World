@@ -1,5 +1,11 @@
 import { defaultDropMax } from '../drops/rarityTable';
 import type { BlockId, DigSettings, ItemId, Rarity } from '../contracts';
+import { CHALK_MARK_IDS, type ChalkMarkId } from '../world/blocks/chalkMark';
+
+/** チョークの しるし 12 こ ぜんぶに 同じ 値を 入れる（`satisfies Record<BlockId, …>` が 12 こ そろって いることを 見る） */
+function forChalkMarks<T>(value: T): Record<ChalkMarkId, T> {
+  return Object.fromEntries(CHALK_MARK_IDS.map((id) => [id, value])) as Record<ChalkMarkId, T>;
+}
 
 /**
  * ほる・おくの数値（M2 §4.1・§4.3）。ここ 1 か所にまとめる。
@@ -88,6 +94,15 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     susuki: 0.05,
     kusa: 0.05,
     nobana: 0.05,
+    // MINE-1B（#349。仕様 §4.4。素手の 秒数。時間 = 固さ ÷ 道具の 強さ）
+    nendo: 1, // つち より 少し かたい（すでで 1 秒）
+    sekkaiseki: 5, // いしの つるはし（強さ 4）で 1.25 秒
+    shikkui: 4, // かわら と おなじ
+    hotaruishi: 6, // いし と おなじ（いしの つるはしで 1.5 秒）
+    kin_ore: 15, // てつ と おなじ（てつの つるはし 強さ 6 で 2.5 秒）
+    suisho_ore: 12, // てつの つるはしで 2 秒
+    diamond_ore: 18, // てつの つるはしで 3 秒（こんごうの つるはし 強さ 8 で 2.25 秒）
+    ...forChalkMarks(0), // しるしは さわると すぐ こわれる（1 ステップ）
   } satisfies Record<BlockId, number | null>,
   harvestLevel: {
     air: 0,
@@ -151,7 +166,16 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     susuki: 0,
     kusa: 0,
     nobana: 0,
-  },
+    // MINE-1B（0 = すで・1 = いしの つるはし・2 = てつの つるはし から）
+    nendo: 0,
+    sekkaiseki: 1,
+    shikkui: 0,
+    hotaruishi: 1,
+    kin_ore: 2,
+    suisho_ore: 2,
+    diamond_ore: 2, // ダイヤの いしも 2（こんごうの つるはしの レベルは 2 の まま。KONGO-1）
+    ...forChalkMarks(0),
+  } satisfies Record<BlockId, number>,
   handPower: 1.0,
   handLevel: 0,
   // digResumeTicks は使わない（digDecayRate に置きかえ）。contracts の型に合わせて 0 を入れておく
@@ -224,9 +248,21 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     susuki: 'common',
     kusa: 'common',
     nobana: 'common',
+    // MINE-1B（ほると 手に 入る 数の 上限を きめる。しるしは 何も 出ない ので 使わない）
+    nendo: 'uncommon',
+    sekkaiseki: 'uncommon',
+    shikkui: 'uncommon',
+    hotaruishi: 'rare',
+    kin_ore: 'epic', // きん と おなじ
+    suisho_ore: 'superRare',
+    diamond_ore: 'mythic',
+    ...forChalkMarks<Rarity>('common'),
   } satisfies Record<BlockId, Rarity>,
   dropMax: defaultDropMax(),
 };
+
+/** てつの つるはしの 掘れる 段階。これ 以上の ブロック（きん・すいしょう・ダイヤの いし）は 弱い 道具だと「てつの つるはし が いるよ」（MINE-1B。掘れる 段階の いちばん 上は 2 の まま） */
+export const IRON_HARVEST_LEVEL = 2;
 
 export function createDigConfig(): DigConfig {
   return {
@@ -259,6 +295,17 @@ export const FARM_BREAK_DROP: Readonly<Partial<Record<BlockId, { item: ItemId; c
   haniwa: { item: 'haniwa', count: 1 },
   // FLORA-75: のばな は いつも 1 こ（ランダムな数にしない）
   nobana: { item: 'nobana', count: 1 },
+  // MINE-1B（#349。仕様 §4.4）: すいしょうの いし・ダイヤの いしは 持てない ブロック。ほると 宝石が いつも 1 こ（ダイヤは かまどを 通さない）
+  suisho_ore: { item: 'crystal', count: 1 },
+  diamond_ore: { item: 'diamond', count: 1 },
+};
+
+/**
+ * MINE-1B: こわすと 別の アイテムに なる ブロック（持てない ブロック）。数は ブロックの めずらしさの きまり（`rarity`・`dropMax`）。
+ * ねんどの ブロック `nendo` → ねんど `clay` 1〜3（`FARM_BREAK_DROP` の 決まった 数の 物は そちらが 先）
+ */
+export const BREAK_ITEM: Readonly<Partial<Record<BlockId, ItemId>>> = {
+  nendo: 'clay',
 };
 
 /** VOX-I-1: こわすと 持ち物がふえない ブロック（すすき・FLORA-75 の くさ。ふえるのは ひろえる物だけ） */

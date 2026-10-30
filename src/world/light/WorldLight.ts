@@ -21,6 +21,7 @@ import { skyDarkness, type SkyDarkness } from './skyDarkness';
  * - ブロックが変わったら、15 マス以内にかかるセクションを「作り直し待ち」に入れ、1 コマに BUDGET 個ずつ計算する。
  *   光が変わったセクション（と、ふちのとなり）は、描画側に作り直しを伝える（world.markSectionDirty）。
  * - ぜんぶ光を通さないブロックのセクション（VOX-A の isSectionHidden より少し広い。光は 0 のまま）は計算せず、持たない。
+ *   ただし 光る 固い ブロック（ほたるいし。MINE-1B）を ふくむ セクションは 持つ（その マスの 光 7 を 前の 光と 同じに 答えるため）。
  *   となりをほっても そのセクション自身の光は 0 のまま。ほった側のセクションは 作り直し待ちで計算される。
  * - 読みこんだばかりの列は 計算されるまで isSectionReady / isColumnLit が false。描画側はそれまでメッシュを作らない。
  */
@@ -477,17 +478,17 @@ export class WorldLight implements LightField {
     }
   }
 
-  /** そのセクションが ぜんぶ 光を通さないブロックか（光は 0 のまま） */
+  /** そのセクションが ぜんぶ 光を通さないブロックで、光る ブロック〔ほたるいし MINE-1B〕も 無いか（光は 0 のまま） */
   private allOpaque(cx: number, sy: number, cz: number): boolean {
     const sec = this.world.section(cx, sy, cz);
     if (sec === undefined) return false;
-    if (sec.kind === 'uniform') return OPAQ[sec.block] >= 15;
+    if (sec.kind === 'uniform') return OPAQ[sec.block] >= 15 && EMIT[sec.block] === 0;
     if (sec.kind === 'palette') {
-      for (const b of sec.palette) if (OPAQ[b] < 15) return false;
+      for (const b of sec.palette) if (OPAQ[b] < 15 || EMIT[b] > 0) return false;
       return true;
     }
     const d = sec.data;
-    for (let i = 0; i < d.length; i++) if (OPAQ[d[i]] < 15) return false;
+    for (let i = 0; i < d.length; i++) if (OPAQ[d[i]] < 15 || EMIT[d[i]] > 0) return false;
     return true;
   }
 

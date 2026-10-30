@@ -80,7 +80,7 @@ export function installGameHook(deps: WiredLoop): void {
       },
     }),
     // MINE-1A §6.1: 層・鉱石・かたまり・地下の判定。妖怪を 出す 高さの はばは 設定（yokaiSpawnHeight）の 今の 値
-    mine: createMineHook({ seed, player: () => controller.state.position, spawnHeight: () => yokaiM.config.yokaiSpawnHeight }),
+    mine: createMineHook({ seed, world, player: () => controller.state.position, spawnHeight: () => yokaiM.config.yokaiSpawnHeight }),
     world: createWorldHook(world, renderer, island, {
       teleport: (x, z) => host.goTo({ x, y: null, z }, true),
       stream: () => host.info(),

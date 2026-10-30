@@ -111,3 +111,10 @@ export type LiveItemId = (typeof LIVE_ITEM_IDS)[number];
 /** 家づくりの道具（HOUSE-1A #338）: みずもり・どうづき（建築士さんが くれる。はたらきは HOUSE-1C）。ITEM_TYPES では 金の 次 */
 export const HOUSE_TOOL_IDS = ['mizumori', 'dotsuki'] as const;
 export type HouseToolId = (typeof HOUSE_TOOL_IDS)[number];
+
+/**
+ * 新しい 鉱物から 作る 物（MINE-1B #349。置けない アイテム 2 つ）: チョーク（かべ・ゆかに やじるしを かく）・いしばい（作物を すぐ みのらせる）。
+ * せっかいせき・しっくい・ほたるいし・きんの いしは 置ける ブロックなので BlockId 側（contracts/world.ts）に ある。ITEM_TYPES では 家づくりの 道具の 次
+ */
+export const MINE_ITEM_IDS = ['chalk', 'ishibai'] as const;
+export type MineItemId = (typeof MINE_ITEM_IDS)[number];

@@ -26,6 +26,13 @@ const BLOCK_FAMILY: Partial<Record<BlockId, ToolFamily>> = {
   kawara: 'stone',
   brick: 'stone',
   sprinkler: 'stone',
+  // MINE-1B（#349）: せっかいせき・しっくい・ほたるいし・きんの いし・すいしょうの いし・ダイヤの いし
+  sekkaiseki: 'stone',
+  shikkui: 'stone',
+  hotaruishi: 'stone',
+  kin_ore: 'stone',
+  suisho_ore: 'stone',
+  diamond_ore: 'stone',
   // つち（あう道具: くわ）
   grass: 'dirt',
   dirt: 'dirt',
@@ -34,6 +41,7 @@ const BLOCK_FAMILY: Partial<Record<BlockId, ToolFamily>> = {
   farmland: 'dirt',
   farmland_wet: 'dirt',
   geyser_dirt: 'dirt',
+  nendo: 'dirt', // MINE-1B: ねんどは つちの なかま（くわが あう）
 };
 
 // おの・つるはし・くわの なかまは 登録表（content/items/tools.ts・farm.ts の tool.family）から

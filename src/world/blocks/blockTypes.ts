@@ -1,4 +1,5 @@
 import type { BlockId, BlockType } from '../../contracts';
+import { CHALK_MARK_IDS, isChalkMarkId } from './chalkMark';
 
 /** M1-01 4-2 のブロック 11 種 + M4 の 3 種。配列の順番が内部の番号（air = 0） */
 export const BLOCK_TYPES: readonly BlockType[] = [
@@ -72,6 +73,16 @@ export const BLOCK_TYPES: readonly BlockType[] = [
   { id: 'futon_foot_s', name: 'ふとん', solid: false, breakable: true },
   { id: 'futon_foot_w', name: 'ふとん', solid: false, breakable: true },
   { id: 'futon_foot_n', name: 'ふとん', solid: false, breakable: true },
+  // MINE-1B（#349。番号は後ろに足す）
+  { id: 'nendo', name: 'ねんど', solid: true, breakable: true },
+  { id: 'sekkaiseki', name: 'せっかいせき', solid: true, breakable: true },
+  { id: 'shikkui', name: 'しっくい', solid: true, breakable: true },
+  { id: 'hotaruishi', name: 'ほたるいし', solid: true, breakable: true },
+  { id: 'kin_ore', name: 'きんの いし', solid: true, breakable: true },
+  { id: 'suisho_ore', name: 'すいしょうの いし', solid: true, breakable: true },
+  { id: 'diamond_ore', name: 'ダイヤの いし', solid: true, breakable: true },
+  // チョークの しるし 12 こ（面 × 向き。固くない。名前は ぜんぶ 同じ。`chalkMark.ts`）
+  ...CHALK_MARK_IDS.map((id): BlockType => ({ id, name: 'チョークの しるし', solid: false, breakable: true })),
 ];
 
 export const BLOCK_INDEX: Readonly<Record<BlockId, number>> = Object.fromEntries(
@@ -84,6 +95,7 @@ export const TORCH = BLOCK_INDEX.torch;
 export const START_TORCH = BLOCK_INDEX.start_torch;
 export const SPRINKLER = BLOCK_INDEX.sprinkler;
 export const LANTERN = BLOCK_INDEX.lantern;
+export const HOTARUISHI = BLOCK_INDEX.hotaruishi;
 
 /** たいまつの なかまか（細い棒＋炎の形で描く。光る） */
 export function isTorchIndex(index: number): boolean {
@@ -134,9 +146,15 @@ export function isLeafIndex(index: number): boolean {
   return LEAF_IDS.has(BLOCK_TYPES[index]?.id);
 }
 
-/** 色のついた不透明ブロックか（面を描く・隠す判定に使う）。水・空気・十字の板はちがう */
+/** チョークの しるし（MINE-1B）か。面に はる 薄い 板で 描く（絵は sectionExtras の pushChalk）。固くない・光を通す・まわりの面を隠さない */
+const CHALK = BLOCK_TYPES.map((t) => isChalkMarkId(t.id));
+export function isChalkIndex(index: number): boolean {
+  return CHALK[index] === true;
+}
+
+/** 色のついた不透明ブロックか（面を描く・隠す判定に使う）。水・空気・十字の板・しるしはちがう */
 export function isOpaqueIndex(index: number): boolean {
-  return index !== AIR && index !== WATER && !isTorchIndex(index) && !isCrossIndex(index) && !isPropIndex(index);
+  return index !== AIR && index !== WATER && !isTorchIndex(index) && !isCrossIndex(index) && !isPropIndex(index) && !isChalkIndex(index);
 }
 
 /** 固いブロックか（番号で） */

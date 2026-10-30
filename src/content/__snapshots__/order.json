@@ -35,6 +35,9 @@
     "break.iron_ore.1",
     "break.iron_ore.10",
     "break.iron_ore.50",
+    "break.sekkaiseki.1",
+    "break.hotaruishi.1",
+    "break.kin_ore.1",
     "break.all.100",
     "break.all.500",
     "break.all.1000",
@@ -90,6 +93,8 @@
     "craft.mushi_ami.1",
     "craft.nukunuku.1",
     "craft.toriya.1",
+    "craft.chalk.1",
+    "craft.shikkui.1",
     "craft.all.10",
     "craft.all.50",
     "craft.all.100",
@@ -103,6 +108,7 @@
     "bake.kawara.1",
     "bake.brick.1",
     "bake.haniwa.1",
+    "bake.ishibai.1",
     "bake.all.10",
     "bake.all.50",
     "bake.all.100",
@@ -116,6 +122,7 @@
     "obtain.cloth.1",
     "obtain.clay.1",
     "obtain.crystal.1",
+    "obtain.diamond.1",
     "obtain.all.100",
     "obtain.all.1000",
     "obtain.all.10000",
@@ -249,6 +256,7 @@
     "harvest.eggplant.1",
     "harvest.kinds.4",
     "farm.wet.1",
+    "farm.ishibai.1",
     "eat.all.1",
     "eat.all.10",
     "eat.all.100",
@@ -311,7 +319,9 @@
     "brick",
     "haniwa",
     "kin",
-    "momo_yaki"
+    "momo_yaki",
+    "kin_from_ore",
+    "ishibai"
   ],
   "BAKE_RECIPE_NAMES": [
     [
@@ -329,6 +339,10 @@
     [
       "haniwa",
       "はにわ"
+    ],
+    [
+      "ishibai",
+      "いしばい"
     ]
   ],
   "BOOK_CHAPTERS": [
@@ -411,7 +425,8 @@
     ],
     "build": [
       "kawara",
-      "brick"
+      "brick",
+      "shikkui"
     ],
     "food": [
       "onion",
@@ -447,7 +462,8 @@
       "clay",
       "yokai_orb",
       "sumi",
-      "kin_tamago"
+      "kin_tamago",
+      "ishibai"
     ],
     "metal": [
       "iron_ingot",
@@ -457,7 +473,10 @@
     ],
     "ore": [
       "coal_ore",
-      "iron_ore"
+      "iron_ore",
+      "sekkaiseki",
+      "hotaruishi",
+      "kin_ore"
     ],
     "plant": [
       "grass",
@@ -505,7 +524,8 @@
       "kongo_pickaxe",
       "kongo_axe",
       "mizumori",
-      "dotsuki"
+      "dotsuki",
+      "chalk"
     ],
     "weapon": [
       "bokuto",
@@ -578,7 +598,9 @@
     "kongo_kote",
     "kongo_suneate",
     "torch_coal",
-    "torch_log"
+    "torch_log",
+    "chalk",
+    "shikkui"
   ],
   "CRAFT_RECIPE_NAMES": [
     [
@@ -818,7 +840,13 @@
     "kongo_kote",
     "kongo_suneate",
     "mizumori",
-    "dotsuki"
+    "dotsuki",
+    "sekkaiseki",
+    "hotaruishi",
+    "kin_ore",
+    "shikkui",
+    "chalk",
+    "ishibai"
   ],
   "RARITY_ORDER": [
     "common",

@@ -36,7 +36,7 @@ export interface LogUiState {
   canDown: boolean;
 }
 
-export type LogSignal = 'needTool' | 'noArrow' | 'full' | 'tansuFull';
+export type LogSignal = 'needTool' | 'needIron' | 'noArrow' | 'full' | 'tansuFull';
 
 interface Entry {
   tick: number;
@@ -183,11 +183,19 @@ export class LogSystem {
     this.push({ tick: this.now, kind: 'bakeStart', category: 'craft', item, count: null, text: `かまど で ${this.nameOf(item)} を やく` });
   }
 
-  /** 照準の下の合図（いっぱい・つるはし・や）。出ていない状態から 出たときだけ呼ぶ */
+  /** 照準の下の合図（いっぱい・つるはし・てつの つるはし・や）。出ていない状態から 出たときだけ呼ぶ */
   signal(kind: LogSignal): void {
     const text =
-      kind === 'needTool' ? 'つるはし が いるよ' : kind === 'noArrow' ? 'や が いるよ' : kind === 'full' ? 'もちもの が いっぱい！' : 'たんす が いっぱい！';
-    const item: ItemId | null = kind === 'needTool' ? 'stone_pickaxe' : kind === 'noArrow' ? 'ya' : null;
+      kind === 'needTool'
+        ? 'つるはし が いるよ'
+        : kind === 'needIron'
+          ? 'てつの つるはし が いるよ'
+          : kind === 'noArrow'
+            ? 'や が いるよ'
+            : kind === 'full'
+              ? 'もちもの が いっぱい！'
+              : 'たんす が いっぱい！';
+    const item: ItemId | null = kind === 'needTool' ? 'stone_pickaxe' : kind === 'needIron' ? 'iron_pickaxe' : kind === 'noArrow' ? 'ya' : null;
     this.push({ tick: this.now, kind: 'signal', category: 'warn', item, count: null, text });
   }
 

@@ -3,7 +3,7 @@ import { itemType } from '../inventory/items';
 import { FUTON_HEAD, futonDirFromYaw, futonPartner } from '../world/blocks/futon';
 import { KOTATSU_CELLS } from '../world/blocks/kotatsu';
 import { applyFlatten, planFlatten, type FlattenPlan } from '../world/flatten';
-import { HANGING_SUPPORT, overlapsBody, type DigCore } from './digCore';
+import { HANGING_SUPPORT, isReplaceable, overlapsBody, type DigCore } from './digCore';
 
 /** 置く場所とブロック（置けないなら null）。tryPlace とヒントが同じ判定を使う */
 export interface PlaceSpot {
@@ -37,10 +37,10 @@ export class BlockPlacer {
       if (!bb || !bb.accepts(block) || c.world.getBlock(x, y, z) !== 'air' || this.overlapsBody(x, y, z) || !bb.canPlace(t.place, block)) return null;
       return { x, y, z, block };
     }
-    // FLORA-75: くさ を ねらって 置くと、くさ の マスに 置ける（くさ は 消える）
-    const { x, y, z } = t.id === 'kusa' ? t.block : t.place;
+    // FLORA-75: くさ を ねらって 置くと、くさ の マスに 置ける（くさ は 消える）。MINE-1B: チョークの しるしも 同じ
+    const { x, y, z } = isReplaceable(t.id) ? t.block : t.place;
     const cur = c.world.getBlock(x, y, z);
-    if (cur !== 'air' && cur !== 'water' && !(cur === 'kusa' && t.id === 'kusa')) return null; // 世界の外・ほかのブロック
+    if (cur !== 'air' && cur !== 'water' && !(isReplaceable(cur) && cur === t.id)) return null; // 世界の外・ほかのブロック
     if (block === 'nukunuku') {
       const k = this.kotatsuSpot(x, y, z);
       return k ? { x: k.x, y, z: k.z, block, cells: k.cells, plan: k.plan } : null;
@@ -104,7 +104,7 @@ export class BlockPlacer {
   kotatsuGhost(): { x: number; y: number; z: number; ok: boolean; flat?: FlattenPlan['plate'] } | null {
     const t = this.c.tgt();
     if (!t || this.c.inventory.held()?.item !== 'nukunuku') return null;
-    const { x, y, z } = t.id === 'kusa' ? t.block : t.place;
+    const { x, y, z } = isReplaceable(t.id) ? t.block : t.place;
     const k = kotatsuPlan(this.spot());
     if (k) return { x: k.x, y: k.y, z: k.z, ok: true, flat: k.plan.plate };
     return { x, y, z, ok: false };

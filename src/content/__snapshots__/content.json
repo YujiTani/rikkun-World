@@ -1421,6 +1421,25 @@
           },
           "station": "craft",
           "works": true
+        },
+        {
+          "id": "shikkui",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "ishibai"
+            },
+            {
+              "count": 1,
+              "item": "string"
+            }
+          ],
+          "output": {
+            "count": 2,
+            "item": "shikkui"
+          },
+          "station": "craft",
+          "works": true
         }
       ]
     },
@@ -4818,6 +4837,21 @@
           },
           "station": "furnace",
           "works": true
+        },
+        {
+          "id": "kin_from_ore",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "kin_ore"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kin"
+          },
+          "station": "furnace",
+          "works": true
         }
       ]
     },
@@ -5763,6 +5797,242 @@
       "placeBlock": null,
       "rarity": "common",
       "recipes": []
+    },
+    "sekkaiseki": {
+      "DIG_DEFAULTS.hardness.sekkaiseki": 5,
+      "DIG_DEFAULTS.harvestLevel.sekkaiseki": 1,
+      "DIG_DEFAULTS.rarity.sekkaiseki": "uncommon",
+      "ITEM_INFO.sekkaiseki": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "dig": true,
+        "how": "てに もって みぎクリック で おく",
+        "use": "ちか の なかほど に ある しろい いし。さぎょうだい で チョーク、かまど で やくと いしばい に なる。おける"
+      },
+      "category": "ore",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "せっかいせき",
+      "placeBlock": "sekkaiseki",
+      "rarity": "uncommon",
+      "recipes": [
+        {
+          "id": "chalk",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "sekkaiseki"
+            }
+          ],
+          "output": {
+            "count": 4,
+            "item": "chalk"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "ishibai",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "sekkaiseki"
+            }
+          ],
+          "output": {
+            "count": 2,
+            "item": "ishibai"
+          },
+          "station": "furnace",
+          "works": true
+        }
+      ]
+    },
+    "hotaruishi": {
+      "DIG_DEFAULTS.hardness.hotaruishi": 6,
+      "DIG_DEFAULTS.harvestLevel.hotaruishi": 1,
+      "DIG_DEFAULTS.rarity.hotaruishi": "rare",
+      "ITEM_INFO.hotaruishi": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "dig": true,
+        "how": "てに もって みぎクリック で おく",
+        "use": "ちか の なかほど に ある。くらい ところ で ぼんやり ひかる。おくと あかり に なる"
+      },
+      "category": "ore",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "ほたるいし",
+      "placeBlock": "hotaruishi",
+      "rarity": "rare",
+      "recipes": []
+    },
+    "kin_ore": {
+      "DIG_DEFAULTS.hardness.kin_ore": 15,
+      "DIG_DEFAULTS.harvestLevel.kin_ore": 2,
+      "DIG_DEFAULTS.rarity.kin_ore": "epic",
+      "ITEM_INFO.kin_ore": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "dig": true,
+        "how": "てに もって みぎクリック で おく",
+        "use": "ちか の ふかい ところ に ある。かまど で やくと きん に なる。おける"
+      },
+      "category": "ore",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "きんの いし",
+      "placeBlock": "kin_ore",
+      "rarity": "epic",
+      "recipes": [
+        {
+          "id": "kin_from_ore",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "kin_ore"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "kin"
+          },
+          "station": "furnace",
+          "works": true
+        }
+      ]
+    },
+    "shikkui": {
+      "CRAFT_DEFAULTS.fixedDrop.shikkui": 1,
+      "DIG_DEFAULTS.hardness.shikkui": 4,
+      "DIG_DEFAULTS.harvestLevel.shikkui": 0,
+      "DIG_DEFAULTS.rarity.shikkui": "uncommon",
+      "ITEM_INFO.shikkui": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって みぎクリック で おく",
+        "use": "しろい かべ の ブロック。おける"
+      },
+      "category": "build",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "しっくい",
+      "placeBlock": "shikkui",
+      "rarity": "uncommon",
+      "recipes": [
+        {
+          "id": "shikkui",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "ishibai"
+            },
+            {
+              "count": 1,
+              "item": "string"
+            }
+          ],
+          "output": {
+            "count": 2,
+            "item": "shikkui"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "chalk": {
+      "ITEM_INFO.chalk": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって、かべ や ゆか に みぎクリック",
+        "use": "かべ や ゆか に やじるし を かく。きた ほう を さす ので かえりみち が わかる"
+      },
+      "category": "tool",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "チョーク",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": [
+        {
+          "id": "chalk",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "sekkaiseki"
+            }
+          ],
+          "output": {
+            "count": 4,
+            "item": "chalk"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "ishibai": {
+      "ITEM_INFO.ishibai": {
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって、はたけ の やさい に みぎクリック",
+        "use": "はたけ の やさい に まくと すぐ みのる。しっくい の ざいりょう"
+      },
+      "category": "material",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "いしばい",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": [
+        {
+          "id": "shikkui",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "ishibai"
+            },
+            {
+              "count": 1,
+              "item": "string"
+            }
+          ],
+          "output": {
+            "count": 2,
+            "item": "shikkui"
+          },
+          "station": "craft",
+          "works": true
+        },
+        {
+          "id": "ishibai",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "sekkaiseki"
+            }
+          ],
+          "output": {
+            "count": 2,
+            "item": "ishibai"
+          },
+          "station": "furnace",
+          "works": true
+        }
+      ]
     }
   },
   "yokai": {

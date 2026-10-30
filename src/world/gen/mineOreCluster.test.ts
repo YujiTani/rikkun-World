@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { BLOCK_INDEX } from '../blocks/blockTypes';
 import { COL_VOLUME, HW, LAYER } from './columnLayout';
 import { MINE_CONFIG } from './mineConfig';
+import { layerAt, layerSpan } from './mineLayers';
 import { placeMineOres, type OreCluster } from './mineOres';
 
 /**
@@ -30,7 +31,10 @@ function stoneColumn(): { out: Uint8Array; heights: Int16Array } {
 }
 
 const at = (i: number): { x: number; y: number; z: number } => ({ x: i % 16, y: Math.floor(i / LAYER), z: Math.floor(i / 16) % 16 });
-const layerOf = (y: number): string => (y >= 96 ? 'asai' : y >= 52 ? 'nakahodo' : y >= 1 ? 'fukai' : 'none');
+/** その 高さの 層（表 `MINE_CONFIG.layers` から 読む。そこいし〔y 0〕より 下は 'none'） */
+const layerOf = (y: number): string => layerAt(y) ?? 'none';
+/** あさい 層の 下、なかほど 層の 中に ある 低い 地面（マス）。層の 高さを かえたら 下の 見はりが 落ちる */
+const LOW_GROUND = 60;
 const fnv = (a: Uint8Array): number => {
   let h = 0x811c9dc5;
   for (let i = 0; i < a.length; i++) h = Math.imul(h ^ a[i]!, 0x01000193);
@@ -90,8 +94,10 @@ describe('placeMineOres: 置く 場所', () => {
 
   it('層の 高さが 地面より 上なら 置かない（地面 60 の 列に あさい 層の せきたんは 出ない）', () => {
     const out = new Uint8Array(COL_VOLUME);
-    out.fill(STONE, LAYER, 59 * LAYER);
-    placeMineOres(out, 3, 0, 0, new Int16Array(HW * HW).fill(60));
+    expect(layerSpan('asai').lo, '地面が あさい 層の 下').toBeGreaterThan(LOW_GROUND);
+    expect(layerAt(LOW_GROUND - 1), '地面の 1 つ 下は なかほど 層').toBe('nakahodo');
+    out.fill(STONE, LAYER, (LOW_GROUND - 1) * LAYER);
+    placeMineOres(out, 3, 0, 0, new Int16Array(HW * HW).fill(LOW_GROUND));
     for (let i = 0; i < COL_VOLUME; i++) expect(out[i] === COAL, `coal y=${at(i).y}`).toBe(false);
     expect(out.some((b) => b === IRON)).toBe(true);
   });

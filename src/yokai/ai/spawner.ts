@@ -59,6 +59,17 @@ const MODEL_OF = {
   tako_hachimaki: () => new TakoHachimaki(),
 } satisfies Record<YokaiKind, () => YokaiBase>;
 
+/**
+ * 妖怪の 出し方（`create` の 最後の 引数）。appear = ふくらんで 出てくる、auto = 自動の 出現（見つけられない まま 去る。MINE-1A §4.3）。
+ * 2 つは 別の 意味なので 1 つの 引数に まとめない（1A の レビュー）
+ */
+interface SpawnHow {
+  appear: boolean;
+  auto: boolean;
+}
+const BY_HAND: SpawnHow = { appear: false, auto: false };
+const BY_AUTO: SpawnHow = { appear: true, auto: true };
+
 export class YokaiSpawner {
   private nextId = 1;
   private spawnCountdown = 0;
@@ -69,7 +80,7 @@ export class YokaiSpawner {
   /** テスト用の出し方（決まった数にする）。出た id を返す */
   spawnByHand(kind: YokaiKind, x: number, y: number, z: number, opts: SpawnOptions): number {
     const { events } = this.d;
-    const e = this.create(kind, x, y, z, (opts.yawDeg ?? 0) * DEG, false);
+    const e = this.create(kind, x, y, z, (opts.yawDeg ?? 0) * DEG, BY_HAND);
     e.ai = opts.ai ?? true;
     e.age = 1000;
     events.emit({ type: 'spawn', tick: events.tick(), id: e.id, kind, position: { x, y, z } });
@@ -78,7 +89,7 @@ export class YokaiSpawner {
     return e.id;
   }
 
-  private create(kind: YokaiKind, x: number, y: number, z: number, yaw: number, appear: boolean): Ent {
+  private create(kind: YokaiKind, x: number, y: number, z: number, yaw: number, how: SpawnHow): Ent {
     const { f, group, rng } = this.d;
     const model = MODEL_OF[kind]();
     if (model instanceof Chochin) model.fireLayer = group;
@@ -94,7 +105,7 @@ export class YokaiSpawner {
       yaw,
       hp,
       maxHp: hp,
-      state: appear ? 'appear' : 'idle',
+      state: how.appear ? 'appear' : 'idle',
       ai: true,
       bright: 1,
       age: 0,
@@ -131,7 +142,7 @@ export class YokaiSpawner {
       bodyScale: 1,
       dims: KIND_AI[kind],
       stage: 1,
-      appearScale: appear ? 0 : 1,
+      appearScale: how.appear ? 0 : 1,
       remove: false,
       fallFrom: NaN,
       floating: false,
@@ -141,7 +152,7 @@ export class YokaiSpawner {
       stagPhase: 0,
       swim: null,
       // 自動で 出た 妖怪だけ 見つけられない まま 去る（MINE-1A §4.3。ふくらんで 出てくるのも 自動の 出現だけ）
-      auto: appear,
+      auto: how.auto,
       foundAt: f.steps,
     };
     model.onHit = (ev) => this.d.onModelHit(e, ev.box);
@@ -243,7 +254,7 @@ export class YokaiSpawner {
         // M3 AC3: ゆうがたの終わりごろで空の光が弱まっても、外（空の下）には出ない。出るのは屋根の下か、よる
         if (!night && !isRoofed(world, x, T, z, ai.height)) continue;
       } else if (!isRoofed(world, x, T, z, ai.height) && !night) continue;
-      const e = this.create(kind, x, T, z, rng() * Math.PI * 2, true);
+      const e = this.create(kind, x, T, z, rng() * Math.PI * 2, BY_AUTO);
       events.emit({ type: 'spawn', tick: events.tick(), id: e.id, kind, position: { x, y: T, z } });
       this.d.placement.decidePlace(e, null);
       return;
@@ -268,7 +279,7 @@ export class YokaiSpawner {
       const ai = KIND_AI[kind];
       const y = swimYAt(surface, ai, sw.depthSpawn);
       if (Number.isNaN(swimTarget(world, ai, sw, x, z, y, 0))) return false;
-      const e = this.create(kind, x, y, z, rng() * Math.PI * 2, true);
+      const e = this.create(kind, x, y, z, rng() * Math.PI * 2, BY_AUTO);
       events.emit({ type: 'spawn', tick: events.tick(), id: e.id, kind, position: { x, y, z } });
       this.d.placement.decidePlace(e, null);
       return true;

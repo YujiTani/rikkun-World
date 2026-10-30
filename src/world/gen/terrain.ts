@@ -224,6 +224,14 @@ export function terrainFor(seed: number): Terrain {
   return t;
 }
 
+/**
+ * 世界の 座標（小数 ok）の 足もとの「生成の 地形の 高さ」（地面。掘っても 置いても かわらない）。
+ * 地下の 判定（MINE-1A）が 妖怪を 出す 側（game/wire/creatures.ts）と 窓口（mine.underground）の 両方で 同じ 式を 使う
+ */
+export function groundHeightAt(seed: number, x: number, z: number): number {
+  return terrainFor(seed).height(Math.floor(x), Math.floor(z));
+}
+
 /** テスト用: 覚えているものを全部すてる（作る順に頼っていないことを確かめるため） */
 export function clearTerrainCache(): void {
   terrains.clear();

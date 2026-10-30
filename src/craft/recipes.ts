@@ -1,5 +1,5 @@
 import type { ItemId, Recipe } from '../contracts';
-import { ARMOR_DEFS, BOW_DEFS, BUCKET_DEFS, FARM_TOOL_DEFS, GADGET_DEFS, GOLD_DEFS, INGOT_DEFS, KONGO_DEFS, LIVE_DEFS, M4_BLOCK_DEFS, SEED_DEFS, SPRINKLER_DEFS, SWORD_DEFS, TOOL_DEFS, pickDefs, recipesOf } from '../content/items/registry';
+import { ARMOR_DEFS, BOW_DEFS, BUCKET_DEFS, FARM_TOOL_DEFS, GADGET_DEFS, GOLD_DEFS, INGOT_DEFS, KONGO_DEFS, LIVE_DEFS, M4_BLOCK_DEFS, MINE_DEFS, SEED_DEFS, SPRINKLER_DEFS, SWORD_DEFS, TOOL_DEFS, pickDefs, recipesOf } from '../content/items/registry';
 
 const r = (
   id: ItemId,
@@ -18,6 +18,8 @@ const r = (
 /** たいまつの 足した作り方の id（もとの `torch` は き 1・あぶら 1 → 4） */
 export const TORCH_COAL = 'torch_coal';
 export const TORCH_LOG = 'torch_log';
+/** きんの 足した作り方の id（MINE-1B。もとの `kin` は きんの たまご 1 → 1。足すのは きんの いし 1 → 1）。カードは 元の kin の 1 枚のまま */
+export const KIN_FROM_ORE = 'kin_from_ore';
 
 /** つくる 38 こ（カードは 36 枚。たいまつの 作り方が 3 つ）（M4 §4.1 の 22 こ + BAL-D の おの 3 こ + M7-2 の 3 こ + #63 の たね 4 こ + むしとりあみ + こたつ・とりごや。カードの順） */
 export const CRAFT_RECIPES: readonly Recipe[] = [
@@ -49,9 +51,11 @@ export const CRAFT_RECIPES: readonly Recipe[] = [
   // （作り方は せつめい欄のページで えらぶ）。出来る物は どれも torch
   { ...r('torch', 4, [['log', 1], ['coal_ore', 1]], true), id: TORCH_COAL },
   { ...r('torch', 1, [['log', 3]], true), id: TORCH_LOG },
+  // MINE-1B（#349 §4.4）: チョーク（せっかいせき 1 → 4）→ しっくい（いしばい 1 ＋ いと 1 → 2）。作業台の カードの いちばん うしろ（この順）。登録表（content/items/mine.ts・blocks.ts）から
+  ...recipesOf(pickDefs(MINE_DEFS, ['chalk', 'shikkui']), 'craft'),
 ];
 
-/** やく 6 こ（M4 §4.2 の 4 こ ＋ LIVE-3 の やいた もも にく ＋ GOLD-1 の きん。かまど で。ねんりょう 1 こ・60 ステップ。やいた もも にく は いちばん うしろ） */
+/** やく 8 こ（カードは 7 枚。M4 §4.2 の 4 こ ＋ LIVE-3 の やいた もも にく ＋ GOLD-1 の きん ＋ MINE-1B の いしばい と きんの いしから 作る きん。かまど で。ねんりょう 1 こ・60 ステップ） */
 export const BAKE_RECIPES: readonly Recipe[] = [
   // てつの かたまりは 登録表（content/items/materials.ts）から。かわら・レンガ（content/items/blocks.ts）の 次の はにわは 登録表（content/items/misc.ts）から
   ...recipesOf(INGOT_DEFS, 'furnace'),
@@ -61,6 +65,9 @@ export const BAKE_RECIPES: readonly Recipe[] = [
   ...recipesOf(GOLD_DEFS, 'furnace'),
   // LIVE-3（§4.2）: なま もも にく → やいた もも にく（ねんりょう 1・60 ステップ）は 登録表（content/items/live.ts）から
   ...recipesOf(LIVE_DEFS, 'furnace'),
+  // MINE-1B（#349 §4.4）: きんの いし 1 → きん 1（きんの カードに まとまる 2 つ目の 作り方）→ せっかいせき 1 → いしばい 2（やく カードの いちばん うしろ）
+  { ...r('kin', 1, [['kin_ore', 1]], true, 'furnace'), id: KIN_FROM_ORE },
+  ...recipesOf(pickDefs(MINE_DEFS, ['ishibai']), 'furnace'),
 ];
 
 export const ALL_RECIPES: readonly Recipe[] = [...CRAFT_RECIPES, ...BAKE_RECIPES];
