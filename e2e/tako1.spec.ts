@@ -64,7 +64,7 @@ async function swing(page: Page) {
 }
 
 test.describe('TAKO-1 うみの タコはちまき', () => {
-  test('AC13: 水の 中の タコはちまき を、水面の りっくんが パンチ・かたなで たたける', async ({ page }) => {
+  test('AC13: 水の 中の タコはちまき を、同じ ふかさの りっくんが パンチ・かたなで たたける', async ({ page }) => {
     await open(page);
     const id = await spawnTako(page);
     const t0 = await info(page, id);
