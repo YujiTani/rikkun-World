@@ -153,6 +153,9 @@
 | レンガ | `brick` | brick |
 | かわら | `kawara` | kawara |
 | はたけ・ぬれた はたけ | `farmland`・`farmland_wet` | farmland(_wet)_top / dirt / farmland(_wet)_side |
+| いえの ゆか | `house_floor` | hl_floor_top / hl_floor_side / hl_floor_side（§21。絵の 名前は 案） |
+| いえの かべ | `house_wall` | hl_wall_top / hl_wall_top / hl_wall（§21。板の みぞは 絵。でこぼこに しない） |
+| いえの やね | `house_roof` | hl_roof_top / hl_ceiling / hl_roof_side（§21。下の 面 ＝ 家の 天井） |
 
 - 9×9×9 の 前と 同じ **1 ブロックの 箱**（6 面。となりが 不透明の 面は 描かない）。絵は 4.1 の 向きの まま。
 - 影の 付け方も 前と 同じ（面の 明るさ ＋ 角の 光の なめらかな 平均）に、3.1 の 値と 3.2 の ブロック単位の AO を かける（となりの でこぼこの 地形と 明るさを そろえる）。

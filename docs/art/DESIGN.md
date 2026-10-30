@@ -29,6 +29,7 @@
 | §17・18 ドット絵の板のエフェクトは十字・雷神剣の雷 B・エフェクトの数と点の大きさ | `docs/art/design/05-effects.md` | エフェクト・わざの光（`docs/art/EFFECT-KNOWLEDGE.md` もいっしょに） |
 | §19 ハウジング（建築士さん・テーブル・いす・あんどん・ほんだな・おふろ。形・色・うなずき・ほかの動きの目安・三角形） | `docs/art/design/06-housing.md` | 建築士さん・家具・家の中の物（作る係への依頼は `docs/art/requests/HOUSE-1-architect-furniture.md`） |
 | §20 炭鉱（鉱石は B「とびだす つぶ」〔ダイヤも〕・ねんど／せっかいせき／しっくい／坑道のわくは A・つらら・ほたるいしの光 7〔光る 数は ほたるの ほらあなだけ 例外〕・宝箱 4 段階 v2〔4 つ とも 2a の 形・2 マス、かざりと 色で 段。ふたの 動きは chest-v2-open.gif の とおり〔yuzu の 確認 なし〕〕） | `docs/art/design/07-mine.md` | 地下・鉱石・坑道・ほらあなのブロック・宝箱（MINE-1。作る係への依頼は `docs/art/requests/MINE-1-blocks.md`） |
+| §21 家の ブロック（ゆか・かべ・やね・しょうじ・と）・天井の ちょうちん・置いた ふとん・せっけいずの 絵（案 C「ふとい いたの やまごや」。平らな 箱で 板の みぞ・ふとさは 絵〔光・かげ・みぞの 線〕、しょうじは かべの あつみの 中の 紙の 板、戸は てつの おびの 2 まい とびら、ふとん・ちょうちんは 今の まま、アイテムの 絵は 今の ブロックと 同じ「ブロックの 面」） | `docs/art/design/06-housing.md` | 建築士さんが 建てる 家の ブロックと せっけいず（HOUSE-1 2 版。作る係への依頼は `docs/art/requests/HOUSE-1-house-blocks.md`） |
 
 - 新しい章を足すときは `docs/art/design/` に 1 本足し、この表に 1 行足す。決まったことは章のファイルを直して「今の 1 本」にする（版ごとに別ファイルを作らない）。
 - 動きのものさしは `docs/art/MOTION.md`・`docs/art/MOTION-NOTES.md`、見た目のものさしは `docs/art/CRITERIA.md`、作り方は `docs/art/PIPELINE.md`。
