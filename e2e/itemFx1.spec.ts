@@ -145,7 +145,7 @@ test.describe('ふとん（AC6・AC7）', () => {
     expect(Math.max(...fades)).toBeGreaterThan(0.9); // 暗くなって
     expect(fades[fades.length - 1]).toBe(0); // 明るくなる
     const after = await page.evaluate(() => (window as any).__rikkun.time.get());
-    expect(after.phase).toBe('dawn');
+    expect(after.phase).toBe('day'); // ひるの はじまりに おきる
     expect(after.day).toBe(before.day + 1);
     expect((await page.evaluate(() => (window as any).__rikkun.sleep.get())).sleeping).toBe(false);
   });

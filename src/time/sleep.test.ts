@@ -16,14 +16,20 @@ function at(tick: number) {
 }
 
 describe('TimeOfDayImpl.sleepToMorning', () => {
-  it('あさ（dawn）の始まりになり、日付が 1 進む', () => {
+  it('ひる（day）の始まり（表の起きる時刻）になり、日付が ちょうど 1 進む。そのまま 進めても 日づけは ふえない', () => {
     const time = new TimeOfDayImpl();
     time.set(S.dayTicks + S.duskTicks + 100); // よる
     const day = time.day();
     time.sleepToMorning();
-    expect(time.phase()).toBe('dawn');
-    expect(time.dayTick()).toBe(DAWN_START);
+    expect(time.phase()).toBe('day');
+    expect(time.dayTick()).toBe(GADGET_TUNING.futon.wakeDayTick);
     expect(time.day()).toBe(day + 1);
+    const t2 = new TimeOfDayImpl();
+    t2.set(S.dayTicks + S.duskTicks + 100);
+    const d2 = t2.day();
+    t2.sleepToMorning();
+    for (let i = 0; i < S.dayTicks + S.duskTicks + S.nightTicks + S.dawnTicks - 1; i++) t2.update(); // 次の 日の おわりの 1 つ前まで: 日づけは +1 のまま
+    expect(t2.day()).toBe(d2 + 1);
   });
 });
 
@@ -53,7 +59,8 @@ describe('ふとんでねる（AC6）', () => {
       const peak = fades.indexOf(Math.max(...fades));
       for (let i = 1; i <= peak; i++) expect(fades[i]!, `up ${i}`).toBeGreaterThanOrEqual(fades[i - 1]!); // 少しずつ暗く
       for (let i = peak + 1; i < fades.length; i++) expect(fades[i]!, `down ${i}`).toBeLessThanOrEqual(fades[i - 1]!); // 少しずつ明るく
-      expect(time.phase()).toBe('dawn');
+      expect(time.phase()).toBe('day');
+      expect(time.dayTick()).toBe(GADGET_TUNING.futon.wakeDayTick);
       expect(time.day()).toBe(day + 1);
     });
   }
@@ -65,7 +72,7 @@ describe('ふとんでねる（AC6）', () => {
     for (let i = 0; i < Math.floor(n / 4); i++) sleep.update();
     expect(time.dayTick()).toBe(before); // まだ明るさが残っているあいだは そのまま
     for (let i = Math.floor(n / 4); i < n; i++) sleep.update();
-    expect(time.phase()).toBe('dawn');
+    expect(time.phase()).toBe('day');
   });
 });
 
@@ -83,20 +90,4 @@ describe('ひる・あさは ねられない（AC7）', () => {
       expect(NOT_NIGHT_TEXT).toBe('よる に ねようね');
     });
   }
-});
-
-describe('ねた日づけの 保存（印）', () => {
-  it('ねたあと 区切りの 前に 保存 → 読みこみ しても 日づけは 合計 +1 のまま', () => {
-    const a = new TimeOfDayImpl();
-    a.set(S.dayTicks + S.duskTicks + 500);
-    const day = a.day();
-    a.sleepToMorning();
-    const saved = { day: a.day(), dayTick: a.dayTick(), slept: a.sleptMark() };
-    const b = new TimeOfDayImpl();
-    b.setDay(saved.day);
-    b.set(saved.dayTick);
-    b.setSleptMark(saved.slept);
-    for (let i = 0; i < S.dawnTicks + 5; i++) b.update();
-    expect(b.day()).toBe(day + 1);
-  });
 });

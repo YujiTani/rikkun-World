@@ -1,4 +1,5 @@
 import { GADGET_ID } from '../content/items/gadgetTuning';
+import { isFutonId } from '../world/blocks/futon';
 import type { BucketPreview, BlockId, ItemId, RightClickKind, TargetInfo, WaterPreview, WaterRay } from '../contracts';
 export type { RightClickKind };
 
@@ -90,7 +91,7 @@ export function previewRightClick(c: RightClickCtx): RightClickPreview | null {
   if (t && c.isTansu(t.block.x, t.block.y, t.block.z)) return { kind: 'storage', item: null };
   if (t && c.isFurnace(t.block.x, t.block.y, t.block.z)) return { kind: 'furnace', item: null };
   // ITEM-FX-1: ふとん（ねる。置くより 先）・たこ（持って 右クリック。ねらいが なくても）
-  if (t && t.id === GADGET_ID.futon) return { kind: 'sleep', item: null };
+  if (t && isFutonId(t.id)) return { kind: 'sleep', item: null };
   if (c.held === GADGET_ID.kite) return { kind: 'kite', item: c.held };
   if (c.held && c.canEquip(c.held)) return { kind: 'armor', item: c.held };
   const b = c.bucket?.();

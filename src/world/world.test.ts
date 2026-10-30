@@ -29,6 +29,8 @@ const ALL_IDS: BlockId[] = [
   'geyser_dirt',
   // ITEM-FX-1（#342。小物 3 つが 置ける ブロックに なった。うしろに足す）
   'lantern', 'futon', 'haniwa',
+  // ふとん 2 マスの のこり（頭の 3 向き ＋ 足の 4 向き）
+  'futon_s', 'futon_w', 'futon_n', 'futon_foot_e', 'futon_foot_s', 'futon_foot_w', 'futon_foot_n',
 ];
 
 /** この試験は M1 の 64×32×64 の世界で書かれている */

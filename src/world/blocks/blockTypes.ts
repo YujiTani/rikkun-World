@@ -64,6 +64,14 @@ export const BLOCK_TYPES: readonly BlockType[] = [
   { id: 'lantern', name: 'ちょうちん', solid: false, breakable: true },
   { id: 'futon', name: 'ふとん', solid: false, breakable: true },
   { id: 'haniwa', name: 'はにわ', solid: false, breakable: true },
+  // ふとん 2 マスの のこり 7 つ（番号は後ろに足す）
+  { id: 'futon_s', name: 'ふとん', solid: false, breakable: true },
+  { id: 'futon_w', name: 'ふとん', solid: false, breakable: true },
+  { id: 'futon_n', name: 'ふとん', solid: false, breakable: true },
+  { id: 'futon_foot_e', name: 'ふとん', solid: false, breakable: true },
+  { id: 'futon_foot_s', name: 'ふとん', solid: false, breakable: true },
+  { id: 'futon_foot_w', name: 'ふとん', solid: false, breakable: true },
+  { id: 'futon_foot_n', name: 'ふとん', solid: false, breakable: true },
 ];
 
 export const BLOCK_INDEX: Readonly<Record<BlockId, number>> = Object.fromEntries(
@@ -83,7 +91,7 @@ export function isTorchIndex(index: number): boolean {
 }
 
 /** 小物の置き物（ITEM-FX-1: ちょうちん・ふとん・はにわ）。固くない・光を通す・箱の組み合わせで描く（絵は meshChunk の pushProp） */
-const PROP_IDS: ReadonlySet<string> = new Set(['lantern', 'futon', 'haniwa']);
+const PROP_IDS: ReadonlySet<string> = new Set(['lantern', 'futon', 'futon_s', 'futon_w', 'futon_n', 'futon_foot_e', 'futon_foot_s', 'futon_foot_w', 'futon_foot_n', 'haniwa']);
 const PROP = BLOCK_TYPES.map((t) => PROP_IDS.has(t.id));
 export function isPropIndex(index: number): boolean {
   return PROP[index] === true;

@@ -47,6 +47,7 @@ import { pickAimAssist } from '../../camera/aimAssist';
 import { computeFarmPlacement } from '../../world/gen/farmPlacement';
 import { NO_SWINGS } from './shared';
 import { wireGadgets } from './gadgets';
+import { playSleepJingle } from '../../fx/sleepJingle';
 import type { WiredDrops } from './inventory';
 
 export function wireWeapons(deps: WiredDrops) {
@@ -209,6 +210,7 @@ export function wireFighters(deps: WiredWeapons) {
     controller,
     armor,
     lock,
+    onSleepStart: () => playSleepJingle(fxSound),
   });
   const combat = new PlayerCombatImpl({
     config: combatCfg,

@@ -1,5 +1,6 @@
 import type { BlockId } from '../contracts';
 import { itemType } from '../inventory/items';
+import { FUTON_HEAD, futonDirFromYaw, futonPartner } from '../world/blocks/futon';
 import { KOTATSU_CELLS } from '../world/blocks/kotatsu';
 import { applyFlatten, planFlatten, type FlattenPlan } from '../world/flatten';
 import { HANGING_SUPPORT, overlapsBody, type DigCore } from './digCore';
@@ -48,6 +49,17 @@ export class BlockPlacer {
       // のばな は くさ・つち の上だけ
       const under = c.world.getBlock(x, y - 1, z);
       if (under !== 'grass' && under !== 'dirt') return null;
+    }
+    if (block === FUTON_HEAD[0]) {
+      // ふとん: 2 マス。向いている 方向（頭 → 足）。足の マスも あいていて、体に 重ならない ところだけ
+      const dir = futonDirFromYaw(c.player().yawDeg);
+      const head = FUTON_HEAD[dir]!;
+      const foot = futonPartner(head, x, z)!;
+      const fcur = c.world.getBlock(foot.x, y, foot.z);
+      if (fcur !== 'air' && fcur !== 'water') return null;
+      if (this.overlapsBody(x, y, z) || this.overlapsBody(foot.x, y, foot.z)) return null;
+      if (c.gate?.placeBlocked(x, y, z) || c.gate?.placeBlocked(foot.x, y, foot.z)) return null;
+      return { x, y, z, block: head, cells: [{ x, z, block: head }, { x: foot.x, z: foot.z, block: foot.id }] };
     }
     // たいまつ・ちょうちん: 固くない（体と重なっても置ける）。支えが要る（たいまつ = 下か横、ちょうちん = 下・横・上）
     const support = HANGING_SUPPORT[block];

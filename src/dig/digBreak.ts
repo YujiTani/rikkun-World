@@ -1,6 +1,8 @@
 import type { BlockId, ItemId, TargetInfo, VoxelWorld } from '../contracts';
 import { isFloraBlock } from '../world/blocks/flora';
+import { futonPartner, isFutonId } from '../world/blocks/futon';
 import { KOTATSU_CELLS, isKotatsuBlock, kotatsuAnchorOf } from '../world/blocks/kotatsu';
+import { GADGET_ID } from '../content/items/gadgetTuning';
 import { BLADE_LIKE_ITEMS } from '../tools/bladeSets';
 import { randInt, type Rng } from '../world/gen/random';
 import { FARM_BREAK_DROP, NO_DROP_BLOCKS } from './config';
@@ -43,7 +45,10 @@ export class BlockBreaker {
     const { x, y, z } = t.block;
     // こたつ 2×2: どの マス を こわして も 4 マス ぜんぶ 消える（`nukunuku` 1 と 中 の たまご は 1 回 だけ）
     if (isKotatsuBlock(t.id)) this.clearKotatsuCells(t);
-    const dropId: BlockId = isKotatsuBlock(t.id) ? 'nukunuku' : t.id;
+    const dropId: BlockId = isKotatsuBlock(t.id) ? 'nukunuku' : isFutonId(t.id) ? GADGET_ID.futon : t.id;
+    // ふとん 2 マス: どちらを こわしても 相手の マスも 消えて ふとん 1 つ（相手が いない 1 マスだけの ふとんは そのまま）
+    const pair = futonPartner(t.id, x, z);
+    if (pair && c.world.getBlock(pair.x, y, pair.z) === pair.id) c.world.setBlock(pair.x, y, pair.z, 'air');
     const craft = c.m4.craft;
     const wasFurnace = craft?.isFurnace(x, y, z) ?? false;
     const wasTansu = t.id === 'tansu';

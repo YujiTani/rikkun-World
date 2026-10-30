@@ -3,6 +3,7 @@ import { BLOCK_TILES, TORCH_PX, tileSubUv, tileUv, type TileName } from '../bloc
 import type { CropStageSource } from '../../contracts';
 import { cropKindOfBlock } from '../../contracts';
 import { GADGET_ID } from '../../content/items/gadgetTuning';
+import { FUTON_FOOT, FUTON_HEAD } from '../blocks/futon';
 import { OPACITY } from '../light/opacity';
 import type { WorldLight } from '../light/WorldLight';
 import { CHUNK_SIZE, type ArrayVoxelWorld } from '../VoxelWorld';
@@ -251,18 +252,13 @@ interface PropBox {
   tile: TileName;
   top?: TileName;
 }
-const PROP_SHAPES: Readonly<Record<string, readonly PropBox[]>> = {
+const PROP_SHAPES: Record<string, readonly PropBox[]> = {
   // 赤い紙の まるっこい 箱 ＋ 上下の 黒い 枠 ＋ つり手
   lantern: [
     { min: [3, 4, 3], max: [13, 12, 13], tile: 'lantern' },
     { min: [4, 12, 4], max: [12, 14, 12], tile: 'lantern_frame' },
     { min: [4, 2, 4], max: [12, 4, 12], tile: 'lantern_frame' },
     { min: [7, 14, 7], max: [9, 16, 9], tile: 'lantern_frame' },
-  ],
-  // 平たい 白と赤の しきぶとん ＋ まくら
-  futon: [
-    { min: [1, 0, 1], max: [15, 3, 15], tile: 'futon_side', top: 'futon_top' },
-    { min: [4, 3, 2], max: [12, 4, 6], tile: 'futon_side', top: 'futon_side' },
   ],
   // 素焼き色の 人形: 体 ＋ 頭（顔）＋ うで
   haniwa: [
@@ -272,6 +268,25 @@ const PROP_SHAPES: Readonly<Record<string, readonly PropBox[]>> = {
     { min: [11, 4, 7], max: [13, 7, 9], tile: 'haniwa' },
   ],
 };
+/** ふとん 2 マス: 頭（まくら）と 足（かけぶとん）の マスを、e 向きの 形から 90 度ずつ まわして 4 向きぶん 作る */
+const FUTON_HEAD_E: readonly PropBox[] = [
+  { min: [0, 0, 0], max: [16, 3, 16], tile: 'futon_side', top: 'futon_top' },
+  { min: [2, 3, 3], max: [8, 5, 13], tile: 'futon_side', top: 'futon_top' }, // まくら（頭の はし）
+];
+const FUTON_FOOT_E: readonly PropBox[] = [{ min: [0, 0, 0], max: [16, 4, 16], tile: 'futon_side', top: 'futon_blanket' }];
+/** 90 度（上から見て 時計まわり: 東 → 南）を k 回 まわす（x, z だけ。16 点の 箱の まんなかを 中心に） */
+function turnBox(b: PropBox, k: number): PropBox {
+  let { min, max } = b;
+  for (let i = 0; i < k; i++) {
+    const [x0, y0, z0] = min;
+    const [x1, y1, z1] = max;
+    min = [16 - z1, y0, x0];
+    max = [16 - z0, y1, x1];
+  }
+  return { ...b, min, max };
+}
+FUTON_HEAD.forEach((id, k) => (PROP_SHAPES[id] = FUTON_HEAD_E.map((b) => turnBox(b, k))));
+FUTON_FOOT.forEach((id, k) => (PROP_SHAPES[id] = FUTON_FOOT_E.map((b) => turnBox(b, k))));
 const PROP_FACE_SHADE = [1, 0.7, 0.88, 0.88, 0.94, 0.94];
 
 export function pushProp(mesh: MeshData, x: number, y: number, z: number, id: string, sky: number, block: number): void {

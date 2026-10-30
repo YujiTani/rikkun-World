@@ -49,7 +49,14 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     geyser_dirt: 0.5, // つちと おなじ
     // ITEM-FX-1（#342）: 小物 3 つの ブロック
     lantern: 0.05, // ほぼすぐこわれる（たいまつと おなじ）
-    futon: 0.25, // やわらかい（はっぱと おなじ）
+    futon: 0.25, // やわらかい（はっぱと おなじ）。2 マスの のこりも おなじ
+    futon_s: 0.25,
+    futon_w: 0.25,
+    futon_n: 0.25,
+    futon_foot_e: 0.25,
+    futon_foot_s: 0.25,
+    futon_foot_w: 0.25,
+    futon_foot_n: 0.25,
     haniwa: 1, // 土の 人形
     toriya_fence: 5,
     toriya_gate: 5,
@@ -108,6 +115,13 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     geyser_dirt: 0,
     lantern: 0,
     futon: 0,
+    futon_s: 0,
+    futon_w: 0,
+    futon_n: 0,
+    futon_foot_e: 0,
+    futon_foot_s: 0,
+    futon_foot_w: 0,
+    futon_foot_n: 0,
     haniwa: 0,
     toriya_fence: 0,
     toriya_gate: 0,
@@ -172,6 +186,13 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     geyser_dirt: 'uncommon',
     lantern: 'uncommon',
     futon: 'uncommon',
+    futon_s: 'uncommon',
+    futon_w: 'uncommon',
+    futon_n: 'uncommon',
+    futon_foot_e: 'uncommon',
+    futon_foot_s: 'uncommon',
+    futon_foot_w: 'uncommon',
+    futon_foot_n: 'uncommon',
     haniwa: 'uncommon',
     toriya_fence: 'uncommon',
     toriya_gate: 'uncommon',
@@ -228,6 +249,13 @@ export const FARM_BREAK_DROP: Readonly<Partial<Record<BlockId, { item: ItemId; c
   // ITEM-FX-1（#342）: 小物 3 つは こわすと 同じ アイテム 1 こ
   lantern: { item: 'lantern', count: 1 },
   futon: { item: 'futon', count: 1 },
+  futon_s: { item: 'futon', count: 1 },
+  futon_w: { item: 'futon', count: 1 },
+  futon_n: { item: 'futon', count: 1 },
+  futon_foot_e: { item: 'futon', count: 1 },
+  futon_foot_s: { item: 'futon', count: 1 },
+  futon_foot_w: { item: 'futon', count: 1 },
+  futon_foot_n: { item: 'futon', count: 1 },
   haniwa: { item: 'haniwa', count: 1 },
   // FLORA-75: のばな は いつも 1 こ（ランダムな数にしない）
   nobana: { item: 'nobana', count: 1 },

@@ -47,6 +47,29 @@ describe('たこをあげる（AC8）', () => {
   });
 });
 
+describe('たこは 向いている 前方へ ななめに あがる', () => {
+  it('東向き(yaw 90)で あげると、東（+x）へ 角度の 分だけ ずれて、高さは 表のまま', () => {
+    const k = new KiteSystem();
+    k.toggle(P, 90);
+    for (let i = 0; i < 600; i++) k.update(P);
+    const pos = k.position()!;
+    const run = GADGET_TUNING.kite.height / Math.tan((GADGET_TUNING.kite.angleDeg * Math.PI) / 180);
+    expect(Math.abs(pos.x - (P.x + run))).toBeLessThanOrEqual(GADGET_TUNING.kite.sway + 0.01);
+    expect(Math.abs(pos.z - P.z)).toBeLessThanOrEqual(GADGET_TUNING.kite.sway + 0.01);
+    expect(Math.abs(k.height(P)! - GADGET_TUNING.kite.height)).toBeLessThanOrEqual(GADGET_TUNING.kite.sway + 0.01);
+    // 地面から 角度は 45〜60 度ぐらい
+    const deg = (Math.atan2(k.height(P)!, Math.hypot(pos.x - P.x, pos.z - P.z)) * 180) / Math.PI;
+    expect(deg).toBeGreaterThan(40);
+    expect(deg).toBeLessThan(65);
+  });
+  it('北向き(yaw 0)は -z へ', () => {
+    const k = new KiteSystem();
+    k.toggle(P, 0);
+    for (let i = 0; i < 600; i++) k.update(P);
+    expect(k.position()!.z).toBeLessThan(P.z - 5);
+  });
+});
+
 describe('たこを戻す（AC9）', () => {
   it('あげている間にもう一度 右クリックすると 戻る（消える）', () => {
     const k = new KiteSystem();

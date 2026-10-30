@@ -14,6 +14,9 @@ export class KiteSystem {
   /** のぼった 高さの 割合 0〜1 */
   private rise = 0;
   private pos: Vec3 = { x: 0, y: 0, z: 0 };
+  /** あげた とき の 向き（水平の 単位ベクトル。向きを 渡さなければ 真上） */
+  private dirX = 0;
+  private dirZ = 0;
   private readonly height_: number;
 
   constructor(opts: { height?: number } = {}) {
@@ -21,16 +24,19 @@ export class KiteSystem {
   }
 
   /** 上がっていなければ あげる、上がっていれば もどす */
-  toggle(player: Vec3): 'up' | 'down' {
+  /** yawDeg = プレイヤーの 向き（0 = 北 -z・90 = 東 +x）。渡すと その 前方へ ななめに あがる */
+  toggle(player: Vec3, yawDeg?: number): 'up' | 'down' {
     if (this.isUp) {
       this.isUp = false;
       return 'down';
     }
-    const K = GADGET_TUNING.kite;
     this.isUp = true;
     this.age = 0;
     this.rise = 0;
-    this.pos = { x: player.x + K.offset, y: player.y, z: player.z + K.offset };
+    const yaw = ((yawDeg ?? 0) * Math.PI) / 180;
+    this.dirX = yawDeg === undefined ? 0 : Math.sin(yaw);
+    this.dirZ = yawDeg === undefined ? 0 : -Math.cos(yaw);
+    this.pos = { x: player.x, y: player.y, z: player.z };
     return 'up';
   }
 
@@ -48,8 +54,10 @@ export class KiteSystem {
     const ph = (this.age / K.swayPeriodSteps) * Math.PI * 2;
     const ease = this.rise * this.rise * (3 - 2 * this.rise);
     // 水平: ずれ + ゆらゆら（プレイヤーが 動くと ゆっくり ついてくる）
-    const tx = player.x + K.offset + Math.sin(ph) * K.sway;
-    const tz = player.z + K.offset + Math.cos(ph * 0.7) * K.sway;
+    // 前方へ ななめに: 水平の きょり = 高さ ÷ tan(角度)。のぼりながら ひろがる
+    const run = (this.height_ / Math.tan((K.angleDeg * Math.PI) / 180)) * ease;
+    const tx = player.x + this.dirX * run + Math.sin(ph) * K.sway;
+    const tz = player.z + this.dirZ * run + Math.cos(ph * 0.7) * K.sway;
     this.pos.x += (tx - this.pos.x) * K.follow;
     this.pos.z += (tz - this.pos.z) * K.follow;
     // 高さ: 足もと → 上空（ゆらゆらは ±sway 以内）

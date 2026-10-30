@@ -50,6 +50,13 @@
     "flower_y": 34,
     "furnace": 11,
     "futon": 51,
+    "futon_foot_e": 56,
+    "futon_foot_n": 59,
+    "futon_foot_s": 57,
+    "futon_foot_w": 58,
+    "futon_n": 55,
+    "futon_s": 53,
+    "futon_w": 54,
     "geyser_dirt": 49,
     "grass": 1,
     "haniwa": 52,
@@ -405,6 +412,48 @@
       "id": "haniwa",
       "name": "はにわ",
       "solid": false
+    },
+    {
+      "breakable": true,
+      "id": "futon_s",
+      "name": "ふとん",
+      "solid": false
+    },
+    {
+      "breakable": true,
+      "id": "futon_w",
+      "name": "ふとん",
+      "solid": false
+    },
+    {
+      "breakable": true,
+      "id": "futon_n",
+      "name": "ふとん",
+      "solid": false
+    },
+    {
+      "breakable": true,
+      "id": "futon_foot_e",
+      "name": "ふとん",
+      "solid": false
+    },
+    {
+      "breakable": true,
+      "id": "futon_foot_s",
+      "name": "ふとん",
+      "solid": false
+    },
+    {
+      "breakable": true,
+      "id": "futon_foot_w",
+      "name": "ふとん",
+      "solid": false
+    },
+    {
+      "breakable": true,
+      "id": "futon_foot_n",
+      "name": "ふとん",
+      "solid": false
     }
   ],
   "DIG_DEFAULTS": {
@@ -441,6 +490,13 @@
       "flower_y": 0.05,
       "furnace": 6,
       "futon": 0.25,
+      "futon_foot_e": 0.25,
+      "futon_foot_n": 0.25,
+      "futon_foot_s": 0.25,
+      "futon_foot_w": 0.25,
+      "futon_n": 0.25,
+      "futon_s": 0.25,
+      "futon_w": 0.25,
       "geyser_dirt": 0.5,
       "grass": 0.5,
       "haniwa": 1,
@@ -496,6 +552,13 @@
       "flower_y": 0,
       "furnace": 0,
       "futon": 0,
+      "futon_foot_e": 0,
+      "futon_foot_n": 0,
+      "futon_foot_s": 0,
+      "futon_foot_w": 0,
+      "futon_n": 0,
+      "futon_s": 0,
+      "futon_w": 0,
       "geyser_dirt": 0,
       "grass": 0,
       "haniwa": 0,
@@ -552,6 +615,13 @@
       "flower_y": "common",
       "furnace": "uncommon",
       "futon": "uncommon",
+      "futon_foot_e": "uncommon",
+      "futon_foot_n": "uncommon",
+      "futon_foot_s": "uncommon",
+      "futon_foot_w": "uncommon",
+      "futon_n": "uncommon",
+      "futon_s": "uncommon",
+      "futon_w": "uncommon",
       "geyser_dirt": "uncommon",
       "grass": "common",
       "haniwa": "uncommon",
@@ -601,6 +671,34 @@
       "item": "dirt"
     },
     "futon": {
+      "count": 1,
+      "item": "futon"
+    },
+    "futon_foot_e": {
+      "count": 1,
+      "item": "futon"
+    },
+    "futon_foot_n": {
+      "count": 1,
+      "item": "futon"
+    },
+    "futon_foot_s": {
+      "count": 1,
+      "item": "futon"
+    },
+    "futon_foot_w": {
+      "count": 1,
+      "item": "futon"
+    },
+    "futon_n": {
+      "count": 1,
+      "item": "futon"
+    },
+    "futon_s": {
+      "count": 1,
+      "item": "futon"
+    },
+    "futon_w": {
       "count": 1,
       "item": "futon"
     },

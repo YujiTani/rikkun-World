@@ -69,9 +69,6 @@ export interface SaveClock {
   day(): number;
   set(dayTick: number): void;
   setDay(day: number): void;
-  /** ふとんで ねて 日づけを 進めた 印（古い 保存・古い 時計には ない） */
-  sleptMark?(): boolean;
-  setSleptMark?(on: boolean): void;
 }
 
 export interface SaveDeps {
@@ -453,7 +450,7 @@ export class SaveManager {
       if (n > PENDING_MAX_CELLS || world.changeLogOverflowed()) return;
       const metaNow = this.makeMeta(settle).meta;
       const c = this.d.clock;
-      const meta: StoredMeta = { ...metaNow, ...(c ? { time: { day: c.day(), dayTick: c.dayTick(), ...(c.sleptMark?.() ? { slept: true } : {}) } } : {}), tick: this.d.tick() };
+      const meta: StoredMeta = { ...metaNow, ...(c ? { time: { day: c.day(), dayTick: c.dayTick() } } : {}), tick: this.d.tick() };
       store.setItem(PENDING_KEY, JSON.stringify({ saveId: this.saveId, ids: BLOCK_TYPES.map((t) => t.id), cells: pendingCellsForSave(world.changeLogCells(), this.d.saveOverrides?.() ?? []), meta }));
     } catch {
       /* 容量いっぱいなど: あきらめる */
@@ -469,13 +466,12 @@ export class SaveManager {
   private restoreTime(raw: unknown): void {
     const c = this.d.clock;
     if (!c) return;
-    const t = raw as { day?: unknown; dayTick?: unknown; slept?: unknown } | null | undefined;
+    const t = raw as { day?: unknown; dayTick?: unknown} | null | undefined;
     const day = Number(t?.day);
     const tick = Number(t?.dayTick);
     if (t && Number.isInteger(day) && day >= 0 && Number.isFinite(tick) && tick >= 0) {
       c.setDay(day);
       c.set(tick);
-      c.setSleptMark?.(t.slept === true); // set が 印を 消すので、そのあとに 入れる
     } else {
       c.setDay(0);
       c.set(0);
@@ -569,7 +565,7 @@ export class SaveManager {
       this.forceNext = false;
       const tick = this.d.tick();
       const c = this.d.clock;
-      if (c) meta.time = { day: c.day(), dayTick: c.dayTick(), ...(c.sleptMark?.() ? { slept: true } : {}) };
+      if (c) meta.time = { day: c.day(), dayTick: c.dayTick() };
       meta.tick = tick;
       taken = w.takeSaveDirty();
       const takenKeys = taken.map((col) => colKey(col.cx, col.cz));

@@ -499,6 +499,13 @@ export const BLOCK_TILES: Readonly<Partial<Record<BlockId, readonly [TileName, T
   // ITEM-FX-1: 置き物 3 つ（形は meshChunk の pushProp。ここは ひび・かけらの 色用）
   lantern: ['lantern', 'lantern_frame', 'lantern'],
   futon: ['futon_top', 'futon_side', 'futon_side'],
+  futon_s: ['futon_top', 'futon_side', 'futon_side'],
+  futon_w: ['futon_top', 'futon_side', 'futon_side'],
+  futon_n: ['futon_top', 'futon_side', 'futon_side'],
+  futon_foot_e: ['futon_blanket', 'futon_side', 'futon_side'],
+  futon_foot_s: ['futon_blanket', 'futon_side', 'futon_side'],
+  futon_foot_w: ['futon_blanket', 'futon_side', 'futon_side'],
+  futon_foot_n: ['futon_blanket', 'futon_side', 'futon_side'],
   haniwa: ['haniwa_head', 'haniwa', 'haniwa'],
 };
 

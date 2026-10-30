@@ -1,3 +1,4 @@
+import { GADGET_TUNING } from '../content/items/gadgetTuning';
 import type { DayPhase, TimeOfDay } from '../contracts';
 import { START_DAY_TICK, createTimeSettings, type TimeSettings } from './config';
 import { dayLength, hexString, lookAt, phaseAt } from './dayCycle';
@@ -7,8 +8,6 @@ export class TimeOfDayImpl implements TimeOfDay {
   private tick = START_DAY_TICK;
   private dayNo = 0;
   private lastPhase: DayPhase = 'day';
-  /** ふとんで ねて 日づけを もう 進めた: 次の 日の 区切りでは 進めない（合計 +1） */
-  private slept = false;
   private readonly listeners = new Set<(phase: DayPhase) => void>();
 
   constructor(readonly settings: TimeSettings = createTimeSettings()) {}
@@ -41,16 +40,7 @@ export class TimeOfDayImpl implements TimeOfDay {
     const len = dayLength(this.settings);
     const t = Math.floor(dayTick);
     this.tick = ((t % len) + len) % len;
-    this.slept = false;
     this.notify();
-  }
-
-  /** ねて 日づけを 進めた 印（保存用。読みこみは set のあとに setSleptMark） */
-  sleptMark(): boolean {
-    return this.slept;
-  }
-  setSleptMark(on: boolean): void {
-    this.slept = on;
   }
 
   /** 何日目かをすぐ変える（読みこみ用） */
@@ -58,12 +48,13 @@ export class TimeOfDayImpl implements TimeOfDay {
     this.dayNo = Math.max(0, Math.floor(day));
   }
 
-  /** ふとんで ねた: あさ（dawn）の はじまりに すぐ とぶ。日づけが 1 進む（ITEM-FX-1） */
-  sleepToMorning(): void {
-    const s = this.settings;
-    this.tick = s.dayTicks + s.duskTicks + s.nightTicks;
-    this.dayNo++;
-    this.slept = true;
+  /**
+   * ふとんで ねた: 起きる 時刻（1 日の中の ステップ。表 GADGET_TUNING.futon.wakeDayTick = ひるの はじまり）に すぐ とぶ。
+   * 日づけは ちょうど 1 進む（ねた 夜から 次の ひる）。起きる 時刻が 今より 前なら 次の 日、後なら 同じ 日の ままに 数える
+   */
+  sleepToMorning(wakeDayTick: number = GADGET_TUNING.futon.wakeDayTick): void {
+    if (wakeDayTick <= this.tick) this.dayNo++;
+    this.tick = wakeDayTick;
     this.notify();
   }
 
@@ -71,8 +62,7 @@ export class TimeOfDayImpl implements TimeOfDay {
     this.tick++;
     if (this.tick >= dayLength(this.settings)) {
       this.tick = 0;
-      if (this.slept) this.slept = false;
-      else this.dayNo++;
+      this.dayNo++;
     }
     this.notify();
   }

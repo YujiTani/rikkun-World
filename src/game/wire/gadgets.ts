@@ -13,9 +13,11 @@ interface GadgetDeps {
   time: TimeOfDayImpl;
   tick: () => number;
   held: () => ItemId | null;
-  controller: { state: { position: { x: number; y: number; z: number } }; settings: { jumpHeight: number }; setJumpHeight(h: number | null): void };
+  controller: { state: { position: { x: number; y: number; z: number }; yawDeg: number }; settings: { jumpHeight: number }; setJumpHeight(h: number | null): void };
   armor: { equipped(slot: 'legs'): ItemId | null };
   lock: { playInputEnabled(): boolean };
+  /** ねはじめに 鳴らす 音（別の 係が 作る。まだ なければ 何も しない） */
+  onSleepStart?: () => void;
 }
 
 export function wireGadgets(d: GadgetDeps) {
@@ -33,10 +35,12 @@ export function wireGadgets(d: GadgetDeps) {
     /** DigSystem の右クリックの 実行（m4.gadgets） */
     port: {
       sleep: (): void => {
-        if (sleep.use() === 'notNight') ui.show(NOT_NIGHT_TEXT);
+        const r = sleep.use();
+        if (r === 'notNight') ui.show(NOT_NIGHT_TEXT);
+        else if (r === 'start') d.onSleepStart?.();
       },
       kite: (): void => {
-        kite.toggle(d.controller.state.position);
+        kite.toggle(d.controller.state.position, d.controller.state.yawDeg);
       },
     },
     /** 毎ステップ（dt は 秒） */

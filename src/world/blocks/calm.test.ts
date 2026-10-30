@@ -219,7 +219,7 @@ describe('CALM 基準 5: 変えない絵は 1 画素も変わらない', () => {
     // こたつ 2×2 の 新しい 絵（ふとん・角・天板 の 切れ はし・すきま）は kotatsu.test.ts で 調べる
     const kotatsuNew = (n: string) => /^kotatsu_(slope|corner|top_|pad)/.test(n) || /^toriya_(fence|gate)_x$/.test(n); // 後ろは LIVE-2.1 の 板の さく・もん（liveTextures.test.ts で 調べる）
     // ITEM-FX-1: ちょうちん・ふとん・はにわ の 箱の 絵は 試作（yuzu に 見せて 直す）なので 画素は 守らない（形は gadgetBlocks で 調べる）
-    const gadgetNew = (n: string) => /^(lantern|lantern_frame|futon_top|futon_side|haniwa|haniwa_head)$/.test(n);
+    const gadgetNew = (n: string) => /^(lantern|lantern_frame|futon_top|futon_side|futon_blanket|haniwa|haniwa_head)$/.test(n);
     expect(TILE_NAMES.filter((n) => !skip.has(n) && !kotatsuNew(n) && !gadgetNew(n)).sort()).toEqual(Object.keys(HASH).sort());
   });
   for (const [name, h] of Object.entries(HASH)) {

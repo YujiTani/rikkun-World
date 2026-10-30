@@ -154,7 +154,7 @@ describe('こわすと同じアイテム 1 つに戻る（AC4・AC5・AC18）', 
       expect(r.inv.count(id)).toBe(1);
     });
   }
-  for (const id of ['futon', 'haniwa'] as const) {
+  for (const id of ['haniwa'] as const) {
     it(`${id}: 右クリックで 置ける（1 つへる）`, () => {
       const r = new Rig();
       r.world.setBlock(4, 10, 6, 'stone');
@@ -164,6 +164,56 @@ describe('こわすと同じアイテム 1 つに戻る（AC4・AC5・AC18）', 
       expect(r.inv.count(id)).toBe(1);
     });
   }
+});
+
+describe('ふとん 2 マス（AC5）', () => {
+  /** 足もとの ゆかを ななめ下に ねらって、ふとんを 置く（向きは 東） */
+  const aimFloor = (r: Rig) => {
+    r.player.pitchDeg = -35;
+    r.hold('futon', 2);
+    return r.dig.target()!.place;
+  };
+  it('置くと 向いている 方向（東）に 2 マス: 頭 futon ＋ 足 futon_foot_e。1 つへる', () => {
+    const r = new Rig();
+    const p = aimFloor(r);
+    r.rightClick();
+    expect(r.world.getBlock(p.x, p.y, p.z)).toBe('futon');
+    expect(r.world.getBlock(p.x + 1, p.y, p.z)).toBe('futon_foot_e');
+    expect(r.inv.count('futon')).toBe(1);
+  });
+  it('2 マス目が 置けない所（ブロック）には 置けない', () => {
+    const r = new Rig();
+    const p = aimFloor(r);
+    r.world.setBlock(p.x + 1, p.y, p.z, 'stone');
+    r.rightClick();
+    expect(r.world.getBlock(p.x, p.y, p.z)).toBe('air');
+    expect(r.inv.count('futon')).toBe(2);
+  });
+  for (const pick of ['head', 'foot'] as const) {
+    it(`${pick} を こわしても 両方 消えて ふとん 1 つに もどる`, () => {
+      const r = new Rig();
+      const p = aimFloor(r);
+      r.rightClick();
+      r.inv.clear();
+      r.inv.select(0);
+      const tx = pick === 'head' ? p.x : p.x + 1;
+      // その マスの 南がわから 少し 上を むいて ねらう
+      r.player.position = { x: tx + 0.5, y: 9, z: p.z - 1.5 };
+      r.player.yawDeg = 180;
+      r.player.pitchDeg = -25;
+      r.step(2);
+      expect(r.dig.target()?.block).toEqual({ x: tx, y: p.y, z: p.z });
+      r.breakAimed();
+      expect(r.world.getBlock(p.x, p.y, p.z)).toBe('air');
+      expect(r.world.getBlock(p.x + 1, p.y, p.z)).toBe('air');
+      expect(r.inv.count('futon')).toBe(1);
+    });
+  }
+  it('ふとんの どの マスを ねらっても sleep', () => {
+    const t = (id: BlockId): TargetInfo => ({ block: { x: 4, y: 10, z: 6 }, id, face: { x: -1, y: 0, z: 0 }, place: { x: 3, y: 10, z: 6 }, distance: 1.5 });
+    const ctx = (id: BlockId) => ({ target: t(id), held: null, isTansu: () => false, isFurnace: () => false, canEquip: () => false, canPlace: () => false });
+    for (const id of ['futon', 'futon_s', 'futon_w', 'futon_n', 'futon_foot_e', 'futon_foot_s', 'futon_foot_w', 'futon_foot_n'] as const) expect(previewRightClick(ctx(id))?.kind).toBe('sleep');
+  });
 });
 
 describe('右クリックの種類（AC6・AC8）', () => {

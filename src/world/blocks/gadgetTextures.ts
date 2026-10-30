@@ -3,7 +3,7 @@
  * 形は 箱の 組み合わせ（meshChunk の pushProp）。ここは 箱の 面に はる 絵。試作（あとで yuzu に 見せて 直す）。
  * 乱数なし（場所の きまった 並びだけ）。
  */
-export const GADGET_TILE_NAMES = ['lantern', 'lantern_frame', 'futon_top', 'futon_side', 'haniwa', 'haniwa_head'] as const;
+export const GADGET_TILE_NAMES = ['lantern', 'lantern_frame', 'futon_top', 'futon_side', 'futon_blanket', 'haniwa', 'haniwa_head'] as const;
 export type GadgetTileName = (typeof GADGET_TILE_NAMES)[number];
 
 type Rgba = readonly [number, number, number, number];
@@ -44,6 +44,15 @@ function futonTop(): Rgba[] {
   return t;
 }
 
+/** ふとんの 足の側: 赤い かけぶとん（白い ふち・ぬい目） */
+function futonBlanket(): Rgba[] {
+  const t = solid('#d8382d');
+  rect(t, 0, 0, N, 1, '#fdfaf0');
+  rect(t, 0, N - 1, N, 1, '#fdfaf0');
+  rect(t, 0, 7, N, 2, '#ee5a3c');
+  return t;
+}
+
 function futonSide(): Rgba[] {
   const t = solid('#f4efe2');
   rect(t, 0, N - 3, N, 3, '#d8382d');
@@ -73,6 +82,7 @@ const PAINT: Readonly<Record<GadgetTileName, () => Rgba[]>> = {
   lantern_frame: lanternFrame,
   futon_top: futonTop,
   futon_side: futonSide,
+  futon_blanket: futonBlanket,
   haniwa,
   haniwa_head: haniwaHead,
 };
