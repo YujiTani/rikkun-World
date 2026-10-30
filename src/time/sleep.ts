@@ -6,8 +6,8 @@ export const NOT_NIGHT_TEXT = 'よる に ねようね';
 
 /**
  * ふとんで ねる（ITEM-FX-1 AC6・AC7）。
- * ゆうがた・よるに use() すると ねはじめ、表の長さ（GADGET_TUNING.futon.sleepSteps）の間 画面が 暗く → 明るく なる。
- * 真っ暗に なった ところで 時刻が あさの はじまりに かわる。ねている 間は 動けない（blocksInput）。
+ * ゆうがた・よるに use() すると ねはじめ、表の長さ（GADGET_TUNING.futon.sleepSteps） の間 画面が 宿屋のように 早く 真っ暗 → 曲の あいだ 真っ暗 → おわりに ゆっくり 明るく なる。
+ * 真っ暗の まんなかで 時刻が ひるの はじまりに かわる。ねている 間は 動けない（blocksInput）。
  */
 export class SleepSystem {
   private readonly total: number;
@@ -47,11 +47,15 @@ export class SleepSystem {
   stepsLeft(): number {
     return this.left;
   }
-  /** 画面の 暗さ 0〜1（0 → 1 → 0 の 三角。まんなかで 1） */
+  /** 画面の 暗さ 0〜1（宿屋のように: 早く 真っ暗に → 曲の あいだ 真っ暗 → おわりに ゆっくり 明るく） */
   fade(): number {
     if (this.left <= 0) return 0;
-    const t = (this.total - this.left) / this.total;
-    return 1 - Math.abs(2 * t - 1);
+    const done = this.total - this.left; // 1 〜 total
+    const inN = Math.max(1, Math.min(GADGET_TUNING.futon.fadeInSteps, Math.floor(this.total / 2)));
+    const outN = Math.max(1, Math.min(GADGET_TUNING.futon.fadeOutSteps, Math.floor(this.total / 2)));
+    if (done <= inN) return done / inN;
+    if (this.left >= outN) return 1;
+    return this.left / outN;
   }
   blocksInput(): boolean {
     return this.sleeping();

@@ -76,6 +76,26 @@ describe('ふとんでねる（AC6）', () => {
   });
 });
 
+describe('宿屋のように 暗くなる', () => {
+  it('表の 秒数で 真っ暗に → 曲の あいだ 真っ暗 → おわりに ゆっくり 明るく', () => {
+    const { sleep } = at(S.dayTicks + S.duskTicks + 500);
+    const T = GADGET_TUNING.futon;
+    sleep.use();
+    const fades: number[] = [];
+    while (sleep.sleeping()) {
+      sleep.update();
+      fades.push(sleep.fade());
+    }
+    expect(fades).toHaveLength(T.sleepSteps);
+    expect(fades[T.fadeInSteps - 1]).toBe(1); // 暗くなりきった
+    expect(fades[T.fadeInSteps - 2]!).toBeLessThan(1);
+    for (let i = T.fadeInSteps - 1; i < T.sleepSteps - T.fadeOutSteps; i++) expect(fades[i], `hold ${i}`).toBe(1); // 真っ暗のまま
+    expect(fades[T.sleepSteps - T.fadeOutSteps]!).toBeLessThan(1); // そこから 明るく
+    expect(fades[T.sleepSteps - 1]).toBe(0);
+    expect(T.fadeInSteps).toBeLessThan(T.fadeOutSteps); // 暗くなるのは はやく、明るくなるのは ゆっくり
+  });
+});
+
 describe('ひる・あさは ねられない（AC7）', () => {
   for (const [name, tick] of [['ひる', 100], ['あさ', DAWN_START + 10]] as const) {
     it(`${name}: 'notNight'。時刻も日付も変わらず、ねない。文は「よる に ねようね」`, () => {
