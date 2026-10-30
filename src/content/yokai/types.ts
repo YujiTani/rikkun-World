@@ -94,8 +94,57 @@ export interface YokaiTraits {
   limitedCount?: boolean;
   /** 首をのばして攻撃する: 攻撃の前に 首の とどく道すじを 調べ（とどかなければ 攻撃しない）、パリィは 首の先（頭）からの向きで 見る（ろくろくび） */
   longNeck?: boolean;
+  /** 水の中を およぐ（TAKO-1）: 陸に 上がらない・落ちない・水の 列にだけ わく・体当たりも 自分からの 攻撃も しない。動きの 数は YokaiDef の swim（タコはちまき） */
+  swims?: boolean;
   /** 夜でも 暗くしない「光る」体の色（もとの色。色ちがいの段階の色は 自動でそろう）（ちょうちんの 胴） */
   glowColors?: readonly number[];
+}
+
+/**
+ * およぐ 妖怪の 数（TAKO-1 §4.2。traits.swims の 妖怪だけ 書く）。時間は 秒・距離は ブロック・速さは ブロック/秒。
+ * 1 コマ = 1/60 秒（60 コマ = 1 秒）。ぜんぶ ここ 1 か所。
+ */
+export interface YokaiSwim {
+  /** はやく すすむ 時間（秒） */
+  goSeconds: number;
+  /** とまる（ふわふわ）時間（秒）。この間に 向きを かえる */
+  restSeconds: number;
+  /** はやく すすむ 速さ */
+  goSpeed: number;
+  /** ふわふわ の 上下の 幅（±ブロック。見た目だけ）と 1 周の 長さ（秒） */
+  bobAmp: number;
+  bobSeconds: number;
+  /** 体の いちばん 上が 水面から 何ブロック 下か: 下限・上限・出る ときの 深さ */
+  depthMin: number;
+  depthMax: number;
+  depthSpawn: number;
+  /** わく ためには 水の 深さ（ブロック）が これ 以上 いる */
+  minWaterDepth: number;
+  /** 向きを かえる 速さ（度/秒） */
+  turnDegPerSec: number;
+  /** りっくんが この きょり（ブロック）以内 なら すみを はく */
+  inkRange: number;
+  /** すみを はく 前の ため（秒） */
+  inkChargeSeconds: number;
+  /** すみの あと にげる 時間（秒）と 速さ */
+  fleeSeconds: number;
+  fleeSpeed: number;
+  /** すみの まち時間（秒。この間は 近づいても はかない） */
+  inkCooldownSeconds: number;
+  /** けむりの 半径（ブロック）・のこる 時間（秒）・さいごに うすく なる 時間（秒） */
+  inkRadius: number;
+  inkLifeSeconds: number;
+  inkFadeSeconds: number;
+  /** 目が けむりの 中の とき 画面を 暗くする 黒い 板の こさ（0〜1）。外に 出てから 0 に もどる 時間（秒） */
+  dimAlpha: number;
+  dimFadeOutSeconds: number;
+  /** たたかれて から ぺちん まで（秒）・ぺちんが とどく きょり（ブロック）・ダメージ（体力。1 = ハート半分）・まち時間（秒） */
+  slapDelaySeconds: number;
+  slapReach: number;
+  slapDamage: number;
+  slapCooldownSeconds: number;
+  /** 体が 水の 外に なって から 消えるまで（秒） */
+  dryLeaveSeconds: number;
 }
 
 /** 色ちがい 3 段階の 色（段階 2・3。{ もとの色: 新しい色 }。段階 1 = 今の色なので 書かない。DESIGN 13.1、BALANCE §2.4） */
@@ -135,4 +184,6 @@ export interface YokaiDef {
   achievement: { name: string };
   /** 動きの分かれ道の印（書かない = どれも なし） */
   traits?: YokaiTraits;
+  /** およぐ 数（traits.swims の 妖怪だけ） */
+  swim?: YokaiSwim;
 }

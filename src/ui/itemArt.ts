@@ -153,6 +153,28 @@ const ART: Record<MaterialItemId, Art> = {
       '................',
     ],
   },
+  // すみ: 黒い すみの かたまり（TAKO-1。タコはちまきの すみ）。上の面に つや、右下に こい かげ
+  sumi: {
+    palette: { K: 0x14121f, B: 0x2c2840, M: 0x3b3554, L: 0x6a6390, W: 0x9a93c0 },
+    rows: [
+      '................',
+      '................',
+      '....KKKKKKKK....',
+      '...KMMMMLLWMK...',
+      '..KMMLLLMMMMBK..',
+      '..KMLMMMMMMMBK..',
+      '..KMMMMMMMMMBK..',
+      '..KMMMMMMMMBBK..',
+      '..KMMMMMMMMBBK..',
+      '..KBMMMMMMBBBK..',
+      '..KBBMMMMBBBBK..',
+      '..KBBBBBBBBBBK..',
+      '...KKKKKKKKKK...',
+      '................',
+      '................',
+      '................',
+    ],
+  },
 };
 
 /** 材料のアイテムの 16x16 */
@@ -176,4 +198,5 @@ export const HELD_MATERIAL: Record<MaterialItemId, { color: number; size: readon
   cloth: { color: 0xd8485f, size: [0.34, 0.26, 0.05] },
   clay: { color: 0xb5764a, size: [0.26, 0.2, 0.26] },
   crystal: { color: 0x6fd8ff, size: [0.18, 0.3, 0.18] },
+  sumi: { color: 0x2c2840, size: [0.24, 0.16, 0.24] },
 };

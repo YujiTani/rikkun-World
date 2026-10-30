@@ -85,6 +85,21 @@ const EXPECT: Record<YokaiKind, Expect> = {
     head: { bandY: 0.465, bandW: 0.55, bandD: 0.55, crownY: 0.7, crownW: 0.4, crownD: 0.4 },
     base: 25,
   },
+  // TAKO-1（docs/design/TAKO-1.md §4.1・§4.2）。およぐ 数（swim）は tako_hachimaki.test.ts
+  tako_hachimaki: {
+    name: 'タコはちまき',
+    basis: { target: 1, attack: 2, xp: 3, projectile: false, frontOnly: false },
+    motion: { hitSeconds: 0.3, attackSeconds: 0.8, reach: 2.5, speed: 3, cooldownSeconds: 1.5, avoidsWater: false },
+    ai: { stepUp: 0, radius: 0.5, height: 1.7, eyeHeight: 1.0, turnDegPerSec: 180, marksHeight: 2.2, flies: false },
+    sense: { sight: 12, giveUp: 16, shinobi: true },
+    drops: [['sumi', 1, 2]],
+    colors: {
+      2: { 0xcf3b3b: 0x4f7de0, 0xf6b39a: 0xcfe0ff, 0x9e2a33: 0x2c4aa8, 0xf3efe2: 0xe9f1ff },
+      3: { 0xcf3b3b: 0xe0a82e, 0xf6b39a: 0xfff0b8, 0x9e2a33: 0xb06a1a, 0xf3efe2: 0xfff4c2 },
+    },
+    head: { bandY: 1.5, bandW: 0.9, bandD: 0.84, crownY: 1.45, crownW: 0.5, crownD: 0.5 },
+    base: 20,
+  },
 };
 
 const dropsOf = (e: Expect) => e.drops.map(([item, chance, max]) => ({ item, chance, max }));
@@ -92,7 +107,7 @@ const pickOf = <T>(f: (e: Expect) => T): Record<YokaiKind, T> => mapKinds((k) =>
 
 describe('登録表（妖怪）', () => {
   it('全種類に YokaiDef がある（id は ids.ts の 1 回だけ。登録表のキー = ids.ts）', () => {
-    expect(YOKAI_IDS).toHaveLength(4);
+    expect(YOKAI_IDS).toHaveLength(5);
     expect(Object.keys(YOKAI_DEFS).sort()).toEqual([...YOKAI_IDS].sort());
     for (const k of YOKAI_IDS) expect(YOKAI_DEFS[k], k).toBeDefined();
   });
@@ -124,8 +139,8 @@ describe('登録表（妖怪）', () => {
       expect(ATTACK_DAMAGE[k], k).toBe(yokaiStrength(k).attack);
     }
     // 強さ（体力の 式の 結果。からかさ = 8 が 物さし。値は これまでの ゲームの もの）
-    expect(mapKinds((k) => YOKAI_STATS[k].hp)).toEqual({ karakasa: 8, chochin: 5, nurikabe: 40, rokurokubi: 12 });
-    expect(mapKinds((k) => ATTACK_DAMAGE[k])).toEqual({ karakasa: 2, chochin: 2, nurikabe: 16, rokurokubi: 2 });
+    expect(mapKinds((k) => YOKAI_STATS[k].hp)).toEqual({ karakasa: 8, chochin: 5, nurikabe: 40, rokurokubi: 12, tako_hachimaki: 8 });
+    expect(mapKinds((k) => ATTACK_DAMAGE[k])).toEqual({ karakasa: 2, chochin: 2, nurikabe: 16, rokurokubi: 2, tako_hachimaki: 2 });
   });
 
   it('SENSE.kinds は 登録表の 複製（main.ts が その場で 書きかえても 登録表は かわらない）', () => {
@@ -152,8 +167,8 @@ describe('登録表（妖怪）', () => {
   it('抽選の順 YOKAI_DRAW_ORDER・見本の並び YOKAI_ORDER に 全種類が 1 回ずつ（抽選の順は 乱数の 結果を きめるので 今のまま）', () => {
     expect([...YOKAI_DRAW_ORDER].sort()).toEqual([...YOKAI_IDS].sort());
     expect([...YOKAI_ORDER].sort()).toEqual([...YOKAI_IDS].sort());
-    expect(YOKAI_DRAW_ORDER).toEqual(['karakasa', 'chochin', 'rokurokubi', 'nurikabe']);
-    expect(YOKAI_ORDER).toEqual(['karakasa', 'chochin', 'nurikabe', 'rokurokubi']);
+    expect(YOKAI_DRAW_ORDER).toEqual(['karakasa', 'chochin', 'rokurokubi', 'nurikabe', 'tako_hachimaki']); // TAKO-1: うしろに 足す
+    expect(YOKAI_ORDER).toEqual(['karakasa', 'chochin', 'nurikabe', 'rokurokubi', 'tako_hachimaki']);
   });
 
   it('どの妖怪も どこかの国で 重み > 0（足し忘れて 一度も 出ない 妖怪を 作らない）', () => {
@@ -186,12 +201,13 @@ describe('登録表（妖怪）', () => {
     }
   });
   it('動きの分かれ道の印（traits）は これまでコードに 直書きして いた 動きと 同じ（#308 4-4）', () => {
-    const none = { floatsDown: false, knockOnlyHeavy: false, walksFacing: false, turnsToStone: false, contactMul: 1, crushesBlocks: false, limitedCount: false, longNeck: false, glowColors: [] as number[] };
+    const none = { floatsDown: false, knockOnlyHeavy: false, walksFacing: false, turnsToStone: false, contactMul: 1, crushesBlocks: false, limitedCount: false, longNeck: false, swims: false, glowColors: [] as number[] };
     expect(yokaiTraits()).toEqual({
       karakasa: { ...none, floatsDown: true },
       chochin: { ...none, glowColors: [0xffb347, 0xfff2a0] },
       nurikabe: { ...none, knockOnlyHeavy: true, walksFacing: true, turnsToStone: true, contactMul: 4, crushesBlocks: true, limitedCount: true },
       rokurokubi: { ...none, longNeck: true },
+      tako_hachimaki: { ...none, swims: true },
     });
   });
 });

@@ -106,8 +106,8 @@ describe('BUCKET-1 アイテム・レシピ・説明・実績（AC1・2・11・1
     expect(b.some((c) => c[0] === 0x4f && c[1] === 0xc3 && c[2] === 0xf7 && c[3] === 255)).toBe(true);
   });
   it('AC2 レシピ: 29 まい目、てつの かたまり 3 → バケツ 1', () => {
-    const r = BASE_RECIPES[28];
-    expect(BASE_RECIPES[27].id).toBe('sprinkler');
+    const r = BASE_RECIPES[29]; // TAKO-1: ふでが 道具の さいごに 入って 1 まい ずれた
+    expect(BASE_RECIPES[28].id).toBe('sprinkler');
     expect(r.id).toBe('bucket');
     expect(r.output).toEqual({ item: 'bucket', count: 1 });
     expect(r.inputs).toEqual([{ item: 'iron_ingot', count: 3 }]);

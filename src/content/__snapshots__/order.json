@@ -140,6 +140,9 @@
     "defeat.rokurokubi.1",
     "defeat.rokurokubi.10",
     "defeat.rokurokubi.50",
+    "defeat.tako_hachimaki.1",
+    "defeat.tako_hachimaki.10",
+    "defeat.tako_hachimaki.50",
     "defeat.low.1",
     "defeat.low.5",
     "defeat.low.20",
@@ -443,6 +446,7 @@
       "oil",
       "clay",
       "yokai_orb",
+      "sumi",
       "kin_tamago"
     ],
     "metal": [
@@ -489,6 +493,7 @@
       "wood_axe",
       "stone_axe",
       "iron_axe",
+      "fude",
       "kuwa",
       "watering_can",
       "long_watering_can",
@@ -525,6 +530,7 @@
     "wood_axe",
     "stone_axe",
     "iron_axe",
+    "fude",
     "furnace",
     "bokuto",
     "katana",
@@ -719,6 +725,7 @@
     "cloth",
     "clay",
     "crystal",
+    "sumi",
     "furnace",
     "kawara",
     "brick",
@@ -730,6 +737,7 @@
     "wood_axe",
     "stone_axe",
     "iron_axe",
+    "fude",
     "iron_ingot",
     "bokuto",
     "katana",
@@ -830,13 +838,15 @@
     "karakasa",
     "chochin",
     "rokurokubi",
-    "nurikabe"
+    "nurikabe",
+    "tako_hachimaki"
   ],
   "YOKAI_ORDER": [
     "karakasa",
     "chochin",
     "nurikabe",
-    "rokurokubi"
+    "rokurokubi",
+    "tako_hachimaki"
   ],
   "fuelOrder": [
     "coal_ore",

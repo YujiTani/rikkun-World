@@ -432,7 +432,7 @@ describe('ドロップ表', () => {
   it('表の確率は 高 0.7・中 0.4・低 0.15・とても低 0.05 で、数は 1〜max', () => {
     for (const rows of Object.values(YOKAI_DROPS)) {
       for (const r of rows) {
-        expect([0.7, 0.4, 0.15, 0.05]).toContain(r.chance);
+        expect([0.7, 0.4, 0.15, 0.05, 1]).toContain(r.chance); // 1 = TAKO-1 すみ（かならず 1〜2 こ）
         expect(r.max).toBeGreaterThanOrEqual(1);
       }
     }

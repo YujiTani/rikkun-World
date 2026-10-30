@@ -11,7 +11,7 @@ function run(c: PreviewController, seconds: number): void {
 describe('見本ページ', () => {
   it('AC1: 妖怪 4 体と人形が左から順に 4 ブロックおきに並ぶ', () => {
     const c = new PreviewController();
-    expect(c.yokai.map((y) => y.id)).toEqual(['karakasa', 'chochin', 'nurikabe', 'rokurokubi']);
+    expect(c.yokai.map((y) => y.id)).toEqual(['karakasa', 'chochin', 'nurikabe', 'rokurokubi', 'tako_hachimaki']);
     expect(c.doll.group.visible).toBe(true);
     const xs = c.anchors.filter((a) => a.kind === 'yokai').map((a) => a.position.x);
     expect(xs[1]! - xs[0]!).toBe(4);

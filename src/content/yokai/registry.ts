@@ -3,6 +3,7 @@ import { YOKAI_IDS, type YokaiKind } from './ids';
 import { KARAKASA } from './karakasa';
 import { NURIKABE } from './nurikabe';
 import { ROKUROKUBI } from './rokurokubi';
+import { TAKO_HACHIMAKI } from './tako_hachimaki';
 import type { DropRow, HeadSpec, VariantColors, YokaiAi, YokaiBasis, YokaiDef, YokaiMotion, YokaiSense, YokaiTraits } from './types';
 
 /**
@@ -21,6 +22,7 @@ export const YOKAI_DEFS: Readonly<Record<YokaiKind, YokaiDef>> = {
   chochin: CHOCHIN,
   nurikabe: NURIKABE,
   rokurokubi: ROKUROKUBI,
+  tako_hachimaki: TAKO_HACHIMAKI,
 };
 
 /** 全種類（ids.ts の 順）から { 種類: 値 } を 作る（全件そろう） */
@@ -98,6 +100,7 @@ export function yokaiTraits(): Record<YokaiKind, Required<YokaiTraits>> {
       crushesBlocks: t.crushesBlocks ?? false,
       limitedCount: t.limitedCount ?? false,
       longNeck: t.longNeck ?? false,
+      swims: t.swims ?? false,
       glowColors: t.glowColors ?? [],
     };
   });

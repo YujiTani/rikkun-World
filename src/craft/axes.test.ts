@@ -18,8 +18,8 @@ describe('BAL-D おの のレシピ（AC17）', () => {
     expect(text('iron_axe')).toEqual([1, 'iron_ingot3,log2', true, 'craft']);
   });
   it('おの 3 枚は てつの つるはし のすぐ後ろ', () => {
-    expect(BASE_RECIPES.slice(0, 7).map((r) => r.id)).toEqual([
-      'wood_pickaxe', 'stone_pickaxe', 'iron_pickaxe', 'wood_axe', 'stone_axe', 'iron_axe', 'furnace',
+    expect(BASE_RECIPES.slice(0, 8).map((r) => r.id)).toEqual([
+      'wood_pickaxe', 'stone_pickaxe', 'iron_pickaxe', 'wood_axe', 'stone_axe', 'iron_axe', 'fude', 'furnace', // TAKO-1: ふでは 道具の さいご
     ]);
   });
   it('「ぜんぶ つくる」に おの 3 つ。おの の名前', () => {

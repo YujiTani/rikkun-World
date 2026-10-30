@@ -5,5 +5,5 @@
  * 葉のファイル（何も import しない）。scripts/content-ids.mjs も ここを 読む。
  * 並びは 昔からの 見本ページの 順（抽選の順 YOKAI_DRAW_ORDER とは 別もの）。
  */
-export const YOKAI_IDS = ['karakasa', 'chochin', 'nurikabe', 'rokurokubi'] as const;
+export const YOKAI_IDS = ['karakasa', 'chochin', 'nurikabe', 'rokurokubi', 'tako_hachimaki'] as const;
 export type YokaiKind = (typeof YOKAI_IDS)[number];

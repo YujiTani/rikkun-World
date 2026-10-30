@@ -131,7 +131,7 @@ describe('登録表（畑 14 個）', () => {
   it('色分け: たねは くさの なかま、やさいは たべもの、道具は つるはし・おの → くわ → じょうろ → バケツ → むしとりあみ', () => {
     expect(CATEGORY_ITEMS.plant.slice(3, 7)).toEqual([...SEED_ITEM_IDS]);
     expect(CATEGORY_ITEMS.food.slice(0, 5)).toEqual([...VEG_ITEM_IDS, 'egg']);
-    expect(CATEGORY_ITEMS.tool.slice(6, 12)).toEqual([...FARM_TOOL_IDS, ...FARM_BUCKET_IDS, 'mushi_ami']);
+    expect(CATEGORY_ITEMS.tool.slice(7, 13)).toEqual([...FARM_TOOL_IDS, ...FARM_BUCKET_IDS, 'mushi_ami']);
     expect(CATEGORY_ITEMS.home).toContain('sprinkler');
   });
 

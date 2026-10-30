@@ -10,6 +10,7 @@ import type { Ent, YokaiField } from './entity';
 import type { YokaiEvents } from './events';
 import type { AnnounceInfo, YokaiManagerOptions } from './managerTypes';
 import type { YokaiPresenter } from './presenter';
+import { swimOf, swimTarget } from './swimTerrain';
 import { groundSupport } from './terrain';
 
 interface PlacementDeps {
@@ -83,6 +84,8 @@ export class YokaiPlacement {
   private fits(e: Ent, title: YokaiTitle): boolean {
     const { world } = this.d;
     const dims = scaledDims(e.kind, TITLE_RULES[title].bodyScale);
+    const swim = swimOf(e);
+    if (swim) return !Number.isNaN(swimTarget(world, dims, swim, e.x, e.z, e.y, 0)); // およぐ: 体の 箱が ぜんぶ 水の 中
     if (dims.flies) {
       const r = dims.radius;
       return boxFreeAt(world, e.x - r, e.y + 0.5, e.z - r, e.x + r, e.y + dims.height, e.z + r);

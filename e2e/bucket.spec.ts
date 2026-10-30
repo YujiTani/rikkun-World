@@ -100,15 +100,15 @@ test.describe('BUCKET-1 バケツ', () => {
       h.step(3);
       return {
         cards: ids.length,
-        at29: ids[28],
-        at28: ids[27],
-        after: ids.slice(29),
+        at29: ids[29], // TAKO-1: ふで が まえに 1 まい ふえた
+        at28: ids[28],
+        after: ids.slice(30),
         bucket: h.inventory.count('bucket'),
         iron: h.inventory.count('iron_ingot'),
         stat: h.achievements.stats()['craft:bucket'] ?? 0,
       };
     });
-    expect(r.cards).toBe(52); // KONGO-1: こんごうの そうび 8 こ が いちばん うしろに ふえた（44 → 52）
+    expect(r.cards).toBe(53); // TAKO-1: ふで 1 まい（52 → 53）。KONGO-1: こんごうの そうび 8 こ が いちばん うしろに ふえた（44 → 52）
     expect(r.at29).toBe('bucket');
     expect(r.at28).toBe('sprinkler');
     expect(r.after).toHaveLength(23);

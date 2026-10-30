@@ -4,6 +4,7 @@ import { samuraiSelectable } from '../../craft/samuraiDrop';
 import { pickNushiDrop, rollPower } from '../../legend/defs';
 import type { Rng } from '../../world/gen/random';
 import type { StaggerBook } from '../stagger';
+import { KIND_TRAITS } from '../traits';
 import { YOKAI_DROPS } from './config';
 import type { Ent } from './entity';
 import type { YokaiEvents } from './events';
@@ -36,13 +37,15 @@ export class YokaiDefeat {
     e.state = 'dying';
     e.model.die();
     if (byPlayer) d.opts.onDefeat?.(e.kind, { xp: e.xp, title: e.title, m: e.m });
+    // 水の 中の 妖怪の ドロップは 水にういて ひろいにくいので、たおした ときに そのまま 持ち物に 入る（子どもが 追いかけなくていい）
+    const direct = KIND_TRAITS[e.kind].swims;
     let total = 0;
     // 二つ名は 表を引く回数がふえる（おやぶん 2・たいしょう 3・ヌシ 4）
     for (let roll = 0; roll < (byPlayer ? e.dropRolls : 0); roll++) {
       for (const row of YOKAI_DROPS[e.kind]) {
         if (d.rng() >= row.chance) continue;
         const count = 1 + Math.floor(d.rng() * row.max);
-        const left = d.drops
+        const left = d.drops && !direct
           ? count - d.drops.scatter({ x: e.x, y: e.y, z: e.z }, [{ item: row.item, count }], { kind: 'yokai' })
           : d.inventory.add(row.item, count);
         const added = count - left;

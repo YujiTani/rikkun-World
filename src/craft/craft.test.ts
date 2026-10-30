@@ -83,7 +83,7 @@ describe('つくる（AC1〜AC4）', () => {
   it('list は 38 こ、持ち物が空なら全部 craftable false', () => {
     const { craft } = rig();
     const l = craft.list();
-    expect(l).toHaveLength(54); // CRAFT-PAGE: たいまつの 作り方が 2 つ ふえた（カードは 44 枚）。GOLD-1: きんの そうび 8 こ。KONGO-1: こんごうの そうび 8 こ
+    expect(l).toHaveLength(55); // CRAFT-PAGE: たいまつの 作り方が 2 つ ふえた（カードは 44 枚）。GOLD-1: きんの そうび 8 こ。KONGO-1: こんごうの そうび 8 こ。TAKO-1: ふで
     expect(l.every((c) => !c.craftable && c.missing.length === c.inputs.length)).toBe(true);
     expect(l[0].id).toBe('wood_pickaxe');
     expect(craft.bakeList().map((b) => b.id)).toEqual(['iron_ingot', 'kawara', 'brick', 'haniwa', 'kin', 'momo_yaki']); // GOLD-1: きん ＋ LIVE-3: momo_yaki が いちばん うしろ
