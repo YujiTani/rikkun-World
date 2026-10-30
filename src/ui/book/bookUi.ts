@@ -11,7 +11,7 @@ import './book.css';
 import './zukan.css';
 
 /** ZUKAN-1: アイテムの 説明と てに いれかた（作る画面の 説明と 同じ データ） */
-export interface ZukanInfo {
+interface ZukanInfo {
   use: string;
   special?: string;
   source: string;

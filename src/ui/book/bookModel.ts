@@ -8,7 +8,7 @@ import { ZUKAN_SPREAD, filterZukan, zukanEntries, zukanPages, type ZukanEntry, t
  */
 export type BookView = 'toc' | 'chapter' | 'item' | 'zukan' | 'zukanItem' | 'closed';
 /** もくじの 「アイテム ずかん」の リンクの id（ZUKAN-1） */
-export const ZUKAN_LINK = 'zukan';
+const ZUKAN_LINK = 'zukan';
 export type BookAnim = 'none' | 'appear' | 'open' | 'turn' | 'bump' | 'close';
 export type BookSound = 'open' | 'turn' | 'bump' | 'close';
 
