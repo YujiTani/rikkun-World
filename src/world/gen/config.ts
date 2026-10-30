@@ -177,11 +177,11 @@ export const GEN_CONFIG = {
   /** 仮の海のふち（S6。読みこむところでかける） */
   edge: { deep: 4, flat: 3 },
 
-  /** 鉱石（O1〜O5）。clusters = 1 列に置く かたまり の数 */
+  /**
+   * 山の 面の 見える 鉱石（O4・O5）。地下の 鉱石の かたまり（層・量・大きさ）は mineConfig.ts（MINE-1A）
+   * visibleCoal・visibleIron = 空気に ふれた 石の マスの うち せきたん・てつ に なる わりあい（0〜1）
+   */
   ores: {
-    coal: { minY: SEA_Y - 64, clusters: 8, sizeMin: 3, sizeMax: 6 },
-    ironShallow: { minY: 96, maxY: SEA_Y - 8, clusters: 2, sizeMin: 2, sizeMax: 4 },
-    ironDeep: { minY: 8, maxY: 95, clusters: 6, sizeMin: 2, sizeMax: 4 },
     visibleCoal: 0.04,
     visibleIron: 0.015,
     visibleIronFrom: SEA_Y + 40,
