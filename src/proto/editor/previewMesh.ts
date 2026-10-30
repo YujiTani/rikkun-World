@@ -7,7 +7,7 @@ import { KOTATSU_CELLS } from '../../world/blocks/kotatsu';
 import { FACE_SHADE_BY_INDEX } from '../../world/render/config';
 import type { ArrayVoxelWorld } from '../../world/VoxelWorld';
 import { MAIN_V_SCALE, tileOf, tileRect, type PreviewTile } from './atlas';
-import { furnitureBoxes, type BoxKind, type FurnBox } from './furnitureArt';
+import { furnitureBoxes, type BoxKind, type FaceSide, type FurnBox } from './furnitureArt';
 import { doorIndex, footprint, windowCells, type EditorState, type Placed } from './model';
 import { DOOR_TOP_Y, DOOR_WALL, FURNITURE, HEIGHT, K_FUTON, K_KOTATSU, OPENING, PREVIEW, ROOF_Y, WALLS, WINDOW_Y, type Wall } from './tuning';
 
@@ -231,6 +231,9 @@ interface BoxFaceDef {
   t: Ax;
   index: number;
 }
+/** 箱の 横の 面（index 2〜5）→ 家具の 向きでの 呼び名（前 ＝ −z、右 ＝ +x）。faces で 面ごとの 絵を かえる とき */
+const SIDE_OF: Readonly<Record<number, FaceSide>> = { 2: 'right', 3: 'left', 4: 'back', 5: 'front' };
+
 /** s × t ＝ n（外から 見て 反時計まわり）。houseA の 面の 定義と 同じ */
 const BOX_FACES: readonly BoxFaceDef[] = [
   { n: [0, 1, 0], fixed: 1, s: 2, t: 0, index: 0 },
@@ -276,7 +279,7 @@ function pushBoxFurniture(m: MeshData, kind: BoxKind, rot: number, ox: number, o
     for (const f of BOX_FACES) {
       const plane = f.n[f.fixed] > 0 ? b[f.fixed]! : a[f.fixed]!;
       if (f.index === 1 && plane < 1e-6) continue; // 床に つく 面は 見えない
-      const tile = tileOf(f.index <= 1 ? bx.top : bx.side);
+      const tile = tileOf(f.index <= 1 ? bx.top : (bx.faces?.[SIDE_OF[f.index]!] ?? bx.side));
       const r = tileRect(tile);
       // 面の 向き（まわした あと）→ 明るさ
       const [wx, wz] = rotate(f.n[0], f.n[2]);
@@ -292,9 +295,10 @@ function pushBoxFurniture(m: MeshData, kind: BoxKind, rot: number, ox: number, o
             p[f.t] = tv;
             return p;
           });
-          // 絵の うつし方（ローカル）: 上下 (x, −z)・−z (x, y)・+z (−x, y)・+x (z, y)・−x (−z, y)
+          // 絵の うつし方（ローカル。横の 4 面は 外から 見て 左から 右へ 絵の x が すすむ ＝ ゲームの ブロックと 同じ 向き）:
+          //   上下 (x, −z)・−z (−x, y)・+z (x, y)・+x (−z, y)・−x (z, y)
           const uvOf = (p: number[]): [number, number] =>
-            f.index <= 1 ? [p[0]!, -p[2]!] : f.n[2] !== 0 ? [f.n[2] < 0 ? p[0]! : -p[0]!, p[1]!] : [f.n[0] > 0 ? p[2]! : -p[2]!, p[1]!];
+            f.index <= 1 ? [p[0]!, -p[2]!] : f.n[2] !== 0 ? [f.n[2] < 0 ? -p[0]! : p[0]!, p[1]!] : [f.n[0] > 0 ? -p[2]! : p[2]!, p[1]!];
           const raw = local.map(uvOf);
           const cu = Math.floor(raw.reduce((q, v) => q + v[0], 0) / 4);
           const cv = Math.floor(raw.reduce((q, v) => q + v[1], 0) / 4);

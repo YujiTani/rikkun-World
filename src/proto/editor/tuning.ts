@@ -5,7 +5,9 @@ export type Wall = 'front' | 'right' | 'back' | 'left';
 export type Size = 5 | 7 | 9;
 export type Rot = 0 | 1 | 2 | 3;
 export type Step = 'soto' | 'naka' | 'namae';
-export type FurnKind = 'futon' | 'chair' | 'table' | 'andon' | 'shelf' | 'ofuro' | 'kotatsu' | 'tansu' | 'furnace';
+export type FurnKind =
+  | 'futon' | 'chair' | 'table' | 'andon' | 'shelf' | 'ofuro' | 'kotatsu' | 'tansu' | 'furnace'
+  | 'stool' | 'table_long' | 'table_round' | 'haniwa';
 
 /** 中の 床の よこ・たて（マス）。奇数だけ（戸と 天井の ちょうちんを まん中に 置く ため）。はじめは よこ 5・たて 5 */
 export const SIZES: readonly Size[] = [5, 7, 9];
@@ -43,8 +45,10 @@ export const K_FUTON = 'futon' satisfies FurnKind;
 export const K_KOTATSU = 'kotatsu' satisfies FurnKind;
 export const K_LANTERN = 'lantern';
 
-/** 家具 9 種（一覧の 並び = 画面の ボタンの 並び 5＋4）。大きさは まわす 前の よこ×たて（マス）。材料は 1 こ ぶん（item id, 数） */
-export const FURN_ORDER: readonly FurnKind[] = ['futon', 'chair', 'table', 'andon', 'shelf', 'ofuro', 'kotatsu', 'tansu', 'furnace'];
+/** 家具 13 種（一覧の 並び = 画面の ボタンの 並び。第 3 版で 4 つ ふえた: まるいす・ながい テーブル・まるい テーブル・はにわ）。大きさは まわす 前の よこ×たて（マス）。材料は 1 こ ぶん（item id, 数） */
+export const FURN_ORDER: readonly FurnKind[] = [
+  'futon', 'chair', 'stool', 'table', 'table_long', 'table_round', 'andon', 'shelf', 'ofuro', 'kotatsu', 'tansu', 'furnace', 'haniwa',
+];
 export interface FurnDef {
   name: string;
   cells: readonly [number, number];
@@ -60,6 +64,11 @@ export const FURNITURE: Readonly<Record<FurnKind, FurnDef>> = {
   kotatsu: { name: 'こたつ', cells: [2, 2], mats: [['grass', 3], ['log', 2], ['torch', 1]] },
   tansu: { name: 'たんす', cells: [1, 1], mats: [['log', 8], ['iron_ingot', 2]] },
   furnace: { name: 'かまど', cells: [1, 1], mats: [['stone', 5]] },
+  // 第 3 版（材料は 仮。仕様で 決める）
+  stool: { name: 'まるいす', cells: [1, 1], mats: [['log', 2]] },
+  table_long: { name: 'ながい テーブル', cells: [3, 1], mats: [['log', 6]] },
+  table_round: { name: 'まるい テーブル', cells: [1, 1], mats: [['log', 4]] },
+  haniwa: { name: 'はにわ', cells: [1, 1], mats: [['stone', 4]] },
 };
 
 /** 「ひつような もの」の 並び（§3.2）と、窓 1 こに かみ 1 */
