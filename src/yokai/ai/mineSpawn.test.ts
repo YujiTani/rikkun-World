@@ -77,6 +77,16 @@ type Extra = Record<string, unknown>;
 /** 数の 上限・間かくを ゆるめた 設定（A7・A8 は「どこに 出るか」だけ 見る）。消える きまりも 切る */
 const RELAXED: Extra = { yokaiSpawnInterval: 1, yokaiSpawnIntervalUnder: 1, yokaiMax: 100_000, yokaiMaxUnder: 100_000, yokaiForgetSteps: 1e9 };
 
+/**
+ * 設定の 数を 読む（高さの はば yokaiSpawnHeight・横の 近い〜遠い yokaiSpawnMinDist〜yokaiSpawnMaxDist）。
+ * 数が 無い ときは 名前を 言って 落とす（NaN との くらべは どれも 偽なので、読めない まま だと「外に 出た 妖怪が 0 体」で 通ってしまう）
+ */
+function setting(config: object, name: 'yokaiSpawnHeight' | 'yokaiSpawnMinDist' | 'yokaiSpawnMaxDist'): number {
+  const v = (config as Record<string, unknown>)[name];
+  if (typeof v !== 'number' || !Number.isFinite(v)) throw new Error(`設定 ${name} が ない（仕様 §4.3）`);
+  return v;
+}
+
 interface RigOptions {
   world: ArrayVoxelWorld;
   feet: number;
@@ -143,6 +153,17 @@ function collect(r: Rig, n: number, maxSteps = 6000): Spawn[] {
 }
 
 const lateral = (r: Rig, s: Spawn): number => Math.hypot(s.x - r.player.position.x, s.z - r.player.position.z);
+
+/** 横が 設定の 近い〜遠い（yokaiSpawnMinDist〜yokaiSpawnMaxDist）の 中 */
+function expectLateral(r: Rig, spawns: readonly Spawn[]): void {
+  const lo = setting(r.config, 'yokaiSpawnMinDist');
+  const hi = setting(r.config, 'yokaiSpawnMaxDist');
+  for (const s of spawns) {
+    expect(lateral(r, s)).toBeGreaterThanOrEqual(lo - 1e-9);
+    expect(lateral(r, s)).toBeLessThanOrEqual(hi + 1e-9);
+  }
+}
+
 const gapsOf = (events: readonly HookYokaiEvent[]): number[] => {
   const t = spawnsOf(events).map((s) => s.tick);
   return t.slice(1).map((v, i) => v - t[i]!);
@@ -151,36 +172,55 @@ const gapsOf = (events: readonly HookYokaiEvent[]): number[] => {
 // ------------------------------------------------------------------ A7: 出る 高さ
 
 describe('A7: 出る 高さは プレイヤーの 足 ±8（地上も 地下も）。横は 12〜28', () => {
+  // 題名の 数字（8・12・28）は 既定の 値の 説明。テストの 中の 数は 設定〔yokaiSpawnHeight・yokaiSpawnMinDist・yokaiSpawnMaxDist〕から 読む
   it('y 60 の 部屋に いる とき、自動で 出た 妖怪 100 体の 足が ぜんぶ y 52〜68。y 100 の 部屋には 出ない', () => {
     const r = rig({ world: mineWorld(TWO_ROOMS), feet: 60, phase: 'day', config: RELAXED });
+    const height = setting(r.config, 'yokaiSpawnHeight');
     const spawns = collect(r, 100);
     expect(spawns).toHaveLength(100);
-    const bad = spawns.filter((s) => s.y < 52 || s.y > 68).map((s) => s.y);
-    expect(bad, `足が 52〜68 の 外: ${[...new Set(bad)].join(',')}`).toEqual([]);
-    for (const s of spawns) {
-      expect(lateral(r, s)).toBeGreaterThanOrEqual(12 - 1e-9);
-      expect(lateral(r, s)).toBeLessThanOrEqual(28 + 1e-9);
-    }
+    const bad = spawns.filter((s) => s.y < 60 - height || s.y > 60 + height).map((s) => s.y);
+    expect(bad, `足が ${60 - height}〜${60 + height} の 外: ${[...new Set(bad)].join(',')}`).toEqual([]);
+    expectLateral(r, spawns);
   });
 
   it('地上（足 151・夜）に いる ときも 100 体の 足が ぜんぶ y 143〜159（地面の 上だけ。2 つの 部屋には 出ない）', () => {
     const r = rig({ world: mineWorld(TWO_ROOMS), feet: GROUND + 1, phase: 'night', config: RELAXED });
+    const height = setting(r.config, 'yokaiSpawnHeight');
     const spawns = collect(r, 100);
     expect(spawns).toHaveLength(100);
-    const bad = spawns.filter((s) => s.y < 143 || s.y > 159).map((s) => s.y);
-    expect(bad, `足が 143〜159 の 外: ${[...new Set(bad)].join(',')}`).toEqual([]);
-    for (const s of spawns) {
-      expect(lateral(r, s)).toBeGreaterThanOrEqual(12 - 1e-9);
-      expect(lateral(r, s)).toBeLessThanOrEqual(28 + 1e-9);
-    }
+    const bad = spawns.filter((s) => s.y < GROUND + 1 - height || s.y > GROUND + 1 + height).map((s) => s.y);
+    expect(bad, `足が ${GROUND + 1 - height}〜${GROUND + 1 + height} の 外: ${[...new Set(bad)].join(',')}`).toEqual([]);
+    expectLateral(r, spawns);
   });
 
   // 足 ±8 の 中の ほかの 高さの 床にも 出る（はばが 狭すぎない）／外には 出ない。高さの はばは 設定 yokaiSpawnHeight
   const STACK: ReadonlyArray<readonly [number, number]> = [[48, 51], [54, 57], [60, 63], [66, 69], [72, 75]]; // 足 48・54・60・66・72
   it('足 ±8 の 中の 別の 高さの 床（54・66）にも 出る。外（48・72）には 出ない', () => {
     const r = rig({ world: mineWorld(STACK), feet: 60, phase: 'day', config: RELAXED });
+    const height = setting(r.config, 'yokaiSpawnHeight');
+    // この 並べ方〔足 ±6 は 中・±12 は 外〕が 意味を もつ はば（はばが かわったら 並べ方も 直す）
+    expect(height, '既定の はば').toBeGreaterThanOrEqual(6);
+    expect(height, '既定の はば').toBeLessThan(12);
     const feet = new Set(collect(r, 300).map((s) => s.y));
     expect([...feet].sort((a, b) => a - b)).toEqual([54, 60, 66]);
+  });
+
+  it('きわ: 足から ちょうど 8 マス 上・下（52・68）の 床には 出る。1 マス 外（51・69）の 床しか ない 世界では 1 体も 出ない', () => {
+    const FEET = 60;
+    const height = setting(createYokaiConfig(), 'yokaiSpawnHeight');
+    /** 床は 足 lo と 足 hi の 2 つの 部屋だけ。プレイヤーは 小さな 空気の たて穴に 立つ（横 0 マスなので 出る 場所には ならない） */
+    const worldWith = (lo: number, hi: number): ArrayVoxelWorld => {
+      const w = mineWorld([[lo, lo + 3], [hi, hi + 3]]);
+      const p = Math.floor(CENTER);
+      w.fill(p, FEET, p, p, FEET + 2, p, 'air');
+      return w;
+    };
+    const atEdge = rig({ world: worldWith(FEET - height, FEET + height), feet: FEET, phase: 'day', config: RELAXED });
+    const feet = new Set(collect(atEdge, 100).map((s) => s.y));
+    expect([...feet].sort((a, b) => a - b), `床が 足 ±${height} ちょうどに しか ない 世界`).toEqual([FEET - height, FEET + height]);
+    const justOutside = rig({ world: worldWith(FEET - height - 1, FEET + height + 1), feet: FEET, phase: 'day', config: RELAXED });
+    const outside = collect(justOutside, 1, 600);
+    expect(outside.map((s) => s.y), `床が 足 ±${height + 1}〔1 マス 外〕に しか ない 世界`).toEqual([]);
   });
 
   it('高さの はばは 設定（yokaiSpawnHeight）で きまる: 3 に すると 足と 同じ 高さの 床だけ', () => {
@@ -200,7 +240,8 @@ describe('A8: 水は 足 ±8 の 中だけ 見る', () => {
     const r = rig({ world: w, feet: 60, phase: 'day', config: RELAXED });
     const spawns = collect(r, 100);
     expect(spawns).toHaveLength(100);
-    expect(spawns.every((s) => s.y >= 52 && s.y <= 68)).toBe(true);
+    const height = setting(r.config, 'yokaiSpawnHeight');
+    expect(spawns.every((s) => s.y >= 60 - height && s.y <= 60 + height)).toBe(true);
   });
 
   it('足 ±8 の 中に 水が ある 列には 出ない（水たまり・足の 上 6 マスの 水）。足 ±8 の 外（上 12 マス）の 水なら 出る', () => {

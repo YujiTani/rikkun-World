@@ -112,6 +112,7 @@ function topOf(w: ArrayVoxelWorld, x: number, z: number): number {
 }
 
 /** 鉱石（名前が `_ore` で 終わる 物。せきたん・てつ・MINE-1B の 新しい 鉱物） */
+// 1B で 末尾が _ore で ない 新しい 鉱物を 足す ときは ここも 見る（src/world/gen/mineOres.test.ts の TO_STONE も 同じ）
 const ORE_INDEXES: ReadonlySet<number> = new Set(BLOCK_TYPES.flatMap((t, i) => (t.id.endsWith('_ore') ? [i] : [])));
 
 function makeScene(seed: number): Scene {

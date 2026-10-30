@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { openStream } from './helpers/stream';
 
 /**
  * MINE-1A（issue #348。docs/design/MINE-1.md §4.3・受け入れ基準 A10 と、A6 の つなぎ込み）: 通し。
@@ -39,11 +40,6 @@ interface Room {
   floorY: number;
   /** 部屋の まわりの 地面の いちばん 低い 高さ（世界に 聞いた 値） */
   lowestGround: number;
-}
-
-async function open(page: Page) {
-  await page.goto(`/?nosave=1&seed=${SEED}`);
-  await page.waitForFunction(() => window.__rikkun?.ready === true);
 }
 
 /** 光とメッシュの 作りなおしが おちつくまで（コマ数の ステップを つかう。時間では ない） */
@@ -88,16 +84,13 @@ function badSpawns(spawns: Spawn[], height: number, minD: number, maxD: number):
 
 test.describe('MINE-1A A10: 地下の 部屋で 妖怪が 出る 場所', () => {
   test('ひる 地下の 間かく 10 回: 妖怪は ぜんぶ 足 ±8・横 12〜28。たいまつの 8 マス 以内には 出ない', async ({ page }) => {
-    await open(page);
+    await openStream(page, `?nosave=1&seed=${SEED}`); // 開く・実績の 音を 消す・一時停止・自動で 出すのを 切る（e2e/helpers/stream.ts）
 
     // --- 部屋を つくる（地面から 30 マス いじょう 下。まわりは いしで とじて 暗くする） ---
     const room: Room = await page.evaluate(() => {
       const h = (window as any).__rikkun;
-      h.pause();
       h.lock.simulate(true);
       h.input.releaseAll();
-      h.achievements.mute(true);
-      h.settings.set('yokaiAutoSpawn', false);
       h.yokai.clear();
       const sp = h.world.spawn();
       const x0 = Math.floor(sp.x) - 10;

@@ -22,11 +22,15 @@ import golden from './__fixtures__/mine1a-before.json';
  *   mouth   … 洞くつの 口の ある 列（シードごとに 8）
  * 見本を 書きかえて 通さない（作り方の ほうを 直す）。
  *
- * 注意（テストの 準備の とき、ためしの 作り方で はかった 値。仕様の 数は そのまま 使って いる）:
- *   ぜんぶ は 表と 同じに なる（かたまりの 数を 表の ぜんぶ ÷ 3.0 に した ため）。見える は、面で くっついた かたまりは ばらまくより
- *   露出が 2 割 ほど へる ので、表の 見える の 0.72〜0.83 倍・見える ÷ ぜんぶ は 2.5〜2.9%（前は 3.0〜3.1%）だった。
- *   A2 の ふかい てつ（0.7 倍が 下限）と A3（2.5% が 下限）が すれすれ。実装で 下限を わった ときは「かべに 寄せる」で 合わせず、
- *   仕様〔表の 見える か 幅〕の 直しを 相談する（このテストの 数は PO・designer の 返事まで かえない）。
+ * 注意（テストの 準備の とき、ためしの 作り方で はかった 値と、それで 直った 仕様。#348）:
+ *   面で くっついた かたまりは ばらまくより 露出が 2 割 ほど へる。ためしの 作り方〔表の ぜんぶ ÷ 3.0 こ の かたまりを 石の 中に 置く〕では
+ *   見える が 表の 0.72〜0.83 倍・見える ÷ ぜんぶ が 2.5〜2.9%（前の ゲームは 3.0〜3.1%）で、仕様の 表〔約 3.5% の 見こみ〕と ずれた。
+ *   PO の 決め〔見える 数は かえない・かべに 寄せない〕で、designer が 仕様 §4.2 の ぜんぶ を 見える ÷ 0.027 に 上げた
+ *   〔89a481d。せきたん 90 → 119・てつ 10/32/32 → 13/41/41。見える は そのまま。A3 は 2.5〜5% → 2〜4%〕。
+ *   このテストの 数は その 新しい 仕様に 合わせて ある（A2 は 表の 見える・ぜんぶ、A3 は 2〜4%、
+ *   「前と くらべて」は 見える 約 3 倍・ぜんぶ 約 4 倍）。
+ *   実装で 見える が 足りない ときも「かべに 寄せる」で 合わせない（かたまりを 置く 場所を かたよらせない）。
+ *   合わない ときは ぜんぶ〔かたまりの 数〕を 見直すか、仕様の 数〔表か 幅〕の 相談を する。
  */
 
 interface Golden {
@@ -66,6 +70,7 @@ const fnv = (arr: Uint8Array): string => {
 };
 
 /** 鉱石（名前が `_ore` で 終わる 物。せきたん・てつ・1B の 新しい 鉱物）を いしに 読みかえる */
+// 1B で 末尾が _ore で ない 新しい 鉱物を 足す ときは ここも 見る（sectionMesher.slice.test.ts の ORE_INDEXES も 同じ）
 const TO_STONE = new Uint8Array(BLOCK_TYPES.length).map((_, i) => (blockIdFromIndex(i).endsWith('_ore') ? STONE : i));
 const stoneHash = (arr: Uint8Array): string => {
   const a = new Uint8Array(arr.length);
@@ -188,25 +193,28 @@ describe('A2: 鉱石の 量（せきたん・てつ。はらっぱ・もりの �
     for (const layer of LAYER_IDS) expect(avg((s) => oreOf(s, layer, 'iron_ore', 'all')), `${layer} の てつ`).toBeGreaterThan(0);
   });
 
-  it('「今の 約 3 倍」: せきたん＋てつ の ぜんぶ・見える とも 前の 平均の 2.5〜5 倍', () => {
+  it('前の ゲームと くらべて（§4.2）: せきたん＋てつ の 見える は 約 3 倍・ぜんぶ は 約 4 倍（かたまりは 石に かくれる ので ぜんぶの ほうが 多く ふえる）', () => {
     const sum = (key: 'all' | 'visible') => avg((s) => LAYER_IDS.reduce((p, L) => p + BLOCKS.reduce((q, b) => q + oreOf(s, L, b, key), 0), 0));
     const before = { all: G.old.coal.all + G.old.iron.all, visible: G.old.coal.visible + G.old.iron.visible };
-    for (const key of ['all', 'visible'] as const) {
+    // 約 3 倍 ＝ 2.5〜5 倍、約 4 倍 ＝ 3〜5.5 倍。表どおりだと この 列の 前の 平均〔見える 1.56・ぜんぶ 51.6〕に たいして 3.7 倍・4.2 倍
+    const want = { visible: [2.5, 5], all: [3, 5.5] } as const;
+    for (const key of ['visible', 'all'] as const) {
       const ratio = sum(key) / before[key];
-      expect(ratio, `${key}: 前 ${before[key].toFixed(2)} → 今 ${sum(key).toFixed(2)}`).toBeGreaterThanOrEqual(2.5);
-      expect(ratio, `${key}: 前 ${before[key].toFixed(2)} → 今 ${sum(key).toFixed(2)}`).toBeLessThanOrEqual(5);
+      const [lo, hi] = want[key];
+      expect(ratio, `${key}: 前 ${before[key].toFixed(2)} → 今 ${sum(key).toFixed(2)}（${lo}〜${hi} 倍の はず）`).toBeGreaterThanOrEqual(lo);
+      expect(ratio, `${key}: 前 ${before[key].toFixed(2)} → 今 ${sum(key).toFixed(2)}（${lo}〜${hi} 倍の はず）`).toBeLessThanOrEqual(hi);
     }
   });
 });
 
-describe('A3: 見える ÷ ぜんぶ（かべに 寄せない。今と 同じ くらい）', () => {
-  it('せきたん・てつ とも 2.5〜5%', () => {
+describe('A3: 見える ÷ ぜんぶ（かべに 寄せない。かたまりで 約 2.7%）', () => {
+  it('せきたん・てつ とも 2〜4%', () => {
     for (const block of BLOCKS) {
       const visible = avg((s) => LAYER_IDS.reduce((p, L) => p + oreOf(s, L, block, 'visible'), 0));
       const all = avg((s) => LAYER_IDS.reduce((p, L) => p + oreOf(s, L, block, 'all'), 0));
       expect(all, `${block} の ぜんぶ`).toBeGreaterThan(0);
-      expect(visible / all, `${block}: 見える ${visible.toFixed(2)} ÷ ぜんぶ ${all.toFixed(2)}`).toBeGreaterThanOrEqual(0.025);
-      expect(visible / all, `${block}: 見える ${visible.toFixed(2)} ÷ ぜんぶ ${all.toFixed(2)}`).toBeLessThanOrEqual(0.05);
+      expect(visible / all, `${block}: 見える ${visible.toFixed(2)} ÷ ぜんぶ ${all.toFixed(2)}`).toBeGreaterThanOrEqual(0.02);
+      expect(visible / all, `${block}: 見える ${visible.toFixed(2)} ÷ ぜんぶ ${all.toFixed(2)}`).toBeLessThanOrEqual(0.04);
     }
   });
 });
@@ -312,18 +320,20 @@ describe('A16: かたまり（§4.2。同じ 鉱石が 面で くっついた 2�
           if (Math.floor(m.x / 16) !== s.cx || Math.floor(m.z / 16) !== s.cz) bad.push(`② 列の 外 ${where} (${key(m)})`);
           if (s.mine.layerAt(m.y) !== c.layer) bad.push(`② 層の 外 ${where} y=${m.y}`);
         }
-        // ①
-        const left = new Set(c.cells.map(key));
-        const todo = [c.cells[0]!];
-        left.delete(key(todo[0]!));
-        while (todo.length > 0) {
-          const m = todo.pop()!;
-          for (const [dx, dy, dz] of NB6) {
-            const n = { x: m.x + dx, y: m.y + dy, z: m.z + dz };
-            if (left.delete(key(n))) todo.push(n);
+        // ①（cells が 空なら ③ が 報告ずみ。ここで 落として ③ の 本当の 理由を かくさない）
+        if (c.cells.length > 0) {
+          const left = new Set(c.cells.map(key));
+          const todo = [c.cells[0]!];
+          left.delete(key(todo[0]!));
+          while (todo.length > 0) {
+            const m = todo.pop()!;
+            for (const [dx, dy, dz] of NB6) {
+              const n = { x: m.x + dx, y: m.y + dy, z: m.z + dz };
+              if (left.delete(key(n))) todo.push(n);
+            }
           }
+          if (left.size > 0) bad.push(`① つながって いない ${where}`);
         }
-        if (left.size > 0) bad.push(`① つながって いない ${where}`);
         // ④
         for (const m of c.cells) {
           for (const [dx, dy, dz] of NB6) {

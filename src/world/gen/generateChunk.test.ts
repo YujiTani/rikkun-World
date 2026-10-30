@@ -377,15 +377,20 @@ describe('基準 3・4・6・7・9: 作った列のブロック（10 シード �
     expect(st.strataBad).toEqual([]);
   });
 
-  it('基準 6（MINE-1A §4.1・§4.2）: せきたん・てつは 今の 約 3 倍。せきたんは あさい層（y ≥ 96）だけ・てつは 3 つの 層とも。ふかいほど こい', () => {
-    // 前〔VOX-B〕は せきたん 1 列 24〜40・てつ 16〜30（せきたん y ≥ 80・てつ y ≤ 136）。今は 表〔§4.2〕で 1 列 ぜんぶ せきたん 約 90・てつ 約 74。
-    // ここは 海の 列・山の 列も まざる 全部の 列の 平均 なので ゆるく 見る（はらっぱ・もりの 陸の 列で 表と くらべるのは mineOres.test.ts の A2）
+  it('基準 6（MINE-1A §4.1・§4.2）: せきたん・てつの ぜんぶは 今の 約 4 倍〔表 oreTable() の ぜんぶ〕。せきたんは あさい層（y ≥ 96）だけ・てつは 3 つの 層とも。ふかいほど こい', async () => {
+    // 前〔VOX-B〕は せきたん 1 列 24〜40・てつ 16〜30（せきたん y ≥ 80・てつ y ≤ 136）。今は 表〔§4.2〕の 1 列 ぜんぶ（窓口 oreTable() から 読む）。
+    // ここは 海の 列・山の 列も まざる 全部の 列の 平均 なので ゆるく 見る（表の 0.65〜1.45 倍。はらっぱ・もりの 陸の 列で 表と 細かく くらべるのは mineOres.test.ts の A2）
+    const { createMineHook } = await import('./mineHook'); // 窓口が まだ 無い うちは この 基準だけ 赤〔ほかの 基準は 通る〕
+    const table: { block: string; all: number }[] = createMineHook({ seed: SEEDS_10[0]! }).oreTable();
+    const allOf = (block: string): number => table.filter((r) => r.block === block).reduce((p, r) => p + r.all, 0);
     const coal = st.coal / st.chunks;
     const iron = st.iron / st.chunks;
-    expect(coal).toBeGreaterThanOrEqual(60);
-    expect(coal).toBeLessThanOrEqual(130);
-    expect(iron).toBeGreaterThanOrEqual(45);
-    expect(iron).toBeLessThanOrEqual(105);
+    expect(allOf('coal_ore'), '表の せきたん').toBeGreaterThan(0);
+    expect(allOf('iron_ore'), '表の てつ').toBeGreaterThan(0);
+    expect(coal, `せきたん 1 列 ${coal.toFixed(1)}（表 ${allOf('coal_ore')}）`).toBeGreaterThanOrEqual(allOf('coal_ore') * 0.65);
+    expect(coal, `せきたん 1 列 ${coal.toFixed(1)}（表 ${allOf('coal_ore')}）`).toBeLessThanOrEqual(allOf('coal_ore') * 1.45);
+    expect(iron, `てつ 1 列 ${iron.toFixed(1)}（表 ${allOf('iron_ore')}）`).toBeGreaterThanOrEqual(allOf('iron_ore') * 0.65);
+    expect(iron, `てつ 1 列 ${iron.toFixed(1)}（表 ${allOf('iron_ore')}）`).toBeLessThanOrEqual(allOf('iron_ore') * 1.45);
     expect(st.coalOutsideAsai).toBe(0);
     expect(st.ironAsai).toBeGreaterThan(0);
     expect(st.ironNakahodo).toBeGreaterThan(0);
