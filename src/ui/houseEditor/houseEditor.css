@@ -1,0 +1,872 @@
+/*
+ * HOUSE-1B せっけいずエディターの 画面（docs/design/HOUSE-1.md §3.2）。
+ * 色・ふち・角・影は src/ui/theme の 変数だけ。大きさは 3 つの 画面（1024×700・1280×800・1440×900）で 同じ 形に なる よう px で 決める
+ * （文字 24 / 32、押せる 物 64〈50 音は 56〉、padding・すきまは 4 / 8 / 12 / 16 / 24 / 32 / 48。HOUSE-1A の くらと 同じ やり方）。
+ * 見本（3D）の 場所は 透明な「穴」（.ed-view）。ゲームの 画面（キャンバス）に 3D を 描き、この 穴から 見せる。
+ */
+/* エディターが 開いて いる 間は ゲームの HUD を かくす（建築士さんの 画面〔.house-ui〕だけ のこす） */
+body.house-editor-open #hud > :not(.house-ui) {
+  display: none !important;
+}
+.ed-root {
+  --ed-cell: 48px;
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  color: var(--rk-text);
+  font-family: inherit;
+  text-shadow: none;
+  pointer-events: auto;
+  user-select: none;
+}
+.ed-root *,
+.ed-root *::before,
+.ed-root *::after {
+  box-sizing: border-box;
+}
+.ed-root[hidden],
+.ed-root [hidden] {
+  display: none !important;
+}
+.ed-ico {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  pointer-events: none;
+}
+
+/* ---- ボタン（HOUSE-1A の .house-btn と 同じ 作り） ---- */
+.ed-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  gap: 8px;
+  height: 64px;
+  min-width: 64px;
+  margin: 0;
+  padding: 4px 12px;
+  position: relative;
+  font-family: inherit;
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 24px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--rk-text);
+  background: var(--rk-bg-700);
+  border: var(--rk-bw) solid var(--rk-line);
+  border-radius: var(--rk-r-m);
+  box-shadow: var(--rk-shadow-1);
+  cursor: pointer;
+  pointer-events: auto;
+  transition: filter var(--rk-dur-fast) var(--rk-ease);
+}
+.ed-btn:hover:not(:disabled):not(.is-off) {
+  filter: brightness(1.12);
+}
+.ed-btn.is-boing {
+  animation: ed-boing var(--rk-dur-pop) var(--rk-ease-pop) 1;
+}
+.ed-btn:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: var(--rk-shadow-1-pressed);
+}
+.ed-btn:focus-visible {
+  outline: var(--rk-bw-sel) solid var(--rk-accent);
+  outline-offset: 2px;
+}
+.ed-btn:disabled,
+.ed-btn.is-off {
+  color: var(--rk-text-sub);
+  border-style: dashed;
+  box-shadow: none;
+  cursor: default;
+}
+.ed-btn:disabled .ed-ico,
+.ed-btn.is-off .ed-ico {
+  opacity: 0.55;
+}
+.ed-btn.is-hidden {
+  visibility: hidden;
+}
+/* いちばん 目立つ ボタン（できた！） */
+.ed-btn--go {
+  min-width: 160px;
+  padding: 4px 32px;
+  color: var(--rk-ink);
+  background: var(--rk-accent-grad);
+  border-color: var(--rk-accent);
+  font-size: 32px;
+}
+/* 確かめの まどの 目立つ ほう */
+.ed-btn--pri {
+  color: var(--rk-ink);
+  background: var(--rk-accent-grad);
+  border-color: var(--rk-accent);
+}
+/* えらんで いる もの: 色 ＋ 太い ふち ＋ ✓ */
+.ed-btn.is-sel {
+  color: var(--rk-ink);
+  background: var(--rk-accent-grad);
+  border: var(--rk-bw-sel) solid var(--rk-text);
+  box-shadow: var(--rk-glow);
+}
+.ed-btn__tick {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  color: var(--rk-ink);
+  background: var(--rk-text);
+  border-radius: var(--rk-r-s);
+}
+.ed-btn__tick .ed-ico {
+  width: 24px;
+  height: 24px;
+}
+/* 上の 帯の もどす・すすむ: 絵の 下に 字（1 行） */
+.ed-btn--stack {
+  flex-direction: column;
+  gap: 4px;
+  width: 88px;
+  padding: 0 4px;
+}
+/* 2 行の ボタン: 1 行ずつ 分けて 作る（字が 折りかえさない） */
+.ed-btn--two {
+  flex-direction: column;
+  gap: 4px;
+  min-width: 144px;
+  padding: 0 12px;
+}
+.ed-btn--two > span {
+  display: block;
+  white-space: nowrap;
+}
+.ed-btn--nav {
+  min-width: 128px;
+}
+.ed-btn--close {
+  width: 64px;
+  padding: 0;
+}
+
+/* ---- 上の 帯・見出しの 行・下の 帯（高さ 96 ＋ 40 ＋ 80 ＝ 216。tuning.ts の BAR と おなじ） ---- */
+.ed-root rt {
+  font-size: var(--rk-fs-rt);
+  font-weight: 700;
+}
+.ed-top {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  height: 96px;
+  padding: 8px 16px;
+  background: var(--rk-bg-900);
+}
+.ed-top__main {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+/* いちばん 上の タイトル（32 ＋ ふりがな） */
+.ed-title {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 800;
+  line-height: 40px;
+  white-space: nowrap;
+  color: var(--rk-accent);
+}
+/* すすみごとの 見出し（すすみの 行の 下） */
+.ed-lead {
+  display: flex;
+  flex: none;
+  align-items: center;
+  height: 40px;
+  margin: 0;
+  padding: 0 16px;
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 24px;
+  white-space: nowrap;
+  color: var(--rk-text);
+  background: var(--rk-bg-900);
+}
+.ed-bottom {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  height: 80px;
+  padding: 8px 16px;
+  background: var(--rk-bg-900);
+}
+.ed-bar-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ed-bottom .ed-bar-group {
+  gap: 16px;
+}
+
+/* すすみ ①②③（いま いる 所の 印。押す ボタンでは ない） */
+.ed-steps {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ed-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--rk-text-sub);
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 24px;
+  white-space: nowrap;
+}
+.ed-step__dot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: var(--rk-bg-700);
+  border: var(--rk-bw) solid var(--rk-line);
+  border-radius: var(--rk-r-pill);
+}
+.ed-step__dot .ed-ico {
+  width: 20px;
+  height: 20px;
+}
+.ed-step.is-now {
+  color: var(--rk-text);
+  font-size: 32px;
+  line-height: 32px;
+}
+.ed-step.is-now .ed-step__dot {
+  color: var(--rk-ink);
+  background: var(--rk-accent-grad);
+  border-color: var(--rk-text);
+  box-shadow: var(--rk-glow);
+}
+.ed-step.is-done .ed-step__dot {
+  color: var(--rk-text);
+  border-color: var(--rk-ok);
+}
+.ed-step__line {
+  flex: none;
+  width: 24px;
+  height: 4px;
+  background: var(--rk-line);
+  border-radius: var(--rk-r-pill);
+}
+
+/* ---- まん中（高さ ＝ 画面の 高さ − 216） ---- */
+.ed-mid {
+  position: relative;
+  display: flex;
+  flex: 1 1 0;
+  min-height: 0;
+  padding: 0 16px;
+}
+.ed-stepview {
+  display: none;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+}
+.ed-root[data-step='soto'] .ed-stepview--soto,
+.ed-root[data-step='naka'] .ed-stepview--naka,
+.ed-root[data-step='namae'] .ed-stepview--namae {
+  display: flex;
+}
+.ed-left {
+  display: flex;
+  flex: 6 1 0;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 0;
+}
+.ed-side {
+  display: flex;
+  flex: 4 1 0;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 0;
+  padding-left: 16px;
+}
+.ed-stepview--naka .ed-side {
+  justify-content: flex-start;
+}
+/* 見本の 穴（透明。ここに 3D が 見える） */
+.ed-view {
+  position: relative;
+  flex: 1 1 0;
+  align-self: stretch;
+  min-width: 0;
+  min-height: 140px;
+  background: transparent;
+}
+.ed-view::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: var(--rk-bw) solid var(--rk-line);
+  pointer-events: none;
+}
+.ed-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+  background: var(--rk-bg-800);
+  border: var(--rk-bw) solid var(--rk-line);
+  border-radius: var(--rk-r-l);
+}
+
+/* ① そと: 名前（絵 ＋ 1〜2 行）と ボタン。ボタンは ふえても ならんで 折りかえす */
+.ed-panel {
+  max-height: 100%;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--rk-line) transparent;
+}
+.ed-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.ed-lab {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  width: 124px;
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 24px;
+  white-space: nowrap;
+}
+.ed-lab__text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ed-lab__text > span {
+  display: block;
+}
+.ed-opts {
+  display: flex;
+  flex: 1 1 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.ed-opt {
+  width: 64px;
+  padding: 0;
+  font-size: 32px;
+}
+.ed-opt--text {
+  width: auto;
+  min-width: 64px;
+  padding: 4px 12px;
+  font-size: 24px;
+}
+.ed-count {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  font-size: 32px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.ed-count.is-max {
+  color: var(--rk-accent);
+}
+
+/* ② なか: 方眼 */
+.ed-grid {
+  position: relative;
+  flex: none;
+}
+.ed-band {
+  position: absolute;
+  background-repeat: repeat;
+  image-rendering: pixelated;
+}
+.ed-floor {
+  position: absolute;
+  left: 16px;
+  top: 16px;
+  display: grid;
+  background-repeat: repeat;
+  image-rendering: pixelated;
+  cursor: pointer;
+}
+.ed-cell {
+  box-shadow: inset 0 0 0 1px var(--rk-scrim);
+}
+.ed-layer {
+  position: absolute;
+  left: 16px;
+  top: 16px;
+  pointer-events: none;
+}
+.ed-furn,
+.ed-ghost {
+  position: absolute;
+  pointer-events: none;
+  image-rendering: auto;
+}
+/* 置いた 家具は 押せる（えらぶ）。絵は 背景で、はこ ぜんぶに ひろげる */
+.ed-furn {
+  pointer-events: auto;
+  cursor: pointer;
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+}
+.ed-ghost {
+  opacity: 0.9;
+}
+.ed-furn.is-new {
+  animation: ed-pop var(--rk-dur-pop) var(--rk-ease-pop) 1;
+}
+.ed-furn.is-flash {
+  animation: ed-flash 480ms ease-out 1;
+}
+.ed-selbox {
+  position: absolute;
+  border: var(--rk-bw-sel) solid var(--rk-accent);
+  border-radius: var(--rk-r-s);
+  box-shadow: var(--rk-glow);
+  pointer-events: none;
+}
+.ed-mark {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--rk-text);
+  pointer-events: none;
+}
+.ed-mark .ed-ico {
+  width: 40px;
+  height: 40px;
+  opacity: 0.9;
+}
+.ed-mark--lamp .ed-ico {
+  width: 32px;
+  height: 32px;
+  opacity: 1;
+}
+.ed-mark__svg {
+  display: block;
+  pointer-events: none;
+}
+
+/* ② なか: 右の 4 わり */
+.ed-palette {
+  display: grid;
+  flex: none;
+  grid-template-columns: repeat(5, 64px);
+  gap: 8px;
+  justify-content: center;
+}
+.ed-fbtn {
+  width: 64px;
+  padding: 0;
+}
+.ed-fbtn img {
+  width: 48px;
+  height: 48px;
+  pointer-events: none;
+}
+.ed-fname {
+  flex: none;
+  min-height: 32px;
+  margin: 0;
+  padding: 4px 12px;
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 24px;
+  text-align: center;
+  white-space: nowrap;
+  background: var(--rk-bg-800);
+  border-radius: var(--rk-r-s);
+}
+.ed-light {
+  justify-content: flex-start;
+  width: 100%;
+  gap: 12px;
+}
+.ed-light img {
+  width: 48px;
+  height: 48px;
+  pointer-events: none;
+}
+.ed-light small {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--rk-text-sub);
+}
+.ed-light.is-sel small {
+  color: var(--rk-ink);
+}
+
+/* 置いた 家具の そばに 出る ボタン（［とる］と、アイコン だけの まわす 2 つ）。しっぽが 家具を さす */
+.ed-cluster {
+  position: absolute;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px;
+  background: var(--rk-bg-900);
+  border: var(--rk-bw) solid var(--rk-line);
+  border-radius: var(--rk-r-m);
+  box-shadow: var(--rk-shadow-2);
+  transition:
+    left var(--rk-dur-fast) var(--rk-ease),
+    top var(--rk-dur-fast) var(--rk-ease);
+  animation: ed-pop var(--rk-dur-pop) var(--rk-ease-pop) 1;
+}
+.ed-cluster::before {
+  content: '';
+  position: absolute;
+  top: -8px;
+  left: var(--tail, 50%);
+  width: 12px;
+  height: 12px;
+  margin-left: -6px;
+  background: var(--rk-bg-900);
+  border-top: var(--rk-bw) solid var(--rk-line);
+  border-left: var(--rk-bw) solid var(--rk-line);
+  transform: rotate(45deg);
+}
+.ed-cluster.is-above::before {
+  top: auto;
+  bottom: -8px;
+  transform: rotate(225deg);
+}
+.ed-cbtn {
+  height: 56px;
+  min-width: 0;
+  padding: 0;
+}
+.ed-cbtn--take {
+  width: 88px;
+}
+.ed-cbtn--icon {
+  width: 56px;
+}
+.ed-cbtn--icon .ed-ico {
+  width: 40px;
+  height: 40px;
+}
+
+/* ③ なまえ */
+.ed-namae {
+  display: flex;
+  align-items: flex-start;
+  gap: 24px;
+  margin: auto;
+}
+.ed-namae__main {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 656px;
+}
+.ed-plate {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 56px;
+  padding: 0 12px;
+  background: var(--rk-bg-800);
+  border: var(--rk-bw) solid var(--rk-line);
+  border-radius: var(--rk-r-m);
+}
+.ed-slot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 44px;
+  font-size: 32px;
+  font-weight: 800;
+  line-height: 32px;
+  border-bottom: var(--rk-bw-sel) solid var(--rk-line);
+}
+.ed-slot.is-filled {
+  border-bottom-color: var(--rk-accent);
+}
+.ed-suffix-text {
+  margin-left: 12px;
+  font-size: 32px;
+  font-weight: 800;
+  line-height: 32px;
+  white-space: nowrap;
+  color: var(--rk-accent);
+}
+.ed-kana {
+  display: grid;
+  grid-template-columns: repeat(11, 56px);
+  grid-auto-rows: 56px;
+  gap: 4px;
+}
+.ed-kbtn {
+  width: 56px;
+  height: 56px;
+  min-width: 0;
+  padding: 0;
+  font-size: 32px;
+}
+.ed-kbtn .ed-ico {
+  width: 32px;
+  height: 32px;
+}
+/* 画面が 低い とき（高さ 792 より 小さい ＝ 1024×700）だけ: 2 行の ふきだし（高さ 84）の 下に 名前の 板が くる ように 92 下げ、
+   50 音の ボタンを 56 → 48 に する（押せる 大きさは 画面の はばに 合わせて 44.8 以上 ＝ UI 検査の きまり）。
+   92 ＋ 板 56 ＋ 8 ＋ 50 音 308 ＝ 464 ≦ まん中の 高さ 484（右の 列は 448） */
+@media (max-height: 791px) {
+  .ed-namae__main {
+    margin-top: 92px;
+  }
+  .ed-kana {
+    grid-template-columns: repeat(11, 48px);
+    grid-auto-rows: 48px;
+  }
+  .ed-kbtn {
+    width: 48px;
+    height: 48px;
+  }
+}
+.ed-namae__side {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 184px;
+}
+.ed-namae__side .ed-btn {
+  width: 184px;
+  height: 56px;
+  padding: 0 8px;
+}
+.ed-namae__gap {
+  height: 0;
+}
+
+/* ---- 確かめの まど・ひつような もの ---- */
+.ed-pop {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: var(--rk-scrim-modal);
+}
+.ed-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  min-width: 360px;
+  max-width: 100%;
+  padding: 24px;
+  background: var(--rk-bg-800);
+  border: var(--rk-bw) solid var(--rk-line);
+  border-radius: var(--rk-r-l);
+  box-shadow: var(--rk-shadow-2);
+}
+.ed-card__msg {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 800;
+  line-height: 40px;
+  text-align: center;
+  white-space: nowrap;
+}
+.ed-card__btns {
+  display: flex;
+  gap: 16px;
+}
+.ed-card__btns .ed-btn {
+  min-width: 144px;
+  padding: 4px 24px;
+}
+.ed-need {
+  align-items: stretch;
+  gap: 8px;
+  min-width: 640px;
+  padding: 16px;
+}
+.ed-need__title {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 800;
+  line-height: 40px;
+  text-align: center;
+}
+.ed-need__list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  /* 9 行（頭の 行 32＋すきま 4＋48×9＋4×8 ＝ 500）が スクロール なしで 入る。10 行から スクロール。1024×700 でも まどが はみ出さない 高さ */
+  max-height: calc(100vh - 192px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--rk-line) transparent;
+}
+.ed-need__row {
+  display: grid;
+  grid-template-columns: 40px 1fr 112px 112px 112px;
+  align-items: center;
+  column-gap: 16px;
+  min-height: 48px;
+  padding: 4px 8px;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 32px;
+  background: var(--rk-bg-700);
+  border-radius: var(--rk-r-s);
+}
+.ed-need__row--head {
+  min-height: 32px;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 32px;
+  color: var(--rk-text-sub);
+  background: transparent;
+}
+.ed-need__row img {
+  width: 40px;
+  height: 40px;
+  image-rendering: pixelated;
+}
+.ed-need__row > .is-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.ed-need__short {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  color: var(--rk-ng);
+  font-variant-numeric: tabular-nums;
+}
+.ed-need__short.is-ok {
+  color: var(--rk-ok);
+}
+.ed-need__short .ed-ico {
+  width: 24px;
+  height: 24px;
+}
+
+/* ---- 建築士さんの ふきだし（見本・方眼の 上に 重ねる） ---- */
+.ed-say {
+  position: absolute;
+  left: 32px;
+  top: 4px;
+  z-index: 10;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  max-width: min(640px, calc(100% - 64px));
+  cursor: pointer;
+  animation: ed-pop var(--rk-dur-pop) var(--rk-ease-pop) 1;
+}
+.ed-say__face {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  background: var(--rk-bg-800);
+  border: var(--rk-bw) solid var(--rk-line);
+  border-radius: var(--rk-r-pill);
+}
+.ed-say__face .ed-ico {
+  width: 48px;
+  height: 48px;
+}
+.ed-say__text {
+  margin: 0;
+  padding: 8px 16px;
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 32px;
+  color: var(--rk-ink);
+  background: var(--rk-text);
+  border: var(--rk-bw) solid var(--rk-line);
+  border-radius: var(--rk-r-l);
+  box-shadow: var(--rk-shadow-1);
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  text-wrap: pretty;
+}
+
+
+@keyframes ed-pop {
+  0% {
+    transform: scale(0.8);
+  }
+  60% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@keyframes ed-boing {
+  0% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.12);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@keyframes ed-flash {
+  0% {
+    filter: sepia(1) saturate(12) hue-rotate(-35deg);
+  }
+  100% {
+    filter: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ed-furn.is-new,
+  .ed-furn.is-flash,
+  .ed-say,
+  .ed-cluster,
+  .ed-btn.is-boing {
+    animation: none;
+    transition: none;
+  }
+}

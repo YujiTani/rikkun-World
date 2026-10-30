@@ -12,7 +12,7 @@ const SPAWN = { x: 64.5, z: 64.5, yawDeg: 0 };
 
 function make(over: Omit<Partial<ArchitectManagerDeps>, 'player' | 'world'> & { world?: FakeWorld; player?: { x: number; y: number; z: number } } = {}) {
   const world = over.world ?? makeFakeWorld();
-  const record: HouseRecord = over.record ?? { toolsGiven: false, first: null };
+  const record: HouseRecord = over.record ?? { toolsGiven: false, fudeGiven: false, first: null };
   const player = over.player ?? { x: SPAWN.x, y: 11, z: SPAWN.z };
   const m = new ArchitectManager({
     seed: over.seed ?? 4242,
@@ -96,13 +96,13 @@ describe('AC1 最初の 1 人', () => {
   });
 
   it('セーブに のこった 場所が あれば それを 使う（置き方の 関数の 答えと ちがっても）', () => {
-    const { m } = make({ record: { toolsGiven: true, first: { x: 70, z: 60 } } });
+    const { m } = make({ record: { toolsGiven: true, fudeGiven: true, first: { x: 70, z: 60 } } });
     m.update();
     expect(m.list()[0]).toMatchObject({ first: true, x: 70.5, z: 60.5, y: 11 });
   });
 
   it('古い セーブ（記録なし）でも 最初の 1 人は 出る', () => {
-    const { m, record } = make({ record: { toolsGiven: false, first: null } });
+    const { m, record } = make({ record: { toolsGiven: false, fudeGiven: false, first: null } });
     m.update();
     expect(m.list()).toHaveLength(1);
     expect(record.first).not.toBeNull();
@@ -112,7 +112,7 @@ describe('AC1 最初の 1 人', () => {
     const world = makeFakeWorld();
     world.set(70, 11, 60, 'log');
     world.set(70, 12, 60, 'log');
-    const { m } = make({ world, record: { toolsGiven: false, first: { x: 70, z: 60 } } });
+    const { m } = make({ world, record: { toolsGiven: false, fudeGiven: false, first: { x: 70, z: 60 } } });
     m.update();
     const f = m.list()[0]!;
     expect(dist(f, { x: 70.5, z: 60.5 })).toBeLessThanOrEqual(3);

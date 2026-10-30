@@ -1,13 +1,13 @@
 import type { Durability, Inventory, ItemId, ItemStack, ItemType, W2Settings, WearEvent, WearResult } from '../contracts';
 import { W2_SETTING_DEFAULTS } from '../contracts';
 import { maxOwnedOf } from '../content/items/registry';
-import { copyStack, isLow, maxDurability, readPower, readWater, readWear } from '../tools/durability';
+import { copyStack, isLow, maxDurability, readPlan, readPower, readWater, readWear } from '../tools/durability';
 import { HOTBAR_SIZE, INVENTORY_SIZE, ITEM_TYPES, itemType } from './items';
 
 type Slot = ItemStack | null;
 
 /** 配列に §4.2 の入れ方で入れる（from〜to 未満のマスだけ）。入らなかった数を返す */
-export function addInto(slots: Slot[], item: ItemId, count: number, from = 0, to = slots.length, wear = 0, water = 0, power = 0): number {
+export function addInto(slots: Slot[], item: ItemId, count: number, from = 0, to = slots.length, wear = 0, water = 0, power = 0, plan = 0): number {
   const max = itemType(item)?.maxStack;
   if (!max || count <= 0) return Math.max(0, count);
   let left = count;
@@ -22,7 +22,7 @@ export function addInto(slots: Slot[], item: ItemId, count: number, from = 0, to
   for (let i = from; i < to && left > 0; i++) {
     if (!slots[i]) {
       const n = Math.min(max, left);
-      slots[i] = n === 1 ? copyStack({ item, count: n, wear, water, power }) : { item, count: n };
+      slots[i] = n === 1 ? copyStack({ item, count: n, wear, water, power, plan }) : { item, count: n };
       left -= n;
     }
   }
@@ -134,7 +134,7 @@ export class InventoryImpl implements Inventory {
       if (!t) throw new Error(`知らないアイテム: ${stack.item}`);
       const w = readWear(stack.wear, this.maxOf(t.id));
       const count = Math.min(Math.floor(stack.count), t.maxStack);
-      this.arr[index] = copyStack({ item: t.id, count, wear: w, water: readWater(stack.water, t.id), power: readPower(stack.power, t.id) });
+      this.arr[index] = copyStack({ item: t.id, count, wear: w, water: readWater(stack.water, t.id), power: readPower(stack.power, t.id), plan: readPlan(stack.plan, t.id) });
     }
     this.notify();
   }
@@ -145,7 +145,7 @@ export class InventoryImpl implements Inventory {
     this.lifted = -1;
     this.notify();
   }
-  add(item: ItemId, count: number, opts?: { power?: number }): number {
+  add(item: ItemId, count: number, opts?: { power?: number; plan?: number }): number {
     const n = Math.floor(count);
     if (!(n > 0)) return 0; // 0 以下は なにもしない（「入った数 = n − 返り値」が マイナスにならないように）
     // ITEM-FX-1: 持ち物 全体で 持てる 数が きまって いる 物（おまもり = 1）は、いっぱいなら 1 つも 入れない
@@ -158,7 +158,7 @@ export class InventoryImpl implements Inventory {
       }
     }
     // WEAPON-9: 強さが 1 本ごとの 武器（虹）は 強さを 持たせる（わたさなければ まん中の 7）
-    const left = addInto(this.arr, item, n, 0, this.arr.length, 0, 0, readPower(opts?.power, item));
+    const left = addInto(this.arr, item, n, 0, this.arr.length, 0, 0, readPower(opts?.power, item), readPlan(opts?.plan, item));
     if (left !== n) {
       this.notify();
       this.onAdded?.(item, n - left);
@@ -213,7 +213,7 @@ export class InventoryImpl implements Inventory {
     if (!s) return 0;
     const [from, to] = index < HOTBAR_SIZE ? [HOTBAR_SIZE, this.size] : [0, HOTBAR_SIZE];
     this.arr[index] = null;
-    const left = addInto(this.arr, s.item, s.count, from, to, s.wear ?? 0, s.water ?? 0, s.power ?? 0);
+    const left = addInto(this.arr, s.item, s.count, from, to, s.wear ?? 0, s.water ?? 0, s.power ?? 0, s.plan ?? 0);
     if (left > 0) this.arr[index] = copyStack({ ...s, count: left });
     const moved = s.count - left;
     if (moved > 0) this.notify();
@@ -295,7 +295,7 @@ export class InventoryImpl implements Inventory {
       this.arr[this.lifted] = cur;
       left = 0;
     } else {
-      left = addInto(this.arr, cur.item, cur.count, 0, this.size, cur.wear ?? 0, cur.water ?? 0, cur.power ?? 0);
+      left = addInto(this.arr, cur.item, cur.count, 0, this.size, cur.wear ?? 0, cur.water ?? 0, cur.power ?? 0, cur.plan ?? 0);
     }
     this.cur = left > 0 ? { ...cur, count: left } : null;
     this.lifted = -1;
@@ -310,7 +310,7 @@ export class InventoryImpl implements Inventory {
     const copy = this.arr.map((s) => (s ? copyStack(s) : null));
     if (this.cur) {
       if (this.lifted >= 0 && !copy[this.lifted]) copy[this.lifted] = copyStack(this.cur);
-      else addInto(copy, this.cur.item, this.cur.count, 0, copy.length, this.cur.wear ?? 0, this.cur.water ?? 0, this.cur.power ?? 0);
+      else addInto(copy, this.cur.item, this.cur.count, 0, copy.length, this.cur.wear ?? 0, this.cur.water ?? 0, this.cur.power ?? 0, this.cur.plan ?? 0);
     }
     return { slots: copy, selected: this.sel };
   }
@@ -319,13 +319,13 @@ export class InventoryImpl implements Inventory {
     if (!d || !Array.isArray(d.slots) || d.slots.length !== this.size) throw new Error('持ち物の保存がおかしい');
     const next: Slot[] = d.slots.map((raw: unknown) => {
       if (raw === null) return null;
-      const r = raw as { item?: unknown; count?: unknown; wear?: unknown; water?: unknown; power?: unknown };
+      const r = raw as { item?: unknown; count?: unknown; wear?: unknown; water?: unknown; power?: unknown; plan?: unknown };
       const t = typeof r?.item === 'string' ? itemType(r.item) : undefined;
       if (!t || typeof r.count !== 'number' || !Number.isInteger(r.count) || r.count < 1 || r.count > t.maxStack) {
         throw new Error('持ち物のマスがおかしい');
       }
       const w = readWear(r.wear, this.maxOf(t.id));
-      return copyStack({ item: t.id, count: r.count, wear: w, water: readWater(r.water, t.id), power: readPower(r.power, t.id) });
+      return copyStack({ item: t.id, count: r.count, wear: w, water: readWater(r.water, t.id), power: readPower(r.power, t.id), plan: readPlan(r.plan, t.id) });
     });
     const sel = d.selected;
     if (typeof sel !== 'number' || !Number.isInteger(sel) || sel < 0 || sel >= HOTBAR_SIZE) {

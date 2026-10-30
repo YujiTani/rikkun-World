@@ -2,7 +2,7 @@
  * アイテム・持ち物・耐久・よろいの型。`src/contracts.ts` から分けた（中身は移しただけ）。
  */
 
-import type { ArmorItemId, BowId, FarmBucketId, FarmToolId, GadgetId, GoldId, HouseToolId, IngotId, KongoId, LegendId, LiveItemId, MaterialId, MineItemId, NinjaId, OrbId, SamuraiId, SeedItemId, SwordId, ToolItemId, VegItemId } from '../content/items/ids';
+import type { ArmorItemId, BowId, FarmBucketId, FarmToolId, GadgetId, GoldId, HouseFurnitureId, HousePlanId, HouseToolId, IngotId, KongoId, LegendId, LiveItemId, MaterialId, MineItemId, NinjaId, OrbId, SamuraiId, SeedItemId, SwordId, ToolItemId, VegItemId } from '../content/items/ids';
 import type { BlockId } from './world';
 
 // ================================================================ M2（掘る・置く・持ち物）
@@ -41,6 +41,9 @@ export type ItemOnlyId =
   | GoldId
   // HOUSE-1A（#338）: みずもり・どうづき の id は content/items/ids.ts の 1 か所（#306）
   | HouseToolId
+  // HOUSE-1B（#339）: 新しい 家具 5 つ・せっけいず の id も content/items/ids.ts の 1 か所
+  | HouseFurnitureId
+  | HousePlanId
   // KONGO-1: こんごうシリーズ（ダイヤ・こんごうの そうび 8 こ）の id は content/items/ids.ts の 1 か所
   | KongoId
   // MINE-1B（#349）: チョーク・いしばい の id は content/items/ids.ts の 1 か所
@@ -58,6 +61,8 @@ export interface ItemStack {
   water?: number;
   /** WEAPON-9: 虹の 強さ（4〜10。1 本ごとに 保存）。虹だけが 持つ。なし = 7 */
   power?: number;
+  /** HOUSE-1B: せっけいずの 番号（1 まいずつ ちがう。中身は 保存の house に 番号で ひもづく）。せっけいず だけが 持つ */
+  plan?: number;
 }
 
 export interface ItemType {
@@ -80,7 +85,7 @@ export interface Inventory {
   setSlot(index: number, stack: ItemStack | null): void;
   clear(): void;
   /** 入らなかった数を返す */
-  add(item: ItemId, count: number, opts?: { power?: number }): number;
+  add(item: ItemId, count: number, opts?: { power?: number; plan?: number }): number;
   count(item: ItemId): number;
   /** 取り出せた数を返す */
   remove(item: ItemId, count: number): number;

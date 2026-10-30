@@ -120,3 +120,11 @@ const MINE_ITEM_IDS = ['chalk', 'ishibai'] as const;
 export type MineItemId = (typeof MINE_ITEM_IDS)[number];
 /** 名前で 読む（`MINE_ITEM.chalk`）。コードの 中で id を 文字で 書かずに 済む（id は 上の 表の 1 回だけ） */
 export const MINE_ITEM = Object.fromEntries(MINE_ITEM_IDS.map((id) => [id, id])) as { readonly [K in MineItemId]: K };
+
+/** 家の 新しい 家具 5 つ（HOUSE-1B #339。案 A「ごつごつの くりの 木」。置いて ブロックに なるのは HOUSE-1C、はたらきは HOUSE-1D）。ITEM_TYPES では MINE-1B の 次 */
+export const HOUSE_FURNITURE_IDS = ['table', 'chair', 'andon', 'shelf', 'ofuro'] as const;
+export type HouseFurnitureId = (typeof HOUSE_FURNITURE_IDS)[number];
+
+/** せっけいず（HOUSE-1B #339。1 マスに 1 こ。中身〔形・名前・番号〕は 1 こずつ 持つ）。ITEM_TYPES では 新しい 家具の 次 */
+export const HOUSE_PLAN_IDS = ['sekkeizu'] as const;
+export type HousePlanId = (typeof HOUSE_PLAN_IDS)[number];

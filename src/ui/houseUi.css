@@ -30,7 +30,8 @@
   gap: 16px;
   padding: 16px;
 }
-.house-ui.is-kura {
+.house-ui.is-kura,
+.house-ui.is-editor {
   display: block;
 }
 
@@ -368,4 +369,14 @@
   .house-btn {
     transition: none;
   }
+}
+
+/* エディター: ふきだしは 見出しの だんの ふきだし入れ（.ed-say）に 移る。大きさは エディターの きまり */
+.house-ui.is-editor .house-bubble {
+  max-width: none;
+  padding: 8px 16px;
+  font-size: 24px;
+  line-height: 32px;
+  text-align: left;
+  pointer-events: auto;
 }

@@ -927,12 +927,13 @@ describe('HOUSE-1A AC32・AC33（くら・建築士さんの 記録の 保存）
     h1.kura.restore({ log: 30, dirt: 12 });
     h1.record.first = { x: 70, z: -12 };
     h1.record.toolsGiven = true;
+    h1.record.fudeGiven = true; // 1B: ふでも わたした 記録
     const s1 = await session(store, db, { house: h1 });
     await s1.save.now();
     const h2 = new HouseState();
     await session(store, db, { house: h2 });
     expect(h2.kura.totals()).toEqual({ log: 30, dirt: 12 });
-    expect(h2.record).toEqual({ first: { x: 70, z: -12 }, toolsGiven: true });
+    expect(h2.record).toEqual({ first: { x: 70, z: -12 }, toolsGiven: true, fudeGiven: true });
   });
 
   it('古い 保存（house の キーなし）を 開くと くら 空・最初の 1 人は まだ 決まって いない・道具は まだ。ほかの 中身は そのまま', async () => {
@@ -944,9 +945,10 @@ describe('HOUSE-1A AC32・AC33（くら・建築士さんの 記録の 保存）
     const h = new HouseState();
     h.kura.restore({ log: 9 }); // 読む前の ごみ（読みこみで 空に もどる）
     h.record.toolsGiven = true;
+    h.record.fudeGiven = true;
     const after = await session(store, db, { house: h });
     expect(h.kura.totals()).toEqual({});
-    expect(h.record).toEqual({ first: null, toolsGiven: false });
+    expect(h.record).toEqual({ first: null, toolsGiven: false, fudeGiven: false });
     expect(after.loaded).toBeTruthy();
     // ほかの 中身（もちもの の log 5）は そのまま 読めた（この 試験用の もちものは serialize だけ 持つ）
     expect(after.inventory.serialize()).toEqual({ slots: [{ item: 'log', count: 5 }], selected: 0 });

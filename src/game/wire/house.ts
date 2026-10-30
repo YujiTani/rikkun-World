@@ -5,7 +5,10 @@ import { playCraft } from '../../fx/craftSounds';
 import { ArchitectRenderer } from '../../house/ArchitectRenderer';
 import { watchBlocks } from '../../house/blockWatch';
 import { KuraScreen } from '../../house/kuraScreen';
+import { Preview3D } from '../../house/preview/preview';
 import { HouseSystem } from '../../house/system';
+import { setPlanNameSource } from '../../inventory/planName';
+import { EditorView } from '../../ui/houseEditor';
 import { HouseUi } from '../../ui/houseUi';
 import type { WiredYokai } from './creatures';
 
@@ -38,6 +41,7 @@ export function wireHouse(deps: WiredYokai) {
       pointerLock.release();
     },
     onClose: () => {
+      game.redrawWorld(); // エディターの 見本が キャンバスぜんぶを ぬって いる ので、世界を 描きなおす
       if (lock.isSimulated()) {
         lock.simulate(true);
         lock.setInventoryOpen(false);
@@ -54,6 +58,12 @@ export function wireHouse(deps: WiredYokai) {
   });
   shared.house = house;
   shared.houseFrozen = () => house.frozen();
+  setPlanNameSource((plan) => house.planName(plan));
+  // 見本（3D）は エディターを はじめて 開く とき 作る（ふだんの 遊びには 何も 足さない）
+  const reduced = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
+  let preview: Preview3D | null = null;
+  const getPreview = (): Preview3D => (preview ??= new Preview3D(game.renderer, () => reduced?.matches === true));
+  house.previewProbe = (mode) => preview?.viewOf(mode) ?? null;
   // ブロックを 置く・ほる → 足もとに かかる 建築士さんが 高さを あわせる（立って いる 間は 毎ステップ 世界を 読まない ため。farm.onBlockChanged と 同じ 流れ）
   watchBlocks(world, house.manager);
 
@@ -83,11 +93,21 @@ export function wireHouse(deps: WiredYokai) {
     parent: hud,
     menu: () => house.menu(),
     press: (id) => house.press(id),
+    makeEditor: (parent) =>
+      new EditorView({ parent, ctl: house.editor, preview: getPreview, canvas: game.renderer.domElement, press: (id) => house.press(id), sound: fxSound }),
     screen: kuraScreen,
     tick: () => playCraft(fxSound, 'tab'),
     anchor,
   });
   house.setOnChange(() => houseUi.refresh());
+  // エディターが 開いて いる 間は ゲームの 時間が 止まる ので、見本の 向き・ふきだしの 時間・見本の 描画は ゲームの 窓（player.ts）が 呼ぶ
+  shared.houseModal = {
+    tick: () => {
+      house.tickEditor();
+      houseUi.stepEditor();
+    },
+    render: () => houseUi.drawEditor(),
+  };
 
   // 見た目: 1 人 = 1 描画。足もとの 影は プレイヤーの 影（blobShadow）の 描画に まぜる（描画回数 +0）
   const architectRenderer = new ArchitectRenderer((x, z) => shared.streamHost?.stream.isDrawn(Math.floor(x) >> 4, Math.floor(z) >> 4) ?? true);
@@ -102,10 +122,24 @@ export function wireHouse(deps: WiredYokai) {
     houseUi.placeBubble();
   });
 
-  // Esc・E: 話しを やめる（うなずき・あいさつ・メニュー・くら ぜんぶ）。メニューの 間は もちもの画面は 開かない（錠が 開いて いない）
+  // Esc・E: 話しを やめる（うなずき・あいさつ・メニュー・くら ぜんぶ）。メニューの 間は もちもの画面は 開かない（錠が 開いて いない）。
+  // エディターの Esc は 確かめの まど → ひつような もの → 家具の えらび → とじる の 順（house.escape）
   game.input.onPress((action) => {
-    if ((action === 'closeMenu' || action === 'toggleInventory') && house.talking()) house.close();
+    if (action === 'closeMenu' && house.talking()) house.escape();
+    else if (action === 'toggleInventory' && house.talking() && !house.editing()) house.close();
   });
+  // エディターの 中は Esc いがいの キーを ゲームの 操作に しない（W・E・Q・数字キー。AC14）。Esc は エディターの 順で、Backspace は 1 もじ けす
+  const swallow = (e: KeyboardEvent): void => {
+    if (!house.editing() || e.ctrlKey || e.metaKey || e.altKey || /^F\d+$/.test(e.key)) return;
+    e.stopImmediatePropagation();
+    if (e.type === 'keydown' && !e.repeat) {
+      if (e.key === 'Escape') house.escape();
+      else if (e.key === 'Backspace') house.press('erase');
+    }
+    e.preventDefault();
+  };
+  window.addEventListener('keydown', swallow, true);
+  window.addEventListener('keyup', swallow, true);
 
   return { house, architectRenderer, houseUi };
 }

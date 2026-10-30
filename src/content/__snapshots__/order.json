@@ -448,7 +448,13 @@
       "omamori_torn",
       "sprinkler",
       "nukunuku",
-      "toriya"
+      "toriya",
+      "table",
+      "chair",
+      "andon",
+      "shelf",
+      "ofuro",
+      "sekkeizu"
     ],
     "light": [
       "torch",
@@ -846,7 +852,13 @@
     "kin_ore",
     "shikkui",
     "chalk",
-    "ishibai"
+    "ishibai",
+    "table",
+    "chair",
+    "andon",
+    "shelf",
+    "ofuro",
+    "sekkeizu"
   ],
   "RARITY_ORDER": [
     "common",

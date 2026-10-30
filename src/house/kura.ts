@@ -67,6 +67,14 @@ export class Kura {
     return moved;
   }
 
+  /** 材料として 使って へらす（せっけいずの かみ）。へらせた 数 */
+  consume(item: ItemId, n: number): number {
+    const used = Math.min(Math.floor(n), this.count(item));
+    if (!(used > 0)) return 0;
+    this.set(item, this.count(item) - used);
+    return used;
+  }
+
   clear(): void {
     this.counts.clear();
   }
