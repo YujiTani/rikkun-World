@@ -11,15 +11,23 @@ export type { DropRow };
  * つなぎ込みで `settings.*` に出す。ほかの数（見つける距離など）は KIND_AI / AI_CONST にまとめる。
  */
 export interface YokaiConfig {
-  /** ためす間かく（ステップ。よる だけ） */
+  /** ためす間かく（ステップ。地上〔よる だけ〕。60 ステップ ＝ 1 秒） */
   yokaiSpawnInterval: number;
-  /** 同時の数 */
+  /** 地下に いる ときの ためす間かく（ステップ。MINE-1A §4.3。昼も 出る） */
+  yokaiSpawnIntervalUnder: number;
+  /** 同時の数（地上） */
   yokaiMax: number;
+  /** 地下に いる ときの 同時の数（地上の yokaiMax とは べつ。今 いる 所の 数を 使う） */
+  yokaiMaxUnder: number;
   nurikabeMax: number;
   /** 全体の 倍率（COUNTRY-1。種類 → 数）。1 = そのまま・2 = どの国でも 2 倍・null か 0 は どの国にも 出さない */
   yokaiWeights: Partial<Record<YokaiKind, number | null>>;
   yokaiSpawnMinDist: number;
   yokaiSpawnMaxDist: number;
+  /** 出る 高さの はば（マス）。プレイヤーの 足 ±これ の 中の 床だけに 出る（地上も 地下も。MINE-1A §4.3） */
+  yokaiSpawnHeight: number;
+  /** 自動で 出た 妖怪が プレイヤーを 見つけない まま そっと 去るまで（ステップ。見つけると 数えなおし。ヌシ・手で 出した 妖怪は 去らない） */
+  yokaiForgetSteps: number;
   /** プレイヤーのこの近く（水平）には出さない */
   yokaiSpawnNearExclude: number;
   yokaiAutoSpawn: boolean;
@@ -43,13 +51,19 @@ export const YOKAI_DROPS: Record<YokaiKind, readonly DropRow[]> = yokaiDrops();
 
 export function createYokaiConfig(): YokaiConfig {
   return {
+    // 地上: 300 ステップ（5 秒）ごとに ためす・5 体まで。地下（MINE-1A §4.3）: 480 ステップ（8 秒）・8 体まで
     yokaiSpawnInterval: 300,
+    yokaiSpawnIntervalUnder: 480,
     yokaiMax: 5,
+    yokaiMaxUnder: 8,
     nurikabeMax: 1,
     // COUNTRY-1: 全体の 倍率（4 種とも 1）。30・25・25・20 の 数は 国の表の ものさしの行（countryTable.ts）
     yokaiWeights: { karakasa: 1, chochin: 1, rokurokubi: 1, nurikabe: 1 },
     yokaiSpawnMinDist: 12,
     yokaiSpawnMaxDist: 28,
+    // 足 ±8 マス（17 段）。見つけられない 妖怪は 3,600 ステップ（60 秒）で 去る
+    yokaiSpawnHeight: 8,
+    yokaiForgetSteps: 3600,
     yokaiSpawnNearExclude: 8,
     yokaiAutoSpawn: true,
     yokaiWander: true,
@@ -132,6 +146,8 @@ export const AI_CONST = {
   spawnTries: 20,
   /** M5: これより水平に遠い妖怪は静かに消える */
   farRemoveDist: 64,
+  /** 地下に いる ＝ 足の 高さが、その x・z の 生成の 地形の 高さより これ（マス）以上 下（MINE-1A §4.3。地面 150 なら 足 144 いかが 地下） */
+  underDepth: 6,
 } as const;
 
 /** 攻撃のダメージ（体力の数。ハート半分 = 1。オーナー決定で M3 の 2 倍） */

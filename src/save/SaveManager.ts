@@ -156,8 +156,18 @@ export interface SaveInfo {
 }
 
 export const SAVE_VERSION = 1;
-/** 地形の作り方の版。世界生成（src/world/gen）で地形が変わったら上げる。保存した列は そのまま読み、保存していない所だけ新しい生成。3 = VOX-B（無限の地形・高さ 352。前の世界（2）は読まない） */
-export const SAVE_GEN = 3;
+/**
+ * 地形の作り方の版。世界生成（src/world/gen）で地形が変わったら上げる。保存した列は そのまま読み、保存していない所だけ新しい生成。
+ * 3 = VOX-B（無限の地形・高さ 352。前の世界（2）は読まない）、4 = MINE-1A（地下の 3 つの層と 鉱石の かたまり。docs/design/MINE-1.md §4.8）
+ */
+export const SAVE_GEN = 4;
+/** 読める いちばん 古い 版（MINE-1 §4.8）。これ 以上 SAVE_GEN 以下の 保存は 読む（版 3 と 4 の 列が まざった 世界も）。1 か所に 書く（#304） */
+export const OLDEST_READABLE_GEN = 3;
+
+/** その 版の 保存の 列を 読めるか（OLDEST_READABLE_GEN から 今の 版 SAVE_GEN まで。今の 版より 新しい 保存は 読まない） */
+export function isReadableGen(gen: number): boolean {
+  return Number.isInteger(gen) && gen >= OLDEST_READABLE_GEN && gen <= SAVE_GEN;
+}
 
 /** 体の箱（M1-02 §4.1）。置き直しの重なり判定用 */
 const BODY = { halfWidth: 0.3, height: 1.8 } as const;

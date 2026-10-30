@@ -21,6 +21,7 @@ import type { createYokaiHook } from '../yokai';
 import type { createFarmHook } from '../farm';
 import type { WorldHook } from '../world/hook';
 import type { BiomeHook } from '../world/gen/biomeHook';
+import type { MineHook } from '../world/gen/mineHook';
 import type { createRenderHook } from '../world/render/renderHook';
 import type { AudioHook } from '../fx/bgm/hook';
 import type { ShadowHook } from '../world/render/shadow/shadowHook';
@@ -67,6 +68,8 @@ export interface TestHook {
   world: WorldHook;
   /** VOX-I-1 §8.1: 12 の国（at・here・find・take.path） */
   biome: BiomeHook;
+  /** MINE-1A（docs/design/MINE-1.md §6.1）: 炭鉱。3 つの層・鉱石の量とかたまり・地下の判定（underground） */
+  mine: MineHook;
   /** SHADOW-1: 光の位置から計算する影（docs/design/SHADOW.md §8.1） */
   shadow: ShadowHook;
   /** CHAR-5 §4.6: キャラ（girl|boy|block）を 聞く・切りかえる */
@@ -198,7 +201,7 @@ declare global {
   }
 }
 
-export type TestHookGroups = Pick<TestHook, 'start' | 'work' | 'shadow' | 'char' | 'world' | 'biome' | 'render' | 'player' | 'camera' | 'aim' | 'input' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'sleep' | 'kite' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'attack' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm' | 'log' | 'ui' | 'audio' | 'rarity' | 'animals' | 'parry' | 'legend' | 'thunder' | 'impact' | 'ninja' | 'samurai' | 'house'>;
+export type TestHookGroups = Pick<TestHook, 'start' | 'work' | 'shadow' | 'char' | 'world' | 'biome' | 'mine' | 'render' | 'player' | 'camera' | 'aim' | 'input' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'sleep' | 'kite' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'attack' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm' | 'log' | 'ui' | 'audio' | 'rarity' | 'animals' | 'parry' | 'legend' | 'thunder' | 'impact' | 'ninja' | 'samurai' | 'house'>;
 
 export function installTestHook(game: Game, overlay: PerfOverlay, isReady: () => boolean, groups: TestHookGroups, clock: FrameClock = 'time'): void {
   window.__rikkun = {

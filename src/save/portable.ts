@@ -1,5 +1,5 @@
 import { validMeta } from './restore';
-import { SAVE_GEN } from './SaveManager';
+import { OLDEST_READABLE_GEN } from './SaveManager';
 import { gunzip, gzip } from './chunkCodec';
 import type { PersistBackend, StoredChunk, StoredMeta } from './backend';
 
@@ -37,10 +37,10 @@ export async function importSave(db: PersistBackend, saveId: string, file: Uint8
     throw new Error('ファイルが よめません');
   }
   if (doc.format !== EXPORT_FORMAT || doc.v !== 1 || !Array.isArray(doc.chunks)) throw new Error('りっくんワールドの ファイルでは ありません');
-  // 前の世界（gen 2 まで。高さ 48 の島）のファイルは 読まない（VOX-B）
+  // 前の世界（gen 2 まで。高さ 48 の島）のファイルは 読まない（VOX-B）。読める いちばん 古い 版（3）いじょうなら 読む（MINE-1A）
   const metaGen = (doc.meta as { gen?: unknown } | null | undefined)?.gen;
   const gens = (doc.chunks as { gen?: unknown }[]).map((c) => c?.gen);
-  if ((typeof metaGen === 'number' && metaGen < SAVE_GEN) || gens.some((g) => typeof g === 'number' && g < SAVE_GEN)) throw new Error(OLD_WORLD_FILE_MESSAGE);
+  if ((typeof metaGen === 'number' && metaGen < OLDEST_READABLE_GEN) || gens.some((g) => typeof g === 'number' && g < OLDEST_READABLE_GEN)) throw new Error(OLD_WORLD_FILE_MESSAGE);
   if (!validMeta(doc.meta, seed)) throw new Error('この せかいの ファイルでは ありません');
   const chunks: StoredChunk[] = [];
   for (const c of doc.chunks as Record<string, unknown>[]) {

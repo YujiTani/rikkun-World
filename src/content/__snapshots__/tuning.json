@@ -31,6 +31,7 @@
     "stoneNoAttack": 0.5,
     "stoneSlowMin": 0.2,
     "stoneTicks": 180,
+    "underDepth": 6,
     "voidY": -10,
     "wanderRest": [
       120,

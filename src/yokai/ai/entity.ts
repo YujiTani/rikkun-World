@@ -86,6 +86,10 @@ export interface Ent {
   stag: boolean;
   /** WEAPON-5: よろけの ふらつきの 位相 */
   stagPhase: number;
+  /** MINE-1A §4.3: 自動で 出た 妖怪か（手で 出した 物は false。見つけられなくても 消えない） */
+  auto: boolean;
+  /** MINE-1A §4.3: 出た とき、または 最後に プレイヤーを 見つけて いた ステップ（YokaiField.steps）。ここから yokaiForgetSteps たつと 去る */
+  foundAt: number;
 }
 
 export interface LiveFireball {

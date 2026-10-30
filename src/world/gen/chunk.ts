@@ -1,19 +1,21 @@
 import { CHUNK_SIZE, SEA_Y, SECTION_SIZE, WORLD_HEIGHT, type BlockId, type ChunkColumn, type SectionData } from '../../contracts';
 import { BLOCK_INDEX } from '../blocks/blockTypes';
 import { SECTION_VOLUME, compactSection, sectionToArray, uniformSection } from '../sections';
+import { COL_VOLUME, HW, LAYER } from './columnLayout';
 import { GEN_CONFIG as C } from './config';
 import { isRockCoal } from './features';
 import { mouthAirRange, mouthsNear } from './mouths';
+import { placeMineOres, type OreCluster } from './mineOres';
 import { defOf } from './biome';
 import { floraOfChunk } from './flora';
 import { plantsOfChunk } from './plants';
-import { createRng, hash01, hashInts, subSeed, valueNoise3 } from './random';
+import { hash01, subSeed, valueNoise3 } from './random';
 import { Terrain, terrainFor } from './terrain';
 import { treesInRect } from './trees';
 
 /**
  * 列 1 つ（16×WORLD_HEIGHT×16）を作る（VOX-B）。`generateChunk(seed, cx, cz)` は同じ入力なら いつも同じ中身。
- * ほかの列を読まない（木・鉱石・洞くつの口は まわり 3×3（口は 5×5）の列の物を考えて、自分の中のマスだけ書く）。
+ * ほかの列を読まない（木・洞くつの口は まわり 3×3（口は 5×5）の列の物を考えて、自分の中のマスだけ書く。地下の 鉱石の かたまりは その列の 中だけ〔mineOres.ts〕）。
  */
 
 const AIR = BLOCK_INDEX.air;
@@ -31,12 +33,6 @@ const SNOW = BLOCK_INDEX.snow;
 const LEAF_BLOCK = { leaves: BLOCK_INDEX.leaves, momiji_leaves: BLOCK_INDEX.momiji_leaves, matsu_leaves: BLOCK_INDEX.matsu_leaves } as const;
 
 const N_SECTIONS = WORLD_HEIGHT / SECTION_SIZE;
-const COL_VOLUME = CHUNK_SIZE * WORLD_HEIGHT * CHUNK_SIZE;
-export const LAYER = CHUNK_SIZE * CHUNK_SIZE;
-/** 高さの地図は まわり 1 列ぶん広い（18×18） */
-export const HW = CHUNK_SIZE + 2;
-
-/** ブロックの並び: (y * 16 + lz) * 16 + lx（y 方向の 1 まい = LAYER） */
 
 const scratch = new Uint8Array(COL_VOLUME);
 
@@ -157,56 +153,7 @@ function tri(c: number[], fx: number, fy: number, fz: number): number {
   return z0 + (z1 - z0) * fy;
 }
 
-// ------------------------------------------------------------------ 鉱石（O1〜O5）
-
-const WALK: readonly (readonly [number, number, number])[] = [
-  [1, 0, 0],
-  [-1, 0, 0],
-  [0, 1, 0],
-  [0, -1, 0],
-  [0, 0, 1],
-  [0, 0, -1],
-];
-
-/** かたまりは まわり 3×3 の列を考えて、自分の中の いしだけ書く */
-function placeOres(out: Uint8Array, T: Terrain, cx: number, cz: number, H: Int16Array): void {
-  const O = C.ores;
-  const x0 = cx * CHUNK_SIZE;
-  const z0 = cz * CHUNK_SIZE;
-  const sO = subSeed(T.seed, 601);
-  const run = (id: number, tag: number, minY: number, maxY: number | null, clusters: number, sizeMin: number, sizeMax: number, ccx: number, ccz: number): void => {
-    const rng = createRng(hashInts(sO, ccx, ccz, tag));
-    for (let c = 0; c < clusters; c++) {
-      let x = ccx * CHUNK_SIZE + Math.floor(rng() * CHUNK_SIZE);
-      let z = ccz * CHUNK_SIZE + Math.floor(rng() * CHUNK_SIZE);
-      const top = maxY ?? Math.max(minY, T.height(x, z) - 1);
-      let y = minY + Math.floor(rng() * (top - minY + 1));
-      const size = sizeMin + Math.floor(rng() * (sizeMax - sizeMin + 1));
-      for (let s = 0; s < size; s++) {
-        const lx = x - x0;
-        const lz = z - z0;
-        if (lx >= 0 && lx < CHUNK_SIZE && lz >= 0 && lz < CHUNK_SIZE && y >= minY && y < WORLD_HEIGHT) {
-          const lim = maxY ?? H[(lz + 1) * HW + lx + 1]! - 1;
-          const i = y * LAYER + lz * CHUNK_SIZE + lx;
-          if (y <= lim && out[i] === STONE) out[i] = id;
-        }
-        const d = WALK[Math.floor(rng() * 6)]!;
-        x += d[0];
-        y += d[1];
-        z += d[2];
-      }
-    }
-  };
-  for (let dz = -1; dz <= 1; dz++) {
-    for (let dx = -1; dx <= 1; dx++) {
-      const ccx = cx + dx;
-      const ccz = cz + dz;
-      run(COAL, 1, O.coal.minY, null, O.coal.clusters, O.coal.sizeMin, O.coal.sizeMax, ccx, ccz);
-      run(IRON, 2, O.ironShallow.minY, O.ironShallow.maxY, O.ironShallow.clusters, O.ironShallow.sizeMin, O.ironShallow.sizeMax, ccx, ccz);
-      run(IRON, 3, O.ironDeep.minY, O.ironDeep.maxY, O.ironDeep.clusters, O.ironDeep.sizeMin, O.ironDeep.sizeMax, ccx, ccz);
-    }
-  }
-}
+// ------------------------------------------------------------------ 山の面の 見える鉱石（O4・O5）。地下の かたまりは mineOres.ts
 
 /** 空気が 始まる y（水の下は 空気ではない） */
 const airFrom = (h: number): number => (h < SEA_Y ? SEA_Y + 1 : h + 1);
@@ -326,7 +273,7 @@ function placePlants(out: Uint8Array, T: Terrain, cx: number, cz: number, H: Int
 // ------------------------------------------------------------------ 作る
 
 /** ブロックを `scratch` に作る。使いおわるまで、次の buildBlocks をしない */
-export function buildBlocks(seed: number, cx: number, cz: number): BuiltChunk {
+export function buildBlocks(seed: number, cx: number, cz: number, oreRec?: OreCluster[]): BuiltChunk {
   const T = terrainFor(seed);
   const x0 = cx * CHUNK_SIZE;
   const z0 = cz * CHUNK_SIZE;
@@ -361,7 +308,6 @@ export function buildBlocks(seed: number, cx: number, cz: number): BuiltChunk {
   }
 
   carveCaves(out, T, x0, z0, H);
-  placeOres(out, T, cx, cz, H);
   placeVisibleOres(out, T, x0, z0, H);
 
   // はじまりの岩山の「見える せきたん」
@@ -392,6 +338,9 @@ export function buildBlocks(seed: number, cx: number, cz: number): BuiltChunk {
       }
     }
   }
+
+  // 地下の 鉱石の かたまり（MINE-1A）。地形・ほらあな・洞くつの 口を 掘った あとに 置く（あとから 掘られて 切れない ように）
+  placeMineOres(out, seed, cx, cz, H, oreRec);
 
   placeTrees(out, T, x0, z0);
   placePlants(out, T, cx, cz, H);
