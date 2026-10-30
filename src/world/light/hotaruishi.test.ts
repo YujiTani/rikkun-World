@@ -9,9 +9,9 @@ import { WorldLight } from './WorldLight';
  *
  *   B5: 暗い 所に 置くと その マス 7・となり 6・2 マス 先 5〔空気の 中を 1 マスずつ〕。となりは `isDarkForSpawn` が false、2 マス先は true〔妖怪が 出ない のは となり 1 マス〕。
  *       こわすと 0 に もどる。ほたるいしは 光を 通さない 固い ブロック〔光を 出す 固い ブロックは はじめて。光は となりの 空気へ 広がる〕。
- *   B12: ほたるいしを 2 倍に した 列で、光が ひろがった マスの 数が 2.2 倍 以下。
- *        〔仕様は「光を 広げた マスの 数」を 数える 窓口〔名前は developer〕。窓口の 名前が 決まるまで、ここでは 結果の 明るい マスの 数で くらべる
- *        ＝ 光の ひろがりが 数に 比べて ふくれあがらない ことを 見る。ふつうの 列の 生成の 中央値 4 ms・ほらあなの 三角形 ＋15% は【perf】〕
+ *   B12: ほたるいしを 2 倍に した 列で、光を 広げた マスの 数が 2.2 倍 以下。数える 窓口は `WorldLight.lastSpreadCells`
+ *        〔ブロックの 光を 書いた マスの 数。光る マス ＋ 1 マスずつ 広げた マス。数える ときは flush() だけ 呼ぶ〕。
+ *        ふつうの 列の 生成の 中央値 4 ms・ほらあなの 三角形 ＋15% は【perf】〔npm run perf で 見る〕
  * 光の 数え方は 本番の WorldLight〔たいまつと 同じ 光の きまり〕。時間では 決めない。
  */
 
@@ -99,9 +99,9 @@ describe('B5: ほたるいしの 光（置いた マス 7・となり 6・2 マ�
   });
 });
 
-describe('B12: ほたるいしを 2 倍に した 列で、光が ひろがった マスの 数が 2.2 倍 以下', () => {
-  /** 16×16 の 1 列。床 y=0〜9 の いし・y=10〜15 の ひろい 空洞・天井 y=16 の いしに ほたるいしを n こ（かべの 面に 見える 場所） */
-  function litCells(n: number): number {
+describe('B12: ほたるいしを 2 倍に した 列で、光を 広げた マスの 数が 2.2 倍 以下（WorldLight.lastSpreadCells）', () => {
+  /** 16×16 の 1 列。床 y=0〜9 の いし・y=10〜15 の ひろい 空洞・天井 y=16 の いしに ほたるいしを n こ。光を 広げた マスの 数を 返す */
+  function spreadCells(n: number): number {
     const w = new ArrayVoxelWorld({ x: 16, y: 24, z: 16 });
     w.fill(0, 0, 0, 15, 9, 15, 'stone');
     w.fill(0, 16, 0, 15, 23, 15, 'stone');
@@ -119,17 +119,20 @@ describe('B12: ほたるいしを 2 倍に した 列で、光が ひろがっ�
       const [x, z] = spots[order[k]!]!;
       expect(w.setBlock(x, 16, z, HOTARU), `ほたるいし (${x}, 16, ${z})`).toBe(true);
     }
-    l.update();
+    // 数える ときは flush() だけ 呼ぶ〔update() の あとに 呼ぶと 数が 0 に もどる〕
     l.flush();
-    let lit = 0;
-    for (let y = 10; y <= 15; y++) for (let z = 1; z <= 14; z++) for (let x = 1; x <= 14; x++) if (l.blockLight(x, y, z) > 0) lit++;
-    return lit;
+    return l.lastSpreadCells;
   }
 
-  it('2 倍に すると 光が ひろがった 空気の マスは 2.2 倍 いかに おさまる（1 こずつ 光る のに 数が ふくれあがらない）', () => {
-    const one = litCells(2);
-    const two = litCells(4);
-    const four = litCells(8);
+  it('光る ブロックが 無ければ 0 マス。ほたるいしが あれば 光が 広がる', () => {
+    expect(spreadCells(0), 'ほたるいし 0 こ').toBe(0);
+    expect(spreadCells(2), 'ほたるいし 2 こで 光が ひろがる').toBeGreaterThan(2);
+  });
+
+  it('2 倍に すると 光を 広げた マスの 数は 2.2 倍 いかに おさまる（1 こずつ 光る のに 数が ふくれあがらない）', () => {
+    const one = spreadCells(2);
+    const two = spreadCells(4);
+    const four = spreadCells(8);
     expect(one, 'ほたるいし 2 こで 光が ひろがる').toBeGreaterThan(0);
     expect(two / one, `${one} → ${two}`).toBeLessThanOrEqual(2.2);
     expect(four / two, `${two} → ${four}`).toBeLessThanOrEqual(2.2);
