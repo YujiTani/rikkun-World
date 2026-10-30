@@ -68,16 +68,12 @@ function tileUrl(px: Px, turns = 0): string {
   return c.toDataURL('image/png');
 }
 
-/** 方眼の ゆか・かべの 帯・戸・しょうじの 印に 使う 絵（見本の 家と 同じ 絵） */
+/** 方眼の ゆか・かべの 帯に 使う 絵（見本の 家と 同じ 絵）。窓・戸の 印は marks.ts の SVG */
 export interface TileUrls {
   floor: string;
   /** よこの 帯（まえ・うしろ）用・たての 帯（ひだり・みぎ）用 */
   wallH: string;
   wallV: string;
-  doorH: string;
-  doorV: string;
-  shojiH: string;
-  shojiV: string;
 }
 
 export function makeTileUrls(): TileUrls {
@@ -86,9 +82,5 @@ export function makeTileUrls(): TileUrls {
     floor: tileUrl(t.house_floor),
     wallH: tileUrl(t.house_wall),
     wallV: tileUrl(t.house_wall, 1),
-    doorH: tileUrl(t.house_door_hi),
-    doorV: tileUrl(t.house_door_hi, 1),
-    shojiH: tileUrl(t.house_shoji),
-    shojiV: tileUrl(t.house_shoji, 1),
   };
 }

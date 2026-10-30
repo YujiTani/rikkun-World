@@ -7,6 +7,7 @@ import { withRuby } from '../../ui/text';
 import { btn, el } from './dom';
 import { MSG, type EditorController } from './editor';
 import { ICONS } from './icons';
+import { BUBBLE } from './tuning';
 
 /** 確かめの まど（中身は ctl.confirm で かわる） */
 export class ConfirmPop {
@@ -67,7 +68,13 @@ export class NeedPop {
   }
 }
 
-/** 建築士さんの ふきだし（顔の 小さな 絵 ＋ ふきだし）。3 秒で 消える。押しても 消える */
+/** ふきだしが 出ている ステップ数: 3 秒 ＋ 1 字 0.2 秒（空白は 数えない。1 ステップ ＝ 1/60 秒） */
+function bubbleTicks(text: string): number {
+  const chars = [...text].filter((c) => c.trim() !== '').length;
+  return Math.round((BUBBLE.baseMs + BUBBLE.perCharMs * chars) / (1000 / 60));
+}
+
+/** 建築士さんの ふきだし（顔の 小さな 絵 ＋ ふきだし）。3 秒 ＋ 1 字 0.2 秒で 消える。つぎに 何か 押しても（ui.ts）・ふきだしを 押しても 消える */
 export class Say {
   readonly el = el('div', 'ed-say');
   private readonly text = el('p', 'ed-say__text');
@@ -81,14 +88,14 @@ export class Say {
     this.el.addEventListener('click', () => this.onHide());
   }
 
-  /** ふきだしが かわったら 出しなおす（3 秒 ＝ 180 ステップ） */
-  update(ticks: number): void {
+  /** ふきだしが かわったら 出しなおす（出ている 時間は 字数で きまる） */
+  update(): void {
     const b = this.ctl.bubble;
     this.el.hidden = b === null;
     if (!b) return;
     if (b.seq !== this.seq) {
       this.seq = b.seq;
-      this.left = ticks;
+      this.left = bubbleTicks(b.text);
       this.text.innerHTML = withRuby(b.text);
       // 出しなおす アニメーション
       this.el.style.animation = 'none';

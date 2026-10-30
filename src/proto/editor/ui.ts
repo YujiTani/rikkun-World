@@ -2,11 +2,15 @@
 // 見本（3D）は 画面の「穴」（.ed-view）に ゲームの レンダラーで 描く（render() が 毎コマ 穴の 場所を 読んで preview.draw に わたす）。
 import './ui.css';
 import { btn, el, makeTileUrls, markSel, setOff } from './dom';
+import type { SoundFx } from '../../fx/sound';
 import type { EditorController } from './editor';
+import { PressFx, type PressKind } from './feedback';
 import { ICONS } from './icons';
 import type { Preview3D, ViewRect } from './preview';
-import { BAND_PX, BAR, BUBBLE_MS, type Step } from './tuning';
+import { BAND_PX, BAR, type Step } from './tuning';
+import { ruby } from '../../ui/text';
 import { NakaPanel } from './uiNaka';
+import { untouchViews } from './uiDrag';
 import { buildNamae } from './uiNamae';
 import { ConfirmPop, NeedPop, Say } from './uiPopups';
 import { buildSoto, type StepPanel } from './uiSoto';
@@ -19,6 +23,8 @@ export interface EditorUiOpts {
   canvas: HTMLCanvasElement;
   open: () => void;
   close: () => void;
+  /** ゲームの 効果音（ない ときは ボタンの 音なし） */
+  sound?: Pick<SoundFx, 'playTones'> | null;
 }
 
 const STEPS: ReadonlyArray<{ step: Step; label: string; icon: 'soto' | 'naka' | 'namae' }> = [
@@ -27,8 +33,17 @@ const STEPS: ReadonlyArray<{ step: Step; label: string; icon: 'soto' | 'naka' | 
   { step: 'namae', label: 'なまえ', icon: 'namae' },
 ];
 const STEP_ORDER: readonly Step[] = ['soto', 'naka', 'namae'];
-/** ふきだしが 出ている ステップ（3 秒 ＝ 180） */
-const BUBBLE_TICKS = Math.round(BUBBLE_MS / (1000 / 60));
+/** いちばん 上の タイトルと、すすみごとの 見出し（漢字は ruby() で ふりがな） */
+const TITLE = `おうちの ${ruby('設計図', 'せっけいず')}を ${ruby('作', 'つく')}ろう`;
+const LEAD: Readonly<Record<Step, string>> = {
+  soto: `おうちの ${ruby('外観', 'がいかん')}を かんがえよう`,
+  naka: `おうちの ${ruby('内装', 'ないそう')}を かんがえよう`,
+  namae: `${ruby('設計図', 'せっけいず')}に おなまえを つけよう`,
+};
+/** ボタンの 音の しゅるい（そばの［とる］は 低く・まわす は 高く） */
+function pressKind(b: HTMLElement): PressKind {
+  return b.classList.contains('ed-cbtn--take') ? 'take' : b.classList.contains('ed-cbtn--icon') ? 'turn' : 'press';
+}
 
 export class EditorUi {
   readonly root = el('div', 'ed-root');
@@ -42,17 +57,26 @@ export class EditorUi {
   private readonly confirm: ConfirmPop;
   private readonly need: NeedPop;
   private readonly say: Say;
+  private readonly fx: PressFx;
   private readonly hand = el('div', 'ed-hand', ICONS.hand);
   private readonly reopen: HTMLButtonElement;
+  private readonly lead = el('h2', 'ed-lead');
+  /** 「あたらしい せっけいず → ぜんぶ けす」を 見た 回数（見本の 向きを はじめに もどす ため） */
+  private resets = 0;
 
   constructor(private readonly o: EditorUiOpts) {
     const { ctl } = o;
     this.root.dataset.testid = 'editor';
-    this.naka = new NakaPanel(ctl, o.preview, makeTileUrls());
-    this.panels = { soto: buildSoto(ctl), naka: this.naka, namae: buildNamae(ctl) };
+    this.fx = new PressFx(o.sound ?? null);
+    this.naka = new NakaPanel(ctl, o.preview, makeTileUrls(), this.fx);
+    this.panels = { soto: buildSoto(ctl, o.preview), naka: this.naka, namae: buildNamae(ctl) };
 
-    // 上の 帯: すすみ（印）・もどす・すすむ・✕
+    // 上の 帯: 左 ＝ タイトルと すすみ（印）、右 ＝ もどす・すすむ・✕。すぐ 下に 見出しの 行
     const top = el('header', 'ed-top');
+    const head = el('div', 'ed-top__main');
+    const title = el('h1', 'ed-title', TITLE);
+    title.dataset.testid = 'editor-title';
+    this.lead.dataset.testid = 'editor-lead';
     const steps = el('div', 'ed-steps');
     steps.dataset.testid = 'editor-steps';
     STEPS.forEach((st, i) => {
@@ -68,7 +92,8 @@ export class EditorUi {
     closeBtn.setAttribute('aria-label', 'とじる');
     const topRight = el('div', 'ed-bar-group');
     topRight.append(this.undoBtn, this.redoBtn, closeBtn);
-    top.append(steps, topRight);
+    head.append(title, steps);
+    top.append(head, topRight);
 
     // まん中
     const mid = el('main', 'ed-mid');
@@ -92,7 +117,7 @@ export class EditorUi {
 
     this.confirm = new ConfirmPop(ctl);
     this.need = new NeedPop(ctl);
-    this.root.append(top, mid, bottom, this.confirm.el, this.need.el, this.hand);
+    this.root.append(top, this.lead, mid, bottom, this.confirm.el, this.need.el, this.hand);
     o.parent.append(this.root);
 
     this.reopen = btn({ cls: 'ed-reopen', html: 'せっけいずを ひらく', testid: 'editor-reopen', onClick: () => o.open() });
@@ -101,6 +126,17 @@ export class EditorUi {
 
     // ゲームの 操作に ならない ように（マウスの 押す・まわす・右クリックは ここで 止める）
     for (const ev of ['mousedown', 'mouseup', 'wheel', 'click'] as const) this.root.addEventListener(ev, (e) => e.stopPropagation());
+    // ボタンを 押したら ぴょこん ＋ 小さな 木の 音（1 つしか ない ボタンも）。うすい（押せない）ボタンは なにも しない
+    this.root.addEventListener(
+      'click',
+      (e) => {
+        const b = (e.target as Element).closest<HTMLButtonElement>('button.ed-btn');
+        if (b && !b.disabled && !b.classList.contains('is-off')) this.fx.press(b, pressKind(b));
+      },
+      true,
+    );
+    // つぎに 何か 押したら ふきだしは 消える（そのまま ふきだしが 出る 押し方なら 新しい ふきだしが 出る）
+    this.root.addEventListener('pointerdown', () => ctl.hideBubble(), true);
     this.root.addEventListener('contextmenu', (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -114,9 +150,15 @@ export class EditorUi {
     this.refresh();
   }
 
+  /** 見本の 向きを はじめに もどし、手の しるしも また 出す */
+  private resetView(): void {
+    this.o.preview.resetView();
+    untouchViews(this.root);
+  }
+
   /** 方眼の マス（§3.2: (まん中の 高さ − 48) ÷ 9 の 切り捨て → 48・59・70） */
   private layout(): void {
-    const mid = window.innerHeight - (BAR.top + BAR.bottom);
+    const mid = window.innerHeight - (BAR.top + BAR.lead + BAR.bottom);
     const cell = Math.max(48, Math.floor((mid - (2 * BAND_PX + 16)) / 9));
     this.root.style.setProperty('--ed-cell', `${cell}px`);
     this.naka.setCell(cell);
@@ -127,6 +169,7 @@ export class EditorUi {
     this.root.hidden = !on;
     this.reopen.hidden = on;
     if (on) {
+      this.resetView();
       this.layout();
       this.refresh();
     }
@@ -147,13 +190,20 @@ export class EditorUi {
     setOff(this.redoBtn, !ctl.canRedo(), true);
     this.prevBtn.classList.toggle('is-hidden', s.step === 'soto');
     this.nextBtn.classList.toggle('is-hidden', s.step === 'namae');
-    setOff(this.nextBtn, s.step === 'soto' && !ctl.sizeChosen());
     markSel(this.nextBtn, false);
+    if (this.lead.dataset.step !== s.step) {
+      this.lead.dataset.step = s.step;
+      this.lead.innerHTML = LEAD[s.step];
+    }
+    if (ctl.resets !== this.resets) {
+      this.resets = ctl.resets;
+      this.resetView();
+    }
     this.panels[s.step].update();
     this.o.preview.setShape(s, s.step === 'naka' ? 'inside' : 'outside');
     this.confirm.update();
     this.need.update();
-    this.say.update(BUBBLE_TICKS);
+    this.say.update();
   }
 
   /** 見本の 穴の 四角（キャンバスの 左上から。見本が ない すすみは null） */
@@ -178,6 +228,7 @@ export class EditorUi {
   /** キー（Esc いがいは ゲームの 操作に ならない。Backspace ＝ 1 もじ けす〔③ だけ〕） */
   key(e: KeyboardEvent): void {
     const { ctl } = this.o;
+    ctl.hideBubble(); // 何か 押したら ふきだしは 消える
     if (e.key === 'Escape') this.escape();
     else if (e.key === 'Backspace' && ctl.s.step === 'namae' && !ctl.confirm && !ctl.needOpen) ctl.erase();
   }

@@ -8,8 +8,8 @@ import { FACE_SHADE_BY_INDEX } from '../../world/render/config';
 import type { ArrayVoxelWorld } from '../../world/VoxelWorld';
 import { MAIN_V_SCALE, tileOf, tileRect, type PreviewTile } from './atlas';
 import { furnitureBoxes, type BoxKind, type FurnBox } from './furnitureArt';
-import { footprint, windowCells, wallLength, type EditorState, type Placed } from './model';
-import { DOOR_TOP_Y, FURNITURE, HEIGHT, K_FUTON, K_KOTATSU, OPENING, PREVIEW, ROOF_Y, WALLS, WINDOW_Y, type Wall } from './tuning';
+import { doorIndex, footprint, windowCells, type EditorState, type Placed } from './model';
+import { DOOR_TOP_Y, DOOR_WALL, FURNITURE, HEIGHT, K_FUTON, K_KOTATSU, OPENING, PREVIEW, ROOF_Y, WALLS, WINDOW_Y, type Wall } from './tuning';
 
 export type PreviewMode = 'outside' | 'inside';
 
@@ -20,10 +20,9 @@ export interface PreviewParts {
   walls: Record<Wall, MeshData>;
   /** 平らな やね（そとの 見本だけ） */
   roof: MeshData;
-  /** 家の 大きさ（中の 床の よこ・たて）。決まって いない ときは 地面だけ の 目安 */
+  /** 家の 大きさ（中の 床の よこ・たて） */
   w: number;
   d: number;
-  hasHouse: boolean;
 }
 
 const CORNER_UV: ReadonlyArray<readonly [number, number]> = [[0, 0], [1, 0], [1, 1], [0, 1]];
@@ -62,14 +61,14 @@ function appendMain(dst: MeshData, src: MeshData): void {
 
 // ------------------------------------------------------------ 地面・ゆか
 
-function buildBase(s: EditorState, w: number, d: number, hasHouse: boolean, mode: PreviewMode): MeshData {
+function buildBase(s: EditorState, w: number, d: number, mode: PreviewMode): MeshData {
   const m = emptyMesh();
   const M = PREVIEW.groundMargin[mode];
   const x0 = -1 - M;
   const x1 = w + M; // ふくむ
   const z0 = -1 - M;
   const z1 = d + M;
-  const inFoot = (x: number, z: number): boolean => hasHouse && x >= -1 && x <= w && z >= -1 && z <= d;
+  const inFoot = (x: number, z: number): boolean => x >= -1 && x <= w && z >= -1 && z <= d;
   for (let z = z0; z <= z1; z++) {
     for (let x = x0; x <= x1; x++) {
       const foot = inFoot(x, z);
@@ -89,7 +88,7 @@ function buildBase(s: EditorState, w: number, d: number, hasHouse: boolean, mode
       }
     }
   }
-  if (hasHouse && mode === 'inside') {
+  if (mode === 'inside') {
     for (const p of s.furniture) pushFurniture(m, p);
     // 天井の まん中の ちょうちん（1 つ。はずせない）
     const tmp = emptyMesh();
@@ -138,11 +137,11 @@ const OUT_DIR: Readonly<Record<Wall, readonly [number, number]>> = { front: [0, 
 type OpenKind = 'door' | 'window';
 
 /** 窓・戸の あなの 場所を 答える 関数（wall の i 番めの 段 level が あなか）。しょうじ・戸は かべの 箱では なく うすい 板で 作る（案 C しあげ） */
-function openingAt(s: EditorState, w: number, d: number): (wall: Wall, i: number, level: number) => OpenKind | null {
+function openingAt(s: EditorState): (wall: Wall, i: number, level: number) => OpenKind | null {
   const wins: Record<Wall, Set<number>> = { front: new Set(), right: new Set(), back: new Set(), left: new Set() };
   for (const c of windowCells(s)) wins[c.wall].add(c.i);
-  const doorI = (wallLength(w, d, s.door) - 1) / 2;
-  return (wall, i, level) => (wall === s.door && i === doorI && level <= DOOR_TOP_Y ? 'door' : level === WINDOW_Y && wins[wall].has(i) ? 'window' : null);
+  const doorI = doorIndex(s);
+  return (wall, i, level) => (wall === DOOR_WALL && i === doorI && level <= DOOR_TOP_Y ? 'door' : level === WINDOW_Y && wins[wall].has(i) ? 'window' : null);
 }
 
 /**
@@ -171,7 +170,7 @@ function pushOpening(m: MeshData, c: WallCell, level: number, kind: OpenKind, mo
 
 function buildWall(s: EditorState, wall: Wall, w: number, d: number, mode: PreviewMode): MeshData {
   const m = emptyMesh();
-  const open = openingAt(s, w, d);
+  const open = openingAt(s);
   const indexOf = (wl: Wall, x: number, z: number): number => (wl === 'front' || wl === 'back' ? x : z);
   for (const c of ringCells(wall, w, d)) {
     for (let level = HEIGHT.floor; level < ROOF_Y; level++) {
@@ -366,15 +365,9 @@ export function lanternOnly(): MeshData {
 // ------------------------------------------------------------ まとめ
 
 export function buildPreview(s: EditorState, mode: PreviewMode): PreviewParts {
-  const hasHouse = s.w !== null && s.d !== null;
-  const w = s.w ?? PREVIEW.groundOnlyCells;
-  const d = s.d ?? PREVIEW.groundOnlyCells;
-  const empty = (): Record<Wall, MeshData> => ({ front: emptyMesh(), right: emptyMesh(), back: emptyMesh(), left: emptyMesh() });
-  const walls = empty();
-  const roof = emptyMesh();
-  if (hasHouse) {
-    for (const wall of WALLS) walls[wall] = buildWall(s, wall, w, d, mode);
-    if (mode === 'outside') Object.assign(roof, buildRoof(w, d));
-  }
-  return { base: buildBase(s, w, d, hasHouse, mode), walls, roof, w, d, hasHouse };
+  const { w, d } = s;
+  const walls = {} as Record<Wall, MeshData>;
+  for (const wall of WALLS) walls[wall] = buildWall(s, wall, w, d, mode);
+  const roof = mode === 'outside' ? buildRoof(w, d) : emptyMesh();
+  return { base: buildBase(s, w, d, mode), walls, roof, w, d };
 }

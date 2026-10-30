@@ -1,12 +1,18 @@
-// HOUSE-1B 試作: ② なか の 画面（左 6 わり ＝ 上から 見た 方眼〔かべは 帯〕、右 4 わり ＝ 屋根なしの 見本・家具 9 種・えらんだ 名前・あかり・とる／まわす）。
+// HOUSE-1B 試作: ② なか の 画面（左 6 わり ＝ 上から 見た 方眼〔かべは 帯〕、右 4 わり ＝ 屋根なしの 見本・家具 9 種・えらんだ 名前・あかり）。
 // 仕様 §3.2 の ② なか。置ける 所は 白、置けない 所は 赤（家具の 形が 色づく）。戸の 前の 1 マスは 足あと。
-import { btn, el, markSel, setOff, type TileUrls } from './dom';
+// 置いた 家具を 押す と、その 家具の すぐ そば（下、はみ出す ときは 上）に ［とる］［↻］［↺］が 出る。家具を まわすと ついて いく。
+import { btn, el, markSel, type TileUrls } from './dom';
 import type { EditorController } from './editor';
+import type { PressFx } from './feedback';
 import { ICONS } from './icons';
-import { doorInside, footprint, placeProblem, wallLength, windowCells } from './model';
+import { DOOR_MARK, doorMark, shojiMark } from './marks';
+import { doorIndex, doorInside, footprint, placeProblem, windowCells } from './model';
 import type { Preview3D } from './preview';
-import { BAND_PX, FURN_ORDER, FURNITURE, type FurnKind, type Wall } from './tuning';
+import { BAND_PX, CLUSTER, DOOR_WALL, FURN_ORDER, FURNITURE, type FurnKind, type Wall } from './tuning';
+import { bindDrag } from './uiDrag';
 import type { StepPanel } from './uiSoto';
+
+const clamp = (v: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, v));
 
 export class NakaPanel implements StepPanel {
   readonly el: HTMLElement = el('section', 'ed-stepview ed-stepview--naka');
@@ -16,12 +22,10 @@ export class NakaPanel implements StepPanel {
   private readonly layer = el('div', 'ed-layer');
   private readonly ghost = el('img', 'ed-ghost');
   private readonly selbox = el('div', 'ed-selbox');
+  private readonly cluster = el('div', 'ed-cluster');
   private readonly palette = new Map<FurnKind, HTMLButtonElement>();
   private readonly fname = el('p', 'ed-fname');
   private readonly light: HTMLButtonElement;
-  private readonly take: HTMLButtonElement;
-  private readonly turnR: HTMLButtonElement;
-  private readonly turnL: HTMLButtonElement;
   private cell = 48;
   private shape = '';
   private layerKey = '';
@@ -31,8 +35,9 @@ export class NakaPanel implements StepPanel {
   private lastFlash = 0;
   private iconsReady = false;
 
-  constructor(private readonly ctl: EditorController, private readonly preview: Preview3D, private readonly tiles: TileUrls) {
+  constructor(private readonly ctl: EditorController, private readonly preview: Preview3D, private readonly tiles: TileUrls, fx: PressFx) {
     this.view.dataset.testid = 'editor-preview';
+    bindDrag(this.view, preview);
     this.grid.dataset.testid = 'editor-grid';
     this.ghost.alt = '';
     this.ghost.hidden = true;
@@ -49,14 +54,10 @@ export class NakaPanel implements StepPanel {
       pal.append(b);
     }
     this.light = btn({ cls: 'ed-light', html: '', testid: 'editor-light', onClick: () => ctl.selectLight() });
-    this.take = btn({ html: 'とる', testid: 'editor-take', onClick: () => void ctl.takeSelected() });
-    this.turnR = btn({ html: `${ICONS.rotR}<span>みぎ</span>`, testid: 'editor-turn-right', onClick: () => void ctl.turnSelected('right') });
-    this.turnL = btn({ html: `${ICONS.rotL}<span>ひだり</span>`, testid: 'editor-turn-left', onClick: () => void ctl.turnSelected('left') });
-    const acts = el('div', 'ed-acts');
-    acts.append(this.take, this.turnR, this.turnL);
     this.fname.dataset.testid = 'editor-furn-name';
-    side.append(this.view, pal, this.fname, this.light, acts);
+    side.append(this.view, pal, this.fname, this.light);
     this.el.append(left, side);
+    this.buildCluster();
 
     // 方眼: 押す・右クリック・ゴースト（マスの 上に 手を おくと 置ける 形が 見える）
     const cellOf = (e: Event): { x: number; z: number } | null => {
@@ -79,6 +80,7 @@ export class NakaPanel implements StepPanel {
       if (!c) return;
       // 置いた 直後は ゴーストを かくす（置いた 家具が 見える ように。手を うごかすと また 出る）
       if (ctl.clickCell(c.x, c.z)) {
+        fx.play('press'); // 置く・えらぶ ＝ 小さな 木の 音（置いた 家具は ぴょこんと 出る）
         this.hover = null;
         this.paintGhost();
       }
@@ -87,8 +89,39 @@ export class NakaPanel implements StepPanel {
       e.preventDefault();
       const c = cellOf(e);
       const i = c ? ctl.indexAt(c.x, c.z) : -1;
-      if (i >= 0) ctl.remove(i);
+      if (i >= 0) {
+        ctl.remove(i);
+        fx.play('take');
+      }
     });
+    // べつの 所を 押したら 家具の えらびを やめる（そばの ボタンが きえる）。方眼・ボタン・ふきだしの 上は それぞれの 動きに まかせる
+    window.addEventListener(
+      'pointerdown',
+      (e) => {
+        const t = e.target as Element | null;
+        if (!t || ctl.sel.placed === null) return;
+        if (t.closest('.ed-floor, .ed-cluster, .ed-say, button')) return;
+        ctl.clearPlaced();
+      },
+      true,
+    );
+  }
+
+  /** 家具の そばに 出る ボタン: ［とる］と、アイコン だけの まわす 2 つ（↻ ＝ みぎ・時計まわり、↺ ＝ ひだり） */
+  private buildCluster(): void {
+    const { ctl, cluster } = this;
+    cluster.hidden = true;
+    cluster.dataset.testid = 'editor-cluster';
+    cluster.style.width = `${CLUSTER.w}px`;
+    cluster.style.height = `${CLUSTER.h}px`;
+    const take = btn({ cls: 'ed-cbtn ed-cbtn--take', html: 'とる', testid: 'editor-take', onClick: () => void ctl.takeSelected() });
+    const turnR = btn({ cls: 'ed-cbtn ed-cbtn--icon', html: ICONS.rotR, testid: 'editor-turn-right', onClick: () => void ctl.turnSelected('right') });
+    turnR.setAttribute('aria-label', 'みぎに まわす');
+    turnR.title = 'みぎに まわす';
+    const turnL = btn({ cls: 'ed-cbtn ed-cbtn--icon', html: ICONS.rotL, testid: 'editor-turn-left', onClick: () => void ctl.turnSelected('left') });
+    turnL.setAttribute('aria-label', 'ひだりに まわす');
+    turnL.title = 'ひだりに まわす';
+    cluster.append(take, turnR, turnL);
   }
 
   /** 方眼の マス（px）。画面の 高さから 決める（§3.2: (まん中の 高さ − 48) ÷ 9 の 切り捨て） */
@@ -118,7 +151,7 @@ export class NakaPanel implements StepPanel {
   update(): void {
     this.ensureIcons();
     const s = this.ctl.s;
-    const key = `${s.w}|${s.d}|${s.door}|${s.windows}|${this.cell}`;
+    const key = `${s.w}|${s.d}|${s.windows}|${this.cell}`;
     if (key !== this.shape) {
       this.shape = key;
       this.rebuildGrid();
@@ -126,6 +159,7 @@ export class NakaPanel implements StepPanel {
     }
     this.paintFurniture();
     this.paintGhost();
+    this.paintCluster();
     const sel = this.ctl.sel;
     for (const [k, b] of this.palette) markSel(b, sel.palette === k);
     markSel(this.light, sel.light);
@@ -133,9 +167,6 @@ export class NakaPanel implements StepPanel {
     const name = placed ? FURNITURE[placed.kind].name : sel.palette ? FURNITURE[sel.palette].name : sel.light ? 'あかり' : '';
     this.fname.textContent = name || 'かぐを えらんでね';
     this.fname.style.color = name ? '' : 'var(--rk-text-sub)';
-    setOff(this.take, sel.placed === null && !sel.light);
-    setOff(this.turnR, sel.placed === null && sel.palette === null);
-    setOff(this.turnL, sel.placed === null && sel.palette === null);
   }
 
   // ------------------------------------------------------------ 方眼
@@ -150,10 +181,6 @@ export class NakaPanel implements StepPanel {
 
   private rebuildGrid(): void {
     const s = this.ctl.s;
-    if (s.w === null || s.d === null) {
-      this.grid.replaceChildren();
-      return;
-    }
     const { w, d } = s;
     const c = this.cell;
     const t = this.tiles;
@@ -175,18 +202,19 @@ export class NakaPanel implements StepPanel {
       band(0, B, B, d * c, t.wallV, `${B}px ${c}px`, '0 0'),
       band(B + w * c, B, B, d * c, t.wallV, `${B}px ${c}px`, '0 0'),
     ];
-    // かべの 帯の 印: 窓（しょうじ）と 戸
-    const wallMark = (wall: Wall, i: number, kind: 'shoji' | 'door'): HTMLElement => {
+    // かべの 帯の 印: 窓 ＝ 白い しょうじ（帯に そって 1 マスより 少し 小さく）
+    const bandRect = (wall: Wall, i: number): { x: number; y: number; w: number; h: number; horiz: boolean } => {
       const horiz = wall === 'front' || wall === 'back';
-      const url = kind === 'door' ? (horiz ? t.doorH : t.doorV) : horiz ? t.shojiH : t.shojiV;
-      const m = el('div', `ed-mark ed-mark--wall ed-mark--${kind}`);
-      if (horiz) this.place(m, B + i * c, wall === 'front' ? B + d * c : 0, c, B);
-      else this.place(m, wall === 'right' ? B + w * c : 0, B + i * c, B, c);
-      m.style.backgroundImage = `url(${url})`;
-      return m;
+      if (horiz) return { x: B + i * c, y: wall === 'front' ? B + d * c : 0, w: c, h: B, horiz };
+      return { x: wall === 'right' ? B + w * c : 0, y: B + i * c, w: B, h: c, horiz };
     };
-    for (const wc of windowCells(s)) parts.push(wallMark(wc.wall, wc.i, 'shoji'));
-    parts.push(wallMark(s.door, (wallLength(w, d, s.door) - 1) / 2, 'door'));
+    for (const wc of windowCells(s)) {
+      const r = bandRect(wc.wall, wc.i);
+      const len = (r.horiz ? r.w : r.h) - 8;
+      const m = el('div', 'ed-mark ed-mark--window', shojiMark(len, B, r.horiz));
+      m.dataset.testid = 'editor-mark-window';
+      parts.push(this.place(m, r.x + (r.horiz ? 4 : 0), r.y + (r.horiz ? 0 : 4), r.horiz ? len : B, r.horiz ? B : len));
+    }
     // ゆか（マスは ただの div。押す・手を おく 先）
     this.place(this.floor, B, B, w * c, d * c);
     this.floor.style.gridTemplateColumns = `repeat(${w}, ${c}px)`;
@@ -203,13 +231,17 @@ export class NakaPanel implements StepPanel {
     }
     this.floor.replaceChildren(...cells);
     parts.push(this.floor);
-    // 戸の 前の 足あと・天井の ちょうちんの 印（方眼の まん中）
+    // 戸の 前の 足あと・戸の 絵（立てた 戸。帯の まん中に 重ねる）・天井の ちょうちんの 印（方眼の まん中）
+    const door = bandRect(DOOR_WALL, doorIndex(s));
     const foot = doorInside(s);
-    if (foot) parts.push(this.place(el('div', 'ed-mark ed-mark--foot', ICONS.foot), B + foot.x * c, B + foot.z * c, c, c));
+    parts.push(this.place(el('div', 'ed-mark ed-mark--foot', ICONS.foot), B + foot.x * c, B + foot.z * c, c, c));
+    const dm = el('div', 'ed-mark ed-mark--door', doorMark());
+    dm.dataset.testid = 'editor-mark-door';
+    parts.push(this.place(dm, door.x + (door.w - DOOR_MARK.w) / 2, door.y + (door.h - DOOR_MARK.h) / 2, DOOR_MARK.w, DOOR_MARK.h));
     const lamp = this.place(el('div', 'ed-mark ed-mark--lamp', ICONS.lantern), B + ((w - 1) / 2) * c, B + ((d - 1) / 2) * c, c, c);
     lamp.dataset.testid = 'editor-lamp-mark';
     parts.push(lamp, this.place(this.layer, B, B, w * c, d * c));
-    this.grid.replaceChildren(...parts);
+    this.grid.replaceChildren(...parts, this.cluster);
   }
 
   private paintFurniture(): void {
@@ -237,6 +269,36 @@ export class NakaPanel implements StepPanel {
       this.layer.append(this.place(this.selbox, sp.x * cell, sp.z * cell, fw * cell, fd * cell));
     }
     this.layer.append(this.ghost);
+  }
+
+  /**
+   * えらんだ 家具の すぐ そばに ボタンを 出す。まわしても 動かない 場所（左上の マスは かわらない）に きめる ので、
+   * つづけて ↻ を 押せる（ボタンが ゆびの 下から にげない）。しっぽと わくが 家具に ついて いく。
+   * 上に 入れば 家具の 上の ふち の すぐ 上、入らなければ 下（2 マスの 家具は まわした どの 向きでも おさまる 2×2 の 下）。
+   * よこは そのまま 方眼の はばに おさめる。方眼から はみ出す 側には 出さない。
+   */
+  private paintCluster(): void {
+    const { ctl, cell: c, cluster } = this;
+    const s = ctl.s;
+    const p = ctl.sel.placed !== null ? s.furniture[ctl.sel.placed] : undefined;
+    cluster.hidden = !p;
+    if (!p) return;
+    const B = BAND_PX;
+    const W = s.w * c + 2 * B;
+    const H = s.d * c + 2 * B;
+    const [fw, fd] = footprint(p.kind, p.rot);
+    const m = Math.max(fw, fd);
+    const x0 = B + p.x * c;
+    const top0 = B + p.z * c;
+    const { w: cw, h: ch, gap } = CLUSTER;
+    const aboveTop = top0 - gap - ch;
+    const side = aboveTop >= 0 ? 'above' : 'below';
+    const top = side === 'above' ? aboveTop : Math.min(top0 + m * c + gap, H - ch);
+    const left = W >= cw ? clamp(x0 + (m * c) / 2 - cw / 2, 0, W - cw) : (W - cw) / 2;
+    cluster.style.left = `${left}px`;
+    cluster.style.top = `${top}px`;
+    cluster.style.setProperty('--tail', `${clamp(x0 + (fw * c) / 2 - left, 24, cw - 24)}px`);
+    cluster.classList.toggle('is-above', side === 'above');
   }
 
   private paintGhost(): void {

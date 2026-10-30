@@ -1,7 +1,6 @@
 // HOUSE-1B 試作: エディターの 小さな 絵（SVG。色は currentColor か 下の 数）。字を 読まなくても 分かる ように する ための 絵。
 // 色は 見本の 家（houseLook.ts の 案 C）と そろえる。UI の 色の きまり（トークン）には SVG の 中身は 入らない。
 import { HOUSE_LOOK } from './houseLook';
-import type { Wall } from './tuning';
 
 const P = HOUSE_LOOK.pal;
 type OpenOpt = { fill?: string; stroke?: string; sw?: number };
@@ -33,6 +32,12 @@ export const ICONS = {
   depth: `${open()}<path d="M12 3v18M8 7l4-4 4 4M8 17l4 4 4-4"/></svg>`,
   /** まど（しょうじ） */
   window: `${open()}<rect x="4" y="4" width="16" height="16" rx="1.5"/><path d="M12 4v16M4 12h16"/></svg>`,
+  /** まどの しゅるい（しょうじ: たてに ほそい さん） */
+  shoji: `${open()}<rect x="4" y="3" width="16" height="18" rx="1.5"/><path d="M9.3 3v18M14.7 3v18M4 12h16"/></svg>`,
+  /** やね（平らな やねの 板と はしら） */
+  roof: `${open()}<rect x="2.5" y="6" width="19" height="5" rx="1" fill="currentColor"/><path d="M6 11v9M18 11v9"/></svg>`,
+  /** 見本の すみの しるし（さわる 前だけ）: よこへ うごかす 矢じるし ＋ 手。手は ゆらゆら「くるっ」と うごく（CSS の .ed-swipe__hand） */
+  swipe: `${open({ sw: 2 })}<path d="M4 3.6h16M6.6 1.2 4 3.6 6.6 6M17.4 1.2 20 3.6 17.4 6"/><g class="ed-swipe__hand"><path d="M8.2 15.2V9.4a1.4 1.4 0 0 1 2.8 0v3.4M11 11.9a1.4 1.4 0 0 1 2.8 0v1.3M13.8 12.5a1.4 1.4 0 0 1 2.8 0v1.5"/><path d="M16.6 13.2a1.4 1.4 0 0 1 2.7.5v3.8c0 2.7-2 4.5-4.7 4.5h-1.8c-1.9 0-3.3-.7-4.3-2.1l-3.1-4.4a1.3 1.3 0 0 1 2-1.6l1.8 1.6"/></g></svg>`,
   /** ゛（てんてん）・゜（まる）: 50 音の 11 列めの ボタン */
   dakuten: `${open({ sw: 3.4 })}<path d="M7.5 4.5l2.6 6.5M14.5 3.5l2.6 6.5"/></svg>`,
   handakuten: `${open({ sw: 3 })}<circle cx="12" cy="8.5" r="4.2"/></svg>`,
@@ -45,19 +50,3 @@ export const ICONS = {
   /** 動きを 見せる 手（GIF 用） */
   hand: `<svg class="ed-ico" viewBox="0 0 32 32" aria-hidden="true"><path d="M7 3v21l5.5-4.8 3.6 8.4 4.2-1.8-3.6-8.2H23z" fill="#FFFFFF" stroke="#141414" stroke-width="2" stroke-linejoin="round"/></svg>`,
 } as const;
-
-
-/** 家の 真上からの 絵（① の「と」の まん中）。door ＝ 戸の 壁（その 辺に 戸の 印）。屋根は こい 木の 板に 石 */
-export function houseTopIcon(door: Wall): string {
-  const bar = (w: Wall): string => {
-    const on = w === door;
-    const attrs = on ? `fill="${P.door}" stroke="#2E2620" stroke-width="1.4"` : 'fill="none"';
-    switch (w) {
-      case 'front': return `<rect x="34" y="52" width="20" height="8" rx="2" ${attrs}/>`;
-      case 'back': return `<rect x="34" y="4" width="20" height="8" rx="2" ${attrs}/>`;
-      case 'left': return `<rect x="6" y="22" width="8" height="20" rx="2" ${attrs}/>`;
-      case 'right': return `<rect x="74" y="22" width="8" height="20" rx="2" ${attrs}/>`;
-    }
-  };
-  return `<svg class="ed-ico ed-ico--house" viewBox="0 0 88 64" aria-hidden="true"><rect x="12" y="10" width="64" height="44" rx="4" fill="${P.roof}" stroke="${P.roofD}" stroke-width="2"/><path d="M16 22h56M16 32h56M16 42h56" stroke="${P.roofD}" stroke-width="1.4"/><rect x="22" y="15" width="12" height="8" rx="2" fill="${P.stone}" stroke="${P.stoneD}" stroke-width="1.4"/><rect x="50" y="38" width="12" height="8" rx="2" fill="${P.stone}" stroke="${P.stoneD}" stroke-width="1.4"/>${(['front', 'back', 'left', 'right'] as const).map(bar).join('')}</svg>`;
-}

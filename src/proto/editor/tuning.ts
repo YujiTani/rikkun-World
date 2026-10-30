@@ -7,12 +7,29 @@ export type Rot = 0 | 1 | 2 | 3;
 export type Step = 'soto' | 'naka' | 'namae';
 export type FurnKind = 'futon' | 'chair' | 'table' | 'andon' | 'shelf' | 'ofuro' | 'kotatsu' | 'tansu' | 'furnace';
 
-/** 中の 床の よこ・たて（マス）。奇数だけ（戸と 天井の ちょうちんを まん中に 置く ため） */
+/** 中の 床の よこ・たて（マス）。奇数だけ（戸と 天井の ちょうちんを まん中に 置く ため）。はじめは よこ 5・たて 5 */
 export const SIZES: readonly Size[] = [5, 7, 9];
-/** 戸の 壁の ならび（画面の 順ではなく 内部の 順） */
+export const SIZE_DEFAULT: Size = 5;
+
+/**
+ * 窓の しゅるい・屋根の しゅるい（ボタンの ならび）。いまは 1 つずつ（しょうじ・たいら）。あとで レシピで ふえる ので、
+ * 足す ときは ここと 下の 名前の 表（Record なので 足し忘れると 型で 落ちる）だけ。ボタンは ふえても ならんで 折りかえす。
+ */
+export type WindowKind = 'shoji';
+export type RoofKind = 'flat';
+export const WINDOW_KINDS: readonly WindowKind[] = ['shoji'];
+export const ROOF_KINDS: readonly RoofKind[] = ['flat'];
+export const WINDOW_KIND_LABEL: Readonly<Record<WindowKind, string>> = { shoji: 'しょうじ' };
+export const ROOF_LABEL: Readonly<Record<RoofKind, string>> = { flat: 'たいら' };
+export const WINDOW_KIND_DEFAULT: WindowKind = 'shoji';
+export const ROOF_DEFAULT: RoofKind = 'flat';
+/** かべの ならび（内部の 順） */
 export const WALLS: readonly Wall[] = ['front', 'right', 'back', 'left'];
-export const WALL_LABEL: Readonly<Record<Wall, string>> = { front: 'まえ', right: 'みぎ', back: 'うしろ', left: 'ひだり' };
+/** 戸の 壁（まえ 固定。yuzu 2026-10-30 17:02）。戸の 向きを えらぶ 画面は ない */
+export const DOOR_WALL: Wall = 'front';
 export const OPPOSITE: Readonly<Record<Wall, Wall>> = { front: 'back', back: 'front', right: 'left', left: 'right' };
+/** かべを まっすぐ 見る カメラの 向き（度。0 ＝ まえから、90 ＝ みぎから） */
+export const WALL_YAW_DEG: Readonly<Record<Wall, number>> = { front: 0, right: 90, back: 180, left: 270 };
 
 /** 家の 高さ（ブロックの 段）。床 1 ＋ 中 3 ＋ 屋根 1 ＝ 5（新 3）。窓は 中の 2 段目、戸は 中の 1〜2 段目 */
 export const HEIGHT = { floor: 1, inner: 3, roof: 1, windowLevel: 2, doorLevels: 2 } as const;
@@ -56,8 +73,26 @@ export const NAME_FRONT_MAX = 8;
 export const SUFFIXES: readonly string[] = ['のいえ', 'ハウス', 'のおうち', 'ひみつきち', 'のやしき'];
 export const SUFFIX_DEFAULT = 'のいえ';
 
-/** エディターの ふきだしが 出ている 時間（ミリ秒。3 秒 ＝ 180 コマ） */
-export const BUBBLE_MS = 3000;
+/**
+ * エディターの ふきだしが 出ている 時間（ミリ秒）＝ baseMs ＋ 1 字ごとに perCharMs。つぎに 何か 押したら（ボタン・キー）すぐ 消える。
+ * 字が 多い ふきだし（かみ・ふでの 手がかり つき 35 字）も 6 さいが 読みきれる ように（REVIEW-2.2 直す 6）。
+ */
+export const BUBBLE = { baseMs: 3000, perCharMs: 200 } as const;
+
+/**
+ * ボタンを 押した ときの 小さな 木の 音（ゲームの SoundFx。`wood(はじめの Hz, おわりの Hz, 0, 長さ 秒, 音の 大きさ)`）。
+ * 続けても 大きく しない（大きさは 同じ。高さだけ pitch の 半音 ずつ 順に ずらす）。ぴょこんは CSS の .is-boing。
+ */
+export const PRESS_SOUND = {
+  /** えらぶ・ふやす・つぎへ など ふつうの ボタン・方眼の マス */
+  press: { f0: 600, f1: 480, sec: 0.06, gain: 0.1 },
+  /** とる（少し 低く 長め） */
+  take: { f0: 420, f1: 300, sec: 0.08, gain: 0.1 },
+  /** まわす（少し 高く 短め） */
+  turn: { f0: 760, f1: 600, sec: 0.05, gain: 0.09 },
+} as const;
+/** 毎回 ずらす 高さ（半音。決まった 順で まわる） */
+export const PRESS_PITCH: readonly number[] = [0, 2, -2, 1, -1];
 
 /** 見本（§4.9。アートが 試作で 決めて よい 数） */
 export const PREVIEW = {
@@ -70,8 +105,6 @@ export const PREVIEW = {
   fovDeg: 30,
   /** 地面の 板が 家の 外まわりより 広い マス（そと ＝ 広め、なか ＝ へりだけ） */
   groundMargin: { outside: 2, inside: 0 },
-  /** 大きさが まだ 決まって いない ときの 地面の 広さ（中の 床の マス。9×9 の 家と 同じ） */
-  groundOnlyCells: 9,
   /** 動きを へらす 設定の とき 止める 向き（度。戸の 壁から 見て ななめ 前） */
   stillYawDeg: 28,
   /** 画面に 入れる 余白（1 ＝ ぴったり） */
@@ -79,12 +112,59 @@ export const PREVIEW = {
   /** なかの 見本で、カメラに 近い かべが さがりはじめる・きえる 向き（かべの 外向きと カメラの 向きの 内積） */
   wallDropFrom: 0.1,
   wallDropTo: 0.45,
+  /** ドラッグ: 1 px で まわる 度（よこ ＝ 家の まわり、たて ＝ 見おろす 角度。下へ ひく ほど 上から 見る） */
+  dragYawPerPx: 0.5,
+  dragElevPerPx: 0.4,
+  /** 見おろす 角度の 限り（度）。ひく ほど 近づくが、これより 下（地面の 下）・上（まうえ）へは いかない */
+  elevMinDeg: 8,
+  elevMaxDeg: 85,
+  /** 窓・戸を 見せる ため に なめらかに 回る 時間（コマ。30 ＝ 0.5 秒）と、そのとき 見おろす 角度の 上限（度） */
+  turnFrames: 30,
+  cueElevMaxDeg: 45,
 } as const;
 
-/** 画面の 帯（§3.2）: 上 ＝ 64＋上下 16、下 ＝ 120。まん中の 高さ ＝ 画面の 高さ − 216 */
-export const BAR = { top: 96, bottom: 120 } as const;
+/** 窓・戸の ぴかっ（見本の 光り方。色は 0〜1 の RGB を 足しがけ。時間は コマ ＝ 1/60 秒） */
+export const GLOW = {
+  /** あたたかい あかり いろ（こわく ない 光） */
+  color: [1, 0.88, 0.42],
+  /** ふち（あなの まわり）の 強さ・あなの 中の 強さ（0〜1）、ふちの 外へ ひろがる はば（ブロック）、かべから うかせる きょり（ブロック） */
+  edge: 0.95,
+  fill: 0.4,
+  halo: 0.32,
+  lift: 0.03,
+  /** ふちの はば・ハローの はば（ブロック。ふちは あなの すぐ そと） */
+  edgeWidth: 0.16,
+  haloWidth: 0.34,
+  /** 変えた とき の ぴかっ: 回りおわる まで まつ コマ・光る 長さ・ふえる コマ・きえる コマ・光の ゆらぎの 周期 */
+  cueDelayFrames: 18,
+  cueFrames: 90,
+  riseFrames: 6,
+  fadeFrames: 24,
+  pulseFrames: 30,
+  pulseDepth: 0.3,
+  /** ボタンに 手を おいて いる 間: 光の つよさ・ゆらぎの 周期と ふかさ */
+  hoverLevel: 0.7,
+  hoverPulseFrames: 72,
+  hoverPulseDepth: 0.25,
+  /** どの 向きで 見せるか きめる 時の おもさ（ふえた 窓 ＝ 1 を 基準に、へった 窓は 0.3 倍）と、なくなった 窓の あとの 光の つよさ（0〜1） */
+  removedWeight: 0.3,
+  removedLevel: 0.5,
+} as const;
+
+/**
+ * 画面の 帯の 高さ（px）: 上 ＝ タイトルと すすみ（96）、見出しの 行（40）、下 ＝ ボタン（64 ＋ 上下 8 ＝ 80）。
+ * まん中の 高さ ＝ 画面の 高さ − 216（§3.2 と 同じ。タイトル・見出しを 足しても、下の 帯を 120 → 80 に して 合計を 変えない）
+ */
+export const BAR = { top: 96, lead: 40, bottom: 80 } as const;
 /** 方眼の かべの 帯の はば（px） */
 export const BAND_PX = 16;
+
+/**
+ * 家具の そばに 出る ボタン（［とる］［↻］［↺］）の 大きさ（px）。ボタンの あいだ 8・ふち 2・内がわの あき 4。
+ * gap ＝ 家具との すきま（4。しっぽの 先が 家具に すこし かかる）。
+ * ［とる］88×56、まわす 2 つは 56×56（アイコン だけ）。よこ ＝ 4＋88＋8＋56＋8＋56＋4 ＋ ふち 4 ＝ 228、たて ＝ 56 ＋ 8 ＋ ふち 4 ＝ 68
+ */
+export const CLUSTER = { w: 228, h: 68, gap: 4 } as const;
 
 /** 家具の 絵（ボタン・方眼の 家具・置く 前の ゴースト）の 数 */
 export const FURN_ART = {

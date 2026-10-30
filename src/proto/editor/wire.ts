@@ -11,7 +11,7 @@ function protoEditorActive(search: string = location.search): boolean {
 
 export function wireProtoEditor(deps: WiredLoop): void {
   if (!import.meta.env.DEV || !protoEditorActive()) return;
-  const { game, hud, shared, lock, pointerLock, book } = deps;
+  const { game, hud, shared, lock, pointerLock, book, fxSound } = deps;
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
   const ctl = new EditorController();
   const preview = new Preview3D(game.renderer, () => reduced.matches);
@@ -38,7 +38,7 @@ export function wireProtoEditor(deps: WiredLoop): void {
       game.input.releaseAll();
     }
   };
-  const ui = new EditorUi({ parent: hud, ctl, preview, canvas: game.renderer.domElement, open: () => setOpen(true), close: () => setOpen(false) });
+  const ui = new EditorUi({ parent: hud, ctl, preview, canvas: game.renderer.domElement, sound: fxSound, open: () => setOpen(true), close: () => setOpen(false) });
   ui.show(false);
   const prevFrozen = shared.houseFrozen;
   shared.houseFrozen = () => prevFrozen() || open;

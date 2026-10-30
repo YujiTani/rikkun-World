@@ -67,6 +67,9 @@ body.proto-editor-open #hud > :not(.ed-root) {
 .ed-btn:hover:not(:disabled):not(.is-off) {
   filter: brightness(1.12);
 }
+.ed-btn.is-boing {
+  animation: ed-boing var(--rk-dur-pop) var(--rk-ease-pop) 1;
+}
 .ed-btn:active:not(:disabled) {
   transform: translateY(2px);
   box-shadow: var(--rk-shadow-1-pressed);
@@ -152,7 +155,11 @@ body.proto-editor-open #hud > :not(.ed-root) {
   padding: 0;
 }
 
-/* ---- 上の 帯・下の 帯 ---- */
+/* ---- 上の 帯・見出しの 行・下の 帯（高さ 96 ＋ 40 ＋ 80 ＝ 216。tuning.ts の BAR と おなじ） ---- */
+.ed-root rt {
+  font-size: var(--rk-fs-rt);
+  font-weight: 700;
+}
 .ed-top {
   display: flex;
   flex: none;
@@ -160,7 +167,37 @@ body.proto-editor-open #hud > :not(.ed-root) {
   justify-content: space-between;
   gap: 16px;
   height: 96px;
-  padding: 16px;
+  padding: 8px 16px;
+  background: var(--rk-bg-900);
+}
+.ed-top__main {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+/* いちばん 上の タイトル（32 ＋ ふりがな） */
+.ed-title {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 800;
+  line-height: 40px;
+  white-space: nowrap;
+  color: var(--rk-accent);
+}
+/* すすみごとの 見出し（すすみの 行の 下） */
+.ed-lead {
+  display: flex;
+  flex: none;
+  align-items: center;
+  height: 40px;
+  margin: 0;
+  padding: 0 16px;
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 24px;
+  white-space: nowrap;
+  color: var(--rk-text);
   background: var(--rk-bg-900);
 }
 .ed-bottom {
@@ -169,8 +206,8 @@ body.proto-editor-open #hud > :not(.ed-root) {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  height: 120px;
-  padding: 0 16px;
+  height: 80px;
+  padding: 8px 16px;
   background: var(--rk-bg-900);
 }
 .ed-bar-group {
@@ -202,11 +239,15 @@ body.proto-editor-open #hud > :not(.ed-root) {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 32px;
+  height: 32px;
   background: var(--rk-bg-700);
   border: var(--rk-bw) solid var(--rk-line);
   border-radius: var(--rk-r-pill);
+}
+.ed-step__dot .ed-ico {
+  width: 20px;
+  height: 20px;
 }
 .ed-step.is-now {
   color: var(--rk-text);
@@ -214,16 +255,10 @@ body.proto-editor-open #hud > :not(.ed-root) {
   line-height: 32px;
 }
 .ed-step.is-now .ed-step__dot {
-  width: 56px;
-  height: 56px;
   color: var(--rk-ink);
   background: var(--rk-accent-grad);
   border-color: var(--rk-text);
   box-shadow: var(--rk-glow);
-}
-.ed-step.is-now .ed-ico {
-  width: 32px;
-  height: 32px;
 }
 .ed-step.is-done .ed-step__dot {
   color: var(--rk-text);
@@ -285,6 +320,50 @@ body.proto-editor-open #hud > :not(.ed-root) {
   min-width: 0;
   min-height: 140px;
   background: transparent;
+  cursor: grab;
+  touch-action: none;
+}
+.ed-view.is-drag {
+  cursor: grabbing;
+}
+/* さわる 前だけ 見本の みぎ した に 出る 小さな 手の しるし（手が よこへ ゆらゆら「くるっ」）。さわったら（.is-touched）消える */
+.ed-view__hint {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  color: var(--rk-text);
+  background: var(--rk-bg-800);
+  border: var(--rk-bw) solid var(--rk-line);
+  border-radius: var(--rk-r-pill);
+  pointer-events: none;
+  transition: opacity var(--rk-dur-fast) var(--rk-ease);
+}
+.ed-view__hint .ed-ico {
+  width: 32px;
+  height: 32px;
+}
+.ed-view.is-touched .ed-view__hint {
+  opacity: 0;
+  visibility: hidden;
+}
+.ed-swipe__hand {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: ed-swipe 1.6s ease-in-out infinite;
+}
+@keyframes ed-swipe {
+  0%,
+  100% {
+    transform: translateX(-3px) rotate(-10deg);
+  }
+  50% {
+    transform: translateX(3px) rotate(10deg);
+  }
 }
 .ed-view::after {
   content: '';
@@ -303,31 +382,55 @@ body.proto-editor-open #hud > :not(.ed-root) {
   border-radius: var(--rk-r-l);
 }
 
-/* ① そと */
+/* ① そと: 名前（絵 ＋ 1〜2 行）と ボタン。ボタンは ふえても ならんで 折りかえす */
+.ed-panel {
+  max-height: 100%;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--rk-line) transparent;
+}
 .ed-row {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
 }
 .ed-lab {
   display: flex;
   flex: none;
   align-items: center;
   gap: 4px;
-  width: 76px;
+  width: 124px;
   font-size: 24px;
   font-weight: 800;
   line-height: 24px;
   white-space: nowrap;
 }
+.ed-lab__text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ed-lab__text > span {
+  display: block;
+}
 .ed-opts {
   display: flex;
+  flex: 1 1 0;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 8px;
+  min-width: 0;
 }
 .ed-opt {
   width: 64px;
   padding: 0;
   font-size: 32px;
+}
+.ed-opt--text {
+  width: auto;
+  min-width: 64px;
+  padding: 4px 12px;
+  font-size: 24px;
 }
 .ed-count {
   display: flex;
@@ -341,29 +444,6 @@ body.proto-editor-open #hud > :not(.ed-root) {
 }
 .ed-count.is-max {
   color: var(--rk-accent);
-}
-.ed-door {
-  display: grid;
-  grid-template-columns: repeat(3, 88px);
-  grid-template-rows: repeat(3, 64px);
-  gap: 4px;
-  justify-content: center;
-}
-.ed-door .ed-btn {
-  min-width: 0;
-  width: 88px;
-  padding: 0;
-}
-.ed-door__house {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  grid-column: 2;
-  grid-row: 2;
-}
-.ed-door__house .ed-ico {
-  width: 88px;
-  height: 64px;
 }
 
 /* ② なか: 方眼 */
@@ -434,10 +514,9 @@ body.proto-editor-open #hud > :not(.ed-root) {
   height: 32px;
   opacity: 1;
 }
-.ed-mark--wall {
-  background-size: 100% 100%;
-  image-rendering: pixelated;
-  box-shadow: 0 0 0 2px var(--rk-ink);
+.ed-mark__svg {
+  display: block;
+  pointer-events: none;
 }
 
 /* ② なか: 右の 4 わり */
@@ -488,11 +567,56 @@ body.proto-editor-open #hud > :not(.ed-root) {
 .ed-light.is-sel small {
   color: var(--rk-ink);
 }
-.ed-acts {
+
+/* 置いた 家具の そばに 出る ボタン（［とる］と、アイコン だけの まわす 2 つ）。しっぽが 家具を さす */
+.ed-cluster {
+  position: absolute;
+  z-index: 5;
   display: flex;
-  flex: none;
-  justify-content: center;
+  align-items: center;
   gap: 8px;
+  padding: 4px;
+  background: var(--rk-bg-900);
+  border: var(--rk-bw) solid var(--rk-line);
+  border-radius: var(--rk-r-m);
+  box-shadow: var(--rk-shadow-2);
+  transition:
+    left var(--rk-dur-fast) var(--rk-ease),
+    top var(--rk-dur-fast) var(--rk-ease);
+  animation: ed-pop var(--rk-dur-pop) var(--rk-ease-pop) 1;
+}
+.ed-cluster::before {
+  content: '';
+  position: absolute;
+  top: -8px;
+  left: var(--tail, 50%);
+  width: 12px;
+  height: 12px;
+  margin-left: -6px;
+  background: var(--rk-bg-900);
+  border-top: var(--rk-bw) solid var(--rk-line);
+  border-left: var(--rk-bw) solid var(--rk-line);
+  transform: rotate(45deg);
+}
+.ed-cluster.is-above::before {
+  top: auto;
+  bottom: -8px;
+  transform: rotate(225deg);
+}
+.ed-cbtn {
+  height: 56px;
+  min-width: 0;
+  padding: 0;
+}
+.ed-cbtn--take {
+  width: 88px;
+}
+.ed-cbtn--icon {
+  width: 56px;
+}
+.ed-cbtn--icon .ed-ico {
+  width: 40px;
+  height: 40px;
 }
 
 /* ③ なまえ */
@@ -507,16 +631,6 @@ body.proto-editor-open #hud > :not(.ed-root) {
   flex-direction: column;
   gap: 8px;
   width: 656px;
-}
-/* 画面が 低い とき（高さ 792 より 小さい ＝ 1024×700）だけ: 2 行の ふきだし（高さ 84）を 上の 帯の すぐ 下（まん中の 上の はしから −12）に 出し、
-   名前の 板を 80 下げて ぶつからない ように する。80 ＋ 420 ＝ 500 ＝ まん中の 高さ 484 ＋ 下の 帯の 上の あき 16（ボタンまで は 28 あいて いる） */
-@media (max-height: 791px) {
-  .ed-namae__main {
-    margin-top: 80px;
-  }
-  .ed-root[data-step='namae'] .ed-say {
-    top: -12px;
-  }
 }
 .ed-plate {
   display: flex;
@@ -566,6 +680,22 @@ body.proto-editor-open #hud > :not(.ed-root) {
 .ed-kbtn .ed-ico {
   width: 32px;
   height: 32px;
+}
+/* 画面が 低い とき（高さ 792 より 小さい ＝ 1024×700）だけ: 2 行の ふきだし（高さ 84）の 下に 名前の 板が くる ように 92 下げ、
+   50 音の ボタンを 56 → 48 に する（押せる 大きさは 画面の はばに 合わせて 44.8 以上 ＝ UI 検査の きまり）。
+   92 ＋ 板 56 ＋ 8 ＋ 50 音 308 ＝ 464 ≦ まん中の 高さ 484（右の 列は 448） */
+@media (max-height: 791px) {
+  .ed-namae__main {
+    margin-top: 92px;
+  }
+  .ed-kana {
+    grid-template-columns: repeat(11, 48px);
+    grid-auto-rows: 48px;
+  }
+  .ed-kbtn {
+    width: 48px;
+    height: 48px;
+  }
 }
 .ed-namae__side {
   display: flex;
@@ -778,6 +908,17 @@ body.proto-editor-open #hud > :not(.ed-root) {
     transform: scale(1);
   }
 }
+@keyframes ed-boing {
+  0% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.12);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
 @keyframes ed-flash {
   0% {
     filter: sepia(1) saturate(12) hue-rotate(-35deg);
@@ -789,7 +930,11 @@ body.proto-editor-open #hud > :not(.ed-root) {
 @media (prefers-reduced-motion: reduce) {
   .ed-furn.is-new,
   .ed-furn.is-flash,
-  .ed-say {
+  .ed-say,
+  .ed-cluster,
+  .ed-btn.is-boing,
+  .ed-swipe__hand {
     animation: none;
+    transition: none;
   }
 }

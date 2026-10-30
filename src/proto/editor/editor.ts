@@ -2,10 +2,10 @@
 // 仕様 docs/design/HOUSE-1.md §2.5（すすみ方・できた！・もどす／すすむ・Esc の 順）。
 // 試作の ため: 保存・せっけいず・かみ・ふで・持ち物は 作らない（できた！の しらべ ④〜⑥ は 通る ことに する）。
 import {
-  cloneState, dakuten, emptyState, handakuten, canAddChar, needOf, placeProblem, refit, windowMax, doorInside, footprint,
+  cloneState, dakuten, emptyState, handakuten, canAddChar, needOf, placeProblem, refit, windowMax, footprint,
   type EditorState, type NeedRow, type Placed,
 } from './model';
-import { SIZES, SUFFIXES, FURNITURE, K_FUTON, type FurnKind, type Rot, type Size, type Step, type Wall } from './tuning';
+import { SIZES, SUFFIXES, FURNITURE, K_FUTON, ROOF_KINDS, WINDOW_KINDS, type FurnKind, type RoofKind, type Rot, type Size, type Step, type WindowKind } from './tuning';
 
 export type Confirm = null | 'reset' | 'futonOnly';
 
@@ -14,8 +14,6 @@ export interface Selection {
   palette: FurnKind | null;
   placed: number | null;
   light: boolean;
-  /** 一覧から えらんだ 家具を 置く ときの 向き（まわす ボタンで かわる） */
-  pendingRot: Rot;
 }
 
 interface HistoryItem {
@@ -26,7 +24,6 @@ interface HistoryItem {
 }
 
 export const MSG = {
-  size: 'おおきさを えらんでね',
   futon: 'ふとんが ないと ねられないよ',
   name: 'なまえを つけてね',
   paper: 'かみが ないと かけないよ。かみは からかさや ちょうちんの ようかいが おとすよ',
@@ -41,7 +38,9 @@ export const MSG = {
 
 export class EditorController {
   s: EditorState = emptyState();
-  sel: Selection = { palette: null, placed: null, light: true, pendingRot: 0 };
+  sel: Selection = { palette: null, placed: null, light: true };
+  /** 「あたらしい せっけいず → ぜんぶ けす」を した 回数（見本の 向きを はじめに もどす ため） */
+  resets = 0;
   katakana = false;
   confirm: Confirm = null;
   needOpen = false;
@@ -69,21 +68,11 @@ export class EditorController {
   canRedo(): boolean {
     return this.redos.length > 0;
   }
-  sizeChosen(): boolean {
-    return this.s.w !== null && this.s.d !== null;
-  }
   windowMax(): number {
     return windowMax(this.s);
   }
   need(): NeedRow[] {
     return needOf(this.s);
-  }
-  /** 「つぎへ」が 押せる か（① では 大きさを 2 つ えらぶまで うすい） */
-  canNext(): boolean {
-    return this.s.step === 'soto' ? this.sizeChosen() : this.s.step === 'naka';
-  }
-  canPrev(): boolean {
-    return this.s.step !== 'soto';
   }
   /** ゛・゜ が いま 押せる か */
   canMark(kind: 'dakuten' | 'handakuten'): boolean {
@@ -91,9 +80,9 @@ export class EditorController {
     if (!last) return false;
     return (kind === 'dakuten' ? dakuten(last) : handakuten(last)) !== null;
   }
-  /** 一覧から えらんだ 家具の いまの 形（ゴースト用）。なければ null */
+  /** 一覧から えらんだ 家具の 形（ゴースト用。置く 前は 向き 0。まわすのは 置いた あと）。なければ null */
   pending(): { kind: FurnKind; rot: Rot } | null {
-    return this.sel.palette ? { kind: this.sel.palette, rot: this.sel.pendingRot } : null;
+    return this.sel.palette ? { kind: this.sel.palette, rot: 0 } : null;
   }
 
   // ------------------------------------------------------------ ふきだし
@@ -139,7 +128,6 @@ export class EditorController {
   }
 
   windows(delta: 1 | -1): boolean {
-    if (!this.sizeChosen()) return false;
     const n = this.s.windows + delta;
     if (n < 0 || n > this.windowMax()) return false;
     const next = cloneState(this.s);
@@ -147,13 +135,19 @@ export class EditorController {
     return this.commit(next, 'soto');
   }
 
-  door(wall: Wall): boolean {
+  /** 窓の しゅるい・屋根の しゅるい（ボタンの ならびに ある 物だけ） */
+  setWindowKind(kind: WindowKind): boolean {
+    if (!WINDOW_KINDS.includes(kind)) return false;
     const next = cloneState(this.s);
-    next.door = wall;
-    const r = refit(this.s, next);
-    const ok = this.commit(r.state, 'soto');
-    if (ok && r.dropped > 0) this.say(MSG.tidy);
-    return ok;
+    next.windowKind = kind;
+    return this.commit(next, 'soto');
+  }
+
+  setRoof(kind: RoofKind): boolean {
+    if (!ROOF_KINDS.includes(kind)) return false;
+    const next = cloneState(this.s);
+    next.roof = kind;
+    return this.commit(next, 'soto');
   }
 
   place(kind: FurnKind, x: number, z: number, rot: Rot = 0): boolean {
@@ -161,10 +155,7 @@ export class EditorController {
     if (placeProblem(this.s, p) !== null) return false;
     const next = cloneState(this.s);
     next.furniture.push(p);
-    const ok = this.commit(next, 'naka');
-    if (ok) this.sel.placed = this.s.furniture.length - 1;
-    if (ok) this.emit();
-    return ok;
+    return this.commit(next, 'naka');
   }
 
   remove(idx: number): boolean {
@@ -172,8 +163,7 @@ export class EditorController {
     const next = cloneState(this.s);
     next.furniture.splice(idx, 1);
     const ok = this.commit(next, 'naka');
-    if (ok) this.sel.placed = null;
-    if (ok) this.emit();
+    if (ok) this.clearPlaced();
     return ok;
   }
 
@@ -235,7 +225,8 @@ export class EditorController {
   /** あたらしい せっけいず →［ぜんぶ けす］: まっさらに（大きさ 未選択・窓 0・戸 まえ・家具 なし・名前 空・① そと） */
   resetAll(): boolean {
     const next = emptyState();
-    this.sel = { palette: null, placed: null, light: true, pendingRot: 0 };
+    this.sel = { palette: null, placed: null, light: true };
+    this.resets++;
     const ok = this.commit(next, 'soto');
     this.s.step = 'soto';
     this.emit();
@@ -270,10 +261,6 @@ export class EditorController {
 
   next(): boolean {
     if (this.s.step === 'namae') return false;
-    if (this.s.step === 'soto' && !this.sizeChosen()) {
-      this.say(MSG.size);
-      return false;
-    }
     this.s.step = this.s.step === 'soto' ? 'naka' : 'namae';
     this.sel.placed = null;
     this.emit();
@@ -283,6 +270,7 @@ export class EditorController {
   prev(): boolean {
     if (this.s.step === 'soto') return false;
     this.s.step = this.s.step === 'namae' ? 'naka' : 'soto';
+    this.sel.placed = null;
     this.emit();
     return true;
   }
@@ -300,22 +288,22 @@ export class EditorController {
     this.lightTouched();
   }
 
-  /** 「とる」: えらんだ 家具を とる。あかりを えらんで いたら ふきだし */
+  /** 家具の そばに 出る ボタン［とる］: えらんだ 家具を とる */
   takeSelected(): boolean {
-    if (this.sel.placed !== null) return this.remove(this.sel.placed);
-    if (this.sel.light) this.lightTouched();
-    return false;
+    return this.sel.placed !== null && this.remove(this.sel.placed);
   }
 
-  /** 「みぎ／ひだり」: 置いた 家具を まわす。なければ 置く 前の 向きを かえる */
+  /** 家具の そばに 出る ボタン［↻］［↺］: えらんだ 家具を まわす */
   turnSelected(dir: 'right' | 'left'): boolean {
-    if (this.sel.placed !== null) return this.rotate(this.sel.placed, dir);
-    if (this.sel.palette) {
-      this.sel.pendingRot = ((this.sel.pendingRot + (dir === 'right' ? 1 : 3)) % 4) as Rot;
-      this.emit();
-      return true;
-    }
-    return false;
+    return this.sel.placed !== null && this.rotate(this.sel.placed, dir);
+  }
+
+  /** えらんだ 家具の えらびを やめる（そばの ボタンが きえる）。えらんで いなければ false */
+  clearPlaced(): boolean {
+    if (this.sel.placed === null) return false;
+    this.sel = { ...this.sel, placed: null };
+    this.emit();
+    return true;
   }
 
   setKatakana(on: boolean): void {
@@ -345,7 +333,6 @@ export class EditorController {
       this.say(text);
       return 'stopped';
     };
-    if (s.w === null || s.d === null) return stop(MSG.size, 'soto');
     if (!s.furniture.some((p) => p.kind === K_FUTON)) return stop(MSG.futon, 'naka');
     if ([...s.name.front].length === 0) return stop(MSG.name, 'namae');
     if (s.furniture.every((p) => p.kind === K_FUTON)) {
@@ -374,7 +361,7 @@ export class EditorController {
     this.emit();
   }
 
-  /** Esc: 確かめの まど → ひつような もの → （何も なければ false ＝ エディターを とじる） */
+  /** Esc: 確かめの まど → ひつような もの → 家具の えらび → （何も なければ false ＝ エディターを とじる） */
   escape(): boolean {
     if (this.confirm) {
       this.confirmNo();
@@ -384,7 +371,7 @@ export class EditorController {
       this.closeNeed();
       return true;
     }
-    return false;
+    return this.clearPlaced();
   }
 
   // ------------------------------------------------------------ 方眼
@@ -410,10 +397,6 @@ export class EditorController {
       return false;
     }
     return this.place(pend.kind, x, z, pend.rot);
-  }
-
-  doorCell(): { x: number; z: number } | null {
-    return doorInside(this.s);
   }
 
   kindName(kind: FurnKind): string {

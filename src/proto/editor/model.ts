@@ -1,8 +1,8 @@
 // HOUSE-1B 試作: せっけいずの 形（EditorState）と 計算（窓の ならべ方・置ける 所・材料・名前）。DOM・three なし。
 // 仕様 docs/design/HOUSE-1.md §4.1（大きさ・材料）・§4.2（窓と 戸）・§4.3（家具）・§2.6（名前）。
 import {
-  FURNITURE, KURA_DEMO, MATERIAL_ORDER, NAME_FRONT_MAX, OPPOSITE, PAPER_PER_WINDOW, SUFFIX_DEFAULT,
-  type FurnKind, type Rot, type Size, type Step, type Wall,
+  DOOR_WALL, FURNITURE, KURA_DEMO, MATERIAL_ORDER, NAME_FRONT_MAX, OPPOSITE, PAPER_PER_WINDOW, ROOF_DEFAULT, SIZE_DEFAULT, SUFFIX_DEFAULT, WINDOW_KIND_DEFAULT,
+  type FurnKind, type RoofKind, type Rot, type Size, type Step, type Wall, type WindowKind,
 } from './tuning';
 
 export interface Placed {
@@ -16,17 +16,22 @@ export interface Placed {
 
 export interface EditorState {
   step: Step;
-  /** よこ（まえ・うしろの かべの 中の 長さ）・たて（ひだり・みぎ）。まだ 決めて いない ＝ null */
-  w: Size | null;
-  d: Size | null;
+  /** よこ（まえ・うしろの かべの 中の 長さ）・たて（ひだり・みぎ）。はじめから 5 と 5（未選択は ない）。戸は まえ 固定（DOOR_WALL） */
+  w: Size;
+  d: Size;
   windows: number;
-  door: Wall;
+  /** 窓・屋根の しゅるい（いまは 1 つずつ。あとで レシピで ふえる） */
+  windowKind: WindowKind;
+  roof: RoofKind;
   furniture: Placed[];
   name: { front: string; back: string };
 }
 
 export function emptyState(): EditorState {
-  return { step: 'soto', w: null, d: null, windows: 0, door: 'front', furniture: [], name: { front: '', back: SUFFIX_DEFAULT } };
+  return {
+    step: 'soto', w: SIZE_DEFAULT, d: SIZE_DEFAULT, windows: 0, windowKind: WINDOW_KIND_DEFAULT, roof: ROOF_DEFAULT,
+    furniture: [], name: { front: '', back: SUFFIX_DEFAULT },
+  };
 }
 
 export function cloneState(s: EditorState): EditorState {
@@ -40,17 +45,17 @@ export function wallLength(w: number, d: number, wall: Wall): number {
   return wall === 'front' || wall === 'back' ? w : d;
 }
 
-/** むかいの 壁に 入る 数 A・よこの 壁 1 つに 入る 数 S・窓の 上限 A＋2S */
-function windowLimits(w: number, d: number, door: Wall): { A: number; S: number; max: number; side: readonly [Wall, Wall] } {
-  const side: readonly [Wall, Wall] = door === 'front' || door === 'back' ? ['left', 'right'] : ['front', 'back'];
-  const A = (wallLength(w, d, OPPOSITE[door]) + 1) / 2;
+/** むかいの 壁に 入る 数 A・よこの 壁 1 つに 入る 数 S・窓の 上限 A＋2S（戸は まえ 固定 ＝ むかいは うしろ、よこは ひだり・みぎ） */
+function windowLimits(w: number, d: number): { A: number; S: number; max: number; side: readonly [Wall, Wall] } {
+  const side: readonly [Wall, Wall] = ['left', 'right'];
+  const A = (wallLength(w, d, OPPOSITE[DOOR_WALL]) + 1) / 2;
   const S = (wallLength(w, d, side[0]) + 1) / 2;
   return { A, S, max: A + 2 * S, side };
 }
 
 /** n この 窓を むかい a・よこ s ずつ に 分ける（式: s ＝ min(S, max(⌊(n＋1)÷3⌋, ⌈(n − A)÷2⌉))、a ＝ n − 2s） */
-function windowSplit(w: number, d: number, door: Wall, n: number): { a: number; s: number } {
-  const { A, S } = windowLimits(w, d, door);
+function windowSplit(w: number, d: number, n: number): { a: number; s: number } {
+  const { A, S } = windowLimits(w, d);
   const s = Math.min(S, Math.max(Math.floor((n + 1) / 3), Math.ceil((n - A) / 2)));
   return { a: n - 2 * s, s };
 }
@@ -66,35 +71,49 @@ export interface WindowCell {
   i: number;
 }
 
-export function windowCells(s: Pick<EditorState, 'w' | 'd' | 'door' | 'windows'>): WindowCell[] {
-  if (s.w === null || s.d === null || s.windows <= 0) return [];
-  const { side } = windowLimits(s.w, s.d, s.door);
-  const { a, s: each } = windowSplit(s.w, s.d, s.door, s.windows);
+export function windowCells(s: Pick<EditorState, 'w' | 'd' | 'windows'>): WindowCell[] {
+  if (s.windows <= 0) return [];
+  const { side } = windowLimits(s.w, s.d);
+  const { a, s: each } = windowSplit(s.w, s.d, s.windows);
   const out: WindowCell[] = [];
   const add = (wall: Wall, k: number): void => {
-    for (const i of wallSlots(wallLength(s.w!, s.d!, wall), k)) out.push({ wall, i });
+    for (const i of wallSlots(wallLength(s.w, s.d, wall), k)) out.push({ wall, i });
   };
-  add(OPPOSITE[s.door], a);
+  add(OPPOSITE[DOOR_WALL], a);
   add(side[0], each);
   add(side[1], each);
   return out;
 }
 
-export function windowMax(s: Pick<EditorState, 'w' | 'd' | 'door'>): number {
-  return s.w === null || s.d === null ? 0 : windowLimits(s.w, s.d, s.door).max;
+export function windowMax(s: Pick<EditorState, 'w' | 'd'>): number {
+  return windowLimits(s.w, s.d).max;
 }
 
-/** 戸の 前の 中がわの 1 マス（家具は 置けない） */
-export function doorInside(s: Pick<EditorState, 'w' | 'd' | 'door'>): { x: number; z: number } | null {
-  if (s.w === null || s.d === null) return null;
-  const cx = (s.w - 1) / 2;
-  const cz = (s.d - 1) / 2;
-  switch (s.door) {
-    case 'front': return { x: cx, z: s.d - 1 };
-    case 'back': return { x: cx, z: 0 };
-    case 'right': return { x: s.w - 1, z: cz };
-    case 'left': return { x: 0, z: cz };
-  }
+/** 戸の かべの 中での 場所（まん中。窓と おなじ 数え方） */
+export function doorIndex(s: Pick<EditorState, 'w' | 'd'>): number {
+  return (wallLength(s.w, s.d, DOOR_WALL) - 1) / 2;
+}
+
+/** 戸の 前の 中がわの 1 マス（家具は 置けない。戸は まえ 固定 ＝ まえの かべの まん中の 内がわ） */
+export function doorInside(s: Pick<EditorState, 'w' | 'd'>): { x: number; z: number } {
+  return { x: (s.w - 1) / 2, z: s.d - 1 };
+}
+
+/** 窓が かわった ときの、見せる 窓（ふえた・へった・しゅるいが かわった）。大きさが かわった とき・かわって いない ときは null */
+export interface OpeningChange {
+  added: WindowCell[];
+  removed: WindowCell[];
+}
+type OpeningKey = Pick<EditorState, 'w' | 'd' | 'windows' | 'windowKind'>;
+export function openingChange(a: OpeningKey, b: OpeningKey): OpeningChange | null {
+  if (a.w !== b.w || a.d !== b.d) return null;
+  const was = windowCells(a);
+  const now = windowCells(b);
+  const has = (list: WindowCell[], c: WindowCell): boolean => list.some((q) => q.wall === c.wall && q.i === c.i);
+  const kindChanged = a.windowKind !== b.windowKind;
+  const added = kindChanged ? now : now.filter((c) => !has(was, c));
+  const removed = kindChanged ? [] : was.filter((c) => !has(now, c));
+  return added.length + removed.length > 0 ? { added, removed } : null;
 }
 
 // ------------------------------------------------------------ 家具を 置く（§2.5・§4.3）
@@ -104,15 +123,14 @@ export function footprint(kind: FurnKind, rot: Rot): readonly [number, number] {
   return rot % 2 === 0 ? [fw, fd] : [fd, fw];
 }
 
-export type PlaceProblem = 'size' | 'out' | 'door' | 'overlap';
+export type PlaceProblem = 'out' | 'door' | 'overlap';
 
 /** 置けない わけ（置ける なら null）。skip ＝ いま 動かして いる 家具の 番号（自分とは 重ならない） */
 export function placeProblem(s: EditorState, p: Placed, skip = -1): PlaceProblem | null {
-  if (s.w === null || s.d === null) return 'size';
   const [fw, fd] = footprint(p.kind, p.rot);
   if (p.x < 0 || p.z < 0 || p.x + fw > s.w || p.z + fd > s.d) return 'out';
   const door = doorInside(s);
-  if (door && door.x >= p.x && door.x < p.x + fw && door.z >= p.z && door.z < p.z + fd) return 'door';
+  if (door.x >= p.x && door.x < p.x + fw && door.z >= p.z && door.z < p.z + fd) return 'door';
   for (let i = 0; i < s.furniture.length; i++) {
     if (i === skip) continue;
     const q = s.furniture[i]!;
@@ -122,13 +140,10 @@ export function placeProblem(s: EditorState, p: Placed, skip = -1): PlaceProblem
   return null;
 }
 
-/** 大きさ・戸を かえた あと: 家具を 家の まん中からの 位置の まま 動かし、入らない 物を 消す。消えた 数も 返す */
+/** 大きさを かえた あと: 家具を 家の まん中からの 位置の まま 動かし、入らない 物を 消す。消えた 数も 返す */
 export function refit(old: EditorState, next: EditorState): { state: EditorState; dropped: number } {
   const out = cloneState(next);
   out.windows = Math.min(out.windows, windowMax(out));
-  if (old.w === null || old.d === null || out.w === null || out.d === null) {
-    return { state: out, dropped: 0 };
-  }
   const dx = (out.w - old.w) / 2;
   const dz = (out.d - old.d) / 2;
   const kept: Placed[] = [];
@@ -154,10 +169,8 @@ export interface NeedRow {
 /** 必要な 材料 ＝ 外装（き ＝ 外まわり 1 周、いし ＝ 中の 床）＋ 窓 × かみ 1 ＋ 家具の 合計。あかり（ちょうちん）は 材料 なし */
 function materialsOf(s: Pick<EditorState, 'w' | 'd' | 'windows' | 'furniture'>): Map<string, number> {
   const m = new Map<string, number>();
-  if (s.w !== null && s.d !== null) {
-    m.set('log', 2 * (s.w + s.d) + 4);
-    m.set('stone', s.w * s.d);
-  }
+  m.set('log', 2 * (s.w + s.d) + 4);
+  m.set('stone', s.w * s.d);
   if (s.windows > 0) m.set('paper', (m.get('paper') ?? 0) + s.windows * PAPER_PER_WINDOW);
   for (const p of s.furniture) for (const [item, n] of FURNITURE[p.kind].mats) m.set(item, (m.get(item) ?? 0) + n);
   return m;
