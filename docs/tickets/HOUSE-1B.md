@@ -2,7 +2,7 @@
 
 - issue: #339 / 仕様: `docs/design/HOUSE-1.md` 2.1 版（〔1B〕の 節: §2.2 の 5・§2.3・§2.4 の 6・§2.5〜2.7・§3.2・§4.1〜4.3・§4.9。印は ないが 1B の 中身が ある 所: §2.1 の 流れ・§3 の ふきだしの 文・§3.1・§3.5 の エディターの 列・§5 の 例外）。決定: `docs/decisions/2026-10-30-housing-editor.md`（1〜18）。
 - 前: #338 HOUSE-1A（PR #355・#358。main 入り）。**ふで `fude` は タコの PR #361**。ふでが いる 基準（AC8b・AC15・AC32b・AC43・AC44b・AC45・AC46・AC47）は #361 が main に 入って から 赤 → 緑に する（テストの 準備は 先に 書いて よい）。
-- 見た目: 建築士さん・新しい 家具 5 つ ＝ 案 A（決定 `docs/decisions/2026-10-29-housing-look.md`、`docs/art/design/06-housing.md` §19、試作の 形 `docs/art/house-1/proto/houseA.ts.txt`）。家（かべ・ゆか・平らな やね・しょうじ・戸・天井の ちょうちん）は 3 案から yuzu が 選ぶ（`/mnt/project-files/housing-art/house-look/`。決まったら ここに 書く）。
+- 見た目: 建築士さん・新しい 家具 5 つ ＝ 案 A（決定 `docs/decisions/2026-10-29-housing-look.md`、`docs/art/design/06-housing.md` §19、試作の 形 `docs/art/house-1/proto/houseA.ts.txt`）。家の ブロック（かべ・ゆか・平らな やね・しょうじ・戸）＝ 案 C「ふとい いたの やまごや」の しあげ（平らな 箱。yuzu 15:08。決定 `docs/decisions/2026-10-30-house-look.md`、`docs/art/design/06-housing.md` §21、依頼 `docs/art/requests/HOUSE-1-house-blocks.md`、数の 元 `docs/art/house-1/proto/houseLookC.ts.txt`）。1B で 使うのは エディターの 見本と せっけいずの 絵。天井の ちょうちん・ふとんは 今の 小物の まま。見本の「なか」は 屋根を はずすので、ちょうちんは 天井の 高さに うかせて 出す（PO）。
 - 順番: エディターの 画面と 見本を ゲームに 入れた 試作（`?proto=editor`）の スクショで yuzu OK → テストの 準備 → 実装。② なか の 見本が 1024×700 で 小さい 件（仕様 §7 の のこり）も 試作で 見て もらう。
 - つづき: #340 HOUSE-1C（地盤・建築・家・安全地帯・なまえを かえる）、#341 HOUSE-1D（家具の はたらき）。
 
