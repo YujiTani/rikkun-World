@@ -49,13 +49,23 @@
     "flower_p": 36,
     "flower_y": 34,
     "furnace": 11,
+    "futon": 51,
+    "futon_foot_e": 56,
+    "futon_foot_n": 59,
+    "futon_foot_s": 57,
+    "futon_foot_w": 58,
+    "futon_n": 55,
+    "futon_s": 53,
+    "futon_w": 54,
     "geyser_dirt": 49,
     "grass": 1,
+    "haniwa": 52,
     "iron_ore": 8,
     "kakashi": 27,
     "kakashi_head": 28,
     "kawara": 12,
     "kusa": 39,
+    "lantern": 50,
     "leaves": 6,
     "log": 5,
     "matsu_leaves": 33,
@@ -384,6 +394,66 @@
       "id": "geyser_dirt",
       "name": "かんけつせんの つち",
       "solid": true
+    },
+    {
+      "breakable": true,
+      "id": "lantern",
+      "name": "ちょうちん",
+      "solid": false
+    },
+    {
+      "breakable": true,
+      "id": "futon",
+      "name": "ふとん",
+      "solid": false
+    },
+    {
+      "breakable": true,
+      "id": "haniwa",
+      "name": "はにわ",
+      "solid": false
+    },
+    {
+      "breakable": true,
+      "id": "futon_s",
+      "name": "ふとん",
+      "solid": false
+    },
+    {
+      "breakable": true,
+      "id": "futon_w",
+      "name": "ふとん",
+      "solid": false
+    },
+    {
+      "breakable": true,
+      "id": "futon_n",
+      "name": "ふとん",
+      "solid": false
+    },
+    {
+      "breakable": true,
+      "id": "futon_foot_e",
+      "name": "ふとん",
+      "solid": false
+    },
+    {
+      "breakable": true,
+      "id": "futon_foot_s",
+      "name": "ふとん",
+      "solid": false
+    },
+    {
+      "breakable": true,
+      "id": "futon_foot_w",
+      "name": "ふとん",
+      "solid": false
+    },
+    {
+      "breakable": true,
+      "id": "futon_foot_n",
+      "name": "ふとん",
+      "solid": false
     }
   ],
   "DIG_DEFAULTS": {
@@ -419,13 +489,23 @@
       "flower_p": 0.05,
       "flower_y": 0.05,
       "furnace": 6,
+      "futon": 0.25,
+      "futon_foot_e": 0.25,
+      "futon_foot_n": 0.25,
+      "futon_foot_s": 0.25,
+      "futon_foot_w": 0.25,
+      "futon_n": 0.25,
+      "futon_s": 0.25,
+      "futon_w": 0.25,
       "geyser_dirt": 0.5,
       "grass": 0.5,
+      "haniwa": 1,
       "iron_ore": 15,
       "kakashi": null,
       "kakashi_head": null,
       "kawara": 4,
       "kusa": 0.05,
+      "lantern": 0.05,
       "leaves": 0.25,
       "log": 5,
       "matsu_leaves": 0.25,
@@ -471,13 +551,23 @@
       "flower_p": 0,
       "flower_y": 0,
       "furnace": 0,
+      "futon": 0,
+      "futon_foot_e": 0,
+      "futon_foot_n": 0,
+      "futon_foot_s": 0,
+      "futon_foot_w": 0,
+      "futon_n": 0,
+      "futon_s": 0,
+      "futon_w": 0,
       "geyser_dirt": 0,
       "grass": 0,
+      "haniwa": 0,
       "iron_ore": 1,
       "kakashi": 0,
       "kakashi_head": 0,
       "kawara": 0,
       "kusa": 0,
+      "lantern": 0,
       "leaves": 0,
       "log": 0,
       "matsu_leaves": 0,
@@ -524,13 +614,23 @@
       "flower_p": "common",
       "flower_y": "common",
       "furnace": "uncommon",
+      "futon": "uncommon",
+      "futon_foot_e": "uncommon",
+      "futon_foot_n": "uncommon",
+      "futon_foot_s": "uncommon",
+      "futon_foot_w": "uncommon",
+      "futon_n": "uncommon",
+      "futon_s": "uncommon",
+      "futon_w": "uncommon",
       "geyser_dirt": "uncommon",
       "grass": "common",
+      "haniwa": "uncommon",
       "iron_ore": "rare",
       "kakashi": "common",
       "kakashi_head": "common",
       "kawara": "uncommon",
       "kusa": "common",
+      "lantern": "uncommon",
       "leaves": "common",
       "log": "uncommon",
       "matsu_leaves": "common",
@@ -570,9 +670,49 @@
       "count": 1,
       "item": "dirt"
     },
+    "futon": {
+      "count": 1,
+      "item": "futon"
+    },
+    "futon_foot_e": {
+      "count": 1,
+      "item": "futon"
+    },
+    "futon_foot_n": {
+      "count": 1,
+      "item": "futon"
+    },
+    "futon_foot_s": {
+      "count": 1,
+      "item": "futon"
+    },
+    "futon_foot_w": {
+      "count": 1,
+      "item": "futon"
+    },
+    "futon_n": {
+      "count": 1,
+      "item": "futon"
+    },
+    "futon_s": {
+      "count": 1,
+      "item": "futon"
+    },
+    "futon_w": {
+      "count": 1,
+      "item": "futon"
+    },
     "geyser_dirt": {
       "count": 1,
       "item": "geyser_dirt"
+    },
+    "haniwa": {
+      "count": 1,
+      "item": "haniwa"
+    },
+    "lantern": {
+      "count": 1,
+      "item": "lantern"
     },
     "nobana": {
       "count": 1,

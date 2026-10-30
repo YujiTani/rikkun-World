@@ -2,6 +2,7 @@ import { DataTexture, NearestFilter, RGBAFormat, SRGBColorSpace, UnsignedByteTyp
 import type { BlockId } from '../../contracts';
 import { tansuPixels } from '../../storage/tansuArt';
 import { FARM_TILE_NAMES, paintFarmTile } from './farmTextures';
+import { GADGET_TILE_NAMES, isGadgetTile, paintGadgetTile, type GadgetTileName } from './gadgetTextures';
 import { KOTATSU_ART_ROWS, kotatsuTileOrder, paintKotatsuArt, type KotatsuTileName } from './kotatsuArt';
 import { LIVE_TILE_NAMES, paintLiveTile, type LiveTileName } from './liveTextures';
 
@@ -34,7 +35,8 @@ export type TileName =
   | FarmTileName
   | LiveTileName
   | KotatsuTileName
-  | 'geyser_dirt_top' | 'geyser_dirt_side';
+  | 'geyser_dirt_top' | 'geyser_dirt_side'
+  | GadgetTileName;
 
 /** VOX-I-1（12 の国）のふつうの絵（一ひねりの絵は #185） */
 export type VoxITileName = 'snow' | 'momiji_leaves' | 'matsu_leaves' | 'flower_y' | 'flower_o' | 'flower_p' | 'bamboo' | 'susuki' | 'kusa' | 'nobana';
@@ -78,7 +80,12 @@ const TILE_NAMES_BASE: readonly TileName[] = [
   'geyser_dirt_side',
 ];
 // LIVE-2 こたつ 2×2 の 絵（さいご に 足す。並べ方 は kotatsuTileOrder）
-export const TILE_NAMES: readonly TileName[] = [...TILE_NAMES_BASE, ...kotatsuTileOrder(TILE_NAMES_BASE.length)];
+// ITEM-FX-1: ちょうちん・ふとん・はにわ の 箱の 絵は、こたつの 「すきま」の 空き枠に 入れる（アトラスの 大きさと ほかの 絵の 位置を かえない）
+let gadgetAt = 0;
+export const TILE_NAMES: readonly TileName[] = [
+  ...TILE_NAMES_BASE,
+  ...kotatsuTileOrder(TILE_NAMES_BASE.length).map((n): TileName => (n.startsWith('kotatsu_pad') && gadgetAt < GADGET_TILE_NAMES.length ? GADGET_TILE_NAMES[gadgetAt++]! : n)),
+];
 export const ATLAS_ROWS = Math.ceil(TILE_NAMES.length / ATLAS_COLS);
 export const ATLAS_WIDTH = ATLAS_COLS * TILE_SIZE;
 export const ATLAS_HEIGHT = ATLAS_ROWS * TILE_SIZE;
@@ -316,6 +323,7 @@ function geyserDirt(top: boolean): Tile {
 }
 
 function paintTile(name: TileName): Tile {
+  if (isGadgetTile(name)) return paintGadgetTile(name).slice(); // ITEM-FX-1: 置き物の 絵
   switch (name) {
     case 'grass_top':
       return calm(speckle('#5DBB3F', ['#4CA332', '#73CC52'], 11), '#5DBB3F');
@@ -488,6 +496,17 @@ export const BLOCK_TILES: Readonly<Partial<Record<BlockId, readonly [TileName, T
   nobana: ['nobana', 'nobana', 'nobana'],
   // #293 試作
   geyser_dirt: ['geyser_dirt_top', 'geyser_dirt_side', 'geyser_dirt_side'],
+  // ITEM-FX-1: 置き物 3 つ（形は meshChunk の pushProp。ここは ひび・かけらの 色用）
+  lantern: ['lantern', 'lantern_frame', 'lantern'],
+  futon: ['futon_top', 'futon_side', 'futon_side'],
+  futon_s: ['futon_top', 'futon_side', 'futon_side'],
+  futon_w: ['futon_top', 'futon_side', 'futon_side'],
+  futon_n: ['futon_top', 'futon_side', 'futon_side'],
+  futon_foot_e: ['futon_blanket', 'futon_side', 'futon_side'],
+  futon_foot_s: ['futon_blanket', 'futon_side', 'futon_side'],
+  futon_foot_w: ['futon_blanket', 'futon_side', 'futon_side'],
+  futon_foot_n: ['futon_blanket', 'futon_side', 'futon_side'],
+  haniwa: ['haniwa_head', 'haniwa', 'haniwa'],
 };
 
 /** タイルの UV の四角 [u0, v0, u1, v1]（v は下から。となりのタイルがにじまないよう少し内側） */

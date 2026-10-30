@@ -1,0 +1,34 @@
+/* ふとんでねる: 画面が 暗くなって 明るくなる板（ITEM-FX-1）。ゆっくり 変わる だけで 点滅しない */
+#sleep-fade {
+  position: fixed;
+  inset: 0;
+  background: #05060f;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 8;
+}
+#sleep-fade[hidden] {
+  display: none;
+}
+/* 「よる に ねようね」 */
+#sleep-notice {
+  position: fixed;
+  left: 50%;
+  top: 30%;
+  transform: translateX(-50%);
+  padding: var(--rk-sp-2) var(--rk-sp-5);
+  font-size: var(--rk-fs-title);
+  font-weight: 800;
+  line-height: var(--rk-lh);
+  white-space: nowrap;
+  color: var(--rk-text);
+  background: var(--rk-hud-bg);
+  text-shadow: var(--rk-text-outline);
+  border-left: var(--rk-bw-sel) solid var(--rk-info);
+  border-radius: var(--rk-r-pill);
+  pointer-events: none;
+  z-index: 7;
+}
+#sleep-notice[hidden] {
+  display: none;
+}

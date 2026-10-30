@@ -1,10 +1,12 @@
 import type { BlockId, ItemId, TargetInfo, VoxelWorld } from '../contracts';
 import { isFloraBlock } from '../world/blocks/flora';
+import { futonPartner, isFutonId } from '../world/blocks/futon';
 import { KOTATSU_CELLS, isKotatsuBlock, kotatsuAnchorOf } from '../world/blocks/kotatsu';
+import { GADGET_ID } from '../content/items/gadgetTuning';
 import { BLADE_LIKE_ITEMS } from '../tools/bladeSets';
 import { randInt, type Rng } from '../world/gen/random';
 import { FARM_BREAK_DROP, NO_DROP_BLOCKS } from './config';
-import { COOP_BLOCKS, TORCH_NEIGHBORS, torchSupported, type DigCore } from './digCore';
+import { COOP_BLOCKS, HANGING_SUPPORT, TORCH_NEIGHBORS, type DigCore } from './digCore';
 
 /** こわしたあとの しめくくり: abort = こわせなかった（クールダウンなし）、bodyDone = 体の上の ブロック、done = ふつうにこわした */
 export type BreakEnd = 'abort' | 'bodyDone' | 'done';
@@ -43,7 +45,10 @@ export class BlockBreaker {
     const { x, y, z } = t.block;
     // こたつ 2×2: どの マス を こわして も 4 マス ぜんぶ 消える（`nukunuku` 1 と 中 の たまご は 1 回 だけ）
     if (isKotatsuBlock(t.id)) this.clearKotatsuCells(t);
-    const dropId: BlockId = isKotatsuBlock(t.id) ? 'nukunuku' : t.id;
+    const dropId: BlockId = isKotatsuBlock(t.id) ? 'nukunuku' : isFutonId(t.id) ? GADGET_ID.futon : t.id;
+    // ふとん 2 マス: どちらを こわしても 相手の マスも 消えて ふとん 1 つ（相手が いない 1 マスだけの ふとんは そのまま）
+    const pair = futonPartner(t.id, x, z);
+    if (pair && c.world.getBlock(pair.x, y, pair.z) === pair.id) c.world.setBlock(pair.x, y, pair.z, 'air');
     const craft = c.m4.craft;
     const wasFurnace = craft?.isFurnace(x, y, z) ?? false;
     const wasTansu = t.id === 'tansu';
@@ -135,21 +140,23 @@ export class BlockBreaker {
     if (n > 0) this.c.inventory.wearHeld?.(n);
   }
 
-  /** (x, y, z) をこわした。下や横の支えをなくした たいまつ は落ちて アイテム になる（start_torch は こわれない） */
+  /** (x, y, z) をこわした。支えをなくした たいまつ・ちょうちん は落ちて アイテム になる（start_torch は こわれない） */
   private dropUnsupportedTorches(x: number, y: number, z: number): void {
     const c = this.c;
     for (const [dx, dy, dz] of TORCH_NEIGHBORS) {
       const tx = x + dx;
       const ty = y + dy;
       const tz = z + dz;
-      if (c.world.getBlock(tx, ty, tz) !== 'torch' || torchSupported(c.world, tx, ty, tz)) continue;
+      const id = c.world.getBlock(tx, ty, tz);
+      if (id === 'outside') continue;
+      const support = HANGING_SUPPORT[id];
+      if (!support || support(c.world, tx, ty, tz)) continue;
       c.world.setBlock(tx, ty, tz, 'air');
-      if (c.m4.scatterItem) c.m4.scatterItem({ x: tx + 0.5, y: ty, z: tz + 0.5 }, 'torch', 1);
+      if (c.m4.scatterItem) c.m4.scatterItem({ x: tx + 0.5, y: ty, z: tz + 0.5 }, id, 1);
       else {
-        const left = c.inventory.add('torch', 1);
-        if (left === 0) c.m4.onPickup?.('torch', 1);
+        const left = c.inventory.add(id, 1);
+        if (left === 0) c.m4.onPickup?.(id, 1);
       }
     }
   }
 }
-

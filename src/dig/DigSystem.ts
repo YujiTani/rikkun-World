@@ -66,6 +66,9 @@ export function digSteps(
   return { steps: Math.max(1, Math.ceil((h * 60) / cfg.handPower - 1e-9)) };
 }
 
+/** ITEM-FX-1: ふとん（ねる）・たこ（あげる／もどす）の 右クリック */
+const GADGET_KINDS: ReadonlySet<string> = new Set(['sleep', 'kite']);
+
 /** ねらう・ほる・おく（M2 §2.2〜2.4, §4.1, §4.3, §5）。毎ステップ update() を呼ぶ */
 export class DigSystemImpl implements DigSystem {
   private tickCount = 0;
@@ -515,6 +518,7 @@ export class DigSystemImpl implements DigSystem {
     else if (pv.kind === 'pet' && t) this.farm.doPet(t);
     if (pv.kind === 'storage' && t) this.m4.storage?.open(t.block.x, t.block.y, t.block.z);
     else if (pv.kind === 'furnace' && t) this.m4.craft?.openFurnace(t.block.x, t.block.y, t.block.z);
+    else if (GADGET_KINDS.has(pv.kind)) this.m4.gadgets?.[pv.kind as 'sleep' | 'kite']();
     else if (pv.kind === 'armor' && pv.item) this.m4.armor?.tryEquip(pv.item);
     else if (pv.kind === 'seedHint' && t) this.m4.farm?.noteHint('till', center(t.block));
     else if (pv.kind === 'eat' && pv.item) this.farm.doEat(pv.item);

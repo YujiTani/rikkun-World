@@ -60,6 +60,18 @@ export const BLOCK_TYPES: readonly BlockType[] = [
   { id: 'nukunuku_se', name: 'こたつ', solid: true, breakable: true },
   // #293 試作（番号は後ろに足す）
   { id: 'geyser_dirt', name: 'かんけつせんの つち', solid: true, breakable: true },
+  // ITEM-FX-1（#342。番号は後ろに足す）。固くない置き物（箱の組み合わせで描く）
+  { id: 'lantern', name: 'ちょうちん', solid: false, breakable: true },
+  { id: 'futon', name: 'ふとん', solid: false, breakable: true },
+  { id: 'haniwa', name: 'はにわ', solid: false, breakable: true },
+  // ふとん 2 マスの のこり 7 つ（番号は後ろに足す）
+  { id: 'futon_s', name: 'ふとん', solid: false, breakable: true },
+  { id: 'futon_w', name: 'ふとん', solid: false, breakable: true },
+  { id: 'futon_n', name: 'ふとん', solid: false, breakable: true },
+  { id: 'futon_foot_e', name: 'ふとん', solid: false, breakable: true },
+  { id: 'futon_foot_s', name: 'ふとん', solid: false, breakable: true },
+  { id: 'futon_foot_w', name: 'ふとん', solid: false, breakable: true },
+  { id: 'futon_foot_n', name: 'ふとん', solid: false, breakable: true },
 ];
 
 export const BLOCK_INDEX: Readonly<Record<BlockId, number>> = Object.fromEntries(
@@ -71,10 +83,18 @@ export const WATER = BLOCK_INDEX.water;
 export const TORCH = BLOCK_INDEX.torch;
 export const START_TORCH = BLOCK_INDEX.start_torch;
 export const SPRINKLER = BLOCK_INDEX.sprinkler;
+export const LANTERN = BLOCK_INDEX.lantern;
 
 /** たいまつの なかまか（細い棒＋炎の形で描く。光る） */
 export function isTorchIndex(index: number): boolean {
   return index === TORCH || index === START_TORCH;
+}
+
+/** 小物の置き物（ITEM-FX-1: ちょうちん・ふとん・はにわ）。固くない・光を通す・箱の組み合わせで描く（絵は meshChunk の pushProp） */
+const PROP_IDS: ReadonlySet<string> = new Set(['lantern', 'futon', 'futon_s', 'futon_w', 'futon_n', 'futon_foot_e', 'futon_foot_s', 'futon_foot_w', 'futon_foot_n', 'haniwa']);
+const PROP = BLOCK_TYPES.map((t) => PROP_IDS.has(t.id));
+export function isPropIndex(index: number): boolean {
+  return PROP[index] === true;
 }
 
 export function blockIdFromIndex(index: number): BlockId {
@@ -116,7 +136,7 @@ export function isLeafIndex(index: number): boolean {
 
 /** 色のついた不透明ブロックか（面を描く・隠す判定に使う）。水・空気・十字の板はちがう */
 export function isOpaqueIndex(index: number): boolean {
-  return index !== AIR && index !== WATER && !isTorchIndex(index) && !isCrossIndex(index);
+  return index !== AIR && index !== WATER && !isTorchIndex(index) && !isCrossIndex(index) && !isPropIndex(index);
 }
 
 /** 固いブロックか（番号で） */

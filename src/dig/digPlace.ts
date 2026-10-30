@@ -1,8 +1,9 @@
 import type { BlockId } from '../contracts';
 import { itemType } from '../inventory/items';
+import { FUTON_HEAD, futonDirFromYaw, futonPartner } from '../world/blocks/futon';
 import { KOTATSU_CELLS } from '../world/blocks/kotatsu';
 import { applyFlatten, planFlatten, type FlattenPlan } from '../world/flatten';
-import { overlapsBody, torchSupported, type DigCore } from './digCore';
+import { HANGING_SUPPORT, overlapsBody, type DigCore } from './digCore';
 
 /** 置く場所とブロック（置けないなら null）。tryPlace とヒントが同じ判定を使う */
 export interface PlaceSpot {
@@ -49,9 +50,21 @@ export class BlockPlacer {
       const under = c.world.getBlock(x, y - 1, z);
       if (under !== 'grass' && under !== 'dirt') return null;
     }
-    if (block === 'torch') {
-      // たいまつ: 固くない（体と重なっても置ける）。下か横に固いブロックが要る
-      if (!torchSupported(c.world, x, y, z)) return null;
+    if (block === FUTON_HEAD[0]) {
+      // ふとん: 2 マス。向いている 方向（頭 → 足）。足の マスも あいていて、体に 重ならない ところだけ
+      const dir = futonDirFromYaw(c.player().yawDeg);
+      const head = FUTON_HEAD[dir]!;
+      const foot = futonPartner(head, x, z)!;
+      const fcur = c.world.getBlock(foot.x, y, foot.z);
+      if (fcur !== 'air' && fcur !== 'water') return null;
+      if (this.overlapsBody(x, y, z) || this.overlapsBody(foot.x, y, foot.z)) return null;
+      if (c.gate?.placeBlocked(x, y, z) || c.gate?.placeBlocked(foot.x, y, foot.z)) return null;
+      return { x, y, z, block: head, cells: [{ x, z, block: head }, { x: foot.x, z: foot.z, block: foot.id }] };
+    }
+    // たいまつ・ちょうちん: 固くない（体と重なっても置ける）。支えが要る（たいまつ = 下か横、ちょうちん = 下・横・上）
+    const support = HANGING_SUPPORT[block];
+    if (support) {
+      if (!support(c.world, x, y, z)) return null;
     } else if (this.overlapsBody(x, y, z)) return null;
     if (c.gate?.placeBlocked(x, y, z)) return null; // 妖怪の箱の所には置けない
     return { x, y, z, block };

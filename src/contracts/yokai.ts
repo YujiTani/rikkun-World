@@ -96,7 +96,7 @@ export type CombatEvent =
   | { type: 'playerHit'; tick: number; by: YokaiKind; amount: number; /** 防具でカットした（カキン） */ blocked?: boolean }
   | { type: 'fallHurt'; tick: number; amount: number }
   | { type: 'regen'; tick: number; hp: number }
-  | { type: 'death'; tick: number; dropped: number[] }
+  | { type: 'death'; tick: number; dropped: number[]; /** ITEM-FX-1: おまもりが まもった（なにも おとさない） */ protectedBy?: 'omamori' }
   | { type: 'respawn'; tick: number }
   | { type: 'pickup'; tick: number; bagId: number };
 

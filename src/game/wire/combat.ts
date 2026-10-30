@@ -46,6 +46,8 @@ import { raycastBlocks, lookDirection } from '../../dig/raycast';
 import { pickAimAssist } from '../../camera/aimAssist';
 import { computeFarmPlacement } from '../../world/gen/farmPlacement';
 import { NO_SWINGS } from './shared';
+import { wireGadgets } from './gadgets';
+import { playSleepJingle } from '../../fx/sleepJingle';
 import type { WiredDrops } from './inventory';
 
 export function wireWeapons(deps: WiredDrops) {
@@ -196,8 +198,20 @@ export function wireFighters(deps: WiredWeapons) {
   const {
     shared, combatCfg, tools, armor, world, controller, inventory, startPoint, legend, screen, drops, m6,
     game, fxSound, craftConfig, craft2Settings, lock, timeSettings, m7, renderer, seed, island, digCfg,
-    harapanRoll, animals, live, blade, parry, w2, rig,
+    harapanRoll, animals, live, blade, parry, w2, rig, hud, time,
   } = deps;
+  // ITEM-FX-1: ふとんで ねる・たこ・わらじ
+  const gadgets = wireGadgets({
+    hud,
+    scene: game.scene,
+    time,
+    tick: () => game.tick,
+    held: () => inventory.held()?.item ?? null,
+    controller,
+    armor,
+    lock,
+    onSleepStart: () => playSleepJingle(fxSound),
+  });
   const combat = new PlayerCombatImpl({
     config: combatCfg,
     tool: tools,
@@ -373,6 +387,7 @@ export function wireFighters(deps: WiredWeapons) {
       parry,
       w2,
       yokai: () => shared.yokaiManager!,
+      gadgets: gadgets.port,
     },
   );
   // ねらいの線・矢・刀・パンチの出どころは 目でなく 回転の中心 P（CHAR-1 §4.5）
@@ -437,7 +452,7 @@ export function wireFighters(deps: WiredWeapons) {
     };
   }
   return {
-    combat, storage, craft, dropper, dropController, sprinklers, pet, farm, dig, aimCfg, aimPointInto,
+    combat, storage, craft, dropper, dropController, sprinklers, pet, farm, dig, aimCfg, aimPointInto, gadgets,
   };
 }
 

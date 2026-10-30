@@ -16,6 +16,7 @@ export const BLOCK_ONLY_IDS = [
   'kakashi', 'kakashi_head', 'saku', 'susuki', 'kusa',
   'toriya_fence', 'toriya_gate', 'toriya_nest', 'toriya_box',
   'nukunuku_e', 'nukunuku_s', 'nukunuku_se',
+  'futon_s', 'futon_w', 'futon_n', 'futon_foot_e', 'futon_foot_s', 'futon_foot_w', 'futon_foot_n',
 ] as const satisfies readonly BlockId[];
 type BlockOnlyId = (typeof BLOCK_ONLY_IDS)[number];
 
@@ -33,6 +34,8 @@ export interface ItemDef {
   name: string;
   /** 1 マスに 重ねられる数 */
   maxStack: number;
+  /** 持ち物 全体で 持てる 数（なし = 制限なし。おまもり = 1。ITEM-FX-1） */
+  maxOwned?: number;
   /** 置くと なるブロック（なし = 置けない） */
   placeBlock?: BlockId;
   /** めずらしさ（光の柱の色） */

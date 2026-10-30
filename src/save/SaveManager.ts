@@ -466,7 +466,7 @@ export class SaveManager {
   private restoreTime(raw: unknown): void {
     const c = this.d.clock;
     if (!c) return;
-    const t = raw as { day?: unknown; dayTick?: unknown } | null | undefined;
+    const t = raw as { day?: unknown; dayTick?: unknown} | null | undefined;
     const day = Number(t?.day);
     const tick = Number(t?.dayTick);
     if (t && Number.isInteger(day) && day >= 0 && Number.isFinite(tick) && tick >= 0) {

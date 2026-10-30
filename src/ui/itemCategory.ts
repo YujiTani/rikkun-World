@@ -59,7 +59,7 @@ const ORDER_ITEMS: Readonly<Record<ItemCategory, readonly string[]>> = {
   weapon: [...registryCategoryIds('weapon', SWORD_DEFS), ...registryCategoryIds('weapon', LEGEND_DEFS), ...registryCategoryIds('weapon', BOW_DEFS)], // 刀 4 つ → レジェンダリー 3 つ → ゆみ・や（古い表と 同じ 並び）
   armor: registryCategoryIds('armor', ARMOR_DEFS),
   light: [...blocksIn('light', ['torch']), ...registryCategoryIds('light', GADGET_DEFS)],
-  home: [...blocksIn('home', ['furnace', 'tansu']), ...registryCategoryIds('home', pickDefs(GADGET_DEFS, ['futon', 'haniwa', 'kite', 'waraji', 'omamori'])), ...registryCategoryIds('home', SPRINKLER_DEFS), ...registryCategoryIds('home', LIVE_DEFS)],
+  home: [...blocksIn('home', ['furnace', 'tansu']), ...registryCategoryIds('home', pickDefs(GADGET_DEFS, ['futon', 'haniwa', 'kite', 'waraji', 'omamori', 'omamori_torn'])), ...registryCategoryIds('home', SPRINKLER_DEFS), ...registryCategoryIds('home', LIVE_DEFS)],
   food: [...registryCategoryIds('food', VEG_DEFS), ...registryCategoryIds('food', LIVE_DEFS)],
 };
 
