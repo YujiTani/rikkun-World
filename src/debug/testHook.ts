@@ -33,6 +33,7 @@ import type { SpriteMotion } from '../char';
 import type { StartHook } from '../start/startBoot';
 import type { WorkHook } from './workHook';
 import type { GashaHook } from '../gasha/release';
+import type { HouseHook } from '../house/hook';
 
 type CameraHook = ReturnType<typeof createCameraHook>;
 type PlayerHook = {
@@ -188,6 +189,8 @@ export interface TestHook {
   };
   /** ART-PIPE-1: 雷 B の 見た目（コマ・板の 向き・輪・つぶ・まわりの 明るさ・絵の 読み方）。型は e2e/helpers/thunder.ts */
   thunder: ThunderHook;
+  /** HOUSE-1A（#338）: 建築士さん・メニュー・くら（docs/design/HOUSE-1.md §6.1。src/house/hook.ts） */
+  house: HouseHook;
   /** #293 リリース: がしゃどくろ（いま すぐ 出す・たおした ことに する・調整表。src/gasha/release.ts）。起動の おわりに 足される */
   gasha?: GashaHook;
 }
@@ -198,7 +201,7 @@ declare global {
   }
 }
 
-export type TestHookGroups = Pick<TestHook, 'start' | 'work' | 'shadow' | 'char' | 'world' | 'biome' | 'mine' | 'render' | 'player' | 'camera' | 'aim' | 'input' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'sleep' | 'kite' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'attack' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm' | 'log' | 'ui' | 'audio' | 'rarity' | 'animals' | 'parry' | 'legend' | 'thunder' | 'impact' | 'ninja' | 'samurai'>;
+export type TestHookGroups = Pick<TestHook, 'start' | 'work' | 'shadow' | 'char' | 'world' | 'biome' | 'mine' | 'render' | 'player' | 'camera' | 'aim' | 'input' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'sleep' | 'kite' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'attack' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm' | 'log' | 'ui' | 'audio' | 'rarity' | 'animals' | 'parry' | 'legend' | 'thunder' | 'impact' | 'ninja' | 'samurai' | 'house'>;
 
 export function installTestHook(game: Game, overlay: PerfOverlay, isReady: () => boolean, groups: TestHookGroups, clock: FrameClock = 'time'): void {
   window.__rikkun = {

@@ -5646,6 +5646,34 @@
           "works": true
         }
       ]
+    },
+    "mizumori": {
+      "ITEM_INFO.mizumori": {
+        "buttons": [],
+        "how": "いまは もてる だけ",
+        "use": "じめん の たかさ を しらべる どうぐ（つかえるのは もうすぐ）"
+      },
+      "category": "tool",
+      "durabilityClass": "permanent",
+      "maxStack": 1,
+      "name": "みずもり",
+      "placeBlock": null,
+      "rarity": "common",
+      "recipes": []
+    },
+    "dotsuki": {
+      "ITEM_INFO.dotsuki": {
+        "buttons": [],
+        "how": "いまは もてる だけ",
+        "use": "じめん を トントン かためる どうぐ（つかえるのは もうすぐ）"
+      },
+      "category": "tool",
+      "durabilityClass": "permanent",
+      "maxStack": 1,
+      "name": "どうづき",
+      "placeBlock": null,
+      "rarity": "common",
+      "recipes": []
     }
   },
   "yokai": {

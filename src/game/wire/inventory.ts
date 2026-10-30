@@ -59,7 +59,7 @@ export function wireInventory(deps: WiredPlayer) {
   });
   const screen = new ScreenController(lock, inventory, game.input, screenSettings, pointerLock);
   shared.screen = screen;
-  modalIsOpen = () => screen.inventoryOpen() || shared.coopMenuIsOpen();
+  modalIsOpen = () => screen.inventoryOpen() || shared.coopMenuIsOpen() || shared.houseFrozen();
   // 保存の要求は、あとで作る SaveManager へ（循環をさけるため関数でつなぐ）
   const hudSignal: { full: () => void } = { full: () => {} };
   // 設定は 1 つずつ作って、settings から変えたら すぐ効くようにみんなで共有する

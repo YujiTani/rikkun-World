@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { BlobQuads } from './blobQuads';
 
 /**
  * キャラの足もとの丸い影（TEX-A、docs/art/DESIGN.md 3.3）。
@@ -8,6 +9,7 @@ import * as THREE from 'three';
  *   6 ブロックより上・水の中では出さない。
  * - キャラの板より先に描く（不透明の列で renderOrder 1。キャラの板は 2）。あとに描くと 影が くつの上にのる。
  *   そのため transparent は false にして、まぜ方だけ CustomBlending にする。描画回数 +1・三角形 +2。
+ * - HOUSE-1A: 建築士さんの 足もとの 影も 同じ 板の 形に まぜて 1 回で 描く（`setExtras`。描画回数 +0）。プレイヤーの 影が 出ていない 間だけ +1。
  */
 export const BLOB = {
   size: 0.9,
@@ -21,6 +23,17 @@ export const BLOB = {
   /** キャラの板の描く順（影より あと） */
   spriteRenderOrder: 2,
 } as const;
+
+/** プレイヤーの 影に まぜる ほかの キャラの 影の 数の 上限（見える 建築士さんの 数より 多い） */
+const EXTRA_MAX = 8;
+
+/** ほかの キャラの 足もとの 影 1 つ（x・y・z = 足もと。size = 一辺） */
+export interface BlobSpot {
+  x: number;
+  y: number;
+  z: number;
+  size: number;
+}
 
 export interface BlobPlacement {
   visible: boolean;
@@ -74,7 +87,13 @@ export interface BlobInfo {
 export class BlobShadow {
   readonly mesh: THREE.Mesh;
   private readonly material: THREE.MeshBasicMaterial;
+  /** 0 番 = プレイヤーの 影、1 番から = ほかの キャラの 影 */
+  private readonly quads = new BlobQuads(1 + EXTRA_MAX);
   private enabled = true;
+  /** プレイヤーの 影が 出ているか */
+  private shown = false;
+  /** いま 出している ほかの キャラの 影の 数 */
+  private extras = 0;
   private placed: BlobPlacement = { visible: false, y: 0, size: 0, opacity: 0 };
   private px = 0;
   private pz = 0;
@@ -92,9 +111,10 @@ export class BlobShadow {
     g.fillRect(0, 0, size, size);
     const tex = new THREE.CanvasTexture(c);
     tex.colorSpace = THREE.SRGBColorSpace;
-    // かけ算: 画面の色 ×（1 − 影のこさ）。src の色は 使わない
+    // かけ算: 画面の色 ×（1 − 影のこさ）。src の色は 使わない。こさは 板ごとに 頂点の 透明度（BlobQuads）
     this.material = new THREE.MeshBasicMaterial({
       map: tex,
+      vertexColors: true,
       transparent: false,
       blending: THREE.CustomBlending,
       blendEquation: THREE.AddEquation,
@@ -107,12 +127,12 @@ export class BlobShadow {
       polygonOffsetUnits: -2,
     });
     this.material.userData.noDim = true;
-    this.mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), this.material);
-    this.mesh.rotation.x = -Math.PI / 2;
+    this.mesh = new THREE.Mesh(this.quads.geometry, this.material);
     this.mesh.renderOrder = BLOB.renderOrder;
     this.mesh.name = 'blobShadow';
     this.mesh.visible = false;
     this.mesh.frustumCulled = false;
+    for (let i = 0; i < this.quads.count; i++) this.quads.hide(i);
   }
 
   /** 毎ステップ: 足もと（feet）と 足の下の地面を 教える。characterVisible = キャラが 見えているか */
@@ -121,21 +141,37 @@ export class BlobShadow {
     this.px = feet.x;
     this.pz = feet.z;
     const p = this.placed;
-    this.mesh.visible = this.enabled && characterVisible && p.visible;
-    this.mesh.position.set(feet.x, p.y, feet.z);
-    this.mesh.scale.set(p.size, p.size, 1);
-    this.material.opacity = p.opacity;
+    this.shown = this.enabled && characterVisible && p.visible;
+    this.quads.set(0, feet.x, p.y, feet.z, this.shown ? p.size : 0, p.opacity);
+    this.mesh.visible = this.shown || this.extras > 0;
   }
 
-  /** テスト用: 影を切る */
+  /** 毎フレーム: ほかの キャラ（建築士さん）の 足もとの 影。プレイヤーの 影と 同じ 絵・同じ 描画。空の 配列で ぜんぶ けす */
+  setExtras(spots: readonly BlobSpot[]): void {
+    const n = this.enabled ? Math.min(spots.length, EXTRA_MAX) : 0;
+    for (let i = 0; i < n; i++) {
+      const s = spots[i]!;
+      this.quads.set(1 + i, s.x, s.y + BLOB.lift, s.z, s.size, 1);
+    }
+    for (let i = n; i < this.extras; i++) this.quads.hide(1 + i);
+    this.extras = n;
+    this.mesh.visible = this.shown || n > 0;
+  }
+
+  /** テスト用: 影を切る（プレイヤーの 影も ほかの キャラの 影も） */
   setEnabled(on: boolean): void {
     this.enabled = on;
-    if (!on) this.mesh.visible = false;
+    if (!on) {
+      this.shown = false;
+      this.quads.hide(0);
+      this.setExtras([]);
+      this.mesh.visible = false;
+    }
   }
 
   info(): BlobInfo {
     return {
-      visible: this.mesh.visible,
+      visible: this.shown,
       x: this.px,
       y: this.placed.y,
       z: this.pz,
@@ -148,7 +184,7 @@ export class BlobShadow {
   }
 
   dispose(): void {
-    this.mesh.geometry.dispose();
+    this.quads.dispose();
     this.material.map?.dispose();
     this.material.dispose();
   }

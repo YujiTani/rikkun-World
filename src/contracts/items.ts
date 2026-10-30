@@ -2,7 +2,7 @@
  * アイテム・持ち物・耐久・よろいの型。`src/contracts.ts` から分けた（中身は移しただけ）。
  */
 
-import type { ArmorItemId, BowId, FarmBucketId, FarmToolId, GadgetId, GoldId, IngotId, KongoId, LegendId, LiveItemId, MaterialId, NinjaId, OrbId, SamuraiId, SeedItemId, SwordId, ToolItemId, VegItemId } from '../content/items/ids';
+import type { ArmorItemId, BowId, FarmBucketId, FarmToolId, GadgetId, GoldId, HouseToolId, IngotId, KongoId, LegendId, LiveItemId, MaterialId, NinjaId, OrbId, SamuraiId, SeedItemId, SwordId, ToolItemId, VegItemId } from '../content/items/ids';
 import type { BlockId } from './world';
 
 // ================================================================ M2（掘る・置く・持ち物）
@@ -39,6 +39,8 @@ export type ItemOnlyId =
   | LegendId
   // GOLD-1（#222）: 金シリーズの id は content/items/ids.ts の 1 か所（#306）
   | GoldId
+  // HOUSE-1A（#338）: みずもり・どうづき の id は content/items/ids.ts の 1 か所（#306）
+  | HouseToolId
   // KONGO-1: こんごうシリーズ（ダイヤ・こんごうの そうび 8 こ）の id は content/items/ids.ts の 1 か所
   | KongoId;
 
