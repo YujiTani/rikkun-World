@@ -76,7 +76,7 @@ export function architectSpec(): Part[] {
 export const ARCH_TOOL_REST = { x: 28, z: -10 } as const;
 
 // ------------------------------------------------------------ うなずき（DESIGN 19.5。1 コマ = 1 ステップ = 1/60 秒）
-export const NOD_FRAMES = 20; // 頭。体は 2 コマ おくれて 22 で おわる
+// 頭は 20 コマ。体は 2 コマ おくれて 22 コマ（architect.ts の NOD_STEPS）で おわる
 
 function ease(t: number): number {
   return t * t * (3 - 2 * t);

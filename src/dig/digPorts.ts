@@ -34,7 +34,7 @@ export interface DigToolPort {
 }
 
 /** HOUSE-1A: 建築士さん（`ArchitectManager` / `HouseSystem` が 合う）。ねらう・話しかける・たたく */
-export interface DigArchitectPort {
+interface DigArchitectPort {
   /** 目から の 線が reach マス いないで 当たる いちばん 近い 建築士さん（distance は 目から） */
   rayHit(origin: Vec3, dir: Vec3, reach: number): { id: string; distance: number } | null;
   /** 右クリックで 話しかける。話しはじめたら true */

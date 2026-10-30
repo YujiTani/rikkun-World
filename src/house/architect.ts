@@ -11,7 +11,7 @@ import { canStand, standY, type HouseWorld } from './ground';
 /** うなずきの 長さ（ステップ）。頭は 20 コマ、体は 2 コマ おくれて 22 で おわる（docs/art/design/06-housing.md §19.4） */
 export const NOD_STEPS = 22;
 /** おっとっとの 長さ（コマ。かたむく 3 → よろける 9 → もどる 12） */
-export const WOBBLE_STEPS = 24;
+const WOBBLE_STEPS = 24;
 /** ぶらぶらする 半径。仕様は 3 マス以内。余裕を とって 2.5 */
 export const WANDER_RADIUS = 2.5;
 /** ねらう 箱（足もとから）: 半幅・高さ。右クリックで 話しかける とき、これに 当てる */
