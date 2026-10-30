@@ -10,6 +10,7 @@ import { type KitIconRow, kitIconsFor } from '../../animals/models/kitIcons';
 import { AnimalFx } from '../../fx/animalFx';
 import { AnimalRenderer, ViewBuffer } from '../../animals/models/AnimalRenderer';
 import { countryAt } from '../../world/gen/biome';
+import { terrainFor } from '../../world/gen/terrain';
 import { YokaiManager } from '../../yokai';
 import { MachoMarks } from '../../ui/machoMarks';
 import { FX_SETTINGS } from '../../fx/config';
@@ -32,6 +33,8 @@ export function wireYokai(deps: WiredFighters) {
     seed,
     // COUNTRY-1 §3.3: 妖怪の 種類は その場所の 国の行で えらぶ
     countryOf: (x, z) => countryAt(seed, Math.floor(x), Math.floor(z)).kind,
+    // MINE-1A §4.3: 地下に いる ＝ 足が 生成の 地形の 高さ（掘っても かわらない）より 6 マス 以上 下
+    groundY: (x, z) => terrainFor(seed).height(Math.floor(x), Math.floor(z)),
     harapan: (y) => harapanRoll.yokai(y),
     armor, // NINJA-1: 忍び装束で 気づく 距離が 半分
     samurai: () => ({ book: shared.samuraiBook.got(), have: shared.samuraiHave() }), // SAMURAI-1 §4.2: ヌシの 表で 選べない 侍装備の 行を とばす
