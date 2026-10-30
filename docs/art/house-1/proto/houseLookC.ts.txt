@@ -1,0 +1,410 @@
+// 数の 元: HOUSE-1 家の ブロック 案 C（しあげ。yuzu 2026-10-30 15:08 決定）。docs/art/design/06-housing.md §21・docs/art/requests/HOUSE-1-house-blocks.md から 読む。
+// ゲームに 入れた 試作（/mnt/project-files/housing-art/house-look/proto.diff）の 2 つの ファイルを そのまま ならべた もの（拡張子 .txt = ビルド・lint の 外）。
+// 1) src/proto/houselook/art.ts  … タイル 12 まい・色の 表・戸と しょうじの 箱・アイテムの 絵
+// 2) src/proto/houselook/props.ts … 戸・しょうじを 区の メッシュに 足す（面の 絵の うつし方・上下の 面を けす）
+
+// ======================================================================== 1) src/proto/houselook/art.ts
+// HOUSE-1 2 版 試作（本実装ではない）: 家の ブロックの 見た目 = 案 C「ふとい いたの やまごや」（yuzu 2026-10-30 15:08 決定）。
+// ?proto=houselook の ときだけ 使う。three・DOM に 依らない（node でも 絵を 書き出せる）。
+// しあげ（2026-10-30）: 人が 作った 物は 平らな 箱（DESIGN 5.3・15.1）。板の みぞ・ふとさは 9×9×9 の でこぼこ では なく 絵（線と かげ）で 見せる。
+//   かべ = はちみつ色の 横板 3 まい（上の ふちに 光・下の ふちに かげ・さかいに みぞ）。やね = こい 木の 板に 石（かげ つき）。
+//   しょうじ = かべの あつみの まん中に 紙の 板 1 まい（わくと さんは 絵。へこみは となりの かべの 面で 見える）。戸 = あつい 2 まい とびら（しめた 形は 箱 1 つ）。
+//   ふとんは 今の まま（PO 決定。外に 置いた ふとんも 変わらない）。
+
+/** 16×16 の 絵（'#rrggbb'、'' = すける）。[y * 16 + x]、y = 0 が 上 */
+export type Px = string[];
+
+export const HL_TILE_NAMES = [
+  'hl_floor_top', 'hl_floor_side', 'hl_wall', 'hl_wall_top', 'hl_roof_top', 'hl_roof_side', 'hl_ceiling',
+  'hl_shoji', 'hl_shoji_edge', 'hl_door_low', 'hl_door_up', 'hl_door_edge',
+] as const;
+export type HlTileName = (typeof HL_TILE_NAMES)[number];
+
+const N = 16;
+function lcg(seed: number): () => number {
+  let s = seed >>> 0 || 1;
+  return () => {
+    s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
+    return s / 4294967296;
+  };
+}
+const solid = (c: string): Px => new Array<string>(N * N).fill(c);
+function put(t: Px, x: number, y: number, c: string): void {
+  if (x >= 0 && y >= 0 && x < N && y < N) t[y * N + x] = c;
+}
+function rect(t: Px, x: number, y: number, w: number, h: number, c: string): void {
+  for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) put(t, i, j, c);
+}
+function speck(t: Px, cs: string[], seed: number, n: number, keep?: (x: number, y: number) => boolean): Px {
+  const r = lcg(seed);
+  for (let i = 0; i < n; i++) {
+    const x = Math.floor(r() * N);
+    const y = Math.floor(r() * N);
+    if (keep && !keep(x, y)) continue;
+    t[y * N + x] = cs[i % cs.length];
+  }
+  return t;
+}
+/** みじかい 横の すじ（木目） */
+function strokes(t: Px, c: string, seed: number, n: number, len: number, keep?: (x: number, y: number) => boolean, vertical = false): Px {
+  const r = lcg(seed);
+  for (let i = 0; i < n; i++) {
+    const x = Math.floor(r() * N);
+    const y = Math.floor(r() * N);
+    const l = len + Math.floor(r() * 3);
+    for (let k = 0; k < l; k++) {
+      const xx = vertical ? x : (x + k) % N;
+      const yy = vertical ? (y + k) % N : y;
+      if (!keep || keep(xx, yy)) t[yy * N + xx] = c;
+    }
+  }
+  return t;
+}
+function circle(t: Px, cx: number, cy: number, r: number, c: string): void {
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if ((x + 0.5 - cx) ** 2 + (y + 0.5 - cy) ** 2 <= r * r) put(t, x, y, c);
+}
+
+// ============================================================ 色の 表（案 C）
+export const PAL_C = {
+  // かべの 板: 地・光（板の 上の ふち）・かげ（板の 下の ふち）・みぞ（板の さかい）・ふし
+  plank: '#BF8952', plankL: '#CE9A62', plankD: '#A77442', groove: '#7E5231', knot: '#77492A',
+  // やね: 板・光・板の さかい・石・石の 光・石の かげ・石が 板に 落とす かげ
+  roof: '#685040', roofL: '#776050', roofD: '#56402F', stone: '#9C968B', stoneL: '#B3ADA1', stoneD: '#7F796F', stoneS: '#4C392B',
+  fascia: '#5A3E2A', fasciaL: '#6E4E36', fasciaD: '#462F1E',
+  ceil: '#B98450', ceilL: '#C8935E', ceilD: '#A87443', beam: '#5E4230', beamL: '#70503A',
+  mortar: '#867D71', st1: '#B5A994', st2: '#A99D87', st3: '#BFB4A0', stL: '#CCC2AE',
+  paper: '#EFE4CA', paperD: '#E5D8BC', paperS: '#D8C9A8', frame: '#5A3E2A', frameL: '#6E4E36', kumiko: '#6E4E36',
+  door: '#8D5E36', doorL: '#9E6C40', doorD: '#6E4626', iron: '#3E3C44', ironL: '#5C5A64', ring: '#2C2A32',
+} as const;
+
+// ============================================================ 絵（16×16 の タイル 12 まい）
+const COBBLES: ReadonlyArray<readonly [number, number, number, number, number]> = [
+  [1, 1, 6, 5, 0], [8, 1, 4, 4, 1], [13, 1, 3, 6, 2], [8, 6, 4, 4, 2], [1, 7, 4, 4, 1], [6, 7, 1, 4, 0],
+  [13, 8, 3, 3, 0], [1, 12, 5, 3, 2], [7, 11, 5, 4, 0], [13, 12, 3, 3, 1],
+];
+/** かべの 板 3 まい: [上の 行, 下の 行]。みぞは 5・10・15 行目（下の かべの 0 行目と つながる） */
+const BOARDS: ReadonlyArray<readonly [number, number]> = [[0, 4], [6, 9], [11, 14]];
+const GROOVES = [5, 10, 15] as const;
+
+function tilesC(): Record<HlTileName, Px> {
+  const P = PAL_C;
+  // かべ: ふとい 横板 3 まい。でこぼこの かわりに 板の 上の ふち 1 行を 光、下の ふち 1 行を かげ、さかいを みぞ（いちばん 暗い）に して ふとさを 見せる
+  const wall = solid(P.plank);
+  const inBoard = (_x: number, y: number): boolean => BOARDS.some(([a, b]) => y > a && y < b);
+  strokes(wall, P.plankD, 301, 5, 3, inBoard);
+  strokes(wall, P.plankL, 302, 3, 3, inBoard);
+  for (const [a, b] of BOARDS) {
+    rect(wall, 0, a, N, 1, P.plankL);
+    rect(wall, 0, b, N, 1, P.plankD);
+  }
+  for (const y of GROOVES) rect(wall, 0, y, N, 1, P.groove);
+  // 板の つぎめ（上と 下の 板に 1 つずつ。まん中の 板は つぎめ なし = 長い 板）と ふし 1 つ
+  for (const [x, a, b] of [[4, 0, 4], [11, 11, 14]] as const) {
+    rect(wall, x, a, 1, b - a + 1, P.groove);
+    rect(wall, x + 1, a + 1, 1, b - a - 1, P.plankL);
+  }
+  rect(wall, 8, 7, 2, 1, P.knot);
+  const wallTop = solid(P.plankD);
+  strokes(wallTop, P.groove, 303, 6, 5);
+  strokes(wallTop, P.plank, 304, 4, 4);
+
+  // やね: こい 木の 板（4 行 ごとに さかい）に 板を おさえる 石 2 こ。石の 右と 下に かげ（のって いる ように 見せる）
+  const roofTop = solid(P.roof);
+  for (const y of [0, 4, 8, 12]) rect(roofTop, 0, y, N, 1, P.roofD);
+  strokes(roofTop, P.roofL, 305, 6, 4);
+  const stone = (x: number, y: number, w: number, h: number): void => {
+    rect(roofTop, x + 1, y + h, w - 1, 1, P.stoneS);
+    rect(roofTop, x + w, y + 1, 1, h - 1, P.stoneS);
+    rect(roofTop, x, y, w, h, P.stone);
+    rect(roofTop, x, y + h - 1, w, 1, P.stoneD);
+    rect(roofTop, x + w - 1, y, 1, h, P.stoneD);
+    put(roofTop, x, y, P.roof);
+    put(roofTop, x + w - 1, y + h - 1, P.stoneS);
+    rect(roofTop, x + 1, y, w - 2, 1, P.stoneL);
+    put(roofTop, x, y + 1, P.stoneL);
+  };
+  stone(2, 2, 5, 4);
+  stone(9, 9, 5, 4);
+  const roofSide = solid(P.fascia);
+  strokes(roofSide, P.fasciaD, 306, 7, 5);
+  strokes(roofSide, P.fasciaL, 307, 5, 4);
+  rect(roofSide, 0, 0, N, 1, P.fasciaL);
+  rect(roofSide, 0, 15, N, 1, P.fasciaD);
+
+  const ceiling = solid(P.ceil);
+  strokes(ceiling, P.ceilL, 308, 6, 4);
+  strokes(ceiling, P.ceilD, 309, 6, 3);
+  rect(ceiling, 0, 0, 3, N, P.beam); // はり（1 ブロック ごと）
+  rect(ceiling, 2, 0, 1, N, P.beamL);
+
+  const floorTop = solid(P.mortar);
+  const stc = [P.st1, P.st2, P.st3];
+  for (const [x, y, w, h, c] of COBBLES) {
+    rect(floorTop, x, y, w, h, stc[c]);
+    put(floorTop, x, y, P.stL);
+  }
+  const floorSide = solid(P.mortar);
+  rect(floorSide, 1, 1, 6, 6, P.st2);
+  rect(floorSide, 8, 2, 7, 5, P.st1);
+  rect(floorSide, 2, 9, 5, 6, P.st3);
+  rect(floorSide, 9, 9, 6, 5, P.st2);
+
+  // しょうじ: 紙の 板 1 まいに わく（2 点）・さん（たて 1・よこ 2）を 絵で。わくの 内がわ 上・左に かげ 1 点（紙が おくに ある ように）
+  const shoji = speck(solid(P.paper), [P.paperD], 310, 8);
+  rect(shoji, 2, 2, 12, 1, P.paperS);
+  rect(shoji, 2, 2, 1, 12, P.paperS);
+  rect(shoji, 7, 2, 2, 12, P.kumiko);
+  rect(shoji, 2, 6, 12, 1, P.kumiko);
+  rect(shoji, 2, 10, 12, 1, P.kumiko);
+  rect(shoji, 0, 0, N, 2, P.frame);
+  rect(shoji, 0, 14, N, 2, P.frame);
+  rect(shoji, 0, 0, 2, N, P.frame);
+  rect(shoji, 14, 0, 2, N, P.frame);
+  rect(shoji, 1, 1, 14, 1, P.frameL);
+  const shojiEdge = solid(P.frame);
+  strokes(shojiEdge, P.fasciaD, 311, 4, 4);
+
+  // 2 まい とびら（くらの 戸）: たての あつい 板 ＋ てつの おび ＋ わの 取っ手
+  const doorBase = (seed: number): Px => {
+    const t = solid(P.door);
+    strokes(t, P.doorD, seed, 6, 3, undefined, true);
+    for (const x of [2, 5, 10, 13]) rect(t, x, 0, 1, N, P.doorD);
+    rect(t, 7, 0, 2, N, P.doorD); // まん中の あわせ目
+    return t;
+  };
+  const band = (t: Px, y: number): void => {
+    rect(t, 0, y, N, 2, P.iron);
+    for (const x of [1, 5, 10, 14]) put(t, x, y, P.ironL);
+  };
+  const doorLow = doorBase(312);
+  band(doorLow, 11);
+  // わの 取っ手（左右の とびらに 1 つずつ。こしの 高さ）
+  for (const cx of [5.5, 10.5]) {
+    circle(doorLow, cx, 3, 2.2, P.ring);
+    circle(doorLow, cx, 3, 1.2, P.door);
+  }
+  rect(doorLow, 0, 15, N, 1, P.doorD);
+  const doorUp = doorBase(313);
+  band(doorUp, 3);
+  rect(doorUp, 0, 0, N, 1, P.doorD);
+  const doorEdge = solid(P.doorD);
+  strokes(doorEdge, P.door, 314, 4, 3, undefined, true);
+  return {
+    hl_floor_top: floorTop, hl_floor_side: floorSide, hl_wall: wall, hl_wall_top: wallTop, hl_roof_top: roofTop, hl_roof_side: roofSide,
+    hl_ceiling: ceiling, hl_shoji: shoji, hl_shoji_edge: shojiEdge, hl_door_low: doorLow, hl_door_up: doorUp, hl_door_edge: doorEdge,
+  };
+}
+
+export function houseLookTiles(): Record<HlTileName, Px> {
+  return tilesC();
+}
+
+// ============================================================ 箱の 形（戸・しょうじ。点 = 1/16 ブロック。前 = +z = 家の 外）
+export type BoxFace = 'top' | 'bottom' | 'front' | 'back' | 'left' | 'right';
+export interface HlBox {
+  min: readonly [number, number, number];
+  max: readonly [number, number, number];
+  /** 面ごとの 絵（なければ side、さらに なければ hl_door_edge） */
+  tiles: Partial<Record<BoxFace | 'side', HlTileName>>;
+  /** 絵を 箱の 位置で うつす ときの ずれ（点）。front/back の 絵の 左右の 位置 */
+  uOff?: number;
+}
+
+/** 戸の 箱（part: 下の マス / 上の マス）。open = あいた 形 */
+export function doorBoxes(part: 'low' | 'up', open: boolean): HlBox[] {
+  const face: HlTileName = part === 'low' ? 'hl_door_low' : 'hl_door_up';
+  const edge = { side: 'hl_door_edge', top: 'hl_door_edge', bottom: 'hl_door_edge' } as const;
+  // しめた 形: 外がわ よりに あつい 板 1 まい（2 まいの あわせ目は 絵）。上下の 面は 描かない（props.ts）
+  if (!open) return [{ min: [0, 0, 12], max: [16, 16, 16], tiles: { front: face, back: face, ...edge } }];
+  // あけた 形: 外へ 90 度（左右に ひらく。とびらの あつみ 4 点）
+  return [
+    { min: [0, 0, 16], max: [4, 16, 24], tiles: { left: face, right: face, ...edge }, uOff: 0 },
+    { min: [12, 0, 16], max: [16, 16, 24], tiles: { left: face, right: face, ...edge }, uOff: 8 },
+  ];
+}
+
+/**
+ * しょうじの 箱: かべの あつみの まん中に 紙の 板 1 まい（上下の 面は 描かない）。へこみは となりの かべの 面（窓の まわり）で 見える。
+ * face = 紙が 向く 軸（'z' = まえ・うしろの かべ〔紙は 東西に のびる〕、'x' = ひだり・みぎの かべ）。
+ */
+export function shojiBoxes(face: 'x' | 'z'): HlBox[] {
+  if (face === 'z') return [{ min: [0, 0, 7.5], max: [16, 16, 8.5], tiles: { front: 'hl_shoji', back: 'hl_shoji', side: 'hl_shoji_edge' } }];
+  return [{ min: [7.5, 0, 0], max: [8.5, 16, 16], tiles: { left: 'hl_shoji', right: 'hl_shoji', side: 'hl_shoji_edge' } }];
+}
+
+// ============================================================ アイテムの 絵（16×16）
+export const HL_ICON_IDS = ['house_floor', 'house_wall', 'house_roof', 'shoji', 'house_door', 'sekkeizu'] as const;
+export type HlIconId = (typeof HL_ICON_IDS)[number];
+
+interface IconArt {
+  rows: readonly string[];
+  pal: Record<string, string>;
+}
+function fromArt(a: IconArt): Px {
+  const out: Px = [];
+  for (const row of a.rows) for (const ch of row) out.push(a.pal[ch] ?? '');
+  return out;
+}
+
+/** 戸（2 マス）: 立てた 2 まい とびら（ふとん・ちょうちん と 同じ「物の 絵」。ふち 1 点 #2A1E14） */
+const DOOR_ICON: IconArt = {
+  pal: { K: '#2A1E14', W: PAL_C.door, D: PAL_C.doorD, I: PAL_C.iron, R: PAL_C.ring },
+  rows: [
+    '....KKKKKKKK....',
+    '....KWDWWDWK....',
+    '....KIIIIIIK....',
+    '....KWDWWDWK....',
+    '....KWDWWDWK....',
+    '....KWDWWDWK....',
+    '....KWDWWDWK....',
+    '....KWRDDRWK....',
+    '....KRWRRWRK....',
+    '....KWRDDRWK....',
+    '....KWDWWDWK....',
+    '....KWDWWDWK....',
+    '....KIIIIIIK....',
+    '....KWDWWDWK....',
+    '....KDDDDDDK....',
+    '....KKKKKKKK....',
+  ],
+};
+
+/** せっけいず: 方眼の 紙に 家の 絵 ＋ 赤い はんこ（番号は 名前で 分かる） */
+const SEKKEIZU: IconArt = {
+  pal: { K: '#4A3A2A', W: '#F1E8D0', g: '#D8CCAE', I: '#2A2A34', R: '#C8442C', r: '#E87A5E' },
+  rows: [
+    '................',
+    '.KKKKKKKKKKKKKK.',
+    '.KWWgWWWgWWWgWK.',
+    '.KWWgWWIgWWWgWK.',
+    '.KggggIgIggggWK.',
+    '.KWWgIWgWIWWgWK.',
+    '.KWWIIIIIIIWgWK.',
+    '.KWWgIWgWIWWgWK.',
+    '.KggIgIgIgggggK.',
+    '.KWWgIIIIIWWgWK.',
+    '.KWWgWWWgWWWgWK.',
+    '.KWWgWWWgWRRRWK.',
+    '.KggggggggRrRgK.',
+    '.KWWgWWWgWRRRWK.',
+    '.KKKKKKKKKKKKKK.',
+    '................',
+  ],
+};
+
+/**
+ * 家の ブロックと せっけいずの 絵。今の ブロックの アイテムと 同じ きまり（`itemIconPixels`: ブロックの 面の 16×16 を そのまま）:
+ * かべ = 横の 面、ゆか・やね = 上の 面（はたけ と 同じ 例外。横の 面では 今の いし・き と 見分けにくい）、しょうじ = 前の 面。
+ * 2 マスの 戸 と せっけいず は 物の 絵（ふとん・ちょうちん と 同じ）。
+ */
+export function houseLookIcons(): Record<HlIconId, Px> {
+  const T = houseLookTiles();
+  return {
+    house_floor: T.hl_floor_top.slice(),
+    house_wall: T.hl_wall.slice(),
+    house_roof: T.hl_roof_top.slice(),
+    shoji: T.hl_shoji.slice(),
+    house_door: fromArt(DOOR_ICON),
+    sekkeizu: fromArt(SEKKEIZU),
+  };
+}
+
+// ======================================================================== 2) src/proto/houselook/props.ts
+// HOUSE-1 2 版 試作: 家の 戸（2 マス・あく／しまる）と しょうじ を 箱で 描く（区の メッシュ。描画 +0）。
+// 戸は いつも 家の まえ（+z = 南 = 外）に むいた 形（試作の 家は 戸が まえ）。
+import { FACE_SHADE_BY_INDEX } from '../../world/render/config';
+import type { MeshData } from '../../world/render/meshChunk';
+import { tileSubUv, type TileName } from '../../world/blocks/textures';
+import { doorBoxes, shojiBoxes, type BoxFace, type HlBox } from './art';
+
+const DOOR_PART: Record<string, { part: 'low' | 'up'; open: boolean }> = {
+  house_door: { part: 'low', open: false },
+  house_door_top: { part: 'up', open: false },
+  house_door_open: { part: 'low', open: true },
+  house_door_open_top: { part: 'up', open: true },
+};
+
+export function isHouseLookProp(id: string): boolean {
+  return id in DOOR_PART || id === 'shoji' || id === 'shoji_x';
+}
+
+const cache = new Map<string, HlBox[]>();
+function boxesOf(id: string): HlBox[] {
+  let b = cache.get(id);
+  if (!b) {
+    const d = DOOR_PART[id];
+    b = d ? doorBoxes(d.part, d.open) : shojiBoxes(id === 'shoji_x' ? 'x' : 'z');
+    cache.set(id, b);
+  }
+  return b;
+}
+
+/** 面: 0 上, 1 下, 2 +x, 3 −x, 4 +z, 5 −z（meshChunk の FACES と 同じ 角の 順） */
+const FACE_VERTS: [number, number, number][][] = [
+  [[0, 1, 1], [1, 1, 1], [1, 1, 0], [0, 1, 0]],
+  [[0, 0, 0], [1, 0, 0], [1, 0, 1], [0, 0, 1]],
+  [[1, 0, 1], [1, 0, 0], [1, 1, 0], [1, 1, 1]],
+  [[0, 0, 0], [0, 0, 1], [0, 1, 1], [0, 1, 0]],
+  [[0, 0, 1], [1, 0, 1], [1, 1, 1], [0, 1, 1]],
+  [[1, 0, 0], [0, 0, 0], [0, 1, 0], [1, 1, 0]],
+];
+const FACE_NAME: BoxFace[] = ['top', 'bottom', 'right', 'left', 'front', 'back'];
+
+function tileOf(b: HlBox, f: number): TileName {
+  const n = FACE_NAME[f];
+  return (b.tiles[n] ?? b.tiles.side ?? 'hl_door_edge') as TileName;
+}
+
+/** 点の 区間 [a, b) を 0〜16 に おさめる（はみ出す 箱は 16 ごとに くり返す） */
+function wrap(a: number, b: number): [number, number] {
+  if (b - a >= 16) return [0, 16];
+  const k = Math.floor(a / 16) * 16;
+  return [Math.max(0, a - k), Math.min(16, b - k)];
+}
+
+/** 戸・しょうじを 描いたら true */
+export function pushHouseLookProp(mesh: MeshData, x: number, y: number, z: number, id: string, sky: number, block: number): boolean {
+  if (!isHouseLookProp(id)) return false;
+  for (const b of boxesOf(id)) {
+    const [x0, y0, z0] = b.min;
+    const [x1, y1, z1] = b.max;
+    for (let f = 0; f < 6; f++) {
+      // 戸・しょうじの 上下の 面（ゆか・かべ・上下の マスと くっつく）は 見えない
+      if ((f === 1 && y0 === 0) || (f === 0 && y1 === 16)) continue;
+      const tile = tileOf(b, f);
+      // 面の 絵の 範囲（点）: 前 = (x, y)、うしろ = (16 − x, y)、右 +x = (16 − z, y)、左 −x = (z, y)、上下 = (x, z)
+      const off = b.uOff ?? 0;
+      let u0: number, u1: number, v0: number, v1: number;
+      if (f >= 4) {
+        [u0, u1] = f === 4 ? wrap(x0 + off, x1 + off) : wrap(16 - x1 + off, 16 - x0 + off);
+        [v0, v1] = [16 - y1, 16 - y0];
+      } else if (f >= 2) {
+        // 開いた 戸の 大きな 面: z の 長さで 絵を うつす
+        const zz = id.includes('open') ? [z0 - Math.floor(z0 / 16) * 16, z1 - Math.floor(z0 / 16) * 16] : [z0, z1];
+        [u0, u1] = f === 3 ? wrap(zz[0] + off, zz[1] + off) : wrap(16 - zz[1] + off, 16 - zz[0] + off);
+        [v0, v1] = [16 - y1, 16 - y0];
+      } else {
+        [u0, u1] = wrap(x0, x1);
+        [v0, v1] = wrap(z0, z1);
+      }
+      const uv = tileSubUv(tile, u0, Math.max(0, v0), u1, Math.min(16, v1));
+      const shade = FACE_SHADE_BY_INDEX[f];
+      const base = mesh.positions.length / 3;
+      const verts = FACE_VERTS[f];
+      for (let i = 0; i < 4; i++) {
+        const v = verts[i];
+        mesh.positions.push(x + (v[0] ? x1 : x0) / 16, y + (v[1] ? y1 : y0) / 16, z + (v[2] ? z1 : z0) / 16);
+      }
+      // 角の UV（meshChunk の CORNER_UV と 同じ 並び: (0,0) (1,0) (1,1) (0,1)）
+      mesh.uvs.push(uv[0], uv[1], uv[2], uv[1], uv[2], uv[3], uv[0], uv[3]);
+      for (let i = 0; i < 4; i++) {
+        mesh.colors.push(shade, shade, shade);
+        mesh.lights.push(sky, block);
+        mesh.darks.push(0);
+      }
+      mesh.indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
+      mesh.faceCount++;
+    }
+  }
+  return true;
+}
