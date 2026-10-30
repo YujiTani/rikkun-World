@@ -95,6 +95,7 @@
   "e2e/smoke.spec.ts": 141,
   "e2e/sound1.spec.ts": 111,
   "e2e/start1.spec.ts": 101,
+  "e2e/tako1.spec.ts": 60,
   "e2e/texA.spec.ts": 752,
   "e2e/ui-gate.spec.ts": 1216,
   "e2e/voxB-terrain.spec.ts": 315,
