@@ -1,18 +1,22 @@
-// HOUSE-1B 試作: 新しい 家具 5 つ（テーブル・いす・あんどん・ほんだな・おふろ）の 形と 絵。案 A「ごつごつの くりの 木」（yuzu OK ずみ）。
-// 数の 元は docs/art/house-1/proto/houseA.ts.txt（そのまま。形 ＝ 1/9 ブロック、0.5 きざみ。原点 ＝ 家具の 左前 下の かど、前 ＝ −z）。
-// 今の 家具 4 つ（かまど・たんす・こたつ・ふとん）は ゲームの 形を そのまま 使う（previewMesh.ts）。
+// HOUSE-1B 試作: 新しい 家具（テーブル・いす・あんどん・ほんだな・おふろ ＋ 第 3 版の まるいす・ながい テーブル・まるい テーブル・はにわ）の 形と 絵。
+// 案 A「ごつごつの くりの 木」（yuzu OK ずみ）。数の 元は docs/art/house-1/proto/houseA.ts.txt（形 ＝ 1/9 ブロック、0.5 きざみ。
+// 原点 ＝ 家具の 左前 下の かど、前 ＝ −z）と、第 3 版の furniture2.ts.txt。
+// 今の 家具（かまど・たんす・こたつ・ふとん）は ゲームの 形を そのまま 使う（previewMesh.ts）。かまど・たんすは 面ごとに 絵を かえる（前・横・うしろ）。
+import { tiles2, TILE2_NAMES, type Tile2 } from './furnitureTiles2';
 import { grain, rect, rng, solid, speck, type Px } from './tilePaint';
 
 type V3 = readonly [number, number, number];
 
 export type FurnTile =
   | 'wood_top' | 'wood_side' | 'wood_v' | 'wood_end' | 'zabuton' | 'shoji' | 'andon_top' | 'water' | 'bath_side'
-  | 'book_r' | 'book_b' | 'book_g' | 'book_y';
+  | 'book_r' | 'book_b' | 'book_g' | 'book_y'
+  | Tile2;
 export const FURN_TILE_NAMES: readonly FurnTile[] = [
   'wood_top', 'wood_side', 'wood_v', 'wood_end', 'zabuton', 'shoji', 'andon_top', 'water', 'bath_side', 'book_r', 'book_b', 'book_g', 'book_y',
+  ...TILE2_NAMES,
 ];
 
-/** 家具の 絵 13 まい（houseA.ts.txt の houseTiles） */
+/** 家具の 絵 20 まい（houseA.ts.txt の houseTiles 13 まい ＋ furniture2.ts.txt の 7 まい） */
 export function furnTiles(): Record<FurnTile, Px> {
   const shoji = speck('#F4EBD2', ['#EBDDBA'], 16, 0.15);
   rect(shoji, 0, 7, 16, 1, '#8A5A36');
@@ -41,6 +45,7 @@ export function furnTiles(): Record<FurnTile, Px> {
     book_b: book('#3D5A9E'),
     book_g: book('#5E8A3A'),
     book_y: book('#D9A030'),
+    ...tiles2(),
   };
 }
 
@@ -50,14 +55,42 @@ export interface FurnBox {
   top: string; // 上（と 下）の 面の 絵の 名前
   side: string; // 横の 4 面
   glow?: boolean; // 面の 明るさを かけない
+  /** 横の 面を 1 つずつ かえる とき（家具の 向きで。前 ＝ −z、うしろ ＝ +z、右 ＝ +x、左 ＝ −x）。書かない 面は side */
+  faces?: Partial<Record<FaceSide, string>>;
 }
-export type BoxKind = 'table' | 'chair' | 'andon' | 'shelf' | 'ofuro' | 'furnace' | 'tansu';
+export type FaceSide = 'front' | 'back' | 'left' | 'right';
+export type BoxKind =
+  | 'table' | 'chair' | 'andon' | 'shelf' | 'ofuro' | 'furnace' | 'tansu'
+  | 'stool' | 'table_long' | 'table_round' | 'haniwa';
 
+function leg(x: number, z: number, t: number, h: number): FurnBox {
+  return { a: [x, 0, z], b: [x + t, h, z + t], top: 'wood_end', side: 'wood_v' };
+}
 function legs4(x0: number, x1: number, z0: number, z1: number, t: number, h: number): FurnBox[] {
-  return [[x0, z0], [x1 - t, z0], [x0, z1 - t], [x1 - t, z1 - t]].map(([x, z]) => ({ a: [x!, 0, z!] as V3, b: [x! + t, h, z! + t] as V3, top: 'wood_end', side: 'wood_v' }));
+  return [leg(x0, z0, t, h), leg(x1 - t, z0, t, h), leg(x0, z1 - t, t, h), leg(x1 - t, z1 - t, t, h)];
 }
 
-/** 箱の ならび（houseA.ts.txt の furnitureBoxes ＋ かまど・たんすの 1 ブロックの 箱） */
+/**
+ * まるく 見える 板（「ボクセルの まる」）。まん中 ＝ マスの まん中（4.5, 4.5）、半径 r（1/9）、高さ y0〜y1。
+ * 1 ずつ の たての 帯ごとに、はば（左右 0.5 きざみ）を 円から 丸めて、同じ はばが つづく 帯は 1 つの 箱に まとめる。
+ * 絵は 場所で うつす ので 上の 木目は 帯を またいで つながる。
+ */
+function disc(r: number, y0: number, y1: number, top: string, side: string): FurnBox[] {
+  const rows: Array<{ z0: number; z1: number; hw: number }> = [];
+  for (let z = 4.5 - r; z < 4.5 + r - 1e-6; z++) {
+    const dz = z + 0.5 - 4.5;
+    const hw = Math.round(Math.sqrt(r * r - dz * dz) * 2) / 2;
+    const last = rows[rows.length - 1];
+    if (last && last.hw === hw) last.z1 = z + 1;
+    else rows.push({ z0: z, z1: z + 1, hw });
+  }
+  return rows.map((q) => ({ a: [4.5 - q.hw, y0, q.z0] as V3, b: [4.5 + q.hw, y1, q.z1] as V3, top, side }));
+}
+
+/** はにわの 土の 箱（上も 横も 同じ 土） */
+const clay = (a: V3, b: V3, tile = 'haniwa_clay'): FurnBox => ({ a, b, top: tile, side: tile });
+
+/** 箱の ならび（houseA.ts.txt の furnitureBoxes ＋ かまど・たんすの 1 ブロックの 箱 ＋ 第 3 版の 4 つ） */
 export function furnitureBoxes(): Record<BoxKind, FurnBox[]> {
   const shelf: FurnBox[] = [
     { a: [0, 0, 1], b: [1.5, 9, 9], top: 'wood_end', side: 'wood_v' },
@@ -103,7 +136,38 @@ export function furnitureBoxes(): Record<BoxKind, FurnBox[]> {
       { a: [2, 0, 2], b: [16, 5, 7], top: 'water', side: 'water' },
     ],
     // 今の ブロック（ふつうの 箱。絵は ブロックの 絵 [上, 下, 横] と 同じ）
-    furnace: [{ a: [0, 0, 0], b: [9, 9, 9], top: 'furnace_top', side: 'furnace_side' }],
-    tansu: [{ a: [0, 0, 0], b: [9, 9, 9], top: 'tansu_top', side: 'tansu_front' }],
+    // 前（−z）は ゲームの ブロックの 絵の まま。横と うしろは 第 3 版の 新しい 絵
+    furnace: [{ a: [0, 0, 0], b: [9, 9, 9], top: 'furnace_top', side: 'furnace_flank', faces: { front: 'furnace_side', back: 'furnace_rear' } }],
+    tansu: [{ a: [0, 0, 0], b: [9, 9, 9], top: 'tansu_top', side: 'tansu_flank', faces: { front: 'tansu_front', back: 'tansu_rear' } }],
+    // ---- 第 3 版（yuzu 2026-10-30 22:11）: 木の まるいす・ながい テーブル（1×3）・まるい テーブル・はにわ
+    stool: [
+      ...legs4(2, 7, 2, 7, 1.5, 3),
+      ...disc(3.5, 3, 5, 'zabuton', 'wood_side'), // まるい 座面（いすと 同じ 藍の ざぶとん）
+    ],
+    table_long: [
+      { a: [0, 5, 0], b: [27, 7, 9], top: 'wood_top', side: 'wood_side' },
+      ...legs4(0.5, 26.5, 0.5, 8.5, 3, 5),
+      leg(12, 0.5, 3, 5), // まん中の あし 2 本（長いので 6 本）
+      leg(12, 5.5, 3, 5),
+    ],
+    table_round: [
+      ...disc(4.5, 5, 7, 'wood_top', 'wood_side'), // 丸い 天板
+      { a: [3, 1, 3], b: [6, 5, 6], top: 'wood_end', side: 'wood_v' }, // まん中の 太い あし
+      { a: [2, 0, 3], b: [7, 1, 6], top: 'wood_top', side: 'wood_side' }, // 足もと（十字）
+      { a: [3, 0, 2], b: [6, 1, 7], top: 'wood_top', side: 'wood_side' },
+    ],
+    haniwa: [
+      clay([1, 0, 1], [8, 1, 8]), // 台
+      clay([1.5, 1, 1.5], [7.5, 3, 7.5]), // 下の 体（太い）
+      clay([2, 3, 2], [7, 4.5, 7]), // むね
+      clay([1, 2.5, 1], [8, 3, 8], 'haniwa_band'), // おび（ぐるっと 出っぱる）
+      clay([0.5, 3, 3.5], [2, 4.5, 5.5]), // 左うで
+      clay([0.5, 4.5, 3.5], [1.5, 6, 5.5]), // 左手（上へ）
+      clay([7, 3, 3.5], [8.5, 4.5, 5.5]), // 右うで
+      clay([7.5, 4.5, 3.5], [8.5, 6, 5.5]), // 右手（上へ）
+      { ...clay([2, 4.5, 2], [7, 9, 7]), faces: { front: 'haniwa_face' } }, // 顔（前だけ 丸い 目と 口の あな）
+      clay([1.5, 8, 1.5], [7.5, 8.5, 7.5], 'haniwa_band'), // はちまき
+      clay([3, 9, 3], [6, 10, 6]), // まげ
+    ],
   };
 }
