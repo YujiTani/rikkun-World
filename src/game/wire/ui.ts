@@ -612,9 +612,9 @@ export function wireAchievements(deps: WiredWeaponFx) {
   const defeatWith = (): DefeatWith => {
     const h = inventory.held()?.item;
     if (h === 'bokuto' || h === 'katana' || h === 'naginata' || h === 'crystal_katana' || h === 'yumi') return h;
-    if (h === 'kin_yumi') return 'yumi'; // GOLD-1: きんの 装備 は 実績 の 表 に 武器別 の 行 を 足さず、てつ と 同じ あつかい
-    if (h === 'kin_katana') return 'katana';
-    if (h === 'kin_pickaxe' || h === 'kin_axe') return 'pickaxe';
+    if (h === 'kin_yumi' || h === 'kongo_yumi') return 'yumi'; // GOLD-1: きんの 装備 は 実績 の 表 に 武器別 の 行 を 足さず、てつ と 同じ あつかい
+    if (h === 'kin_katana' || h === 'kongo_katana') return 'katana';
+    if (h === 'kin_pickaxe' || h === 'kin_axe' || h === 'kongo_pickaxe' || h === 'kongo_axe') return 'pickaxe';
     if (h === 'raijin_ken' || h === 'fujin_ken' || h === 'niji') return 'katana'; // WEAPON-7: 雷神剣で たおした ときは「かたな」と 同じ あつかい（実績の 表に 武器別の 行は 足さない）
     if (h === 'wood_pickaxe' || h === 'stone_pickaxe' || h === 'iron_pickaxe' || h === 'wood_axe' || h === 'stone_axe' || h === 'iron_axe') return 'pickaxe';
     return 'hand';

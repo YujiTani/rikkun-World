@@ -1,3 +1,4 @@
+import { isBowItem } from '../content/items/ids';
 import { LIVE_SETTING_DEFAULTS, seedKindOfItem, vegKindOfItem, type ItemId, type ItemStack, type Rarity, type Recipe } from '../contracts';
 import { CRAFT_UI_SETTINGS, TOOL_NUMBERS, type CraftUiSettings, type ToolNumbers } from '../fx/craftConfig';
 import { RARITY_COLOR, RARITY_TIERS } from '../drops/rarity';
@@ -44,8 +45,8 @@ export function rarityCss(r: Rarity): string {
   return `#${RARITY_COLOR[r].toString(16).padStart(6, '0')}`;
 }
 
-const PICKAXES = ['wood_pickaxe', 'stone_pickaxe', 'iron_pickaxe', 'kin_pickaxe'];
-const AXES = ['wood_axe', 'stone_axe', 'iron_axe', 'kin_axe'];
+const isPickaxe = (item: string): boolean => item.endsWith('_pickaxe');
+const isAxe = (item: string): boolean => item.endsWith('_axe');
 
 /** ツールチップの中身（M4 §2.13 の表の順。当てはまるものだけ） */
 export function buildTooltip(item: ItemId, d: TooltipDeps, stack?: ItemStack | null): TooltipData {
@@ -57,12 +58,12 @@ export function buildTooltip(item: ItemId, d: TooltipDeps, stack?: ItemStack | n
     lines.push(text);
     icons.push(icon);
   };
-  if (PICKAXES.includes(item)) {
+  if (isPickaxe(item)) {
     add(`ほる つよさ ${tools.toolPower[item] ?? 1}`, item);
     if ((tools.toolLevel[item] ?? 0) >= 1) add('てつ も ほれる', 'iron_ore');
     add('いし に つよい', item); // BAL-D §5: あう道具の 1 行
   }
-  if (AXES.includes(item)) {
+  if (isAxe(item)) {
     add(`ほる つよさ ${tools.toolPower[item] ?? 1}`, item);
     add('き に つよい', item);
   }
@@ -72,14 +73,14 @@ export function buildTooltip(item: ItemId, d: TooltipDeps, stack?: ItemStack | n
     add(`たたく つよさ ${own ?? tools.weaponDamage[item] ?? 1}`, item);
     if (item === 'naginata') add('とおくまで とどく', item);
   }
-  if (item === 'yumi' || item === 'kin_yumi') {
+  if (isBowItem(item)) {
     add('や を とばす', 'ya');
     add(`たたく つよさ ${tools.arrowDamage}`, 'ya');
   }
   if (item === 'ya') add('ゆみ で とばす', 'yumi');
-  if (item === 'kabuto' || item === 'kin_kabuto') add('たま から まもる', item);
-  if (item === 'yoroi' || item === 'kote' || item === 'kin_yoroi' || item === 'kin_kote') add('こうげき から まもる', item);
-  if (item === 'suneate' || item === 'kin_suneate') add('おちても いたくない', item);
+  if (item.endsWith('kabuto')) add('たま から まもる', item);
+  if (item.endsWith('yoroi') || item.endsWith('kote')) add('こうげき から まもる', item);
+  if (item.endsWith('suneate')) add('おちても いたくない', item);
   if (item === 'ninja_zukin') add('たま から まもる', item);
   if (item === 'ninja_shozoku' || item === 'ninja_tekko') add('こうげき から まもる', item);
   if (item === 'samurai_jingasa') add('たま から まもる', item);

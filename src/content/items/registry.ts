@@ -7,6 +7,7 @@ import { GEYSER, M4_BLOCKS, PLACEABLE, VOX_I } from './blocks';
 import { BUCKETS, FARM_TOOLS, SEEDS, SPRINKLER, VEGGIES } from './farm';
 import { GOLD } from './gold';
 import { LEGEND } from './legend';
+import { KONGO } from './kongo';
 import { KOTATSU, LIVE } from './live';
 import { INGOT, MATERIALS, ORB } from './materials';
 import { GADGETS } from './misc';
@@ -41,6 +42,8 @@ export type ItemDefs = Readonly<Partial<Record<ItemDefId, ItemDef>>>;
  * 並びを 決める 側（inventory/items.ts・craft/recipes.ts・ui/itemCategory.ts）が、どの 並びで 入れるかを 自分で 書く）
  */
 export const GOLD_DEFS: ItemDefs = GOLD;
+/** ダイヤ・こんごうの そうび 8 こ（金の 次。並びも 金の すぐ うしろ） */
+export const KONGO_DEFS: ItemDefs = KONGO;
 /** つるはし 3 本・おの 3 本（これまでと 同じ 位置（M4 の 先頭）に 入れる） */
 export const TOOL_DEFS: ItemDefs = TOOLS;
 /** ぼくとう・かたな・なぎなた・きらめく カタナ（てつの かたまりの 次） */
@@ -97,7 +100,7 @@ export const ITEM_DEFS: Readonly<Record<ItemDefId, ItemDef>> = {
   ...PLACEABLE, ...M4_BLOCKS, ...GEYSER, ...VOX_I,
   ...TOOLS, ...SWORDS, ...BOWS, ...ARMOR, ...NINJA, ...SAMURAI,
   ...SEEDS, ...VEGGIES, ...FARM_TOOLS, ...SPRINKLER, ...BUCKETS,
-  ...ORB, ...MATERIALS, ...INGOT, ...GADGETS, ...LIVE, ...KOTATSU, ...LEGEND, ...GOLD,
+  ...ORB, ...MATERIALS, ...INGOT, ...GADGETS, ...LIVE, ...KOTATSU, ...LEGEND, ...GOLD, ...KONGO,
 };
 
 /** 登録の 中から、ids の 順に 取り出した 登録（並びを 呼び出し側で 決めたい とき。登録に 無い id は 書きまちがいなので 投げる） */

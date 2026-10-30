@@ -32,7 +32,8 @@ const PAL: Record<string, number> = {
   O: 0x9a4a2c,
 };
 
-const ROWS: Record<GoldItemId, readonly string[]> = {
+/** 16x16 の 文字データ（こんごうの そうびも 同じ 形を 使う: itemArtKongo.ts） */
+export const GOLD_ROWS: Record<GoldItemId, readonly string[]> = {
   kin: [
     '................',
     '................',
@@ -220,7 +221,7 @@ const CLEAR: Rgba = [0, 0, 0, 0];
 /** きんの そうび・きん・はらぱんみみず の 16x16 */
 export function goldItemPixels(item: GoldItemId): Rgba[] {
   const out: Rgba[] = [];
-  for (const row of ROWS[item]) {
+  for (const row of GOLD_ROWS[item]) {
     for (const ch of row) {
       const c = PAL[ch];
       out.push(c === undefined ? CLEAR : [(c >> 16) & 255, (c >> 8) & 255, c & 255, 255]);
