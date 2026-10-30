@@ -6,3 +6,4 @@
 | 2 | デザイン 1 | ぺちんの 距離の 出どころが 決まって いない | `swim.slapReach` 2.5 に 決め、`motion.reach` は 使わないと 書いた（§4.2・AC11） | 済 |
 | 3 | デザイン 1 | AC3・AC18 の E2E が 何を 見るか 書いて いない | AC3: 図鑑に 出る・メダル +1。AC18: カードを おすと ふで 1・材料が へる | 済 |
 | 4 | デザイン 1 | 指摘台帳が ない | この ファイルを 作った | 済 |
+| 5 | テスト準備 | 【軽微】赤の確認（`npx playwright test e2e/tako1.spec.ts`、4 本とも落ちた）: AC13・AC3・AC20 は `create: 知らない妖怪 tako_hachimaki`（妖怪が 未登録）、AC18 は `craft.list()` に `fude` が なく card が null | 実装で 緑に する | 実装待ち |

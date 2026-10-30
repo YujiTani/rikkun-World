@@ -1,8 +1,10 @@
 import { expect, test, type Page } from '@playwright/test';
+import { aimAtYokaiInWater } from './helpers/aim';
 
 /**
  * TAKO-1（docs/design/TAKO-1.md §6）の E2E: AC3・AC13・AC18・AC20。
  * 数・状態だけの確認（AC1・2・4〜12・14〜17・19）は ユニットテスト側（#311）。ここは 画面・入力・描画が いる物と 通しだけ。
+ * 図鑑: 今の 図鑑は アイテム用。妖怪用の 窓口が できたら AC3 に 足す（今は 実績・メダルで 見る）。二つ名は ユニット AC1 で 見る（E2E では 見ない）。
  *
  * 開発に お願いする 窓口（新しく 足す物はない。今ある `window.__rikkun` だけで 足りる）:
  *  - `yokai.spawn('tako_hachimaki', x, y, z, { ai: false })`（YokaiKind に 登録表から 入る）。`yokai.list()` の `kind`・`hp`・`state`・`position`
@@ -39,24 +41,6 @@ async function open(page: Page) {
   }, POOL);
 }
 
-/** 水面に 浮かぶ りっくんを tako の 手前に 置き、目の 線が たこに 当たる 向き（yaw・pitch）を 窓口で さがして 置く。当たるなら true */
-const aimAtTako = (page: Page, id: number) =>
-  page.evaluate((id) => {
-    const h = (window as any).__rikkun;
-    const y = h.yokai.list().find((e: any) => e.id === id);
-    if (!y) return false;
-    const stand = (pitch: number) => {
-      h.player.set({ position: { x: y.position.x - 1.5, y: 14.2, z: y.position.z }, velocity: { x: 0, y: 0, z: 0 }, yaw: 90, pitch });
-      h.step(1);
-      const eye = h.camera.get().eye;
-      const hit = h.yokai.raycast(eye, { x: Math.cos((pitch * Math.PI) / 180), y: Math.sin((pitch * Math.PI) / 180), z: 0 }, 4.5);
-      return hit?.id === id;
-    };
-    for (let p = 0; p >= -80; p -= 2) if (stand(p)) return true;
-    for (let p = 2; p <= 40; p += 2) if (stand(p)) return true;
-    return false;
-  }, id);
-
 const spawnTako = (page: Page) =>
   page.evaluate(() => {
     const h = (window as any).__rikkun;
@@ -87,7 +71,7 @@ test.describe('TAKO-1 うみの タコはちまき', () => {
     expect(t0?.kind).toBe('tako_hachimaki');
 
     // パンチ
-    expect(await aimAtTako(page, id), 'ねらいの 線が 水で 止まらず たこに 当たる（パンチ）').toBe(true);
+    expect(await aimAtYokaiInWater(page, id), 'ねらいの 線が 水で 止まらず たこに 当たる（パンチ）').toBe(true);
     await swing(page);
     const afterPunch = await info(page, id);
     expect(afterPunch.hp, 'パンチで 体力が へる').toBeLessThan(t0.hp);
@@ -100,13 +84,13 @@ test.describe('TAKO-1 うみの タコはちまき', () => {
       h.step(1);
       h.blade.setStance('chudan');
     });
-    expect(await aimAtTako(page, id), 'ねらいの 線が たこに 当たる（かたな）').toBe(true);
+    expect(await aimAtYokaiInWater(page, id), 'ねらいの 線が たこに 当たる（かたな）').toBe(true);
     await swing(page);
     const afterBlade = await info(page, id);
     expect(afterBlade.hp, 'かたなで さらに 体力が へる').toBeLessThan(afterPunch.hp);
   });
 
-  test('AC3: たおすと 経験値・メダル・実績「タコはちまき」が 入る（二つ名の 体が 水に 入れば 二つ名も つく）', async ({ page }) => {
+  test('AC3: たおすと 経験値・メダル・実績「タコはちまき」が 入る', async ({ page }) => {
     await open(page);
     const r = await page.evaluate(async () => {
       const h = (window as any).__rikkun;
@@ -115,7 +99,7 @@ test.describe('TAKO-1 うみの タコはちまき', () => {
       h.yokai.setHp(id, 0.5); // 1 回で たおれる
       return { id, lv: h.level.get(), medalsBefore: h.achievements.list().filter((a: any) => a.unlocked).length, stat: h.achievements.stats()['defeat:tako_hachimaki'] ?? 0 };
     });
-    expect(await aimAtTako(page, r.id)).toBe(true);
+    expect(await aimAtYokaiInWater(page, r.id)).toBe(true);
     await swing(page);
     const after = await page.evaluate(() => {
       const h = (window as any).__rikkun;
@@ -183,7 +167,7 @@ test.describe('TAKO-1 うみの タコはちまき', () => {
       h.yokai.setHp(id, 0.5);
       h.yokai.events();
     }, id);
-    expect(await aimAtTako(page, id)).toBe(true);
+    expect(await aimAtYokaiInWater(page, id)).toBe(true);
     await swing(page);
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
@@ -202,6 +186,7 @@ test.describe('TAKO-1 うみの タコはちまき', () => {
       return { m, fude: h.inventory.count('fude'), sumi: h.inventory.count('sumi'), bamboo: h.inventory.count('bamboo') };
     });
     expect(out.m.ok).toBe(true);
+    expect(out.sumi, 'すみ は 1 こ へる').toBe(r.sumi - 1);
     expect(out.fude).toBe(1);
     expect(out.bamboo).toBe(0);
   });
