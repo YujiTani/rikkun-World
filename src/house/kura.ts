@@ -24,6 +24,11 @@ export class Kura {
   /** stackOf: id → 重ね数（テストで 登録表に 無い 種類を 使う とき だけ 差しかえる） */
   constructor(private readonly stackOf: (item: string) => number = registryStack) {}
 
+  /** あずけられる 物か（1 マスに 2 こ以上 重なる）。刀・道具・せっけいず・キットは あずけられない */
+  canHold(item: ItemId | string): boolean {
+    return this.stackOf(item) >= 2;
+  }
+
   /** 1 種類の 数（ない = 0） */
   count(item: ItemId | string): number {
     return this.counts.get(item) ?? 0;
@@ -45,7 +50,7 @@ export class Kura {
 
   /** 持ち物から くらへ。動いた 数を 返す（重ねられない 物・999 こ いっぱい・持って いない 分は 動かない） */
   deposit(bag: KuraBag, item: ItemId, want: number): number {
-    if (!(this.stackOf(item) >= 2)) return 0;
+    if (!this.canHold(item)) return 0;
     const n = Math.min(Math.floor(want), bag.count(item), KURA_MAX - this.count(item));
     if (!(n > 0)) return 0;
     const taken = bag.remove(item, n);
@@ -79,7 +84,7 @@ export class Kura {
     this.counts.clear();
     if (typeof data !== 'object' || data === null || Array.isArray(data)) return;
     for (const [item, v] of Object.entries(data as Record<string, unknown>)) {
-      if (typeof v !== 'number' || !Number.isFinite(v) || !(this.stackOf(item) >= 2)) continue;
+      if (typeof v !== 'number' || !Number.isFinite(v) || !this.canHold(item)) continue;
       const n = Math.min(Math.floor(v), KURA_MAX);
       if (n >= 1) this.counts.set(item, n);
     }

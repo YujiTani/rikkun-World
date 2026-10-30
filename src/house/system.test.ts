@@ -124,6 +124,24 @@ describe('話す 通し（右クリック 〜 メニュー）', () => {
     expect(g.w.time).toBe(t0 + 50);
   });
 
+  it('talking(): 話しかけてから とじるまで true（うなずき・あいさつ・メニュー・くら）。frozen() は メニューが 開いて いる 間だけ', () => {
+    const { sys } = make();
+    const g = stepper(sys);
+    g.step(1);
+    expect(sys.talking()).toBe(false);
+    sys.talkTo(sys.architects()[0]!.id);
+    expect(sys.talking()).toBe(true);
+    expect(sys.frozen()).toBe(false);
+    g.step(NOD_STEPS + GREET_STEPS * 2);
+    expect(sys.frozen()).toBe(true);
+    expect(sys.talking()).toBe(true);
+    sys.press('kura');
+    expect(sys.talking()).toBe(true);
+    sys.close();
+    expect(sys.talking()).toBe(false);
+    expect(sys.frozen()).toBe(false);
+  });
+
   it('いない 人・話して いる 最中には 話しかけられない', () => {
     const { sys, calls } = make();
     const g = stepper(sys);

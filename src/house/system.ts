@@ -120,6 +120,11 @@ export class HouseSystem {
     return this.talk.frozen();
   }
 
+  /** 話して いる（うなずき・あいさつ・メニュー・くら） */
+  talking(): boolean {
+    return this.talk.current() !== null;
+  }
+
   /** 話しを やめる（Esc・✕・とじる）。メニューが 開いて いたら onClose も 呼ばれる */
   close(): void {
     this.talk.close();

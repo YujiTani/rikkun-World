@@ -204,3 +204,13 @@ describe('くらの 並びと 読み書き（AC32）', () => {
     expect(k.totals()).toEqual({});
   });
 });
+
+describe('canHold（あずけられる 物か）', () => {
+  it('重ねられる 物は true、道具・武器・知らない id は false', () => {
+    const kura = new Kura();
+    expect(kura.canHold('log')).toBe(true);
+    expect(kura.canHold('mizumori')).toBe(false);
+    expect(kura.canHold('no_such_item')).toBe(false);
+    for (const id of stackable) expect(kura.canHold(id), id).toBe(true);
+  });
+});
