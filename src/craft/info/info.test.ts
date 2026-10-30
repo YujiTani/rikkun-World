@@ -51,12 +51,12 @@ describe('説明の表（M6 §2.2）', () => {
       for (const r of RECIPES) expect(used.includes(r.id) === r.inputs.some((i) => i.item === id), `${id}/${r.id}`).toBe(true);
     }
   });
-  it('U13: later は 働きがあとの 6 こ（レシピの works:false と同じ）', () => {
-    const later = src.items().filter((i) => src.info(i as ItemId).later !== null).sort();
-    const recipes = RECIPES.filter((r) => !r.works).map((r) => r.output.item as string).sort();
-    expect(later).toEqual(recipes);
-    expect(later).toHaveLength(6);
-    expect(src.info('kite').how).toBe('いまは もてる だけ');
+  it('U13: ITEM-FX-1 で 小物 6 こ すべて 働きが 入った ので later は 1 こも 無い（レシピの works:false も 無い）', () => {
+    const later = src.items().filter((i) => src.info(i as ItemId).later !== null);
+    expect(later).toEqual([]);
+    expect(RECIPES.filter((r) => !r.works)).toEqual([]);
+    expect(src.info('kite').how).not.toBe('いまは もてる だけ');
+    expect(src.info('kite').use).not.toMatch(/もうすぐ/);
   });
   it('U1: おけるものは buttons に right。U10 の ぼうぐ は right', () => {
     for (const id of ['grass', 'dirt', 'stone', 'sand', 'log', 'leaves', 'coal_ore', 'furnace', 'kawara', 'brick', 'torch', 'tansu', 'kabuto']) {

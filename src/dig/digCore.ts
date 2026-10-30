@@ -33,6 +33,7 @@ export const TORCH_NEIGHBORS: ReadonlyArray<readonly [number, number, number]> =
   [-1, 0, 0],
   [0, 0, 1],
   [0, 0, -1],
+  [0, -1, 0], // ちょうちん（ITEM-FX-1）は 上（天井）でも ささえられる
 ];
 
 export function center(b: Vec3): Vec3 {
@@ -46,6 +47,17 @@ export function sameBlock(a: Vec3, b: Vec3): boolean {
 export function torchSupported(w: VoxelWorld, x: number, y: number, z: number): boolean {
   return w.isSolid(x, y - 1, z) || w.isSolid(x - 1, y, z) || w.isSolid(x + 1, y, z) || w.isSolid(x, y, z - 1) || w.isSolid(x, y, z + 1);
 }
+
+/** ちょうちん（ITEM-FX-1）: たいまつの 支え ＋ 上（天井）の 固い ブロック。下・横・上の どれかが 固ければ 置ける */
+export function lanternSupported(w: VoxelWorld, x: number, y: number, z: number): boolean {
+  return torchSupported(w, x, y, z) || w.isSolid(x, y + 1, z);
+}
+
+/** 支えが 要る ブロック（たいまつ・ちょうちん）の 「ささえられて いるか」の 判定（置く・支えを こわして おとす 両方が 読む） */
+export const HANGING_SUPPORT: Partial<Record<BlockId, (w: VoxelWorld, x: number, y: number, z: number) => boolean>> = {
+  torch: torchSupported,
+  lantern: lanternSupported,
+};
 
 /** ブロック (bx, by, bz) が プレイヤーの 体(足もと p)と 重なるか */
 export function overlapsBody(p: Vec3, bx: number, by: number, bz: number): boolean {

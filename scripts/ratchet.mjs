@@ -97,6 +97,9 @@ function countProtoImports() {
   return { protoImports };
 }
 
+// 0 固定（上限ではなく、1 つでもあれば 必ず 失敗）。eslint の max-lines / no-restricted-imports でも 同じ きまりを 見はる
+const ZERO = new Set(['filesOver800', 'protoImports']);
+
 const LABELS = {
   idCompare: 'id の === / !== 直書き',
   idCase: 'id の case 直書き',
@@ -119,6 +122,11 @@ let failed = false;
 console.log('きまり: 今 / 上限');
 for (const key of Object.keys(LABELS)) {
   const now = counts[key];
+  if (ZERO.has(key)) {
+    if (now > 0) failed = true;
+    console.log(`${LABELS[key]}: ${now} / 0 固定${now > 0 ? '  NG（0 でなければ いけない）' : ''}`);
+    continue;
+  }
   const limit = limits[key] ?? now; // 上限が まだ 無ければ 今の数（--update で 記録）
   const mark = now > limit ? '  NG（ふえた）' : now < limit ? '  ↓ 下げられる' : '';
   if (now > limit) failed = true;

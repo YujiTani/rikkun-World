@@ -6,7 +6,6 @@ import { createDigConfig, DIG_DEFAULTS } from '../dig/config';
 import { createSettingsHook } from '../game/settings';
 import { ITEM_TYPES } from '../inventory/items';
 import { PALETTE_HEX } from '../ui/theme/palette';
-import { GEM_SHAPES, gemShape } from '../ui/gemArt';
 import {
   ITEM_RARITY_SETTINGS,
   RARITY_COLOR,
@@ -51,14 +50,6 @@ describe('RARITY-7 表', () => {
       expect(css, t.id).toMatch(new RegExp(`${t.cssVar}:\\s*${hex}\\b`, 'i'));
       expect(RARITY_COLOR[t.id]).toBe(t.color);
     }
-  });
-
-  it('AC3 gemShape(i) は表の gem と同じ。7 以上・負は 0〜6 におさめる', () => {
-    RARITY_TIERS.forEach((t, i) => {
-      expect(gemShape(i)).toBe(t.gem);
-      expect(GEM_SHAPES[i]).toBe(t.gem);
-    });
-    expect(new Set(RARITY_TIERS.map((t) => t.gem)).size).toBe(7);
   });
 
   it('AC4 ことば: ぜんぶちがい・かなだけ・空白をのぞき 9 文字以下', () => {

@@ -1,8 +1,8 @@
-import type { GemShape, Rarity, RarityIndex } from '../contracts';
+import type { Rarity, RarityIndex } from '../contracts';
 
 /**
- * めずらしさ 7 段の表（RARITY-7 §3.1・§4.1）。色・宝石の形・ことば・星・dropMax はここ 1 か所。
- * 色・形・ことばを変えるときは、この表の値だけ変える（--rk-rarity-N は tokens.css にも同じ値を書く。ユニットテストが見張る）。
+ * めずらしさ 7 段の表（RARITY-7 §3.1・§4.1）。色・ことば・星（宝石の印は 2026-10-30 になくした）・dropMax はここ 1 か所。
+ * 色・ことばを変えるときは、この表の値だけ変える（--rk-rarity-N は tokens.css にも同じ値を書く。ユニットテストが見張る）。
  * ことばは ひらがな・カタカナ・のばし棒・空白だけ（9 文字まで）。
  */
 export interface RarityTier {
@@ -13,25 +13,24 @@ export interface RarityTier {
   /** 0xrrggbb（光の柱・ツールチップ・ふち。--rk-rarity-<index> と同じ値） */
   color: number;
   cssVar: string;
-  gem: GemShape;
   word: string;
   /** ほったときの最大数の既定値 */
   dropMax: number;
 }
 
-function tier(index: RarityIndex, id: Rarity, color: number, gem: GemShape, word: string, dropMax: number): RarityTier {
-  return { id, index, stars: index + 1, color, cssVar: `--rk-rarity-${index}`, gem, word, dropMax };
+function tier(index: RarityIndex, id: Rarity, color: number, word: string, dropMax: number): RarityTier {
+  return { id, index, stars: index + 1, color, cssVar: `--rk-rarity-${index}`, word, dropMax };
 }
 
-// 色・宝石の形は案 A「いまの 4 色をそのままのばす」、ことばは案 C（オーナー決定）
+// 色は案 A「いまの 4 色をそのままのばす」、ことばは案 C（オーナー決定）
 export const RARITY_TIERS: readonly RarityTier[] = [
-  tier(0, 'common', 0xffffff, 'circle', 'ノーマル', 4),
-  tier(1, 'uncommon', 0x8fe08f, 'diamond', 'レア', 3),
-  tier(2, 'rare', 0x7fb8ff, 'hexagon', 'スーパーレア', 2),
-  tier(3, 'superRare', 0xc79bff, 'star', 'ハイパーレア', 1),
-  tier(4, 'epic', 0xffd23f, 'moon', 'ウルトラレア', 1),
-  tier(5, 'mythic', 0xff7a3d, 'flame', 'ミラクル', 1),
-  tier(6, 'legendary', 0xfff3a0, 'crown', 'レジェンダリー', 1),
+  tier(0, 'common', 0xffffff, 'ノーマル', 4),
+  tier(1, 'uncommon', 0x8fe08f, 'レア', 3),
+  tier(2, 'rare', 0x7fb8ff, 'スーパーレア', 2),
+  tier(3, 'superRare', 0xc79bff, 'ハイパーレア', 1),
+  tier(4, 'epic', 0xffd23f, 'ウルトラレア', 1),
+  tier(5, 'mythic', 0xff7a3d, 'ミラクル', 1),
+  tier(6, 'legendary', 0xfff3a0, 'レジェンダリー', 1),
 ];
 
 export const RARITY_ORDER: readonly Rarity[] = RARITY_TIERS.map((t) => t.id);

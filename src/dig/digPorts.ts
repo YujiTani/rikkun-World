@@ -97,6 +97,8 @@ export interface DigM4Deps {
   w2?: W2Settings;
   /** WEAPON-3: 妖怪の 世界（一覧を 向きの決まりに わたす）。`blade`・`w2` と そろっていれば 近接の 攻撃は 向いている方へ */
   yokai?: () => YokaiWorld;
+  /** ITEM-FX-1: ふとんで ねる・たこを あげる／もどす（右クリックの 実行。なければ 何も しない） */
+  gadgets?: { sleep(): void; kite(): void };
 }
 
 /** WEAPON-3: さいごに 始めた 攻撃（`attack.last()`） */

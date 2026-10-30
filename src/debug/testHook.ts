@@ -85,6 +85,10 @@ export interface TestHook {
   inventory: ReturnType<typeof createInventoryHook>;
   save: ReturnType<typeof createSaveHook>;
   time: ReturnType<typeof createTimeHook>;
+  /** ITEM-FX-1: ふとんで ねる（ねている・のこりステップ・暗さ 0〜1・「よる に ねようね」の 文） */
+  sleep: { get(): { sleeping: boolean; stepsLeft: number; fade: number; notice: string | null } };
+  /** ITEM-FX-1: たこ（上がっている・位置・プレイヤーの足もとからの高さ・当たり判定なし） */
+  kite: { get(): { up: boolean; position: { x: number; y: number; z: number } | null; height: number | null; solid: false } };
   combat: ReturnType<typeof createCombatHook> & { arrows(): unknown[]; sounds(): string[] };
   /** NINJA-1（#299）: 調整表の 上書き（`tune` = 忍者装備の 数・`sense` = 妖怪の 感知の 表）・忍者帳・追い打ちの 待ち */
   ninja: {
@@ -194,7 +198,7 @@ declare global {
   }
 }
 
-export type TestHookGroups = Pick<TestHook, 'start' | 'work' | 'shadow' | 'char' | 'world' | 'biome' | 'render' | 'player' | 'camera' | 'aim' | 'input' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'attack' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm' | 'log' | 'ui' | 'audio' | 'rarity' | 'animals' | 'parry' | 'legend' | 'thunder' | 'impact' | 'ninja' | 'samurai' | 'house'>;
+export type TestHookGroups = Pick<TestHook, 'start' | 'work' | 'shadow' | 'char' | 'world' | 'biome' | 'render' | 'player' | 'camera' | 'aim' | 'input' | 'lock' | 'settings' | 'target' | 'dig' | 'inventory' | 'save' | 'time' | 'sleep' | 'kite' | 'combat' | 'yokai' | 'craft' | 'furnace' | 'armor' | 'tool' | 'blade' | 'attack' | 'bow' | 'level' | 'achievements' | 'storage' | 'hud' | 'farm' | 'log' | 'ui' | 'audio' | 'rarity' | 'animals' | 'parry' | 'legend' | 'thunder' | 'impact' | 'ninja' | 'samurai' | 'house'>;
 
 export function installTestHook(game: Game, overlay: PerfOverlay, isReady: () => boolean, groups: TestHookGroups, clock: FrameClock = 'time'): void {
   window.__rikkun = {

@@ -39,6 +39,26 @@ export default tseslint.config(
       ],
     },
   },
+  // 0 に した きまり（#304 段階 5）: 1 つでも あれば 必ず 落ちる（ラチェットの 上限では ない）
+  {
+    files: ['src/**/*.ts'],
+    ignores: ['**/*.test.ts', '**/*.d.ts'],
+    rules: {
+      // 1 ファイル 800 行まで（空行・コメントも 数える）
+      'max-lines': ['error', { max: 800, skipBlankLines: false, skipComments: false }],
+    },
+  },
+  {
+    files: ['src/**/*.ts'],
+    ignores: ['src/proto/**', '**/*.test.ts'],
+    rules: {
+      // 本番から 試作置き場 src/proto/ を 読まない（proto/ には ?proto= の 開発用の 入口だけ）
+      'no-restricted-imports': [
+        'error',
+        { patterns: [{ regex: '(^|/)proto(/|$)', message: '本番から src/proto/ を import しない（#304 段階 5）' }] },
+      ],
+    },
+  },
   // 置き場（src/content）と テストは 直書きしてよい
   {
     files: ['src/content/**', '**/*.test.ts', 'e2e/**'],

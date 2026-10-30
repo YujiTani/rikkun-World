@@ -1,3 +1,5 @@
+import { GADGET_ID } from '../content/items/gadgetTuning';
+import { isFutonId } from '../world/blocks/futon';
 import type { BucketPreview, BlockId, ItemId, RightClickKind, TargetInfo, WaterPreview, WaterRay } from '../contracts';
 export type { RightClickKind };
 
@@ -70,7 +72,7 @@ export function isKitEgg(item: ItemId | null): boolean {
   return item === 'egg' || item === 'kin_tamago';
 }
 
-/** だっこ（00）→ にわとり（0）→ あみ（0b）→ こたつ（1a）→ 小屋（1b）→ たんす → かまど → 防具 → じょうろ（4a くむ・4b まく・4c 合図）→ なでる → たがやす → まく → 合図 → たべる → 置く の順（M7-2 §2.4）。何も起きないなら null */
+/** だっこ（00）→ にわとり（0）→ あみ（0b）→ こたつ（1a）→ 小屋（1b）→ たんす → かまど → ふとん（ねる）→ たこ → 防具 → じょうろ（4a くむ・4b まく・4c 合図）→ なでる → たがやす → まく → 合図 → たべる → 置く の順（M7-2 §2.4）。何も起きないなら null */
 export function previewRightClick(c: RightClickCtx): RightClickPreview | null {
   const t = c.target;
   if (c.carrying?.()) return { kind: c.throwKind?.() ?? 'putDown', item: null };
@@ -88,6 +90,9 @@ export function previewRightClick(c: RightClickCtx): RightClickPreview | null {
   if (coop && coop.eggs >= 1) return { kind: 'coopCollect', item: null };
   if (t && c.isTansu(t.block.x, t.block.y, t.block.z)) return { kind: 'storage', item: null };
   if (t && c.isFurnace(t.block.x, t.block.y, t.block.z)) return { kind: 'furnace', item: null };
+  // ITEM-FX-1: ふとん（ねる。置くより 先）・たこ（持って 右クリック。ねらいが なくても）
+  if (t && isFutonId(t.id)) return { kind: 'sleep', item: null };
+  if (c.held === GADGET_ID.kite) return { kind: 'kite', item: c.held };
   if (c.held && c.canEquip(c.held)) return { kind: 'armor', item: c.held };
   const b = c.bucket?.();
   if (b) return b === 'idle' ? null : { kind: b, item: c.held };

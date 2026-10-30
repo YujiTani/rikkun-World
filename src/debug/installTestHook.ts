@@ -51,7 +51,7 @@ export function installGameHook(deps: WiredLoop): void {
     waterFx, drops, store, level, yokaiM, blade, weaponFx, animals, deliverAnimalEvents, animalEvents,
     currentKitRows, animalFx, animalHint, aimPointInto, combat, lockHook, book, look, wheel, mixer, bgm,
     bgmScene, audioSettings, fxSound, craftConfig, toolConfig, craftUi, craft2Settings, screenSettings, m6,
-    m7, hintSettings, aimCfg, live, clockPhases, timeSettings, frameClock, house,
+    m7, hintSettings, aimCfg, live, clockPhases, timeSettings, frameClock, house, gadgets,
   } = deps;
   installTestHook(game, overlay, () => host.everReady, {
     start: startBoot.hook,
@@ -162,6 +162,8 @@ export function installGameHook(deps: WiredLoop): void {
     }),
     save: createSaveHook(save, (cx, cz) => restored.keys.has(colKey(cx, cz))),
     time: createTimeHook(time),
+    sleep: gadgets.hook.sleep,
+    kite: gadgets.hook.kite as TestHookGroups['kite'],
     combat: {
       ...combatHook,
       arrows: toolHook.arrows,

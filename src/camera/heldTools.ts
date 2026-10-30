@@ -160,6 +160,11 @@ export const HELD_MODELS: Partial<Record<ItemId, Part[]>> = {
     { size: [0.04, 0.04, 0.05], pos: [0, 0, -0.2], color: GOLD },
     { size: [0.1, 0.035, 0.02], pos: [0, 0, -0.17], color: GOLD },
   ],
+  omamori_torn: [
+    { size: [0.11, 0.03, 0.17], pos: [0, 0, -0.1], color: 0xa8302a },
+    { size: [0.04, 0.04, 0.05], pos: [0, 0, -0.2], color: 0x9c8a50 },
+    { size: [0.04, 0.035, 0.02], pos: [0.03, 0, -0.17], color: 0x9c8a50 },
+  ],
   waraji: [
     { size: [0.12, 0.04, 0.26], pos: [0, 0, -0.14], color: 0xd8b86a },
     { size: [0.13, 0.05, 0.03], pos: [0, 0, -0.18], color: RED },

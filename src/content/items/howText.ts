@@ -17,8 +17,3 @@ export const WEAR_HOW = 'ダブルクリック か、てに もって みぎク�
 export function vegRow(hearts: number): InfoRow {
   return { use: `たべると ハート が ${hearts} こ もどる`, how: 'もって みぎクリック', buttons: ['1-9', 'right'] };
 }
-
-const LATER_HOW = 'いまは もてる だけ';
-
-/** 働きが あとの もの（時計の絵＋この文）の 説明の行 */
-export const laterRow = (row: string): InfoRow => ({ use: row, how: LATER_HOW, buttons: [], later: row });

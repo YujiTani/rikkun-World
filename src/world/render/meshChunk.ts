@@ -1,7 +1,9 @@
-import { AIR, BLOCK_TYPES, WATER, isCrossIndex, isOpaqueIndex, isTorchIndex, isWildIndex } from '../blocks/blockTypes';
+import { AIR, BLOCK_TYPES, WATER, isCrossIndex, isOpaqueIndex, isPropIndex, isTorchIndex, isWildIndex } from '../blocks/blockTypes';
 import { BLOCK_TILES, TORCH_PX, tileSubUv, tileUv, type TileName } from '../blocks/textures';
 import type { CropStageSource } from '../../contracts';
 import { cropKindOfBlock } from '../../contracts';
+import { GADGET_ID } from '../../content/items/gadgetTuning';
+import { FUTON_FOOT, FUTON_HEAD } from '../blocks/futon';
 import { OPACITY } from '../light/opacity';
 import type { WorldLight } from '../light/WorldLight';
 import { CHUNK_SIZE, type ArrayVoxelWorld } from '../VoxelWorld';
@@ -240,6 +242,79 @@ export function pushTorch(mesh: MeshData, x: number, y: number, z: number, tile:
   }
 }
 
+/**
+ * 小物の置き物（ITEM-FX-1: ちょうちん・ふとん・はにわ）の形: 箱の組み合わせ（ドット単位 0〜16）。試作（あとで yuzu に見せて直す）。
+ * 各 箱の 面には tile 1 まい（上の面だけ top があれば そちら）を まるごと はる。
+ */
+interface PropBox {
+  min: readonly [number, number, number];
+  max: readonly [number, number, number];
+  tile: TileName;
+  top?: TileName;
+}
+const PROP_SHAPES: Record<string, readonly PropBox[]> = {
+  // 赤い紙の まるっこい 箱 ＋ 上下の 黒い 枠 ＋ つり手
+  lantern: [
+    { min: [3, 4, 3], max: [13, 12, 13], tile: 'lantern' },
+    { min: [4, 12, 4], max: [12, 14, 12], tile: 'lantern_frame' },
+    { min: [4, 2, 4], max: [12, 4, 12], tile: 'lantern_frame' },
+    { min: [7, 14, 7], max: [9, 16, 9], tile: 'lantern_frame' },
+  ],
+  // 素焼き色の 人形: 体 ＋ 頭（顔）＋ うで
+  haniwa: [
+    { min: [5, 0, 5], max: [11, 8, 11], tile: 'haniwa' },
+    { min: [6, 8, 6], max: [10, 13, 10], tile: 'haniwa_head', top: 'haniwa' },
+    { min: [3, 4, 7], max: [5, 7, 9], tile: 'haniwa' },
+    { min: [11, 4, 7], max: [13, 7, 9], tile: 'haniwa' },
+  ],
+};
+/** ふとん 2 マス: 頭（まくら）と 足（かけぶとん）の マスを、e 向きの 形から 90 度ずつ まわして 4 向きぶん 作る */
+const FUTON_HEAD_E: readonly PropBox[] = [
+  { min: [0, 0, 0], max: [16, 3, 16], tile: 'futon_side', top: 'futon_top' },
+  { min: [2, 3, 3], max: [8, 5, 13], tile: 'futon_side', top: 'futon_top' }, // まくら（頭の はし）
+];
+const FUTON_FOOT_E: readonly PropBox[] = [{ min: [0, 0, 0], max: [16, 4, 16], tile: 'futon_side', top: 'futon_blanket' }];
+/** 90 度（上から見て 時計まわり: 東 → 南）を k 回 まわす（x, z だけ。16 点の 箱の まんなかを 中心に） */
+function turnBox(b: PropBox, k: number): PropBox {
+  let { min, max } = b;
+  for (let i = 0; i < k; i++) {
+    const [x0, y0, z0] = min;
+    const [x1, y1, z1] = max;
+    min = [16 - z1, y0, x0];
+    max = [16 - z0, y1, x1];
+  }
+  return { ...b, min, max };
+}
+FUTON_HEAD.forEach((id, k) => (PROP_SHAPES[id] = FUTON_HEAD_E.map((b) => turnBox(b, k))));
+FUTON_FOOT.forEach((id, k) => (PROP_SHAPES[id] = FUTON_FOOT_E.map((b) => turnBox(b, k))));
+const PROP_FACE_SHADE = [1, 0.7, 0.88, 0.88, 0.94, 0.94];
+
+export function pushProp(mesh: MeshData, x: number, y: number, z: number, id: string, sky: number, block: number): void {
+  const boxes = PROP_SHAPES[id];
+  if (!boxes) return;
+  // ちょうちんは 自分で 光る（ブロックの光 最大）
+  const blk = id === GADGET_ID.lantern ? 1 : block;
+  for (const b of boxes) {
+    for (const face of FACES) {
+      if (face.dir[1] === -1 && b.min[1] === 0) continue; // ゆかに ぴったり の 下の面は 見えない
+      const base = mesh.positions.length / 3;
+      const uvRect = tileUv(face.kind === 0 && b.top ? b.top : b.tile);
+      const shade = PROP_FACE_SHADE[face.index];
+      for (let i = 0; i < 4; i++) {
+        const v = face.verts[i];
+        mesh.positions.push(x + (v[0] ? b.max[0] : b.min[0]) / 16, y + (v[1] ? b.max[1] : b.min[1]) / 16, z + (v[2] ? b.max[2] : b.min[2]) / 16);
+        const c = CORNER_UV[i];
+        mesh.uvs.push(c[0] === 0 ? uvRect[0] : uvRect[2], c[1] === 0 ? uvRect[1] : uvRect[3]);
+        mesh.colors.push(shade, shade, shade);
+        mesh.lights.push(sky, blk);
+        mesh.darks.push(0);
+      }
+      mesh.indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
+      mesh.faceCount++;
+    }
+  }
+}
+
 /** みのった作物の印: ブロックの光の値に足す（シェーダーが 1.5 以上を見て、明るさの下限をかける） */
 export const RIPE_FLAG = 2;
 
@@ -385,6 +460,10 @@ export function meshChunk(
         if (b === AIR) continue;
         if (isTorchIndex(b)) {
           pushTorch(opaque, x, y, z, BLOCK_TYPES[b].id as TileName, light ? light.skyAt(x, y, z) / LIGHT_MAX : 1);
+          continue;
+        }
+        if (isPropIndex(b)) {
+          pushProp(opaque, x, y, z, BLOCK_TYPES[b].id, light ? light.skyAt(x, y, z) / LIGHT_MAX : 1, light ? light.blockAt(x, y, z) / LIGHT_MAX : 0);
           continue;
         }
         if (isCoopLineIndex(b)) {

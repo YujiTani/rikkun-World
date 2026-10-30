@@ -3,6 +3,8 @@ import { SECTION_SIZE } from '../../contracts';
 import { columnKey, type ArrayVoxelWorld, type ChangeBox } from '../VoxelWorld';
 import { sectionToArray } from '../sections';
 import { COUNT_LIGHT_TOTAL_MAX, type FrameClock } from '../frameClock';
+import { GADGET_TUNING } from '../../content/items/gadgetTuning';
+import { LANTERN } from '../blocks/blockTypes';
 import { LIGHT_CONFIG as C } from './config';
 import { combinedBrightness, isDarkForSpawn } from './curve';
 import { EMISSION, OPACITY } from './opacity';
@@ -65,6 +67,8 @@ export class WorldLight implements LightField {
   private viewerZ = 0;
   /** 手動: 列の出入りで まわりを作り直さない。光は lightColumn で 1 列ずつ計算する（ChunkStream が呼ぶ。VOX-D） */
   private manual = false;
+  /** ちょうちん（ITEM-FX-1）の場所。妖怪が湧かない はんい（立方体）の中心。collect() が 世界の変化に そろえる */
+  private readonly lanterns = new Map<string, { x: number; y: number; z: number }>();
   /** 最後の update() で計算し直したマスの数（計測・テスト用） */
   lastRecomputeCells = 0;
   /** 最初の全部の光の計算にかかったミリ秒（M5 AC14。世界を作る時間と合わせて 2,500 以下） */
@@ -96,6 +100,7 @@ export class WorldLight implements LightField {
     this.world.takeColumnEvents();
     this.computeAll();
     this.initMs = performance.now() - t0;
+    for (const c of this.world.loadedColumns()) this.scanLanterns(c.cx, c.cz);
   }
 
   // ------------------------------------------------------------ 読み出し
@@ -148,6 +153,14 @@ export class WorldLight implements LightField {
 
   /** 妖怪が出てよい暗い所か（空の光 7 以下で、たいまつの 8 マス以内ではない） */
   isDarkForSpawn(x: number, y: number, z: number): boolean {
+    // ちょうちん: 立方体の はんい（水平も 上下も）の中は 光とは かんけいなく 湧かない（ITEM-FX-1）
+    if (this.lanterns.size > 0) {
+      const R = GADGET_TUNING.lantern.noSpawnRadius;
+      const fx = Math.floor(x);
+      const fy = Math.floor(y);
+      const fz = Math.floor(z);
+      for (const l of this.lanterns.values()) if (Math.abs(fx - l.x) <= R && Math.abs(fy - l.y) <= R && Math.abs(fz - l.z) <= R) return false;
+    }
     return isDarkForSpawn(this.skyLight(x, y, z), this.darkness.value, this.blockLight(x, y, z));
   }
 
@@ -282,9 +295,40 @@ export class WorldLight implements LightField {
     }
   }
 
+  /** ちょうちんの記録を、この列の 今の 中身に そろえる（読みこんだ とき・捨てた とき） */
+  private scanLanterns(cx: number, cz: number): void {
+    for (const [k, l] of this.lanterns) if (l.x >> 4 === cx && l.z >> 4 === cz) this.lanterns.delete(k);
+    const col = this.world.column(cx, cz);
+    if (!col) return;
+    for (let s = 0; s < col.sections.length; s++) {
+      const sec = col.sections[s];
+      if (sec.kind === 'uniform') continue;
+      if (sec.kind === 'palette' && !sec.palette.includes(LANTERN)) continue;
+      const arr = sectionToArray(sec);
+      for (let i = 0; i < arr.length; i++) {
+        if (arr[i] !== LANTERN) continue;
+        const x = cx * 16 + (i & 15);
+        const z = cz * 16 + ((i >> 4) & 15);
+        const y = s * 16 + (i >> 8);
+        this.lanterns.set(`${x},${y},${z}`, { x, y, z });
+      }
+    }
+  }
+
+  /** 変わった箱の中の ちょうちんの 記録を そろえる */
+  private syncLanternBox(b: ChangeBox): void {
+    for (const [k, l] of this.lanterns) if (l.x >= b.x0 && l.x <= b.x1 && l.y >= b.y0 && l.y <= b.y1 && l.z >= b.z0 && l.z <= b.z1) this.lanterns.delete(k);
+    for (let y = Math.max(0, b.y0); y <= Math.min(this.sy - 1, b.y1); y++) {
+      for (let z = b.z0; z <= b.z1; z++) {
+        for (let x = b.x0; x <= b.x1; x++) if (this.world.getIndex(x, y, z) === LANTERN) this.lanterns.set(`${x},${y},${z}`, { x, y, z });
+      }
+    }
+  }
+
   private collect(): void {
     const events = this.world.takeColumnEvents();
     for (const e of events) {
+      this.scanLanterns(e.cx, e.cz);
       const k = columnKey(e.cx, e.cz);
       this.lights.delete(k);
       this.tops.delete(k);
@@ -302,7 +346,10 @@ export class WorldLight implements LightField {
         }
       }
     }
-    for (const b of this.world.takeChangeBoxes()) this.enqueueBox(b);
+    for (const b of this.world.takeChangeBoxes()) {
+      this.syncLanternBox(b);
+      this.enqueueBox(b);
+    }
   }
 
   private enqueue(cx: number, sy: number, cz: number, prio: number): void {

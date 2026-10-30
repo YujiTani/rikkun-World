@@ -123,6 +123,11 @@ export function itemDef(id: string): ItemDef | undefined {
   return BY_ID.get(id);
 }
 
+/** 持ち物 全体で 持てる 数（おまもり = 1。制限なし = null）。ItemType には のせない（登録表だけに 持つ） */
+export function maxOwnedOf(id: string): number | null {
+  return BY_ID.get(id)?.maxOwned ?? null;
+}
+
 const entriesOf = (defs: ItemDefs): Array<[ItemId, ItemDef]> => Object.entries(defs) as Array<[ItemId, ItemDef]>;
 
 /** 各アイテムから 値を 1 つ 取り出して { id: 値 } に する（値が ない アイテムは 入れない） */

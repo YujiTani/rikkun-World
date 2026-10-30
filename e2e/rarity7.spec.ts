@@ -51,7 +51,9 @@ test('AC14 つなぎ: 7 つの段が ホットバー・ツールチップ・つ�
     await toggleInventory(page);
     const slot = page.locator('#hotbar .slot[data-item="katana"]');
     await expect(slot, t.id).toHaveAttribute('data-rarity', String(t.index));
-    await expect(slot.locator('.slot-gem'), t.id).toHaveAttribute('data-gem', t.gem);
+    // 宝石の印は出さない（yuzu 2026-10-30）。レア度は ★ の数とふちの色だけ
+    await expect(slot.locator('.slot-gem'), `${t.id} 印なし`).toHaveCount(0);
+    await expect(page.locator('#hotbar .slot-gem'), `${t.id} 印なし`).toHaveCount(0);
     const border = await slot.evaluate((e) => getComputedStyle(e).borderColor);
     expect(border, `${t.id} ふちの色`).toBe(toRgb(t.color));
 

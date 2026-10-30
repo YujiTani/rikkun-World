@@ -71,7 +71,13 @@ export type BlockId =
   | 'nukunuku_s' // 本体 の 南（+z）
   | 'nukunuku_se' // 本体 の 南東
   // #293 試作（うしろに足す）
-  | 'geyser_dirt'; // かんけつせんの つち（上に 間欠泉の 柱が たつ。ほると 持ち物に 入る。置けば どこでも 間欠泉）
+  | 'geyser_dirt' // かんけつせんの つち（上に 間欠泉の 柱が たつ。ほると 持ち物に 入る。置けば どこでも 間欠泉）
+  // ITEM-FX-1（#342。うしろに足す）: 小物 3 つが 置ける ブロックに なった。アイテムの id も 同じ
+  | 'lantern' // ちょうちん（固くない。光る。下・横・上のどれかに 固い ブロックが いる）
+  | 'futon' // ふとん（固くない。平たい。ゆうがた・よるに 右クリックで ねる）。2 マス: これは まくら側（e 向き）の マス
+  // ふとん 2 マスの のこり 7 つ（持ち物に 入らない。`src/world/blocks/futon.ts`）
+  | 'futon_s' | 'futon_w' | 'futon_n' | 'futon_foot_e' | 'futon_foot_s' | 'futon_foot_w' | 'futon_foot_n'
+  | 'haniwa'; // はにわ（固くない。かざるだけ）
 
 export interface BlockType {
   id: BlockId;
