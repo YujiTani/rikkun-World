@@ -42,18 +42,22 @@ function stepOk(lo: number, hi: number, fromY: number): boolean {
  */
 export function canStand(world: HouseWorld, x: number, z: number, fromY: number): number | null {
   const r = ARCHITECT_BODY.radius;
-  const x1 = Math.floor(x + r);
-  const z1 = Math.floor(z + r);
+  const ax = Math.floor(x - r);
+  const az = Math.floor(z - r);
+  // 四すみが またがる 列の 数 - 1（0 か 1）。位置が 数でない（NaN・無限）と NaN に なり、列を 1 つも 読まない
+  const nx = Math.floor(x + r) - ax;
+  const nz = Math.floor(z + r) - az;
   let lo = Infinity;
   let hi = -Infinity;
-  for (let iz = Math.floor(z - r); iz <= z1; iz++) {
-    for (let ix = Math.floor(x - r); ix <= x1; ix++) {
-      const y = standY(world, ix, iz);
+  for (let dz = 0; dz <= nz; dz++) {
+    for (let dx = 0; dx <= nx; dx++) {
+      const y = standY(world, ax + dx, az + dz);
       if (y === null) return null;
       if (y < lo) lo = y;
       if (y > hi) hi = y;
     }
   }
+  if (hi === -Infinity) return null; // 体の はんいに 列が ない（位置が 数でない）= 立てない
   return stepOk(lo, hi, fromY) ? hi : null;
 }
 
@@ -102,14 +106,15 @@ export class Footing {
     if (this.stale) this.refresh(world);
     let lo = Infinity;
     let hi = -Infinity;
-    for (let iz = az; iz <= bz; iz++) {
-      for (let ix = ax; ix <= bx; ix++) {
-        const y = this.column(world, ix, iz);
+    for (let dz = 0; dz <= bz - az; dz++) {
+      for (let dx = 0; dx <= bx - ax; dx++) {
+        const y = this.column(world, ax + dx, az + dz);
         if (y === null) return null;
         if (y < lo) lo = y;
         if (y > hi) hi = y;
       }
     }
+    if (hi === -Infinity) return null; // 体の はんいに 列が ない（位置が 数でない）= 立てない
     return stepOk(lo, hi, fromY) ? hi : null;
   }
 

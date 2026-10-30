@@ -4,7 +4,6 @@ import { tonesOf, type Tone } from './sound';
 
 /**
  * HOUSE-1A: 建築士さんの 声「ぽぽぽ」（サウンド係の 3 案から yuzu が 選んだ もの）。
- * 今の src/fx/architectSounds.test.ts の 2 つ目（「sine だけ・0.5 秒 いない・部品 8 つ いない」）は 仮の 音 専用なので、これと 入れかえる。
  * E2E の 約束: 名前に architect / kenchiku / popo / voice の どれかを ふくむ（e2e/helpers/house.ts）。
  */
 describe('建築士さんの 声「ぽぽぽ」', () => {

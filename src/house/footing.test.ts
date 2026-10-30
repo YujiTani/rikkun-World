@@ -57,6 +57,27 @@ describe('Footing: canStand と 同じ 答え', () => {
   });
 });
 
+describe('Footing: 位置が 数で ない とき', () => {
+  it('NaN・無限・とほうも ない 数の ときは 立てない（null）。止まらずに 返り、数が もどれば また 立てる', () => {
+    const w = makeFakeWorld();
+    const foot = new Footing(0, 0, 3, 3);
+    expect(foot.stand(w, 1.5, 1.5, 11)).toBe(11); // 窓を おぼえさせる
+    for (const [x, z] of [
+      [NaN, 1.5],
+      [1.5, NaN],
+      [NaN, NaN],
+      [Infinity, 1.5],
+      [1.5, -Infinity],
+      [1e308, 1.5],
+    ] as const) {
+      expect(canStand(w, x, z, 11), `canStand (${x}, ${z})`).toBeNull();
+      expect(foot.stand(w, x, z, 11), `Footing (${x}, ${z})`).toBeNull();
+    }
+    expect(foot.stand(w, 1.5, 1.5, 11)).toBe(11);
+    expect(canStand(w, 1.5, 1.5, 11)).toBe(11);
+  });
+});
+
 describe('Footing: 読む 回数', () => {
   it('窓の 列を はじめの 1 回で まとめて 読み、そのあとは どこに 立っても 読まない。かわった 列だけ 読みなおす', () => {
     const col = readsOfColumn();
