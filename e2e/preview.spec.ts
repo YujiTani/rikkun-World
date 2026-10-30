@@ -12,8 +12,10 @@ test('AC1/AC2: 4 体と人形が出て、大きさが合う', async ({ page }) =
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await expect(page.locator('#game canvas')).toBeVisible();
-  const ys = await page.evaluate(() => window.__preview!.yokai());
-  expect(ys.map((y) => y.id)).toEqual(['karakasa', 'chochin', 'nurikabe', 'rokurokubi']);
+  // TAKO-1: タコはちまき は 5 体目（水の 妖怪で 動きが ちがう ので、大きさ・動きの 数は はじめの 4 体で 見る）
+  const all = await page.evaluate(() => window.__preview!.yokai());
+  expect(all.map((y) => y.id)).toEqual(['karakasa', 'chochin', 'nurikabe', 'rokurokubi', 'tako_hachimaki']);
+  const ys = all.slice(0, 4);
   const want = [
     [1.5, 1.6],
     [0.74, 1.7],
@@ -36,12 +38,12 @@ test('AC3: かげ・いろ', async ({ page }) => {
   let ys = await page.evaluate(() => window.__preview!.yokai());
   for (const y of ys) expect(y.colors).toEqual(['#000000']);
   expect(await page.evaluate(() => window.__preview!.labels())).toEqual({ names: false, numbers: true });
-  await expect(page.locator('.label.num:visible')).toHaveText(['1', '2', '3', '4']);
+  await expect(page.locator('.label.num:visible')).toHaveText(['1', '2', '3', '4', '5']);
   await expect(page.locator('.label:not(.num):visible')).toHaveCount(0);
   await page.getByRole('button', { name: 'いろ' }).click();
   ys = await page.evaluate(() => window.__preview!.yokai());
   for (const y of ys) expect(y.colors.length).toBeGreaterThan(1);
-  await expect(page.locator('.label:not(.num):visible')).toHaveText(['プレイヤー', 'からかさおばけ', 'ちょうちんおばけ', 'ぬりかべ', 'ろくろくび']);
+  await expect(page.locator('.label:not(.num):visible')).toHaveText(['プレイヤー', 'からかさおばけ', 'ちょうちんおばけ', 'ぬりかべ', 'ろくろくび', 'タコはちまき']);
 });
 
 test('AC4: 動きのボタン', async ({ page }) => {
@@ -60,12 +62,12 @@ test('AC4: 動きのボタン', async ({ page }) => {
 
 test('AC4: こうげきから当たりまで 30 ステップ（ぬりかべ 90）、赤い線が出る', async ({ page }) => {
   await page.getByRole('button', { name: 'こうげき' }).click();
-  const hits = async (): Promise<number[]> => (await page.evaluate(() => window.__preview!.yokai())).map((y) => y.hitCount);
+  const hits = async (): Promise<number[]> => (await page.evaluate(() => window.__preview!.yokai())).slice(0, 4).map((y) => y.hitCount); // TAKO-1: はじめの 4 体
   await page.evaluate(() => window.__preview!.step(28));
   expect(await hits()).toEqual([0, 0, 0, 0]);
   await page.evaluate(() => window.__preview!.step(3));
   expect(await hits()).toEqual([1, 1, 0, 1]);
-  const ys = await page.evaluate(() => window.__preview!.yokai());
+  const ys = (await page.evaluate(() => window.__preview!.yokai())).slice(0, 4);
   expect(ys.map((y) => y.hitVisible)).toEqual([true, true, false, true]);
   await page.evaluate(() => window.__preview!.step(58));
   expect(await hits()).toEqual([1, 1, 0, 1]);
@@ -128,9 +130,9 @@ test('AC8: からかさは段の上に着地する', async ({ page }) => {
 test('AC9: たおれる', async ({ page }) => {
   await page.getByRole('button', { name: 'たおれる' }).click();
   await page.evaluate(() => window.__preview!.step(39)); // 0.65 秒
-  expect((await page.evaluate(() => window.__preview!.yokai())).map((y) => y.scale)).toEqual([0, 0, 0, 0]);
+  expect((await page.evaluate(() => window.__preview!.yokai())).slice(0, 4).map((y) => y.scale)).toEqual([0, 0, 0, 0]); // TAKO-1: はじめの 4 体
   await page.evaluate(() => window.__preview!.step(60)); // 1.65 秒
-  const ys = await page.evaluate(() => window.__preview!.yokai());
+  const ys = (await page.evaluate(() => window.__preview!.yokai())).slice(0, 4);
   expect(ys.map((y) => y.motion)).toEqual(['wait', 'wait', 'wait', 'wait']);
   expect(ys.map((y) => y.scale)).toEqual([1, 1, 1, 1]);
 });
