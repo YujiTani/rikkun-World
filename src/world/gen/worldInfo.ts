@@ -1,6 +1,7 @@
 import { SEA_Y } from '../../contracts';
 import type { BlockId, IslandInfo, RegionRect, SpawnPoint, TestArea, WorldRegions } from '../../contracts';
 import type { ChunkedVoxelWorld } from '../VoxelWorld';
+import { isChalkMarkId } from '../blocks/chalkMark';
 import { columnHash, generateChunk } from './chunk';
 import { GEN_CONFIG as C } from './config';
 import { startFeaturesOf, type StartFeatures } from './features';
@@ -34,7 +35,7 @@ export interface WorldGenInfo extends IslandInfo {
 /** 「一番上の地形」に数えないブロック（き・はっぱ・みず・たいまつ・M7 の やわらかい物） */
 const SOFT = new Set<string>(['air', 'water', 'log', 'leaves', 'torch', 'start_torch', 'kakashi', 'kakashi_head', 'saku', 'momiji_leaves', 'matsu_leaves', 'flower_y', 'flower_o', 'flower_p', 'susuki', 'bamboo', 'kusa', 'nobana']);
 function isSoft(id: BlockId | 'outside'): boolean {
-  return SOFT.has(id) || (id !== 'outside' && (id.startsWith('wild_') || id.startsWith('crop_')));
+  return SOFT.has(id) || (id !== 'outside' && (id.startsWith('wild_') || id.startsWith('crop_') || isChalkMarkId(id))); // チョークの しるし（MINE-1B）も 地形に 数えない
 }
 
 /** 一番上の「地形」ブロックの y。なければ -1（読みこんでいない列も -1） */

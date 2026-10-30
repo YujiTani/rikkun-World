@@ -22,6 +22,7 @@ import { StreamDriver } from './streamDriver';
 import { SwayDriver } from './swayDriver';
 import { pickEvictions } from './voxel/geometryBudget';
 import { setAoCenter, setAoRadius } from './voxel/aoUniforms';
+import { updateGlow } from './voxel/glowUniforms';
 import { SectionMesher } from './voxel/sectionMesher';
 import { DEFAULT_MICRO_R, columnDistance, nextTier, normalizeMicroR } from './voxel/tier';
 
@@ -238,6 +239,11 @@ export class WorldRenderer {
   /** みのった作物の明るさの下限（設定 `farmRipeMinBrightness`）。設定を変えたら呼ぶ */
   setRipeMinBrightness(v: number): void {
     setRipeMinBrightness(v);
+  }
+
+  /** ほたるいしの いきの 時間（ゲームの 秒。一時停止で とまり、コマ送りで 進む）。毎ステップ 呼ぶ */
+  setGlowTime(sec: number): void {
+    updateGlow(sec);
   }
 
   private markDirty(st: SecState, player: boolean): void {

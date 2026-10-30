@@ -129,7 +129,7 @@ test.describe('TEX-A', () => {
     expect(ok.length, `へこみの底 ${ok.length}/${sorted.length}`).toBeGreaterThanOrEqual(3);
   });
 
-  test('AC4: 道具 7 種とこたつ・小屋 2 ブロック（さく・とびら は LIVE-2.1 で 板）（こたつ 2×2 の のこり 3 マス も 1 つ だけ なら）は平らな箱（形を持たない・面 12 以下・絵が元のまま）', async ({ page }) => {
+  test('AC4: 道具 7 種とこたつ・小屋 2 ブロック（さく・とびら は LIVE-2.1 で 板）（こたつ 2×2 の のこり 3 マス も 1 つ だけ なら）・しっくい（MINE-1B）は平らな箱（形を持たない・面 12 以下・絵が元のまま）', async ({ page }) => {
     await ready(page);
     const flat: string[] = await page.evaluate(() => (window as any).__rikkun.render.flatBlocks());
     expect([...flat].sort()).toEqual([...FLAT_BLOCKS].sort());
@@ -160,7 +160,7 @@ test.describe('TEX-A', () => {
     }
   });
 
-  test('AC5: 鉱石は でこぼこのまま。ほらあなの部屋でタイルの点（#222222・#E0A872）が見える', async ({ page }) => {
+  test('AC5: 鉱石は でこぼこのまま。ほらあなの部屋で鉱石の絵の点（いしの 灰色いがいの 色。せきたん・てつ）が見える', async ({ page }) => {
     await ready(page);
     // 石の部屋（中 9×9×4）。北のかべに鉱石、そのすぐ前にたいまつ
     const R = { x0: 28, z0: 28, x1: 38, z1: 38, fy: FY + 1 };
@@ -169,13 +169,16 @@ test.describe('TEX-A', () => {
       w.fill(R.x0, R.fy, R.z0, R.x1, R.fy + 5, R.z1, 'stone');
       w.fill(R.x0 + 1, R.fy, R.z0 + 1, R.x1 - 1, R.fy + 3, R.z1 - 1, 'air');
     }, R);
-    const dots: Record<string, Rgb> = { coal_ore: [0x22, 0x22, 0x22], iron_ore: [0xe0, 0xa8, 0x72] };
-    for (const id of Object.keys(dots)) {
+    // 点の色は 決め打ちせず、ゲームに 聞く（MINE-1B: 鉱石の つぶの 色が かわった。絵が かわっても テストを 直さない）
+    for (const id of ['coal_ore', 'iron_ore']) {
       await setBlock(page, 33, R.fy, R.z0, id);
       await setBlock(page, 34, R.fy, R.z0 + 1, 'torch');
       await quiet(page);
       const shape = await page.evaluate((id) => (window as any).__rikkun.world.blockTypes().some((t: any) => t.id === id), id);
       expect(shape).toBe(true);
+      // 鉱石の 絵の 点 = 絵の 色の うち、いしの 灰色（赤 = 緑 = 青）では ない 色
+      const dots = (await tilePalette(page, 33, R.fy, R.z0, 'south')).filter((c) => !(c[0] === c[1] && c[1] === c[2]));
+      expect(dots.length, `${id}: 絵に 灰色いがいの 点の 色がある`).toBeGreaterThan(0);
       const st = await stage(page, { x: 33, y: R.fy, z: R.z0 }, { dx: -2, dz: 5, off: 30, pitch: -10 });
       await grab(page);
       const corners = faceCorners(33, R.fy, R.z0, 'south');
@@ -183,15 +186,16 @@ test.describe('TEX-A', () => {
       expect(sc.every((s: any) => s.onScreen), `${id} の面が画面に出る`).toBe(true);
       const rec = (await sampleFace(page, [{ x: 33.5, y: R.fy + 0.5, z: R.z0 + 1 }], 'south'))[0];
       const light = lightTriple(rec.sky, rec.darken, rec.block);
-      const want = [0, 1, 2].map((i) => enc(lin(dots[id][i]) * FACE_SHADE.south * light[i])) as Rgb;
+      const wants = dots.map((d) => [0, 1, 2].map((i) => enc(lin(d[i]) * FACE_SHADE.south * light[i])) as Rgb);
       const pts: { x: number; y: number }[] = [];
       for (let j = 0; j < 40; j++) for (let i = 0; i < 40; i++) {
         const u = (i + 0.5) / 40, v = (j + 0.5) / 40;
         pts.push({ x: (1 - v) * ((1 - u) * sc[0].x + u * sc[1].x) + v * ((1 - u) * sc[3].x + u * sc[2].x), y: (1 - v) * ((1 - u) * sc[0].y + u * sc[1].y) + v * ((1 - u) * sc[3].y + u * sc[2].y) });
       }
       const px = await shotPixels(page, pts);
-      const hits = px.filter((p) => p && near(p, want, 14)).length;
-      expect(hits, `${id}: 点の色 ${want.map(Math.round)} の画素の数（ほらあなの部屋）`).toBeGreaterThanOrEqual(8);
+      const hits = px.filter((p) => p && wants.some((w) => near(p, w, 14))).length;
+      console.log('AC5', id, 'dots', JSON.stringify(dots), 'hits', hits);
+      expect(hits, `${id}: 点の色 ${wants.map((w) => `[${w.map(Math.round)}]`).join(' ')} の画素の数（ほらあなの部屋）`).toBeGreaterThanOrEqual(8);
       expect(st.doll.x).toBeGreaterThan(0);
       await saveShot(page, `TEX-A-AC5-${id}`);
     }

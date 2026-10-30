@@ -2,6 +2,8 @@
  * 世界・座標・ブロック・区画の型（時刻 DayPhase・TimeOfDay と 区域 WorldRegions も ここ）。`src/contracts.ts` から分けた（中身は移しただけ）。
  */
 
+import type { ChalkMarkId } from '../world/blocks/chalkMark';
+
 export interface Vec3 {
   x: number;
   y: number;
@@ -77,7 +79,17 @@ export type BlockId =
   | 'futon' // ふとん（固くない。平たい。ゆうがた・よるに 右クリックで ねる）。2 マス: これは まくら側（e 向き）の マス
   // ふとん 2 マスの のこり 7 つ（持ち物に 入らない。`src/world/blocks/futon.ts`）
   | 'futon_s' | 'futon_w' | 'futon_n' | 'futon_foot_e' | 'futon_foot_s' | 'futon_foot_w' | 'futon_foot_n'
-  | 'haniwa'; // はにわ（固くない。かざるだけ）
+  | 'haniwa' // はにわ（固くない。かざるだけ）
+  // MINE-1B（#349。うしろに足す）: 新しい 鉱物と しっくい。ほたるいしは 光る 固い ブロック（光 7）
+  | 'nendo' // ねんど（つちの なかま。ほると ねんど `clay`）
+  | 'sekkaiseki' // せっかいせき
+  | 'shikkui' // しっくい（作る ブロック）
+  | 'hotaruishi' // ほたるいし（光 7）
+  | 'kin_ore' // きんの いし
+  | 'suisho_ore' // すいしょうの いし（ほると すいしょう `crystal`）
+  | 'diamond_ore' // ダイヤの いし（ほると ダイヤ `diamond`）
+  // チョークの しるし 12 こ（面 × やじるしの 向き。持ち物に 入らない。`src/world/blocks/chalkMark.ts`）
+  | ChalkMarkId;
 
 export interface BlockType {
   id: BlockId;

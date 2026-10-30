@@ -103,8 +103,10 @@ describe('登録表（置けるブロック 22 個）', () => {
   it('色分けの 並び: 古い表と 同じ', () => {
     expect(CATEGORY_ITEMS.soil).toEqual(['dirt', 'sand', 'snow', 'geyser_dirt']);
     expect(CATEGORY_ITEMS.stone).toEqual(['stone']);
-    expect(CATEGORY_ITEMS.ore).toEqual(['coal_ore', 'iron_ore']);
-    expect(CATEGORY_ITEMS.build).toEqual(['kawara', 'brick']);
+    // MINE-1B: 鉱石の 分けに せっかいせき・ほたるいし・きんの いし、たてものの 分けに しっくいが ふえる。今の 物の 並びは かわらない（新しい 物の 位置は 決めない）
+    const keep = (list: readonly string[], ids: readonly string[]): string[] => list.filter((id) => ids.includes(id));
+    expect(keep(CATEGORY_ITEMS.ore, ['coal_ore', 'iron_ore'])).toEqual(['coal_ore', 'iron_ore']);
+    expect(keep(CATEGORY_ITEMS.build, ['kawara', 'brick'])).toEqual(['kawara', 'brick']);
     expect(CATEGORY_ITEMS.light.slice(0, 2)).toEqual(['torch', 'lantern']);
     expect(CATEGORY_ITEMS.home.slice(0, 3)).toEqual(['furnace', 'tansu', 'futon']);
     const plant = CATEGORY_ITEMS.plant;

@@ -101,7 +101,8 @@ export function terrainKindOf(colKind: number, fromTop: number, rock: boolean, w
 
 // ---------------------------------------------------------------- タイルの平均色
 
-function srgbToLinear(c: number): number {
+/** sRGB の 0〜255 → 線形 0〜1（シェーダーの 絵の 画素〔sRGB テクスチャ〕と そろえる） */
+export function srgbToLinear(c: number): number {
   const v = c / 255;
   return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
 }
@@ -132,6 +133,14 @@ export function tileAverageTable(): number[] {
   for (const n of TILE_NAMES) out.push(...tileAverage(n));
   return out;
 }
+
+/**
+ * 鉱石の「とびだす つぶ」（B。MINE-1B）を 小ブロックごとの 色で ぬる 距離〔ブロック。プレイヤーから 水平に〕。これより 遠くは 平らな 絵
+ * （B の つぶの ならびを 16 点に うつした 絵 = ブロックの 絵）。07-mine.md 20.8
+ */
+export const GRAIN_NEAR = 16;
+/** つぶの ある 種類の 地の 石に 使う 絵（ふつうの いし） */
+export const GRAIN_BODY_TILE = TILE_NAMES.indexOf('stone');
 
 /** 遠くで 絵の画素を 平均色へよせる距離（小ブロック・箱の段）: 40 ブロックから 80 ブロックへ */
 export const FADE_NEAR = 40;

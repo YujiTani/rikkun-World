@@ -2,6 +2,7 @@ import type { ArmorSlot, BladeTrailStyle, BlockId, DamageKind, ItemId, Legendary
 import type { InfoRow } from '../../craft/info/table';
 import type { ToolFamily } from '../../dig/toolFamily';
 import type { ItemCategory } from '../../ui/itemCategory';
+import { CHALK_MARK_IDS } from '../../world/blocks/chalkMark';
 
 /**
  * アイテムに ならない ブロック（持ち物に 入らない。みず・そこいし・作物・小屋の 部品 …）。
@@ -17,6 +18,9 @@ export const BLOCK_ONLY_IDS = [
   'toriya_fence', 'toriya_gate', 'toriya_nest', 'toriya_box',
   'nukunuku_e', 'nukunuku_s', 'nukunuku_se',
   'futon_s', 'futon_w', 'futon_n', 'futon_foot_e', 'futon_foot_s', 'futon_foot_w', 'futon_foot_n',
+  // MINE-1B（#349）: 持てない ブロック。ねんど（ほると ねんど `clay`）・すいしょうの いし（ほると `crystal`）・ダイヤの いし（ほると `diamond`）・チョークの しるし 12 こ
+  'nendo', 'suisho_ore', 'diamond_ore',
+  ...CHALK_MARK_IDS,
 ] as const satisfies readonly BlockId[];
 type BlockOnlyId = (typeof BLOCK_ONLY_IDS)[number];
 
@@ -46,6 +50,11 @@ export interface ItemDef {
   info?: InfoRow;
   /** ずかんの「てにいれかた」の 文（作り方・妖怪の ドロップ・ほる などの 自動の 文を 使わない 物だけ。例: 建築士さんが くれる） */
   source?: string;
+  /**
+   * ほると この アイテムが 出る「持てない ブロック」（MINE-1B。ねんど〔ブロック nendo〕→ clay・すいしょうの いし → crystal・ダイヤの いし → diamond）。
+   * ずかんの「てにいれかた」に「〇〇〔ブロックの 名前〕 を ほる（△△ から）」を 足す。名前と 掘れる 段階は その ブロックから
+   */
+  dugFrom?: BlockId;
   /** たいきゅう: 数 = 新品の値（へる 道具） / 'permanent' = こわれない。なし = つかうと 1 こ へる */
   wear?: number | 'permanent';
   /** 作り方（作業台 'craft' / かまど 'furnace'）。count = 出来る数。works: false = 働きが あと */

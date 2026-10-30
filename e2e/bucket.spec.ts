@@ -82,7 +82,7 @@ async function open(page: Page, query = '?nosave=1') {
 }
 
 test.describe('BUCKET-1 バケツ', () => {
-  test('AC2 つくる: カード 44（LIVE-1 版 3 で mushi_ami・LIVE-2 で nukunuku・toriya が ふえ、GOLD-1 で きんの そうび 8 こが いちばん うしろに ふえた）・29 まい目 bucket（28 まい目 sprinkler）・てつ 3 で 1 こ・craft:bucket 1', async ({ page }) => {
+  test('AC2 つくる: カードの 順（LIVE-1 版 3 で mushi_ami・LIVE-2 で nukunuku・toriya が ふえ、GOLD-1 の きんの そうび 8 こ・KONGO-1 の こんごうの そうび 8 こ・MINE-1B の チョーク・しっくいが うしろに ふえた）・29 まい目 bucket（28 まい目 sprinkler）・てつ 3 で 1 こ・craft:bucket 1', async ({ page }) => {
     await open(page);
     const r = await page.evaluate(() => {
       const h = (window as any).__rikkun;
@@ -108,13 +108,19 @@ test.describe('BUCKET-1 バケツ', () => {
         stat: h.achievements.stats()['craft:bucket'] ?? 0,
       };
     });
-    expect(r.cards).toBe(53); // TAKO-1: ふで 1 まい（52 → 53）。KONGO-1: こんごうの そうび 8 こ が いちばん うしろに ふえた（44 → 52）
     expect(r.at29).toBe('bucket');
     expect(r.at28).toBe('sprinkler');
-    expect(r.after).toHaveLength(23);
-    expect(r.after.slice(-19, -16), 'きんの そうびの まえは むしとりあみ・こたつ・とりごや').toEqual(['mushi_ami', 'nukunuku', 'toriya']);
-    expect(r.after.slice(-16, -8), 'きんの そうび 8 こ（GOLD-1 §4.2 の 順）').toEqual(['kin_katana', 'kin_yumi', 'kin_pickaxe', 'kin_axe', 'kin_kabuto', 'kin_yoroi', 'kin_kote', 'kin_suneate']);
-    expect(r.after.slice(-8), 'いちばん うしろは こんごうの そうび 8 こ（KONGO-1 §4.1 の 順）').toEqual(['kongo_katana', 'kongo_yumi', 'kongo_pickaxe', 'kongo_axe', 'kongo_kabuto', 'kongo_yoroi', 'kongo_kote', 'kongo_suneate']);
+    // バケツの うしろは「むしとりあみ・こたつ・とりごや → きんの そうび 8 → こんごうの そうび 8 → チョーク・しっくい」の 順（うしろに ふえる シリーズに よらない ように、むしとりあみから 数える）
+    const m = r.after.indexOf('mushi_ami');
+    expect(m, 'むしとりあみが バケツの うしろに ある').toBeGreaterThanOrEqual(0);
+    expect(r.after.slice(m, m + 3), 'きんの そうびの まえは むしとりあみ・こたつ・とりごや').toEqual(['mushi_ami', 'nukunuku', 'toriya']);
+    expect(r.after.slice(m + 3, m + 11), 'きんの そうび 8 こ（GOLD-1 §4.2 の 順）').toEqual(['kin_katana', 'kin_yumi', 'kin_pickaxe', 'kin_axe', 'kin_kabuto', 'kin_yoroi', 'kin_kote', 'kin_suneate']);
+    expect(r.after.slice(m + 11, m + 19), 'つぎは こんごうの そうび 8 こ（KONGO-1 §4.1 の 順）').toEqual(['kongo_katana', 'kongo_yumi', 'kongo_pickaxe', 'kongo_axe', 'kongo_kabuto', 'kongo_yoroi', 'kongo_kote', 'kongo_suneate']);
+    // MINE-1B: こんごうの うしろに チョーク → しっくい（§4.4。作業台の カードの うしろに この 順。さらに うしろに 足しても よい）
+    const added = r.after.slice(m + 19);
+    expect(added, 'MINE-1B: チョーク').toContain('chalk');
+    expect(added, 'MINE-1B: しっくい').toContain('shikkui');
+    expect(added.indexOf('chalk'), 'チョーク → しっくい の 順').toBeLessThan(added.indexOf('shikkui'));
     expect(r.bucket).toBe(1);
     expect(r.iron).toBe(0);
     expect(r.stat).toBe(1);

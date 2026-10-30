@@ -121,6 +121,7 @@ function rig(o: Opts) {
       eatHeal: (i) => (i === 'tomato' ? 2 : 0),
       noteEat: (i, h) => void log.push(`eat ${i} ${h}`),
       noteHint: (h) => void log.push(`hint ${h}`),
+      ripen: () => false,
     },
     vitals: { hp: () => 5, maxHp: () => 10, heal: (n) => n },
   });

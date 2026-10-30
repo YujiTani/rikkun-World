@@ -1,4 +1,4 @@
-import { CHUNK_SIZE, WORLD_HEIGHT, type BlockId } from '../../contracts';
+import { CHUNK_SIZE, WORLD_HEIGHT, type BlockId, type VoxelWorld } from '../../contracts';
 import { createYokaiConfig } from '../../yokai/ai/config';
 import { isUnderground } from '../../yokai/ai/terrain';
 import { BLOCK_INDEX, BLOCK_TYPES, blockIdFromIndex } from '../blocks/blockTypes';
@@ -7,7 +7,8 @@ import { HW } from './columnLayout';
 import { MINE_CONFIG, type MineLayerDef, type MineLayerId, type MineOreRow } from './mineConfig';
 import { layerAt } from './mineLayers';
 import type { OreCluster } from './mineOres';
-import { terrainFor } from './terrain';
+import { chalkInfo, type ChalkFace, type Compass } from '../blocks/chalkMark';
+import { groundHeightAt, terrainFor } from './terrain';
 
 /**
  * window.__rikkun.mine（MINE-1A。docs/design/MINE-1.md §6.1）。炭鉱（地下）の ことを ゲームに 聞く。
@@ -18,6 +19,8 @@ import { terrainFor } from './terrain';
  *   columnOres(cx, cz) → その 列を 生成して 数えた 鉱石 { normal, layers: { 層: { stone, wall, ores: { 鉱石: { all, visible } } } } }
  *   oreClusters(cx, cz)→ その 列で 生成が 作った かたまり { block, layer, target, cells }[]（山の 面の 鉱石は 入らない）
  *   underground()      → 今の プレイヤー { under, feetY, groundY, minY, maxY }（地下の 判定と 妖怪を 出す 高さの はば）
+ *   chalkAt(x, y, z)   → MINE-1B: その マスの チョークの しるし { face: 'up'|'n'|'e'|'s'|'w'（かいた 面。'up' ＝ ゆか）, dir: 'n'|'e'|'s'|'w'（やじるしの 向き）}。なければ null。
+ *                        いきている 世界（`world`）を 読む。`world` を わたさない ときは いつも null
  */
 
 /** 鉱石 1 種類の 数（こ）。all ＝ ぜんぶ、visible ＝ 6 方向の となりが 地面より 下の 空気か 水 */
@@ -57,14 +60,15 @@ export interface MineHook {
   columnOres(cx: number, cz: number): ColumnOres;
   oreClusters(cx: number, cz: number): OreCluster[];
   underground(): Underground;
+  chalkAt(x: number, y: number, z: number): { face: ChalkFace; dir: Compass } | null;
 }
 
 const AIR = BLOCK_INDEX.air;
 const STONE = BLOCK_INDEX.stone;
 const WATER = BLOCK_INDEX.water;
 const ROW = CHUNK_SIZE;
-/** 名前が `_ore` で 終わる ブロックが 鉱石（せきたん・てつ・1B の 新しい 鉱物） */
-const IS_ORE = BLOCK_TYPES.map((t) => t.id.endsWith('_ore'));
+/** 鉱石は 表 `MINE_CONFIG.ores` の ブロック（せきたん・てつ・1B の 新しい 鉱物。ねんど・せっかいせき・ほたるいしは 名前が `_ore` で 終わらない） */
+const IS_ORE = BLOCK_TYPES.map((t) => MINE_CONFIG.ores.some((r) => r.block === t.id));
 
 /** 隣の 列の、この 列と 面を あわせる 1 まい（y × 16）。0 ＝ 西〔x−〕・1 ＝ 東・2 ＝ 北〔z−〕・3 ＝ 南 */
 type Faces = [Uint8Array, Uint8Array, Uint8Array, Uint8Array];
@@ -130,6 +134,8 @@ function emptyLayers(): Record<MineLayerId, LayerCount> {
 
 export function createMineHook(o: {
   seed: number;
+  /** MINE-1B: いきている 世界（チョークの しるしを 読む）。なければ `chalkAt` は いつも null */
+  world?: Pick<VoxelWorld, 'getBlock'>;
   /** プレイヤーの 足もと（世界の 座標）。なければ スタートの 足もと */
   player?: () => { x: number; y: number; z: number };
   /** 妖怪を 出す 高さの はば（足 ±これ）。なければ 設定の 初期値（YokaiConfig.yokaiSpawnHeight） */
@@ -186,9 +192,14 @@ export function createMineHook(o: {
 
     underground(): Underground {
       const p = player();
-      const groundY = T.height(Math.floor(p.x), Math.floor(p.z));
+      const groundY = groundHeightAt(seed, p.x, p.z);
       const h = spawnHeight();
       return { under: isUnderground(p.y, groundY), feetY: p.y, groundY, minY: p.y - h, maxY: p.y + h };
+    },
+
+    chalkAt(x, y, z) {
+      const info = o.world ? chalkInfo(o.world.getBlock(Math.floor(x), Math.floor(y), Math.floor(z))) : null;
+      return info ? { face: info.face, dir: info.dir } : null;
     },
   };
 }

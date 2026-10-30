@@ -94,6 +94,7 @@ function rig(o: Opts) {
       eatHeal: (i) => (i === 'tomato' ? 2 : 0),
       noteEat: (i, h) => void log.push(`eat ${i} ${h}`),
       noteHint: (h) => void log.push(`hint ${h}`),
+      ripen: () => false,
     },
     vitals: { hp: () => hp, maxHp: () => 10, heal: (n) => ((hp = Math.min(10, hp + n)), n) },
     ...(o.eggHeal !== undefined ? { eggHeal: () => o.eggHeal! } : {}),

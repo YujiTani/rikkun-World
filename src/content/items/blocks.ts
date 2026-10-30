@@ -178,3 +178,44 @@ export const VOX_I = {
   bamboo: { name: blockName('bamboo'), maxStack: BLOCK_STACK, placeBlock: 'bamboo', rarity: blockRarity('bamboo'), category: 'plant' },
   nobana: { name: blockName('nobana'), maxStack: BLOCK_STACK, placeBlock: 'nobana', rarity: blockRarity('nobana'), category: 'plant' },
 } satisfies Partial<Record<BlockId, ItemDef>>;
+
+/**
+ * MINE-1B（#349。仕様 §4.4）: 新しい 鉱物の 置ける ブロック 4 つ（せっかいせき・しっくい・ほたるいし・きんの いし）。
+ * ねんど・すいしょうの いし・ダイヤの いしは 持てない ブロック（ほると `clay`・`crystal`・`diamond`。BLOCK_ONLY_IDS）。
+ * 「〇〇 を ほる（〇〇の つるはし から）」の 文は `dig: true`（craft/info/build.ts が 掘れる 段階から 作る）。
+ */
+export const MINE_BLOCKS = {
+  sekkaiseki: {
+    name: blockName('sekkaiseki'),
+    maxStack: BLOCK_STACK,
+    placeBlock: 'sekkaiseki',
+    rarity: blockRarity('sekkaiseki'),
+    category: 'ore',
+    info: placeInfo('ちか の なかほど に ある しろい いし。さぎょうだい で チョーク、かまど で やくと いしばい に なる。おける', { dig: true }),
+  },
+  shikkui: {
+    name: blockName('shikkui'),
+    maxStack: BLOCK_STACK,
+    placeBlock: 'shikkui',
+    rarity: blockRarity('shikkui'),
+    category: 'build',
+    info: placeInfo('しろい かべ の ブロック。おける'),
+    recipe: { count: 2, inputs: [['ishibai', 1], ['string', 1]] }, // 作業台。いしばい 1 ＋ いと 1 → しっくい 2
+  },
+  hotaruishi: {
+    name: blockName('hotaruishi'),
+    maxStack: BLOCK_STACK,
+    placeBlock: 'hotaruishi',
+    rarity: blockRarity('hotaruishi'),
+    category: 'ore',
+    info: placeInfo('ちか の なかほど に ある。くらい ところ で ぼんやり ひかる。おくと あかり に なる', { dig: true }),
+  },
+  kin_ore: {
+    name: blockName('kin_ore'),
+    maxStack: BLOCK_STACK,
+    placeBlock: 'kin_ore',
+    rarity: blockRarity('kin_ore'),
+    category: 'ore',
+    info: placeInfo('ちか の ふかい ところ に ある。かまど で やくと きん に なる。おける', { dig: true }),
+  },
+} satisfies Partial<Record<BlockId, ItemDef>>;

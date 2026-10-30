@@ -15,7 +15,8 @@ export interface TargetInfo {
   distance: number;
 }
 
-export type DigBlockedReason = 'needTool' | 'unbreakable';
+/** 掘れない 理由。needTool = つるはしが いる（いしの つるはしから）、needIron = てつの つるはしが いる（MINE-1B。きん・すいしょう・ダイヤの いし）、unbreakable = こわれない */
+export type DigBlockedReason = 'needTool' | 'needIron' | 'unbreakable';
 
 export interface DigState {
   active: boolean;

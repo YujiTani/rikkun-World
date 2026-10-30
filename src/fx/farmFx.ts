@@ -12,6 +12,8 @@ export const VEG_COLOR: Readonly<Record<CropKind, number>> = {
 };
 /** たがやす つちの つぶ */
 export const SOIL_COLOR = 0x6e4520;
+/** MINE-1B: いしばいを まく しろい こなの つぶ */
+const ISHIBAI_COLOR = 0xf2f0ea;
 
 export interface FarmFxDeps {
   sound: Pick<SoundFx, 'playTones'>;
@@ -114,6 +116,11 @@ export class FarmFx {
         break;
       case 'sprinklerPlaced':
         this.snd('sprinklerPlace');
+        break;
+      // MINE-1B: いしばいを まく（音は じょうろ〔pour〕を かりる。新しい 音は 作らない）
+      case 'ripened':
+        this.snd('pour');
+        this.burst(e, ISHIBAI_COLOR, 10);
         break;
       default:
         // stage・wet・visitOldFarm・sprinklerBroken は 音なし

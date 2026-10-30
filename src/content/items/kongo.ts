@@ -6,7 +6,7 @@ import type { ItemDef } from './types';
  * こんごうシリーズ（KONGO-1。金シリーズ gold.ts の つぎの「さいきょう」）。ダイヤと こんごうの そうびの 値は ここ 1 か所だけ（ルール #304）。
  * めずらしさは ぜんぶ mythic（ほし 6・ミラクル）。強さ・耐久・防ぐ量は その アイテムの 行に 単位つきで 書く（調整は ここの 数を かえるだけ）。
  * 絵は ui/itemArtKongo.ts（2D）・camera/heldKongo.ts（手に持つ形）。
- * ダイヤの 鉱石と「ほると ダイヤが 出る」は MINE-1B。ここでは アイテムだけ 定義する（「どこで」は 鉱石が 入るまで 書かない）。
+ * ダイヤの 鉱石 `diamond_ore` は MINE-1B で 入った（ほると ダイヤ 1。図鑑の「てに いれかた」は `dugFrom: 'diamond_ore'` から「ダイヤの いし を ほる（てつの つるはし から）」）。
  */
 export const KONGO = {
   // ダイヤ: そうびの ざいりょう（炭鉱の ふかい 層の 鉱石から。MINE-1B）
@@ -16,6 +16,7 @@ export const KONGO = {
     rarity: 'mythic', // ほし 6
     category: 'metal',
     info: { use: 'こんごう の そうび の ざいりょう', how: CRAFT_E, buttons: ['E'] },
+    dugFrom: 'diamond_ore',
   },
   kongo_katana: {
     name: 'こんごうの かたな',

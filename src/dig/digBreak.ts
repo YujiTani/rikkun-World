@@ -1,11 +1,13 @@
 import type { BlockId, ItemId, TargetInfo, VoxelWorld } from '../contracts';
 import { isFloraBlock } from '../world/blocks/flora';
+import { CHALK_FACES, CHALK_NORMAL, chalkInfo, isChalkMarkId } from '../world/blocks/chalkMark';
 import { futonPartner, isFutonId } from '../world/blocks/futon';
 import { KOTATSU_CELLS, isKotatsuBlock, kotatsuAnchorOf } from '../world/blocks/kotatsu';
 import { GADGET_ID } from '../content/items/gadgetTuning';
 import { BLADE_LIKE_ITEMS } from '../tools/bladeSets';
 import { randInt, type Rng } from '../world/gen/random';
-import { FARM_BREAK_DROP, NO_DROP_BLOCKS } from './config';
+import { DUG_ALWAYS_ONE, FARM_BREAK_DROP, NO_DROP_BLOCKS } from './config';
+import { DUG_ITEM } from './dugItems';
 import { COOP_BLOCKS, HANGING_SUPPORT, TORCH_NEIGHBORS, type DigCore } from './digCore';
 
 /** こわしたあとの しめくくり: abort = こわせなかった（クールダウンなし）、bodyDone = 体の上の ブロック、done = ふつうにこわした */
@@ -42,6 +44,7 @@ export class BlockBreaker {
     const c = this.c;
     if (c.bodyTgt()) return this.breakBodyBlock(t, bodyGlass);
     if (COOP_BLOCKS.has(t.id)) return this.breakCoopBlock(t);
+    if (isChalkMarkId(t.id)) return this.breakChalkMark(t);
     const { x, y, z } = t.block;
     // こたつ 2×2: どの マス を こわして も 4 マス ぜんぶ 消える（`nukunuku` 1 と 中 の たまご は 1 回 だけ）
     if (isKotatsuBlock(t.id)) this.clearKotatsuCells(t);
@@ -54,11 +57,12 @@ export class BlockBreaker {
     const wasTansu = t.id === 'tansu';
     c.world.setBlock(x, y, z, 'air');
     if (wasTansu) c.m4.storage?.broken(x, y, z);
+    this.clearChalkMarks(x, y, z);
     this.dropUnsupportedTorches(x, y, z);
     liftFlora(c, x, y + 1, z); // FLORA-75: 下の ブロックを こわすと 上の くさ・のばな も 消える
     const farmDrop = FARM_BREAK_DROP[t.id] ?? null;
-    const fixed = farmDrop ? farmDrop.count : (craft?.fixedDrop(dropId) ?? null);
-    const dropItem: ItemId = farmDrop ? farmDrop.item : dropId;
+    const fixed = farmDrop ? farmDrop.count : DUG_ALWAYS_ONE.has(dropId) ? 1 : (craft?.fixedDrop(dropId) ?? null);
+    const dropItem: ItemId = farmDrop ? farmDrop.item : (DUG_ITEM.get(dropId) ?? dropId);
     const max = Math.max(1, c.config.dropMax[c.config.rarity[dropId]] ?? 1);
     const n = NO_DROP_BLOCKS.has(dropId) ? 0 : fixed !== null ? fixed : randInt(this.rng, 1, max);
     const got = n - c.inventory.add(dropItem, n);
@@ -80,6 +84,24 @@ export class BlockBreaker {
     c.emit({ type: 'break', tick: c.tick(), block: { x, y, z }, id: t.id, gotItem: got > 0, count: got });
     this.wearForBlock();
     return 'done';
+  }
+
+  /** MINE-1B: チョークの しるしは さわると すぐ 消えて 何も 出ない（持ち物は ふえない。道具の たいきゅうも へらない） */
+  private breakChalkMark(t: TargetInfo): BreakEnd {
+    const c = this.c;
+    const { x, y, z } = t.block;
+    c.world.setBlock(x, y, z, 'air');
+    c.emit({ type: 'break', tick: c.tick(), block: { x, y, z }, id: t.id, gotItem: false, count: 0 });
+    return 'done';
+  }
+
+  /** MINE-1B: (x, y, z) を こわした。その ブロックに かいて あった しるし（上の ゆか・まわりの かべ）も 消える。何も 出ない */
+  private clearChalkMarks(x: number, y: number, z: number): void {
+    const w = this.c.world;
+    for (const face of CHALK_FACES) {
+      const [dx, dy, dz] = CHALK_NORMAL[face];
+      if (chalkInfo(w.getBlock(x + dx, y + dy, z + dz))?.face === face) w.setBlock(x + dx, y + dy, z + dz, 'air');
+    }
   }
 
   /** 小屋 を こわす: A が 小屋 ぜんぶ（ブロック・すばこ の たまご）を 消す。`toriya` 1 を わたす */

@@ -27,8 +27,9 @@ export function patchVoxelShader(shader: WebGLProgramParametersWithUniforms): vo
   );
   shader.fragmentShader = mustReplace(
     mustReplace(shader.fragmentShader, '#include <common>', `#include <common>\n${SHADOW_VARYINGS}\n${SHADOW_FRAG_PARS}`, 'voxel フラグメント common'),
-    'diffuseColor.rgb *= c * vShade * ao * vLit;',
-    'diffuseColor.rgb *= c * vShade * ao * vLit * shRatio(vShSB, vShBB, 0.0, vShSky, vWorld, normalize(vShN));',
+    // 影は 地の 色の 行に だけ かける（そのあとの 光る つぶ〔max〕には かけない。voxelMaterial.ts の lit の 行と そろえる）
+    'vec3 lit = c * vShade * ao * vLit;',
+    'vec3 lit = c * vShade * ao * vLit * shRatio(vShSB, vShBB, 0.0, vShSky, vWorld, normalize(vShN));',
     'voxel フラグメント光',
   );
 }
@@ -38,8 +39,8 @@ export function patchAtlasShader(shader: WebGLProgramParametersWithUniforms): vo
   Object.assign(shader.uniforms, shadowPatch.uniforms);
   shader.vertexShader = mustReplace(
     mustReplace(shader.vertexShader, '#include <common>', `#include <common>\n${SHADOW_VARYINGS}`, 'atlas 頂点 common'),
-    'vColor.rgb *= max(max(sb, bb), ripe * uRipeMin) * tint * (1.0 - aoD);',
-    'vColor.rgb *= max(max(sb, bb), ripe * uRipeMin) * tint * (1.0 - aoD);\n  vShSB = sb; vShBB = bb; vShFloor = ripe * uRipeMin; vShSky = aLight.x; vShW = (modelMatrix * vec4(position, 1.0)).xyz;',
+    'vColor.rgb *= max(max(sb, bb), rmin) * tint * (1.0 - aoD);',
+    'vColor.rgb *= max(max(sb, bb), rmin) * tint * (1.0 - aoD);\n  vShSB = sb; vShBB = bb; vShFloor = rmin; vShSky = aLight.x; vShW = (modelMatrix * vec4(position, 1.0)).xyz;',
     'atlas 頂点 光',
   );
   shader.fragmentShader = mustReplace(

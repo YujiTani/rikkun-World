@@ -69,6 +69,7 @@ function rig(o: Opts) {
       eatHeal: () => 2,
       noteEat: () => {},
       noteHint: (h) => hints.push(h),
+      ripen: () => false,
     },
     bucket,
     pet: { growFactor: () => 1, isHappy: () => false, left: () => 0, pet: () => (log.push('pet'), 'happy'), tick: () => {}, onCropRemoved: () => {}, serialize: () => [], deserialize: () => {} },

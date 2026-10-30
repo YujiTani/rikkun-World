@@ -1,6 +1,7 @@
-import { blockHash, createPalette, dentable, mix } from './common';
+import { blockHash, carved, createPalette, dentable, mix, shapeKind } from './common';
 import { microSoil } from '../../micro/microSurface';
-import { ALL_FACES, LOOK_N, type KindSpec, type Look } from './types';
+import { createMineKinds } from './mineLooks';
+import { LOOK_N, type KindSpec, type Look } from './types';
 
 /**
  * 案 B「ごつごつ」（id: gotsugotsu）。手で ほった ジオラマ（もけい）の島。
@@ -28,8 +29,6 @@ const GRASS_TIP = P('#8CCB55');
 const DIRT = L('#86563A', '#7C4E33', '#653F28', '#4A2D1C');
 const SAND = L('#DFC07F', '#D6B674', '#BE9C5E', '#A0824A');
 const STONE = L('#928B80', '#9E978A', '#6F685F', '#504A43');
-const COAL = [P('#2E2A33'), P('#4A4452')];
-const IRON = [P('#C97E48'), P('#E8AC78')];
 const BARK = L('#76502F', '#6B482A', '#4E3320', '#3A2618');
 const RING = [P('#C99860'), P('#AE7E4A'), P('#8E6238')];
 const LEAF = L('#5DAA45', '#4F9A3C', '#3B7E33', '#2A6127');
@@ -39,9 +38,17 @@ const SNOW = L('#F4F8FB', '#E6EEF4', '#C9D6E2', '#A9BBCB');
 const BAMBOO = L('#6DB84F', '#5FA844', '#478A38', '#336B2B');
 const BEDROCK = L('#4D4843', '#45403B', '#36322E', '#292624');
 
-type Fill = KindSpec['fill'];
 const LEAF_SALT = 290;
 let salt = 200;
+
+/** MINE-1B: 鉱石の 見た目（palette に 色を 足す ので、palette を 取り出す 前に 作る） */
+const MINE = createMineKinds(P, STONE[0]);
+
+/** たねの 数を 1 つ 進めて、渡した 種類を そのまま 返す（今の 登録の たねを ずらさない ため） */
+function keepSalt(spec: KindSpec): KindSpec {
+  salt++;
+  return spec;
+}
 
 /** ブロックの いちばん近い面までの深さ（0 = 外がわ） */
 function depth(x: number, y: number, z: number): number {
@@ -69,42 +76,6 @@ function exposedDepth(x: number, y: number, z: number, e: number): number {
 }
 
 /**
- * 3×3 の かけら の へこみ（強め。2026-10-16 オーナー「もっとゴツゴツでよい」）。
- * - 面: 9 枚の かけら の うち rate 枚くらいを 1 マス、そのうち deep 枚くらいは かけら ごと 2 マス、
- *   さらに その半分は まんなか 1 マスだけ 3 マスめ まで へこむ（だんだんの ほりかげ）。
- * - かど: 見える面が 2 つ出会う へり・かど は、3×3×3 の かたまり ごとに edge/10 の わりあいで けずる（けずった岩の りんかく）。
- *   2 マスの深さまで けずるので、崖や 山の シルエットが ごつごつ する。
- * 見えない面に さわる マスは けずらない（dentable）。
- */
-function carved(x: number, y: number, z: number, e: number, h: number, rate: number, deep: number, edge: number): boolean {
-  if (!dentable(x, y, z, e)) return false;
-  const faces: [number, number, number, number][] = [
-    [1, M - y, x, z],
-    [2, y, x, z],
-    [4, M - x, z, y],
-    [8, x, z, y],
-    [16, M - z, x, y],
-    [32, z, x, y],
-  ];
-  let near = 0; // 1 マス以内の 見える面の数
-  for (let f = 0; f < 6; f++) {
-    const [bit, dd, u, v] = faces[f];
-    if (!(e & bit) || dd > 2) continue;
-    if (dd <= 1) near++;
-    const r = mix(h, f * 16 + ((v / 3) | 0) * 3 + ((u / 3) | 0));
-    const k = r % 9;
-    if (dd === 0 && k < rate) return true;
-    if (dd === 1 && k < deep) return true;
-    if (dd === 2 && k < deep && u % 3 === 1 && v % 3 === 1 && (r >>> 8) % 2 === 0) return true;
-  }
-  if (near >= 2 && edge > 0) {
-    const r = mix(h, 500 + (((y / 3) | 0) * 3 + ((z / 3) | 0)) * 3 + ((x / 3) | 0));
-    if (r % 10 < edge) return true;
-  }
-  return false;
-}
-
-/**
  * 草の上の面（y = 5〜8）。3×3 ごとに 4 つの高さ（だんだん の しばふ）:
  * くぼみ 3 割（2 マス。まんなか は 3 マス・ときどき 草の芽が 1 本）/ 草の芽 3 割（1 マスめ に 3 本に 1 本）/
  * 1 段ひくい しばふ 2 割 / もこっと つまった しばふ 2 割
@@ -124,41 +95,11 @@ function grassTop(x: number, y: number, z: number, e: number, h: number): boolea
 }
 
 function kind(base: number, color: (x: number, y: number, z: number, h: number) => number, hole: (x: number, y: number, z: number, e: number, h: number) => boolean): KindSpec {
-  const s = salt++;
-  const fill: Fill = (bx, by, bz, exposed, out) => {
-    const h = blockHash(s, bx, by, bz);
-    const solidOnly = exposed === ALL_FACES; // 3D テクスチャ用（上の説明）
-    let i = 0;
-    for (let y = 0; y < N; y++) {
-      for (let z = 0; z < N; z++) {
-        for (let x = 0; x < N; x++, i++) {
-          out[i] = !solidOnly && hole(x, y, z, exposed, h) ? 0 : color(x, y, z, h);
-        }
-      }
-    }
-  };
-  return { base, fill };
+  return shapeKind(salt++, base, color, hole);
 }
 
 function rock(c: Layers, rate: number, deep: number, edge: number): KindSpec {
   return kind(c[0], (x, y, z, h) => layered(c, x, y, z, h), (x, y, z, e, h) => carved(x, y, z, e, h, rate, deep, edge));
-}
-
-/** 石に うまった 3×3×3 の かたまり（つぶ ではなく かたまり。上の段が明るい）。27 の かたまりの うち 4〜6 こ */
-function isNugget(x: number, y: number, z: number, h: number): boolean {
-  const r = mix(h, (((y / 3) | 0) * 3 + ((z / 3) | 0)) * 3 + ((x / 3) | 0));
-  if (r % 5 !== 0) return false;
-  // かたまり の 角 は 石のまま（まるく見せる）
-  return (x % 3 !== 1 ? 1 : 0) + (y % 3 !== 1 ? 1 : 0) + (z % 3 !== 1 ? 1 : 0) < 3;
-}
-
-/** 石に うまった 3×3×3 の かたまり。まわりの石だけ けずるので、かたまり が 少し とび出して見える */
-function nugget(spec: number[]): KindSpec {
-  return kind(
-    STONE[0],
-    (x, y, z, h) => (isNugget(x, y, z, h) ? (y % 3 === 2 ? spec[1] : spec[0]) : layered(STONE, x, y, z, h)),
-    (x, y, z, e, h) => !isNugget(x, y, z, h) && carved(x, y, z, e, h, 5, 2, 0),
-  );
 }
 
 /** 小ブロック地形の色（VOX-2）: ブロックの外がわほど明るく、内ほど暗い。草は 上から 3〜4 マス、その下は土 */
@@ -284,8 +225,9 @@ export const gotsugotsuLook: Look = {
       },
     ),
     stone: rock(STONE, 6, 3, 7),
-    coal_ore: nugget(COAL),
-    iron_ore: nugget(IRON),
+    // MINE-1B: 鉱石は B「とびだす つぶ」（mineLooks.ts）。ここで たねの 数を 2 つ 使い切る: このあとの 種類（log〔206〕…）の ハッシュを かえない ため
+    coal_ore: keepSalt(MINE.coal_ore),
+    iron_ore: keepSalt(MINE.iron_ore),
     log: kind(
       BARK[0],
       (x, y, z, h) => {
@@ -313,6 +255,7 @@ export const gotsugotsuLook: Look = {
     snow: rock(SNOW, 3, 1, 4),
     bamboo: rock(BAMBOO, 2, 1, 3),
     bedrock: rock(BEDROCK, 6, 3, 7),
+    ...MINE.extra, // MINE-1B: ねんど・せっかいせき（A）と 新しい 鉱石 5 つ（B）。たねは 見本と 同じ 固定の 数
     // かまど・たんす・スプリンクラー・レンガ・かわら・はたけ・ぬれたはたけ は 形を持たない（TEX-A: 平らな箱。docs/art/DESIGN.md 5.3）
   },
 };

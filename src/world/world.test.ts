@@ -38,7 +38,8 @@ const OLD_SIZE = { x: 64, y: 32, z: 64 };
 
 describe('ブロックの定義 (AC16)', () => {
   it('14 種そろっている（M4 で かまど・かわら・レンガ を後ろに足した）', () => {
-    expect(BLOCK_TYPES.map((t) => t.id)).toEqual(ALL_IDS);
+    // MINE-1B: 新しい ブロックは 凍らせた 並び（ALL_IDS）の うしろに 足す。今の 並びと 番号は かわらない（新しい 8 つの 値は src/world/blocks/mineBlocks.test.ts）
+    expect(BLOCK_TYPES.slice(0, ALL_IDS.length).map((t) => t.id)).toEqual(ALL_IDS);
     expect(BLOCK_TYPES.every((t) => t.name.length > 0)).toBe(true);
   });
   it('bedrock と water は掘れない、water と air は固くない', () => {
@@ -68,7 +69,8 @@ describe('ドット絵', () => {
     expect(getTilePixels('stone')[0][3]).toBe(255);
   });
   it('ブロックごとに上・下・横のタイルがある', () => {
-    for (const id of ALL_IDS.filter((i) => i !== 'air')) expect(BLOCK_TILES[id]).toHaveLength(3);
+    // MINE-1B: 新しい 立方体の ブロックも ふくめる（凍らせた ALL_IDS だけでなく BLOCK_TYPES 全部）。チョークの しるしは 面に はる 板で 立方体でない ので 見ない（見た目は yuzu が えらぶ 所）
+    for (const t of BLOCK_TYPES.filter((b) => b.id !== 'air' && (b.id as string) !== 'chalk_mark')) expect(BLOCK_TILES[t.id], t.id).toHaveLength(3);
   });
 });
 

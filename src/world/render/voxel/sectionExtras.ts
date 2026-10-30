@@ -1,16 +1,17 @@
 import type { CropStageSource } from '../../../contracts';
 import { cropKindOfBlock } from '../../../contracts';
 import { hasLook, occludes } from '../looks';
-import { AIR, BLOCK_TYPES, WATER, isCrossIndex, isOpaqueIndex, isPropIndex, isTorchIndex, isWildIndex } from '../../blocks/blockTypes';
+import { AIR, BLOCK_TYPES, WATER, isChalkIndex, isCrossIndex, isOpaqueIndex, isPropIndex, isTorchIndex, isWildIndex } from '../../blocks/blockTypes';
 import type { TileName } from '../../blocks/textures';
 import type { WorldLight } from '../../light/WorldLight';
 import type { ArrayVoxelWorld } from '../../VoxelWorld';
 import { isKotatsuBlock } from '../../blocks/kotatsu';
+import { pushChalk } from '../chalkMesh';
 import { pushKotatsuCell } from '../kotatsuMesh';
 import { FACES, LIGHT_MAX, RIPE_FLAG, TILE_UV, crossTileName, emptyMesh, isCoopLineIndex, pushCoopPanels, pushCross, pushFace, pushProp, pushTorch, type MeshData } from '../meshChunk';
 
 /**
- * セクション 1 つぶんの「絵（atlas）で描くもの」: たいまつ・十字の板（作物・やせいの やさい・かかし・さく）・
+ * セクション 1 つぶんの「絵（atlas）で描くもの」: チョークの しるし〔MINE-1B。うかせた 板〕・たいまつ・十字の板（作物・やせいの やさい・かかし・さく）・
  * 小ブロックの形を持たない固いブロック（平らな箱: かまど・たんす・スプリンクラー・レンガ・かわら・はたけ・ぬれたはたけ）・水。
  * 小ブロックの形（3D テクスチャ）で描く種類は meshVoxel の側（sectionMesher.ts）が描く。
  * 光は今までと同じ（面の角のなめらかな平均）。
@@ -64,6 +65,11 @@ export function meshSectionExtras(
             light ? light.skyAt(x, y, z) / LIGHT_MAX : 1,
             (light ? light.blockAt(x, y, z) / LIGHT_MAX : 0) + (ripe ? RIPE_FLAG : 0),
           );
+          continue;
+        }
+        if (isChalkIndex(b)) {
+          // チョークの しるし: 空気の マスの かべ側に うかせた 板 1 まい（光は そのマスの 光）
+          pushChalk(opaque, BLOCK_TYPES[b].id, x, y, z, light ? light.skyAt(x, y, z) / LIGHT_MAX : 1, light ? light.blockAt(x, y, z) / LIGHT_MAX : 0);
           continue;
         }
         if (isKotatsuBlock(BLOCK_TYPES[b].id) && pushKotatsuCell(opaque, world, light, x, y, z, BLOCK_TYPES[b].id)) continue;

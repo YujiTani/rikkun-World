@@ -46,6 +46,7 @@ function rig(held: ItemId | null, target: BlockId | null, opts: { below?: BlockI
     eatHeal: () => 0,
     noteEat: () => undefined,
     noteHint: (h) => void log.push(`hint ${h}`),
+    ripen: () => false,
   };
   const dig = new DigSystemImpl(world as never, () => player, actions, lock, inv, () => 1.62, createDigConfig(), () => 0.999, null, { farm });
   dig.update(); // ねらいを決める

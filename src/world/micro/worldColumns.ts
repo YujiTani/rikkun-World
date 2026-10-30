@@ -6,6 +6,9 @@ import { MICRO_PARAMS, type ColumnSource } from './microSurface';
 const GROUND = new Set<number>(
   ['grass', 'dirt', 'sand', 'snow', 'stone', 'coal_ore', 'iron_ore', 'bedrock'].map((id) => (BLOCK_INDEX as Record<string, number>)[id]),
 );
+// 小ブロック地形の マスは 種類を 6 ビット〔0〜63〕で もつ（render/voxel/sectionMesher.ts の `t & 63`）。地面に できるのは 64 番より 前の 種類だけ
+// （ブロックが 64 種を こえても、新しい 種類を 地面に 足して 絵が くるう のを 起動の ときに 落とす）
+for (const k of GROUND) if (!(k >= 0 && k < 64)) throw new Error(`小ブロック地形の 地面の 種類は 0〜63 番まで（${k} 番）`);
 /** 岩をのせてよい地面 */
 const ROCKABLE = new Set<number>(['grass', 'dirt', 'stone'].map((id) => (BLOCK_INDEX as Record<string, number>)[id]));
 const LOG = BLOCK_INDEX.log;

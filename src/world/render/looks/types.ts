@@ -35,10 +35,25 @@ export const LOOK_VOLUME = LOOK_N * LOOK_N * LOOK_N;
 export const FACE_BIT = [1, 2, 4, 8, 16, 32] as const;
 export const ALL_FACES = 63;
 
+/**
+ * B「とびだす つぶ」（MINE-1B #349）の つぶ 1 色。色は 小ブロックごとに ぬる（TEX-A「色は 絵の 投影だけ」の 例外。鉱石の つぶ だけ）。
+ * `index` = `fill` が out に 書く 色番号（その Look の palette。色は そこから 引く）。
+ * `glow` > 0 = 光る つぶ（自分の 明るさ 0〜1。面の 明るさ・角の 暗がり（AO）を かけず、夜・ほらあなでも 見える）。省略 = 光らない。
+ */
+export interface GrainSpec {
+  index: number;
+  glow?: number;
+}
+
 /** 1 つの種類の見た目の指定。`kinds[ブロック id]` */
 export interface KindSpec {
   /** 3D テクスチャの「代表の色」の色番号（>= 1） */
   base: number;
+  /**
+   * つぶの 色の 一覧（B「とびだす つぶ」。省略 = ふつうの 種類）。ここに 色番号が ある マスだけが「つぶ」で、
+   * ほかの マスは 地の 石（絵の 投影）。16 ブロックより 遠くは つぶを 使わず 平らな 絵（ブロックの 絵）で 描く。
+   */
+  grains?: readonly GrainSpec[];
   /** false = はっぱのように すきまがあり、となりの面をかくさない。省略 = true */
   occludes?: boolean;
   /** (bx, by, bz) = ブロックの位置。exposed = 見える面の印。out に 729 個の色番号を書く。上の約束 1〜4 を守ること */

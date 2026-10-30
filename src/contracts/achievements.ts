@@ -71,6 +71,7 @@ export type StatKey =
   | 'water:*' // みずやり（はんい に はたけ が 1 つ 以上）
   | 'pet:*' // ごきげん に した
   | 'bucketPlace' // BUCKET-1: バケツ で 水を おいた
+  | 'ishibai' // MINE-1B: いしばい で 作物が すぐ みのった
   | 'harvestPet' // ごきげん の 作物 を しゅうかく
   | 'craftItems:ya'
   | 'pickup:*'

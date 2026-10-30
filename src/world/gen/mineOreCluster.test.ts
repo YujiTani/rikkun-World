@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { BLOCK_INDEX } from '../blocks/blockTypes';
 import { COL_VOLUME, HW, LAYER } from './columnLayout';
 import { MINE_CONFIG } from './mineConfig';
+import { layerAt, layerSpan } from './mineLayers';
 import { placeMineOres, type OreCluster } from './mineOres';
 
 /**
@@ -15,6 +16,8 @@ const DIRT = BLOCK_INDEX.dirt;
 const BEDROCK = BLOCK_INDEX.bedrock;
 const COAL = BLOCK_INDEX.coal_ore;
 const IRON = BLOCK_INDEX.iron_ore;
+/** 表の 鉱石 ぜんぶ の 番号（MINE-1B: せきたん・てつ に ねんど・せっかいせき … が ふえる。表から 読む ので 足しても この テストは かわらない） */
+const ORE_IDS: ReadonlySet<number> = new Set(MINE_CONFIG.ores.map((r) => BLOCK_INDEX[r.block]));
 const GROUND = 150;
 const NB6 = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]] as const;
 
@@ -28,7 +31,10 @@ function stoneColumn(): { out: Uint8Array; heights: Int16Array } {
 }
 
 const at = (i: number): { x: number; y: number; z: number } => ({ x: i % 16, y: Math.floor(i / LAYER), z: Math.floor(i / 16) % 16 });
-const layerOf = (y: number): string => (y >= 96 ? 'asai' : y >= 52 ? 'nakahodo' : y >= 1 ? 'fukai' : 'none');
+/** その 高さの 層（表 `MINE_CONFIG.layers` から 読む。そこいし〔y 0〕より 下は 'none'） */
+const layerOf = (y: number): string => layerAt(y) ?? 'none';
+/** あさい 層の 下、なかほど 層の 中に ある 低い 地面（マス）。層の 高さを かえたら 下の 見はりが 落ちる */
+const LOW_GROUND = 60;
 const fnv = (a: Uint8Array): number => {
   let h = 0x811c9dc5;
   for (let i = 0; i < a.length; i++) h = Math.imul(h ^ a[i]!, 0x01000193);
@@ -52,7 +58,7 @@ describe('placeMineOres: 置く 場所', () => {
       ore++;
       const { y } = at(i);
       expect(before[i], `y=${y} は 石だった`).toBe(STONE);
-      expect(out[i] === COAL || out[i] === IRON, `y=${y} は せきたんか てつ`).toBe(true);
+      expect(ORE_IDS.has(out[i]!), `y=${y} は 表の 鉱石`).toBe(true);
       expect(y, '地面より 1 つ 下まで').toBeLessThanOrEqual(GROUND - 1);
       expect(y, 'そこいしの 上').toBeGreaterThanOrEqual(1);
       if (out[i] === COAL) expect(layerOf(y), 'せきたんの 層').toBe('asai');
@@ -88,8 +94,10 @@ describe('placeMineOres: 置く 場所', () => {
 
   it('層の 高さが 地面より 上なら 置かない（地面 60 の 列に あさい 層の せきたんは 出ない）', () => {
     const out = new Uint8Array(COL_VOLUME);
-    out.fill(STONE, LAYER, 59 * LAYER);
-    placeMineOres(out, 3, 0, 0, new Int16Array(HW * HW).fill(60));
+    expect(layerSpan('asai').lo, '地面が あさい 層の 下').toBeGreaterThan(LOW_GROUND);
+    expect(layerAt(LOW_GROUND - 1), '地面の 1 つ 下は なかほど 層').toBe('nakahodo');
+    out.fill(STONE, LAYER, (LOW_GROUND - 1) * LAYER);
+    placeMineOres(out, 3, 0, 0, new Int16Array(HW * HW).fill(LOW_GROUND));
     for (let i = 0; i < COL_VOLUME; i++) expect(out[i] === COAL, `coal y=${at(i).y}`).toBe(false);
     expect(out.some((b) => b === IRON)).toBe(true);
   });
@@ -105,7 +113,7 @@ describe('placeMineOres: かたまり', () => {
         expect(c.cells.length).toBeLessThanOrEqual(c.target);
         for (const m of c.cells) {
           const i = ((m.y * 16 + (m.z - cz * 16)) * 16 + (m.x - cx * 16)) | 0;
-          expect(out[i], `(${m.x}, ${m.y}, ${m.z})`).toBe(c.block === 'coal_ore' ? COAL : IRON);
+          expect(out[i], `(${m.x}, ${m.y}, ${m.z})`).toBe(BLOCK_INDEX[c.block]);
           expect(cells.has(i), '同じ マスを 2 回 数えない').toBe(false);
           cells.set(i, c.block);
         }
@@ -123,7 +131,7 @@ describe('placeMineOres: かたまり', () => {
         expect(left.size, `つながって いない かたまり（${c.block}）`).toBe(0);
       }
       let inColumn = 0;
-      for (let i = 0; i < COL_VOLUME; i++) if (out[i] === COAL || out[i] === IRON) inColumn++;
+      for (let i = 0; i < COL_VOLUME; i++) if (ORE_IDS.has(out[i]!)) inColumn++;
       expect(cells.size, '列の 鉱石 ＝ かたまりの マスの 合計').toBe(inColumn);
     }
   });
@@ -163,7 +171,7 @@ describe('placeMineOres: かたまり', () => {
     expect(cells / n).toBeLessThanOrEqual(3.15);
   });
 
-  it('1 列の 鉱石の 数は 表の ぜんぶ（せきたん・てつの 合計）に ちかい', () => {
+  it('1 列の 鉱石の 数は 表の ぜんぶ（表の 全部の 鉱石の 合計）に ちかい', () => {
     const want = MINE_CONFIG.ores.reduce((p, r) => p + r.all, 0);
     let got = 0;
     const cols = 24;

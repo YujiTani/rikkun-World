@@ -4,6 +4,7 @@ import { itemDef } from '../../content/items/registry';
 import { DIG_DEFAULTS } from '../../dig/config';
 import { itemRarity, rarityTier } from '../../drops/rarity';
 import { createCombatConfig } from '../../combat/config';
+import { BLOCK_TYPES } from '../../world/blocks/blockTypes';
 import { TOOL_DEFAULTS } from '../../tools/config';
 import { itemClassOf } from '../../tools/durability';
 import { YOKAI_DROPS } from '../../yokai/ai/config';
@@ -142,14 +143,18 @@ export function createItemInfo(d: InfoDeps): ItemInfoSource {
     if (item === 'momo_nama') return MOMO_NAMA_SOURCE;
     const parts: string[] = [];
     const row = ITEM_INFO[item];
-    if (row?.dig) {
+    // 持てない ブロックを ほって 手に入る 物（ねんど・すいしょう・ダイヤ）は その ブロックの 名前と 掘れる 段階で 文を 作る（MINE-1B）
+    const dugFrom = itemDef(item)?.dugFrom;
+    if (row?.dig || dugFrom) {
+      const block = dugFrom ?? item;
+      const name = dugFrom ? (BLOCK_TYPES.find((b) => b.id === dugFrom)?.name ?? d.nameOf(item)) : d.nameOf(item);
       let note = '';
-      const need = n.harvestLevel(item);
+      const need = n.harvestLevel(block);
       if (need > n.handLevel) {
         const p = PICKAXES.find((id) => (n.toolLevel[id] ?? n.handLevel) >= need);
         if (p) note = `（${d.nameOf(p as ItemId)} から）`;
       }
-      parts.push(`${d.nameOf(item)} を ほる${note}`);
+      parts.push(`${name} を ほる${note}`);
     }
     // M7: たね・やさい の 手に入れかた（くさ・やせい・ふるい はたけ・妖怪）
     if (seedKindOfItem(item) !== null) parts.push('くさ を こわす・やせいの やさい・ふるい はたけ の たんす');

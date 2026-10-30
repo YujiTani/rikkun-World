@@ -151,6 +151,13 @@ export function actionHintLines(right: RightClickPreview | null, left: LeftClick
       case 'place':
         out.right = { icon: right.item!, word: 'おく' };
         break;
+      // MINE-1B: チョークで かく・いしばいを まく（持っている 物の 絵）
+      case 'chalkDraw':
+        out.right = { icon: right.item!, word: 'かく' };
+        break;
+      case 'ripen':
+        out.right = { icon: right.item!, word: 'まく' };
+        break;
       // HOUSE-1A: 建築士さんを ねらって いる = ふきだし ＋ はなす（左の「ほる」は DigSystem.previewLeftClick が 出さない）
       case 'talk':
         out.right = { icon: 'talk', word: 'はなす' };

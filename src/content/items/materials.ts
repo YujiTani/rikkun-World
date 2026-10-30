@@ -56,6 +56,7 @@ export const MATERIALS = {
     rarity: 'uncommon',
     category: 'material',
     info: { use: 'かまど で やくと かわら・レンガ・はにわ に なる', how: 'かまど に みぎクリック して やく', buttons: ['right'] },
+    dugFrom: 'nendo', // MINE-1B: ねんどの ブロックを ほる（ぬりかべも おとす）
   },
   crystal: {
     name: 'すいしょう',
@@ -63,6 +64,7 @@ export const MATERIALS = {
     rarity: 'superRare', // ハイパーレア
     category: 'metal',
     info: { use: 'きらめく カタナ・おまもり の ざいりょう。ハイパーレア', how: CRAFT_E, buttons: ['E'] },
+    dugFrom: 'suisho_ore', // MINE-1B: すいしょうの いしを ほる（ろくろくびも おとす）
   },
   // TAKO-1: タコはちまきを たおすと かならず 1〜2 こ（ドロップは content/yokai/tako_hachimaki.ts）。ふでの ざいりょう
   sumi: {

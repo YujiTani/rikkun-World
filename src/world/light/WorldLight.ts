@@ -7,7 +7,7 @@ import { GADGET_TUNING } from '../../content/items/gadgetTuning';
 import { LANTERN } from '../blocks/blockTypes';
 import { LIGHT_CONFIG as C } from './config';
 import { combinedBrightness, isDarkForSpawn } from './curve';
-import { EMISSION, OPACITY } from './opacity';
+import { EMIT, OPAQ, TRIV, spreadLight } from './lightSpread';
 import { skyDarkness, type SkyDarkness } from './skyDarkness';
 
 /**
@@ -21,6 +21,7 @@ import { skyDarkness, type SkyDarkness } from './skyDarkness';
  * - ブロックが変わったら、15 マス以内にかかるセクションを「作り直し待ち」に入れ、1 コマに BUDGET 個ずつ計算する。
  *   光が変わったセクション（と、ふちのとなり）は、描画側に作り直しを伝える（world.markSectionDirty）。
  * - ぜんぶ光を通さないブロックのセクション（VOX-A の isSectionHidden より少し広い。光は 0 のまま）は計算せず、持たない。
+ *   ただし 光る 固い ブロック〔ほたるいし。MINE-1B〕を ふくむ セクションは 持つ。
  *   となりをほっても そのセクション自身の光は 0 のまま。ほった側のセクションは 作り直し待ちで計算される。
  * - 読みこんだばかりの列は 計算されるまで isSectionReady / isColumnLit が false。描画側はそれまでメッシュを作らない。
  */
@@ -39,15 +40,6 @@ const UNI = new Uint8Array(1);
 const UNI_BYTE = 0xf0;
 /** 読みこんでいないマス（ブロックの番号の外）。光を通さない */
 const UNKNOWN = 255;
-
-/** 光を弱める量（番号の外は 15）と、出す光 */
-const OPAQ = new Uint8Array(256).fill(15);
-OPAQ.set(OPACITY);
-const EMIT = new Uint8Array(256);
-EMIT.set(EMISSION);
-/** 光を通し、光も出さない（このブロックの上は空の光 15） */
-const TRIV = new Uint8Array(256);
-for (let i = 0; i < OPACITY.length; i++) TRIV[i] = OPACITY[i] === 0 && EMISSION[i] === 0 ? 1 : 0;
 
 type Entry = Uint8Array | null | undefined;
 
@@ -71,6 +63,8 @@ export class WorldLight implements LightField {
   private readonly lanterns = new Map<string, { x: number; y: number; z: number }>();
   /** 最後の update() で計算し直したマスの数（計測・テスト用） */
   lastRecomputeCells = 0;
+  /** 最後の update() / flush() で ブロックの光を 書いた マスの 数（光る マス ＋ 広げた マス。空の光は 数えない）。MINE-1B B12「光を 広げた マスの 数」の 窓口 */
+  lastSpreadCells = 0;
   /** 最初の全部の光の計算にかかったミリ秒（M5 AC14。世界を作る時間と合わせて 2,500 以下） */
   readonly initMs: number;
 
@@ -244,6 +238,7 @@ export class WorldLight implements LightField {
   update(): void {
     this.collect();
     this.lastRecomputeCells = 0;
+    this.lastSpreadCells = 0;
     if (this.pending.size === 0) return;
     // 数えるのは「ほんとうに計算した」セクションだけ。ふさがり・空だけは ただで片づける（時間の上限つき）
     const t0 = performance.now();
@@ -288,6 +283,7 @@ export class WorldLight implements LightField {
   flush(): void {
     this.collect();
     this.lastRecomputeCells = 0;
+    this.lastSpreadCells = 0;
     while (this.pending.size > 0) {
       const key = this.pickNext();
       this.pending.delete(key);
@@ -477,17 +473,17 @@ export class WorldLight implements LightField {
     }
   }
 
-  /** そのセクションが ぜんぶ 光を通さないブロックか（光は 0 のまま） */
+  /** そのセクションが ぜんぶ 光を通さないブロックで、光る ブロック〔ほたるいし MINE-1B〕も 無いか（光は 0 のまま） */
   private allOpaque(cx: number, sy: number, cz: number): boolean {
     const sec = this.world.section(cx, sy, cz);
     if (sec === undefined) return false;
-    if (sec.kind === 'uniform') return OPAQ[sec.block] >= 15;
+    if (sec.kind === 'uniform') return OPAQ[sec.block] >= 15 && EMIT[sec.block] === 0;
     if (sec.kind === 'palette') {
-      for (const b of sec.palette) if (OPAQ[b] < 15) return false;
+      for (const b of sec.palette) if (OPAQ[b] < 15 || EMIT[b] > 0) return false;
       return true;
     }
     const d = sec.data;
-    for (let i = 0; i < d.length; i++) if (OPAQ[d[i]] < 15) return false;
+    for (let i = 0; i < d.length; i++) if (OPAQ[d[i]] < 15 || EMIT[d[i]] > 0) return false;
     return true;
   }
 
@@ -735,56 +731,13 @@ export class WorldLight implements LightField {
       const e = EMIT[blk[i]];
       if (e > 0) {
         block[i] = e;
+        this.lastSpreadCells++;
         if (e > 1) blockQ.push(i);
       }
     }
 
     // 3. 1 マスごとに 1 弱めて広げる
-    this.spread(sky, skyQ);
-    this.spread(block, blockQ);
-  }
-
-  private spread(arr: Uint8Array, q: number[]): void {
-    const { blk, rx, rz } = this;
-    const ry = this.ry;
-    const RL = rx * rz;
-    for (let h = 0; h < q.length; h++) {
-      const i = q[h];
-      const v = arr[i];
-      if (v <= 1) continue;
-      const x = i % rx;
-      const z = Math.floor(i / rx) % rz;
-      const y = Math.floor(i / RL);
-      for (let d = 0; d < 6; d++) {
-        let j: number;
-        if (d === 0) {
-          if (x >= rx - 1) continue;
-          j = i + 1;
-        } else if (d === 1) {
-          if (x <= 0) continue;
-          j = i - 1;
-        } else if (d === 2) {
-          if (y >= ry - 1) continue;
-          j = i + RL;
-        } else if (d === 3) {
-          if (y <= 0) continue;
-          j = i - RL;
-        } else if (d === 4) {
-          if (z >= rz - 1) continue;
-          j = i + rx;
-        } else {
-          if (z <= 0) continue;
-          j = i - rx;
-        }
-        const op = OPAQ[blk[j]];
-        if (op >= 15) continue;
-        const nv = v - (op > 1 ? op : 1);
-        if (nv > arr[j]) {
-          arr[j] = nv;
-          q.push(j);
-        }
-      }
-    }
-    q.length = 0;
+    spreadLight(sky, skyQ, blk, rx, rz, ry);
+    this.lastSpreadCells += spreadLight(block, blockQ, blk, rx, rz, ry);
   }
 }

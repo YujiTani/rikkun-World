@@ -1,4 +1,5 @@
 import type { BlockId, VoxelWorld } from '../contracts';
+import { isChalkMarkId } from './blocks/chalkMark';
 
 /**
  * 置き物（何マス も ある とりごや・こたつ）を 置く とき の「たいら に する」計算（LIVE-2.1 §2.1）。
@@ -18,6 +19,11 @@ const LEAVES: readonly BlockId[] = ['leaves', 'momiji_leaves', 'matsu_leaves'];
 const FLORA: readonly BlockId[] = ['flower_y', 'flower_o', 'flower_p', 'susuki', 'kusa', 'nobana'];
 export const FLATTEN_CLEAR: ReadonlySet<string> = new Set<string>([...GROUND, ...LEAVES, ...FLORA]);
 const GROUND_SET: ReadonlySet<string> = new Set<string>(GROUND);
+
+/** たいらに する とき 消して よい ブロックか（FLATTEN_CLEAR ＋ チョークの しるし 12 こ。しるしは 草と 同じ あつかい。MINE-1B） */
+function clearable(id: string): boolean {
+  return FLATTEN_CLEAR.has(id) || isChalkMarkId(id);
+}
 
 /** ほか の 置き物 の ブロック（ここ は じゃま・この 上 は 床 に できない） */
 function isObjectBlock(id: string): boolean {
@@ -82,7 +88,7 @@ export function planFlatten(world: FlattenWorld, s: FlattenSpec): FlattenPlan | 
       for (let dy = 0; dy < h; dy++) {
         const b = String(world.getBlock(ix, y + dy, iz));
         if (b === 'air') continue;
-        if (!FLATTEN_CLEAR.has(b)) return null; // じゃま
+        if (!clearable(b)) return null; // じゃま
         if (dy >= step && GROUND_SET.has(b)) return null;
         plan.edits.push({ x: ix, y: y + dy, z: iz, block: 'air' });
         plan.cleared++;
@@ -96,7 +102,7 @@ export function planFlatten(world: FlattenWorld, s: FlattenSpec): FlattenPlan | 
       if (isObjectBlock(String(world.getBlock(ix, floorY, iz)))) return null;
       for (let fy = floorY + 1; fy <= y - 1; fy++) {
         const fb = String(world.getBlock(ix, fy, iz));
-        if (fb !== 'air' && fb !== 'water' && !FLATTEN_CLEAR.has(fb)) return null; // たいまつ・作物 など を 土で つぶさない
+        if (fb !== 'air' && fb !== 'water' && !clearable(fb)) return null; // たいまつ・作物 など を 土で つぶさない
         plan.edits.push({ x: ix, y: fy, z: iz, block: fy === y - 1 ? 'grass' : 'dirt' });
         plan.filled++;
         touched = true;

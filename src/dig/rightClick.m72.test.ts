@@ -101,6 +101,7 @@ function rig(o: Opts) {
       eatHeal: () => 2,
       noteEat: () => log.push('eat'),
       noteHint: (h) => hints.push(h),
+      ripen: () => false,
     },
     vitals: { hp: () => 5, maxHp: () => 10, heal: () => 2 },
     water,

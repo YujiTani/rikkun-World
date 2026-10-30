@@ -27,7 +27,7 @@ export const CRAFT_DEFAULTS: Readonly<CraftConfig> = {
   bakeTicks: 60,
   bakeQueueMax: 8,
   fuelOrder: ['coal_ore', 'oil', 'log'],
-  fixedDrop: { furnace: 1, kawara: 1, brick: 1, tansu: 1, nukunuku: 1 },
+  fixedDrop: { furnace: 1, kawara: 1, brick: 1, tansu: 1, nukunuku: 1, shikkui: 1 }, // MINE-1B: しっくいも 作った ブロック（いつも 1）
   armorValue: registryArmorValue(), // 防具は ぜんぶ 登録表（content/items/armor.ts・ninja.ts・samurai.ts・gold.ts）から
   pickupLogTicks: 180,
   pickupLogMax: 5,

@@ -1,5 +1,6 @@
 import type { BlockId, DigEvent, Inventory, LockStatus, PlayerState, TargetInfo, Vec3, VoxelWorld } from '../contracts';
 import type { PunchGate } from '../combat/PlayerCombat';
+import { isChalkMarkId } from '../world/blocks/chalkMark';
 import { BODY_H, BODY_W, type DigConfig } from './config';
 import type { DigM4Deps } from './digPorts';
 
@@ -26,6 +27,11 @@ export interface DigCore {
 
 /** LIVE-2: 小屋 の ブロック（持ち物 に 入らない。こわすと 小屋 ぜんぶ が 消えて `toriya` 1） */
 export const COOP_BLOCKS: ReadonlySet<BlockId> = new Set<BlockId>(['toriya_fence', 'toriya_gate', 'toriya_nest', 'toriya_box']);
+
+/** 置くと その マスの 物が きえて 置ける もの（くさ・チョークの しるし。ねらうと その マスに 置く） */
+export function isReplaceable(id: string): boolean {
+  return id === 'kusa' || isChalkMarkId(id);
+}
 
 export const TORCH_NEIGHBORS: ReadonlyArray<readonly [number, number, number]> = [
   [0, 1, 0],

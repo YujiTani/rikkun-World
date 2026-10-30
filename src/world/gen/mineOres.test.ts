@@ -1,14 +1,18 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import { WORLD_HEIGHT } from '../../contracts';
+import { WORLD_HEIGHT, type BlockId } from '../../contracts';
 import { BLOCK_INDEX, blockIdFromIndex, BLOCK_TYPES } from '../blocks/blockTypes';
 import { SECTION_VOLUME, sectionToArray } from '../sections';
 import { generateChunk } from './chunk';
 import { createMineHook, type MineHook } from './mineHook';
+import type { OreCluster } from './mineOres';
 import { terrainFor } from './terrain';
 import golden from './__fixtures__/mine1a-before.json';
 
 /**
  * MINE-1A（docs/design/MINE-1.md）受け入れ基準 A2・A3・A4・A16: 鉱石の 量・見える 割合・かたまり（§4.2）。
+ * MINE-1B（同 §4.2・§4.4）受け入れ基準 B6・B15: 新しい 鉱物 6 つ（ねんど・せっかいせき・ほたるいし・きんの いし・すいしょうの いし・ダイヤの いし）の 量と 層、ダイヤの かたまり。
+ *   1B で 直した 1A の 確かめ: 鉱石の 見分けを「名前が `_ore` で 終わる」から「表 `oreTable()` の ブロック」に（ねんど・せっかいせき・ほたるいしは `_ore` で 終わらない）。
+ *   A16 ⑥・⑧ は ダイヤいがい〔ダイヤは 1・2 こ が 60%・40%。B15 で 見る〕。⑤・窓口の 正直さ・置く 順は 新しい 鉱物も 数える。
  *
  * 数は 決め打ちせず、窓口 `mine.oreTable()`（§6.1）から 読む（#311）。窓口は 生成の 計算だけで 答える（`createMineHook({ seed })`）。
  *   oreTable()      → { layer, block, visible, all }[]
@@ -69,9 +73,14 @@ const fnv = (arr: Uint8Array): string => {
   return (h >>> 0).toString(16).padStart(8, '0');
 };
 
-/** 鉱石（名前が `_ore` で 終わる 物。せきたん・てつ・1B の 新しい 鉱物）を いしに 読みかえる */
-// 1B で 末尾が _ore で ない 新しい 鉱物を 足す ときは ここも 見る（sectionMesher.slice.test.ts の ORE_INDEXES も 同じ）
-const TO_STONE = new Uint8Array(BLOCK_TYPES.length).map((_, i) => (blockIdFromIndex(i).endsWith('_ore') ? STONE : i));
+/**
+ * 鉱石（表 `oreTable()` の ブロックぜんぶ ＋ 山の 面の せきたん・てつ）。新しい 鉱物を 表に 足せば 自然に ふえる
+ * （1B の ねんど・せっかいせき・ほたるいしは 名前が `_ore` で 終わらないので、名前の 終わりでは 決めない）
+ */
+const ORE_BLOCKS: readonly BlockId[] = [...new Set<BlockId>([...createMineHook({ seed: 1 }).oreTable().map((r) => r.block), 'coal_ore', 'iron_ore'])];
+const ORE_INDEXES: ReadonlySet<number> = new Set(ORE_BLOCKS.map((b) => BLOCK_INDEX[b]));
+/** 鉱石を いしに 読みかえる（sectionMesher.slice.test.ts の 読みかえも 同じ） */
+const TO_STONE = new Uint8Array(BLOCK_TYPES.length).map((_, i) => (ORE_INDEXES.has(i) ? STONE : i));
 const stoneHash = (arr: Uint8Array): string => {
   const a = new Uint8Array(arr.length);
   for (let i = 0; i < arr.length; i++) a[i] = TO_STONE[arr[i]!]!;
@@ -102,7 +111,7 @@ describe('A4: 形は かわらない（鉱石を いしに 読みかえた 列�
     }
     expect(n).toBeGreaterThan(0);
     expect(bad.slice(0, 8), `${bad.length} / ${n} 列が 前と ちがう`).toEqual([]);
-  });
+  }, 60_000); // 列を 作る 時間は 手元でも 2 秒。回す 数が 多い ときの ゆとり（おそくて 落ちない）
 
   it('山の 面の 見える 鉱石は 前と 同じ 場所（同じ 鉱石）', () => {
     const bad: string[] = [];
@@ -117,7 +126,7 @@ describe('A4: 形は かわらない（鉱石を いしに 読みかえた 列�
     }
     expect(n).toBeGreaterThan(0);
     expect(bad.slice(0, 8), `${bad.length} / ${n} マスが 前と ちがう`).toEqual([]);
-  });
+  }, 60_000);
 
   it('はじまりの 岩山の せきたんは 前と 同じ 場所', () => {
     const bad: string[] = [];
@@ -130,7 +139,7 @@ describe('A4: 形は かわらない（鉱石を いしに 読みかえた 列�
     }
     expect(n).toBeGreaterThan(0);
     expect(bad, `${bad.length} / ${n} マス`).toEqual([]);
-  });
+  }, 60_000);
 });
 
 // ------------------------------------------------------------------ A2・A3・A16: はらっぱ・もりの 陸の 列
@@ -230,7 +239,8 @@ describe('窓口の 正直さ: columnOres・oreClusters は 生成した 中身�
       const arr = flat(s.seed, s.cx, s.cz);
       for (const L of ls) {
         const top = L.maxY ?? WORLD_HEIGHT - 1;
-        for (const [block, idx] of [['coal_ore', COAL], ['iron_ore', IRON]] as const) {
+        for (const block of ORE_BLOCKS) {
+          const idx = BLOCK_INDEX[block];
           let n = 0;
           for (let y = L.minY; y <= top; y++) for (let i = 0; i < 256; i++) if (arr[y * 256 + i] === idx) n++;
           expect(oreOf(s, L.id, block, 'all'), `seed ${s.seed} 列 (${s.cx}, ${s.cz}) ${L.id} ${block}`).toBe(n);
@@ -252,14 +262,14 @@ describe('窓口の 正直さ: columnOres・oreClusters は 生成した 中身�
         return v;
       };
       const arr = get(s.cx, s.cz);
-      for (const L of LAYER_IDS) for (const b of BLOCKS) hook += oreOf(s, L, b, 'visible');
+      for (const L of LAYER_IDS) for (const b of ORE_BLOCKS) hook += oreOf(s, L, b, 'visible');
       for (let lz = 0; lz < 16; lz++) {
         for (let lx = 0; lx < 16; lx++) {
           const x = s.cx * 16 + lx;
           const z = s.cz * 16 + lz;
           for (let y = 1; y < WORLD_HEIGHT; y++) {
             const here = arr[(y * 16 + lz) * 16 + lx];
-            if (here !== COAL && here !== IRON) continue;
+            if (!ORE_INDEXES.has(here!)) continue;
             for (const [dx, dy, dz] of [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]] as const) {
               const nx = x + dx;
               const ny = y + dy;
@@ -284,7 +294,7 @@ describe('窓口の 正直さ: columnOres・oreClusters は 生成した 中身�
     for (const s of pick()) {
       const arr = flat(s.seed, s.cx, s.cz);
       for (const c of s.clusters) {
-        const want = c.block === 'coal_ore' ? COAL : c.block === 'iron_ore' ? IRON : -1;
+        const want = BLOCK_INDEX[c.block] ?? -1;
         expect(want, `知らない 鉱石 ${c.block}`).toBeGreaterThan(0);
         for (const m of c.cells) {
           const got = arr[(m.y * 16 + (m.z - s.cz * 16)) * 16 + (m.x - s.cx * 16)];
@@ -346,10 +356,10 @@ describe('A16: かたまり（§4.2。同じ 鉱石が 面で くっついた 2�
     expect(bad.slice(0, 8), `${bad.length} 件`).toEqual([]);
   });
 
-  it('⑤ 列の 中の その 鉱石の ブロックの 数 ＝ かたまりの マスの 合計（かたまりの 外の 鉱石が ない）', () => {
+  it('⑤ 列の 中の その 鉱石の ブロックの 数 ＝ かたまりの マスの 合計（かたまりの 外の 鉱石が ない。1B の 新しい 鉱物も）', () => {
     const bad: string[] = [];
     for (const s of samples) {
-      for (const block of BLOCKS) {
+      for (const block of ORE_BLOCKS) {
         const inClusters = s.clusters.filter((c) => c.block === block).reduce((p, c) => p + c.cells.length, 0);
         const inColumn = LAYER_IDS.reduce((p, L) => p + oreOf(s, L, block, 'all'), 0);
         if (inClusters !== inColumn) bad.push(`seed ${s.seed} 列 (${s.cx}, ${s.cz}) ${block}: かたまり ${inClusters} ・ 列 ${inColumn}`);
@@ -358,8 +368,8 @@ describe('A16: かたまり（§4.2。同じ 鉱石が 面で くっついた 2�
     expect(bad.slice(0, 8), `${bad.length} 列`).toEqual([]);
   });
 
-  it('⑥ target の わりあいが 2:40%・3:30%・4:20%・5:10% から ±0.03（ダイヤは 1B）', () => {
-    const all = samples.flatMap((s) => s.clusters);
+  it('⑥ target の わりあいが ダイヤ いがいを あわせて 2:40%・3:30%・4:20%・5:10% から ±0.03（ダイヤの 1:60%・2:40% は B15）', () => {
+    const all = samples.flatMap((s) => s.clusters).filter((c) => (c.block as string) !== 'diamond_ore');
     const want: Record<number, number> = { 2: 0.4, 3: 0.3, 4: 0.2, 5: 0.1 };
     expect(all.length).toBeGreaterThan(300);
     for (const c of all) expect(want[c.target], `target ${c.target}`).toBeDefined();
@@ -375,8 +385,8 @@ describe('A16: かたまり（§4.2。同じ 鉱石が 面で くっついた 2�
     expect(short / all.length, `${short} / ${all.length}`).toBeLessThanOrEqual(0.1);
   });
 
-  it('⑧ 置けた 大きさで 数えても 大きい ほど 少ない（2 ＞ 3 ＞ 4 ＞ 5）', () => {
-    const all = samples.flatMap((s) => s.clusters);
+  it('⑧ 置けた 大きさで 数えても 大きい ほど 少ない（2 ＞ 3 ＞ 4 ＞ 5。ダイヤいがい）', () => {
+    const all = samples.flatMap((s) => s.clusters).filter((c) => (c.block as string) !== 'diamond_ore');
     const n = (k: number) => all.filter((c) => c.cells.length === k).length;
     expect(n(2), '2 こ').toBeGreaterThan(n(3));
     expect(n(3), '3 こ').toBeGreaterThan(n(4));
@@ -396,7 +406,7 @@ describe('鉱石は 地形・ふつうの ほらあな・洞くつの 口を 掘
       for (const [cx, cz] of G.mouth[String(seed)]!) {
         const arr = flat(seed, cx, cz);
         for (const c of mine.oreClusters(cx, cz)) {
-          const want = c.block === 'coal_ore' ? COAL : IRON;
+          const want = BLOCK_INDEX[c.block];
           for (const m of c.cells) {
             cells++;
             expect(arr[(m.y * 16 + (m.z - cz * 16)) * 16 + (m.x - cx * 16)], `seed ${seed} 列 (${cx}, ${cz}) (${m.x}, ${m.y}, ${m.z}) は ${c.block}`).toBe(want);
@@ -405,5 +415,117 @@ describe('鉱石は 地形・ふつうの ほらあな・洞くつの 口を 掘
       }
     }
     expect(cells).toBeGreaterThan(0);
+  });
+});
+
+// ------------------------------------------------------------------ B6: ★の 量（MINE-1B。§4.2）
+
+/**
+ * ★の 鉱物 6 つ と 自分の 層（§4.2 の 表）。ダイヤは 見える 数が 少なくて ぶれるので ぜんぶ だけ くらべる（B6）。
+ * id は 仕様 §4.4 の 案（ダイヤの `diamond_ore` は KONGO-1 と そろえた 決まりの id）。
+ */
+const STARS: ReadonlyArray<{ block: string; layer: Layer; compareVisible: boolean }> = [
+  { block: 'nendo', layer: 'asai', compareVisible: true },
+  { block: 'sekkaiseki', layer: 'nakahodo', compareVisible: true },
+  { block: 'hotaruishi', layer: 'nakahodo', compareVisible: true },
+  { block: 'kin_ore', layer: 'fukai', compareVisible: true },
+  { block: 'suisho_ore', layer: 'fukai', compareVisible: true },
+  { block: 'diamond_ore', layer: 'fukai', compareVisible: false },
+];
+
+describe('B6: ★の 量（ねんど・せっかいせき・ほたるいし・きんの いし・すいしょうの いし・ダイヤの いし。A2 と 同じ 列）', () => {
+  const table = () => createMineHook({ seed: G.seeds[0]! }).oreTable();
+
+  it('表 oreTable() に ★ 6 つの 行が 1 つずつ あり、層は §4.2 の とおり。表の ぜんぶ は 見える ÷ 0.027 で 決めた（比が 約 2.7%）', () => {
+    for (const st of STARS) {
+      const rows = table().filter((r) => r.block === st.block);
+      expect(rows.map((r) => r.layer), `${st.block} の 行〔層〕`).toEqual([st.layer]);
+      const r = rows[0]!;
+      expect(r.all, `${st.block} の ぜんぶ`).toBeGreaterThan(0);
+      expect(r.visible / r.all, `${st.block}: 見える ${r.visible} ÷ ぜんぶ ${r.all}`).toBeGreaterThanOrEqual(0.025);
+      expect(r.visible / r.all, `${st.block}: 見える ${r.visible} ÷ ぜんぶ ${r.all}`).toBeLessThanOrEqual(0.029);
+    }
+  });
+
+  it('層ごとの 平均が oreTable() の 見える・ぜんぶ の 0.7〜1.4 倍（目安が 1 未満の 物は 0.6〜1.6 倍）。ダイヤは ぜんぶ だけ', () => {
+    const bad: string[] = [];
+    for (const st of STARS) {
+      const row = table().find((r) => r.block === st.block && r.layer === st.layer);
+      if (!row) {
+        bad.push(`${st.layer} ${st.block}: 表に 行が ない`);
+        continue;
+      }
+      for (const key of st.compareVisible ? (['visible', 'all'] as const) : (['all'] as const)) {
+        const want = row[key];
+        const got = avg((s) => oreOf(s, st.layer, st.block, key));
+        const [lo, hi] = want < 1 ? [0.6, 1.6] : [0.7, 1.4];
+        if (!(got >= want * lo && got <= want * hi)) bad.push(`${st.layer} ${st.block} ${key}: 平均 ${got.toFixed(2)}（表 ${want} の ${(got / want).toFixed(2)} 倍。ゆるし ${lo}〜${hi}）`);
+      }
+    }
+    expect(bad).toEqual([]);
+  });
+
+  it('自分の 層の 外では 0（ほかの 層に 行も 出方も ない）。自分の 層には ある', () => {
+    for (const st of STARS) {
+      expect(avg((s) => oreOf(s, st.layer, st.block, 'all')), `${st.layer} の ${st.block}`).toBeGreaterThan(0);
+      for (const layer of LAYER_IDS.filter((L) => L !== st.layer)) {
+        expect(avg((s) => oreOf(s, layer, st.block, 'all')), `${layer} の ${st.block}`).toBe(0);
+        expect(table().some((r) => r.block === st.block && r.layer === layer), `${layer} の ${st.block} の 行`).toBe(false);
+      }
+    }
+  });
+
+  it('★の かたまりが 本当に ある（oreClusters に ★の ブロックが 出る）。山の 面・はじまりの 岩山には ★は ない', () => {
+    for (const st of STARS) {
+      const n = samples.reduce((p, s) => p + s.clusters.filter((c) => c.block === st.block).length, 0);
+      expect(n, `${st.block} の かたまり`).toBeGreaterThan(0);
+    }
+  });
+});
+
+// ------------------------------------------------------------------ B15: ダイヤの いし（生成。A16 の ダイヤの 分）
+
+describe('B15: ダイヤの いし（ふかい 層だけ・かたまり 1〜2。1:60%・2:40% から ±0.1）', () => {
+  /** ダイヤの かたまりが 300 こ 集まるまで、シードの はじまりの まわりの 列を ふやして 読む（窓口 oreClusters だけ。上限 1,600 列。表に 行が 無ければ 読まない） */
+  let cache: OreCluster[] | null = null;
+  function diamondClusters(): OreCluster[] {
+    if (cache) return cache;
+    const mine = createMineHook({ seed: G.seeds[0]! });
+    const out: OreCluster[] = [];
+    if (mine.oreTable().some((r) => (r.block as string) === 'diamond_ore')) {
+      for (let cz = 0; cz < 40 && out.length < 300; cz++) {
+        for (let cx = 0; cx < 40 && out.length < 300; cx++) out.push(...mine.oreClusters(cx, cz).filter((c) => (c.block as string) === 'diamond_ore'));
+      }
+    }
+    return (cache = out);
+  }
+  // 列を 最大 1,600 本 読む さがしは 一度だけ、長い 時間切れで 先に 済ませる（負荷が 高くても 5 秒で 落ちない。上の samples と 同じ 考え）
+  beforeAll(() => {
+    diamondClusters();
+  }, 240_000);
+
+  it('かたまりが 300 こ 以上 集まる（列が 0 でも かたまりが 0 でも 通らない ように）', () => {
+    expect(createMineHook({ seed: 1 }).oreTable().some((r) => (r.block as string) === 'diamond_ore'), '表に ダイヤの いし').toBe(true);
+    expect(diamondClusters().length, 'ダイヤの かたまり').toBeGreaterThanOrEqual(300);
+  });
+
+  it('ぜんぶ ふかい 層。大きさは 1〜target で target は 1 か 2', () => {
+    const all = diamondClusters();
+    expect(all.length, 'ダイヤの かたまり').toBeGreaterThan(0);
+    for (const c of all) {
+      expect(c.layer, 'ダイヤの いしは ふかい 層だけ').toBe('fukai');
+      expect([1, 2], `target ${c.target}`).toContain(c.target);
+      expect(c.cells.length).toBeGreaterThanOrEqual(1);
+      expect(c.cells.length).toBeLessThanOrEqual(c.target);
+    }
+  });
+
+  it('target の わりあいが 1:60%・2:40% から ±0.1', () => {
+    const all = diamondClusters();
+    expect(all.length, 'ダイヤの かたまり').toBeGreaterThanOrEqual(300);
+    const f1 = all.filter((c) => c.target === 1).length / all.length;
+    const f2 = all.filter((c) => c.target === 2).length / all.length;
+    expect(Math.abs(f1 - 0.6), `target 1: ${(f1 * 100).toFixed(1)}%（60% の はず）`).toBeLessThanOrEqual(0.1);
+    expect(Math.abs(f2 - 0.4), `target 2: ${(f2 * 100).toFixed(1)}%（40% の はず）`).toBeLessThanOrEqual(0.1);
   });
 });

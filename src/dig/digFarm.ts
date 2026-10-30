@@ -1,5 +1,6 @@
 import type { BucketPreview, ItemId, PlayerState, TargetInfo, Vec3, WaterRay } from '../contracts';
 import { LIVE_SETTING_DEFAULTS, cropKindOfBlock, seedKindOfItem, vegKindOfItem } from '../contracts';
+import { MINE_ITEM } from '../content/items/ids';
 import { itemDef } from '../content/items/registry';
 import { isFloraBlock } from '../world/blocks/flora';
 import { overlapsBody, sameBlock, type DigCore } from './digCore';
@@ -244,6 +245,39 @@ export class DigFarm {
     if ((h !== undefined && isCan(h)) || h === 'bucket' || h === 'water_bucket') return null;
     if (!farm.crop(t.block.x, t.block.y, t.block.z)) return null;
     return ck.kind;
+  }
+
+  /**
+   * MINE-1B: いしばい を 持って、みのる 前の 作物（段 0〜2）か その 下の はたけ を ねらっている とき、その 作物の マスの 高さ（ねらった ブロックが 作物なら 同じ、はたけなら 1 つ 上）。
+   * みのった 作物・やせいの やさい・作物の ない はたけ・ほかの ブロックでは null（新しい 物は 作らない）
+   */
+  private ripenCropY(): number | null {
+    const c = this.d;
+    const t = c.tgt();
+    const farm = c.m4.farm;
+    if (!t || !farm || c.inventory.held()?.item !== MINE_ITEM.ishibai) return null;
+    let y = t.block.y;
+    if (!cropKindOfBlock(t.id)) {
+      if (t.id !== 'farmland' && t.id !== 'farmland_wet') return null;
+      y++;
+    }
+    const info = farm.crop(t.block.x, y, t.block.z);
+    return info && info.stage < 3 ? y : null;
+  }
+
+  /** 4 の 前: いしばい で みのらせる 作物を ねらっている（ヒント「まく」と 実行が 同じ 判定） */
+  ripenSpot(): boolean {
+    return this.ripenCropY() !== null;
+  }
+
+  /** いしばい を まく（作物を すぐ 段 3 に して いしばい 1 へる。みのらせた ときだけ） */
+  doRipen(): void {
+    const c = this.d;
+    const t = c.tgt();
+    const y = this.ripenCropY();
+    if (!t || y === null || !c.m4.farm?.ripen(t.block.x, y, t.block.z)) return;
+    c.inventory.consumeHeld();
+    c.m4.tools?.pushSwing('place');
   }
 
   /** くわ か すで で、上が くうき の くさ・つち を ねらっている */

@@ -3,7 +3,7 @@ import type { BlockId, ItemStack, Vec3 } from '../contracts';
 import { PlayerCombatImpl } from '../combat/PlayerCombat';
 import { COMBAT_DEFAULTS, createCombatConfig } from '../combat/config';
 import { CRAFT_DEFAULTS } from './config';
-import { CRAFT_RECIPES } from './recipes';
+import { BAKE_RECIPES, CRAFT_RECIPES } from './recipes';
 import { DropField } from '../drops';
 import { InventoryImpl } from '../inventory/Inventory';
 import { ITEM_TYPES } from '../inventory/items';
@@ -83,10 +83,12 @@ describe('つくる（AC1〜AC4）', () => {
   it('list は 38 こ、持ち物が空なら全部 craftable false', () => {
     const { craft } = rig();
     const l = craft.list();
-    expect(l).toHaveLength(55); // CRAFT-PAGE: たいまつの 作り方が 2 つ ふえた（カードは 44 枚）。GOLD-1: きんの そうび 8 こ。KONGO-1: こんごうの そうび 8 こ。TAKO-1: ふで
+    expect(l).toHaveLength(CRAFT_RECIPES.length); // 数は 決め打ちしない（#311）。MINE-1B: チョーク・しっくいが ふえた（作り方の 数は src/craft/mineRecipes.test.ts）
     expect(l.every((c) => !c.craftable && c.missing.length === c.inputs.length)).toBe(true);
     expect(l[0].id).toBe('wood_pickaxe');
-    expect(craft.bakeList().map((b) => b.id)).toEqual(['iron_ingot', 'kawara', 'brick', 'haniwa', 'kin', 'momo_yaki']); // GOLD-1: きん ＋ LIVE-3: momo_yaki が いちばん うしろ
+    const bake1A = ['iron_ingot', 'kawara', 'brick', 'haniwa', 'kin', 'momo_yaki']; // GOLD-1: きん ＋ LIVE-3: momo_yaki。MINE-1B: いしばい・きんの いしが この うしろに ふえる
+    expect(craft.bakeList().map((b) => b.id).slice(0, bake1A.length)).toEqual(bake1A);
+    expect(craft.bakeList()).toHaveLength(BAKE_RECIPES.length);
   });
 
   it('き 2 で bokuto が true、wood_pickaxe は き 1 足りない', () => {

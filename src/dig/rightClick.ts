@@ -54,6 +54,10 @@ export interface RightClickCtx {
   coopSpot?(): 'ok' | 'noRoom' | 'max' | null;
   /** 持っているものを、ねらっている所の前に置けるか */
   canPlace(): boolean;
+  /** MINE-1B: チョークを 持って、かける 面（ゆか・かべ）か かきなおせる しるしを ねらっている */
+  canChalk?(): boolean;
+  /** MINE-1B: いしばいを 持って、みのる 前の 作物（段 0〜2）か その 下の はたけを ねらっている */
+  canRipen?(): boolean;
   /** M7: くわ か すで で、上が くうき の くさ・つち を ねらっている（§2.7 の 4） */
   canTill?(): boolean;
   /** M7: たね を持って、上が くうき の はたけ を ねらっている（5） */
@@ -72,7 +76,7 @@ export function isKitEgg(item: ItemId | null): boolean {
   return item === 'egg' || item === 'kin_tamago';
 }
 
-/** だっこ（00）→ にわとり（0）→ あみ（0b）→ こたつ（1a）→ 小屋（1b）→ たんす → かまど → ふとん（ねる）→ たこ → 防具 → じょうろ（4a くむ・4b まく・4c 合図）→ なでる → たがやす → まく → 合図 → たべる → 置く の順（M7-2 §2.4）。何も起きないなら null */
+/** だっこ（00）→ にわとり（0）→ あみ（0b）→ こたつ（1a）→ 小屋（1b）→ たんす → かまど → ふとん（ねる）→ たこ → 防具 → チョーク（かく）→ バケツ → じょうろ（4a くむ・4b まく・4c 合図）→ いしばい（まく）→ なでる → たがやす → まく → 合図 → たべる → 置く の順（M7-2 §2.4）。何も起きないなら null */
 export function previewRightClick(c: RightClickCtx): RightClickPreview | null {
   const t = c.target;
   if (c.carrying?.()) return { kind: c.throwKind?.() ?? 'putDown', item: null };
@@ -94,10 +98,12 @@ export function previewRightClick(c: RightClickCtx): RightClickPreview | null {
   if (t && isFutonId(t.id)) return { kind: 'sleep', item: null };
   if (c.held === GADGET_ID.kite) return { kind: 'kite', item: c.held };
   if (c.held && c.canEquip(c.held)) return { kind: 'armor', item: c.held };
+  if (t && c.canChalk?.()) return { kind: 'chalkDraw', item: c.held }; // MINE-1B: たんす・かまど・ふとん の あと（そちらの 働きが 先）
   const b = c.bucket?.();
   if (b) return b === 'idle' ? null : { kind: b, item: c.held };
   const w = c.water?.();
   if (w) return { kind: w, item: c.held };
+  if (t && c.canRipen?.()) return { kind: 'ripen', item: c.held }; // MINE-1B: なでる より 先（みのった 作物は なでる）
   const pet = t ? c.petSpot?.() : null;
   if (pet) return { kind: 'pet', item: pet };
   if (t && c.canTill?.()) return { kind: 'till', item: c.held };

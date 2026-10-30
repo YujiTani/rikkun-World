@@ -64,7 +64,10 @@ export type FarmEvent =
   /** バケツ で 水を おいた（x,y,z = 水の マス） */
   | { type: 'bucketPlace'; tick: number; x: number; y: number; z: number }
   /** みずの バケツ が 置けない（コン） */
-  | { type: 'bucketNo'; tick: number; x: number; y: number; z: number };
+  | { type: 'bucketNo'; tick: number; x: number; y: number; z: number }
+  // ---- MINE-1B
+  /** いしばい を まいて 作物が すぐ みのった（x,y,z = 作物の マス。自然に みのった ときの `stage` とは べつ。実績用） */
+  | { type: 'ripened'; tick: number; x: number; y: number; z: number; kind: CropKind };
 
 /** BUCKET-1: バケツ 2 しゅるい */
 export type BucketId = 'bucket' | 'water_bucket';
@@ -133,6 +136,11 @@ export interface FarmSystem {
    * みのっていれば 作物を くうき にして（はたけ は のこす）、入るもの（乱数は 農業の シード付き）を返し、出来事 harvest / wild
    */
   harvest(x: number, y: number, z: number): FarmHarvestResult;
+  /**
+   * MINE-1B: いしばい で すぐ みのらせる（座標は 作物のマス）。みのる 前の 作物（段 0〜2）だけ → 段 3 に して true（出来事 stage・ishibai。
+   * 見た目は 自然に 育つ ときと 同じに 作り直す）。みのった 作物・やせいの やさい・作物でない マスは 何も せず false。いしばい を へらすのは C
+   */
+  ripen(x: number, y: number, z: number): boolean;
   /**
    * ブロックを こわした あと（`setBlock(…, 'air')` の あと）に C が呼ぶ。はたけ なら 上の作物を かたづけて、
    * 返す物（みのっていれば しゅうかく と同じ。みのっていなければ たね 1 こ）を 返す。
@@ -276,6 +284,7 @@ export type DigFarmPort = Pick<
   | 'eatHeal'
   | 'noteEat'
   | 'noteHint'
+  | 'ripen' // MINE-1B: いしばいで みのらせる
 >;
 
 /** 体力を 聞く・もどす口（`PlayerCombat` の 一部）。`DigM4Deps.vitals` に入れる */
@@ -369,7 +378,9 @@ export type RightClickKind =
   // ITEM-FX-1（#342）: ふとんで ねる・たこを あげる／もどす
   | 'sleep' | 'kite'
   // HOUSE-1A: 建築士さんを ねらって いる（右クリック = はなす。置く・耕す などの 案内は 出さない）
-  | 'talk';
+  | 'talk'
+  // MINE-1B: チョークで かく・いしばいを まく
+  | 'chalkDraw' | 'ripen';
 
 // ---------------------------------------------------------------- 設定（§4.3・§4.4・§4.5）
 
