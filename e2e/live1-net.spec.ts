@@ -26,7 +26,7 @@ test.describe('LIVE-1 むしとりあみ・むし', () => {
       const made = h.craft.make('mushi_ami');
       h.step(3);
       const out: any = {
-        last: ids[ids.length - 9], // GOLD-1: うしろに きんの そうび 8 まい
+        last: ids[ids.indexOf('kin_katana') - 1], // きんの そうび（kin_katana）の すぐ まえ。うしろに ふえる シリーズ（こんごう など）に よらない
         ok: made?.ok,
         net: h.inventory.count('mushi_ami'),
         log: h.inventory.count('log'),

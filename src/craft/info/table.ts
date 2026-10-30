@@ -65,4 +65,4 @@ export const MUSHI_SOURCE = 'むしとりあみ で き から とる';
 export { YOKAI_NAME } from '../../yokai/stats';
 
 /** 四角のメーターの最大の数（§2.2） */
-export const STAT_MAX = { dig: 6, damage: 6, guard: 5 } as const;
+export const STAT_MAX = { dig: 8, damage: 8, guard: 5 } as const;

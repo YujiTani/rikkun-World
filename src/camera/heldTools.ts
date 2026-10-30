@@ -3,7 +3,9 @@ import type { ItemId } from '../contracts';
 import { AXE_HELD_PARTS } from './heldAxes';
 import { NIJI_TACHI, PAL_NIJI } from '../ui/itemArtW7';
 import { BUG_HELD_PARTS, NET_HELD_PARTS } from './heldLive';
-import { GOLD_HELD_PARTS } from './heldGold';
+import { GOLD_BOW, GOLD_HELD_PARTS, type BowPalette } from './heldGold';
+import { KONGO_BOW, KONGO_HELD_PARTS } from './heldKongo';
+import { isBowItem } from '../content/items/ids';
 
 /**
  * 手に持つ道具・武器・M4 のアイテムの見た目（箱を組みあわせた小さな模型）。
@@ -75,6 +77,7 @@ export const HELD_MODELS: Partial<Record<ItemId, Part[]>> = {
   iron_pickaxe: pickaxe(0xd8dde3),
   ...AXE_HELD_PARTS,
   ...GOLD_HELD_PARTS,
+  ...KONGO_HELD_PARTS,
   // LIVE-1 版 3.2
   mushi_ami: NET_HELD_PARTS,
   mushi: BUG_HELD_PARTS,
@@ -255,7 +258,7 @@ function seedBag(color: number): Part[] {
 
 /** 左手で持つ（ゆみ） */
 export function isLeftHanded(item: ItemId): boolean {
-  return item === 'yumi' || item === 'kin_yumi';
+  return isBowItem(item);
 }
 
 /** 模型があるか（ブロック・材料・ようかいだま以外の M4 のアイテム） */
@@ -364,7 +367,10 @@ const BOW_TIP_REL = { y: 0.06, z: 0.18 } as const;
 const rot = (a: number, y: number, z: number): [number, number] => [y * Math.cos(a) - z * Math.sin(a), y * Math.sin(a) + z * Math.cos(a)];
 
 /** 左手で持つ弓。まん中（にぎり）が原点、のびる向きは Z、ふくらみは -Y、つるは +Y 側 */
-export function createBendableBow(gold = false): BendableBow {
+/** 色つきの ゆみ の 色（item → 色。ゆみ は 木の まま）。形は 金と 同じ（箱 10） */
+export const BOW_PALETTES: Partial<Record<ItemId, BowPalette>> = { ...GOLD_BOW, ...KONGO_BOW };
+
+export function createBendableBow(pal?: BowPalette): BendableBow {
   const g = new THREE.Group();
   const mk = (w: number, h: number, d: number, color: number, parent: THREE.Object3D, x: number, y: number, z: number) => {
     const m = new THREE.Mesh(sharedGeometry(w, h, d), sharedMaterial(color));
@@ -375,16 +381,16 @@ export function createBendableBow(gold = false): BendableBow {
   };
   // children[0] = にぎり（heldWorldPosition が読む）
   // GOLD-1（案 B）: きんの ゆみ は にぎり が 金・弓 は くろうるし・帯 と はし が 金（箱 10）
-  mk(0.05, 0.05, 0.16, gold ? 0xebb840 : DARK, g, 0, -0.15, 0);
+  mk(0.05, 0.05, 0.16, pal ? pal.grip : DARK, g, 0, -0.15, 0);
   const halves: { a: THREE.Group; b: THREE.Group; s: number }[] = [];
   for (const s of [-1, 1]) {
     const a = new THREE.Group();
-    mk(0.04, 0.04, 0.22, gold ? 0x2a2238 : BOW_WOOD, a, 0, -0.12, 0.19 * s);
-    if (gold) mk(0.05, 0.05, 0.04, 0xc98a1e, a, 0, -0.12, 0.25 * s);
+    mk(0.04, 0.04, 0.22, pal ? pal.limb : BOW_WOOD, a, 0, -0.12, 0.19 * s);
+    if (pal) mk(0.05, 0.05, 0.04, pal.band, a, 0, -0.12, 0.25 * s);
     const b = new THREE.Group();
     b.position.set(0, BOW_PIVOT_B.y, BOW_PIVOT_B.z * s);
-    mk(0.04, 0.04, 0.2, gold ? 0x2a2238 : BOW_WOOD, b, 0, -0.04 - BOW_PIVOT_B.y, 0.38 * s - BOW_PIVOT_B.z * s);
-    if (gold) mk(0.05, 0.05, 0.04, 0xebb840, b, 0, -0.04 - BOW_PIVOT_B.y, 0.47 * s - BOW_PIVOT_B.z * s);
+    mk(0.04, 0.04, 0.2, pal ? pal.limb : BOW_WOOD, b, 0, -0.04 - BOW_PIVOT_B.y, 0.38 * s - BOW_PIVOT_B.z * s);
+    if (pal) mk(0.05, 0.05, 0.04, pal.tip, b, 0, -0.04 - BOW_PIVOT_B.y, 0.47 * s - BOW_PIVOT_B.z * s);
     a.add(b);
     g.add(a);
     halves.push({ a, b, s });

@@ -5,7 +5,7 @@ import type { LogCategory } from '../../contracts';
  * 外の形（ふち 1 ドットをふくむ）が 6 つ たがいにちがう。中に白い小さな絵。
  * 色は M6 §3.5 (2) の色だけ。
  */
-export type ShapeName = 'circle' | 'square' | 'hexagon' | 'star' | 'diamond' | 'triangle';
+export type ShapeName = 'circle' | 'square' | 'hexagon' | 'star' | 'rhombus' | 'triangle';
 
 export interface CategoryInfo {
   id: LogCategory;
@@ -21,7 +21,7 @@ export const LOG_CATEGORIES: readonly CategoryInfo[] = [
   { id: 'craft', label: 'つくる', color: '#ffc83d', shape: 'square' },
   { id: 'fight', label: 'たたかい', color: '#ff8a1f', shape: 'hexagon' },
   { id: 'achieve', label: 'じっせき', color: '#c79bff', shape: 'star' },
-  { id: 'info', label: 'おしらせ', color: '#4fc3f7', shape: 'diamond' },
+  { id: 'info', label: 'おしらせ', color: '#4fc3f7', shape: 'rhombus' },
   { id: 'warn', label: 'できない', color: '#ff5a5f', shape: 'triangle' },
 ];
 
@@ -81,7 +81,7 @@ export function shapeMask(shape: ShapeName): boolean[] {
         case 'star':
           on = inPolygon(x + 0.5, y + 0.5, STAR_PTS);
           break;
-        case 'diamond':
+        case 'rhombus':
           on = Math.abs(px) + Math.abs(py) <= 7.9;
           break;
         case 'triangle':

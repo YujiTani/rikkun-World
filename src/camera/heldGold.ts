@@ -18,6 +18,19 @@ const GS = 0xfff0b4;
 const LN = 0x2a2238; // くろうるし
 const STRING = 0xf4eedc;
 
+/** 色つきの ゆみ（にぎり・弓・帯・はし）。形は ぜんぶ 同じ（箱 10）で 色だけ ちがう */
+export interface BowPalette {
+  grip: number;
+  limb: number;
+  band: number;
+  tip: number;
+}
+
+/** 手に持つ形の 箱（大きさ・位置・色） */
+export type { Part };
+
+export const GOLD_BOW: Partial<Record<ItemId, BowPalette>> = { kin_yumi: { grip: GL, limb: LN, band: GM, tip: GL } };
+
 const P = (size: Part['size'], pos: Part['pos'], color: number): Part => ({ size, pos, color });
 
 export const GOLD_HELD_PARTS: Partial<Record<ItemId, Part[]>> = {
