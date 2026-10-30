@@ -1,4 +1,4 @@
-// HOUSE-1B 試作: ① そと の 画面（左 6 わり ＝ 回る 見本の 穴、右 4 わり ＝ よこ・たて・まどの かず・まどの しゅるい・やね）。仕様 §3.2 の ① そと。
+// HOUSE-1B 試作: ① そと の 画面（左 ＝ 回る 見本の 穴、右 ＝ パネル: よこ・たて ／ まどの かず・まどの しゅるい ／ やね の 3 まとまり）。仕様 §3.2 の ① そと。
 // はじめから よこ 5・たて 5 を えらんだ 状態。戸は まえ 固定（えらぶ 画面は ない）。
 // しゅるいの 行は ボタンが ふえても ならんで 折りかえす（あとで レシピで ふえる）。まどの 行に 手を おくと 見本の 窓が 光る。
 import { btn, el, markSel, setOff } from './dom';
@@ -17,7 +17,8 @@ export interface StepPanel {
 
 export function buildSoto(ctl: EditorController, preview: Preview3D): StepPanel {
   const root = el('section', 'ed-stepview ed-stepview--soto');
-  const left = el('div', 'ed-left');
+  const left = el('div', 'ed-colL');
+  left.dataset.col = 'L'; // ふきだしの はばを そろえる 左の 列
   const view = el('div', 'ed-view');
   view.dataset.testid = 'editor-preview';
   bindDrag(view, preview);
@@ -27,14 +28,24 @@ export function buildSoto(ctl: EditorController, preview: Preview3D): StepPanel 
   side.append(panel);
   root.append(left, side);
 
+  /** まとまり（余白の 表の 14: まとまり → まとまり。中の 行 → 行 は 13） */
+  const group = (): HTMLElement => {
+    const g = el('div', 'ed-grp');
+    panel.append(g);
+    return g;
+  };
+  const gSize = group();
+  const gWindow = group();
+  const gRoof = group();
+
   /** 行 1 つ: 名前（絵 ＋ 1〜2 行の 字。1 行ずつ 分けて 作る ので 折りかえさない）と ボタンの ならび */
-  const row = (testid: string, icon: string, lines: readonly string[]): HTMLElement => {
+  const row = (g: HTMLElement, testid: string, icon: string, lines: readonly string[]): HTMLElement => {
     const r = el('div', 'ed-row');
     r.dataset.testid = testid;
     r.append(el('div', 'ed-lab', `${icon}<span class="ed-lab__text">${lines.map((t) => `<span>${t}</span>`).join('')}</span>`));
     const opts = el('div', 'ed-opts');
     r.append(opts);
-    panel.append(r);
+    g.append(r);
     return opts;
   };
   /** この ボタンの ならびに 手を おいて いる 間、見本の 窓を 光らせる */
@@ -47,7 +58,7 @@ export function buildSoto(ctl: EditorController, preview: Preview3D): StepPanel 
 
   // よこ・たて: 5・7・9
   const sizeRow = (axis: 'w' | 'd', label: string, icon: string, testid: string): Array<[Size, HTMLButtonElement]> => {
-    const opts = row(testid, icon, [label]);
+    const opts = row(gSize, testid, icon, [label]);
     return SIZES.map((n) => {
       const b = btn({ cls: 'ed-opt', html: String(n), testid: `${testid}-${n}`, onClick: () => void ctl.setSize({ [axis]: n }) });
       opts.append(b);
@@ -58,7 +69,7 @@ export function buildSoto(ctl: EditorController, preview: Preview3D): StepPanel 
   const dBtns = sizeRow('d', 'たて', ICONS.depth, 'editor-size-d');
 
   // まどの かず: − 数 ＋
-  const winOpts = row('editor-windows', ICONS.window, ['まどの', 'かず']);
+  const winOpts = row(gWindow, 'editor-windows', ICONS.window, ['まどの', 'かず']);
   const minus = btn({ cls: 'ed-opt', html: ICONS.minus, testid: 'editor-win-minus', onClick: () => void ctl.windows(-1) });
   minus.setAttribute('aria-label', 'まどを へらす');
   const count = el('div', 'ed-count');
@@ -69,14 +80,14 @@ export function buildSoto(ctl: EditorController, preview: Preview3D): StepPanel 
   glowOnHover(winOpts);
 
   // まどの しゅるい・やね: えらぶ ボタン（いまは 1 つずつ。1 つでも えらんで いる ✓）
-  const kindOpts = row('editor-window-kind', ICONS.shoji, ['まどの', 'しゅるい']);
+  const kindOpts = row(gWindow, 'editor-window-kind', ICONS.shoji, ['まどの', 'しゅるい']);
   const kindBtns = WINDOW_KINDS.map((k) => {
     const b = btn({ cls: 'ed-opt ed-opt--text', html: WINDOW_KIND_LABEL[k], testid: `editor-window-kind-${k}`, onClick: () => void ctl.setWindowKind(k) });
     kindOpts.append(b);
     return [k, b] as const;
   });
   glowOnHover(kindOpts);
-  const roofOpts = row('editor-roof', ICONS.roof, ['やね']);
+  const roofOpts = row(gRoof, 'editor-roof', ICONS.roof, ['やね']);
   const roofBtns = ROOF_KINDS.map((k) => {
     const b = btn({ cls: 'ed-opt ed-opt--text', html: ROOF_LABEL[k], testid: `editor-roof-${k}`, onClick: () => void ctl.setRoof(k) });
     roofOpts.append(b);

@@ -7,7 +7,7 @@ import type { EditorController } from './editor';
 import { PressFx, type PressKind } from './feedback';
 import { ICONS } from './icons';
 import type { Preview3D, ViewRect } from './preview';
-import { BAND_PX, BAR, type Step } from './tuning';
+import { BAND_PX, type Step } from './tuning';
 import { ruby } from '../../ui/text';
 import { NakaPanel } from './uiNaka';
 import { untouchViews } from './uiDrag';
@@ -61,6 +61,7 @@ export class EditorUi {
   private readonly hand = el('div', 'ed-hand', ICONS.hand);
   private readonly reopen: HTMLButtonElement;
   private readonly lead = el('h2', 'ed-lead');
+  private readonly mid = el('main', 'ed-mid');
   /** 「あたらしい せっけいず → ぜんぶ けす」を 見た 回数（見本の 向きを はじめに もどす ため） */
   private resets = 0;
 
@@ -71,7 +72,7 @@ export class EditorUi {
     this.naka = new NakaPanel(ctl, o.preview, makeTileUrls(), this.fx);
     this.panels = { soto: buildSoto(ctl, o.preview), naka: this.naka, namae: buildNamae(ctl) };
 
-    // 上の 帯: 左 ＝ タイトルと すすみ（印）、右 ＝ もどす・すすむ・✕。すぐ 下に 見出しの 行
+    // 上の 帯 1 だん目: 左 ＝ タイトル・その 右に すすみ（印）、右 ＝ もどす・すすむ・✕。すぐ 下に 見出しの だん
     const top = el('header', 'ed-top');
     const head = el('div', 'ed-top__main');
     const title = el('h1', 'ed-title', TITLE);
@@ -95,18 +96,17 @@ export class EditorUi {
     head.append(title, steps);
     top.append(head, topRight);
 
-    // まん中
-    const mid = el('main', 'ed-mid');
+    // まん中。ふきだしは 見出しの だんの 左から 重ねる ので root に 置く（見本・方眼の 上の はしに かかって よい）
+    const mid = this.mid;
     mid.append(this.panels.soto.el, this.panels.naka.el, this.panels.namae.el);
     this.say = new Say(ctl, () => ctl.hideBubble());
-    mid.append(this.say.el);
 
-    // 下の 帯: 左 ＝ あたらしい せっけいず・ひつような もの、右 ＝ まえへ・つぎへ・できた！（ほかの ボタンの 場所は 動かさない）
+    // 下の 帯: 左 ＝ あたらしい せっけいず・ひつような もの、右 ＝ まえへ・つぎへ・できた！（字は ぜんぶ 1 行。ほかの ボタンの 場所は 動かさない）
     const bottom = el('footer', 'ed-bottom');
     const bl = el('div', 'ed-bar-group');
     bl.append(
-      btn({ cls: 'ed-btn--two', html: '<span>あたらしい</span><span>せっけいず</span>', testid: 'editor-reset', onClick: () => ctl.openReset() }),
-      btn({ cls: 'ed-btn--two', html: '<span>ひつような</span><span>もの</span>', testid: 'editor-need-open', onClick: () => ctl.openNeed() }),
+      btn({ cls: 'ed-btn--wide', html: 'あたらしい せっけいず', testid: 'editor-reset', onClick: () => ctl.openReset() }),
+      btn({ cls: 'ed-btn--wide', html: 'ひつような もの', testid: 'editor-need-open', onClick: () => ctl.openNeed() }),
     );
     this.prevBtn = btn({ cls: 'ed-btn--nav', html: `${ICONS.prev}<span>まえへ</span>`, testid: 'editor-prev', onClick: () => void ctl.prev() });
     this.nextBtn = btn({ cls: 'ed-btn--nav', html: `<span>つぎへ</span>${ICONS.next}`, testid: 'editor-next', onClick: () => void ctl.next() });
@@ -117,7 +117,7 @@ export class EditorUi {
 
     this.confirm = new ConfirmPop(ctl);
     this.need = new NeedPop(ctl);
-    this.root.append(top, this.lead, mid, bottom, this.confirm.el, this.need.el, this.hand);
+    this.root.append(top, this.lead, mid, bottom, this.say.el, this.confirm.el, this.need.el, this.hand);
     o.parent.append(this.root);
 
     this.reopen = btn({ cls: 'ed-reopen', html: 'せっけいずを ひらく', testid: 'editor-reopen', onClick: () => o.open() });
@@ -156,9 +156,10 @@ export class EditorUi {
     untouchViews(this.root);
   }
 
-  /** 方眼の マス（§3.2: (まん中の 高さ − 48) ÷ 9 の 切り捨て → 48・59・70） */
+  /** 方眼の マス（§3.2: (まん中の 高さ − 48) ÷ 9 の 切り捨て → 48・54・61）。まん中の 高さは 画面に 出て いる 実際の 高さ（上の 表） */
   private layout(): void {
-    const mid = window.innerHeight - (BAR.top + BAR.lead + BAR.bottom);
+    const mid = this.mid.clientHeight;
+    if (mid <= 0) return; // とじて いる 間は はからない（ひらく とき もう 1 回）
     const cell = Math.max(48, Math.floor((mid - (2 * BAND_PX + 16)) / 9));
     this.root.style.setProperty('--ed-cell', `${cell}px`);
     this.naka.setCell(cell);
@@ -200,10 +201,19 @@ export class EditorUi {
       this.resetView();
     }
     this.panels[s.step].update();
+    this.root.classList.toggle('has-say', ctl.bubble !== null);
+    this.sayWidth(s.step);
     this.o.preview.setShape(s, s.step === 'naka' ? 'inside' : 'outside');
     this.confirm.update();
     this.need.update();
     this.say.update();
+  }
+
+  /** ふきだしの はば ＝ その すすみの 左の 列の はば（§3.2。ふきだしの 字は これ − 100 で 折りかえす） */
+  private sayWidth(step: Step): void {
+    const col = this.root.querySelector<HTMLElement>(`.ed-stepview--${step} [data-col='L']`);
+    const w = col?.getBoundingClientRect().width ?? 0;
+    if (w > 0) this.root.style.setProperty('--ed-say-w', `${Math.round(w)}px`);
   }
 
   /** 見本の 穴の 四角（キャンバスの 左上から。見本が ない すすみは null） */

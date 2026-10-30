@@ -1,11 +1,11 @@
-// HOUSE-1B 試作: ② なか の 画面（左 6 わり ＝ 上から 見た 方眼〔かべは 帯〕、右 4 わり ＝ 屋根なしの 見本・家具 9 種・えらんだ 名前・あかり）。
+// HOUSE-1B 試作: ② なか の 画面（左 ＝ 上から 見た 方眼〔かべは 帯〕、右（パネルに しない）＝ 屋根なしの 見本・家具の ボタン〔1 行 7 こまで。9 種は 上 5・下 4〕・えらんだ 名前・あかり）。
 // 仕様 §3.2 の ② なか。置ける 所は 白、置けない 所は 赤（家具の 形が 色づく）。戸の 前の 1 マスは 足あと。
 // 置いた 家具を 押す と、その 家具の すぐ そば（下、はみ出す ときは 上）に ［とる］［↻］［↺］が 出る。家具を まわすと ついて いく。
 import { btn, el, markSel, type TileUrls } from './dom';
 import type { EditorController } from './editor';
 import type { PressFx } from './feedback';
 import { ICONS } from './icons';
-import { DOOR_MARK, doorMark, shojiMark } from './marks';
+import { DOOR_MARK_H, doorMark, shojiMark } from './marks';
 import { doorIndex, doorInside, footprint, placeProblem, windowCells } from './model';
 import type { Preview3D } from './preview';
 import { BAND_PX, CLUSTER, DOOR_WALL, FURN_ORDER, FURNITURE, type FurnKind, type Wall } from './tuning';
@@ -41,11 +41,14 @@ export class NakaPanel implements StepPanel {
     this.grid.dataset.testid = 'editor-grid';
     this.ghost.alt = '';
     this.ghost.hidden = true;
-    const left = el('div', 'ed-left');
+    const left = el('div', 'ed-colL ed-colL--naka');
+    left.dataset.col = 'L'; // ふきだしの はばを そろえる 左の 列
     left.append(this.grid);
-    const side = el('aside', 'ed-side');
+    const side = el('aside', 'ed-right');
     const pal = el('div', 'ed-palette');
     pal.dataset.testid = 'editor-palette';
+    // 1 行 ceil(n÷2) こ（9 種 ＝ 上 5・下 4、13 種 ＝ 上 7・下 6）。ふえても この 式だけで ならぶ
+    pal.style.setProperty('--ed-pal-cols', String(Math.ceil(FURN_ORDER.length / 2)));
     for (const kind of FURN_ORDER) {
       const b = btn({ cls: 'ed-fbtn', html: '', testid: `editor-furn-${kind}`, onClick: () => ctl.selectPalette(kind) });
       b.title = FURNITURE[kind].name;
@@ -55,7 +58,9 @@ export class NakaPanel implements StepPanel {
     }
     this.light = btn({ cls: 'ed-light', html: '', testid: 'editor-light', onClick: () => ctl.selectLight() });
     this.fname.dataset.testid = 'editor-furn-name';
-    side.append(this.view, pal, this.fname, this.light);
+    const lower = el('div', 'ed-lower');
+    lower.append(this.fname, this.light);
+    side.append(this.view, pal, lower);
     this.el.append(left, side);
     this.buildCluster();
 
@@ -165,7 +170,7 @@ export class NakaPanel implements StepPanel {
     markSel(this.light, sel.light);
     const placed = sel.placed !== null ? s.furniture[sel.placed] : undefined;
     const name = placed ? FURNITURE[placed.kind].name : sel.palette ? FURNITURE[sel.palette].name : sel.light ? 'あかり' : '';
-    this.fname.textContent = name || 'かぐを えらんでね';
+    this.fname.textContent = name || 'かぐを えらぼう'; // 7 字 ＋ 空白 ＝ 176 に おさまる 長さ
     this.fname.style.color = name ? '' : 'var(--rk-text-sub)';
   }
 
@@ -210,10 +215,10 @@ export class NakaPanel implements StepPanel {
     };
     for (const wc of windowCells(s)) {
       const r = bandRect(wc.wall, wc.i);
-      const len = (r.horiz ? r.w : r.h) - 8;
+      const len = (r.horiz ? r.w : r.h) - 4; // 1 マスの はば（となりと 4 あける）
       const m = el('div', 'ed-mark ed-mark--window', shojiMark(len, B, r.horiz));
       m.dataset.testid = 'editor-mark-window';
-      parts.push(this.place(m, r.x + (r.horiz ? 4 : 0), r.y + (r.horiz ? 0 : 4), r.horiz ? len : B, r.horiz ? B : len));
+      parts.push(this.place(m, r.x + (r.horiz ? 2 : 0), r.y + (r.horiz ? 0 : 2), r.horiz ? len : B, r.horiz ? B : len));
     }
     // ゆか（マスは ただの div。押す・手を おく 先）
     this.place(this.floor, B, B, w * c, d * c);
@@ -231,13 +236,14 @@ export class NakaPanel implements StepPanel {
     }
     this.floor.replaceChildren(...cells);
     parts.push(this.floor);
-    // 戸の 前の 足あと・戸の 絵（立てた 戸。帯の まん中に 重ねる）・天井の ちょうちんの 印（方眼の まん中）
+    // 戸の 前の 足あと・戸の 絵（1 マスの はば × 24 ＝ 帯 16 ＋ 外へ 8。帯の 上から 外へ はみ出す）・天井の ちょうちんの 印（方眼の まん中）
     const door = bandRect(DOOR_WALL, doorIndex(s));
     const foot = doorInside(s);
     parts.push(this.place(el('div', 'ed-mark ed-mark--foot', ICONS.foot), B + foot.x * c, B + foot.z * c, c, c));
-    const dm = el('div', 'ed-mark ed-mark--door', doorMark());
+    const dw = door.w - 4;
+    const dm = el('div', 'ed-mark ed-mark--door', doorMark(dw));
     dm.dataset.testid = 'editor-mark-door';
-    parts.push(this.place(dm, door.x + (door.w - DOOR_MARK.w) / 2, door.y + (door.h - DOOR_MARK.h) / 2, DOOR_MARK.w, DOOR_MARK.h));
+    parts.push(this.place(dm, door.x + 2, door.y, dw, DOOR_MARK_H));
     const lamp = this.place(el('div', 'ed-mark ed-mark--lamp', ICONS.lantern), B + ((w - 1) / 2) * c, B + ((d - 1) / 2) * c, c, c);
     lamp.dataset.testid = 'editor-lamp-mark';
     parts.push(lamp, this.place(this.layer, B, B, w * c, d * c));
