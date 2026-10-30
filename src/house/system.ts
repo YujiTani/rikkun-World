@@ -25,6 +25,8 @@ export interface HouseSystemDeps {
   voice: () => void;
   /** 道具を わたした（拾った 知らせ） */
   gave: (item: ItemId) => void;
+  /** 持ち物の ほかに 持って いる 数（たんすの 中）。なければ 持ち物だけ */
+  owned?: (item: ItemId) => number;
   /** メニューが 開いた / とじた（ゲームの 時間を 止める・マウスの ポインターを はなす / もどす） */
   onOpen: () => void;
   onClose: () => void;
@@ -59,6 +61,7 @@ export class HouseSystem {
       onClose: () => d.onClose(),
       endTalk: (id) => this.manager.endTalk(id),
       gave: d.gave,
+      ...(d.owned ? { owned: d.owned } : {}),
     });
   }
 

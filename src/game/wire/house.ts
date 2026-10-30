@@ -12,7 +12,7 @@ import type { WiredYokai } from './creatures';
 const HEAD_TOP = 1.8;
 
 export function wireHouse(deps: WiredYokai) {
-  const { shared, world, seed, island, game, fxSound, hud, lock, pointerLock, controller, inventory, lighting, combat, dig, screen, blobShadow } = deps;
+  const { shared, world, seed, island, game, fxSound, hud, lock, pointerLock, controller, inventory, lighting, combat, dig, screen, blobShadow, storage } = deps;
 
   const house = new HouseSystem({
     seed,
@@ -27,6 +27,8 @@ export function wireHouse(deps: WiredYokai) {
     voice: () => playArchitect(fxSound, 'architect_voice'),
     // 道具を わたした: 「拾った」ログ・知らせと 同じ 道を 通す（持ち物には もう 入れてある）
     gave: (item) => shared.onDropPicked(item, 1, false),
+    // たんすの 中の 道具も「持って いる」（なくした ときだけ「どうぐを もらう」）
+    owned: (item) => storage.list().reduce((n, p) => n + storage.countItem(p.x, p.y, p.z, item), 0),
     // メニュー・くらが 開く: マウスが 出る。時間と 妖怪の 停止は ゲームの 窓（shared.houseFrozen）が 受けもつ。たんす・とりごやと おなじ 錠の あつかい
     onOpen: () => {
       lock.setInventoryOpen(true);

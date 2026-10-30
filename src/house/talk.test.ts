@@ -15,7 +15,7 @@ interface Rig {
   calls: string[];
 }
 
-function rig(record: HouseRecord = { toolsGiven: false, first: null }): Rig {
+function rig(record: HouseRecord = { toolsGiven: false, first: null }, owned?: (item: ItemId) => number): Rig {
   const bag = new InventoryImpl();
   const kura = new Kura();
   const calls: string[] = [];
@@ -23,6 +23,7 @@ function rig(record: HouseRecord = { toolsGiven: false, first: null }): Rig {
     record,
     kura,
     bag,
+    ...(owned ? { owned } : {}),
     voice: () => calls.push('voice'),
     onOpen: () => calls.push('open'),
     onClose: () => calls.push('close'),
@@ -200,6 +201,32 @@ describe('AC3 道具を くれる 条件', () => {
     r.talk.press('tools');
     expect(r.bag.count('mizumori' as ItemId)).toBe(1);
     expect(r.bag.count('dotsuki' as ItemId)).toBe(1);
+  });
+
+  it('たんすの 中に ある 道具は 持って いる ことに する（その 道具だけ「どうぐを もらう」から はずれる）', () => {
+    const inTansu = new Set<string>(['mizumori']);
+    const r = rig({ toolsGiven: true, first: null }, (item) => (inTansu.has(item) ? 1 : 0));
+    r.talk.start('first');
+    run(r, 22);
+    expect(ids(r)).toContain('tools'); // どうづきは どこにも ない
+    r.talk.press('tools');
+    expect(r.bag.count('mizumori' as ItemId), 'たんすに ある みずもりは ふやさない').toBe(0);
+    expect(r.bag.count('dotsuki' as ItemId)).toBe(1);
+    expect(ids(r), '両方 そろった（たんす ＋ 持ち物）ので ボタンが きえる').not.toContain('tools');
+  });
+
+  it('両方 たんすに あれば「どうぐを もらう」は 出ない。はじめての あいさつでも ふやさない', () => {
+    const owned = (): number => 1;
+    const r = rig({ toolsGiven: true, first: null }, owned);
+    r.talk.start('first');
+    run(r, 22);
+    expect(ids(r)).not.toContain('tools');
+    const first = rig({ toolsGiven: false, first: null }, owned);
+    first.talk.start('first');
+    run(first, 22 + GREET_STEPS * 2);
+    expect(first.bag.count('mizumori' as ItemId)).toBe(0);
+    expect(first.bag.count('dotsuki' as ItemId)).toBe(0);
+    expect(first.talk.menu().open).toBe(true);
   });
 
   it('持ち物が いっぱいで わたせないときは あずからない（どうぐを もらう は のこる）', () => {

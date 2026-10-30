@@ -62,6 +62,8 @@ export interface HouseTalkDeps {
   endTalk: (id: string) => void;
   /** 道具を 1 つ わたした（拾った 知らせを 出す） */
   gave: (item: ItemId) => void;
+  /** 持ち物の ほかに 持って いる 数（たんすの 中。なければ 0）。持って いる 道具は あげない・「どうぐを もらう」に 出さない */
+  owned?: (item: ItemId) => number;
 }
 
 type Phase = 'idle' | 'nod' | 'greet1' | 'greet2' | 'menu';
@@ -208,16 +210,21 @@ export class HouseTalk {
     this.d.onOpen();
   }
 
+  /** 持ち物にも たんすにも ある（なくしていない） */
+  private has(id: ItemId): boolean {
+    return this.d.bag.count(id) + (this.d.owned?.(id) ?? 0) > 0;
+  }
+
   /** どちらかの 道具を 持って いない（どうぐを もらう を 出す） */
   private missingTool(): boolean {
-    return HOUSE_TOOL_IDS.some((id) => this.d.bag.count(id) === 0);
+    return HOUSE_TOOL_IDS.some((id) => !this.has(id));
   }
 
   /** 持って いない 道具を 1 こずつ わたす。ぜんぶ 持つ ことに なったら true（入りきらない 分が あれば false） */
   private giveMissing(): boolean {
     let all = true;
     for (const id of HOUSE_TOOL_IDS) {
-      if (this.d.bag.count(id) > 0) continue;
+      if (this.has(id)) continue;
       if (this.d.bag.add(id, 1) === 0) this.d.gave(id);
       else all = false;
     }
