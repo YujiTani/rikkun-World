@@ -409,8 +409,8 @@ const G_EXPECT: Record<G, { name: string; stack: number; rarity: string; cat: st
 };
 
 describe('登録表（ふつうの 道具・武器・防具）', () => {
-  it('全 id に ItemDef・絵が ある（16 個。id は ids.ts の 1 回だけ）', () => {
-    expect(GEAR_IDS).toHaveLength(16);
+  it('全 id に ItemDef・絵が ある（17 個。id は ids.ts の 1 回だけ）', () => {
+    expect(GEAR_IDS).toHaveLength(17);
     expect(Object.keys(G_EXPECT).sort()).toEqual([...GEAR_IDS].sort());
     for (const id of GEAR_IDS) {
       expect(itemDef(id), id).toBeDefined();
@@ -495,20 +495,20 @@ describe('登録表（ふつうの 道具・武器・防具）', () => {
   it('ITEM_TYPES: つるはし・おの 6 → てつの かたまり → 刀 4・ゆみ・や・防具 4 → 忍者 4・侍 4 の 順', () => {
     const ids = ITEM_TYPES.map((t) => t.id as string);
     const i = ids.indexOf('wood_pickaxe');
-    expect(ids.slice(i, i + 17)).toEqual([...TOOL_ITEM_IDS, 'iron_ingot', ...SWORD_IDS, ...BOW_IDS, ...ARMOR_ITEM_IDS]);
-    expect(ids.slice(i + 17, i + 25)).toEqual([...NINJA_ITEM_IDS, ...SAMURAI_ITEM_IDS]);
+    expect(ids.slice(i, i + 18)).toEqual([...TOOL_ITEM_IDS, 'iron_ingot', ...SWORD_IDS, ...BOW_IDS, ...ARMOR_ITEM_IDS]);
+    expect(ids.slice(i + 18, i + 26)).toEqual([...NINJA_ITEM_IDS, ...SAMURAI_ITEM_IDS]);
   });
 
   it('色分け: 道具は くわの 前、武器は 刀 4 → レジェンダリー 3 → ゆみ・や → 金、防具は 忍者・侍・金の 前', () => {
-    expect(CATEGORY_ITEMS.tool.slice(0, 7)).toEqual([...TOOL_ITEM_IDS, 'kuwa']);
+    expect(CATEGORY_ITEMS.tool.slice(0, 8)).toEqual([...TOOL_ITEM_IDS, 'kuwa']);
     expect(CATEGORY_ITEMS.weapon).toEqual([...SWORD_IDS, ...LEGEND_IDS, ...BOW_IDS, 'kin_katana', 'kin_yumi', 'kongo_katana', 'kongo_yumi']);
     expect(CATEGORY_ITEMS.armor.slice(0, 5)).toEqual([...ARMOR_ITEM_IDS, 'ninja_zukin']);
   });
 
   it('作業台のカードの順: つるはし・おの 6 → かまど → 刀 4・ゆみ・や・防具 4 → たいまつ', () => {
     const ids = CRAFT_RECIPES.map((r) => r.id);
-    expect(ids.slice(0, 17)).toEqual([...TOOL_ITEM_IDS, 'furnace', ...SWORD_IDS, ...BOW_IDS, ...ARMOR_ITEM_IDS]);
-    expect(ids[17]).toBe('torch');
+    expect(ids.slice(0, 18)).toEqual([...TOOL_ITEM_IDS, 'furnace', ...SWORD_IDS, ...BOW_IDS, ...ARMOR_ITEM_IDS]);
+    expect(ids[18]).toBe('torch');
   });
 });
 

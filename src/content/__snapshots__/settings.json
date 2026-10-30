@@ -440,6 +440,7 @@
       "flower_o": "common",
       "flower_p": "common",
       "flower_y": "common",
+      "fude": "uncommon",
       "fujin_ken": "legendary",
       "furnace": "uncommon",
       "futon": "uncommon",
@@ -515,6 +516,7 @@
       "stone_axe": "common",
       "stone_pickaxe": "common",
       "string": "common",
+      "sumi": "common",
       "suneate": "rare",
       "tansu": "uncommon",
       "tomato": "common",
@@ -1388,6 +1390,7 @@
     "toolDurability": {
       "bokuto": 59,
       "crystal_katana": 400,
+      "fude": 5,
       "fujin_ken": 10000,
       "iron_axe": 250,
       "iron_pickaxe": 250,
@@ -1457,6 +1460,7 @@
     "knockback": 1,
     "nurikabeMax": 1,
     "safeFallHeight": 3,
+    "takoHachimakiMax": 2,
     "waterSpeedMul": 0.5,
     "yokaiAutoSpawn": true,
     "yokaiLeaveTicks": 600,
@@ -1470,7 +1474,8 @@
       "chochin": 1,
       "karakasa": 1,
       "nurikabe": 1,
-      "rokurokubi": 1
+      "rokurokubi": 1,
+      "tako_hachimaki": 1
     }
   }
 }

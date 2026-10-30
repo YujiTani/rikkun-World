@@ -131,8 +131,8 @@ describe('ようかいだま の絵（§3.6）', () => {
 });
 
 describe('材料のアイテムの絵', () => {
-  it('6 つとも 16x16 で、ふちがあり、石の仮の絵ではない', () => {
-    expect(MATERIAL_ITEMS).toEqual(['paper', 'oil', 'string', 'cloth', 'clay', 'crystal']);
+  it('7 つとも 16x16 で、ふちがあり、石の仮の絵ではない', () => {
+    expect(MATERIAL_ITEMS).toEqual(['paper', 'oil', 'string', 'cloth', 'clay', 'crystal', 'sumi']); // TAKO-1: すみ
     const seen = new Set<string>();
     for (const it of MATERIAL_ITEMS) {
       const p = materialPixels(it);
@@ -141,7 +141,7 @@ describe('材料のアイテムの絵', () => {
       expect(itemIconPixels(it)).toEqual(p);
       seen.add(JSON.stringify(p));
     }
-    expect(seen.size).toBe(6);
+    expect(seen.size).toBe(7);
   });
 });
 

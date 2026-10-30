@@ -53,7 +53,7 @@ const ORDER_ITEMS: Readonly<Record<ItemCategory, readonly string[]>> = {
   ore: blocksIn('ore', ['coal_ore', 'iron_ore']),
   build: blocksIn('build', ['kawara', 'brick']),
   // ざいりょう・てつの かたまり・すいしょうも 登録表（content/items/materials.ts）から
-  material: [...registryCategoryIds('material', pickDefs(ITEM_DEFS, ['paper', 'string', 'cloth', 'oil', 'clay', 'yokai_orb'])), ...registryCategoryIds('material', LIVE_DEFS)],
+  material: [...registryCategoryIds('material', pickDefs(ITEM_DEFS, ['paper', 'string', 'cloth', 'oil', 'clay', 'yokai_orb', 'sumi'])), ...registryCategoryIds('material', LIVE_DEFS)],
   metal: registryCategoryIds('metal', pickDefs(ITEM_DEFS, ['iron_ingot', 'crystal'])),
   tool: [...registryCategoryIds('tool', TOOL_DEFS), ...registryCategoryIds('tool', FARM_TOOL_DEFS), ...registryCategoryIds('tool', BUCKET_DEFS), ...registryCategoryIds('tool', LIVE_DEFS)],
   weapon: [...registryCategoryIds('weapon', SWORD_DEFS), ...registryCategoryIds('weapon', LEGEND_DEFS), ...registryCategoryIds('weapon', BOW_DEFS)], // 刀 4 つ → レジェンダリー 3 つ → ゆみ・や（古い表と 同じ 並び）

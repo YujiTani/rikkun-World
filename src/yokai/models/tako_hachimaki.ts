@@ -48,7 +48,7 @@ const MOTION = {
   spinEndLen: 1.5, // 回転が 0 に なるまで（秒）
   inkRecoil: 0.18, // すみを はいた とき 下がる（ブロック）
   slapSeconds: 0.4, // ぺちんの 動き（秒）
-  bodyLift: 0.3, // 足が たれても 足もとの 下に 出ない ための 持ち上げ（ブロック）
+  bodyLift: 0.3, // ブロック: 足が たれても 足もとの 下に 出ない ための 持ち上げ
 } as const;
 
 const clamp01 = (v: number): number => Math.min(1, Math.max(0, v));
@@ -84,7 +84,9 @@ export class TakoHachimaki extends YokaiBase {
   /** ぺちんの 動きの 秒（< 0 = しない） */
   slapT = -1;
 
-  private readonly body = this.group(this.rig);
+  /** 足が たれても 足もとの 下に 出ない ための 持ち上げ（動かない） */
+  private readonly lift = this.group(this.rig, [0, MOTION.bodyLift, 0]);
+  private readonly body = this.group(this.lift);
   private readonly head = this.group(this.body);
   private readonly rotor = this.group(this.body);
   private readonly mouth = this.group(this.head, [0, 0.7, -0.45]);
@@ -164,7 +166,7 @@ export class TakoHachimaki extends YokaiBase {
     const spin = this.spinSpeed() / MOTION.spinRps; // 0〜1
     const { phase, phaseT, lean } = this.driveState;
     const c = smooth(this.inkCharge);
-    let y = MOTION.bodyLift;
+    let y = 0;
     let tilt = 0;
     if (phase === 'go') {
       tilt = -0.3 * lean; // 進む 方へ 少し かたむく
@@ -202,7 +204,7 @@ export class TakoHachimaki extends YokaiBase {
   }
 
   protected poseDie(p: number): void {
-    this.body.position.y = MOTION.bodyLift + 0.5 * p;
+    this.body.position.y = 0.5 * p;
     this.body.rotation.z = 90 * DEG * p;
   }
 }

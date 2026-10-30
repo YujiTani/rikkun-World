@@ -1799,6 +1799,40 @@
         }
       ]
     },
+    "sumi": {
+      "ITEM_INFO.sumi": {
+        "buttons": [],
+        "how": "タコはちまき を たおすと でる",
+        "use": "ふで を つくる ざいりょう"
+      },
+      "category": "material",
+      "durabilityClass": "consumable",
+      "maxStack": 64,
+      "name": "すみ",
+      "placeBlock": null,
+      "rarity": "common",
+      "recipes": [
+        {
+          "id": "fude",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "sumi"
+            },
+            {
+              "count": 2,
+              "item": "bamboo"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "fude"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
     "furnace": {
       "CRAFT_DEFAULTS.fixedDrop.furnace": 1,
       "DIG_DEFAULTS.hardness.furnace": 6,
@@ -2293,6 +2327,41 @@
           "output": {
             "count": 1,
             "item": "iron_axe"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
+    },
+    "fude": {
+      "ITEM_INFO.fude": {
+        "buttons": [],
+        "how": "さぎょうだい で つくる",
+        "use": "せっけいず を かく どうぐ"
+      },
+      "W2.toolDurability.fude": 5,
+      "category": "tool",
+      "durabilityClass": "durable",
+      "maxStack": 1,
+      "name": "ふで",
+      "placeBlock": null,
+      "rarity": "uncommon",
+      "recipes": [
+        {
+          "id": "fude",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "sumi"
+            },
+            {
+              "count": 2,
+              "item": "bamboo"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "fude"
           },
           "station": "craft",
           "works": true
@@ -4139,7 +4208,27 @@
       "name": "たけ",
       "placeBlock": "bamboo",
       "rarity": "common",
-      "recipes": []
+      "recipes": [
+        {
+          "id": "fude",
+          "inputs": [
+            {
+              "count": 1,
+              "item": "sumi"
+            },
+            {
+              "count": 2,
+              "item": "bamboo"
+            }
+          ],
+          "output": {
+            "count": 1,
+            "item": "fude"
+          },
+          "station": "craft",
+          "works": true
+        }
+      ]
     },
     "nobana": {
       "DIG_DEFAULTS.hardness.nobana": 0.05,
@@ -6235,6 +6324,137 @@
           "hp": 12,
           "reach": 8,
           "speed": 1.1
+        }
+      }
+    },
+    "tako_hachimaki": {
+      "ATTACK_DAMAGE.tako_hachimaki": 2,
+      "KIND_AI.tako_hachimaki": {
+        "eyeHeight": 1,
+        "flies": false,
+        "height": 1.7,
+        "marksHeight": 2.2,
+        "radius": 0.5,
+        "stepUp": 0,
+        "turnDegPerSec": 180
+      },
+      "SENSE.kinds.tako_hachimaki": {
+        "giveUp": 16,
+        "shinobi": true,
+        "sight": 12
+      },
+      "VARIANT.tako_hachimaki": {
+        "2": {
+          "10365491": 2902696,
+          "13581115": 5209568,
+          "15986658": 15331839,
+          "16167834": 13623551
+        },
+        "3": {
+          "10365491": 11561498,
+          "13581115": 14723118,
+          "15986658": 16774338,
+          "16167834": 16773304
+        }
+      },
+      "WEIGHTS.tako_hachimaki": 1,
+      "XP.tako_hachimaki": 3,
+      "YOKAI_DROPS.tako_hachimaki": [
+        {
+          "chance": 1,
+          "item": "sumi",
+          "max": 2
+        }
+      ],
+      "YOKAI_NAME.tako_hachimaki": "タコはちまき",
+      "YOKAI_STATS.tako_hachimaki": {
+        "attackSeconds": 0.8,
+        "avoidsWater": false,
+        "cooldownSeconds": 1.5,
+        "hitSeconds": 0.3,
+        "hp": 8,
+        "reach": 2.5,
+        "speed": 3
+      },
+      "countryWeights": {
+        "hana": 15,
+        "harappa": 20,
+        "iwayama": 15,
+        "kappa": 15,
+        "momiji": 15,
+        "mori": 15,
+        "ookina": 15,
+        "sunahama": 35,
+        "susuki": 15,
+        "take": 15,
+        "tengu": 15,
+        "yuki": 15
+      },
+      "strength": {
+        "easy": {
+          "attack": 1,
+          "dropRolls": 1,
+          "fear": 1,
+          "hp": 4,
+          "speedMul": 1,
+          "strength": 1,
+          "xp": 3
+        },
+        "hard": {
+          "attack": 3,
+          "dropRolls": 1,
+          "fear": 1,
+          "hp": 12,
+          "speedMul": 1,
+          "strength": 1,
+          "xp": 3
+        },
+        "normal": {
+          "attack": 2,
+          "dropRolls": 1,
+          "fear": 1,
+          "hp": 8,
+          "speedMul": 1,
+          "strength": 1,
+          "xp": 3
+        }
+      },
+      "titles": {
+        "none": {
+          "attackSeconds": 0.8,
+          "avoidsWater": false,
+          "cooldownSeconds": 1.5,
+          "hitSeconds": 0.3,
+          "hp": 8,
+          "reach": 2.5,
+          "speed": 3
+        },
+        "nushi": {
+          "attackSeconds": 0.8,
+          "avoidsWater": false,
+          "cooldownSeconds": 1.5,
+          "hitSeconds": 0.3,
+          "hp": 8,
+          "reach": 2.5,
+          "speed": 3.5999999999999996
+        },
+        "oyabun": {
+          "attackSeconds": 0.8,
+          "avoidsWater": false,
+          "cooldownSeconds": 1.5,
+          "hitSeconds": 0.3,
+          "hp": 8,
+          "reach": 2.5,
+          "speed": 3
+        },
+        "taisho": {
+          "attackSeconds": 0.8,
+          "avoidsWater": false,
+          "cooldownSeconds": 1.5,
+          "hitSeconds": 0.3,
+          "hp": 8,
+          "reach": 2.5,
+          "speed": 3.3000000000000003
         }
       }
     }

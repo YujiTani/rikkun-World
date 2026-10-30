@@ -46,7 +46,8 @@
     "chochin": 2,
     "karakasa": 2,
     "nurikabe": 16,
-    "rokurokubi": 2
+    "rokurokubi": 2,
+    "tako_hachimaki": 2
   },
   "COUNTRY_TABLE": [
     {
@@ -57,7 +58,8 @@
         "chochin": 25,
         "karakasa": 30,
         "nurikabe": 20,
-        "rokurokubi": 25
+        "rokurokubi": 25,
+        "tako_hachimaki": 20
       },
       "yomi": "はじまりの はらっぱ"
     },
@@ -69,7 +71,8 @@
         "chochin": 20,
         "karakasa": 25,
         "nurikabe": 15,
-        "rokurokubi": 40
+        "rokurokubi": 40,
+        "tako_hachimaki": 15
       },
       "yomi": "もり"
     },
@@ -81,7 +84,8 @@
         "chochin": 20,
         "karakasa": 25,
         "nurikabe": 15,
-        "rokurokubi": 40
+        "rokurokubi": 40,
+        "tako_hachimaki": 15
       },
       "yomi": "おおきな きの もり"
     },
@@ -93,7 +97,8 @@
         "chochin": 40,
         "karakasa": 25,
         "nurikabe": 15,
-        "rokurokubi": 20
+        "rokurokubi": 20,
+        "tako_hachimaki": 15
       },
       "yomi": "はなばたけ"
     },
@@ -105,7 +110,8 @@
         "chochin": 20,
         "karakasa": 45,
         "nurikabe": 15,
-        "rokurokubi": 20
+        "rokurokubi": 20,
+        "tako_hachimaki": 35
       },
       "yomi": "すなはま"
     },
@@ -117,7 +123,8 @@
         "chochin": 40,
         "karakasa": 25,
         "nurikabe": 15,
-        "rokurokubi": 20
+        "rokurokubi": 20,
+        "tako_hachimaki": 15
       },
       "yomi": "すすきの はら"
     },
@@ -129,7 +136,8 @@
         "chochin": 20,
         "karakasa": 45,
         "nurikabe": 15,
-        "rokurokubi": 20
+        "rokurokubi": 20,
+        "tako_hachimaki": 15
       },
       "yomi": "たけやぶ"
     },
@@ -141,7 +149,8 @@
         "chochin": 20,
         "karakasa": 45,
         "nurikabe": 15,
-        "rokurokubi": 20
+        "rokurokubi": 20,
+        "tako_hachimaki": 15
       },
       "yomi": "かっぱの ぬま"
     },
@@ -153,7 +162,8 @@
         "chochin": 20,
         "karakasa": 25,
         "nurikabe": 35,
-        "rokurokubi": 20
+        "rokurokubi": 20,
+        "tako_hachimaki": 15
       },
       "yomi": "いわやま"
     },
@@ -165,7 +175,8 @@
         "chochin": 20,
         "karakasa": 25,
         "nurikabe": 35,
-        "rokurokubi": 20
+        "rokurokubi": 20,
+        "tako_hachimaki": 15
       },
       "yomi": "てんぐの やま"
     },
@@ -177,7 +188,8 @@
         "chochin": 40,
         "karakasa": 25,
         "nurikabe": 15,
-        "rokurokubi": 20
+        "rokurokubi": 20,
+        "tako_hachimaki": 15
       },
       "yomi": "もみじやま"
     },
@@ -189,7 +201,8 @@
         "chochin": 20,
         "karakasa": 25,
         "nurikabe": 35,
-        "rokurokubi": 20
+        "rokurokubi": 20,
+        "tako_hachimaki": 15
       },
       "yomi": "ゆきやま"
     }
@@ -230,6 +243,15 @@
       "radius": 0.4,
       "stepUp": 1,
       "turnDegPerSec": 240
+    },
+    "tako_hachimaki": {
+      "eyeHeight": 1,
+      "flies": false,
+      "height": 1.7,
+      "marksHeight": 2.2,
+      "radius": 0.5,
+      "stepUp": 0,
+      "turnDegPerSec": 180
     }
   },
   "LEVEL_DEFAULTS": {
@@ -239,7 +261,8 @@
       "chochin": 2,
       "karakasa": 3,
       "nurikabe": 6,
-      "rokurokubi": 3
+      "rokurokubi": 3,
+      "tako_hachimaki": 3
     }
   },
   "NINJA_TUNING": {
@@ -355,6 +378,11 @@
         "giveUp": 24,
         "shinobi": true,
         "sight": 18
+      },
+      "tako_hachimaki": {
+        "giveUp": 16,
+        "shinobi": true,
+        "sight": 12
       }
     },
     "shinobiSightMul": 0.5,
@@ -410,6 +438,15 @@
       "hp": 12,
       "reach": 8,
       "speed": 1
+    },
+    "tako_hachimaki": {
+      "attackSeconds": 0.8,
+      "avoidsWater": false,
+      "cooldownSeconds": 1.5,
+      "hitSeconds": 0.3,
+      "hp": 8,
+      "reach": 2.5,
+      "speed": 3
     }
   },
   "gashaBig": {

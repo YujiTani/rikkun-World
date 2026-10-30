@@ -181,6 +181,13 @@
         "item": "seed_eggplant",
         "max": 1
       }
+    ],
+    "tako_hachimaki": [
+      {
+        "chance": 1,
+        "item": "sumi",
+        "max": 2
+      }
     ]
   },
   "dropMax": {
@@ -209,6 +216,7 @@
     "flower_o": "common",
     "flower_p": "common",
     "flower_y": "common",
+    "fude": "uncommon",
     "fujin_ken": "legendary",
     "furnace": "uncommon",
     "futon": "uncommon",
@@ -284,6 +292,7 @@
     "stone_axe": "common",
     "stone_pickaxe": "common",
     "string": "common",
+    "sumi": "common",
     "suneate": "rare",
     "tansu": "uncommon",
     "tomato": "common",

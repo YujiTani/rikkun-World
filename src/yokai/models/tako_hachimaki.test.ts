@@ -4,10 +4,10 @@ import { InkCloud, INK_PUFFS } from './takoInk';
 import { TakoHachimaki } from './tako_hachimaki';
 
 /** TAKO-1 AC23（性能）・AC21 の 形の 数（試作 D と 同じ: 箱 24・三角形 288）。見た目の 確認は オーナー */
-function stats(root: THREE.Object3D) {
+function stats(root: THREE.Object3D, all = false) {
   let tris = 0;
   let boxes = 0;
-  root.traverse((o) => {
+  (all ? root.traverse.bind(root) : root.traverseVisible.bind(root))((o: THREE.Object3D) => {
     if (o instanceof THREE.Mesh && !o.userData.focusHull) {
       boxes++;
       tris += (o.geometry.index?.count ?? 0) / 3;
@@ -59,7 +59,7 @@ describe('InkCloud（すみの けむり）', () => {
   it('小さな 箱 10 こ・はいて 2 秒で 消える・さいごの 0.9 秒で うすく なる', () => {
     expect(INK_PUFFS).toBe(10);
     const c = new InkCloud(2, 2, 0.9);
-    expect(stats(c.group).boxes).toBe(10);
+    expect(stats(c.group, true).boxes).toBe(10);
     expect(c.active).toBe(false);
     c.start(0, 0, 0, 0, -1, 1);
     expect(c.active).toBe(true);

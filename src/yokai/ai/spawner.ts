@@ -46,6 +46,14 @@ interface SpawnerDeps {
 /**
  * 出現と片づけの係: 妖怪を作る、自動で出す（場所・国・種類のくじ）、遠すぎる妖怪を消す、あさに帰らせる。
  */
+const MODEL_OF = {
+  karakasa: () => new Karakasa(),
+  chochin: () => new Chochin(),
+  nurikabe: () => new Nurikabe(),
+  rokurokubi: () => new Rokurokubi(),
+  tako_hachimaki: () => new TakoHachimaki(),
+} satisfies Record<YokaiKind, () => YokaiBase>;
+
 export class YokaiSpawner {
   private nextId = 1;
   private spawnCountdown = 0;
@@ -67,29 +75,8 @@ export class YokaiSpawner {
 
   private create(kind: YokaiKind, x: number, y: number, z: number, yaw: number, appear: boolean): Ent {
     const { f, group, rng } = this.d;
-    let model: YokaiBase;
-    switch (kind) {
-      case 'karakasa':
-        model = new Karakasa();
-        break;
-      case 'chochin':
-        model = new Chochin();
-        (model as Chochin).fireLayer = group;
-        break;
-      case 'nurikabe':
-        model = new Nurikabe();
-        break;
-      case 'rokurokubi':
-        model = new Rokurokubi();
-        break;
-      case 'tako_hachimaki':
-        model = new TakoHachimaki();
-        break;
-      default: {
-        const unreachable: never = kind;
-        throw new Error(`create: 知らない妖怪 ${String(unreachable)}`);
-      }
-    }
+    const model = MODEL_OF[kind]();
+    if (model instanceof Chochin) model.fireLayer = group;
     const hp = YOKAI_STATS[kind].hp;
     const st = yokaiStrength(kind);
     const e: Ent = {

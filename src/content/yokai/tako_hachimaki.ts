@@ -28,8 +28,8 @@ export const TAKO_HACHIMAKI: YokaiDef = {
   sense: { sight: 12, giveUp: 16, shinobi: true }, // ブロック
   drops: [{ item: 'sumi', chance: 1, max: 2 }], // かならず 1〜2 こ
   colors: {
-    2: { 0xcf3b3b: 0x4f7de0, 0xf6b39a: 0xcfe0ff, 0x9e2a33: 0x2c4aa8, 0xf3efe2: 0xffffff },
-    3: { 0xcf3b3b: 0xe0a82e, 0xf6b39a: 0xfff0b8, 0x9e2a33: 0xb06a1a, 0xf3efe2: 0xffffff },
+    2: { 0xcf3b3b: 0x4f7de0, 0xf6b39a: 0xcfe0ff, 0x9e2a33: 0x2c4aa8, 0xf3efe2: 0xe9f1ff },
+    3: { 0xcf3b3b: 0xe0a82e, 0xf6b39a: 0xfff0b8, 0x9e2a33: 0xb06a1a, 0xf3efe2: 0xfff4c2 },
   },
   // 頭の 上（はちまきの 上に 重ならない 位置）。頭の グループの 原点は 足もと
   head: { bandY: 1.5, bandW: 0.9, bandD: 0.84, crownY: 1.45, crownW: 0.5, crownD: 0.5 },

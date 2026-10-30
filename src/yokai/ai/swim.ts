@@ -178,7 +178,7 @@ export class YokaiSwimmer {
 
   /** たたかれたら 0.3 秒 あとに ぺちん（1.5 秒に 1 回まで）。とどく 距離の 外なら 空ぶり */
   private watchSlap(e: Ent, s: SwimState, sw: YokaiSwim, m: TakoHachimaki): void {
-    const { f, combat, events } = this.d;
+    const { combat, events } = this.d;
     if (e.hp < s.lastHp - 1e-9 && s.slapLeft < 0 && s.slapCool <= 0) s.slapLeft = steps(sw.slapDelaySeconds);
     s.lastHp = e.hp;
     if (s.slapLeft < 0 || --s.slapLeft > 0) return;

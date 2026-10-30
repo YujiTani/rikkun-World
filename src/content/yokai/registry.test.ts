@@ -94,8 +94,8 @@ const EXPECT: Record<YokaiKind, Expect> = {
     sense: { sight: 12, giveUp: 16, shinobi: true },
     drops: [['sumi', 1, 2]],
     colors: {
-      2: { 0xcf3b3b: 0x4f7de0, 0xf6b39a: 0xcfe0ff, 0x9e2a33: 0x2c4aa8, 0xf3efe2: 0xffffff },
-      3: { 0xcf3b3b: 0xe0a82e, 0xf6b39a: 0xfff0b8, 0x9e2a33: 0xb06a1a, 0xf3efe2: 0xffffff },
+      2: { 0xcf3b3b: 0x4f7de0, 0xf6b39a: 0xcfe0ff, 0x9e2a33: 0x2c4aa8, 0xf3efe2: 0xe9f1ff },
+      3: { 0xcf3b3b: 0xe0a82e, 0xf6b39a: 0xfff0b8, 0x9e2a33: 0xb06a1a, 0xf3efe2: 0xfff4c2 },
     },
     head: { bandY: 1.5, bandW: 0.9, bandD: 0.84, crownY: 1.45, crownW: 0.5, crownD: 0.5 },
     base: 20,
@@ -167,8 +167,8 @@ describe('登録表（妖怪）', () => {
   it('抽選の順 YOKAI_DRAW_ORDER・見本の並び YOKAI_ORDER に 全種類が 1 回ずつ（抽選の順は 乱数の 結果を きめるので 今のまま）', () => {
     expect([...YOKAI_DRAW_ORDER].sort()).toEqual([...YOKAI_IDS].sort());
     expect([...YOKAI_ORDER].sort()).toEqual([...YOKAI_IDS].sort());
-    expect(YOKAI_DRAW_ORDER).toEqual(['karakasa', 'chochin', 'rokurokubi', 'nurikabe']);
-    expect(YOKAI_ORDER).toEqual(['karakasa', 'chochin', 'nurikabe', 'rokurokubi']);
+    expect(YOKAI_DRAW_ORDER).toEqual(['karakasa', 'chochin', 'rokurokubi', 'nurikabe', 'tako_hachimaki']); // TAKO-1: うしろに 足す
+    expect(YOKAI_ORDER).toEqual(['karakasa', 'chochin', 'nurikabe', 'rokurokubi', 'tako_hachimaki']);
   });
 
   it('どの妖怪も どこかの国で 重み > 0（足し忘れて 一度も 出ない 妖怪を 作らない）', () => {
@@ -201,12 +201,13 @@ describe('登録表（妖怪）', () => {
     }
   });
   it('動きの分かれ道の印（traits）は これまでコードに 直書きして いた 動きと 同じ（#308 4-4）', () => {
-    const none = { floatsDown: false, knockOnlyHeavy: false, walksFacing: false, turnsToStone: false, contactMul: 1, crushesBlocks: false, limitedCount: false, longNeck: false, glowColors: [] as number[] };
+    const none = { floatsDown: false, knockOnlyHeavy: false, walksFacing: false, turnsToStone: false, contactMul: 1, crushesBlocks: false, limitedCount: false, longNeck: false, swims: false, glowColors: [] as number[] };
     expect(yokaiTraits()).toEqual({
       karakasa: { ...none, floatsDown: true },
       chochin: { ...none, glowColors: [0xffb347, 0xfff2a0] },
       nurikabe: { ...none, knockOnlyHeavy: true, walksFacing: true, turnsToStone: true, contactMul: 4, crushesBlocks: true, limitedCount: true },
       rokurokubi: { ...none, longNeck: true },
+      tako_hachimaki: { ...none, swims: true },
     });
   });
 });

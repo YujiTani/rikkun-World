@@ -14,7 +14,7 @@ import type { Ent } from './entity';
 const isWater = (world: VoxelWorld, x: number, y: number, z: number): boolean => world.getBlock(x, y, z) === 'water';
 
 /** 体の 箱（足もと x, y, z・半径 r・高さ h）が ぜんぶ 水の マスの 中か。見えない 壁の 外・読みこんでいない 列は だめ */
-export function bodyInWater(world: VoxelWorld, ai: KindAi, x: number, y: number, z: number): boolean {
+function bodyInWater(world: VoxelWorld, ai: KindAi, x: number, y: number, z: number): boolean {
   const r = ai.radius;
   if (!bodyInWall(x, z, r, AI_CONST.edgeMargin)) return false;
   if (!world.isLoaded(Math.floor(x), Math.floor(z))) return false;
@@ -30,7 +30,7 @@ export function bodyInWater(world: VoxelWorld, ai: KindAi, x: number, y: number,
 }
 
 /** (x, z) の 列の 水面（高さ y の マスから 上へ 水が つづく 限り のぼった 上の 面）。y の マスが 水で なければ null */
-export function waterSurface(world: VoxelWorld, x: number, z: number, y: number): number | null {
+function waterSurface(world: VoxelWorld, x: number, z: number, y: number): number | null {
   const ix = Math.floor(x);
   const iz = Math.floor(z);
   let yy = Math.floor(y);
