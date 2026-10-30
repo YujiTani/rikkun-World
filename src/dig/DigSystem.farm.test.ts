@@ -38,6 +38,7 @@ function rig(held: ItemId | null, target: BlockId | null, opts: { above?: BlockI
     eatHeal: () => 2,
     noteEat: (i, h) => void log.push(`eat ${i} ${h}`),
     noteHint: (h) => void log.push(`hint ${h}`),
+    ripen: () => false,
   };
   const vitals = { hp: () => hp, maxHp: () => 20, heal: (n: number) => { const g = Math.min(n, 20 - hp); hp += g; return g; } };
   const dig = new DigSystemImpl(world as never, () => player, actions, lock, inv, () => 1.62, createDigConfig(), () => 0, null, { farm, vitals });

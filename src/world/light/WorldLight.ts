@@ -7,7 +7,7 @@ import { GADGET_TUNING } from '../../content/items/gadgetTuning';
 import { LANTERN } from '../blocks/blockTypes';
 import { LIGHT_CONFIG as C } from './config';
 import { combinedBrightness, isDarkForSpawn } from './curve';
-import { EMISSION, OPACITY } from './opacity';
+import { EMIT, OPAQ, TRIV, spreadLight } from './lightSpread';
 import { skyDarkness, type SkyDarkness } from './skyDarkness';
 
 /**
@@ -40,15 +40,6 @@ const UNI = new Uint8Array(1);
 const UNI_BYTE = 0xf0;
 /** 読みこんでいないマス（ブロックの番号の外）。光を通さない */
 const UNKNOWN = 255;
-
-/** 光を弱める量（番号の外は 15）と、出す光 */
-const OPAQ = new Uint8Array(256).fill(15);
-OPAQ.set(OPACITY);
-const EMIT = new Uint8Array(256);
-EMIT.set(EMISSION);
-/** 光を通し、光も出さない（このブロックの上は空の光 15） */
-const TRIV = new Uint8Array(256);
-for (let i = 0; i < OPACITY.length; i++) TRIV[i] = OPACITY[i] === 0 && EMISSION[i] === 0 ? 1 : 0;
 
 type Entry = Uint8Array | null | undefined;
 
@@ -746,55 +737,7 @@ export class WorldLight implements LightField {
     }
 
     // 3. 1 マスごとに 1 弱めて広げる
-    this.spread(sky, skyQ);
-    this.lastSpreadCells += this.spread(block, blockQ);
-  }
-
-  /** 1 マスずつ 弱めて 広げる（書いた マスの 数を 返す） */
-  private spread(arr: Uint8Array, q: number[]): number {
-    let written = 0;
-    const { blk, rx, rz } = this;
-    const ry = this.ry;
-    const RL = rx * rz;
-    for (let h = 0; h < q.length; h++) {
-      const i = q[h];
-      const v = arr[i];
-      if (v <= 1) continue;
-      const x = i % rx;
-      const z = Math.floor(i / rx) % rz;
-      const y = Math.floor(i / RL);
-      for (let d = 0; d < 6; d++) {
-        let j: number;
-        if (d === 0) {
-          if (x >= rx - 1) continue;
-          j = i + 1;
-        } else if (d === 1) {
-          if (x <= 0) continue;
-          j = i - 1;
-        } else if (d === 2) {
-          if (y >= ry - 1) continue;
-          j = i + RL;
-        } else if (d === 3) {
-          if (y <= 0) continue;
-          j = i - RL;
-        } else if (d === 4) {
-          if (z >= rz - 1) continue;
-          j = i + rx;
-        } else {
-          if (z <= 0) continue;
-          j = i - rx;
-        }
-        const op = OPAQ[blk[j]];
-        if (op >= 15) continue;
-        const nv = v - (op > 1 ? op : 1);
-        if (nv > arr[j]) {
-          arr[j] = nv;
-          written++;
-          q.push(j);
-        }
-      }
-    }
-    q.length = 0;
-    return written;
+    spreadLight(sky, skyQ, blk, rx, rz, ry);
+    this.lastSpreadCells += spreadLight(block, blockQ, blk, rx, rz, ry);
   }
 }

@@ -1,4 +1,5 @@
 import type { TargetInfo } from '../contracts';
+import { MINE_ITEM } from '../content/items/ids';
 import {
   CHALK_NORMAL,
   COMPASS_STEP,
@@ -14,15 +15,17 @@ import type { DigCore } from './digCore';
 /**
  * チョークの 数（MINE-1B #349。docs/design/MINE-1.md §4.4「チョーク」）。1 か所の 表。
  */
+/** 足あとを 1 つ おぼえる 間かく（歩数。60 歩数 = 1 秒 なので 0.1 秒ごと）と、来た ほうに 数える 長さ（歩数。10 秒） */
+const TRAIL_EVERY_TICKS = 6;
+const TRAIL_KEEP_TICKS = 600;
+
 const CHALK_TUNING = {
   /** チョークの アイテム id */
-  item: 'chalk',
-  /** 足あとを 1 つ おぼえる 間かく（歩数。60 歩数 = 1 秒 なので 0.1 秒ごと） */
-  trailEveryTicks: 6,
-  /** 足あとを 来た ほうに 数える 長さ（歩数。10 秒） */
-  trailKeepTicks: 600,
-  /** 足あとを おぼえる 数（10 秒 ÷ 0.1 秒 ＋ 余り 4 つ） */
-  trailSize: 104,
+  item: MINE_ITEM.chalk,
+  trailEveryTicks: TRAIL_EVERY_TICKS,
+  trailKeepTicks: TRAIL_KEEP_TICKS,
+  /** 足あとを おぼえる 数（長さ ÷ 間かく ＋ 余り 4 つ。10 秒 ÷ 0.1 秒 ＋ 4 ＝ 104） */
+  trailSize: TRAIL_KEEP_TICKS / TRAIL_EVERY_TICKS + 4,
   /** 「来た ほう」に 数える 足あとの 遠さ（マス。今の 足の 位置から 横に これ 以上 はなれて いた もの） */
   trailMinDistance: 3,
   /** これ より 大きく とんだ とき（マス。1 回の 足あとの 間で）は ワープと みなして 足あとを わすれる */

@@ -1,5 +1,6 @@
 import type { BucketPreview, ItemId, PlayerState, TargetInfo, Vec3, WaterRay } from '../contracts';
 import { LIVE_SETTING_DEFAULTS, cropKindOfBlock, seedKindOfItem, vegKindOfItem } from '../contracts';
+import { MINE_ITEM } from '../content/items/ids';
 import { itemDef } from '../content/items/registry';
 import { isFloraBlock } from '../world/blocks/flora';
 import { overlapsBody, sameBlock, type DigCore } from './digCore';
@@ -254,7 +255,7 @@ export class DigFarm {
     const c = this.d;
     const t = c.tgt();
     const farm = c.m4.farm;
-    if (!t || !farm?.ripen || c.inventory.held()?.item !== 'ishibai') return null;
+    if (!t || !farm || c.inventory.held()?.item !== MINE_ITEM.ishibai) return null;
     let y = t.block.y;
     if (!cropKindOfBlock(t.id)) {
       if (t.id !== 'farmland' && t.id !== 'farmland_wet') return null;
@@ -274,7 +275,7 @@ export class DigFarm {
     const c = this.d;
     const t = c.tgt();
     const y = this.ripenCropY();
-    if (!t || y === null || !c.m4.farm?.ripen?.(t.block.x, y, t.block.z)) return;
+    if (!t || y === null || !c.m4.farm?.ripen(t.block.x, y, t.block.z)) return;
     c.inventory.consumeHeld();
     c.m4.tools?.pushSwing('place');
   }

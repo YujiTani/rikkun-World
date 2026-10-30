@@ -38,6 +38,15 @@ export interface LogUiState {
 
 export type LogSignal = 'needTool' | 'needIron' | 'noArrow' | 'full' | 'tansuFull';
 
+/** 合図ごとの 文と、ログに 絵で 出す アイテム（なければ null）。1 つの 合図に 1 行（足し忘れは 型エラー） */
+const SIGNAL_LOG = {
+  needTool: { text: 'つるはし が いるよ', item: 'stone_pickaxe' },
+  needIron: { text: 'てつの つるはし が いるよ', item: 'iron_pickaxe' },
+  noArrow: { text: 'や が いるよ', item: 'ya' },
+  full: { text: 'もちもの が いっぱい！', item: null },
+  tansuFull: { text: 'たんす が いっぱい！', item: null },
+} as const satisfies Record<LogSignal, { text: string; item: ItemId | null }>;
+
 interface Entry {
   tick: number;
   kind: LogKind;
@@ -185,17 +194,7 @@ export class LogSystem {
 
   /** 照準の下の合図（いっぱい・つるはし・てつの つるはし・や）。出ていない状態から 出たときだけ呼ぶ */
   signal(kind: LogSignal): void {
-    const text =
-      kind === 'needTool'
-        ? 'つるはし が いるよ'
-        : kind === 'needIron'
-          ? 'てつの つるはし が いるよ'
-          : kind === 'noArrow'
-            ? 'や が いるよ'
-            : kind === 'full'
-              ? 'もちもの が いっぱい！'
-              : 'たんす が いっぱい！';
-    const item: ItemId | null = kind === 'needTool' ? 'stone_pickaxe' : kind === 'needIron' ? 'iron_pickaxe' : kind === 'noArrow' ? 'ya' : null;
+    const { text, item } = SIGNAL_LOG[kind];
     this.push({ tick: this.now, kind: 'signal', category: 'warn', item, count: null, text });
   }
 

@@ -18,12 +18,12 @@ import type {
 import type { Action, ActionState } from '../input/actions';
 import { cropKindOfBlock } from '../contracts';
 import type { FlattenPlan } from '../world/flatten';
-import { IRON_HARVEST_LEVEL, createDigConfig, type DigConfig } from './config';
+import { createDigConfig, type DigConfig } from './config';
 import { createRng, type Rng } from '../world/gen/random';
 import type { PunchGate } from '../combat/PlayerCombat';
 import type { ParryInput } from '../combat/parry';
 import { isBladeItem } from '../tools/blade/BladeSystem';
-import { blockFamily, effectivePower, toolFamily, toolRank } from './toolFamily';
+import { IRON_HARVEST_LEVEL, blockFamily, effectivePower, toolFamily, toolRank } from './toolFamily';
 import { ToolHintModel, bestHotbarSlot, type ToolHintState } from './toolHint';
 import { previewRightClick, type LeftClickKind, type RightClickPreview } from './rightClick';
 import { DigAim } from './digAim';

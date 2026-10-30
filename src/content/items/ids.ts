@@ -118,3 +118,5 @@ export type HouseToolId = (typeof HOUSE_TOOL_IDS)[number];
  */
 const MINE_ITEM_IDS = ['chalk', 'ishibai'] as const;
 export type MineItemId = (typeof MINE_ITEM_IDS)[number];
+/** 名前で 読む（`MINE_ITEM.chalk`）。コードの 中で id を 文字で 書かずに 済む（id は 上の 表の 1 回だけ） */
+export const MINE_ITEM = Object.fromEntries(MINE_ITEM_IDS.map((id) => [id, id])) as { readonly [K in MineItemId]: K };

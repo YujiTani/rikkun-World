@@ -284,9 +284,8 @@ export type DigFarmPort = Pick<
   | 'eatHeal'
   | 'noteEat'
   | 'noteHint'
-> &
-  /** MINE-1B: いしばいで みのらせる（古い つなぎ・テストの にせものには なくてよい） */
-  Partial<Pick<FarmSystem, 'ripen'>>;
+  | 'ripen' // MINE-1B: いしばいで みのらせる
+>;
 
 /** 体力を 聞く・もどす口（`PlayerCombat` の 一部）。`DigM4Deps.vitals` に入れる */
 export type DigVitalsPort = Pick<PlayerCombat, 'hp' | 'maxHp' | 'heal'>;

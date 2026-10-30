@@ -261,9 +261,6 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
   dropMax: defaultDropMax(),
 };
 
-/** てつの つるはしの 掘れる 段階。これ 以上の ブロック（きん・すいしょう・ダイヤの いし）は 弱い 道具だと「てつの つるはし が いるよ」（MINE-1B。掘れる 段階の いちばん 上は 2 の まま） */
-export const IRON_HARVEST_LEVEL = 2;
-
 export function createDigConfig(): DigConfig {
   return {
     ...DIG_DEFAULTS,
@@ -295,18 +292,13 @@ export const FARM_BREAK_DROP: Readonly<Partial<Record<BlockId, { item: ItemId; c
   haniwa: { item: 'haniwa', count: 1 },
   // FLORA-75: のばな は いつも 1 こ（ランダムな数にしない）
   nobana: { item: 'nobana', count: 1 },
-  // MINE-1B（#349。仕様 §4.4）: すいしょうの いし・ダイヤの いしは 持てない ブロック。ほると 宝石が いつも 1 こ（ダイヤは かまどを 通さない）
-  suisho_ore: { item: 'crystal', count: 1 },
-  diamond_ore: { item: 'diamond', count: 1 },
 };
 
 /**
- * MINE-1B: こわすと 別の アイテムに なる ブロック（持てない ブロック）。数は ブロックの めずらしさの きまり（`rarity`・`dropMax`）。
- * ねんどの ブロック `nendo` → ねんど `clay` 1〜3（`FARM_BREAK_DROP` の 決まった 数の 物は そちらが 先）
+ * MINE-1B: ほると 別の アイテムに なる 持てない ブロック（組みは アイテムの `dugFrom` から `dig/dugItems.ts` が 作る）のうち、
+ * ほると いつも 1 こ 出る もの（すいしょうの いし・ダイヤの いし。かまどを 通さない 宝石）。それ以外〔ねんど〕は ブロックの めずらしさの きまり（`rarity`・`dropMax`）の 数。
  */
-export const BREAK_ITEM: Readonly<Partial<Record<BlockId, ItemId>>> = {
-  nendo: 'clay',
-};
+export const DUG_ALWAYS_ONE: ReadonlySet<BlockId> = new Set<BlockId>(['suisho_ore', 'diamond_ore']);
 
 /** VOX-I-1: こわすと 持ち物がふえない ブロック（すすき・FLORA-75 の くさ。ふえるのは ひろえる物だけ） */
 export const NO_DROP_BLOCKS: ReadonlySet<BlockId> = new Set<BlockId>(['susuki', 'kusa']);

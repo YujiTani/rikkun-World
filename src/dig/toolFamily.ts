@@ -1,5 +1,5 @@
 import type { BlockId, ItemId } from '../contracts';
-import { registryToolFamily } from '../content/items/registry';
+import { ITEM_DEFS, registryToolFamily } from '../content/items/registry';
 import type { ToolConfig } from '../tools/config';
 import type { DigConfig } from './config';
 
@@ -8,6 +8,16 @@ import type { DigConfig } from './config';
  * あう道具は 今の強さで、あわない道具は 半分（すで の 強さより下には しない）。
  */
 export type ToolFamily = 'log' | 'stone' | 'dirt';
+
+/**
+ * てつの つるはしの 掘れる 段階（登録表 `iron_pickaxe` の tool.level が 元。MINE-1B）。これ 以上の ブロック（きん・すいしょう・ダイヤの いし）は
+ * 弱い 道具だと「てつの つるはし が いるよ」。掘れる 段階の いちばん 上は てつの つるはし。
+ */
+export const IRON_HARVEST_LEVEL: number = (() => {
+  const level = ITEM_DEFS.iron_pickaxe.tool?.level;
+  if (level === undefined) throw new Error('登録表の iron_pickaxe に tool.level が ない');
+  return level;
+})();
 
 const BLOCK_FAMILY: Partial<Record<BlockId, ToolFamily>> = {
   // き（あう道具: おの）

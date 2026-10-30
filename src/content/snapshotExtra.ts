@@ -5,7 +5,8 @@ import { createCombatConfig } from '../combat/config';
 import { CRAFT_DEFAULTS, ARMOR_SLOTS, createCraftConfig } from '../craft/config';
 import { NINJA_TUNING } from '../craft/ninjaTuning';
 import { BAKE_RECIPES, CRAFT_RECIPES, baseRecipeId } from '../craft/recipes';
-import { DIG_DEFAULTS, FARM_BREAK_DROP, NO_DROP_BLOCKS, createDigConfig } from '../dig/config';
+import { DIG_DEFAULTS, DUG_ALWAYS_ONE, FARM_BREAK_DROP, NO_DROP_BLOCKS, createDigConfig } from '../dig/config';
+import { DUG_ITEM } from '../dig/dugItems';
 import { DROP } from '../drops/DropField';
 import { ITEM_RARITY_SETTINGS, RARITY_ORDER, RARITY_TIERS, defaultDropMax } from '../drops/rarity';
 import { createAudioSettings } from '../fx/audioConfig';
@@ -50,6 +51,9 @@ export function buildBlocksSnapshot(): object {
     BLOCK_IDS_V1,
     DIG_DEFAULTS,
     FARM_BREAK_DROP,
+    // MINE-1B: ほると 別の アイテムに なる ブロック（アイテムの dugFrom から 作る）と、そのうち いつも 1 こ 出る もの
+    DUG_ITEM: Object.fromEntries(DUG_ITEM),
+    DUG_ALWAYS_ONE: sorted([...DUG_ALWAYS_ONE]),
     NO_DROP_BLOCKS,
     // CraftSystem.fixedDrop(id) が読む表
     fixedDrop: CRAFT_DEFAULTS.fixedDrop,

@@ -1,3 +1,4 @@
+import type { MineItemId } from '../content/items/ids';
 import type { Rgba } from '../world/blocks/textures';
 
 /**
@@ -5,8 +6,7 @@ import type { Rgba } from '../world/blocks/textures';
  * かき方は ゲームの アイテムの 絵と 同じ: 1 点の こい ふちどり `#3A3442`・左上から 光・右下が かげ・真っ白 なし。
  * ほかの 鉱物（せっかいせき・しっくい・ほたるいし・きんの いし）の アイテムの 絵は ブロックの 絵（BLOCK_TILES）を つかう。
  */
-export type MineItemArtId = 'chalk' | 'ishibai';
-export const isMineItem = (item: string): item is MineItemArtId => item === 'chalk' || item === 'ishibai';
+export type MineItemArtId = MineItemId;
 
 const hex = (c: string): Rgba => {
   const n = parseInt(c.slice(1), 16);
@@ -60,9 +60,15 @@ const ISHIBAI = {
   ],
 } as const;
 
+/** 絵の 表（1 つの id に 1 つ。足し忘れは 型エラー） */
+const ART = { chalk: CHALK, ishibai: ISHIBAI } as const satisfies Record<MineItemId, { pal: object; rows: readonly string[] }>;
+
+/** チョーク・いしばいか（絵を ここで 引く 物） */
+export const isMineItem = (item: string): item is MineItemArtId => Object.hasOwn(ART, item);
+
 /** チョーク・いしばい の 16×16（y = 0 が上） */
 export function mineItemPixels(item: MineItemArtId): Rgba[] {
-  const art = item === 'chalk' ? CHALK : ISHIBAI;
+  const art = ART[item];
   const pal: Readonly<Record<string, string>> = art.pal;
   const out: Rgba[] = [];
   for (const row of art.rows) for (const ch of row) out.push(pal[ch] === undefined ? CLEAR : hex(pal[ch]!));

@@ -6,7 +6,8 @@ import { KOTATSU_CELLS, isKotatsuBlock, kotatsuAnchorOf } from '../world/blocks/
 import { GADGET_ID } from '../content/items/gadgetTuning';
 import { BLADE_LIKE_ITEMS } from '../tools/bladeSets';
 import { randInt, type Rng } from '../world/gen/random';
-import { BREAK_ITEM, FARM_BREAK_DROP, NO_DROP_BLOCKS } from './config';
+import { DUG_ALWAYS_ONE, FARM_BREAK_DROP, NO_DROP_BLOCKS } from './config';
+import { DUG_ITEM } from './dugItems';
 import { COOP_BLOCKS, HANGING_SUPPORT, TORCH_NEIGHBORS, type DigCore } from './digCore';
 
 /** こわしたあとの しめくくり: abort = こわせなかった（クールダウンなし）、bodyDone = 体の上の ブロック、done = ふつうにこわした */
@@ -60,8 +61,8 @@ export class BlockBreaker {
     this.dropUnsupportedTorches(x, y, z);
     liftFlora(c, x, y + 1, z); // FLORA-75: 下の ブロックを こわすと 上の くさ・のばな も 消える
     const farmDrop = FARM_BREAK_DROP[t.id] ?? null;
-    const fixed = farmDrop ? farmDrop.count : (craft?.fixedDrop(dropId) ?? null);
-    const dropItem: ItemId = farmDrop ? farmDrop.item : (BREAK_ITEM[dropId] ?? dropId);
+    const fixed = farmDrop ? farmDrop.count : DUG_ALWAYS_ONE.has(dropId) ? 1 : (craft?.fixedDrop(dropId) ?? null);
+    const dropItem: ItemId = farmDrop ? farmDrop.item : (DUG_ITEM.get(dropId) ?? dropId);
     const max = Math.max(1, c.config.dropMax[c.config.rarity[dropId]] ?? 1);
     const n = NO_DROP_BLOCKS.has(dropId) ? 0 : fixed !== null ? fixed : randInt(this.rng, 1, max);
     const got = n - c.inventory.add(dropItem, n);
