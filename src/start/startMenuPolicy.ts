@@ -5,5 +5,6 @@ export function shouldShowStartMenu(search: string, envStartMenu: string | undef
   const menu = new URLSearchParams(search).get('menu');
   if (menu === '1') return true;
   if (menu === '0') return false;
+  if (new URLSearchParams(search).get('proto') === 'editor') return false; // HOUSE-1B 試作: すぐ エディターが 開く
   return envStartMenu !== 'off';
 }

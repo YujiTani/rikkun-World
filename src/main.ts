@@ -11,6 +11,9 @@ import { wireSave, wireFrame, wireLoop } from './game/wire/save';
 import { createStep } from './game/step';
 import { installGameHook } from './debug/installTestHook';
 import { wireGasha } from './game/wire/gasha';
+// HOUSE-1B 試作（?proto=editor のときだけ。本実装では src/house/ の 本物に 置きかえる）
+// eslint-disable-next-line no-restricted-imports
+import { wireProtoEditor } from './proto/editor/wire';
 
 const w1 = await wireBoot();
 const w2 = Object.assign(w1, wireRender(w1));
@@ -33,3 +36,4 @@ game.onUpdate(createStep(w16));
 const w17 = Object.assign(w16, wireLoop(w16));
 installGameHook(w17);
 wireGasha(w17);
+wireProtoEditor(w17); // HOUSE-1B 試作（?proto=editor のときだけ）
