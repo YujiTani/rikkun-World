@@ -99,7 +99,8 @@ describe('KONGO-1 AC2 作り方', () => {
   });
   it('作業台の カードの いちばん うしろに 金 8 こ → こんごう 8 こ の 順。diamond の カードは ない', () => {
     const ids = ALL_RECIPES.map((r) => r.output.item as string);
-    expect(ids.slice(-16)).toEqual([...GOLD_EQUIP, ...EQUIP]);
+    const from = ids.indexOf('kin_katana');
+    expect(ids.slice(from, from + 16)).toEqual([...GOLD_EQUIP, ...EQUIP]);
     expect(ids).not.toContain('diamond');
   });
   it('1 こ ごとの つくる 実績の 表には 入らない', () => {

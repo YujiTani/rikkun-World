@@ -79,9 +79,21 @@ test.describe('KONGO-1 こんごうの そうび', () => {
     const out = await page.evaluate((r) => {
       const h = (window as any).__rikkun;
       const aimed = h.target.get();
-      h.input.press('primary');
+      // ひびが MAX（ready）に なるまで 長おし → はなして もう 1 回 おすと こわれる（bal-d と おなじ）
+      let readyAt = -1;
       let broke = -1;
-      for (let i = 1; i <= 400; i++) {
+      h.input.press('primary');
+      for (let i = 1; i <= 600; i++) {
+        h.step(1);
+        if (h.dig.get().ready) {
+          readyAt = i;
+          break;
+        }
+      }
+      h.input.release('primary');
+      h.step(2);
+      h.input.press('primary');
+      for (let i = 1; i <= 20; i++) {
         h.step(1);
         if (h.world.getBlock(r.bx, r.floorY + 1, r.bz) === 'air') {
           broke = i;
@@ -90,9 +102,10 @@ test.describe('KONGO-1 こんごうの そうび', () => {
       }
       h.input.release('primary');
       h.step(30);
-      return { aimed: !!aimed, broke, after: h.world.getBlock(r.bx, r.floorY + 1, r.bz), items: h.inventory.get() };
+      return { aimed: !!aimed, readyAt, broke, after: h.world.getBlock(r.bx, r.floorY + 1, r.bz), items: h.inventory.get() };
     }, r);
     expect(out.aimed, 'ねらいが ブロックに 乗った').toBe(true);
+    expect(out.readyAt, 'ひびが MAX').toBeGreaterThan(0);
     expect(out.broke, 'こわれた').toBeGreaterThan(0);
     // 中身（ドロップ）は 持ち物に 入る。かず・id は 表で きまる ので 1 こ以上 だけ 見る
     const total = await page.evaluate(() => {
@@ -117,7 +130,7 @@ test.describe('KONGO-1 こんごうの そうび', () => {
       return { head: h.armor.get().head, dur: h.armor.durability('head'), left: h.inventory.count('kongo_kabuto') };
     });
     expect(r.head).toBe('kongo_kabuto');
-    expect(r.dur).toBe(1500);
+    expect(r.dur).toEqual({ left: 1500, max: 1500 });
     expect(r.left).toBe(0);
   });
 });
