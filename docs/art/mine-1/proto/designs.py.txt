@@ -1,0 +1,922 @@
+# MINE-1B 新しい 鉱物・坑道の ブロック 3 案の 中身（絵と 形）
+# A「こまかい つぶ」: いまの しくみ（16 点の 絵 ＋ いまの ごつごつ）。つぶの 形で 見分ける。三角形 +0
+# B「とびだす つぶ」: つぶが 石から 1〜2 小ブロック とびだし、まわりに みぞ（影）。つぶは 小ブロックに 色を ぬる（形と 色が そろう）。せきたん・てつ も 直す
+# C「おおきな ひとつぶ」: 1 つの 面に 大きな つぶ 1 つ（アイテムの 絵が 石に うまった よう）。遠くから 分かる。せきたん・てつ も 直す
+import os
+import json
+import numpy as np
+from base import *
+from render import Mat, Block
+
+# ------------------------------------------------------------------ 色の 表
+GOLD = dict(hi='#FFF0B4', main='#EBB840', lo='#C98A1E', dk='#8C5A16')           # アイテム「きん」と 同じ
+CRY = dict(hi='#D2F3FA', main='#82D3EE', lo='#4596C4', dk='#2C6A98')            # アイテム「すいしょう」・いわやまの すいしょう に 合わせる
+HOT = dict(core='#EEF8B2', main='#C9E56E', lo='#93BD52', dk='#62893C')          # ほたる色（きみどり）
+COAL = dict(hi='#4D4657', main='#3A3442', lo='#2B2632')                         # こい むらさきがかった 灰色（DESIGN 12 G4）
+IRON = dict(hi='#CC8452', main='#A85E38', lo='#82462A')                         # 赤さび色（B・C で てつを 直す）
+CLAY = dict(base='#B07048', lt='#C4845A', dk='#975F3D')                         # アイテム「ねんど」#B5764A に 近い
+LIME = dict(base='#D3CCBE', lt='#DED8CC', dk='#BAB1A0', sh='#A59B89')           # 灰みの 白（すなより 黄色く ない）
+PLASTER = dict(base='#E8E2D1', lt='#EFEADD', dk='#D4CBB7', line='#C9BFA9')      # しっくい（あたたかい 白。真っ白 なし）
+ICE = dict(main='#D9E3E6', lt='#E9EEEE', sh='#AEBFC8', root='#C9C1B2')           # つらら（せっかいせきの 白）
+WOOD = dict(beam='#B58650', lt='#C79A62', dk='#7A5230', post='#6B4421', bolt='#4A4650', panel='#8E6238')
+CHEST = dict(wood='#9A5E32', lid='#A8693A', dk='#5E3A1E', band='#D9A93A', inside='#3A2418', floor='#6E4526')
+URUSHI = dict(main='#2A2238', lid='#342A46', red='#A8432F')                     # くろうるし（GOLD-1 §3.5 と 同じ 地）＋ 中は 朱
+ICE_TIP = '#F4F9FA'                                                              # つららの 先（白く まるく）
+SLATE = '#5E6672'                                                                # B の ほたるいしの 地（こい 青灰）
+STEEL = dict(hi='#F4F4FA', main='#C8CCD6', lo='#8A8F9C', dk='#3B3F4A')          # アイテム「てつの かたまり」と 同じ 4 色（段階 2 の おび）
+IRONWOOD = dict(body='#74482A', lid='#7E4F2E', inside='#4A2E1C')                # 段階 2 の 木（段階 1 の #9A5E32 より こい）
+MIRACLE = dict(fire='#FF7A3D', core='#FFC83D', tip='#FFF0B4')                 # ミラクル（★6・rarityTable の 0xff7a3d・ほのお）。段階 4 は ミラクルが 1 こ かくてい
+SHU = dict(main='#C8442C', lid='#D24E33')                                       # 段階 4 案 b の 朱ぬり
+ROYAL = '#4A2F7A'                                                                # 段階 4 の 中（こい むらさき）
+DIA = dict(hi='#FBFDFF', main='#E3E8F8', lo='#AEB6DE', dk='#7880B8', pink='#FFD3EA', yel='#FFF1B0')  # ダイヤ（白に うすい むらさき。すいしょうの 水色と ちがう）
+
+
+def gl_mask(rows, x0, y0, mask, cmap_g):
+    for j, row in enumerate(rows):
+        for i, ch in enumerate(row):
+            if ch in cmap_g:
+                mask[(y0 + j) % T, (x0 + i) % T] = cmap_g[ch]
+    return mask
+
+
+def zero_mask():
+    return np.zeros((T, T))
+
+
+# ------------------------------------------------------------------ いまの ブロック（どの 案も 同じ）
+def common_blocks():
+    d = {}
+    d['stone'] = Block('stone', Mat('stone', cur_stone()), STONE_SHAPE)
+    d['dirt'] = Block('dirt', Mat('dirt', cur_dirt()), DIRT_SHAPE)
+    d['sand'] = Block('sand', Mat('sand', cur_sand()), sand_shape)
+    d['bedrock'] = Block('bedrock', Mat('bedrock', cur_bedrock()), BEDROCK_SHAPE)
+    d['grass'] = Block('grass', Mat('grass', [cur_grass_top(), cur_dirt(), cur_grass_side()]), rock_shape(SALT['grass'], 2, 1, 3))
+    d['log'] = Block('log', Mat('log', [cur_log_top(), cur_log_top(), cur_log_side()]), log_shape)
+    d['cur_coal'] = Block('cur_coal', Mat('cur_coal', cur_coal()), COAL_SHAPE)
+    d['cur_iron'] = Block('cur_iron', Mat('cur_iron', cur_iron()), IRON_SHAPE)
+    stick = Mat('torch_stick', solid('#8A5A2E'))
+    flame = Mat('torch_flame', solid('#FF9D2E'), emissive_all=True)
+    flame2 = Mat('torch_flame2', solid('#FFF3A0'), emissive_all=True)
+
+    def torch_shape(bx, by, bz, e):
+        g = np.zeros((N, N, N), np.int16)
+        g[4, 0:5, 4] = 1
+        g[4, 5, 4] = 2
+        g[4, 6, 4] = 3
+        return g
+    d['torch'] = Block('torch', [stick, flame, flame2], torch_shape, opaque=False, emit=14, emit_ch=0)
+    d['water'] = Block('water', Mat('water', solid('#3A7BD5')), full_shape, opaque=False, water=True)
+    fp = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'furn.json')
+    if os.path.exists(fp):  # ゲームの 絵（src/world/blocks/textures.ts の getTilePixels を tsrun で 書き出した もの）
+        fj = json.load(open(fp))
+        tl = lambda k: np.array([c[:3] for c in fj[k]], np.int32).reshape(T, T, 3)
+        d['tansu'] = Block('tansu', Mat('tansu', [tl('tansu_top'), tl('tansu_top'), tl('tansu_front')]), full_shape)
+        d['furnace'] = Block('furnace', Mat('furnace', [tl('furnace_top'), tl('furnace_top'), tl('furnace_side')]), full_shape)
+    else:
+        tt = solid('#C2843E')
+        tt[5, :] = hx('#5C3814')
+        tt[10, :] = hx('#5C3814')
+        d['tansu'] = Block('tansu', Mat('tansu', tt), full_shape)  # いまの たんす（かまども 同じ 1 マスの 箱）
+        d['furnace'] = Block('furnace', Mat('furnace', solid('#8E8E8E')), full_shape)
+    return d
+
+
+# ------------------------------------------------------------------ つらら（十字の 板。仕様 MINE-1 §3.2: 三角形 16 まで・先は まるく 白く）
+def icicle_plate(icicles):
+    """icicles = [(左の x, [上から 1 行ずつの はば])]。左の はし = 明るい、右の はし = 影、上 = 根もと、
+    下の 2 行 = 白い 先（はば 2 いじょう。1 点の とがった 先に しない）"""
+    ic = np.zeros((T, T, 4), np.int32)
+    for x0, widths in icicles:
+        w0 = widths[0]
+        n = len(widths)
+        for y, w in enumerate(widths):
+            s0 = x0 + (w0 - w + 1) // 2
+            for i in range(w):
+                if y == 0:
+                    col = ICE['root']
+                elif y >= n - 2:
+                    col = ICE_TIP
+                elif i == 0 and w >= 3:
+                    col = ICE['lt']
+                elif i == w - 1 and w >= 2:
+                    col = ICE['sh']
+                else:
+                    col = ICE['main']
+                ic[y, s0 + i] = (*hx(col), 255)
+    return ic
+
+
+def icicle_block(prefix, icicles):
+    return Block('icicle', Mat(prefix + '_icicle', solid('#FFFFFF')), full_shape, opaque=False, cross=icicle_plate(icicles))
+
+
+# ------------------------------------------------------------------ 宝箱（3 つの 形。どれも 1 マスより 小さい ＝ たんす・かまどの 四角と 影で ちがう）
+def chest_blocks(prefix, style):
+    """style: 'cap' = ふたの 大きい 平らな 箱（A）、'urushi' = くろうるし に きん・まるい ふた・金の 足（B）、'round' = かまぼこの ふた（C）。
+    あけた = ふたが うしろに 立ち、中は からっぽ（仕様 MINE-1 §3.2）"""
+    if style == 'urushi':
+        body = Mat(prefix + '_cw', solid(URUSHI['main']))
+        lidm = Mat(prefix + '_cl', solid(URUSHI['lid']))
+        band = Mat(prefix + '_cb', solid(GOLD['lo']))
+        fit = Mat(prefix + '_cf', solid(GOLD['main']))
+        inner = Mat(prefix + '_ci', solid(URUSHI['red']))
+    elif style == 'cap':
+        body = Mat(prefix + '_cw', solid(CHEST['wood']))
+        lidm = Mat(prefix + '_cl', solid(CHEST['lid']))
+        band = Mat(prefix + '_cb', solid(CHEST['band']))
+        fit = Mat(prefix + '_cf', solid(GOLD['main']))
+        inner = Mat(prefix + '_ci', solid(CHEST['floor']))
+    else:
+        body = Mat(prefix + '_cw', calm(speckle(CHEST['wood'], ['#8A5229', '#A8693A'], 171, 30), CHEST['wood']))
+        lidm = Mat(prefix + '_cl', calm(speckle(CHEST['lid'], ['#965A30', '#B57444'], 172, 30), CHEST['lid']))
+        band = Mat(prefix + '_cb', solid(CHEST['band']))
+        fit = Mat(prefix + '_cf', solid(GOLD['main']))
+        inner = Mat(prefix + '_ci', solid(CHEST['floor']))
+    hole = Mat(prefix + '_ck', solid('#2A1A10'))
+    mats = [body, lidm, band, fit, inner, hole]
+    W, LD, BD, FT, IN, KH = 1, 2, 3, 4, 5, 6
+    y0 = 1 if style == 'urushi' else 0   # B は 金の 足の 上
+    yt = y0 + 4                          # 箱の いちばん 上
+
+    def body_box(g, open_):
+        g[1:8, y0:yt + 1, 2:7] = W
+        for x in (2, 6):
+            g[x, y0:yt + 1, 2:7] = BD
+        if style == 'urushi':
+            for (x, z) in ((1, 2), (7, 2), (1, 6), (7, 6)):
+                g[x, 0, z] = FT
+                g[x, y0, z] = FT
+                g[x, yt, z] = FT
+        if open_:
+            g[2:7, y0 + 1:yt + 1, 3:6] = 0
+            g[2:7, y0, 3:6] = IN
+            g[2:7, y0 + 1:yt + 1, 2] = IN   # 中の おくの かべ（前から 見える。からっぽ の 色）
+
+    def lock(g):
+        g[4, yt - 1:yt + 1, 7] = FT
+        g[4, yt - 1, 7] = KH
+        g[4, yt + 1, 7] = FT
+
+    def closed(bx, by, bz, e):
+        g = np.zeros((N, N, N), np.int16)
+        body_box(g, False)
+        if style == 'cap':
+            g[0:9, yt + 1:yt + 3, 1:8] = LD
+            for x in (2, 6):
+                g[x, yt + 1:yt + 3, 1:8] = BD
+            g[4, yt - 1:yt + 1, 7] = FT
+            g[4, yt - 1, 7] = KH
+        else:
+            g[1:8, yt + 1:yt + 3, 2:7] = LD
+            g[1:8, yt + 3, 3:6] = LD
+            for x in (2, 6):
+                g[x, yt + 1:yt + 3, 2:7] = BD
+                g[x, yt + 3, 3:6] = BD
+            lock(g)
+        return g
+
+    def opened(bx, by, bz, e):
+        g = np.zeros((N, N, N), np.int16)
+        body_box(g, True)
+        top = min(N - 1, yt + 4)
+        if style == 'cap':
+            g[0:9, yt + 1:top + 1, 0:2] = LD
+            for x in (2, 6):
+                g[x, yt + 1:top + 1, 0:2] = BD
+        elif style == 'urushi':
+            g[1:8, yt + 1:top + 1, 0] = LD
+            g[1:8, yt + 1:top + 1, 1] = IN
+            for x in (2, 6):
+                g[x, yt + 1:top + 1, 0] = BD
+        else:
+            g[1:8, yt + 1:top + 1, 1] = LD
+            g[1:8, yt + 2:top + 1, 0] = LD
+            for x in (2, 6):
+                g[x, yt + 1:top + 1, 1] = BD
+        g[4, yt, 7] = FT
+        return g
+    return (Block(prefix + '_chest', mats, closed, opaque=False), Block(prefix + '_chest_open', mats, opened, opaque=False))
+
+
+# ------------------------------------------------------------------ 宝箱 4 段階（yuzu 2026-10-30 01:41）の 新しい 段階 2・4（3 案ずつ）
+TIER_STYLES = {
+    'iron': '2a てつの おび（たて 2 本・とびだす）＋ かまぼこの ふた・はば 9',
+    'ironbox': '2b かどの 金具（8 すみ とびだす）＋ 平らな ふた',
+    'steel': '2c ぜんぶ てつ（2a と 同じ 形）',
+    'flame': '4a きんの 箱 ＋ 上に ほのお（ミラクルの しるし）',
+    'shu': '4b 朱の 箱 ＋ 金の ほのお ＋ まるい ふた',
+    'wing': '4c きんの 箱 ＋ しろい はね ＋ ほのおの 玉',
+}
+
+
+def tier_chest(prefix, style):
+    """段階 2・4 の 宝箱。前 = +z。どれも 1 マスより 小さい（たんす・かまどの 四角と 影で ちがう）。
+    あけた = ふたが うしろに 立ち、中は からっぽ（仕様 MINE-1 §3.2）。影の 目じるし: 1 = ふたの ひさし、2 = よこの おび、3 = 金の 足、4 = かんむり"""
+    if style == 'iron':
+        pal = dict(W=IRONWOOD['body'], L=IRONWOOD['lid'], S=STEEL['main'], D=STEEL['lo'], K=STEEL['dk'], I=IRONWOOD['inside'])
+    elif style == 'ironbox':
+        pal = dict(W=IRONWOOD['body'], L=IRONWOOD['lid'], S=STEEL['main'], D=STEEL['lo'], K=STEEL['dk'], I=IRONWOOD['inside'])
+    elif style == 'steel':
+        pal = dict(W=STEEL['lo'], L=STEEL['main'], S=STEEL['dk'], D=STEEL['dk'], K='#1E2026', I='#4A4E58')
+    elif style == 'flame':
+        pal = dict(W=GOLD['main'], L=GOLD['main'], O=GOLD['lo'], C='#F5CD55', F=MIRACLE['fire'], Y=MIRACLE['core'], T=MIRACLE['tip'], K=GOLD['dk'], I=ROYAL)
+    elif style == 'shu':
+        pal = dict(W=SHU['main'], L=SHU['lid'], G=GOLD['main'], O=GOLD['lo'], Y=MIRACLE['core'], K=GOLD['dk'], I=URUSHI['main'])
+    else:  # wing
+        pal = dict(W=GOLD['main'], L=GOLD['main'], O=GOLD['lo'], H=GOLD['hi'], G='#F5CD55', F='#F7F4EC', E='#D9D2C2', K=GOLD['dk'], I=ROYAL,
+                   M=MIRACLE['fire'], Y=MIRACLE['core'], T=MIRACLE['tip'])
+    keys = list(pal)
+    mats = [Mat(f'{prefix}_{k}', solid(c)) for k, c in pal.items()]
+    ix = {k: i + 1 for i, k in enumerate(keys)}
+
+    def shape(open_):
+        g = np.zeros((N, N, N), np.int16)
+
+        def B(x0, x1, y0, y1, z0, z1, k):  # はしも 入れる
+            g[x0:x1 + 1, y0:y1 + 1, z0:z1 + 1] = ix[k] if k else 0
+
+        def P(x, y, z, k):
+            g[x, y, z] = ix[k] if k else 0
+
+        def hollow(x0, x1, y0, y1, z0, z1):  # からだ（x0..x1, y0..y1, z0..z1）の 中を あける。床と おくの かべの 内がわ = 中の 色
+            B(x0 + 1, x1 - 1, y0 + 1, y1, z0 + 1, z1 - 1, None)
+            B(x0 + 1, x1 - 1, y0, y0, z0 + 1, z1 - 1, 'I')
+            B(x0 + 1, x1 - 1, y0 + 1, y1, z0, z0, 'I')
+        if style in ('iron', 'steel'):
+            # はば 9・高さ 7（からだ 4 ＋ かまぼこの ふた 3）。たての おび 2 本が 前・上・うしろを まわって 1 小ブロック とびだす
+            B(0, 8, 0, 3, 2, 6, 'W')
+            for x in (0, 8):
+                for z in (2, 6):
+                    P(x, 0, z, 'D')           # 下の かどの 金具
+            if open_:
+                hollow(0, 8, 0, 3, 2, 6)
+                B(0, 8, 4, 8, 1, 1, 'I')      # 立った ふたの うら
+                B(0, 8, 4, 8, 0, 0, 'L')
+                for x in (2, 6):
+                    B(x, x, 0, 3, 7, 7, 'S')
+                    B(x, x, 4, 8, 0, 0, 'S')
+                    P(x, 1, 7, 'D')
+                P(4, 3, 7, 'K')
+            else:
+                B(0, 8, 4, 5, 2, 6, 'L')      # かまぼこの ふた
+                B(0, 8, 6, 6, 3, 5, 'L')
+                for x in (2, 6):
+                    B(x, x, 0, 5, 7, 7, 'S')
+                    P(x, 6, 6, 'S')
+                    B(x, x, 6, 6, 3, 5, 'S')
+                    B(x, x, 0, 5, 1, 1, 'S')
+                    P(x, 6, 2, 'S')
+                    P(x, 1, 7, 'D')           # びょう
+                    P(x, 4, 7, 'D')
+                P(4, 4, 7, 'S')               # じょう前
+                P(4, 3, 7, 'K')
+        elif style == 'ironbox':
+            B(1, 7, 0, 4, 2, 6, 'W')
+            for x in (1, 7):
+                for z in (2, 6):
+                    B(x, x, 0, 4, z, z, 'D')  # かどの 金具（たての ふち）
+            for y in (0,) if open_ else (0, 6):
+                for x in (0, 8):              # 8 すみの 金具が とびだす
+                    for z in (2, 6):
+                        P(x, y, z, 'S')
+                for x in (1, 7):
+                    for z in (1, 7):
+                        P(x, y, z, 'S')
+            if open_:
+                hollow(1, 7, 0, 4, 2, 6)
+                B(1, 7, 5, 8, 1, 1, 'I')
+                B(1, 7, 5, 8, 0, 0, 'L')
+                P(4, 4, 7, 'S')
+                P(4, 3, 7, 'K')
+            else:
+                B(1, 7, 5, 6, 2, 6, 'L')      # 平らな ふた
+                for x in (1, 7):
+                    for z in (2, 6):
+                        B(x, x, 5, 6, z, z, 'D')
+                P(4, 5, 7, 'S')               # じょう前
+                P(4, 4, 7, 'S')
+                P(4, 3, 7, 'K')
+        elif style == 'flame':
+            # はば 9・おく 7（いちばん 大きい）。からだ 4・ふた 1・上に ほのお 4（5×5 → 3×3 → 3×3 → 先 1）
+            B(0, 8, 0, 3, 1, 7, 'W')
+            B(0, 8, 0, 0, 1, 7, 'O')          # 下の ふち
+            for (x, y, k) in ((3, 1, 'F'), (4, 1, 'F'), (5, 1, 'F'), (3, 2, 'F'), (4, 2, 'Y'), (5, 2, 'F'), (4, 3, 'F')):
+                P(x, y, 8, k)                 # 前の ほのおの もよう（とびだす。じょう前 の かわり）
+            if open_:
+                hollow(0, 8, 0, 3, 1, 7)
+                B(0, 8, 4, 8, 1, 1, 'I')      # 立った ふたの うら
+                B(0, 8, 4, 8, 0, 0, 'O')
+            else:
+                B(0, 8, 4, 4, 1, 7, 'O')      # ふた（こい 金の 板）
+                B(2, 6, 5, 5, 2, 6, 'F')      # ほのお（宝珠の 形）: 下 5×5 → 3×3 → 3×3 → 先 1。前から 見て しずくの 形
+                B(3, 5, 6, 7, 3, 5, 'F')
+                P(4, 6, 5, 'Y')               # しん（きいろ）
+                P(4, 7, 5, 'Y')
+                P(4, 5, 6, 'Y')
+                P(4, 8, 4, 'T')               # 先（うすい きいろ）
+        elif style == 'shu':
+            B(1, 7, 0, 4, 2, 6, 'W')
+            for x in (1, 7):
+                for z in (2, 6):
+                    B(x, x, 0, 4, z, z, 'G')  # 金の かど
+            B(1, 7, 0, 0, 2, 6, 'O')
+            for (x, y) in ((3, 1), (4, 1), (5, 1), (3, 2), (5, 2), (4, 3)):
+                P(x, y, 6, 'G')               # 前の 金の ほのお（ひらたい）
+            P(4, 2, 6, 'Y')
+            if open_:
+                hollow(1, 7, 0, 4, 2, 6)
+                B(1, 7, 5, 8, 1, 1, 'I')
+                B(1, 7, 5, 8, 0, 0, 'L')
+            else:
+                B(1, 7, 5, 6, 2, 6, 'L')      # まるい ふた
+                B(1, 7, 7, 7, 3, 5, 'L')
+                B(1, 7, 5, 5, 2, 6, 'G')      # ふたの 金の ふち
+                P(4, 8, 4, 'G')               # 上の つまみ
+                P(4, 5, 7, 'G')
+                P(4, 4, 7, 'K')
+        else:  # wing: きんの 箱 ＋ 左右に しろい はね ＋ にじの 玉
+            B(2, 6, 0, 4, 2, 6, 'W')
+            B(2, 6, 0, 0, 2, 6, 'O')
+            for (xi, xo) in ((1, 0), (7, 8)):    # はね: 外へ 行くほど 上へ（下から 見て V）
+                B(xi, xi, 2, 6, 3, 5, 'F')
+                B(xo, xo, 4, 8, 3, 5, 'F')
+                P(xo, 8, 4, 'G')                  # はねの 先は 金
+                P(xi, 2, 4, 'G')
+                B(xo, xo, 4, 4, 3, 5, 'E')        # はねの 下の かげ
+            for (x, y, k) in ((3, 1, 'M'), (4, 1, 'M'), (5, 1, 'M'), (3, 2, 'M'), (4, 2, 'Y'), (5, 2, 'M'), (4, 3, 'M')):
+                P(x, y, 7, k)                     # 前の ほのおの 玉（ミラクルの しるし）
+            if open_:
+                hollow(2, 6, 0, 4, 2, 6)
+                B(2, 6, 5, 8, 1, 1, 'I')
+                B(2, 6, 5, 8, 0, 0, 'L')
+            else:
+                B(2, 6, 5, 6, 2, 6, 'L')
+                B(2, 6, 5, 5, 2, 6, 'O')
+                B(3, 5, 7, 7, 3, 5, 'L')          # まるい ふた
+                P(4, 8, 4, 'H')
+                P(4, 5, 7, 'H')
+        return g
+    return (Block(prefix + '_chest', mats, lambda bx, by, bz, e: shape(False), opaque=False),
+            Block(prefix + '_chest_open', mats, lambda bx, by, bz, e: shape(True), opaque=False))
+
+
+# ------------------------------------------------------------------ B・C の つぶの 形（面ごと）
+def grain_block(salt, layout, mats, rate=3, deep=1):
+    """layout(hf, f) -> (つぶ [(u, v, d, k)], ほる [(u, v, d)])。k = mats の 番号（1 = 地の 石）。
+    つぶの まわり 1 マスの 外がわ（d=0）は いつも ほる（みぞ = 影）。ほかの 石は いまの 鉱石と 同じ ほり方。"""
+    def fill(bx, by, bz, e):
+        h = block_hash(salt, bx, by, bz)
+        g = np.ones((N, N, N), np.int16)
+        grain = {}
+        carve = set()
+        for f in range(6):
+            if not (e & FACE_BITS[f]):
+                continue
+            vox, pits = layout(mix(h, 31 + f), f)
+            for (u, v, dd, k) in vox:
+                if 0 <= u < N and 0 <= v < N:
+                    grain[face_xyz(f, u, v, dd)] = k
+            occ0 = {(u, v) for (u, v, dd, k) in vox if dd == 0}
+            for (u, v) in occ0:
+                for du in (-1, 0, 1):
+                    for dv in (-1, 0, 1):
+                        uu, vv = u + du, v + dv
+                        if 0 <= uu < N and 0 <= vv < N and (uu, vv) not in occ0:
+                            carve.add(face_xyz(f, uu, vv, 0))
+            for (u, v, dd) in pits:
+                if 0 <= u < N and 0 <= v < N:
+                    carve.add(face_xyz(f, u, v, dd))
+        for x in range(N):
+            for y in range(N):
+                for z in range(N):
+                    p = (x, y, z)
+                    if p in grain:
+                        g[p] = grain[p]
+                    elif dentable(x, y, z, e) and (p in carve or carved(x, y, z, e, h, rate, deep, 0)):
+                        g[p] = 0
+        return g
+    return fill
+
+
+def pick(hf, variants):
+    return variants[hf % len(variants)]
+
+
+# ================================================================== 案 A「こまかい つぶ」
+def opt_a():
+    d = common_blocks()
+    d['coal'] = d['cur_coal']
+    d['iron'] = d['cur_iron']
+    st = cur_stone()
+    # きん: ふちの こい 金ぴかの つぶ（大 2・小 2）
+    g = st.copy()
+    big = ['.AD.', 'ADDG', 'DDGH', '.GH.']
+    small = ['AD.', 'DDG', '.GH']
+    cm = {'A': GOLD['hi'], 'D': GOLD['main'], 'G': GOLD['lo'], 'H': GOLD['dk']}
+    for (x, y) in ((1, 2), (9, 8)):
+        stamp(g, x, y, big, cm)
+    for (x, y) in ((10, 1), (3, 10)):
+        stamp(g, x, y, small, cm)
+    d['gold'] = Block('gold', Mat('gold', g), nugget_shape(301))
+    # すいしょう: ひしがた（大 2・小 2）
+    c = st.copy()
+    dia = ['..L..', '.LCC.', 'LCCCD', '.CCD.', '..D..']
+    sdia = ['.L.', 'LCD', '.D.']
+    cm = {'L': CRY['hi'], 'C': CRY['main'], 'D': CRY['lo']}
+    for (x, y) in ((1, 1), (9, 7)):
+        stamp(c, x, y, dia, cm)
+    for (x, y) in ((10, 1), (3, 11)):
+        stamp(c, x, y, sdia, cm)
+    d['crystal'] = Block('crystal', Mat('crystal', c), nugget_shape(302))
+    # ほたるいし: まるい 光る つぶ（芯 ＋ まわりの にじみ）。いきは しない（ずっと 同じ）
+    hcol = st.copy()
+    gm = zero_mask()
+    dot = ['.hh.', 'hccH', 'hccH', '.HH.']
+    cm = {'c': HOT['core'], 'h': HOT['main'], 'H': HOT['lo']}
+    gcm = {'c': 1.0, 'h': 0.75, 'H': 0.5}
+    for (x, y) in ((1, 1), (10, 2), (6, 7), (12, 11), (2, 11)):
+        stamp(hcol, x, y, dot, cm)
+        gl_mask(dot, x, y, gm, gcm)
+    d['hotaru'] = Block('hotaru', Mat('hotaru', hcol, glow=gm), nugget_shape(303), emit=10, emit_ch=1)
+    # ねんど: なめらか ＋ よこの すじ（地層）
+    t = speckle(CLAY['base'], [CLAY['lt'], CLAY['dk']], 121, 20)
+    for x in range(1, 8):
+        t[4, x] = hx(CLAY['lt'])
+    for x in range(9, 15):
+        t[5, x] = hx(CLAY['lt'])
+    for x in range(0, 6):
+        t[11, x] = hx(CLAY['dk'])
+    for x in range(7, 14):
+        t[12, x] = hx(CLAY['dk'])
+    d['clay'] = Block('clay', Mat('clay', calm(t, CLAY['base'])), rock_shape(304, 4, 2, 5))
+    # せっかいせき: 白っぽい 石 ＋ なみの しま ＋ 小さな かいがらの かせき
+    t = speckle(LIME['base'], [LIME['dk'], LIME['lt']], 131, 24)
+    for x in range(T):
+        t[5 + ((x // 3) % 2), x] = hx(LIME['dk'])
+        t[12 + (((x + 1) // 4) % 2), x] = hx(LIME['dk'])
+    stamp(t, 9, 1, ['.SS.', 'S..S'], {'S': LIME['sh']})
+    stamp(t, 2, 8, ['.SS.', 'S..S'], {'S': LIME['sh']})
+    d['lime'] = Block('lime', Mat('lime', calm(t, LIME['base'])), rock_shape(305, 6, 3, 7))
+    # しっくい: 平らな 箱。うすい こての あと ＋ ふちの 目地
+    t = speckle(PLASTER['base'], [PLASTER['lt'], PLASTER['dk']], 141, 18)
+    t[0, :] = hx(PLASTER['line'])
+    t[:, 0] = hx(PLASTER['line'])
+    d['plaster'] = Block('plaster', Mat('plaster', t), full_shape)
+    # つらら: 十字の 板（細い 3 本。先は 白く まるい）
+    d['icicle'] = icicle_block('a', [(1, [4, 4, 4, 3, 3, 3, 3, 3, 2, 2, 2, 2]), (6, [3, 3, 3, 3, 2, 2, 2, 2]), (10, [4, 4, 3, 3, 3, 3, 3, 2, 2, 2])])
+    # 坑道の 木の わく: 平らな 箱。たての 木目の 角材 ＋ まん中に 鉄の おび ＋ びょう ＋ こい ふち
+    def frame_tile(top):
+        t = speckle(WOOD['beam'], [WOOD['lt'], '#A87A46'], 151, 30)
+        if top:
+            for y in range(T):
+                for x in range(T):
+                    dd = max(abs(x - 7.5), abs(y - 7.5))
+                    if int(dd) % 3 == 0 and dd < 7:
+                        t[y, x] = hx('#A47544')
+        else:
+            for x in (3, 8, 12):
+                for y in range(T):
+                    if (y + x) % 5 != 0:
+                        t[y, x] = hx('#A47544')
+            t[6:9, :] = hx('#4A4650')
+            t[7, :] = hx('#5E5A66')
+            for x in (2, 13):
+                t[7, x] = hx('#2E2C34')
+        t[0, :] = hx(WOOD['post'])
+        t[15, :] = hx(WOOD['post'])
+        t[:, 0] = hx(WOOD['post'])
+        t[:, 15] = hx(WOOD['post'])
+        return t
+    d['frame'] = Block('frame', Mat('frame', [frame_tile(True), frame_tile(True), frame_tile(False)]), full_shape)
+    # 宝箱: ふたの 大きい 平らな 箱（ふたが まわりに はみ出す）。あけると ふたが 立ち、中は からっぽ
+    d['chest'], d['chest_open'] = chest_blocks('a', 'cap')
+    d['_light_note'] = 'たいまつと 同じ だいだいの 光（10。少し 明るい 0.5 の 段 だけ）'
+    d['_green'] = None
+    d['_hot_dim'] = 0.5
+    return d
+
+
+# ================================================================== 案 B「とびだす つぶ」
+def opt_b(rate=3, deep=1):
+    """rate・deep = 鉱石の 地の 石の ほり方（つぶの まわりの みぞ とは べつ。いまの いしは 6・3）"""
+    d = common_blocks()
+    st = cur_stone()
+    stm = Mat('b_stone_m', st)
+
+    def mats(prefix, cols, glow=None, breath=None):
+        out = [stm]
+        for k, c in enumerate(cols):
+            gv = None
+            if glow is not None:
+                gv = np.full((T, T), glow[k])
+            out.append(Mat(f'{prefix}{k}', solid(c), glow=gv, breath=breath))
+        return out
+    # せきたん: うすい 板（3×1）が かさなる（よこの すじ）
+    def coal_layout(hf, f):
+        vs = pick(hf, [[(1, 1), (5, 4), (1, 6)], [(4, 1), (0, 4), (5, 7)], [(2, 2), (6, 4), (1, 6)]])
+        vox = []
+        for (u0, v0) in vs:
+            for i in range(3):
+                vox.append((u0 + i, v0, 0, 2 if i == 0 else 3))
+                vox.append((u0 + i, v0, 1, 4))
+        return vox, []
+    d['coal'] = Block('coal', mats('b_coal', ['#5E5869', COAL['main'], COAL['lo']]), grain_block(401, coal_layout, None, rate=rate, deep=deep))
+    # てつ: まるい こぶ（＋ の 形）
+    def lump(u0, v0, kc, ka, kb):
+        vox = [(u0 + 1, v0 + 1, 0, kc)]
+        for (du, dv) in ((1, 0), (0, 1), (2, 1), (1, 2)):
+            vox.append((u0 + du, v0 + dv, 0, ka))
+        for du in range(3):
+            for dv in range(3):
+                vox.append((u0 + du, v0 + dv, 1, kb))
+        return vox
+
+    def iron_layout(hf, f):
+        vs = pick(hf, [[(1, 1), (5, 4)], [(4, 0), (0, 5)], [(1, 5), (5, 1)]])
+        vox = []
+        for (u0, v0) in vs:
+            vox += lump(u0, v0, 2, 3, 4)
+        return vox, []
+    d['iron'] = Block('iron', mats('b_iron', [IRON['hi'], IRON['main'], IRON['lo']]), grain_block(402, iron_layout, None, rate=rate, deep=deep))
+    # きん: 小さな 金の 粒（2×2 と 1×1）。左上に ひかり
+    def gold_layout(hf, f):
+        vs = pick(hf, [[(1, 1, 2), (5, 5, 2), (2, 6, 1)], [(5, 1, 2), (2, 3, 1), (1, 6, 2)], [(3, 2, 2), (6, 6, 1), (1, 5, 2)]])
+        vox = []
+        for (u0, v0, s) in vs:
+            for du in range(s):
+                for dv in range(s):
+                    k = 2 if (du == 0 and dv == 0) else 3
+                    vox.append((u0 + du, v0 + dv, 0, k))
+                    vox.append((u0 + du, v0 + dv, 1, 4))
+        return vox, []
+    d['gold'] = Block('gold', mats('b_gold', [GOLD['hi'], GOLD['main'], GOLD['lo']]), grain_block(403, gold_layout, None, rate=rate, deep=deep))
+    # すいしょう: くぼみ（ほら）の 中から とがった はしらが のびる
+    def cry_layout(hf, f):
+        # くぼみ（ほら）の 中に はしらの たば: 2×2 の 太い 1 本（先が とがる）＋ 1×1 の 細い 2 本
+        vs = pick(hf, [(1, 1), (3, 2), (2, 3)])
+        u0, v0 = vs
+        vox, pits = [], []
+        for du in range(-1, 5):
+            for dv in range(-1, 5):
+                if du in (-1, 4) and dv in (-1, 4):
+                    continue
+                pits.append((u0 + du, v0 + dv, 0))
+                pits.append((u0 + du, v0 + dv, 1))
+        for du in range(2):
+            for dv in range(2):
+                vox.append((u0 + du, v0 + dv, 1, 3))
+                vox.append((u0 + du, v0 + dv, 2, 4))
+        vox.append((u0, v0, 0, 2))
+        vox.append((u0 + 1, v0, 0, 3))
+        for (du, dv, top) in ((3, 0, 0), (2, 3, 1), (0, 3, 1)):
+            for dd in range(top, 3):
+                vox.append((u0 + du, v0 + dv, dd, 2 if dd == top else (3 if dd == 1 else 4)))
+        return vox, pits
+    d['crystal'] = Block('crystal', mats('b_cry', ['#E0F7FC', '#8CDAF2', '#55A6D2']), grain_block(404, cry_layout, None, rate=rate, deep=deep))
+    # ほたるいし: こい 青灰の 石に、ぷくっと した 光る まんじゅう。ゆっくり いき（±12%・4 秒、ブロックごとに ずらす）
+    slate = calm(speckle(SLATE, ['#535A66', '#6A7380'], 161, 34), SLATE)
+    hm = [Mat('b_hot_m', slate)]
+    for k, (c, gv) in enumerate(((HOT['core'], 1.0), (HOT['main'], 0.85), (HOT['lo'], 0.55))):
+        hm.append(Mat(f'b_hot{k}', solid(c), glow=np.full((T, T), gv), breath=(0.12, 4.0), phase='chunk'))
+
+    def hot_layout(hf, f):
+        # ほたるの むれ: 芯 1 マス（とびだす）＋ 下の 3×3 が 光る わ。1 面に 5 つ
+        vs = pick(hf, [[(1, 1), (5, 2), (2, 5), (6, 6), (4, 7)], [(2, 1), (6, 1), (1, 4), (5, 5), (2, 7)], [(1, 2), (4, 1), (7, 3), (3, 5), (6, 7)]])
+        vox = []
+        for (u0, v0) in vs:
+            vox.append((u0, v0, 0, 2))
+            for du in (-1, 0, 1):
+                for dv in (-1, 0, 1):
+                    vox.append((u0 + du, v0 + dv, 1, 3 if (du == 0 or dv == 0) else 4))
+        return vox, []
+    d['hotaru'] = Block('hotaru', hm, grain_block(405, hot_layout, None, rate=rate, deep=deep), emit=10, emit_ch=1)
+    # ダイヤ（yuzu 2026-10-30 01:41 足す。ふかい 層で いちばん 出にくい）: 1 面に ひし形の 石 1 つ（よこ・たて 5）が 2 小ブロック 立つ
+    # ＋ 小さな かけら 1 つ。左上 = 光、右下 = かげ、ななめに ピンク・きいろの きらっ。光らない（光るのは ほたるいし だけ）
+    def dia_layout(hf, f):
+        (cu, cv), (pu, pv) = pick(hf, [((3, 3), (7, 7)), ((5, 4), (1, 7)), ((4, 5), (7, 1))])
+        vox, pits = [], []
+        gem = set()
+        for du in range(-2, 3):
+            for dv in range(-2, 3):
+                if abs(du) + abs(dv) <= 2:
+                    gem.add((du, dv))
+        for (du, dv) in gem:
+            s_ = du + dv
+            k = 2 if s_ < 0 else (4 if s_ > 0 else 3)
+            if (du, dv) == (1, -1):
+                k = 6   # ピンクの きらっ
+            if (du, dv) == (-1, 1):
+                k = 7   # きいろの きらっ
+            if (du, dv) == (-1, -1):
+                k = 2
+            vox.append((cu + du, cv + dv, 0, k))
+            vox.append((cu + du, cv + dv, 1, 5))   # 下の 層 = こい むらさき（みぞの 横から 見える ふち）
+        for du in range(-3, 4):
+            for dv in range(-3, 4):
+                if (du, dv) in gem:
+                    continue
+                if any((du + a, dv + b) in gem for a in (-1, 0, 1) for b in (-1, 0, 1)):
+                    pits.append((cu + du, cv + dv, 1))   # みぞを 2 だんに → 石が 2 小ブロック 立つ
+        vox.append((pu, pv, 0, 2))
+        vox.append((pu, pv, 1, 5))
+        return vox, pits
+    d['diamond'] = Block('diamond', mats('b_dia', [DIA['hi'], DIA['main'], DIA['lo'], DIA['dk'], DIA['pink'], DIA['yel']]),
+                         grain_block(408, dia_layout, None, rate=rate, deep=deep))
+
+    # ねんど: もっちり（見える へり・かどを まるく ＋ 指で おした ような まるい くぼみ）
+    clay_t = calm(speckle(CLAY['base'], [CLAY['lt'], CLAY['dk']], 122, 22), CLAY['base'])
+
+    def clay_shape(bx, by, bz, e):
+        h = block_hash(406, bx, by, bz)
+        g = np.ones((N, N, N), np.int16)
+        dimples = set()
+        for f in range(6):
+            if not (e & FACE_BITS[f]):
+                continue
+            r = mix(h, 70 + f)
+            if r % 3 == 0:
+                continue
+            u0, v0 = 1 + (r >> 4) % 5, 1 + (r >> 8) % 5
+            for (du, dv) in ((0, 0), (1, 0), (0, 1), (1, 1)):
+                dimples.add(face_xyz(f, u0 + du, v0 + dv, 0))
+        for x in range(N):
+            for y in range(N):
+                for z in range(N):
+                    if not dentable(x, y, z, e):
+                        continue
+                    ds = sorted(face_uvd(f, x, y, z)[2] for f in range(6) if e & FACE_BITS[f])
+                    if len(ds) >= 2 and ds[0] + ds[1] <= 1:
+                        g[x, y, z] = 0
+                    elif len(ds) >= 3 and ds[0] + ds[1] + ds[2] <= 2:
+                        g[x, y, z] = 0
+                    elif (x, y, z) in dimples:
+                        g[x, y, z] = 0
+        return g
+    d['clay'] = Block('clay', Mat('b_clay', clay_t), clay_shape)
+
+    # せっかいせき: よこの しま（3 段ごとに 1 マス ひっこむ）。となりの ブロックへ つづく
+    t = speckle(LIME['base'], [LIME['dk'], LIME['lt']], 132, 22)
+    for y in range(6, 10):
+        for x in range(T):
+            if (x + y) % 5 == 0:
+                t[y, x] = hx(LIME['dk'])
+    lime_t = calm(t, LIME['base'])
+
+    def lime_shape(bx, by, bz, e):
+        h = block_hash(407, bx, by, bz)
+        g = np.ones((N, N, N), np.int16)
+        for x in range(N):
+            for y in range(N):
+                for z in range(N):
+                    side = e & ~3
+                    # しまの みぞ（横の 面の まん中の 3 段）。横の となりへ つづける（上下の 見えない 面は まもる）
+                    if side and 3 <= y <= 5 and not ((y == M and not e & 1) or (y == 0 and not e & 2)):
+                        dd = min(face_uvd(f, x, y, z)[2] for f in range(2, 6) if e & FACE_BITS[f])
+                        if dd == 0:
+                            g[x, y, z] = 0
+                            continue
+                    if dentable(x, y, z, e) and carved(x, y, z, e, h, 3, 1, 3):
+                        g[x, y, z] = 0
+        return g
+    d['lime'] = Block('lime', Mat('b_lime', lime_t), lime_shape)
+
+    # しっくい: 平らな 箱（むじ。うすい まだら だけ）
+    t = speckle(PLASTER['base'], [PLASTER['lt'], PLASTER['dk']], 142, 22)
+    d['plaster'] = Block('plaster', Mat('b_plaster', t), full_shape)
+    # つらら: 十字の 板（だんだんに 細る 3 本。先は 白く まるい）
+    d['icicle'] = icicle_block('b', [(0, [6, 6, 6, 4, 4, 4, 4, 2, 2, 2, 2]), (7, [4, 4, 4, 4, 2, 2, 2, 2, 2, 2, 2, 2, 2]), (12, [4, 4, 2, 2, 2, 2])])
+
+    # 坑道の 木の わく: となりの わくに つながる 角材（7×7）。たてに つめば はしら、よこに ならべれば はり
+    def frame_tiles():
+        side = speckle(WOOD['beam'], [WOOD['lt'], '#A87A46'], 152, 26)
+        for x in (4, 8, 11):
+            for y in range(T):
+                if (y * 3 + x) % 7 != 0:
+                    side[y, x] = hx('#A47544')
+        for (x, y) in ((2, 2), (13, 2), (2, 13), (13, 13)):
+            side[y, x] = hx(WOOD['bolt'])
+        top = speckle(WOOD['beam'], [WOOD['lt']], 153, 20)
+        for y in range(T):
+            for x in range(T):
+                dd = max(abs(x - 7.5), abs(y - 7.5))
+                if int(dd) % 3 == 0 and dd < 6:
+                    top[y, x] = hx('#A47544')
+        return top, side
+    ft, fs = frame_tiles()
+
+    def frame_shape(bx, by, bz, e, cm=0):
+        g = np.zeros((N, N, N), np.int16)
+        g[1:8, 1:8, 1:8] = 1
+        if cm & 1:
+            g[1:8, 8, 1:8] = 1
+        if cm & 2:
+            g[1:8, 0, 1:8] = 1
+        if cm & 4:
+            g[8, 1:8, 1:8] = 1
+        if cm & 8:
+            g[0, 1:8, 1:8] = 1
+        if cm & 16:
+            g[1:8, 1:8, 8] = 1
+        if cm & 32:
+            g[1:8, 1:8, 0] = 1
+        return g
+    d['frame'] = Block('frame', Mat('b_frame', [ft, ft, fs]), frame_shape, opaque=False, connect=True)
+    # 宝箱: くろうるし に きん（GOLD-1 と そろえる）。まるい ふた・金の 足・かどの 金具。あけると 中の 朱が 見えて からっぽ
+    d['chest'], d['chest_open'] = chest_blocks('b', 'urushi')
+    d['_light_note'] = 'ほたる色（うすい みどり）の 光（10）'
+    d['_green'] = (0.80, 1.0, 0.74)
+    d['_hot_dim'] = 0.35
+    return d
+
+
+def opt_c():
+    d = common_blocks()
+    st = cur_stone()
+    stm = Mat('c_stone_m', st)
+
+    def mats(prefix, cols, glow=None, breath=None):
+        out = [stm]
+        for k, c in enumerate(cols):
+            gv = None if glow is None else np.full((T, T), glow[k])
+            out.append(Mat(f'{prefix}{k}', solid(c), glow=gv, breath=breath))
+        return out
+
+    def center(hf):
+        return 1 + hf % 3, 1 + (hf >> 3) % 3
+
+    def big(shape_rows, hf, kmap):
+        """shape_rows: 深さごとの 5×5 の 文字（'.' = なし）"""
+        u0, v0 = center(hf)
+        vox = []
+        for dd, rows in enumerate(shape_rows):
+            for j, row in enumerate(rows):
+                for i, ch in enumerate(row):
+                    if ch in kmap:
+                        vox.append((u0 + i, v0 + j, dd, kmap[ch]))
+        return vox, (u0, v0)
+    # せきたん: かどの かけた 大きな しかくい かたまり
+    coal_rows = [['.HHH.', 'HHMMH', 'HMMMM', 'HMMM.', '.MM..'], ['MMMM.', 'MLLLM', 'MLLLM', 'MLLLM', '.MMM.']]
+
+    def coal_layout(hf, f):
+        v, _ = big(coal_rows, hf, {'H': 2, 'M': 3, 'L': 3})
+        return v, []
+    d['coal'] = Block('coal', mats('c_coal', [COAL['hi'], COAL['main']]), grain_block(501, coal_layout, None))
+    # てつ: 大きな まるい こぶ
+    lump_rows = [['.....', '..H..', '.HMM.', '..M..', '.....'], ['.MMM.', 'MMMML', 'MMMML', 'MMMLL', '.LLL.']]
+
+    def iron_layout(hf, f):
+        v, _ = big(lump_rows, hf, {'H': 2, 'M': 3, 'L': 4})
+        return v, []
+    d['iron'] = Block('iron', mats('c_iron', [IRON['hi'], IRON['main'], IRON['lo']]), grain_block(502, iron_layout, None))
+    # きん: 大きな まるい 金の かたまり ＋ ひかり
+    gold_rows = [['.....', '..A..', '.ADD.', '..D..', '.....'], ['.DDD.', 'DDDDG', 'DDDDG', 'DDDGG', '.GGG.']]
+
+    def gold_layout(hf, f):
+        v, _ = big(gold_rows, hf, {'A': 2, 'D': 3, 'G': 4})
+        return v, []
+    d['gold'] = Block('gold', mats('c_gold', [GOLD['hi'], GOLD['main'], GOLD['lo']]), grain_block(503, gold_layout, None))
+    # すいしょう: 大きな ほらの 中に 3 本の はしら（まん中が いちばん 高い）
+    def cry_layout(hf, f):
+        u0, v0 = center(hf)
+        vox, pits = [], []
+        for du in range(5):
+            for dv in range(5):
+                if (du in (0, 4)) and (dv in (0, 4)):
+                    continue
+                pits.append((u0 + du, v0 + dv, 0))
+                pits.append((u0 + du, v0 + dv, 1))
+        # まん中の 太い はしら（3×3 → 先 2×2 → 1×1）＋ 左右の 細い はしら 2 本
+        for du in (1, 2, 3):
+            for dv in (1, 2, 3):
+                vox.append((u0 + du, v0 + dv, 2, 4))
+        for du in (1, 2):
+            for dv in (1, 2):
+                vox.append((u0 + du, v0 + dv, 1, 3))
+        vox.append((u0 + 1, v0 + 1, 0, 2))
+        vox.append((u0 + 2, v0 + 1, 0, 3))
+        vox.append((u0 + 1, v0 + 2, 0, 3))
+        for (du, dv) in ((4, 1), (0, 3)):
+            vox.append((u0 + du, v0 + dv, 0, 2))
+            vox.append((u0 + du, v0 + dv, 1, 3))
+            vox.append((u0 + du, v0 + dv, 2, 4))
+        return vox, pits
+    d['crystal'] = Block('crystal', mats('c_cry', ['#E0F7FC', '#8CDAF2', '#55A6D2']), grain_block(504, cry_layout, None))
+    # ほたるいし: 大きな 光る たまご ＋ まわりの 石が うすく 光る わ（にじみ）
+    halo_t = calm(speckle('#9AA88E', ['#8E9C82', '#A6B49A'], 162, 30), '#9AA88E')
+    hm = [stm]
+    for k, (c, gv) in enumerate(((HOT['core'], 1.0), (HOT['main'], 0.85), (HOT['lo'], 0.6))):
+        hm.append(Mat(f'c_hot{k}', solid(c), glow=np.full((T, T), gv), breath=(0.15, 3.0)))
+    hm.append(Mat('c_hot_halo', halo_t, glow=np.full((T, T), 0.3), breath=(0.15, 3.0)))
+    egg_rows = [['.....', '.AM..', '.MMM.', '..MM.', '.....'], ['.MMM.', 'MMMML', 'MMMML', 'MMMLL', '.LLL.']]
+
+    def hot_layout(hf, f):
+        v, (u0, v0) = big(egg_rows, hf, {'A': 2, 'M': 3, 'L': 4})
+        taken = {(u, vv) for (u, vv, dd, k) in v}
+        ring = []
+        for du in range(-1, 6):
+            for dv in range(-1, 6):
+                p = (u0 + du, v0 + dv)
+                if p not in taken and 0 <= p[0] < N and 0 <= p[1] < N:
+                    ring.append((p[0], p[1], 1, 5))
+        return v + ring, []
+    d['hotaru'] = Block('hotaru', hm, grain_block(505, hot_layout, None), emit=10, emit_ch=1)
+
+    # ねんど: 太い 2 本の しま（あかるい・こい）。形は つちより やわらか
+    t = solid(CLAY['base'])
+    t[2:6, :] = hx('#D89A6C')
+    t[10:13, :] = hx('#874E32')
+    t = speckle_on(t, [CLAY['lt'], CLAY['dk']], 123, 14)
+    d['clay'] = Block('clay', Mat('c_clay', calm(t, CLAY['base'])), rock_shape(506, 2, 1, 3))
+    # せっかいせき: 太い しま ＋ ときどき 大きな アンモナイトの かせき
+    t = solid(LIME['base'])
+    t[0:3, :] = hx(LIME['lt'])
+    t[8:10, :] = hx(LIME['dk'])
+    t = speckle_on(t, [LIME['dk'], LIME['lt']], 133, 18)
+    lime_t = calm(t, LIME['base'])
+    fos = lime_t.copy()
+    amm = ['..SSSS..', '.S....S.', 'S..SS..S', 'S.S..S.S', 'S.S.SS.S', 'S..S...S', '.S....S.', '..SSSS..']
+    stamp(fos, 4, 4, amm, {'S': '#9C927F'})
+    d['lime'] = Block('lime', Mat('c_lime', lime_t), rock_shape(507, 6, 3, 7))
+    d['lime_fossil'] = Block('lime_fossil', Mat('c_lime_f', fos), rock_shape(507, 6, 3, 7))
+    # しっくい: 平らな 箱。木の ふち（まかべ）
+    t = speckle(PLASTER['base'], [PLASTER['lt'], PLASTER['dk']], 143, 16)
+    t[0:2, :] = hx(WOOD['post'])
+    t[:, 0:2] = hx(WOOD['post'])
+    d['plaster'] = Block('plaster', Mat('c_plaster', t), full_shape)
+    # つらら: 十字の 板（太い 2 本。先は 白く まるい）
+    d['icicle'] = icicle_block('c', [(1, [7, 7, 7, 6, 6, 5, 5, 5, 4, 4, 4, 3, 3, 3]), (9, [6, 6, 5, 5, 4, 4, 4, 3, 3])])
+    # 坑道の 木の わく: こい 太い 角材 ＋ かどに 黒い 鉄の L 金具 と 大きな びょう（平らな 箱）
+    def frame_tile(top):
+        t = speckle('#7A4C2A', ['#6A4024', '#8A5A34'], 154, 34)
+        if top:
+            for y in range(T):
+                for x in range(T):
+                    dd = max(abs(x - 7.5), abs(y - 7.5))
+                    if int(dd) % 2 == 0 and dd < 6:
+                        t[y, x] = hx('#8E5E36')
+        else:
+            for x in (3, 7, 12):
+                for y in range(T):
+                    if (y + 2 * x) % 6 != 0:
+                        t[y, x] = hx('#6A4024')
+        k = hx('#3A3440')
+        for (x0, y0, sx, sy) in ((0, 0, 1, 1), (15, 0, -1, 1), (0, 15, 1, -1), (15, 15, -1, -1)):
+            for i in range(5):
+                t[y0, x0 + sx * i] = k
+                t[y0 + sy * i, x0] = k
+            t[y0 + sy * 2, x0 + sx * 2] = hx('#77707F')
+        return t
+    d['frame'] = Block('frame', Mat('c_frame', [frame_tile(True), frame_tile(True), frame_tile(False)]), full_shape)
+    d['chest'], d['chest_open'] = chest_blocks('c', 'round')
+    d['_light_note'] = 'ほたる色（うすい みどり）の 光（10）'
+    d['_green'] = (0.80, 1.0, 0.74)
+    d['_hot_dim'] = 0.35
+    return d
+
+
+def speckle_on(t, dots, seed, count):
+    t = t.copy()
+    r = lcg(seed)
+    for i in range(count):
+        x = int(r() * T)
+        y = int(r() * T)
+        t[y, x] = hx(dots[i % len(dots)])
+    return t
+
+
+def opt_now():
+    """いまの ゲーム（せきたん・てつ だけ。新しい 鉱物は いし）"""
+    d = opt_a()
+    for k in ('gold', 'crystal', 'hotaru'):
+        d[k] = d['stone']
+    d['_green'] = None
+    d['_hot_dim'] = None
+    return d
+
+
+MIX_RATE = [4, 2]  # まぜた ときの 鉱石の 地の ほり方。B の 3・1 では A の ねんど・せっかいせきの 横で 平らな 板に 見えた → A の ねんど（つち）と 同じ 4・2
+
+
+def opt_mix():
+    """yuzu 2026-10-30: 鉱石（せきたん・てつ・ほたるいし・きん・すいしょう）= B、ブロック（ねんど・せっかいせき・しっくい・坑道の わく）= A。
+    つらら = 十字の 板（A の 絵）。ほたるいしの 光 7。宝箱は 4 段階（chest1 = A、chest2 = 新しい 2a、chest3 = B、chest4 = 新しい 4a。2・4 は yuzu 待ち。4 = ミラクル（★6）が 1 こ かくてい → ほのお）。
+    ダイヤ = B の きまりで 新しく。chest・chest_b は 前の 見本（A・B ならべ）の ため のこす"""
+    a, b = opt_a(), opt_b(rate=MIX_RATE[0], deep=MIX_RATE[1])
+    d = dict(b)
+    for k in ('clay', 'lime', 'plaster', 'frame', 'icicle'):
+        d[k] = a[k]
+    d['chest'], d['chest_open'] = a['chest'], a['chest_open']
+    d['chest_b'], d['chest_b_open'] = b['chest'], b['chest_open']
+    d['hotaru'].emit = 7  # yuzu 2026-10-30「ほたるいし 光りすぎ」→ 10 から 7（§15.3 の 9 まで に 入る）
+    d['_light_note'] = 'ほたる色（うすい みどり）の 光（7）'
+    # 宝箱 4 段階（yuzu 2026-10-30 01:41）: 1 = A 木の 箱、2 = 新しい（てつの おび）、3 = B くろうるし に きん、4 = 新しい（いちばん 上）
+    d['chest1'], d['chest1_open'] = a['chest'], a['chest_open']
+    d['chest3'], d['chest3_open'] = b['chest'], b['chest_open']
+    for st in TIER_STYLES:
+        d['chest_' + st], d['chest_' + st + '_open'] = tier_chest('t_' + st, st)
+    d['chest2'], d['chest2_open'] = d['chest_iron'], d['chest_iron_open']      # おすすめ 2a（yuzu 待ち）
+    d['chest4'], d['chest4_open'] = d['chest_flame'], d['chest_flame_open']    # おすすめ 4a（yuzu 待ち）
+    return d
+
+
+OPTS = {'A': opt_a, 'B': opt_b, 'C': opt_c, 'NOW': opt_now, 'M': opt_mix}
