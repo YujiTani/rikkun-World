@@ -6,6 +6,7 @@ import { ARMOR } from './armor';
 import { GEYSER, M4_BLOCKS, PLACEABLE, VOX_I } from './blocks';
 import { BUCKETS, FARM_TOOLS, SEEDS, SPRINKLER, VEGGIES } from './farm';
 import { GOLD } from './gold';
+import { HOUSE_TOOLS } from './house';
 import { LEGEND } from './legend';
 import { KONGO } from './kongo';
 import { KOTATSU, LIVE } from './live';
@@ -30,6 +31,7 @@ import { BOWS, SWORDS } from './weapons';
  * 畑（たね・やさい・くわ・じょうろ・スプリンクラー・バケツ 14 個）は farm.ts。絵は ui/itemArtM7.ts・itemArtM72.ts・bucketArt.ts。
  * ざいりょう（ようかいだま・かみ・あぶら・いと・ぬの・ねんど・すいしょう・てつの かたまり）は materials.ts、小物（ちょうちん・たこ・ふとん・おまもり・わらじ・はにわ）は misc.ts。
  * 生き物（たまご・むし・むしとりあみ・こたつ・とりごや・きんの たまご・もも にく 2 つ）は live.ts（食べた ときの 回復量は `food` 部品）。絵は ui/itemArtLive1〜3.ts。
+ * 建築士さんが くれる 道具（みずもり・どうづき）は house.ts。絵は ui/itemArtHouse.ts。
  * 置ける ブロック 22 個（くさ・つち・いし・すな・き・はっぱ・せきたん・てつ・かまど・かわら・レンガ・たいまつ・たんす・間欠泉の つち・12 の国の ブロック 8 つ）は blocks.ts（ブロックとしての 性質は BLOCK_TYPES と DIG_DEFAULTS のまま）。
  * ITEM_DEFS は Record<ItemDefId, ItemDef>（全件を 型で 強制）。ItemId の うち アイテムに ならない ブロック（BLOCK_ONLY_IDS）以外は
  * 1 つでも 書き忘れると 型エラー。
@@ -88,6 +90,9 @@ export const GEYSER_DEFS: ItemDefs = GEYSER;
 /** 12 の国の ブロック 8 つ（ITEM_TYPES では バケツの 次） */
 export const VOX_I_DEFS: ItemDefs = VOX_I;
 
+/** みずもり・どうづき（HOUSE-1A。ITEM_TYPES では 金の 次。道具の 色分けでは 金の 道具の 次） */
+export const HOUSE_TOOL_DEFS: ItemDefs = HOUSE_TOOLS;
+
 /** レジェンダリー武器（ITEM_TYPES・武器の 色分けでは これまでと 同じ 位置（crystal_katana の 次）に 入れる） */
 export const LEGEND_DEFS: ItemDefs = LEGEND;
 
@@ -100,7 +105,7 @@ export const ITEM_DEFS: Readonly<Record<ItemDefId, ItemDef>> = {
   ...PLACEABLE, ...M4_BLOCKS, ...GEYSER, ...VOX_I,
   ...TOOLS, ...SWORDS, ...BOWS, ...ARMOR, ...NINJA, ...SAMURAI,
   ...SEEDS, ...VEGGIES, ...FARM_TOOLS, ...SPRINKLER, ...BUCKETS,
-  ...ORB, ...MATERIALS, ...INGOT, ...GADGETS, ...LIVE, ...KOTATSU, ...LEGEND, ...GOLD, ...KONGO,
+  ...ORB, ...MATERIALS, ...INGOT, ...GADGETS, ...LIVE, ...KOTATSU, ...LEGEND, ...GOLD, ...KONGO, ...HOUSE_TOOLS,
 };
 
 /** 登録の 中から、ids の 順に 取り出した 登録（並びを 呼び出し側で 決めたい とき。登録に 無い id は 書きまちがいなので 投げる） */

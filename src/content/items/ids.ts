@@ -107,3 +107,7 @@ export type GadgetId = (typeof GADGET_IDS)[number];
  */
 export const LIVE_ITEM_IDS = ['egg', 'mushi', 'mushi_ami', 'toriya', 'kin_tamago', 'momo_nama', 'momo_yaki'] as const;
 export type LiveItemId = (typeof LIVE_ITEM_IDS)[number];
+
+/** 家づくりの道具（HOUSE-1A #338）: みずもり・どうづき（建築士さんが くれる。はたらきは HOUSE-1C）。ITEM_TYPES では 金の 次 */
+export const HOUSE_TOOL_IDS = ['mizumori', 'dotsuki'] as const;
+export type HouseToolId = (typeof HOUSE_TOOL_IDS)[number];

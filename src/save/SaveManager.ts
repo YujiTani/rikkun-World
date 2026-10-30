@@ -112,6 +112,8 @@ export interface SaveDeps {
   saveOverrides?: () => readonly SaveBlockOverride[];
   /** #293: がしゃどくろを たおした 回数（{ v: 2, kills }。ボス本体は 保存しない。前の 版の 宝箱の 一覧は 読みこんでも むし）。前の 保存に ない ときは null */
   gasha?: SaveExtra;
+  /** HOUSE-1A: くら・建築士さんの 記録（`{ v: 1, kura, first, toolsGiven }`）。前の 保存に ない ときは 初期の まま（くら 空） */
+  house?: SaveExtra;
   /** M7: 作物・農業の乱数・「置きものを置いた」印。無い保存は 読んだあと 置きものを置く */
   farm?: SaveFarm;
   /** 時刻と何日目。なければ保存しない */
@@ -342,6 +344,11 @@ export class SaveManager {
     } catch {
       this.d.animals?.deserialize(null);
     }
+    try {
+      this.d.house?.deserialize(data.house);
+    } catch {
+      this.d.house?.deserialize(null);
+    }
   }
 
   /** すぐ保存する。書き終わると解決する（失敗しても 解決する） */
@@ -539,6 +546,7 @@ export class SaveManager {
       ninja: this.d.ninja?.serialize() ?? null,
       samurai: this.d.samurai?.serialize() ?? null,
       gasha: this.d.gasha?.serialize() ?? null,
+      house: this.d.house?.serialize() ?? null,
       farm,
       ...(this.d.strength ? { strength: this.d.strength } : {}),
     });

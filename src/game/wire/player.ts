@@ -41,7 +41,16 @@ export function wireInput(deps: WiredRender) {
     beforeOpen: () => game.flushRender(),
   });
   bookRef = book;
-  game.setModal(book);
+  // 世界を 止める 画面は 2 つ: 本と、建築士さんの メニュー・くら（HOUSE-1A。時刻・妖怪も 止まる）。建築士さんの 画面は HTML なので 描く 物は ない
+  game.setModal({
+    active: () => book.active() || shared.houseFrozen(),
+    tick: () => {
+      if (book.active()) book.tick();
+    },
+    render: () => {
+      if (book.active()) book.render();
+    },
+  });
   game.input.onPress((action) => book.onAction(action));
   const playOverlay = new PlayOverlay(hud, lock, () => pointerLock.request(), () => book.open());
   startPlan.close(); // スタートメニューを 消す（今の「じゅんびちゅう」→「あそぼう」の 案内画面へ）

@@ -498,7 +498,9 @@
       "kin_pickaxe",
       "kin_axe",
       "kongo_pickaxe",
-      "kongo_axe"
+      "kongo_axe",
+      "mizumori",
+      "dotsuki"
     ],
     "weapon": [
       "bokuto",
@@ -806,7 +808,9 @@
     "kongo_kabuto",
     "kongo_yoroi",
     "kongo_kote",
-    "kongo_suneate"
+    "kongo_suneate",
+    "mizumori",
+    "dotsuki"
   ],
   "RARITY_ORDER": [
     "common",

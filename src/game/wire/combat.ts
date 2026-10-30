@@ -378,6 +378,12 @@ export function wireFighters(deps: WiredWeapons) {
       eggHeal: () => live.animalEggHeal,
       meatHeal: () => live.meatHeal,
       coopMenu: (id) => shared.openCoopMenu(id),
+      // HOUSE-1A: 建築士さん（wireHouse で あとから 作る ので 関数で 包む）
+      architects: {
+        rayHit: (origin, dir, reach) => shared.house?.manager.rayHit(origin, dir, reach) ?? null,
+        talk: (id) => shared.house?.talkTo(id) ?? false,
+        hit: (id) => shared.house?.hit(id),
+      },
       live: () => ({ netSwingTicks: live.netSwingTicks, carryHoldTicks: live.carryHoldTicks, coopCountMax: live.coopCountMax, coopMax: live.coopMax, kitEggMax: live.kitEggMax }),
       emitFarm: (e) => farm.emit(e),
       nowTick: () => game.tick,

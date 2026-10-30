@@ -33,6 +33,7 @@ import { createWorldHook } from '../world/hook';
 import { createRenderHook } from '../world/render/renderHook';
 import { createShadowHook } from '../world/render/shadow/shadowHook';
 import { createFarmHook } from '../farm';
+import { createHouseHook } from '../house/hook';
 import { lookDirection } from '../dig/raycast';
 import { computeFarmPlacement } from '../world/gen/farmPlacement';
 import { digSettingsView, settingsViewOf, sharedSettingsView } from './settingsViews';
@@ -50,7 +51,7 @@ export function installGameHook(deps: WiredLoop): void {
     waterFx, drops, store, level, yokaiM, blade, weaponFx, animals, deliverAnimalEvents, animalEvents,
     currentKitRows, animalFx, animalHint, aimPointInto, combat, lockHook, book, look, wheel, mixer, bgm,
     bgmScene, audioSettings, fxSound, craftConfig, toolConfig, craftUi, craft2Settings, screenSettings, m6,
-    m7, hintSettings, aimCfg, live, clockPhases, timeSettings, frameClock, gadgets,
+    m7, hintSettings, aimCfg, live, clockPhases, timeSettings, frameClock, house, gadgets,
   } = deps;
   installTestHook(game, overlay, () => host.everReady, {
     start: startBoot.hook,
@@ -315,6 +316,7 @@ export function installGameHook(deps: WiredLoop): void {
       sfxVoices: () => fxSound.activeVoices(),
     }),
     rarity: createRarityHook(() => dig.config.dropMax),
+    house: createHouseHook(house),
     settings: createSettingsHook(controller.settings, rig.config, [
         digSettingsView(dig.config),
         ITEM_RARITY_SETTINGS,

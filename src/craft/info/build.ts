@@ -1,5 +1,6 @@
 import type { DamageKind, ItemClass, ItemId, Rarity, Recipe, YokaiKind } from '../../contracts';
 import { M6_SETTING_DEFAULTS, M7_SETTING_DEFAULTS, W2_SETTING_DEFAULTS, seedKindOfItem, vegKindOfItem, type CropKind } from '../../contracts';
+import { itemDef } from '../../content/items/registry';
 import { DIG_DEFAULTS } from '../../dig/config';
 import { itemRarity, rarityTier } from '../../drops/rarity';
 import { createCombatConfig } from '../../combat/config';
@@ -131,6 +132,8 @@ export function createItemInfo(d: InfoDeps): ItemInfoSource {
     (Object.keys(drops) as YokaiKind[]).filter((k) => drops[k].some((r) => r.item === item));
 
   const sourceText = (item: ItemId, n: InfoNumbers): string => {
+    const fixed = itemDef(item)?.source; // 登録表に「てにいれかた」の 文が ある 物（建築士さんが くれる 道具 など）
+    if (fixed) return fixed;
     if (item === 'yokai_orb') return ORB_SOURCE;
     if (item === 'egg') return EGG_SOURCE;
     if (item === 'kin_tamago') return KIN_TAMAGO_SOURCE;

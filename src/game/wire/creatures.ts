@@ -15,6 +15,7 @@ import { MachoMarks } from '../../ui/machoMarks';
 import { FX_SETTINGS } from '../../fx/config';
 import { playKodachi } from '../../fx/weaponSounds';
 import type { WiredFighters } from './combat';
+import type { WiredHouse } from './house';
 
 export function wireYokai(deps: WiredFighters) {
   const {
@@ -120,9 +121,9 @@ export function wireYokai(deps: WiredFighters) {
   return { yokaiM, kodachiFx, kodachi, kodachiHookBuf };
 }
 
-type WiredYokai = WiredFighters & ReturnType<typeof wireYokai>;
+export type WiredYokai = WiredFighters & ReturnType<typeof wireYokai>;
 
-export function wireAnimalView(deps: WiredYokai) {
+export function wireAnimalView(deps: WiredHouse) {
   const {
     shared, fxSound, live, seed, controller, animals, hud, game, lighting, dig, world, rig, inventory,
     blade, tools,
@@ -189,4 +190,4 @@ export function wireAnimalView(deps: WiredYokai) {
   };
 }
 
-export type WiredAnimalView = WiredYokai & ReturnType<typeof wireAnimalView>;
+export type WiredAnimalView = WiredHouse & ReturnType<typeof wireAnimalView>;
