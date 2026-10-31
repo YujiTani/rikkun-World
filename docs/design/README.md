@@ -25,7 +25,8 @@
 | どこでも作れる・ログ・半透明 UI | `CRAFT-2.md` | M4・M6・M7・WEAPON-2 | — |
 | 畑 1: はたけの基本 | `M7-farm.md` | オーナーの元資料 `M7/`（果物・料理など、これからの案もここ） | `M7-2-farm.md`・`BUCKET-1.md` |
 | 畑 2: じょうろ・スプリンクラー・なでる | `M7-2-farm.md` | M7-farm | `BUCKET-1.md` |
-| 畑 3: バケツ | `BUCKET-1.md` | M7-2 | — |
+| 畑 3: バケツ | `BUCKET-1.md` | M7-2 | `WATER-1.md` |
+| 水の 流れ | `WATER-1.md` | BUCKET-1 | — |
 | 畜産 1: にわとりとなかよく | `LIVE-1.md` | — | `LIVE-2.md`（版 4）・`LIVE-4.md` |
 | 畜産 2: こたつ・ひよこ・とりごや（直し LIVE-2.1 を版 4 に入れた） | `LIVE-2.md` | LIVE-1 | `LIVE-3.md`・`LIVE-4.md` |
 | 畜産 3: お肉をやいて食べる | `LIVE-3.md` | LIVE-2 | — |
