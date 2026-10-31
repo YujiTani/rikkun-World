@@ -150,7 +150,7 @@ import { installAimHelpers } from './aim';
  *   'rename'     ボタン: `renamePick-<家の id>`（プレイヤーから 近い 順に 上から）・`close`（✕）。press('renamePick', 家の id) も 同じ。DOM の 外わくは data-testid="house-rename"
  *   'renameName' ボタン: ③ なまえ（1B）と 同じ `char-<ひらがな>`・`dakuten`・`handakuten`・`katakana`・`erase`・`suffix-0〜4` ＋ `renameOk`（これで いい！）・`renameCancel`（やめる）。
  *                今の 名前の 字は data-testid="rename-name"。外わくは data-testid="house-rename-name"。ふきだしは `house-bubble`（menu().bubble と 同じ）
- *   house.renaming() → { id, name: { front: string, back: string } } | null   名前の 画面で 作っている 名前（ほかの ページでは null）。`edit(op)` の char・erase・suffix は この 名前に 効く
+ *   house.renaming() → { id, name: { front: string, back: string } } | null   名前の 画面で 作っている 名前（ほかの ページでは null）
  *   `renameOk`: 前の 文字が 0 字 → 何も かわらず ふきだし「なまえを つけてね」（ページは そのまま）。1 字 以上 → `houses()` の name が かわり、ページは 上の メニューに もどる。
  *               せっけいずの 名前〔`blueprints()`〕は かわらない。`renameCancel`: 何も かえず 上の メニューへ
  */

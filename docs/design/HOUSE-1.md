@@ -636,7 +636,7 @@ E2E は 1 機能 1〜2 本に まとめる: 1B は **エディターの 通し 1
 - `level()` → みずもりの 色 `{ base: {x,y,z} | null, cells: { x, z, state: 'high' | 'low' | 'ok' }[] }`
 - `sites()` → 上空の 視点で 置ける 場所の 左上の 座標の 一覧、`cursor()` → `{ x, z, ok: boolean, confirm: boolean }`（confirm ＝ 確かめの まどが 出て いる）
 - `building()` → `{ name, w, d, progress: number /* 0〜1 */, leftTicks, leftText: string } | null`
-- `houses()` → `{ id, name, door: { x, y, z } /* 戸の 下の マス */, doorOpen: boolean }[]`（戸で おぼえた 記録。戸が こわれると 消える）
+- `houses()` → `{ id, name, number: number /* せっけいずの 番号 */, outer: { w: number, d: number } /* 外の 箱の 寸法 */, door: { x, y, z } /* 戸の 下の マス */, doorOpen: boolean }[]`（戸で おぼえた 記録。戸が こわれると 消える。1C PR-1 の テストで `number`・`outer` を 足した。`e2e/helpers/house.ts`）
 - `firstBonus()` → boolean（まだ 1 けんも 建て はじめて いない ＝ ふとんの おまけが ある）
 - `ui.houseNameBand()` → `{ text: string, ticksLeft: number } | null`
 

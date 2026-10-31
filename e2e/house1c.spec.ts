@@ -14,6 +14,7 @@ import {
   blockAt,
   buildNow,
   digAimed,
+  emptyHand,
   enterThroughDoor,
   futonCells,
   futonMismatches,
@@ -67,16 +68,6 @@ const NEW_BACK_BTN = 'suffix-3'; // ひみつきち
 const NEW_NAME = `${NEW_FRONT}ひみつきち`;
 
 const DROP_ONE = { common: 1, uncommon: 1, rare: 1, superRare: 1 };
-
-/** 持ち物の 空いた ホットバーの マスを えらぶ（右クリックが 持ち物の 道具に 取られない ように） */
-const emptyHand = (page: Page): Promise<void> =>
-  page.evaluate(() => {
-    const h = (window as any).__rikkun;
-    const slots = h.inventory.get().slots as (unknown | null)[];
-    const i = slots.findIndex((s, k) => k < 9 && !s);
-    h.inventory.select(i);
-    h.step(1);
-  });
 
 const getBlock = (page: Page, p: Pt): Promise<string> => page.evaluate(([x, y, z]) => (window as any).__rikkun.world.getBlock(x, y, z) as string, [p.x, p.y, p.z] as const);
 
@@ -183,6 +174,7 @@ test.describe('HOUSE-1C PR-1 家の 中身', () => {
 
       // 中で 歩いても 出ない（テレポートで 中に 入っても 出ない）
       const inside: Pt = { x: door.x + 0.5, y: door.y, z: door.z - 0.5 };
+      await standAt(page, outsideDoor(door), 0); // 外に 立って から 中へ 飛ぶ（外 → 中を 戸の マスを 通らずに）
       const wIn = await walk(page, { from: inside, yaw: 0, axis: 'z', dir: -1, until: z0 + 2, max: 200 });
       expect(wIn.trace.length, '中で 歩いた').toBeGreaterThan(5);
       expect(wIn.trace.every((s) => s.band === null), '中で 歩いても・テレポートで 入っても 帯は 出ない').toBe(true);

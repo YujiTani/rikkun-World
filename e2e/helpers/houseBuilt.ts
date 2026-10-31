@@ -382,6 +382,16 @@ export const digAimed = (page: Page): Promise<{ ready: boolean; steps: number }>
   });
 
 /** 家の 戸の 前の 外の 立ち位置（戸の 2 マス 南の 床の 上。まん中） */
+/** 持ち物の 空いた ホットバーの マスを えらぶ（右クリックが 持ち物の 道具に 取られない ように） */
+export const emptyHand = (page: Page): Promise<void> =>
+  page.evaluate(() => {
+    const h = (window as any).__rikkun;
+    const slots = h.inventory.get().slots as (unknown | null)[];
+    const i = slots.findIndex((s, k) => k < 9 && !s);
+    h.inventory.select(i);
+    h.step(1);
+  });
+
 export const outsideDoor = (door: Pt, south = 3): Pt => ({ x: door.x + 0.5, y: door.y, z: door.z + south });
 
 /** 戸を あけて（右クリック）外から 戸を 通って 中へ 歩く。足あとを 返す（中の マスまで） */
@@ -416,6 +426,7 @@ export async function openRenameScreen(page: Page, kind: RenameScreen): Promise<
   }
   if (kind === 'band') {
     const door = made[0]!.door;
+    await emptyHand(page); // 右クリックが 道具に 取られない ように 手を 空に する
     await standAt(page, outsideDoor(door), 0);
     await aimBlock(page, door, 0.5);
     await tapRight(page); // 戸を あける
