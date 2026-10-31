@@ -214,6 +214,14 @@ describe('HOUSE-1E 窓口と ボタン（赤い 家具）', () => {
     expect(e({ op: 'rotate', x: 1, z: 0, dir: 'left' }), 'ふとんを 赤く なる 向きにも').toBe(true);
     expect(e({ op: 'remove', x: 0, z: 1 })).toBe(true);
     expect(k.ctl.s.furniture.map((p) => p.kind)).toEqual(['futon']);
+    // remove も 重なった マス（1, 1）では あとから 置いた 方〔テーブル〕だけ とる
+    const k2 = makeController();
+    const e2 = (op: unknown): boolean => editOp(k2.ctl, op);
+    e2({ op: 'place', kind: 'futon', x: 1, z: 0 });
+    e2({ op: 'place', kind: 'table', x: 0, z: 1 });
+    expect(k2.ctl.s.furniture.map((p) => p.kind), 'ふとん → テーブルの 順に 重ねて 置けた').toEqual(['futon', 'table']);
+    expect(e2({ op: 'remove', x: 1, z: 1 })).toBe(true);
+    expect(k2.ctl.s.furniture.map((p) => p.kind), '重なった マスの remove は あとから 置いた テーブルだけ').toEqual(['futon']);
   });
 
   it('つぎへ・できた！ボタンは 赤い 家具が あっても 押せる（うすく ならない）が、押しても すすまない。① の つぎへ と ② の まえへ は すすむ', () => {

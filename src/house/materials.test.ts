@@ -371,7 +371,7 @@ describe('AC34 ⑤ 材料を 数える 回数: ふえるのは 画面を 開い�
     r.sys.press('close');
   });
 
-  it('数えるのは need()・一覧を 開く・［ここに たてる］の とき だけ（1 回 以上）。できた！は かみを たんすから 取る ときだけ読む（もちものに あれば 読まなくて よい）', () => {
+  it('数えるのは need()・一覧を 開く・［ここに たてる］の とき だけ（それぞれ 1 回 以上）。建築中の 600 ステップは 0 回', () => {
     const r = houseRig();
     r.sys.settings.houseBuildTicks = 5000;
     r.st.putTansu(10, 0, { log: 30, stone: 30 });
@@ -402,5 +402,51 @@ describe('AC34 ⑤ 材料を 数える 回数: ふえるのは 画面を 開い�
     before = calls();
     r.run(600);
     expect(calls() - before, '建築中の 600 ステップ').toBe(0);
+  });
+
+  /** かみ・ふでを 持たない 世界で エディターを 開き、ふとん・いす・名前「もも」まで 進める（できた！は まだ 押さない） */
+  const readyToFinish = (r: Rig): void => {
+    r.talk();
+    r.sys.press('editor');
+    for (const op of [{ op: 'place', kind: 'futon', x: 0, z: 0 }, { op: 'place', kind: 'chair', x: 4, z: 0 }]) expect(r.hook.edit(op)).toBe(true);
+    r.sys.press('next');
+    r.sys.press('next');
+    for (const ch of 'もも') expect(r.hook.edit({ op: 'char', ch })).toBe(true);
+  };
+
+  it('できた！: かみを たんすから 取る とき（もちものに 無い）は たんすを 読んで 1 まい 取る。そのあとの 600 ステップは 読まない', () => {
+    const r = houseRig();
+    const at = r.st.putTansu(10, 0, { paper: 3 });
+    r.bag.add('fude', 1);
+    readyToFinish(r);
+    const calls = counting(r);
+    let before = calls();
+    r.sys.press('done');
+    expect(calls() - before, 'できた！を 押した とき（かみを たんすから 取る）').toBeGreaterThan(0);
+    expect(r.hook.blueprints(), 'せっけいずが できた').toHaveLength(1);
+    expect(r.st.inTansu(at, 'paper'), 'たんすの かみが 1 まい へった').toBe(2);
+    expect(r.bag.count('paper'), 'もちものの かみは 0 の まま').toBe(0);
+    before = calls();
+    r.run(600);
+    expect(calls() - before, 'そのあとの 600 ステップ').toBe(0);
+  });
+
+  it('できた！: かみが もちものに あれば たんすから かみは 取らない（たんすの かみは そのまま）', () => {
+    const r = houseRig();
+    const at = r.st.putTansu(10, 0, { paper: 3 });
+    r.bag.add('paper', 1);
+    r.bag.add('fude', 1);
+    readyToFinish(r);
+    let takes = 0;
+    const take = r.st.storage.takeItem.bind(r.st.storage);
+    r.st.storage.takeItem = (...a: Parameters<typeof take>) => {
+      takes++;
+      return take(...a);
+    };
+    r.sys.press('done');
+    expect(r.hook.blueprints(), 'せっけいずが できた').toHaveLength(1);
+    expect(r.bag.count('paper'), 'もちものの かみを つかった').toBe(0);
+    expect(r.st.inTansu(at, 'paper'), 'たんすの かみは そのまま').toBe(3);
+    expect(takes, 'たんすから 取り出さない').toBe(0);
   });
 });

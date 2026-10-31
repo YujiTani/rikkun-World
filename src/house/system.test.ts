@@ -546,7 +546,7 @@ describe('1B 窓口: editor()・edit(op)・need()・blueprints()・Esc', () => {
   });
 
   it('1E AC13g: 赤い 家具が ある まま セーブして 読みこむと 同じ furniture（x・z・rot・origin・bad）。① で とじた 形でも 開くと naka。blueprints() の 家具は 赤を ふくまない', () => {
-    const { sys, hook } = opened();
+    const { sys, hook, bag } = opened();
     sys.press('editor');
     sys.press('next');
     for (const op of [{ op: 'place', kind: 'chair', x: 0, z: 0 }, { op: 'place', kind: 'futon', x: 4, z: 4 }]) expect(hook.edit(op)).toBe(true);
@@ -558,7 +558,9 @@ describe('1B 窓口: editor()・edit(op)・need()・blueprints()・Esc', () => {
     expect(hook.editor()?.step, '赤い 家具が あれば ② で 開く').toBe('naka');
     expect(hook.editor()?.furniture).toEqual(before);
     expect(JSON.stringify(saved)).not.toMatch(/"bad"|"origin"/);
-    // 赤い まま できた！は 止まる ので せっけいずに 赤い 家具は 入らない。なおして 作る
+    // 赤い まま できた！は 止まる ので せっけいずに 赤い 家具は 入らない。なおして 作る（かみ・ふでは もちものに 用意）
+    bag.add('paper', 1);
+    bag.add('fude', 1);
     hook.edit({ op: 'rotate', x: 4, z: 4, dir: 'right' });
     sys.press('next');
     for (const ch of 'ひみつ') hook.edit({ op: 'char', ch });

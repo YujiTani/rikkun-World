@@ -5,7 +5,7 @@ import { BTN_ORDER, TID, clickUi, clockOf, countOf, fudeLeft, htmlOf, menuMismat
 /**
  * HOUSE-1A（#338。docs/design/HOUSE-1.md §2.1〜2.4・§5・§6、docs/tickets/HOUSE-1A.md）の E2E。
  * E2E に 書くのは 画面・入力が いる 確認と 遊びの 流れの 代表だけ（#311）。数・状態だけの 基準は ユニット（developer）:
- *   AC2・AC4・AC6〜AC8・AC32・AC33・AC40・AC41 と、AC1・AC3 の 数の 部分（置き方の 関数・道具を くれる 条件）。
+ *   AC2・AC4・AC32・AC33・AC40・AC41 と、AC1・AC3 の 数の 部分（置き方の 関数・道具を くれる 条件）。
  *   AC41 は ユニット。ここでは ゲーム本体への つなぎ漏れ（本当に 時刻が 止まる）を AC3 の 通しの 中で 1 か所だけ 見る。
  * AC35（メニューの 3 つの 大きさ）は UI 検査（e2e/ui-gate.spec.ts の house-menu）。
  * 1E: くらを なくした ので、AC5（くらの あずけ・とりだし）の E2E は 消した（AC5〜AC8b は 欠番）。

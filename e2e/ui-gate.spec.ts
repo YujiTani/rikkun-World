@@ -16,7 +16,7 @@ import { makeSavedWorld, openMenu as openStartMenu, pressDigits, tid as startTid
 import { TID as HOUSE_TID, houseUiIssues, openMenuScreen } from './helpers/house';
 import { EDITOR_GATE, editorGateIssues, editorUiIssues, openEditorScreen } from './helpers/houseEditor';
 import { NAME_BAND_ROOTS, RENAME_LIST_ROOTS, RENAME_NAME_ROOTS, openRenameScreen } from './helpers/houseBuilt';
-import { PICK_ROOTS, SKY_CONFIRM_ROOTS, SKY_ROOTS, openSiteScreen } from './helpers/houseSite';
+import { PICK_ROOTS, SITE_NEED_ROOTS, SKY_CONFIRM_ROOTS, SKY_ROOTS, openSiteScreen, siteNeedIssues } from './helpers/houseSite';
 
 /**
  * UI 検査ゲート（`npm run check:ui`）。
@@ -864,6 +864,10 @@ SCREENS.push({ id: 'house-menu', roots: HOUSE_MENU_ROOTS, open: openMenuScreen, 
  * 'house-sekkeizu-name' だけは 今の 共有の ツールチップの まま（#339 の 票）。`extra` は 名前（`.tip-name`）が 見える・切れない・ほかの アイテムと 同じ 大きさ、だけを 見る（星・説明・「たいきゅう」は 見ない）。
  * 見本は 動きを へらす 設定で 止める（open で emulateMedia）。方眼の マス・置いた 家具は 押せる物に 数えない div、ふきだしも ボタンに しない（AC35）。
  * 'house-editor-beside' は 5×5 と 9×9 の 4 すみと まん中の 家具で そばの ボタンが 方眼から はみ出さない かを 見る（AC57）。
+ * HOUSE-1E AC35c（#374。docs/design/HOUSE-1.md §3.2・§6.2）: 'house-editor-red' ＝ ② なか・9×9 の 4 すみに はみ出した 赤い 家具〔ながい テーブル 1×3・こたつ〕と 重なった 赤い 家具を、
+ * ひとつずつ えらぶと そばの ボタンが 方眼の はこ〔かべの 帯 こみ〕から はみ出さず、上の 帯・下の 帯・右の 列に かからない〔はみ出した 所は 描かない〕。
+ * 'house-bubble-red-soto'・'house-bubble-red-naka' ＝ 「あかい かぐを なおしてね」が ① から〔できた！〕も ② から〔つぎへ〕も 1 だん。
+ * 'house-need'〔エディター がわ〕と 'house-site-need'〔けんちく がわ。下の 1C PR-2 の 並び〕＝ 列の 見出しが「ひつよう」「ある」「たりない」で「くら」が 出ない・材料の 名前に ふりがな〔くらの 画面の 検査が なく なった ぶん〕。
  * 窓口 `__rikkun.house` と 画面の 名前（data-testid）の 約束は e2e/helpers/house.ts の 先頭。実装の 前は 窓口が 無くて 赤。
  */
 SCREENS.push(
@@ -897,6 +901,8 @@ SCREENS.push(
   { id: 'house-pick', slow: true, roots: PICK_ROOTS, open: (page) => openSiteScreen(page, 'pick'), extra: (page) => editorUiIssues(page, PICK_ROOTS) },
   { id: 'house-sky', slow: true, roots: SKY_ROOTS, open: (page) => openSiteScreen(page, 'sky'), extra: (page) => editorUiIssues(page, SKY_ROOTS) },
   { id: 'house-sky-confirm', slow: true, roots: SKY_CONFIRM_ROOTS, open: (page) => openSiteScreen(page, 'confirm'), extra: (page) => editorUiIssues(page, SKY_CONFIRM_ROOTS) },
+  // 1E AC35c: 材料が たりない カードを 押して 開く ひつような もの（けんちく がわ）。エディター がわは 上の 'house-need'
+  { id: 'house-site-need', slow: true, roots: SITE_NEED_ROOTS, open: (page) => openSiteScreen(page, 'need'), extra: siteNeedIssues },
 );
 
 interface Issue {

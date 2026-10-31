@@ -68,6 +68,8 @@ export function houseRig(opts: RigOpts = {}) {
     sys.press('next');
     for (const ch of 'もも') hook.edit({ op: 'char', ch });
     sys.press('done');
+    // ふとん だけの 形は 確かめの まどで 止まる（AC44b ⑦）→ ［このまま つくる］
+    if (hook.editor()?.confirm === 'futonOnly') sys.press('yes');
     return hook.blueprints().at(-1)!.slot;
   };
   /** せっけいず slot の 材料（need の 数）を もちものに 足す（extra は その 分 ふやす）。たんすには 入れない */

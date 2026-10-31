@@ -20,9 +20,10 @@ describe('AC32 保存: 書いて 読むと 同じ', () => {
     expect(JSON.stringify(b.serialize())).toBe(JSON.stringify(a.serialize()));
   });
 
-  it('はじめの 形: 最初の 1 人は まだ 決まって いない・道具は まだ', () => {
+  it('はじめの 形: 最初の 1 人は まだ 決まって いない・道具は まだ・くらの 記録は つかない（返す 物が なければ `kura` の キーごと ない。仕様 §2.4 の 4）', () => {
     const s = new HouseState();
-    expect(s.serialize()).toMatchObject({
+    // 前の 版〔1D まで〕の `toEqual` と 同じ 強さ。キーが 1 つ 足されても（`kura: {}` が 残っても）落ちる
+    expect(s.serialize()).toEqual({
       v: 2,
       first: null,
       toolsGiven: false,

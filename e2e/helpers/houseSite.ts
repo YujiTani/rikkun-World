@@ -1,7 +1,7 @@
 import { expect, type Page } from '@playwright/test';
 import { doorIndex } from '../../src/house/editor/model';
-import { architects, openHouse, press, putTansu, talkTo, tansuHas, type MenuState, type Pos3 } from './house';
-import { blueprints, ed, firstArchitect, needOf, openEditorFast, setForm } from './houseEditor';
+import { architects, menuState, openHouse, press, putTansu, talkTo, tansuHas, type HouseIssue, type MenuState, type Pos3 } from './house';
+import { blueprints, clickDisabled, ed, editorUiIssues, firstArchitect, needHeadIssues, needOf, openEditorFast, setForm } from './houseEditor';
 import { LONGEST_NAME, standAt, type CellInfo, type HouseForm, type Pt } from './houseBuilt';
 
 /**
@@ -236,7 +236,7 @@ export interface Stock {
 }
 
 /** たんすを 置く 場所（足もとから）。建築士さんの 東 12 マスの 場所〔layYard〕とは はんたいがわの 西に 置く */
-const STOCK_TANSU = { dx: -8, dz: 4 } as const;
+const STOCK_TANSU = { dx: -12, dz: 4 } as const;
 
 /** いまの もちもの・たんす（at）の 中の items の 数 */
 export async function stockNow(page: Page, at: Pos3, items: string[]): Promise<Stock> {
@@ -477,7 +477,7 @@ export async function tryEditSite(
 
 // ---------------------------------------------------------------- UI 検査の 画面（e2e/ui-gate.spec.ts）
 
-export type SiteScreen = 'pick' | 'sky' | 'confirm';
+export type SiteScreen = 'pick' | 'sky' | 'confirm' | 'need';
 
 /** 一覧を 6 行より 長く する せっけいずの 数（6 行を こえたら スクロール。§3.2） */
 const GATE_PLANS = 7;
@@ -485,6 +485,13 @@ const GATE_PLANS = 7;
 export const PICK_ROOTS = ['[data-testid="house-pick"]', '[data-testid="house-bubble"]'];
 export const SKY_ROOTS = ['[data-testid="house-sky"]', '[data-testid="house-bubble"]'];
 export const SKY_CONFIRM_ROOTS = ['[data-testid="house-confirm"]'];
+/** 一覧の たりない カードを 押して 開く ひつような もの（けんちく がわ。エディター がわの 同じ 画面は houseEditor.ts の NEED_ROOTS） */
+export const SITE_NEED_ROOTS = ['[data-testid="house-need"]', '[data-testid="house-bubble"]'];
+
+/** けんちく がわの ひつような もの（AC35c）: 字・ボタンの 大きさ（`editorUiIssues`）と、列の 見出し「ひつよう」「ある」「たりない」・材料の 名前の ふりがな（`needHeadIssues`） */
+export async function siteNeedIssues(page: Page): Promise<HouseIssue[]> {
+  return [...(await editorUiIssues(page, SITE_NEED_ROOTS)), ...(await needHeadIssues(page))];
+}
 
 /**
  * UI 検査の 画面を 出す: いちばん 長い 名前の せっけいずを 何まいか 作り、
@@ -500,7 +507,7 @@ export async function openSiteScreen(page: Page, kind: SiteScreen): Promise<void
       await addBlueprint(page, {
         w: 5,
         d: 5,
-        windows: i % 2,
+        windows: kind === 'need' ? 1 : i % 2, // need ＝ 窓 1（かみも いる）の 1 まい
         front: LONGEST_NAME.front,
         back: LONGEST_NAME.back,
         furniture: [
@@ -518,6 +525,16 @@ export async function openSiteScreen(page: Page, kind: SiteScreen): Promise<void
     if (n > 0) h.inventory.remove('paper', n);
     h.step(1);
   });
+  if (kind === 'need') {
+    // 近くの たんすに 材料の 一部〔き 10・いし 5〕だけ → たりない カード。押すと ひつような もの（「ある」の 列に 数が 入る）
+    await putTansu(page, STOCK_TANSU.dx, STOCK_TANSU.dz, { log: 10, stone: 5 });
+    await talkTo(page, first.id, 'hook');
+    const m = await press(page, 'build');
+    expect(m.page, 'けんちくを はじめる の 一覧').toBe('pick');
+    await clickDisabled(page, `pick-${bps[0]!.slot}`); // 材料が たりない うすい カード（aria-disabled）を 本物の マウスで 1 回
+    expect((await menuState(page)).page, '押すと ひつような もの').toBe('need');
+    return;
+  }
   await stockMaterials(page, bps[0]!.slot); // 窓 0 の 4 まい（0・2・4・6 まい目）は 同じ 材料 なので まとめて そろう。窓 1 の 3 まいは かみが たりない
   if (kind === 'pick') {
     await talkTo(page, first.id, 'hook');

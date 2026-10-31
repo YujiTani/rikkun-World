@@ -326,7 +326,7 @@ test.describe('HOUSE-1E 材料の 通し', () => {
     expect((await plainText(page, 'house-menu')) ?? '', 'メニューに「くら」の 字は 出ない').not.toContain('くら');
     expect(await legacyKura(page), 'この 世界に 前の セーブの くらの 物は ない').toBeNull();
     await press(page, 'close');
-    const near = await putTansu(page, -8, 4, {}); // 近くの たんす（足もとの 西 8 マス・南 4 マス）
+    const near = await putTansu(page, -12, 4, {}); // 近くの たんす（足もとの 西 12 マス・南 4 マス。建築士さんの 平らに する 9×9 の 外）
     const far = await putTansu(page, 0, 50, { log: 64, stone: 64 }); // 遠い たんす（南 50 マス。範囲 40 の 外）
     expect(await tansuHas(page, far, 'log'), '遠い たんすは ちゃんと 置けた').toBe(64);
 

@@ -234,7 +234,7 @@ import { installAimHelpers } from './aim';
  *                          そばの ボタン（take・turnRight・turnLeft）は 方眼の はこの 中に おさまる。
  *   音                     赤く 置いた・赤く なる 向きに まわした ときの 音は ふつうと 同じ（E2E では 見ない。オーナー確認）。
  *
- * 〔材料〕くらは ない（yuzu 21:17）。材料は「もちもの ＋ 近くの たんす」。近くの たんす ＝ 設定 `craftTansuRange`（はじめ 40 マス）の 中。足もとから たんすの ブロックの まん中までの 3 次元の きょりで、
+ * 〔材料〕くらは ない（yuzu 21:17）。材料は「もちもの ＋ 近くの たんす」。近くの たんす ＝ 設定 `craftTansuRange`（はじめ 40 マス）の 中。足もと（プレイヤーの x・y・z）から ブロックの x・z の まん中〔＋0.5〕・y の 下の 面までの 3 次元の きょりで、
  *   「つくる」〔CraftSystem〕と 同じ 数え方・同じ 範囲。window.__rikkun.storage.set／world.setBlock('tansu') で 置いた たんすが そのまま 数えられる。
  *   窓口:  house.kura()・deposit()・withdraw()・ボタン kura・page 'kura'・DOM house-kura／kura-*・TID の kura 系は ない（`'kura' in house` が false）。
  *          house.legacyKura() → Record<itemId, number> | null   前の セーブの くらの 物の うち、まだ かえして いない 分。空（{}）・記録なしは null。
@@ -378,7 +378,8 @@ export function setTansu(page: Page, at: Pos3, items: Record<string, number>, pl
 
 /**
  * 足もとから (dx, dz) マス はなれた 所に たんすを 置いて 中身を 入れる（1E の 材料。高さは 足もとと 同じ。置いた ブロックの 場所を 返す）。
- * 近くの たんすの きょりは 足もと〜ブロックの まん中の 3 次元。建築士さんに 話す〔talkTo〕と 2 マス 南に 立って まわり 9×9 を 平らに する ので、
+ * 近くの たんすの きょりは「つくる」〔CraftSystem〕と 同じ 測り方: 足もと（プレイヤーの x・y・z）から、ブロックの x・z は まん中（＋0.5）・y は ブロックの 下の 面（y の まま）までの 3 次元。
+ * ここで 置く たんすは 高さが 足もとと 同じ（y の 差は 0）なので、きょりは およそ hypot(dx, dz) ±0.5。建築士さんに 話す〔talkTo〕と 2 マス 南に 立って まわり 9×9 を 平らに する ので、
  * 話した あとで〔建築士さんの 2 マス 南に 立って〕、dx・dz が 4 を こえる 所に 置く（話す たびに 消えない ように）。
  */
 export async function putTansu(page: Page, dx: number, dz: number, items: Record<string, number>): Promise<Pos3> {

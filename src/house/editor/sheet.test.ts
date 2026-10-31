@@ -171,10 +171,12 @@ describe('AC15 作る（make）', () => {
     const { st, bag, port } = fresh();
     bag.add('fude', 1);
     const at = st.putTansu(0, 50, { paper: 5 });
-    expect(port.problem()).toBe('paper');
+    expect(port.problem(), '範囲の 外の かみは 数えない').toBe('paper');
+    st.range.v = 60;
+    expect(port.problem(), '範囲を ひろげると 使える').toBeNull();
     port.make(emptyState());
-    expect(st.inTansu(at, 'paper')).toBe(5);
-    expect(bag.count('sekkeizu')).toBe(0);
+    expect(st.inTansu(at, 'paper')).toBe(4);
+    expect(bag.count('sekkeizu')).toBe(1);
   });
 
   it('番号は 1, 2, 3 … と ふえ、せっけいずは 1 マスに 1 こ（重ならない）', () => {
@@ -204,9 +206,9 @@ describe('AC45 ふで', () => {
 
   it('2 本 ある ときは へって いる ほうから へる（同じ へり方なら 前の マス）', () => {
     const { bag, port } = fresh();
-    bag.add('paper', 4);
     bag.setSlot(0, { item: 'fude', count: 1, wear: 1 });
     bag.setSlot(1, { item: 'fude', count: 1, wear: 3 }); // たいきゅう 5−3 ＝ 2 の ほうが へって いる
+    bag.add('paper', 4); // ふでを 先に 置いて から（かみは あいた マスへ）
     port.make(emptyState());
     expect(bag.durability(0)?.left).toBe(FUDE_MAX - 1);
     expect(bag.durability(1)?.left).toBe(FUDE_MAX - 3 - 1);
@@ -226,8 +228,8 @@ describe('AC45 ふで', () => {
 
   it('1E: もちものに たいきゅう 3・たんすに たいきゅう 1 → たんすの 方が へって 0 で たんすから 消え、つぎは もちものの 方', () => {
     const { bag, port, putFude, wears, st } = fresh();
-    bag.add('paper', 4);
     bag.setSlot(0, { item: 'fude', count: 1, wear: FUDE_MAX - 3 }); // のこり 3
+    bag.add('paper', 4);
     const at = putFude(8, 0, FUDE_MAX - 1); // のこり 1
     port.make(emptyState());
     expect(st.inTansu(at, 'fude'), 'たんすの ふでは こわれて 消えた').toBe(0);
@@ -240,40 +242,44 @@ describe('AC45 ふで', () => {
 
   it('1E: いちばん へって いる 方から。もちものの ふでの ほうが へって いれば もちもの（たんすの ふでは そのまま）', () => {
     const { bag, port, putFude, wears } = fresh();
-    bag.add('paper', 2);
     bag.setSlot(0, { item: 'fude', count: 1, wear: 3 }); // のこり 2
+    bag.add('paper', 2);
     const at = putFude(8, 0, 1); // のこり 4
     port.make(emptyState());
     expect(bag.durability(0)?.left).toBe(1);
     expect(wears(at, 'fude'), 'たんすの ふでは まだ').toEqual([1]);
   });
 
-  it('1E: へり方が 同じなら たんす（近い 順）→ もちもの', () => {
-    const { bag, port, putFude, wears } = fresh();
+  it('1E: へり方が 同じなら たんす（近い 順）→ もちもの。1 本でも へった 方が つぎは 先', () => {
+    const { bag, port, putFude, wears, st } = fresh();
+    bag.setSlot(0, { item: 'fude', count: 1, wear: 2 }); // のこり 3
     bag.add('paper', 4);
-    bag.setSlot(0, { item: 'fude', count: 1, wear: 2 });
-    const far = putFude(20, 0, 2);
-    const near = putFude(0, 5, 2);
+    const far = putFude(20, 0, 2); // のこり 3
+    const near = putFude(0, 5, 2); // のこり 3
     port.make(emptyState());
-    expect(wears(near, 'fude'), '近い たんす').toEqual([3]);
+    expect(wears(near, 'fude'), '同じ へり方なら 近い たんすが 先').toEqual([3]);
     expect(wears(far, 'fude')).toEqual([2]);
-    expect(bag.durability(0)?.left).toBe(FUDE_MAX - 2);
-    // 近い たんすが 1 へった ので つぎは 遠い たんす・もちもの が 同じ へり方（2）で 先に ならぶ → 遠い たんす
+    expect(bag.durability(0)?.left, 'もちものは まだ').toBe(FUDE_MAX - 2);
     port.make(emptyState());
-    expect(wears(far, 'fude')).toEqual([3]);
+    expect(wears(near, 'fude'), '近い たんすの ふでが へって いる ので つづけて そちら').toEqual([4]);
+    port.make(emptyState());
+    expect(st.inTansu(near, 'fude'), '近い たんすの ふでは こわれて 消えた').toBe(0);
+    expect(wears(far, 'fude')).toEqual([2]);
+    port.make(emptyState());
+    expect(wears(far, 'fude'), '遠い たんす と もちものが 同じ へり方（のこり 3）→ たんすが 先').toEqual([3]);
     expect(bag.durability(0)?.left, 'もちものは まだ').toBe(FUDE_MAX - 2);
   });
 
-  it('1E: 50 マスの たんすの ふでは 使わない（範囲の 外。40 マスの 中なら 使う）', () => {
+  it('1E: 50 マスの たんすの ふでは 使わない（範囲の 外。範囲を ひろげると 使える）', () => {
     const { bag, port, putFude, wears, st } = fresh();
     bag.add('paper', 2);
     const far = putFude(0, 50, 0);
-    expect(port.problem()).toBe('fude');
-    port.make(emptyState());
-    expect(wears(far, 'fude')).toEqual([]);
-    expect(bag.count('sekkeizu')).toBe(0);
+    expect(port.problem(), '範囲の 外の ふでは 数えない').toBe('fude');
     st.range.v = 60;
     expect(port.problem(), '範囲を ひろげると 使える').toBeNull();
+    port.make(emptyState());
+    expect(wears(far, 'fude')).toEqual([1]);
+    expect(bag.count('sekkeizu')).toBe(1);
   });
 
   it('1E: たんすの ふでだけで N まい 作れて、N まい目で たんすから 消える。N＋1 まい目は ふでが ない', () => {

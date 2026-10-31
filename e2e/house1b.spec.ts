@@ -481,7 +481,7 @@ test.describe('HOUSE-1B エディター・せっけいず（PR-1 ＋ PR-2 の �
     // ---- せっけいずが できる（AC15）: かみは もちものが 先（たんすは へらない）・ふでの たいきゅう −1・建てる 材料〔もちもの・近くの たんす〕は へらない
     //      もちものに かみ 2・近くの たんすに かみ 3 と き 20（1E: くらは ない）
     await setBag(page, { paper: 2 });
-    const tansu = await putTansu(page, -6, 3, { paper: 3, log: 20 });
+    const tansu = await putTansu(page, -12, 3, { paper: 3, log: 20 });
     await page.evaluate(() => {
       const h = (window as any).__rikkun;
       h.inventory.add('fude', 1);

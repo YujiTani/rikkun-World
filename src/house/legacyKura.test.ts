@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { GREET_STEPS, SAY } from './talk';
 import { houseRig } from './houseRig';
+import { placeInRegion, regionHasArchitect } from './placement';
 
 /**
  * HOUSE-1E〔#374〕AC32d・AC32・AC33: 前の セーブの くらの 物を 建築士さんが かえす（くらは もう ない。あるのは `legacyKura()` だけ）。
@@ -41,10 +42,30 @@ function fill(r: Rig, free: number): void {
 
 const freeSlots = (r: Rig): number => r.bag.slots().filter((s) => s === null).length;
 
-/** 建築士さんに 話しかけて n ステップ 進める */
-function talkFor(r: Rig, n: number): void {
-  expect(r.sys.talkTo(r.sys.architects().at(-1)!.id)).toBe(true);
+/** 建築士さんに 話しかけて n ステップ 進める（id を 言わなければ いま 見えて いる 最後の 人） */
+function talkFor(r: Rig, n: number, id?: string): void {
+  expect(r.sys.talkTo(id ?? r.sys.architects().at(-1)!.id)).toBe(true);
   r.run(n);
+}
+
+/** 最初の 1 人では ない 建築士さん（べつの 区画の 人）の すぐ そばに プレイヤーを うつして、その 人の id を 返す。どれかの 建築士さんに 話せば かえす ため（仕様 §2.4 の 4） */
+function moveToOther(r: Rig): string {
+  const seed = 77; // houseRig の seed
+  const start = { x: 64, z: 64 };
+  for (let n = 1; n < 8; n++) {
+    for (let rz = -n; rz <= n; rz++) {
+      for (let rx = -n; rx <= n; rx++) {
+        if (Math.max(Math.abs(rx), Math.abs(rz)) !== n || !regionHasArchitect(seed, rx, rz, start)) continue;
+        const spot = placeInRegion(seed, rx, rz, () => true);
+        if (!spot) continue;
+        Object.assign(r.player, { x: spot.x + 0.5 + 3, y: 11, z: spot.z + 0.5 + 3 });
+        r.run(2);
+        const other = r.sys.architects().find((a) => !a.first);
+        if (other) return String(other.id);
+      }
+    }
+  }
+  throw new Error('最初の 1 人 いがいの 建築士さんが 見つからない');
 }
 
 describe('AC32d 前の セーブの くらを かえす', () => {
@@ -99,7 +120,8 @@ describe('AC32d 前の セーブの くらを かえす', () => {
     expect(legacy(r)).toEqual({ log: 36 });
     r.sys.press('close');
     r.bag.setSlot(0, null); // 1 マス 空ける
-    talkFor(r, NOD - 1);
+    const other = moveToOther(r); // どれかの 建築士さんに 話せば かえす（さっきと ちがう 人）
+    talkFor(r, NOD - 1, other);
     expect(r.sys.menu().open).toBe(false);
     expect(r.bag.count('log'), '21 ステップ目までは まだ').toBe(64);
     r.run(1); // 22
@@ -115,7 +137,7 @@ describe('AC32d 前の セーブの くらを かえす', () => {
     r.sys.press('close');
     const stone = r.bag.count('stone');
     const log = r.bag.count('log');
-    talkFor(r, NOD);
+    talkFor(r, NOD, other);
     expect(r.sys.menu().open, '22 で メニュー').toBe(true);
     expect(r.sys.menu().bubble).toBe(SAY.menu);
     expect([r.bag.count('stone'), r.bag.count('log')]).toEqual([stone, log]);
