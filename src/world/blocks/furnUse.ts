@@ -22,6 +22,13 @@ const FURN_USE = {
   shelf: 'read',
 } as const satisfies Record<FurnBlockKind, FurnUse | null>;
 
+const USES: ReadonlySet<string> = new Set(Object.values(FURN_USE).filter((u): u is FurnUse => u !== null));
+
+/** 右クリックの 種類（RightClickKind）が 家具の はたらきか */
+export function isFurnUse(kind: string): kind is FurnUse {
+  return USES.has(kind);
+}
+
 /** ブロックの id が 右クリックで はたらく 家具なら その はたらき（どの マス・どの 向きでも 同じ）。そうでなければ null */
 export function furnUseOf(id: string): FurnUse | null {
   const f = furnInfo(id);

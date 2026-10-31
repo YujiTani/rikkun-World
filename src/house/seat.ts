@@ -126,7 +126,11 @@ export class SeatSystem {
 
   /** controller.update の あと。座って いる 間は うかせて 止めて いる ので、地面に 立って いる ことに する（立ち絵の まま 見せる ため） */
   afterUpdate(): void {
-    if (this.cur) this.d.controller.state.onGround = true;
+    if (!this.cur) return;
+    const st = this.d.controller.state;
+    st.onGround = true;
+    st.moving = false; // 座る 前から 移動キーを 押した ままでも 足ぶみ しない
+    st.running = false;
   }
 
   private shouldStand(s: Sitting): boolean {

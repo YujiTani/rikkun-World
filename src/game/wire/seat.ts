@@ -4,6 +4,7 @@ import type { PlayerCombatImpl } from '../../combat';
 import { BathSteam } from '../../fx/bathSteam';
 import { SeatSystem } from '../../house/seat';
 import type { Game } from '../Game';
+import type { FurnUse } from '../../world/blocks/furnUse';
 
 interface SeatWireDeps {
   game: Pick<Game, 'input' | 'scene' | 'onUpdate'>;
@@ -53,7 +54,7 @@ export function wireSeat(d: SeatWireDeps) {
     seat,
     /** DigSystem の右クリックの 実行（m4.furniture） */
     port: {
-      use: (kind: 'sit' | 'bath' | 'read', x: number, y: number, z: number): void => {
+      use: (kind: FurnUse, x: number, y: number, z: number): void => {
         if (kind === 'read') readBook();
         else seat.use(x, y, z);
       },

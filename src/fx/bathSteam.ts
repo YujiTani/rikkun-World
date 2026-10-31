@@ -42,6 +42,7 @@ export class BathSteam {
   private readonly mesh: THREE.InstancedMesh;
   private readonly dummy = new THREE.Object3D();
   private readonly entry: FurnaceFxEntry = { x: 0, y: 0, z: 0, burning: false, waiting: null };
+  private readonly entries: readonly FurnaceFxEntry[] = [this.entry];
   /** いま 見えて いる つぶの 数（テスト用） */
   shown = 0;
 
@@ -66,7 +67,7 @@ export class BathSteam {
       e.y = spot.y + STEAM_TUNING.startAbove - POOL_OFFSET_Y;
       e.z = spot.z - 0.5;
     }
-    this.pool.update(dt, [e]);
+    this.pool.update(dt, this.entries);
     let n = 0;
     for (const p of this.pool.puffs) {
       if (!p.active) continue;

@@ -56,6 +56,20 @@ describe('座る 係の とりきめ（AC28）', () => {
     expect(r.seat.seat(), '押しなおした').toBeNull();
   });
 
+  it('座って いる 間は 移動キーを 押しっぱなしでも 人形は 足ぶみしない（moving・running が false）', () => {
+    const r = rig();
+    r.actions.press('moveForward');
+    r.actions.endFrame();
+    r.seat.use(10, FEET, 10);
+    r.seat.update();
+    r.state.moving = true; // controller.update が 入力から 立てる
+    r.state.running = true;
+    r.seat.afterUpdate();
+    expect(r.seat.seat()).not.toBeNull();
+    expect(r.state.moving).toBe(false);
+    expect(r.state.running).toBe(false);
+  });
+
   it('体が 動かされたら 立つ（やられて もどされた など）', () => {
     const r = rig();
     r.seat.use(10, FEET, 10);
