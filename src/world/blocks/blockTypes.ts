@@ -3,6 +3,7 @@ import { KATAME_TSUCHI, SCAFFOLD_IDS } from './buildBlocks';
 import { CHALK_MARK_IDS, isChalkMarkId } from './chalkMark';
 import { FURNITURE } from '../../house/editor/furniture';
 import { FLAT_FURN_KINDS, HOUSE_DOOR_PART_IDS, NEW_FURN_BLOCK_IDS, furnInfo } from './houseBlocks';
+import { BLOCKS_BEFORE_WATER, RESERVED_AFTER_ID, RESERVED_BEFORE_IDS, WATER_FULL_INDEX, WATER_PARTIAL_IDS, WATER_W0, isWaterIndex } from './water';
 
 /** M1-01 4-2 のブロック 11 種 + M4 の 3 種。配列の順番が内部の番号（air = 0） */
 export const BLOCK_TYPES: readonly BlockType[] = [
@@ -99,6 +100,10 @@ export const BLOCK_TYPES: readonly BlockType[] = [
   // HOUSE-1C PR-2（#340。番号は 後ろに 足す）: かためた つち（ふつうに ほれる）と 足場 5 つ（建築中の 場所だけ。固い・ほれない・アイテムに ならない）
   { id: KATAME_TSUCHI, name: 'かためた つち', solid: true, breakable: true },
   ...SCAFFOLD_IDS.map((id): BlockType => ({ id, name: 'あしば', solid: true, breakable: false })),
+  // WATER-1（#376。番号は 後ろに 足す）: 空きの 予約 → 量 1〜7 の 水（W0 = 152 から）→ W0 + 7 の 予約。次の ブロックは W0 + 8 から
+  ...RESERVED_BEFORE_IDS.map((id): BlockType => ({ id, name: 'くうき', solid: false, breakable: false })),
+  ...WATER_PARTIAL_IDS.map((id): BlockType => ({ id, name: 'みず', solid: false, breakable: false })),
+  { id: RESERVED_AFTER_ID, name: 'くうき', solid: false, breakable: false },
 ];
 
 export const BLOCK_INDEX: Readonly<Record<BlockId, number>> = Object.fromEntries(
@@ -107,6 +112,10 @@ export const BLOCK_INDEX: Readonly<Record<BlockId, number>> = Object.fromEntries
 
 export const AIR = BLOCK_INDEX.air;
 export const WATER = BLOCK_INDEX.water;
+// 水の 番号の 約束（water.ts）が 並びと ずれて いないか 起動時に 確かめる
+if (WATER !== WATER_FULL_INDEX || BLOCK_INDEX.water_1 !== WATER_W0 || BLOCK_INDEX.reserved_147 !== BLOCKS_BEFORE_WATER) {
+  throw new Error('water block index mismatch (WATER-1 §4.6)');
+}
 export const TORCH = BLOCK_INDEX.torch;
 export const START_TORCH = BLOCK_INDEX.start_torch;
 export const SPRINKLER = BLOCK_INDEX.sprinkler;
@@ -178,7 +187,7 @@ export function isChalkIndex(index: number): boolean {
 
 /** 色のついた不透明ブロックか（面を描く・隠す判定に使う）。水・空気・十字の板・しるしはちがう */
 export function isOpaqueIndex(index: number): boolean {
-  return index !== AIR && index !== WATER && !isTorchIndex(index) && !isCrossIndex(index) && !isPropIndex(index) && !isChalkIndex(index);
+  return index !== AIR && !isWaterIndex(index) && !isTorchIndex(index) && !isCrossIndex(index) && !isPropIndex(index) && !isChalkIndex(index);
 }
 
 /** 固いブロックか（番号で） */

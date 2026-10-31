@@ -1,6 +1,7 @@
 import { DataTexture, NearestFilter, RGBAFormat, SRGBColorSpace, UnsignedByteType } from 'three';
 import type { BlockId } from '../../contracts';
 import { CHALK_MARK_IDS } from './chalkMark';
+import { WATER_PARTIAL_IDS } from './water';
 import { tansuPixels } from '../../storage/tansuArt';
 import { FARM_TILE_NAMES, paintFarmTile } from './farmTextures';
 import { GADGET_TILE_NAMES, isGadgetTile, paintGadgetTile, type GadgetTileName } from './gadgetTextures';
@@ -468,6 +469,8 @@ export const BLOCK_TILES: Readonly<Partial<Record<BlockId, readonly [TileName, T
   coal_ore: ['coal_ore_b', 'coal_ore_b', 'coal_ore_b'],
   iron_ore: ['iron_ore_b', 'iron_ore_b', 'iron_ore_b'],
   water: ['water', 'water', 'water'],
+  // WATER-1: 量 1〜7 も 同じ 絵（高さだけが ちがう）
+  ...Object.fromEntries(WATER_PARTIAL_IDS.map((id) => [id, ['water', 'water', 'water'] as const])),
   bedrock: ['bedrock', 'bedrock', 'bedrock'],
   furnace: ['furnace_top', 'furnace_top', 'furnace_side'],
   kawara: ['kawara', 'kawara', 'kawara'],
