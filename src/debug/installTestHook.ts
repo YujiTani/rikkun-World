@@ -52,7 +52,7 @@ export function installGameHook(deps: WiredLoop): void {
     waterFx, drops, store, level, yokaiM, blade, weaponFx, animals, deliverAnimalEvents, animalEvents,
     currentKitRows, animalFx, animalHint, aimPointInto, combat, lockHook, book, look, wheel, mixer, bgm,
     bgmScene, audioSettings, fxSound, craftConfig, toolConfig, craftUi, craft2Settings, screenSettings, m6,
-    m7, hintSettings, aimCfg, live, clockPhases, timeSettings, frameClock, house, gadgets,
+    m7, hintSettings, aimCfg, live, clockPhases, timeSettings, frameClock, house, gadgets, seat,
   } = deps;
   installTestHook(game, overlay, () => host.everReady, {
     start: startBoot.hook,
@@ -319,7 +319,7 @@ export function installGameHook(deps: WiredLoop): void {
       sfxVoices: () => fxSound.activeVoices(),
     }),
     rarity: createRarityHook(() => dig.config.dropMax),
-    house: createHouseHook(house),
+    house: createHouseHook(house, seat),
     settings: createSettingsHook(controller.settings, rig.config, [
         digSettingsView(dig.config),
         ITEM_RARITY_SETTINGS,

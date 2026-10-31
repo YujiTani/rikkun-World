@@ -47,6 +47,7 @@ import { pickAimAssist } from '../../camera/aimAssist';
 import { computeFarmPlacement } from '../../world/gen/farmPlacement';
 import { NO_SWINGS } from './shared';
 import { wireGadgets } from './gadgets';
+import { wireSeat } from './seat';
 import { playSleepJingle } from '../../fx/sleepJingle';
 import type { WiredDrops } from './inventory';
 
@@ -331,6 +332,8 @@ export function wireFighters(deps: WiredWeapons) {
       return n;
     };
   }
+  // HOUSE-1D: 家具の はたらき（いす・おふろ・ほんだな）
+  const furniture = wireSeat({ game, world, controller, combat, rig, book: deps.book, lock, pointerLock: deps.pointerLock });
   // #293 試作: 体の 上に ブロックを 置く 口（?proto=gashaBig の ときだけ 後から 入る）
   const dig = new DigSystemImpl(
     world,
@@ -394,6 +397,7 @@ export function wireFighters(deps: WiredWeapons) {
       w2,
       yokai: () => shared.yokaiManager!,
       gadgets: gadgets.port,
+      furniture: furniture.port,
     },
   );
   // ねらいの線・矢・刀・パンチの出どころは 目でなく 回転の中心 P（CHAR-1 §4.5）
@@ -459,6 +463,7 @@ export function wireFighters(deps: WiredWeapons) {
   }
   return {
     combat, storage, craft, dropper, dropController, sprinklers, pet, farm, dig, aimCfg, aimPointInto, gadgets,
+    seat: furniture.seat,
   };
 }
 

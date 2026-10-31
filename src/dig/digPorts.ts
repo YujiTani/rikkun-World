@@ -99,6 +99,8 @@ export interface DigM4Deps {
   yokai?: () => YokaiWorld;
   /** ITEM-FX-1: ふとんで ねる・たこを あげる／もどす（右クリックの 実行。なければ 何も しない） */
   gadgets?: { sleep(): void; kite(): void };
+  /** HOUSE-1D: 家具の はたらき（すわる・はいる・ほんだなで ルールブック）。押した 最初の ステップに 1 回。x・y・z は ねらった ブロックの マス */
+  furniture?: { use(kind: 'sit' | 'bath' | 'read', x: number, y: number, z: number): void };
 }
 
 /** WEAPON-3: さいごに 始めた 攻撃（`attack.last()`） */

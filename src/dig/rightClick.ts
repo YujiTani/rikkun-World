@@ -1,5 +1,6 @@
 import { GADGET_ID } from '../content/items/gadgetTuning';
 import { isFutonId } from '../world/blocks/futon';
+import { furnUseOf } from '../world/blocks/furnUse';
 import { doorInfo } from '../world/blocks/houseBlocks';
 import type { BucketPreview, BlockId, ItemId, RightClickKind, TargetInfo, WaterPreview, WaterRay } from '../contracts';
 export type { RightClickKind };
@@ -77,7 +78,7 @@ export function isKitEgg(item: ItemId | null): boolean {
   return item === 'egg' || item === 'kin_tamago';
 }
 
-/** だっこ（00）→ にわとり（0）→ あみ（0b）→ こたつ（1a）→ 小屋（1b）→ たんす → かまど → 家の 戸 → ふとん（ねる）→ たこ → 防具 → チョーク（かく）→ バケツ → じょうろ（4a くむ・4b まく・4c 合図）→ いしばい（まく）→ なでる → たがやす → まく → 合図 → たべる → 置く の順（M7-2 §2.4）。何も起きないなら null */
+/** だっこ（00）→ にわとり（0）→ あみ（0b）→ こたつ（1a）→ 小屋（1b）→ たんす → かまど → 家の 戸 → 家具（すわる・はいる・よむ）→ ふとん（ねる）→ たこ → 防具 → チョーク（かく）→ バケツ → じょうろ（4a くむ・4b まく・4c 合図）→ いしばい（まく）→ なでる → たがやす → まく → 合図 → たべる → 置く の順（M7-2 §2.4）。何も起きないなら null */
 export function previewRightClick(c: RightClickCtx): RightClickPreview | null {
   const t = c.target;
   if (c.carrying?.()) return { kind: c.throwKind?.() ?? 'putDown', item: null };
@@ -98,6 +99,9 @@ export function previewRightClick(c: RightClickCtx): RightClickPreview | null {
   // HOUSE-1C: 家の 戸（あける・しめる。置くより 先。上下 どちらを ねらっても 同じ）
   const door = t ? doorInfo(t.id) : null;
   if (door) return { kind: door.open ? 'doorClose' : 'doorOpen', item: null };
+  // HOUSE-1D: 家具の はたらき（すわる・はいる・よむ。置くより 先。持ち物に よらない。どの マス・どの 向きでも 同じ）
+  const furn = t ? furnUseOf(t.id) : null;
+  if (furn) return { kind: furn, item: null };
   // ITEM-FX-1: ふとん（ねる。置くより 先）・たこ（持って 右クリック。ねらいが なくても）
   if (t && isFutonId(t.id)) return { kind: 'sleep', item: null };
   if (c.held === GADGET_ID.kite) return { kind: 'kite', item: c.held };

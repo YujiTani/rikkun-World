@@ -38,7 +38,7 @@ export function createStep(deps: WiredFrame): (dt: number) => void {
     yokaiFocus, hintVisible, titleAnnounce, machoMarkIn, machoMarks, yokaiNameplates, plateBuf,
     staggerIcons, stagIconBuf, natsukiPanel, actionHint, farmHint, plainReading, farmAimHud, nameOf,
     hotbar, shiningCooldownOf, inventoryScreen, storageScreen, achievementsPage, logPage, inventoryTabs,
-    updateAchievements, save, gadgets,
+    updateAchievements, save, gadgets, seat,
   } = deps;
   /** シャイニングの ドーム: 始めてから まだ 当たって いない（最初の 当たりだけ 大） */
   let domeFirstHit = true;
@@ -77,10 +77,13 @@ export function createStep(deps: WiredFrame): (dt: number) => void {
       controller.motion.stopNow = false;
       // HURT-1: 怯み中は 歩く・走る・ジャンプが きかない
       controller.motion.noMoveInput = combat.flinchTicks() > 0;
+      // HOUSE-1D: 座って いる 間は 位置・向きを 固定（motion を 書くので 上の 行より あと、controller.update より 前）
+      seat.update();
     }
     // 空の光の弱まりを先に今の時刻にそろえる（妖怪の出現の「暗い所」がこれを読む。Sky は あとで画面ぶんを更新）
     skyDarkness.value = darkenFromBrightness(time.brightness(), timeSettings.nightBrightness);
     if (worldReady()) controller.update(dt); // 読みこみを まつ間は 動かない・落ちない（VOX-D）
+    seat.afterUpdate(); // HOUSE-1D: 座って いる 間は「地面に 立って いる」ことに する（人形が とびあがる 形に ならない）
     // カメラ（肩の点 S）を先に決める。ねらい（dig.update）は S を使う（CHAR-1 第 5.2 版）
     rig.update(dt);
     if (worldReady()) yokaiM.update();
