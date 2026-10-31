@@ -353,11 +353,11 @@ describe('右の 案内（AC54）', () => {
     for (const id of ['house_door_open', 'house_door_open_top'] as const) expect(previewRightClick(ctx(null, target(id)))?.kind, id).toBe('doorClose');
   });
 
-  it('ことばは「あける」「しめる」。長い テーブル・まるい テーブル・あんどん・はにわ・いすなどは 案内なし', () => {
+  it('ことばは「あける」「しめる」。長い テーブル・まるい テーブル・あんどん・はにわ・テーブルなどは 案内なし（いす・まるいす・おふろ・ほんだなは 1D で 案内が 出る。houseFurnUse.test.ts）', () => {
     const hint = { held: null, heldIsPickaxe: false, heldIsBlade: false };
     expect(actionHintLines({ kind: 'doorOpen', item: null }, null, hint).right).toEqual({ icon: 'house_door', word: 'あける' });
     expect(actionHintLines({ kind: 'doorClose', item: null }, null, hint).right).toEqual({ icon: 'house_door', word: 'しめる' });
-    for (const id of ['long_table', 'long_table_2_n', 'round_table', 'andon', 'haniwa', 'chair_w', 'shelf', 'ofuro_2_e', 'table', 'stool', 'shoji'] as const) {
+    for (const id of ['long_table', 'long_table_2_n', 'round_table', 'andon', 'haniwa', 'table', 'shoji'] as const) {
       expect(previewRightClick(ctx(null, target(id))), id).toBeNull();
     }
   });

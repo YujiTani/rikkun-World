@@ -14,6 +14,7 @@ import { HouseUi } from '../../ui/houseUi';
 import { HouseDoneUi } from '../../ui/houseSite/celebrate';
 import type { WiredYokai } from './creatures';
 import { wireHouseSite } from './houseSite';
+import { modalLock } from './modalLock';
 
 /** 建築士さんの 頭の 上（足もとから）。ふきだしの しっぽが ここに くる */
 const HEAD_TOP = 1.8;
@@ -23,6 +24,7 @@ export function wireHouse(deps: WiredYokai) {
   // 家を 建てる 画面まわり（上空の 視点・みずもりの 色・道具を 持った 形・音）。house は あとから つなぐ（attach）
   const { siteView } = wireHouseSite(deps);
 
+  const modal = modalLock({ game, lock, pointerLock });
   const house = new HouseSystem({
     seed,
     world,
@@ -41,23 +43,10 @@ export function wireHouse(deps: WiredYokai) {
     // たんすの 中の 道具も「持って いる」（なくした ときだけ「どうぐを もらう」）
     owned: (item) => storage.list().reduce((n, p) => n + storage.countItem(p.x, p.y, p.z, item), 0),
     // メニュー・くらが 開く: マウスが 出る。時間と 妖怪の 停止は ゲームの 窓（shared.houseFrozen）が 受けもつ。たんす・とりごやと おなじ 錠の あつかい
-    onOpen: () => {
-      lock.setInventoryOpen(true);
-      game.input.releaseAll();
-      if (lock.isSimulated()) lock.simulate(false);
-      pointerLock.release();
-    },
+    onOpen: () => modal.open(),
     onClose: () => {
       game.redrawWorld(); // エディターの 見本が キャンバスぜんぶを ぬって いる ので、世界を 描きなおす
-      if (lock.isSimulated()) {
-        lock.simulate(true);
-        lock.setInventoryOpen(false);
-      } else {
-        lock.beginRelock();
-        lock.setInventoryOpen(false);
-        pointerLock.request();
-      }
-      game.input.releaseAll();
+      modal.close();
       shared.requestSave(); // あずけた・とりだした 中身を 保存に
     },
     // やられた・もちもの画面や とりごやが 開いた: 話しを やめる（メニューが 勝手に 開かない ように）

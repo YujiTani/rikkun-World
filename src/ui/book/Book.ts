@@ -41,6 +41,8 @@ export class Book {
   private shown = false;
   private sig = '';
   private info: ItemInfoSource | null = null;
+  /** 出た・しまった の 受け手（あとから つなぐ。ほんだなから 開いた とき 閉じたら 遊びに もどす ため。HOUSE-1D） */
+  visibleHook: ((visible: boolean) => void) | null = null;
   /** 本が 鳴らした 音の 記録（テスト用。さいごの 256 こ） */
   readonly soundLog: string[] = [];
 
@@ -186,6 +188,7 @@ export class Book {
       this.ui.show();
       this.relayout();
       this.o.onVisible?.(true);
+      this.visibleHook?.(true);
       return;
     }
     if (!m.isOpen && this.shown) {
@@ -195,6 +198,7 @@ export class Book {
       this.three?.release();
       this.sig = '';
       this.o.onVisible?.(false);
+      this.visibleHook?.(false);
       return;
     }
     if (!this.shown) return;

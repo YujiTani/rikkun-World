@@ -63,6 +63,7 @@ import { FarmHint } from '../../ui/farmHint';
 import { FarmAimHud } from '../../ui/farmAim';
 import { NO_COMBAT, NO_SWINGS, NO_DIG } from './shared';
 import type { WiredAnimalView } from './creatures';
+import { modalLock } from './modalLock';
 
 export function wireHud(deps: WiredAnimalView) {
   const {
@@ -204,6 +205,7 @@ export function wireHud(deps: WiredAnimalView) {
   shared.natsukiPanel = natsukiPanel;
   // LIVE-3: いのち を いただきます の 一言 と、とりごや の メニュー（3 ページ）
   const itadakimasu = new Itadakimasu(hud);
+  const coopModal = modalLock({ game, lock, pointerLock });
   const coopMenu = new CoopMenu(hud, {
     meatList: (c) => animals.meatList(c),
     eggs: (c) => {
@@ -225,23 +227,8 @@ export function wireHud(deps: WiredAnimalView) {
     },
     startMeat: (c, id) => animals.meat(c, id).ok,
     // たんす と おなじ あつかい: マウス が 出る・時計 は 止めない。とじる と ロック を かけ直す
-    onOpen: () => {
-      lock.setInventoryOpen(true);
-      game.input.releaseAll();
-      if (lock.isSimulated()) lock.simulate(false);
-      pointerLock.release();
-    },
-    onClose: () => {
-      if (lock.isSimulated()) {
-        lock.simulate(true);
-        lock.setInventoryOpen(false);
-      } else {
-        lock.beginRelock();
-        lock.setInventoryOpen(false);
-        pointerLock.request();
-      }
-      game.input.releaseAll();
-    },
+    onOpen: () => coopModal.open(),
+    onClose: () => coopModal.close(),
     kidInfo: (id) => ({ id, macho: animals.list().find((a) => a.id === id)?.breed === 'macho' }),
     tick: () => playCraft(fxSound, 'tab'),
     onPick: (id) => animalFx.setPick(id),

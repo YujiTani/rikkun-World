@@ -103,6 +103,7 @@ export const NEW_FURN_BLOCK_IDS: readonly NewFurnBlockId[] = FURN_BLOCK_IDS.filt
 /** 呼び名（コードで id を 文字で 書かず ここから 読む。向きの ある 家具の しゅるい） */
 export const K_TANSU = 'tansu' satisfies FurnBlockKind;
 export const K_FURNACE = 'furnace' satisfies FurnBlockKind;
+export const K_ANDON = 'andon' satisfies FurnBlockKind;
 
 /** id が その しゅるいの 家具（どの 向きでも・どの マスでも）か */
 export function isFurnKind(id: string, kind: FurnBlockKind): boolean {

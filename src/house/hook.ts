@@ -7,6 +7,7 @@ import type { Confirm } from './editor/controller';
 import type { ArchitectInfo } from './manager';
 import type { GlowInfo } from './preview/glow';
 import { previewModeOf } from './preview/port';
+import type { SeatInfo } from './seat';
 import type { HouseSystem } from './system';
 import type { HouseMenuState } from './talk';
 
@@ -24,6 +25,8 @@ import type { HouseMenuState } from './talk';
  *   blueprints()    持ち物の せっけいず { slot, number, name, w, d, windows, windowKind, roof, furniture, light }[]
  *   previewDrag(dx, dy) / previewWheel(dx, dy)   見本の 上で ドラッグ／wheel した のと 同じ。今の { angle, pitch }（見本が 出て いなければ null）
  *   hover(id | null)    まどの ボタンに マウスを のせた／はなした のと 同じ（光るのは windowsDown・windowsUp・windowKind）
+ * 1D（#341）:
+ *   seat()          座って いる／おふろに 入って いる あいだだけ { kind: 'sit' | 'bath', block, position }。立つと null
  * 1C PR-1（#340）:
  *   buildNow(number, at)  せっけいずから 家を その場に 建てる（at ＝ 外の 箱の 北西の すみの 床の 高さ）。知らない 番号は null
  *   houses()        戸で おぼえた 記録 { id, name, number, outer, door, doorOpen }[]
@@ -87,6 +90,8 @@ export interface HouseHook {
   houses(): HouseView[];
   blockAt(x: number, y: number, z: number): CellInfo;
   renaming(): ReturnType<HouseSystem['renaming']>;
+  /** 1D（#341）: 座って いる／おふろに 入って いる あいだだけ { kind: 'sit' | 'bath', block, position }。立つと null */
+  seat(): SeatInfo | null;
   level(): ReturnType<HouseSystem['level']>;
   sites(): ReturnType<HouseSystem['sites']>;
   cursor(): ReturnType<HouseSystem['cursor']>;
@@ -97,7 +102,7 @@ export interface HouseHook {
 
 type HookSystem = Pick<HouseSystem, 'architects' | 'talkTo' | 'menu' | 'press' | 'deposit' | 'withdraw' | 'state' | 'editor' | 'editing' | 'edit' | 'need' | 'blueprints' | 'preview' | 'previewDrag' | 'previewWheel' | 'hover' | 'buildNow' | 'houses' | 'blockAt' | 'renaming' | 'level' | 'sites' | 'cursor' | 'building' | 'firstBonus' | 'celebrate'>;
 
-export function createHouseHook(sys: HookSystem): HouseHook {
+export function createHouseHook(sys: HookSystem, seat: { seat(): SeatInfo | null } = { seat: () => null }): HouseHook {
   const editor = (): EditorInfo | null => {
     if (!sys.editing()) return null;
     const c = sys.editor;
@@ -142,6 +147,7 @@ export function createHouseHook(sys: HookSystem): HouseHook {
     houses: () => sys.houses(),
     blockAt: (x, y, z) => sys.blockAt(x, y, z),
     renaming: () => sys.renaming(),
+    seat: () => seat.seat(),
     level: () => sys.level(),
     sites: () => sys.sites(),
     cursor: () => sys.cursor(),
