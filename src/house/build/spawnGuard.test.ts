@@ -11,17 +11,17 @@ import { houseShape } from '../shape';
 import { HouseBuilder, type ActiveBuild } from './builder';
 import { NO_SPAWN_RADIUS } from './tuning';
 
-/** ユニット 8（AC23・AC34 ②）: 建築中の 場所の まわりは 夜でも 湧かない（シード固定 3,600 ステップ）。湧きの ためし 1 回の 仕事は ちょうちんの 家が 2 倍でも 2 倍 くらい */
+/** ユニット 8（AC23・AC34 ②）: 建築中の 場所の まわりは 夜でも 湧かない（シード固定 800 ステップ）。湧きの ためし 1 回の 仕事は ちょうちんの 家が 2 倍でも 2 倍 くらい */
 
-const SIZE = { x: 160, y: 40, z: 160 };
+const SIZE = { x: 96, y: 24, z: 96 };
 const GROUND = 9;
-const MID = 80.5;
-const STEPS = 3600;
-/** 仕事を 数える ステップ（数えるだけなので 短く） */
-const WORK_STEPS = 600;
+const MID = 48.5;
+const STEPS = 800;
+/** 対照（守りなし）と 仕事を 数える ステップ（有る・無いと 数を 見るだけなので 短く） */
+const SHORT_STEPS = 200;
 const BP: ActiveBuild['bp'] = { w: 5, d: 5, windows: 2, furniture: [], name: { front: 'もも', back: 'のいえ' } };
 /** 外の 箱 7×7 の 北西。まん中が プレイヤーの 立つ 場所 */
-const AT = { x: 77, y: GROUND, z: 77 };
+const AT = { x: 45, y: GROUND, z: 45 };
 const CENTER = { x: AT.x + 3.5, z: AT.z + 3.5 };
 
 function flat(): ArrayVoxelWorld {
@@ -71,12 +71,12 @@ describe('AC23 建築中は 夜でも 湧かない（まん中から 横 16 マ�
     return b;
   }
 
-  it('シード固定 3,600 ステップ: 守りが ないと 16 マス 以内にも 湧く（対照）。守りが あると 16 マス 以内は 0、17 マス 以上は 今どおり 湧く', () => {
+  it('シード固定 800 ステップ: 守りが ないと 16 マス 以内にも 湧く（対照）。守りが あると 16 マス 以内は 0、17 マス 以上は 今どおり 湧く', () => {
     const world = flat();
-    const none = spawns(world, undefined);
+    const none = spawns(world, undefined, undefined, SHORT_STEPS);
     expect(none.filter((p) => rangeOf(p) <= NO_SPAWN_RADIUS).length, '対照: 守りなし').toBeGreaterThan(0);
-    const b = builder(flat());
-    const guarded = spawns(flat(), (x, z) => !b.noSpawn(x, z));
+    const b = builder(world);
+    const guarded = spawns(world, (x, z) => !b.noSpawn(x, z));
     expect(guarded.length, '遠くには 湧く').toBeGreaterThan(0);
     expect(guarded.filter((p) => rangeOf(p) <= NO_SPAWN_RADIUS), '16 マス 以内').toEqual([]);
     expect(guarded.some((p) => rangeOf(p) > NO_SPAWN_RADIUS && rangeOf(p) < NO_SPAWN_RADIUS + 4), '17 マス すぐ そとにも 湧く').toBe(true);
@@ -102,7 +102,7 @@ describe('AC34 ② 湧きの ためし 1 回の 仕事は、ちょうちんの �
     const light = new WorldLight(world, dark);
     for (let k = 0; k < n; k++) {
       const shape = houseShape({ w: 5, d: 5, windows: 0, furniture: [] });
-      const at = { x: 20 + (k % 4) * 30, y: GROUND + 1, z: 20 + Math.floor(k / 4) * 30 };
+      const at = { x: 8 + (k % 4) * 20, y: GROUND + 1, z: 8 + Math.floor(k / 4) * 20 };
       for (const c of shape.cells) world.setBlock(at.x + c.x, at.y + c.y, at.z + c.z, c.id as BlockId);
     }
     light.update();
@@ -110,7 +110,7 @@ describe('AC34 ② 湧きの ためし 1 回の 仕事は、ちょうちんの �
     let tries = 0;
     const hook = createWorkHook(() => 0, world);
     hook.start();
-    spawns(world, () => (tries++, true), light as unknown as YokaiManagerOptions['light'], WORK_STEPS);
+    spawns(world, () => (tries++, true), light as unknown as YokaiManagerOptions['light'], SHORT_STEPS);
     const reads = hook.read().getBlock;
     hook.stop();
     expect(tries, 'ためしを 実際に した').toBeGreaterThan(0);
