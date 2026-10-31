@@ -48,6 +48,33 @@ describe('AC12 窓の ならべ方（左右 対称・2 マスおき・まえの 
   });
 });
 
+describe('AC13（2.4）13 しゅるいの 大きさと 向き', () => {
+  const SIZE_BY_KIND = {
+    furnace: [1, 1], tansu: [1, 1], nukunuku: [2, 2], futon: [1, 2], table: [2, 1], long_table: [3, 1], round_table: [1, 1],
+    chair: [1, 1], stool: [1, 1], andon: [1, 1], shelf: [1, 1], ofuro: [2, 1], haniwa: [1, 1],
+  } as const;
+
+  it('13 しゅるい ぜんぶ 9×9 の 左上に 置ける。大きさは 表の とおり（ながい テーブルは 3×1、みぎに まわすと 1×3）', () => {
+    expect(Object.keys(SIZE_BY_KIND).sort()).toEqual([...FURN_ORDER].sort());
+    for (const k of FURN_ORDER) {
+      expect(footprint(k, 0), k).toEqual(SIZE_BY_KIND[k]);
+      expect(placeProblem(form(9, 9), { kind: k, x: 0, z: 0, rot: 0 }), k).toBeNull();
+    }
+    expect(footprint('long_table', 0)).toEqual([3, 1]);
+    expect(footprint('long_table', 1)).toEqual([1, 3]);
+  });
+
+  it('ながい テーブル（3×1）: 5×5 で 戸の 前の 列には かかる ので 置けない。うしろの 列には 3 マス 置け、はしを 1 マス こえると はみ出す', () => {
+    const s = form(5, 5);
+    expect(placeProblem(s, { kind: 'long_table', x: 0, z: 4, rot: 0 }), '戸の 前（2, 4）に かかる').toBe('door');
+    expect(placeProblem(s, { kind: 'long_table', x: 0, z: 0, rot: 0 })).toBeNull();
+    expect(placeProblem(s, { kind: 'long_table', x: 2, z: 0, rot: 0 })).toBeNull();
+    expect(placeProblem(s, { kind: 'long_table', x: 3, z: 0, rot: 0 })).toBe('out');
+    expect(placeProblem(s, { kind: 'long_table', x: 0, z: 3, rot: 1 }), '1×3 が 下へ はみ出す').toBe('out');
+    expect(placeProblem(s, { kind: 'long_table', x: 0, z: 2, rot: 1 })).toBeNull();
+  });
+});
+
 describe('AC13 家具を 置ける 所', () => {
   const fill = (s: EditorState): number => {
     let n = 0;
@@ -83,7 +110,7 @@ describe('AC13 家具を 置ける 所', () => {
     expect(placeProblem(s, { kind: 'table', x: 0, z: 0, rot: 1 }, 0)).toBeNull();
   });
 
-  it('向き: 奇数の 向きで よこ・たてが 入れかわる（家具 9 種ぜんぶ）', () => {
+  it('向き: 奇数の 向きで よこ・たてが 入れかわる（家具 13 種ぜんぶ）', () => {
     for (const k of FURN_ORDER) {
       const [w, d] = FURNITURE[k].cells;
       expect(footprint(k, 0)).toEqual([w, d]);
@@ -124,6 +151,16 @@ describe('AC9・AC10 ひつような もの（外装 ＋ 窓 ＋ 家具）', () 
     expect(by.cloth?.need).toBe(3);
     expect(by.oil?.need).toBe(1);
     expect(rows.map((r) => r.item), '並び: き・いし・かみ・ぬの・いと・てつ・くさ・たいまつ・あぶら').toEqual(['log', 'stone', 'paper', 'cloth', 'string', 'oil']);
+  });
+
+  it('AC10（2.4）: はにわ 1・ながい テーブル 1・まるい テーブル 1・まるいす 1（5×5・窓 0）→ ねんど 2・き ＝ 外まわり 24 ＋ 6＋2＋2 ＝ 34。ねんどは いちばん うしろ（10 しゅるい の 並び）', () => {
+    const furniture: Placed[] = [
+      { kind: 'haniwa', x: 0, z: 0, rot: 0 }, { kind: 'long_table', x: 0, z: 1, rot: 0 }, { kind: 'round_table', x: 4, z: 0, rot: 0 }, { kind: 'stool', x: 4, z: 1, rot: 0 },
+    ];
+    const rows = needOf({ w: 5, d: 5, windows: 0, furniture }, () => 0);
+    expect(rows.map((r) => [r.item, r.need])).toEqual([['log', 24 + 6 + 2 + 2], ['stone', 25], ['clay', 2]]);
+    const all = needOf({ w: 9, d: 9, windows: 1, furniture: FURN_ORDER.map((kind, i) => ({ kind, x: 0, z: i % 8, rot: 0 })) }, () => 0);
+    expect(all.map((r) => r.item), '13 しゅるい ぜんぶ で 10 しゅるい').toEqual(['log', 'stone', 'paper', 'cloth', 'string', 'iron_ingot', 'grass', 'torch', 'oil', 'clay']);
   });
 
   it('何も 置かない 5×5: き 24・いし 25 だけ', () => {

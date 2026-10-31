@@ -5,7 +5,7 @@ const NOW_HOW = 'いまは もてる だけ';
 const FURN_SOURCE = 'けんちくし が たてた いえ を ほる';
 
 /**
- * 家の 新しい 家具 5 つ（HOUSE-1B #339。案 A「ごつごつの くりの 木」。docs/design/HOUSE-1.md §4.3）。
+ * 家の 新しい 家具 8 つ（HOUSE-1B #339。案 A「ごつごつの くりの 木」。2.4 で 3 つ 足した。docs/design/HOUSE-1.md §4.3）。
  * 方眼の 大きさ・材料は エディターの 表（house/editor/furniture.ts）。ここは 持ち物の 名前・説明・めずらしさ だけ。
  * 置いて ブロックに なるのは HOUSE-1C（#340）、はたらき（いす・おふろ・あんどん・ほんだな）は HOUSE-1D（#341）。
  * 置けるブロックに なる 前なので いまは 置けない。重ねる 数は ふとんと 同じ（置けるブロックと 同じ 64）。絵は ui/itemArtHouseEditor.ts（仮の 絵）。
@@ -53,6 +53,33 @@ export const HOUSE_FURNITURE = {
     rarity: 'rare',
     category: 'home',
     info: { use: 'いえの なかに おく あったかい おふろ', how: NOW_HOW, buttons: [] },
+    source: FURN_SOURCE,
+    wear: 'permanent',
+  },
+  long_table: {
+    name: 'ながい テーブル',
+    maxStack: 64,
+    rarity: 'common',
+    category: 'home',
+    info: { use: 'いえの なかに おく みんなで つかう ながい つくえ', how: NOW_HOW, buttons: [] },
+    source: FURN_SOURCE,
+    wear: 'permanent',
+  },
+  round_table: {
+    name: 'まるい テーブル',
+    maxStack: 64,
+    rarity: 'common',
+    category: 'home',
+    info: { use: 'いえの なかに おく まるい つくえ', how: NOW_HOW, buttons: [] },
+    source: FURN_SOURCE,
+    wear: 'permanent',
+  },
+  stool: {
+    name: 'まるいす',
+    maxStack: 64,
+    rarity: 'common',
+    category: 'home',
+    info: { use: 'いえの なかに おく まるい こしかけ', how: NOW_HOW, buttons: [] },
     source: FURN_SOURCE,
     wear: 'permanent',
   },

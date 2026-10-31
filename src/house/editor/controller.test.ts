@@ -109,6 +109,28 @@ describe('家具を まわす・あかり（AC13b）', () => {
     expect(ctl.s.furniture[1]!.rot).toBe(0);
   });
 
+  it('AC13（2.4）ながい テーブル（3×1）: みぎに まわすと 1×3・rot 1 で 左上の マスは 同じ。下に はみ出す ときは まわらない', () => {
+    const { ctl } = makeController();
+    ctl.place('long_table', 0, 0);
+    expect(ctl.rotate(0, 'right')).toBe(true);
+    expect(ctl.s.furniture[0]).toEqual({ kind: 'long_table', x: 0, z: 0, rot: 1 });
+    expect(ctl.rotate(0, 'left')).toBe(true);
+    expect(ctl.rotate(0, 'left'), 'rot 3').toBe(true);
+    expect(ctl.s.furniture[0]!.rot).toBe(3);
+    ctl.place('long_table', 0, 3); // 5×5 の 下から 2 だんめ。たて 3 マスに すると 下へ はみ出す
+    expect(ctl.rotate(1, 'right')).toBe(false);
+    expect(ctl.s.furniture[1]).toEqual({ kind: 'long_table', x: 0, z: 3, rot: 0 });
+  });
+
+  it('AC13（2.4）まるい テーブル・まるいす・はにわ（1×1）: まわしても rot だけ かわる（場所は 同じ）', () => {
+    for (const kind of ['round_table', 'stool', 'haniwa'] as const) {
+      const { ctl } = makeController();
+      ctl.place(kind, 1, 1);
+      expect(ctl.rotate(0, 'right'), kind).toBe(true);
+      expect(ctl.s.furniture[0], kind).toEqual({ kind, x: 1, z: 1, rot: 1 });
+    }
+  });
+
   it('↻ で rot ＋1、↺ で −1（4 で もとに もどる）', () => {
     const { ctl } = makeController();
     ctl.place('chair', 2, 2);

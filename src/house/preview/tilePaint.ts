@@ -34,3 +34,18 @@ export function grain(base: string, dark: string, light: string, seed: number, v
 export function solid(c: string): Px {
   return new Array<number>(256).fill(H(c));
 }
+
+/** 文字の 絵（16 行 × 16 字）から 16×16 の 絵を 作る。legend ＝ 1 字 → 色。字は 左上が はじまり */
+export function fromRows(rows: readonly string[], legend: Readonly<Record<string, string>>): Px {
+  if (rows.length !== 16) throw new Error(`絵は 16 行: ${rows.length}`);
+  const t = new Array<number>(256).fill(0);
+  rows.forEach((row, y) => {
+    if (row.length !== 16) throw new Error(`絵の ${y} 行目は 16 字: ${row.length}`);
+    [...row].forEach((ch, x) => {
+      const c = legend[ch];
+      if (c === undefined) throw new Error(`色の 表に ない 字: ${ch}`);
+      t[y * 16 + x] = H(c);
+    });
+  });
+  return t;
+}

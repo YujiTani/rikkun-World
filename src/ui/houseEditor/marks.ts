@@ -19,13 +19,15 @@ export function shojiMark(len: number, thick: number, horiz: boolean): string {
   return `<svg class="ed-mark__svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" aria-hidden="true"><rect x="1" y="1" width="${w - 2}" height="${h - 2}" rx="2" fill="${PAPER}" stroke="${OUTLINE}" stroke-width="2"/><rect x="3" y="3" width="${w - 6}" height="${h - 6}" fill="none" stroke="${P.frame}" stroke-width="1.5"/><g stroke="${P.kumiko}" stroke-width="1.5" fill="none">${bars.join('')}</g></svg>`;
 }
 
-/** 戸の 印の 大きさ（px）。立てた 戸の 絵を、かべの 帯の まん中に 重ねる（帯 16 ＋ 外へ 12 ＋ 中へ 12 ＝ 40） */
-export const DOOR_MARK = { w: 32, h: 40 } as const;
+/** 戸の 印の 高さ（px）。はばは 1 マス。帯 16 ＋ 外へ 8（余白 16 を 上下に 分けた 8 の 中に おさまる） */
+export const DOOR_MARK_H = 24;
 
-/** 戸の 印: 2 まい とびら（見本の 戸と おなじ 色）・まん中の あわせ・てつの 輪 */
-export function doorMark(): string {
-  const { w, h } = DOOR_MARK;
+/** 戸の 印（はば w）: 2 まい とびら（見本の 戸と おなじ 色）・まん中の あわせ・てつの 輪。こい ふちで 帯との 明るさの 差を つける */
+export function doorMark(w: number): string {
+  const h = DOOR_MARK_H;
+  const half = w / 2;
+  const lw = half - 1.5;
   const leaf = (x: number): string =>
-    `<rect x="${x}" y="3" width="13" height="${h - 6}" rx="2" fill="${P.door}" stroke="${OUTLINE}" stroke-width="2"/><rect x="${x + 2.5}" y="6" width="8" height="12" rx="1" fill="${P.doorL}" stroke="${P.doorD}" stroke-width="1.2"/><rect x="${x + 2.5}" y="21" width="8" height="13" rx="1" fill="${P.doorL}" stroke="${P.doorD}" stroke-width="1.2"/>`;
-  return `<svg class="ed-mark__svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" aria-hidden="true">${leaf(2.5)}${leaf(16.5)}<circle cx="13" cy="21" r="2" fill="${P.iron}" stroke="${P.ring}" stroke-width="1"/><circle cx="19" cy="21" r="2" fill="${P.iron}" stroke="${P.ring}" stroke-width="1"/></svg>`;
+    `<rect x="${x}" y="1" width="${lw}" height="${h - 2}" rx="2" fill="${P.door}" stroke="${OUTLINE}" stroke-width="2"/><rect x="${x + 3}" y="5" width="${lw - 6}" height="${h - 10}" rx="1" fill="${P.doorL}" stroke="${P.doorD}" stroke-width="1.2"/>`;
+  return `<svg class="ed-mark__svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" aria-hidden="true">${leaf(1)}${leaf(half + 0.5)}<circle cx="${half - 5}" cy="${h / 2}" r="2" fill="${P.iron}" stroke="${P.ring}" stroke-width="1"/><circle cx="${half + 5}" cy="${h / 2}" r="2" fill="${P.iron}" stroke="${P.ring}" stroke-width="1"/></svg>`;
 }

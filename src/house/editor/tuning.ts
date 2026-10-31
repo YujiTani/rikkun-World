@@ -56,8 +56,8 @@ export const SUFFIX_DEFAULT = 'のいえ';
  */
 export const BUBBLE = { baseFrames: 180, perCharFrames: 12 } as const;
 
-/** 「ひつような もの」の 材料の 並び（§3.2。き・いし・かみ・ぬの・いと・てつの かたまり・くさ・たいまつ・あぶら） */
-export const MATERIAL_ORDER = ['log', 'stone', 'paper', 'cloth', 'string', 'iron_ingot', 'grass', 'torch', 'oil'] as const;
+/** 「ひつような もの」の 材料の 並び（§3.2。き・いし・かみ・ぬの・いと・てつの かたまり・くさ・たいまつ・あぶら・ねんど〔2.4: はにわ〕。10 しゅるい） */
+export const MATERIAL_ORDER = ['log', 'stone', 'paper', 'cloth', 'string', 'iron_ingot', 'grass', 'torch', 'oil', 'clay'] as const;
 
 /** ふきだしの 文（ぜんぶ ひらがな・カタカナ。仕様 §3 の 表） */
 export const MSG = {

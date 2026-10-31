@@ -1,6 +1,6 @@
 // HOUSE-1B 見本（3D）の 数を 1 か所に（ルール #304）。仕様 docs/design/HOUSE-1.md §4.9（見本）。three なし。
 // 家の 見た目（色・絵）は look.ts、家具の 大きさ・材料は editor/furniture.ts、画面の 数は ui/houseEditor/tuning.ts。
-// PR-2 で ドラッグ・wheel・窓と 戸の 光りの 数（dragYawPerPx など）を ここに 足す。
+// PR-2 で ドラッグ・wheel・また 回り出す 時間・窓と 戸の 光りの 数（dragYawPerPx など）を ここに 足す。
 
 /** 見本（§4.9。アートが 試作で 決めた 数） */
 export const PREVIEW = {
@@ -17,10 +17,14 @@ export const PREVIEW = {
   stillYawDeg: 28,
   /** 画面に 入れる 余白（1 ＝ ぴったり） */
   fitMargin: 1.06,
-  /** なかの 見本で、カメラに 近い かべが さがりはじめる・きえる 向き（かべの 外向きと カメラの 向きの 内積） */
-  wallDropFrom: 0.1,
-  wallDropTo: 0.45,
 } as const;
+
+/**
+ * なかの 見本で、カメラがわ（手前）の かべ。引っこめず、白っぽい 半透明に する（AC59。yuzu 2026-10-30 22:11）。
+ * かべの 外向きと カメラの 向きの 内積が from から to へ ふえる あいだに なめらかに（0 ＝ ふつうの かべ、1 ＝ 白っぽい 半透明）。
+ * white ＝ いちばん 白い ときに 白へ まぜる 量（0〜1）、alpha ＝ いちばん 透ける ときの 不透明さ（1 ＝ 透けない）。回しても かべの 形は 変わらない
+ */
+export const WALL_GHOST = { from: 0.1, to: 0.45, white: 0.7, alpha: 0.5 } as const;
 
 /** 家具の 絵（ボタン・方眼の 家具・置く 前の ゴースト）の 数 */
 export const FURN_ART = {

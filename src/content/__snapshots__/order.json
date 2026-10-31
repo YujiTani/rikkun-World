@@ -454,6 +454,9 @@
       "andon",
       "shelf",
       "ofuro",
+      "long_table",
+      "round_table",
+      "stool",
       "sekkeizu"
     ],
     "light": [
@@ -858,6 +861,9 @@
     "andon",
     "shelf",
     "ofuro",
+    "long_table",
+    "round_table",
+    "stool",
     "sekkeizu"
   ],
   "RARITY_ORDER": [

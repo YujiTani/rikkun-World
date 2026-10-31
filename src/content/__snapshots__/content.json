@@ -6104,6 +6104,48 @@
       "rarity": "rare",
       "recipes": []
     },
+    "long_table": {
+      "ITEM_INFO.long_table": {
+        "buttons": [],
+        "how": "いまは もてる だけ",
+        "use": "いえの なかに おく みんなで つかう ながい つくえ"
+      },
+      "category": "home",
+      "durabilityClass": "permanent",
+      "maxStack": 64,
+      "name": "ながい テーブル",
+      "placeBlock": null,
+      "rarity": "common",
+      "recipes": []
+    },
+    "round_table": {
+      "ITEM_INFO.round_table": {
+        "buttons": [],
+        "how": "いまは もてる だけ",
+        "use": "いえの なかに おく まるい つくえ"
+      },
+      "category": "home",
+      "durabilityClass": "permanent",
+      "maxStack": 64,
+      "name": "まるい テーブル",
+      "placeBlock": null,
+      "rarity": "common",
+      "recipes": []
+    },
+    "stool": {
+      "ITEM_INFO.stool": {
+        "buttons": [],
+        "how": "いまは もてる だけ",
+        "use": "いえの なかに おく まるい こしかけ"
+      },
+      "category": "home",
+      "durabilityClass": "permanent",
+      "maxStack": 64,
+      "name": "まるいす",
+      "placeBlock": null,
+      "rarity": "common",
+      "recipes": []
+    },
     "sekkeizu": {
       "ITEM_INFO.sekkeizu": {
         "buttons": [],

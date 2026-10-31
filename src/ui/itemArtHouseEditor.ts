@@ -3,7 +3,7 @@ import { HOUSE_FURNITURE_IDS, HOUSE_PLAN_IDS, type HouseFurnitureId, type HouseP
 import type { Rgba } from '../world/blocks/textures';
 
 /**
- * HOUSE-1B（#339）新しい 家具 5 つ（テーブル・いす・あんどん・ほんだな・おふろ）と せっけいずの 16x16 アイコン（仮の 絵。
+ * HOUSE-1B（#339）新しい 家具 8 つ（テーブル・いす・あんどん・ほんだな・おふろ・ながい テーブル・まるい テーブル・まるいす）と せっけいずの 16x16 アイコン（仮の 絵。
  * アートの 3 案から 本番の 絵に かわる）。形は itemArtHouse.ts と 同じ（ROWS = 文字の 絵、PAL = 色の 表）。色は 案 A の 木と ざぶとんに そろえた。
  */
 type EditorItemId = HouseFurnitureId | HousePlanId;
@@ -122,6 +122,60 @@ const ROWS: Record<EditorItemId, readonly string[]> = {
     '.OWWWWWWWWWWWWO.',
     '.ODDDDDDDDDDDDO.',
     '..OOOOOOOOOOOO..',
+    '................',
+  ],
+  long_table: [
+    '................',
+    '................',
+    '................',
+    'OOOOOOOOOOOOOOOO',
+    'OwwwwwwwwwwwwwwO',
+    'OWWWWWWWWWWWWWWO',
+    'ODDDDDDDDDDDDDDO',
+    'OOOOOOOOOOOOOOOO',
+    'ODOO.OOOOOO.OODO',
+    'ODO..ODDDDO..ODO',
+    'ODO..OOOOOO..ODO',
+    'ODO..........ODO',
+    'ODO..........ODO',
+    'OOO..........OOO',
+    '................',
+    '................',
+  ],
+  round_table: [
+    '................',
+    '................',
+    '....OOOOOOOO....',
+    '..OOwwwwwwwwOO..',
+    '.OwwWWWWWWWWwwO.',
+    '.OWWWWWWWWWWWWO.',
+    '..OODDDDDDDDOO..',
+    '....OOOOOOOO....',
+    '......ODDO......',
+    '......ODDO......',
+    '......ODDO......',
+    '....OOODDOOO....',
+    '...OWWWDDWWWO...',
+    '...OOOOOOOOOO...',
+    '................',
+    '................',
+  ],
+  stool: [
+    '................',
+    '................',
+    '................',
+    '....OOOOOOOO....',
+    '..OOzzzzzzzzOO..',
+    '.OZZZZZZZZZZZZO.',
+    '.OZZZZZZZZZZZZO.',
+    '..OOOOOOOOOOOO..',
+    '...OWO....OWO...',
+    '...OWO....OWO...',
+    '...OWO....OWO...',
+    '...OWO....OWO...',
+    '...ODO....ODO...',
+    '...OOO....OOO...',
+    '................',
     '................',
   ],
   sekkeizu: [

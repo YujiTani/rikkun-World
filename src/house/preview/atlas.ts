@@ -1,6 +1,7 @@
-// HOUSE-1B 試作: 見本の 絵の 表（atlas）。ゲームの 本物の atlas（TILE_NAMES）の 中身を そのまま 写し、
-// 下に 試作の 絵（家の かべ・ゆか・やね・しょうじ・戸 ＋ 新しい 家具の 絵）の 行を 足した もの。
-// 本物の atlas に 足すと 全部の UV が ずれて 地形の テストが 落ちる ため、試作は 写しを 使う（本実装では 本物の atlas に 足す）。
+// HOUSE-1B 見本の 絵の 表（atlas）。ゲームの 本物の atlas（TILE_NAMES）の 中身を そのまま 写し、
+// 下に 見本の 絵（家の かべ・ゆか・やね・しょうじ・戸 ＋ 家具の 絵 20 まい）の 行を 足した もの。
+// 本物の atlas に 足すと 全部の UV が ずれて 地形の golden（calm.test.ts・sectionMesher.slice.test.ts）が 落ちる ため、見本用に 写しを 持つ
+// （世界には 使わない。エディターを ひらいた とき だけ 作る）。
 import { DataTexture, NearestFilter, RGBAFormat, SRGBColorSpace, UnsignedByteType } from 'three';
 import { ATLAS_COLS, ATLAS_HEIGHT, ATLAS_WIDTH, TILE_NAMES, TILE_SIZE, buildAtlasData, type TileName } from '../../world/blocks/textures';
 import { FURN_TILE_NAMES, furnTiles, type FurnTile } from './furnitureArt';
@@ -34,7 +35,7 @@ export function tileRect(name: PreviewTile): [number, number, number, number] {
   return [(col * TILE_SIZE + e) / ATLAS_WIDTH, (row * TILE_SIZE + e) / HEIGHT, ((col + 1) * TILE_SIZE - e) / ATLAS_WIDTH, ((row + 1) * TILE_SIZE - e) / HEIGHT];
 }
 
-/** 見本用の 絵の 表（本物の atlas の 写し ＋ 試作の 絵）の テクスチャ。本物と 同じ 色空間・フィルター */
+/** 見本用の 絵の 表（本物の atlas の 写し ＋ 見本の 絵）の テクスチャ。本物と 同じ 色空間・フィルター */
 export function createPreviewAtlas(): DataTexture {
   const main = buildAtlasData();
   const data = new Uint8Array(ATLAS_WIDTH * HEIGHT * 4);

@@ -1,7 +1,7 @@
 // HOUSE-1B エディターの 見本（3D）。ゲームの レンダラー（game.renderer）で、画面の「穴」（HTML の 見本の 場所）に
 // 切りぬいて 描く（2 つ目の WebGL を 作らない）。面は ゲームの 区の メッシュと 同じ 材料（MeshData → toGeometry）。
 // 毎コマ: 画面ぜんぶを 地の 色で ぬる → 穴の 四角だけ viewport＋scissor で 空の 色に して 見本を 描く。
-//   そと ＝ 屋根つき・低めの 角度、なか ＝ 屋根なし・50°・カメラに 近い かべが すっと さがる（ドールハウスの 切り口）。
+//   そと ＝ 屋根つき・低めの 角度、なか ＝ 屋根なし・50°・カメラがわ（手前）の かべは 引っこめず 白っぽい 半透明（ドールハウスの 切り口。ghostWall.ts）。
 //   向き ＝ ゆっくり 自動で 回る（PR-2 で ドラッグ・窓の 光りを 足す）。形が かわった ときだけ 作りなおす。
 import {
   BufferGeometry, Color, Mesh, MeshBasicMaterial, PerspectiveCamera, Scene, Vector2, Vector3, Vector4,
@@ -13,10 +13,11 @@ import type { EditorState } from '../editor/model';
 import { ROOF_Y, WALLS, type Rot, type Wall } from '../editor/tuning';
 import { createPreviewAtlas } from './atlas';
 import { FurnitureIcons, type FurnImage } from './furnitureIcons';
+import { GhostWall, wallGhostLevels } from './ghostWall';
 import { HOUSE_LOOK } from './look';
 import { buildPreview, type PreviewMode, type PreviewParts } from './mesh';
 import { PREVIEW } from './tuning';
-import { OUTWARD, ViewCtl } from './view';
+import { ViewCtl } from './view';
 
 export type { FurnImage, PreviewMode };
 
@@ -45,12 +46,21 @@ export class Preview3D {
   private readonly probe = new PerspectiveCamera(PREVIEW.fovDeg, 1, 0.5, 400);
   private readonly baseMesh = new Mesh(undefined, this.material);
   private readonly roofMesh = new Mesh(undefined, this.material);
-  private readonly wallMesh: Record<Wall, Mesh> = {
-    front: new Mesh(undefined, this.material),
-    right: new Mesh(undefined, this.material),
-    back: new Mesh(undefined, this.material),
-    left: new Mesh(undefined, this.material),
+  /** かべ 4 まい（かべごとに 白っぽさ・透け方を かえられる 材料。形は 回しても 変えない） */
+  private readonly ghosts: Record<Wall, GhostWall> = {
+    front: new GhostWall(this.atlas),
+    right: new GhostWall(this.atlas),
+    back: new GhostWall(this.atlas),
+    left: new GhostWall(this.atlas),
   };
+  private readonly wallMesh: Record<Wall, Mesh> = {
+    front: this.ghosts.front.mesh,
+    right: this.ghosts.right.mesh,
+    back: this.ghosts.back.mesh,
+    left: this.ghosts.left.mesh,
+  };
+  /** 毎コマ 新しく 作らない ための 置き場（かべの 白っぽさ） */
+  private readonly ghostLevels: Record<Wall, number> = { front: 0, right: 0, back: 0, left: 0 };
   private readonly icons: FurnitureIcons;
   private parts: PreviewParts | null = null;
   private key = '';
@@ -101,11 +111,7 @@ export class Preview3D {
     set(this.roofMesh, this.parts.roof);
     for (const w of WALLS) set(this.wallMesh[w], this.parts.walls[w]);
     this.roofMesh.visible = mode === 'outside';
-    for (const w of WALLS) {
-      this.wallMesh[w].visible = true;
-      this.wallMesh[w].scale.y = 1;
-      this.wallMesh[w].position.y = 0;
-    }
+    for (const w of WALLS) this.ghosts[w].set(0);
     this.center.set(this.parts.w / 2, mode === 'outside' ? 2 : 1.5, this.parts.d / 2);
     this.fitKey = '';
   }
@@ -185,24 +191,6 @@ export class Preview3D {
 
   // ------------------------------------------------------------ 描く
 
-  /** かべ 4 まいの 高さ（なかの 見本: カメラに 近い かべは さがる）。0〜1 */
-  private setWallHeights(yawDeg: number): void {
-    const y = rad(yawDeg);
-    const sx = Math.sin(y);
-    const sz = Math.cos(y);
-    for (const w of WALLS) {
-      let h = 1;
-      if (this.mode === 'inside') {
-        const dot = sx * OUTWARD[w][0] + sz * OUTWARD[w][1];
-        h = Math.min(1, Math.max(0, (PREVIEW.wallDropTo - dot) / (PREVIEW.wallDropTo - PREVIEW.wallDropFrom)));
-      }
-      const m = this.wallMesh[w];
-      m.visible = h > 0.02;
-      m.scale.y = Math.max(h, 0.001);
-      m.position.y = 1 - h;
-    }
-  }
-
   /**
    * 1 コマ: 画面ぜんぶを 地の 色で ぬり、rect（見本の 穴）だけに 見本を 描く。rect が null なら 地の 色だけ（③ なまえ など）。
    * renderer の 状態（viewport・scissor・clear color）は もとに もどす。
@@ -238,7 +226,8 @@ export class Preview3D {
       }
       const view = this.views[this.mode];
       this.place(view.yaw, view.elev, this.distFor(view.elev), this.camera);
-      this.setWallHeights(view.yaw);
+      wallGhostLevels(view.yaw, this.mode, this.ghostLevels);
+      for (const w of WALLS) this.ghosts[w].set(this.ghostLevels[w]);
       const y0 = size.y - rect.y - rect.h;
       r.setViewport(rect.x, y0, rect.w, rect.h);
       r.setScissor(rect.x, y0, rect.w, rect.h);
@@ -263,7 +252,8 @@ export class Preview3D {
   }
 
   dispose(): void {
-    for (const m of [this.baseMesh, this.roofMesh, ...WALLS.map((w) => this.wallMesh[w])]) m.geometry.dispose();
+    for (const m of [this.baseMesh, this.roofMesh]) m.geometry.dispose();
+    for (const w of WALLS) this.ghosts[w].dispose();
     this.material.dispose();
     this.atlas.dispose();
   }
