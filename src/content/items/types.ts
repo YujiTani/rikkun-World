@@ -40,6 +40,8 @@ export type ItemDefId = Exclude<ItemId, BlockOnlyId>;
 export interface ItemDef {
   /** 画面に出す名前（ひらがな。漢字は ［漢字｜よみ］。今の ITEM_TYPES の name） */
   name: string;
+  /** ずかんの「どんな もの」に 出す 読み物の 文。できる ことを 楽しく。内部の 数は 書かない。漢字は ［漢字｜よみ］ */
+  zukan: string;
   /** 1 マスに 重ねられる数 */
   maxStack: number;
   /** 持ち物 全体で 持てる 数（なし = 制限なし。おまもり = 1。ITEM-FX-1） */

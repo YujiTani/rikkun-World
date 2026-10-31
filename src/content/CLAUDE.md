@@ -11,7 +11,7 @@
 アイテム 1 つを足すとき（足し忘れは型エラーかテストが落とす）:
 
 1. `content/items/ids.ts` — id を書くのはここ 1 回（シリーズの配列に足す）。置けるブロックなら `BlockId`（`contracts.ts`）に足し、持ち物に入らないブロックなら `types.ts` の `BLOCK_ONLY_IDS` に足す（新しい `BlockId` は、`ItemDef` を書くか `BLOCK_ONLY_IDS` に足すかを型エラーが決めさせる）。
-2. `content/items/<シリーズ>.ts` — 名前・重ね数・レア度・分類・説明・耐久・レシピ・部品（`blade`／`bow`／`tool`／`armor`）を 1 行に。戦闘の数は日本語の単位つきコメントで。`satisfies Record<…Id, ItemDef>` なので書き忘れは型エラー（置けるブロックでもある物は `Partial<Record<BlockId, ItemDef>>` だが、抜けは `ITEM_DEFS` の型が捕まえる）。新しいシリーズのファイルなら `registry.ts` の `ITEM_DEFS` に 1 行（`Record<ItemDefId, …>` なので入れ忘れも型エラー）。作り方（レシピ）・妖怪のドロップ・ほる の どれでも 手に入らない 物（建築士さんが くれる 道具 など）は、任意の 項目 `source`（ずかんの「てにいれかた」の 文。ひらがな・漢字は ルビ記法）を 1 行 書く（`craft/info/build.ts` の `sourceText` が 最初に 使う。書かないと レシピ・ドロップ・ほる から 自動で 文が できる。`house.ts` が 例）。
+2. `content/items/<シリーズ>.ts` — 名前・**ずかんの 読み物の 文 `zukan`（必須。本の「どんな もの」に 出る。できる ことを 楽しく・内部の 数は 書かない。漢字は 小 1・小 2 の 漢字だけ ＋ ［漢字｜よみ］。足し忘れは 型エラー、漢字の きまりは `ui/book/zukan.test.ts` が 落とす）**・重ね数・レア度・分類・説明・耐久・レシピ・部品（`blade`／`bow`／`tool`／`armor`）を 1 行に。戦闘の数は日本語の単位つきコメントで。`satisfies Record<…Id, ItemDef>` なので書き忘れは型エラー（置けるブロックでもある物は `Partial<Record<BlockId, ItemDef>>` だが、抜けは `ITEM_DEFS` の型が捕まえる）。新しいシリーズのファイルなら `registry.ts` の `ITEM_DEFS` に 1 行（`Record<ItemDefId, …>` なので入れ忘れも型エラー）。作り方（レシピ）・妖怪のドロップ・ほる の どれでも 手に入らない 物（建築士さんが くれる 道具 など）は、任意の 項目 `source`（ずかんの「てにいれかた」の 文。ひらがな・漢字は ルビ記法）を 1 行 書く（`craft/info/build.ts` の `sourceText` が 最初に 使う。書かないと レシピ・ドロップ・ほる から 自動で 文が できる。`house.ts` が 例）。
 3. 並び: 持ち物の順は `inventory/items.ts` の `ITEM_TYPES`、作業台のカードの順は `craft/recipes.ts`、色分けの順は `ui/itemCategory.ts`（`registry.test.ts`・`itemCategory.test.ts` が全アイテムが 1 回ずつ入っているか確かめる。順番は画面の順なので変えない）。
 4. 絵: `ui/itemArt<シリーズ>.ts`（`Record<…Id>` なので書き忘れは型エラー）。手に持つ形がある物だけ `camera/held<シリーズ>.ts`。2D の絵が無くて石の絵に落ちると `registry.test.ts` が落とす。
 

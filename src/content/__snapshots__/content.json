@@ -977,7 +977,7 @@
           "E"
         ],
         "how": "E の つくる で つかう",
-        "use": "や・ちょうちん・たこ の ざいりょう"
+        "use": "や・ちょうちん・たこ・せっけいず の ざいりょう"
       },
       "category": "material",
       "durabilityClass": "consumable",
@@ -5772,9 +5772,12 @@
     },
     "mizumori": {
       "ITEM_INFO.mizumori": {
-        "buttons": [],
-        "how": "いまは もてる だけ",
-        "use": "じめん の たかさ を しらべる どうぐ（つかえるのは もうすぐ）"
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって じめん に みぎクリック",
+        "use": "じめん の たかさ を しらべる。たかすぎる ところ は あか、ひくすぎる ところ は あお に なる"
       },
       "category": "tool",
       "durabilityClass": "permanent",
@@ -5786,9 +5789,12 @@
     },
     "dotsuki": {
       "ITEM_INFO.dotsuki": {
-        "buttons": [],
-        "how": "いまは もてる だけ",
-        "use": "じめん を トントン かためる どうぐ（つかえるのは もうすぐ）"
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって じめん に みぎクリック",
+        "use": "じめん を トントン たたいて かためる。かためた つち の うえ に いえ が たてられる"
       },
       "category": "tool",
       "durabilityClass": "permanent",
@@ -6197,8 +6203,8 @@
     "sekkeizu": {
       "ITEM_INFO.sekkeizu": {
         "buttons": [],
-        "how": "いまは もてる だけ",
-        "use": "おうちを たてる ための せっけいず（つかえるのは もうすぐ）"
+        "how": "けんちくし に はなして「けんちくを はじめる」",
+        "use": "けんちくし に みせると、この かたち の いえ を たてて くれる"
       },
       "category": "home",
       "durabilityClass": "permanent",

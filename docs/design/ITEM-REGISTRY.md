@@ -33,6 +33,7 @@ export type GoldId = (typeof GOLD_IDS)[number];
 ```ts
 interface ItemDef {
   name: string;               // 今の ITEM_TYPES の name そのまま（ルビ記法も）
+  zukan: string;              // 本の ずかんの「どんな もの」の 読み物の 文（必須。漢字は 小 2 まで ＋ ルビ記法）
   maxStack: number;
   placeBlock?: BlockId;       // なし = 置けない（今の null）
   rarity: Rarity;
