@@ -113,7 +113,9 @@ export class HouseSiteUi {
     const card = el('div', 'site-card site-need');
     card.append(el('h2', 'site-need__title', 'ひつような もの'));
     const list = el('div', 'site-need__list');
-    list.append(el('div', 'site-need__row site-need__row--head', '<span></span><span></span><span class="is-num">ひつよう</span><span class="is-num">くら</span><span class="is-num">たりない</span>'));
+    const head = el('div', 'site-need__row site-need__row--head', '<span></span><span></span><span class="is-num">ひつよう</span><span class="is-num">ある</span><span class="is-num">たりない</span>');
+    head.dataset.testid = 'need-head';
+    list.append(head);
     for (const r of this.d.needRows()) {
       const name = itemDef(r.item)?.name ?? r.item;
       const bonus = (r as { bonus?: number }).bonus ?? 0;

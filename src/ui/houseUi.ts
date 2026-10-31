@@ -1,26 +1,20 @@
-import type { ItemId } from '../contracts';
-import { itemType } from '../inventory/items';
-import type { KuraCellView, KuraScreen, KuraScreenView } from '../house/kuraScreen';
 import type { RenameView } from '../house/rename';
 import type { HouseButtonId, HouseMenuState } from '../house/talk';
 import { buildRenameList, buildRenameName, type RenameNamePanel } from './houseEditor/renameView';
 import { houseButtonIcons } from './houseMenuArt';
 import { HouseSiteUi, type SiteDeps } from './houseSite';
-import { itemIconUrl } from './itemIcon';
 import { withRuby } from './text';
 import './houseUi.css';
 
 /**
- * 建築士さんの メニュー・くらの 画面（HOUSE-1A。docs/design/HOUSE-1.md §2.3・§2.4・§3.2）。HTML（ふりがなを つけるため）。
+ * 建築士さんの メニュー（HOUSE-1A。docs/design/HOUSE-1.md §2.3・§3.2）。HTML（ふりがなを つけるため）。1E: くらの 画面は なくなった。
  *  - 話して いる 間（うなずき・あいさつ）: 頭の 上の ふきだしだけ（`placeBubble` が 毎フレーム 頭に ついて 行く）。
  *  - メニュー: 画面の まん中に ふきだし → ボタンの たて 1 列（ボタンは `menu().buttons` の とおり。押せない 物は disabled）。
- *  - くら: 左 = 持ち物の マス 36、右 = くらの マス。マスを えらぶ → 数 → あずける / とりだす。✕ で ぜんぶ とじる。
  * 画面の 更新は 出来事で 動く（`refresh`）。ゲームの 時間が 止まって いる 間も 動く ように 時計には たよらない。
- * DOM: `[data-testid="house-menu"]`・`house-bubble`・`house-kura`・ボタン `house-btn-<id>`・くらの マス `kura-bag` / `kura-store`・数の えらび `kura-*`。
+ * DOM: `[data-testid="house-menu"]`・`house-bubble`・ボタン `house-btn-<id>`。
  */
 
 const LABEL: Readonly<Record<HouseButtonId, string>> = {
-  kura: 'あずける・とりだす',
   editor: 'せっけいずを つくる',
   build: 'けんちくを はじめる',
   rename: 'なまえを かえる',
@@ -28,9 +22,9 @@ const LABEL: Readonly<Record<HouseButtonId, string>> = {
   close: 'とじる',
 };
 /** 押すと はたらく ボタン（目立たせる） */
-const GO: ReadonlySet<HouseButtonId> = new Set<HouseButtonId>(['kura', 'tools']);
+const GO: ReadonlySet<HouseButtonId> = new Set<HouseButtonId>(['tools']);
 
-type Mode = 'off' | 'float' | 'menu' | 'kura' | 'editor' | 'site' | 'sky';
+type Mode = 'off' | 'float' | 'menu' | 'editor' | 'site' | 'sky';
 
 /** エディターの 画面（ui/houseEditor。はじめて 開く とき 作る）。ふきだしは このなかの sayHost に 移して 使う */
 export interface EditorViewLike {
@@ -48,7 +42,6 @@ interface HouseUiDeps {
   press(id: string): void;
   /** なまえを かえる の 画面が 読む もの（HOUSE-1C） */
   rename(): RenameView;
-  screen: KuraScreen;
   /** エディターの 画面を 作って 返す（親は 引数の 要素）。はじめて エディターが 開く とき 1 回 */
   makeEditor(parent: HTMLElement): EditorViewLike;
   /** 「ポン」（ボタン・ページを かえた 音） */
@@ -83,10 +76,6 @@ export class HouseUi {
   private menuSig = '';
   /** 名前の 画面（page 'renameName'。入るたびに 作りなおす） */
   private namePanel: RenameNamePanel | null = null;
-  private kuraEl: HTMLDivElement | null = null;
-  private kuraSig = '';
-  /** あずけた・とりだした 物の マスを 次の 描きなおしで ぴょこんと させる */
-  private pop: ItemId | null = null;
   /** 「けんちくを はじめる」の 画面（HOUSE-1C PR-2） */
   private readonly site: HouseSiteUi;
 
@@ -99,25 +88,24 @@ export class HouseUi {
     d.parent.append(this.el);
   }
 
-  /** メニュー・くら・エディターが 開いて いる */
+  /** メニュー・エディターが 開いて いる */
   isOpen(): boolean {
-    return this.mode === 'menu' || this.mode === 'kura' || this.mode === 'editor' || this.mode === 'site' || this.mode === 'sky';
+    return this.mode === 'menu' || this.mode === 'editor' || this.mode === 'site' || this.mode === 'sky';
   }
 
-  /** 画面を 今の 状態に あわせる（menu() が かわった とき・マスを おした とき・くらの 画面が 開いて いる 間は 毎ステップ） */
+  /** 画面を 今の 状態に あわせる（menu() が かわった とき・ボタンを おした とき） */
   refresh(): void {
     const m = this.d.menu();
     const mode: Mode = m.open
       ? m.build
         ? m.page === 'sky' ? 'sky' : 'site'
-        : m.page === 'kura' ? 'kura' : m.page === 'editor' || m.page === 'need' ? 'editor' : 'menu'
+        : m.page === 'editor' || m.page === 'need' ? 'editor' : 'menu'
       : m.bubble !== '' ? 'float' : 'off';
     if (mode !== this.mode) this.setMode(mode);
     if (mode === 'off') return;
     const html = withRuby(m.bubble);
     if (this.bubble.innerHTML !== html) this.bubble.innerHTML = html;
     if (mode === 'menu') this.renderMenu(m);
-    else if (mode === 'kura') this.renderKura();
     else if (mode === 'editor') this.editorView?.refresh();
     else if (mode === 'site' || mode === 'sky') this.site.render(m);
   }
@@ -149,22 +137,19 @@ export class HouseUi {
   // ------------------------------------------------------------ 場面の 切りかえ
 
   private setMode(mode: Mode): void {
-    // ふきだしは 1 つを 使いまわす（くらの 帯に 入れる 前に 一度 出す。くらの 中身を けす ときに 巻きこまない）
+    // ふきだしは 1 つを 使いまわす（エディターの 見出しの だんに 入れる 前に 一度 出す。メニューを けす ときに 巻きこまない）
     this.el.append(this.bubble);
     this.menuEl?.remove();
     this.menuEl = null;
     this.menuSig = '';
     this.namePanel = null;
-    this.kuraEl?.remove();
-    this.kuraEl = null;
-    this.kuraSig = '';
     if (this.mode === 'editor') this.editorView?.show(false);
     if (mode !== 'site' && mode !== 'sky') {
       this.site.clear();
       this.site.root.remove();
     } else if (!this.site.root.isConnected) this.el.append(this.site.root);
     this.mode = mode;
-    for (const m of ['float', 'menu', 'kura', 'editor', 'site', 'sky'] as const) this.el.classList.toggle(`is-${m}`, mode === m);
+    for (const m of ['float', 'menu', 'editor', 'site', 'sky'] as const) this.el.classList.toggle(`is-${m}`, mode === m);
     if (mode === 'editor') {
       this.editorView ??= this.d.makeEditor(this.el);
       this.editorView.sayHost.append(this.bubble);
@@ -174,7 +159,6 @@ export class HouseUi {
       this.bubble.style.left = '';
       this.bubble.style.top = '';
     }
-    if (mode === 'kura') this.d.screen.reset();
   }
 
   // ------------------------------------------------------------ 上の メニュー
@@ -248,125 +232,5 @@ export class HouseUi {
       this.refresh();
     });
     return b;
-  }
-
-  // ------------------------------------------------------------ くら
-
-  private renderKura(): void {
-    const v = this.d.screen.view();
-    const sig = JSON.stringify(v);
-    if (this.kuraEl && sig === this.kuraSig) return;
-    this.kuraSig = sig;
-    const root = el('div', 'house-kura');
-    root.dataset.testid = 'house-kura';
-
-    const head = el('div', 'house-kura__head');
-    head.append(el('h2', 'house-kura__title', 'くら'), this.bubble, this.closeButton());
-
-    const body = el('div', 'house-kura__body');
-    const bagGrid = el('div', 'kura-grid kura-grid--bag');
-    v.bag.forEach((c, i) => bagGrid.append(this.cell('kura-bag', c, c.item !== null && !c.locked ? () => this.d.screen.selectBag(i) : null)));
-    const storeGrid = el('div', 'kura-grid kura-grid--store');
-    for (const c of v.store) storeGrid.append(this.cell('kura-store', c, () => this.d.screen.selectStore(c.item!)));
-    body.append(this.panel('bag', 'もちもの', bagGrid), this.panel('store', 'くら', storeGrid));
-
-    root.append(head, body, this.foot(v));
-    if (this.kuraEl) this.kuraEl.replaceWith(root);
-    else this.el.append(root);
-    this.kuraEl = root;
-    this.pop = null;
-  }
-
-  private closeButton(): HTMLButtonElement {
-    const b = el('button', 'house-btn house-btn--close', '✕');
-    b.type = 'button';
-    b.dataset.testid = 'house-btn-close';
-    b.setAttribute('aria-label', 'とじる');
-    b.addEventListener('click', () => {
-      this.d.tick();
-      this.d.press('close');
-      this.refresh();
-    });
-    return b;
-  }
-
-  private panel(kind: 'bag' | 'store', label: string, grid: HTMLElement): HTMLElement {
-    const p = el('section', `house-kura__panel house-kura__panel--${kind}`);
-    p.append(el('h3', 'house-kura__label', label), grid);
-    return p;
-  }
-
-  /** マス 1 つ（div。48px）。pick が null なら えらべない */
-  private cell(testid: 'kura-bag' | 'kura-store', c: KuraCellView, pick: (() => unknown) | null): HTMLDivElement {
-    const d = el('div', 'kura-cell');
-    d.dataset.testid = testid;
-    d.classList.toggle('is-empty', c.item === null);
-    d.classList.toggle('is-locked', c.locked);
-    d.classList.toggle('is-sel', c.selected);
-    if (c.item !== null) {
-      d.dataset.item = c.item;
-      d.dataset.count = String(c.count);
-      d.append(img(itemIconUrl(c.item)));
-      if (c.count > 1 || testid === 'kura-store') d.append(el('span', 'kura-cell__n', String(c.count)));
-      if (c.item === this.pop) d.classList.add('is-pop');
-    }
-    if (pick) {
-      d.addEventListener('click', () => {
-        pick();
-        this.d.tick();
-        this.refresh();
-      });
-    }
-    return d;
-  }
-
-  /** 下の 帯: えらんだ 物の 名前 ＋ 数の えらび ＋「あずける」「とりだす」 */
-  private foot(v: KuraScreenView): HTMLElement {
-    const foot = el('div', 'house-kura__foot');
-    const pick = el('div', 'house-kura__pick');
-    if (!v.selected || !v.action) {
-      pick.textContent = 'マスを えらんでね';
-      foot.append(pick);
-      return foot;
-    }
-    const name = itemType(v.selected.item)?.name ?? v.selected.item;
-    const label = el('span', 'house-kura__name');
-    label.innerHTML = withRuby(name);
-    pick.append(img(itemIconUrl(v.selected.item)), label);
-    const ctl = el('div', 'house-kura__controls');
-    const step = (id: string, text: string, fn: () => void): HTMLButtonElement => this.kuraButton(id, text, fn, false);
-    const count = el('span', 'kura-num', String(v.amount));
-    count.dataset.testid = 'kura-count';
-    ctl.append(
-      step('minus10', '−10', () => this.d.screen.plus(-10)),
-      step('minus1', '−1', () => this.d.screen.plus(-1)),
-      count,
-      step('plus1', '＋1', () => this.d.screen.plus(1)),
-      step('plus10', '＋10', () => this.d.screen.plus(10)),
-      step('all', 'ぜんぶ', () => this.d.screen.all()),
-      this.kuraButton(v.action, v.action === 'deposit' ? 'あずける' : 'とりだす', () => this.act(), true),
-    );
-    foot.append(pick, ctl);
-    return foot;
-  }
-
-  private kuraButton(id: string, text: string, fn: () => void, go: boolean): HTMLButtonElement {
-    const b = el('button', `house-btn${go ? ' house-btn--go' : ''}`, text);
-    b.type = 'button';
-    b.dataset.testid = `kura-${id}`;
-    b.addEventListener('click', () => {
-      fn();
-      this.d.tick();
-      this.refresh();
-    });
-    return b;
-  }
-
-  private act(): void {
-    const sel = this.d.screen.view().selected;
-    this.pop = sel ? sel.item : null;
-    this.d.screen.act();
-    this.refresh();
-    this.pop = null;
   }
 }

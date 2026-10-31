@@ -86,7 +86,7 @@ export function wireSave(deps: WiredAchievements) {
       },
     },
     legend: { serialize: () => legendBook.serialize(), deserialize: (d) => legendBook.deserialize(d) },
-    // HOUSE-1A: くら・建築士さんの 記録。前の 保存（キーなし）は 空の くら・最初の 1 人は 決まった 場所に 出る
+    // HOUSE-1A: 建築士さんの 記録。前の 保存（キーなし）は 最初の 1 人は 決まった 場所に 出る・かえす くらの 物は なし（1E: 前の 保存の `kura` は 次に 話した とき もちものへ もどす）
     house: { serialize: () => house.serialize(), deserialize: (d) => house.load(d) },
     // NINJA-1: 忍者帳。前の 保存（帳なし）は 空。読んだ とき もちもの・防具の マスに ある 忍者装備は 帳に 入れる（#298 で もう 足袋を 持って いる 人に 2 こ目を 出さない）
     ninja: { serialize: () => ninjaBook.serialize(), deserialize: (d) => { kodachi.clear(); ninjaBook.deserialize(d, ninjaHave()); const k = ninjaBook.got().length; if (k > 0) achievements.feedNinja('', k); } },

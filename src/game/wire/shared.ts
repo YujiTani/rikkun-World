@@ -45,7 +45,7 @@ interface Shared {
   openCoopMenu: (coopId: number) => void;
   /** HOUSE-1A: 建築士さん（wireHouse で 作る。作る 前は null）。右クリックの 窓口（combat.ts の dig）が あとから 読む */
   house: HouseSystem | null;
-  /** HOUSE-1A: 建築士さんの メニュー・くらが 開いて いる（ゲームの 時間・妖怪を 止める。本の 画面と 同じ あつかい。player.ts の 窓が 読む） */
+  /** HOUSE-1A: 建築士さんの メニューが 開いて いる（ゲームの 時間・妖怪を 止める。本の 画面と 同じ あつかい。player.ts の 窓が 読む） */
   houseFrozen: () => boolean;
   /** HOUSE-1B: エディターが 開いて いる 間の 1 コマ（見本の 向き・ふきだしの 時間）と 描画（見本）。player.ts の 窓が 呼ぶ。開いて いなければ 何も しない */
   houseModal: { tick: () => void; render: () => void };
