@@ -6,6 +6,8 @@
 export interface WorkCount {
   steps: number;
   getBlock: number;
+  /** WATER-1: start からの、計算した 水の マスの 数 */
+  water: number;
 }
 
 export interface WorkHook {
@@ -16,11 +18,12 @@ export interface WorkHook {
 
 type GetBlock = (x: number, y: number, z: number) => string;
 
-export function createWorkHook(tick: () => number, target: { getBlock: GetBlock }): WorkHook {
+export function createWorkHook(tick: () => number, target: { getBlock: GetBlock }, waterComputed: () => number = () => 0): WorkHook {
   let original: GetBlock | null = null;
   let wasOwn = false;
   let tick0 = 0;
   let calls = 0;
+  let water0 = 0;
   const stop = (): void => {
     if (original) {
       // クラスの メソッドだった（自分の持ち物でない）なら、包みを 消すだけで 元にもどる
@@ -37,12 +40,13 @@ export function createWorkHook(tick: () => number, target: { getBlock: GetBlock 
       wasOwn = Object.prototype.hasOwnProperty.call(target, 'getBlock');
       tick0 = tick();
       calls = 0;
+      water0 = waterComputed();
       target.getBlock = function (this: unknown, x, y, z) {
         calls++;
         return orig.call(target, x, y, z);
       };
     },
-    read: () => ({ steps: tick() - tick0, getBlock: calls }),
+    read: () => ({ steps: tick() - tick0, getBlock: calls, water: waterComputed() - water0 }),
     stop,
   };
 }

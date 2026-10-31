@@ -52,6 +52,8 @@ export class ChunkedVoxelWorld implements VoxelWorld {
   private readonly exposure = new WorldExposure(this.columns, this);
   /** 小ブロック地形の「森の重み」（0〜1）を ブロックの列 (bx, bz) で返す窓口。生成がつなぐ。なければ 草原（0） */
   microForest: ((bx: number, bz: number) => number) | null = null;
+  /** WATER-1 §4.3: `setBlock` で マスの ブロックが かわった あとに 呼ぶ（水の 係が つなぐ。かわる 前の 番号 prev と 今の 番号 next）。`fill` では 呼ばない */
+  onBlockChange: ((x: number, y: number, z: number, prev: number, next: number) => void) | null = null;
   private lastCx = NaN;
   private lastCz = NaN;
   private lastCol: Column | null = null;
@@ -310,19 +312,23 @@ export class ChunkedVoxelWorld implements VoxelWorld {
     if (d !== null) {
       // いちばん多い道: full のセクションの中を 同じセクションのまま 書きつづける
       const li = ((y & 15) << 8) | ((z & 15) << 4) | (x & 15);
-      if (d[li] === b) return true;
+      const prev = d[li];
+      if (prev === b) return true;
       d[li] = b;
       this.noteSave(col, x, y, z, b);
       this.noteDirty(col, x, y, z);
       if (SEALS[b] === 0) this.exposure.noteDug(col, x, y, z);
       this.noteChange(x, y, z, x, y, z);
+      if (this.onBlockChange !== null) this.onBlockChange(x, y, z, prev, b);
       return true;
     }
+    const prev = this.onBlockChange !== null ? sectionGet(col.sections[sy], ((y & 15) << 8) | ((z & 15) << 4) | (x & 15)) : 0;
     if (!this.put(col, x, y, z, b)) return true;
     this.noteSave(col, x, y, z, b);
     this.noteDirty(col, x, y, z);
     if (SEALS[b] === 0) this.exposure.noteDug(col, x, y, z);
     this.noteChange(x, y, z, x, y, z);
+    if (this.onBlockChange !== null) this.onBlockChange(x, y, z, prev, b);
     return true;
   }
 

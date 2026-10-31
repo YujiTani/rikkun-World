@@ -31,6 +31,14 @@ export function forWaterExtra<T>(value: T): Record<WaterExtraId, T> {
 export const WATER_MAX = 8;
 /** 泳ぐ・深い 水と 数える 量（つぶ。4〜8） */
 export const WATER_DEEP = 4;
+/** 水を 計算する 間かく（ステップ。15 = 0.25 秒）。このステップごとに 1 パス */
+export const WATER_TICK_STEPS = 15;
+/** 1 パスで 計算する マスの 上限（マス） */
+export const WATER_PASS_MAX = 512;
+/** 低い 所を さがす 横の きょり（マス） */
+export const WATER_SEARCH = 7;
+/** バケツ 1 杯の 量（つぶ） */
+export const BUCKET_TAKE = 8;
 
 // ---- ゆらめき（§4.1。目安の 値は PR を 見て ここだけ 直す） ----
 /** 水面の ゆれの はば（マス。0.125 未満） */
