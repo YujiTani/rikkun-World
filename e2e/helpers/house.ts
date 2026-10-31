@@ -92,6 +92,31 @@ import { installAimHelpers } from './aim';
  *   16・24・32px 以上（上下左右）、下の 帯の ボタン（prev・next・done・new・need）の 高さ 56・64・64、① ② の ボタンの 高さ 56・64・64（② の 家具の ボタンは 正方形）、
  *   ③ の キー（char-*・dakuten・handakuten）は 正方形・後ろの 文字（suffix-*）・katakana・erase の 高さ 56・56・64。見本・マスの 大きさは 上の editor-preview・editor-grid。
  * 文（空白は くらべない）: 仕様 §3 の ふきだしの 表と 確かめの まど。エディターの ふきだしは 次に どこかを 押すと すぐ 消える。出て いる 長さは 180 コマ ＋ 字 1 つ 12 コマ（§4.9）。
+ *
+ * ---- 1B PR-2（#339。見本を まわす・窓と 戸の 光り・よくない ことば。仕様 §2.5・§2.6・§4.9・§6.1、AC50・AC56・AC58）の 約束。仕様に 書いて ない 所を ここで 決める ----
+ * 窓口（step は 進めない。呼んだ その場で editor() が 新しい 値に なる。画面〔DOM〕は 次の step で 追いつく）:
+ *   previewDrag(dx, dy)   今の 見本の 上で 押して dx・dy px 動かして はなした のと 同じ。返り値 { angle, pitch }（editor().preview と 同じ 値）。touched: true・wait: 600（動きを へらす 設定では wait: null のまま）。
+ *                         よこ 1 px ＝ 0.5°（右 ＋dx で angle が へる・0 を こえたら 360 から）、たて 1 px ＝ 0.5°（下 ＋dy で pitch が ふえる・そと 10〜80・なか 30〜80 で 止まる）。
+ *                         見本が 出て いない（③）・エディターが 開いて いない・確かめの まど／ひつような ものが 出て いる 間は 何も かえない（返り値は 今の { angle, pitch } か null）。
+ *                         置いた 家具の えらび（selected）は はずれる。もどす／すすむ の 記録には 入らない・保存にも 入らない。
+ *   previewWheel(dx, dy)  wheel（deltaX・deltaY）を 1 回 うけた のと 同じ。(dx ＋ dy) px を よこの ドラッグと 同じ 0.5°／px で（足した 数が ＋ なら 右へ ドラッグと 同じ 向き）。pitch は かわらない。
+ *                         touched: true・wait: 600（1 回ごとに 600 から）。そのほかは previewDrag と 同じ。
+ *   hover(id | null)      その ボタンに マウスを のせた のと 同じ（null で はなす）。id は 画面の ボタンの id（'windowsUp'・'windowsDown'・'windowKind-shoji'。'windowKind' でも よい）。
+ *                         ほかの id（'next'・'width-7' …）は 光らせない（glow は null の まま）。本物の マウスで のせても 同じ（DOM の mouseenter／pointerenter）。
+ *   editor().preview      { mode, roof, angle, pitch, touched, wait: number | null, builds, glow: { door: boolean, cells: { wall, i }[], left: number | null } | null }（③ では null）。
+ *                         wait は ドラッグ・wheel の はなした 直後 600（押して いる 間は 600 の まま）、1 コマごとに 1 へり、0 で null。見えて いない すすみ（① ② の かたほう・③）は へらない・angle も すすまない。
+ *                         glow は 光って いない とき null。窓を かえた 光り ＝ { door: false, cells: 光る 窓と なくなった 窓の あとの マス（前と 後の windowCells の ちがう 所）, left: 90 → 0 }。
+ *                         ① に なった 戸の 光り ＝ { door: true, cells: [], left: 90 → 0 }。ボタンに のせた 光り ＝ { door: false, cells: 窓 ぜんぶ, left: null }（のせて いる 間 ずっと）。
+ *   builds                形が かわった とき と 光りの 始まり・終わり（それぞれ ＋1。同じ コマに 重なれば まとめて ＋1 でも よい）。回る だけ・ドラッグ・wheel・また 回り出す・光って いる 間は ふえない。
+ * 画面（DOM の data-testid）:
+ *   editor-preview        見本の はこ。本物の マウスの ドラッグ（pointerdown → move → up）・wheel を うける。ドラッグ中に はこの 外へ 出ても はなすまで まわせる。はなした 所の ボタンは 押さない。
+ *   editor-hand-mark      見本の 右下の すみの 小さな「くるっ」の 手の 印。さわる 前の 見本に 1 こ（① ② べつべつ・動きを へらす 設定でも 出す）、さわったら 0 こ（また 回り出しても 0 こ）。
+ *                         字（か aria-label）に「くるっ」。見本の はこの 中に ある。見本の ドラッグを じゃましない（pointer-events: none）。
+ *   editor-mark-window    ② の 方眼の かべの 帯の 窓の 印。まどの かず ＝ editor().windows こ。場所は 帯の 位置で 見る（windowCells の かべ・番号〔左右 対称 なので 向きは どちらでも よい〕）。
+ *   editor-mark-door      ② の まえの かべの 帯の まん中に 戸の 印 1 こ（帯から 少し はみ出して よい）。
+ * よくない ことば（AC58）: 前の 文字の 末に 入れた 字（edit char）・゛ ゜（press dakuten／handakuten）・後ろの 文字（edit suffix）で、そろえた 名前に 表の ことばが 入ると false（press は 何も かえない）。
+ *   名前・canUndo は かわらず、ふきだし「その ことばは おなまえに いれたら だめだよ」。erase は 止まらない。読みこんだ 作りかけに よくない ことばが あると、すすみに よらず ③ なまえ で 開いて 同じ ふきだし。
+ *   できた！（done）も 止まる（③ のまま・かみ／ふで／せっけいずは かわらない）。
  */
 
 export interface Architect {

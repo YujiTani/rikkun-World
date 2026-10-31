@@ -5,6 +5,7 @@ import {
   FURNITURE_ROWS,
   MSG,
   SUFFIXES,
+  bandMarkIssues,
   blueprints,
   btnState,
   clickBtn,
@@ -18,17 +19,24 @@ import {
   editor,
   editorBtnIds,
   editorMismatch,
+  expectBubble,
   expectHeadings,
+  expectResumesAfter600,
   firstArchitect,
   formOf,
   furnitureAt,
   furnitureButtonRows,
   fillFurniture,
   gameKeysIgnored,
+  handMarkIssues,
+  handMarks,
+  mouseDragPreview,
   needOf,
+  norm360,
   openEditor,
   openEditorFast,
   plainText,
+  previewDrag,
   pressEsc,
   readButtons,
   reopenHouse,
@@ -39,30 +47,23 @@ import {
 } from './helpers/houseEditor';
 
 /**
- * HOUSE-1B PR-1（#339 エディター・せっけいず。docs/design/HOUSE-1.md §2.5〜2.7・§4.9・§6、docs/tickets/HOUSE-1B.md の「PR-1」の 行）の E2E。
+ * HOUSE-1B（#339 エディター・せっけいず。docs/design/HOUSE-1.md §2.5〜2.7・§4.9・§6、docs/tickets/HOUSE-1B.md の「PR-1」「PR-2」の 行）の E2E の 通し。
+ * PR-2（見本の ドラッグ・また 回り出す・手の 印・② の 帯の 印）の 通しの 分は「PR-2」と 書いた 所。PR-2 の 細かい 確かめ（wheel・wait・光り・hover・よくない ことば・端の 数）は e2e/house1b-pr2.spec.ts。
  * E2E に 書くのは 画面・入力・描画が いる 確認と 遊びの 流れの 代表だけ（#311）。数・状態だけの 基準は ユニット（developer）:
  *   AC8b・AC9〜AC13b（計算・置ける 場所・まわす・あかり）・AC11・AC12・AC44・AC44b・AC45・AC46・AC48・AC55 の 細かい 組み合わせ・AC32b の 古い セーブ。
  * ここは ゲーム本体・画面への つなぎ漏れを 見る:
  *   1. エディターの 通し 1 本（AC43 の PR-1 の 分）: 話す → せっけいずを つくる → ① 大きさ・まどの かず → ② 家具を 置く・そばの ボタンで ↻・とる → Esc の 順（AC55）→
  *      とじて べつの 建築士さんで 開く（AC47）→ ひつような もの → ③ 名前（AC14）→ できた！の しらべ（AC44・AC44b）→ せっけいず（AC15・AC45）→ あたらしい せっけいず（AC47）。
- *      AC41（時刻が 止まる）・AC57（そばの ボタン）・AC13b（あかり）も この 中。見本の ドラッグ・帯の 印は PR-2。
+ *      AC41（時刻が 止まる）・AC57（そばの ボタン）・AC13b（あかり）も この 中。
+ *      PR-2: ① で 見本を 本物の マウスで ドラッグ（押した まま 700 コマ 回らない → はなして 600 コマで 回り出す・手の 印〔AC50〕）と ② の かべの 帯の 印（窓の 数・場所と 戸。AC56・AC43）。
  *   2. 見本（AC34 ③・AC50 の 自動で 回る 所・AC41）: いちばん 大きい 形でも 描画回数 24 以下・回るだけでは 作りなおさない・1 コマ 0.3°・ゲームの 時間は 止まって いる。
  *   3. 動きを へらす 設定（AC50）: 見本は 回らず angle 28 の まま。
- *   4. 保存（AC32b・AC47）: セーブして 読みこみなおしても 作りかけ・せっけいず・ふでの 記録・次の 番号が 同じ。
+ *   4. 保存（AC32b・AC47）: セーブして 読みこみなおしても 作りかけ・せっけいず・ふでの 記録・次の 番号が 同じ。PR-2: 見本の 向き〔まわした〕は のこらない（touched: false）。
  * AC35（UI 検査）は e2e/ui-gate.spec.ts の house-editor-*・house-confirm-*・house-need・house-bubble-*・house-sekkeizu-name。AC3 の 1B の 分（ふで）は e2e/house1a.spec.ts。
  *
  * 窓口は 仕様 §6.1 の `window.__rikkun.house`。ボタンの id・画面の data-testid・仕様に 書いて ない 形は e2e/helpers/house.ts の 先頭（「1B の 約束」）。
  * 実装の 前は `window.__rikkun.house.architects` も 1B の 窓口も 無いので 赤。
  */
-
-/** ふきだしが 文と 同じ（空白は くらべない）。menu().bubble は ぜんぶ、画面は 字が 1 字ずつ 出る 作りでも 前から 同じなら よい */
-async function expectBubble(page: Page, text: string, why: string): Promise<void> {
-  const said = squash((await menuState(page)).bubble);
-  expect(said, `${why}: menu().bubble`).toBe(squash(text));
-  const shown = await plainText(page, TID.bubble);
-  expect(shown, `${why}: 画面に ふきだしが 見える`).toBeTruthy();
-  expect(said.startsWith(shown ?? '\u0000'), `${why}: 画面の ふきだし「${shown}」が menu().bubble の 前の ほうと 同じ`).toBe(true);
-}
 
 /** 持ち物を ぜんぶ 36 マス うめる（0 に かみ 2、1 に ふで、のこりは 石）。空きが 1 つも ない 状態 */
 async function fillBagFull(page: Page): Promise<void> {
@@ -76,7 +77,7 @@ async function fillBagFull(page: Page): Promise<void> {
   });
 }
 
-test.describe('HOUSE-1B PR-1 エディター・せっけいず', () => {
+test.describe('HOUSE-1B エディター・せっけいず（PR-1 ＋ PR-2 の 通し）', () => {
   test('AC43・AC47・AC14・AC15・AC55・AC57: エディターの 通し — ① そと → ② なか → ③ なまえ → できた！ → せっけいず', async ({ page }, testInfo) => {
     test.setTimeout(300_000);
     await openHouse(page);
@@ -165,10 +166,36 @@ test.describe('HOUSE-1B PR-1 エディター・せっけいず', () => {
     expect(e.windows, 'すすむ で まどの かず 2').toBe(2);
     expect(e.canRedo, 'すすむを つかい きった').toBe(false);
 
+    // ---- PR-2 見本を 本物の マウスで ドラッグ（AC50・AC43 の 通し）: さわる 前は 手の 印が 1 こ。押すと すぐ 止まり、押した まま 700 コマ すすめても 回らない。
+    //      はなして 600 コマで その 向き・見おろす 角度の まま また 回り出す（手の 印は 出ない）。もどす／すすむ の 記録には 入らない
+    await stepUi(page, 100); // まどの かずを かえた 光り（窓を 見せに 回る 30 コマ・光る 90 コマ）が おわって から さわる
+    expect(await handMarks(page), '① さわる 前は 見本の すみに 手の 印が 1 こ').toBe(1);
+    expect(await handMarkIssues(page), '手の 印（見本の 右下・「くるっ」）').toEqual([]);
+    const undoBefore = await ed(page);
+    const drag = await mouseDragPreview(page, 100, 40, {
+      hold: 700,
+      whileHeld: async () => expect(await handMarks(page), '押した まま（さわった）: 手の 印は 消えて いる').toBe(0),
+    });
+    expect(drag.before, '押す 前').toMatchObject({ mode: 'outside', touched: false, wait: null });
+    expect(drag.held, '押した まま 700 コマ すすめても').toMatchObject({ touched: true, wait: 600 });
+    expect(drag.held.angle, '右へ 100 px で angle が 50 へり（0 を こえたら 360 から）、押した まま 700 コマ たっても かわらない').toBeCloseTo(norm360(drag.before.angle - 50), 1);
+    expect(drag.held.pitch, '下へ 40 px で pitch が 20 ふえる').toBeCloseTo(drag.before.pitch + 20, 1);
+    expect(drag.after, 'はなした 直後も touched: true・wait: 600').toMatchObject({ touched: true, wait: 600 });
+    expect(drag.after.angle, 'はなした だけでは angle は かわらない').toBeCloseTo(drag.held.angle, 3);
+    e = await ed(page);
+    expect({ canUndo: e.canUndo, canRedo: e.canRedo }, '見本を まわしても もどす／すすむ の 記録は かわらない').toEqual({ canUndo: undoBefore.canUndo, canRedo: undoBefore.canRedo });
+    expect(shapeOf(e), '見本を まわしても 形は かわらない').toEqual(shapeOf(undoBefore));
+    await expectResumesAfter600(page, drag.after, '① 本物の マウスで はなして');
+    expect(await handMarks(page), '回り出しても 手の 印は 出ない（まわせると もう 分かって いる）').toBe(0);
+    await testInfo.attach('① そと（見本を まわした あと）', { body: await page.screenshot(), contentType: 'image/png' });
+
     // ---- ② なか: 家具を 置く（AC43）
     await clickBtn(page, 'next');
     e = await ed(page);
     expect(e.step, '「つぎへ」で ② なか').toBe('naka');
+    expect(e.preview, '② の 見本は ① と べつ（① を まわしても さわって いない）').toMatchObject({ mode: 'inside', touched: false, wait: null });
+    expect(await handMarks(page), '② さわる 前は 手の 印が 1 こ').toBe(1);
+    expect(await bandMarkIssues(page), '② の かべの 帯: 窓の 印 ＝ まどの かず（2 こ）の 場所・戸の 印 1 こ（まえの まん中）').toEqual([]);
     await expectHeadings(page, 'naka');
     await expect(page.getByTestId('editor-step-naka')).toHaveAttribute('aria-current', 'step');
     const ids2 = await editorBtnIds(page);
@@ -749,6 +776,8 @@ test.describe('HOUSE-1B PR-1 エディター・せっけいず', () => {
     expect(await edit(page, { op: 'place', kind: 'andon', x: 0, z: 4 }), 'あんどんを 置く').toBe(true);
     expect(await edit(page, { op: 'windows', delta: 1 }), 'まどを 1 つ ふやす').toBe(true);
     await press(page, 'next'); // ① から ② へ（すすみも のこる）
+    await previewDrag(page, 100, 40); // PR-2: 見本の 向きは 保存に 入らない（開きなおすと touched: false。AC32b）
+    expect((await ed(page)).preview?.touched, '② の 見本を まわした').toBe(true);
     const saved = await ed(page);
     expect(saved.step, '② なか で おわる').toBe('naka');
     expect(saved.canUndo, '保存の 前は もどせる').toBe(true);
@@ -769,7 +798,9 @@ test.describe('HOUSE-1B PR-1 エディター・せっけいず', () => {
     expect(formOf(e), '作りかけ（すすみ・大きさ・窓・家具・あかり・名前）が 同じ').toEqual(formOf(saved));
     expect({ canUndo: e.canUndo, canRedo: e.canRedo }, '読みこみなおすと もどす の 記録は 空').toEqual({ canUndo: false, canRedo: false });
     expect(e.selected, '家具の えらびは のこらない').toBeNull();
-    expect(e.preview?.touched, '見本の 向きは のこらない').toBe(false);
+    expect(e.preview, '見本の 向きは のこらない（開きなおすと さわる 前。PR-2）').toMatchObject({ mode: 'inside', touched: false, wait: null });
+    expect(e.preview?.angle, '見本の 向きは のこらない（まえ ＋28° から）').toBeLessThan(28 + 3);
+    expect(e.preview?.angle, '見本の 向きは のこらない（まえ ＋28° から）').toBeGreaterThanOrEqual(28);
     // 次の 番号（その 世界で 作った 順）
     // （かばんは 空に しない: 保存された せっけいずが きえて しまう ので、足すだけ）
     await page.evaluate(() => {
