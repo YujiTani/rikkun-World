@@ -116,7 +116,7 @@ describe('座る・入る（AC28）', () => {
     }
   }
 
-  it('おふろ（2 マス）: どの 向きでも どちらの マスを ねらっても 入れる（同じ はたらき）。位置は おふろの マスの まん中', () => {
+  it('おふろ（2 マス）: どの 向きでも どちらの マスを ねらっても 入れる（同じ はたらき）。位置は ねらった マスの まん中', () => {
     for (const rot of ROTS) {
       const probe = new Rig();
       const cells = probe.put('ofuro', rot);
@@ -128,10 +128,8 @@ describe('座る・入る（AC28）', () => {
         const s = r.seat.seat()!;
         expect(s.kind).toBe('bath');
         expect(s.block).toEqual({ x: click.x, y: FEET, z: click.z });
-        expect(
-          cells.some((c) => Math.abs(s.position.x - (c.x + 0.5)) < 1e-6 && Math.abs(s.position.z - (c.z + 0.5)) < 1e-6),
-          '位置は おふろの どれかの マスの まん中',
-        ).toBe(true);
+        expect(s.position.x, '位置は ねらった マスの まん中').toBeCloseTo(click.x + 0.5, 6);
+        expect(s.position.z).toBeCloseTo(click.z + 0.5, 6);
         expect(s.position.y).toBeGreaterThanOrEqual(FEET);
         expect(s.position.y).toBeLessThan(FEET + 1);
         expect(near(r.pos(), s.position)).toBe(true);

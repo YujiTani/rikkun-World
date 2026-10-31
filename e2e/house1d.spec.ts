@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { openHouse } from './helpers/house';
-import { bookAfter, seatNow, standFacingBlock, putBlock, useBlock } from './helpers/houseFurn';
+import { bookAfter, putBlock, seatNow, stepAndPosition, standFacingBlock, tapMove, useBlock } from './helpers/houseFurn';
 
 /**
  * HOUSE-1D（#341 家具の はたらき。docs/design/HOUSE-1.md §2.12・AC28・AC54、docs/tickets/HOUSE-1D.md）の E2E。
@@ -19,9 +19,23 @@ test.describe('HOUSE-1D 家具の はたらき', () => {
     const { stand, block } = await standFacingBlock(page, 'table');
     const t = await useBlock(page, stand, block);
     expect(t.aimed?.id, 'テーブルを ねらえる').toBe('table');
+    expect(t.hint, 'テーブルでは 右の 案内が 出ない（AC54）').toBeNull();
     const closed = await bookAfter(page);
     expect(closed.bookOpen, 'テーブルでは 本は 開かない').toBe(false);
     expect(await seatNow(page), 'テーブルには 座れない').toBeNull();
+
+    // ---- いす: 右クリックで 座る（つなぎ）→ 60 ステップ たっても 同じ 場所 → 移動キー 1 ステップで 立つ（step.ts の 順番）
+    await putBlock(page, block, 'chair');
+    const c = await useBlock(page, stand, block);
+    expect(c.aimed?.id, 'いすを ねらえる').toBe('chair');
+    const sat = await seatNow(page);
+    expect(sat?.kind, '右クリックで 座る').toBe('sit');
+    expect(sat?.block, '座った マス').toEqual(block);
+    const still = await stepAndPosition(page, 60);
+    expect(still.player, '60 ステップ たっても プレイヤーは 同じ 場所').toEqual(sat!.position);
+    expect((await seatNow(page))?.position, '座って いる まま').toEqual(sat!.position);
+    await tapMove(page, 'moveForward');
+    expect(await seatNow(page), '移動キーを 1 ステップ 押すと 立つ').toBeNull();
 
     // ---- ほんだな: 同じ 場所・同じ ねらいで ほんだなに おきかえる
     await putBlock(page, block, 'shelf');

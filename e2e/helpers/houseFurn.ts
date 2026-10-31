@@ -76,3 +76,22 @@ export async function bookAfter(page: Page): Promise<BookState> {
   await settle(page);
   return bookState(page);
 }
+
+/** n ステップ 進めて、プレイヤーの 足もと（ゲームの 窓口 `player.get()`）を 返す */
+export const stepAndPosition = (page: Page, n: number): Promise<{ player: Pt }> =>
+  page.evaluate((n) => {
+    const h = (window as any).__rikkun;
+    h.step(n);
+    const p = h.player.get().position;
+    return { player: { x: p.x as number, y: p.y as number, z: p.z as number } };
+  }, n);
+
+/** 移動キー（または ジャンプ）を 1 ステップだけ 押して はなす。そのあと 1 ステップ 進める */
+export const tapMove = (page: Page, key: 'moveForward' | 'moveBack' | 'moveLeft' | 'moveRight' | 'jump'): Promise<void> =>
+  page.evaluate((key) => {
+    const h = (window as any).__rikkun;
+    h.input.press(key);
+    h.step(1);
+    h.input.release(key);
+    h.step(1);
+  }, key);

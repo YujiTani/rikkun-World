@@ -49,7 +49,7 @@
   - 座る 位置 ＝ ねらった マスの まん中（x・z）、高さは 同じ マスの 中。向き ＝ いすの 前（`facingDeg`。rot 0 ＝ 南 → 西 → 北 → 東）。2 マスの おふろは どちらの マスでも 同じ はたらき。
   - 立つ もと: 移動キー 4 つ・ジャンプ（押して すぐ はなしても）／妖怪に 当たって `flinching()` が true。ほかの キー（右クリック・ホットバー）では 立たない。
   - 回復: おふろに 入って から `update` 60 回めに 1、120 回めに もう 1 …（`heal` が 上限で 止める）。出ると 止まる。いす・まるいすは ふやさない。
-  - `update()` は 立って いる 間は `motion` を 元に もどす。実際の 順番は `src/game/step.ts`（`gadgets.step` の 近く。`controller.motion.*` を 毎ステップ 書き直す 所〔noMoveInput など〕と ぶつけない）。
+  - `update()` は 座って いる 間だけ `motion` を 書く。立った ステップに、自分が 書いた 欄だけ 1 回 もどす。立って いる 間は さわらない（`step.ts` が 書く 値〔刀の speedMul・怯みの noMoveInput など〕を 消さない）。呼ぶ 順番は `src/game/step.ts` の noMoveInput の 行（:79）の あと、`controller.update`（:83）の 前（`gadgets.step` は `motion` を 書く 所より 前なので ここでは 上書きされる）。
 - **右クリック**: `RightClickKind` に `'sit'`（chair・stool）・`'bath'`（ofuro）・`'read'`（shelf）を 足す。判定は `previewRightClick`（ふとんの 前後・置くより 先・持ち物に よらない）。`actionHintModel` の ことばは「すわる」「はいる」「よむ」。
 - **DigSystem の 出口**: `DigM4Deps.furniture?: { use(kind: 'sit' | 'bath' | 'read', x, y, z): void }`。押した 最初の ステップに 1 回（`houseFurnUse.test.ts` は 型が できるまで `as never` で わたして いる。できたら はずす）。
 - **あんどんの 光**: `EMISSION` に あんどんの ぜんぶの id（4 向き）を `torchLevel` で 足す（`src/world/light/opacity.ts`）。
