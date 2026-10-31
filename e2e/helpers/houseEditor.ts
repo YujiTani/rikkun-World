@@ -65,19 +65,29 @@ export type EditOp =
   | { op: 'undo' }
   | { op: 'redo' };
 
-/** 家具 9 種（アイテムの id。仕様 §4.3）と 方眼の 大きさ { w: よこ, d: たて }（向き 0） */
+/** 家具 13 種（アイテムの id。仕様 §4.3・2.4）と 方眼の 大きさ { w: よこ, d: たて }（向き 0）。2.4 の 4 つ ＝ haniwa・long_table（3×1）・round_table・stool（まるいす） */
 export const FURNITURE = {
   furnace: { w: 1, d: 1 },
   tansu: { w: 1, d: 1 },
   nukunuku: { w: 2, d: 2 },
   futon: { w: 1, d: 2 },
   table: { w: 2, d: 1 },
+  long_table: { w: 3, d: 1 },
+  round_table: { w: 1, d: 1 },
   chair: { w: 1, d: 1 },
+  stool: { w: 1, d: 1 },
   andon: { w: 1, d: 1 },
   shelf: { w: 1, d: 1 },
   ofuro: { w: 2, d: 1 },
+  haniwa: { w: 1, d: 1 },
 } as const;
 export type FurnitureKind = keyof typeof FURNITURE;
+
+/** ② の 家具の ボタンの ならび（§4.3）: 1 行 7 こ。上 7 ＋ 下 6 */
+export const FURNITURE_ROWS: readonly (readonly FurnitureKind[])[] = [
+  ['furnace', 'tansu', 'nukunuku', 'futon', 'table', 'long_table', 'round_table'],
+  ['chair', 'stool', 'andon', 'shelf', 'ofuro', 'haniwa'],
+];
 
 /** 後ろの 文字 5 つ（仕様 §2.6。ボタン suffix-0〜4 の 順） */
 export const SUFFIXES = ['のいえ', 'ハウス', 'のおうち', 'ひみつきち', 'のやしき'] as const;
@@ -560,6 +570,163 @@ export async function besideIssues(page: Page): Promise<HouseIssue[]> {
   return found;
 }
 
+/** ② の 家具の ボタンを 上から 下・左から 右に 読んで 行ごとに 家具の id（furniture- を とった 物）を ならべる（同じ 行 ＝ 上の ふちが 4px 以内） */
+export function furnitureButtonRows(btns: DomBtn[]): string[][] {
+  const fb = btns.filter((b) => b.id.startsWith('furniture-')).sort((a, c) => a.rect.y - c.rect.y || a.rect.x - c.rect.x);
+  const rows: { y: number; ids: string[] }[] = [];
+  for (const b of fb) {
+    const row = rows.find((r) => Math.abs(r.y - b.rect.y) <= 4);
+    if (row) row.ids.push(b.id.slice('furniture-'.length));
+    else rows.push({ y: b.rect.y, ids: [b.id.slice('furniture-'.length)] });
+  }
+  return rows.map((r) => r.ids);
+}
+
+/** §3.2 の 余白の 表（2.4）の 数。列は 1024×700・1280×800・1440×900 の 順 */
+export const LAYOUT = {
+  /** #1 画面の ふち（上・下・左・右 とも） */
+  edge: [16, 24, 32],
+  /** #7 下の 帯の ボタンの 高さ */
+  barBtn: [56, 64, 64],
+  /** #21 ① ② の ボタンの 高さ（② の 家具の ボタンは 正方形） */
+  mainBtn: [56, 64, 64],
+  /** #22 ③ の キー（正方形）・後ろの 文字・カタカナ・1 もじ けすの 高さ */
+  keyBtn: [56, 56, 64],
+  /** 表から 出る 大きさ: ① 見本 はば×高さ（高さ ＝ まん中の 高さ 484・540・604） */
+  previewSoto: [[580, 484], [720, 540], [796, 604]],
+  /** 表から 出る 大きさ: ② 見本 */
+  previewNaka: [[480, 276], [658, 288], [723, 332]],
+  /** 表から 出る 大きさ: ② の マス（9×9 の とき） */
+  cell: [48, 54, 61],
+} as const;
+
+/**
+ * 余白の 表の 数（AC35・§3.2 の 2.4）: 画面の ふちから ボタンまで 表の あき 以上（上下左右）、下の 帯・① ② ③ の ボタンの 高さ、見本の 大きさ、② の マスの 大きさ、
+ * ② の 家具の ボタンは 上 7・下 6 で §4.3 の ならび。「余白が 少ない」に もどらない ための 数（±1.5px）。見る 画面は soto・naka・namae と ふきだし。
+ */
+export async function layoutTableIssues(page: Page, kind: EditorScreen): Promise<HouseIssue[]> {
+  const found: HouseIssue[] = [];
+  const vp = await page.evaluate(() => ({ w: innerWidth, h: innerHeight }));
+  const col = vp.w <= 1100 ? 0 : vp.w <= 1360 ? 1 : 2;
+  const tol = 1.5;
+  const near = (v: number, want: number): boolean => Math.abs(v - want) <= tol;
+  const bs = (await readButtons(page)).filter((b) => b.scope === 'editor');
+  const issue = (target: string, detail: string) => found.push({ kind: 'table', target, detail });
+  // 同じ ならびの ボタンは 1 つの くずれに まとめる（きまりの 表〔known.json〕を 大きく しない）
+  const groups = new Map<string, string[]>();
+  const group = (target: string, detail: string) => groups.set(target, [...(groups.get(target) ?? []), detail]);
+
+  // #1 画面の ふち
+  const edge = LAYOUT.edge[col]!;
+  const minL = Math.min(...bs.map((b) => b.rect.x));
+  const minT = Math.min(...bs.map((b) => b.rect.y));
+  const maxR = Math.max(...bs.map((b) => b.rect.x + b.rect.w));
+  const maxB = Math.max(...bs.map((b) => b.rect.y + b.rect.h));
+  if (bs.length === 0) issue('ボタン', 'エディターの ボタンが 見えない');
+  else {
+    if (minL < edge - tol) issue('画面の ふち 左', `ボタンの 左が ふちから ${minL.toFixed(1)}px（表は ${edge}px 以上）`);
+    if (minT < edge - tol) issue('画面の ふち 上', `ボタンの 上が ふちから ${minT.toFixed(1)}px（表は ${edge}px 以上）`);
+    if (vp.w - maxR < edge - tol) issue('画面の ふち 右', `ボタンの 右が ふちから ${(vp.w - maxR).toFixed(1)}px（表は ${edge}px 以上）`);
+    if (vp.h - maxB < edge - tol) issue('画面の ふち 下', `ボタンの 下が ふちから ${(vp.h - maxB).toFixed(1)}px（表は ${edge}px 以上）`);
+  }
+  // #7 下の 帯
+  for (const b of bs.filter((x) => ['prev', 'next', 'done', 'new', 'need'].includes(x.id))) {
+    if (!near(b.rect.h, LAYOUT.barBtn[col]!)) group('下の 帯の ボタン', `${b.id} 高さ ${b.rect.h.toFixed(1)}px（表は ${LAYOUT.barBtn[col]}px）`);
+  }
+  const box = (testid: string) =>
+    page.evaluate((id) => {
+      const el = Array.from(document.querySelectorAll(`[data-testid="${id}"]`)).find((e) => {
+        const r = e.getBoundingClientRect();
+        return r.width > 0 && r.height > 0;
+      });
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return { w: r.width, h: r.height };
+    }, testid);
+
+  if (kind === 'soto' || kind === 'bubbleSoto') {
+    for (const b of bs.filter((x) => /^(width|depth)-\d$|^windows(Up|Down)$|^windowKind-|^roof-/.test(x.id))) {
+      if (!near(b.rect.h, LAYOUT.mainBtn[col]!)) group('① の ボタン', `${b.id} 高さ ${b.rect.h.toFixed(1)}px（表は ${LAYOUT.mainBtn[col]}px）`);
+    }
+    const pv = await box('editor-preview');
+    const [pw, ph] = LAYOUT.previewSoto[col]!;
+    if (!pv) issue('① 見本', 'editor-preview が 見えない');
+    else if (!near(pv.w, pw) || !near(pv.h, ph)) issue('① 見本', `${pv.w.toFixed(1)}×${pv.h.toFixed(1)}px（表は ${pw}×${ph}px）`);
+  }
+  if (kind === 'naka') {
+    const fb = bs.filter((x) => x.id.startsWith('furniture-'));
+    for (const b of fb) {
+      if (!near(b.rect.w, LAYOUT.mainBtn[col]!) || !near(b.rect.h, LAYOUT.mainBtn[col]!)) group('② の 家具の ボタン', `${b.id} ${b.rect.w.toFixed(1)}×${b.rect.h.toFixed(1)}px（表は 正方形 ${LAYOUT.mainBtn[col]}px）`);
+    }
+    // 上 7・下 6 の ならび（§4.3）。上から 下、左から 右の 順に 読む
+    const rows = furnitureButtonRows(bs);
+    if (JSON.stringify(rows) !== JSON.stringify(FURNITURE_ROWS)) issue('② の 家具の ならび', `${JSON.stringify(rows)}（§4.3 は 上 7・下 6: ${JSON.stringify(FURNITURE_ROWS)}）`);
+    const pv = await box('editor-preview');
+    const [pw, ph] = LAYOUT.previewNaka[col]!;
+    if (!pv) issue('② 見本', 'editor-preview が 見えない');
+    else if (!near(pv.w, pw) || !near(pv.h, ph)) issue('② 見本', `${pv.w.toFixed(1)}×${pv.h.toFixed(1)}px（表は ${pw}×${ph}px）`);
+    const cell = await box('editor-cell');
+    if (!cell) issue('② の マス', 'editor-cell が 見えない');
+    else if (!near(cell.w, LAYOUT.cell[col]!) || !near(cell.h, LAYOUT.cell[col]!)) issue('② の マス', `${cell.w.toFixed(1)}×${cell.h.toFixed(1)}px（表は 9×9 で ${LAYOUT.cell[col]}px 角）`);
+  }
+  if (kind === 'namae' || kind === 'bubbleNamae') {
+    for (const b of bs) {
+      if (/^char-|^dakuten$|^handakuten$/.test(b.id)) {
+        if (!near(b.rect.w, LAYOUT.keyBtn[col]!) || !near(b.rect.h, LAYOUT.keyBtn[col]!)) group('③ の キー', `${b.id} ${b.rect.w.toFixed(1)}×${b.rect.h.toFixed(1)}px（表は 正方形 ${LAYOUT.keyBtn[col]}px）`);
+      } else if (/^suffix-|^katakana$|^erase$/.test(b.id) && !near(b.rect.h, LAYOUT.keyBtn[col]!)) {
+        group('③ の 後ろの 文字・カタカナ・けす', `${b.id} 高さ ${b.rect.h.toFixed(1)}px（表は ${LAYOUT.keyBtn[col]}px）`);
+      }
+    }
+  }
+  for (const [target, list] of groups) issue(target, `${list.length} こ: ${list.slice(0, 3).join(' ／ ')}${list.length > 3 ? ' …' : ''}`);
+  return found;
+}
+
+/**
+ * ひつような もの（AC35・2.4）: 10 行（材料 10 しゅるい）が ぜんぶ 画面の 中に 入って いて、1024×700 だけ 行の ところが スクロールする（1280×800・1440×900 は スクロールしない）。
+ * スクロールする とき は 先頭の 行が 見えて いて、スクロールの 中の 最後の 行まで とどく（scrollHeight）。
+ */
+export async function needScrollIssues(page: Page): Promise<HouseIssue[]> {
+  const r = await page.evaluate(() => {
+    const rows = Array.from(document.querySelectorAll('[data-testid="need-row"]'));
+    const root = document.querySelector('[data-testid="house-need"]');
+    if (rows.length === 0 || !root) return null;
+    let scroller: HTMLElement | null = null;
+    for (let p: HTMLElement | null = rows[0]!.parentElement; p && p !== root.parentElement; p = p.parentElement) {
+      const oy = getComputedStyle(p).overflowY;
+      if ((oy === 'auto' || oy === 'scroll') && p.scrollHeight > p.clientHeight + 1) {
+        scroller = p;
+        break;
+      }
+    }
+    const inScreen = (el: Element): boolean => {
+      const b = el.getBoundingClientRect();
+      return b.top >= -0.5 && b.bottom <= innerHeight + 0.5 && b.left >= -0.5 && b.right <= innerWidth + 0.5;
+    };
+    return {
+      count: rows.length,
+      scrolls: scroller !== null,
+      scrollerInScreen: scroller ? inScreen(scroller) : true,
+      firstVisible: inScreen(rows[0]!),
+      allInScreen: rows.every(inScreen),
+      w: innerWidth,
+    };
+  });
+  const found: HouseIssue[] = [];
+  const issue = (target: string, detail: string) => found.push({ kind: 'need', target, detail });
+  if (!r) return [{ kind: 'need', target: 'ひつような もの', detail: 'need-row が 見えない' }];
+  if (r.count < 10) issue('行の 数', `${r.count} 行（材料 10 しゅるいで 10 行）`);
+  if (r.w <= 1100) {
+    if (!r.scrolls) issue('スクロール', '1024×700 では 行の ところが スクロールする（スクロールする 入れ物が ない）');
+    if (!r.scrollerInScreen) issue('スクロール', 'スクロールする 入れ物が 画面から はみ出す');
+    if (!r.firstVisible) issue('先頭の 行', '先頭の 行が 見えない');
+  } else {
+    if (r.scrolls) issue('スクロール', '1280×800・1440×900 では スクロールしない（10 行 ぜんぶ 入る）');
+    if (!r.allInScreen) issue('行', '10 行が 画面の 中に ぜんぶ 入って いない');
+  }
+  return found;
+}
+
 /**
  * 持ち物の せっけいずの 名前（AC35）: 出し方は 今の 共有の ツールチップの まま（PO の 決め。#339 の 票）。字の 大きさを 見るのは `.tip-name` だけで、
  * ほかの アイテムの ツールチップの `.tip-name` と 同じ 大きさ（同じ 大きさの 基準。1024×700 で 小さくなるのも 同じ）。星・説明・「たいきゅう」は 見ない。
@@ -630,31 +797,44 @@ export async function sekkeizuTooltipIssues(page: Page): Promise<HouseIssue[]> {
 /** UI 検査の 画面ごとの 追加の 検査（e2e/ui-gate.spec.ts の Screen.extra） */
 export async function editorGateIssues(page: Page, g: { kind: EditorScreen; roots: string[]; beside?: boolean }): Promise<HouseIssue[]> {
   if (g.kind === 'sekkeizu') return sekkeizuTooltipIssues(page);
-  return [...(await editorUiIssues(page, g.roots)), ...(g.beside ? await besideIssues(page) : [])];
+  const found = await editorUiIssues(page, g.roots);
+  if (g.kind === 'need') found.push(...(await needScrollIssues(page)));
+  if (['soto', 'naka', 'namae', 'bubbleSoto', 'bubbleNamae'].includes(g.kind)) found.push(...(await layoutTableIssues(page, g.kind)));
+  if (g.beside) found.push(...(await besideIssues(page))); // 方眼の 大きさを かえる ので いちばん さいごに
+  return found;
 }
 
 // ---- UI 検査の 画面の 開き方（e2e/ui-gate.spec.ts の Screen.open）
 
-/** 9 種の 家具を 方眼いっぱいに（いちばん 多い 形）。置けた 数を 返す */
-async function fillFurniture(page: Page): Promise<number> {
+/** 家具の しゅるいを 全部（13 しゅるい。FURNITURE の ならび）まぜて 方眼いっぱいに（いちばん 多い 形。AC34 ③・AC35）。置けた 数と、置いた 家具の しゅるいの 一覧を 返す */
+export async function fillFurniture(page: Page): Promise<{ placed: number; kinds: string[] }> {
   return page.evaluate((kinds) => {
     const h = (window as any).__rikkun;
-    const e = h.house.editor();
-    const { w, d } = e.size;
+    const { w, d } = h.house.editor().size;
     let i = 0;
-    let n = 0;
+    let placed = 0;
     for (let z = 0; z < d; z++) {
       for (let x = 0; x < w; x++) {
         const kind = (kinds as string[])[i % (kinds as string[]).length]!;
         if (h.house.edit({ op: 'place', kind, x, z })) {
-          n++;
+          placed++;
           i++;
         }
       }
     }
     h.step(2);
-    return n;
+    const used = new Set<string>((h.house.editor().furniture as { kind: string }[]).map((f) => f.kind));
+    return { placed, kinds: [...used].sort() };
   }, Object.keys(FURNITURE));
+}
+
+/** 置いた 家具を ぜんぶ とる（窓口の remove） */
+export async function clearFurniture(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const h = (window as any).__rikkun;
+    for (const f of h.house.editor().furniture as { x: number; z: number }[]) h.house.edit({ op: 'remove', x: f.x, z: f.z });
+    h.step(2);
+  });
 }
 
 /** 見本は 動きを へらす 設定で 止める（光り おわって から 撮る）。エディターを 窓口で 開く */
@@ -692,7 +872,9 @@ export async function openEditorScreen(page: Page, kind: EditorScreen): Promise<
       await next(1);
       expect((await ed(page)).step).toBe('naka');
       if (kind === 'naka') {
-        expect(await fillFurniture(page), '方眼いっぱいに 家具').toBeGreaterThan(0);
+        const filled = await fillFurniture(page);
+        expect(filled.placed, '方眼いっぱいに 家具').toBeGreaterThan(0);
+        expect(filled.kinds, '13 しゅるいが ぜんぶ まざる（2.4）').toEqual(Object.keys(FURNITURE).sort());
         const f = (await ed(page)).furniture[0]!;
         await edit(page, { op: 'select', x: f.x, z: f.z });
       }
@@ -722,11 +904,14 @@ export async function openEditorScreen(page: Page, kind: EditorScreen): Promise<
           { kind: 'nukunuku', x: 3, z: 0 },
           { kind: 'andon', x: 0, z: 3 },
           { kind: 'furnace', x: 1, z: 3 },
+          { kind: 'haniwa', x: 2, z: 3 }, // ねんど 2（2.4）。これで 材料は 10 しゅるい
         ],
       });
       await press(page, 'need');
       expect((await menuState(page)).page, 'ひつような もの').toBe('need');
-      expect((await needOf(page)).length, 'ひつような ものの 行（材料は 9 種まで）').toBeGreaterThanOrEqual(9);
+      const rows = await needOf(page);
+      expect(rows.length, 'ひつような ものの 行（材料は 10 種まで。2.4 で はにわの ねんどが 足された）').toBeGreaterThanOrEqual(10);
+      expect(rows.map((r: { item: string }) => r.item), 'はにわの ねんど').toContain('clay');
       break;
     }
     case 'bubbleSoto':

@@ -1,6 +1,8 @@
 import { expect, test, type Page } from '@playwright/test';
 import { TID, clockOf, countOf, findOtherArchitect, fudeLeft, kura, menuState, openHouse, press, setBag, stepUi, talkTo } from './helpers/house';
 import {
+  FURNITURE,
+  FURNITURE_ROWS,
   MSG,
   SUFFIXES,
   blueprints,
@@ -8,6 +10,7 @@ import {
   clickBtn,
   clickCell,
   clickDisabled,
+  clearFurniture,
   clickFurniture,
   drawStats,
   ed,
@@ -19,6 +22,8 @@ import {
   firstArchitect,
   formOf,
   furnitureAt,
+  furnitureButtonRows,
+  fillFurniture,
   gameKeysIgnored,
   needOf,
   openEditor,
@@ -167,9 +172,12 @@ test.describe('HOUSE-1B PR-1 エディター・せっけいず', () => {
     await expectHeadings(page, 'naka');
     await expect(page.getByTestId('editor-step-naka')).toHaveAttribute('aria-current', 'step');
     const ids2 = await editorBtnIds(page);
-    for (const id of ['prev', 'next', 'light', 'undo', 'redo', 'close', 'new', 'need', 'done', ...['furnace', 'tansu', 'nukunuku', 'futon', 'table', 'chair', 'andon', 'shelf', 'ofuro'].map((k) => `furniture-${k}`)]) {
+    for (const id of ['prev', 'next', 'light', 'undo', 'redo', 'close', 'new', 'need', 'done', ...Object.keys(FURNITURE).map((k) => `furniture-${k}`)]) {
       expect(ids2, `② には ${TID.btn(id)} が ある`).toContain(id);
     }
+    expect(ids2.filter((id) => id.startsWith('furniture-')).sort(), '② の 家具の ボタンは 13 しゅるい ちょうど（2.4）').toEqual(Object.keys(FURNITURE).map((k) => `furniture-${k}`).sort());
+    // ならび（§4.3）: 1 行 7 こ。上 7（かまど・たんす・こたつ・ふとん・テーブル・ながい テーブル・まるい テーブル）・下 6（いす・まるいす・あんどん・ほんだな・おふろ・はにわ）
+    expect(furnitureButtonRows(await readButtons(page)), '家具の ボタンの ならび（上 7・下 6。左から 右）').toEqual(FURNITURE_ROWS);
     for (const id of ['take', 'turnRight', 'turnLeft', 'width-5', 'char-あ']) expect(ids2, `② では ${TID.btn(id)} は 出ない（家具を えらぶまで そばの ボタンは かくれる）`).not.toContain(id);
     await expect(page.getByTestId('editor-grid'), '方眼').toBeVisible();
     await expect(page.getByTestId('editor-cell'), '方眼の マス ＝ よこ × たて').toHaveCount(e.size.w * e.size.d);
@@ -662,6 +670,21 @@ test.describe('HOUSE-1B PR-1 エディター・せっけいず', () => {
     expect(b1, '形が かわると 1 回 作りなおす（家具を とる）').toBe(b0 + 1);
     expect(await edit(page, { op: 'place', kind: 'shelf', x: 0, z: 0 }), '家具を もう 1 つ 置く').toBe(true);
     expect((await ed(page)).preview!.builds, '形が かわると 1 回 作りなおす（家具を 置く）').toBe(b1 + 1);
+
+    // ---- 2.4: 13 しゅるいを まぜて 置いた 9×9（ほんだな 80 こ とは べつに）も 24 以下。しゅるいが ふえても 回数は ふえない
+    await clearFurniture(page);
+    expect((await ed(page)).furniture, '家具を ぜんぶ とった').toEqual([]);
+    const mixed = await fillFurniture(page);
+    expect(mixed.kinds, '13 しゅるい ぜんぶ 置けた（2.4）').toEqual(Object.keys(FURNITURE).sort());
+    expect(mixed.placed, '9×9 に 13 しゅるいを まぜて たくさん（42 こ ぐらい）').toBeGreaterThan(30);
+    await stepUi(page, 1);
+    const mix = await drawStats(page);
+    testInfo.annotations.push({ type: '② 9×9・窓 上限・13 しゅるい まぜ', description: `描画 ${mix.calls} 回・三角形 ${mix.triangles}` });
+    expect(mix.calls, `② 9×9・13 しゅるい まぜ: 見本を 描いた コマの 描画回数（上限 ${MAX_CALLS}。半透明の かべで ② は 5 回ぐらい）`).toBeLessThanOrEqual(MAX_CALLS);
+    expect(mix.calls, '見本を 描いた（描画回数が 0 ではない）').toBeGreaterThan(0);
+    const bm = (await ed(page)).preview!.builds;
+    await stepUi(page, 600);
+    expect((await ed(page)).preview!.builds, '600 コマ 回っても 作りなおさない（② 9×9・13 しゅるい まぜ）').toBe(bm);
     await press(page, 'prev');
     // ① に なると 戸が 光る（90 コマ。光りの 終わりでも builds が 1 ふえる〔PR-2〕）。光り おわる まで 進めて から 数え はじめる
     await stepUi(page, GLOW_DONE);

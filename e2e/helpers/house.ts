@@ -67,7 +67,9 @@ import { installAimHelpers } from './aim';
  *   どの すすみにも:   undo・redo（上の 帯）・close（✕）・new（あたらしい せっけいず）・need（ひつような もの）・done（できた！）
  *   すすみ:           next（つぎへ ▶。③ では 出さない）・prev（◀ まえへ。① では 出さない）
  *   ① そと:           width-5/7/9・depth-5/7/9（よこ・たて。aria-pressed が えらんで いる 大きさ）・windowsDown・windowsUp（まどの かず −＋）・windowKind-shoji・roof-flat（今は 1 つ ずつ。aria-pressed="true"）
- *   ② なか:           furniture-<アイテムの id>（9 種: furnace・tansu・nukunuku・futon・table・chair・andon・shelf・ofuro。aria-pressed が 置く 家具の えらび）・light（あかりの わく）
+ *   ② なか:           furniture-<アイテムの id>（13 種〔2.4〕: furnace・tansu・nukunuku・futon・table・long_table・round_table・chair・stool・andon・shelf・ofuro・haniwa。
+ *                     long_table ＝ ながい テーブル〔3×1〕、round_table ＝ まるい テーブル、stool ＝ まるいす、haniwa ＝ はにわ。aria-pressed が 置く 家具の えらび。
+ *                     ならびは 1 行 7 こ: 上 7 ＝ furnace・tansu・nukunuku・futon・table・long_table・round_table、下 6 ＝ chair・stool・andon・shelf・ofuro・haniwa）・light（あかりの わく）
  *                     置いた 家具を えらんだ ときだけ そばに take（とる）・turnRight（↻）・turnLeft（↺）。aria-label は「とる」「みぎに まわす」「ひだりに まわす」。↻ ↺ に 字は ない
  *   ③ なまえ:         char-<ひらがな 1 字>（50 音の ボタン。小さい っ ゃ ゅ ょ と ー も。カタカナに しても id は ひらがなの まま。押すと 入る 字は カタカナ）・dakuten（゛）・handakuten（゜）・
  *                     katakana（カタカナ きりかえ。aria-pressed）・erase（1 もじ けす）・suffix-0〜4（後ろの 文字。のいえ・ハウス・のおうち・ひみつきち・のやしき の 順。aria-pressed）
@@ -79,12 +81,16 @@ import { installAimHelpers } from './aim';
  *   editor-title     上の 帯の タイトル「おうちの 設計図を 作ろう」（漢字に ruby）
  *   editor-heading   すすみの 見出し（①「おうちの 外観を かんがえよう」②「おうちの 内装を かんがえよう」③「設計図に おなまえを つけよう」。ふきだしが 出て いる 間は 見えない）
  *   editor-progress  すすみ ①②③ の 印（押せない。<button> に しない）。中は editor-step-soto・editor-step-naka・editor-step-namae。いま いる 所に aria-current="step"
- *   editor-preview   見本の はこ（絵は レンダラーが 描く。この はこは すきとおって いる。PR-2 で ドラッグを うける）。③ では ない
- *   editor-grid      ② の 方眼の 外わく（div）。中の マス ＝ editor-cell（data-x・data-z。よこ×たて こ）、置いた 家具 ＝ editor-furniture（data-kind・data-x・data-z・data-rot）。どれも div
+ *   editor-preview   見本の はこ（絵は レンダラーが 描く。この はこは すきとおって いる。PR-2 で ドラッグを うける）。③ では ない。大きさは §3.2 の「表から 出る 大きさ」
+ *                     ＝ ① 580×484・720×540・796×604、② 480×276・658×288・723×332（1024×700・1280×800・1440×900。UI 検査が はかる）
+ *   editor-grid      ② の 方眼の 外わく（div）。中の マス ＝ editor-cell（data-x・data-z。よこ×たて こ。9×9 の ときの 大きさは 48・54・61 px の 正方形）、置いた 家具 ＝ editor-furniture（data-kind・data-x・data-z・data-rot）。どれも div
  *   editor-name      ③ の 今の 名前（前の 字 ＋ 後ろの 字）
  *   house-bubble     ふきだし（1A と 同じ。エディターでは 見出しの だんに 重なる。menu().bubble と 同じ 字）
  *   house-confirm    確かめの まど（data-kind="reset" か "futonOnly"。editor().confirm と 同じ）
- *   house-need       ひつような もの の ポップアップ。1 行 ＝ need-row（data-item・data-need・data-have・data-short。need() と 同じ 順）
+ *   house-need       ひつような もの の ポップアップ。1 行 ＝ need-row（data-item・data-need・data-have・data-short。need() と 同じ 順）。材料は 10 しゅるいまで（2.4）。1024×700 だけ 行の ところが スクロール
+ * 余白（§3.2 の 2.4 の 表。UI 検査 layoutTableIssues〔e2e/helpers/houseEditor.ts の LAYOUT〕が はかる。列は 1024×700・1280×800・1440×900。±1.5px）: 画面の ふちから ボタンまで
+ *   16・24・32px 以上（上下左右）、下の 帯の ボタン（prev・next・done・new・need）の 高さ 56・64・64、① ② の ボタンの 高さ 56・64・64（② の 家具の ボタンは 正方形）、
+ *   ③ の キー（char-*・dakuten・handakuten）は 正方形・後ろの 文字（suffix-*）・katakana・erase の 高さ 56・56・64。見本・マスの 大きさは 上の editor-preview・editor-grid。
  * 文（空白は くらべない）: 仕様 §3 の ふきだしの 表と 確かめの まど。エディターの ふきだしは 次に どこかを 押すと すぐ 消える。出て いる 長さは 180 コマ ＋ 字 1 つ 12 コマ（§4.9）。
  */
 
