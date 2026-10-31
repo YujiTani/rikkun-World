@@ -122,13 +122,13 @@
 | AC1 | アイテム: 名前 `バケツ`・`みずの バケツ`、上限 1・1、common・common、カテゴリー どうぐ、`permanent`、`placeBlock` null。`farm.texture('bucket')`・`'water_bucket'` が ちがい、どちらも 16×16 | 【ユニット】 |
 | AC2 | レシピ: `bucket` = てつの かたまり 3 → バケツ 1。つくる カード 33 まい、29 まい目が `bucket`（28 まい目 `sprinkler`、30〜33 が たね）。作ると 持ち物に `bucket` 1・`craft:bucket` 1 | 【ユニット】【E2E】 |
 | AC3 | つくる画面 が 4 列 × 9 段で、1280×720・1920×1080 で はみ出し 0px | 【UI 検査】 |
-| AC4 | くむ: `bucket` を 持ち、とどく 水を ねらって `secondary` 1 回 → その ステップで 持つ マスが `water_bucket` 1、出来事 `bucketFill`、水の マスは `water` の まま。`water_bucket` で もう 1 回 → かわらない。とどく距離（設定 `reach` を 読む）＋1 マス 先の 水 は くめない。`farmPourRepeatTicks`×2＋1 ステップ 押しつづけても くむ は 1 回 | 【E2E】 |
-| AC5 | おく: `water_bucket` で 床を ねらい、`farm.bucketSpot()` が 返す マス `s` を おぼえて `secondary` 1 回 → `s` が `water`、持つ マスが `bucket`、出来事 `bucketPlace`、`stats().bucketPlace` 1。`farmPourRepeatTicks`×2＋1 ステップ 押しつづけ（とちゅうで ねらいを 動かす）でも 水は 1 マス だけ | 【E2E】 |
-| AC6 | **しめって 育つ**: かわいた はたけ（`farm.soil().wet` false、上に 作物）から 横 R−1（R = 設定 `farmWetRange` を 読む）の 所に 水を 置く → `farmWetRecheckTicks` ステップ 以内に `soil().wet` true・`farm.crop().wet` true（そだつ はやさ は M7 の しめった、#61 が 入れば #61 の 基準で 育つ）。横 R＋1 の はたけ は false の まま。水の マスに いし を 置いて ほる → `farmWetRecheckTicks` ステップ 以内に false に もどる | 【E2E】 |
+| AC4 | くむ（→ WATER-1 §4.4 で 書きかえ。2026-10-31）: 先に `water.pause(true)`。`bucket` を 持ち、とどく 量 8 の 水（`water.set`）を ねらって `secondary` 1 回 → その ステップで 持つ マスが `water_bucket`（`water` 8）、出来事 `bucketFill`、**水の マスは `air`**。量 3 の マス → `water` 3・マス `air`。`water` 5 の バケツで 量 8 → バケツ 8・マス 量 5。`water` 8 で もう 1 回 → かわらない（`fullCan`）。とどく距離（設定 `reach`）＋1 マス 先の 水 は くめない。`farmPourRepeatTicks`×2＋1 ステップ 押しつづけても くむ は 1 回 | 【E2E】 |
+| AC5 | おく（→ WATER-1 §4.4 で 書きかえ）: 先に `water.pause(true)`。`water_bucket`（`water` 8）で 床を ねらい、`farm.bucketSpot()` の マス `s` を おぼえて `secondary` 1 回 → `s` が `water`（量 8）、持つ マスが `bucket`、出来事 `bucketPlace`、`stats().bucketPlace` 1。`water` 3 の バケツ なら `s` が `water_3`。押しつづけ（`farmPourRepeatTicks`×2＋1 ステップ、とちゅうで ねらいを 動かす）でも 水の 合計は バケツ 1 杯 分 だけ ふえる | 【E2E】 |
+| AC6 | **しめって 育つ**（→ WATER-1 で 書きかえ）: 水を 置く マスは 下と 横 4 が 固い 1 マスの くぼみ（流れない）。かわいた はたけ（`farm.soil().wet` false、上に 作物）から 横 R−1（R = 設定 `farmWetRange`）の くぼみに 水を 置く → `farmWetRecheckTicks` ステップ 以内に `soil().wet` true・`farm.crop().wet` true。横 R＋1 の はたけ は false の まま。その 水を バケツで くむ（石を 置くと 押し出されて のこる ため）→ `farmWetRecheckTicks` ステップ 以内に false に もどる | 【E2E】 |
 | AC7 | 置けない: (1) 置く マスが 体と 重なる (2) 作物 を ねらう (3) 置く マスが 世界の外 (4) 妖怪の 箱 (5) 空 → どれも ブロック かわらず `water_bucket` の まま、`bucketPlace` なし。(1)〜(4) は 音 `empty`、(5) は 音なし。`farm.bucketSpot()` は null | 【ユニット】【E2E】1 本 |
 | AC8 | ふりわけ: §2.2 の 順。バケツで 作物を ねらっても なでない（`pet` なし）、ブロック・やさい の 段に 進まない。たんす・かまど は ひらく。`previewRightClick` と 起きた ことが 同じ | 【ユニット】 |
 | AC9 | 合図・案内: `bucket` で 水で ない 所 → `farm.lastHint()` `'bucket'`、DOM に §3.1 の 文（漢字は `ruby` の 中）が 120 ステップ。`hud.actionHint().right` が 4d `くむ`・4e `おく`・4f `くもう`（絵は 持っている バケツ）、4g は 出ない | 【E2E】 |
-| AC10 | 運ぶ・保存: `water_bucket` を 別の マス・たんす・すてて 拾う・保存 → 読み直し で `water_bucket` の まま。置いた 水も 読み直し後 `water`。`SAVE_GEN`・`farm.v` は かわらない | 【ユニット】【E2E】1 本 |
+| AC10 | 運ぶ・保存（→ WATER-1 で 書きかえ）: `water_bucket`（`water` 8 と 3）を 別の マス・たんす・すてて 拾う・保存 → 読み直し で `water_bucket` の まま、`water` も 同じ。`water` 欄 の ない 前の 保存は 8。置いた 水（AC6 の くぼみ）も 読み直し後 同じ 量。`SAVE_GEN`・`farm.v` は かわらない | 【ユニット】【E2E】1 本 |
 | AC11 | 説明・ツールチップ: §3.1 の 2 行、「できること」の 文、U22（バケツ）・U23（みずの バケツ）を M6 §6.2 に 足す。`iron_ingot` の `usedIn` の いちばん うしろ に `bucket`。漢字 0 こ | 【ユニット】 |
 | AC12 | 実績: §4.4 の 2 つが 取れる（`farm.bucket` は 小 で ない）。数: ぜんぶ 224・小 79・そだてる 35（小 12）・`craft.everything.28` が ある | 【ユニット】 |
 | AC13 | 音: §3.3 の とおり 鳴る（音の 記録）。新しい 音の 名前 は 0 こ | 【ユニット】 |
@@ -166,3 +166,4 @@
 |---|---|
 | 1 | 初版。PO 初期値 1〜5 は ほぼ そのまま。かえた 所: (1) からの バケツ の 名前を `バケツ` に（つくる カード・実績の 文で 短く 自然。から は 絵で 分かる）。(4) 「置く音」は じょうろ の まく系 `sprinklerPlace` を 使う（ブロックの 置く音 より 水らしい）。足した 所: 4g（置けない ときの コン）、置けない マスに 作物、`craft.everything` を 28 の まま |
 | 2 | 台帳 `docs/loop-ledger/BUCKET-1.md` の 軽微 4 件: 【G1】§6.2 に `m72ui.test.ts` の `captions.length`（142 行）・`slice(7)`（144 行。うしろに 足すので 中身は 通る）を 足し、テストの 場所（`src/ui/` など）を 書いた。【G2】AC4・AC5・AC6 の 距離・時間を 設定値（`reach`・`farmPourRepeatTicks`・`farmWetRange`・`farmWetRecheckTicks`）から 計算する 書き方に。【G3】AC15 に 確かめ方を 1 行 |
+| 3 | WATER-1（#376）: 変わる 所に「→ WATER-1」を 足し、AC4・5・6・10 を 有限の 水に 合わせて 書きかえた（くむと へる・バケツの 量・流れない くぼみ・`water.pause`）。じょうろ は 今の まま |
