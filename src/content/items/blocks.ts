@@ -14,7 +14,7 @@ import type { ItemDef } from './types';
  * 絵は ブロックの テクスチャ（world/blocks/textures.ts）。値は これまでの 表から そのまま 写した もの（2026-10-25）。
  */
 
-const BLOCK_STACK = 64; // inventory/items.ts の BLOCK_MAX_STACK と 同じ
+export const BLOCK_STACK = 64; // inventory/items.ts の BLOCK_MAX_STACK と 同じ（家の ブロックも 読む）
 
 /** BLOCK_TYPES の 名前（名前を 2 か所に 書かない） */
 const blockName = (id: BlockId): string => BLOCK_TYPES.find((b) => b.id === id)!.name;

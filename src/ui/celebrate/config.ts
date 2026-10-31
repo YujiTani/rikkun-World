@@ -51,8 +51,11 @@ export const CELEBRATE = {
   bannerQueueMax: 2,
 } as const;
 
-/** 上の 帯（WEAPON-7 §2.6）: 出る・きえるの 長さ（ステップ）。実績 30/30、テロップ 36/30 */
-export const TOP_BAND = { toastIn: 30, toastOut: 30, telopIn: 36, telopOut: 30 } as const;
+/** 上の 帯（WEAPON-7 §2.6）: 出る・きえるの 長さ（ステップ）。実績 30/30、テロップ 36/30、家の 名前 30/30 */
+export const TOP_BAND = { toastIn: 30, toastOut: 30, telopIn: 36, telopOut: 30, houseIn: 30, houseOut: 30 } as const;
+
+/** 家の 名前の 帯を 出して おく 長さ（画面ステップ。3 秒。HOUSE-1 §3.3）。上の 帯の 列に ならぶ */
+export const HOUSE_BAND_STEPS = 180;
 
 /** 点滅のきまり用: 光の間（画面ステップ）。どれも 24 以上 */
 export function flashPeriods(): number[] {

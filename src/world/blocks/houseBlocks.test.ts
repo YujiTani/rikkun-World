@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
+import { ITEM_DEFS } from '../../content/items/registry';
 import { CHALK_MARK_IDS } from './chalkMark';
 import { BLOCK_INDEX, BLOCK_TYPES, isOpaqueIndex, isPropIndex } from './blockTypes';
 import {
   FURN_BLOCK_IDS,
   FURN_BLOCK_KINDS,
   FURN_LEN,
-  FURN_NAME,
   FURN_VARIANT_IDS,
   HOUSE_BLOCK_IDS,
   HOUSE_DOOR_PART_IDS,
@@ -64,10 +64,10 @@ describe('ブロックの 番号', () => {
     for (const id of FURN_BLOCK_IDS) expect(BLOCK_INDEX[id], id).toBeDefined();
   });
 
-  it('ブロックの 名前は 家具の 名前（向き・マスちがいも 同じ）', () => {
+  it('ブロックの 名前は 家具の アイテムの 名前（向き・マスちがいも 同じ。元の 表は エディターの FURNITURE）', () => {
     for (const id of FURN_BLOCK_IDS) {
       const f = furnInfo(id)!;
-      expect(BLOCK_TYPES[BLOCK_INDEX[id]!]!.name, id).toBe(FURN_NAME[f.kind]);
+      expect(BLOCK_TYPES[BLOCK_INDEX[id]!]!.name, id).toBe(ITEM_DEFS[f.kind].name);
     }
   });
 
@@ -128,7 +128,7 @@ describe('向きと マス', () => {
         const cells = furnCells(kind, rot, 10, 10);
         expect(cells, `${kind} rot${rot}`).toHaveLength(len);
         expect(new Set(cells.map((c) => `${c.x},${c.z}`)).size, 'マスは かさならない').toBe(len);
-        const [w, d] = furnFootprint(len, rot);
+        const [w, d] = furnFootprint(len, 1, rot);
         const xs = cells.map((c) => c.x);
         const zs = cells.map((c) => c.z);
         expect(Math.max(...xs) - Math.min(...xs) + 1, 'よこ').toBe(w);

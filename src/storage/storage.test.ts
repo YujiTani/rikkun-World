@@ -4,6 +4,7 @@ import { ActionState, actionForKey, bindKeyboardAndMouse } from '../input/action
 import { InventoryImpl } from '../inventory/Inventory';
 import { CRAFT_RECIPES } from '../craft/recipes';
 import { ItemDropper, DropController } from './ItemDropper';
+import { furnBlockId, furnRotFromYaw } from '../world/blocks/houseBlocks';
 import { StorageSystem, facingFromYaw } from './StorageSystem';
 import { TANSU_COLORS, tansuPixels, type TansuFace } from './tansuArt';
 
@@ -58,6 +59,21 @@ describe('たんす', () => {
     expect(facingFromYaw(0)).toBe('s');
     expect(facingFromYaw(180)).toBe('n');
     expect(facingFromYaw(90)).toBe('w');
+    expect(facingFromYaw(270)).toBe('e');
+  });
+
+  it('向き: 家具の ブロックの 向き（tansu・tansu_w・tansu_n・tansu_e）と 同じ。どの yaw でも 前の 面は プレイヤーの ほう', () => {
+    const FRONT_OF_ID: Record<string, string> = { tansu: 's', tansu_w: 'w', tansu_n: 'n', tansu_e: 'e' };
+    for (let yaw = -720; yaw <= 720; yaw += 5) {
+      if (Math.abs(((yaw % 90) + 90) % 90 - 45) < 1) continue; // ななめの 真ん中は どちらでも よい
+      const rot = furnRotFromYaw(yaw);
+      expect(facingFromYaw(yaw), `yaw ${yaw}`).toBe(FRONT_OF_ID[furnBlockId('tansu', 0, rot)]);
+      // プレイヤーの 見ている 向き（yaw 0 ＝ 北 −z）の 反対が 前の 面
+      const r = (yaw * Math.PI) / 180;
+      const toPlayer = { x: -Math.sin(r), z: Math.cos(r) };
+      const face = { s: { x: 0, z: 1 }, n: { x: 0, z: -1 }, w: { x: -1, z: 0 }, e: { x: 1, z: 0 } }[facingFromYaw(yaw)];
+      expect(face.x * toPlayer.x + face.z * toPlayer.z, `yaw ${yaw}: 前の 面は プレイヤーの ほう`).toBeGreaterThan(0.5);
+    }
   });
 
   it('開く・遠いと閉じる', () => {

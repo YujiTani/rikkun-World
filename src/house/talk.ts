@@ -238,6 +238,11 @@ export class HouseTalk {
     return this.phase === 'menu' && this.page === 'editor';
   }
 
+  /** 字を えらぶ 画面〔エディター・なまえを かえる の 名前の 画面〕が 開いて いる（Esc と Backspace いがいの キーは ゲームの 操作に しない） */
+  typing(): boolean {
+    return this.phase === 'menu' && (this.page === 'editor' || this.page === 'renameName');
+  }
+
   /** できた！が 通った: エディターを とじて 上の ページへ。ふきだし「せっけいずが できたよ！」 */
   made(): void {
     if (this.phase !== 'menu') return;

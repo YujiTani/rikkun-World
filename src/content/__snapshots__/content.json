@@ -6035,12 +6035,15 @@
       ]
     },
     "table": {
-      "DIG_DEFAULTS.hardness.table": 3,
+      "DIG_DEFAULTS.hardness.table": 5,
       "DIG_DEFAULTS.harvestLevel.table": 0,
       "DIG_DEFAULTS.rarity.table": "common",
       "ITEM_INFO.table": {
-        "buttons": [],
-        "how": "てに もって ゆかに みぎクリック",
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって みぎクリック で おく",
         "use": "いえの なかに おく ざぶとん つきの つくえ"
       },
       "category": "home",
@@ -6052,12 +6055,15 @@
       "recipes": []
     },
     "chair": {
-      "DIG_DEFAULTS.hardness.chair": 2,
+      "DIG_DEFAULTS.hardness.chair": 5,
       "DIG_DEFAULTS.harvestLevel.chair": 0,
       "DIG_DEFAULTS.rarity.chair": "common",
       "ITEM_INFO.chair": {
-        "buttons": [],
-        "how": "てに もって ゆかに みぎクリック",
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって みぎクリック で おく",
         "use": "いえの なかに おく すわる ところ"
       },
       "category": "home",
@@ -6069,12 +6075,15 @@
       "recipes": []
     },
     "andon": {
-      "DIG_DEFAULTS.hardness.andon": 1,
+      "DIG_DEFAULTS.hardness.andon": 5,
       "DIG_DEFAULTS.harvestLevel.andon": 0,
       "DIG_DEFAULTS.rarity.andon": "uncommon",
       "ITEM_INFO.andon": {
-        "buttons": [],
-        "how": "てに もって ゆかに みぎクリック",
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって みぎクリック で おく",
         "use": "いえの なかに おく やさしい あかり"
       },
       "category": "home",
@@ -6086,12 +6095,15 @@
       "recipes": []
     },
     "shelf": {
-      "DIG_DEFAULTS.hardness.shelf": 3,
+      "DIG_DEFAULTS.hardness.shelf": 5,
       "DIG_DEFAULTS.harvestLevel.shelf": 0,
       "DIG_DEFAULTS.rarity.shelf": "uncommon",
       "ITEM_INFO.shelf": {
-        "buttons": [],
-        "how": "てに もって ゆかに みぎクリック",
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって みぎクリック で おく",
         "use": "いえの なかに おく ほんを しまう たな"
       },
       "category": "home",
@@ -6103,12 +6115,15 @@
       "recipes": []
     },
     "ofuro": {
-      "DIG_DEFAULTS.hardness.ofuro": 4,
+      "DIG_DEFAULTS.hardness.ofuro": 5,
       "DIG_DEFAULTS.harvestLevel.ofuro": 0,
       "DIG_DEFAULTS.rarity.ofuro": "rare",
       "ITEM_INFO.ofuro": {
-        "buttons": [],
-        "how": "てに もって ゆかに みぎクリック",
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって みぎクリック で おく",
         "use": "いえの なかに おく あったかい おふろ"
       },
       "category": "home",
@@ -6120,12 +6135,15 @@
       "recipes": []
     },
     "long_table": {
-      "DIG_DEFAULTS.hardness.long_table": 3,
+      "DIG_DEFAULTS.hardness.long_table": 5,
       "DIG_DEFAULTS.harvestLevel.long_table": 0,
       "DIG_DEFAULTS.rarity.long_table": "common",
       "ITEM_INFO.long_table": {
-        "buttons": [],
-        "how": "てに もって ゆかに みぎクリック",
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって みぎクリック で おく",
         "use": "いえの なかに おく みんなで つかう ながい つくえ"
       },
       "category": "home",
@@ -6137,12 +6155,15 @@
       "recipes": []
     },
     "round_table": {
-      "DIG_DEFAULTS.hardness.round_table": 3,
+      "DIG_DEFAULTS.hardness.round_table": 5,
       "DIG_DEFAULTS.harvestLevel.round_table": 0,
       "DIG_DEFAULTS.rarity.round_table": "common",
       "ITEM_INFO.round_table": {
-        "buttons": [],
-        "how": "てに もって ゆかに みぎクリック",
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって みぎクリック で おく",
         "use": "いえの なかに おく まるい つくえ"
       },
       "category": "home",
@@ -6154,12 +6175,15 @@
       "recipes": []
     },
     "stool": {
-      "DIG_DEFAULTS.hardness.stool": 2,
+      "DIG_DEFAULTS.hardness.stool": 5,
       "DIG_DEFAULTS.harvestLevel.stool": 0,
       "DIG_DEFAULTS.rarity.stool": "common",
       "ITEM_INFO.stool": {
-        "buttons": [],
-        "how": "てに もって ゆかに みぎクリック",
+        "buttons": [
+          "1-9",
+          "right"
+        ],
+        "how": "てに もって みぎクリック で おく",
         "use": "いえの なかに おく まるい こしかけ"
       },
       "category": "home",
@@ -6173,7 +6197,7 @@
     "sekkeizu": {
       "ITEM_INFO.sekkeizu": {
         "buttons": [],
-        "how": "てに もって ゆかに みぎクリック",
+        "how": "いまは もてる だけ",
         "use": "おうちを たてる ための せっけいず（つかえるのは もうすぐ）"
       },
       "category": "home",
@@ -6185,7 +6209,7 @@
       "recipes": []
     },
     "house_floor": {
-      "DIG_DEFAULTS.hardness.house_floor": 6,
+      "DIG_DEFAULTS.hardness.house_floor": 5,
       "DIG_DEFAULTS.harvestLevel.house_floor": 0,
       "DIG_DEFAULTS.rarity.house_floor": "common",
       "ITEM_INFO.house_floor": {
@@ -6225,7 +6249,7 @@
       "recipes": []
     },
     "house_roof": {
-      "DIG_DEFAULTS.hardness.house_roof": 4,
+      "DIG_DEFAULTS.hardness.house_roof": 5,
       "DIG_DEFAULTS.harvestLevel.house_roof": 0,
       "DIG_DEFAULTS.rarity.house_roof": "common",
       "ITEM_INFO.house_roof": {
@@ -6245,7 +6269,7 @@
       "recipes": []
     },
     "shoji": {
-      "DIG_DEFAULTS.hardness.shoji": 1,
+      "DIG_DEFAULTS.hardness.shoji": 0.05,
       "DIG_DEFAULTS.harvestLevel.shoji": 0,
       "DIG_DEFAULTS.rarity.shoji": "uncommon",
       "ITEM_INFO.shoji": {

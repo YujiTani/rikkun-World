@@ -168,7 +168,7 @@ export class CelebrateUi {
     return { visible: this.pending > 0, count: this.pending };
   }
 
-  // ---------------------------------------------------------------- 上の 帯（実績の おしらせ・テロップ）
+  // ---------------------------------------------------------------- 上の 帯（実績の おしらせ・テロップ・家の 名前）
 
   private appearing(): boolean {
     return (this.d.appear?.() ?? null) !== null;
@@ -188,6 +188,16 @@ export class CelebrateUi {
   /** ヌシが 武器を おとした（テロップの 列に 入れる） */
   enqueueTelop(item: ItemId, source: TelopSource = 'nushi'): void {
     this.bandModel.enqueueTelop(item, source);
+  }
+
+  /** 家の 名前の 帯を 列に 入れる（戸を 外から 通った とき。HOUSE-1 §3.3。実績・テロップと 重ならず ならぶ） */
+  enqueueHouseName(name: string): void {
+    this.bandModel.enqueueHouseName(name);
+  }
+
+  /** `ui.houseNameBand()` */
+  houseNameBand(): { text: string; ticksLeft: number } | null {
+    return this.bandModel.houseLook();
   }
 
   /** テストの 準備用: 出ている テロップを すてる（`achievements.flush()` が 今すぐ 出せるように） */
@@ -224,6 +234,7 @@ export class CelebrateUi {
       this.bandView.showTelop(this.d.itemName(item), this.d.itemIconUrl(item), this.d.itemRarity(item) + 1, r.telopSource ?? 'nushi');
       this.d.onTelopStart?.(item);
     }
+    if (r.houseStarted !== null) this.bandView.showHouse(r.houseStarted);
     if (r.toastEnded) for (const f of this.closedFns) f(r.toastEnded);
     this.bandView.paint(appearing ? null : this.bandModel.ease(), this.d.reducedMotion?.() ?? false);
   }

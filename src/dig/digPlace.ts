@@ -81,8 +81,12 @@ export class BlockPlacer {
     const kind = furnInfo(block)!.kind;
     const { cells } = furnPlaceCells(kind, c.player().yawDeg, x, z);
     for (const k of cells) {
-      const cur = c.world.getBlock(k.x, y, k.z);
-      if ((cur !== 'air' && cur !== 'water') || this.overlapsBody(k.x, y, k.z) || c.gate?.placeBlocked(k.x, y, k.z)) return null;
+      // ねらった マスは spot() が しらべ済み〔あき・水・くさ・チョークの しるし〕。ほかの マスも くさ・しるしの 上には 置ける
+      if (k.x !== x || k.z !== z) {
+        const cur = c.world.getBlock(k.x, y, k.z);
+        if (cur !== 'air' && cur !== 'water' && !isReplaceable(cur)) return null;
+      }
+      if (this.overlapsBody(k.x, y, k.z) || c.gate?.placeBlocked(k.x, y, k.z)) return null;
     }
     const aimed = cells.find((k) => k.x === x && k.z === z)!;
     return cells.length === 1 ? { x, y, z, block: aimed.id } : { x, y, z, block: aimed.id, cells: cells.map((k) => ({ x: k.x, z: k.z, block: k.id })) };

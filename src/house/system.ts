@@ -48,6 +48,8 @@ export interface HouseSystemDeps {
   interrupted?: () => boolean;
   /** 地形だけで 見た「水でない 地面」（テストで 差しかえる） */
   isLand?: (x: number, z: number) => boolean;
+  /** 戸を 外から 通って 中に 入った: 名前の 帯を 上の 帯の 列に 入れる（text ＝ 家の 名前。HOUSE-1 §3.3） */
+  nameBand?: (text: string) => void;
 }
 
 export class HouseSystem {
@@ -110,7 +112,8 @@ export class HouseSystem {
   /** 1 ステップ */
   update(): void {
     this.manager.update();
-    this.book.step(this.d.player());
+    const entered = this.book.step(this.d.player());
+    if (entered) this.d.nameBand?.(entered.name);
     const id = this.talk.current();
     if (id !== null) this.stepTalk(id);
     this.emit();
@@ -144,6 +147,11 @@ export class HouseSystem {
   /** エディターが 開いて いる（Esc いがいの キーを ゲームの 操作に しない・見本を 描く） */
   editing(): boolean {
     return this.talk.editing();
+  }
+
+  /** 字を えらぶ 画面〔エディター・なまえを かえる の 名前の 画面〕が 開いて いる（Esc と Backspace いがいの キーを ゲームの 操作に しない。§2.6） */
+  typing(): boolean {
+    return this.talk.typing();
   }
 
   /** 保存から 読みこむ（HouseState の 中身を 入れかえ、エディターの もどす の 記録は すてる） */
@@ -252,7 +260,7 @@ export class HouseSystem {
     const bp = this.state.blueprint(number);
     if (!bp) return null;
     const shape = houseShape(bp);
-    // 戸を いちばん 最後に 書く（記録は 戸の マスで おぼえるので、その前に 戸が 無い 状態で 知らせが 出ない ように）
+    // 記録は 書きおわってから 足す（書く 途中の blockWatch の 知らせで、まだ 戸が 無い マスを 記録が 見て 消えたり しない ように）
     for (const c of shape.cells) this.d.world.setBlock(at.x + c.x, at.y + c.y, at.z + c.z, c.id as BlockId);
     const rec = this.book.add({
       name: bp.name.front + bp.name.back,
@@ -284,11 +292,6 @@ export class HouseSystem {
   /** なまえを かえる の 画面が 読む もの */
   renameView(): RenameView {
     return this.renamer.view();
-  }
-
-  /** 名前の 帯（家の 戸を 外から 通った とき 3 秒）。出て いなければ null */
-  nameBand(): { text: string; ticksLeft: number } | null {
-    return this.book.nameBand();
   }
 
   menu(): HouseMenuState {

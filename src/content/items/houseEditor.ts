@@ -1,8 +1,10 @@
 import type { HouseFurnitureId, HousePlanId } from './ids';
 import { DIG_DEFAULTS } from '../../dig/config';
+import { PLACE_HOW } from './howText';
 import type { ItemDef } from './types';
 
-const PLACE_HOW = 'てに もって ゆかに みぎクリック';
+/** せっけいずの 説明（使えるのは 1C の PR-2〔けんちくを はじめる〕から） */
+const NOW_HOW = 'いまは もてる だけ';
 /** 家の ブロック（houseBlocks.ts）も 同じ 文 */
 export const FURN_SOURCE = 'けんちくし が たてた いえ を ほる';
 
@@ -19,7 +21,7 @@ export const HOUSE_FURNITURE = {
     maxStack: 64,
     rarity: DIG_DEFAULTS.rarity.table,
     category: 'home',
-    info: { use: 'いえの なかに おく ざぶとん つきの つくえ', how: PLACE_HOW, buttons: [] },
+    info: { use: 'いえの なかに おく ざぶとん つきの つくえ', how: PLACE_HOW, buttons: ['1-9', 'right'] },
     source: FURN_SOURCE,
     wear: 'permanent',
   },
@@ -29,7 +31,7 @@ export const HOUSE_FURNITURE = {
     maxStack: 64,
     rarity: DIG_DEFAULTS.rarity.chair,
     category: 'home',
-    info: { use: 'いえの なかに おく すわる ところ', how: PLACE_HOW, buttons: [] },
+    info: { use: 'いえの なかに おく すわる ところ', how: PLACE_HOW, buttons: ['1-9', 'right'] },
     source: FURN_SOURCE,
     wear: 'permanent',
   },
@@ -39,7 +41,7 @@ export const HOUSE_FURNITURE = {
     maxStack: 64,
     rarity: DIG_DEFAULTS.rarity.andon,
     category: 'home',
-    info: { use: 'いえの なかに おく やさしい あかり', how: PLACE_HOW, buttons: [] },
+    info: { use: 'いえの なかに おく やさしい あかり', how: PLACE_HOW, buttons: ['1-9', 'right'] },
     source: FURN_SOURCE,
     wear: 'permanent',
   },
@@ -49,7 +51,7 @@ export const HOUSE_FURNITURE = {
     maxStack: 64,
     rarity: DIG_DEFAULTS.rarity.shelf,
     category: 'home',
-    info: { use: 'いえの なかに おく ほんを しまう たな', how: PLACE_HOW, buttons: [] },
+    info: { use: 'いえの なかに おく ほんを しまう たな', how: PLACE_HOW, buttons: ['1-9', 'right'] },
     source: FURN_SOURCE,
     wear: 'permanent',
   },
@@ -59,7 +61,7 @@ export const HOUSE_FURNITURE = {
     maxStack: 64,
     rarity: DIG_DEFAULTS.rarity.ofuro,
     category: 'home',
-    info: { use: 'いえの なかに おく あったかい おふろ', how: PLACE_HOW, buttons: [] },
+    info: { use: 'いえの なかに おく あったかい おふろ', how: PLACE_HOW, buttons: ['1-9', 'right'] },
     source: FURN_SOURCE,
     wear: 'permanent',
   },
@@ -69,7 +71,7 @@ export const HOUSE_FURNITURE = {
     maxStack: 64,
     rarity: DIG_DEFAULTS.rarity.long_table,
     category: 'home',
-    info: { use: 'いえの なかに おく みんなで つかう ながい つくえ', how: PLACE_HOW, buttons: [] },
+    info: { use: 'いえの なかに おく みんなで つかう ながい つくえ', how: PLACE_HOW, buttons: ['1-9', 'right'] },
     source: FURN_SOURCE,
     wear: 'permanent',
   },
@@ -79,7 +81,7 @@ export const HOUSE_FURNITURE = {
     maxStack: 64,
     rarity: DIG_DEFAULTS.rarity.round_table,
     category: 'home',
-    info: { use: 'いえの なかに おく まるい つくえ', how: PLACE_HOW, buttons: [] },
+    info: { use: 'いえの なかに おく まるい つくえ', how: PLACE_HOW, buttons: ['1-9', 'right'] },
     source: FURN_SOURCE,
     wear: 'permanent',
   },
@@ -89,7 +91,7 @@ export const HOUSE_FURNITURE = {
     maxStack: 64,
     rarity: DIG_DEFAULTS.rarity.stool,
     category: 'home',
-    info: { use: 'いえの なかに おく まるい こしかけ', how: PLACE_HOW, buttons: [] },
+    info: { use: 'いえの なかに おく まるい こしかけ', how: PLACE_HOW, buttons: ['1-9', 'right'] },
     source: FURN_SOURCE,
     wear: 'permanent',
   },
@@ -106,7 +108,7 @@ export const HOUSE_PLANS = {
     maxStack: 1,
     rarity: 'uncommon',
     category: 'home',
-    info: { use: 'おうちを たてる ための せっけいず（つかえるのは もうすぐ）', how: PLACE_HOW, buttons: [] },
+    info: { use: 'おうちを たてる ための せっけいず（つかえるのは もうすぐ）', how: NOW_HOW, buttons: [] },
     source: 'けんちくし の エディター で かく',
     wear: 'permanent',
   },

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { BlockId, ItemId } from '../contracts';
 import { createToolConfig } from '../tools/config';
+import { FURN_BLOCK_IDS, HOUSE_BLOCK_IDS, HOUSE_DOOR_PART_IDS, NEW_FURN_BLOCK_IDS, furnInfo } from '../world/blocks/houseBlocks';
 import { createDigConfig } from './config';
 import { blockFamily, digTicksWith, toolFamily } from './toolFamily';
 
@@ -84,5 +85,41 @@ describe('BAL-D ブロックのなかま（§2.8）', () => {
     expect(tools.toolLevel.wood_axe ?? 0).toBe(0);
     expect(tools.toolLevel.iron_axe ?? 0).toBe(0);
     expect(tools.toolLevel.kuwa ?? 0).toBe(0);
+  });
+});
+
+describe('HOUSE-1C ほる速さ・なかま（HOUSE-1 §2.13 ③・票の 期待 9）', () => {
+  const dig = createDigConfig();
+  const tools = createToolConfig();
+  const ticks = (b: BlockId, item: ItemId | null): number | null => digTicksWith(dig, tools, b, item);
+  const WOODEN: BlockId[] = ['house_floor', 'house_wall', 'house_roof', 'house_door', 'house_door_top', 'house_door_open', 'house_door_open_top', ...NEW_FURN_BLOCK_IDS.filter((id) => furnInfo(id)!.kind !== 'furnace')];
+
+  it('ゆか・かべ・やね・戸〔4 つ〕・新しい 家具〔かまど いがい〕は き〔log〕と 同じ 時間（すでで 300、きの おので 150、てつの おので 50）', () => {
+    for (const b of WOODEN) {
+      for (const item of [null, 'wood_axe', 'iron_axe', 'wood_pickaxe'] as const) expect(ticks(b, item), `${b} ${item}`).toBe(ticks('log', item));
+    }
+    expect(ticks('house_floor', null)).toBe(300);
+  });
+
+  it('しょうじは すぐ〔たいまつと 同じ〕', () => {
+    expect(ticks('shoji', null)).toBe(ticks('torch', null));
+    expect(ticks('shoji', null)).toBeLessThanOrEqual(3);
+  });
+
+  it('なかま: 家の ブロック・戸・家具は き（おのが あう）。かまどだけ いし。向きちがい・マスちがいも 元と 同じ（tansu_w が つるはしで 全力に ならない）', () => {
+    for (const id of [...HOUSE_BLOCK_IDS, ...HOUSE_DOOR_PART_IDS]) expect(blockFamily(id), id).toBe('log');
+    for (const id of FURN_BLOCK_IDS) expect(blockFamily(id), id).toBe(furnInfo(id)!.kind === 'furnace' ? 'stone' : 'log');
+    expect(blockFamily('tansu_w')).toBe(blockFamily('tansu'));
+    expect(ticks('tansu_w', 'wood_pickaxe')).toBe(ticks('tansu', 'wood_pickaxe'));
+    expect(ticks('tansu_w', 'wood_pickaxe'), 'つるはしは 半分の 力').toBe(300);
+    expect(ticks('furnace_e', 'wood_axe')).toBe(ticks('furnace', 'wood_axe'));
+  });
+
+  it('今ある たんす・かまどの 数は そのまま（5 秒・6 秒）。向きちがいも 同じ', () => {
+    expect(dig.hardness.tansu).toBe(5);
+    expect(dig.hardness.furnace).toBe(6);
+    expect(dig.hardness.tansu_n).toBe(dig.hardness.tansu);
+    expect(dig.hardness.furnace_w).toBe(dig.hardness.furnace);
+    expect(dig.rarity.tansu_e).toBe(dig.rarity.tansu);
   });
 });

@@ -17,6 +17,13 @@ function forHouse<T>(byBase: Record<HouseBase, T>): Record<HouseBlockId | HouseD
   return Object.fromEntries(ids.map((id) => [id, byBase[houseDropOf(id)!]])) as Record<HouseBlockId | HouseDoorPartId | NewFurnBlockId, T>;
 }
 
+/** 今ある 家具〔たんす・かまど〕の ほる 秒数・めずらしさ。向きちがいの id〔forHouse〕も 同じ 数を 読む（二重に 書かない） */
+const OLD_FURN = { tansuHardness: 5, furnaceHardness: 6, rarity: 'uncommon' } as const satisfies { tansuHardness: number; furnaceHardness: number; rarity: Rarity };
+/** き〔log〕の 秒数。家の ゆか・かべ・やね・戸・新しい 家具は これと 同じ（HOUSE-1 §2.13 ③） */
+const WOOD_HARDNESS = 5;
+/** ほぼ すぐ こわれる 秒数（たいまつ・ちょうちん・しょうじ） */
+const QUICK_HARDNESS = 0.05;
+
 /**
  * ほる・おくの数値（M2 §4.1・§4.3）。ここ 1 か所にまとめる。
  * 決まり: ブロックを足すときは、かならず hardness と harvestLevel を書く。
@@ -45,18 +52,18 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     grass: 0.5,
     dirt: 0.5,
     sand: 0.5,
-    log: 5,
+    log: WOOD_HARDNESS,
     stone: 6,
     coal_ore: 10,
     iron_ore: 15,
     // M4（§4.4）
-    furnace: 6,
-    torch: 0.05, // ほぼすぐこわれる
+    furnace: OLD_FURN.furnaceHardness,
+    torch: QUICK_HARDNESS, // ほぼすぐこわれる
     start_torch: null, // こわれない
     kawara: 4,
     brick: 6,
     // M6
-    tansu: 5,
+    tansu: OLD_FURN.tansuHardness,
     // LIVE-2（§2.3）: こたつ は ふとん で やわらかい（手 で 2 秒）。小屋 の ブロック は たんす と 同じ 時間
     nukunuku: 2,
     nukunuku_e: 2,
@@ -113,23 +120,24 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     suisho_ore: 12, // てつの つるはしで 2 秒
     diamond_ore: 18, // てつの つるはしで 3 秒（こんごうの つるはし 強さ 8 で 2.25 秒）
     ...forChalkMarks(0), // しるしは さわると すぐ こわれる（1 ステップ）
-    // HOUSE-1C（素手の 秒数。戸は 上下 どちらも 同じ。家具は 向き・マスが ちがっても 同じ。たんす・かまどの 向き 0 は 上の 表）
+    // HOUSE-1C（素手の 秒数。HOUSE-1 §2.13 ③: ゆか・かべ・やね・戸・新しい 家具 ＝ き と 同じ、しょうじ ＝ すぐ〔たいまつと 同じ〕。
+    // 戸は 上下 どちらも 同じ。家具は 向き・マスが ちがっても 同じ。たんす・かまどは 今の 数）
     ...forHouse<number>({
-      house_floor: 6, // いし と おなじ
-      house_wall: 5, // き と おなじ
-      house_roof: 4, // かわら と おなじ
-      shoji: 1, // かみ。すぐ やぶれる
-      house_door: 5, // き と おなじ
-      tansu: 5, // 今の たんす と おなじ
-      furnace: 6, // 今の かまど と おなじ
-      table: 3,
-      long_table: 3,
-      round_table: 3,
-      chair: 2,
-      stool: 2,
-      andon: 1,
-      shelf: 3,
-      ofuro: 4,
+      house_floor: WOOD_HARDNESS,
+      house_wall: WOOD_HARDNESS,
+      house_roof: WOOD_HARDNESS,
+      shoji: QUICK_HARDNESS,
+      house_door: WOOD_HARDNESS,
+      tansu: OLD_FURN.tansuHardness,
+      furnace: OLD_FURN.furnaceHardness,
+      table: WOOD_HARDNESS,
+      long_table: WOOD_HARDNESS,
+      round_table: WOOD_HARDNESS,
+      chair: WOOD_HARDNESS,
+      stool: WOOD_HARDNESS,
+      andon: WOOD_HARDNESS,
+      shelf: WOOD_HARDNESS,
+      ofuro: WOOD_HARDNESS,
     }),
   } satisfies Record<BlockId, number | null>,
   harvestLevel: {
@@ -227,12 +235,12 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     coal_ore: 'uncommon',
     iron_ore: 'rare',
     // M4（docs/design/M4-craft.md §4.4）
-    furnace: 'uncommon',
+    furnace: OLD_FURN.rarity,
     torch: 'common',
     start_torch: 'common',
     kawara: 'uncommon',
     brick: 'uncommon',
-    tansu: 'uncommon',
+    tansu: OLD_FURN.rarity,
     nukunuku: 'uncommon',
     nukunuku_e: 'uncommon',
     nukunuku_s: 'uncommon',
@@ -290,7 +298,7 @@ export const DIG_DEFAULTS: Readonly<DigConfig> = {
     // HOUSE-1C（家具は アイテムの めずらしさ〔content/items/houseEditor.ts が ここから 読む〕。たんす・かまどの 向き 0 は 上の 表）
     ...forHouse<Rarity>({
       house_floor: 'common', house_wall: 'common', house_roof: 'common', shoji: 'uncommon', house_door: 'uncommon',
-      tansu: 'uncommon', furnace: 'uncommon', table: 'common', long_table: 'common', round_table: 'common', chair: 'common', stool: 'common', andon: 'uncommon', shelf: 'uncommon', ofuro: 'rare',
+      tansu: OLD_FURN.rarity, furnace: OLD_FURN.rarity, table: 'common', long_table: 'common', round_table: 'common', chair: 'common', stool: 'common', andon: 'uncommon', shelf: 'uncommon', ofuro: 'rare',
     }),
   } satisfies Record<BlockId, Rarity>,
   dropMax: defaultDropMax(),

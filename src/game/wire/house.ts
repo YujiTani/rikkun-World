@@ -4,6 +4,7 @@ import { playArchitect } from '../../fx/architectSounds';
 import { playCraft } from '../../fx/craftSounds';
 import { ArchitectRenderer } from '../../house/ArchitectRenderer';
 import { watchBlocks } from '../../house/blockWatch';
+import { houseKeyGuard } from '../../house/keyGuard';
 import { KuraScreen } from '../../house/kuraScreen';
 import { Preview3D } from '../../house/preview/preview';
 import { HouseSystem } from '../../house/system';
@@ -31,6 +32,8 @@ export function wireHouse(deps: WiredYokai) {
     voice: () => playArchitect(fxSound, 'architect_voice'),
     // 道具を わたした: 「拾った」ログ・知らせと 同じ 道を 通す（持ち物には もう 入れてある）
     gave: (item) => shared.onDropPicked(item, 1, false),
+    // 戸を 外から 通って 中に 入った: 名前の 帯を 上の 帯の 列〔実績・テロップと ならぶ〕に 入れる（HOUSE-1 §3.3）
+    nameBand: (text) => shared.celebrate.enqueueHouseName(text),
     // たんすの 中の 道具も「持って いる」（なくした ときだけ「どうぐを もらう」）
     owned: (item) => storage.list().reduce((n, p) => n + storage.countItem(p.x, p.y, p.z, item), 0),
     // メニュー・くらが 開く: マウスが 出る。時間と 妖怪の 停止は ゲームの 窓（shared.houseFrozen）が 受けもつ。たんす・とりごやと おなじ 錠の あつかい
@@ -105,7 +108,6 @@ export function wireHouse(deps: WiredYokai) {
     menu: () => house.menu(),
     press: (id) => house.press(id),
     rename: () => house.renameView(),
-    band: () => house.nameBand(),
     makeEditor: (parent) =>
       new EditorView({ parent, ctl: house.editor, preview: getPreview, release: releasePreview, canvas: game.renderer.domElement, press: (id) => house.press(id), sound: fxSound }),
     screen: kuraScreen,
@@ -133,7 +135,6 @@ export function wireHouse(deps: WiredYokai) {
     architectRenderer.update(house.manager.all(), game.camera, dig.aimedArchitect());
     blobShadow.setExtras(architectRenderer.shadowSpots());
     houseUi.placeBubble();
-    houseUi.updateBand();
   });
 
   // Esc・E: 話しを やめる（うなずき・あいさつ・メニュー・くら ぜんぶ）。メニューの 間は もちもの画面は 開かない（錠が 開いて いない）。
@@ -142,22 +143,8 @@ export function wireHouse(deps: WiredYokai) {
     if (action === 'closeMenu' && house.talking()) house.escape();
     else if (action === 'toggleInventory' && house.talking() && !house.editing()) house.close();
   });
-  // エディターの 中は Esc いがいの キーを ゲームの 操作に しない（W・E・Q・数字キー。AC14）。Esc は エディターの 順で、Backspace は 1 もじ けす。
-  // 止めるのは 押した とき（keydown）だけ。はなした とき（keyup）は ゲームに とどける（キーを 押した まま ひらいて、中で はなしても、
-  // とじた あとに ゲームの 側で 押しっぱなしの まま 残らない ように）
-  window.addEventListener(
-    'keydown',
-    (e: KeyboardEvent): void => {
-      if (!house.editing() || e.ctrlKey || e.metaKey || e.altKey || /^F\d+$/.test(e.key)) return;
-      e.stopImmediatePropagation();
-      if (!e.repeat) {
-        if (e.key === 'Escape') house.escape();
-        else if (e.key === 'Backspace') house.press('erase');
-      }
-      e.preventDefault();
-    },
-    true,
-  );
+  // エディター・なまえを かえる の 名前の 画面の 中は Esc いがいの キーを ゲームの 操作に しない（W・E・Q・数字キー。AC14・§2.6）。くわしくは house/keyGuard.ts
+  window.addEventListener('keydown', houseKeyGuard(house), true);
 
   return { house, architectRenderer, houseUi };
 }

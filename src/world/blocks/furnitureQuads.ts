@@ -68,7 +68,7 @@ export function furnitureQuads(kind: BoxKind, rot: FurnRot): readonly FurnQuad[]
   boxCache ??= furnitureBoxes();
   const lw = (FURN_LEN as Record<string, number | undefined>)[kind] ?? 1; // はにわ（見本だけ）は 1 マス
   const ld = 1;
-  const [fw, fd] = furnFootprint(lw, rot);
+  const [fw, fd] = furnFootprint(lw, 1, rot);
   const turns = (rot + 2) % 4; // 時計まわりの 4 分の 1 回転の 数（箱の 形は 前が −z）
   const rotate = (dx: number, dz: number): [number, number] => {
     let a = dx;

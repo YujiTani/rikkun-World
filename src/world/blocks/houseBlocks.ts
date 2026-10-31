@@ -64,20 +64,6 @@ type CellIds<K extends FurnBlockKind> = (typeof FURN_LEN)[K] extends 1 ? K : (ty
 /** 向きのある 家具の ブロックの id 56 こ（たんす・かまどの 向き 0 は 今まで どおりの id） */
 export type FurnBlockId = { [K in FurnBlockKind]: `${CellIds<K>}${RotSuffix}` }[FurnBlockKind];
 
-/** 画面に 出す 名前（ブロックの 表の name。アイテムの 名前と 同じ 字。houseBlocks.test.ts が 確かめる） */
-export const FURN_NAME: Readonly<Record<FurnBlockKind, string>> = {
-  tansu: 'たんす',
-  furnace: 'かまど',
-  chair: 'いす',
-  shelf: 'ほんだな',
-  andon: 'あんどん',
-  stool: 'まるいす',
-  round_table: 'まるい テーブル',
-  table: 'テーブル',
-  ofuro: 'おふろ',
-  long_table: 'ながい テーブル',
-};
-
 export interface FurnInfo {
   kind: FurnBlockKind;
   rot: FurnRot;
@@ -136,9 +122,9 @@ const TURN_STEP: ReadonlyArray<readonly [number, number]> = [
   [0, -1],
 ];
 
-/** 家具の 全体の 大きさ（よこ, たて。マス）。向き 1・3 は 入れかわる */
-export function furnFootprint(len: number, rot: FurnRot): readonly [number, number] {
-  return rot % 2 === 0 ? [len, 1] : [1, len];
+/** 家具の 全体の 大きさ（よこ, たて。マス）。w・d ＝ 向き 0 の 大きさ。向き 1・3 は 入れかわる（エディターの `footprint` も これを 呼ぶ） */
+export function furnFootprint(w: number, d: number, rot: FurnRot): readonly [number, number] {
+  return rot % 2 === 0 ? [w, d] : [d, w];
 }
 
 /**
@@ -150,7 +136,7 @@ export function furnCellOffset(len: number, rot: FurnRot, k: number): readonly [
   let b = 0;
   const turns = (rot + 2) % 4;
   for (let i = 0; i < turns; i++) [a, b] = [-b, a];
-  const [fw, fd] = furnFootprint(len, rot);
+  const [fw, fd] = furnFootprint(len, 1, rot);
   return [Math.round(fw / 2 + a - 0.5), Math.round(fd / 2 + b - 0.5)];
 }
 

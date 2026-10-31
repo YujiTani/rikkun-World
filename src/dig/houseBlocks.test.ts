@@ -153,6 +153,42 @@ describe('向きの ある 家具を 置く', () => {
   });
 });
 
+describe('くさ・チョークの しるしの 上に 家具を 置く（main では 置けた。FLORA-75・MINE-1B）', () => {
+  for (const kind of ['tansu', 'furnace', 'chair', 'table', 'long_table'] as const) {
+    it(`${kind}: くさを ねらうと くさの マスに 置ける（くさは 消える）。2 マス目が くさでも 置ける`, () => {
+      const r = new Rig();
+      r.hold(kind, 1);
+      const p = r.aimFloor(90);
+      const cells = furnPlaceCells(kind, 90, p.x, p.z).cells;
+      for (const c of cells) r.world.setBlock(c.x, p.y, c.z, 'kusa'); // ねらった マスも ほかの マスも くさ
+      r.step();
+      expect(r.dig.target()?.id, 'くさを ねらって いる').toBe('kusa');
+      r.rightClick();
+      for (const c of cells) expect(r.world.getBlock(c.x, p.y, c.z), `${kind} (${c.x},${c.z})`).toBe(c.id);
+      expect(r.inv.count(kind), '1 つ へる').toBe(0);
+    });
+  }
+
+  it('チョークの しるしを ねらっても 置ける。ほかの ブロックが ある マスは これまでどおり 置けない', () => {
+    const r = new Rig();
+    r.hold('tansu', 1);
+    const p = r.aimFloor(90);
+    r.world.setBlock(p.x, p.y, p.z, 'chalk_mark');
+    r.step();
+    expect(r.dig.target()?.id).toBe('chalk_mark');
+    r.rightClick();
+    expect(r.world.getBlock(p.x, p.y, p.z)).toBe(furnBlockId('tansu', 0, 1));
+    const q = new Rig();
+    q.hold('table', 1);
+    const pq = q.aimFloor(90);
+    const second = furnPlaceCells('table', 90, pq.x, pq.z).cells.find((c) => c.x !== pq.x || c.z !== pq.z)!;
+    q.world.setBlock(second.x, pq.y, second.z, 'dirt');
+    q.rightClick();
+    expect(q.world.getBlock(pq.x, pq.y, pq.z), '2 マス目が つちなら 置かない').toBe('air');
+    expect(q.inv.count('table')).toBe(1);
+  });
+});
+
 describe('家具を ほる（AC25・AC27）', () => {
   for (const kind of FURN_BLOCK_KINDS) {
     it(`${kind}: どの マスを ほっても ぜんぶ 消えて ${kind} が 1 こ`, () => {

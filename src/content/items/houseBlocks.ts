@@ -2,6 +2,7 @@ import type { BlockId, Rarity } from '../../contracts';
 import { DIG_DEFAULTS } from '../../dig/config';
 import { BLOCK_TYPES } from '../../world/blocks/blockTypes';
 import type { HouseBlockId } from '../../world/blocks/houseBlocks';
+import { BLOCK_STACK } from './blocks';
 import { PLACE_HOW } from './howText';
 import { FURN_SOURCE } from './houseEditor';
 import type { ItemDef } from './types';
@@ -11,7 +12,6 @@ import type { ItemDef } from './types';
  * 名前は BLOCK_TYPES から・レア度は DIG_DEFAULTS から（blocks.ts と 同じ 考え。2 か所に 書かない）。ブロックの 番号・性質は world/blocks/houseBlocks.ts。
  * 戸は 2 マス（上下）で 1 こ。持ち物に 入るのは 戸 1 こ（`house_door`）。置くと 上下の 2 マスが 立つ。
  */
-const BLOCK_STACK = 64; // inventory/items.ts の BLOCK_MAX_STACK と 同じ
 const blockName = (id: BlockId): string => BLOCK_TYPES.find((b) => b.id === id)!.name;
 const blockRarity = (id: BlockId): Rarity => DIG_DEFAULTS.rarity[id];
 const info = (use: string, how = PLACE_HOW) => ({ use, how, buttons: ['1-9', 'right'] as Array<'1-9' | 'right'> });
