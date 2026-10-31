@@ -1,11 +1,14 @@
 import type { ItemId, Vec3 } from '../contracts';
 import { blueprintName, blueprintWindows, type Blueprint } from './editor/blueprint';
+import { glowsWindows } from './editor/buttons';
 import { EditorController } from './editor/controller';
 import { editOp } from './editor/ops';
 import { needOf, type NeedRow } from './editor/model';
 import { SHEET, createSheetPort, type SheetBag } from './editor/sheet';
 import type { HouseWorld } from './ground';
 import { ArchitectManager, type ArchitectInfo } from './manager';
+import type { PreviewMode } from './preview/mesh';
+import { NO_PREVIEW, previewModeOf, type PreviewPort } from './preview/port';
 import { HouseState } from './state';
 import { HouseTalk, type HouseMenuState } from './talk';
 import type { KuraBag } from './kura';
@@ -18,9 +21,6 @@ import type { KuraBag } from './kura';
 
 /** 話して いる 間に プレイヤーが これより はなれたら 話しを やめる（メニューが 勝手に 開かない ように） */
 export const TALK_RANGE = 12;
-
-/** 見本の 今の 見せ方（Preview3D が 答える。見本を まだ 作って いない ときは null）。窓口 `editor().preview` の 元 */
-export type PreviewProbe = (mode: 'outside' | 'inside') => { yaw: number; elev: number; touched: boolean; builds: number } | null;
 
 export interface HouseSystemDeps {
   seed: number;
@@ -49,8 +49,8 @@ export class HouseSystem {
   readonly manager: ArchitectManager;
   readonly talk: HouseTalk;
   readonly editor: EditorController;
-  /** 見本（3D）の 今の 向き。wireHouse が つなぐ（つなぐ 前は null） */
-  previewProbe: PreviewProbe = () => null;
+  /** 見本（3D）への 入口。wireHouse が つなぐ（つなぐ 前は 何も しない） */
+  preview: PreviewPort = NO_PREVIEW;
   private onChange: (() => void) | null = null;
   private seen = 0;
 
@@ -146,6 +146,40 @@ export class HouseSystem {
     const ok = editOp(this.editor, op);
     this.emit();
     return ok;
+  }
+
+  /** いま 見本が 出て いる 見せ方（エディターが 開いて いない・③ なまえ は null） */
+  previewMode(): PreviewMode | null {
+    if (!this.talk.editing()) return null;
+    return previewModeOf(this.editor.s.step);
+  }
+
+  /** 見本を まわす: 確かめの まど・ひつような ものが 出て いる 間は まわさない。まわしたら 置いた 家具の えらびは はずれる（AC57）。今の { angle, pitch }（見本が なければ null） */
+  private turn(apply: (p: PreviewPort) => boolean): { angle: number; pitch: number } | null {
+    const mode = this.previewMode();
+    if (mode === null) return null;
+    const c = this.editor;
+    if (c.confirm === null && !c.needOpen && apply(this.preview)) {
+      c.clearPlaced();
+      this.emit();
+    }
+    const v = this.preview.info(mode);
+    return v ? { angle: v.yaw, pitch: v.elev } : null;
+  }
+
+  /** 窓口 `previewDrag(dx, dy)`: 見本の 上で 押して dx・dy px 動かして はなした のと 同じ（1 px ＝ 0.5°） */
+  previewDrag(dx: number, dy: number): { angle: number; pitch: number } | null {
+    return this.turn((p) => p.drag(dx, dy));
+  }
+
+  /** 窓口 `previewWheel(dx, dy)`: wheel を 1 回 うけた のと 同じ（(dx ＋ dy) px を よこの ドラッグと 同じに） */
+  previewWheel(dx: number, dy: number): { angle: number; pitch: number } | null {
+    return this.turn((p) => p.wheel(dx, dy));
+  }
+
+  /** 窓口 `hover(id | null)`: その ボタンに マウスを のせた のと 同じ。光るのは まどの かず・しゅるいの ボタン だけ（① で） */
+  hover(id: string | null): void {
+    this.preview.hover(id !== null && this.previewMode() === 'outside' && glowsWindows(id));
   }
 
   /** 窓口 `need(source?)`: source なし ＝ エディターの 今の 形、数 ＝ 持ち物の せっけいずの マスの 番号。bonus は 1C（はじめての 家の おまけ）まで 0 */

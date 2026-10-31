@@ -39,6 +39,8 @@ export const ICONS = {
   /** ゛（てんてん）・゜（まる）: 50 音の 11 列めの ボタン */
   dakuten: `${open({ sw: 3.4 })}<path d="M7.5 4.5l2.6 6.5M14.5 3.5l2.6 6.5"/></svg>`,
   handakuten: `${open({ sw: 3 })}<circle cx="12" cy="8.5" r="4.2"/></svg>`,
+  /** 見本の すみの 印（さわる 前だけ）: よこへ うごかす 矢じるし ＋ 手。手は ゆらゆら「くるっ」と うごく（CSS の .ed-swipe__hand） */
+  swipe: `${open({ sw: 2 })}<path d="M4 3.6h16M6.6 1.2 4 3.6 6.6 6M17.4 1.2 20 3.6 17.4 6"/><g class="ed-swipe__hand"><path d="M8.2 15.2V9.4a1.4 1.4 0 0 1 2.8 0v3.4M11 11.9a1.4 1.4 0 0 1 2.8 0v1.3M13.8 12.5a1.4 1.4 0 0 1 2.8 0v1.5"/><path d="M16.6 13.2a1.4 1.4 0 0 1 2.7.5v3.8c0 2.7-2 4.5-4.7 4.5h-1.8c-1.9 0-3.3-.7-4.3-2.1l-3.1-4.4a1.3 1.3 0 0 1 2-1.6l1.8 1.6"/></g></svg>`,
   /** 足あと（戸の 前） */
   foot: `<svg class="ed-ico" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><g><ellipse cx="7" cy="16.4" rx="3" ry="4.2"/><circle cx="4.6" cy="10.4" r="1.15"/><circle cx="7" cy="9.4" r="1.15"/><circle cx="9.4" cy="10.4" r="1.15"/></g><g transform="translate(10 -5.5)"><ellipse cx="7" cy="16.4" rx="3" ry="4.2"/><circle cx="4.6" cy="10.4" r="1.15"/><circle cx="7" cy="9.4" r="1.15"/><circle cx="9.4" cy="10.4" r="1.15"/></g></svg>`,
   /** 天井の ちょうちんの 印 */

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { FURN_ORDER, FURNITURE } from './furniture';
 import {
-  KANA_CHARS, KANA_LAYOUT, canAddChar, cloneState, dakuten, doorInside, emptyState, footprint, handakuten, needOf, parseState, placeProblem, refit, toKatakana,
+  KANA_CHARS, KANA_LAYOUT, canAddChar, cloneState, dakuten, doorInside, emptyState, footprint, handakuten, needOf, openingChange, parseState, placeProblem, refit, toKatakana,
   windowCells, windowMax, type EditorState, type Placed,
 } from './model';
 import { NAME_FRONT_MAX, SIZES, type Size } from './tuning';
@@ -45,6 +45,43 @@ describe('AC12 窓の ならべ方（左右 対称・2 マスおき・まえの 
     expect(windowCells({ w: 5, d: 5, windows: 1 })).toEqual([{ wall: 'back', i: 2 }]);
     expect(windowCells({ w: 5, d: 5, windows: 2 })).toEqual([{ wall: 'left', i: 2 }, { wall: 'right', i: 2 }]);
     expect(windowCells({ w: 5, d: 5, windows: 3 })).toEqual([{ wall: 'back', i: 2 }, { wall: 'left', i: 2 }, { wall: 'right', i: 2 }]);
+  });
+});
+
+describe('AC56 窓が かわった ようす（openingChange。見本の 光る 窓）', () => {
+  const key = (w: Size, d: Size, windows: number, windowKind: EditorState['windowKind'] = 'shoji') => ({ w, d, windows, windowKind });
+  const keys = (cells: { wall: string; i: number }[]): string[] => cells.map((c) => `${c.wall}:${c.i}`).sort();
+
+  it('5×5・窓 0 → 1: うしろ 2 が ふえる', () => {
+    const c = openingChange(key(5, 5, 0), key(5, 5, 1));
+    expect(keys(c!.added)).toEqual(['back:2']);
+    expect(c!.removed).toEqual([]);
+  });
+
+  it('5×5・窓 1 → 2: うしろ 2 が なくなり ひだり 2・みぎ 2 が できる。2 → 1 は その 逆', () => {
+    const up = openingChange(key(5, 5, 1), key(5, 5, 2))!;
+    expect(keys(up.added)).toEqual(['left:2', 'right:2']);
+    expect(keys(up.removed)).toEqual(['back:2']);
+    const down = openingChange(key(5, 5, 2), key(5, 5, 1))!;
+    expect(keys(down.added)).toEqual(['back:2']);
+    expect(keys(down.removed)).toEqual(['left:2', 'right:2']);
+  });
+
+  it('1 つ かえると 必ず うしろの 窓が かわる（9×9 の 0〜上限 ぜんぶ）', () => {
+    for (const [w, d] of [[5, 5], [7, 9], [9, 9]] as const) {
+      for (let n = 0; n < windowMax({ w, d }); n++) {
+        const c = openingChange(key(w, d, n), key(w, d, n + 1));
+        expect(c, `${w}×${d} ${n}→${n + 1}`).not.toBeNull();
+        expect([...c!.added, ...c!.removed].length).toBeGreaterThan(0);
+        expect([...c!.added, ...c!.removed].some((q) => q.wall === 'back'), `${w}×${d} ${n}→${n + 1}: うしろ`).toBe(true);
+      }
+    }
+  });
+
+  it('大きさが かわった とき（上限で 切られた ときも）・何も かわらない とき は null', () => {
+    expect(openingChange(key(9, 9, 15), key(5, 5, 9))).toBeNull();
+    expect(openingChange(key(5, 5, 2), key(7, 5, 2))).toBeNull();
+    expect(openingChange(key(5, 5, 2), key(5, 5, 2))).toBeNull();
   });
 });
 

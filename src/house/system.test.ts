@@ -303,16 +303,100 @@ describe('1B 窓口: editor()・edit(op)・need()・blueprints()・Esc', () => {
     expect(hook.editor(), '保存が 空なら はじめの 形').toMatchObject({ size: { w: 5, d: 5 }, windows: 0, canUndo: false, canRedo: false });
   });
 
-  it('見本の 情報（preview）は ① ② だけ（③ は null）。つないだ 見本から angle・pitch・touched・builds を もらう', () => {
+  /** つないだ つもりの 見本（呼ばれた 順を 記録）。向き・見おろす 角度は ドラッグで かわる */
+  function fakePreview(sys: HouseSystem) {
+    const log: string[] = [];
+    const v = { outside: { yaw: 28, elev: 26 }, inside: { yaw: 40, elev: 50 } };
+    const touched = { outside: false, inside: false };
+    sys.preview = {
+      info: (mode) => ({ yaw: v[mode].yaw, elev: v[mode].elev, touched: touched[mode], wait: touched[mode] ? 600 : null, builds: 3, glow: null }),
+      drag: (dx, dy) => {
+        const m = sys.previewMode()!;
+        v[m].yaw -= dx / 2;
+        v[m].elev += dy / 2;
+        touched[m] = true;
+        log.push(`drag ${dx},${dy}`);
+        return true;
+      },
+      wheel: (dx, dy) => {
+        const m = sys.previewMode()!;
+        v[m].yaw -= (dx + dy) / 2;
+        touched[m] = true;
+        log.push(`wheel ${dx},${dy}`);
+        return true;
+      },
+      hover: (on) => void log.push(`hover ${on}`),
+    };
+    return log;
+  }
+
+  it('見本の 情報（preview）は ① ② だけ（③ は null）。つないだ 見本から angle・pitch・touched・wait・builds・glow を もらう', () => {
     const { sys, hook } = opened();
-    sys.previewProbe = (mode) => ({ yaw: mode === 'outside' ? 28 : 40, elev: mode === 'outside' ? 26 : 50, touched: false, builds: 3 });
+    fakePreview(sys);
     sys.press('editor');
-    expect(hook.editor()?.preview).toEqual({ mode: 'outside', roof: true, angle: 28, pitch: 26, touched: false, builds: 3, glow: null });
+    expect(hook.editor()?.preview).toEqual({ mode: 'outside', roof: true, angle: 28, pitch: 26, touched: false, wait: null, builds: 3, glow: null });
     sys.press('next');
     expect(hook.editor()?.preview).toMatchObject({ mode: 'inside', roof: false, angle: 40, pitch: 50 });
     sys.press('next');
     expect(hook.editor()?.step).toBe('namae');
     expect(hook.editor()?.preview).toBeNull();
+  });
+
+  it('previewDrag・previewWheel: 今の { angle, pitch } を 返す。エディターが 開いて いない・③ は null で 何も かえない', () => {
+    const { sys, hook } = opened();
+    const log = fakePreview(sys);
+    expect(hook.previewDrag(10, 10), 'エディターが 開いて いない').toBeNull();
+    sys.press('editor');
+    expect(hook.previewDrag(100, 40)).toEqual({ angle: -22, pitch: 46 });
+    expect(hook.previewWheel(40, 60)).toEqual({ angle: -72, pitch: 46 });
+    expect(hook.editor()?.preview).toMatchObject({ angle: -72, pitch: 46, touched: true, wait: 600 });
+    sys.press('next');
+    sys.press('next');
+    expect(sys.editor.s.step).toBe('namae');
+    expect(hook.previewDrag(10, 10), '③ では 見本が ない').toBeNull();
+    expect(log).toEqual(['drag 100,40', 'wheel 40,60']);
+  });
+
+  it('ひつような もの・確かめの まどが 出て いる 間は まわせない（今の 値は 返す）', () => {
+    const { sys, hook } = opened();
+    const log = fakePreview(sys);
+    sys.press('editor');
+    sys.press('need');
+    expect(sys.editor.needOpen).toBe(true);
+    expect(hook.previewDrag(100, 40)).toEqual({ angle: 28, pitch: 26 });
+    sys.press('needClose');
+    sys.press('new');
+    expect(sys.editor.confirm).toBe('reset');
+    expect(hook.previewWheel(100, 0)).toEqual({ angle: 28, pitch: 26 });
+    expect(log).toEqual([]);
+  });
+
+  it('見本を まわすと 置いた 家具の えらびは はずれる（AC57）。家具は のこる・もどす の 記録は ふえない', () => {
+    const { sys, hook } = opened();
+    fakePreview(sys);
+    sys.press('editor');
+    sys.press('next');
+    expect(hook.edit({ op: 'place', kind: 'futon', x: 1, z: 1 })).toBe(true);
+    expect(hook.edit({ op: 'select', x: 1, z: 1 })).toBe(true);
+    expect(hook.editor()?.selected).toEqual({ x: 1, z: 1 });
+    const undo = sys.editor.canUndo();
+    hook.previewDrag(10, 0);
+    expect(hook.editor()?.selected).toBeNull();
+    expect(hook.editor()?.furniture).toHaveLength(1);
+    expect(sys.editor.canUndo()).toBe(undo);
+  });
+
+  it('hover: まどの かず・しゅるいの ボタン だけ 光る（① で）。ほかの ボタン・null・② は 消す', () => {
+    const { sys, hook } = opened();
+    const log = fakePreview(sys);
+    sys.press('editor');
+    for (const id of ['windowsUp', 'windowsDown', 'windowKind', 'windowKind-shoji']) hook.hover(id);
+    for (const id of ['next', 'width-7', 'depth-9', 'roof-flat', 'undo', null]) hook.hover(id);
+    expect(log).toEqual(['hover true', 'hover true', 'hover true', 'hover true', 'hover false', 'hover false', 'hover false', 'hover false', 'hover false', 'hover false']);
+    log.length = 0;
+    sys.press('next');
+    hook.hover('windowsUp');
+    expect(log, '② には 窓の ボタンが ない').toEqual(['hover false']);
   });
 
   it('メニューが ひらいた まま 時間は 止まる（エディターの 間も）。Esc は エディターの 順、最後に 全部 とじる', () => {
