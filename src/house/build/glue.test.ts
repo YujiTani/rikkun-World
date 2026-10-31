@@ -6,7 +6,7 @@ import { NOD_STEPS } from '../architect';
 import { makeFakeWorld } from '../fakeWorld';
 import { createHouseHook } from '../hook';
 import { HouseSystem, type HouseSfx } from '../system';
-import { MSG } from './tuning';
+import { FAREWELL_TICKS, MSG } from './tuning';
 
 /** ユニット 3・5・10〜15（AC18〜AC21・AC31・AC32c・AC36・AC40・AC51）: 一覧 → 上空の 視点 → 建築 → 完成 → 保存。世界は ちいさな 平らな 床 */
 const SPAWN = { x: 64.5, z: 64.5, yawDeg: 0 };
@@ -172,6 +172,15 @@ describe('AC21・AC31・AC36・AC40・AC51 建築 → 完成', () => {
     expect(r.sys.menu().buttons.find((b) => b.id === 'build')?.enabled).toBe(false);
     expect(r.sys.menu().bubble).toContain('もものいえ');
     r.sys.press('close');
+  });
+  it('はじめの ひとこと（bye）は FAREWELL_TICKS で きえる', () => {
+    const { r, slot } = built();
+    r.startBuild(slot);
+    expect(r.sys.menu().bubble).toBe(MSG.bonus);
+    r.run(FAREWELL_TICKS - 1);
+    expect(r.sys.menu().bubble, 'あと 1 ステップは のこる').toBe(MSG.bonus);
+    r.run(1);
+    expect(r.sys.menu().bubble, 'きえる').toBe('');
   });
   it('建築士さんは 戸の 前（4 マス 以内）に うつる。建築中は 足場・歩いて 入れない', () => {
     const { r, slot } = built();
