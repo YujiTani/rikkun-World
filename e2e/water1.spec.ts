@@ -422,6 +422,7 @@ test.describe('WATER-1 水の流れ', () => {
       const T = (window as any).T;
       const mid = JSON.parse(localStorage.getItem('__mid')!);
       h.pause();
+      h.lock.simulate(true); // 読み直すと ポインタ ロックの 案内(guide)で 時間が 止まる。T.base() を 呼ばない ので ここで 外す
       h.step(2);
       const o: any = { mid };
       o.loadedTotal = T.total();

@@ -6,7 +6,10 @@ import { WAVE_AMP, WAVE_LENGTH, WAVE_PERIOD } from '../blocks/water';
  * 式は `waveOffset(wx, wz, t)`（blocks/water.ts）と 同じ 定数・同じ 形。世界の 座標で 決まるので つぎめが 切れない。
  * メッシュは 時間にも 波の はばにも よらない(描画回数・三角形は ふえない)。
  */
-export const waterWaveUniforms = { uWaveTime: { value: 0 } };
+export const waterWaveUniforms = { uWaveTime: { value: 0 }, uWaveAmp: { value: WAVE_AMP } };
+
+/** 設定フック(`settings.get/set('waveAmp')`)の 入れ物(§4.1)。毎ステップ uniform に 写す(メッシュは かわらない) */
+export const waterSettings: { waveAmp: number } = { waveAmp: WAVE_AMP };
 
 const g = (n: number): string => n.toFixed(7);
 const TAU = Math.PI * 2;
@@ -15,7 +18,7 @@ const WAVE_GLSL = `
 {
   vec4 wp = modelMatrix * vec4(position, 1.0);
   float ph = (wp.x + wp.z * 0.7) * ${g(TAU / WAVE_LENGTH)} + uWaveTime * ${g(TAU / WAVE_PERIOD)};
-  transformed.y -= aWave * ${g(WAVE_AMP)} * (1.0 + sin(ph)) * 0.5;
+  transformed.y -= aWave * uWaveAmp * (1.0 + sin(ph)) * 0.5;
 }`;
 
 /** `applyLightShader` の あとで 呼ぶ(その onBeforeCompile を 包む) */
@@ -25,8 +28,9 @@ export function applyWaterWave(material: MeshBasicMaterial): void {
   material.onBeforeCompile = (shader, renderer) => {
     prev.call(material, shader, renderer);
     shader.uniforms.uWaveTime = waterWaveUniforms.uWaveTime;
+    shader.uniforms.uWaveAmp = waterWaveUniforms.uWaveAmp;
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nattribute float aWave;\nuniform float uWaveTime;')
+      .replace('#include <common>', '#include <common>\nattribute float aWave;\nuniform float uWaveTime;\nuniform float uWaveAmp;')
       .replace('#include <begin_vertex>', `#include <begin_vertex>${WAVE_GLSL}`);
   };
   material.customProgramCacheKey = () => `${prevKey.call(material)}-wave`;

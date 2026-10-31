@@ -25,6 +25,7 @@ import { createSaveHook } from '../save';
 import { colKey } from '../world/stream/ring';
 import { createWorkHook } from '../debug/workHook';
 import { installTestHook, type TestHookGroups, withSpriteDoll } from '../debug/testHook';
+import { waterSettings } from '../world/render/waterWave';
 import { createSettingsHook } from '../game/settings';
 import { createInputHook } from '../input';
 import { createPlayerHook } from '../player/hook';
@@ -357,6 +358,7 @@ export function installGameHook(deps: WiredLoop): void {
         yokaiM.config,
         timeSettings,
         renderer.config,
+        waterSettings, // WATER-1 §4.1: waveAmp
       ]),
   }, frameClock);
 }

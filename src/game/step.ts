@@ -20,7 +20,7 @@ import { actionHintLines } from '../ui/actionHintModel';
 import { impactOf } from '../fx/impact';
 import { cooldownCells } from '../ui/hotbarModel';
 import { skyDarkness, darkenFromBrightness } from '../world/light';
-import { waterWaveUniforms } from '../world/render/waterWave';
+import { waterSettings, waterWaveUniforms } from '../world/render/waterWave';
 import { NO_DIG, NO_SWINGS, IDLE_THUNDER_LOOK, NO_PLATES } from './wire/shared';
 import type { WiredFrame } from './wire/save';
 
@@ -428,6 +428,7 @@ export function createStep(deps: WiredFrame): (dt: number) => void {
     notice.update(dt);
     const pp = controller.state.position;
     waterWaveUniforms.uWaveTime.value = water.waveTime(); // WATER-1: 水面の ゆらめきの 時間(ステップ ÷ 60。一時停止で とまる)
+    waterWaveUniforms.uWaveAmp.value = waterSettings.waveAmp; // 設定 waveAmp(§4.1)
     renderer.setGlowTime(game.tick / STEPS_PER_SECOND); // ほたるいしの いき（一時停止で とまる。スクショが きまる）
     renderer.update({ x: pp.x, z: pp.z });
     save.update(game.tick + 1);

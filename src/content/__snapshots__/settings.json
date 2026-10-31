@@ -1777,6 +1777,9 @@
     },
     "wearLowRatio": 0.1
   },
+  "water": {
+    "waveAmp": 0.06
+  },
   "yokai": {
     "contactDamage": 1,
     "fallDamagePerBlock": 1,
